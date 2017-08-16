@@ -1,6 +1,7 @@
 .section .text_tlbcode, "ax"
 
 
+.global zero_basic_data
 zero_basic_data:
 /* 034B30 7F000000 3C013F80 */  lui   $at, 0x3f80
 /* 034B34 7F000004 44810000 */  mtc1  $at, $f0
@@ -60,6 +61,7 @@ zero_basic_data:
 /* 034C0C 7F0000DC AC20B5FC */  sw    $zero, %lo(0x8002B5FC)($at) # $zero, -0x4a04($at)
 # end zero_basic_data
 
+.global proc_7F0000E0
 proc_7F0000E0:
 /* 034C10 7F0000E0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 034C14 7F0000E4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -77,6 +79,7 @@ proc_7F0000E0:
 # alignment
 .word 0x00000000
 
+.global reset_counter_rand_body_head
 reset_counter_rand_body_head:
 /* 034C40 7F000110 3C048003 */  lui   $a0, 0x8003
 /* 034C44 7F000114 2484CD0C */  addiu $a0, $a0, -0x32f4
@@ -142,6 +145,7 @@ reset_counter_rand_body_head:
 /* 034D1C 7F0001EC 00000000 */  nop   
 # end reset_counter_rand_body_head
 
+.global proc_7F0001F0
 proc_7F0001F0:
 /* 034D20 7F0001F0 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 034D24 7F0001F4 AFB30028 */  sw    $s3, 0x28($sp)
@@ -187,6 +191,7 @@ proc_7F0001F0:
 /* 034DBC 7F00028C 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F0001F0
 
+.global proc_7F000290
 proc_7F000290:
 /* 034DC0 7F000290 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 034DC4 7F000294 AFB30028 */  sw    $s3, 0x28($sp)
@@ -231,6 +236,7 @@ proc_7F000290:
 /* 034E58 7F000328 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F000290
 
+.global proc_7F00032C
 proc_7F00032C:
 /* 034E5C 7F00032C 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 034E60 7F000330 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -320,6 +326,7 @@ proc_7F00032C:
 /* 034F98 7F000468 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F00032C
 
+.global proc_7F00046C
 proc_7F00046C:
 /* 034F9C 7F00046C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 034FA0 7F000470 AFB20020 */  sw    $s2, 0x20($sp)
@@ -350,6 +357,7 @@ proc_7F00046C:
 /* 034FFC 7F0004CC 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F00046C
 
+.global proc_7F0004D0
 proc_7F0004D0:
 /* 035000 7F0004D0 8C8E0000 */  lw    $t6, ($a0)
 /* 035004 7F0004D4 00001825 */  or    $v1, $zero, $zero
@@ -373,6 +381,7 @@ proc_7F0004D0:
 /* 035044 7F000514 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0004D0
 
+.global somethingwith_weapon_animation_groups
 somethingwith_weapon_animation_groups:
 /* 035048 7F000518 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 03504C 7F00051C 3C0E8003 */  lui   $t6, 0x8003
@@ -671,6 +680,7 @@ somethingwith_weapon_animation_groups:
 /* 0354AC 7F00097C E42809A4 */  swc1  $f8, %lo(0x800309A4)($at) # $f8, 0x9a4($at)
 # end somethingwith_weapon_animation_groups
 
+.global proc_7F000980
 proc_7F000980:
 /* 0354B0 7F000980 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0354B4 7F000984 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -682,6 +692,7 @@ proc_7F000980:
 /* 0354CC 7F00099C 00000000 */  nop   
 # end proc_7F000980
 
+.global proc_7F0009A0
 proc_7F0009A0:
 /* 0354D0 7F0009A0 3C028007 */  lui   $v0, 0x8007
 /* 0354D4 7F0009A4 3C038007 */  lui   $v1, 0x8007
@@ -699,6 +710,7 @@ proc_7F0009A0:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global null_init_main_3
 null_init_main_3:
 /* 035500 7F0009D0 03E00008 */  jr    $ra
 /* 035504 7F0009D4 00000000 */  nop   
@@ -707,6 +719,7 @@ null_init_main_3:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F0009E0
 proc_7F0009E0:
 /* 035510 7F0009E0 3C018003 */  lui   $at, 0x8003
 /* 035514 7F0009E4 AC246414 */  sw    $a0, %lo(0x80036414)($at) # $a0, 0x6414($at)
@@ -720,6 +733,7 @@ proc_7F0009E0:
 # alignment
 .word 0x00000000
 
+.global expand_ani_table_entries
 expand_ani_table_entries:
 /* 035530 7F000A00 8C830000 */  lw    $v1, ($a0)
 /* 035534 7F000A04 3C068007 */  lui   $a2, 0x8007
@@ -772,6 +786,7 @@ expand_ani_table_entries:
 /* 0355D8 7F000AA8 00000000 */  nop   
 # end expand_ani_table_entries
 
+.global alloc_load_expand_ani_table
 alloc_load_expand_ani_table:
 /* 0355DC 7F000AAC 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0355E0 7F000AB0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -820,6 +835,7 @@ alloc_load_expand_ani_table:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global proc_7F000B60
 proc_7F000B60:
 /* 035690 7F000B60 3C0E8004 */  lui   $t6, 0x8004
 /* 035694 7F000B64 25CEC580 */  addiu $t6, $t6, -0x3a80
@@ -831,6 +847,7 @@ proc_7F000B60:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global set_gu_scale
 set_gu_scale:
 /* 0356B0 7F000B80 3C018005 */  lui   $at, 0x8005
 /* 0356B4 7F000B84 C420ED80 */  lwc1  $f0, -0x1280($at)
@@ -851,6 +868,7 @@ set_gu_scale:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global null_init_main_2
 null_init_main_2:
 /* 0356F0 7F000BC0 03E00008 */  jr    $ra
 /* 0356F4 7F000BC4 00000000 */  nop   
@@ -859,6 +877,7 @@ null_init_main_2:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F000BD0
 proc_7F000BD0:
 /* 035700 7F000BD0 3C048005 */  lui   $a0, 0x8005
 /* 035704 7F000BD4 24829300 */  addiu $v0, $a0, -0x6d00
@@ -905,6 +924,7 @@ proc_7F000BD0:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global alloc_intro_matrices
 alloc_intro_matrices:
 /* 0357A0 7F000C70 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0357A4 7F000C74 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -953,6 +973,7 @@ alloc_intro_matrices:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global init_menus_or_reset
 init_menus_or_reset:
 /* 035850 7F000D20 2402FFFF */  addiu $v0, $zero, -1
 /* 035854 7F000D24 3C018003 */  lui   $at, 0x8003
@@ -1032,6 +1053,7 @@ init_menus_or_reset:
 # alignment
 .word 0x00000000
 
+.global proc_7F000E40
 proc_7F000E40:
 /* 035970 7F000E40 3C013F80 */  lui   $at, 0x3f80
 /* 035974 7F000E44 44812000 */  mtc1  $at, $f4
@@ -1065,6 +1087,7 @@ proc_7F000E40:
 /* 0359E4 7F000EB4 00000000 */  nop   
 # end proc_7F000E40
 
+.global alloc_init_GUARDdata_entries
 alloc_init_GUARDdata_entries:
 /* 0359E8 7F000EB8 248E000A */  addiu $t6, $a0, 0xa
 /* 0359EC 7F000EBC 000E7900 */  sll   $t7, $t6, 4
@@ -1108,6 +1131,7 @@ alloc_init_GUARDdata_entries:
 /* 035A7C 7F000F4C 00000000 */  nop   
 # end alloc_init_GUARDdata_entries
 
+.global set_new_rand_head_bodies
 set_new_rand_head_bodies:
 /* 035A80 7F000F50 3C0E8004 */  lui   $t6, 0x8004
 /* 035A84 7F000F54 8DCEDE10 */  lw    $t6, -0x21f0($t6)
@@ -1170,6 +1194,7 @@ set_new_rand_head_bodies:
 # alignment
 .word 0x00000000
 
+.global init_obj_register_difficulty_vals
 init_obj_register_difficulty_vals:
 /* 035B50 7F001020 3C013F80 */  lui   $at, 0x3f80
 /* 035B54 7F001024 44810000 */  mtc1  $at, $f0
@@ -1188,6 +1213,7 @@ init_obj_register_difficulty_vals:
 /* 035B88 7F001058 AC20CE50 */  sw    $zero, %lo(0x8002CE50)($at) # $zero, -0x31b0($at)
 # end init_obj_register_difficulty_vals
 
+.global alloc_false_GUARDdata_to_exec_global_action
 alloc_false_GUARDdata_to_exec_global_action:
 /* 035B8C 7F00105C 3C0D8007 */  lui   $t5, 0x8007
 /* 035B90 7F001060 25AD5D00 */  addiu $t5, $t5, 0x5d00
@@ -1326,6 +1352,7 @@ alloc_false_GUARDdata_to_exec_global_action:
 /* 035D84 7F001254 00000000 */  nop   
 # end alloc_false_GUARDdata_to_exec_global_action
 
+.global debug_object_load_all_models
 debug_object_load_all_models:
 /* 035D88 7F001258 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 035D8C 7F00125C 3C0E8007 */  lui   $t6, 0x8007
@@ -1449,6 +1476,7 @@ debug_object_load_all_models:
 /* 035F38 7F001408 27BD0038 */  addiu $sp, $sp, 0x38
 # end debug_object_load_all_models
 
+.global debug_weapon_load_table
 debug_weapon_load_table:
 /* 035F3C 7F00140C 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 035F40 7F001410 3C0F8003 */  lui   $t7, 0x8003
@@ -1495,6 +1523,7 @@ debug_weapon_load_table:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global init_sound_effects_registers
 init_sound_effects_registers:
 /* 035FE0 7F0014B0 3C038007 */  lui   $v1, 0x8007
 /* 035FE4 7F0014B4 3C028007 */  lui   $v0, 0x8007
@@ -1511,6 +1540,7 @@ init_sound_effects_registers:
 /* 03600C 7F0014DC 00000000 */  nop   
 # end init_sound_effects_registers
 
+.global proc_7F0014E0
 proc_7F0014E0:
 /* 036010 7F0014E0 3C013F80 */  lui   $at, 0x3f80
 /* 036014 7F0014E4 44812000 */  mtc1  $at, $f4
@@ -1575,6 +1605,7 @@ proc_7F0014E0:
 /* 0360FC 7F0015CC 00000000 */  nop   
 # end proc_7F0014E0
 
+.global alloc_lookup_buffers
 alloc_lookup_buffers:
 /* 036100 7F0015D0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 036104 7F0015D4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -1678,6 +1709,7 @@ alloc_lookup_buffers:
 /* 03627C 7F00174C 00000000 */  nop   
 # end alloc_lookup_buffers
 
+.global reinit_between_menus
 reinit_between_menus:
 /* 036280 7F001750 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 036284 7F001754 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -1798,6 +1830,7 @@ reinit_between_menus:
 /* 03643C 7F00190C E4200B28 */  swc1  $f0, %lo(0x80030B28)($at) # $f0, 0xb28($at)
 # end reinit_between_menus
 
+.global proc_7F001910
 proc_7F001910:
 /* 036440 7F001910 3C028003 */  lui   $v0, 0x8003
 /* 036444 7F001914 24420B00 */  addiu $v0, $v0, 0xb00
@@ -1807,6 +1840,7 @@ proc_7F001910:
 /* 036454 7F001924 AC440000 */  sw    $a0, ($v0)
 # end proc_7F001910
 
+.global proc_7F001928
 proc_7F001928:
 /* 036458 7F001928 3C028003 */  lui   $v0, 0x8003
 /* 03645C 7F00192C 24420B04 */  addiu $v0, $v0, 0xb04
@@ -1816,6 +1850,7 @@ proc_7F001928:
 /* 03646C 7F00193C AC440000 */  sw    $a0, ($v0)
 # end proc_7F001928
 
+.global proc_7F001940
 proc_7F001940:
 /* 036470 7F001940 3C028003 */  lui   $v0, 0x8003
 /* 036474 7F001944 24420B08 */  addiu $v0, $v0, 0xb08
@@ -1825,6 +1860,7 @@ proc_7F001940:
 /* 036484 7F001954 AC440000 */  sw    $a0, ($v0)
 # end proc_7F001940
 
+.global write_monitor_ani_control_blocks
 write_monitor_ani_control_blocks:
 /* 036488 7F001958 27BDFEA0 */  addiu $sp, $sp, -0x160
 /* 03648C 7F00195C 3C0E8003 */  lui   $t6, 0x8003
@@ -1942,6 +1978,7 @@ write_monitor_ani_control_blocks:
 /* 036634 7F001B04 AD890004 */  sw    $t1, %lo(0x80070004)($t4) # $t1, 4($t4)
 # end write_monitor_ani_control_blocks
 
+.global initialize_80071E00_to_80071E78
 initialize_80071E00_to_80071E78:
 /* 036638 7F001B08 3C018007 */  lui   $at, 0x8007
 /* 03663C 7F001B0C AC201E00 */  sw    $zero, %lo(0x80071E00)($at) # $zero, 0x1e00($at)
@@ -1965,6 +2002,7 @@ initialize_80071E00_to_80071E78:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F001B50
 proc_7F001B50:
 /* 036680 7F001B50 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 036684 7F001B54 AFB00014 */  sw    $s0, 0x14($sp)
@@ -2005,6 +2043,7 @@ proc_7F001B50:
 /* 036700 7F001BD0 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F001B50
 
+.global proc_7F001BD4
 proc_7F001BD4:
 /* 036704 7F001BD4 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 036708 7F001BD8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -2122,6 +2161,7 @@ proc_7F001BD4:
 /* 0368C8 7F001D98 00000000 */  nop   
 # end proc_7F001BD4
 
+.global prepare_load_objects
 prepare_load_objects:
 /* 0368CC 7F001D9C 27BDFF08 */  addiu $sp, $sp, -0xf8
 /* 0368D0 7F001DA0 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -2787,6 +2827,7 @@ prepare_load_objects:
 /* 037264 7F002734 27BD00F8 */  addiu $sp, $sp, 0xf8
 # end prepare_load_objects
 
+.global expand_08_obj_set_guard_MP_weapons
 expand_08_obj_set_guard_MP_weapons:
 /* 037268 7F002738 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 03726C 7F00273C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -2957,6 +2998,7 @@ expand_08_obj_set_guard_MP_weapons:
 /* 0374D4 7F0029A4 00000000 */  nop   
 # end expand_08_obj_set_guard_MP_weapons
 
+.global MP_weapon_expansion_routine
 MP_weapon_expansion_routine:
 /* 0374D8 7F0029A8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0374DC 7F0029AC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -2992,6 +3034,7 @@ MP_weapon_expansion_routine:
 /* 037548 7F002A18 00000000 */  nop   
 # end MP_weapon_expansion_routine
 
+.global jmp_prepare_load_objects
 jmp_prepare_load_objects:
 /* 03754C 7F002A1C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 037550 7F002A20 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -3003,6 +3046,7 @@ jmp_prepare_load_objects:
 /* 037568 7F002A38 00000000 */  nop   
 # end jmp_prepare_load_objects
 
+.global proc_7F002A3C
 proc_7F002A3C:
 /* 03756C 7F002A3C 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 037570 7F002A40 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -3145,6 +3189,7 @@ proc_7F002A3C:
 /* 037784 7F002C54 00000000 */  nop   
 # end proc_7F002A3C
 
+.global expand_type_0D_object_autoturret
 expand_type_0D_object_autoturret:
 /* 037788 7F002C58 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 03778C 7F002C5C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -3264,6 +3309,7 @@ expand_type_0D_object_autoturret:
 /* 037948 7F002E18 00000000 */  nop   
 # end expand_type_0D_object_autoturret
 
+.global jmp_prepare_load_objects_0
 jmp_prepare_load_objects_0:
 /* 03794C 7F002E1C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 037950 7F002E20 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -3275,6 +3321,7 @@ jmp_prepare_load_objects_0:
 /* 037968 7F002E38 00000000 */  nop   
 # end jmp_prepare_load_objects_0
 
+.global proc_7F002E3C
 proc_7F002E3C:
 /* 03796C 7F002E3C 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 037970 7F002E40 AFA40038 */  sw    $a0, 0x38($sp)
@@ -3453,6 +3500,7 @@ proc_7F002E3C:
 /* 037BFC 7F0030CC 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F002E3C
 
+.global proc_7F0030D0
 proc_7F0030D0:
 /* 037C00 7F0030D0 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 037C04 7F0030D4 AFA40020 */  sw    $a0, 0x20($sp)
@@ -3555,6 +3603,7 @@ proc_7F0030D0:
 /* 037D78 7F003248 00000000 */  nop   
 # end proc_7F0030D0
 
+.global proc_7F00324C
 proc_7F00324C:
 /* 037D7C 7F00324C 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 037D80 7F003250 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -3701,6 +3750,7 @@ proc_7F00324C:
 /* 037FAC 7F00347C 27BD0050 */  addiu $sp, $sp, 0x50
 # end proc_7F00324C
 
+.global proc_7F003480
 proc_7F003480:
 /* 037FB0 7F003480 27BDFE28 */  addiu $sp, $sp, -0x1d8
 /* 037FB4 7F003484 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -4208,6 +4258,7 @@ proc_7F003480:
 /* 03871C 7F003BEC 27BD01D8 */  addiu $sp, $sp, 0x1d8
 # end proc_7F003480
 
+.global stage_loading_setup_objparse_cleanupafter
 stage_loading_setup_objparse_cleanupafter:
 /* 038720 7F003BF0 27BDFD80 */  addiu $sp, $sp, -0x280
 /* 038724 7F003BF4 AFB50034 */  sw    $s5, 0x34($sp)
@@ -5465,6 +5516,7 @@ stage_loading_setup_objparse_cleanupafter:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global proc_7F004EC0
 proc_7F004EC0:
 /* 0399F0 7F004EC0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0399F4 7F004EC4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -5521,6 +5573,7 @@ proc_7F004EC0:
 /* 039AB4 7F004F84 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F004EC0
 
+.global set_parent_cur_tag_entry
 set_parent_cur_tag_entry:
 /* 039AB8 7F004F88 3C028007 */  lui   $v0, 0x8007
 /* 039ABC 7F004F8C 24425D80 */  addiu $v0, $v0, 0x5d80
@@ -5530,6 +5583,7 @@ set_parent_cur_tag_entry:
 /* 039ACC 7F004F9C AC440000 */  sw    $a0, ($v0)
 # end set_parent_cur_tag_entry
 
+.global setup_briefing_text_entry_parent
 setup_briefing_text_entry_parent:
 /* 039AD0 7F004FA0 3C028007 */  lui   $v0, 0x8007
 /* 039AD4 7F004FA4 24425D84 */  addiu $v0, $v0, 0x5d84
@@ -5539,6 +5593,7 @@ setup_briefing_text_entry_parent:
 /* 039AE4 7F004FB4 AC440000 */  sw    $a0, ($v0)
 # end setup_briefing_text_entry_parent
 
+.global add_ptr_to_objective
 add_ptr_to_objective:
 /* 039AE8 7F004FB8 8C8E0004 */  lw    $t6, 4($a0)
 /* 039AEC 7F004FBC 3C018007 */  lui   $at, 0x8007
@@ -5558,6 +5613,7 @@ add_ptr_to_objective:
 /* 039B20 7F004FF0 00000000 */  nop   
 # end add_ptr_to_objective
 
+.global set_parent_cur_obj_enter_room
 set_parent_cur_obj_enter_room:
 /* 039B24 7F004FF4 3C028007 */  lui   $v0, 0x8007
 /* 039B28 7F004FF8 24425D88 */  addiu $v0, $v0, 0x5d88
@@ -5567,6 +5623,7 @@ set_parent_cur_obj_enter_room:
 /* 039B38 7F005008 AC440000 */  sw    $a0, ($v0)
 # end set_parent_cur_obj_enter_room
 
+.global set_parent_cur_obj_deposited_in_room
 set_parent_cur_obj_deposited_in_room:
 /* 039B3C 7F00500C 3C028007 */  lui   $v0, 0x8007
 /* 039B40 7F005010 24425D8C */  addiu $v0, $v0, 0x5d8c
@@ -5576,6 +5633,7 @@ set_parent_cur_obj_deposited_in_room:
 /* 039B50 7F005020 AC440000 */  sw    $a0, ($v0)
 # end set_parent_cur_obj_deposited_in_room
 
+.global set_parent_cur_obj_photograph
 set_parent_cur_obj_photograph:
 /* 039B54 7F005024 3C028007 */  lui   $v0, 0x8007
 /* 039B58 7F005028 24425D90 */  addiu $v0, $v0, 0x5d90
@@ -5588,6 +5646,7 @@ set_parent_cur_obj_photograph:
 # alignment
 .word 0x00000000
 
+.global proc_7F005040
 proc_7F005040:
 /* 039B70 7F005040 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 039B74 7F005044 3C018007 */  lui   $at, 0x8007
@@ -5630,6 +5689,7 @@ proc_7F005040:
 /* 039BFC 7F0050CC 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F005040
 
+.global init_player_BONDdata_stats
 init_player_BONDdata_stats:
 /* 039C00 7F0050D0 27BDFC30 */  addiu $sp, $sp, -0x3d0
 /* 039C04 7F0050D4 3C0F8003 */  lui   $t7, 0x8003
@@ -5862,6 +5922,7 @@ init_player_BONDdata_stats:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global proc_7F005450
 proc_7F005450:
 /* 039F80 7F005450 3C0A8007 */  lui   $t2, 0x8007
 /* 039F84 7F005454 254A6A50 */  addiu $t2, $t2, 0x6a50
@@ -5919,6 +5980,7 @@ proc_7F005450:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F005520
 proc_7F005520:
 /* 03A050 7F005520 3C018003 */  lui   $at, 0x8003
 /* 03A054 7F005524 AC206070 */  sw    $zero, %lo(0x80036070)($at) # $zero, 0x6070($at)
@@ -5927,12 +5989,14 @@ proc_7F005520:
 /* 03A060 7F005530 AC206074 */  sw    $zero, %lo(0x80036074)($at) # $zero, 0x6074($at)
 # end proc_7F005520
 
+.global proc_7F005534
 proc_7F005534:
 /* 03A064 7F005534 3C018003 */  lui   $at, 0x8003
 /* 03A068 7F005538 03E00008 */  jr    $ra
 /* 03A06C 7F00553C AC246078 */  sw    $a0, %lo(0x80036078)($at) # $a0, 0x6078($at)
 # end proc_7F005534
 
+.global proc_7F005540
 proc_7F005540:
 /* 03A070 7F005540 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 03A074 7F005544 AFB40024 */  sw    $s4, 0x24($sp)
@@ -5997,6 +6061,7 @@ proc_7F005540:
 /* 03A150 7F005620 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F005540
 
+.global proc_7F005624
 proc_7F005624:
 /* 03A154 7F005624 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 03A158 7F005628 AFB40024 */  sw    $s4, 0x24($sp)
@@ -6063,6 +6128,7 @@ proc_7F005624:
 /* 03A23C 7F00570C 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F005624
 
+.global set_weapon_model_generated_thrown_object
 set_weapon_model_generated_thrown_object:
 /* 03A240 7F005710 248EFFFD */  addiu $t6, $a0, -3
 /* 03A244 7F005714 27BDFFE8 */  addiu $sp, $sp, -0x18
@@ -6114,6 +6180,7 @@ set_weapon_model_generated_thrown_object:
 /* 03A2F0 7F0057C0 00000000 */  nop   
 # end set_weapon_model_generated_thrown_object
 
+.global load_camera_intro_type_values
 load_camera_intro_type_values:
 /* 03A2F4 7F0057C4 27BDFF68 */  addiu $sp, $sp, -0x98
 /* 03A2F8 7F0057C8 3C0F8003 */  lui   $t7, 0x8003
@@ -6799,6 +6866,7 @@ load_camera_intro_type_values:
 # alignment
 .word 0x00000000
 
+.global proc_7F0061F0
 proc_7F0061F0:
 /* 03AD20 7F0061F0 3C048008 */  lui   $a0, 0x8008
 /* 03AD24 7F0061F4 2484A0B0 */  addiu $a0, $a0, -0x5f50
@@ -6830,6 +6898,7 @@ proc_7F0061F0:
 /* 03AD88 7F006258 00000000 */  nop   
 # end proc_7F0061F0
 
+.global alloc_init_1EplusA0_inventroy_entries
 alloc_init_1EplusA0_inventroy_entries:
 /* 03AD8C 7F00625C 3C028008 */  lui   $v0, 0x8008
 /* 03AD90 7F006260 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -6858,6 +6927,7 @@ alloc_init_1EplusA0_inventroy_entries:
 /* 03ADEC 7F0062BC 00000000 */  nop   
 # end alloc_init_1EplusA0_inventroy_entries
 
+.global proc_7F0062C0
 proc_7F0062C0:
 /* 03ADF0 7F0062C0 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 03ADF4 7F0062C4 AFB30028 */  sw    $s3, 0x28($sp)
@@ -6914,6 +6984,7 @@ proc_7F0062C0:
 /* 03AEB8 7F006388 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F0062C0
 
+.global proc_7F00638C
 proc_7F00638C:
 /* 03AEBC 7F00638C 27BDFF20 */  addiu $sp, $sp, -0xe0
 /* 03AEC0 7F006390 AFB20038 */  sw    $s2, 0x38($sp)
@@ -7189,6 +7260,7 @@ proc_7F00638C:
 /* 03B2EC 7F0067BC 27BD00E0 */  addiu $sp, $sp, 0xe0
 # end proc_7F00638C
 
+.global proc_7F0067C0
 proc_7F0067C0:
 /* 03B2F0 7F0067C0 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 03B2F4 7F0067C4 AFB0001C */  sw    $s0, 0x1c($sp)
@@ -7248,6 +7320,7 @@ proc_7F0067C0:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global proc_7F006890
 proc_7F006890:
 /* 03B3C0 7F006890 27BDFF20 */  addiu $sp, $sp, -0xe0
 /* 03B3C4 7F006894 AFB40028 */  sw    $s4, 0x28($sp)
@@ -7622,6 +7695,7 @@ proc_7F006890:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global alloc_explosion_smoke_casing_scorch_impact_buffers
 alloc_explosion_smoke_casing_scorch_impact_buffers:
 /* 03B8C0 7F006D90 3C018004 */  lui   $at, 0x8004
 /* 03B8C4 7F006D94 AC200170 */  sw    $zero, %lo(0x80040170)($at) # $zero, 0x170($at)
@@ -7890,6 +7964,7 @@ alloc_explosion_smoke_casing_scorch_impact_buffers:
 /* 03BCAC 7F00717C 00000000 */  nop   
 # end alloc_explosion_smoke_casing_scorch_impact_buffers
 
+.global proc_7F007180
 proc_7F007180:
 /* 03BCB0 7F007180 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 03BCB4 7F007184 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -7967,6 +8042,7 @@ proc_7F007180:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global proc_7F007290
 proc_7F007290:
 /* 03BDC0 7F007290 44800000 */  mtc1  $zero, $f0
 /* 03BDC4 7F007294 3C018008 */  lui   $at, 0x8008
@@ -7978,6 +8054,7 @@ proc_7F007290:
 /* 03BDDC 7F0072AC E4209E88 */  swc1  $f0, %lo(0x80079E88)($at) # $f0, -0x6178($at)
 # end proc_7F007290
 
+.global proc_7F0072B0
 proc_7F0072B0:
 /* 03BDE0 7F0072B0 3C018008 */  lui   $at, 0x8008
 /* 03BDE4 7F0072B4 A0209E30 */  sb    $zero, %lo(0x80079E30)($at) # $zero, -0x61d0($at)
@@ -8000,6 +8077,7 @@ proc_7F0072B0:
 /* 03BE24 7F0072F4 00000000 */  nop   
 # end proc_7F0072B0
 
+.global disable_onscreen_text
 disable_onscreen_text:
 /* 03BE28 7F0072F8 3C028008 */  lui   $v0, 0x8008
 /* 03BE2C 7F0072FC 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -8013,6 +8091,7 @@ disable_onscreen_text:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global set_mt_tex_alloc
 set_mt_tex_alloc:
 /* 03BE50 7F007320 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03BE54 7F007324 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -8054,6 +8133,7 @@ set_mt_tex_alloc:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F0073B0
 proc_7F0073B0:
 /* 03BEE0 7F0073B0 3C038003 */  lui   $v1, 0x8003
 /* 03BEE4 7F0073B4 8C63CC68 */  lw    $v1, -0x3398($v1)
@@ -8106,6 +8186,7 @@ proc_7F0073B0:
 # alignment
 .word 0x00000000
 
+.global proc_7F007460
 proc_7F007460:
 /* 03BF90 7F007460 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 03BF94 7F007464 AFB10018 */  sw    $s1, 0x18($sp)
@@ -8139,6 +8220,7 @@ proc_7F007460:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global proc_7F0074D0
 proc_7F0074D0:
 /* 03C000 7F0074D0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03C004 7F0074D4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -8155,6 +8237,7 @@ proc_7F0074D0:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F007500
 proc_7F007500:
 /* 03C030 7F007500 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 03C034 7F007504 AFB00018 */  sw    $s0, 0x18($sp)
@@ -8198,6 +8281,7 @@ proc_7F007500:
 /* 03C0BC 7F00758C 00000000 */  nop   
 # end proc_7F007500
 
+.global proc_7F007590
 proc_7F007590:
 /* 03C0C0 7F007590 3C028007 */  lui   $v0, 0x8007
 /* 03C0C4 7F007594 8C425D30 */  lw    $v0, 0x5d30($v0)
@@ -8301,6 +8385,7 @@ proc_7F007590:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F007700
 proc_7F007700:
 /* 03C230 7F007700 3C048003 */  lui   $a0, 0x8003
 /* 03C234 7F007704 8C846458 */  lw    $a0, 0x6458($a0)
@@ -8336,6 +8421,7 @@ proc_7F007700:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F007770
 proc_7F007770:
 /* 03C2A0 7F007770 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 03C2A4 7F007774 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -8378,6 +8464,7 @@ proc_7F007770:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F007800
 proc_7F007800:
 /* 03C330 7F007800 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 03C334 7F007804 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -8461,6 +8548,7 @@ proc_7F007800:
 # alignment
 .word 0x00000000
 
+.global proc_7F007920
 proc_7F007920:
 /* 03C450 7F007920 3C048008 */  lui   $a0, 0x8008
 /* 03C454 7F007924 2484A160 */  addiu $a0, $a0, -0x5ea0
@@ -8488,6 +8576,7 @@ proc_7F007920:
 # alignment
 .word 0x00000000
 
+.global proc_7F007970
 proc_7F007970:
 /* 03C4A0 7F007970 03E00008 */  jr    $ra
 /* 03C4A4 7F007974 00000000 */  nop   
@@ -8496,6 +8585,7 @@ proc_7F007970:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F007980
 proc_7F007980:
 /* 03C4B0 7F007980 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 03C4B4 7F007984 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -8551,6 +8641,7 @@ proc_7F007980:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global proc_7F007A40
 proc_7F007A40:
 /* 03C570 7F007A40 3C0E8003 */  lui   $t6, 0x8003
 /* 03C574 7F007A44 8DCEA7D0 */  lw    $t6, -0x5830($t6)
@@ -8639,6 +8730,7 @@ proc_7F007A40:
 /* 03C6C0 7F007B90 00000000 */  nop   
 # end proc_7F007A40
 
+.global insert_sight_backdrop_eye_intro
 insert_sight_backdrop_eye_intro:
 /* 03C6C4 7F007B94 3C018007 */  lui   $at, 0x8007
 /* 03C6C8 7F007B98 C4249574 */  lwc1  $f4, -0x6a8c($at)
@@ -8719,6 +8811,7 @@ insert_sight_backdrop_eye_intro:
 /* 03C7F4 7F007CC4 00000000 */  nop   
 # end insert_sight_backdrop_eye_intro
 
+.global proc_7F007CC8
 proc_7F007CC8:
 /* 03C7F8 7F007CC8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 03C7FC 7F007CCC 00801025 */  or    $v0, $a0, $zero
@@ -8771,6 +8864,7 @@ proc_7F007CC8:
 /* 03C8B8 7F007D88 00000000 */  nop   
 # end proc_7F007CC8
 
+.global insert_sniper_sight_eye_intro
 insert_sniper_sight_eye_intro:
 /* 03C8BC 7F007D8C 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 03C8C0 7F007D90 3C0F8003 */  lui   $t7, 0x8003
@@ -8831,6 +8925,7 @@ insert_sniper_sight_eye_intro:
 /* 03C99C 7F007E6C 00000000 */  nop   
 # end insert_sniper_sight_eye_intro
 
+.global proc_7F007E70
 proc_7F007E70:
 /* 03C9A0 7F007E70 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 03C9A4 7F007E74 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -8882,6 +8977,7 @@ proc_7F007E70:
 /* 03CA5C 7F007F2C 00000000 */  nop   
 # end proc_7F007E70
 
+.global proc_7F007F30
 proc_7F007F30:
 /* 03CA60 7F007F30 27BDFEE0 */  addiu $sp, $sp, -0x120
 /* 03CA64 7F007F34 3C0F8003 */  lui   $t7, 0x8003
@@ -9127,6 +9223,7 @@ proc_7F007F30:
 /* 03CDF4 7F0082C4 27BD0120 */  addiu $sp, $sp, 0x120
 # end proc_7F007F30
 
+.global insert_bond_eye_intro
 insert_bond_eye_intro:
 /* 03CDF8 7F0082C8 44800000 */  mtc1  $zero, $f0
 /* 03CDFC 7F0082CC 3C0E8003 */  lui   $t6, 0x8003
@@ -9256,6 +9353,7 @@ insert_bond_eye_intro:
 /* 03CFEC 7F0084BC 00000000 */  nop   
 # end insert_bond_eye_intro
 
+.global load_display_rare_logo
 load_display_rare_logo:
 /* 03CFF0 7F0084C0 44872000 */  mtc1  $a3, $f4
 /* 03CFF4 7F0084C4 27BDFF18 */  addiu $sp, $sp, -0xe8
@@ -9685,6 +9783,7 @@ load_display_rare_logo:
 /* 03D684 7F008B54 27BD00E8 */  addiu $sp, $sp, 0xe8
 # end load_display_rare_logo
 
+.global proc_7F008B58
 proc_7F008B58:
 /* 03D688 7F008B58 3C018003 */  lui   $at, 0x8003
 /* 03D68C 7F008B5C A020A7D4 */  sb    $zero, %lo(0x8002A7D4)($at) # $zero, -0x582c($at)
@@ -9721,6 +9820,7 @@ proc_7F008B58:
 /* 03D708 7F008BD8 00000000 */  nop   
 # end proc_7F008B58
 
+.global retrieve_display_rareware_logo
 retrieve_display_rareware_logo:
 /* 03D70C 7F008BDC 3C028003 */  lui   $v0, 0x8003
 /* 03D710 7F008BE0 2442A7D0 */  addiu $v0, $v0, -0x5830
@@ -9862,6 +9962,7 @@ retrieve_display_rareware_logo:
 /* 03D8FC 7F008DCC 27BD0030 */  addiu $sp, $sp, 0x30
 # end retrieve_display_rareware_logo
 
+.global proc_7F008DD0
 proc_7F008DD0:
 /* 03D900 7F008DD0 3C028003 */  lui   $v0, 0x8003
 /* 03D904 7F008DD4 9042A7D4 */  lbu   $v0, -0x582c($v0)
@@ -9870,6 +9971,7 @@ proc_7F008DD0:
 /* 03D910 7F008DE0 2DC20001 */  sltiu $v0, $t6, 1
 # end proc_7F008DD0
 
+.global proc_7F008DE4
 proc_7F008DE4:
 /* 03D914 7F008DE4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03D918 7F008DE8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -9912,6 +10014,7 @@ proc_7F008DE4:
 /* 03D9AC 7F008E7C 00000000 */  nop   
 # end proc_7F008DE4
 
+.global proc_7F008E80
 proc_7F008E80:
 /* 03D9B0 7F008E80 240E0002 */  addiu $t6, $zero, 2
 /* 03D9B4 7F008E84 3C018003 */  lui   $at, 0x8003
@@ -10144,6 +10247,7 @@ proc_7F008E80:
 /* 03DD38 7F009208 27BD0060 */  addiu $sp, $sp, 0x60
 # end proc_7F008E80
 
+.global proc_7F00920C
 proc_7F00920C:
 /* 03DD3C 7F00920C 3C048003 */  lui   $a0, 0x8003
 /* 03DD40 7F009210 8C84A7F4 */  lw    $a0, -0x580c($a0)
@@ -10167,6 +10271,7 @@ proc_7F00920C:
 /* 03DD80 7F009250 00000000 */  nop   
 # end proc_7F00920C
 
+.global proc_7F009254
 proc_7F009254:
 /* 03DD84 7F009254 3C028003 */  lui   $v0, 0x8003
 /* 03DD88 7F009258 2442A7D0 */  addiu $v0, $v0, -0x5830
@@ -10492,6 +10597,7 @@ proc_7F009254:
 /* 03E270 7F009740 00000000 */  nop   
 # end proc_7F009254
 
+.global proc_7F009744
 proc_7F009744:
 /* 03E274 7F009744 3C028003 */  lui   $v0, 0x8003
 /* 03E278 7F009748 9042A7D4 */  lbu   $v0, -0x582c($v0)
@@ -10503,6 +10609,7 @@ proc_7F009744:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global write_text_at_abs_coord
 write_text_at_abs_coord:
 /* 03E290 7F009760 3C0E8005 */  lui   $t6, 0x8005
 /* 03E294 7F009764 8DCE84D0 */  lw    $t6, -0x7b30($t6)
@@ -10566,6 +10673,7 @@ write_text_at_abs_coord:
 /* 03E374 7F009844 00000000 */  nop   
 # end write_text_at_abs_coord
 
+.global cheat_handling
 cheat_handling:
 /* 03E378 7F009848 248EFFFF */  addiu $t6, $a0, -1
 /* 03E37C 7F00984C 27BDFFE8 */  addiu $sp, $sp, -0x18
@@ -10766,6 +10874,7 @@ cheat_handling:
 /* 03E67C 7F009B4C 00000000 */  nop   
 # end cheat_handling
 
+.global getplayerfavoredweapon
 getplayerfavoredweapon:
 /* 03E680 7F009B50 000470C0 */  sll   $t6, $a0, 3
 /* 03E684 7F009B54 00057880 */  sll   $t7, $a1, 2
@@ -10782,6 +10891,7 @@ getplayerfavoredweapon:
 /* 03E6B0 7F009B80 00000000 */  nop   
 # end getplayerfavoredweapon
 
+.global menu_control_stick_tracking
 menu_control_stick_tracking:
 /* 03E6B4 7F009B84 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 03E6B8 7F009B88 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -11029,6 +11139,7 @@ menu_control_stick_tracking:
 /* 03EA34 7F009F04 00000000 */  nop   
 # end menu_control_stick_tracking
 
+.global load_draw_selected_icon_folder_select
 load_draw_selected_icon_folder_select:
 /* 03EA38 7F009F08 3C028003 */  lui   $v0, 0x8003
 /* 03EA3C 7F009F0C 8C42A918 */  lw    $v0, -0x56e8($v0)
@@ -11131,6 +11242,7 @@ load_draw_selected_icon_folder_select:
 /* 03EBAC 7F00A07C 27BD0068 */  addiu $sp, $sp, 0x68
 # end load_draw_selected_icon_folder_select
 
+.global add_tab1_start
 add_tab1_start:
 /* 03EBB0 7F00A080 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 03EBB4 7F00A084 AFB00038 */  sw    $s0, 0x38($sp)
@@ -11226,6 +11338,7 @@ add_tab1_start:
 /* 03ED10 7F00A1E0 27BD0058 */  addiu $sp, $sp, 0x58
 # end add_tab1_start
 
+.global isontab1
 isontab1:
 /* 03ED14 7F00A1E4 3C0143C3 */  lui   $at, 0x43c3
 /* 03ED18 7F00A1E8 44812000 */  mtc1  $at, $f4
@@ -11251,6 +11364,7 @@ isontab1:
 /* 03ED64 7F00A234 00000000 */  nop   
 # end isontab1
 
+.global add_tab3_previous
 add_tab3_previous:
 /* 03ED68 7F00A238 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 03ED6C 7F00A23C AFB00038 */  sw    $s0, 0x38($sp)
@@ -11346,6 +11460,7 @@ add_tab3_previous:
 /* 03EEC8 7F00A398 27BD0058 */  addiu $sp, $sp, 0x58
 # end add_tab3_previous
 
+.global isontab3
 isontab3:
 /* 03EECC 7F00A39C 3C0143C3 */  lui   $at, 0x43c3
 /* 03EED0 7F00A3A0 44812000 */  mtc1  $at, $f4
@@ -11371,6 +11486,7 @@ isontab3:
 /* 03EF1C 7F00A3EC 00000000 */  nop   
 # end isontab3
 
+.global set_cursor_pos_tab2
 set_cursor_pos_tab2:
 /* 03EF20 7F00A3F0 3C018005 */  lui   $at, 0x8005
 /* 03EF24 7F00A3F4 C42419DC */  lwc1  $f4, 0x19dc($at)
@@ -11383,6 +11499,7 @@ set_cursor_pos_tab2:
 /* 03EF40 7F00A410 E426A90C */  swc1  $f6, %lo(0x8002A90C)($at) # $f6, -0x56f4($at)
 # end set_cursor_pos_tab2
 
+.global add_tab2_next
 add_tab2_next:
 /* 03EF44 7F00A414 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 03EF48 7F00A418 AFB00038 */  sw    $s0, 0x38($sp)
@@ -11478,6 +11595,7 @@ add_tab2_next:
 /* 03F0A4 7F00A574 27BD0058 */  addiu $sp, $sp, 0x58
 # end add_tab2_next
 
+.global isontab2
 isontab2:
 /* 03F0A8 7F00A578 3C0143C3 */  lui   $at, 0x43c3
 /* 03F0AC 7F00A57C 44812000 */  mtc1  $at, $f4
@@ -11510,6 +11628,7 @@ isontab2:
 /* 03F114 7F00A5E4 00000000 */  nop   
 # end isontab2
 
+.global init_menu00_legalscreen
 init_menu00_legalscreen:
 /* 03F118 7F00A5E8 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 03F11C 7F00A5EC AFBF001C */  sw    $ra, 0x1c($sp)
@@ -11563,6 +11682,7 @@ init_menu00_legalscreen:
 /* 03F1DC 7F00A6AC 00000000 */  nop   
 # end init_menu00_legalscreen
 
+.global update_menu00_legalscreen
 update_menu00_legalscreen:
 /* 03F1E0 7F00A6B0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03F1E4 7F00A6B4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -11577,6 +11697,7 @@ update_menu00_legalscreen:
 /* 03F208 7F00A6D8 00000000 */  nop   
 # end update_menu00_legalscreen
 
+.global interface_menu00_legalscreen
 interface_menu00_legalscreen:
 /* 03F20C 7F00A6DC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03F210 7F00A6E0 3C014270 */  lui   $at, 0x4270
@@ -11652,6 +11773,7 @@ interface_menu00_legalscreen:
 /* 03F310 7F00A7E0 00000000 */  nop   
 # end interface_menu00_legalscreen
 
+.global display_aligned_white_text_to_screen
 display_aligned_white_text_to_screen:
 /* 03F314 7F00A7E4 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 03F318 7F00A7E8 3C0E8004 */  lui   $t6, 0x8004
@@ -11720,6 +11842,7 @@ display_aligned_white_text_to_screen:
 /* 03F40C 7F00A8DC 00000000 */  nop   
 # end display_aligned_white_text_to_screen
 
+.global constructor_menu00_legalscreen
 constructor_menu00_legalscreen:
 /* 03F410 7F00A8E0 27BDFED8 */  addiu $sp, $sp, -0x128
 /* 03F414 7F00A8E4 AFB10034 */  sw    $s1, 0x34($sp)
@@ -11858,17 +11981,20 @@ constructor_menu00_legalscreen:
 /* 03F618 7F00AAE8 27BD0128 */  addiu $sp, $sp, 0x128
 # end constructor_menu00_legalscreen
 
+.global reset_menutimer
 reset_menutimer:
 /* 03F61C 7F00AAEC 3C018003 */  lui   $at, 0x8003
 /* 03F620 7F00AAF0 03E00008 */  jr    $ra
 /* 03F624 7F00AAF4 AC20A8CC */  sw    $zero, %lo(0x8002A8CC)($at) # $zero, -0x5734($at)
 # end reset_menutimer
 
+.global dummy7F00AAF8
 dummy7F00AAF8:
   jr    $ra
   nop
 
-interface_menu17_switchscreens:
+.global interface_menu17_switchscreens
+  interface_menu17_switchscreens:
 /* 03F630 7F00AB00 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03F634 7F00AB04 3C014270 */  lui   $at, 0x4270
 /* 03F638 7F00AB08 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -11915,6 +12041,7 @@ interface_menu17_switchscreens:
 /* 03F6D4 7F00ABA4 00000000 */  nop   
 # end interface_menu17_switchscreens
 
+.global constructor_menu17_switchscreens
 constructor_menu17_switchscreens:
 /* 03F6D8 7F00ABA8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03F6DC 7F00ABAC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -11926,6 +12053,7 @@ constructor_menu17_switchscreens:
 /* 03F6F4 7F00ABC4 00000000 */  nop   
 # end constructor_menu17_switchscreens
 
+.global init_menu01_nintendo
 init_menu01_nintendo:
 /* 03F6F8 7F00ABC8 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 03F6FC 7F00ABCC 3C018003 */  lui   $at, 0x8003
@@ -11984,6 +12112,7 @@ init_menu01_nintendo:
 /* 03F7D0 7F00ACA0 E4269618 */  swc1  $f6, %lo(0x80069618)($at) # $f6, -0x69e8($at)
 # end init_menu01_nintendo
 
+.global update_menu01_nintendo
 update_menu01_nintendo:
 /* 03F7D4 7F00ACA4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03F7D8 7F00ACA8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -11996,6 +12125,7 @@ update_menu01_nintendo:
 /* 03F7F4 7F00ACC4 00000000 */  nop   
 # end update_menu01_nintendo
 
+.global interface_menu01_nintendo
 interface_menu01_nintendo:
 /* 03F7F8 7F00ACC8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03F7FC 7F00ACCC 3C014270 */  lui   $at, 0x4270
@@ -12055,6 +12185,7 @@ interface_menu01_nintendo:
 /* 03F8C4 7F00AD94 00000000 */  nop   
 # end interface_menu01_nintendo
 
+.global constructor_menu01_nintendo
 constructor_menu01_nintendo:
 /* 03F8C8 7F00AD98 27BDFE98 */  addiu $sp, $sp, -0x168
 /* 03F8CC 7F00AD9C AFB20034 */  sw    $s2, 0x34($sp)
@@ -12243,6 +12374,7 @@ constructor_menu01_nintendo:
 /* 03FB90 7F00B060 27BD0168 */  addiu $sp, $sp, 0x168
 # end constructor_menu01_nintendo
 
+.global init_menu02_rareware
 init_menu02_rareware:
 /* 03FB94 7F00B064 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03FB98 7F00B068 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -12262,11 +12394,13 @@ init_menu02_rareware:
 /* 03FBD0 7F00B0A0 00000000 */  nop   
 # end init_menu02_rareware
 
+.global update_menu02_rareware
 update_menu02_rareware:
 /* 03FBD4 7F00B0A4 03E00008 */  jr    $ra
 /* 03FBD8 7F00B0A8 00000000 */  nop   
 # end update_menu02_rareware
 
+.global interface_menu02_rareware
 interface_menu02_rareware:
 /* 03FBDC 7F00B0AC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03FBE0 7F00B0B0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -12308,6 +12442,7 @@ interface_menu02_rareware:
 /* 03FC60 7F00B130 00000000 */  nop   
 # end interface_menu02_rareware
 
+.global constructor_menu02_rareware
 constructor_menu02_rareware:
 /* 03FC64 7F00B134 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03FC68 7F00B138 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -12319,6 +12454,7 @@ constructor_menu02_rareware:
 /* 03FC80 7F00B150 00000000 */  nop   
 # end constructor_menu02_rareware
 
+.global init_menu03_eyeintro
 init_menu03_eyeintro:
 /* 03FC84 7F00B154 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03FC88 7F00B158 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -12337,6 +12473,7 @@ init_menu03_eyeintro:
 /* 03FCBC 7F00B18C 27BD0018 */  addiu $sp, $sp, 0x18
 # end init_menu03_eyeintro
 
+.global update_menu_03_eyeintro
 update_menu_03_eyeintro:
 /* 03FCC0 7F00B190 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03FCC4 7F00B194 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -12348,6 +12485,7 @@ update_menu_03_eyeintro:
 /* 03FCDC 7F00B1AC 00000000 */  nop   
 # end update_menu_03_eyeintro
 
+.global interface_menu03_eyeintro
 interface_menu03_eyeintro:
 /* 03FCE0 7F00B1B0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03FCE4 7F00B1B4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -12389,6 +12527,7 @@ interface_menu03_eyeintro:
 /* 03FD64 7F00B234 00000000 */  nop   
 # end interface_menu03_eyeintro
 
+.global constructor_menu03_eyeintro
 constructor_menu03_eyeintro:
 /* 03FD68 7F00B238 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03FD6C 7F00B23C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -12400,6 +12539,7 @@ constructor_menu03_eyeintro:
 /* 03FD84 7F00B254 00000000 */  nop   
 # end constructor_menu03_eyeintro
 
+.global init_menu04_goldeneyelogo
 init_menu04_goldeneyelogo:
 /* 03FD88 7F00B258 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 03FD8C 7F00B25C 3C018003 */  lui   $at, 0x8003
@@ -12446,6 +12586,7 @@ init_menu04_goldeneyelogo:
 /* 03FE30 7F00B300 00000000 */  nop   
 # end init_menu04_goldeneyelogo
 
+.global update_menu04_goldeneyelogo
 update_menu04_goldeneyelogo:
 /* 03FE34 7F00B304 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03FE38 7F00B308 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -12460,6 +12601,7 @@ update_menu04_goldeneyelogo:
 /* 03FE5C 7F00B32C 00000000 */  nop   
 # end update_menu04_goldeneyelogo
 
+.global interface_menu04_goldeneyelogo
 interface_menu04_goldeneyelogo:
 /* 03FE60 7F00B330 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 03FE64 7F00B334 3C014270 */  lui   $at, 0x4270
@@ -12554,6 +12696,7 @@ interface_menu04_goldeneyelogo:
 /* 03FFA8 7F00B478 00000000 */  nop   
 # end interface_menu04_goldeneyelogo
 
+.global constructor_menu04_goldeneyelogo
 constructor_menu04_goldeneyelogo:
 /* 03FFAC 7F00B47C 27BDFE80 */  addiu $sp, $sp, -0x180
 /* 03FFB0 7F00B480 AFB20040 */  sw    $s2, 0x40($sp)
@@ -12730,6 +12873,7 @@ constructor_menu04_goldeneyelogo:
 /* 040250 7F00B720 27BD0180 */  addiu $sp, $sp, 0x180
 # end constructor_menu04_goldeneyelogo
 
+.global disable_all_switches
 disable_all_switches:
 /* 040254 7F00B724 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 040258 7F00B728 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -12775,6 +12919,7 @@ disable_all_switches:
 /* 0402EC 7F00B7BC 27BD0028 */  addiu $sp, $sp, 0x28
 # end disable_all_switches
 
+.global proc_7F00B7C0
 proc_7F00B7C0:
 /* 0402F0 7F00B7C0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0402F4 7F00B7C4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -12797,6 +12942,7 @@ proc_7F00B7C0:
 /* 040334 7F00B804 00000000 */  nop   
 # end proc_7F00B7C0
 
+.global proc_7F00B808
 proc_7F00B808:
 /* 040338 7F00B808 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 04033C 7F00B80C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -12841,6 +12987,7 @@ proc_7F00B808:
 /* 0403D8 7F00B8A8 00000000 */  nop   
 # end proc_7F00B808
 
+.global proc_7F00B8AC
 proc_7F00B8AC:
 /* 0403DC 7F00B8AC 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0403E0 7F00B8B0 3C0E8003 */  lui   $t6, 0x8003
@@ -12904,6 +13051,7 @@ proc_7F00B8AC:
 /* 0404BC 7F00B98C 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F00B8AC
 
+.global proc_7F00B990
 proc_7F00B990:
 /* 0404C0 7F00B990 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0404C4 7F00B994 AFB10018 */  sw    $s1, 0x18($sp)
@@ -12931,6 +13079,7 @@ proc_7F00B990:
 /* 040514 7F00B9E4 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F00B990
 
+.global init_menu05_filesel
 init_menu05_filesel:
 /* 040518 7F00B9E8 3C0F8003 */  lui   $t7, 0x8003
 /* 04051C 7F00B9EC 8DEFA950 */  lw    $t7, -0x56b0($t7)
@@ -12999,6 +13148,7 @@ init_menu05_filesel:
 /* 04060C 7F00BADC 27BD0028 */  addiu $sp, $sp, 0x28
 # end init_menu05_filesel
 
+.global update_menu05_filesel
 update_menu05_filesel:
 /* 040610 7F00BAE0 3C0E8003 */  lui   $t6, 0x8003
 /* 040614 7F00BAE4 8DCEA8C4 */  lw    $t6, -0x573c($t6)
@@ -13019,6 +13169,7 @@ update_menu05_filesel:
 /* 040648 7F00BB18 00000000 */  nop   
 # end update_menu05_filesel
 
+.global proc_7F00BB1C
 proc_7F00BB1C:
 /* 04064C 7F00BB1C 0480000F */  bltz  $a0, .Lproc_7F00BB1C_40
 /* 040650 7F00BB20 00801825 */  or    $v1, $a0, $zero
@@ -13044,6 +13195,7 @@ proc_7F00BB1C:
 /* 040694 7F00BB64 00000000 */  nop   
 # end proc_7F00BB1C
 
+.global proc_7F00BB68
 proc_7F00BB68:
 /* 040698 7F00BB68 00047080 */  sll   $t6, $a0, 2
 /* 04069C 7F00BB6C 27BDFFE0 */  addiu $sp, $sp, -0x20
@@ -13072,6 +13224,7 @@ proc_7F00BB68:
 /* 0406F8 7F00BBC8 E432A90C */  swc1  $f18, %lo(0x8002A90C)($at) # $f18, -0x56f4($at)
 # end proc_7F00BB68
 
+.global interface_menu05_filesel
 interface_menu05_filesel:
 /* 0406FC 7F00BBCC 27BDFEF0 */  addiu $sp, $sp, -0x110
 /* 040700 7F00BBD0 AFBF0044 */  sw    $ra, 0x44($sp)
@@ -13599,6 +13752,7 @@ interface_menu05_filesel:
 /* 040EB0 7F00C380 27BD0110 */  addiu $sp, $sp, 0x110
 # end interface_menu05_filesel
 
+.global proc_7F00C384
 proc_7F00C384:
 /* 040EB4 7F00C384 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 040EB8 7F00C388 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -13641,6 +13795,7 @@ proc_7F00C384:
 /* 040F34 7F00C404 00000000 */  nop   
 # end proc_7F00C384
 
+.global constructor_menu05_filesel
 constructor_menu05_filesel:
 /* 040F38 7F00C408 27BDFE48 */  addiu $sp, $sp, -0x1b8
 /* 040F3C 7F00C40C 3C0E8003 */  lui   $t6, 0x8003
@@ -14586,6 +14741,7 @@ constructor_menu05_filesel:
 /* 041D7C 7F00D24C 27BD01B8 */  addiu $sp, $sp, 0x1b8
 # end constructor_menu05_filesel
 
+.global init_menu06_modesel
 init_menu06_modesel:
 /* 041D80 7F00D250 240EFFFF */  addiu $t6, $zero, -1
 /* 041D84 7F00D254 3C018003 */  lui   $at, 0x8003
@@ -14605,11 +14761,13 @@ init_menu06_modesel:
 /* 041DBC 7F00D28C 00000000 */  nop   
 # end init_menu06_modesel
 
+.global update_menu06_modesel
 update_menu06_modesel:
 /* 041DC0 7F00D290 03E00008 */  jr    $ra
 /* 041DC4 7F00D294 00000000 */  nop   
 # end update_menu06_modesel
 
+.global interface_menu06_modesel
 interface_menu06_modesel:
 /* 041DC8 7F00D298 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 041DCC 7F00D29C AFB00018 */  sw    $s0, 0x18($sp)
@@ -14839,6 +14997,7 @@ interface_menu06_modesel:
 /* 042114 7F00D5E4 00000000 */  nop   
 # end interface_menu06_modesel
 
+.global proc_7F00D5E8
 proc_7F00D5E8:
 /* 042118 7F00D5E8 27BDFEA8 */  addiu $sp, $sp, -0x158
 /* 04211C 7F00D5EC AFB20034 */  sw    $s2, 0x34($sp)
@@ -14978,6 +15137,7 @@ proc_7F00D5E8:
 /* 042328 7F00D7F8 27BD0158 */  addiu $sp, $sp, 0x158
 # end proc_7F00D5E8
 
+.global proc_7F00D7FC
 proc_7F00D7FC:
 /* 04232C 7F00D7FC 00047140 */  sll   $t6, $a0, 5
 /* 042330 7F00D800 25CF00E2 */  addiu $t7, $t6, 0xe2
@@ -14992,6 +15152,7 @@ proc_7F00D7FC:
 /* 042354 7F00D824 E428A90C */  swc1  $f8, %lo(0x8002A90C)($at) # $f8, -0x56f4($at)
 # end proc_7F00D7FC
 
+.global constructor_menu06_modesel
 constructor_menu06_modesel:
 /* 042358 7F00D828 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 04235C 7F00D82C AFBF003C */  sw    $ra, 0x3c($sp)
@@ -15297,6 +15458,7 @@ constructor_menu06_modesel:
 /* 0427EC 7F00DCBC 00000000 */  nop   
 # end constructor_menu06_modesel
 
+.global pull_and_display_text_for_folder_a0
 pull_and_display_text_for_folder_a0:
 /* 0427F0 7F00DCC0 3C0E8003 */  lui   $t6, 0x8003
 /* 0427F4 7F00DCC4 95CEABE8 */  lhu   $t6, -0x5418($t6)
@@ -15322,6 +15484,7 @@ pull_and_display_text_for_folder_a0:
 /* 042838 7F00DD08 00000000 */  nop   
 # end pull_and_display_text_for_folder_a0
 
+.global proc_7F00DD0C
 proc_7F00DD0C:
 /* 04283C 7F00DD0C 000470C0 */  sll   $t6, $a0, 3
 /* 042840 7F00DD10 01C47023 */  subu  $t6, $t6, $a0
@@ -15348,6 +15511,7 @@ proc_7F00DD0C:
 /* 04288C 7F00DD5C 00000000 */  nop   
 # end proc_7F00DD0C
 
+.global proc_7F00DD60
 proc_7F00DD60:
 /* 042890 7F00DD60 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 042894 7F00DD64 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -15417,6 +15581,7 @@ proc_7F00DD60:
 /* 04297C 7F00DE4C 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F00DD60
 
+.global init_menu07_missionsel
 init_menu07_missionsel:
 /* 042980 7F00DE50 2402FFFF */  addiu $v0, $zero, -1
 /* 042984 7F00DE54 3C018003 */  lui   $at, 0x8003
@@ -15445,11 +15610,13 @@ init_menu07_missionsel:
 /* 0429DC 7F00DEAC 00000000 */  nop   
 # end init_menu07_missionsel
 
+.global update_menu07_missionsel
 update_menu07_missionsel:
 /* 0429E0 7F00DEB0 03E00008 */  jr    $ra
 /* 0429E4 7F00DEB4 00000000 */  nop   
 # end update_menu07_missionsel
 
+.global interface_menu07_missionsel
 interface_menu07_missionsel:
 /* 0429E8 7F00DEB8 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 0429EC 7F00DEBC 3C014270 */  lui   $at, 0x4270
@@ -15811,6 +15978,7 @@ interface_menu07_missionsel:
 /* 042F0C 7F00E3DC 27BD0060 */  addiu $sp, $sp, 0x60
 # end interface_menu07_missionsel
 
+.global proc_7F00E3E0
 proc_7F00E3E0:
 /* 042F10 7F00E3E0 24020005 */  addiu $v0, $zero, 5
 /* 042F14 7F00E3E4 0082001A */  div   $zero, $a0, $v0
@@ -15846,6 +16014,7 @@ proc_7F00E3E0:
 /* 042F84 7F00E454 E42AA90C */  swc1  $f10, %lo(0x8002A90C)($at) # $f10, -0x56f4($at)
 # end proc_7F00E3E0
 
+.global constructor_menu07_missionsel
 constructor_menu07_missionsel:
 /* 042F88 7F00E458 27BDFF20 */  addiu $sp, $sp, -0xe0
 /* 042F8C 7F00E45C AFBF005C */  sw    $ra, 0x5c($sp)
@@ -16060,6 +16229,7 @@ constructor_menu07_missionsel:
 /* 0432AC 7F00E77C 27BD00E0 */  addiu $sp, $sp, 0xe0
 # end constructor_menu07_missionsel
 
+.global init_menu08_difficulty
 init_menu08_difficulty:
 /* 0432B0 7F00E780 240EFFFF */  addiu $t6, $zero, -1
 /* 0432B4 7F00E784 3C018003 */  lui   $at, 0x8003
@@ -16077,11 +16247,13 @@ init_menu08_difficulty:
 /* 0432E4 7F00E7B4 00000000 */  nop   
 # end init_menu08_difficulty
 
+.global update_menu08_difficulty
 update_menu08_difficulty:
 /* 0432E8 7F00E7B8 03E00008 */  jr    $ra
 /* 0432EC 7F00E7BC 00000000 */  nop   
 # end update_menu08_difficulty
 
+.global interface_menu08_difficulty
 interface_menu08_difficulty:
 /* 0432F0 7F00E7C0 3C0E8003 */  lui   $t6, 0x8003
 /* 0432F4 7F00E7C4 8DCEA8F8 */  lw    $t6, -0x5708($t6)
@@ -16287,6 +16459,7 @@ interface_menu08_difficulty:
 /* 0435E8 7F00EAB8 00000000 */  nop   
 # end interface_menu08_difficulty
 
+.global proc_7F00EABC
 proc_7F00EABC:
 /* 0435EC 7F00EABC 3C068003 */  lui   $a2, 0x8003
 /* 0435F0 7F00EAC0 8CC6A8FC */  lw    $a2, -0x5704($a2)
@@ -16462,6 +16635,7 @@ proc_7F00EABC:
 /* 043890 7F00ED60 00000000 */  nop   
 # end proc_7F00EABC
 
+.global proc_7F00ED64
 proc_7F00ED64:
 /* 043894 7F00ED64 00047100 */  sll   $t6, $a0, 4
 /* 043898 7F00ED68 01C47023 */  subu  $t6, $t6, $a0
@@ -16478,6 +16652,7 @@ proc_7F00ED64:
 /* 0438C4 7F00ED94 E428A90C */  swc1  $f8, %lo(0x8002A90C)($at) # $f8, -0x56f4($at)
 # end proc_7F00ED64
 
+.global constructor_menu08_difficulty
 constructor_menu08_difficulty:
 /* 0438C8 7F00ED98 27BDF390 */  addiu $sp, $sp, -0xc70
 /* 0438CC 7F00ED9C 3C0E8003 */  lui   $t6, 0x8003
@@ -16853,6 +17028,7 @@ constructor_menu08_difficulty:
 /* 043E2C 7F00F2FC 27BD0C70 */  addiu $sp, $sp, 0xc70
 # end constructor_menu08_difficulty
 
+.global init_menu09_007options
 init_menu09_007options:
 /* 043E30 7F00F300 3C018003 */  lui   $at, 0x8003
 /* 043E34 7F00F304 AC20A8D0 */  sw    $zero, %lo(0x8002A8D0)($at) # $zero, -0x5730($at)
@@ -16883,11 +17059,13 @@ init_menu09_007options:
 /* 043E98 7F00F368 00000000 */  nop   
 # end init_menu09_007options
 
+.global update_menu09_007options
 update_menu09_007options:
 /* 043E9C 7F00F36C 03E00008 */  jr    $ra
 /* 043EA0 7F00F370 00000000 */  nop   
 # end update_menu09_007options
 
+.global interface_menu09_007options
 interface_menu09_007options:
 /* 043EA4 7F00F374 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 043EA8 7F00F378 3C014270 */  lui   $at, 0x4270
@@ -17180,6 +17358,7 @@ interface_menu09_007options:
 /* 0442C4 7F00F794 00000000 */  nop   
 # end interface_menu09_007options
 
+.global constructor_menu09_007options
 constructor_menu09_007options:
 /* 0442C8 7F00F798 27BDF3E8 */  addiu $sp, $sp, -0xc18
 /* 0442CC 7F00F79C AFBF003C */  sw    $ra, 0x3c($sp)
@@ -17773,6 +17952,7 @@ constructor_menu09_007options:
 /* 044BE8 7F0100B8 00000000 */  nop   
 # end constructor_menu09_007options
 
+.global proc_7F0100BC
 proc_7F0100BC:
 /* 044BEC 7F0100BC 00047080 */  sll   $t6, $a0, 2
 /* 044BF0 7F0100C0 3C028007 */  lui   $v0, 0x8007
@@ -17781,6 +17961,7 @@ proc_7F0100BC:
 /* 044BFC 7F0100CC 8C4297B8 */  lw    $v0, -0x6848($v0)
 # end proc_7F0100BC
 
+.global proc_7F0100D0
 proc_7F0100D0:
 /* 044C00 7F0100D0 00047080 */  sll   $t6, $a0, 2
 /* 044C04 7F0100D4 01C47023 */  subu  $t6, $t6, $a0
@@ -17828,6 +18009,7 @@ proc_7F0100D0:
 /* 044C9C 7F01016C 00000000 */  nop   
 # end proc_7F0100D0
 
+.global proc_7F010170
 proc_7F010170:
 /* 044CA0 7F010170 3C0E8003 */  lui   $t6, 0x8003
 /* 044CA4 7F010174 8DCEB540 */  lw    $t6, -0x4ac0($t6)
@@ -17859,6 +18041,7 @@ proc_7F010170:
 /* 044D04 7F0101D4 00000000 */  nop   
 # end proc_7F010170
 
+.global proc_7F0101D8
 proc_7F0101D8:
 /* 044D08 7F0101D8 3C0E8003 */  lui   $t6, 0x8003
 /* 044D0C 7F0101DC 8DCEB53C */  lw    $t6, -0x4ac4($t6)
@@ -17887,6 +18070,7 @@ proc_7F0101D8:
 /* 044D68 7F010238 A024A0AB */  sb    $a0, %lo(0x8007A0AB)($at) # $a0, -0x5f55($at)
 # end proc_7F0101D8
 
+.global proc_7F01023C
 proc_7F01023C:
 /* 044D6C 7F01023C 3C028003 */  lui   $v0, 0x8003
 /* 044D70 7F010240 2442B53C */  addiu $v0, $v0, -0x4ac4
@@ -17908,6 +18092,7 @@ proc_7F01023C:
 /* 044DAC 7F01027C 00000000 */  nop   
 # end proc_7F01023C
 
+.global unlock_mp_chars
 unlock_mp_chars:
 /* 044DB0 7F010280 240E0040 */  addiu $t6, $zero, 0x40
 /* 044DB4 7F010284 3C018003 */  lui   $at, 0x8003
@@ -17915,6 +18100,7 @@ unlock_mp_chars:
 /* 044DBC 7F01028C AC2EB194 */  sw    $t6, %lo(0x8002B194)($at) # $t6, -0x4e6c($at)
 # end unlock_mp_chars
 
+.global get_num_players_0
 get_num_players_0:
 /* 044DC0 7F010290 3C0E8003 */  lui   $t6, 0x8003
 /* 044DC4 7F010294 8DCEA8F0 */  lw    $t6, -0x5710($t6)
@@ -17930,6 +18116,7 @@ get_num_players_0:
 /* 044DE8 7F0102B8 00000000 */  nop   
 # end get_num_players_0
 
+.global proc_7F0102BC
 proc_7F0102BC:
 /* 044DEC 7F0102BC 00047080 */  sll   $t6, $a0, 2
 /* 044DF0 7F0102C0 3C038003 */  lui   $v1, 0x8003
@@ -17954,6 +18141,7 @@ proc_7F0102BC:
 /* 044E38 7F010308 00000000 */  nop   
 # end proc_7F0102BC
 
+.global proc_7F01030C
 proc_7F01030C:
 /* 044E3C 7F01030C 00047080 */  sll   $t6, $a0, 2
 /* 044E40 7F010310 3C038003 */  lui   $v1, 0x8003
@@ -17978,6 +18166,7 @@ proc_7F01030C:
 /* 044E88 7F010358 00000000 */  nop   
 # end proc_7F01030C
 
+.global proc_7F01035C
 proc_7F01035C:
 /* 044E8C 7F01035C 00047080 */  sll   $t6, $a0, 2
 /* 044E90 7F010360 3C038003 */  lui   $v1, 0x8003
@@ -18002,6 +18191,7 @@ proc_7F01035C:
 /* 044ED8 7F0103A8 00000000 */  nop   
 # end proc_7F01035C
 
+.global proc_7F0103AC
 proc_7F0103AC:
 /* 044EDC 7F0103AC 00047080 */  sll   $t6, $a0, 2
 /* 044EE0 7F0103B0 3C0F8007 */  lui   $t7, 0x8007
@@ -18014,6 +18204,7 @@ proc_7F0103AC:
 /* 044EFC 7F0103CC C420B49C */  lwc1  $f0, -0x4b64($at)
 # end proc_7F0103AC
 
+.global proc_7F0103D0
 proc_7F0103D0:
 /* 044F00 7F0103D0 00047080 */  sll   $t6, $a0, 2
 /* 044F04 7F0103D4 3C028003 */  lui   $v0, 0x8003
@@ -18038,6 +18229,7 @@ proc_7F0103D0:
 /* 044F4C 7F01041C 00000000 */  nop   
 # end proc_7F0103D0
 
+.global proc_7F010420
 proc_7F010420:
 /* 044F50 7F010420 3C0E8003 */  lui   $t6, 0x8003
 /* 044F54 7F010424 8DCEB538 */  lw    $t6, -0x4ac8($t6)
@@ -18050,6 +18242,7 @@ proc_7F010420:
 /* 044F70 7F010440 8C42AFF8 */  lw    $v0, -0x5008($v0)
 # end proc_7F010420
 
+.global proc_7F010444
 proc_7F010444:
 /* 044F74 7F010444 3C0E8003 */  lui   $t6, 0x8003
 /* 044F78 7F010448 8DCEB538 */  lw    $t6, -0x4ac8($t6)
@@ -18062,6 +18255,7 @@ proc_7F010444:
 /* 044F94 7F010464 8C42AFFC */  lw    $v0, -0x5004($v0)
 # end proc_7F010444
 
+.global proc_7F010468
 proc_7F010468:
 /* 044F98 7F010468 3C038003 */  lui   $v1, 0x8003
 /* 044F9C 7F01046C 2463B540 */  addiu $v1, $v1, -0x4ac0
@@ -18176,6 +18370,7 @@ proc_7F010468:
 /* 045134 7F010604 00000000 */  nop   
 # end proc_7F010468
 
+.global proc_7F010608
 proc_7F010608:
 /* 045138 7F010608 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 04513C 7F01060C AFB00018 */  sw    $s0, 0x18($sp)
@@ -18265,6 +18460,7 @@ proc_7F010608:
 /* 045268 7F010738 00000000 */  nop   
 # end proc_7F010608
 
+.global init_menu0E_mpoptions
 init_menu0E_mpoptions:
 /* 04526C 7F01073C 3C018003 */  lui   $at, 0x8003
 /* 045270 7F010740 AC20A8D0 */  sw    $zero, %lo(0x8002A8D0)($at) # $zero, -0x5730($at)
@@ -18336,11 +18532,13 @@ init_menu0E_mpoptions:
 /* 04536C 7F01083C 00000000 */  nop   
 # end init_menu0E_mpoptions
 
+.global update_menu0E_mpoptions
 update_menu0E_mpoptions:
 /* 045370 7F010840 03E00008 */  jr    $ra
 /* 045374 7F010844 00000000 */  nop   
 # end update_menu0E_mpoptions
 
+.global interface_menu0E_mpoptions
 interface_menu0E_mpoptions:
 /* 045378 7F010848 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 04537C 7F01084C 3C014270 */  lui   $at, 0x4270
@@ -18826,6 +19024,7 @@ interface_menu0E_mpoptions:
 /* 045A3C 7F010F0C 00000000 */  nop   
 # end interface_menu0E_mpoptions
 
+.global constructor_menu0E_mpoptions
 constructor_menu0E_mpoptions:
 /* 045A40 7F010F10 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 045A44 7F010F14 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -19671,6 +19870,7 @@ constructor_menu0E_mpoptions:
 /* 046704 7F011BD4 00000000 */  nop   
 # end constructor_menu0E_mpoptions
 
+.global proc_7F011BD8
 proc_7F011BD8:
 /* 046708 7F011BD8 3C058003 */  lui   $a1, 0x8003
 /* 04670C 7F011BDC 8CA5B520 */  lw    $a1, -0x4ae0($a1)
@@ -19702,6 +19902,7 @@ proc_7F011BD8:
 /* 046768 7F011C38 00601025 */  or    $v0, $v1, $zero
 # end proc_7F011BD8
 
+.global init_menu0f_mpcharsel
 init_menu0f_mpcharsel:
 /* 04676C 7F011C3C 3C018003 */  lui   $at, 0x8003
 /* 046770 7F011C40 AC20A8D0 */  sw    $zero, %lo(0x8002A8D0)($at) # $zero, -0x5730($at)
@@ -19881,11 +20082,13 @@ init_menu0f_mpcharsel:
 /* 0469F8 7F011EC8 27BD0030 */  addiu $sp, $sp, 0x30
 # end init_menu0f_mpcharsel
 
+.global update_menu0F_mpcharsel
 update_menu0F_mpcharsel:
 /* 0469FC 7F011ECC 03E00008 */  jr    $ra
 /* 046A00 7F011ED0 00000000 */  nop   
 # end update_menu0F_mpcharsel
 
+.global interface_menu0F_mpcharsel
 interface_menu0F_mpcharsel:
 /* 046A04 7F011ED4 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 046A08 7F011ED8 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -20150,6 +20353,7 @@ interface_menu0F_mpcharsel:
 /* 046DD4 7F0122A4 27BD0050 */  addiu $sp, $sp, 0x50
 # end interface_menu0F_mpcharsel
 
+.global proc_7F0122A8
 proc_7F0122A8:
 /* 046DD8 7F0122A8 00A4082A */  slt   $at, $a1, $a0
 /* 046DDC 7F0122AC 10200003 */  beqz  $at, .Lproc_7F0122A8_14
@@ -20186,6 +20390,7 @@ proc_7F0122A8:
 /* 046E48 7F012318 00000000 */  nop   
 # end proc_7F0122A8
 
+.global proc_7F01231C
 proc_7F01231C:
 /* 046E4C 7F01231C 27BDFF28 */  addiu $sp, $sp, -0xd8
 /* 046E50 7F012320 AFBF004C */  sw    $ra, 0x4c($sp)
@@ -20486,6 +20691,7 @@ proc_7F01231C:
 /* 0472C0 7F012790 27BD00D8 */  addiu $sp, $sp, 0xd8
 # end proc_7F01231C
 
+.global constructor_menu0F_mpcharsel
 constructor_menu0F_mpcharsel:
 /* 0472C4 7F012794 27BDFF18 */  addiu $sp, $sp, -0xe8
 /* 0472C8 7F012798 AFBF0064 */  sw    $ra, 0x64($sp)
@@ -20932,6 +21138,7 @@ constructor_menu0F_mpcharsel:
 /* 04795C 7F012E2C 27BD00E8 */  addiu $sp, $sp, 0xe8
 # end constructor_menu0F_mpcharsel
 
+.global init_menu10_mphandicap
 init_menu10_mphandicap:
 /* 047960 7F012E30 3C018003 */  lui   $at, 0x8003
 /* 047964 7F012E34 AC20A8D0 */  sw    $zero, %lo(0x8002A8D0)($at) # $zero, -0x5730($at)
@@ -20970,11 +21177,13 @@ init_menu10_mphandicap:
 /* 0479E8 7F012EB8 00000000 */  nop   
 # end init_menu10_mphandicap
 
+.global update_menu10_mphandicap
 update_menu10_mphandicap:
 /* 0479EC 7F012EBC 03E00008 */  jr    $ra
 /* 0479F0 7F012EC0 00000000 */  nop   
 # end update_menu10_mphandicap
 
+.global interface_menu10_mphandicap
 interface_menu10_mphandicap:
 /* 0479F4 7F012EC4 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0479F8 7F012EC8 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -21165,6 +21374,7 @@ interface_menu10_mphandicap:
 /* 047CA8 7F013178 27BD0048 */  addiu $sp, $sp, 0x48
 # end interface_menu10_mphandicap
 
+.global constructor_menu10_mphandicap
 constructor_menu10_mphandicap:
 /* 047CAC 7F01317C 27BDFF30 */  addiu $sp, $sp, -0xd0
 /* 047CB0 7F013180 AFBF0064 */  sw    $ra, 0x64($sp)
@@ -21433,6 +21643,7 @@ constructor_menu10_mphandicap:
 /* 0480A0 7F013570 27BD00D0 */  addiu $sp, $sp, 0xd0
 # end constructor_menu10_mphandicap
 
+.global init_menu11_mpcontrol
 init_menu11_mpcontrol:
 /* 0480A4 7F013574 3C018003 */  lui   $at, 0x8003
 /* 0480A8 7F013578 AC20A8D0 */  sw    $zero, %lo(0x8002A8D0)($at) # $zero, -0x5730($at)
@@ -21471,11 +21682,13 @@ init_menu11_mpcontrol:
 /* 04812C 7F0135FC 00000000 */  nop   
 # end init_menu11_mpcontrol
 
+.global update_menu11_mpcontrols
 update_menu11_mpcontrols:
 /* 048130 7F013600 03E00008 */  jr    $ra
 /* 048134 7F013604 00000000 */  nop   
 # end update_menu11_mpcontrols
 
+.global interface_menu11_mpcontrols
 interface_menu11_mpcontrols:
 /* 048138 7F013608 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 04813C 7F01360C AFBF003C */  sw    $ra, 0x3c($sp)
@@ -21721,6 +21934,7 @@ interface_menu11_mpcontrols:
 /* 0484AC 7F01397C 27BD0050 */  addiu $sp, $sp, 0x50
 # end interface_menu11_mpcontrols
 
+.global constructor_menu11_mpcontrol
 constructor_menu11_mpcontrol:
 /* 0484B0 7F013980 27BDFF30 */  addiu $sp, $sp, -0xd0
 /* 0484B4 7F013984 AFBF0064 */  sw    $ra, 0x64($sp)
@@ -21989,6 +22203,7 @@ constructor_menu11_mpcontrol:
 /* 0488A4 7F013D74 27BD00D0 */  addiu $sp, $sp, 0xd0
 # end constructor_menu11_mpcontrol
 
+.global init_menu12_mpstage
 init_menu12_mpstage:
 /* 0488A8 7F013D78 3C018003 */  lui   $at, 0x8003
 /* 0488AC 7F013D7C AC20A8D0 */  sw    $zero, %lo(0x8002A8D0)($at) # $zero, -0x5730($at)
@@ -22013,11 +22228,13 @@ init_menu12_mpstage:
 /* 0488F8 7F013DC8 00000000 */  nop   
 # end init_menu12_mpstage
 
+.global update_menu12_mpstage
 update_menu12_mpstage:
 /* 0488FC 7F013DCC 03E00008 */  jr    $ra
 /* 048900 7F013DD0 00000000 */  nop   
 # end update_menu12_mpstage
 
+.global interface_menu12_mpstage
 interface_menu12_mpstage:
 /* 048904 7F013DD4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 048908 7F013DD8 3C014270 */  lui   $at, 0x4270
@@ -22194,6 +22411,7 @@ interface_menu12_mpstage:
 /* 048B7C 7F01404C 00000000 */  nop   
 # end interface_menu12_mpstage
 
+.global constructor_menu12_mpstage
 constructor_menu12_mpstage:
 /* 048B80 7F014050 27BDFEC8 */  addiu $sp, $sp, -0x138
 /* 048B84 7F014054 AFBF0074 */  sw    $ra, 0x74($sp)
@@ -22659,12 +22877,14 @@ constructor_menu12_mpstage:
 /* 049284 7F014754 27BD0138 */  addiu $sp, $sp, 0x138
 # end constructor_menu12_mpstage
 
+.global inhibit_respawn_flag
 inhibit_respawn_flag:
 /* 049288 7F014758 3C028003 */  lui   $v0, 0x8003
 /* 04928C 7F01475C 03E00008 */  jr    $ra
 /* 049290 7F014760 8C42B540 */  lw    $v0, -0x4ac0($v0)
 # end inhibit_respawn_flag
 
+.global init_menu13_mpscenariosel
 init_menu13_mpscenariosel:
 /* 049294 7F014764 3C018003 */  lui   $at, 0x8003
 /* 049298 7F014768 AC20A8D0 */  sw    $zero, %lo(0x8002A8D0)($at) # $zero, -0x5730($at)
@@ -22687,11 +22907,13 @@ init_menu13_mpscenariosel:
 /* 0492DC 7F0147AC 00000000 */  nop   
 # end init_menu13_mpscenariosel
 
+.global update_menu13_mpscenario
 update_menu13_mpscenario:
 /* 0492E0 7F0147B0 03E00008 */  jr    $ra
 /* 0492E4 7F0147B4 00000000 */  nop   
 # end update_menu13_mpscenario
 
+.global interface_menu13_mpscenario
 interface_menu13_mpscenario:
 /* 0492E8 7F0147B8 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0492EC 7F0147BC 3C014270 */  lui   $at, 0x4270
@@ -22872,6 +23094,7 @@ interface_menu13_mpscenario:
 /* 049574 7F014A44 27BD0030 */  addiu $sp, $sp, 0x30
 # end interface_menu13_mpscenario
 
+.global constructor_menu13_mpscenario
 constructor_menu13_mpscenario:
 /* 049578 7F014A48 27BDFF68 */  addiu $sp, $sp, -0x98
 /* 04957C 7F014A4C AFBF005C */  sw    $ra, 0x5c($sp)
@@ -23022,6 +23245,7 @@ constructor_menu13_mpscenario:
 /* 0497B4 7F014C84 27BD0098 */  addiu $sp, $sp, 0x98
 # end constructor_menu13_mpscenario
 
+.global proc_7F014C88
 proc_7F014C88:
 /* 0497B8 7F014C88 000470C0 */  sll   $t6, $a0, 3
 /* 0497BC 7F014C8C 01C47023 */  subu  $t6, $t6, $a0
@@ -23032,6 +23256,7 @@ proc_7F014C88:
 /* 0497D0 7F014CA0 90429F59 */  lbu   $v0, -0x60a7($v0)
 # end proc_7F014C88
 
+.global proc_7F014CA4
 proc_7F014CA4:
 /* 0497D4 7F014CA4 000470C0 */  sll   $t6, $a0, 3
 /* 0497D8 7F014CA8 01C47023 */  subu  $t6, $t6, $a0
@@ -23042,6 +23267,7 @@ proc_7F014CA4:
 /* 0497EC 7F014CBC A0259F59 */  sb    $a1, %lo(0x80079F59)($at) # $a1, -0x60a7($at)
 # end proc_7F014CA4
 
+.global init_menu14_mpteamsel
 init_menu14_mpteamsel:
 /* 0497F0 7F014CC0 3C018003 */  lui   $at, 0x8003
 /* 0497F4 7F014CC4 AC20A8D0 */  sw    $zero, %lo(0x8002A8D0)($at) # $zero, -0x5730($at)
@@ -23079,11 +23305,13 @@ init_menu14_mpteamsel:
 /* 04986C 7F014D3C 00000000 */  nop   
 # end init_menu14_mpteamsel
 
+.global update_menu14_mpteams
 update_menu14_mpteams:
 /* 049870 7F014D40 03E00008 */  jr    $ra
 /* 049874 7F014D44 00000000 */  nop   
 # end update_menu14_mpteams
 
+.global interface_menu14_mpteams
 interface_menu14_mpteams:
 /* 049878 7F014D48 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 04987C 7F014D4C 3C014270 */  lui   $at, 0x4270
@@ -23358,6 +23586,7 @@ interface_menu14_mpteams:
 /* 049C64 7F015134 27BD0020 */  addiu $sp, $sp, 0x20
 # end interface_menu14_mpteams
 
+.global constructor_menu14_mpteams
 constructor_menu14_mpteams:
 /* 049C68 7F015138 27BDFF30 */  addiu $sp, $sp, -0xd0
 /* 049C6C 7F01513C AFBF0064 */  sw    $ra, 0x64($sp)
@@ -23625,6 +23854,7 @@ constructor_menu14_mpteams:
 /* 04A03C 7F01550C 27BD00D0 */  addiu $sp, $sp, 0xd0
 # end constructor_menu14_mpteams
 
+.global proc_7F015510
 proc_7F015510:
 /* 04A040 7F015510 3C028003 */  lui   $v0, 0x8003
 /* 04A044 7F015514 2442A914 */  addiu $v0, $v0, -0x56ec
@@ -23632,6 +23862,7 @@ proc_7F015510:
 /* 04A04C 7F01551C AC440000 */  sw    $a0, ($v0)
 # end proc_7F015510
 
+.global proc_7F015520
 proc_7F015520:
 /* 04A050 7F015520 3C0E8003 */  lui   $t6, 0x8003
 /* 04A054 7F015524 8DCEA8F8 */  lw    $t6, -0x5708($t6)
@@ -23690,6 +23921,7 @@ proc_7F015520:
 /* 04A120 7F0155F0 00000000 */  nop   
 # end proc_7F015520
 
+.global init_menu0A_briefing
 init_menu0A_briefing:
 /* 04A124 7F0155F4 3C018003 */  lui   $at, 0x8003
 /* 04A128 7F0155F8 AC20A8D4 */  sw    $zero, %lo(0x8002A8D4)($at) # $zero, -0x572c($at)
@@ -23712,6 +23944,7 @@ init_menu0A_briefing:
 /* 04A16C 7F01563C 00000000 */  nop   
 # end init_menu0A_briefing
 
+.global update_menu0A_briefing
 update_menu0A_briefing:
 /* 04A170 7F015640 3C0E8003 */  lui   $t6, 0x8003
 /* 04A174 7F015644 8DCEA8F8 */  lw    $t6, -0x5708($t6)
@@ -23739,6 +23972,7 @@ update_menu0A_briefing:
 /* 04A1C8 7F015698 00000000 */  nop   
 # end update_menu0A_briefing
 
+.global interface_menu0A_briefing
 interface_menu0A_briefing:
 /* 04A1CC 7F01569C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 04A1D0 7F0156A0 3C014270 */  lui   $at, 0x4270
@@ -23977,6 +24211,7 @@ interface_menu0A_briefing:
 /* 04A534 7F015A04 00000000 */  nop   
 # end interface_menu0A_briefing
 
+.global proc_7F015A08
 proc_7F015A08:
 /* 04A538 7F015A08 27BDFF60 */  addiu $sp, $sp, -0xa0
 /* 04A53C 7F015A0C AFB5004C */  sw    $s5, 0x4c($sp)
@@ -24208,6 +24443,7 @@ proc_7F015A08:
 /* 04A8A0 7F015D70 27BD00A0 */  addiu $sp, $sp, 0xa0
 # end proc_7F015A08
 
+.global constructor_menu0A_briefing
 constructor_menu0A_briefing:
 /* 04A8A4 7F015D74 27BDF3F0 */  addiu $sp, $sp, -0xc10
 /* 04A8A8 7F015D78 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -24409,6 +24645,7 @@ constructor_menu0A_briefing:
 /* 04AB90 7F016060 00000000 */  nop   
 # end constructor_menu0A_briefing
 
+.global init_menu0B_runstage
 init_menu0B_runstage:
 /* 04AB94 7F016064 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 04AB98 7F016068 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -24424,6 +24661,7 @@ init_menu0B_runstage:
 /* 04ABC0 7F016090 00000000 */  nop   
 # end init_menu0B_runstage
 
+.global init_menu0C_missionfailed
 init_menu0C_missionfailed:
 /* 04ABC4 7F016094 3C018003 */  lui   $at, 0x8003
 /* 04ABC8 7F016098 27BDFFE8 */  addiu $sp, $sp, -0x18
@@ -24457,11 +24695,13 @@ init_menu0C_missionfailed:
 /* 04AC34 7F016104 00000000 */  nop   
 # end init_menu0C_missionfailed
 
+.global update_menu0C_missionfailed
 update_menu0C_missionfailed:
 /* 04AC38 7F016108 03E00008 */  jr    $ra
 /* 04AC3C 7F01610C 00000000 */  nop   
 # end update_menu0C_missionfailed
 
+.global interface_menu0C_missionfailed
 interface_menu0C_missionfailed:
 /* 04AC40 7F016110 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 04AC44 7F016114 3C014270 */  lui   $at, 0x4270
@@ -24604,6 +24844,7 @@ interface_menu0C_missionfailed:
 /* 04AE48 7F016318 00000000 */  nop   
 # end interface_menu0C_missionfailed
 
+.global proc_7F01631C
 proc_7F01631C:
 /* 04AE4C 7F01631C 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 04AE50 7F016320 3C0E8003 */  lui   $t6, 0x8003
@@ -24664,6 +24905,7 @@ proc_7F01631C:
 /* 04AF18 7F0163E8 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F01631C
 
+.global constructor_menu0C_missionfailed
 constructor_menu0C_missionfailed:
 /* 04AF1C 7F0163EC 27BDF3E8 */  addiu $sp, $sp, -0xc18
 /* 04AF20 7F0163F0 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -24835,6 +25077,7 @@ constructor_menu0C_missionfailed:
 /* 04B1A8 7F016678 00000000 */  nop   
 # end constructor_menu0C_missionfailed
 
+.global init_menu0D_missioncomplete
 init_menu0D_missioncomplete:
 /* 04B1AC 7F01667C 3C018003 */  lui   $at, 0x8003
 /* 04B1B0 7F016680 27BDFFE8 */  addiu $sp, $sp, -0x18
@@ -24860,11 +25103,13 @@ init_menu0D_missioncomplete:
 /* 04B1FC 7F0166CC 00000000 */  nop   
 # end init_menu0D_missioncomplete
 
+.global update_menu0D_missioncomplete
 update_menu0D_missioncomplete:
 /* 04B200 7F0166D0 03E00008 */  jr    $ra
 /* 04B204 7F0166D4 00000000 */  nop   
 # end update_menu0D_missioncomplete
 
+.global interface_menu0D_missioncomplete
 interface_menu0D_missioncomplete:
 /* 04B208 7F0166D8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 04B20C 7F0166DC 3C014270 */  lui   $at, 0x4270
@@ -25088,6 +25333,7 @@ interface_menu0D_missioncomplete:
 /* 04B534 7F016A04 00000000 */  nop   
 # end interface_menu0D_missioncomplete
 
+.global constructor_menu0D_missioncomplete
 constructor_menu0D_missioncomplete:
 /* 04B538 7F016A08 27BDF398 */  addiu $sp, $sp, -0xc68
 /* 04B53C 7F016A0C AFBF003C */  sw    $ra, 0x3c($sp)
@@ -26219,6 +26465,7 @@ constructor_menu0D_missioncomplete:
 /* 04C67C 7F017B4C 27BD0C68 */  addiu $sp, $sp, 0xc68
 # end constructor_menu0D_missioncomplete
 
+.global init_menu15_cheat
 init_menu15_cheat:
 /* 04C680 7F017B50 3C018003 */  lui   $at, 0x8003
 /* 04C684 7F017B54 AC20A8D0 */  sw    $zero, %lo(0x8002A8D0)($at) # $zero, -0x5730($at)
@@ -26265,6 +26512,7 @@ init_menu15_cheat:
 /* 04C720 7F017BF0 00000000 */  nop   
 # end init_menu15_cheat
 
+.global update_menu15_cheat
 update_menu15_cheat:
 /* 04C724 7F017BF4 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 04C728 7F017BF8 AFB1001C */  sw    $s1, 0x1c($sp)
@@ -26307,6 +26555,7 @@ update_menu15_cheat:
 /* 04C7B4 7F017C84 27BD0030 */  addiu $sp, $sp, 0x30
 # end update_menu15_cheat
 
+.global interface_menu15_cheat
 interface_menu15_cheat:
 /* 04C7B8 7F017C88 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 04C7BC 7F017C8C 3C014270 */  lui   $at, 0x4270
@@ -26506,6 +26755,7 @@ interface_menu15_cheat:
 /* 04CA88 7F017F58 00000000 */  nop   
 # end interface_menu15_cheat
 
+.global constructor_menu15_cheat
 constructor_menu15_cheat:
 /* 04CA8C 7F017F5C 27BDFF68 */  addiu $sp, $sp, -0x98
 /* 04CA90 7F017F60 AFBF005C */  sw    $ra, 0x5c($sp)
@@ -26833,21 +27083,25 @@ constructor_menu15_cheat:
 /* 04CF64 7F018434 27BD0098 */  addiu $sp, $sp, 0x98
 # end constructor_menu15_cheat
 
+.global init_menu16_nocontroller
 init_menu16_nocontroller:
 /* 04CF68 7F018438 03E00008 */  jr    $ra
 /* 04CF6C 7F01843C 00000000 */  nop   
 # end init_menu16_nocontroller
 
+.global update_menu16_nocontrollers
 update_menu16_nocontrollers:
 /* 04CF70 7F018440 03E00008 */  jr    $ra
 /* 04CF74 7F018444 00000000 */  nop   
 # end update_menu16_nocontrollers
 
+.global interface_menu16_nocontrollers
 interface_menu16_nocontrollers:
 /* 04CF78 7F018448 03E00008 */  jr    $ra
 /* 04CF7C 7F01844C 00000000 */  nop   
 # end interface_menu16_nocontrollers
 
+.global constructor_menu16_nocontrollers
 constructor_menu16_nocontrollers:
 /* 04CF80 7F018450 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 04CF84 7F018454 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -26995,6 +27249,7 @@ constructor_menu16_nocontrollers:
 /* 04D19C 7F01866C 00000000 */  nop   
 # end constructor_menu16_nocontrollers
 
+.global do_extended_cast_display
 do_extended_cast_display:
 /* 04D1A0 7F018670 3C018003 */  lui   $at, 0x8003
 /* 04D1A4 7F018674 10800004 */  beqz  $a0, .Ldo_extended_cast_display_18
@@ -27010,6 +27265,7 @@ do_extended_cast_display:
 /* 04D1C8 7F018698 00000000 */  nop   
 # end do_extended_cast_display
 
+.global init_menu18_displaycast
 init_menu18_displaycast:
 /* 04D1CC 7F01869C 3C0E8003 */  lui   $t6, 0x8003
 /* 04D1D0 7F0186A0 8DCEA950 */  lw    $t6, -0x56b0($t6)
@@ -27584,6 +27840,7 @@ init_menu18_displaycast:
 /* 04DA44 7F018F14 E4600008 */  swc1  $f0, 8($v1)
 # end init_menu18_displaycast
 
+.global update_menu18_displaycast
 update_menu18_displaycast:
 /* 04DA48 7F018F18 3C048003 */  lui   $a0, 0x8003
 /* 04DA4C 7F018F1C 8C84B5F4 */  lw    $a0, -0x4a0c($a0)
@@ -27607,6 +27864,7 @@ update_menu18_displaycast:
 /* 04DA8C 7F018F5C 00000000 */  nop   
 # end update_menu18_displaycast
 
+.global interface_menu18_displaycast
 interface_menu18_displaycast:
 /* 04DA90 7F018F60 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 04DA94 7F018F64 3C014238 */  lui   $at, 0x4238
@@ -27870,6 +28128,7 @@ interface_menu18_displaycast:
 /* 04DE54 7F019324 27BD0028 */  addiu $sp, $sp, 0x28
 # end interface_menu18_displaycast
 
+.global constructor_menu18_displaycast
 constructor_menu18_displaycast:
 /* 04DE58 7F019328 27BDFDB0 */  addiu $sp, $sp, -0x250
 /* 04DE5C 7F01932C 3C0E8003 */  lui   $t6, 0x8003
@@ -28961,6 +29220,7 @@ constructor_menu18_displaycast:
 /* 04EEC8 7F01A398 27BD0250 */  addiu $sp, $sp, 0x250
 # end constructor_menu18_displaycast
 
+.global init_menu19_spectrum
 init_menu19_spectrum:
 /* 04EECC 7F01A39C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 04EED0 7F01A3A0 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -29028,11 +29288,13 @@ init_menu19_spectrum:
 /* 04EFAC 7F01A47C 00000000 */  nop   
 # end init_menu19_spectrum
 
+.global update_menu19_spectrum
 update_menu19_spectrum:
 /* 04EFB0 7F01A480 03E00008 */  jr    $ra
 /* 04EFB4 7F01A484 00000000 */  nop   
 # end update_menu19_spectrum
 
+.global interface_menu19_spectrum
 interface_menu19_spectrum:
 /* 04EFB8 7F01A488 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 04EFBC 7F01A48C 3C014270 */  lui   $at, 0x4270
@@ -29058,6 +29320,7 @@ interface_menu19_spectrum:
 /* 04F00C 7F01A4DC 00000000 */  nop   
 # end interface_menu19_spectrum
 
+.global constructor_menu19_spectrum
 constructor_menu19_spectrum:
 /* 04F010 7F01A4E0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 04F014 7F01A4E4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -29122,6 +29385,7 @@ constructor_menu19_spectrum:
 /* 04F100 7F01A5D0 00000000 */  nop   
 # end constructor_menu19_spectrum
 
+.global set_menu_to_mode
 set_menu_to_mode:
 /* 04F104 7F01A5D4 2401000B */  addiu $at, $zero, 0xb
 /* 04F108 7F01A5D8 10810003 */  beq   $a0, $at, .Lset_menu_to_mode_14
@@ -29143,12 +29407,14 @@ set_menu_to_mode:
 /* 04F13C 7F01A60C 00000000 */  nop   
 # end set_menu_to_mode
 
+.global proc_7F01A610
 proc_7F01A610:
 /* 04F140 7F01A610 3C028003 */  lui   $v0, 0x8003
 /* 04F144 7F01A614 03E00008 */  jr    $ra
 /* 04F148 7F01A618 8C42A8C0 */  lw    $v0, -0x5740($v0)
 # end proc_7F01A610
 
+.global menu_init
 menu_init:
 /* 04F14C 7F01A61C 3C0E8003 */  lui   $t6, 0x8003
 /* 04F150 7F01A620 8DCEA8C0 */  lw    $t6, -0x5740($t6)
@@ -29734,6 +30000,7 @@ menu_init:
 /* 04FA28 7F01AEF8 00000000 */  nop   
 # end menu_init
 
+.global proc_7F01AEFC
 proc_7F01AEFC:
 /* 04FA2C 7F01AEFC 3C0E8003 */  lui   $t6, 0x8003
 /* 04FA30 7F01AF00 8DCEA8C0 */  lw    $t6, -0x5740($t6)
@@ -29859,6 +30126,7 @@ proc_7F01AEFC:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global proc_7F01B0E0
 proc_7F01B0E0:
 /* 04FC10 7F01B0E0 94820000 */  lhu   $v0, ($a0)
 /* 04FC14 7F01B0E4 94830002 */  lhu   $v1, 2($a0)
@@ -29885,6 +30153,7 @@ proc_7F01B0E0:
 /* 04FC60 7F01B130 00000000 */  nop   
 # end proc_7F01B0E0
 
+.global proc_7F01B134
 proc_7F01B134:
 /* 04FC64 7F01B134 27BDFFF8 */  addiu $sp, $sp, -8
 /* 04FC68 7F01B138 AFB00004 */  sw    $s0, 4($sp)
@@ -29927,6 +30196,7 @@ proc_7F01B134:
 /* 04FCF4 7F01B1C4 27BD0008 */  addiu $sp, $sp, 8
 # end proc_7F01B134
 
+.global proc_7F01B1C8
 proc_7F01B1C8:
 /* 04FCF8 7F01B1C8 94830000 */  lhu   $v1, ($a0)
 /* 04FCFC 7F01B1CC 94860002 */  lhu   $a2, 2($a0)
@@ -29963,6 +30233,7 @@ proc_7F01B1C8:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F01B240
 proc_7F01B240:
 /* 04FD70 7F01B240 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 04FD74 7F01B244 AFB20028 */  sw    $s2, 0x28($sp)
@@ -30274,6 +30545,7 @@ proc_7F01B240:
 /* 05020C 7F01B6DC 00801025 */  or    $v0, $a0, $zero
 # end proc_7F01B240
 
+.global proc_7F01B6E0
 proc_7F01B6E0:
 /* 050210 7F01B6E0 44862000 */  mtc1  $a2, $f4
 /* 050214 7F01B6E4 27BDFFB8 */  addiu $sp, $sp, -0x48
@@ -30544,6 +30816,7 @@ proc_7F01B6E0:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F01BAE0
 proc_7F01BAE0:
 /* 050610 7F01BAE0 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 050614 7F01BAE4 AFB50058 */  sw    $s5, 0x58($sp)
@@ -30894,6 +31167,7 @@ proc_7F01BAE0:
 /* 050B24 7F01BFF4 27BD0060 */  addiu $sp, $sp, 0x60
 # end proc_7F01BAE0
 
+.global proc_7F01BFF8
 proc_7F01BFF8:
 /* 050B28 7F01BFF8 240A000A */  addiu $t2, $zero, 0xa
 /* 050B2C 7F01BFFC 3C09BF00 */  lui   $t1, 0xbf00
@@ -30955,6 +31229,7 @@ proc_7F01BFF8:
 /* 050BFC 7F01C0CC AC800004 */  sw    $zero, 4($a0)
 # end proc_7F01BFF8
 
+.global proc_7F01C0D0
 proc_7F01C0D0:
 /* 050C00 7F01C0D0 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 050C04 7F01C0D4 AFB00018 */  sw    $s0, 0x18($sp)
@@ -31011,6 +31286,7 @@ proc_7F01C0D0:
 /* 050CD0 7F01C1A0 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F01C0D0
 
+.global proc_7F01C1A4
 proc_7F01C1A4:
 /* 050CD4 7F01C1A4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 050CD8 7F01C1A8 3C0E0103 */  lui   $t6, 0x103
@@ -31070,6 +31346,7 @@ proc_7F01C1A4:
 /* 050DB0 7F01C280 00000000 */  nop   
 # end proc_7F01C1A4
 
+.global die_blood_image_routine
 die_blood_image_routine:
 /* 050DB4 7F01C284 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 050DB8 7F01C288 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -31170,6 +31447,7 @@ die_blood_image_routine:
 /* 050F2C 7F01C3FC 27BD0038 */  addiu $sp, $sp, 0x38
 # end die_blood_image_routine
 
+.global proc_7F01C400
 proc_7F01C400:
 /* 050F30 7F01C400 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 050F34 7F01C404 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -31333,6 +31611,7 @@ proc_7F01C400:
 /* 05119C 7F01C66C 00000000 */  nop   
 # end proc_7F01C400
 
+.global proc_7F01C670
 proc_7F01C670:
 /* 0511A0 7F01C670 27BDFF78 */  addiu $sp, $sp, -0x88
 /* 0511A4 7F01C674 AFB00014 */  sw    $s0, 0x14($sp)
@@ -31574,6 +31853,7 @@ proc_7F01C670:
 /* 051544 7F01CA14 27BD0088 */  addiu $sp, $sp, 0x88
 # end proc_7F01C670
 
+.global proc_7F01CA18
 proc_7F01CA18:
 /* 051548 7F01CA18 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 05154C 7F01CA1C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -31628,6 +31908,7 @@ proc_7F01CA18:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F01CAE0
 proc_7F01CAE0:
 /* 051610 7F01CAE0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 051614 7F01CAE4 AFB30014 */  sw    $s3, 0x14($sp)
@@ -31754,6 +32035,7 @@ proc_7F01CAE0:
 /* 0517C0 7F01CC90 00801025 */  or    $v0, $a0, $zero
 # end proc_7F01CAE0
 
+.global proc_7F01CC94
 proc_7F01CC94:
 /* 0517C4 7F01CC94 AFA50004 */  sw    $a1, 4($sp)
 /* 0517C8 7F01CC98 30AEFFFF */  andi  $t6, $a1, 0xffff
@@ -31781,6 +32063,7 @@ proc_7F01CC94:
 /* 051818 7F01CCE8 00000000 */  nop   
 # end proc_7F01CC94
 
+.global proc_7F01CCEC
 proc_7F01CCEC:
 /* 05181C 7F01CCEC 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 051820 7F01CCF0 30CF00FF */  andi  $t7, $a2, 0xff
@@ -31931,6 +32214,7 @@ proc_7F01CCEC:
 /* 051A18 7F01CEE8 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F01CCEC
 
+.global proc_7F01CEEC
 proc_7F01CEEC:
 /* 051A1C 7F01CEEC 24A3FFFF */  addiu $v1, $a1, -1
 /* 051A20 7F01CEF0 28610002 */  slti  $at, $v1, 2
@@ -32017,6 +32301,7 @@ proc_7F01CEEC:
 /* 051B58 7F01D028 00000000 */  nop   
 # end proc_7F01CEEC
 
+.global proc_7F01D02C
 proc_7F01D02C:
 /* 051B5C 7F01D02C 24A3FFFF */  addiu $v1, $a1, -1
 /* 051B60 7F01D030 28610002 */  slti  $at, $v1, 2
@@ -32103,6 +32388,7 @@ proc_7F01D02C:
 /* 051C98 7F01D168 00000000 */  nop   
 # end proc_7F01D02C
 
+.global proc_7F01D16C
 proc_7F01D16C:
 /* 051C9C 7F01D16C 00A60019 */  multu $a1, $a2
 /* 051CA0 7F01D170 00801825 */  or    $v1, $a0, $zero
@@ -32129,6 +32415,7 @@ proc_7F01D16C:
 /* 051CEC 7F01D1BC 00000000 */  nop   
 # end proc_7F01D16C
 
+.global proc_7F01D1C0
 proc_7F01D1C0:
 /* 051CF0 7F01D1C0 27BDFFF0 */  addiu $sp, $sp, -0x10
 /* 051CF4 7F01D1C4 240C00FF */  addiu $t4, $zero, 0xff
@@ -32208,6 +32495,7 @@ proc_7F01D1C0:
 # alignment
 .word 0x00000000
 
+.global proc_7F01D2B0
 proc_7F01D2B0:
 /* 051DE0 7F01D2B0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 051DE4 7F01D2B4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -32227,6 +32515,7 @@ proc_7F01D2B0:
 /* 051E14 7F01D2E4 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F01D2B0
 
+.global proc_7F01D2E8
 proc_7F01D2E8:
 /* 051E18 7F01D2E8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 051E1C 7F01D2EC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -32247,6 +32536,7 @@ proc_7F01D2E8:
 /* 051E50 7F01D320 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F01D2E8
 
+.global proc_7F01D324
 proc_7F01D324:
 /* 051E54 7F01D324 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 051E58 7F01D328 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -32267,6 +32557,7 @@ proc_7F01D324:
 /* 051E8C 7F01D35C 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F01D324
 
+.global proc_7F01D360
 proc_7F01D360:
 /* 051E90 7F01D360 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 051E94 7F01D364 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -32287,6 +32578,7 @@ proc_7F01D360:
 /* 051EC8 7F01D398 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F01D360
 
+.global proc_7F01D39C
 proc_7F01D39C:
 /* 051ECC 7F01D39C 3C028003 */  lui   $v0, 0x8003
 /* 051ED0 7F01D3A0 8C42A8F8 */  lw    $v0, -0x5708($v0)
@@ -32382,6 +32674,7 @@ proc_7F01D39C:
 /* 05202C 7F01D4FC 00000000 */  nop   
 # end proc_7F01D39C
 
+.global proc_7F01D500
 proc_7F01D500:
 /* 052030 7F01D500 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 052034 7F01D504 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -32394,6 +32687,7 @@ proc_7F01D500:
 /* 052050 7F01D520 00000000 */  nop   
 # end proc_7F01D500
 
+.global proc_7F01D524
 proc_7F01D524:
 /* 052054 7F01D524 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 052058 7F01D528 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -32406,6 +32700,7 @@ proc_7F01D524:
 /* 052074 7F01D544 00000000 */  nop   
 # end proc_7F01D524
 
+.global proc_7F01D548
 proc_7F01D548:
 /* 052078 7F01D548 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 05207C 7F01D54C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -32418,6 +32713,7 @@ proc_7F01D548:
 /* 052098 7F01D568 00000000 */  nop   
 # end proc_7F01D548
 
+.global proc_7F01D56C
 proc_7F01D56C:
 /* 05209C 7F01D56C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0520A0 7F01D570 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -32430,12 +32726,14 @@ proc_7F01D56C:
 /* 0520BC 7F01D58C 00000000 */  nop   
 # end proc_7F01D56C
 
+.global get_selected_folder_num
 get_selected_folder_num:
 /* 0520C0 7F01D590 3C018003 */  lui   $at, 0x8003
 /* 0520C4 7F01D594 03E00008 */  jr    $ra
 /* 0520C8 7F01D598 AC24A8E8 */  sw    $a0, %lo(0x8002A8E8)($at) # $a0, -0x5718($at)
 # end get_selected_folder_num
 
+.global get_difficulty
 get_difficulty:
 /* 0520CC 7F01D59C 10800009 */  beqz  $a0, .Lget_difficulty_28
 /* 0520D0 7F01D5A0 24020001 */  addiu $v0, $zero, 1
@@ -32463,6 +32761,7 @@ get_difficulty:
 /* 052118 7F01D5E8 00000000 */  nop   
 # end get_difficulty
 
+.global set_solo_and_ptr_briefing
 set_solo_and_ptr_briefing:
 /* 05211C 7F01D5EC 3C018003 */  lui   $at, 0x8003
 /* 052120 7F01D5F0 27BDFFE8 */  addiu $sp, $sp, -0x18
@@ -32478,6 +32777,7 @@ set_solo_and_ptr_briefing:
 /* 052148 7F01D618 27BD0018 */  addiu $sp, $sp, 0x18
 # end set_solo_and_ptr_briefing
 
+.global proc_7F01D61C
 proc_7F01D61C:
 /* 05214C 7F01D61C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 052150 7F01D620 00802825 */  or    $a1, $a0, $zero
@@ -32491,6 +32791,7 @@ proc_7F01D61C:
 /* 052170 7F01D640 00000000 */  nop   
 # end proc_7F01D61C
 
+.global proc_7F01D644
 proc_7F01D644:
 /* 052174 7F01D644 3C028003 */  lui   $v0, 0x8003
 /* 052178 7F01D648 2442A8E8 */  addiu $v0, $v0, -0x5718
@@ -32509,6 +32810,7 @@ proc_7F01D644:
 /* 0521AC 7F01D67C 00000000 */  nop   
 # end proc_7F01D644
 
+.global proc_7F01D680
 proc_7F01D680:
 /* 0521B0 7F01D680 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0521B4 7F01D684 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -32528,6 +32830,7 @@ proc_7F01D680:
 /* 0521EC 7F01D6BC AC790004 */  sw    $t9, 4($v1)
 # end proc_7F01D680
 
+.global proc_7F01D6C0
 proc_7F01D6C0:
 /* 0521F0 7F01D6C0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0521F4 7F01D6C4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -32539,6 +32842,7 @@ proc_7F01D6C0:
 /* 05220C 7F01D6DC 00000000 */  nop   
 # end proc_7F01D6C0
 
+.global proc_7F01D6E0
 proc_7F01D6E0:
 /* 052210 7F01D6E0 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 052214 7F01D6E4 3C0E8003 */  lui   $t6, 0x8003
@@ -32574,6 +32878,7 @@ proc_7F01D6E0:
 /* 052284 7F01D754 27BD0060 */  addiu $sp, $sp, 0x60
 # end proc_7F01D6E0
 
+.global proc_7F01D758
 proc_7F01D758:
 /* 052288 7F01D758 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 05228C 7F01D75C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -32596,6 +32901,7 @@ proc_7F01D758:
 /* 0522CC 7F01D79C 00000000 */  nop   
 # end proc_7F01D758
 
+.global proc_7F01D7A0
 proc_7F01D7A0:
 /* 0522D0 7F01D7A0 3C0E8007 */  lui   $t6, 0x8007
 /* 0522D4 7F01D7A4 25CE9920 */  addiu $t6, $t6, -0x66e0
@@ -32641,6 +32947,7 @@ proc_7F01D7A0:
 /* 05236C 7F01D83C 00000000 */  nop   
 # end proc_7F01D7A0
 
+.global proc_7F01D840
 proc_7F01D840:
 /* 052370 7F01D840 27BDFF88 */  addiu $sp, $sp, -0x78
 /* 052374 7F01D844 3C0E8003 */  lui   $t6, 0x8003
@@ -32680,6 +32987,7 @@ proc_7F01D840:
 /* 0523F4 7F01D8C4 00000000 */  nop   
 # end proc_7F01D840
 
+.global proc_7F01D8C8
 proc_7F01D8C8:
 /* 0523F8 7F01D8C8 90820008 */  lbu   $v0, 8($a0)
 /* 0523FC 7F01D8CC 304E0007 */  andi  $t6, $v0, 7
@@ -32687,6 +32995,7 @@ proc_7F01D8C8:
 /* 052404 7F01D8D4 01C01025 */  or    $v0, $t6, $zero
 # end proc_7F01D8C8
 
+.global proc_7F01D8D8
 proc_7F01D8D8:
 /* 052408 7F01D8D8 908E0008 */  lbu   $t6, 8($a0)
 /* 05240C 7F01D8DC 30B90007 */  andi  $t9, $a1, 7
@@ -32697,6 +33006,7 @@ proc_7F01D8D8:
 /* 052420 7F01D8F0 A0880008 */  sb    $t0, 8($a0)
 # end proc_7F01D8D8
 
+.global proc_7F01D8F4
 proc_7F01D8F4:
 /* 052424 7F01D8F4 90820008 */  lbu   $v0, 8($a0)
 /* 052428 7F01D8F8 304E0018 */  andi  $t6, $v0, 0x18
@@ -32704,6 +33014,7 @@ proc_7F01D8F4:
 /* 052430 7F01D900 000E10C3 */  sra   $v0, $t6, 3
 # end proc_7F01D8F4
 
+.global proc_7F01D904
 proc_7F01D904:
 /* 052434 7F01D904 908E0008 */  lbu   $t6, 8($a0)
 /* 052438 7F01D908 0005C8C0 */  sll   $t9, $a1, 3
@@ -32715,6 +33026,7 @@ proc_7F01D904:
 /* 052450 7F01D920 A0890008 */  sb    $t1, 8($a0)
 # end proc_7F01D904
 
+.global proc_7F01D924
 proc_7F01D924:
 /* 052454 7F01D924 90820008 */  lbu   $v0, 8($a0)
 /* 052458 7F01D928 304E0060 */  andi  $t6, $v0, 0x60
@@ -32722,6 +33034,7 @@ proc_7F01D924:
 /* 052460 7F01D930 000E1143 */  sra   $v0, $t6, 5
 # end proc_7F01D924
 
+.global proc_7F01D934
 proc_7F01D934:
 /* 052464 7F01D934 908E0008 */  lbu   $t6, 8($a0)
 /* 052468 7F01D938 0005C940 */  sll   $t9, $a1, 5
@@ -32733,6 +33046,7 @@ proc_7F01D934:
 /* 052480 7F01D950 A0890008 */  sb    $t1, 8($a0)
 # end proc_7F01D934
 
+.global proc_7F01D954
 proc_7F01D954:
 /* 052484 7F01D954 90820008 */  lbu   $v0, 8($a0)
 /* 052488 7F01D958 304E0080 */  andi  $t6, $v0, 0x80
@@ -32740,6 +33054,7 @@ proc_7F01D954:
 /* 052490 7F01D960 000E102B */  sltu  $v0, $zero, $t6
 # end proc_7F01D954
 
+.global proc_7F01D964
 proc_7F01D964:
 /* 052494 7F01D964 50A00006 */  beql  $a1, $zero, .Lproc_7F01D964_1C
 /* 052498 7F01D968 90980008 */  lbu   $t8, 8($a0)
@@ -32755,6 +33070,7 @@ proc_7F01D964:
 /* 0524BC 7F01D98C 00000000 */  nop   
 # end proc_7F01D964
 
+.global proc_7F01D990
 proc_7F01D990:
 /* 0524C0 7F01D990 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0524C4 7F01D994 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -32851,6 +33167,7 @@ proc_7F01D990:
 /* 052610 7F01DAE0 00000000 */  nop   
 # end proc_7F01D990
 
+.global proc_7F01DAE4
 proc_7F01DAE4:
 /* 052614 7F01DAE4 04A0005C */  bltz  $a1, .Lproc_7F01DAE4_174
 /* 052618 7F01DAE8 28A10014 */  slti  $at, $a1, 0x14
@@ -32956,6 +33273,7 @@ proc_7F01DAE4:
 /* 05278C 7F01DC5C 00000000 */  nop   
 # end proc_7F01DAE4
 
+.global proc_7F01DC60
 proc_7F01DC60:
 /* 052790 7F01DC60 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 052794 7F01DC64 04A0000D */  bltz  $a1, .Lproc_7F01DC60_3C
@@ -32981,6 +33299,7 @@ proc_7F01DC60:
 /* 0527DC 7F01DCAC 00000000 */  nop   
 # end proc_7F01DC60
 
+.global proc_7F01DCB0
 proc_7F01DCB0:
 /* 0527E0 7F01DCB0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0527E4 7F01DCB4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -33015,6 +33334,7 @@ proc_7F01DCB0:
 /* 05284C 7F01DD1C 00000000 */  nop   
 # end proc_7F01DCB0
 
+.global proc_7F01DD20
 proc_7F01DD20:
 /* 052850 7F01DD20 04A00011 */  bltz  $a1, .Lproc_7F01DD20_48
 /* 052854 7F01DD24 28A10014 */  slti  $at, $a1, 0x14
@@ -33040,6 +33360,7 @@ proc_7F01DD20:
 /* 0528A0 7F01DD70 00000000 */  nop   
 # end proc_7F01DD20
 
+.global proc_7F01DD74
 proc_7F01DD74:
 /* 0528A4 7F01DD74 04A00011 */  bltz  $a1, .Lproc_7F01DD74_48
 /* 0528A8 7F01DD78 00803025 */  or    $a2, $a0, $zero
@@ -33066,6 +33387,7 @@ proc_7F01DD74:
 /* 0528F0 7F01DDC0 00000000 */  nop   
 # end proc_7F01DD74
 
+.global proc_7F01DDC4
 proc_7F01DDC4:
 /* 0528F4 7F01DDC4 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0528F8 7F01DDC8 AFB1001C */  sw    $s1, 0x1c($sp)
@@ -33107,6 +33429,7 @@ proc_7F01DDC4:
 /* 05297C 7F01DE4C 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F01DDC4
 
+.global proc_7F01DE50
 proc_7F01DE50:
 /* 052980 7F01DE50 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 052984 7F01DE54 AFB1001C */  sw    $s1, 0x1c($sp)
@@ -33138,6 +33461,7 @@ proc_7F01DE50:
 /* 0529E0 7F01DEB0 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F01DE50
 
+.global proc_7F01DEB4
 proc_7F01DEB4:
 /* 0529E4 7F01DEB4 27BDFF78 */  addiu $sp, $sp, -0x88
 /* 0529E8 7F01DEB8 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -33199,6 +33523,7 @@ proc_7F01DEB4:
 /* 052ABC 7F01DF8C 00000000 */  nop   
 # end proc_7F01DEB4
 
+.global proc_7F01DF90
 proc_7F01DF90:
 /* 052AC0 7F01DF90 27BDFF48 */  addiu $sp, $sp, -0xb8
 /* 052AC4 7F01DF94 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -33411,6 +33736,7 @@ proc_7F01DF90:
 /* 052DB8 7F01E288 27BD00B8 */  addiu $sp, $sp, 0xb8
 # end proc_7F01DF90
 
+.global proc_7F01E28C
 proc_7F01E28C:
 /* 052DBC 7F01E28C 04800005 */  bltz  $a0, .Lproc_7F01E28C_18
 /* 052DC0 7F01E290 28810004 */  slti  $at, $a0, 4
@@ -33430,6 +33756,7 @@ proc_7F01E28C:
 /* 052DEC 7F01E2BC 00000000 */  nop   
 # end proc_7F01E28C
 
+.global proc_7F01E2C0
 proc_7F01E2C0:
 /* 052DF0 7F01E2C0 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 052DF4 7F01E2C4 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -33602,6 +33929,7 @@ proc_7F01E2C0:
 /* 053030 7F01E500 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F01E2C0
 
+.global proc_7F01E504
 proc_7F01E504:
 /* 053034 7F01E504 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 053038 7F01E508 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -33671,6 +33999,7 @@ proc_7F01E504:
 /* 053124 7F01E5F4 00000000 */  nop   
 # end proc_7F01E504
 
+.global proc_7F01E5F8
 proc_7F01E5F8:
 /* 053128 7F01E5F8 27BDFF68 */  addiu $sp, $sp, -0x98
 /* 05312C 7F01E5FC AFB50028 */  sw    $s5, 0x28($sp)
@@ -33774,6 +34103,7 @@ proc_7F01E5F8:
 /* 05328C 7F01E75C 27BD0098 */  addiu $sp, $sp, 0x98
 # end proc_7F01E5F8
 
+.global proc_7F01E760
 proc_7F01E760:
 /* 053290 7F01E760 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 053294 7F01E764 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -33853,6 +34183,7 @@ proc_7F01E760:
 /* 0533A0 7F01E870 00000000 */  nop   
 # end proc_7F01E760
 
+.global proc_7F01E874
 proc_7F01E874:
 /* 0533A4 7F01E874 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0533A8 7F01E878 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -33901,6 +34232,7 @@ proc_7F01E874:
 /* 053440 7F01E910 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F01E874
 
+.global proc_7F01E914
 proc_7F01E914:
 /* 053444 7F01E914 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 053448 7F01E918 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -33942,6 +34274,7 @@ proc_7F01E914:
 /* 0534C4 7F01E994 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F01E914
 
+.global proc_7F01E998
 proc_7F01E998:
 /* 0534C8 7F01E998 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0534CC 7F01E99C AFB20020 */  sw    $s2, 0x20($sp)
@@ -33970,6 +34303,7 @@ proc_7F01E998:
 /* 053520 7F01E9F0 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F01E998
 
+.global proc_7F01E9F4
 proc_7F01E9F4:
 /* 053524 7F01E9F4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 053528 7F01E9F8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -34000,6 +34334,7 @@ proc_7F01E9F4:
 /* 053588 7F01EA58 00000000 */  nop   
 # end proc_7F01E9F4
 
+.global proc_7F01EA5C
 proc_7F01EA5C:
 /* 05358C 7F01EA5C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 053590 7F01EA60 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -34023,6 +34358,7 @@ proc_7F01EA5C:
 /* 0535D4 7F01EAA4 00000000 */  nop   
 # end proc_7F01EA5C
 
+.global proc_7F01EAA8
 proc_7F01EAA8:
 /* 0535D8 7F01EAA8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0535DC 7F01EAAC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -34036,6 +34372,7 @@ proc_7F01EAA8:
 /* 0535FC 7F01EACC 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F01EAA8
 
+.global proc_7F01EAD0
 proc_7F01EAD0:
 /* 053600 7F01EAD0 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 053604 7F01EAD4 AFB10018 */  sw    $s1, 0x18($sp)
@@ -34062,6 +34399,7 @@ proc_7F01EAD0:
 /* 05364C 7F01EB1C 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F01EAD0
 
+.global proc_7F01EB20
 proc_7F01EB20:
 /* 053650 7F01EB20 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 053654 7F01EB24 AFB10018 */  sw    $s1, 0x18($sp)
@@ -34088,6 +34426,7 @@ proc_7F01EB20:
 /* 05369C 7F01EB6C 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F01EB20
 
+.global proc_7F01EB70
 proc_7F01EB70:
 /* 0536A0 7F01EB70 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0536A4 7F01EB74 AFB10018 */  sw    $s1, 0x18($sp)
@@ -34114,12 +34453,14 @@ proc_7F01EB70:
 /* 0536EC 7F01EBBC 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F01EB70
 
+.global proc_7F01EBC0
 proc_7F01EBC0:
 /* 0536F0 7F01EBC0 AFA40000 */  sw    $a0, ($sp)
 /* 0536F4 7F01EBC4 03E00008 */  jr    $ra
 /* 0536F8 7F01EBC8 00001025 */  or    $v0, $zero, $zero
 # end proc_7F01EBC0
 
+.global proc_7F01EBCC
 proc_7F01EBCC:
 /* 0536FC 7F01EBCC 04800007 */  bltz  $a0, .Lproc_7F01EBCC_20
 /* 053700 7F01EBD0 AFA50004 */  sw    $a1, 4($sp)
@@ -34134,16 +34475,19 @@ proc_7F01EBCC:
 /* 053720 7F01EBF0 00000000 */  nop   
 # end proc_7F01EBCC
 
+.global proc_7F01EBF4
 proc_7F01EBF4:
 /* 053724 7F01EBF4 03E00008 */  jr    $ra
 /* 053728 7F01EBF8 AFA40000 */  sw    $a0, ($sp)
 # end proc_7F01EBF4
 
+.global proc_7F01EBFC
 proc_7F01EBFC:
 /* 05372C 7F01EBFC 03E00008 */  jr    $ra
 /* 053730 7F01EC00 AFA40000 */  sw    $a0, ($sp)
 # end proc_7F01EBFC
 
+.global proc_7F01EC04
 proc_7F01EC04:
 /* 053734 7F01EC04 27BDFF70 */  addiu $sp, $sp, -0x90
 /* 053738 7F01EC08 AFB00014 */  sw    $s0, 0x14($sp)
@@ -34218,6 +34562,7 @@ proc_7F01EC04:
 /* 05383C 7F01ED0C 27BD0090 */  addiu $sp, $sp, 0x90
 # end proc_7F01EC04
 
+.global proc_7F01ED10
 proc_7F01ED10:
 /* 053840 7F01ED10 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 053844 7F01ED14 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -34259,6 +34604,7 @@ proc_7F01ED10:
 /* 0538CC 7F01ED9C 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F01ED10
 
+.global proc_7F01EDA0
 proc_7F01EDA0:
 /* 0538D0 7F01EDA0 27BDFF60 */  addiu $sp, $sp, -0xa0
 /* 0538D4 7F01EDA4 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -34362,6 +34708,7 @@ proc_7F01EDA0:
 /* 053A3C 7F01EF0C 27BD00A0 */  addiu $sp, $sp, 0xa0
 # end proc_7F01EDA0
 
+.global proc_7F01EF10
 proc_7F01EF10:
 /* 053A40 7F01EF10 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 053A44 7F01EF14 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -34446,6 +34793,7 @@ proc_7F01EF10:
 /* 053B5C 7F01F02C 00000000 */  nop   
 # end proc_7F01EF10
 
+.global proc_7F01F030
 proc_7F01F030:
 /* 053B60 7F01F030 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 053B64 7F01F034 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -34540,6 +34888,7 @@ proc_7F01F030:
 /* 053CB0 7F01F180 00000000 */  nop   
 # end proc_7F01F030
 
+.global proc_7F01F184
 proc_7F01F184:
 /* 053CB4 7F01F184 27BDFF20 */  addiu $sp, $sp, -0xe0
 /* 053CB8 7F01F188 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -34620,6 +34969,7 @@ proc_7F01F184:
 /* 053DC8 7F01F298 00000000 */  nop   
 # end proc_7F01F184
 
+.global proc_7F01F29C
 proc_7F01F29C:
 /* 053DCC 7F01F29C 27BDFF78 */  addiu $sp, $sp, -0x88
 /* 053DD0 7F01F2A0 AFB00014 */  sw    $s0, 0x14($sp)
@@ -34691,6 +35041,7 @@ proc_7F01F29C:
 /* 053EC0 7F01F390 27BD0088 */  addiu $sp, $sp, 0x88
 # end proc_7F01F29C
 
+.global proc_7F01F394
 proc_7F01F394:
 /* 053EC4 7F01F394 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 053EC8 7F01F398 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -34749,6 +35100,7 @@ proc_7F01F394:
 /* 053F88 7F01F458 00000000 */  nop   
 # end proc_7F01F394
 
+.global proc_7F01F45C
 proc_7F01F45C:
 /* 053F8C 7F01F45C 24010064 */  addiu $at, $zero, 0x64
 /* 053F90 7F01F460 1481000D */  bne   $a0, $at, .Lproc_7F01F45C_3C
@@ -34771,6 +35123,7 @@ proc_7F01F45C:
 /* 053FCC 7F01F49C 00000000 */  nop   
 # end proc_7F01F45C
 
+.global proc_7F01F4A0
 proc_7F01F4A0:
 /* 053FD0 7F01F4A0 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 053FD4 7F01F4A4 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -34815,12 +35168,14 @@ proc_7F01F4A0:
 /* 05405C 7F01F52C 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F01F4A0
 
+.global proc_7F01F530
 proc_7F01F530:
 /* 054060 7F01F530 3C028003 */  lui   $v0, 0x8003
 /* 054064 7F01F534 03E00008 */  jr    $ra
 /* 054068 7F01F538 8C42CC68 */  lw    $v0, -0x3398($v0)
 # end proc_7F01F530
 
+.global proc_7F01F53C
 proc_7F01F53C:
 /* 05406C 7F01F53C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 054070 7F01F540 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -34832,18 +35187,21 @@ proc_7F01F53C:
 /* 054088 7F01F558 00000000 */  nop   
 # end proc_7F01F53C
 
+.global proc_7F01F55C
 proc_7F01F55C:
 /* 05408C 7F01F55C 3C018003 */  lui   $at, 0x8003
 /* 054090 7F01F560 03E00008 */  jr    $ra
 /* 054094 7F01F564 AC24CC5C */  sw    $a0, %lo(0x8002CC5C)($at) # $a0, -0x33a4($at)
 # end proc_7F01F55C
 
+.global proc_7F01F568
 proc_7F01F568:
 /* 054098 7F01F568 3C028003 */  lui   $v0, 0x8003
 /* 05409C 7F01F56C 03E00008 */  jr    $ra
 /* 0540A0 7F01F570 8C42CC5C */  lw    $v0, -0x33a4($v0)
 # end proc_7F01F568
 
+.global proc_7F01F574
 proc_7F01F574:
 /* 0540A4 7F01F574 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0540A8 7F01F578 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -34879,6 +35237,7 @@ proc_7F01F574:
 /* 054114 7F01F5E4 00000000 */  nop   
 # end proc_7F01F574
 
+.global proc_7F01F5E8
 proc_7F01F5E8:
 /* 054118 7F01F5E8 50A00006 */  beql  $a1, $zero, .Lproc_7F01F5E8_1C
 /* 05411C 7F01F5EC 94980012 */  lhu   $t8, 0x12($a0)
@@ -34894,6 +35253,7 @@ proc_7F01F5E8:
 /* 054140 7F01F610 00000000 */  nop   
 # end proc_7F01F5E8
 
+.global proc_7F01F614
 proc_7F01F614:
 /* 054144 7F01F614 27BDFF68 */  addiu $sp, $sp, -0x98
 /* 054148 7F01F618 AFB10030 */  sw    $s1, 0x30($sp)
@@ -35291,6 +35651,7 @@ proc_7F01F614:
 /* 05473C 7F01FC0C 27BD0098 */  addiu $sp, $sp, 0x98
 # end proc_7F01F614
 
+.global proc_7F01FC10
 proc_7F01FC10:
 /* 054740 7F01FC10 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 054744 7F01FC14 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -35542,6 +35903,7 @@ proc_7F01FC10:
 /* 054AEC 7F01FFBC 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F01FC10
 
+.global proc_7F01FFC0
 proc_7F01FFC0:
 /* 054AF0 7F01FFC0 3C048003 */  lui   $a0, 0x8003
 /* 054AF4 7F01FFC4 8C84CC68 */  lw    $a0, -0x3398($a0)
@@ -35570,6 +35932,7 @@ proc_7F01FFC0:
 /* 054B44 7F020014 00601025 */  or    $v0, $v1, $zero
 # end proc_7F01FFC0
 
+.global proc_7F020018
 proc_7F020018:
 /* 054B48 7F020018 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 054B4C 7F02001C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -35586,11 +35949,13 @@ proc_7F020018:
 /* 054B78 7F020048 00000000 */  nop   
 # end proc_7F020018
 
+.global proc_7F02004C
 proc_7F02004C:
 /* 054B7C 7F02004C 03E00008 */  jr    $ra
 /* 054B80 7F020050 C4800100 */  lwc1  $f0, 0x100($a0)
 # end proc_7F02004C
 
+.global proc_7F020054
 proc_7F020054:
 /* 054B84 7F020054 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 054B88 7F020058 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -35609,6 +35974,7 @@ proc_7F020054:
 /* 054BBC 7F02008C 00000000 */  nop   
 # end proc_7F020054
 
+.global proc_7F020090
 proc_7F020090:
 /* 054BC0 7F020090 44806000 */  mtc1  $zero, $f12
 /* 054BC4 7F020094 C48200FC */  lwc1  $f2, 0xfc($a0)
@@ -35624,6 +35990,7 @@ proc_7F020090:
 /* 054BE8 7F0200B8 00000000 */  nop   
 # end proc_7F020090
 
+.global proc_7F0200BC
 proc_7F0200BC:
 /* 054BEC 7F0200BC 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 054BF0 7F0200C0 F7B40010 */  sdc1  $f20, 0x10($sp)
@@ -35821,6 +36188,7 @@ proc_7F0200BC:
 /* 054EE4 7F0203B4 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F0200BC
 
+.global proc_7F0203B8
 proc_7F0203B8:
 /* 054EE8 7F0203B8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 054EEC 7F0203BC AFBF001C */  sw    $ra, 0x1c($sp)
@@ -35848,6 +36216,7 @@ proc_7F0203B8:
 /* 054F40 7F020410 00000000 */  nop   
 # end proc_7F0203B8
 
+.global proc_7F020414
 proc_7F020414:
 /* 054F44 7F020414 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 054F48 7F020418 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -35933,6 +36302,7 @@ proc_7F020414:
 /* 05506C 7F02053C 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F020414
 
+.global proc_7F020540
 proc_7F020540:
 /* 055070 7F020540 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 055074 7F020544 AFB30028 */  sw    $s3, 0x28($sp)
@@ -35980,12 +36350,14 @@ proc_7F020540:
 /* 055110 7F0205E0 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F020540
 
+.global proc_7F0205E4
 proc_7F0205E4:
 /* 055114 7F0205E4 3C018003 */  lui   $at, 0x8003
 /* 055118 7F0205E8 03E00008 */  jr    $ra
 /* 05511C 7F0205EC C420C900 */  lwc1  $f0, -0x3700($at)
 # end proc_7F0205E4
 
+.global proc_7F0205F0
 proc_7F0205F0:
 /* 055120 7F0205F0 8082000E */  lb    $v0, 0xe($a0)
 /* 055124 7F0205F4 28410002 */  slti  $at, $v0, 2
@@ -36048,6 +36420,7 @@ proc_7F0205F0:
 /* 055200 7F0206D0 00000000 */  nop   
 # end proc_7F0205F0
 
+.global proc_7F0206D4
 proc_7F0206D4:
 /* 055204 7F0206D4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 055208 7F0206D8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -36104,6 +36477,7 @@ proc_7F0206D4:
 /* 0552C0 7F020790 00000000 */  nop   
 # end proc_7F0206D4
 
+.global proc_7F020794
 proc_7F020794:
 /* 0552C4 7F020794 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0552C8 7F020798 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -36151,6 +36525,7 @@ proc_7F020794:
 /* 055368 7F020838 00000000 */  nop   
 # end proc_7F020794
 
+.global proc_7F02083C
 proc_7F02083C:
 /* 05536C 7F02083C 27BDFF68 */  addiu $sp, $sp, -0x98
 /* 055370 7F020840 3C013F80 */  lui   $at, 0x3f80
@@ -36529,6 +36904,7 @@ proc_7F02083C:
 /* 0558C0 7F020D90 00000000 */  nop   
 # end proc_7F02083C
 
+.global proc_7F020D94
 proc_7F020D94:
 /* 0558C4 7F020D94 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0558C8 7F020D98 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -36575,6 +36951,7 @@ proc_7F020D94:
 /* 05596C 7F020E3C 00000000 */  nop   
 # end proc_7F020D94
 
+.global proc_7F020E40
 proc_7F020E40:
 /* 055970 7F020E40 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 055974 7F020E44 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -36624,6 +37001,7 @@ proc_7F020E40:
 /* 055A1C 7F020EEC 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F020E40
 
+.global proc_7F020EF0
 proc_7F020EF0:
 /* 055A20 7F020EF0 27BDFEA8 */  addiu $sp, $sp, -0x158
 /* 055A24 7F020EF4 3C0F8003 */  lui   $t7, 0x8003
@@ -37472,6 +37850,7 @@ proc_7F020EF0:
 /* 05664C 7F021B1C 00000000 */  nop   
 # end proc_7F020EF0
 
+.global proc_7F021B20
 proc_7F021B20:
 /* 056650 7F021B20 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 056654 7F021B24 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -37515,6 +37894,7 @@ proc_7F021B20:
 /* 0566E0 7F021BB0 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F021B20
 
+.global proc_7F021BB4
 proc_7F021BB4:
 /* 0566E4 7F021BB4 908E0000 */  lbu   $t6, ($a0)
 /* 0566E8 7F021BB8 3C028003 */  lui   $v0, 0x8003
@@ -37527,6 +37907,7 @@ proc_7F021BB4:
 /* 056704 7F021BD4 A0580002 */  sb    $t8, %lo(0x80030002)($v0) # $t8, 2($v0)
 # end proc_7F021BB4
 
+.global proc_7F021BD8
 proc_7F021BD8:
 /* 056708 7F021BD8 3C028003 */  lui   $v0, 0x8003
 /* 05670C 7F021BDC 2442CCB8 */  addiu $v0, $v0, -0x3348
@@ -37539,6 +37920,7 @@ proc_7F021BD8:
 /* 056728 7F021BF8 A0980002 */  sb    $t8, 2($a0)
 # end proc_7F021BD8
 
+.global proc_7F021BFC
 proc_7F021BFC:
 /* 05672C 7F021BFC 27BDFF28 */  addiu $sp, $sp, -0xd8
 /* 056730 7F021C00 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -37854,6 +38236,7 @@ proc_7F021BFC:
 /* 056BA4 7F022074 00000000 */  nop   
 # end proc_7F021BFC
 
+.global proc_7F022078
 proc_7F022078:
 /* 056BA8 7F022078 3C0B8003 */  lui   $t3, 0x8003
 /* 056BAC 7F02207C 256BC914 */  addiu $t3, $t3, -0x36ec
@@ -37952,6 +38335,7 @@ proc_7F022078:
 /* 056D08 7F0221D8 00000000 */  nop   
 # end proc_7F022078
 
+.global proc_7F0221DC
 proc_7F0221DC:
 /* 056D0C 7F0221DC 27BDFF50 */  addiu $sp, $sp, -0xb0
 /* 056D10 7F0221E0 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -38265,6 +38649,7 @@ proc_7F0221DC:
 /* 057174 7F022644 27BD00B0 */  addiu $sp, $sp, 0xb0
 # end proc_7F0221DC
 
+.global proc_7F022648
 proc_7F022648:
 /* 057178 7F022648 27BDFF10 */  addiu $sp, $sp, -0xf0
 /* 05717C 7F02264C AFBF0044 */  sw    $ra, 0x44($sp)
@@ -38482,6 +38867,7 @@ proc_7F022648:
 /* 0574AC 7F02297C 27BD00F0 */  addiu $sp, $sp, 0xf0
 # end proc_7F022648
 
+.global proc_7F022980
 proc_7F022980:
 /* 0574B0 7F022980 27BDFF08 */  addiu $sp, $sp, -0xf8
 /* 0574B4 7F022984 AFBF004C */  sw    $ra, 0x4c($sp)
@@ -38793,17 +39179,20 @@ proc_7F022980:
 /* 057948 7F022E18 27BD00F8 */  addiu $sp, $sp, 0xf8
 # end proc_7F022980
 
+.global proc_7F022E1C
 proc_7F022E1C:
 /* 05794C 7F022E1C 03E00008 */  jr    $ra
 /* 057950 7F022E20 E7AC0000 */  swc1  $f12, ($sp)
 # end proc_7F022E1C
 
+.global proc_7F022E24
 proc_7F022E24:
 /* 057954 7F022E24 3C018003 */  lui   $at, 0x8003
 /* 057958 7F022E28 03E00008 */  jr    $ra
 /* 05795C 7F022E2C AC24C904 */  sw    $a0, %lo(0x8002C904)($at) # $a0, -0x36fc($at)
 # end proc_7F022E24
 
+.global proc_7F022E30
 proc_7F022E30:
 /* 057960 7F022E30 3C038003 */  lui   $v1, 0x8003
 /* 057964 7F022E34 2463C908 */  addiu $v1, $v1, -0x36f8
@@ -38833,6 +39222,7 @@ proc_7F022E30:
 /* 0579BC 7F022E8C 00000000 */  nop   
 # end proc_7F022E30
 
+.global proc_7F022E90
 proc_7F022E90:
 /* 0579C0 7F022E90 3C028003 */  lui   $v0, 0x8003
 /* 0579C4 7F022E94 2442C908 */  addiu $v0, $v0, -0x36f8
@@ -38851,6 +39241,7 @@ proc_7F022E90:
 /* 0579F4 7F022EC4 00000000 */  nop   
 # end proc_7F022E90
 
+.global proc_7F022EC8
 proc_7F022EC8:
 /* 0579F8 7F022EC8 3C038003 */  lui   $v1, 0x8003
 /* 0579FC 7F022ECC 2463C90C */  addiu $v1, $v1, -0x36f4
@@ -38860,12 +39251,14 @@ proc_7F022EC8:
 /* 057A0C 7F022EDC AC6E0000 */  sw    $t6, ($v1)
 # end proc_7F022EC8
 
+.global proc_7F022EE0
 proc_7F022EE0:
 /* 057A10 7F022EE0 3C018003 */  lui   $at, 0x8003
 /* 057A14 7F022EE4 03E00008 */  jr    $ra
 /* 057A18 7F022EE8 AC24C910 */  sw    $a0, %lo(0x8002C910)($at) # $a0, -0x36f0($at)
 # end proc_7F022EE0
 
+.global proc_7F022EEC
 proc_7F022EEC:
 /* 057A1C 7F022EEC 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 057A20 7F022EF0 AFB40038 */  sw    $s4, 0x38($sp)
@@ -38927,6 +39320,7 @@ proc_7F022EEC:
 /* 057AF4 7F022FC4 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F022EEC
 
+.global proc_7F022FC8
 proc_7F022FC8:
 /* 057AF8 7F022FC8 3C038003 */  lui   $v1, 0x8003
 /* 057AFC 7F022FCC 8C63CC68 */  lw    $v1, -0x3398($v1)
@@ -38958,6 +39352,7 @@ proc_7F022FC8:
 /* 057B58 7F023028 00000000 */  nop   
 # end proc_7F022FC8
 
+.global proc_7F02302C
 proc_7F02302C:
 /* 057B5C 7F02302C 00057080 */  sll   $t6, $a1, 2
 /* 057B60 7F023030 008E7821 */  addu  $t7, $a0, $t6
@@ -38965,6 +39360,7 @@ proc_7F02302C:
 /* 057B68 7F023038 8DE20160 */  lw    $v0, 0x160($t7)
 # end proc_7F02302C
 
+.global proc_7F02303C
 proc_7F02303C:
 /* 057B6C 7F02303C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 057B70 7F023040 00057080 */  sll   $t6, $a1, 2
@@ -38990,6 +39386,7 @@ proc_7F02303C:
 /* 057BB8 7F023088 00000000 */  nop   
 # end proc_7F02303C
 
+.global proc_7F02308C
 proc_7F02308C:
 /* 057BBC 7F02308C 8C820004 */  lw    $v0, 4($a0)
 /* 057BC0 7F023090 24080004 */  addiu $t0, $zero, 4
@@ -39047,6 +39444,7 @@ proc_7F02308C:
 /* 057C8C 7F02315C 00000000 */  nop   
 # end proc_7F02308C
 
+.global proc_7F023160
 proc_7F023160:
 /* 057C90 7F023160 8C820004 */  lw    $v0, 4($a0)
 /* 057C94 7F023164 3C0141A0 */  lui   $at, 0x41a0
@@ -39060,12 +39458,14 @@ proc_7F023160:
 /* 057CB4 7F023184 E4E00000 */  swc1  $f0, ($a3)
 # end proc_7F023160
 
+.global proc_7F023188
 proc_7F023188:
 /* 057CB8 7F023188 8C820004 */  lw    $v0, 4($a0)
 /* 057CBC 7F02318C 03E00008 */  jr    $ra
 /* 057CC0 7F023190 C44000AC */  lwc1  $f0, 0xac($v0)
 # end proc_7F023188
 
+.global proc_7F023194
 proc_7F023194:
 /* 057CC4 7F023194 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 057CC8 7F023198 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -39134,6 +39534,7 @@ proc_7F023194:
 /* 057DBC 7F02328C 00000000 */  nop   
 # end proc_7F023194
 
+.global proc_7F023290
 proc_7F023290:
 /* 057DC0 7F023290 00047080 */  sll   $t6, $a0, 2
 /* 057DC4 7F023294 01C47021 */  addu  $t6, $t6, $a0
@@ -39160,6 +39561,7 @@ proc_7F023290:
 /* 057E14 7F0232E4 00000000 */  nop   
 # end proc_7F023290
 
+.global proc_7F0232E8
 proc_7F0232E8:
 /* 057E18 7F0232E8 00047880 */  sll   $t7, $a0, 2
 /* 057E1C 7F0232EC 01E47821 */  addu  $t7, $t7, $a0
@@ -39283,6 +39685,7 @@ proc_7F0232E8:
 /* 057FD4 7F0234A4 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F0232E8
 
+.global proc_7F0234A8
 proc_7F0234A8:
 /* 057FD8 7F0234A8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 057FDC 7F0234AC 8FAE0030 */  lw    $t6, 0x30($sp)
@@ -39296,6 +39699,7 @@ proc_7F0234A8:
 /* 057FFC 7F0234CC 00000000 */  nop   
 # end proc_7F0234A8
 
+.global proc_7F0234D0
 proc_7F0234D0:
 /* 058000 7F0234D0 00047080 */  sll   $t6, $a0, 2
 /* 058004 7F0234D4 01C47021 */  addu  $t6, $t6, $a0
@@ -39351,6 +39755,7 @@ proc_7F0234D0:
 /* 0580BC 7F02358C 00000000 */  nop   
 # end proc_7F0234D0
 
+.global proc_7F023590
 proc_7F023590:
 /* 0580C0 7F023590 3C0E8003 */  lui   $t6, 0x8003
 /* 0580C4 7F023594 8DCECE34 */  lw    $t6, -0x31cc($t6)
@@ -39361,6 +39766,7 @@ proc_7F023590:
 /* 0580D8 7F0235A8 8C42CD0C */  lw    $v0, -0x32f4($v0)
 # end proc_7F023590
 
+.global proc_7F0235AC
 proc_7F0235AC:
 /* 0580DC 7F0235AC 00047080 */  sll   $t6, $a0, 2
 /* 0580E0 7F0235B0 01C47021 */  addu  $t6, $t6, $a0
@@ -39413,6 +39819,7 @@ proc_7F0235AC:
 /* 05818C 7F02365C 00000000 */  nop   
 # end proc_7F0235AC
 
+.global proc_7F023660
 proc_7F023660:
 /* 058190 7F023660 00047080 */  sll   $t6, $a0, 2
 /* 058194 7F023664 01C47021 */  addu  $t6, $t6, $a0
@@ -39463,6 +39870,7 @@ proc_7F023660:
 /* 058238 7F023708 00000000 */  nop   
 # end proc_7F023660
 
+.global proc_7F02370C
 proc_7F02370C:
 /* 05823C 7F02370C 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 058240 7F023710 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -39603,6 +40011,7 @@ proc_7F02370C:
 /* 05843C 7F02390C 00000000 */  nop   
 # end proc_7F02370C
 
+.global proc_7F023910
 proc_7F023910:
 /* 058440 7F023910 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 058444 7F023914 10800007 */  beqz  $a0, .Lproc_7F023910_24
@@ -39622,6 +40031,7 @@ proc_7F023910:
 /* 058474 7F023944 00000000 */  nop   
 # end proc_7F023910
 
+.global proc_7F023948
 proc_7F023948:
 /* 058478 7F023948 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 05847C 7F02394C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -39714,6 +40124,7 @@ proc_7F023948:
 /* 0585C0 7F023A90 00000000 */  nop   
 # end proc_7F023948
 
+.global proc_7F023A94
 proc_7F023A94:
 /* 0585C4 7F023A94 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0585C8 7F023A98 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -39769,6 +40180,7 @@ proc_7F023A94:
 /* 058688 7F023B58 00000000 */  nop   
 # end proc_7F023A94
 
+.global proc_7F023B5C
 proc_7F023B5C:
 /* 05868C 7F023B5C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 058690 7F023B60 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -39797,6 +40209,7 @@ proc_7F023B5C:
 /* 0586EC 7F023BBC 460E2000 */  add.s $f0, $f4, $f14
 # end proc_7F023B5C
 
+.global proc_7F023BC0
 proc_7F023BC0:
 /* 0586F0 7F023BC0 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0586F4 7F023BC4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -39839,6 +40252,7 @@ proc_7F023BC0:
 /* 058780 7F023C50 00000000 */  nop   
 # end proc_7F023BC0
 
+.global proc_7F023C54
 proc_7F023C54:
 /* 058784 7F023C54 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 058788 7F023C58 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -39867,6 +40281,7 @@ proc_7F023C54:
 /* 0587E4 7F023CB4 460E2000 */  add.s $f0, $f4, $f14
 # end proc_7F023C54
 
+.global proc_7F023CB8
 proc_7F023CB8:
 /* 0587E8 7F023CB8 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0587EC 7F023CBC AFBF0024 */  sw    $ra, 0x24($sp)
@@ -39960,6 +40375,7 @@ proc_7F023CB8:
 /* 058940 7F023E10 00000000 */  nop   
 # end proc_7F023CB8
 
+.global proc_7F023E14
 proc_7F023E14:
 /* 058944 7F023E14 44856000 */  mtc1  $a1, $f12
 /* 058948 7F023E18 27BDFFE8 */  addiu $sp, $sp, -0x18
@@ -39976,6 +40392,7 @@ proc_7F023E14:
 /* 058974 7F023E44 00000000 */  nop   
 # end proc_7F023E14
 
+.global proc_7F023E48
 proc_7F023E48:
 /* 058978 7F023E48 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 05897C 7F023E4C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -39990,6 +40407,7 @@ proc_7F023E48:
 /* 0589A0 7F023E70 00000000 */  nop   
 # end proc_7F023E48
 
+.global proc_7F023E74
 proc_7F023E74:
 /* 0589A4 7F023E74 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0589A8 7F023E78 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -40092,6 +40510,7 @@ proc_7F023E74:
 /* 058B10 7F023FE0 00000000 */  nop   
 # end proc_7F023E74
 
+.global proc_7F023FE4
 proc_7F023FE4:
 /* 058B14 7F023FE4 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 058B18 7F023FE8 AFB10020 */  sw    $s1, 0x20($sp)
@@ -40191,6 +40610,7 @@ proc_7F023FE4:
 /* 058C7C 7F02414C 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F023FE4
 
+.global proc_7F024150
 proc_7F024150:
 /* 058C80 7F024150 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 058C84 7F024154 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -40257,6 +40677,7 @@ proc_7F024150:
 /* 058D64 7F024234 00000000 */  nop   
 # end proc_7F024150
 
+.global proc_7F024238
 proc_7F024238:
 /* 058D68 7F024238 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 058D6C 7F02423C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -40325,6 +40746,7 @@ proc_7F024238:
 /* 058E60 7F024330 00000000 */  nop   
 # end proc_7F024238
 
+.global proc_7F024334
 proc_7F024334:
 /* 058E64 7F024334 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 058E68 7F024338 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -40390,6 +40812,7 @@ proc_7F024334:
 /* 058F44 7F024414 00000000 */  nop   
 # end proc_7F024334
 
+.global proc_7F024418
 proc_7F024418:
 /* 058F48 7F024418 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 058F4C 7F02441C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -40434,6 +40857,7 @@ proc_7F024418:
 /* 058FD8 7F0244A8 00000000 */  nop   
 # end proc_7F024418
 
+.global proc_7F0244AC
 proc_7F0244AC:
 /* 058FDC 7F0244AC 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 058FE0 7F0244B0 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -40476,6 +40900,7 @@ proc_7F0244AC:
 /* 059074 7F024544 00000000 */  nop   
 # end proc_7F0244AC
 
+.global proc_7F024548
 proc_7F024548:
 /* 059078 7F024548 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 05907C 7F02454C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -40546,6 +40971,7 @@ proc_7F024548:
 /* 059174 7F024644 00000000 */  nop   
 # end proc_7F024548
 
+.global proc_7F024648
 proc_7F024648:
 /* 059178 7F024648 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 05917C 7F02464C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -40647,6 +41073,7 @@ proc_7F024648:
 /* 0592E4 7F0247B4 00000000 */  nop   
 # end proc_7F024648
 
+.global proc_7F0247B8
 proc_7F0247B8:
 /* 0592E8 7F0247B8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0592EC 7F0247BC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -40669,6 +41096,7 @@ proc_7F0247B8:
 /* 05932C 7F0247FC 00000000 */  nop   
 # end proc_7F0247B8
 
+.global proc_7F024800
 proc_7F024800:
 /* 059330 7F024800 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 059334 7F024804 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -40843,6 +41271,7 @@ proc_7F024800:
 /* 0595B0 7F024A80 00000000 */  nop   
 # end proc_7F024800
 
+.global proc_7F024A84
 proc_7F024A84:
 /* 0595B4 7F024A84 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0595B8 7F024A88 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -41014,6 +41443,7 @@ proc_7F024A84:
 /* 059824 7F024CF4 00000000 */  nop   
 # end proc_7F024A84
 
+.global proc_7F024CF8
 proc_7F024CF8:
 /* 059828 7F024CF8 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 05982C 7F024CFC AFBF0024 */  sw    $ra, 0x24($sp)
@@ -41156,6 +41586,7 @@ proc_7F024CF8:
 /* 059A2C 7F024EFC 00000000 */  nop   
 # end proc_7F024CF8
 
+.global proc_7F024F00
 proc_7F024F00:
 /* 059A30 7F024F00 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 059A34 7F024F04 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -41194,6 +41625,7 @@ proc_7F024F00:
 /* 059AB8 7F024F88 00000000 */  nop   
 # end proc_7F024F00
 
+.global proc_7F024F8C
 proc_7F024F8C:
 /* 059ABC 7F024F8C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 059AC0 7F024F90 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -41280,6 +41712,7 @@ proc_7F024F8C:
 /* 059BE8 7F0250B8 00000000 */  nop   
 # end proc_7F024F8C
 
+.global proc_7F0250BC
 proc_7F0250BC:
 /* 059BEC 7F0250BC 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 059BF0 7F0250C0 30AE0002 */  andi  $t6, $a1, 2
@@ -41332,6 +41765,7 @@ proc_7F0250BC:
 /* 059C98 7F025168 00000000 */  nop   
 # end proc_7F0250BC
 
+.global proc_7F02516C
 proc_7F02516C:
 /* 059C9C 7F02516C 27BDFF70 */  addiu $sp, $sp, -0x90
 /* 059CA0 7F025170 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -41608,6 +42042,7 @@ proc_7F02516C:
 /* 05A08C 7F02555C 27BD0090 */  addiu $sp, $sp, 0x90
 # end proc_7F02516C
 
+.global proc_7F025560
 proc_7F025560:
 /* 05A090 7F025560 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 05A094 7F025564 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -41718,6 +42153,7 @@ proc_7F025560:
 /* 05A21C 7F0256EC 00000000 */  nop   
 # end proc_7F025560
 
+.global proc_7F0256F0
 proc_7F0256F0:
 /* 05A220 7F0256F0 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 05A224 7F0256F4 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -41827,6 +42263,7 @@ proc_7F0256F0:
 /* 05A3A8 7F025878 00000000 */  nop   
 # end proc_7F0256F0
 
+.global proc_7F02587C
 proc_7F02587C:
 /* 05A3AC 7F02587C 27BDFF78 */  addiu $sp, $sp, -0x88
 /* 05A3B0 7F025880 AFB20024 */  sw    $s2, 0x24($sp)
@@ -42098,6 +42535,7 @@ proc_7F02587C:
 /* 05A76C 7F025C3C 27BD0088 */  addiu $sp, $sp, 0x88
 # end proc_7F02587C
 
+.global proc_7F025C40
 proc_7F025C40:
 /* 05A770 7F025C40 27BDFF70 */  addiu $sp, $sp, -0x90
 /* 05A774 7F025C44 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -42446,6 +42884,7 @@ proc_7F025C40:
 /* 05AC5C 7F02612C 27BD0090 */  addiu $sp, $sp, 0x90
 # end proc_7F025C40
 
+.global proc_7F026130
 proc_7F026130:
 /* 05AC60 7F026130 C48C0000 */  lwc1  $f12, ($a0)
 /* 05AC64 7F026134 C4A40000 */  lwc1  $f4, ($a1)
@@ -42523,6 +42962,7 @@ proc_7F026130:
 /* 05AD78 7F026248 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F026130
 
+.global proc_7F02624C
 proc_7F02624C:
 /* 05AD7C 7F02624C 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 05AD80 7F026250 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -42545,6 +42985,7 @@ proc_7F02624C:
 /* 05ADC4 7F026294 00000000 */  nop   
 # end proc_7F02624C
 
+.global proc_7F026298
 proc_7F026298:
 /* 05ADC8 7F026298 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 05ADCC 7F02629C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -42599,6 +43040,7 @@ proc_7F026298:
 /* 05AE90 7F026360 00000000 */  nop   
 # end proc_7F026298
 
+.global proc_7F026364
 proc_7F026364:
 /* 05AE94 7F026364 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 05AE98 7F026368 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -42687,6 +43129,7 @@ proc_7F026364:
 /* 05AFDC 7F0264AC 46001006 */  mov.s $f0, $f2
 # end proc_7F026364
 
+.global proc_7F0264B0
 proc_7F0264B0:
 /* 05AFE0 7F0264B0 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 05AFE4 7F0264B4 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -42712,6 +43155,7 @@ proc_7F0264B0:
 /* 05B034 7F026504 00000000 */  nop   
 # end proc_7F0264B0
 
+.global proc_7F026508
 proc_7F026508:
 /* 05B038 7F026508 27BDFF60 */  addiu $sp, $sp, -0xa0
 /* 05B03C 7F02650C 240E0001 */  addiu $t6, $zero, 1
@@ -43401,6 +43845,7 @@ proc_7F026508:
 /* 05BA5C 7F026F2C 00000000 */  nop   
 # end proc_7F026508
 
+.global proc_7F026F30
 proc_7F026F30:
 /* 05BA60 7F026F30 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 05BA64 7F026F34 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -43486,6 +43931,7 @@ proc_7F026F30:
 /* 05BB8C 7F02705C 00000000 */  nop   
 # end proc_7F026F30
 
+.global proc_7F027060
 proc_7F027060:
 /* 05BB90 7F027060 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 05BB94 7F027064 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -43632,6 +44078,7 @@ proc_7F027060:
 /* 05BDA8 7F027278 00000000 */  nop   
 # end proc_7F027060
 
+.global proc_7F02727C
 proc_7F02727C:
 /* 05BDAC 7F02727C 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 05BDB0 7F027280 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -44024,6 +44471,7 @@ proc_7F02727C:
 /* 05C330 7F027800 00000000 */  nop   
 # end proc_7F02727C
 
+.global proc_7F027804
 proc_7F027804:
 /* 05C334 7F027804 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 05C338 7F027808 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -44293,6 +44741,7 @@ proc_7F027804:
 /* 05C720 7F027BF0 00000000 */  nop   
 # end proc_7F027804
 
+.global proc_7F027BF4
 proc_7F027BF4:
 /* 05C724 7F027BF4 3C028007 */  lui   $v0, 0x8007
 /* 05C728 7F027BF8 8C425D00 */  lw    $v0, 0x5d00($v0)
@@ -44327,6 +44776,7 @@ proc_7F027BF4:
 /* 05C78C 7F027C5C 00000000 */  nop   
 # end proc_7F027BF4
 
+.global proc_7F027C60
 proc_7F027C60:
 /* 05C790 7F027C60 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 05C794 7F027C64 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -44339,6 +44789,7 @@ proc_7F027C60:
 /* 05C7B0 7F027C80 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F027C60
 
+.global proc_7F027C84
 proc_7F027C84:
 /* 05C7B4 7F027C84 8CAE0000 */  lw    $t6, ($a1)
 /* 05C7B8 7F027C88 3C188007 */  lui   $t8, 0x8007
@@ -44362,6 +44813,7 @@ proc_7F027C84:
 /* 05C800 7F027CD0 46128000 */  add.s $f0, $f16, $f18
 # end proc_7F027C84
 
+.global proc_7F027CD4
 proc_7F027CD4:
 /* 05C804 7F027CD4 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 05C808 7F027CD8 AFB40030 */  sw    $s4, 0x30($sp)
@@ -44424,6 +44876,7 @@ proc_7F027CD4:
 /* 05C8DC 7F027DAC 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F027CD4
 
+.global proc_7F027DB0
 proc_7F027DB0:
 /* 05C8E0 7F027DB0 27BDFF68 */  addiu $sp, $sp, -0x98
 /* 05C8E4 7F027DB4 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -44480,6 +44933,7 @@ proc_7F027DB0:
 /* 05C99C 7F027E6C 27BD0098 */  addiu $sp, $sp, 0x98
 # end proc_7F027DB0
 
+.global proc_7F027E70
 proc_7F027E70:
 /* 05C9A0 7F027E70 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 05C9A4 7F027E74 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -44491,6 +44945,7 @@ proc_7F027E70:
 /* 05C9BC 7F027E8C 00000000 */  nop   
 # end proc_7F027E70
 
+.global proc_7F027E90
 proc_7F027E90:
 /* 05C9C0 7F027E90 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 05C9C4 7F027E94 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -44530,6 +44985,7 @@ proc_7F027E90:
 /* 05CA4C 7F027F1C 00000000 */  nop   
 # end proc_7F027E90
 
+.global proc_7F027F20
 proc_7F027F20:
 /* 05CA50 7F027F20 908E0058 */  lbu   $t6, 0x58($a0)
 /* 05CA54 7F027F24 000E7880 */  sll   $t7, $t6, 2
@@ -44568,6 +45024,7 @@ proc_7F027F20:
 /* 05CAD4 7F027FA4 00000000 */  nop   
 # end proc_7F027F20
 
+.global proc_7F027FA8
 proc_7F027FA8:
 /* 05CAD8 7F027FA8 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 05CADC 7F027FAC AFB10020 */  sw    $s1, 0x20($sp)
@@ -44682,6 +45139,7 @@ proc_7F027FA8:
 /* 05CC70 7F028140 00000000 */  nop   
 # end proc_7F027FA8
 
+.global proc_7F028144
 proc_7F028144:
 /* 05CC74 7F028144 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 05CC78 7F028148 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -44731,11 +45189,13 @@ proc_7F028144:
 /* 05CD20 7F0281F0 00000000 */  nop   
 # end proc_7F028144
 
+.global proc_7F0281F4
 proc_7F0281F4:
 /* 05CD24 7F0281F4 03E00008 */  jr    $ra
 /* 05CD28 7F0281F8 A480005A */  sh    $zero, 0x5a($a0)
 # end proc_7F0281F4
 
+.global proc_7F0281FC
 proc_7F0281FC:
 /* 05CD2C 7F0281FC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 05CD30 7F028200 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -44780,6 +45240,7 @@ proc_7F0281FC:
 /* 05CDB8 7F028288 00000000 */  nop   
 # end proc_7F0281FC
 
+.global proc_7F02828C
 proc_7F02828C:
 /* 05CDBC 7F02828C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 05CDC0 7F028290 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -44804,6 +45265,7 @@ proc_7F02828C:
 /* 05CE0C 7F0282DC 00000000 */  nop   
 # end proc_7F02828C
 
+.global proc_7F0282E0
 proc_7F0282E0:
 /* 05CE10 7F0282E0 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 05CE14 7F0282E4 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -44835,6 +45297,7 @@ proc_7F0282E0:
 /* 05CE74 7F028344 00000000 */  nop   
 # end proc_7F0282E0
 
+.global proc_7F028348
 proc_7F028348:
 /* 05CE78 7F028348 8C830030 */  lw    $v1, 0x30($a0)
 /* 05CE7C 7F02834C 04C10004 */  bgez  $a2, .Lproc_7F028348_18
@@ -44889,6 +45352,7 @@ proc_7F028348:
 /* 05CF28 7F0283F8 00601025 */  or    $v0, $v1, $zero
 # end proc_7F028348
 
+.global proc_7F0283FC
 proc_7F0283FC:
 /* 05CF2C 7F0283FC 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 05CF30 7F028400 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -44922,6 +45386,7 @@ proc_7F0283FC:
 /* 05CFA0 7F028470 018D1021 */  addu  $v0, $t4, $t5
 # end proc_7F0283FC
 
+.global proc_7F028474
 proc_7F028474:
 /* 05CFA4 7F028474 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 05CFA8 7F028478 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -44933,6 +45398,7 @@ proc_7F028474:
 /* 05CFC0 7F028490 00000000 */  nop   
 # end proc_7F028474
 
+.global proc_7F028494
 proc_7F028494:
 /* 05CFC4 7F028494 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 05CFC8 7F028498 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -44954,6 +45420,7 @@ proc_7F028494:
 /* 05D008 7F0284D8 00000000 */  nop   
 # end proc_7F028494
 
+.global proc_7F0284DC
 proc_7F0284DC:
 /* 05D00C 7F0284DC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 05D010 7F0284E0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -44970,6 +45437,7 @@ proc_7F0284DC:
 /* 05D03C 7F02850C 00000000 */  nop   
 # end proc_7F0284DC
 
+.global proc_7F028510
 proc_7F028510:
 /* 05D040 7F028510 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 05D044 7F028514 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -45037,6 +45505,7 @@ proc_7F028510:
 /* 05D12C 7F0285FC 27BD0070 */  addiu $sp, $sp, 0x70
 # end proc_7F028510
 
+.global proc_7F028600
 proc_7F028600:
 /* 05D130 7F028600 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 05D134 7F028604 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -45212,6 +45681,7 @@ proc_7F028600:
 /* 05D3C0 7F028890 00000000 */  nop   
 # end proc_7F028600
 
+.global proc_7F028894
 proc_7F028894:
 /* 05D3C4 7F028894 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 05D3C8 7F028898 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -45335,6 +45805,7 @@ proc_7F028894:
 /* 05D588 7F028A58 00000000 */  nop   
 # end proc_7F028894
 
+.global proc_7F028A5C
 proc_7F028A5C:
 /* 05D58C 7F028A5C 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 05D590 7F028A60 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -45563,6 +46034,7 @@ proc_7F028A5C:
 /* 05D8CC 7F028D9C 00000000 */  nop   
 # end proc_7F028A5C
 
+.global proc_7F028DA0
 proc_7F028DA0:
 /* 05D8D0 7F028DA0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 05D8D4 7F028DA4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -45581,6 +46053,7 @@ proc_7F028DA0:
 /* 05D908 7F028DD8 00000000 */  nop   
 # end proc_7F028DA0
 
+.global proc_7F028DDC
 proc_7F028DDC:
 /* 05D90C 7F028DDC 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 05D910 7F028DE0 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -45705,6 +46178,7 @@ proc_7F028DDC:
 /* 05DAD8 7F028FA8 00000000 */  nop   
 # end proc_7F028DDC
 
+.global proc_7F028FAC
 proc_7F028FAC:
 /* 05DADC 7F028FAC 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 05DAE0 7F028FB0 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -45800,6 +46274,7 @@ proc_7F028FAC:
 /* 05DC24 7F0290F4 00000000 */  nop   
 # end proc_7F028FAC
 
+.global proc_7F0290F8
 proc_7F0290F8:
 /* 05DC28 7F0290F8 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 05DC2C 7F0290FC AFBF001C */  sw    $ra, 0x1c($sp)
@@ -45914,6 +46389,7 @@ proc_7F0290F8:
 /* 05DDC4 7F029294 00000000 */  nop   
 # end proc_7F0290F8
 
+.global proc_7F029298
 proc_7F029298:
 /* 05DDC8 7F029298 3C0E8005 */  lui   $t6, 0x8005
 /* 05DDCC 7F02929C 8DCE837C */  lw    $t6, -0x7c84($t6)
@@ -45921,6 +46397,7 @@ proc_7F029298:
 /* 05DDD4 7F0292A4 AC8E00E8 */  sw    $t6, 0xe8($a0)
 # end proc_7F029298
 
+.global proc_7F0292A8
 proc_7F0292A8:
 /* 05DDD8 7F0292A8 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 05DDDC 7F0292AC 240E0001 */  addiu $t6, $zero, 1
@@ -46065,6 +46542,7 @@ proc_7F0292A8:
 /* 05DFE8 7F0294B8 27BD0050 */  addiu $sp, $sp, 0x50
 # end proc_7F0292A8
 
+.global proc_7F0294BC
 proc_7F0294BC:
 /* 05DFEC 7F0294BC 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 05DFF0 7F0294C0 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -46140,6 +46618,7 @@ proc_7F0294BC:
 /* 05E0FC 7F0295CC 27BD0050 */  addiu $sp, $sp, 0x50
 # end proc_7F0294BC
 
+.global proc_7F0295D0
 proc_7F0295D0:
 /* 05E100 7F0295D0 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 05E104 7F0295D4 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -46195,6 +46674,7 @@ proc_7F0295D0:
 /* 05E1C8 7F029698 00000000 */  nop   
 # end proc_7F0295D0
 
+.global proc_7F02969C
 proc_7F02969C:
 /* 05E1CC 7F02969C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 05E1D0 7F0296A0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -46251,6 +46731,7 @@ proc_7F02969C:
 /* 05E28C 7F02975C 00000000 */  nop   
 # end proc_7F02969C
 
+.global proc_7F029760
 proc_7F029760:
 /* 05E290 7F029760 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 05E294 7F029764 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -46306,6 +46787,7 @@ proc_7F029760:
 /* 05E358 7F029828 00000000 */  nop   
 # end proc_7F029760
 
+.global proc_7F02982C
 proc_7F02982C:
 /* 05E35C 7F02982C 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 05E360 7F029830 AFBF0044 */  sw    $ra, 0x44($sp)
@@ -46464,6 +46946,7 @@ proc_7F02982C:
 /* 05E5C0 7F029A90 27BD0080 */  addiu $sp, $sp, 0x80
 # end proc_7F02982C
 
+.global proc_7F029A94
 proc_7F029A94:
 /* 05E5C4 7F029A94 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 05E5C8 7F029A98 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -46490,6 +46973,7 @@ proc_7F029A94:
 /* 05E61C 7F029AEC 00000000 */  nop   
 # end proc_7F029A94
 
+.global proc_7F029AF0
 proc_7F029AF0:
 /* 05E620 7F029AF0 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 05E624 7F029AF4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -46544,6 +47028,7 @@ proc_7F029AF0:
 /* 05E6DC 7F029BAC 00000000 */  nop   
 # end proc_7F029AF0
 
+.global proc_7F029BB0
 proc_7F029BB0:
 /* 05E6E0 7F029BB0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 05E6E4 7F029BB4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -46567,6 +47052,7 @@ proc_7F029BB0:
 /* 05E72C 7F029BFC 00000000 */  nop   
 # end proc_7F029BB0
 
+.global proc_7F029C00
 proc_7F029C00:
 /* 05E730 7F029C00 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 05E734 7F029C04 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -46593,6 +47079,7 @@ proc_7F029C00:
 /* 05E788 7F029C58 00000000 */  nop   
 # end proc_7F029C00
 
+.global proc_7F029C5C
 proc_7F029C5C:
 /* 05E78C 7F029C5C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 05E790 7F029C60 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -46670,6 +47157,7 @@ proc_7F029C5C:
 /* 05E89C 7F029D6C 00000000 */  nop   
 # end proc_7F029C5C
 
+.global proc_7F029D70
 proc_7F029D70:
 /* 05E8A0 7F029D70 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 05E8A4 7F029D74 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -46864,6 +47352,7 @@ proc_7F029D70:
 /* 05EB70 7F02A040 00000000 */  nop   
 # end proc_7F029D70
 
+.global proc_7F02A044
 proc_7F02A044:
 /* 05EB74 7F02A044 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 05EB78 7F02A048 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -46911,6 +47400,7 @@ proc_7F02A044:
 /* 05EC18 7F02A0E8 00000000 */  nop   
 # end proc_7F02A044
 
+.global proc_7F02A0EC
 proc_7F02A0EC:
 /* 05EC1C 7F02A0EC 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 05EC20 7F02A0F0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -46942,6 +47432,7 @@ proc_7F02A0EC:
 /* 05EC88 7F02A158 00000000 */  nop   
 # end proc_7F02A0EC
 
+.global proc_7F02A15C
 proc_7F02A15C:
 /* 05EC8C 7F02A15C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 05EC90 7F02A160 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -46982,6 +47473,7 @@ proc_7F02A15C:
 /* 05ED14 7F02A1E4 00000000 */  nop   
 # end proc_7F02A15C
 
+.global proc_7F02A1E8
 proc_7F02A1E8:
 /* 05ED18 7F02A1E8 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 05ED1C 7F02A1EC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -47013,6 +47505,7 @@ proc_7F02A1E8:
 /* 05ED84 7F02A254 00000000 */  nop   
 # end proc_7F02A1E8
 
+.global proc_7F02A258
 proc_7F02A258:
 /* 05ED88 7F02A258 80820007 */  lb    $v0, 7($a0)
 /* 05ED8C 7F02A25C 24010004 */  addiu $at, $zero, 4
@@ -47037,6 +47530,7 @@ proc_7F02A258:
 /* 05EDD0 7F02A2A0 00000000 */  nop   
 # end proc_7F02A258
 
+.global proc_7F02A2A4
 proc_7F02A2A4:
 /* 05EDD4 7F02A2A4 80830007 */  lb    $v1, 7($a0)
 /* 05EDD8 7F02A2A8 38620004 */  xori  $v0, $v1, 4
@@ -47050,6 +47544,7 @@ proc_7F02A2A4:
 /* 05EDF4 7F02A2C4 00000000 */  nop   
 # end proc_7F02A2A4
 
+.global proc_7F02A2C8
 proc_7F02A2C8:
 /* 05EDF8 7F02A2C8 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 05EDFC 7F02A2CC AFBF001C */  sw    $ra, 0x1c($sp)
@@ -47146,6 +47641,7 @@ proc_7F02A2C8:
 /* 05EF54 7F02A424 00000000 */  nop   
 # end proc_7F02A2C8
 
+.global proc_7F02A428
 proc_7F02A428:
 /* 05EF58 7F02A428 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 05EF5C 7F02A42C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -47242,6 +47738,7 @@ proc_7F02A428:
 /* 05F0B4 7F02A584 00000000 */  nop   
 # end proc_7F02A428
 
+.global proc_7F02A588
 proc_7F02A588:
 /* 05F0B8 7F02A588 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 05F0BC 7F02A58C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -47344,6 +47841,7 @@ proc_7F02A588:
 /* 05F230 7F02A700 27BD0050 */  addiu $sp, $sp, 0x50
 # end proc_7F02A588
 
+.global proc_7F02A704
 proc_7F02A704:
 /* 05F234 7F02A704 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 05F238 7F02A708 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -47411,6 +47909,7 @@ proc_7F02A704:
 /* 05F324 7F02A7F4 00000000 */  nop   
 # end proc_7F02A704
 
+.global proc_7F02A7F8
 proc_7F02A7F8:
 /* 05F328 7F02A7F8 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 05F32C 7F02A7FC AFBF001C */  sw    $ra, 0x1c($sp)
@@ -47478,6 +47977,7 @@ proc_7F02A7F8:
 /* 05F418 7F02A8E8 00000000 */  nop   
 # end proc_7F02A7F8
 
+.global proc_7F02A8EC
 proc_7F02A8EC:
 /* 05F41C 7F02A8EC 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 05F420 7F02A8F0 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -47561,6 +48061,7 @@ proc_7F02A8EC:
 /* 05F548 7F02AA18 00000000 */  nop   
 # end proc_7F02A8EC
 
+.global proc_7F02AA1C
 proc_7F02AA1C:
 /* 05F54C 7F02AA1C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 05F550 7F02AA20 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -47594,6 +48095,7 @@ proc_7F02AA1C:
 /* 05F5B4 7F02AA84 00000000 */  nop   
 # end proc_7F02AA1C
 
+.global proc_7F02AA88
 proc_7F02AA88:
 /* 05F5B8 7F02AA88 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 05F5BC 7F02AA8C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -47627,6 +48129,7 @@ proc_7F02AA88:
 /* 05F620 7F02AAF0 00000000 */  nop   
 # end proc_7F02AA88
 
+.global proc_7F02AAF4
 proc_7F02AAF4:
 /* 05F624 7F02AAF4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 05F628 7F02AAF8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -47651,6 +48154,7 @@ proc_7F02AAF4:
 /* 05F670 7F02AB40 00000000 */  nop   
 # end proc_7F02AAF4
 
+.global proc_7F02AB44
 proc_7F02AB44:
 /* 05F674 7F02AB44 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 05F678 7F02AB48 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -47685,6 +48189,7 @@ proc_7F02AB44:
 /* 05F6E0 7F02ABB0 00000000 */  nop   
 # end proc_7F02AB44
 
+.global proc_7F02ABB4
 proc_7F02ABB4:
 /* 05F6E4 7F02ABB4 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 05F6E8 7F02ABB8 AFB10020 */  sw    $s1, 0x20($sp)
@@ -47797,6 +48302,7 @@ proc_7F02ABB4:
 /* 05F880 7F02AD50 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F02ABB4
 
+.global proc_7F02AD54
 proc_7F02AD54:
 /* 05F884 7F02AD54 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 05F888 7F02AD58 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -47819,6 +48325,7 @@ proc_7F02AD54:
 /* 05F8C4 7F02AD94 00000000 */  nop   
 # end proc_7F02AD54
 
+.global proc_7F02AD98
 proc_7F02AD98:
 /* 05F8C8 7F02AD98 27BDFF50 */  addiu $sp, $sp, -0xb0
 /* 05F8CC 7F02AD9C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -48325,11 +48832,13 @@ proc_7F02AD98:
 /* 06000C 7F02B4DC 00000000 */  nop   
 # end proc_7F02AD98
 
+.global proc_7F02B4E0
 proc_7F02B4E0:
 /* 060010 7F02B4E0 03E00008 */  jr    $ra
 /* 060014 7F02B4E4 A0800008 */  sb    $zero, 8($a0)
 # end proc_7F02B4E0
 
+.global proc_7F02B4E8
 proc_7F02B4E8:
 /* 060018 7F02B4E8 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 06001C 7F02B4EC AFBF001C */  sw    $ra, 0x1c($sp)
@@ -48421,6 +48930,7 @@ proc_7F02B4E8:
 /* 060164 7F02B634 00000000 */  nop   
 # end proc_7F02B4E8
 
+.global proc_7F02B638
 proc_7F02B638:
 /* 060168 7F02B638 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 06016C 7F02B63C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -48504,6 +49014,7 @@ proc_7F02B638:
 /* 0602A0 7F02B770 00000000 */  nop   
 # end proc_7F02B638
 
+.global proc_7F02B774
 proc_7F02B774:
 /* 0602A4 7F02B774 8C82002C */  lw    $v0, 0x2c($a0)
 /* 0602A8 7F02B778 3C0E8005 */  lui   $t6, 0x8005
@@ -48546,6 +49057,7 @@ proc_7F02B774:
 /* 06032C 7F02B7FC 00000000 */  nop   
 # end proc_7F02B774
 
+.global proc_7F02B800
 proc_7F02B800:
 /* 060330 7F02B800 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 060334 7F02B804 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -48665,6 +49177,7 @@ proc_7F02B800:
 /* 0604D0 7F02B9A0 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F02B800
 
+.global proc_7F02B9A4
 proc_7F02B9A4:
 /* 0604D4 7F02B9A4 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 0604D8 7F02B9A8 3C0F8003 */  lui   $t7, 0x8003
@@ -48860,6 +49373,7 @@ proc_7F02B9A4:
 /* 0607AC 7F02BC7C 27BD0058 */  addiu $sp, $sp, 0x58
 # end proc_7F02B9A4
 
+.global proc_7F02BC80
 proc_7F02BC80:
 /* 0607B0 7F02BC80 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0607B4 7F02BC84 AFB00018 */  sw    $s0, 0x18($sp)
@@ -48905,6 +49419,7 @@ proc_7F02BC80:
 /* 06084C 7F02BD1C 00000000 */  nop   
 # end proc_7F02BC80
 
+.global proc_7F02BD20
 proc_7F02BD20:
 /* 060850 7F02BD20 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 060854 7F02BD24 AFB00020 */  sw    $s0, 0x20($sp)
@@ -48942,6 +49457,7 @@ proc_7F02BD20:
 /* 0608D0 7F02BDA0 00000000 */  nop   
 # end proc_7F02BD20
 
+.global proc_7F02BDA4
 proc_7F02BDA4:
 /* 0608D4 7F02BDA4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0608D8 7F02BDA8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -48969,6 +49485,7 @@ proc_7F02BDA4:
 /* 06092C 7F02BDFC 00000000 */  nop   
 # end proc_7F02BDA4
 
+.global proc_7F02BE00
 proc_7F02BE00:
 /* 060930 7F02BE00 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 060934 7F02BE04 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -48995,6 +49512,7 @@ proc_7F02BE00:
 /* 060984 7F02BE54 00000000 */  nop   
 # end proc_7F02BE00
 
+.global proc_7F02BE58
 proc_7F02BE58:
 /* 060988 7F02BE58 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 06098C 7F02BE5C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -49019,6 +49537,7 @@ proc_7F02BE58:
 /* 0609D4 7F02BEA4 00000000 */  nop   
 # end proc_7F02BE58
 
+.global proc_7F02BEA8
 proc_7F02BEA8:
 /* 0609D8 7F02BEA8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0609DC 7F02BEAC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -49055,6 +49574,7 @@ proc_7F02BEA8:
 /* 060A50 7F02BF20 00000000 */  nop   
 # end proc_7F02BEA8
 
+.global proc_7F02BF24
 proc_7F02BF24:
 /* 060A54 7F02BF24 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 060A58 7F02BF28 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -49109,6 +49629,7 @@ proc_7F02BF24:
 /* 060B10 7F02BFE0 00000000 */  nop   
 # end proc_7F02BF24
 
+.global proc_7F02BFE4
 proc_7F02BFE4:
 /* 060B14 7F02BFE4 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 060B18 7F02BFE8 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -49228,6 +49749,7 @@ proc_7F02BFE4:
 /* 060CBC 7F02C18C 00000000 */  nop   
 # end proc_7F02BFE4
 
+.global proc_7F02C190
 proc_7F02C190:
 /* 060CC0 7F02C190 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 060CC4 7F02C194 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -49299,6 +49821,7 @@ proc_7F02C190:
 /* 060DA8 7F02C278 46001006 */  mov.s $f0, $f2
 # end proc_7F02C190
 
+.global proc_7F02C27C
 proc_7F02C27C:
 /* 060DAC 7F02C27C C4840144 */  lwc1  $f4, 0x144($a0)
 /* 060DB0 7F02C280 C4860148 */  lwc1  $f6, 0x148($a0)
@@ -49316,6 +49839,7 @@ proc_7F02C27C:
 /* 060DDC 7F02C2AC 46001006 */  mov.s $f0, $f2
 # end proc_7F02C27C
 
+.global proc_7F02C2B0
 proc_7F02C2B0:
 /* 060DE0 7F02C2B0 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 060DE4 7F02C2B4 AFA7003C */  sw    $a3, 0x3c($sp)
@@ -49465,6 +49989,7 @@ proc_7F02C2B0:
 /* 060FEC 7F02C4BC 00000000 */  nop   
 # end proc_7F02C2B0
 
+.global proc_7F02C4C0
 proc_7F02C4C0:
 /* 060FF0 7F02C4C0 27BDFE98 */  addiu $sp, $sp, -0x168
 /* 060FF4 7F02C4C4 44808000 */  mtc1  $zero, $f16
@@ -50248,6 +50773,7 @@ proc_7F02C4C0:
 /* 061B74 7F02D044 00000000 */  nop   
 # end proc_7F02C4C0
 
+.global proc_7F02D048
 proc_7F02D048:
 /* 061B78 7F02D048 44808000 */  mtc1  $zero, $f16
 /* 061B7C 7F02D04C C7AE0010 */  lwc1  $f14, 0x10($sp)
@@ -50303,6 +50829,7 @@ proc_7F02D048:
 /* 061C24 7F02D0F4 E4820158 */  swc1  $f2, 0x158($a0)
 # end proc_7F02D048
 
+.global proc_7F02D0F8
 proc_7F02D0F8:
 /* 061C28 7F02D0F8 44800000 */  mtc1  $zero, $f0
 /* 061C2C 7F02D0FC 240E000A */  addiu $t6, $zero, 0xa
@@ -50314,6 +50841,7 @@ proc_7F02D0F8:
 /* 061C44 7F02D114 E480015C */  swc1  $f0, 0x15c($a0)
 # end proc_7F02D0F8
 
+.global proc_7F02D118
 proc_7F02D118:
 /* 061C48 7F02D118 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 061C4C 7F02D11C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -50330,6 +50858,7 @@ proc_7F02D118:
 /* 061C74 7F02D144 00000000 */  nop   
 # end proc_7F02D118
 
+.global proc_7F02D148
 proc_7F02D148:
 /* 061C78 7F02D148 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 061C7C 7F02D14C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -50350,6 +50879,7 @@ proc_7F02D148:
 /* 061CB0 7F02D180 00000000 */  nop   
 # end proc_7F02D148
 
+.global proc_7F02D184
 proc_7F02D184:
 /* 061CB4 7F02D184 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 061CB8 7F02D188 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -50369,6 +50899,7 @@ proc_7F02D184:
 /* 061CF0 7F02D1C0 00000000 */  nop   
 # end proc_7F02D184
 
+.global proc_7F02D1C4
 proc_7F02D1C4:
 /* 061CF4 7F02D1C4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 061CF8 7F02D1C8 10C0000C */  beqz  $a2, .Lproc_7F02D1C4_38
@@ -50409,6 +50940,7 @@ proc_7F02D1C4:
 /* 061D70 7F02D240 00000000 */  nop   
 # end proc_7F02D1C4
 
+.global proc_7F02D244
 proc_7F02D244:
 /* 061D74 7F02D244 3C018005 */  lui   $at, 0x8005
 /* 061D78 7F02D248 C4241F2C */  lwc1  $f4, 0x1f2c($at)
@@ -50456,6 +50988,7 @@ proc_7F02D244:
 /* 061E10 7F02D2E0 00000000 */  nop   
 # end proc_7F02D244
 
+.global proc_7F02D2E4
 proc_7F02D2E4:
 /* 061E14 7F02D2E4 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 061E18 7F02D2E8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -50687,6 +51220,7 @@ proc_7F02D2E4:
 /* 06215C 7F02D62C 00000000 */  nop   
 # end proc_7F02D2E4
 
+.global proc_7F02D630
 proc_7F02D630:
 /* 062160 7F02D630 27BDFF38 */  addiu $sp, $sp, -0xc8
 /* 062164 7F02D634 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -50758,6 +51292,7 @@ proc_7F02D630:
 /* 062260 7F02D730 00C01025 */  or    $v0, $a2, $zero
 # end proc_7F02D630
 
+.global proc_7F02D734
 proc_7F02D734:
 /* 062264 7F02D734 27BDFD78 */  addiu $sp, $sp, -0x288
 /* 062268 7F02D738 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -51524,6 +52059,7 @@ proc_7F02D734:
 /* 062D98 7F02E268 00000000 */  nop   
 # end proc_7F02D734
 
+.global proc_7F02E26C
 proc_7F02E26C:
 /* 062D9C 7F02E26C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 062DA0 7F02E270 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -51558,6 +52094,7 @@ proc_7F02E26C:
 /* 062E0C 7F02E2DC 00000000 */  nop   
 # end proc_7F02E26C
 
+.global proc_7F02E2E0
 proc_7F02E2E0:
 /* 062E10 7F02E2E0 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 062E14 7F02E2E4 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -51618,6 +52155,7 @@ proc_7F02E2E0:
 /* 062EE4 7F02E3B4 00000000 */  nop   
 # end proc_7F02E2E0
 
+.global proc_7F02E3B8
 proc_7F02E3B8:
 /* 062EE8 7F02E3B8 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 062EEC 7F02E3BC AFBF0024 */  sw    $ra, 0x24($sp)
@@ -51690,6 +52228,7 @@ proc_7F02E3B8:
 /* 062FEC 7F02E4BC 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F02E3B8
 
+.global proc_7F02E4C0
 proc_7F02E4C0:
 /* 062FF0 7F02E4C0 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 062FF4 7F02E4C4 AFBF0044 */  sw    $ra, 0x44($sp)
@@ -52196,6 +52735,7 @@ proc_7F02E4C0:
 /* 063728 7F02EBF8 27BD0070 */  addiu $sp, $sp, 0x70
 # end proc_7F02E4C0
 
+.global proc_7F02EBFC
 proc_7F02EBFC:
 /* 06372C 7F02EBFC 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 063730 7F02EC00 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -52397,6 +52937,7 @@ proc_7F02EBFC:
 /* 063A0C 7F02EEDC 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F02EBFC
 
+.global proc_7F02EEE0
 proc_7F02EEE0:
 /* 063A10 7F02EEE0 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 063A14 7F02EEE4 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -52752,6 +53293,7 @@ proc_7F02EEE0:
 /* 063F24 7F02F3F4 00000000 */  nop   
 # end proc_7F02EEE0
 
+.global proc_7F02F3F8
 proc_7F02F3F8:
 /* 063F28 7F02F3F8 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 063F2C 7F02F3FC AFB00020 */  sw    $s0, 0x20($sp)
@@ -52869,6 +53411,7 @@ proc_7F02F3F8:
 /* 0640D0 7F02F5A0 00000000 */  nop   
 # end proc_7F02F3F8
 
+.global proc_7F02F5A4
 proc_7F02F5A4:
 /* 0640D4 7F02F5A4 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0640D8 7F02F5A8 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -52931,11 +53474,13 @@ proc_7F02F5A4:
 /* 0641B4 7F02F684 00000000 */  nop   
 # end proc_7F02F5A4
 
+.global proc_7F02F688
 proc_7F02F688:
 /* 0641B8 7F02F688 03E00008 */  jr    $ra
 /* 0641BC 7F02F68C AFA40000 */  sw    $a0, ($sp)
 # end proc_7F02F688
 
+.global proc_7F02F690
 proc_7F02F690:
 /* 0641C0 7F02F690 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 0641C4 7F02F694 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -53077,6 +53622,7 @@ proc_7F02F690:
 /* 0643B4 7F02F884 00000000 */  nop   
 # end proc_7F02F690
 
+.global proc_7F02F888
 proc_7F02F888:
 /* 0643B8 7F02F888 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 0643BC 7F02F88C AFBF002C */  sw    $ra, 0x2c($sp)
@@ -53337,6 +53883,7 @@ proc_7F02F888:
 /* 064760 7F02FC30 27BD0050 */  addiu $sp, $sp, 0x50
 # end proc_7F02F888
 
+.global proc_7F02FC34
 proc_7F02FC34:
 /* 064764 7F02FC34 C4C40000 */  lwc1  $f4, ($a2)
 /* 064768 7F02FC38 C4860000 */  lwc1  $f6, ($a0)
@@ -53414,6 +53961,7 @@ proc_7F02FC34:
 /* 06487C 7F02FD4C 27BD0010 */  addiu $sp, $sp, 0x10
 # end proc_7F02FC34
 
+.global proc_7F02FD50
 proc_7F02FD50:
 /* 064880 7F02FD50 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 064884 7F02FD54 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -53496,6 +54044,7 @@ proc_7F02FD50:
 /* 0649A4 7F02FE74 00000000 */  nop   
 # end proc_7F02FD50
 
+.global proc_7F02FE78
 proc_7F02FE78:
 /* 0649A8 7F02FE78 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0649AC 7F02FE7C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -53686,6 +54235,7 @@ proc_7F02FE78:
 /* 064C54 7F030124 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F02FE78
 
+.global proc_7F030128
 proc_7F030128:
 /* 064C58 7F030128 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 064C5C 7F03012C AFBF002C */  sw    $ra, 0x2c($sp)
@@ -53743,6 +54293,7 @@ proc_7F030128:
 /* 064D28 7F0301F8 00000000 */  nop   
 # end proc_7F030128
 
+.global proc_7F0301FC
 proc_7F0301FC:
 /* 064D2C 7F0301FC 27BDFF78 */  addiu $sp, $sp, -0x88
 /* 064D30 7F030200 AFB10048 */  sw    $s1, 0x48($sp)
@@ -53922,6 +54473,7 @@ proc_7F0301FC:
 /* 064FD8 7F0304A8 27BD0088 */  addiu $sp, $sp, 0x88
 # end proc_7F0301FC
 
+.global proc_7F0304AC
 proc_7F0304AC:
 /* 064FDC 7F0304AC 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 064FE0 7F0304B0 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -54004,6 +54556,7 @@ proc_7F0304AC:
 /* 06510C 7F0305DC 00000000 */  nop   
 # end proc_7F0304AC
 
+.global proc_7F0305E0
 proc_7F0305E0:
 /* 065110 7F0305E0 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 065114 7F0305E4 AFB10030 */  sw    $s1, 0x30($sp)
@@ -54099,6 +54652,7 @@ proc_7F0305E0:
 /* 065278 7F030748 27BD0050 */  addiu $sp, $sp, 0x50
 # end proc_7F0305E0
 
+.global proc_7F03074C
 proc_7F03074C:
 /* 06527C 7F03074C C4A40000 */  lwc1  $f4, ($a1)
 /* 065280 7F030750 C4860000 */  lwc1  $f6, ($a0)
@@ -54155,6 +54709,7 @@ proc_7F03074C:
 /* 065348 7F030818 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F03074C
 
+.global proc_7F03081C
 proc_7F03081C:
 /* 06534C 7F03081C 27BDFF50 */  addiu $sp, $sp, -0xb0
 /* 065350 7F030820 AFB00030 */  sw    $s0, 0x30($sp)
@@ -54511,6 +55066,7 @@ proc_7F03081C:
 /* 06589C 7F030D6C 00000000 */  nop   
 # end proc_7F03081C
 
+.global proc_7F030D70
 proc_7F030D70:
 /* 0658A0 7F030D70 27BDFF48 */  addiu $sp, $sp, -0xb8
 /* 0658A4 7F030D74 AFB00030 */  sw    $s0, 0x30($sp)
@@ -54886,6 +55442,7 @@ proc_7F030D70:
 /* 065E38 7F031308 00000000 */  nop   
 # end proc_7F030D70
 
+.global proc_7F03130C
 proc_7F03130C:
 /* 065E3C 7F03130C 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 065E40 7F031310 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -55064,6 +55621,7 @@ proc_7F03130C:
 /* 0660D0 7F0315A0 00000000 */  nop   
 # end proc_7F03130C
 
+.global proc_7F0315A4
 proc_7F0315A4:
 /* 0660D4 7F0315A4 27BDFEF0 */  addiu $sp, $sp, -0x110
 /* 0660D8 7F0315A8 AFBF0084 */  sw    $ra, 0x84($sp)
@@ -55817,6 +56375,7 @@ proc_7F0315A4:
 /* 066BB4 7F032084 27BD0110 */  addiu $sp, $sp, 0x110
 # end proc_7F0315A4
 
+.global proc_7F032088
 proc_7F032088:
 /* 066BB8 7F032088 27BDFF78 */  addiu $sp, $sp, -0x88
 /* 066BBC 7F03208C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -56145,6 +56704,7 @@ proc_7F032088:
 /* 067074 7F032544 00000000 */  nop   
 # end proc_7F032088
 
+.global proc_7F032548
 proc_7F032548:
 /* 067078 7F032548 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 06707C 7F03254C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -56249,6 +56809,7 @@ proc_7F032548:
 /* 0671E8 7F0326B8 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F032548
 
+.global proc_7F0326BC
 proc_7F0326BC:
 /* 0671EC 7F0326BC 3C028005 */  lui   $v0, 0x8005
 /* 0671F0 7F0326C0 8C428374 */  lw    $v0, -0x7c8c($v0)
@@ -56411,6 +56972,7 @@ proc_7F0326BC:
 /* 067448 7F032918 00000000 */  nop   
 # end proc_7F0326BC
 
+.global proc_7F03291C
 proc_7F03291C:
 /* 06744C 7F03291C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 067450 7F032920 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -56573,6 +57135,7 @@ proc_7F03291C:
 /* 067694 7F032B64 00000000 */  nop   
 # end proc_7F03291C
 
+.global proc_7F032B68
 proc_7F032B68:
 /* 067698 7F032B68 8C8200D4 */  lw    $v0, 0xd4($a0)
 /* 06769C 7F032B6C 3C0E8005 */  lui   $t6, 0x8005
@@ -56591,6 +57154,7 @@ proc_7F032B68:
 /* 0676CC 7F032B9C 00000000 */  nop   
 # end proc_7F032B68
 
+.global proc_7F032BA0
 proc_7F032BA0:
 /* 0676D0 7F032BA0 8C8200F0 */  lw    $v0, 0xf0($a0)
 /* 0676D4 7F032BA4 3C0E8005 */  lui   $t6, 0x8005
@@ -56609,6 +57173,7 @@ proc_7F032BA0:
 /* 067704 7F032BD4 00000000 */  nop   
 # end proc_7F032BA0
 
+.global proc_7F032BD8
 proc_7F032BD8:
 /* 067708 7F032BD8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 06770C 7F032BDC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -56642,6 +57207,7 @@ proc_7F032BD8:
 /* 067778 7F032C48 46006006 */  mov.s $f0, $f12
 # end proc_7F032BD8
 
+.global proc_7F032C4C
 proc_7F032C4C:
 /* 06777C 7F032C4C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 067780 7F032C50 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -56656,6 +57222,7 @@ proc_7F032C4C:
 /* 0677A4 7F032C74 00000000 */  nop   
 # end proc_7F032C4C
 
+.global proc_7F032C78
 proc_7F032C78:
 /* 0677A8 7F032C78 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0677AC 7F032C7C 30AE0004 */  andi  $t6, $a1, 4
@@ -56728,6 +57295,7 @@ proc_7F032C78:
 /* 06789C 7F032D6C 00000000 */  nop   
 # end proc_7F032C78
 
+.global proc_7F032D70
 proc_7F032D70:
 /* 0678A0 7F032D70 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0678A4 7F032D74 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -56761,6 +57329,7 @@ proc_7F032D70:
 /* 067910 7F032DE0 46001006 */  mov.s $f0, $f2
 # end proc_7F032D70
 
+.global proc_7F032DE4
 proc_7F032DE4:
 /* 067914 7F032DE4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 067918 7F032DE8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -56789,6 +57358,7 @@ proc_7F032DE4:
 /* 067974 7F032E44 00000000 */  nop   
 # end proc_7F032DE4
 
+.global proc_7F032E48
 proc_7F032E48:
 /* 067978 7F032E48 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 06797C 7F032E4C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -56839,6 +57409,7 @@ proc_7F032E48:
 /* 067A28 7F032EF8 00000000 */  nop   
 # end proc_7F032E48
 
+.global proc_7F032EFC
 proc_7F032EFC:
 /* 067A2C 7F032EFC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 067A30 7F032F00 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -56884,6 +57455,7 @@ proc_7F032EFC:
 /* 067AC0 7F032F90 00000000 */  nop   
 # end proc_7F032EFC
 
+.global proc_7F032F94
 proc_7F032F94:
 /* 067AC4 7F032F94 24012328 */  addiu $at, $zero, 0x2328
 /* 067AC8 7F032F98 14A10002 */  bne   $a1, $at, .Lproc_7F032F94_10
@@ -56894,6 +57466,7 @@ proc_7F032F94:
 /* 067AD8 7F032FA8 00A01025 */  or    $v0, $a1, $zero
 # end proc_7F032F94
 
+.global proc_7F032FAC
 proc_7F032FAC:
 /* 067ADC 7F032FAC 240100FA */  addiu $at, $zero, 0xfa
 /* 067AE0 7F032FB0 54A10004 */  bnel  $a1, $at, .Lproc_7F032FAC_18
@@ -56940,6 +57513,7 @@ proc_7F032FAC:
 /* 067B6C 7F03303C 00A01025 */  or    $v0, $a1, $zero
 # end proc_7F032FAC
 
+.global proc_7F033040
 proc_7F033040:
 /* 067B70 7F033040 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 067B74 7F033044 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -56980,6 +57554,7 @@ proc_7F033040:
 /* 067BF0 7F0330C0 00000000 */  nop   
 # end proc_7F033040
 
+.global proc_7F0330C4
 proc_7F0330C4:
 /* 067BF4 7F0330C4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 067BF8 7F0330C8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57021,6 +57596,7 @@ proc_7F0330C4:
 /* 067C80 7F033150 00000000 */  nop   
 # end proc_7F0330C4
 
+.global proc_7F033154
 proc_7F033154:
 /* 067C84 7F033154 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 067C88 7F033158 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57075,6 +57651,7 @@ proc_7F033154:
 /* 067D44 7F033214 00000000 */  nop   
 # end proc_7F033154
 
+.global proc_7F033218
 proc_7F033218:
 /* 067D48 7F033218 AFA50004 */  sw    $a1, 4($sp)
 /* 067D4C 7F03321C 908F010E */  lbu   $t7, 0x10e($a0)
@@ -57083,6 +57660,7 @@ proc_7F033218:
 /* 067D58 7F033228 A098010E */  sb    $t8, 0x10e($a0)
 # end proc_7F033218
 
+.global proc_7F03322C
 proc_7F03322C:
 /* 067D5C 7F03322C AFA50004 */  sw    $a1, 4($sp)
 /* 067D60 7F033230 908F010E */  lbu   $t7, 0x10e($a0)
@@ -57092,6 +57670,7 @@ proc_7F03322C:
 /* 067D70 7F033240 A099010E */  sb    $t9, 0x10e($a0)
 # end proc_7F03322C
 
+.global proc_7F033244
 proc_7F033244:
 /* 067D74 7F033244 AFA50004 */  sw    $a1, 4($sp)
 /* 067D78 7F033248 908F010E */  lbu   $t7, 0x10e($a0)
@@ -57102,6 +57681,7 @@ proc_7F033244:
 /* 067D8C 7F03325C 03001025 */  or    $v0, $t8, $zero
 # end proc_7F033244
 
+.global proc_7F033260
 proc_7F033260:
 /* 067D90 7F033260 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 067D94 7F033264 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57118,6 +57698,7 @@ proc_7F033260:
 /* 067DBC 7F03328C 00000000 */  nop   
 # end proc_7F033260
 
+.global proc_7F033290
 proc_7F033290:
 /* 067DC0 7F033290 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 067DC4 7F033294 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57134,6 +57715,7 @@ proc_7F033290:
 /* 067DEC 7F0332BC 00000000 */  nop   
 # end proc_7F033290
 
+.global proc_7F0332C0
 proc_7F0332C0:
 /* 067DF0 7F0332C0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 067DF4 7F0332C4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57154,6 +57736,7 @@ proc_7F0332C0:
 /* 067E28 7F0332F8 00000000 */  nop   
 # end proc_7F0332C0
 
+.global proc_7F0332FC
 proc_7F0332FC:
 /* 067E2C 7F0332FC 3C028003 */  lui   $v0, 0x8003
 /* 067E30 7F033300 24420978 */  addiu $v0, $v0, 0x978
@@ -57164,6 +57747,7 @@ proc_7F0332FC:
 /* 067E44 7F033314 AC4F0000 */  sw    $t7, ($v0)
 # end proc_7F0332FC
 
+.global proc_7F033318
 proc_7F033318:
 /* 067E48 7F033318 3C028003 */  lui   $v0, 0x8003
 /* 067E4C 7F03331C 24420978 */  addiu $v0, $v0, 0x978
@@ -57175,6 +57759,7 @@ proc_7F033318:
 /* 067E64 7F033334 AC580000 */  sw    $t8, ($v0)
 # end proc_7F033318
 
+.global proc_7F033338
 proc_7F033338:
 /* 067E68 7F033338 3C0E8003 */  lui   $t6, 0x8003
 /* 067E6C 7F03333C 8DCE0978 */  lw    $t6, 0x978($t6)
@@ -57185,6 +57770,7 @@ proc_7F033338:
 /* 067E80 7F033350 01E01025 */  or    $v0, $t7, $zero
 # end proc_7F033338
 
+.global proc_7F033354
 proc_7F033354:
 /* 067E84 7F033354 94820012 */  lhu   $v0, 0x12($a0)
 /* 067E88 7F033358 304E0002 */  andi  $t6, $v0, 2
@@ -57192,6 +57778,7 @@ proc_7F033354:
 /* 067E90 7F033360 000E102B */  sltu  $v0, $zero, $t6
 # end proc_7F033354
 
+.global proc_7F033364
 proc_7F033364:
 /* 067E94 7F033364 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 067E98 7F033368 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57211,6 +57798,7 @@ proc_7F033364:
 /* 067ECC 7F03339C 00000000 */  nop   
 # end proc_7F033364
 
+.global proc_7F0333A0
 proc_7F0333A0:
 /* 067ED0 7F0333A0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 067ED4 7F0333A4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57223,6 +57811,7 @@ proc_7F0333A0:
 /* 067EF0 7F0333C0 00000000 */  nop   
 # end proc_7F0333A0
 
+.global proc_7F0333C4
 proc_7F0333C4:
 /* 067EF4 7F0333C4 948E0012 */  lhu   $t6, 0x12($a0)
 /* 067EF8 7F0333C8 AC800110 */  sw    $zero, 0x110($a0)
@@ -57231,6 +57820,7 @@ proc_7F0333C4:
 /* 067F04 7F0333D4 A48F0012 */  sh    $t7, 0x12($a0)
 # end proc_7F0333C4
 
+.global proc_7F0333D8
 proc_7F0333D8:
 /* 067F08 7F0333D8 8C8E0110 */  lw    $t6, 0x110($a0)
 /* 067F0C 7F0333DC 3C014270 */  lui   $at, 0x4270
@@ -57242,6 +57832,7 @@ proc_7F0333D8:
 /* 067F24 7F0333F4 46083003 */  div.s $f0, $f6, $f8
 # end proc_7F0333D8
 
+.global proc_7F0333F8
 proc_7F0333F8:
 /* 067F28 7F0333F8 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 067F2C 7F0333FC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57285,6 +57876,7 @@ proc_7F0333F8:
 /* 067FBC 7F03348C 00000000 */  nop   
 # end proc_7F0333F8
 
+.global proc_7F033490
 proc_7F033490:
 /* 067FC0 7F033490 8C820014 */  lw    $v0, 0x14($a0)
 /* 067FC4 7F033494 304E0004 */  andi  $t6, $v0, 4
@@ -57292,6 +57884,7 @@ proc_7F033490:
 /* 067FCC 7F03349C 000E102B */  sltu  $v0, $zero, $t6
 # end proc_7F033490
 
+.global proc_7F0334A0
 proc_7F0334A0:
 /* 067FD0 7F0334A0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 067FD4 7F0334A4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57324,6 +57917,7 @@ proc_7F0334A0:
 /* 068038 7F033508 00000000 */  nop   
 # end proc_7F0334A0
 
+.global proc_7F03350C
 proc_7F03350C:
 /* 06803C 7F03350C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 068040 7F033510 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57367,16 +57961,19 @@ proc_7F03350C:
 /* 0680D0 7F0335A0 00000000 */  nop   
 # end proc_7F03350C
 
+.global proc_7F0335A4
 proc_7F0335A4:
 /* 0680D4 7F0335A4 03E00008 */  jr    $ra
 /* 0680D8 7F0335A8 8082000B */  lb    $v0, 0xb($a0)
 # end proc_7F0335A4
 
+.global proc_7F0335AC
 proc_7F0335AC:
 /* 0680DC 7F0335AC 03E00008 */  jr    $ra
 /* 0680E0 7F0335B0 8082000A */  lb    $v0, 0xa($a0)
 # end proc_7F0335AC
 
+.global proc_7F0335B4
 proc_7F0335B4:
 /* 0680E4 7F0335B4 84820118 */  lh    $v0, 0x118($a0)
 /* 0680E8 7F0335B8 284E0000 */  slti  $t6, $v0, 0
@@ -57384,6 +57981,7 @@ proc_7F0335B4:
 /* 0680F0 7F0335C0 39C20001 */  xori  $v0, $t6, 1
 # end proc_7F0335B4
 
+.global proc_7F0335C4
 proc_7F0335C4:
 /* 0680F4 7F0335C4 8482011A */  lh    $v0, 0x11a($a0)
 /* 0680F8 7F0335C8 284E0000 */  slti  $t6, $v0, 0
@@ -57391,6 +57989,7 @@ proc_7F0335C4:
 /* 068100 7F0335D0 39C20001 */  xori  $v0, $t6, 1
 # end proc_7F0335C4
 
+.global proc_7F0335D4
 proc_7F0335D4:
 /* 068104 7F0335D4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 068108 7F0335D8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57410,6 +58009,7 @@ proc_7F0335D4:
 /* 06813C 7F03360C 00000000 */  nop   
 # end proc_7F0335D4
 
+.global proc_7F033610
 proc_7F033610:
 /* 068140 7F033610 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 068144 7F033614 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57429,6 +58029,7 @@ proc_7F033610:
 /* 068178 7F033648 00000000 */  nop   
 # end proc_7F033610
 
+.global proc_7F03364C
 proc_7F03364C:
 /* 06817C 7F03364C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 068180 7F033650 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57448,6 +58049,7 @@ proc_7F03364C:
 /* 0681B4 7F033684 00000000 */  nop   
 # end proc_7F03364C
 
+.global proc_7F033688
 proc_7F033688:
 /* 0681B8 7F033688 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0681BC 7F03368C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57467,6 +58069,7 @@ proc_7F033688:
 /* 0681F0 7F0336C0 00000000 */  nop   
 # end proc_7F033688
 
+.global proc_7F0336C4
 proc_7F0336C4:
 /* 0681F4 7F0336C4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0681F8 7F0336C8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57486,6 +58089,7 @@ proc_7F0336C4:
 /* 06822C 7F0336FC 00000000 */  nop   
 # end proc_7F0336C4
 
+.global proc_7F033700
 proc_7F033700:
 /* 068230 7F033700 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 068234 7F033704 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -57515,6 +58119,7 @@ proc_7F033700:
 /* 06828C 7F03375C 00000000 */  nop   
 # end proc_7F033700
 
+.global proc_7F033760
 proc_7F033760:
 /* 068290 7F033760 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 068294 7F033764 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57526,6 +58131,7 @@ proc_7F033760:
 /* 0682AC 7F03377C 00000000 */  nop   
 # end proc_7F033760
 
+.global proc_7F033780
 proc_7F033780:
 /* 0682B0 7F033780 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0682B4 7F033784 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57577,6 +58183,7 @@ proc_7F033780:
 /* 068360 7F033830 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F033780
 
+.global proc_7F033834
 proc_7F033834:
 /* 068364 7F033834 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 068368 7F033838 F7B40018 */  sdc1  $f20, 0x18($sp)
@@ -57679,6 +58286,7 @@ proc_7F033834:
 /* 0684C4 7F033994 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F033834
 
+.global proc_7F033998
 proc_7F033998:
 /* 0684C8 7F033998 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0684CC 7F03399C AFB00014 */  sw    $s0, 0x14($sp)
@@ -57756,6 +58364,7 @@ proc_7F033998:
 /* 0685D8 7F033AA8 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F033998
 
+.global proc_7F033AAC
 proc_7F033AAC:
 /* 0685DC 7F033AAC 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0685E0 7F033AB0 30A700FF */  andi  $a3, $a1, 0xff
@@ -57799,6 +58408,7 @@ proc_7F033AAC:
 /* 068664 7F033B34 00000000 */  nop   
 # end proc_7F033AAC
 
+.global proc_7F033B38
 proc_7F033B38:
 /* 068668 7F033B38 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 06866C 7F033B3C 44856000 */  mtc1  $a1, $f12
@@ -57918,6 +58528,7 @@ proc_7F033B38:
 /* 068820 7F033CF0 27BD0068 */  addiu $sp, $sp, 0x68
 # end proc_7F033B38
 
+.global proc_7F033CF4
 proc_7F033CF4:
 /* 068824 7F033CF4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 068828 7F033CF8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57931,6 +58542,7 @@ proc_7F033CF4:
 /* 068848 7F033D18 00000000 */  nop   
 # end proc_7F033CF4
 
+.global proc_7F033D1C
 proc_7F033D1C:
 /* 06884C 7F033D1C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 068850 7F033D20 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57951,6 +58563,7 @@ proc_7F033D1C:
 /* 068888 7F033D58 00000000 */  nop   
 # end proc_7F033D1C
 
+.global proc_7F033D5C
 proc_7F033D5C:
 /* 06888C 7F033D5C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 068890 7F033D60 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57964,6 +58577,7 @@ proc_7F033D5C:
 /* 0688B0 7F033D80 00000000 */  nop   
 # end proc_7F033D5C
 
+.global proc_7F033D84
 proc_7F033D84:
 /* 0688B4 7F033D84 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0688B8 7F033D88 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -57984,6 +58598,7 @@ proc_7F033D84:
 /* 0688F0 7F033DC0 00000000 */  nop   
 # end proc_7F033D84
 
+.global proc_7F033DC4
 proc_7F033DC4:
 /* 0688F4 7F033DC4 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 0688F8 7F033DC8 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -58048,6 +58663,7 @@ proc_7F033DC4:
 /* 0689D8 7F033EA8 27BD0060 */  addiu $sp, $sp, 0x60
 # end proc_7F033DC4
 
+.global proc_7F033EAC
 proc_7F033EAC:
 /* 0689DC 7F033EAC 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0689E0 7F033EB0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -58093,6 +58709,7 @@ proc_7F033EAC:
 /* 068A74 7F033F44 00000000 */  nop   
 # end proc_7F033EAC
 
+.global proc_7F033F48
 proc_7F033F48:
 /* 068A78 7F033F48 27BDFF68 */  addiu $sp, $sp, -0x98
 /* 068A7C 7F033F4C AFBF007C */  sw    $ra, 0x7c($sp)
@@ -58237,6 +58854,7 @@ proc_7F033F48:
 /* 068C88 7F034158 27BD0098 */  addiu $sp, $sp, 0x98
 # end proc_7F033F48
 
+.global proc_7F03415C
 proc_7F03415C:
 /* 068C8C 7F03415C 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 068C90 7F034160 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -58306,6 +58924,7 @@ proc_7F03415C:
 /* 068D84 7F034254 00000000 */  nop   
 # end proc_7F03415C
 
+.global proc_7F034258
 proc_7F034258:
 /* 068D88 7F034258 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 068D8C 7F03425C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -58355,6 +58974,7 @@ proc_7F034258:
 /* 068E34 7F034304 00000000 */  nop   
 # end proc_7F034258
 
+.global proc_7F034308
 proc_7F034308:
 /* 068E38 7F034308 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 068E3C 7F03430C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -58392,6 +59012,7 @@ proc_7F034308:
 /* 068EB4 7F034384 00000000 */  nop   
 # end proc_7F034308
 
+.global proc_7F034388
 proc_7F034388:
 /* 068EB8 7F034388 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 068EBC 7F03438C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -58447,6 +59068,7 @@ proc_7F034388:
 /* 068F78 7F034448 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F034388
 
+.global proc_7F03444C
 proc_7F03444C:
 /* 068F7C 7F03444C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 068F80 7F034450 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -58497,18 +59119,21 @@ proc_7F03444C:
 /* 069028 7F0344F8 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F03444C
 
+.global proc_7F0344FC
 proc_7F0344FC:
 /* 06902C 7F0344FC AFA40000 */  sw    $a0, ($sp)
 /* 069030 7F034500 03E00008 */  jr    $ra
 /* 069034 7F034504 00001025 */  or    $v0, $zero, $zero
 # end proc_7F0344FC
 
+.global proc_7F034508
 proc_7F034508:
 /* 069038 7F034508 AFA40000 */  sw    $a0, ($sp)
 /* 06903C 7F03450C 03E00008 */  jr    $ra
 /* 069040 7F034510 00001025 */  or    $v0, $zero, $zero
 # end proc_7F034508
 
+.global proc_7F034514
 proc_7F034514:
 /* 069044 7F034514 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 069048 7F034518 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -58540,6 +59165,7 @@ proc_7F034514:
 /* 0690A8 7F034578 00000000 */  nop   
 # end proc_7F034514
 
+.global proc_7F03457C
 proc_7F03457C:
 /* 0690AC 7F03457C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0690B0 7F034580 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -58648,6 +59274,7 @@ proc_7F03457C:
 /* 069228 7F0346F8 00000000 */  nop   
 # end proc_7F03457C
 
+.global proc_7F0346FC
 proc_7F0346FC:
 /* 06922C 7F0346FC 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 069230 7F034700 AFA40020 */  sw    $a0, 0x20($sp)
@@ -58694,6 +59321,7 @@ proc_7F0346FC:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F0347A0
 proc_7F0347A0:
 /* 0692D0 7F0347A0 00047080 */  sll   $t6, $a0, 2
 /* 0692D4 7F0347A4 27BDFFD8 */  addiu $sp, $sp, -0x28
@@ -58787,6 +59415,7 @@ proc_7F0347A0:
 /* 069410 7F0348E0 00000000 */  nop   
 # end proc_7F0347A0
 
+.global proc_7F0348E4
 proc_7F0348E4:
 /* 069414 7F0348E4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 069418 7F0348E8 AFB10018 */  sw    $s1, 0x18($sp)
@@ -58807,6 +59436,7 @@ proc_7F0348E4:
 /* 069450 7F034920 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F0348E4
 
+.global proc_7F034924
 proc_7F034924:
 /* 069454 7F034924 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 069458 7F034928 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -58850,6 +59480,7 @@ proc_7F034924:
 /* 0694E8 7F0349B8 00000000 */  nop   
 # end proc_7F034924
 
+.global proc_7F0349BC
 proc_7F0349BC:
 /* 0694EC 7F0349BC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0694F0 7F0349C0 0480000A */  bltz  $a0, .Lproc_7F0349BC_30
@@ -58870,6 +59501,7 @@ proc_7F0349BC:
 /* 069528 7F0349F8 00000000 */  nop   
 # end proc_7F0349BC
 
+.global proc_7F0349FC
 proc_7F0349FC:
 /* 06952C 7F0349FC 00851021 */  addu  $v0, $a0, $a1
 /* 069530 7F034A00 904E0000 */  lbu   $t6, ($v0)
@@ -59406,6 +60038,7 @@ proc_7F0349FC:
 /* 069D70 7F035240 00000000 */  nop   
 # end proc_7F0349FC
 
+.global proc_7F035244
 proc_7F035244:
 /* 069D74 7F035244 3C088007 */  lui   $t0, 0x8007
 /* 069D78 7F035248 25085D00 */  addiu $t0, $t0, 0x5d00
@@ -59458,6 +60091,7 @@ proc_7F035244:
 /* 069E1C 7F0352EC 00000000 */  nop   
 # end proc_7F035244
 
+.global proc_7F0352F0
 proc_7F0352F0:
 /* 069E20 7F0352F0 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 069E24 7F0352F4 AFB40028 */  sw    $s4, 0x28($sp)
@@ -59507,6 +60141,7 @@ proc_7F0352F0:
 /* 069EC4 7F035394 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F0352F0
 
+.global proc_7F035398
 proc_7F035398:
 /* 069EC8 7F035398 28810401 */  slti  $at, $a0, 0x401
 /* 069ECC 7F03539C 14200014 */  bnez  $at, .Lproc_7F035398_58
@@ -59555,6 +60190,7 @@ proc_7F035398:
 /* 069F60 7F035430 00000000 */  nop   
 # end proc_7F035398
 
+.global proc_7F035434
 proc_7F035434:
 /* 069F64 7F035434 3C058007 */  lui   $a1, 0x8007
 /* 069F68 7F035438 8CA55D10 */  lw    $a1, 0x5d10($a1)
@@ -59581,6 +60217,7 @@ proc_7F035434:
 /* 069FB0 7F035480 00000000 */  nop   
 # end proc_7F035434
 
+.global proc_7F035484
 proc_7F035484:
 /* 069FB4 7F035484 27BDF848 */  addiu $sp, $sp, -0x7b8
 /* 069FB8 7F035488 AFB7006C */  sw    $s7, 0x6c($sp)
@@ -64848,6 +65485,7 @@ proc_7F035484:
 /* 06ED6C 7F03A23C 27BD07B8 */  addiu $sp, $sp, 0x7b8
 # end proc_7F035484
 
+.global proc_7F03A240
 proc_7F03A240:
 /* 06ED70 7F03A240 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 06ED74 7F03A244 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -64979,6 +65617,7 @@ proc_7F03A240:
 /* 06EF30 7F03A400 00000000 */  nop   
 # end proc_7F03A240
 
+.global proc_7F03A404
 proc_7F03A404:
 /* 06EF34 7F03A404 908E0001 */  lbu   $t6, 1($a0)
 /* 06EF38 7F03A408 35CF0004 */  ori   $t7, $t6, 4
@@ -64986,6 +65625,7 @@ proc_7F03A404:
 /* 06EF40 7F03A410 A08F0001 */  sb    $t7, 1($a0)
 # end proc_7F03A404
 
+.global proc_7F03A414
 proc_7F03A414:
 /* 06EF44 7F03A414 908E0001 */  lbu   $t6, 1($a0)
 /* 06EF48 7F03A418 31CFFFFB */  andi  $t7, $t6, 0xfffb
@@ -64993,12 +65633,14 @@ proc_7F03A414:
 /* 06EF50 7F03A420 A08F0001 */  sb    $t7, 1($a0)
 # end proc_7F03A414
 
+.global proc_7F03A424
 proc_7F03A424:
 /* 06EF54 7F03A424 3C028003 */  lui   $v0, 0x8003
 /* 06EF58 7F03A428 03E00008 */  jr    $ra
 /* 06EF5C 7F03A42C 8C420AA0 */  lw    $v0, 0xaa0($v0)
 # end proc_7F03A424
 
+.global remove_last_obj.pos.data_entry
 remove_last_obj.pos.data_entry:
 /* 06EF60 7F03A430 3C058003 */  lui   $a1, 0x8003
 /* 06EF64 7F03A434 24A50AA8 */  addiu $a1, $a1, 0xaa8
@@ -65024,6 +65666,7 @@ remove_last_obj.pos.data_entry:
 /* 06EFB0 7F03A480 00000000 */  nop   
 # end remove_last_obj.pos.data_entry
 
+.global proc_7F03A484
 proc_7F03A484:
 /* 06EFB4 7F03A484 3C028003 */  lui   $v0, 0x8003
 /* 06EFB8 7F03A488 24420AA8 */  addiu $v0, $v0, 0xaa8
@@ -65035,6 +65678,7 @@ proc_7F03A484:
 /* 06EFD0 7F03A4A0 AC440000 */  sw    $a0, ($v0)
 # end proc_7F03A484
 
+.global proc_7F03A4A4
 proc_7F03A4A4:
 /* 06EFD4 7F03A4A4 3C038003 */  lui   $v1, 0x8003
 /* 06EFD8 7F03A4A8 24630AA0 */  addiu $v1, $v1, 0xaa0
@@ -65058,6 +65702,7 @@ proc_7F03A4A4:
 /* 06F01C 7F03A4EC 00000000 */  nop   
 # end proc_7F03A4A4
 
+.global proc_7F03A4F0
 proc_7F03A4F0:
 /* 06F020 7F03A4F0 3C038003 */  lui   $v1, 0x8003
 /* 06F024 7F03A4F4 24630AA4 */  addiu $v1, $v1, 0xaa4
@@ -65080,6 +65725,7 @@ proc_7F03A4F0:
 /* 06F064 7F03A534 00000000 */  nop   
 # end proc_7F03A4F0
 
+.global proc_7F03A538
 proc_7F03A538:
 /* 06F068 7F03A538 3C028003 */  lui   $v0, 0x8003
 /* 06F06C 7F03A53C 24420AA0 */  addiu $v0, $v0, 0xaa0
@@ -65114,6 +65760,7 @@ proc_7F03A538:
 /* 06F0D0 7F03A5A0 AC800028 */  sw    $zero, 0x28($a0)
 # end proc_7F03A538
 
+.global proc_7F03A5A4
 proc_7F03A5A4:
 /* 06F0D4 7F03A5A4 AC85001C */  sw    $a1, 0x1c($a0)
 /* 06F0D8 7F03A5A8 8CA20020 */  lw    $v0, 0x20($a1)
@@ -65129,6 +65776,7 @@ proc_7F03A5A4:
 /* 06F0FC 7F03A5CC ACA40020 */  sw    $a0, 0x20($a1)
 # end proc_7F03A5A4
 
+.global proc_7F03A5D0
 proc_7F03A5D0:
 /* 06F100 7F03A5D0 8C82001C */  lw    $v0, 0x1c($a0)
 /* 06F104 7F03A5D4 10400013 */  beqz  $v0, .Lproc_7F03A5D0_54
@@ -65159,6 +65807,7 @@ proc_7F03A5D0:
 /* 06F158 7F03A628 00000000 */  nop   
 # end proc_7F03A5D0
 
+.global proc_7F03A62C
 proc_7F03A62C:
 /* 06F15C 7F03A62C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 06F160 7F03A630 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -65218,6 +65867,7 @@ proc_7F03A62C:
 /* 06F220 7F03A6F0 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F03A62C
 
+.global proc_7F03A6F4
 proc_7F03A6F4:
 /* 06F224 7F03A6F4 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 06F228 7F03A6F8 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -65404,6 +66054,7 @@ proc_7F03A6F4:
 /* 06F4A8 7F03A978 27BD0070 */  addiu $sp, $sp, 0x70
 # end proc_7F03A6F4
 
+.global proc_7F03A97C
 proc_7F03A97C:
 /* 06F4AC 7F03A97C 00047080 */  sll   $t6, $a0, 2
 /* 06F4B0 7F03A980 01C47021 */  addu  $t6, $t6, $a0
@@ -65459,6 +66110,7 @@ proc_7F03A97C:
 /* 06F570 7F03AA40 00000000 */  nop   
 # end proc_7F03A97C
 
+.global proc_7F03AA44
 proc_7F03AA44:
 /* 06F574 7F03AA44 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 06F578 7F03AA48 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -65534,6 +66186,7 @@ proc_7F03AA44:
 /* 06F684 7F03AB54 27BD0058 */  addiu $sp, $sp, 0x58
 # end proc_7F03AA44
 
+.global proc_7F03AB58
 proc_7F03AB58:
 /* 06F688 7F03AB58 27BDFDE0 */  addiu $sp, $sp, -0x220
 /* 06F68C 7F03AB5C AFBF003C */  sw    $ra, 0x3c($sp)
@@ -65715,6 +66368,7 @@ proc_7F03AB58:
 /* 06F920 7F03ADF0 27BD0220 */  addiu $sp, $sp, 0x220
 # end proc_7F03AB58
 
+.global proc_7F03ADF4
 proc_7F03ADF4:
 /* 06F924 7F03ADF4 27BDFD08 */  addiu $sp, $sp, -0x2f8
 /* 06F928 7F03ADF8 AFBE0038 */  sw    $fp, 0x38($sp)
@@ -65817,6 +66471,7 @@ proc_7F03ADF4:
 /* 06FA88 7F03AF58 27BD02F8 */  addiu $sp, $sp, 0x2f8
 # end proc_7F03ADF4
 
+.global proc_7F03AF5C
 proc_7F03AF5C:
 /* 06FA8C 7F03AF5C 27BDFF40 */  addiu $sp, $sp, -0xc0
 /* 06FA90 7F03AF60 F7BA0030 */  sdc1  $f26, 0x30($sp)
@@ -65953,6 +66608,7 @@ proc_7F03AF5C:
 /* 06FC88 7F03B158 27BD00C0 */  addiu $sp, $sp, 0xc0
 # end proc_7F03AF5C
 
+.global proc_7F03B15C
 proc_7F03B15C:
 /* 06FC8C 7F03B15C 27BDFA88 */  addiu $sp, $sp, -0x578
 /* 06FC90 7F03B160 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -66534,6 +67190,7 @@ proc_7F03B15C:
 /* 0704EC 7F03B9BC 27BD0578 */  addiu $sp, $sp, 0x578
 # end proc_7F03B15C
 
+.global proc_7F03B9C0
 proc_7F03B9C0:
 /* 0704F0 7F03B9C0 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0704F4 7F03B9C4 8FAE0054 */  lw    $t6, 0x54($sp)
@@ -66830,6 +67487,7 @@ proc_7F03B9C0:
 /* 070918 7F03BDE8 00000000 */  nop   
 # end proc_7F03B9C0
 
+.global proc_7F03BDEC
 proc_7F03BDEC:
 /* 07091C 7F03BDEC 27BDFF38 */  addiu $sp, $sp, -0xc8
 /* 070920 7F03BDF0 AFBF0064 */  sw    $ra, 0x64($sp)
@@ -67036,6 +67694,7 @@ proc_7F03BDEC:
 /* 070C1C 7F03C0EC 27BD00C8 */  addiu $sp, $sp, 0xc8
 # end proc_7F03BDEC
 
+.global proc_7F03C0F0
 proc_7F03C0F0:
 /* 070C20 7F03C0F0 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 070C24 7F03C0F4 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -67155,6 +67814,7 @@ proc_7F03C0F0:
 /* 070DC0 7F03C290 00000000 */  nop   
 # end proc_7F03C0F0
 
+.global proc_7F03C294
 proc_7F03C294:
 /* 070DC4 7F03C294 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 070DC8 7F03C298 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -67168,6 +67828,7 @@ proc_7F03C294:
 /* 070DE8 7F03C2B8 00000000 */  nop   
 # end proc_7F03C294
 
+.global proc_7F03C2BC
 proc_7F03C2BC:
 /* 070DEC 7F03C2BC 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 070DF0 7F03C2C0 AFB00018 */  sw    $s0, 0x18($sp)
@@ -67256,6 +67917,7 @@ proc_7F03C2BC:
 /* 070F28 7F03C3F8 00000000 */  nop   
 # end proc_7F03C2BC
 
+.global proc_7F03C3FC
 proc_7F03C3FC:
 /* 070F2C 7F03C3FC 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 070F30 7F03C400 AFB00014 */  sw    $s0, 0x14($sp)
@@ -67326,6 +67988,7 @@ proc_7F03C3FC:
 /* 07101C 7F03C4EC 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F03C3FC
 
+.global proc_7F03C4F0
 proc_7F03C4F0:
 /* 071020 7F03C4F0 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 071024 7F03C4F4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -67365,6 +68028,7 @@ proc_7F03C4F0:
 /* 0710A0 7F03C570 00000000 */  nop   
 # end proc_7F03C4F0
 
+.global proc_7F03C574
 proc_7F03C574:
 /* 0710A4 7F03C574 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0710A8 7F03C578 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -67424,6 +68088,7 @@ proc_7F03C574:
 /* 071174 7F03C644 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F03C574
 
+.global proc_7F03C648
 proc_7F03C648:
 /* 071178 7F03C648 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 07117C 7F03C64C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -67703,6 +68368,7 @@ proc_7F03C648:
 /* 07155C 7F03CA2C 27BD0058 */  addiu $sp, $sp, 0x58
 # end proc_7F03C648
 
+.global proc_7F03CA30
 proc_7F03CA30:
 /* 071560 7F03CA30 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 071564 7F03CA34 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -67806,6 +68472,7 @@ proc_7F03CA30:
 /* 0716B8 7F03CB88 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F03CA30
 
+.global proc_7F03CB8C
 proc_7F03CB8C:
 /* 0716BC 7F03CB8C 8C820014 */  lw    $v0, 0x14($a0)
 /* 0716C0 7F03CB90 240EFFFF */  addiu $t6, $zero, -1
@@ -67850,6 +68517,7 @@ proc_7F03CB8C:
 /* 07174C 7F03CC1C 00000000 */  nop   
 # end proc_7F03CB8C
 
+.global proc_7F03CC20
 proc_7F03CC20:
 /* 071750 7F03CC20 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 071754 7F03CC24 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -67894,6 +68562,7 @@ proc_7F03CC20:
 /* 0717DC 7F03CCAC 00000000 */  nop   
 # end proc_7F03CC20
 
+.global proc_7F03CCB0
 proc_7F03CCB0:
 /* 0717E0 7F03CCB0 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0717E4 7F03CCB4 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -67907,6 +68576,7 @@ proc_7F03CCB0:
 /* 071804 7F03CCD4 00000000 */  nop   
 # end proc_7F03CCB0
 
+.global proc_7F03CCD8
 proc_7F03CCD8:
 /* 071808 7F03CCD8 1CC00003 */  bgtz  $a2, .Lproc_7F03CCD8_10
 /* 07180C 7F03CCDC 2402FFFF */  addiu $v0, $zero, -1
@@ -68101,6 +68771,7 @@ proc_7F03CCD8:
 /* 071AB4 7F03CF84 00000000 */  nop   
 # end proc_7F03CCD8
 
+.global proc_7F03CF88
 proc_7F03CF88:
 /* 071AB8 7F03CF88 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 071ABC 7F03CF8C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -68131,6 +68802,7 @@ proc_7F03CF88:
 /* 071B14 7F03CFE4 00000000 */  nop   
 # end proc_7F03CF88
 
+.global proc_7F03CFE8
 proc_7F03CFE8:
 /* 071B18 7F03CFE8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 071B1C 7F03CFEC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -68165,6 +68837,7 @@ proc_7F03CFE8:
 /* 071B84 7F03D054 00000000 */  nop   
 # end proc_7F03CFE8
 
+.global proc_7F03D058
 proc_7F03D058:
 /* 071B88 7F03D058 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 071B8C 7F03D05C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -68203,6 +68876,7 @@ proc_7F03D058:
 /* 071C00 7F03D0D0 00000000 */  nop   
 # end proc_7F03D058
 
+.global proc_7F03D0D4
 proc_7F03D0D4:
 /* 071C04 7F03D0D4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 071C08 7F03D0D8 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -68256,6 +68930,7 @@ proc_7F03D0D4:
 /* 071CB4 7F03D184 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F03D0D4
 
+.global proc_7F03D188
 proc_7F03D188:
 /* 071CB8 7F03D188 27BDFF50 */  addiu $sp, $sp, -0xb0
 /* 071CBC 7F03D18C AFBF002C */  sw    $ra, 0x2c($sp)
@@ -68662,6 +69337,7 @@ proc_7F03D188:
 /* 0722B8 7F03D788 00000000 */  nop   
 # end proc_7F03D188
 
+.global proc_7F03D78C
 proc_7F03D78C:
 /* 0722BC 7F03D78C 27BDFF58 */  addiu $sp, $sp, -0xa8
 /* 0722C0 7F03D790 3C0F8003 */  lui   $t7, 0x8003
@@ -68824,6 +69500,7 @@ proc_7F03D78C:
 /* 072518 7F03D9E8 27BD00A8 */  addiu $sp, $sp, 0xa8
 # end proc_7F03D78C
 
+.global proc_7F03D9EC
 proc_7F03D9EC:
 /* 07251C 7F03D9EC 8C820004 */  lw    $v0, 4($a0)
 /* 072520 7F03D9F0 44802000 */  mtc1  $zero, $f4
@@ -68855,6 +69532,7 @@ proc_7F03D9EC:
 /* 07257C 7F03DA4C 00601025 */  or    $v0, $v1, $zero
 # end proc_7F03D9EC
 
+.global proc_7F03DA50
 proc_7F03DA50:
 /* 072580 7F03DA50 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 072584 7F03DA54 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -68941,6 +69619,7 @@ proc_7F03DA50:
 /* 07269C 7F03DB6C 00000000 */  nop   
 # end proc_7F03DA50
 
+.global proc_7F03DB70
 proc_7F03DB70:
 /* 0726A0 7F03DB70 8C830000 */  lw    $v1, ($a0)
 /* 0726A4 7F03DB74 00801025 */  or    $v0, $a0, $zero
@@ -68972,6 +69651,7 @@ proc_7F03DB70:
 /* 0726F8 7F03DBC8 00000000 */  nop   
 # end proc_7F03DB70
 
+.global proc_7F03DBCC
 proc_7F03DBCC:
 /* 0726FC 7F03DBCC 3C0F8007 */  lui   $t7, 0x8007
 /* 072700 7F03DBD0 8DEF161C */  lw    $t7, 0x161c($t7)
@@ -69041,6 +69721,7 @@ proc_7F03DBCC:
 /* 0727E4 7F03DCB4 00000000 */  nop   
 # end proc_7F03DBCC
 
+.global proc_7F03DCB8
 proc_7F03DCB8:
 /* 0727E8 7F03DCB8 00803025 */  or    $a2, $a0, $zero
 /* 0727EC 7F03DCBC 3C028007 */  lui   $v0, 0x8007
@@ -69105,6 +69786,7 @@ proc_7F03DCB8:
 /* 0728C8 7F03DD98 00000000 */  nop   
 # end proc_7F03DCB8
 
+.global proc_7F03DD9C
 proc_7F03DD9C:
 /* 0728CC 7F03DD9C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0728D0 7F03DDA0 AFA5002C */  sw    $a1, 0x2c($sp)
@@ -69174,6 +69856,7 @@ proc_7F03DD9C:
 /* 0729C0 7F03DE90 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F03DD9C
 
+.global proc_7F03DE94
 proc_7F03DE94:
 /* 0729C4 7F03DE94 27BDFFF0 */  addiu $sp, $sp, -0x10
 /* 0729C8 7F03DE98 00057400 */  sll   $t6, $a1, 0x10
@@ -69371,6 +70054,7 @@ proc_7F03DE94:
 /* 072C60 7F03E130 27BD0010 */  addiu $sp, $sp, 0x10
 # end proc_7F03DE94
 
+.global proc_7F03E134
 proc_7F03E134:
 /* 072C64 7F03E134 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 072C68 7F03E138 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -69399,6 +70083,7 @@ proc_7F03E134:
 /* 072CB8 7F03E188 00000000 */  nop   
 # end proc_7F03E134
 
+.global proc_7F03E18C
 proc_7F03E18C:
 /* 072CBC 7F03E18C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 072CC0 7F03E190 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -69438,6 +70123,7 @@ proc_7F03E18C:
 /* 072D3C 7F03E20C 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F03E18C
 
+.global proc_7F03E210
 proc_7F03E210:
 /* 072D40 7F03E210 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 072D44 7F03E214 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -69470,6 +70156,7 @@ proc_7F03E210:
 /* 072DA8 7F03E278 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F03E210
 
+.global proc_7F03E27C
 proc_7F03E27C:
 /* 072DAC 7F03E27C 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 072DB0 7F03E280 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -69578,6 +70265,7 @@ proc_7F03E27C:
 /* 072F28 7F03E3F8 00000000 */  nop   
 # end proc_7F03E27C
 
+.global proc_7F03E3FC
 proc_7F03E3FC:
 /* 072F2C 7F03E3FC 8C830000 */  lw    $v1, ($a0)
 /* 072F30 7F03E400 3C098007 */  lui   $t1, 0x8007
@@ -69650,6 +70338,7 @@ proc_7F03E3FC:
 /* 07301C 7F03E4EC AC2E9C34 */  sw    $t6, %lo(0x80069C34)($at) # $t6, -0x63cc($at)
 # end proc_7F03E3FC
 
+.global proc_7F03E4F0
 proc_7F03E4F0:
 /* 073020 7F03E4F0 3C038004 */  lui   $v1, 0x8004
 /* 073024 7F03E4F4 8C6342F4 */  lw    $v1, 0x42f4($v1)
@@ -69774,11 +70463,13 @@ proc_7F03E4F0:
 /* 0731C4 7F03E694 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F03E4F0
 
+.global proc_7F03E698
 proc_7F03E698:
 /* 0731C8 7F03E698 03E00008 */  jr    $ra
 /* 0731CC 7F03E69C 00000000 */  nop   
 # end proc_7F03E698
 
+.global proc_7F03E6A0
 proc_7F03E6A0:
 /* 0731D0 7F03E6A0 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0731D4 7F03E6A4 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -69815,6 +70506,7 @@ proc_7F03E6A0:
 /* 073244 7F03E714 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F03E6A0
 
+.global proc_7F03E718
 proc_7F03E718:
 /* 073248 7F03E718 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 07324C 7F03E71C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -69858,6 +70550,7 @@ proc_7F03E718:
 /* 0732D8 7F03E7A8 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F03E718
 
+.global proc_7F03E7AC
 proc_7F03E7AC:
 /* 0732DC 7F03E7AC 8C8E000C */  lw    $t6, 0xc($a0)
 /* 0732E0 7F03E7B0 3C028003 */  lui   $v0, 0x8003
@@ -69897,6 +70590,7 @@ proc_7F03E7AC:
 /* 07335C 7F03E82C 00000000 */  nop   
 # end proc_7F03E7AC
 
+.global proc_7F03E830
 proc_7F03E830:
 /* 073360 7F03E830 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 073364 7F03E834 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -69911,26 +70605,31 @@ proc_7F03E830:
 /* 073388 7F03E858 00000000 */  nop   
 # end proc_7F03E830
 
+.global proc_7F03E85C
 proc_7F03E85C:
 /* 07338C 7F03E85C 03E00008 */  jr    $ra
 /* 073390 7F03E860 C4800004 */  lwc1  $f0, 4($a0)
 # end proc_7F03E85C
 
+.global proc_7F03E864
 proc_7F03E864:
 /* 073394 7F03E864 03E00008 */  jr    $ra
 /* 073398 7F03E868 C480000C */  lwc1  $f0, 0xc($a0)
 # end proc_7F03E864
 
+.global proc_7F03E86C
 proc_7F03E86C:
 /* 07339C 7F03E86C 03E00008 */  jr    $ra
 /* 0733A0 7F03E870 C4800010 */  lwc1  $f0, 0x10($a0)
 # end proc_7F03E86C
 
+.global proc_7F03E874
 proc_7F03E874:
 /* 0733A4 7F03E874 03E00008 */  jr    $ra
 /* 0733A8 7F03E878 C4800014 */  lwc1  $f0, 0x14($a0)
 # end proc_7F03E874
 
+.global proc_7F03E87C
 proc_7F03E87C:
 /* 0733AC 7F03E87C 44806000 */  mtc1  $zero, $f12
 /* 0733B0 7F03E880 C4A00000 */  lwc1  $f0, ($a1)
@@ -69979,6 +70678,7 @@ proc_7F03E87C:
 /* 073448 7F03E918 46001006 */  mov.s $f0, $f2
 # end proc_7F03E87C
 
+.global proc_7F03E91C
 proc_7F03E91C:
 /* 07344C 7F03E91C 44806000 */  mtc1  $zero, $f12
 /* 073450 7F03E920 C4A00000 */  lwc1  $f0, ($a1)
@@ -70027,6 +70727,7 @@ proc_7F03E91C:
 /* 0734E8 7F03E9B8 46001006 */  mov.s $f0, $f2
 # end proc_7F03E91C
 
+.global proc_7F03E9BC
 proc_7F03E9BC:
 /* 0734EC 7F03E9BC 44806000 */  mtc1  $zero, $f12
 /* 0734F0 7F03E9C0 C4A00004 */  lwc1  $f0, 4($a1)
@@ -70075,6 +70776,7 @@ proc_7F03E9BC:
 /* 073588 7F03EA58 46001006 */  mov.s $f0, $f2
 # end proc_7F03E9BC
 
+.global proc_7F03EA5C
 proc_7F03EA5C:
 /* 07358C 7F03EA5C 44806000 */  mtc1  $zero, $f12
 /* 073590 7F03EA60 C4A00004 */  lwc1  $f0, 4($a1)
@@ -70123,6 +70825,7 @@ proc_7F03EA5C:
 /* 073628 7F03EAF8 46001006 */  mov.s $f0, $f2
 # end proc_7F03EA5C
 
+.global proc_7F03EAFC
 proc_7F03EAFC:
 /* 07362C 7F03EAFC 44806000 */  mtc1  $zero, $f12
 /* 073630 7F03EB00 C4A00008 */  lwc1  $f0, 8($a1)
@@ -70171,6 +70874,7 @@ proc_7F03EAFC:
 /* 0736C8 7F03EB98 46001006 */  mov.s $f0, $f2
 # end proc_7F03EAFC
 
+.global proc_7F03EB9C
 proc_7F03EB9C:
 /* 0736CC 7F03EB9C 44806000 */  mtc1  $zero, $f12
 /* 0736D0 7F03EBA0 C4A00008 */  lwc1  $f0, 8($a1)
@@ -70219,6 +70923,7 @@ proc_7F03EB9C:
 /* 073768 7F03EC38 46001006 */  mov.s $f0, $f2
 # end proc_7F03EB9C
 
+.global proc_7F03EC3C
 proc_7F03EC3C:
 /* 07376C 7F03EC3C 44800000 */  mtc1  $zero, $f0
 /* 073770 7F03EC40 C4A40008 */  lwc1  $f4, 8($a1)
@@ -70260,6 +70965,7 @@ proc_7F03EC3C:
 /* 0737EC 7F03ECBC 00000000 */  nop   
 # end proc_7F03EC3C
 
+.global proc_7F03ECC0
 proc_7F03ECC0:
 /* 0737F0 7F03ECC0 27BDFE20 */  addiu $sp, $sp, -0x1e0
 /* 0737F4 7F03ECC4 AFA601E8 */  sw    $a2, 0x1e8($sp)
@@ -70840,6 +71546,7 @@ proc_7F03ECC0:
 /* 07406C 7F03F53C 27BD01E0 */  addiu $sp, $sp, 0x1e0
 # end proc_7F03ECC0
 
+.global proc_7F03F540
 proc_7F03F540:
 /* 074070 7F03F540 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 074074 7F03F544 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -70865,6 +71572,7 @@ proc_7F03F540:
 /* 0740C4 7F03F594 00000000 */  nop   
 # end proc_7F03F540
 
+.global proc_7F03F598
 proc_7F03F598:
 /* 0740C8 7F03F598 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0740CC 7F03F59C F7B40008 */  sdc1  $f20, 8($sp)
@@ -70982,6 +71690,7 @@ proc_7F03F598:
 /* 074274 7F03F744 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F03F598
 
+.global proc_7F03F748
 proc_7F03F748:
 /* 074278 7F03F748 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 07427C 7F03F74C AFBF0044 */  sw    $ra, 0x44($sp)
@@ -71113,6 +71822,7 @@ proc_7F03F748:
 /* 074438 7F03F908 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F03F748
 
+.global proc_7F03F90C
 proc_7F03F90C:
 /* 07443C 7F03F90C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 074440 7F03F910 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -71131,6 +71841,7 @@ proc_7F03F90C:
 /* 074474 7F03F944 00000000 */  nop   
 # end proc_7F03F90C
 
+.global proc_7F03F948
 proc_7F03F948:
 /* 074478 7F03F948 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 07447C 7F03F94C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -71197,6 +71908,7 @@ proc_7F03F948:
 /* 074570 7F03FA40 00000000 */  nop   
 # end proc_7F03F948
 
+.global proc_7F03FA44
 proc_7F03FA44:
 /* 074574 7F03FA44 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 074578 7F03FA48 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -71231,6 +71943,7 @@ proc_7F03FA44:
 /* 0745DC 7F03FAAC 00000000 */  nop   
 # end proc_7F03FA44
 
+.global proc_7F03FAB0
 proc_7F03FAB0:
 /* 0745E0 7F03FAB0 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0745E4 7F03FAB4 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -71286,6 +71999,7 @@ proc_7F03FAB0:
 /* 07469C 7F03FB6C 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F03FAB0
 
+.global proc_7F03FB70
 proc_7F03FB70:
 /* 0746A0 7F03FB70 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0746A4 7F03FB74 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -71326,6 +72040,7 @@ proc_7F03FB70:
 /* 074728 7F03FBF8 00000000 */  nop   
 # end proc_7F03FB70
 
+.global proc_7F03FBFC
 proc_7F03FBFC:
 /* 07472C 7F03FBFC 44800000 */  mtc1  $zero, $f0
 /* 074730 7F03FC00 3C013F80 */  lui   $at, 0x3f80
@@ -71362,6 +72077,7 @@ proc_7F03FBFC:
 /* 0747AC 7F03FC7C E484008C */  swc1  $f4, 0x8c($a0)
 # end proc_7F03FBFC
 
+.global proc_7F03FC80
 proc_7F03FC80:
 /* 0747B0 7F03FC80 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0747B4 7F03FC84 3C028007 */  lui   $v0, 0x8007
@@ -71445,6 +72161,7 @@ proc_7F03FC80:
 /* 0748D4 7F03FDA4 00000000 */  nop   
 # end proc_7F03FC80
 
+.global proc_7F03FDA8
 proc_7F03FDA8:
 /* 0748D8 7F03FDA8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0748DC 7F03FDAC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -71478,6 +72195,7 @@ proc_7F03FDA8:
 /* 074940 7F03FE10 00000000 */  nop   
 # end proc_7F03FDA8
 
+.global proc_7F03FE14
 proc_7F03FE14:
 /* 074944 7F03FE14 8C820004 */  lw    $v0, 4($a0)
 /* 074948 7F03FE18 00001825 */  or    $v1, $zero, $zero
@@ -71513,6 +72231,7 @@ proc_7F03FE14:
 /* 0749B4 7F03FE84 00000000 */  nop   
 # end proc_7F03FE14
 
+.global proc_7F03FE88
 proc_7F03FE88:
 /* 0749B8 7F03FE88 8C8E0000 */  lw    $t6, ($a0)
 /* 0749BC 7F03FE8C 35CF0001 */  ori   $t7, $t6, 1
@@ -71520,6 +72239,7 @@ proc_7F03FE88:
 /* 0749C4 7F03FE94 AC8F0000 */  sw    $t7, ($a0)
 # end proc_7F03FE88
 
+.global proc_7F03FE98
 proc_7F03FE98:
 /* 0749C8 7F03FE98 3C048007 */  lui   $a0, 0x8007
 /* 0749CC 7F03FE9C 3C028007 */  lui   $v0, 0x8007
@@ -71578,6 +72298,7 @@ proc_7F03FE98:
 /* 074A8C 7F03FF5C 00000000 */  nop   
 # end proc_7F03FE98
 
+.global proc_7F03FF60
 proc_7F03FF60:
 /* 074A90 7F03FF60 908E0002 */  lbu   $t6, 2($a0)
 /* 074A94 7F03FF64 3C014080 */  lui   $at, 0x4080
@@ -71606,6 +72327,7 @@ proc_7F03FF60:
 /* 074AEC 7F03FFBC 00000000 */  nop   
 # end proc_7F03FF60
 
+.global proc_7F03FFC0
 proc_7F03FFC0:
 /* 074AF0 7F03FFC0 908E0002 */  lbu   $t6, 2($a0)
 /* 074AF4 7F03FFC4 31CF0080 */  andi  $t7, $t6, 0x80
@@ -71624,6 +72346,7 @@ proc_7F03FFC0:
 /* 074B24 7F03FFF4 00000000 */  nop   
 # end proc_7F03FFC0
 
+.global proc_7F03FFF8
 proc_7F03FFF8:
 /* 074B28 7F03FFF8 8C8E0000 */  lw    $t6, ($a0)
 /* 074B2C 7F03FFFC 8DC20014 */  lw    $v0, 0x14($t6)
@@ -71666,6 +72389,7 @@ proc_7F03FFF8:
 /* 074BA4 7F040074 00000000 */  nop   
 # end proc_7F03FFF8
 
+.global proc_7F040078
 proc_7F040078:
 /* 074BA8 7F040078 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 074BAC 7F04007C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -71678,6 +72402,7 @@ proc_7F040078:
 /* 074BC8 7F040098 00000000 */  nop   
 # end proc_7F040078
 
+.global proc_7F04009C
 proc_7F04009C:
 /* 074BCC 7F04009C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 074BD0 7F0400A0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -71825,6 +72550,7 @@ proc_7F04009C:
 /* 074DE0 7F0402B0 00000000 */  nop   
 # end proc_7F04009C
 
+.global proc_7F0402B4
 proc_7F0402B4:
 /* 074DE4 7F0402B4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 074DE8 7F0402B8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -71852,6 +72578,7 @@ proc_7F0402B4:
 /* 074E3C 7F04030C 00000000 */  nop   
 # end proc_7F0402B4
 
+.global proc_7F040310
 proc_7F040310:
 /* 074E40 7F040310 90880000 */  lbu   $t0, ($a0)
 /* 074E44 7F040314 90AE0000 */  lbu   $t6, ($a1)
@@ -71884,6 +72611,7 @@ proc_7F040310:
 /* 074EB0 7F040380 A0830003 */  sb    $v1, 3($a0)
 # end proc_7F040310
 
+.global proc_7F040384
 proc_7F040384:
 /* 074EB4 7F040384 24010001 */  addiu $at, $zero, 1
 /* 074EB8 7F040388 14A1003C */  bne   $a1, $at, .Lproc_7F040384_F8
@@ -71952,6 +72680,7 @@ proc_7F040384:
 /* 074FB0 7F040480 00000000 */  nop   
 # end proc_7F040384
 
+.global proc_7F040484
 proc_7F040484:
 /* 074FB4 7F040484 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 074FB8 7F040488 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -72006,6 +72735,7 @@ proc_7F040484:
 /* 075078 7F040548 00000000 */  nop   
 # end proc_7F040484
 
+.global init_standard_object
 init_standard_object:
 /* 07507C 7F04054C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 075080 7F040550 AFB10018 */  sw    $s1, 0x18($sp)
@@ -72126,6 +72856,7 @@ init_standard_object:
 /* 075224 7F0406F4 27BD0020 */  addiu $sp, $sp, 0x20
 # end init_standard_object
 
+.global proc_7F0406F8
 proc_7F0406F8:
 /* 075228 7F0406F8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 07522C 7F0406FC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -72138,6 +72869,7 @@ proc_7F0406F8:
 /* 075248 7F040718 00000000 */  nop   
 # end proc_7F0406F8
 
+.global proc_7F04071C
 proc_7F04071C:
 /* 07524C 7F04071C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 075250 7F040720 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -72155,6 +72887,7 @@ proc_7F04071C:
 /* 075280 7F040750 00000000 */  nop   
 # end proc_7F04071C
 
+.global proc_7F040754
 proc_7F040754:
 /* 075284 7F040754 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 075288 7F040758 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -72198,6 +72931,7 @@ proc_7F040754:
 /* 075320 7F0407F0 00000000 */  nop   
 # end proc_7F040754
 
+.global proc_7F0407F4
 proc_7F0407F4:
 /* 075324 7F0407F4 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 075328 7F0407F8 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -72239,6 +72973,7 @@ proc_7F0407F4:
 /* 0753B8 7F040888 00000000 */  nop   
 # end proc_7F0407F4
 
+.global proc_7F04088C
 proc_7F04088C:
 /* 0753BC 7F04088C 27BDFF58 */  addiu $sp, $sp, -0xa8
 /* 0753C0 7F040890 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -72447,6 +73182,7 @@ proc_7F04088C:
 /* 0756CC 7F040B9C 00000000 */  nop   
 # end proc_7F04088C
 
+.global proc_7F040BA0
 proc_7F040BA0:
 /* 0756D0 7F040BA0 27BDFF38 */  addiu $sp, $sp, -0xc8
 /* 0756D4 7F040BA4 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -72537,6 +73273,7 @@ proc_7F040BA0:
 /* 07581C 7F040CEC 00000000 */  nop   
 # end proc_7F040BA0
 
+.global proc_7F040CF0
 proc_7F040CF0:
 /* 075820 7F040CF0 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 075824 7F040CF4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -72587,6 +73324,7 @@ proc_7F040CF0:
 /* 0758C4 7F040D94 00000000 */  nop   
 # end proc_7F040CF0
 
+.global proc_7F040D98
 proc_7F040D98:
 /* 0758C8 7F040D98 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0758CC 7F040D9C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -72770,6 +73508,7 @@ proc_7F040D98:
 /* 075B50 7F041020 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F040D98
 
+.global proc_7F041024
 proc_7F041024:
 /* 075B54 7F041024 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 075B58 7F041028 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -72781,6 +73520,7 @@ proc_7F041024:
 /* 075B70 7F041040 00000000 */  nop   
 # end proc_7F041024
 
+.global proc_7F041044
 proc_7F041044:
 /* 075B74 7F041044 908E0003 */  lbu   $t6, 3($a0)
 /* 075B78 7F041048 24010004 */  addiu $at, $zero, 4
@@ -72797,6 +73537,7 @@ proc_7F041044:
 /* 075BA0 7F041070 00000000 */  nop   
 # end proc_7F041044
 
+.global proc_7F041074
 proc_7F041074:
 /* 075BA4 7F041074 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 075BA8 7F041078 AFA70024 */  sw    $a3, 0x24($sp)
@@ -72860,6 +73601,7 @@ proc_7F041074:
 /* 075C8C 7F04115C 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F041074
 
+.global proc_7F041160
 proc_7F041160:
 /* 075C90 7F041160 27BDFF58 */  addiu $sp, $sp, -0xa8
 /* 075C94 7F041164 AFBF0044 */  sw    $ra, 0x44($sp)
@@ -73040,6 +73782,7 @@ proc_7F041160:
 /* 075F2C 7F0413FC 27BD00A8 */  addiu $sp, $sp, 0xa8
 # end proc_7F041160
 
+.global proc_7F041400
 proc_7F041400:
 /* 075F30 7F041400 27BDFF28 */  addiu $sp, $sp, -0xd8
 /* 075F34 7F041404 AFB50044 */  sw    $s5, 0x44($sp)
@@ -73304,6 +74047,7 @@ proc_7F041400:
 /* 076308 7F0417D8 27BD00D8 */  addiu $sp, $sp, 0xd8
 # end proc_7F041400
 
+.global proc_7F0417DC
 proc_7F0417DC:
 /* 07630C 7F0417DC 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 076310 7F0417E0 AFB00028 */  sw    $s0, 0x28($sp)
@@ -73441,6 +74185,7 @@ proc_7F0417DC:
 /* 076510 7F0419E0 27BD0058 */  addiu $sp, $sp, 0x58
 # end proc_7F0417DC
 
+.global proc_7F0419E4
 proc_7F0419E4:
 /* 076514 7F0419E4 27BDFF68 */  addiu $sp, $sp, -0x98
 /* 076518 7F0419E8 AFBF0064 */  sw    $ra, 0x64($sp)
@@ -73567,6 +74312,7 @@ proc_7F0419E4:
 /* 0766E4 7F041BB4 27BD0098 */  addiu $sp, $sp, 0x98
 # end proc_7F0419E4
 
+.global proc_7F041BB8
 proc_7F041BB8:
 /* 0766E8 7F041BB8 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 0766EC 7F041BBC AFA70074 */  sw    $a3, 0x74($sp)
@@ -73724,6 +74470,7 @@ proc_7F041BB8:
 /* 076938 7F041E08 27BD0068 */  addiu $sp, $sp, 0x68
 # end proc_7F041BB8
 
+.global proc_7F041E0C
 proc_7F041E0C:
 /* 07693C 7F041E0C 27BDFF48 */  addiu $sp, $sp, -0xb8
 /* 076940 7F041E10 AFBF005C */  sw    $ra, 0x5c($sp)
@@ -74016,6 +74763,7 @@ proc_7F041E0C:
 /* 076D78 7F042248 27BD00B8 */  addiu $sp, $sp, 0xb8
 # end proc_7F041E0C
 
+.global proc_7F04224C
 proc_7F04224C:
 /* 076D7C 7F04224C 27BDFD50 */  addiu $sp, $sp, -0x2b0
 /* 076D80 7F042250 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -74549,6 +75297,7 @@ proc_7F04224C:
 /* 077538 7F042A08 27BD02B0 */  addiu $sp, $sp, 0x2b0
 # end proc_7F04224C
 
+.global proc_7F042A0C
 proc_7F042A0C:
 /* 07753C 7F042A0C 27BDFF40 */  addiu $sp, $sp, -0xc0
 /* 077540 7F042A10 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -74863,6 +75612,7 @@ proc_7F042A0C:
 /* 0779E0 7F042EB0 27BD00C0 */  addiu $sp, $sp, 0xc0
 # end proc_7F042A0C
 
+.global proc_7F042EB4
 proc_7F042EB4:
 /* 0779E4 7F042EB4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0779E8 7F042EB8 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -74893,6 +75643,7 @@ proc_7F042EB4:
 /* 077A44 7F042F14 00000000 */  nop   
 # end proc_7F042EB4
 
+.global proc_7F042F18
 proc_7F042F18:
 /* 077A48 7F042F18 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 077A4C 7F042F1C 3C038005 */  lui   $v1, 0x8005
@@ -75036,6 +75787,7 @@ proc_7F042F18:
 /* 077C38 7F043108 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F042F18
 
+.global proc_7F04310C
 proc_7F04310C:
 /* 077C3C 7F04310C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 077C40 7F043110 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -75098,6 +75850,7 @@ proc_7F04310C:
 /* 077D10 7F0431E0 00000000 */  nop   
 # end proc_7F04310C
 
+.global proc_7F0431E4
 proc_7F0431E4:
 /* 077D14 7F0431E4 27BDFEE8 */  addiu $sp, $sp, -0x118
 /* 077D18 7F0431E8 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -75399,6 +76152,7 @@ proc_7F0431E4:
 /* 07817C 7F04364C 27BD0118 */  addiu $sp, $sp, 0x118
 # end proc_7F0431E4
 
+.global proc_7F043650
 proc_7F043650:
 /* 078180 7F043650 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 078184 7F043654 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -75531,6 +76285,7 @@ proc_7F043650:
 /* 078364 7F043834 00000000 */  nop   
 # end proc_7F043650
 
+.global proc_7F043838
 proc_7F043838:
 /* 078368 7F043838 27BDFED8 */  addiu $sp, $sp, -0x128
 /* 07836C 7F04383C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -75632,6 +76387,7 @@ proc_7F043838:
 /* 0784E4 7F0439B4 00000000 */  nop   
 # end proc_7F043838
 
+.global proc_7F0439B8
 proc_7F0439B8:
 /* 0784E8 7F0439B8 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 0784EC 7F0439BC AFB00018 */  sw    $s0, 0x18($sp)
@@ -75680,6 +76436,7 @@ proc_7F0439B8:
 /* 078598 7F043A68 00000000 */  nop   
 # end proc_7F0439B8
 
+.global proc_7F043A6C
 proc_7F043A6C:
 /* 07859C 7F043A6C 27BDFF10 */  addiu $sp, $sp, -0xf0
 /* 0785A0 7F043A70 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -75753,6 +76510,7 @@ proc_7F043A6C:
 /* 0786A8 7F043B78 27BD00F0 */  addiu $sp, $sp, 0xf0
 # end proc_7F043A6C
 
+.global proc_7F043B7C
 proc_7F043B7C:
 /* 0786AC 7F043B7C 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 0786B0 7F043B80 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -75889,6 +76647,7 @@ proc_7F043B7C:
 /* 07889C 7F043D6C 00000000 */  nop   
 # end proc_7F043B7C
 
+.global proc_7F043D70
 proc_7F043D70:
 /* 0788A0 7F043D70 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0788A4 7F043D74 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -76206,6 +76965,7 @@ proc_7F043D70:
 /* 078D2C 7F0441FC 00000000 */  nop   
 # end proc_7F043D70
 
+.global proc_7F044200
 proc_7F044200:
 /* 078D30 7F044200 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 078D34 7F044204 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -76230,6 +76990,7 @@ proc_7F044200:
 /* 078D78 7F044248 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F044200
 
+.global proc_7F04424C
 proc_7F04424C:
 /* 078D7C 7F04424C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 078D80 7F044250 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -76272,6 +77033,7 @@ proc_7F04424C:
 /* 078E08 7F0442D8 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F04424C
 
+.global proc_7F0442DC
 proc_7F0442DC:
 /* 078E0C 7F0442DC 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 078E10 7F0442E0 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -76359,6 +77121,7 @@ proc_7F0442DC:
 /* 078F40 7F044410 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F0442DC
 
+.global proc_7F044414
 proc_7F044414:
 /* 078F44 7F044414 27BDFF48 */  addiu $sp, $sp, -0xb8
 /* 078F48 7F044418 AFB50044 */  sw    $s5, 0x44($sp)
@@ -76549,6 +77312,7 @@ proc_7F044414:
 /* 0791E4 7F0446B4 27BD00B8 */  addiu $sp, $sp, 0xb8
 # end proc_7F044414
 
+.global proc_7F0446B8
 proc_7F0446B8:
 /* 0791E8 7F0446B8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0791EC 7F0446BC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -76578,6 +77342,7 @@ proc_7F0446B8:
 /* 079244 7F044714 00000000 */  nop   
 # end proc_7F0446B8
 
+.global proc_7F044718
 proc_7F044718:
 /* 079248 7F044718 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 07924C 7F04471C AFB40060 */  sw    $s4, 0x60($sp)
@@ -76689,6 +77454,7 @@ proc_7F044718:
 /* 0793D4 7F0448A4 27BD0068 */  addiu $sp, $sp, 0x68
 # end proc_7F044718
 
+.global proc_7F0448A8
 proc_7F0448A8:
 /* 0793D8 7F0448A8 27BDFF60 */  addiu $sp, $sp, -0xa0
 /* 0793DC 7F0448AC AFBF0034 */  sw    $ra, 0x34($sp)
@@ -76871,6 +77637,7 @@ proc_7F0448A8:
 /* 079664 7F044B34 27BD00A0 */  addiu $sp, $sp, 0xa0
 # end proc_7F0448A8
 
+.global proc_7F044B38
 proc_7F044B38:
 /* 079668 7F044B38 27BDFEA8 */  addiu $sp, $sp, -0x158
 /* 07966C 7F044B3C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -77314,6 +78081,7 @@ proc_7F044B38:
 /* 079D08 7F0451D8 27BD0158 */  addiu $sp, $sp, 0x158
 # end proc_7F044B38
 
+.global proc_7F0451DC
 proc_7F0451DC:
 /* 079D0C 7F0451DC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 079D10 7F0451E0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -77383,6 +78151,7 @@ proc_7F0451DC:
 /* 079E00 7F0452D0 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0451DC
 
+.global proc_7F0452D4
 proc_7F0452D4:
 /* 079E04 7F0452D4 27BDF958 */  addiu $sp, $sp, -0x6a8
 /* 079E08 7F0452D8 AFBF0054 */  sw    $ra, 0x54($sp)
@@ -82343,6 +83112,7 @@ proc_7F0452D4:
 /* 07E684 7F049B54 27BD06A8 */  addiu $sp, $sp, 0x6a8
 # end proc_7F0452D4
 
+.global proc_7F049B58
 proc_7F049B58:
 /* 07E688 7F049B58 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 07E68C 7F049B5C AFBF0034 */  sw    $ra, 0x34($sp)
@@ -82429,12 +83199,14 @@ proc_7F049B58:
 /* 07E7B8 7F049C88 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F049B58
 
+.global proc_7F049C8C
 proc_7F049C8C:
 /* 07E7BC 7F049C8C AC850000 */  sw    $a1, ($a0)
 /* 07E7C0 7F049C90 03E00008 */  jr    $ra
 /* 07E7C4 7F049C94 A4800004 */  sh    $zero, 4($a0)
 # end proc_7F049C8C
 
+.global proc_7F049C98
 proc_7F049C98:
 /* 07E7C8 7F049C98 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 07E7CC 7F049C9C 3C068003 */  lui   $a2, 0x8003
@@ -82609,11 +83381,13 @@ proc_7F049C98:
 /* 07EA6C 7F049F3C 00000000 */  nop   
 # end proc_7F049C98
 
+.global proc_7F049F40
 proc_7F049F40:
 /* 07EA70 7F049F40 03E00008 */  jr    $ra
 /* 07EA74 7F049F44 AC850008 */  sw    $a1, 8($a0)
 # end proc_7F049F40
 
+.global proc_7F049F48
 proc_7F049F48:
 /* 07EA78 7F049F48 27BDFF50 */  addiu $sp, $sp, -0xb0
 /* 07EA7C 7F049F4C AFB10044 */  sw    $s1, 0x44($sp)
@@ -83481,6 +84255,7 @@ proc_7F049F48:
 /* 07F74C 7F04AC1C 27BD00B0 */  addiu $sp, $sp, 0xb0
 # end proc_7F049F48
 
+.global proc_7F04AC20
 proc_7F04AC20:
 /* 07F750 7F04AC20 27BDFF88 */  addiu $sp, $sp, -0x78
 /* 07F754 7F04AC24 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -83846,6 +84621,7 @@ proc_7F04AC20:
 /* 07FC7C 7F04B14C 00000000 */  nop   
 # end proc_7F04AC20
 
+.global proc_7F04B150
 proc_7F04B150:
 /* 07FC80 7F04B150 27BDFF40 */  addiu $sp, $sp, -0xc0
 /* 07FC84 7F04B154 3C0F8003 */  lui   $t7, 0x8003
@@ -84069,6 +84845,7 @@ proc_7F04B150:
 /* 07FFA4 7F04B474 00000000 */  nop   
 # end proc_7F04B150
 
+.global proc_7F04B478
 proc_7F04B478:
 /* 07FFA8 7F04B478 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 07FFAC 7F04B47C AFBF002C */  sw    $ra, 0x2c($sp)
@@ -84153,6 +84930,7 @@ proc_7F04B478:
 /* 0800BC 7F04B58C 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F04B478
 
+.global proc_7F04B590
 proc_7F04B590:
 /* 0800C0 7F04B590 8C820004 */  lw    $v0, 4($a0)
 /* 0800C4 7F04B594 3C0E8004 */  lui   $t6, 0x8004
@@ -84191,6 +84969,7 @@ proc_7F04B590:
 /* 08013C 7F04B60C 00000000 */  nop   
 # end proc_7F04B590
 
+.global proc_7F04B610
 proc_7F04B610:
 /* 080140 7F04B610 27BDFF68 */  addiu $sp, $sp, -0x98
 /* 080144 7F04B614 AFB60030 */  sw    $s6, 0x30($sp)
@@ -84672,6 +85451,7 @@ proc_7F04B610:
 /* 080808 7F04BCD8 27BD0098 */  addiu $sp, $sp, 0x98
 # end proc_7F04B610
 
+.global proc_7F04BCDC
 proc_7F04BCDC:
 /* 08080C 7F04BCDC 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 080810 7F04BCE0 3C0F8003 */  lui   $t7, 0x8003
@@ -84873,6 +85653,7 @@ proc_7F04BCDC:
 /* 080AFC 7F04BFCC 27BD0050 */  addiu $sp, $sp, 0x50
 # end proc_7F04BCDC
 
+.global proc_7F04BFD0
 proc_7F04BFD0:
 /* 080B00 7F04BFD0 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 080B04 7F04BFD4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -84908,6 +85689,7 @@ proc_7F04BFD0:
 /* 080B70 7F04C040 00000000 */  nop   
 # end proc_7F04BFD0
 
+.global proc_7F04C044
 proc_7F04C044:
 /* 080B74 7F04C044 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 080B78 7F04C048 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -84975,6 +85757,7 @@ proc_7F04C044:
 /* 080C5C 7F04C12C 00000000 */  nop   
 # end proc_7F04C044
 
+.global proc_7F04C130
 proc_7F04C130:
 /* 080C60 7F04C130 27BDFEF8 */  addiu $sp, $sp, -0x108
 /* 080C64 7F04C134 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -85587,6 +86370,7 @@ proc_7F04C130:
 /* 081570 7F04CA40 27BD0108 */  addiu $sp, $sp, 0x108
 # end proc_7F04C130
 
+.global proc_7F04CA44
 proc_7F04CA44:
 /* 081574 7F04CA44 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 081578 7F04CA48 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -85776,6 +86560,7 @@ proc_7F04CA44:
 /* 081830 7F04CD00 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F04CA44
 
+.global proc_7F04CD04
 proc_7F04CD04:
 /* 081834 7F04CD04 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 081838 7F04CD08 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -85851,6 +86636,7 @@ proc_7F04CD04:
 /* 081938 7F04CE08 27BD0058 */  addiu $sp, $sp, 0x58
 # end proc_7F04CD04
 
+.global proc_7F04CE0C
 proc_7F04CE0C:
 /* 08193C 7F04CE0C 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 081940 7F04CE10 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -86086,6 +86872,7 @@ proc_7F04CE0C:
 /* 081C98 7F04D168 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F04CE0C
 
+.global proc_7F04D16C
 proc_7F04D16C:
 /* 081C9C 7F04D16C 27BDFEB0 */  addiu $sp, $sp, -0x150
 /* 081CA0 7F04D170 F7B40028 */  sdc1  $f20, 0x28($sp)
@@ -86659,6 +87446,7 @@ proc_7F04D16C:
 /* 0824DC 7F04D9AC 27BD0150 */  addiu $sp, $sp, 0x150
 # end proc_7F04D16C
 
+.global proc_7F04D9B0
 proc_7F04D9B0:
 /* 0824E0 7F04D9B0 27BDFF08 */  addiu $sp, $sp, -0xf8
 /* 0824E4 7F04D9B4 AFBE0050 */  sw    $fp, 0x50($sp)
@@ -86870,6 +87658,7 @@ proc_7F04D9B0:
 /* 0827E0 7F04DCB0 27BD00F8 */  addiu $sp, $sp, 0xf8
 # end proc_7F04D9B0
 
+.global proc_7F04DCB4
 proc_7F04DCB4:
 /* 0827E4 7F04DCB4 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0827E8 7F04DCB8 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -86918,6 +87707,7 @@ proc_7F04DCB4:
 /* 082894 7F04DD64 00000000 */  nop   
 # end proc_7F04DCB4
 
+.global proc_7F04DD68
 proc_7F04DD68:
 /* 082898 7F04DD68 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 08289C 7F04DD6C AFBF002C */  sw    $ra, 0x2c($sp)
@@ -86965,6 +87755,7 @@ proc_7F04DD68:
 /* 082944 7F04DE14 00000000 */  nop   
 # end proc_7F04DD68
 
+.global proc_7F04DE18
 proc_7F04DE18:
 /* 082948 7F04DE18 27BDFF68 */  addiu $sp, $sp, -0x98
 /* 08294C 7F04DE1C AFBF0034 */  sw    $ra, 0x34($sp)
@@ -87026,6 +87817,7 @@ proc_7F04DE18:
 /* 082A28 7F04DEF8 00000000 */  nop   
 # end proc_7F04DE18
 
+.global proc_7F04DEFC
 proc_7F04DEFC:
 /* 082A2C 7F04DEFC 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 082A30 7F04DF00 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -87085,6 +87877,7 @@ proc_7F04DEFC:
 /* 082AFC 7F04DFCC 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F04DEFC
 
+.global proc_7F04DFD0
 proc_7F04DFD0:
 /* 082B00 7F04DFD0 908E0003 */  lbu   $t6, 3($a0)
 /* 082B04 7F04DFD4 25CFFFFF */  addiu $t7, $t6, -1
@@ -87104,6 +87897,7 @@ proc_7F04DFD0:
 /* 082B38 7F04E008 00000000 */  nop   
 # end proc_7F04DFD0
 
+.global proc_7F04E00C
 proc_7F04E00C:
 /* 082B3C 7F04E00C 908E0003 */  lbu   $t6, 3($a0)
 /* 082B40 7F04E010 25CFFFFC */  addiu $t7, $t6, -4
@@ -87123,6 +87917,7 @@ proc_7F04E00C:
 /* 082B74 7F04E044 00000000 */  nop   
 # end proc_7F04E00C
 
+.global proc_7F04E048
 proc_7F04E048:
 /* 082B78 7F04E048 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 082B7C 7F04E04C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -87163,6 +87958,7 @@ proc_7F04E048:
 /* 082BF8 7F04E0C8 00000000 */  nop   
 # end proc_7F04E048
 
+.global proc_7F04E0CC
 proc_7F04E0CC:
 /* 082BFC 7F04E0CC 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 082C00 7F04E0D0 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -87182,6 +87978,7 @@ proc_7F04E0CC:
 /* 082C34 7F04E104 00000000 */  nop   
 # end proc_7F04E0CC
 
+.global proc_7F04E108
 proc_7F04E108:
 /* 082C38 7F04E108 27BDFF20 */  addiu $sp, $sp, -0xe0
 /* 082C3C 7F04E10C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -87612,6 +88409,7 @@ proc_7F04E108:
 /* 08324C 7F04E71C 00000000 */  nop   
 # end proc_7F04E108
 
+.global proc_7F04E720
 proc_7F04E720:
 /* 083250 7F04E720 27BDFF40 */  addiu $sp, $sp, -0xc0
 /* 083254 7F04E724 AFBF004C */  sw    $ra, 0x4c($sp)
@@ -87796,6 +88594,7 @@ proc_7F04E720:
 /* 0834E8 7F04E9B8 27BD00C0 */  addiu $sp, $sp, 0xc0
 # end proc_7F04E720
 
+.global proc_7F04E9BC
 proc_7F04E9BC:
 /* 0834EC 7F04E9BC 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0834F0 7F04E9C0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -87844,6 +88643,7 @@ proc_7F04E9BC:
 /* 083594 7F04EA64 00000000 */  nop   
 # end proc_7F04E9BC
 
+.global proc_7F04EA68
 proc_7F04EA68:
 /* 083598 7F04EA68 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 08359C 7F04EA6C AFBF002C */  sw    $ra, 0x2c($sp)
@@ -88179,6 +88979,7 @@ proc_7F04EA68:
 /* 083A60 7F04EF30 27BD0070 */  addiu $sp, $sp, 0x70
 # end proc_7F04EA68
 
+.global proc_7F04EF34
 proc_7F04EF34:
 /* 083A64 7F04EF34 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 083A68 7F04EF38 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -88191,6 +88992,7 @@ proc_7F04EF34:
 /* 083A84 7F04EF54 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F04EF34
 
+.global proc_7F04EF58
 proc_7F04EF58:
 /* 083A88 7F04EF58 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 083A8C 7F04EF5C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -88336,6 +89138,7 @@ proc_7F04EF58:
 /* 083C9C 7F04F16C 00000000 */  nop   
 # end proc_7F04EF58
 
+.global proc_7F04F170
 proc_7F04F170:
 /* 083CA0 7F04F170 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 083CA4 7F04F174 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -88385,6 +89188,7 @@ proc_7F04F170:
 /* 083D44 7F04F214 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F04F170
 
+.global proc_7F04F218
 proc_7F04F218:
 /* 083D48 7F04F218 10A00005 */  beqz  $a1, .Lproc_7F04F218_18
 /* 083D4C 7F04F21C 8C820004 */  lw    $v0, 4($a0)
@@ -88400,6 +89204,7 @@ proc_7F04F218:
 /* 083D70 7F04F240 00000000 */  nop   
 # end proc_7F04F218
 
+.global proc_7F04F244
 proc_7F04F244:
 /* 083D74 7F04F244 8C820004 */  lw    $v0, 4($a0)
 /* 083D78 7F04F248 8C430068 */  lw    $v1, 0x68($v0)
@@ -88432,6 +89237,7 @@ proc_7F04F244:
 /* 083DE0 7F04F2B0 00000000 */  nop   
 # end proc_7F04F244
 
+.global proc_7F04F2B4
 proc_7F04F2B4:
 /* 083DE4 7F04F2B4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 083DE8 7F04F2B8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -88449,6 +89255,7 @@ proc_7F04F2B4:
 /* 083E18 7F04F2E8 00000000 */  nop   
 # end proc_7F04F2B4
 
+.global proc_7F04F2EC
 proc_7F04F2EC:
 /* 083E1C 7F04F2EC 24AEFFFF */  addiu $t6, $a1, -1
 /* 083E20 7F04F2F0 27BDFFE8 */  addiu $sp, $sp, -0x18
@@ -88529,6 +89336,7 @@ proc_7F04F2EC:
 /* 083F38 7F04F408 00000000 */  nop   
 # end proc_7F04F2EC
 
+.global proc_7F04F40C
 proc_7F04F40C:
 /* 083F3C 7F04F40C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 083F40 7F04F410 AFB00018 */  sw    $s0, 0x18($sp)
@@ -88765,6 +89573,7 @@ proc_7F04F40C:
 /* 0842B4 7F04F784 00000000 */  nop   
 # end proc_7F04F40C
 
+.global proc_7F04F788
 proc_7F04F788:
 /* 0842B8 7F04F788 248EFFFF */  addiu $t6, $a0, -1
 /* 0842BC 7F04F78C 27BDFFE8 */  addiu $sp, $sp, -0x18
@@ -88804,6 +89613,7 @@ proc_7F04F788:
 /* 08433C 7F04F80C 00000000 */  nop   
 # end proc_7F04F788
 
+.global proc_7F04F810
 proc_7F04F810:
 /* 084340 7F04F810 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 084344 7F04F814 24010002 */  addiu $at, $zero, 2
@@ -88883,6 +89693,7 @@ proc_7F04F810:
 /* 08444C 7F04F91C 00000000 */  nop   
 # end proc_7F04F810
 
+.global proc_7F04F920
 proc_7F04F920:
 /* 084450 7F04F920 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 084454 7F04F924 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -88944,6 +89755,7 @@ proc_7F04F920:
 /* 084524 7F04F9F4 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F04F920
 
+.global proc_7F04F9F8
 proc_7F04F9F8:
 /* 084528 7F04F9F8 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 08452C 7F04F9FC AFA40080 */  sw    $a0, 0x80($sp)
@@ -88976,6 +89788,7 @@ proc_7F04F9F8:
 /* 084594 7F04FA64 00000000 */  nop   
 # end proc_7F04F9F8
 
+.global proc_7F04FA68
 proc_7F04FA68:
 /* 084598 7F04FA68 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 08459C 7F04FA6C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -89110,6 +89923,7 @@ proc_7F04FA68:
 /* 084768 7F04FC38 00000000 */  nop   
 # end proc_7F04FA68
 
+.global proc_7F04FC3C
 proc_7F04FC3C:
 /* 08476C 7F04FC3C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 084770 7F04FC40 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -89163,6 +89977,7 @@ proc_7F04FC3C:
 /* 084824 7F04FCF4 00000000 */  nop   
 # end proc_7F04FC3C
 
+.global proc_7F04FCF8
 proc_7F04FCF8:
 /* 084828 7F04FCF8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 08482C 7F04FCFC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -89228,6 +90043,7 @@ proc_7F04FCF8:
 /* 08490C 7F04FDDC 00000000 */  nop   
 # end proc_7F04FCF8
 
+.global proc_7F04FDE0
 proc_7F04FDE0:
 /* 084910 7F04FDE0 3C0E8005 */  lui   $t6, 0x8005
 /* 084914 7F04FDE4 8DCE84D0 */  lw    $t6, -0x7b30($t6)
@@ -89511,6 +90327,7 @@ proc_7F04FDE0:
 /* 084D50 7F050220 00000000 */  nop   
 # end proc_7F04FDE0
 
+.global proc_7F050224
 proc_7F050224:
 /* 084D54 7F050224 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 084D58 7F050228 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -89525,6 +90342,7 @@ proc_7F050224:
 /* 084D7C 7F05024C 00000000 */  nop   
 # end proc_7F050224
 
+.global proc_7F050250
 proc_7F050250:
 /* 084D80 7F050250 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 084D84 7F050254 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -89847,6 +90665,7 @@ proc_7F050250:
 /* 085208 7F0506D8 00000000 */  nop   
 # end proc_7F050250
 
+.global proc_7F0506DC
 proc_7F0506DC:
 /* 08520C 7F0506DC 27BDFF78 */  addiu $sp, $sp, -0x88
 /* 085210 7F0506E0 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -90299,6 +91118,7 @@ proc_7F0506DC:
 /* 08585C 7F050D2C 00000000 */  nop   
 # end proc_7F0506DC
 
+.global proc_7F050D30
 proc_7F050D30:
 /* 085860 7F050D30 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 085864 7F050D34 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -90349,6 +91169,7 @@ proc_7F050D30:
 /* 085914 7F050DE4 00000000 */  nop   
 # end proc_7F050D30
 
+.global proc_7F050DE8
 proc_7F050DE8:
 /* 085918 7F050DE8 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 08591C 7F050DEC AFBF003C */  sw    $ra, 0x3c($sp)
@@ -90454,6 +91275,7 @@ proc_7F050DE8:
 /* 085A7C 7F050F4C 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F050DE8
 
+.global proc_7F050F50
 proc_7F050F50:
 /* 085A80 7F050F50 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 085A84 7F050F54 AFA50024 */  sw    $a1, 0x24($sp)
@@ -90514,6 +91336,7 @@ proc_7F050F50:
 /* 085B54 7F051024 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F050F50
 
+.global proc_7F051028
 proc_7F051028:
 /* 085B58 7F051028 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 085B5C 7F05102C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -90540,6 +91363,7 @@ proc_7F051028:
 /* 085BB0 7F051080 00000000 */  nop   
 # end proc_7F051028
 
+.global proc_7F051084
 proc_7F051084:
 /* 085BB4 7F051084 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 085BB8 7F051088 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -90558,6 +91382,7 @@ proc_7F051084:
 /* 085BEC 7F0510BC 00000000 */  nop   
 # end proc_7F051084
 
+.global proc_7F0510C0
 proc_7F0510C0:
 /* 085BF0 7F0510C0 27BDFF40 */  addiu $sp, $sp, -0xc0
 /* 085BF4 7F0510C4 00057080 */  sll   $t6, $a1, 2
@@ -90676,6 +91501,7 @@ proc_7F0510C0:
 /* 085D98 7F051268 27BD00C0 */  addiu $sp, $sp, 0xc0
 # end proc_7F0510C0
 
+.global proc_7F05126C
 proc_7F05126C:
 /* 085D9C 7F05126C 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 085DA0 7F051270 AFB10020 */  sw    $s1, 0x20($sp)
@@ -90899,6 +91725,7 @@ proc_7F05126C:
 /* 0860B4 7F051584 27BD0058 */  addiu $sp, $sp, 0x58
 # end proc_7F05126C
 
+.global proc_7F051588
 proc_7F051588:
 /* 0860B8 7F051588 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0860BC 7F05158C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -90912,6 +91739,7 @@ proc_7F051588:
 /* 0860DC 7F0515AC 00000000 */  nop   
 # end proc_7F051588
 
+.global proc_7F0515B0
 proc_7F0515B0:
 /* 0860E0 7F0515B0 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 0860E4 7F0515B4 AFB50034 */  sw    $s5, 0x34($sp)
@@ -91130,6 +91958,7 @@ proc_7F0515B0:
 /* 0863D4 7F0518A4 27BD0068 */  addiu $sp, $sp, 0x68
 # end proc_7F0515B0
 
+.global proc_7F0518A8
 proc_7F0518A8:
 /* 0863D8 7F0518A8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0863DC 7F0518AC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -91143,6 +91972,7 @@ proc_7F0518A8:
 /* 0863FC 7F0518CC 00000000 */  nop   
 # end proc_7F0518A8
 
+.global proc_7F0518D0
 proc_7F0518D0:
 /* 086400 7F0518D0 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 086404 7F0518D4 3C048007 */  lui   $a0, 0x8007
@@ -91236,6 +92066,7 @@ proc_7F0518D0:
 /* 086544 7F051A14 00000000 */  nop   
 # end proc_7F0518D0
 
+.global proc_7F051A18
 proc_7F051A18:
 /* 086548 7F051A18 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 08654C 7F051A1C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -91259,6 +92090,7 @@ proc_7F051A18:
 /* 086594 7F051A64 00000000 */  nop   
 # end proc_7F051A18
 
+.global proc_7F051A68
 proc_7F051A68:
 /* 086598 7F051A68 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 08659C 7F051A6C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -91301,6 +92133,7 @@ proc_7F051A68:
 /* 086618 7F051AE8 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F051A68
 
+.global proc_7F051AEC
 proc_7F051AEC:
 /* 08661C 7F051AEC 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 086620 7F051AF0 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -91336,6 +92169,7 @@ proc_7F051AEC:
 /* 086688 7F051B58 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F051AEC
 
+.global proc_7F051B5C
 proc_7F051B5C:
 /* 08668C 7F051B5C 3C038007 */  lui   $v1, 0x8007
 /* 086690 7F051B60 3C028007 */  lui   $v0, 0x8007
@@ -91355,6 +92189,7 @@ proc_7F051B5C:
 /* 0866C0 7F051B90 00000000 */  nop   
 # end proc_7F051B5C
 
+.global proc_7F051B94
 proc_7F051B94:
 /* 0866C4 7F051B94 3C038007 */  lui   $v1, 0x8007
 /* 0866C8 7F051B98 3C028007 */  lui   $v0, 0x8007
@@ -91374,6 +92209,7 @@ proc_7F051B94:
 /* 0866F8 7F051BC8 00000000 */  nop   
 # end proc_7F051B94
 
+.global proc_7F051BCC
 proc_7F051BCC:
 /* 0866FC 7F051BCC 3C038007 */  lui   $v1, 0x8007
 /* 086700 7F051BD0 3C018005 */  lui   $at, 0x8005
@@ -91443,6 +92279,7 @@ proc_7F051BCC:
 /* 0867F4 7F051CC4 00000000 */  nop   
 # end proc_7F051BCC
 
+.global proc_7F051CC8
 proc_7F051CC8:
 /* 0867F8 7F051CC8 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 0867FC 7F051CCC AFBF002C */  sw    $ra, 0x2c($sp)
@@ -91492,6 +92329,7 @@ proc_7F051CC8:
 /* 0868A0 7F051D70 27BD0050 */  addiu $sp, $sp, 0x50
 # end proc_7F051CC8
 
+.global proc_7F051D74
 proc_7F051D74:
 /* 0868A4 7F051D74 80AE0080 */  lb    $t6, 0x80($a1)
 /* 0868A8 7F051D78 808F0080 */  lb    $t7, 0x80($a0)
@@ -91502,6 +92340,7 @@ proc_7F051D74:
 /* 0868BC 7F051D8C A0AF0081 */  sb    $t7, 0x81($a1)
 # end proc_7F051D74
 
+.global proc_7F051D90
 proc_7F051D90:
 /* 0868C0 7F051D90 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0868C4 7F051D94 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -91524,6 +92363,7 @@ proc_7F051D90:
 /* 086904 7F051DD4 00000000 */  nop   
 # end proc_7F051D90
 
+.global proc_7F051DD8
 proc_7F051DD8:
 /* 086908 7F051DD8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 08690C 7F051DDC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -91545,6 +92385,7 @@ proc_7F051DD8:
 /* 086948 7F051E18 00000000 */  nop   
 # end proc_7F051DD8
 
+.global proc_7F051E1C
 proc_7F051E1C:
 /* 08694C 7F051E1C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 086950 7F051E20 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -91624,6 +92465,7 @@ proc_7F051E1C:
 /* 086A5C 7F051F2C 00000000 */  nop   
 # end proc_7F051E1C
 
+.global proc_7F051F30
 proc_7F051F30:
 /* 086A60 7F051F30 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 086A64 7F051F34 AFA50024 */  sw    $a1, 0x24($sp)
@@ -91671,6 +92513,7 @@ proc_7F051F30:
 /* 086B00 7F051FD0 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F051F30
 
+.global proc_7F051FD4
 proc_7F051FD4:
 /* 086B04 7F051FD4 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 086B08 7F051FD8 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -91697,6 +92540,7 @@ proc_7F051FD4:
 /* 086B5C 7F05202C 00000000 */  nop   
 # end proc_7F051FD4
 
+.global proc_7F052030
 proc_7F052030:
 /* 086B60 7F052030 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 086B64 7F052034 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -91715,6 +92559,7 @@ proc_7F052030:
 /* 086B98 7F052068 00000000 */  nop   
 # end proc_7F052030
 
+.global proc_7F05206C
 proc_7F05206C:
 /* 086B9C 7F05206C 00047080 */  sll   $t6, $a0, 2
 /* 086BA0 7F052070 27BDFF48 */  addiu $sp, $sp, -0xb8
@@ -91820,6 +92665,7 @@ proc_7F05206C:
 /* 086D14 7F0521E4 27BD00B8 */  addiu $sp, $sp, 0xb8
 # end proc_7F05206C
 
+.global proc_7F0521E8
 proc_7F0521E8:
 /* 086D18 7F0521E8 00057080 */  sll   $t6, $a1, 2
 /* 086D1C 7F0521EC 008E7821 */  addu  $t7, $a0, $t6
@@ -91835,6 +92681,7 @@ proc_7F0521E8:
 /* 086D40 7F052210 00000000 */  nop   
 # end proc_7F0521E8
 
+.global proc_7F052214
 proc_7F052214:
 /* 086D44 7F052214 27BDFF40 */  addiu $sp, $sp, -0xc0
 /* 086D48 7F052218 8FAE00D4 */  lw    $t6, 0xd4($sp)
@@ -91960,6 +92807,7 @@ proc_7F052214:
 /* 086F00 7F0523D0 27BD00C0 */  addiu $sp, $sp, 0xc0
 # end proc_7F052214
 
+.global proc_7F0523D4
 proc_7F0523D4:
 /* 086F04 7F0523D4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 086F08 7F0523D8 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -91972,6 +92820,7 @@ proc_7F0523D4:
 /* 086F24 7F0523F4 00000000 */  nop   
 # end proc_7F0523D4
 
+.global proc_7F0523F8
 proc_7F0523F8:
 /* 086F28 7F0523F8 27BDFF48 */  addiu $sp, $sp, -0xb8
 /* 086F2C 7F0523FC AFBF001C */  sw    $ra, 0x1c($sp)
@@ -92068,6 +92917,7 @@ proc_7F0523F8:
 /* 087080 7F052550 27BD00B8 */  addiu $sp, $sp, 0xb8
 # end proc_7F0523F8
 
+.global proc_7F052554
 proc_7F052554:
 /* 087084 7F052554 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 087088 7F052558 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -92079,6 +92929,7 @@ proc_7F052554:
 /* 0870A0 7F052570 00000000 */  nop   
 # end proc_7F052554
 
+.global proc_7F052574
 proc_7F052574:
 /* 0870A4 7F052574 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0870A8 7F052578 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -92120,6 +92971,7 @@ proc_7F052574:
 /* 087130 7F052600 00000000 */  nop   
 # end proc_7F052574
 
+.global proc_7F052604
 proc_7F052604:
 /* 087134 7F052604 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 087138 7F052608 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -92157,6 +93009,7 @@ proc_7F052604:
 /* 0871B0 7F052680 00000000 */  nop   
 # end proc_7F052604
 
+.global proc_7F052684
 proc_7F052684:
 /* 0871B4 7F052684 8C820004 */  lw    $v0, 4($a0)
 /* 0871B8 7F052688 844E0004 */  lh    $t6, 4($v0)
@@ -92187,6 +93040,7 @@ proc_7F052684:
 /* 087218 7F0526E8 00000000 */  nop   
 # end proc_7F052684
 
+.global proc_7F0526EC
 proc_7F0526EC:
 /* 08721C 7F0526EC 27BDFF60 */  addiu $sp, $sp, -0xa0
 /* 087220 7F0526F0 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -92464,6 +93318,7 @@ proc_7F0526EC:
 /* 08762C 7F052AFC 00000000 */  nop   
 # end proc_7F0526EC
 
+.global proc_7F052B00
 proc_7F052B00:
 /* 087630 7F052B00 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 087634 7F052B04 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -92645,6 +93500,7 @@ proc_7F052B00:
 /* 0878B8 7F052D88 00000000 */  nop   
 # end proc_7F052B00
 
+.global proc_7F052D8C
 proc_7F052D8C:
 /* 0878BC 7F052D8C 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 0878C0 7F052D90 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -93205,6 +94061,7 @@ proc_7F052D8C:
 /* 0880C4 7F053594 27BD0058 */  addiu $sp, $sp, 0x58
 # end proc_7F052D8C
 
+.global proc_7F053598
 proc_7F053598:
 /* 0880C8 7F053598 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0880CC 7F05359C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -93220,6 +94077,7 @@ proc_7F053598:
 /* 0880F0 7F0535C0 00000000 */  nop   
 # end proc_7F053598
 
+.global proc_7F0535C4
 proc_7F0535C4:
 /* 0880F4 7F0535C4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0880F8 7F0535C8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -93235,6 +94093,7 @@ proc_7F0535C4:
 /* 08811C 7F0535EC 00000000 */  nop   
 # end proc_7F0535C4
 
+.global proc_7F0535F0
 proc_7F0535F0:
 /* 088120 7F0535F0 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 088124 7F0535F4 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -93356,6 +94215,7 @@ proc_7F0535F0:
 /* 0882E4 7F0537B4 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F0535F0
 
+.global proc_7F0537B8
 proc_7F0537B8:
 /* 0882E8 7F0537B8 3C014348 */  lui   $at, 0x4348
 /* 0882EC 7F0537BC 44810000 */  mtc1  $at, $f0
@@ -93419,6 +94279,7 @@ proc_7F0537B8:
 /* 0883C0 7F053890 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0537B8
 
+.global proc_7F053894
 proc_7F053894:
 /* 0883C4 7F053894 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0883C8 7F053898 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -93479,6 +94340,7 @@ proc_7F053894:
 /* 088498 7F053968 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F053894
 
+.global proc_7F05396C
 proc_7F05396C:
 /* 08849C 7F05396C 44866000 */  mtc1  $a2, $f12
 /* 0884A0 7F053970 44877000 */  mtc1  $a3, $f14
@@ -93501,6 +94363,7 @@ proc_7F05396C:
 /* 0884E4 7F0539B4 00000000 */  nop   
 # end proc_7F05396C
 
+.global proc_7F0539B8
 proc_7F0539B8:
 /* 0884E8 7F0539B8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0884EC 7F0539BC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -93515,6 +94378,7 @@ proc_7F0539B8:
 /* 088510 7F0539E0 00000000 */  nop   
 # end proc_7F0539B8
 
+.global proc_7F0539E4
 proc_7F0539E4:
 /* 088514 7F0539E4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 088518 7F0539E8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -93529,6 +94393,7 @@ proc_7F0539E4:
 /* 08853C 7F053A0C 00000000 */  nop   
 # end proc_7F0539E4
 
+.global proc_7F053A10
 proc_7F053A10:
 /* 088540 7F053A10 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 088544 7F053A14 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -93543,6 +94408,7 @@ proc_7F053A10:
 /* 088568 7F053A38 00000000 */  nop   
 # end proc_7F053A10
 
+.global proc_7F053A3C
 proc_7F053A3C:
 /* 08856C 7F053A3C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 088570 7F053A40 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -93606,6 +94472,7 @@ proc_7F053A3C:
 /* 08863C 7F053B0C 00000000 */  nop   
 # end proc_7F053A3C
 
+.global proc_7F053B10
 proc_7F053B10:
 /* 088640 7F053B10 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 088644 7F053B14 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -93639,6 +94506,7 @@ proc_7F053B10:
 /* 0886A4 7F053B74 00000000 */  nop   
 # end proc_7F053B10
 
+.global proc_7F053B78
 proc_7F053B78:
 /* 0886A8 7F053B78 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0886AC 7F053B7C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -93900,6 +94768,7 @@ proc_7F053B78:
 /* 088A90 7F053F60 00000000 */  nop   
 # end proc_7F053B78
 
+.global proc_7F053F64
 proc_7F053F64:
 /* 088A94 7F053F64 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 088A98 7F053F68 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -94126,6 +94995,7 @@ proc_7F053F64:
 /* 088DF0 7F0542C0 00000000 */  nop   
 # end proc_7F053F64
 
+.global proc_7F0542C4
 proc_7F0542C4:
 /* 088DF4 7F0542C4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 088DF8 7F0542C8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -94256,6 +95126,7 @@ proc_7F0542C4:
 /* 088FE4 7F0544B4 00000000 */  nop   
 # end proc_7F0542C4
 
+.global proc_7F0544B8
 proc_7F0544B8:
 /* 088FE8 7F0544B8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 088FEC 7F0544BC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -94426,6 +95297,7 @@ proc_7F0544B8:
 /* 089278 7F054748 00000000 */  nop   
 # end proc_7F0544B8
 
+.global proc_7F05474C
 proc_7F05474C:
 /* 08927C 7F05474C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 089280 7F054750 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -94467,6 +95339,7 @@ proc_7F05474C:
 /* 089308 7F0547D8 00000000 */  nop   
 # end proc_7F05474C
 
+.global proc_7F0547DC
 proc_7F0547DC:
 /* 08930C 7F0547DC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 089310 7F0547E0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -94482,6 +95355,7 @@ proc_7F0547DC:
 /* 089338 7F054808 00000000 */  nop   
 # end proc_7F0547DC
 
+.global proc_7F05480C
 proc_7F05480C:
 /* 08933C 7F05480C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 089340 7F054810 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -94514,6 +95388,7 @@ proc_7F05480C:
 /* 0893A8 7F054878 00000000 */  nop   
 # end proc_7F05480C
 
+.global proc_7F05487C
 proc_7F05487C:
 /* 0893AC 7F05487C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0893B0 7F054880 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -94527,6 +95402,7 @@ proc_7F05487C:
 /* 0893D0 7F0548A0 00000000 */  nop   
 # end proc_7F05487C
 
+.global proc_7F0548A4
 proc_7F0548A4:
 /* 0893D4 7F0548A4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0893D8 7F0548A8 24010001 */  addiu $at, $zero, 1
@@ -94596,6 +95472,7 @@ proc_7F0548A4:
 /* 0894B4 7F054984 00000000 */  nop   
 # end proc_7F0548A4
 
+.global proc_7F054988
 proc_7F054988:
 /* 0894B8 7F054988 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0894BC 7F05498C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -94641,6 +95518,7 @@ proc_7F054988:
 /* 08954C 7F054A1C 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F054988
 
+.global proc_7F054A20
 proc_7F054A20:
 /* 089550 7F054A20 808300BC */  lb    $v1, 0xbc($a0)
 /* 089554 7F054A24 2C620001 */  sltiu $v0, $v1, 1
@@ -94663,6 +95541,7 @@ proc_7F054A20:
 /* 089590 7F054A60 00000000 */  nop   
 # end proc_7F054A20
 
+.global proc_7F054A64
 proc_7F054A64:
 /* 089594 7F054A64 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 089598 7F054A68 AFB30020 */  sw    $s3, 0x20($sp)
@@ -94745,6 +95624,7 @@ proc_7F054A64:
 /* 0896AC 7F054B7C 27BD0068 */  addiu $sp, $sp, 0x68
 # end proc_7F054A64
 
+.global proc_7F054B80
 proc_7F054B80:
 /* 0896B0 7F054B80 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0896B4 7F054B84 3C013F80 */  lui   $at, 0x3f80
@@ -94805,6 +95685,7 @@ proc_7F054B80:
 /* 089784 7F054C54 00000000 */  nop   
 # end proc_7F054B80
 
+.global proc_7F054C58
 proc_7F054C58:
 /* 089788 7F054C58 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 08978C 7F054C5C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -94878,6 +95759,7 @@ proc_7F054C58:
 /* 089898 7F054D68 00000000 */  nop   
 # end proc_7F054C58
 
+.global proc_7F054D6C
 proc_7F054D6C:
 /* 08989C 7F054D6C 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 0898A0 7F054D70 AFB10018 */  sw    $s1, 0x18($sp)
@@ -94967,6 +95849,7 @@ proc_7F054D6C:
 /* 0899D4 7F054EA4 27BD0070 */  addiu $sp, $sp, 0x70
 # end proc_7F054D6C
 
+.global proc_7F054EA8
 proc_7F054EA8:
 /* 0899D8 7F054EA8 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0899DC 7F054EAC AFBF0024 */  sw    $ra, 0x24($sp)
@@ -95042,6 +95925,7 @@ proc_7F054EA8:
 /* 089AE0 7F054FB0 00601025 */  or    $v0, $v1, $zero
 # end proc_7F054EA8
 
+.global proc_7F054FB4
 proc_7F054FB4:
 /* 089AE4 7F054FB4 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 089AE8 7F054FB8 AFB50030 */  sw    $s5, 0x30($sp)
@@ -95222,6 +96106,7 @@ proc_7F054FB4:
 /* 089D58 7F055228 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F054FB4
 
+.global proc_7F05522C
 proc_7F05522C:
 /* 089D5C 7F05522C 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 089D60 7F055230 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -95480,6 +96365,7 @@ proc_7F05522C:
 /* 08A124 7F0555F4 00000000 */  nop   
 # end proc_7F05522C
 
+.global proc_7F0555F8
 proc_7F0555F8:
 /* 08A128 7F0555F8 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 08A12C 7F0555FC 3C0F8007 */  lui   $t7, 0x8007
@@ -95622,6 +96508,7 @@ proc_7F0555F8:
 /* 08A330 7F055800 27BD0058 */  addiu $sp, $sp, 0x58
 # end proc_7F0555F8
 
+.global proc_7F055804
 proc_7F055804:
 /* 08A334 7F055804 27BDFF78 */  addiu $sp, $sp, -0x88
 /* 08A338 7F055808 240E0001 */  addiu $t6, $zero, 1
@@ -95731,6 +96618,7 @@ proc_7F055804:
 /* 08A4C8 7F055998 27BD0088 */  addiu $sp, $sp, 0x88
 # end proc_7F055804
 
+.global proc_7F05599C
 proc_7F05599C:
 /* 08A4CC 7F05599C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 08A4D0 7F0559A0 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -95793,6 +96681,7 @@ proc_7F05599C:
 /* 08A59C 7F055A6C 00000000 */  nop   
 # end proc_7F05599C
 
+.global proc_7F055A70
 proc_7F055A70:
 /* 08A5A0 7F055A70 84AE0006 */  lh    $t6, 6($a1)
 /* 08A5A4 7F055A74 3C188007 */  lui   $t8, 0x8007
@@ -95865,6 +96754,7 @@ proc_7F055A70:
 /* 08A6A4 7F055B74 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F055A70
 
+.global proc_7F055B78
 proc_7F055B78:
 /* 08A6A8 7F055B78 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 08A6AC 7F055B7C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -95923,6 +96813,7 @@ proc_7F055B78:
 /* 08A76C 7F055C3C 00000000 */  nop   
 # end proc_7F055B78
 
+.global proc_7F055C40
 proc_7F055C40:
 /* 08A770 7F055C40 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 08A774 7F055C44 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -96035,6 +96926,7 @@ proc_7F055C40:
 /* 08A8F4 7F055DC4 00001025 */  or    $v0, $zero, $zero
 # end proc_7F055C40
 
+.global proc_7F055DC8
 proc_7F055DC8:
 /* 08A8F8 7F055DC8 3C028003 */  lui   $v0, 0x8003
 /* 08A8FC 7F055DCC 24420AC0 */  addiu $v0, $v0, 0xac0
@@ -96048,6 +96940,7 @@ proc_7F055DC8:
 /* 08A918 7F055DE8 00000000 */  nop   
 # end proc_7F055DC8
 
+.global proc_7F055DEC
 proc_7F055DEC:
 /* 08A91C 7F055DEC 3C048003 */  lui   $a0, 0x8003
 /* 08A920 7F055DF0 8C840AC4 */  lw    $a0, 0xac4($a0)
@@ -96069,6 +96962,7 @@ proc_7F055DEC:
 /* 08A958 7F055E28 00000000 */  nop   
 # end proc_7F055DEC
 
+.global proc_7F055E2C
 proc_7F055E2C:
 /* 08A95C 7F055E2C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 08A960 7F055E30 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -96081,6 +96975,7 @@ proc_7F055E2C:
 /* 08A97C 7F055E4C 00000000 */  nop   
 # end proc_7F055E2C
 
+.global proc_7F055E50
 proc_7F055E50:
 /* 08A980 7F055E50 3C028003 */  lui   $v0, 0x8003
 /* 08A984 7F055E54 8C420AC0 */  lw    $v0, 0xac0($v0)
@@ -96089,6 +96984,7 @@ proc_7F055E50:
 /* 08A990 7F055E60 01C01025 */  or    $v0, $t6, $zero
 # end proc_7F055E50
 
+.global proc_7F055E64
 proc_7F055E64:
 /* 08A994 7F055E64 44802000 */  mtc1  $zero, $f4
 /* 08A998 7F055E68 240E0001 */  addiu $t6, $zero, 1
@@ -96131,6 +97027,7 @@ proc_7F055E64:
 /* 08AA24 7F055EF4 00000000 */  nop   
 # end proc_7F055E64
 
+.global proc_7F055EF8
 proc_7F055EF8:
 /* 08AA28 7F055EF8 3C048003 */  lui   $a0, 0x8003
 /* 08AA2C 7F055EFC 8C840AE4 */  lw    $a0, 0xae4($a0)
@@ -96152,6 +97049,7 @@ proc_7F055EF8:
 /* 08AA64 7F055F34 00000000 */  nop   
 # end proc_7F055EF8
 
+.global proc_7F055F38
 proc_7F055F38:
 /* 08AA68 7F055F38 3C018003 */  lui   $at, 0x8003
 /* 08AA6C 7F055F3C C4260AC8 */  lwc1  $f6, 0xac8($at)
@@ -96167,6 +97065,7 @@ proc_7F055F38:
 /* 08AA90 7F055F60 00000000 */  nop   
 # end proc_7F055F38
 
+.global proc_7F055F64
 proc_7F055F64:
 /* 08AA94 7F055F64 3C028003 */  lui   $v0, 0x8003
 /* 08AA98 7F055F68 24420ACC */  addiu $v0, $v0, 0xacc
@@ -96304,6 +97203,7 @@ proc_7F055F64:
 /* 08AC8C 7F05615C 00000000 */  nop   
 # end proc_7F055F64
 
+.global proc_7F056160
 proc_7F056160:
 /* 08AC90 7F056160 10A00008 */  beqz  $a1, .Lproc_7F056160_24
 /* 08AC94 7F056164 3C028003 */  lui   $v0, 0x8003
@@ -96323,6 +97223,7 @@ proc_7F056160:
 /* 08ACC8 7F056198 00000000 */  nop   
 # end proc_7F056160
 
+.global proc_7F05619C
 proc_7F05619C:
 /* 08ACCC 7F05619C 3C028003 */  lui   $v0, 0x8003
 /* 08ACD0 7F0561A0 8C420AE8 */  lw    $v0, 0xae8($v0)
@@ -96331,30 +97232,35 @@ proc_7F05619C:
 /* 08ACDC 7F0561AC 01C01025 */  or    $v0, $t6, $zero
 # end proc_7F05619C
 
+.global proc_7F0561B0
 proc_7F0561B0:
 /* 08ACE0 7F0561B0 3C018003 */  lui   $at, 0x8003
 /* 08ACE4 7F0561B4 03E00008 */  jr    $ra
 /* 08ACE8 7F0561B8 E42C0AF0 */  swc1  $f12, %lo(0x80030AF0)($at) # $f12, 0xaf0($at)
 # end proc_7F0561B0
 
+.global proc_7F0561BC
 proc_7F0561BC:
 /* 08ACEC 7F0561BC 3C018003 */  lui   $at, 0x8003
 /* 08ACF0 7F0561C0 03E00008 */  jr    $ra
 /* 08ACF4 7F0561C4 C4200AF0 */  lwc1  $f0, 0xaf0($at)
 # end proc_7F0561BC
 
+.global proc_7F0561C8
 proc_7F0561C8:
 /* 08ACF8 7F0561C8 3C018003 */  lui   $at, 0x8003
 /* 08ACFC 7F0561CC 03E00008 */  jr    $ra
 /* 08AD00 7F0561D0 AC240AEC */  sw    $a0, %lo(0x80030AEC)($at) # $a0, 0xaec($at)
 # end proc_7F0561C8
 
+.global proc_7F0561D4
 proc_7F0561D4:
 /* 08AD04 7F0561D4 3C028003 */  lui   $v0, 0x8003
 /* 08AD08 7F0561D8 03E00008 */  jr    $ra
 /* 08AD0C 7F0561DC 8C420AEC */  lw    $v0, 0xaec($v0)
 # end proc_7F0561D4
 
+.global proc_7F0561E0
 proc_7F0561E0:
 /* 08AD10 7F0561E0 3C0E8003 */  lui   $t6, 0x8003
 /* 08AD14 7F0561E4 8DCE0AEC */  lw    $t6, 0xaec($t6)
@@ -96371,6 +97277,7 @@ proc_7F0561E0:
 /* 08AD3C 7F05620C 00000000 */  nop   
 # end proc_7F0561E0
 
+.global proc_7F056210
 proc_7F056210:
 /* 08AD40 7F056210 3C0E8003 */  lui   $t6, 0x8003
 /* 08AD44 7F056214 8DCE0AE8 */  lw    $t6, 0xae8($t6)
@@ -96624,6 +97531,7 @@ proc_7F056210:
 /* 08B11C 7F0565EC 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F056210
 
+.global proc_7F0565F0
 proc_7F0565F0:
 /* 08B120 7F0565F0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 08B124 7F0565F4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -96669,6 +97577,7 @@ proc_7F0565F0:
 /* 08B1BC 7F05668C 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0565F0
 
+.global proc_7F056690
 proc_7F056690:
 /* 08B1C0 7F056690 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 08B1C4 7F056694 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -96736,6 +97645,7 @@ proc_7F056690:
 /* 08B2A8 7F056778 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F056690
 
+.global proc_7F05677C
 proc_7F05677C:
 /* 08B2AC 7F05677C 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 08B2B0 7F056780 3C0E8008 */  lui   $t6, 0x8008
@@ -96796,6 +97706,7 @@ proc_7F05677C:
 # alignment
 .word 0x00000000
 
+.global proc_7F056850
 proc_7F056850:
 /* 08B380 7F056850 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 08B384 7F056854 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -96842,6 +97753,7 @@ proc_7F056850:
 /* 08B420 7F0568F0 00000000 */  nop   
 # end proc_7F056850
 
+.global proc_7F0568F4
 proc_7F0568F4:
 /* 08B424 7F0568F4 908E0003 */  lbu   $t6, 3($a0)
 /* 08B428 7F0568F8 25CFFFFF */  addiu $t7, $t6, -1
@@ -96947,6 +97859,7 @@ proc_7F0568F4:
 /* 08B5B4 7F056A84 00000000 */  nop   
 # end proc_7F0568F4
 
+.global proc_7F056A88
 proc_7F056A88:
 /* 08B5B8 7F056A88 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 08B5BC 7F056A8C AFB10018 */  sw    $s1, 0x18($sp)
@@ -96991,6 +97904,7 @@ proc_7F056A88:
 /* 08B648 7F056B18 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F056A88
 
+.global proc_7F056B1C
 proc_7F056B1C:
 /* 08B64C 7F056B1C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 08B650 7F056B20 AFB00014 */  sw    $s0, 0x14($sp)
@@ -97033,6 +97947,7 @@ proc_7F056B1C:
 /* 08B6D4 7F056BA4 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F056B1C
 
+.global proc_7F056BA8
 proc_7F056BA8:
 /* 08B6D8 7F056BA8 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 08B6DC 7F056BAC AFB00014 */  sw    $s0, 0x14($sp)
@@ -97076,6 +97991,7 @@ proc_7F056BA8:
 /* 08B764 7F056C34 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F056BA8
 
+.global proc_7F056C38
 proc_7F056C38:
 /* 08B768 7F056C38 00047080 */  sll   $t6, $a0, 2
 /* 08B76C 7F056C3C 01C47023 */  subu  $t6, $t6, $a0
@@ -97106,6 +98022,7 @@ proc_7F056C38:
 /* 08B7CC 7F056C9C 00000000 */  nop   
 # end proc_7F056C38
 
+.global proc_7F056CA0
 proc_7F056CA0:
 /* 08B7D0 7F056CA0 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 08B7D4 7F056CA4 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -97244,6 +98161,7 @@ proc_7F056CA0:
 /* 08B9CC 7F056E9C 27BD0050 */  addiu $sp, $sp, 0x50
 # end proc_7F056CA0
 
+.global proc_7F056EA0
 proc_7F056EA0:
 /* 08B9D0 7F056EA0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 08B9D4 7F056EA4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -97275,6 +98193,7 @@ proc_7F056EA0:
 /* 08BA34 7F056F04 00000000 */  nop   
 # end proc_7F056EA0
 
+.global proc_7F056F08
 proc_7F056F08:
 /* 08BA38 7F056F08 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 08BA3C 7F056F0C AFB00018 */  sw    $s0, 0x18($sp)
@@ -97381,6 +98300,7 @@ proc_7F056F08:
 # alignment
 .word 0x00000000
 
+.global proc_7F057080
 proc_7F057080:
 /* 08BBB0 7F057080 3C038007 */  lui   $v1, 0x8007
 /* 08BBB4 7F057084 8C635D80 */  lw    $v1, 0x5d80($v1)
@@ -97403,6 +98323,7 @@ proc_7F057080:
 /* 08BBEC 7F0570BC 00000000 */  nop   
 # end proc_7F057080
 
+.global proc_7F0570C0
 proc_7F0570C0:
 /* 08BBF0 7F0570C0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 08BBF4 7F0570C4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -97426,6 +98347,7 @@ proc_7F0570C0:
 /* 08BC30 7F057100 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0570C0
 
+.global proc_7F057104
 proc_7F057104:
 /* 08BC34 7F057104 3C028007 */  lui   $v0, 0x8007
 /* 08BC38 7F057108 8C425D84 */  lw    $v0, 0x5d84($v0)
@@ -97477,6 +98399,7 @@ proc_7F057104:
 /* 08BCD4 7F0571A4 00000000 */  nop   
 # end proc_7F057104
 
+.global proc_7F0571A8
 proc_7F0571A8:
 /* 08BCD8 7F0571A8 3C028003 */  lui   $v0, 0x8003
 /* 08BCDC 7F0571AC 8C4222F0 */  lw    $v0, 0x22f0($v0)
@@ -97484,6 +98407,7 @@ proc_7F0571A8:
 /* 08BCE4 7F0571B4 24420001 */  addiu $v0, $v0, 1
 # end proc_7F0571A8
 
+.global proc_7F0571B8
 proc_7F0571B8:
 /* 08BCE8 7F0571B8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 08BCEC 7F0571BC 2881000A */  slti  $at, $a0, 0xa
@@ -97509,6 +98433,7 @@ proc_7F0571B8:
 /* 08BD30 7F057200 00000000 */  nop   
 # end proc_7F0571B8
 
+.global proc_7F057204
 proc_7F057204:
 /* 08BD34 7F057204 2881000A */  slti  $at, $a0, 0xa
 /* 08BD38 7F057208 10200008 */  beqz  $at, .Lproc_7F057204_28
@@ -97527,6 +98452,7 @@ proc_7F057204:
 /* 08BD64 7F057234 00000000 */  nop   
 # end proc_7F057204
 
+.global proc_7F057238
 proc_7F057238:
 /* 08BD68 7F057238 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 08BD6C 7F05723C AFB30024 */  sw    $s3, 0x24($sp)
@@ -97701,6 +98627,7 @@ proc_7F057238:
 /* 08BFE4 7F0574B4 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F057238
 
+.global check_objectives_complete
 check_objectives_complete:
 /* 08BFE8 7F0574B8 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 08BFEC 7F0574BC AFBF0024 */  sw    $ra, 0x24($sp)
@@ -97742,6 +98669,7 @@ check_objectives_complete:
 /* 08C06C 7F05753C 27BD0028 */  addiu $sp, $sp, 0x28
 # end check_objectives_complete
 
+.global proc_7F057540
 proc_7F057540:
 /* 08C070 7F057540 27BDFF70 */  addiu $sp, $sp, -0x90
 /* 08C074 7F057544 AFB60030 */  sw    $s6, 0x30($sp)
@@ -97884,6 +98812,7 @@ proc_7F057540:
 /* 08C270 7F057740 27BD0090 */  addiu $sp, $sp, 0x90
 # end proc_7F057540
 
+.global proc_7F057744
 proc_7F057744:
 /* 08C274 7F057744 3C028007 */  lui   $v0, 0x8007
 /* 08C278 7F057748 8C425D88 */  lw    $v0, 0x5d88($v0)
@@ -97933,6 +98862,7 @@ proc_7F057744:
 /* 08C314 7F0577E4 00000000 */  nop   
 # end proc_7F057744
 
+.global proc_7F0577E8
 proc_7F0577E8:
 /* 08C318 7F0577E8 3C028007 */  lui   $v0, 0x8007
 /* 08C31C 7F0577EC 8C425D8C */  lw    $v0, 0x5d8c($v0)
@@ -97985,6 +98915,7 @@ proc_7F0577E8:
 /* 08C3C4 7F057894 00000000 */  nop   
 # end proc_7F0577E8
 
+.global proc_7F057898
 proc_7F057898:
 /* 08C3C8 7F057898 27BDFF68 */  addiu $sp, $sp, -0x98
 /* 08C3CC 7F05789C AFB10034 */  sw    $s1, 0x34($sp)
@@ -98130,6 +99061,7 @@ proc_7F057898:
 /* 08C5EC 7F057ABC 27BD0098 */  addiu $sp, $sp, 0x98
 # end proc_7F057898
 
+.global proc_7F057AC0
 proc_7F057AC0:
 /* 08C5F0 7F057AC0 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 08C5F4 7F057AC4 3C0F8003 */  lui   $t7, 0x8003
@@ -98221,6 +99153,7 @@ proc_7F057AC0:
 /* 08C740 7F057C10 00000000 */  nop   
 # end proc_7F057AC0
 
+.global proc_7F057C14
 proc_7F057C14:
 /* 08C744 7F057C14 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 08C748 7F057C18 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -98303,6 +99236,7 @@ proc_7F057C14:
 /* 08C870 7F057D40 00000000 */  nop   
 # end proc_7F057C14
 
+.global proc_7F057D44
 proc_7F057D44:
 /* 08C874 7F057D44 3C018005 */  lui   $at, 0x8005
 /* 08C878 7F057D48 44866000 */  mtc1  $a2, $f12
@@ -98323,6 +99257,7 @@ proc_7F057D44:
 /* 08C8B4 7F057D84 E4A00000 */  swc1  $f0, ($a1)
 # end proc_7F057D44
 
+.global proc_7F057D88
 proc_7F057D88:
 /* 08C8B8 7F057D88 44866000 */  mtc1  $a2, $f12
 /* 08C8BC 7F057D8C 27BDFFE8 */  addiu $sp, $sp, -0x18
@@ -98354,6 +99289,7 @@ proc_7F057D88:
 /* 08C924 7F057DF4 00000000 */  nop   
 # end proc_7F057D88
 
+.global proc_7F057DF8
 proc_7F057DF8:
 /* 08C928 7F057DF8 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 08C92C 7F057DFC AFB30020 */  sw    $s3, 0x20($sp)
@@ -98383,6 +99319,7 @@ proc_7F057DF8:
 /* 08C984 7F057E54 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F057DF8
 
+.global proc_7F057E58
 proc_7F057E58:
 /* 08C988 7F057E58 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 08C98C 7F057E5C 8FAE0028 */  lw    $t6, 0x28($sp)
@@ -98404,12 +99341,14 @@ proc_7F057E58:
 /* 08C9CC 7F057E9C 00000000 */  nop   
 # end proc_7F057E58
 
+.global cosf
 cosf:
 /* 08C9D0 7F057EA0 3C018005 */  lui   $at, 0x8005
 /* 08C9D4 7F057EA4 C42A36C0 */  lwc1  $f10, 0x36c0($at)
 /* 08C9D8 7F057EA8 460A6300 */  add.s $f12, $f12, $f10
 # end cosf
 
+.global sinf
 sinf:
 /* 08C9DC 7F057EAC 44086000 */  mfc1  $t0, $f12
 /* 08C9E0 7F057EB0 00000000 */  nop   
@@ -98490,6 +99429,7 @@ sinf:
 # alignment
 .word 0x00000000
 
+.global proc_7F057FD0
 proc_7F057FD0:
 /* 08CB00 7F057FD0 44801000 */  mtc1  $zero, $f2
 /* 08CB04 7F057FD4 3C013F80 */  lui   $at, 0x3f80
@@ -98513,6 +99453,7 @@ proc_7F057FD0:
 /* 08CB4C 7F05801C E480003C */  swc1  $f0, 0x3c($a0)
 # end proc_7F057FD0
 
+.global proc_7F058020
 proc_7F058020:
 /* 08CB50 7F058020 00803025 */  or    $a2, $a0, $zero
 /* 08CB54 7F058024 24040004 */  addiu $a0, $zero, 4
@@ -98535,6 +99476,7 @@ proc_7F058020:
 /* 08CB94 7F058064 00000000 */  nop   
 # end proc_7F058020
 
+.global proc_7F058068
 proc_7F058068:
 /* 08CB98 7F058068 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 08CB9C 7F05806C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -98550,6 +99492,7 @@ proc_7F058068:
 /* 08CBC4 7F058094 00000000 */  nop   
 # end proc_7F058068
 
+.global proc_7F058098
 proc_7F058098:
 /* 08CBC8 7F058098 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 08CBCC 7F05809C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -98565,6 +99508,7 @@ proc_7F058098:
 /* 08CBF4 7F0580C4 00000000 */  nop   
 # end proc_7F058098
 
+.global proc_7F0580C8
 proc_7F0580C8:
 /* 08CBF8 7F0580C8 00001825 */  or    $v1, $zero, $zero
 /* 08CBFC 7F0580CC 00804025 */  or    $t0, $a0, $zero
@@ -98619,6 +99563,7 @@ proc_7F0580C8:
 /* 08CCB8 7F058188 00000000 */  nop   
 # end proc_7F0580C8
 
+.global proc_7F05818C
 proc_7F05818C:
 /* 08CCBC 7F05818C 00001825 */  or    $v1, $zero, $zero
 /* 08CCC0 7F058190 00804025 */  or    $t0, $a0, $zero
@@ -98684,6 +99629,7 @@ proc_7F05818C:
 /* 08CDA0 7F058270 E4C6003C */  swc1  $f6, 0x3c($a2)
 # end proc_7F05818C
 
+.global proc_7F058274
 proc_7F058274:
 /* 08CDA4 7F058274 C4A40000 */  lwc1  $f4, ($a1)
 /* 08CDA8 7F058278 C4860000 */  lwc1  $f6, ($a0)
@@ -98754,6 +99700,7 @@ proc_7F058274:
 /* 08CEAC 7F05837C E4C6003C */  swc1  $f6, 0x3c($a2)
 # end proc_7F058274
 
+.global proc_7F058380
 proc_7F058380:
 /* 08CEB0 7F058380 00803825 */  or    $a3, $a0, $zero
 /* 08CEB4 7F058384 24040003 */  addiu $a0, $zero, 3
@@ -98780,6 +99727,7 @@ proc_7F058380:
 /* 08CF04 7F0583D4 00000000 */  nop   
 # end proc_7F058380
 
+.global proc_7F0583D8
 proc_7F0583D8:
 /* 08CF08 7F0583D8 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 08CF0C 7F0583DC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -98799,6 +99747,7 @@ proc_7F0583D8:
 /* 08CF44 7F058414 00000000 */  nop   
 # end proc_7F0583D8
 
+.global proc_7F058418
 proc_7F058418:
 /* 08CF48 7F058418 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 08CF4C 7F05841C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -98825,6 +99774,7 @@ proc_7F058418:
 /* 08CFA0 7F058470 00000000 */  nop   
 # end proc_7F058418
 
+.global proc_7F058474
 proc_7F058474:
 /* 08CFA4 7F058474 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 08CFA8 7F058478 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -98851,6 +99801,7 @@ proc_7F058474:
 /* 08CFFC 7F0584CC 00000000 */  nop   
 # end proc_7F058474
 
+.global proc_7F0584D0
 proc_7F0584D0:
 /* 08D000 7F0584D0 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 08D004 7F0584D4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -98894,6 +99845,7 @@ proc_7F0584D0:
 /* 08D09C 7F05856C 00000000 */  nop   
 # end proc_7F0584D0
 
+.global proc_7F058570
 proc_7F058570:
 /* 08D0A0 7F058570 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 08D0A4 7F058574 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -98932,6 +99884,7 @@ proc_7F058570:
 /* 08D128 7F0585F8 00000000 */  nop   
 # end proc_7F058570
 
+.global proc_7F0585FC
 proc_7F0585FC:
 /* 08D12C 7F0585FC 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 08D130 7F058600 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -98970,6 +99923,7 @@ proc_7F0585FC:
 /* 08D1B4 7F058684 00000000 */  nop   
 # end proc_7F0585FC
 
+.global proc_7F058688
 proc_7F058688:
 /* 08D1B8 7F058688 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 08D1BC 7F05868C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -99008,6 +99962,7 @@ proc_7F058688:
 /* 08D240 7F058710 00000000 */  nop   
 # end proc_7F058688
 
+.global proc_7F058714
 proc_7F058714:
 /* 08D244 7F058714 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 08D248 7F058718 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -99094,6 +100049,7 @@ proc_7F058714:
 /* 08D38C 7F05885C 27BD0058 */  addiu $sp, $sp, 0x58
 # end proc_7F058714
 
+.global proc_7F058860
 proc_7F058860:
 /* 08D390 7F058860 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 08D394 7F058864 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -99150,6 +100106,7 @@ proc_7F058860:
 /* 08D458 7F058928 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F058860
 
+.global proc_7F05892C
 proc_7F05892C:
 /* 08D45C 7F05892C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 08D460 7F058930 AFA40018 */  sw    $a0, 0x18($sp)
@@ -99167,6 +100124,7 @@ proc_7F05892C:
 /* 08D490 7F058960 00000000 */  nop   
 # end proc_7F05892C
 
+.global proc_7F058964
 proc_7F058964:
 /* 08D494 7F058964 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 08D498 7F058968 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -99183,6 +100141,7 @@ proc_7F058964:
 /* 08D4C4 7F058994 00000000 */  nop   
 # end proc_7F058964
 
+.global proc_7F058998
 proc_7F058998:
 /* 08D4C8 7F058998 C4840000 */  lwc1  $f4, ($a0)
 /* 08D4CC 7F05899C E4A40030 */  swc1  $f4, 0x30($a1)
@@ -99193,6 +100152,7 @@ proc_7F058998:
 /* 08D4E0 7F0589B0 E4A80038 */  swc1  $f8, 0x38($a1)
 # end proc_7F058998
 
+.global proc_7F0589B4
 proc_7F0589B4:
 /* 08D4E4 7F0589B4 C4A40000 */  lwc1  $f4, ($a1)
 /* 08D4E8 7F0589B8 C4A80004 */  lwc1  $f8, 4($a1)
@@ -99208,6 +100168,7 @@ proc_7F0589B4:
 /* 08D510 7F0589E0 E4B20008 */  swc1  $f18, 8($a1)
 # end proc_7F0589B4
 
+.global proc_7F0589E4
 proc_7F0589E4:
 /* 08D514 7F0589E4 C4A40010 */  lwc1  $f4, 0x10($a1)
 /* 08D518 7F0589E8 C4A80014 */  lwc1  $f8, 0x14($a1)
@@ -99223,6 +100184,7 @@ proc_7F0589E4:
 /* 08D540 7F058A10 E4B20018 */  swc1  $f18, 0x18($a1)
 # end proc_7F0589E4
 
+.global proc_7F058A14
 proc_7F058A14:
 /* 08D544 7F058A14 C4A40020 */  lwc1  $f4, 0x20($a1)
 /* 08D548 7F058A18 C4A80024 */  lwc1  $f8, 0x24($a1)
@@ -99240,6 +100202,7 @@ proc_7F058A14:
 /* 08D578 7F058A48 E4A6002C */  swc1  $f6, 0x2c($a1)
 # end proc_7F058A14
 
+.global proc_7F058A4C
 proc_7F058A4C:
 /* 08D57C 7F058A4C C4A40020 */  lwc1  $f4, 0x20($a1)
 /* 08D580 7F058A50 C4A80024 */  lwc1  $f8, 0x24($a1)
@@ -99255,6 +100218,7 @@ proc_7F058A4C:
 /* 08D5A8 7F058A78 E4B20028 */  swc1  $f18, 0x28($a1)
 # end proc_7F058A4C
 
+.global proc_7F058A7C
 proc_7F058A7C:
 /* 08D5AC 7F058A7C C4A40000 */  lwc1  $f4, ($a1)
 /* 08D5B0 7F058A80 C4A80004 */  lwc1  $f8, 4($a1)
@@ -99295,6 +100259,7 @@ proc_7F058A7C:
 /* 08D63C 7F058B0C E4B2002C */  swc1  $f18, 0x2c($a1)
 # end proc_7F058A7C
 
+.global proc_7F058B10
 proc_7F058B10:
 /* 08D640 7F058B10 C4A40000 */  lwc1  $f4, ($a1)
 /* 08D644 7F058B14 C4A80004 */  lwc1  $f8, 4($a1)
@@ -99326,6 +100291,7 @@ proc_7F058B10:
 /* 08D6AC 7F058B7C E4B20028 */  swc1  $f18, 0x28($a1)
 # end proc_7F058B10
 
+.global proc_7F058B80
 proc_7F058B80:
 /* 08D6B0 7F058B80 C4A40008 */  lwc1  $f4, 8($a1)
 /* 08D6B4 7F058B84 C4A80018 */  lwc1  $f8, 0x18($a1)
@@ -99343,6 +100309,7 @@ proc_7F058B80:
 /* 08D6E4 7F058BB4 E4A60038 */  swc1  $f6, 0x38($a1)
 # end proc_7F058B80
 
+.global proc_7F058BB8
 proc_7F058BB8:
 /* 08D6E8 7F058BB8 C4A40000 */  lwc1  $f4, ($a1)
 /* 08D6EC 7F058BBC C4A80010 */  lwc1  $f8, 0x10($a1)
@@ -99383,6 +100350,7 @@ proc_7F058BB8:
 /* 08D778 7F058C48 E4B20038 */  swc1  $f18, 0x38($a1)
 # end proc_7F058BB8
 
+.global proc_7F058C4C
 proc_7F058C4C:
 /* 08D77C 7F058C4C 3C014780 */  lui   $at, 0x4780
 /* 08D780 7F058C50 44812000 */  mtc1  $at, $f4
@@ -99392,6 +100360,7 @@ proc_7F058C4C:
 /* 08D790 7F058C60 E4262310 */  swc1  $f6, %lo(0x80032310)($at) # $f6, 0x2310($at)
 # end proc_7F058C4C
 
+.global proc_7F058C64
 proc_7F058C64:
 /* 08D794 7F058C64 3C028003 */  lui   $v0, 0x8003
 /* 08D798 7F058C68 24422310 */  addiu $v0, $v0, 0x2310
@@ -99404,6 +100373,7 @@ proc_7F058C64:
 /* 08D7B4 7F058C84 E4460000 */  swc1  $f6, ($v0)
 # end proc_7F058C64
 
+.global proc_7F058C88
 proc_7F058C88:
 /* 08D7B8 7F058C88 3C018007 */  lui   $at, 0x8007
 /* 08D7BC 7F058C8C C4245DA0 */  lwc1  $f4, 0x5da0($at)
@@ -99412,6 +100382,7 @@ proc_7F058C88:
 /* 08D7C8 7F058C98 E4242310 */  swc1  $f4, %lo(0x80032310)($at) # $f4, 0x2310($at)
 # end proc_7F058C88
 
+.global proc_7F058C9C
 proc_7F058C9C:
 /* 08D7CC 7F058C9C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 08D7D0 7F058CA0 AFB1000C */  sw    $s1, 0xc($sp)
@@ -99535,6 +100506,7 @@ proc_7F058C9C:
 /* 08D9A4 7F058E74 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F058C9C
 
+.global proc_7F058E78
 proc_7F058E78:
 /* 08D9A8 7F058E78 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 08D9AC 7F058E7C AFB20010 */  sw    $s2, 0x10($sp)
@@ -99654,6 +100626,7 @@ proc_7F058E78:
 /* 08DB70 7F059040 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F058E78
 
+.global proc_7F059044
 proc_7F059044:
 /* 08DB74 7F059044 3C014780 */  lui   $at, 0x4780
 /* 08DB78 7F059048 00803025 */  or    $a2, $a0, $zero
@@ -99725,6 +100698,7 @@ proc_7F059044:
 /* 08DC78 7F059148 00000000 */  nop   
 # end proc_7F059044
 
+.global proc_7F05914C
 proc_7F05914C:
 /* 08DC7C 7F05914C 3C014780 */  lui   $at, 0x4780
 /* 08DC80 7F059150 00803025 */  or    $a2, $a0, $zero
@@ -99792,6 +100766,7 @@ proc_7F05914C:
 /* 08DD70 7F059240 00000000 */  nop   
 # end proc_7F05914C
 
+.global proc_7F059244
 proc_7F059244:
 /* 08DD74 7F059244 00001025 */  or    $v0, $zero, $zero
 /* 08DD78 7F059248 00A04025 */  or    $t0, $a1, $zero
@@ -99856,6 +100831,7 @@ proc_7F059244:
 /* 08DE60 7F059330 00000000 */  nop   
 # end proc_7F059244
 
+.global proc_7F059334
 proc_7F059334:
 /* 08DE64 7F059334 00001025 */  or    $v0, $zero, $zero
 /* 08DE68 7F059338 00803825 */  or    $a3, $a0, $zero
@@ -99920,6 +100896,7 @@ proc_7F059334:
 /* 08DF50 7F059420 00000000 */  nop   
 # end proc_7F059334
 
+.global proc_7F059424
 proc_7F059424:
 /* 08DF54 7F059424 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 08DF58 7F059428 F7B40010 */  sdc1  $f20, 0x10($sp)
@@ -100079,6 +101056,7 @@ proc_7F059424:
 /* 08E1C0 7F059690 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F059424
 
+.global proc_7F059694
 proc_7F059694:
 /* 08E1C4 7F059694 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 08E1C8 7F059698 44856000 */  mtc1  $a1, $f12
@@ -100111,6 +101089,7 @@ proc_7F059694:
 /* 08E234 7F059704 00000000 */  nop   
 # end proc_7F059694
 
+.global proc_7F059708
 proc_7F059708:
 /* 08E238 7F059708 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 08E23C 7F05970C F7B40010 */  sdc1  $f20, 0x10($sp)
@@ -100242,6 +101221,7 @@ proc_7F059708:
 /* 08E434 7F059904 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F059708
 
+.global proc_7F059908
 proc_7F059908:
 /* 08E438 7F059908 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 08E43C 7F05990C 44856000 */  mtc1  $a1, $f12
@@ -100274,6 +101254,7 @@ proc_7F059908:
 /* 08E4A8 7F059978 00000000 */  nop   
 # end proc_7F059908
 
+.global proc_7F05997C
 proc_7F05997C:
 /* 08E4AC 7F05997C 460E6000 */  add.s $f0, $f12, $f14
 /* 08E4B0 7F059980 3C014000 */  lui   $at, 0x4000
@@ -100333,6 +101314,7 @@ proc_7F05997C:
 /* 08E574 7F059A44 00601025 */  or    $v0, $v1, $zero
 # end proc_7F05997C
 
+.global proc_7F059A48
 proc_7F059A48:
 /* 08E578 7F059A48 3C013F00 */  lui   $at, 0x3f00
 /* 08E57C 7F059A4C 44867000 */  mtc1  $a2, $f14
@@ -100405,6 +101387,7 @@ proc_7F059A48:
 /* 08E684 7F059B54 00000000 */  nop   
 # end proc_7F059A48
 
+.global proc_7F059B58
 proc_7F059B58:
 /* 08E688 7F059B58 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 08E68C 7F059B5C AFB00020 */  sw    $s0, 0x20($sp)
@@ -100510,6 +101493,7 @@ proc_7F059B58:
 /* 08E814 7F059CE4 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F059B58
 
+.global proc_7F059CE8
 proc_7F059CE8:
 /* 08E818 7F059CE8 3C018005 */  lui   $at, 0x8005
 /* 08E81C 7F059CEC 44856000 */  mtc1  $a1, $f12
@@ -100531,11 +101515,13 @@ proc_7F059CE8:
 /* 08E85C 7F059D2C 00000000 */  nop   
 # end proc_7F059CE8
 
+.global proc_7F059D30
 proc_7F059D30:
 /* 08E860 7F059D30 03E00008 */  jr    $ra
 /* 08E864 7F059D34 AFA40000 */  sw    $a0, ($sp)
 # end proc_7F059D30
 
+.global proc_7F059D38
 proc_7F059D38:
 /* 08E868 7F059D38 C4840000 */  lwc1  $f4, ($a0)
 /* 08E86C 7F059D3C 44800000 */  mtc1  $zero, $f0
@@ -100568,6 +101554,7 @@ proc_7F059D38:
 /* 08E8D8 7F059DA8 E4A80028 */  swc1  $f8, 0x28($a1)
 # end proc_7F059D38
 
+.global proc_7F059DAC
 proc_7F059DAC:
 /* 08E8DC 7F059DAC C48C0000 */  lwc1  $f12, ($a0)
 /* 08E8E0 7F059DB0 C48E0010 */  lwc1  $f14, 0x10($a0)
@@ -100617,6 +101604,7 @@ proc_7F059DAC:
 /* 08E990 7F059E60 E4A40028 */  swc1  $f4, 0x28($a1)
 # end proc_7F059DAC
 
+.global proc_7F059E64
 proc_7F059E64:
 /* 08E994 7F059E64 C48C0000 */  lwc1  $f12, ($a0)
 /* 08E998 7F059E68 C48E0010 */  lwc1  $f14, 0x10($a0)
@@ -100705,6 +101693,7 @@ proc_7F059E64:
 /* 08EAE4 7F059FB4 E4A40038 */  swc1  $f4, 0x38($a1)
 # end proc_7F059E64
 
+.global proc_7F059FB8
 proc_7F059FB8:
 /* 08EAE8 7F059FB8 C4820000 */  lwc1  $f2, ($a0)
 /* 08EAEC 7F059FBC C48C0014 */  lwc1  $f12, 0x14($a0)
@@ -100874,6 +101863,7 @@ proc_7F059FB8:
 /* 08ED7C 7F05A24C E4A60038 */  swc1  $f6, 0x38($a1)
 # end proc_7F059FB8
 
+.global proc_7F05A250
 proc_7F05A250:
 /* 08ED80 7F05A250 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 08ED84 7F05A254 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -100927,6 +101917,7 @@ proc_7F05A250:
 /* 08EE3C 7F05A30C 00000000 */  nop   
 # end proc_7F05A250
 
+.global proc_7F05A310
 proc_7F05A310:
 /* 08EE40 7F05A310 27BDFF58 */  addiu $sp, $sp, -0xa8
 /* 08EE44 7F05A314 AFBF0064 */  sw    $ra, 0x64($sp)
@@ -101211,6 +102202,7 @@ proc_7F05A310:
 /* 08F2A0 7F05A770 27BD00A8 */  addiu $sp, $sp, 0xa8
 # end proc_7F05A310
 
+.global proc_7F05A774
 proc_7F05A774:
 /* 08F2A4 7F05A774 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 08F2A8 7F05A778 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -101323,6 +102315,7 @@ proc_7F05A774:
 /* 08F454 7F05A924 46085001 */  sub.s $f0, $f10, $f8
 # end proc_7F05A774
 
+.global proc_7F05A928
 proc_7F05A928:
 /* 08F458 7F05A928 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 08F45C 7F05A92C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -101362,6 +102355,7 @@ proc_7F05A928:
 /* 08F4E4 7F05A9B4 46045000 */  add.s $f0, $f10, $f4
 # end proc_7F05A928
 
+.global proc_7F05A9B8
 proc_7F05A9B8:
 /* 08F4E8 7F05A9B8 AFA7000C */  sw    $a3, 0xc($sp)
 /* 08F4EC 7F05A9BC C7A4000C */  lwc1  $f4, 0xc($sp)
@@ -101377,6 +102371,7 @@ proc_7F05A9B8:
 # alignment
 .word 0x00000000
 
+.global proc_7F05A9E0
 proc_7F05A9E0:
 /* 08F510 7F05A9E0 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 08F514 7F05A9E4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -101401,6 +102396,7 @@ proc_7F05A9E0:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F05AA30
 proc_7F05AA30:
 /* 08F560 7F05AA30 44808000 */  mtc1  $zero, $f16
 /* 08F564 7F05AA34 27BDFFE0 */  addiu $sp, $sp, -0x20
@@ -101492,6 +102488,7 @@ proc_7F05AA30:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global proc_7F05AB70
 proc_7F05AB70:
 /* 08F6A0 7F05AB70 28817FE0 */  slti  $at, $a0, 0x7fe0
 /* 08F6A4 7F05AB74 14200006 */  bnez  $at, .Lproc_7F05AB70_20
@@ -101530,6 +102527,7 @@ proc_7F05AB70:
 /* 08F71C 7F05ABEC 00EB1023 */  subu  $v0, $a3, $t3
 # end proc_7F05AB70
 
+.global proc_7F05ABF0
 proc_7F05ABF0:
 /* 08F720 7F05ABF0 00042C00 */  sll   $a1, $a0, 0x10
 /* 08F724 7F05ABF4 00057403 */  sra   $t6, $a1, 0x10
@@ -101557,6 +102555,7 @@ proc_7F05ABF0:
 /* 08F770 7F05AC40 3082FFFF */  andi  $v0, $a0, 0xffff
 # end proc_7F05ABF0
 
+.global proc_7F05AC44
 proc_7F05AC44:
 /* 08F774 7F05AC44 00042C00 */  sll   $a1, $a0, 0x10
 /* 08F778 7F05AC48 00057403 */  sra   $t6, $a1, 0x10
@@ -101592,6 +102591,7 @@ proc_7F05AC44:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F05ACB0
 proc_7F05ACB0:
 /* 08F7E0 7F05ACB0 3C013F80 */  lui   $at, 0x3f80
 /* 08F7E4 7F05ACB4 44812000 */  mtc1  $at, $f4
@@ -101642,6 +102642,7 @@ proc_7F05ACB0:
 /* 08F888 7F05AD58 46105003 */  div.s $f0, $f10, $f16
 # end proc_7F05ACB0
 
+.global proc_7F05AD5C
 proc_7F05AD5C:
 /* 08F88C 7F05AD5C 3C013F80 */  lui   $at, 0x3f80
 /* 08F890 7F05AD60 44812000 */  mtc1  $at, $f4
@@ -101689,6 +102690,7 @@ proc_7F05AD5C:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global proc_7F05AE00
 proc_7F05AE00:
 /* 08F930 7F05AE00 C4800000 */  lwc1  $f0, ($a0)
 /* 08F934 7F05AE04 C4A40000 */  lwc1  $f4, ($a1)
@@ -101712,6 +102714,7 @@ proc_7F05AE00:
 /* 08F97C 7F05AE4C E4F20008 */  swc1  $f18, 8($a3)
 # end proc_7F05AE00
 
+.global proc_7F05AE50
 proc_7F05AE50:
 /* 08F980 7F05AE50 C7A40010 */  lwc1  $f4, 0x10($sp)
 /* 08F984 7F05AE54 3C013F00 */  lui   $at, 0x3f00
@@ -101758,6 +102761,7 @@ proc_7F05AE50:
 /* 08FA28 7F05AEF8 46085000 */  add.s $f0, $f10, $f8
 # end proc_7F05AE50
 
+.global proc_7F05AEFC
 proc_7F05AEFC:
 /* 08FA2C 7F05AEFC 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 08FA30 7F05AF00 C7AC0038 */  lwc1  $f12, 0x38($sp)
@@ -101835,6 +102839,7 @@ proc_7F05AEFC:
 /* 08FB50 7F05B020 E5C80008 */  swc1  $f8, 8($t6)
 # end proc_7F05AEFC
 
+.global proc_7F05B024
 proc_7F05B024:
 /* 08FB54 7F05B024 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 08FB58 7F05B028 C7AC0038 */  lwc1  $f12, 0x38($sp)
@@ -101914,6 +102919,7 @@ proc_7F05B024:
 /* 08FC80 7F05B150 E5CA0008 */  swc1  $f10, 8($t6)
 # end proc_7F05B024
 
+.global proc_7F05B154
 proc_7F05B154:
 /* 08FC84 7F05B154 C7A40010 */  lwc1  $f4, 0x10($sp)
 /* 08FC88 7F05B158 3C014040 */  lui   $at, 0x4040
@@ -101949,6 +102955,7 @@ proc_7F05B154:
 /* 08FD00 7F05B1D0 46044000 */  add.s $f0, $f8, $f4
 # end proc_7F05B154
 
+.global proc_7F05B1D4
 proc_7F05B1D4:
 /* 08FD04 7F05B1D4 00000000 */  nop   
 /* 08FD08 7F05B1D8 00000000 */  nop   
@@ -102094,6 +103101,7 @@ proc_7F05B1D4:
 /* 08FF20 7F05B3F0 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F05B1D4
 
+.global proc_7F05B3F4
 proc_7F05B3F4:
 /* 08FF24 7F05B3F4 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 08FF28 7F05B3F8 F7B40018 */  sdc1  $f20, 0x18($sp)
@@ -102174,6 +103182,7 @@ proc_7F05B3F4:
 /* 090054 7F05B524 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F05B3F4
 
+.global proc_7F05B528
 proc_7F05B528:
 /* 090058 7F05B528 3C013F00 */  lui   $at, 0x3f00
 /* 09005C 7F05B52C 44812000 */  mtc1  $at, $f4
@@ -102198,6 +103207,7 @@ proc_7F05B528:
 /* 0900A8 7F05B578 00000000 */  nop   
 # end proc_7F05B528
 
+.global proc_7F05B57C
 proc_7F05B57C:
 /* 0900AC 7F05B57C 3C013F00 */  lui   $at, 0x3f00
 /* 0900B0 7F05B580 44812000 */  mtc1  $at, $f4
@@ -102223,6 +103233,7 @@ proc_7F05B57C:
 /* 090100 7F05B5D0 00000000 */  nop   
 # end proc_7F05B57C
 
+.global proc_7F05B5D4
 proc_7F05B5D4:
 /* 090104 7F05B5D4 3C013F00 */  lui   $at, 0x3f00
 /* 090108 7F05B5D8 44812000 */  mtc1  $at, $f4
@@ -102247,6 +103258,7 @@ proc_7F05B5D4:
 /* 090154 7F05B624 00000000 */  nop   
 # end proc_7F05B5D4
 
+.global proc_7F05B628
 proc_7F05B628:
 /* 090158 7F05B628 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 09015C 7F05B62C F7B40008 */  sdc1  $f20, 8($sp)
@@ -102342,6 +103354,7 @@ proc_7F05B628:
 /* 0902C4 7F05B794 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F05B628
 
+.global proc_7F05B798
 proc_7F05B798:
 /* 0902C8 7F05B798 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 0902CC 7F05B79C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -102484,6 +103497,7 @@ proc_7F05B798:
 /* 0904E0 7F05B9B0 00000000 */  nop   
 # end proc_7F05B798
 
+.global proc_7F05B9B4
 proc_7F05B9B4:
 /* 0904E4 7F05B9B4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0904E8 7F05B9B8 00803825 */  or    $a3, $a0, $zero
@@ -102508,6 +103522,7 @@ proc_7F05B9B4:
 /* 090534 7F05BA04 00000000 */  nop   
 # end proc_7F05B9B4
 
+.global proc_7F05BA08
 proc_7F05BA08:
 /* 090538 7F05BA08 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 09053C 7F05BA0C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -102666,6 +103681,7 @@ proc_7F05BA08:
 /* 090794 7F05BC64 00000000 */  nop   
 # end proc_7F05BA08
 
+.global proc_7F05BC68
 proc_7F05BC68:
 /* 090798 7F05BC68 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 09079C 7F05BC6C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -102779,6 +103795,7 @@ proc_7F05BC68:
 /* 09093C 7F05BE0C 00000000 */  nop   
 # end proc_7F05BC68
 
+.global proc_7F05BE10
 proc_7F05BE10:
 /* 090940 7F05BE10 C4AC0000 */  lwc1  $f12, ($a1)
 /* 090944 7F05BE14 C4840000 */  lwc1  $f4, ($a0)
@@ -102813,6 +103830,7 @@ proc_7F05BE10:
 /* 0909B4 7F05BE84 00000000 */  nop   
 # end proc_7F05BE10
 
+.global proc_7F05BE88
 proc_7F05BE88:
 /* 0909B8 7F05BE88 C4840000 */  lwc1  $f4, ($a0)
 /* 0909BC 7F05BE8C C4A60000 */  lwc1  $f6, ($a1)
@@ -102881,6 +103899,7 @@ proc_7F05BE88:
 /* 090AB8 7F05BF88 E4C8000C */  swc1  $f8, 0xc($a2)
 # end proc_7F05BE88
 
+.global proc_7F05BF8C
 proc_7F05BF8C:
 /* 090ABC 7F05BF8C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 090AC0 7F05BF90 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -102902,6 +103921,7 @@ proc_7F05BF8C:
 /* 090B00 7F05BFD0 00000000 */  nop   
 # end proc_7F05BF8C
 
+.global proc_7F05BFD4
 proc_7F05BFD4:
 /* 090B04 7F05BFD4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 090B08 7F05BFD8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -102944,6 +103964,7 @@ proc_7F05BFD4:
 /* 090B94 7F05C064 00000000 */  nop   
 # end proc_7F05BFD4
 
+.global proc_7F05C068
 proc_7F05C068:
 /* 090B98 7F05C068 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 090B9C 7F05C06C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -103001,6 +104022,7 @@ proc_7F05C068:
 /* 090C64 7F05C134 00000000 */  nop   
 # end proc_7F05C068
 
+.global proc_7F05C138
 proc_7F05C138:
 /* 090C68 7F05C138 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 090C6C 7F05C13C AFB00018 */  sw    $s0, 0x18($sp)
@@ -103074,6 +104096,7 @@ proc_7F05C138:
 /* 090D7C 7F05C24C 00000000 */  nop   
 # end proc_7F05C138
 
+.global proc_7F05C250
 proc_7F05C250:
 /* 090D80 7F05C250 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 090D84 7F05C254 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -103117,6 +104140,7 @@ proc_7F05C250:
 /* 090E1C 7F05C2EC 00000000 */  nop   
 # end proc_7F05C250
 
+.global proc_7F05C2F0
 proc_7F05C2F0:
 /* 090E20 7F05C2F0 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 090E24 7F05C2F4 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -103148,6 +104172,7 @@ proc_7F05C2F0:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global proc_7F05C360
 proc_7F05C360:
 /* 090E90 7F05C360 44802000 */  mtc1  $zero, $f4
 /* 090E94 7F05C364 00000000 */  nop   
@@ -103183,6 +104208,7 @@ proc_7F05C360:
 /* 090F04 7F05C3D4 00000000 */  nop   
 # end proc_7F05C360
 
+.global proc_7F05C3D8
 proc_7F05C3D8:
 /* 090F08 7F05C3D8 44802000 */  mtc1  $zero, $f4
 /* 090F0C 7F05C3DC 00000000 */  nop   
@@ -103215,6 +104241,7 @@ proc_7F05C3D8:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F05C440
 proc_7F05C440:
 /* 090F70 7F05C440 44802000 */  mtc1  $zero, $f4
 /* 090F74 7F05C444 00000000 */  nop   
@@ -103250,6 +104277,7 @@ proc_7F05C440:
 /* 090FE4 7F05C4B4 00000000 */  nop   
 # end proc_7F05C440
 
+.global proc_7F05C4B8
 proc_7F05C4B8:
 /* 090FE8 7F05C4B8 44802000 */  mtc1  $zero, $f4
 /* 090FEC 7F05C4BC 00000000 */  nop   
@@ -103282,23 +104310,27 @@ proc_7F05C4B8:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F05C520
 proc_7F05C520:
 /* 091050 7F05C520 3C018003 */  lui   $at, 0x8003
 /* 091054 7F05C524 03E00008 */  jr    $ra
 /* 091058 7F05C528 AC244C9C */  sw    $a0, %lo(0x80034C9C)($at) # $a0, 0x4c9c($at)
 # end proc_7F05C520
 
+.global proc_7F05C52C
 proc_7F05C52C:
 /* 09105C 7F05C52C 3C028003 */  lui   $v0, 0x8003
 /* 091060 7F05C530 03E00008 */  jr    $ra
 /* 091064 7F05C534 8C424C9C */  lw    $v0, 0x4c9c($v0)
 # end proc_7F05C52C
 
+.global proc_7F05C538
 proc_7F05C538:
 /* 091068 7F05C538 03E00008 */  jr    $ra
 /* 09106C 7F05C53C 00000000 */  nop   
 # end proc_7F05C538
 
+.global proc_7F05C540
 proc_7F05C540:
 /* 091070 7F05C540 3C0E8003 */  lui   $t6, 0x8003
 /* 091074 7F05C544 8DCE4CA0 */  lw    $t6, 0x4ca0($t6)
@@ -103323,6 +104355,7 @@ proc_7F05C540:
 /* 0910C0 7F05C590 E448000C */  swc1  $f8, 0xc($v0)
 # end proc_7F05C540
 
+.global proc_7F05C594
 proc_7F05C594:
 /* 0910C4 7F05C594 3C0E8003 */  lui   $t6, 0x8003
 /* 0910C8 7F05C598 8DCE4CA0 */  lw    $t6, 0x4ca0($t6)
@@ -103358,6 +104391,7 @@ proc_7F05C594:
 /* 091140 7F05C610 00000000 */  nop   
 # end proc_7F05C594
 
+.global proc_7F05C614
 proc_7F05C614:
 /* 091144 7F05C614 3C0E8003 */  lui   $t6, 0x8003
 /* 091148 7F05C618 8DCE4C9C */  lw    $t6, 0x4c9c($t6)
@@ -103403,6 +104437,7 @@ proc_7F05C614:
 /* 0911E4 7F05C6B4 00000000 */  nop   
 # end proc_7F05C614
 
+.global proc_7F05C6B8
 proc_7F05C6B8:
 /* 0911E8 7F05C6B8 3C028003 */  lui   $v0, 0x8003
 /* 0911EC 7F05C6BC 24424CA0 */  addiu $v0, $v0, 0x4ca0
@@ -103424,6 +104459,7 @@ proc_7F05C6B8:
 /* 091228 7F05C6F8 00000000 */  nop   
 # end proc_7F05C6B8
 
+.global proc_7F05C6FC
 proc_7F05C6FC:
 /* 09122C 7F05C6FC 27BDFF60 */  addiu $sp, $sp, -0xa0
 /* 091230 7F05C700 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -103543,6 +104579,7 @@ proc_7F05C6FC:
 /* 0913E0 7F05C8B0 00000000 */  nop   
 # end proc_7F05C6FC
 
+.global proc_7F05C8B4
 proc_7F05C8B4:
 /* 0913E4 7F05C8B4 000470C0 */  sll   $t6, $a0, 3
 /* 0913E8 7F05C8B8 01C47023 */  subu  $t6, $t6, $a0
@@ -103562,6 +104599,7 @@ proc_7F05C8B4:
 /* 09141C 7F05C8EC 00000000 */  nop   
 # end proc_7F05C8B4
 
+.global proc_7F05C8F0
 proc_7F05C8F0:
 /* 091420 7F05C8F0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 091424 7F05C8F4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -103583,6 +104621,7 @@ proc_7F05C8F0:
 /* 091464 7F05C934 00000000 */  nop   
 # end proc_7F05C8F0
 
+.global proc_7F05C938
 proc_7F05C938:
 /* 091468 7F05C938 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 09146C 7F05C93C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -103604,6 +104643,7 @@ proc_7F05C938:
 /* 0914AC 7F05C97C 00000000 */  nop   
 # end proc_7F05C938
 
+.global proc_7F05C980
 proc_7F05C980:
 /* 0914B0 7F05C980 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 0914B4 7F05C984 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -103955,6 +104995,7 @@ proc_7F05C980:
 /* 0919E8 7F05CEB8 27BD0070 */  addiu $sp, $sp, 0x70
 # end proc_7F05C980
 
+.global proc_7F05CEBC
 proc_7F05CEBC:
 /* 0919EC 7F05CEBC 3C0E8008 */  lui   $t6, 0x8008
 /* 0919F0 7F05CEC0 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -103976,6 +105017,7 @@ proc_7F05CEBC:
 /* 091A2C 7F05CEFC 00000000 */  nop   
 # end proc_7F05CEBC
 
+.global proc_7F05CF00
 proc_7F05CF00:
 /* 091A30 7F05CF00 3C0E8008 */  lui   $t6, 0x8008
 /* 091A34 7F05CF04 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -103985,6 +105027,7 @@ proc_7F05CF00:
 /* 091A44 7F05CF14 8F020800 */  lw    $v0, 0x800($t8)
 # end proc_7F05CF00
 
+.global proc_7F05CF18
 proc_7F05CF18:
 /* 091A48 7F05CF18 3C0E8008 */  lui   $t6, 0x8008
 /* 091A4C 7F05CF1C 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -103994,6 +105037,7 @@ proc_7F05CF18:
 /* 091A5C 7F05CF2C 24420810 */  addiu $v0, $v0, 0x810
 # end proc_7F05CF18
 
+.global proc_7F05CF30
 proc_7F05CF30:
 /* 091A60 7F05CF30 3C0E8008 */  lui   $t6, 0x8008
 /* 091A64 7F05CF34 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -104003,6 +105047,7 @@ proc_7F05CF30:
 /* 091A74 7F05CF44 8F020808 */  lw    $v0, 0x808($t8)
 # end proc_7F05CF30
 
+.global proc_7F05CF48
 proc_7F05CF48:
 /* 091A78 7F05CF48 00047080 */  sll   $t6, $a0, 2
 /* 091A7C 7F05CF4C 3C028003 */  lui   $v0, 0x8003
@@ -104011,6 +105056,7 @@ proc_7F05CF48:
 /* 091A88 7F05CF58 8C42245C */  lw    $v0, 0x245c($v0)
 # end proc_7F05CF48
 
+.global proc_7F05CF5C
 proc_7F05CF5C:
 /* 091A8C 7F05CF5C 3C038008 */  lui   $v1, 0x8008
 /* 091A90 7F05CF60 2463A0B0 */  addiu $v1, $v1, -0x5f50
@@ -104032,6 +105078,7 @@ proc_7F05CF5C:
 /* 091AD0 7F05CFA0 ADAB2A50 */  sw    $t3, 0x2a50($t5)
 # end proc_7F05CF5C
 
+.global proc_7F05CFA4
 proc_7F05CFA4:
 /* 091AD4 7F05CFA4 3C068008 */  lui   $a2, 0x8008
 /* 091AD8 7F05CFA8 24C6A0B0 */  addiu $a2, $a2, -0x5f50
@@ -104066,6 +105113,7 @@ proc_7F05CFA4:
 /* 091B44 7F05D014 00000000 */  nop   
 # end proc_7F05CFA4
 
+.global proc_7F05D018
 proc_7F05D018:
 /* 091B48 7F05D018 24010001 */  addiu $at, $zero, 1
 /* 091B4C 7F05D01C 14810004 */  bne   $a0, $at, .Lproc_7F05D018_18
@@ -104082,6 +105130,7 @@ proc_7F05D018:
 /* 091B74 7F05D044 8C423928 */  lw    $v0, 0x3928($v0)
 # end proc_7F05D018
 
+.global proc_7F05D048
 proc_7F05D048:
 /* 091B78 7F05D048 24010001 */  addiu $at, $zero, 1
 /* 091B7C 7F05D04C 14810004 */  bne   $a0, $at, .Lproc_7F05D048_18
@@ -104098,6 +105147,7 @@ proc_7F05D048:
 /* 091BA4 7F05D074 8C423924 */  lw    $v0, 0x3924($v0)
 # end proc_7F05D048
 
+.global proc_7F05D078
 proc_7F05D078:
 /* 091BA8 7F05D078 3C0E8008 */  lui   $t6, 0x8008
 /* 091BAC 7F05D07C 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -104105,6 +105155,7 @@ proc_7F05D078:
 /* 091BB4 7F05D084 8DC22A38 */  lw    $v0, 0x2a38($t6)
 # end proc_7F05D078
 
+.global proc_7F05D088
 proc_7F05D088:
 /* 091BB8 7F05D088 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 091BBC 7F05D08C AFB0001C */  sw    $s0, 0x1c($sp)
@@ -104287,6 +105338,7 @@ proc_7F05D088:
 /* 091E60 7F05D330 27BD0050 */  addiu $sp, $sp, 0x50
 # end proc_7F05D088
 
+.global proc_7F05D334
 proc_7F05D334:
 /* 091E64 7F05D334 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 091E68 7F05D338 AFB30020 */  sw    $s3, 0x20($sp)
@@ -104362,6 +105414,7 @@ proc_7F05D334:
 /* 091F60 7F05D430 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F05D334
 
+.global proc_7F05D434
 proc_7F05D434:
 /* 091F64 7F05D434 000478C0 */  sll   $t7, $a0, 3
 /* 091F68 7F05D438 01E47823 */  subu  $t7, $t7, $a0
@@ -104415,6 +105468,7 @@ proc_7F05D434:
 /* 09200C 7F05D4DC 00000000 */  nop   
 # end proc_7F05D434
 
+.global proc_7F05D4E0
 proc_7F05D4E0:
 /* 092010 7F05D4E0 000438C0 */  sll   $a3, $a0, 3
 /* 092014 7F05D4E4 00E43823 */  subu  $a3, $a3, $a0
@@ -104500,6 +105554,7 @@ proc_7F05D4E0:
 /* 09213C 7F05D60C 00000000 */  nop   
 # end proc_7F05D4E0
 
+.global proc_7F05D610
 proc_7F05D610:
 /* 092140 7F05D610 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 092144 7F05D614 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -104519,6 +105574,7 @@ proc_7F05D610:
 /* 09217C 7F05D64C 00000000 */  nop   
 # end proc_7F05D610
 
+.global proc_7F05D650
 proc_7F05D650:
 /* 092180 7F05D650 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 092184 7F05D654 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -104538,6 +105594,7 @@ proc_7F05D650:
 /* 0921BC 7F05D68C 00000000 */  nop   
 # end proc_7F05D650
 
+.global proc_7F05D690
 proc_7F05D690:
 /* 0921C0 7F05D690 3C0E8008 */  lui   $t6, 0x8008
 /* 0921C4 7F05D694 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -104557,6 +105614,7 @@ proc_7F05D690:
 /* 0921FC 7F05D6CC 00000000 */  nop   
 # end proc_7F05D690
 
+.global proc_7F05D6D0
 proc_7F05D6D0:
 /* 092200 7F05D6D0 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 092204 7F05D6D4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -104601,6 +105659,7 @@ proc_7F05D6D0:
 /* 092294 7F05D764 00000000 */  nop   
 # end proc_7F05D6D0
 
+.global proc_7F05D768
 proc_7F05D768:
 /* 092298 7F05D768 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 09229C 7F05D76C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -104645,6 +105704,7 @@ proc_7F05D768:
 /* 09232C 7F05D7FC 00000000 */  nop   
 # end proc_7F05D768
 
+.global proc_7F05D800
 proc_7F05D800:
 /* 092330 7F05D800 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 092334 7F05D804 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -104723,6 +105783,7 @@ proc_7F05D800:
 /* 092440 7F05D910 00000000 */  nop   
 # end proc_7F05D800
 
+.global proc_7F05D914
 proc_7F05D914:
 /* 092444 7F05D914 000410C0 */  sll   $v0, $a0, 3
 /* 092448 7F05D918 00441023 */  subu  $v0, $v0, $a0
@@ -104746,6 +105807,7 @@ proc_7F05D914:
 /* 092490 7F05D960 AD4008B4 */  sw    $zero, 0x8b4($t2)
 # end proc_7F05D914
 
+.global proc_7F05D964
 proc_7F05D964:
 /* 092494 7F05D964 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 092498 7F05D968 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -104778,6 +105840,7 @@ proc_7F05D964:
 /* 0924FC 7F05D9CC 00000000 */  nop   
 # end proc_7F05D964
 
+.global proc_7F05D9D0
 proc_7F05D9D0:
 /* 092500 7F05D9D0 000478C0 */  sll   $t7, $a0, 3
 /* 092504 7F05D9D4 01E47823 */  subu  $t7, $t7, $a0
@@ -104793,6 +105856,7 @@ proc_7F05D9D0:
 /* 09252C 7F05D9FC 8F020870 */  lw    $v0, 0x870($t8)
 # end proc_7F05D9D0
 
+.global proc_7F05DA00
 proc_7F05DA00:
 /* 092530 7F05DA00 000410C0 */  sll   $v0, $a0, 3
 /* 092534 7F05DA04 00441023 */  subu  $v0, $v0, $a0
@@ -104813,6 +105877,7 @@ proc_7F05DA00:
 /* 092570 7F05DA40 AD0508AC */  sw    $a1, 0x8ac($t0)
 # end proc_7F05DA00
 
+.global proc_7F05DA44
 proc_7F05DA44:
 /* 092574 7F05DA44 000478C0 */  sll   $t7, $a0, 3
 /* 092578 7F05DA48 01E47823 */  subu  $t7, $t7, $a0
@@ -104835,6 +105900,7 @@ proc_7F05DA44:
 /* 0925B8 7F05DA88 00000000 */  nop   
 # end proc_7F05DA44
 
+.global proc_7F05DA8C
 proc_7F05DA8C:
 /* 0925BC 7F05DA8C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0925C0 7F05DA90 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -104860,6 +105926,7 @@ proc_7F05DA8C:
 /* 092610 7F05DAE0 00000000 */  nop   
 # end proc_7F05DA8C
 
+.global proc_7F05DAE4
 proc_7F05DAE4:
 /* 092614 7F05DAE4 000410C0 */  sll   $v0, $a0, 3
 /* 092618 7F05DAE8 00441023 */  subu  $v0, $v0, $a0
@@ -104892,6 +105959,7 @@ proc_7F05DAE4:
 /* 092680 7F05DB50 00000000 */  nop   
 # end proc_7F05DAE4
 
+.global proc_7F05DB54
 proc_7F05DB54:
 /* 092684 7F05DB54 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 092688 7F05DB58 000470C0 */  sll   $t6, $a0, 3
@@ -104976,6 +106044,7 @@ proc_7F05DB54:
 /* 0927B4 7F05DC84 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F05DB54
 
+.global proc_7F05DC88
 proc_7F05DC88:
 /* 0927B8 7F05DC88 000478C0 */  sll   $t7, $a0, 3
 /* 0927BC 7F05DC8C 01E47823 */  subu  $t7, $t7, $a0
@@ -104991,6 +106060,7 @@ proc_7F05DC88:
 /* 0927E4 7F05DCB4 8302087C */  lb    $v0, 0x87c($t8)
 # end proc_7F05DC88
 
+.global proc_7F05DCB8
 proc_7F05DCB8:
 /* 0927E8 7F05DCB8 000478C0 */  sll   $t7, $a0, 3
 /* 0927EC 7F05DCBC 01E47823 */  subu  $t7, $t7, $a0
@@ -105006,6 +106076,7 @@ proc_7F05DCB8:
 /* 092814 7F05DCE4 C7000A34 */  lwc1  $f0, 0xa34($t8)
 # end proc_7F05DCB8
 
+.global proc_7F05DCE8
 proc_7F05DCE8:
 /* 092818 7F05DCE8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 09281C 7F05DCEC 14800007 */  bnez  $a0, .Lproc_7F05DCE8_24
@@ -105031,6 +106102,7 @@ proc_7F05DCE8:
 /* 092864 7F05DD34 00000000 */  nop   
 # end proc_7F05DCE8
 
+.global proc_7F05DD38
 proc_7F05DD38:
 /* 092868 7F05DD38 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 09286C 7F05DD3C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -105064,6 +106136,7 @@ proc_7F05DD38:
 /* 0928D0 7F05DDA0 00000000 */  nop   
 # end proc_7F05DD38
 
+.global proc_7F05DDA4
 proc_7F05DDA4:
 /* 0928D4 7F05DDA4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0928D8 7F05DDA8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -105130,6 +106203,7 @@ proc_7F05DDA4:
 /* 0929C0 7F05DE90 00000000 */  nop   
 # end proc_7F05DDA4
 
+.global proc_7F05DE94
 proc_7F05DE94:
 /* 0929C4 7F05DE94 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0929C8 7F05DE98 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -105196,6 +106270,7 @@ proc_7F05DE94:
 /* 092AB0 7F05DF80 00000000 */  nop   
 # end proc_7F05DE94
 
+.global proc_7F05DF84
 proc_7F05DF84:
 /* 092AB4 7F05DF84 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 092AB8 7F05DF88 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -105208,6 +106283,7 @@ proc_7F05DF84:
 /* 092AD4 7F05DFA4 00000000 */  nop   
 # end proc_7F05DF84
 
+.global proc_7F05DFA8
 proc_7F05DFA8:
 /* 092AD8 7F05DFA8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 092ADC 7F05DFAC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -105220,6 +106296,7 @@ proc_7F05DFA8:
 /* 092AF8 7F05DFC8 00000000 */  nop   
 # end proc_7F05DFA8
 
+.global proc_7F05DFCC
 proc_7F05DFCC:
 /* 092AFC 7F05DFCC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 092B00 7F05DFD0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -105232,6 +106309,7 @@ proc_7F05DFCC:
 /* 092B1C 7F05DFEC 00000000 */  nop   
 # end proc_7F05DFCC
 
+.global proc_7F05DFF0
 proc_7F05DFF0:
 /* 092B20 7F05DFF0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 092B24 7F05DFF4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -105244,6 +106322,7 @@ proc_7F05DFF0:
 /* 092B40 7F05E010 00000000 */  nop   
 # end proc_7F05DFF0
 
+.global proc_7F05E014
 proc_7F05E014:
 /* 092B44 7F05E014 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 092B48 7F05E018 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -105256,6 +106335,7 @@ proc_7F05E014:
 /* 092B64 7F05E034 00000000 */  nop   
 # end proc_7F05E014
 
+.global proc_7F05E038
 proc_7F05E038:
 /* 092B68 7F05E038 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 092B6C 7F05E03C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -105268,6 +106348,7 @@ proc_7F05E038:
 /* 092B88 7F05E058 00000000 */  nop   
 # end proc_7F05E038
 
+.global proc_7F05E05C
 proc_7F05E05C:
 /* 092B8C 7F05E05C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 092B90 7F05E060 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -105295,6 +106376,7 @@ proc_7F05E05C:
 /* 092BE0 7F05E0B0 00000000 */  nop   
 # end proc_7F05E05C
 
+.global proc_7F05E0B4
 proc_7F05E0B4:
 /* 092BE4 7F05E0B4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 092BE8 7F05E0B8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -105310,6 +106392,7 @@ proc_7F05E0B4:
 /* 092C10 7F05E0E0 03001025 */  or    $v0, $t8, $zero
 # end proc_7F05E0B4
 
+.global proc_7F05E0E4
 proc_7F05E0E4:
 /* 092C14 7F05E0E4 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 092C18 7F05E0E8 AFA60070 */  sw    $a2, 0x70($sp)
@@ -105660,6 +106743,7 @@ proc_7F05E0E4:
 /* 09311C 7F05E5EC 27BD0068 */  addiu $sp, $sp, 0x68
 # end proc_7F05E0E4
 
+.global proc_7F05E5F0
 proc_7F05E5F0:
 /* 093120 7F05E5F0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 093124 7F05E5F4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -105692,6 +106776,7 @@ proc_7F05E5F0:
 /* 093190 7F05E660 00000000 */  nop   
 # end proc_7F05E5F0
 
+.global proc_7F05E664
 proc_7F05E664:
 /* 093194 7F05E664 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 093198 7F05E668 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -105718,6 +106803,7 @@ proc_7F05E664:
 /* 0931E0 7F05E6B0 00000000 */  nop   
 # end proc_7F05E664
 
+.global proc_7F05E6B4
 proc_7F05E6B4:
 /* 0931E4 7F05E6B4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0931E8 7F05E6B8 10A0002F */  beqz  $a1, .Lproc_7F05E6B4_C4
@@ -105811,6 +106897,7 @@ proc_7F05E6B4:
 /* 093334 7F05E804 00000000 */  nop   
 # end proc_7F05E6B4
 
+.global proc_7F05E808
 proc_7F05E808:
 /* 093338 7F05E808 0004C0C0 */  sll   $t8, $a0, 3
 /* 09333C 7F05E80C 0304C023 */  subu  $t8, $t8, $a0
@@ -105827,6 +106914,7 @@ proc_7F05E808:
 /* 093368 7F05E838 AF2E0A8C */  sw    $t6, 0xa8c($t9)
 # end proc_7F05E808
 
+.global proc_7F05E83C
 proc_7F05E83C:
 /* 09336C 7F05E83C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 093370 7F05E840 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -105914,6 +107002,7 @@ proc_7F05E83C:
 /* 0934A4 7F05E974 00000000 */  nop   
 # end proc_7F05E83C
 
+.global proc_7F05E978
 proc_7F05E978:
 /* 0934A8 7F05E978 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0934AC 7F05E97C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -105995,6 +107084,7 @@ proc_7F05E978:
 /* 0935C0 7F05EA90 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F05E978
 
+.global proc_7F05EA94
 proc_7F05EA94:
 /* 0935C4 7F05EA94 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0935C8 7F05EA98 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -106030,6 +107120,7 @@ proc_7F05EA94:
 /* 093638 7F05EB08 00000000 */  nop   
 # end proc_7F05EA94
 
+.global proc_7F05EB0C
 proc_7F05EB0C:
 /* 09363C 7F05EB0C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 093640 7F05EB10 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -106102,6 +107193,7 @@ proc_7F05EB0C:
 /* 093748 7F05EC18 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F05EB0C
 
+.global proc_7F05EC1C
 proc_7F05EC1C:
 /* 09374C 7F05EC1C 27BDFF28 */  addiu $sp, $sp, -0xd8
 /* 093750 7F05EC20 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -106241,6 +107333,7 @@ proc_7F05EC1C:
 /* 093950 7F05EE20 27BD00D8 */  addiu $sp, $sp, 0xd8
 # end proc_7F05EC1C
 
+.global proc_7F05EE24
 proc_7F05EE24:
 /* 093954 7F05EE24 27BDFEC0 */  addiu $sp, $sp, -0x140
 /* 093958 7F05EE28 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -106406,6 +107499,7 @@ proc_7F05EE24:
 /* 093BC8 7F05F098 00000000 */  nop   
 # end proc_7F05EE24
 
+.global proc_7F05F09C
 proc_7F05F09C:
 /* 093BCC 7F05F09C 27BDFED0 */  addiu $sp, $sp, -0x130
 /* 093BD0 7F05F0A0 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -106588,6 +107682,7 @@ proc_7F05F09C:
 /* 093E84 7F05F354 00000000 */  nop   
 # end proc_7F05F09C
 
+.global proc_7F05F358
 proc_7F05F358:
 /* 093E88 7F05F358 27BDFEC0 */  addiu $sp, $sp, -0x140
 /* 093E8C 7F05F35C 3C018005 */  lui   $at, 0x8005
@@ -106854,6 +107949,7 @@ proc_7F05F358:
 /* 094268 7F05F738 00000000 */  nop   
 # end proc_7F05F358
 
+.global proc_7F05F73C
 proc_7F05F73C:
 /* 09426C 7F05F73C 000470C0 */  sll   $t6, $a0, 3
 /* 094270 7F05F740 01C47023 */  subu  $t6, $t6, $a0
@@ -106983,6 +108079,7 @@ proc_7F05F73C:
 /* 094454 7F05F924 00000000 */  nop   
 # end proc_7F05F73C
 
+.global proc_7F05F928
 proc_7F05F928:
 /* 094458 7F05F928 000478C0 */  sll   $t7, $a0, 3
 /* 09445C 7F05F92C 01E47823 */  subu  $t7, $t7, $a0
@@ -107072,6 +108169,7 @@ proc_7F05F928:
 /* 0945A8 7F05FA78 27BD0080 */  addiu $sp, $sp, 0x80
 # end proc_7F05F928
 
+.global proc_7F05FA7C
 proc_7F05FA7C:
 /* 0945AC 7F05FA7C 000478C0 */  sll   $t7, $a0, 3
 /* 0945B0 7F05FA80 01E47823 */  subu  $t7, $t7, $a0
@@ -107110,6 +108208,7 @@ proc_7F05FA7C:
 /* 09462C 7F05FAFC 00000000 */  nop   
 # end proc_7F05FA7C
 
+.global proc_7F05FB00
 proc_7F05FB00:
 /* 094630 7F05FB00 000478C0 */  sll   $t7, $a0, 3
 /* 094634 7F05FB04 01E47823 */  subu  $t7, $t7, $a0
@@ -107139,6 +108238,7 @@ proc_7F05FB00:
 /* 094690 7F05FB60 00000000 */  nop   
 # end proc_7F05FB00
 
+.global proc_7F05FB64
 proc_7F05FB64:
 /* 094694 7F05FB64 000470C0 */  sll   $t6, $a0, 3
 /* 094698 7F05FB68 01C47023 */  subu  $t6, $t6, $a0
@@ -107436,6 +108536,7 @@ proc_7F05FB64:
 /* 094AF4 7F05FFC4 00000000 */  nop   
 # end proc_7F05FB64
 
+.global proc_7F05FFC8
 proc_7F05FFC8:
 /* 094AF8 7F05FFC8 27BDFD58 */  addiu $sp, $sp, -0x2a8
 /* 094AFC 7F05FFCC 3C0F8003 */  lui   $t7, 0x8003
@@ -109145,6 +110246,7 @@ proc_7F05FFC8:
 /* 09644C 7F06191C 00000000 */  nop   
 # end proc_7F05FFC8
 
+.global proc_7F061920
 proc_7F061920:
 /* 096450 7F061920 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 096454 7F061924 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -109158,6 +110260,7 @@ proc_7F061920:
 /* 096474 7F061944 00000000 */  nop   
 # end proc_7F061920
 
+.global proc_7F061948
 proc_7F061948:
 /* 096478 7F061948 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 09647C 7F06194C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -109345,6 +110448,7 @@ proc_7F061948:
 /* 096720 7F061BF0 00000000 */  nop   
 # end proc_7F061948
 
+.global proc_7F061BF4
 proc_7F061BF4:
 /* 096724 7F061BF4 000478C0 */  sll   $t7, $a0, 3
 /* 096728 7F061BF8 01E47823 */  subu  $t7, $t7, $a0
@@ -109487,6 +110591,7 @@ proc_7F061BF4:
 /* 096944 7F061E14 27BD0060 */  addiu $sp, $sp, 0x60
 # end proc_7F061BF4
 
+.global proc_7F061E18
 proc_7F061E18:
 /* 096948 7F061E18 27BDFEA0 */  addiu $sp, $sp, -0x160
 /* 09694C 7F061E1C AFBF002C */  sw    $ra, 0x2c($sp)
@@ -110337,6 +111442,7 @@ proc_7F061E18:
 /* 09762C 7F062AFC 27BD0160 */  addiu $sp, $sp, 0x160
 # end proc_7F061E18
 
+.global proc_7F062B00
 proc_7F062B00:
 /* 097630 7F062B00 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 097634 7F062B04 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -110403,6 +111509,7 @@ proc_7F062B00:
 /* 097710 7F062BE0 00000000 */  nop   
 # end proc_7F062B00
 
+.global proc_7F062BE4
 proc_7F062BE4:
 /* 097714 7F062BE4 27BDFF30 */  addiu $sp, $sp, -0xd0
 /* 097718 7F062BE8 AFB7003C */  sw    $s7, 0x3c($sp)
@@ -110685,6 +111792,7 @@ proc_7F062BE4:
 /* 097B30 7F063000 27BD00D0 */  addiu $sp, $sp, 0xd0
 # end proc_7F062BE4
 
+.global proc_7F063004
 proc_7F063004:
 /* 097B34 7F063004 27BDFE68 */  addiu $sp, $sp, -0x198
 /* 097B38 7F063008 3C0F8003 */  lui   $t7, 0x8003
@@ -111024,6 +112132,7 @@ proc_7F063004:
 /* 098004 7F0634D4 27BD0198 */  addiu $sp, $sp, 0x198
 # end proc_7F063004
 
+.global proc_7F0634D8
 proc_7F0634D8:
 /* 098008 7F0634D8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 09800C 7F0634DC AFBF001C */  sw    $ra, 0x1c($sp)
@@ -111036,6 +112145,7 @@ proc_7F0634D8:
 /* 098028 7F0634F8 00000000 */  nop   
 # end proc_7F0634D8
 
+.global proc_7F0634FC
 proc_7F0634FC:
 /* 09802C 7F0634FC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 098030 7F063500 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -111047,6 +112157,7 @@ proc_7F0634FC:
 /* 098048 7F063518 00000000 */  nop   
 # end proc_7F0634FC
 
+.global proc_7F06351C
 proc_7F06351C:
 /* 09804C 7F06351C 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 098050 7F063520 AFB00018 */  sw    $s0, 0x18($sp)
@@ -111082,6 +112193,7 @@ proc_7F06351C:
 /* 0980C8 7F063598 00000000 */  nop   
 # end proc_7F06351C
 
+.global proc_7F06359C
 proc_7F06359C:
 /* 0980CC 7F06359C 27BDFAC8 */  addiu $sp, $sp, -0x538
 /* 0980D0 7F0635A0 3C0F8003 */  lui   $t7, 0x8003
@@ -112012,6 +113124,7 @@ proc_7F06359C:
 /* 098E90 7F064360 27BD0538 */  addiu $sp, $sp, 0x538
 # end proc_7F06359C
 
+.global proc_7F064364
 proc_7F064364:
 /* 098E94 7F064364 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 098E98 7F064368 AFA7002C */  sw    $a3, 0x2c($sp)
@@ -112030,6 +113143,7 @@ proc_7F064364:
 /* 098ECC 7F06439C 00000000 */  nop   
 # end proc_7F064364
 
+.global proc_7F0643A0
 proc_7F0643A0:
 /* 098ED0 7F0643A0 3C0E8007 */  lui   $t6, 0x8007
 /* 098ED4 7F0643A4 8DCE5DB8 */  lw    $t6, 0x5db8($t6)
@@ -112068,6 +113182,7 @@ proc_7F0643A0:
 /* 098F48 7F064418 00000000 */  nop   
 # end proc_7F0643A0
 
+.global proc_7F06441C
 proc_7F06441C:
 /* 098F4C 7F06441C 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 098F50 7F064420 00803825 */  or    $a3, $a0, $zero
@@ -112277,6 +113392,7 @@ proc_7F06441C:
 /* 09924C 7F06471C 00000000 */  nop   
 # end proc_7F06441C
 
+.global proc_7F064720
 proc_7F064720:
 /* 099250 7F064720 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 099254 7F064724 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -112303,6 +113419,7 @@ proc_7F064720:
 /* 0992A0 7F064770 00000000 */  nop   
 # end proc_7F064720
 
+.global proc_7F064774
 proc_7F064774:
 /* 0992A4 7F064774 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 0992A8 7F064778 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -112426,6 +113543,7 @@ proc_7F064774:
 /* 099460 7F064930 00000000 */  nop   
 # end proc_7F064774
 
+.global proc_7F064934
 proc_7F064934:
 /* 099464 7F064934 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 099468 7F064938 24010016 */  addiu $at, $zero, 0x16
@@ -112460,6 +113578,7 @@ proc_7F064934:
 /* 0994D8 7F0649A8 00000000 */  nop   
 # end proc_7F064934
 
+.global proc_7F0649AC
 proc_7F0649AC:
 /* 0994DC 7F0649AC 3C01C270 */  lui   $at, 0xc270
 /* 0994E0 7F0649B0 44810000 */  mtc1  $at, $f0
@@ -112475,6 +113594,7 @@ proc_7F0649AC:
 /* 099504 7F0649D4 46001006 */  mov.s $f0, $f2
 # end proc_7F0649AC
 
+.global proc_7F0649D8
 proc_7F0649D8:
 /* 099508 7F0649D8 000478C0 */  sll   $t7, $a0, 3
 /* 09950C 7F0649DC 01E47823 */  subu  $t7, $t7, $a0
@@ -112571,6 +113691,7 @@ proc_7F0649D8:
 /* 099654 7F064B24 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F0649D8
 
+.global proc_7F064B28
 proc_7F064B28:
 /* 099658 7F064B28 000410C0 */  sll   $v0, $a0, 3
 /* 09965C 7F064B2C 00441023 */  subu  $v0, $v0, $a0
@@ -115049,6 +116170,7 @@ proc_7F064B28:
 /* 09B990 7F066E60 27BD01D0 */  addiu $sp, $sp, 0x1d0
 # end proc_7F064B28
 
+.global proc_7F066E64
 proc_7F066E64:
 /* 09B994 7F066E64 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 09B998 7F066E68 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -115091,6 +116213,7 @@ proc_7F066E64:
 /* 09BA24 7F066EF4 00000000 */  nop   
 # end proc_7F066E64
 
+.global proc_7F066EF8
 proc_7F066EF8:
 /* 09BA28 7F066EF8 3C0E8008 */  lui   $t6, 0x8008
 /* 09BA2C 7F066EFC 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -115098,6 +116221,7 @@ proc_7F066EF8:
 /* 09BA34 7F066F04 8DC21060 */  lw    $v0, 0x1060($t6)
 # end proc_7F066EF8
 
+.global proc_7F066F08
 proc_7F066F08:
 /* 09BA38 7F066F08 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 09BA3C 7F066F0C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -115140,6 +116264,7 @@ proc_7F066F08:
 /* 09BAD0 7F066FA0 00000000 */  nop   
 # end proc_7F066F08
 
+.global proc_7F066FA4
 proc_7F066FA4:
 /* 09BAD4 7F066FA4 000470C0 */  sll   $t6, $a0, 3
 /* 09BAD8 7F066FA8 01C47023 */  subu  $t6, $t6, $a0
@@ -115150,6 +116275,7 @@ proc_7F066FA4:
 /* 09BAEC 7F066FBC C4203938 */  lwc1  $f0, 0x3938($at)
 # end proc_7F066FA4
 
+.global proc_7F066FC0
 proc_7F066FC0:
 /* 09BAF0 7F066FC0 000470C0 */  sll   $t6, $a0, 3
 /* 09BAF4 7F066FC4 01C47023 */  subu  $t6, $t6, $a0
@@ -115160,6 +116286,7 @@ proc_7F066FC0:
 /* 09BB08 7F066FD8 C420393C */  lwc1  $f0, 0x393c($at)
 # end proc_7F066FC0
 
+.global proc_7F066FDC
 proc_7F066FDC:
 /* 09BB0C 7F066FDC 000470C0 */  sll   $t6, $a0, 3
 /* 09BB10 7F066FE0 01C47023 */  subu  $t6, $t6, $a0
@@ -115170,6 +116297,7 @@ proc_7F066FDC:
 /* 09BB24 7F066FF4 C4203940 */  lwc1  $f0, 0x3940($at)
 # end proc_7F066FDC
 
+.global proc_7F066FF8
 proc_7F066FF8:
 /* 09BB28 7F066FF8 000470C0 */  sll   $t6, $a0, 3
 /* 09BB2C 7F066FFC 01C47023 */  subu  $t6, $t6, $a0
@@ -115180,6 +116308,7 @@ proc_7F066FF8:
 /* 09BB40 7F067010 C4203944 */  lwc1  $f0, 0x3944($at)
 # end proc_7F066FF8
 
+.global proc_7F067014
 proc_7F067014:
 /* 09BB44 7F067014 000470C0 */  sll   $t6, $a0, 3
 /* 09BB48 7F067018 01C47023 */  subu  $t6, $t6, $a0
@@ -115190,6 +116319,7 @@ proc_7F067014:
 /* 09BB5C 7F06702C C4203948 */  lwc1  $f0, 0x3948($at)
 # end proc_7F067014
 
+.global proc_7F067030
 proc_7F067030:
 /* 09BB60 7F067030 3C014234 */  lui   $at, 0x4234
 /* 09BB64 7F067034 44810000 */  mtc1  $at, $f0
@@ -115197,6 +116327,7 @@ proc_7F067030:
 /* 09BB6C 7F06703C AFA40000 */  sw    $a0, ($sp)
 # end proc_7F067030
 
+.global proc_7F067040
 proc_7F067040:
 /* 09BB70 7F067040 000470C0 */  sll   $t6, $a0, 3
 /* 09BB74 7F067044 01C47023 */  subu  $t6, $t6, $a0
@@ -115213,6 +116344,7 @@ proc_7F067040:
 /* 09BBA0 7F067070 00000000 */  nop   
 # end proc_7F067040
 
+.global proc_7F067074
 proc_7F067074:
 /* 09BBA4 7F067074 000470C0 */  sll   $t6, $a0, 3
 /* 09BBA8 7F067078 01C47023 */  subu  $t6, $t6, $a0
@@ -115229,6 +116361,7 @@ proc_7F067074:
 /* 09BBD4 7F0670A4 00000000 */  nop   
 # end proc_7F067074
 
+.global proc_7F0670A8
 proc_7F0670A8:
 /* 09BBD8 7F0670A8 000470C0 */  sll   $t6, $a0, 3
 /* 09BBDC 7F0670AC 01C47023 */  subu  $t6, $t6, $a0
@@ -115245,6 +116378,7 @@ proc_7F0670A8:
 /* 09BC08 7F0670D8 00000000 */  nop   
 # end proc_7F0670A8
 
+.global proc_7F0670DC
 proc_7F0670DC:
 /* 09BC0C 7F0670DC 000470C0 */  sll   $t6, $a0, 3
 /* 09BC10 7F0670E0 01C47023 */  subu  $t6, $t6, $a0
@@ -115261,6 +116395,7 @@ proc_7F0670DC:
 /* 09BC3C 7F06710C 00000000 */  nop   
 # end proc_7F0670DC
 
+.global proc_7F067110
 proc_7F067110:
 /* 09BC40 7F067110 3C014234 */  lui   $at, 0x4234
 /* 09BC44 7F067114 44810000 */  mtc1  $at, $f0
@@ -115268,6 +116403,7 @@ proc_7F067110:
 /* 09BC4C 7F06711C AFA40000 */  sw    $a0, ($sp)
 # end proc_7F067110
 
+.global proc_7F067120
 proc_7F067120:
 /* 09BC50 7F067120 000470C0 */  sll   $t6, $a0, 3
 /* 09BC54 7F067124 01C47023 */  subu  $t6, $t6, $a0
@@ -115278,6 +116414,7 @@ proc_7F067120:
 /* 09BC68 7F067138 C4203950 */  lwc1  $f0, 0x3950($at)
 # end proc_7F067120
 
+.global proc_7F06713C
 proc_7F06713C:
 /* 09BC6C 7F06713C 000470C0 */  sll   $t6, $a0, 3
 /* 09BC70 7F067140 01C47023 */  subu  $t6, $t6, $a0
@@ -115288,6 +116425,7 @@ proc_7F06713C:
 /* 09BC84 7F067154 C4203954 */  lwc1  $f0, 0x3954($at)
 # end proc_7F06713C
 
+.global proc_7F067158
 proc_7F067158:
 /* 09BC88 7F067158 000470C0 */  sll   $t6, $a0, 3
 /* 09BC8C 7F06715C 01C47023 */  subu  $t6, $t6, $a0
@@ -115298,6 +116436,7 @@ proc_7F067158:
 /* 09BCA0 7F067170 C4203958 */  lwc1  $f0, 0x3958($at)
 # end proc_7F067158
 
+.global proc_7F067174
 proc_7F067174:
 /* 09BCA4 7F067174 000478C0 */  sll   $t7, $a0, 3
 /* 09BCA8 7F067178 01E47823 */  subu  $t7, $t7, $a0
@@ -115313,6 +116452,7 @@ proc_7F067174:
 /* 09BCD0 7F0671A0 C7000A80 */  lwc1  $f0, 0xa80($t8)
 # end proc_7F067174
 
+.global proc_7F0671A4
 proc_7F0671A4:
 /* 09BCD4 7F0671A4 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 09BCD8 7F0671A8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -115455,6 +116595,7 @@ proc_7F0671A4:
 /* 09BEE0 7F0673B0 00000000 */  nop   
 # end proc_7F0671A4
 
+.global proc_7F0673B4
 proc_7F0673B4:
 /* 09BEE4 7F0673B4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 09BEE8 7F0673B8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -115486,6 +116627,7 @@ proc_7F0673B4:
 /* 09BF4C 7F06741C 00000000 */  nop   
 # end proc_7F0673B4
 
+.global proc_7F067420
 proc_7F067420:
 /* 09BF50 7F067420 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 09BF54 7F067424 3C0F8003 */  lui   $t7, 0x8003
@@ -115938,6 +117080,7 @@ proc_7F067420:
 /* 09C5D0 7F067AA0 00000000 */  nop   
 # end proc_7F067420
 
+.global proc_7F067AA4
 proc_7F067AA4:
 /* 09C5D4 7F067AA4 3C0E8008 */  lui   $t6, 0x8008
 /* 09C5D8 7F067AA8 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -115945,6 +117088,7 @@ proc_7F067AA4:
 /* 09C5E0 7F067AB0 ADC40FE4 */  sw    $a0, 0xfe4($t6)
 # end proc_7F067AA4
 
+.global proc_7F067AB4
 proc_7F067AB4:
 /* 09C5E4 7F067AB4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 09C5E8 7F067AB8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -115986,6 +117130,7 @@ proc_7F067AB4:
 /* 09C678 7F067B48 00000000 */  nop   
 # end proc_7F067AB4
 
+.global proc_7F067B4C
 proc_7F067B4C:
 /* 09C67C 7F067B4C 3C028008 */  lui   $v0, 0x8008
 /* 09C680 7F067B50 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -116007,6 +117152,7 @@ proc_7F067B4C:
 /* 09C6C0 7F067B90 E5200FBC */  swc1  $f0, 0xfbc($t1)
 # end proc_7F067B4C
 
+.global proc_7F067B94
 proc_7F067B94:
 /* 09C6C4 7F067B94 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 09C6C8 7F067B98 F7B60018 */  sdc1  $f22, 0x18($sp)
@@ -116263,6 +117409,7 @@ proc_7F067B94:
 /* 09CA84 7F067F54 27BD0058 */  addiu $sp, $sp, 0x58
 # end proc_7F067B94
 
+.global proc_7F067F58
 proc_7F067F58:
 /* 09CA88 7F067F58 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 09CA8C 7F067F5C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -116292,6 +117439,7 @@ proc_7F067F58:
 /* 09CAE8 7F067FB8 00000000 */  nop   
 # end proc_7F067F58
 
+.global proc_7F067FBC
 proc_7F067FBC:
 /* 09CAEC 7F067FBC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 09CAF0 7F067FC0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -116314,6 +117462,7 @@ proc_7F067FBC:
 /* 09CB34 7F068004 00000000 */  nop   
 # end proc_7F067FBC
 
+.global proc_7F068008
 proc_7F068008:
 /* 09CB38 7F068008 3C028008 */  lui   $v0, 0x8008
 /* 09CB3C 7F06800C 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -116326,6 +117475,7 @@ proc_7F068008:
 /* 09CB58 7F068028 E4A60000 */  swc1  $f6, ($a1)
 # end proc_7F068008
 
+.global proc_7F06802C
 proc_7F06802C:
 /* 09CB5C 7F06802C 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 09CB60 7F068030 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -116371,6 +117521,7 @@ proc_7F06802C:
 /* 09CC00 7F0680D0 00000000 */  nop   
 # end proc_7F06802C
 
+.global proc_7F0680D4
 proc_7F0680D4:
 /* 09CC04 7F0680D4 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 09CC08 7F0680D8 3C038008 */  lui   $v1, 0x8008
@@ -116421,6 +117572,7 @@ proc_7F0680D4:
 /* 09CCBC 7F06818C 00000000 */  nop   
 # end proc_7F0680D4
 
+.global proc_7F068190
 proc_7F068190:
 /* 09CCC0 7F068190 44800000 */  mtc1  $zero, $f0
 /* 09CCC4 7F068194 27BDFFE8 */  addiu $sp, $sp, -0x18
@@ -116439,6 +117591,7 @@ proc_7F068190:
 /* 09CCF8 7F0681C8 00000000 */  nop   
 # end proc_7F068190
 
+.global proc_7F0681CC
 proc_7F0681CC:
 /* 09CCFC 7F0681CC 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 09CD00 7F0681D0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -116596,6 +117749,7 @@ proc_7F0681CC:
 /* 09CF4C 7F06841C 00000000 */  nop   
 # end proc_7F0681CC
 
+.global proc_7F068420
 proc_7F068420:
 /* 09CF50 7F068420 3C0E8007 */  lui   $t6, 0x8007
 /* 09CF54 7F068424 8DCE5E64 */  lw    $t6, 0x5e64($t6)
@@ -116660,6 +117814,7 @@ proc_7F068420:
 /* 09D034 7F068504 00000000 */  nop   
 # end proc_7F068420
 
+.global proc_7F068508
 proc_7F068508:
 /* 09D038 7F068508 27BDFF40 */  addiu $sp, $sp, -0xc0
 /* 09D03C 7F06850C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -117201,6 +118356,7 @@ proc_7F068508:
 /* 09D84C 7F068D1C 27BD00C0 */  addiu $sp, $sp, 0xc0
 # end proc_7F068508
 
+.global proc_7F068D20
 proc_7F068D20:
 /* 09D850 7F068D20 3C018005 */  lui   $at, 0x8005
 /* 09D854 7F068D24 C4228378 */  lwc1  $f2, -0x7c88($at)
@@ -117291,6 +118447,7 @@ proc_7F068D20:
 /* 09D998 7F068E68 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F068D20
 
+.global proc_7F068E6C
 proc_7F068E6C:
 /* 09D99C 7F068E6C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 09D9A0 7F068E70 AFB10018 */  sw    $s1, 0x18($sp)
@@ -117318,6 +118475,7 @@ proc_7F068E6C:
 /* 09D9F0 7F068EC0 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F068E6C
 
+.global proc_7F068EC4
 proc_7F068EC4:
 /* 09D9F4 7F068EC4 27BDFF18 */  addiu $sp, $sp, -0xe8
 /* 09D9F8 7F068EC8 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -117440,6 +118598,7 @@ proc_7F068EC4:
 /* 09DBB8 7F069088 00000000 */  nop   
 # end proc_7F068EC4
 
+.global proc_7F06908C
 proc_7F06908C:
 /* 09DBBC 7F06908C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 09DBC0 7F069090 AFB1001C */  sw    $s1, 0x1c($sp)
@@ -117471,6 +118630,7 @@ proc_7F06908C:
 /* 09DC20 7F0690F0 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F06908C
 
+.global proc_7F0690F4
 proc_7F0690F4:
 /* 09DC24 7F0690F4 10A00008 */  beqz  $a1, .Lproc_7F0690F4_24
 /* 09DC28 7F0690F8 3C028008 */  lui   $v0, 0x8008
@@ -117490,6 +118650,7 @@ proc_7F0690F4:
 /* 09DC5C 7F06912C 00000000 */  nop   
 # end proc_7F0690F4
 
+.global proc_7F069130
 proc_7F069130:
 /* 09DC60 7F069130 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 09DC64 7F069134 AFB00018 */  sw    $s0, 0x18($sp)
@@ -117565,6 +118726,7 @@ proc_7F069130:
 /* 09DD6C 7F06923C 00000000 */  nop   
 # end proc_7F069130
 
+.global proc_7F069240
 proc_7F069240:
 /* 09DD70 7F069240 3C0E8008 */  lui   $t6, 0x8008
 /* 09DD74 7F069244 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -117574,6 +118736,7 @@ proc_7F069240:
 /* 09DD84 7F069254 8F021130 */  lw    $v0, 0x1130($t8)
 # end proc_7F069240
 
+.global proc_7F069258
 proc_7F069258:
 /* 09DD88 7F069258 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 09DD8C 7F06925C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -117610,6 +118773,7 @@ proc_7F069258:
 /* 09DE00 7F0692D0 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F069258
 
+.global proc_7F0692D4
 proc_7F0692D4:
 /* 09DE04 7F0692D4 00047080 */  sll   $t6, $a0, 2
 /* 09DE08 7F0692D8 01C47023 */  subu  $t6, $t6, $a0
@@ -117620,6 +118784,7 @@ proc_7F0692D4:
 /* 09DE1C 7F0692EC 8C425EF0 */  lw    $v0, 0x5ef0($v0)
 # end proc_7F0692D4
 
+.global proc_7F0692F0
 proc_7F0692F0:
 /* 09DE20 7F0692F0 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 09DE24 7F0692F4 AFB1001C */  sw    $s1, 0x1c($sp)
@@ -117645,6 +118810,7 @@ proc_7F0692F0:
 /* 09DE70 7F069340 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F0692F0
 
+.global proc_7F069344
 proc_7F069344:
 /* 09DE74 7F069344 000478C0 */  sll   $t7, $a0, 3
 /* 09DE78 7F069348 01E47823 */  subu  $t7, $t7, $a0
@@ -117660,6 +118826,7 @@ proc_7F069344:
 /* 09DEA0 7F069370 8F02089C */  lw    $v0, 0x89c($t8)
 # end proc_7F069344
 
+.global proc_7F069374
 proc_7F069374:
 /* 09DEA4 7F069374 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 09DEA8 7F069378 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -117713,6 +118880,7 @@ proc_7F069374:
 /* 09DF58 7F069428 00000000 */  nop   
 # end proc_7F069374
 
+.global proc_7F06942C
 proc_7F06942C:
 /* 09DF5C 7F06942C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 09DF60 7F069430 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -117725,6 +118893,7 @@ proc_7F06942C:
 /* 09DF7C 7F06944C 00000000 */  nop   
 # end proc_7F06942C
 
+.global proc_7F069450
 proc_7F069450:
 /* 09DF80 7F069450 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 09DF84 7F069454 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -117741,6 +118910,7 @@ proc_7F069450:
 /* 09DFB0 7F069480 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F069450
 
+.global proc_7F069484
 proc_7F069484:
 /* 09DFB4 7F069484 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 09DFB8 7F069488 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -117755,6 +118925,7 @@ proc_7F069484:
 /* 09DFDC 7F0694AC 00000000 */  nop   
 # end proc_7F069484
 
+.global proc_7F0694B0
 proc_7F0694B0:
 /* 09DFE0 7F0694B0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 09DFE4 7F0694B4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -117772,6 +118943,7 @@ proc_7F0694B0:
 /* 09E014 7F0694E4 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0694B0
 
+.global proc_7F0694E8
 proc_7F0694E8:
 /* 09E018 7F0694E8 27BDFF48 */  addiu $sp, $sp, -0xb8
 /* 09E01C 7F0694EC AFA400B8 */  sw    $a0, 0xb8($sp)
@@ -118105,6 +119277,7 @@ proc_7F0694E8:
 /* 09E510 7F0699E0 27BD00B8 */  addiu $sp, $sp, 0xb8
 # end proc_7F0694E8
 
+.global proc_7F0699E4
 proc_7F0699E4:
 /* 09E514 7F0699E4 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 09E518 7F0699E8 44866000 */  mtc1  $a2, $f12
@@ -118135,6 +119308,7 @@ proc_7F0699E4:
 /* 09E57C 7F069A4C 00000000 */  nop   
 # end proc_7F0699E4
 
+.global proc_7F069A50
 proc_7F069A50:
 /* 09E580 7F069A50 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 09E584 7F069A54 3C0E8004 */  lui   $t6, 0x8004
@@ -118291,6 +119465,7 @@ proc_7F069A50:
 /* 09E7B8 7F069C88 27BD0060 */  addiu $sp, $sp, 0x60
 # end proc_7F069A50
 
+.global proc_7F069C8C
 proc_7F069C8C:
 /* 09E7BC 7F069C8C 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 09E7C0 7F069C90 AFA60040 */  sw    $a2, 0x40($sp)
@@ -118320,6 +119495,7 @@ proc_7F069C8C:
 /* 09E820 7F069CF0 00000000 */  nop   
 # end proc_7F069C8C
 
+.global proc_7F069CF4
 proc_7F069CF4:
 /* 09E824 7F069CF4 3C028008 */  lui   $v0, 0x8008
 /* 09E828 7F069CF8 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -118748,6 +119924,7 @@ proc_7F069CF4:
 /* 09EE60 7F06A330 00000000 */  nop   
 # end proc_7F069CF4
 
+.global proc_7F06A334
 proc_7F06A334:
 /* 09EE64 7F06A334 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 09EE68 7F06A338 AFB00028 */  sw    $s0, 0x28($sp)
@@ -118918,6 +120095,7 @@ proc_7F06A334:
 /* 09F0D4 7F06A5A4 27BD0058 */  addiu $sp, $sp, 0x58
 # end proc_7F06A334
 
+.global proc_7F06A5A8
 proc_7F06A5A8:
 /* 09F0D8 7F06A5A8 10A00008 */  beqz  $a1, .Lproc_7F06A5A8_24
 /* 09F0DC 7F06A5AC 3C028008 */  lui   $v0, 0x8008
@@ -118937,6 +120115,7 @@ proc_7F06A5A8:
 /* 09F110 7F06A5E0 00000000 */  nop   
 # end proc_7F06A5A8
 
+.global proc_7F06A5E4
 proc_7F06A5E4:
 /* 09F114 7F06A5E4 3C028008 */  lui   $v0, 0x8008
 /* 09F118 7F06A5E8 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -119012,6 +120191,7 @@ proc_7F06A5E4:
 /* 09F224 7F06A6F4 00000000 */  nop   
 # end proc_7F06A5E4
 
+.global proc_7F06A6F8
 proc_7F06A6F8:
 /* 09F228 7F06A6F8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 09F22C 7F06A6FC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -119034,6 +120214,7 @@ proc_7F06A6F8:
 /* 09F26C 7F06A73C 00000000 */  nop   
 # end proc_7F06A6F8
 
+.global proc_7F06A740
 proc_7F06A740:
 /* 09F270 7F06A740 3C0E8008 */  lui   $t6, 0x8008
 /* 09F274 7F06A744 8DCEA0B4 */  lw    $t6, -0x5f4c($t6)
@@ -119043,6 +120224,7 @@ proc_7F06A740:
 /* 09F284 7F06A754 8F020000 */  lw    $v0, ($t8)
 # end proc_7F06A740
 
+.global proc_7F06A758
 proc_7F06A758:
 /* 09F288 7F06A758 3C028008 */  lui   $v0, 0x8008
 /* 09F28C 7F06A75C 8C42A0B4 */  lw    $v0, -0x5f4c($v0)
@@ -119052,6 +120234,7 @@ proc_7F06A758:
 /* 09F29C 7F06A76C AC4F006C */  sw    $t7, 0x6c($v0)
 # end proc_7F06A758
 
+.global proc_7F06A770
 proc_7F06A770:
 /* 09F2A0 7F06A770 3C0E8008 */  lui   $t6, 0x8008
 /* 09F2A4 7F06A774 8DCEA0B4 */  lw    $t6, -0x5f4c($t6)
@@ -119059,6 +120242,7 @@ proc_7F06A770:
 /* 09F2AC 7F06A77C 8DC2006C */  lw    $v0, 0x6c($t6)
 # end proc_7F06A770
 
+.global proc_7F06A780
 proc_7F06A780:
 /* 09F2B0 7F06A780 3C038008 */  lui   $v1, 0x8008
 /* 09F2B4 7F06A784 8C63A0B4 */  lw    $v1, -0x5f4c($v1)
@@ -119171,6 +120355,7 @@ proc_7F06A780:
 /* 09F450 7F06A920 00000000 */  nop   
 # end proc_7F06A780
 
+.global proc_7F06A924
 proc_7F06A924:
 /* 09F454 7F06A924 3C0E8008 */  lui   $t6, 0x8008
 /* 09F458 7F06A928 8DCEA0B4 */  lw    $t6, -0x5f4c($t6)
@@ -119178,6 +120363,7 @@ proc_7F06A924:
 /* 09F460 7F06A930 8DC2001C */  lw    $v0, 0x1c($t6)
 # end proc_7F06A924
 
+.global proc_7F06A934
 proc_7F06A934:
 /* 09F464 7F06A934 3C028008 */  lui   $v0, 0x8008
 /* 09F468 7F06A938 8C42A0B4 */  lw    $v0, -0x5f4c($v0)
@@ -119187,6 +120373,7 @@ proc_7F06A934:
 /* 09F478 7F06A948 AC4F0020 */  sw    $t7, 0x20($v0)
 # end proc_7F06A934
 
+.global proc_7F06A94C
 proc_7F06A94C:
 /* 09F47C 7F06A94C 3C0E8008 */  lui   $t6, 0x8008
 /* 09F480 7F06A950 8DCEA0B4 */  lw    $t6, -0x5f4c($t6)
@@ -119194,6 +120381,7 @@ proc_7F06A94C:
 /* 09F488 7F06A958 8DC20020 */  lw    $v0, 0x20($t6)
 # end proc_7F06A94C
 
+.global proc_7F06A95C
 proc_7F06A95C:
 /* 09F48C 7F06A95C 3C028008 */  lui   $v0, 0x8008
 /* 09F490 7F06A960 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -119243,6 +120431,7 @@ proc_7F06A95C:
 /* 09F534 7F06AA04 00000000 */  nop   
 # end proc_7F06A95C
 
+.global proc_7F06AA08
 proc_7F06AA08:
 /* 09F538 7F06AA08 3C0E8008 */  lui   $t6, 0x8008
 /* 09F53C 7F06AA0C 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -119250,6 +120439,7 @@ proc_7F06AA08:
 /* 09F544 7F06AA14 8DC229D8 */  lw    $v0, 0x29d8($t6)
 # end proc_7F06AA08
 
+.global proc_7F06AA18
 proc_7F06AA18:
 /* 09F548 7F06AA18 27BDFEC0 */  addiu $sp, $sp, -0x140
 /* 09F54C 7F06AA1C AFB00018 */  sw    $s0, 0x18($sp)
@@ -119356,6 +120546,7 @@ proc_7F06AA18:
 /* 09F6CC 7F06AB9C 00000000 */  nop   
 # end proc_7F06AA18
 
+.global proc_7F06ABA0
 proc_7F06ABA0:
 /* 09F6D0 7F06ABA0 3C0E8008 */  lui   $t6, 0x8008
 /* 09F6D4 7F06ABA4 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -119363,6 +120554,7 @@ proc_7F06ABA0:
 /* 09F6DC 7F06ABAC 8DC229DC */  lw    $v0, 0x29dc($t6)
 # end proc_7F06ABA0
 
+.global proc_7F06ABB0
 proc_7F06ABB0:
 /* 09F6E0 7F06ABB0 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 09F6E4 7F06ABB4 AFA40040 */  sw    $a0, 0x40($sp)
@@ -119656,6 +120848,7 @@ proc_7F06ABB0:
 /* 09FB14 7F06AFE4 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F06ABB0
 
+.global proc_7F06AFE8
 proc_7F06AFE8:
 /* 09FB18 7F06AFE8 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 09FB1C 7F06AFEC AFBF0024 */  sw    $ra, 0x24($sp)
@@ -119741,6 +120934,7 @@ proc_7F06AFE8:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global proc_7F06B120
 proc_7F06B120:
 /* 09FC50 7F06B120 8CAE0008 */  lw    $t6, 8($a1)
 /* 09FC54 7F06B124 3C078003 */  lui   $a3, 0x8003
@@ -119830,6 +121024,7 @@ proc_7F06B120:
 /* 09FD74 7F06B244 00C01025 */  or    $v0, $a2, $zero
 # end proc_7F06B120
 
+.global proc_7F06B248
 proc_7F06B248:
 /* 09FD78 7F06B248 10800012 */  beqz  $a0, .Lproc_7F06B248_4C
 /* 09FD7C 7F06B24C 3C068003 */  lui   $a2, 0x8003
@@ -119857,6 +121052,7 @@ proc_7F06B248:
 /* 09FDC8 7F06B298 00000000 */  nop   
 # end proc_7F06B248
 
+.global proc_7F06B29C
 proc_7F06B29C:
 /* 09FDCC 7F06B29C 27BDFEE8 */  addiu $sp, $sp, -0x118
 /* 09FDD0 7F06B2A0 AFB10020 */  sw    $s1, 0x20($sp)
@@ -120434,6 +121630,7 @@ proc_7F06B29C:
 /* 0A0654 7F06BB24 27BD0118 */  addiu $sp, $sp, 0x118
 # end proc_7F06B29C
 
+.global proc_7F06BB28
 proc_7F06BB28:
 /* 0A0658 7F06BB28 10800035 */  beqz  $a0, .Lproc_7F06BB28_D8
 /* 0A065C 7F06BB2C 27BDFFB8 */  addiu $sp, $sp, -0x48
@@ -120502,6 +121699,7 @@ proc_7F06BB28:
 /* 0A0738 7F06BC08 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F06BB28
 
+.global drawjointlist
 drawjointlist:
 /* 0A073C 7F06BC0C 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0A0740 7F06BC10 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -120647,6 +121845,7 @@ drawjointlist:
 /* 0A092C 7F06BDFC 27BD0030 */  addiu $sp, $sp, 0x30
 # end drawjointlist
 
+.global proc_7F06BE00
 proc_7F06BE00:
 /* 0A0930 7F06BE00 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0A0934 7F06BE04 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -120797,6 +121996,7 @@ proc_7F06BE00:
 /* 0A0B3C 7F06C00C 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F06BE00
 
+.global proc_7F06C010
 proc_7F06C010:
 /* 0A0B40 7F06C010 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0A0B44 7F06C014 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -120822,6 +122022,7 @@ proc_7F06C010:
 /* 0A0B8C 7F06C05C 00000000 */  nop   
 # end proc_7F06C010
 
+.global proc_7F06C060
 proc_7F06C060:
 /* 0A0B90 7F06C060 84A30014 */  lh    $v1, 0x14($a1)
 /* 0A0B94 7F06C064 28620001 */  slti  $v0, $v1, 1
@@ -120839,6 +122040,7 @@ proc_7F06C060:
 /* 0A0BC0 7F06C090 00000000 */  nop   
 # end proc_7F06C060
 
+.global get_A0_obj.instance.controller
 get_A0_obj.instance.controller:
 /* 0A0BC4 7F06C094 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0A0BC8 7F06C098 3C0F8003 */  lui   $t7, 0x8003
@@ -120955,11 +122157,13 @@ get_A0_obj.instance.controller:
 /* 0A0D60 7F06C230 27BD0048 */  addiu $sp, $sp, 0x48
 # end get_A0_obj.instance.controller
 
+.global set_obj.inst_scale_to_zero
 set_obj.inst_scale_to_zero:
 /* 0A0D64 7F06C234 03E00008 */  jr    $ra
 /* 0A0D68 7F06C238 AC800008 */  sw    $zero, 8($a0)
 # end set_obj.inst_scale_to_zero
 
+.global get_aircraftA0_obj.instance.controller
 get_aircraftA0_obj.instance.controller:
 /* 0A0D6C 7F06C23C 3C0E8003 */  lui   $t6, 0x8003
 /* 0A0D70 7F06C240 8DCE6078 */  lw    $t6, 0x6078($t6)
@@ -121067,6 +122271,7 @@ get_aircraftA0_obj.instance.controller:
 /* 0A0EE0 7F06C3B0 27BD0030 */  addiu $sp, $sp, 0x30
 # end get_aircraftA0_obj.instance.controller
 
+.global proc_7F06C3B4
 proc_7F06C3B4:
 /* 0A0EE4 7F06C3B4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A0EE8 7F06C3B8 AFA60020 */  sw    $a2, 0x20($sp)
@@ -121087,23 +122292,27 @@ proc_7F06C3B4:
 /* 0A0F24 7F06C3F4 00000000 */  nop   
 # end proc_7F06C3B4
 
+.global set_aircraft_obj.inst_scale_to_zero
 set_aircraft_obj.inst_scale_to_zero:
 /* 0A0F28 7F06C3F8 03E00008 */  jr    $ra
 /* 0A0F2C 7F06C3FC AC800008 */  sw    $zero, 8($a0)
 # end set_aircraft_obj.inst_scale_to_zero
 
+.global proc_7F06C400
 proc_7F06C400:
 /* 0A0F30 7F06C400 3C018003 */  lui   $at, 0x8003
 /* 0A0F34 7F06C404 03E00008 */  jr    $ra
 /* 0A0F38 7F06C408 AC246084 */  sw    $a0, %lo(0x80036084)($at) # $a0, 0x6084($at)
 # end proc_7F06C400
 
+.global proc_7F06C40C
 proc_7F06C40C:
 /* 0A0F3C 7F06C40C 3C018003 */  lui   $at, 0x8003
 /* 0A0F40 7F06C410 03E00008 */  jr    $ra
 /* 0A0F44 7F06C414 E42C6088 */  swc1  $f12, %lo(0x80036088)($at) # $f12, 0x6088($at)
 # end proc_7F06C40C
 
+.global proc_7F06C418
 proc_7F06C418:
 /* 0A0F48 7F06C418 00803025 */  or    $a2, $a0, $zero
 /* 0A0F4C 7F06C41C 24040004 */  addiu $a0, $zero, 4
@@ -121126,17 +122335,20 @@ proc_7F06C418:
 /* 0A0F8C 7F06C45C 00000000 */  nop   
 # end proc_7F06C418
 
+.global proc_7F06C460
 proc_7F06C460:
 /* 0A0F90 7F06C460 3C018003 */  lui   $at, 0x8003
 /* 0A0F94 7F06C464 03E00008 */  jr    $ra
 /* 0A0F98 7F06C468 AC24608C */  sw    $a0, %lo(0x8003608C)($at) # $a0, 0x608c($at)
 # end proc_7F06C460
 
+.global proc_7F06C46C
 proc_7F06C46C:
 /* 0A0F9C 7F06C46C 03E00008 */  jr    $ra
 /* 0A0FA0 7F06C470 00000000 */  nop   
 # end proc_7F06C46C
 
+.global proc_7F06C474
 proc_7F06C474:
 /* 0A0FA4 7F06C474 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0A0FA8 7F06C478 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -121197,6 +122409,7 @@ proc_7F06C474:
 /* 0A107C 7F06C54C 00000000 */  nop   
 # end proc_7F06C474
 
+.global proc_7F06C550
 proc_7F06C550:
 /* 0A1080 7F06C550 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A1084 7F06C554 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -121208,6 +122421,7 @@ proc_7F06C550:
 /* 0A109C 7F06C56C 00000000 */  nop   
 # end proc_7F06C550
 
+.global proc_7F06C570
 proc_7F06C570:
 /* 0A10A0 7F06C570 10800038 */  beqz  $a0, .Lproc_7F06C570_E4
 /* 0A10A4 7F06C574 00A03025 */  or    $a2, $a1, $zero
@@ -121284,6 +122498,7 @@ proc_7F06C570:
 /* 0A118C 7F06C65C 00000000 */  nop   
 # end proc_7F06C570
 
+.global proc_7F06C660
 proc_7F06C660:
 /* 0A1190 7F06C660 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A1194 7F06C664 AFA40018 */  sw    $a0, 0x18($sp)
@@ -121305,6 +122520,7 @@ proc_7F06C660:
 /* 0A11CC 7F06C69C 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F06C660
 
+.global getsubmatrix
 getsubmatrix:
 /* 0A11D0 7F06C6A0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A11D4 7F06C6A4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -121338,6 +122554,7 @@ getsubmatrix:
 /* 0A123C 7F06C70C 00000000 */  nop   
 # end getsubmatrix
 
+.global proc_7F06C710
 proc_7F06C710:
 /* 0A1240 7F06C710 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A1244 7F06C714 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -121365,6 +122582,7 @@ proc_7F06C710:
 /* 0A1294 7F06C764 00000000 */  nop   
 # end proc_7F06C710
 
+.global proc_7F06C768
 proc_7F06C768:
 /* 0A1298 7F06C768 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A129C 7F06C76C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -121383,6 +122601,7 @@ proc_7F06C768:
 /* 0A12C8 7F06C798 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F06C768
 
+.global proc_7F06C79C
 proc_7F06C79C:
 /* 0A12CC 7F06C79C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0A12D0 7F06C7A0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -121454,6 +122673,7 @@ proc_7F06C79C:
 /* 0A13C4 7F06C894 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F06C79C
 
+.global getpartoffset
 getpartoffset:
 /* 0A13C8 7F06C898 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A13CC 7F06C89C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -121542,6 +122762,7 @@ getpartoffset:
 /* 0A14FC 7F06C9CC 00000000 */  nop   
 # end getpartoffset
 
+.global setpartoffset
 setpartoffset:
 /* 0A1500 7F06C9D0 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0A1504 7F06C9D4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -121667,6 +122888,7 @@ setpartoffset:
 /* 0A16C4 7F06CB94 00000000 */  nop   
 # end setpartoffset
 
+.global getsuboffset
 getsuboffset:
 /* 0A16C8 7F06CB98 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A16CC 7F06CB9C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -121701,6 +122923,7 @@ getsuboffset:
 /* 0A1738 7F06CC08 00000000 */  nop   
 # end getsuboffset
 
+.global setsuboffset
 setsuboffset:
 /* 0A173C 7F06CC0C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A1740 7F06CC10 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -121735,6 +122958,7 @@ setsuboffset:
 /* 0A17AC 7F06CC7C 00000000 */  nop   
 # end setsuboffset
 
+.global getsubroty
 getsubroty:
 /* 0A17B0 7F06CC80 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A17B4 7F06CC84 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -121790,6 +123014,7 @@ getsubroty:
 /* 0A1868 7F06CD38 00000000 */  nop   
 # end getsubroty
 
+.global setsubroty
 setsubroty:
 /* 0A186C 7F06CD3C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A1870 7F06CD40 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -121879,18 +123104,21 @@ setsubroty:
 /* 0A19A4 7F06CE74 00000000 */  nop   
 # end setsubroty
 
+.global set_obj.inst_controller_to_A1
 set_obj.inst_controller_to_A1:
 /* 0A19A8 7F06CE78 44856000 */  mtc1  $a1, $f12
 /* 0A19AC 7F06CE7C 03E00008 */  jr    $ra
 /* 0A19B0 7F06CE80 E48C0014 */  swc1  $f12, 0x14($a0)
 # end set_obj.inst_controller_to_A1
 
+.global proc_7F06CE84
 proc_7F06CE84:
 /* 0A19B4 7F06CE84 44856000 */  mtc1  $a1, $f12
 /* 0A19B8 7F06CE88 03E00008 */  jr    $ra
 /* 0A19BC 7F06CE8C E48C00B8 */  swc1  $f12, 0xb8($a0)
 # end proc_7F06CE84
 
+.global getjointsize
 getjointsize:
 /* 0A19C0 7F06CE90 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A19C4 7F06CE94 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -121994,6 +123222,7 @@ getjointsize:
 /* 0A1B38 7F06D008 00000000 */  nop   
 # end getjointsize
 
+.global getinstsize
 getinstsize:
 /* 0A1B3C 7F06D00C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A1B40 7F06D010 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -122027,6 +123256,7 @@ getinstsize:
 /* 0A1BA8 7F06D078 00000000 */  nop   
 # end getinstsize
 
+.global proc_7F06D07C
 proc_7F06D07C:
 /* 0A1BAC 7F06D07C C4800000 */  lwc1  $f0, ($a0)
 /* 0A1BB0 7F06D080 C4A40000 */  lwc1  $f4, ($a1)
@@ -122050,6 +123280,7 @@ proc_7F06D07C:
 /* 0A1BF8 7F06D0C8 E4920008 */  swc1  $f18, 8($a0)
 # end proc_7F06D07C
 
+.global proc_7F06D0CC
 proc_7F06D0CC:
 /* 0A1BFC 7F06D0CC 460C703C */  c.lt.s $f14, $f12
 /* 0A1C00 7F06D0D0 AFA60008 */  sw    $a2, 8($sp)
@@ -122093,6 +123324,7 @@ proc_7F06D0CC:
 /* 0A1C8C 7F06D15C 46006006 */  mov.s $f0, $f12
 # end proc_7F06D0CC
 
+.global proc_7F06D160
 proc_7F06D160:
 /* 0A1C90 7F06D160 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0A1C94 7F06D164 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -122123,6 +123355,7 @@ proc_7F06D160:
 /* 0A1CF8 7F06D1C8 00000000 */  nop   
 # end proc_7F06D160
 
+.global proc_7F06D1CC
 proc_7F06D1CC:
 /* 0A1CFC 7F06D1CC 8C8E0008 */  lw    $t6, 8($a0)
 /* 0A1D00 7F06D1D0 00057880 */  sll   $t7, $a1, 2
@@ -122201,6 +123434,7 @@ proc_7F06D1CC:
 /* 0A1E10 7F06D2E0 3062FFFF */  andi  $v0, $v1, 0xffff
 # end proc_7F06D1CC
 
+.global proc_7F06D2E4
 proc_7F06D2E4:
 /* 0A1E14 7F06D2E4 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0A1E18 7F06D2E8 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -122276,6 +123510,7 @@ proc_7F06D2E4:
 /* 0A1F20 7F06D3F0 00601025 */  or    $v0, $v1, $zero
 # end proc_7F06D2E4
 
+.global proc_7F06D3F4
 proc_7F06D3F4:
 /* 0A1F24 7F06D3F4 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0A1F28 7F06D3F8 8FAE0040 */  lw    $t6, 0x40($sp)
@@ -122319,6 +123554,7 @@ proc_7F06D3F4:
 /* 0A1FBC 7F06D48C 46128003 */  div.s $f0, $f16, $f18
 # end proc_7F06D3F4
 
+.global proc_7F06D490
 proc_7F06D490:
 /* 0A1FC0 7F06D490 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0A1FC4 7F06D494 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -122465,6 +123701,7 @@ proc_7F06D490:
 /* 0A21DC 7F06D6AC 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F06D490
 
+.global subcalcpos
 subcalcpos:
 /* 0A21E0 7F06D6B0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A21E4 7F06D6B4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -122505,6 +123742,7 @@ subcalcpos:
 /* 0A2264 7F06D734 00000000 */  nop   
 # end subcalcpos
 
+.global proc_7F06D738
 proc_7F06D738:
 /* 0A2268 7F06D738 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 0A226C 7F06D73C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -122608,6 +123846,7 @@ proc_7F06D738:
 /* 0A23DC 7F06D8AC 00000000 */  nop   
 # end proc_7F06D738
 
+.global proc_7F06D8B0
 proc_7F06D8B0:
 /* 0A23E0 7F06D8B0 27BDFF48 */  addiu $sp, $sp, -0xb8
 /* 0A23E4 7F06D8B4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -122797,6 +124036,7 @@ proc_7F06D8B0:
 /* 0A2688 7F06DB58 00000000 */  nop   
 # end proc_7F06D8B0
 
+.global proc_7F06DB5C
 proc_7F06DB5C:
 /* 0A268C 7F06DB5C 27BDFF58 */  addiu $sp, $sp, -0xa8
 /* 0A2690 7F06DB60 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -122985,6 +124225,7 @@ proc_7F06DB5C:
 /* 0A2930 7F06DE00 00000000 */  nop   
 # end proc_7F06DB5C
 
+.global proc_7F06DE04
 proc_7F06DE04:
 /* 0A2934 7F06DE04 30CF0007 */  andi  $t7, $a2, 7
 /* 0A2938 7F06DE08 24180008 */  addiu $t8, $zero, 8
@@ -123038,6 +124279,7 @@ proc_7F06DE04:
 /* 0A29EC 7F06DEBC 3062FFFF */  andi  $v0, $v1, 0xffff
 # end proc_7F06DE04
 
+.global proc_7F06DEC0
 proc_7F06DEC0:
 /* 0A29F0 7F06DEC0 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0A29F4 7F06DEC4 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -123171,6 +124413,7 @@ proc_7F06DEC0:
 /* 0A2BCC 7F06E09C 00000000 */  nop   
 # end proc_7F06DEC0
 
+.global proc_7F06E0A0
 proc_7F06E0A0:
 /* 0A2BD0 7F06E0A0 27BDFF68 */  addiu $sp, $sp, -0x98
 /* 0A2BD4 7F06E0A4 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -123312,6 +124555,7 @@ proc_7F06E0A0:
 /* 0A2DE4 7F06E2B4 00000000 */  nop   
 # end proc_7F06E0A0
 
+.global proc_7F06E2B8
 proc_7F06E2B8:
 /* 0A2DE8 7F06E2B8 27BDFF60 */  addiu $sp, $sp, -0xa0
 /* 0A2DEC 7F06E2BC AFBF001C */  sw    $ra, 0x1c($sp)
@@ -123492,6 +124736,7 @@ proc_7F06E2B8:
 /* 0A306C 7F06E53C 00000000 */  nop   
 # end proc_7F06E2B8
 
+.global proc_7F06E540
 proc_7F06E540:
 /* 0A3070 7F06E540 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0A3074 7F06E544 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -123567,6 +124812,7 @@ proc_7F06E540:
 /* 0A3178 7F06E648 46001006 */  mov.s $f0, $f2
 # end proc_7F06E540
 
+.global proc_7F06E64C
 proc_7F06E64C:
 /* 0A317C 7F06E64C 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 0A3180 7F06E650 AFB00028 */  sw    $s0, 0x28($sp)
@@ -123660,6 +124906,7 @@ proc_7F06E64C:
 /* 0A32D4 7F06E7A4 27BD0050 */  addiu $sp, $sp, 0x50
 # end proc_7F06E64C
 
+.global proc_7F06E7A8
 proc_7F06E7A8:
 /* 0A32D8 7F06E7A8 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 0A32DC 7F06E7AC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -123711,6 +124958,7 @@ proc_7F06E7A8:
 /* 0A3384 7F06E854 00000000 */  nop   
 # end proc_7F06E7A8
 
+.global proc_7F06E858
 proc_7F06E858:
 /* 0A3388 7F06E858 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0A338C 7F06E85C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -123790,6 +125038,7 @@ proc_7F06E858:
 /* 0A349C 7F06E96C 00000000 */  nop   
 # end proc_7F06E858
 
+.global proc_7F06E970
 proc_7F06E970:
 /* 0A34A0 7F06E970 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0A34A4 7F06E974 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -123813,6 +125062,7 @@ proc_7F06E970:
 /* 0A34E8 7F06E9B8 00000000 */  nop   
 # end proc_7F06E970
 
+.global proc_7F06E9BC
 proc_7F06E9BC:
 /* 0A34EC 7F06E9BC 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0A34F0 7F06E9C0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -123836,6 +125086,7 @@ proc_7F06E9BC:
 /* 0A3534 7F06EA04 00000000 */  nop   
 # end proc_7F06E9BC
 
+.global proc_7F06EA08
 proc_7F06EA08:
 /* 0A3538 7F06EA08 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A353C 7F06EA0C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -123861,6 +125112,7 @@ proc_7F06EA08:
 /* 0A3580 7F06EA50 00000000 */  nop   
 # end proc_7F06EA08
 
+.global proc_7F06EA54
 proc_7F06EA54:
 /* 0A3584 7F06EA54 10A00004 */  beqz  $a1, .Lproc_7F06EA54_14
 /* 0A3588 7F06EA58 8C820004 */  lw    $v0, 4($a0)
@@ -123919,6 +125171,7 @@ proc_7F06EA54:
 /* 0A363C 7F06EB0C 00000000 */  nop   
 # end proc_7F06EA54
 
+.global proc_7F06EB10
 proc_7F06EB10:
 /* 0A3640 7F06EB10 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A3644 7F06EB14 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -123933,6 +125186,7 @@ proc_7F06EB10:
 /* 0A3668 7F06EB38 00000000 */  nop   
 # end proc_7F06EB10
 
+.global proc_7F06EB3C
 proc_7F06EB3C:
 /* 0A366C 7F06EB3C 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 0A3670 7F06EB40 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -124054,6 +125308,7 @@ proc_7F06EB3C:
 /* 0A3824 7F06ECF4 00000000 */  nop   
 # end proc_7F06EB3C
 
+.global proc_7F06ECF8
 proc_7F06ECF8:
 /* 0A3828 7F06ECF8 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 0A382C 7F06ECFC AFBF001C */  sw    $ra, 0x1c($sp)
@@ -124165,6 +125420,7 @@ proc_7F06ECF8:
 /* 0A39D0 7F06EEA0 00000000 */  nop   
 # end proc_7F06ECF8
 
+.global proc_7F06EEA4
 proc_7F06EEA4:
 /* 0A39D4 7F06EEA4 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0A39D8 7F06EEA8 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -124248,6 +125504,7 @@ proc_7F06EEA4:
 /* 0A3AF0 7F06EFC0 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F06EEA4
 
+.global proc_7F06EFC4
 proc_7F06EFC4:
 /* 0A3AF4 7F06EFC4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0A3AF8 7F06EFC8 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -124326,6 +125583,7 @@ proc_7F06EFC4:
 /* 0A3BFC 7F06F0CC 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F06EFC4
 
+.global proc_7F06F0D0
 proc_7F06F0D0:
 /* 0A3C00 7F06F0D0 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0A3C04 7F06F0D4 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -124431,6 +125689,7 @@ proc_7F06F0D0:
 /* 0A3D74 7F06F244 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F06F0D0
 
+.global instcalcmatrices
 instcalcmatrices:
 /* 0A3D78 7F06F248 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0A3D7C 7F06F24C AFB00018 */  sw    $s0, 0x18($sp)
@@ -124481,6 +125740,7 @@ instcalcmatrices:
 /* 0A3E24 7F06F2F4 00000000 */  nop   
 # end instcalcmatrices
 
+.global subcalcmatrices
 subcalcmatrices:
 /* 0A3E28 7F06F2F8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0A3E2C 7F06F2FC AFB00018 */  sw    $s0, 0x18($sp)
@@ -124676,21 +125936,25 @@ subcalcmatrices:
 /* 0A40D8 7F06F5A8 00000000 */  nop   
 # end subcalcmatrices
 
+.global proc_7F06F5AC
 proc_7F06F5AC:
 /* 0A40DC 7F06F5AC 03E00008 */  jr    $ra
 /* 0A40E0 7F06F5B0 8C820020 */  lw    $v0, 0x20($a0)
 # end proc_7F06F5AC
 
+.global proc_7F06F5B4
 proc_7F06F5B4:
 /* 0A40E4 7F06F5B4 03E00008 */  jr    $ra
 /* 0A40E8 7F06F5B8 80820024 */  lb    $v0, 0x24($a0)
 # end proc_7F06F5B4
 
+.global proc_7F06F5BC
 proc_7F06F5BC:
 /* 0A40EC 7F06F5BC 03E00008 */  jr    $ra
 /* 0A40F0 7F06F5C0 C4800028 */  lwc1  $f0, 0x28($a0)
 # end proc_7F06F5BC
 
+.global proc_7F06F5C4
 proc_7F06F5C4:
 /* 0A40F4 7F06F5C4 44806000 */  mtc1  $zero, $f12
 /* 0A40F8 7F06F5C8 C482003C */  lwc1  $f2, 0x3c($a0)
@@ -124715,11 +125979,13 @@ proc_7F06F5C4:
 /* 0A413C 7F06F60C 00000000 */  nop   
 # end proc_7F06F5C4
 
+.global proc_7F06F610
 proc_7F06F610:
 /* 0A4140 7F06F610 03E00008 */  jr    $ra
 /* 0A4144 7F06F614 C4800040 */  lwc1  $f0, 0x40($a0)
 # end proc_7F06F610
 
+.global proc_7F06F618
 proc_7F06F618:
 /* 0A4148 7F06F618 C4820040 */  lwc1  $f2, 0x40($a0)
 /* 0A414C 7F06F61C 44802000 */  mtc1  $zero, $f4
@@ -124734,6 +126000,7 @@ proc_7F06F618:
 /* 0A416C 7F06F63C 46001006 */  mov.s $f0, $f2
 # end proc_7F06F618
 
+.global proc_7F06F640
 proc_7F06F640:
 /* 0A4170 7F06F640 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A4174 7F06F644 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -124748,6 +126015,7 @@ proc_7F06F640:
 /* 0A4198 7F06F668 00000000 */  nop   
 # end proc_7F06F640
 
+.global proc_7F06F66C
 proc_7F06F66C:
 /* 0A419C 7F06F66C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A41A0 7F06F670 44866000 */  mtc1  $a2, $f12
@@ -124829,6 +126097,7 @@ proc_7F06F66C:
 /* 0A42AC 7F06F77C 00000000 */  nop   
 # end proc_7F06F66C
 
+.global proc_7F06F780
 proc_7F06F780:
 /* 0A42B0 7F06F780 44856000 */  mtc1  $a1, $f12
 /* 0A42B4 7F06F784 44802000 */  mtc1  $zero, $f4
@@ -124895,6 +126164,7 @@ proc_7F06F780:
 /* 0A43A4 7F06F874 00000000 */  nop   
 # end proc_7F06F780
 
+.global proc_7F06F878
 proc_7F06F878:
 /* 0A43A8 7F06F878 27BDFF70 */  addiu $sp, $sp, -0x90
 /* 0A43AC 7F06F87C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -125151,6 +126421,7 @@ proc_7F06F878:
 /* 0A4778 7F06FC48 27BD0090 */  addiu $sp, $sp, 0x90
 # end proc_7F06F878
 
+.global proc_7F06FC4C
 proc_7F06FC4C:
 /* 0A477C 7F06FC4C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0A4780 7F06FC50 8FAE0038 */  lw    $t6, 0x38($sp)
@@ -125178,6 +126449,7 @@ proc_7F06FC4C:
 /* 0A47D4 7F06FCA4 00000000 */  nop   
 # end proc_7F06FC4C
 
+.global proc_7F06FCA8
 proc_7F06FCA8:
 /* 0A47D8 7F06FCA8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0A47DC 7F06FCAC AFBF001C */  sw    $ra, 0x1c($sp)
@@ -125202,6 +126474,7 @@ proc_7F06FCA8:
 /* 0A4828 7F06FCF8 00000000 */  nop   
 # end proc_7F06FCA8
 
+.global proc_7F06FCFC
 proc_7F06FCFC:
 /* 0A482C 7F06FCFC 8CA10000 */  lw    $at, ($a1)
 /* 0A4830 7F06FD00 27BDFFE0 */  addiu $sp, $sp, -0x20
@@ -125258,6 +126531,7 @@ proc_7F06FCFC:
 /* 0A48F8 7F06FDC8 ACAF001C */  sw    $t7, 0x1c($a1)
 # end proc_7F06FCFC
 
+.global proc_7F06FDCC
 proc_7F06FDCC:
 /* 0A48FC 7F06FDCC 44856000 */  mtc1  $a1, $f12
 /* 0A4900 7F06FDD0 44867000 */  mtc1  $a2, $f14
@@ -125268,6 +126542,7 @@ proc_7F06FDCC:
 /* 0A4914 7F06FDE4 E48E0094 */  swc1  $f14, 0x94($a0)
 # end proc_7F06FDCC
 
+.global proc_7F06FDE8
 proc_7F06FDE8:
 /* 0A4918 7F06FDE8 8C820020 */  lw    $v0, 0x20($a0)
 /* 0A491C 7F06FDEC 44856000 */  mtc1  $a1, $f12
@@ -125293,16 +126568,19 @@ proc_7F06FDE8:
 /* 0A4968 7F06FE38 00000000 */  nop   
 # end proc_7F06FDE8
 
+.global proc_7F06FE3C
 proc_7F06FE3C:
 /* 0A496C 7F06FE3C 03E00008 */  jr    $ra
 /* 0A4970 7F06FE40 AC850098 */  sw    $a1, 0x98($a0)
 # end proc_7F06FE3C
 
+.global proc_7F06FE44
 proc_7F06FE44:
 /* 0A4974 7F06FE44 03E00008 */  jr    $ra
 /* 0A4978 7F06FE48 AC85009C */  sw    $a1, 0x9c($a0)
 # end proc_7F06FE44
 
+.global proc_7F06FE4C
 proc_7F06FE4C:
 /* 0A497C 7F06FE4C 44866000 */  mtc1  $a2, $f12
 /* 0A4980 7F06FE50 44800000 */  mtc1  $zero, $f0
@@ -125324,6 +126602,7 @@ proc_7F06FE4C:
 /* 0A49BC 7F06FE8C 00000000 */  nop   
 # end proc_7F06FE4C
 
+.global proc_7F06FE90
 proc_7F06FE90:
 /* 0A49C0 7F06FE90 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A49C4 7F06FE94 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -125364,6 +126643,7 @@ proc_7F06FE90:
 /* 0A4A44 7F06FF14 00000000 */  nop   
 # end proc_7F06FE90
 
+.global proc_7F06FF18
 proc_7F06FF18:
 /* 0A4A48 7F06FF18 44866000 */  mtc1  $a2, $f12
 /* 0A4A4C 7F06FF1C 44800000 */  mtc1  $zero, $f0
@@ -125385,11 +126665,13 @@ proc_7F06FF18:
 /* 0A4A88 7F06FF58 00000000 */  nop   
 # end proc_7F06FF18
 
+.global proc_7F06FF5C
 proc_7F06FF5C:
 /* 0A4A8C 7F06FF5C 03E00008 */  jr    $ra
 /* 0A4A90 7F06FF60 AC8500A0 */  sw    $a1, 0xa0($a0)
 # end proc_7F06FF5C
 
+.global proc_7F06FF64
 proc_7F06FF64:
 /* 0A4A94 7F06FF64 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0A4A98 7F06FF68 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -125473,6 +126755,7 @@ proc_7F06FF64:
 /* 0A4BBC 7F07008C 00000000 */  nop   
 # end proc_7F06FF64
 
+.global proc_7F070090
 proc_7F070090:
 /* 0A4BC0 7F070090 44856000 */  mtc1  $a1, $f12
 /* 0A4BC4 7F070094 27BDFFD0 */  addiu $sp, $sp, -0x30
@@ -125563,18 +126846,21 @@ proc_7F070090:
 /* 0A4D00 7F0701D0 00000000 */  nop   
 # end proc_7F070090
 
+.global proc_7F0701D4
 proc_7F0701D4:
 /* 0A4D04 7F0701D4 3C018003 */  lui   $at, 0x8003
 /* 0A4D08 7F0701D8 03E00008 */  jr    $ra
 /* 0A4D0C 7F0701DC AC246250 */  sw    $a0, %lo(0x80036250)($at) # $a0, 0x6250($at)
 # end proc_7F0701D4
 
+.global proc_7F0701E0
 proc_7F0701E0:
 /* 0A4D10 7F0701E0 3C028003 */  lui   $v0, 0x8003
 /* 0A4D14 7F0701E4 03E00008 */  jr    $ra
 /* 0A4D18 7F0701E8 8C426250 */  lw    $v0, 0x6250($v0)
 # end proc_7F0701E0
 
+.global proc_7F0701EC
 proc_7F0701EC:
 /* 0A4D1C 7F0701EC 27BDFF08 */  addiu $sp, $sp, -0xf8
 /* 0A4D20 7F0701F0 AFBF005C */  sw    $ra, 0x5c($sp)
@@ -126197,6 +127483,7 @@ proc_7F0701EC:
 /* 0A5618 7F070AE8 27BD00F8 */  addiu $sp, $sp, 0xf8
 # end proc_7F0701EC
 
+.global proc_7F070AEC
 proc_7F070AEC:
 /* 0A561C 7F070AEC 27BDFF78 */  addiu $sp, $sp, -0x88
 /* 0A5620 7F070AF0 AFBF0054 */  sw    $ra, 0x54($sp)
@@ -126522,6 +127809,7 @@ proc_7F070AEC:
 /* 0A5AAC 7F070F7C 27BD0088 */  addiu $sp, $sp, 0x88
 # end proc_7F070AEC
 
+.global proc_7F070F80
 proc_7F070F80:
 /* 0A5AB0 7F070F80 8C83000C */  lw    $v1, 0xc($a0)
 /* 0A5AB4 7F070F84 3C0FE700 */  lui   $t7, 0xe700
@@ -126571,6 +127859,7 @@ proc_7F070F80:
 /* 0A5B5C 7F07102C AC780000 */  sw    $t8, ($v1)
 # end proc_7F070F80
 
+.global proc_7F071030
 proc_7F071030:
 /* 0A5B60 7F071030 8C820030 */  lw    $v0, 0x30($a0)
 /* 0A5B64 7F071034 24010007 */  addiu $at, $zero, 7
@@ -127312,6 +128601,7 @@ proc_7F071030:
 /* 0A6670 7F071B40 00000000 */  nop   
 # end proc_7F071030
 
+.global proc_7F071B44
 proc_7F071B44:
 /* 0A6674 7F071B44 8C820030 */  lw    $v0, 0x30($a0)
 /* 0A6678 7F071B48 24010007 */  addiu $at, $zero, 7
@@ -128046,6 +129336,7 @@ proc_7F071B44:
 /* 0A7170 7F072640 00000000 */  nop   
 # end proc_7F071B44
 
+.global proc_7F072644
 proc_7F072644:
 /* 0A7174 7F072644 8C83000C */  lw    $v1, 0xc($a0)
 /* 0A7178 7F072648 3C0FE700 */  lui   $t7, 0xe700
@@ -128096,6 +129387,7 @@ proc_7F072644:
 /* 0A7224 7F0726F4 AC790000 */  sw    $t9, ($v1)
 # end proc_7F072644
 
+.global proc_7F0726F8
 proc_7F0726F8:
 /* 0A7228 7F0726F8 8C82003C */  lw    $v0, 0x3c($a0)
 /* 0A722C 7F0726FC 24010001 */  addiu $at, $zero, 1
@@ -128137,6 +129429,7 @@ proc_7F0726F8:
 /* 0A72B0 7F072780 00000000 */  nop   
 # end proc_7F0726F8
 
+.global proc_7F072784
 proc_7F072784:
 /* 0A72B4 7F072784 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0A72B8 7F072788 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -128276,6 +129569,7 @@ proc_7F072784:
 /* 0A74B0 7F072980 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F072784
 
+.global proc_7F072984
 proc_7F072984:
 /* 0A74B4 7F072984 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0A74B8 7F072988 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -128450,6 +129744,7 @@ proc_7F072984:
 /* 0A773C 7F072C0C 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F072984
 
+.global proc_7F072C10
 proc_7F072C10:
 /* 0A7740 7F072C10 AFA40000 */  sw    $a0, ($sp)
 /* 0A7744 7F072C14 AFA50004 */  sw    $a1, 4($sp)
@@ -128457,6 +129752,7 @@ proc_7F072C10:
 /* 0A774C 7F072C1C AFA60008 */  sw    $a2, 8($sp)
 # end proc_7F072C10
 
+.global dorottex
 dorottex:
 /* 0A7750 7F072C20 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0A7754 7F072C24 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -128730,6 +130026,7 @@ dorottex:
 /* 0A7B64 7F073034 27BD0048 */  addiu $sp, $sp, 0x48
 # end dorottex
 
+.global proc_7F073038
 proc_7F073038:
 /* 0A7B68 7F073038 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0A7B6C 7F07303C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -128746,6 +130043,7 @@ proc_7F073038:
 /* 0A7B98 7F073068 00000000 */  nop   
 # end proc_7F073038
 
+.global proc_7F07306C
 proc_7F07306C:
 /* 0A7B9C 7F07306C AFA40000 */  sw    $a0, ($sp)
 /* 0A7BA0 7F073070 AFA50004 */  sw    $a1, 4($sp)
@@ -128753,6 +130051,7 @@ proc_7F07306C:
 /* 0A7BA8 7F073078 AFA60008 */  sw    $a2, 8($sp)
 # end proc_7F07306C
 
+.global dotube
 dotube:
 /* 0A7BAC 7F07307C 27BDFF30 */  addiu $sp, $sp, -0xd0
 /* 0A7BB0 7F073080 AFB5002C */  sw    $s5, 0x2c($sp)
@@ -129280,6 +130579,7 @@ dotube:
 /* 0A8318 7F0737E8 27BD00D0 */  addiu $sp, $sp, 0xd0
 # end dotube
 
+.global proc_7F0737EC
 proc_7F0737EC:
 /* 0A831C 7F0737EC AFA40000 */  sw    $a0, ($sp)
 /* 0A8320 7F0737F0 AFA50004 */  sw    $a1, 4($sp)
@@ -129287,6 +130587,7 @@ proc_7F0737EC:
 /* 0A8328 7F0737F8 AFA60008 */  sw    $a2, 8($sp)
 # end proc_7F0737EC
 
+.global proc_7F0737FC
 proc_7F0737FC:
 /* 0A832C 7F0737FC AFA40000 */  sw    $a0, ($sp)
 /* 0A8330 7F073800 AFA50004 */  sw    $a1, 4($sp)
@@ -129294,6 +130595,7 @@ proc_7F0737FC:
 /* 0A8338 7F073808 AFA60008 */  sw    $a2, 8($sp)
 # end proc_7F0737FC
 
+.global dogfnegx
 dogfnegx:
 /* 0A833C 7F07380C 27BDFF00 */  addiu $sp, $sp, -0x100
 /* 0A8340 7F073810 AFB20020 */  sw    $s2, 0x20($sp)
@@ -129800,12 +131102,14 @@ dogfnegx:
 /* 0A8AF4 7F073FC4 27BD0100 */  addiu $sp, $sp, 0x100
 # end dogfnegx
 
+.global proc_7F073FC8
 proc_7F073FC8:
 /* 0A8AF8 7F073FC8 3C018003 */  lui   $at, 0x8003
 /* 0A8AFC 7F073FCC 03E00008 */  jr    $ra
 /* 0A8B00 7F073FD0 AC2463F0 */  sw    $a0, %lo(0x800363F0)($at) # $a0, 0x63f0($at)
 # end proc_7F073FC8
 
+.global doshadow
 doshadow:
 /* 0A8B04 7F073FD4 3C038003 */  lui   $v1, 0x8003
 /* 0A8B08 7F073FD8 246363F0 */  addiu $v1, $v1, 0x63f0
@@ -130157,6 +131461,7 @@ doshadow:
 /* 0A9040 7F074510 00000000 */  nop   
 # end doshadow
 
+.global proc_7F074514
 proc_7F074514:
 /* 0A9044 7F074514 AFA40000 */  sw    $a0, ($sp)
 /* 0A9048 7F074518 AFA50004 */  sw    $a1, 4($sp)
@@ -130164,6 +131469,7 @@ proc_7F074514:
 /* 0A9050 7F074520 AFA60008 */  sw    $a2, 8($sp)
 # end proc_7F074514
 
+.global proc_7F074524
 proc_7F074524:
 /* 0A9054 7F074524 AFA40000 */  sw    $a0, ($sp)
 /* 0A9058 7F074528 AFA50004 */  sw    $a1, 4($sp)
@@ -130171,6 +131477,7 @@ proc_7F074524:
 /* 0A9060 7F074530 AFA60008 */  sw    $a2, 8($sp)
 # end proc_7F074524
 
+.global proc_7F074534
 proc_7F074534:
 /* 0A9064 7F074534 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A9068 7F074538 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -130260,6 +131567,7 @@ proc_7F074534:
 /* 0A91B0 7F074680 00000000 */  nop   
 # end proc_7F074534
 
+.global subdraw
 subdraw:
 /* 0A91B4 7F074684 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0A91B8 7F074688 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -130339,6 +131647,7 @@ subdraw:
 /* 0A92BC 7F07478C 27BD0030 */  addiu $sp, $sp, 0x30
 # end subdraw
 
+.global proc_7F074790
 proc_7F074790:
 /* 0A92C0 7F074790 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A92C4 7F074794 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -130358,6 +131667,7 @@ proc_7F074790:
 /* 0A92FC 7F0747CC 00000000 */  nop   
 # end proc_7F074790
 
+.global proc_7F0747D0
 proc_7F0747D0:
 /* 0A9300 7F0747D0 C4A00000 */  lwc1  $f0, ($a1)
 /* 0A9304 7F0747D4 C4A20004 */  lwc1  $f2, 4($a1)
@@ -130673,6 +131983,7 @@ proc_7F0747D0:
 /* 0A9794 7F074C64 27BD00B8 */  addiu $sp, $sp, 0xb8
 # end proc_7F0747D0
 
+.global proc_7F074C68
 proc_7F074C68:
 /* 0A9798 7F074C68 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0A979C 7F074C6C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -130693,6 +132004,7 @@ proc_7F074C68:
 /* 0A97D8 7F074CA8 00000000 */  nop   
 # end proc_7F074C68
 
+.global proc_7F074CAC
 proc_7F074CAC:
 /* 0A97DC 7F074CAC 27BDFF50 */  addiu $sp, $sp, -0xb0
 /* 0A97E0 7F074CB0 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -131114,6 +132426,7 @@ proc_7F074CAC:
 /* 0A9E28 7F0752F8 27BD00B0 */  addiu $sp, $sp, 0xb0
 # end proc_7F074CAC
 
+.global proc_7F0752FC
 proc_7F0752FC:
 /* 0A9E2C 7F0752FC 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0A9E30 7F075300 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -131233,6 +132546,7 @@ proc_7F0752FC:
 /* 0A9FC8 7F075498 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F0752FC
 
+.global proc_7F07549C
 proc_7F07549C:
 /* 0A9FCC 7F07549C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0A9FD0 7F0754A0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -131244,6 +132558,7 @@ proc_7F07549C:
 /* 0A9FE8 7F0754B8 00000000 */  nop   
 # end proc_7F07549C
 
+.global proc_7F0754BC
 proc_7F0754BC:
 /* 0A9FEC 7F0754BC 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0A9FF0 7F0754C0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -131311,6 +132626,7 @@ proc_7F0754BC:
 /* 0AA0DC 7F0755AC 00000000 */  nop   
 # end proc_7F0754BC
 
+.global proc_7F0755B0
 proc_7F0755B0:
 /* 0AA0E0 7F0755B0 3C038003 */  lui   $v1, 0x8003
 /* 0AA0E4 7F0755B4 24636414 */  addiu $v1, $v1, 0x6414
@@ -131326,6 +132642,7 @@ proc_7F0755B0:
 /* 0AA108 7F0755D8 00000000 */  nop   
 # end proc_7F0755B0
 
+.global proc_7F0755DC
 proc_7F0755DC:
 /* 0AA10C 7F0755DC 1080012A */  beqz  $a0, .Lproc_7F0755DC_4AC
 /* 0AA110 7F0755E0 00000000 */  nop   
@@ -131678,6 +132995,7 @@ proc_7F0755DC:
 /* 0AA5BC 7F075A8C 00000000 */  nop   
 # end proc_7F0755DC
 
+.global proc_7F075A90
 proc_7F075A90:
 /* 0AA5C0 7F075A90 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0AA5C4 7F075A94 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -131714,6 +133032,7 @@ proc_7F075A90:
 /* 0AA634 7F075B04 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F075A90
 
+.global proc_7F075B08
 proc_7F075B08:
 /* 0AA638 7F075B08 AFA40000 */  sw    $a0, ($sp)
 /* 0AA63C 7F075B0C AFA50004 */  sw    $a1, 4($sp)
@@ -131722,6 +133041,7 @@ proc_7F075B08:
 /* 0AA648 7F075B18 AFA7000C */  sw    $a3, 0xc($sp)
 # end proc_7F075B08
 
+.global proc_7F075B1C
 proc_7F075B1C:
 /* 0AA64C 7F075B1C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0AA650 7F075B20 AFB10018 */  sw    $s1, 0x18($sp)
@@ -131852,6 +133172,7 @@ proc_7F075B1C:
 /* 0AA820 7F075CF0 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F075B1C
 
+.global proc_7F075CF4
 proc_7F075CF4:
 /* 0AA824 7F075CF4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0AA828 7F075CF8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -131869,6 +133190,7 @@ proc_7F075CF4:
 /* 0AA858 7F075D28 00000000 */  nop   
 # end proc_7F075CF4
 
+.global proc_7F075D2C
 proc_7F075D2C:
 /* 0AA85C 7F075D2C 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0AA860 7F075D30 AFB20028 */  sw    $s2, 0x28($sp)
@@ -132024,6 +133346,7 @@ proc_7F075D2C:
 /* 0AAA94 7F075F64 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F075D2C
 
+.global proc_7F075F68
 proc_7F075F68:
 /* 0AAA98 7F075F68 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0AAA9C 7F075F6C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -132044,6 +133367,7 @@ proc_7F075F68:
 /* 0AAAD8 7F075FA8 00000000 */  nop   
 # end proc_7F075F68
 
+.global proc_7F075FAC
 proc_7F075FAC:
 /* 0AAADC 7F075FAC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0AAAE0 7F075FB0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -132080,6 +133404,7 @@ proc_7F075FAC:
 /* 0AAB5C 7F07602C 00000000 */  nop   
 # end proc_7F075FAC
 
+.global proc_7F076030
 proc_7F076030:
 /* 0AAB60 7F076030 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0AAB64 7F076034 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -132122,6 +133447,7 @@ proc_7F076030:
 /* 0AABF0 7F0760C0 00000000 */  nop   
 # end proc_7F076030
 
+.global proc_7F0760C4
 proc_7F0760C4:
 /* 0AABF4 7F0760C4 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0AABF8 7F0760C8 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -132229,6 +133555,7 @@ proc_7F0760C4:
 /* 0AAD68 7F076238 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F0760C4
 
+.global proc_7F07623C
 proc_7F07623C:
 /* 0AAD6C 7F07623C AFA40000 */  sw    $a0, ($sp)
 /* 0AAD70 7F076240 94A20000 */  lhu   $v0, ($a1)
@@ -132279,6 +133606,7 @@ proc_7F07623C:
 /* 0AAE0C 7F0762DC 00000000 */  nop   
 # end proc_7F07623C
 
+.global proc_7F0762E0
 proc_7F0762E0:
 /* 0AAE10 7F0762E0 27BDFF88 */  addiu $sp, $sp, -0x78
 /* 0AAE14 7F0762E4 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -132400,6 +133728,7 @@ proc_7F0762E0:
 /* 0AAFD0 7F0764A0 27BD0078 */  addiu $sp, $sp, 0x78
 # end proc_7F0762E0
 
+.global something_with_loading_resource_to_membank_or_buffer
 something_with_loading_resource_to_membank_or_buffer:
 /* 0AAFD4 7F0764A4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0AAFD8 7F0764A8 AFB00018 */  sw    $s0, 0x18($sp)
@@ -132447,6 +133776,7 @@ something_with_loading_resource_to_membank_or_buffer:
 /* 0AB078 7F076548 00000000 */  nop   
 # end something_with_loading_resource_to_membank_or_buffer
 
+.global proc_7F07654C
 proc_7F07654C:
 /* 0AB07C 7F07654C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0AB080 7F076550 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -132460,6 +133790,7 @@ proc_7F07654C:
 /* 0AB0A0 7F076570 00000000 */  nop   
 # end proc_7F07654C
 
+.global proc_7F076574
 proc_7F076574:
 /* 0AB0A4 7F076574 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0AB0A8 7F076578 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -132474,6 +133805,7 @@ proc_7F076574:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global proc_7F0765A0
 proc_7F0765A0:
 /* 0AB0D0 7F0765A0 28810002 */  slti  $at, $a0, 2
 /* 0AB0D4 7F0765A4 50200004 */  beql  $at, $zero, .Lproc_7F0765A0_18
@@ -132527,6 +133859,7 @@ proc_7F0765A0:
 /* 0AB174 7F076644 00000000 */  nop   
 # end proc_7F0765A0
 
+.global proc_7F076648
 proc_7F076648:
 /* 0AB178 7F076648 3C014700 */  lui   $at, 0x4700
 /* 0AB17C 7F07664C 44812000 */  mtc1  $at, $f4
@@ -132556,6 +133889,7 @@ proc_7F076648:
 /* 0AB1D8 7F0766A8 00691021 */  addu  $v0, $v1, $t1
 # end proc_7F076648
 
+.global proc_7F0766AC
 proc_7F0766AC:
 /* 0AB1DC 7F0766AC 3C014680 */  lui   $at, 0x4680
 /* 0AB1E0 7F0766B0 44812000 */  mtc1  $at, $f4
@@ -132585,6 +133919,7 @@ proc_7F0766AC:
 /* 0AB23C 7F07670C 00691021 */  addu  $v0, $v1, $t1
 # end proc_7F0766AC
 
+.global proc_7F076710
 proc_7F076710:
 /* 0AB240 7F076710 3C014600 */  lui   $at, 0x4600
 /* 0AB244 7F076714 44812000 */  mtc1  $at, $f4
@@ -132614,6 +133949,7 @@ proc_7F076710:
 /* 0AB2A0 7F076770 00691021 */  addu  $v0, $v1, $t1
 # end proc_7F076710
 
+.global proc_7F076774
 proc_7F076774:
 /* 0AB2A4 7F076774 3C014580 */  lui   $at, 0x4580
 /* 0AB2A8 7F076778 44812000 */  mtc1  $at, $f4
@@ -132643,6 +133979,7 @@ proc_7F076774:
 /* 0AB304 7F0767D4 00691021 */  addu  $v0, $v1, $t1
 # end proc_7F076774
 
+.global proc_7F0767D8
 proc_7F0767D8:
 /* 0AB308 7F0767D8 1CC00002 */  bgtz  $a2, .Lproc_7F0767D8_C
 /* 0AB30C 7F0767DC 00001825 */  or    $v1, $zero, $zero
@@ -132680,6 +134017,7 @@ proc_7F0767D8:
 /* 0AB374 7F076844 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0767D8
 
+.global proc_7F076848
 proc_7F076848:
 /* 0AB378 7F076848 1CC00002 */  bgtz  $a2, .Lproc_7F076848_C
 /* 0AB37C 7F07684C 00001825 */  or    $v1, $zero, $zero
@@ -132717,6 +134055,7 @@ proc_7F076848:
 /* 0AB3E4 7F0768B4 00601025 */  or    $v0, $v1, $zero
 # end proc_7F076848
 
+.global proc_7F0768B8
 proc_7F0768B8:
 /* 0AB3E8 7F0768B8 1CC00002 */  bgtz  $a2, .Lproc_7F0768B8_C
 /* 0AB3EC 7F0768BC 00001825 */  or    $v1, $zero, $zero
@@ -132754,6 +134093,7 @@ proc_7F0768B8:
 /* 0AB454 7F076924 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0768B8
 
+.global proc_7F076928
 proc_7F076928:
 /* 0AB458 7F076928 1CC00002 */  bgtz  $a2, .Lproc_7F076928_C
 /* 0AB45C 7F07692C 00001825 */  or    $v1, $zero, $zero
@@ -132791,6 +134131,7 @@ proc_7F076928:
 /* 0AB4C4 7F076994 00601025 */  or    $v0, $v1, $zero
 # end proc_7F076928
 
+.global proc_7F076998
 proc_7F076998:
 /* 0AB4C8 7F076998 AFA50004 */  sw    $a1, 4($sp)
 /* 0AB4CC 7F07699C 24080001 */  addiu $t0, $zero, 1
@@ -133060,6 +134401,7 @@ proc_7F076998:
 /* 0AB894 7F076D64 AC820000 */  sw    $v0, ($a0)
 # end proc_7F076998
 
+.global proc_7F076D68
 proc_7F076D68:
 /* 0AB898 7F076D68 27BDFE90 */  addiu $sp, $sp, -0x170
 /* 0AB89C 7F076D6C AFBF0034 */  sw    $ra, 0x34($sp)
@@ -133123,7 +134465,7 @@ proc_7F076D68:
 /* 0AB978 7F076E48 2C410BB9 */  sltiu $at, $v0, 0xbb9
 /* 0AB97C 7F076E4C 10200004 */  beqz  $at, .Lproc_7F076D68_F8
 /* 0AB980 7F076E50 02E02025 */  or    $a0, $s7, $zero
-/* 0AB984 7F076E54 0FC32F06 */  jal   proc_7F0CBC18
+/* 0AB984 7F076E54 0FC32F06 */  jal   load_image_to_buffer
 /* 0AB988 7F076E58 00002825 */  or    $a1, $zero, $zero
 /* 0AB98C 7F076E5C 8EE20000 */  lw    $v0, ($s7)
 .Lproc_7F076D68_F8:
@@ -134043,6 +135385,7 @@ proc_7F076D68:
 /* 0AC6E4 7F077BB4 27BD0170 */  addiu $sp, $sp, 0x170
 # end proc_7F076D68
 
+.global proc_7F077BB8
 proc_7F077BB8:
 /* 0AC6E8 7F077BB8 AFA40000 */  sw    $a0, ($sp)
 /* 0AC6EC 7F077BBC AFA50004 */  sw    $a1, 4($sp)
@@ -134054,11 +135397,13 @@ proc_7F077BB8:
 # alignment
 .word 0x00000000
 
+.global proc_7F077BD0
 proc_7F077BD0:
 /* 0AC700 7F077BD0 03E00008 */  jr    $ra
 /* 0AC704 7F077BD4 00000000 */  nop   
 # end proc_7F077BD0
 
+.global proc_7F077BD8
 proc_7F077BD8:
 /* 0AC708 7F077BD8 3C028008 */  lui   $v0, 0x8008
 /* 0AC70C 7F077BDC 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -134077,6 +135422,7 @@ proc_7F077BD8:
 /* 0AC740 7F077C10 E72610B0 */  swc1  $f6, 0x10b0($t9)
 # end proc_7F077BD8
 
+.global proc_7F077C14
 proc_7F077C14:
 /* 0AC744 7F077C14 3C028008 */  lui   $v0, 0x8008
 /* 0AC748 7F077C18 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -134087,6 +135433,7 @@ proc_7F077C14:
 /* 0AC75C 7F077C2C E5EE109C */  swc1  $f14, 0x109c($t7)
 # end proc_7F077C14
 
+.global proc_7F077C30
 proc_7F077C30:
 /* 0AC760 7F077C30 3C028008 */  lui   $v0, 0x8008
 /* 0AC764 7F077C34 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -134101,6 +135448,7 @@ proc_7F077C30:
 /* 0AC788 7F077C58 E70410A8 */  swc1  $f4, 0x10a8($t8)
 # end proc_7F077C30
 
+.global proc_7F077C5C
 proc_7F077C5C:
 /* 0AC78C 7F077C5C 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0AC790 7F077C60 AFB00020 */  sw    $s0, 0x20($sp)
@@ -134273,6 +135621,7 @@ proc_7F077C5C:
 /* 0ACA18 7F077EE8 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F077C5C
 
+.global proc_7F077EEC
 proc_7F077EEC:
 /* 0ACA1C 7F077EEC 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0ACA20 7F077EF0 3C028008 */  lui   $v0, 0x8008
@@ -134326,6 +135675,7 @@ proc_7F077EEC:
 /* 0ACAE0 7F077FB0 00000000 */  nop   
 # end proc_7F077EEC
 
+.global proc_7F077FB4
 proc_7F077FB4:
 /* 0ACAE4 7F077FB4 44856000 */  mtc1  $a1, $f12
 /* 0ACAE8 7F077FB8 C4840004 */  lwc1  $f4, 4($a0)
@@ -134345,6 +135695,7 @@ proc_7F077FB4:
 /* 0ACB20 7F077FF0 E4C60000 */  swc1  $f6, ($a2)
 # end proc_7F077FB4
 
+.global proc_7F077FF4
 proc_7F077FF4:
 /* 0ACB24 7F077FF4 3C013F80 */  lui   $at, 0x3f80
 /* 0ACB28 7F077FF8 44812000 */  mtc1  $at, $f4
@@ -134375,6 +135726,7 @@ proc_7F077FF4:
 /* 0ACB8C 7F07805C E4A40000 */  swc1  $f4, ($a1)
 # end proc_7F077FF4
 
+.global proc_7F078060
 proc_7F078060:
 /* 0ACB90 7F078060 C4800008 */  lwc1  $f0, 8($a0)
 /* 0ACB94 7F078064 44802000 */  mtc1  $zero, $f4
@@ -134416,6 +135768,7 @@ proc_7F078060:
 /* 0ACC1C 7F0780EC E4A40000 */  swc1  $f4, ($a1)
 # end proc_7F078060
 
+.global proc_7F0780F0
 proc_7F0780F0:
 /* 0ACC20 7F0780F0 3C013F80 */  lui   $at, 0x3f80
 /* 0ACC24 7F0780F4 44856000 */  mtc1  $a1, $f12
@@ -134439,6 +135792,7 @@ proc_7F0780F0:
 /* 0ACC6C 7F07813C E4C80000 */  swc1  $f8, ($a2)
 # end proc_7F0780F0
 
+.global proc_7F078140
 proc_7F078140:
 /* 0ACC70 7F078140 3C018005 */  lui   $at, 0x8005
 /* 0ACC74 7F078144 44877000 */  mtc1  $a3, $f14
@@ -134512,6 +135866,7 @@ proc_7F078140:
 /* 0ACD84 7F078254 00000000 */  nop   
 # end proc_7F078140
 
+.global proc_7F078258
 proc_7F078258:
 /* 0ACD88 7F078258 3C018005 */  lui   $at, 0x8005
 /* 0ACD8C 7F07825C 44867000 */  mtc1  $a2, $f14
@@ -134566,6 +135921,7 @@ proc_7F078258:
 /* 0ACE50 7F078320 00000000 */  nop   
 # end proc_7F078258
 
+.global proc_7F078324
 proc_7F078324:
 /* 0ACE54 7F078324 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACE58 7F078328 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134573,6 +135929,7 @@ proc_7F078324:
 /* 0ACE60 7F078330 ADC410C4 */  sw    $a0, 0x10c4($t6)
 # end proc_7F078324
 
+.global proc_7F078334
 proc_7F078334:
 /* 0ACE64 7F078334 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACE68 7F078338 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134580,6 +135937,7 @@ proc_7F078334:
 /* 0ACE70 7F078340 8DC210C4 */  lw    $v0, 0x10c4($t6)
 # end proc_7F078334
 
+.global proc_7F078344
 proc_7F078344:
 /* 0ACE74 7F078344 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACE78 7F078348 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134587,6 +135945,7 @@ proc_7F078344:
 /* 0ACE80 7F078350 ADC410C8 */  sw    $a0, 0x10c8($t6)
 # end proc_7F078344
 
+.global proc_7F078354
 proc_7F078354:
 /* 0ACE84 7F078354 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACE88 7F078358 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134594,6 +135953,7 @@ proc_7F078354:
 /* 0ACE90 7F078360 8DC210C8 */  lw    $v0, 0x10c8($t6)
 # end proc_7F078354
 
+.global proc_7F078364
 proc_7F078364:
 /* 0ACE94 7F078364 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACE98 7F078368 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134601,6 +135961,7 @@ proc_7F078364:
 /* 0ACEA0 7F078370 ADC410D8 */  sw    $a0, 0x10d8($t6)
 # end proc_7F078364
 
+.global proc_7F078374
 proc_7F078374:
 /* 0ACEA4 7F078374 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACEA8 7F078378 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134608,6 +135969,7 @@ proc_7F078374:
 /* 0ACEB0 7F078380 8DC210D8 */  lw    $v0, 0x10d8($t6)
 # end proc_7F078374
 
+.global proc_7F078384
 proc_7F078384:
 /* 0ACEB4 7F078384 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACEB8 7F078388 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134615,6 +135977,7 @@ proc_7F078384:
 /* 0ACEC0 7F078390 ADC410E0 */  sw    $a0, 0x10e0($t6)
 # end proc_7F078384
 
+.global proc_7F078394
 proc_7F078394:
 /* 0ACEC4 7F078394 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACEC8 7F078398 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134622,6 +135985,7 @@ proc_7F078394:
 /* 0ACED0 7F0783A0 8DC210E0 */  lw    $v0, 0x10e0($t6)
 # end proc_7F078394
 
+.global proc_7F0783A4
 proc_7F0783A4:
 /* 0ACED4 7F0783A4 3C038008 */  lui   $v1, 0x8008
 /* 0ACED8 7F0783A8 2463A0B0 */  addiu $v1, $v1, -0x5f50
@@ -134633,6 +135997,7 @@ proc_7F0783A4:
 /* 0ACEF0 7F0783C0 ADE410CC */  sw    $a0, 0x10cc($t7)
 # end proc_7F0783A4
 
+.global proc_7F0783C4
 proc_7F0783C4:
 /* 0ACEF4 7F0783C4 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACEF8 7F0783C8 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134640,6 +136005,7 @@ proc_7F0783C4:
 /* 0ACF00 7F0783D0 8DC210CC */  lw    $v0, 0x10cc($t6)
 # end proc_7F0783C4
 
+.global proc_7F0783D4
 proc_7F0783D4:
 /* 0ACF04 7F0783D4 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACF08 7F0783D8 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134647,6 +136013,7 @@ proc_7F0783D4:
 /* 0ACF10 7F0783E0 ADC410DC */  sw    $a0, 0x10dc($t6)
 # end proc_7F0783D4
 
+.global proc_7F0783E4
 proc_7F0783E4:
 /* 0ACF14 7F0783E4 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACF18 7F0783E8 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134654,6 +136021,7 @@ proc_7F0783E4:
 /* 0ACF20 7F0783F0 8DC210DC */  lw    $v0, 0x10dc($t6)
 # end proc_7F0783E4
 
+.global proc_7F0783F4
 proc_7F0783F4:
 /* 0ACF24 7F0783F4 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACF28 7F0783F8 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134661,6 +136029,7 @@ proc_7F0783F4:
 /* 0ACF30 7F078400 8DC210E8 */  lw    $v0, 0x10e8($t6)
 # end proc_7F0783F4
 
+.global proc_7F078404
 proc_7F078404:
 /* 0ACF34 7F078404 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACF38 7F078408 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134668,6 +136037,7 @@ proc_7F078404:
 /* 0ACF40 7F078410 ADC410D0 */  sw    $a0, 0x10d0($t6)
 # end proc_7F078404
 
+.global proc_7F078414
 proc_7F078414:
 /* 0ACF44 7F078414 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACF48 7F078418 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134675,6 +136045,7 @@ proc_7F078414:
 /* 0ACF50 7F078420 8DC210D0 */  lw    $v0, 0x10d0($t6)
 # end proc_7F078414
 
+.global proc_7F078424
 proc_7F078424:
 /* 0ACF54 7F078424 3C038008 */  lui   $v1, 0x8008
 /* 0ACF58 7F078428 2463A0B0 */  addiu $v1, $v1, -0x5f50
@@ -134686,6 +136057,7 @@ proc_7F078424:
 /* 0ACF70 7F078440 ADE410D4 */  sw    $a0, 0x10d4($t7)
 # end proc_7F078424
 
+.global proc_7F078444
 proc_7F078444:
 /* 0ACF74 7F078444 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACF78 7F078448 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134693,6 +136065,7 @@ proc_7F078444:
 /* 0ACF80 7F078450 8DC210D4 */  lw    $v0, 0x10d4($t6)
 # end proc_7F078444
 
+.global proc_7F078454
 proc_7F078454:
 /* 0ACF84 7F078454 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACF88 7F078458 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134700,6 +136073,7 @@ proc_7F078454:
 /* 0ACF90 7F078460 8DC210EC */  lw    $v0, 0x10ec($t6)
 # end proc_7F078454
 
+.global proc_7F078464
 proc_7F078464:
 /* 0ACF94 7F078464 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACF98 7F078468 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134707,6 +136081,7 @@ proc_7F078464:
 /* 0ACFA0 7F078470 ADC410E4 */  sw    $a0, 0x10e4($t6)
 # end proc_7F078464
 
+.global proc_7F078474
 proc_7F078474:
 /* 0ACFA4 7F078474 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACFA8 7F078478 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134714,6 +136089,7 @@ proc_7F078474:
 /* 0ACFB0 7F078480 8DC210E4 */  lw    $v0, 0x10e4($t6)
 # end proc_7F078474
 
+.global proc_7F078484
 proc_7F078484:
 /* 0ACFB4 7F078484 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACFB8 7F078488 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134721,6 +136097,7 @@ proc_7F078484:
 /* 0ACFC0 7F078490 C5C010F8 */  lwc1  $f0, 0x10f8($t6)
 # end proc_7F078484
 
+.global proc_7F078494
 proc_7F078494:
 /* 0ACFC4 7F078494 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACFC8 7F078498 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134728,6 +136105,7 @@ proc_7F078494:
 /* 0ACFD0 7F0784A0 8DC210FC */  lw    $v0, 0x10fc($t6)
 # end proc_7F078494
 
+.global proc_7F0784A4
 proc_7F0784A4:
 /* 0ACFD4 7F0784A4 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACFD8 7F0784A8 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134735,6 +136113,7 @@ proc_7F0784A4:
 /* 0ACFE0 7F0784B0 C5C01090 */  lwc1  $f0, 0x1090($t6)
 # end proc_7F0784A4
 
+.global proc_7F0784B4
 proc_7F0784B4:
 /* 0ACFE4 7F0784B4 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACFE8 7F0784B8 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134742,6 +136121,7 @@ proc_7F0784B4:
 /* 0ACFF0 7F0784C0 C5C01094 */  lwc1  $f0, 0x1094($t6)
 # end proc_7F0784B4
 
+.global proc_7F0784C4
 proc_7F0784C4:
 /* 0ACFF4 7F0784C4 3C0E8008 */  lui   $t6, 0x8008
 /* 0ACFF8 7F0784C8 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134749,6 +136129,7 @@ proc_7F0784C4:
 /* 0AD000 7F0784D0 C5C01098 */  lwc1  $f0, 0x1098($t6)
 # end proc_7F0784C4
 
+.global proc_7F0784D4
 proc_7F0784D4:
 /* 0AD004 7F0784D4 3C0E8008 */  lui   $t6, 0x8008
 /* 0AD008 7F0784D8 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134756,6 +136137,7 @@ proc_7F0784D4:
 /* 0AD010 7F0784E0 C5C0109C */  lwc1  $f0, 0x109c($t6)
 # end proc_7F0784D4
 
+.global proc_7F0784E4
 proc_7F0784E4:
 /* 0AD014 7F0784E4 3C0E8008 */  lui   $t6, 0x8008
 /* 0AD018 7F0784E8 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134763,6 +136145,7 @@ proc_7F0784E4:
 /* 0AD020 7F0784F0 C5C010A4 */  lwc1  $f0, 0x10a4($t6)
 # end proc_7F0784E4
 
+.global proc_7F0784F4
 proc_7F0784F4:
 /* 0AD024 7F0784F4 3C0E8008 */  lui   $t6, 0x8008
 /* 0AD028 7F0784F8 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134770,6 +136153,7 @@ proc_7F0784F4:
 /* 0AD030 7F078500 C5C010A8 */  lwc1  $f0, 0x10a8($t6)
 # end proc_7F0784F4
 
+.global proc_7F078504
 proc_7F078504:
 /* 0AD034 7F078504 3C028008 */  lui   $v0, 0x8008
 /* 0AD038 7F078508 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -134785,6 +136169,7 @@ proc_7F078504:
 /* 0AD060 7F078530 E4880008 */  swc1  $f8, 8($a0)
 # end proc_7F078504
 
+.global proc_7F078534
 proc_7F078534:
 /* 0AD064 7F078534 3C028008 */  lui   $v0, 0x8008
 /* 0AD068 7F078538 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -134801,6 +136186,7 @@ proc_7F078534:
 /* 0AD094 7F078564 E48A0008 */  swc1  $f10, 8($a0)
 # end proc_7F078534
 
+.global proc_7F078568
 proc_7F078568:
 /* 0AD098 7F078568 3C028008 */  lui   $v0, 0x8008
 /* 0AD09C 7F07856C 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -134816,6 +136202,7 @@ proc_7F078568:
 /* 0AD0C4 7F078594 E4880008 */  swc1  $f8, 8($a0)
 # end proc_7F078568
 
+.global proc_7F078598
 proc_7F078598:
 /* 0AD0C8 7F078598 3C028008 */  lui   $v0, 0x8008
 /* 0AD0CC 7F07859C 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -134832,6 +136219,7 @@ proc_7F078598:
 /* 0AD0F8 7F0785C8 E48A0008 */  swc1  $f10, 8($a0)
 # end proc_7F078598
 
+.global proc_7F0785CC
 proc_7F0785CC:
 /* 0AD0FC 7F0785CC 3C0E8008 */  lui   $t6, 0x8008
 /* 0AD100 7F0785D0 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -134839,6 +136227,7 @@ proc_7F0785CC:
 /* 0AD108 7F0785D8 C5C010A0 */  lwc1  $f0, 0x10a0($t6)
 # end proc_7F0785CC
 
+.global proc_7F0785DC
 proc_7F0785DC:
 /* 0AD10C 7F0785DC 3C038008 */  lui   $v1, 0x8008
 /* 0AD110 7F0785E0 8C63A0B0 */  lw    $v1, -0x5f50($v1)
@@ -135063,6 +136452,7 @@ proc_7F0785DC:
 /* 0AD47C 7F07894C E4289980 */  swc1  $f8, %lo(0x80079980)($at) # $f8, -0x6680($at)
 # end proc_7F0785DC
 
+.global proc_7F078950
 proc_7F078950:
 /* 0AD480 7F078950 3C028008 */  lui   $v0, 0x8008
 /* 0AD484 7F078954 24429940 */  addiu $v0, $v0, -0x66c0
@@ -135078,6 +136468,7 @@ proc_7F078950:
 /* 0AD4AC 7F07897C E4AA0000 */  swc1  $f10, ($a1)
 # end proc_7F078950
 
+.global proc_7F078980
 proc_7F078980:
 /* 0AD4B0 7F078980 3C028008 */  lui   $v0, 0x8008
 /* 0AD4B4 7F078984 24429950 */  addiu $v0, $v0, -0x66b0
@@ -135093,6 +136484,7 @@ proc_7F078980:
 /* 0AD4DC 7F0789AC E4AA0000 */  swc1  $f10, ($a1)
 # end proc_7F078980
 
+.global proc_7F0789B0
 proc_7F0789B0:
 /* 0AD4E0 7F0789B0 3C028008 */  lui   $v0, 0x8008
 /* 0AD4E4 7F0789B4 24429960 */  addiu $v0, $v0, -0x66a0
@@ -135108,6 +136500,7 @@ proc_7F0789B0:
 /* 0AD50C 7F0789DC E4AA0000 */  swc1  $f10, ($a1)
 # end proc_7F0789B0
 
+.global proc_7F0789E0
 proc_7F0789E0:
 /* 0AD510 7F0789E0 3C028008 */  lui   $v0, 0x8008
 /* 0AD514 7F0789E4 24429970 */  addiu $v0, $v0, -0x6690
@@ -135123,6 +136516,7 @@ proc_7F0789E0:
 /* 0AD53C 7F078A0C E4AA0000 */  swc1  $f10, ($a1)
 # end proc_7F0789E0
 
+.global proc_7F078A10
 proc_7F078A10:
 /* 0AD540 7F078A10 3C028008 */  lui   $v0, 0x8008
 /* 0AD544 7F078A14 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -135144,6 +136538,7 @@ proc_7F078A10:
 /* 0AD584 7F078A54 E4AA0000 */  swc1  $f10, ($a1)
 # end proc_7F078A10
 
+.global proc_7F078A58
 proc_7F078A58:
 /* 0AD588 7F078A58 3C0E8008 */  lui   $t6, 0x8008
 /* 0AD58C 7F078A5C 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -135255,6 +136650,7 @@ proc_7F078A58:
 /* 0AD720 7F078BF0 00000000 */  nop   
 # end proc_7F078A58
 
+.global proc_7F078BF4
 proc_7F078BF4:
 /* 0AD724 7F078BF4 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 0AD728 7F078BF8 AFB00028 */  sw    $s0, 0x28($sp)
@@ -135582,6 +136978,7 @@ proc_7F078BF4:
 /* 0ADC1C 7F0790EC 27BD0080 */  addiu $sp, $sp, 0x80
 # end proc_7F078BF4
 
+.global proc_7F0790F0
 proc_7F0790F0:
 /* 0ADC20 7F0790F0 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 0ADC24 7F0790F4 AFBF0044 */  sw    $ra, 0x44($sp)
@@ -135792,6 +137189,7 @@ proc_7F0790F0:
 /* 0ADF18 7F0793E8 27BD0060 */  addiu $sp, $sp, 0x60
 # end proc_7F0790F0
 
+.global proc_7F0793EC
 proc_7F0793EC:
 /* 0ADF1C 7F0793EC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0ADF20 7F0793F0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -136104,6 +137502,7 @@ proc_7F0793EC:
 /* 0AE3E4 7F0798B4 00000000 */  nop   
 # end proc_7F0793EC
 
+.global proc_7F0798B8
 proc_7F0798B8:
 /* 0AE3E8 7F0798B8 3C0E8008 */  lui   $t6, 0x8008
 /* 0AE3EC 7F0798BC 8DCEA0B4 */  lw    $t6, -0x5f4c($t6)
@@ -136161,6 +137560,7 @@ proc_7F0798B8:
 /* 0AE4B4 7F079984 00000000 */  nop   
 # end proc_7F0798B8
 
+.global proc_7F079988
 proc_7F079988:
 /* 0AE4B8 7F079988 44842000 */  mtc1  $a0, $f4
 /* 0AE4BC 7F07998C 3C014296 */  lui   $at, 0x4296
@@ -136173,6 +137573,7 @@ proc_7F079988:
 /* 0AE4D8 7F0799A8 E5CA1274 */  swc1  $f10, 0x1274($t6)
 # end proc_7F079988
 
+.global proc_7F0799AC
 proc_7F0799AC:
 /* 0AE4DC 7F0799AC 3C058008 */  lui   $a1, 0x8008
 /* 0AE4E0 7F0799B0 24A5A0B0 */  addiu $a1, $a1, -0x5f50
@@ -136195,6 +137596,7 @@ proc_7F0799AC:
 /* 0AE51C 7F0799EC 00000000 */  nop   
 # end proc_7F0799AC
 
+.global proc_7F0799F0
 proc_7F0799F0:
 /* 0AE520 7F0799F0 3C028008 */  lui   $v0, 0x8008
 /* 0AE524 7F0799F4 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -136210,6 +137612,7 @@ proc_7F0799F0:
 /* 0AE548 7F079A18 00A01025 */  or    $v0, $a1, $zero
 # end proc_7F0799F0
 
+.global proc_7F079A1C
 proc_7F079A1C:
 /* 0AE54C 7F079A1C 00047080 */  sll   $t6, $a0, 2
 /* 0AE550 7F079A20 3C028008 */  lui   $v0, 0x8008
@@ -136227,6 +137630,7 @@ proc_7F079A1C:
 /* 0AE57C 7F079A4C 00801025 */  or    $v0, $a0, $zero
 # end proc_7F079A1C
 
+.global proc_7F079A50
 proc_7F079A50:
 /* 0AE580 7F079A50 3C0E8008 */  lui   $t6, 0x8008
 /* 0AE584 7F079A54 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -136234,6 +137638,7 @@ proc_7F079A50:
 /* 0AE58C 7F079A5C ADC40000 */  sw    $a0, ($t6)
 # end proc_7F079A50
 
+.global proc_7F079A60
 proc_7F079A60:
 /* 0AE590 7F079A60 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0AE594 7F079A64 3C038008 */  lui   $v1, 0x8008
@@ -136406,6 +137811,7 @@ proc_7F079A60:
 /* 0AE81C 7F079CEC 00000000 */  nop   
 # end proc_7F079A60
 
+.global proc_7F079CF0
 proc_7F079CF0:
 /* 0AE820 7F079CF0 27BDFEE8 */  addiu $sp, $sp, -0x118
 /* 0AE824 7F079CF4 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -136923,6 +138329,7 @@ proc_7F079CF0:
 /* 0AEFCC 7F07A49C 00000000 */  nop   
 # end proc_7F079CF0
 
+.global proc_7F07A4A0
 proc_7F07A4A0:
 /* 0AEFD0 7F07A4A0 3C038008 */  lui   $v1, 0x8008
 /* 0AEFD4 7F07A4A4 2463A0B0 */  addiu $v1, $v1, -0x5f50
@@ -136962,12 +138369,14 @@ proc_7F07A4A0:
 /* 0AF054 7F07A524 00000000 */  nop   
 # end proc_7F07A4A0
 
+.global proc_7F07A528
 proc_7F07A528:
 /* 0AF058 7F07A528 3C028003 */  lui   $v0, 0x8003
 /* 0AF05C 7F07A52C 03E00008 */  jr    $ra
 /* 0AF060 7F07A530 8C426494 */  lw    $v0, 0x6494($v0)
 # end proc_7F07A528
 
+.global proc_7F07A534
 proc_7F07A534:
 /* 0AF064 7F07A534 27BDFF20 */  addiu $sp, $sp, -0xe0
 /* 0AF068 7F07A538 3C018008 */  lui   $at, 0x8008
@@ -137274,6 +138683,7 @@ proc_7F07A534:
 /* 0AF4E4 7F07A9B4 27BD00E0 */  addiu $sp, $sp, 0xe0
 # end proc_7F07A534
 
+.global proc_7F07A9B8
 proc_7F07A9B8:
 /* 0AF4E8 7F07A9B8 27BDFF78 */  addiu $sp, $sp, -0x88
 /* 0AF4EC 7F07A9BC AFB00028 */  sw    $s0, 0x28($sp)
@@ -137812,6 +139222,7 @@ proc_7F07A9B8:
 /* 0AFCD0 7F07B1A0 00000000 */  nop   
 # end proc_7F07A9B8
 
+.global proc_7F07B1A4
 proc_7F07B1A4:
 /* 0AFCD4 7F07B1A4 3C038003 */  lui   $v1, 0x8003
 /* 0AFCD8 7F07B1A8 24636494 */  addiu $v1, $v1, 0x6494
@@ -137884,6 +139295,7 @@ proc_7F07B1A4:
 /* 0AFDCC 7F07B29C 00000000 */  nop   
 # end proc_7F07B1A4
 
+.global proc_7F07B2A0
 proc_7F07B2A0:
 /* 0AFDD0 7F07B2A0 3C088003 */  lui   $t0, 0x8003
 /* 0AFDD4 7F07B2A4 8D0864AC */  lw    $t0, 0x64ac($t0)
@@ -138079,6 +139491,7 @@ proc_7F07B2A0:
 /* 0B0098 7F07B568 00000000 */  nop   
 # end proc_7F07B2A0
 
+.global proc_7F07B56C
 proc_7F07B56C:
 /* 0B009C 7F07B56C 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0B00A0 7F07B570 3C028003 */  lui   $v0, 0x8003
@@ -139151,6 +140564,7 @@ proc_7F07B56C:
 /* 0B106C 7F07C53C 00000000 */  nop   
 # end proc_7F07B56C
 
+.global proc_7F07C540
 proc_7F07C540:
 /* 0B1070 7F07C540 3C0E8008 */  lui   $t6, 0x8008
 /* 0B1074 7F07C544 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -139158,6 +140572,7 @@ proc_7F07C540:
 /* 0B107C 7F07C54C ADC4042C */  sw    $a0, 0x42c($t6)
 # end proc_7F07C540
 
+.global proc_7F07C550
 proc_7F07C550:
 /* 0B1080 7F07C550 3C0E8008 */  lui   $t6, 0x8008
 /* 0B1084 7F07C554 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -139165,6 +140580,7 @@ proc_7F07C550:
 /* 0B108C 7F07C55C ADC40118 */  sw    $a0, 0x118($t6)
 # end proc_7F07C550
 
+.global proc_7F07C560
 proc_7F07C560:
 /* 0B1090 7F07C560 3C0E8008 */  lui   $t6, 0x8008
 /* 0B1094 7F07C564 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -139172,6 +140588,7 @@ proc_7F07C560:
 /* 0B109C 7F07C56C 8DC20118 */  lw    $v0, 0x118($t6)
 # end proc_7F07C560
 
+.global proc_7F07C570
 proc_7F07C570:
 /* 0B10A0 7F07C570 3C0E8008 */  lui   $t6, 0x8008
 /* 0B10A4 7F07C574 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -139179,6 +140596,7 @@ proc_7F07C570:
 /* 0B10AC 7F07C57C ADC40128 */  sw    $a0, 0x128($t6)
 # end proc_7F07C570
 
+.global proc_7F07C580
 proc_7F07C580:
 /* 0B10B0 7F07C580 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0B10B4 7F07C584 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -139200,6 +140618,7 @@ proc_7F07C580:
 /* 0B10EC 7F07C5BC 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F07C580
 
+.global proc_7F07C5C0
 proc_7F07C5C0:
 /* 0B10F0 7F07C5C0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0B10F4 7F07C5C4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -139211,6 +140630,7 @@ proc_7F07C5C0:
 /* 0B110C 7F07C5DC 00000000 */  nop   
 # end proc_7F07C5C0
 
+.global proc_7F07C5E0
 proc_7F07C5E0:
 /* 0B1110 7F07C5E0 3C0E8008 */  lui   $t6, 0x8008
 /* 0B1114 7F07C5E4 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -139218,6 +140638,7 @@ proc_7F07C5E0:
 /* 0B111C 7F07C5EC 8DC20124 */  lw    $v0, 0x124($t6)
 # end proc_7F07C5E0
 
+.global proc_7F07C5F0
 proc_7F07C5F0:
 /* 0B1120 7F07C5F0 44856000 */  mtc1  $a1, $f12
 /* 0B1124 7F07C5F4 3C058008 */  lui   $a1, 0x8008
@@ -139249,6 +140670,7 @@ proc_7F07C5F0:
 /* 0B1184 7F07C654 00000000 */  nop   
 # end proc_7F07C5F0
 
+.global proc_7F07C658
 proc_7F07C658:
 /* 0B1188 7F07C658 3C0E8008 */  lui   $t6, 0x8008
 /* 0B118C 7F07C65C 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -139256,6 +140678,7 @@ proc_7F07C658:
 /* 0B1194 7F07C664 ADC40138 */  sw    $a0, 0x138($t6)
 # end proc_7F07C658
 
+.global proc_7F07C668
 proc_7F07C668:
 /* 0B1198 7F07C668 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0B119C 7F07C66C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -139277,6 +140700,7 @@ proc_7F07C668:
 /* 0B11D4 7F07C6A4 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F07C668
 
+.global proc_7F07C6A8
 proc_7F07C6A8:
 /* 0B11D8 7F07C6A8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0B11DC 7F07C6AC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -139288,6 +140712,7 @@ proc_7F07C6A8:
 /* 0B11F4 7F07C6C4 00000000 */  nop   
 # end proc_7F07C6A8
 
+.global proc_7F07C6C8
 proc_7F07C6C8:
 /* 0B11F8 7F07C6C8 44856000 */  mtc1  $a1, $f12
 /* 0B11FC 7F07C6CC 3C058008 */  lui   $a1, 0x8008
@@ -139319,6 +140744,7 @@ proc_7F07C6C8:
 /* 0B125C 7F07C72C 00000000 */  nop   
 # end proc_7F07C6C8
 
+.global proc_7F07C730
 proc_7F07C730:
 /* 0B1260 7F07C730 C4A40000 */  lwc1  $f4, ($a1)
 /* 0B1264 7F07C734 44808000 */  mtc1  $zero, $f16
@@ -139355,6 +140781,7 @@ proc_7F07C730:
 /* 0B12E0 7F07C7B0 E48A0028 */  swc1  $f10, 0x28($a0)
 # end proc_7F07C730
 
+.global proc_7F07C7B4
 proc_7F07C7B4:
 /* 0B12E4 7F07C7B4 3C048003 */  lui   $a0, 0x8003
 /* 0B12E8 7F07C7B8 8C846450 */  lw    $a0, 0x6450($a0)
@@ -139412,6 +140839,7 @@ proc_7F07C7B4:
 /* 0B13B4 7F07C884 00000000 */  nop   
 # end proc_7F07C7B4
 
+.global proc_7F07C888
 proc_7F07C888:
 /* 0B13B8 7F07C888 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 0B13BC 7F07C88C 3C0E8003 */  lui   $t6, 0x8003
@@ -139520,6 +140948,7 @@ proc_7F07C888:
 /* 0B1558 7F07CA28 00000000 */  nop   
 # end proc_7F07C888
 
+.global proc_7F07CA2C
 proc_7F07CA2C:
 /* 0B155C 7F07CA2C 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0B1560 7F07CA30 3C013F80 */  lui   $at, 0x3f80
@@ -139564,6 +140993,7 @@ proc_7F07CA2C:
 /* 0B15F4 7F07CAC4 00000000 */  nop   
 # end proc_7F07CA2C
 
+.global proc_7F07CAC8
 proc_7F07CAC8:
 /* 0B15F8 7F07CAC8 27BDFF40 */  addiu $sp, $sp, -0xc0
 /* 0B15FC 7F07CACC AFBF0024 */  sw    $ra, 0x24($sp)
@@ -139756,6 +141186,7 @@ proc_7F07CAC8:
 /* 0B18D4 7F07CDA4 00000000 */  nop   
 # end proc_7F07CAC8
 
+.global proc_7F07CDA8
 proc_7F07CDA8:
 /* 0B18D8 7F07CDA8 44866000 */  mtc1  $a2, $f12
 /* 0B18DC 7F07CDAC 27BDFFE0 */  addiu $sp, $sp, -0x20
@@ -139770,6 +141201,7 @@ proc_7F07CDA8:
 /* 0B1900 7F07CDD0 00000000 */  nop   
 # end proc_7F07CDA8
 
+.global proc_7F07CDD4
 proc_7F07CDD4:
 /* 0B1904 7F07CDD4 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0B1908 7F07CDD8 3C028008 */  lui   $v0, 0x8008
@@ -139816,12 +141248,14 @@ proc_7F07CDD4:
 /* 0B19A4 7F07CE74 00000000 */  nop   
 # end proc_7F07CDD4
 
+.global proc_7F07CE78
 proc_7F07CE78:
 /* 0B19A8 7F07CE78 3C028003 */  lui   $v0, 0x8003
 /* 0B19AC 7F07CE7C 03E00008 */  jr    $ra
 /* 0B19B0 7F07CE80 8C426448 */  lw    $v0, 0x6448($v0)
 # end proc_7F07CE78
 
+.global proc_7F07CE84
 proc_7F07CE84:
 /* 0B19B4 7F07CE84 3C0E8003 */  lui   $t6, 0x8003
 /* 0B19B8 7F07CE88 8DCE6448 */  lw    $t6, 0x6448($t6)
@@ -139837,6 +141271,7 @@ proc_7F07CE84:
 /* 0B19DC 7F07CEAC 00000000 */  nop   
 # end proc_7F07CE84
 
+.global proc_7F07CEB0
 proc_7F07CEB0:
 /* 0B19E0 7F07CEB0 3C018005 */  lui   $at, 0x8005
 /* 0B19E4 7F07CEB4 C4205068 */  lwc1  $f0, 0x5068($at)
@@ -139894,12 +141329,14 @@ proc_7F07CEB0:
 /* 0B1AAC 7F07CF7C 00000000 */  nop   
 # end proc_7F07CEB0
 
+.global proc_7F07CF80
 proc_7F07CF80:
 /* 0B1AB0 7F07CF80 3C018003 */  lui   $at, 0x8003
 /* 0B1AB4 7F07CF84 03E00008 */  jr    $ra
 /* 0B1AB8 7F07CF88 C420646C */  lwc1  $f0, 0x646c($at)
 # end proc_7F07CF80
 
+.global proc_7F07CF8C
 proc_7F07CF8C:
 /* 0B1ABC 7F07CF8C 3C0E8003 */  lui   $t6, 0x8003
 /* 0B1AC0 7F07CF90 8DCE6448 */  lw    $t6, 0x6448($t6)
@@ -140086,6 +141523,7 @@ proc_7F07CF8C:
 /* 0B1D60 7F07D230 00000000 */  nop   
 # end proc_7F07CF8C
 
+.global proc_7F07D234
 proc_7F07D234:
 /* 0B1D64 7F07D234 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0B1D68 7F07D238 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -140123,6 +141561,7 @@ proc_7F07D234:
 /* 0B1DE0 7F07D2B0 00000000 */  nop   
 # end proc_7F07D234
 
+.global proc_7F07D2B4
 proc_7F07D2B4:
 /* 0B1DE4 7F07D2B4 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 0B1DE8 7F07D2B8 AFB00018 */  sw    $s0, 0x18($sp)
@@ -140260,6 +141699,7 @@ proc_7F07D2B4:
 /* 0B1FEC 7F07D4BC 27BD0080 */  addiu $sp, $sp, 0x80
 # end proc_7F07D2B4
 
+.global proc_7F07D4C0
 proc_7F07D4C0:
 /* 0B1FF0 7F07D4C0 3C038008 */  lui   $v1, 0x8008
 /* 0B1FF4 7F07D4C4 2463A0B0 */  addiu $v1, $v1, -0x5f50
@@ -140353,6 +141793,7 @@ proc_7F07D4C0:
 /* 0B2148 7F07D618 00000000 */  nop   
 # end proc_7F07D4C0
 
+.global proc_7F07D61C
 proc_7F07D61C:
 /* 0B214C 7F07D61C 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 0B2150 7F07D620 AFB30020 */  sw    $s3, 0x20($sp)
@@ -140567,12 +142008,14 @@ proc_7F07D61C:
 /* 0B2480 7F07D950 27BD0068 */  addiu $sp, $sp, 0x68
 # end proc_7F07D61C
 
+.global proc_7F07D954
 proc_7F07D954:
 /* 0B2484 7F07D954 44840000 */  mtc1  $a0, $f0
 /* 0B2488 7F07D958 03E00008 */  jr    $ra
 /* 0B248C 7F07D95C AFA40000 */  sw    $a0, ($sp)
 # end proc_7F07D954
 
+.global proc_7F07D960
 proc_7F07D960:
 /* 0B2490 7F07D960 3C038008 */  lui   $v1, 0x8008
 /* 0B2494 7F07D964 2463A0B0 */  addiu $v1, $v1, -0x5f50
@@ -140920,6 +142363,7 @@ proc_7F07D960:
 /* 0B2990 7F07DE60 00000000 */  nop   
 # end proc_7F07D960
 
+.global proc_7F07DE64
 proc_7F07DE64:
 /* 0B2994 7F07DE64 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0B2998 7F07DE68 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -140937,6 +142381,7 @@ proc_7F07DE64:
 /* 0B29C8 7F07DE98 00000000 */  nop   
 # end proc_7F07DE64
 
+.global proc_7F07DE9C
 proc_7F07DE9C:
 /* 0B29CC 7F07DE9C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0B29D0 7F07DEA0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -140966,6 +142411,7 @@ proc_7F07DE9C:
 /* 0B2A28 7F07DEF8 00000000 */  nop   
 # end proc_7F07DE9C
 
+.global proc_7F07DEFC
 proc_7F07DEFC:
 /* 0B2A2C 7F07DEFC 3C038008 */  lui   $v1, 0x8008
 /* 0B2A30 7F07DF00 2463A0B0 */  addiu $v1, $v1, -0x5f50
@@ -140980,6 +142426,7 @@ proc_7F07DEFC:
 /* 0B2A54 7F07DF24 ADE00218 */  sw    $zero, 0x218($t7)
 # end proc_7F07DEFC
 
+.global proc_7F07DF28
 proc_7F07DF28:
 /* 0B2A58 7F07DF28 1080000B */  beqz  $a0, .Lproc_7F07DF28_30
 /* 0B2A5C 7F07DF2C 3C038008 */  lui   $v1, 0x8008
@@ -141046,6 +142493,7 @@ proc_7F07DF28:
 /* 0B2B3C 7F07E00C 46001006 */  mov.s $f0, $f2
 # end proc_7F07DF28
 
+.global proc_7F07E010
 proc_7F07E010:
 /* 0B2B40 7F07E010 3C028008 */  lui   $v0, 0x8008
 /* 0B2B44 7F07E014 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -141060,6 +142508,7 @@ proc_7F07E010:
 /* 0B2B68 7F07E038 AF380218 */  sw    $t8, 0x218($t9)
 # end proc_7F07E010
 
+.global proc_7F07E03C
 proc_7F07E03C:
 /* 0B2B6C 7F07E03C 3C028008 */  lui   $v0, 0x8008
 /* 0B2B70 7F07E040 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -141074,6 +142523,7 @@ proc_7F07E03C:
 /* 0B2B94 7F07E064 AF380218 */  sw    $t8, 0x218($t9)
 # end proc_7F07E03C
 
+.global proc_7F07E068
 proc_7F07E068:
 /* 0B2B98 7F07E068 3C0E8008 */  lui   $t6, 0x8008
 /* 0B2B9C 7F07E06C 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -141088,6 +142538,7 @@ proc_7F07E068:
 /* 0B2BBC 7F07E08C 00000000 */  nop   
 # end proc_7F07E068
 
+.global proc_7F07E090
 proc_7F07E090:
 /* 0B2BC0 7F07E090 3C048008 */  lui   $a0, 0x8008
 /* 0B2BC4 7F07E094 2484A0B0 */  addiu $a0, $a0, -0x5f50
@@ -141293,6 +142744,7 @@ proc_7F07E090:
 /* 0B2EB4 7F07E384 00000000 */  nop   
 # end proc_7F07E090
 
+.global proc_7F07E388
 proc_7F07E388:
 /* 0B2EB8 7F07E388 3C028008 */  lui   $v0, 0x8008
 /* 0B2EBC 7F07E38C 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -141329,6 +142781,7 @@ proc_7F07E388:
 /* 0B2F2C 7F07E3FC 00000000 */  nop   
 # end proc_7F07E388
 
+.global proc_7F07E400
 proc_7F07E400:
 /* 0B2F30 7F07E400 3C038008 */  lui   $v1, 0x8008
 /* 0B2F34 7F07E404 2463A0B0 */  addiu $v1, $v1, -0x5f50
@@ -141346,6 +142799,7 @@ proc_7F07E400:
 /* 0B2F64 7F07E434 E70C11CC */  swc1  $f12, 0x11cc($t8)
 # end proc_7F07E400
 
+.global proc_7F07E438
 proc_7F07E438:
 /* 0B2F68 7F07E438 3C028008 */  lui   $v0, 0x8008
 /* 0B2F6C 7F07E43C 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -141363,6 +142817,7 @@ proc_7F07E438:
 /* 0B2F98 7F07E468 00000000 */  nop   
 # end proc_7F07E438
 
+.global proc_7F07E46C
 proc_7F07E46C:
 /* 0B2F9C 7F07E46C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0B2FA0 7F07E470 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -141406,6 +142861,7 @@ proc_7F07E46C:
 /* 0B3030 7F07E500 00000000 */  nop   
 # end proc_7F07E46C
 
+.global proc_7F07E504
 proc_7F07E504:
 /* 0B3034 7F07E504 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0B3038 7F07E508 3C014270 */  lui   $at, 0x4270
@@ -141419,6 +142875,7 @@ proc_7F07E504:
 /* 0B3058 7F07E528 00000000 */  nop   
 # end proc_7F07E504
 
+.global proc_7F07E52C
 proc_7F07E52C:
 /* 0B305C 7F07E52C 3C0E8008 */  lui   $t6, 0x8008
 /* 0B3060 7F07E530 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -141449,6 +142906,7 @@ proc_7F07E52C:
 /* 0B30C0 7F07E590 00000000 */  nop   
 # end proc_7F07E52C
 
+.global proc_7F07E594
 proc_7F07E594:
 /* 0B30C4 7F07E594 3C0E8008 */  lui   $t6, 0x8008
 /* 0B30C8 7F07E598 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -141479,6 +142937,7 @@ proc_7F07E594:
 /* 0B3128 7F07E5F8 00000000 */  nop   
 # end proc_7F07E594
 
+.global proc_7F07E5FC
 proc_7F07E5FC:
 /* 0B312C 7F07E5FC 3C038008 */  lui   $v1, 0x8008
 /* 0B3130 7F07E600 8C63A0B0 */  lw    $v1, -0x5f50($v1)
@@ -141495,6 +142954,7 @@ proc_7F07E5FC:
 /* 0B3158 7F07E628 00000000 */  nop   
 # end proc_7F07E5FC
 
+.global proc_7F07E62C
 proc_7F07E62C:
 /* 0B315C 7F07E62C 3C048008 */  lui   $a0, 0x8008
 /* 0B3160 7F07E630 2484A0B0 */  addiu $a0, $a0, -0x5f50
@@ -141573,6 +143033,7 @@ proc_7F07E62C:
 /* 0B326C 7F07E73C 00000000 */  nop   
 # end proc_7F07E62C
 
+.global proc_7F07E740
 proc_7F07E740:
 /* 0B3270 7F07E740 3C028008 */  lui   $v0, 0x8008
 /* 0B3274 7F07E744 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -141615,6 +143076,7 @@ proc_7F07E740:
 /* 0B32F8 7F07E7C8 00000000 */  nop   
 # end proc_7F07E740
 
+.global proc_7F07E7CC
 proc_7F07E7CC:
 /* 0B32FC 7F07E7CC 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0B3300 7F07E7D0 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -141676,6 +143138,7 @@ proc_7F07E7CC:
 /* 0B33DC 7F07E8AC 00000000 */  nop   
 # end proc_7F07E7CC
 
+.global proc_7F07E8B0
 proc_7F07E8B0:
 /* 0B33E0 7F07E8B0 3C038008 */  lui   $v1, 0x8008
 /* 0B33E4 7F07E8B4 2463A0B0 */  addiu $v1, $v1, -0x5f50
@@ -141705,6 +143168,7 @@ proc_7F07E8B0:
 /* 0B343C 7F07E90C E72C0228 */  swc1  $f12, 0x228($t9)
 # end proc_7F07E8B0
 
+.global proc_7F07E910
 proc_7F07E910:
 /* 0B3440 7F07E910 3C038008 */  lui   $v1, 0x8008
 /* 0B3444 7F07E914 2463A0B0 */  addiu $v1, $v1, -0x5f50
@@ -141731,6 +143195,7 @@ proc_7F07E910:
 /* 0B3490 7F07E960 E72C0228 */  swc1  $f12, 0x228($t9)
 # end proc_7F07E910
 
+.global proc_7F07E964
 proc_7F07E964:
 /* 0B3494 7F07E964 3C048008 */  lui   $a0, 0x8008
 /* 0B3498 7F07E968 2484A0B0 */  addiu $a0, $a0, -0x5f50
@@ -141808,6 +143273,7 @@ proc_7F07E964:
 /* 0B35A4 7F07EA74 00000000 */  nop   
 # end proc_7F07E964
 
+.global proc_7F07EA78
 proc_7F07EA78:
 /* 0B35A8 7F07EA78 3C028008 */  lui   $v0, 0x8008
 /* 0B35AC 7F07EA7C 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -141836,6 +143302,7 @@ proc_7F07EA78:
 /* 0B35FC 7F07EACC 00000000 */  nop   
 # end proc_7F07EA78
 
+.global proc_7F07EAD0
 proc_7F07EAD0:
 /* 0B3600 7F07EAD0 3C0E8008 */  lui   $t6, 0x8008
 /* 0B3604 7F07EAD4 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -141843,6 +143310,7 @@ proc_7F07EAD0:
 /* 0B360C 7F07EADC ADC401CC */  sw    $a0, 0x1cc($t6)
 # end proc_7F07EAD0
 
+.global proc_7F07EAE0
 proc_7F07EAE0:
 /* 0B3610 7F07EAE0 3C0E8008 */  lui   $t6, 0x8008
 /* 0B3614 7F07EAE4 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -141850,6 +143318,7 @@ proc_7F07EAE0:
 /* 0B361C 7F07EAEC 8DC201CC */  lw    $v0, 0x1cc($t6)
 # end proc_7F07EAE0
 
+.global proc_7F07EAF0
 proc_7F07EAF0:
 /* 0B3620 7F07EAF0 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0B3624 7F07EAF4 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -141951,6 +143420,7 @@ proc_7F07EAF0:
 /* 0B3780 7F07EC50 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F07EAF0
 
+.global proc_7F07EC54
 proc_7F07EC54:
 /* 0B3784 7F07EC54 3C0E8008 */  lui   $t6, 0x8008
 /* 0B3788 7F07EC58 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -142782,6 +144252,7 @@ proc_7F07EC54:
 /* 0B438C 7F07F85C 00000000 */  nop   
 # end proc_7F07EC54
 
+.global proc_7F07F860
 proc_7F07F860:
 /* 0B4390 7F07F860 3C0F8008 */  lui   $t7, 0x8008
 /* 0B4394 7F07F864 8DEFA0B0 */  lw    $t7, -0x5f50($t7)
@@ -142790,6 +144261,7 @@ proc_7F07F860:
 /* 0B43A0 7F07F870 ADEE01D0 */  sw    $t6, 0x1d0($t7)
 # end proc_7F07F860
 
+.global proc_7F07F874
 proc_7F07F874:
 /* 0B43A4 7F07F874 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0B43A8 7F07F878 AFB40038 */  sw    $s4, 0x38($sp)
@@ -143088,6 +144560,7 @@ proc_7F07F874:
 /* 0B47F0 7F07FCC0 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F07F874
 
+.global proc_7F07FCC4
 proc_7F07FCC4:
 /* 0B47F4 7F07FCC4 2401FFFF */  addiu $at, $zero, -1
 /* 0B47F8 7F07FCC8 14810015 */  bne   $a0, $at, .Lproc_7F07FCC4_5C
@@ -143181,6 +144654,7 @@ proc_7F07FCC4:
 /* 0B4948 7F07FE18 E440016C */  swc1  $f0, 0x16c($v0)
 # end proc_7F07FCC4
 
+.global proc_7F07FE1C
 proc_7F07FE1C:
 /* 0B494C 7F07FE1C 24010001 */  addiu $at, $zero, 1
 /* 0B4950 7F07FE20 14810015 */  bne   $a0, $at, .Lproc_7F07FE1C_5C
@@ -143274,6 +144748,7 @@ proc_7F07FE1C:
 /* 0B4AA0 7F07FF70 E4400174 */  swc1  $f0, 0x174($v0)
 # end proc_7F07FE1C
 
+.global proc_7F07FF74
 proc_7F07FF74:
 /* 0B4AA4 7F07FF74 44801000 */  mtc1  $zero, $f2
 /* 0B4AA8 7F07FF78 27BDFFE8 */  addiu $sp, $sp, -0x18
@@ -143318,6 +144793,7 @@ proc_7F07FF74:
 /* 0B4B3C 7F08000C 00000000 */  nop   
 # end proc_7F07FF74
 
+.global proc_7F080010
 proc_7F080010:
 /* 0B4B40 7F080010 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0B4B44 7F080014 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -143464,6 +144940,7 @@ proc_7F080010:
 /* 0B4D54 7F080224 00000000 */  nop   
 # end proc_7F080010
 
+.global proc_7F080228
 proc_7F080228:
 /* 0B4D58 7F080228 44801000 */  mtc1  $zero, $f2
 /* 0B4D5C 7F08022C 27BDFFE8 */  addiu $sp, $sp, -0x18
@@ -143508,6 +144985,7 @@ proc_7F080228:
 /* 0B4DF0 7F0802C0 00000000 */  nop   
 # end proc_7F080228
 
+.global proc_7F0802C4
 proc_7F0802C4:
 /* 0B4DF4 7F0802C4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0B4DF8 7F0802C8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -143655,6 +145133,7 @@ proc_7F0802C4:
 /* 0B500C 7F0804DC 00000000 */  nop   
 # end proc_7F0802C4
 
+.global proc_7F0804E0
 proc_7F0804E0:
 /* 0B5010 7F0804E0 3C028008 */  lui   $v0, 0x8008
 /* 0B5014 7F0804E4 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -143841,6 +145320,7 @@ proc_7F0804E0:
 /* 0B52DC 7F0807AC 27BD0080 */  addiu $sp, $sp, 0x80
 # end proc_7F0804E0
 
+.global proc_7F0807B0
 proc_7F0807B0:
 /* 0B52E0 7F0807B0 3C028008 */  lui   $v0, 0x8008
 /* 0B52E4 7F0807B4 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -143856,6 +145336,7 @@ proc_7F0807B0:
 /* 0B530C 7F0807DC E72C03DC */  swc1  $f12, 0x3dc($t9)
 # end proc_7F0807B0
 
+.global proc_7F0807E0
 proc_7F0807E0:
 /* 0B5310 7F0807E0 3C038008 */  lui   $v1, 0x8008
 /* 0B5314 7F0807E4 2463A0B0 */  addiu $v1, $v1, -0x5f50
@@ -143889,6 +145370,7 @@ proc_7F0807E0:
 /* 0B5384 7F080854 E5880404 */  swc1  $f8, 0x404($t4)
 # end proc_7F0807E0
 
+.global proc_7F080858
 proc_7F080858:
 /* 0B5388 7F080858 3C028008 */  lui   $v0, 0x8008
 /* 0B538C 7F08085C 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -143905,6 +145387,7 @@ proc_7F080858:
 /* 0B53B8 7F080888 00000000 */  nop   
 # end proc_7F080858
 
+.global proc_7F08088C
 proc_7F08088C:
 /* 0B53BC 7F08088C 3C0E8008 */  lui   $t6, 0x8008
 /* 0B53C0 7F080890 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -143921,6 +145404,7 @@ proc_7F08088C:
 /* 0B53E8 7F0808B8 00000000 */  nop   
 # end proc_7F08088C
 
+.global proc_7F0808BC
 proc_7F0808BC:
 /* 0B53EC 7F0808BC 3C068008 */  lui   $a2, 0x8008
 /* 0B53F0 7F0808C0 24C6A0B0 */  addiu $a2, $a2, -0x5f50
@@ -144011,6 +145495,7 @@ proc_7F0808BC:
 /* 0B553C 7F080A0C 00000000 */  nop   
 # end proc_7F0808BC
 
+.global proc_7F080A10
 proc_7F080A10:
 /* 0B5540 7F080A10 3C048008 */  lui   $a0, 0x8008
 /* 0B5544 7F080A14 2484A0B0 */  addiu $a0, $a0, -0x5f50
@@ -144044,6 +145529,7 @@ proc_7F080A10:
 /* 0B55AC 7F080A7C 00000000 */  nop   
 # end proc_7F080A10
 
+.global proc_7F080A80
 proc_7F080A80:
 /* 0B55B0 7F080A80 3C048008 */  lui   $a0, 0x8008
 /* 0B55B4 7F080A84 2484A0B0 */  addiu $a0, $a0, -0x5f50
@@ -144095,6 +145581,7 @@ proc_7F080A80:
 /* 0B5660 7F080B30 00000000 */  nop   
 # end proc_7F080A80
 
+.global proc_7F080B34
 proc_7F080B34:
 /* 0B5664 7F080B34 27BDFF30 */  addiu $sp, $sp, -0xd0
 /* 0B5668 7F080B38 AFB00038 */  sw    $s0, 0x38($sp)
@@ -144243,6 +145730,7 @@ proc_7F080B34:
 /* 0B588C 7F080D5C 27BD00D0 */  addiu $sp, $sp, 0xd0
 # end proc_7F080B34
 
+.global proc_7F080D60
 proc_7F080D60:
 /* 0B5890 7F080D60 3C078003 */  lui   $a3, 0x8003
 /* 0B5894 7F080D64 8CE76450 */  lw    $a3, 0x6450($a3)
@@ -144287,6 +145775,7 @@ proc_7F080D60:
 /* 0B5924 7F080DF4 00000000 */  nop   
 # end proc_7F080D60
 
+.global proc_7F080DF8
 proc_7F080DF8:
 /* 0B5928 7F080DF8 3C0E8003 */  lui   $t6, 0x8003
 /* 0B592C 7F080DFC 8DCE6448 */  lw    $t6, 0x6448($t6)
@@ -144735,6 +146224,7 @@ proc_7F080DF8:
 /* 0B5FA4 7F081474 00000000 */  nop   
 # end proc_7F080DF8
 
+.global proc_7F081478
 proc_7F081478:
 /* 0B5FA8 7F081478 3C038008 */  lui   $v1, 0x8008
 /* 0B5FAC 7F08147C 3C088008 */  lui   $t0, 0x8008
@@ -144944,6 +146434,7 @@ proc_7F081478:
 /* 0B62BC 7F08178C 00000000 */  nop   
 # end proc_7F081478
 
+.global proc_7F081790
 proc_7F081790:
 /* 0B62C0 7F081790 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0B62C4 7F081794 AFB00018 */  sw    $s0, 0x18($sp)
@@ -145075,6 +146566,7 @@ proc_7F081790:
 /* 0B64A0 7F081970 00000000 */  nop   
 # end proc_7F081790
 
+.global proc_7F081974
 proc_7F081974:
 /* 0B64A4 7F081974 27BDFE40 */  addiu $sp, $sp, -0x1c0
 /* 0B64A8 7F081978 F7B40030 */  sdc1  $f20, 0x30($sp)
@@ -147767,6 +149259,7 @@ proc_7F081974:
 /* 0B8AF4 7F083FC4 27BD01C0 */  addiu $sp, $sp, 0x1c0
 # end proc_7F081974
 
+.global proc_7F083FC8
 proc_7F083FC8:
 /* 0B8AF8 7F083FC8 3C028008 */  lui   $v0, 0x8008
 /* 0B8AFC 7F083FCC 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -148016,6 +149509,7 @@ proc_7F083FC8:
 /* 0B8E8C 7F08435C 00000000 */  nop   
 # end proc_7F083FC8
 
+.global proc_7F084360
 proc_7F084360:
 /* 0B8E90 7F084360 3C048008 */  lui   $a0, 0x8008
 /* 0B8E94 7F084364 248499A0 */  addiu $a0, $a0, -0x6660
@@ -148217,6 +149711,7 @@ proc_7F084360:
 /* 0B9174 7F084644 00000000 */  nop   
 # end proc_7F084360
 
+.global proc_7F084648
 proc_7F084648:
 /* 0B9178 7F084648 27BDFC48 */  addiu $sp, $sp, -0x3b8
 /* 0B917C 7F08464C 3C0E8003 */  lui   $t6, 0x8003
@@ -150628,6 +152123,7 @@ proc_7F084648:
 /* 0BB4BC 7F08698C 27BD03B8 */  addiu $sp, $sp, 0x3b8
 # end proc_7F084648
 
+.global proc_7F086990
 proc_7F086990:
 /* 0BB4C0 7F086990 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 0BB4C4 7F086994 3C0F8003 */  lui   $t7, 0x8003
@@ -150790,6 +152286,7 @@ proc_7F086990:
 /* 0BB724 7F086BF4 00000000 */  nop   
 # end proc_7F086990
 
+.global proc_7F086BF8
 proc_7F086BF8:
 /* 0BB728 7F086BF8 3C0E8003 */  lui   $t6, 0x8003
 /* 0BB72C 7F086BFC 8DCE642C */  lw    $t6, 0x642c($t6)
@@ -150803,6 +152300,7 @@ proc_7F086BF8:
 /* 0BB748 7F086C18 00000000 */  nop   
 # end proc_7F086BF8
 
+.global proc_7F086C1C
 proc_7F086C1C:
 /* 0BB74C 7F086C1C 3C0E8003 */  lui   $t6, 0x8003
 /* 0BB750 7F086C20 8DCE642C */  lw    $t6, 0x642c($t6)
@@ -150816,6 +152314,7 @@ proc_7F086C1C:
 /* 0BB76C 7F086C3C 00000000 */  nop   
 # end proc_7F086C1C
 
+.global proc_7F086C40
 proc_7F086C40:
 /* 0BB770 7F086C40 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0BB774 7F086C44 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -150856,6 +152355,7 @@ proc_7F086C40:
 /* 0BB7F0 7F086CC0 00000000 */  nop   
 # end proc_7F086C40
 
+.global proc_7F086CC4
 proc_7F086CC4:
 /* 0BB7F4 7F086CC4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0BB7F8 7F086CC8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -150885,6 +152385,7 @@ proc_7F086CC4:
 /* 0BB850 7F086D20 00000000 */  nop   
 # end proc_7F086CC4
 
+.global proc_7F086D24
 proc_7F086D24:
 /* 0BB854 7F086D24 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0BB858 7F086D28 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -150963,6 +152464,7 @@ proc_7F086D24:
 /* 0BB964 7F086E34 00000000 */  nop   
 # end proc_7F086D24
 
+.global proc_7F086E38
 proc_7F086E38:
 /* 0BB968 7F086E38 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0BB96C 7F086E3C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -151064,6 +152566,7 @@ proc_7F086E38:
 /* 0BBAC8 7F086F98 00000000 */  nop   
 # end proc_7F086E38
 
+.global proc_7F086F9C
 proc_7F086F9C:
 /* 0BBACC 7F086F9C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0BBAD0 7F086FA0 3C014270 */  lui   $at, 0x4270
@@ -151492,6 +152995,7 @@ proc_7F086F9C:
 /* 0BC110 7F0875E0 00000000 */  nop   
 # end proc_7F086F9C
 
+.global proc_7F0875E4
 proc_7F0875E4:
 /* 0BC114 7F0875E4 3C058008 */  lui   $a1, 0x8008
 /* 0BC118 7F0875E8 8CA5A0B0 */  lw    $a1, -0x5f50($a1)
@@ -151527,6 +153031,7 @@ proc_7F0875E4:
 /* 0BC190 7F087660 00000000 */  nop   
 # end proc_7F0875E4
 
+.global proc_7F087664
 proc_7F087664:
 /* 0BC194 7F087664 3C038008 */  lui   $v1, 0x8008
 /* 0BC198 7F087668 2463A0B0 */  addiu $v1, $v1, -0x5f50
@@ -151554,6 +153059,7 @@ proc_7F087664:
 /* 0BC1F0 7F0876C0 00000000 */  nop   
 # end proc_7F087664
 
+.global proc_7F0876C4
 proc_7F0876C4:
 /* 0BC1F4 7F0876C4 27BDFEB8 */  addiu $sp, $sp, -0x148
 /* 0BC1F8 7F0876C8 AFBF0044 */  sw    $ra, 0x44($sp)
@@ -151770,6 +153276,7 @@ proc_7F0876C4:
 /* 0BC534 7F087A04 27BD0148 */  addiu $sp, $sp, 0x148
 # end proc_7F0876C4
 
+.global proc_7F087A08
 proc_7F087A08:
 /* 0BC538 7F087A08 3C028008 */  lui   $v0, 0x8008
 /* 0BC53C 7F087A0C 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -151910,6 +153417,7 @@ proc_7F087A08:
 /* 0BC740 7F087C10 00000000 */  nop   
 # end proc_7F087A08
 
+.global proc_7F087C14
 proc_7F087C14:
 /* 0BC744 7F087C14 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0BC748 7F087C18 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -152073,6 +153581,7 @@ proc_7F087C14:
 /* 0BC9A0 7F087E70 00000000 */  nop   
 # end proc_7F087C14
 
+.global proc_7F087E74
 proc_7F087E74:
 /* 0BC9A4 7F087E74 3C028008 */  lui   $v0, 0x8008
 /* 0BC9A8 7F087E78 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -152585,6 +154094,7 @@ proc_7F087E74:
 /* 0BD144 7F088614 00000000 */  nop   
 # end proc_7F087E74
 
+.global proc_7F088618
 proc_7F088618:
 /* 0BD148 7F088618 27BDFF40 */  addiu $sp, $sp, -0xc0
 /* 0BD14C 7F08861C AFB20038 */  sw    $s2, 0x38($sp)
@@ -152768,6 +154278,7 @@ proc_7F088618:
 /* 0BD414 7F0888E4 27BD00C0 */  addiu $sp, $sp, 0xc0
 # end proc_7F088618
 
+.global proc_7F0888E8
 proc_7F0888E8:
 /* 0BD418 7F0888E8 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 0BD41C 7F0888EC 3C0F8003 */  lui   $t7, 0x8003
@@ -153035,6 +154546,7 @@ proc_7F0888E8:
 /* 0BD804 7F088CD4 27BD0058 */  addiu $sp, $sp, 0x58
 # end proc_7F0888E8
 
+.global proc_7F088CD8
 proc_7F088CD8:
 /* 0BD808 7F088CD8 27BDFF48 */  addiu $sp, $sp, -0xb8
 /* 0BD80C 7F088CDC AFBF005C */  sw    $ra, 0x5c($sp)
@@ -153397,6 +154909,7 @@ proc_7F088CD8:
 /* 0BDD34 7F089204 27BD00B8 */  addiu $sp, $sp, 0xb8
 # end proc_7F088CD8
 
+.global proc_7F089208
 proc_7F089208:
 /* 0BDD38 7F089208 3C0E8008 */  lui   $t6, 0x8008
 /* 0BDD3C 7F08920C 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -153723,6 +155236,7 @@ proc_7F089208:
 /* 0BE1EC 7F0896BC 00000000 */  nop   
 # end proc_7F089208
 
+.global proc_7F0896C0
 proc_7F0896C0:
 /* 0BE1F0 7F0896C0 3C058008 */  lui   $a1, 0x8008
 /* 0BE1F4 7F0896C4 8CA59DA0 */  lw    $a1, -0x6260($a1)
@@ -153750,6 +155264,7 @@ proc_7F0896C0:
 /* 0BE244 7F089714 00000000 */  nop   
 # end proc_7F0896C0
 
+.global proc_7F089718
 proc_7F089718:
 /* 0BE248 7F089718 3C038003 */  lui   $v1, 0x8003
 /* 0BE24C 7F08971C 246364D0 */  addiu $v1, $v1, 0x64d0
@@ -153774,17 +155289,20 @@ proc_7F089718:
 /* 0BE298 7F089768 E42464D4 */  swc1  $f4, %lo(0x800364D4)($at) # $f4, 0x64d4($at)
 # end proc_7F089718
 
+.global proc_7F08976C
 proc_7F08976C:
 /* 0BE29C 7F08976C 3C018003 */  lui   $at, 0x8003
 /* 0BE2A0 7F089770 03E00008 */  jr    $ra
 /* 0BE2A4 7F089774 E42C64CC */  swc1  $f12, %lo(0x800364CC)($at) # $f12, 0x64cc($at)
 # end proc_7F08976C
 
+.global proc_7F089778
 proc_7F089778:
 /* 0BE2A8 7F089778 03E00008 */  jr    $ra
 /* 0BE2AC 7F08977C C4800074 */  lwc1  $f0, 0x74($a0)
 # end proc_7F089778
 
+.global proc_7F089780
 proc_7F089780:
 /* 0BE2B0 7F089780 C48429BC */  lwc1  $f4, 0x29bc($a0)
 /* 0BE2B4 7F089784 C4860088 */  lwc1  $f6, 0x88($a0)
@@ -153794,6 +155312,7 @@ proc_7F089780:
 /* 0BE2C4 7F089794 460A4000 */  add.s $f0, $f8, $f10
 # end proc_7F089780
 
+.global proc_7F089798
 proc_7F089798:
 /* 0BE2C8 7F089798 3C0E8008 */  lui   $t6, 0x8008
 /* 0BE2CC 7F08979C 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -153801,6 +155320,7 @@ proc_7F089798:
 /* 0BE2D4 7F0897A4 8DC200A8 */  lw    $v0, 0xa8($t6)
 # end proc_7F089798
 
+.global proc_7F0897A8
 proc_7F0897A8:
 /* 0BE2D8 7F0897A8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0BE2DC 7F0897AC AFB00018 */  sw    $s0, 0x18($sp)
@@ -153889,6 +155409,7 @@ proc_7F0897A8:
 /* 0BE414 7F0898E4 00000000 */  nop   
 # end proc_7F0897A8
 
+.global proc_7F0898E8
 proc_7F0898E8:
 /* 0BE418 7F0898E8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0BE41C 7F0898EC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -153905,6 +155426,7 @@ proc_7F0898E8:
 /* 0BE448 7F089918 00000000 */  nop   
 # end proc_7F0898E8
 
+.global proc_7F08991C
 proc_7F08991C:
 /* 0BE44C 7F08991C 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0BE450 7F089920 3C0E8008 */  lui   $t6, 0x8008
@@ -154262,6 +155784,7 @@ proc_7F08991C:
 /* 0BE978 7F089E48 00000000 */  nop   
 # end proc_7F08991C
 
+.global proc_7F089E4C
 proc_7F089E4C:
 /* 0BE97C 7F089E4C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0BE980 7F089E50 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -154287,6 +155810,7 @@ proc_7F089E4C:
 /* 0BE9D0 7F089EA0 00000000 */  nop   
 # end proc_7F089E4C
 
+.global proc_7F089EA4
 proc_7F089EA4:
 /* 0BE9D4 7F089EA4 3C0E8008 */  lui   $t6, 0x8008
 /* 0BE9D8 7F089EA8 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -154296,6 +155820,7 @@ proc_7F089EA4:
 /* 0BE9E8 7F089EB8 39E20001 */  xori  $v0, $t7, 1
 # end proc_7F089EA4
 
+.global proc_7F089EBC
 proc_7F089EBC:
 /* 0BE9EC 7F089EBC 3C0E8008 */  lui   $t6, 0x8008
 /* 0BE9F0 7F089EC0 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -154305,6 +155830,7 @@ proc_7F089EBC:
 /* 0BEA00 7F089ED0 01E01025 */  or    $v0, $t7, $zero
 # end proc_7F089EBC
 
+.global proc_7F089ED4
 proc_7F089ED4:
 /* 0BEA04 7F089ED4 3C0E8008 */  lui   $t6, 0x8008
 /* 0BEA08 7F089ED8 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -154312,6 +155838,7 @@ proc_7F089ED4:
 /* 0BEA10 7F089EE0 C5C0019C */  lwc1  $f0, 0x19c($t6)
 # end proc_7F089ED4
 
+.global proc_7F089EE4
 proc_7F089EE4:
 /* 0BEA14 7F089EE4 3C0E8008 */  lui   $t6, 0x8008
 /* 0BEA18 7F089EE8 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -154326,6 +155853,7 @@ proc_7F089EE4:
 /* 0BEA3C 7F089F0C 46025003 */  div.s $f0, $f10, $f2
 # end proc_7F089EE4
 
+.global proc_7F089F10
 proc_7F089F10:
 /* 0BEA40 7F089F10 3C0E8008 */  lui   $t6, 0x8008
 /* 0BEA44 7F089F14 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -154339,6 +155867,7 @@ proc_7F089F10:
 /* 0BEA64 7F089F34 460A4003 */  div.s $f0, $f8, $f10
 # end proc_7F089F10
 
+.global proc_7F089F38
 proc_7F089F38:
 /* 0BEA68 7F089F38 3C0E8008 */  lui   $t6, 0x8008
 /* 0BEA6C 7F089F3C 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -154346,6 +155875,7 @@ proc_7F089F38:
 /* 0BEA74 7F089F44 8DC200D0 */  lw    $v0, 0xd0($t6)
 # end proc_7F089F38
 
+.global proc_7F089F48
 proc_7F089F48:
 /* 0BEA78 7F089F48 3C0E8008 */  lui   $t6, 0x8008
 /* 0BEA7C 7F089F4C 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -154353,6 +155883,7 @@ proc_7F089F48:
 /* 0BEA84 7F089F54 A1C412B6 */  sb    $a0, 0x12b6($t6)
 # end proc_7F089F48
 
+.global proc_7F089F58
 proc_7F089F58:
 /* 0BEA88 7F089F58 3C0E8008 */  lui   $t6, 0x8008
 /* 0BEA8C 7F089F5C 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -154360,30 +155891,35 @@ proc_7F089F58:
 /* 0BEA94 7F089F64 91C212B6 */  lbu   $v0, 0x12b6($t6)
 # end proc_7F089F58
 
+.global proc_7F089F68
 proc_7F089F68:
 /* 0BEA98 7F089F68 3C018003 */  lui   $at, 0x8003
 /* 0BEA9C 7F089F6C 03E00008 */  jr    $ra
 /* 0BEAA0 7F089F70 AC2464C4 */  sw    $a0, %lo(0x800364C4)($at) # $a0, 0x64c4($at)
 # end proc_7F089F68
 
+.global proc_7F089F74
 proc_7F089F74:
 /* 0BEAA4 7F089F74 3C028003 */  lui   $v0, 0x8003
 /* 0BEAA8 7F089F78 03E00008 */  jr    $ra
 /* 0BEAAC 7F089F7C 8C4264C4 */  lw    $v0, 0x64c4($v0)
 # end proc_7F089F74
 
+.global proc_7F089F80
 proc_7F089F80:
 /* 0BEAB0 7F089F80 3C018003 */  lui   $at, 0x8003
 /* 0BEAB4 7F089F84 03E00008 */  jr    $ra
 /* 0BEAB8 7F089F88 AC2464C8 */  sw    $a0, %lo(0x800364C8)($at) # $a0, 0x64c8($at)
 # end proc_7F089F80
 
+.global proc_7F089F8C
 proc_7F089F8C:
 /* 0BEABC 7F089F8C 3C028003 */  lui   $v0, 0x8003
 /* 0BEAC0 7F089F90 03E00008 */  jr    $ra
 /* 0BEAC4 7F089F94 8C4264C8 */  lw    $v0, 0x64c8($v0)
 # end proc_7F089F8C
 
+.global proc_7F089F98
 proc_7F089F98:
 /* 0BEAC8 7F089F98 3C038008 */  lui   $v1, 0x8008
 /* 0BEACC 7F089F9C 8C63A0B0 */  lw    $v1, -0x5f50($v1)
@@ -154403,6 +155939,7 @@ proc_7F089F98:
 /* 0BEB00 7F089FD0 00000000 */  nop   
 # end proc_7F089F98
 
+.global proc_7F089FD4
 proc_7F089FD4:
 /* 0BEB04 7F089FD4 3C038008 */  lui   $v1, 0x8008
 /* 0BEB08 7F089FD8 8C63A0B0 */  lw    $v1, -0x5f50($v1)
@@ -154418,6 +155955,7 @@ proc_7F089FD4:
 /* 0BEB2C 7F089FFC 00000000 */  nop   
 # end proc_7F089FD4
 
+.global proc_7F08A000
 proc_7F08A000:
 /* 0BEB30 7F08A000 3C038008 */  lui   $v1, 0x8008
 /* 0BEB34 7F08A004 8C63A0B0 */  lw    $v1, -0x5f50($v1)
@@ -154433,6 +155971,7 @@ proc_7F08A000:
 /* 0BEB58 7F08A028 00000000 */  nop   
 # end proc_7F08A000
 
+.global proc_7F08A02C
 proc_7F08A02C:
 /* 0BEB5C 7F08A02C 3C028008 */  lui   $v0, 0x8008
 /* 0BEB60 7F08A030 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -154440,6 +155979,7 @@ proc_7F08A02C:
 /* 0BEB68 7F08A038 24420408 */  addiu $v0, $v0, 0x408
 # end proc_7F08A02C
 
+.global proc_7F08A03C
 proc_7F08A03C:
 /* 0BEB6C 7F08A03C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0BEB70 7F08A040 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -154474,6 +156014,7 @@ proc_7F08A03C:
 /* 0BEBDC 7F08A0AC 00000000 */  nop   
 # end proc_7F08A03C
 
+.global proc_7F08A0B0
 proc_7F08A0B0:
 /* 0BEBE0 7F08A0B0 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0BEBE4 7F08A0B4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -154540,6 +156081,7 @@ proc_7F08A0B0:
 /* 0BECC8 7F08A198 00000000 */  nop   
 # end proc_7F08A0B0
 
+.global proc_7F08A19C
 proc_7F08A19C:
 /* 0BECCC 7F08A19C 3C0E8003 */  lui   $t6, 0x8003
 /* 0BECD0 7F08A1A0 8DCE6448 */  lw    $t6, 0x6448($t6)
@@ -154599,6 +156141,7 @@ proc_7F08A19C:
 /* 0BEDA0 7F08A270 00000000 */  nop   
 # end proc_7F08A19C
 
+.global proc_7F08A274
 proc_7F08A274:
 /* 0BEDA4 7F08A274 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0BEDA8 7F08A278 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -154632,6 +156175,7 @@ proc_7F08A274:
 /* 0BEE18 7F08A2E8 00000000 */  nop   
 # end proc_7F08A274
 
+.global proc_7F08A2EC
 proc_7F08A2EC:
 /* 0BEE1C 7F08A2EC 3C0E8008 */  lui   $t6, 0x8008
 /* 0BEE20 7F08A2F0 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -154639,6 +156183,7 @@ proc_7F08A2EC:
 /* 0BEE28 7F08A2F8 C5C000DC */  lwc1  $f0, 0xdc($t6)
 # end proc_7F08A2EC
 
+.global proc_7F08A2FC
 proc_7F08A2FC:
 /* 0BEE2C 7F08A2FC 3C0E8008 */  lui   $t6, 0x8008
 /* 0BEE30 7F08A300 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -154646,6 +156191,7 @@ proc_7F08A2FC:
 /* 0BEE38 7F08A308 C5C000E0 */  lwc1  $f0, 0xe0($t6)
 # end proc_7F08A2FC
 
+.global proc_7F08A30C
 proc_7F08A30C:
 /* 0BEE3C 7F08A30C 3C028008 */  lui   $v0, 0x8008
 /* 0BEE40 7F08A310 8C42A0B4 */  lw    $v0, -0x5f4c($v0)
@@ -154658,6 +156204,7 @@ proc_7F08A30C:
 /* 0BEE5C 7F08A32C E5CC00E0 */  swc1  $f12, 0xe0($t6)
 # end proc_7F08A30C
 
+.global proc_7F08A330
 proc_7F08A330:
 /* 0BEE60 7F08A330 3C028008 */  lui   $v0, 0x8008
 /* 0BEE64 7F08A334 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -154681,6 +156228,7 @@ proc_7F08A330:
 /* 0BEEAC 7F08A37C AC2868A4 */  sw    $t0, %lo(0x800368A4)($at) # $t0, 0x68a4($at)
 # end proc_7F08A330
 
+.global proc_7F08A380
 proc_7F08A380:
 /* 0BEEB0 7F08A380 3C028008 */  lui   $v0, 0x8008
 /* 0BEEB4 7F08A384 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -154691,6 +156239,7 @@ proc_7F08A380:
 /* 0BEEC8 7F08A398 AC5811D8 */  sw    $t8, 0x11d8($v0)
 # end proc_7F08A380
 
+.global proc_7F08A39C
 proc_7F08A39C:
 /* 0BEECC 7F08A39C 3C028008 */  lui   $v0, 0x8008
 /* 0BEED0 7F08A3A0 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -154700,6 +156249,7 @@ proc_7F08A39C:
 /* 0BEEE0 7F08A3B0 AC4F11D8 */  sw    $t7, 0x11d8($v0)
 # end proc_7F08A39C
 
+.global proc_7F08A3B4
 proc_7F08A3B4:
 /* 0BEEE4 7F08A3B4 3C018003 */  lui   $at, 0x8003
 /* 0BEEE8 7F08A3B8 AC2468A4 */  sw    $a0, %lo(0x800368A4)($at) # $a0, 0x68a4($at)
@@ -154708,6 +156258,7 @@ proc_7F08A3B4:
 /* 0BEEF4 7F08A3C4 AC2568A0 */  sw    $a1, %lo(0x800368A0)($at) # $a1, 0x68a0($at)
 # end proc_7F08A3B4
 
+.global proc_7F08A3C8
 proc_7F08A3C8:
 /* 0BEEF8 7F08A3C8 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0BEEFC 7F08A3CC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -154784,6 +156335,7 @@ proc_7F08A3C8:
 /* 0BF010 7F08A4E0 00000000 */  nop   
 # end proc_7F08A3C8
 
+.global proc_7F08A4E4
 proc_7F08A4E4:
 /* 0BF014 7F08A4E4 3C028008 */  lui   $v0, 0x8008
 /* 0BF018 7F08A4E8 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -154862,6 +156414,7 @@ proc_7F08A4E4:
 /* 0BF128 7F08A5F8 00000000 */  nop   
 # end proc_7F08A4E4
 
+.global proc_7F08A5FC
 proc_7F08A5FC:
 /* 0BF12C 7F08A5FC 3C028008 */  lui   $v0, 0x8008
 /* 0BF130 7F08A600 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -155068,6 +156621,7 @@ proc_7F08A5FC:
 /* 0BF42C 7F08A8FC 00000000 */  nop   
 # end proc_7F08A5FC
 
+.global proc_7F08A900
 proc_7F08A900:
 /* 0BF430 7F08A900 240EFFFF */  addiu $t6, $zero, -1
 /* 0BF434 7F08A904 3C018003 */  lui   $at, 0x8003
@@ -155081,6 +156635,7 @@ proc_7F08A900:
 /* 0BF454 7F08A924 AC2068B4 */  sw    $zero, %lo(0x800368B4)($at) # $zero, 0x68b4($at)
 # end proc_7F08A900
 
+.global proc_7F08A928
 proc_7F08A928:
 /* 0BF458 7F08A928 3C028003 */  lui   $v0, 0x8003
 /* 0BF45C 7F08A92C 244268B4 */  addiu $v0, $v0, 0x68b4
@@ -155091,6 +156646,7 @@ proc_7F08A928:
 /* 0BF470 7F08A940 AC580000 */  sw    $t8, ($v0)
 # end proc_7F08A928
 
+.global proc_7F08A944
 proc_7F08A944:
 /* 0BF474 7F08A944 3C028003 */  lui   $v0, 0x8003
 /* 0BF478 7F08A948 244268B4 */  addiu $v0, $v0, 0x68b4
@@ -155100,6 +156656,7 @@ proc_7F08A944:
 /* 0BF488 7F08A958 AC4F0000 */  sw    $t7, ($v0)
 # end proc_7F08A944
 
+.global proc_7F08A95C
 proc_7F08A95C:
 /* 0BF48C 7F08A95C 3C078003 */  lui   $a3, 0x8003
 /* 0BF490 7F08A960 24E768AC */  addiu $a3, $a3, 0x68ac
@@ -155144,6 +156701,7 @@ proc_7F08A95C:
 /* 0BF524 7F08A9F4 00000000 */  nop   
 # end proc_7F08A95C
 
+.global proc_7F08A9F8
 proc_7F08A9F8:
 /* 0BF528 7F08A9F8 3C0E8003 */  lui   $t6, 0x8003
 /* 0BF52C 7F08A9FC 8DCE68B4 */  lw    $t6, 0x68b4($t6)
@@ -155212,6 +156770,7 @@ proc_7F08A9F8:
 /* 0BF614 7F08AAE4 00000000 */  nop   
 # end proc_7F08A9F8
 
+.global proc_7F08AAE8
 proc_7F08AAE8:
 /* 0BF618 7F08AAE8 3C0E8003 */  lui   $t6, 0x8003
 /* 0BF61C 7F08AAEC 8DCE68B4 */  lw    $t6, 0x68b4($t6)
@@ -155607,6 +157166,7 @@ proc_7F08AAE8:
 /* 0BFC1C 7F08B0EC 27BD00E8 */  addiu $sp, $sp, 0xe8
 # end proc_7F08AAE8
 
+.global proc_7F08B0F0
 proc_7F08B0F0:
 /* 0BFC20 7F08B0F0 27BDFF08 */  addiu $sp, $sp, -0xf8
 /* 0BFC24 7F08B0F4 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -156429,11 +157989,13 @@ proc_7F08B0F0:
 /* 0C07E4 7F08BCB4 27BD00F8 */  addiu $sp, $sp, 0xf8
 # end proc_7F08B0F0
 
+.global proc_7F08BCB8
 proc_7F08BCB8:
 /* 0C07E8 7F08BCB8 03E00008 */  jr    $ra
 /* 0C07EC 7F08BCBC 00801025 */  or    $v0, $a0, $zero
 # end proc_7F08BCB8
 
+.global proc_7F08BCC0
 proc_7F08BCC0:
 /* 0C07F0 7F08BCC0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C07F4 7F08BCC4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -156451,6 +158013,7 @@ proc_7F08BCC0:
 /* 0C0820 7F08BCF0 00000000 */  nop   
 # end proc_7F08BCC0
 
+.global proc_7F08BCF4
 proc_7F08BCF4:
 /* 0C0824 7F08BCF4 3C0E0102 */  lui   $t6, 0x102
 /* 0C0828 7F08BCF8 35CE0040 */  ori   $t6, $t6, 0x40
@@ -156463,6 +158026,7 @@ proc_7F08BCF4:
 /* 0C0844 7F08BD14 AC980004 */  sw    $t8, 4($a0)
 # end proc_7F08BCF4
 
+.global proc_7F08BD18
 proc_7F08BD18:
 /* 0C0848 7F08BD18 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 0C084C 7F08BD1C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -156478,6 +158042,7 @@ proc_7F08BD18:
 /* 0C0874 7F08BD44 00000000 */  nop   
 # end proc_7F08BD18
 
+.global proc_7F08BD48
 proc_7F08BD48:
 /* 0C0878 7F08BD48 27BDFF88 */  addiu $sp, $sp, -0x78
 /* 0C087C 7F08BD4C AFB40028 */  sw    $s4, 0x28($sp)
@@ -156514,6 +158079,7 @@ proc_7F08BD48:
 /* 0C08F0 7F08BDC0 27BD0078 */  addiu $sp, $sp, 0x78
 # end proc_7F08BD48
 
+.global proc_7F08BDC4
 proc_7F08BDC4:
 /* 0C08F4 7F08BDC4 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 0C08F8 7F08BDC8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -156543,6 +158109,7 @@ proc_7F08BDC4:
 /* 0C0958 7F08BE28 00000000 */  nop   
 # end proc_7F08BDC4
 
+.global proc_7F08BE2C
 proc_7F08BE2C:
 /* 0C095C 7F08BE2C 27BDFF88 */  addiu $sp, $sp, -0x78
 /* 0C0960 7F08BE30 AFB40024 */  sw    $s4, 0x24($sp)
@@ -156596,6 +158163,7 @@ proc_7F08BE2C:
 /* 0C0A18 7F08BEE8 27BD0078 */  addiu $sp, $sp, 0x78
 # end proc_7F08BE2C
 
+.global proc_7F08BEEC
 proc_7F08BEEC:
 /* 0C0A1C 7F08BEEC 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 0C0A20 7F08BEF0 AFB50028 */  sw    $s5, 0x28($sp)
@@ -156652,12 +158220,14 @@ proc_7F08BEEC:
 /* 0C0AE4 7F08BFB4 27BD0080 */  addiu $sp, $sp, 0x80
 # end proc_7F08BEEC
 
+.global proc_7F08BFB8
 proc_7F08BFB8:
 /* 0C0AE8 7F08BFB8 3C028008 */  lui   $v0, 0x8008
 /* 0C0AEC 7F08BFBC 03E00008 */  jr    $ra
 /* 0C0AF0 7F08BFC0 8C429A20 */  lw    $v0, -0x65e0($v0)
 # end proc_7F08BFB8
 
+.global proc_7F08BFC4
 proc_7F08BFC4:
 /* 0C0AF4 7F08BFC4 3C0F8005 */  lui   $t7, 0x8005
 /* 0C0AF8 7F08BFC8 8DEF837C */  lw    $t7, -0x7c84($t7)
@@ -156672,6 +158242,7 @@ proc_7F08BFC4:
 /* 0C0B1C 7F08BFEC AC2099A0 */  sw    $zero, %lo(0x800799A0)($at) # $zero, -0x6660($at)
 # end proc_7F08BFC4
 
+.global proc_7F08BFF0
 proc_7F08BFF0:
 /* 0C0B20 7F08BFF0 3C058008 */  lui   $a1, 0x8008
 /* 0C0B24 7F08BFF4 24A5A0B0 */  addiu $a1, $a1, -0x5f50
@@ -156702,6 +158273,7 @@ proc_7F08BFF0:
 /* 0C0B80 7F08C050 AD2011F0 */  sw    $zero, 0x11f0($t1)
 # end proc_7F08BFF0
 
+.global proc_7F08C054
 proc_7F08C054:
 /* 0C0B84 7F08C054 27BDFFF8 */  addiu $sp, $sp, -8
 /* 0C0B88 7F08C058 AFB00004 */  sw    $s0, 4($sp)
@@ -156799,6 +158371,7 @@ proc_7F08C054:
 /* 0C0CC0 7F08C190 27BD0008 */  addiu $sp, $sp, 8
 # end proc_7F08C054
 
+.global proc_7F08C194
 proc_7F08C194:
 /* 0C0CC4 7F08C194 3C038008 */  lui   $v1, 0x8008
 /* 0C0CC8 7F08C198 2463A0B0 */  addiu $v1, $v1, -0x5f50
@@ -156830,6 +158403,7 @@ proc_7F08C194:
 /* 0C0D28 7F08C1F8 00000000 */  nop   
 # end proc_7F08C194
 
+.global proc_7F08C1FC
 proc_7F08C1FC:
 /* 0C0D2C 7F08C1FC 3C068008 */  lui   $a2, 0x8008
 /* 0C0D30 7F08C200 8CC6A0B0 */  lw    $a2, -0x5f50($a2)
@@ -156853,6 +158427,7 @@ proc_7F08C1FC:
 /* 0C0D70 7F08C240 AC8F0000 */  sw    $t7, ($a0)
 # end proc_7F08C1FC
 
+.global proc_7F08C244
 proc_7F08C244:
 /* 0C0D74 7F08C244 3C038008 */  lui   $v1, 0x8008
 /* 0C0D78 7F08C248 8C63A0B0 */  lw    $v1, -0x5f50($v1)
@@ -156881,6 +158456,7 @@ proc_7F08C244:
 /* 0C0DC8 7F08C298 00000000 */  nop   
 # end proc_7F08C244
 
+.global proc_7F08C29C
 proc_7F08C29C:
 /* 0C0DCC 7F08C29C 3C0E8008 */  lui   $t6, 0x8008
 /* 0C0DD0 7F08C2A0 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -156888,6 +158464,7 @@ proc_7F08C29C:
 /* 0C0DD8 7F08C2A8 ADC411EC */  sw    $a0, 0x11ec($t6)
 # end proc_7F08C29C
 
+.global proc_7F08C2AC
 proc_7F08C2AC:
 /* 0C0DDC 7F08C2AC 3C0E8008 */  lui   $t6, 0x8008
 /* 0C0DE0 7F08C2B0 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -156895,6 +158472,7 @@ proc_7F08C2AC:
 /* 0C0DE8 7F08C2B8 8DC211EC */  lw    $v0, 0x11ec($t6)
 # end proc_7F08C2AC
 
+.global proc_7F08C2BC
 proc_7F08C2BC:
 /* 0C0DEC 7F08C2BC 3C0E8008 */  lui   $t6, 0x8008
 /* 0C0DF0 7F08C2C0 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -156924,6 +158502,7 @@ proc_7F08C2BC:
 /* 0C0E40 7F08C310 00000000 */  nop   
 # end proc_7F08C2BC
 
+.global is_weapon_in_inv
 is_weapon_in_inv:
 /* 0C0E44 7F08C314 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C0E48 7F08C318 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -156936,6 +158515,7 @@ is_weapon_in_inv:
 /* 0C0E64 7F08C334 27BD0018 */  addiu $sp, $sp, 0x18
 # end is_weapon_in_inv
 
+.global proc_7F08C338
 proc_7F08C338:
 /* 0C0E68 7F08C338 3C0E8008 */  lui   $t6, 0x8008
 /* 0C0E6C 7F08C33C 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -156968,6 +158548,7 @@ proc_7F08C338:
 /* 0C0EC8 7F08C398 00000000 */  nop   
 # end proc_7F08C338
 
+.global proc_7F08C39C
 proc_7F08C39C:
 /* 0C0ECC 7F08C39C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C0ED0 7F08C3A0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -156980,6 +158561,7 @@ proc_7F08C39C:
 /* 0C0EEC 7F08C3BC 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F08C39C
 
+.global proc_7F08C3C0
 proc_7F08C3C0:
 /* 0C0EF0 7F08C3C0 3C0E8008 */  lui   $t6, 0x8008
 /* 0C0EF4 7F08C3C4 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -157004,6 +158586,7 @@ proc_7F08C3C0:
 /* 0C0F38 7F08C408 00000000 */  nop   
 # end proc_7F08C3C0
 
+.global proc_7F08C40C
 proc_7F08C40C:
 /* 0C0F3C 7F08C40C 3C0E8008 */  lui   $t6, 0x8008
 /* 0C0F40 7F08C410 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -157040,6 +158623,7 @@ proc_7F08C40C:
 /* 0C0FB4 7F08C484 00000000 */  nop   
 # end proc_7F08C40C
 
+.global proc_7F08C488
 proc_7F08C488:
 /* 0C0FB8 7F08C488 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C0FBC 7F08C48C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -157079,6 +158663,7 @@ proc_7F08C488:
 /* 0C1038 7F08C508 00000000 */  nop   
 # end proc_7F08C488
 
+.global proc_7F08C50C
 proc_7F08C50C:
 /* 0C103C 7F08C50C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C1040 7F08C510 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -157109,6 +158694,7 @@ proc_7F08C50C:
 /* 0C109C 7F08C56C 00000000 */  nop   
 # end proc_7F08C50C
 
+.global proc_7F08C570
 proc_7F08C570:
 /* 0C10A0 7F08C570 3C0E8008 */  lui   $t6, 0x8008
 /* 0C10A4 7F08C574 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -157159,6 +158745,7 @@ proc_7F08C570:
 /* 0C1148 7F08C618 00000000 */  nop   
 # end proc_7F08C570
 
+.global proc_7F08C61C
 proc_7F08C61C:
 /* 0C114C 7F08C61C 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0C1150 7F08C620 3C0E8008 */  lui   $t6, 0x8008
@@ -157233,6 +158820,7 @@ proc_7F08C61C:
 /* 0C1250 7F08C720 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F08C61C
 
+.global proc_7F08C724
 proc_7F08C724:
 /* 0C1254 7F08C724 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C1258 7F08C728 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -157253,6 +158841,7 @@ proc_7F08C724:
 /* 0C1290 7F08C760 00000000 */  nop   
 # end proc_7F08C724
 
+.global proc_7F08C764
 proc_7F08C764:
 /* 0C1294 7F08C764 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0C1298 7F08C768 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -157328,6 +158917,7 @@ proc_7F08C764:
 /* 0C1398 7F08C868 00A01025 */  or    $v0, $a1, $zero
 # end proc_7F08C764
 
+.global proc_7F08C86C
 proc_7F08C86C:
 /* 0C139C 7F08C86C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0C13A0 7F08C870 3C038008 */  lui   $v1, 0x8008
@@ -157522,6 +159112,7 @@ proc_7F08C86C:
 /* 0C163C 7F08CB0C 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F08C86C
 
+.global proc_7F08CB10
 proc_7F08CB10:
 /* 0C1640 7F08CB10 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0C1644 7F08CB14 3C038008 */  lui   $v1, 0x8008
@@ -157769,6 +159360,7 @@ proc_7F08CB10:
 /* 0C199C 7F08CE6C 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F08CB10
 
+.global proc_7F08CE70
 proc_7F08CE70:
 /* 0C19A0 7F08CE70 3C0E8008 */  lui   $t6, 0x8008
 /* 0C19A4 7F08CE74 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -157815,6 +159407,7 @@ proc_7F08CE70:
 /* 0C1A38 7F08CF08 27BD0008 */  addiu $sp, $sp, 8
 # end proc_7F08CE70
 
+.global proc_7F08CF0C
 proc_7F08CF0C:
 /* 0C1A3C 7F08CF0C 3C0E8008 */  lui   $t6, 0x8008
 /* 0C1A40 7F08CF10 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -157851,6 +159444,7 @@ proc_7F08CF0C:
 /* 0C1AAC 7F08CF7C 00000000 */  nop   
 # end proc_7F08CF0C
 
+.global proc_7F08CF80
 proc_7F08CF80:
 /* 0C1AB0 7F08CF80 3C0E8008 */  lui   $t6, 0x8008
 /* 0C1AB4 7F08CF84 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -157872,6 +159466,7 @@ proc_7F08CF80:
 /* 0C1AEC 7F08CFBC 00000000 */  nop   
 # end proc_7F08CF80
 
+.global proc_7F08CFC0
 proc_7F08CFC0:
 /* 0C1AF0 7F08CFC0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C1AF4 7F08CFC4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -157883,6 +159478,7 @@ proc_7F08CFC0:
 /* 0C1B0C 7F08CFDC 00000000 */  nop   
 # end proc_7F08CFC0
 
+.global proc_7F08CFE0
 proc_7F08CFE0:
 /* 0C1B10 7F08CFE0 3C0E8008 */  lui   $t6, 0x8008
 /* 0C1B14 7F08CFE4 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -157912,6 +159508,7 @@ proc_7F08CFE0:
 /* 0C1B64 7F08D034 00000000 */  nop   
 # end proc_7F08CFE0
 
+.global proc_7F08D038
 proc_7F08D038:
 /* 0C1B68 7F08D038 3C028008 */  lui   $v0, 0x8008
 /* 0C1B6C 7F08D03C 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -157974,6 +159571,7 @@ proc_7F08D038:
 /* 0C1C34 7F08D104 00601025 */  or    $v0, $v1, $zero
 # end proc_7F08D038
 
+.global proc_7F08D108
 proc_7F08D108:
 /* 0C1C38 7F08D108 3C028008 */  lui   $v0, 0x8008
 /* 0C1C3C 7F08D10C 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -158058,6 +159656,7 @@ proc_7F08D108:
 /* 0C1D48 7F08D218 00000000 */  nop   
 # end proc_7F08D108
 
+.global proc_7F08D21C
 proc_7F08D21C:
 /* 0C1D4C 7F08D21C 3C0E8008 */  lui   $t6, 0x8008
 /* 0C1D50 7F08D220 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -158080,6 +159679,7 @@ proc_7F08D21C:
 /* 0C1D88 7F08D258 00000000 */  nop   
 # end proc_7F08D21C
 
+.global proc_7F08D25C
 proc_7F08D25C:
 /* 0C1D8C 7F08D25C 3C0E8008 */  lui   $t6, 0x8008
 /* 0C1D90 7F08D260 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -158105,6 +159705,7 @@ proc_7F08D25C:
 /* 0C1DD4 7F08D2A4 00000000 */  nop   
 # end proc_7F08D25C
 
+.global proc_7F08D2A8
 proc_7F08D2A8:
 /* 0C1DD8 7F08D2A8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C1DDC 7F08D2AC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -158149,6 +159750,7 @@ proc_7F08D2A8:
 /* 0C1E6C 7F08D33C 00000000 */  nop   
 # end proc_7F08D2A8
 
+.global proc_7F08D340
 proc_7F08D340:
 /* 0C1E70 7F08D340 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0C1E74 7F08D344 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -158218,6 +159820,7 @@ proc_7F08D340:
 /* 0C1F60 7F08D430 00000000 */  nop   
 # end proc_7F08D340
 
+.global proc_7F08D434
 proc_7F08D434:
 /* 0C1F64 7F08D434 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0C1F68 7F08D438 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -158287,6 +159890,7 @@ proc_7F08D434:
 /* 0C2054 7F08D524 00000000 */  nop   
 # end proc_7F08D434
 
+.global proc_7F08D528
 proc_7F08D528:
 /* 0C2058 7F08D528 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C205C 7F08D52C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -158300,6 +159904,7 @@ proc_7F08D528:
 /* 0C207C 7F08D54C 00000000 */  nop   
 # end proc_7F08D528
 
+.global proc_7F08D550
 proc_7F08D550:
 /* 0C2080 7F08D550 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C2084 7F08D554 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -158313,6 +159918,7 @@ proc_7F08D550:
 /* 0C20A4 7F08D574 00000000 */  nop   
 # end proc_7F08D550
 
+.global proc_7F08D578
 proc_7F08D578:
 /* 0C20A8 7F08D578 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C20AC 7F08D57C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -158326,6 +159932,7 @@ proc_7F08D578:
 /* 0C20CC 7F08D59C 00000000 */  nop   
 # end proc_7F08D578
 
+.global proc_7F08D5A0
 proc_7F08D5A0:
 /* 0C20D0 7F08D5A0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C20D4 7F08D5A4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -158339,6 +159946,7 @@ proc_7F08D5A0:
 /* 0C20F4 7F08D5C4 00000000 */  nop   
 # end proc_7F08D5A0
 
+.global proc_7F08D5C8
 proc_7F08D5C8:
 /* 0C20F8 7F08D5C8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0C20FC 7F08D5CC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -158408,6 +160016,7 @@ proc_7F08D5C8:
 /* 0C21E8 7F08D6B8 00000000 */  nop   
 # end proc_7F08D5C8
 
+.global proc_7F08D6BC
 proc_7F08D6BC:
 /* 0C21EC 7F08D6BC 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0C21F0 7F08D6C0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -158477,6 +160086,7 @@ proc_7F08D6BC:
 /* 0C22DC 7F08D7AC 00000000 */  nop   
 # end proc_7F08D6BC
 
+.global proc_7F08D7B0
 proc_7F08D7B0:
 /* 0C22E0 7F08D7B0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C22E4 7F08D7B4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -158490,6 +160100,7 @@ proc_7F08D7B0:
 /* 0C2304 7F08D7D4 00000000 */  nop   
 # end proc_7F08D7B0
 
+.global proc_7F08D7D8
 proc_7F08D7D8:
 /* 0C2308 7F08D7D8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C230C 7F08D7DC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -158503,6 +160114,7 @@ proc_7F08D7D8:
 /* 0C232C 7F08D7FC 00000000 */  nop   
 # end proc_7F08D7D8
 
+.global proc_7F08D800
 proc_7F08D800:
 /* 0C2330 7F08D800 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C2334 7F08D804 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -158516,6 +160128,7 @@ proc_7F08D800:
 /* 0C2354 7F08D824 00000000 */  nop   
 # end proc_7F08D800
 
+.global proc_7F08D828
 proc_7F08D828:
 /* 0C2358 7F08D828 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C235C 7F08D82C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -158529,6 +160142,7 @@ proc_7F08D828:
 /* 0C237C 7F08D84C 00000000 */  nop   
 # end proc_7F08D828
 
+.global proc_7F08D850
 proc_7F08D850:
 /* 0C2380 7F08D850 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C2384 7F08D854 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -158542,6 +160156,7 @@ proc_7F08D850:
 /* 0C23A4 7F08D874 00000000 */  nop   
 # end proc_7F08D850
 
+.global proc_7F08D878
 proc_7F08D878:
 /* 0C23A8 7F08D878 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C23AC 7F08D87C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -158555,6 +160170,7 @@ proc_7F08D878:
 /* 0C23CC 7F08D89C 00000000 */  nop   
 # end proc_7F08D878
 
+.global proc_7F08D8A0
 proc_7F08D8A0:
 /* 0C23D0 7F08D8A0 3C028008 */  lui   $v0, 0x8008
 /* 0C23D4 7F08D8A4 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -158566,6 +160182,7 @@ proc_7F08D8A0:
 /* 0C23EC 7F08D8BC AF0411F4 */  sw    $a0, 0x11f4($t8)
 # end proc_7F08D8A0
 
+.global proc_7F08D8C0
 proc_7F08D8C0:
 /* 0C23F0 7F08D8C0 3C0E8008 */  lui   $t6, 0x8008
 /* 0C23F4 7F08D8C4 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -158573,6 +160190,7 @@ proc_7F08D8C0:
 /* 0C23FC 7F08D8CC 8DC211F0 */  lw    $v0, 0x11f0($t6)
 # end proc_7F08D8C0
 
+.global proc_7F08D8D0
 proc_7F08D8D0:
 /* 0C2400 7F08D8D0 3C0E8008 */  lui   $t6, 0x8008
 /* 0C2404 7F08D8D4 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -158580,6 +160198,7 @@ proc_7F08D8D0:
 /* 0C240C 7F08D8DC ADC411F0 */  sw    $a0, 0x11f0($t6)
 # end proc_7F08D8D0
 
+.global proc_7F08D8E0
 proc_7F08D8E0:
 /* 0C2410 7F08D8E0 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0C2414 7F08D8E4 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -158618,6 +160237,7 @@ proc_7F08D8E0:
 /* 0C2488 7F08D958 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F08D8E0
 
+.global proc_7F08D95C
 proc_7F08D95C:
 /* 0C248C 7F08D95C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C2490 7F08D960 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -158641,6 +160261,7 @@ proc_7F08D95C:
 /* 0C24D0 7F08D9A0 00000000 */  nop   
 # end proc_7F08D95C
 
+.global proc_7F08D9A4
 proc_7F08D9A4:
 /* 0C24D4 7F08D9A4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C24D8 7F08D9A8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -158664,6 +160285,7 @@ proc_7F08D9A4:
 /* 0C2518 7F08D9E8 00000000 */  nop   
 # end proc_7F08D9A4
 
+.global proc_7F08D9EC
 proc_7F08D9EC:
 /* 0C251C 7F08D9EC 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0C2520 7F08D9F0 AFB00014 */  sw    $s0, 0x14($sp)
@@ -158746,6 +160368,7 @@ proc_7F08D9EC:
 /* 0C2634 7F08DB04 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F08D9EC
 
+.global proc_7F08DB08
 proc_7F08DB08:
 /* 0C2638 7F08DB08 AC800000 */  sw    $zero, ($a0)
 /* 0C263C 7F08DB0C 3C088008 */  lui   $t0, 0x8008
@@ -158797,6 +160420,7 @@ proc_7F08DB08:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F08DBB0
 proc_7F08DBB0:
 /* 0C26E0 7F08DBB0 3C038008 */  lui   $v1, 0x8008
 /* 0C26E4 7F08DBB4 8C63A0B0 */  lw    $v1, -0x5f50($v1)
@@ -158806,6 +160430,7 @@ proc_7F08DBB0:
 /* 0C26F4 7F08DBC4 A06E05BC */  sb    $t6, 0x5bc($v1)
 # end proc_7F08DBB0
 
+.global proc_7F08DBC8
 proc_7F08DBC8:
 /* 0C26F8 7F08DBC8 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0C26FC 7F08DBCC AFBF002C */  sw    $ra, 0x2c($sp)
@@ -158977,6 +160602,7 @@ proc_7F08DBC8:
 /* 0C2974 7F08DE44 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F08DBC8
 
+.global proc_7F08DE48
 proc_7F08DE48:
 /* 0C2978 7F08DE48 3C058008 */  lui   $a1, 0x8008
 /* 0C297C 7F08DE4C 24A5A0B0 */  addiu $a1, $a1, -0x5f50
@@ -159046,6 +160672,7 @@ proc_7F08DE48:
 /* 0C2A70 7F08DF40 E4440504 */  swc1  $f4, 0x504($v0)
 # end proc_7F08DE48
 
+.global proc_7F08DF44
 proc_7F08DF44:
 /* 0C2A74 7F08DF44 3C068008 */  lui   $a2, 0x8008
 /* 0C2A78 7F08DF48 24C6A0B0 */  addiu $a2, $a2, -0x5f50
@@ -159188,6 +160815,7 @@ proc_7F08DF44:
 /* 0C2C90 7F08E160 E450051C */  swc1  $f16, 0x51c($v0)
 # end proc_7F08DF44
 
+.global proc_7F08E164
 proc_7F08E164:
 /* 0C2C94 7F08E164 3C038008 */  lui   $v1, 0x8008
 /* 0C2C98 7F08E168 2463A0B0 */  addiu $v1, $v1, -0x5f50
@@ -159247,6 +160875,7 @@ proc_7F08E164:
 /* 0C2D6C 7F08E23C 00000000 */  nop   
 # end proc_7F08E164
 
+.global proc_7F08E240
 proc_7F08E240:
 /* 0C2D70 7F08E240 27BDFF18 */  addiu $sp, $sp, -0xe8
 /* 0C2D74 7F08E244 3C0F8003 */  lui   $t7, 0x8003
@@ -159677,6 +161306,7 @@ proc_7F08E240:
 /* 0C33E8 7F08E8B8 00000000 */  nop   
 # end proc_7F08E240
 
+.global proc_7F08E8BC
 proc_7F08E8BC:
 /* 0C33EC 7F08E8BC 3C058003 */  lui   $a1, 0x8003
 /* 0C33F0 7F08E8C0 24A56AD0 */  addiu $a1, $a1, 0x6ad0
@@ -159784,6 +161414,7 @@ proc_7F08E8BC:
 /* 0C3574 7F08EA44 00000000 */  nop   
 # end proc_7F08E8BC
 
+.global proc_7F08EA48
 proc_7F08EA48:
 /* 0C3578 7F08EA48 3C013F00 */  lui   $at, 0x3f00
 /* 0C357C 7F08EA4C 44877000 */  mtc1  $a3, $f14
@@ -159815,6 +161446,7 @@ proc_7F08EA48:
 /* 0C35E4 7F08EAB4 00000000 */  nop   
 # end proc_7F08EA48
 
+.global proc_7F08EAB8
 proc_7F08EAB8:
 /* 0C35E8 7F08EAB8 3C013F00 */  lui   $at, 0x3f00
 /* 0C35EC 7F08EABC 44812000 */  mtc1  $at, $f4
@@ -159834,6 +161466,7 @@ proc_7F08EAB8:
 /* 0C3624 7F08EAF4 00000000 */  nop   
 # end proc_7F08EAB8
 
+.global proc_7F08EAF8
 proc_7F08EAF8:
 /* 0C3628 7F08EAF8 3C0E8008 */  lui   $t6, 0x8008
 /* 0C362C 7F08EAFC 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -159895,6 +161528,7 @@ proc_7F08EAF8:
 /* 0C36FC 7F08EBCC 00000000 */  nop   
 # end proc_7F08EAF8
 
+.global proc_7F08EBD0
 proc_7F08EBD0:
 /* 0C3700 7F08EBD0 3C028007 */  lui   $v0, 0x8007
 /* 0C3704 7F08EBD4 8C425D00 */  lw    $v0, 0x5d00($v0)
@@ -159949,6 +161583,7 @@ proc_7F08EBD0:
 /* 0C37B8 7F08EC88 00601025 */  or    $v0, $v1, $zero
 # end proc_7F08EBD0
 
+.global proc_7F08EC8C
 proc_7F08EC8C:
 /* 0C37BC 7F08EC8C AFA50004 */  sw    $a1, 4($sp)
 /* 0C37C0 7F08EC90 8CC20004 */  lw    $v0, 4($a2)
@@ -160008,6 +161643,7 @@ proc_7F08EC8C:
 /* 0C388C 7F08ED5C 00601025 */  or    $v0, $v1, $zero
 # end proc_7F08EC8C
 
+.global proc_7F08ED60
 proc_7F08ED60:
 /* 0C3890 7F08ED60 8C830000 */  lw    $v1, ($a0)
 /* 0C3894 7F08ED64 3C028007 */  lui   $v0, 0x8007
@@ -160035,6 +161671,7 @@ proc_7F08ED60:
 /* 0C38E0 7F08EDB0 00000000 */  nop   
 # end proc_7F08ED60
 
+.global proc_7F08EDB4
 proc_7F08EDB4:
 /* 0C38E4 7F08EDB4 8C830000 */  lw    $v1, ($a0)
 /* 0C38E8 7F08EDB8 3C028007 */  lui   $v0, 0x8007
@@ -160060,6 +161697,7 @@ proc_7F08EDB4:
 /* 0C392C 7F08EDFC 00000000 */  nop   
 # end proc_7F08EDB4
 
+.global proc_7F08EE00
 proc_7F08EE00:
 /* 0C3930 7F08EE00 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0C3934 7F08EE04 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -160094,6 +161732,7 @@ proc_7F08EE00:
 /* 0C399C 7F08EE6C 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F08EE00
 
+.global proc_7F08EE70
 proc_7F08EE70:
 /* 0C39A0 7F08EE70 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0C39A4 7F08EE74 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -160147,6 +161786,7 @@ proc_7F08EE70:
 /* 0C3A48 7F08EF18 01001025 */  or    $v0, $t0, $zero
 # end proc_7F08EE70
 
+.global proc_7F08EF1C
 proc_7F08EF1C:
 /* 0C3A4C 7F08EF1C 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0C3A50 7F08EF20 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -160186,6 +161826,7 @@ proc_7F08EF1C:
 /* 0C3ACC 7F08EF9C 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F08EF1C
 
+.global proc_7F08EFA0
 proc_7F08EFA0:
 /* 0C3AD0 7F08EFA0 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0C3AD4 7F08EFA4 AFB40028 */  sw    $s4, 0x28($sp)
@@ -160252,6 +161893,7 @@ proc_7F08EFA0:
 /* 0C3BBC 7F08F08C 03201025 */  or    $v0, $t9, $zero
 # end proc_7F08EFA0
 
+.global proc_7F08F090
 proc_7F08F090:
 /* 0C3BC0 7F08F090 8C830000 */  lw    $v1, ($a0)
 /* 0C3BC4 7F08F094 3C028007 */  lui   $v0, 0x8007
@@ -160280,6 +161922,7 @@ proc_7F08F090:
 /* 0C3C14 7F08F0E4 00000000 */  nop   
 # end proc_7F08F090
 
+.global proc_7F08F0E8
 proc_7F08F0E8:
 /* 0C3C18 7F08F0E8 8C830000 */  lw    $v1, ($a0)
 /* 0C3C1C 7F08F0EC 3C028007 */  lui   $v0, 0x8007
@@ -160306,6 +161949,7 @@ proc_7F08F0E8:
 /* 0C3C64 7F08F134 00000000 */  nop   
 # end proc_7F08F0E8
 
+.global proc_7F08F138
 proc_7F08F138:
 /* 0C3C68 7F08F138 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0C3C6C 7F08F13C AFBF002C */  sw    $ra, 0x2c($sp)
@@ -160352,6 +161996,7 @@ proc_7F08F138:
 /* 0C3D04 7F08F1D4 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F08F138
 
+.global proc_7F08F1D8
 proc_7F08F1D8:
 /* 0C3D08 7F08F1D8 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0C3D0C 7F08F1DC AFBF002C */  sw    $ra, 0x2c($sp)
@@ -160422,6 +162067,7 @@ proc_7F08F1D8:
 /* 0C3DF8 7F08F2C8 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F08F1D8
 
+.global proc_7F08F2CC
 proc_7F08F2CC:
 /* 0C3DFC 7F08F2CC 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0C3E00 7F08F2D0 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -160460,6 +162106,7 @@ proc_7F08F2CC:
 /* 0C3E7C 7F08F34C 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F08F2CC
 
+.global proc_7F08F350
 proc_7F08F350:
 /* 0C3E80 7F08F350 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0C3E84 7F08F354 AFB50028 */  sw    $s5, 0x28($sp)
@@ -160524,6 +162171,7 @@ proc_7F08F350:
 /* 0C3F64 7F08F434 03201025 */  or    $v0, $t9, $zero
 # end proc_7F08F350
 
+.global proc_7F08F438
 proc_7F08F438:
 /* 0C3F68 7F08F438 27BDFFF8 */  addiu $sp, $sp, -8
 /* 0C3F6C 7F08F43C AFB00004 */  sw    $s0, 4($sp)
@@ -160579,6 +162227,7 @@ proc_7F08F438:
 /* 0C401C 7F08F4EC 27BD0008 */  addiu $sp, $sp, 8
 # end proc_7F08F438
 
+.global proc_7F08F4F0
 proc_7F08F4F0:
 /* 0C4020 7F08F4F0 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 0C4024 7F08F4F4 AFB00018 */  sw    $s0, 0x18($sp)
@@ -160685,6 +162334,7 @@ proc_7F08F4F0:
 /* 0C41A8 7F08F678 03001025 */  or    $v0, $t8, $zero
 # end proc_7F08F4F0
 
+.global proc_7F08F67C
 proc_7F08F67C:
 /* 0C41AC 7F08F67C 3C028007 */  lui   $v0, 0x8007
 /* 0C41B0 7F08F680 8C425D00 */  lw    $v0, 0x5d00($v0)
@@ -160703,6 +162353,7 @@ proc_7F08F67C:
 /* 0C41DC 7F08F6AC 00000000 */  nop   
 # end proc_7F08F67C
 
+.global proc_7F08F6B0
 proc_7F08F6B0:
 /* 0C41E0 7F08F6B0 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0C41E4 7F08F6B4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -160878,6 +162529,7 @@ proc_7F08F6B0:
 /* 0C4434 7F08F904 00000000 */  nop   
 # end proc_7F08F6B0
 
+.global proc_7F08F908
 proc_7F08F908:
 /* 0C4438 7F08F908 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0C443C 7F08F90C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -161065,6 +162717,7 @@ proc_7F08F908:
 /* 0C46BC 7F08FB8C 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F08F908
 
+.global proc_7F08FB90
 proc_7F08FB90:
 /* 0C46C0 7F08FB90 3C068007 */  lui   $a2, 0x8007
 /* 0C46C4 7F08FB94 8CC65D04 */  lw    $a2, 0x5d04($a2)
@@ -161174,6 +162827,7 @@ proc_7F08FB90:
 /* 0C4848 7F08FD18 27BD0058 */  addiu $sp, $sp, 0x58
 # end proc_7F08FB90
 
+.global proc_7F08FD1C
 proc_7F08FD1C:
 /* 0C484C 7F08FD1C 3C088007 */  lui   $t0, 0x8007
 /* 0C4850 7F08FD20 8D085D00 */  lw    $t0, 0x5d00($t0)
@@ -161242,17 +162896,20 @@ proc_7F08FD1C:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F08FE00
 proc_7F08FE00:
 /* 0C4930 7F08FE00 03E00008 */  jr    $ra
 /* 0C4934 7F08FE04 00000000 */  nop   
 # end proc_7F08FE00
 
+.global proc_7F08FE08
 proc_7F08FE08:
 /* 0C4938 7F08FE08 3C018003 */  lui   $at, 0x8003
 /* 0C493C 7F08FE0C 03E00008 */  jr    $ra
 /* 0C4940 7F08FE10 AC246B88 */  sw    $a0, %lo(0x80036B88)($at) # $a0, 0x6b88($at)
 # end proc_7F08FE08
 
+.global proc_7F08FE14
 proc_7F08FE14:
 /* 0C4944 7F08FE14 3C018003 */  lui   $at, 0x8003
 /* 0C4948 7F08FE18 AC246B78 */  sw    $a0, %lo(0x80036B78)($at) # $a0, 0x6b78($at)
@@ -161282,6 +162939,7 @@ proc_7F08FE14:
 /* 0C49A0 7F08FE70 AC226B80 */  sw    $v0, %lo(0x80036B80)($at) # $v0, 0x6b80($at)
 # end proc_7F08FE14
 
+.global proc_7F08FE74
 proc_7F08FE74:
 /* 0C49A4 7F08FE74 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0C49A8 7F08FE78 3C028003 */  lui   $v0, 0x8003
@@ -161394,6 +163052,7 @@ proc_7F08FE74:
 /* 0C4B38 7F090008 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F08FE74
 
+.global proc_7F09000C
 proc_7F09000C:
 /* 0C4B3C 7F09000C 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0C4B40 7F090010 AFB5002C */  sw    $s5, 0x2c($sp)
@@ -161509,18 +163168,21 @@ proc_7F09000C:
 /* 0C4CDC 7F0901AC 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F09000C
 
+.global proc_7F0901B0
 proc_7F0901B0:
 /* 0C4CE0 7F0901B0 3C028003 */  lui   $v0, 0x8003
 /* 0C4CE4 7F0901B4 03E00008 */  jr    $ra
 /* 0C4CE8 7F0901B8 8C426B70 */  lw    $v0, 0x6b70($v0)
 # end proc_7F0901B0
 
+.global proc_7F0901BC
 proc_7F0901BC:
 /* 0C4CEC 7F0901BC 3C018003 */  lui   $at, 0x8003
 /* 0C4CF0 7F0901C0 03E00008 */  jr    $ra
 /* 0C4CF4 7F0901C4 AC246B70 */  sw    $a0, %lo(0x80036B70)($at) # $a0, 0x6b70($at)
 # end proc_7F0901BC
 
+.global proc_7F0901C8
 proc_7F0901C8:
 /* 0C4CF8 7F0901C8 3C068003 */  lui   $a2, 0x8003
 /* 0C4CFC 7F0901CC 24C66B70 */  addiu $a2, $a2, 0x6b70
@@ -161560,6 +163222,7 @@ proc_7F0901C8:
 /* 0C4D74 7F090244 00000000 */  nop   
 # end proc_7F0901C8
 
+.global proc_7F090248
 proc_7F090248:
 /* 0C4D78 7F090248 3C078003 */  lui   $a3, 0x8003
 /* 0C4D7C 7F09024C 24E76B70 */  addiu $a3, $a3, 0x6b70
@@ -161597,6 +163260,7 @@ proc_7F090248:
 /* 0C4DEC 7F0902BC 00000000 */  nop   
 # end proc_7F090248
 
+.global proc_7F0902C0
 proc_7F0902C0:
 /* 0C4DF0 7F0902C0 3C038003 */  lui   $v1, 0x8003
 /* 0C4DF4 7F0902C4 8C636B84 */  lw    $v1, 0x6b84($v1)
@@ -161660,6 +163324,7 @@ proc_7F0902C0:
 /* 0C4EC8 7F090398 00000000 */  nop   
 # end proc_7F0902C0
 
+.global proc_7F09039C
 proc_7F09039C:
 /* 0C4ECC 7F09039C 3C038003 */  lui   $v1, 0x8003
 /* 0C4ED0 7F0903A0 8C636B84 */  lw    $v1, 0x6b84($v1)
@@ -161732,6 +163397,7 @@ proc_7F09039C:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F090490
 proc_7F090490:
 /* 0C4FC0 7F090490 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C4FC4 7F090494 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -161748,6 +163414,7 @@ proc_7F090490:
 /* 0C4FF0 7F0904C0 00000000 */  nop   
 # end proc_7F090490
 
+.global proc_7F0904C4
 proc_7F0904C4:
 /* 0C4FF4 7F0904C4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C4FF8 7F0904C8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -161768,6 +163435,7 @@ proc_7F0904C4:
 /* 0C5034 7F090504 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0904C4
 
+.global proc_7F090508
 proc_7F090508:
 /* 0C5038 7F090508 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C503C 7F09050C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -161788,6 +163456,7 @@ proc_7F090508:
 /* 0C5078 7F090548 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F090508
 
+.global proc_7F09054C
 proc_7F09054C:
 /* 0C507C 7F09054C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C5080 7F090550 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -161808,16 +163477,19 @@ proc_7F09054C:
 /* 0C50BC 7F09058C 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F09054C
 
+.global proc_7F090590
 proc_7F090590:
 /* 0C50C0 7F090590 03E00008 */  jr    $ra
 /* 0C50C4 7F090594 00000000 */  nop   
 # end proc_7F090590
 
+.global proc_7F090598
 proc_7F090598:
 /* 0C50C8 7F090598 03E00008 */  jr    $ra
 /* 0C50CC 7F09059C 00000000 */  nop   
 # end proc_7F090598
 
+.global debug_menu_processor
 debug_menu_processor:
 /* 0C50D0 7F0905A0 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 0C50D4 7F0905A4 3C038003 */  lui   $v1, 0x8003
@@ -162442,24 +164114,28 @@ debug_menu_processor:
 /* 0C5A28 7F090EF8 00000000 */  nop   
 # end debug_menu_processor
 
+.global proc_7F090EFC
 proc_7F090EFC:
 /* 0C5A2C 7F090EFC 3C028003 */  lui   $v0, 0x8003
 /* 0C5A30 7F090F00 03E00008 */  jr    $ra
 /* 0C5A34 7F090F04 8C426F64 */  lw    $v0, 0x6f64($v0)
 # end proc_7F090EFC
 
+.global proc_7F090F08
 proc_7F090F08:
 /* 0C5A38 7F090F08 3C028003 */  lui   $v0, 0x8003
 /* 0C5A3C 7F090F0C 03E00008 */  jr    $ra
 /* 0C5A40 7F090F10 8C426F68 */  lw    $v0, 0x6f68($v0)
 # end proc_7F090F08
 
+.global proc_7F090F14
 proc_7F090F14:
 /* 0C5A44 7F090F14 3C028003 */  lui   $v0, 0x8003
 /* 0C5A48 7F090F18 03E00008 */  jr    $ra
 /* 0C5A4C 7F090F1C 8C426F6C */  lw    $v0, 0x6f6c($v0)
 # end proc_7F090F14
 
+.global proc_7F090F20
 proc_7F090F20:
 /* 0C5A50 7F090F20 3C0E8003 */  lui   $t6, 0x8003
 /* 0C5A54 7F090F24 8DCE6F70 */  lw    $t6, 0x6f70($t6)
@@ -162468,162 +164144,189 @@ proc_7F090F20:
 /* 0C5A60 7F090F30 AC2E6F6C */  sw    $t6, %lo(0x80036F6C)($at) # $t6, 0x6f6c($at)
 # end proc_7F090F20
 
+.global proc_7F090F34
 proc_7F090F34:
 /* 0C5A64 7F090F34 3C028003 */  lui   $v0, 0x8003
 /* 0C5A68 7F090F38 03E00008 */  jr    $ra
 /* 0C5A6C 7F090F3C 8C426F74 */  lw    $v0, 0x6f74($v0)
 # end proc_7F090F34
 
+.global proc_7F090F40
 proc_7F090F40:
 /* 0C5A70 7F090F40 3C028003 */  lui   $v0, 0x8003
 /* 0C5A74 7F090F44 03E00008 */  jr    $ra
 /* 0C5A78 7F090F48 8C426F78 */  lw    $v0, 0x6f78($v0)
 # end proc_7F090F40
 
+.global proc_7F090F4C
 proc_7F090F4C:
 /* 0C5A7C 7F090F4C 3C028003 */  lui   $v0, 0x8003
 /* 0C5A80 7F090F50 03E00008 */  jr    $ra
 /* 0C5A84 7F090F54 8C426F7C */  lw    $v0, 0x6f7c($v0)
 # end proc_7F090F4C
 
+.global proc_7F090F58
 proc_7F090F58:
 /* 0C5A88 7F090F58 3C028003 */  lui   $v0, 0x8003
 /* 0C5A8C 7F090F5C 03E00008 */  jr    $ra
 /* 0C5A90 7F090F60 8C426F84 */  lw    $v0, 0x6f84($v0)
 # end proc_7F090F58
 
+.global proc_7F090F64
 proc_7F090F64:
 /* 0C5A94 7F090F64 3C028003 */  lui   $v0, 0x8003
 /* 0C5A98 7F090F68 03E00008 */  jr    $ra
 /* 0C5A9C 7F090F6C 8C426F88 */  lw    $v0, 0x6f88($v0)
 # end proc_7F090F64
 
+.global proc_7F090F70
 proc_7F090F70:
 /* 0C5AA0 7F090F70 3C028003 */  lui   $v0, 0x8003
 /* 0C5AA4 7F090F74 03E00008 */  jr    $ra
 /* 0C5AA8 7F090F78 8C426F8C */  lw    $v0, 0x6f8c($v0)
 # end proc_7F090F70
 
+.global proc_7F090F7C
 proc_7F090F7C:
 /* 0C5AAC 7F090F7C 3C028003 */  lui   $v0, 0x8003
 /* 0C5AB0 7F090F80 03E00008 */  jr    $ra
 /* 0C5AB4 7F090F84 8C426F90 */  lw    $v0, 0x6f90($v0)
 # end proc_7F090F7C
 
+.global proc_7F090F88
 proc_7F090F88:
 /* 0C5AB8 7F090F88 3C028003 */  lui   $v0, 0x8003
 /* 0C5ABC 7F090F8C 03E00008 */  jr    $ra
 /* 0C5AC0 7F090F90 8C426FC8 */  lw    $v0, 0x6fc8($v0)
 # end proc_7F090F88
 
+.global proc_7F090F94
 proc_7F090F94:
 /* 0C5AC4 7F090F94 3C018003 */  lui   $at, 0x8003
 /* 0C5AC8 7F090F98 03E00008 */  jr    $ra
 /* 0C5ACC 7F090F9C AC246FC8 */  sw    $a0, %lo(0x80036FC8)($at) # $a0, 0x6fc8($at)
 # end proc_7F090F94
 
+.global proc_7F090FA0
 proc_7F090FA0:
 /* 0C5AD0 7F090FA0 3C028003 */  lui   $v0, 0x8003
 /* 0C5AD4 7F090FA4 03E00008 */  jr    $ra
 /* 0C5AD8 7F090FA8 8C426F98 */  lw    $v0, 0x6f98($v0)
 # end proc_7F090FA0
 
+.global proc_7F090FAC
 proc_7F090FAC:
 /* 0C5ADC 7F090FAC 3C028003 */  lui   $v0, 0x8003
 /* 0C5AE0 7F090FB0 03E00008 */  jr    $ra
 /* 0C5AE4 7F090FB4 8C426F9C */  lw    $v0, 0x6f9c($v0)
 # end proc_7F090FAC
 
+.global proc_7F090FB8
 proc_7F090FB8:
 /* 0C5AE8 7F090FB8 3C028003 */  lui   $v0, 0x8003
 /* 0C5AEC 7F090FBC 03E00008 */  jr    $ra
 /* 0C5AF0 7F090FC0 8C426FA0 */  lw    $v0, 0x6fa0($v0)
 # end proc_7F090FB8
 
+.global proc_7F090FC4
 proc_7F090FC4:
 /* 0C5AF4 7F090FC4 3C028003 */  lui   $v0, 0x8003
 /* 0C5AF8 7F090FC8 03E00008 */  jr    $ra
 /* 0C5AFC 7F090FCC 8C426FA4 */  lw    $v0, 0x6fa4($v0)
 # end proc_7F090FC4
 
+.global proc_7F090FD0
 proc_7F090FD0:
 /* 0C5B00 7F090FD0 3C028003 */  lui   $v0, 0x8003
 /* 0C5B04 7F090FD4 03E00008 */  jr    $ra
 /* 0C5B08 7F090FD8 8C426F94 */  lw    $v0, 0x6f94($v0)
 # end proc_7F090FD0
 
+.global proc_7F090FDC
 proc_7F090FDC:
 /* 0C5B0C 7F090FDC 3C028003 */  lui   $v0, 0x8003
 /* 0C5B10 7F090FE0 03E00008 */  jr    $ra
 /* 0C5B14 7F090FE4 8C426FA8 */  lw    $v0, 0x6fa8($v0)
 # end proc_7F090FDC
 
+.global proc_7F090FE8
 proc_7F090FE8:
 /* 0C5B18 7F090FE8 3C018003 */  lui   $at, 0x8003
 /* 0C5B1C 7F090FEC 03E00008 */  jr    $ra
 /* 0C5B20 7F090FF0 AC246FA8 */  sw    $a0, %lo(0x80036FA8)($at) # $a0, 0x6fa8($at)
 # end proc_7F090FE8
 
+.global proc_7F090FF4
 proc_7F090FF4:
 /* 0C5B24 7F090FF4 3C028003 */  lui   $v0, 0x8003
 /* 0C5B28 7F090FF8 03E00008 */  jr    $ra
 /* 0C5B2C 7F090FFC 8C426FAC */  lw    $v0, 0x6fac($v0)
 # end proc_7F090FF4
 
+.global proc_7F091000
 proc_7F091000:
 /* 0C5B30 7F091000 3C028003 */  lui   $v0, 0x8003
 /* 0C5B34 7F091004 03E00008 */  jr    $ra
 /* 0C5B38 7F091008 8C426FB0 */  lw    $v0, 0x6fb0($v0)
 # end proc_7F091000
 
+.global proc_7F09100C
 proc_7F09100C:
 /* 0C5B3C 7F09100C 3C028003 */  lui   $v0, 0x8003
 /* 0C5B40 7F091010 03E00008 */  jr    $ra
 /* 0C5B44 7F091014 8C426FB4 */  lw    $v0, 0x6fb4($v0)
 # end proc_7F09100C
 
+.global proc_7F091018
 proc_7F091018:
 /* 0C5B48 7F091018 3C028003 */  lui   $v0, 0x8003
 /* 0C5B4C 7F09101C 03E00008 */  jr    $ra
 /* 0C5B50 7F091020 8C426FCC */  lw    $v0, 0x6fcc($v0)
 # end proc_7F091018
 
+.global proc_7F091024
 proc_7F091024:
 /* 0C5B54 7F091024 3C018003 */  lui   $at, 0x8003
 /* 0C5B58 7F091028 03E00008 */  jr    $ra
 /* 0C5B5C 7F09102C AC246FCC */  sw    $a0, %lo(0x80036FCC)($at) # $a0, 0x6fcc($at)
 # end proc_7F091024
 
+.global proc_7F091030
 proc_7F091030:
 /* 0C5B60 7F091030 3C028003 */  lui   $v0, 0x8003
 /* 0C5B64 7F091034 03E00008 */  jr    $ra
 /* 0C5B68 7F091038 8C426FD0 */  lw    $v0, 0x6fd0($v0)
 # end proc_7F091030
 
+.global proc_7F09103C
 proc_7F09103C:
 /* 0C5B6C 7F09103C 3C028003 */  lui   $v0, 0x8003
 /* 0C5B70 7F091040 03E00008 */  jr    $ra
 /* 0C5B74 7F091044 8C426FD4 */  lw    $v0, 0x6fd4($v0)
 # end proc_7F09103C
 
+.global proc_7F091048
 proc_7F091048:
 /* 0C5B78 7F091048 3C028003 */  lui   $v0, 0x8003
 /* 0C5B7C 7F09104C 03E00008 */  jr    $ra
 /* 0C5B80 7F091050 8C426FB8 */  lw    $v0, 0x6fb8($v0)
 # end proc_7F091048
 
+.global proc_7F091054
 proc_7F091054:
 /* 0C5B84 7F091054 3C028003 */  lui   $v0, 0x8003
 /* 0C5B88 7F091058 03E00008 */  jr    $ra
 /* 0C5B8C 7F09105C 8C426FBC */  lw    $v0, 0x6fbc($v0)
 # end proc_7F091054
 
+.global proc_7F091060
 proc_7F091060:
 /* 0C5B90 7F091060 3C028003 */  lui   $v0, 0x8003
 /* 0C5B94 7F091064 03E00008 */  jr    $ra
 /* 0C5B98 7F091068 8C426FC0 */  lw    $v0, 0x6fc0($v0)
 # end proc_7F091060
 
+.global proc_7F09106C
 proc_7F09106C:
 /* 0C5B9C 7F09106C 3C028003 */  lui   $v0, 0x8003
 /* 0C5BA0 7F091070 03E00008 */  jr    $ra
@@ -162633,6 +164336,7 @@ proc_7F09106C:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F091080
 proc_7F091080:
 /* 0C5BB0 7F091080 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C5BB4 7F091084 AFA40018 */  sw    $a0, 0x18($sp)
@@ -162981,6 +164685,7 @@ proc_7F091080:
 /* 0C60AC 7F09157C 00000000 */  nop   
 # end proc_7F091080
 
+.global proc_7F091580
 proc_7F091580:
 /* 0C60B0 7F091580 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C60B4 7F091584 AFA40018 */  sw    $a0, 0x18($sp)
@@ -162999,6 +164704,7 @@ proc_7F091580:
 /* 0C60E8 7F0915B8 00000000 */  nop   
 # end proc_7F091580
 
+.global proc_7F0915BC
 proc_7F0915BC:
 /* 0C60EC 7F0915BC 3C028003 */  lui   $v0, 0x8003
 /* 0C60F0 7F0915C0 24427058 */  addiu $v0, $v0, 0x7058
@@ -163025,6 +164731,7 @@ proc_7F0915BC:
 /* 0C6144 7F091614 E428705C */  swc1  $f8, %lo(0x8003705C)($at) # $f8, 0x705c($at)
 # end proc_7F0915BC
 
+.global proc_7F091618
 proc_7F091618:
 /* 0C6148 7F091618 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0C614C 7F09161C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -163049,6 +164756,7 @@ proc_7F091618:
 /* 0C6198 7F091668 00000000 */  nop   
 # end proc_7F091618
 
+.global proc_7F09166C
 proc_7F09166C:
 /* 0C619C 7F09166C 3C028003 */  lui   $v0, 0x8003
 /* 0C61A0 7F091670 3C038003 */  lui   $v1, 0x8003
@@ -163086,6 +164794,7 @@ proc_7F09166C:
 /* 0C6220 7F0916F0 E4640008 */  swc1  $f4, %lo(0x80030008)($v1) # $f4, 8($v1)
 # end proc_7F09166C
 
+.global proc_7F0916F4
 proc_7F0916F4:
 /* 0C6224 7F0916F4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C6228 7F0916F8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -163109,6 +164818,7 @@ proc_7F0916F4:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F091740
 proc_7F091740:
 /* 0C6270 7F091740 AFA40000 */  sw    $a0, ($sp)
 /* 0C6274 7F091744 308EFFFF */  andi  $t6, $a0, 0xffff
@@ -163130,6 +164840,7 @@ proc_7F091740:
 /* 0C62A8 7F091778 00601025 */  or    $v0, $v1, $zero
 # end proc_7F091740
 
+.global proc_7F09177C
 proc_7F09177C:
 /* 0C62AC 7F09177C 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0C62B0 7F091780 AFB1001C */  sw    $s1, 0x1c($sp)
@@ -163259,6 +164970,7 @@ proc_7F09177C:
 /* 0C6468 7F091938 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F09177C
 
+.global proc_7F09193C
 proc_7F09193C:
 /* 0C646C 7F09193C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0C6470 7F091940 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -163336,6 +165048,7 @@ proc_7F09193C:
 /* 0C6588 7F091A58 00000000 */  nop   
 # end proc_7F09193C
 
+.global proc_7F091A5C
 proc_7F091A5C:
 /* 0C658C 7F091A5C 2401001C */  addiu $at, $zero, 0x1c
 /* 0C6590 7F091A60 14810003 */  bne   $a0, $at, .Lproc_7F091A5C_14
@@ -163347,6 +165060,7 @@ proc_7F091A5C:
 /* 0C65A4 7F091A74 00000000 */  nop   
 # end proc_7F091A5C
 
+.global proc_7F091A78
 proc_7F091A78:
 /* 0C65A8 7F091A78 00047100 */  sll   $t6, $a0, 4
 /* 0C65AC 7F091A7C 3C0F8004 */  lui   $t7, 0x8004
@@ -163364,6 +165078,7 @@ proc_7F091A78:
 /* 0C65D8 7F091AA8 00000000 */  nop   
 # end proc_7F091A78
 
+.global proc_7F091AAC
 proc_7F091AAC:
 /* 0C65DC 7F091AAC 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0C65E0 7F091AB0 AFB00018 */  sw    $s0, 0x18($sp)
@@ -163419,6 +165134,7 @@ proc_7F091AAC:
 /* 0C6690 7F091B60 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F091AAC
 
+.global proc_7F091B64
 proc_7F091B64:
 /* 0C6694 7F091B64 00047100 */  sll   $t6, $a0, 4
 /* 0C6698 7F091B68 3C0F8004 */  lui   $t7, 0x8004
@@ -164000,6 +165716,7 @@ proc_7F091B64:
 /* 0C6F64 7F092434 00000000 */  nop   
 # end proc_7F091B64
 
+.global proc_7F092438
 proc_7F092438:
 /* 0C6F68 7F092438 00047100 */  sll   $t6, $a0, 4
 /* 0C6F6C 7F09243C 3C0F8004 */  lui   $t7, 0x8004
@@ -164169,6 +165886,7 @@ proc_7F092438:
 /* 0C71EC 7F0926BC 00000000 */  nop   
 # end proc_7F092438
 
+.global proc_7F0926C0
 proc_7F0926C0:
 /* 0C71F0 7F0926C0 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0C71F4 7F0926C4 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -164221,6 +165939,7 @@ proc_7F0926C0:
 /* 0C72A0 7F092770 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F0926C0
 
+.global proc_7F092774
 proc_7F092774:
 /* 0C72A4 7F092774 00047100 */  sll   $t6, $a0, 4
 /* 0C72A8 7F092778 3C028004 */  lui   $v0, 0x8004
@@ -164244,6 +165963,7 @@ proc_7F092774:
 /* 0C72E8 7F0927B8 00000000 */  nop   
 # end proc_7F092774
 
+.global proc_7F0927BC
 proc_7F0927BC:
 /* 0C72EC 7F0927BC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0C72F0 7F0927C0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -164261,6 +165981,7 @@ proc_7F0927BC:
 /* 0C7320 7F0927F0 03001025 */  or    $v0, $t8, $zero
 # end proc_7F0927BC
 
+.global proc_7F0927F4
 proc_7F0927F4:
 /* 0C7324 7F0927F4 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0C7328 7F0927F8 AFB10024 */  sw    $s1, 0x24($sp)
@@ -164310,6 +166031,7 @@ proc_7F0927F4:
 # alignment
 .word 0x00000000
 
+.global proc_7F092890
 proc_7F092890:
 /* 0C73C0 7F092890 27BDFEA8 */  addiu $sp, $sp, -0x158
 /* 0C73C4 7F092894 F7BE0030 */  sdc1  $f30, 0x30($sp)
@@ -164692,6 +166414,7 @@ proc_7F092890:
 # alignment
 .word 0x00000000
 
+.global proc_7F092E50
 proc_7F092E50:
 /* 0C7980 7F092E50 3C0E8005 */  lui   $t6, 0x8005
 /* 0C7984 7F092E54 8DCE8374 */  lw    $t6, -0x7c8c($t6)
@@ -165098,6 +166821,7 @@ proc_7F092E50:
 /* 0C7F68 7F093438 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F092E50
 
+.global proc_7F09343C
 proc_7F09343C:
 /* 0C7F6C 7F09343C 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0C7F70 7F093440 10A00009 */  beqz  $a1, .Lproc_7F09343C_2C
@@ -165242,6 +166966,7 @@ proc_7F09343C:
 /* 0C8188 7F093658 00000000 */  nop   
 # end proc_7F09343C
 
+.global proc_7F09365C
 proc_7F09365C:
 /* 0C818C 7F09365C 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0C8190 7F093660 10A00009 */  beqz  $a1, .Lproc_7F09365C_2C
@@ -165389,6 +167114,7 @@ proc_7F09365C:
 # alignment
 .word 0x00000000
 
+.global proc_7F093880
 proc_7F093880:
 /* 0C83B0 7F093880 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0C83B4 7F093884 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -165423,6 +167149,7 @@ proc_7F093880:
 /* 0C8428 7F0938F8 00000000 */  nop   
 # end proc_7F093880
 
+.global proc_7F0938FC
 proc_7F0938FC:
 /* 0C842C 7F0938FC 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0C8430 7F093900 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -165525,6 +167252,7 @@ proc_7F0938FC:
 /* 0C85A4 7F093A74 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F0938FC
 
+.global proc_7F093A78
 proc_7F093A78:
 /* 0C85A8 7F093A78 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0C85AC 7F093A7C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -165629,6 +167357,7 @@ proc_7F093A78:
 /* 0C8728 7F093BF8 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F093A78
 
+.global proc_7F093BFC
 proc_7F093BFC:
 /* 0C872C 7F093BFC C4820004 */  lwc1  $f2, 4($a0)
 /* 0C8730 7F093C00 C4A40004 */  lwc1  $f4, 4($a1)
@@ -165651,6 +167380,7 @@ proc_7F093BFC:
 /* 0C8774 7F093C44 E4D00008 */  swc1  $f16, 8($a2)
 # end proc_7F093BFC
 
+.global proc_7F093C48
 proc_7F093C48:
 /* 0C8778 7F093C48 460E603C */  c.lt.s $f12, $f14
 /* 0C877C 7F093C4C AFA60008 */  sw    $a2, 8($sp)
@@ -165672,6 +167402,7 @@ proc_7F093C48:
 /* 0C87B4 7F093C84 00000000 */  nop   
 # end proc_7F093C48
 
+.global proc_7F093C88
 proc_7F093C88:
 /* 0C87B8 7F093C88 3C013F00 */  lui   $at, 0x3f00
 /* 0C87BC 7F093C8C 44812000 */  mtc1  $at, $f4
@@ -165685,6 +167416,7 @@ proc_7F093C88:
 /* 0C87DC 7F093CAC 46805020 */  cvt.s.w $f0, $f10
 # end proc_7F093C88
 
+.global proc_7F093CB0
 proc_7F093CB0:
 /* 0C87E0 7F093CB0 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0C87E4 7F093CB4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -165889,6 +167621,7 @@ proc_7F093CB0:
 /* 0C8AD0 7F093FA0 00000000 */  nop   
 # end proc_7F093CB0
 
+.global proc_7F093FA4
 proc_7F093FA4:
 /* 0C8AD4 7F093FA4 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0C8AD8 7F093FA8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -166093,6 +167826,7 @@ proc_7F093FA4:
 /* 0C8DC4 7F094294 00000000 */  nop   
 # end proc_7F093FA4
 
+.global proc_7F094298
 proc_7F094298:
 /* 0C8DC8 7F094298 3C018005 */  lui   $at, 0x8005
 /* 0C8DCC 7F09429C C4207538 */  lwc1  $f0, 0x7538($at)
@@ -166205,12 +167939,14 @@ proc_7F094298:
 /* 0C8F58 7F094428 00601025 */  or    $v0, $v1, $zero
 # end proc_7F094298
 
+.global proc_7F09442C
 proc_7F09442C:
 /* 0C8F5C 7F09442C 3C018008 */  lui   $at, 0x8008
 /* 0C8F60 7F094430 03E00008 */  jr    $ra
 /* 0C8F64 7F094434 AC249E90 */  sw    $a0, %lo(0x80079E90)($at) # $a0, -0x6170($at)
 # end proc_7F09442C
 
+.global proc_7F094438
 proc_7F094438:
 /* 0C8F68 7F094438 3C0E8005 */  lui   $t6, 0x8005
 /* 0C8F6C 7F09443C 8DCE8374 */  lw    $t6, -0x7c8c($t6)
@@ -166235,6 +167971,7 @@ proc_7F094438:
 /* 0C8FB4 7F094484 00000000 */  nop   
 # end proc_7F094438
 
+.global proc_7F094488
 proc_7F094488:
 /* 0C8FB8 7F094488 27BDF950 */  addiu $sp, $sp, -0x6b0
 /* 0C8FBC 7F09448C AFBF004C */  sw    $ra, 0x4c($sp)
@@ -169292,6 +171029,7 @@ proc_7F094488:
 /* 0CBEB4 7F097384 27BD06B0 */  addiu $sp, $sp, 0x6b0
 # end proc_7F094488
 
+.global proc_7F097388
 proc_7F097388:
 /* 0CBEB8 7F097388 27BDFF88 */  addiu $sp, $sp, -0x78
 /* 0CBEBC 7F09738C 30CEFFFF */  andi  $t6, $a2, 0xffff
@@ -169570,6 +171308,7 @@ proc_7F097388:
 /* 0CC2E0 7F0977B0 27BD0078 */  addiu $sp, $sp, 0x78
 # end proc_7F097388
 
+.global proc_7F0977B4
 proc_7F0977B4:
 /* 0CC2E4 7F0977B4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0CC2E8 7F0977B8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -169599,6 +171338,7 @@ proc_7F0977B4:
 /* 0CC344 7F097814 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0977B4
 
+.global proc_7F097818
 proc_7F097818:
 /* 0CC348 7F097818 27BDFB78 */  addiu $sp, $sp, -0x488
 /* 0CC34C 7F09781C AFB00020 */  sw    $s0, 0x20($sp)
@@ -170799,6 +172539,7 @@ proc_7F097818:
 /* 0CD558 7F098A28 27BD0488 */  addiu $sp, $sp, 0x488
 # end proc_7F097818
 
+.global proc_7F098A2C
 proc_7F098A2C:
 /* 0CD55C 7F098A2C 27BDFB30 */  addiu $sp, $sp, -0x4d0
 /* 0CD560 7F098A30 AFB00020 */  sw    $s0, 0x20($sp)
@@ -172444,6 +174185,7 @@ proc_7F098A2C:
 /* 0CEE0C 7F09A2DC 27BD04D0 */  addiu $sp, $sp, 0x4d0
 # end proc_7F098A2C
 
+.global default_player_perspective_and_height
 default_player_perspective_and_height:
 /* 0CEE10 7F09A2E0 3C013F80 */  lui   $at, 0x3f80
 /* 0CEE14 7F09A2E4 44810000 */  mtc1  $at, $f0
@@ -172466,6 +174208,7 @@ default_player_perspective_and_height:
 /* 0CEE58 7F09A328 E420A09C */  swc1  $f0, %lo(0x8007A09C)($at) # $f0, -0x5f64($at)
 # end default_player_perspective_and_height
 
+.global reset_play_data_ptrs
 reset_play_data_ptrs:
 /* 0CEE5C 7F09A32C 3C028008 */  lui   $v0, 0x8008
 /* 0CEE60 7F09A330 24429EE0 */  addiu $v0, $v0, -0x6120
@@ -172493,6 +174236,7 @@ reset_play_data_ptrs:
 /* 0CEEB8 7F09A388 AC78000C */  sw    $t8, %lo(0x8008000C)($v1) # $t8, 0xc($v1)
 # end reset_play_data_ptrs
 
+.global proc_7F09A38C
 proc_7F09A38C:
 /* 0CEEBC 7F09A38C 3C028008 */  lui   $v0, 0x8008
 /* 0CEEC0 7F09A390 24429EE0 */  addiu $v0, $v0, -0x6120
@@ -172554,6 +174298,7 @@ proc_7F09A38C:
 /* 0CEF90 7F09A460 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F09A38C
 
+.global get_num_players
 get_num_players:
 /* 0CEF94 7F09A464 3C0E8008 */  lui   $t6, 0x8008
 /* 0CEF98 7F09A468 8DCE9EE0 */  lw    $t6, -0x6120($t6)
@@ -172583,6 +174328,7 @@ get_num_players:
 /* 0CEFE8 7F09A4B8 00601025 */  or    $v0, $v1, $zero
 # end get_num_players
 
+.global proc_7F09A4BC
 proc_7F09A4BC:
 /* 0CEFEC 7F09A4BC 27BDFC30 */  addiu $sp, $sp, -0x3d0
 /* 0CEFF0 7F09A4C0 3C0F8004 */  lui   $t7, 0x8004
@@ -173378,6 +175124,7 @@ proc_7F09A4BC:
 /* 0CFC38 7F09B108 27BD03D0 */  addiu $sp, $sp, 0x3d0
 # end proc_7F09A4BC
 
+.global get_cur.player
 get_cur.player:
 /* 0CFC3C 7F09B10C 00047080 */  sll   $t6, $a0, 2
 /* 0CFC40 7F09B110 3C0F8008 */  lui   $t7, 0x8008
@@ -173398,12 +175145,14 @@ get_cur.player:
 /* 0CFC7C 7F09B14C AC28A0B4 */  sw    $t0, %lo(0x8007A0B4)($at) # $t0, -0x5f4c($at)
 # end get_cur.player
 
+.global proc_7F09B150
 proc_7F09B150:
 /* 0CFC80 7F09B150 3C028008 */  lui   $v0, 0x8008
 /* 0CFC84 7F09B154 03E00008 */  jr    $ra
 /* 0CFC88 7F09B158 8C42A0B8 */  lw    $v0, -0x5f48($v0)
 # end proc_7F09B150
 
+.global proc_7F09B15C
 proc_7F09B15C:
 /* 0CFC8C 7F09B15C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0CFC90 7F09B160 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -173443,6 +175192,7 @@ proc_7F09B15C:
 /* 0CFD08 7F09B1D8 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F09B15C
 
+.global set_cur.player_screen_size
 set_cur.player_screen_size:
 /* 0CFD0C 7F09B1DC 3C028008 */  lui   $v0, 0x8008
 /* 0CFD10 7F09B1E0 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -173453,6 +175203,7 @@ set_cur.player_screen_size:
 /* 0CFD24 7F09B1F4 A5E507F2 */  sh    $a1, 0x7f2($t7)
 # end set_cur.player_screen_size
 
+.global set_cur.player_viewport_size
 set_cur.player_viewport_size:
 /* 0CFD28 7F09B1F8 3C028008 */  lui   $v0, 0x8008
 /* 0CFD2C 7F09B1FC 2442A0B0 */  addiu $v0, $v0, -0x5f50
@@ -173463,6 +175214,7 @@ set_cur.player_viewport_size:
 /* 0CFD40 7F09B210 A5E507F6 */  sh    $a1, 0x7f6($t7)
 # end set_cur.player_viewport_size
 
+.global proc_7F09B214
 proc_7F09B214:
 /* 0CFD44 7F09B214 3C0E8008 */  lui   $t6, 0x8008
 /* 0CFD48 7F09B218 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -173470,6 +175222,7 @@ proc_7F09B214:
 /* 0CFD50 7F09B220 E5CC11D0 */  swc1  $f12, 0x11d0($t6)
 # end proc_7F09B214
 
+.global proc_7F09B224
 proc_7F09B224:
 /* 0CFD54 7F09B224 3C0E8008 */  lui   $t6, 0x8008
 /* 0CFD58 7F09B228 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -173477,6 +175230,7 @@ proc_7F09B224:
 /* 0CFD60 7F09B230 E5CC11D4 */  swc1  $f12, 0x11d4($t6)
 # end proc_7F09B224
 
+.global proc_7F09B234
 proc_7F09B234:
 /* 0CFD64 7F09B234 3C0E8008 */  lui   $t6, 0x8008
 /* 0CFD68 7F09B238 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -173484,6 +175238,7 @@ proc_7F09B234:
 /* 0CFD70 7F09B240 C5C011D0 */  lwc1  $f0, 0x11d0($t6)
 # end proc_7F09B234
 
+.global proc_7F09B244
 proc_7F09B244:
 /* 0CFD74 7F09B244 28810020 */  slti  $at, $a0, 0x20
 /* 0CFD78 7F09B248 14200006 */  bnez  $at, .Lproc_7F09B244_20
@@ -173562,6 +175317,7 @@ proc_7F09B244:
 /* 0CFE94 7F09B364 00601025 */  or    $v0, $v1, $zero
 # end proc_7F09B244
 
+.global proc_7F09B368
 proc_7F09B368:
 /* 0CFE98 7F09B368 3C0E8008 */  lui   $t6, 0x8008
 /* 0CFE9C 7F09B36C 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -173577,6 +175333,7 @@ proc_7F09B368:
 /* 0CFEC4 7F09B394 00000000 */  nop   
 # end proc_7F09B368
 
+.global proc_7F09B398
 proc_7F09B398:
 /* 0CFEC8 7F09B398 3C0E8008 */  lui   $t6, 0x8008
 /* 0CFECC 7F09B39C 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -173617,6 +175374,7 @@ proc_7F09B398:
 /* 0CFF48 7F09B418 00000000 */  nop   
 # end proc_7F09B398
 
+.global proc_7F09B41C
 proc_7F09B41C:
 /* 0CFF4C 7F09B41C 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0CFF50 7F09B420 AFB1001C */  sw    $s1, 0x1c($sp)
@@ -173670,6 +175428,7 @@ proc_7F09B41C:
 /* 0D0004 7F09B4D4 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F09B41C
 
+.global proc_7F09B4D8
 proc_7F09B4D8:
 /* 0D0008 7F09B4D8 3C058008 */  lui   $a1, 0x8008
 /* 0D000C 7F09B4DC 3C078008 */  lui   $a3, 0x8008
@@ -173696,6 +175455,7 @@ proc_7F09B4D8:
 /* 0D0054 7F09B524 00601025 */  or    $v0, $v1, $zero
 # end proc_7F09B4D8
 
+.global proc_7F09B528
 proc_7F09B528:
 /* 0D0058 7F09B528 3C038008 */  lui   $v1, 0x8008
 /* 0D005C 7F09B52C 8C63A0C0 */  lw    $v1, -0x5f40($v1)
@@ -173758,6 +175518,7 @@ proc_7F09B528:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F09B600
 proc_7F09B600:
 /* 0D0130 7F09B600 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 0D0134 7F09B604 3C0E8F80 */  lui   $t6, 0x8f80
@@ -173847,6 +175608,7 @@ proc_7F09B600:
 # alignment
 .word 0x00000000
 
+.global proc_7F09B740
 proc_7F09B740:
 /* 0D0270 7F09B740 3C048004 */  lui   $a0, 0x8004
 /* 0D0274 7F09B744 DC840160 */  ld    $a0, 0x160($a0)
@@ -173868,6 +175630,7 @@ proc_7F09B740:
 /* 0D02B4 7F09B784 0002103F */  dsra32 $v0, $v0, 0
 # end proc_7F09B740
 
+.global proc_7F09B788
 proc_7F09B788:
 /* 0D02B8 7F09B788 64840001 */  daddiu $a0, $a0, 1
 /* 0D02BC 7F09B78C 3C018004 */  lui   $at, 0x8004
@@ -173879,11 +175642,13 @@ proc_7F09B788:
 # alignment
 .word 0x00000000
 
+.global null_init_main_1
 null_init_main_1:
 /* 0D02D0 7F09B7A0 03E00008 */  jr    $ra
 /* 0D02D4 7F09B7A4 00000000 */  nop   
 # end null_init_main_1
 
+.global proc_7F09B7A8
 proc_7F09B7A8:
 /* 0D02D8 7F09B7A8 3C038008 */  lui   $v1, 0x8008
 /* 0D02DC 7F09B7AC 8C63A0D4 */  lw    $v1, -0x5f2c($v1)
@@ -173904,6 +175669,7 @@ proc_7F09B7A8:
 /* 0D0310 7F09B7E0 00000000 */  nop   
 # end proc_7F09B7A8
 
+.global proc_7F09B7E4
 proc_7F09B7E4:
 /* 0D0314 7F09B7E4 3C038008 */  lui   $v1, 0x8008
 /* 0D0318 7F09B7E8 8C63A0DC */  lw    $v1, -0x5f24($v1)
@@ -173924,6 +175690,7 @@ proc_7F09B7E4:
 /* 0D034C 7F09B81C 00000000 */  nop   
 # end proc_7F09B7E4
 
+.global proc_7F09B820
 proc_7F09B820:
 /* 0D0350 7F09B820 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D0354 7F09B824 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -174103,6 +175870,7 @@ proc_7F09B820:
 /* 0D05F0 7F09BAC0 00000000 */  nop   
 # end proc_7F09B820
 
+.global proc_7F09BAC4
 proc_7F09BAC4:
 /* 0D05F4 7F09BAC4 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0D05F8 7F09BAC8 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -174178,6 +175946,7 @@ proc_7F09BAC4:
 /* 0D06E8 7F09BBB8 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F09BAC4
 
+.global proc_7F09BBBC
 proc_7F09BBBC:
 /* 0D06EC 7F09BBBC 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0D06F0 7F09BBC0 AFB5002C */  sw    $s5, 0x2c($sp)
@@ -174356,6 +176125,7 @@ proc_7F09BBBC:
 /* 0D0978 7F09BE48 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F09BBBC
 
+.global proc_7F09BE4C
 proc_7F09BE4C:
 /* 0D097C 7F09BE4C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0D0980 7F09BE50 AFB00018 */  sw    $s0, 0x18($sp)
@@ -174500,6 +176270,7 @@ proc_7F09BE4C:
 /* 0D0B70 7F09C040 00000000 */  nop   
 # end proc_7F09BE4C
 
+.global proc_7F09C044
 proc_7F09C044:
 /* 0D0B74 7F09C044 3C028008 */  lui   $v0, 0x8008
 /* 0D0B78 7F09C048 8C42A0E0 */  lw    $v0, -0x5f20($v0)
@@ -174643,6 +176414,7 @@ proc_7F09C044:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F09C250
 proc_7F09C250:
 /* 0D0D80 7F09C250 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0D0D84 7F09C254 00077400 */  sll   $t6, $a3, 0x10
@@ -175011,6 +176783,7 @@ proc_7F09C250:
 /* 0D12D8 7F09C7A8 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F09C250
 
+.global proc_7F09C7AC
 proc_7F09C7AC:
 /* 0D12DC 7F09C7AC 24020006 */  addiu $v0, $zero, 6
 /* 0D12E0 7F09C7B0 3C018004 */  lui   $at, 0x8004
@@ -175020,6 +176793,7 @@ proc_7F09C7AC:
 /* 0D12F0 7F09C7C0 AC220174 */  sw    $v0, %lo(0x80040174)($at) # $v0, 0x174($at)
 # end proc_7F09C7AC
 
+.global proc_7F09C7C4
 proc_7F09C7C4:
 /* 0D12F4 7F09C7C4 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 0D12F8 7F09C7C8 3C0E8004 */  lui   $t6, 0x8004
@@ -175163,6 +176937,7 @@ proc_7F09C7C4:
 /* 0D1504 7F09C9D4 27BD0058 */  addiu $sp, $sp, 0x58
 # end proc_7F09C7C4
 
+.global proc_7F09C9D8
 proc_7F09C9D8:
 /* 0D1508 7F09C9D8 27BDFF00 */  addiu $sp, $sp, -0x100
 /* 0D150C 7F09C9DC AFBF006C */  sw    $ra, 0x6c($sp)
@@ -175515,6 +177290,7 @@ proc_7F09C9D8:
 /* 0D1A14 7F09CEE4 27BD0100 */  addiu $sp, $sp, 0x100
 # end proc_7F09C9D8
 
+.global proc_7F09CEE8
 proc_7F09CEE8:
 /* 0D1A18 7F09CEE8 27BDFF38 */  addiu $sp, $sp, -0xc8
 /* 0D1A1C 7F09CEEC AFBF006C */  sw    $ra, 0x6c($sp)
@@ -175932,6 +177708,7 @@ proc_7F09CEE8:
 /* 0D2018 7F09D4E8 27BD00C8 */  addiu $sp, $sp, 0xc8
 # end proc_7F09CEE8
 
+.global proc_7F09D4EC
 proc_7F09D4EC:
 /* 0D201C 7F09D4EC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D2020 7F09D4F0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -175983,6 +177760,7 @@ proc_7F09D4EC:
 /* 0D20CC 7F09D59C 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F09D4EC
 
+.global proc_7F09D5A0
 proc_7F09D5A0:
 /* 0D20D0 7F09D5A0 27BDFF70 */  addiu $sp, $sp, -0x90
 /* 0D20D4 7F09D5A4 AFB0001C */  sw    $s0, 0x1c($sp)
@@ -176162,6 +177940,7 @@ proc_7F09D5A0:
 /* 0D2358 7F09D828 27BD0090 */  addiu $sp, $sp, 0x90
 # end proc_7F09D5A0
 
+.global proc_7F09D82C
 proc_7F09D82C:
 /* 0D235C 7F09D82C 27BDFF48 */  addiu $sp, $sp, -0xb8
 /* 0D2360 7F09D830 3C0F8004 */  lui   $t7, 0x8004
@@ -176518,6 +178297,7 @@ proc_7F09D82C:
 /* 0D28D0 7F09DDA0 27BD00B8 */  addiu $sp, $sp, 0xb8
 # end proc_7F09D82C
 
+.global proc_7F09DDA4
 proc_7F09DDA4:
 /* 0D28D4 7F09DDA4 27BDFF28 */  addiu $sp, $sp, -0xd8
 /* 0D28D8 7F09DDA8 3C0F8004 */  lui   $t7, 0x8004
@@ -177135,6 +178915,7 @@ proc_7F09DDA4:
 /* 0D322C 7F09E6FC 27BD00D8 */  addiu $sp, $sp, 0xd8
 # end proc_7F09DDA4
 
+.global proc_7F09E700
 proc_7F09E700:
 /* 0D3230 7F09E700 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0D3234 7F09E704 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -177255,6 +179036,7 @@ proc_7F09E700:
 /* 0D33D8 7F09E8A8 00000000 */  nop   
 # end proc_7F09E700
 
+.global proc_7F09E8AC
 proc_7F09E8AC:
 /* 0D33DC 7F09E8AC 27BDFF30 */  addiu $sp, $sp, -0xd0
 /* 0D33E0 7F09E8B0 3C028005 */  lui   $v0, 0x8005
@@ -177738,6 +179520,7 @@ proc_7F09E8AC:
 /* 0D3AC8 7F09EF98 27BD00D0 */  addiu $sp, $sp, 0xd0
 # end proc_7F09E8AC
 
+.global proc_7F09EF9C
 proc_7F09EF9C:
 /* 0D3ACC 7F09EF9C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D3AD0 7F09EFA0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -177783,6 +179566,7 @@ proc_7F09EF9C:
 /* 0D3B68 7F09F038 00000000 */  nop   
 # end proc_7F09EF9C
 
+.global proc_7F09F03C
 proc_7F09F03C:
 /* 0D3B6C 7F09F03C 27BDFF70 */  addiu $sp, $sp, -0x90
 /* 0D3B70 7F09F040 AFB00024 */  sw    $s0, 0x24($sp)
@@ -177926,6 +179710,7 @@ proc_7F09F03C:
 /* 0D3D80 7F09F250 27BD0090 */  addiu $sp, $sp, 0x90
 # end proc_7F09F03C
 
+.global proc_7F09F254
 proc_7F09F254:
 /* 0D3D84 7F09F254 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 0D3D88 7F09F258 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -178647,6 +180432,7 @@ proc_7F09F254:
 /* 0D4868 7F09FD38 27BD0050 */  addiu $sp, $sp, 0x50
 # end proc_7F09F254
 
+.global proc_7F09FD3C
 proc_7F09FD3C:
 /* 0D486C 7F09FD3C 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 0D4870 7F09FD40 3C028005 */  lui   $v0, 0x8005
@@ -178854,6 +180640,7 @@ proc_7F09FD3C:
 /* 0D4B60 7F0A0030 27BD0058 */  addiu $sp, $sp, 0x58
 # end proc_7F09FD3C
 
+.global proc_7F0A0034
 proc_7F0A0034:
 /* 0D4B64 7F0A0034 27BDFF40 */  addiu $sp, $sp, -0xc0
 /* 0D4B68 7F0A0038 AFB00028 */  sw    $s0, 0x28($sp)
@@ -179006,6 +180793,7 @@ proc_7F0A0034:
 /* 0D4DA8 7F0A0278 27BD00C0 */  addiu $sp, $sp, 0xc0
 # end proc_7F0A0034
 
+.global proc_7F0A027C
 proc_7F0A027C:
 /* 0D4DAC 7F0A027C 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 0D4DB0 7F0A0280 3C0E8004 */  lui   $t6, 0x8004
@@ -179539,6 +181327,7 @@ proc_7F0A027C:
 /* 0D55E0 7F0A0AB0 27BD0068 */  addiu $sp, $sp, 0x68
 # end proc_7F0A027C
 
+.global proc_7F0A0AB4
 proc_7F0A0AB4:
 /* 0D55E4 7F0A0AB4 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0D55E8 7F0A0AB8 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -179659,6 +181448,7 @@ proc_7F0A0AB4:
 /* 0D57A0 7F0A0C70 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F0A0AB4
 
+.global proc_7F0A0C74
 proc_7F0A0C74:
 /* 0D57A4 7F0A0C74 44802000 */  mtc1  $zero, $f4
 /* 0D57A8 7F0A0C78 3C013F00 */  lui   $at, 0x3f00
@@ -179685,6 +181475,7 @@ proc_7F0A0C74:
 /* 0D57F8 7F0A0CC8 00000000 */  nop   
 # end proc_7F0A0C74
 
+.global proc_7F0A0CCC
 proc_7F0A0CCC:
 /* 0D57FC 7F0A0CCC AFA50004 */  sw    $a1, 4($sp)
 /* 0D5800 7F0A0CD0 00057600 */  sll   $t6, $a1, 0x18
@@ -179742,6 +181533,7 @@ proc_7F0A0CCC:
 /* 0D58BC 7F0A0D8C 00000000 */  nop   
 # end proc_7F0A0CCC
 
+.global proc_7F0A0D90
 proc_7F0A0D90:
 /* 0D58C0 7F0A0D90 3C078004 */  lui   $a3, 0x8004
 /* 0D58C4 7F0A0D94 3C058008 */  lui   $a1, 0x8008
@@ -179816,6 +181608,7 @@ proc_7F0A0D90:
 /* 0D59C4 7F0A0E94 00000000 */  nop   
 # end proc_7F0A0D90
 
+.global proc_7F0A0E98
 proc_7F0A0E98:
 /* 0D59C8 7F0A0E98 3C01437F */  lui   $at, 0x437f
 /* 0D59CC 7F0A0E9C 44811000 */  mtc1  $at, $f2
@@ -179953,6 +181746,7 @@ proc_7F0A0E98:
 /* 0D5BB8 7F0A1088 00000000 */  nop   
 # end proc_7F0A0E98
 
+.global proc_7F0A108C
 proc_7F0A108C:
 /* 0D5BBC 7F0A108C 27BDFF10 */  addiu $sp, $sp, -0xf0
 /* 0D5BC0 7F0A1090 3C0E8004 */  lui   $t6, 0x8004
@@ -180615,6 +182409,7 @@ proc_7F0A108C:
 /* 0D65C0 7F0A1A90 27BD00F0 */  addiu $sp, $sp, 0xf0
 # end proc_7F0A108C
 
+.global proc_7F0A1A94
 proc_7F0A1A94:
 /* 0D65C4 7F0A1A94 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 0D65C8 7F0A1A98 AFB60038 */  sw    $s6, 0x38($sp)
@@ -180814,6 +182609,7 @@ proc_7F0A1A94:
 /* 0D68A4 7F0A1D74 27BD0060 */  addiu $sp, $sp, 0x60
 # end proc_7F0A1A94
 
+.global proc_7F0A1D78
 proc_7F0A1D78:
 /* 0D68A8 7F0A1D78 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D68AC 7F0A1D7C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -180829,6 +182625,7 @@ proc_7F0A1D78:
 # alignment
 .word 0x00000000
 
+.global proc_7F0A1DA0
 proc_7F0A1DA0:
 /* 0D68D0 7F0A1DA0 27BDFF20 */  addiu $sp, $sp, -0xe0
 /* 0D68D4 7F0A1DA4 AFBF005C */  sw    $ra, 0x5c($sp)
@@ -181078,6 +182875,7 @@ proc_7F0A1DA0:
 /* 0D6C8C 7F0A215C 27BD00E0 */  addiu $sp, $sp, 0xe0
 # end proc_7F0A1DA0
 
+.global proc_7F0A2160
 proc_7F0A2160:
 /* 0D6C90 7F0A2160 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 0D6C94 7F0A2164 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -181572,6 +183370,7 @@ proc_7F0A2160:
 /* 0D7400 7F0A28D0 27BD0058 */  addiu $sp, $sp, 0x58
 # end proc_7F0A2160
 
+.global proc_7F0A28D4
 proc_7F0A28D4:
 /* 0D7404 7F0A28D4 3C028005 */  lui   $v0, 0x8005
 /* 0D7408 7F0A28D8 8C428374 */  lw    $v0, -0x7c8c($v0)
@@ -181808,6 +183607,7 @@ proc_7F0A28D4:
 /* 0D7770 7F0A2C40 00000000 */  nop   
 # end proc_7F0A28D4
 
+.global proc_7F0A2C44
 proc_7F0A2C44:
 /* 0D7774 7F0A2C44 27BDFF30 */  addiu $sp, $sp, -0xd0
 /* 0D7778 7F0A2C48 3C058009 */  lui   $a1, 0x8009
@@ -182001,6 +183801,7 @@ proc_7F0A2C44:
 /* 0D7A5C 7F0A2F2C 27BD00D0 */  addiu $sp, $sp, 0xd0
 # end proc_7F0A2C44
 
+.global proc_7F0A2F30
 proc_7F0A2F30:
 /* 0D7A60 7F0A2F30 27BDFF68 */  addiu $sp, $sp, -0x98
 /* 0D7A64 7F0A2F34 AFB60060 */  sw    $s6, 0x60($sp)
@@ -182270,6 +184071,7 @@ proc_7F0A2F30:
 /* 0D7E5C 7F0A332C 27BD0098 */  addiu $sp, $sp, 0x98
 # end proc_7F0A2F30
 
+.global proc_7F0A3330
 proc_7F0A3330:
 /* 0D7E60 7F0A3330 00803825 */  or    $a3, $a0, $zero
 /* 0D7E64 7F0A3334 00001025 */  or    $v0, $zero, $zero
@@ -182329,6 +184131,7 @@ proc_7F0A3330:
 /* 0D7F24 7F0A33F4 ACE00004 */  sw    $zero, 4($a3)
 # end proc_7F0A3330
 
+.global proc_7F0A33F8
 proc_7F0A33F8:
 /* 0D7F28 7F0A33F8 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 0D7F2C 7F0A33FC F7BE0038 */  sdc1  $f30, 0x38($sp)
@@ -182706,6 +184509,7 @@ proc_7F0A33F8:
 /* 0D84A4 7F0A3974 27BD0080 */  addiu $sp, $sp, 0x80
 # end proc_7F0A33F8
 
+.global proc_7F0A3978
 proc_7F0A3978:
 /* 0D84A8 7F0A3978 10E00036 */  beqz  $a3, .Lproc_7F0A3978_DC
 /* 0D84AC 7F0A397C AFA60008 */  sw    $a2, 8($sp)
@@ -182793,6 +184597,7 @@ proc_7F0A3978:
 /* 0D85E4 7F0A3AB4 AC800004 */  sw    $zero, 4($a0)
 # end proc_7F0A3978
 
+.global proc_7F0A3AB8
 proc_7F0A3AB8:
 /* 0D85E8 7F0A3AB8 27BDFFF8 */  addiu $sp, $sp, -8
 /* 0D85EC 7F0A3ABC 8FAE001C */  lw    $t6, 0x1c($sp)
@@ -182832,6 +184637,7 @@ proc_7F0A3AB8:
 /* 0D866C 7F0A3B3C 00801025 */  or    $v0, $a0, $zero
 # end proc_7F0A3AB8
 
+.global proc_7F0A3B40
 proc_7F0A3B40:
 /* 0D8670 7F0A3B40 3C0E0430 */  lui   $t6, 0x430
 /* 0D8674 7F0A3B44 35CE0040 */  ori   $t6, $t6, 0x40
@@ -182847,6 +184653,7 @@ proc_7F0A3B40:
 /* 0D869C 7F0A3B6C 24C20008 */  addiu $v0, $a2, 8
 # end proc_7F0A3B40
 
+.global proc_7F0A3B70
 proc_7F0A3B70:
 /* 0D86A0 7F0A3B70 3C0F8004 */  lui   $t7, 0x8004
 /* 0D86A4 7F0A3B74 25EF0960 */  addiu $t7, $t7, 0x960
@@ -182863,6 +184670,7 @@ proc_7F0A3B70:
 /* 0D86D0 7F0A3BA0 A0A90003 */  sb    $t1, 3($a1)
 # end proc_7F0A3B70
 
+.global proc_7F0A3BA4
 proc_7F0A3BA4:
 /* 0D86D4 7F0A3BA4 90B80000 */  lbu   $t8, ($a1)
 /* 0D86D8 7F0A3BA8 3C0F8004 */  lui   $t7, 0x8004
@@ -182879,6 +184687,7 @@ proc_7F0A3BA4:
 /* 0D8704 7F0A3BD4 A0490003 */  sb    $t1, 3($v0)
 # end proc_7F0A3BA4
 
+.global proc_7F0A3BD8
 proc_7F0A3BD8:
 /* 0D8708 7F0A3BD8 3C028008 */  lui   $v0, 0x8008
 /* 0D870C 7F0A3BDC 3C038008 */  lui   $v1, 0x8008
@@ -182895,6 +184704,7 @@ proc_7F0A3BD8:
 /* 0D8734 7F0A3C04 00000000 */  nop   
 # end proc_7F0A3BD8
 
+.global proc_7F0A3C08
 proc_7F0A3C08:
 /* 0D8738 7F0A3C08 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0D873C 7F0A3C0C F7B40018 */  sdc1  $f20, 0x18($sp)
@@ -183038,6 +184848,7 @@ proc_7F0A3C08:
 /* 0D8948 7F0A3E18 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F0A3C08
 
+.global proc_7F0A3E1C
 proc_7F0A3E1C:
 /* 0D894C 7F0A3E1C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0D8950 7F0A3E20 AFB00020 */  sw    $s0, 0x20($sp)
@@ -183077,6 +184888,7 @@ proc_7F0A3E1C:
 /* 0D89CC 7F0A3E9C 00000000 */  nop   
 # end proc_7F0A3E1C
 
+.global proc_7F0A3EA0
 proc_7F0A3EA0:
 /* 0D89D0 7F0A3EA0 3C028008 */  lui   $v0, 0x8008
 /* 0D89D4 7F0A3EA4 3C038008 */  lui   $v1, 0x8008
@@ -183108,6 +184920,7 @@ proc_7F0A3EA0:
 /* 0D8A30 7F0A3F00 00000000 */  nop   
 # end proc_7F0A3EA0
 
+.global proc_7F0A3F04
 proc_7F0A3F04:
 /* 0D8A34 7F0A3F04 27BDFF48 */  addiu $sp, $sp, -0xb8
 /* 0D8A38 7F0A3F08 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -183506,6 +185319,7 @@ proc_7F0A3F04:
 /* 0D9054 7F0A4524 27BD00B8 */  addiu $sp, $sp, 0xb8
 # end proc_7F0A3F04
 
+.global proc_7F0A4528
 proc_7F0A4528:
 /* 0D9058 7F0A4528 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0D905C 7F0A452C AFB10018 */  sw    $s1, 0x18($sp)
@@ -183537,6 +185351,7 @@ proc_7F0A4528:
 /* 0D90C0 7F0A4590 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F0A4528
 
+.global proc_7F0A4594
 proc_7F0A4594:
 /* 0D90C4 7F0A4594 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0D90C8 7F0A4598 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -183557,6 +185372,7 @@ proc_7F0A4594:
 /* 0D9104 7F0A45D4 46000007 */  neg.s $f0, $f0
 # end proc_7F0A4594
 
+.global proc_7F0A45D8
 proc_7F0A45D8:
 /* 0D9108 7F0A45D8 3C028008 */  lui   $v0, 0x8008
 /* 0D910C 7F0A45DC 3C038008 */  lui   $v1, 0x8008
@@ -183571,6 +185387,7 @@ proc_7F0A45D8:
 /* 0D912C 7F0A45FC 00000000 */  nop   
 # end proc_7F0A45D8
 
+.global proc_7F0A4600
 proc_7F0A4600:
 /* 0D9130 7F0A4600 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0D9134 7F0A4604 AFB00020 */  sw    $s0, 0x20($sp)
@@ -183617,6 +185434,7 @@ proc_7F0A4600:
 /* 0D91CC 7F0A469C 00000000 */  nop   
 # end proc_7F0A4600
 
+.global proc_7F0A46A0
 proc_7F0A46A0:
 /* 0D91D0 7F0A46A0 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0D91D4 7F0A46A4 AFB30020 */  sw    $s3, 0x20($sp)
@@ -183673,6 +185491,7 @@ proc_7F0A46A0:
 /* 0D9294 7F0A4764 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F0A46A0
 
+.global proc_7F0A4768
 proc_7F0A4768:
 /* 0D9298 7F0A4768 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0D929C 7F0A476C AFB10018 */  sw    $s1, 0x18($sp)
@@ -183704,6 +185523,7 @@ proc_7F0A4768:
 /* 0D9300 7F0A47D0 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F0A4768
 
+.global proc_7F0A47D4
 proc_7F0A47D4:
 /* 0D9304 7F0A47D4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D9308 7F0A47D8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -183717,6 +185537,7 @@ proc_7F0A47D4:
 /* 0D9328 7F0A47F8 00000000 */  nop   
 # end proc_7F0A47D4
 
+.global proc_7F0A47FC
 proc_7F0A47FC:
 /* 0D932C 7F0A47FC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D9330 7F0A4800 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -183730,6 +185551,7 @@ proc_7F0A47FC:
 /* 0D9350 7F0A4820 00000000 */  nop   
 # end proc_7F0A47FC
 
+.global proc_7F0A4824
 proc_7F0A4824:
 /* 0D9354 7F0A4824 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D9358 7F0A4828 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -183748,11 +185570,13 @@ proc_7F0A4824:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global proc_7F0A4860
 proc_7F0A4860:
 /* 0D9390 7F0A4860 03E00008 */  jr    $ra
 /* 0D9394 7F0A4864 00000000 */  nop   
 # end proc_7F0A4860
 
+.global init_watch_at_start_of_stage
 init_watch_at_start_of_stage:
 /* 0D9398 7F0A4868 3C018004 */  lui   $at, 0x8004
 /* 0D939C 7F0A486C AC200994 */  sw    $zero, %lo(0x80040994)($at) # $zero, 0x994($at)
@@ -183897,6 +185721,7 @@ init_watch_at_start_of_stage:
 /* 0D95C4 7F0A4A94 27BD0018 */  addiu $sp, $sp, 0x18
 # end init_watch_at_start_of_stage
 
+.global proc_7F0A4A98
 proc_7F0A4A98:
 /* 0D95C8 7F0A4A98 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D95CC 7F0A4A9C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -183946,6 +185771,7 @@ proc_7F0A4A98:
 /* 0D966C 7F0A4B3C 00000000 */  nop   
 # end proc_7F0A4A98
 
+.global proc_7F0A4B40
 proc_7F0A4B40:
 /* 0D9670 7F0A4B40 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 0D9674 7F0A4B44 AFB00038 */  sw    $s0, 0x38($sp)
@@ -184094,6 +185920,7 @@ proc_7F0A4B40:
 /* 0D98A0 7F0A4D70 27BD0080 */  addiu $sp, $sp, 0x80
 # end proc_7F0A4B40
 
+.global proc_7F0A4D74
 proc_7F0A4D74:
 /* 0D98A4 7F0A4D74 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D98A8 7F0A4D78 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184117,6 +185944,7 @@ proc_7F0A4D74:
 /* 0D98EC 7F0A4DBC 00000000 */  nop   
 # end proc_7F0A4D74
 
+.global cur.player.get.control_type
 cur.player.get.control_type:
 /* 0D98F0 7F0A4DC0 3C0E8008 */  lui   $t6, 0x8008
 /* 0D98F4 7F0A4DC4 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -184124,6 +185952,7 @@ cur.player.get.control_type:
 /* 0D98FC 7F0A4DCC 8DC22A58 */  lw    $v0, 0x2a58($t6)
 # end cur.player.get.control_type
 
+.global cur.player.set.control_type
 cur.player.set.control_type:
 /* 0D9900 7F0A4DD0 3C038008 */  lui   $v1, 0x8008
 /* 0D9904 7F0A4DD4 2463A0B0 */  addiu $v1, $v1, -0x5f50
@@ -184154,102 +185983,119 @@ cur.player.set.control_type:
 /* 0D9964 7F0A4E34 AD8B2A68 */  sw    $t3, 0x2a68($t4)
 # end cur.player.set.control_type
 
+.global cur.player.get.look_up_down_setting
 cur.player.get.look_up_down_setting:
 /* 0D9968 7F0A4E38 3C028004 */  lui   $v0, 0x8004
 /* 0D996C 7F0A4E3C 03E00008 */  jr    $ra
 /* 0D9970 7F0A4E40 8C420A84 */  lw    $v0, 0xa84($v0)
 # end cur.player.get.look_up_down_setting
 
+.global cur.player.set.look_up_down_setting
 cur.player.set.look_up_down_setting:
 /* 0D9974 7F0A4E44 3C018004 */  lui   $at, 0x8004
 /* 0D9978 7F0A4E48 03E00008 */  jr    $ra
 /* 0D997C 7F0A4E4C AC240A84 */  sw    $a0, %lo(0x80040A84)($at) # $a0, 0xa84($at)
 # end cur.player.set.look_up_down_setting
 
+.global cur.player.get.autoaim
 cur.player.get.autoaim:
 /* 0D9980 7F0A4E50 3C028004 */  lui   $v0, 0x8004
 /* 0D9984 7F0A4E54 03E00008 */  jr    $ra
 /* 0D9988 7F0A4E58 8C420A90 */  lw    $v0, 0xa90($v0)
 # end cur.player.get.autoaim
 
+.global cur.player.set.autoaim
 cur.player.set.autoaim:
 /* 0D998C 7F0A4E5C 3C018004 */  lui   $at, 0x8004
 /* 0D9990 7F0A4E60 03E00008 */  jr    $ra
 /* 0D9994 7F0A4E64 AC240A90 */  sw    $a0, %lo(0x80040A90)($at) # $a0, 0xa90($at)
 # end cur.player.set.autoaim
 
+.global cur.player.get.lookahead
 cur.player.get.lookahead:
 /* 0D9998 7F0A4E68 3C028004 */  lui   $v0, 0x8004
 /* 0D999C 7F0A4E6C 03E00008 */  jr    $ra
 /* 0D99A0 7F0A4E70 8C420AB4 */  lw    $v0, 0xab4($v0)
 # end cur.player.get.lookahead
 
+.global cur.player.set.lookahead
 cur.player.set.lookahead:
 /* 0D99A4 7F0A4E74 3C018004 */  lui   $at, 0x8004
 /* 0D99A8 7F0A4E78 03E00008 */  jr    $ra
 /* 0D99AC 7F0A4E7C AC240AB4 */  sw    $a0, %lo(0x80040AB4)($at) # $a0, 0xab4($at)
 # end cur.player.set.lookahead
 
+.global cur.player.get.aim.control
 cur.player.get.aim.control:
 /* 0D99B0 7F0A4E80 3C028004 */  lui   $v0, 0x8004
 /* 0D99B4 7F0A4E84 03E00008 */  jr    $ra
 /* 0D99B8 7F0A4E88 8C420A9C */  lw    $v0, 0xa9c($v0)
 # end cur.player.get.aim.control
 
+.global cur.player.set.aim.control
 cur.player.set.aim.control:
 /* 0D99BC 7F0A4E8C 3C018004 */  lui   $at, 0x8004
 /* 0D99C0 7F0A4E90 03E00008 */  jr    $ra
 /* 0D99C4 7F0A4E94 AC240A9C */  sw    $a0, %lo(0x80040A9C)($at) # $a0, 0xa9c($at)
 # end cur.player.set.aim.control
 
+.global cur.player.get.sight.onscreen.control
 cur.player.get.sight.onscreen.control:
 /* 0D99C8 7F0A4E98 3C028004 */  lui   $v0, 0x8004
 /* 0D99CC 7F0A4E9C 03E00008 */  jr    $ra
 /* 0D99D0 7F0A4EA0 8C420AA8 */  lw    $v0, 0xaa8($v0)
 # end cur.player.get.sight.onscreen.control
 
+.global cur.player.set.sight.onscreen.control
 cur.player.set.sight.onscreen.control:
 /* 0D99D4 7F0A4EA4 3C018004 */  lui   $at, 0x8004
 /* 0D99D8 7F0A4EA8 03E00008 */  jr    $ra
 /* 0D99DC 7F0A4EAC AC240AA8 */  sw    $a0, %lo(0x80040AA8)($at) # $a0, 0xaa8($at)
 # end cur.player.set.sight.onscreen.control
 
+.global cur.player.get.ammo.onscreen.setting
 cur.player.get.ammo.onscreen.setting:
 /* 0D99E0 7F0A4EB0 3C028004 */  lui   $v0, 0x8004
 /* 0D99E4 7F0A4EB4 03E00008 */  jr    $ra
 /* 0D99E8 7F0A4EB8 8C420AC0 */  lw    $v0, 0xac0($v0)
 # end cur.player.get.ammo.onscreen.setting
 
+.global cur.player.set.ammo.onscreen.setting
 cur.player.set.ammo.onscreen.setting:
 /* 0D99EC 7F0A4EBC 3C018004 */  lui   $at, 0x8004
 /* 0D99F0 7F0A4EC0 03E00008 */  jr    $ra
 /* 0D99F4 7F0A4EC4 AC240AC0 */  sw    $a0, %lo(0x80040AC0)($at) # $a0, 0xac0($at)
 # end cur.player.set.ammo.onscreen.setting
 
+.global cur.player.get.screen.setting
 cur.player.get.screen.setting:
 /* 0D99F8 7F0A4EC8 3C028004 */  lui   $v0, 0x8004
 /* 0D99FC 7F0A4ECC 03E00008 */  jr    $ra
 /* 0D9A00 7F0A4ED0 8C420ACC */  lw    $v0, 0xacc($v0)
 # end cur.player.get.screen.setting
 
+.global cur.player.set.screen.setting
 cur.player.set.screen.setting:
 /* 0D9A04 7F0A4ED4 3C018004 */  lui   $at, 0x8004
 /* 0D9A08 7F0A4ED8 03E00008 */  jr    $ra
 /* 0D9A0C 7F0A4EDC AC240ACC */  sw    $a0, %lo(0x80040ACC)($at) # $a0, 0xacc($at)
 # end cur.player.set.screen.setting
 
+.global get.screen_ratio
 get.screen_ratio:
 /* 0D9A10 7F0A4EE0 3C028004 */  lui   $v0, 0x8004
 /* 0D9A14 7F0A4EE4 03E00008 */  jr    $ra
 /* 0D9A18 7F0A4EE8 8C420AD8 */  lw    $v0, 0xad8($v0)
 # end get.screen_ratio
 
+.global set.screen_ratio
 set.screen_ratio:
 /* 0D9A1C 7F0A4EEC 3C018004 */  lui   $at, 0x8004
 /* 0D9A20 7F0A4EF0 03E00008 */  jr    $ra
 /* 0D9A24 7F0A4EF4 AC240AD8 */  sw    $a0, %lo(0x80040AD8)($at) # $a0, 0xad8($at)
 # end set.screen_ratio
 
+.global proc_7F0A4EF8
 proc_7F0A4EF8:
 /* 0D9A28 7F0A4EF8 3C028004 */  lui   $v0, 0x8004
 /* 0D9A2C 7F0A4EFC 244209A8 */  addiu $v0, $v0, 0x9a8
@@ -184274,12 +186120,14 @@ proc_7F0A4EF8:
 /* 0D9A70 7F0A4F40 00000000 */  nop   
 # end proc_7F0A4EF8
 
+.global proc_7F0A4F44
 proc_7F0A4F44:
 /* 0D9A74 7F0A4F44 3C018004 */  lui   $at, 0x8004
 /* 0D9A78 7F0A4F48 03E00008 */  jr    $ra
 /* 0D9A7C 7F0A4F4C AC2009A8 */  sw    $zero, %lo(0x800409A8)($at) # $zero, 0x9a8($at)
 # end proc_7F0A4F44
 
+.global is_holding_greater_than_2E_left_on_stick
 is_holding_greater_than_2E_left_on_stick:
 /* 0D9A80 7F0A4F50 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D9A84 7F0A4F54 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184292,6 +186140,7 @@ is_holding_greater_than_2E_left_on_stick:
 /* 0D9AA0 7F0A4F70 27BD0018 */  addiu $sp, $sp, 0x18
 # end is_holding_greater_than_2E_left_on_stick
 
+.global is_holding_greater_than_2E_right_on_stick
 is_holding_greater_than_2E_right_on_stick:
 /* 0D9AA4 7F0A4F74 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D9AA8 7F0A4F78 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184304,18 +186153,21 @@ is_holding_greater_than_2E_right_on_stick:
 /* 0D9AC4 7F0A4F94 27BD0018 */  addiu $sp, $sp, 0x18
 # end is_holding_greater_than_2E_right_on_stick
 
+.global get.controlstick_lr_enabled
 get.controlstick_lr_enabled:
 /* 0D9AC8 7F0A4F98 3C028004 */  lui   $v0, 0x8004
 /* 0D9ACC 7F0A4F9C 03E00008 */  jr    $ra
 /* 0D9AD0 7F0A4FA0 8C420ADC */  lw    $v0, 0xadc($v0)
 # end get.controlstick_lr_enabled
 
+.global set.controlstick_lr_enabled
 set.controlstick_lr_enabled:
 /* 0D9AD4 7F0A4FA4 3C018004 */  lui   $at, 0x8004
 /* 0D9AD8 7F0A4FA8 03E00008 */  jr    $ra
 /* 0D9ADC 7F0A4FAC AC200ADC */  sw    $zero, %lo(0x80040ADC)($at) # $zero, 0xadc($at)
 # end set.controlstick_lr_enabled
 
+.global proc_7F0A4FB0
 proc_7F0A4FB0:
 /* 0D9AE0 7F0A4FB0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D9AE4 7F0A4FB4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184335,6 +186187,7 @@ proc_7F0A4FB0:
 /* 0D9B18 7F0A4FE8 00000000 */  nop   
 # end proc_7F0A4FB0
 
+.global proc_7F0A4FEC
 proc_7F0A4FEC:
 /* 0D9B1C 7F0A4FEC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D9B20 7F0A4FF0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184354,6 +186207,7 @@ proc_7F0A4FEC:
 /* 0D9B54 7F0A5024 00000000 */  nop   
 # end proc_7F0A4FEC
 
+.global proc_7F0A5028
 proc_7F0A5028:
 /* 0D9B58 7F0A5028 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D9B5C 7F0A502C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184366,6 +186220,7 @@ proc_7F0A5028:
 /* 0D9B78 7F0A5048 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0A5028
 
+.global proc_7F0A504C
 proc_7F0A504C:
 /* 0D9B7C 7F0A504C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D9B80 7F0A5050 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184378,18 +186233,21 @@ proc_7F0A504C:
 /* 0D9B9C 7F0A506C 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0A504C
 
+.global proc_7F0A5070
 proc_7F0A5070:
 /* 0D9BA0 7F0A5070 3C028004 */  lui   $v0, 0x8004
 /* 0D9BA4 7F0A5074 03E00008 */  jr    $ra
 /* 0D9BA8 7F0A5078 8C420AE0 */  lw    $v0, 0xae0($v0)
 # end proc_7F0A5070
 
+.global proc_7F0A507C
 proc_7F0A507C:
 /* 0D9BAC 7F0A507C 3C018004 */  lui   $at, 0x8004
 /* 0D9BB0 7F0A5080 03E00008 */  jr    $ra
 /* 0D9BB4 7F0A5084 AC200AE0 */  sw    $zero, %lo(0x80040AE0)($at) # $zero, 0xae0($at)
 # end proc_7F0A507C
 
+.global proc_7F0A5088
 proc_7F0A5088:
 /* 0D9BB8 7F0A5088 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D9BBC 7F0A508C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184409,6 +186267,7 @@ proc_7F0A5088:
 /* 0D9BF0 7F0A50C0 00000000 */  nop   
 # end proc_7F0A5088
 
+.global proc_7F0A50C4
 proc_7F0A50C4:
 /* 0D9BF4 7F0A50C4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D9BF8 7F0A50C8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184428,6 +186287,7 @@ proc_7F0A50C4:
 /* 0D9C2C 7F0A50FC 00000000 */  nop   
 # end proc_7F0A50C4
 
+.global proc_7F0A5100
 proc_7F0A5100:
 /* 0D9C30 7F0A5100 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D9C34 7F0A5104 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184440,6 +186300,7 @@ proc_7F0A5100:
 /* 0D9C50 7F0A5120 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0A5100
 
+.global proc_7F0A5124
 proc_7F0A5124:
 /* 0D9C54 7F0A5124 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D9C58 7F0A5128 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184452,18 +186313,21 @@ proc_7F0A5124:
 /* 0D9C74 7F0A5144 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0A5124
 
+.global proc_7F0A5148
 proc_7F0A5148:
 /* 0D9C78 7F0A5148 3C028004 */  lui   $v0, 0x8004
 /* 0D9C7C 7F0A514C 03E00008 */  jr    $ra
 /* 0D9C80 7F0A5150 8C420AE4 */  lw    $v0, 0xae4($v0)
 # end proc_7F0A5148
 
+.global proc_7F0A5154
 proc_7F0A5154:
 /* 0D9C84 7F0A5154 3C018004 */  lui   $at, 0x8004
 /* 0D9C88 7F0A5158 03E00008 */  jr    $ra
 /* 0D9C8C 7F0A515C AC200AE4 */  sw    $zero, %lo(0x80040AE4)($at) # $zero, 0xae4($at)
 # end proc_7F0A5154
 
+.global proc_7F0A5160
 proc_7F0A5160:
 /* 0D9C90 7F0A5160 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D9C94 7F0A5164 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184483,6 +186347,7 @@ proc_7F0A5160:
 /* 0D9CC8 7F0A5198 00000000 */  nop   
 # end proc_7F0A5160
 
+.global proc_7F0A519C
 proc_7F0A519C:
 /* 0D9CCC 7F0A519C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D9CD0 7F0A51A0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184502,6 +186367,7 @@ proc_7F0A519C:
 /* 0D9D04 7F0A51D4 00000000 */  nop   
 # end proc_7F0A519C
 
+.global proc_7F0A51D8
 proc_7F0A51D8:
 /* 0D9D08 7F0A51D8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D9D0C 7F0A51DC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184519,6 +186385,7 @@ proc_7F0A51D8:
 /* 0D9D3C 7F0A520C 00000000 */  nop   
 # end proc_7F0A51D8
 
+.global proc_7F0A5210
 proc_7F0A5210:
 /* 0D9D40 7F0A5210 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0D9D44 7F0A5214 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184546,6 +186413,7 @@ proc_7F0A5210:
 /* 0D9D98 7F0A5268 00000000 */  nop   
 # end proc_7F0A5210
 
+.global proc_7F0A526C
 proc_7F0A526C:
 /* 0D9D9C 7F0A526C 3C0E8004 */  lui   $t6, 0x8004
 /* 0D9DA0 7F0A5270 8DCE09A8 */  lw    $t6, 0x9a8($t6)
@@ -184650,6 +186518,7 @@ proc_7F0A526C:
 /* 0D9F04 7F0A53D4 00000000 */  nop   
 # end proc_7F0A526C
 
+.global proc_7F0A53D8
 proc_7F0A53D8:
 /* 0D9F08 7F0A53D8 3C0E8004 */  lui   $t6, 0x8004
 /* 0D9F0C 7F0A53DC 8DCE09A8 */  lw    $t6, 0x9a8($t6)
@@ -184736,6 +186605,7 @@ proc_7F0A53D8:
 /* 0DA030 7F0A5500 00000000 */  nop   
 # end proc_7F0A53D8
 
+.global proc_7F0A5504
 proc_7F0A5504:
 /* 0DA034 7F0A5504 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DA038 7F0A5508 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184793,6 +186663,7 @@ proc_7F0A5504:
 /* 0DA0F0 7F0A55C0 00000000 */  nop   
 # end proc_7F0A5504
 
+.global proc_7F0A55C4
 proc_7F0A55C4:
 /* 0DA0F4 7F0A55C4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DA0F8 7F0A55C8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184858,6 +186729,7 @@ proc_7F0A55C4:
 /* 0DA1D0 7F0A56A0 00000000 */  nop   
 # end proc_7F0A55C4
 
+.global proc_7F0A56A4
 proc_7F0A56A4:
 /* 0DA1D4 7F0A56A4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DA1D8 7F0A56A8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184923,6 +186795,7 @@ proc_7F0A56A4:
 /* 0DA2B0 7F0A5780 00000000 */  nop   
 # end proc_7F0A56A4
 
+.global proc_7F0A5784
 proc_7F0A5784:
 /* 0DA2B4 7F0A5784 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DA2B8 7F0A5788 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -184987,6 +186860,7 @@ proc_7F0A5784:
 /* 0DA38C 7F0A585C 00000000 */  nop   
 # end proc_7F0A5784
 
+.global proc_7F0A5860
 proc_7F0A5860:
 /* 0DA390 7F0A5860 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DA394 7F0A5864 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -185036,6 +186910,7 @@ proc_7F0A5860:
 /* 0DA42C 7F0A58FC 00000000 */  nop   
 # end proc_7F0A5860
 
+.global proc_7F0A5900
 proc_7F0A5900:
 /* 0DA430 7F0A5900 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DA434 7F0A5904 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -185083,6 +186958,7 @@ proc_7F0A5900:
 /* 0DA4C4 7F0A5994 00000000 */  nop   
 # end proc_7F0A5900
 
+.global proc_7F0A5998
 proc_7F0A5998:
 /* 0DA4C8 7F0A5998 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DA4CC 7F0A599C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -185143,6 +187019,7 @@ proc_7F0A5998:
 /* 0DA590 7F0A5A60 00000000 */  nop   
 # end proc_7F0A5998
 
+.global proc_7F0A5A64
 proc_7F0A5A64:
 /* 0DA594 7F0A5A64 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DA598 7F0A5A68 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -185187,6 +187064,7 @@ proc_7F0A5A64:
 /* 0DA620 7F0A5AF0 00000000 */  nop   
 # end proc_7F0A5A64
 
+.global proc_7F0A5AF4
 proc_7F0A5AF4:
 /* 0DA624 7F0A5AF4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DA628 7F0A5AF8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -185230,6 +187108,7 @@ proc_7F0A5AF4:
 /* 0DA6AC 7F0A5B7C 00000000 */  nop   
 # end proc_7F0A5AF4
 
+.global proc_7F0A5B80
 proc_7F0A5B80:
 /* 0DA6B0 7F0A5B80 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0DA6B4 7F0A5B84 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -185617,6 +187496,7 @@ proc_7F0A5B80:
 /* 0DAC48 7F0A6118 00000000 */  nop   
 # end proc_7F0A5B80
 
+.global proc_7F0A611C
 proc_7F0A611C:
 /* 0DAC4C 7F0A611C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0DAC50 7F0A6120 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -185962,6 +187842,7 @@ proc_7F0A611C:
 /* 0DB144 7F0A6614 00000000 */  nop   
 # end proc_7F0A611C
 
+.global proc_7F0A6618
 proc_7F0A6618:
 /* 0DB148 7F0A6618 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DB14C 7F0A661C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -186003,6 +187884,7 @@ proc_7F0A6618:
 /* 0DB1CC 7F0A669C 00000000 */  nop   
 # end proc_7F0A6618
 
+.global proc_7F0A66A0
 proc_7F0A66A0:
 /* 0DB1D0 7F0A66A0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DB1D4 7F0A66A4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -186046,6 +187928,7 @@ proc_7F0A66A0:
 /* 0DB258 7F0A6728 00000000 */  nop   
 # end proc_7F0A66A0
 
+.global proc_7F0A672C
 proc_7F0A672C:
 /* 0DB25C 7F0A672C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DB260 7F0A6730 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -186090,6 +187973,7 @@ proc_7F0A672C:
 /* 0DB2E8 7F0A67B8 00000000 */  nop   
 # end proc_7F0A672C
 
+.global proc_7F0A67BC
 proc_7F0A67BC:
 /* 0DB2EC 7F0A67BC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DB2F0 7F0A67C0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -186134,6 +188018,7 @@ proc_7F0A67BC:
 /* 0DB378 7F0A6848 00000000 */  nop   
 # end proc_7F0A67BC
 
+.global proc_7F0A684C
 proc_7F0A684C:
 /* 0DB37C 7F0A684C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DB380 7F0A6850 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -186177,6 +188062,7 @@ proc_7F0A684C:
 /* 0DB404 7F0A68D4 00000000 */  nop   
 # end proc_7F0A684C
 
+.global proc_7F0A68D8
 proc_7F0A68D8:
 /* 0DB408 7F0A68D8 3C098004 */  lui   $t1, 0x8004
 /* 0DB40C 7F0A68DC 25290B40 */  addiu $t1, $t1, 0xb40
@@ -186233,6 +188119,7 @@ proc_7F0A68D8:
 /* 0DB4D4 7F0A69A4 00000000 */  nop   
 # end proc_7F0A68D8
 
+.global proc_7F0A69A8
 proc_7F0A69A8:
 /* 0DB4D8 7F0A69A8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DB4DC 7F0A69AC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -186271,6 +188158,7 @@ proc_7F0A69A8:
 /* 0DB558 7F0A6A28 00000000 */  nop   
 # end proc_7F0A69A8
 
+.global proc_7F0A6A2C
 proc_7F0A6A2C:
 /* 0DB55C 7F0A6A2C 3C018006 */  lui   $at, 0x8006
 /* 0DB560 7F0A6A30 C42484B8 */  lwc1  $f4, -0x7b48($at)
@@ -186297,6 +188185,7 @@ proc_7F0A6A2C:
 /* 0DB5AC 7F0A6A7C 46006006 */  mov.s $f0, $f12
 # end proc_7F0A6A2C
 
+.global proc_7F0A6A80
 proc_7F0A6A80:
 /* 0DB5B0 7F0A6A80 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0DB5B4 7F0A6A84 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -186604,6 +188493,7 @@ proc_7F0A6A80:
 /* 0DBA14 7F0A6EE4 00000000 */  nop   
 # end proc_7F0A6A80
 
+.global proc_7F0A6EE8
 proc_7F0A6EE8:
 /* 0DBA18 7F0A6EE8 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 0DBA1C 7F0A6EEC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -186720,6 +188610,7 @@ proc_7F0A6EE8:
 /* 0DBBD8 7F0A70A8 00000000 */  nop   
 # end proc_7F0A6EE8
 
+.global proc_7F0A70AC
 proc_7F0A70AC:
 /* 0DBBDC 7F0A70AC 00001025 */  or    $v0, $zero, $zero
 /* 0DBBE0 7F0A70B0 00A01825 */  or    $v1, $a1, $zero
@@ -186767,6 +188658,7 @@ proc_7F0A70AC:
 /* 0DBC78 7F0A7148 00000000 */  nop   
 # end proc_7F0A70AC
 
+.global proc_7F0A714C
 proc_7F0A714C:
 /* 0DBC7C 7F0A714C 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 0DBC80 7F0A7150 AFB00018 */  sw    $s0, 0x18($sp)
@@ -187189,6 +189081,7 @@ proc_7F0A714C:
 /* 0DC2D4 7F0A77A4 27BD0050 */  addiu $sp, $sp, 0x50
 # end proc_7F0A714C
 
+.global proc_7F0A77A8
 proc_7F0A77A8:
 /* 0DC2D8 7F0A77A8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DC2DC 7F0A77AC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -187200,6 +189093,7 @@ proc_7F0A77A8:
 /* 0DC2F4 7F0A77C4 00000000 */  nop   
 # end proc_7F0A77A8
 
+.global proc_7F0A77C8
 proc_7F0A77C8:
 /* 0DC2F8 7F0A77C8 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 0DC2FC 7F0A77CC 3C0E8004 */  lui   $t6, 0x8004
@@ -187493,6 +189387,7 @@ proc_7F0A77C8:
 /* 0DC744 7F0A7C14 27BD0080 */  addiu $sp, $sp, 0x80
 # end proc_7F0A77C8
 
+.global proc_7F0A7C18
 proc_7F0A7C18:
 /* 0DC748 7F0A7C18 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 0DC74C 7F0A7C1C AFB20040 */  sw    $s2, 0x40($sp)
@@ -187605,11 +189500,13 @@ proc_7F0A7C18:
 /* 0DC8E8 7F0A7DB8 27BD0070 */  addiu $sp, $sp, 0x70
 # end proc_7F0A7C18
 
+.global proc_7F0A7DBC
 proc_7F0A7DBC:
 /* 0DC8EC 7F0A7DBC 03E00008 */  jr    $ra
 /* 0DC8F0 7F0A7DC0 00801025 */  or    $v0, $a0, $zero
 # end proc_7F0A7DBC
 
+.global proc_7F0A7DC4
 proc_7F0A7DC4:
 /* 0DC8F4 7F0A7DC4 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 0DC8F8 7F0A7DC8 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -187672,6 +189569,7 @@ proc_7F0A7DC4:
 /* 0DC9D4 7F0A7EA4 00000000 */  nop   
 # end proc_7F0A7DC4
 
+.global proc_7F0A7EA8
 proc_7F0A7EA8:
 /* 0DC9D8 7F0A7EA8 27BDFEE8 */  addiu $sp, $sp, -0x118
 /* 0DC9DC 7F0A7EAC AFBF003C */  sw    $ra, 0x3c($sp)
@@ -187965,6 +189863,7 @@ proc_7F0A7EA8:
 /* 0DCE38 7F0A8308 00000000 */  nop   
 # end proc_7F0A7EA8
 
+.global proc_7F0A830C
 proc_7F0A830C:
 /* 0DCE3C 7F0A830C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0DCE40 7F0A8310 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -187997,6 +189896,7 @@ proc_7F0A830C:
 /* 0DCEA4 7F0A8374 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F0A830C
 
+.global proc_7F0A8378
 proc_7F0A8378:
 /* 0DCEA8 7F0A8378 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0DCEAC 7F0A837C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -188046,6 +189946,7 @@ proc_7F0A8378:
 /* 0DCF50 7F0A8420 00000000 */  nop   
 # end proc_7F0A8378
 
+.global proc_7F0A8424
 proc_7F0A8424:
 /* 0DCF54 7F0A8424 27BDF6D8 */  addiu $sp, $sp, -0x928
 /* 0DCF58 7F0A8428 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -188525,6 +190426,7 @@ proc_7F0A8424:
 /* 0DD63C 7F0A8B0C 27BD0928 */  addiu $sp, $sp, 0x928
 # end proc_7F0A8424
 
+.global proc_7F0A8B10
 proc_7F0A8B10:
 /* 0DD640 7F0A8B10 27BDFF88 */  addiu $sp, $sp, -0x78
 /* 0DD644 7F0A8B14 AFB00038 */  sw    $s0, 0x38($sp)
@@ -188673,6 +190575,7 @@ proc_7F0A8B10:
 /* 0DD86C 7F0A8D3C 27BD0078 */  addiu $sp, $sp, 0x78
 # end proc_7F0A8B10
 
+.global proc_7F0A8D40
 proc_7F0A8D40:
 /* 0DD870 7F0A8D40 44862000 */  mtc1  $a2, $f4
 /* 0DD874 7F0A8D44 3C018006 */  lui   $at, 0x8006
@@ -188781,6 +190684,7 @@ proc_7F0A8D40:
 /* 0DD9FC 7F0A8ECC A4820000 */  sh    $v0, ($a0)
 # end proc_7F0A8D40
 
+.global proc_7F0A8ED0
 proc_7F0A8ED0:
 /* 0DDA00 7F0A8ED0 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0DDA04 7F0A8ED4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -188865,6 +190769,7 @@ proc_7F0A8ED0:
 /* 0DDB18 7F0A8FE8 00000000 */  nop   
 # end proc_7F0A8ED0
 
+.global proc_7F0A8FEC
 proc_7F0A8FEC:
 /* 0DDB1C 7F0A8FEC 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0DDB20 7F0A8FF0 AFB00028 */  sw    $s0, 0x28($sp)
@@ -188971,6 +190876,7 @@ proc_7F0A8FEC:
 /* 0DDCAC 7F0A917C 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F0A8FEC
 
+.global proc_7F0A9180
 proc_7F0A9180:
 /* 0DDCB0 7F0A9180 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DDCB4 7F0A9184 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -188982,6 +190888,7 @@ proc_7F0A9180:
 /* 0DDCCC 7F0A919C 00000000 */  nop   
 # end proc_7F0A9180
 
+.global proc_7F0A91A0
 proc_7F0A91A0:
 /* 0DDCD0 7F0A91A0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DDCD4 7F0A91A4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -188995,6 +190902,7 @@ proc_7F0A91A0:
 /* 0DDCF4 7F0A91C4 00000000 */  nop   
 # end proc_7F0A91A0
 
+.global proc_7F0A91C8
 proc_7F0A91C8:
 /* 0DDCF8 7F0A91C8 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0DDCFC 7F0A91CC AFB00028 */  sw    $s0, 0x28($sp)
@@ -189100,12 +191008,14 @@ proc_7F0A91C8:
 /* 0DDE84 7F0A9354 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F0A91C8
 
+.global proc_7F0A9358
 proc_7F0A9358:
 /* 0DDE88 7F0A9358 3C028004 */  lui   $v0, 0x8004
 /* 0DDE8C 7F0A935C 03E00008 */  jr    $ra
 /* 0DDE90 7F0A9360 94420B58 */  lhu   $v0, 0xb58($v0)
 # end proc_7F0A9358
 
+.global proc_7F0A9364
 proc_7F0A9364:
 /* 0DDE94 7F0A9364 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DDE98 7F0A9368 3C028004 */  lui   $v0, 0x8004
@@ -189122,6 +191032,7 @@ proc_7F0A9364:
 /* 0DDEC4 7F0A9394 00000000 */  nop   
 # end proc_7F0A9364
 
+.global proc_7F0A9398
 proc_7F0A9398:
 /* 0DDEC8 7F0A9398 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 0DDECC 7F0A939C AFA70074 */  sw    $a3, 0x74($sp)
@@ -189272,6 +191183,7 @@ proc_7F0A9398:
 /* 0DE0F0 7F0A95C0 27BD0068 */  addiu $sp, $sp, 0x68
 # end proc_7F0A9398
 
+.global proc_7F0A95C4
 proc_7F0A95C4:
 /* 0DE0F4 7F0A95C4 460E603C */  c.lt.s $f12, $f14
 /* 0DE0F8 7F0A95C8 AFA60008 */  sw    $a2, 8($sp)
@@ -189296,6 +191208,7 @@ proc_7F0A95C4:
 /* 0DE13C 7F0A960C 46006006 */  mov.s $f0, $f12
 # end proc_7F0A95C4
 
+.global proc_7F0A9610
 proc_7F0A9610:
 /* 0DE140 7F0A9610 3C018006 */  lui   $at, 0x8006
 /* 0DE144 7F0A9614 C4228540 */  lwc1  $f2, -0x7ac0($at)
@@ -189329,6 +191242,7 @@ proc_7F0A9610:
 /* 0DE1B0 7F0A9680 00000000 */  nop   
 # end proc_7F0A9610
 
+.global proc_7F0A9684
 proc_7F0A9684:
 /* 0DE1B4 7F0A9684 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0DE1B8 7F0A9688 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -189422,6 +191336,7 @@ proc_7F0A9684:
 /* 0DE2FC 7F0A97CC 00000000 */  nop   
 # end proc_7F0A9684
 
+.global proc_7F0A97D0
 proc_7F0A97D0:
 /* 0DE300 7F0A97D0 27BDF7B0 */  addiu $sp, $sp, -0x850
 /* 0DE304 7F0A97D4 3C068004 */  lui   $a2, 0x8004
@@ -189627,6 +191542,7 @@ proc_7F0A97D0:
 /* 0DE5E4 7F0A9AB4 27BD0850 */  addiu $sp, $sp, 0x850
 # end proc_7F0A97D0
 
+.global proc_7F0A9AB8
 proc_7F0A9AB8:
 /* 0DE5E8 7F0A9AB8 3C0E8004 */  lui   $t6, 0x8004
 /* 0DE5EC 7F0A9ABC 8DCE0A84 */  lw    $t6, 0xa84($t6)
@@ -190503,6 +192419,7 @@ proc_7F0A9AB8:
 /* 0DF2F4 7F0AA7C4 27BD00B0 */  addiu $sp, $sp, 0xb0
 # end proc_7F0A9AB8
 
+.global proc_7F0AA7C8
 proc_7F0AA7C8:
 /* 0DF2F8 7F0AA7C8 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0DF2FC 7F0AA7CC AFBF003C */  sw    $ra, 0x3c($sp)
@@ -190912,6 +192829,7 @@ proc_7F0AA7C8:
 /* 0DF8EC 7F0AADBC 00000000 */  nop   
 # end proc_7F0AA7C8
 
+.global proc_7F0AADC0
 proc_7F0AADC0:
 /* 0DF8F0 7F0AADC0 27BDFAC0 */  addiu $sp, $sp, -0x540
 /* 0DF8F4 7F0AADC4 AFBF0034 */  sw    $ra, 0x34($sp)
@@ -191365,29 +193283,34 @@ proc_7F0AADC0:
 /* 0DFFB8 7F0AB488 27BD0540 */  addiu $sp, $sp, 0x540
 # end proc_7F0AADC0
 
+.global proc_7F0AB48C
 proc_7F0AB48C:
 /* 0DFFBC 7F0AB48C 3C018004 */  lui   $at, 0x8004
 /* 0DFFC0 7F0AB490 03E00008 */  jr    $ra
 /* 0DFFC4 7F0AB494 AC200998 */  sw    $zero, %lo(0x80040998)($at) # $zero, 0x998($at)
 # end proc_7F0AB48C
 
+.global proc_7F0AB498
 proc_7F0AB498:
 /* 0DFFC8 7F0AB498 3C018004 */  lui   $at, 0x8004
 /* 0DFFCC 7F0AB49C 03E00008 */  jr    $ra
 /* 0DFFD0 7F0AB4A0 AC20099C */  sw    $zero, %lo(0x8004099C)($at) # $zero, 0x99c($at)
 # end proc_7F0AB498
 
+.global proc_7F0AB4A4
 proc_7F0AB4A4:
 /* 0DFFD4 7F0AB4A4 3C018004 */  lui   $at, 0x8004
 /* 0DFFD8 7F0AB4A8 03E00008 */  jr    $ra
 /* 0DFFDC 7F0AB4AC AC2009A4 */  sw    $zero, %lo(0x800409A4)($at) # $zero, 0x9a4($at)
 # end proc_7F0AB4A4
 
+.global proc_7F0AB4B0
 proc_7F0AB4B0:
 /* 0DFFE0 7F0AB4B0 03E00008 */  jr    $ra
 /* 0DFFE4 7F0AB4B4 00801025 */  or    $v0, $a0, $zero
 # end proc_7F0AB4B0
 
+.global proc_7F0AB4B8
 proc_7F0AB4B8:
 /* 0DFFE8 7F0AB4B8 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 0DFFEC 7F0AB4BC AFBF0044 */  sw    $ra, 0x44($sp)
@@ -191588,6 +193511,7 @@ proc_7F0AB4B8:
 /* 0E02D0 7F0AB7A0 27BD0068 */  addiu $sp, $sp, 0x68
 # end proc_7F0AB4B8
 
+.global proc_7F0AB7A4
 proc_7F0AB7A4:
 /* 0E02D4 7F0AB7A4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0E02D8 7F0AB7A8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -191604,6 +193528,7 @@ proc_7F0AB7A4:
 /* 0E0304 7F0AB7D4 00000000 */  nop   
 # end proc_7F0AB7A4
 
+.global proc_7F0AB7D8
 proc_7F0AB7D8:
 /* 0E0308 7F0AB7D8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0E030C 7F0AB7DC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -191690,6 +193615,7 @@ proc_7F0AB7D8:
 /* 0E0434 7F0AB904 00000000 */  nop   
 # end proc_7F0AB7D8
 
+.global proc_7F0AB908
 proc_7F0AB908:
 /* 0E0438 7F0AB908 3C038005 */  lui   $v1, 0x8005
 /* 0E043C 7F0AB90C 8C6384D0 */  lw    $v1, -0x7b30($v1)
@@ -191907,6 +193833,7 @@ proc_7F0AB908:
 /* 0E0748 7F0ABC18 00000000 */  nop   
 # end proc_7F0AB908
 
+.global proc_7F0ABC1C
 proc_7F0ABC1C:
 /* 0E074C 7F0ABC1C 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 0E0750 7F0ABC20 AFBF005C */  sw    $ra, 0x5c($sp)
@@ -192034,6 +193961,7 @@ proc_7F0ABC1C:
 /* 0E0928 7F0ABDF8 27BD0060 */  addiu $sp, $sp, 0x60
 # end proc_7F0ABC1C
 
+.global proc_7F0ABDFC
 proc_7F0ABDFC:
 /* 0E092C 7F0ABDFC 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 0E0930 7F0ABE00 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -192233,6 +194161,7 @@ proc_7F0ABDFC:
 /* 0E0C14 7F0AC0E4 27BD0060 */  addiu $sp, $sp, 0x60
 # end proc_7F0ABDFC
 
+.global proc_7F0AC0E8
 proc_7F0AC0E8:
 /* 0E0C18 7F0AC0E8 90820000 */  lbu   $v0, ($a0)
 /* 0E0C1C 7F0AC0EC 00001825 */  or    $v1, $zero, $zero
@@ -192253,6 +194182,7 @@ proc_7F0AC0E8:
 /* 0E0C4C 7F0AC11C 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0AC0E8
 
+.global proc_7F0AC120
 proc_7F0AC120:
 /* 0E0C50 7F0AC120 90820000 */  lbu   $v0, ($a0)
 /* 0E0C54 7F0AC124 00801825 */  or    $v1, $a0, $zero
@@ -192277,6 +194207,7 @@ proc_7F0AC120:
 /* 0E0C94 7F0AC164 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0AC120
 
+.global proc_7F0AC168
 proc_7F0AC168:
 /* 0E0C98 7F0AC168 27BDF218 */  addiu $sp, $sp, -0xde8
 /* 0E0C9C 7F0AC16C AFBF005C */  sw    $ra, 0x5c($sp)
@@ -192872,6 +194803,7 @@ proc_7F0AC168:
 /* 0E1554 7F0ACA24 27BD0DE8 */  addiu $sp, $sp, 0xde8
 # end proc_7F0AC168
 
+.global proc_7F0ACA28
 proc_7F0ACA28:
 /* 0E1558 7F0ACA28 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0E155C 7F0ACA2C AFA50024 */  sw    $a1, 0x24($sp)
@@ -192961,11 +194893,13 @@ proc_7F0ACA28:
 /* 0E169C 7F0ACB6C 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F0ACA28
 
+.global null_init_main
 null_init_main:
 /* 0E16A0 7F0ACB70 03E00008 */  jr    $ra
 /* 0E16A4 7F0ACB74 00000000 */  nop   
 # end null_init_main
 
+.global proc_7F0ACB78
 proc_7F0ACB78:
 /* 0E16A8 7F0ACB78 00047023 */  negu  $t6, $a0
 /* 0E16AC 7F0ACB7C 3C018004 */  lui   $at, 0x8004
@@ -192973,24 +194907,28 @@ proc_7F0ACB78:
 /* 0E16B4 7F0ACB84 AC2E0E84 */  sw    $t6, %lo(0x80040E84)($at) # $t6, 0xe84($at)
 # end proc_7F0ACB78
 
+.global proc_7F0ACB88
 proc_7F0ACB88:
 /* 0E16B8 7F0ACB88 3C018004 */  lui   $at, 0x8004
 /* 0E16BC 7F0ACB8C 03E00008 */  jr    $ra
 /* 0E16C0 7F0ACB90 AC240E88 */  sw    $a0, %lo(0x80040E88)($at) # $a0, 0xe88($at)
 # end proc_7F0ACB88
 
+.global proc_7F0ACB94
 proc_7F0ACB94:
 /* 0E16C4 7F0ACB94 3C018004 */  lui   $at, 0x8004
 /* 0E16C8 7F0ACB98 03E00008 */  jr    $ra
 /* 0E16CC 7F0ACB9C AC240E8C */  sw    $a0, %lo(0x80040E8C)($at) # $a0, 0xe8c($at)
 # end proc_7F0ACB94
 
+.global proc_7F0ACBA0
 proc_7F0ACBA0:
 /* 0E16D0 7F0ACBA0 3C018004 */  lui   $at, 0x8004
 /* 0E16D4 7F0ACBA4 03E00008 */  jr    $ra
 /* 0E16D8 7F0ACBA8 AC240E90 */  sw    $a0, %lo(0x80040E90)($at) # $a0, 0xe90($at)
 # end proc_7F0ACBA0
 
+.global proc_7F0ACBAC
 proc_7F0ACBAC:
 /* 0E16DC 7F0ACBAC 3C018004 */  lui   $at, 0x8004
 /* 0E16E0 7F0ACBB0 AC200E84 */  sw    $zero, %lo(0x80040E84)($at) # $zero, 0xe84($at)
@@ -193119,6 +195057,7 @@ proc_7F0ACBAC:
 /* 0E18C4 7F0ACD94 00000000 */  nop   
 # end proc_7F0ACBAC
 
+.global microcodeconstructor
 microcodeconstructor:
 /* 0E18C8 7F0ACD98 00801025 */  or    $v0, $a0, $zero
 /* 0E18CC 7F0ACD9C 24840008 */  addiu $a0, $a0, 8
@@ -193209,6 +195148,7 @@ microcodeconstructor:
 /* 0E1A1C 7F0ACEEC 00801025 */  or    $v0, $a0, $zero
 # end microcodeconstructor
 
+.global proc_7F0ACEF0
 proc_7F0ACEF0:
 /* 0E1A20 7F0ACEF0 24850008 */  addiu $a1, $a0, 8
 /* 0E1A24 7F0ACEF4 3C0EE700 */  lui   $t6, 0xe700
@@ -193235,6 +195175,7 @@ proc_7F0ACEF0:
 /* 0E1A78 7F0ACF48 24E20008 */  addiu $v0, $a3, 8
 # end proc_7F0ACEF0
 
+.global draw_blackbox_to_screen
 draw_blackbox_to_screen:
 /* 0E1A7C 7F0ACF4C 3C0AB900 */  lui   $t2, 0xb900
 /* 0E1A80 7F0ACF50 3C0B0050 */  lui   $t3, 0x50
@@ -193288,6 +195229,7 @@ draw_blackbox_to_screen:
 /* 0E1B40 7F0AD010 24A20008 */  addiu $v0, $a1, 8
 # end draw_blackbox_to_screen
 
+.global microcode_constructor_related_to_menus
 microcode_constructor_related_to_menus:
 /* 0E1B44 7F0AD014 00801025 */  or    $v0, $a0, $zero
 /* 0E1B48 7F0AD018 3C0EB900 */  lui   $t6, 0xb900
@@ -193348,6 +195290,7 @@ microcode_constructor_related_to_menus:
 /* 0E1C24 7F0AD0F4 24620008 */  addiu $v0, $v1, 8
 # end microcode_constructor_related_to_menus
 
+.global proc_7F0AD0F8
 proc_7F0AD0F8:
 /* 0E1C28 7F0AD0F8 27BDFF10 */  addiu $sp, $sp, -0xf0
 /* 0E1C2C 7F0AD0FC 8FB90100 */  lw    $t9, 0x100($sp)
@@ -193995,6 +195938,7 @@ proc_7F0AD0F8:
 /* 0E25E8 7F0ADAB8 27BD00F0 */  addiu $sp, $sp, 0xf0
 # end proc_7F0AD0F8
 
+.global en_text_write_stuff
 en_text_write_stuff:
 /* 0E25EC 7F0ADABC 27BDFF58 */  addiu $sp, $sp, -0xa8
 /* 0E25F0 7F0ADAC0 240E0001 */  addiu $t6, $zero, 1
@@ -194199,6 +196143,7 @@ en_text_write_stuff:
 /* 0E28D8 7F0ADDA8 27BD00A8 */  addiu $sp, $sp, 0xa8
 # end en_text_write_stuff
 
+.global proc_7F0ADDAC
 proc_7F0ADDAC:
 /* 0E28DC 7F0ADDAC 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 0E28E0 7F0ADDB0 AFBF004C */  sw    $ra, 0x4c($sp)
@@ -194648,6 +196593,7 @@ proc_7F0ADDAC:
 /* 0E2F88 7F0AE458 27BD0060 */  addiu $sp, $sp, 0x60
 # end proc_7F0ADDAC
 
+.global proc_7F0AE45C
 proc_7F0AE45C:
 /* 0E2F8C 7F0AE45C 8CEE000C */  lw    $t6, 0xc($a3)
 /* 0E2F90 7F0AE460 8FAF0010 */  lw    $t7, 0x10($sp)
@@ -194819,6 +196765,7 @@ proc_7F0AE45C:
 /* 0E3218 7F0AE6E8 00801025 */  or    $v0, $a0, $zero
 # end proc_7F0AE45C
 
+.global jp_text_stuff
 jp_text_stuff:
 /* 0E321C 7F0AE6EC 27BDFF68 */  addiu $sp, $sp, -0x98
 /* 0E3220 7F0AE6F0 240E0001 */  addiu $t6, $zero, 1
@@ -195000,6 +196947,7 @@ jp_text_stuff:
 /* 0E34B8 7F0AE988 27BD0098 */  addiu $sp, $sp, 0x98
 # end jp_text_stuff
 
+.global proc_7F0AE98C
 proc_7F0AE98C:
 /* 0E34BC 7F0AE98C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0E34C0 7F0AE990 AFB00008 */  sw    $s0, 8($sp)
@@ -195134,6 +197082,7 @@ proc_7F0AE98C:
 /* 0E3690 7F0AEB60 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0AE98C
 
+.global proc_7F0AEB64
 proc_7F0AEB64:
 /* 0E3694 7F0AEB64 27BDFF70 */  addiu $sp, $sp, -0x90
 /* 0E3698 7F0AEB68 AFB40030 */  sw    $s4, 0x30($sp)
@@ -195399,6 +197348,7 @@ proc_7F0AEB64:
 /* 0E3A38 7F0AEF08 27BD0090 */  addiu $sp, $sp, 0x90
 # end proc_7F0AEB64
 
+.global proc_7F0AEF0C
 proc_7F0AEF0C:
 /* 0E3A3C 7F0AEF0C AFA40000 */  sw    $a0, ($sp)
 /* 0E3A40 7F0AEF10 AFA50004 */  sw    $a1, 4($sp)
@@ -195407,6 +197357,7 @@ proc_7F0AEF0C:
 /* 0E3A4C 7F0AEF1C AFA7000C */  sw    $a3, 0xc($sp)
 # end proc_7F0AEF0C
 
+.global proc_7F0AEF20
 proc_7F0AEF20:
 /* 0E3A50 7F0AEF20 AFA50004 */  sw    $a1, 4($sp)
 /* 0E3A54 7F0AEF24 03E00008 */  jr    $ra
@@ -195416,12 +197367,14 @@ proc_7F0AEF20:
 # alignment
 .word 0x00000000
 
+.global proc_7F0AEF30
 proc_7F0AEF30:
 /* 0E3A60 7F0AEF30 E7AC0000 */  swc1  $f12, ($sp)
 /* 0E3A64 7F0AEF34 03E00008 */  jr    $ra
 /* 0E3A68 7F0AEF38 8FA20000 */  lw    $v0, ($sp)
 # end proc_7F0AEF30
 
+.global proc_7F0AEF3C
 proc_7F0AEF3C:
 /* 0E3A6C 7F0AEF3C 3C068004 */  lui   $a2, 0x8004
 /* 0E3A70 7F0AEF40 8CC60FAC */  lw    $a2, 0xfac($a2)
@@ -195468,6 +197421,7 @@ proc_7F0AEF3C:
 /* 0E3B0C 7F0AEFDC 00000000 */  nop   
 # end proc_7F0AEF3C
 
+.global proc_7F0AEFE0
 proc_7F0AEFE0:
 /* 0E3B10 7F0AEFE0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0E3B14 7F0AEFE4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -195479,12 +197433,14 @@ proc_7F0AEFE0:
 /* 0E3B2C 7F0AEFFC 00000000 */  nop   
 # end proc_7F0AEFE0
 
+.global proc_7F0AF000
 proc_7F0AF000:
 /* 0E3B30 7F0AF000 AFA40000 */  sw    $a0, ($sp)
 /* 0E3B34 7F0AF004 03E00008 */  jr    $ra
 /* 0E3B38 7F0AF008 00001025 */  or    $v0, $zero, $zero
 # end proc_7F0AF000
 
+.global proc_7F0AF00C
 proc_7F0AF00C:
 /* 0E3B3C 7F0AF00C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0E3B40 7F0AF010 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -195499,6 +197455,7 @@ proc_7F0AF00C:
 /* 0E3B64 7F0AF034 00000000 */  nop   
 # end proc_7F0AF00C
 
+.global proc_7F0AF038
 proc_7F0AF038:
 /* 0E3B68 7F0AF038 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0E3B6C 7F0AF03C 3C078008 */  lui   $a3, 0x8008
@@ -195629,6 +197586,7 @@ proc_7F0AF038:
 /* 0E3D38 7F0AF208 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F0AF038
 
+.global proc_7F0AF20C
 proc_7F0AF20C:
 /* 0E3D3C 7F0AF20C 27BDFF38 */  addiu $sp, $sp, -0xc8
 /* 0E3D40 7F0AF210 3C018006 */  lui   $at, 0x8006
@@ -195885,6 +197843,7 @@ proc_7F0AF20C:
 /* 0E40E4 7F0AF5B4 27BD00C8 */  addiu $sp, $sp, 0xc8
 # end proc_7F0AF20C
 
+.global proc_7F0AF5B8
 proc_7F0AF5B8:
 /* 0E40E8 7F0AF5B8 3C028008 */  lui   $v0, 0x8008
 /* 0E40EC 7F0AF5BC 240E0001 */  addiu $t6, $zero, 1
@@ -195919,11 +197878,13 @@ proc_7F0AF5B8:
 /* 0E415C 7F0AF62C 00000000 */  nop   
 # end proc_7F0AF5B8
 
+.global proc_7F0AF630
 proc_7F0AF630:
 /* 0E4160 7F0AF630 03E00008 */  jr    $ra
 /* 0E4164 7F0AF634 AFA40000 */  sw    $a0, ($sp)
 # end proc_7F0AF630
 
+.global proc_7F0AF638
 proc_7F0AF638:
 /* 0E4168 7F0AF638 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0E416C 7F0AF63C AFB70030 */  sw    $s7, 0x30($sp)
@@ -196006,6 +197967,7 @@ proc_7F0AF638:
 /* 0E428C 7F0AF75C 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F0AF638
 
+.global proc_7F0AF760
 proc_7F0AF760:
 /* 0E4290 7F0AF760 84850006 */  lh    $a1, 6($a0)
 /* 0E4294 7F0AF764 27BDFFE0 */  addiu $sp, $sp, -0x20
@@ -196051,6 +198013,7 @@ proc_7F0AF760:
 /* 0E4334 7F0AF804 2F020001 */  sltiu $v0, $t8, 1
 # end proc_7F0AF760
 
+.global proc_7F0AF808
 proc_7F0AF808:
 /* 0E4338 7F0AF808 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 0E433C 7F0AF80C 3C0E8008 */  lui   $t6, 0x8008
@@ -196130,6 +198093,7 @@ proc_7F0AF808:
 /* 0E4450 7F0AF920 27BD0058 */  addiu $sp, $sp, 0x58
 # end proc_7F0AF808
 
+.global proc_7F0AF924
 proc_7F0AF924:
 /* 0E4454 7F0AF924 84870006 */  lh    $a3, 6($a0)
 /* 0E4458 7F0AF928 3C014040 */  lui   $at, 0x4040
@@ -196195,6 +198159,7 @@ proc_7F0AF924:
 /* 0E4548 7F0AFA18 E4B20008 */  swc1  $f18, 8($a1)
 # end proc_7F0AF924
 
+.global proc_7F0AFA1C
 proc_7F0AFA1C:
 /* 0E454C 7F0AFA1C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0E4550 7F0AFA20 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -196262,6 +198227,7 @@ proc_7F0AFA1C:
 /* 0E4648 7F0AFB18 00000000 */  nop   
 # end proc_7F0AFA1C
 
+.global proc_7F0AFB1C
 proc_7F0AFB1C:
 /* 0E464C 7F0AFB1C C4A40000 */  lwc1  $f4, ($a1)
 /* 0E4650 7F0AFB20 C4860000 */  lwc1  $f6, ($a0)
@@ -196288,6 +198254,7 @@ proc_7F0AFB1C:
 /* 0E46A4 7F0AFB74 46065000 */  add.s $f0, $f10, $f6
 # end proc_7F0AFB1C
 
+.global proc_7F0AFB78
 proc_7F0AFB78:
 /* 0E46A8 7F0AFB78 27BDFF78 */  addiu $sp, $sp, -0x88
 /* 0E46AC 7F0AFB7C AFBF004C */  sw    $ra, 0x4c($sp)
@@ -196405,6 +198372,7 @@ proc_7F0AFB78:
 /* 0E4848 7F0AFD18 27BD0088 */  addiu $sp, $sp, 0x88
 # end proc_7F0AFB78
 
+.global proc_7F0AFD1C
 proc_7F0AFD1C:
 /* 0E484C 7F0AFD1C 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0E4850 7F0AFD20 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -196497,6 +198465,7 @@ proc_7F0AFD1C:
 /* 0E499C 7F0AFE6C 00000000 */  nop   
 # end proc_7F0AFD1C
 
+.global proc_7F0AFE70
 proc_7F0AFE70:
 /* 0E49A0 7F0AFE70 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0E49A4 7F0AFE74 AFA70054 */  sw    $a3, 0x54($sp)
@@ -196591,6 +198560,7 @@ proc_7F0AFE70:
 /* 0E4AF8 7F0AFFC8 00000000 */  nop   
 # end proc_7F0AFE70
 
+.global proc_7F0AFFCC
 proc_7F0AFFCC:
 /* 0E4AFC 7F0AFFCC 3C018004 */  lui   $at, 0x8004
 /* 0E4B00 7F0AFFD0 44866000 */  mtc1  $a2, $f12
@@ -196613,6 +198583,7 @@ proc_7F0AFFCC:
 /* 0E4B44 7F0B0014 00000000 */  nop   
 # end proc_7F0AFFCC
 
+.global proc_7F0B0018
 proc_7F0B0018:
 /* 0E4B48 7F0B0018 3C018004 */  lui   $at, 0x8004
 /* 0E4B4C 7F0B001C 44866000 */  mtc1  $a2, $f12
@@ -196635,6 +198606,7 @@ proc_7F0B0018:
 /* 0E4B90 7F0B0060 00000000 */  nop   
 # end proc_7F0B0018
 
+.global proc_7F0B0064
 proc_7F0B0064:
 /* 0E4B94 7F0B0064 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0E4B98 7F0B0068 000570C0 */  sll   $t6, $a1, 3
@@ -196662,6 +198634,7 @@ proc_7F0B0064:
 /* 0E4BF0 7F0B00C0 00000000 */  nop   
 # end proc_7F0B0064
 
+.global proc_7F0B00C4
 proc_7F0B00C4:
 /* 0E4BF4 7F0B00C4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0E4BF8 7F0B00C8 000570C0 */  sll   $t6, $a1, 3
@@ -196696,6 +198669,7 @@ proc_7F0B00C4:
 /* 0E4C6C 7F0B013C 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F0B00C4
 
+.global proc_7F0B0140
 proc_7F0B0140:
 /* 0E4C70 7F0B0140 3C018004 */  lui   $at, 0x8004
 /* 0E4C74 7F0B0144 000570C0 */  sll   $t6, $a1, 3
@@ -196721,6 +198695,7 @@ proc_7F0B0140:
 /* 0E4CC4 7F0B0194 00000000 */  nop   
 # end proc_7F0B0140
 
+.global proc_7F0B0198
 proc_7F0B0198:
 /* 0E4CC8 7F0B0198 AFA60008 */  sw    $a2, 8($sp)
 /* 0E4CCC 7F0B019C AFA7000C */  sw    $a3, 0xc($sp)
@@ -196811,6 +198786,7 @@ proc_7F0B0198:
 /* 0E4E04 7F0B02D4 00000000 */  nop   
 # end proc_7F0B0198
 
+.global proc_7F0B02D8
 proc_7F0B02D8:
 /* 0E4E08 7F0B02D8 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0E4E0C 7F0B02DC F7B80028 */  sdc1  $f24, 0x28($sp)
@@ -196854,6 +198830,7 @@ proc_7F0B02D8:
 /* 0E4E98 7F0B0368 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F0B02D8
 
+.global proc_7F0B036C
 proc_7F0B036C:
 /* 0E4E9C 7F0B036C 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0E4EA0 7F0B0370 F7B80028 */  sdc1  $f24, 0x28($sp)
@@ -196897,6 +198874,7 @@ proc_7F0B036C:
 /* 0E4F2C 7F0B03FC 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F0B036C
 
+.global proc_7F0B0400
 proc_7F0B0400:
 /* 0E4F30 7F0B0400 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0E4F34 7F0B0404 AFA7004C */  sw    $a3, 0x4c($sp)
@@ -196974,6 +198952,7 @@ proc_7F0B0400:
 /* 0E5044 7F0B0514 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F0B0400
 
+.global proc_7F0B0518
 proc_7F0B0518:
 /* 0E5048 7F0B0518 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0E504C 7F0B051C F7B40018 */  sdc1  $f20, 0x18($sp)
@@ -197022,6 +199001,7 @@ proc_7F0B0518:
 /* 0E50EC 7F0B05BC 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F0B0518
 
+.global proc_7F0B05C0
 proc_7F0B05C0:
 /* 0E50F0 7F0B05C0 AFA60008 */  sw    $a2, 8($sp)
 /* 0E50F4 7F0B05C4 C7A40008 */  lwc1  $f4, 8($sp)
@@ -197080,6 +199060,7 @@ proc_7F0B05C0:
 /* 0E51B4 7F0B0684 00000000 */  nop   
 # end proc_7F0B05C0
 
+.global proc_7F0B0688
 proc_7F0B0688:
 /* 0E51B8 7F0B0688 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0E51BC 7F0B068C C7B20058 */  lwc1  $f18, 0x58($sp)
@@ -197161,6 +199142,7 @@ proc_7F0B0688:
 /* 0E52E8 7F0B07B8 00000000 */  nop   
 # end proc_7F0B0688
 
+.global proc_7F0B07BC
 proc_7F0B07BC:
 /* 0E52EC 7F0B07BC 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 0E52F0 7F0B07C0 E7AC0068 */  swc1  $f12, 0x68($sp)
@@ -197252,6 +199234,7 @@ proc_7F0B07BC:
 /* 0E5440 7F0B0910 00801025 */  or    $v0, $a0, $zero
 # end proc_7F0B07BC
 
+.global proc_7F0B0914
 proc_7F0B0914:
 /* 0E5444 7F0B0914 27BDFF48 */  addiu $sp, $sp, -0xb8
 /* 0E5448 7F0B0918 F7B40030 */  sdc1  $f20, 0x30($sp)
@@ -197449,6 +199432,7 @@ proc_7F0B0914:
 /* 0E5710 7F0B0BE0 27BD00B8 */  addiu $sp, $sp, 0xb8
 # end proc_7F0B0914
 
+.global proc_7F0B0BE4
 proc_7F0B0BE4:
 /* 0E5714 7F0B0BE4 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0E5718 7F0B0BE8 44856000 */  mtc1  $a1, $f12
@@ -197468,6 +199452,7 @@ proc_7F0B0BE4:
 /* 0E5750 7F0B0C20 00000000 */  nop   
 # end proc_7F0B0BE4
 
+.global proc_7F0B0C24
 proc_7F0B0C24:
 /* 0E5754 7F0B0C24 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0E5758 7F0B0C28 44856000 */  mtc1  $a1, $f12
@@ -197500,6 +199485,7 @@ proc_7F0B0C24:
 /* 0E57C4 7F0B0C94 00000000 */  nop   
 # end proc_7F0B0C24
 
+.global proc_7F0B0C98
 proc_7F0B0C98:
 /* 0E57C8 7F0B0C98 AFA50004 */  sw    $a1, 4($sp)
 /* 0E57CC 7F0B0C9C 8CCE000C */  lw    $t6, 0xc($a2)
@@ -197525,6 +199511,7 @@ proc_7F0B0C98:
 /* 0E5818 7F0B0CE8 00000000 */  nop   
 # end proc_7F0B0C98
 
+.global proc_7F0B0CEC
 proc_7F0B0CEC:
 /* 0E581C 7F0B0CEC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0E5820 7F0B0CF0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -197536,6 +199523,7 @@ proc_7F0B0CEC:
 /* 0E5838 7F0B0D08 00000000 */  nop   
 # end proc_7F0B0CEC
 
+.global proc_7F0B0D0C
 proc_7F0B0D0C:
 /* 0E583C 7F0B0D0C 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0E5840 7F0B0D10 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -197616,6 +199604,7 @@ proc_7F0B0D0C:
 /* 0E5950 7F0B0E20 00000000 */  nop   
 # end proc_7F0B0D0C
 
+.global proc_7F0B0E24
 proc_7F0B0E24:
 /* 0E5954 7F0B0E24 27BDFEA0 */  addiu $sp, $sp, -0x160
 /* 0E5958 7F0B0E28 C7A40178 */  lwc1  $f4, 0x178($sp)
@@ -198019,6 +200008,7 @@ proc_7F0B0E24:
 /* 0E5F3C 7F0B140C 27BD0160 */  addiu $sp, $sp, 0x160
 # end proc_7F0B0E24
 
+.global proc_7F0B1410
 proc_7F0B1410:
 /* 0E5F40 7F0B1410 27BDFED8 */  addiu $sp, $sp, -0x128
 /* 0E5F44 7F0B1414 F7BA0040 */  sdc1  $f26, 0x40($sp)
@@ -198205,6 +200195,7 @@ proc_7F0B1410:
 /* 0E61F0 7F0B16C0 27BD0128 */  addiu $sp, $sp, 0x128
 # end proc_7F0B1410
 
+.global proc_7F0B16C4
 proc_7F0B16C4:
 /* 0E61F4 7F0B16C4 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0E61F8 7F0B16C8 E7AC0048 */  swc1  $f12, 0x48($sp)
@@ -198262,6 +200253,7 @@ proc_7F0B16C4:
 /* 0E62C0 7F0B1790 00000000 */  nop   
 # end proc_7F0B16C4
 
+.global proc_7F0B1794
 proc_7F0B1794:
 /* 0E62C4 7F0B1794 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0E62C8 7F0B1798 E7AC0018 */  swc1  $f12, 0x18($sp)
@@ -198285,6 +200277,7 @@ proc_7F0B1794:
 /* 0E6310 7F0B17E0 00000000 */  nop   
 # end proc_7F0B1794
 
+.global proc_7F0B17E4
 proc_7F0B17E4:
 /* 0E6314 7F0B17E4 C7A40010 */  lwc1  $f4, 0x10($sp)
 /* 0E6318 7F0B17E8 C7A80014 */  lwc1  $f8, 0x14($sp)
@@ -198346,6 +200339,7 @@ proc_7F0B17E4:
 /* 0E63E4 7F0B18B4 00000000 */  nop   
 # end proc_7F0B17E4
 
+.global proc_7F0B18B8
 proc_7F0B18B8:
 /* 0E63E8 7F0B18B8 27BDFEE0 */  addiu $sp, $sp, -0x120
 /* 0E63EC 7F0B18BC C7A40134 */  lwc1  $f4, 0x134($sp)
@@ -198626,6 +200620,7 @@ proc_7F0B18B8:
 /* 0E67F0 7F0B1CC0 27BD0120 */  addiu $sp, $sp, 0x120
 # end proc_7F0B18B8
 
+.global proc_7F0B1CC4
 proc_7F0B1CC4:
 /* 0E67F4 7F0B1CC4 3C018008 */  lui   $at, 0x8008
 /* 0E67F8 7F0B1CC8 AC20B9E4 */  sw    $zero, %lo(0x8007B9E4)($at) # $zero, -0x461c($at)
@@ -198636,18 +200631,21 @@ proc_7F0B1CC4:
 /* 0E680C 7F0B1CDC AC2013BC */  sw    $zero, %lo(0x800413BC)($at) # $zero, 0x13bc($at)
 # end proc_7F0B1CC4
 
+.global proc_7F0B1CE0
 proc_7F0B1CE0:
 /* 0E6810 7F0B1CE0 3C028008 */  lui   $v0, 0x8008
 /* 0E6814 7F0B1CE4 03E00008 */  jr    $ra
 /* 0E6818 7F0B1CE8 8C42B9E4 */  lw    $v0, -0x461c($v0)
 # end proc_7F0B1CE0
 
+.global proc_7F0B1CEC
 proc_7F0B1CEC:
 /* 0E681C 7F0B1CEC 3C028008 */  lui   $v0, 0x8008
 /* 0E6820 7F0B1CF0 03E00008 */  jr    $ra
 /* 0E6824 7F0B1CF4 8C42B9E8 */  lw    $v0, -0x4618($v0)
 # end proc_7F0B1CEC
 
+.global proc_7F0B1CF8
 proc_7F0B1CF8:
 /* 0E6828 7F0B1CF8 000570C0 */  sll   $t6, $a1, 3
 /* 0E682C 7F0B1CFC 008E1021 */  addu  $v0, $a0, $t6
@@ -198710,6 +200708,7 @@ proc_7F0B1CF8:
 /* 0E6908 7F0B1DD8 E4F20008 */  swc1  $f18, 8($a3)
 # end proc_7F0B1CF8
 
+.global proc_7F0B1DDC
 proc_7F0B1DDC:
 /* 0E690C 7F0B1DDC 27BDFEB0 */  addiu $sp, $sp, -0x150
 /* 0E6910 7F0B1DE0 F7BA0038 */  sdc1  $f26, 0x38($sp)
@@ -198919,6 +200918,7 @@ proc_7F0B1DDC:
 /* 0E6BFC 7F0B20CC 27BD0150 */  addiu $sp, $sp, 0x150
 # end proc_7F0B1DDC
 
+.global proc_7F0B20D0
 proc_7F0B20D0:
 /* 0E6C00 7F0B20D0 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0E6C04 7F0B20D4 44856000 */  mtc1  $a1, $f12
@@ -198938,6 +200938,7 @@ proc_7F0B20D0:
 /* 0E6C3C 7F0B210C 00000000 */  nop   
 # end proc_7F0B20D0
 
+.global proc_7F0B2110
 proc_7F0B2110:
 /* 0E6C40 7F0B2110 8CA60004 */  lw    $a2, 4($a1)
 /* 0E6C44 7F0B2114 00A01025 */  or    $v0, $a1, $zero
@@ -198978,6 +200979,7 @@ proc_7F0B2110:
 /* 0E6CC0 7F0B2190 00000000 */  nop   
 # end proc_7F0B2110
 
+.global proc_7F0B2194
 proc_7F0B2194:
 /* 0E6CC4 7F0B2194 AFA40000 */  sw    $a0, ($sp)
 /* 0E6CC8 7F0B2198 AFA50004 */  sw    $a1, 4($sp)
@@ -198988,6 +200990,7 @@ proc_7F0B2194:
 /* 0E6CDC 7F0B21AC ACCF000C */  sw    $t7, 0xc($a2)
 # end proc_7F0B2194
 
+.global proc_7F0B21B0
 proc_7F0B21B0:
 /* 0E6CE0 7F0B21B0 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0E6CE4 7F0B21B4 44856000 */  mtc1  $a1, $f12
@@ -199029,6 +201032,7 @@ proc_7F0B21B0:
 /* 0E6D70 7F0B2240 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F0B21B0
 
+.global proc_7F0B2244
 proc_7F0B2244:
 /* 0E6D74 7F0B2244 84820004 */  lh    $v0, 4($a0)
 /* 0E6D78 7F0B2248 3C0F8004 */  lui   $t7, 0x8004
@@ -199045,6 +201049,7 @@ proc_7F0B2244:
 /* 0E6DA0 7F0B2270 00001025 */  or    $v0, $zero, $zero
 # end proc_7F0B2244
 
+.global proc_7F0B2274
 proc_7F0B2274:
 /* 0E6DA4 7F0B2274 000570C0 */  sll   $t6, $a1, 3
 /* 0E6DA8 7F0B2278 AFA60008 */  sw    $a2, 8($sp)
@@ -199091,6 +201096,7 @@ proc_7F0B2274:
 /* 0E6E40 7F0B2310 00000000 */  nop   
 # end proc_7F0B2274
 
+.global proc_7F0B2314
 proc_7F0B2314:
 /* 0E6E44 7F0B2314 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0E6E48 7F0B2318 AFA40028 */  sw    $a0, 0x28($sp)
@@ -199129,16 +201135,19 @@ proc_7F0B2314:
 /* 0E6EC8 7F0B2398 00000000 */  nop   
 # end proc_7F0B2314
 
+.global proc_7F0B239C
 proc_7F0B239C:
 /* 0E6ECC 7F0B239C 03E00008 */  jr    $ra
 /* 0E6ED0 7F0B23A0 8C820000 */  lw    $v0, ($a0)
 # end proc_7F0B239C
 
+.global proc_7F0B23A4
 proc_7F0B23A4:
 /* 0E6ED4 7F0B23A4 03E00008 */  jr    $ra
 /* 0E6ED8 7F0B23A8 8C820004 */  lw    $v0, 4($a0)
 # end proc_7F0B23A4
 
+.global proc_7F0B23AC
 proc_7F0B23AC:
 /* 0E6EDC 7F0B23AC 848E0006 */  lh    $t6, 6($a0)
 /* 0E6EE0 7F0B23B0 00057880 */  sll   $t7, $a1, 2
@@ -199171,6 +201180,7 @@ proc_7F0B23AC:
 /* 0E6F4C 7F0B241C E4C80008 */  swc1  $f8, 8($a2)
 # end proc_7F0B23AC
 
+.global proc_7F0B2420
 proc_7F0B2420:
 /* 0E6F50 7F0B2420 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0E6F54 7F0B2424 3C098008 */  lui   $t1, 0x8008
@@ -199305,6 +201315,7 @@ proc_7F0B2420:
 /* 0E7138 7F0B2608 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F0B2420
 
+.global proc_7F0B260C
 proc_7F0B260C:
 /* 0E713C 7F0B260C 000570C0 */  sll   $t6, $a1, 3
 /* 0E7140 7F0B2610 AFA60008 */  sw    $a2, 8($sp)
@@ -199354,6 +201365,7 @@ proc_7F0B260C:
 /* 0E71E4 7F0B26B4 00000000 */  nop   
 # end proc_7F0B260C
 
+.global proc_7F0B26B8
 proc_7F0B26B8:
 /* 0E71E8 7F0B26B8 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0E71EC 7F0B26BC 3C018004 */  lui   $at, 0x8004
@@ -199381,6 +201393,7 @@ proc_7F0B26B8:
 /* 0E7244 7F0B2714 00000000 */  nop   
 # end proc_7F0B26B8
 
+.global proc_7F0B2718
 proc_7F0B2718:
 /* 0E7248 7F0B2718 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 0E724C 7F0B271C AFBF003C */  sw    $ra, 0x3c($sp)
@@ -199499,6 +201512,7 @@ proc_7F0B2718:
 /* 0E73DC 7F0B28AC 27BD0060 */  addiu $sp, $sp, 0x60
 # end proc_7F0B2718
 
+.global proc_7F0B28B0
 proc_7F0B28B0:
 /* 0E73E0 7F0B28B0 3C0E8008 */  lui   $t6, 0x8008
 /* 0E73E4 7F0B28B4 8DCEB9E4 */  lw    $t6, -0x461c($t6)
@@ -199544,6 +201558,7 @@ proc_7F0B28B0:
 /* 0E747C 7F0B294C 00000000 */  nop   
 # end proc_7F0B28B0
 
+.global proc_7F0B2950
 proc_7F0B2950:
 /* 0E7480 7F0B2950 3C018004 */  lui   $at, 0x8004
 /* 0E7484 7F0B2954 E42C0F44 */  swc1  $f12, %lo(0x80040F44)($at) # $f12, 0xf44($at)
@@ -199555,6 +201570,7 @@ proc_7F0B2950:
 /* 0E749C 7F0B296C E4260F48 */  swc1  $f6, %lo(0x80040F48)($at) # $f6, 0xf48($at)
 # end proc_7F0B2950
 
+.global proc_7F0B2970
 proc_7F0B2970:
 /* 0E74A0 7F0B2970 3C018004 */  lui   $at, 0x8004
 /* 0E74A4 7F0B2974 44857000 */  mtc1  $a1, $f14
@@ -199736,6 +201752,7 @@ proc_7F0B2970:
 /* 0E7758 7F0B2C28 00000000 */  nop   
 # end proc_7F0B2970
 
+.global proc_7F0B2C2C
 proc_7F0B2C2C:
 /* 0E775C 7F0B2C2C AFA50004 */  sw    $a1, 4($sp)
 /* 0E7760 7F0B2C30 AFA60008 */  sw    $a2, 8($sp)
@@ -199757,6 +201774,7 @@ proc_7F0B2C2C:
 /* 0E77A0 7F0B2C70 A0F90002 */  sb    $t9, 2($a3)
 # end proc_7F0B2C2C
 
+.global proc_7F0B2C74
 proc_7F0B2C74:
 /* 0E77A4 7F0B2C74 848E0006 */  lh    $t6, 6($a0)
 /* 0E77A8 7F0B2C78 3C028004 */  lui   $v0, 0x8004
@@ -199804,6 +201822,7 @@ proc_7F0B2C74:
 /* 0E7840 7F0B2D10 E4B20004 */  swc1  $f18, 4($a1)
 # end proc_7F0B2C74
 
+.global proc_7F0B2D14
 proc_7F0B2D14:
 /* 0E7844 7F0B2D14 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0E7848 7F0B2D18 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -199816,6 +201835,7 @@ proc_7F0B2D14:
 /* 0E7864 7F0B2D34 00000000 */  nop   
 # end proc_7F0B2D14
 
+.global proc_7F0B2D38
 proc_7F0B2D38:
 /* 0E7868 7F0B2D38 AFA40000 */  sw    $a0, ($sp)
 /* 0E786C 7F0B2D3C AFA50004 */  sw    $a1, 4($sp)
@@ -199823,11 +201843,13 @@ proc_7F0B2D38:
 /* 0E7874 7F0B2D44 AFA60008 */  sw    $a2, 8($sp)
 # end proc_7F0B2D38
 
+.global proc_7F0B2D48
 proc_7F0B2D48:
 /* 0E7878 7F0B2D48 03E00008 */  jr    $ra
 /* 0E787C 7F0B2D4C 00801025 */  or    $v0, $a0, $zero
 # end proc_7F0B2D48
 
+.global proc_7F0B2D50
 proc_7F0B2D50:
 /* 0E7880 7F0B2D50 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0E7884 7F0B2D54 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -199902,6 +201924,7 @@ proc_7F0B2D50:
 /* 0E7984 7F0B2E54 00000000 */  nop   
 # end proc_7F0B2D50
 
+.global proc_7F0B2E58
 proc_7F0B2E58:
 /* 0E7988 7F0B2E58 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0E798C 7F0B2E5C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -199951,6 +201974,7 @@ proc_7F0B2E58:
 /* 0E7A2C 7F0B2EFC 00000000 */  nop   
 # end proc_7F0B2E58
 
+.global proc_7F0B2F00
 proc_7F0B2F00:
 /* 0E7A30 7F0B2F00 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0E7A34 7F0B2F04 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -199965,6 +201989,7 @@ proc_7F0B2F00:
 /* 0E7A58 7F0B2F28 00000000 */  nop   
 # end proc_7F0B2F00
 
+.global load_stan
 load_stan:
 /* 0E7A5C 7F0B2F2C 3C088008 */  lui   $t0, 0x8008
 /* 0E7A60 7F0B2F30 2508B120 */  addiu $t0, $t0, -0x4ee0
@@ -200015,11 +202040,13 @@ load_stan:
 /* 0E7B04 7F0B2FD4 AD040000 */  sw    $a0, ($t0)
 # end load_stan
 
+.global proc_7F0B2FD8
 proc_7F0B2FD8:
 /* 0E7B08 7F0B2FD8 03E00008 */  jr    $ra
 /* 0E7B0C 7F0B2FDC 90820003 */  lbu   $v0, 3($a0)
 # end proc_7F0B2FD8
 
+.global proc_7F0B2FE0
 proc_7F0B2FE0:
 /* 0E7B10 7F0B2FE0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0E7B14 7F0B2FE4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -200032,6 +202059,7 @@ proc_7F0B2FE0:
 /* 0E7B30 7F0B3000 00000000 */  nop   
 # end proc_7F0B2FE0
 
+.global proc_7F0B3004
 proc_7F0B3004:
 /* 0E7B34 7F0B3004 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0E7B38 7F0B3008 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -200043,6 +202071,7 @@ proc_7F0B3004:
 /* 0E7B50 7F0B3020 00000000 */  nop   
 # end proc_7F0B3004
 
+.global proc_7F0B3024
 proc_7F0B3024:
 /* 0E7B54 7F0B3024 AFA50004 */  sw    $a1, 4($sp)
 /* 0E7B58 7F0B3028 AFA60008 */  sw    $a2, 8($sp)
@@ -200050,16 +202079,19 @@ proc_7F0B3024:
 /* 0E7B60 7F0B3030 00801025 */  or    $v0, $a0, $zero
 # end proc_7F0B3024
 
+.global proc_7F0B3034
 proc_7F0B3034:
 /* 0E7B64 7F0B3034 03E00008 */  jr    $ra
 /* 0E7B68 7F0B3038 00801025 */  or    $v0, $a0, $zero
 # end proc_7F0B3034
 
+.global proc_7F0B303C
 proc_7F0B303C:
 /* 0E7B6C 7F0B303C 03E00008 */  jr    $ra
 /* 0E7B70 7F0B3040 00801025 */  or    $v0, $a0, $zero
 # end proc_7F0B303C
 
+.global proc_7F0B3044
 proc_7F0B3044:
 /* 0E7B74 7F0B3044 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0E7B78 7F0B3048 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -200125,12 +202157,14 @@ proc_7F0B3044:
 /* 0E7C58 7F0B3128 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F0B3044
 
+.global proc_7F0B312C
 proc_7F0B312C:
 /* 0E7C5C 7F0B312C AFA50004 */  sw    $a1, 4($sp)
 /* 0E7C60 7F0B3130 03E00008 */  jr    $ra
 /* 0E7C64 7F0B3134 00801025 */  or    $v0, $a0, $zero
 # end proc_7F0B312C
 
+.global proc_7F0B3138
 proc_7F0B3138:
 /* 0E7C68 7F0B3138 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0E7C6C 7F0B313C 44866000 */  mtc1  $a2, $f12
@@ -200161,6 +202195,7 @@ proc_7F0B3138:
 /* 0E7CD0 7F0B31A0 00000000 */  nop   
 # end proc_7F0B3138
 
+.global proc_7F0B31A4
 proc_7F0B31A4:
 /* 0E7CD4 7F0B31A4 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0E7CD8 7F0B31A8 44866000 */  mtc1  $a2, $f12
@@ -200188,6 +202223,7 @@ proc_7F0B31A4:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F0B3200
 proc_7F0B3200:
 /* 0E7D30 7F0B3200 C4CE0000 */  lwc1  $f14, ($a2)
 /* 0E7D34 7F0B3204 C4E60000 */  lwc1  $f6, ($a3)
@@ -200249,6 +202285,7 @@ proc_7F0B3200:
 /* 0E7E04 7F0B32D4 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F0B3200
 
+.global proc_7F0B32D8
 proc_7F0B32D8:
 /* 0E7E08 7F0B32D8 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0E7E0C 7F0B32DC AFBF001C */  sw    $ra, 0x1c($sp)
@@ -200320,6 +202357,7 @@ proc_7F0B32D8:
 /* 0E7F08 7F0B33D8 00000000 */  nop   
 # end proc_7F0B32D8
 
+.global proc_7F0B33DC
 proc_7F0B33DC:
 /* 0E7F0C 7F0B33DC 27BDFF50 */  addiu $sp, $sp, -0xb0
 /* 0E7F10 7F0B33E0 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -200587,6 +202625,7 @@ proc_7F0B33DC:
 # alignment
 .word 0x00000000
 
+.global something_with_bg_c_debug
 something_with_bg_c_debug:
 /* 0E82F0 7F0B37C0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0E82F4 7F0B37C4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -200601,6 +202640,7 @@ something_with_bg_c_debug:
 /* 0E8318 7F0B37E8 00000000 */  nop   
 # end something_with_bg_c_debug
 
+.global proc_7F0B37EC
 proc_7F0B37EC:
 /* 0E831C 7F0B37EC 3C028004 */  lui   $v0, 0x8004
 /* 0E8320 7F0B37F0 3C038004 */  lui   $v1, 0x8004
@@ -200660,6 +202700,7 @@ proc_7F0B37EC:
 /* 0E83E0 7F0B38B0 00000000 */  nop   
 # end proc_7F0B37EC
 
+.global proc_7F0B38B4
 proc_7F0B38B4:
 /* 0E83E4 7F0B38B4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0E83E8 7F0B38B8 AFB00014 */  sw    $s0, 0x14($sp)
@@ -200738,6 +202779,7 @@ proc_7F0B38B4:
 /* 0E84E8 7F0B39B8 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F0B38B4
 
+.global proc_7F0B39BC
 proc_7F0B39BC:
 /* 0E84EC 7F0B39BC 00047080 */  sll   $t6, $a0, 2
 /* 0E84F0 7F0B39C0 01C47021 */  addu  $t6, $t6, $a0
@@ -200829,6 +202871,7 @@ proc_7F0B39BC:
 /* 0E8630 7F0B3B00 00000000 */  nop   
 # end proc_7F0B39BC
 
+.global proc_7F0B3B04
 proc_7F0B3B04:
 /* 0E8634 7F0B3B04 00047080 */  sll   $t6, $a0, 2
 /* 0E8638 7F0B3B08 01C47021 */  addu  $t6, $t6, $a0
@@ -200839,6 +202882,7 @@ proc_7F0B3B04:
 /* 0E864C 7F0B3B1C A0201417 */  sb    $zero, %lo(0x80041417)($at) # $zero, 0x1417($at)
 # end proc_7F0B3B04
 
+.global proc_7F0B3B20
 proc_7F0B3B20:
 /* 0E8650 7F0B3B20 3C0E8004 */  lui   $t6, 0x8004
 /* 0E8654 7F0B3B24 91CE1417 */  lbu   $t6, 0x1417($t6)
@@ -200890,6 +202934,7 @@ proc_7F0B3B20:
 /* 0E86F0 7F0B3BC0 00000000 */  nop   
 # end proc_7F0B3B20
 
+.global proc_7F0B3BC4
 proc_7F0B3BC4:
 /* 0E86F4 7F0B3BC4 3C018004 */  lui   $at, 0x8004
 /* 0E86F8 7F0B3BC8 AC20483C */  sw    $zero, %lo(0x8004483C)($at) # $zero, 0x483c($at)
@@ -200912,6 +202957,7 @@ proc_7F0B3BC4:
 /* 0E8738 7F0B3C08 00000000 */  nop   
 # end proc_7F0B3BC4
 
+.global proc_7F0B3C0C
 proc_7F0B3C0C:
 /* 0E873C 7F0B3C0C 3C038004 */  lui   $v1, 0x8004
 /* 0E8740 7F0B3C10 8C63483C */  lw    $v1, 0x483c($v1)
@@ -200950,6 +202996,7 @@ proc_7F0B3C0C:
 /* 0E87B8 7F0B3C88 00000000 */  nop   
 # end proc_7F0B3C0C
 
+.global proc_7F0B3C8C
 proc_7F0B3C8C:
 /* 0E87BC 7F0B3C8C 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 0E87C0 7F0B3C90 3C028004 */  lui   $v0, 0x8004
@@ -201210,6 +203257,7 @@ proc_7F0B3C8C:
 /* 0E8B60 7F0B4030 27BD0080 */  addiu $sp, $sp, 0x80
 # end proc_7F0B3C8C
 
+.global proc_7F0B4034
 proc_7F0B4034:
 /* 0E8B64 7F0B4034 3C028008 */  lui   $v0, 0x8008
 /* 0E8B68 7F0B4038 8C42FF8C */  lw    $v0, -0x74($v0)
@@ -201235,6 +203283,7 @@ proc_7F0B4034:
 /* 0E8BB0 7F0B4080 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0B4034
 
+.global proc_7F0B4084
 proc_7F0B4084:
 /* 0E8BB4 7F0B4084 3C028008 */  lui   $v0, 0x8008
 /* 0E8BB8 7F0B4088 8C42FF8C */  lw    $v0, -0x74($v0)
@@ -201260,6 +203309,7 @@ proc_7F0B4084:
 /* 0E8C00 7F0B40D0 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0B4084
 
+.global proc_7F0B40D4
 proc_7F0B40D4:
 /* 0E8C04 7F0B40D4 3C028008 */  lui   $v0, 0x8008
 /* 0E8C08 7F0B40D8 8C42FF8C */  lw    $v0, -0x74($v0)
@@ -201285,6 +203335,7 @@ proc_7F0B40D4:
 /* 0E8C50 7F0B4120 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0B40D4
 
+.global proc_7F0B4124
 proc_7F0B4124:
 /* 0E8C54 7F0B4124 27BDFF48 */  addiu $sp, $sp, -0xb8
 /* 0E8C58 7F0B4128 AFB20020 */  sw    $s2, 0x20($sp)
@@ -201752,6 +203803,7 @@ proc_7F0B4124:
 /* 0E930C 7F0B47DC 27BD00B8 */  addiu $sp, $sp, 0xb8
 # end proc_7F0B4124
 
+.global proc_7F0B47E0
 proc_7F0B47E0:
 /* 0E9310 7F0B47E0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0E9314 7F0B47E4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -201767,6 +203819,7 @@ proc_7F0B47E0:
 /* 0E933C 7F0B480C 00000000 */  nop   
 # end proc_7F0B47E0
 
+.global proc_7F0B4810
 proc_7F0B4810:
 /* 0E9340 7F0B4810 3C018004 */  lui   $at, 0x8004
 /* 0E9344 7F0B4814 E42C13F4 */  swc1  $f12, %lo(0x800413F4)($at) # $f12, 0x13f4($at)
@@ -201778,18 +203831,21 @@ proc_7F0B4810:
 /* 0E935C 7F0B482C E42613F8 */  swc1  $f6, %lo(0x800413F8)($at) # $f6, 0x13f8($at)
 # end proc_7F0B4810
 
+.global proc_7F0B4830
 proc_7F0B4830:
 /* 0E9360 7F0B4830 3C018004 */  lui   $at, 0x8004
 /* 0E9364 7F0B4834 03E00008 */  jr    $ra
 /* 0E9368 7F0B4838 C42013F8 */  lwc1  $f0, 0x13f8($at)
 # end proc_7F0B4830
 
+.global proc_7F0B483C
 proc_7F0B483C:
 /* 0E936C 7F0B483C 3C018004 */  lui   $at, 0x8004
 /* 0E9370 7F0B4840 03E00008 */  jr    $ra
 /* 0E9374 7F0B4844 C42013F4 */  lwc1  $f0, 0x13f4($at)
 # end proc_7F0B483C
 
+.global proc_7F0B4848
 proc_7F0B4848:
 /* 0E9378 7F0B4848 3C0E8004 */  lui   $t6, 0x8004
 /* 0E937C 7F0B484C 8DCE1400 */  lw    $t6, 0x1400($t6)
@@ -201805,12 +203861,14 @@ proc_7F0B4848:
 /* 0E93A4 7F0B4874 46062003 */  div.s $f0, $f4, $f6
 # end proc_7F0B4848
 
+.global proc_7F0B4878
 proc_7F0B4878:
 /* 0E93A8 7F0B4878 3C018004 */  lui   $at, 0x8004
 /* 0E93AC 7F0B487C 03E00008 */  jr    $ra
 /* 0E93B0 7F0B4880 C42013FC */  lwc1  $f0, 0x13fc($at)
 # end proc_7F0B4878
 
+.global proc_7F0B4884
 proc_7F0B4884:
 /* 0E93B4 7F0B4884 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0E93B8 7F0B4888 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -201938,6 +203996,7 @@ proc_7F0B4884:
 /* 0E957C 7F0B4A4C 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F0B4884
 
+.global proc_7F0B4A50
 proc_7F0B4A50:
 /* 0E9580 7F0B4A50 AFA50004 */  sw    $a1, 4($sp)
 /* 0E9584 7F0B4A54 908E0000 */  lbu   $t6, ($a0)
@@ -201969,6 +204028,7 @@ proc_7F0B4A50:
 /* 0E95E0 7F0B4AB0 00000000 */  nop   
 # end proc_7F0B4A50
 
+.global proc_7F0B4AB4
 proc_7F0B4AB4:
 /* 0E95E4 7F0B4AB4 27BDFEA0 */  addiu $sp, $sp, -0x160
 /* 0E95E8 7F0B4AB8 AFB5002C */  sw    $s5, 0x2c($sp)
@@ -202223,6 +204283,7 @@ proc_7F0B4AB4:
 /* 0E996C 7F0B4E3C 27BD0160 */  addiu $sp, $sp, 0x160
 # end proc_7F0B4AB4
 
+.global proc_7F0B4E40
 proc_7F0B4E40:
 /* 0E9970 7F0B4E40 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0E9974 7F0B4E44 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -202315,6 +204376,7 @@ proc_7F0B4E40:
 /* 0E9AC8 7F0B4F98 00000000 */  nop   
 # end proc_7F0B4E40
 
+.global proc_7F0B4F9C
 proc_7F0B4F9C:
 /* 0E9ACC 7F0B4F9C 3C0E8008 */  lui   $t6, 0x8008
 /* 0E9AD0 7F0B4FA0 8DCEFF94 */  lw    $t6, -0x6c($t6)
@@ -202324,6 +204386,7 @@ proc_7F0B4F9C:
 /* 0E9AE0 7F0B4FB0 C7000004 */  lwc1  $f0, 4($t8)
 # end proc_7F0B4F9C
 
+.global proc_7F0B4FB4
 proc_7F0B4FB4:
 /* 0E9AE4 7F0B4FB4 3C028008 */  lui   $v0, 0x8008
 /* 0E9AE8 7F0B4FB8 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -202343,6 +204406,7 @@ proc_7F0B4FB4:
 /* 0E9B20 7F0B4FF0 00000000 */  nop   
 # end proc_7F0B4FB4
 
+.global proc_7F0B4FF4
 proc_7F0B4FF4:
 /* 0E9B24 7F0B4FF4 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0E9B28 7F0B4FF8 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -202371,6 +204435,7 @@ proc_7F0B4FF4:
 /* 0E9B84 7F0B5054 00000000 */  nop   
 # end proc_7F0B4FF4
 
+.global proc_7F0B5058
 proc_7F0B5058:
 /* 0E9B88 7F0B5058 3C028008 */  lui   $v0, 0x8008
 /* 0E9B8C 7F0B505C 8C42A0B0 */  lw    $v0, -0x5f50($v0)
@@ -202446,6 +204511,7 @@ proc_7F0B5058:
 /* 0E9C94 7F0B5164 8FA20000 */  lw    $v0, ($sp)
 # end proc_7F0B5058
 
+.global proc_7F0B5168
 proc_7F0B5168:
 /* 0E9C98 7F0B5168 3C038008 */  lui   $v1, 0x8008
 /* 0E9C9C 7F0B516C 3C048008 */  lui   $a0, 0x8008
@@ -202463,6 +204529,7 @@ proc_7F0B5168:
 /* 0E9CC8 7F0B5198 00000000 */  nop   
 # end proc_7F0B5168
 
+.global proc_7F0B519C
 proc_7F0B519C:
 /* 0E9CCC 7F0B519C C4800000 */  lwc1  $f0, ($a0)
 /* 0E9CD0 7F0B51A0 C4A40000 */  lwc1  $f4, ($a1)
@@ -202494,6 +204561,7 @@ proc_7F0B519C:
 /* 0E9D34 7F0B5204 00000000 */  nop   
 # end proc_7F0B519C
 
+.global proc_7F0B5208
 proc_7F0B5208:
 /* 0E9D38 7F0B5208 27BDFF88 */  addiu $sp, $sp, -0x78
 /* 0E9D3C 7F0B520C AFBF0034 */  sw    $ra, 0x34($sp)
@@ -202679,6 +204747,7 @@ proc_7F0B5208:
 /* 0E9FB4 7F0B5484 27BD0078 */  addiu $sp, $sp, 0x78
 # end proc_7F0B5208
 
+.global proc_7F0B5488
 proc_7F0B5488:
 /* 0E9FB8 7F0B5488 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0E9FBC 7F0B548C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -202723,6 +204792,7 @@ proc_7F0B5488:
 /* 0EA054 7F0B5524 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F0B5488
 
+.global proc_7F0B5528
 proc_7F0B5528:
 /* 0EA058 7F0B5528 27BDFF50 */  addiu $sp, $sp, -0xb0
 /* 0EA05C 7F0B552C F7B40018 */  sdc1  $f20, 0x18($sp)
@@ -202946,6 +205016,7 @@ proc_7F0B5528:
 /* 0EA390 7F0B5860 27BD00B0 */  addiu $sp, $sp, 0xb0
 # end proc_7F0B5528
 
+.global proc_7F0B5864
 proc_7F0B5864:
 /* 0EA394 7F0B5864 27BDFE90 */  addiu $sp, $sp, -0x170
 /* 0EA398 7F0B5868 00047080 */  sll   $t6, $a0, 2
@@ -203136,6 +205207,7 @@ proc_7F0B5864:
 /* 0EA640 7F0B5B10 27BD0170 */  addiu $sp, $sp, 0x170
 # end proc_7F0B5864
 
+.global proc_7F0B5B14
 proc_7F0B5B14:
 /* 0EA644 7F0B5B14 8FA80010 */  lw    $t0, 0x10($sp)
 /* 0EA648 7F0B5B18 24EE0001 */  addiu $t6, $a3, 1
@@ -203158,6 +205230,7 @@ proc_7F0B5B14:
 /* 0EA68C 7F0B5B5C 24820008 */  addiu $v0, $a0, 8
 # end proc_7F0B5B14
 
+.global proc_7F0B5B60
 proc_7F0B5B60:
 /* 0EA690 7F0B5B60 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0EA694 7F0B5B64 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -203192,6 +205265,7 @@ proc_7F0B5B60:
 /* 0EA708 7F0B5BD8 00000000 */  nop   
 # end proc_7F0B5B60
 
+.global proc_7F0B5BDC
 proc_7F0B5BDC:
 /* 0EA70C 7F0B5BDC C4A00000 */  lwc1  $f0, ($a1)
 /* 0EA710 7F0B5BE0 C4820000 */  lwc1  $f2, ($a0)
@@ -203258,6 +205332,7 @@ proc_7F0B5BDC:
 /* 0EA7EC 7F0B5CBC 00000000 */  nop   
 # end proc_7F0B5BDC
 
+.global proc_7F0B5CC0
 proc_7F0B5CC0:
 /* 0EA7F0 7F0B5CC0 C4800000 */  lwc1  $f0, ($a0)
 /* 0EA7F4 7F0B5CC4 C4A20000 */  lwc1  $f2, ($a1)
@@ -203303,6 +205378,7 @@ proc_7F0B5CC0:
 /* 0EA884 7F0B5D54 00000000 */  nop   
 # end proc_7F0B5CC0
 
+.global proc_7F0B5D58
 proc_7F0B5D58:
 /* 0EA888 7F0B5D58 C4A40000 */  lwc1  $f4, ($a1)
 /* 0EA88C 7F0B5D5C E4840000 */  swc1  $f4, ($a0)
@@ -203315,6 +205391,7 @@ proc_7F0B5D58:
 /* 0EA8A8 7F0B5D78 E48A000C */  swc1  $f10, 0xc($a0)
 # end proc_7F0B5D58
 
+.global proc_7F0B5D7C
 proc_7F0B5D7C:
 /* 0EA8AC 7F0B5D7C 3C028004 */  lui   $v0, 0x8004
 /* 0EA8B0 7F0B5D80 8C424860 */  lw    $v0, 0x4860($v0)
@@ -203343,6 +205420,7 @@ proc_7F0B5D7C:
 /* 0EA90C 7F0B5DDC 00000000 */  nop   
 # end proc_7F0B5D7C
 
+.global proc_7F0B5DE0
 proc_7F0B5DE0:
 /* 0EA910 7F0B5DE0 3C028004 */  lui   $v0, 0x8004
 /* 0EA914 7F0B5DE4 8C424864 */  lw    $v0, 0x4864($v0)
@@ -203371,12 +205449,14 @@ proc_7F0B5DE0:
 /* 0EA970 7F0B5E40 00000000 */  nop   
 # end proc_7F0B5DE0
 
+.global proc_7F0B5E44
 proc_7F0B5E44:
 /* 0EA974 7F0B5E44 3C028004 */  lui   $v0, 0x8004
 /* 0EA978 7F0B5E48 03E00008 */  jr    $ra
 /* 0EA97C 7F0B5E4C 8C4242F4 */  lw    $v0, 0x42f4($v0)
 # end proc_7F0B5E44
 
+.global proc_7F0B5E50
 proc_7F0B5E50:
 /* 0EA980 7F0B5E50 00047080 */  sll   $t6, $a0, 2
 /* 0EA984 7F0B5E54 01C47021 */  addu  $t6, $t6, $a0
@@ -203387,6 +205467,7 @@ proc_7F0B5E50:
 /* 0EA998 7F0B5E68 90421414 */  lbu   $v0, 0x1414($v0)
 # end proc_7F0B5E50
 
+.global proc_7F0B5E6C
 proc_7F0B5E6C:
 /* 0EA99C 7F0B5E6C 00047080 */  sll   $t6, $a0, 2
 /* 0EA9A0 7F0B5E70 01C47021 */  addu  $t6, $t6, $a0
@@ -203397,6 +205478,7 @@ proc_7F0B5E6C:
 /* 0EA9B4 7F0B5E84 90421415 */  lbu   $v0, 0x1415($v0)
 # end proc_7F0B5E6C
 
+.global proc_7F0B5E88
 proc_7F0B5E88:
 /* 0EA9B8 7F0B5E88 3C028008 */  lui   $v0, 0x8008
 /* 0EA9BC 7F0B5E8C 8C42FF80 */  lw    $v0, -0x80($v0)
@@ -203423,6 +205505,7 @@ proc_7F0B5E88:
 /* 0EAA04 7F0B5ED4 00000000 */  nop   
 # end proc_7F0B5E88
 
+.global proc_7F0B5ED8
 proc_7F0B5ED8:
 /* 0EAA08 7F0B5ED8 27BDFF40 */  addiu $sp, $sp, -0xc0
 /* 0EAA0C 7F0B5EDC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -203478,6 +205561,7 @@ proc_7F0B5ED8:
 /* 0EAAB8 7F0B5F88 00000000 */  nop   
 # end proc_7F0B5ED8
 
+.global proc_7F0B5F8C
 proc_7F0B5F8C:
 /* 0EAABC 7F0B5F8C 27BDDEE8 */  addiu $sp, $sp, -0x2118
 /* 0EAAC0 7F0B5F90 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -203489,6 +205573,7 @@ proc_7F0B5F8C:
 /* 0EAAD8 7F0B5FA8 00000000 */  nop   
 # end proc_7F0B5F8C
 
+.global proc_7F0B5FAC
 proc_7F0B5FAC:
 /* 0EAADC 7F0B5FAC 00047880 */  sll   $t7, $a0, 2
 /* 0EAAE0 7F0B5FB0 01E47821 */  addu  $t7, $t7, $a0
@@ -203554,6 +205639,7 @@ proc_7F0B5FAC:
 /* 0EABC8 7F0B6098 00000000 */  nop   
 # end proc_7F0B5FAC
 
+.global proc_7F0B609C
 proc_7F0B609C:
 /* 0EABCC 7F0B609C 00047880 */  sll   $t7, $a0, 2
 /* 0EABD0 7F0B60A0 01E47821 */  addu  $t7, $t7, $a0
@@ -203640,6 +205726,7 @@ proc_7F0B609C:
 /* 0EAD08 7F0B61D8 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F0B609C
 
+.global proc_7F0B61DC
 proc_7F0B61DC:
 /* 0EAD0C 7F0B61DC 00047880 */  sll   $t7, $a0, 2
 /* 0EAD10 7F0B61E0 01E47821 */  addu  $t7, $t7, $a0
@@ -203724,6 +205811,7 @@ proc_7F0B61DC:
 /* 0EAE40 7F0B6310 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F0B61DC
 
+.global proc_7F0B6314
 proc_7F0B6314:
 /* 0EAE44 7F0B6314 00047080 */  sll   $t6, $a0, 2
 /* 0EAE48 7F0B6318 01C47021 */  addu  $t6, $t6, $a0
@@ -203750,6 +205838,7 @@ proc_7F0B6314:
 /* 0EAE94 7F0B6364 00000000 */  nop   
 # end proc_7F0B6314
 
+.global proc_7F0B6368
 proc_7F0B6368:
 /* 0EAE98 7F0B6368 3C0F8004 */  lui   $t7, 0x8004
 /* 0EAE9C 7F0B636C 8DEF42F4 */  lw    $t7, 0x42f4($t7)
@@ -203916,6 +206005,7 @@ proc_7F0B6368:
 /* 0EB0F0 7F0B65C0 00000000 */  nop   
 # end proc_7F0B6368
 
+.global proc_7F0B65C4
 proc_7F0B65C4:
 /* 0EB0F4 7F0B65C4 00047080 */  sll   $t6, $a0, 2
 /* 0EB0F8 7F0B65C8 27BDFFE0 */  addiu $sp, $sp, -0x20
@@ -203969,6 +206059,7 @@ proc_7F0B65C4:
 /* 0EB1A8 7F0B6678 00000000 */  nop   
 # end proc_7F0B65C4
 
+.global proc_7F0B667C
 proc_7F0B667C:
 /* 0EB1AC 7F0B667C 3C028004 */  lui   $v0, 0x8004
 /* 0EB1B0 7F0B6680 8C4242F4 */  lw    $v0, 0x42f4($v0)
@@ -204002,6 +206093,7 @@ proc_7F0B667C:
 /* 0EB214 7F0B66E4 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F0B667C
 
+.global proc_7F0B66E8
 proc_7F0B66E8:
 /* 0EB218 7F0B66E8 3C038004 */  lui   $v1, 0x8004
 /* 0EB21C 7F0B66EC 8C6342F4 */  lw    $v1, 0x42f4($v1)
@@ -204047,6 +206139,7 @@ proc_7F0B66E8:
 /* 0EB2A8 7F0B6778 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F0B66E8
 
+.global proc_7F0B677C
 proc_7F0B677C:
 /* 0EB2AC 7F0B677C 3C0E8004 */  lui   $t6, 0x8004
 /* 0EB2B0 7F0B6780 8DCE42F4 */  lw    $t6, 0x42f4($t6)
@@ -204127,6 +206220,7 @@ proc_7F0B677C:
 /* 0EB3C4 7F0B6894 00000000 */  nop   
 # end proc_7F0B677C
 
+.global proc_7F0B6898
 proc_7F0B6898:
 /* 0EB3C8 7F0B6898 3C0E8004 */  lui   $t6, 0x8004
 /* 0EB3CC 7F0B689C 8DCE42F4 */  lw    $t6, 0x42f4($t6)
@@ -204199,6 +206293,7 @@ proc_7F0B6898:
 /* 0EB4C0 7F0B6990 00000000 */  nop   
 # end proc_7F0B6898
 
+.global proc_7F0B6994
 proc_7F0B6994:
 /* 0EB4C4 7F0B6994 00047880 */  sll   $t7, $a0, 2
 /* 0EB4C8 7F0B6998 01E47821 */  addu  $t7, $t7, $a0
@@ -204434,6 +206529,7 @@ proc_7F0B6994:
 /* 0EB818 7F0B6CE8 27BD0050 */  addiu $sp, $sp, 0x50
 # end proc_7F0B6994
 
+.global proc_7F0B6CEC
 proc_7F0B6CEC:
 /* 0EB81C 7F0B6CEC 8CCE0000 */  lw    $t6, ($a2)
 /* 0EB820 7F0B6CF0 27BDFF88 */  addiu $sp, $sp, -0x78
@@ -204656,6 +206752,7 @@ proc_7F0B6CEC:
 /* 0EBB3C 7F0B700C 27BD0078 */  addiu $sp, $sp, 0x78
 # end proc_7F0B6CEC
 
+.global proc_7F0B7010
 proc_7F0B7010:
 /* 0EBB40 7F0B7010 27BDFEC0 */  addiu $sp, $sp, -0x140
 /* 0EBB44 7F0B7014 8FAE0150 */  lw    $t6, 0x150($sp)
@@ -205369,6 +207466,7 @@ proc_7F0B7010:
 /* 0EC5A4 7F0B7A74 27BD0140 */  addiu $sp, $sp, 0x140
 # end proc_7F0B7010
 
+.global proc_7F0B7A78
 proc_7F0B7A78:
 /* 0EC5A8 7F0B7A78 27BDFF28 */  addiu $sp, $sp, -0xd8
 /* 0EC5AC 7F0B7A7C 3C0E7FFF */  lui   $t6, 0x7fff
@@ -205582,6 +207680,7 @@ proc_7F0B7A78:
 /* 0EC8C0 7F0B7D90 27BD00D8 */  addiu $sp, $sp, 0xd8
 # end proc_7F0B7A78
 
+.global proc_7F0B7D94
 proc_7F0B7D94:
 /* 0EC8C4 7F0B7D94 3C018004 */  lui   $at, 0x8004
 /* 0EC8C8 7F0B7D98 AC2048A0 */  sw    $zero, %lo(0x800448A0)($at) # $zero, 0x48a0($at)
@@ -205590,6 +207689,7 @@ proc_7F0B7D94:
 /* 0EC8D4 7F0B7DA4 AC2048A4 */  sw    $zero, %lo(0x800448A4)($at) # $zero, 0x48a4($at)
 # end proc_7F0B7D94
 
+.global proc_7F0B7DA8
 proc_7F0B7DA8:
 /* 0EC8D8 7F0B7DA8 00047080 */  sll   $t6, $a0, 2
 /* 0EC8DC 7F0B7DAC 01C47021 */  addu  $t6, $t6, $a0
@@ -205609,6 +207709,7 @@ proc_7F0B7DA8:
 /* 0EC910 7F0B7DE0 00A01025 */  or    $v0, $a1, $zero
 # end proc_7F0B7DA8
 
+.global proc_7F0B7DE4
 proc_7F0B7DE4:
 /* 0EC914 7F0B7DE4 3C088004 */  lui   $t0, 0x8004
 /* 0EC918 7F0B7DE8 250848A0 */  addiu $t0, $t0, 0x48a0
@@ -205680,6 +207781,7 @@ proc_7F0B7DE4:
 /* 0ECA10 7F0B7EE0 00000000 */  nop   
 # end proc_7F0B7DE4
 
+.global proc_7F0B7EE4
 proc_7F0B7EE4:
 /* 0ECA14 7F0B7EE4 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0ECA18 7F0B7EE8 3C038004 */  lui   $v1, 0x8004
@@ -205726,6 +207828,7 @@ proc_7F0B7EE4:
 /* 0ECAB0 7F0B7F80 00000000 */  nop   
 # end proc_7F0B7EE4
 
+.global proc_7F0B7F84
 proc_7F0B7F84:
 /* 0ECAB4 7F0B7F84 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 0ECAB8 7F0B7F88 3C028004 */  lui   $v0, 0x8004
@@ -206003,6 +208106,7 @@ proc_7F0B7F84:
 /* 0ECEA0 7F0B8370 27BD0080 */  addiu $sp, $sp, 0x80
 # end proc_7F0B7F84
 
+.global proc_7F0B8374
 proc_7F0B8374:
 /* 0ECEA4 7F0B8374 3C058004 */  lui   $a1, 0x8004
 /* 0ECEA8 7F0B8378 24A548F8 */  addiu $a1, $a1, 0x48f8
@@ -206021,6 +208125,7 @@ proc_7F0B8374:
 /* 0ECEDC 7F0B83AC 00000000 */  nop   
 # end proc_7F0B8374
 
+.global proc_7F0B83B0
 proc_7F0B83B0:
 /* 0ECEE0 7F0B83B0 3C048004 */  lui   $a0, 0x8004
 /* 0ECEE4 7F0B83B4 248448F8 */  addiu $a0, $a0, 0x48f8
@@ -206037,6 +208142,7 @@ proc_7F0B83B0:
 /* 0ECF10 7F0B83E0 8C6248A8 */  lw    $v0, 0x48a8($v1)
 # end proc_7F0B83B0
 
+.global proc_7F0B83E4
 proc_7F0B83E4:
 /* 0ECF14 7F0B83E4 3C0E8004 */  lui   $t6, 0x8004
 /* 0ECF18 7F0B83E8 8DCE48F8 */  lw    $t6, 0x48f8($t6)
@@ -206052,6 +208158,7 @@ proc_7F0B83E4:
 /* 0ECF40 7F0B8410 8C4248A8 */  lw    $v0, 0x48a8($v0)
 # end proc_7F0B83E4
 
+.global proc_7F0B8414
 proc_7F0B8414:
 /* 0ECF44 7F0B8414 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 0ECF48 7F0B8418 AFB30024 */  sw    $s3, 0x24($sp)
@@ -206478,6 +208585,7 @@ proc_7F0B8414:
 /* 0ED550 7F0B8A20 27BD0080 */  addiu $sp, $sp, 0x80
 # end proc_7F0B8414
 
+.global proc_7F0B8A24
 proc_7F0B8A24:
 /* 0ED554 7F0B8A24 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0ED558 7F0B8A28 3C018004 */  lui   $at, 0x8004
@@ -206501,6 +208609,7 @@ proc_7F0B8A24:
 /* 0ED598 7F0B8A68 00000000 */  nop   
 # end proc_7F0B8A24
 
+.global proc_7F0B8A6C
 proc_7F0B8A6C:
 /* 0ED59C 7F0B8A6C 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 0ED5A0 7F0B8A70 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -206720,6 +208829,7 @@ proc_7F0B8A6C:
 /* 0ED8A4 7F0B8D74 27BD0060 */  addiu $sp, $sp, 0x60
 # end proc_7F0B8A6C
 
+.global proc_7F0B8D78
 proc_7F0B8D78:
 /* 0ED8A8 7F0B8D78 3C0E8004 */  lui   $t6, 0x8004
 /* 0ED8AC 7F0B8D7C 8DCE1400 */  lw    $t6, 0x1400($t6)
@@ -206757,6 +208867,7 @@ proc_7F0B8D78:
 /* 0ED920 7F0B8DF0 00000000 */  nop   
 # end proc_7F0B8D78
 
+.global proc_7F0B8DF4
 proc_7F0B8DF4:
 /* 0ED924 7F0B8DF4 3C088008 */  lui   $t0, 0x8008
 /* 0ED928 7F0B8DF8 2508FF80 */  addiu $t0, $t0, -0x80
@@ -206807,6 +208918,7 @@ proc_7F0B8DF4:
 /* 0ED9C4 7F0B8E94 27BD0010 */  addiu $sp, $sp, 0x10
 # end proc_7F0B8DF4
 
+.global proc_7F0B8E98
 proc_7F0B8E98:
 /* 0ED9C8 7F0B8E98 3C078008 */  lui   $a3, 0x8008
 /* 0ED9CC 7F0B8E9C 24E7C038 */  addiu $a3, $a3, -0x3fc8
@@ -206837,6 +208949,7 @@ proc_7F0B8E98:
 /* 0EDA28 7F0B8EF8 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0B8E98
 
+.global proc_7F0B8EFC
 proc_7F0B8EFC:
 /* 0EDA2C 7F0B8EFC 27BDFFF0 */  addiu $sp, $sp, -0x10
 /* 0EDA30 7F0B8F00 3C078008 */  lui   $a3, 0x8008
@@ -206901,6 +209014,7 @@ proc_7F0B8EFC:
 /* 0EDAFC 7F0B8FCC 27BD0010 */  addiu $sp, $sp, 0x10
 # end proc_7F0B8EFC
 
+.global proc_7F0B8FD0
 proc_7F0B8FD0:
 /* 0EDB00 7F0B8FD0 3C038008 */  lui   $v1, 0x8008
 /* 0EDB04 7F0B8FD4 8C63FF80 */  lw    $v1, -0x80($v1)
@@ -206936,6 +209050,7 @@ proc_7F0B8FD0:
 /* 0EDB6C 7F0B903C 00000000 */  nop   
 # end proc_7F0B8FD0
 
+.global proc_7F0B9040
 proc_7F0B9040:
 /* 0EDB70 7F0B9040 3C0F8004 */  lui   $t7, 0x8004
 /* 0EDB74 7F0B9044 25EF1404 */  addiu $t7, $t7, 0x1404
@@ -206958,6 +209073,7 @@ proc_7F0B9040:
 /* 0EDBB8 7F0B9088 46809020 */  cvt.s.w $f0, $f18
 # end proc_7F0B9040
 
+.global proc_7F0B908C
 proc_7F0B908C:
 /* 0EDBBC 7F0B908C 3C028004 */  lui   $v0, 0x8004
 /* 0EDBC0 7F0B9090 24421404 */  addiu $v0, $v0, 0x1404
@@ -207107,6 +209223,7 @@ proc_7F0B908C:
 /* 0EDDE0 7F0B92B0 00000000 */  nop   
 # end proc_7F0B908C
 
+.global proc_7F0B92B4
 proc_7F0B92B4:
 /* 0EDDE4 7F0B92B4 00047080 */  sll   $t6, $a0, 2
 /* 0EDDE8 7F0B92B8 01C47021 */  addu  $t6, $t6, $a0
@@ -207145,6 +209262,7 @@ proc_7F0B92B4:
 /* 0EDE64 7F0B9334 00000000 */  nop   
 # end proc_7F0B92B4
 
+.global proc_7F0B9338
 proc_7F0B9338:
 /* 0EDE68 7F0B9338 3C088008 */  lui   $t0, 0x8008
 /* 0EDE6C 7F0B933C 2508FF8C */  addiu $t0, $t0, -0x74
@@ -207327,6 +209445,7 @@ proc_7F0B9338:
 /* 0EE104 7F0B95D4 00000000 */  nop   
 # end proc_7F0B9338
 
+.global proc_7F0B95D8
 proc_7F0B95D8:
 /* 0EE108 7F0B95D8 3C058008 */  lui   $a1, 0x8008
 /* 0EE10C 7F0B95DC 8CA5FF80 */  lw    $a1, -0x80($a1)
@@ -207400,6 +209519,7 @@ proc_7F0B95D8:
 /* 0EE1F8 7F0B96C8 00000000 */  nop   
 # end proc_7F0B95D8
 
+.global proc_7F0B96CC
 proc_7F0B96CC:
 /* 0EE1FC 7F0B96CC 27BDFF88 */  addiu $sp, $sp, -0x78
 /* 0EE200 7F0B96D0 3C0E8008 */  lui   $t6, 0x8008
@@ -207568,6 +209688,7 @@ proc_7F0B96CC:
 /* 0EE468 7F0B9938 27BD0078 */  addiu $sp, $sp, 0x78
 # end proc_7F0B96CC
 
+.global proc_7F0B993C
 proc_7F0B993C:
 /* 0EE46C 7F0B993C 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0EE470 7F0B9940 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -207593,6 +209714,7 @@ proc_7F0B993C:
 /* 0EE4BC 7F0B998C 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F0B993C
 
+.global proc_7F0B9990
 proc_7F0B9990:
 /* 0EE4C0 7F0B9990 3C0E8008 */  lui   $t6, 0x8008
 /* 0EE4C4 7F0B9994 8DCEFF80 */  lw    $t6, -0x80($t6)
@@ -207632,6 +209754,7 @@ proc_7F0B9990:
 /* 0EE540 7F0B9A10 46001006 */  mov.s $f0, $f2
 # end proc_7F0B9990
 
+.global proc_7F0B9A14
 proc_7F0B9A14:
 /* 0EE544 7F0B9A14 3C0E8008 */  lui   $t6, 0x8008
 /* 0EE548 7F0B9A18 8DCEFF80 */  lw    $t6, -0x80($t6)
@@ -207641,6 +209764,7 @@ proc_7F0B9A14:
 /* 0EE558 7F0B9A28 93020007 */  lbu   $v0, 7($t8)
 # end proc_7F0B9A14
 
+.global proc_7F0B9A2C
 proc_7F0B9A2C:
 /* 0EE55C 7F0B9A2C 3C0E8008 */  lui   $t6, 0x8008
 /* 0EE560 7F0B9A30 8DCEFF80 */  lw    $t6, -0x80($t6)
@@ -207666,6 +209790,7 @@ proc_7F0B9A2C:
 /* 0EE5A8 7F0B9A78 A0620007 */  sb    $v0, 7($v1)
 # end proc_7F0B9A2C
 
+.global proc_7F0B9A7C
 proc_7F0B9A7C:
 /* 0EE5AC 7F0B9A7C 3C0E8008 */  lui   $t6, 0x8008
 /* 0EE5B0 7F0B9A80 8DCEFF80 */  lw    $t6, -0x80($t6)
@@ -207697,6 +209822,7 @@ proc_7F0B9A7C:
 /* 0EE610 7F0B9AE0 A0620007 */  sb    $v0, 7($v1)
 # end proc_7F0B9A7C
 
+.global proc_7F0B9AE4
 proc_7F0B9AE4:
 /* 0EE614 7F0B9AE4 3C0E8008 */  lui   $t6, 0x8008
 /* 0EE618 7F0B9AE8 8DCEFF80 */  lw    $t6, -0x80($t6)
@@ -207708,6 +209834,7 @@ proc_7F0B9AE4:
 /* 0EE630 7F0B9B00 03201025 */  or    $v0, $t9, $zero
 # end proc_7F0B9AE4
 
+.global proc_7F0B9B04
 proc_7F0B9B04:
 /* 0EE634 7F0B9B04 3C0E8008 */  lui   $t6, 0x8008
 /* 0EE638 7F0B9B08 8DCEFF80 */  lw    $t6, -0x80($t6)
@@ -207719,6 +209846,7 @@ proc_7F0B9B04:
 /* 0EE650 7F0B9B20 03201025 */  or    $v0, $t9, $zero
 # end proc_7F0B9B04
 
+.global proc_7F0B9B24
 proc_7F0B9B24:
 /* 0EE654 7F0B9B24 3C0E8008 */  lui   $t6, 0x8008
 /* 0EE658 7F0B9B28 8DCEFF80 */  lw    $t6, -0x80($t6)
@@ -207730,6 +209858,7 @@ proc_7F0B9B24:
 /* 0EE670 7F0B9B40 A0590006 */  sb    $t9, 6($v0)
 # end proc_7F0B9B24
 
+.global proc_7F0B9B44
 proc_7F0B9B44:
 /* 0EE674 7F0B9B44 3C0E8008 */  lui   $t6, 0x8008
 /* 0EE678 7F0B9B48 8DCEFF80 */  lw    $t6, -0x80($t6)
@@ -207741,6 +209870,7 @@ proc_7F0B9B44:
 /* 0EE690 7F0B9B60 A0590006 */  sb    $t9, 6($v0)
 # end proc_7F0B9B44
 
+.global proc_7F0B9B64
 proc_7F0B9B64:
 /* 0EE694 7F0B9B64 3C068008 */  lui   $a2, 0x8008
 /* 0EE698 7F0B9B68 24C6FF80 */  addiu $a2, $a2, -0x80
@@ -207756,6 +209886,7 @@ proc_7F0B9B64:
 /* 0EE6C0 7F0B9B90 A3220005 */  sb    $v0, 5($t9)
 # end proc_7F0B9B64
 
+.global proc_7F0B9B94
 proc_7F0B9B94:
 /* 0EE6C4 7F0B9B94 3C0E8008 */  lui   $t6, 0x8008
 /* 0EE6C8 7F0B9B98 8DCEFF80 */  lw    $t6, -0x80($t6)
@@ -207839,6 +209970,7 @@ proc_7F0B9B94:
 /* 0EE7F4 7F0B9CC4 00000000 */  nop   
 # end proc_7F0B9B94
 
+.global proc_7F0B9CC8
 proc_7F0B9CC8:
 /* 0EE7F8 7F0B9CC8 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0EE7FC 7F0B9CCC AFBE0038 */  sw    $fp, 0x38($sp)
@@ -207909,6 +210041,7 @@ proc_7F0B9CC8:
 /* 0EE8E8 7F0B9DB8 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F0B9CC8
 
+.global proc_7F0B9DBC
 proc_7F0B9DBC:
 /* 0EE8EC 7F0B9DBC 3C0E8008 */  lui   $t6, 0x8008
 /* 0EE8F0 7F0B9DC0 8DCEFF80 */  lw    $t6, -0x80($t6)
@@ -207922,6 +210055,7 @@ proc_7F0B9DBC:
 /* 0EE910 7F0B9DE0 A0490006 */  sb    $t1, 6($v0)
 # end proc_7F0B9DBC
 
+.global proc_7F0B9DE4
 proc_7F0B9DE4:
 /* 0EE914 7F0B9DE4 AFA50004 */  sw    $a1, 4($sp)
 /* 0EE918 7F0B9DE8 AFA60008 */  sw    $a2, 8($sp)
@@ -207929,16 +210063,19 @@ proc_7F0B9DE4:
 /* 0EE920 7F0B9DF0 00801025 */  or    $v0, $a0, $zero
 # end proc_7F0B9DE4
 
+.global proc_7F0B9DF4
 proc_7F0B9DF4:
 /* 0EE924 7F0B9DF4 03E00008 */  jr    $ra
 /* 0EE928 7F0B9DF8 AFA40000 */  sw    $a0, ($sp)
 # end proc_7F0B9DF4
 
+.global proc_7F0B9DFC
 proc_7F0B9DFC:
 /* 0EE92C 7F0B9DFC 03E00008 */  jr    $ra
 /* 0EE930 7F0B9E00 AFA40000 */  sw    $a0, ($sp)
 # end proc_7F0B9DFC
 
+.global proc_7F0B9E04
 proc_7F0B9E04:
 /* 0EE934 7F0B9E04 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0EE938 7F0B9E08 AFB6003C */  sw    $s6, 0x3c($sp)
@@ -208014,6 +210151,7 @@ proc_7F0B9E04:
 /* 0EEA40 7F0B9F10 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F0B9E04
 
+.global proc_7F0B9F14
 proc_7F0B9F14:
 /* 0EEA44 7F0B9F14 27BDFF60 */  addiu $sp, $sp, -0xa0
 /* 0EEA48 7F0B9F18 AFB00018 */  sw    $s0, 0x18($sp)
@@ -208244,6 +210382,7 @@ proc_7F0B9F14:
 /* 0EED98 7F0BA268 00000000 */  nop   
 # end proc_7F0B9F14
 
+.global proc_7F0BA26C
 proc_7F0BA26C:
 /* 0EED9C 7F0BA26C 00001825 */  or    $v1, $zero, $zero
 /* 0EEDA0 7F0BA270 00A04025 */  or    $t0, $a1, $zero
@@ -208276,6 +210415,7 @@ proc_7F0BA26C:
 /* 0EEE00 7F0BA2D0 00000000 */  nop   
 # end proc_7F0BA26C
 
+.global proc_7F0BA2D4
 proc_7F0BA2D4:
 /* 0EEE04 7F0BA2D4 27BDFF48 */  addiu $sp, $sp, -0xb8
 /* 0EEE08 7F0BA2D8 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -208485,6 +210625,7 @@ proc_7F0BA2D4:
 /* 0EF0EC 7F0BA5BC 27BD00B8 */  addiu $sp, $sp, 0xb8
 # end proc_7F0BA2D4
 
+.global proc_7F0BA5C0
 proc_7F0BA5C0:
 /* 0EF0F0 7F0BA5C0 0085082B */  sltu  $at, $a0, $a1
 /* 0EF0F4 7F0BA5C4 1020001C */  beqz  $at, .Lproc_7F0BA5C0_78
@@ -208525,6 +210666,7 @@ proc_7F0BA5C0:
 /* 0EF16C 7F0BA63C 00000000 */  nop   
 # end proc_7F0BA5C0
 
+.global proc_7F0BA640
 proc_7F0BA640:
 /* 0EF170 7F0BA640 10A00004 */  beqz  $a1, .Lproc_7F0BA640_14
 /* 0EF174 7F0BA644 00801025 */  or    $v0, $a0, $zero
@@ -208592,24 +210734,28 @@ proc_7F0BA640:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F0BA720
 proc_7F0BA720:
 /* 0EF250 7F0BA720 AFA40000 */  sw    $a0, ($sp)
 /* 0EF254 7F0BA724 03E00008 */  jr    $ra
 /* 0EF258 7F0BA728 AFA50004 */  sw    $a1, 4($sp)
 # end proc_7F0BA720
 
+.global proc_7F0BA72C
 proc_7F0BA72C:
 /* 0EF25C 7F0BA72C 3C028004 */  lui   $v0, 0x8004
 /* 0EF260 7F0BA730 03E00008 */  jr    $ra
 /* 0EF264 7F0BA734 24424DCC */  addiu $v0, $v0, 0x4dcc
 # end proc_7F0BA72C
 
+.global proc_7F0BA738
 proc_7F0BA738:
 /* 0EF268 7F0BA738 3C018004 */  lui   $at, 0x8004
 /* 0EF26C 7F0BA73C 03E00008 */  jr    $ra
 /* 0EF270 7F0BA740 C4204DC4 */  lwc1  $f0, 0x4dc4($at)
 # end proc_7F0BA738
 
+.global square_near_fog_value
 square_near_fog_value:
 /* 0EF274 7F0BA744 3C018004 */  lui   $at, 0x8004
 /* 0EF278 7F0BA748 C4224DC4 */  lwc1  $f2, 0x4dc4($at)
@@ -208618,6 +210764,7 @@ square_near_fog_value:
 /* 0EF284 7F0BA754 00000000 */  nop   
 # end square_near_fog_value
 
+.global copy_table1_env_to_current
 copy_table1_env_to_current:
 /* 0EF288 7F0BA758 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0EF28C 7F0BA75C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -208781,6 +210928,7 @@ copy_table1_env_to_current:
 /* 0EF4FC 7F0BA9CC 27BD0038 */  addiu $sp, $sp, 0x38
 # end copy_table1_env_to_current
 
+.global copy_table2_env_to_current
 copy_table2_env_to_current:
 /* 0EF500 7F0BA9D0 908E0004 */  lbu   $t6, 4($a0)
 /* 0EF504 7F0BA9D4 3C028004 */  lui   $v0, 0x8004
@@ -208819,11 +210967,13 @@ copy_table2_env_to_current:
 /* 0EF588 7F0BAA58 E4480038 */  swc1  $f8, %lo(0x80040038)($v0) # $f8, 0x38($v0)
 # end copy_table2_env_to_current
 
+.global proc_7F0BAA5C
 proc_7F0BAA5C:
 /* 0EF58C 7F0BAA5C 03E00008 */  jr    $ra
 /* 0EF590 7F0BAA60 AFA40000 */  sw    $a0, ($sp)
 # end proc_7F0BAA5C
 
+.global load_enviroment
 load_enviroment:
 /* 0EF594 7F0BAA64 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0EF598 7F0BAA68 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -208988,6 +211138,7 @@ load_enviroment:
 /* 0EF7D4 7F0BACA4 00000000 */  nop   
 # end load_enviroment
 
+.global proc_7F0BACA8
 proc_7F0BACA8:
 /* 0EF7D8 7F0BACA8 3C028008 */  lui   $v0, 0x8008
 /* 0EF7DC 7F0BACAC 8C4225EC */  lw    $v0, 0x25ec($v0)
@@ -209249,6 +211400,7 @@ proc_7F0BACA8:
 /* 0EFB9C 7F0BB06C 00000000 */  nop   
 # end proc_7F0BACA8
 
+.global proc_7F0BB070
 proc_7F0BB070:
 /* 0EFBA0 7F0BB070 3C0E8008 */  lui   $t6, 0x8008
 /* 0EFBA4 7F0BB074 8DCE25C0 */  lw    $t6, 0x25c0($t6)
@@ -209401,6 +211553,7 @@ proc_7F0BB070:
 /* 0EFDC4 7F0BB294 00000000 */  nop   
 # end proc_7F0BB070
 
+.global proc_7F0BB298
 proc_7F0BB298:
 /* 0EFDC8 7F0BB298 3C0E8008 */  lui   $t6, 0x8008
 /* 0EFDCC 7F0BB29C 8DCE25C0 */  lw    $t6, 0x25c0($t6)
@@ -209417,6 +211570,7 @@ proc_7F0BB298:
 /* 0EFDF4 7F0BB2C4 00000000 */  nop   
 # end proc_7F0BB298
 
+.global proc_7F0BB2C8
 proc_7F0BB2C8:
 /* 0EFDF8 7F0BB2C8 3C0E8008 */  lui   $t6, 0x8008
 /* 0EFDFC 7F0BB2CC 8DCE25C0 */  lw    $t6, 0x25c0($t6)
@@ -209474,12 +211628,14 @@ proc_7F0BB2C8:
 /* 0EFEC4 7F0BB394 00000000 */  nop   
 # end proc_7F0BB2C8
 
+.global return_nearfog_values
 return_nearfog_values:
 /* 0EFEC8 7F0BB398 3C028008 */  lui   $v0, 0x8008
 /* 0EFECC 7F0BB39C 03E00008 */  jr    $ra
 /* 0EFED0 7F0BB3A0 8C4225C4 */  lw    $v0, 0x25c4($v0)
 # end return_nearfog_values
 
+.global proc_7F0BB3A4
 proc_7F0BB3A4:
 /* 0EFED4 7F0BB3A4 3C0E8008 */  lui   $t6, 0x8008
 /* 0EFED8 7F0BB3A8 8DCE25C0 */  lw    $t6, 0x25c0($t6)
@@ -209566,6 +211722,7 @@ proc_7F0BB3A4:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F0BB4D0
 proc_7F0BB4D0:
 /* 0F0000 7F0BB4D0 3C038008 */  lui   $v1, 0x8008
 /* 0F0004 7F0BB4D4 3C028008 */  lui   $v0, 0x8008
@@ -209592,6 +211749,7 @@ proc_7F0BB4D0:
 /* 0F0050 7F0BB520 AC206030 */  sw    $zero, %lo(0x80046030)($at) # $zero, 0x6030($at)
 # end proc_7F0BB4D0
 
+.global proc_7F0BB524
 proc_7F0BB524:
 /* 0F0054 7F0BB524 3C028008 */  lui   $v0, 0x8008
 /* 0F0058 7F0BB528 24422660 */  addiu $v0, $v0, 0x2660
@@ -209630,6 +211788,7 @@ proc_7F0BB524:
 /* 0F00C8 7F0BB598 00000000 */  nop   
 # end proc_7F0BB524
 
+.global proc_7F0BB59C
 proc_7F0BB59C:
 /* 0F00CC 7F0BB59C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F00D0 7F0BB5A0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -209659,6 +211818,7 @@ proc_7F0BB59C:
 /* 0F012C 7F0BB5FC 00000000 */  nop   
 # end proc_7F0BB59C
 
+.global proc_7F0BB600
 proc_7F0BB600:
 /* 0F0130 7F0BB600 3C028008 */  lui   $v0, 0x8008
 /* 0F0134 7F0BB604 84422B10 */  lh    $v0, 0x2b10($v0)
@@ -209675,6 +211835,7 @@ proc_7F0BB600:
 /* 0F015C 7F0BB62C 00000000 */  nop   
 # end proc_7F0BB600
 
+.global proc_7F0BB630
 proc_7F0BB630:
 /* 0F0160 7F0BB630 240100C9 */  addiu $at, $zero, 0xc9
 /* 0F0164 7F0BB634 10810013 */  beq   $a0, $at, .Lproc_7F0BB630_54
@@ -209705,6 +211866,7 @@ proc_7F0BB630:
 /* 0F01C0 7F0BB690 00000000 */  nop   
 # end proc_7F0BB630
 
+.global proc_7F0BB694
 proc_7F0BB694:
 /* 0F01C4 7F0BB694 808E0000 */  lb    $t6, ($a0)
 /* 0F01C8 7F0BB698 24020004 */  addiu $v0, $zero, 4
@@ -209735,6 +211897,7 @@ proc_7F0BB694:
 /* 0F0220 7F0BB6F0 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0BB694
 
+.global proc_7F0BB6F4
 proc_7F0BB6F4:
 /* 0F0224 7F0BB6F4 2CA10005 */  sltiu $at, $a1, 5
 /* 0F0228 7F0BB6F8 1020005C */  beqz  $at, .Lproc_7F0BB6F4_178
@@ -209841,6 +212004,7 @@ proc_7F0BB6F4:
 /* 0F03A0 7F0BB870 00000000 */  nop   
 # end proc_7F0BB6F4
 
+.global proc_7F0BB874
 proc_7F0BB874:
 /* 0F03A4 7F0BB874 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0F03A8 7F0BB878 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -209909,6 +212073,7 @@ proc_7F0BB874:
 /* 0F04A4 7F0BB974 00000000 */  nop   
 # end proc_7F0BB874
 
+.global proc_7F0BB978
 proc_7F0BB978:
 /* 0F04A8 7F0BB978 00047080 */  sll   $t6, $a0, 2
 /* 0F04AC 7F0BB97C 01C47021 */  addu  $t6, $t6, $a0
@@ -209956,6 +212121,7 @@ proc_7F0BB978:
 /* 0F054C 7F0BBA1C 00000000 */  nop   
 # end proc_7F0BB978
 
+.global proc_7F0BBA20
 proc_7F0BBA20:
 /* 0F0550 7F0BBA20 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F0554 7F0BBA24 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -210007,6 +212173,7 @@ proc_7F0BBA20:
 /* 0F0608 7F0BBAD8 00000000 */  nop   
 # end proc_7F0BBA20
 
+.global proc_7F0BBADC
 proc_7F0BBADC:
 /* 0F060C 7F0BBADC 00057080 */  sll   $t6, $a1, 2
 /* 0F0610 7F0BBAE0 01C57021 */  addu  $t6, $t6, $a1
@@ -210066,6 +212233,7 @@ proc_7F0BBADC:
 /* 0F06D4 7F0BBBA4 00000000 */  nop   
 # end proc_7F0BBADC
 
+.global proc_7F0BBBA8
 proc_7F0BBBA8:
 /* 0F06D8 7F0BBBA8 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0F06DC 7F0BBBAC AFBF001C */  sw    $ra, 0x1c($sp)
@@ -210103,6 +212271,7 @@ proc_7F0BBBA8:
 /* 0F075C 7F0BBC2C 00000000 */  nop   
 # end proc_7F0BBBA8
 
+.global proc_7F0BBC30
 proc_7F0BBC30:
 /* 0F0760 7F0BBC30 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0F0764 7F0BBC34 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -210145,6 +212314,7 @@ proc_7F0BBC30:
 /* 0F07F8 7F0BBCC8 01CF1021 */  addu  $v0, $t6, $t7
 # end proc_7F0BBC30
 
+.global proc_7F0BBCCC
 proc_7F0BBCCC:
 /* 0F07FC 7F0BBCCC 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0F0800 7F0BBCD0 AFBE0040 */  sw    $fp, 0x40($sp)
@@ -210234,6 +212404,7 @@ proc_7F0BBCCC:
 /* 0F0938 7F0BBE08 27BD0048 */  addiu $sp, $sp, 0x48
 # end proc_7F0BBCCC
 
+.global proc_7F0BBE0C
 proc_7F0BBE0C:
 /* 0F093C 7F0BBE0C 27BDFF08 */  addiu $sp, $sp, -0xf8
 /* 0F0940 7F0BBE10 AFB20044 */  sw    $s2, 0x44($sp)
@@ -210690,6 +212861,7 @@ proc_7F0BBE0C:
 /* 0F0FF0 7F0BC4C0 27BD00F8 */  addiu $sp, $sp, 0xf8
 # end proc_7F0BBE0C
 
+.global proc_7F0BC4C4
 proc_7F0BC4C4:
 /* 0F0FF4 7F0BC4C4 3C038008 */  lui   $v1, 0x8008
 /* 0F0FF8 7F0BC4C8 3C028008 */  lui   $v0, 0x8008
@@ -210727,6 +212899,7 @@ proc_7F0BC4C4:
 # alignment
 .word 0x00000000
 
+.global proc_7F0BC530
 proc_7F0BC530:
 /* 0F1060 7F0BC530 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0F1064 7F0BC534 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -210796,6 +212969,7 @@ proc_7F0BC530:
 /* 0F1150 7F0BC620 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F0BC530
 
+.global proc_7F0BC624
 proc_7F0BC624:
 /* 0F1154 7F0BC624 3C0E8008 */  lui   $t6, 0x8008
 /* 0F1158 7F0BC628 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -210803,6 +212977,7 @@ proc_7F0BC624:
 /* 0F1160 7F0BC630 ADC4108C */  sw    $a0, 0x108c($t6)
 # end proc_7F0BC624
 
+.global proc_7F0BC634
 proc_7F0BC634:
 /* 0F1164 7F0BC634 00057080 */  sll   $t6, $a1, 2
 /* 0F1168 7F0BC638 01C57021 */  addu  $t6, $t6, $a1
@@ -210817,6 +212992,7 @@ proc_7F0BC634:
 /* 0F118C 7F0BC65C AC253450 */  sw    $a1, %lo(0x80083450)($at) # $a1, 0x3450($at)
 # end proc_7F0BC634
 
+.global proc_7F0BC660
 proc_7F0BC660:
 /* 0F1190 7F0BC660 00057080 */  sll   $t6, $a1, 2
 /* 0F1194 7F0BC664 01C57021 */  addu  $t6, $t6, $a1
@@ -210832,6 +213008,7 @@ proc_7F0BC660:
 /* 0F11BC 7F0BC68C AC223450 */  sw    $v0, %lo(0x80083450)($at) # $v0, 0x3450($at)
 # end proc_7F0BC660
 
+.global proc_7F0BC690
 proc_7F0BC690:
 /* 0F11C0 7F0BC690 00041080 */  sll   $v0, $a0, 2
 /* 0F11C4 7F0BC694 3C058008 */  lui   $a1, 0x8008
@@ -210860,6 +213037,7 @@ proc_7F0BC690:
 /* 0F121C 7F0BC6EC 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F0BC690
 
+.global proc_7F0BC6F0
 proc_7F0BC6F0:
 /* 0F1220 7F0BC6F0 3C028008 */  lui   $v0, 0x8008
 /* 0F1224 7F0BC6F4 3C058008 */  lui   $a1, 0x8008
@@ -210925,6 +213103,7 @@ proc_7F0BC6F0:
 /* 0F1300 7F0BC7D0 00000000 */  nop   
 # end proc_7F0BC6F0
 
+.global proc_7F0BC7D4
 proc_7F0BC7D4:
 /* 0F1304 7F0BC7D4 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0F1308 7F0BC7D8 AFB2001C */  sw    $s2, 0x1c($sp)
@@ -210965,6 +213144,7 @@ proc_7F0BC7D4:
 /* 0F1388 7F0BC858 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F0BC7D4
 
+.global proc_7F0BC85C
 proc_7F0BC85C:
 /* 0F138C 7F0BC85C 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 0F1390 7F0BC860 00047880 */  sll   $t7, $a0, 2
@@ -211063,6 +213243,7 @@ proc_7F0BC85C:
 /* 0F14F0 7F0BC9C0 00000000 */  nop   
 # end proc_7F0BC85C
 
+.global proc_7F0BC9C4
 proc_7F0BC9C4:
 /* 0F14F4 7F0BC9C4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F14F8 7F0BC9C8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -211086,6 +213267,7 @@ proc_7F0BC9C4:
 /* 0F1540 7F0BCA10 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0BC9C4
 
+.global proc_7F0BCA14
 proc_7F0BCA14:
 /* 0F1544 7F0BCA14 3C0F8008 */  lui   $t7, 0x8008
 /* 0F1548 7F0BCA18 8DEFFF8C */  lw    $t7, -0x74($t7)
@@ -211097,6 +213279,7 @@ proc_7F0BCA14:
 /* 0F1560 7F0BCA30 2442000C */  addiu $v0, $v0, 0xc
 # end proc_7F0BCA14
 
+.global proc_7F0BCA34
 proc_7F0BCA34:
 /* 0F1564 7F0BCA34 3C038008 */  lui   $v1, 0x8008
 /* 0F1568 7F0BCA38 2463FF8C */  addiu $v1, $v1, -0x74
@@ -211129,6 +213312,7 @@ proc_7F0BCA34:
 # alignment
 .word 0x00000000
 
+.global load_resource
 load_resource:
 /* 0F15D0 7F0BCAA0 27BDDED8 */  addiu $sp, $sp, -0x2128
 /* 0F15D4 7F0BCAA4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -211173,6 +213357,7 @@ load_resource:
 /* 0F1660 7F0BCB30 00000000 */  nop   
 # end load_resource
 
+.global load_resource_from_indy
 load_resource_from_indy:
 /* 0F1664 7F0BCB34 27BDDED8 */  addiu $sp, $sp, -0x2128
 /* 0F1668 7F0BCB38 AFB10018 */  sw    $s1, 0x18($sp)
@@ -211243,6 +213428,7 @@ load_resource_from_indy:
 /* 0F1754 7F0BCC24 27BD2128 */  addiu $sp, $sp, 0x2128
 # end load_resource_from_indy
 
+.global generate_resource_data_filesize_entries
 generate_resource_data_filesize_entries:
 /* 0F1758 7F0BCC28 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F175C 7F0BCC2C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -211285,6 +213471,7 @@ generate_resource_data_filesize_entries:
 /* 0F17E8 7F0BCCB8 00000000 */  nop   
 # end generate_resource_data_filesize_entries
 
+.global _load_rom_index_to_membank
 _load_rom_index_to_membank:
 /* 0F17EC 7F0BCCBC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F17F0 7F0BCCC0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -211298,6 +213485,7 @@ _load_rom_index_to_membank:
 /* 0F1810 7F0BCCE0 00000000 */  nop   
 # end _load_rom_index_to_membank
 
+.global _load_resource_index_to_membank
 _load_resource_index_to_membank:
 /* 0F1814 7F0BCCE4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F1818 7F0BCCE8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -211309,6 +213497,7 @@ _load_resource_index_to_membank:
 /* 0F1830 7F0BCD00 00000000 */  nop   
 # end _load_resource_index_to_membank
 
+.global _load_resource_named_to_membank
 _load_resource_named_to_membank:
 /* 0F1834 7F0BCD04 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F1838 7F0BCD08 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -211327,6 +213516,7 @@ _load_resource_named_to_membank:
 /* 0F186C 7F0BCD3C 00000000 */  nop   
 # end _load_resource_named_to_membank
 
+.global _load_resource_named_to_buffer
 _load_resource_named_to_buffer:
 /* 0F1870 7F0BCD40 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F1874 7F0BCD44 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -211345,6 +213535,7 @@ _load_resource_named_to_buffer:
 /* 0F18A8 7F0BCD78 00000000 */  nop   
 # end _load_resource_named_to_buffer
 
+.global load_bg_bytes_at_offset_to_membank
 load_bg_bytes_at_offset_to_membank:
 /* 0F18AC 7F0BCD7C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F18B0 7F0BCD80 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -211387,6 +213578,7 @@ load_bg_bytes_at_offset_to_membank:
 /* 0F1938 7F0BCE08 00000000 */  nop   
 # end load_bg_bytes_at_offset_to_membank
 
+.global load_rom_resource_index_to_membank
 load_rom_resource_index_to_membank:
 /* 0F193C 7F0BCE0C 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0F1940 7F0BCE10 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -211518,6 +213710,7 @@ load_rom_resource_index_to_membank:
 /* 0F1B0C 7F0BCFDC 27BD0030 */  addiu $sp, $sp, 0x30
 # end load_rom_resource_index_to_membank
 
+.global load_resource_index_to_buffer
 load_resource_index_to_buffer:
 /* 0F1B10 7F0BCFE0 00047080 */  sll   $t6, $a0, 2
 /* 0F1B14 7F0BCFE4 27BDFFE0 */  addiu $sp, $sp, -0x20
@@ -211600,6 +213793,7 @@ load_resource_index_to_buffer:
 /* 0F1C2C 7F0BD0FC 27BD0020 */  addiu $sp, $sp, 0x20
 # end load_resource_index_to_buffer
 
+.global get_temp_remaining_buffer_for_index
 get_temp_remaining_buffer_for_index:
 /* 0F1C30 7F0BD100 00047080 */  sll   $t6, $a0, 2
 /* 0F1C34 7F0BD104 01C47021 */  addu  $t6, $t6, $a0
@@ -211610,6 +213804,7 @@ get_temp_remaining_buffer_for_index:
 /* 0F1C48 7F0BD118 8C4288B4 */  lw    $v0, -0x774c($v0)
 # end get_temp_remaining_buffer_for_index
 
+.global get_remaining_buffer_for_index
 get_remaining_buffer_for_index:
 /* 0F1C4C 7F0BD11C 00047080 */  sll   $t6, $a0, 2
 /* 0F1C50 7F0BD120 01C47021 */  addu  $t6, $t6, $a0
@@ -211620,6 +213815,7 @@ get_remaining_buffer_for_index:
 /* 0F1C64 7F0BD134 8C4288BC */  lw    $v0, -0x7744($v0)
 # end get_remaining_buffer_for_index
 
+.global proc_7F0BD138
 proc_7F0BD138:
 /* 0F1C68 7F0BD138 00047080 */  sll   $t6, $a0, 2
 /* 0F1C6C 7F0BD13C 01C47021 */  addu  $t6, $t6, $a0
@@ -211644,6 +213840,7 @@ proc_7F0BD138:
 /* 0F1CB4 7F0BD184 00000000 */  nop   
 # end proc_7F0BD138
 
+.global proc_7F0BD188
 proc_7F0BD188:
 /* 0F1CB8 7F0BD188 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F1CBC 7F0BD18C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -211660,6 +213857,7 @@ proc_7F0BD188:
 /* 0F1CE8 7F0BD1B8 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0BD188
 
+.global something_mem_bank_a0
 something_mem_bank_a0:
 /* 0F1CEC 7F0BD1BC 3C038005 */  lui   $v1, 0x8005
 /* 0F1CF0 7F0BD1C0 8C6382D4 */  lw    $v1, -0x7d2c($v1)
@@ -211697,6 +213895,7 @@ something_mem_bank_a0:
 /* 0F1D60 7F0BD230 00000000 */  nop   
 # end something_mem_bank_a0
 
+.global proc_7F0BD234
 proc_7F0BD234:
 /* 0F1D64 7F0BD234 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F1D68 7F0BD238 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -211708,6 +213907,7 @@ proc_7F0BD234:
 /* 0F1D80 7F0BD250 00000000 */  nop   
 # end proc_7F0BD234
 
+.global get_index_num_of_named_resource
 get_index_num_of_named_resource:
 /* 0F1D84 7F0BD254 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0F1D88 7F0BD258 AFB2001C */  sw    $s2, 0x1c($sp)
@@ -211793,11 +213993,13 @@ get_index_num_of_named_resource:
 /* 0F1EB0 7F0BD380 27BD0040 */  addiu $sp, $sp, 0x40
 # end get_index_num_of_named_resource
 
+.global proc_7F0BD384
 proc_7F0BD384:
 /* 0F1EB4 7F0BD384 03E00008 */  jr    $ra
 /* 0F1EB8 7F0BD388 AFA40000 */  sw    $a0, ($sp)
 # end proc_7F0BD384
 
+.global proc_7F0BD38C
 proc_7F0BD38C:
 /* 0F1EBC 7F0BD38C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0F1EC0 7F0BD390 AFB10018 */  sw    $s1, 0x18($sp)
@@ -211825,6 +214027,7 @@ proc_7F0BD38C:
 /* 0F1F10 7F0BD3E0 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F0BD38C
 
+.global proc_7F0BD3E4
 proc_7F0BD3E4:
 /* 0F1F14 7F0BD3E4 3C038005 */  lui   $v1, 0x8005
 /* 0F1F18 7F0BD3E8 8C6382D4 */  lw    $v1, -0x7d2c($v1)
@@ -211841,6 +214044,7 @@ proc_7F0BD3E4:
 /* 0F1F3C 7F0BD40C 00000000 */  nop   
 # end proc_7F0BD3E4
 
+.global proc_7F0BD410
 proc_7F0BD410:
 /* 0F1F40 7F0BD410 3C038005 */  lui   $v1, 0x8005
 /* 0F1F44 7F0BD414 8C6382D4 */  lw    $v1, -0x7d2c($v1)
@@ -211867,6 +214071,7 @@ proc_7F0BD410:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global something_with_dyn_c_debug
 something_with_dyn_c_debug:
 /* 0F1F90 7F0BD460 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F1F94 7F0BD464 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -211881,6 +214086,7 @@ something_with_dyn_c_debug:
 /* 0F1FB8 7F0BD488 00000000 */  nop   
 # end something_with_dyn_c_debug
 
+.global set_vtx_gfx_mem_alloc
 set_vtx_gfx_mem_alloc:
 /* 0F1FBC 7F0BD48C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0F1FC0 7F0BD490 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -212008,6 +214214,7 @@ set_vtx_gfx_mem_alloc:
 /* 0F21A0 7F0BD670 AC2AC24C */  sw    $t2, %lo(0x8008C24C)($at) # $t2, -0x3db4($at)
 # end set_vtx_gfx_mem_alloc
 
+.global get_ptr_displaylist
 get_ptr_displaylist:
 /* 0F21A4 7F0BD674 3C0F8009 */  lui   $t7, 0x8009
 /* 0F21A8 7F0BD678 91EFC250 */  lbu   $t7, -0x3db0($t7)
@@ -212021,6 +214228,7 @@ get_ptr_displaylist:
 /* 0F21C8 7F0BD698 8C42C230 */  lw    $v0, -0x3dd0($v0)
 # end get_ptr_displaylist
 
+.global proc_7F0BD69C
 proc_7F0BD69C:
 /* 0F21CC 7F0BD69C 3C0E8009 */  lui   $t6, 0x8009
 /* 0F21D0 7F0BD6A0 91CEC250 */  lbu   $t6, -0x3db0($t6)
@@ -212034,6 +214242,7 @@ proc_7F0BD69C:
 /* 0F21F0 7F0BD6C0 03201025 */  or    $v0, $t9, $zero
 # end proc_7F0BD69C
 
+.global proc_7F0BD6C4
 proc_7F0BD6C4:
 /* 0F21F4 7F0BD6C4 3C068009 */  lui   $a2, 0x8009
 /* 0F21F8 7F0BD6C8 24C6C24C */  addiu $a2, $a2, -0x3db4
@@ -212044,6 +214253,7 @@ proc_7F0BD6C4:
 /* 0F220C 7F0BD6DC ACCF0000 */  sw    $t7, ($a2)
 # end proc_7F0BD6C4
 
+.global proc_7F0BD6E0
 proc_7F0BD6E0:
 /* 0F2210 7F0BD6E0 3C058009 */  lui   $a1, 0x8009
 /* 0F2214 7F0BD6E4 24A5C24C */  addiu $a1, $a1, -0x3db4
@@ -212053,6 +214263,7 @@ proc_7F0BD6E0:
 /* 0F2224 7F0BD6F4 ACAE0000 */  sw    $t6, ($a1)
 # end proc_7F0BD6E0
 
+.global proc_7F0BD6F8
 proc_7F0BD6F8:
 /* 0F2228 7F0BD6F8 3C068009 */  lui   $a2, 0x8009
 /* 0F222C 7F0BD6FC 24C6C24C */  addiu $a2, $a2, -0x3db4
@@ -212063,6 +214274,7 @@ proc_7F0BD6F8:
 /* 0F2240 7F0BD710 ACCF0000 */  sw    $t7, ($a2)
 # end proc_7F0BD6F8
 
+.global proc_7F0BD714
 proc_7F0BD714:
 /* 0F2244 7F0BD714 3C068009 */  lui   $a2, 0x8009
 /* 0F2248 7F0BD718 24C6C24C */  addiu $a2, $a2, -0x3db4
@@ -212075,6 +214287,7 @@ proc_7F0BD714:
 /* 0F2264 7F0BD734 ACD80000 */  sw    $t8, ($a2)
 # end proc_7F0BD714
 
+.global proc_7F0BD738
 proc_7F0BD738:
 /* 0F2268 7F0BD738 3C028009 */  lui   $v0, 0x8009
 /* 0F226C 7F0BD73C 2442C250 */  addiu $v0, $v0, -0x3db0
@@ -212093,11 +214306,13 @@ proc_7F0BD738:
 /* 0F22A0 7F0BD770 AC28C24C */  sw    $t0, %lo(0x8008C24C)($at) # $t0, -0x3db4($at)
 # end proc_7F0BD738
 
+.global proc_7F0BD774
 proc_7F0BD774:
 /* 0F22A4 7F0BD774 03E00008 */  jr    $ra
 /* 0F22A8 7F0BD778 AFA40000 */  sw    $a0, ($sp)
 # end proc_7F0BD774
 
+.global proc_7F0BD77C
 proc_7F0BD77C:
 /* 0F22AC 7F0BD77C 3C0E8009 */  lui   $t6, 0x8009
 /* 0F22B0 7F0BD780 91CEC250 */  lbu   $t6, -0x3db0($t6)
@@ -212111,6 +214326,7 @@ proc_7F0BD77C:
 /* 0F22D0 7F0BD7A0 03201025 */  or    $v0, $t9, $zero
 # end proc_7F0BD77C
 
+.global proc_7F0BD7A4
 proc_7F0BD7A4:
 /* 0F22D4 7F0BD7A4 3C0E8009 */  lui   $t6, 0x8009
 /* 0F22D8 7F0BD7A8 91CEC250 */  lbu   $t6, -0x3db0($t6)
@@ -212124,6 +214340,7 @@ proc_7F0BD7A4:
 /* 0F22F8 7F0BD7C8 03191023 */  subu  $v0, $t8, $t9
 # end proc_7F0BD7A4
 
+.global proc_7F0BD7CC
 proc_7F0BD7CC:
 /* 0F22FC 7F0BD7CC 44856000 */  mtc1  $a1, $f12
 /* 0F2300 7F0BD7D0 27BDFFE8 */  addiu $sp, $sp, -0x18
@@ -212145,6 +214362,7 @@ proc_7F0BD7CC:
 /* 0F233C 7F0BD80C 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0BD7CC
 
+.global proc_7F0BD810
 proc_7F0BD810:
 /* 0F2340 7F0BD810 3C028009 */  lui   $v0, 0x8009
 /* 0F2344 7F0BD814 9042C250 */  lbu   $v0, -0x3db0($v0)
@@ -212206,18 +214424,21 @@ proc_7F0BD810:
 # alignment
 .word 0x00000000
 
+.global proc_7F0BD8F0
 proc_7F0BD8F0:
 /* 0F2420 7F0BD8F0 3C028005 */  lui   $v0, 0x8005
 /* 0F2424 7F0BD8F4 03E00008 */  jr    $ra
 /* 0F2428 7F0BD8F8 8C4283C0 */  lw    $v0, -0x7c40($v0)
 # end proc_7F0BD8F0
 
+.global proc_7F0BD8FC
 proc_7F0BD8FC:
 /* 0F242C 7F0BD8FC 3C018005 */  lui   $at, 0x8005
 /* 0F2430 7F0BD900 03E00008 */  jr    $ra
 /* 0F2434 7F0BD904 AC2483C0 */  sw    $a0, %lo(0x800483C0)($at) # $a0, -0x7c40($at)
 # end proc_7F0BD8FC
 
+.global something_with_lvl_c_debug
 something_with_lvl_c_debug:
 /* 0F2438 7F0BD908 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0F243C 7F0BD90C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -212252,6 +214473,7 @@ something_with_lvl_c_debug:
 /* 0F24B0 7F0BD980 00000000 */  nop   
 # end something_with_lvl_c_debug
 
+.global proc_7F0BD984
 proc_7F0BD984:
 /* 0F24B4 7F0BD984 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F24B8 7F0BD988 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -212271,6 +214493,7 @@ proc_7F0BD984:
 /* 0F24F0 7F0BD9C0 00000000 */  nop   
 # end proc_7F0BD984
 
+.global proc_7F0BD9C4
 proc_7F0BD9C4:
 /* 0F24F4 7F0BD9C4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F24F8 7F0BD9C8 3C028005 */  lui   $v0, 0x8005
@@ -212284,6 +214507,7 @@ proc_7F0BD9C4:
 /* 0F2518 7F0BD9E8 00000000 */  nop   
 # end proc_7F0BD9C4
 
+.global proc_7F0BD9EC
 proc_7F0BD9EC:
 /* 0F251C 7F0BD9EC 3C028005 */  lui   $v0, 0x8005
 /* 0F2520 7F0BD9F0 2442836C */  addiu $v0, $v0, -0x7c94
@@ -212307,6 +214531,7 @@ proc_7F0BD9EC:
 /* 0F2564 7F0BDA34 00000000 */  nop   
 # end proc_7F0BD9EC
 
+.global proc_7F0BDA38
 proc_7F0BDA38:
 /* 0F2568 7F0BDA38 3C028005 */  lui   $v0, 0x8005
 /* 0F256C 7F0BDA3C 2442836C */  addiu $v0, $v0, -0x7c94
@@ -212330,6 +214555,7 @@ proc_7F0BDA38:
 /* 0F25B0 7F0BDA80 00000000 */  nop   
 # end proc_7F0BDA38
 
+.global proc_7F0BDA84
 proc_7F0BDA84:
 /* 0F25B4 7F0BDA84 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F25B8 7F0BDA88 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -212344,6 +214570,7 @@ proc_7F0BDA84:
 /* 0F25DC 7F0BDAAC 00000000 */  nop   
 # end proc_7F0BDA84
 
+.global proc_7F0BDAB0
 proc_7F0BDAB0:
 /* 0F25E0 7F0BDAB0 3C018005 */  lui   $at, 0x8005
 /* 0F25E4 7F0BDAB4 AC248364 */  sw    $a0, %lo(0x80048364)($at) # $a0, -0x7c9c($at)
@@ -212639,12 +214866,14 @@ proc_7F0BDAB0:
 /* 0F2A30 7F0BDF00 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F0BDAB0
 
+.global proc_7F0BDF04
 proc_7F0BDF04:
 /* 0F2A34 7F0BDF04 3C028005 */  lui   $v0, 0x8005
 /* 0F2A38 7F0BDF08 03E00008 */  jr    $ra
 /* 0F2A3C 7F0BDF0C 8C428364 */  lw    $v0, -0x7c9c($v0)
 # end proc_7F0BDF04
 
+.global proc_7F0BDF10
 proc_7F0BDF10:
 /* 0F2A40 7F0BDF10 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0F2A44 7F0BDF14 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -212918,6 +215147,7 @@ proc_7F0BDF10:
 /* 0F2E38 7F0BE308 00000000 */  nop   
 # end proc_7F0BDF10
 
+.global proc_7F0BE30C
 proc_7F0BE30C:
 /* 0F2E3C 7F0BE30C 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 0F2E40 7F0BE310 AFA40060 */  sw    $a0, 0x60($sp)
@@ -213307,6 +215537,7 @@ proc_7F0BE30C:
 /* 0F33FC 7F0BE8CC 27BD0060 */  addiu $sp, $sp, 0x60
 # end proc_7F0BE30C
 
+.global proc_7F0BE8D0
 proc_7F0BE8D0:
 /* 0F3400 7F0BE8D0 3C028005 */  lui   $v0, 0x8005
 /* 0F3404 7F0BE8D4 8C428384 */  lw    $v0, -0x7c7c($v0)
@@ -213490,6 +215721,7 @@ proc_7F0BE8D0:
 /* 0F36B4 7F0BEB84 00000000 */  nop   
 # end proc_7F0BE8D0
 
+.global manage_mp_game
 manage_mp_game:
 /* 0F36B8 7F0BEB88 27BDFE68 */  addiu $sp, $sp, -0x198
 /* 0F36BC 7F0BEB8C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -214359,6 +216591,7 @@ manage_mp_game:
 /* 0F432C 7F0BF7FC 00000000 */  nop   
 # end manage_mp_game
 
+.global proc_7F0BF800
 proc_7F0BF800:
 /* 0F4330 7F0BF800 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0F4334 7F0BF804 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -214577,6 +216810,7 @@ proc_7F0BF800:
 /* 0F464C 7F0BFB1C 00000000 */  nop   
 # end proc_7F0BF800
 
+.global proc_7F0BFB20
 proc_7F0BFB20:
 /* 0F4650 7F0BFB20 3C048005 */  lui   $a0, 0x8005
 /* 0F4654 7F0BFB24 8C8483A0 */  lw    $a0, -0x7c60($a0)
@@ -214636,66 +216870,77 @@ proc_7F0BFB20:
 /* 0F4724 7F0BFBF4 00000000 */  nop   
 # end proc_7F0BFB20
 
+.global proc_7F0BFBF8
 proc_7F0BFBF8:
 /* 0F4728 7F0BFBF8 3C018005 */  lui   $at, 0x8005
 /* 0F472C 7F0BFBFC 03E00008 */  jr    $ra
 /* 0F4730 7F0BFC00 AC248370 */  sw    $a0, %lo(0x80048370)($at) # $a0, -0x7c90($at)
 # end proc_7F0BFBF8
 
+.global proc_7F0BFC04
 proc_7F0BFC04:
 /* 0F4734 7F0BFC04 3C028005 */  lui   $v0, 0x8005
 /* 0F4738 7F0BFC08 03E00008 */  jr    $ra
 /* 0F473C 7F0BFC0C 8C428370 */  lw    $v0, -0x7c90($v0)
 # end proc_7F0BFC04
 
+.global proc_7F0BFC10
 proc_7F0BFC10:
 /* 0F4740 7F0BFC10 3C028005 */  lui   $v0, 0x8005
 /* 0F4744 7F0BFC14 03E00008 */  jr    $ra
 /* 0F4748 7F0BFC18 8C428384 */  lw    $v0, -0x7c7c($v0)
 # end proc_7F0BFC10
 
+.global set_difficulty
 set_difficulty:
 /* 0F474C 7F0BFC1C 3C018005 */  lui   $at, 0x8005
 /* 0F4750 7F0BFC20 03E00008 */  jr    $ra
 /* 0F4754 7F0BFC24 AC248384 */  sw    $a0, %lo(0x80048384)($at) # $a0, -0x7c7c($at)
 # end set_difficulty
 
+.global proc_7F0BFC28
 proc_7F0BFC28:
 /* 0F4758 7F0BFC28 3C018005 */  lui   $at, 0x8005
 /* 0F475C 7F0BFC2C 03E00008 */  jr    $ra
 /* 0F4760 7F0BFC30 AC248398 */  sw    $a0, %lo(0x80048398)($at) # $a0, -0x7c68($at)
 # end proc_7F0BFC28
 
+.global proc_7F0BFC34
 proc_7F0BFC34:
 /* 0F4764 7F0BFC34 3C018005 */  lui   $at, 0x8005
 /* 0F4768 7F0BFC38 03E00008 */  jr    $ra
 /* 0F476C 7F0BFC3C AC24839C */  sw    $a0, %lo(0x8004839C)($at) # $a0, -0x7c64($at)
 # end proc_7F0BFC34
 
+.global proc_7F0BFC40
 proc_7F0BFC40:
 /* 0F4770 7F0BFC40 3C018005 */  lui   $at, 0x8005
 /* 0F4774 7F0BFC44 03E00008 */  jr    $ra
 /* 0F4778 7F0BFC48 C42083A4 */  lwc1  $f0, -0x7c5c($at)
 # end proc_7F0BFC40
 
+.global proc_7F0BFC4C
 proc_7F0BFC4C:
 /* 0F477C 7F0BFC4C 3C018005 */  lui   $at, 0x8005
 /* 0F4780 7F0BFC50 03E00008 */  jr    $ra
 /* 0F4784 7F0BFC54 C42083AC */  lwc1  $f0, -0x7c54($at)
 # end proc_7F0BFC4C
 
+.global proc_7F0BFC58
 proc_7F0BFC58:
 /* 0F4788 7F0BFC58 3C018005 */  lui   $at, 0x8005
 /* 0F478C 7F0BFC5C 03E00008 */  jr    $ra
 /* 0F4790 7F0BFC60 C42083B4 */  lwc1  $f0, -0x7c4c($at)
 # end proc_7F0BFC58
 
+.global proc_7F0BFC64
 proc_7F0BFC64:
 /* 0F4794 7F0BFC64 3C018005 */  lui   $at, 0x8005
 /* 0F4798 7F0BFC68 03E00008 */  jr    $ra
 /* 0F479C 7F0BFC6C C42083BC */  lwc1  $f0, -0x7c44($at)
 # end proc_7F0BFC64
 
+.global proc_7F0BFC70
 proc_7F0BFC70:
 /* 0F47A0 7F0BFC70 3C018005 */  lui   $at, 0x8005
 /* 0F47A4 7F0BFC74 AC208468 */  sw    $zero, %lo(0x80048468)($at) # $zero, -0x7b98($at)
@@ -214706,24 +216951,28 @@ proc_7F0BFC70:
 /* 0F47B8 7F0BFC88 AC208470 */  sw    $zero, %lo(0x80048470)($at) # $zero, -0x7b90($at)
 # end proc_7F0BFC70
 
+.global is_demo_running
 is_demo_running:
 /* 0F47BC 7F0BFC8C 3C028005 */  lui   $v0, 0x8005
 /* 0F47C0 7F0BFC90 03E00008 */  jr    $ra
 /* 0F47C4 7F0BFC94 8C428474 */  lw    $v0, -0x7b8c($v0)
 # end is_demo_running
 
+.global proc_7F0BFC98
 proc_7F0BFC98:
 /* 0F47C8 7F0BFC98 3C028005 */  lui   $v0, 0x8005
 /* 0F47CC 7F0BFC9C 03E00008 */  jr    $ra
 /* 0F47D0 7F0BFCA0 8C428480 */  lw    $v0, -0x7b80($v0)
 # end proc_7F0BFC98
 
+.global interface_menu0B_runstage
 interface_menu0B_runstage:
 /* 0F47D4 7F0BFCA4 3C028005 */  lui   $v0, 0x8005
 /* 0F47D8 7F0BFCA8 03E00008 */  jr    $ra
 /* 0F47DC 7F0BFCAC 8C42847C */  lw    $v0, -0x7b84($v0)
 # end interface_menu0B_runstage
 
+.global proc_7F0BFCB0
 proc_7F0BFCB0:
 /* 0F47E0 7F0BFCB0 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0F47E4 7F0BFCB4 03A02025 */  or    $a0, $sp, $zero
@@ -214771,6 +217020,7 @@ proc_7F0BFCB0:
 /* 0F488C 7F0BFD5C 00000000 */  nop   
 # end proc_7F0BFCB0
 
+.global proc_7F0BFD60
 proc_7F0BFD60:
 /* 0F4890 7F0BFD60 27BDFED0 */  addiu $sp, $sp, -0x130
 /* 0F4894 7F0BFD64 AFB2001C */  sw    $s2, 0x1c($sp)
@@ -214816,6 +217066,7 @@ proc_7F0BFD60:
 /* 0F492C 7F0BFDFC 27BD0130 */  addiu $sp, $sp, 0x130
 # end proc_7F0BFD60
 
+.global proc_7F0BFE00
 proc_7F0BFE00:
 /* 0F4930 7F0BFE00 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0F4934 7F0BFE04 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -214843,6 +217094,7 @@ proc_7F0BFE00:
 /* 0F4988 7F0BFE58 00000000 */  nop   
 # end proc_7F0BFE00
 
+.global proc_7F0BFE5C
 proc_7F0BFE5C:
 /* 0F498C 7F0BFE5C 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0F4990 7F0BFE60 3C0E8005 */  lui   $t6, 0x8005
@@ -214991,6 +217243,7 @@ proc_7F0BFE5C:
 /* 0F4BAC 7F0C007C 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F0BFE5C
 
+.global proc_7F0C0080
 proc_7F0C0080:
 /* 0F4BB0 7F0C0080 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0F4BB4 7F0C0084 3C028005 */  lui   $v0, 0x8005
@@ -215126,6 +217379,7 @@ proc_7F0C0080:
 /* 0F4D94 7F0C0264 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F0C0080
 
+.global iterate_ramrom_entries_handle_camera_out
 iterate_ramrom_entries_handle_camera_out:
 /* 0F4D98 7F0C0268 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F4D9C 7F0C026C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -215213,6 +217467,7 @@ iterate_ramrom_entries_handle_camera_out:
 /* 0F4ED4 7F0C03A4 00000000 */  nop   
 # end iterate_ramrom_entries_handle_camera_out
 
+.global proc_7F0C03A8
 proc_7F0C03A8:
 /* 0F4ED8 7F0C03A8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0F4EDC 7F0C03AC 3C0E8002 */  lui   $t6, 0x8002
@@ -215299,6 +217554,7 @@ proc_7F0C03A8:
 /* 0F5020 7F0C04F0 00000000 */  nop   
 # end proc_7F0C03A8
 
+.global proc_7F0C04F4
 proc_7F0C04F4:
 /* 0F5024 7F0C04F4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0F5028 7F0C04F8 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -215385,6 +217641,7 @@ proc_7F0C04F4:
 /* 0F516C 7F0C063C 00000000 */  nop   
 # end proc_7F0C04F4
 
+.global test_if_replaying_or_recording_demos_this_stage_load
 test_if_replaying_or_recording_demos_this_stage_load:
 /* 0F5170 7F0C0640 3C0E8005 */  lui   $t6, 0x8005
 /* 0F5174 7F0C0644 8DCE8488 */  lw    $t6, -0x7b78($t6)
@@ -215485,6 +217742,7 @@ test_if_replaying_or_recording_demos_this_stage_load:
 /* 0F52E8 7F0C07B8 00000000 */  nop   
 # end test_if_replaying_or_recording_demos_this_stage_load
 
+.global proc_7F0C07BC
 proc_7F0C07BC:
 /* 0F52EC 7F0C07BC 240E0001 */  addiu $t6, $zero, 1
 /* 0F52F0 7F0C07C0 3C018005 */  lui   $at, 0x8005
@@ -215494,6 +217752,7 @@ proc_7F0C07BC:
 /* 0F5300 7F0C07D0 AC24C5F0 */  sw    $a0, %lo(0x8008C5F0)($at) # $a0, -0x3a10($at)
 # end proc_7F0C07BC
 
+.global proc_7F0C07D4
 proc_7F0C07D4:
 /* 0F5304 7F0C07D4 3C0E8005 */  lui   $t6, 0x8005
 /* 0F5308 7F0C07D8 8DCE8484 */  lw    $t6, -0x7b7c($t6)
@@ -215516,6 +217775,7 @@ proc_7F0C07D4:
 /* 0F5348 7F0C0818 00000000 */  nop   
 # end proc_7F0C07D4
 
+.global proc_7F0C081C
 proc_7F0C081C:
 /* 0F534C 7F0C081C 3C038009 */  lui   $v1, 0x8009
 /* 0F5350 7F0C0820 2463C5F4 */  addiu $v1, $v1, -0x3a0c
@@ -215554,6 +217814,7 @@ proc_7F0C081C:
 /* 0F53D4 7F0C08A4 00000000 */  nop   
 # end proc_7F0C081C
 
+.global proc_7F0C08A8
 proc_7F0C08A8:
 /* 0F53D8 7F0C08A8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F53DC 7F0C08AC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -215565,6 +217826,7 @@ proc_7F0C08A8:
 /* 0F53F4 7F0C08C4 00000000 */  nop   
 # end proc_7F0C08A8
 
+.global proc_7F0C08C8
 proc_7F0C08C8:
 /* 0F53F8 7F0C08C8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F53FC 7F0C08CC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -215582,6 +217844,7 @@ proc_7F0C08C8:
 /* 0F5428 7F0C08F8 00000000 */  nop   
 # end proc_7F0C08C8
 
+.global proc_7F0C08FC
 proc_7F0C08FC:
 /* 0F542C 7F0C08FC 3C0E8005 */  lui   $t6, 0x8005
 /* 0F5430 7F0C0900 8DCE8484 */  lw    $t6, -0x7b7c($t6)
@@ -215616,6 +217879,7 @@ proc_7F0C08FC:
 /* 0F549C 7F0C096C 00000000 */  nop   
 # end proc_7F0C08FC
 
+.global proc_7F0C0970
 proc_7F0C0970:
 /* 0F54A0 7F0C0970 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0F54A4 7F0C0974 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -215666,6 +217930,7 @@ proc_7F0C0970:
 /* 0F554C 7F0C0A1C 00000000 */  nop   
 # end proc_7F0C0970
 
+.global proc_7F0C0A20
 proc_7F0C0A20:
 /* 0F5550 7F0C0A20 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F5554 7F0C0A24 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -215693,6 +217958,7 @@ proc_7F0C0A20:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F0C0A70
 proc_7F0C0A70:
 /* 0F55A0 7F0C0A70 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F55A4 7F0C0A74 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -215708,6 +217974,7 @@ proc_7F0C0A70:
 /* 0F55CC 7F0C0A9C 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0C0A70
 
+.global proc_7F0C0AA0
 proc_7F0C0AA0:
 /* 0F55D0 7F0C0AA0 3C0E8005 */  lui   $t6, 0x8005
 /* 0F55D4 7F0C0AA4 8DCE84B0 */  lw    $t6, -0x7b50($t6)
@@ -215755,6 +218022,7 @@ proc_7F0C0AA0:
 /* 0F5678 7F0C0B48 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0C0AA0
 
+.global proc_7F0C0B4C
 proc_7F0C0B4C:
 /* 0F567C 7F0C0B4C 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0F5680 7F0C0B50 AFB30020 */  sw    $s3, 0x20($sp)
@@ -215798,12 +218066,14 @@ proc_7F0C0B4C:
 /* 0F5710 7F0C0BE0 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F0C0B4C
 
+.global proc_7F0C0BE4
 proc_7F0C0BE4:
 /* 0F5714 7F0C0BE4 3C018005 */  lui   $at, 0x8005
 /* 0F5718 7F0C0BE8 03E00008 */  jr    $ra
 /* 0F571C 7F0C0BEC AC2484B4 */  sw    $a0, %lo(0x800484B4)($at) # $a0, -0x7b4c($at)
 # end proc_7F0C0BE4
 
+.global proc_7F0C0BF0
 proc_7F0C0BF0:
 /* 0F5720 7F0C0BF0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F5724 7F0C0BF4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -215815,6 +218085,7 @@ proc_7F0C0BF0:
 /* 0F573C 7F0C0C0C 00000000 */  nop   
 # end proc_7F0C0BF0
 
+.global proc_7F0C0C10
 proc_7F0C0C10:
 /* 0F5740 7F0C0C10 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F5744 7F0C0C14 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -215826,12 +218097,14 @@ proc_7F0C0C10:
 /* 0F575C 7F0C0C2C 00000000 */  nop   
 # end proc_7F0C0C10
 
+.global proc_7F0C0C30
 proc_7F0C0C30:
 /* 0F5760 7F0C0C30 3C028005 */  lui   $v0, 0x8005
 /* 0F5764 7F0C0C34 03E00008 */  jr    $ra
 /* 0F5768 7F0C0C38 8C4284C0 */  lw    $v0, -0x7b40($v0)
 # end proc_7F0C0C30
 
+.global proc_7F0C0C3C
 proc_7F0C0C3C:
 /* 0F576C 7F0C0C3C 3C038005 */  lui   $v1, 0x8005
 /* 0F5770 7F0C0C40 246384C0 */  addiu $v1, $v1, -0x7b40
@@ -216211,6 +218484,7 @@ proc_7F0C0C3C:
 /* 0F5D28 7F0C11F8 00000000 */  nop   
 # end proc_7F0C0C3C
 
+.global proc_7F0C11FC
 proc_7F0C11FC:
 /* 0F5D2C 7F0C11FC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F5D30 7F0C1200 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -216243,6 +218517,7 @@ proc_7F0C11FC:
 /* 0F5D94 7F0C1264 00000000 */  nop   
 # end proc_7F0C11FC
 
+.global proc_7F0C1268
 proc_7F0C1268:
 /* 0F5D98 7F0C1268 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F5D9C 7F0C126C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -216254,6 +218529,7 @@ proc_7F0C1268:
 /* 0F5DB4 7F0C1284 00000000 */  nop   
 # end proc_7F0C1268
 
+.global proc_7F0C1288
 proc_7F0C1288:
 /* 0F5DB8 7F0C1288 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F5DBC 7F0C128C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -216276,6 +218552,7 @@ proc_7F0C1288:
 /* 0F5DF8 7F0C12C8 00000000 */  nop   
 # end proc_7F0C1288
 
+.global proc_7F0C12CC
 proc_7F0C12CC:
 /* 0F5DFC 7F0C12CC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F5E00 7F0C12D0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -216298,6 +218575,7 @@ proc_7F0C12CC:
 /* 0F5E3C 7F0C130C 00000000 */  nop   
 # end proc_7F0C12CC
 
+.global proc_7F0C1310
 proc_7F0C1310:
 /* 0F5E40 7F0C1310 3C0E8005 */  lui   $t6, 0x8005
 /* 0F5E44 7F0C1314 8DCE84C0 */  lw    $t6, -0x7b40($t6)
@@ -216313,6 +218591,7 @@ proc_7F0C1310:
 /* 0F5E6C 7F0C133C 00000000 */  nop   
 # end proc_7F0C1310
 
+.global proc_7F0C1340
 proc_7F0C1340:
 /* 0F5E70 7F0C1340 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F5E74 7F0C1344 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -216325,6 +218604,7 @@ proc_7F0C1340:
 /* 0F5E90 7F0C1360 00000000 */  nop   
 # end proc_7F0C1340
 
+.global proc_7F0C1364
 proc_7F0C1364:
 /* 0F5E94 7F0C1364 3C018009 */  lui   $at, 0x8009
 /* 0F5E98 7F0C1368 AC20C608 */  sw    $zero, %lo(0x8008C608)($at) # $zero, -0x39f8($at)
@@ -216353,6 +218633,7 @@ proc_7F0C1364:
 /* 0F5EF4 7F0C13C4 AC20C634 */  sw    $zero, %lo(0x8008C634)($at) # $zero, -0x39cc($at)
 # end proc_7F0C1364
 
+.global proc_7F0C13C8
 proc_7F0C13C8:
 /* 0F5EF8 7F0C13C8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0F5EFC 7F0C13CC 3C078009 */  lui   $a3, 0x8009
@@ -216445,6 +218726,7 @@ proc_7F0C13C8:
 /* 0F6028 7F0C14F8 00000000 */  nop   
 # end proc_7F0C13C8
 
+.global proc_7F0C14FC
 proc_7F0C14FC:
 /* 0F602C 7F0C14FC 3C0E8009 */  lui   $t6, 0x8009
 /* 0F6030 7F0C1500 25CEC608 */  addiu $t6, $t6, -0x39f8
@@ -216472,6 +218754,7 @@ proc_7F0C14FC:
 /* 0F6084 7F0C1554 00000000 */  nop   
 # end proc_7F0C14FC
 
+.global proc_7F0C1558
 proc_7F0C1558:
 /* 0F6088 7F0C1558 04800006 */  bltz  $a0, .Lproc_7F0C1558_1C
 /* 0F608C 7F0C155C 3C018009 */  lui   $at, 0x8009
@@ -216511,6 +218794,7 @@ proc_7F0C1558:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global return_textbank_number_for_stagenum
 return_textbank_number_for_stagenum:
 /* 0F6110 7F0C15E0 248EFFF7 */  addiu $t6, $a0, -9
 /* 0F6114 7F0C15E4 2DC1002E */  sltiu $at, $t6, 0x2e
@@ -216580,11 +218864,13 @@ return_textbank_number_for_stagenum:
 /* 0F6210 7F0C16E0 00000000 */  nop   
 # end return_textbank_number_for_stagenum
 
+.global proc_7F0C16E4
 proc_7F0C16E4:
 /* 0F6214 7F0C16E4 03E00008 */  jr    $ra
 /* 0F6218 7F0C16E8 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0C16E4
 
+.global loads_LnameX
 loads_LnameX:
 /* 0F621C 7F0C16EC 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0F6220 7F0C16F0 AFB20020 */  sw    $s2, 0x20($sp)
@@ -216740,6 +219026,7 @@ loads_LnameX:
 /* 0F646C 7F0C193C 27BD0028 */  addiu $sp, $sp, 0x28
 # end loads_LnameX
 
+.global proc_7F0C1940
 proc_7F0C1940:
 /* 0F6470 7F0C1940 3C0E8005 */  lui   $t6, 0x8005
 /* 0F6474 7F0C1944 8DCE84D0 */  lw    $t6, -0x7b30($t6)
@@ -216809,6 +219096,7 @@ proc_7F0C1940:
 /* 0F655C 7F0C1A2C 00000000 */  nop   
 # end proc_7F0C1940
 
+.global proc_7F0C1A30
 proc_7F0C1A30:
 /* 0F6560 7F0C1A30 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0F6564 7F0C1A34 AFB00018 */  sw    $s0, 0x18($sp)
@@ -217010,6 +219298,7 @@ proc_7F0C1A30:
 /* 0F6834 7F0C1D04 00000000 */  nop   
 # end proc_7F0C1A30
 
+.global proc_7F0C1D08
 proc_7F0C1D08:
 /* 0F6838 7F0C1D08 3C188005 */  lui   $t8, 0x8005
 /* 0F683C 7F0C1D0C 8F1884D0 */  lw    $t8, -0x7b30($t8)
@@ -217036,6 +219325,7 @@ proc_7F0C1D08:
 /* 0F6890 7F0C1D60 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0C1D08
 
+.global proc_7F0C1D64
 proc_7F0C1D64:
 /* 0F6894 7F0C1D64 3C188005 */  lui   $t8, 0x8005
 /* 0F6898 7F0C1D68 8F1884D0 */  lw    $t8, -0x7b30($t8)
@@ -217063,6 +219353,7 @@ proc_7F0C1D64:
 /* 0F68F0 7F0C1DC0 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0C1D64
 
+.global proc_7F0C1DC4
 proc_7F0C1DC4:
 /* 0F68F4 7F0C1DC4 00047080 */  sll   $t6, $a0, 2
 /* 0F68F8 7F0C1DC8 3C018009 */  lui   $at, 0x8009
@@ -217071,6 +219362,7 @@ proc_7F0C1DC4:
 /* 0F6904 7F0C1DD4 AC20C640 */  sw    $zero, %lo(0x8008C640)($at) # $zero, -0x39c0($at)
 # end proc_7F0C1DC4
 
+.global retrieve_ptr_textv0_from_textidA0
 retrieve_ptr_textv0_from_textidA0:
 /* 0F6908 7F0C1DD8 00047283 */  sra   $t6, $a0, 0xa
 /* 0F690C 7F0C1DDC 000E7880 */  sll   $t7, $t6, 2
@@ -217095,6 +219387,7 @@ retrieve_ptr_textv0_from_textidA0:
 # alignment
 .word 0x00000000
 
+.global MP_menu_page_adv_right
 MP_menu_page_adv_right:
 /* 0F6950 7F0C1E20 3C0E8008 */  lui   $t6, 0x8008
 /* 0F6954 7F0C1E24 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -217127,6 +219420,7 @@ MP_menu_page_adv_right:
 /* 0F69B8 7F0C1E88 00000000 */  nop   
 # end MP_menu_page_adv_right
 
+.global MP_menu_page_adv_left
 MP_menu_page_adv_left:
 /* 0F69BC 7F0C1E8C 3C0E8008 */  lui   $t6, 0x8008
 /* 0F69C0 7F0C1E90 8DCEA0B0 */  lw    $t6, -0x5f50($t6)
@@ -217159,6 +219453,7 @@ MP_menu_page_adv_left:
 /* 0F6A24 7F0C1EF4 00000000 */  nop   
 # end MP_menu_page_adv_left
 
+.global proc_7F0C1EF8
 proc_7F0C1EF8:
 /* 0F6A28 7F0C1EF8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0F6A2C 7F0C1EFC 00042600 */  sll   $a0, $a0, 0x18
@@ -217192,6 +219487,7 @@ proc_7F0C1EF8:
 /* 0F6A94 7F0C1F64 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F0C1EF8
 
+.global proc_7F0C1F68
 proc_7F0C1F68:
 /* 0F6A98 7F0C1F68 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0F6A9C 7F0C1F6C 00042600 */  sll   $a0, $a0, 0x18
@@ -217226,6 +219522,7 @@ proc_7F0C1F68:
 /* 0F6B08 7F0C1FD8 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F0C1F68
 
+.global proc_7F0C1FDC
 proc_7F0C1FDC:
 /* 0F6B0C 7F0C1FDC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F6B10 7F0C1FE0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -217240,6 +219537,7 @@ proc_7F0C1FDC:
 /* 0F6B34 7F0C2004 00000000 */  nop   
 # end proc_7F0C1FDC
 
+.global proc_7F0C2008
 proc_7F0C2008:
 /* 0F6B38 7F0C2008 3C018009 */  lui   $at, 0x8009
 /* 0F6B3C 7F0C200C AC20C700 */  sw    $zero, %lo(0x8008C700)($at) # $zero, -0x3900($at)
@@ -217250,6 +219548,7 @@ proc_7F0C2008:
 /* 0F6B50 7F0C2020 AC20C718 */  sw    $zero, %lo(0x8008C718)($at) # $zero, -0x38e8($at)
 # end proc_7F0C2008
 
+.global proc_7F0C2024
 proc_7F0C2024:
 /* 0F6B54 7F0C2024 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0F6B58 7F0C2028 00A6082A */  slt   $at, $a1, $a2
@@ -217322,6 +219621,7 @@ proc_7F0C2024:
 /* 0F6C40 7F0C2110 00000000 */  nop   
 # end proc_7F0C2024
 
+.global proc_7F0C2114
 proc_7F0C2114:
 /* 0F6C44 7F0C2114 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0F6C48 7F0C2118 00C5082A */  slt   $at, $a2, $a1
@@ -217394,6 +219694,7 @@ proc_7F0C2114:
 /* 0F6D30 7F0C2200 00000000 */  nop   
 # end proc_7F0C2114
 
+.global proc_7F0C2204
 proc_7F0C2204:
 /* 0F6D34 7F0C2204 44856000 */  mtc1  $a1, $f12
 /* 0F6D38 7F0C2208 44867000 */  mtc1  $a2, $f14
@@ -217488,6 +219789,7 @@ proc_7F0C2204:
 /* 0F6E78 7F0C2348 00000000 */  nop   
 # end proc_7F0C2204
 
+.global proc_7F0C234C
 proc_7F0C234C:
 /* 0F6E7C 7F0C234C 44856000 */  mtc1  $a1, $f12
 /* 0F6E80 7F0C2350 44867000 */  mtc1  $a2, $f14
@@ -217582,6 +219884,7 @@ proc_7F0C234C:
 /* 0F6FC0 7F0C2490 00000000 */  nop   
 # end proc_7F0C234C
 
+.global proc_7F0C2494
 proc_7F0C2494:
 /* 0F6FC4 7F0C2494 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F6FC8 7F0C2498 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -217595,6 +219898,7 @@ proc_7F0C2494:
 /* 0F6FE8 7F0C24B8 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0C2494
 
+.global proc_7F0C24BC
 proc_7F0C24BC:
 /* 0F6FEC 7F0C24BC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F6FF0 7F0C24C0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -217626,6 +219930,7 @@ proc_7F0C24BC:
 /* 0F704C 7F0C251C 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0C24BC
 
+.global proc_7F0C2520
 proc_7F0C2520:
 /* 0F7050 7F0C2520 240E0001 */  addiu $t6, $zero, 1
 /* 0F7054 7F0C2524 3C018009 */  lui   $at, 0x8009
@@ -217633,6 +219938,7 @@ proc_7F0C2520:
 /* 0F705C 7F0C252C AC2EC700 */  sw    $t6, %lo(0x8008C700)($at) # $t6, -0x3900($at)
 # end proc_7F0C2520
 
+.global proc_7F0C2530
 proc_7F0C2530:
 /* 0F7060 7F0C2530 27BDFE98 */  addiu $sp, $sp, -0x168
 /* 0F7064 7F0C2534 AFBF0044 */  sw    $ra, 0x44($sp)
@@ -218278,6 +220584,7 @@ proc_7F0C2530:
 /* 0F79AC 7F0C2E7C 27BD0168 */  addiu $sp, $sp, 0x168
 # end proc_7F0C2530
 
+.global proc_7F0C2E80
 proc_7F0C2E80:
 /* 0F79B0 7F0C2E80 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0F79B4 7F0C2E84 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -218777,6 +221084,7 @@ proc_7F0C2E80:
 /* 0F80CC 7F0C359C 00000000 */  nop   
 # end proc_7F0C2E80
 
+.global proc_7F0C35A0
 proc_7F0C35A0:
 /* 0F80D0 7F0C35A0 27BDFFA0 */  addiu $sp, $sp, -0x60
 /* 0F80D4 7F0C35A4 AFB00034 */  sw    $s0, 0x34($sp)
@@ -218987,6 +221295,7 @@ proc_7F0C35A0:
 /* 0F8404 7F0C38D4 27BD0060 */  addiu $sp, $sp, 0x60
 # end proc_7F0C35A0
 
+.global proc_7F0C38D8
 proc_7F0C38D8:
 /* 0F8408 7F0C38D8 000470C0 */  sll   $t6, $a0, 3
 /* 0F840C 7F0C38DC 3C038008 */  lui   $v1, 0x8008
@@ -219261,6 +221570,7 @@ proc_7F0C38D8:
 /* 0F87C0 7F0C3C90 00000000 */  nop   
 # end proc_7F0C38D8
 
+.global proc_7F0C3C94
 proc_7F0C3C94:
 /* 0F87C4 7F0C3C94 27BDFF80 */  addiu $sp, $sp, -0x80
 /* 0F87C8 7F0C3C98 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -219464,6 +221774,7 @@ proc_7F0C3C94:
 /* 0F8A88 7F0C3F58 00000000 */  nop   
 # end proc_7F0C3C94
 
+.global proc_7F0C3F5C
 proc_7F0C3F5C:
 /* 0F8A8C 7F0C3F5C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F8A90 7F0C3F60 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -219498,6 +221809,7 @@ proc_7F0C3F5C:
 /* 0F8AF8 7F0C3FC8 00000000 */  nop   
 # end proc_7F0C3F5C
 
+.global proc_7F0C3FCC
 proc_7F0C3FCC:
 /* 0F8AFC 7F0C3FCC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0F8B00 7F0C3FD0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -219525,6 +221837,7 @@ proc_7F0C3FCC:
 /* 0F8B50 7F0C4020 00000000 */  nop   
 # end proc_7F0C3FCC
 
+.global proc_7F0C4024
 proc_7F0C4024:
 /* 0F8B54 7F0C4024 27BDFF28 */  addiu $sp, $sp, -0xd8
 /* 0F8B58 7F0C4028 AFBF003C */  sw    $ra, 0x3c($sp)
@@ -221678,6 +223991,7 @@ proc_7F0C4024:
 /* 0FAB74 7F0C6044 27BD00D8 */  addiu $sp, $sp, 0xd8
 # end proc_7F0C4024
 
+.global proc_7F0C6048
 proc_7F0C6048:
 /* 0FAB78 7F0C6048 3C0E8009 */  lui   $t6, 0x8009
 /* 0FAB7C 7F0C604C 8DCEC704 */  lw    $t6, -0x38fc($t6)
@@ -221696,6 +224010,7 @@ proc_7F0C6048:
 /* 0FABAC 7F0C607C 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0C6048
 
+.global proc_7F0C6080
 proc_7F0C6080:
 /* 0FABB0 7F0C6080 3C028009 */  lui   $v0, 0x8009
 /* 0FABB4 7F0C6084 03E00008 */  jr    $ra
@@ -221705,6 +224020,7 @@ proc_7F0C6080:
 # alignment
 .word 0x00000000
 
+.global proc_7F0C6090
 proc_7F0C6090:
 /* 0FABC0 7F0C6090 27BDFF78 */  addiu $sp, $sp, -0x88
 /* 0FABC4 7F0C6094 AFBF006C */  sw    $ra, 0x6c($sp)
@@ -222068,6 +224384,7 @@ proc_7F0C6090:
 # alignment
 .word 0x00000000
 
+.global proc_7F0C65D0
 proc_7F0C65D0:
 /* 0FB100 7F0C65D0 3C028005 */  lui   $v0, 0x8005
 /* 0FB104 7F0C65D4 24429160 */  addiu $v0, $v0, -0x6ea0
@@ -222081,6 +224398,7 @@ proc_7F0C65D0:
 /* 0FB124 7F0C65F4 00000000 */  nop   
 # end proc_7F0C65D0
 
+.global proc_7F0C65F8
 proc_7F0C65F8:
 /* 0FB128 7F0C65F8 3C0E8005 */  lui   $t6, 0x8005
 /* 0FB12C 7F0C65FC 8DCE9160 */  lw    $t6, -0x6ea0($t6)
@@ -222091,6 +224409,7 @@ proc_7F0C65F8:
 /* 0FB140 7F0C6610 01F81021 */  addu  $v0, $t7, $t8
 # end proc_7F0C65F8
 
+.global proc_7F0C6614
 proc_7F0C6614:
 /* 0FB144 7F0C6614 3C0E8005 */  lui   $t6, 0x8005
 /* 0FB148 7F0C6618 8DCE9160 */  lw    $t6, -0x6ea0($t6)
@@ -222101,12 +224420,14 @@ proc_7F0C6614:
 /* 0FB15C 7F0C662C 8C4290F4 */  lw    $v0, -0x6f0c($v0)
 # end proc_7F0C6614
 
+.global proc_7F0C6630
 proc_7F0C6630:
 /* 0FB160 7F0C6630 3C018005 */  lui   $at, 0x8005
 /* 0FB164 7F0C6634 03E00008 */  jr    $ra
 /* 0FB168 7F0C6638 AC249160 */  sw    $a0, %lo(0x80049160)($at) # $a0, -0x6ea0($at)
 # end proc_7F0C6630
 
+.global proc_7F0C663C
 proc_7F0C663C:
 /* 0FB16C 7F0C663C 3C028005 */  lui   $v0, 0x8005
 /* 0FB170 7F0C6640 03E00008 */  jr    $ra
@@ -222116,11 +224437,13 @@ proc_7F0C663C:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F0C6650
 proc_7F0C6650:
 /* 0FB180 7F0C6650 03E00008 */  jr    $ra
 /* 0FB184 7F0C6654 00000000 */  nop   
 # end proc_7F0C6650
 
+.global proc_7F0C6658
 proc_7F0C6658:
 /* 0FB188 7F0C6658 27BDD458 */  addiu $sp, $sp, -0x2ba8
 /* 0FB18C 7F0C665C AFBF004C */  sw    $ra, 0x4c($sp)
@@ -222498,6 +224821,7 @@ proc_7F0C6658:
 /* 0FB6F4 7F0C6BC4 27BD2BA8 */  addiu $sp, $sp, 0x2ba8
 # end proc_7F0C6658
 
+.global proc_7F0C6BC8
 proc_7F0C6BC8:
 /* 0FB6F8 7F0C6BC8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 0FB6FC 7F0C6BCC AFB1000C */  sw    $s1, 0xc($sp)
@@ -222551,6 +224875,7 @@ proc_7F0C6BC8:
 /* 0FB79C 7F0C6C6C 00781023 */  subu  $v0, $v1, $t8
 # end proc_7F0C6BC8
 
+.global proc_7F0C6C70
 proc_7F0C6C70:
 /* 0FB7A0 7F0C6C70 27BDFF58 */  addiu $sp, $sp, -0xa8
 /* 0FB7A4 7F0C6C74 AFB00020 */  sw    $s0, 0x20($sp)
@@ -223327,6 +225652,7 @@ proc_7F0C6C70:
 /* 0FC2D8 7F0C77A8 27BD00A8 */  addiu $sp, $sp, 0xa8
 # end proc_7F0C6C70
 
+.global proc_7F0C77AC
 proc_7F0C77AC:
 /* 0FC2DC 7F0C77AC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 0FC2E0 7F0C77B0 AFB2000C */  sw    $s2, 0xc($sp)
@@ -223624,6 +225950,7 @@ proc_7F0C77AC:
 /* 0FC704 7F0C7BD4 27BD0018 */  addiu $sp, $sp, 0x18
 # end proc_7F0C77AC
 
+.global proc_7F0C7BD8
 proc_7F0C7BD8:
 /* 0FC708 7F0C7BD8 27BDFFF0 */  addiu $sp, $sp, -0x10
 /* 0FC70C 7F0C7BDC AFB1000C */  sw    $s1, 0xc($sp)
@@ -223784,6 +226111,7 @@ proc_7F0C7BD8:
 /* 0FC928 7F0C7DF8 27BD0010 */  addiu $sp, $sp, 0x10
 # end proc_7F0C7BD8
 
+.global proc_7F0C7DFC
 proc_7F0C7DFC:
 /* 0FC92C 7F0C7DFC 27BDCF58 */  addiu $sp, $sp, -0x30a8
 /* 0FC930 7F0C7E00 AFBF004C */  sw    $ra, 0x4c($sp)
@@ -224416,6 +226744,7 @@ proc_7F0C7DFC:
 /* 0FD280 7F0C8750 27BD30A8 */  addiu $sp, $sp, 0x30a8
 # end proc_7F0C7DFC
 
+.global proc_7F0C8754
 proc_7F0C8754:
 /* 0FD284 7F0C8754 27BDFF48 */  addiu $sp, $sp, -0xb8
 /* 0FD288 7F0C8758 8FA200C8 */  lw    $v0, 0xc8($sp)
@@ -225145,6 +227474,7 @@ proc_7F0C8754:
 /* 0FDCFC 7F0C91CC 27BD00B8 */  addiu $sp, $sp, 0xb8
 # end proc_7F0C8754
 
+.global proc_7F0C91D0
 proc_7F0C91D0:
 /* 0FDD00 7F0C91D0 27BDCF88 */  addiu $sp, $sp, -0x3078
 /* 0FDD04 7F0C91D4 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -225512,6 +227842,7 @@ proc_7F0C91D0:
 /* 0FE1E8 7F0C96B8 27BD3078 */  addiu $sp, $sp, 0x3078
 # end proc_7F0C91D0
 
+.global proc_7F0C96BC
 proc_7F0C96BC:
 /* 0FE1EC 7F0C96BC 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0FE1F0 7F0C96C0 AFB2001C */  sw    $s2, 0x1c($sp)
@@ -225684,6 +228015,7 @@ proc_7F0C96BC:
 /* 0FE44C 7F0C991C 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F0C96BC
 
+.global proc_7F0C9920
 proc_7F0C9920:
 /* 0FE450 7F0C9920 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 0FE454 7F0C9924 AFB30020 */  sw    $s3, 0x20($sp)
@@ -225759,6 +228091,7 @@ proc_7F0C9920:
 /* 0FE550 7F0C9A20 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F0C9920
 
+.global proc_7F0C9A24
 proc_7F0C9A24:
 /* 0FE554 7F0C9A24 2484FFFF */  addiu $a0, $a0, -1
 /* 0FE558 7F0C9A28 18800005 */  blez  $a0, .Lproc_7F0C9A24_1C
@@ -225773,6 +228106,7 @@ proc_7F0C9A24:
 /* 0FE574 7F0C9A44 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0C9A24
 
+.global proc_7F0C9A48
 proc_7F0C9A48:
 /* 0FE578 7F0C9A48 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0FE57C 7F0C9A4C AFB20020 */  sw    $s2, 0x20($sp)
@@ -225799,6 +228133,7 @@ proc_7F0C9A48:
 /* 0FE5C8 7F0C9A98 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F0C9A48
 
+.global proc_7F0C9A9C
 proc_7F0C9A9C:
 /* 0FE5CC 7F0C9A9C 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 0FE5D0 7F0C9AA0 AFB50028 */  sw    $s5, 0x28($sp)
@@ -226023,6 +228358,7 @@ proc_7F0C9A9C:
 /* 0FE8D0 7F0C9DA0 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F0C9A9C
 
+.global proc_7F0C9DA4
 proc_7F0C9DA4:
 /* 0FE8D4 7F0C9DA4 27BDFF98 */  addiu $sp, $sp, -0x68
 /* 0FE8D8 7F0C9DA8 8FAE0078 */  lw    $t6, 0x78($sp)
@@ -226780,6 +229116,7 @@ proc_7F0C9DA4:
 /* 0FF3BC 7F0CA88C 27BD0068 */  addiu $sp, $sp, 0x68
 # end proc_7F0C9DA4
 
+.global proc_7F0CA890
 proc_7F0CA890:
 /* 0FF3C0 7F0CA890 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0FF3C4 7F0CA894 AFB40028 */  sw    $s4, 0x28($sp)
@@ -227052,6 +229389,7 @@ proc_7F0CA890:
 /* 0FF784 7F0CAC54 27BD0040 */  addiu $sp, $sp, 0x40
 # end proc_7F0CA890
 
+.global proc_7F0CAC58
 proc_7F0CAC58:
 /* 0FF788 7F0CAC58 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 0FF78C 7F0CAC5C AFB00004 */  sw    $s0, 4($sp)
@@ -227789,6 +230127,7 @@ proc_7F0CAC58:
 /* 1001A8 7F0CB678 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F0CAC58
 
+.global proc_7F0CB67C
 proc_7F0CB67C:
 /* 1001AC 7F0CB67C 27BDFFF0 */  addiu $sp, $sp, -0x10
 /* 1001B0 7F0CB680 2CE1000D */  sltiu $at, $a3, 0xd
@@ -227891,6 +230230,7 @@ proc_7F0CB67C:
 /* 10030C 7F0CB7DC 27BD0010 */  addiu $sp, $sp, 0x10
 # end proc_7F0CB67C
 
+.global proc_7F0CB7E0
 proc_7F0CB7E0:
 /* 100310 7F0CB7E0 27BDFFF0 */  addiu $sp, $sp, -0x10
 /* 100314 7F0CB7E4 AFB10008 */  sw    $s1, 8($sp)
@@ -228117,6 +230457,7 @@ proc_7F0CB7E0:
 /* 100620 7F0CBAF0 27BD0010 */  addiu $sp, $sp, 0x10
 # end proc_7F0CB7E0
 
+.global proc_7F0CBAF4
 proc_7F0CBAF4:
 /* 100624 7F0CBAF4 00A61021 */  addu  $v0, $a1, $a2
 /* 100628 7F0CBAF8 AC850000 */  sw    $a1, ($a0)
@@ -228126,6 +230467,7 @@ proc_7F0CBAF4:
 /* 100638 7F0CBB08 AC82000C */  sw    $v0, 0xc($a0)
 # end proc_7F0CBAF4
 
+.global proc_7F0CBB0C
 proc_7F0CBB0C:
 /* 10063C 7F0CBB0C 54A00004 */  bnezl $a1, .Lproc_7F0CBB0C_14
 /* 100640 7F0CBB10 8CA20004 */  lw    $v0, 4($a1)
@@ -228155,6 +230497,7 @@ proc_7F0CBB0C:
 /* 100690 7F0CBB60 00000000 */  nop   
 # end proc_7F0CBB0C
 
+.global proc_7F0CBB64
 proc_7F0CBB64:
 /* 100694 7F0CBB64 8C8E000C */  lw    $t6, 0xc($a0)
 /* 100698 7F0CBB68 8C8F0008 */  lw    $t7, 8($a0)
@@ -228162,6 +230505,7 @@ proc_7F0CBB64:
 /* 1006A0 7F0CBB70 01CF1023 */  subu  $v0, $t6, $t7
 # end proc_7F0CBB64
 
+.global proc_7F0CBB74
 proc_7F0CBB74:
 /* 1006A4 7F0CBB74 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 1006A8 7F0CBB78 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -228190,7 +230534,7 @@ proc_7F0CBB74:
 /* 100700 7F0CBBD0 26040004 */  addiu $a0, $s0, 4
 /* 100704 7F0CBBD4 56B80004 */  bnel  $s5, $t8, .Lproc_7F0CBB74_74
 /* 100708 7F0CBBD8 92020008 */  lbu   $v0, 8($s0)
-/* 10070C 7F0CBBDC 0FC32F06 */  jal   proc_7F0CBC18
+/* 10070C 7F0CBBDC 0FC32F06 */  jal   load_image_to_buffer
 /* 100710 7F0CBBE0 02202825 */  or    $a1, $s1, $zero
 /* 100714 7F0CBBE4 92020008 */  lbu   $v0, 8($s0)
 .Lproc_7F0CBB74_74:
@@ -228209,16 +230553,17 @@ proc_7F0CBB74:
 /* 100744 7F0CBC14 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F0CBB74
 
-proc_7F0CBC18:
+.global load_image_to_buffer
+load_image_to_buffer:
 /* 100748 7F0CBC18 27BDF008 */  addiu $sp, $sp, -0xff8
 /* 10074C 7F0CBC1C AFB00020 */  sw    $s0, 0x20($sp)
 /* 100750 7F0CBC20 00A08025 */  or    $s0, $a1, $zero
 /* 100754 7F0CBC24 AFBF0024 */  sw    $ra, 0x24($sp)
-/* 100758 7F0CBC28 14A00003 */  bnez  $a1, .Lproc_7F0CBC18_20
+/* 100758 7F0CBC28 14A00003 */  bnez  $a1, .Lload_image_to_buffer_20
 /* 10075C 7F0CBC2C AFA40FF8 */  sw    $a0, 0xff8($sp)
 /* 100760 7F0CBC30 3C108009 */  lui   $s0, 0x8009
 /* 100764 7F0CBC34 2610C720 */  addiu $s0, $s0, -0x38e0
-.Lproc_7F0CBC18_20:
+.Lload_image_to_buffer_20:
 /* 100768 7F0CBC38 8FAE0FF8 */  lw    $t6, 0xff8($sp)
 /* 10076C 7F0CBC3C 3C028009 */  lui   $v0, 0x8009
 /* 100770 7F0CBC40 2442D094 */  addiu $v0, $v0, -0x2f6c
@@ -228227,7 +230572,7 @@ proc_7F0CBC18:
 /* 10077C 7F0CBC4C 31E4FFFF */  andi  $a0, $t7, 0xffff
 /* 100780 7F0CBC50 0FC32EC3 */  jal   proc_7F0CBB0C
 /* 100784 7F0CBC54 AC440000 */  sw    $a0, ($v0)
-/* 100788 7F0CBC58 14400074 */  bnez  $v0, .Lproc_7F0CBC18_214
+/* 100788 7F0CBC58 14400074 */  bnez  $v0, .Lload_image_to_buffer_214
 /* 10078C 7F0CBC5C 00401825 */  or    $v1, $v0, $zero
 /* 100790 7F0CBC60 27A30067 */  addiu $v1, $sp, 0x67
 /* 100794 7F0CBC64 0003C902 */  srl   $t9, $v1, 4
@@ -228276,7 +230621,7 @@ proc_7F0CBC18:
 /* 100840 7F0CBD10 00056183 */  sra   $t4, $a1, 6
 /* 100844 7F0CBD14 01603025 */  or    $a2, $t3, $zero
 /* 100848 7F0CBD18 01802825 */  or    $a1, $t4, $zero
-/* 10084C 7F0CBD1C 1580000A */  bnez  $t4, .Lproc_7F0CBC18_130
+/* 10084C 7F0CBD1C 1580000A */  bnez  $t4, .Lload_image_to_buffer_130
 /* 100850 7F0CBD20 3047003F */  andi  $a3, $v0, 0x3f
 /* 100854 7F0CBD24 AFAC004C */  sw    $t4, 0x4c($sp)
 /* 100858 7F0CBD28 AFAB0050 */  sw    $t3, 0x50($sp)
@@ -228285,10 +230630,10 @@ proc_7F0CBC18:
 /* 100864 7F0CBD34 284110CC */  slti  $at, $v0, 0x10cc
 /* 100868 7F0CBD38 8FA5004C */  lw    $a1, 0x4c($sp)
 /* 10086C 7F0CBD3C 8FA60050 */  lw    $a2, 0x50($sp)
-/* 100870 7F0CBD40 1420000C */  bnez  $at, .Lproc_7F0CBC18_15C
+/* 100870 7F0CBD40 1420000C */  bnez  $at, .Lload_image_to_buffer_15C
 /* 100874 7F0CBD44 8FA70048 */  lw    $a3, 0x48($sp)
-.Lproc_7F0CBC18_130:
-/* 100878 7F0CBD48 10A0000F */  beqz  $a1, .Lproc_7F0CBC18_170
+.Lload_image_to_buffer_130:
+/* 100878 7F0CBD48 10A0000F */  beqz  $a1, .Lload_image_to_buffer_170
 /* 10087C 7F0CBD4C 02002025 */  or    $a0, $s0, $zero
 /* 100880 7F0CBD50 AFA5004C */  sw    $a1, 0x4c($sp)
 /* 100884 7F0CBD54 AFA60050 */  sw    $a2, 0x50($sp)
@@ -228297,15 +230642,15 @@ proc_7F0CBC18:
 /* 100890 7F0CBD60 28410A28 */  slti  $at, $v0, 0xa28
 /* 100894 7F0CBD64 8FA5004C */  lw    $a1, 0x4c($sp)
 /* 100898 7F0CBD68 8FA60050 */  lw    $a2, 0x50($sp)
-/* 10089C 7F0CBD6C 10200006 */  beqz  $at, .Lproc_7F0CBC18_170
+/* 10089C 7F0CBD6C 10200006 */  beqz  $at, .Lload_image_to_buffer_170
 /* 1008A0 7F0CBD70 8FA70048 */  lw    $a3, 0x48($sp)
-.Lproc_7F0CBC18_15C:
+.Lload_image_to_buffer_15C:
 /* 1008A4 7F0CBD74 0C003A2C */  jal   osVirtualToPhysical
 /* 1008A8 7F0CBD78 8E040000 */  lw    $a0, ($s0)
 /* 1008AC 7F0CBD7C 8FAE0FF8 */  lw    $t6, 0xff8($sp)
-/* 1008B0 7F0CBD80 1000002E */  b     .Lproc_7F0CBC18_224
+/* 1008B0 7F0CBD80 1000002E */  b     .Lload_image_to_buffer_224
 /* 1008B4 7F0CBD84 ADC20000 */  sw    $v0, ($t6)
-.Lproc_7F0CBC18_170:
+.Lload_image_to_buffer_170:
 /* 1008B8 7F0CBD88 3C0F8009 */  lui   $t7, 0x8009
 /* 1008BC 7F0CBD8C 8E020008 */  lw    $v0, 8($s0)
 /* 1008C0 7F0CBD90 8DEFD094 */  lw    $t7, -0x2f6c($t7)
@@ -228325,23 +230670,23 @@ proc_7F0CBC18:
 /* 1008F8 7F0CBDC8 01AFC025 */  or    $t8, $t5, $t7
 /* 1008FC 7F0CBDCC A5380000 */  sh    $t8, ($t1)
 /* 100900 7F0CBDD0 8E190008 */  lw    $t9, 8($s0)
-/* 100904 7F0CBDD4 10A00008 */  beqz  $a1, .Lproc_7F0CBC18_1E0
+/* 100904 7F0CBDD4 10A00008 */  beqz  $a1, .Lload_image_to_buffer_1E0
 /* 100908 7F0CBDD8 AD390004 */  sw    $t9, 4($t1)
 /* 10090C 7F0CBDDC 8E050008 */  lw    $a1, 8($s0)
 /* 100910 7F0CBDE0 AFA90044 */  sw    $t1, 0x44($sp)
 /* 100914 7F0CBDE4 AFB00010 */  sw    $s0, 0x10($sp)
 /* 100918 7F0CBDE8 0FC31996 */  jal   proc_7F0C6658
 /* 10091C 7F0CBDEC 8FA40054 */  lw    $a0, 0x54($sp)
-/* 100920 7F0CBDF0 10000007 */  b     .Lproc_7F0CBC18_1F8
+/* 100920 7F0CBDF0 10000007 */  b     .Lload_image_to_buffer_1F8
 /* 100924 7F0CBDF4 8FA30044 */  lw    $v1, 0x44($sp)
-.Lproc_7F0CBC18_1E0:
+.Lload_image_to_buffer_1E0:
 /* 100928 7F0CBDF8 8E050008 */  lw    $a1, 8($s0)
 /* 10092C 7F0CBDFC AFA30044 */  sw    $v1, 0x44($sp)
 /* 100930 7F0CBE00 AFB00010 */  sw    $s0, 0x10($sp)
 /* 100934 7F0CBE04 0FC31F7F */  jal   proc_7F0C7DFC
 /* 100938 7F0CBE08 8FA40054 */  lw    $a0, 0x54($sp)
 /* 10093C 7F0CBE0C 8FA30044 */  lw    $v1, 0x44($sp)
-.Lproc_7F0CBC18_1F8:
+.Lload_image_to_buffer_1F8:
 /* 100940 7F0CBE10 8E080008 */  lw    $t0, 8($s0)
 /* 100944 7F0CBE14 02002025 */  or    $a0, $s0, $zero
 /* 100948 7F0CBE18 01024821 */  addu  $t1, $t0, $v0
@@ -228349,19 +230694,20 @@ proc_7F0CBC18:
 /* 100950 7F0CBE20 0FC32ED9 */  jal   proc_7F0CBB64
 /* 100954 7F0CBE24 AFA30044 */  sw    $v1, 0x44($sp)
 /* 100958 7F0CBE28 8FA30044 */  lw    $v1, 0x44($sp)
-.Lproc_7F0CBC18_214:
+.Lload_image_to_buffer_214:
 /* 10095C 7F0CBE2C 0C003A2C */  jal   osVirtualToPhysical
 /* 100960 7F0CBE30 8C640004 */  lw    $a0, 4($v1)
 /* 100964 7F0CBE34 8FAB0FF8 */  lw    $t3, 0xff8($sp)
 /* 100968 7F0CBE38 AD620000 */  sw    $v0, ($t3)
-.Lproc_7F0CBC18_224:
+.Lload_image_to_buffer_224:
 /* 10096C 7F0CBE3C 8FBF0024 */  lw    $ra, 0x24($sp)
 /* 100970 7F0CBE40 8FB00020 */  lw    $s0, 0x20($sp)
 /* 100974 7F0CBE44 27BD0FF8 */  addiu $sp, $sp, 0xff8
 /* 100978 7F0CBE48 03E00008 */  jr    $ra
 /* 10097C 7F0CBE4C 00000000 */  nop   
-# end proc_7F0CBC18
+# end load_image_to_buffer
 
+.global proc_7F0CBE50
 proc_7F0CBE50:
 /* 100980 7F0CBE50 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 100984 7F0CBE54 AFBF002C */  sw    $ra, 0x2c($sp)
@@ -228385,7 +230731,7 @@ proc_7F0CBE50:
 /* 1009C8 7F0CBE98 29C10BB9 */  slti  $at, $t6, 0xbb9
 /* 1009CC 7F0CBE9C 50200005 */  beql  $at, $zero, .Lproc_7F0CBE50_64
 /* 1009D0 7F0CBEA0 26520001 */  addiu $s2, $s2, 1
-/* 1009D4 7F0CBEA4 0FC32F06 */  jal   proc_7F0CBC18
+/* 1009D4 7F0CBEA4 0FC32F06 */  jal   load_image_to_buffer
 /* 1009D8 7F0CBEA8 02A02825 */  or    $a1, $s5, $zero
 /* 1009DC 7F0CBEAC 86820016 */  lh    $v0, 0x16($s4)
 /* 1009E0 7F0CBEB0 26520001 */  addiu $s2, $s2, 1
@@ -228406,11 +230752,12 @@ proc_7F0CBE50:
 /* 100A14 7F0CBEE4 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F0CBE50
 
+.global proc_7F0CBEE8
 proc_7F0CBEE8:
 /* 100A18 7F0CBEE8 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 100A1C 7F0CBEEC AFBF0014 */  sw    $ra, 0x14($sp)
 /* 100A20 7F0CBEF0 AFA4001C */  sw    $a0, 0x1c($sp)
-/* 100A24 7F0CBEF4 0FC32F06 */  jal   proc_7F0CBC18
+/* 100A24 7F0CBEF4 0FC32F06 */  jal   load_image_to_buffer
 /* 100A28 7F0CBEF8 27A4001C */  addiu $a0, $sp, 0x1c
 /* 100A2C 7F0CBEFC 8FBF0014 */  lw    $ra, 0x14($sp)
 /* 100A30 7F0CBF00 27BD0020 */  addiu $sp, $sp, 0x20
@@ -228421,6 +230768,7 @@ proc_7F0CBEE8:
 # alignment
 .word 0x00000000
 
+.global proc_7F0CBF10
 proc_7F0CBF10:
 /* 100A40 7F0CBF10 3C018009 */  lui   $at, 0x8009
 /* 100A44 7F0CBF14 AC24D0A0 */  sw    $a0, %lo(0x8008D0A0)($at) # $a0, -0x2f60($at)
@@ -228431,6 +230779,7 @@ proc_7F0CBF10:
 /* 100A58 7F0CBF28 AC20D0A8 */  sw    $zero, %lo(0x8008D0A8)($at) # $zero, -0x2f58($at)
 # end proc_7F0CBF10
 
+.global proc_7F0CBF2C
 proc_7F0CBF2C:
 /* 100A5C 7F0CBF2C 3C058009 */  lui   $a1, 0x8009
 /* 100A60 7F0CBF30 24A5D0A8 */  addiu $a1, $a1, -0x2f58
@@ -228469,6 +230818,7 @@ proc_7F0CBF2C:
 /* 100ADC 7F0CBFAC 01B81024 */  and   $v0, $t5, $t8
 # end proc_7F0CBF2C
 
+.global load_prepare_global_image_bank
 load_prepare_global_image_bank:
 /* 100AE0 7F0CBFB0 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 100AE4 7F0CBFB4 3C0E0200 */  lui   $t6, 0x200
@@ -228766,13 +231116,13 @@ load_prepare_global_image_bank:
 /* 100F74 7F0CC444 03192021 */  addu  $a0, $t8, $t9
 /* 100F78 7F0CC448 3C048009 */  lui   $a0, 0x8009
 /* 100F7C 7F0CC44C 8C84D0B8 */  lw    $a0, -0x2f48($a0)
-/* 100F80 7F0CC450 0FC32F06 */  jal   proc_7F0CBC18
+/* 100F80 7F0CC450 0FC32F06 */  jal   load_image_to_buffer
 /* 100F84 7F0CC454 00002825 */  or    $a1, $zero, $zero
 /* 100F88 7F0CC458 00008025 */  or    $s0, $zero, $zero
 /* 100F8C 7F0CC45C 8E480000 */  lw    $t0, ($s2)
 .Lload_prepare_global_image_bank_4B0:
 /* 100F90 7F0CC460 00002825 */  or    $a1, $zero, $zero
-/* 100F94 7F0CC464 0FC32F06 */  jal   proc_7F0CBC18
+/* 100F94 7F0CC464 0FC32F06 */  jal   load_image_to_buffer
 /* 100F98 7F0CC468 02082021 */  addu  $a0, $s0, $t0
 /* 100F9C 7F0CC46C 2610000C */  addiu $s0, $s0, 0xc
 /* 100FA0 7F0CC470 2A010048 */  slti  $at, $s0, 0x48
@@ -228783,7 +231133,7 @@ load_prepare_global_image_bank:
 /* 100FB4 7F0CC484 8E690000 */  lw    $t1, ($s3)
 .Lload_prepare_global_image_bank_4D8:
 /* 100FB8 7F0CC488 00002825 */  or    $a1, $zero, $zero
-/* 100FBC 7F0CC48C 0FC32F06 */  jal   proc_7F0CBC18
+/* 100FBC 7F0CC48C 0FC32F06 */  jal   load_image_to_buffer
 /* 100FC0 7F0CC490 02092021 */  addu  $a0, $s0, $t1
 /* 100FC4 7F0CC494 2610000C */  addiu $s0, $s0, 0xc
 /* 100FC8 7F0CC498 5611FFFB */  bnel  $s0, $s1, .Lload_prepare_global_image_bank_4D8
@@ -228800,11 +231150,13 @@ load_prepare_global_image_bank:
 # alignment
 .word 0x00000000
 
+.global proc_7F0CC4C0
 proc_7F0CC4C0:
 /* 100FF0 7F0CC4C0 03E00008 */  jr    $ra
 /* 100FF4 7F0CC4C4 00000000 */  nop   
 # end proc_7F0CC4C0
 
+.global proc_7F0CC4C8
 proc_7F0CC4C8:
 /* 100FF8 7F0CC4C8 3C038009 */  lui   $v1, 0x8009
 /* 100FFC 7F0CC4CC 3C048009 */  lui   $a0, 0x8009
@@ -228830,6 +231182,7 @@ proc_7F0CC4C8:
 /* 101048 7F0CC518 AC2ED140 */  sw    $t6, %lo(0x8008D140)($at) # $t6, -0x2ec0($at)
 # end proc_7F0CC4C8
 
+.global proc_7F0CC51C
 proc_7F0CC51C:
 /* 10104C 7F0CC51C 00801025 */  or    $v0, $a0, $zero
 /* 101050 7F0CC520 18A00007 */  blez  $a1, .Lproc_7F0CC51C_24
@@ -228846,6 +231199,7 @@ proc_7F0CC51C:
 /* 101074 7F0CC544 00661023 */  subu  $v0, $v1, $a2
 # end proc_7F0CC51C
 
+.global proc_7F0CC548
 proc_7F0CC548:
 /* 101078 7F0CC548 3C038009 */  lui   $v1, 0x8009
 /* 10107C 7F0CC54C 2463D140 */  addiu $v1, $v1, -0x2ec0
@@ -228861,6 +231215,7 @@ proc_7F0CC548:
 /* 1010A0 7F0CC570 00000000 */  nop   
 # end proc_7F0CC548
 
+.global proc_7F0CC574
 proc_7F0CC574:
 /* 1010A4 7F0CC574 00047080 */  sll   $t6, $a0, 2
 /* 1010A8 7F0CC578 01C47023 */  subu  $t6, $t6, $a0
@@ -228937,6 +231292,7 @@ proc_7F0CC574:
 /* 1011BC 7F0CC68C 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0CC574
 
+.global proc_7F0CC690
 proc_7F0CC690:
 /* 1011C0 7F0CC690 00047080 */  sll   $t6, $a0, 2
 /* 1011C4 7F0CC694 01C47021 */  addu  $t6, $t6, $a0
@@ -228975,6 +231331,7 @@ proc_7F0CC690:
 /* 101240 7F0CC710 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0CC690
 
+.global proc_7F0CC714
 proc_7F0CC714:
 /* 101244 7F0CC714 14A00003 */  bnez  $a1, .Lproc_7F0CC714_10
 /* 101248 7F0CC718 90830008 */  lbu   $v1, 8($a0)
@@ -229045,6 +231402,7 @@ proc_7F0CC714:
 /* 101328 7F0CC7F8 00000000 */  nop   
 # end proc_7F0CC714
 
+.global proc_7F0CC7FC
 proc_7F0CC7FC:
 /* 10132C 7F0CC7FC 14A00003 */  bnez  $a1, .Lproc_7F0CC7FC_10
 /* 101330 7F0CC800 90830009 */  lbu   $v1, 9($a0)
@@ -229115,6 +231473,7 @@ proc_7F0CC7FC:
 /* 101410 7F0CC8E0 00000000 */  nop   
 # end proc_7F0CC7FC
 
+.global proc_7F0CC8E4
 proc_7F0CC8E4:
 /* 101414 7F0CC8E4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 101418 7F0CC8E8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -229170,6 +231529,7 @@ proc_7F0CC8E4:
 /* 1014C0 7F0CC990 27BD0020 */  addiu $sp, $sp, 0x20
 # end proc_7F0CC8E4
 
+.global proc_7F0CC994
 proc_7F0CC994:
 /* 1014C4 7F0CC994 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 1014C8 7F0CC998 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -229189,6 +231549,7 @@ proc_7F0CC994:
 /* 101500 7F0CC9D0 00000000 */  nop   
 # end proc_7F0CC994
 
+.global proc_7F0CC9D4
 proc_7F0CC9D4:
 /* 101504 7F0CC9D4 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 101508 7F0CC9D8 AFBF0024 */  sw    $ra, 0x24($sp)
@@ -229249,6 +231610,7 @@ proc_7F0CC9D4:
 /* 1015C8 7F0CCA98 27BD0028 */  addiu $sp, $sp, 0x28
 # end proc_7F0CC9D4
 
+.global proc_7F0CCA9C
 proc_7F0CCA9C:
 /* 1015CC 7F0CCA9C 2484FFFF */  addiu $a0, $a0, -1
 /* 1015D0 7F0CCAA0 18800008 */  blez  $a0, .Lproc_7F0CCA9C_28
@@ -229266,6 +231628,7 @@ proc_7F0CCA9C:
 /* 1015F8 7F0CCAC8 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0CCA9C
 
+.global proc_7F0CCACC
 proc_7F0CCACC:
 /* 1015FC 7F0CCACC 24010001 */  addiu $at, $zero, 1
 /* 101600 7F0CCAD0 54810004 */  bnel  $a0, $at, .Lproc_7F0CCACC_18
@@ -229283,6 +231646,7 @@ proc_7F0CCACC:
 /* 101628 7F0CCAF8 00000000 */  nop   
 # end proc_7F0CCACC
 
+.global proc_7F0CCAFC
 proc_7F0CCAFC:
 /* 10162C 7F0CCAFC 4600610D */  trunc.w.s $f4, $f12
 /* 101630 7F0CCB00 44022000 */  mfc1  $v0, $f4
@@ -229302,6 +231666,7 @@ proc_7F0CCAFC:
 /* 101664 7F0CCB34 00601025 */  or    $v0, $v1, $zero
 # end proc_7F0CCAFC
 
+.global proc_7F0CCB38
 proc_7F0CCB38:
 /* 101668 7F0CCB38 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 10166C 7F0CCB3C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -229379,6 +231744,7 @@ proc_7F0CCB38:
 /* 10177C 7F0CCC4C 00000000 */  nop   
 # end proc_7F0CCB38
 
+.global proc_7F0CCC50
 proc_7F0CCC50:
 /* 101780 7F0CCC50 27BDFF70 */  addiu $sp, $sp, -0x90
 /* 101784 7F0CCC54 AFBF0044 */  sw    $ra, 0x44($sp)
@@ -229611,6 +231977,7 @@ proc_7F0CCC50:
 /* 101AE8 7F0CCFB8 27BD0090 */  addiu $sp, $sp, 0x90
 # end proc_7F0CCC50
 
+.global proc_7F0CCFBC
 proc_7F0CCFBC:
 /* 101AEC 7F0CCFBC 27BDFFF8 */  addiu $sp, $sp, -8
 /* 101AF0 7F0CCFC0 AFB00004 */  sw    $s0, 4($sp)
@@ -229666,6 +232033,7 @@ proc_7F0CCFBC:
 /* 101BA4 7F0CD074 27BD0008 */  addiu $sp, $sp, 8
 # end proc_7F0CCFBC
 
+.global proc_7F0CD078
 proc_7F0CD078:
 /* 101BA8 7F0CD078 27BDFF70 */  addiu $sp, $sp, -0x90
 /* 101BAC 7F0CD07C AFB00034 */  sw    $s0, 0x34($sp)
@@ -229918,6 +232286,7 @@ proc_7F0CD078:
 /* 101F5C 7F0CD42C 27BD0090 */  addiu $sp, $sp, 0x90
 # end proc_7F0CD078
 
+.global proc_7F0CD430
 proc_7F0CD430:
 /* 101F60 7F0CD430 27BDFF48 */  addiu $sp, $sp, -0xb8
 /* 101F64 7F0CD434 8FAE00D0 */  lw    $t6, 0xd0($sp)
@@ -230157,6 +232526,7 @@ proc_7F0CD430:
 /* 1022D8 7F0CD7A8 27BD00B8 */  addiu $sp, $sp, 0xb8
 # end proc_7F0CD430
 
+.global proc_7F0CD7AC
 proc_7F0CD7AC:
 /* 1022DC 7F0CD7AC 27BDFF68 */  addiu $sp, $sp, -0x98
 /* 1022E0 7F0CD7B0 AFB00034 */  sw    $s0, 0x34($sp)
@@ -230409,6 +232779,7 @@ proc_7F0CD7AC:
 /* 102690 7F0CDB60 27BD0098 */  addiu $sp, $sp, 0x98
 # end proc_7F0CD7AC
 
+.global proc_7F0CDB64
 proc_7F0CDB64:
 /* 102694 7F0CDB64 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 102698 7F0CDB68 AFB10038 */  sw    $s1, 0x38($sp)
@@ -230596,6 +232967,7 @@ proc_7F0CDB64:
 /* 102944 7F0CDE14 27BD0070 */  addiu $sp, $sp, 0x70
 # end proc_7F0CDB64
 
+.global proc_7F0CDE18
 proc_7F0CDE18:
 /* 102948 7F0CDE18 27BDFFD8 */  addiu $sp, $sp, -0x28
 /* 10294C 7F0CDE1C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -230636,6 +233008,7 @@ proc_7F0CDE18:
 /* 1029D4 7F0CDEA4 00000000 */  nop   
 # end proc_7F0CDE18
 
+.global proc_7F0CDEA8
 proc_7F0CDEA8:
 /* 1029D8 7F0CDEA8 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 1029DC 7F0CDEAC AFB00028 */  sw    $s0, 0x28($sp)
@@ -230704,6 +233077,7 @@ proc_7F0CDEA8:
 /* 102AD4 7F0CDFA4 27BD0038 */  addiu $sp, $sp, 0x38
 # end proc_7F0CDEA8
 
+.global proc_7F0CDFA8
 proc_7F0CDFA8:
 /* 102AD8 7F0CDFA8 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 102ADC 7F0CDFAC AFBF002C */  sw    $ra, 0x2c($sp)
@@ -230755,6 +233129,7 @@ proc_7F0CDFA8:
 /* 102B90 7F0CE060 00801025 */  or    $v0, $a0, $zero
 # end proc_7F0CDFA8
 
+.global proc_7F0CE064
 proc_7F0CE064:
 /* 102B94 7F0CE064 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 102B98 7F0CE068 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -230776,6 +233151,7 @@ proc_7F0CE064:
 /* 102BD8 7F0CE0A8 00000000 */  nop   
 # end proc_7F0CE064
 
+.global proc_7F0CE0AC
 proc_7F0CE0AC:
 /* 102BDC 7F0CE0AC 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 102BE0 7F0CE0B0 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -230806,6 +233182,7 @@ proc_7F0CE0AC:
 /* 102C44 7F0CE114 00000000 */  nop   
 # end proc_7F0CE0AC
 
+.global proc_7F0CE118
 proc_7F0CE118:
 /* 102C48 7F0CE118 27BDFF68 */  addiu $sp, $sp, -0x98
 /* 102C4C 7F0CE11C AFB20038 */  sw    $s2, 0x38($sp)
@@ -231248,6 +233625,7 @@ proc_7F0CE118:
 /* 1032C0 7F0CE790 27BD0098 */  addiu $sp, $sp, 0x98
 # end proc_7F0CE118
 
+.global proc_7F0CE794
 proc_7F0CE794:
 /* 1032C4 7F0CE794 000670C3 */  sra   $t6, $a2, 3
 /* 1032C8 7F0CE798 25C2FFFF */  addiu $v0, $t6, -1
@@ -231276,6 +233654,7 @@ proc_7F0CE794:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global decompressdata
 decompressdata:
 /* 103320 7F0CE7F0 3C078009 */  lui   $a3, 0x8009
 /* 103324 7F0CE7F4 24E7D350 */  addiu $a3, $a3, -0x2cb0
@@ -231323,6 +233702,7 @@ decompressdata:
 /* 1033C0 7F0CE890 27BD0018 */  addiu $sp, $sp, 0x18
 # end decompressdata
 
+.global proc_7F0CE894
 proc_7F0CE894:
 /* 1033C4 7F0CE894 3C0E8009 */  lui   $t6, 0x8009
 /* 1033C8 7F0CE898 3C0F8009 */  lui   $t7, 0x8009
@@ -231335,6 +233715,7 @@ proc_7F0CE894:
 # alignment
 .word 0x00000000
 
+.global proc_7F0CE8B0
 proc_7F0CE8B0:
 /* 1033E0 7F0CE8B0 27BDFA08 */  addiu $sp, $sp, -0x5f8
 /* 1033E4 7F0CE8B4 AFB20020 */  sw    $s2, 0x20($sp)
@@ -231779,6 +234160,7 @@ proc_7F0CE8B0:
 /* 103A1C 7F0CEEEC 27BD05F8 */  addiu $sp, $sp, 0x5f8
 # end proc_7F0CE8B0
 
+.global proc_7F0CEEF0
 proc_7F0CEEF0:
 /* 103A20 7F0CEEF0 27BDFF90 */  addiu $sp, $sp, -0x70
 /* 103A24 7F0CEEF4 3C098005 */  lui   $t1, 0x8005
@@ -232109,6 +234491,7 @@ proc_7F0CEEF0:
 /* 103EB8 7F0CF388 00001025 */  or    $v0, $zero, $zero
 # end proc_7F0CEEF0
 
+.global proc_7F0CF38C
 proc_7F0CF38C:
 /* 103EBC 7F0CF38C 3C0B8009 */  lui   $t3, 0x8009
 /* 103EC0 7F0CF390 256BD368 */  addiu $t3, $t3, -0x2c98
@@ -232226,6 +234609,7 @@ proc_7F0CF38C:
 /* 104054 7F0CF524 00001025 */  or    $v0, $zero, $zero
 # end proc_7F0CF38C
 
+.global proc_7F0CF528
 proc_7F0CF528:
 /* 104058 7F0CF528 27BDFB40 */  addiu $sp, $sp, -0x4c0
 /* 10405C 7F0CF52C AFBF0024 */  sw    $ra, 0x24($sp)
@@ -232327,6 +234711,7 @@ proc_7F0CF528:
 /* 1041BC 7F0CF68C 00000000 */  nop   
 # end proc_7F0CF528
 
+.global proc_7F0CF690
 proc_7F0CF690:
 /* 1041C0 7F0CF690 3C088009 */  lui   $t0, 0x8009
 /* 1041C4 7F0CF694 8D08D368 */  lw    $t0, -0x2c98($t0)
@@ -232689,6 +235074,7 @@ proc_7F0CF690:
 /* 1046E0 7F0CFBB0 00001025 */  or    $v0, $zero, $zero
 # end proc_7F0CF690
 
+.global proc_7F0CFBB4
 proc_7F0CFBB4:
 /* 1046E4 7F0CFBB4 3C098009 */  lui   $t1, 0x8009
 /* 1046E8 7F0CFBB8 2529D368 */  addiu $t1, $t1, -0x2c98
@@ -232772,6 +235158,7 @@ proc_7F0CFBB4:
 /* 104800 7F0CFCD0 00000000 */  nop   
 # end proc_7F0CFBB4
 
+.global proc_7F0CFCD4
 proc_7F0CFCD4:
 /* 104804 7F0CFCD4 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 104808 7F0CFCD8 AFB2001C */  sw    $s2, 0x1c($sp)
@@ -232837,6 +235224,7 @@ proc_7F0CFCD4:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global something_with_rsp_c_debug
 something_with_rsp_c_debug:
 /* 1048E0 7F0CFDB0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 1048E4 7F0CFDB4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -232851,6 +235239,7 @@ something_with_rsp_c_debug:
 /* 104908 7F0CFDD8 00000000 */  nop   
 # end something_with_rsp_c_debug
 
+.global setupviewportmaybe
 setupviewportmaybe:
 /* 10490C 7F0CFDDC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 104910 7F0CFDE0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -232869,6 +235258,7 @@ setupviewportmaybe:
 /* 104944 7F0CFE14 27BD0018 */  addiu $sp, $sp, 0x18
 # end setupviewportmaybe
 
+.global proc_7F0CFE18
 proc_7F0CFE18:
 /* 104948 7F0CFE18 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 10494C 7F0CFE1C 3C038005 */  lui   $v1, 0x8005
@@ -232942,6 +235332,7 @@ proc_7F0CFE18:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global something_with_indy
 something_with_indy:
 /* 104A60 7F0CFF30 3C038005 */  lui   $v1, 0x8005
 /* 104A64 7F0CFF34 2463EAC8 */  addiu $v1, $v1, -0x1538
@@ -232959,11 +235350,13 @@ something_with_indy:
 /* 104A90 7F0CFF60 00000000 */  nop   
 # end something_with_indy
 
+.global dummy7F0CFF64
 dummy7F0CFF64:
   jr    $ra
   nop
 
-init_indy_if_ready:
+.global init_indy_if_ready
+  init_indy_if_ready:
 /* 104A9C 7F0CFF6C 3C0E8005 */  lui   $t6, 0x8005
 /* 104AA0 7F0CFF70 8DCEEAC8 */  lw    $t6, -0x1538($t6)
 /* 104AA4 7F0CFF74 27BDFFE8 */  addiu $sp, $sp, -0x18
@@ -232979,6 +235372,7 @@ init_indy_if_ready:
 /* 104AC8 7F0CFF98 00000000 */  nop   
 # end init_indy_if_ready
 
+.global indy_load_resource
 indy_load_resource:
 /* 104ACC 7F0CFF9C 3C0E8005 */  lui   $t6, 0x8005
 /* 104AD0 7F0CFFA0 8DCEEAC8 */  lw    $t6, -0x1538($t6)
@@ -233000,6 +235394,7 @@ indy_load_resource:
 /* 104B0C 7F0CFFDC 00000000 */  nop   
 # end indy_load_resource
 
+.global indy_send_capture_data
 indy_send_capture_data:
 /* 104B10 7F0CFFE0 3C0E8005 */  lui   $t6, 0x8005
 /* 104B14 7F0CFFE4 8DCEEAC8 */  lw    $t6, -0x1538($t6)
@@ -233019,6 +235414,7 @@ indy_send_capture_data:
 /* 104B48 7F0D0018 00000000 */  nop   
 # end indy_send_capture_data
 
+.global indy_load_ramrom_file
 indy_load_ramrom_file:
 /* 104B4C 7F0D001C 3C0E8005 */  lui   $t6, 0x8005
 /* 104B50 7F0D0020 8DCEEAC8 */  lw    $t6, -0x1538($t6)
@@ -233039,6 +235435,7 @@ indy_load_ramrom_file:
 /* 104B88 7F0D0058 00000000 */  nop   
 # end indy_load_ramrom_file
 
+.global check_file_exported
 check_file_exported:
 /* 104B8C 7F0D005C 3C0E8005 */  lui   $t6, 0x8005
 /* 104B90 7F0D0060 8DCEEAC8 */  lw    $t6, -0x1538($t6)
@@ -233058,6 +235455,7 @@ check_file_exported:
 /* 104BC4 7F0D0094 00000000 */  nop   
 # end check_file_exported
 
+.global check_file_found_on_indy
 check_file_found_on_indy:
 /* 104BC8 7F0D0098 3C0E8005 */  lui   $t6, 0x8005
 /* 104BCC 7F0D009C 8DCEEAC8 */  lw    $t6, -0x1538($t6)
@@ -233081,6 +235479,7 @@ check_file_found_on_indy:
 /* 104C0C 7F0D00DC 00000000 */  nop   
 # end check_file_found_on_indy
 
+.global response_from_command_string
 response_from_command_string:
 /* 104C10 7F0D00E0 3C0E8005 */  lui   $t6, 0x8005
 /* 104C14 7F0D00E4 8DCEEAC8 */  lw    $t6, -0x1538($t6)
@@ -233103,6 +235502,7 @@ response_from_command_string:
 /* 104C50 7F0D0120 00000000 */  nop   
 # end response_from_command_string
 
+.global proc_7F0D0124
 proc_7F0D0124:
 /* 104C54 7F0D0124 3C0E8005 */  lui   $t6, 0x8005
 /* 104C58 7F0D0128 8DCEEAC8 */  lw    $t6, -0x1538($t6)
@@ -233119,6 +235519,7 @@ proc_7F0D0124:
 /* 104C80 7F0D0150 00000000 */  nop   
 # end proc_7F0D0124
 
+.global send_indy_close_port_cmd
 send_indy_close_port_cmd:
 /* 104C84 7F0D0154 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 104C88 7F0D0158 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -233134,6 +235535,7 @@ send_indy_close_port_cmd:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F0D0180
 proc_7F0D0180:
 /* 104CB0 7F0D0180 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 104CB4 7F0D0184 3C030001 */  lui   $v1, 1
@@ -233159,6 +235561,7 @@ proc_7F0D0180:
 /* 104CFC 7F0D01CC 00000000 */  nop   
 # end proc_7F0D0180
 
+.global proc_7F0D01D0
 proc_7F0D01D0:
 /* 104D00 7F0D01D0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 104D04 7F0D01D4 3C030001 */  lui   $v1, 1
@@ -233184,6 +235587,7 @@ proc_7F0D01D0:
 /* 104D4C 7F0D021C 00000000 */  nop   
 # end proc_7F0D01D0
 
+.global proc_7F0D0220
 proc_7F0D0220:
 /* 104D50 7F0D0220 27BDFAC0 */  addiu $sp, $sp, -0x540
 /* 104D54 7F0D0224 27A20040 */  addiu $v0, $sp, 0x40
@@ -233279,6 +235683,7 @@ proc_7F0D0220:
 /* 104E84 7F0D0354 00000000 */  nop   
 # end proc_7F0D0220
 
+.global proc_7F0D0358
 proc_7F0D0358:
 /* 104E88 7F0D0358 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 104E8C 7F0D035C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -233295,6 +235700,7 @@ proc_7F0D0358:
 /* 104EB8 7F0D0388 00000000 */  nop   
 # end proc_7F0D0358
 
+.global proc_7F0D038C
 proc_7F0D038C:
 /* 104EBC 7F0D038C 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 104EC0 7F0D0390 3C0E9ABF */  lui   $t6, 0x9abf
@@ -233316,6 +235722,7 @@ proc_7F0D038C:
 /* 104F00 7F0D03D0 00000000 */  nop   
 # end proc_7F0D038C
 
+.global proc_7F0D03D4
 proc_7F0D03D4:
 /* 104F04 7F0D03D4 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 104F08 7F0D03D8 3C0E9ABF */  lui   $t6, 0x9abf
@@ -233337,6 +235744,7 @@ proc_7F0D03D4:
 /* 104F48 7F0D0418 00000000 */  nop   
 # end proc_7F0D03D4
 
+.global proc_7F0D041C
 proc_7F0D041C:
 /* 104F4C 7F0D041C 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 104F50 7F0D0420 3C0E9ABF */  lui   $t6, 0x9abf
@@ -233357,6 +235765,7 @@ proc_7F0D041C:
 /* 104F8C 7F0D045C 00000000 */  nop   
 # end proc_7F0D041C
 
+.global proc_7F0D0460
 proc_7F0D0460:
 /* 104F90 7F0D0460 27BDFED0 */  addiu $sp, $sp, -0x130
 /* 104F94 7F0D0464 AFA50134 */  sw    $a1, 0x134($sp)
@@ -233385,6 +235794,7 @@ proc_7F0D0460:
 /* 104FF0 7F0D04C0 00000000 */  nop   
 # end proc_7F0D0460
 
+.global proc_7F0D04C4
 proc_7F0D04C4:
 /* 104FF4 7F0D04C4 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 104FF8 7F0D04C8 3C0E9ABF */  lui   $t6, 0x9abf
@@ -233408,6 +235818,7 @@ proc_7F0D04C4:
 /* 105040 7F0D0510 00000000 */  nop   
 # end proc_7F0D04C4
 
+.global proc_7F0D0514
 proc_7F0D0514:
 /* 105044 7F0D0514 27BDFED0 */  addiu $sp, $sp, -0x130
 /* 105048 7F0D0518 AFA50134 */  sw    $a1, 0x134($sp)
@@ -233436,6 +235847,7 @@ proc_7F0D0514:
 /* 1050A4 7F0D0574 00000000 */  nop   
 # end proc_7F0D0514
 
+.global proc_7F0D0578
 proc_7F0D0578:
 /* 1050A8 7F0D0578 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 1050AC 7F0D057C 3C0E9ABF */  lui   $t6, 0x9abf
@@ -233461,6 +235873,7 @@ proc_7F0D0578:
 /* 1050FC 7F0D05CC 00000000 */  nop   
 # end proc_7F0D0578
 
+.global proc_7F0D05D0
 proc_7F0D05D0:
 /* 105100 7F0D05D0 27BDFED0 */  addiu $sp, $sp, -0x130
 /* 105104 7F0D05D4 AFA50134 */  sw    $a1, 0x134($sp)
@@ -233493,6 +235906,7 @@ proc_7F0D05D0:
 /* 105170 7F0D0640 00000000 */  nop   
 # end proc_7F0D05D0
 
+.global proc_7F0D0644
 proc_7F0D0644:
 /* 105174 7F0D0644 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 105178 7F0D0648 AFA70044 */  sw    $a3, 0x44($sp)
@@ -233527,6 +235941,7 @@ proc_7F0D0644:
 /* 1051EC 7F0D06BC 00000000 */  nop   
 # end proc_7F0D0644
 
+.global proc_7F0D06C0
 proc_7F0D06C0:
 /* 1051F0 7F0D06C0 27BDFED0 */  addiu $sp, $sp, -0x130
 /* 1051F4 7F0D06C4 24F90003 */  addiu $t9, $a3, 3
@@ -233562,6 +235977,7 @@ proc_7F0D06C0:
 /* 10526C 7F0D073C 00000000 */  nop   
 # end proc_7F0D06C0
 
+.global proc_7F0D0740
 proc_7F0D0740:
 /* 105270 7F0D0740 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 105274 7F0D0744 3C0E9ABF */  lui   $t6, 0x9abf
@@ -233585,6 +236001,7 @@ proc_7F0D0740:
 /* 1052BC 7F0D078C 00000000 */  nop   
 # end proc_7F0D0740
 
+.global proc_7F0D0790
 proc_7F0D0790:
 /* 1052C0 7F0D0790 27BDFEC8 */  addiu $sp, $sp, -0x138
 /* 1052C4 7F0D0794 AFA5013C */  sw    $a1, 0x13c($sp)
@@ -233619,6 +236036,7 @@ proc_7F0D0790:
 /* 105338 7F0D0808 00000000 */  nop   
 # end proc_7F0D0790
 
+.global proc_7F0D080C
 proc_7F0D080C:
 /* 10533C 7F0D080C 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 105340 7F0D0810 8FA90048 */  lw    $t1, 0x48($sp)
@@ -233646,6 +236064,7 @@ proc_7F0D080C:
 /* 105398 7F0D0868 00000000 */  nop   
 # end proc_7F0D080C
 
+.global proc_7F0D086C
 proc_7F0D086C:
 /* 10539C 7F0D086C 27BDFEC8 */  addiu $sp, $sp, -0x138
 /* 1053A0 7F0D0870 AFA5013C */  sw    $a1, 0x13c($sp)
@@ -233680,6 +236099,7 @@ proc_7F0D086C:
 /* 105414 7F0D08E4 00000000 */  nop   
 # end proc_7F0D086C
 
+.global proc_7F0D08E8
 proc_7F0D08E8:
 /* 105418 7F0D08E8 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 10541C 7F0D08EC 3C0E9ABF */  lui   $t6, 0x9abf
@@ -233703,6 +236123,7 @@ proc_7F0D08E8:
 /* 105464 7F0D0934 00000000 */  nop   
 # end proc_7F0D08E8
 
+.global proc_7F0D0938
 proc_7F0D0938:
 /* 105468 7F0D0938 27BDFBD0 */  addiu $sp, $sp, -0x430
 /* 10546C 7F0D093C AFA50434 */  sw    $a1, 0x434($sp)
@@ -233731,6 +236152,7 @@ proc_7F0D0938:
 /* 1054C8 7F0D0998 00000000 */  nop   
 # end proc_7F0D0938
 
+.global proc_7F0D099C
 proc_7F0D099C:
 /* 1054CC 7F0D099C 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 1054D0 7F0D09A0 3C0E9ABF */  lui   $t6, 0x9abf
@@ -233754,6 +236176,7 @@ proc_7F0D099C:
 /* 105518 7F0D09E8 00000000 */  nop   
 # end proc_7F0D099C
 
+.global proc_7F0D09EC
 proc_7F0D09EC:
 /* 10551C 7F0D09EC 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 105520 7F0D09F0 3C0E9ABF */  lui   $t6, 0x9abf
@@ -233777,6 +236200,7 @@ proc_7F0D09EC:
 /* 105568 7F0D0A38 00000000 */  nop   
 # end proc_7F0D09EC
 
+.global post_indy..res.cmd_initialize
 post_indy..res.cmd_initialize:
 /* 10556C 7F0D0A3C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 105570 7F0D0A40 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -233796,6 +236220,7 @@ post_indy..res.cmd_initialize:
 /* 1055A8 7F0D0A78 00000000 */  nop   
 # end post_indy..res.cmd_initialize
 
+.global proc_7F0D0A7C
 proc_7F0D0A7C:
 /* 1055AC 7F0D0A7C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 1055B0 7F0D0A80 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -233817,6 +236242,7 @@ proc_7F0D0A7C:
 /* 1055F0 7F0D0AC0 00000000 */  nop   
 # end proc_7F0D0A7C
 
+.global proc_7F0D0AC4
 proc_7F0D0AC4:
 /* 1055F4 7F0D0AC4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 1055F8 7F0D0AC8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -233838,6 +236264,7 @@ proc_7F0D0AC4:
 /* 105638 7F0D0B08 00000000 */  nop   
 # end proc_7F0D0AC4
 
+.global proc_7F0D0B0C
 proc_7F0D0B0C:
 /* 10563C 7F0D0B0C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 105640 7F0D0B10 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -233859,6 +236286,7 @@ proc_7F0D0B0C:
 /* 105680 7F0D0B50 00000000 */  nop   
 # end proc_7F0D0B0C
 
+.global proc_7F0D0B54
 proc_7F0D0B54:
 /* 105684 7F0D0B54 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 105688 7F0D0B58 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -233882,6 +236310,7 @@ proc_7F0D0B54:
 /* 1056D0 7F0D0BA0 00000000 */  nop   
 # end proc_7F0D0B54
 
+.global proc_7F0D0BA4
 proc_7F0D0BA4:
 /* 1056D4 7F0D0BA4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 1056D8 7F0D0BA8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -233905,6 +236334,7 @@ proc_7F0D0BA4:
 /* 105720 7F0D0BF0 00000000 */  nop   
 # end proc_7F0D0BA4
 
+.global proc_7F0D0BF4
 proc_7F0D0BF4:
 /* 105724 7F0D0BF4 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 105728 7F0D0BF8 AFA40020 */  sw    $a0, 0x20($sp)
@@ -233937,6 +236367,7 @@ proc_7F0D0BF4:
 /* 105794 7F0D0C64 00000000 */  nop   
 # end proc_7F0D0BF4
 
+.global post_indy..res.cmd_send_capture_data
 post_indy..res.cmd_send_capture_data:
 /* 105798 7F0D0C68 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 10579C 7F0D0C6C AFA40020 */  sw    $a0, 0x20($sp)
@@ -233966,6 +236397,7 @@ post_indy..res.cmd_send_capture_data:
 /* 1057FC 7F0D0CCC 00000000 */  nop   
 # end post_indy..res.cmd_send_capture_data
 
+.global proc_7F0D0CD0
 proc_7F0D0CD0:
 /* 105800 7F0D0CD0 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 105804 7F0D0CD4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -233987,6 +236419,7 @@ proc_7F0D0CD0:
 /* 105844 7F0D0D14 00000000 */  nop   
 # end proc_7F0D0CD0
 
+.global post_indy..res.cmd_request_ramrom_file
 post_indy..res.cmd_request_ramrom_file:
 /* 105848 7F0D0D18 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 10584C 7F0D0D1C AFBF001C */  sw    $ra, 0x1c($sp)
@@ -234013,6 +236446,7 @@ post_indy..res.cmd_request_ramrom_file:
 /* 1058A0 7F0D0D70 00000000 */  nop   
 # end post_indy..res.cmd_request_ramrom_file
 
+.global proc_7F0D0D74
 proc_7F0D0D74:
 /* 1058A4 7F0D0D74 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 1058A8 7F0D0D78 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -234039,6 +236473,7 @@ proc_7F0D0D74:
 /* 1058FC 7F0D0DCC 00000000 */  nop   
 # end proc_7F0D0D74
 
+.global proc_7F0D0DD0
 proc_7F0D0DD0:
 /* 105900 7F0D0DD0 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 105904 7F0D0DD4 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -234065,6 +236500,7 @@ proc_7F0D0DD0:
 /* 105958 7F0D0E28 00000000 */  nop   
 # end proc_7F0D0DD0
 
+.global proc_7F0D0E2C
 proc_7F0D0E2C:
 /* 10595C 7F0D0E2C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 105960 7F0D0E30 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234086,6 +236522,7 @@ proc_7F0D0E2C:
 /* 1059A0 7F0D0E70 00000000 */  nop   
 # end proc_7F0D0E2C
 
+.global proc_7F0D0E74
 proc_7F0D0E74:
 /* 1059A4 7F0D0E74 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 1059A8 7F0D0E78 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234107,6 +236544,7 @@ proc_7F0D0E74:
 /* 1059E8 7F0D0EB8 00000000 */  nop   
 # end proc_7F0D0E74
 
+.global proc_7F0D0EBC
 proc_7F0D0EBC:
 /* 1059EC 7F0D0EBC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 1059F0 7F0D0EC0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234128,6 +236566,7 @@ proc_7F0D0EBC:
 /* 105A30 7F0D0F00 00000000 */  nop   
 # end proc_7F0D0EBC
 
+.global proc_7F0D0F04
 proc_7F0D0F04:
 /* 105A34 7F0D0F04 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 105A38 7F0D0F08 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234149,6 +236588,7 @@ proc_7F0D0F04:
 /* 105A78 7F0D0F48 00000000 */  nop   
 # end proc_7F0D0F04
 
+.global proc_7F0D0F4C
 proc_7F0D0F4C:
 /* 105A7C 7F0D0F4C 27BDFBC0 */  addiu $sp, $sp, -0x440
 /* 105A80 7F0D0F50 27A20040 */  addiu $v0, $sp, 0x40
@@ -234253,6 +236693,7 @@ proc_7F0D0F4C:
 /* 105BD4 7F0D10A4 00000000 */  nop   
 # end proc_7F0D0F4C
 
+.global proc_7F0D10A8
 proc_7F0D10A8:
 /* 105BD8 7F0D10A8 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 105BDC 7F0D10AC AFA5001C */  sw    $a1, 0x1c($sp)
@@ -234278,6 +236719,7 @@ proc_7F0D10A8:
 /* 105C2C 7F0D10FC 00000000 */  nop   
 # end proc_7F0D10A8
 
+.global proc_7F0D1100
 proc_7F0D1100:
 /* 105C30 7F0D1100 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 105C34 7F0D1104 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234330,6 +236772,7 @@ proc_7F0D1100:
 /* 105CD8 7F0D11A8 00000000 */  nop   
 # end proc_7F0D1100
 
+.global proc_7F0D11AC
 proc_7F0D11AC:
 /* 105CDC 7F0D11AC 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 105CE0 7F0D11B0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234377,6 +236820,7 @@ proc_7F0D11AC:
 /* 105D74 7F0D1244 27BD0030 */  addiu $sp, $sp, 0x30
 # end proc_7F0D11AC
 
+.global proc_7F0D1248
 proc_7F0D1248:
 /* 105D78 7F0D1248 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 105D7C 7F0D124C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234429,6 +236873,7 @@ proc_7F0D1248:
 /* 105E20 7F0D12F0 00000000 */  nop   
 # end proc_7F0D1248
 
+.global proc_7F0D12F4
 proc_7F0D12F4:
 /* 105E24 7F0D12F4 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 105E28 7F0D12F8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234485,6 +236930,7 @@ proc_7F0D12F4:
 /* 105EDC 7F0D13AC 00000000 */  nop   
 # end proc_7F0D12F4
 
+.global proc_7F0D13B0
 proc_7F0D13B0:
 /* 105EE0 7F0D13B0 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 105EE4 7F0D13B4 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234552,6 +236998,7 @@ proc_7F0D13B0:
 /* 105FC4 7F0D1494 00000000 */  nop   
 # end proc_7F0D13B0
 
+.global proc_7F0D1498
 proc_7F0D1498:
 /* 105FC8 7F0D1498 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 105FCC 7F0D149C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234604,6 +237051,7 @@ proc_7F0D1498:
 /* 106070 7F0D1540 00000000 */  nop   
 # end proc_7F0D1498
 
+.global proc_7F0D1544
 proc_7F0D1544:
 /* 106074 7F0D1544 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 106078 7F0D1548 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234663,6 +237111,7 @@ proc_7F0D1544:
 /* 106138 7F0D1608 00000000 */  nop   
 # end proc_7F0D1544
 
+.global proc_7F0D160C
 proc_7F0D160C:
 /* 10613C 7F0D160C 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 106140 7F0D1610 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234715,6 +237164,7 @@ proc_7F0D160C:
 /* 1061E4 7F0D16B4 00000000 */  nop   
 # end proc_7F0D160C
 
+.global proc_7F0D16B8
 proc_7F0D16B8:
 /* 1061E8 7F0D16B8 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 1061EC 7F0D16BC AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234767,6 +237217,7 @@ proc_7F0D16B8:
 /* 106290 7F0D1760 00000000 */  nop   
 # end proc_7F0D16B8
 
+.global proc_7F0D1764
 proc_7F0D1764:
 /* 106294 7F0D1764 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 106298 7F0D1768 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234788,6 +237239,7 @@ proc_7F0D1764:
 /* 1062D8 7F0D17A8 00000000 */  nop   
 # end proc_7F0D1764
 
+.global proc_7F0D17AC
 proc_7F0D17AC:
 /* 1062DC 7F0D17AC 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 1062E0 7F0D17B0 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234811,6 +237263,7 @@ proc_7F0D17AC:
 /* 106328 7F0D17F8 00000000 */  nop   
 # end proc_7F0D17AC
 
+.global proc_7F0D17FC
 proc_7F0D17FC:
 /* 10632C 7F0D17FC 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 106330 7F0D1800 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -234840,6 +237293,7 @@ proc_7F0D17FC:
 /* 106390 7F0D1860 00000000 */  nop   
 # end proc_7F0D17FC
 
+.global proc_7F0D1864
 proc_7F0D1864:
 /* 106394 7F0D1864 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 106398 7F0D1868 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234861,6 +237315,7 @@ proc_7F0D1864:
 /* 1063D8 7F0D18A8 00000000 */  nop   
 # end proc_7F0D1864
 
+.global proc_7F0D18AC
 proc_7F0D18AC:
 /* 1063DC 7F0D18AC 27BDFFE0 */  addiu $sp, $sp, -0x20
 /* 1063E0 7F0D18B0 AFBF001C */  sw    $ra, 0x1c($sp)
@@ -234887,6 +237342,7 @@ proc_7F0D18AC:
 /* 106434 7F0D1904 00000000 */  nop   
 # end proc_7F0D18AC
 
+.global proc_7F0D1908
 proc_7F0D1908:
 /* 106438 7F0D1908 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 10643C 7F0D190C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234908,6 +237364,7 @@ proc_7F0D1908:
 /* 10647C 7F0D194C 00000000 */  nop   
 # end proc_7F0D1908
 
+.global proc_7F0D1950
 proc_7F0D1950:
 /* 106480 7F0D1950 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 106484 7F0D1954 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234929,6 +237386,7 @@ proc_7F0D1950:
 /* 1064C4 7F0D1994 00000000 */  nop   
 # end proc_7F0D1950
 
+.global proc_7F0D1998
 proc_7F0D1998:
 /* 1064C8 7F0D1998 27BDFFD0 */  addiu $sp, $sp, -0x30
 /* 1064CC 7F0D199C AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234971,6 +237429,7 @@ proc_7F0D1998:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F0D1A20
 proc_7F0D1A20:
 /* 106550 7F0D1A20 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 106554 7F0D1A24 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -234985,6 +237444,7 @@ proc_7F0D1A20:
 /* 106578 7F0D1A48 00000000 */  nop   
 # end proc_7F0D1A20
 
+.global reset_mem_bank_5
 reset_mem_bank_5:
 /* 10657C 7F0D1A4C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 106580 7F0D1A50 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -235000,6 +237460,7 @@ reset_mem_bank_5:
 /* 1065A8 7F0D1A78 00000000 */  nop   
 # end reset_mem_bank_5
 
+.global proc_7F0D1A7C
 proc_7F0D1A7C:
 /* 1065AC 7F0D1A7C 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 1065B0 7F0D1A80 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -235016,6 +237477,7 @@ proc_7F0D1A7C:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global get_compile_time
 get_compile_time:
 /* 1065E0 7F0D1AB0 3C028006 */  lui   $v0, 0x8006
 /* 1065E4 7F0D1AB4 03E00008 */  jr    $ra
@@ -235025,6 +237487,7 @@ get_compile_time:
 # alignment
 .word 0x00000000
 
+.global proc_7F0D1AC0
 proc_7F0D1AC0:
 /* 1065F0 7F0D1AC0 44802000 */  mtc1  $zero, $f4
 /* 1065F4 7F0D1AC4 3C088005 */  lui   $t0, 0x8005
@@ -235081,6 +237544,7 @@ proc_7F0D1AC0:
 /* 1066C0 7F0D1B90 24C20008 */  addiu $v0, $a2, 8
 # end proc_7F0D1AC0
 
+.global proc_7F0D1B94
 proc_7F0D1B94:
 /* 1066C4 7F0D1B94 44856000 */  mtc1  $a1, $f12
 /* 1066C8 7F0D1B98 27BDFFD8 */  addiu $sp, $sp, -0x28
@@ -235099,6 +237563,7 @@ proc_7F0D1B94:
 /* 1066FC 7F0D1BCC 00000000 */  nop   
 # end proc_7F0D1B94
 
+.global proc_7F0D1BD0
 proc_7F0D1BD0:
 /* 106700 7F0D1BD0 44856000 */  mtc1  $a1, $f12
 /* 106704 7F0D1BD4 44802000 */  mtc1  $zero, $f4
@@ -235235,6 +237700,7 @@ proc_7F0D1BD0:
 /* 1068F8 7F0D1DC8 00801025 */  or    $v0, $a0, $zero
 # end proc_7F0D1BD0
 
+.global proc_7F0D1DCC
 proc_7F0D1DCC:
 /* 1068FC 7F0D1DCC 44802000 */  mtc1  $zero, $f4
 /* 106900 7F0D1DD0 3C028005 */  lui   $v0, 0x8005
@@ -235251,6 +237717,7 @@ proc_7F0D1DCC:
 /* 106928 7F0D1DF8 00000000 */  nop   
 # end proc_7F0D1DCC
 
+.global proc_7F0D1DFC
 proc_7F0D1DFC:
 /* 10692C 7F0D1DFC 3C018005 */  lui   $at, 0x8005
 /* 106930 7F0D1E00 44856000 */  mtc1  $a1, $f12
@@ -235272,6 +237739,7 @@ proc_7F0D1DFC:
 /* 106970 7F0D1E40 00000000 */  nop   
 # end proc_7F0D1DFC
 
+.global proc_7F0D1E44
 proc_7F0D1E44:
 /* 106974 7F0D1E44 3C018005 */  lui   $at, 0x8005
 /* 106978 7F0D1E48 44856000 */  mtc1  $a1, $f12
@@ -235296,6 +237764,7 @@ proc_7F0D1E44:
 /* 1069C4 7F0D1E94 00000000 */  nop   
 # end proc_7F0D1E44
 
+.global proc_7F0D1E98
 proc_7F0D1E98:
 /* 1069C8 7F0D1E98 3C014120 */  lui   $at, 0x4120
 /* 1069CC 7F0D1E9C 44810000 */  mtc1  $at, $f0
@@ -235594,6 +238063,7 @@ proc_7F0D1E98:
 /* 106E4C 7F0D231C 00801025 */  or    $v0, $a0, $zero
 # end proc_7F0D1E98
 
+.global proc_7F0D2320
 proc_7F0D2320:
 /* 106E50 7F0D2320 3C038005 */  lui   $v1, 0x8005
 /* 106E54 7F0D2324 2463EAF4 */  addiu $v1, $v1, -0x150c
@@ -235621,12 +238091,14 @@ proc_7F0D2320:
 # alignment
 .word 0x00000000, 0x00000000, 0x00000000
 
+.global remove_viewport_buffer
 remove_viewport_buffer:
 /* 106EB0 7F0D2380 3C018005 */  lui   $at, 0x8005
 /* 106EB4 7F0D2384 03E00008 */  jr    $ra
 /* 106EB8 7F0D2388 AC20EB00 */  sw    $zero, %lo(0x8004EB00)($at) # $zero, -0x1500($at)
 # end remove_viewport_buffer
 
+.global allocate_viewport_buffer
 allocate_viewport_buffer:
 /* 106EBC 7F0D238C 3C0E8003 */  lui   $t6, 0x8003
 /* 106EC0 7F0D2390 8DCE6428 */  lw    $t6, 0x6428($t6)
@@ -235680,6 +238152,7 @@ allocate_viewport_buffer:
 /* 106F74 7F0D2444 27BD0018 */  addiu $sp, $sp, 0x18
 # end allocate_viewport_buffer
 
+.global proc_7F0D2448
 proc_7F0D2448:
 /* 106F78 7F0D2448 3C018005 */  lui   $at, 0x8005
 /* 106F7C 7F0D244C AC24EB00 */  sw    $a0, %lo(0x8004EB00)($at) # $a0, -0x1500($at)
@@ -235690,6 +238163,7 @@ proc_7F0D2448:
 /* 106F90 7F0D2460 AC26E314 */  sw    $a2, %lo(0x8008E314)($at) # $a2, -0x1cec($at)
 # end proc_7F0D2448
 
+.global proc_7F0D2464
 proc_7F0D2464:
 /* 106F94 7F0D2464 3C0E8005 */  lui   $t6, 0x8005
 /* 106F98 7F0D2468 8DCEEB00 */  lw    $t6, -0x1500($t6)
@@ -235742,6 +238216,7 @@ proc_7F0D2464:
 /* 107044 7F0D2514 00000000 */  nop   
 # end proc_7F0D2464
 
+.global proc_7F0D2518
 proc_7F0D2518:
 /* 107048 7F0D2518 27BDFFB0 */  addiu $sp, $sp, -0x50
 /* 10704C 7F0D251C AFB00018 */  sw    $s0, 0x18($sp)
@@ -235883,6 +238358,7 @@ proc_7F0D2518:
 # alignment
 .word 0x00000000
 
+.global proc_7F0D2720
 proc_7F0D2720:
 /* 107250 7F0D2720 3C0E8005 */  lui   $t6, 0x8005
 /* 107254 7F0D2724 85CEEB10 */  lh    $t6, -0x14f0($t6)
@@ -235972,6 +238448,7 @@ proc_7F0D2720:
 /* 107374 7F0D2844 00000000 */  nop   
 # end proc_7F0D2720
 
+.global proc_7F0D2848
 proc_7F0D2848:
 /* 107378 7F0D2848 3C0E8005 */  lui   $t6, 0x8005
 /* 10737C 7F0D284C 85CEEB10 */  lh    $t6, -0x14f0($t6)
@@ -235996,6 +238473,7 @@ proc_7F0D2848:
 /* 1073BC 7F0D288C 00000000 */  nop   
 # end proc_7F0D2848
 
+.global proc_7F0D2890
 proc_7F0D2890:
 /* 1073C0 7F0D2890 3C0E8005 */  lui   $t6, 0x8005
 /* 1073C4 7F0D2894 85CEEB10 */  lh    $t6, -0x14f0($t6)
@@ -236023,6 +238501,7 @@ proc_7F0D2890:
 # alignment
 .word 0x00000000, 0x00000000
 
+.global proc_7F0D28E0
 proc_7F0D28E0:
 /* 107410 7F0D28E0 0006C200 */  sll   $t8, $a2, 8
 /* 107414 7F0D28E4 33190700 */  andi  $t9, $t8, 0x700
@@ -236151,6 +238630,7 @@ proc_7F0D28E0:
 /* 1075B0 7F0D2A80 27BD0008 */  addiu $sp, $sp, 8
 # end proc_7F0D28E0
 
+.global proc_7F0D2A84
 proc_7F0D2A84:
 /* 1075B4 7F0D2A84 3C028005 */  lui   $v0, 0x8005
 /* 1075B8 7F0D2A88 2442ED08 */  addiu $v0, $v0, -0x12f8
@@ -236292,6 +238772,7 @@ proc_7F0D2A84:
 /* 1077B0 7F0D2C80 27BD0060 */  addiu $sp, $sp, 0x60
 # end proc_7F0D2A84
 
+.global spectrum_p1controller_to_kempston
 spectrum_p1controller_to_kempston:
 /* 1077B4 7F0D2C84 27BDFFC8 */  addiu $sp, $sp, -0x38
 /* 1077B8 7F0D2C88 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -236538,6 +239019,7 @@ spectrum_p1controller_to_kempston:
 /* 107AF0 7F0D2FC0 27BD0038 */  addiu $sp, $sp, 0x38
 # end spectrum_p1controller_to_kempston
 
+.global init_spectrum_game
 init_spectrum_game:
 /* 107AF4 7F0D2FC4 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 107AF8 7F0D2FC8 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -236787,6 +239269,7 @@ init_spectrum_game:
 /* 107EA0 7F0D3370 A4CC0000 */  sh    $t4, ($a2)
 # end init_spectrum_game
 
+.global run_spectrum_game
 run_spectrum_game:
 /* 107EA4 7F0D3374 27BDFFE8 */  addiu $sp, $sp, -0x18
 /* 107EA8 7F0D3378 AFBF0014 */  sw    $ra, 0x14($sp)
@@ -236806,6 +239289,7 @@ run_spectrum_game:
 /* 107EE0 7F0D33B0 00000000 */  nop   
 # end run_spectrum_game
 
+.global spectrum_draw_screen
 spectrum_draw_screen:
 /* 107EE4 7F0D33B4 27BDFF60 */  addiu $sp, $sp, -0xa0
 /* 107EE8 7F0D33B8 00801025 */  or    $v0, $a0, $zero
@@ -237012,6 +239496,7 @@ spectrum_draw_screen:
 /* 108204 7F0D36D4 00801025 */  or    $v0, $a0, $zero
 # end spectrum_draw_screen
 
+.global spectrum_input_handling
 spectrum_input_handling:
 /* 108208 7F0D36D8 AFA50004 */  sw    $a1, 4($sp)
 /* 10820C 7F0D36DC 30AE00FF */  andi  $t6, $a1, 0xff
@@ -237089,7 +239574,8 @@ dummy7F0D37D4:
   jr    $ra
   nop
 
-proc_7F0D37DC:
+.global proc_7F0D37DC
+  proc_7F0D37DC:
 /* 10830C 7F0D37DC 30CE00FF */  andi  $t6, $a2, 0xff
 /* 108310 7F0D37E0 240100FE */  addiu $at, $zero, 0xfe
 /* 108314 7F0D37E4 AFA40000 */  sw    $a0, ($sp)
@@ -237114,6 +239600,7 @@ proc_7F0D37DC:
 /* 108358 7F0D3828 00000000 */  nop   
 # end proc_7F0D37DC
 
+.global spectrum_hw_emulation
 spectrum_hw_emulation:
 /* 10835C 7F0D382C 27BDFD50 */  addiu $sp, $sp, -0x2b0
 /* 108360 7F0D3830 3C0E0001 */  lui   $t6, 1
