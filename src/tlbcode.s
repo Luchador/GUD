@@ -194928,8 +194928,8 @@ proc_7F0ACBA0:
 /* 0E16D8 7F0ACBA8 AC240E90 */  sw    $a0, %lo(0x80040E90)($at) # $a0, 0xe90($at)
 # end proc_7F0ACBA0
 
-.global proc_7F0ACBAC
-proc_7F0ACBAC:
+.global load_font_table_controllers
+load_font_table_controllers:
 /* 0E16DC 7F0ACBAC 3C018004 */  lui   $at, 0x8004
 /* 0E16E0 7F0ACBB0 AC200E84 */  sw    $zero, %lo(0x80040E84)($at) # $zero, 0xe84($at)
 /* 0E16E4 7F0ACBB4 3C018004 */  lui   $at, 0x8004
@@ -194977,7 +194977,7 @@ proc_7F0ACBAC:
 /* 0E178C 7F0ACC5C 25080EB0 */  addiu $t0, $t0, 0xeb0
 /* 0E1790 7F0ACC60 24E70EAC */  addiu $a3, $a3, 0xeac
 /* 0E1794 7F0ACC64 00001825 */  or    $v1, $zero, $zero
-.Lproc_7F0ACBAC_BC:
+.Lload_font_table_controllers_BC:
 /* 0E1798 7F0ACC68 8D090000 */  lw    $t1, ($t0)
 /* 0E179C 7F0ACC6C 8CEB0000 */  lw    $t3, ($a3)
 /* 0E17A0 7F0ACC70 01231021 */  addu  $v0, $t1, $v1
@@ -194985,7 +194985,7 @@ proc_7F0ACBAC:
 /* 0E17A8 7F0ACC78 24630018 */  addiu $v1, $v1, 0x18
 /* 0E17AC 7F0ACC7C 286108D0 */  slti  $at, $v1, 0x8d0
 /* 0E17B0 7F0ACC80 014B6021 */  addu  $t4, $t2, $t3
-/* 0E17B4 7F0ACC84 1420FFF8 */  bnez  $at, .Lproc_7F0ACBAC_BC
+/* 0E17B4 7F0ACC84 1420FFF8 */  bnez  $at, .Lload_font_table_controllers_BC
 /* 0E17B8 7F0ACC88 AC4C0014 */  sw    $t4, 0x14($v0)
 /* 0E17BC 7F0ACC8C 3C0D0000 */  lui   $t5, 0
 /* 0E17C0 7F0ACC90 3C0E0000 */  lui   $t6, 0
@@ -195024,7 +195024,7 @@ proc_7F0ACBAC:
 /* 0E1844 7F0ACD14 8C4A002C */  lw    $t2, 0x2c($v0)
 /* 0E1848 7F0ACD18 014B6021 */  addu  $t4, $t2, $t3
 /* 0E184C 7F0ACD1C AC4C002C */  sw    $t4, 0x2c($v0)
-.Lproc_7F0ACBAC_174:
+.Lload_font_table_controllers_174:
 /* 0E1850 7F0ACD20 8D0D0000 */  lw    $t5, ($t0)
 /* 0E1854 7F0ACD24 8CEF0000 */  lw    $t7, ($a3)
 /* 0E1858 7F0ACD28 01A31021 */  addu  $v0, $t5, $v1
@@ -195049,13 +195049,13 @@ proc_7F0ACBAC:
 /* 0E18A4 7F0ACD74 8C59005C */  lw    $t9, 0x5c($v0)
 /* 0E18A8 7F0ACD78 24630060 */  addiu $v1, $v1, 0x60
 /* 0E18AC 7F0ACD7C 03295021 */  addu  $t2, $t9, $t1
-/* 0E18B0 7F0ACD80 1464FFE7 */  bne   $v1, $a0, .Lproc_7F0ACBAC_174
+/* 0E18B0 7F0ACD80 1464FFE7 */  bne   $v1, $a0, .Lload_font_table_controllers_174
 /* 0E18B4 7F0ACD84 AC4A005C */  sw    $t2, 0x5c($v0)
 /* 0E18B8 7F0ACD88 8FBF0014 */  lw    $ra, 0x14($sp)
 /* 0E18BC 7F0ACD8C 27BD0028 */  addiu $sp, $sp, 0x28
 /* 0E18C0 7F0ACD90 03E00008 */  jr    $ra
 /* 0E18C4 7F0ACD94 00000000 */  nop   
-# end proc_7F0ACBAC
+# end load_font_table_controllers
 
 .global microcodeconstructor
 microcodeconstructor:
@@ -214634,7 +214634,7 @@ proc_7F0BDAB0:
 /* 0F26CC 7F0BDB9C 00000000 */  nop   
 /* 0F26D0 7F0BDBA0 0FC32FEC */  jal   load_prepare_global_image_bank
 /* 0F26D4 7F0BDBA4 00000000 */  nop   
-/* 0F26D8 7F0BDBA8 0FC2B2EB */  jal   proc_7F0ACBAC
+/* 0F26D8 7F0BDBA8 0FC2B2EB */  jal   load_font_table_controllers
 /* 0F26DC 7F0BDBAC 00000000 */  nop   
 /* 0F26E0 7F0BDBB0 8FAF0038 */  lw    $t7, 0x38($sp)
 /* 0F26E4 7F0BDBB4 2401005A */  addiu $at, $zero, 0x5a
