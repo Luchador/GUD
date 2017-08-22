@@ -1,4 +1,8 @@
-.section .text_tlbcode, "ax"
+# assembler directives
+.set noat      # allow manual use of $at
+.set noreorder # don't insert nops after branches
+
+.section .text, "ax"
 
 
 .global zero_basic_data
