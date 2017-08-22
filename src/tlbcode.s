@@ -11941,7 +11941,7 @@ constructor_menu00_legalscreen:
 /* 03F580 7F00AA50 5420FFF0 */  bnezl $at, .Lconstructor_menu00_legalscreen_134
 /* 03F584 7F00AA54 8C4E000C */  lw    $t6, 0xc($v0)
 .Lconstructor_menu00_legalscreen_178:
-/* 03F588 7F00AA58 0FC2B366 */  jal   microcodeconstructor
+/* 03F588 7F00AA58 0FC2B366 */  jal   setup_rdpstate
 /* 03F58C 7F00AA5C 02802025 */  or    $a0, $s4, $zero
 /* 03F590 7F00AA60 3C108003 */  lui   $s0, 0x8003
 /* 03F594 7F00AA64 3C118003 */  lui   $s1, 0x8003
@@ -13939,7 +13939,7 @@ constructor_menu05_filesel:
 /* 041154 7F00C624 0248082B */  sltu  $at, $s2, $t0
 /* 041158 7F00C628 5020FFCB */  beql  $at, $zero, .Lconstructor_menu05_filesel_150
 /* 04115C 7F00C62C 27A4014C */  addiu $a0, $sp, 0x14c
-/* 041160 7F00C630 0FC2B366 */  jal   microcodeconstructor
+/* 041160 7F00C630 0FC2B366 */  jal   setup_rdpstate
 /* 041164 7F00C634 8FA401B8 */  lw    $a0, 0x1b8($sp)
 /* 041168 7F00C638 AFA201B8 */  sw    $v0, 0x1b8($sp)
 /* 04116C 7F00C63C 0FC2B2DE */  jal   proc_7F0ACB78
@@ -15165,7 +15165,7 @@ constructor_menu06_modesel:
 /* 042378 7F00D848 00402025 */  or    $a0, $v0, $zero
 /* 04237C 7F00D84C 0FC0357A */  jal   proc_7F00D5E8
 /* 042380 7F00D850 00402025 */  or    $a0, $v0, $zero
-/* 042384 7F00D854 0FC2B366 */  jal   microcodeconstructor
+/* 042384 7F00D854 0FC2B366 */  jal   setup_rdpstate
 /* 042388 7F00D858 00402025 */  or    $a0, $v0, $zero
 /* 04238C 7F00D85C 240E0096 */  addiu $t6, $zero, 0x96
 /* 042390 7F00D860 240F00DC */  addiu $t7, $zero, 0xdc
@@ -16039,7 +16039,7 @@ constructor_menu07_missionsel:
 /* 042FD8 7F00E4A8 AC4E0000 */  sw    $t6, ($v0)
 /* 042FDC 7F00E4AC 0FC0357A */  jal   proc_7F00D5E8
 /* 042FE0 7F00E4B0 24440008 */  addiu $a0, $v0, 8
-/* 042FE4 7F00E4B4 0FC2B366 */  jal   microcodeconstructor
+/* 042FE4 7F00E4B4 0FC2B366 */  jal   setup_rdpstate
 /* 042FE8 7F00E4B8 00402025 */  or    $a0, $v0, $zero
 /* 042FEC 7F00E4BC 27B10090 */  addiu $s1, $sp, 0x90
 /* 042FF0 7F00E4C0 0040A025 */  or    $s4, $v0, $zero
@@ -16703,7 +16703,7 @@ constructor_menu08_difficulty:
 /* 04397C 7F00EE4C 8F21FFFC */  lw    $at, -4($t9)
 /* 043980 7F00EE50 172BFFF8 */  bne   $t9, $t3, .Lconstructor_menu08_difficulty_9C
 /* 043984 7F00EE54 AF01FFFC */  sw    $at, -4($t8)
-/* 043988 7F00EE58 0FC2B366 */  jal   microcodeconstructor
+/* 043988 7F00EE58 0FC2B366 */  jal   setup_rdpstate
 /* 04398C 7F00EE5C 00402025 */  or    $a0, $v0, $zero
 /* 043990 7F00EE60 AFA20C70 */  sw    $v0, 0xc70($sp)
 /* 043994 7F00EE64 00402025 */  or    $a0, $v0, $zero
@@ -17385,7 +17385,7 @@ constructor_menu09_007options:
 /* 04431C 7F00F7EC 8DE1FFFC */  lw    $at, -4($t7)
 /* 044320 7F00F7F0 15E8FFF8 */  bne   $t7, $t0, .Lconstructor_menu09_007options_3C
 /* 044324 7F00F7F4 ADC1FFFC */  sw    $at, -4($t6)
-/* 044328 7F00F7F8 0FC2B366 */  jal   microcodeconstructor
+/* 044328 7F00F7F8 0FC2B366 */  jal   setup_rdpstate
 /* 04432C 7F00F7FC 00402025 */  or    $a0, $v0, $zero
 /* 044330 7F00F800 00402025 */  or    $a0, $v0, $zero
 /* 044334 7F00F804 0FC03AAF */  jal   proc_7F00EABC
@@ -19037,7 +19037,7 @@ constructor_menu0E_mpoptions:
 /* 045A60 7F010F30 00402025 */  or    $a0, $v0, $zero
 /* 045A64 7F010F34 0FC0357A */  jal   proc_7F00D5E8
 /* 045A68 7F010F38 00402025 */  or    $a0, $v0, $zero
-/* 045A6C 7F010F3C 0FC2B366 */  jal   microcodeconstructor
+/* 045A6C 7F010F3C 0FC2B366 */  jal   setup_rdpstate
 /* 045A70 7F010F40 00402025 */  or    $a0, $v0, $zero
 /* 045A74 7F010F44 00408025 */  or    $s0, $v0, $zero
 /* 045A78 7F010F48 0FC30776 */  jal   retrieve_ptr_textv0_from_textidA0
@@ -20414,7 +20414,7 @@ proc_7F01231C:
 /* 046E98 7F012368 0FC2F5B1 */  jal   proc_7F0BD6C4
 /* 046E9C 7F01236C 24040010 */  addiu $a0, $zero, 0x10
 /* 046EA0 7F012370 AFA200CC */  sw    $v0, 0xcc($sp)
-/* 046EA4 7F012374 0FC2B366 */  jal   microcodeconstructor
+/* 046EA4 7F012374 0FC2B366 */  jal   setup_rdpstate
 /* 046EA8 7F012378 8FA400D8 */  lw    $a0, 0xd8($sp)
 /* 046EAC 7F01237C 3C013F80 */  lui   $at, 0x3f80
 /* 046EB0 7F012380 44811000 */  mtc1  $at, $f2
@@ -20717,7 +20717,7 @@ constructor_menu0F_mpcharsel:
 /* 047318 7F0127E8 00402025 */  or    $a0, $v0, $zero
 /* 04731C 7F0127EC 0FC0357A */  jal   proc_7F00D5E8
 /* 047320 7F0127F0 00402025 */  or    $a0, $v0, $zero
-/* 047324 7F0127F4 0FC2B366 */  jal   microcodeconstructor
+/* 047324 7F0127F4 0FC2B366 */  jal   setup_rdpstate
 /* 047328 7F0127F8 00402025 */  or    $a0, $v0, $zero
 /* 04732C 7F0127FC 240E00AB */  addiu $t6, $zero, 0xab
 /* 047330 7F012800 240F0090 */  addiu $t7, $zero, 0x90
@@ -20866,7 +20866,7 @@ constructor_menu0F_mpcharsel:
 /* 047548 7F012A18 01F8C823 */  subu  $t9, $t7, $t8
 /* 04754C 7F012A1C AFB900B4 */  sw    $t9, 0xb4($sp)
 /* 047550 7F012A20 AFB000B0 */  sw    $s0, 0xb0($sp)
-/* 047554 7F012A24 0FC2B366 */  jal   microcodeconstructor
+/* 047554 7F012A24 0FC2B366 */  jal   setup_rdpstate
 /* 047558 7F012A28 02202025 */  or    $a0, $s1, $zero
 /* 04755C 7F012A2C 0C001107 */  jal   proc_7000441C
 /* 047560 7F012A30 00408825 */  or    $s1, $v0, $zero
@@ -20921,7 +20921,7 @@ constructor_menu0F_mpcharsel:
 /* 047620 7F012AF0 00095843 */  sra   $t3, $t1, 1
 /* 047624 7F012AF4 02CB6023 */  subu  $t4, $s6, $t3
 /* 047628 7F012AF8 AFAC00A0 */  sw    $t4, 0xa0($sp)
-/* 04762C 7F012AFC 0FC2B366 */  jal   microcodeconstructor
+/* 04762C 7F012AFC 0FC2B366 */  jal   setup_rdpstate
 /* 047630 7F012B00 02202025 */  or    $a0, $s1, $zero
 /* 047634 7F012B04 0C001107 */  jal   proc_7000441C
 /* 047638 7F012B08 00408825 */  or    $s1, $v0, $zero
@@ -21400,7 +21400,7 @@ constructor_menu10_mphandicap:
 /* 047D00 7F0131D0 00402025 */  or    $a0, $v0, $zero
 /* 047D04 7F0131D4 0FC0357A */  jal   proc_7F00D5E8
 /* 047D08 7F0131D8 00402025 */  or    $a0, $v0, $zero
-/* 047D0C 7F0131DC 0FC2B366 */  jal   microcodeconstructor
+/* 047D0C 7F0131DC 0FC2B366 */  jal   setup_rdpstate
 /* 047D10 7F0131E0 00402025 */  or    $a0, $v0, $zero
 /* 047D14 7F0131E4 240E00AB */  addiu $t6, $zero, 0xab
 /* 047D18 7F0131E8 240F0090 */  addiu $t7, $zero, 0x90
@@ -21539,7 +21539,7 @@ constructor_menu10_mphandicap:
 /* 047F08 7F0133D8 252A0037 */  addiu $t2, $t1, 0x37
 /* 047F0C 7F0133DC AFAE009C */  sw    $t6, 0x9c($sp)
 /* 047F10 7F0133E0 AFAA0098 */  sw    $t2, 0x98($sp)
-/* 047F14 7F0133E4 0FC2B366 */  jal   microcodeconstructor
+/* 047F14 7F0133E4 0FC2B366 */  jal   setup_rdpstate
 /* 047F18 7F0133E8 02202025 */  or    $a0, $s1, $zero
 /* 047F1C 7F0133EC 0C001107 */  jal   proc_7000441C
 /* 047F20 7F0133F0 00408825 */  or    $s1, $v0, $zero
@@ -21592,7 +21592,7 @@ constructor_menu10_mphandicap:
 /* 047FD8 7F0134A8 020D6023 */  subu  $t4, $s0, $t5
 /* 047FDC 7F0134AC 25F8000F */  addiu $t8, $t7, 0xf
 /* 047FE0 7F0134B0 AFAC0088 */  sw    $t4, 0x88($sp)
-/* 047FE4 7F0134B4 0FC2B366 */  jal   microcodeconstructor
+/* 047FE4 7F0134B4 0FC2B366 */  jal   setup_rdpstate
 /* 047FE8 7F0134B8 AFB80084 */  sw    $t8, 0x84($sp)
 /* 047FEC 7F0134BC 0C001107 */  jal   proc_7000441C
 /* 047FF0 7F0134C0 00408825 */  or    $s1, $v0, $zero
@@ -21960,7 +21960,7 @@ constructor_menu11_mpcontrol:
 /* 048504 7F0139D4 00402025 */  or    $a0, $v0, $zero
 /* 048508 7F0139D8 0FC0357A */  jal   proc_7F00D5E8
 /* 04850C 7F0139DC 00402025 */  or    $a0, $v0, $zero
-/* 048510 7F0139E0 0FC2B366 */  jal   microcodeconstructor
+/* 048510 7F0139E0 0FC2B366 */  jal   setup_rdpstate
 /* 048514 7F0139E4 00402025 */  or    $a0, $v0, $zero
 /* 048518 7F0139E8 240E00AB */  addiu $t6, $zero, 0xab
 /* 04851C 7F0139EC 240F0090 */  addiu $t7, $zero, 0x90
@@ -22099,7 +22099,7 @@ constructor_menu11_mpcontrol:
 /* 04870C 7F013BDC 252A0037 */  addiu $t2, $t1, 0x37
 /* 048710 7F013BE0 AFAE009C */  sw    $t6, 0x9c($sp)
 /* 048714 7F013BE4 AFAA0098 */  sw    $t2, 0x98($sp)
-/* 048718 7F013BE8 0FC2B366 */  jal   microcodeconstructor
+/* 048718 7F013BE8 0FC2B366 */  jal   setup_rdpstate
 /* 04871C 7F013BEC 02202025 */  or    $a0, $s1, $zero
 /* 048720 7F013BF0 0C001107 */  jal   proc_7000441C
 /* 048724 7F013BF4 00408825 */  or    $s1, $v0, $zero
@@ -22152,7 +22152,7 @@ constructor_menu11_mpcontrol:
 /* 0487DC 7F013CAC 020D6023 */  subu  $t4, $s0, $t5
 /* 0487E0 7F013CB0 25F8000F */  addiu $t8, $t7, 0xf
 /* 0487E4 7F013CB4 AFAC0088 */  sw    $t4, 0x88($sp)
-/* 0487E8 7F013CB8 0FC2B366 */  jal   microcodeconstructor
+/* 0487E8 7F013CB8 0FC2B366 */  jal   setup_rdpstate
 /* 0487EC 7F013CBC AFB80084 */  sw    $t8, 0x84($sp)
 /* 0487F0 7F013CC0 0C001107 */  jal   proc_7000441C
 /* 0487F4 7F013CC4 00408825 */  or    $s1, $v0, $zero
@@ -22438,7 +22438,7 @@ constructor_menu12_mpstage:
 /* 048BD8 7F0140A8 0FC0357A */  jal   proc_7F00D5E8
 /* 048BDC 7F0140AC 00402025 */  or    $a0, $v0, $zero
 /* 048BE0 7F0140B0 AFA20138 */  sw    $v0, 0x138($sp)
-/* 048BE4 7F0140B4 0FC2B366 */  jal   microcodeconstructor
+/* 048BE4 7F0140B4 0FC2B366 */  jal   setup_rdpstate
 /* 048BE8 7F0140B8 00402025 */  or    $a0, $v0, $zero
 /* 048BEC 7F0140BC 3C121010 */  lui   $s2, 0x1010
 /* 048BF0 7F0140C0 AFA20138 */  sw    $v0, 0x138($sp)
@@ -22725,7 +22725,7 @@ constructor_menu12_mpstage:
 /* 049038 7F014508 AFAF00B4 */  sw    $t7, 0xb4($sp)
 /* 04903C 7F01450C 15E1FF73 */  bne   $t7, $at, .Lconstructor_menu12_mpstage_28C
 /* 049040 7F014510 E7A800DC */  swc1  $f8, 0xdc($sp)
-/* 049044 7F014514 0FC2B366 */  jal   microcodeconstructor
+/* 049044 7F014514 0FC2B366 */  jal   setup_rdpstate
 /* 049048 7F014518 8FA40138 */  lw    $a0, 0x138($sp)
 /* 04904C 7F01451C 24180097 */  addiu $t8, $zero, 0x97
 /* 049050 7F014520 3C1E8004 */  lui   $fp, 0x8004
@@ -22853,7 +22853,7 @@ constructor_menu12_mpstage:
 /* 049224 7F0146F4 AFA9009C */  sw    $t1, 0x9c($sp)
 /* 049228 7F0146F8 1521FF8F */  bne   $t1, $at, .Lconstructor_menu12_mpstage_4E8
 /* 04922C 7F0146FC AFB80090 */  sw    $t8, 0x90($sp)
-/* 049230 7F014700 0FC2B366 */  jal   microcodeconstructor
+/* 049230 7F014700 0FC2B366 */  jal   setup_rdpstate
 /* 049234 7F014704 8FA40138 */  lw    $a0, 0x138($sp)
 /* 049238 7F014708 AFA20138 */  sw    $v0, 0x138($sp)
 /* 04923C 7F01470C 0FC0288E */  jal   add_tab3_previous
@@ -23115,7 +23115,7 @@ constructor_menu13_mpscenario:
 /* 0495B8 7F014A88 00402025 */  or    $a0, $v0, $zero
 /* 0495BC 7F014A8C 0FC0357A */  jal   proc_7F00D5E8
 /* 0495C0 7F014A90 00402025 */  or    $a0, $v0, $zero
-/* 0495C4 7F014A94 0FC2B366 */  jal   microcodeconstructor
+/* 0495C4 7F014A94 0FC2B366 */  jal   setup_rdpstate
 /* 0495C8 7F014A98 00402025 */  or    $a0, $v0, $zero
 /* 0495CC 7F014A9C 0040A025 */  or    $s4, $v0, $zero
 /* 0495D0 7F014AA0 0FC30776 */  jal   retrieve_ptr_textv0_from_textidA0
@@ -23612,7 +23612,7 @@ constructor_menu14_mpteams:
 /* 049CBC 7F01518C 00402025 */  or    $a0, $v0, $zero
 /* 049CC0 7F015190 0FC0357A */  jal   proc_7F00D5E8
 /* 049CC4 7F015194 00402025 */  or    $a0, $v0, $zero
-/* 049CC8 7F015198 0FC2B366 */  jal   microcodeconstructor
+/* 049CC8 7F015198 0FC2B366 */  jal   setup_rdpstate
 /* 049CCC 7F01519C 00402025 */  or    $a0, $v0, $zero
 /* 049CD0 7F0151A0 240E00AB */  addiu $t6, $zero, 0xab
 /* 049CD4 7F0151A4 240F0090 */  addiu $t7, $zero, 0x90
@@ -24470,7 +24470,7 @@ constructor_menu0A_briefing:
 /* 04A8F8 7F015DC8 8DE1FFFC */  lw    $at, -4($t7)
 /* 04A8FC 7F015DCC 15E8FFF8 */  bne   $t7, $t0, .Lconstructor_menu0A_briefing_3C
 /* 04A900 7F015DD0 ADC1FFFC */  sw    $at, -4($t6)
-/* 04A904 7F015DD4 0FC2B366 */  jal   microcodeconstructor
+/* 04A904 7F015DD4 0FC2B366 */  jal   setup_rdpstate
 /* 04A908 7F015DD8 00402025 */  or    $a0, $v0, $zero
 /* 04A90C 7F015DDC 00402025 */  or    $a0, $v0, $zero
 /* 04A910 7F015DE0 0FC03AAF */  jal   proc_7F00EABC
@@ -24918,7 +24918,7 @@ constructor_menu0C_missionfailed:
 /* 04AF3C 7F01640C 00402025 */  or    $a0, $v0, $zero
 /* 04AF40 7F016410 0FC0357A */  jal   proc_7F00D5E8
 /* 04AF44 7F016414 00402025 */  or    $a0, $v0, $zero
-/* 04AF48 7F016418 0FC2B366 */  jal   microcodeconstructor
+/* 04AF48 7F016418 0FC2B366 */  jal   setup_rdpstate
 /* 04AF4C 7F01641C 00402025 */  or    $a0, $v0, $zero
 /* 04AF50 7F016420 00402025 */  or    $a0, $v0, $zero
 /* 04AF54 7F016424 0FC03AAF */  jal   proc_7F00EABC
@@ -25347,7 +25347,7 @@ constructor_menu0D_missioncomplete:
 /* 04B55C 7F016A2C 00402025 */  or    $a0, $v0, $zero
 /* 04B560 7F016A30 0FC0357A */  jal   proc_7F00D5E8
 /* 04B564 7F016A34 00402025 */  or    $a0, $v0, $zero
-/* 04B568 7F016A38 0FC2B366 */  jal   microcodeconstructor
+/* 04B568 7F016A38 0FC2B366 */  jal   setup_rdpstate
 /* 04B56C 7F016A3C 00402025 */  or    $a0, $v0, $zero
 /* 04B570 7F016A40 0FC22FEE */  jal   proc_7F08BFB8
 /* 04B574 7F016A44 00408825 */  or    $s1, $v0, $zero
@@ -26776,7 +26776,7 @@ constructor_menu15_cheat:
 /* 04CACC 7F017F9C 00402025 */  or    $a0, $v0, $zero
 /* 04CAD0 7F017FA0 0FC0357A */  jal   proc_7F00D5E8
 /* 04CAD4 7F017FA4 00402025 */  or    $a0, $v0, $zero
-/* 04CAD8 7F017FA8 0FC2B366 */  jal   microcodeconstructor
+/* 04CAD8 7F017FA8 0FC2B366 */  jal   setup_rdpstate
 /* 04CADC 7F017FAC 00402025 */  or    $a0, $v0, $zero
 /* 04CAE0 7F017FB0 3C038003 */  lui   $v1, 0x8003
 /* 04CAE4 7F017FB4 8C63B5DC */  lw    $v1, -0x4a24($v1)
@@ -27124,7 +27124,7 @@ constructor_menu16_nocontrollers:
 .Lconstructor_menu16_nocontrollers_40:
 /* 04CFC0 7F018490 0FC07034 */  jal   proc_7F01C0D0
 /* 04CFC4 7F018494 AFA80044 */  sw    $t0, 0x44($sp)
-/* 04CFC8 7F018498 0FC2B366 */  jal   microcodeconstructor
+/* 04CFC8 7F018498 0FC2B366 */  jal   setup_rdpstate
 /* 04CFCC 7F01849C 00402025 */  or    $a0, $v0, $zero
 /* 04CFD0 7F0184A0 8FA80044 */  lw    $t0, 0x44($sp)
 /* 04CFD4 7F0184A4 AFA20060 */  sw    $v0, 0x60($sp)
@@ -28944,7 +28944,7 @@ constructor_menu18_displaycast:
 /* 04EAA0 7F019F70 ACAC0004 */  sw    $t4, 4($a1)
 /* 04EAA4 7F019F74 ACAA0000 */  sw    $t2, ($a1)
 /* 04EAA8 7F019F78 24A40008 */  addiu $a0, $a1, 8
-/* 04EAAC 7F019F7C 0FC2B366 */  jal   microcodeconstructor
+/* 04EAAC 7F019F7C 0FC2B366 */  jal   setup_rdpstate
 /* 04EAB0 7F019F80 E7A00070 */  swc1  $f0, 0x70($sp)
 /* 04EAB4 7F019F84 3C188003 */  lui   $t8, 0x8003
 /* 04EAB8 7F019F88 8F18B5FC */  lw    $t8, -0x4a04($t8)
@@ -97344,7 +97344,7 @@ proc_7F056210:
 /* 08AE34 7F056304 01AFC023 */  subu  $t8, $t5, $t7
 /* 08AE38 7F056308 03094023 */  subu  $t0, $t8, $t1
 /* 08AE3C 7F05630C AFA8003C */  sw    $t0, 0x3c($sp)
-/* 08AE40 7F056310 0FC2B366 */  jal   microcodeconstructor
+/* 08AE40 7F056310 0FC2B366 */  jal   setup_rdpstate
 /* 08AE44 7F056314 02202025 */  or    $a0, $s1, $zero
 /* 08AE48 7F056318 0C001149 */  jal   proc_70004524
 /* 08AE4C 7F05631C 00408825 */  or    $s1, $v0, $zero
@@ -119608,7 +119608,7 @@ proc_7F069CF4:
 /* 09E9C8 7F069E98 93190004 */  lbu   $t9, 4($t8)
 /* 09E9CC 7F069E9C AFB90044 */  sw    $t9, 0x44($sp)
 .Lproc_7F069CF4_1AC:
-/* 09E9D0 7F069EA0 0FC2B366 */  jal   microcodeconstructor
+/* 09E9D0 7F069EA0 0FC2B366 */  jal   setup_rdpstate
 /* 09E9D4 7F069EA4 8FA40068 */  lw    $a0, 0x68($sp)
 /* 09E9D8 7F069EA8 AFA20068 */  sw    $v0, 0x68($sp)
 /* 09E9DC 7F069EAC 8FA40060 */  lw    $a0, 0x60($sp)
@@ -119800,7 +119800,7 @@ proc_7F069CF4:
 /* 09EC9C 7F06A16C 91280004 */  lbu   $t0, 4($t1)
 /* 09ECA0 7F06A170 AFA8003C */  sw    $t0, 0x3c($sp)
 .Lproc_7F069CF4_480:
-/* 09ECA4 7F06A174 0FC2B366 */  jal   microcodeconstructor
+/* 09ECA4 7F06A174 0FC2B366 */  jal   setup_rdpstate
 /* 09ECA8 7F06A178 8FA40068 */  lw    $a0, 0x68($sp)
 /* 09ECAC 7F06A17C AFA20068 */  sw    $v0, 0x68($sp)
 /* 09ECB0 7F06A180 8FA40064 */  lw    $a0, 0x64($sp)
@@ -119998,7 +119998,7 @@ proc_7F06A334:
 /* 09EF78 7F06A448 93190004 */  lbu   $t9, 4($t8)
 /* 09EF7C 7F06A44C AFB9003C */  sw    $t9, 0x3c($sp)
 .Lproc_7F06A334_11C:
-/* 09EF80 7F06A450 0FC2B366 */  jal   microcodeconstructor
+/* 09EF80 7F06A450 0FC2B366 */  jal   setup_rdpstate
 /* 09EF84 7F06A454 02002025 */  or    $a0, $s0, $zero
 /* 09EF88 7F06A458 00408025 */  or    $s0, $v0, $zero
 /* 09EF8C 7F06A45C 8FA40050 */  lw    $a0, 0x50($sp)
@@ -154582,7 +154582,7 @@ proc_7F088CD8:
 /* 0BD884 7F088D54 AFA00080 */  sw    $zero, 0x80($sp)
 /* 0BD888 7F088D58 AC590000 */  sw    $t9, ($v0)
 /* 0BD88C 7F088D5C AFB900B4 */  sw    $t9, 0xb4($sp)
-/* 0BD890 7F088D60 0FC2B366 */  jal   microcodeconstructor
+/* 0BD890 7F088D60 0FC2B366 */  jal   setup_rdpstate
 /* 0BD894 7F088D64 02A02025 */  or    $a0, $s5, $zero
 /* 0BD898 7F088D68 0C00112B */  jal   proc_700044AC
 /* 0BD89C 7F088D6C 0040A825 */  or    $s5, $v0, $zero
@@ -154971,7 +154971,7 @@ proc_7F089208:
 /* 0BDE18 7F0892E8 87AA002E */  lh    $t2, 0x2e($sp)
 /* 0BDE1C 7F0892EC 8FA40058 */  lw    $a0, 0x58($sp)
 /* 0BDE20 7F0892F0 004A5821 */  addu  $t3, $v0, $t2
-/* 0BDE24 7F0892F4 0FC2B366 */  jal   microcodeconstructor
+/* 0BDE24 7F0892F4 0FC2B366 */  jal   setup_rdpstate
 /* 0BDE28 7F0892F8 AFAB0048 */  sw    $t3, 0x48($sp)
 /* 0BDE2C 7F0892FC 8FAC0048 */  lw    $t4, 0x48($sp)
 /* 0BDE30 7F089300 240D00A0 */  addiu $t5, $zero, 0xa0
@@ -156464,7 +156464,7 @@ proc_7F08A5FC:
 .Lproc_7F08A5FC_B0:
 /* 0BF1DC 7F08A6AC 50600090 */  beql  $v1, $zero, .Lproc_7F08A5FC_2F4
 /* 0BF1E0 7F08A6B0 8FBF0034 */  lw    $ra, 0x34($sp)
-/* 0BF1E4 7F08A6B4 0FC2B366 */  jal   microcodeconstructor
+/* 0BF1E4 7F08A6B4 0FC2B366 */  jal   setup_rdpstate
 /* 0BF1E8 7F08A6B8 8FA40060 */  lw    $a0, 0x60($sp)
 /* 0BF1EC 7F08A6BC 3C0C8003 */  lui   $t4, 0x8003
 /* 0BF1F0 7F08A6C0 8D8C6898 */  lw    $t4, 0x6898($t4)
@@ -156801,7 +156801,7 @@ proc_7F08AAE8:
 /* 0BF680 7F08AB50 8D2A29C4 */  lw    $t2, 0x29c4($t1)
 /* 0BF684 7F08AB54 15400071 */  bnez  $t2, .Lproc_7F08AAE8_234
 /* 0BF688 7F08AB58 00000000 */  nop   
-/* 0BF68C 7F08AB5C 0FC2B366 */  jal   microcodeconstructor
+/* 0BF68C 7F08AB5C 0FC2B366 */  jal   setup_rdpstate
 /* 0BF690 7F08AB60 00000000 */  nop   
 /* 0BF694 7F08AB64 3C0B8003 */  lui   $t3, 0x8003
 /* 0BF698 7F08AB68 8D6B68A8 */  lw    $t3, 0x68a8($t3)
@@ -157019,7 +157019,7 @@ proc_7F08AAE8:
 /* 0BF9D4 7F08AEA4 24D8000A */  addiu $t8, $a2, 0xa
 /* 0BF9D8 7F08AEA8 AFB80074 */  sw    $t8, 0x74($sp)
 /* 0BF9DC 7F08AEAC AFA6007C */  sw    $a2, 0x7c($sp)
-/* 0BF9E0 7F08AEB0 0FC2B366 */  jal   microcodeconstructor
+/* 0BF9E0 7F08AEB0 0FC2B366 */  jal   setup_rdpstate
 /* 0BF9E4 7F08AEB4 02002025 */  or    $a0, $s0, $zero
 /* 0BF9E8 7F08AEB8 0C001107 */  jal   proc_7000441C
 /* 0BF9EC 7F08AEBC 00408025 */  or    $s0, $v0, $zero
@@ -185877,7 +185877,7 @@ proc_7F0A4B40:
 /* 0D97F4 7F0A4CC4 AFAD0058 */  sw    $t5, 0x58($sp)
 /* 0D97F8 7F0A4CC8 0C002B25 */  jal   sprintf
 /* 0D97FC 7F0A4CCC AFAE0054 */  sw    $t6, 0x54($sp)
-/* 0D9800 7F0A4CD0 0FC2B366 */  jal   microcodeconstructor
+/* 0D9800 7F0A4CD0 0FC2B366 */  jal   setup_rdpstate
 /* 0D9804 7F0A4CD4 02002025 */  or    $a0, $s0, $zero
 /* 0D9808 7F0A4CD8 8FAF0058 */  lw    $t7, 0x58($sp)
 /* 0D980C 7F0A4CDC 00408025 */  or    $s0, $v0, $zero
@@ -189419,7 +189419,7 @@ proc_7F0A7C18:
 /* 0DC7B0 7F0A7C80 AFAF004C */  sw    $t7, 0x4c($sp)
 /* 0DC7B4 7F0A7C84 AFA20068 */  sw    $v0, 0x68($sp)
 .Lproc_7F0A7C18_70:
-/* 0DC7B8 7F0A7C88 0FC2B366 */  jal   microcodeconstructor
+/* 0DC7B8 7F0A7C88 0FC2B366 */  jal   setup_rdpstate
 /* 0DC7BC 7F0A7C8C 02402025 */  or    $a0, $s2, $zero
 /* 0DC7C0 7F0A7C90 00409025 */  or    $s2, $v0, $zero
 /* 0DC7C4 7F0A7C94 27A4005C */  addiu $a0, $sp, 0x5c
@@ -189534,7 +189534,7 @@ proc_7F0A7DC4:
 /* 0DC948 7F0A7E18 AFA00044 */  sw    $zero, 0x44($sp)
 /* 0DC94C 7F0A7E1C 8FA40058 */  lw    $a0, 0x58($sp)
 /* 0DC950 7F0A7E20 AFB90040 */  sw    $t9, 0x40($sp)
-/* 0DC954 7F0A7E24 0FC2B366 */  jal   microcodeconstructor
+/* 0DC954 7F0A7E24 0FC2B366 */  jal   setup_rdpstate
 /* 0DC958 7F0A7E28 AFA8003C */  sw    $t0, 0x3c($sp)
 /* 0DC95C 7F0A7E2C 8FA90040 */  lw    $t1, 0x40($sp)
 /* 0DC960 7F0A7E30 AFA20058 */  sw    $v0, 0x58($sp)
@@ -189794,7 +189794,7 @@ proc_7F0A7EA8:
 .Lproc_7F0A7EA8_350:
 /* 0DCD28 7F0A81F8 0FC1A8CD */  jal   proc_7F06A334
 /* 0DCD2C 7F0A81FC 02002025 */  or    $a0, $s0, $zero
-/* 0DCD30 7F0A8200 0FC2B366 */  jal   microcodeconstructor
+/* 0DCD30 7F0A8200 0FC2B366 */  jal   setup_rdpstate
 /* 0DCD34 7F0A8204 00402025 */  or    $a0, $v0, $zero
 /* 0DCD38 7F0A8208 8FAD007C */  lw    $t5, 0x7c($sp)
 /* 0DCD3C 7F0A820C 240B0060 */  addiu $t3, $zero, 0x60
@@ -190199,7 +190199,7 @@ proc_7F0A8424:
 .Lproc_7F0A8424_3B4:
 /* 0DD308 7F0A87D8 00028040 */  sll   $s0, $v0, 1
 /* 0DD30C 7F0A87DC 2610008D */  addiu $s0, $s0, 0x8d
-/* 0DD310 7F0A87E0 0FC2B366 */  jal   microcodeconstructor
+/* 0DD310 7F0A87E0 0FC2B366 */  jal   setup_rdpstate
 /* 0DD314 7F0A87E4 8FA40928 */  lw    $a0, 0x928($sp)
 /* 0DD318 7F0A87E8 3C0F8005 */  lui   $t7, 0x8005
 /* 0DD31C 7F0A87EC 8DEF84D0 */  lw    $t7, -0x7b30($t7)
@@ -190318,7 +190318,7 @@ proc_7F0A8424:
 /* 0DD4B8 7F0A8988 27A40060 */  addiu $a0, $sp, 0x60
 /* 0DD4BC 7F0A898C 0C002B25 */  jal   sprintf
 /* 0DD4C0 7F0A8990 AFAE0010 */  sw    $t6, 0x10($sp)
-/* 0DD4C4 7F0A8994 0FC2B366 */  jal   microcodeconstructor
+/* 0DD4C4 7F0A8994 0FC2B366 */  jal   setup_rdpstate
 /* 0DD4C8 7F0A8998 8FA40928 */  lw    $a0, 0x928($sp)
 /* 0DD4CC 7F0A899C AFA20928 */  sw    $v0, 0x928($sp)
 /* 0DD4D0 7F0A89A0 27A40050 */  addiu $a0, $sp, 0x50
@@ -190462,7 +190462,7 @@ proc_7F0A8B10:
 .Lproc_7F0A8B10_7C:
 /* 0DD6BC 7F0A8B8C 0FC296E0 */  jal   proc_7F0A5B80
 /* 0DD6C0 7F0A8B90 00000000 */  nop   
-/* 0DD6C4 7F0A8B94 0FC2B366 */  jal   microcodeconstructor
+/* 0DD6C4 7F0A8B94 0FC2B366 */  jal   setup_rdpstate
 /* 0DD6C8 7F0A8B98 02002025 */  or    $a0, $s0, $zero
 /* 0DD6CC 7F0A8B9C 8FB90050 */  lw    $t9, 0x50($sp)
 /* 0DD6D0 7F0A8BA0 00408025 */  or    $s0, $v0, $zero
@@ -191631,7 +191631,7 @@ proc_7F0A9AB8:
 /* 0DE730 7F0A9C00 ADE10000 */  sw    $at, ($t7)
 /* 0DE734 7F0A9C04 97010004 */  lhu   $at, 4($t8)
 /* 0DE738 7F0A9C08 A5E10004 */  sh    $at, %lo(0x80050004)($t7) # $at, 4($t7)
-/* 0DE73C 7F0A9C0C 0FC2B366 */  jal   microcodeconstructor
+/* 0DE73C 7F0A9C0C 0FC2B366 */  jal   setup_rdpstate
 /* 0DE740 7F0A9C10 AFA00050 */  sw    $zero, 0x50($sp)
 /* 0DE744 7F0A9C14 00408025 */  or    $s0, $v0, $zero
 /* 0DE748 7F0A9C18 00002025 */  or    $a0, $zero, $zero
@@ -192423,7 +192423,7 @@ proc_7F0A9AB8:
 proc_7F0AA7C8:
 /* 0DF2F8 7F0AA7C8 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0DF2FC 7F0AA7CC AFBF003C */  sw    $ra, 0x3c($sp)
-/* 0DF300 7F0AA7D0 0FC2B366 */  jal   microcodeconstructor
+/* 0DF300 7F0AA7D0 0FC2B366 */  jal   setup_rdpstate
 /* 0DF304 7F0AA7D4 AFB00038 */  sw    $s0, 0x38($sp)
 /* 0DF308 7F0AA7D8 00408025 */  or    $s0, $v0, $zero
 /* 0DF30C 7F0AA7DC 00002025 */  or    $a0, $zero, $zero
@@ -193332,7 +193332,7 @@ proc_7F0AB4B8:
 /* 0E002C 7F0AB4FC 8DEF0EB0 */  lw    $t7, 0xeb0($t7)
 /* 0E0030 7F0AB500 00402025 */  or    $a0, $v0, $zero
 /* 0E0034 7F0AB504 AFAE004C */  sw    $t6, 0x4c($sp)
-/* 0E0038 7F0AB508 0FC2B366 */  jal   microcodeconstructor
+/* 0E0038 7F0AB508 0FC2B366 */  jal   setup_rdpstate
 /* 0E003C 7F0AB50C AFAF0048 */  sw    $t7, 0x48($sp)
 /* 0E0040 7F0AB510 00408025 */  or    $s0, $v0, $zero
 /* 0E0044 7F0AB514 0FC30776 */  jal   retrieve_ptr_textv0_from_textidA0
@@ -193845,7 +193845,7 @@ proc_7F0ABC1C:
 /* 0E0768 7F0ABC38 AFB30044 */  sw    $s3, 0x44($sp)
 /* 0E076C 7F0ABC3C AFB20040 */  sw    $s2, 0x40($sp)
 /* 0E0770 7F0ABC40 AFB1003C */  sw    $s1, 0x3c($sp)
-/* 0E0774 7F0ABC44 0FC2B366 */  jal   microcodeconstructor
+/* 0E0774 7F0ABC44 0FC2B366 */  jal   setup_rdpstate
 /* 0E0778 7F0ABC48 AFB00038 */  sw    $s0, 0x38($sp)
 /* 0E077C 7F0ABC4C 3C138004 */  lui   $s3, 0x8004
 /* 0E0780 7F0ABC50 3C170070 */  lui   $s7, 0x70
@@ -193983,7 +193983,7 @@ proc_7F0ABDFC:
 /* 0E0970 7F0ABE40 8DEF0EB0 */  lw    $t7, 0xeb0($t7)
 /* 0E0974 7F0ABE44 00402025 */  or    $a0, $v0, $zero
 /* 0E0978 7F0ABE48 AFAE0044 */  sw    $t6, 0x44($sp)
-/* 0E097C 7F0ABE4C 0FC2B366 */  jal   microcodeconstructor
+/* 0E097C 7F0ABE4C 0FC2B366 */  jal   setup_rdpstate
 /* 0E0980 7F0ABE50 AFAF0040 */  sw    $t7, 0x40($sp)
 /* 0E0984 7F0ABE54 00408025 */  or    $s0, $v0, $zero
 /* 0E0988 7F0ABE58 0FC30776 */  jal   retrieve_ptr_textv0_from_textidA0
@@ -194295,7 +194295,7 @@ proc_7F0AC168:
 /* 0E0DD8 7F0AC2A8 0FC15C41 */  jal   proc_7F057104
 /* 0E0DDC 7F0AC2AC 00002025 */  or    $a0, $zero, $zero
 /* 0E0DE0 7F0AC2B0 00408025 */  or    $s0, $v0, $zero
-/* 0E0DE4 7F0AC2B4 0FC2B366 */  jal   microcodeconstructor
+/* 0E0DE4 7F0AC2B4 0FC2B366 */  jal   setup_rdpstate
 /* 0E0DE8 7F0AC2B8 8FA40DE8 */  lw    $a0, 0xde8($sp)
 /* 0E0DEC 7F0AC2BC 8FB90D4C */  lw    $t9, 0xd4c($sp)
 /* 0E0DF0 7F0AC2C0 AFA20DE8 */  sw    $v0, 0xde8($sp)
@@ -195057,8 +195057,8 @@ load_font_table_controllers:
 /* 0E18C4 7F0ACD94 00000000 */  nop   
 # end load_font_table_controllers
 
-.global microcodeconstructor
-microcodeconstructor:
+.global setup_rdpstate
+setup_rdpstate:
 /* 0E18C8 7F0ACD98 00801025 */  or    $v0, $a0, $zero
 /* 0E18CC 7F0ACD9C 24840008 */  addiu $a0, $a0, 8
 /* 0E18D0 7F0ACDA0 3C0EE700 */  lui   $t6, 0xe700
@@ -195127,7 +195127,7 @@ microcodeconstructor:
 /* 0E19CC 7F0ACE9C 8D080E94 */  lw    $t0, 0xe94($t0)
 /* 0E19D0 7F0ACEA0 24840008 */  addiu $a0, $a0, 8
 /* 0E19D4 7F0ACEA4 00801025 */  or    $v0, $a0, $zero
-/* 0E19D8 7F0ACEA8 1100000A */  beqz  $t0, .Lmicrocodeconstructor_13C
+/* 0E19D8 7F0ACEA8 1100000A */  beqz  $t0, .Lsetup_rdpstate_13C
 /* 0E19DC 7F0ACEAC 3C0BBA00 */  lui   $t3, 0xba00
 /* 0E19E0 7F0ACEB0 00801025 */  or    $v0, $a0, $zero
 /* 0E19E4 7F0ACEB4 3C09BA00 */  lui   $t1, 0xba00
@@ -195138,7 +195138,7 @@ microcodeconstructor:
 /* 0E19F8 7F0ACEC8 24840008 */  addiu $a0, $a0, 8
 /* 0E19FC 7F0ACECC 03E00008 */  jr    $ra
 /* 0E1A00 7F0ACED0 00801025 */  or    $v0, $a0, $zero
-.Lmicrocodeconstructor_13C:
+.Lsetup_rdpstate_13C:
 /* 0E1A04 7F0ACED4 356B0C02 */  ori   $t3, $t3, 0xc02
 /* 0E1A08 7F0ACED8 240C2000 */  addiu $t4, $zero, 0x2000
 /* 0E1A0C 7F0ACEDC AC4C0004 */  sw    $t4, 4($v0)
@@ -195146,7 +195146,7 @@ microcodeconstructor:
 /* 0E1A14 7F0ACEE4 24840008 */  addiu $a0, $a0, 8
 /* 0E1A18 7F0ACEE8 03E00008 */  jr    $ra
 /* 0E1A1C 7F0ACEEC 00801025 */  or    $v0, $a0, $zero
-# end microcodeconstructor
+# end setup_rdpstate
 
 .global proc_7F0ACEF0
 proc_7F0ACEF0:
@@ -221860,7 +221860,7 @@ proc_7F0C4024:
 /* 0F8B98 7F0C4068 8C6E29C4 */  lw    $t6, 0x29c4($v1)
 /* 0F8B9C 7F0C406C 51C0076D */  beql  $t6, $zero, .Lproc_7F0C4024_1E00
 /* 0F8BA0 7F0C4070 8C6E00D8 */  lw    $t6, 0xd8($v1)
-/* 0F8BA4 7F0C4074 0FC2B366 */  jal   microcodeconstructor
+/* 0F8BA4 7F0C4074 0FC2B366 */  jal   setup_rdpstate
 /* 0F8BA8 7F0C4078 AFA800D0 */  sw    $t0, 0xd0($sp)
 /* 0F8BAC 7F0C407C 8FAF00D0 */  lw    $t7, 0xd0($sp)
 /* 0F8BB0 7F0C4080 24010002 */  addiu $at, $zero, 2
@@ -223918,7 +223918,7 @@ proc_7F0C4024:
 .Lproc_7F0C4024_1F08:
 /* 0FAA5C 7F0C5F2C 0FC2D3ED */  jal   proc_7F0B4FB4
 /* 0FAA60 7F0C5F30 02202025 */  or    $a0, $s1, $zero
-/* 0FAA64 7F0C5F34 0FC2B366 */  jal   microcodeconstructor
+/* 0FAA64 7F0C5F34 0FC2B366 */  jal   setup_rdpstate
 /* 0FAA68 7F0C5F38 00402025 */  or    $a0, $v0, $zero
 /* 0FAA6C 7F0C5F3C 00408825 */  or    $s1, $v0, $zero
 /* 0FAA70 7F0C5F40 0FC30776 */  jal   retrieve_ptr_textv0_from_textidA0
@@ -224098,7 +224098,7 @@ proc_7F0C6090:
 /* 0FACCC 7F0C619C 24060002 */  addiu $a2, $zero, 2
 /* 0FACD0 7F0C61A0 0FC1DB5A */  jal   proc_7F076D68
 /* 0FACD4 7F0C61A4 00003825 */  or    $a3, $zero, $zero
-/* 0FACD8 7F0C61A8 0FC2B366 */  jal   microcodeconstructor
+/* 0FACD8 7F0C61A8 0FC2B366 */  jal   setup_rdpstate
 /* 0FACDC 7F0C61AC 8FA40088 */  lw    $a0, 0x88($sp)
 /* 0FACE0 7F0C61B0 244C0008 */  addiu $t4, $v0, 8
 /* 0FACE4 7F0C61B4 AFAC0088 */  sw    $t4, 0x88($sp)
