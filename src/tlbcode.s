@@ -255978,3 +255978,4 @@ spectrum_hw_emulation:
 /* 117874 7F0E2D44 A438E354 */  sh    $t8, %lo(0x8008E354)($at) # $t8, -0x1cac($at)
 # end spectrum_hw_emulation
 
+.include "src/tlbdata.s"
