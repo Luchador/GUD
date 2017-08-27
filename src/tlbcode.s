@@ -255979,3 +255979,5 @@ spectrum_hw_emulation:
 # end spectrum_hw_emulation
 
 .include "src/tlbdata.s"
+.include "src/tlbbss.s"
+
