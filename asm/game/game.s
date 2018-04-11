@@ -2,7 +2,7 @@
 .set noat      # allow manual use of $at
 .set noreorder # don't insert nops after branches
 
-.section .text7F000000, "ax"
+.section .text, "ax"
 
 func_7F000000:
 /* 034B30 7F000000 3C013F80 */  li    $at, 0x3F800000 # 0.000000
