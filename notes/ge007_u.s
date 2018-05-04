@@ -23,9 +23,9 @@
 .ascii "E"        # country
 .byte  0x00       # version
 
-boot:
-.incbin "bin/ge007_u.000040.boot.bin"
-boot_end:
+bootcode:
+.incbin "bin/ge007_u.000040.bootcode.bin"
+bootcode_end:
 
 .section .text80000400, "ax"
 
@@ -2242,22 +2242,22 @@ process_audio_packet:
 /* 002F28 80002328 000FC080 */  sll   $t8, $t7, 2
 /* 002F2C 8000232C 00F8C821 */  addu  $t9, $a3, $t8
 /* 002F30 80002330 8F280000 */  lw    $t0, ($t9)
-/* 002F34 80002334 3C058002 */  lui   $a1, %hi(D_80020D90) # $a1, 0x8002
-/* 002F38 80002338 3C188002 */  lui   $t8, %hi(D_80020E60) # $t8, 0x8002
+/* 002F34 80002334 3C058002 */  lui   $a1, %hi(rspbootTextStart) # $a1, 0x8002
+/* 002F38 80002338 3C188002 */  lui   $t8, %hi(gsp3DTextStart) # $t8, 0x8002
 /* 002F3C 8000233C AE080048 */  sw    $t0, 0x48($s0)
 /* 002F40 80002340 8CC90000 */  lw    $t1, ($a2)
-/* 002F44 80002344 24A50D90 */  addiu $a1, %lo(D_80020D90) # addiu $a1, $a1, 0xd90
-/* 002F48 80002348 27180E60 */  addiu $t8, %lo(D_80020E60) # addiu $t8, $t8, 0xe60
+/* 002F44 80002344 24A50D90 */  addiu $a1, %lo(rspbootTextStart) # addiu $a1, $a1, 0xd90
+/* 002F48 80002348 27180E60 */  addiu $t8, %lo(gsp3DTextStart) # addiu $t8, $t8, 0xe60
 /* 002F4C 8000234C 00095080 */  sll   $t2, $t1, 2
 /* 002F50 80002350 00EA5821 */  addu  $t3, $a3, $t2
 /* 002F54 80002354 8D6C0000 */  lw    $t4, ($t3)
-/* 002F58 80002358 3C088002 */  lui   $t0, %hi(D_80022280) # $t0, 0x8002
+/* 002F58 80002358 3C088002 */  lui   $t0, %hi(aspMainTextStart) # $t0, 0x8002
 /* 002F5C 8000235C 3C098006 */  lui   $t1, %hi(D_8005D020) # $t1, 0x8006
 /* 002F60 80002360 004C6823 */  subu  $t5, $v0, $t4
 /* 002F64 80002364 000D70C3 */  sra   $t6, $t5, 3
 /* 002F68 80002368 000E78C0 */  sll   $t7, $t6, 3
 /* 002F6C 8000236C 0305C823 */  subu  $t9, $t8, $a1
-/* 002F70 80002370 25082280 */  addiu $t0, %lo(D_80022280) # addiu $t0, $t0, 0x2280
+/* 002F70 80002370 25082280 */  addiu $t0, %lo(aspMainTextStart) # addiu $t0, $t0, 0x2280
 /* 002F74 80002374 2529D020 */  addiu $t1, %lo(D_8005D020) # addiu $t1, $t1, -0x2fe0
 /* 002F78 80002378 240A0800 */  li    $t2, 2048
 /* 002F7C 8000237C 3C048006 */  lui   $a0, %hi(D_8005DA40) # $a0, 0x8006
@@ -5518,7 +5518,7 @@ debug_related_8:
 /* 005DD8 800051D8 03E00008 */  jr    $ra
 /* 005DDC 800051DC 27BD0010 */   addiu $sp, $sp, 0x10
 
-was_opcode_within_70000450_70020D90:
+was_opcode_In_70000450_70020D90:
 /* 005DE0 800051E0 308E0003 */  andi  $t6, $a0, 3
 /* 005DE4 800051E4 15C00019 */  bnez  $t6, .L8000524C
 /* 005DE8 800051E8 3C0F7000 */   lui   $t7, %hi(KSEG_boot) # $t7, 0x7000
@@ -11434,7 +11434,7 @@ increment_random_num:
 /* 00B0A4 8000A4A4 03E00008 */  jr    $ra
 /* 00B0A8 8000A4A8 24040000 */   li    $a0, 0
 
-lotsa_shifting_random_related:
+lotsa_shifting_randomizer_related:
 /* 00B0AC 8000A4AC DC870000 */  ld    $a3, ($a0)
 /* 00B0B0 8000A4B0 000737FC */  dsll32 $a2, $a3, 0x1f
 /* 00B0B4 8000A4B4 00072FF8 */  dsll  $a1, $a3, 0x1f
@@ -36624,7 +36624,7 @@ alSeqNewMarker:
 /* 021450 80020850 03E00008 */  jr    $ra
 /* 021454 80020854 27BD0060 */   addiu $sp, $sp, 0x60
 
-alSeqSecToTicks::
+alSeqSecToTicks:
 /* 021458 80020858 44856000 */  mtc1  $a1, $f12
 /* 02145C 8002085C 3C018003 */  lui   $at, 0x8003
 /* 021460 80020860 D4269D50 */  ldc1  $f6, -0x62b0($at)
@@ -98061,7 +98061,7 @@ parse_handle_actionblocks:
 /* 06A0D8 7F0355A8 8C2E24F8 */  lw    $t6, 0x24f8($at)
 /* 06A0DC 7F0355AC 01C00008 */  jr    $t6
 /* 06A0E0 7F0355B0 00000000 */   nop   
-action00_Return_Value_Loop_2:
+action00_RVL_2:
 /* 06A0E4 7F0355B4 02C02025 */  move  $a0, $s6
 /* 06A0E8 7F0355B8 02402825 */  move  $a1, $s2
 /* 06A0EC 7F0355BC 0FC0D4BC */  jal   true_if_sucessfully_performing_action
@@ -98069,7 +98069,7 @@ action00_Return_Value_Loop_2:
 /* 06A0F4 7F0355C4 00409025 */  move  $s2, $v0
 /* 06A0F8 7F0355C8 1000FFF0 */  b     .L7F03558C
 /* 06A0FC 7F0355CC 02C28821 */   addu  $s1, $s6, $v0
-action01_Go_To_Beginning_Then_Return_Value_Loop_2:
+action01_Go_To_Beginning_Then_RVL_2:
 /* 06A100 7F0355D0 02C02025 */  move  $a0, $s6
 /* 06A104 7F0355D4 00002825 */  move  $a1, $zero
 /* 06A108 7F0355D8 0FC0D4BC */  jal   true_if_sucessfully_performing_action
@@ -98077,11 +98077,11 @@ action01_Go_To_Beginning_Then_Return_Value_Loop_2:
 /* 06A110 7F0355E0 00409025 */  move  $s2, $v0
 /* 06A114 7F0355E4 1000FFE9 */  b     .L7F03558C
 /* 06A118 7F0355E8 02C28821 */   addu  $s1, $s6, $v0
-action02_Resume_If_Return_Value_Loop_Met_2:
+action02_Resume_If_RVL_Met_2:
 /* 06A11C 7F0355EC 26520002 */  addiu $s2, $s2, 2
 /* 06A120 7F0355F0 1000FFE6 */  b     .L7F03558C
 /* 06A124 7F0355F4 26310002 */   addiu $s1, $s1, 2
-action03_Leave_The_Routine_But_When_Return_Continue_From_Spo¯Uaction05_Jump_To_Function_4:
+action03_Leave_The_Routine_When_Return_Continue_From_Spot_1:
 /* 06A128 7F0355F8 12E00004 */  beqz  $s7, .L7F03560C
 /* 06A12C 7F0355FC 26520001 */   addiu $s2, $s2, 1
 /* 06A130 7F035600 AEF60104 */  sw    $s6, 0x104($s7)
@@ -98272,7 +98272,7 @@ action0A_Animation_9:
 .L7F035894:
 /* 06A3C4 7F035894 1000FF3D */  b     .L7F03558C
 /* 06A3C8 7F035898 26310009 */   addiu $s1, $s1, 9
-action0B_If_Guard_Wasting_Time_Swatting_Flies_Return_Value_LúXaction0C_Guard_Gestures_1:
+action0B_If_Guard_WastingTime_SwatFlies_RVL_2:
 /* 06A3CC 7F03589C 82EB0007 */  lb    $t3, 7($s7)
 /* 06A3D0 7F0358A0 24010003 */  li    $at, 3
 /* 06A3D4 7F0358A4 02C02025 */  move  $a0, $s6
@@ -98299,7 +98299,7 @@ action0D_Guard_Looks_Around_When_Shot_At_1:
 /* 06A41C 7F0358EC 26520001 */  addiu $s2, $s2, 1
 /* 06A420 7F0358F0 1000FF26 */  b     .L7F03558C
 /* 06A424 7F0358F4 26310001 */   addiu $s1, $s1, 1
-action2F_When_Guard_Stops_Moving_Return_Value_Loop_2:
+action2F_When_Guard_Stops_Moving_RVL_2:
 /* 06A428 7F0358F8 0FC0A717 */  jal   check_if_actor_stationary
 /* 06A42C 7F0358FC 02E02025 */   move  $a0, $s7
 /* 06A430 7F035900 10400007 */  beqz  $v0, .L7F035920
@@ -98314,7 +98314,7 @@ action2F_When_Guard_Stops_Moving_Return_Value_Loop_2:
 /* 06A450 7F035920 26520002 */  addiu $s2, $s2, 2
 /* 06A454 7F035924 1000FF19 */  b     .L7F03558C
 /* 06A458 7F035928 26310002 */   addiu $s1, $s1, 2
-action30_Detect_If_Guard_Killed_Return_Value_Loop_If_So_3:
+action30_Detect_If_Guard_Killed_RVL_If_So_3:
 /* 06A45C 7F03592C 02E02025 */  move  $a0, $s7
 /* 06A460 7F035930 0FC0CC10 */  jal   get_handle_for_guard_id
 /* 06A464 7F035934 92250001 */   lbu   $a1, 1($s1)
@@ -98335,7 +98335,7 @@ action30_Detect_If_Guard_Killed_Return_Value_Loop_If_So_3:
 /* 06A498 7F035968 26520003 */  addiu $s2, $s2, 3
 /* 06A49C 7F03596C 1000FF07 */  b     .L7F03558C
 /* 06A4A0 7F035970 26310003 */   addiu $s1, $s1, 3
-action31_If_Guard_ID_Finished_Death_Animation_Return_Value_LtYaction32_If_Bond_In_Sight_Return_Value_Loop_2:
+action31_If_GuardID_Finish_DeathAnimation_RVL_3:
 /* 06A4A4 7F035974 02E02025 */  move  $a0, $s7
 /* 06A4A8 7F035978 0FC0CC10 */  jal   get_handle_for_guard_id
 /* 06A4AC 7F03597C 92250001 */   lbu   $a1, 1($s1)
@@ -98354,7 +98354,7 @@ action31_If_Guard_ID_Finished_Death_Animation_Return_Value_LtYaction32_If_Bond
 /* 06A4D8 7F0359A8 26520003 */  addiu $s2, $s2, 3
 /* 06A4DC 7F0359AC 1000FEF7 */  b     .L7F03558C
 /* 06A4E0 7F0359B0 26310003 */   addiu $s1, $s1, 3
-action32_If_Bond_In_Sight_Return_Value_Loop_2:
+action32_If_Bond_In_Sight_RVL_2:
 /* 06A4E4 7F0359B4 0FC0A75C */  jal   sub_GAME_7F029D70
 /* 06A4E8 7F0359B8 02E02025 */   move  $a0, $s7
 /* 06A4EC 7F0359BC 10400007 */  beqz  $v0, .L7F0359DC
@@ -98369,7 +98369,7 @@ action32_If_Bond_In_Sight_Return_Value_Loop_2:
 /* 06A50C 7F0359DC 26520002 */  addiu $s2, $s2, 2
 /* 06A510 7F0359E0 1000FEEA */  b     .L7F03558C
 /* 06A514 7F0359E4 26310002 */   addiu $s1, $s1, 2
-action0E_Guard_Steps_Sideways_Return_Value_Loop_2:
+action0E_Guard_Steps_Sideways_RVL_2:
 /* 06A518 7F0359E8 0FC0A8B2 */  jal   actor_steps_sideways
 /* 06A51C 7F0359EC 02E02025 */   move  $a0, $s7
 /* 06A520 7F0359F0 10400007 */  beqz  $v0, .L7F035A10
@@ -98384,7 +98384,7 @@ action0E_Guard_Steps_Sideways_Return_Value_Loop_2:
 /* 06A540 7F035A10 26520002 */  addiu $s2, $s2, 2
 /* 06A544 7F035A14 1000FEDD */  b     .L7F03558C
 /* 06A548 7F035A18 26310002 */   addiu $s1, $s1, 2
-action0F_Guard_Hops_Sideways_Return_Value_Loop_2:
+action0F_Guard_Hops_Sideways_RVL_2:
 /* 06A54C 7F035A1C 0FC0A90A */  jal   actor_hops_sideways
 /* 06A550 7F035A20 02E02025 */   move  $a0, $s7
 /* 06A554 7F035A24 10400007 */  beqz  $v0, .L7F035A44
@@ -98399,7 +98399,7 @@ action0F_Guard_Hops_Sideways_Return_Value_Loop_2:
 /* 06A574 7F035A44 26520002 */  addiu $s2, $s2, 2
 /* 06A578 7F035A48 1000FED0 */  b     .L7F03558C
 /* 06A57C 7F035A4C 26310002 */   addiu $s1, $s1, 2
-action10_Guard_Runs_Sideways_Return_Value_Loop_2:
+action10_Guard_Runs_Sideways_RVL_2:
 /* 06A580 7F035A50 0FC0A962 */  jal   actor_runs_sideways
 /* 06A584 7F035A54 02E02025 */   move  $a0, $s7
 /* 06A588 7F035A58 10400007 */  beqz  $v0, .L7F035A78
@@ -98414,7 +98414,7 @@ action10_Guard_Runs_Sideways_Return_Value_Loop_2:
 /* 06A5A8 7F035A78 26520002 */  addiu $s2, $s2, 2
 /* 06A5AC 7F035A7C 1000FEC3 */  b     .L7F03558C
 /* 06A5B0 7F035A80 26310002 */   addiu $s1, $s1, 2
-action11_Guard_Walks_Firing_Return_Value_Loop_2:
+action11_Guard_Walks_Firing_RVL_2:
 /* 06A5B4 7F035A84 0FC0A9C1 */  jal   actor_walks_and_fires
 /* 06A5B8 7F035A88 02E02025 */   move  $a0, $s7
 /* 06A5BC 7F035A8C 10400007 */  beqz  $v0, .L7F035AAC
@@ -98429,7 +98429,7 @@ action11_Guard_Walks_Firing_Return_Value_Loop_2:
 /* 06A5DC 7F035AAC 26520002 */  addiu $s2, $s2, 2
 /* 06A5E0 7F035AB0 1000FEB6 */  b     .L7F03558C
 /* 06A5E4 7F035AB4 26310002 */   addiu $s1, $s1, 2
-action12_Guard_Runs_Firing_Return_Value_Loop_2:
+action12_Guard_Runs_Firing_RVL_2:
 /* 06A5E8 7F035AB8 0FC0A9FE */  jal   actor_runs_and_fires
 /* 06A5EC 7F035ABC 02E02025 */   move  $a0, $s7
 /* 06A5F0 7F035AC0 10400007 */  beqz  $v0, .L7F035AE0
@@ -98444,7 +98444,7 @@ action12_Guard_Runs_Firing_Return_Value_Loop_2:
 /* 06A610 7F035AE0 26520002 */  addiu $s2, $s2, 2
 /* 06A614 7F035AE4 1000FEA9 */  b     .L7F03558C
 /* 06A618 7F035AE8 26310002 */   addiu $s1, $s1, 2
-action13_Guard_Rolls_On_Ground_Then_Fires_Crouched_Return_VaÏZaction14_Guard_Aims_Shoots_at_Bond_Guard_Pad_Return_Value_Lo [action15_Guard_Kneels_Aims_Shoots_at_Bond_Guard_Pad_Return_Vt[actionE7_If_Guard_Moving_And_Shooting_Return_Value_Loop_2:
+action13_Guard_Rolls_On_Ground_Then_Fires_Crouched_RVL_2:
 /* 06A61C 7F035AEC 0FC0AA3B */  jal   actor_rolls_fires_crouched
 /* 06A620 7F035AF0 02E02025 */   move  $a0, $s7
 /* 06A624 7F035AF4 10400007 */  beqz  $v0, .L7F035B14
@@ -98459,7 +98459,7 @@ action13_Guard_Rolls_On_Ground_Then_Fires_Crouched_Return_VaÏZaction14_Guard_A
 /* 06A644 7F035B14 26520002 */  addiu $s2, $s2, 2
 /* 06A648 7F035B18 1000FE9C */  b     .L7F03558C
 /* 06A64C 7F035B1C 26310002 */   addiu $s1, $s1, 2
-action14_Guard_Aims_Shoots_at_Bond_Guard_Pad_Return_Value_Lo [action15_Guard_Kneels_Aims_Shoots_at_Bond_Guard_Pad_Return_Vt[actionE7_If_Guard_Moving_And_Shooting_Return_Value_Loop_2:
+action14_Guard_Aims_Shoots_at_Bond_Guard_Pad_RVL_6:
 /* 06A650 7F035B20 922D0003 */  lbu   $t5, 3($s1)
 /* 06A654 7F035B24 92380001 */  lbu   $t8, 1($s1)
 /* 06A658 7F035B28 922F0004 */  lbu   $t7, 4($s1)
@@ -98482,7 +98482,7 @@ action14_Guard_Aims_Shoots_at_Bond_Guard_Pad_Return_Value_Lo [action15_Guard_K
 /* 06A698 7F035B68 26520006 */  addiu $s2, $s2, 6
 /* 06A69C 7F035B6C 1000FE87 */  b     .L7F03558C
 /* 06A6A0 7F035B70 26310006 */   addiu $s1, $s1, 6
-action15_Guard_Kneels_Aims_Shoots_at_Bond_Guard_Pad_Return_Vt[actionE7_If_Guard_Moving_And_Shooting_Return_Value_Loop_2:
+action15_Guard_Kneels_Aims_Shoots_at_Bond_Guard_Pad_RVL_6:
 /* 06A6A4 7F035B74 922A0003 */  lbu   $t2, 3($s1)
 /* 06A6A8 7F035B78 922D0001 */  lbu   $t5, 1($s1)
 /* 06A6AC 7F035B7C 922C0004 */  lbu   $t4, 4($s1)
@@ -98505,7 +98505,7 @@ action15_Guard_Kneels_Aims_Shoots_at_Bond_Guard_Pad_Return_Vt[actionE7_If_Guar
 /* 06A6EC 7F035BBC 26520006 */  addiu $s2, $s2, 6
 /* 06A6F0 7F035BC0 1000FE72 */  b     .L7F03558C
 /* 06A6F4 7F035BC4 26310006 */   addiu $s1, $s1, 6
-actionE7_If_Guard_Moving_And_Shooting_Return_Value_Loop_2:
+actionE7_If_Guard_Moving_And_Shooting_RVL_2:
 /* 06A6F8 7F035BC8 82F80007 */  lb    $t8, 7($s7)
 /* 06A6FC 7F035BCC 24010008 */  li    $at, 8
 /* 06A700 7F035BD0 57010010 */  bnel  $t8, $at, .L7F035C14
@@ -98528,7 +98528,7 @@ actionE7_If_Guard_Moving_And_Shooting_Return_Value_Loop_2:
 .L7F035C14:
 /* 06A744 7F035C14 1000FE5D */  b     .L7F03558C
 /* 06A748 7F035C18 26310002 */   addiu $s1, $s1, 2
-actionE8_If_Guard_Is_Shooting_Return_Value_Loop_2:
+actionE8_If_Guard_Is_Shooting_RVL_2:
 /* 06A74C 7F035C1C 82EB0007 */  lb    $t3, 7($s7)
 /* 06A750 7F035C20 24010008 */  li    $at, 8
 /* 06A754 7F035C24 02C02025 */  move  $a0, $s6
@@ -98543,7 +98543,7 @@ actionE8_If_Guard_Is_Shooting_Return_Value_Loop_2:
 /* 06A774 7F035C44 26520002 */  addiu $s2, $s2, 2
 /* 06A778 7F035C48 1000FE50 */  b     .L7F03558C
 /* 06A77C 7F035C4C 26310002 */   addiu $s1, $s1, 2
-action16_Guard_Shoots_Guards_Without_Animation_Change_ReturnP\action17_Guard_Constantly_Angles_To_Face_Return_Value_Loop_6§\action18_Shoot_Guard_ID_In_Style_With_Weapon_Type_num_4:
+action16_Guard_Shoots_Guards_Without_Animation_Change_RVL_6:
 /* 06A780 7F035C50 922C0003 */  lbu   $t4, 3($s1)
 /* 06A784 7F035C54 922F0001 */  lbu   $t7, 1($s1)
 /* 06A788 7F035C58 922E0004 */  lbu   $t6, 4($s1)
@@ -98566,7 +98566,7 @@ action16_Guard_Shoots_Guards_Without_Animation_Change_ReturnP\action17_Guard_C
 /* 06A7C8 7F035C98 26520006 */  addiu $s2, $s2, 6
 /* 06A7CC 7F035C9C 1000FE3B */  b     .L7F03558C
 /* 06A7D0 7F035CA0 26310006 */   addiu $s1, $s1, 6
-action17_Guard_Constantly_Angles_To_Face_Return_Value_Loop_6§\action18_Shoot_Guard_ID_In_Style_With_Weapon_Type_num_4:
+action17_Guard_Constantly_Angles_To_Face_RVL_6:
 /* 06A7D4 7F035CA4 92290003 */  lbu   $t1, 3($s1)
 /* 06A7D8 7F035CA8 922C0001 */  lbu   $t4, 1($s1)
 /* 06A7DC 7F035CAC 922B0004 */  lbu   $t3, 4($s1)
@@ -98692,7 +98692,7 @@ action19_Guard_ID1_Shoots_Guard_ID2_In_Style_4:
 .L7F035E70:
 /* 06A9A0 7F035E70 1000FDC6 */  b     .L7F03558C
 /* 06A9A4 7F035E74 26310004 */   addiu $s1, $s1, 4
-action1A_Guard_Throws_Grenade_Return_Value_Loop_2:
+action1A_Guard_Throws_Grenade_RVL_2:
 /* 06A9A8 7F035E78 0FC0D15F */  jal   actor_draws_throws_grenade_at_player_if_possible
 /* 06A9AC 7F035E7C 02E02025 */   move  $a0, $s7
 /* 06A9B0 7F035E80 10400007 */  beqz  $v0, .L7F035EA0
@@ -98707,7 +98707,7 @@ action1A_Guard_Throws_Grenade_Return_Value_Loop_2:
 /* 06A9D0 7F035EA0 26520002 */  addiu $s2, $s2, 2
 /* 06A9D4 7F035EA4 1000FDB9 */  b     .L7F03558C
 /* 06A9D8 7F035EA8 26310002 */   addiu $s1, $s1, 2
-action1B_Drop_Weapon_Inventory_num_Return_Value_Loop_5:
+action1B_Drop_Weapon_Inventory_num_RVL_5:
 /* 06A9DC 7F035EAC 922D0001 */  lbu   $t5, 1($s1)
 /* 06A9E0 7F035EB0 922F0002 */  lbu   $t7, 2($s1)
 /* 06A9E4 7F035EB4 02E02025 */  move  $a0, $s7
@@ -98755,7 +98755,7 @@ action23_Eliminate_Guard_ID_2:
 .L7F035F4C:
 /* 06AA7C 7F035F4C 1000FD8F */  b     .L7F03558C
 /* 06AA80 7F035F50 26310002 */   addiu $s1, $s1, 2
-action24_Activate_Object_At_Preset_Return_Value_Loop_If_SuccT_action25_Sound_Alarm_1:
+action24_Activate_Object_At_Preset_RVL_If_Successful_4:
 /* 06AA84 7F035F54 922C0001 */  lbu   $t4, 1($s1)
 /* 06AA88 7F035F58 922D0002 */  lbu   $t5, 2($s1)
 /* 06AA8C 7F035F5C 02E02025 */  move  $a0, $s7
@@ -98865,7 +98865,7 @@ action2B_Return_False_Invalid_Type_2:
 /* 06ABF8 7F0360C8 26520002 */  addiu $s2, $s2, 2
 /* 06ABFC 7F0360CC 1000FD2F */  b     .L7F03558C
 /* 06AC00 7F0360D0 26310002 */   addiu $s1, $s1, 2
-action2C_Jog_To_Character_Position_Return_Value_Loop_On_Arri‘`action2D_Walk_To_Character_Position_Return_Value_Loop_On_Arraaction2E_Run_To_Character_Position_Return_Value_Loop_On_ArriLaaction33_Seed_Random_Byte_1:
+action2C_Jog_To_Character_Position_RVL_On_Arrival_3:
 /* 06AC04 7F0360D4 02E02025 */  move  $a0, $s7
 /* 06AC08 7F0360D8 92250001 */  lbu   $a1, 1($s1)
 /* 06AC0C 7F0360DC 0FC0CD43 */  jal   actor_move_to_actorID_at_speed
@@ -98882,7 +98882,7 @@ action2C_Jog_To_Character_Position_Return_Value_Loop_On_Arri‘`action2D_Walk_To
 /* 06AC34 7F036104 26520003 */  addiu $s2, $s2, 3
 /* 06AC38 7F036108 1000FD20 */  b     .L7F03558C
 /* 06AC3C 7F03610C 26310003 */   addiu $s1, $s1, 3
-action2D_Walk_To_Character_Position_Return_Value_Loop_On_Arraaction2E_Run_To_Character_Position_Return_Value_Loop_On_ArriLaaction33_Seed_Random_Byte_1:
+action2D_Walk_To_Character_Position_RVL_On_Arrival_3:
 /* 06AC40 7F036110 02E02025 */  move  $a0, $s7
 /* 06AC44 7F036114 92250001 */  lbu   $a1, 1($s1)
 /* 06AC48 7F036118 0FC0CD43 */  jal   actor_move_to_actorID_at_speed
@@ -98899,7 +98899,7 @@ action2D_Walk_To_Character_Position_Return_Value_Loop_On_Arraaction2E_Run_To_
 /* 06AC70 7F036140 26520003 */  addiu $s2, $s2, 3
 /* 06AC74 7F036144 1000FD11 */  b     .L7F03558C
 /* 06AC78 7F036148 26310003 */   addiu $s1, $s1, 3
-action2E_Run_To_Character_Position_Return_Value_Loop_On_ArriLaaction33_Seed_Random_Byte_1:
+action2E_Run_To_Character_Position_RVL_On_Arrival_3:
 /* 06AC7C 7F03614C 02E02025 */  move  $a0, $s7
 /* 06AC80 7F036150 92250001 */  lbu   $a1, 1($s1)
 /* 06AC84 7F036154 0FC0CD43 */  jal   actor_move_to_actorID_at_speed
@@ -98923,7 +98923,7 @@ action33_Seed_Random_Byte_1:
 /* 06ACC4 7F036194 26520001 */  addiu $s2, $s2, 1
 /* 06ACC8 7F036198 1000FCFC */  b     .L7F03558C
 /* 06ACCC 7F03619C 26310001 */   addiu $s1, $s1, 1
-action34_If_Seeded_Byte_LessThan_Value_Go_Into_Return_Value_†aaction35_If_Seeded_Byte_GreaterThan_Value_Go_Into_Return_Val‹aaction1C_Guard_Jogs_To_Preset_3:
+action34_If_Seeded_Byte_LTV_Go_Into_RVL_3:
 /* 06ACD0 7F0361A0 92F8010F */  lbu   $t8, 0x10f($s7)
 /* 06ACD4 7F0361A4 92290001 */  lbu   $t1, 1($s1)
 /* 06ACD8 7F0361A8 02C02025 */  move  $a0, $s6
@@ -98940,7 +98940,7 @@ action34_If_Seeded_Byte_LessThan_Value_Go_Into_Return_Value_†aaction35_If_Seed
 .L7F0361D4:
 /* 06AD04 7F0361D4 1000FCED */  b     .L7F03558C
 /* 06AD08 7F0361D8 26310003 */   addiu $s1, $s1, 3
-action35_If_Seeded_Byte_GreaterThan_Value_Go_Into_Return_Val‹aaction1C_Guard_Jogs_To_Preset_3:
+action35_If_Seeded_Byte_GTV_Go_Into_RVL_3:
 /* 06AD0C 7F0361DC 922A0001 */  lbu   $t2, 1($s1)
 /* 06AD10 7F0361E0 92EB010F */  lbu   $t3, 0x10f($s7)
 /* 06AD14 7F0361E4 02C02025 */  move  $a0, $s6
@@ -99010,7 +99010,7 @@ action20_Activate_Path_2:
 /* 06ADFC 7F0362CC 26520002 */  addiu $s2, $s2, 2
 /* 06AE00 7F0362D0 1000FCAE */  b     .L7F03558C
 /* 06AE04 7F0362D4 26310002 */   addiu $s1, $s1, 2
-action36_If_Alarm_Activated_Return_Value_Loop_Plus_Stack_2:
+action36_If_Alarm_Activated_RVL_Plus_Stack_2:
 /* 06AE08 7F0362D8 0FC0CDD8 */  jal   alarm_timer_related
 /* 06AE0C 7F0362DC 02E02025 */   move  $a0, $s7
 /* 06AE10 7F0362E0 10400007 */  beqz  $v0, .L7F036300
@@ -99025,7 +99025,7 @@ action36_If_Alarm_Activated_Return_Value_Loop_Plus_Stack_2:
 /* 06AE30 7F036300 26520002 */  addiu $s2, $s2, 2
 /* 06AE34 7F036304 1000FCA1 */  b     .L7F03558C
 /* 06AE38 7F036308 26310002 */   addiu $s1, $s1, 2
-action37_If_Alarm_Activated_Return_Value_Loop_2:
+action37_If_Alarm_Activated_RVL_2:
 /* 06AE3C 7F03630C 0FC15794 */  jal   is_alarm_on
 /* 06AE40 7F036310 00000000 */   nop   
 /* 06AE44 7F036314 10400007 */  beqz  $v0, .L7F036334
@@ -99040,7 +99040,7 @@ action37_If_Alarm_Activated_Return_Value_Loop_2:
 /* 06AE64 7F036334 26520002 */  addiu $s2, $s2, 2
 /* 06AE68 7F036338 1000FC94 */  b     .L7F03558C
 /* 06AE6C 7F03633C 26310002 */   addiu $s1, $s1, 2
-action38_If_Toxic_Gas_Released_Return_Value_Loop_2:
+action38_If_Toxic_Gas_Released_RVL_2:
 /* 06AE70 7F036340 0FC157CE */  jal   check_if_toxic_gas_activated
 /* 06AE74 7F036344 00000000 */   nop   
 /* 06AE78 7F036348 10400007 */  beqz  $v0, .L7F036368
@@ -99055,7 +99055,7 @@ action38_If_Toxic_Gas_Released_Return_Value_Loop_2:
 /* 06AE98 7F036368 26520002 */  addiu $s2, $s2, 2
 /* 06AE9C 7F03636C 1000FC87 */  b     .L7F03558C
 /* 06AEA0 7F036370 26310002 */   addiu $s1, $s1, 2
-action39_If_Guard_Heard_Gunfire_Return_Value_Loop_2:
+action39_If_Guard_Heard_Gunfire_RVL_2:
 /* 06AEA4 7F036374 0FC0CCD5 */  jal   check_if_actor_02_flag_set
 /* 06AEA8 7F036378 02E02025 */   move  $a0, $s7
 /* 06AEAC 7F03637C 10400007 */  beqz  $v0, .L7F03639C
@@ -99070,7 +99070,7 @@ action39_If_Guard_Heard_Gunfire_Return_Value_Loop_2:
 /* 06AECC 7F03639C 26520002 */  addiu $s2, $s2, 2
 /* 06AED0 7F0363A0 1000FC7A */  b     .L7F03558C
 /* 06AED4 7F0363A4 26310002 */   addiu $s1, $s1, 2
-action3A_If_Bond_Shoots_Another_Guard_Return_Value_Loop_2:
+action3A_If_Bond_Shoots_Another_Guard_RVL_2:
 /* 06AED8 7F0363A8 0FC0CD6D */  jal   check_if_actor_FA_target_set
 /* 06AEDC 7F0363AC 02E02025 */   move  $a0, $s7
 /* 06AEE0 7F0363B0 10400007 */  beqz  $v0, .L7F0363D0
@@ -99085,7 +99085,7 @@ action3A_If_Bond_Shoots_Another_Guard_Return_Value_Loop_2:
 /* 06AF00 7F0363D0 26520002 */  addiu $s2, $s2, 2
 /* 06AF04 7F0363D4 1000FC6D */  b     .L7F03558C
 /* 06AF08 7F0363D8 26310002 */   addiu $s1, $s1, 2
-action3B_If_Guard_Killed_In_Front_Of_Guard_Return_Value_Loop‹caction3C_If_Guard_Within_Firing_Range_Return_Value_Loop_2:
+action3B_If_Guard_Killed_In_Front_Of_Guard_RVL_2:
 /* 06AF0C 7F0363DC 0FC0CD71 */  jal   check_if_actor_FB_target_set
 /* 06AF10 7F0363E0 02E02025 */   move  $a0, $s7
 /* 06AF14 7F0363E4 10400007 */  beqz  $v0, .L7F036404
@@ -99100,7 +99100,7 @@ action3B_If_Guard_Killed_In_Front_Of_Guard_Return_Value_Loop‹caction3C_If_Guar
 /* 06AF34 7F036404 26520002 */  addiu $s2, $s2, 2
 /* 06AF38 7F036408 1000FC60 */  b     .L7F03558C
 /* 06AF3C 7F03640C 26310002 */   addiu $s1, $s1, 2
-action3C_If_Guard_Within_Firing_Range_Return_Value_Loop_2:
+action3C_If_Guard_In_Firing_Range_RVL_2:
 /* 06AF40 7F036410 0FC0A52F */  jal   sub_GAME_7F0294BC
 /* 06AF44 7F036414 02E02025 */   move  $a0, $s7
 /* 06AF48 7F036418 10400007 */  beqz  $v0, .L7F036438
@@ -99130,7 +99130,7 @@ action3D___Unused___Unknown___2:
 /* 06AF9C 7F03646C 26520002 */  addiu $s2, $s2, 2
 /* 06AFA0 7F036470 1000FC46 */  b     .L7F03558C
 /* 06AFA4 7F036474 26310002 */   addiu $s1, $s1, 2
-action3E_If_Shot_Current_Guard_Return_Value_Loop_2:
+action3E_If_Shot_Current_Guard_RVL_2:
 /* 06AFA8 7F036478 0FC0CADA */  jal   sub_GAME_7F032B68
 /* 06AFAC 7F03647C 02E02025 */   move  $a0, $s7
 /* 06AFB0 7F036480 10400007 */  beqz  $v0, .L7F0364A0
@@ -99145,7 +99145,7 @@ action3E_If_Shot_Current_Guard_Return_Value_Loop_2:
 /* 06AFD0 7F0364A0 26520002 */  addiu $s2, $s2, 2
 /* 06AFD4 7F0364A4 1000FC39 */  b     .L7F03558C
 /* 06AFD8 7F0364A8 26310002 */   addiu $s1, $s1, 2
-action3F_If_Heard_Bond_Return_Value_Loop_2:
+action3F_If_Heard_Bond_RVL_2:
 /* 06AFDC 7F0364AC 0FC0CAE8 */  jal   sub_GAME_7F032BA0
 /* 06AFE0 7F0364B0 02E02025 */   move  $a0, $s7
 /* 06AFE4 7F0364B4 10400007 */  beqz  $v0, .L7F0364D4
@@ -99160,7 +99160,7 @@ action3F_If_Heard_Bond_Return_Value_Loop_2:
 /* 06B004 7F0364D4 26520002 */  addiu $s2, $s2, 2
 /* 06B008 7F0364D8 1000FC2C */  b     .L7F03558C
 /* 06B00C 7F0364DC 26310002 */   addiu $s1, $s1, 2
-action40_If_Another_Guard_In_Same_Room_As_Guard_ID_Return_Va‡daction41_If_Guard_Has_Been_On_Screen_Return_Value_Loop_2:
+action40_If_Another_Guard_In_Same_Room_As_Guard_ID_RVL_3:
 /* 06B010 7F0364E0 02E02025 */  move  $a0, $s7
 /* 06B014 7F0364E4 0FC0CC10 */  jal   get_handle_for_guard_id
 /* 06B018 7F0364E8 92250001 */   lbu   $a1, 1($s1)
@@ -99187,7 +99187,7 @@ action40_If_Another_Guard_In_Same_Room_As_Guard_ID_Return_Va‡daction41_If_Guar
 .L7F036538:
 /* 06B068 7F036538 1000FC14 */  b     .L7F03558C
 /* 06B06C 7F03653C 26310003 */   addiu $s1, $s1, 3
-action41_If_Guard_Has_Been_On_Screen_Return_Value_Loop_2:
+action41_If_Guard_Has_Been_On_Screen_RVL_2:
 /* 06B070 7F036540 8EEF0014 */  lw    $t7, 0x14($s7)
 /* 06B074 7F036544 02C02025 */  move  $a0, $s6
 /* 06B078 7F036548 02402825 */  move  $a1, $s2
@@ -99203,7 +99203,7 @@ action41_If_Guard_Has_Been_On_Screen_Return_Value_Loop_2:
 .L7F036570:
 /* 06B0A0 7F036570 1000FC06 */  b     .L7F03558C
 /* 06B0A4 7F036574 26310002 */   addiu $s1, $s1, 2
-action42_If_Current_Guard_On_Screen_In_Loaded_Room_Return_Vaxeaction43_If_Guard_In_A_Room_Currently_Loaded_Return_Value_Lo¥eaction44_If_Room_Containing_Preset_Is_Loaded_Return_Value_LoÙeaction45_Go_To_Return_Value_Loop_If_Bond_Has_Guard_At_Gunpoi<faction46_If_Fired_A_Shot_Return_Value_Loop_2:
+action42_If_Current_Guard_On_Screen_In_Loaded_Room_RVL_2:
 /* 06B0A8 7F036578 8EE90018 */  lw    $t1, 0x18($s7)
 /* 06B0AC 7F03657C 02C02025 */  move  $a0, $s6
 /* 06B0B0 7F036580 02402825 */  move  $a1, $s2
@@ -99220,7 +99220,7 @@ action42_If_Current_Guard_On_Screen_In_Loaded_Room_Return_Vaxeaction43_If_Guar
 .L7F0365AC:
 /* 06B0DC 7F0365AC 1000FBF7 */  b     .L7F03558C
 /* 06B0E0 7F0365B0 26310002 */   addiu $s1, $s1, 2
-action43_If_Guard_In_A_Room_Currently_Loaded_Return_Value_Lo¥eaction44_If_Room_Containing_Preset_Is_Loaded_Return_Value_LoÙeaction45_Go_To_Return_Value_Loop_If_Bond_Has_Guard_At_Gunpoi<faction46_If_Fired_A_Shot_Return_Value_Loop_2:
+action43_If_Guard_In_A_Room_Currently_Loaded_RVL_2:
 /* 06B0E4 7F0365B4 8EEC0018 */  lw    $t4, 0x18($s7)
 /* 06B0E8 7F0365B8 0FC2CBF6 */  jal   sub_GAME_7F0B2FD8
 /* 06B0EC 7F0365BC 8D840014 */   lw    $a0, 0x14($t4)
@@ -99238,7 +99238,7 @@ action43_If_Guard_In_A_Room_Currently_Loaded_Return_Value_Lo¥eaction44_If_Room
 /* 06B118 7F0365E8 26520002 */  addiu $s2, $s2, 2
 /* 06B11C 7F0365EC 1000FBE7 */  b     .L7F03558C
 /* 06B120 7F0365F0 26310002 */   addiu $s1, $s1, 2
-action44_If_Room_Containing_Preset_Is_Loaded_Return_Value_LoÙeaction45_Go_To_Return_Value_Loop_If_Bond_Has_Guard_At_Gunpoi<faction46_If_Fired_A_Shot_Return_Value_Loop_2:
+action44_If_Room_Containing_Preset_Is_Loaded_RVL_4:
 /* 06B124 7F0365F4 92390001 */  lbu   $t9, 1($s1)
 /* 06B128 7F0365F8 922E0002 */  lbu   $t6, 2($s1)
 /* 06B12C 7F0365FC 02E02025 */  move  $a0, $s7
@@ -99258,7 +99258,7 @@ action44_If_Room_Containing_Preset_Is_Loaded_Return_Value_LoÙeaction45_Go_To_R
 /* 06B160 7F036630 26520004 */  addiu $s2, $s2, 4
 /* 06B164 7F036634 1000FBD5 */  b     .L7F03558C
 /* 06B168 7F036638 26310004 */   addiu $s1, $s1, 4
-action45_Go_To_Return_Value_Loop_If_Bond_Has_Guard_At_Gunpoi<faction46_If_Fired_A_Shot_Return_Value_Loop_2:
+action45_Go_To_RVL_If_Bond_Has_Guard_At_Gunpoint_2:
 /* 06B16C 7F03663C 0FC0CCFE */  jal   sub_GAME_7F0333F8
 /* 06B170 7F036640 02E02025 */   move  $a0, $s7
 /* 06B174 7F036644 10400007 */  beqz  $v0, .L7F036664
@@ -99273,7 +99273,7 @@ action45_Go_To_Return_Value_Loop_If_Bond_Has_Guard_At_Gunpoi<faction46_If_Fire
 /* 06B194 7F036664 26520002 */  addiu $s2, $s2, 2
 /* 06B198 7F036668 1000FBC8 */  b     .L7F03558C
 /* 06B19C 7F03666C 26310002 */   addiu $s1, $s1, 2
-action46_If_Fired_A_Shot_Return_Value_Loop_2:
+action46_If_Fired_A_Shot_RVL_2:
 /* 06B1A0 7F036670 0FC0CD24 */  jal   check_if_actor_invisible
 /* 06B1A4 7F036674 02E02025 */   move  $a0, $s7
 /* 06B1A8 7F036678 10400007 */  beqz  $v0, .L7F036698
@@ -99288,7 +99288,7 @@ action46_If_Fired_A_Shot_Return_Value_Loop_2:
 /* 06B1C8 7F036698 26520002 */  addiu $s2, $s2, 2
 /* 06B1CC 7F03669C 1000FBBB */  b     .L7F03558C
 /* 06B1D0 7F0366A0 26310002 */   addiu $s1, $s1, 2
-action47_If_Distance_Between_Bond_And_Guard_LessThan_Value_R§faction48_If_Distance_Between_Bond_And_Guard_GreaterThan_Valugaction49_Test_if_Actor_and_Player_CCW_Angle_Less_Than_Value_ågaction4A_Test_if_Actor_and_Player_CCW_Angle_Greater_Than_Val:
+action47_If_Distance_Between_Bond_And_Guard_LTV_RVL_3:
 /* 06B1D4 7F0366A4 0FC0CB13 */  jal   sub_GAME_7F032C4C
 /* 06B1D8 7F0366A8 02E02025 */   move  $a0, $s7
 /* 06B1DC 7F0366AC 92380001 */  lbu   $t8, 1($s1)
@@ -99320,7 +99320,7 @@ action47_If_Distance_Between_Bond_And_Guard_LessThan_Value_R§faction48_If_Dist
 .L7F036710:
 /* 06B240 7F036710 1000FB9E */  b     .L7F03558C
 /* 06B244 7F036714 26310003 */   addiu $s1, $s1, 3
-action48_If_Distance_Between_Bond_And_Guard_GreaterThan_Valugaction49_Test_if_Actor_and_Player_CCW_Angle_Less_Than_Value_ågaction4A_Test_if_Actor_and_Player_CCW_Angle_Greater_Than_Val:
+action48_If_Distance_Between_Bond_And_Guard_GTV_RVL_3:
 /* 06B248 7F036718 0FC0CB13 */  jal   sub_GAME_7F032C4C
 /* 06B24C 7F03671C 02E02025 */   move  $a0, $s7
 /* 06B250 7F036720 92290001 */  lbu   $t1, 1($s1)
@@ -99352,7 +99352,7 @@ action48_If_Distance_Between_Bond_And_Guard_GreaterThan_Valugaction49_Test_if
 .L7F036784:
 /* 06B2B4 7F036784 1000FB81 */  b     .L7F03558C
 /* 06B2B8 7F036788 26310003 */   addiu $s1, $s1, 3
-action49_Test_if_Actor_and_Player_CCW_Angle_Less_Than_Value_ågaction4A_Test_if_Actor_and_Player_CCW_Angle_Greater_Than_Val:
+action49_Test_if_Actor_and_Player_CCWAngle_LTV_RVL_Unused_3:
 /* 06B2BC 7F03678C 0FC0CB5C */  jal   get_angle_between_actor_cur_player
 /* 06B2C0 7F036790 02E02025 */   move  $a0, $s7
 /* 06B2C4 7F036794 922A0001 */  lbu   $t2, 1($s1)
@@ -99384,7 +99384,7 @@ action49_Test_if_Actor_and_Player_CCW_Angle_Less_Than_Value_ågaction4A_Test_if
 .L7F0367F8:
 /* 06B328 7F0367F8 1000FB64 */  b     .L7F03558C
 /* 06B32C 7F0367FC 26310003 */   addiu $s1, $s1, 3
-action4A_Test_if_Actor_and_Player_CCW_Angle_Greater_Than_Val:
+action4A_Test_if_Actor_and_Player_CCWAngle_GTV_RVL_Unused_3:
 /* 06B330 7F036800 0FC0CB5C */  jal   get_angle_between_actor_cur_player
 /* 06B334 7F036804 02E02025 */   move  $a0, $s7
 /* 06B338 7F036808 922B0001 */  lbu   $t3, 1($s1)
@@ -99416,7 +99416,7 @@ action4A_Test_if_Actor_and_Player_CCW_Angle_Greater_Than_Val:
 .L7F03686C:
 /* 06B39C 7F03686C 1000FB47 */  b     .L7F03558C
 /* 06B3A0 7F036870 26310003 */   addiu $s1, $s1, 3
-action4B_Return_Value_Loop_If_Within_Proximity_Of_Bond_4:
+action4B_RVL_If_In_Proximity_Of_Bond_4:
 /* 06B3A4 7F036874 922C0001 */  lbu   $t4, 1($s1)
 /* 06B3A8 7F036878 922D0002 */  lbu   $t5, 2($s1)
 /* 06B3AC 7F03687C 02E02025 */  move  $a0, $s7
@@ -99444,7 +99444,7 @@ action4B_Return_Value_Loop_If_Within_Proximity_Of_Bond_4:
 .L7F0368D4:
 /* 06B404 7F0368D4 1000FB2D */  b     .L7F03558C
 /* 06B408 7F0368D8 26310004 */   addiu $s1, $s1, 4
-action4C_Return_Value_Loop_If_Not_Within_Proximity_Of_Bond_4‹haction4D_When_Guard_Within_Proximity_Of_Preset_Return_Value_Diaction4E_When_Guard_Not_Within_Proximity_Of_Preset_Return_Va‘iaction4F_If_Current_Guard_Is_Within_Units_Of_Guard_ID_Returndjaction50_If_Current_Guard_Is_Not_Within_Units_Of_Guard_ID_Re–jaction51_Set_Closest_Guard_Within_Units_As_Guard_ID_FC_Then_<kaction52_Go_Into_Return_Value_Loop_If_Within_Units_Of_Presetòkaction53_Go_Into_Return_Value_Loop_If_Not_Within_Units_Of_Prlaction54_Go_Into_Return_Value_Loop_If_Guard_Is_At_Preset_5:
+action4C_RVL_If_Not_In_Proximity_Of_Bond_4:
 /* 06B40C 7F0368DC 922F0001 */  lbu   $t7, 1($s1)
 /* 06B410 7F0368E0 92290002 */  lbu   $t1, 2($s1)
 /* 06B414 7F0368E4 02E02025 */  move  $a0, $s7
@@ -99472,7 +99472,7 @@ action4C_Return_Value_Loop_If_Not_Within_Proximity_Of_Bond_4‹haction4D_When_Gu
 .L7F03693C:
 /* 06B46C 7F03693C 1000FB13 */  b     .L7F03558C
 /* 06B470 7F036940 26310004 */   addiu $s1, $s1, 4
-action4D_When_Guard_Within_Proximity_Of_Preset_Return_Value_Diaction4E_When_Guard_Not_Within_Proximity_Of_Preset_Return_Va‘iaction4F_If_Current_Guard_Is_Within_Units_Of_Guard_ID_Returndjaction50_If_Current_Guard_Is_Not_Within_Units_Of_Guard_ID_Re–jaction51_Set_Closest_Guard_Within_Units_As_Guard_ID_FC_Then_<kaction52_Go_Into_Return_Value_Loop_If_Within_Units_Of_Presetòkaction53_Go_Into_Return_Value_Loop_If_Not_Within_Units_Of_Prlaction54_Go_Into_Return_Value_Loop_If_Guard_Is_At_Preset_5:
+action4D_When_Guard_In_Proximity_Of_Preset_RVL_7:
 /* 06B474 7F036944 02E02025 */  move  $a0, $s7
 /* 06B478 7F036948 0FC0CC10 */  jal   get_handle_for_guard_id
 /* 06B47C 7F03694C 92250001 */   lbu   $a1, 1($s1)
@@ -99510,7 +99510,7 @@ action4D_When_Guard_Within_Proximity_Of_Preset_Return_Value_Diaction4E_When_Gu
 .L7F0369CC:
 /* 06B4FC 7F0369CC 1000FAEF */  b     .L7F03558C
 /* 06B500 7F0369D0 26310007 */   addiu $s1, $s1, 7
-action4E_When_Guard_Not_Within_Proximity_Of_Preset_Return_Va‘iaction4F_If_Current_Guard_Is_Within_Units_Of_Guard_ID_Returndjaction50_If_Current_Guard_Is_Not_Within_Units_Of_Guard_ID_Re–jaction51_Set_Closest_Guard_Within_Units_As_Guard_ID_FC_Then_<kaction52_Go_Into_Return_Value_Loop_If_Within_Units_Of_Presetòkaction53_Go_Into_Return_Value_Loop_If_Not_Within_Units_Of_Prlaction54_Go_Into_Return_Value_Loop_If_Guard_Is_At_Preset_5:
+action4E_When_Guard_Not_In_Proximity_Of_Preset_RVL_7:
 /* 06B504 7F0369D4 02E02025 */  move  $a0, $s7
 /* 06B508 7F0369D8 0FC0CC10 */  jal   get_handle_for_guard_id
 /* 06B50C 7F0369DC 92250001 */   lbu   $a1, 1($s1)
@@ -99548,7 +99548,7 @@ action4E_When_Guard_Not_Within_Proximity_Of_Preset_Return_Va‘iaction4F_If_Curr
 .L7F036A5C:
 /* 06B58C 7F036A5C 1000FACB */  b     .L7F03558C
 /* 06B590 7F036A60 26310007 */   addiu $s1, $s1, 7
-action4F_If_Current_Guard_Is_Within_Units_Of_Guard_ID_Returndjaction50_If_Current_Guard_Is_Not_Within_Units_Of_Guard_ID_Re–jaction51_Set_Closest_Guard_Within_Units_As_Guard_ID_FC_Then_<kaction52_Go_Into_Return_Value_Loop_If_Within_Units_Of_Presetòkaction53_Go_Into_Return_Value_Loop_If_Not_Within_Units_Of_Prlaction54_Go_Into_Return_Value_Loop_If_Guard_Is_At_Preset_5:
+action4F_If_Current_Guard_Is_In_Units_Of_Guard_ID_RVL_5:
 /* 06B594 7F036A64 92290001 */  lbu   $t1, 1($s1)
 /* 06B598 7F036A68 922B0002 */  lbu   $t3, 2($s1)
 /* 06B59C 7F036A6C 02E02025 */  move  $a0, $s7
@@ -99577,7 +99577,7 @@ action4F_If_Current_Guard_Is_Within_Units_Of_Guard_ID_Returndjaction50_If_Curr
 .L7F036AC8:
 /* 06B5F8 7F036AC8 1000FAB0 */  b     .L7F03558C
 /* 06B5FC 7F036ACC 26310005 */   addiu $s1, $s1, 5
-action50_If_Current_Guard_Is_Not_Within_Units_Of_Guard_ID_Re–jaction51_Set_Closest_Guard_Within_Units_As_Guard_ID_FC_Then_<kaction52_Go_Into_Return_Value_Loop_If_Within_Units_Of_Presetòkaction53_Go_Into_Return_Value_Loop_If_Not_Within_Units_Of_Prlaction54_Go_Into_Return_Value_Loop_If_Guard_Is_At_Preset_5:
+action50_If_Current_Guard_Is_Not_In_Units_Of_Guard_ID_RVL_5:
 /* 06B600 7F036AD0 92390001 */  lbu   $t9, 1($s1)
 /* 06B604 7F036AD4 922E0002 */  lbu   $t6, 2($s1)
 /* 06B608 7F036AD8 02E02025 */  move  $a0, $s7
@@ -99606,7 +99606,7 @@ action50_If_Current_Guard_Is_Not_Within_Units_Of_Guard_ID_Re–jaction51_Set_Clo
 .L7F036B34:
 /* 06B664 7F036B34 1000FA95 */  b     .L7F03558C
 /* 06B668 7F036B38 26310005 */   addiu $s1, $s1, 5
-action51_Set_Closest_Guard_Within_Units_As_Guard_ID_FC_Then_<kaction52_Go_Into_Return_Value_Loop_If_Within_Units_Of_Presetòkaction53_Go_Into_Return_Value_Loop_If_Not_Within_Units_Of_Prlaction54_Go_Into_Return_Value_Loop_If_Guard_Is_At_Preset_5:
+action51_SetClosestGuardUnitsGuardID_Then_RVL_IfSuccess_4:
 /* 06B66C 7F036B3C 92380001 */  lbu   $t8, 1($s1)
 /* 06B670 7F036B40 922A0002 */  lbu   $t2, 2($s1)
 /* 06B674 7F036B44 02E02025 */  move  $a0, $s7
@@ -99631,7 +99631,7 @@ action51_Set_Closest_Guard_Within_Units_As_Guard_ID_FC_Then_<kaction52_Go_Into
 /* 06B6BC 7F036B8C 26520004 */  addiu $s2, $s2, 4
 /* 06B6C0 7F036B90 1000FA7E */  b     .L7F03558C
 /* 06B6C4 7F036B94 26310004 */   addiu $s1, $s1, 4
-action52_Go_Into_Return_Value_Loop_If_Within_Units_Of_Presetòkaction53_Go_Into_Return_Value_Loop_If_Not_Within_Units_Of_Prlaction54_Go_Into_Return_Value_Loop_If_Guard_Is_At_Preset_5:
+action52_GoIntoRVLIf_In_Units_Of_Preset_6:
 /* 06B6C8 7F036B98 922F0001 */  lbu   $t7, 1($s1)
 /* 06B6CC 7F036B9C 92290002 */  lbu   $t1, 2($s1)
 /* 06B6D0 7F036BA0 922C0003 */  lbu   $t4, 3($s1)
@@ -99663,7 +99663,7 @@ action52_Go_Into_Return_Value_Loop_If_Within_Units_Of_Presetòkaction53_Go_Into
 .L7F036C08:
 /* 06B738 7F036C08 1000FA60 */  b     .L7F03558C
 /* 06B73C 7F036C0C 26310006 */   addiu $s1, $s1, 6
-action53_Go_Into_Return_Value_Loop_If_Not_Within_Units_Of_Prlaction54_Go_Into_Return_Value_Loop_If_Guard_Is_At_Preset_5:
+action53_GoIntoRVLIf_Not_In_Units_Of_Preset_6:
 /* 06B740 7F036C10 922E0001 */  lbu   $t6, 1($s1)
 /* 06B744 7F036C14 92380002 */  lbu   $t8, 2($s1)
 /* 06B748 7F036C18 922B0003 */  lbu   $t3, 3($s1)
@@ -99695,7 +99695,7 @@ action53_Go_Into_Return_Value_Loop_If_Not_Within_Units_Of_Prlaction54_Go_Into
 .L7F036C80:
 /* 06B7B0 7F036C80 1000FA42 */  b     .L7F03558C
 /* 06B7B4 7F036C84 26310006 */   addiu $s1, $s1, 6
-action54_Go_Into_Return_Value_Loop_If_Guard_Is_At_Preset_5:
+action54_GoIntoRVLIf_Guard_Is_At_Preset_5:
 /* 06B7B8 7F036C88 922A0002 */  lbu   $t2, 2($s1)
 /* 06B7BC 7F036C8C 922C0003 */  lbu   $t4, 3($s1)
 /* 06B7C0 7F036C90 02E02025 */  move  $a0, $s7
@@ -99716,7 +99716,7 @@ action54_Go_Into_Return_Value_Loop_If_Guard_Is_At_Preset_5:
 /* 06B7F8 7F036CC8 26520005 */  addiu $s2, $s2, 5
 /* 06B7FC 7F036CCC 1000FA2F */  b     .L7F03558C
 /* 06B800 7F036CD0 26310005 */   addiu $s1, $s1, 5
-action55_Go_Into_Return_Value_Loop_If_Entered_Room_with_Pres‘laction56_Go_Into_Return_Value_Loop_If_16_Object_num_Collectemaction57_Go_Into_Return_Value_Loop_If_Specified_Weapon_Deposlmaction58_Go_Into_Return_Value_Loop_If_Specified_Weapon_Depos†maction59_Go_Into_Return_Value_Loop_If_Specified_Weapon_Is_Ou,naction5A_Go_Into_Return_Value_Loop_If_Type_16_Object_num_Loaxnaction5B_Go_Into_Return_Value_Loop_If_16_Object_num_Not_Destºnaction5C_Go_Into_Return_Value_Loop_If_16_Object_num_Activateoaction5D_Go_Into_Return_Value_Loop_If_Gadget_Used_On_16_Objepoaction5E_16_Object_Activates_2:
+action55_GoIntoRVLIf_Entered_Room_with_Preset_4:
 /* 06B804 7F036CD4 922D0001 */  lbu   $t5, 1($s1)
 /* 06B808 7F036CD8 922F0002 */  lbu   $t7, 2($s1)
 /* 06B80C 7F036CDC 02E02025 */  move  $a0, $s7
@@ -99736,7 +99736,7 @@ action55_Go_Into_Return_Value_Loop_If_Entered_Room_with_Pres‘laction56_Go_Into
 /* 06B840 7F036D10 26520004 */  addiu $s2, $s2, 4
 /* 06B844 7F036D14 1000FA1D */  b     .L7F03558C
 /* 06B848 7F036D18 26310004 */   addiu $s1, $s1, 4
-action56_Go_Into_Return_Value_Loop_If_16_Object_num_Collectemaction57_Go_Into_Return_Value_Loop_If_Specified_Weapon_Deposlmaction58_Go_Into_Return_Value_Loop_If_Specified_Weapon_Depos†maction59_Go_Into_Return_Value_Loop_If_Specified_Weapon_Is_Ou,naction5A_Go_Into_Return_Value_Loop_If_Type_16_Object_num_Loaxnaction5B_Go_Into_Return_Value_Loop_If_16_Object_num_Not_Destºnaction5C_Go_Into_Return_Value_Loop_If_16_Object_num_Activateoaction5D_Go_Into_Return_Value_Loop_If_Gadget_Used_On_16_Objepoaction5E_16_Object_Activates_2:
+action56_GoIntoRVLIf_16_Object_num_Collected_3:
 /* 06B84C 7F036D1C 0FC15C30 */  jal   get_handle_to_tagged_object
 /* 06B850 7F036D20 92240001 */   lbu   $a0, 1($s1)
 /* 06B854 7F036D24 5040000F */  beql  $v0, $zero, .L7F036D64
@@ -99759,7 +99759,7 @@ action56_Go_Into_Return_Value_Loop_If_16_Object_num_Collectemaction57_Go_Into
 .L7F036D64:
 /* 06B894 7F036D64 1000FA09 */  b     .L7F03558C
 /* 06B898 7F036D68 26310003 */   addiu $s1, $s1, 3
-action57_Go_Into_Return_Value_Loop_If_Specified_Weapon_Deposlmaction58_Go_Into_Return_Value_Loop_If_Specified_Weapon_Depos†maction59_Go_Into_Return_Value_Loop_If_Specified_Weapon_Is_Ou,naction5A_Go_Into_Return_Value_Loop_If_Type_16_Object_num_Loaxnaction5B_Go_Into_Return_Value_Loop_If_16_Object_num_Not_Destºnaction5C_Go_Into_Return_Value_Loop_If_16_Object_num_Activateoaction5D_Go_Into_Return_Value_Loop_If_Gadget_Used_On_16_Objepoaction5E_16_Object_Activates_2:
+action57_GoIntoRVLIf_Specified_Weapon_Deposited_3:
 /* 06B89C 7F036D6C 0FC146BB */  jal   check_if_item_deposited
 /* 06B8A0 7F036D70 92240001 */   lbu   $a0, 1($s1)
 /* 06B8A4 7F036D74 10400007 */  beqz  $v0, .L7F036D94
@@ -99774,7 +99774,7 @@ action57_Go_Into_Return_Value_Loop_If_Specified_Weapon_Deposlmaction58_Go_Into
 /* 06B8C4 7F036D94 26520003 */  addiu $s2, $s2, 3
 /* 06B8C8 7F036D98 1000F9FC */  b     .L7F03558C
 /* 06B8CC 7F036D9C 26310003 */   addiu $s1, $s1, 3
-action58_Go_Into_Return_Value_Loop_If_Specified_Weapon_Depos†maction59_Go_Into_Return_Value_Loop_If_Specified_Weapon_Is_Ou,naction5A_Go_Into_Return_Value_Loop_If_Type_16_Object_num_Loaxnaction5B_Go_Into_Return_Value_Loop_If_16_Object_num_Not_Destºnaction5C_Go_Into_Return_Value_Loop_If_16_Object_num_Activateoaction5D_Go_Into_Return_Value_Loop_If_Gadget_Used_On_16_Objepoaction5E_16_Object_Activates_2:
+action58_GoIntoRVLIf_SpecifiedWeaponDeposited_On16Object_4:
 /* 06B8D0 7F036DA0 92240002 */  lbu   $a0, 2($s1)
 /* 06B8D4 7F036DA4 0FC15C30 */  jal   get_handle_to_tagged_object
 /* 06B8D8 7F036DA8 00008025 */   move  $s0, $zero
@@ -99814,7 +99814,7 @@ action58_Go_Into_Return_Value_Loop_If_Specified_Weapon_Depos†maction59_Go_Into
 /* 06B950 7F036E20 26520004 */  addiu $s2, $s2, 4
 /* 06B954 7F036E24 1000F9D9 */  b     .L7F03558C
 /* 06B958 7F036E28 26310004 */   addiu $s1, $s1, 4
-action59_Go_Into_Return_Value_Loop_If_Specified_Weapon_Is_Ou,naction5A_Go_Into_Return_Value_Loop_If_Type_16_Object_num_Loaxnaction5B_Go_Into_Return_Value_Loop_If_16_Object_num_Not_Destºnaction5C_Go_Into_Return_Value_Loop_If_16_Object_num_Activateoaction5D_Go_Into_Return_Value_Loop_If_Gadget_Used_On_16_Objepoaction5E_16_Object_Activates_2:
+action59_GoIntoRVLIf_Specified_Weapon_Is_Out_3:
 /* 06B95C 7F036E2C 0FC17674 */  jal   get_item_in_hand
 /* 06B960 7F036E30 00002025 */   move  $a0, $zero
 /* 06B964 7F036E34 92390001 */  lbu   $t9, 1($s1)
@@ -99836,7 +99836,7 @@ action59_Go_Into_Return_Value_Loop_If_Specified_Weapon_Is_Ou,naction5A_Go_Into
 /* 06B99C 7F036E6C 26520003 */  addiu $s2, $s2, 3
 /* 06B9A0 7F036E70 1000F9C6 */  b     .L7F03558C
 /* 06B9A4 7F036E74 26310003 */   addiu $s1, $s1, 3
-action5A_Go_Into_Return_Value_Loop_If_Type_16_Object_num_Loaxnaction5B_Go_Into_Return_Value_Loop_If_16_Object_num_Not_Destºnaction5C_Go_Into_Return_Value_Loop_If_16_Object_num_Activateoaction5D_Go_Into_Return_Value_Loop_If_Gadget_Used_On_16_Objepoaction5E_16_Object_Activates_2:
+action5A_GoIntoRVLIf_Type_16_Object_num_Loaded_3:
 /* 06B9A8 7F036E78 0FC15C30 */  jal   get_handle_to_tagged_object
 /* 06B9AC 7F036E7C 92240001 */   lbu   $a0, 1($s1)
 /* 06B9B0 7F036E80 5040000C */  beql  $v0, $zero, .L7F036EB4
@@ -99855,7 +99855,7 @@ action5A_Go_Into_Return_Value_Loop_If_Type_16_Object_num_Loaxnaction5B_Go_Into
 .L7F036EB4:
 /* 06B9E4 7F036EB4 1000F9B5 */  b     .L7F03558C
 /* 06B9E8 7F036EB8 26310003 */   addiu $s1, $s1, 3
-action5B_Go_Into_Return_Value_Loop_If_16_Object_num_Not_Destºnaction5C_Go_Into_Return_Value_Loop_If_16_Object_num_Activateoaction5D_Go_Into_Return_Value_Loop_If_Gadget_Used_On_16_Objepoaction5E_16_Object_Activates_2:
+action5B_GoIntoRVLIf_16_Object_num_Not_Destroyed_3:
 /* 06B9EC 7F036EBC 0FC15C30 */  jal   get_handle_to_tagged_object
 /* 06B9F0 7F036EC0 92240001 */   lbu   $a0, 1($s1)
 /* 06B9F4 7F036EC4 1040000E */  beqz  $v0, .L7F036F00
@@ -99878,7 +99878,7 @@ action5B_Go_Into_Return_Value_Loop_If_16_Object_num_Not_Destºnaction5C_Go_Into
 .L7F036F04:
 /* 06BA34 7F036F04 1000F9A1 */  b     .L7F03558C
 /* 06BA38 7F036F08 26310003 */   addiu $s1, $s1, 3
-action5C_Go_Into_Return_Value_Loop_If_16_Object_num_Activateoaction5D_Go_Into_Return_Value_Loop_If_Gadget_Used_On_16_Objepoaction5E_16_Object_Activates_2:
+action5C_GoIntoRVLIf_16_Object_num_Activated_3:
 /* 06BA3C 7F036F0C 0FC15C30 */  jal   get_handle_to_tagged_object
 /* 06BA40 7F036F10 92240001 */   lbu   $a0, 1($s1)
 /* 06BA44 7F036F14 50400014 */  beql  $v0, $zero, .L7F036F68
@@ -99905,7 +99905,7 @@ action5C_Go_Into_Return_Value_Loop_If_16_Object_num_Activateoaction5D_Go_Into
 .L7F036F68:
 /* 06BA98 7F036F68 1000F988 */  b     .L7F03558C
 /* 06BA9C 7F036F6C 26310003 */   addiu $s1, $s1, 3
-action5D_Go_Into_Return_Value_Loop_If_Gadget_Used_On_16_Objepoaction5E_16_Object_Activates_2:
+action5D_GoIntoRVLIf_Gadget_Used_On_16_Object_num_3:
 /* 06BAA0 7F036F70 0FC15C30 */  jal   get_handle_to_tagged_object
 /* 06BAA4 7F036F74 92240001 */   lbu   $a0, 1($s1)
 /* 06BAA8 7F036F78 50400013 */  beql  $v0, $zero, .L7F036FC8
@@ -100255,7 +100255,7 @@ action67_Close_Door_2:
 .L7F03743C:
 /* 06BF6C 7F03743C 1000F853 */  b     .L7F03558C
 /* 06BF70 7F037440 26310002 */   addiu $s1, $s1, 2
-action68_Check_Door_Status_Return_Value_Loop_If_Met_4:
+action68_Check_Door_Status_RVL_If_Met_4:
 /* 06BF74 7F037444 92240001 */  lbu   $a0, 1($s1)
 /* 06BF78 7F037448 0FC15C30 */  jal   get_handle_to_tagged_object
 /* 06BF7C 7F03744C 00008025 */   move  $s0, $zero
@@ -100315,7 +100315,7 @@ action68_Check_Door_Status_Return_Value_Loop_If_Met_4:
 /* 06C03C 7F03750C 26520004 */  addiu $s2, $s2, 4
 /* 06C040 7F037510 1000F81E */  b     .L7F03558C
 /* 06C044 7F037514 26310004 */   addiu $s1, $s1, 4
-action69_If_16_Object_Is_Valid_Door_Return_Value_Loop_3:
+action69_If_16_Object_Is_Valid_Door_RVL_3:
 /* 06C048 7F037518 0FC15C30 */  jal   get_handle_to_tagged_object
 /* 06C04C 7F03751C 92240001 */   lbu   $a0, 1($s1)
 /* 06C050 7F037520 50400014 */  beql  $v0, $zero, .L7F037574
@@ -100381,7 +100381,7 @@ action6B_Unset_Bits_To_Lock_On_Type_16_Door_3:
 .L7F037600:
 /* 06C130 7F037600 1000F7E2 */  b     .L7F03558C
 /* 06C134 7F037604 26310003 */   addiu $s1, $s1, 3
-action6C_If_Tagged_Locked_Door_16_Objects_Toggled_Return_Valvaction6D_If_Objective_num_Complete_Return_Value_Loop_3:
+action6C_If_Tagged_Locked_Door_16_Objects_Toggled_RVL_4:
 /* 06C138 7F037608 92240001 */  lbu   $a0, 1($s1)
 /* 06C13C 7F03760C 0FC15C30 */  jal   get_handle_to_tagged_object
 /* 06C140 7F037610 00008025 */   move  $s0, $zero
@@ -100412,7 +100412,7 @@ action6C_If_Tagged_Locked_Door_16_Objects_Toggled_Return_Valvaction6D_If_Obje
 /* 06C19C 7F03766C 26520004 */  addiu $s2, $s2, 4
 /* 06C1A0 7F037670 1000F7C6 */  b     .L7F03558C
 /* 06C1A4 7F037674 26310004 */   addiu $s1, $s1, 4
-action6D_If_Objective_num_Complete_Return_Value_Loop_3:
+action6D_If_Objective_num_Complete_RVL_3:
 /* 06C1A8 7F037678 0FC15C6A */  jal   add_objective
 /* 06C1AC 7F03767C 00000000 */   nop   
 /* 06C1B0 7F037680 92250001 */  lbu   $a1, 1($s1)
@@ -100435,7 +100435,7 @@ action6D_If_Objective_num_Complete_Return_Value_Loop_3:
 .L7F0376C0:
 /* 06C1F0 7F0376C0 1000F7B2 */  b     .L7F03558C
 /* 06C1F4 7F0376C4 26310003 */   addiu $s1, $s1, 3
-action6E_If_Guard_2328_Preset_Return_Value_Loop_3:
+action6E_If_Guard_2328_Preset_RVL_3:
 /* 06C1F8 7F0376C8 02E02025 */  move  $a0, $s7
 /* 06C1FC 7F0376CC 0FC0CE66 */  jal   check_2328_preset_set_with_method
 /* 06C200 7F0376D0 92250001 */   lbu   $a1, 1($s1)
@@ -100451,7 +100451,7 @@ action6E_If_Guard_2328_Preset_Return_Value_Loop_3:
 /* 06C224 7F0376F4 26520003 */  addiu $s2, $s2, 3
 /* 06C228 7F0376F8 1000F7A4 */  b     .L7F03558C
 /* 06C22C 7F0376FC 26310003 */   addiu $s1, $s1, 3
-action6F_If_Guard_2328_Preset_Set_Return_Value_Loop_3:
+action6F_If_Guard_2328_Preset_Set_RVL_3:
 /* 06C230 7F037700 02E02025 */  move  $a0, $s7
 /* 06C234 7F037704 0FC0CEAB */  jal   sub_GAME_7F033AAC
 /* 06C238 7F037708 92250001 */   lbu   $a1, 1($s1)
@@ -100467,7 +100467,7 @@ action6F_If_Guard_2328_Preset_Set_Return_Value_Loop_3:
 /* 06C25C 7F03772C 26520003 */  addiu $s2, $s2, 3
 /* 06C260 7F037730 1000F796 */  b     .L7F03558C
 /* 06C264 7F037734 26310003 */   addiu $s1, $s1, 3
-action78_Go_To_Return_Value_Loop_If_Guard_Shot_LessThan_Amou8waction79_Go_To_Return_Value_Loop_If_Guard_Shot_GreaterThan_Axwaction7A_Go_To_Return_Value_Loop_If_Number_Near-Miss_Gunshot∏waction7B_Go_To_Return_Value_Loop_If_Number_Near-Miss_Gunshot¯waction7C_If_Guard_Health_Below_Value_Return_Value_Loop_4:
+action78_Go_To_RVL_If_Guard_Shot_LTV_3:
 /* 06C268 7F037738 0FC0CD69 */  jal   get_times_actor_shot
 /* 06C26C 7F03773C 02E02025 */   move  $a0, $s7
 /* 06C270 7F037740 922E0001 */  lbu   $t6, 1($s1)
@@ -100485,7 +100485,7 @@ action78_Go_To_Return_Value_Loop_If_Guard_Shot_LessThan_Amou8waction79_Go_To_R
 .L7F037770:
 /* 06C2A0 7F037770 1000F786 */  b     .L7F03558C
 /* 06C2A4 7F037774 26310003 */   addiu $s1, $s1, 3
-action79_Go_To_Return_Value_Loop_If_Guard_Shot_GreaterThan_Axwaction7A_Go_To_Return_Value_Loop_If_Number_Near-Miss_Gunshot∏waction7B_Go_To_Return_Value_Loop_If_Number_Near-Miss_Gunshot¯waction7C_If_Guard_Health_Below_Value_Return_Value_Loop_4:
+action79_Go_To_RVL_If_Guard_Shot_GTV_3:
 /* 06C2A8 7F037778 0FC0CD69 */  jal   get_times_actor_shot
 /* 06C2AC 7F03777C 02E02025 */   move  $a0, $s7
 /* 06C2B0 7F037780 922F0001 */  lbu   $t7, 1($s1)
@@ -100503,7 +100503,7 @@ action79_Go_To_Return_Value_Loop_If_Guard_Shot_GreaterThan_Axwaction7A_Go_To_R
 .L7F0377B0:
 /* 06C2E0 7F0377B0 1000F776 */  b     .L7F03558C
 /* 06C2E4 7F0377B4 26310003 */   addiu $s1, $s1, 3
-action7A_Go_To_Return_Value_Loop_If_Number_Near-Miss_Gunshot∏waction7B_Go_To_Return_Value_Loop_If_Number_Near-Miss_Gunshot¯waction7C_If_Guard_Health_Below_Value_Return_Value_Loop_4:
+action7A_Go_To_RVL_If_Number_Near_Miss_Gunshots_LTV_3:
 /* 06C2E8 7F0377B8 0FC0CD6B */  jal   get_num_shots_near_actor
 /* 06C2EC 7F0377BC 02E02025 */   move  $a0, $s7
 /* 06C2F0 7F0377C0 92380001 */  lbu   $t8, 1($s1)
@@ -100521,7 +100521,7 @@ action7A_Go_To_Return_Value_Loop_If_Number_Near-Miss_Gunshot∏waction7B_Go_To_R
 .L7F0377F0:
 /* 06C320 7F0377F0 1000F766 */  b     .L7F03558C
 /* 06C324 7F0377F4 26310003 */   addiu $s1, $s1, 3
-action7B_Go_To_Return_Value_Loop_If_Number_Near-Miss_Gunshot¯waction7C_If_Guard_Health_Below_Value_Return_Value_Loop_4:
+action7B_Go_To_RVL_If_Number_Near_Miss_Gunshots_GTV_3:
 /* 06C328 7F0377F8 0FC0CD6B */  jal   get_num_shots_near_actor
 /* 06C32C 7F0377FC 02E02025 */   move  $a0, $s7
 /* 06C330 7F037800 92290001 */  lbu   $t1, 1($s1)
@@ -100539,7 +100539,7 @@ action7B_Go_To_Return_Value_Loop_If_Number_Near-Miss_Gunshot¯waction7C_If_Guar
 .L7F037830:
 /* 06C360 7F037830 1000F756 */  b     .L7F03558C
 /* 06C364 7F037834 26310003 */   addiu $s1, $s1, 3
-action7C_If_Guard_Health_Below_Value_Return_Value_Loop_4:
+action7C_If_Guard_Health_Below_Value_RVL_4:
 /* 06C368 7F037838 922A0002 */  lbu   $t2, 2($s1)
 /* 06C36C 7F03783C 3C014F80 */  li    $at, 0x4F800000 # 4294967296.000000
 /* 06C370 7F037840 448A2000 */  mtc1  $t2, $f4
@@ -100577,7 +100577,7 @@ action7C_If_Guard_Health_Below_Value_Return_Value_Loop_4:
 .L7F0378BC:
 /* 06C3EC 7F0378BC 1000F733 */  b     .L7F03558C
 /* 06C3F0 7F0378C0 26310004 */   addiu $s1, $s1, 4
-action7D_If_Guard_Health_Above_Value_Return_Value_Loop_4:
+action7D_If_Guard_Health_Above_Value_RVL_4:
 /* 06C3F4 7F0378C4 922B0002 */  lbu   $t3, 2($s1)
 /* 06C3F8 7F0378C8 3C014F80 */  li    $at, 0x4F800000 # 4294967296.000000
 /* 06C3FC 7F0378CC 448B5000 */  mtc1  $t3, $f10
@@ -100615,7 +100615,7 @@ action7D_If_Guard_Health_Above_Value_Return_Value_Loop_4:
 .L7F037948:
 /* 06C478 7F037948 1000F710 */  b     .L7F03558C
 /* 06C47C 7F03794C 26310004 */   addiu $s1, $s1, 4
-action7E_If_Guard_nums_Bitflag_01000000_Set_Return_Value_LooPyaction7F_If_Health_Below_Value_Return_Value_Loop_3:
+action7E_If_Guard_nums_Bitflag_01000000_Set_RVL_3:
 /* 06C480 7F037950 02E02025 */  move  $a0, $s7
 /* 06C484 7F037954 0FC0CC10 */  jal   get_handle_for_guard_id
 /* 06C488 7F037958 92250001 */   lbu   $a1, 1($s1)
@@ -100640,7 +100640,7 @@ action7E_If_Guard_nums_Bitflag_01000000_Set_Return_Value_LooPyaction7F_If_Heal
 .L7F0379A4:
 /* 06C4D4 7F0379A4 1000F6F9 */  b     .L7F03558C
 /* 06C4D8 7F0379A8 26310003 */   addiu $s1, $s1, 3
-action7F_If_Health_Below_Value_Return_Value_Loop_3:
+action7F_If_Health_Below_Value_RVL_3:
 /* 06C4DC 7F0379AC 922F0001 */  lbu   $t7, 1($s1)
 /* 06C4E0 7F0379B0 3C014F80 */  li    $at, 0x4F800000 # 4294967296.000000
 /* 06C4E4 7F0379B4 448F2000 */  mtc1  $t7, $f4
@@ -100672,7 +100672,7 @@ action7F_If_Health_Below_Value_Return_Value_Loop_3:
 .L7F037A18:
 /* 06C548 7F037A18 1000F6DC */  b     .L7F03558C
 /* 06C54C 7F037A1C 26310003 */   addiu $s1, $s1, 3
-action80_If_Health_Above_Value_Return_Value_Loop_3:
+action80_If_Health_Above_Value_RVL_3:
 /* 06C550 7F037A20 92380001 */  lbu   $t8, 1($s1)
 /* 06C554 7F037A24 3C014F80 */  li    $at, 0x4F800000 # 4294967296.000000
 /* 06C558 7F037A28 44982000 */  mtc1  $t8, $f4
@@ -100704,7 +100704,7 @@ action80_If_Health_Above_Value_Return_Value_Loop_3:
 .L7F037A8C:
 /* 06C5BC 7F037A8C 1000F6BF */  b     .L7F03558C
 /* 06C5C0 7F037A90 26310003 */   addiu $s1, $s1, 3
-action70_Go_Into_Return_Value_Loop_Difficulty_LessThan_Valueîzaction71_Go_Into_Return_Value_Loop_If_Difficulty_GreaterThan‘zaction72_Go_To_Return_Value_Loop_If_Time_LessThan_Value_4:
+action70_Go_Into_RVL_Difficulty_LTV_3:
 /* 06C5C4 7F037A94 0FC2FF04 */  jal   get_current_difficulty
 /* 06C5C8 7F037A98 00000000 */   nop   
 /* 06C5CC 7F037A9C 92290001 */  lbu   $t1, 1($s1)
@@ -100722,7 +100722,7 @@ action70_Go_Into_Return_Value_Loop_Difficulty_LessThan_Valueîzaction71_Go_Into
 .L7F037ACC:
 /* 06C5FC 7F037ACC 1000F6AF */  b     .L7F03558C
 /* 06C600 7F037AD0 26310003 */   addiu $s1, $s1, 3
-action71_Go_Into_Return_Value_Loop_If_Difficulty_GreaterThan‘zaction72_Go_To_Return_Value_Loop_If_Time_LessThan_Value_4:
+action71_GoIntoRVLIf_Difficulty_GTV_3:
 /* 06C604 7F037AD4 0FC2FF04 */  jal   get_current_difficulty
 /* 06C608 7F037AD8 00000000 */   nop   
 /* 06C60C 7F037ADC 922A0001 */  lbu   $t2, 1($s1)
@@ -100740,7 +100740,7 @@ action71_Go_Into_Return_Value_Loop_If_Difficulty_GreaterThan‘zaction72_Go_To_R
 .L7F037B0C:
 /* 06C63C 7F037B0C 1000F69F */  b     .L7F03558C
 /* 06C640 7F037B10 26310003 */   addiu $s1, $s1, 3
-action72_Go_To_Return_Value_Loop_If_Time_LessThan_Value_4:
+action72_Go_To_RVL_If_Time_LTV_4:
 /* 06C644 7F037B14 922B0001 */  lbu   $t3, 1($s1)
 /* 06C648 7F037B18 92390002 */  lbu   $t9, 2($s1)
 /* 06C64C 7F037B1C 000B6200 */  sll   $t4, $t3, 8
@@ -100766,7 +100766,7 @@ action72_Go_To_Return_Value_Loop_If_Time_LessThan_Value_4:
 .L7F037B6C:
 /* 06C69C 7F037B6C 1000F687 */  b     .L7F03558C
 /* 06C6A0 7F037B70 26310004 */   addiu $s1, $s1, 4
-action73_Go_To_Return_Value_Loop_If_Time_GreaterThan_Value_4t{action74_Go_To_Return_Value_Loop_If_Power_On_Time_LessThan_V‘{action75_Go_To_Return_Value_Loop_If_Power_On_Time_GreaterTha8|action76_Go_To_Return_Value_Loop_If_Stage_Number_LessThan_Vaú|action77_Go_To_Return_Value_Loop_If_Stage_Number_GreaterThan‹|action81_Set_User_Byte_num1_2:
+action73_Go_To_RVL_If_Time_GTV_4:
 /* 06C6A4 7F037B74 922E0001 */  lbu   $t6, 1($s1)
 /* 06C6A8 7F037B78 92380002 */  lbu   $t8, 2($s1)
 /* 06C6AC 7F037B7C 000E7A00 */  sll   $t7, $t6, 8
@@ -100792,7 +100792,7 @@ action73_Go_To_Return_Value_Loop_If_Time_GreaterThan_Value_4t{action74_Go_To_R
 .L7F037BCC:
 /* 06C6FC 7F037BCC 1000F66F */  b     .L7F03558C
 /* 06C700 7F037BD0 26310004 */   addiu $s1, $s1, 4
-action74_Go_To_Return_Value_Loop_If_Power_On_Time_LessThan_V‘{action75_Go_To_Return_Value_Loop_If_Power_On_Time_GreaterTha8|action76_Go_To_Return_Value_Loop_If_Stage_Number_LessThan_Vaú|action77_Go_To_Return_Value_Loop_If_Stage_Number_GreaterThan‹|action81_Set_User_Byte_num1_2:
+action74_Go_To_RVL_If_Power_On_Time_LTV_4:
 /* 06C704 7F037BD4 922A0001 */  lbu   $t2, 1($s1)
 /* 06C708 7F037BD8 922C0002 */  lbu   $t4, 2($s1)
 /* 06C70C 7F037BDC 000A5A00 */  sll   $t3, $t2, 8
@@ -100819,7 +100819,7 @@ action74_Go_To_Return_Value_Loop_If_Power_On_Time_LessThan_V‘{action75_Go_To_R
 .L7F037C30:
 /* 06C760 7F037C30 1000F656 */  b     .L7F03558C
 /* 06C764 7F037C34 26310004 */   addiu $s1, $s1, 4
-action75_Go_To_Return_Value_Loop_If_Power_On_Time_GreaterTha8|action76_Go_To_Return_Value_Loop_If_Stage_Number_LessThan_Vaú|action77_Go_To_Return_Value_Loop_If_Stage_Number_GreaterThan‹|action81_Set_User_Byte_num1_2:
+action75_Go_To_RVL_If_Power_On_Time_GTV_4:
 /* 06C768 7F037C38 922D0001 */  lbu   $t5, 1($s1)
 /* 06C76C 7F037C3C 922F0002 */  lbu   $t7, 2($s1)
 /* 06C770 7F037C40 000D7200 */  sll   $t6, $t5, 8
@@ -100846,7 +100846,7 @@ action75_Go_To_Return_Value_Loop_If_Power_On_Time_GreaterTha8|action76_Go_To_R
 .L7F037C94:
 /* 06C7C4 7F037C94 1000F63D */  b     .L7F03558C
 /* 06C7C8 7F037C98 26310004 */   addiu $s1, $s1, 4
-action76_Go_To_Return_Value_Loop_If_Stage_Number_LessThan_Vaú|action77_Go_To_Return_Value_Loop_If_Stage_Number_GreaterThan‹|action81_Set_User_Byte_num1_2:
+action76_Go_To_RVL_If_Stage_Number_LTV_3:
 /* 06C7CC 7F037C9C 0C001A57 */  jal   func_7000695C
 /* 06C7D0 7F037CA0 00000000 */   nop   
 /* 06C7D4 7F037CA4 92290001 */  lbu   $t1, 1($s1)
@@ -100864,7 +100864,7 @@ action76_Go_To_Return_Value_Loop_If_Stage_Number_LessThan_Vaú|action77_Go_To_R
 .L7F037CD4:
 /* 06C804 7F037CD4 1000F62D */  b     .L7F03558C
 /* 06C808 7F037CD8 26310003 */   addiu $s1, $s1, 3
-action77_Go_To_Return_Value_Loop_If_Stage_Number_GreaterThan‹|action81_Set_User_Byte_num1_2:
+action77_Go_To_RVL_If_Stage_Number_GTV_3:
 /* 06C80C 7F037CDC 0C001A57 */  jal   func_7000695C
 /* 06C810 7F037CE0 00000000 */   nop   
 /* 06C814 7F037CE4 922A0001 */  lbu   $t2, 1($s1)
@@ -100921,7 +100921,7 @@ action83_Subtract_Value_To_User_Byte_num1_Min_To_0_2:
 /* 06C8C8 7F037D98 26520002 */  addiu $s2, $s2, 2
 /* 06C8CC 7F037D9C 1000F5FB */  b     .L7F03558C
 /* 06C8D0 7F037DA0 26310002 */   addiu $s1, $s1, 2
-action84_If_Value_GreaterThan_User_Byte_num1_Return_Value_Lo§}action85_If_User_Byte_num1_LessThan_Random_Value_Return_Valu‡}action86_Set_User_Byte_num2_2:
+action84_If_Value_GreaterThan_User_Byte_num1_RVL_3:
 /* 06C8D4 7F037DA4 92F8010C */  lbu   $t8, 0x10c($s7)
 /* 06C8D8 7F037DA8 92290001 */  lbu   $t1, 1($s1)
 /* 06C8DC 7F037DAC 02C02025 */  move  $a0, $s6
@@ -100938,7 +100938,7 @@ action84_If_Value_GreaterThan_User_Byte_num1_Return_Value_Lo§}action85_If_User
 .L7F037DD8:
 /* 06C908 7F037DD8 1000F5EC */  b     .L7F03558C
 /* 06C90C 7F037DDC 26310003 */   addiu $s1, $s1, 3
-action85_If_User_Byte_num1_LessThan_Random_Value_Return_Valu‡}action86_Set_User_Byte_num2_2:
+action85_If_User_Byte_num1_LessThan_Random_Value_RVL_2:
 /* 06C910 7F037DE0 92EA010C */  lbu   $t2, 0x10c($s7)
 /* 06C914 7F037DE4 92EB010F */  lbu   $t3, 0x10f($s7)
 /* 06C918 7F037DE8 02C02025 */  move  $a0, $s6
@@ -100994,7 +100994,7 @@ action88_Subtract_Value_To_User_Byte_num2_Min_To_0_2:
 /* 06C9C8 7F037E98 26520002 */  addiu $s2, $s2, 2
 /* 06C9CC 7F037E9C 1000F5BB */  b     .L7F03558C
 /* 06C9D0 7F037EA0 26310002 */   addiu $s1, $s1, 2
-action89_If_Value_GreaterThan_User_Byte_num2_Return_Value_Lo§~action8A_If_User_Byte_num2_LessThan_Random_Value_Return_Valu‡~action8B_Set_Guard_Hearing_Distance_3:
+action89_If_Value_GreaterThan_User_Byte_num2_RVL_3:
 /* 06C9D4 7F037EA4 92E9010D */  lbu   $t1, 0x10d($s7)
 /* 06C9D8 7F037EA8 922A0001 */  lbu   $t2, 1($s1)
 /* 06C9DC 7F037EAC 02C02025 */  move  $a0, $s6
@@ -101011,7 +101011,7 @@ action89_If_Value_GreaterThan_User_Byte_num2_Return_Value_Lo§~action8A_If_User
 .L7F037ED8:
 /* 06CA08 7F037ED8 1000F5AC */  b     .L7F03558C
 /* 06CA0C 7F037EDC 26310003 */   addiu $s1, $s1, 3
-action8A_If_User_Byte_num2_LessThan_Random_Value_Return_Valu‡~action8B_Set_Guard_Hearing_Distance_3:
+action8A_If_User_Byte_num2_LessThan_Random_Value_RVL_2:
 /* 06CA10 7F037EE0 92EB010D */  lbu   $t3, 0x10d($s7)
 /* 06CA14 7F037EE4 92EC010F */  lbu   $t4, 0x10f($s7)
 /* 06CA18 7F037EE8 02C02025 */  move  $a0, $s6
@@ -101134,7 +101134,7 @@ action95_Unmask_Guard_Type_With_Value_2:
 /* 06CBB8 7F038088 26520002 */  addiu $s2, $s2, 2
 /* 06CBBC 7F03808C 1000F53F */  b     .L7F03558C
 /* 06CBC0 7F038090 26310002 */   addiu $s1, $s1, 2
-action96_If_Guard_Type_Value_Is_Set_Return_Value_Loop_3:
+action96_If_Guard_Type_Value_Is_Set_RVL_3:
 /* 06CBC4 7F038094 02E02025 */  move  $a0, $s7
 /* 06CBC8 7F038098 0FC0CC91 */  jal   sub_GAME_7F033244
 /* 06CBCC 7F03809C 92250001 */   lbu   $a1, 1($s1)
@@ -101166,7 +101166,7 @@ action98_Unmask_Guard_Type_Flags_With_Value_3:
 /* 06CC28 7F0380F8 26520003 */  addiu $s2, $s2, 3
 /* 06CC2C 7F0380FC 1000F523 */  b     .L7F03558C
 /* 06CC30 7F038100 26310003 */   addiu $s1, $s1, 3
-action99_If_Guard_Type_Flags_Set_Return_Value_Loop_4:
+action99_If_Guard_Type_Flags_Set_RVL_4:
 /* 06CC34 7F038104 02E02025 */  move  $a0, $s7
 /* 06CC38 7F038108 92250001 */  lbu   $a1, 1($s1)
 /* 06CC3C 7F03810C 0FC0CCB0 */  jal   sub_GAME_7F0332C0
@@ -101275,7 +101275,7 @@ action9E_Unset_Guard_Bit_Tags_5:
 /* 06CDBC 7F03828C 26520005 */  addiu $s2, $s2, 5
 /* 06CDC0 7F038290 1000F4BE */  b     .L7F03558C
 /* 06CDC4 7F038294 26310005 */   addiu $s1, $s1, 5
-action9F_Check_Guard_Bits_If_Same_Return_Value_Loop_6:
+action9F_Check_Guard_Bits_If_Same_RVL_6:
 /* 06CDC8 7F038298 92290001 */  lbu   $t1, 1($s1)
 /* 06CDCC 7F03829C 922A0002 */  lbu   $t2, 2($s1)
 /* 06CDD0 7F0382A0 922D0003 */  lbu   $t5, 3($s1)
@@ -101345,7 +101345,7 @@ actionA1_Unset_Guard_ID_Bits_6:
 .L7F038390:
 /* 06CEC0 7F038390 1000F47E */  b     .L7F03558C
 /* 06CEC4 7F038394 26310006 */   addiu $s1, $s1, 6
-actionA2_Check_Guard_Bits_If_Same_Return_Value_Loop_7:
+actionA2_Check_Guard_Bits_If_Same_RVL_7:
 /* 06CEC8 7F038398 922E0002 */  lbu   $t6, 2($s1)
 /* 06CECC 7F03839C 922F0003 */  lbu   $t7, 3($s1)
 /* 06CED0 7F0383A0 922D0004 */  lbu   $t5, 4($s1)
@@ -101425,7 +101425,7 @@ actionA4_Unset_State_Bits_16_Type_Object_6:
 .L7F0384B8:
 /* 06CFE8 7F0384B8 1000F434 */  b     .L7F03558C
 /* 06CFEC 7F0384BC 26310006 */   addiu $s1, $s1, 6
-actionA5_Check_State_Bits_16_Type_Object_If_Same_Return_Valu¿ÑactionA6_Set_16-Object_States_More_6:
+actionA5_Check_State_Bits_16_Type_Object_If_Same_RVL_7:
 /* 06CFF0 7F0384C0 922F0002 */  lbu   $t7, 2($s1)
 /* 06CFF4 7F0384C4 92290003 */  lbu   $t1, 3($s1)
 /* 06CFF8 7F0384C8 922B0004 */  lbu   $t3, 4($s1)
@@ -101458,7 +101458,7 @@ actionA5_Check_State_Bits_16_Type_Object_If_Same_Return_Valu¿ÑactionA6_Set_16-
 .L7F038534:
 /* 06D064 7F038534 1000F415 */  b     .L7F03558C
 /* 06D068 7F038538 26310007 */   addiu $s1, $s1, 7
-actionA6_Set_16-Object_States_More_6:
+actionA6_Set_16_Object_States_More_6:
 /* 06D06C 7F03853C 922D0002 */  lbu   $t5, 2($s1)
 /* 06D070 7F038540 922A0003 */  lbu   $t2, 3($s1)
 /* 06D074 7F038544 92390004 */  lbu   $t9, 4($s1)
@@ -101482,7 +101482,7 @@ actionA6_Set_16-Object_States_More_6:
 .L7F03858C:
 /* 06D0BC 7F03858C 1000F3FF */  b     .L7F03558C
 /* 06D0C0 7F038590 26310006 */   addiu $s1, $s1, 6
-actionA7_Unset_16-Object_States_More_6:
+actionA7_Unset_16_Object_States_More_6:
 /* 06D0C4 7F038594 922C0002 */  lbu   $t4, 2($s1)
 /* 06D0C8 7F038598 92380003 */  lbu   $t8, 3($s1)
 /* 06D0CC 7F03859C 922E0004 */  lbu   $t6, 4($s1)
@@ -101507,7 +101507,7 @@ actionA7_Unset_16-Object_States_More_6:
 .L7F0385E8:
 /* 06D118 7F0385E8 1000F3E8 */  b     .L7F03558C
 /* 06D11C 7F0385EC 26310006 */   addiu $s1, $s1, 6
-actionA8_Check_16-Object_States_More_If_Same_Return_Value_LoÖactionA9_Sets_To_Guard_ID_Fc_Current_Guard_2:
+actionA8_Check_16_Object_States_More_If_Same_RVL_7:
 /* 06D120 7F0385F0 922E0002 */  lbu   $t6, 2($s1)
 /* 06D124 7F0385F4 922D0003 */  lbu   $t5, 3($s1)
 /* 06D128 7F0385F8 922C0004 */  lbu   $t4, 4($s1)
@@ -101637,7 +101637,7 @@ actionB2_Check_Cycle_Counter_Enable_Status_2:
 .L7F0387B4:
 /* 06D2E4 7F0387B4 1000F375 */  b     .L7F03558C
 /* 06D2E8 7F0387B8 26310002 */   addiu $s1, $s1, 2
-actionB3_If_Cycle_Counter_LessThan_Value_Return_Value_Loop_5ºáactionB4_If_Cycle_Counter_GreaterThan_Value_Return_Value_Loo@àactionB5_Show_Timer_1:
+actionB3_If_Cycle_Counter_LTV_RVL_5:
 /* 06D2EC 7F0387BC 922E0001 */  lbu   $t6, 1($s1)
 /* 06D2F0 7F0387C0 92290002 */  lbu   $t1, 2($s1)
 /* 06D2F4 7F0387C4 922B0003 */  lbu   $t3, 3($s1)
@@ -101673,7 +101673,7 @@ actionB3_If_Cycle_Counter_LessThan_Value_Return_Value_Loop_5ºáactionB4_If_Cycl
 .L7F038838:
 /* 06D368 7F038838 1000F354 */  b     .L7F03558C
 /* 06D36C 7F03883C 26310005 */   addiu $s1, $s1, 5
-actionB4_If_Cycle_Counter_GreaterThan_Value_Return_Value_Loo@àactionB5_Show_Timer_1:
+actionB4_If_Cycle_Counter_GTV_RVL_5:
 /* 06D370 7F038840 92390001 */  lbu   $t9, 1($s1)
 /* 06D374 7F038844 922E0002 */  lbu   $t6, 2($s1)
 /* 06D378 7F038848 922A0003 */  lbu   $t2, 3($s1)
@@ -101716,7 +101716,7 @@ actionB5_Show_Timer_1:
 /* 06D400 7F0388D0 26520001 */  addiu $s2, $s2, 1
 /* 06D404 7F0388D4 1000F32D */  b     .L7F03558C
 /* 06D408 7F0388D8 26310001 */   addiu $s1, $s1, 1
-actionB6_Hide_Timer_Silent_Countdown!_1:
+actionB6_Hide_Timer_Silent_Countdown_1:
 /* 06D40C 7F0388DC 24040001 */  li    $a0, 1
 /* 06D410 7F0388E0 0FC15858 */  jal   set_unset_clock_lock_bits
 /* 06D414 7F0388E4 00002825 */   move  $a1, $zero
@@ -101749,7 +101749,7 @@ actionB9_Start_Timer_1:
 /* 06D474 7F038944 26520001 */  addiu $s2, $s2, 1
 /* 06D478 7F038948 1000F310 */  b     .L7F03558C
 /* 06D47C 7F03894C 26310001 */   addiu $s1, $s1, 1
-actionBA_Check_Timer_Enabled_Status_Return_Value_Loop_If_EnaPâactionBB_Detect_If_Timer_Below_Certain_Point_Return_Value_LoÑâactionBC_Detect_If_Timer_Above_Certain_Point_Return_Value_LoËâactionBD_Spawn_Guard_C:
+actionBA_Check_Timer_Enabled_Status_RVL_If_Enabled_2:
 /* 06D480 7F038950 0FC15875 */  jal   get_clock_enable
 /* 06D484 7F038954 00000000 */   nop   
 /* 06D488 7F038958 14400007 */  bnez  $v0, .L7F038978
@@ -101764,7 +101764,7 @@ actionBA_Check_Timer_Enabled_Status_Return_Value_Loop_If_EnaPâactionBB_Detect_
 /* 06D4A8 7F038978 26520002 */  addiu $s2, $s2, 2
 /* 06D4AC 7F03897C 1000F303 */  b     .L7F03558C
 /* 06D4B0 7F038980 26310002 */   addiu $s1, $s1, 2
-actionBB_Detect_If_Timer_Below_Certain_Point_Return_Value_LoÑâactionBC_Detect_If_Timer_Above_Certain_Point_Return_Value_LoËâactionBD_Spawn_Guard_C:
+actionBB_Detect_If_Timer_Below_Certain_Point_RVL_If_So_4:
 /* 06D4B4 7F038984 922F0001 */  lbu   $t7, 1($s1)
 /* 06D4B8 7F038988 922D0002 */  lbu   $t5, 2($s1)
 /* 06D4BC 7F03898C 000F4A00 */  sll   $t1, $t7, 8
@@ -101791,7 +101791,7 @@ actionBB_Detect_If_Timer_Below_Certain_Point_Return_Value_LoÑâactionBC_Detect_
 .L7F0389E0:
 /* 06D510 7F0389E0 1000F2EA */  b     .L7F03558C
 /* 06D514 7F0389E4 26310004 */   addiu $s1, $s1, 4
-actionBC_Detect_If_Timer_Above_Certain_Point_Return_Value_LoËâactionBD_Spawn_Guard_C:
+actionBC_Detect_If_Timer_Above_Certain_Point_RVL_If_So_4:
 /* 06D518 7F0389E8 922C0001 */  lbu   $t4, 1($s1)
 /* 06D51C 7F0389EC 92380002 */  lbu   $t8, 2($s1)
 /* 06D520 7F0389F0 000C5A00 */  sll   $t3, $t4, 8
@@ -102007,7 +102007,7 @@ actionC0_Spawn_Hat_8:
 /* 06D834 7F038D04 26520008 */  addiu $s2, $s2, 8
 /* 06D838 7F038D08 1000F220 */  b     .L7F03558C
 /* 06D83C 7F038D0C 26310008 */   addiu $s1, $s1, 8
-actionC1_Guard_ID_Does_Action_Value_If_Heard_A_Lot_Of_GunfirçactionC2_Display_Text_Preset_Bottom_Screen_3:
+actionC1_GuardIDDoesAV_If_Gunfire_RVL_WhenComplete_5:
 /* 06D840 7F038D10 92380002 */  lbu   $t8, 2($s1)
 /* 06D844 7F038D14 922F0003 */  lbu   $t7, 3($s1)
 /* 06D848 7F038D18 AFA0020C */  sw    $zero, 0x20c($sp)
@@ -102149,7 +102149,7 @@ actionC3_Display_Text_Preset_Top_Screen_3:
 /* 06DA3C 7F038F0C 26520003 */  addiu $s2, $s2, 3
 /* 06DA40 7F038F10 1000F19E */  b     .L7F03558C
 /* 06DA44 7F038F14 26310003 */   addiu $s1, $s1, 3
-actionC4_Play_Sound_Effect_num_In_Slot_num_0-7_4:
+actionC4_Play_Sound_Effect_num_In_Slot_num_0_7_4:
 /* 06DA48 7F038F18 922F0001 */  lbu   $t7, 1($s1)
 /* 06DA4C 7F038F1C 92290002 */  lbu   $t1, 2($s1)
 /* 06DA50 7F038F20 82240003 */  lb    $a0, 3($s1)
@@ -102167,7 +102167,7 @@ actionC9_Shut_Off_Sound_In_Slot_Number_2:
 /* 06DA7C 7F038F4C 26520002 */  addiu $s2, $s2, 2
 /* 06DA80 7F038F50 1000F18E */  b     .L7F03558C
 /* 06DA84 7F038F54 26310002 */   addiu $s1, $s1, 2
-actionC7_Sound_In_Slot_num_Crecendos_To_Volume_Over_MillisecXèactionC8_Sound_In_Slot_num_Fades_To_Volume_Over_MillisecondsêactionC5_Emanate_Sound_In_Slot_num_From_16_Object_With_AudibƒêactionC6_Emanate_Sound_In_Slot_num_From_Preset_With_Audible_`ëactionCA_If_Value_GreaterThan_Volume_7FFF_Max_Return_Value_L`íactionCB_Set_Object_Path_27_Type_Object_2:
+actionC7_Sound_In_Slot_num_Crecendos_To_Volume_Over_ms_6:
 /* 06DA88 7F038F58 92380002 */  lbu   $t8, 2($s1)
 /* 06DA8C 7F038F5C 922D0003 */  lbu   $t5, 3($s1)
 /* 06DA90 7F038F60 922A0004 */  lbu   $t2, 4($s1)
@@ -102213,7 +102213,7 @@ actionC7_Sound_In_Slot_num_Crecendos_To_Volume_Over_MillisecXèactionC8_Sound_I
 /* 06DB2C 7F038FFC 26520006 */  addiu $s2, $s2, 6
 /* 06DB30 7F039000 1000F162 */  b     .L7F03558C
 /* 06DB34 7F039004 26310006 */   addiu $s1, $s1, 6
-actionC8_Sound_In_Slot_num_Fades_To_Volume_Over_MillisecondsêactionC5_Emanate_Sound_In_Slot_num_From_16_Object_With_AudibƒêactionC6_Emanate_Sound_In_Slot_num_From_Preset_With_Audible_`ëactionCA_If_Value_GreaterThan_Volume_7FFF_Max_Return_Value_L`íactionCB_Set_Object_Path_27_Type_Object_2:
+actionC8_Sound_In_Slot_num_Fades_To_Volume_Over_ms_6:
 /* 06DB38 7F039008 922D0002 */  lbu   $t5, 2($s1)
 /* 06DB3C 7F03900C 922F0003 */  lbu   $t7, 3($s1)
 /* 06DB40 7F039010 92290004 */  lbu   $t1, 4($s1)
@@ -102262,7 +102262,7 @@ actionC8_Sound_In_Slot_num_Fades_To_Volume_Over_MillisecondsêactionC5_Emanate
 /* 06DBE8 7F0390B8 26520006 */  addiu $s2, $s2, 6
 /* 06DBEC 7F0390BC 1000F133 */  b     .L7F03558C
 /* 06DBF0 7F0390C0 26310006 */   addiu $s1, $s1, 6
-actionC5_Emanate_Sound_In_Slot_num_From_16_Object_With_AudibƒêactionC6_Emanate_Sound_In_Slot_num_From_Preset_With_Audible_`ëactionCA_If_Value_GreaterThan_Volume_7FFF_Max_Return_Value_L`íactionCB_Set_Object_Path_27_Type_Object_2:
+actionC5_EmanateSoundSlotnumFrom16ObjectWithAudibleRV_5:
 /* 06DBF4 7F0390C4 0FC15C30 */  jal   get_handle_to_tagged_object
 /* 06DBF8 7F0390C8 92240002 */   lbu   $a0, 2($s1)
 /* 06DBFC 7F0390CC 922D0003 */  lbu   $t5, 3($s1)
@@ -102304,7 +102304,7 @@ actionC5_Emanate_Sound_In_Slot_num_From_16_Object_With_AudibƒêactionC6_Emanate
 .L7F039158:
 /* 06DC88 7F039158 1000F10C */  b     .L7F03558C
 /* 06DC8C 7F03915C 26310005 */   addiu $s1, $s1, 5
-actionC6_Emanate_Sound_In_Slot_num_From_Preset_With_Audible_`ëactionCA_If_Value_GreaterThan_Volume_7FFF_Max_Return_Value_L`íactionCB_Set_Object_Path_27_Type_Object_2:
+actionC6_EmanateSoundSlotnumFromPresetWithAudibleRV_6:
 /* 06DC90 7F039160 922D0002 */  lbu   $t5, 2($s1)
 /* 06DC94 7F039164 922F0003 */  lbu   $t7, 3($s1)
 /* 06DC98 7F039168 92290004 */  lbu   $t1, 4($s1)
@@ -102373,7 +102373,7 @@ actionC6_Emanate_Sound_In_Slot_num_From_Preset_With_Audible_`ëactionCA_If_Valu
 .L7F039258:
 /* 06DD88 7F039258 1000F0CC */  b     .L7F03558C
 /* 06DD8C 7F03925C 26310006 */   addiu $s1, $s1, 6
-actionCA_If_Value_GreaterThan_Volume_7FFF_Max_Return_Value_L`íactionCB_Set_Object_Path_27_Type_Object_2:
+actionCA_If_Value_GreaterThan_Volume_7FFF_Max_RVL_5:
 /* 06DD90 7F039260 92390002 */  lbu   $t9, 2($s1)
 /* 06DD94 7F039264 922E0003 */  lbu   $t6, 3($s1)
 /* 06DD98 7F039268 82230001 */  lb    $v1, 1($s1)
@@ -102469,7 +102469,7 @@ actionCD_Set_Speed_Aircraft_Rotor_5:
 .L7F0393B4:
 /* 06DEE4 7F0393B4 1000F075 */  b     .L7F03558C
 /* 06DEE8 7F0393B8 26310005 */   addiu $s1, $s1, 5
-actionCE_Detect_If_Currently_In_Intro_Camera_Return_Value_LoºìactionCF_Detect_If_Currently_In_Intro_Swirl_Return_Value_LooîactionD0_Change_Animation_Type_Of_Type_16_Monitor_4:
+actionCE_Detect_If_Currently_In_Intro_Camera_RVL_If_So_2:
 /* 06DEEC 7F0393BC 0FC1E94A */  jal   get_camera_mode
 /* 06DEF0 7F0393C0 00000000 */   nop   
 /* 06DEF4 7F0393C4 24010001 */  li    $at, 1
@@ -102491,7 +102491,7 @@ actionCE_Detect_If_Currently_In_Intro_Camera_Return_Value_LoºìactionCF_Detect_
 /* 06DF2C 7F0393FC 26520002 */  addiu $s2, $s2, 2
 /* 06DF30 7F039400 1000F062 */  b     .L7F03558C
 /* 06DF34 7F039404 26310002 */   addiu $s1, $s1, 2
-actionCF_Detect_If_Currently_In_Intro_Swirl_Return_Value_LooîactionD0_Change_Animation_Type_Of_Type_16_Monitor_4:
+actionCF_Detect_If_Currently_In_Intro_Swirl_RVL_If_So_2:
 /* 06DF38 7F039408 0FC1E94A */  jal   get_camera_mode
 /* 06DF3C 7F03940C 00000000 */   nop   
 /* 06DF40 7F039410 24010003 */  li    $at, 3
@@ -102546,7 +102546,7 @@ actionD0_Change_Animation_Type_Of_Type_16_Monitor_4:
 .L7F0394C4:
 /* 06DFF4 7F0394C4 1000F031 */  b     .L7F03558C
 /* 06DFF8 7F0394C8 26310004 */   addiu $s1, $s1, 4
-actionD1_If_Bond_In_Tank_Return_Value_Loop_2:
+actionD1_If_Bond_In_Tank_RVL_2:
 /* 06DFFC 7F0394CC 0FC1F39E */  jal   get_intank_flag
 /* 06E000 7F0394D0 00000000 */   nop   
 /* 06E004 7F0394D4 24010001 */  li    $at, 1
@@ -102663,7 +102663,7 @@ actionD5_Go_To_Camera_Position_6:
 .L7F039668:
 /* 06E198 7F039668 1000EFC8 */  b     .L7F03558C
 /* 06E19C 7F03966C 26310006 */   addiu $s1, $s1, 6
-actionD6_If_Less_Than_Elevation_Return_Value_Loop_4:
+actionD6_If_Less_Than_Elevation_RVL_4:
 /* 06E1A0 7F039670 922C0001 */  lbu   $t4, 1($s1)
 /* 06E1A4 7F039674 92380002 */  lbu   $t8, 2($s1)
 /* 06E1A8 7F039678 000C5A00 */  sll   $t3, $t4, 8
@@ -102725,7 +102725,7 @@ actionD7_Disable_Text_Variable_2:
 /* 06E274 7F039744 26520002 */  addiu $s2, $s2, 2
 /* 06E278 7F039748 1000EF90 */  b     .L7F03558C
 /* 06E27C 7F03974C 26310002 */   addiu $s1, $s1, 2
-actionD8_Enable_All_On-Screen_Displays_1:
+actionD8_Enable_All_On_Screen_Displays_1:
 /* 06E280 7F039750 24040004 */  li    $a0, 4
 /* 06E284 7F039754 0FC1A96A */  jal   set_unset_bitflags
 /* 06E288 7F039758 24050001 */   li    $a1, 1
@@ -102745,7 +102745,7 @@ actionD8_Enable_All_On-Screen_Displays_1:
 /* 06E2C0 7F039790 26520001 */  addiu $s2, $s2, 1
 /* 06E2C4 7F039794 1000EF7D */  b     .L7F03558C
 /* 06E2C8 7F039798 26310001 */   addiu $s1, $s1, 1
-actionD9_Guard_ID_Moved_To_Preset_Return_Loop_If_Successful_úóactionDA_Fade_Out_From_Cut-Scene_1:
+actionD9_GuardIDMovedToPresetReturnLoopIfSuccessful_5:
 /* 06E2CC 7F03979C 922B0002 */  lbu   $t3, 2($s1)
 /* 06E2D0 7F0397A0 92390003 */  lbu   $t9, 3($s1)
 /* 06E2D4 7F0397A4 02E02025 */  move  $a0, $s7
@@ -102865,7 +102865,7 @@ actionD9_Guard_ID_Moved_To_Preset_Return_Loop_If_Successful_úóactionDA_Fade_Ou
 /* 06E488 7F039958 26520005 */  addiu $s2, $s2, 5
 /* 06E48C 7F03995C 1000EF0B */  b     .L7F03558C
 /* 06E490 7F039960 26310005 */   addiu $s1, $s1, 5
-actionDA_Fade_Out_From_Cut-Scene_1:
+actionDA_Fade_Out_From_Cut_Scene_1:
 /* 06E494 7F039964 3C0D8003 */  lui   $t5, %hi(D_800364A0) # $t5, 0x8003
 /* 06E498 7F039968 8DAD64A0 */  lw    $t5, %lo(D_800364A0)($t5)
 /* 06E49C 7F03996C 24010002 */  li    $at, 2
@@ -102900,7 +102900,7 @@ actionDB_Fade_In_From_Black_Reset_DA_1:
 /* 06E504 7F0399D4 26520001 */  addiu $s2, $s2, 1
 /* 06E508 7F0399D8 1000EEEC */  b     .L7F03558C
 /* 06E50C 7F0399DC 26310001 */   addiu $s1, $s1, 1
-actionDC_Return_Value_Loop_When_Fade_Complete_2:
+actionDC_RVL_When_Fade_Complete_2:
 /* 06E510 7F0399E0 3C0F8008 */  lui   $t7, %hi(ptr_BONDdata) # $t7, 0x8008
 /* 06E514 7F0399E4 8DEFA0B0 */  lw    $t7, %lo(ptr_BONDdata)($t7)
 /* 06E518 7F0399E8 02C02025 */  move  $a0, $s6
@@ -102970,7 +102970,7 @@ actionDE_Bring_Removed_Guards_Back_1:
 /* 06E5F8 7F039AC8 26520001 */  addiu $s2, $s2, 1
 /* 06E5FC 7F039ACC 1000EEAF */  b     .L7F03558C
 /* 06E600 7F039AD0 26310001 */   addiu $s1, $s1, 1
-actionDF_Open_Type_16_Door_Used_Cut-Scenes_2:
+actionDF_Open_Type_16_Door_Used_Cut_Scenes_2:
 /* 06E604 7F039AD4 0FC15C30 */  jal   get_handle_to_tagged_object
 /* 06E608 7F039AD8 92240001 */   lbu   $a0, 1($s1)
 /* 06E60C 7F039ADC 10400011 */  beqz  $v0, .L7F039B24
@@ -103008,7 +103008,7 @@ actionE0_Guard_ID_Draws_Weapon_num_3:
 /* 06E67C 7F039B4C 26520003 */  addiu $s2, $s2, 3
 /* 06E680 7F039B50 1000EE8E */  b     .L7F03558C
 /* 06E684 7F039B54 26310003 */   addiu $s1, $s1, 3
-actionE1_If_Fewer_than_This_Many_Players_Playing_Return_ValuXõactionE2_If_Ammo_Value_In_Type_Is_Less_Than_Value_Return_ValòõactionE3_Draw_Weapon_From_Inventory_In_Game_2:
+actionE1_If_Fewer_than_This_Many_Players_Playing_RVL_3:
 /* 06E688 7F039B58 0FC26919 */  jal   get_num_players
 /* 06E68C 7F039B5C 00000000 */   nop   
 /* 06E690 7F039B60 822A0001 */  lb    $t2, 1($s1)
@@ -103026,7 +103026,7 @@ actionE1_If_Fewer_than_This_Many_Players_Playing_Return_ValuXõactionE2_If_Ammo
 .L7F039B90:
 /* 06E6C0 7F039B90 1000EE7E */  b     .L7F03558C
 /* 06E6C4 7F039B94 26310003 */   addiu $s1, $s1, 3
-actionE2_If_Ammo_Value_In_Type_Is_Less_Than_Value_Return_ValòõactionE3_Draw_Weapon_From_Inventory_In_Game_2:
+actionE2_If_Ammo_Value_In_Type_Is_LTV_RVL_4:
 /* 06E6C8 7F039B98 0FC1A496 */  jal   check_cur_player_ammo_amount_total
 /* 06E6CC 7F039B9C 82240001 */   lb    $a0, 1($s1)
 /* 06E6D0 7F039BA0 82290002 */  lb    $t1, 2($s1)
@@ -103080,7 +103080,7 @@ actionE5_Set_Bonds_Speed_3:
 /* 06E780 7F039C50 468032A0 */  cvt.s.w $f10, $f6
 /* 06E784 7F039C54 1000EE4D */  b     .L7F03558C
 /* 06E788 7F039C58 E44A0008 */   swc1  $f10, 8($v0)
-actionE6_If_16_Object_And_Preset_Are_In_Same_Room_Return_Val\úactionE9_Instantly_Switch_Sky_To_Sky_2_1:
+actionE6_If_16_Object_And_Preset_Are_In_Same_Room_RVL_5:
 /* 06E78C 7F039C5C 92380002 */  lbu   $t8, 2($s1)
 /* 06E790 7F039C60 922D0003 */  lbu   $t5, 3($s1)
 /* 06E794 7F039C64 92240001 */  lbu   $a0, 1($s1)
@@ -103155,7 +103155,7 @@ actionEA_Stop_Game_Time_1:
 .L7F039D64:
 /* 06E894 7F039D64 1000EE09 */  b     .L7F03558C
 /* 06E898 7F039D68 26310001 */   addiu $s1, $s1, 1
-actionEB_If_Key_Pressed_Return_Value_Loop_2:
+actionEB_If_Key_Pressed_RVL_2:
 /* 06E89C 7F039D6C 3C0F8008 */  lui   $t7, %hi(ptr_BONDdata) # $t7, 0x8008
 /* 06E8A0 7F039D70 8DEFA0B0 */  lw    $t7, %lo(ptr_BONDdata)($t7)
 /* 06E8A4 7F039D74 02C02025 */  move  $a0, $s6
@@ -103262,7 +103262,7 @@ actionEF_Trigger_Credits_1:
 /* 06EA24 7F039EF4 26520001 */  addiu $s2, $s2, 1
 /* 06EA28 7F039EF8 1000EDA4 */  b     .L7F03558C
 /* 06EA2C 7F039EFC 26310001 */   addiu $s1, $s1, 1
-actionF0_Return_Value_Loop_If_Credits_Completed_2:
+actionF0_RVL_If_Credits_Completed_2:
 /* 06EA30 7F039F00 3C0A8003 */  lui   $t2, %hi(D_8003643C) # $t2, 0x8003
 /* 06EA34 7F039F04 8D4A643C */  lw    $t2, %lo(D_8003643C)($t2)
 /* 06EA38 7F039F08 24010002 */  li    $at, 2
@@ -103278,7 +103278,7 @@ actionF0_Return_Value_Loop_If_Credits_Completed_2:
 /* 06EA5C 7F039F2C 26520002 */  addiu $s2, $s2, 2
 /* 06EA60 7F039F30 1000ED96 */  b     .L7F03558C
 /* 06EA64 7F039F34 26310002 */   addiu $s1, $s1, 2
-actionF1_If_All_Objectives_Complete_Return_Value_Loop_2:
+actionF1_If_All_Objectives_Complete_RVL_2:
 /* 06EA68 7F039F38 0FC15D2E */  jal   check_objectives_complete
 /* 06EA6C 7F039F3C 00000000 */   nop   
 /* 06EA70 7F039F40 10400007 */  beqz  $v0, .L7F039F60
@@ -103293,7 +103293,7 @@ actionF1_If_All_Objectives_Complete_Return_Value_Loop_2:
 /* 06EA90 7F039F60 26520002 */  addiu $s2, $s2, 2
 /* 06EA94 7F039F64 1000ED89 */  b     .L7F03558C
 /* 06EA98 7F039F68 26310002 */   addiu $s1, $s1, 2
-actionF2_Check_Current_Folder_Bond_Return_Value_Loop_3:
+actionF2_Check_Current_Folder_Bond_RVL_3:
 /* 06EA9C 7F039F6C 0FC0755B */  jal   would_have_returned_bond_for_folder_num
 /* 06EAA0 7F039F70 00000000 */   nop   
 /* 06EAA4 7F039F74 82290001 */  lb    $t1, 1($s1)
@@ -103310,7 +103310,7 @@ actionF2_Check_Current_Folder_Bond_Return_Value_Loop_3:
 .L7F039FA0:
 /* 06EAD0 7F039FA0 1000ED7A */  b     .L7F03558C
 /* 06EAD4 7F039FA4 26310003 */   addiu $s1, $s1, 3
-actionF3_If_Player_Pickups_Disabled_Return_Value_Loop_2:
+actionF3_If_Player_Pickups_Disabled_RVL_2:
 /* 06EAD8 7F039FA8 3C0C8003 */  lui   $t4, %hi(D_800364B4) # $t4, 0x8003
 /* 06EADC 7F039FAC 8D8C64B4 */  lw    $t4, %lo(D_800364B4)($t4)
 /* 06EAE0 7F039FB0 02C02025 */  move  $a0, $s6
@@ -103326,7 +103326,7 @@ actionF3_If_Player_Pickups_Disabled_Return_Value_Loop_2:
 .L7F039FD8:
 /* 06EB08 7F039FD8 1000ED6C */  b     .L7F03558C
 /* 06EB0C 7F039FDC 26310002 */   addiu $s1, $s1, 2
-actionF4_Plays_Value_num1_Theme_Slot_0_3_For_Value_num2_Seco‡üactionF5_Turn_Off_Music_In_Slot_num_0_3_2:
+actionF4_PlaysValuenum1ThemeSlot03ForValuenum2Seconds_4:
 /* 06EB10 7F039FE0 02201025 */  move  $v0, $s1
 /* 06EB14 7F039FE4 26310004 */  addiu $s1, $s1, 4
 /* 06EB18 7F039FE8 26520004 */  addiu $s2, $s2, 4
@@ -103350,7 +103350,7 @@ actionF6_Trigger_Explosions_Around_Bond_1:
 /* 06EB58 7F03A028 26520001 */  addiu $s2, $s2, 1
 /* 06EB5C 7F03A02C 1000ED57 */  b     .L7F03558C
 /* 06EB60 7F03A030 26310001 */   addiu $s1, $s1, 1
-actionF7_If_Number_Of_Hostages_Scientists_Killed_Return_Valu4†actionF8_If_Guard_ID_00200000_Flag_Set_Unset_And_Return_3:
+actionF7_If_Number_Of_Hostages_Scientists_Killed_RVL_3:
 /* 06EB64 7F03A034 0FC1A9DC */  jal   get_civilian_casualties
 /* 06EB68 7F03A038 00000000 */   nop   
 /* 06EB6C 7F03A03C 922B0001 */  lbu   $t3, 1($s1)
@@ -103407,7 +103407,7 @@ actionFA_Guard_Fawns_On_Shoulder_1:
 /* 06EC24 7F03A0F4 26520001 */  addiu $s2, $s2, 1
 /* 06EC28 7F03A0F8 1000ED24 */  b     .L7F03558C
 /* 06EC2C 7F03A0FC 26310001 */   addiu $s1, $s1, 1
-actionFB_Switch_To_Sky_Value_num_And_Activate_Gas_Containers:
+actionFB_SwitchToSkyValuenumAndActivateGasContainersIfExist_:
 /* 06EC30 7F03A100 3C0A8003 */  lui   $t2, %hi(D_80030A88) # $t2, 0x8003
 /* 06EC34 7F03A104 254A0A88 */  addiu $t2, %lo(D_80030A88) # addiu $t2, $t2, 0xa88
 /* 06EC38 7F03A108 8D410000 */  lw    $at, ($t2)
@@ -117271,7 +117271,7 @@ object_interaction:
 /* 07B168 7F046638 8E240010 */  lw    $a0, 0x10($s1)
 /* 07B16C 7F04663C 0FC100AD */  jal   sub_GAME_7F0402B4
 /* 07B170 7F046640 2625007C */   addiu $a1, $s1, 0x7c
-/* 07B174 7F046644 0FC146F3 */  jal   detonate_proxmine_within_range
+/* 07B174 7F046644 0FC146F3 */  jal   detonate_proxmine_In_range
 /* 07B178 7F046648 8FA40070 */   lw    $a0, 0x70($sp)
 .L7F04664C:
 /* 07B17C 7F04664C 92220003 */  lbu   $v0, 3($s1)
@@ -118850,7 +118850,7 @@ object_interaction:
 /* 07C870 7F047D40 02602025 */  move  $a0, $s3
 /* 07C874 7F047D44 0FC100AD */  jal   sub_GAME_7F0402B4
 /* 07C878 7F047D48 02002825 */   move  $a1, $s0
-/* 07C87C 7F047D4C 0FC146F3 */  jal   detonate_proxmine_within_range
+/* 07C87C 7F047D4C 0FC146F3 */  jal   detonate_proxmine_In_range
 /* 07C880 7F047D50 8FA40070 */   lw    $a0, 0x70($sp)
 /* 07C884 7F047D54 8FA80478 */  lw    $t0, 0x478($sp)
 /* 07C888 7F047D58 27A40450 */  addiu $a0, $sp, 0x450
@@ -129975,7 +129975,7 @@ remove_obj_from_temp_proxmine_table:
 /* 0866F4 7F051BC4 03E00008 */  jr    $ra
 /* 0866F8 7F051BC8 00000000 */   nop   
 
-detonate_proxmine_within_range:
+detonate_proxmine_In_range:
 /* 0866FC 7F051BCC 3C038007 */  lui   $v1, %hi(dword_CODE_bss_80071E00) # $v1, 0x8007
 /* 086700 7F051BD0 3C018005 */  lui   $at, %hi(D_800532EC) # $at, 0x8005
 /* 086704 7F051BD4 3C078007 */  lui   $a3, %hi(gas_damage_flag) # $a3, 0x8007
@@ -130074,7 +130074,7 @@ sub_GAME_7F051CC8:
 /* 086860 7F051D30 261001DC */   addiu $s0, $s0, 0x1dc
 /* 086864 7F051D34 0FC0A225 */  jal   sub_GAME_7F028894
 /* 086868 7F051D38 02202825 */   move  $a1, $s1
-/* 08686C 7F051D3C 0FC146F3 */  jal   detonate_proxmine_within_range
+/* 08686C 7F051D3C 0FC146F3 */  jal   detonate_proxmine_In_range
 /* 086870 7F051D40 02202025 */   move  $a0, $s1
 /* 086874 7F051D44 261001DC */  addiu $s0, $s0, 0x1dc
 .L7F051D48:
@@ -166838,7 +166838,7 @@ sub_GAME_7F072C10:
 /* 0A7748 7F072C18 03E00008 */  jr    $ra
 /* 0A774C 7F072C1C AFA60008 */   sw    $a2, 8($sp)
 
-dorottex::
+dorottex:
 /* 0A7750 7F072C20 27BDFFB8 */  addiu $sp, $sp, -0x48
 /* 0A7754 7F072C24 AFBF003C */  sw    $ra, 0x3c($sp)
 /* 0A7758 7F072C28 AFBE0038 */  sw    $fp, 0x38($sp)
@@ -168608,7 +168608,7 @@ sub_GAME_7F074534:
 /* 0A9160 7F074630 00E02825 */   move  $a1, $a3
 /* 0A9164 7F074634 10000010 */  b     .L7F074678
 /* 0A9168 7F074638 8FBF0014 */   lw    $ra, 0x14($sp)
-/* 0A916C 7F07463C 0FC1CB08 */  jal   dorottex:
+/* 0A916C 7F07463C 0FC1CB08 */  jal   dorottex
 /* 0A9170 7F074640 00C02825 */   move  $a1, $a2
 /* 0A9174 7F074644 1000000C */  b     .L7F074678
 /* 0A9178 7F074648 8FBF0014 */   lw    $ra, 0x14($sp)
@@ -248991,7 +248991,7 @@ load_resource:
 /* 0F165C 7F0BCB2C 03E00008 */  jr    $ra
 /* 0F1660 7F0BCB30 00000000 */   nop   
 
-load_resource_from_indy:
+resource_load_from_indy:
 /* 0F1664 7F0BCB34 27BDDED8 */  addiu $sp, $sp, -0x2128
 /* 0F1668 7F0BCB38 AFB10018 */  sw    $s1, 0x18($sp)
 /* 0F166C 7F0BCB3C AFB00014 */  sw    $s0, 0x14($sp)
@@ -249001,7 +249001,7 @@ load_resource_from_indy:
 /* 0F167C 7F0BCB4C 14A00006 */  bnez  $a1, .L7F0BCB68
 /* 0F1680 7F0BCB50 AFA5212C */   sw    $a1, 0x212c($sp)
 /* 0F1684 7F0BCB54 8CC40004 */  lw    $a0, 4($a2)
-/* 0F1688 7F0BCB58 0FC33FE7 */  jal   indy_load_resource
+/* 0F1688 7F0BCB58 0FC33FE7 */  jal   load_resource_on_indy
 /* 0F168C 7F0BCB5C 02002825 */   move  $a1, $s0
 /* 0F1690 7F0BCB60 1000002D */  b     .L7F0BCC18
 /* 0F1694 7F0BCB64 8FBF001C */   lw    $ra, 0x1c($sp)
@@ -249026,7 +249026,7 @@ load_resource_from_indy:
 .L7F0BCBAC:
 /* 0F16DC 7F0BCBAC 8CC40004 */  lw    $a0, 4($a2)
 /* 0F16E0 7F0BCBB0 AFA72124 */  sw    $a3, 0x2124($sp)
-/* 0F16E4 7F0BCBB4 0FC33FE7 */  jal   indy_load_resource
+/* 0F16E4 7F0BCBB4 0FC33FE7 */  jal   load_resource_on_indy
 /* 0F16E8 7F0BCBB8 00E02825 */   move  $a1, $a3
 /* 0F16EC 7F0BCBBC 8FA72124 */  lw    $a3, 0x2124($sp)
 /* 0F16F0 7F0BCBC0 3C0C8006 */  lui   $t4, %hi(rz_header_1) # $t4, 0x8006
@@ -249249,7 +249249,7 @@ load_rom_resource_index_to_membank:
 /* 0F19F0 7F0BCEC0 00000000 */   nop   
 /* 0F19F4 7F0BCEC4 02002825 */  move  $a1, $s0
 /* 0F19F8 7F0BCEC8 02203825 */  move  $a3, $s1
-/* 0F19FC 7F0BCECC 0FC2F2CD */  jal   load_resource_from_indy
+/* 0F19FC 7F0BCECC 0FC2F2CD */  jal   resource_load_from_indy
 /* 0F1A00 7F0BCED0 AFA20024 */   sw    $v0, 0x24($sp)
 /* 0F1A04 7F0BCED4 10000004 */  b     .L7F0BCEE8
 /* 0F1A08 7F0BCED8 8FB00024 */   lw    $s0, 0x24($sp)
@@ -249307,7 +249307,7 @@ load_rom_resource_index_to_membank:
 /* 0F1AC0 7F0BCF90 15600006 */  bnez  $t3, .L7F0BCFAC
 /* 0F1AC4 7F0BCF94 00000000 */   nop   
 /* 0F1AC8 7F0BCF98 00402025 */  move  $a0, $v0
-/* 0F1ACC 7F0BCF9C 0FC2F2CD */  jal   load_resource_from_indy
+/* 0F1ACC 7F0BCF9C 0FC2F2CD */  jal   resource_load_from_indy
 /* 0F1AD0 7F0BCFA0 00002825 */   move  $a1, $zero
 /* 0F1AD4 7F0BCFA4 10000004 */  b     .L7F0BCFB8
 /* 0F1AD8 7F0BCFA8 8FAC0038 */   lw    $t4, 0x38($sp)
@@ -249372,7 +249372,7 @@ load_resource_index_to_buffer:
 /* 0F1BA4 7F0BD074 AE0B000C */  sw    $t3, 0xc($s0)
 /* 0F1BA8 7F0BD078 8FA40028 */  lw    $a0, 0x28($sp)
 /* 0F1BAC 7F0BD07C 8FA5002C */  lw    $a1, 0x2c($sp)
-/* 0F1BB0 7F0BD080 0FC2F2CD */  jal   load_resource_from_indy
+/* 0F1BB0 7F0BD080 0FC2F2CD */  jal   resource_load_from_indy
 /* 0F1BB4 7F0BD084 02003825 */   move  $a3, $s0
 /* 0F1BB8 7F0BD088 10000019 */  b     .L7F0BD0F0
 /* 0F1BBC 7F0BD08C 8FBF001C */   lw    $ra, 0x1c($sp)
@@ -249395,7 +249395,7 @@ load_resource_index_to_buffer:
 /* 0F1BF8 7F0BD0C8 15E00006 */  bnez  $t7, .L7F0BD0E4
 /* 0F1BFC 7F0BD0CC 00002825 */   move  $a1, $zero
 /* 0F1C00 7F0BD0D0 8FA40028 */  lw    $a0, 0x28($sp)
-/* 0F1C04 7F0BD0D4 0FC2F2CD */  jal   load_resource_from_indy
+/* 0F1C04 7F0BD0D4 0FC2F2CD */  jal   resource_load_from_indy
 /* 0F1C08 7F0BD0D8 00002825 */   move  $a1, $zero
 /* 0F1C0C 7F0BD0DC 10000004 */  b     .L7F0BD0F0
 /* 0F1C10 7F0BD0E0 8FBF001C */   lw    $ra, 0x1c($sp)
@@ -259856,7 +259856,7 @@ nullsub_41:
 /* 0FB180 7F0C6650 03E00008 */  jr    $ra
 /* 0FB184 7F0C6654 00000000 */   nop   
 
-image_related_calls_decompressdata:
+image_related_calls_decompressdata_function:
 /* 0FB188 7F0C6658 27BDD458 */  addiu $sp, $sp, -0x2ba8
 /* 0FB18C 7F0C665C AFBF004C */  sw    $ra, 0x4c($sp)
 /* 0FB190 7F0C6660 AFB5003C */  sw    $s5, 0x3c($sp)
@@ -266062,7 +266062,7 @@ load_image_to_buffer:
 /* 10090C 7F0CBDDC 8E050008 */  lw    $a1, 8($s0)
 /* 100910 7F0CBDE0 AFA90044 */  sw    $t1, 0x44($sp)
 /* 100914 7F0CBDE4 AFB00010 */  sw    $s0, 0x10($sp)
-/* 100918 7F0CBDE8 0FC31996 */  jal   image_related_calls_decompressdata
+/* 100918 7F0CBDE8 0FC31996 */  jal   image_related_calls_decompressdata_function
 /* 10091C 7F0CBDEC 8FA40054 */   lw    $a0, 0x54($sp)
 /* 100920 7F0CBDF0 10000007 */  b     .L7F0CBE10
 /* 100924 7F0CBDF4 8FA30044 */   lw    $v1, 0x44($sp)
@@ -270566,19 +270566,19 @@ load_rsp_microcode:
 /* 104950 7F0CFE20 2463EAB0 */  addiu $v1, %lo(D_8004EAB0) # addiu $v1, $v1, -0x1550
 /* 104954 7F0CFE24 AFB00018 */  sw    $s0, 0x18($sp)
 /* 104958 7F0CFE28 8C700000 */  lw    $s0, ($v1)
-/* 10495C 7F0CFE2C 3C028002 */  lui   $v0, %hi(D_80020D90) # $v0, 0x8002
-/* 104960 7F0CFE30 3C0E8002 */  lui   $t6, %hi(D_80020E60) # $t6, 0x8002
-/* 104964 7F0CFE34 24420D90 */  addiu $v0, %lo(D_80020D90) # addiu $v0, $v0, 0xd90
-/* 104968 7F0CFE38 25CE0E60 */  addiu $t6, %lo(D_80020E60) # addiu $t6, $t6, 0xe60
+/* 10495C 7F0CFE2C 3C028002 */  lui   $v0, %hi(rspbootTextStart) # $v0, 0x8002
+/* 104960 7F0CFE30 3C0E8002 */  lui   $t6, %hi(gsp3DTextStart) # $t6, 0x8002
+/* 104964 7F0CFE34 24420D90 */  addiu $v0, %lo(rspbootTextStart) # addiu $v0, $v0, 0xd90
+/* 104968 7F0CFE38 25CE0E60 */  addiu $t6, %lo(gsp3DTextStart) # addiu $t6, $t6, 0xe60
 /* 10496C 7F0CFE3C AFBF001C */  sw    $ra, 0x1c($sp)
 /* 104970 7F0CFE40 AFA60028 */  sw    $a2, 0x28($sp)
 /* 104974 7F0CFE44 01C27823 */  subu  $t7, $t6, $v0
 /* 104978 7F0CFE48 AE020018 */  sw    $v0, 0x18($s0)
-/* 10497C 7F0CFE4C 3C188002 */  lui   $t8, %hi(D_80020E60) # $t8, 0x8002
+/* 10497C 7F0CFE4C 3C188002 */  lui   $t8, %hi(gsp3DTextStart) # $t8, 0x8002
 /* 104980 7F0CFE50 3C198006 */  lui   $t9, %hi(D_8005C820) # $t9, 0x8006
 /* 104984 7F0CFE54 AE0F001C */  sw    $t7, 0x1c($s0)
 /* 104988 7F0CFE58 26020010 */  addiu $v0, $s0, 0x10
-/* 10498C 7F0CFE5C 27180E60 */  addiu $t8, %lo(D_80020E60) # addiu $t8, $t8, 0xe60
+/* 10498C 7F0CFE5C 27180E60 */  addiu $t8, %lo(gsp3DTextStart) # addiu $t8, $t8, 0xe60
 /* 104990 7F0CFE60 2739C820 */  addiu $t9, %lo(D_8005C820) # addiu $t9, $t9, -0x37e0
 /* 104994 7F0CFE64 AC580010 */  sw    $t8, 0x10($v0)
 /* 104998 7F0CFE68 AC590018 */  sw    $t9, 0x18($v0)
@@ -270667,7 +270667,7 @@ init_indy_if_ready:
 /* 104AC4 7F0CFF94 03E00008 */  jr    $ra
 /* 104AC8 7F0CFF98 00000000 */   nop   
 
-indy_load_resource:
+load_resource_on_indy:
 /* 104ACC 7F0CFF9C 3C0E8005 */  lui   $t6, %hi(indy_ready) # $t6, 0x8005
 /* 104AD0 7F0CFFA0 8DCEEAC8 */  lw    $t6, %lo(indy_ready)($t6)
 /* 104AD4 7F0CFFA4 27BDFFD8 */  addiu $sp, $sp, -0x28
@@ -291080,6 +291080,7 @@ func_7F0D382C:
 /* 117870 7F0E2D40 03E00008 */  jr    $ra
 /* 117874 7F0E2D44 A438E354 */   sh    $t8, -0x1cac($at)
 
+endofcode:
 /* 117878 7F0E2D48 00000000 */  nop   
 /* 11787C 7F0E2D4C 00000000 */  nop   
 
