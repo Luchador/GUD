@@ -7,9 +7,25 @@
 
 .include "globals.inc"
 
-# Unknown region 000000-001000 [1000]
-.incbin "bin/ge007_u.000000.bin"
+.section .header, "a"
+.byte  0x80, 0x37, 0x12, 0x40 # PI BSD Domain 1 register
+.word  0x0000000F # clock rate setting
+.word  0x80000400 # entry point
+.word  0x00001447 # release
+.word  0xDCBC50D1 # checksum1
+.word  0x09FD1AA3 # checksum2
+.word  0x00000000 # unknown
+.word  0x00000000 # unknown
+.ascii "GOLDENEYE           " # ROM name: 20 bytes
+.word  0x00000000 # unknown
+.word  0x0000004E # cartridge
+.ascii "GE"       # cartridge ID
+.ascii "E"        # country
+.byte  0x00       # version
 
+boot:
+.incbin "bin/ge007_u.000040.boot.bin"
+boot_end:
 
 .section .text80000400, "ax"
 
@@ -36982,9 +36998,9 @@ osEPiRawWriteIo:
 /* 021988 80020D88 00001025 */   move  $v0, $zero
 
 /* 02198C 80020D8C 00000000 */  nop   
-# Unknown region 021990-033590 [11C00]
-.incbin "bin/ge007_u.021990.bin"
-
+Compressedrodata:
+.incbin "bin/ge007_u.021990.Compressedrodata.bin"
+Compressedrodata_end:
 
 .section .text70200000, "ax"
 
@@ -38443,8 +38459,111 @@ decompress.entry:
 /* 034A04 70201474 00000000 */  nop   
 /* 034A08 70201478 00000000 */  nop   
 /* 034A0C 7020147C 00000000 */  nop   
-# Unknown region 034A10-034B30 [120]
-.incbin "bin/ge007_u.034A10.bin"
+rarezip.ptr_source:
+.word 0x00000000
+
+rarezip.ptr_target:
+.word 0x00000000
+
+rarezip.curoffset:
+.word 0x00000000
+
+rarezip.decompressed_count:
+.word 0x00000000
+
+rarezip.ptrbuffer:
+.word 0x00000000
+
+rarezip.order:
+.word 0x10111200
+.word 0x08070906
+.word 0x0A050B04
+.word 0x0C030D02
+.word 0x0E010F00
+
+rarezip.lbase:
+.word 0x00030004
+.word 0x00050006
+.word 0x00070008
+.word 0x0009000A
+.word 0x000B000D
+.word 0x000F0011
+.word 0x00130017
+.word 0x001B001F
+.word 0x0023002B
+.word 0x0033003B
+.word 0x00430053
+.word 0x00630073
+.word 0x008300A3
+.word 0x00C300E3
+.word 0x01020000
+.word 0x00000000
+
+rarezip.lextra:
+.word 0x00000000
+.word 0x00000000
+.word 0x01010101
+.word 0x02020202
+.word 0x03030303
+.word 0x04040404
+.word 0x05050505
+.word 0x00636300
+
+rarezip.dbase:
+.word 0x00010002
+.word 0x00030004
+.word 0x00050007
+.word 0x0009000D
+.word 0x00110019
+.word 0x00210031
+.word 0x00410061
+.word 0x008100C1
+.word 0x01010181
+.word 0x02010301
+.word 0x04010601
+.word 0x08010C01
+.word 0x10011801
+.word 0x20013001
+.word 0x40016001
+
+rarezip.dextra:
+.word 0x00000000
+.word 0x01010202
+.word 0x03030404
+.word 0x05050606
+.word 0x07070808
+.word 0x09090A0A
+.word 0x0B0B0C0C
+.word 0x0D0D0000
+
+rarezip.sample:
+.word 0x00000000
+
+rarezip.bitsinsample:
+.word 0x00000000
+
+rarezip.masks:
+.word 0x00000001
+.word 0x00030007
+.word 0x000F001F
+.word 0x003F007F
+.word 0x00FF01FF
+.word 0x03FF07FF
+.word 0x0FFF1FFF
+.word 0x3FFF7FFF
+.word 0xFFFF0000
+
+rarezip.data1:
+.word 0x00000009
+
+rarezip.data2:
+.word 0x00000006
+
+rarezip.data3:
+.word 0x00000000
+
+# Unknown region 034B2C-034B30 [4]
+.byte 0x00, 0x00, 0x00, 0x00
 
 
 .section .text7F000000, "ax"
@@ -43066,7 +43185,7 @@ stage_loading_setup_objparse_cleanupafter:
 /* 038DF8 7F0042C8 02002025 */   move  $a0, $s0
 /* 038DFC 7F0042CC 0FC006D4 */  jal   load_proptype
 /* 038E00 7F0042D0 2404000E */   li    $a0, 14
-/* 038E04 7F0042D4 0FC01897 */  jal   alloc_init_1EplusA0_inventroy_entries
+/* 038E04 7F0042D4 0FC01897 */  jal   alloc_additional_item_slots
 /* 038E08 7F0042D8 00402025 */   move  $a0, $v0
 /* 038E0C 7F0042DC 0FC26919 */  jal   get_num_players
 /* 038E10 7F0042E0 26100001 */   addiu $s0, $s0, 1
@@ -44670,8 +44789,8 @@ load_camera_intro_type_values:
 /* 03A538 7F005A08 AE200000 */  sw    $zero, ($s1)
 /* 03A53C 7F005A0C 3C018003 */  lui   $at, %hi(D_80036514) # $at, 0x8003
 /* 03A540 7F005A10 AC206514 */  sw    $zero, %lo(D_80036514)($at)
-/* 03A544 7F005A14 3C018005 */  lui   $at, %hi(D_8004F1A8) # $at, 0x8005
-/* 03A548 7F005A18 C430F1A8 */  lwc1  $f16, %lo(D_8004F1A8)($at)
+/* 03A544 7F005A14 3C018005 */  lui   $at, %hi(default_zoom_speed) # $at, 0x8005
+/* 03A548 7F005A18 C430F1A8 */  lwc1  $f16, %lo(default_zoom_speed)($at)
 /* 03A54C 7F005A1C 3C018003 */  lui   $at, %hi(D_800365A8) # $at, 0x8003
 /* 03A550 7F005A20 E43065A8 */  swc1  $f16, %lo(D_800365A8)($at)
 /* 03A554 7F005A24 3C018008 */  lui   $at, %hi(starting_left_weapon) # $at, 0x8008
@@ -45242,7 +45361,7 @@ sub_GAME_7F0061F0:
 /* 03AD84 7F006254 03E00008 */  jr    $ra
 /* 03AD88 7F006258 00000000 */   nop   
 
-alloc_init_1EplusA0_inventroy_entries:
+alloc_additional_item_slots:
 /* 03AD8C 7F00625C 3C028008 */  lui   $v0, %hi(ptr_BONDdata) # $v0, 0x8008
 /* 03AD90 7F006260 2442A0B0 */  addiu $v0, %lo(ptr_BONDdata) # addiu $v0, $v0, -0x5f50
 /* 03AD94 7F006264 8C4F0000 */  lw    $t7, ($v0)
@@ -154346,7 +154465,7 @@ sub_GAME_7F067B4C:
 /* 09C6BC 7F067B8C 03E00008 */  jr    $ra
 /* 09C6C0 7F067B90 E5200FBC */   swc1  $f0, 0xfbc($t1)
 
-sub_GAME_7F067B94:
+caclulate_gun_crosshair_position_rotation:
 /* 09C6C4 7F067B94 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 09C6C8 7F067B98 F7B60018 */  sdc1  $f22, 0x18($sp)
 /* 09C6CC 7F067B9C F7B40010 */  sdc1  $f20, 0x10($sp)
@@ -154622,7 +154741,7 @@ sub_GAME_7F067F58:
 /* 09CACC 7F067F9C 46001006 */  mov.s $f0, $f2
 /* 09CAD0 7F067FA0 44070000 */  mfc1  $a3, $f0
 .L7F067FA4:
-/* 09CAD4 7F067FA4 0FC19EE5 */  jal   sub_GAME_7F067B94
+/* 09CAD4 7F067FA4 0FC19EE5 */  jal   caclulate_gun_crosshair_position_rotation
 /* 09CAD8 7F067FA8 C7AE001C */   lwc1  $f14, 0x1c($sp)
 /* 09CADC 7F067FAC 8FBF0014 */  lw    $ra, 0x14($sp)
 /* 09CAE0 7F067FB0 27BD0018 */  addiu $sp, $sp, 0x18
@@ -154643,7 +154762,7 @@ sub_GAME_7F067FBC:
 /* 09CB14 7F067FE4 C7AC0018 */  lwc1  $f12, 0x18($sp)
 /* 09CB18 7F067FE8 44060000 */  mfc1  $a2, $f0
 /* 09CB1C 7F067FEC 44071000 */  mfc1  $a3, $f2
-/* 09CB20 7F067FF0 0FC19EE5 */  jal   sub_GAME_7F067B94
+/* 09CB20 7F067FF0 0FC19EE5 */  jal   caclulate_gun_crosshair_position_rotation
 /* 09CB24 7F067FF4 C7AE001C */   lwc1  $f14, 0x1c($sp)
 /* 09CB28 7F067FF8 8FBF0014 */  lw    $ra, 0x14($sp)
 /* 09CB2C 7F067FFC 27BD0018 */  addiu $sp, $sp, 0x18
@@ -174352,7 +174471,7 @@ sub_GAME_7F079988:
 /* 0AE4D4 7F0799A4 03E00008 */  jr    $ra
 /* 0AE4D8 7F0799A8 E5CA1274 */   swc1  $f10, 0x1274($t6)
 
-sub_GAME_7F0799AC:
+change_crouch_position:
 /* 0AE4DC 7F0799AC 3C058008 */  lui   $a1, %hi(ptr_BONDdata) # $a1, 0x8008
 /* 0AE4E0 7F0799B0 24A5A0B0 */  addiu $a1, %lo(ptr_BONDdata) # addiu $a1, $a1, -0x5f50
 /* 0AE4E4 7F0799B4 8CA20000 */  lw    $v0, ($a1)
@@ -185016,14 +185135,14 @@ controller_gameplay_interaction:
 /* 0B7E94 7F083364 8FAE0158 */  lw    $t6, 0x158($sp)
 /* 0B7E98 7F083368 13000005 */  beqz  $t8, .L7F083380
 /* 0B7E9C 7F08336C 00000000 */   nop   
-/* 0B7EA0 7F083370 0FC1E66B */  jal   sub_GAME_7F0799AC
+/* 0B7EA0 7F083370 0FC1E66B */  jal   change_crouch_position
 /* 0B7EA4 7F083374 2404FFFE */   li    $a0, -2
 /* 0B7EA8 7F083378 10000006 */  b     .L7F083394
 /* 0B7EAC 7F08337C 8E080000 */   lw    $t0, ($s0)
 .L7F083380:
 /* 0B7EB0 7F083380 51C00004 */  beql  $t6, $zero, .L7F083394
 /* 0B7EB4 7F083384 8E080000 */   lw    $t0, ($s0)
-/* 0B7EB8 7F083388 0FC1E66B */  jal   sub_GAME_7F0799AC
+/* 0B7EB8 7F083388 0FC1E66B */  jal   change_crouch_position
 /* 0B7EBC 7F08338C 24040002 */   li    $a0, 2
 /* 0B7EC0 7F083390 8E080000 */  lw    $t0, ($s0)
 .L7F083394:
