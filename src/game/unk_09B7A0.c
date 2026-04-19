@@ -270,10 +270,142 @@ glabel sub_GAME_7F09BAC4
 
 
 
-
 #ifdef NONMATCHING
-void sub_GAME_7F09BBBC(void) {
+/*
+* Address: 7F09BBBC
+* Decomp.me link: https://decomp.me/scratch/aadKp
+* 78.36 match. 
+*/
+void sub_GAME_7F09BBBC(s32 arg0, s16 arg1)
+{
+    s16 temp_s2;
+    s16 temp_s2_2;
+    s16 temp_v0;
+    s16 var_fp;
+    s16 var_fp_2;
+    s16 var_s2;
+    s32 var_a0;
+    s32 var_a1;          /* was s16 — caused spurious sign-extensions */
+    s32 var_s6;
+    struct unk_09B7A0_struct_parent *temp_s0;
+    struct unk_09B7A0_struct_parent *temp_s0_2;
+    struct unk_09B7A0_struct_parent *temp_s0_3;
+    struct unk_09B7A0_struct_parent *temp_v0_2;
+    struct unk_09B7A0_struct_parent *temp_v0_3;
+    /* removed: s32 temp_lo, temp_lo_2, temp_lo_3, temp_lo_4 */
 
+    var_a0 = arg0;
+    var_a1 = arg1;
+    var_s6 = 0;
+
+    if (word_CODE_bss_8007A0F2 < ((s32)dword_CODE_bss_8007A0D8 >> 2))
+    {
+        var_a0 = dword_CODE_bss_8007A0DC;
+        var_fp = 0;
+        var_a1 = var_a0 - 1;   /* removed (s16) cast */
+
+        if (var_a1 > 0)
+        {
+            do
+            {
+                temp_v0 = var_fp + 1;
+
+                /* Direct struct array index — single ×0x14, not double */
+                if ((dword_CODE_bss_8007A0EC + var_fp)->unk0E > 0)
+                {
+                    var_s2 = temp_v0;
+
+                    if (temp_v0 < var_a0)
+                    {
+                        do
+                        {
+                            temp_s0   = dword_CODE_bss_8007A0EC + var_fp;
+                            temp_v0_2 = dword_CODE_bss_8007A0EC + var_s2;
+
+                            if ((temp_v0_2->unk0E > 0) &&
+                                (temp_s0->unk04 == temp_v0_2->unk04) &&
+                                (temp_s0->unk08 == temp_v0_2->unk08))
+                            {
+                                var_s6 = 1;
+                                sub_GAME_7F09BAC4(
+                                    (s32)temp_v0_2->unk00,
+                                    (s32)temp_s0->unk00);
+
+                                temp_s0_2 = dword_CODE_bss_8007A0EC + var_fp;
+                                temp_s0_2->unk0E = (s16)(
+                                    temp_s0_2->unk0E +
+                                    (dword_CODE_bss_8007A0EC + var_s2)->unk0E);
+                                (dword_CODE_bss_8007A0EC + var_s2)->unk0E = 0;
+                                word_CODE_bss_8007A0F2 +=
+                                    (dword_CODE_bss_8007A0EC + var_s2)->unk0C;
+
+                                var_a0 = dword_CODE_bss_8007A0DC;
+                            }
+
+                            var_s2 += 1;
+                        } while (var_s2 < var_a0);
+
+                        var_a1 = var_a0 - 1;   /* removed (s16) cast */
+                    }
+                }
+
+                var_fp += 1;
+            } while (var_fp < var_a1);
+        }
+    }
+
+    if (var_s6 != 0)
+    {
+        var_a0  = 0;
+        var_fp_2 = 0;
+        var_a1  = -1;
+
+        do
+        {
+            temp_s0_3 = dword_CODE_bss_8007A0EC + var_fp_2;
+            temp_s2   = temp_s0_3->unk10;
+
+            if (temp_s2 >= 0)
+            {
+                if (temp_s0_3->unk0E == 0)
+                {
+                    temp_v0_3 = dword_CODE_bss_8007A0EC + temp_s2;
+
+                    if (temp_v0_3->unk0E == 0)
+                    {
+                        temp_s0_3->unk0C = (s16)(
+                            temp_s0_3->unk0C + temp_v0_3->unk0C);
+                        temp_v0_3->unk0E = (s16)var_a1;  /* reuse register, not literal -1 */
+                        temp_s2_2 = temp_v0_3->unk10;
+                        temp_s0_3->unk10 = temp_s2_2;
+
+                        if (temp_s2_2 >= 0)
+                        {
+                            /* direct index — single ×0x14 */
+                            (dword_CODE_bss_8007A0EC + temp_s2_2)->unk12 = var_fp_2;
+                        }
+                    }
+                    else
+                    {
+                        var_fp_2 = temp_s2;
+                    }
+                }
+                else
+                {
+                    var_fp_2 = temp_s2;
+                }
+            }
+            else
+            {
+                var_a0 = 1;
+            }
+        } while (var_a0 == 0);
+    }
+
+    if (word_CODE_bss_8007A0F2 < ((s32)dword_CODE_bss_8007A0D8 >> 2))
+    {
+        sub_GAME_7F056690(var_a0, var_a1);
+    }
 }
 #else
 GLOBAL_ASM(
