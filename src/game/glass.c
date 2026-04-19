@@ -1793,78 +1793,50 @@ glabel sub_GAME_7F0A2F30
 #endif
 
 
+/**
+ * Unsure of the exact gfx macros used here so sticking with raw words for now.
+ * The line splice '\' is required for matching.
+ */
+Gfx *sub_GAME_7F0A3330(Gfx *gdl, u32 arg1, s32 arg2)
+{
+    s8 i;
 
+    for (i = 0; i <= (arg2 / 2 - 2); i++) {
+        {
+            Gfx *_g = gdl++;\
+            _g->words.w0 = 0x04300040;\
+            _g->words.w1 = arg1;
+        }
 
+        if (i >= 9) {
+            if ((i + 3) % 4) {
+                {
+                    Gfx *_g = gdl++;\
+                    _g->words.w0 = 0xB1000032;\
+                    _g->words.w1 = 0x00002110;\
+                }
+            }
+        } else if (i < 9) {
+            if ((i & 1) == 0) {
+                {
+                    Gfx *_g = gdl++;\
+                    _g->words.w0 = 0xB1000032;\
+                    _g->words.w1 = 0x00002110;\
+                }
+            }
+        }
 
-#ifdef NONMATCHING
-void sub_GAME_7F0A3330(void) {
+        arg1 += 0x20;
+    }
 
+    {
+        Gfx *_g = gdl++;\
+        _g->words.w0 = 0xB8000000;\
+        _g->words.w1 = 0;\
+    }
+    
+    return gdl;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0A3330
-/* 0D7E60 7F0A3330 00803825 */  move  $a3, $a0
-/* 0D7E64 7F0A3334 00001025 */  move  $v0, $zero
-/* 0D7E68 7F0A3338 04C10003 */  bgez  $a2, .L7F0A3348
-/* 0D7E6C 7F0A333C 00061843 */   sra   $v1, $a2, 1
-/* 0D7E70 7F0A3340 24C10001 */  addiu $at, $a2, 1
-/* 0D7E74 7F0A3344 00011843 */  sra   $v1, $at, 1
-.L7F0A3348:
-/* 0D7E78 7F0A3348 2463FFFE */  addiu $v1, $v1, -2
-/* 0D7E7C 7F0A334C 04600026 */  bltz  $v1, .L7F0A33E8
-/* 0D7E80 7F0A3350 3C0BB800 */   lui   $t3, 0xb800
-/* 0D7E84 7F0A3354 3C08B100 */  lui   $t0, (0xB1000032 >> 16) # lui $t0, 0xb100
-/* 0D7E88 7F0A3358 3C060430 */  lui   $a2, (0x04300040 >> 16) # lui $a2, 0x430
-/* 0D7E8C 7F0A335C 34C60040 */  ori   $a2, (0x04300040 & 0xFFFF) # ori $a2, $a2, 0x40
-/* 0D7E90 7F0A3360 35080032 */  ori   $t0, (0xB1000032 & 0xFFFF) # ori $t0, $t0, 0x32
-/* 0D7E94 7F0A3364 24092110 */  li    $t1, 8464
-.L7F0A3368:
-/* 0D7E98 7F0A3368 00E02025 */  move  $a0, $a3
-/* 0D7E9C 7F0A336C 28410009 */  slti  $at, $v0, 9
-/* 0D7EA0 7F0A3370 AC860000 */  sw    $a2, ($a0)
-/* 0D7EA4 7F0A3374 AC850004 */  sw    $a1, 4($a0)
-/* 0D7EA8 7F0A3378 1420000D */  bnez  $at, .L7F0A33B0
-/* 0D7EAC 7F0A337C 24E70008 */   addiu $a3, $a3, 8
-/* 0D7EB0 7F0A3380 244E0003 */  addiu $t6, $v0, 3
-/* 0D7EB4 7F0A3384 05C10004 */  bgez  $t6, .L7F0A3398
-/* 0D7EB8 7F0A3388 31CF0003 */   andi  $t7, $t6, 3
-/* 0D7EBC 7F0A338C 11E00002 */  beqz  $t7, .L7F0A3398
-/* 0D7EC0 7F0A3390 00000000 */   nop
-/* 0D7EC4 7F0A3394 25EFFFFC */  addiu $t7, $t7, -4
-.L7F0A3398:
-/* 0D7EC8 7F0A3398 11E0000D */  beqz  $t7, .L7F0A33D0
-/* 0D7ECC 7F0A339C 00E02025 */   move  $a0, $a3
-/* 0D7ED0 7F0A33A0 24E70008 */  addiu $a3, $a3, 8
-/* 0D7ED4 7F0A33A4 AC880000 */  sw    $t0, ($a0)
-/* 0D7ED8 7F0A33A8 10000009 */  b     .L7F0A33D0
-/* 0D7EDC 7F0A33AC AC890004 */   sw    $t1, 4($a0)
-.L7F0A33B0:
-/* 0D7EE0 7F0A33B0 28410009 */  slti  $at, $v0, 9
-/* 0D7EE4 7F0A33B4 10200006 */  beqz  $at, .L7F0A33D0
-/* 0D7EE8 7F0A33B8 30580001 */   andi  $t8, $v0, 1
-/* 0D7EEC 7F0A33BC 17000004 */  bnez  $t8, .L7F0A33D0
-/* 0D7EF0 7F0A33C0 00E02025 */   move  $a0, $a3
-/* 0D7EF4 7F0A33C4 24E70008 */  addiu $a3, $a3, 8
-/* 0D7EF8 7F0A33C8 AC880000 */  sw    $t0, ($a0)
-/* 0D7EFC 7F0A33CC AC890004 */  sw    $t1, 4($a0)
-.L7F0A33D0:
-/* 0D7F00 7F0A33D0 24420001 */  addiu $v0, $v0, 1
-/* 0D7F04 7F0A33D4 0002CE00 */  sll   $t9, $v0, 0x18
-/* 0D7F08 7F0A33D8 00191603 */  sra   $v0, $t9, 0x18
-/* 0D7F0C 7F0A33DC 0062082A */  slt   $at, $v1, $v0
-/* 0D7F10 7F0A33E0 1020FFE1 */  beqz  $at, .L7F0A3368
-/* 0D7F14 7F0A33E4 24A50020 */   addiu $a1, $a1, 0x20
-.L7F0A33E8:
-/* 0D7F18 7F0A33E8 24E20008 */  addiu $v0, $a3, 8
-/* 0D7F1C 7F0A33EC ACEB0000 */  sw    $t3, ($a3)
-/* 0D7F20 7F0A33F0 03E00008 */  jr    $ra
-/* 0D7F24 7F0A33F4 ACE00004 */   sw    $zero, 4($a3)
-)
-#endif
-
-
-
 
 
 #ifdef NONMATCHING
