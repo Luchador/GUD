@@ -137,70 +137,56 @@ void sub_GAME_7F09B820(void)
 
 
 #ifdef NONMATCHING
+/*
+* Address: 0x7F09BAC4
+* Decomp: https://decomp.me/scratch/uE4o9
+* 99.03%. Some registers are different but every instruction matches.
+*/
 void sub_GAME_7F09BAC4(void) {
-    //s32 *modelGetNodeRwData(void *, void *); /* extern */
-    //void *get_ptr_obj_pos_list_current_entry();         /* extern */
-
-    s32 *temp_v0_2;
-    void *temp_a0;
-    void *temp_a1;
-    void *temp_a1_2;
-    void *temp_s1;
-    void *temp_v0;
-    void *temp_v0_3;
-    void *temp_v0_4;
-    void *phi_s1;
-    void *phi_a1;
-    void *phi_a1_2;
-    void *phi_a1_3;
+    PropRecord* temp_v0;
+    PropRecord* var_s1;
+    Model* temp_a0;
+    ModelNode* var_a1;
+    s32* temp_v0_2;
+    ModelNode* temp_v0_3;
+    ModelNode* temp_v0_4;
 
     temp_v0 = get_ptr_obj_pos_list_current_entry();
-    phi_s1 = temp_v0;
-    if (temp_v0 != 0) {
+    var_s1 = temp_v0;
+    if (temp_v0 != NULL) {
         do {
-            if (phi_s1->unk0 == 1) {
-                temp_a0 = phi_s1->unk4->unk14;
-                temp_a1 = *temp_a0->unk8;
-                phi_a1 = temp_a1;
-                if (temp_a1 != 0) {
-loop_4:
-                    phi_a1_2 = phi_a1;
-                    phi_a1_3 = phi_a1;
-                    if ((phi_a1->unk0 & 0xFF) == 0x18) {
-                        temp_v0_2 = modelGetNodeRwData(temp_a0, phi_a1);
-                        if (arg0 == *temp_v0_2) {
-                            *temp_v0_2 = arg1;
-                        }
-                    } else {
-                        temp_v0_3 = phi_a1->unk14;
-                        if (temp_v0_3 != 0) {
-                            phi_a1_3 = temp_v0_3;
-                        } else if (phi_a1 != 0) {
-loop_10:
-                            temp_v0_4 = phi_a1_2->unkC;
-                            if (temp_v0_4 != 0) {
-                                phi_a1_3 = temp_v0_4;
-                            } else {
-                                temp_a1_2 = phi_a1_2->unk8;
-                                phi_a1_2 = temp_a1_2;
-                                phi_a1_3 = temp_a1_2;
-                                if (temp_a1_2 != 0) {
-                                    goto loop_10;
-                                }
+            if (var_s1->type == 1) {
+                temp_a0 = var_s1->chr->chrflags;
+                var_a1 = *(ModelNode**)temp_a0->obj;
+                if (var_a1 != NULL) {
+                    do {
+                        if ((var_a1->Opcode & 0xFF) == 0x18) {
+                            temp_v0_2 = modelGetNodeRwData(temp_a0, var_a1);
+                            if (arg0 == *temp_v0_2) {
+                                *temp_v0_2 = arg1;
+                            }
+                            break;  /* exact early-exit after first 0x18 node */
+                        } else {
+                            temp_v0_3 = var_a1->Child;
+                            if (temp_v0_3 != NULL) {
+                                var_a1 = temp_v0_3;
+                            } else if (var_a1 != NULL) {
+                                do {
+                                    temp_v0_4 = var_a1->Next;
+                                    if (temp_v0_4 != NULL) {
+                                        var_a1 = temp_v0_4;
+                                        break;
+                                    }
+                                    var_a1 = var_a1->Parent;
+                                } while (var_a1 != NULL);
                             }
                         }
-                        phi_a1 = phi_a1_3;
-                        if (phi_a1_3 != 0) {
-                            goto loop_4;
-                        }
-                    }
+                    } while (var_a1 != NULL);
                 }
             }
-            temp_s1 = phi_s1->unk24;
-            phi_s1 = temp_s1;
-        } while (temp_s1 != 0);
+            var_s1 = var_s1->prev;
+        } while (var_s1 != NULL);
     }
-
 }
 #else
 GLOBAL_ASM(
