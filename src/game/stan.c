@@ -3072,8 +3072,8 @@ glabel sub_GAME_7F0B0914
 
 
 
-// 'walkTilesBetweenPoints_NoCallback'
 /**
+ * Name: walkTilesBetweenPoints_NoCallback
  * Address 0x7F0B0BE4.
 */
 s32 walkTilesBetweenPoints_NoCallback(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_x, f32 dest_z)
@@ -3084,7 +3084,10 @@ s32 walkTilesBetweenPoints_NoCallback(StandTile **tileStack, f32 start_x, f32 st
 
 
 
-// 'walkTilesBetweenPoints_NotingRooms'
+/**
+ * Name: walkTilesBetweenPoints_NotingRooms
+ * Address 0x7F0B0BE4.
+*/
 s32 sub_GAME_7F0B0C24(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_x, f32 dest_z, s32 *roomBuffer, s32 *rtnCountSize, s32 maxBufSize)
 {
     struct StandTileWalkCallbackRecord callbackData;
@@ -3103,7 +3106,9 @@ s32 sub_GAME_7F0B0C24(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_
 }
 
 
-
+/*
+* Address: 0x0x7f0b0c98
+*/
 void noteTileRoomIfDifferentToPrev(StandTile *tile, StandTile *unused, struct StandTileWalkCallbackRecord *data)
 {
     s32 newRoom;
@@ -3122,7 +3127,9 @@ void noteTileRoomIfDifferentToPrev(StandTile *tile, StandTile *unused, struct St
 
 
 
-
+/*
+* Address: 0x7f0b0cec
+*/
 void noteTileRoomIfDifferentToPrev_2(StandTile *tile, StandTile *unused, struct StandTileWalkCallbackRecord *data) {
     noteTileRoomIfDifferentToPrev(tile, unused, data);
 }

@@ -580,6 +580,7 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
 /**
  * Tests if a ray intersects the bounding box of the given room.
  * @return TRUE if the ray intersects, otherwise FALSE.
+ * Address: 0x7f03a97c
 */
 s32 chrpropRayIntersectsRoomBbox(s32 room, coord3d* start, coord3d* dir) {
     s32 max[3];
@@ -606,6 +607,8 @@ s32 chrpropRayIntersectsRoomBbox(s32 room, coord3d* start, coord3d* dir) {
  * Unreferenced
  * 
  * This takes a list of rooms and flags the ones that do *not* intersect a ray.
+ * 
+ * Address: 0x7f03aa44
  */
 void chrpropFlagRoomsFromRayTest(s32 arg0, coord3d *from, coord3d *to, u8 *rooms)
 {

@@ -2706,6 +2706,7 @@ glabel sub_GAME_7F05F73C
 
 
 /**
+ * Address: 0x7F05F928
  * This function is responsible for attaching a rocket to the end of the Rocket Launcher and updating its matrices.
  */
 void gunUpdateAttachedRocket(s32 handIndex)
@@ -2755,7 +2756,9 @@ void gunUpdateAttachedRocket(s32 handIndex)
     attachmentChild->unk18 = -rocketModel->render_pos->pos.m[3][2];
 }
 
-
+/*
+* Address: 0x7f05fa7c
+*/
 void currentPlayerCreateRocket(GUNHAND hand)
 {
     struct hand * hand_ptr;
@@ -2777,7 +2780,10 @@ void currentPlayerCreateRocket(GUNHAND hand)
 
 
 
-/* This function frees some sort of ObjectRecord from the given hand */
+/* 
+* Address: 0x7F05FB00
+* This function frees some sort of ObjectRecord from the given hand
+*/
 void sub_GAME_7F05FB00(enum GUNHAND hand)
 {
     struct hand* hand_ptr;
@@ -2796,6 +2802,9 @@ void sub_GAME_7F05FB00(enum GUNHAND hand)
 
 
 #ifdef NONMATCHING
+/*
+* Address: 0x7F05FB64
+*/
 void gunFireTankShell(void) {
 
 }

@@ -35995,6 +35995,7 @@ ModelRenderData D_800322A4 = {
 
 /**
  * Render the weapon(s) characters are holding including the muzzle flash.
+ * Address: 0x7f0523f8
  */
 void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
 {
@@ -36061,6 +36062,9 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
 }
 
 
+/*
+* Address: 0x7f052554
+*/
 void redirect_object_collectability_routines(struct PropRecord* arg0)
 {
     object_collectability_routines(arg0);
@@ -36069,7 +36073,9 @@ void redirect_object_collectability_routines(struct PropRecord* arg0)
 
 
 
-
+/*
+* Address: 0x7f052574
+*/
 void weaponSetGunfireVisible(PropRecord *prop, s32 firing)
 {
     ObjectRecord *obj = prop->obj;
@@ -36093,6 +36099,9 @@ void weaponSetGunfireVisible(PropRecord *prop, s32 firing)
 
 
 
+/*
+* Address: 0x7f052604
+*/
 s32 weaponIsGunfireVisible(PropRecord *prop)
 {
     ObjectRecord *obj = prop->obj;
@@ -36119,7 +36128,10 @@ s32 weaponIsGunfireVisible(PropRecord *prop)
 
 
 
-// getHatType
+/*
+* Alternative name: getHatType
+* Address: 0x7f052684
+*/
 HATTYPE get_hat_model(PropRecord *prop) //#MATCH
 {
     ObjectRecord *objinst = prop->obj;
