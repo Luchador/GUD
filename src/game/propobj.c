@@ -38886,7 +38886,7 @@ void handle_alarm_gas_timer_calldamage(void)
 
 #ifdef NONMATCHING
 // https://decomp.me/scratch/COEsd 99.07%
-void sub_GAME_7F056690(s32, s32)
+void sub_GAME_7F056690(void)
 {
     Model *temp_s3;
     PropRecord *var_s2;
