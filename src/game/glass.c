@@ -1794,20 +1794,25 @@ glabel sub_GAME_7F0A2F30
 
 
 /**
- * Unsure of the exact gfx macros used here so sticking with raw words for now.
+ * Address: 7F0A3330
+ *
+ * Creates the display list for HUD and watch health and armor bars.
+ * 
+ * Unsure of the exact gfx macro for the B1 packet, so sticking with raw words for now.
+ *
+ * gfxdis was unable to decode:
+ *   0xB1000032 0x00002110
+ *
+ * Based on function use, it is almost certainly a two tri or quad command
+ *
  * The line splice '\' is required for matching.
  */
-Gfx *sub_GAME_7F0A3330(Gfx *gdl, u32 arg1, s32 arg2)
+Gfx *buildGaugeBarDL(Gfx *gdl, u32 arg1, s32 arg2)
 {
     s8 i;
 
     for (i = 0; i <= (arg2 / 2 - 2); i++) {
-        {
-            Gfx *_g = gdl++;\
-            _g->words.w0 = 0x04300040;\
-            _g->words.w1 = arg1;
-        }
-
+        gSPVertex(gdl++, arg1, 4, 0);
         if (i >= 9) {
             if ((i + 3) % 4) {
                 {
@@ -1829,11 +1834,7 @@ Gfx *sub_GAME_7F0A3330(Gfx *gdl, u32 arg1, s32 arg2)
         arg1 += 0x20;
     }
 
-    {
-        Gfx *_g = gdl++;\
-        _g->words.w0 = 0xB8000000;\
-        _g->words.w1 = 0;\
-    }
+    gSPEndDisplayList(gdl++);
     
     return gdl;
 }

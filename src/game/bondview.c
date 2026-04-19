@@ -7691,10 +7691,10 @@ void trigger_solo_watch_menu(s32 arg0)
             bondviewTriggerWatchZoomDefault();
 
             sub_GAME_7F0A2F30(&g_CurrentPlayer->armor_display_values, 0x2E, 1, get_BONDdata_watch_armor());
-            sub_GAME_7F0A3330(&g_CurrentPlayer->watch_body_armor_bar_gdl, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->armor_display_values), 0x2E);
+            buildGaugeBarDL(&g_CurrentPlayer->watch_body_armor_bar_gdl, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->armor_display_values), 0x2E);
 
             sub_GAME_7F0A2F30(&g_CurrentPlayer->health_display_values, 0x2E, -1, bondviewGetCurrentPlayerHealth());
-            sub_GAME_7F0A3330(&g_CurrentPlayer->watch_health_bar_gdl, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->health_display_values), 0x2E);
+            buildGaugeBarDL(&g_CurrentPlayer->watch_health_bar_gdl, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->health_display_values), 0x2E);
 
             sub_GAME_7F0A69A8();
 
@@ -14462,9 +14462,9 @@ s32 sub_GAME_7F088618(void *arg0) {
 
     // Node 0
     sub_GAME_7F0A2F30((g_CurrentPlayer + 0x12b8), 0x2e, 1, g_CurrentPlayer->apparentarmour);
-    sub_GAME_7F0A3330((g_CurrentPlayer + 0x19f8), (g_CurrentPlayer + 0x800012b8), 0x2e);
+    buildGaugeBarDL((g_CurrentPlayer + 0x19f8), (g_CurrentPlayer + 0x800012b8), 0x2e);
     sub_GAME_7F0A2F30((g_CurrentPlayer + 0x1598), 0x2e, -1, g_CurrentPlayer->apparenthealth);
-    sub_GAME_7F0A3330((g_CurrentPlayer + 0x2128), (g_CurrentPlayer + 0x80001598), 0x2e);
+    buildGaugeBarDL((g_CurrentPlayer + 0x2128), (g_CurrentPlayer + 0x80001598), 0x2e);
     spBC = dynAllocateMatrix();
     temp_ret = dynAllocateMatrix();
     spB8 = temp_ret;
@@ -14533,7 +14533,7 @@ glabel sub_GAME_7F088618
 /* 0BD188 7F088658 342112B8 */  ori   $at, (0x800012B8 & 0xFFFF) # ori $at, $at, 0x12b8
 /* 0BD18C 7F08865C 2406002E */  li    $a2, 46
 /* 0BD190 7F088660 02212821 */  addu  $a1, $s1, $at
-/* 0BD194 7F088664 0FC28CCC */  jal   sub_GAME_7F0A3330
+/* 0BD194 7F088664 0FC28CCC */  jal   buildGaugeBarDL
 /* 0BD198 7F088668 262419F8 */   addiu $a0, $s1, 0x19f8
 /* 0BD19C 7F08866C 8E510000 */  lw    $s1, ($s2)
 /* 0BD1A0 7F088670 2405002E */  li    $a1, 46
@@ -14546,7 +14546,7 @@ glabel sub_GAME_7F088618
 /* 0BD1BC 7F08868C 34211598 */  ori   $at, (0x80001598 & 0xFFFF) # ori $at, $at, 0x1598
 /* 0BD1C0 7F088690 2406002E */  li    $a2, 46
 /* 0BD1C4 7F088694 02212821 */  addu  $a1, $s1, $at
-/* 0BD1C8 7F088698 0FC28CCC */  jal   sub_GAME_7F0A3330
+/* 0BD1C8 7F088698 0FC28CCC */  jal   buildGaugeBarDL
 /* 0BD1CC 7F08869C 26242128 */   addiu $a0, $s1, 0x2128
 /* 0BD1D0 7F0886A0 0FC2F5B8 */  jal   dynAllocateMatrix
 /* 0BD1D4 7F0886A4 00000000 */   nop
@@ -14721,7 +14721,7 @@ glabel sub_GAME_7F088618
 /* 0BB1B0 7F0887C0 342112B0 */  ori   $at, (0x800012B0 & 0xFFFF) # ori $at, $at, 0x12b0
 /* 0BB1B4 7F0887C4 2406002E */  li    $a2, 46
 /* 0BB1B8 7F0887C8 02212821 */  addu  $a1, $s1, $at
-/* 0BB1BC 7F0887CC 0FC28A1C */  jal   sub_GAME_7F0A3330
+/* 0BB1BC 7F0887CC 0FC28A1C */  jal   buildGaugeBarDL
 /* 0BB1C0 7F0887D0 262419F0 */   addiu $a0, $s1, 0x19f0
 /* 0BB1C4 7F0887D4 8E510000 */  lw    $s1, ($s2)
 /* 0BB1C8 7F0887D8 2405002E */  li    $a1, 46
@@ -14734,7 +14734,7 @@ glabel sub_GAME_7F088618
 /* 0BB1E4 7F0887F4 34211590 */  ori   $at, (0x80001590 & 0xFFFF) # ori $at, $at, 0x1590
 /* 0BB1E8 7F0887F8 2406002E */  li    $a2, 46
 /* 0BB1EC 7F0887FC 02212821 */  addu  $a1, $s1, $at
-/* 0BB1F0 7F088800 0FC28A1C */  jal   sub_GAME_7F0A3330
+/* 0BB1F0 7F088800 0FC28A1C */  jal   buildGaugeBarDL
 /* 0BB1F4 7F088804 26242120 */   addiu $a0, $s1, 0x2120
 /* 0BB1F8 7F088808 0FC2F2A4 */  jal   dynAllocateMatrix
 /* 0BB1FC 7F08880C 00000000 */   nop
