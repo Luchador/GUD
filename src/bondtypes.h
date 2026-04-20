@@ -556,28 +556,30 @@ typedef union
         int  a;
         char b;
     } AnimTable2;
+
     // unknown struct, unknown size.
     typedef struct ModelAnimation
     {
         s32 address;
-        u16 unk04; //nextframe
-        u16 unk06;
+        u16 unk04; // next frame
+        u8 unk06;
+        u8 unk07; // bit 0 is a loop flag: 0 means freeze anim at end, 1 means loop anim
         u16 unk08;
         u16 unk0A;
         u16 unk0C;
         u16 unk0E;
-        int unk10;
-        int unk14;
-        int unk18;
-        int unk1c;
-        int unk20;
-        int unk24;
-        int unk28;
-        int unk2c;
-        int unk30;
-        int unk34;
-        int unk38;
-        int unk3c; //endframe
+        s32 unk10;
+        s32 unk14;
+        s32 unk18;
+        s32 unk1c;
+        s32 unk20;
+        s32 unk24;
+        s32 unk28;
+        s32 unk2c;
+        s32 unk30;
+        s32 unk34;
+        s32 unk38;
+        s32 unk3c; // end frame
 
         // ...
     } ModelAnimation;
