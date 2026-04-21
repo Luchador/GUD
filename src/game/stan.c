@@ -5249,66 +5249,35 @@ void stanPackId(char *id, u16 *stanIdHi, u8 *stanIdLo)
 }
 
 
+struct StandTilePoint *stanMatchTileName(char *id)
+{
+    StandTilePoint *tile;
+    u16 stanIdHi;
+    u8 stanIdLo;
+    s16 tmp;
 
+    if (*id == '\0') {
+        return NULL;
+    }
 
+    stanPackId(id, &stanIdHi, &stanIdLo);
 
-#ifdef NONMATCHING
-// TODO
-void stanMatchTileName(void) {
+    tile = ((struct StanPrefixRecord *)stan_prefix.stanfile)->ptr_firstroom;
 
+    while (*(u32 *)tile != 0) {
+        if ((u16)tile->x == stanIdHi) {
+            if (*((u8 *)&tile->y) == stanIdLo) {
+                return tile;
+            }
+        }
+
+        tmp = tile->link;
+        tile = (StandTilePoint *)((u8 *)tile +
+            list_of_tilesizes[(tmp >> 12) & 0xf]);
+    }
+
+    return NULL;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel stanMatchTileName
-/* 0E7988 7F0B2E58 27BDFFD8 */  addiu $sp, $sp, -0x28
-/* 0E798C 7F0B2E5C AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0E7990 7F0B2E60 908E0000 */  lbu   $t6, ($a0)
-/* 0E7994 7F0B2E64 27A50022 */  addiu $a1, $sp, 0x22
-/* 0E7998 7F0B2E68 15C00003 */  bnez  $t6, .L7F0B2E78
-/* 0E799C 7F0B2E6C 00000000 */   nop
-/* 0E79A0 7F0B2E70 1000001F */  b     .L7F0B2EF0
-/* 0E79A4 7F0B2E74 00001025 */   move  $v0, $zero
-.L7F0B2E78:
-/* 0E79A8 7F0B2E78 0FC2CB54 */  jal stanPackId
-/* 0E79AC 7F0B2E7C 27A60021 */   addiu $a2, $sp, 0x21
-/* 0E79B0 7F0B2E80 3C0F8008 */  lui   $t7, %hi(stan_prefix)
-/* 0E79B4 7F0B2E84 8DEFB120 */  lw    $t7, %lo(stan_prefix)($t7)
-/* 0E79B8 7F0B2E88 3C058004 */  lui   $a1, %hi(list_of_tilesizes)
-/* 0E79BC 7F0B2E8C 24A50F4C */  addiu $a1, %lo(list_of_tilesizes) # addiu $a1, $a1, 0xf4c
-/* 0E79C0 7F0B2E90 8DE30004 */  lw    $v1, 4($t7)
-/* 0E79C4 7F0B2E94 97A40022 */  lhu   $a0, 0x22($sp)
-/* 0E79C8 7F0B2E98 8C780000 */  lw    $t8, ($v1)
-/* 0E79CC 7F0B2E9C 53000014 */  beql  $t8, $zero, .L7F0B2EF0
-/* 0E79D0 7F0B2EA0 00001025 */   move  $v0, $zero
-/* 0E79D4 7F0B2EA4 94790000 */  lhu   $t9, ($v1)
-.L7F0B2EA8:
-/* 0E79D8 7F0B2EA8 93A80021 */  lbu   $t0, 0x21($sp)
-/* 0E79DC 7F0B2EAC 54990007 */  bnel  $a0, $t9, .L7F0B2ECC
-/* 0E79E0 7F0B2EB0 84620006 */   lh    $v0, 6($v1)
-/* 0E79E4 7F0B2EB4 90690002 */  lbu   $t1, 2($v1)
-/* 0E79E8 7F0B2EB8 55090004 */  bnel  $t0, $t1, .L7F0B2ECC
-/* 0E79EC 7F0B2EBC 84620006 */   lh    $v0, 6($v1)
-/* 0E79F0 7F0B2EC0 1000000B */  b     .L7F0B2EF0
-/* 0E79F4 7F0B2EC4 00601025 */   move  $v0, $v1
-/* 0E79F8 7F0B2EC8 84620006 */  lh    $v0, 6($v1)
-.L7F0B2ECC:
-/* 0E79FC 7F0B2ECC 00025303 */  sra   $t2, $v0, 0xc
-/* 0E7A00 7F0B2ED0 314B000F */  andi  $t3, $t2, 0xf
-/* 0E7A04 7F0B2ED4 00AB6021 */  addu  $t4, $a1, $t3
-/* 0E7A08 7F0B2ED8 918D0000 */  lbu   $t5, ($t4)
-/* 0E7A0C 7F0B2EDC 01A31821 */  addu  $v1, $t5, $v1
-/* 0E7A10 7F0B2EE0 8C6E0000 */  lw    $t6, ($v1)
-/* 0E7A14 7F0B2EE4 55C0FFF0 */  bnezl $t6, .L7F0B2EA8
-/* 0E7A18 7F0B2EE8 94790000 */   lhu   $t9, ($v1)
-/* 0E7A1C 7F0B2EEC 00001025 */  move  $v0, $zero
-.L7F0B2EF0:
-/* 0E7A20 7F0B2EF0 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 0E7A24 7F0B2EF4 27BD0028 */  addiu $sp, $sp, 0x28
-/* 0E7A28 7F0B2EF8 03E00008 */  jr    $ra
-/* 0E7A2C 7F0B2EFC 00000000 */   nop
-)
-#endif
 
 
 #ifdef XBLADEBUG
