@@ -2050,7 +2050,7 @@ glabel sub_GAME_7F06DB5C
 
 
 
-
+u32 sub_GAME_7F06DE04(u8 *bitstream, u8 width, u32 bitOffset);
 
 #ifdef NONMATCHING
 void sub_GAME_7F06DE04(void) {
@@ -2620,99 +2620,35 @@ glabel sub_GAME_7F06E2B8
 #endif
 
 
+// Decodes a packed joint Y-angle from the animation bitstream using either mtxA or mtxB.
+f32 sub_GAME_7F06E540(s32 jointIndex, s32 useMtxB, ModelSkeleton *skeleton, ModelAnimation *anim, u8 *bitstream)
+{    
+    u32 bitOffset;
+    u32 raw;
+    u8 width;
+    f32 angle;
 
+    angle = 0.0f;
+    width = anim->unk06;
 
+    if (useMtxB != 0) {
+        bitOffset = skeleton->Joints[jointIndex].mtxB * width;
+    } else {
+        bitOffset = skeleton->Joints[jointIndex].mtxA * width;
+    }
 
-#ifdef NONMATCHING
-void sub_GAME_7F06E540(void) {
+    raw = sub_GAME_7F06DE04(bitstream, width, bitOffset);
 
+    if (useMtxB != 0) {
+        if (raw != 0) {
+            angle = ((f32)(s32)(0x10000 - raw) * M_TAU_F) / M_U16_MAX_VALUE_F;
+        }
+    } else {
+        angle = ((f32)raw * M_TAU_F) / M_U16_MAX_VALUE_F;
+    }
+
+    return angle;
 }
-#else
-GLOBAL_ASM(
-.late_rodata
-glabel D_80054C10
-.word 0x40c90fdb /*6.2831855*/
-glabel D_80054C14
-.word 0x40c90fdb /*6.2831855*/
-.text
-glabel sub_GAME_7F06E540
-/* 0A3070 7F06E540 27BDFFD8 */  addiu $sp, $sp, -0x28
-/* 0A3074 7F06E544 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0A3078 7F06E548 AFA5002C */  sw    $a1, 0x2c($sp)
-/* 0A307C 7F06E54C AFA60030 */  sw    $a2, 0x30($sp)
-/* 0A3080 7F06E550 90EE0006 */  lbu   $t6, 6($a3)
-/* 0A3084 7F06E554 44801000 */  mtc1  $zero, $f2
-/* 0A3088 7F06E558 10A0000C */  beqz  $a1, .L7F06E58C
-/* 0A308C 7F06E55C A3AE001F */   sb    $t6, 0x1f($sp)
-/* 0A3090 7F06E560 8CD90004 */  lw    $t9, 4($a2)
-/* 0A3094 7F06E564 00044080 */  sll   $t0, $a0, 2
-/* 0A3098 7F06E568 01044023 */  subu  $t0, $t0, $a0
-/* 0A309C 7F06E56C 00084040 */  sll   $t0, $t0, 1
-/* 0A30A0 7F06E570 03284821 */  addu  $t1, $t9, $t0
-/* 0A30A4 7F06E574 952A0004 */  lhu   $t2, 4($t1)
-/* 0A30A8 7F06E578 31CB00FF */  andi  $t3, $t6, 0xff
-/* 0A30AC 7F06E57C 014B0019 */  multu $t2, $t3
-/* 0A30B0 7F06E580 00003012 */  mflo  $a2
-/* 0A30B4 7F06E584 1000000E */  b     .L7F06E5C0
-/* 0A30B8 7F06E588 8FA40038 */   lw    $a0, 0x38($sp)
-.L7F06E58C:
-/* 0A30BC 7F06E58C 8FAC0030 */  lw    $t4, 0x30($sp)
-/* 0A30C0 7F06E590 00047080 */  sll   $t6, $a0, 2
-/* 0A30C4 7F06E594 01C47023 */  subu  $t6, $t6, $a0
-/* 0A30C8 7F06E598 8D8D0004 */  lw    $t5, 4($t4)
-/* 0A30CC 7F06E59C 000E7040 */  sll   $t6, $t6, 1
-/* 0A30D0 7F06E5A0 93B9001F */  lbu   $t9, 0x1f($sp)
-/* 0A30D4 7F06E5A4 01AE7821 */  addu  $t7, $t5, $t6
-/* 0A30D8 7F06E5A8 95F80002 */  lhu   $t8, 2($t7)
-/* 0A30DC 7F06E5AC 03190019 */  multu $t8, $t9
-/* 0A30E0 7F06E5B0 00003012 */  mflo  $a2
-/* 0A30E4 7F06E5B4 00000000 */  nop
-/* 0A30E8 7F06E5B8 00000000 */  nop
-/* 0A30EC 7F06E5BC 8FA40038 */  lw    $a0, 0x38($sp)
-.L7F06E5C0:
-/* 0A30F0 7F06E5C0 93A5001F */  lbu   $a1, 0x1f($sp)
-/* 0A30F4 7F06E5C4 0FC1B781 */  jal   sub_GAME_7F06DE04
-/* 0A30F8 7F06E5C8 E7A20018 */   swc1  $f2, 0x18($sp)
-/* 0A30FC 7F06E5CC 8FA8002C */  lw    $t0, 0x2c($sp)
-/* 0A3100 7F06E5D0 C7A20018 */  lwc1  $f2, 0x18($sp)
-/* 0A3104 7F06E5D4 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 0A3108 7F06E5D8 1100000D */  beqz  $t0, .L7F06E610
-/* 0A310C 7F06E5DC 27BD0028 */   addiu $sp, $sp, 0x28
-/* 0A3110 7F06E5E0 10400018 */  beqz  $v0, .L7F06E644
-/* 0A3114 7F06E5E4 3C090001 */   lui   $t1, 1
-/* 0A3118 7F06E5E8 01225023 */  subu  $t2, $t1, $v0
-/* 0A311C 7F06E5EC 448A2000 */  mtc1  $t2, $f4
-/* 0A3120 7F06E5F0 3C018005 */  lui   $at, %hi(D_80054C10)
-/* 0A3124 7F06E5F4 C4284C10 */  lwc1  $f8, %lo(D_80054C10)($at)
-/* 0A3128 7F06E5F8 468021A0 */  cvt.s.w $f6, $f4
-/* 0A312C 7F06E5FC 3C014780 */  li    $at, 0x47800000 # 65536.000000
-/* 0A3130 7F06E600 44818000 */  mtc1  $at, $f16
-/* 0A3134 7F06E604 46083282 */  mul.s $f10, $f6, $f8
-/* 0A3138 7F06E608 1000000E */  b     .L7F06E644
-/* 0A313C 7F06E60C 46105083 */   div.s $f2, $f10, $f16
-.L7F06E610:
-/* 0A3140 7F06E610 44829000 */  mtc1  $v0, $f18
-/* 0A3144 7F06E614 3C014F80 */  li    $at, 0x4F800000 # 4294967296.000000
-/* 0A3148 7F06E618 04410004 */  bgez  $v0, .L7F06E62C
-/* 0A314C 7F06E61C 46809120 */   cvt.s.w $f4, $f18
-/* 0A3150 7F06E620 44813000 */  mtc1  $at, $f6
-/* 0A3154 7F06E624 00000000 */  nop
-/* 0A3158 7F06E628 46062100 */  add.s $f4, $f4, $f6
-.L7F06E62C:
-/* 0A315C 7F06E62C 3C018005 */  lui   $at, %hi(D_80054C14)
-/* 0A3160 7F06E630 C4284C14 */  lwc1  $f8, %lo(D_80054C14)($at)
-/* 0A3164 7F06E634 3C014780 */  li    $at, 0x47800000 # 65536.000000
-/* 0A3168 7F06E638 44818000 */  mtc1  $at, $f16
-/* 0A316C 7F06E63C 46082282 */  mul.s $f10, $f4, $f8
-/* 0A3170 7F06E640 46105083 */  div.s $f2, $f10, $f16
-.L7F06E644:
-/* 0A3174 7F06E644 03E00008 */  jr    $ra
-/* 0A3178 7F06E648 46001006 */   mov.s $f0, $f2
-)
-#endif
-
-
-
 
 
 #ifdef NONMATCHING
