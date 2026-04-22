@@ -843,7 +843,7 @@ s32 isGunBarrelInMode2(void) {
     return (gunbarrel_mode == 2);
 }
 
-void rle_expand_8bit(s32, s32);
+
 extern void *unknown2;
 extern void *unknown2_end;
 void sub_GAME_7F008DE4(u8 **addr, s32 *size) {
@@ -854,9 +854,6 @@ void sub_GAME_7F008DE4(u8 **addr, s32 *size) {
     romCopy(dword_CODE_bss_80069588, (void *)(s32)&unknown2, ALIGN64_V2(((u32)&unknown2_end - (u32)&unknown2)));
     rle_expand_8bit(dword_CODE_bss_80069588, dword_CODE_bss_8006958C);
 }
-
-
-
 
 
 void initializeGunBarrelIntro(u8 *gfxBuffer, s32 bufferSize)
