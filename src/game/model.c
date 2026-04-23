@@ -1233,11 +1233,9 @@ glabel sub_GAME_7F06D1CC
 
 
 
-
-
 #ifdef NONMATCHING
 // arg0: unknown type. arg1: unknown type. arg5: unknown type, maybe struct.
-void sub_GAME_7F06D2E4(s32, s32, ModelSkeleton*, void* anim, s32, s16*)
+u16 sub_GAME_7F06D2E4(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnimation *anim, s32 frame, s16 out[3])
 {
 
 }
@@ -1321,65 +1319,19 @@ glabel sub_GAME_7F06D2E4
 #endif
 
 
+f32 sub_GAME_7F06D3F4(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnimation *anim, s32 frame, coord3d *pos)
+{
+    s16 tmp[3];
+    u16 angle;
 
+    angle = sub_GAME_7F06D2E4(jointnum, flip, skeleton, anim, frame, tmp);
 
+    pos->x = (f32)tmp[0];
+    pos->y = (f32)tmp[1];
+    pos->z = (f32)tmp[2];
 
-#ifdef NONMATCHING
-void sub_GAME_7F06D3F4(void) {
-
+    return ((f32)angle * M_TAU_F) / M_U16_MAX_VALUE_F;
 }
-#else
-GLOBAL_ASM(
-.late_rodata
-glabel D_80054BC0
-.word 0x40c90fdb /*6.2831855*/
-.text
-glabel sub_GAME_7F06D3F4
-/* 0A1F24 7F06D3F4 27BDFFD0 */  addiu $sp, $sp, -0x30
-/* 0A1F28 7F06D3F8 8FAE0040 */  lw    $t6, 0x40($sp)
-/* 0A1F2C 7F06D3FC AFBF001C */  sw    $ra, 0x1c($sp)
-/* 0A1F30 7F06D400 27AF0028 */  addiu $t7, $sp, 0x28
-/* 0A1F34 7F06D404 AFAF0014 */  sw    $t7, 0x14($sp)
-/* 0A1F38 7F06D408 0FC1B4B9 */  jal   sub_GAME_7F06D2E4
-/* 0A1F3C 7F06D40C AFAE0010 */   sw    $t6, 0x10($sp)
-/* 0A1F40 7F06D410 87B80028 */  lh    $t8, 0x28($sp)
-/* 0A1F44 7F06D414 8FA30044 */  lw    $v1, 0x44($sp)
-/* 0A1F48 7F06D418 3C014F80 */  li    $at, 0x4F800000 # 4294967296.000000
-/* 0A1F4C 7F06D41C 44982000 */  mtc1  $t8, $f4
-/* 0A1F50 7F06D420 00000000 */  nop
-/* 0A1F54 7F06D424 468021A0 */  cvt.s.w $f6, $f4
-/* 0A1F58 7F06D428 44822000 */  mtc1  $v0, $f4
-/* 0A1F5C 7F06D42C E4660000 */  swc1  $f6, ($v1)
-/* 0A1F60 7F06D430 87B9002A */  lh    $t9, 0x2a($sp)
-/* 0A1F64 7F06D434 468021A0 */  cvt.s.w $f6, $f4
-/* 0A1F68 7F06D438 44994000 */  mtc1  $t9, $f8
-/* 0A1F6C 7F06D43C 00000000 */  nop
-/* 0A1F70 7F06D440 468042A0 */  cvt.s.w $f10, $f8
-/* 0A1F74 7F06D444 E46A0004 */  swc1  $f10, 4($v1)
-/* 0A1F78 7F06D448 87A8002C */  lh    $t0, 0x2c($sp)
-/* 0A1F7C 7F06D44C 44888000 */  mtc1  $t0, $f16
-/* 0A1F80 7F06D450 00000000 */  nop
-/* 0A1F84 7F06D454 468084A0 */  cvt.s.w $f18, $f16
-/* 0A1F88 7F06D458 04410004 */  bgez  $v0, .L7F06D46C
-/* 0A1F8C 7F06D45C E4720008 */   swc1  $f18, 8($v1)
-/* 0A1F90 7F06D460 44814000 */  mtc1  $at, $f8
-/* 0A1F94 7F06D464 00000000 */  nop
-/* 0A1F98 7F06D468 46083180 */  add.s $f6, $f6, $f8
-.L7F06D46C:
-/* 0A1F9C 7F06D46C 3C018005 */  lui   $at, %hi(D_80054BC0)
-/* 0A1FA0 7F06D470 C42A4BC0 */  lwc1  $f10, %lo(D_80054BC0)($at)
-/* 0A1FA4 7F06D474 8FBF001C */  lw    $ra, 0x1c($sp)
-/* 0A1FA8 7F06D478 3C014780 */  li    $at, 0x47800000 # 65536.000000
-/* 0A1FAC 7F06D47C 460A3402 */  mul.s $f16, $f6, $f10
-/* 0A1FB0 7F06D480 44819000 */  mtc1  $at, $f18
-/* 0A1FB4 7F06D484 27BD0030 */  addiu $sp, $sp, 0x30
-/* 0A1FB8 7F06D488 03E00008 */  jr    $ra
-/* 0A1FBC 7F06D48C 46128003 */   div.s $f0, $f16, $f18
-)
-#endif
-
-
-
 
 
 #ifdef NONMATCHING
