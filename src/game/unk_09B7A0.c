@@ -6,16 +6,8 @@
 #include "model.h"
 
 // unsure if these structs are defined as something else, elsewhere
-struct unk_09B7A0_struct_child {
-    s32 unk00;
-    s32 unk04;
-    s32 unk08;
-    s32 unk0C;
-};
-
-// unsure if these structs are defined as something else, elsewhere
 struct unk_09B7A0_struct_parent {
-    struct unk_09B7A0_struct_child* unk00;
+    Vertex* unk00;
     s32 unk04;
     s32 unk08;
     s16 unk0C;
@@ -34,9 +26,9 @@ s32 dword_CODE_bss_8007A0D8; // item count for dword_CODE_bss_8007A0E4
 //CODE.bss:8007A0DC
 s32 dword_CODE_bss_8007A0DC; // item count for dword_CODE_bss_8007A0EC
 //CODE.bss:8007A0E0
-struct unk_09B7A0_struct_parent* dword_CODE_bss_8007A0E0; // array ( uses dword_CODE_bss_8007A0D0 as alloc count, item size 0x10 )
+Vertex* dword_CODE_bss_8007A0E0; // array ( uses dword_CODE_bss_8007A0D0 as alloc count, item size 0x10 )
 //CODE.bss:8007A0E4
-struct unk_09B7A0_struct_parent* dword_CODE_bss_8007A0E4; // array ( uses dword_CODE_bss_8007A0D8 as alloc count, item size 0x10 )
+Vertex* dword_CODE_bss_8007A0E4; // array ( uses dword_CODE_bss_8007A0D8 as alloc count, item size 0x10 )
 //CODE.bss:8007A0E8
 struct unk_09B7A0_struct_parent* dword_CODE_bss_8007A0E8; // array ( uses dword_CODE_bss_8007A0D4 as alloc count, item size 0x14 )
 //CODE.bss:8007A0EC
@@ -111,7 +103,7 @@ void sub_GAME_7F09B820(void)
     dword_CODE_bss_8007A0E4 = mempAllocBytesInBank(dword_CODE_bss_8007A0D8 * 0x10, MEMPOOL_STAGE);
 
     word_CODE_bss_8007A0F0 = (s16) dword_CODE_bss_8007A0D0;
-    dword_CODE_bss_8007A0E8->unk00 = (struct unk_09B7A0_struct_child *) dword_CODE_bss_8007A0E0;
+    dword_CODE_bss_8007A0E8->unk00 = dword_CODE_bss_8007A0E0;
     dword_CODE_bss_8007A0E8->unk0C = (s16) dword_CODE_bss_8007A0D0;
     dword_CODE_bss_8007A0E8->unk0E = 0;
     dword_CODE_bss_8007A0E8->unk10 = -1;
@@ -123,7 +115,7 @@ void sub_GAME_7F09B820(void)
     }
 
     word_CODE_bss_8007A0F2 = (s16) dword_CODE_bss_8007A0D8;
-    dword_CODE_bss_8007A0EC->unk00 = (struct unk_09B7A0_struct_child *) dword_CODE_bss_8007A0E4;
+    dword_CODE_bss_8007A0EC->unk00 = dword_CODE_bss_8007A0E4;
     dword_CODE_bss_8007A0EC->unk0C = (s16) dword_CODE_bss_8007A0D8;
     dword_CODE_bss_8007A0EC->unk0E = 0;
     dword_CODE_bss_8007A0EC->unk10 = -1;
@@ -342,14 +334,80 @@ s32 sub_GAME_7F09BE4C(s32 arg0, s32 arg1, s32 arg2, s32 arg3) {
 
 
 
-
-#ifdef NONMATCHING
+#ifdef NON_MATCHING
+// 97.87% match, registers are shifted
 void sub_GAME_7F09C044(Vertex* arg0) {
+    s16* var_t2;
+    s16 var_a1;
+    s32 var_t0;
+    s32 var_v1;
+    struct unk_09B7A0_struct_parent* var_a3;
 
+    if ((arg0 >= dword_CODE_bss_8007A0E0) &&
+        (arg0 <= dword_CODE_bss_8007A0E0 + (dword_CODE_bss_8007A0D0 - 1))) {
+        var_a3 = dword_CODE_bss_8007A0E8;
+        var_t2 = &word_CODE_bss_8007A0F0;
+    } else if ((arg0 >= dword_CODE_bss_8007A0E4) &&
+               (arg0 <= dword_CODE_bss_8007A0E4 + (dword_CODE_bss_8007A0D8 - 1))) {
+        var_a3 = dword_CODE_bss_8007A0EC;
+        var_t2 = &word_CODE_bss_8007A0F2;
+    } else {
+        sub_GAME_7F09B7A8();
+        sub_GAME_7F09B7E4();
+        return;
+    }
+
+    var_a1 = 0;
+    var_t0 = 0;
+
+    if (var_t0) {} // FAKE, yields + 1 %
+
+    do {
+        if (var_a3[var_a1].unk00 == arg0) {
+            var_t0 = 1;
+            var_a3[var_a1].unk0E--;
+            if (var_a3[var_a1].unk0E == 0) {
+                *var_t2 += var_a3[var_a1].unk0C;
+
+                // Merge with next free block
+                var_v1 = var_a3[var_a1].unk10;
+                if (var_v1 >= 0) {
+                    if (var_a3[var_v1].unk0E == 0) {
+                        var_a3[var_a1].unk0C += var_a3[var_v1].unk0C;
+                        var_a3[var_a1].unk10 = var_a3[var_v1].unk10;
+                        var_a3[var_v1].unk0E = -1;
+                        var_v1 = var_a3[var_a1].unk10;
+                        if (var_v1 >= 0) {
+                            var_a3[var_v1].unk12 = var_a1;
+                        }
+                    }
+                }
+
+                // Merge with prev free block
+                var_v1 = var_a3[var_a1].unk12;
+                if (var_v1 >= 0) {
+                    if (var_a3[var_v1].unk0E == 0) {
+                        var_a3[var_v1].unk0C += var_a3[var_a1].unk0C;
+                        var_a3[var_v1].unk10 = var_a3[var_a1].unk10;
+                        var_a3[var_a1].unk0E = -1;
+                        var_a1 = var_v1;
+                        var_v1 = var_a3[var_a1].unk10;
+                        if (var_v1 >= 0) {
+                            var_a3[var_v1].unk12 = var_a1;
+                        }
+                    }
+                }
+            }
+        } else {
+            var_a1 = var_a3[var_a1].unk10;
+            if (var_a1 == -1) {
+                var_t0 = 1;
+            }
+        }
+    } while (var_t0 == 0);
 }
-#else
-void sub_GAME_7F09C044(Vertex* arg0);
 
+#else
 GLOBAL_ASM(
 .text
 glabel sub_GAME_7F09C044
