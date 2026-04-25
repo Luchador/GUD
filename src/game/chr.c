@@ -6960,7 +6960,11 @@ Gfx *chrRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
 }
 
 
-void sub_GAME_7F022078(PropRecord *prop, s32 anim_id, coord3d *vec, coord3d *pos)
+/**
+ * Creates a smoke puff at the front of the character when the character is shot,
+ * and also has a ~50% chance of creating a second smoke puff just behind the character.
+ */
+void chrCreateHitPuffs(PropRecord *prop, s32 anim_id, coord3d *vec, coord3d *pos)
 {
     s32 i;
     f32 scale;
@@ -6971,12 +6975,9 @@ void sub_GAME_7F022078(PropRecord *prop, s32 anim_id, coord3d *vec, coord3d *pos
     index = 0;
     i = 0;
 
-    if (D_8002C914[0].id != -1)
-    {
-        do
-        {
-            if (anim_id == D_8002C914[i].id)
-            {
+    if (D_8002C914[0].id != -1) {
+        do {
+            if (anim_id == D_8002C914[i].id) {
                 index = i;
                 break;
             }
@@ -6988,10 +6989,9 @@ void sub_GAME_7F022078(PropRecord *prop, s32 anim_id, coord3d *vec, coord3d *pos
 
     entry = &D_8002C914[index];
 
-    if (entry->field_10)
-    {
-        if ((randomGetNext() & 4) == 0)
-        {
+    if (entry->field_10) {
+        // True when randomGetNext() bit 2 is 0, so roughly 50% chance.
+        if ((randomGetNext() & 4) == 0) {
             scale = (42.0f / sqrtf(vec->z * vec->z + (vec->x * vec->x + vec->y * vec->y))) + 1.0f;
 
             sp3c.x = vec->x * scale;
@@ -7004,8 +7004,7 @@ void sub_GAME_7F022078(PropRecord *prop, s32 anim_id, coord3d *vec, coord3d *pos
         }
     }
 
-    if (entry->field_4)
-    {
+    if (entry->field_4) {
         sub_GAME_7F0A3E1C(pos, entry->field_4, entry->field_C, prop->stan->room);
     }
 }
@@ -7646,7 +7645,7 @@ glabel sub_GAME_7F022980
 /* 0575CC 7F022A9C 8E240004 */  lw    $a0, 4($s1)
 /* 0575D0 7F022AA0 8E250008 */  lw    $a1, 8($s1)
 /* 0575D4 7F022AA4 27A60098 */  addiu $a2, $sp, 0x98
-/* 0575D8 7F022AA8 0FC0881E */  jal   sub_GAME_7F022078
+/* 0575D8 7F022AA8 0FC0881E */  jal   chrCreateHitPuffs
 /* 0575DC 7F022AAC 02003825 */   move  $a3, $s0
 /* 0575E0 7F022AB0 8E250008 */  lw    $a1, 8($s1)
 /* 0575E4 7F022AB4 8E870018 */  lw    $a3, 0x18($s4)
