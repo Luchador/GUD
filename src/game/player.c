@@ -247,11 +247,11 @@ void initBONDdataforPlayer(s32 player_num)
     g_playerPointers[player_num]->field_1F4 = 1.0f;
     g_playerPointers[player_num]->pausing_flag = FALSE;
     g_playerPointers[player_num]->pause_starting_angle = 0.0f;
-    g_playerPointers[player_num]->pause_related = 0.0f;
-    g_playerPointers[player_num]->pause_target_angle = 0.0f;
-    g_playerPointers[player_num]->field_210 = 0.0f;
-    g_playerPointers[player_num]->field_214 = 0.0f;
-    g_playerPointers[player_num]->field_218 = 0;
+    g_playerPointers[player_num]->pause_saved_verta = 0.0f;
+    g_playerPointers[player_num]->pause_target_verta = 0.0f;
+    g_playerPointers[player_num]->pause_transition_time = 0.0f;
+    g_playerPointers[player_num]->pause_transition_duration = 0.0f;
+    g_playerPointers[player_num]->pause_state = 0;
     g_playerPointers[player_num]->field_21C = 1;
     g_playerPointers[player_num]->step_in_view_watch_animation = 0;
     g_playerPointers[player_num]->pause_animation_counter = 0.0f;

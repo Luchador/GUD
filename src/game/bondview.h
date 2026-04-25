@@ -617,13 +617,21 @@ struct player
    * 1 = begin pause animation. Set as soon as moving arm begins, cleared when moving arm ends.
    * 0x800C6960
   */
-  s32 pausing_flag;
-  f32 pause_starting_angle;
-  f32 pause_related;
-  f32 pause_target_angle;
-  f32 field_210;
-  f32 field_214;
-  s32 field_218;
+  s32 pausing_flag; // 0x200
+  f32 pause_starting_angle; // 0x204
+  f32 pause_saved_verta; // 0x208, camera pitch to restore after pause
+  f32 pause_target_verta; // 0x20c
+  f32 pause_transition_time; // 0x210, elapsed time
+  f32 pause_transition_duration; // 0x214, max/duration
+
+  /**
+   * Pausing states.
+   * 0 = Unpaused
+   * 1 = Entering pause.
+   * 2 = Leaving pause.
+   * 3 = Paused.
+   */
+  s32 pause_state; // 0x218
   s32 field_21C;
   s32 step_in_view_watch_animation;
   f32 pause_animation_counter;
