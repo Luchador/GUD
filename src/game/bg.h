@@ -112,6 +112,22 @@ typedef struct unk_portalstruct
     s32 unk10;
 } unk_portalstruct;
 
+typedef struct bg_queued_portal_entry {
+
+    #if defined(VERSION_EU)
+    u8 arg0;        // 0x00
+    u8 arg1;        // 0x01
+    s16 portalnum;  // 0x02
+    f32 sp4[4];     // 0x04
+    #else
+    s32 arg0;       // 0x00
+    s32 arg1;       // 0x04
+    s32 portalnum;  // 0x08
+    s32 arg3;       // 0x0c
+    f32 sp10[4];    // 0x10
+    #endif
+} bg_queued_portal_entry;
+
 extern struct unk_portalstruct table_for_portals[200];
 extern s32 g_MaxNumRooms;
 extern f32 room_data_float2;

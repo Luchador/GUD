@@ -76,9 +76,9 @@ s32 bss_pad_8007C0FC; /* not required, but making alignment explicit */
  * EU .bss 8007A040
 */
 #ifdef VERSION_EU
-char dword_CODE_bss_8007C100[0x1388];
+bg_queued_portal_entry dword_CODE_bss_8007C100[250];
 #else
-char dword_CODE_bss_8007C100[0x3e80];
+bg_queued_portal_entry dword_CODE_bss_8007C100[500];
 #endif
 
 /**
@@ -7840,127 +7840,53 @@ glabel sub_GAME_7F0B7DE4
 #endif
 
 
+#if defined(VERSION_EU)
+s32 sub_GAME_7F0B7EE4(void)
+{
+    bg_queued_portal_entry *entry;
 
-
-
-#ifdef NONMATCHING
-void sub_GAME_7F0B7EE4(void) {
-  int iVar1;
-  undefined8 uVar2;
-
-  if (_D_800448A4 == _D_800448A0)
-  {
-    uVar2 = 0;
-  }
-  else
-  {
-    iVar1 = _D_800448A4 * 0x14;
-    bgPortalDescend(*(&QWORD_83aa1dd0 + iVar1),*(&QWORD_83aa1dd0 + iVar1 + 1),
-                    *(&QWORD_83aa1dd0 + iVar1 + 2),&QWORD_83aa1dd0 + iVar1 + 4);
-    _D_800448A4 += 1;
-    if (_D_800448A4 == 0xfa)
-    {
-      _D_800448A4 = 0;
+    if (D_800448A4 == D_800448A0) {
+        return 0;
     }
-    uVar2 = 1;
-  }
-  return uVar2;
+
+    entry = &dword_CODE_bss_8007C100[D_800448A4];
+
+    sub_GAME_7F0B7F84(entry->arg0, entry->arg1, entry->portalnum, entry->sp4);
+
+    D_800448A4++;
+
+    if (D_800448A4 == 250) {
+        D_800448A4 = 0;
+    }
+
+    return 1;
 }
 #else
+s32 sub_GAME_7F0B7EE4(s32 *arg0)
+{
+    bg_queued_portal_entry *entry;
+    s32 value;
 
-#if defined(LEFTOVERDEBUG)
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B7EE4
-/* 0ECA14 7F0B7EE4 27BDFFD8 */  addiu $sp, $sp, -0x28
-/* 0ECA18 7F0B7EE8 3C038004 */  lui   $v1, %hi(D_800448A4)
-/* 0ECA1C 7F0B7EEC 246348A4 */  addiu $v1, %lo(D_800448A4) # addiu $v1, $v1, 0x48a4
-/* 0ECA20 7F0B7EF0 3C188004 */  lui   $t8, %hi(D_800448A0)
-/* 0ECA24 7F0B7EF4 8F1848A0 */  lw    $t8, %lo(D_800448A0)($t8)
-/* 0ECA28 7F0B7EF8 8C680000 */  lw    $t0, ($v1)
-/* 0ECA2C 7F0B7EFC AFBF001C */  sw    $ra, 0x1c($sp)
-/* 0ECA30 7F0B7F00 AFA40028 */  sw    $a0, 0x28($sp)
-/* 0ECA34 7F0B7F04 8C8F0000 */  lw    $t7, ($a0)
-/* 0ECA38 7F0B7F08 0008C940 */  sll   $t9, $t0, 5
-/* 0ECA3C 7F0B7F0C 17080003 */  bne   $t8, $t0, .L7F0B7F1C
-/* 0ECA40 7F0B7F10 AFAF0020 */   sw    $t7, 0x20($sp)
-/* 0ECA44 7F0B7F14 10000017 */  b     .L7F0B7F74
-/* 0ECA48 7F0B7F18 00001025 */   move  $v0, $zero
-.L7F0B7F1C:
-/* 0ECA4C 7F0B7F1C 3C098008 */  lui   $t1, %hi(dword_CODE_bss_8007C100)
-/* 0ECA50 7F0B7F20 2529C100 */  addiu $t1, %lo(dword_CODE_bss_8007C100) # addiu $t1, $t1, -0x3f00
-/* 0ECA54 7F0B7F24 03291021 */  addu  $v0, $t9, $t1
-/* 0ECA58 7F0B7F28 8C450004 */  lw    $a1, 4($v0)
-/* 0ECA5C 7F0B7F2C 8C460008 */  lw    $a2, 8($v0)
-/* 0ECA60 7F0B7F30 8C47000C */  lw    $a3, 0xc($v0)
-/* 0ECA64 7F0B7F34 244A0010 */  addiu $t2, $v0, 0x10
-/* 0ECA68 7F0B7F38 AFAA0010 */  sw    $t2, 0x10($sp)
-/* 0ECA6C 7F0B7F3C 0FC2DFE1 */  jal   sub_GAME_7F0B7F84
-/* 0ECA70 7F0B7F40 8FA40020 */   lw    $a0, 0x20($sp)
-/* 0ECA74 7F0B7F44 3C038004 */  lui   $v1, %hi(D_800448A4)
-/* 0ECA78 7F0B7F48 246348A4 */  addiu $v1, %lo(D_800448A4) # addiu $v1, $v1, 0x48a4
-/* 0ECA7C 7F0B7F4C 8C6B0000 */  lw    $t3, ($v1)
-/* 0ECA80 7F0B7F50 240101F4 */  li    $at, 500
-/* 0ECA84 7F0B7F54 00402025 */  move  $a0, $v0
-/* 0ECA88 7F0B7F58 256C0001 */  addiu $t4, $t3, 1
-/* 0ECA8C 7F0B7F5C 15810002 */  bne   $t4, $at, .L7F0B7F68
-/* 0ECA90 7F0B7F60 AC6C0000 */   sw    $t4, ($v1)
-/* 0ECA94 7F0B7F64 AC600000 */  sw    $zero, ($v1)
-.L7F0B7F68:
-/* 0ECA98 7F0B7F68 8FAE0028 */  lw    $t6, 0x28($sp)
-/* 0ECA9C 7F0B7F6C 24020001 */  li    $v0, 1
-/* 0ECAA0 7F0B7F70 ADC40000 */  sw    $a0, ($t6)
-.L7F0B7F74:
-/* 0ECAA4 7F0B7F74 8FBF001C */  lw    $ra, 0x1c($sp)
-/* 0ECAA8 7F0B7F78 27BD0028 */  addiu $sp, $sp, 0x28
-/* 0ECAAC 7F0B7F7C 03E00008 */  jr    $ra
-/* 0ECAB0 7F0B7F80 00000000 */   nop
-)
-#endif
+    value = *arg0;
 
-#if !defined(LEFTOVERDEBUG)
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B7EE4
-/* 0E9C10 7F0B7220 3C038004 */  lui   $v1, %hi(D_800448A4) # $v1, 0x8004
-/* 0E9C14 7F0B7224 2463DD8C */  addiu $v1, %lo(D_800448A4) # addiu $v1, $v1, -0x2274
-/* 0E9C18 7F0B7228 3C0E8004 */  lui   $t6, %hi(D_800448A0) # $t6, 0x8004
-/* 0E9C1C 7F0B722C 8DCEDD88 */  lw    $t6, %lo(D_800448A0)($t6)
-/* 0E9C20 7F0B7230 8C680000 */  lw    $t0, ($v1)
-/* 0E9C24 7F0B7234 27BDFFE8 */  addiu $sp, $sp, -0x18
-/* 0E9C28 7F0B7238 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0E9C2C 7F0B723C 15C80003 */  bne   $t6, $t0, .Leu7F0B724C
-/* 0E9C30 7F0B7240 00087880 */   sll   $t7, $t0, 2
-/* 0E9C34 7F0B7244 10000014 */  b     .L7F0B7298
-/* 0E9C38 7F0B7248 00001025 */   move  $v0, $zero
-.Leu7F0B724C:
-/* 0E9C3C 7F0B724C 01E87821 */  addu  $t7, $t7, $t0
-/* 0E9C40 7F0B7250 3C188007 */  lui   $t8, %hi(dword_CODE_bss_8007C100) # $t8, 0x8007
-/* 0E9C44 7F0B7254 2718A040 */  addiu $t8, %lo(dword_CODE_bss_8007C100) # addiu $t8, $t8, -0x5fc0
-/* 0E9C48 7F0B7258 000F7880 */  sll   $t7, $t7, 2
-/* 0E9C4C 7F0B725C 01F81021 */  addu  $v0, $t7, $t8
-/* 0E9C50 7F0B7260 90440000 */  lbu   $a0, ($v0)
-/* 0E9C54 7F0B7264 90450001 */  lbu   $a1, 1($v0)
-/* 0E9C58 7F0B7268 84460002 */  lh    $a2, 2($v0)
-/* 0E9C5C 7F0B726C 0FC2DCAA */  jal   sub_GAME_7F0B7F84
-/* 0E9C60 7F0B7270 24470004 */   addiu $a3, $v0, 4
-/* 0E9C64 7F0B7274 3C038004 */  lui   $v1, %hi(D_800448A4) # $v1, 0x8004
-/* 0E9C68 7F0B7278 2463DD8C */  addiu $v1, %lo(D_800448A4) # addiu $v1, $v1, -0x2274
-/* 0E9C6C 7F0B727C 8C790000 */  lw    $t9, ($v1)
-/* 0E9C70 7F0B7280 240100FA */  li    $at, 250
-/* 0E9C74 7F0B7284 24020001 */  li    $v0, 1
-/* 0E9C78 7F0B7288 27290001 */  addiu $t1, $t9, 1
-/* 0E9C7C 7F0B728C 15210002 */  bne   $t1, $at, .L7F0B7298
-/* 0E9C80 7F0B7290 AC690000 */   sw    $t1, ($v1)
-/* 0E9C84 7F0B7294 AC600000 */  sw    $zero, ($v1)
-.L7F0B7298:
-/* 0E9C88 7F0B7298 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 0E9C8C 7F0B729C 27BD0018 */  addiu $sp, $sp, 0x18
-/* 0E9C90 7F0B72A0 03E00008 */  jr    $ra
-/* 0E9C94 7F0B72A4 00000000 */   nop
-)
-#endif
+    if (D_800448A4 == D_800448A0) {
+        return 0;
+    }
 
+    entry = &dword_CODE_bss_8007C100[D_800448A4];
+
+    value = sub_GAME_7F0B7F84(value, entry->arg1, entry->portalnum, entry->arg3, entry->sp10);
+
+    D_800448A4++;
+
+    if (D_800448A4 == 500) {
+        D_800448A4 = 0;
+    }
+
+    *arg0 = value;
+
+    return 1;
+}
 #endif
 
 
