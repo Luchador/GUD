@@ -643,116 +643,36 @@ void bgInit(void) {
 }
 
 
-
-
-
-#ifdef NONMATCHING
-// 91.60% mostly reg alloc
-// https://decomp.me/scratch/puCqt
 void sub_GAME_7F0B37EC(void) {
-    s_specialportal* currentPortal;
-    u8* portalList;
-    u8 portalId;
-    s32 portalIndex;
-    s32 portalIndex2;
-    bg_portal_data_entry* portalData;
-    u8 controlByte;
-    u8 tempByte;
+    u8 *ptr;
+    u8 *end;
+    u8 portal;
+    u8 cur;
+    u32 masked;
 
-    currentPortal = specialportalarray;
+    ptr = (u8 *)specialportalarray;
+    end = (u8 *)&g_BgCurrentRoom;
+
     do {
-        portalList = currentPortal->portallist;
-        if (levelentry_index == currentPortal->levelid) {
-            portalId = *portalList;
+        if (levelentry_index == *ptr++) {
             do {
-                portalIndex = portalId & 0xFF;
-                portalIndex2 = portalIndex;
-                if ((s32) portalList[1] >= portalIndex) {
-                    do {
-                        portalData = &g_BgPortals[portalIndex2];
-                        controlByte = portalData->controlbytes1;
-                        portalIndex2 = (portalIndex + 1) & 0xFF;
-                        portalIndex = portalIndex2;
-                        portalData->controlbytes1 = controlByte | 2;
-                    } while ((s32) portalList[1] >= portalIndex2);
+                portal = ptr[0];
+                while (ptr[1] >= portal) {
+                    ((u8 *)g_BgPortals)[(portal << 3) + 6] |= 2;
+                    portal++;
                 }
-                portalId = portalList[2];
-                portalList += 2;
-            } while (portalId != 0xFF);
+
+                ptr += 2;
+            } while (ptr[0] != 0xff);
         } else {
             do {
-                tempByte = portalList[2];
-                portalList += 2;
-            } while (tempByte != 0xFF);
+                ptr += 2;
+            } while (ptr[0] != 0xff);
         }
-        currentPortal = (s_specialportal* ) (portalList + 1);
-    } while ((u32) currentPortal < (u32) &g_BgCurrentRoom);
+
+        ptr++;
+    } while ((u32)ptr < (u32)end);
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B37EC
-/* 0E831C 7F0B37EC 3C028004 */  lui   $v0, %hi(specialportalarray)
-/* 0E8320 7F0B37F0 3C038004 */  lui   $v1, %hi(g_BgCurrentRoom)
-/* 0E8324 7F0B37F4 3C088008 */  lui   $t0, %hi(g_BgPortals)
-/* 0E8328 7F0B37F8 3C078004 */  lui   $a3, %hi(levelentry_index)
-/* 0E832C 7F0B37FC 24424824 */  addiu $v0, %lo(specialportalarray) # addiu $v0, $v0, 0x4824
-/* 0E8330 7F0B3800 24634838 */  addiu $v1, %lo(g_BgCurrentRoom) # addiu $v1, $v1, 0x4838
-/* 0E8334 7F0B3804 24E71400 */  addiu $a3, %lo(levelentry_index) # addiu $a3, $a3, 0x1400
-/* 0E8338 7F0B3808 2508FF80 */  addiu $t0, %lo(g_BgPortals) # addiu $t0, $t0, -0x80
-/* 0E833C 7F0B380C 240900FF */  li    $t1, 255
-/* 0E8340 7F0B3810 8CEE0000 */  lw    $t6, ($a3)
-.L7F0B3814:
-/* 0E8344 7F0B3814 904F0000 */  lbu   $t7, ($v0)
-/* 0E8348 7F0B3818 24420001 */  addiu $v0, $v0, 1
-/* 0E834C 7F0B381C 55CF001C */  bnel  $t6, $t7, .L7F0B3890
-/* 0E8350 7F0B3820 904F0002 */   lbu   $t7, 2($v0)
-/* 0E8354 7F0B3824 90440000 */  lbu   $a0, ($v0)
-/* 0E8358 7F0B3828 90580001 */  lbu   $t8, 1($v0)
-.L7F0B382C:
-/* 0E835C 7F0B382C 308500FF */  andi  $a1, $a0, 0xff
-/* 0E8360 7F0B3830 00A03025 */  move  $a2, $a1
-/* 0E8364 7F0B3834 0305082A */  slt   $at, $t8, $a1
-/* 0E8368 7F0B3838 5420000F */  bnezl $at, .L7F0B3878
-/* 0E836C 7F0B383C 90440002 */   lbu   $a0, 2($v0)
-/* 0E8370 7F0B3840 8D190000 */  lw    $t9, ($t0)
-.L7F0B3844:
-/* 0E8374 7F0B3844 000650C0 */  sll   $t2, $a2, 3
-/* 0E8378 7F0B3848 24A50001 */  addiu $a1, $a1, 1
-/* 0E837C 7F0B384C 032A2021 */  addu  $a0, $t9, $t2
-/* 0E8380 7F0B3850 908B0006 */  lbu   $t3, 6($a0)
-/* 0E8384 7F0B3854 30A600FF */  andi  $a2, $a1, 0xff
-/* 0E8388 7F0B3858 00C02825 */  move  $a1, $a2
-/* 0E838C 7F0B385C 356C0002 */  ori   $t4, $t3, 2
-/* 0E8390 7F0B3860 A08C0006 */  sb    $t4, 6($a0)
-/* 0E8394 7F0B3864 904E0001 */  lbu   $t6, 1($v0)
-/* 0E8398 7F0B3868 01C6082A */  slt   $at, $t6, $a2
-/* 0E839C 7F0B386C 5020FFF5 */  beql  $at, $zero, .L7F0B3844
-/* 0E83A0 7F0B3870 8D190000 */   lw    $t9, ($t0)
-/* 0E83A4 7F0B3874 90440002 */  lbu   $a0, 2($v0)
-.L7F0B3878:
-/* 0E83A8 7F0B3878 24420002 */  addiu $v0, $v0, 2
-/* 0E83AC 7F0B387C 5524FFEB */  bnel  $t1, $a0, .L7F0B382C
-/* 0E83B0 7F0B3880 90580001 */   lbu   $t8, 1($v0)
-/* 0E83B4 7F0B3884 10000006 */  b     .L7F0B38A0
-/* 0E83B8 7F0B3888 24420001 */   addiu $v0, $v0, 1
-/* 0E83BC 7F0B388C 904F0002 */  lbu   $t7, 2($v0)
-.L7F0B3890:
-/* 0E83C0 7F0B3890 24420002 */  addiu $v0, $v0, 2
-/* 0E83C4 7F0B3894 552FFFFE */  bnel  $t1, $t7, .L7F0B3890
-/* 0E83C8 7F0B3898 904F0002 */   lbu   $t7, 2($v0)
-/* 0E83CC 7F0B389C 24420001 */  addiu $v0, $v0, 1
-.L7F0B38A0:
-/* 0E83D0 7F0B38A0 0043082B */  sltu  $at, $v0, $v1
-/* 0E83D4 7F0B38A4 5420FFDB */  bnezl $at, .L7F0B3814
-/* 0E83D8 7F0B38A8 8CEE0000 */   lw    $t6, ($a3)
-/* 0E83DC 7F0B38AC 03E00008 */  jr    $ra
-/* 0E83E0 7F0B38B0 00000000 */   nop
-)
-#endif
-
-
-
 
 
 /*
@@ -4337,183 +4257,28 @@ s32 getIndexOfPORTALID(s32 portalID)
 }
 
 
+void roomsHandleStateDebugging(void)
+{
+    char roomstates[MAXROOMCOUNT + 1];
+    s32 roomnum;
 
-
-#ifdef NONMATCHING
-
-void roomsHandleStateDebugging(void) {
-    ? sp29;
-    ? temp_ret;
-    void *phi_v1;
-    s32 phi_a0;
-    void *phi_v0;
-    s32 phi_a0_2;
-    s32 phi_a0_3;
-
-    // Node 0
-    temp_ret = debugIsRoomStateDebugEnabled();
-    if (temp_ret != 0)
+    if (debugIsRoomStateDebugEnabled())
     {
-        // Node 1
-        phi_a0_3 = 1;
-        if (g_MaxNumRooms >= 2)
+        for (roomnum = 1; roomnum < g_MaxNumRooms; roomnum++)
         {
-            // Node 2
-            phi_v1 = &g_BgRoomInfo + 0x10 +0x40;
-            phi_a0 = 1;
-            phi_v0 = &sp29;
-loop_3:
-            // Node 3
-            if (phi_v1->unk2 != 0)
+            if (g_BgRoomInfo[roomnum].model_bin_loaded)
             {
-                // Node 4
-                *phi_v0 = (s8) (((s32) phi_a0 % 0xa) + 0x30);
-                phi_a0_2 = (phi_a0 + 1);
+                roomstates[roomnum] = (roomnum % 10) + '0';
             }
             else
             {
-                // Node 5
-                *phi_v0 = (u8)0x2e;
-                phi_a0_2 = (phi_a0 + 1);
-            }
-            // Node 6
-            phi_v1 = (phi_v1 + 0x50);
-            phi_a0 = phi_a0_2;
-            phi_v0 = (phi_v0 + 1);
-            phi_a0_3 = phi_a0_2;
-            if (phi_a0_2 < g_MaxNumRooms)
-            {
-                goto loop_3;
+                roomstates[roomnum] = '.';
             }
         }
-        // Node 7
-        (sp + phi_a0_3)->unk28 = (u8)0;
+
+        roomstates[roomnum] = '\0';
     }
-    // Node 8
-    return temp_ret;
 }
-#else
-
-#if defined(LEFTOVERDEBUG)
-GLOBAL_ASM(
-.text
-glabel roomsHandleStateDebugging
-/* 0EAA08 7F0B5ED8 27BDFF40 */  addiu $sp, $sp, -0xc0
-/* 0EAA0C 7F0B5EDC AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0EAA10 7F0B5EE0 0FC243F4 */  jal   debugIsRoomStateDebugEnabled
-/* 0EAA14 7F0B5EE4 00000000 */   nop
-/* 0EAA18 7F0B5EE8 10400024 */  beqz  $v0, .L7F0B5F7C
-/* 0EAA1C 7F0B5EEC 3C078004 */   lui   $a3, %hi(g_MaxNumRooms)
-/* 0EAA20 7F0B5EF0 8CE742F4 */  lw    $a3, %lo(g_MaxNumRooms)($a3)
-/* 0EAA24 7F0B5EF4 3C038004 */  lui   $v1, %hi(g_BgRoomInfo + 0x10 +0x40)
-/* 0EAA28 7F0B5EF8 24631464 */  addiu $v1, %lo(g_BgRoomInfo + 0x10 +0x40) # addiu $v1, $v1, 0x1464
-/* 0EAA2C 7F0B5EFC 28E10002 */  slti  $at, $a3, 2
-/* 0EAA30 7F0B5F00 1420001C */  bnez  $at, .L7F0B5F74
-/* 0EAA34 7F0B5F04 24040001 */   li    $a0, 1
-/* 0EAA38 7F0B5F08 27A20029 */  addiu $v0, $sp, 0x29
-/* 0EAA3C 7F0B5F0C 2406002E */  li    $a2, 46
-/* 0EAA40 7F0B5F10 2405000A */  li    $a1, 10
-.L7F0B5F14:
-/* 0EAA44 7F0B5F14 906E0002 */  lbu   $t6, 2($v1)
-/* 0EAA48 7F0B5F18 24630050 */  addiu $v1, $v1, 0x50
-/* 0EAA4C 7F0B5F1C 51C00011 */  beql  $t6, $zero, .L7F0B5F64
-/* 0EAA50 7F0B5F20 A0460000 */   sb    $a2, ($v0)
-/* 0EAA54 7F0B5F24 0085001A */  div   $zero, $a0, $a1
-/* 0EAA58 7F0B5F28 00007810 */  mfhi  $t7
-/* 0EAA5C 7F0B5F2C 25F80030 */  addiu $t8, $t7, 0x30
-/* 0EAA60 7F0B5F30 14A00002 */  bnez  $a1, .L7F0B5F3C
-/* 0EAA64 7F0B5F34 00000000 */   nop
-/* 0EAA68 7F0B5F38 0007000D */  break 7
-.L7F0B5F3C:
-/* 0EAA6C 7F0B5F3C 2401FFFF */  li    $at, -1
-/* 0EAA70 7F0B5F40 14A10004 */  bne   $a1, $at, .L7F0B5F54
-/* 0EAA74 7F0B5F44 3C018000 */   lui   $at, 0x8000
-/* 0EAA78 7F0B5F48 14810002 */  bne   $a0, $at, .L7F0B5F54
-/* 0EAA7C 7F0B5F4C 00000000 */   nop
-/* 0EAA80 7F0B5F50 0006000D */  break 6
-.L7F0B5F54:
-/* 0EAA84 7F0B5F54 A0580000 */  sb    $t8, ($v0)
-/* 0EAA88 7F0B5F58 10000003 */  b     .L7F0B5F68
-/* 0EAA8C 7F0B5F5C 24840001 */   addiu $a0, $a0, 1
-/* 0EAA90 7F0B5F60 A0460000 */  sb    $a2, ($v0)
-.L7F0B5F64:
-/* 0EAA94 7F0B5F64 24840001 */  addiu $a0, $a0, 1
-.L7F0B5F68:
-/* 0EAA98 7F0B5F68 0087082A */  slt   $at, $a0, $a3
-/* 0EAA9C 7F0B5F6C 1420FFE9 */  bnez  $at, .L7F0B5F14
-/* 0EAAA0 7F0B5F70 24420001 */   addiu $v0, $v0, 1
-.L7F0B5F74:
-/* 0EAAA4 7F0B5F74 03A4C821 */  addu  $t9, $sp, $a0
-/* 0EAAA8 7F0B5F78 A3200028 */  sb    $zero, 0x28($t9)
-.L7F0B5F7C:
-/* 0EAAAC 7F0B5F7C 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 0EAAB0 7F0B5F80 27BD00C0 */  addiu $sp, $sp, 0xc0
-/* 0EAAB4 7F0B5F84 03E00008 */  jr    $ra
-/* 0EAAB8 7F0B5F88 00000000 */   nop
-)
-#endif
-
-#if !defined(LEFTOVERDEBUG)
-GLOBAL_ASM(
-.text
-glabel roomsHandleStateDebugging
-/* 0E7C04 7F0B5214 27BDFF48 */  addiu $sp, $sp, -0xb8
-/* 0E7C08 7F0B5218 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0E7C0C 7F0B521C 0FC2411A */  jal   debugIsRoomStateDebugEnabled
-/* 0E7C10 7F0B5220 00000000 */   nop
-/* 0E7C14 7F0B5224 10400024 */  beqz  $v0, .L7F0B52B8
-/* 0E7C18 7F0B5228 3C078004 */   lui   $a3, %hi(g_MaxNumRooms) # $a3, 0x8004
-/* 0E7C1C 7F0B522C 8CE7D7D4 */  lw    $a3, %lo(g_MaxNumRooms)($a3)
-/* 0E7C20 7F0B5230 3C038004 */  lui   $v1, %hi(g_BgRoomInfo + 0x10 +0x40) # $v1, 0x8004
-/* 0E7C24 7F0B5234 2463ACB4 */  addiu $v1, %lo(g_BgRoomInfo + 0x10 +0x40) # addiu $v1, $v1, -0x534c
-/* 0E7C28 7F0B5238 28E10002 */  slti  $at, $a3, 2
-/* 0E7C2C 7F0B523C 1420001C */  bnez  $at, .L7F0B52B0
-/* 0E7C30 7F0B5240 24040001 */   li    $a0, 1
-/* 0E7C34 7F0B5244 27A2002D */  addiu $v0, $sp, 0x2d
-/* 0E7C38 7F0B5248 2406002E */  li    $a2, 46
-/* 0E7C3C 7F0B524C 2405000A */  li    $a1, 10
-.L7F0B5250:
-/* 0E7C40 7F0B5250 906E0002 */  lbu   $t6, 2($v1)
-/* 0E7C44 7F0B5254 24630050 */  addiu $v1, $v1, 0x50
-/* 0E7C48 7F0B5258 51C00011 */  beql  $t6, $zero, .Leu7F0B52A0
-/* 0E7C4C 7F0B525C A0460000 */   sb    $a2, ($v0)
-/* 0E7C50 7F0B5260 0085001A */  div   $zero, $a0, $a1
-/* 0E7C54 7F0B5264 00007810 */  mfhi  $t7
-/* 0E7C58 7F0B5268 25F80030 */  addiu $t8, $t7, 0x30
-/* 0E7C5C 7F0B526C 14A00002 */  bnez  $a1, .L7F0B5278
-/* 0E7C60 7F0B5270 00000000 */   nop
-/* 0E7C64 7F0B5274 0007000D */  break 7
-.L7F0B5278:
-/* 0E7C68 7F0B5278 2401FFFF */  li    $at, -1
-/* 0E7C6C 7F0B527C 14A10004 */  bne   $a1, $at, .L7F0B5290
-/* 0E7C70 7F0B5280 3C018000 */   lui   $at, 0x8000
-/* 0E7C74 7F0B5284 14810002 */  bne   $a0, $at, .L7F0B5290
-/* 0E7C78 7F0B5288 00000000 */   nop
-/* 0E7C7C 7F0B528C 0006000D */  break 6
-.L7F0B5290:
-/* 0E7C80 7F0B5290 A0580000 */  sb    $t8, ($v0)
-/* 0E7C84 7F0B5294 10000003 */  b     .L7F0B52A4
-/* 0E7C88 7F0B5298 24840001 */   addiu $a0, $a0, 1
-/* 0E7C8C 7F0B529C A0460000 */  sb    $a2, ($v0)
-.Leu7F0B52A0:
-/* 0E7C90 7F0B52A0 24840001 */  addiu $a0, $a0, 1
-.L7F0B52A4:
-/* 0E7C94 7F0B52A4 0087082A */  slt   $at, $a0, $a3
-/* 0E7C98 7F0B52A8 1420FFE9 */  bnez  $at, .L7F0B5250
-/* 0E7C9C 7F0B52AC 24420001 */   addiu $v0, $v0, 1
-.L7F0B52B0:
-/* 0E7CA0 7F0B52B0 03A4C821 */  addu  $t9, $sp, $a0
-/* 0E7CA4 7F0B52B4 A320002C */  sb    $zero, 0x2c($t9)
-.L7F0B52B8:
-/* 0E7CA8 7F0B52B8 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 0E7CAC 7F0B52BC 27BD00B8 */  addiu $sp, $sp, 0xb8
-/* 0E7CB0 7F0B52C0 03E00008 */  jr    $ra
-/* 0E7CB4 7F0B52C4 00000000 */   nop
-)
-#endif
-#endif
-
-
 
 
 u32 bgDecompress(u8* source, u8 *target)
