@@ -4403,11 +4403,11 @@ s32 stanTileDistanceRelated(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, stru
 }
 
 
-
 s32 stanGetLocusField0(struct StandTileLocusCallbackRecord *arg0)
 {
     return arg0->unk00;
 }
+
 
 s32 stanGetLocusCount(struct StandTileLocusCallbackRecord *arg0)
 {
@@ -4415,60 +4415,21 @@ s32 stanGetLocusCount(struct StandTileLocusCallbackRecord *arg0)
 }
 
 
-
-
-
-#ifdef NONMATCHING
-// regalloc only really
-// Duplicating the macro does nothing
-void sub_GAME_7F0B23AC(StandTile *tile, s32 tripleIndex, coord3d *pnt)
+void sub_GAME_7F0B23AC(StandTile *tile, s32 pointnum, coord3d *out)
 {
-    s32 pntIndex = STAN_TRIPLE_TO_PNT_INDEX(tile, tripleIndex);
+    StandTilePoint *point;
+    f32 scale;
 
-    pnt->x = (f32)tile->points[pntIndex].x * inv_level_scale;
-    pnt->y = (f32)tile->points[pntIndex].y * inv_level_scale;
-    pnt->z = (f32)tile->points[pntIndex].z * inv_level_scale;
-    return;
+    pointnum = tile->tail.half >> (8 - (pointnum * 4));
+
+    point = &tile->points[pointnum & 0xf];
+
+    scale = inv_level_scale;
+
+    out->x = point->x * scale;
+    out->y = point->y * scale;
+    out->z = point->z * scale;
 }
-
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B23AC
-/* 0E6EDC 7F0B23AC 848E0006 */  lh    $t6, 6($a0)
-/* 0E6EE0 7F0B23B0 00057880 */  sll   $t7, $a1, 2
-/* 0E6EE4 7F0B23B4 24180008 */  li    $t8, 8
-/* 0E6EE8 7F0B23B8 030FC823 */  subu  $t9, $t8, $t7
-/* 0E6EEC 7F0B23BC 032E2807 */  srav  $a1, $t6, $t9
-/* 0E6EF0 7F0B23C0 30A8000F */  andi  $t0, $a1, 0xf
-/* 0E6EF4 7F0B23C4 000848C0 */  sll   $t1, $t0, 3
-/* 0E6EF8 7F0B23C8 00891021 */  addu  $v0, $a0, $t1
-/* 0E6EFC 7F0B23CC 844A0008 */  lh    $t2, 8($v0)
-/* 0E6F00 7F0B23D0 3C018004 */  lui   $at, %hi(inv_level_scale)
-/* 0E6F04 7F0B23D4 C4200F48 */  lwc1  $f0, %lo(inv_level_scale)($at)
-/* 0E6F08 7F0B23D8 448A2000 */  mtc1  $t2, $f4
-/* 0E6F0C 7F0B23DC 00000000 */  nop
-/* 0E6F10 7F0B23E0 468021A0 */  cvt.s.w $f6, $f4
-/* 0E6F14 7F0B23E4 46003202 */  mul.s $f8, $f6, $f0
-/* 0E6F18 7F0B23E8 E4C80000 */  swc1  $f8, ($a2)
-/* 0E6F1C 7F0B23EC 844B000A */  lh    $t3, 0xa($v0)
-/* 0E6F20 7F0B23F0 448B5000 */  mtc1  $t3, $f10
-/* 0E6F24 7F0B23F4 00000000 */  nop
-/* 0E6F28 7F0B23F8 46805420 */  cvt.s.w $f16, $f10
-/* 0E6F2C 7F0B23FC 46008482 */  mul.s $f18, $f16, $f0
-/* 0E6F30 7F0B2400 E4D20004 */  swc1  $f18, 4($a2)
-/* 0E6F34 7F0B2404 844C000C */  lh    $t4, 0xc($v0)
-/* 0E6F38 7F0B2408 448C2000 */  mtc1  $t4, $f4
-/* 0E6F3C 7F0B240C 00000000 */  nop
-/* 0E6F40 7F0B2410 468021A0 */  cvt.s.w $f6, $f4
-/* 0E6F44 7F0B2414 46003202 */  mul.s $f8, $f6, $f0
-/* 0E6F48 7F0B2418 03E00008 */  jr    $ra
-/* 0E6F4C 7F0B241C E4C80008 */   swc1  $f8, 8($a2)
-)
-#endif
-
-
-
 
 
 #ifdef NONMATCHING
