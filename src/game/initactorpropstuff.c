@@ -44,74 +44,27 @@ u32 sub_GAME_7F0001F0(void *ani, int aniid, int param_3) {
 }
 
 
-#ifdef NONMATCHING
-s32 sub_GAME_7F000290(s32 arg0, s32 arg1, s32 arg2)
+s32 sub_GAME_7F000290(ModelAnimation *anim, s32 startframe, s32 endframe)
 {
-    ? sp3C;
-    s32 var_s0;
-    s32 var_s1;
+    s32 sum;
+    s16 out[3];
 
-    var_s0 = arg1;
-    var_s1 = 0;
-    if (arg1 < arg2)
+    sum = 0;
+
+    if (startframe < endframe)
     {
         do
         {
-            sub_GAME_7F06D2E4(0, 0, &skeleton_guard, arg0, var_s0, &sp3C);
-            var_s0 += 1;
-            var_s1 += sp40;
-        } while (var_s0 < arg2);
-    }
-    return var_s1;
-}
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F000290
-/* 034DC0 7F000290 27BDFFB8 */  addiu $sp, $sp, -0x48
-/* 034DC4 7F000294 AFB30028 */  sw    $s3, 0x28($sp)
-/* 034DC8 7F000298 AFB20024 */  sw    $s2, 0x24($sp)
-/* 034DCC 7F00029C AFB10020 */  sw    $s1, 0x20($sp)
-/* 034DD0 7F0002A0 AFB0001C */  sw    $s0, 0x1c($sp)
-/* 034DD4 7F0002A4 00A6082A */  slt   $at, $a1, $a2
-/* 034DD8 7F0002A8 00A08025 */  move  $s0, $a1
-/* 034DDC 7F0002AC 00C09025 */  move  $s2, $a2
-/* 034DE0 7F0002B0 00809825 */  move  $s3, $a0
-/* 034DE4 7F0002B4 AFBF0034 */  sw    $ra, 0x34($sp)
-/* 034DE8 7F0002B8 AFB50030 */  sw    $s5, 0x30($sp)
-/* 034DEC 7F0002BC AFB4002C */  sw    $s4, 0x2c($sp)
-/* 034DF0 7F0002C0 10200010 */  beqz  $at, .L7F000304
-/* 034DF4 7F0002C4 00008825 */   move  $s1, $zero
-/* 034DF8 7F0002C8 3C148004 */  lui   $s4, %hi(skeleton_guard)
-/* 034DFC 7F0002CC 2694D400 */  addiu $s4, %lo(skeleton_guard) # addiu $s4, $s4, -0x2c00
-/* 034E00 7F0002D0 27B5003C */  addiu $s5, $sp, 0x3c
-.L7F0002D4:
-/* 034E04 7F0002D4 00002025 */  move  $a0, $zero
-/* 034E08 7F0002D8 00002825 */  move  $a1, $zero
-/* 034E0C 7F0002DC 02803025 */  move  $a2, $s4
-/* 034E10 7F0002E0 02603825 */  move  $a3, $s3
-/* 034E14 7F0002E4 AFB00010 */  sw    $s0, 0x10($sp)
-/* 034E18 7F0002E8 0FC1B4B9 */  jal   sub_GAME_7F06D2E4
-/* 034E1C 7F0002EC AFB50014 */   sw    $s5, 0x14($sp)
-/* 034E20 7F0002F0 87AE0040 */  lh    $t6, 0x40($sp)
-/* 034E24 7F0002F4 26100001 */  addiu $s0, $s0, 1
-/* 034E28 7F0002F8 0212082A */  slt   $at, $s0, $s2
-/* 034E2C 7F0002FC 1420FFF5 */  bnez  $at, .L7F0002D4
-/* 034E30 7F000300 022E8821 */   addu  $s1, $s1, $t6
-.L7F000304:
-/* 034E34 7F000304 8FBF0034 */  lw    $ra, 0x34($sp)
-/* 034E38 7F000308 02201025 */  move  $v0, $s1
-/* 034E3C 7F00030C 8FB10020 */  lw    $s1, 0x20($sp)
-/* 034E40 7F000310 8FB0001C */  lw    $s0, 0x1c($sp)
-/* 034E44 7F000314 8FB20024 */  lw    $s2, 0x24($sp)
-/* 034E48 7F000318 8FB30028 */  lw    $s3, 0x28($sp)
-/* 034E4C 7F00031C 8FB4002C */  lw    $s4, 0x2c($sp)
-/* 034E50 7F000320 8FB50030 */  lw    $s5, 0x30($sp)
-/* 034E54 7F000324 03E00008 */  jr    $ra
-/* 034E58 7F000328 27BD0048 */   addiu $sp, $sp, 0x48
-)
-#endif
+            sub_GAME_7F06D2E4(0, 0, &skeleton_guard, anim, startframe, out);
 
+            startframe++;
+            sum += out[2];
+        }
+        while (startframe < endframe);
+    }
+
+    return sum;
+}
 
 
 #ifdef NONMATCHING
