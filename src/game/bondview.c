@@ -4405,123 +4405,48 @@ void bondviewSetCameraMode(s32 arg0)
 }
 
 
+void sub_GAME_7F07B1A4(void)
+{
+    enum CAMERAMODE mode = g_CameraMode;
 
-#ifdef NONMATCHING
-void sub_GAME_7F07B1A4(void) {
-    int iVar1;
+    g_CameraMode = CAMERAMODE_NONE;
+    g_CameraAfterCinema = CAMERAMODE_NONE;
 
-    iVar1                    = cameramode;
-    cameramode               = 0;
-    enable_move_after_cinema = 0;
-    if (iVar1 == 1)
+    if (mode == CAMERAMODE_INTRO)
     {
-        Function_822B5150(2);
+        bondviewSetCameraMode(CAMERAMODE_FADESWIRL);
     }
-    else if (iVar1 == 2)
+    else if (mode == CAMERAMODE_FADESWIRL)
     {
-        Function_822CFF00();
-        Function_822B5150(3);
+        bondviewResetIntroCameraMessageDialogs();
+        bondviewSetCameraMode(CAMERAMODE_SWIRL);
     }
-    else if (iVar1 != 9)
+    else if (mode != CAMERAMODE_MP)
     {
-        if (iVar1 == 3)
+        if (mode == CAMERAMODE_SWIRL)
         {
             maybe_solo_intro_camera_handler();
-            set_curplayer_fade(0.0, 1.0);
-            Function_822B5150(4);
+            currentPlayerStartChrFade(0.0f, 1.0f);
+            bondviewSetCameraMode(CAMERAMODE_FP);
         }
-        else if (iVar1 != 4)
+        else if (mode != CAMERAMODE_FP)
         {
-            if (iVar1 == 5)
+            if (mode == CAMERAMODE_DEATH_CAM_SP)
             {
-                Function_822B5150(6);
+                bondviewSetCameraMode(CAMERAMODE_DEATH_CAM_MP);
             }
-            else if ((iVar1 == 6) && (camera_mode = camera_mode + 1, camera_mode < 3))
+            else if (mode == CAMERAMODE_DEATH_CAM_MP)
             {
-                Function_822B5150(5);
+                camera_mode++;
+
+                if (camera_mode < CAMERAMODE_SWIRL)
+                {
+                    bondviewSetCameraMode(CAMERAMODE_DEATH_CAM_SP);
+                }
             }
         }
     }
-    return;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F07B1A4
-/* 0AFCD4 7F07B1A4 3C038003 */  lui   $v1, %hi(g_CameraMode)
-/* 0AFCD8 7F07B1A8 24636494 */  addiu $v1, %lo(g_CameraMode) # addiu $v1, $v1, 0x6494
-/* 0AFCDC 7F07B1AC 8C620000 */  lw    $v0, ($v1)
-/* 0AFCE0 7F07B1B0 AC600000 */  sw    $zero, ($v1)
-/* 0AFCE4 7F07B1B4 3C018003 */  lui   $at, %hi(g_CameraAfterCinema)
-/* 0AFCE8 7F07B1B8 AC206498 */  sw    $zero, %lo(g_CameraAfterCinema)($at)
-/* 0AFCEC 7F07B1BC 27BDFFE8 */  addiu $sp, $sp, -0x18
-/* 0AFCF0 7F07B1C0 24010001 */  li    $at, 1
-/* 0AFCF4 7F07B1C4 14410005 */  bne   $v0, $at, .L7F07B1DC
-/* 0AFCF8 7F07B1C8 AFBF0014 */   sw    $ra, 0x14($sp)
-/* 0AFCFC 7F07B1CC 0FC1EA6E */  jal   bondviewSetCameraMode
-/* 0AFD00 7F07B1D0 24040002 */   li    $a0, 2
-/* 0AFD04 7F07B1D4 1000002F */  b     .L7F07B294
-/* 0AFD08 7F07B1D8 8FBF0014 */   lw    $ra, 0x14($sp)
-.L7F07B1DC:
-/* 0AFD0C 7F07B1DC 24010002 */  li    $at, 2
-/* 0AFD10 7F07B1E0 54410008 */  bnel  $v0, $at, .L7F07B204
-/* 0AFD14 7F07B1E4 24010009 */   li    $at, 9
-/* 0AFD18 7F07B1E8 0FC228CC */  jal   bondviewResetIntroCameraMessageDialogs
-/* 0AFD1C 7F07B1EC 00000000 */   nop
-/* 0AFD20 7F07B1F0 0FC1EA6E */  jal   bondviewSetCameraMode
-/* 0AFD24 7F07B1F4 24040003 */   li    $a0, 3
-/* 0AFD28 7F07B1F8 10000026 */  b     .L7F07B294
-/* 0AFD2C 7F07B1FC 8FBF0014 */   lw    $ra, 0x14($sp)
-/* 0AFD30 7F07B200 24010009 */  li    $at, 9
-.L7F07B204:
-/* 0AFD34 7F07B204 10410022 */  beq   $v0, $at, .L7F07B290
-/* 0AFD38 7F07B208 24010003 */   li    $at, 3
-/* 0AFD3C 7F07B20C 5441000D */  bnel  $v0, $at, .L7F07B244
-/* 0AFD40 7F07B210 24010004 */   li    $at, 4
-/* 0AFD44 7F07B214 0FC1E928 */  jal   maybe_solo_intro_camera_handler
-/* 0AFD48 7F07B218 00000000 */   nop
-/* 0AFD4C 7F07B21C 3C013F80 */  li    $at, 0x3F800000 # 1.000000
-/* 0AFD50 7F07B220 44817000 */  mtc1  $at, $f14
-/* 0AFD54 7F07B224 44806000 */  mtc1  $zero, $f12
-/* 0AFD58 7F07B228 0FC20284 */  jal   currentPlayerStartChrFade
-/* 0AFD5C 7F07B22C 00000000 */   nop
-/* 0AFD60 7F07B230 0FC1EA6E */  jal   bondviewSetCameraMode
-/* 0AFD64 7F07B234 24040004 */   li    $a0, 4
-/* 0AFD68 7F07B238 10000016 */  b     .L7F07B294
-/* 0AFD6C 7F07B23C 8FBF0014 */   lw    $ra, 0x14($sp)
-/* 0AFD70 7F07B240 24010004 */  li    $at, 4
-.L7F07B244:
-/* 0AFD74 7F07B244 10410012 */  beq   $v0, $at, .L7F07B290
-/* 0AFD78 7F07B248 24010005 */   li    $at, 5
-/* 0AFD7C 7F07B24C 54410006 */  bnel  $v0, $at, .L7F07B268
-/* 0AFD80 7F07B250 24010006 */   li    $at, 6
-/* 0AFD84 7F07B254 0FC1EA6E */  jal   bondviewSetCameraMode
-/* 0AFD88 7F07B258 24040006 */   li    $a0, 6
-/* 0AFD8C 7F07B25C 1000000D */  b     .L7F07B294
-/* 0AFD90 7F07B260 8FBF0014 */   lw    $ra, 0x14($sp)
-/* 0AFD94 7F07B264 24010006 */  li    $at, 6
-.L7F07B268:
-/* 0AFD98 7F07B268 14410009 */  bne   $v0, $at, .L7F07B290
-/* 0AFD9C 7F07B26C 3C028003 */   lui   $v0, %hi(camera_mode)
-/* 0AFDA0 7F07B270 24426510 */  addiu $v0, %lo(camera_mode) # addiu $v0, $v0, 0x6510
-/* 0AFDA4 7F07B274 8C4E0000 */  lw    $t6, ($v0)
-/* 0AFDA8 7F07B278 25CF0001 */  addiu $t7, $t6, 1
-/* 0AFDAC 7F07B27C 29E10003 */  slti  $at, $t7, 3
-/* 0AFDB0 7F07B280 10200003 */  beqz  $at, .L7F07B290
-/* 0AFDB4 7F07B284 AC4F0000 */   sw    $t7, ($v0)
-/* 0AFDB8 7F07B288 0FC1EA6E */  jal   bondviewSetCameraMode
-/* 0AFDBC 7F07B28C 24040005 */   li    $a0, 5
-.L7F07B290:
-/* 0AFDC0 7F07B290 8FBF0014 */  lw    $ra, 0x14($sp)
-.L7F07B294:
-/* 0AFDC4 7F07B294 27BD0018 */  addiu $sp, $sp, 0x18
-/* 0AFDC8 7F07B298 03E00008 */  jr    $ra
-/* 0AFDCC 7F07B29C 00000000 */   nop
-)
-#endif
-
-
-
 
 
 #ifdef NONMATCHING
