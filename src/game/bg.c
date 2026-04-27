@@ -11039,119 +11039,59 @@ u8 bgGetDataPortalsControlBytes2(s32 p)
 }
 
 
-
-
-
-#ifdef NONMATCHING
-s32 sub_GAME_7F0B9A2C(s32 p)
+void sub_GAME_7F0B9A2C(s32 portalnum)
 {
-     byte byte2;
+    u8 value;
+    s32 upper;
 
-    if (g_BgPortals[p].controlbytes2 == -1)
+    value = g_BgPortals[portalnum].controlbytes2;
+
+    if (value >= 0xff)
     {
-        byte2 = 0xff;
+        value = 0xff;
     }
     else
     {
-        byte2 = g_BgPortals[p].controlbytes2 + 1;
-        if (byte2 >> 4 != 0)
+        value++;
+        upper = (value >> 4) & 0xf;
+
+        if (upper > 0)
         {
-            byte2 |= 8;
+            value |= 8;
         }
     }
-    g_BgPortals[p].controlbytes2 = byte2;
-  return;
+
+    g_BgPortals[portalnum].controlbytes2 = value;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B9A2C
-/* 0EE55C 7F0B9A2C 3C0E8008 */  lui   $t6, %hi(g_BgPortals)
-/* 0EE560 7F0B9A30 8DCEFF80 */  lw    $t6, %lo(g_BgPortals)($t6)
-/* 0EE564 7F0B9A34 000478C0 */  sll   $t7, $a0, 3
-/* 0EE568 7F0B9A38 01CF1821 */  addu  $v1, $t6, $t7
-/* 0EE56C 7F0B9A3C 90620007 */  lbu   $v0, 7($v1)
-/* 0EE570 7F0B9A40 284100FF */  slti  $at, $v0, 0xff
-/* 0EE574 7F0B9A44 14200003 */  bnez  $at, .L7F0B9A54
-/* 0EE578 7F0B9A48 24420001 */   addiu $v0, $v0, 1
-/* 0EE57C 7F0B9A4C 10000009 */  b     .L7F0B9A74
-/* 0EE580 7F0B9A50 240200FF */   li    $v0, 255
-.L7F0B9A54:
-/* 0EE584 7F0B9A54 305800FF */  andi  $t8, $v0, 0xff
-/* 0EE588 7F0B9A58 0018C903 */  sra   $t9, $t8, 4
-/* 0EE58C 7F0B9A5C 3328000F */  andi  $t0, $t9, 0xf
-/* 0EE590 7F0B9A60 19000004 */  blez  $t0, .L7F0B9A74
-/* 0EE594 7F0B9A64 03001025 */   move  $v0, $t8
-/* 0EE598 7F0B9A68 37020008 */  ori   $v0, $t8, 8
-/* 0EE59C 7F0B9A6C 304900FF */  andi  $t1, $v0, 0xff
-/* 0EE5A0 7F0B9A70 01201025 */  move  $v0, $t1
-.L7F0B9A74:
-/* 0EE5A4 7F0B9A74 03E00008 */  jr    $ra
-/* 0EE5A8 7F0B9A78 A0620007 */   sb    $v0, 7($v1)
-)
-#endif
 
 
-
-
-
-#ifdef NONMATCHING
-s32 sub_GAME_7F0B9A7C(s32 p)
+void sub_GAME_7F0B9A7C(s32 portalnum)
 {
-    if (g_BgPortals[p].controlbytes2 >> 4 == 0)
+    u8 value;
+    s32 temp;
+
+    value = g_BgPortals[portalnum].controlbytes2;
+    temp = value;
+
+    if (((value >> 4) & 0xf) == 0)
     {
-        byte22 = g_BgPortals[p].controlbytes2;
-        if (byte2 != 0)
+        if (temp > 0)
         {
-            byte22 = g_BgPortals[p].controlbytes2 - 1;
+            value--;
         }
     }
     else
     {
-        byte22 = g_BgPortals[p].controlbytes2 - 1;
-        if ((g_BgPortals[p].controlbytes2 - 1 & 0xf) < 8)
+        value--;
+
+        if ((value & 0xf) < 8)
         {
-            byte22 = g_BgPortals[p].controlbytes2 - 9;
+            value -= 8;
         }
     }
-    g_BgPortals[p].controlbytes2] = byte22;
-    return;
-}
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B9A7C
-/* 0EE5AC 7F0B9A7C 3C0E8008 */  lui   $t6, %hi(g_BgPortals)
-/* 0EE5B0 7F0B9A80 8DCEFF80 */  lw    $t6, %lo(g_BgPortals)($t6)
-/* 0EE5B4 7F0B9A84 000478C0 */  sll   $t7, $a0, 3
-/* 0EE5B8 7F0B9A88 01CF1821 */  addu  $v1, $t6, $t7
-/* 0EE5BC 7F0B9A8C 90620007 */  lbu   $v0, 7($v1)
-/* 0EE5C0 7F0B9A90 0002C103 */  sra   $t8, $v0, 4
-/* 0EE5C4 7F0B9A94 3319000F */  andi  $t9, $t8, 0xf
-/* 0EE5C8 7F0B9A98 17200007 */  bnez  $t9, .L7F0B9AB8
-/* 0EE5CC 7F0B9A9C 00402825 */   move  $a1, $v0
-/* 0EE5D0 7F0B9AA0 18A0000E */  blez  $a1, .L7F0B9ADC
-/* 0EE5D4 7F0B9AA4 00000000 */   nop
-/* 0EE5D8 7F0B9AA8 2442FFFF */  addiu $v0, $v0, -1
-/* 0EE5DC 7F0B9AAC 304800FF */  andi  $t0, $v0, 0xff
-/* 0EE5E0 7F0B9AB0 1000000A */  b     .L7F0B9ADC
-/* 0EE5E4 7F0B9AB4 01001025 */   move  $v0, $t0
-.L7F0B9AB8:
-/* 0EE5E8 7F0B9AB8 2442FFFF */  addiu $v0, $v0, -1
-/* 0EE5EC 7F0B9ABC 304900FF */  andi  $t1, $v0, 0xff
-/* 0EE5F0 7F0B9AC0 312A000F */  andi  $t2, $t1, 0xf
-/* 0EE5F4 7F0B9AC4 29410008 */  slti  $at, $t2, 8
-/* 0EE5F8 7F0B9AC8 10200004 */  beqz  $at, .L7F0B9ADC
-/* 0EE5FC 7F0B9ACC 01201025 */   move  $v0, $t1
-/* 0EE600 7F0B9AD0 2522FFF8 */  addiu $v0, $t1, -8
-/* 0EE604 7F0B9AD4 304B00FF */  andi  $t3, $v0, 0xff
-/* 0EE608 7F0B9AD8 01601025 */  move  $v0, $t3
-.L7F0B9ADC:
-/* 0EE60C 7F0B9ADC 03E00008 */  jr    $ra
-/* 0EE610 7F0B9AE0 A0620007 */   sb    $v0, 7($v1)
-)
-#endif
 
+    g_BgPortals[portalnum].controlbytes2 = value;
+}
 
 
 /**
