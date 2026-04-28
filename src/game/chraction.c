@@ -66,15 +66,15 @@ s32 chrlvStanRoomRelated                      (ChrRecord *self, coord3d *arg1, S
 f32 chrlvModelScaleAnimationRelated           (ChrRecord *self);
 void chrlvActGoposRelated                     (ChrRecord *self, coord3d *arg1, StandTile **arg2);
 s32 chrlvMovementTargetRelated                (ChrRecord *self);
-waypoint *get_ptrpreset_in_table_matching_tile(StandTile* arg0);
-s32 check_if_any_path_preset_lies_on_tile     (StandTile* arg0);
+waypoint *get_ptrpreset_in_table_matching_tile           (StandTile* tile);
+s32 check_if_any_path_preset_lies_on_tile     (StandTile* tile);
 f32 chrlvPadPresetRelated                     (coord3d *arg0, waypoint *arg1);
 waypoint *chrlvStanPathRelated                (coord3d *arg0, StandTile *arg1);
 s32 chrlvStanRoomRelatedPad                   (ChrRecord *self, PadRecord *arg1);
 void play_sound_for_shot_actor                (ChrRecord *);
 void sub_GAME_7F025560                        (ChrRecord *self, s32 attack_type, s32 arg2);
 coord3d *chrlvGetChrOrPresetLocation          (ChrRecord *self, s32 flags, s32 lookup_id, StandTile **stan);
-void chrStopFiring                        (ChrRecord *self);
+void chrStopFiring                            (ChrRecord *self);
 void sub_GAME_7F0281F4                        (ChrRecord *self);
 s32 plot_course_for_actor                     (ChrRecord *self, coord3d *arg1, StandTile *stan, SPEED speed);
 void chrlvPlotCourseRelated                   (ChrRecord *self);
@@ -2977,78 +2977,37 @@ s32 chrlvExplosionDamage(ChrRecord *self, coord3d *arg1, f32 damage, s32 arg3)
 }
 
 
-
-#ifdef NONMATCHING
 /**
- * Address 0x7F027BF4.
-*/
-waypoint *get_ptrpreset_in_table_matching_tile(StandTile* stan)
+ * Given a stan tile, find the first waypoint on that tile.
+ */
+waypoint *get_ptrpreset_in_table_matching_tile(StandTile *tile)
 {
-    waypoint  *waypoint;
-    PadRecord *pad;
+    waypoint *head;
+    waypoint *wp;
 
-    if (g_CurrentSetup.pathwaypoints != NULL)
-    {
-        for (waypoint = g_CurrentSetup.pathwaypoints; waypoint->padID >= 0; waypoint++)
-        {
-            pad = &((PadRecord *)g_CurrentSetup.pads)[waypoint->padID];
+    head = g_CurrentSetup.pathwaypoints;
 
-            if (pad->stan == stan)
-            {
-                return waypoint;
+    if (head != NULL) {
+        wp = head;
+        while (wp->padID >= 0) {
+            PadRecord* var_v0 = &g_CurrentSetup.pads[wp->padID];
+            if (tile == var_v0->stan) {
+                return wp;
             }
+            wp++;
         }
     }
 
     return NULL;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel get_ptrpreset_in_table_matching_tile
-/* 05C724 7F027BF4 3C028007 */  lui   $v0, %hi(g_CurrentSetup+0)
-/* 05C728 7F027BF8 8C425D00 */  lw    $v0, %lo(g_CurrentSetup+0)($v0)
-/* 05C72C 7F027BFC 00803025 */  move  $a2, $a0
-/* 05C730 7F027C00 50400015 */  beql  $v0, $zero, .L7F027C58
-/* 05C734 7F027C04 00001025 */   move  $v0, $zero
-/* 05C738 7F027C08 8C4E0000 */  lw    $t6, ($v0)
-/* 05C73C 7F027C0C 00401825 */  move  $v1, $v0
-/* 05C740 7F027C10 3C058007 */  lui   $a1, %hi(g_CurrentSetup+0x18)
-/* 05C744 7F027C14 05C0000F */  bltz  $t6, .L7F027C54
-/* 05C748 7F027C18 2407002C */   li    $a3, 44
-/* 05C74C 7F027C1C 8C440000 */  lw    $a0, ($v0)
-/* 05C750 7F027C20 8CA55D18 */  lw    $a1, %lo(g_CurrentSetup+0x18)($a1)
-.L7F027C24:
-/* 05C754 7F027C24 00870019 */  multu $a0, $a3
-/* 05C758 7F027C28 00007812 */  mflo  $t7
-/* 05C75C 7F027C2C 01E51021 */  addu  $v0, $t7, $a1
-/* 05C760 7F027C30 8C580028 */  lw    $t8, 0x28($v0)
-/* 05C764 7F027C34 54D80004 */  bnel  $a2, $t8, .L7F027C48
-/* 05C768 7F027C38 8C640010 */   lw    $a0, 0x10($v1)
-/* 05C76C 7F027C3C 03E00008 */  jr    $ra
-/* 05C770 7F027C40 00601025 */   move  $v0, $v1
-
-/* 05C774 7F027C44 8C640010 */  lw    $a0, 0x10($v1)
-.L7F027C48:
-/* 05C778 7F027C48 24630010 */  addiu $v1, $v1, 0x10
-/* 05C77C 7F027C4C 0481FFF5 */  bgez  $a0, .L7F027C24
-/* 05C780 7F027C50 00000000 */   nop
-.L7F027C54:
-/* 05C784 7F027C54 00001025 */  move  $v0, $zero
-.L7F027C58:
-/* 05C788 7F027C58 03E00008 */  jr    $ra
-/* 05C78C 7F027C5C 00000000 */   nop
-)
-#endif
-
 
 
 /**
  * Address 0x7F027C60.
 */
-s32 check_if_any_path_preset_lies_on_tile(StandTile* arg0)
+s32 check_if_any_path_preset_lies_on_tile(StandTile* tile)
 {
-    return get_ptrpreset_in_table_matching_tile(arg0) != NULL;
+    return get_ptrpreset_in_table_matching_tile(tile) != NULL;
 }
 
 
