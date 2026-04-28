@@ -3814,98 +3814,30 @@ s32 sub_GAME_7F0B1CEC(void)
 }
 
 
-// sig for caller matches
-void getTileEdgePoints(StandTile *tile, s32 pointI, coord3d *currPntRtn, coord3d *nextPointRtn);
-
-#ifdef NONMATCHING
-// Not debugged at all - can't be far wrong though.
 void getTileEdgePoints(StandTile *tile, s32 pointI, coord3d *currPntRtn, coord3d *nextPointRtn)
 {
-  StandTilePoint *tilePntA;
-  StandTilePoint *tilePntB;
-  s32 pointCount;
+    f32 scale;
 
-  tilePntA = &tile->points[pointI];
+    scale = inv_level_scale;
 
-  currPntRtn->x = (f32)tilePntA->x * inv_level_scale;
-  currPntRtn->y = (f32)tilePntA->y * inv_level_scale;
-  currPntRtn->z = (f32)tilePntA->z * inv_level_scale;
+    currPntRtn->x = tile->points[pointI].x * scale;
+    currPntRtn->y = tile->points[pointI].y * scale;
+    currPntRtn->z = tile->points[pointI].z * scale;
 
-  pointCount = STAN_POINT_COUNT(tile);
-  tilePntB = &tile->points[(pointI + 1) % pointCount];
+    /**
+     * This line could potentially become:
+     * pointI = (pointI + 1) % STAN_POINT_COUNT(tile);
+     * 
+     * If STAN_POINT_COUNT were redefined as:
+     * #define STAN_POINT_COUNT(tile) (((tile)->tail.half >> 12) & 0xf)
+     * Something to consider?
+     */
+    pointI = (pointI + 1) % ((tile->tail.half >> 12) & 0xf);
 
-
-  nextPointRtn->x = (f32)tilePntB->x * inv_level_scale;
-  nextPointRtn->y = (f32)tilePntB->y * inv_level_scale;
-  nextPointRtn->z = (f32)tilePntB->z * inv_level_scale;
-
+    nextPointRtn->x = tile->points[pointI].x * scale;
+    nextPointRtn->y = tile->points[pointI].y * scale;
+    nextPointRtn->z = tile->points[pointI].z * scale;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel getTileEdgePoints
-/* 0E6828 7F0B1CF8 000570C0 */  sll   $t6, $a1, 3
-/* 0E682C 7F0B1CFC 008E1021 */  addu  $v0, $a0, $t6
-/* 0E6830 7F0B1D00 844F0008 */  lh    $t7, 8($v0)
-/* 0E6834 7F0B1D04 3C018004 */  lui   $at, %hi(inv_level_scale)
-/* 0E6838 7F0B1D08 C4200F48 */  lwc1  $f0, %lo(inv_level_scale)($at)
-/* 0E683C 7F0B1D0C 448F2000 */  mtc1  $t7, $f4
-/* 0E6840 7F0B1D10 24A80001 */  addiu $t0, $a1, 1
-/* 0E6844 7F0B1D14 468021A0 */  cvt.s.w $f6, $f4
-/* 0E6848 7F0B1D18 46003202 */  mul.s $f8, $f6, $f0
-/* 0E684C 7F0B1D1C E4C80000 */  swc1  $f8, ($a2)
-/* 0E6850 7F0B1D20 8458000A */  lh    $t8, 0xa($v0)
-/* 0E6854 7F0B1D24 44985000 */  mtc1  $t8, $f10
-/* 0E6858 7F0B1D28 00000000 */  nop
-/* 0E685C 7F0B1D2C 46805420 */  cvt.s.w $f16, $f10
-/* 0E6860 7F0B1D30 46008482 */  mul.s $f18, $f16, $f0
-/* 0E6864 7F0B1D34 E4D20004 */  swc1  $f18, 4($a2)
-/* 0E6868 7F0B1D38 8459000C */  lh    $t9, 0xc($v0)
-/* 0E686C 7F0B1D3C 44992000 */  mtc1  $t9, $f4
-/* 0E6870 7F0B1D40 00000000 */  nop
-/* 0E6874 7F0B1D44 468021A0 */  cvt.s.w $f6, $f4
-/* 0E6878 7F0B1D48 46003202 */  mul.s $f8, $f6, $f0
-/* 0E687C 7F0B1D4C E4C80008 */  swc1  $f8, 8($a2)
-/* 0E6880 7F0B1D50 84890006 */  lh    $t1, 6($a0)
-/* 0E6884 7F0B1D54 00095303 */  sra   $t2, $t1, 0xc
-/* 0E6888 7F0B1D58 314B000F */  andi  $t3, $t2, 0xf
-/* 0E688C 7F0B1D5C 010B001A */  div   $zero, $t0, $t3
-/* 0E6890 7F0B1D60 00002810 */  mfhi  $a1
-/* 0E6894 7F0B1D64 000560C0 */  sll   $t4, $a1, 3
-/* 0E6898 7F0B1D68 008C1021 */  addu  $v0, $a0, $t4
-/* 0E689C 7F0B1D6C 844D0008 */  lh    $t5, 8($v0)
-/* 0E68A0 7F0B1D70 15600002 */  bnez  $t3, .L7F0B1D7C
-/* 0E68A4 7F0B1D74 00000000 */   nop
-/* 0E68A8 7F0B1D78 0007000D */  break 7
-.L7F0B1D7C:
-/* 0E68AC 7F0B1D7C 2401FFFF */  li    $at, -1
-/* 0E68B0 7F0B1D80 15610004 */  bne   $t3, $at, .L7F0B1D94
-/* 0E68B4 7F0B1D84 3C018000 */   lui   $at, 0x8000
-/* 0E68B8 7F0B1D88 15010002 */  bne   $t0, $at, .L7F0B1D94
-/* 0E68BC 7F0B1D8C 00000000 */   nop
-/* 0E68C0 7F0B1D90 0006000D */  break 6
-.L7F0B1D94:
-/* 0E68C4 7F0B1D94 448D5000 */  mtc1  $t5, $f10
-/* 0E68C8 7F0B1D98 00000000 */  nop
-/* 0E68CC 7F0B1D9C 46805420 */  cvt.s.w $f16, $f10
-/* 0E68D0 7F0B1DA0 46008482 */  mul.s $f18, $f16, $f0
-/* 0E68D4 7F0B1DA4 E4F20000 */  swc1  $f18, ($a3)
-/* 0E68D8 7F0B1DA8 844E000A */  lh    $t6, 0xa($v0)
-/* 0E68DC 7F0B1DAC 448E2000 */  mtc1  $t6, $f4
-/* 0E68E0 7F0B1DB0 00000000 */  nop
-/* 0E68E4 7F0B1DB4 468021A0 */  cvt.s.w $f6, $f4
-/* 0E68E8 7F0B1DB8 46003202 */  mul.s $f8, $f6, $f0
-/* 0E68EC 7F0B1DBC E4E80004 */  swc1  $f8, 4($a3)
-/* 0E68F0 7F0B1DC0 844F000C */  lh    $t7, 0xc($v0)
-/* 0E68F4 7F0B1DC4 448F5000 */  mtc1  $t7, $f10
-/* 0E68F8 7F0B1DC8 00000000 */  nop
-/* 0E68FC 7F0B1DCC 46805420 */  cvt.s.w $f16, $f10
-/* 0E6900 7F0B1DD0 46008482 */  mul.s $f18, $f16, $f0
-/* 0E6904 7F0B1DD4 03E00008 */  jr    $ra
-/* 0E6908 7F0B1DD8 E4F20008 */   swc1  $f18, 8($a3)
-)
-#endif
-
 
 
 #ifdef NONMATCHING
