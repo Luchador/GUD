@@ -150,7 +150,7 @@ s32 chrlvPatrolCalculateStep                  (ChrRecord *self, bool *forward, s
 s32 sub_GAME_7F028510                         (coord3d *arg0, StandTile *arg1);
 s32 sub_GAME_7F03130C                         (ChrRecord *self,coord3d *arg1,s32 arg2,coord3d *arg3,f32 arg4,s32 arg5,coord3d *arg6,struct waydata *arg7,f32 arg8,s32 arg9,s32 set_copy);
 void chrlvTickStand                           (ChrRecord *self);
-PadRecord * chrlvGetPatrolStepPad             (ChrRecord *self, s32 arg1);
+PadRecord * chrlvGetPatrolStepPad             (ChrRecord *self, s32 numsteps);
 
 // unknown type for arg1, reads offsets 0x30,0x34,0x40,0x44
 // arg2 is only used to compare to zero, either flag or pointer
@@ -3480,65 +3480,27 @@ s32 chrlvPatrolCalculateStep(ChrRecord *self, bool *forward, s32 numsteps)
 }
 
 
-
-
-#ifdef NONMATCHING
-
 /**
  * Address 0x7F0283FC.
+ * 
  * PD: chrPatrolCalculatePadNum (had some nice finds when searching for "patrol" in "chraction.c" in PD)
 */
-// notes: 99.33% match, only failing regalloc on a single line
 PadRecord *chrlvGetPatrolStepPad(ChrRecord *self, s32 numsteps)
 {
-    s32 data;
+    waypoint *wp;
     s32 forward;
     s32 step;
-    s32 * padnumptr;
+    s32 *data;
 
     forward = self->act_patrol.forward;
     step = chrlvPatrolCalculateStep(self, &forward, numsteps);
-    data = self->act_patrol.path->data[step]; // <---- this line fails regalloc, swapping t0 and v1
-    padnumptr = &g_CurrentSetup.pathwaypoints[data].padID;
-    return &g_CurrentSetup.pads[*padnumptr];
-}
-#else
-GLOBAL_ASM(
-.text
-glabel chrlvGetPatrolStepPad
-/* 05CF2C 7F0283FC 27BDFFD8 */  addiu $sp, $sp, -0x28
-/* 05CF30 7F028400 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 05CF34 7F028404 8C8E0034 */  lw    $t6, 0x34($a0)
-/* 05CF38 7F028408 00A03025 */  move  $a2, $a1
-/* 05CF3C 7F02840C 27A50020 */  addiu $a1, $sp, 0x20
-/* 05CF40 7F028410 AFA40028 */  sw    $a0, 0x28($sp)
-/* 05CF44 7F028414 0FC0A0D2 */  jal   chrlvPatrolCalculateStep
-/* 05CF48 7F028418 AFAE0020 */   sw    $t6, 0x20($sp)
-/* 05CF4C 7F02841C 8FA70028 */  lw    $a3, 0x28($sp)
-/* 05CF50 7F028420 0002C880 */  sll   $t9, $v0, 2
-/* 05CF54 7F028424 3C058007 */  lui   $a1, %hi(g_CurrentSetup+0)
-/* 05CF58 7F028428 8CEF002C */  lw    $t7, 0x2c($a3)
-/* 05CF5C 7F02842C 24A55D00 */  addiu $a1, %lo(g_CurrentSetup+0) # addiu $a1, $a1, 0x5d00
-/* 05CF60 7F028430 8CAA0000 */  lw    $t2, ($a1)
-/* 05CF64 7F028434 8DF80000 */  lw    $t8, ($t7)
-/* 05CF68 7F028438 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 05CF6C 7F02843C 8CAD0018 */  lw    $t5, 0x18($a1)
-/* 05CF70 7F028440 03191821 */  addu  $v1, $t8, $t9
-/* 05CF74 7F028444 8C680000 */  lw    $t0, ($v1)
-/* 05CF78 7F028448 00084900 */  sll   $t1, $t0, 4
-/* 05CF7C 7F02844C 012A2021 */  addu  $a0, $t1, $t2
-/* 05CF80 7F028450 8C8B0000 */  lw    $t3, ($a0)
-/* 05CF84 7F028454 27BD0028 */  addiu $sp, $sp, 0x28
-/* 05CF88 7F028458 000B6080 */  sll   $t4, $t3, 2
-/* 05CF8C 7F02845C 018B6023 */  subu  $t4, $t4, $t3
-/* 05CF90 7F028460 000C6080 */  sll   $t4, $t4, 2
-/* 05CF94 7F028464 018B6023 */  subu  $t4, $t4, $t3
-/* 05CF98 7F028468 000C6080 */  sll   $t4, $t4, 2
-/* 05CF9C 7F02846C 03E00008 */  jr    $ra
-/* 05CFA0 7F028470 018D1021 */   addu  $v0, $t4, $t5
-)
-#endif
 
+    data = &self->act_patrol.path->data[step];
+
+    wp = &g_CurrentSetup.pathwaypoints[*data];
+
+    return &g_CurrentSetup.pads[wp->padID];
+}
 
 
 /**
