@@ -2978,6 +2978,8 @@ s32 chrlvExplosionDamage(ChrRecord *self, coord3d *arg1, f32 damage, s32 arg3)
 
 
 /**
+ * Address 0x7F027BF4.
+ * 
  * Given a stan tile, find the first waypoint on that tile.
  */
 waypoint *get_ptrpreset_in_table_matching_tile(StandTile *tile)
