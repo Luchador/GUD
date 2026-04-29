@@ -4458,444 +4458,138 @@ glabel sub_GAME_7F0B5FAC
 #endif
 
 
-
-
-
-#ifdef NONMATCHING
-u32 * sub_GAME_7F0B609C(int roomID, int *data, u32 size)
+/**
+ * Address: 7F0B609C
+ * 
+ * Load and decompress a room's primary display list data.
+ * 
+ * On success, roominfo->ptr_expanded_mapping_info is set to dst,
+ * and roominfo->usize_primary_DL_binary is set to the returned size.
+ */
+s32 bgLoadRoomPrimaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
 {
-  u32 dest;
-  u32 puVar1;
-  u8 *source;
-  u32 len;
+    s_room_info *roominfo;
+    s32 size;
+    s32 fileoffset;
+    u8 *scratch;
+    s32 expanded_size;
 
-  len = g_BgRoomInfo[roomID].csize_primary_DL_binary + 0xfU & 0xfffffff0;
-  if (size < len + 0x20) {
-    dest = 0xffffffff;
-  }
-  else {
-    source = (size - len) + data;
-    obLoadBGFileBytesAtOffset
-              (levelinfotable[levelentry_index].bg_seg_filename,source,
-               &ptr_bgdata_room_fileposition_list[roomID] + -0xf000000,len);
-    dest = bgDecompress(source,data);
-    puVar1 = (size - dest) + data;
-    texCopyGdls(data,puVar1,dest);
-    clear_light_fixturetable_in_room(roomID);
-    puVar1 = texLoadFromGdl(puVar1,dest,data,NULL);
-    if (dest < puVar1) {
-      dest = puVar1;
+    roominfo = &g_BgRoomInfo[roomnum];
+
+    size = roominfo->csize_primary_DL_binary;
+    size = (size + 0xf) & ~0xf; // Align to 16 bytes
+
+    /**
+     * Check if there is enough room to temporarily place the compressed data
+     * at the end of the available buffer. Return -1 if there's not.
+     */
+    if (allocsize < size + 0x20) {
+        return -1;
     }
-    g_BgRoomInfo[roomID].ptr_expanded_mapping_info = data;
-    g_BgRoomInfo[roomID].usize_primary_DL_binary = dest;
-  }
-  return dest;
+
+    // Load the compressed data into the end of the buffer, starting at dst.
+    scratch = dst + (allocsize - size);
+
+    fileoffset = (s32)((u8 *)ptr_bgdata_room_fileposition_list[roomnum].pPriMappingBin + ptr_bg_data) - ptr_bg_data;
+    fileoffset += 0xf1000000;
+
+    obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, scratch, fileoffset, size);
+
+    // Decompress from the end-of-buffer location at dst.
+    expanded_size = bgDecompress(scratch, dst);
+
+    /**
+     * Copy the decompressed GDL back to the end of the buffer as scratch.
+     * texLoadFromGdl can then read from scratch and write the final
+     * texture-processed GDL/data back to dst.
+     */
+    scratch = dst + (allocsize - expanded_size);
+
+    texCopyGdls((Gfx *)dst, (Gfx *)scratch, expanded_size);
+
+    clear_light_fixturetable_in_room(roomnum);
+
+    size = texLoadFromGdl((Gfx *)scratch, expanded_size, (Gfx *)dst, NULL);
+
+    if (expanded_size < size) {
+        expanded_size = size;
+    }
+
+    roominfo->ptr_expanded_mapping_info = dst;
+    roominfo->usize_primary_DL_binary = expanded_size;
+
+    // Return the uncompressed data size.
+    return expanded_size;
 }
-#else
-
-#if defined(LEFTOVERDEBUG)
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B609C
-/* 0EABCC 7F0B609C 00047880 */  sll   $t7, $a0, 2
-/* 0EABD0 7F0B60A0 01E47821 */  addu  $t7, $t7, $a0
-/* 0EABD4 7F0B60A4 3C188004 */  lui   $t8, %hi(g_BgRoomInfo)
-/* 0EABD8 7F0B60A8 27181414 */  addiu $t8, %lo(g_BgRoomInfo) # addiu $t8, $t8, 0x1414
-/* 0EABDC 7F0B60AC 000F7900 */  sll   $t7, $t7, 4
-/* 0EABE0 7F0B60B0 01F84021 */  addu  $t0, $t7, $t8
-/* 0EABE4 7F0B60B4 8D070014 */  lw    $a3, 0x14($t0)
-/* 0EABE8 7F0B60B8 27BDFFC8 */  addiu $sp, $sp, -0x38
-/* 0EABEC 7F0B60BC 2401FFF0 */  li    $at, -16
-/* 0EABF0 7F0B60C0 24E7000F */  addiu $a3, $a3, 0xf
-/* 0EABF4 7F0B60C4 00E1C824 */  and   $t9, $a3, $at
-/* 0EABF8 7F0B60C8 272A0020 */  addiu $t2, $t9, 0x20
-/* 0EABFC 7F0B60CC AFB00014 */  sw    $s0, 0x14($sp)
-/* 0EAC00 7F0B60D0 00CA082A */  slt   $at, $a2, $t2
-/* 0EAC04 7F0B60D4 00A08025 */  move  $s0, $a1
-/* 0EAC08 7F0B60D8 AFBF001C */  sw    $ra, 0x1c($sp)
-/* 0EAC0C 7F0B60DC AFB10018 */  sw    $s1, 0x18($sp)
-/* 0EAC10 7F0B60E0 AFA40038 */  sw    $a0, 0x38($sp)
-/* 0EAC14 7F0B60E4 AFA60040 */  sw    $a2, 0x40($sp)
-/* 0EAC18 7F0B60E8 10200003 */  beqz  $at, .L7F0B60F8
-/* 0EAC1C 7F0B60EC 03203825 */   move  $a3, $t9
-/* 0EAC20 7F0B60F0 10000035 */  b     .L7F0B61C8
-/* 0EAC24 7F0B60F4 2402FFFF */   li    $v0, -1
-.L7F0B60F8:
-/* 0EAC28 7F0B60F8 8FAC0038 */  lw    $t4, 0x38($sp)
-/* 0EAC2C 7F0B60FC 24030018 */  li    $v1, 24
-/* 0EAC30 7F0B6100 3C198004 */  lui   $t9, %hi(levelentry_index)
-/* 0EAC34 7F0B6104 01830019 */  multu $t4, $v1
-/* 0EAC38 7F0B6108 8F391400 */  lw    $t9, %lo(levelentry_index)($t9)
-/* 0EAC3C 7F0B610C 3C0B8008 */  lui   $t3, %hi(ptr_bgdata_room_fileposition_list)
-/* 0EAC40 7F0B6110 8D6BFF8C */  lw    $t3, %lo(ptr_bgdata_room_fileposition_list)($t3)
-/* 0EAC44 7F0B6114 3C028008 */  lui   $v0, %hi(ptr_bg_data)
-/* 0EAC48 7F0B6118 8C42BF90 */  lw    $v0, %lo(ptr_bg_data)($v0)
-/* 0EAC4C 7F0B611C 8FAA0040 */  lw    $t2, 0x40($sp)
-/* 0EAC50 7F0B6120 3C048004 */  lui   $a0, %hi(levelinfotable)
-/* 0EAC54 7F0B6124 3C01F100 */  lui   $at, 0xf100
-/* 0EAC58 7F0B6128 01476023 */  subu  $t4, $t2, $a3
-/* 0EAC5C 7F0B612C 00006812 */  mflo  $t5
-/* 0EAC60 7F0B6130 016D7021 */  addu  $t6, $t3, $t5
-/* 0EAC64 7F0B6134 8DCF0004 */  lw    $t7, 4($t6)
-/* 0EAC68 7F0B6138 03230019 */  multu $t9, $v1
-/* 0EAC6C 7F0B613C 01908821 */  addu  $s1, $t4, $s0
-/* 0EAC70 7F0B6140 01E2C021 */  addu  $t8, $t7, $v0
-/* 0EAC74 7F0B6144 03023023 */  subu  $a2, $t8, $v0
-/* 0EAC78 7F0B6148 00C13021 */  addu  $a2, $a2, $at
-/* 0EAC7C 7F0B614C 02202825 */  move  $a1, $s1
-/* 0EAC80 7F0B6150 AFA80020 */  sw    $t0, 0x20($sp)
-/* 0EAC84 7F0B6154 00004812 */  mflo  $t1
-/* 0EAC88 7F0B6158 00892021 */  addu  $a0, $a0, $t1
-/* 0EAC8C 7F0B615C 0FC2F35F */  jal   obLoadBGFileBytesAtOffset
-/* 0EAC90 7F0B6160 8C844490 */   lw    $a0, %lo(levelinfotable+4)($a0)
-/* 0EAC94 7F0B6164 02202025 */  move  $a0, $s1
-/* 0EAC98 7F0B6168 0FC2D7E3 */  jal   bgDecompress
-/* 0EAC9C 7F0B616C 02002825 */   move  $a1, $s0
-/* 0EACA0 7F0B6170 8FAB0040 */  lw    $t3, 0x40($sp)
-/* 0EACA4 7F0B6174 00408825 */  move  $s1, $v0
-/* 0EACA8 7F0B6178 02002025 */  move  $a0, $s0
-/* 0EACAC 7F0B617C 01626823 */  subu  $t5, $t3, $v0
-/* 0EACB0 7F0B6180 01B02821 */  addu  $a1, $t5, $s0
-/* 0EACB4 7F0B6184 AFA50028 */  sw    $a1, 0x28($sp)
-/* 0EACB8 7F0B6188 0FC339E5 */  jal   texCopyGdls
-/* 0EACBC 7F0B618C 00403025 */   move  $a2, $v0
-/* 0EACC0 7F0B6190 0FC2F131 */  jal   clear_light_fixturetable_in_room
-/* 0EACC4 7F0B6194 8FA40038 */   lw    $a0, 0x38($sp)
-/* 0EACC8 7F0B6198 8FA40028 */  lw    $a0, 0x28($sp)
-/* 0EACCC 7F0B619C 02202825 */  move  $a1, $s1
-/* 0EACD0 7F0B61A0 02003025 */  move  $a2, $s0
-/* 0EACD4 7F0B61A4 0FC33846 */  jal   texLoadFromGdl
-/* 0EACD8 7F0B61A8 00003825 */   move  $a3, $zero
-/* 0EACDC 7F0B61AC 0222082A */  slt   $at, $s1, $v0
-/* 0EACE0 7F0B61B0 10200002 */  beqz  $at, .L7F0B61BC
-/* 0EACE4 7F0B61B4 8FA30020 */   lw    $v1, 0x20($sp)
-/* 0EACE8 7F0B61B8 00408825 */  move  $s1, $v0
-.L7F0B61BC:
-/* 0EACEC 7F0B61BC AC700008 */  sw    $s0, 8($v1)
-/* 0EACF0 7F0B61C0 AC710020 */  sw    $s1, 0x20($v1)
-/* 0EACF4 7F0B61C4 02201025 */  move  $v0, $s1
-.L7F0B61C8:
-/* 0EACF8 7F0B61C8 8FBF001C */  lw    $ra, 0x1c($sp)
-/* 0EACFC 7F0B61CC 8FB00014 */  lw    $s0, 0x14($sp)
-/* 0EAD00 7F0B61D0 8FB10018 */  lw    $s1, 0x18($sp)
-/* 0EAD04 7F0B61D4 03E00008 */  jr    $ra
-/* 0EAD08 7F0B61D8 27BD0038 */   addiu $sp, $sp, 0x38
-)
-#endif
-
-#if !defined(LEFTOVERDEBUG)
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B609C
-/* 0EABCC 7F0B609C 00047880 */  sll   $t7, $a0, 2
-/* 0EABD0 7F0B60A0 01E47821 */  addu  $t7, $t7, $a0
-/* 0EABD4 7F0B60A4 3C188004 */  lui   $t8, %hi(g_BgRoomInfo)
-/* 0EABD8 7F0B60A8 27181414 */  addiu $t8, %lo(g_BgRoomInfo) # addiu $t8, $t8, 0x1414
-/* 0EABDC 7F0B60AC 000F7900 */  sll   $t7, $t7, 4
-/* 0EABE0 7F0B60B0 01F84021 */  addu  $t0, $t7, $t8
-/* 0EABE4 7F0B60B4 8D070014 */  lw    $a3, 0x14($t0)
-/* 0EABE8 7F0B60B8 27BDFFC8 */  addiu $sp, $sp, -0x38
-/* 0EABEC 7F0B60BC 2401FFF0 */  li    $at, -16
-/* 0EABF0 7F0B60C0 24E7000F */  addiu $a3, $a3, 0xf
-/* 0EABF4 7F0B60C4 00E1C824 */  and   $t9, $a3, $at
-/* 0EABF8 7F0B60C8 272A0020 */  addiu $t2, $t9, 0x20
-/* 0EABFC 7F0B60CC AFB00014 */  sw    $s0, 0x14($sp)
-/* 0EAC00 7F0B60D0 00CA082A */  slt   $at, $a2, $t2
-/* 0EAC04 7F0B60D4 00A08025 */  move  $s0, $a1
-/* 0EAC08 7F0B60D8 AFBF001C */  sw    $ra, 0x1c($sp)
-/* 0EAC0C 7F0B60DC AFB10018 */  sw    $s1, 0x18($sp)
-/* 0EAC10 7F0B60E0 AFA40038 */  sw    $a0, 0x38($sp)
-/* 0EAC14 7F0B60E4 AFA60040 */  sw    $a2, 0x40($sp)
-/* 0EAC18 7F0B60E8 10200003 */  beqz  $at, .L7F0B60F8
-/* 0EAC1C 7F0B60EC 03203825 */   move  $a3, $t9
-/* 0EAC20 7F0B60F0 10000035 */  b     .L7F0B61C8
-/* 0EAC24 7F0B60F4 2402FFFF */   li    $v0, -1
-.L7F0B60F8:
-/* 0EAC28 7F0B60F8 8FAC0038 */  lw    $t4, 0x38($sp)
-/* 0EAC2C 7F0B60FC 24030018 */  li    $v1, 24
-/* 0EAC30 7F0B6100 3C198004 */  lui   $t9, %hi(levelentry_index)
-/* 0EAC34 7F0B6104 01830019 */  multu $t4, $v1
-/* 0EAC38 7F0B6108 8F391400 */  lw    $t9, %lo(levelentry_index)($t9)
-/* 0EAC3C 7F0B610C 3C0B8008 */  lui   $t3, %hi(ptr_bgdata_room_fileposition_list)
-/* 0EAC40 7F0B6110 8D6BFF8C */  lw    $t3, %lo(ptr_bgdata_room_fileposition_list)($t3)
-/* 0EAC44 7F0B6114 3C028008 */  lui   $v0, %hi(ptr_bg_data)
-/* 0EAC48 7F0B6118 8C42BF90 */  lw    $v0, %lo(ptr_bg_data)($v0)
-/* 0EAC4C 7F0B611C 8FAA0040 */  lw    $t2, 0x40($sp)
-/* 0EAC50 7F0B6120 3C048004 */  lui   $a0, %hi(levelinfotable)
-/* 0EAC54 7F0B6124 3C01F100 */  lui   $at, 0xf100
-/* 0EAC58 7F0B6128 01476023 */  subu  $t4, $t2, $a3
-/* 0EAC5C 7F0B612C 00006812 */  mflo  $t5
-/* 0EAC60 7F0B6130 016D7021 */  addu  $t6, $t3, $t5
-/* 0EAC64 7F0B6134 8DCF0004 */  lw    $t7, 4($t6)
-/* 0EAC68 7F0B6138 03230019 */  multu $t9, $v1
-/* 0EAC6C 7F0B613C 01908821 */  addu  $s1, $t4, $s0
-/* 0EAC70 7F0B6140 01E2C021 */  addu  $t8, $t7, $v0
-/* 0EAC74 7F0B6144 03023023 */  subu  $a2, $t8, $v0
-/* 0EAC78 7F0B6148 00C13021 */  addu  $a2, $a2, $at
-/* 0EAC7C 7F0B614C 02202825 */  move  $a1, $s1
-/* 0EAC80 7F0B6150 AFA80020 */  sw    $t0, 0x20($sp)
-/* 0EAC84 7F0B6154 00004812 */  mflo  $t1
-/* 0EAC88 7F0B6158 00892021 */  addu  $a0, $a0, $t1
-/* 0EAC8C 7F0B615C 0FC2F35F */  jal   obLoadBGFileBytesAtOffset
-/* 0EAC90 7F0B6160 8C844490 */   lw    $a0, %lo(levelinfotable+4)($a0)
-/* 0EAC94 7F0B6164 02202025 */  move  $a0, $s1
-/* 0EAC98 7F0B6168 0FC2D7E3 */  jal   bgDecompress
-/* 0EAC9C 7F0B616C 02002825 */   move  $a1, $s0
-/* 0EACA0 7F0B6170 8FAB0040 */  lw    $t3, 0x40($sp)
-/* 0EACA4 7F0B6174 00408825 */  move  $s1, $v0
-/* 0EACA8 7F0B6178 02002025 */  move  $a0, $s0
-/* 0EACAC 7F0B617C 01626823 */  subu  $t5, $t3, $v0
-/* 0EACB0 7F0B6180 01B02821 */  addu  $a1, $t5, $s0
-/* 0EACB4 7F0B6184 AFA50028 */  sw    $a1, 0x28($sp)
-/* 0EACB8 7F0B6188 0FC339E5 */  jal   texCopyGdls
-/* 0EACBC 7F0B618C 00403025 */   move  $a2, $v0
-/* 0EACC0 7F0B6190 0FC2F131 */  jal   clear_light_fixturetable_in_room
-/* 0EACC4 7F0B6194 8FA40038 */   lw    $a0, 0x38($sp)
-/* 0EACC8 7F0B6198 8FA40028 */  lw    $a0, 0x28($sp)
-/* 0EACCC 7F0B619C 02202825 */  move  $a1, $s1
-/* 0EACD0 7F0B61A0 02003025 */  move  $a2, $s0
-/* 0EACD4 7F0B61A4 0FC33846 */  jal   texLoadFromGdl
-/* 0EACD8 7F0B61A8 00003825 */   move  $a3, $zero
-/* 0EACDC 7F0B61AC 0222082A */  slt   $at, $s1, $v0
-/* 0EACE0 7F0B61B0 10200002 */  beqz  $at, .L7F0B61BC
-/* 0EACE4 7F0B61B4 8FA30020 */   lw    $v1, 0x20($sp)
-/* 0EACE8 7F0B61B8 00408825 */  move  $s1, $v0
-.L7F0B61BC:
-/* 0EACEC 7F0B61BC AC700008 */  sw    $s0, 8($v1)
-/* 0EACF0 7F0B61C0 AC710020 */  sw    $s1, 0x20($v1)
-/* 0EACF4 7F0B61C4 02201025 */  move  $v0, $s1
-.L7F0B61C8:
-/* 0EACF8 7F0B61C8 8FBF001C */  lw    $ra, 0x1c($sp)
-/* 0EACFC 7F0B61CC 8FB00014 */  lw    $s0, 0x14($sp)
-/* 0EAD00 7F0B61D0 8FB10018 */  lw    $s1, 0x18($sp)
-/* 0EAD04 7F0B61D4 03E00008 */  jr    $ra
-/* 0EAD08 7F0B61D8 27BD0038 */   addiu $sp, $sp, 0x38
-)
-#endif
-
-#endif
 
 
-
-
-
-#ifdef NONMATCHING
-u32 sub_GAME_7F0B61DC(s32 roomID, u32 *data, s32 size)
+/**
+ * Address: 7F0B61DC
+ * 
+ * Load and decompress a room's secondary display list data.
+ * 
+ * On success, roominfo->ptr_secondary_expanded_mapping_info is set to dst,
+ * and roominfo->usize_secondary_DL_binary is set to the returned size.
+ */
+s32 bgLoadRoomSecondaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
 {
-    u32 dest;
-    u32 puVar1;
-    u8 *source;
-    u32 len;
+    s_room_info *roominfo;
+    s32 size;
+    s32 fileoffset;
+    u8 *scratch;
+    s32 expanded_size;
+    
+    roominfo = &g_BgRoomInfo[roomnum];
 
-    len = g_BgRoomInfo[roomID].csize_secondary_DL_binary + 0xfU & 0xfffffff0;
-    if (size < len + 0x20)
-    {
-        dest = 0xffffffff;
+    size = roominfo->csize_secondary_DL_binary;
+    size = (size + 0xf) & ~0xf; // Align to 16 bytes
+
+    /**
+     * Check if there is enough room to temporarily place the compressed data
+     * at the end of the available buffer. Return -1 if there's not.
+     */
+    if (allocsize < size + 0x20) {
+        return -1;
     }
-    else
-    {
-        source = (size - len) + data;
-        obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename,source, ptr_bgdata_room_fileposition_list[roomID].pos.z + -0xf000000,len);
-        dest = bgDecompress(source,data);
-        puVar1 = (size - dest) + data;
-        texCopyGdls(data,puVar1,dest);
-        puVar1 = texLoadFromGdl(puVar1,dest,data,NULL);
-        if (dest < puVar1) {
-            dest = puVar1;
-        }
-        g_BgRoomInfo[roomID].ptr_secondary_expanded_mapping_info = data;
-        g_BgRoomInfo[roomID].usize_secondary_DL_binary = dest;
+
+    // Load the compressed data into the end of the buffer, starting at dst.
+    scratch = dst + (allocsize - size);
+
+    fileoffset = (s32)((u8 *)ptr_bgdata_room_fileposition_list[roomnum].pSecMappingBin + ptr_bg_data)  - ptr_bg_data;
+    fileoffset += 0xf1000000;
+
+    obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, scratch, fileoffset, size);
+
+    // Decompress from the end-of-buffer location at dst.
+    expanded_size = bgDecompress(scratch, dst);
+
+    /**
+     * Copy the decompressed GDL back to the end of the buffer as scratch.
+     * texLoadFromGdl can then read from scratch and write the final
+     * texture-processed GDL/data back to dst.
+     */
+    scratch = dst + (allocsize - expanded_size);
+
+    texCopyGdls((Gfx *)dst, (Gfx *)scratch, expanded_size);
+
+    size = texLoadFromGdl((Gfx *)scratch, (Gfx *)expanded_size, (Gfx *)dst, NULL);
+
+    if (expanded_size < size) {
+        expanded_size = size;
     }
-    return dest;
+
+    roominfo->ptr_secondary_expanded_mapping_info = dst;
+    roominfo->usize_secondary_DL_binary = expanded_size;
+
+    // Return the uncompressed data size.
+    return expanded_size;
 }
-#else
-
-#if defined(LEFTOVERDEBUG)
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B61DC
-/* 0EAD0C 7F0B61DC 00047880 */  sll   $t7, $a0, 2
-/* 0EAD10 7F0B61E0 01E47821 */  addu  $t7, $t7, $a0
-/* 0EAD14 7F0B61E4 3C188004 */  lui   $t8, %hi(g_BgRoomInfo)
-/* 0EAD18 7F0B61E8 27181414 */  addiu $t8, %lo(g_BgRoomInfo) # addiu $t8, $t8, 0x1414
-/* 0EAD1C 7F0B61EC 000F7900 */  sll   $t7, $t7, 4
-/* 0EAD20 7F0B61F0 01F84021 */  addu  $t0, $t7, $t8
-/* 0EAD24 7F0B61F4 8D070018 */  lw    $a3, 0x18($t0)
-/* 0EAD28 7F0B61F8 27BDFFC8 */  addiu $sp, $sp, -0x38
-/* 0EAD2C 7F0B61FC 2401FFF0 */  li    $at, -16
-/* 0EAD30 7F0B6200 24E7000F */  addiu $a3, $a3, 0xf
-/* 0EAD34 7F0B6204 00E1C824 */  and   $t9, $a3, $at
-/* 0EAD38 7F0B6208 272A0020 */  addiu $t2, $t9, 0x20
-/* 0EAD3C 7F0B620C AFB10018 */  sw    $s1, 0x18($sp)
-/* 0EAD40 7F0B6210 00CA082A */  slt   $at, $a2, $t2
-/* 0EAD44 7F0B6214 00A08825 */  move  $s1, $a1
-/* 0EAD48 7F0B6218 AFBF001C */  sw    $ra, 0x1c($sp)
-/* 0EAD4C 7F0B621C AFB00014 */  sw    $s0, 0x14($sp)
-/* 0EAD50 7F0B6220 AFA40038 */  sw    $a0, 0x38($sp)
-/* 0EAD54 7F0B6224 AFA60040 */  sw    $a2, 0x40($sp)
-/* 0EAD58 7F0B6228 10200003 */  beqz  $at, .L7F0B6238
-/* 0EAD5C 7F0B622C 03203825 */   move  $a3, $t9
-/* 0EAD60 7F0B6230 10000033 */  b     .L7F0B6300
-/* 0EAD64 7F0B6234 2402FFFF */   li    $v0, -1
-.L7F0B6238:
-/* 0EAD68 7F0B6238 8FAC0038 */  lw    $t4, 0x38($sp)
-/* 0EAD6C 7F0B623C 24030018 */  li    $v1, 24
-/* 0EAD70 7F0B6240 3C198004 */  lui   $t9, %hi(levelentry_index)
-/* 0EAD74 7F0B6244 01830019 */  multu $t4, $v1
-/* 0EAD78 7F0B6248 8F391400 */  lw    $t9, %lo(levelentry_index)($t9)
-/* 0EAD7C 7F0B624C 3C0B8008 */  lui   $t3, %hi(ptr_bgdata_room_fileposition_list)
-/* 0EAD80 7F0B6250 8D6BFF8C */  lw    $t3, %lo(ptr_bgdata_room_fileposition_list)($t3)
-/* 0EAD84 7F0B6254 3C028008 */  lui   $v0, %hi(ptr_bg_data)
-/* 0EAD88 7F0B6258 8C42BF90 */  lw    $v0, %lo(ptr_bg_data)($v0)
-/* 0EAD8C 7F0B625C 8FAA0040 */  lw    $t2, 0x40($sp)
-/* 0EAD90 7F0B6260 3C048004 */  lui   $a0, %hi(levelinfotable)
-/* 0EAD94 7F0B6264 3C01F100 */  lui   $at, 0xf100
-/* 0EAD98 7F0B6268 01476023 */  subu  $t4, $t2, $a3
-/* 0EAD9C 7F0B626C 00006812 */  mflo  $t5
-/* 0EADA0 7F0B6270 016D7021 */  addu  $t6, $t3, $t5
-/* 0EADA4 7F0B6274 8DCF0008 */  lw    $t7, 8($t6)
-/* 0EADA8 7F0B6278 03230019 */  multu $t9, $v1
-/* 0EADAC 7F0B627C 01918021 */  addu  $s0, $t4, $s1
-/* 0EADB0 7F0B6280 01E2C021 */  addu  $t8, $t7, $v0
-/* 0EADB4 7F0B6284 03023023 */  subu  $a2, $t8, $v0
-/* 0EADB8 7F0B6288 00C13021 */  addu  $a2, $a2, $at
-/* 0EADBC 7F0B628C 02002825 */  move  $a1, $s0
-/* 0EADC0 7F0B6290 AFA80020 */  sw    $t0, 0x20($sp)
-/* 0EADC4 7F0B6294 00004812 */  mflo  $t1
-/* 0EADC8 7F0B6298 00892021 */  addu  $a0, $a0, $t1
-/* 0EADCC 7F0B629C 0FC2F35F */  jal   obLoadBGFileBytesAtOffset
-/* 0EADD0 7F0B62A0 8C844490 */   lw    $a0, %lo(levelinfotable+4)($a0)
-/* 0EADD4 7F0B62A4 02002025 */  move  $a0, $s0
-/* 0EADD8 7F0B62A8 0FC2D7E3 */  jal   bgDecompress
-/* 0EADDC 7F0B62AC 02202825 */   move  $a1, $s1
-/* 0EADE0 7F0B62B0 8FAB0040 */  lw    $t3, 0x40($sp)
-/* 0EADE4 7F0B62B4 00408025 */  move  $s0, $v0
-/* 0EADE8 7F0B62B8 02202025 */  move  $a0, $s1
-/* 0EADEC 7F0B62BC 01626823 */  subu  $t5, $t3, $v0
-/* 0EADF0 7F0B62C0 01B12821 */  addu  $a1, $t5, $s1
-/* 0EADF4 7F0B62C4 AFA50028 */  sw    $a1, 0x28($sp)
-/* 0EADF8 7F0B62C8 0FC339E5 */  jal   texCopyGdls
-/* 0EADFC 7F0B62CC 00403025 */   move  $a2, $v0
-/* 0EAE00 7F0B62D0 8FA40028 */  lw    $a0, 0x28($sp)
-/* 0EAE04 7F0B62D4 02002825 */  move  $a1, $s0
-/* 0EAE08 7F0B62D8 02203025 */  move  $a2, $s1
-/* 0EAE0C 7F0B62DC 0FC33846 */  jal   texLoadFromGdl
-/* 0EAE10 7F0B62E0 00003825 */   move  $a3, $zero
-/* 0EAE14 7F0B62E4 0202082A */  slt   $at, $s0, $v0
-/* 0EAE18 7F0B62E8 10200002 */  beqz  $at, .L7F0B62F4
-/* 0EAE1C 7F0B62EC 8FA30020 */   lw    $v1, 0x20($sp)
-/* 0EAE20 7F0B62F0 00408025 */  move  $s0, $v0
-.L7F0B62F4:
-/* 0EAE24 7F0B62F4 AC71000C */  sw    $s1, 0xc($v1)
-/* 0EAE28 7F0B62F8 AC700024 */  sw    $s0, 0x24($v1)
-/* 0EAE2C 7F0B62FC 02001025 */  move  $v0, $s0
-.L7F0B6300:
-/* 0EAE30 7F0B6300 8FBF001C */  lw    $ra, 0x1c($sp)
-/* 0EAE34 7F0B6304 8FB00014 */  lw    $s0, 0x14($sp)
-/* 0EAE38 7F0B6308 8FB10018 */  lw    $s1, 0x18($sp)
-/* 0EAE3C 7F0B630C 03E00008 */  jr    $ra
-/* 0EAE40 7F0B6310 27BD0038 */   addiu $sp, $sp, 0x38
-)
-#endif
-
-#if !defined(LEFTOVERDEBUG)
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B61DC
-/* 0EAD0C 7F0B61DC 00047880 */  sll   $t7, $a0, 2
-/* 0EAD10 7F0B61E0 01E47821 */  addu  $t7, $t7, $a0
-/* 0EAD14 7F0B61E4 3C188004 */  lui   $t8, %hi(g_BgRoomInfo)
-/* 0EAD18 7F0B61E8 27181414 */  addiu $t8, %lo(g_BgRoomInfo) # addiu $t8, $t8, 0x1414
-/* 0EAD1C 7F0B61EC 000F7900 */  sll   $t7, $t7, 4
-/* 0EAD20 7F0B61F0 01F84021 */  addu  $t0, $t7, $t8
-/* 0EAD24 7F0B61F4 8D070018 */  lw    $a3, 0x18($t0)
-/* 0EAD28 7F0B61F8 27BDFFC8 */  addiu $sp, $sp, -0x38
-/* 0EAD2C 7F0B61FC 2401FFF0 */  li    $at, -16
-/* 0EAD30 7F0B6200 24E7000F */  addiu $a3, $a3, 0xf
-/* 0EAD34 7F0B6204 00E1C824 */  and   $t9, $a3, $at
-/* 0EAD38 7F0B6208 272A0020 */  addiu $t2, $t9, 0x20
-/* 0EAD3C 7F0B620C AFB10018 */  sw    $s1, 0x18($sp)
-/* 0EAD40 7F0B6210 00CA082A */  slt   $at, $a2, $t2
-/* 0EAD44 7F0B6214 00A08825 */  move  $s1, $a1
-/* 0EAD48 7F0B6218 AFBF001C */  sw    $ra, 0x1c($sp)
-/* 0EAD4C 7F0B621C AFB00014 */  sw    $s0, 0x14($sp)
-/* 0EAD50 7F0B6220 AFA40038 */  sw    $a0, 0x38($sp)
-/* 0EAD54 7F0B6224 AFA60040 */  sw    $a2, 0x40($sp)
-/* 0EAD58 7F0B6228 10200003 */  beqz  $at, .L7F0B6238
-/* 0EAD5C 7F0B622C 03203825 */   move  $a3, $t9
-/* 0EAD60 7F0B6230 10000033 */  b     .L7F0B6300
-/* 0EAD64 7F0B6234 2402FFFF */   li    $v0, -1
-.L7F0B6238:
-/* 0EAD68 7F0B6238 8FAC0038 */  lw    $t4, 0x38($sp)
-/* 0EAD6C 7F0B623C 24030018 */  li    $v1, 24
-/* 0EAD70 7F0B6240 3C198004 */  lui   $t9, %hi(levelentry_index)
-/* 0EAD74 7F0B6244 01830019 */  multu $t4, $v1
-/* 0EAD78 7F0B6248 8F391400 */  lw    $t9, %lo(levelentry_index)($t9)
-/* 0EAD7C 7F0B624C 3C0B8008 */  lui   $t3, %hi(ptr_bgdata_room_fileposition_list)
-/* 0EAD80 7F0B6250 8D6BFF8C */  lw    $t3, %lo(ptr_bgdata_room_fileposition_list)($t3)
-/* 0EAD84 7F0B6254 3C028008 */  lui   $v0, %hi(ptr_bg_data)
-/* 0EAD88 7F0B6258 8C42BF90 */  lw    $v0, %lo(ptr_bg_data)($v0)
-/* 0EAD8C 7F0B625C 8FAA0040 */  lw    $t2, 0x40($sp)
-/* 0EAD90 7F0B6260 3C048004 */  lui   $a0, %hi(levelinfotable)
-/* 0EAD94 7F0B6264 3C01F100 */  lui   $at, 0xf100
-/* 0EAD98 7F0B6268 01476023 */  subu  $t4, $t2, $a3
-/* 0EAD9C 7F0B626C 00006812 */  mflo  $t5
-/* 0EADA0 7F0B6270 016D7021 */  addu  $t6, $t3, $t5
-/* 0EADA4 7F0B6274 8DCF0008 */  lw    $t7, 8($t6)
-/* 0EADA8 7F0B6278 03230019 */  multu $t9, $v1
-/* 0EADAC 7F0B627C 01918021 */  addu  $s0, $t4, $s1
-/* 0EADB0 7F0B6280 01E2C021 */  addu  $t8, $t7, $v0
-/* 0EADB4 7F0B6284 03023023 */  subu  $a2, $t8, $v0
-/* 0EADB8 7F0B6288 00C13021 */  addu  $a2, $a2, $at
-/* 0EADBC 7F0B628C 02002825 */  move  $a1, $s0
-/* 0EADC0 7F0B6290 AFA80020 */  sw    $t0, 0x20($sp)
-/* 0EADC4 7F0B6294 00004812 */  mflo  $t1
-/* 0EADC8 7F0B6298 00892021 */  addu  $a0, $a0, $t1
-/* 0EADCC 7F0B629C 0FC2F35F */  jal   obLoadBGFileBytesAtOffset
-/* 0EADD0 7F0B62A0 8C844490 */   lw    $a0, %lo(levelinfotable+4)($a0)
-/* 0EADD4 7F0B62A4 02002025 */  move  $a0, $s0
-/* 0EADD8 7F0B62A8 0FC2D7E3 */  jal   bgDecompress
-/* 0EADDC 7F0B62AC 02202825 */   move  $a1, $s1
-/* 0EADE0 7F0B62B0 8FAB0040 */  lw    $t3, 0x40($sp)
-/* 0EADE4 7F0B62B4 00408025 */  move  $s0, $v0
-/* 0EADE8 7F0B62B8 02202025 */  move  $a0, $s1
-/* 0EADEC 7F0B62BC 01626823 */  subu  $t5, $t3, $v0
-/* 0EADF0 7F0B62C0 01B12821 */  addu  $a1, $t5, $s1
-/* 0EADF4 7F0B62C4 AFA50028 */  sw    $a1, 0x28($sp)
-/* 0EADF8 7F0B62C8 0FC339E5 */  jal   texCopyGdls
-/* 0EADFC 7F0B62CC 00403025 */   move  $a2, $v0
-/* 0EAE00 7F0B62D0 8FA40028 */  lw    $a0, 0x28($sp)
-/* 0EAE04 7F0B62D4 02002825 */  move  $a1, $s0
-/* 0EAE08 7F0B62D8 02203025 */  move  $a2, $s1
-/* 0EAE0C 7F0B62DC 0FC33846 */  jal   texLoadFromGdl
-/* 0EAE10 7F0B62E0 00003825 */   move  $a3, $zero
-/* 0EAE14 7F0B62E4 0202082A */  slt   $at, $s0, $v0
-/* 0EAE18 7F0B62E8 10200002 */  beqz  $at, .L7F0B62F4
-/* 0EAE1C 7F0B62EC 8FA30020 */   lw    $v1, 0x20($sp)
-/* 0EAE20 7F0B62F0 00408025 */  move  $s0, $v0
-.L7F0B62F4:
-/* 0EAE24 7F0B62F4 AC71000C */  sw    $s1, 0xc($v1)
-/* 0EAE28 7F0B62F8 AC700024 */  sw    $s0, 0x24($v1)
-/* 0EAE2C 7F0B62FC 02001025 */  move  $v0, $s0
-.L7F0B6300:
-/* 0EAE30 7F0B6300 8FBF001C */  lw    $ra, 0x1c($sp)
-/* 0EAE34 7F0B6304 8FB00014 */  lw    $s0, 0x14($sp)
-/* 0EAE38 7F0B6308 8FB10018 */  lw    $s1, 0x18($sp)
-/* 0EAE3C 7F0B630C 03E00008 */  jr    $ra
-/* 0EAE40 7F0B6310 27BD0038 */   addiu $sp, $sp, 0x38
-)
-#endif
-
-#endif
-
-
-
 
 
 s32 bgCheckIfRoomModelNeedsLoad(s32 roomID)
 {
     g_BgRoomInfo[roomID].field_35 = 1;
-    if (g_BgRoomInfo[roomID].model_bin_loaded == FALSE)
+    if (g_BgRoomInfo[roomID].model_bin_loaded == 0)
     {
         sub_GAME_7F0B6368(roomID);
         return 1;
@@ -4996,7 +4690,7 @@ void sub_GAME_7F0B6368(s32 room) {
                 {
                     // Node 12
                     sp1C = (void *) temp_v1_2;
-                    temp_ret_3 = sub_GAME_7F0B609C(room, (sp20 + sp28), (sp2C - sp28), sp28);
+                    temp_ret_3 = bgLoadRoomPrimaryGdl(room, (sp20 + sp28), (sp2C - sp28), sp28);
                     temp_v1_5 = temp_v1_2;
                     phi_v1 = temp_v1_5;
                     phi_a3 = sp28;
@@ -5012,7 +4706,7 @@ void sub_GAME_7F0B6368(s32 room) {
                 {
                     // Node 15
                     sp1C = (void *) phi_v1;
-                    temp_ret_4 = sub_GAME_7F0B61DC(room, (sp20 + phi_a3), (sp2C - phi_a3), phi_a3);
+                    temp_ret_4 = bgLoadRoomSecondaryGdl(room, (sp20 + phi_a3), (sp2C - phi_a3), phi_a3);
                     temp_v1_6 = phi_v1;
                     phi_a3_2 = sp28;
                     phi_v1_2 = temp_v1_6;
@@ -5160,7 +4854,7 @@ glabel sub_GAME_7F0B6368
 /* 0EAFB0 7F0B6480 8FAF002C */  lw    $t7, 0x2c($sp)
 /* 0EAFB4 7F0B6484 AFA3001C */  sw    $v1, 0x1c($sp)
 /* 0EAFB8 7F0B6488 AFA70028 */  sw    $a3, 0x28($sp)
-/* 0EAFBC 7F0B648C 0FC2D827 */  jal   sub_GAME_7F0B609C
+/* 0EAFBC 7F0B648C 0FC2D827 */  jal   bgLoadRoomPrimaryGdl
 /* 0EAFC0 7F0B6490 01E73023 */   subu  $a2, $t7, $a3
 /* 0EAFC4 7F0B6494 8FA3001C */  lw    $v1, 0x1c($sp)
 /* 0EAFC8 7F0B6498 04400002 */  bltz  $v0, .L7F0B64A4
@@ -5175,7 +4869,7 @@ glabel sub_GAME_7F0B6368
 /* 0EAFE8 7F0B64B8 8FA8002C */  lw    $t0, 0x2c($sp)
 /* 0EAFEC 7F0B64BC AFA3001C */  sw    $v1, 0x1c($sp)
 /* 0EAFF0 7F0B64C0 AFA70028 */  sw    $a3, 0x28($sp)
-/* 0EAFF4 7F0B64C4 0FC2D877 */  jal   sub_GAME_7F0B61DC
+/* 0EAFF4 7F0B64C4 0FC2D877 */  jal   bgLoadRoomSecondaryGdl
 /* 0EAFF8 7F0B64C8 01073023 */   subu  $a2, $t0, $a3
 /* 0EAFFC 7F0B64CC 8FA3001C */  lw    $v1, 0x1c($sp)
 /* 0EB000 7F0B64D0 18400004 */  blez  $v0, .L7F0B64E4
@@ -5330,7 +5024,7 @@ glabel sub_GAME_7F0B6368
 /* 0E81AC 7F0B57BC 8FAF002C */  lw    $t7, 0x2c($sp)
 /* 0E81B0 7F0B57C0 AFA3001C */  sw    $v1, 0x1c($sp)
 /* 0E81B4 7F0B57C4 AFA70028 */  sw    $a3, 0x28($sp)
-/* 0E81B8 7F0B57C8 0FC2D4F6 */  jal   sub_GAME_7F0B609C
+/* 0E81B8 7F0B57C8 0FC2D4F6 */  jal   bgLoadRoomPrimaryGdl
 /* 0E81BC 7F0B57CC 01E73023 */   subu  $a2, $t7, $a3
 /* 0E81C0 7F0B57D0 8FA3001C */  lw    $v1, 0x1c($sp)
 /* 0E81C4 7F0B57D4 04400002 */  bltz  $v0, .L7F0B57E0
@@ -5345,7 +5039,7 @@ glabel sub_GAME_7F0B6368
 /* 0E81E4 7F0B57F4 8FA8002C */  lw    $t0, 0x2c($sp)
 /* 0E81E8 7F0B57F8 AFA3001C */  sw    $v1, 0x1c($sp)
 /* 0E81EC 7F0B57FC AFA70028 */  sw    $a3, 0x28($sp)
-/* 0E81F0 7F0B5800 0FC2D546 */  jal   sub_GAME_7F0B61DC
+/* 0E81F0 7F0B5800 0FC2D546 */  jal   bgLoadRoomSecondaryGdl
 /* 0E81F4 7F0B5804 01073023 */   subu  $a2, $t0, $a3
 /* 0E81F8 7F0B5808 8FA3001C */  lw    $v1, 0x1c($sp)
 /* 0E81FC 7F0B580C 18400004 */  blez  $v0, .L7F0B5820
@@ -5543,7 +5237,7 @@ void sub_GAME_7F0B66E8(void)
                 g_BgRoomInfo[i].model_bin_loaded = g_BgRoomInfo[i].model_bin_loaded + 1;
             }
         }
- }
+    }
 }
 
 

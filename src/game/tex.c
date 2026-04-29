@@ -1438,7 +1438,7 @@ Gfx * texHandleType3(Gfx *DL,u32 *arg1,s32 arg2,s32 arg3,s32 arg4)
 
 
 #ifdef NONMATCHING
-void texLoadFromGdl(void) {
+s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool) {
 
 }
 #else
