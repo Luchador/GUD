@@ -44,7 +44,7 @@
       build/OUTCODE/src/game/front.o (.rodata);
       build/OUTCODE/src/game/rle.o (.rodata);
       build/OUTCODE/src/game/title2.o (.rodata);
-      build/OUTCODE/src/game/unk_01BAE0.o (.rodata);
+      build/OUTCODE/src/game/title3.o (.rodata);
       build/OUTCODE/src/game/blood_animation.o (.rodata);
       build/OUTCODE/src/game/blood_decrypt.o (.rodata);
       build/OUTCODE/src/game/file.o (.rodata);

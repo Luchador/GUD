@@ -1,5 +1,5 @@
-#ifndef UNK_01BAE0_H
-#define UNK_01BAE0_H
+#ifndef TITLE3_H
+#define TITLE3_H
 
 #include <ultra64.h>
 #include "bondtypes.h"
