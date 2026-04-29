@@ -1838,9 +1838,9 @@ bool sub_GAME_7F041074(coord3d *zeropos, coord3d *pos, coord3d *vec, f32 scale)
 }
 
 /**
- * Old name: sub_GAME_7F041160
+ * Address: 7F041160
  */
-bool projectileLineTestModel(ObjectRecord *obj, coord3d *arg1, coord3d *arg2, coord3d *outPos, coord3d *outDir, Model **outModel, ModelNode **outNode)
+bool projectileLineTestModel(ObjectRecord *obj, coord3d *modelRayOrigin, coord3d *modelRayDir, coord3d *hitPos, coord3d *hitNormal, Model **hitModel, ModelNode **hitNode)
 {
     bool found;
     Mtxf *mtx;
@@ -1857,20 +1857,20 @@ bool projectileLineTestModel(ObjectRecord *obj, coord3d *arg1, coord3d *arg2, co
 
     // Fast path: test door bounding box.
     if (obj->type == PROPDEF_DOOR) {
-        found = sub_GAME_7F0747D0(&((DoorRecord *)obj)->bbox, &model->render_pos[0].pos, arg1, arg2);
+        found = sub_GAME_7F0747D0(&((DoorRecord *)obj)->bbox, &model->render_pos[0].pos, modelRayOrigin, modelRayDir);
         node = model->obj->RootNode;
         if (found > 0) {
-            if (propobjFindHit(model, node, arg1, arg2, &hitthing, &mtxindex, &hitnode) == 0) {
+            if (propobjFindHit(model, node, modelRayOrigin, modelRayDir, &hitthing, &mtxindex, &hitnode) == 0) {
                 found = 0;
             }
         }
     // General case: traverse model's nodes for collision.
     } else {
         do {
-            found = sub_GAME_7F0752FC(model, arg1, arg2, &node);
+            found = sub_GAME_7F0752FC(model, modelRayOrigin, modelRayDir, &node);
 
             if (found > 0) {
-                bool hit = propobjFindHit(model, node, arg1, arg2, &hitthing, &mtxindex, &hitnode);
+                bool hit = propobjFindHit(model, node, modelRayOrigin, modelRayDir, &hitthing, &mtxindex, &hitnode);
                 if (hit != 0) {
                     break;
                 }
@@ -1881,35 +1881,35 @@ bool projectileLineTestModel(ObjectRecord *obj, coord3d *arg1, coord3d *arg2, co
     if (found > 0) {
         mtx = &model->render_pos[mtxindex].pos;
         
-        outPos->x = hitthing.unk00.x;
-        outPos->y = hitthing.unk00.y;
-        outPos->z = hitthing.unk00.z;
+        hitPos->x = hitthing.unk00.x;
+        hitPos->y = hitthing.unk00.y;
+        hitPos->z = hitthing.unk00.z;
         
-        mtx4TransformVecInPlace(mtx, outPos);
-        mtx4TransformVecInPlace(currentPlayerGetMatrix10D4(), outPos);
+        mtx4TransformVecInPlace(mtx, hitPos);
+        mtx4TransformVecInPlace(currentPlayerGetMatrix10D4(), hitPos);
     
-        outDir->x = hitthing.unk0c.x;
-        outDir->y = hitthing.unk0c.y;
-        outDir->z = hitthing.unk0c.z;
+        hitNormal->x = hitthing.unk0c.x;
+        hitNormal->y = hitthing.unk0c.y;
+        hitNormal->z = hitthing.unk0c.z;
     
-        mtx4RotateVecInPlace(mtx, outDir);
+        mtx4RotateVecInPlace(mtx, hitNormal);
     
-        if (outDir->f[0] * arg2->f[0] + outDir->f[1] * arg2->f[1] + outDir->f[2] * arg2->f[2] > 0.0f) {
-            outDir->x = -outDir->x;
-            outDir->y = -outDir->y;
-            outDir->z = -outDir->z;
+        if (hitNormal->f[0] * modelRayDir->f[0] + hitNormal->f[1] * modelRayDir->f[1] + hitNormal->f[2] * modelRayDir->f[2] > 0.0f) {
+            hitNormal->x = -hitNormal->x;
+            hitNormal->y = -hitNormal->y;
+            hitNormal->z = -hitNormal->z;
         }
     
-        mtx4RotateVecInPlace(currentPlayerGetMatrix10D4(), outDir);
+        mtx4RotateVecInPlace(currentPlayerGetMatrix10D4(), hitNormal);
     
-        if (outDir->x != 0.0f || outDir->y != 0.0f || outDir->z != 0.0f) {
-            guNormalize(&outDir->x, &outDir->y, &outDir->z);
+        if (hitNormal->x != 0.0f || hitNormal->y != 0.0f || hitNormal->z != 0.0f) {
+            guNormalize(&hitNormal->x, &hitNormal->y, &hitNormal->z);
         } else {
-            outDir->z = 1.0f;
+            hitNormal->z = 1.0f;
         }
         
-        *outModel = model;
-        *outNode = hitnode;
+        *hitModel = model;
+        *hitNode = hitnode;
         return TRUE;
     }
 
@@ -2192,156 +2192,71 @@ glabel sub_GAME_7F041400
 #endif
 
 
+/**
+ * Address: 7F0417DC
+ * 
+ * Test a single object for collision between the object and a projectile.
+ * If there is a collision, update hit parameters with collision data.
+ * @return TRUE if the object and projectile collide, FALSE otherwise.
+ */
+bool projectileTestObjectCollision(ObjectRecord *obj, coord3d *worldRayOrigin, coord3d *worldRayEnd, coord3d *worldRayDir, f32 maxDist, coord3d *modelRayOrigin, coord3d *modelRayDir, coord3d *hitPos, coord3d *hitNormal, f32 *hitDist, Model **hitModel, ModelNode **hitNode)
+{
+    Model *modelstack[1];
+    f32 instsize;
+    f32 value;
+    f32 dx;
+    f32 dy;
+    f32 dz;
+    PropRecord *prop;
 
+    instsize = getinstsize(modelstack[0] = obj->model);
+    prop = obj->prop;
+    value = 0.0f;
 
+    if (prop->parent == NULL) {
+        dx = obj->runtime_pos.x - worldRayOrigin->x;
+        dy = obj->runtime_pos.y - worldRayOrigin->y;
+        dz = obj->runtime_pos.z - worldRayOrigin->z;
+        value = (dz * worldRayDir->z) + ((dx * worldRayDir->x) + (dy * worldRayDir->y));
+    }
 
-#ifdef NONMATCHING
-void sub_GAME_7F0417DC(void) {
+    if (-instsize <= value) {
+        if (value <= maxDist + instsize) {
+            // Precise line test for on screen props.
+            if (prop->flags & PROPFLAG_ONSCREEN) {
+                if (projectileLineTestModel(obj, modelRayOrigin, modelRayDir, hitPos, hitNormal, hitModel, hitNode)) {
+                    dx = hitPos->x - worldRayOrigin->x;
+                    dy = hitPos->y - worldRayOrigin->y;
+                    dz = hitPos->z - worldRayOrigin->z;
+                    value = (dz * worldRayDir->z) + ((dx * worldRayDir->x) + (dy * worldRayDir->y));
 
+                    if (0.0f <= value) {
+                        if (value <= maxDist) {
+                            *hitDist = value;
+                            return TRUE;
+                        }
+                    }
+                }
+            // Cheaper bounds test for off screen props.
+            } else {
+                prop = obj->prop;
+                instsize = getinstsize(modelstack[0]);
+
+                if (sub_GAME_7F041074(worldRayOrigin, worldRayDir, &obj->runtime_pos, instsize)) {
+                    *hitDist = maxDist;
+
+                    if (sub_GAME_7F041400(prop, worldRayOrigin, worldRayEnd, worldRayDir, hitPos, hitNormal, hitDist)) {
+                        *hitModel = modelstack[0];
+                        *hitNode = *(ModelNode **)modelstack[0]->obj;
+                        return TRUE;
+                    }
+                }
+            }
+        }
+    }
+
+    return FALSE;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0417DC
-/* 07630C 7F0417DC 27BDFFA8 */  addiu $sp, $sp, -0x58
-/* 076310 7F0417E0 AFB00028 */  sw    $s0, 0x28($sp)
-/* 076314 7F0417E4 00808025 */  move  $s0, $a0
-/* 076318 7F0417E8 AFBF0034 */  sw    $ra, 0x34($sp)
-/* 07631C 7F0417EC AFB20030 */  sw    $s2, 0x30($sp)
-/* 076320 7F0417F0 AFB1002C */  sw    $s1, 0x2c($sp)
-/* 076324 7F0417F4 AFA60060 */  sw    $a2, 0x60($sp)
-/* 076328 7F0417F8 8C840014 */  lw    $a0, 0x14($a0)
-/* 07632C 7F0417FC 00A08825 */  move  $s1, $a1
-/* 076330 7F041800 00E09025 */  move  $s2, $a3
-/* 076334 7F041804 0FC1B403 */  jal   getinstsize
-/* 076338 7F041808 AFA40054 */   sw    $a0, 0x54($sp)
-/* 07633C 7F04180C 8E020010 */  lw    $v0, 0x10($s0)
-/* 076340 7F041810 44801000 */  mtc1  $zero, $f2
-/* 076344 7F041814 8C4E001C */  lw    $t6, 0x1c($v0)
-/* 076348 7F041818 55C00013 */  bnezl $t6, .L7F041868
-/* 07634C 7F04181C 46000207 */   neg.s $f8, $f0
-/* 076350 7F041820 C6040058 */  lwc1  $f4, 0x58($s0)
-/* 076354 7F041824 C6260000 */  lwc1  $f6, ($s1)
-/* 076358 7F041828 C608005C */  lwc1  $f8, 0x5c($s0)
-/* 07635C 7F04182C C62A0004 */  lwc1  $f10, 4($s1)
-/* 076360 7F041830 46062301 */  sub.s $f12, $f4, $f6
-/* 076364 7F041834 C6460000 */  lwc1  $f6, ($s2)
-/* 076368 7F041838 C6240008 */  lwc1  $f4, 8($s1)
-/* 07636C 7F04183C 460A4381 */  sub.s $f14, $f8, $f10
-/* 076370 7F041840 C6120060 */  lwc1  $f18, 0x60($s0)
-/* 076374 7F041844 46066202 */  mul.s $f8, $f12, $f6
-/* 076378 7F041848 C64A0004 */  lwc1  $f10, 4($s2)
-/* 07637C 7F04184C 46049401 */  sub.s $f16, $f18, $f4
-/* 076380 7F041850 C6460008 */  lwc1  $f6, 8($s2)
-/* 076384 7F041854 460A7482 */  mul.s $f18, $f14, $f10
-/* 076388 7F041858 46124100 */  add.s $f4, $f8, $f18
-/* 07638C 7F04185C 46103282 */  mul.s $f10, $f6, $f16
-/* 076390 7F041860 46045080 */  add.s $f2, $f10, $f4
-/* 076394 7F041864 46000207 */  neg.s $f8, $f0
-.L7F041868:
-/* 076398 7F041868 C7B20068 */  lwc1  $f18, 0x68($sp)
-/* 07639C 7F04186C 4602403E */  c.le.s $f8, $f2
-/* 0763A0 7F041870 00000000 */  nop
-/* 0763A4 7F041874 45020055 */  bc1fl .L7F0419CC
-/* 0763A8 7F041878 00001025 */   move  $v0, $zero
-/* 0763AC 7F04187C 46009180 */  add.s $f6, $f18, $f0
-/* 0763B0 7F041880 4606103E */  c.le.s $f2, $f6
-/* 0763B4 7F041884 00000000 */  nop
-/* 0763B8 7F041888 45020050 */  bc1fl .L7F0419CC
-/* 0763BC 7F04188C 00001025 */   move  $v0, $zero
-/* 0763C0 7F041890 904F0001 */  lbu   $t7, 1($v0)
-/* 0763C4 7F041894 8FA5006C */  lw    $a1, 0x6c($sp)
-/* 0763C8 7F041898 8FA60070 */  lw    $a2, 0x70($sp)
-/* 0763CC 7F04189C 31F80002 */  andi  $t8, $t7, 2
-/* 0763D0 7F0418A0 1300002A */  beqz  $t8, .L7F04194C
-/* 0763D4 7F0418A4 8FA40054 */   lw    $a0, 0x54($sp)
-/* 0763D8 7F0418A8 8FB90078 */  lw    $t9, 0x78($sp)
-/* 0763DC 7F0418AC 8FA90080 */  lw    $t1, 0x80($sp)
-/* 0763E0 7F0418B0 8FAA0084 */  lw    $t2, 0x84($sp)
-/* 0763E4 7F0418B4 02002025 */  move  $a0, $s0
-/* 0763E8 7F0418B8 8FA70074 */  lw    $a3, 0x74($sp)
-/* 0763EC 7F0418BC AFB90010 */  sw    $t9, 0x10($sp)
-/* 0763F0 7F0418C0 AFA90014 */  sw    $t1, 0x14($sp)
-/* 0763F4 7F0418C4 0FC10458 */  jal   projectileLineTestModel
-/* 0763F8 7F0418C8 AFAA0018 */   sw    $t2, 0x18($sp)
-/* 0763FC 7F0418CC 1040003E */  beqz  $v0, .L7F0419C8
-/* 076400 7F0418D0 8FA30074 */   lw    $v1, 0x74($sp)
-/* 076404 7F0418D4 C46A0000 */  lwc1  $f10, ($v1)
-/* 076408 7F0418D8 C6240000 */  lwc1  $f4, ($s1)
-/* 07640C 7F0418DC C4680004 */  lwc1  $f8, 4($v1)
-/* 076410 7F0418E0 C6320004 */  lwc1  $f18, 4($s1)
-/* 076414 7F0418E4 46045301 */  sub.s $f12, $f10, $f4
-/* 076418 7F0418E8 C6440000 */  lwc1  $f4, ($s2)
-/* 07641C 7F0418EC C62A0008 */  lwc1  $f10, 8($s1)
-/* 076420 7F0418F0 46124381 */  sub.s $f14, $f8, $f18
-/* 076424 7F0418F4 C4660008 */  lwc1  $f6, 8($v1)
-/* 076428 7F0418F8 46046202 */  mul.s $f8, $f12, $f4
-/* 07642C 7F0418FC C6520004 */  lwc1  $f18, 4($s2)
-/* 076430 7F041900 460A3401 */  sub.s $f16, $f6, $f10
-/* 076434 7F041904 C6440008 */  lwc1  $f4, 8($s2)
-/* 076438 7F041908 46127182 */  mul.s $f6, $f14, $f18
-/* 07643C 7F04190C 46064280 */  add.s $f10, $f8, $f6
-/* 076440 7F041910 46102482 */  mul.s $f18, $f4, $f16
-/* 076444 7F041914 44804000 */  mtc1  $zero, $f8
-/* 076448 7F041918 C7A60068 */  lwc1  $f6, 0x68($sp)
-/* 07644C 7F04191C 460A9080 */  add.s $f2, $f18, $f10
-/* 076450 7F041920 4602403E */  c.le.s $f8, $f2
-/* 076454 7F041924 00000000 */  nop
-/* 076458 7F041928 45020028 */  bc1fl .L7F0419CC
-/* 07645C 7F04192C 00001025 */   move  $v0, $zero
-/* 076460 7F041930 4606103E */  c.le.s $f2, $f6
-/* 076464 7F041934 8FA8007C */  lw    $t0, 0x7c($sp)
-/* 076468 7F041938 24020001 */  li    $v0, 1
-/* 07646C 7F04193C 45020023 */  bc1fl .L7F0419CC
-/* 076470 7F041940 00001025 */   move  $v0, $zero
-/* 076474 7F041944 10000021 */  b     .L7F0419CC
-/* 076478 7F041948 E5020000 */   swc1  $f2, ($t0)
-.L7F04194C:
-/* 07647C 7F04194C 0FC1B403 */  jal   getinstsize
-/* 076480 7F041950 AFA2003C */   sw    $v0, 0x3c($sp)
-/* 076484 7F041954 44070000 */  mfc1  $a3, $f0
-/* 076488 7F041958 02202025 */  move  $a0, $s1
-/* 07648C 7F04195C 02402825 */  move  $a1, $s2
-/* 076490 7F041960 0FC1041D */  jal   sub_GAME_7F041074
-/* 076494 7F041964 26060058 */   addiu $a2, $s0, 0x58
-/* 076498 7F041968 10400017 */  beqz  $v0, .L7F0419C8
-/* 07649C 7F04196C 8FA30074 */   lw    $v1, 0x74($sp)
-/* 0764A0 7F041970 8FA8007C */  lw    $t0, 0x7c($sp)
-/* 0764A4 7F041974 C7A40068 */  lwc1  $f4, 0x68($sp)
-/* 0764A8 7F041978 02202825 */  move  $a1, $s1
-/* 0764AC 7F04197C 02403825 */  move  $a3, $s2
-/* 0764B0 7F041980 E5040000 */  swc1  $f4, ($t0)
-/* 0764B4 7F041984 8FAB0078 */  lw    $t3, 0x78($sp)
-/* 0764B8 7F041988 AFA30010 */  sw    $v1, 0x10($sp)
-/* 0764BC 7F04198C 8FA60060 */  lw    $a2, 0x60($sp)
-/* 0764C0 7F041990 8FA4003C */  lw    $a0, 0x3c($sp)
-/* 0764C4 7F041994 AFA80018 */  sw    $t0, 0x18($sp)
-/* 0764C8 7F041998 0FC10500 */  jal   sub_GAME_7F041400
-/* 0764CC 7F04199C AFAB0014 */   sw    $t3, 0x14($sp)
-/* 0764D0 7F0419A0 10400009 */  beqz  $v0, .L7F0419C8
-/* 0764D4 7F0419A4 8FAC0054 */   lw    $t4, 0x54($sp)
-/* 0764D8 7F0419A8 8FAD0080 */  lw    $t5, 0x80($sp)
-/* 0764DC 7F0419AC 24020001 */  li    $v0, 1
-/* 0764E0 7F0419B0 ADAC0000 */  sw    $t4, ($t5)
-/* 0764E4 7F0419B4 8D8E0008 */  lw    $t6, 8($t4)
-/* 0764E8 7F0419B8 8FB80084 */  lw    $t8, 0x84($sp)
-/* 0764EC 7F0419BC 8DCF0000 */  lw    $t7, ($t6)
-/* 0764F0 7F0419C0 10000002 */  b     .L7F0419CC
-/* 0764F4 7F0419C4 AF0F0000 */   sw    $t7, ($t8)
-.L7F0419C8:
-/* 0764F8 7F0419C8 00001025 */  move  $v0, $zero
-.L7F0419CC:
-/* 0764FC 7F0419CC 8FBF0034 */  lw    $ra, 0x34($sp)
-/* 076500 7F0419D0 8FB00028 */  lw    $s0, 0x28($sp)
-/* 076504 7F0419D4 8FB1002C */  lw    $s1, 0x2c($sp)
-/* 076508 7F0419D8 8FB20030 */  lw    $s2, 0x30($sp)
-/* 07650C 7F0419DC 03E00008 */  jr    $ra
-/* 076510 7F0419E0 27BD0058 */   addiu $sp, $sp, 0x58
-)
-#endif
-
-
-
 
 
 #ifdef NONMATCHING
@@ -2388,7 +2303,7 @@ glabel sub_GAME_7F0419E4
 /* 076590 7F041A60 AFA3006C */  sw    $v1, 0x6c($sp)
 /* 076594 7F041A64 E7B40010 */  swc1  $f20, 0x10($sp)
 /* 076598 7F041A68 AFB70014 */  sw    $s7, 0x14($sp)
-/* 07659C 7F041A6C 0FC105F7 */  jal   sub_GAME_7F0417DC
+/* 07659C 7F041A6C 0FC105F7 */  jal   projectileTestObjectCollision
 /* 0765A0 7F041A70 AFBE0018 */   sw    $fp, 0x18($sp)
 /* 0765A4 7F041A74 10400024 */  beqz  $v0, .L7F041B08
 /* 0765A8 7F041A78 8FA3006C */   lw    $v1, 0x6c($sp)
