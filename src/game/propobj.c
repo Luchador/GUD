@@ -1837,6 +1837,7 @@ bool sub_GAME_7F041074(coord3d *zeropos, coord3d *pos, coord3d *vec, f32 scale)
     return 0;
 }
 
+
 /**
  * Address: 7F041160
  */
@@ -2259,144 +2260,70 @@ bool projectileTestObjectCollision(ObjectRecord *obj, coord3d *worldRayOrigin, c
 }
 
 
-#ifdef NONMATCHING
-// PD: func0f06b610
-bool sub_GAME_7F0419E4(ObjectRecord *obj, coord3d *arg1, coord3d *arg2, coord3d *arg3, f32 arg4, coord3d *arg5, coord3d *arg6, coord3d *arg7, coord3d *arg8, f32 *arg9) {
+/**
+ * Address: 7F0419E4
+ * 
+ * Tests an object and its on screen child hierarchy for projectile collision.
+ * If a closer hit is found, updates the caller's hit collision data. 
+ * @returns TRUE if this object or one of its recursive children produced a closer hit, FALSE otherwise.
+ */
+bool projectileTestObjectCollisionRecursive(ObjectRecord *obj, coord3d *worldRayOrigin, coord3d *worldRayEnd, coord3d *worldRayDir, f32 maxDist, coord3d *modelRayOrigin, coord3d *modelRayDir, coord3d *bestHitPos, coord3d *bestHitNormal, f32 *bestHitDist)
+{
+    coord3d hitPos;
+    coord3d hitNormal;
+    f32 hitDist;
+    Model *hitModel;
+    ModelNode *hitNode;
+    bool found; 
+    PropRecord *prop;
+    PropRecord *child;
 
+    prop = obj->prop;
+    found = FALSE;
+
+    if (projectileTestObjectCollision(obj, worldRayOrigin, worldRayEnd, worldRayDir, maxDist, modelRayOrigin, modelRayDir, &hitPos, &hitNormal, &hitDist, &hitModel, &hitNode)) 
+    {
+        if (hitDist < *bestHitDist) 
+        {
+            *bestHitDist = hitDist;
+
+            bestHitPos->x = hitPos.x;
+            bestHitPos->y = hitPos.y;
+            bestHitPos->z = hitPos.z;
+
+            bestHitNormal->x = hitNormal.x;
+            bestHitNormal->y = hitNormal.y;
+            bestHitNormal->z = hitNormal.z;
+
+            D_80030B0C = obj->prop;
+            bodypartshot = -1;
+            g_CurrentProjectileModel = hitModel;
+            dword_CODE_bss_80075B74 = hitNode;
+
+            found = TRUE;
+        }
+    }
+
+    if (prop->flags & PROPFLAG_ONSCREEN) 
+    {
+        child = prop->child;
+
+        while (child != NULL) 
+        {
+            if (child->flags & PROPFLAG_ONSCREEN) 
+            {
+                if (projectileTestObjectCollisionRecursive(child->obj, worldRayOrigin, worldRayEnd, worldRayDir, maxDist, modelRayOrigin, modelRayDir, bestHitPos, bestHitNormal, bestHitDist)) 
+                {
+                    found = TRUE;
+                }
+            }
+
+            child = child->prev;
+        }
+    }
+
+    return found;
 }
-#else
-bool sub_GAME_7F0419E4(ObjectRecord *obj, coord3d *arg1, coord3d *arg2, coord3d *arg3, f32 arg4, coord3d *arg5, coord3d *arg6, coord3d *arg7, coord3d *arg8, f32 *arg9);
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0419E4
-/* 076514 7F0419E4 27BDFF68 */  addiu $sp, $sp, -0x98
-/* 076518 7F0419E8 AFBF0064 */  sw    $ra, 0x64($sp)
-/* 07651C 7F0419EC AFBE0060 */  sw    $fp, 0x60($sp)
-/* 076520 7F0419F0 AFB7005C */  sw    $s7, 0x5c($sp)
-/* 076524 7F0419F4 AFB60058 */  sw    $s6, 0x58($sp)
-/* 076528 7F0419F8 AFB50054 */  sw    $s5, 0x54($sp)
-/* 07652C 7F0419FC AFB40050 */  sw    $s4, 0x50($sp)
-/* 076530 7F041A00 AFB3004C */  sw    $s3, 0x4c($sp)
-/* 076534 7F041A04 AFB20048 */  sw    $s2, 0x48($sp)
-/* 076538 7F041A08 AFB10044 */  sw    $s1, 0x44($sp)
-/* 07653C 7F041A0C AFB00040 */  sw    $s0, 0x40($sp)
-/* 076540 7F041A10 F7B40038 */  sdc1  $f20, 0x38($sp)
-/* 076544 7F041A14 8C830010 */  lw    $v1, 0x10($a0)
-/* 076548 7F041A18 C7B400A8 */  lwc1  $f20, 0xa8($sp)
-/* 07654C 7F041A1C 8FB700AC */  lw    $s7, 0xac($sp)
-/* 076550 7F041A20 8FBE00B0 */  lw    $fp, 0xb0($sp)
-/* 076554 7F041A24 27AE008C */  addiu $t6, $sp, 0x8c
-/* 076558 7F041A28 27AF0080 */  addiu $t7, $sp, 0x80
-/* 07655C 7F041A2C 27B8007C */  addiu $t8, $sp, 0x7c
-/* 076560 7F041A30 27B90078 */  addiu $t9, $sp, 0x78
-/* 076564 7F041A34 27A80074 */  addiu $t0, $sp, 0x74
-/* 076568 7F041A38 00808025 */  move  $s0, $a0
-/* 07656C 7F041A3C 00A09825 */  move  $s3, $a1
-/* 076570 7F041A40 00C0A025 */  move  $s4, $a2
-/* 076574 7F041A44 00E0A825 */  move  $s5, $a3
-/* 076578 7F041A48 0000B025 */  move  $s6, $zero
-/* 07657C 7F041A4C AFA8002C */  sw    $t0, 0x2c($sp)
-/* 076580 7F041A50 AFB90028 */  sw    $t9, 0x28($sp)
-/* 076584 7F041A54 AFB80024 */  sw    $t8, 0x24($sp)
-/* 076588 7F041A58 AFAF0020 */  sw    $t7, 0x20($sp)
-/* 07658C 7F041A5C AFAE001C */  sw    $t6, 0x1c($sp)
-/* 076590 7F041A60 AFA3006C */  sw    $v1, 0x6c($sp)
-/* 076594 7F041A64 E7B40010 */  swc1  $f20, 0x10($sp)
-/* 076598 7F041A68 AFB70014 */  sw    $s7, 0x14($sp)
-/* 07659C 7F041A6C 0FC105F7 */  jal   projectileTestObjectCollision
-/* 0765A0 7F041A70 AFBE0018 */   sw    $fp, 0x18($sp)
-/* 0765A4 7F041A74 10400024 */  beqz  $v0, .L7F041B08
-/* 0765A8 7F041A78 8FA3006C */   lw    $v1, 0x6c($sp)
-/* 0765AC 7F041A7C 8FA900BC */  lw    $t1, 0xbc($sp)
-/* 0765B0 7F041A80 C7A4007C */  lwc1  $f4, 0x7c($sp)
-/* 0765B4 7F041A84 8FB100B4 */  lw    $s1, 0xb4($sp)
-/* 0765B8 7F041A88 C5260000 */  lwc1  $f6, ($t1)
-/* 0765BC 7F041A8C 8FB200B8 */  lw    $s2, 0xb8($sp)
-/* 0765C0 7F041A90 4606203C */  c.lt.s $f4, $f6
-/* 0765C4 7F041A94 00000000 */  nop
-/* 0765C8 7F041A98 4502001C */  bc1fl .L7F041B0C
-/* 0765CC 7F041A9C 906E0001 */   lbu   $t6, 1($v1)
-/* 0765D0 7F041AA0 E5240000 */  swc1  $f4, ($t1)
-/* 0765D4 7F041AA4 C7A8008C */  lwc1  $f8, 0x8c($sp)
-/* 0765D8 7F041AA8 3C018003 */  lui   $at, %hi(D_80030B0C)
-/* 0765DC 7F041AAC 240BFFFF */  li    $t3, -1
-/* 0765E0 7F041AB0 E6280000 */  swc1  $f8, ($s1)
-/* 0765E4 7F041AB4 C7AA0090 */  lwc1  $f10, 0x90($sp)
-/* 0765E8 7F041AB8 24160001 */  li    $s6, 1
-/* 0765EC 7F041ABC E62A0004 */  swc1  $f10, 4($s1)
-/* 0765F0 7F041AC0 C7B00094 */  lwc1  $f16, 0x94($sp)
-/* 0765F4 7F041AC4 E6300008 */  swc1  $f16, 8($s1)
-/* 0765F8 7F041AC8 C7B20080 */  lwc1  $f18, 0x80($sp)
-/* 0765FC 7F041ACC E6520000 */  swc1  $f18, ($s2)
-/* 076600 7F041AD0 C7A60084 */  lwc1  $f6, 0x84($sp)
-/* 076604 7F041AD4 E6460004 */  swc1  $f6, 4($s2)
-/* 076608 7F041AD8 C7A40088 */  lwc1  $f4, 0x88($sp)
-/* 07660C 7F041ADC E6440008 */  swc1  $f4, 8($s2)
-/* 076610 7F041AE0 8E0A0010 */  lw    $t2, 0x10($s0)
-/* 076614 7F041AE4 8FAC0078 */  lw    $t4, 0x78($sp)
-/* 076618 7F041AE8 8FAD0074 */  lw    $t5, 0x74($sp)
-/* 07661C 7F041AEC AC2A0B0C */  sw    $t2, %lo(D_80030B0C)($at)
-/* 076620 7F041AF0 3C018003 */  lui   $at, %hi(bodypartshot)
-/* 076624 7F041AF4 AC2B0B10 */  sw    $t3, %lo(bodypartshot)($at)
-/* 076628 7F041AF8 3C018007 */  lui   $at, %hi(g_CurrentProjectileModel)
-/* 07662C 7F041AFC AC2C5B70 */  sw    $t4, %lo(g_CurrentProjectileModel)($at)
-/* 076630 7F041B00 3C018007 */  lui   $at, %hi(dword_CODE_bss_80075B74)
-/* 076634 7F041B04 AC2D5B74 */  sw    $t5, %lo(dword_CODE_bss_80075B74)($at)
-.L7F041B08:
-/* 076638 7F041B08 906E0001 */  lbu   $t6, 1($v1)
-.L7F041B0C:
-/* 07663C 7F041B0C 8FB100B4 */  lw    $s1, 0xb4($sp)
-/* 076640 7F041B10 8FB200B8 */  lw    $s2, 0xb8($sp)
-/* 076644 7F041B14 31CF0002 */  andi  $t7, $t6, 2
-/* 076648 7F041B18 51E0001A */  beql  $t7, $zero, .L7F041B84
-/* 07664C 7F041B1C 8FBF0064 */   lw    $ra, 0x64($sp)
-/* 076650 7F041B20 8C700020 */  lw    $s0, 0x20($v1)
-/* 076654 7F041B24 52000017 */  beql  $s0, $zero, .L7F041B84
-/* 076658 7F041B28 8FBF0064 */   lw    $ra, 0x64($sp)
-/* 07665C 7F041B2C 92180001 */  lbu   $t8, 1($s0)
-.L7F041B30:
-/* 076660 7F041B30 02602825 */  move  $a1, $s3
-/* 076664 7F041B34 02803025 */  move  $a2, $s4
-/* 076668 7F041B38 33190002 */  andi  $t9, $t8, 2
-/* 07666C 7F041B3C 1320000D */  beqz  $t9, .L7F041B74
-/* 076670 7F041B40 02A03825 */   move  $a3, $s5
-/* 076674 7F041B44 8E040004 */  lw    $a0, 4($s0)
-/* 076678 7F041B48 8FA800BC */  lw    $t0, 0xbc($sp)
-/* 07667C 7F041B4C AFB20020 */  sw    $s2, 0x20($sp)
-/* 076680 7F041B50 AFB1001C */  sw    $s1, 0x1c($sp)
-/* 076684 7F041B54 AFBE0018 */  sw    $fp, 0x18($sp)
-/* 076688 7F041B58 AFB70014 */  sw    $s7, 0x14($sp)
-/* 07668C 7F041B5C E7B40010 */  swc1  $f20, 0x10($sp)
-/* 076690 7F041B60 0FC10679 */  jal   sub_GAME_7F0419E4
-/* 076694 7F041B64 AFA80024 */   sw    $t0, 0x24($sp)
-/* 076698 7F041B68 50400003 */  beql  $v0, $zero, .L7F041B78
-/* 07669C 7F041B6C 8E100024 */   lw    $s0, 0x24($s0)
-/* 0766A0 7F041B70 24160001 */  li    $s6, 1
-.L7F041B74:
-/* 0766A4 7F041B74 8E100024 */  lw    $s0, 0x24($s0)
-.L7F041B78:
-/* 0766A8 7F041B78 5600FFED */  bnezl $s0, .L7F041B30
-/* 0766AC 7F041B7C 92180001 */   lbu   $t8, 1($s0)
-/* 0766B0 7F041B80 8FBF0064 */  lw    $ra, 0x64($sp)
-.L7F041B84:
-/* 0766B4 7F041B84 02C01025 */  move  $v0, $s6
-/* 0766B8 7F041B88 8FB60058 */  lw    $s6, 0x58($sp)
-/* 0766BC 7F041B8C D7B40038 */  ldc1  $f20, 0x38($sp)
-/* 0766C0 7F041B90 8FB00040 */  lw    $s0, 0x40($sp)
-/* 0766C4 7F041B94 8FB10044 */  lw    $s1, 0x44($sp)
-/* 0766C8 7F041B98 8FB20048 */  lw    $s2, 0x48($sp)
-/* 0766CC 7F041B9C 8FB3004C */  lw    $s3, 0x4c($sp)
-/* 0766D0 7F041BA0 8FB40050 */  lw    $s4, 0x50($sp)
-/* 0766D4 7F041BA4 8FB50054 */  lw    $s5, 0x54($sp)
-/* 0766D8 7F041BA8 8FB7005C */  lw    $s7, 0x5c($sp)
-/* 0766DC 7F041BAC 8FBE0060 */  lw    $fp, 0x60($sp)
-/* 0766E0 7F041BB0 03E00008 */  jr    $ra
-/* 0766E4 7F041BB4 27BD0098 */   addiu $sp, $sp, 0x98
-)
-#endif
-
-
-
 
 
 #ifdef NONMATCHING
@@ -2567,8 +2494,8 @@ glabel sub_GAME_7F041BB8
 #endif
 
 
-bool projectileFindCollidingProp(PropRecord *prop, coord3d *pos1, coord3d *pos2, u32 cdtypes, coord3d *arg4, coord3d *arg5, s32 *rooms)
-{
+bool projectileFindCollidingProp(PropRecord *ignoreProp, coord3d *worldRayStart, coord3d *worldRayEnd, u32 cdtypes, coord3d *outHitPos, coord3d *outHitNormal, s32 *rooms)
+{ 
     bool result;
     f32 dist;
     s16 *propnumptr;
@@ -2587,9 +2514,9 @@ bool projectileFindCollidingProp(PropRecord *prop, coord3d *pos1, coord3d *pos2,
     spa4 = FALSE;
     playerstank = get_ptr_for_players_tank();
 
-    sp98.x = pos2->x - pos1->x;
-    sp98.y = pos2->y - pos1->y;
-    sp98.z = pos2->z - pos1->z;
+    sp98.x = worldRayEnd->x - worldRayStart->x;
+    sp98.y = worldRayEnd->y - worldRayStart->y;
+    sp98.z = worldRayEnd->z - worldRayStart->z;
 
     dist = sqrtf(sp98.f[0] * sp98.f[0] + sp98.f[1] * sp98.f[1] + sp98.f[2] * sp98.f[2]);
 
@@ -2602,9 +2529,9 @@ bool projectileFindCollidingProp(PropRecord *prop, coord3d *pos1, coord3d *pos2,
     sp98.y *= (1.0f / dist);
     sp98.z *= (1.0f / dist);
 
-    sp88.x = pos1->x;
-    sp88.y = pos1->y;
-    sp88.z = pos1->z;
+    sp88.x = worldRayStart->x;
+    sp88.y = worldRayStart->y;
+    sp88.z = worldRayStart->z;
 
     mtx4TransformVecInPlace(camGetWorldToScreenMtxf(), &sp88);
 
@@ -2624,7 +2551,7 @@ bool projectileFindCollidingProp(PropRecord *prop, coord3d *pos1, coord3d *pos2,
         {
             iterprop = &pos_data_entry[*propnumptr];
 
-            if (iterprop != prop)
+            if (iterprop != ignoreProp)
             {
                 if (iterprop->type == PROP_TYPE_OBJ
                         || iterprop->type == PROP_TYPE_WEAPON
@@ -2650,7 +2577,7 @@ bool projectileFindCollidingProp(PropRecord *prop, coord3d *pos1, coord3d *pos2,
 
                         if ((iterprop != playerstank) || !(obj->state & PROPSTATE_20))
                         {
-                            if (sub_GAME_7F0419E4(obj, pos1, pos2, &sp98, dist, &sp88, &sp7c, arg4, arg5, &spa8))
+                            if (projectileTestObjectCollisionRecursive(obj, worldRayStart, worldRayEnd, &sp98, dist, &sp88, &sp7c, outHitPos, outHitNormal, &spa8))
                             {
                                 spa4 = TRUE;
                             }
@@ -2676,14 +2603,14 @@ bool projectileFindCollidingProp(PropRecord *prop, coord3d *pos1, coord3d *pos2,
                         }
                     }
 
-                    if (sub_GAME_7F041BB8(chr, pos1, &sp98, dist, &sp88, &sp7c, arg4, arg5, &spa8))
+                    if (sub_GAME_7F041BB8(chr, worldRayStart, &sp98, dist, &sp88, &sp7c, outHitPos, outHitNormal, &spa8))
                     {
                         spa4 = TRUE;
                     }
                 } else if (iterprop->type == PROP_TYPE_VIEWER
                         && g_playerPointers[getPlayerPointerIndex(iterprop)]->field_AC)
                 {
-                    if (sub_GAME_7F041400(iterprop, pos1, pos2, &sp98, arg4, arg5, &spa8))
+                    if (sub_GAME_7F041400(iterprop, worldRayStart, worldRayEnd, &sp98, outHitPos, outHitNormal, &spa8))
                     {
                         spa4 = TRUE;
                     }

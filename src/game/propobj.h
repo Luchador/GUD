@@ -68,6 +68,8 @@ extern f32 g_AutogunPendingDamageTick;
 extern f32 g_AutogunDamageScalar;
 extern f32 F_80030B24;
 extern f32 g_SoloAmmoMultiplier;
+extern struct Model *g_CurrentProjectileModel;
+extern struct ModelNode *dword_CODE_bss_80075B74;
 
 /**
  * @param arg0: Prop for tank
