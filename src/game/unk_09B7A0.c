@@ -62,6 +62,11 @@ void sub_GAME_7F09B7E4(void)
     }
 }
 
+/*
+* Address: 7F09B820(
+* PD name: vtxstore_reset
+*/
+
 void sub_GAME_7F09B820(void)
 {
     u32 tmp;
@@ -130,8 +135,13 @@ void sub_GAME_7F09B820(void)
 
 /*
 * Address: 0x7F09BAC4
+*
+* PD name: vtxstore_fix_refs
+* PD description:
+*  Search all props and their model data for references to the `find` address
+*  and replace it with the `replacement` address.
 */
-void sub_GAME_7F09BAC4(s32 arg0, s32 arg1) {
+void sub_GAME_7F09BAC4(s32 find, s32 replacement) {
     PropRecord* var_s1;
     ChrRecord* var_v0;
     Model* temp_a0;
@@ -150,8 +160,8 @@ void sub_GAME_7F09BAC4(s32 arg0, s32 arg1) {
                 val = var_a1->Opcode & 0xFF;
                 if (val == 0x18) {
                     temp_v0_2 = modelGetNodeRwData(var_v0->chrflags, var_a1);
-                    if (arg0 == *temp_v0_2) {
-                        *temp_v0_2 = arg1;
+                    if (find == *temp_v0_2) {
+                        *temp_v0_2 = replacement;
                     }
                     break;
                 } else {
@@ -169,6 +179,7 @@ void sub_GAME_7F09BAC4(s32 arg0, s32 arg1) {
                 }
             }
         }
+
         var_s1 = var_s1->prev;
     }
 }
@@ -179,6 +190,8 @@ void sub_GAME_7F09BAC4(s32 arg0, s32 arg1) {
 
 /*
 * Address: 7F09BBBC
+* PD name: vtxstore_tick
+* Description: Merge duplicate batches. May free memory.
 */
 void sub_GAME_7F09BBBC(void)
 {
@@ -250,8 +263,12 @@ void sub_GAME_7F09BBBC(void)
 
 
 
-
-s32 sub_GAME_7F09BE4C(s32 arg0, s32 arg1, s32 arg2, s32 arg3) {
+/*
+* Address: 7F09BE4C
+* PD name: vtxstore_allocate
+* Description: Allocation for batches within the storage space
+*/
+s32 sub_GAME_7F09BE4C(s32 arg0, s32 type, s32 arg2, s32 arg3) {
     s16* var_t3;
     s16 temp_t2;
     s32 var_a1;
@@ -262,7 +279,7 @@ s32 sub_GAME_7F09BE4C(s32 arg0, s32 arg1, s32 arg2, s32 arg3) {
     s16 var_v1_2;
     struct unk_09B7A0_struct_parent* var_t0;
 
-    switch (arg1) {
+    switch (type) {
         case 0xCCCC:
             var_t0 = dword_CODE_bss_8007A0E8;
             var_t3 = &word_CODE_bss_8007A0F0;
@@ -332,8 +349,11 @@ s32 sub_GAME_7F09BE4C(s32 arg0, s32 arg1, s32 arg2, s32 arg3) {
 }
 
 
-
-// Either deforming a vertex or frees a vertex (deallocation)
+/*
+* Address: 7F09C044
+* PD name: vtxstore_free (likely)
+* Description: Either deforming a vertex or frees a vertex (deallocation)
+*/
 void sub_GAME_7F09C044(Vertex* arg0) {
     s16* var_t2;
     struct unk_09B7A0_struct_parent* var_a3;
