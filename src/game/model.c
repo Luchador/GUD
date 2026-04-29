@@ -3901,103 +3901,40 @@ void modelSetAnimationWithMerge(Model *model, ModelAnimation *modelAnimation, s3
 }
 
 
-
 void modelSetAnimation(Model *model, ModelAnimation *modelAnimation, s32 flip, f32 startframe, f32 speed, f32 merge) {
     modelCopyAnimForMerge(model, merge);
     modelSetAnimation2(model, modelAnimation, flip, startframe, speed, merge);
 }
 
 
-#ifdef NONMATCHING
-void sub_GAME_7F06FCFC(s32 arg0, void *arg1)
+/*
+ * Match-only overlay types for sub_GAME_7F06FCFC.
+ */
+typedef struct ModelCopyHead {
+    u32 words[8];      // 0x00-0x1f
+} ModelCopyHead;
+
+
+typedef struct ModelCopyBc {
+    u32 words[0x2f];   // 0x00-0xbb
+} ModelCopyBc;
+
+
+/**
+ * Unreferenced.
+ * 
+ * The function copies the Model data through unkb8 (0x00-0xbb),
+ * then restores the destination's base/resource fields (0x00-0x1f).
+ * Maybe some kind of old/abandoned anim copy function.
+ */
+void sub_GAME_7F06FCFC(Model *src, Model *dst)
 {
-    void *temp_t2;
-    void *temp_t3;
+    ModelCopyHead tmp;
 
-    sp->unk0  = arg1->unk0;
-    sp->unk4  = arg1->unk4;
-    sp->unk8  = arg1->unk8;
-    sp->unkC  = arg1->unkC;
-    sp->unk10 = arg1->unk10;
-    sp->unk14 = arg1->unk14;
-    sp->unk18 = arg1->unk18;
-    sp->unk1C = arg1->unk1C;
-    M2C_MEMCPY_ALIGNED(arg1, arg0, 0xB4);
-    temp_t3       = arg1 + 0xB4;
-    temp_t2       = arg0 + 0xB4;
-    temp_t3->unk0 = temp_t2->unk0;
-    temp_t3->unk4 = temp_t2->unk4;
-    arg1->unk0    = sp->unk0;
-    arg1->unk4    = sp->unk4;
-    arg1->unk8    = sp->unk8;
-    arg1->unkC    = sp->unkC;
-    arg1->unk10   = sp->unk10;
-    arg1->unk14   = sp->unk14;
-    arg1->unk18   = sp->unk18;
-    arg1->unk1C   = sp->unk1C;
+    tmp = *(ModelCopyHead *)dst;
+    *(ModelCopyBc *)dst = *(ModelCopyBc *)src;
+    *(ModelCopyHead *)dst = tmp;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F06FCFC
-/* 0A482C 7F06FCFC 8CA10000 */  lw    $at, ($a1)
-/* 0A4830 7F06FD00 27BDFFE0 */  addiu $sp, $sp, -0x20
-/* 0A4834 7F06FD04 27A20000 */  addiu $v0, $sp, 0
-/* 0A4838 7F06FD08 AC410000 */  sw    $at, ($v0)
-/* 0A483C 7F06FD0C 8CB80004 */  lw    $t8, 4($a1)
-/* 0A4840 7F06FD10 00805025 */  move  $t2, $a0
-/* 0A4844 7F06FD14 00A05825 */  move  $t3, $a1
-/* 0A4848 7F06FD18 AC580004 */  sw    $t8, 4($v0)
-/* 0A484C 7F06FD1C 8CA10008 */  lw    $at, 8($a1)
-/* 0A4850 7F06FD20 248900B4 */  addiu $t1, $a0, 0xb4
-/* 0A4854 7F06FD24 AC410008 */  sw    $at, 8($v0)
-/* 0A4858 7F06FD28 8CB8000C */  lw    $t8, 0xc($a1)
-/* 0A485C 7F06FD2C AC58000C */  sw    $t8, 0xc($v0)
-/* 0A4860 7F06FD30 8CA10010 */  lw    $at, 0x10($a1)
-/* 0A4864 7F06FD34 AC410010 */  sw    $at, 0x10($v0)
-/* 0A4868 7F06FD38 8CB80014 */  lw    $t8, 0x14($a1)
-/* 0A486C 7F06FD3C AC580014 */  sw    $t8, 0x14($v0)
-/* 0A4870 7F06FD40 8CA10018 */  lw    $at, 0x18($a1)
-/* 0A4874 7F06FD44 AC410018 */  sw    $at, 0x18($v0)
-/* 0A4878 7F06FD48 8CB8001C */  lw    $t8, 0x1c($a1)
-/* 0A487C 7F06FD4C AC58001C */  sw    $t8, 0x1c($v0)
-.L7F06FD50:
-/* 0A4880 7F06FD50 8D410000 */  lw    $at, ($t2)
-/* 0A4884 7F06FD54 254A000C */  addiu $t2, $t2, 0xc
-/* 0A4888 7F06FD58 256B000C */  addiu $t3, $t3, 0xc
-/* 0A488C 7F06FD5C AD61FFF4 */  sw    $at, -0xc($t3)
-/* 0A4890 7F06FD60 8D41FFF8 */  lw    $at, -8($t2)
-/* 0A4894 7F06FD64 AD61FFF8 */  sw    $at, -8($t3)
-/* 0A4898 7F06FD68 8D41FFFC */  lw    $at, -4($t2)
-/* 0A489C 7F06FD6C 1549FFF8 */  bne   $t2, $t1, .L7F06FD50
-/* 0A48A0 7F06FD70 AD61FFFC */   sw    $at, -4($t3)
-/* 0A48A4 7F06FD74 8D410000 */  lw    $at, ($t2)
-/* 0A48A8 7F06FD78 AD610000 */  sw    $at, ($t3)
-/* 0A48AC 7F06FD7C 8D490004 */  lw    $t1, 4($t2)
-/* 0A48B0 7F06FD80 AD690004 */  sw    $t1, 4($t3)
-/* 0A48B4 7F06FD84 8C410000 */  lw    $at, ($v0)
-/* 0A48B8 7F06FD88 ACA10000 */  sw    $at, ($a1)
-/* 0A48BC 7F06FD8C 8C4F0004 */  lw    $t7, 4($v0)
-/* 0A48C0 7F06FD90 ACAF0004 */  sw    $t7, 4($a1)
-/* 0A48C4 7F06FD94 8C410008 */  lw    $at, 8($v0)
-/* 0A48C8 7F06FD98 ACA10008 */  sw    $at, 8($a1)
-/* 0A48CC 7F06FD9C 8C4F000C */  lw    $t7, 0xc($v0)
-/* 0A48D0 7F06FDA0 ACAF000C */  sw    $t7, 0xc($a1)
-/* 0A48D4 7F06FDA4 8C410010 */  lw    $at, 0x10($v0)
-/* 0A48D8 7F06FDA8 ACA10010 */  sw    $at, 0x10($a1)
-/* 0A48DC 7F06FDAC 8C4F0014 */  lw    $t7, 0x14($v0)
-/* 0A48E0 7F06FDB0 ACAF0014 */  sw    $t7, 0x14($a1)
-/* 0A48E4 7F06FDB4 8C410018 */  lw    $at, 0x18($v0)
-/* 0A48E8 7F06FDB8 ACA10018 */  sw    $at, 0x18($a1)
-/* 0A48EC 7F06FDBC 8C4F001C */  lw    $t7, 0x1c($v0)
-/* 0A48F0 7F06FDC0 27BD0020 */  addiu $sp, $sp, 0x20
-/* 0A48F4 7F06FDC4 03E00008 */  jr    $ra
-/* 0A48F8 7F06FDC8 ACAF001C */   sw    $t7, 0x1c($a1)
-)
-#endif
-
-
-
 
 
 void modelSetAnimLooping(Model *model, f32 loopframe, f32 loopmerge) {
