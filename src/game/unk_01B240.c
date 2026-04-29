@@ -85,39 +85,45 @@ Gfx* sub_GAME_7F01B240(Gfx* gdl, s32 imgIndex, s32 x, struct FolderSelect* arg3,
 
 
 #ifdef NONMATCHING
-// 38% https://decomp.me/scratch/fxkRS
+// 85% match - https://decomp.me/scratch/oYcG5
 Gfx *sub_GAME_7F01B6E0(Gfx *gdl, s32 arg1, s32 arg2)
 {
+    static f32 D_8002BB2C;
+    static f32 D_8002BB28;
+    static f32 D_8002BB24;
+    static f32 D_8002BB20;
+    static f32 D_8002BB1C;
+    static f32 D_8002BB18;
     s32 i;
-    f32 temp_f14 = arg2;
-    
-    D_8002BB2C = temp_f14;
-    D_8002BB24 = temp_f14;
-    D_8002BB28 = temp_f14;
+    u32 temp1, temp2, temp3;
 
-    for (i = 0; i + 1 < 218; i++)
-    {
+    i = 0;
+    D_8002BB2C = arg2;
+    D_8002BB28 = arg2;
+    D_8002BB24 = arg2;
+    D_8002BB20 = arg2;
+    D_8002BB1C = arg2;
+    D_8002BB18 = arg2;
+
+    for (; (i + 1) < 218; i++) {
         gDPLoadTextureBlock(gdl++, arg1, G_IM_FMT_RGBA, G_IM_SIZ_16b, 320, 1, 0, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
-        
-        arg1 += 0x280;
+        temp1 = D_8002BB2C + ((i * (D_8002BB20 - arg2)) / 217.0f);
+        temp2 = D_8002BB28 + ((i * (D_8002BB1C - arg2)) / 217.0f);
+        temp3 = D_8002BB24 + ((i * (D_8002BB18 - arg2)) / 217.0f);
         
         gDPSetPrimColor(gdl++,
             0,
             0,
-            (temp_f14 + (((temp_f14 - temp_f14) * i) / 217.0f)),
-            (temp_f14 + (((temp_f14 - temp_f14) * i) / 217.0f)),
-            (temp_f14 + (((D_8002BB2C - temp_f14) * i) / 217.0f)),
+            temp1,
+            temp2,
+            temp3,
             0xff);
-        
-        gSPTextureRectangle(gdl++, 0, (i + 12) << 2, 0, ((i + 13) << 2) - 1, G_TX_RENDERTILE, 0, 0, 1024, 1024);
-    }    
 
-    D_8002BB20 = temp_f14;
-    D_8002BB1C = temp_f14;
-    D_8002BB18 = temp_f14;
+        gSPTextureRectangle(gdl++, 0, (i + 12) << 2, (320 << 2) - 1, ((i + 13) << 2) - 1, G_TX_RENDERTILE, 0, 0, 1 << 10, 1 << 10);
+        arg1 += 0x280;
+    }
 
     return gdl;
-}
 }
 #else
 GLOBAL_ASM(
