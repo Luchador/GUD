@@ -93,7 +93,7 @@
       build/OUTCODE/src/game/player.o (.bss);
       build/OUTCODE/src/game/crc.o (.bss);
       build/OUTCODE/src/game/chrObjRandom.o (.bss);
-      build/OUTCODE/src/game/unk_09B7A0.o (.bss);
+      build/OUTCODE/src/game/vtxstore.o (.bss);
       build/OUTCODE/src/game/explosion.o (.bss);
       build/OUTCODE/src/game/glass.o (.bss);
       build/OUTCODE/src/game/options.o (.bss);

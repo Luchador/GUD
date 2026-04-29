@@ -93,7 +93,7 @@
       build/OUTCODE/src/game/player.o (.rodata);
       build/OUTCODE/src/game/crc.o (.rodata);
       build/OUTCODE/src/game/chrObjRandom.o (.rodata);
-      build/OUTCODE/src/game/unk_09B7A0.o (.rodata);
+      build/OUTCODE/src/game/vtxstore.o (.rodata);
       build/OUTCODE/src/game/explosion.o (.rodata);
       build/OUTCODE/src/game/glass.o (.rodata);
       build/OUTCODE/src/game/options.o (.rodata);

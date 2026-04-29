@@ -35,7 +35,7 @@
 #include "bg.h"
 #include "objective.h"
 #include "mpmenu.h"
-#include "unk_09B7A0.h"
+#include "vtxstore.h"
 #include "initunk_005450.h"
 #include "initobjects.h"
 #include "initguards.h"

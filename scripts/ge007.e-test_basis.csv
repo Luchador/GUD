@@ -803,11 +803,11 @@ d41d8cd98f00b204e9800998ecf8427e,.code,build/e/src/game/unk_092E50.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/e/src/game/unk_092E50.o
 2503662ee6318a7e4cb77c46c99506d5,.data,build/e/src/game/unk_092E50.o
 f1dbcb1438dbbb5e8506a728d9c4d142,.rodata,build/e/src/game/unk_092E50.o
-3288d6c4e46d199aa581307312d196d9,.text,build/e/src/game/unk_09B7A0.o
-d41d8cd98f00b204e9800998ecf8427e,.code,build/e/src/game/unk_09B7A0.o
-d41d8cd98f00b204e9800998ecf8427e,.bss,build/e/src/game/unk_09B7A0.o
-d41d8cd98f00b204e9800998ecf8427e,.data,build/e/src/game/unk_09B7A0.o
-d41d8cd98f00b204e9800998ecf8427e,.rodata,build/e/src/game/unk_09B7A0.o
+3288d6c4e46d199aa581307312d196d9,.text,build/e/src/game/vtxstore.o
+d41d8cd98f00b204e9800998ecf8427e,.code,build/e/src/game/vtxstore.o
+d41d8cd98f00b204e9800998ecf8427e,.bss,build/e/src/game/vtxstore.o
+d41d8cd98f00b204e9800998ecf8427e,.data,build/e/src/game/vtxstore.o
+d41d8cd98f00b204e9800998ecf8427e,.rodata,build/e/src/game/vtxstore.o
 8729ba49ddeb23c78aea1637f63dc141,.text,build/e/src/game/explosion.o
 d41d8cd98f00b204e9800998ecf8427e,.code,build/e/src/game/explosion.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/e/src/game/explosion.o

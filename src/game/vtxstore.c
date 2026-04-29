@@ -1,7 +1,7 @@
 #include <ultra64.h>
 #include <memp.h>
 #include "bondtypes.h"
-#include "unk_09B7A0.h"
+#include "vtxstore.h"
 #include "propobj.h"
 #include "model.h"
 
