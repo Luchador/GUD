@@ -43,7 +43,7 @@
       build/OUTCODE/src/game/title.o (.bss);
       build/OUTCODE/src/game/front.o (.bss);
       build/OUTCODE/src/game/rle.o (.bss);
-      build/OUTCODE/src/game/unk_01B240.o (.bss);
+      build/OUTCODE/src/game/title2.o (.bss);
       build/OUTCODE/src/game/unk_01BAE0.o (.bss);
       build/OUTCODE/src/game/blood_animation.o (.bss);
       build/OUTCODE/src/game/blood_decrypt.o (.bss);

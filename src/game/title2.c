@@ -1,5 +1,5 @@
 #include <ultra64.h>
-#include "unk_01B240.h"
+#include "title2.h"
 
 
 f32 D_8002BB00 = 0;
@@ -85,7 +85,10 @@ Gfx* sub_GAME_7F01B240(Gfx* gdl, s32 imgIndex, s32 x, struct FolderSelect* arg3,
 
 
 #ifdef NONMATCHING
+//
 // 85% match - https://decomp.me/scratch/oYcG5
+// unused / unreferenced
+//
 Gfx *sub_GAME_7F01B6E0(Gfx *gdl, s32 arg1, s32 arg2)
 {
     static f32 D_8002BB2C;

@@ -14,7 +14,7 @@
 #include "chr_b.h"
 #include "math_floor.h"
 #include "title.h"
-#include "unk_01B240.h"
+#include "title2.h"
 #include "unk_01BAE0.h"
 #include "bondtypes.h"
 #include "image.h"

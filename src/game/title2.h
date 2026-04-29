@@ -1,5 +1,5 @@
-#ifndef _UNK_01B240_H
-#define _UNK_01B240_H
+#ifndef _TITLE2_H
+#define _TITLE2_H
 #include "ultra64.h"
 
 #include "include/PR/gbi.h"
