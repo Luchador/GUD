@@ -29,6 +29,13 @@ typedef struct s_room_info {
     // is the room a neighbor to a room being rendered? boolean
     u8 room_neighbor_to_rendered;           // 0x01
 
+    /**
+     * Acts like a small room age counter.
+     * 0 = unloaded
+     * 1 = loaded/used recently
+     * 2-3 = loaded but aging towards unload
+     * 4 = unload on tick
+     */
     u8 model_bin_loaded;                    // 0x02
 
     // number of portals in between the player's room and this room.

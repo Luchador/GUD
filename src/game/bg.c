@@ -182,9 +182,12 @@ s_room_info g_BgRoomInfo[MAXROOMCOUNT] = {0};
 //D:800442F4
 s32 g_MaxNumRooms = MAXROOMCOUNT;
 
+/**
+ * Limits the number of rooms that can be loaded per frame.
+ * Address: 0x800442F8
+ */
+s32 g_RoomLoadBudget = 0;
 
-//D:800442F8
-s32 D_800442F8 = 0;
 //D:800442FC
 s32 D_800442FC[] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -370,8 +373,8 @@ Gfx *sub_GAME_7F0B8D78(Gfx *arg0);
 Gfx *sub_GAME_7F0B3C8C(Gfx *arg0);
 s32 bgCheckIfRoomModelNeedsLoad(s32 roomID);
 void sub_GAME_7F0B6368(s32 room);
-Gfx *sub_GAME_7F0B677C(Gfx *arg0, s32 room_index);
-Gfx *sub_GAME_7F0B6898(Gfx *arg0, s32 room_index);
+Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index);
+Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index);
 
 Gfx *bgScissorCurrentPlayerView(Gfx *arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4);
 
@@ -958,7 +961,7 @@ Gfx *sub_GAME_7F0B3C8C(Gfx *gdl)
                 {
                     if (sub_GAME_7F0BD8F0())
                     {
-                        gdl = sub_GAME_7F0B677C(gdl, dword_CODE_bss_8007FFA0[j].roomid);
+                        gdl = bgRenderRoomPrimary(gdl, dword_CODE_bss_8007FFA0[j].roomid);
                     }
                 }
 
@@ -1020,7 +1023,7 @@ Gfx *sub_GAME_7F0B3C8C(Gfx *gdl)
                 {
                     if (sub_GAME_7F0BD8F0())
                     {
-                        gdl = sub_GAME_7F0B6898(gdl, dword_CODE_bss_8007FFA0[j].roomid);
+                        gdl = bgRenderRoomSecondary(gdl, dword_CODE_bss_8007FFA0[j].roomid);
                     }
                 }
 
@@ -1161,7 +1164,7 @@ glabel sub_GAME_7F0B3C8C
 /* 0E5B14 7F0B3124 00000000 */   nop
 /* 0E5B18 7F0B3128 10400004 */  beqz  $v0, .L7F0B313C
 /* 0E5B1C 7F0B312C 02002025 */   move  $a0, $s0
-/* 0E5B20 7F0B3130 0FC2D6AE */  jal   sub_GAME_7F0B677C
+/* 0E5B20 7F0B3130 0FC2D6AE */  jal   bgRenderRoomPrimary
 /* 0E5B24 7F0B3134 92450000 */   lbu   $a1, ($s2)
 /* 0E5B28 7F0B3138 00408025 */  move  $s0, $v0
 .L7F0B313C:
@@ -1266,7 +1269,7 @@ glabel sub_GAME_7F0B3C8C
 /* 0E5C94 7F0B32A4 00000000 */   nop
 /* 0E5C98 7F0B32A8 10400004 */  beqz  $v0, .L7F0B32BC
 /* 0E5C9C 7F0B32AC 02002025 */   move  $a0, $s0
-/* 0E5CA0 7F0B32B0 0FC2D6F5 */  jal   sub_GAME_7F0B6898
+/* 0E5CA0 7F0B32B0 0FC2D6F5 */  jal   bgRenderRoomSecondary
 /* 0E5CA4 7F0B32B4 92450000 */   lbu   $a1, ($s2)
 /* 0E5CA8 7F0B32B8 00408025 */  move  $s0, $v0
 .L7F0B32BC:
@@ -1837,7 +1840,7 @@ glabel load_bg_file
 /* 0E92D0 7F0B47A0 8FA400B8 */   lw    $a0, 0xb8($sp)
 /* 0E92D4 7F0B47A4 8FBF003C */  lw    $ra, 0x3c($sp)
 /* 0E92D8 7F0B47A8 240900C8 */  li    $t1, 200
-/* 0E92DC 7F0B47AC 3C018004 */  lui   $at, %hi(D_800442F8)
+/* 0E92DC 7F0B47AC 3C018004 */  lui   $at, %hi(g_RoomLoadBudget)
 /* 0E92E0 7F0B47B0 8FB00018 */  lw    $s0, 0x18($sp)
 /* 0E92E4 7F0B47B4 8FB1001C */  lw    $s1, 0x1c($sp)
 /* 0E92E8 7F0B47B8 8FB20020 */  lw    $s2, 0x20($sp)
@@ -1847,7 +1850,7 @@ glabel load_bg_file
 /* 0E92F8 7F0B47C8 8FB60030 */  lw    $s6, 0x30($sp)
 /* 0E92FC 7F0B47CC 8FB70034 */  lw    $s7, 0x34($sp)
 /* 0E9300 7F0B47D0 8FBE0038 */  lw    $fp, 0x38($sp)
-/* 0E9304 7F0B47D4 AC2942F8 */  sw    $t1, %lo(D_800442F8)($at)
+/* 0E9304 7F0B47D4 AC2942F8 */  sw    $t1, %lo(g_RoomLoadBudget)($at)
 /* 0E9308 7F0B47D8 03E00008 */  jr    $ra
 /* 0E930C 7F0B47DC 27BD00B8 */   addiu $sp, $sp, 0xb8
 )
@@ -2308,7 +2311,7 @@ glabel load_bg_file
 /* 0E64CC 7F0B3ADC 8FA400B8 */   lw    $a0, 0xb8($sp)
 /* 0E64D0 7F0B3AE0 8FBF003C */  lw    $ra, 0x3c($sp)
 /* 0E64D4 7F0B3AE4 240900C8 */  li    $t1, 200
-/* 0E64D8 7F0B3AE8 3C018004 */  lui   $at, %hi(D_800442F8) # $at, 0x8004
+/* 0E64D8 7F0B3AE8 3C018004 */  lui   $at, %hi(g_RoomLoadBudget) # $at, 0x8004
 /* 0E64DC 7F0B3AEC 8FB00018 */  lw    $s0, 0x18($sp)
 /* 0E64E0 7F0B3AF0 8FB1001C */  lw    $s1, 0x1c($sp)
 /* 0E64E4 7F0B3AF4 8FB20020 */  lw    $s2, 0x20($sp)
@@ -2318,7 +2321,7 @@ glabel load_bg_file
 /* 0E64F4 7F0B3B04 8FB60030 */  lw    $s6, 0x30($sp)
 /* 0E64F8 7F0B3B08 8FB70034 */  lw    $s7, 0x34($sp)
 /* 0E64FC 7F0B3B0C 8FBE0038 */  lw    $fp, 0x38($sp)
-/* 0E6500 7F0B3B10 AC29D7D8 */  sw    $t1, %lo(D_800442F8)($at)
+/* 0E6500 7F0B3B10 AC29D7D8 */  sw    $t1, %lo(g_RoomLoadBudget)($at)
 /* 0E6504 7F0B3B14 03E00008 */  jr    $ra
 /* 0E6508 7F0B3B18 27BD00B8 */   addiu $sp, $sp, 0xb8
 )
@@ -2417,9 +2420,9 @@ glabel bgRoomVisibilityRelated
 .L7F0B48D8:
 /* 0E9408 7F0B48D8 0FC1E94A */  jal   bondviewGetCameraMode
 /* 0E940C 7F0B48DC 00000000 */   nop
-/* 0E9410 7F0B48E0 3C038004 */  lui   $v1, %hi(D_800442F8)
+/* 0E9410 7F0B48E0 3C038004 */  lui   $v1, %hi(g_RoomLoadBudget)
 /* 0E9414 7F0B48E4 244FFFFF */  addiu $t7, $v0, -1
-/* 0E9418 7F0B48E8 246342F8 */  addiu $v1, %lo(D_800442F8) # addiu $v1, $v1, 0x42f8
+/* 0E9418 7F0B48E8 246342F8 */  addiu $v1, %lo(g_RoomLoadBudget) # addiu $v1, $v1, 0x42f8
 /* 0E941C 7F0B48EC 240E0003 */  li    $t6, 3
 /* 0E9420 7F0B48F0 2DE10009 */  sltiu $at, $t7, 9
 /* 0E9424 7F0B48F4 10200009 */  beqz  $at, .L7F0B491C
@@ -5205,69 +5208,77 @@ void bgRoomsTickUnload(void)
 
 
 /**
- * Address 0x7F0B677C.
+ * Address 7F0B677C
+ * 
+ * Render a room's primary (solid) geometry.
+ * Ensures the room's bg data is loaded if budget allows, then appends its display list.
+ * Also resets the age of rendered rooms to bgRoomsTickUnload won't unload it.
 */
-Gfx *sub_GAME_7F0B677C(Gfx *arg0, s32 room_index)
+Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
 {
     if (room_index >= g_MaxNumRooms)
     {
-        return arg0;
+        return gdl;
     }
 
     if ((D_8004485C != 0) || (D_80044858 == (room_index % 10)))
     {
         if (g_BgRoomInfo[room_index].model_bin_loaded == 0)
         {
-            if (D_800442F8 > 0)
+            if (g_RoomLoadBudget > 0)
             {
-                D_800442F8--;
+                g_RoomLoadBudget--;
                 sub_GAME_7F0B6368(room_index);
             }
         }
 
         if (g_BgRoomInfo[room_index].model_bin_loaded == 0)
         {
-            return arg0;
+            return gdl;
         }
         else
         {
-            arg0 = applyRoomMatrixToDisplayList(arg0, room_index);
+            gdl = applyRoomMatrixToDisplayList(gdl, room_index);
 
-            gSPSegment(arg0++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].ptr_point_index));
-            gSPDisplayList(arg0++, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].ptr_expanded_mapping_info));
+            gSPSegment(gdl++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].ptr_point_index));
+            gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].ptr_expanded_mapping_info));
 
+            // Set the room's state to "loaded"
             g_BgRoomInfo[room_index].model_bin_loaded = 1;
         }
     }
 
-    return arg0;
+    return gdl;
 }
 
 
-
 /**
- * Address 0x7F0B6898.
+ * Address 7F0B6898
+ * 
+ * Render a room's secondary (transparent) geometry.
 */
-Gfx *sub_GAME_7F0B6898(Gfx *arg0, s32 room_index)
+Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
 {
     if (room_index >= g_MaxNumRooms)
     {
-        return arg0;
+        return gdl;
     }
 
+    // Return if the room has no secondary geometry.
     if (g_BgRoomInfo[room_index].ptr_secondary_expanded_mapping_info == 0)
     {
-        return arg0;
+        return gdl;
     }
     else if ((D_8004485C != 0) || (D_80044858 == (room_index % 10)))
     {
         if (g_BgRoomInfo[room_index].model_bin_loaded != 0)
         {
-            arg0 = applyRoomMatrixToDisplayList(arg0, room_index);
+            gdl = applyRoomMatrixToDisplayList(gdl, room_index);
 
-            gSPSegment(arg0++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].ptr_point_index));
-            gSPDisplayList(arg0++, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].ptr_secondary_expanded_mapping_info));
+            gSPSegment(gdl++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].ptr_point_index));
+            gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].ptr_secondary_expanded_mapping_info));
 
+            // Set the room's state to "loaded"
             g_BgRoomInfo[room_index].model_bin_loaded = 1;
         }
         else
@@ -5276,9 +5287,8 @@ Gfx *sub_GAME_7F0B6898(Gfx *arg0, s32 room_index)
         }
     }
 
-    return arg0;
+    return gdl;
 }
-
 
 
 #ifdef NONMATCHING
