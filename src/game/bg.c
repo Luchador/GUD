@@ -194,7 +194,13 @@ s32 D_800442FC[] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 //D:800443C4
-s32 D_800443C4[] = {
+u8 D_800443C4[200] = {
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
@@ -2373,158 +2379,87 @@ f32 bgGetLevelVisibilityScale(void) {
 
 
 
+// defined later in the same file
+extern void bgRoomsTickUnload(void);
 
+void bgRoomVisibilityRelated(void)
+{
+    bg_portal_data_entry *portal;
+    bg_portal_entry *next;
+    coord3d *pos;
+    coord3d *pos3;
+    u8 *portalflags;
+    s32 room;
+    s32 portalnum;
+    s32 lastportal;
+    s32 depth;
+    s32 maxdepth;
+    s32 offset;
+    s32 cammode;
 
-#ifdef NONMATCHING
-void bgRoomVisibilityRelated(void) {
+    lastportal = -1;
 
+    num_visible_rooms_in_cur_global_vis_packet = 0;
+
+    if (get_player_position_in_shuffled(get_cur_playernum()) == 0) {
+        bgRoomsTickUnload();
+    }
+
+    cammode = bondviewGetCameraMode();
+
+    g_RoomLoadBudget = 3;
+
+    switch (cammode) {
+    case CAMERAMODE_INTRO:
+    case CAMERAMODE_FADESWIRL:
+    case CAMERAMODE_SWIRL:
+    case CAMERAMODE_POSEND:
+    case CAMERAMODE_MP:
+        g_RoomLoadBudget = 0xc8;
+        break;
+    case CAMERAMODE_FP:
+    case CAMERAMODE_DEATH_CAM_SP:
+    case CAMERAMODE_DEATH_CAM_MP:
+    case CAMERAMODE_FP_NOINPUT:
+        break;
+    }
+
+    room = bondviewGetCurrentPlayersRoom();
+    g_BgCurrentRoom = room;
+
+    pos = bondviewGetCurrentPlayersPosition();
+    pos3 = bondviewGetCurrentPlayersPosition3();
+
+    // FAKE
+    if (1) {}
+
+    for (depth = 0, maxdepth = 11; depth != maxdepth; depth++) {
+        for (portalnum = 0; g_BgPortals[portalnum].offset_portal != NULL; portalnum++) {
+
+            if (D_800443C4[portalnum] != 0) {
+                continue;
+            }
+            if (portalnum == lastportal) {
+                continue;
+            }
+            
+            if (((room == g_BgPortals[portalnum].connectedRoom1 || room == g_BgPortals[portalnum].connectedRoom2) && sub_GAME_7F0B9F14(portalnum, pos, pos3))) {
+                lastportal = portalnum;
+
+                room = (room ^ g_BgPortals[portalnum].connectedRoom1) ^ g_BgPortals[portalnum].connectedRoom2;
+
+                break;
+            }
+        }
+
+        if (g_BgPortals[portalnum].offset_portal == NULL) {
+            break;
+        }
+    }
+
+    g_BgCurrentRoom = room;
+    sub_GAME_7F0B8A6C();
 }
-#else
-GLOBAL_ASM(
-.late_rodata
-/*D:80058C58*/
-glabel jpt_80058C58
-.word .L7F0B4914
-.word .L7F0B4914
-.word .L7F0B4914
-.word .L7F0B491C
-.word .L7F0B491C
-.word .L7F0B491C
-.word .L7F0B4914
-.word .L7F0B491C
-.word .L7F0B4914
-
-.text
-glabel bgRoomVisibilityRelated
-/* 0E93B4 7F0B4884 27BDFFC0 */  addiu $sp, $sp, -0x40
-/* 0E93B8 7F0B4888 AFBF003C */  sw    $ra, 0x3c($sp)
-/* 0E93BC 7F0B488C AFB60030 */  sw    $s6, 0x30($sp)
-/* 0E93C0 7F0B4890 3C018008 */  lui   $at, %hi(num_visible_rooms_in_cur_global_vis_packet)
-/* 0E93C4 7F0B4894 AFBE0038 */  sw    $fp, 0x38($sp)
-/* 0E93C8 7F0B4898 AFB70034 */  sw    $s7, 0x34($sp)
-/* 0E93CC 7F0B489C AFB5002C */  sw    $s5, 0x2c($sp)
-/* 0E93D0 7F0B48A0 AFB40028 */  sw    $s4, 0x28($sp)
-/* 0E93D4 7F0B48A4 AFB30024 */  sw    $s3, 0x24($sp)
-/* 0E93D8 7F0B48A8 AFB20020 */  sw    $s2, 0x20($sp)
-/* 0E93DC 7F0B48AC AFB1001C */  sw    $s1, 0x1c($sp)
-/* 0E93E0 7F0B48B0 AFB00018 */  sw    $s0, 0x18($sp)
-/* 0E93E4 7F0B48B4 2416FFFF */  li    $s6, -1
-/* 0E93E8 7F0B48B8 0FC26C54 */  jal   get_cur_playernum
-/* 0E93EC 7F0B48BC AC20C038 */   sw    $zero, %lo(num_visible_rooms_in_cur_global_vis_packet)($at)
-/* 0E93F0 7F0B48C0 0FC26D36 */  jal   get_player_position_in_shuffled
-/* 0E93F4 7F0B48C4 00402025 */   move  $a0, $v0
-/* 0E93F8 7F0B48C8 14400003 */  bnez  $v0, .L7F0B48D8
-/* 0E93FC 7F0B48CC 00000000 */   nop
-/* 0E9400 7F0B48D0 0FC2D9BA */  jal   bgRoomsTickUnload
-/* 0E9404 7F0B48D4 00000000 */   nop
-.L7F0B48D8:
-/* 0E9408 7F0B48D8 0FC1E94A */  jal   bondviewGetCameraMode
-/* 0E940C 7F0B48DC 00000000 */   nop
-/* 0E9410 7F0B48E0 3C038004 */  lui   $v1, %hi(g_RoomLoadBudget)
-/* 0E9414 7F0B48E4 244FFFFF */  addiu $t7, $v0, -1
-/* 0E9418 7F0B48E8 246342F8 */  addiu $v1, %lo(g_RoomLoadBudget) # addiu $v1, $v1, 0x42f8
-/* 0E941C 7F0B48EC 240E0003 */  li    $t6, 3
-/* 0E9420 7F0B48F0 2DE10009 */  sltiu $at, $t7, 9
-/* 0E9424 7F0B48F4 10200009 */  beqz  $at, .L7F0B491C
-/* 0E9428 7F0B48F8 AC6E0000 */   sw    $t6, ($v1)
-/* 0E942C 7F0B48FC 000F7880 */  sll   $t7, $t7, 2
-/* 0E9430 7F0B4900 3C018006 */  lui   $at, %hi(jpt_80058C58)
-/* 0E9434 7F0B4904 002F0821 */  addu  $at, $at, $t7
-/* 0E9438 7F0B4908 8C2F8C58 */  lw    $t7, %lo(jpt_80058C58)($at)
-.L7F0B490C:
-/* 0E943C 7F0B490C 01E00008 */  jr    $t7
-/* 0E9440 7F0B4910 00000000 */   nop
-.L7F0B4914:
-/* 0E9444 7F0B4914 241800C8 */  li    $t8, 200
-/* 0E9448 7F0B4918 AC780000 */  sw    $t8, ($v1)
-def_7F0B490C:
-.L7F0B491C:
-/* 0E944C 7F0B491C 0FC227E6 */  jal   bondviewGetCurrentPlayersRoom
-/* 0E9450 7F0B4920 00000000 */   nop
-/* 0E9454 7F0B4924 3C018004 */  lui   $at, %hi(g_BgCurrentRoom)
-/* 0E9458 7F0B4928 00409825 */  move  $s3, $v0
-/* 0E945C 7F0B492C 0FC227F5 */  jal   bondviewGetCurrentPlayersPosition
-/* 0E9460 7F0B4930 AC224838 */   sw    $v0, %lo(g_BgCurrentRoom)($at)
-/* 0E9464 7F0B4934 0FC22800 */  jal   bondviewGetCurrentPlayersPosition3
-/* 0E9468 7F0B4938 0040A025 */   move  $s4, $v0
-/* 0E946C 7F0B493C 3C038008 */  lui   $v1, %hi(g_BgPortals)
-/* 0E9470 7F0B4940 0040A825 */  move  $s5, $v0
-/* 0E9474 7F0B4944 8C63FF80 */  lw    $v1, %lo(g_BgPortals)($v1)
-/* 0E9478 7F0B4948 0000B825 */  move  $s7, $zero
-/* 0E947C 7F0B494C 241E000B */  li    $fp, 11
-/* 0E9480 7F0B4950 8C790000 */  lw    $t9, ($v1)
-.L7F0B4954:
-/* 0E9484 7F0B4954 3C128004 */  lui   $s2, %hi(D_800443C4)
-/* 0E9488 7F0B4958 265243C4 */  addiu $s2, %lo(D_800443C4) # addiu $s2, $s2, 0x43c4
-/* 0E948C 7F0B495C 13200025 */  beqz  $t9, .L7F0B49F4
-/* 0E9490 7F0B4960 00008025 */   move  $s0, $zero
-/* 0E9494 7F0B4964 00008825 */  move  $s1, $zero
-/* 0E9498 7F0B4968 00601025 */  move  $v0, $v1
-.L7F0B496C:
-/* 0E949C 7F0B496C 92480000 */  lbu   $t0, ($s2)
-/* 0E94A0 7F0B4970 5500001B */  bnezl $t0, .L7F0B49E0
-/* 0E94A4 7F0B4974 8C4E0008 */   lw    $t6, 8($v0)
-/* 0E94A8 7F0B4978 52160019 */  beql  $s0, $s6, .L7F0B49E0
-/* 0E94AC 7F0B497C 8C4E0008 */   lw    $t6, 8($v0)
-/* 0E94B0 7F0B4980 90490004 */  lbu   $t1, 4($v0)
-/* 0E94B4 7F0B4984 02002025 */  move  $a0, $s0
-/* 0E94B8 7F0B4988 02802825 */  move  $a1, $s4
-/* 0E94BC 7F0B498C 12690004 */  beq   $s3, $t1, .L7F0B49A0
-/* 0E94C0 7F0B4990 00000000 */   nop
-/* 0E94C4 7F0B4994 904A0005 */  lbu   $t2, 5($v0)
-/* 0E94C8 7F0B4998 166A000D */  bne   $s3, $t2, .L7F0B49D0
-/* 0E94CC 7F0B499C 00000000 */   nop
-.L7F0B49A0:
-/* 0E94D0 7F0B49A0 0FC2E7C5 */  jal   sub_GAME_7F0B9F14
-/* 0E94D4 7F0B49A4 02A03025 */   move  $a2, $s5
-/* 0E94D8 7F0B49A8 10400009 */  beqz  $v0, .L7F0B49D0
-/* 0E94DC 7F0B49AC 3C038008 */   lui   $v1, %hi(g_BgPortals)
-/* 0E94E0 7F0B49B0 8C63FF80 */  lw    $v1, %lo(g_BgPortals)($v1)
-/* 0E94E4 7F0B49B4 0200B025 */  move  $s6, $s0
-/* 0E94E8 7F0B49B8 00711021 */  addu  $v0, $v1, $s1
-/* 0E94EC 7F0B49BC 904C0004 */  lbu   $t4, 4($v0)
-/* 0E94F0 7F0B49C0 904B0005 */  lbu   $t3, 5($v0)
-/* 0E94F4 7F0B49C4 026C6826 */  xor   $t5, $s3, $t4
-/* 0E94F8 7F0B49C8 1000000A */  b     .L7F0B49F4
-/* 0E94FC 7F0B49CC 016D9826 */   xor   $s3, $t3, $t5
-.L7F0B49D0:
-/* 0E9500 7F0B49D0 3C038008 */  lui   $v1, %hi(g_BgPortals)
-/* 0E9504 7F0B49D4 8C63FF80 */  lw    $v1, %lo(g_BgPortals)($v1)
-/* 0E9508 7F0B49D8 00711021 */  addu  $v0, $v1, $s1
-/* 0E950C 7F0B49DC 8C4E0008 */  lw    $t6, 8($v0)
-.L7F0B49E0:
-/* 0E9510 7F0B49E0 26100001 */  addiu $s0, $s0, 1
-/* 0E9514 7F0B49E4 26520001 */  addiu $s2, $s2, 1
-/* 0E9518 7F0B49E8 26310008 */  addiu $s1, $s1, 8
-/* 0E951C 7F0B49EC 15C0FFDF */  bnez  $t6, .L7F0B496C
-/* 0E9520 7F0B49F0 24420008 */   addiu $v0, $v0, 8
-.L7F0B49F4:
-/* 0E9524 7F0B49F4 001078C0 */  sll   $t7, $s0, 3
-/* 0E9528 7F0B49F8 006FC021 */  addu  $t8, $v1, $t7
-/* 0E952C 7F0B49FC 8F190000 */  lw    $t9, ($t8)
-/* 0E9530 7F0B4A00 26F70001 */  addiu $s7, $s7, 1
-/* 0E9534 7F0B4A04 13200003 */  beqz  $t9, .L7F0B4A14
-/* 0E9538 7F0B4A08 00000000 */   nop
-/* 0E953C 7F0B4A0C 56FEFFD1 */  bnel  $s7, $fp, .L7F0B4954
-/* 0E9540 7F0B4A10 8C790000 */   lw    $t9, ($v1)
-.L7F0B4A14:
-/* 0E9544 7F0B4A14 3C018004 */  lui   $at, %hi(g_BgCurrentRoom)
-/* 0E9548 7F0B4A18 0FC2E29B */  jal   sub_GAME_7F0B8A6C
-/* 0E954C 7F0B4A1C AC334838 */   sw    $s3, %lo(g_BgCurrentRoom)($at)
-/* 0E9550 7F0B4A20 8FBF003C */  lw    $ra, 0x3c($sp)
-/* 0E9554 7F0B4A24 8FB00018 */  lw    $s0, 0x18($sp)
-/* 0E9558 7F0B4A28 8FB1001C */  lw    $s1, 0x1c($sp)
-/* 0E955C 7F0B4A2C 8FB20020 */  lw    $s2, 0x20($sp)
-/* 0E9560 7F0B4A30 8FB30024 */  lw    $s3, 0x24($sp)
-/* 0E9564 7F0B4A34 8FB40028 */  lw    $s4, 0x28($sp)
-/* 0E9568 7F0B4A38 8FB5002C */  lw    $s5, 0x2c($sp)
-/* 0E956C 7F0B4A3C 8FB60030 */  lw    $s6, 0x30($sp)
-/* 0E9570 7F0B4A40 8FB70034 */  lw    $s7, 0x34($sp)
-/* 0E9574 7F0B4A44 8FBE0038 */  lw    $fp, 0x38($sp)
-/* 0E9578 7F0B4A48 03E00008 */  jr    $ra
-/* 0E957C 7F0B4A4C 27BD0040 */   addiu $sp, $sp, 0x40
-)
-#endif
 
 
 
