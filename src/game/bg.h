@@ -17,37 +17,49 @@ struct levelentry
 // cannon definition
 #define MAXPORTALSPERROOM 20
 
+// Placeholder for unique collision point records. sizeof = 0x1c.
+typedef struct RoomUniqueCollisionPoint {
+    u8 bytes[0x1c];                         // 0x00
+} RoomUniqueCollisionPoint;                 // size = 0x1c
+
 typedef struct s_room_info {
     // is room being rendered? boolean
-    u8 room_rendered;
+    u8 room_rendered;                       // 0x00
 
     // is the room a neighbor to a room being rendered? boolean
-    u8 room_neighbor_to_rendered;
+    u8 room_neighbor_to_rendered;           // 0x01
 
-    u8 model_bin_loaded;
+    u8 model_bin_loaded;                    // 0x02
 
     // number of portals in between the player's room and this room.
     // is 0 if the room is not visible or if the player is standing in this room.
-    u8 portals_to_room_count;
+    u8 portals_to_room_count;               // 0x03
 
-    Vtx * ptr_point_index;
-    void * ptr_expanded_mapping_info;
-    void * ptr_secondary_expanded_mapping_info;
-    s32 csize_point_index_binary;
-    s32 csize_primary_DL_binary;
-    s32 csize_secondary_DL_binary;
-    s32 usize_point_index_binary;
-    s32 usize_primary_DL_binary;
-    s32 usize_secondary_DL_binary;
-    s32 cur_room_totalsize;
-    void * ptr_unique_collision_points;
-    s32 bitflags3;
-    u8 room_loaded_mask;
-    u8 field_35;
-    s16 field_36;
-    coord3d minbounds;
-    coord3d maxbounds;
-} s_room_info;
+    Vtx *ptr_point_index;                   // 0x04
+    void *ptr_expanded_mapping_info;        // 0x08
+    void *ptr_secondary_expanded_mapping_info; // 0x0c
+
+    s32 csize_point_index_binary;           // 0x10
+    s32 csize_primary_DL_binary;            // 0x14
+    s32 csize_secondary_DL_binary;          // 0x18
+
+    s32 usize_point_index_binary;           // 0x1c
+    s32 usize_primary_DL_binary;            // 0x20
+    s32 usize_secondary_DL_binary;          // 0x24
+
+    s32 cur_room_totalsize;                 // 0x28
+    RoomUniqueCollisionPoint *ptr_unique_collision_points; // 0x2c
+
+    s16 num_unique_collision_points;        // 0x30
+    s16 field_32;                           // 0x32
+
+    u8 room_loaded_mask;                    // 0x34
+    u8 field_35;                            // 0x35
+    s16 field_36;                           // 0x36
+
+    coord3d minbounds;                      // 0x38
+    coord3d maxbounds;                      // 0x44
+} s_room_info; 
 
 typedef struct s_bound_info
 {

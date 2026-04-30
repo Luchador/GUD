@@ -2412,7 +2412,7 @@ glabel bgRoomVisibilityRelated
 /* 0E93F4 7F0B48C4 00402025 */   move  $a0, $v0
 /* 0E93F8 7F0B48C8 14400003 */  bnez  $v0, .L7F0B48D8
 /* 0E93FC 7F0B48CC 00000000 */   nop
-/* 0E9400 7F0B48D0 0FC2D9BA */  jal   sub_GAME_7F0B66E8
+/* 0E9400 7F0B48D0 0FC2D9BA */  jal   bgRoomsTickUnload
 /* 0E9404 7F0B48D4 00000000 */   nop
 .L7F0B48D8:
 /* 0E9408 7F0B48D8 0FC1E94A */  jal   bondviewGetCameraMode
@@ -5116,95 +5116,53 @@ glabel sub_GAME_7F0B6368
 #endif
 
 
-#ifdef NONMATCHING
+/**
+ * Given a room, frees all dynamically allocated data for that room and marks the room as unloaded.
+ */
 void delete_room_data(s32 roomID)
 {
+    s_room_info *room = &g_BgRoomInfo[roomID];
+    s32 size;
+    s32 size2;
+    Vtx *pointindex;
 
-    if (g_BgRoomInfo[roomID].ptr_unique_collision_points)
-    {
-        memaFree(g_BgRoomInfo[roomID].ptr_unique_collision_points, (((s16)g_BgRoomInfo[roomID].bitflags3 * 0x1C) + 0xF) & ~0xF);
-        g_BgRoomInfo[roomID].ptr_unique_collision_points = 0;
+    if (room->ptr_unique_collision_points != NULL) {
+        memaFree(
+            room->ptr_unique_collision_points,
+            ((room->num_unique_collision_points * sizeof(RoomUniqueCollisionPoint)) + 0xf) & ~0xf);
+
+        room->ptr_unique_collision_points = NULL;
     }
 
-    if ( 0 < g_BgRoomInfo[roomID].cur_room_totalsize)
-    {
-        if (g_BgRoomInfo[roomID].ptr_point_index)
+    if (room->cur_room_totalsize > 0) {
+        size = room->cur_room_totalsize;
+        pointindex = room->ptr_point_index;
+    
+        if (pointindex != NULL)
         {
-            memaFree(g_BgRoomInfo[roomID].ptr_point_index, g_BgRoomInfo[roomID].cur_room_totalsize);
+            size2 = room->cur_room_totalsize;
+            memaFree(pointindex, size2);
+            room->ptr_point_index = NULL;
         }
         else
         {
-            memaFree(g_BgRoomInfo[roomID].ptr_expanded_mapping_info, g_BgRoomInfo[roomID].cur_room_totalsize);
+            memaFree(room->ptr_expanded_mapping_info, size);
+            room->ptr_point_index = NULL;
         }
-        g_BgRoomInfo[roomID].ptr_point_index = 0;
-        g_BgRoomInfo[roomID].ptr_expanded_mapping_info = 0;
-        g_BgRoomInfo[roomID].ptr_secondary_expanded_mapping_info = 0;
+    
+        room->ptr_expanded_mapping_info = NULL;
+        room->ptr_secondary_expanded_mapping_info = NULL;
     }
-    g_BgRoomInfo[roomID].model_bin_loaded = 0;
+
+    room->model_bin_loaded = 0;
     roomsHandleStateDebugging();
 }
-#else
-GLOBAL_ASM(
-.text
-glabel delete_room_data
-/* 0EB0F4 7F0B65C4 00047080 */  sll   $t6, $a0, 2
-/* 0EB0F8 7F0B65C8 27BDFFE0 */  addiu $sp, $sp, -0x20
-/* 0EB0FC 7F0B65CC 01C47021 */  addu  $t6, $t6, $a0
-/* 0EB100 7F0B65D0 3C0F8004 */  lui   $t7, %hi(g_BgRoomInfo)
-/* 0EB104 7F0B65D4 AFB00018 */  sw    $s0, 0x18($sp)
-/* 0EB108 7F0B65D8 25EF1414 */  addiu $t7, %lo(g_BgRoomInfo) # addiu $t7, $t7, 0x1414
-/* 0EB10C 7F0B65DC 000E7100 */  sll   $t6, $t6, 4
-/* 0EB110 7F0B65E0 01CF8021 */  addu  $s0, $t6, $t7
-/* 0EB114 7F0B65E4 8E06002C */  lw    $a2, 0x2c($s0)
-/* 0EB118 7F0B65E8 AFBF001C */  sw    $ra, 0x1c($sp)
-/* 0EB11C 7F0B65EC 50C0000D */  beql  $a2, $zero, .L7F0B6624
-/* 0EB120 7F0B65F0 8E020028 */   lw    $v0, 0x28($s0)
-/* 0EB124 7F0B65F4 86050030 */  lh    $a1, 0x30($s0)
-/* 0EB128 7F0B65F8 2401FFF0 */  li    $at, -16
-/* 0EB12C 7F0B65FC 00C02025 */  move  $a0, $a2
-/* 0EB130 7F0B6600 0005C0C0 */  sll   $t8, $a1, 3
-/* 0EB134 7F0B6604 0305C023 */  subu  $t8, $t8, $a1
-/* 0EB138 7F0B6608 0018C080 */  sll   $t8, $t8, 2
-/* 0EB13C 7F0B660C 2705000F */  addiu $a1, $t8, 0xf
-/* 0EB140 7F0B6610 00A1C824 */  and   $t9, $a1, $at
-/* 0EB144 7F0B6614 0C002808 */  jal   memaFree
-/* 0EB148 7F0B6618 03202825 */   move  $a1, $t9
-/* 0EB14C 7F0B661C AE00002C */  sw    $zero, 0x2c($s0)
-/* 0EB150 7F0B6620 8E020028 */  lw    $v0, 0x28($s0)
-.L7F0B6624:
-/* 0EB154 7F0B6624 1840000E */  blez  $v0, .L7F0B6660
-/* 0EB158 7F0B6628 00000000 */   nop
-/* 0EB15C 7F0B662C 8E040004 */  lw    $a0, 4($s0)
-/* 0EB160 7F0B6630 00402825 */  move  $a1, $v0
-/* 0EB164 7F0B6634 10800005 */  beqz  $a0, .L7F0B664C
-/* 0EB168 7F0B6638 00000000 */   nop
-/* 0EB16C 7F0B663C 0C002808 */  jal   memaFree
-/* 0EB170 7F0B6640 00402825 */   move  $a1, $v0
-/* 0EB174 7F0B6644 10000004 */  b     .L7F0B6658
-/* 0EB178 7F0B6648 AE000004 */   sw    $zero, 4($s0)
-.L7F0B664C:
-/* 0EB17C 7F0B664C 0C002808 */  jal   memaFree
-/* 0EB180 7F0B6650 8E040008 */   lw    $a0, 8($s0)
-/* 0EB184 7F0B6654 AE000004 */  sw    $zero, 4($s0)
-.L7F0B6658:
-/* 0EB188 7F0B6658 AE000008 */  sw    $zero, 8($s0)
-/* 0EB18C 7F0B665C AE00000C */  sw    $zero, 0xc($s0)
-.L7F0B6660:
-/* 0EB190 7F0B6660 0FC2D7B6 */  jal   roomsHandleStateDebugging
-/* 0EB194 7F0B6664 A2000002 */   sb    $zero, 2($s0)
-/* 0EB198 7F0B6668 8FBF001C */  lw    $ra, 0x1c($sp)
-/* 0EB19C 7F0B666C 8FB00018 */  lw    $s0, 0x18($sp)
-/* 0EB1A0 7F0B6670 27BD0020 */  addiu $sp, $sp, 0x20
-/* 0EB1A4 7F0B6674 03E00008 */  jr    $ra
-/* 0EB1A8 7F0B6678 00000000 */   nop
-)
-#endif
 
 
-
-
-
-
+/**
+ * Immediately unload all loaded rooms.
+ * Used for stage cleanup.
+ */
 void unload_rooms(void)
 {
     s32 i;
@@ -5219,8 +5177,13 @@ void unload_rooms(void)
 }
 
 
-
-void sub_GAME_7F0B66E8(void)
+/**
+ * Address: 7F0B66E8
+ * 
+ * Ages loaded rooms that are no longer marked active, then unloads them
+ * once their unload delay expires.
+ */
+void bgRoomsTickUnload(void)
 {
     s32 i;
 
@@ -5239,9 +5202,6 @@ void sub_GAME_7F0B66E8(void)
         }
     }
 }
-
-
-
 
 
 /**
