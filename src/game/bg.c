@@ -7002,205 +7002,68 @@ u8 sub_GAME_7F0B7DA8(s32 arg0)
 }
 
 
-#ifdef NONMATCHING
-void sub_GAME_7F0B7DE4(s32 arg0, s32 arg1, s32 arg2, s32 arg3, void *arg4) {
-    void *sp1C;
-    void *temp_v1;
-    void *temp_v0;
-    s32 temp_a0;
-    s32 phi_a0;
-
-    // Node 0
-    temp_v1 = ((D_800448A0 << 5) + &dword_CODE_bss_8007C100);
-    if ((arg3 < 2) || (sub_GAME_7F0B7DA8(((temp_v0->unk4 ^ temp_v0->unk5) ^ arg1)) < 9))
+/**
+ * Address: 7F0B7DE4
+ */
+#ifdef VERSION_EU
+void sub_GAME_7F0B7DE4(s32 arg0, s32 arg1, s32 portalnum, f32 *arg4)
+{
+    bg_queued_portal_entry *entry;
+    entry = &dword_CODE_bss_8007C100[D_800448A0];
+    if (portalnum >= 2)
     {
-        // Node 2
-        *temp_v1 = arg0;
-        temp_v1->unk4 = arg1;
-        temp_v1->unkC = (s32) arg3;
-        temp_v1->unk8 = arg2;
-        temp_v1->unk10 = (f32) *arg4;
-        temp_v1->unk14 = (f32) arg4->unk4;
-        temp_v1->unk18 = (f32) arg4->unk8;
-        temp_v1->unk1C = (f32) arg4->unkC;
-        temp_a0 = D_800448A4;
-        *&D_800448A0 = temp_a0;
-        phi_a0 = temp_a0;
-        if (temp_a0 == 0x1f4)
+        if (sub_GAME_7F0B7DA8((g_BgPortals[arg1].connectedRoom2 ^ g_BgPortals[arg1].connectedRoom1) ^ arg0) >= 9)
         {
-            // Node 3
-            *&D_800448A0 = 0;
-            phi_a0 = 0;
-        }
-        // Node 4
-        if (D_800448A4 == phi_a0)
-        {
-            // Node 5
-            #ifdef DEBUG
-            osSyncPrintf("bg: pstackat: Overflow ");
-            #endif
-            *&D_800448A0 = (s32) (phi_a0 + -1);
+            return;
         }
     }
-    else
+    entry->arg0 = arg0;
+    entry->arg1 = arg1;
+    entry->portalnum = portalnum;
+    entry->sp4[0] = arg4[0];
+    entry->sp4[1] = arg4[1];
+    entry->sp4[2] = arg4[2];
+    entry->sp4[3] = arg4[3];
+    D_800448A0++;
+    if (D_800448A0 == 0xfa)
     {
-
+        D_800448A0 = 0;
     }
-    // Node 6
-    return;
+    if (D_800448A0 == D_800448A4)
+    {
+        D_800448A0--;
+    }
 }
 #else
-
-#if defined(LEFTOVERDEBUG)
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B7DE4
-/* 0EC914 7F0B7DE4 3C088004 */  lui   $t0, %hi(D_800448A0)
-/* 0EC918 7F0B7DE8 250848A0 */  addiu $t0, %lo(D_800448A0) # addiu $t0, $t0, 0x48a0
-/* 0EC91C 7F0B7DEC 8D0E0000 */  lw    $t6, ($t0)
-/* 0EC920 7F0B7DF0 27BDFFE0 */  addiu $sp, $sp, -0x20
-/* 0EC924 7F0B7DF4 3C188008 */  lui   $t8, %hi(dword_CODE_bss_8007C100)
-/* 0EC928 7F0B7DF8 2718C100 */  addiu $t8, %lo(dword_CODE_bss_8007C100) # addiu $t8, $t8, -0x3f00
-/* 0EC92C 7F0B7DFC 28E10002 */  slti  $at, $a3, 2
-/* 0EC930 7F0B7E00 000E7940 */  sll   $t7, $t6, 5
-/* 0EC934 7F0B7E04 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0EC938 7F0B7E08 AFA40020 */  sw    $a0, 0x20($sp)
-/* 0EC93C 7F0B7E0C AFA50024 */  sw    $a1, 0x24($sp)
-/* 0EC940 7F0B7E10 AFA60028 */  sw    $a2, 0x28($sp)
-/* 0EC944 7F0B7E14 14200012 */  bnez  $at, .L7F0B7E60
-/* 0EC948 7F0B7E18 01F81821 */   addu  $v1, $t7, $t8
-/* 0EC94C 7F0B7E1C 3C198008 */  lui   $t9, %hi(g_BgPortals)
-/* 0EC950 7F0B7E20 8F39FF80 */  lw    $t9, %lo(g_BgPortals)($t9)
-/* 0EC954 7F0B7E24 000650C0 */  sll   $t2, $a2, 3
-/* 0EC958 7F0B7E28 032A1021 */  addu  $v0, $t9, $t2
-/* 0EC95C 7F0B7E2C 904B0004 */  lbu   $t3, 4($v0)
-/* 0EC960 7F0B7E30 904C0005 */  lbu   $t4, 5($v0)
-/* 0EC964 7F0B7E34 AFA7002C */  sw    $a3, 0x2c($sp)
-/* 0EC968 7F0B7E38 AFA3001C */  sw    $v1, 0x1c($sp)
-/* 0EC96C 7F0B7E3C 016C6826 */  xor   $t5, $t3, $t4
-/* 0EC970 7F0B7E40 0FC2DF6A */  jal   sub_GAME_7F0B7DA8
-/* 0EC974 7F0B7E44 01A52026 */   xor   $a0, $t5, $a1
-/* 0EC978 7F0B7E48 3C088004 */  lui   $t0, %hi(D_800448A0)
-/* 0EC97C 7F0B7E4C 28410009 */  slti  $at, $v0, 9
-/* 0EC980 7F0B7E50 250848A0 */  addiu $t0, %lo(D_800448A0) # addiu $t0, $t0, 0x48a0
-/* 0EC984 7F0B7E54 8FA3001C */  lw    $v1, 0x1c($sp)
-/* 0EC988 7F0B7E58 1020001E */  beqz  $at, .L7F0B7ED4
-/* 0EC98C 7F0B7E5C 8FA7002C */   lw    $a3, 0x2c($sp)
-.L7F0B7E60:
-/* 0EC990 7F0B7E60 8FAF0020 */  lw    $t7, 0x20($sp)
-/* 0EC994 7F0B7E64 8FA20030 */  lw    $v0, 0x30($sp)
-/* 0EC998 7F0B7E68 240101F4 */  li    $at, 500
-/* 0EC99C 7F0B7E6C AC6F0000 */  sw    $t7, ($v1)
-/* 0EC9A0 7F0B7E70 8FB80024 */  lw    $t8, 0x24($sp)
-/* 0EC9A4 7F0B7E74 3C0B8004 */  lui   $t3, %hi(D_800448A4)
-/* 0EC9A8 7F0B7E78 AC780004 */  sw    $t8, 4($v1)
-/* 0EC9AC 7F0B7E7C 8FA90028 */  lw    $t1, 0x28($sp)
-/* 0EC9B0 7F0B7E80 AC67000C */  sw    $a3, 0xc($v1)
-/* 0EC9B4 7F0B7E84 AC690008 */  sw    $t1, 8($v1)
-/* 0EC9B8 7F0B7E88 C4440000 */  lwc1  $f4, ($v0)
-/* 0EC9BC 7F0B7E8C E4640010 */  swc1  $f4, 0x10($v1)
-/* 0EC9C0 7F0B7E90 C4460004 */  lwc1  $f6, 4($v0)
-/* 0EC9C4 7F0B7E94 E4660014 */  swc1  $f6, 0x14($v1)
-/* 0EC9C8 7F0B7E98 C4480008 */  lwc1  $f8, 8($v0)
-/* 0EC9CC 7F0B7E9C E4680018 */  swc1  $f8, 0x18($v1)
-/* 0EC9D0 7F0B7EA0 C44A000C */  lwc1  $f10, 0xc($v0)
-/* 0EC9D4 7F0B7EA4 E46A001C */  swc1  $f10, 0x1c($v1)
-/* 0EC9D8 7F0B7EA8 8D190000 */  lw    $t9, ($t0)
-/* 0EC9DC 7F0B7EAC 27240001 */  addiu $a0, $t9, 1
-/* 0EC9E0 7F0B7EB0 14810003 */  bne   $a0, $at, .L7F0B7EC0
-/* 0EC9E4 7F0B7EB4 AD040000 */   sw    $a0, ($t0)
-/* 0EC9E8 7F0B7EB8 AD000000 */  sw    $zero, ($t0)
-/* 0EC9EC 7F0B7EBC 00002025 */  move  $a0, $zero
-.L7F0B7EC0:
-/* 0EC9F0 7F0B7EC0 8D6B48A4 */  lw    $t3, %lo(D_800448A4)($t3)
-/* 0EC9F4 7F0B7EC4 248CFFFF */  addiu $t4, $a0, -1
-/* 0EC9F8 7F0B7EC8 55640003 */  bnel  $t3, $a0, .L7F0B7ED8
-/* 0EC9FC 7F0B7ECC 8FBF0014 */   lw    $ra, 0x14($sp)
-/* 0ECA00 7F0B7ED0 AD0C0000 */  sw    $t4, ($t0)
-.L7F0B7ED4:
-/* 0ECA04 7F0B7ED4 8FBF0014 */  lw    $ra, 0x14($sp)
-.L7F0B7ED8:
-/* 0ECA08 7F0B7ED8 27BD0020 */  addiu $sp, $sp, 0x20
-/* 0ECA0C 7F0B7EDC 03E00008 */  jr    $ra
-/* 0ECA10 7F0B7EE0 00000000 */   nop
-)
-#endif
-
-#if !defined(LEFTOVERDEBUG)
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B7DE4
-/* 0E9B10 7F0B7120 3C088004 */  lui   $t0, %hi(D_800448A0) # $t0, 0x8004
-/* 0E9B14 7F0B7124 2508DD88 */  addiu $t0, %lo(D_800448A0) # addiu $t0, $t0, -0x2278
-/* 0E9B18 7F0B7128 8D0E0000 */  lw    $t6, ($t0)
-/* 0E9B1C 7F0B712C 27BDFFE0 */  addiu $sp, $sp, -0x20
-/* 0E9B20 7F0B7130 3C188007 */  lui   $t8, %hi(dword_CODE_bss_8007C100) # $t8, 0x8007
-/* 0E9B24 7F0B7134 000E7880 */  sll   $t7, $t6, 2
-/* 0E9B28 7F0B7138 01EE7821 */  addu  $t7, $t7, $t6
-/* 0E9B2C 7F0B713C 000F7880 */  sll   $t7, $t7, 2
-/* 0E9B30 7F0B7140 2718A040 */  addiu $t8, %lo(dword_CODE_bss_8007C100) # addiu $t8, $t8, -0x5fc0
-/* 0E9B34 7F0B7144 28C10002 */  slti  $at, $a2, 2
-/* 0E9B38 7F0B7148 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0E9B3C 7F0B714C AFA40020 */  sw    $a0, 0x20($sp)
-/* 0E9B40 7F0B7150 AFA50024 */  sw    $a1, 0x24($sp)
-/* 0E9B44 7F0B7154 14200014 */  bnez  $at, .L7F0B71A8
-/* 0E9B48 7F0B7158 01F81821 */   addu  $v1, $t7, $t8
-/* 0E9B4C 7F0B715C 3C198007 */  lui   $t9, %hi(g_BgPortals) # $t9, 0x8007
-/* 0E9B50 7F0B7160 8F39B3C8 */  lw    $t9, %lo(g_BgPortals)($t9)
-/* 0E9B54 7F0B7164 000550C0 */  sll   $t2, $a1, 3
-/* 0E9B58 7F0B7168 032A1021 */  addu  $v0, $t9, $t2
-/* 0E9B5C 7F0B716C 904B0004 */  lbu   $t3, 4($v0)
-/* 0E9B60 7F0B7170 904C0005 */  lbu   $t4, 5($v0)
-/* 0E9B64 7F0B7174 AFA7002C */  sw    $a3, 0x2c($sp)
-/* 0E9B68 7F0B7178 AFA60028 */  sw    $a2, 0x28($sp)
-/* 0E9B6C 7F0B717C 016C6826 */  xor   $t5, $t3, $t4
-/* 0E9B70 7F0B7180 01A42026 */  xor   $a0, $t5, $a0
-/* 0E9B74 7F0B7184 0FC2DC39 */  jal   sub_GAME_7F0B7DA8
-/* 0E9B78 7F0B7188 AFA3001C */   sw    $v1, 0x1c($sp)
-/* 0E9B7C 7F0B718C 3C088004 */  lui   $t0, %hi(D_800448A0) # $t0, 0x8004
-/* 0E9B80 7F0B7190 28410009 */  slti  $at, $v0, 9
-/* 0E9B84 7F0B7194 2508DD88 */  addiu $t0, %lo(D_800448A0) # addiu $t0, $t0, -0x2278
-/* 0E9B88 7F0B7198 8FA3001C */  lw    $v1, 0x1c($sp)
-/* 0E9B8C 7F0B719C 8FA60028 */  lw    $a2, 0x28($sp)
-/* 0E9B90 7F0B71A0 1020001B */  beqz  $at, .L7F0B7210
-/* 0E9B94 7F0B71A4 8FA7002C */   lw    $a3, 0x2c($sp)
-.L7F0B71A8:
-/* 0E9B98 7F0B71A8 8FAF0020 */  lw    $t7, 0x20($sp)
-/* 0E9B9C 7F0B71AC 240100FA */  li    $at, 250
-/* 0E9BA0 7F0B71B0 3C0A8004 */  lui   $t2, %hi(D_800448A4) # $t2, 0x8004
-/* 0E9BA4 7F0B71B4 A06F0000 */  sb    $t7, ($v1)
-/* 0E9BA8 7F0B71B8 8FB80024 */  lw    $t8, 0x24($sp)
-/* 0E9BAC 7F0B71BC A4660002 */  sh    $a2, 2($v1)
-/* 0E9BB0 7F0B71C0 A0780001 */  sb    $t8, 1($v1)
-/* 0E9BB4 7F0B71C4 C4E40000 */  lwc1  $f4, ($a3)
-/* 0E9BB8 7F0B71C8 E4640004 */  swc1  $f4, 4($v1)
-/* 0E9BBC 7F0B71CC C4E60004 */  lwc1  $f6, 4($a3)
-/* 0E9BC0 7F0B71D0 E4660008 */  swc1  $f6, 8($v1)
-/* 0E9BC4 7F0B71D4 C4E80008 */  lwc1  $f8, 8($a3)
-/* 0E9BC8 7F0B71D8 E468000C */  swc1  $f8, 0xc($v1)
-/* 0E9BCC 7F0B71DC C4EA000C */  lwc1  $f10, 0xc($a3)
-/* 0E9BD0 7F0B71E0 E46A0010 */  swc1  $f10, 0x10($v1)
-/* 0E9BD4 7F0B71E4 8D090000 */  lw    $t1, ($t0)
-/* 0E9BD8 7F0B71E8 25220001 */  addiu $v0, $t1, 1
-/* 0E9BDC 7F0B71EC 14410003 */  bne   $v0, $at, .L7F0B71FC
-/* 0E9BE0 7F0B71F0 AD020000 */   sw    $v0, ($t0)
-/* 0E9BE4 7F0B71F4 AD000000 */  sw    $zero, ($t0)
-/* 0E9BE8 7F0B71F8 00001025 */  move  $v0, $zero
-.L7F0B71FC:
-/* 0E9BEC 7F0B71FC 8D4ADD8C */  lw    $t2, %lo(D_800448A4)($t2)
-/* 0E9BF0 7F0B7200 244BFFFF */  addiu $t3, $v0, -1
-/* 0E9BF4 7F0B7204 55420003 */  bnel  $t2, $v0, .L7F0B7214
-/* 0E9BF8 7F0B7208 8FBF0014 */   lw    $ra, 0x14($sp)
-/* 0E9BFC 7F0B720C AD0B0000 */  sw    $t3, ($t0)
-.L7F0B7210:
-/* 0E9C00 7F0B7210 8FBF0014 */  lw    $ra, 0x14($sp)
-.L7F0B7214:
-/* 0E9C04 7F0B7214 27BD0020 */  addiu $sp, $sp, 0x20
-/* 0E9C08 7F0B7218 03E00008 */  jr    $ra
-/* 0E9C0C 7F0B721C 00000000 */   nop
-)
-#endif
-
+void sub_GAME_7F0B7DE4(s32 arg0, s32 arg1, s32 portalnum, s32 arg3, f32 *arg4)
+{
+    bg_queued_portal_entry *entry;
+    entry = &dword_CODE_bss_8007C100[D_800448A0];
+    if (arg3 >= 2)
+    {
+        if (sub_GAME_7F0B7DA8((g_BgPortals[portalnum].connectedRoom2 ^ g_BgPortals[portalnum].connectedRoom1) ^ arg1) >= 9)
+        {
+            return;
+        }
+    }
+    entry->arg0 = arg0;
+    entry->arg1 = arg1;
+    entry->portalnum = portalnum;
+    entry->arg3 = arg3;
+    entry->sp10[0] = arg4[0];
+    entry->sp10[1] = arg4[1];
+    entry->sp10[2] = arg4[2];
+    entry->sp10[3] = arg4[3];
+    D_800448A0++;
+    if (D_800448A0 == 0x1f4)
+    {
+        D_800448A0 = 0;
+    }
+    if (D_800448A0 == D_800448A4)
+    {
+        D_800448A0--;
+    }
+}
 #endif
 
 
@@ -7252,8 +7115,6 @@ s32 sub_GAME_7F0B7EE4(s32 *arg0)
     return 1;
 }
 #endif
-
-
 
 
 #define PORTMAX 200
