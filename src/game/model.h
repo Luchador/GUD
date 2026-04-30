@@ -61,7 +61,7 @@ f32 sub_GAME_7F06F5C4(Model *model);
 f32 modelGetAnimSpeed(Model *model);
 f32 modelGetAbsAnimSpeed(Model *model);
 s32 modelConstrainOrWrapAnimFrame(s32 frame, ModelAnimation *anim, f32 endframe);
-void modelCopyAnimForMerge(Model *, f32);
+void modelCopyAnimForMerge(Model *model, f32 timemerge);
 void modelSetAnimation2(Model *, ModelAnimation *, s32, f32, f32, f32);
 void modelSetAnimationWithMerge(Model *model, ModelAnimation *modelAnimation, s32 flip, f32 startframe, f32 speed, f32 timemerge, s32 domerge);
 void modelSetAnimation(Model *model, ModelAnimation *modelAnimation, s32 flip, f32 startframe, f32 speed, f32 merge);

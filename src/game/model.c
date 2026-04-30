@@ -3359,128 +3359,50 @@ s32 modelConstrainOrWrapAnimFrame(s32 frame, ModelAnimation *anim, f32 endframe)
 }
 
 
-#ifdef NONMATCHING
-void modelCopyAnimForMerge(Model *model, f32 arg1)
+void modelCopyAnimForMerge(Model *model, f32 timemerge)
 {
-    ModelNode      *temp_a1;
-    f32             temp_f10;
-    f32             temp_f16;
-    f32             temp_f18;
-    f32             temp_f4;
-    f32             temp_f6;
-    f32             temp_f8;
-    modeldata_root *temp_v0_2;
+    ModelAnimation *anim;
+    ModelNode *root;
+    struct modeldata_root *rwdata;
+    s32 opcode; 
 
-    if ((arg1 > 0.0f) && (model->anim != 0))
-    {
-        temp_a1      = model->obj->RootNode;
-        model->unk58 = model->unk28;
-        model->unk5C = model->unk2C;
-        model->unk54 = model->anim;
-        model->unk25 = model->unk24;
-        model->unk60 = model->unk30;
-        model->unk62 = model->unk32;
-        model->unk70 = model->speed;
-        model->unk74 = model->newspeed;
-        model->unk78 = model->oldspeed;
-        model->unk7C = model->timespeed;
-        model->unk80 = model->elapsespeed;
-        model->unk6C = model->endframe;
-        if ((temp_a1->Opcode & 0xFF) == 1)
-        {
-            temp_v0_2                   = modelGetNodeRwData(model, temp_a1);
-            temp_f10                    = temp_v0_2->unk34.x;
-            temp_f16                    = temp_v0_2->unk34.AsArray[1];
-            temp_f18                    = temp_v0_2->unk34.AsArray[2];
-            temp_f4                     = temp_v0_2->unk24.x;
-            temp_f6                     = temp_v0_2->unk24.AsArray[1];
-            temp_f8                     = temp_v0_2->unk24.AsArray[2];
-            temp_v0_2->unk02            = 1;
-            temp_v0_2->unk4c.x          = temp_f10;
-            temp_v0_2->unk4c.AsArray[1] = temp_f16;
-            temp_v0_2->unk4c.AsArray[2] = temp_f18;
-            temp_v0_2->unk40.x          = temp_f4;
-            temp_v0_2->unk40.AsArray[1] = temp_f6;
-            temp_v0_2->unk40.AsArray[2] = temp_f8;
+    if (0.0f < timemerge) {
+        anim = model->anim;
+
+        if (anim != NULL) {
+            root = model->obj->RootNode;
+            opcode = root->Opcode & 0xff;
+
+            model->anim2 = anim;
+            model->unk58 = model->unk28;
+            model->unk5c = model->unk2c;
+            model->unk25 = model->gunhand;
+            model->frame2a = model->framea;
+            model->frame2b = model->frameb;
+            model->speed2 = model->speed;
+            model->unk74 = model->newspeed;
+            model->unk78 = model->oldspeed;
+            model->unk7c = model->timespeed;
+            model->unk80 = model->elapsespeed;
+            model->unk6c = model->endframe;
+
+            if (opcode == MODELNODE_OPCODE_HEADER) {
+                rwdata = (struct modeldata_root *)modelGetNodeRwData(model, root);
+                rwdata->unk02 = 1;
+                rwdata->unk4c.x = rwdata->unk34.x;
+                rwdata->unk4c.y = rwdata->unk34.y;
+                rwdata->unk4c.z = rwdata->unk34.z;
+                rwdata->unk40.x = rwdata->unk24.x;
+                rwdata->unk40.y = rwdata->unk24.y;
+                rwdata->unk40.z = rwdata->unk24.z;
+            }
+
             return;
         }
-        // Duplicate return node #5. Try simplifying control flow for better match
-        return;
     }
-    model->unk54 = NULL;
+
+    model->anim2 = NULL;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel modelCopyAnimForMerge
-/* 0A42B0 7F06F780 44856000 */  mtc1  $a1, $f12
-/* 0A42B4 7F06F784 44802000 */  mtc1  $zero, $f4
-/* 0A42B8 7F06F788 27BDFFE8 */  addiu $sp, $sp, -0x18
-/* 0A42BC 7F06F78C AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0A42C0 7F06F790 460C203C */  c.lt.s $f4, $f12
-/* 0A42C4 7F06F794 00000000 */  nop
-/* 0A42C8 7F06F798 45020033 */  bc1fl .L7F06F868
-/* 0A42CC 7F06F79C AC800054 */   sw    $zero, 0x54($a0)
-/* 0A42D0 7F06F7A0 8C820020 */  lw    $v0, 0x20($a0)
-/* 0A42D4 7F06F7A4 24010001 */  li    $at, 1
-/* 0A42D8 7F06F7A8 5040002F */  beql  $v0, $zero, .L7F06F868
-/* 0A42DC 7F06F7AC AC800054 */   sw    $zero, 0x54($a0)
-/* 0A42E0 7F06F7B0 8C8E0008 */  lw    $t6, 8($a0)
-/* 0A42E4 7F06F7B4 C4860028 */  lwc1  $f6, 0x28($a0)
-/* 0A42E8 7F06F7B8 C488002C */  lwc1  $f8, 0x2c($a0)
-/* 0A42EC 7F06F7BC 8DC50000 */  lw    $a1, ($t6)
-/* 0A42F0 7F06F7C0 80980024 */  lb    $t8, 0x24($a0)
-/* 0A42F4 7F06F7C4 84990030 */  lh    $t9, 0x30($a0)
-/* 0A42F8 7F06F7C8 94A30000 */  lhu   $v1, ($a1)
-/* 0A42FC 7F06F7CC E4860058 */  swc1  $f6, 0x58($a0)
-/* 0A4300 7F06F7D0 E488005C */  swc1  $f8, 0x5c($a0)
-/* 0A4304 7F06F7D4 84880032 */  lh    $t0, 0x32($a0)
-/* 0A4308 7F06F7D8 C48A0040 */  lwc1  $f10, 0x40($a0)
-/* 0A430C 7F06F7DC C4900044 */  lwc1  $f16, 0x44($a0)
-/* 0A4310 7F06F7E0 C4920048 */  lwc1  $f18, 0x48($a0)
-/* 0A4314 7F06F7E4 C484004C */  lwc1  $f4, 0x4c($a0)
-/* 0A4318 7F06F7E8 C4860050 */  lwc1  $f6, 0x50($a0)
-/* 0A431C 7F06F7EC C488003C */  lwc1  $f8, 0x3c($a0)
-/* 0A4320 7F06F7F0 306F00FF */  andi  $t7, $v1, 0xff
-/* 0A4324 7F06F7F4 AC820054 */  sw    $v0, 0x54($a0)
-/* 0A4328 7F06F7F8 A0980025 */  sb    $t8, 0x25($a0)
-/* 0A432C 7F06F7FC A4990060 */  sh    $t9, 0x60($a0)
-/* 0A4330 7F06F800 A4880062 */  sh    $t0, 0x62($a0)
-/* 0A4334 7F06F804 E48A0070 */  swc1  $f10, 0x70($a0)
-/* 0A4338 7F06F808 E4900074 */  swc1  $f16, 0x74($a0)
-/* 0A433C 7F06F80C E4920078 */  swc1  $f18, 0x78($a0)
-/* 0A4340 7F06F810 E484007C */  swc1  $f4, 0x7c($a0)
-/* 0A4344 7F06F814 E4860080 */  swc1  $f6, 0x80($a0)
-/* 0A4348 7F06F818 15E10013 */  bne   $t7, $at, .L7F06F868
-/* 0A434C 7F06F81C E488006C */   swc1  $f8, 0x6c($a0)
-/* 0A4350 7F06F820 0FC1B1E7 */  jal   modelGetNodeRwData
-/* 0A4354 7F06F824 00000000 */   nop
-/* 0A4358 7F06F828 C44A0034 */  lwc1  $f10, 0x34($v0)
-/* 0A435C 7F06F82C C4500038 */  lwc1  $f16, 0x38($v0)
-/* 0A4360 7F06F830 C452003C */  lwc1  $f18, 0x3c($v0)
-/* 0A4364 7F06F834 C4440024 */  lwc1  $f4, 0x24($v0)
-/* 0A4368 7F06F838 C4460028 */  lwc1  $f6, 0x28($v0)
-/* 0A436C 7F06F83C C448002C */  lwc1  $f8, 0x2c($v0)
-/* 0A4370 7F06F840 24090001 */  li    $t1, 1
-/* 0A4374 7F06F844 A0490002 */  sb    $t1, 2($v0)
-/* 0A4378 7F06F848 E44A004C */  swc1  $f10, 0x4c($v0)
-/* 0A437C 7F06F84C E4500050 */  swc1  $f16, 0x50($v0)
-/* 0A4380 7F06F850 E4520054 */  swc1  $f18, 0x54($v0)
-/* 0A4384 7F06F854 E4440040 */  swc1  $f4, 0x40($v0)
-/* 0A4388 7F06F858 E4460044 */  swc1  $f6, 0x44($v0)
-/* 0A438C 7F06F85C 10000002 */  b     .L7F06F868
-/* 0A4390 7F06F860 E4480048 */   swc1  $f8, 0x48($v0)
-/* 0A4394 7F06F864 AC800054 */  sw    $zero, 0x54($a0)
-.L7F06F868:
-/* 0A4398 7F06F868 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 0A439C 7F06F86C 27BD0018 */  addiu $sp, $sp, 0x18
-/* 0A43A0 7F06F870 03E00008 */  jr    $ra
-/* 0A43A4 7F06F874 00000000 */   nop
-)
-#endif
-
-
-
 
 
 #ifdef NONMATCHING

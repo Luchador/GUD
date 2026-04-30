@@ -1470,11 +1470,11 @@ typedef union
             f32               unk6c;
             // 0x70
             f32               speed2;
-            s32               unk74;
-            s32               unk78;
+            f32               unk74;
+            f32               unk78;
             f32               unk7c;
             // 0x80
-            s32               unk80;
+            f32               unk80;
 
             /**
              * Related to "anim2", per debug message.
