@@ -19,8 +19,25 @@ struct levelentry
 
 // Placeholder for unique collision point records. sizeof = 0x1c.
 typedef struct RoomUniqueCollisionPoint {
-    u8 bytes[0x1c];                         // 0x00
-} RoomUniqueCollisionPoint;                 // size = 0x1c
+    s16 gdlindex;    // 0x00
+    s16 pad02;       // 0x02
+
+    union {
+        struct {
+            s32 xmin; // 0x04
+            s32 ymin; // 0x08
+            s32 zmin; // 0x0c
+            s32 xmax; // 0x10
+            s32 ymax; // 0x14
+            s32 zmax; // 0x18
+        };
+
+        struct {
+            s32 min[3]; // 0x04
+            s32 max[3]; // 0x10
+        };
+    };
+} RoomUniqueCollisionPoint; // size = 0x1c
 
 typedef struct s_room_info {
     // is room being rendered? boolean
