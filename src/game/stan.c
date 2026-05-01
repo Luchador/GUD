@@ -148,7 +148,7 @@ const char aStanlinelog[] = "-stanlinelog";
 // forward declarations
 
 s32 stanIsSpecialBit1Set(StandTile *arg0, struct StandTileLocusCallbackRecord* arg1);
-s32 sub_GAME_7F0B2274(StandTile *arg0, s32 arg1, f32 arg2, f32 arg3, s32 arg4, struct StandTileLocusCallbackRecord *arg5);
+s32 sub_GAME_7F0B2274(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3, s32 arg4, s32 *outFlags);
 s32 sub_GAME_7F0B21B0(StandTile **tileStack, f32 target_x, f32 target_z, f32 unknown, s32 *rooms, s32 *count_rtn, s32 bufMax);
 
 s32 sub_GAME_7F0B1DDC(
@@ -4201,105 +4201,35 @@ s32 stanIsSpecialBit1Set(StandTile *arg0, struct StandTileLocusCallbackRecord *a
 }
 
 
-
-
-#ifdef NONMATCHING
-/**
- * Address 0x7F0B2274.
- *
- * decomp status:
- * - compiles: yes
- * - stack resize: ok
- * - identical instructions: no
- * - identical registers: fail
- *
- * Notes: the SRA 0xc needs to be calculated twice, but below is a move instruction from previous SRA 0xc.
- * Seems to match other than that.
-*/
-s32 sub_GAME_7F0B2274(StandTile *arg0, s32 arg1, f32 arg2, f32 arg3, s32 arg4, struct StandTileLocusCallbackRecord *arg5)
+s32 sub_GAME_7F0B2274(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3, s32 arg4, s32 *outFlags)
 {
-    s32 temp_v0;
-    StandTile *temp_v1;
-    s32 val;
+    u16 link;
+    StandTile *target;
+    s32 mid;
 
-    temp_v0 = arg0->points[arg1].link;
+    link = tile->points[pointIdx].link;
 
-    if ((temp_v0 >> 4) != 0)
-    {
-        temp_v1 = &standTileStart[temp_v0];
+    if ((link >> 4) != 0) {
+        target = (StandTile *)(link + (StandTile *)standTileStart);
 
-        val = temp_v1->mid.half >> 0xc;
-        if (D_80040F30[val] & 2)
-        {
-            arg5->unk00 = 1;
+        mid = target->mid.half;
+
+        if (D_80040F30[mid >> 0xc] & 0x2) {
+            outFlags[0] = 1;
             return 1;
         }
 
-        val = temp_v1->mid.half >> 0xc;
-        if (D_80040F30[val] & 0x40)
-        {
-            dword_CODE_bss_8007BA0C = temp_v1;
-            arg5->count = 1;
+        mid = target->mid.half;
+
+        if (D_80040F30[mid >> 0xc] & 0x40) {
+            dword_CODE_bss_8007BA0C = target;
+            outFlags[1] = 1;
             return 0;
         }
     }
 
     return 0;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B2274
-/* 0E6DA4 7F0B2274 000570C0 */  sll   $t6, $a1, 3
-/* 0E6DA8 7F0B2278 AFA60008 */  sw    $a2, 8($sp)
-/* 0E6DAC 7F0B227C AFA7000C */  sw    $a3, 0xc($sp)
-/* 0E6DB0 7F0B2280 008E7821 */  addu  $t7, $a0, $t6
-/* 0E6DB4 7F0B2284 95E2000E */  lhu   $v0, 0xe($t7)
-/* 0E6DB8 7F0B2288 3C088004 */  lui   $t0, %hi(standTileStart)
-/* 0E6DBC 7F0B228C 0002C103 */  sra   $t8, $v0, 4
-/* 0E6DC0 7F0B2290 5300001E */  beql  $t8, $zero, .L7F0B230C
-/* 0E6DC4 7F0B2294 00001025 */   move  $v0, $zero
-/* 0E6DC8 7F0B2298 8D080F58 */  lw    $t0, %lo(standTileStart)($t0)
-/* 0E6DCC 7F0B229C 0002C8C0 */  sll   $t9, $v0, 3
-/* 0E6DD0 7F0B22A0 3C058004 */  lui   $a1, %hi(D_80040F30)
-/* 0E6DD4 7F0B22A4 03281821 */  addu  $v1, $t9, $t0
-/* 0E6DD8 7F0B22A8 84640004 */  lh    $a0, 4($v1)
-/* 0E6DDC 7F0B22AC 24A50F30 */  addiu $a1, %lo(D_80040F30) # addiu $a1, $a1, 0xf30
-/* 0E6DE0 7F0B22B0 240D0001 */  li    $t5, 1
-/* 0E6DE4 7F0B22B4 00044B03 */  sra   $t1, $a0, 0xc
-/* 0E6DE8 7F0B22B8 00A95021 */  addu  $t2, $a1, $t1
-/* 0E6DEC 7F0B22BC 914B0000 */  lbu   $t3, ($t2)
-/* 0E6DF0 7F0B22C0 00047B03 */  sra   $t7, $a0, 0xc
-/* 0E6DF4 7F0B22C4 8FAE0014 */  lw    $t6, 0x14($sp)
-/* 0E6DF8 7F0B22C8 316C0002 */  andi  $t4, $t3, 2
-/* 0E6DFC 7F0B22CC 11800004 */  beqz  $t4, .L7F0B22E0
-/* 0E6E00 7F0B22D0 00AFC021 */   addu  $t8, $a1, $t7
-/* 0E6E04 7F0B22D4 ADCD0000 */  sw    $t5, ($t6)
-/* 0E6E08 7F0B22D8 03E00008 */  jr    $ra
-/* 0E6E0C 7F0B22DC 24020001 */   li    $v0, 1
-
-.L7F0B22E0:
-/* 0E6E10 7F0B22E0 93190000 */  lbu   $t9, ($t8)
-/* 0E6E14 7F0B22E4 3C018008 */  lui   $at, %hi(dword_CODE_bss_8007BA0C)
-/* 0E6E18 7F0B22E8 24090001 */  li    $t1, 1
-/* 0E6E1C 7F0B22EC 33280040 */  andi  $t0, $t9, 0x40
-/* 0E6E20 7F0B22F0 11000005 */  beqz  $t0, .L7F0B2308
-/* 0E6E24 7F0B22F4 00001025 */   move  $v0, $zero
-/* 0E6E28 7F0B22F8 8FAA0014 */  lw    $t2, 0x14($sp)
-/* 0E6E2C 7F0B22FC AC23BA0C */  sw    $v1, %lo(dword_CODE_bss_8007BA0C)($at)
-/* 0E6E30 7F0B2300 03E00008 */  jr    $ra
-/* 0E6E34 7F0B2304 AD490004 */   sw    $t1, 4($t2)
-
-.L7F0B2308:
-/* 0E6E38 7F0B2308 00001025 */  move  $v0, $zero
-.L7F0B230C:
-/* 0E6E3C 7F0B230C 03E00008 */  jr    $ra
-/* 0E6E40 7F0B2310 00000000 */   nop
-)
-#endif
-
-
-
 
 
 /**
