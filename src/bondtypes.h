@@ -2428,8 +2428,8 @@ typedef union
         struct ALSoundState* sound1; // 0x98
         struct ALSoundState* sound2; // 0x9C
 
-        u32 unkA0;
-        u32 unkA4;
+        u32 lastSfxTimer; // 0xa0
+        u32 soundSlot; // 0xa4
         u32 unkA8;
         u32 unkAC;
 

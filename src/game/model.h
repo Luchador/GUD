@@ -6,7 +6,7 @@
 #include "bondconstants.h"
 
 bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef);
-void* get_obj_instance_controller_for_header(struct ModelFileHeader* arg0);
+Model* get_obj_instance_controller_for_header(struct ModelFileHeader* arg0);
 void clear_model_obj(Model* model);
 Model *get_aircraft_obj_instance_controller(ModelFileHeader *);
 void modelAttachHead(Model *, ModelNode*,  ModelFileHeader *);

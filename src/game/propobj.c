@@ -924,8 +924,8 @@ void projectileReset(Projectile *projectile)
     projectile->unk8C = 0.05f;
     projectile->unk90 = 0;
     projectile->unk94 = 0.0f;
-    projectile->unkA0 = -1;
-    projectile->unkA4 = 0;
+    projectile->lastSfxTimer = -1;
+    projectile->soundSlot = 0;
     projectile->unkA8 = 0;
     projectile->unkAC = -1;
     projectile->droptype = DROPTYPE_DEFAULT;
@@ -3987,10 +3987,70 @@ glabel sub_GAME_7F0431E4
 
 
 
-
+// Address: 7F043650
 #ifdef NONMATCHING
-void sub_GAME_7F043650(void) {
+void sub_GAME_7F043650(ObjectRecord *obj) {
+    if (!(obj->runtime_bitflags & PROJECTILEFLAG_LAUNCHING)) {
+        return;
+    }
+    
+    if ((obj->projectile->flags & PROJECTILEFLAG_AIRBORNE) &&
+        (obj->projectile->unk90 <= 0) &&
+        (obj->runtime_bitflags & PROJECTILEFLAG_00000020)) {
 
+        s16 Throwing_knife_SFX[] = {0x5F, 0x60, 0x61};
+        s32 slot;
+        s32 sfxindex;
+
+        slot = obj->projectile->soundSlot;
+        sfxindex = randomGetNext() % 3;
+
+#if defined(LEFTOVERDEBUG)
+        if (obj->projectile->lastSfxTimer < g_GlobalTimer - 6) {
+#else
+        if (obj->projectile->lastSfxTimer < g_GlobalTimer - 5) {
+#endif
+            if ((&obj->projectile->sound1)[slot] != NULL) {
+                if (sndGetPlayingState((&obj->projectile->sound1)[slot])) {
+                    sndDeactivate((&obj->projectile->sound1)[slot]);
+                }
+            }
+        }
+
+        if ((&obj->projectile->sound1)[slot] != NULL) {
+            return;
+        }
+
+        if (!lvlGetControlsLockedFlag()) {
+            sndPlaySfx(
+                g_musicSfxBufferPtr,
+                Throwing_knife_SFX[sfxindex],
+                &(&obj->projectile->sound1)[slot]
+            );
+
+            chrobjSndCreatePostEventDefault(
+                (&obj->projectile->sound1)[slot],
+                &obj->prop->pos
+            );
+
+            obj->projectile->lastSfxTimer = g_GlobalTimer;
+            obj->projectile->soundSlot = 1 - slot;
+        }
+    } else {
+        obj->runtime_bitflags &= ~PROJECTILEFLAG_00000020;
+    
+        if (obj->projectile->sound1 != NULL) {
+            if (sndGetPlayingState(obj->projectile->sound1)) {
+                sndDeactivate(obj->projectile->sound1);
+            }
+        }
+    
+        if (obj->projectile->sound2 != NULL) {
+            if (sndGetPlayingState(obj->projectile->sound2)) {
+                sndDeactivate(obj->projectile->sound2);
+            }
+        }
+    }
 }
 #else
 

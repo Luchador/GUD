@@ -95,5 +95,8 @@ void glassCreateShard(coord3d * pos, f32 rotX, f32 shard_size);
 void sub_GAME_7F0A3EA0(void);
 
 void update_bullet_sparks_and_dust_clouds(void);
+#ifdef VERSION_EU
+void sub_GAME_7F0A4600(void);
+#endif
 
 #endif
