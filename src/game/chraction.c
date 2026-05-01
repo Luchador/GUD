@@ -7130,13 +7130,13 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                                     sp208->projectile->unk10.y = sp1AC.f[1];
                                     sp208->projectile->unk10.z = sp1AC.f[2];
 
-                                    if (sp208->projectile->sound1 == NULL)
+                                    if (sp208->projectile->sounds[0] == NULL)
                                     {
-                                        sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, ROCKET_LAUNCH_SFX, (ALSoundState *)&sp208->projectile->sound1);
+                                        sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, ROCKET_LAUNCH_SFX, (ALSoundState *)&sp208->projectile->sounds[0]);
                                     }
-                                    else if (sp208->projectile->sound2 == NULL)
+                                    else if (sp208->projectile->sounds[1] == NULL)
                                     {
-                                        sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, ROCKET_LAUNCH_SFX, (ALSoundState *)&sp208->projectile->sound2);
+                                        sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, ROCKET_LAUNCH_SFX, (ALSoundState *)&sp208->projectile->sounds[1]);
                                     }
                                 }
                             }
