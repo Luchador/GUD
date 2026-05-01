@@ -5359,50 +5359,17 @@ Gfx * sub_GAME_7F0B312C(Gfx *arg0, s32 arg1)
     return arg0;
 }
 
-#ifdef NONMATCHING
-// Only difference is an extra sw a1,0x34(sp) appearing.
-// There is the unused first argument which may have the wrong type
-int sub_GAME_7F0B3138(void* unused, StandTile **pTile, f32 p_x, f32 p_z, f32 dest_x, f32 dest_z,
-        int cdtypes, f32 unkHeight, f32 unkA) {
 
-    return stanTestLineUnobstructed(pTile, p_x, p_z, dest_x, dest_z, cdtypes, unkHeight, unkA, 0, 1);
+/**
+ * Unreferenced.
+ */
+s32 sub_GAME_7F0B3138(StandTile *tile, StandTile **pTile, f32 p_x, f32 p_z, f32 dest_x, f32 dest_z, s32 cdtypes, f32 unkHeight, f32 unkA)
+{
+    // Fake but needed for matching.
+    if (pTile);
+
+    return stanTestLineUnobstructed(pTile, p_x, p_z, dest_x, dest_z, cdtypes, unkHeight, unkA, 0.0f, 1.0f);
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B3138
-/* 0E7C68 7F0B3138 27BDFFD0 */  addiu $sp, $sp, -0x30
-/* 0E7C6C 7F0B313C 44866000 */  mtc1  $a2, $f12
-/* 0E7C70 7F0B3140 44877000 */  mtc1  $a3, $f14
-/* 0E7C74 7F0B3144 AFA40030 */  sw    $a0, 0x30($sp)
-/* 0E7C78 7F0B3148 3C013F80 */  li    $at, 0x3F800000 # 1.000000
-/* 0E7C7C 7F0B314C 44818000 */  mtc1  $at, $f16
-/* 0E7C80 7F0B3150 C7A40044 */  lwc1  $f4, 0x44($sp)
-/* 0E7C84 7F0B3154 8FAE0048 */  lw    $t6, 0x48($sp)
-/* 0E7C88 7F0B3158 C7A6004C */  lwc1  $f6, 0x4c($sp)
-/* 0E7C8C 7F0B315C C7A80050 */  lwc1  $f8, 0x50($sp)
-/* 0E7C90 7F0B3160 44805000 */  mtc1  $zero, $f10
-/* 0E7C94 7F0B3164 00A02025 */  move  $a0, $a1
-/* 0E7C98 7F0B3168 AFBF002C */  sw    $ra, 0x2c($sp)
-/* 0E7C9C 7F0B316C 44056000 */  mfc1  $a1, $f12
-/* 0E7CA0 7F0B3170 44067000 */  mfc1  $a2, $f14
-/* 0E7CA4 7F0B3174 8FA70040 */  lw    $a3, 0x40($sp)
-/* 0E7CA8 7F0B3178 E7A40010 */  swc1  $f4, 0x10($sp)
-/* 0E7CAC 7F0B317C E7B00024 */  swc1  $f16, 0x24($sp)
-/* 0E7CB0 7F0B3180 AFAE0014 */  sw    $t6, 0x14($sp)
-/* 0E7CB4 7F0B3184 E7A60018 */  swc1  $f6, 0x18($sp)
-/* 0E7CB8 7F0B3188 E7A8001C */  swc1  $f8, 0x1c($sp)
-/* 0E7CBC 7F0B318C 0FC2C389 */  jal   stanTestLineUnobstructed
-/* 0E7CC0 7F0B3190 E7AA0020 */   swc1  $f10, 0x20($sp)
-/* 0E7CC4 7F0B3194 8FBF002C */  lw    $ra, 0x2c($sp)
-/* 0E7CC8 7F0B3198 27BD0030 */  addiu $sp, $sp, 0x30
-/* 0E7CCC 7F0B319C 03E00008 */  jr    $ra
-/* 0E7CD0 7F0B31A0 00000000 */   nop
-)
-#endif
-
-
-
 
 
 void sub_GAME_7F0B31A4(s32 arg0, StandTile *arg1, f32 arg2, f32 arg3, f32 arg4, s32 arg5, f32 arg6, f32 arg7) {
