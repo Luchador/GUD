@@ -9473,110 +9473,18 @@ void bgUpdateCurrentPlayerScreenMinMax(void)
 }
 
 
-
-
-
-#ifdef NONMATCHING
-s32 sub_GAME_7F0B92B4(s32 arg0, void *arg1)
+/**
+ * Address: 7F0B92B4
+ */
+void bgGetRoomCenter(s32 roomnum, coord3d *dst)
 {
-    void *temp_a2;
-    s32 temp_v0;
-    f32 temp_f18;
-    void *temp_a2_2;
-    s32 temp_v0_2;
-    void *temp_v1;
-    f32 temp_f18_2;
-    f32 phi_f18;
-    void *phi_v1;
-    s32 phi_v0;
-    f32 phi_f18_2;
-    void *phi_v1_2;
-    void *phi_a2;
+    s32 i;
+    s_room_info *room = &g_BgRoomInfo[roomnum];
 
-    //try this, its just a guess but its only a loop of 3 and I think its unrolled
-    for (i = 0; i < 3; i++)
-    {
-        arg1[i]->room_id = arg0[i]->roomid + arg0[i]->next->roomid/2;
+    for (i = 0; i < 3; i++) {
+        dst->f[i] = (room->minbounds.f[i] + room->maxbounds.f[i]) * 0.5f;
     }
-    // Node 0
-
-    temp_a2 = ((arg0 * 0x50) + &g_BgRoomInfo);
-    temp_v0 = (0 + 1);
-    temp_f18 = ((temp_a2->unk44 + temp_a2->unk38) * 0.5f);
-    phi_f18 = temp_f18;
-    phi_v1 = arg1;
-    phi_v0 = temp_v0;
-    phi_f18_2 = temp_f18;
-    phi_v1_2 = arg1;
-    phi_a2 = temp_a2;
-    if (temp_v0 != 3)
-    {
-loop_1:
-        // Node 1
-        *phi_v1 = (f32) phi_f18;
-        temp_a2_2 = (phi_a2 + 4);
-        temp_v0_2 = (phi_v0 + 1);
-        temp_v1 = (phi_v1 + 4);
-        temp_f18_2 = ((phi_a2->unk48 + temp_a2_2->unk38) * 0.5f);
-        phi_f18 = temp_f18_2;
-        phi_v1 = temp_v1;
-        phi_v0 = temp_v0_2;
-        phi_f18_2 = temp_f18_2;
-        phi_v1_2 = temp_v1;
-        phi_a2 = temp_a2_2;
-        if (temp_v0_2 != 3)
-        {
-            goto loop_1;
-        }
-    }
-    // Node 2
-    (phi_v1_2 + 4)->unk-4 = (f32) phi_f18_2;
-    return temp_v0;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B92B4
-/* 0EDDE4 7F0B92B4 00047080 */  sll   $t6, $a0, 2
-/* 0EDDE8 7F0B92B8 01C47021 */  addu  $t6, $t6, $a0
-/* 0EDDEC 7F0B92BC 3C0F8004 */  lui   $t7, %hi(g_BgRoomInfo)
-/* 0EDDF0 7F0B92C0 3C013F00 */  li    $at, 0x3F000000 # 0.500000
-/* 0EDDF4 7F0B92C4 25EF1414 */  addiu $t7, %lo(g_BgRoomInfo) # addiu $t7, $t7, 0x1414
-/* 0EDDF8 7F0B92C8 000E7100 */  sll   $t6, $t6, 4
-/* 0EDDFC 7F0B92CC 44810000 */  mtc1  $at, $f0
-/* 0EDE00 7F0B92D0 01CF3021 */  addu  $a2, $t6, $t7
-/* 0EDE04 7F0B92D4 24040003 */  li    $a0, 3
-/* 0EDE08 7F0B92D8 00001025 */  move  $v0, $zero
-/* 0EDE0C 7F0B92DC 00A01825 */  move  $v1, $a1
-/* 0EDE10 7F0B92E0 C4D00044 */  lwc1  $f16, 0x44($a2)
-/* 0EDE14 7F0B92E4 C4CE0038 */  lwc1  $f14, 0x38($a2)
-/* 0EDE18 7F0B92E8 24420001 */  addiu $v0, $v0, 1
-/* 0EDE1C 7F0B92EC 460E8380 */  add.s $f14, $f16, $f14
-/* 0EDE20 7F0B92F0 46007482 */  mul.s $f18, $f14, $f0
-/* 0EDE24 7F0B92F4 5044000C */  beql  $v0, $a0, .L7F0B9328
-/* 0EDE28 7F0B92F8 24C60004 */   addiu $a2, $a2, 4
-/* 0EDE2C 7F0B92FC E4720000 */  swc1  $f18, ($v1)
-.L7F0B9300:
-/* 0EDE30 7F0B9300 C4D00048 */  lwc1  $f16, 0x48($a2)
-/* 0EDE34 7F0B9304 24C60004 */  addiu $a2, $a2, 4
-/* 0EDE38 7F0B9308 C4CE0038 */  lwc1  $f14, 0x38($a2)
-/* 0EDE3C 7F0B930C 24420001 */  addiu $v0, $v0, 1
-/* 0EDE40 7F0B9310 24630004 */  addiu $v1, $v1, 4
-/* 0EDE44 7F0B9314 460E8380 */  add.s $f14, $f16, $f14
-/* 0EDE48 7F0B9318 46007482 */  mul.s $f18, $f14, $f0
-/* 0EDE4C 7F0B931C 5444FFF8 */  bnel  $v0, $a0, .L7F0B9300
-/* 0EDE50 7F0B9320 E4720000 */   swc1  $f18, ($v1)
-/* 0EDE54 7F0B9324 24C60004 */  addiu $a2, $a2, 4
-.L7F0B9328:
-/* 0EDE58 7F0B9328 24630004 */  addiu $v1, $v1, 4
-/* 0EDE5C 7F0B932C E472FFFC */  swc1  $f18, -4($v1)
-/* 0EDE60 7F0B9330 03E00008 */  jr    $ra
-/* 0EDE64 7F0B9334 00000000 */   nop
-)
-#endif
-
-
-
 
 
 #ifdef NONMATCHING
@@ -10412,8 +10320,8 @@ f32 sub_GAME_7F0B9B94(s32 arg0) {
     // Node 0
     temp_v0 = (g_BgPortals + (arg0 * 8));
     sp28 = (?32) temp_v0->unk5;
-    sub_GAME_7F0B92B4(temp_v0->unk4, &sp54);
-    sub_GAME_7F0B92B4(sp28, &sp48);
+    bgGetRoomCenter(temp_v0->unk4, &sp54);
+    bgGetRoomCenter(sp28, &sp48);
     sub_GAME_7F0B96CC(arg0, &sp34); //possible float return
     #ifdef DEBUG
     if (0.1 < local_50 - local_54)
@@ -10472,10 +10380,10 @@ glabel sub_GAME_7F0B9B94
 /* 0EE6E0 7F0B9BB0 90590005 */  lbu   $t9, 5($v0)
 /* 0EE6E4 7F0B9BB4 90440004 */  lbu   $a0, 4($v0)
 /* 0EE6E8 7F0B9BB8 27A50054 */  addiu $a1, $sp, 0x54
-/* 0EE6EC 7F0B9BBC 0FC2E4AD */  jal   sub_GAME_7F0B92B4
+/* 0EE6EC 7F0B9BBC 0FC2E4AD */  jal   bgGetRoomCenter
 /* 0EE6F0 7F0B9BC0 AFB90028 */   sw    $t9, 0x28($sp)
 /* 0EE6F4 7F0B9BC4 8FA40028 */  lw    $a0, 0x28($sp)
-/* 0EE6F8 7F0B9BC8 0FC2E4AD */  jal   sub_GAME_7F0B92B4
+/* 0EE6F8 7F0B9BC8 0FC2E4AD */  jal   bgGetRoomCenter
 /* 0EE6FC 7F0B9BCC 27A50048 */   addiu $a1, $sp, 0x48
 /* 0EE700 7F0B9BD0 8FA40060 */  lw    $a0, 0x60($sp)
 /* 0EE704 7F0B9BD4 0FC2E5B3 */  jal   sub_GAME_7F0B96CC
