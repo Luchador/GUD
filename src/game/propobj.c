@@ -165,8 +165,8 @@ void projectileReset(Projectile *projectile)
     projectile->unk8C = 0.05f;
     projectile->unk90 = 0;
     projectile->unk94 = 0.0f;
-    projectile->unkA0 = -1;
-    projectile->unkA4 = 0;
+    projectile->lastSfxTimer = -1;
+    projectile->soundSlot = 0;
     projectile->unkA8 = 0;
     projectile->unkAC = -1;
     projectile->droptype = DROPTYPE_DEFAULT;
