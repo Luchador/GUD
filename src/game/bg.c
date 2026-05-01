@@ -7061,6 +7061,9 @@ void sub_GAME_7F0B7DE4(s32 arg0, s32 arg1, s32 portalnum, s32 arg3, f32 *arg4)
     }
     if (D_800448A0 == D_800448A4)
     {
+            #ifdef DEBUG
+            osSyncPrintf("bg: pstackat: Overflow ");
+            #endif
         D_800448A0--;
     }
 }
