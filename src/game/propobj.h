@@ -23,18 +23,21 @@ struct ShotData {
 };
 
 struct HitThing {
-    // the following is taken from PD
-    // may need adjustments
-    coord3d unk00; // hit position?
-    coord3d unk0c; // surface normal?
-    Vertex *unk18;
-    Vertex *unk1c;
-    Vertex *unk20;
-    Gfx *tricmd;
-    s16 unk28;
-    s16 texturenum; // offset 0x2a
-    s16 unk2c;
-};
+    coord3d hitpos;     // 0x00
+    coord3d normal;     // 0x0c
+
+    Vertex *vtx0;       // 0x18
+    Vertex *vtx1;       // 0x1c
+    Vertex *vtx2;       // 0x20
+
+    Gfx *tricmd;        // 0x24 - display-list command associated with hit triangle
+
+    s16 unk28;          // 0x28
+    s16 texturenum;     // 0x2a
+
+    s16 tileformat;     // 0x2c
+    s16 tilesize;       // 0x2e
+};      
 
 extern f32 F_80030B14;
 extern f32 F_80030B18;

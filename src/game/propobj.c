@@ -1123,16 +1123,16 @@ bool projectileLineTestModel(ObjectRecord *obj, coord3d *modelRayOrigin, coord3d
     if (found > 0) {
         mtx = &model->render_pos[mtxindex].pos;
         
-        hitPos->x = hitthing.unk00.x;
-        hitPos->y = hitthing.unk00.y;
-        hitPos->z = hitthing.unk00.z;
+        hitPos->x = hitthing.hitpos.x;
+        hitPos->y = hitthing.hitpos.y;
+        hitPos->z = hitthing.hitpos.z;
         
         mtx4TransformVecInPlace(mtx, hitPos);
         mtx4TransformVecInPlace(currentPlayerGetMatrix10D4(), hitPos);
     
-        hitNormal->x = hitthing.unk0c.x;
-        hitNormal->y = hitthing.unk0c.y;
-        hitNormal->z = hitthing.unk0c.z;
+        hitNormal->x = hitthing.normal.x;
+        hitNormal->y = hitthing.normal.y;
+        hitNormal->z = hitthing.normal.z;
     
         mtx4RotateVecInPlace(mtx, hitNormal);
     
