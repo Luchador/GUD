@@ -20,6 +20,13 @@
 
 #define BG_STACK_SIZE 20
 
+#ifdef VERSION_EU
+#define BG_PORTAL_QUEUE_LEN_EU 250
+#else
+#define BG_PORTAL_QUEUE_LEN 500
+#endif
+
+
 // bss
 //CODE.bss:8007BF90
 s32 ptr_bg_data;
@@ -76,9 +83,9 @@ s32 bss_pad_8007C0FC; /* not required, but making alignment explicit */
  * EU .bss 8007A040
 */
 #ifdef VERSION_EU
-bg_queued_portal_entry dword_CODE_bss_8007C100[250];
+bg_queued_portal_entry g_BgPortalQueue[BG_PORTAL_QUEUE_LEN_EU];
 #else
-bg_queued_portal_entry dword_CODE_bss_8007C100[500];
+bg_queued_portal_entry g_BgPortalQueue[BG_PORTAL_QUEUE_LEN];
 #endif
 
 /**
@@ -324,9 +331,9 @@ s32 D_80044898 = 0;
 //D:8004489C
 s32 D_8004489C = 0xF;
 //D:800448A0
-s32 D_800448A0 = 0;
+s32 g_BgPortalQueueWriteIndex = 0;
 //D:800448A4
-s32 D_800448A4 = 0;
+s32 g_BgPortalQueueReadIndex = 0;
 
 /**
  * Local stack.
@@ -811,34 +818,27 @@ s32 sub_GAME_7F0B39BC(int curroom,int unk1, bbox2d * screensize, s32 next)
 }
 
 
-
-
-
 /*
 * Unused function
 * Address: ?
 */
 void bgZeroPortalsToRoom(s32 roomnum)
 {
-  g_BgRoomInfo[roomnum].portals_to_room_count = '\0';
+  g_BgRoomInfo[roomnum].portal_visit_count = 0;
 }
-
-
-
-
 
 
 /*
 * Unused function
 * Address: 7F0B3B20
 */
-s32 sub_GAME_7F0B3B20(void)
+s32 bgFindFirstPortalVisitedRoom(void)
 {
     s32 i;
 
     for (i=0;i<MAXROOMCOUNT;i++)
     {
-        if (g_BgRoomInfo[i].portals_to_room_count) {
+        if (g_BgRoomInfo[i].portal_visit_count) {
             return i;
         };
     }
@@ -846,10 +846,10 @@ s32 sub_GAME_7F0B3B20(void)
 }
 
 
-
-
-
-void sub_GAME_7F0B3BC4(void)
+/**
+ * Address: 7F0B3BC4
+ */
+void bgResetPortalVisitCounts(void)
 {
   s32 i;
 
@@ -860,13 +860,10 @@ void sub_GAME_7F0B3BC4(void)
   i = 0;
   while (i != MAXROOMCOUNT)
   {
-    g_BgRoomInfo[i].portals_to_room_count = '\0';
+    g_BgRoomInfo[i].portal_visit_count = 0;
     i++;
   }
 }
-
-
-
 
 
 /**
@@ -6443,32 +6440,34 @@ glabel bgTestBulletHitBackground
 #endif
 
 
-
-
-
-
-void sub_GAME_7F0B7D94(void) {
-    D_800448A0 = 0;
-    D_800448A4 = 0;
+/**
+ * Address: 7F0B7D94
+ */
+void bgResetPortalQueue(void) {
+    g_BgPortalQueueWriteIndex = 0;
+    g_BgPortalQueueReadIndex = 0;
 }
 
 
-u8 sub_GAME_7F0B7DA8(s32 arg0)
+/**
+ * Address: 7F0B7DA8
+ */
+u8 bgIncrementRoomPortalVisitCount(s32 roomnum)
 {
     s_room_info* room_info;
-    u8 tmp_flags;
-    u8 bitflags;
+    u8 tmp;
+    u8 count;
     u8 out;
 
-    room_info = &g_BgRoomInfo[arg0];
-    bitflags = room_info->portals_to_room_count;
-    out = bitflags;
+    room_info = &g_BgRoomInfo[roomnum];
+    count = room_info->portal_visit_count;
+    out = count;
 
-    if ((s32) bitflags < 0xFF)
+    if ((s32) count < 0xFF)
     {
-        tmp_flags = bitflags + 1;
-        room_info->portals_to_room_count = tmp_flags;
-        out = tmp_flags & 0xFF;
+        tmp = count + 1;
+        room_info->portal_visit_count = tmp;
+        out = tmp & 0xFF;
     }
 
     return out;
@@ -6479,111 +6478,114 @@ u8 sub_GAME_7F0B7DA8(s32 arg0)
  * Address: 7F0B7DE4
  */
 #ifdef VERSION_EU
-void sub_GAME_7F0B7DE4(s32 arg0, s32 arg1, s32 portalnum, f32 *arg4)
+void bgQueuePortalTraversal(s32 arg0, s32 arg1, s32 portalnum, f32 *arg4)
 {
     bg_queued_portal_entry *entry;
-    entry = &dword_CODE_bss_8007C100[D_800448A0];
+    entry = &g_BgPortalQueue[g_BgPortalQueueWriteIndex];
     if (portalnum >= 2)
     {
-        if (sub_GAME_7F0B7DA8((g_BgPortals[arg1].connectedRoom2 ^ g_BgPortals[arg1].connectedRoom1) ^ arg0) >= 9)
+        if (bgIncrementRoomPortalVisitCount((g_BgPortals[arg1].connectedRoom2 ^ g_BgPortals[arg1].connectedRoom1) ^ arg0) >= 9)
         {
             return;
         }
     }
     entry->arg0 = arg0;
-    entry->arg1 = arg1;
+    entry->roomnum = arg1;
     entry->portalnum = portalnum;
     entry->sp4[0] = arg4[0];
     entry->sp4[1] = arg4[1];
     entry->sp4[2] = arg4[2];
     entry->sp4[3] = arg4[3];
-    D_800448A0++;
-    if (D_800448A0 == 0xfa)
+    g_BgPortalQueueWriteIndex++;
+    if (g_BgPortalQueueWriteIndex == BG_PORTAL_QUEUE_LEN_EU)
     {
-        D_800448A0 = 0;
+        g_BgPortalQueueWriteIndex = 0;
     }
-    if (D_800448A0 == D_800448A4)
+    if (g_BgPortalQueueWriteIndex == g_BgPortalQueueReadIndex)
     {
-        D_800448A0--;
+        g_BgPortalQueueWriteIndex--;
     }
 }
 #else
-void sub_GAME_7F0B7DE4(s32 arg0, s32 arg1, s32 portalnum, s32 arg3, f32 *arg4)
+void bgQueuePortalTraversal(s32 arg0, s32 arg1, s32 portalnum, s32 depth, f32 *arg4)
 {
     bg_queued_portal_entry *entry;
-    entry = &dword_CODE_bss_8007C100[D_800448A0];
-    if (arg3 >= 2)
+    entry = &g_BgPortalQueue[g_BgPortalQueueWriteIndex];
+    if (depth >= 2)
     {
-        if (sub_GAME_7F0B7DA8((g_BgPortals[portalnum].connectedRoom2 ^ g_BgPortals[portalnum].connectedRoom1) ^ arg1) >= 9)
+        if (bgIncrementRoomPortalVisitCount((g_BgPortals[portalnum].connectedRoom2 ^ g_BgPortals[portalnum].connectedRoom1) ^ arg1) >= 9)
         {
             return;
         }
     }
     entry->arg0 = arg0;
-    entry->arg1 = arg1;
+    entry->roomnum = arg1;
     entry->portalnum = portalnum;
-    entry->arg3 = arg3;
+    entry->arg3 = depth;
     entry->sp10[0] = arg4[0];
     entry->sp10[1] = arg4[1];
     entry->sp10[2] = arg4[2];
     entry->sp10[3] = arg4[3];
-    D_800448A0++;
-    if (D_800448A0 == 0x1f4)
+    g_BgPortalQueueWriteIndex++;
+    if (g_BgPortalQueueWriteIndex == BG_PORTAL_QUEUE_LEN)
     {
-        D_800448A0 = 0;
+        g_BgPortalQueueWriteIndex = 0;
     }
-    if (D_800448A0 == D_800448A4)
+    if (g_BgPortalQueueWriteIndex == g_BgPortalQueueReadIndex)
     {
             #ifdef DEBUG
             osSyncPrintf("bg: pstackat: Overflow ");
             #endif
-        D_800448A0--;
+        g_BgPortalQueueWriteIndex--;
     }
 }
 #endif
 
 
+/**
+ * Address: 7F0B7EE4
+ */
 #if defined(VERSION_EU)
-s32 sub_GAME_7F0B7EE4(void)
+bool bgProcessNextQueuedPortal(void)
 {
     bg_queued_portal_entry *entry;
 
-    if (D_800448A4 == D_800448A0) {
+    if (g_BgPortalQueueReadIndex == g_BgPortalQueueWriteIndex) {
         return 0;
     }
 
-    entry = &dword_CODE_bss_8007C100[D_800448A4];
+    entry = &g_BgPortalQueue[g_BgPortalQueueReadIndex];
 
-    sub_GAME_7F0B7F84(entry->arg0, entry->arg1, entry->portalnum, entry->sp4);
+    sub_GAME_7F0B7F84(entry->arg0, entry->roomnum, entry->portalnum, entry->sp4);
 
-    D_800448A4++;
+    g_BgPortalQueueReadIndex++;
 
-    if (D_800448A4 == 250) {
-        D_800448A4 = 0;
+    if (g_BgPortalQueueReadIndex == BG_PORTAL_QUEUE_LEN_EU) {
+        g_BgPortalQueueReadIndex = 0;
     }
 
     return 1;
 }
 #else
-s32 sub_GAME_7F0B7EE4(s32 *arg0)
+bool bgProcessNextQueuedPortal(s32 *arg0)
 {
     bg_queued_portal_entry *entry;
     s32 value;
 
     value = *arg0;
 
-    if (D_800448A4 == D_800448A0) {
+    if (g_BgPortalQueueReadIndex == g_BgPortalQueueWriteIndex) {
         return 0;
     }
 
-    entry = &dword_CODE_bss_8007C100[D_800448A4];
+    entry = &g_BgPortalQueue[g_BgPortalQueueReadIndex];
 
-    value = sub_GAME_7F0B7F84(value, entry->arg1, entry->portalnum, entry->arg3, entry->sp10);
+    value = sub_GAME_7F0B7F84(value, entry->roomnum, entry->portalnum, entry->arg3, entry->sp10);
 
-    D_800448A4++;
+    g_BgPortalQueueReadIndex++;
 
-    if (D_800448A4 == 500) {
-        D_800448A4 = 0;
+    if (g_BgPortalQueueReadIndex == BG_PORTAL_QUEUE_LEN) {
+        g_BgPortalQueueReadIndex = 0;
     }
 
     *arg0 = value;
@@ -6861,7 +6863,7 @@ glabel sub_GAME_7F0B7F84
 /* 0ECE48 7F0B8318 27AB0070 */   addiu $t3, $sp, 0x70
 /* 0ECE4C 7F0B831C AFAB0010 */  sw    $t3, 0x10($sp)
 /* 0ECE50 7F0B8320 26670001 */  addiu $a3, $s3, 1
-/* 0ECE54 7F0B8324 0FC2DF79 */  jal   sub_GAME_7F0B7DE4
+/* 0ECE54 7F0B8324 0FC2DF79 */  jal   bgQueuePortalTraversal
 /* 0ECE58 7F0B8328 AFA30040 */   sw    $v1, 0x40($sp)
 /* 0ECE5C 7F0B832C 3C0C8008 */  lui   $t4, %hi(g_BgPortals)
 /* 0ECE60 7F0B8330 8D8CFF80 */  lw    $t4, %lo(g_BgPortals)($t4)
@@ -7104,7 +7106,7 @@ glabel sub_GAME_7F0B7F84
 /* 0E9FC4 7F0B75D4 162A0007 */  bne   $s1, $t2, .Leu7F0B75F4
 .L7F0B75D8:
 /* 0E9FC8 7F0B75D8 27A70060 */   addiu $a3, $sp, 0x60
-/* 0E9FCC 7F0B75DC 0FC2DC48 */  jal   sub_GAME_7F0B7DE4
+/* 0E9FCC 7F0B75DC 0FC2DC48 */  jal   bgQueuePortalTraversal
 /* 0E9FD0 7F0B75E0 AFA30030 */   sw    $v1, 0x30($sp)
 /* 0E9FD4 7F0B75E4 3C0B8007 */  lui   $t3, %hi(g_BgPortals) # $t3, 0x8007
 /* 0E9FD8 7F0B75E8 8D6BB3C8 */  lw    $t3, %lo(g_BgPortals)($t3)
@@ -8258,7 +8260,7 @@ glabel sub_GAME_7F0B8A6C
 /* 0ED5CC 7F0B8A9C C4481120 */  lwc1  $f8, 0x1120($v0)
 /* 0ED5D0 7F0B8AA0 E7A80058 */  swc1  $f8, 0x58($sp)
 /* 0ED5D4 7F0B8AA4 C44A1124 */  lwc1  $f10, 0x1124($v0)
-/* 0ED5D8 7F0B8AA8 0FC2CEF1 */  jal   sub_GAME_7F0B3BC4
+/* 0ED5D8 7F0B8AA8 0FC2CEF1 */  jal   bgResetPortalVisitCounts
 /* 0ED5DC 7F0B8AAC E7AA005C */   swc1  $f10, 0x5c($sp)
 /* 0ED5E0 7F0B8AB0 3C028004 */  lui   $v0, %hi(g_BgRoomInfo)
 /* 0ED5E4 7F0B8AB4 3C038004 */  lui   $v1, %hi(g_MaxNumRooms)
@@ -8293,7 +8295,7 @@ glabel sub_GAME_7F0B8A6C
 /* 0ED650 7F0B8B20 3C018008 */  lui   $at, %hi(dword_CODE_bss_8007FF98)
 /* 0ED654 7F0B8B24 AC20FF98 */  sw    $zero, %lo(dword_CODE_bss_8007FF98)($at)
 /* 0ED658 7F0B8B28 3C018004 */  lui   $at, %hi(D_80044898)
-/* 0ED65C 7F0B8B2C 0FC2DF65 */  jal   sub_GAME_7F0B7D94
+/* 0ED65C 7F0B8B2C 0FC2DF65 */  jal   bgResetPortalQueue
 /* 0ED660 7F0B8B30 AC204898 */   sw    $zero, %lo(D_80044898)($at)
 /* 0ED664 7F0B8B34 0FC2D45A */  jal   sub_GAME_7F0B5168
 /* 0ED668 7F0B8B38 00000000 */   nop
@@ -8385,7 +8387,7 @@ glabel sub_GAME_7F0B8A6C
 .L7F0B8C70:
 /* 0ED7A0 7F0B8C70 27B80050 */   addiu $t8, $sp, 0x50
 /* 0ED7A4 7F0B8C74 AFB80010 */  sw    $t8, 0x10($sp)
-/* 0ED7A8 7F0B8C78 0FC2DF79 */  jal   sub_GAME_7F0B7DE4
+/* 0ED7A8 7F0B8C78 0FC2DF79 */  jal   bgQueuePortalTraversal
 /* 0ED7AC 7F0B8C7C AFA30034 */   sw    $v1, 0x34($sp)
 /* 0ED7B0 7F0B8C80 3C198008 */  lui   $t9, %hi(g_BgPortals)
 /* 0ED7B4 7F0B8C84 8F39FF80 */  lw    $t9, %lo(g_BgPortals)($t9)
@@ -8400,12 +8402,12 @@ glabel sub_GAME_7F0B8A6C
 .L7F0B8CA4:
 /* 0ED7D4 7F0B8CA4 27B00044 */  addiu $s0, $sp, 0x44
 /* 0ED7D8 7F0B8CA8 AFA00044 */  sw    $zero, 0x44($sp)
-/* 0ED7DC 7F0B8CAC 0FC2DFB9 */  jal   sub_GAME_7F0B7EE4
+/* 0ED7DC 7F0B8CAC 0FC2DFB9 */  jal   bgProcessNextQueuedPortal
 /* 0ED7E0 7F0B8CB0 02002025 */   move  $a0, $s0
 /* 0ED7E4 7F0B8CB4 10400005 */  beqz  $v0, .L7F0B8CCC
 /* 0ED7E8 7F0B8CB8 00000000 */   nop
 .L7F0B8CBC:
-/* 0ED7EC 7F0B8CBC 0FC2DFB9 */  jal   sub_GAME_7F0B7EE4
+/* 0ED7EC 7F0B8CBC 0FC2DFB9 */  jal   bgProcessNextQueuedPortal
 /* 0ED7F0 7F0B8CC0 02002025 */   move  $a0, $s0
 /* 0ED7F4 7F0B8CC4 1440FFFD */  bnez  $v0, .L7F0B8CBC
 /* 0ED7F8 7F0B8CC8 00000000 */   nop
@@ -8481,7 +8483,7 @@ glabel sub_GAME_7F0B8A6C
 /* 0EA73C 7F0B7D4C C4481118 */  lwc1  $f8, 0x1118($v0)
 /* 0EA740 7F0B7D50 E7A80048 */  swc1  $f8, 0x48($sp)
 /* 0EA744 7F0B7D54 C44A111C */  lwc1  $f10, 0x111c($v0)
-/* 0EA748 7F0B7D58 0FC2CBB3 */  jal   sub_GAME_7F0B3BC4
+/* 0EA748 7F0B7D58 0FC2CBB3 */  jal   bgResetPortalVisitCounts
 /* 0EA74C 7F0B7D5C E7AA004C */   swc1  $f10, 0x4c($sp)
 /* 0EA750 7F0B7D60 3C028004 */  lui   $v0, %hi(g_BgRoomInfo) # $v0, 0x8004
 /* 0EA754 7F0B7D64 3C038004 */  lui   $v1, %hi(g_MaxNumRooms) # $v1, 0x8004
@@ -8516,7 +8518,7 @@ glabel sub_GAME_7F0B8A6C
 /* 0EA7C0 7F0B7DD0 3C018007 */  lui   $at, %hi(dword_CODE_bss_8007FFA0 + 0xb40) # $at, 0x8007
 /* 0EA7C4 7F0B7DD4 AC20BF20 */  sw    $zero, %lo(dword_CODE_bss_8007FFA0 + 0xb40)($at)
 /* 0EA7C8 7F0B7DD8 3C018004 */  lui   $at, %hi(D_80044898) # $at, 0x8004
-/* 0EA7CC 7F0B7DDC 0FC2DC34 */  jal   sub_GAME_7F0B7D94
+/* 0EA7CC 7F0B7DDC 0FC2DC34 */  jal   bgResetPortalQueue
 /* 0EA7D0 7F0B7DE0 AC20DD80 */   sw    $zero, %lo(D_80044898)($at)
 /* 0EA7D4 7F0B7DE4 0FC2D129 */  jal   sub_GAME_7F0B5168
 /* 0EA7D8 7F0B7DE8 00000000 */   nop
@@ -8605,7 +8607,7 @@ glabel sub_GAME_7F0B8A6C
 /* 0EA904 7F0B7F14 548F0008 */  bnel  $a0, $t7, .L7F0B7F38
 /* 0EA908 7F0B7F18 8C590008 */   lw    $t9, 8($v0)
 .L7F0B7F1C:
-/* 0EA90C 7F0B7F1C 0FC2DC48 */  jal   sub_GAME_7F0B7DE4
+/* 0EA90C 7F0B7F1C 0FC2DC48 */  jal   bgQueuePortalTraversal
 /* 0EA910 7F0B7F20 AFA30028 */   sw    $v1, 0x28($sp)
 /* 0EA914 7F0B7F24 3C188007 */  lui   $t8, %hi(g_BgPortals) # $t8, 0x8007
 /* 0EA918 7F0B7F28 8F18B3C8 */  lw    $t8, %lo(g_BgPortals)($t8)
@@ -8618,12 +8620,12 @@ glabel sub_GAME_7F0B8A6C
 /* 0EA930 7F0B7F40 1720FFEC */  bnez  $t9, .L7F0B7EF4
 /* 0EA934 7F0B7F44 24420008 */   addiu $v0, $v0, 8
 .L7F0B7F48:
-/* 0EA938 7F0B7F48 0FC2DC88 */  jal   sub_GAME_7F0B7EE4
+/* 0EA938 7F0B7F48 0FC2DC88 */  jal   bgProcessNextQueuedPortal
 /* 0EA93C 7F0B7F4C 00000000 */   nop
 /* 0EA940 7F0B7F50 10400005 */  beqz  $v0, .L7F0B7F68
 /* 0EA944 7F0B7F54 00000000 */   nop
 .L7F0B7F58:
-/* 0EA948 7F0B7F58 0FC2DC88 */  jal   sub_GAME_7F0B7EE4
+/* 0EA948 7F0B7F58 0FC2DC88 */  jal   bgProcessNextQueuedPortal
 /* 0EA94C 7F0B7F5C 00000000 */   nop
 /* 0EA950 7F0B7F60 1440FFFD */  bnez  $v0, .L7F0B7F58
 /* 0EA954 7F0B7F64 00000000 */   nop

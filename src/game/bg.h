@@ -55,9 +55,11 @@ typedef struct s_room_info {
      */
     u8 model_bin_loaded;                    // 0x02
 
-    // number of portals in between the player's room and this room.
-    // is 0 if the room is not visible or if the player is standing in this room.
-    u8 portals_to_room_count;               // 0x03
+    /**
+     * Counts how often this room has been reached during the current portal
+     * visibility traversal.
+     */
+    u8 portal_visit_count;                  // 0x03
 
     Vtx *vertices;                          // 0x04
     void *ptr_expanded_mapping_info;        // 0x08
@@ -151,16 +153,16 @@ typedef struct unk_portalstruct
 typedef struct bg_queued_portal_entry {
 
     #if defined(VERSION_EU)
-    u8 arg0;        // 0x00
-    u8 arg1;        // 0x01
-    s16 portalnum;  // 0x02
-    f32 sp4[4];     // 0x04
+    u8 arg0;           // 0x00
+    u8 roomnum;        // 0x01
+    s16 portalnum;     // 0x02
+    f32 sp4[4];        // 0x04
     #else
-    s32 arg0;       // 0x00
-    s32 arg1;       // 0x04
-    s32 portalnum;  // 0x08
-    s32 arg3;       // 0x0c
-    f32 sp10[4];    // 0x10
+    s32 arg0;          // 0x00
+    s32 roomnum;       // 0x04
+    s32 portalnum;     // 0x08
+    s32 arg3;          // 0x0c
+    f32 sp10[4];       // 0x10
     #endif
 } bg_queued_portal_entry;
 
