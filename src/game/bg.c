@@ -3926,174 +3926,31 @@ u32 bgDecompress(u8* source, u8 *target)
 }
 
 
-
-
-
-#ifdef NONMATCHING
-void* sub_GAME_7F0B5FAC(int roomID, int* data, int size)
+s32 sub_GAME_7F0B5FAC(s32 roomnum, u8 *dst, s32 len)
 {
-    void *source;
-    void* dest;
-
-    s32 len;
-
-
-
-    len = g_BgRoomInfo[roomID].csize_point_index_binary + 0xfU & 0xfffffff0;
-    if (size < len + 0x20) {
-        dest = -1;
+    s_room_info *room;
+    s32 alignedsize;
+    s32 offset;
+    s32 result;
+    
+    room = &g_BgRoomInfo[roomnum];
+    alignedsize = (room->csize_point_index_binary + 0xf) & ~0xf;
+    if (len < alignedsize + 0x20) {
+        return -1;
     }
-    else {
-        source = (size - len) + data;
-        obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, source,
-            (ptr_bg_data+ &ptr_bgdata_room_fileposition_list[roomID] - ptr_bg_data) + 0xF1000000, len);
-        dest = bgDecompress(source,data);
-        g_BgRoomInfo[roomID].usize_point_index_binary = dest;
-        g_BgRoomInfo[roomID].ptr_point_index = data;
-    }
-    return dest;
+
+    /**
+     * Doing "+ ptr_bg_data - ptr_bg_data" seems strange, but is required for matching.
+    */
+    offset = (((u8 *)ptr_bgdata_room_fileposition_list[roomnum].pPointTableBin + ptr_bg_data) - ptr_bg_data) + 0xf1000000;
+    obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, dst + (len - alignedsize), offset, alignedsize);
+    result = bgDecompress(dst + (len - alignedsize), dst);
+    
+    room->ptr_point_index = (Vtx *)dst;
+    room->usize_point_index_binary = result;
+    
+    return result;
 }
-#else
-
-#if defined(LEFTOVERDEBUG)
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B5FAC
-/* 0EAADC 7F0B5FAC 00047880 */  sll   $t7, $a0, 2
-/* 0EAAE0 7F0B5FB0 01E47821 */  addu  $t7, $t7, $a0
-/* 0EAAE4 7F0B5FB4 3C188004 */  lui   $t8, %hi(g_BgRoomInfo)
-/* 0EAAE8 7F0B5FB8 27181414 */  addiu $t8, %lo(g_BgRoomInfo) # addiu $t8, $t8, 0x1414
-/* 0EAAEC 7F0B5FBC 000F7900 */  sll   $t7, $t7, 4
-/* 0EAAF0 7F0B5FC0 01F81821 */  addu  $v1, $t7, $t8
-/* 0EAAF4 7F0B5FC4 8C670010 */  lw    $a3, 0x10($v1)
-/* 0EAAF8 7F0B5FC8 2401FFF0 */  li    $at, -16
-/* 0EAAFC 7F0B5FCC 27BDFFD0 */  addiu $sp, $sp, -0x30
-/* 0EAB00 7F0B5FD0 24E7000F */  addiu $a3, $a3, 0xf
-/* 0EAB04 7F0B5FD4 00E1C824 */  and   $t9, $a3, $at
-/* 0EAB08 7F0B5FD8 272A0020 */  addiu $t2, $t9, 0x20
-/* 0EAB0C 7F0B5FDC 00CA082A */  slt   $at, $a2, $t2
-/* 0EAB10 7F0B5FE0 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0EAB14 7F0B5FE4 AFA40030 */  sw    $a0, 0x30($sp)
-/* 0EAB18 7F0B5FE8 AFA50034 */  sw    $a1, 0x34($sp)
-/* 0EAB1C 7F0B5FEC AFA60038 */  sw    $a2, 0x38($sp)
-/* 0EAB20 7F0B5FF0 10200003 */  beqz  $at, .L7F0B6000
-/* 0EAB24 7F0B5FF4 03203825 */   move  $a3, $t9
-/* 0EAB28 7F0B5FF8 10000024 */  b     .L7F0B608C
-/* 0EAB2C 7F0B5FFC 2402FFFF */   li    $v0, -1
-.L7F0B6000:
-/* 0EAB30 7F0B6000 8FAC0030 */  lw    $t4, 0x30($sp)
-/* 0EAB34 7F0B6004 24080018 */  li    $t0, 24
-/* 0EAB38 7F0B6008 3C198004 */  lui   $t9, %hi(levelentry_index)
-/* 0EAB3C 7F0B600C 01880019 */  multu $t4, $t0
-/* 0EAB40 7F0B6010 8F391400 */  lw    $t9, %lo(levelentry_index)($t9)
-/* 0EAB44 7F0B6014 3C0B8008 */  lui   $t3, %hi(ptr_bgdata_room_fileposition_list)
-/* 0EAB48 7F0B6018 8D6BFF8C */  lw    $t3, %lo(ptr_bgdata_room_fileposition_list)($t3)
-/* 0EAB4C 7F0B601C 3C028008 */  lui   $v0, %hi(ptr_bg_data)
-/* 0EAB50 7F0B6020 8C42BF90 */  lw    $v0, %lo(ptr_bg_data)($v0)
-/* 0EAB54 7F0B6024 8FAA0038 */  lw    $t2, 0x38($sp)
-/* 0EAB58 7F0B6028 3C048004 */  lui   $a0, %hi(levelinfotable)
-/* 0EAB5C 7F0B602C 3C01F100 */  lui   $at, 0xf100
-/* 0EAB60 7F0B6030 01476023 */  subu  $t4, $t2, $a3
-/* 0EAB64 7F0B6034 00006812 */  mflo  $t5
-/* 0EAB68 7F0B6038 016D7021 */  addu  $t6, $t3, $t5
-/* 0EAB6C 7F0B603C 8DCF0000 */  lw    $t7, ($t6)
-/* 0EAB70 7F0B6040 03280019 */  multu $t9, $t0
-/* 0EAB74 7F0B6044 8FAB0034 */  lw    $t3, 0x34($sp)
-/* 0EAB78 7F0B6048 01E2C021 */  addu  $t8, $t7, $v0
-/* 0EAB7C 7F0B604C 03023023 */  subu  $a2, $t8, $v0
-/* 0EAB80 7F0B6050 018B2821 */  addu  $a1, $t4, $t3
-/* 0EAB84 7F0B6054 00C13021 */  addu  $a2, $a2, $at
-/* 0EAB88 7F0B6058 AFA50018 */  sw    $a1, 0x18($sp)
-/* 0EAB8C 7F0B605C AFA3001C */  sw    $v1, 0x1c($sp)
-/* 0EAB90 7F0B6060 00004812 */  mflo  $t1
-/* 0EAB94 7F0B6064 00892021 */  addu  $a0, $a0, $t1
-/* 0EAB98 7F0B6068 0FC2F35F */  jal   obLoadBGFileBytesAtOffset
-/* 0EAB9C 7F0B606C 8C844490 */   lw    $a0, %lo(levelinfotable+4)($a0)
-/* 0EABA0 7F0B6070 8FA40018 */  lw    $a0, 0x18($sp)
-/* 0EABA4 7F0B6074 0FC2D7E3 */  jal   bgDecompress
-/* 0EABA8 7F0B6078 8FA50034 */   lw    $a1, 0x34($sp)
-/* 0EABAC 7F0B607C 8FA3001C */  lw    $v1, 0x1c($sp)
-/* 0EABB0 7F0B6080 8FAD0034 */  lw    $t5, 0x34($sp)
-/* 0EABB4 7F0B6084 AC62001C */  sw    $v0, 0x1c($v1)
-/* 0EABB8 7F0B6088 AC6D0004 */  sw    $t5, 4($v1)
-.L7F0B608C:
-/* 0EABBC 7F0B608C 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 0EABC0 7F0B6090 27BD0030 */  addiu $sp, $sp, 0x30
-/* 0EABC4 7F0B6094 03E00008 */  jr    $ra
-/* 0EABC8 7F0B6098 00000000 */   nop
-)
-#endif
-
-#if !defined(LEFTOVERDEBUG)
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B5FAC
-/* 0EAADC 7F0B5FAC 00047880 */  sll   $t7, $a0, 2
-/* 0EAAE0 7F0B5FB0 01E47821 */  addu  $t7, $t7, $a0
-/* 0EAAE4 7F0B5FB4 3C188004 */  lui   $t8, %hi(g_BgRoomInfo)
-/* 0EAAE8 7F0B5FB8 27181414 */  addiu $t8, %lo(g_BgRoomInfo) # addiu $t8, $t8, 0x1414
-/* 0EAAEC 7F0B5FBC 000F7900 */  sll   $t7, $t7, 4
-/* 0EAAF0 7F0B5FC0 01F81821 */  addu  $v1, $t7, $t8
-/* 0EAAF4 7F0B5FC4 8C670010 */  lw    $a3, 0x10($v1)
-/* 0EAAF8 7F0B5FC8 2401FFF0 */  li    $at, -16
-/* 0EAAFC 7F0B5FCC 27BDFFD0 */  addiu $sp, $sp, -0x30
-/* 0EAB00 7F0B5FD0 24E7000F */  addiu $a3, $a3, 0xf
-/* 0EAB04 7F0B5FD4 00E1C824 */  and   $t9, $a3, $at
-/* 0EAB08 7F0B5FD8 272A0020 */  addiu $t2, $t9, 0x20
-/* 0EAB0C 7F0B5FDC 00CA082A */  slt   $at, $a2, $t2
-/* 0EAB10 7F0B5FE0 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0EAB14 7F0B5FE4 AFA40030 */  sw    $a0, 0x30($sp)
-/* 0EAB18 7F0B5FE8 AFA50034 */  sw    $a1, 0x34($sp)
-/* 0EAB1C 7F0B5FEC AFA60038 */  sw    $a2, 0x38($sp)
-/* 0EAB20 7F0B5FF0 10200003 */  beqz  $at, .L7F0B6000
-/* 0EAB24 7F0B5FF4 03203825 */   move  $a3, $t9
-/* 0EAB28 7F0B5FF8 10000024 */  b     .L7F0B608C
-/* 0EAB2C 7F0B5FFC 2402FFFF */   li    $v0, -1
-.L7F0B6000:
-/* 0EAB30 7F0B6000 8FAC0030 */  lw    $t4, 0x30($sp)
-/* 0EAB34 7F0B6004 24080018 */  li    $t0, 24
-/* 0EAB38 7F0B6008 3C198004 */  lui   $t9, %hi(levelentry_index)
-/* 0EAB3C 7F0B600C 01880019 */  multu $t4, $t0
-/* 0EAB40 7F0B6010 8F391400 */  lw    $t9, %lo(levelentry_index)($t9)
-/* 0EAB44 7F0B6014 3C0B8008 */  lui   $t3, %hi(ptr_bgdata_room_fileposition_list)
-/* 0EAB48 7F0B6018 8D6BFF8C */  lw    $t3, %lo(ptr_bgdata_room_fileposition_list)($t3)
-/* 0EAB4C 7F0B601C 3C028008 */  lui   $v0, %hi(ptr_bg_data)
-/* 0EAB50 7F0B6020 8C42BF90 */  lw    $v0, %lo(ptr_bg_data)($v0)
-/* 0EAB54 7F0B6024 8FAA0038 */  lw    $t2, 0x38($sp)
-/* 0EAB58 7F0B6028 3C048004 */  lui   $a0, %hi(levelinfotable)
-/* 0EAB5C 7F0B602C 3C01F100 */  lui   $at, 0xf100
-/* 0EAB60 7F0B6030 01476023 */  subu  $t4, $t2, $a3
-/* 0EAB64 7F0B6034 00006812 */  mflo  $t5
-/* 0EAB68 7F0B6038 016D7021 */  addu  $t6, $t3, $t5
-/* 0EAB6C 7F0B603C 8DCF0000 */  lw    $t7, ($t6)
-/* 0EAB70 7F0B6040 03280019 */  multu $t9, $t0
-/* 0EAB74 7F0B6044 8FAB0034 */  lw    $t3, 0x34($sp)
-/* 0EAB78 7F0B6048 01E2C021 */  addu  $t8, $t7, $v0
-/* 0EAB7C 7F0B604C 03023023 */  subu  $a2, $t8, $v0
-/* 0EAB80 7F0B6050 018B2821 */  addu  $a1, $t4, $t3
-/* 0EAB84 7F0B6054 00C13021 */  addu  $a2, $a2, $at
-/* 0EAB88 7F0B6058 AFA50018 */  sw    $a1, 0x18($sp)
-/* 0EAB8C 7F0B605C AFA3001C */  sw    $v1, 0x1c($sp)
-/* 0EAB90 7F0B6060 00004812 */  mflo  $t1
-/* 0EAB94 7F0B6064 00892021 */  addu  $a0, $a0, $t1
-/* 0EAB98 7F0B6068 0FC2F35F */  jal   obLoadBGFileBytesAtOffset
-/* 0EAB9C 7F0B606C 8C844490 */   lw    $a0, %lo(levelinfotable+4)($a0)
-/* 0EABA0 7F0B6070 8FA40018 */  lw    $a0, 0x18($sp)
-/* 0EABA4 7F0B6074 0FC2D7E3 */  jal   bgDecompress
-/* 0EABA8 7F0B6078 8FA50034 */   lw    $a1, 0x34($sp)
-/* 0EABAC 7F0B607C 8FA3001C */  lw    $v1, 0x1c($sp)
-/* 0EABB0 7F0B6080 8FAD0034 */  lw    $t5, 0x34($sp)
-/* 0EABB4 7F0B6084 AC62001C */  sw    $v0, 0x1c($v1)
-/* 0EABB8 7F0B6088 AC6D0004 */  sw    $t5, 4($v1)
-.L7F0B608C:
-/* 0EABBC 7F0B608C 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 0EABC0 7F0B6090 27BD0030 */  addiu $sp, $sp, 0x30
-/* 0EABC4 7F0B6094 03E00008 */  jr    $ra
-/* 0EABC8 7F0B6098 00000000 */   nop
-)
-#endif
-
-#endif
 
 
 /**
