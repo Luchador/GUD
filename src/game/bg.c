@@ -3926,7 +3926,13 @@ u32 bgDecompress(u8* source, u8 *target)
 }
 
 
-s32 sub_GAME_7F0B5FAC(s32 roomnum, u8 *dst, s32 len)
+/**
+ * Address: 7F0B5FAC
+ * 
+ * Load room's compressed vertex table from the bg file, decompress it
+ * into dst, and store the resulting Vtx buffer in room.
+ */
+s32 bgLoadRoomVtxData(s32 roomnum, u8 *dst, s32 len)
 {
     s_room_info *room;
     s32 alignedsize;
@@ -3940,13 +3946,15 @@ s32 sub_GAME_7F0B5FAC(s32 roomnum, u8 *dst, s32 len)
     }
 
     /**
-     * Doing "+ ptr_bg_data - ptr_bg_data" seems strange, but is required for matching.
+    * pPointTableBin is stored as a segment-0x0f bgdata address.
+    * The seemingly unncessary " + ptr_bg_data - ptr_bg_data" likely comes from paired bgdata pointer/offset macros.
+    * Adding 0xf1000000 strips the 0x0f000000 segment tag, yielding a file offset.
     */
     offset = (((u8 *)ptr_bgdata_room_fileposition_list[roomnum].pPointTableBin + ptr_bg_data) - ptr_bg_data) + 0xf1000000;
     obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, dst + (len - alignedsize), offset, alignedsize);
     result = bgDecompress(dst + (len - alignedsize), dst);
     
-    room->ptr_point_index = (Vtx *)dst;
+    room->vertices = (Vtx *)dst;
     room->usize_point_index_binary = result;
     
     return result;
@@ -4163,7 +4171,7 @@ void sub_GAME_7F0B6368(s32 room) {
                 {
                     // Node 8
                     sp1C = temp_v1_2;
-                    temp_ret_2 = sub_GAME_7F0B5FAC(room, temp_ret, sp2C, sp28);
+                    temp_ret_2 = bgLoadRoomVtxData(room, temp_ret, sp2C, sp28);
                     if (temp_ret_2 >= 0)
                     {
                         // Node 9
@@ -4325,7 +4333,7 @@ glabel sub_GAME_7F0B6368
 /* 0EAF58 7F0B6428 1180000E */  beqz  $t4, .L7F0B6464
 /* 0EAF5C 7F0B642C 8FA6002C */   lw    $a2, 0x2c($sp)
 /* 0EAF60 7F0B6430 AFA3001C */  sw    $v1, 0x1c($sp)
-/* 0EAF64 7F0B6434 0FC2D7EB */  jal   sub_GAME_7F0B5FAC
+/* 0EAF64 7F0B6434 0FC2D7EB */  jal   bgLoadRoomVtxData
 /* 0EAF68 7F0B6438 AFA70028 */   sw    $a3, 0x28($sp)
 /* 0EAF6C 7F0B643C 8FA3001C */  lw    $v1, 0x1c($sp)
 /* 0EAF70 7F0B6440 0440000A */  bltz  $v0, .L7F0B646C
@@ -4495,7 +4503,7 @@ glabel sub_GAME_7F0B6368
 /* 0E8154 7F0B5764 1180000E */  beqz  $t4, .L7F0B57A0
 /* 0E8158 7F0B5768 8FA6002C */   lw    $a2, 0x2c($sp)
 /* 0E815C 7F0B576C AFA3001C */  sw    $v1, 0x1c($sp)
-/* 0E8160 7F0B5770 0FC2D4BA */  jal   sub_GAME_7F0B5FAC
+/* 0E8160 7F0B5770 0FC2D4BA */  jal   bgLoadRoomVtxData
 /* 0E8164 7F0B5774 AFA70028 */   sw    $a3, 0x28($sp)
 /* 0E8168 7F0B5778 8FA3001C */  lw    $v1, 0x1c($sp)
 /* 0E816C 7F0B577C 0440000A */  bltz  $v0, .L7F0B57A8
@@ -4631,18 +4639,18 @@ void delete_room_data(s32 roomID)
 
     if (room->cur_room_totalsize > 0) {
         size = room->cur_room_totalsize;
-        pointindex = room->ptr_point_index;
+        pointindex = room->vertices;
     
         if (pointindex != NULL)
         {
             size2 = room->cur_room_totalsize;
             memaFree(pointindex, size2);
-            room->ptr_point_index = NULL;
+            room->vertices = NULL;
         }
         else
         {
             memaFree(room->ptr_expanded_mapping_info, size);
-            room->ptr_point_index = NULL;
+            room->vertices = NULL;
         }
     
         room->ptr_expanded_mapping_info = NULL;
@@ -4732,7 +4740,7 @@ Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
         {
             gdl = applyRoomMatrixToDisplayList(gdl, room_index);
 
-            gSPSegment(gdl++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].ptr_point_index));
+            gSPSegment(gdl++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].vertices));
             gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].ptr_expanded_mapping_info));
 
             // Set the room's state to "loaded"
@@ -4767,7 +4775,7 @@ Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
         {
             gdl = applyRoomMatrixToDisplayList(gdl, room_index);
 
-            gSPSegment(gdl++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].ptr_point_index));
+            gSPSegment(gdl++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].vertices));
             gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].ptr_secondary_expanded_mapping_info));
 
             // Set the room's state to "loaded"
@@ -4809,7 +4817,7 @@ void sub_GAME_7F0B6994(s32 roomID)
 
     gdl = g_BgRoomInfo[roomID].ptr_expanded_mapping_info;
     
-    vertices = g_BgRoomInfo[roomID].ptr_point_index;
+    vertices = g_BgRoomInfo[roomID].vertices;
     cmdindex = 0;
     numpoints = 0;
 

@@ -59,7 +59,7 @@ typedef struct s_room_info {
     // is 0 if the room is not visible or if the player is standing in this room.
     u8 portals_to_room_count;               // 0x03
 
-    Vtx *ptr_point_index;                   // 0x04
+    Vtx *vertices;                          // 0x04
     void *ptr_expanded_mapping_info;        // 0x08
     void *ptr_secondary_expanded_mapping_info; // 0x0c
 
