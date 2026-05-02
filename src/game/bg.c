@@ -21,7 +21,7 @@
 #define BG_STACK_SIZE 20
 
 #ifdef VERSION_EU
-#define BG_PORTAL_QUEUE_LEN_EU 250
+#define BG_PORTAL_QUEUE_LEN 250
 #else
 #define BG_PORTAL_QUEUE_LEN 500
 #endif
@@ -82,11 +82,7 @@ s32 bss_pad_8007C0FC; /* not required, but making alignment explicit */
  * address 8007C100
  * EU .bss 8007A040
 */
-#ifdef VERSION_EU
-bg_queued_portal_entry g_BgPortalQueue[BG_PORTAL_QUEUE_LEN_EU];
-#else
 bg_queued_portal_entry g_BgPortalQueue[BG_PORTAL_QUEUE_LEN];
-#endif
 
 /**
  * address 8007FF80
@@ -6497,7 +6493,7 @@ void bgQueuePortalTraversal(s32 arg0, s32 arg1, s32 portalnum, f32 *arg4)
     entry->sp4[2] = arg4[2];
     entry->sp4[3] = arg4[3];
     g_BgPortalQueueWriteIndex++;
-    if (g_BgPortalQueueWriteIndex == BG_PORTAL_QUEUE_LEN_EU)
+    if (g_BgPortalQueueWriteIndex == BG_PORTAL_QUEUE_LEN)
     {
         g_BgPortalQueueWriteIndex = 0;
     }
@@ -6560,7 +6556,7 @@ bool bgProcessNextQueuedPortal(void)
 
     g_BgPortalQueueReadIndex++;
 
-    if (g_BgPortalQueueReadIndex == BG_PORTAL_QUEUE_LEN_EU) {
+    if (g_BgPortalQueueReadIndex == BG_PORTAL_QUEUE_LEN) {
         g_BgPortalQueueReadIndex = 0;
     }
 
