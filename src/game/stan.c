@@ -2080,6 +2080,8 @@ f32 getShortest2dDispToInfTripleEdgeUnscaled(StandTile *tile,s32 start3index,f32
 }
 
 
+
+
 f32 distToTilePnt2D(StandTile *tile,int pntI,f32 p_x,f32 p_z)
 {
   f32 len;
@@ -2090,19 +2092,61 @@ f32 distToTilePnt2D(StandTile *tile,int pntI,f32 p_x,f32 p_z)
 }
 
 
-/**
- * Unreferenced.
- */
-f32 sub_GAME_7F0B00C4(StandTile *tile, s32 pntI, f32 p_x, f32 p_z)
+
+
+#ifdef NONMATCHING
+f32 sub_GAME_7F0B00C4(StandTile *tile,s32 index,f32 p_x,f32 p_z)
 {
-    p_x *= level_scale;
-    p_z *= level_scale;
+  f32 v_x;
+  f32 v_z;
+  f32 dist;
 
-    p_x -= tile->points[pntI].x;
-    p_z -= tile->points[pntI].z;
+  v_x = p_x * level_scale - (f32)tile->points[index].x;
+  v_z = p_z * level_scale - (f32)tile->points[index].z;
+  dist = sqrtf(v_x * v_x + v_z * v_z);
 
-    return sqrtf((p_x * p_x) + (p_z * p_z)) * inv_level_scale;
+  return dist * inv_level_scale;
 }
+#else
+GLOBAL_ASM(
+.text
+glabel sub_GAME_7F0B00C4
+/* 0E4BF4 7F0B00C4 27BDFFE0 */  addiu $sp, $sp, -0x20
+/* 0E4BF8 7F0B00C8 000570C0 */  sll   $t6, $a1, 3
+/* 0E4BFC 7F0B00CC AFBF001C */  sw    $ra, 0x1c($sp)
+/* 0E4C00 7F0B00D0 F7B40010 */  sdc1  $f20, 0x10($sp)
+/* 0E4C04 7F0B00D4 008E1021 */  addu  $v0, $a0, $t6
+/* 0E4C08 7F0B00D8 844F0008 */  lh    $t7, 8($v0)
+/* 0E4C0C 7F0B00DC 3C018004 */  lui   $at, %hi(level_scale)
+/* 0E4C10 7F0B00E0 44867000 */  mtc1  $a2, $f14
+/* 0E4C14 7F0B00E4 C4200F44 */  lwc1  $f0, %lo(level_scale)($at)
+/* 0E4C18 7F0B00E8 8458000C */  lh    $t8, 0xc($v0)
+/* 0E4C1C 7F0B00EC 448F2000 */  mtc1  $t7, $f4
+/* 0E4C20 7F0B00F0 46007382 */  mul.s $f14, $f14, $f0
+/* 0E4C24 7F0B00F4 4487A000 */  mtc1  $a3, $f20
+/* 0E4C28 7F0B00F8 44984000 */  mtc1  $t8, $f8
+/* 0E4C2C 7F0B00FC 4600A502 */  mul.s $f20, $f20, $f0
+/* 0E4C30 7F0B0100 468021A0 */  cvt.s.w $f6, $f4
+/* 0E4C34 7F0B0104 468042A0 */  cvt.s.w $f10, $f8
+/* 0E4C38 7F0B0108 46067381 */  sub.s $f14, $f14, $f6
+/* 0E4C3C 7F0B010C 460AA501 */  sub.s $f20, $f20, $f10
+/* 0E4C40 7F0B0110 460E7402 */  mul.s $f16, $f14, $f14
+/* 0E4C44 7F0B0114 00000000 */  nop
+/* 0E4C48 7F0B0118 4614A482 */  mul.s $f18, $f20, $f20
+/* 0E4C4C 7F0B011C 0C007DF8 */  jal   sqrtf
+/* 0E4C50 7F0B0120 46128300 */   add.s $f12, $f16, $f18
+/* 0E4C54 7F0B0124 3C018004 */  lui   $at, %hi(inv_level_scale)
+/* 0E4C58 7F0B0128 C4240F48 */  lwc1  $f4, %lo(inv_level_scale)($at)
+/* 0E4C5C 7F0B012C 8FBF001C */  lw    $ra, 0x1c($sp)
+/* 0E4C60 7F0B0130 D7B40010 */  ldc1  $f20, 0x10($sp)
+/* 0E4C64 7F0B0134 46040002 */  mul.s $f0, $f0, $f4
+/* 0E4C68 7F0B0138 03E00008 */  jr    $ra
+/* 0E4C6C 7F0B013C 27BD0020 */   addiu $sp, $sp, 0x20
+)
+#endif
+
+
+
 
 
 #ifdef NONMATCHING
@@ -2495,49 +2539,41 @@ s32 sub_GAME_7F0B0688(f32 arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, f32 arg5
 }
 
 
-
-
 #if defined(LEFTOVERDEBUG)
-#ifdef NONMATCHING
-/* 99.44% match, only the stack is slightly wrong */
-s32 sub_GAME_7F0B07BC(f32 arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, f32 arg5, f32 arg6, f32 arg7, s32 arg8) {
-    f32 c_z2;
-    f32 a_x2;
-    f32 b_x2;
-    f32 a_z2;
-    s32 val2;
-    f32 c_x;
-    s32 val1;
-    f32 b_x;
-    s32 rc;
-    f32 c_x2;
-    f32 a_z;
-    f32 b_z;
-    f32 b_z2;
+s32 sub_GAME_7F0B07BC(f32 arg0, f32 arg1, f32 arg2, f32 arg3,
+                      f32 arg4, f32 arg5, f32 arg6, f32 arg7, s32 arg8) {
     f32 a_x;
+    f32 a_z;
+    f32 b_x;
+    f32 b_z;
+    f32 c_x;
     f32 c_z;
 
+    s32 val1;
+    s32 unused4;
+    s32 rc;
+    s32 unused5;
+    s32 unused6;
+    s32 val2;
+    s32 unused7;
+    s32 unused8;
+    s32 tmp;
 
     rc = 1;
-    b_x = -(arg0 - arg4);
-    c_z = arg7 - arg1;
-    c_x = arg6 - arg0;
+
+    b_x = arg0 - arg4;
+    b_z = arg1 - arg5;
     a_x = arg2 - arg0;
     a_z = arg3 - arg1;
-    b_z = -(arg1 - arg5);
 
+    tmp = getRotationalDirectionBetween(a_x, a_z, -b_x, -b_z);
+    val1 = tmp * getRotationalDirectionBetween(a_x, a_z, arg6 - arg0, arg7 - arg1);
 
-    val1 = getRotationalDirectionBetween(a_x, a_z, b_x, b_z) * getRotationalDirectionBetween(a_x, a_z, c_x, c_z);
+    c_x = arg6 - arg4;
+    c_z = arg7 - arg5;
 
-    b_z2 = arg1 - arg5;
-    c_x2 = arg2 - arg4;
-    b_x2 = arg0 - arg4;
-    c_z2 = arg3 - arg5;
-    a_x2 = arg6 - arg4;
-    a_z2 = arg7 - arg5;
-
-
-    val2 = getRotationalDirectionBetween(a_x2, a_z2, b_x2, b_z2) * getRotationalDirectionBetween(a_x2, a_z2, c_x2, c_z2);
+    tmp = getRotationalDirectionBetween(c_x, c_z, b_x, b_z);
+    val2 = tmp * getRotationalDirectionBetween(c_x, c_z, arg2 - arg4, arg3 - arg5);
 
     if (val1 >= arg8) {
         rc = 0;
@@ -2549,105 +2585,7 @@ s32 sub_GAME_7F0B07BC(f32 arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, f32 arg5
 
     return rc;
 }
-
 #else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B07BC
-/* 0E52EC 7F0B07BC 27BDFF98 */  addiu $sp, $sp, -0x68
-/* 0E52F0 7F0B07C0 E7AC0068 */  swc1  $f12, 0x68($sp)
-/* 0E52F4 7F0B07C4 AFA60070 */  sw    $a2, 0x70($sp)
-/* 0E52F8 7F0B07C8 C7A40070 */  lwc1  $f4, 0x70($sp)
-/* 0E52FC 7F0B07CC C7A60068 */  lwc1  $f6, 0x68($sp)
-/* 0E5300 7F0B07D0 E7AE006C */  swc1  $f14, 0x6c($sp)
-/* 0E5304 7F0B07D4 C7AA006C */  lwc1  $f10, 0x6c($sp)
-/* 0E5308 7F0B07D8 46062301 */  sub.s $f12, $f4, $f6
-/* 0E530C 7F0B07DC C7A4007C */  lwc1  $f4, 0x7c($sp)
-/* 0E5310 7F0B07E0 C7B00078 */  lwc1  $f16, 0x78($sp)
-/* 0E5314 7F0B07E4 AFA70074 */  sw    $a3, 0x74($sp)
-/* 0E5318 7F0B07E8 46045081 */  sub.s $f2, $f10, $f4
-/* 0E531C 7F0B07EC C7A80074 */  lwc1  $f8, 0x74($sp)
-/* 0E5320 7F0B07F0 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0E5324 7F0B07F4 46103001 */  sub.s $f0, $f6, $f16
-/* 0E5328 7F0B07F8 240E0001 */  li    $t6, 1
-/* 0E532C 7F0B07FC AFAE0044 */  sw    $t6, 0x44($sp)
-/* 0E5330 7F0B0800 460A4381 */  sub.s $f14, $f8, $f10
-/* 0E5334 7F0B0804 E7A00028 */  swc1  $f0, 0x28($sp)
-/* 0E5338 7F0B0808 E7A20024 */  swc1  $f2, 0x24($sp)
-/* 0E533C 7F0B080C 46001207 */  neg.s $f8, $f2
-/* 0E5340 7F0B0810 46000487 */  neg.s $f18, $f0
-/* 0E5344 7F0B0814 44074000 */  mfc1  $a3, $f8
-/* 0E5348 7F0B0818 44069000 */  mfc1  $a2, $f18
-/* 0E534C 7F0B081C E7AE001C */  swc1  $f14, 0x1c($sp)
-/* 0E5350 7F0B0820 0FC2C170 */  jal   getRotationalDirectionBetween
-/* 0E5354 7F0B0824 E7AC0020 */   swc1  $f12, 0x20($sp)
-/* 0E5358 7F0B0828 C7A60080 */  lwc1  $f6, 0x80($sp)
-/* 0E535C 7F0B082C C7B00068 */  lwc1  $f16, 0x68($sp)
-/* 0E5360 7F0B0830 C7AA0084 */  lwc1  $f10, 0x84($sp)
-/* 0E5364 7F0B0834 C7A4006C */  lwc1  $f4, 0x6c($sp)
-/* 0E5368 7F0B0838 46103481 */  sub.s $f18, $f6, $f16
-/* 0E536C 7F0B083C C7AC0020 */  lwc1  $f12, 0x20($sp)
-/* 0E5370 7F0B0840 C7AE001C */  lwc1  $f14, 0x1c($sp)
-/* 0E5374 7F0B0844 46045201 */  sub.s $f8, $f10, $f4
-/* 0E5378 7F0B0848 44069000 */  mfc1  $a2, $f18
-/* 0E537C 7F0B084C AFA2002C */  sw    $v0, 0x2c($sp)
-/* 0E5380 7F0B0850 44074000 */  mfc1  $a3, $f8
-/* 0E5384 7F0B0854 0FC2C170 */  jal   getRotationalDirectionBetween
-/* 0E5388 7F0B0858 00000000 */   nop
-/* 0E538C 7F0B085C 8FAF002C */  lw    $t7, 0x2c($sp)
-/* 0E5390 7F0B0860 C7A60080 */  lwc1  $f6, 0x80($sp)
-/* 0E5394 7F0B0864 C7B00078 */  lwc1  $f16, 0x78($sp)
-/* 0E5398 7F0B0868 004F0019 */  multu $v0, $t7
-/* 0E539C 7F0B086C C7B20084 */  lwc1  $f18, 0x84($sp)
-/* 0E53A0 7F0B0870 C7AA007C */  lwc1  $f10, 0x7c($sp)
-/* 0E53A4 7F0B0874 46103301 */  sub.s $f12, $f6, $f16
-/* 0E53A8 7F0B0878 8FA60028 */  lw    $a2, 0x28($sp)
-/* 0E53AC 7F0B087C 8FA70024 */  lw    $a3, 0x24($sp)
-/* 0E53B0 7F0B0880 460A9381 */  sub.s $f14, $f18, $f10
-/* 0E53B4 7F0B0884 E7AC0020 */  swc1  $f12, 0x20($sp)
-/* 0E53B8 7F0B0888 0000C012 */  mflo  $t8
-/* 0E53BC 7F0B088C AFB8004C */  sw    $t8, 0x4c($sp)
-/* 0E53C0 7F0B0890 0FC2C170 */  jal   getRotationalDirectionBetween
-/* 0E53C4 7F0B0894 E7AE001C */   swc1  $f14, 0x1c($sp)
-/* 0E53C8 7F0B0898 C7A40070 */  lwc1  $f4, 0x70($sp)
-/* 0E53CC 7F0B089C C7A80078 */  lwc1  $f8, 0x78($sp)
-/* 0E53D0 7F0B08A0 C7B00074 */  lwc1  $f16, 0x74($sp)
-/* 0E53D4 7F0B08A4 C7B2007C */  lwc1  $f18, 0x7c($sp)
-/* 0E53D8 7F0B08A8 46082181 */  sub.s $f6, $f4, $f8
-/* 0E53DC 7F0B08AC C7AC0020 */  lwc1  $f12, 0x20($sp)
-/* 0E53E0 7F0B08B0 C7AE001C */  lwc1  $f14, 0x1c($sp)
-/* 0E53E4 7F0B08B4 46128281 */  sub.s $f10, $f16, $f18
-/* 0E53E8 7F0B08B8 44063000 */  mfc1  $a2, $f6
-/* 0E53EC 7F0B08BC AFA2002C */  sw    $v0, 0x2c($sp)
-/* 0E53F0 7F0B08C0 44075000 */  mfc1  $a3, $f10
-/* 0E53F4 7F0B08C4 0FC2C170 */  jal   getRotationalDirectionBetween
-/* 0E53F8 7F0B08C8 00000000 */   nop
-/* 0E53FC 7F0B08CC 8FA30088 */  lw    $v1, 0x88($sp)
-/* 0E5400 7F0B08D0 8FB9004C */  lw    $t9, 0x4c($sp)
-/* 0E5404 7F0B08D4 0323082A */  slt   $at, $t9, $v1
-/* 0E5408 7F0B08D8 54200003 */  bnezl $at, .L7F0B08E8
-/* 0E540C 7F0B08DC 8FA8002C */   lw    $t0, 0x2c($sp)
-/* 0E5410 7F0B08E0 AFA00044 */  sw    $zero, 0x44($sp)
-/* 0E5414 7F0B08E4 8FA8002C */  lw    $t0, 0x2c($sp)
-.L7F0B08E8:
-/* 0E5418 7F0B08E8 8FA40044 */  lw    $a0, 0x44($sp)
-/* 0E541C 7F0B08EC 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 0E5420 7F0B08F0 00480019 */  multu $v0, $t0
-/* 0E5424 7F0B08F4 27BD0068 */  addiu $sp, $sp, 0x68
-/* 0E5428 7F0B08F8 00004812 */  mflo  $t1
-/* 0E542C 7F0B08FC 0123082A */  slt   $at, $t1, $v1
-/* 0E5430 7F0B0900 14200002 */  bnez  $at, .L7F0B090C
-/* 0E5434 7F0B0904 00000000 */   nop
-/* 0E5438 7F0B0908 00002025 */  move  $a0, $zero
-.L7F0B090C:
-/* 0E543C 7F0B090C 03E00008 */  jr    $ra
-/* 0E5440 7F0B0910 00801025 */   move  $v0, $a0
-)
-#endif
-#endif
-
-#if !defined(LEFTOVERDEBUG)
-
 s32 sub_GAME_7F0B07BC(f32 arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, f32 arg5, f32 arg6, f32 arg7, s32 arg8) {
     f32 a_z;
     f32 a_x;
@@ -2689,8 +2627,6 @@ s32 sub_GAME_7F0B07BC(f32 arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, f32 arg5
     return rc;
 }
 #endif
-
-
 
 
 // 'walkTilesBetweenPoints_withCallback'
@@ -4834,15 +4770,6 @@ void copy_tile_RGB_as_24bit(StandTile *tile, f32 p_x, f32 p_z, u8 *rtn)
 }
 
 
-/**
- * Address: 7F0B2C74
- * 
- * Calculates the scaled vertical bounds for a tile using a point index from the
- * tile tail header.
- * 
- * This appears to be dead code. It is only reached through the wrapper chain
- * sub_GAME_7F0B2D14 -> sub_GAME_7F0B3004 and no code calls sub_GAME_7F0B3004.
- */
 void sub_GAME_7F0B2C74(StandTile *tile, f32 *out)
 {
     f32 y0;
