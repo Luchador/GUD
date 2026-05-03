@@ -2080,8 +2080,6 @@ f32 getShortest2dDispToInfTripleEdgeUnscaled(StandTile *tile,s32 start3index,f32
 }
 
 
-
-
 f32 distToTilePnt2D(StandTile *tile,int pntI,f32 p_x,f32 p_z)
 {
   f32 len;
@@ -2092,61 +2090,19 @@ f32 distToTilePnt2D(StandTile *tile,int pntI,f32 p_x,f32 p_z)
 }
 
 
-
-
-#ifdef NONMATCHING
-f32 sub_GAME_7F0B00C4(StandTile *tile,s32 index,f32 p_x,f32 p_z)
+/**
+ * Unreferenced.
+ */
+f32 sub_GAME_7F0B00C4(StandTile *tile, s32 pntI, f32 p_x, f32 p_z)
 {
-  f32 v_x;
-  f32 v_z;
-  f32 dist;
+    p_x *= level_scale;
+    p_z *= level_scale;
 
-  v_x = p_x * level_scale - (f32)tile->points[index].x;
-  v_z = p_z * level_scale - (f32)tile->points[index].z;
-  dist = sqrtf(v_x * v_x + v_z * v_z);
+    p_x -= tile->points[pntI].x;
+    p_z -= tile->points[pntI].z;
 
-  return dist * inv_level_scale;
+    return sqrtf((p_x * p_x) + (p_z * p_z)) * inv_level_scale;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B00C4
-/* 0E4BF4 7F0B00C4 27BDFFE0 */  addiu $sp, $sp, -0x20
-/* 0E4BF8 7F0B00C8 000570C0 */  sll   $t6, $a1, 3
-/* 0E4BFC 7F0B00CC AFBF001C */  sw    $ra, 0x1c($sp)
-/* 0E4C00 7F0B00D0 F7B40010 */  sdc1  $f20, 0x10($sp)
-/* 0E4C04 7F0B00D4 008E1021 */  addu  $v0, $a0, $t6
-/* 0E4C08 7F0B00D8 844F0008 */  lh    $t7, 8($v0)
-/* 0E4C0C 7F0B00DC 3C018004 */  lui   $at, %hi(level_scale)
-/* 0E4C10 7F0B00E0 44867000 */  mtc1  $a2, $f14
-/* 0E4C14 7F0B00E4 C4200F44 */  lwc1  $f0, %lo(level_scale)($at)
-/* 0E4C18 7F0B00E8 8458000C */  lh    $t8, 0xc($v0)
-/* 0E4C1C 7F0B00EC 448F2000 */  mtc1  $t7, $f4
-/* 0E4C20 7F0B00F0 46007382 */  mul.s $f14, $f14, $f0
-/* 0E4C24 7F0B00F4 4487A000 */  mtc1  $a3, $f20
-/* 0E4C28 7F0B00F8 44984000 */  mtc1  $t8, $f8
-/* 0E4C2C 7F0B00FC 4600A502 */  mul.s $f20, $f20, $f0
-/* 0E4C30 7F0B0100 468021A0 */  cvt.s.w $f6, $f4
-/* 0E4C34 7F0B0104 468042A0 */  cvt.s.w $f10, $f8
-/* 0E4C38 7F0B0108 46067381 */  sub.s $f14, $f14, $f6
-/* 0E4C3C 7F0B010C 460AA501 */  sub.s $f20, $f20, $f10
-/* 0E4C40 7F0B0110 460E7402 */  mul.s $f16, $f14, $f14
-/* 0E4C44 7F0B0114 00000000 */  nop
-/* 0E4C48 7F0B0118 4614A482 */  mul.s $f18, $f20, $f20
-/* 0E4C4C 7F0B011C 0C007DF8 */  jal   sqrtf
-/* 0E4C50 7F0B0120 46128300 */   add.s $f12, $f16, $f18
-/* 0E4C54 7F0B0124 3C018004 */  lui   $at, %hi(inv_level_scale)
-/* 0E4C58 7F0B0128 C4240F48 */  lwc1  $f4, %lo(inv_level_scale)($at)
-/* 0E4C5C 7F0B012C 8FBF001C */  lw    $ra, 0x1c($sp)
-/* 0E4C60 7F0B0130 D7B40010 */  ldc1  $f20, 0x10($sp)
-/* 0E4C64 7F0B0134 46040002 */  mul.s $f0, $f0, $f4
-/* 0E4C68 7F0B0138 03E00008 */  jr    $ra
-/* 0E4C6C 7F0B013C 27BD0020 */   addiu $sp, $sp, 0x20
-)
-#endif
-
-
-
 
 
 #ifdef NONMATCHING
