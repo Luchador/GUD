@@ -4878,78 +4878,55 @@ void copy_tile_RGB_as_24bit(StandTile *tile, f32 p_x, f32 p_z, u8 *rtn)
 }
 
 
-f32 sub_GAME_7F0B2C74(StandTile *tile, f32 *heights);
-
-#ifdef NONMATCHING
-
-// Very interesting. The target has a load of filler crap including instructions like "c.lt.S f2,f2"
-// Presumably something has been generated from a macro but using the fixed value 0
-
-f32 sub_GAME_7F0B2C74(StandTile *tile, f32 *heights)
+/**
+ * Address: 7F0B2C74
+ * 
+ * Calculates the scaled vertical bounds for a tile using a point index from the
+ * tile tail header.
+ * 
+ * This appears to be dead code. It is only reached through the wrapper chain
+ * sub_GAME_7F0B2D14 -> sub_GAME_7F0B3004 and no code calls sub_GAME_7F0B3004.
+ */
+void sub_GAME_7F0B2C74(StandTile *tile, f32 *out)
 {
-    f32 y;
+    f32 y0;
+    f32 y1;
+    f32 y2;
+    f32 min;
+    f32 max;
 
-    y = tile->points[STAN_TRIPLE_TO_PNT_INDEX(tile, 0)].y;
+    // Use headerD as the point index.
+    y0 = (f32)tile->points[(tile->tail.half >> 8) & 0xf].y;
+    y1 = (f32)tile->points[(tile->tail.half >> 8) & 0xf].y;
+    y2 = (f32)tile->points[(tile->tail.half >> 8) & 0xf].y;
 
-    heights[0] = y * inv_level_scale;
-    heights[1] = y * inv_level_scale;
+    min = y1;
 
-    return;
+    if (y0 < y1)
+    {
+        min = y0;
+    }
 
+    if (y2 < min)
+    {
+        min = y2;
+    }
+
+    max = y0;
+
+    if (y0 < y1)
+    {
+        max = y1;
+    }
+
+    if (max < y2)
+    {
+        max = y2;
+    }
+
+    out[0] = min * inv_level_scale;
+    out[1] = max * inv_level_scale;
 }
-
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B2C74
-/* 0E77A4 7F0B2C74 848E0006 */  lh    $t6, 6($a0)
-/* 0E77A8 7F0B2C78 3C028004 */  lui   $v0, %hi(inv_level_scale)
-/* 0E77AC 7F0B2C7C 24420F48 */  addiu $v0, %lo(inv_level_scale) # addiu $v0, $v0, 0xf48
-/* 0E77B0 7F0B2C80 000E7A03 */  sra   $t7, $t6, 8
-/* 0E77B4 7F0B2C84 31F8000F */  andi  $t8, $t7, 0xf
-/* 0E77B8 7F0B2C88 0018C8C0 */  sll   $t9, $t8, 3
-/* 0E77BC 7F0B2C8C 00994021 */  addu  $t0, $a0, $t9
-/* 0E77C0 7F0B2C90 8509000A */  lh    $t1, 0xa($t0)
-/* 0E77C4 7F0B2C94 44892000 */  mtc1  $t1, $f4
-/* 0E77C8 7F0B2C98 00000000 */  nop
-/* 0E77CC 7F0B2C9C 468020A0 */  cvt.s.w $f2, $f4
-/* 0E77D0 7F0B2CA0 4602103C */  c.lt.s $f2, $f2
-/* 0E77D4 7F0B2CA4 46001006 */  mov.s $f0, $f2
-/* 0E77D8 7F0B2CA8 46001306 */  mov.s $f12, $f2
-/* 0E77DC 7F0B2CAC 46001386 */  mov.s $f14, $f2
-/* 0E77E0 7F0B2CB0 45000002 */  bc1f  .L7F0B2CBC
-/* 0E77E4 7F0B2CB4 46001406 */   mov.s $f16, $f2
-/* 0E77E8 7F0B2CB8 46001406 */  mov.s $f16, $f2
-.L7F0B2CBC:
-/* 0E77EC 7F0B2CBC 4610703C */  c.lt.s $f14, $f16
-/* 0E77F0 7F0B2CC0 00000000 */  nop
-/* 0E77F4 7F0B2CC4 45020003 */  bc1fl .L7F0B2CD4
-/* 0E77F8 7F0B2CC8 460C003C */   c.lt.s $f0, $f12
-/* 0E77FC 7F0B2CCC 46007406 */  mov.s $f16, $f14
-/* 0E7800 7F0B2CD0 460C003C */  c.lt.s $f0, $f12
-.L7F0B2CD4:
-/* 0E7804 7F0B2CD4 46000086 */  mov.s $f2, $f0
-/* 0E7808 7F0B2CD8 45020003 */  bc1fl .L7F0B2CE8
-/* 0E780C 7F0B2CDC 460E103C */   c.lt.s $f2, $f14
-/* 0E7810 7F0B2CE0 46006086 */  mov.s $f2, $f12
-/* 0E7814 7F0B2CE4 460E103C */  c.lt.s $f2, $f14
-.L7F0B2CE8:
-/* 0E7818 7F0B2CE8 00000000 */  nop
-/* 0E781C 7F0B2CEC 45020003 */  bc1fl .L7F0B2CFC
-/* 0E7820 7F0B2CF0 C4460000 */   lwc1  $f6, ($v0)
-/* 0E7824 7F0B2CF4 46007086 */  mov.s $f2, $f14
-/* 0E7828 7F0B2CF8 C4460000 */  lwc1  $f6, ($v0)
-.L7F0B2CFC:
-/* 0E782C 7F0B2CFC 46068202 */  mul.s $f8, $f16, $f6
-/* 0E7830 7F0B2D00 E4A80000 */  swc1  $f8, ($a1)
-/* 0E7834 7F0B2D04 C44A0000 */  lwc1  $f10, ($v0)
-/* 0E7838 7F0B2D08 460A1482 */  mul.s $f18, $f2, $f10
-/* 0E783C 7F0B2D0C 03E00008 */  jr    $ra
-/* 0E7840 7F0B2D10 E4B20004 */   swc1  $f18, 4($a1)
-)
-#endif
-
-
 
 
 f32 sub_GAME_7F0B2D14(StandTile *tile) {
@@ -4960,19 +4937,14 @@ f32 sub_GAME_7F0B2D14(StandTile *tile) {
 }
 
 
-
-
 void debugStanView(s8 joyX, s8 joyY, u16 joyBtns) {
     return;
 }
 
+
 Gfx * sub_GAME_7F0B2D48(Gfx *arg0) {
     return arg0;
 }
-
-
-
-
 
 
  /**
