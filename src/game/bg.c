@@ -766,7 +766,7 @@ s32 sub_GAME_7F0B39BC(int curroom,int unk1, bbox2d * screensize, s32 next)
             if (dword_CODE_bss_8007FFA0[i].unk1 < unk1) {
                 dword_CODE_bss_8007FFA0[i].unk1 = unk1;
             }
-            sub_GAME_7F0B5CC0(screensize,&dword_CODE_bss_8007FFA0[i].bbox);
+            bgRectOutersect(screensize,&dword_CODE_bss_8007FFA0[i].bbox);
             temp = dword_CODE_bss_8007FFA0[i].next;
             dword_CODE_bss_8007FFA0[i].bbox.min.x = screensize->min.x;
             dword_CODE_bss_8007FFA0[i].bbox.min.y = screensize->min.y;
@@ -3718,7 +3718,9 @@ s32 bgRectIntersect(struct bbox2d *a, struct bbox2d *b)
 
 
 
-void sub_GAME_7F0B5CC0(struct bbox2d *a, struct bbox2d *b)
+// Address: 0x7F0B5CC0
+// Does a union. Increases the size of 'a' so it contains 'b'.
+void bgRectOutersect(struct bbox2d *a, struct bbox2d *b)
 {
     (a->min).x = ((a->min).x < (b->min).x) ? (a->min).x : (b->min).x;
     (a->min).y = ((a->min).y < (b->min).y) ? (a->min).y : (b->min).y;
@@ -3726,6 +3728,8 @@ void sub_GAME_7F0B5CC0(struct bbox2d *a, struct bbox2d *b)
     (a->max).y = ((a->max).y > (b->max).y) ? (a->max).y : (b->max).y;
 }
 
+// Address: 0x7f0b5d58
+// Does a shallow copy of 'b' into 'a'. Equivalent to '*a = *b;'.
 void bbox2dCopy(struct bbox2d *a, struct bbox2d *b)
 {
     (a->min).x = (b->min).x;
@@ -7404,7 +7408,7 @@ visible_if_seen_through_portal:
 /* 0ED224 7F0B86F4 10000003 */  b     .L7F0B8704
 /* 0ED228 7F0B86F8 AE800000 */   sw    $zero, ($s4)
 .L7F0B86FC:
-/* 0ED22C 7F0B86FC 0FC2D730 */  jal   sub_GAME_7F0B5CC0
+/* 0ED22C 7F0B86FC 0FC2D730 */  jal   bgRectOutersect
 /* 0ED230 7F0B8700 27A50068 */   addiu $a1, $sp, 0x68
 .L7F0B8704:
 /* 0ED234 7F0B8704 92390001 */  lbu   $t9, 1($s1)
@@ -7918,7 +7922,7 @@ visible_if_seen_through_portal:
 /* 0EA394 7F0B79A4 10000003 */  b     .L7F0B79B4
 /* 0EA398 7F0B79A8 AE800000 */   sw    $zero, ($s4)
 .L7F0B79AC:
-/* 0EA39C 7F0B79AC 0FC2D3FF */  jal   sub_GAME_7F0B5CC0
+/* 0EA39C 7F0B79AC 0FC2D3FF */  jal   bgRectOutersect
 /* 0EA3A0 7F0B79B0 27A50068 */   addiu $a1, $sp, 0x68
 .L7F0B79B4:
 /* 0EA3A4 7F0B79B4 92390001 */  lbu   $t9, 1($s1)
