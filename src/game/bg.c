@@ -4101,172 +4101,123 @@ s32 bgCheckIfRoomModelNeedsLoad(s32 roomID)
 /*
 * Allocates memory for room and update its display lists
 * Address: 7F0B6368
+*
+* Almost matching: Stack issues
 */
-void sub_GAME_7F0B6368(s32 room) {
-    void *sp1C;
-    s32 sp20;
-    s32 sp28;
-    s32 sp2C;
-    void *temp_v1;
-    ? temp_ret;
-    void *temp_v1_2;
-    ? temp_ret_2;
-    ? temp_ret_3;
-    void *temp_v1_5;
-    ? temp_ret_4;
-    void *temp_v1_6;
-    s32 temp_t1;
-    s32 temp_a0;
-    void *temp_v1_3;
-    s32 temp_a0_2;
-    void *temp_v1_4;
-    void *phi_v1;
-    s32 phi_a3;
-    s32 phi_a3_2;
-    void *phi_v1_2;
-    void *phi_v1_3;
+void sub_GAME_7F0B6368(s32 roomID) {
+    s32 allocsize;
+    s32 used;
+    s32 result;
+    u8 *data;
+    
+    used = 0;
 
-    // Node 0
-    if (room < g_MaxNumRooms)
+    if (roomID >= g_MaxNumRooms) goto end;
+
+    if (g_BgRoomInfo[roomID].model_bin_loaded) goto end;
+
+    allocsize = g_BgRoomInfo[roomID].cur_room_totalsize;
+
+    if (allocsize > 0)
     {
-        // Node 1
-        temp_v1 = ((room * 0x50) + &g_BgRoomInfo);
-        if (temp_v1->unk2 == 0)
+        if (get_debug_joy2detailedit_flag())
         {
-            // Node 2
-            if (temp_v1->unk28 > 0)
-            {
-                // Node 3
-                sp2C = (s32) temp_v1->unk28;
-                sp1C = temp_v1;
-                sp28 = 0;
-                if (get_debug_joy2detailedit_flag(0) != 0)
-                {
-                    // Node 4
-                    sp2C = (s32) (sp2C + 0x400);
-                }
-            }
-            else
-            {
-                // Node 5
-                sp1C = temp_v1;
-                sp2C = memaGetLongestFree(0);
-            }
-            // Node 6
-            sp1C = (void *) temp_v1;
-            temp_ret = memaAlloc(sp2C, sp28);
-            temp_v1_2 = temp_v1;
-            sp20 = temp_ret;
-            if (temp_ret != 0)
-            {
-                // Node 7
-                if (temp_v1_2->unk10 != 0)
-                {
-                    // Node 8
-                    sp1C = temp_v1_2;
-                    temp_ret_2 = bgLoadRoomVtxData(room, temp_ret, sp2C, sp28);
-                    if (temp_ret_2 >= 0)
-                    {
-                        // Node 9
-                        sp1C = temp_v1_2;
-                        sp28 = temp_ret_2;
-                        redarken_lights_in_room(room, sp28);
-                    }
-                }
-                else
-                {
-                    // Node 10
-                    temp_v1_2->unk4 = 0;
-                    temp_v1_2->unk1C = 0;
-                }
-                // Node 11
-                phi_v1 = temp_v1_2;
-                phi_a3 = sp28;
-                if (temp_v1_2->unk14 != 0)
-                {
-                    // Node 12
-                    sp1C = (void *) temp_v1_2;
-                    temp_ret_3 = bgLoadRoomPrimaryGdl(room, (sp20 + sp28), (sp2C - sp28), sp28);
-                    temp_v1_5 = temp_v1_2;
-                    phi_v1 = temp_v1_5;
-                    phi_a3 = sp28;
-                    if (temp_ret_3 >= 0)
-                    {
-                        // Node 13
-                        phi_v1 = temp_v1_5;
-                        phi_a3 = (sp28 + temp_ret_3);
-                    }
-                }
-                // Node 14
-                if (phi_v1->unk18 != 0)
-                {
-                    // Node 15
-                    sp1C = (void *) phi_v1;
-                    temp_ret_4 = bgLoadRoomSecondaryGdl(room, (sp20 + phi_a3), (sp2C - phi_a3), phi_a3);
-                    temp_v1_6 = phi_v1;
-                    phi_a3_2 = sp28;
-                    phi_v1_2 = temp_v1_6;
-                    if (temp_ret_4 > 0)
-                    {
-                        // Node 16
-                        phi_a3_2 = (sp28 + temp_ret_4);
-                        phi_v1_2 = temp_v1_6;
-                    }
-                }
-                else
-                {
-                    // Node 17
-                    phi_v1->unkC = 0;
-                    phi_a3_2 = phi_a3;
-                    phi_v1_2 = phi_v1;
-                }
-                // Node 18
-                temp_t1 = ((phi_a3_2 + 0x20) & -0x10);
-                phi_v1_2->unk28 = temp_t1;
-                phi_v1_2->unk2 = (u8)1;
-                phi_v1_3 = phi_v1_2;
-                if (sp2C != temp_t1)
-                {
-                    // Node 19
-                    sp1C = (void *) phi_v1_2;
-                    memaRealloc(sp20, sp2C, temp_t1, phi_a3_2);
-                    phi_v1_3 = phi_v1_2;
-                }
-                // Node 20
-                if (g_FogSkyIsEnabled != 0)
-                {
-                    // Node 21
-                    temp_a0 = phi_v1_3->unk8;
-                    sp1C = (void *) phi_v1_3;
-                    bgApplyDynamicCCRMLUT(temp_a0, (phi_v1_3->unk20 + temp_a0), CCRMLUT_PRIMARY_ADDFOG);
-                    temp_v1_3 = phi_v1_3;
-                    if (temp_v1_3->unkC != 0)
-                    {
-                        // Node 22
-                        bgApplyDynamicCCRMLUT(temp_v1_3->unkC, (temp_v1_3->unk24 + temp_v1_3->unkC), CCRMLUT_SECONDARY_ADDFOG);
-                    }
-                }
-                else
-                {
-                    // Node 23
-                    temp_a0_2 = phi_v1_3->unk8;
-                    sp1C = (void *) phi_v1_3;
-                    bgApplyDynamicCCRMLUT(temp_a0_2, (phi_v1_3->unk20 + temp_a0_2), CCRMLUT_PRIMARY);
-                    temp_v1_4 = phi_v1_3;
-                    if (temp_v1_4->unkC != 0)
-                    {
-                        // Node 24
-                        bgApplyDynamicCCRMLUT(temp_v1_4->unkC, (temp_v1_4->unk24 + temp_v1_4->unkC), CCRMLUT_SECONDARY);
-                    }
-                }
-                // Node 25
-                sub_GAME_7F0B6994(room);
-                roomsHandleStateDebugging();
-            }
+            allocsize += 0x400;
         }
     }
-    // Node 26
-    return;
+    else
+    {
+        allocsize = memaGetLongestFree();
+    }
+
+    data = memaAlloc(allocsize);
+
+    if (data == NULL) goto end;
+
+    if (g_BgRoomInfo[roomID].csize_point_index_binary)
+    {
+        result = bgLoadRoomVtxData(roomID, data, allocsize);
+
+        if (result >= 0)
+        {
+            used = result;
+            redarken_lights_in_room(roomID);
+        }
+    }
+    else
+    {
+        g_BgRoomInfo[roomID].vertices = NULL;
+        g_BgRoomInfo[roomID].usize_point_index_binary = 0;
+    }
+
+    if (g_BgRoomInfo[roomID].csize_primary_DL_binary)
+    {
+        result = bgLoadRoomPrimaryGdl(roomID, data + used, allocsize - used);
+
+        if (result >= 0)
+        {
+            used += result;
+        }
+    }
+
+    if (g_BgRoomInfo[roomID].csize_secondary_DL_binary)
+    {
+        result = bgLoadRoomSecondaryGdl(roomID, data + used, allocsize - used);
+
+        if (result > 0)
+        {
+            used += result;
+        }
+    }
+    else
+    {
+        g_BgRoomInfo[roomID].ptr_secondary_expanded_mapping_info = NULL;
+    }
+
+
+    g_BgRoomInfo[roomID].cur_room_totalsize = ((used + 0x20) & ~0xf);
+    g_BgRoomInfo[roomID].model_bin_loaded = 1;
+
+    if (allocsize != ((used + 0x20) & ~0xf))
+    {
+        memaRealloc((s32)data, allocsize, ((used + 0x20) & ~0xf));
+    }
+
+    if (g_FogSkyIsEnabled)
+    {
+        bgApplyDynamicCCRMLUT(
+            g_BgRoomInfo[roomID].ptr_expanded_mapping_info,
+            (Gfx *)((u8 *)g_BgRoomInfo[roomID].ptr_expanded_mapping_info + g_BgRoomInfo[roomID].usize_primary_DL_binary),
+            1);
+
+        if (g_BgRoomInfo[roomID].ptr_secondary_expanded_mapping_info)
+        {
+            bgApplyDynamicCCRMLUT(
+                g_BgRoomInfo[roomID].ptr_secondary_expanded_mapping_info,
+                (Gfx *)((u8 *)g_BgRoomInfo[roomID].ptr_secondary_expanded_mapping_info + g_BgRoomInfo[roomID].usize_secondary_DL_binary),
+                5);
+        }
+    }
+    else
+    {
+        bgApplyDynamicCCRMLUT(
+            g_BgRoomInfo[roomID].ptr_expanded_mapping_info,
+            (Gfx *)((u8 *)g_BgRoomInfo[roomID].ptr_expanded_mapping_info + g_BgRoomInfo[roomID].usize_primary_DL_binary),
+            6);
+
+        if (g_BgRoomInfo[roomID].ptr_secondary_expanded_mapping_info)
+        {
+            bgApplyDynamicCCRMLUT(
+                g_BgRoomInfo[roomID].ptr_secondary_expanded_mapping_info,
+                (Gfx *)((u8 *)g_BgRoomInfo[roomID].ptr_secondary_expanded_mapping_info + g_BgRoomInfo[roomID].usize_secondary_DL_binary),
+                7);
+        }
+    }
+
+    sub_GAME_7F0B6994(roomID);
+    roomsHandleStateDebugging();
+
+end:;
 }
 #else
 #if defined(LEFTOVERDEBUG)
