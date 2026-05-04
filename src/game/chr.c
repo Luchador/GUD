@@ -2669,8 +2669,8 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
     var_s0->shadecol.rgba[2] = var_s0->nextcol.rgba[2];
     var_s0->shadecol.rgba[3] = var_s0->nextcol.rgba[3];
     var_s0->fadealpha = 0xFF;
-    var_s0->weapons_held[2] = NULL;
-    var_s0->fireslot_word = 0;
+    var_s0->ptr_SEbuffer1 = NULL;
+    var_s0->ptr_SEbuffer2 = NULL;
     var_s0->ptr_SEbuffer3 = NULL;
     var_s0->ptr_SEbuffer4 = NULL;
     var_s0->field_178[0] = 0;

@@ -2350,21 +2350,12 @@ typedef union
         f32            aimendback;
         f32            aimendsideback;
 
-        /* 0x0160 */
-        // this section needs work, see:
-        // - sub_GAME_7F02BFE4
-        // - disable_sounds_attached_to_player_then_something
-        // there should be some ALSoundState * pointers in here.
-        //
-        PropRecord    *weapons_held[3]; /* handle_positiondata 0x0160 0x0164  0x0168 Right, Left, Hat*/
-        union {
-            s32     fireslot_word;
-            s8      fireslot[2];     /* 0x016C 0x0170*/
-        };
-        int           *ptr_SEbuffer3;
-        int           *ptr_SEbuffer4;
-        int            field_178[2];
-        //int field_17C;
+        PropRecord    *weapons_held[2]; /* handle_positiondata 0x0160 0x0164  0x0168 Right, Left*/
+        ALSoundState *ptr_SEbuffer1;  // 0x168
+        ALSoundState *ptr_SEbuffer2;  // 0x16c
+        ALSoundState *ptr_SEbuffer3;  // 0x170
+        ALSoundState *ptr_SEbuffer4;  // 0x174
+        s32            field_178[2];  // 0x178-17c
 
         /* 0x0180 */
         /**
