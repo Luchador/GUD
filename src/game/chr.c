@@ -2753,9 +2753,9 @@ PropRecord * chrAllocate( Model * arg0, coord3d * arg1, f32 arg2,  StandTile * a
 
 
 /**
- * Address 0x7F020414.
+ * Address: 7F020414.
  */
-void disable_sounds_attached_to_player_then_something(PropRecord *prop)
+void chrpropCleanupForRemoval(PropRecord *prop)
 {
     ChrRecord *chr;
     Model *model;
@@ -2783,6 +2783,7 @@ void disable_sounds_attached_to_player_then_something(PropRecord *prop)
     chrpropDeregisterRooms(prop);
     
     child = prop->child;
+    
     if (child != NULL) {
         do {
             obj = (ObjectRecord *)child->obj;
@@ -4055,7 +4056,7 @@ glabel chrTickBeams
 /* 055B7C 7F02104C 33080020 */  andi  $t0, $t8, 0x20
 /* 055B80 7F021050 51000006 */  beql  $t0, $zero, .L7F02106C
 /* 055B84 7F021054 8E020160 */   lw    $v0, 0x160($s0)
-/* 055B88 7F021058 0FC08105 */  jal   disable_sounds_attached_to_player_then_something
+/* 055B88 7F021058 0FC08105 */  jal   chrpropCleanupForRemoval
 /* 055B8C 7F02105C 8FA40158 */   lw    $a0, 0x158($sp)
 /* 055B90 7F021060 100002AA */  b     .L7F021B0C
 /* 055B94 7F021064 24020001 */   li    $v0, 1
@@ -4907,7 +4908,7 @@ glabel chrTickBeams
 /* 055E54 7F0212E4 33080020 */  andi  $t0, $t8, 0x20
 /* 055E58 7F0212E8 51000006 */  beql  $t0, $zero, .Ljp7F021304
 /* 055E5C 7F0212EC 8E020160 */   lw    $v0, 0x160($s0)
-/* 055E60 7F0212F0 0FC08171 */  jal   disable_sounds_attached_to_player_then_something
+/* 055E60 7F0212F0 0FC08171 */  jal   chrpropCleanupForRemoval
 /* 055E64 7F0212F4 8FA40158 */   lw    $a0, 0x158($sp)
 /* 055E68 7F0212F8 100002BE */  b     .Ljp7F021DF4
 /* 055E6C 7F0212FC 24020001 */   li    $v0, 1
@@ -5833,7 +5834,7 @@ glabel chrTickBeams
 /* 0539B4 7F020FC4 33080020 */  andi  $t0, $t8, 0x20
 /* 0539B8 7F020FC8 51000006 */  beql  $t0, $zero, .L7F020FE4
 /* 0539BC 7F020FCC 8E020160 */   lw    $v0, 0x160($s0)
-/* 0539C0 7F020FD0 0FC080A2 */  jal   disable_sounds_attached_to_player_then_something
+/* 0539C0 7F020FD0 0FC080A2 */  jal   chrpropCleanupForRemoval
 /* 0539C4 7F020FD4 8FA40158 */   lw    $a0, 0x158($sp)
 /* 0539C8 7F020FD8 100002BE */  b     .L7F021AD4
 /* 0539CC 7F020FDC 24020001 */   li    $v0, 1

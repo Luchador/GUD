@@ -3804,7 +3804,7 @@ void maybe_solo_intro_camera_handler(void)
 {
     if ((g_CurrentPlayer->prop->chr != 0) && (getPlayerCount() == 1))
     {
-        disable_sounds_attached_to_player_then_something(g_CurrentPlayer->prop);
+        chrpropCleanupForRemoval(g_CurrentPlayer->prop);
         g_CurrentPlayer->prop->chr = NULL;
         g_CurrentPlayer->ptr_char_objectinstance = 0;
         g_bondviewForceDisarm = 1;
