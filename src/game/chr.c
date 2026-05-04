@@ -2752,158 +2752,56 @@ PropRecord * chrAllocate( Model * arg0, coord3d * arg1, f32 arg2,  StandTile * a
 }
 
 
-
-
-#ifdef NONMATCHING
 /**
  * Address 0x7F020414.
- *
- * decomp status:
- * - compiles: yes
- * - stack resize: ok
- * - identical instructions: fail
- * - identical registers: fail
- *
- * notes: something isn't right around the area the nextSibling pointer is iterated.
  */
 void disable_sounds_attached_to_player_then_something(PropRecord *prop)
 {
-    PropRecord *p;
     ChrRecord *chr;
-    struct object_standard *model;
-
+    Model *model;
+    PropRecord *child;
+    PropRecord *prev;
+    ObjectRecord *obj;
+    
     chr = prop->chr;
     model = chr->model;
-
-    if ((chr->ptr_SEbuffer1 != NULL) && (sndGetPlayingState(chr->ptr_SEbuffer1) != 0))
-    {
+    
+    if (chr->ptr_SEbuffer1 != NULL && sndGetPlayingState(chr->ptr_SEbuffer1) != 0) {
         sndDeactivate(chr->ptr_SEbuffer1);
     }
-
-    if ((chr->ptr_SEbuffer2 != NULL) && (sndGetPlayingState(chr->ptr_SEbuffer2) != 0))
-    {
+    if (chr->ptr_SEbuffer2 != NULL && sndGetPlayingState(chr->ptr_SEbuffer2) != 0) {
         sndDeactivate(chr->ptr_SEbuffer2);
     }
-
-    if ((chr->ptr_SEbuffer3 != NULL) && (sndGetPlayingState(chr->ptr_SEbuffer3) != 0))
-    {
+    if (chr->ptr_SEbuffer3 != NULL && sndGetPlayingState(chr->ptr_SEbuffer3) != 0) {
         sndDeactivate(chr->ptr_SEbuffer3);
     }
-
-    if ((chr->ptr_SEbuffer4 != NULL) && (sndGetPlayingState(chr->ptr_SEbuffer4) != 0))
-    {
+    if (chr->ptr_SEbuffer4 != NULL && sndGetPlayingState(chr->ptr_SEbuffer4) != 0) {
         sndDeactivate(chr->ptr_SEbuffer4);
     }
-
+    
     sub_GAME_7F050DE8(model);
     chrpropDeregisterRooms(prop);
-
-    p = prop->child;
-    while (p != NULL)
-    {
-        objDetach(p);
-        objFreePermanently(p->chr, 1);
-        p = p->nextSibling;
+    
+    child = prop->child;
+    if (child != NULL) {
+        do {
+            obj = (ObjectRecord *)child->obj;
+            prev = child->prev;
+            objDetach(child);
+            objFreePermanently(obj, TRUE);
+            child = prev;
+        } while (child != NULL);
     }
-
+    
     clear_aircraft_model_obj(model);
-
+    
     chr->model = NULL;
     chr->chrnum = -1;
-    if (chr->field_20 != NULL)
-    {
+    
+    if (chr->field_20 != NULL) {
         sub_GAME_7F06B248(chr->field_20);
     }
 }
-#else
-GLOBAL_ASM(
-.text
-glabel disable_sounds_attached_to_player_then_something
-/* 054F44 7F020414 27BDFFD0 */  addiu $sp, $sp, -0x30
-/* 054F48 7F020418 AFBF0024 */  sw    $ra, 0x24($sp)
-/* 054F4C 7F02041C AFB20020 */  sw    $s2, 0x20($sp)
-/* 054F50 7F020420 AFB1001C */  sw    $s1, 0x1c($sp)
-/* 054F54 7F020424 AFB00018 */  sw    $s0, 0x18($sp)
-/* 054F58 7F020428 8C920004 */  lw    $s2, 4($a0)
-/* 054F5C 7F02042C 00808025 */  move  $s0, $a0
-/* 054F60 7F020430 8E4E001C */  lw    $t6, 0x1c($s2)
-/* 054F64 7F020434 AFAE0028 */  sw    $t6, 0x28($sp)
-/* 054F68 7F020438 8E450168 */  lw    $a1, 0x168($s2)
-/* 054F6C 7F02043C 50A00008 */  beql  $a1, $zero, .L7F020460
-/* 054F70 7F020440 8E44016C */   lw    $a0, 0x16c($s2)
-/* 054F74 7F020444 0C00237C */  jal   sndGetPlayingState
-/* 054F78 7F020448 00A02025 */   move  $a0, $a1
-/* 054F7C 7F02044C 50400004 */  beql  $v0, $zero, .L7F020460
-/* 054F80 7F020450 8E44016C */   lw    $a0, 0x16c($s2)
-/* 054F84 7F020454 0C002408 */  jal   sndDeactivate
-/* 054F88 7F020458 8E440168 */   lw    $a0, 0x168($s2)
-/* 054F8C 7F02045C 8E44016C */  lw    $a0, 0x16c($s2)
-.L7F020460:
-/* 054F90 7F020460 50800008 */  beql  $a0, $zero, .L7F020484
-/* 054F94 7F020464 8E440170 */   lw    $a0, 0x170($s2)
-/* 054F98 7F020468 0C00237C */  jal   sndGetPlayingState
-/* 054F9C 7F02046C 00000000 */   nop
-/* 054FA0 7F020470 50400004 */  beql  $v0, $zero, .L7F020484
-/* 054FA4 7F020474 8E440170 */   lw    $a0, 0x170($s2)
-/* 054FA8 7F020478 0C002408 */  jal   sndDeactivate
-/* 054FAC 7F02047C 8E44016C */   lw    $a0, 0x16c($s2)
-/* 054FB0 7F020480 8E440170 */  lw    $a0, 0x170($s2)
-.L7F020484:
-/* 054FB4 7F020484 50800008 */  beql  $a0, $zero, .L7F0204A8
-/* 054FB8 7F020488 8E440174 */   lw    $a0, 0x174($s2)
-/* 054FBC 7F02048C 0C00237C */  jal   sndGetPlayingState
-/* 054FC0 7F020490 00000000 */   nop
-/* 054FC4 7F020494 50400004 */  beql  $v0, $zero, .L7F0204A8
-/* 054FC8 7F020498 8E440174 */   lw    $a0, 0x174($s2)
-/* 054FCC 7F02049C 0C002408 */  jal   sndDeactivate
-/* 054FD0 7F0204A0 8E440170 */   lw    $a0, 0x170($s2)
-/* 054FD4 7F0204A4 8E440174 */  lw    $a0, 0x174($s2)
-.L7F0204A8:
-/* 054FD8 7F0204A8 10800007 */  beqz  $a0, .L7F0204C8
-/* 054FDC 7F0204AC 00000000 */   nop
-/* 054FE0 7F0204B0 0C00237C */  jal   sndGetPlayingState
-/* 054FE4 7F0204B4 00000000 */   nop
-/* 054FE8 7F0204B8 10400003 */  beqz  $v0, .L7F0204C8
-/* 054FEC 7F0204BC 00000000 */   nop
-/* 054FF0 7F0204C0 0C002408 */  jal   sndDeactivate
-/* 054FF4 7F0204C4 8E440174 */   lw    $a0, 0x174($s2)
-.L7F0204C8:
-/* 054FF8 7F0204C8 0FC1437A */  jal   sub_GAME_7F050DE8
-/* 054FFC 7F0204CC 8FA40028 */   lw    $a0, 0x28($sp)
-/* 055000 7F0204D0 0FC0F863 */  jal   chrpropDeregisterRooms
-/* 055004 7F0204D4 02002025 */   move  $a0, $s0
-/* 055008 7F0204D8 8E040020 */  lw    $a0, 0x20($s0)
-/* 05500C 7F0204DC 10800009 */  beqz  $a0, .L7F020504
-/* 055010 7F0204E0 00000000 */   nop
-.L7F0204E4:
-/* 055014 7F0204E4 8C910004 */  lw    $s1, 4($a0)
-/* 055018 7F0204E8 0FC13011 */  jal   objDetach
-/* 05501C 7F0204EC 8C900024 */   lw    $s0, 0x24($a0)
-/* 055020 7F0204F0 02202025 */  move  $a0, $s1
-/* 055024 7F0204F4 0FC10409 */  jal   objFreePermanently
-/* 055028 7F0204F8 24050001 */   li    $a1, 1
-/* 05502C 7F0204FC 1600FFF9 */  bnez  $s0, .L7F0204E4
-/* 055030 7F020500 02002025 */   move  $a0, $s0
-.L7F020504:
-/* 055034 7F020504 0FC1B0FE */  jal   clear_aircraft_model_obj
-/* 055038 7F020508 8FA40028 */   lw    $a0, 0x28($sp)
-/* 05503C 7F02050C 8E440020 */  lw    $a0, 0x20($s2)
-/* 055040 7F020510 240FFFFF */  li    $t7, -1
-/* 055044 7F020514 AE40001C */  sw    $zero, 0x1c($s2)
-/* 055048 7F020518 10800003 */  beqz  $a0, .L7F020528
-/* 05504C 7F02051C A64F0000 */   sh    $t7, ($s2)
-/* 055050 7F020520 0FC1AC92 */  jal   sub_GAME_7F06B248
-/* 055054 7F020524 00000000 */   nop
-.L7F020528:
-/* 055058 7F020528 8FBF0024 */  lw    $ra, 0x24($sp)
-/* 05505C 7F02052C 8FB00018 */  lw    $s0, 0x18($sp)
-/* 055060 7F020530 8FB1001C */  lw    $s1, 0x1c($sp)
-/* 055064 7F020534 8FB20020 */  lw    $s2, 0x20($sp)
-/* 055068 7F020538 03E00008 */  jr    $ra
-/* 05506C 7F02053C 27BD0030 */   addiu $sp, $sp, 0x30
-)
-#endif
-
 
 
 /**
