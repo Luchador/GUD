@@ -85,7 +85,7 @@ Gfx * sub_GAME_7F0A2C44(Gfx *arg0);
 
 // tentative signature
 void *sub_GAME_7F0A3E1C(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3);
-void sub_GAME_7F0A33F8(struct WatchVertex *arg0, s32 arg1, f32 arg2, s32 arg3);
+void sub_GAME_7F0A33F8(struct WatchVertex *vtx, s32 numverts, f32 scale, s32 arg3);
 Gfx *sub_GAME_7F0A3978(Gfx *gdl, struct WatchVertex *arg1, s32 unused_arg2, s32 arg3);
 Gfx *sub_GAME_7F0A3B40(Gfx *gdl, s32 *arg1);
 Gfx *buildGaugeBarDL(Gfx *gdl, u32 arg1, s32 arg2);
