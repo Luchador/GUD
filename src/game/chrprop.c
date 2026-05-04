@@ -1402,7 +1402,7 @@ glabel chraiDefaultWeaponFireHandler
 /* 0701FC 7F03B6CC 54410006 */  bnel  $v0, $at, .L7F03B6E8
 /* 070200 7F03B6D0 24010001 */   li    $at, 1
 .L7F03B6D4:
-/* 070204 7F03B6D4 0FC08A60 */  jal   sub_GAME_7F022980
+/* 070204 7F03B6D4 0FC08A60 */  jal   chrHandleBulletHit
 /* 070208 7F03B6D8 26050038 */   addiu $a1, $s0, 0x38
 /* 07020C 7F03B6DC 1000000C */  b     .L7F03B710
 /* 070210 7F03B6E0 8E0C0084 */   lw    $t4, 0x84($s0)
@@ -1589,7 +1589,7 @@ glabel chraiDefaultWeaponFireHandler
 /* 0704A4 7F03B974 C7A601C4 */  lwc1  $f6, 0x1c4($sp)
 /* 0704A8 7F03B978 46060102 */  mul.s $f4, $f0, $f6
 /* 0704AC 7F03B97C 46049281 */  sub.s $f10, $f18, $f4
-/* 0704B0 7F03B980 0FC19ED3 */  jal   sub_GAME_7F067B4C
+/* 0704B0 7F03B980 0FC19ED3 */  jal   gunSetTracerTarget
 /* 0704B4 7F03B984 E60A0008 */   swc1  $f10, 8($s0)
 /* 0704B8 7F03B988 3C0141D0 */  li    $at, 0x41D00000 # 26.000000
 /* 0704BC 7F03B98C 44810000 */  mtc1  $at, $f0

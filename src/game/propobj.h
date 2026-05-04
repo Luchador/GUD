@@ -6,20 +6,31 @@
 #include <bondtypes.h>
 #include <snd.h>
 
-struct ShotData {
-    // temporary definition for GE:
-    /*0x00*/ s32 unk00[13];
-    /*0x34*/ f32 unk34;
+// WIP struct
+struct BulletHit {
+    f32 dist;           // 0x00
+    PropRecord *prop;   // 0x04
+    s32 hitpart;        // 0x08
+    ModelNode *node;    // 0x0c
+    coord3d pos;        // 0x10
+    coord3d unk1c;      // 0x1c
+    u8 pad28[0x12];     // 0x28
+    s16 texture_index;  // 0x3a
+    u8 pad3c[0x04];     // 0x3c
+    s32 room;           // 0x40
+    u8 pad44[0x04];     // 0x44
+    Model *model;       // 0x48
+};
 
-    // the following is from PD, it seems to line up:
-        /*0x00*/ //struct coord unk00;
-        /*0x0c*/ //struct coord unk0c;
-        /*0x18*/ //struct gset gset;
-        /*0x1c*/ //struct coord gunpos;
-        /*0x28*/ //struct coord dir;
-        /*0x34*/ //f32 unk34;
-        /*0x38*/ //s32 penetration;
-        /*0x3c*/ //struct hit hits[10];
+struct ShotData {
+    coord3d unk00;              // 0x00
+    coord3d unk0c;              // 0x0c
+    ITEM_IDS weapon;            // 0x18
+    coord3d gunpos;             // 0x1c
+    coord3d dir;                // 0x28
+    f32 unk34;                  // 0x34
+    s32 penetration;            // 0x38
+    struct BulletHit hits[10];  // 0x3c
 };
 
 struct HitThing {

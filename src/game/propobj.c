@@ -31836,7 +31836,7 @@ glabel sub_GAME_7F04EA68
 /* 083684 7F04EB54 8FA3005C */  lw    $v1, 0x5c($sp)
 /* 083688 7F04EB58 11C00004 */  beqz  $t6, .L7F04EB6C
 /* 08368C 7F04EB5C 27A40060 */   addiu $a0, $sp, 0x60
-/* 083690 7F04EB60 0FC19ED3 */  jal   sub_GAME_7F067B4C
+/* 083690 7F04EB60 0FC19ED3 */  jal   gunSetTracerTarget
 /* 083694 7F04EB64 AFA3005C */   sw    $v1, 0x5c($sp)
 /* 083698 7F04EB68 8FA3005C */  lw    $v1, 0x5c($sp)
 .L7F04EB6C:

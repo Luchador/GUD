@@ -15887,7 +15887,7 @@ void sub_GAME_7F067AB4(coord3d *param_1)
 }
 
 
-void sub_GAME_7F067B4C(coord3d* pos)
+void gunSetTracerTarget(coord3d* pos)
 {
     g_CurrentPlayer->hands[GUNLEFT].item_related.x = g_CurrentPlayer->hands[GUNRIGHT].item_related.x = pos->x;
     g_CurrentPlayer->hands[GUNLEFT].item_related.y = g_CurrentPlayer->hands[GUNRIGHT].item_related.y = pos->y;
