@@ -1589,7 +1589,7 @@ void bondviewPlayerSpawnRelated(void)
 {
     g_CurrentPlayer->field_29BC = ((g_playerPerm->player_perspective_height * 185.0f * (s32)1) - 10.0f);
 
-    g_CurrentPlayer->field_29F8 = 0;
+    g_CurrentPlayer->kills_this_life = 0;
     g_CurrentPlayer->field_29F4 = getMissiontimer();
     g_CurrentPlayer->healthdisplaytime = 0;
 

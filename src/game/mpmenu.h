@@ -36,7 +36,7 @@ s32 mpFindMaxInt(int param_1, int param_2, int param_3, int param_4, int param_5
 s32 mpFindMinInt(int param_1, int param_2, int param_3, int param_4, int param_5);
 
 void mpwatchUnpauseGame(void);
-Gfx *display_text_for_playerdata_on_MP_menu(Gfx *gdl, s32 x, s32 y, u16* arg3, TEXTCOLORS text_color);
+Gfx *display_text_for_playerdata_on_MP_menu(Gfx *gdl, s32 x, s32 y, s32 points, TEXTCOLORS text_color);
 
 s32 checkGamePaused(void);
 

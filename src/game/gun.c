@@ -20143,7 +20143,7 @@ void increment_num_kills_display_text_in_MP(void)
     s32 unused; // needed this variable to match
 
     g_playerPerm->kill_count += 1;
-    g_CurrentPlayer->field_29F8 += 1;
+    g_CurrentPlayer->kills_this_life += 1;
 
     if (getPlayerCount() < 2) { return; }
 

@@ -1898,8 +1898,8 @@ typedef enum MPMENU
     MENU_SCORES,
     MENU_PAUSE,
     MENU_EXIT,
-    MENU_6,
-    MENU_7
+    MENU_EXIT_CONFIRM,
+    MENU_FINISHED
 } MPMENU;
 
 typedef enum MPSCENARIOS

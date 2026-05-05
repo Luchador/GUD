@@ -1781,7 +1781,7 @@ void lvlViewMoveTick(void)
                 bondviewMovePlayerUpdateViewport(joyGetStickX(local_player_number), joyGetStickY(local_player_number), 0);
             }
 
-            sub_GAME_7F0C2E80();
+            mpwatchMenuTick();
         }
         break;
     }

@@ -2210,15 +2210,15 @@ struct player
   f32 field_29BC;
   f32 field_29C0;
 
-  s32 mpmenuon;
-  s32 mpmenumode;
-  s32 mpquitconfirm;
-  s32 mpjoywascentre;
-  s32 damagetype;
-  s32 deathcount;
-  s32 num_suicides;
-  s32 field_29E0;
-  s32 last_kill_time[4];
+  s32 mpmenuon;           // 29C4
+  s32 mpmenumode;         // 29C8
+  s32 mpquitconfirm;      // 29CC
+  s32 mpjoywascentre;     // 29D0
+  s32 damagetype;         // 29D4
+  s32 deathcount;         // 29D8
+  s32 num_suicides;       // 29DC
+  s32 field_29E0;         // 29E0
+  s32 last_kill_time[4];  // 29E4
 
   /**
    * Holds mission offset timer value.
@@ -2226,7 +2226,7 @@ struct player
    */
   s32 field_29F4;
 
-  s32 field_29F8;
+  s32 kills_this_life;    // 29F8
   s32 autocrouchpos;
   s32 healthdisplaytime;
 

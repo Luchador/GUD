@@ -49,8 +49,8 @@ s32 mpwatchMenuCanGoRight(void) {
     case MENU_PAUSE:
       return 1;
     case MENU_EXIT:
-    case MENU_6:
-    case MENU_7:
+    case MENU_EXIT_CONFIRM:
+    case MENU_FINISHED:
       return 0;
     case MENU_SCORES:
       return g_gameOverFlag ? 0 : 1;
@@ -68,8 +68,8 @@ s32 mpwatchMenuCanGoLeft(void) {
     case MENU_EXIT:
       return 1;
     case MENU_GOWOC:
-    case MENU_6:
-    case MENU_7:
+    case MENU_EXIT_CONFIRM:
+    case MENU_FINISHED:
       return 0;
     case MENU_LOSSES:
       return g_gameOverFlag ? 1 : 0;
@@ -343,7 +343,7 @@ void mpCalculateAwards(s32 arg0)
         set_cur_player(i);
 
         g_CurrentPlayer->mpmenuon = TRUE;
-        g_CurrentPlayer->mpmenumode = 3;
+        g_CurrentPlayer->mpmenumode = MENU_SCORES;
         g_CurrentPlayer->ptr_text_first_mp_award = 0;
         g_CurrentPlayer->ptr_text_second_mp_award = 0;
 
@@ -532,7 +532,7 @@ void mpCalculateAwards(s32 arg0)
 }
 
 
-void sub_GAME_7F0C2E80(void)
+void mpwatchMenuTick(void)
 {
     s32 player_num;
     s32 player_count;
@@ -579,9 +579,9 @@ void sub_GAME_7F0C2E80(void)
                 }
             }
 
-            if (g_playerPerm->most_killed_one_life < g_CurrentPlayer->field_29F8)
+            if (g_playerPerm->most_killed_one_life < g_CurrentPlayer->kills_this_life)
             {
-                g_playerPerm->most_killed_one_life = g_CurrentPlayer->field_29F8;
+                g_playerPerm->most_killed_one_life = g_CurrentPlayer->kills_this_life;
             }
 
             if (g_playerPerm->longest_inning < (getMissiontimer() - g_CurrentPlayer->field_29F4))
@@ -601,17 +601,17 @@ void sub_GAME_7F0C2E80(void)
                     mpwatchPlayBeep();
                     g_CurrentPlayer->mpmenumode--;
                 }
-                else if (mpwatchIsPlayerPressingRight(player_num) && (g_CurrentPlayer->mpmenumode == 6))
+                else if (mpwatchIsPlayerPressingRight(player_num) && (g_CurrentPlayer->mpmenumode == MENU_EXIT_CONFIRM))
                 {
                     mpwatchPlayBeep();
                     g_CurrentPlayer->mpquitconfirm = 1;
                 }
-                else if (mpwatchIsPlayerPressingLeft(player_num) && (g_CurrentPlayer->mpmenumode == 6))
+                else if (mpwatchIsPlayerPressingLeft(player_num) && (g_CurrentPlayer->mpmenumode == MENU_EXIT_CONFIRM))
                 {
                     mpwatchPlayBeep();
                     g_CurrentPlayer->mpquitconfirm = 0;
                 }
-                else if (joyGetButtonsPressedThisFrame(player_num, 0x8000U) && (g_CurrentPlayer->mpmenumode == 4))
+                else if (joyGetButtonsPressedThisFrame(player_num, 0x8000U) && (g_CurrentPlayer->mpmenumode == MENU_PAUSE))
                 {
                     mpwatchPlayBeep();
                     if (!g_pausedFlag)
@@ -626,26 +626,26 @@ void sub_GAME_7F0C2E80(void)
                         lvlSetControlsLockedFlag(0);
                     }
                 }
-                else if (g_CurrentPlayer->mpmenumode == 7)
+                else if (g_CurrentPlayer->mpmenumode == MENU_FINISHED)
                 {
                     if (joyGetButtonsPressedThisFrame(player_num, 0x4000U))
                     {
                         mpwatchPlayBeep();
                         g_CurrentPlayer->mpmenuon = TRUE;
-                        g_CurrentPlayer->mpmenumode = 3;
+                        g_CurrentPlayer->mpmenumode = MENU_SCORES;
                     }
                 }
-                else if (((joyGetButtonsPressedThisFrame(player_num, 0x9000U) != 0) && ((((g_CurrentPlayer->mpmenumode != 5)) && (g_CurrentPlayer->mpmenumode != 6)) || ((g_CurrentPlayer->mpmenumode == 6) && (g_CurrentPlayer->mpquitconfirm != 1)))) || (joyGetButtonsPressedThisFrame(player_num, 0x4000U) != 0))
+                else if (((joyGetButtonsPressedThisFrame(player_num, 0x9000U) != 0) && ((((g_CurrentPlayer->mpmenumode != MENU_EXIT)) && (g_CurrentPlayer->mpmenumode != MENU_EXIT_CONFIRM)) || ((g_CurrentPlayer->mpmenumode == MENU_EXIT_CONFIRM) && (g_CurrentPlayer->mpquitconfirm != 1)))) || (joyGetButtonsPressedThisFrame(player_num, 0x4000U) != 0))
                 {
                     mpwatchPlayBeep();
                     if (g_gameOverFlag != 0)
                     {
                         menu_count = 0;
-                        g_CurrentPlayer->mpmenumode = 7;
+                        g_CurrentPlayer->mpmenumode = MENU_FINISHED;
 
                         for (i = 0; i < player_count; i++)
                         {
-                            if (g_playerPointers[i]->mpmenumode == 7)
+                            if (g_playerPointers[i]->mpmenumode == MENU_FINISHED)
                             {
                                 menu_count++;
                             }
@@ -667,15 +667,15 @@ void sub_GAME_7F0C2E80(void)
                         }
                     }
                 }
-                else if ((joyGetButtonsPressedThisFrame(player_num, 0x9000U) != 0) && (g_CurrentPlayer->mpmenumode == 5))
+                else if ((joyGetButtonsPressedThisFrame(player_num, 0x9000U) != 0) && (g_CurrentPlayer->mpmenumode == MENU_EXIT))
                 {
                     mpwatchPlayBeep();
-                    g_CurrentPlayer->mpmenumode = 6;
+                    g_CurrentPlayer->mpmenumode = MENU_EXIT_CONFIRM;
                     g_CurrentPlayer->mpquitconfirm = 0;
                 }
                 else if (joyGetButtonsPressedThisFrame(player_num, 0x9000U) != 0)
                 {
-                    if ((g_CurrentPlayer->mpmenumode == 6) && (g_CurrentPlayer->mpquitconfirm == 1))
+                    if ((g_CurrentPlayer->mpmenumode == MENU_EXIT_CONFIRM) && (g_CurrentPlayer->mpquitconfirm == 1))
                     {
                         mpwatchPlayBeep();
                         g_CurrentPlayer->mpmenuon = FALSE;
@@ -698,7 +698,7 @@ void sub_GAME_7F0C2E80(void)
             {
                 mpwatchPlayBeep();
                 g_CurrentPlayer->mpmenuon = TRUE;
-                g_CurrentPlayer->mpmenumode = 3;
+                g_CurrentPlayer->mpmenumode = MENU_SCORES;
                 g_CurrentPlayer->mpjoywascentre = 1;
                 g_CurrentPlayer->apparenthealth = g_CurrentPlayer->bondhealth;
                 g_CurrentPlayer->apparentarmour = g_CurrentPlayer->bondarmour;
@@ -708,8 +708,7 @@ void sub_GAME_7F0C2E80(void)
 }
 
 
-
-Gfx *display_text_for_playerdata_on_MP_menu(Gfx *gdl, s32 x, s32 y, u16* arg3, TEXTCOLORS text_color) {
+Gfx *display_text_for_playerdata_on_MP_menu(Gfx *gdl, s32 x, s32 y, s32 points, TEXTCOLORS text_color) {
 
     s32 sp5C;
     s32 sp58;
@@ -720,7 +719,7 @@ Gfx *display_text_for_playerdata_on_MP_menu(Gfx *gdl, s32 x, s32 y, u16* arg3, T
     s16 viX;
     s32 viY;
 
-    sprintf(&sp48, "%d", arg3);
+    sprintf(&sp48, "%d", points);
 
     textMeasure(&sp50, &sp54, &sp48, ptrFontBankGothicChars, ptrFontBankGothic, 0);
 
@@ -851,9 +850,8 @@ s32 get_points_for_mp_player(s32 playernum)
     return points;
 }
 
-
 #ifdef NONMATCHING
-void write_playerrank_to_buffer(void) {
+void write_playerrank_to_buffer(char *buffer, s32 playernum) {
 
 }
 #else
