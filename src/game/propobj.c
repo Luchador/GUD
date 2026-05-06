@@ -1109,7 +1109,7 @@ bool projectileLineTestModel(ObjectRecord *obj, coord3d *modelRayOrigin, coord3d
     // General case: traverse model's nodes for collision.
     } else {
         do {
-            found = sub_GAME_7F0752FC(model, modelRayOrigin, modelRayDir, &node);
+            found = modelFindNextProjectileHitCandidate(model, modelRayOrigin, modelRayDir, &node);
 
             if (found > 0) {
                 bool hit = propobjFindHit(model, node, modelRayOrigin, modelRayDir, &hitthing, &mtxindex, &hitnode);
@@ -31634,7 +31634,7 @@ glabel sub_GAME_7F04E720
 .L7F04E840:
 /* 083370 7F04E840 02602825 */  move  $a1, $s3
 /* 083374 7F04E844 02003025 */  move  $a2, $s0
-/* 083378 7F04E848 0FC1D4BF */  jal   sub_GAME_7F0752FC
+/* 083378 7F04E848 0FC1D4BF */  jal   modelFindNextProjectileHitCandidate
 /* 08337C 7F04E84C 02203825 */   move  $a3, $s1
 /* 083380 7F04E850 1840000E */  blez  $v0, .L7F04E88C
 /* 083384 7F04E854 00409025 */   move  $s2, $v0
