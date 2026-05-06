@@ -2249,8 +2249,7 @@ typedef union
         CHRFLAG     chrflags;                    /* 0x0014 */
         PropRecord *prop;                        /* 0x0018 */
         Model      *model;                       /* 0x001C */
-        /* 0x0020 */
-        void       *field_20; /* 0x0020 */ //path?
+        ModelNode  *field_20;                    /* 0x0020 */
         f32         chrwidth;              /* 0x0024 */
         f32         chrheight;             /* 0x0028 */
         union

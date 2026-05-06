@@ -487,61 +487,24 @@ def_7F06B16C:
 #endif
 
 
-
-
-
-#ifdef NONMATCHING
-void sub_GAME_7F06B248(void)
+void sub_GAME_7F06B248(ModelNode *node)
 {
-    int iVar1;
-    int local_10;
-
-    iVar1 = freedist;
-    if ((param_1 != 0) && (iVar1 = param_1, local_10 = param_1, freedist != 0))
-    {
-        for (; *(local_10 + 0xc) != 0; local_10 = *(local_10 + 0xc))
-        {
+    ModelNode *oldhead;
+    ModelNode *tail;
+    
+    if (node != NULL) {
+        oldhead = D_80036060;
+        if (oldhead != NULL) {
+            tail = node;
+            while (tail->Next != NULL) {
+                tail = tail->Next;
+            }
+            tail->Next = oldhead;
+            D_80036060->Prev = tail;
         }
-        *(local_10 + 0xc)  = freedist;
-        *(freedist + 0x10) = local_10;
-        iVar1              = param_1;
+        D_80036060 = node;
     }
-    freedist = iVar1;
-    return;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F06B248
-/* 09FD78 7F06B248 10800012 */  beqz  $a0, .L7F06B294
-/* 09FD7C 7F06B24C 3C068003 */   lui   $a2, %hi(D_80036060)
-/* 09FD80 7F06B250 24C66060 */  addiu $a2, %lo(D_80036060) # addiu $a2, $a2, 0x6060
-/* 09FD84 7F06B254 8CC20000 */  lw    $v0, ($a2)
-/* 09FD88 7F06B258 5040000E */  beql  $v0, $zero, .L7F06B294
-/* 09FD8C 7F06B25C ACC40000 */   sw    $a0, ($a2)
-/* 09FD90 7F06B260 8C8E000C */  lw    $t6, 0xc($a0)
-/* 09FD94 7F06B264 00801825 */  move  $v1, $a0
-/* 09FD98 7F06B268 51C00007 */  beql  $t6, $zero, .L7F06B288
-/* 09FD9C 7F06B26C AC62000C */   sw    $v0, 0xc($v1)
-/* 09FDA0 7F06B270 8C65000C */  lw    $a1, 0xc($v1)
-/* 09FDA4 7F06B274 00A01825 */  move  $v1, $a1
-.L7F06B278:
-/* 09FDA8 7F06B278 8CA5000C */  lw    $a1, 0xc($a1)
-/* 09FDAC 7F06B27C 54A0FFFE */  bnezl $a1, .L7F06B278
-/* 09FDB0 7F06B280 00A01825 */   move  $v1, $a1
-/* 09FDB4 7F06B284 AC62000C */  sw    $v0, 0xc($v1)
-.L7F06B288:
-/* 09FDB8 7F06B288 8CCF0000 */  lw    $t7, ($a2)
-/* 09FDBC 7F06B28C ADE30010 */  sw    $v1, 0x10($t7)
-/* 09FDC0 7F06B290 ACC40000 */  sw    $a0, ($a2)
-.L7F06B294:
-/* 09FDC4 7F06B294 03E00008 */  jr    $ra
-/* 09FDC8 7F06B298 00000000 */   nop
-)
-#endif
-
-
-
 
 
 #ifdef NONMATCHING
