@@ -9803,7 +9803,7 @@ s32 bgGetPortalBetweenRooms(s32 room1, s32 room2, coord3d *arg2, coord3d *arg3)
 {
     s32 bFoundPortal = FALSE;
     s32 i;
-    s32 portCount = -1;
+    s32 portalIndex = -1;
 
     #ifndef DEBUG
         #define osSyncPrintf(x)
@@ -9817,15 +9817,15 @@ s32 bgGetPortalBetweenRooms(s32 room1, s32 room2, coord3d *arg2, coord3d *arg3)
             bFoundPortal = TRUE;
             if (sub_GAME_7F0B9F14(i, arg2, arg3) != 0)
             {
-                if (portCount >= 0) osSyncPrintf("bg: bgGetPortalBetweenRooms(): Multiple portals join room \'%s\' and \'%s\'\ n", bgDebPrintROOMID(room1), bgDebPrintROOMID(room2));
-                portCount = i;
+                if (portalIndex >= 0) osSyncPrintf("bg: bgGetPortalBetweenRooms(): Multiple portals join room \'%s\' and \'%s\'\ n", bgDebPrintROOMID(room1), bgDebPrintROOMID(room2));
+                portalIndex = i;
             }
         }
     }
 
-    if (portCount == -1 && !bFoundPortal) osSyncPrintf("bg: bgGetPortalBetweenRooms(): No portal joins room \'%s\' and \'%s\'\n", bgDebPrintROOMID(room1), bgDebPrintROOMID(room2));
+    if (portalIndex == -1 && !bFoundPortal) osSyncPrintf("bg: bgGetPortalBetweenRooms(): No portal joins room \'%s\' and \'%s\'\n", bgDebPrintROOMID(room1), bgDebPrintROOMID(room2));
 
-    return portCount;
+    return portalIndex;
     #undef osSyncPrintf
 }
 
