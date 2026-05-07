@@ -871,7 +871,7 @@ Gfx *explosionRenderPropExplosion(PropRecord *prop, Gfx *gdl, s32 withalpha)
     }
     else
     {
-        if (sub_GAME_7F054A64(prop, &sp70) > 0)
+        if (getPropCombinedRoomsBBox2D(prop, &sp70) > 0)
         {
             gdl = bgScissorCurrentPlayerViewF(gdl, sp70.min.f[0], sp70.min.f[1], sp70.max.f[0], sp70.max.f[1]);
         }
@@ -1483,7 +1483,7 @@ Gfx *explosionRenderPropSmoke(PropRecord *arg0, Gfx *gdl, s32 withalpha)
         return gdl;
     }
 
-    if (sub_GAME_7F054A64(arg0, &sp78) > 0)
+    if (getPropCombinedRoomsBBox2D(arg0, &sp78) > 0)
     {
         gdl = bgScissorCurrentPlayerViewF(gdl, sp78.min.f[0], sp78.min.f[1], sp78.max.f[0], sp78.max.f[1]);
     }

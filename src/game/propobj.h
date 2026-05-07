@@ -118,7 +118,7 @@ void                 doorsChooseSwingDirection(PropRecord *arg0, DoorRecord *arg
 Gfx                 *chrobjRenderProp(PropRecord *arg0, Gfx *arg1, s32 arg2);
 
 f32                  chrobjFogVisRangeRelated(PropRecord *prop, f32 size);
-s32                  sub_GAME_7F054A64(PropRecord *prop, bbox2d *bbox);
+s32                  getPropCombinedRoomsBBox2D(PropRecord *prop, bbox2d *bbox);
 
 // note: rgba to rgb
 void                 lerp_rgba_s32_with_rgba_f32(rgba_s32 *arg0, s32 arg1, rgba_f32 *arg2);

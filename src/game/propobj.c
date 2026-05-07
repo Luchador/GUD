@@ -27506,7 +27506,7 @@ Gfx *chrobjRenderProp(PropRecord *prop, Gfx *gdl, s32 arg2)
         sp44 = (arg2 == 0) ? 1 : 2;
     }
 
-    if ((sub_GAME_7F054A64(prop, &sp58) > 0) && (((s32)obj->flags2 << 5) >= 0))
+    if ((getPropCombinedRoomsBBox2D(prop, &sp58) > 0) && (((s32)obj->flags2 << 5) >= 0))
     {
         gdl = bgScissorCurrentPlayerViewF(gdl, sp58.left, sp58.top, sp58.width, sp58.height);
     }
@@ -37388,8 +37388,13 @@ bool doorIsClosed(DoorRecord *door)
     return ((door->openstate == DOORSTATE_STATIONARY) || (door->openstate == DOORSTATE_WAITING)) && (door->openPosition <= 0.0f);
 }
 
-
-s32 sub_GAME_7F054A64(PropRecord *prop, bbox2d *bbox)
+/*
+* Address: 7F054A64
+* Description: Computes the 2D bounding box for every room the prop is in
+*              so it can be used for scissors. Returns true when the prop
+*              has at least one room bounding box.
+*/
+s32 getPropCombinedRoomsBBox2D(PropRecord *prop, bbox2d *bbox)
 {
     s32 room_ids[8];
     s32 *rooms;
@@ -37532,7 +37537,7 @@ bool sub_GAME_7F054D6C(PropRecord *prop, coord3d *pos, f32 arg2, bool arg3)
         {
             if (fogPositionIsVisibleThroughFog(pos, arg2) && (!arg3 || sub_GAME_7F054C58(pos, arg2)))
             {
-                if (sub_GAME_7F054A64(prop, &bbox) != 0)
+                if (getPropCombinedRoomsBBox2D(prop, &bbox) != 0)
                 {
                     result = camIsPosInScreenBox(pos, arg2, &bbox);
                 }
