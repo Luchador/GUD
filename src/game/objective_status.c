@@ -496,7 +496,7 @@ void objectiveTakePictureHandler(void)
                     && (objIsHealthy(target_object) != 0)
                     && (sub_GAME_7F050D30(target_object->prop, &sp84, &sp7C, &sp74) != 0))
                 {
-                    sub_GAME_7F03F948(&sp84, &sp7C, &sp74, &sp64.right, &sp64.left);
+                    projectRectCornersTo2D(&sp84, &sp7C, &sp74, &sp64.right, &sp64.left);
                     
                     if (getPlayer_c_screenleft() < sp64.right)
                     {

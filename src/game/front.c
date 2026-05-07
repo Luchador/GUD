@@ -2453,7 +2453,7 @@ s32 interface_menu05_fileselect(void)
             DIFFICULTY sp5C;
 
             sub_GAME_7F03F90C(walletinst[i2], &sp80, &sp7C, &sp78, &sp74);
-            sub_GAME_7F03F948(&dword_CODE_bss_80069620[i2], &sp7C, &sp74, &sp64.right, &sp64.left);
+            projectRectCornersTo2D(&dword_CODE_bss_80069620[i2], &sp7C, &sp74, &sp64.right, &sp64.left);
 
             if ((sp64.right <= cursor_h_pos)
                 && (cursor_h_pos <= sp64.left)

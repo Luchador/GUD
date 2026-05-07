@@ -5546,33 +5546,34 @@ void sub_GAME_7F03F90C(Model *model, f32 *arg1, f32 *arg2, f32 *arg3, f32 *arg4)
 
 /**
  * NTSC address 0x7F03F948.
+ * Project rectangle corners to screen
 */
-void sub_GAME_7F03F948(struct coord3d *arg0, struct coord2d *arg1, struct coord2d *arg2, struct coord2d *arg3, struct coord2d *arg4)
+void projectRectCornersTo2D(struct coord3d *center, struct coord2d *arg1, struct coord2d *arg2, struct coord2d *arg3, struct coord2d *arg4)
 {
     struct coord3d sp24;
     struct coord2d tout;
 
     sp24.f[0] = arg1->f[0];
-    sp24.f[1] = arg0->f[1];
-    sp24.f[2] = arg0->f[2];
+    sp24.f[1] = center->f[1];
+    sp24.f[2] = center->f[2];
     transform3Dto2DCoords(&sp24, &tout);
     arg3->f[0] = tout.f[0];
 
     sp24.f[0] = arg1->f[1];
-    sp24.f[1] = arg0->f[1];
-    sp24.f[2] = arg0->f[2];
+    sp24.f[1] = center->f[1];
+    sp24.f[2] = center->f[2];
     transform3Dto2DCoords(&sp24, &tout);
     arg4->f[0] = tout.f[0];
 
-    sp24.f[0] = arg0->f[0];
+    sp24.f[0] = center->f[0];
     sp24.f[1] = arg2->f[1];
-    sp24.f[2] = arg0->f[2];
+    sp24.f[2] = center->f[2];
     transform3Dto2DCoords(&sp24, &tout);
     arg3->f[1] = tout.f[1];
 
-    sp24.f[0] = arg0->f[0];
+    sp24.f[0] = center->f[0];
     sp24.f[1] = arg2->f[0];
-    sp24.f[2] = arg0->f[2];
+    sp24.f[2] = center->f[2];
     transform3Dto2DCoords(&sp24, &tout);
     arg4->f[1] = tout.f[1];
 }
