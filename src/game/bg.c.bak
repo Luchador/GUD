@@ -11691,7 +11691,7 @@ glabel sub_GAME_7F0B9B94
 
 
 #ifdef NONMATCHING
-void sub_GAME_7F0B9CC8(void) {
+void bgGetPortalBetweenRooms(void) {
     s32 bFoundPortal = FALSE;
     s32 i;
     s32 portCount = -1;
@@ -11722,7 +11722,7 @@ void sub_GAME_7F0B9CC8(void) {
  #else
  GLOBAL_ASM(
 .text
-glabel sub_GAME_7F0B9CC8
+glabel bgGetPortalBetweenRooms
 /* 0EE7F8 7F0B9CC8 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0EE7FC 7F0B9CCC AFBE0038 */  sw    $fp, 0x38($sp)
 /* 0EE800 7F0B9CD0 3C1E8008 */  lui   $fp, %hi(g_BgPortals)

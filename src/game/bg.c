@@ -777,7 +777,7 @@ s32 sub_GAME_7F0B39BC(int curroom,int unk1, bbox2d * screensize, s32 next)
             return temp;
         }
     }
-    
+
 #if defined(VERSION_EU)
     i = g_BgNumberOfRoomsDrawn;
     if (i >= 0x78) {
@@ -794,7 +794,7 @@ s32 sub_GAME_7F0B39BC(int curroom,int unk1, bbox2d * screensize, s32 next)
     if (eu_cdata_0x1f0d0 < 0x78) {
         g_BgNumberOfRoomsDrawn = eu_cdata_0x1f0d0;
     }
-    
+
     return 0;
 #else
     i = g_BgNumberOfRoomsDrawn;
@@ -808,7 +808,7 @@ s32 sub_GAME_7F0B39BC(int curroom,int unk1, bbox2d * screensize, s32 next)
     g_BgNumberOfRoomsDrawn = i + 1;
 
     if (g_BgNumberOfRoomsDrawn) {}
-    
+
     return 0;
 #endif
 }
@@ -2435,7 +2435,7 @@ void bgRoomVisibilityRelated(void)
             if (portalnum == lastportal) {
                 continue;
             }
-            
+
             if (((room == g_BgPortals[portalnum].connectedRoom1 || room == g_BgPortals[portalnum].connectedRoom2) && sub_GAME_7F0B9F14(portalnum, pos, pos3))) {
                 lastportal = portalnum;
 
@@ -2909,7 +2909,7 @@ bool bgIsRoomOnScreen(s32 roomID, struct rectbbox *screenbox)
     s32 count_top;
     s32 count_bottom;
     f32 zrange[2];
-    
+
     count_z = 0;
     count_failed_projection = 0;
     count_left = 0;
@@ -3925,7 +3925,7 @@ u32 bgDecompress(u8* source, u8 *target)
 
 /**
  * Address: 7F0B5FAC
- * 
+ *
  * Load room's compressed vertex table from the bg file, decompress it
  * into dst, and store the resulting Vtx buffer in room.
  */
@@ -3935,7 +3935,7 @@ s32 bgLoadRoomVtxData(s32 roomnum, u8 *dst, s32 len)
     s32 alignedsize;
     s32 offset;
     s32 result;
-    
+
     room = &g_BgRoomInfo[roomnum];
     alignedsize = (room->csize_point_index_binary + 0xf) & ~0xf;
     if (len < alignedsize + 0x20) {
@@ -3950,19 +3950,19 @@ s32 bgLoadRoomVtxData(s32 roomnum, u8 *dst, s32 len)
     offset = (((u8 *)ptr_bgdata_room_fileposition_list[roomnum].pPointTableBin + ptr_bg_data) - ptr_bg_data) + 0xf1000000;
     obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, dst + (len - alignedsize), offset, alignedsize);
     result = bgDecompress(dst + (len - alignedsize), dst);
-    
+
     room->vertices = (Vtx *)dst;
     room->usize_point_index_binary = result;
-    
+
     return result;
 }
 
 
 /**
  * Address: 7F0B609C
- * 
+ *
  * Load and decompress a room's primary display list data.
- * 
+ *
  * On success, roominfo->ptr_expanded_mapping_info is set to dst,
  * and roominfo->usize_primary_DL_binary is set to the returned size.
  */
@@ -4025,9 +4025,9 @@ s32 bgLoadRoomPrimaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
 
 /**
  * Address: 7F0B61DC
- * 
+ *
  * Load and decompress a room's secondary display list data.
- * 
+ *
  * On success, roominfo->ptr_secondary_expanded_mapping_info is set to dst,
  * and roominfo->usize_secondary_DL_binary is set to the returned size.
  */
@@ -4038,7 +4038,7 @@ s32 bgLoadRoomSecondaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
     s32 fileoffset;
     u8 *scratch;
     s32 expanded_size;
-    
+
     roominfo = &g_BgRoomInfo[roomnum];
 
     size = roominfo->csize_secondary_DL_binary;
@@ -4113,7 +4113,7 @@ void sub_GAME_7F0B6368(s32 roomID) {
     s32 used;
     s32 result;
     u8 *data;
-    
+
     used = 0;
 
     if (roomID >= g_MaxNumRooms) goto end;
@@ -4588,7 +4588,7 @@ void delete_room_data(s32 roomID)
     if (room->cur_room_totalsize > 0) {
         size = room->cur_room_totalsize;
         pointindex = room->vertices;
-    
+
         if (pointindex != NULL)
         {
             size2 = room->cur_room_totalsize;
@@ -4600,7 +4600,7 @@ void delete_room_data(s32 roomID)
             memaFree(room->ptr_expanded_mapping_info, size);
             room->vertices = NULL;
         }
-    
+
         room->ptr_expanded_mapping_info = NULL;
         room->ptr_secondary_expanded_mapping_info = NULL;
     }
@@ -4630,7 +4630,7 @@ void unload_rooms(void)
 
 /**
  * Address: 7F0B66E8
- * 
+ *
  * Ages loaded rooms that are no longer marked active, then unloads them
  * once their unload delay expires.
  */
@@ -4657,7 +4657,7 @@ void bgRoomsTickUnload(void)
 
 /**
  * Address 7F0B677C
- * 
+ *
  * Render a room's primary (solid) geometry.
  * Ensures the room's bg data is loaded if budget allows, then appends its display list.
  * Also resets the age of rendered rooms to bgRoomsTickUnload won't unload it.
@@ -4702,7 +4702,7 @@ Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
 
 /**
  * Address 7F0B6898
- * 
+ *
  * Render a room's secondary (transparent) geometry.
 */
 Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
@@ -4764,7 +4764,7 @@ void sub_GAME_7F0B6994(s32 roomID)
     }
 
     gdl = g_BgRoomInfo[roomID].ptr_expanded_mapping_info;
-    
+
     vertices = g_BgRoomInfo[roomID].vertices;
     cmdindex = 0;
     numpoints = 0;
@@ -9795,8 +9795,13 @@ glabel sub_GAME_7F0B9B94
 
 
 
-#ifdef NONMATCHING
-void sub_GAME_7F0B9CC8(void) {
+#if 1
+/**
+ * Address: 7F0B9CC8
+ *
+ */
+s32 bgGetPortalBetweenRooms(s32 room1, s32 room2, coord3d *arg2, coord3d *arg3)
+{
     s32 bFoundPortal = FALSE;
     s32 i;
     s32 portCount = -1;
@@ -9819,15 +9824,15 @@ void sub_GAME_7F0B9CC8(void) {
         }
     }
 
-    // if (portCount == -1 && !bFoundPortal) osSyncPrintf("bg: bgGetPortalBetweenRooms(): No portal joins room \'%s\' and \'%s\'\n", bgDebPrintROOMID(room1), bgDebPrintROOMID(room2));
+    if (portCount == -1 && !bFoundPortal) osSyncPrintf("bg: bgGetPortalBetweenRooms(): No portal joins room \'%s\' and \'%s\'\n", bgDebPrintROOMID(room1), bgDebPrintROOMID(room2));
 
-    // return portCount;
-
-    // #undef osSyncPrintf }
+    return portCount;
+    #undef osSyncPrintf
+}
  #else
  GLOBAL_ASM(
 .text
-glabel sub_GAME_7F0B9CC8
+glabel bgGetPortalBetweenRooms
 /* 0EE7F8 7F0B9CC8 27BDFFC0 */  addiu $sp, $sp, -0x40
 /* 0EE7FC 7F0B9CCC AFBE0038 */  sw    $fp, 0x38($sp)
 /* 0EE800 7F0B9CD0 3C1E8008 */  lui   $fp, %hi(g_BgPortals)

@@ -984,7 +984,7 @@ void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
 
         if ((door->flags & PROPFLAG_CULL_BEHIND_DOOR) && (sp1B0 >= 0) && (sp1AC >= 0))
         {
-            portalnum = sub_GAME_7F0B9CC8(sp1B0, sp1AC, &sp1A0, &sp194);
+            portalnum = bgGetPortalBetweenRooms(sp1B0, sp1AC, &sp1A0, &sp194);
         }
     }
 
