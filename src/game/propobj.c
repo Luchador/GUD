@@ -34469,7 +34469,10 @@ glabel object_collectability_routines
 #endif
 
 
-bool sub_GAME_7F050D30(PropRecord *prop, coord3d *arg1, struct coord2d *arg2, struct coord2d *arg3)
+/*
+* Address: 7F050D30
+*/ 
+bool objGetOnscreenRenderBounds(PropRecord *prop, coord3d *arg1, struct coord2d *arg2, struct coord2d *arg3)
 {
     if (prop->flags & PROPFLAG_ONSCREEN)
     {
@@ -34489,7 +34492,7 @@ bool sub_GAME_7F050D30(PropRecord *prop, coord3d *arg1, struct coord2d *arg2, st
             arg2->f[0] = 0;
             arg2->f[1] = 0;
 
-            sub_GAME_7F03F90C(obj->model, &arg2->f[1], &arg2->f[0], &arg3->f[1], &arg3->f[0]);
+            modelGetXYExtents(obj->model, &arg2->f[1], &arg2->f[0], &arg3->f[1], &arg3->f[0]);
 
             return TRUE;
         }

@@ -494,7 +494,7 @@ void objectiveTakePictureHandler(void)
                     && (target_prop->flags & PROPFLAG_ONSCREEN)
                     && (target_prop->zDepth >= 0.0f) // draw/render distance
                     && (objIsHealthy(target_object) != 0)
-                    && (sub_GAME_7F050D30(target_object->prop, &sp84, &sp7C, &sp74) != 0))
+                    && (objGetOnscreenRenderBounds(target_object->prop, &sp84, &sp7C, &sp74) != 0))
                 {
                     projectRectCornersTo2D(&sp84, &sp7C, &sp74, &sp64.right, &sp64.left);
                     

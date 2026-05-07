@@ -7844,7 +7844,7 @@ f32 chrGetChrGround(PropRecord *arg0)
  *
  * US address 7F023194.
 */
-s32 sub_GAME_7F023194(PropRecord *arg0, struct coord3d *arg1, struct coord2d *arg2, struct coord2d *arg3)
+s32 chrGetOnscreenRenderBounds(PropRecord *arg0, struct coord3d *arg1, struct coord2d *arg2, struct coord2d *arg3)
 {
     struct ChrRecord *temp_v1;
 
@@ -7875,7 +7875,7 @@ s32 sub_GAME_7F023194(PropRecord *arg0, struct coord3d *arg1, struct coord2d *ar
                 arg2->x = 0.0f;
                 arg2->y = 0.0f;
 
-                sub_GAME_7F03F90C(model, &arg2->y, &arg2->x, &arg3->y, &arg3->x);
+                modelGetXYExtents(model, &arg2->y, &arg2->x, &arg3->y, &arg3->x);
 
                 return 1;
             }

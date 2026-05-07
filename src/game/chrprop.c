@@ -2000,7 +2000,7 @@ glabel chraiFistAttackHandler
 .L7F03BEF0:
 /* 070A20 7F03BEF0 8E44001C */  lw    $a0, 0x1c($s2)
 /* 070A24 7F03BEF4 27A600A8 */  addiu $a2, $sp, 0xa8
-/* 070A28 7F03BEF8 0FC0FDD2 */  jal   sub_GAME_7F03F748
+/* 070A28 7F03BEF8 0FC0FDD2 */  jal   modelGetAxisExtents
 /* 070A2C 7F03BEFC 00003825 */   move  $a3, $zero
 /* 070A30 7F03BF00 C7A800AC */  lwc1  $f8, 0xac($sp)
 /* 070A34 7F03BF04 C7AA00A8 */  lwc1  $f10, 0xa8($sp)
@@ -2014,7 +2014,7 @@ glabel chraiFistAttackHandler
 /* 070A54 7F03BF24 24070001 */  li    $a3, 1
 /* 070A58 7F03BF28 45000054 */  bc1f  .L7F03C07C
 /* 070A5C 7F03BF2C 00000000 */   nop
-/* 070A60 7F03BF30 0FC0FDD2 */  jal   sub_GAME_7F03F748
+/* 070A60 7F03BF30 0FC0FDD2 */  jal   modelGetAxisExtents
 /* 070A64 7F03BF34 8E44001C */   lw    $a0, 0x1c($s2)
 /* 070A68 7F03BF38 C7B000A4 */  lwc1  $f16, 0xa4($sp)
 /* 070A6C 7F03BF3C C7B200A0 */  lwc1  $f18, 0xa0($sp)
@@ -2028,7 +2028,7 @@ glabel chraiFistAttackHandler
 /* 070A8C 7F03BF5C 24070002 */  li    $a3, 2
 /* 070A90 7F03BF60 45000046 */  bc1f  .L7F03C07C
 /* 070A94 7F03BF64 00000000 */   nop
-/* 070A98 7F03BF68 0FC0FDD2 */  jal   sub_GAME_7F03F748
+/* 070A98 7F03BF68 0FC0FDD2 */  jal   modelGetAxisExtents
 /* 070A9C 7F03BF6C 8E44001C */   lw    $a0, 0x1c($s2)
 /* 070AA0 7F03BF70 C7A40098 */  lwc1  $f4, 0x98($sp)
 /* 070AA4 7F03BF74 C7A6009C */  lwc1  $f6, 0x9c($sp)
@@ -3656,7 +3656,7 @@ void chrpropUpdateAutoaimTarget(void)
                 continue;
             }
 
-            if ((sub_GAME_7F023194(prop, &sp88, &sp80, &sp78) == 0))
+            if ((chrGetOnscreenRenderBounds(prop, &sp88, &sp80, &sp78) == 0))
             {
                 continue;
             }
@@ -5466,8 +5466,10 @@ glabel sub_GAME_7F03F598
 )
 #endif
 
-
-void sub_GAME_7F03F748(Model* model, f32* max, f32* min, s32 axis)
+/*
+* Address: 7F03F748
+*/
+void modelGetAxisExtents(Model* model, f32* max, f32* min, s32 axis)
 {
     ModelNode *node = model->obj->RootNode;
     bool first = TRUE;
@@ -5537,10 +5539,13 @@ void sub_GAME_7F03F748(Model* model, f32* max, f32* min, s32 axis)
 }
 
 
-void sub_GAME_7F03F90C(Model *model, f32 *arg1, f32 *arg2, f32 *arg3, f32 *arg4)
+/*
+* Address: 7F03F748
+*/
+void modelGetXYExtents(Model *model, f32 *arg1, f32 *arg2, f32 *arg3, f32 *arg4)
 {
-    sub_GAME_7F03F748(model, arg1, arg2, 0);
-    sub_GAME_7F03F748(model, arg3, arg4, 1);
+    modelGetAxisExtents(model, arg1, arg2, 0);
+    modelGetAxisExtents(model, arg3, arg4, 1);
 }
 
 
