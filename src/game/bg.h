@@ -17,8 +17,7 @@ struct levelentry
 // cannon definition
 #define MAXPORTALSPERROOM 20
 
-// Placeholder for unique collision point records. sizeof = 0x1c.
-typedef struct RoomUniqueCollisionPoint {
+typedef struct RoomVtxBatchBounds {
     s16 gdlindex;    // 0x00
     s16 pad02;       // 0x02
 
@@ -37,7 +36,7 @@ typedef struct RoomUniqueCollisionPoint {
             s32 max[3]; // 0x10
         };
     };
-} RoomUniqueCollisionPoint; // size = 0x1c
+} RoomVtxBatchBounds; // size = 0x1c
 
 typedef struct s_room_info {
     // is room being rendered? boolean
@@ -74,9 +73,9 @@ typedef struct s_room_info {
     s32 usize_secondary_DL_binary;          // 0x24
 
     s32 cur_room_totalsize;                 // 0x28
-    RoomUniqueCollisionPoint *ptr_unique_collision_points; // 0x2c
+    RoomVtxBatchBounds *vtx_batch_bounds;   // 0x2c
 
-    s16 num_unique_collision_points;        // 0x30
+    s16 num_vtx_batch_bounds;               // 0x30
     s16 field_32;                           // 0x32
 
     u8 room_loaded_mask;                    // 0x34

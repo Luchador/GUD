@@ -381,8 +381,8 @@ void unload_rooms(void);
 Gfx *sub_GAME_7F0B8D78(Gfx *arg0);
 Gfx *sub_GAME_7F0B3C8C(Gfx *arg0);
 s32 bgCheckIfRoomModelNeedsLoad(s32 roomID);
-void sub_GAME_7F0B6368(s32 room);
-void sub_GAME_7F0B6994(s32 roomID);
+void bgLoadRoomModelData(s32 room);
+void bgBuildRoomVtxBounds(s32 roomID);
 Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index);
 Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index);
 
@@ -4092,7 +4092,7 @@ s32 bgCheckIfRoomModelNeedsLoad(s32 roomID)
     g_BgRoomInfo[roomID].field_35 = 1;
     if (g_BgRoomInfo[roomID].model_bin_loaded == 0)
     {
-        sub_GAME_7F0B6368(roomID);
+        bgLoadRoomModelData(roomID);
         return 1;
     }
     return 0;
@@ -4103,7 +4103,7 @@ s32 bgCheckIfRoomModelNeedsLoad(s32 roomID)
 * Allocates memory for room and update its display lists
 * Address: 7F0B6368
 */
-void sub_GAME_7F0B6368(s32 roomID)
+void bgLoadRoomModelData(s32 roomID)
 {
     /*
      * Keep this prototype visible here for IDO codegen.
@@ -4136,6 +4136,9 @@ void sub_GAME_7F0B6368(s32 roomID)
         allocsize = memaGetLongestFree();
     }
 
+    /**
+    * Allocate one contiguous block for vertices and display lists. 
+    */
     data = memaAlloc(allocsize);
 
     if (data == NULL) goto end;
@@ -4156,6 +4159,9 @@ void sub_GAME_7F0B6368(s32 roomID)
         g_BgRoomInfo[roomID].usize_point_index_binary = 0;
     }
 
+    /**
+     * Append the primary display list after the vertex data.
+     */
     if (g_BgRoomInfo[roomID].csize_primary_DL_binary)
     {
         result = bgLoadRoomPrimaryGdl(roomID, data + used, allocsize - used);
@@ -4166,6 +4172,9 @@ void sub_GAME_7F0B6368(s32 roomID)
         }
     }
 
+    /**
+     * Append the secondary display list.
+     */
     if (g_BgRoomInfo[roomID].csize_secondary_DL_binary)
     {
         result = bgLoadRoomSecondaryGdl(roomID, data + used, allocsize - used);
@@ -4220,7 +4229,7 @@ void sub_GAME_7F0B6368(s32 roomID)
         }
     }
 
-    sub_GAME_7F0B6994(roomID);
+    bgBuildRoomVtxBounds(roomID);
     roomsHandleStateDebugging();
 
 end:;
@@ -4238,12 +4247,12 @@ void delete_room_data(s32 roomID)
     s32 size2;
     Vtx *pointindex;
 
-    if (room->ptr_unique_collision_points != NULL) {
+    if (room->vtx_batch_bounds != NULL) {
         memaFree(
-            room->ptr_unique_collision_points,
-            ((room->num_unique_collision_points * sizeof(RoomUniqueCollisionPoint)) + 0xf) & ~0xf);
+            room->vtx_batch_bounds,
+            ((room->num_vtx_batch_bounds * sizeof(RoomVtxBatchBounds)) + 0xf) & ~0xf);
 
-        room->ptr_unique_collision_points = NULL;
+        room->vtx_batch_bounds = NULL;
     }
 
     if (room->cur_room_totalsize > 0) {
@@ -4337,7 +4346,7 @@ Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
             if (g_RoomLoadBudget > 0)
             {
                 g_RoomLoadBudget--;
-                sub_GAME_7F0B6368(room_index);
+                bgLoadRoomModelData(room_index);
             }
         }
 
@@ -4392,7 +4401,7 @@ Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
         }
         else
         {
-            sub_GAME_7F0B6368(room_index);
+            bgLoadRoomModelData(room_index);
         }
     }
 
@@ -4401,26 +4410,25 @@ Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
 
 
 /*
-* Is this related to room collisions? (for bullets)
+* Build world space bounds for each vertex batch loaded by the room's display list.
 * Address: 7F0B6994
 */
-
 #define ALIGN16(val) (((val) + 0xF) & ~0xF)
 #define	SEGMENT_OFFSET(a)	((unsigned int)(a) & 0x00ffffff)
 
-void sub_GAME_7F0B6994(s32 roomID)
+void bgBuildRoomVtxBounds(s32 roomID)
 {
     s32 cmdindex;
     Gfx *gdl;
     Vtx *vertices;
-    RoomUniqueCollisionPoint *points;
+    RoomVtxBatchBounds *points;
     s32 numpoints;
-    RoomUniqueCollisionPoint *point;
+    RoomVtxBatchBounds *point;
     s32 i;
     s32 numvertices;
     Vtx *vtx;
 
-    if (g_BgRoomInfo[roomID].ptr_unique_collision_points != NULL) {
+    if (g_BgRoomInfo[roomID].vtx_batch_bounds != NULL) {
         return;
     }
 
@@ -4438,16 +4446,16 @@ void sub_GAME_7F0B6994(s32 roomID)
         cmdindex++;
     }
 
-    points = memaAlloc(ALIGN16(numpoints * sizeof(RoomUniqueCollisionPoint)));
+    points = memaAlloc(ALIGN16(numpoints * sizeof(RoomVtxBatchBounds)));
 
-    if (ALIGN16(numpoints * sizeof(RoomUniqueCollisionPoint))) {}
+    if (ALIGN16(numpoints * sizeof(RoomVtxBatchBounds))) {}
 
     if (points == NULL) {
         return;
     }
 
-    g_BgRoomInfo[roomID].ptr_unique_collision_points = points;
-    g_BgRoomInfo[roomID].num_unique_collision_points = numpoints;
+    g_BgRoomInfo[roomID].vtx_batch_bounds = points;
+    g_BgRoomInfo[roomID].num_vtx_batch_bounds = numpoints;
 
     numpoints = 0;
     cmdindex = 0;
@@ -8669,7 +8677,7 @@ glabel sub_GAME_7F0B9338
 /* 0EDF90 7F0B9460 8D060004 */   lw    $a2, 4($t0)
 /* 0EDF94 7F0B9464 AFA20030 */  sw    $v0, 0x30($sp)
 /* 0EDF98 7F0B9468 AFA80028 */  sw    $t0, 0x28($sp)
-/* 0EDF9C 7F0B946C 0FC2D8DA */  jal   sub_GAME_7F0B6368
+/* 0EDF9C 7F0B946C 0FC2D8DA */  jal   bgLoadRoomModelData
 /* 0EDFA0 7F0B9470 A3AA0037 */   sb    $t2, 0x37($sp)
 /* 0EDFA4 7F0B9474 3C198008 */  lui   $t9, %hi(ptr_bgdata_room_fileposition_list)
 /* 0EDFA8 7F0B9478 8F39FF8C */  lw    $t9, %lo(ptr_bgdata_room_fileposition_list)($t9)

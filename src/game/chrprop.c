@@ -588,7 +588,7 @@ s32 chrpropRayIntersectsRoomBbox(s32 room, coord3d* start, coord3d* dir) {
     s_room_info* roominfo;
 
     roominfo = &g_BgRoomInfo[room];
-    if (roominfo->ptr_unique_collision_points != NULL) { // Skip check if room has no collision data
+    if (roominfo->vtx_batch_bounds != NULL) { // Skip check if room has no collision data
         min[0] = roominfo->minbounds.f[0];
         min[1] = roominfo->minbounds.f[1];
         min[2] = roominfo->minbounds.f[2];
