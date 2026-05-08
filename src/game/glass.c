@@ -33,10 +33,20 @@ u32 dword_CODE_bss_8007A16C;
 bondstruct_unk_8007A170 dword_CODE_bss_8007A170[UNK_8007A170_MAX];
 
 #ifndef VERSION_EU
+
+s32 sub_GAME_7F0A3C08(struct bondstruct_unk_8007A4E0 *arg0, struct bondstruct_unk_3float *arg1, s32 arg2, f32 arg3, s16 arg4);
+
+struct bondstruct_unk_3float
+{
+  f32 x;
+  f32 y;
+  f32 z;
+};
+
 //CODE.bss:8007A4E0
 struct bondstruct_unk_8007A4E0 {
     s32  unk00;
-    s16  unk04;
+    s16  unk04; // probably the correct type
     s16  unk06;
     f32  unk08;
     void *unk0c;
@@ -3431,66 +3441,30 @@ void sub_GAME_7F0A45D8(void)
 
 
 
-#ifdef NONMATCHING
-void sub_GAME_7F0A4600(void) {
+#ifndef VERSION_EU
+struct bondstruct_unk_8007A4E0 *sub_GAME_7F0A4600(struct bondstruct_unk_3float *arg0, struct bondstruct_unk_3float *arg1, s32 arg2, f32 arg3, f32 arg4, s16 arg5)
+{
+  struct bondstruct_unk_8007A4E0 *ptr;
+  for (ptr = &dword_CODE_bss_8007A4E0[0]; ptr < &dword_CODE_bss_8007A4E0[50]; ptr++)
+  {
+    if (ptr->unk04 == 0)
+    {
+      sub_GAME_7F0A3C08(ptr, arg0, arg2, arg3, arg5);
+      ptr->unk2c = arg1->x;
+      ptr->unk30 = arg1->y;
+      ptr->unk34 = arg1->z;
+      ptr->unk38 = arg4;
+      return ptr;
+    }
+  }
 
+  return NULL;
 }
 #else
-#ifndef VERSION_EU
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0A4600
-/* 0D9130 7F0A4600 27BDFFD8 */  addiu $sp, $sp, -0x28
-/* 0D9134 7F0A4604 AFB00020 */  sw    $s0, 0x20($sp)
-/* 0D9138 7F0A4608 3C108008 */  lui   $s0, %hi(dword_CODE_bss_8007A4E0)
-/* 0D913C 7F0A460C 3C028008 */  lui   $v0, %hi(dword_CODE_bss_8007A4E0+0xbb8)
-/* 0D9140 7F0A4610 44876000 */  mtc1  $a3, $f12
-/* 0D9144 7F0A4614 AFBF0024 */  sw    $ra, 0x24($sp)
-/* 0D9148 7F0A4618 AFA40028 */  sw    $a0, 0x28($sp)
-/* 0D914C 7F0A461C AFA5002C */  sw    $a1, 0x2c($sp)
-/* 0D9150 7F0A4620 2442B098 */  addiu $v0, %lo(dword_CODE_bss_8007A4E0+0xbb8) # addiu $v0, $v0, -0x4f68
-/* 0D9154 7F0A4624 2610A4E0 */  addiu $s0, %lo(dword_CODE_bss_8007A4E0) # addiu $s0, $s0, -0x5b20
-/* 0D9158 7F0A4628 860E0004 */  lh    $t6, 4($s0)
-.L7F0A462C:
-/* 0D915C 7F0A462C 55C00013 */  bnezl $t6, .L7F0A467C
-/* 0D9160 7F0A4630 2610003C */   addiu $s0, $s0, 0x3c
-/* 0D9164 7F0A4634 87AF003E */  lh    $t7, 0x3e($sp)
-/* 0D9168 7F0A4638 44076000 */  mfc1  $a3, $f12
-/* 0D916C 7F0A463C 02002025 */  move  $a0, $s0
-/* 0D9170 7F0A4640 8FA50028 */  lw    $a1, 0x28($sp)
-/* 0D9174 7F0A4644 0FC28F02 */  jal   sub_GAME_7F0A3C08
-/* 0D9178 7F0A4648 AFAF0010 */   sw    $t7, 0x10($sp)
-/* 0D917C 7F0A464C 8FA3002C */  lw    $v1, 0x2c($sp)
-/* 0D9180 7F0A4650 02001025 */  move  $v0, $s0
-/* 0D9184 7F0A4654 C4640000 */  lwc1  $f4, ($v1)
-/* 0D9188 7F0A4658 E604002C */  swc1  $f4, 0x2c($s0)
-/* 0D918C 7F0A465C C4660004 */  lwc1  $f6, 4($v1)
-/* 0D9190 7F0A4660 E6060030 */  swc1  $f6, 0x30($s0)
-/* 0D9194 7F0A4664 C4680008 */  lwc1  $f8, 8($v1)
-/* 0D9198 7F0A4668 E6080034 */  swc1  $f8, 0x34($s0)
-/* 0D919C 7F0A466C C7AA0038 */  lwc1  $f10, 0x38($sp)
-/* 0D91A0 7F0A4670 10000006 */  b     .L7F0A468C
-/* 0D91A4 7F0A4674 E60A0038 */   swc1  $f10, 0x38($s0)
-/* 0D91A8 7F0A4678 2610003C */  addiu $s0, $s0, 0x3c
-.L7F0A467C:
-/* 0D91AC 7F0A467C 0202082B */  sltu  $at, $s0, $v0
-/* 0D91B0 7F0A4680 5420FFEA */  bnezl $at, .L7F0A462C
-/* 0D91B4 7F0A4684 860E0004 */   lh    $t6, 4($s0)
-/* 0D91B8 7F0A4688 00001025 */  move  $v0, $zero
-.L7F0A468C:
-/* 0D91BC 7F0A468C 8FBF0024 */  lw    $ra, 0x24($sp)
-/* 0D91C0 7F0A4690 8FB00020 */  lw    $s0, 0x20($sp)
-/* 0D91C4 7F0A4694 27BD0028 */  addiu $sp, $sp, 0x28
-/* 0D91C8 7F0A4698 03E00008 */  jr    $ra
-/* 0D91CC 7F0A469C 00000000 */   nop
-)
-#endif
-#ifdef VERSION_EU
 void sub_GAME_7F0A4600(void)
 {
     sub_GAME_7F0A3EA0();
 }
-#endif
 #endif
 
 
