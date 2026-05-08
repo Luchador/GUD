@@ -3384,35 +3384,17 @@ void sub_GAME_7F0A4528(Gfx *gdl, s32 arg1) {
     }
 }
 
-#ifdef NONMATCHING
-void sub_GAME_7F0A4594(vec3d *vec)
-{
-    mtx4TransformVecInPlace(camGetWorldToScreenMtxf(), &vec);
-    return -vec->z;
+
+f32 sub_GAME_7F0A4594(bondstruct_unk_8007A170* arg0) {
+    coord3d tempVec;
+
+    tempVec.x = arg0->unk10;
+    tempVec.y = arg0->unk14;
+    tempVec.z = arg0->unk18;
+    mtx4TransformVecInPlace(camGetWorldToScreenMtxf(), &tempVec);
+    return -tempVec.z;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0A4594
-/* 0D90C4 7F0A4594 27BDFFD8 */  addiu $sp, $sp, -0x28
-/* 0D90C8 7F0A4598 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0D90CC 7F0A459C C4840010 */  lwc1  $f4, 0x10($a0)
-/* 0D90D0 7F0A45A0 E7A4001C */  swc1  $f4, 0x1c($sp)
-/* 0D90D4 7F0A45A4 C4860014 */  lwc1  $f6, 0x14($a0)
-/* 0D90D8 7F0A45A8 E7A60020 */  swc1  $f6, 0x20($sp)
-/* 0D90DC 7F0A45AC C4880018 */  lwc1  $f8, 0x18($a0)
-/* 0D90E0 7F0A45B0 0FC1E0F1 */  jal   camGetWorldToScreenMtxf
-/* 0D90E4 7F0A45B4 E7A80024 */   swc1  $f8, 0x24($sp)
-/* 0D90E8 7F0A45B8 00402025 */  move  $a0, $v0
-/* 0D90EC 7F0A45BC 0FC1611D */  jal   mtx4TransformVecInPlace
-/* 0D90F0 7F0A45C0 27A5001C */   addiu $a1, $sp, 0x1c
-/* 0D90F4 7F0A45C4 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 0D90F8 7F0A45C8 C7A00024 */  lwc1  $f0, 0x24($sp)
-/* 0D90FC 7F0A45CC 27BD0028 */  addiu $sp, $sp, 0x28
-/* 0D9100 7F0A45D0 03E00008 */  jr    $ra
-/* 0D9104 7F0A45D4 46000007 */   neg.s $f0, $f0
-)
-#endif
+
 
 
 

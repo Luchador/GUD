@@ -54,9 +54,9 @@ typedef struct bondstruct_unk_8007A170 {
     s16 unk06;
     u32 unk08;
     u32 unk0C;
-    u32 unk10;
-    u32 unk14;
-    u32 unk18;
+    f32 unk10;
+    f32 unk14;
+    f32 unk18;
     u32 unk1c;
     u32 unk20;
     u32 unk24;
