@@ -4,6 +4,7 @@
 #include "glass.h"
 #include "random.h"
 #include "lv.h"
+#include "objective_status.h"
 
 #ifndef VERSION_EU
 #define SHARD_HORIZ_VEL_SCALE 1.5f
@@ -34,8 +35,6 @@ bondstruct_unk_8007A170 dword_CODE_bss_8007A170[UNK_8007A170_MAX];
 
 #ifndef VERSION_EU
 
-s32 sub_GAME_7F0A3C08(struct bondstruct_unk_8007A4E0 *arg0, struct bondstruct_unk_3float *arg1, s32 arg2, f32 arg3, s16 arg4);
-
 struct bondstruct_unk_3float
 {
   f32 x;
@@ -44,26 +43,27 @@ struct bondstruct_unk_3float
 };
 
 //CODE.bss:8007A4E0
-struct bondstruct_unk_8007A4E0 {
-    s32  unk00;
-    s16  unk04; // probably the correct type
-    s16  unk06;
-    f32  unk08;
+struct bondstruct_unk_8007A4E0
+{
+    s32 unk00;
+    s16 unk04;
+    s16 unk06;
+    f32 unk08;
     void *unk0c;
-    f32  unk10;
-    f32  unk14;
-    f32  unk18;
-    f32  unk1c;
-    f32  unk20;
-    f32  unk24;
-    u8   unk28;
-    u8   unk29;
-    u8   unk2a;
-    u8   unk2b;
-    f32  unk2c;
-    f32  unk30;
-    f32  unk34;
-    f32  unk38;
+    f32 unk10;
+    f32 unk14;
+    f32 unk18;
+    f32 unk1c;
+    f32 unk20;
+    f32 unk24;
+    u8 unk28;
+    u8 unk29;
+    u8 unk2a;
+    u8 unk2b;
+    f32 unk2c;
+    f32 unk30;
+    f32 unk34;
+    f32 unk38;
 };
 
 struct bondstruct_unk_8007A4E0 dword_CODE_bss_8007A4E0[50];
@@ -3470,76 +3470,41 @@ void sub_GAME_7F0A4600(void)
 
 
 
-#ifdef NONMATCHING
-void sub_GAME_7F0A46A0(void) {
-
+#ifndef VERSION_EU
+void sub_GAME_7F0A46A0(void)
+{
+    struct bondstruct_unk_8007A4E0 *ptr;
+    struct bondstruct_unk_8007A4E0 *end;
+    ptr = &dword_CODE_bss_8007A4E0[0]; end = &dword_CODE_bss_8007A4E0[50];
+    while (ptr < end)
+    {
+        if (ptr->unk04 > 0)
+        {
+            ptr->unk00 += g_ClockTimer;
+            if (ptr->unk00 >= 0)
+            {
+                if (ptr->unk04 > ptr->unk00)
+                {
+                    sub_GAME_7F057D88(&ptr->unk10, &ptr->unk2c, g_GlobalTimerDelta);
+                    if (ptr->unk14 < ptr->unk38)
+                    {
+                        ptr->unk04 = 0;
+                    }
+                }
+                else
+                {
+                    ptr->unk04 = 0;
+                }
+            }
+        }
+        ptr++;
+    }
 }
 #else
-#ifndef VERSION_EU
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0A46A0
-/* 0D91D0 7F0A46A0 27BDFFD8 */  addiu $sp, $sp, -0x28
-/* 0D91D4 7F0A46A4 AFB30020 */  sw    $s3, 0x20($sp)
-/* 0D91D8 7F0A46A8 AFB2001C */  sw    $s2, 0x1c($sp)
-/* 0D91DC 7F0A46AC AFB10018 */  sw    $s1, 0x18($sp)
-/* 0D91E0 7F0A46B0 AFB00014 */  sw    $s0, 0x14($sp)
-/* 0D91E4 7F0A46B4 3C108008 */  lui   $s0, %hi(dword_CODE_bss_8007A4E0)
-/* 0D91E8 7F0A46B8 3C138008 */  lui   $s3, %hi(dword_CODE_bss_8007A4E0+0xbb8)
-/* 0D91EC 7F0A46BC 3C118005 */  lui   $s1, %hi(g_ClockTimer)
-/* 0D91F0 7F0A46C0 3C128005 */  lui   $s2, %hi(g_GlobalTimerDelta)
-/* 0D91F4 7F0A46C4 AFBF0024 */  sw    $ra, 0x24($sp)
-/* 0D91F8 7F0A46C8 2673B098 */  addiu $s3, %lo(dword_CODE_bss_8007A4E0+0xbb8) # addiu $s3, $s3, -0x4f68
-/* 0D91FC 7F0A46CC 2610A4E0 */  addiu $s0, %lo(dword_CODE_bss_8007A4E0) # addiu $s0, $s0, -0x5b20
-/* 0D9200 7F0A46D0 26528378 */  addiu $s2, %lo(g_GlobalTimerDelta) # addiu $s2, $s2, -0x7c88
-/* 0D9204 7F0A46D4 26318374 */  addiu $s1, %lo(g_ClockTimer) # addiu $s1, $s1, -0x7c8c
-/* 0D9208 7F0A46D8 860E0004 */  lh    $t6, 4($s0)
-.L7F0A46DC:
-/* 0D920C 7F0A46DC 59C00018 */  blezl $t6, .L7F0A4740
-/* 0D9210 7F0A46E0 2610003C */   addiu $s0, $s0, 0x3c
-/* 0D9214 7F0A46E4 8E0F0000 */  lw    $t7, ($s0)
-/* 0D9218 7F0A46E8 8E380000 */  lw    $t8, ($s1)
-/* 0D921C 7F0A46EC 01F8C821 */  addu  $t9, $t7, $t8
-/* 0D9220 7F0A46F0 07200012 */  bltz  $t9, .L7F0A473C
-/* 0D9224 7F0A46F4 AE190000 */   sw    $t9, ($s0)
-/* 0D9228 7F0A46F8 86080004 */  lh    $t0, 4($s0)
-/* 0D922C 7F0A46FC 26040010 */  addiu $a0, $s0, 0x10
-/* 0D9230 7F0A4700 2605002C */  addiu $a1, $s0, 0x2c
-/* 0D9234 7F0A4704 0328082A */  slt   $at, $t9, $t0
-/* 0D9238 7F0A4708 5020000C */  beql  $at, $zero, .L7F0A473C
-/* 0D923C 7F0A470C A6000004 */   sh    $zero, 4($s0)
-/* 0D9240 7F0A4710 0FC15F62 */  jal   sub_GAME_7F057D88
-/* 0D9244 7F0A4714 8E460000 */   lw    $a2, ($s2)
-/* 0D9248 7F0A4718 C6040014 */  lwc1  $f4, 0x14($s0)
-/* 0D924C 7F0A471C C6060038 */  lwc1  $f6, 0x38($s0)
-/* 0D9250 7F0A4720 4606203C */  c.lt.s $f4, $f6
-/* 0D9254 7F0A4724 00000000 */  nop
-/* 0D9258 7F0A4728 45020005 */  bc1fl .L7F0A4740
-/* 0D925C 7F0A472C 2610003C */   addiu $s0, $s0, 0x3c
-/* 0D9260 7F0A4730 10000002 */  b     .L7F0A473C
-/* 0D9264 7F0A4734 A6000004 */   sh    $zero, 4($s0)
-/* 0D9268 7F0A4738 A6000004 */  sh    $zero, 4($s0)
-.L7F0A473C:
-/* 0D926C 7F0A473C 2610003C */  addiu $s0, $s0, 0x3c
-.L7F0A4740:
-/* 0D9270 7F0A4740 0213082B */  sltu  $at, $s0, $s3
-/* 0D9274 7F0A4744 5420FFE5 */  bnezl $at, .L7F0A46DC
-/* 0D9278 7F0A4748 860E0004 */   lh    $t6, 4($s0)
-/* 0D927C 7F0A474C 8FBF0024 */  lw    $ra, 0x24($sp)
-/* 0D9280 7F0A4750 8FB00014 */  lw    $s0, 0x14($sp)
-/* 0D9284 7F0A4754 8FB10018 */  lw    $s1, 0x18($sp)
-/* 0D9288 7F0A4758 8FB2001C */  lw    $s2, 0x1c($sp)
-/* 0D928C 7F0A475C 8FB30020 */  lw    $s3, 0x20($sp)
-/* 0D9290 7F0A4760 03E00008 */  jr    $ra
-/* 0D9294 7F0A4764 27BD0028 */   addiu $sp, $sp, 0x28
-)
-#endif
-#ifdef VERSION_EU
 void sub_GAME_7F0A46A0(Gfx *arg0, s32 arg1)
 {
     sub_GAME_7F0A4528(arg0, arg1);
 }
-#endif
 #endif
 
 
