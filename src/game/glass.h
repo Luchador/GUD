@@ -84,7 +84,7 @@ void sub_GAME_7F0A4824(Gfx *arg0, s32 arg1);
 Gfx * sub_GAME_7F0A2C44(Gfx *arg0);
 
 // tentative signature
-void *sub_GAME_7F0A3E1C(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3);
+bondstruct_unk_8007A170 *sub_GAME_7F0A3E1C(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3);
 void sub_GAME_7F0A33F8(struct WatchVertex *vtx, s32 numverts, f32 scale, s32 arg3);
 Gfx *sub_GAME_7F0A3978(Gfx *gdl, struct WatchVertex *arg1, s32 unused_arg2, s32 arg3);
 Gfx *sub_GAME_7F0A3B40(Gfx *gdl, s32 *arg1);
@@ -93,12 +93,11 @@ void sub_GAME_7F0A2F30(struct damage_display_parent *arg0, s32 arg1, s32 arg2, f
 struct WatchVertex *setup_watch_rectangles(struct WatchVertex *vtx, s32 startx, s32 startz, s32 width, s32 height, s32 horizontal_offset, s32 vertical_offset);
 void glassCreateShard(coord3d * pos, f32 rotX, f32 shard_size);
 void sub_GAME_7F0A3EA0(void);
+s32 sub_GAME_7F0A3C08(struct bondstruct_unk_8007A4E0 *arg0, coord3d *arg1, s32 arg2, f32 arg3, s16 arg4);
 
 void update_bullet_sparks_and_dust_clouds(void);
 #ifdef VERSION_EU
 void sub_GAME_7F0A4600(void);
-#else
-s32 sub_GAME_7F0A3C08(struct bondstruct_unk_8007A4E0 *arg0, coord3d *arg1, s32 arg2, f32 arg3, s16 arg4);
 #endif
 
 #endif
