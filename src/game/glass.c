@@ -35,13 +35,6 @@ bondstruct_unk_8007A170 dword_CODE_bss_8007A170[UNK_8007A170_MAX];
 
 #ifndef VERSION_EU
 
-struct bondstruct_unk_3float
-{
-  f32 x;
-  f32 y;
-  f32 z;
-};
-
 //CODE.bss:8007A4E0
 struct bondstruct_unk_8007A4E0
 {
@@ -2978,6 +2971,7 @@ void sub_GAME_7F0A3F04(void) {
 
 }
 #else
+void sub_GAME_7F0A3F04(struct bondstruct_unk_8007A4E0 *arg0, Gfx *arg1, s32 arg2);
 GLOBAL_ASM(
 .text
 glabel sub_GAME_7F0A3F04
@@ -3442,7 +3436,7 @@ void sub_GAME_7F0A45D8(void)
 
 
 #ifndef VERSION_EU
-struct bondstruct_unk_8007A4E0 *sub_GAME_7F0A4600(struct bondstruct_unk_3float *arg0, struct bondstruct_unk_3float *arg1, s32 arg2, f32 arg3, f32 arg4, s16 arg5)
+struct bondstruct_unk_8007A4E0 *sub_GAME_7F0A4600(coord3d *arg0, coord3d *arg1, s32 arg2, f32 arg3, f32 arg4, s16 arg5)
 {
   struct bondstruct_unk_8007A4E0 *ptr;
   for (ptr = &dword_CODE_bss_8007A4E0[0]; ptr < &dword_CODE_bss_8007A4E0[50]; ptr++)
@@ -3510,48 +3504,17 @@ void sub_GAME_7F0A46A0(Gfx *arg0, s32 arg1)
 
 #ifndef VERSION_EU
 
-#ifdef NONMATCHING
-void sub_GAME_7F0A4768(void) {
+void sub_GAME_7F0A4768(Gfx *arg0, s32 arg1)
+{
+    int max_index;
+    struct bondstruct_unk_8007A4E0 *ptr;
+    max_index = 50;
+    for (ptr = &dword_CODE_bss_8007A4E0[0]; ptr < (&dword_CODE_bss_8007A4E0[max_index]); ptr++)
+    {
+        sub_GAME_7F0A3F04(ptr, arg0, arg1);
+    }
 
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0A4768
-/* 0D9298 7F0A4768 27BDFFD8 */  addiu $sp, $sp, -0x28
-/* 0D929C 7F0A476C AFB10018 */  sw    $s1, 0x18($sp)
-/* 0D92A0 7F0A4770 AFB00014 */  sw    $s0, 0x14($sp)
-/* 0D92A4 7F0A4774 AFB30020 */  sw    $s3, 0x20($sp)
-/* 0D92A8 7F0A4778 AFB2001C */  sw    $s2, 0x1c($sp)
-/* 0D92AC 7F0A477C 3C108008 */  lui   $s0, %hi(dword_CODE_bss_8007A4E0)
-/* 0D92B0 7F0A4780 3C118008 */  lui   $s1, %hi(dword_CODE_bss_8007A4E0+0xbb8)
-/* 0D92B4 7F0A4784 00809025 */  move  $s2, $a0
-/* 0D92B8 7F0A4788 00A09825 */  move  $s3, $a1
-/* 0D92BC 7F0A478C AFBF0024 */  sw    $ra, 0x24($sp)
-/* 0D92C0 7F0A4790 2631B098 */  addiu $s1, %lo(dword_CODE_bss_8007A4E0+0xbb8) # addiu $s1, $s1, -0x4f68
-/* 0D92C4 7F0A4794 2610A4E0 */  addiu $s0, %lo(dword_CODE_bss_8007A4E0) # addiu $s0, $s0, -0x5b20
-/* 0D92C8 7F0A4798 02002025 */  move  $a0, $s0
-.L7F0A479C:
-/* 0D92CC 7F0A479C 02402825 */  move  $a1, $s2
-/* 0D92D0 7F0A47A0 0FC28FC1 */  jal   sub_GAME_7F0A3F04
-/* 0D92D4 7F0A47A4 02603025 */   move  $a2, $s3
-/* 0D92D8 7F0A47A8 2610003C */  addiu $s0, $s0, 0x3c
-/* 0D92DC 7F0A47AC 0211082B */  sltu  $at, $s0, $s1
-/* 0D92E0 7F0A47B0 5420FFFA */  bnezl $at, .L7F0A479C
-/* 0D92E4 7F0A47B4 02002025 */   move  $a0, $s0
-/* 0D92E8 7F0A47B8 8FBF0024 */  lw    $ra, 0x24($sp)
-/* 0D92EC 7F0A47BC 8FB00014 */  lw    $s0, 0x14($sp)
-/* 0D92F0 7F0A47C0 8FB10018 */  lw    $s1, 0x18($sp)
-/* 0D92F4 7F0A47C4 8FB2001C */  lw    $s2, 0x1c($sp)
-/* 0D92F8 7F0A47C8 8FB30020 */  lw    $s3, 0x20($sp)
-/* 0D92FC 7F0A47CC 03E00008 */  jr    $ra
-/* 0D9300 7F0A47D0 27BD0028 */   addiu $sp, $sp, 0x28
-)
-#endif
-
-
-
-
 
 void sub_GAME_7F0A47D4(void) {
     sub_GAME_7F0A3BD8();

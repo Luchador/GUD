@@ -98,7 +98,7 @@ void update_bullet_sparks_and_dust_clouds(void);
 #ifdef VERSION_EU
 void sub_GAME_7F0A4600(void);
 #else
-s32 sub_GAME_7F0A3C08(struct bondstruct_unk_8007A4E0 *arg0, struct bondstruct_unk_3float *arg1, s32 arg2, f32 arg3, s16 arg4);
+s32 sub_GAME_7F0A3C08(struct bondstruct_unk_8007A4E0 *arg0, coord3d *arg1, s32 arg2, f32 arg3, s16 arg4);
 #endif
 
 #endif
