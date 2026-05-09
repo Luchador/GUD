@@ -4341,8 +4341,8 @@ s32 stanTestLocusEdgeAboveY(StandTile **tile, f32 target_x, f32 target_z, f32 ra
 #ifdef NONMATCHING
 // Horrifc BFS on tiles
 //
-// Two things look like they could be improved
-// 1. The outer loop always restarts at zero
+// Four things look like they could be improved
+// 1. The outer loop always restarts to zero
 //    The next 'wave' will process tiles it already scanned in the second wave
 //    Neighbors are checked again needlessly
 //    This has a high cost if the waypoint the game is trying to find
@@ -4351,6 +4351,10 @@ s32 stanTestLocusEdgeAboveY(StandTile **tile, f32 target_x, f32 target_z, f32 ra
 // 2. 'seenCount' can become really big because it's all the stans discovered so far
 //    Neighbor checks thus become exponentially expensive
 //    There could be a faster way to check that a stan was already visited
+// 3. The closest pad to a tile is something that could be precomputed
+//    because it's static and never changes at run-time
+// 4. This function is called at one single location and the second arg
+//    is always the same. It could return the result from tilePred already.
 //
 // stanFillSearch()
 StandTile *sub_GAME_7F0B2718(StandTile *srcTile, tilePredicate_t tilePred)
