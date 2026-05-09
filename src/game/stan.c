@@ -2152,8 +2152,20 @@ glabel sub_GAME_7F0B0140
 
 /**
  * Address: 7F0B0198
+ * 
+ * Returns true if the perpendicular projection of the X/Z point onto the
+ * tile edge's infinite line falls between the edge endpoints.
+ *
+ * Example:
+ *
+ *     A -------- B
+ *          |
+ *          |
+ *          P
+ *
+ * P is not on the edge, but its projection lands between A and B.
  */
-bool sub_GAME_7F0B0198(StandTile *tile, s32 edgeIndex, f32 p_x, f32 p_z)
+bool stanPointProjectsOntoTileEdge(StandTile *tile, s32 edgeIndex, f32 p_x, f32 p_z)
 {
     StandTilePoint *point;
     f32 edgeXCopy;
@@ -3666,7 +3678,7 @@ glabel sub_GAME_7F0B1DDC
 /* 0E6A80 7F0B1F50 00000000 */   nop
 /* 0E6A84 7F0B1F54 4406D000 */  mfc1  $a2, $f26
 /* 0E6A88 7F0B1F58 4407E000 */  mfc1  $a3, $f28
-/* 0E6A8C 7F0B1F5C 0FC2C066 */  jal   sub_GAME_7F0B0198
+/* 0E6A8C 7F0B1F5C 0FC2C066 */  jal   stanPointProjectsOntoTileEdge
 /* 0E6A90 7F0B1F60 02002825 */   move  $a1, $s0
 /* 0E6A94 7F0B1F64 50400034 */  beql  $v0, $zero, .L7F0B2038
 /* 0E6A98 7F0B1F68 86620006 */   lh    $v0, 6($s3)
