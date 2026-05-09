@@ -161,7 +161,7 @@ s32 sub_GAME_7F0B1DDC(
     standTileLocusCallback_C_t,
     struct StandTileLocusCallbackRecord*
 );
-s32 sub_GAME_7F0B2110(StandTile *tile, struct StandTileLocusCallbackRecord*);
+s32 sub_GAME_7F0B2110(StandTile *tile, struct StandTileLocusCallbackRecord *rec);
 s32 stanGetLocusField0(struct StandTileLocusCallbackRecord *arg0);
 s32 stanGetLocusCount(struct StandTileLocusCallbackRecord *arg0);
 s32 sub_GAME_7F0B260C(StandTile *tile, s32 index, f32 p_x, f32 p_z, s32 arg4, struct StandTileLocusCallbackRecord *arg5);
@@ -3925,79 +3925,46 @@ s32 sub_GAME_7F0B20D0(StandTile **tileStack, f32 target_x, f32 target_z, f32 unk
 }
 
 
-
-
-#ifdef NONMATCHING
-
-// Regalloc and a little reordering to solve, but there just seems to be nothing to work with in the loop.
-// Indexing roomBuf makes sense and generates closer code.
-// 'addTileRoomIfNew'
-s32 sub_GAME_7F0B2110(StandTile *tile, struct StandTileLocusCallbackRecord* data)
+s32 sub_GAME_7F0B2110(StandTile *tile, struct StandTileLocusCallbackRecord *rec)
 {
-    s32 i;
+    s32 count;
     s32 room;
-
-    for (i = 0; i < data->count; i++)
+    StandTile *t;
+    struct StandTileLocusCallbackRecord *record;
+    s32 i;
+    s32 *ptr;
+    
+    record = rec;
+    i = 0;
+    count = record->count;
+    t = tile;
+    
+    if (count > 0)
     {
-        if (data->roomBuf[i] == tile->room) {
-            return 0;
+        room = t->room;
+        ptr = record->rooms;
+        
+        do
+        {
+            if (room == (*ptr))
+            {
+                return 0;
+            }
+            
+            i++;
+            ptr++;
         }
+        while (i < record->count);
     }
-
-    if (data->count < data->bufMax) {
-        data->roomBuf[data->count] = tile->room;
-        data->count++;
+    
+    if (count < rec->bufMax)
+    {
+        rec->rooms[count] = tile->room;
+        rec->count = rec->count + 1;
     }
-
+    
     return 0;
 }
-
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B2110
-/* 0E6C40 7F0B2110 8CA60004 */  lw    $a2, 4($a1)
-/* 0E6C44 7F0B2114 00A01025 */  move  $v0, $a1
-/* 0E6C48 7F0B2118 00001825 */  move  $v1, $zero
-/* 0E6C4C 7F0B211C 58C0000F */  blezl $a2, .L7F0B215C
-/* 0E6C50 7F0B2120 8CB80008 */   lw    $t8, 8($a1)
-/* 0E6C54 7F0B2124 90870003 */  lbu   $a3, 3($a0)
-/* 0E6C58 7F0B2128 8CA80000 */  lw    $t0, ($a1)
-/* 0E6C5C 7F0B212C 8D0E0000 */  lw    $t6, ($t0)
-.L7F0B2130:
-/* 0E6C60 7F0B2130 54EE0004 */  bnel  $a3, $t6, .L7F0B2144
-/* 0E6C64 7F0B2134 8C4F0004 */   lw    $t7, 4($v0)
-/* 0E6C68 7F0B2138 03E00008 */  jr    $ra
-/* 0E6C6C 7F0B213C 00001025 */   move  $v0, $zero
-
-/* 0E6C70 7F0B2140 8C4F0004 */  lw    $t7, 4($v0)
-.L7F0B2144:
-/* 0E6C74 7F0B2144 24630001 */  addiu $v1, $v1, 1
-/* 0E6C78 7F0B2148 25080004 */  addiu $t0, $t0, 4
-/* 0E6C7C 7F0B214C 006F082A */  slt   $at, $v1, $t7
-/* 0E6C80 7F0B2150 5420FFF7 */  bnezl $at, .L7F0B2130
-/* 0E6C84 7F0B2154 8D0E0000 */   lw    $t6, ($t0)
-/* 0E6C88 7F0B2158 8CB80008 */  lw    $t8, 8($a1)
-.L7F0B215C:
-/* 0E6C8C 7F0B215C 00001025 */  move  $v0, $zero
-/* 0E6C90 7F0B2160 00D8082A */  slt   $at, $a2, $t8
-/* 0E6C94 7F0B2164 10200009 */  beqz  $at, .L7F0B218C
-/* 0E6C98 7F0B2168 00000000 */   nop
-/* 0E6C9C 7F0B216C 8CA90000 */  lw    $t1, ($a1)
-/* 0E6CA0 7F0B2170 90990003 */  lbu   $t9, 3($a0)
-/* 0E6CA4 7F0B2174 00065080 */  sll   $t2, $a2, 2
-/* 0E6CA8 7F0B2178 012A5821 */  addu  $t3, $t1, $t2
-/* 0E6CAC 7F0B217C AD790000 */  sw    $t9, ($t3)
-/* 0E6CB0 7F0B2180 8CAC0004 */  lw    $t4, 4($a1)
-/* 0E6CB4 7F0B2184 258D0001 */  addiu $t5, $t4, 1
-/* 0E6CB8 7F0B2188 ACAD0004 */  sw    $t5, 4($a1)
-.L7F0B218C:
-/* 0E6CBC 7F0B218C 03E00008 */  jr    $ra
-/* 0E6CC0 7F0B2190 00000000 */   nop
-)
-#endif
-
-
 
 
 s32 incrNearEdgeCount(StandTile **tileStack, s32 stackHeight, struct StandTileLocusCallbackRecord* data) {
@@ -4013,7 +3980,7 @@ s32 sub_GAME_7F0B21B0(StandTile **tileStack, f32 target_x, f32 target_z, f32 unk
     struct StandTileLocusCallbackRecord data;
     s32 rtn;
 
-    data.unk00 = rooms;
+    data.rooms = rooms;
     data.count = 0;
     data.bufMax = bufMax;
     data.nearEdgeCount = 0;
@@ -4044,7 +4011,7 @@ s32 stanIsSpecialBit1Set(StandTile *arg0, struct StandTileLocusCallbackRecord *a
     s32 val = arg0->mid.half >> 0xC;
     if (D_80040F30[val] & 2)
     {
-        arg1->unk00 = 1;
+        arg1->rooms = 1;
     }
 
     return 0;
@@ -4117,7 +4084,7 @@ s32 stanTileDistanceRelated(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, stru
 
 s32 stanGetLocusField0(struct StandTileLocusCallbackRecord *arg0)
 {
-    return arg0->unk00;
+    return arg0->rooms;
 }
 
 
