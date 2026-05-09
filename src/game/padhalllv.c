@@ -299,7 +299,7 @@ void do_BFS_withinPathSet(waypoint *from, waypoint *to, s32 arg2)
     while (*pointnums >= 0)
     {
         point = &points[*pointnums];
-        point->dist = -1;
+        point->dist = -1; // reset waypoint
         pointnums++;
     }
 
@@ -453,6 +453,10 @@ s32 waypointFindRoute(waypoint *frompoint, waypoint *topoint, waypoint **arr, s3
 }
 
 
+// Resets waypoint distance, seems useless since
+// do_BFS_withinPathSet already does this for its own
+// waypoint group. Even if do_BFS_withinPathSet doesn't
+// reset waypoints outside of its own group, is that really needed?
 void resetWaypointDistances(void)
 {
     waypoint * waypoint;
