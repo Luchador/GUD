@@ -164,7 +164,7 @@ s32 sub_GAME_7F0B1DDC(
 s32 stanLocusAddTileRoomIfNew(StandTile *tile, struct StandTileLocusCallbackRecord *rec);
 s32 stanGetLocusField0(struct StandTileLocusCallbackRecord *arg0);
 s32 stanGetLocusCount(struct StandTileLocusCallbackRecord *arg0);
-s32 sub_GAME_7F0B260C(StandTile *tile, s32 index, s32 arg2, s32 arg3, s32 arg4, f32 *yThreshold);
+bool stanLocusEdgeIsAboveY(StandTile *tile, s32 edgeIndex, f32 edgeDist, f32 distToPointA, f32 distToPointB, f32 *yThreshold);
 
 // end forward declarations
 
@@ -4286,8 +4286,12 @@ glabel stanGetMoveBondCollisionTiles
 
 /**
  * Address: 7F0B260C
+ * 
+ * Callback function.
+ * 
+ * For a given edge, return true if the edge is vertically above yThreshold.
  */
-s32 sub_GAME_7F0B260C(StandTile *tile, s32 index, s32 arg2, s32 arg3, s32 arg4, f32 *yThreshold)
+bool stanLocusEdgeIsAboveY(StandTile *tile, s32 edgeIndex, f32 edgeDist, f32 distToPointA, f32 distToPointB, f32 *yThreshold)
 {
     s32 nextIndex;
     s32 pointCount;
@@ -4296,37 +4300,41 @@ s32 sub_GAME_7F0B260C(StandTile *tile, s32 index, s32 arg2, s32 arg3, s32 arg4, 
 
     threshold = yThreshold;
 
-    if (*yThreshold < (f32)tile->points[index].y)
+    if (*yThreshold < (f32)tile->points[edgeIndex].y)
     {
+        /**  
+         * The duplicated point count calculation is required for matching.
+         * This is really just nextIndex = (edgeIndex + 1) % pointCount;
+         */
         pointCount = (tile->tail.half >> 12) & 0xf;
         pointCountReload = (tile->tail.half >> 12) & 0xf;
 
-        nextIndex = (index + 1) % pointCount;
+        nextIndex = (edgeIndex + 1) % pointCount;
 
         pointCount = pointCountReload;
 
         if (*threshold < (f32)tile->points[nextIndex].y)
         {
-            return 1;
+            return TRUE;
         }
     }
 
-    return 0;
+    return FALSE;
 }
 
 
 /**
  * US address 7F0B26B8.
 */
-s32 sub_GAME_7F0B26B8(StandTile **tile, f32 target_x, f32 target_z, f32 b_z, f32 param_5)
+s32 stanTestLocusEdgeAboveY(StandTile **tile, f32 target_x, f32 target_z, f32 radius, f32 yThreshold)
 {
     f32 data;
 
-    data = param_5 * level_scale;
+    data = yThreshold * level_scale;
 
     /// TODO: Why is this cast wrong?
 
-    return sub_GAME_7F0B1DDC(tile, target_x, target_z, b_z, NULL, sub_GAME_7F0B260C, NULL, (struct StandTileLocusCallbackRecord*)&data);
+    return sub_GAME_7F0B1DDC(tile, target_x, target_z, radius, NULL, stanLocusEdgeIsAboveY, NULL, (struct StandTileLocusCallbackRecord*)&data);
 }
 
 

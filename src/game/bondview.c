@@ -5734,7 +5734,7 @@ s32 bondviewTryMoveToStan(struct coord3d *arg0, StandTile **stan)
         {
             if (g_CurrentPlayer->ducking_height_offset == FULL_CROUCH_OFFSET || sp7C < 0)
             {
-                if (stanGetLocusCount(&sp3C) == 0 && sub_GAME_7F0B26B8(&sp90, arg0->f[0], arg0->f[2], collision_radius, g_CurrentPlayer->field_488.collision_position.f[1] + 175.0f) >= 0)
+                if (stanGetLocusCount(&sp3C) == 0 && stanTestLocusEdgeAboveY(&sp90, arg0->f[0], arg0->f[2], collision_radius, g_CurrentPlayer->field_488.collision_position.f[1] + 175.0f) >= 0)
                 {
                     goto block_20;
                 }
@@ -8131,7 +8131,7 @@ void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
                 g_CurrentPlayer->field_488.collision_position.f[2]);
 
             // Another error checking block, it seems this condition is almost never triggered in the game.
-            if (sub_GAME_7F0B26B8(
+            if (stanTestLocusEdgeAboveY(
                 &stan,
                 g_CurrentPlayer->field_488.collision_position.f[0],
                 g_CurrentPlayer->field_488.collision_position.f[2],
