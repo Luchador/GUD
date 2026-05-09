@@ -2055,9 +2055,6 @@ glabel getShortest2dDispToInfTripleEdge
 #endif
 
 
-
-
-
 f32 getShortest2dDispToInfTileEdgeUnscaled(StandTile *tile, int index,f32 x,f32 z)
 {
   f32 disp;
@@ -2067,10 +2064,6 @@ f32 getShortest2dDispToInfTileEdgeUnscaled(StandTile *tile, int index,f32 x,f32 
 }
 
 
-
-
-
-
 f32 getShortest2dDispToInfTripleEdgeUnscaled(StandTile *tile,s32 start3index,f32 p_x,f32 p_z)
 {
   f32 disp;
@@ -2078,8 +2071,6 @@ f32 getShortest2dDispToInfTripleEdgeUnscaled(StandTile *tile,s32 start3index,f32
   disp = getShortest2dDispToInfTripleEdge(tile, start3index, p_x * level_scale, p_z * level_scale);
   return disp * inv_level_scale;
 }
-
-
 
 
 f32 distToTilePnt2D(StandTile *tile,int pntI,f32 p_x,f32 p_z)
@@ -2107,47 +2098,22 @@ f32 sub_GAME_7F0B00C4(StandTile *tile, s32 pntI, f32 p_x, f32 p_z)
 }
 
 
-#ifdef NONMATCHING
-
-// dot product
-f32 sub_GAME_7F0B0140(StandTile *tile, s32 index, f32 p_x, f32 p_z)
+/**
+ * Address: 7F0B0140
+ * 
+ * Unreferenced.
+ */
+f32 stanPointDot2D(StandTile *tile, s32 index, f32 x, f32 z)
 {
-    f32 d_x;
-    f32 d_z;
+    StandTilePoint *point;
 
-    d_x = (p_x * level_scale) * tile->points[index].x;
-    d_z = (p_z * level_scale) * tile->points[index].z;  // was originally commuted
+    point = &tile->points[index];
 
-    return (d_x + d_z) * inv_level_scale);
+    x *= level_scale;
+    z *= level_scale;
+
+    return (((f32)point->z * z) + (x * (f32)point->x)) * inv_level_scale;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B0140
-/* 0E4C70 7F0B0140 3C018004 */  lui   $at, %hi(level_scale)
-/* 0E4C74 7F0B0144 000570C0 */  sll   $t6, $a1, 3
-/* 0E4C78 7F0B0148 44866000 */  mtc1  $a2, $f12
-/* 0E4C7C 7F0B014C C4220F44 */  lwc1  $f2, %lo(level_scale)($at)
-/* 0E4C80 7F0B0150 008E1021 */  addu  $v0, $a0, $t6
-/* 0E4C84 7F0B0154 844F000C */  lh    $t7, 0xc($v0)
-/* 0E4C88 7F0B0158 46026302 */  mul.s $f12, $f12, $f2
-/* 0E4C8C 7F0B015C 44877000 */  mtc1  $a3, $f14
-/* 0E4C90 7F0B0160 84580008 */  lh    $t8, 8($v0)
-/* 0E4C94 7F0B0164 448F2000 */  mtc1  $t7, $f4
-/* 0E4C98 7F0B0168 46027382 */  mul.s $f14, $f14, $f2
-/* 0E4C9C 7F0B016C 44985000 */  mtc1  $t8, $f10
-/* 0E4CA0 7F0B0170 3C018004 */  lui   $at, %hi(inv_level_scale)
-/* 0E4CA4 7F0B0174 468021A0 */  cvt.s.w $f6, $f4
-/* 0E4CA8 7F0B0178 46805420 */  cvt.s.w $f16, $f10
-/* 0E4CAC 7F0B017C 460E3202 */  mul.s $f8, $f6, $f14
-/* 0E4CB0 7F0B0180 C4260F48 */  lwc1  $f6, %lo(inv_level_scale)($at)
-/* 0E4CB4 7F0B0184 46106482 */  mul.s $f18, $f12, $f16
-/* 0E4CB8 7F0B0188 46124100 */  add.s $f4, $f8, $f18
-/* 0E4CBC 7F0B018C 46062002 */  mul.s $f0, $f4, $f6
-/* 0E4CC0 7F0B0190 03E00008 */  jr    $ra
-/* 0E4CC4 7F0B0194 00000000 */   nop
-)
-#endif
 
 
 /**
