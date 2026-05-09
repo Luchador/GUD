@@ -161,7 +161,7 @@ s32 sub_GAME_7F0B1DDC(
     standTileLocusCallback_C_t,
     struct StandTileLocusCallbackRecord*
 );
-s32 sub_GAME_7F0B2110(StandTile *tile, struct StandTileLocusCallbackRecord *rec);
+s32 stanLocusAddTileRoomIfNew(StandTile *tile, struct StandTileLocusCallbackRecord *rec);
 s32 stanGetLocusField0(struct StandTileLocusCallbackRecord *arg0);
 s32 stanGetLocusCount(struct StandTileLocusCallbackRecord *arg0);
 s32 sub_GAME_7F0B260C(StandTile *tile, s32 index, f32 p_x, f32 p_z, s32 arg4, struct StandTileLocusCallbackRecord *arg5);
@@ -3925,9 +3925,18 @@ s32 sub_GAME_7F0B20D0(StandTile **tileStack, f32 target_x, f32 target_z, f32 unk
 }
 
 
-s32 sub_GAME_7F0B2110(StandTile *tile, struct StandTileLocusCallbackRecord *rec)
+/**
+ * Address: 7F0B2110
+ * 
+ * Callback for stan locus traversal.
+ * 
+ * Adds the current tile's room ID to the caller-provided room list if it
+ * has not already been recorded. The callback always returns 0 so traversal
+ * continues.
+ */
+s32 stanLocusAddTileRoomIfNew(StandTile *tile, struct StandTileLocusCallbackRecord *rec)
 {
-    s32 count;
+    s32 roomCount;
     s32 room;
     StandTile *t;
     struct StandTileLocusCallbackRecord *record;
@@ -3936,14 +3945,16 @@ s32 sub_GAME_7F0B2110(StandTile *tile, struct StandTileLocusCallbackRecord *rec)
     
     record = rec;
     i = 0;
-    count = record->count;
+    roomCount = record->count;
     t = tile;
     
-    if (count > 0)
+    // Only search for duplicates if more than 0 rooms have been collected.
+    if (roomCount > 0)
     {
         room = t->room;
         ptr = record->rooms;
         
+        //If the tile's room is already in the room list, return immediately.
         do
         {
             if (room == (*ptr))
@@ -3957,9 +3968,10 @@ s32 sub_GAME_7F0B2110(StandTile *tile, struct StandTileLocusCallbackRecord *rec)
         while (i < record->count);
     }
     
-    if (count < rec->bufMax)
+    // The room has not been collected yet so append it.
+    if (roomCount < rec->bufMax)
     {
-        rec->rooms[count] = tile->room;
+        rec->rooms[roomCount] = tile->room;
         rec->count = rec->count + 1;
     }
     
@@ -3986,7 +3998,7 @@ s32 sub_GAME_7F0B21B0(StandTile **tileStack, f32 target_x, f32 target_z, f32 unk
     data.nearEdgeCount = 0;
 
     rtn = sub_GAME_7F0B1DDC(tileStack, target_x, target_z, unknown,
-        sub_GAME_7F0B2110, NULL, incrNearEdgeCount, &data
+        stanLocusAddTileRoomIfNew, NULL, incrNearEdgeCount, &data
     );
 
     *count_rtn = data.count;
