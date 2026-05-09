@@ -164,7 +164,7 @@ s32 sub_GAME_7F0B1DDC(
 s32 stanLocusAddTileRoomIfNew(StandTile *tile, struct StandTileLocusCallbackRecord *rec);
 s32 stanGetLocusField0(struct StandTileLocusCallbackRecord *arg0);
 s32 stanGetLocusCount(struct StandTileLocusCallbackRecord *arg0);
-s32 sub_GAME_7F0B260C(StandTile *tile, s32 index, f32 p_x, f32 p_z, s32 arg4, struct StandTileLocusCallbackRecord *arg5);
+s32 sub_GAME_7F0B260C(StandTile *tile, s32 index, s32 arg2, s32 arg3, s32 arg4, f32 *yThreshold);
 
 // end forward declarations
 
@@ -4284,80 +4284,35 @@ glabel stanGetMoveBondCollisionTiles
 #endif
 
 
-
-
-
-#ifdef NONMATCHING
 /**
- * arg5 type is wrong, first offset needs to be a float
-*/
-s32 sub_GAME_7F0B260C(StandTile *tile, s32 index, f32 p_x, f32 p_z, s32 arg4, struct StandTileLocusCallbackRecord *arg5)
+ * Address: 7F0B260C
+ */
+s32 sub_GAME_7F0B260C(StandTile *tile, s32 index, s32 arg2, s32 arg3, s32 arg4, f32 *yThreshold)
 {
-    if (arg5->unk00 < (f32)tile->points[index].y
-        && arg5->unk00 < (f32)tile->points[(index + 1) % STAN_TAIL_E(tile)].y)
+    s32 nextIndex;
+    s32 pointCount;
+    f32 *threshold;
+    s32 pointCountReload;
+
+    threshold = yThreshold;
+
+    if (*yThreshold < (f32)tile->points[index].y)
     {
-        return 1;
+        pointCount = (tile->tail.half >> 12) & 0xf;
+        pointCountReload = (tile->tail.half >> 12) & 0xf;
+
+        nextIndex = (index + 1) % pointCount;
+
+        pointCount = pointCountReload;
+
+        if (*threshold < (f32)tile->points[nextIndex].y)
+        {
+            return 1;
+        }
     }
 
     return 0;
-
 }
-
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B260C
-/* 0E713C 7F0B260C 000570C0 */  sll   $t6, $a1, 3
-/* 0E7140 7F0B2610 AFA60008 */  sw    $a2, 8($sp)
-/* 0E7144 7F0B2614 AFA7000C */  sw    $a3, 0xc($sp)
-/* 0E7148 7F0B2618 008E7821 */  addu  $t7, $a0, $t6
-/* 0E714C 7F0B261C 85F8000A */  lh    $t8, 0xa($t7)
-/* 0E7150 7F0B2620 8FA60014 */  lw    $a2, 0x14($sp)
-/* 0E7154 7F0B2624 44982000 */  mtc1  $t8, $f4
-/* 0E7158 7F0B2628 C4C00000 */  lwc1  $f0, ($a2)
-/* 0E715C 7F0B262C 468021A0 */  cvt.s.w $f6, $f4
-/* 0E7160 7F0B2630 4606003C */  c.lt.s $f0, $f6
-/* 0E7164 7F0B2634 00000000 */  nop
-/* 0E7168 7F0B2638 4502001D */  bc1fl .L7F0B26B0
-/* 0E716C 7F0B263C 00001025 */   move  $v0, $zero
-/* 0E7170 7F0B2640 84880006 */  lh    $t0, 6($a0)
-/* 0E7174 7F0B2644 24B90001 */  addiu $t9, $a1, 1
-/* 0E7178 7F0B2648 00084B03 */  sra   $t1, $t0, 0xc
-/* 0E717C 7F0B264C 312A000F */  andi  $t2, $t1, 0xf
-/* 0E7180 7F0B2650 032A001A */  div   $zero, $t9, $t2
-/* 0E7184 7F0B2654 00001010 */  mfhi  $v0
-/* 0E7188 7F0B2658 000258C0 */  sll   $t3, $v0, 3
-/* 0E718C 7F0B265C 008B6021 */  addu  $t4, $a0, $t3
-/* 0E7190 7F0B2660 858D000A */  lh    $t5, 0xa($t4)
-/* 0E7194 7F0B2664 15400002 */  bnez  $t2, .L7F0B2670
-/* 0E7198 7F0B2668 00000000 */   nop
-/* 0E719C 7F0B266C 0007000D */  break 7
-.L7F0B2670:
-/* 0E71A0 7F0B2670 2401FFFF */  li    $at, -1
-/* 0E71A4 7F0B2674 15410004 */  bne   $t2, $at, .L7F0B2688
-/* 0E71A8 7F0B2678 3C018000 */   lui   $at, 0x8000
-/* 0E71AC 7F0B267C 17210002 */  bne   $t9, $at, .L7F0B2688
-/* 0E71B0 7F0B2680 00000000 */   nop
-/* 0E71B4 7F0B2684 0006000D */  break 6
-.L7F0B2688:
-/* 0E71B8 7F0B2688 448D4000 */  mtc1  $t5, $f8
-/* 0E71BC 7F0B268C 00000000 */  nop
-/* 0E71C0 7F0B2690 468042A0 */  cvt.s.w $f10, $f8
-/* 0E71C4 7F0B2694 460A003C */  c.lt.s $f0, $f10
-/* 0E71C8 7F0B2698 00000000 */  nop
-/* 0E71CC 7F0B269C 45020004 */  bc1fl .L7F0B26B0
-/* 0E71D0 7F0B26A0 00001025 */   move  $v0, $zero
-/* 0E71D4 7F0B26A4 03E00008 */  jr    $ra
-/* 0E71D8 7F0B26A8 24020001 */   li    $v0, 1
-
-/* 0E71DC 7F0B26AC 00001025 */  move  $v0, $zero
-.L7F0B26B0:
-/* 0E71E0 7F0B26B0 03E00008 */  jr    $ra
-/* 0E71E4 7F0B26B4 00000000 */   nop
-)
-#endif
-
-
 
 
 /**
