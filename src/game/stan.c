@@ -2150,190 +2150,47 @@ glabel sub_GAME_7F0B0140
 #endif
 
 
+/**
+ * Address: 7F0B0198
+ */
+bool sub_GAME_7F0B0198(StandTile *tile, s32 edgeIndex, f32 p_x, f32 p_z)
+{
+    StandTilePoint *point;
+    f32 edgeXCopy;
+    f32 startX;
+    f32 startZ;
+    f32 edgeX;
+    f32 edgeZ;
+    StandTilePoint *nextPoint;
 
+    point = &tile->points[edgeIndex];
 
+    startX = point->x;
+    startZ = point->z;
 
-#ifdef NONMATCHING
-// Similar to others
-f32 sub_GAME_7F0B0198(void *arg0, s32 arg1, f32 arg2, f32 arg3) {
-    void *temp_v0;
-    void *temp_v0_2;
-    f32 temp_f0;
-    f32 temp_f2;
-    f32 temp_f12;
-    f32 temp_f14;
-    f32 temp_f18;
-    f32 temp_f6;
-    f32 temp_f2_2;
-    f32 temp_f0_2;
-    s32 phi_v0;
-    s32 phi_v0_2;
-    s32 phi_v0_3;
+    edgeIndex = (edgeIndex + 1) % ((tile->tail.half >> 12) & 0xf);
 
-    // Node 0
-    temp_v0 = (arg0 + (arg1 * 8));
-    temp_v0_2 = (arg0 + (((s32) (arg1 + 1) % (s32) (((s32) arg0->unk6 >> 0xc) & 0xf)) * 8));
-    temp_f0 = (f32) temp_v0->unk8;
-    temp_f2 = (f32) temp_v0->unkC;
-    temp_f12 = ((f32) temp_v0_2->unk8 - temp_f0);
-    temp_f14 = ((f32) temp_v0_2->unkC - temp_f2);
-    temp_f18 = (arg2 - temp_f0);
-    temp_f6 = (arg3 - temp_f2);
-    arg2 = temp_f18;
-    arg3 = temp_f6;
-    temp_f2_2 = ((temp_f12 * temp_f12) + (temp_f14 * temp_f14));
-    temp_f0_2 = ((temp_f18 * temp_f12) + (temp_f6 * temp_f14));
-    phi_v0 = 0;
-    if (temp_f2_2 < temp_f0_2)
-    {
-        // Node 1
-        phi_v0 = 1;
-    }
-    // Node 2
-    if ((phi_v0 != 0) && (temp_f0_2 < 0.0f))
-    {
-        // Node 4
-        phi_v0_2 = 1;
-        // Node 5
-        if (phi_v0_2 == 0)
-        {
-            // Node 6
-            phi_v0_3 = 0;
-            if (0.0f < temp_f0_2)
-            {
-                // Node 7
-                phi_v0_3 = 1;
-            }
-            // Node 8
-            if (phi_v0_3 != 0)
-            {
-                // Node 9
-                if (temp_f0_2 < temp_f2_2)
-                {
-                    // Node 10
-                }
-            }
-        }
-    }
-    else
-    {
-        // Node 6
-        phi_v0_3 = 0;
-        if (0.0f < temp_f0_2)
-        {
-            // Node 7
-            phi_v0_3 = 1;
-        }
-        // Node 8
-        if (phi_v0_3 != 0)
-        {
-            // Node 9
-            if (temp_f0_2 < temp_f2_2)
-            {
-                // Node 10
-            }
-        }
-    }
-    // Node 11
-    return temp_f0_2;
+    point = (nextPoint = &tile->points[edgeIndex]);
+
+    edgeX = point->x;
+    edgeX = edgeX - startX;
+
+    edgeZ = point->z;
+    edgeZ = edgeZ - startZ;
+
+    p_x -= startX;
+    p_z -= startZ;
+
+    edgeXCopy = edgeX;
+
+    startZ = (edgeXCopy * edgeXCopy) + (edgeZ * edgeZ);
+    startX = (p_x * edgeXCopy) + (p_z * edgeZ);
+
+    edgeZ = startX;
+
+    return ((startZ < edgeZ) && (edgeZ < 0.0f))
+        || ((0.0f < edgeZ) && (edgeZ < startZ));
 }
-
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B0198
-/* 0E4CC8 7F0B0198 AFA60008 */  sw    $a2, 8($sp)
-/* 0E4CCC 7F0B019C AFA7000C */  sw    $a3, 0xc($sp)
-/* 0E4CD0 7F0B01A0 84880006 */  lh    $t0, 6($a0)
-/* 0E4CD4 7F0B01A4 24B90001 */  addiu $t9, $a1, 1
-/* 0E4CD8 7F0B01A8 000570C0 */  sll   $t6, $a1, 3
-/* 0E4CDC 7F0B01AC 00084B03 */  sra   $t1, $t0, 0xc
-/* 0E4CE0 7F0B01B0 312A000F */  andi  $t2, $t1, 0xf
-/* 0E4CE4 7F0B01B4 032A001A */  div   $zero, $t9, $t2
-/* 0E4CE8 7F0B01B8 008E1021 */  addu  $v0, $a0, $t6
-/* 0E4CEC 7F0B01BC 00002810 */  mfhi  $a1
-/* 0E4CF0 7F0B01C0 844F0008 */  lh    $t7, 8($v0)
-/* 0E4CF4 7F0B01C4 8458000C */  lh    $t8, 0xc($v0)
-/* 0E4CF8 7F0B01C8 000558C0 */  sll   $t3, $a1, 3
-/* 0E4CFC 7F0B01CC 008B1021 */  addu  $v0, $a0, $t3
-/* 0E4D00 7F0B01D0 844C0008 */  lh    $t4, 8($v0)
-/* 0E4D04 7F0B01D4 844D000C */  lh    $t5, 0xc($v0)
-/* 0E4D08 7F0B01D8 448F2000 */  mtc1  $t7, $f4
-/* 0E4D0C 7F0B01DC 448C4000 */  mtc1  $t4, $f8
-/* 0E4D10 7F0B01E0 44983000 */  mtc1  $t8, $f6
-/* 0E4D14 7F0B01E4 46802020 */  cvt.s.w $f0, $f4
-/* 0E4D18 7F0B01E8 448D5000 */  mtc1  $t5, $f10
-/* 0E4D1C 7F0B01EC C7B00008 */  lwc1  $f16, 8($sp)
-/* 0E4D20 7F0B01F0 C7A4000C */  lwc1  $f4, 0xc($sp)
-/* 0E4D24 7F0B01F4 00001025 */  move  $v0, $zero
-/* 0E4D28 7F0B01F8 46804320 */  cvt.s.w $f12, $f8
-/* 0E4D2C 7F0B01FC 468030A0 */  cvt.s.w $f2, $f6
-/* 0E4D30 7F0B0200 15400002 */  bnez  $t2, .L7F0B020C
-/* 0E4D34 7F0B0204 00000000 */   nop
-/* 0E4D38 7F0B0208 0007000D */  break 7
-.L7F0B020C:
-/* 0E4D3C 7F0B020C 2401FFFF */  li    $at, -1
-/* 0E4D40 7F0B0210 15410004 */  bne   $t2, $at, .L7F0B0224
-/* 0E4D44 7F0B0214 3C018000 */   lui   $at, 0x8000
-/* 0E4D48 7F0B0218 17210002 */  bne   $t9, $at, .L7F0B0224
-/* 0E4D4C 7F0B021C 00000000 */   nop
-/* 0E4D50 7F0B0220 0006000D */  break 6
-.L7F0B0224:
-/* 0E4D54 7F0B0224 468053A0 */  cvt.s.w $f14, $f10
-/* 0E4D58 7F0B0228 46006301 */  sub.s $f12, $f12, $f0
-/* 0E4D5C 7F0B022C 46027381 */  sub.s $f14, $f14, $f2
-/* 0E4D60 7F0B0230 460C6202 */  mul.s $f8, $f12, $f12
-/* 0E4D64 7F0B0234 46008481 */  sub.s $f18, $f16, $f0
-/* 0E4D68 7F0B0238 460E7282 */  mul.s $f10, $f14, $f14
-/* 0E4D6C 7F0B023C 46022181 */  sub.s $f6, $f4, $f2
-/* 0E4D70 7F0B0240 460C9402 */  mul.s $f16, $f18, $f12
-/* 0E4D74 7F0B0244 E7B20008 */  swc1  $f18, 8($sp)
-/* 0E4D78 7F0B0248 460E3102 */  mul.s $f4, $f6, $f14
-/* 0E4D7C 7F0B024C E7A6000C */  swc1  $f6, 0xc($sp)
-/* 0E4D80 7F0B0250 460A4080 */  add.s $f2, $f8, $f10
-/* 0E4D84 7F0B0254 46048000 */  add.s $f0, $f16, $f4
-/* 0E4D88 7F0B0258 4600103C */  c.lt.s $f2, $f0
-/* 0E4D8C 7F0B025C 00000000 */  nop
-/* 0E4D90 7F0B0260 45000002 */  bc1f  .L7F0B026C
-/* 0E4D94 7F0B0264 00000000 */   nop
-/* 0E4D98 7F0B0268 24020001 */  li    $v0, 1
-.L7F0B026C:
-/* 0E4D9C 7F0B026C 5040000B */  beql  $v0, $zero, .L7F0B029C
-/* 0E4DA0 7F0B0270 44805000 */   mtc1  $zero, $f10
-/* 0E4DA4 7F0B0274 44804000 */  mtc1  $zero, $f8
-/* 0E4DA8 7F0B0278 00001025 */  move  $v0, $zero
-/* 0E4DAC 7F0B027C 4608003C */  c.lt.s $f0, $f8
-/* 0E4DB0 7F0B0280 00000000 */  nop
-/* 0E4DB4 7F0B0284 45000002 */  bc1f  .L7F0B0290
-/* 0E4DB8 7F0B0288 00000000 */   nop
-/* 0E4DBC 7F0B028C 24020001 */  li    $v0, 1
-.L7F0B0290:
-/* 0E4DC0 7F0B0290 1440000F */  bnez  $v0, .L7F0B02D0
-/* 0E4DC4 7F0B0294 00000000 */   nop
-/* 0E4DC8 7F0B0298 44805000 */  mtc1  $zero, $f10
-.L7F0B029C:
-/* 0E4DCC 7F0B029C 00001025 */  move  $v0, $zero
-/* 0E4DD0 7F0B02A0 4600503C */  c.lt.s $f10, $f0
-/* 0E4DD4 7F0B02A4 00000000 */  nop
-/* 0E4DD8 7F0B02A8 45000002 */  bc1f  .L7F0B02B4
-/* 0E4DDC 7F0B02AC 00000000 */   nop
-/* 0E4DE0 7F0B02B0 24020001 */  li    $v0, 1
-.L7F0B02B4:
-/* 0E4DE4 7F0B02B4 10400006 */  beqz  $v0, .L7F0B02D0
-/* 0E4DE8 7F0B02B8 00000000 */   nop
-/* 0E4DEC 7F0B02BC 4602003C */  c.lt.s $f0, $f2
-/* 0E4DF0 7F0B02C0 00001025 */  move  $v0, $zero
-/* 0E4DF4 7F0B02C4 45000002 */  bc1f  .L7F0B02D0
-/* 0E4DF8 7F0B02C8 00000000 */   nop
-/* 0E4DFC 7F0B02CC 24020001 */  li    $v0, 1
-.L7F0B02D0:
-/* 0E4E00 7F0B02D0 03E00008 */  jr    $ra
-/* 0E4E04 7F0B02D4 00000000 */   nop
-)
-#endif
-
-
-
 
 
 // Determines if inside (presumably - it effectively does an && of the checks on signs of cross products)
