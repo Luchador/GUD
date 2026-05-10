@@ -4731,95 +4731,56 @@ StandTile RemovedDebugFunctionOrXBLAUnique_7F0B2EFC()
 #endif
 
 
-
 void sub_GAME_7F0B2F00(StandTilePoint** arg0) {
     *arg0 = stanMatchTileName(*arg0);
 }
 
 
-
-
-
-#ifdef NONMATCHING
-// To try
-void *stanDetermineEOF(struct StanPrefixRecord *r, s32 arg1, s32 arg2)
+void stanDetermineEOF(struct StanPrefixRecord *file, s32 origBase, u8 *newBase)
 {
-     int iVar1;
-  StandTile *local_20;
-  StandTile **local_18;
+    s32 delta;
+    void **roomPtr;
+    StandTile *tile;
+    u8 *tileSizes;
+    
+    delta = ((s32) newBase) - origBase;
+    stan_prefix.stanfile = (s32) file;
+    
+    standTileStart = (StandTile *)(((s32)file->ptr_firstroom + delta) - 0x80);
+    ptr_firstroom_0 = (s32)file->ptr_firstroom + delta;
+    
+    newBase = list_of_tilesizes;
+    roomPtr = (void **)&file->ptr_firstroom;
+    
+    if (file->ptr_firstroom != NULL)
+    {
+        do
+        {
+            *roomPtr = (void *) ((s32) (*roomPtr) + delta);
+            roomPtr++;
+        }
+        while (*roomPtr != NULL);
+    }
+    
+    tile = (StandTile *) (roomPtr + ((0, 1)));
+    
+    if ((*(s32 *) tile) != 0)
+    {
+        do
+        {
+            D_80040F60 = (struct StanPrefixRecord *) tile;
 
-  iVar1 = param_3._4_4_ - param_2._4_4_;
-  stanTileStart = r->ptr_firstroom + iVar1 + -0x80;
-  ptr_firstroom_0 = r->ptr_firstroom + iVar1;
-  stanPrefix = r;
-  #ifdef DEBUG
-  assert(*r==0);
-  #endif
-
-  for (local_18 = &r->ptr_firstroom; *local_18 != NULL; local_18 = local_18 + 1)
-  {
-    *local_18 = *local_18 + iVar1;
-  }
-  for (local_20 = local_18 + 1; *local_20 != 0; local_20 = getNextStan(local_20))
-  {
-    D_80040F60 = local_20;
-  }
-  stanPrefix = r;
-  return;
+            // Fake but required for matching.
+            if (tile->tail.half);
+            
+            tile = (StandTile *)((s32)tile
+                + (tileSizes = newBase)[(tile->tail.half >> 0xc) & 0xf]);
+        } 
+        while (*(s32 *) tile != 0);
+    }
+    
+    stan_prefix.stanfile = (s32) file;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel stanDetermineEOF
-/* 0E7A5C 7F0B2F2C 3C088008 */  lui   $t0, %hi(stan_prefix)
-/* 0E7A60 7F0B2F30 2508B120 */  addiu $t0, %lo(stan_prefix) # addiu $t0, $t0, -0x4ee0
-/* 0E7A64 7F0B2F34 AD040000 */  sw    $a0, ($t0)
-/* 0E7A68 7F0B2F38 8C8E0004 */  lw    $t6, 4($a0)
-/* 0E7A6C 7F0B2F3C 00C51023 */  subu  $v0, $a2, $a1
-/* 0E7A70 7F0B2F40 3C018004 */  lui   $at, %hi(standTileStart)
-/* 0E7A74 7F0B2F44 01C27821 */  addu  $t7, $t6, $v0
-/* 0E7A78 7F0B2F48 25F8FF80 */  addiu $t8, $t7, -0x80
-/* 0E7A7C 7F0B2F4C AC380F58 */  sw    $t8, %lo(standTileStart)($at)
-/* 0E7A80 7F0B2F50 8C990004 */  lw    $t9, 4($a0)
-/* 0E7A84 7F0B2F54 3C018004 */  lui   $at, %hi(ptr_firstroom_0)
-/* 0E7A88 7F0B2F58 3C068004 */  lui   $a2, %hi(list_of_tilesizes)
-/* 0E7A8C 7F0B2F5C 03224821 */  addu  $t1, $t9, $v0
-/* 0E7A90 7F0B2F60 AC290F5C */  sw    $t1, %lo(ptr_firstroom_0)($at)
-/* 0E7A94 7F0B2F64 8C8A0004 */  lw    $t2, 4($a0)
-/* 0E7A98 7F0B2F68 24870004 */  addiu $a3, $a0, 4
-/* 0E7A9C 7F0B2F6C 24C60F4C */  addiu $a2, %lo(list_of_tilesizes) # addiu $a2, $a2, 0xf4c
-/* 0E7AA0 7F0B2F70 11400008 */  beqz  $t2, .L7F0B2F94
-/* 0E7AA4 7F0B2F74 3C058004 */   lui   $a1, %hi(D_80040F60)
-/* 0E7AA8 7F0B2F78 8CE30000 */  lw    $v1, ($a3)
-/* 0E7AAC 7F0B2F7C 00625821 */  addu  $t3, $v1, $v0
-.L7F0B2F80:
-/* 0E7AB0 7F0B2F80 8CE30004 */  lw    $v1, 4($a3)
-/* 0E7AB4 7F0B2F84 ACEB0000 */  sw    $t3, ($a3)
-/* 0E7AB8 7F0B2F88 24E70004 */  addiu $a3, $a3, 4
-/* 0E7ABC 7F0B2F8C 5460FFFC */  bnezl $v1, .L7F0B2F80
-/* 0E7AC0 7F0B2F90 00625821 */   addu  $t3, $v1, $v0
-.L7F0B2F94:
-/* 0E7AC4 7F0B2F94 24E20004 */  addiu $v0, $a3, 4
-/* 0E7AC8 7F0B2F98 8C4C0000 */  lw    $t4, ($v0)
-/* 0E7ACC 7F0B2F9C 24A50F60 */  addiu $a1, %lo(D_80040F60) # addiu $a1, $a1, 0xf60
-/* 0E7AD0 7F0B2FA0 1180000B */  beqz  $t4, .L7F0B2FD0
-/* 0E7AD4 7F0B2FA4 00000000 */   nop
-/* 0E7AD8 7F0B2FA8 ACA20000 */  sw    $v0, ($a1)
-.L7F0B2FAC:
-/* 0E7ADC 7F0B2FAC 84430006 */  lh    $v1, 6($v0)
-/* 0E7AE0 7F0B2FB0 00036B03 */  sra   $t5, $v1, 0xc
-/* 0E7AE4 7F0B2FB4 31AE000F */  andi  $t6, $t5, 0xf
-/* 0E7AE8 7F0B2FB8 00CE7821 */  addu  $t7, $a2, $t6
-/* 0E7AEC 7F0B2FBC 91F80000 */  lbu   $t8, ($t7)
-/* 0E7AF0 7F0B2FC0 03021021 */  addu  $v0, $t8, $v0
-/* 0E7AF4 7F0B2FC4 8C590000 */  lw    $t9, ($v0)
-/* 0E7AF8 7F0B2FC8 5720FFF8 */  bnezl $t9, .L7F0B2FAC
-/* 0E7AFC 7F0B2FCC ACA20000 */   sw    $v0, ($a1)
-.L7F0B2FD0:
-/* 0E7B00 7F0B2FD0 03E00008 */  jr    $ra
-/* 0E7B04 7F0B2FD4 AD040000 */   sw    $a0, ($t0)
-)
-#endif
 
 
 /**
