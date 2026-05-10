@@ -148,6 +148,7 @@ const char aStanlinelog[] = "-stanlinelog";
 
 // forward declarations
 
+void setLevelScale(f32 ls);
 s32 stanIsSpecialBit1Set(StandTile *arg0, struct StandTileLocusCallbackRecord* arg1);
 s32 sub_GAME_7F0B2274(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3, s32 arg4, s32 *outFlags);
 s32 sub_GAME_7F0B21B0(StandTile **tileStack, f32 target_x, f32 target_z, f32 unknown, s32 *rooms, s32 *count_rtn, s32 bufMax);
@@ -939,62 +940,33 @@ glabel sub_GAME_7F0AF20C
 #endif
 
 
+void stanLoadFile(struct StanPrefixRecord *file)
+{
+    struct StanPrefixRecord *prefix = &stan_prefix;
+    s32 tokenIndexMask;
 
-
-
-#ifdef NONMATCHING
-void stanLoadFile(StanPrefixRecord *arg0) {
     m_stanRegion = 1;
-    stan_prefix.stanfile = arg0;
-    standTileStart = (s32) (arg0->ptr_firstroom + -0x10);
-    if (tokenFind(1, "-stanlinelog") != 0)
+    tokenIndexMask = !file->ptr_firstroom;
+    prefix->stanfile = file;
+    tokenIndexMask = 1;
+
+    /*
+     * Matching artifacts.
+     */
+    if (prefix);
+    if (prefix);
+    if (prefix);
+
+    standTileStart = (StandTile *)(((u8 *)file->ptr_firstroom) - 0x80);
+
+    if (tokenFind(tokenIndexMask, aStanlinelog))
     {
         stanlinelog_flag = 1;
     }
+
     sub_GAME_7F0AF038();
-    setLevelScale(1.0);
+    setLevelScale(1.0f);
 }
-
-#else
-GLOBAL_ASM(
-.text
-glabel stanLoadFile
-/* 0E40E8 7F0AF5B8 3C028008 */  lui   $v0, %hi(stan_prefix)
-/* 0E40EC 7F0AF5BC 240E0001 */  li    $t6, 1
-/* 0E40F0 7F0AF5C0 3C018004 */  lui   $at, %hi(m_stanRegion)
-/* 0E40F4 7F0AF5C4 2442B120 */  addiu $v0, %lo(stan_prefix) # addiu $v0, $v0, -0x4ee0
-/* 0E40F8 7F0AF5C8 27BDFFE8 */  addiu $sp, $sp, -0x18
-/* 0E40FC 7F0AF5CC AC2E0FB0 */  sw    $t6, %lo(m_stanRegion)($at)
-/* 0E4100 7F0AF5D0 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0E4104 7F0AF5D4 AC440000 */  sw    $a0, ($v0)
-/* 0E4108 7F0AF5D8 8C980004 */  lw    $t8, 4($a0)
-/* 0E410C 7F0AF5DC 3C018004 */  lui   $at, %hi(standTileStart)
-/* 0E4110 7F0AF5E0 3C058006 */  lui   $a1, %hi(aStanlinelog)
-/* 0E4114 7F0AF5E4 2719FF80 */  addiu $t9, $t8, -0x80
-/* 0E4118 7F0AF5E8 AC390F58 */  sw    $t9, %lo(standTileStart)($at)
-/* 0E411C 7F0AF5EC 24A585BC */  addiu $a1, %lo(aStanlinelog) # addiu $a1, $a1, -0x7a44
-/* 0E4120 7F0AF5F0 0C0029A8 */  jal   tokenFind
-/* 0E4124 7F0AF5F4 24040001 */   li    $a0, 1
-/* 0E4128 7F0AF5F8 10400003 */  beqz  $v0, .L7F0AF608
-/* 0E412C 7F0AF5FC 24080001 */   li    $t0, 1
-/* 0E4130 7F0AF600 3C018004 */  lui   $at, %hi(stanlinelog_flag)
-/* 0E4134 7F0AF604 AC280FB4 */  sw    $t0, %lo(stanlinelog_flag)($at)
-.L7F0AF608:
-/* 0E4138 7F0AF608 0FC2BC0E */  jal   sub_GAME_7F0AF038
-/* 0E413C 7F0AF60C 00000000 */   nop
-/* 0E4140 7F0AF610 3C013F80 */  li    $at, 0x3F800000 # 1.000000
-/* 0E4144 7F0AF614 44816000 */  mtc1  $at, $f12
-/* 0E4148 7F0AF618 0FC2CA54 */  jal   setLevelScale
-/* 0E414C 7F0AF61C 00000000 */   nop
-/* 0E4150 7F0AF620 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 0E4154 7F0AF624 27BD0018 */  addiu $sp, $sp, 0x18
-/* 0E4158 7F0AF628 03E00008 */  jr    $ra
-/* 0E415C 7F0AF62C 00000000 */   nop
-)
-#endif
-
-
-
 
 
 //stanRegion()
