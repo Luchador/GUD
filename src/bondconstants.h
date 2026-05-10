@@ -4529,6 +4529,7 @@ typedef enum PROJECTILES
 
 #define S32_MAX  2147483647
 #define U32_MAX  4294967295
+#define M_SQRT2_F 1.41412f
 #pragma region Inline Macro Functions
 #ifndef _MATH_EXT_H_
     #define M_TAU_F               6.2831855f

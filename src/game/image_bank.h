@@ -14,6 +14,9 @@ extern struct sImageTableEntry *monitorimages;
 extern struct sImageTableEntry *mpcharselimages;
 extern struct sImageTableEntry *mpradarimages;
 extern struct sImageTableEntry *impactimages;
+extern struct sImageTableEntry *explosion_smokeimages;
+extern struct sImageTableEntry *scattered_explosions;
+extern struct sImageTableEntry *flareimage2;
 
 extern u8* img_curpos;
 extern s32 img_bitcount;

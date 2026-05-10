@@ -52,16 +52,30 @@ typedef struct bondstruct_unk_8007A170 {
     s32 unk00;
     s16 unk04;
     s16 unk06;
-    u32 unk08;
-    u32 unk0C;
+    f32 unk08;
+    void* unk0C;
     f32 unk10;
     f32 unk14;
     f32 unk18;
-    u32 unk1c;
-    u32 unk20;
-    u32 unk24;
-    u32 unk28;
+    f32 unk1c;
+    f32 unk20;
+    f32 unk24;
+    u8 unk28;
+    u8 unk29;
+    u8 unk2A;
+    u8 unk2B;
 } bondstruct_unk_8007A170;
+
+#ifndef VERSION_EU
+typedef struct bondstruct_unk_8007A4E0
+{
+    bondstruct_unk_8007A170 unk00;
+    f32 unk2c;
+    f32 unk30;
+    f32 unk34;
+    f32 unk38;
+} bondstruct_unk_8007A4E0;
+#endif
 
 extern s32 SHATTERED_WINDOW_PIECES_BUFFER_LEN;
 extern s_shattered_window_piece* ptr_shattered_window_pieces;
@@ -93,7 +107,7 @@ void sub_GAME_7F0A2F30(struct damage_display_parent *arg0, s32 arg1, s32 arg2, f
 struct WatchVertex *setup_watch_rectangles(struct WatchVertex *vtx, s32 startx, s32 startz, s32 width, s32 height, s32 horizontal_offset, s32 vertical_offset);
 void glassCreateShard(coord3d * pos, f32 rotX, f32 shard_size);
 void sub_GAME_7F0A3EA0(void);
-s32 sub_GAME_7F0A3C08(struct bondstruct_unk_8007A4E0 *arg0, coord3d *arg1, s32 arg2, f32 arg3, s16 arg4);
+void sub_GAME_7F0A3C08(bondstruct_unk_8007A170 *arg0, coord3d *arg1, s32 arg2, f32 arg3, s16 arg4);
 
 void update_bullet_sparks_and_dust_clouds(void);
 #ifdef VERSION_EU
