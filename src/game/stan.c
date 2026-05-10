@@ -96,7 +96,7 @@ struct StandTile * standTileStart = NULL;
 //D:80040F5C
 s32 ptr_firstroom_0 = 0;
 //D:80040F60
-struct StanPrefixRecord* D_80040F60 = 0;
+struct StandTile* stanTileEnd = NULL;
 //D:80040F64
 s32 D_80040F64[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //D:80040FAC
@@ -264,9 +264,9 @@ u32 stanRemovedAnimationRoutine(s32 arg0) {
     {
         osSyncPrintf("checksf: ERROR line %d %08x<%08x", __LINE__, arg0, ptr_firstroom_0);
     }
-    if (D_80040F60 < arg0)
+    if (stanTileEnd < arg0)
     {
-        osSyncPrintf("checksf: ERROR line %d %08x>%08x", __LINE__, arg0, D_80040F60);
+        osSyncPrintf("checksf: ERROR line %d %08x>%08x", __LINE__, arg0, stanTileEnd);
     }
 #endif
     return 0;
@@ -4768,7 +4768,7 @@ void stanDetermineEOF(struct StanPrefixRecord *file, s32 origBase, u8 *newBase)
     {
         do
         {
-            D_80040F60 = (struct StanPrefixRecord *) tile;
+            stanTileEnd = tile;
 
             // Fake but required for matching.
             if (tile->tail.half);
