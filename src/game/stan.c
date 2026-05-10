@@ -71,8 +71,9 @@ StandTile *bfsTileStack[352];
 
 // data
 
-//D:80040F30 //stanladder related
-u8 D_80040F30[] = {
+//D:80040F30
+// Indexed by StandTile.mid.headerMid.special.
+u8 g_StanTileSpecialFlags[] = {
     0x8D, 0x86, 0x04, 0xC5,
     0x9D, 0xA4, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00,
@@ -3846,17 +3847,13 @@ s32 sub_GAME_7F0B21B0(StandTile **tileStack, f32 target_x, f32 target_z, f32 unk
 }
 
 
-
-
-
-
 /**
  * Address 0x7F0B2244.
 */
 s32 stanIsSpecialBit1Set(StandTile *arg0, struct StandTileLocusCallbackRecord *arg1)
 {
     s32 val = arg0->mid.half >> 0xC;
-    if (D_80040F30[val] & 2)
+    if (g_StanTileSpecialFlags[val] & STANTILEFLAG_FORCECROUCH)
     {
         arg1->rooms = 1;
     }
@@ -3878,14 +3875,14 @@ s32 sub_GAME_7F0B2274(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3, s32 arg
 
         mid = target->mid.half;
 
-        if (D_80040F30[mid >> 0xc] & 0x2) {
+        if (g_StanTileSpecialFlags[mid >> 0xc] & STANTILEFLAG_FORCECROUCH) {
             outFlags[0] = 1;
             return 1;
         }
 
         mid = target->mid.half;
 
-        if (D_80040F30[mid >> 0xc] & 0x40) {
+        if (g_StanTileSpecialFlags[mid >> 0xc] & STANTILEFLAG_LADDER) {
             dword_CODE_bss_8007BA0C = target;
             outFlags[1] = 1;
             return 0;
@@ -3958,165 +3955,101 @@ void sub_GAME_7F0B23AC(StandTile *tile, s32 pointnum, coord3d *out)
 }
 
 
-#ifdef NONMATCHING
-// TODO
-void stanGetMoveBondCollisionTiles(void) {
-    #ifdef DEBUG
-    assert(getsides(s1)==3);
-    #endif
+void stanGetMoveBondCollisionTiles(StandTile **tile1, StandTile **tile2, coord3d *coords)
+{
+    StandTile *curtileStore;
+    StandTile *baseTile;
+    StandTile *linktile;
+    s32 curtilePointI;
+    s32 i;
+    s32 j;
+    s32 k;
+    s32 target;
 
-    //if side++ > getsides
-    #ifdef DEBUG
-    osSyncPrintf("Ladder %s has no neighbouring ladder stan\n", GetStanRoomID(arg0));
-    #endif
-    return;
+    baseTile = dword_CODE_bss_8007BA0C;
 
+    target = baseTile->tail.hdrTail.pointCount & 0xf;
 
-    // for rotate = 0 to 12
-    // next
+    i = 0;
 
-    //ran out of rotating tiles - just end
-    #ifdef DEBUG
-    osSyncPrintf("rotate==12\n");
-    #endif
-}
-#else
-GLOBAL_ASM(
-.text
-glabel stanGetMoveBondCollisionTiles
-/* 0E6F50 7F0B2420 27BDFFB8 */  addiu $sp, $sp, -0x48
-/* 0E6F54 7F0B2424 3C098008 */  lui   $t1, %hi(dword_CODE_bss_8007BA0C)
-/* 0E6F58 7F0B2428 8D29BA0C */  lw    $t1, %lo(dword_CODE_bss_8007BA0C)($t1)
-/* 0E6F5C 7F0B242C AFBF003C */  sw    $ra, 0x3c($sp)
-/* 0E6F60 7F0B2430 AFBE0038 */  sw    $fp, 0x38($sp)
-/* 0E6F64 7F0B2434 AFB70034 */  sw    $s7, 0x34($sp)
-/* 0E6F68 7F0B2438 AFB60030 */  sw    $s6, 0x30($sp)
-/* 0E6F6C 7F0B243C AFB5002C */  sw    $s5, 0x2c($sp)
-/* 0E6F70 7F0B2440 AFB40028 */  sw    $s4, 0x28($sp)
-/* 0E6F74 7F0B2444 AFB30024 */  sw    $s3, 0x24($sp)
-/* 0E6F78 7F0B2448 AFB20020 */  sw    $s2, 0x20($sp)
-/* 0E6F7C 7F0B244C AFB1001C */  sw    $s1, 0x1c($sp)
-/* 0E6F80 7F0B2450 AFB00018 */  sw    $s0, 0x18($sp)
-/* 0E6F84 7F0B2454 85280006 */  lh    $t0, 6($t1)
-/* 0E6F88 7F0B2458 00808025 */  move  $s0, $a0
-/* 0E6F8C 7F0B245C 00A08825 */  move  $s1, $a1
-/* 0E6F90 7F0B2460 00087303 */  sra   $t6, $t0, 0xc
-/* 0E6F94 7F0B2464 31C8000F */  andi  $t0, $t6, 0xf
-/* 0E6F98 7F0B2468 00C0A825 */  move  $s5, $a2
-/* 0E6F9C 7F0B246C 1900005B */  blez  $t0, .L7F0B25DC
-/* 0E6FA0 7F0B2470 00003825 */   move  $a3, $zero
-/* 0E6FA4 7F0B2474 3C048004 */  lui   $a0, %hi(standTileStart)
-/* 0E6FA8 7F0B2478 3C058004 */  lui   $a1, %hi(D_80040F30)
-/* 0E6FAC 7F0B247C 24A50F30 */  addiu $a1, %lo(D_80040F30) # addiu $a1, $a1, 0xf30
-/* 0E6FB0 7F0B2480 8C840F58 */  lw    $a0, %lo(standTileStart)($a0)
-/* 0E6FB4 7F0B2484 01201825 */  move  $v1, $t1
-.L7F0B2488:
-/* 0E6FB8 7F0B2488 9462000E */  lhu   $v0, 0xe($v1)
-/* 0E6FBC 7F0B248C 0002C0C0 */  sll   $t8, $v0, 3
-/* 0E6FC0 7F0B2490 0002C903 */  sra   $t9, $v0, 4
-/* 0E6FC4 7F0B2494 1320004D */  beqz  $t9, .L7F0B25CC
-/* 0E6FC8 7F0B2498 0304B021 */   addu  $s6, $t8, $a0
-/* 0E6FCC 7F0B249C 86C20004 */  lh    $v0, 4($s6)
-/* 0E6FD0 7F0B24A0 00025303 */  sra   $t2, $v0, 0xc
-/* 0E6FD4 7F0B24A4 00AA5821 */  addu  $t3, $a1, $t2
-/* 0E6FD8 7F0B24A8 916C0000 */  lbu   $t4, ($t3)
-/* 0E6FDC 7F0B24AC 318D0040 */  andi  $t5, $t4, 0x40
-/* 0E6FE0 7F0B24B0 11A00046 */  beqz  $t5, .L7F0B25CC
-/* 0E6FE4 7F0B24B4 24FE0002 */   addiu $fp, $a3, 2
-/* 0E6FE8 7F0B24B8 24010003 */  li    $at, 3
-/* 0E6FEC 7F0B24BC 03C1001A */  div   $zero, $fp, $at
-/* 0E6FF0 7F0B24C0 AE090000 */  sw    $t1, ($s0)
-/* 0E6FF4 7F0B24C4 00007010 */  mfhi  $t6
-/* 0E6FF8 7F0B24C8 AE360000 */  sw    $s6, ($s1)
-/* 0E6FFC 7F0B24CC 0000B825 */  move  $s7, $zero
-/* 0E7000 7F0B24D0 AFA90040 */  sw    $t1, 0x40($sp)
-/* 0E7004 7F0B24D4 01C0F025 */  move  $fp, $t6
-/* 0E7008 7F0B24D8 2414000C */  li    $s4, 12
-/* 0E700C 7F0B24DC 24130003 */  li    $s3, 3
-/* 0E7010 7F0B24E0 00008025 */  move  $s0, $zero
-.L7F0B24E4:
-/* 0E7014 7F0B24E4 00179083 */  sra   $s2, $s7, 2
-/* 0E7018 7F0B24E8 02E08825 */  move  $s1, $s7
-.L7F0B24EC:
-/* 0E701C 7F0B24EC 02507821 */  addu  $t7, $s2, $s0
-/* 0E7020 7F0B24F0 01F3001A */  div   $zero, $t7, $s3
-/* 0E7024 7F0B24F4 00002810 */  mfhi  $a1
-/* 0E7028 7F0B24F8 32380003 */  andi  $t8, $s1, 3
-/* 0E702C 7F0B24FC 02C02025 */  move  $a0, $s6
-/* 0E7030 7F0B2500 03140019 */  multu $t8, $s4
-/* 0E7034 7F0B2504 16600002 */  bnez  $s3, .L7F0B2510
-/* 0E7038 7F0B2508 00000000 */   nop
-/* 0E703C 7F0B250C 0007000D */  break 7
-.L7F0B2510:
-/* 0E7040 7F0B2510 2401FFFF */  li    $at, -1
-/* 0E7044 7F0B2514 16610004 */  bne   $s3, $at, .L7F0B2528
-/* 0E7048 7F0B2518 3C018000 */   lui   $at, 0x8000
-/* 0E704C 7F0B251C 15E10002 */  bne   $t7, $at, .L7F0B2528
-/* 0E7050 7F0B2520 00000000 */   nop
-/* 0E7054 7F0B2524 0006000D */  break 6
-.L7F0B2528:
-/* 0E7058 7F0B2528 0000C812 */  mflo  $t9
-/* 0E705C 7F0B252C 02B93021 */  addu  $a2, $s5, $t9
-/* 0E7060 7F0B2530 0FC2C8EB */  jal   sub_GAME_7F0B23AC
-/* 0E7064 7F0B2534 00000000 */   nop
-/* 0E7068 7F0B2538 26100001 */  addiu $s0, $s0, 1
-/* 0E706C 7F0B253C 1613FFEB */  bne   $s0, $s3, .L7F0B24EC
-/* 0E7070 7F0B2540 26310001 */   addiu $s1, $s1, 1
-/* 0E7074 7F0B2544 26EA0003 */  addiu $t2, $s7, 3
-/* 0E7078 7F0B2548 314B0003 */  andi  $t3, $t2, 3
-/* 0E707C 7F0B254C 01740019 */  multu $t3, $s4
-/* 0E7080 7F0B2550 8FA40040 */  lw    $a0, 0x40($sp)
-/* 0E7084 7F0B2554 03C02825 */  move  $a1, $fp
-/* 0E7088 7F0B2558 00006012 */  mflo  $t4
-/* 0E708C 7F0B255C 02AC3021 */  addu  $a2, $s5, $t4
-/* 0E7090 7F0B2560 0FC2C8EB */  jal   sub_GAME_7F0B23AC
-/* 0E7094 7F0B2564 00000000 */   nop
-/* 0E7098 7F0B2568 26F70001 */  addiu $s7, $s7, 1
-/* 0E709C 7F0B256C 52F4001C */  beql  $s7, $s4, .L7F0B25E0
-/* 0E70A0 7F0B2570 8FBF003C */   lw    $ra, 0x3c($sp)
-/* 0E70A4 7F0B2574 C6A0001C */  lwc1  $f0, 0x1c($s5)
-/* 0E70A8 7F0B2578 C6A20004 */  lwc1  $f2, 4($s5)
-/* 0E70AC 7F0B257C 4602003C */  c.lt.s $f0, $f2
-/* 0E70B0 7F0B2580 00000000 */  nop
-/* 0E70B4 7F0B2584 4503FFD7 */  bc1tl .L7F0B24E4
-/* 0E70B8 7F0B2588 00008025 */   move  $s0, $zero
-/* 0E70BC 7F0B258C C6AC0010 */  lwc1  $f12, 0x10($s5)
-/* 0E70C0 7F0B2590 460C003C */  c.lt.s $f0, $f12
-/* 0E70C4 7F0B2594 00000000 */  nop
-/* 0E70C8 7F0B2598 4503FFD2 */  bc1tl .L7F0B24E4
-/* 0E70CC 7F0B259C 00008025 */   move  $s0, $zero
-/* 0E70D0 7F0B25A0 C6A00028 */  lwc1  $f0, 0x28($s5)
-/* 0E70D4 7F0B25A4 4602003C */  c.lt.s $f0, $f2
-/* 0E70D8 7F0B25A8 00000000 */  nop
-/* 0E70DC 7F0B25AC 4503FFCD */  bc1tl .L7F0B24E4
-/* 0E70E0 7F0B25B0 00008025 */   move  $s0, $zero
-/* 0E70E4 7F0B25B4 460C003C */  c.lt.s $f0, $f12
-/* 0E70E8 7F0B25B8 00000000 */  nop
-/* 0E70EC 7F0B25BC 4503FFC9 */  bc1tl .L7F0B24E4
-/* 0E70F0 7F0B25C0 00008025 */   move  $s0, $zero
-/* 0E70F4 7F0B25C4 10000006 */  b     .L7F0B25E0
-/* 0E70F8 7F0B25C8 8FBF003C */   lw    $ra, 0x3c($sp)
-.L7F0B25CC:
-/* 0E70FC 7F0B25CC 24E70001 */  addiu $a3, $a3, 1
-/* 0E7100 7F0B25D0 00E8082A */  slt   $at, $a3, $t0
-/* 0E7104 7F0B25D4 1420FFAC */  bnez  $at, .L7F0B2488
-/* 0E7108 7F0B25D8 24630008 */   addiu $v1, $v1, 8
-.L7F0B25DC:
-/* 0E710C 7F0B25DC 8FBF003C */  lw    $ra, 0x3c($sp)
-.L7F0B25E0:
-/* 0E7110 7F0B25E0 8FB00018 */  lw    $s0, 0x18($sp)
-/* 0E7114 7F0B25E4 8FB1001C */  lw    $s1, 0x1c($sp)
-/* 0E7118 7F0B25E8 8FB20020 */  lw    $s2, 0x20($sp)
-/* 0E711C 7F0B25EC 8FB30024 */  lw    $s3, 0x24($sp)
-/* 0E7120 7F0B25F0 8FB40028 */  lw    $s4, 0x28($sp)
-/* 0E7124 7F0B25F4 8FB5002C */  lw    $s5, 0x2c($sp)
-/* 0E7128 7F0B25F8 8FB60030 */  lw    $s6, 0x30($sp)
-/* 0E712C 7F0B25FC 8FB70034 */  lw    $s7, 0x34($sp)
-/* 0E7130 7F0B2600 8FBE0038 */  lw    $fp, 0x38($sp)
-/* 0E7134 7F0B2604 03E00008 */  jr    $ra
-/* 0E7138 7F0B2608 27BD0048 */   addiu $sp, $sp, 0x48
-)
+    if (i < target)
+    {
+        do
+        {
+            linktile = (StandTile *)((u8 *)standTileStart + (baseTile->points[i].link << 3));
+
+            if ((baseTile->points[i].link >> 4) != 0)
+            {
+                s32 linkTileMid;
+            
+                linkTileMid = linktile->mid.half;
+            
+                if (g_StanTileSpecialFlags[linkTileMid >> 12] & STANTILEFLAG_LADDER)
+                {
+#ifdef DEBUG
+                    assert(getsides(linktile) == 3);
 #endif
+                    curtilePointI = (i + 2) % 3;
+            
+                    *tile1 = baseTile;
+                    *tile2 = linktile;
+            
+                    j = 0;
+                    curtileStore = baseTile;
+
+                    while (1)
+                    {
+                        for (k = 0; k < 3; k++)
+                        {
+                            sub_GAME_7F0B23AC(
+                                linktile,
+                                ((j >> 2) + k) % 3,
+                                (coord3d *)((s32)coords + (((j + k) & 3) * 0xc)));
+                        }
+
+                        sub_GAME_7F0B23AC(
+                            curtileStore,
+                            curtilePointI,
+                            (coord3d *)((s32)coords + (((j + 3) & 3) * 0xc)));
+
+                        j++;
+
+                        if (j == 12)
+                        {
+#ifdef DEBUG
+                            osSyncPrintf("rotate==12\n");
+#endif
+                            break;
+                        }
+
+                        if (!(coords[2].y < coords[0].y)
+                                && !(coords[2].y < coords[1].y)
+                                && !(coords[3].y < coords[0].y)
+                                && !(coords[3].y < coords[1].y))
+                        {
+                            break;
+                        }
+                    }
+
+                    return;
+                }
+            }
+
+            i++;
+
+            if (i < target)
+            {
+                continue;
+            }
+
+            break;
+        }
+        while (TRUE);
+    }
+#ifdef DEBUG
+    osSyncPrintf("Ladder %s has no neighbouring ladder stan\n", GetStanRoomID(baseTile));
+#endif
+}
 
 
 /**
