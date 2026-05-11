@@ -234,61 +234,14 @@ void modelSetDistanceScale(f32 param_1) {
 }
 
 
-
-
-
-#ifdef NONMATCHING
-// unreferenced
-void sub_GAME_7F06C418(void *arg0, void *arg1)
-{
-    s32   temp_t7;
-    s32   var_v0;
-    void *var_a2;
-    void *var_v1;
-
-    var_a2 = arg0;
-    var_v0 = 0;
-    var_v1 = arg1;
-    do
-    {
-        var_v0 += 1;
-        var_v1 += 0x10;
-        var_v1->unk - 10 = var_a2->unk0;
-        temp_t7          = var_a2->unk4;
-        var_a2 += 0x10;
-        var_v1->unk - C = temp_t7;
-        var_v1->unk - 8 = var_a2->unk - 8;
-        var_v1->unk - 4 = var_a2->unk - 4;
-    } while (var_v0 != 4);
+void sub_GAME_7F06C418(Vew4s32 *src, Vew4s32 *dst) {
+    s32 i, j;
+    for (i = 0; i < 4; i++) {
+        for (j = 0; j < 4; j++) {
+            dst[i].v[j] = src[i].v[j];
+        }
+    }
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F06C418
-/* 0A0F48 7F06C418 00803025 */  move  $a2, $a0
-/* 0A0F4C 7F06C41C 24040004 */  li    $a0, 4
-/* 0A0F50 7F06C420 00001025 */  move  $v0, $zero
-/* 0A0F54 7F06C424 00A01825 */  move  $v1, $a1
-.L7F06C428:
-/* 0A0F58 7F06C428 8CCE0000 */  lw    $t6, ($a2)
-/* 0A0F5C 7F06C42C 24420001 */  addiu $v0, $v0, 1
-/* 0A0F60 7F06C430 24630010 */  addiu $v1, $v1, 0x10
-/* 0A0F64 7F06C434 AC6EFFF0 */  sw    $t6, -0x10($v1)
-/* 0A0F68 7F06C438 8CCF0004 */  lw    $t7, 4($a2)
-/* 0A0F6C 7F06C43C 24C60010 */  addiu $a2, $a2, 0x10
-/* 0A0F70 7F06C440 AC6FFFF4 */  sw    $t7, -0xc($v1)
-/* 0A0F74 7F06C444 8CD8FFF8 */  lw    $t8, -8($a2)
-/* 0A0F78 7F06C448 AC78FFF8 */  sw    $t8, -8($v1)
-/* 0A0F7C 7F06C44C 8CD9FFFC */  lw    $t9, -4($a2)
-/* 0A0F80 7F06C450 1444FFF5 */  bne   $v0, $a0, .L7F06C428
-/* 0A0F84 7F06C454 AC79FFFC */   sw    $t9, -4($v1)
-/* 0A0F88 7F06C458 03E00008 */  jr    $ra
-/* 0A0F8C 7F06C45C 00000000 */   nop
-)
-#endif
-
-
-
 
 
 void set_vtxallocator(s32 param_1) {
