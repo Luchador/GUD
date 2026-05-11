@@ -175,88 +175,67 @@ s32 stanBitwiseCastF32(f32 arg0)
     return *(s32*)&arg0;
 }
 
-#ifdef NONMATCHING
+
 // maybe getstanroomID and returns a string
-s32 sub_GAME_7F0AEF3C(void *arg0) {
-    s32 sp24;
-    s32 temp_a1;
-    s32 phi_v0;
-
-    // Node 0
-    sp24 = (s32) ((D_80040FAC * 9) + &D_80040F64);
-    temp_a1 = (arg0->unk2 & 7);
-    D_80040FAC = (s32) ((D_80040FAC + 1) & 7);
-    if (temp_a1 == 0)
+char *sub_GAME_7F0AEF3C(StandTile *tile)
+{
+    char *buffer;
+    s32 nextidx;
+    s32 type;
+    s32 letter;
+    s32 digit_raw;
+    s32 masked_number;
+    s32 idpart1;
+    u8 idpart2;
+    s32 idx;
+    
+    idx = D_80040FAC;
+    buffer = (char *)D_80040F64 + (idx * 9);
+    
+    idpart1 = *((u16 *) tile);
+    digit_raw = ((u8 *) tile)[2];
+    idpart2 = digit_raw;
+    
+    letter = idpart2 >> 3;
+    idx = (idx + 1) & 7;
+    masked_number = idpart1 & 0x7fff;
+    type = (idpart1 >> 15) & 1;
+    letter &= 0x1f;
+    nextidx = idx;
+    digit_raw = idpart2 & 7;
+    
+    if (digit_raw)
     {
-        // Node 1
-        phi_v0 = 0;
+        idpart1 = *((u16 *) tile);
     }
-    else
+    
+    D_80040FAC = nextidx;
+    
+    if (!digit_raw)
     {
-        // Node 2
-        phi_v0 = (temp_a1 + 0x30);
+        if (digit_raw && digit_raw);
+        
+        idpart1 = 0;
     }
-    // Node 3
-    sprintf(sp24, &aCDCC, ((((s32) *arg0 >> 0xf) & 1) + 0x70), (*arg0 & 0x7fff), (s32) ((((s32) arg0->unk2 >> 3) & 0x1f) + 0x61), (s32) phi_v0);
-    return sp24;
+    else 
+    {
+        idpart1 = digit_raw + '0';
+    }
+    
+    sprintf(buffer, aCDCC, type + 'p', masked_number, letter + 'a', idpart1);
+    
+    return buffer;
 }
 
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0AEF3C
-/* 0E3A6C 7F0AEF3C 3C068004 */  lui   $a2, %hi(D_80040FAC)
-/* 0E3A70 7F0AEF40 8CC60FAC */  lw    $a2, %lo(D_80040FAC)($a2)
-/* 0E3A74 7F0AEF44 3C0F8004 */  lui   $t7, %hi(D_80040F64)
-/* 0E3A78 7F0AEF48 27BDFFD8 */  addiu $sp, $sp, -0x28
-/* 0E3A7C 7F0AEF4C 000670C0 */  sll   $t6, $a2, 3
-/* 0E3A80 7F0AEF50 25EF0F64 */  addiu $t7, %lo(D_80040F64) # addiu $t7, $t7, 0xf64
-/* 0E3A84 7F0AEF54 01C67021 */  addu  $t6, $t6, $a2
-/* 0E3A88 7F0AEF58 01CFC021 */  addu  $t8, $t6, $t7
-/* 0E3A8C 7F0AEF5C AFBF001C */  sw    $ra, 0x1c($sp)
-/* 0E3A90 7F0AEF60 AFB80024 */  sw    $t8, 0x24($sp)
-/* 0E3A94 7F0AEF64 94820000 */  lhu   $v0, ($a0)
-/* 0E3A98 7F0AEF68 90830002 */  lbu   $v1, 2($a0)
-/* 0E3A9C 7F0AEF6C 24C60001 */  addiu $a2, $a2, 1
-/* 0E3AA0 7F0AEF70 000243C3 */  sra   $t0, $v0, 0xf
-/* 0E3AA4 7F0AEF74 000348C3 */  sra   $t1, $v1, 3
-/* 0E3AA8 7F0AEF78 30D90007 */  andi  $t9, $a2, 7
-/* 0E3AAC 7F0AEF7C 310A0001 */  andi  $t2, $t0, 1
-/* 0E3AB0 7F0AEF80 312B001F */  andi  $t3, $t1, 0x1f
-/* 0E3AB4 7F0AEF84 3C018004 */  lui   $at, %hi(D_80040FAC)
-/* 0E3AB8 7F0AEF88 30650007 */  andi  $a1, $v1, 7
-/* 0E3ABC 7F0AEF8C 01404025 */  move  $t0, $t2
-/* 0E3AC0 7F0AEF90 01604825 */  move  $t1, $t3
-/* 0E3AC4 7F0AEF94 AC390FAC */  sw    $t9, %lo(D_80040FAC)($at)
-/* 0E3AC8 7F0AEF98 14A00003 */  bnez  $a1, .L7F0AEFA8
-/* 0E3ACC 7F0AEF9C 30477FFF */   andi  $a3, $v0, 0x7fff
-/* 0E3AD0 7F0AEFA0 10000002 */  b     .L7F0AEFAC
-/* 0E3AD4 7F0AEFA4 00001025 */   move  $v0, $zero
-.L7F0AEFA8:
-/* 0E3AD8 7F0AEFA8 24A20030 */  addiu $v0, $a1, 0x30
-.L7F0AEFAC:
-/* 0E3ADC 7F0AEFAC 3C058006 */  lui   $a1, %hi(aCDCC)
-/* 0E3AE0 7F0AEFB0 252C0061 */  addiu $t4, $t1, 0x61
-/* 0E3AE4 7F0AEFB4 AFAC0010 */  sw    $t4, 0x10($sp)
-/* 0E3AE8 7F0AEFB8 24A585A0 */  addiu $a1, %lo(aCDCC) # addiu $a1, $a1, -0x7a60
-/* 0E3AEC 7F0AEFBC 8FA40024 */  lw    $a0, 0x24($sp)
-/* 0E3AF0 7F0AEFC0 25060070 */  addiu $a2, $t0, 0x70
-/* 0E3AF4 7F0AEFC4 0C002B25 */  jal   sprintf
-/* 0E3AF8 7F0AEFC8 AFA20014 */   sw    $v0, 0x14($sp)
-/* 0E3AFC 7F0AEFCC 8FBF001C */  lw    $ra, 0x1c($sp)
-/* 0E3B00 7F0AEFD0 8FA20024 */  lw    $v0, 0x24($sp)
-/* 0E3B04 7F0AEFD4 27BD0028 */  addiu $sp, $sp, 0x28
-/* 0E3B08 7F0AEFD8 03E00008 */  jr    $ra
-/* 0E3B0C 7F0AEFDC 00000000 */   nop
-)
-#endif
 
-
-
-
-void sub_GAME_7F0AEFE0(void) {
-    sub_GAME_7F0AEF3C(); //maybe getstanroomID
+/**
+ * Unreferenced.
+ */
+void sub_GAME_7F0AEFE0(StandTile *tile)
+{
+    sub_GAME_7F0AEF3C(tile); //maybe getstanroomID
 }
+
 
 //stanChecksf
 u32 stanRemovedAnimationRoutine(s32 arg0) {
