@@ -16,9 +16,8 @@ struct StanPrefixRecord {
     StandTile *ptr_firstroom;    // read as offset 4, hence the struct
 };
 
-struct StanPrefixRecord stan_prefix;
-
-
+struct StanPrefixRecord *stan_prefix;
+s32 dword_CODE_bss_8007B124;
 
 //CODE.bss:8007B128
 s32 firststaninroom;
@@ -973,26 +972,27 @@ void stanLoadFile(struct StanPrefixRecord *file)
 void sub_GAME_7F0AF630(s32 arg0)
 {
 #ifdef DEBUG
+    StandTile **rooms;
+
+    rooms = &stan_prefix->ptr_firstroom;
 
     if (arg0 < 0)
     {
-        if (*(stan_prefix->ptr_firstroom)[m_stanRegion - 1])
+        if (rooms[m_stanRegion - 1] != NULL)
         {
-            m_stanRegion --;
+            m_stanRegion--;
         }
     }
-    else if (arg0 < 1)
+    else if (arg0 == 0)
     {
-        if (arg0 == 0)
-        {
-            m_stanRegion = 1;
-        }
+        m_stanRegion = 1;
     }
-    else if (*(stan_prefix->stanfile)[m_stanRegion + 1])
+    else if (rooms[m_stanRegion] != NULL)
     {
-        m_stanRegion ++;
+        m_stanRegion++;
     }
-    osSyncPrintf("stanRegion():  region=%d",m_stanRegion);
+
+    osSyncPrintf("stanRegion():  region=%d", m_stanRegion);
 #endif
     return;
 }
@@ -4596,7 +4596,7 @@ struct StandTilePoint *stanMatchTileName(char *id)
 
     stanPackId(id, &stanIdHi, &stanIdLo);
 
-    tile = ((struct StanPrefixRecord *)stan_prefix.stanfile)->ptr_firstroom;
+    tile = stan_prefix->ptr_firstroom;
 
     while (*(u32 *)tile != 0) {
         if ((u16)tile->x == stanIdHi) {
@@ -4649,7 +4649,7 @@ void stanDetermineEOF(struct StanPrefixRecord *file, s32 origBase, u8 *newBase)
     u8 *tileSizes;
     
     delta = ((s32) newBase) - origBase;
-    stan_prefix.stanfile = (s32) file;
+    stan_prefix = file;
     
     standTileStart = (StandTile *)(((s32)file->ptr_firstroom + delta) - 0x80);
     ptr_firstroom_0 = (s32)file->ptr_firstroom + delta;
@@ -4684,7 +4684,7 @@ void stanDetermineEOF(struct StanPrefixRecord *file, s32 origBase, u8 *newBase)
         while (*(s32 *) tile != 0);
     }
     
-    stan_prefix.stanfile = (s32) file;
+    stan_prefix = file;
 }
 
 
