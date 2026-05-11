@@ -1712,9 +1712,9 @@ f32 getShortest2dDispToInfTripleEdge(StandTile *tile, s32 start3index, f32 p_x, 
     s32 nextPntI;
     s32 tail;
 
-#ifdef DEBUG
-    assert(start3index < 3);
-#endif
+    #ifdef DEBUG
+    assert(ei<getsides(sf));
+    #endif
 
     nextPntI = 2;
 
@@ -1737,9 +1737,9 @@ f32 getShortest2dDispToInfTripleEdge(StandTile *tile, s32 start3index, f32 p_x, 
         return sqrtf((dx * dx) + (dz * dz));
     }
 
-#ifdef DEBUG
-    assert(edgeLen > 0.0f);
-#endif
+    #ifdef DEBUG
+    assert(d>0.0f);
+    #endif
 
     crossProduct = (edgeZ * (p_x - tile->points[start3index].x)) + (-edgeX * (p_z - tile->points[start3index].z));
     return crossProduct / edgeLen;
