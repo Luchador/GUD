@@ -639,7 +639,7 @@ LAB_8238358c:
               bVar2 = true;
             }
           }
-          iVar3 = sub_GAME_7F0AF760(local_2c);
+          iVar3 = stanTileHasZeroArea(local_2c);
           if (iVar3 == 0) {
             if (bVar2) {
               getTileMidPoint(local_2c,local_48);
@@ -848,7 +848,7 @@ glabel sub_GAME_7F0AF20C
 .L7F0AF474:
 /* 0E3FA4 7F0AF474 5613FFF0 */  bnel  $s0, $s3, .L7F0AF438
 /* 0E3FA8 7F0AF478 C7A000B8 */   lwc1  $f0, 0xb8($sp)
-/* 0E3FAC 7F0AF47C 0FC2BDD8 */  jal   sub_GAME_7F0AF760
+/* 0E3FAC 7F0AF47C 0FC2BDD8 */  jal   stanTileHasZeroArea
 /* 0E3FB0 7F0AF480 02202025 */   move  $a0, $s1
 /* 0E3FB4 7F0AF484 54400020 */  bnezl $v0, .L7F0AF508
 /* 0E3FB8 7F0AF488 86220006 */   lh    $v0, 6($s1)
@@ -1050,7 +1050,7 @@ loop_1:
         // Node 2
         *temp_s3 = (s16) (*temp_s3 ^ 0x8000);
         phi_s7_2 = phi_s7_3;
-        if (sub_GAME_7F0AF760(temp_s3, phi_a1) == 0)
+        if (stanTileHasZeroArea(temp_s3, phi_a1) == 0)
         {
             // Node 3
             phi_s7_2 = (phi_s7_3 + 1);
@@ -1157,7 +1157,7 @@ glabel sub_GAME_7F0AF638
 /* 0E41CC 7F0AF69C 31F80001 */  andi  $t8, $t7, 1
 /* 0E41D0 7F0AF6A0 12980021 */  beq   $s4, $t8, .L7F0AF728
 /* 0E41D4 7F0AF6A4 38598000 */   xori  $t9, $v0, 0x8000
-/* 0E41D8 7F0AF6A8 0FC2BDD8 */  jal   sub_GAME_7F0AF760
+/* 0E41D8 7F0AF6A8 0FC2BDD8 */  jal   stanTileHasZeroArea
 /* 0E41DC 7F0AF6AC A6790000 */   sh    $t9, ($s3)
 /* 0E41E0 7F0AF6B0 14400002 */  bnez  $v0, .L7F0AF6BC
 /* 0E41E4 7F0AF6B4 02602025 */   move  $a0, $s3
@@ -1211,101 +1211,33 @@ glabel sub_GAME_7F0AF638
 #endif
 
 
+/**
+ * Address: 7F0AF760
+ * 
+ * Returns true if x/z coords from the three point indices out of tile->tail.half are colinear i.e. the triangle has zero horizontal area.
+ */
+bool stanTileHasZeroArea(StandTile *tile)
+{
+    s32 AB[3];
+    s32 AC[3];
+    u32 crossStore[2];
+    s32 temp1, temp2, temp3;
+    
 
+    temp1 = (tile->tail.half >> 8) & 0xf;
+    temp2 = (tile->tail.half >> 4) & 0xf;
+    temp3 = (tile->tail.half) & 0xf;
 
+    AB[0] = tile->points[temp2].x - tile->points[temp1].x;
+    AB[2] = tile->points[temp2].z - tile->points[temp1].z;
+    
+    AC[0] = tile->points[temp3].x - tile->points[temp1].x;
+    AC[2] = tile->points[temp3].z - tile->points[temp1].z;
 
-#ifdef NONMATCHING
+    crossStore[0] = (AB[2] * AC[0]) - (AB[0] * AC[2]);
 
-// A decent start, mostly my code isn't saving the AB.x and AB.z to the stack
-
-struct int3 {
-    s32 x;
-    s32 y;
-    s32 z;
-};
-
-s32 sub_GAME_7F0AF760(StandTile *tile) {
-    // Perhaps it's a coincidence but there is a gap between their uses of x and z
-    // Suggests there could be an unused y, which makes sense when their points are 3D
-
-    u32 iA;
-    u32 iB;
-    u32 iC;
-
-    s32 crossProduct;
-
-    struct int3 AB;
-    struct int3 AC;
-
-
-    iA = (tile->hdrTail >> 0x8 & 0xf);     // t1
-    iB = (tile->hdrTail >> 0x4 & 0xf);    // t0
-    // Actually saving iC somewhere has prevented it being computed early
-    iC = (tile->hdrTail & 0xf);     // t2
-
-    AB.x = (tile->points[iB].x - tile->points[iA].x);
-    AB.y = 0;
-    AB.z = (tile->points[iB].z - tile->points[iA].z);
-
-
-    AC.x = (tile->points[iC].x - tile->points[iA].x);
-    AC.y = 0;
-    AC.z = (tile->points[iC].z - tile->points[iA].z);
-
-    crossProduct =  ((AB.z * AC.x) - (AB.x * AC.z));    // potential overflow.
-
-    return (crossProduct == 0);
+    return crossStore[0] == 0;
 }
-
-
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0AF760
-/* 0E4290 7F0AF760 84850006 */  lh    $a1, 6($a0)
-/* 0E4294 7F0AF764 27BDFFE0 */  addiu $sp, $sp, -0x20
-/* 0E4298 7F0AF768 00051A03 */  sra   $v1, $a1, 8
-/* 0E429C 7F0AF76C 00053103 */  sra   $a2, $a1, 4
-/* 0E42A0 7F0AF770 306E000F */  andi  $t6, $v1, 0xf
-/* 0E42A4 7F0AF774 30CF000F */  andi  $t7, $a2, 0xf
-/* 0E42A8 7F0AF778 000FC0C0 */  sll   $t8, $t7, 3
-/* 0E42AC 7F0AF77C 000EC8C0 */  sll   $t9, $t6, 3
-/* 0E42B0 7F0AF780 00994821 */  addu  $t1, $a0, $t9
-/* 0E42B4 7F0AF784 00984021 */  addu  $t0, $a0, $t8
-/* 0E42B8 7F0AF788 850B0008 */  lh    $t3, 8($t0)
-/* 0E42BC 7F0AF78C 852C0008 */  lh    $t4, 8($t1)
-/* 0E42C0 7F0AF790 30A7000F */  andi  $a3, $a1, 0xf
-/* 0E42C4 7F0AF794 0007C8C0 */  sll   $t9, $a3, 3
-/* 0E42C8 7F0AF798 016C6823 */  subu  $t5, $t3, $t4
-/* 0E42CC 7F0AF79C AFAD0014 */  sw    $t5, 0x14($sp)
-/* 0E42D0 7F0AF7A0 852F000C */  lh    $t7, 0xc($t1)
-/* 0E42D4 7F0AF7A4 850E000C */  lh    $t6, 0xc($t0)
-/* 0E42D8 7F0AF7A8 00995021 */  addu  $t2, $a0, $t9
-/* 0E42DC 7F0AF7AC 01CFC023 */  subu  $t8, $t6, $t7
-/* 0E42E0 7F0AF7B0 AFB8001C */  sw    $t8, 0x1c($sp)
-/* 0E42E4 7F0AF7B4 852C0008 */  lh    $t4, 8($t1)
-/* 0E42E8 7F0AF7B8 854B0008 */  lh    $t3, 8($t2)
-/* 0E42EC 7F0AF7BC 8FB9001C */  lw    $t9, 0x1c($sp)
-/* 0E42F0 7F0AF7C0 016C6823 */  subu  $t5, $t3, $t4
-/* 0E42F4 7F0AF7C4 032D0019 */  multu $t9, $t5
-/* 0E42F8 7F0AF7C8 AFAD0008 */  sw    $t5, 8($sp)
-/* 0E42FC 7F0AF7CC 852F000C */  lh    $t7, 0xc($t1)
-/* 0E4300 7F0AF7D0 854E000C */  lh    $t6, 0xc($t2)
-/* 0E4304 7F0AF7D4 01CFC023 */  subu  $t8, $t6, $t7
-/* 0E4308 7F0AF7D8 8FAE0014 */  lw    $t6, 0x14($sp)
-/* 0E430C 7F0AF7DC AFB80010 */  sw    $t8, 0x10($sp)
-/* 0E4310 7F0AF7E0 00006012 */  mflo  $t4
-/* 0E4314 7F0AF7E4 00000000 */  nop
-/* 0E4318 7F0AF7E8 00000000 */  nop
-/* 0E431C 7F0AF7EC 030E0019 */  multu $t8, $t6
-/* 0E4320 7F0AF7F0 00007812 */  mflo  $t7
-/* 0E4324 7F0AF7F4 018FC023 */  subu  $t8, $t4, $t7
-/* 0E4328 7F0AF7F8 AFB80000 */  sw    $t8, ($sp)
-/* 0E432C 7F0AF7FC 27BD0020 */  addiu $sp, $sp, 0x20
-/* 0E4330 7F0AF800 03E00008 */  jr    $ra
-/* 0E4334 7F0AF804 2F020001 */   sltiu $v0, $t8, 1
-)
-#endif
 
 
 /**
@@ -1325,7 +1257,7 @@ StandTile *stanFindFloorTileBelowY(f32 x, f32 maxY, f32 z, f32 radius)
     {
         tileStack[0] = tile;
 
-        if (sub_GAME_7F0AF760(tile) == 0)
+        if (stanTileHasZeroArea(tile) == 0)
         {
             if (isPointInsideTriStandTileUnscaled_Maybe(tile, x, z))
             {
@@ -1628,7 +1560,7 @@ glabel sub_GAME_7F0AFB78
 /* 0E4740 7F0AFC10 33280001 */  andi  $t0, $t9, 1
 /* 0E4744 7F0AFC14 51010029 */  beql  $t0, $at, .L7F0AFCBC
 /* 0E4748 7F0AFC18 86220006 */   lh    $v0, 6($s1)
-/* 0E474C 7F0AFC1C 0FC2BDD8 */  jal   sub_GAME_7F0AF760
+/* 0E474C 7F0AFC1C 0FC2BDD8 */  jal   stanTileHasZeroArea
 /* 0E4750 7F0AFC20 02202025 */   move  $a0, $s1
 /* 0E4754 7F0AFC24 14400024 */  bnez  $v0, .L7F0AFCB8
 /* 0E4758 7F0AFC28 00008025 */   move  $s0, $zero
@@ -4708,7 +4640,7 @@ Gfx * sub_GAME_7F0B312C(Gfx *arg0, s32 arg1)
           psStack0000001c = ppuStack0000002c[local_30];
         } while (*psStack0000001c >> 0xf == cStack00000027);
         *psStack0000001c = *psStack0000001c ^ 0x8000;
-        sub_GAME_7F0AF760(psStack0000001c);
+        stanTileHasZeroArea(psStack0000001c);
         iVar3 = sub_GAME_7F0B3044();
         if (iVar3 != 0) {
           Function_8238AC90(psStack0000001c,uStack00000014,uVar5,param_4,param_5,param_6,uVar6);
