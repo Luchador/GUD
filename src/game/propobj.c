@@ -38522,130 +38522,48 @@ void handle_alarm_gas_timer_calldamage(void)
 
 
 
-
-
-#ifdef NONMATCHING
-// https://decomp.me/scratch/COEsd 99.07%
 void sub_GAME_7F056690(void)
 {
-    Model *temp_s3;
-    PropRecord *var_s2;
-    ObjectRecord *temp_s1;
-    ModelNode *temp_v0_2;
-    struct ModelRoData_DisplayList_CollisionRecord *temp_s0;
+    Model *s3;
+    PropRecord *s2;
+    ObjectRecord *s1;
+    union ModelRwData **new_var;
+    ModelNode *t0;
+    ModelRoData_DisplayList_CollisionRecord *s0;
 
-    var_s2 = get_ptr_obj_pos_list_current_entry();
-
-    for (; var_s2 != NULL; var_s2 = var_s2->prev)
+    s2 = get_ptr_obj_pos_list_current_entry();
+    for (; s2 != NULL; s2 = s2->prev)
     {
-        if ((var_s2->type == 1) && !(var_s2->flags & 2) )
+        if ((s2->type == 1) && ((s2->flags & 2) == 0))
         {
-            temp_s1 = var_s2->obj;
-
-            if (temp_s1->state & 0x80)
+            s1 = s2->obj;
+            if (s1->state & 0x80)
             {
-                temp_s3 = temp_s1->model;
-                temp_v0_2 = sub_GAME_7F04B478(temp_s1);
-
-                if (temp_v0_2 != NULL)
+                s3 = s1->model;
+                t0 = sub_GAME_7F04B478(s1);
+                if (t0 == NULL)
                 {
-                    temp_s0 = (struct ModelRoData_DisplayList_CollisionRecord *)temp_v0_2->Data;
-                    if (temp_s0 != NULL)
+                    return;
+                    t0 = sub_GAME_7F04B478(s1);
+                }
+                s0 = (ModelRoData_DisplayList_CollisionRecord *)t0->Data;
+                if (s0 == NULL)
+                {
+                    return;
+                }
+                if (sub_GAME_7F04B590(s1->model->obj, t0) != 0)
+                {
+                    new_var = &s3->datas[s0->RwDataIndex];
+                    if ((s32)s0->Vertices != (s32)*new_var)
                     {
-                        if (sub_GAME_7F04B590(temp_s1->model->obj, temp_v0_2))
-                        {
-                            // temp_s3->datas should be struct ModelRwData_DisplayList_CollisionRecord here.
-                            struct ModelRwData_DisplayList_CollisionRecord **cr = (struct ModelRwData_DisplayList_CollisionRecord**)temp_s3->datas;
-
-                            if (temp_s0->Vertices != (Vertex*)cr[temp_s0->RwDataIndex])
-                            {
-                                objFreePermanently(temp_s1, 1);
-                                return;
-                            }
-                        }
-
-                        //continue;
+                        objFreePermanently(s1, 1);
+                        return;
                     }
                 }
             }
-
-           // break;
         }
     }
-
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F056690
-/* 08B1C0 7F056690 27BDFFD0 */  addiu $sp, $sp, -0x30
-/* 08B1C4 7F056694 AFBF002C */  sw    $ra, 0x2c($sp)
-/* 08B1C8 7F056698 AFB40028 */  sw    $s4, 0x28($sp)
-/* 08B1CC 7F05669C AFB30024 */  sw    $s3, 0x24($sp)
-/* 08B1D0 7F0566A0 AFB20020 */  sw    $s2, 0x20($sp)
-/* 08B1D4 7F0566A4 AFB1001C */  sw    $s1, 0x1c($sp)
-/* 08B1D8 7F0566A8 0FC0E909 */  jal   get_ptr_obj_pos_list_current_entry
-/* 08B1DC 7F0566AC AFB00018 */   sw    $s0, 0x18($sp)
-/* 08B1E0 7F0566B0 1040002A */  beqz  $v0, .L7F05675C
-/* 08B1E4 7F0566B4 00409025 */   move  $s2, $v0
-/* 08B1E8 7F0566B8 24140001 */  li    $s4, 1
-/* 08B1EC 7F0566BC 924E0000 */  lbu   $t6, ($s2)
-.L7F0566C0:
-/* 08B1F0 7F0566C0 568E0024 */  bnel  $s4, $t6, .L7F056754
-/* 08B1F4 7F0566C4 8E520024 */   lw    $s2, 0x24($s2)
-/* 08B1F8 7F0566C8 924F0001 */  lbu   $t7, 1($s2)
-/* 08B1FC 7F0566CC 31F80002 */  andi  $t8, $t7, 2
-/* 08B200 7F0566D0 57000020 */  bnezl $t8, .L7F056754
-/* 08B204 7F0566D4 8E520024 */   lw    $s2, 0x24($s2)
-/* 08B208 7F0566D8 8E510004 */  lw    $s1, 4($s2)
-/* 08B20C 7F0566DC 92390002 */  lbu   $t9, 2($s1)
-/* 08B210 7F0566E0 02202025 */  move  $a0, $s1
-/* 08B214 7F0566E4 33280080 */  andi  $t0, $t9, 0x80
-/* 08B218 7F0566E8 5100001A */  beql  $t0, $zero, .L7F056754
-/* 08B21C 7F0566EC 8E520024 */   lw    $s2, 0x24($s2)
-/* 08B220 7F0566F0 0FC12D1E */  jal   sub_GAME_7F04B478
-/* 08B224 7F0566F4 8E330014 */   lw    $s3, 0x14($s1)
-/* 08B228 7F0566F8 10400018 */  beqz  $v0, .L7F05675C
-/* 08B22C 7F0566FC 00402825 */   move  $a1, $v0
-/* 08B230 7F056700 8C500004 */  lw    $s0, 4($v0)
-/* 08B234 7F056704 52000016 */  beql  $s0, $zero, .L7F056760
-/* 08B238 7F056708 8FBF002C */   lw    $ra, 0x2c($sp)
-/* 08B23C 7F05670C 8E290014 */  lw    $t1, 0x14($s1)
-/* 08B240 7F056710 0FC12D64 */  jal   sub_GAME_7F04B590
-/* 08B244 7F056714 8D240008 */   lw    $a0, 8($t1)
-/* 08B248 7F056718 5040000E */  beql  $v0, $zero, .L7F056754
-/* 08B24C 7F05671C 8E520024 */   lw    $s2, 0x24($s2)
-/* 08B250 7F056720 960B001A */  lhu   $t3, 0x1a($s0)
-/* 08B254 7F056724 8E6A0010 */  lw    $t2, 0x10($s3)
-/* 08B258 7F056728 8E0D0008 */  lw    $t5, 8($s0)
-/* 08B25C 7F05672C 000B6080 */  sll   $t4, $t3, 2
-/* 08B260 7F056730 014C1021 */  addu  $v0, $t2, $t4
-/* 08B264 7F056734 8C4E0000 */  lw    $t6, ($v0)
-/* 08B268 7F056738 11AE0005 */  beq   $t5, $t6, .L7F056750
-/* 08B26C 7F05673C 02202025 */   move  $a0, $s1
-/* 08B270 7F056740 0FC10409 */  jal   objFreePermanently
-/* 08B274 7F056744 24050001 */   li    $a1, 1
-/* 08B278 7F056748 10000005 */  b     .L7F056760
-/* 08B27C 7F05674C 8FBF002C */   lw    $ra, 0x2c($sp)
-.L7F056750:
-/* 08B280 7F056750 8E520024 */  lw    $s2, 0x24($s2)
-.L7F056754:
-/* 08B284 7F056754 5640FFDA */  bnezl $s2, .L7F0566C0
-/* 08B288 7F056758 924E0000 */   lbu   $t6, ($s2)
-.L7F05675C:
-/* 08B28C 7F05675C 8FBF002C */  lw    $ra, 0x2c($sp)
-.L7F056760:
-/* 08B290 7F056760 8FB00018 */  lw    $s0, 0x18($sp)
-/* 08B294 7F056764 8FB1001C */  lw    $s1, 0x1c($sp)
-/* 08B298 7F056768 8FB20020 */  lw    $s2, 0x20($sp)
-/* 08B29C 7F05676C 8FB30024 */  lw    $s3, 0x24($sp)
-/* 08B2A0 7F056770 8FB40028 */  lw    $s4, 0x28($sp)
-/* 08B2A4 7F056774 03E00008 */  jr    $ra
-/* 08B2A8 7F056778 27BD0030 */   addiu $sp, $sp, 0x30
-)
-#endif
-
-
 
 
 
