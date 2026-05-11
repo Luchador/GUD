@@ -1308,134 +1308,46 @@ glabel sub_GAME_7F0AF760
 #endif
 
 
-
-
-
-#ifdef NONMATCHING
-void sub_GAME_7F0AF808(void) {
-
-// Still quite a long way off.
-StandTile *sub_GAME_7F0AF808(f32 f1,f32 f2,f32 f3,f32 f4)
+/**
+ * Address: 7F0AF808
+ * 
+ * Unreferenced.
+ */
+StandTile *stanFindFloorTileBelowY(f32 x, f32 maxY, f32 z, f32 radius)
 {
-    // 'findSomeTile' atm
-    // It seems a silly thing to be doing during runtime.
-
-    StandTile *tile;
     StandTile *tileStack[2];
+    StandTile *tile;
+    s32 temp;
 
-    tile = stan_prefix.ptr_firstroom;
+    tile = stan_prefix->ptr_firstroom;
 
-    // this test may be reading a field but it could well look like this,
-    //   since 0 signals that there is no more data, so 'tile' isn't really a StandTile
-*
-    while (*(u32*)tile != 0)
+    while (*(u32 *)tile != 0)
     {
         tileStack[0] = tile;
 
-        if (
-            (!sub_GAME_7F0AF760(tile)) &&
-            (isPointInsideTriStandTileUnscaled_Maybe(tile,f1,f3) != 0) &&
-            (FUN_7f0b20d0(tileStack,f1,f3,f4) != 0) &&
-            (tile == tileStack[0]) &&
-            (getCrossProductY_and_distToPlaneMaybe(tile,f1,f3) < f2)
-        )
+        if (sub_GAME_7F0AF760(tile) == 0)
         {
-            return tile;
+            if (isPointInsideTriStandTileUnscaled_Maybe(tile, x, z))
+            {
+                if (sub_GAME_7F0B20D0(tileStack, x, z, radius))
+                {
+                    if (tileStack[0] == tile)
+                    {
+                        if (stanGetPositionYValue(tile, x, z) < maxY)
+                        {
+                            return tile;
+                        }
+                    }
+                }
+            }
         }
 
-        tile = (struct StandTile*) (
-            ((s32)tile) + list_of_tilesizes[STAN_POINT_COUNT(tile)]
-        );
-
+        temp = tile->tail.hdrTail.pointCount;
+        tile = (StandTile *)((u8 *)tile + list_of_tilesizes[temp & 0xf]);
     }
 
-    return (struct StandTile*)0x0;
+    return NULL;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0AF808
-/* 0E4338 7F0AF808 27BDFFA8 */  addiu $sp, $sp, -0x58
-/* 0E433C 7F0AF80C 3C0E8008 */  lui   $t6, %hi(stan_prefix)
-/* 0E4340 7F0AF810 8DCEB120 */  lw    $t6, %lo(stan_prefix)($t6)
-/* 0E4344 7F0AF814 AFBF0044 */  sw    $ra, 0x44($sp)
-/* 0E4348 7F0AF818 AFB20040 */  sw    $s2, 0x40($sp)
-/* 0E434C 7F0AF81C AFB1003C */  sw    $s1, 0x3c($sp)
-/* 0E4350 7F0AF820 AFB00038 */  sw    $s0, 0x38($sp)
-/* 0E4354 7F0AF824 F7BA0030 */  sdc1  $f26, 0x30($sp)
-/* 0E4358 7F0AF828 F7B80028 */  sdc1  $f24, 0x28($sp)
-/* 0E435C 7F0AF82C F7B60020 */  sdc1  $f22, 0x20($sp)
-/* 0E4360 7F0AF830 F7B40018 */  sdc1  $f20, 0x18($sp)
-/* 0E4364 7F0AF834 8DD00004 */  lw    $s0, 4($t6)
-/* 0E4368 7F0AF838 4486B000 */  mtc1  $a2, $f22
-/* 0E436C 7F0AF83C 4487C000 */  mtc1  $a3, $f24
-/* 0E4370 7F0AF840 8E0F0000 */  lw    $t7, ($s0)
-/* 0E4374 7F0AF844 46006506 */  mov.s $f20, $f12
-/* 0E4378 7F0AF848 46007686 */  mov.s $f26, $f14
-/* 0E437C 7F0AF84C 11E0002A */  beqz  $t7, .L7F0AF8F8
-/* 0E4380 7F0AF850 3C128004 */   lui   $s2, %hi(list_of_tilesizes)
-/* 0E4384 7F0AF854 26520F4C */  addiu $s2, %lo(list_of_tilesizes) # addiu $s2, $s2, 0xf4c
-/* 0E4388 7F0AF858 27B10050 */  addiu $s1, $sp, 0x50
-/* 0E438C 7F0AF85C AFB00050 */  sw    $s0, 0x50($sp)
-.L7F0AF860:
-/* 0E4390 7F0AF860 0FC2BDD8 */  jal   sub_GAME_7F0AF760
-/* 0E4394 7F0AF864 02002025 */   move  $a0, $s0
-/* 0E4398 7F0AF868 5440001B */  bnezl $v0, .L7F0AF8D8
-/* 0E439C 7F0AF86C 86020006 */   lh    $v0, 6($s0)
-/* 0E43A0 7F0AF870 4405A000 */  mfc1  $a1, $f20
-/* 0E43A4 7F0AF874 4406B000 */  mfc1  $a2, $f22
-/* 0E43A8 7F0AF878 0FC2C0DB */  jal   isPointInsideTriStandTileUnscaled_Maybe
-/* 0E43AC 7F0AF87C 02002025 */   move  $a0, $s0
-/* 0E43B0 7F0AF880 50400015 */  beql  $v0, $zero, .L7F0AF8D8
-/* 0E43B4 7F0AF884 86020006 */   lh    $v0, 6($s0)
-/* 0E43B8 7F0AF888 4405A000 */  mfc1  $a1, $f20
-/* 0E43BC 7F0AF88C 4406B000 */  mfc1  $a2, $f22
-/* 0E43C0 7F0AF890 4407C000 */  mfc1  $a3, $f24
-/* 0E43C4 7F0AF894 0FC2C834 */  jal   sub_GAME_7F0B20D0
-/* 0E43C8 7F0AF898 02202025 */   move  $a0, $s1
-/* 0E43CC 7F0AF89C 1040000D */  beqz  $v0, .L7F0AF8D4
-/* 0E43D0 7F0AF8A0 8FB80050 */   lw    $t8, 0x50($sp)
-/* 0E43D4 7F0AF8A4 5618000C */  bnel  $s0, $t8, .L7F0AF8D8
-/* 0E43D8 7F0AF8A8 86020006 */   lh    $v0, 6($s0)
-/* 0E43DC 7F0AF8AC 4405A000 */  mfc1  $a1, $f20
-/* 0E43E0 7F0AF8B0 4406B000 */  mfc1  $a2, $f22
-/* 0E43E4 7F0AF8B4 0FC2CA5C */  jal   stanGetPositionYValue
-/* 0E43E8 7F0AF8B8 02002025 */   move  $a0, $s0
-/* 0E43EC 7F0AF8BC 461A003C */  c.lt.s $f0, $f26
-/* 0E43F0 7F0AF8C0 00000000 */  nop
-/* 0E43F4 7F0AF8C4 45020004 */  bc1fl .L7F0AF8D8
-/* 0E43F8 7F0AF8C8 86020006 */   lh    $v0, 6($s0)
-/* 0E43FC 7F0AF8CC 1000000B */  b     .L7F0AF8FC
-/* 0E4400 7F0AF8D0 02001025 */   move  $v0, $s0
-.L7F0AF8D4:
-/* 0E4404 7F0AF8D4 86020006 */  lh    $v0, 6($s0)
-.L7F0AF8D8:
-/* 0E4408 7F0AF8D8 0002CB03 */  sra   $t9, $v0, 0xc
-/* 0E440C 7F0AF8DC 3328000F */  andi  $t0, $t9, 0xf
-/* 0E4410 7F0AF8E0 02484821 */  addu  $t1, $s2, $t0
-/* 0E4414 7F0AF8E4 912A0000 */  lbu   $t2, ($t1)
-/* 0E4418 7F0AF8E8 01508021 */  addu  $s0, $t2, $s0
-/* 0E441C 7F0AF8EC 8E0B0000 */  lw    $t3, ($s0)
-/* 0E4420 7F0AF8F0 5560FFDB */  bnezl $t3, .L7F0AF860
-/* 0E4424 7F0AF8F4 AFB00050 */   sw    $s0, 0x50($sp)
-.L7F0AF8F8:
-/* 0E4428 7F0AF8F8 00001025 */  move  $v0, $zero
-.L7F0AF8FC:
-/* 0E442C 7F0AF8FC 8FBF0044 */  lw    $ra, 0x44($sp)
-/* 0E4430 7F0AF900 D7B40018 */  ldc1  $f20, 0x18($sp)
-/* 0E4434 7F0AF904 D7B60020 */  ldc1  $f22, 0x20($sp)
-/* 0E4438 7F0AF908 D7B80028 */  ldc1  $f24, 0x28($sp)
-/* 0E443C 7F0AF90C D7BA0030 */  ldc1  $f26, 0x30($sp)
-/* 0E4440 7F0AF910 8FB00038 */  lw    $s0, 0x38($sp)
-/* 0E4444 7F0AF914 8FB1003C */  lw    $s1, 0x3c($sp)
-/* 0E4448 7F0AF918 8FB20040 */  lw    $s2, 0x40($sp)
-/* 0E444C 7F0AF91C 03E00008 */  jr    $ra
-/* 0E4450 7F0AF920 27BD0058 */   addiu $sp, $sp, 0x58
-)
-#endif
-
-
-
 
 
 #ifdef NONMATCHING
