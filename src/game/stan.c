@@ -1699,177 +1699,51 @@ f32 getShortest2dDispToInfTileEdge(StandTile *tile,s32 index,f32 p_x,f32 p_z)
 }
 
 
-// Sig needed for caller matches.
-f32 getShortest2dDispToInfTripleEdge(StandTile *tile,s32 start3index,f32 p_x,f32 p_z);
-
-#ifdef NONMATCHING
-// Only regalloc incorrect essentially. Any change I make seems to make things much worse though,
-//   and my ability to reorder statements is very limited.
-
-// Similar to getShortest2dDispToInfTileEdge
-// 2nd arg must be in {0,1,2}
-// New name needed though: getShortest2dDispToInfTripleEdge
-//same as above, tile is sf, index is ei
-f32 getShortest2dDispToInfTripleEdge(StandTile *tile,s32 start3index,f32 p_x,f32 p_z)
+f32 getShortest2dDispToInfTripleEdge(StandTile *tile, s32 start3index, f32 p_x, f32 p_z)
 {
-    s32 end3index;      // types seem correct, changing introduces more instructions
-
-    f32 edge_x;       // 0x40 (8)
-    f32 edge_z;       // 0x3C
-    f32 edge_len;
-
+    f32 dx;
+    f32 edgeX;
+    f32 edgeZ;
+    f32 edgeLen;
+    f32 dz;
+    f32 crossProduct;
+    s32 end3index;
     s32 currPntI;
     s32 nextPntI;
+    s32 tail;
 
-    f32 v_x;
-    f32 v_z;
-    f32 crossProduct;
+#ifdef DEBUG
+    assert(start3index < 3);
+#endif
 
-    #ifdef DEBUG
-    assert(ei<getsides(sf));
-    #endif
+    nextPntI = 2;
 
-
-    // end3index = (start3index + 1) % 3, start3index in [0,3)
-    if (start3index != 2) {
+    if (start3index != nextPntI) {
         end3index = start3index + 1;
-    }
-    else {
+    } else {
         end3index = 0;
     }
 
-    // making and reusing macros of these introduces extra instructions later
-    currPntI = STAN_TRIPLE_TO_PNT_INDEX(tile, start3index);
-    nextPntI = STAN_TRIPLE_TO_PNT_INDEX(tile, end3index);
+    start3index = (tile->tail.half >> (8 - (start3index << nextPntI))) & 0xf;
+    end3index = (tile->tail.half >> (8 - (end3index << nextPntI))) & 0xf;
 
-    edge_x = (f32)(tile->points[nextPntI].x - tile->points[currPntI].x);
-    edge_z = (f32)(tile->points[nextPntI].z - tile->points[currPntI].z);
+    edgeX = tile->points[end3index].x - tile->points[start3index].x;
+    edgeZ = tile->points[end3index].z - tile->points[start3index].z;
+    edgeLen = sqrtf((edgeX * edgeX) + (edgeZ * edgeZ));
 
-
-    // Identical to getShortest2dDispToInfTileEdge from here
-
-    edge_len = sqrtf(edge_x * edge_x + edge_z * edge_z);
-
-    if (edge_len == 0) {
-        // Degenerate case, edge is vertical
-        // They just return the distance between the points, which is sensible and the correct value in 3 dimensions.
-        v_x = p_x - (f32)tile->points[nextPntI].x;
-        v_z = p_z - (f32)tile->points[nextPntI].z;
-        return sqrtf(v_x * v_x + v_z * v_z);
+    if (edgeLen == 0.0f) {
+        dx = p_x - tile->points[end3index].x;
+        dz = p_z - tile->points[end3index].z;
+        return sqrtf((dx * dx) + (dz * dz));
     }
-    else
-    {
-        #ifdef DEBUG
-        assert(d>0.0f);
-        #endif
 
-        // - (AP x AB) / ||AB|| = ||PA|| sin(a)
-        crossProduct = (
-            edge_z * (p_x - (f32)tile->points[currPntI].x)
-            +
-            -edge_x * (p_z - (f32)tile->points[currPntI].z)
-        );
-        return crossProduct / edge_len;
-    }
-}
-
-#else
-GLOBAL_ASM(
-.text
-glabel getShortest2dDispToInfTripleEdge
-/* 0E49A0 7F0AFE70 27BDFFB8 */  addiu $sp, $sp, -0x48
-/* 0E49A4 7F0AFE74 AFA70054 */  sw    $a3, 0x54($sp)
-/* 0E49A8 7F0AFE78 24010002 */  li    $at, 2
-/* 0E49AC 7F0AFE7C 00803825 */  move  $a3, $a0
-/* 0E49B0 7F0AFE80 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0E49B4 7F0AFE84 AFA40048 */  sw    $a0, 0x48($sp)
-/* 0E49B8 7F0AFE88 10A10003 */  beq   $a1, $at, .L7F0AFE98
-/* 0E49BC 7F0AFE8C AFA60050 */   sw    $a2, 0x50($sp)
-/* 0E49C0 7F0AFE90 10000002 */  b     .L7F0AFE9C
-/* 0E49C4 7F0AFE94 24A30001 */   addiu $v1, $a1, 1
-.L7F0AFE98:
-/* 0E49C8 7F0AFE98 00001825 */  move  $v1, $zero
-.L7F0AFE9C:
-/* 0E49CC 7F0AFE9C 84E20006 */  lh    $v0, 6($a3)
-/* 0E49D0 7F0AFEA0 24080008 */  li    $t0, 8
-/* 0E49D4 7F0AFEA4 00057080 */  sll   $t6, $a1, 2
-/* 0E49D8 7F0AFEA8 0003C880 */  sll   $t9, $v1, 2
-/* 0E49DC 7F0AFEAC 010E7823 */  subu  $t7, $t0, $t6
-/* 0E49E0 7F0AFEB0 01194823 */  subu  $t1, $t0, $t9
-/* 0E49E4 7F0AFEB4 01E22807 */  srav  $a1, $v0, $t7
-/* 0E49E8 7F0AFEB8 01221807 */  srav  $v1, $v0, $t1
-/* 0E49EC 7F0AFEBC 30B8000F */  andi  $t8, $a1, 0xf
-/* 0E49F0 7F0AFEC0 306A000F */  andi  $t2, $v1, 0xf
-/* 0E49F4 7F0AFEC4 000A58C0 */  sll   $t3, $t2, 3
-/* 0E49F8 7F0AFEC8 001860C0 */  sll   $t4, $t8, 3
-/* 0E49FC 7F0AFECC 00EC3021 */  addu  $a2, $a3, $t4
-/* 0E4A00 7F0AFED0 00EB2021 */  addu  $a0, $a3, $t3
-/* 0E4A04 7F0AFED4 848D0008 */  lh    $t5, 8($a0)
-/* 0E4A08 7F0AFED8 84CE0008 */  lh    $t6, 8($a2)
-/* 0E4A0C 7F0AFEDC 8498000C */  lh    $t8, 0xc($a0)
-/* 0E4A10 7F0AFEE0 84D9000C */  lh    $t9, 0xc($a2)
-/* 0E4A14 7F0AFEE4 01AE7823 */  subu  $t7, $t5, $t6
-/* 0E4A18 7F0AFEE8 448F2000 */  mtc1  $t7, $f4
-/* 0E4A1C 7F0AFEEC 03194823 */  subu  $t1, $t8, $t9
-/* 0E4A20 7F0AFEF0 44893000 */  mtc1  $t1, $f6
-/* 0E4A24 7F0AFEF4 468020A0 */  cvt.s.w $f2, $f4
-/* 0E4A28 7F0AFEF8 AFA60018 */  sw    $a2, 0x18($sp)
-/* 0E4A2C 7F0AFEFC AFA4001C */  sw    $a0, 0x1c($sp)
-/* 0E4A30 7F0AFF00 468033A0 */  cvt.s.w $f14, $f6
-/* 0E4A34 7F0AFF04 46021202 */  mul.s $f8, $f2, $f2
-/* 0E4A38 7F0AFF08 E7A20040 */  swc1  $f2, 0x40($sp)
-/* 0E4A3C 7F0AFF0C 460E7282 */  mul.s $f10, $f14, $f14
-/* 0E4A40 7F0AFF10 E7AE003C */  swc1  $f14, 0x3c($sp)
-/* 0E4A44 7F0AFF14 0C007DF8 */  jal   sqrtf
-/* 0E4A48 7F0AFF18 460A4300 */   add.s $f12, $f8, $f10
-/* 0E4A4C 7F0AFF1C 44802000 */  mtc1  $zero, $f4
-/* 0E4A50 7F0AFF20 8FA4001C */  lw    $a0, 0x1c($sp)
-/* 0E4A54 7F0AFF24 8FA60018 */  lw    $a2, 0x18($sp)
-/* 0E4A58 7F0AFF28 46040032 */  c.eq.s $f0, $f4
-/* 0E4A5C 7F0AFF2C C7A20040 */  lwc1  $f2, 0x40($sp)
-/* 0E4A60 7F0AFF30 C7AE003C */  lwc1  $f14, 0x3c($sp)
-/* 0E4A64 7F0AFF34 C7B20050 */  lwc1  $f18, 0x50($sp)
-/* 0E4A68 7F0AFF38 45000011 */  bc1f  .L7F0AFF80
-/* 0E4A6C 7F0AFF3C 46000406 */   mov.s $f16, $f0
-/* 0E4A70 7F0AFF40 848A0008 */  lh    $t2, 8($a0)
-/* 0E4A74 7F0AFF44 848B000C */  lh    $t3, 0xc($a0)
-/* 0E4A78 7F0AFF48 C7AA0054 */  lwc1  $f10, 0x54($sp)
-/* 0E4A7C 7F0AFF4C 448A3000 */  mtc1  $t2, $f6
-/* 0E4A80 7F0AFF50 448B2000 */  mtc1  $t3, $f4
-/* 0E4A84 7F0AFF54 46803220 */  cvt.s.w $f8, $f6
-/* 0E4A88 7F0AFF58 468021A0 */  cvt.s.w $f6, $f4
-/* 0E4A8C 7F0AFF5C 46089001 */  sub.s $f0, $f18, $f8
-/* 0E4A90 7F0AFF60 46065081 */  sub.s $f2, $f10, $f6
-/* 0E4A94 7F0AFF64 46000202 */  mul.s $f8, $f0, $f0
-/* 0E4A98 7F0AFF68 00000000 */  nop
-/* 0E4A9C 7F0AFF6C 46021102 */  mul.s $f4, $f2, $f2
-/* 0E4AA0 7F0AFF70 0C007DF8 */  jal   sqrtf
-/* 0E4AA4 7F0AFF74 46044300 */   add.s $f12, $f8, $f4
-/* 0E4AA8 7F0AFF78 10000011 */  b     .L7F0AFFC0
-/* 0E4AAC 7F0AFF7C 8FBF0014 */   lw    $ra, 0x14($sp)
-.L7F0AFF80:
-/* 0E4AB0 7F0AFF80 84CC000C */  lh    $t4, 0xc($a2)
-/* 0E4AB4 7F0AFF84 C7AA0054 */  lwc1  $f10, 0x54($sp)
-/* 0E4AB8 7F0AFF88 84CD0008 */  lh    $t5, 8($a2)
-/* 0E4ABC 7F0AFF8C 448C3000 */  mtc1  $t4, $f6
-/* 0E4AC0 7F0AFF90 00000000 */  nop
-/* 0E4AC4 7F0AFF94 46803220 */  cvt.s.w $f8, $f6
-/* 0E4AC8 7F0AFF98 46001187 */  neg.s $f6, $f2
-/* 0E4ACC 7F0AFF9C 46085101 */  sub.s $f4, $f10, $f8
-/* 0E4AD0 7F0AFFA0 448D4000 */  mtc1  $t5, $f8
-/* 0E4AD4 7F0AFFA4 46062282 */  mul.s $f10, $f4, $f6
-/* 0E4AD8 7F0AFFA8 46804120 */  cvt.s.w $f4, $f8
-/* 0E4ADC 7F0AFFAC 46049181 */  sub.s $f6, $f18, $f4
-/* 0E4AE0 7F0AFFB0 46067202 */  mul.s $f8, $f14, $f6
-/* 0E4AE4 7F0AFFB4 46085300 */  add.s $f12, $f10, $f8
-/* 0E4AE8 7F0AFFB8 46106003 */  div.s $f0, $f12, $f16
-/* 0E4AEC 7F0AFFBC 8FBF0014 */  lw    $ra, 0x14($sp)
-.L7F0AFFC0:
-/* 0E4AF0 7F0AFFC0 27BD0048 */  addiu $sp, $sp, 0x48
-/* 0E4AF4 7F0AFFC4 03E00008 */  jr    $ra
-/* 0E4AF8 7F0AFFC8 00000000 */   nop
-)
+#ifdef DEBUG
+    assert(edgeLen > 0.0f);
 #endif
+
+    crossProduct = (edgeZ * (p_x - tile->points[start3index].x)) + (-edgeX * (p_z - tile->points[start3index].z));
+    return crossProduct / edgeLen;
+}
 
 
 f32 getShortest2dDispToInfTileEdgeUnscaled(StandTile *tile, int index,f32 x,f32 z)
