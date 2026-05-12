@@ -4716,8 +4716,31 @@ s32 sub_GAME_7F0A9610(void) {
 }
 
 #ifdef NONMATCHING
-void sub_GAME_7F0A9684(void) {
+// just can't quite crack it, current score: 350 95.78%
+// https://decomp.me/scratch/qoOjf
+void sub_GAME_7F0A9684(s8 arg0, s32* arg1, f32* arg2, f32* arg3) {
+    s32 temp_v0;
 
+    if ((joyGetStickX(arg0) >= 10 || joyGetStickX(arg0) < -9)
+        && (watch_item_is_actively_selected != 0)) {
+        temp_v0 = 0;
+        if (controller_options_index != 1) {
+            *arg1 = 0;
+        }
+    } else {
+        temp_v0 = *arg1;
+    }
+    if (temp_v0 < 100) {
+        *arg1 = temp_v0 + 1;
+        temp_v0 = temp_v0 + 1;
+    } else {
+        *arg1 = 0;
+    }
+    if (temp_v0 >= 100) {
+        *arg2 = sub_GAME_7F0A95C4(*arg2, -*arg3 / 10.0f, 4.0f);
+    } else if ((watch_item_is_actively_selected != 0) && (controller_options_index == 1)) {
+        *arg2 = sub_GAME_7F0A95C4(*arg2, -(f32)joyGetStickX(arg0) * 0.2f * 6.2831855f / 360.0f, 4.0f);
+    }
 }
 #else
 GLOBAL_ASM(
