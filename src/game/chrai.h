@@ -266,7 +266,7 @@ void          chrpropRegisterRoom(PropRecord *, s16);
 PropRecord*           chrpropAllocate(void);
 void chrpropReparent(PropRecord *newChild, PropRecord *host);
 void          chrpropDeregisterRooms(PropRecord *);
-void          sub_GAME_7F03E27C(PropRecord *, coord3d *, coord3d *, f32);
+void          sub_GAME_7F03E27C(PropRecord *prop, coord3d *bbmin, coord3d *bbmax, f32 arg3);
 void          chrpropRegisterRooms(PropRecord *posData);
 void          chrpropActivate(PropRecord *);
 void          chrpropEnable(PropRecord *);

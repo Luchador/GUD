@@ -209,5 +209,6 @@ f32 get_room_data_float2(void);
 s32 bgGetPortalBetweenRooms(s32 arg0, s32 arg1, struct coord3d *arg2, struct coord3d *arg3);
 void sub_GAME_7F0B96CC(s32 arg0, struct PortalMetric *arg1);
 void bgApplyDynamicCCRMLUT(Gfx *arg0, Gfx *arg1, enum CCRMLUT arg2);
+void sub_GAME_7F0BA2D4(coord3d *, coord3d *, s32 *, s32 *, s32);
 
 #endif
