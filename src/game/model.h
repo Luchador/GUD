@@ -34,7 +34,7 @@ f32 getinstsize(Model *arg0);
 void interpolate3dVectors(vec3d *v, vec3d *w, float frac);
 f32 sub_GAME_7F06D0CC(f32 arg0, f32 angle, f32 mult);
 void sub_GAME_7F06D160(coord3d *arg0, coord3d *arg1, f32 mult);
-u16 sub_GAME_7F06D2E4(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnimation *anim, s32 frame, s16 out[3]);
+u16 sub_GAME_7F06D2E4(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnimation *anim, s32 frame, coord16 *out);
 void sub_GAME_7F06D490(struct Model *arg0, struct ModelNode *arg1);
 void subcalcpos(Model *arg0);
 void process_01_group_heading(ModelRenderData* renderdata, Model* model, ModelNode* node);

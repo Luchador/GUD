@@ -1029,91 +1029,45 @@ glabel sub_GAME_7F06D1CC
 #endif
 
 
-
-#ifdef NONMATCHING
-// arg0: unknown type. arg1: unknown type. arg5: unknown type, maybe struct.
-u16 sub_GAME_7F06D2E4(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnimation *anim, s32 frame, s16 out[3])
+/**
+ * Address: 7F06D2E4
+ */
+u16 sub_GAME_7F06D2E4(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnimation *anim, s32 frame, coord16 *out)
 {
-
+    u32 scaled;
+    s32 base;
+    u32 angle_raw;
+    u16 angle_ret;
+    
+    scaled = ((u32) anim->unk0C) * ((u32) frame);
+    
+    if (flip)
+    {
+        base = skeleton->Joints[jointnum].mtxB;
+    }
+    else
+    {
+        base = skeleton->Joints[jointnum].mtxA;
+    }
+    
+    out->x = sub_GAME_7F06D1CC(anim, base, scaled);
+    out->y = sub_GAME_7F06D1CC(anim, base + 1, scaled);
+    out->z = sub_GAME_7F06D1CC(anim, base + 2, scaled);
+    angle_raw = sub_GAME_7F06D1CC(anim, base + 3, scaled);
+    angle_ret = angle_raw;
+    
+    if (flip)
+    {
+        out->x = -out->x;
+        
+        if (angle_raw != 0)
+        {
+            angle_ret = 0x10000 - (angle_raw & 0xFFFFFFFFu);
+        }
+    }
+    
+    return angle_ret;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F06D2E4
-/* 0A1E14 7F06D2E4 27BDFFD8 */  addiu $sp, $sp, -0x28
-/* 0A1E18 7F06D2E8 AFBF0024 */  sw    $ra, 0x24($sp)
-/* 0A1E1C 7F06D2EC AFB20020 */  sw    $s2, 0x20($sp)
-/* 0A1E20 7F06D2F0 AFB1001C */  sw    $s1, 0x1c($sp)
-/* 0A1E24 7F06D2F4 AFB00018 */  sw    $s0, 0x18($sp)
-/* 0A1E28 7F06D2F8 AFA5002C */  sw    $a1, 0x2c($sp)
-/* 0A1E2C 7F06D2FC 94EE000C */  lhu   $t6, 0xc($a3)
-/* 0A1E30 7F06D300 8FAF0038 */  lw    $t7, 0x38($sp)
-/* 0A1E34 7F06D304 00E09025 */  move  $s2, $a3
-/* 0A1E38 7F06D308 00044080 */  sll   $t0, $a0, 2
-/* 0A1E3C 7F06D30C 01CF0019 */  multu $t6, $t7
-/* 0A1E40 7F06D310 00045880 */  sll   $t3, $a0, 2
-/* 0A1E44 7F06D314 00008812 */  mflo  $s1
-/* 0A1E48 7F06D318 50A00008 */  beql  $a1, $zero, .L7F06D33C
-/* 0A1E4C 7F06D31C 8CCA0004 */   lw    $t2, 4($a2)
-/* 0A1E50 7F06D320 8CD90004 */  lw    $t9, 4($a2)
-/* 0A1E54 7F06D324 01044023 */  subu  $t0, $t0, $a0
-/* 0A1E58 7F06D328 00084040 */  sll   $t0, $t0, 1
-/* 0A1E5C 7F06D32C 03284821 */  addu  $t1, $t9, $t0
-/* 0A1E60 7F06D330 10000006 */  b     .L7F06D34C
-/* 0A1E64 7F06D334 95300004 */   lhu   $s0, 4($t1)
-/* 0A1E68 7F06D338 8CCA0004 */  lw    $t2, 4($a2)
-.L7F06D33C:
-/* 0A1E6C 7F06D33C 01645823 */  subu  $t3, $t3, $a0
-/* 0A1E70 7F06D340 000B5840 */  sll   $t3, $t3, 1
-/* 0A1E74 7F06D344 014B6021 */  addu  $t4, $t2, $t3
-/* 0A1E78 7F06D348 95900002 */  lhu   $s0, 2($t4)
-.L7F06D34C:
-/* 0A1E7C 7F06D34C 02402025 */  move  $a0, $s2
-/* 0A1E80 7F06D350 02002825 */  move  $a1, $s0
-/* 0A1E84 7F06D354 0FC1B473 */  jal   sub_GAME_7F06D1CC
-/* 0A1E88 7F06D358 02203025 */   move  $a2, $s1
-/* 0A1E8C 7F06D35C 8FAD003C */  lw    $t5, 0x3c($sp)
-/* 0A1E90 7F06D360 02402025 */  move  $a0, $s2
-/* 0A1E94 7F06D364 26050001 */  addiu $a1, $s0, 1
-/* 0A1E98 7F06D368 02203025 */  move  $a2, $s1
-/* 0A1E9C 7F06D36C 0FC1B473 */  jal   sub_GAME_7F06D1CC
-/* 0A1EA0 7F06D370 A5A20000 */   sh    $v0, ($t5)
-/* 0A1EA4 7F06D374 8FAE003C */  lw    $t6, 0x3c($sp)
-/* 0A1EA8 7F06D378 02402025 */  move  $a0, $s2
-/* 0A1EAC 7F06D37C 26050002 */  addiu $a1, $s0, 2
-/* 0A1EB0 7F06D380 02203025 */  move  $a2, $s1
-/* 0A1EB4 7F06D384 0FC1B473 */  jal   sub_GAME_7F06D1CC
-/* 0A1EB8 7F06D388 A5C20002 */   sh    $v0, 2($t6)
-/* 0A1EBC 7F06D38C 8FAF003C */  lw    $t7, 0x3c($sp)
-/* 0A1EC0 7F06D390 02402025 */  move  $a0, $s2
-/* 0A1EC4 7F06D394 26050003 */  addiu $a1, $s0, 3
-/* 0A1EC8 7F06D398 02203025 */  move  $a2, $s1
-/* 0A1ECC 7F06D39C 0FC1B473 */  jal   sub_GAME_7F06D1CC
-/* 0A1ED0 7F06D3A0 A5E20004 */   sh    $v0, 4($t7)
-/* 0A1ED4 7F06D3A4 8FB8002C */  lw    $t8, 0x2c($sp)
-/* 0A1ED8 7F06D3A8 8FA5003C */  lw    $a1, 0x3c($sp)
-/* 0A1EDC 7F06D3AC 3043FFFF */  andi  $v1, $v0, 0xffff
-/* 0A1EE0 7F06D3B0 5300000A */  beql  $t8, $zero, .L7F06D3DC
-/* 0A1EE4 7F06D3B4 8FBF0024 */   lw    $ra, 0x24($sp)
-/* 0A1EE8 7F06D3B8 84B90000 */  lh    $t9, ($a1)
-/* 0A1EEC 7F06D3BC 3C090001 */  lui   $t1, 1
-/* 0A1EF0 7F06D3C0 00194023 */  negu  $t0, $t9
-/* 0A1EF4 7F06D3C4 10400004 */  beqz  $v0, .L7F06D3D8
-/* 0A1EF8 7F06D3C8 A4A80000 */   sh    $t0, ($a1)
-/* 0A1EFC 7F06D3CC 01221823 */  subu  $v1, $t1, $v0
-/* 0A1F00 7F06D3D0 306AFFFF */  andi  $t2, $v1, 0xffff
-/* 0A1F04 7F06D3D4 01401825 */  move  $v1, $t2
-.L7F06D3D8:
-/* 0A1F08 7F06D3D8 8FBF0024 */  lw    $ra, 0x24($sp)
-.L7F06D3DC:
-/* 0A1F0C 7F06D3DC 8FB00018 */  lw    $s0, 0x18($sp)
-/* 0A1F10 7F06D3E0 8FB1001C */  lw    $s1, 0x1c($sp)
-/* 0A1F14 7F06D3E4 8FB20020 */  lw    $s2, 0x20($sp)
-/* 0A1F18 7F06D3E8 27BD0028 */  addiu $sp, $sp, 0x28
-/* 0A1F1C 7F06D3EC 03E00008 */  jr    $ra
-/* 0A1F20 7F06D3F0 00601025 */   move  $v0, $v1
-)
-#endif
 
 
 f32 sub_GAME_7F06D3F4(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnimation *anim, s32 frame, coord3d *pos)
