@@ -314,7 +314,7 @@ void setupUpdateObjectRoomPosition(ObjectRecord *obj)
             sp34.f[1] += obj->runtime_pos.f[1];
             sp34.f[2] += obj->runtime_pos.f[2];
 
-            sub_GAME_7F03E27C(temp_s1, &sp40, &sp34, phi_f20);
+            chrpropUpdateRoomList(temp_s1, &sp40, &sp34, phi_f20);
         }
     }
 

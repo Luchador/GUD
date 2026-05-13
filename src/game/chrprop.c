@@ -4030,17 +4030,13 @@ void chrpropRegisterRooms(PropRecord *prop)
 
 /*
 * Address: 0x7F03E27C
-* PD: Could be one of the following
-*        - los_find_intersecting_rooms_properly, 
-*        - los_find_final_room_properly
-*        - los_find_intersecting_rooms_exhaustive
-*        - los_find_final_room_exhaustive
-*        - los_find_final_room_fast
+* 
+* Recalculate the prop's room list with rooms it is found to be overlapping.
 */
-void sub_GAME_7F03E27C(PropRecord *prop, coord3d *bbmin, coord3d *bbmax, f32 arg3)
+void chrpropUpdateRoomList(PropRecord *prop, coord3d *bbmin, coord3d *bbmax, f32 radius)
 {
     ObjectRecord *obj;
-    s32 rooms[7];
+    s32 rooms[7]; // Room payload only, no terminator.
     StandTile *tile;
     s32 count;
     s32 i;
@@ -4050,6 +4046,7 @@ void sub_GAME_7F03E27C(PropRecord *prop, coord3d *bbmin, coord3d *bbmax, f32 arg
     obj = NULL;
 
     if (prop->flags & PROPFLAG_00000008) {
+        // Seed from the prop's existing room list.
         if (prop->type == PROP_TYPE_OBJ || prop->type == PROP_TYPE_WEAPON || prop->type == PROP_TYPE_DOOR) {
             obj = prop->obj;
         }
@@ -4068,18 +4065,21 @@ void sub_GAME_7F03E27C(PropRecord *prop, coord3d *bbmin, coord3d *bbmax, f32 arg
 
         count = i;
     } else {
+        // Seed from the stan tile locus around the prop's X/Z position.
         tile = prop->stan;
         count = 0;
-        sub_GAME_7F0B21B0(&tile, prop->pos.x, prop->pos.z, arg3, rooms, &count, 7);
+        sub_GAME_7F0B21B0(&tile, prop->pos.x, prop->pos.z, radius, rooms, &count, 7);
     }
 
+    // Update the room list with neighboring rooms reachable through portals and overlapped by the bounding box.
     sub_GAME_7F0BA2D4(bbmin, bbmax, rooms, &count, 7);
 
     for (i = 0; i < count; i++) {
         prop->rooms[i] = rooms[i];
     }
 
-    prop->rooms[i] = 0xff;
+    // Commit the rebuilt room list to the prop, terminated by -1.
+    prop->rooms[i] = -1;
 }
 
 

@@ -3906,7 +3906,7 @@ void chrPositionRelated7F020D94(ChrRecord *self)
     upperbounds.y = myprop->pos.y + 100.0f;
     upperbounds.z = myprop->pos.z + 50.0f;
     chrpropDeregisterRooms(myprop);
-    sub_GAME_7F03E27C(myprop, &lowerbounds, &upperbounds, 50.0f);
+    chrpropUpdateRoomList(myprop, &lowerbounds, &upperbounds, 50.0f);
     chrpropRegisterRooms(myprop);
 }
 

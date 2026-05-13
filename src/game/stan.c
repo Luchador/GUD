@@ -150,7 +150,7 @@ const char aStanlinelog[] = "-stanlinelog";
 void setLevelScale(f32 ls);
 s32 stanIsSpecialBit1Set(StandTile *arg0, struct StandTileLocusCallbackRecord* arg1);
 s32 sub_GAME_7F0B2274(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3, s32 arg4, s32 *outFlags);
-s32 sub_GAME_7F0B21B0(StandTile **tileStack, f32 target_x, f32 target_z, f32 unknown, s32 *rooms, s32 *count_rtn, s32 bufMax);
+s32 sub_GAME_7F0B21B0(StandTile **tileStack, f32 target_x, f32 target_z, f32 radius, s32 *rooms, s32 *count_rtn, s32 bufMax);
 
 s32 sub_GAME_7F0B1DDC(
     struct StandTile**,
@@ -3394,9 +3394,10 @@ s32 incrNearEdgeCount(StandTile **tileStack, s32 stackHeight, struct StandTileLo
 }
 
 
-
-// maybe stanCircleLegalXFObjTypeY
-s32 sub_GAME_7F0B21B0(StandTile **tileStack, f32 target_x, f32 target_z, f32 unknown, s32 *rooms, s32 *count_rtn, s32 bufMax)
+/**
+ * Address: 7F0B21B0
+ */
+s32 sub_GAME_7F0B21B0(StandTile **tileStack, f32 target_x, f32 target_z, f32 radius, s32 *rooms, s32 *count_rtn, s32 bufMax)
 {
     struct StandTileLocusCallbackRecord data;
     s32 rtn;
@@ -3406,7 +3407,7 @@ s32 sub_GAME_7F0B21B0(StandTile **tileStack, f32 target_x, f32 target_z, f32 unk
     data.bufMax = bufMax;
     data.nearEdgeCount = 0;
 
-    rtn = sub_GAME_7F0B1DDC(tileStack, target_x, target_z, unknown,
+    rtn = sub_GAME_7F0B1DDC(tileStack, target_x, target_z, radius,
         stanLocusAddTileRoomIfNew, NULL, incrNearEdgeCount, &data
     );
 

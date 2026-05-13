@@ -759,7 +759,7 @@ s32 explosionTick(PropRecord* arg0)
 
         // end explosionGetBboxAtFrame.
 
-        sub_GAME_7F03E27C(arg0, &sp90, &sp84, hrange);
+        chrpropUpdateRoomList(arg0, &sp90, &sp84, hrange);
 
         vrange = explosiontype->explosion_range + (((explosiontype->dmg_range - explosiontype->explosion_range) * (f32) exp->age) / (f32) explosiontype->duration);
         explosionInflictDamage(arg0, vrange, vrange);
@@ -1407,7 +1407,7 @@ s32 explosionSmokeTick(PropRecord *arg0)
         var_f14 = bbmax.f[2] - arg0->pos.f[2];
     }
 
-    sub_GAME_7F03E27C(arg0, &bbmin, &bbmax, var_f14);
+    chrpropUpdateRoomList(arg0, &bbmin, &bbmax, var_f14);
 
     if (smoke->duration > g_SmokeTypes[smoke->smoke_type].ratedissolve)
     {
