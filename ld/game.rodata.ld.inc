@@ -96,6 +96,7 @@
       build/OUTCODE/src/game/vtxstore.o (.rodata);
       build/OUTCODE/src/game/explosion.o (.rodata);
       build/OUTCODE/src/game/glass.o (.rodata);
+      build/OUTCODE/src/game/glass2.o (.rodata);
       build/OUTCODE/src/game/options.o (.rodata);
       build/OUTCODE/src/game/textrelated.o (.rodata);
       build/OUTCODE/src/game/stan.o (.rodata);

@@ -96,6 +96,7 @@
       build/OUTCODE/src/game/vtxstore.o (.text);
       build/OUTCODE/src/game/explosion.o (.text);
       build/OUTCODE/src/game/glass.o (.text);
+      build/OUTCODE/src/game/glass2.o (.text);
       build/OUTCODE/src/game/options.o (.text);
       build/OUTCODE/src/game/textrelated.o (.text);
       build/OUTCODE/src/game/stan.o (.text);

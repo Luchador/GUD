@@ -253,6 +253,8 @@ void skyTick(void)
     }
 }
 
+Gfx* sub_GAME_7F09343C(Gfx*, s32);
+
 Gfx *skyRender(Gfx *gdl)
 {
     coord3d sp6a4;
