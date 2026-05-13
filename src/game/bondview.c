@@ -4527,7 +4527,7 @@ loop_8:
     } while (var_a2 != 3);
     sp58 = var_f2;
     sp40 = temp_t4;
-    sub_GAME_7F05B024(arg1, &sp60, &sp6C, &sp78, &sp84, var_f2, temp_t3->unk14, arg2);
+    cubicSplineInterpolate(arg1, &sp60, &sp6C, &sp78, &sp84, var_f2, temp_t3->unk14, arg2);
     arg2->unk0 = arg2->unk0 + g_CurrentPlayer->unk3C4;
     arg2->unk4 = arg2->unk4 + g_CurrentPlayer->unk3C8;
     arg2->unk8 = arg2->unk8 + g_CurrentPlayer->unk3CC;
@@ -4661,7 +4661,7 @@ glabel sub_GAME_7F07B2A0
 /* 0AFF2C 7F07B3FC 27A60078 */  addiu $a2, $sp, 0x78
 /* 0AFF30 7F07B400 27A70084 */  addiu $a3, $sp, 0x84
 /* 0AFF34 7F07B404 E7A00014 */  swc1  $f0, 0x14($sp)
-/* 0AFF38 7F07B408 0FC16C09 */  jal   sub_GAME_7F05B024
+/* 0AFF38 7F07B408 0FC16C09 */  jal   cubicSplineInterpolate
 /* 0AFF3C 7F07B40C AFAF0018 */   sw    $t7, 0x18($sp)
 /* 0AFF40 7F07B410 3C098008 */  lui   $t1, %hi(g_CurrentPlayer)
 /* 0AFF44 7F07B414 2529A0B0 */  addiu $t1, %lo(g_CurrentPlayer) # addiu $t1, $t1, -0x5f50

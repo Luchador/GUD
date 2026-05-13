@@ -61,7 +61,10 @@ void sub_GAME_7F05AEFC(coord3d *arg0, coord3d *arg1, coord3d *arg2, coord3d *arg
 }
 
 
-void sub_GAME_7F05B024(coord3d *prev, coord3d *start, coord3d *end, coord3d *next, f32 t, f32 tangentScale, coord3d *result)
+/**
+ * Address: 7F05B024
+ */
+void cubicSplineInterpolate(coord3d *prev, coord3d *start, coord3d *end, coord3d *next, f32 t, f32 tangentScale, coord3d *result)
 {
     f32 square;
     f32 scale;

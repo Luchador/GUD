@@ -782,7 +782,7 @@ glabel sub_GAME_7F05C6FC
 /* 091370 7F05C840 26060028 */  addiu $a2, $s0, 0x28
 /* 091374 7F05C844 2607004C */  addiu $a3, $s0, 0x4c
 /* 091378 7F05C848 E7B20010 */  swc1  $f18, 0x10($sp)
-/* 09137C 7F05C84C 0FC16C09 */  jal   sub_GAME_7F05B024
+/* 09137C 7F05C84C 0FC16C09 */  jal   cubicSplineInterpolate
 /* 091380 7F05C850 E7A40014 */   swc1  $f4, 0x14($sp)
 /* 091384 7F05C854 8FAB00AC */  lw    $t3, 0xac($sp)
 /* 091388 7F05C858 24010001 */  li    $at, 1
