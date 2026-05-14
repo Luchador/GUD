@@ -379,9 +379,6 @@ void chrpropDelist(PropRecord *prop)
 }
 
 
-
-
-
 void chrpropReparent(PropRecord *newChild, PropRecord *host)
 {
     newChild->parent = host;
@@ -397,7 +394,6 @@ void chrpropReparent(PropRecord *newChild, PropRecord *host)
     host->child    = newChild;
 
 }
-
 
 
 void chrpropDetach(PropRecord* prop) {
@@ -425,12 +421,8 @@ void chrpropDetach(PropRecord* prop) {
 }
 
 
-
-
-
-
 /**
- * Address 0x7F03A62C.
+ * Address: 7F03A62C
 */
 Gfx *chrpropRender(Gfx * gdl, PropRecord *prop, s32 withalpha)
 {
@@ -463,10 +455,8 @@ Gfx *chrpropRender(Gfx * gdl, PropRecord *prop, s32 withalpha)
 }
 
 
-
-
 /**
- * Address 0x7F03A6F4.
+ * Address: 7F03A6F4
 */
 Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
 {
@@ -579,9 +569,10 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
 
 
 /**
+ * Address: 7F03A97C
+ * 
  * Tests if a ray intersects the bounding box of the given room.
  * @return TRUE if the ray intersects, otherwise FALSE.
- * Address: 0x7f03a97c
 */
 s32 chrpropRayIntersectsRoomBbox(s32 room, coord3d* start, coord3d* dir) 
 {
@@ -609,11 +600,11 @@ s32 chrpropRayIntersectsRoomBbox(s32 room, coord3d* start, coord3d* dir)
 
 
 /**
+ * Address: 7F03AA44
+ * 
  * Unreferenced
  * 
  * This takes a list of rooms and flags the ones that do *not* intersect a ray.
- * 
- * Address: 0x7f03aa44
  */
 void chrpropFlagRoomsFromRayTest(s32 arg0, coord3d *from, coord3d *to, u8 *rooms)
 {
@@ -642,8 +633,20 @@ void chrpropFlagRoomsFromRayTest(s32 arg0, coord3d *from, coord3d *to, u8 *rooms
 
 /**
  * Address: 7F03AB58
+ * 
+ * Refines an existing background bullet hit by checking currently visible rooms
+ * that have not already been tested.
+ *
+ * The function scans the visible room list, marks each tested room in visited,
+ * performs a room bbox test first, then tests the room geometry. If no previous hit exists, 
+ * the first visible room hit is accepted.
+ * Otherwise, a hit is accepted only if it lies between from and the current
+ * best hit on all three axes, making it closer along the shot ray.
+ *
+ * @return Returns the room number of the accepted hit, or the bestroom if no
+ * closer visible room hit is found.
  */
-s32 sub_GAME_7F03AB58(coord3d *from, coord3d *to, coord3d *dir, coord3d *scaledDir, u8 *visited, struct HitThing *besthit, s32 bestroom)
+s32 chrpropFindCloserBgHitInVisibleRooms(coord3d *from, coord3d *to, coord3d *dir, coord3d *scaledDir, u8 *visited, struct HitThing *besthit, s32 bestroom)
 {
     s32 rooms[100];
     s32 *roomptr;
@@ -655,15 +658,18 @@ s32 sub_GAME_7F03AB58(coord3d *from, coord3d *to, coord3d *dir, coord3d *scaledD
 
     scale = get_room_data_float2();
 
+    // Get up to 100 currently visible rooms.
     numrooms = bgCopyVisibleRoomsToList(&rooms[0], 100);
 
     if (numrooms > 0)
     {
         roomptr = rooms;
+        // The bitwise AND is just a matching trick and effectively does nothing.
         end = roomptr + (numrooms & 0xFFFFFFFF);
 
         do
         {
+            // Only check rooms that have not been visited.
             if (visited[*roomptr] == 0)
             {
                 visited[*roomptr] = 1;
@@ -1113,7 +1119,7 @@ glabel chraiDefaultWeaponFireHandler
 /* 070028 7F03B4F8 27A50560 */  addiu $a1, $sp, 0x560
 /* 07002C 7F03B4FC 27A60070 */  addiu $a2, $sp, 0x70
 /* 070030 7F03B500 27A7007C */  addiu $a3, $sp, 0x7c
-/* 070034 7F03B504 0FC0EAD6 */  jal   sub_GAME_7F03AB58
+/* 070034 7F03B504 0FC0EAD6 */  jal   chrpropFindCloserBgHitInVisibleRooms
 /* 070038 7F03B508 AFAB0018 */   sw    $t3, 0x18($sp)
 /* 07003C 7F03B50C 1840000F */  blez  $v0, .L7F03B54C
 /* 070040 7F03B510 AFA20544 */   sw    $v0, 0x544($sp)
