@@ -826,7 +826,18 @@ glabel sub_GAME_7F03AB58
 #endif
 
 
-s32 sub_GAME_7F03ADF4(s32 startroom, coord3d *from, coord3d *to, coord3d *dir, coord3d *scaledDir, u8 *visited, coord3d *hitpos)
+/**
+ * Address: 7F03ADF4
+ * 
+ * Beginning at startroom, walk connected rooms looking for a background
+ * bullet hit.
+ *
+ * Rooms are skipped if already marked in visited, and newly processed rooms are
+ * marked visited. 
+ * @return Return 0 if no hit is found, otherwise the room number of the first room whose bbox and
+ * background geometry intersect the bullet ray.
+ */
+s32 chrpropFindFirstBgHitInConnectedRooms(s32 startroom, coord3d *from, coord3d *to, coord3d *dir, coord3d *scaledDir, u8 *visited, struct HitThing *hit)
 {
     u8 rooms[256];
     s32 pad;
@@ -848,7 +859,7 @@ s32 sub_GAME_7F03ADF4(s32 startroom, coord3d *from, coord3d *to, coord3d *dir, c
             visited[room] = 1;
 
             if (chrpropRayIntersectsRoomBbox(room, scaledDir, dir)) {
-                if (bgTestBulletHitBackground(from, to, room, hitpos)) {
+                if (bgTestBulletHitBackground(from, to, room, hit)) {
                     return room;
                 }
             }
@@ -879,6 +890,7 @@ s32 sub_GAME_7F03ADF4(s32 startroom, coord3d *from, coord3d *to, coord3d *dir, c
  * 
  * Finds the closest bg bullet collision among rooms not already visited by the shot traversal.
  * It first does a cheap bounding box test, then a precise test for rooms whose bounding boxes are intersected.
+ * This seems to be a brute force/fallback version of the function above, chrpropFindFirstBgHitInConnectedRooms.
  * @return 0 if no bg hit in any unvisited room, otherwise the room number containing the closest bg hit.
  */
 s32 chrpropFindClosestBgHitRoom(s32 unused, coord3d *from, coord3d *to, coord3d *dir, coord3d *scaledDir, u8 *visited, struct HitThing *besthit)
@@ -1160,7 +1172,7 @@ glabel chraiDefaultWeaponFireHandler
 /* 06FF74 7F03B444 00402025 */  move  $a0, $v0
 /* 06FF78 7F03B448 02002825 */  move  $a1, $s0
 /* 06FF7C 7F03B44C 27A60560 */  addiu $a2, $sp, 0x560
-/* 06FF80 7F03B450 0FC0EB7D */  jal   sub_GAME_7F03ADF4
+/* 06FF80 7F03B450 0FC0EB7D */  jal   chrpropFindFirstBgHitInConnectedRooms
 /* 06FF84 7F03B454 27A70070 */   addiu $a3, $sp, 0x70
 /* 06FF88 7F03B458 10000011 */  b     .L7F03B4A0
 /* 06FF8C 7F03B45C AFA20544 */   sw    $v0, 0x544($sp)
