@@ -876,8 +876,12 @@ s32 sub_GAME_7F03ADF4(s32 startroom, coord3d *from, coord3d *to, coord3d *dir, c
 
 /**
  * Address: 7F03AF5C
+ * 
+ * Finds the closest bg bullet collision among rooms not already visited by the shot traversal.
+ * It first does a cheap bounding box test, then a precise test for rooms whose bounding boxes are intersected.
+ * @return 0 if no bg hit in any unvisited room, otherwise the room number containing the closest bg hit.
  */
-s32 sub_GAME_7F03AF5C(s32 unused, coord3d *from, coord3d *to, coord3d *dir, coord3d *scaledDir, u8 *visited, struct HitThing *besthit)
+s32 chrpropFindClosestBgHitRoom(s32 unused, coord3d *from, coord3d *to, coord3d *dir, coord3d *scaledDir, u8 *visited, struct HitThing *besthit)
 {
     f32 dx;
     f32 dy;
@@ -1174,7 +1178,7 @@ glabel chraiDefaultWeaponFireHandler
 /* 06FFB8 7F03B488 00402025 */  move  $a0, $v0
 /* 06FFBC 7F03B48C 02002825 */  move  $a1, $s0
 /* 06FFC0 7F03B490 27A60560 */  addiu $a2, $sp, 0x560
-/* 06FFC4 7F03B494 0FC0EBD7 */  jal   sub_GAME_7F03AF5C
+/* 06FFC4 7F03B494 0FC0EBD7 */  jal   chrpropFindClosestBgHitRoom
 /* 06FFC8 7F03B498 27A70070 */   addiu $a3, $sp, 0x70
 /* 06FFCC 7F03B49C AFA20544 */  sw    $v0, 0x544($sp)
 .L7F03B4A0:
