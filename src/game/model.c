@@ -8026,43 +8026,15 @@ glabel sub_GAME_7F0747D0
 #endif
 
 
-
-
-
-#ifdef NONMATCHING
-void sub_GAME_7F074C68(void *arg1, s32 arg2, s32 arg3)
+/**
+ * Address: 7F074C68
+ */
+s32 sub_GAME_7F074C68(Model *model, ModelNode *node, coord3d *pos, coord3d *dir)
 {
-    s32 sp1C;
+    ModelRoData_BoundingBoxRecord *bbox = &node->Data->BoundingBox;
 
-    sp1C = arg1->unk4;
-    sub_GAME_7F0747D0(sp1C, modelFindNodeMtx(0), arg2, arg3);
+    return sub_GAME_7F0747D0(bbox, modelFindNodeMtx(model, node, 0), pos, dir);
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F074C68
-/* 0A9798 7F074C68 27BDFFE0 */  addiu $sp, $sp, -0x20
-/* 0A979C 7F074C6C AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0A97A0 7F074C70 AFA60028 */  sw    $a2, 0x28($sp)
-/* 0A97A4 7F074C74 AFA7002C */  sw    $a3, 0x2c($sp)
-/* 0A97A8 7F074C78 8CAE0004 */  lw    $t6, 4($a1)
-/* 0A97AC 7F074C7C 00003025 */  move  $a2, $zero
-/* 0A97B0 7F074C80 0FC1B198 */  jal   modelFindNodeMtx
-/* 0A97B4 7F074C84 AFAE001C */   sw    $t6, 0x1c($sp)
-/* 0A97B8 7F074C88 8FA4001C */  lw    $a0, 0x1c($sp)
-/* 0A97BC 7F074C8C 00402825 */  move  $a1, $v0
-/* 0A97C0 7F074C90 8FA60028 */  lw    $a2, 0x28($sp)
-/* 0A97C4 7F074C94 0FC1D1F4 */  jal   sub_GAME_7F0747D0
-/* 0A97C8 7F074C98 8FA7002C */   lw    $a3, 0x2c($sp)
-/* 0A97CC 7F074C9C 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 0A97D0 7F074CA0 27BD0020 */  addiu $sp, $sp, 0x20
-/* 0A97D4 7F074CA4 03E00008 */  jr    $ra
-/* 0A97D8 7F074CA8 00000000 */   nop
-)
-#endif
-
-
-
 
 
 #ifdef NONMATCHING
