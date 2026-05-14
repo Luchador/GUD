@@ -6,33 +6,6 @@
 #include <bondtypes.h>
 #include <snd.h>
 
-// WIP struct
-struct BulletHit {
-    f32 dist;           // 0x00
-    PropRecord *prop;   // 0x04
-    s32 hitpart;        // 0x08
-    ModelNode *node;    // 0x0c
-    coord3d pos;        // 0x10
-    coord3d unk1c;      // 0x1c
-    u8 pad28[0x12];     // 0x28
-    s16 texture_index;  // 0x3a
-    u8 pad3c[0x04];     // 0x3c
-    s32 room;           // 0x40
-    u8 pad44[0x04];     // 0x44
-    Model *model;       // 0x48
-};
-
-struct ShotData {
-    coord3d unk00;              // 0x00
-    coord3d unk0c;              // 0x0c
-    ITEM_IDS weapon;            // 0x18
-    coord3d gunpos;             // 0x1c
-    coord3d dir;                // 0x28
-    f32 unk34;                  // 0x34
-    s32 penetration;            // 0x38
-    struct BulletHit hits[10];  // 0x3c
-};
-
 struct HitThing {
     coord3d hitpos;     // 0x00
     coord3d normal;     // 0x0c
@@ -49,6 +22,28 @@ struct HitThing {
     s16 tileformat;     // 0x2c
     s16 tilesize;       // 0x2e
 };      
+
+struct BulletHit {
+    f32 dist;               // 0x00
+    PropRecord *prop;       // 0x04
+    s32 hitpart;            // 0x08
+    ModelNode *node;        // 0x0c
+    struct HitThing hit;    // 0x10, size 0x30
+    s32 room;               // 0x40
+    s32 unk44;              // 0x44
+    Model *model;           // 0x48
+    s32 shootthrough;       // 0x4c
+};   
+
+struct ShotData {
+    coord3d unk00;              // 0x00
+    coord3d unk0c;              // 0x0c
+    ITEM_IDS weapon;            // 0x18
+    coord3d gunpos;             // 0x1c
+    coord3d dir;                // 0x28
+    f32 unk34;                  // 0x34, max/stop distance?
+    struct BulletHit hits[10];  // 0x38
+};     
 
 extern f32 F_80030B14;
 extern f32 F_80030B18;

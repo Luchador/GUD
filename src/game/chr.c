@@ -7468,7 +7468,7 @@ glabel sub_GAME_7F022648
  * 
  * Resolves a known hit against a character. 
  */
-void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *hit)
+void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
 {
     f32 scale;
     Mtxf invmtx;
@@ -7485,12 +7485,12 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *hit)
     coord3d jointpos;
     struct image_sound *sound2;
     
-    chr = hit->prop->chr;
+    chr = bhit->prop->chr;
 
     // Calculate the view space hit position for impact effects.
-    hitpos.f[0] = shot->unk00.x - ((hit->dist * shot->unk0c.x) / shot->unk0c.z);
-    hitpos.f[1] = shot->unk00.y - ((hit->dist * shot->unk0c.y) / shot->unk0c.z);
-    hitpos.f[2] = shot->unk00.z - hit->dist;
+    hitpos.f[0] = shot->unk00.x - ((bhit->dist * shot->unk0c.x) / shot->unk0c.z);
+    hitpos.f[1] = shot->unk00.y - ((bhit->dist * shot->unk0c.y) / shot->unk0c.z);
+    hitpos.f[2] = shot->unk00.z - bhit->dist;
 
     scale = 1.0f - (42.0f / sqrtf(SQ(hitpos.f[0]) + SQ(hitpos.f[1]) + SQ(hitpos.f[2])));
 
@@ -7507,16 +7507,16 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *hit)
     gunSetTracerTarget(&nearhitpos);
 
     // Make a fleshy impact sound.
-    recall_joy2_hits_edit_detail_edit_flag(shot->weapon, hit->prop, -1);
+    recall_joy2_hits_edit_detail_edit_flag(shot->weapon, bhit->prop, -1);
 
-    chrCreateHitPuffs(hit->prop, hit->hitpart, &hitpos, &nearhitpos);
+    chrCreateHitPuffs(bhit->prop, bhit->hitpart, &hitpos, &nearhitpos);
 
     // Apply damage to the character.
-    if (!handles_shot_actors(chr, hit->hitpart, &shot->dir, shot->weapon, TRUE)) {
+    if (!handles_shot_actors(chr, bhit->hitpart, &shot->dir, shot->weapon, TRUE)) {
         return;
     }
 
-    if (hit->hitpart == HIT_GUN) {
+    if (bhit->hitpart == HIT_GUN) {
         for (i = 0; i != 2; i++) {
             prop = chr->weapons_held[i];
 
@@ -7525,7 +7525,7 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *hit)
                 /**
                  * If a character is holding an explosive such as a grenade, and the explosive is shot, detonate it.
                  */
-                if (weaponobj->model == hit->model) {
+                if (weaponobj->model == bhit->model) {
                     if (
                         ((WeaponObjRecord *)weaponobj)->weaponnum == ITEM_GRENADE || 
                         ((WeaponObjRecord *)weaponobj)->weaponnum == ITEM_GRENADEROUND || 
@@ -7542,14 +7542,14 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *hit)
                         maybe_detonate_object(prop->obj, bondwalkItemGetDestructionAmount(shot->weapon), &hitpos, shot->weapon, get_cur_playernum());
                     // Create a bullet hole on the character's held weapon.
                     } else {
-                        if (hit->texture_index < 0) {
+                        if (bhit->hit.texturenum < 0) {
                             sound = D_8004E86C[0];
                         } else {
-                            sound = D_8004E86C[g_Textures[hit->texture_index].hitTexture];
+                            sound = D_8004E86C[g_Textures[bhit->hit.texturenum].hitTexture];
                         }
 
                         temp = randomGetNext() % (s16)sound->thing2_len;
-                        explosionCreateBulletImpact(&hit->pos, &hit->unk1c, sound->thing2[temp], 1, prop, hit->room, 0);
+                        explosionCreateBulletImpact(&bhit->hit.hitpos, &bhit->hit.normal, sound->thing2[temp], 1, prop, bhit->room, 0);
                     }
                 }
             }
@@ -7559,20 +7559,20 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *hit)
     }
 
     // Create a bullet on hole on a hat or helmet attached to a character's head.
-    if (hit->hitpart == HIT_HAT) {
-        if (hit->texture_index < 0) {
+    if (bhit->hitpart == HIT_HAT) {
+        if (bhit->hit.texturenum < 0) {
             sound2 = D_8004E86C[0];
         } else {
-            sound2 = D_8004E86C[g_Textures[hit->texture_index].hitTexture];
+            sound2 = D_8004E86C[g_Textures[bhit->hit.texturenum].hitTexture];
         }
 
         temp2 = randomGetNext() % (s16)sound2->thing2_len; 
-        explosionCreateBulletImpact(&hit->pos, &hit->unk1c, sound2->thing2[temp2], 1, chr->handle_positiondata_hat, hit->room, 0);
+        explosionCreateBulletImpact(&bhit->hit.hitpos, &bhit->hit.normal, sound2->thing2[temp2], 1, chr->handle_positiondata_hat, bhit->room, 0);
 
         return;
     }
 
-    mtx = modelFindNodeMtx(hit->model, hit->node, 0);
+    mtx = modelFindNodeMtx(bhit->model, bhit->node, 0);
 
     jointpos.x = hitpos.f[0];
     jointpos.y = hitpos.f[1];
@@ -7582,15 +7582,15 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *hit)
     jointpos.y += (jointpos.y - mtx->m[3][1]) * 0.5f;
     jointpos.z += (jointpos.z - mtx->m[3][2]) * 0.5f;
 
-    jointpos.x -= getjointsize(hit->model, hit->node) * 0.5f * shot->unk0c.x;
-    jointpos.y -= getjointsize(hit->model, hit->node) * 0.5f * shot->unk0c.y;
-    jointpos.z -= getjointsize(hit->model, hit->node) * 0.5f * shot->unk0c.z;
+    jointpos.x -= getjointsize(bhit->model, bhit->node) * 0.5f * shot->unk0c.x;
+    jointpos.y -= getjointsize(bhit->model, bhit->node) * 0.5f * shot->unk0c.y;
+    jointpos.z -= getjointsize(bhit->model, bhit->node) * 0.5f * shot->unk0c.z;
 
     matrix_4x4_set_inverse_rotation_and_translation(mtx, &invmtx);
     mtx4TransformVecInPlace(&invmtx, &jointpos);
 
     // Create a blood stain at the impact point.
-    sub_GAME_7F0221DC(hit->model, hit->hitpart, hit->node, &jointpos);
+    sub_GAME_7F0221DC(bhit->model, bhit->hitpart, bhit->node, &jointpos);
 }
 
 
