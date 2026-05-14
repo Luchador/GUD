@@ -1613,29 +1613,39 @@ glabel chraiDefaultWeaponFireHandler
 
 /**
  * Address: 7F03B9C0
+ * 
+ * Hitscans gather candidate hits along the bullet path. This function records each candidate hit into shotdata
+ * and enforces pentration limits and removes hits that should be blocked by closer objects.
  */
-void sub_GAME_7F03B9C0(struct ShotData *shotdata, PropRecord *prop, f32 dist, s32 hitpart, ModelNode *node, struct HitThing *hitthing, s32 room, s32 unk44, Model *model, s32 shootthrough, s32 clearfarther) 
+void chrpropAddBulletHit(struct ShotData *shotdata, PropRecord *prop, f32 dist, s32 hitpart, ModelNode *node, struct HitThing *hitthing, s32 room, s32 unk44, Model *model, bool countsAsPenetration, s32 blocksFurtherHits) 
 {
     s32 pad;
     s32 i;
     s32 furthestindex;
     f32 prevfurthest;
-    s32 count;
+    s32 numPenetratedObjects;
     f32 furthest;
-    struct ShotData *localshot;
+    struct ShotData *localshot; // Assigned but never used, required for matching.
 
-    if (shootthrough) 
+    /**
+     * If countsAsPenetration is true, then this hit is on an object that bullets may pass through,
+     * and it counts against the weapon's shoot-through object limit.
+     */
+    if (countsAsPenetration) 
     {
         prevfurthest = (furthest = 0.0f);
         furthestindex = 0;
-        count = 0;
+        numPenetratedObjects = 0;
         localshot = shotdata;
 
-        for (i = 0; i < ARRAYCOUNT(shotdata->hits); i++) {
-            if (shotdata->hits[i].prop != NULL && shotdata->hits[i].shootthrough != 0) {
-                count++;
+        for (i = 0; i < ARRAYCOUNT(shotdata->hits); i++) 
+        {
+            if (shotdata->hits[i].prop != NULL && shotdata->hits[i].countsAsPenetration)
+            {
+                numPenetratedObjects++;
 
-                if (furthest < shotdata->hits[i].dist) {
+                if (furthest < shotdata->hits[i].dist) 
+                {
                     prevfurthest = furthest;
                     furthest = shotdata->hits[i].dist;
                     furthestindex = i;
@@ -1643,44 +1653,71 @@ void sub_GAME_7F03B9C0(struct ShotData *shotdata, PropRecord *prop, f32 dist, s3
             }
         }
 
-        if (count >= bondwalkItemGetObjectsShootThrough(shotdata->weapon)) {
+        /**
+         * The bullet has reached the max number of objects it can penetrate.
+         */
+        if (numPenetratedObjects >= bondwalkItemGetObjectsShootThrough(shotdata->weapon)) 
+        {
+            // Make room for this new hit.
             shotdata->hits[furthestindex].prop = NULL;
-            shotdata->unk34 = prevfurthest;
+            shotdata->maxdist = prevfurthest;
 
-            if (prevfurthest < dist) {
-                shotdata->unk34 = dist;
+            // Update the shot's useful distance.
+            if (prevfurthest < dist) 
+            {
+                shotdata->maxdist = dist;
             }
 
-            for (i = 0; i < ARRAYCOUNT(shotdata->hits); i++) {
-                if (shotdata->hits[i].prop != NULL
-                        && shotdata->hits[i].shootthrough == 0
-                        && prevfurthest < shotdata->hits[i].dist) {
+            // Remove hits that are beyond the penetration limit.
+            for (i = 0; i < ARRAYCOUNT(shotdata->hits); i++) 
+            {
+                if (shotdata->hits[i].prop != NULL && (!shotdata->hits[i].countsAsPenetration) && prevfurthest < shotdata->hits[i].dist) 
+                {
                     shotdata->hits[i].prop = NULL;
                 }
             }
-        } else {
-            if (count + 1 == bondwalkItemGetObjectsShootThrough(shotdata->weapon)) {
-                if (dist < shotdata->unk34) {
-                    shotdata->unk34 = dist;
+        } 
+        else 
+        {
+            /**
+             * This hit is the final allowed penetrable object.
+             */
+            if (numPenetratedObjects + 1 == bondwalkItemGetObjectsShootThrough(shotdata->weapon)) 
+            {
+                if (dist < shotdata->maxdist) 
+                {
+                    shotdata->maxdist = dist;
                 }
             }
         }
     }
 
-    if (clearfarther) {
-        if (shotdata->weapon != ITEM_RUGER && shotdata->weapon != ITEM_SILVERWPPK) {
-            for (i = 0; i < ARRAYCOUNT(shotdata->hits); i++) {
-                if (shotdata->hits[i].prop != NULL && dist < shotdata->hits[i].dist) {
+    /**
+     * If true, this stops the bullets for all weapons except the Cougar Magnum and Silver PP7.
+     * Any already recorded hits farther than this one are removed, 
+     * and the shot's max distance is clamped to this hit distance. 
+     * Used by bulletproof glass.
+    */
+    if (blocksFurtherHits) 
+    {
+        if (shotdata->weapon != ITEM_RUGER && shotdata->weapon != ITEM_SILVERWPPK) 
+        {
+            for (i = 0; i < ARRAYCOUNT(shotdata->hits); i++) 
+            {
+                if (shotdata->hits[i].prop != NULL && dist < shotdata->hits[i].dist) 
+                {
                     shotdata->hits[i].prop = NULL;
                 }
             }
 
-            shotdata->unk34 = dist;
+            shotdata->maxdist = dist;
         }
     }
 
-    for (i = 0; i < ARRAYCOUNT(shotdata->hits); i++) {
-        if (shotdata->hits[i].prop == NULL) {
+    for (i = 0; i < ARRAYCOUNT(shotdata->hits); i++) 
+    {
+        if (shotdata->hits[i].prop == NULL) 
+        {
             shotdata->hits[i].dist = dist;
             shotdata->hits[i].prop = prop;
             shotdata->hits[i].hitpart = hitpart;
@@ -1689,7 +1726,7 @@ void sub_GAME_7F03B9C0(struct ShotData *shotdata, PropRecord *prop, f32 dist, s3
             shotdata->hits[i].room = room;
             shotdata->hits[i].unk44 = unk44;
             shotdata->hits[i].model = model;
-            shotdata->hits[i].shootthrough = shootthrough;
+            shotdata->hits[i].countsAsPenetration = countsAsPenetration;
             break;
         }
     }

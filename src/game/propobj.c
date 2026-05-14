@@ -31722,7 +31722,7 @@ glabel sub_GAME_7F04E720
 /* 0834B4 7F04E984 44060000 */  mfc1  $a2, $f0
 /* 0834B8 7F04E988 03214024 */  and   $t0, $t9, $at
 /* 0834BC 7F04E98C 0008482B */  sltu  $t1, $zero, $t0
-/* 0834C0 7F04E990 0FC0EE70 */  jal   sub_GAME_7F03B9C0
+/* 0834C0 7F04E990 0FC0EE70 */  jal   chrpropAddBulletHit
 /* 0834C4 7F04E994 AFA90028 */   sw    $t1, 0x28($sp)
 .L7F04E998:
 /* 0834C8 7F04E998 8FBF004C */  lw    $ra, 0x4c($sp)
@@ -31756,7 +31756,7 @@ void sub_GAME_7F04E9BC(PropRecord* prop, struct ShotData* shotdata)
             && (obj->flags2 & PROPFLAG2_SHOOTTHROUGH) == 0) {
         tmp = -(model->render_pos->pos.m[3][2] + chrpropSumMatrixNegZ(bbox, (Mtxf*)model->render_pos));
 
-        if (tmp <= shotdata->unk34) {
+        if (tmp <= shotdata->maxdist) {
             sub_GAME_7F04E720(prop, (void*)shotdata);
         }
     }

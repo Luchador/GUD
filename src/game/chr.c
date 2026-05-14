@@ -7432,7 +7432,7 @@ glabel sub_GAME_7F022648
 /* 057440 7F022910 AFA00028 */  sw    $zero, 0x28($sp)
 /* 057444 7F022914 AFA80018 */  sw    $t0, 0x18($sp)
 /* 057448 7F022918 AFA9001C */  sw    $t1, 0x1c($sp)
-/* 05744C 7F02291C 0FC0EE70 */  jal   sub_GAME_7F03B9C0
+/* 05744C 7F02291C 0FC0EE70 */  jal   chrpropAddBulletHit
 /* 057450 7F022920 AFAA0020 */   sw    $t2, 0x20($sp)
 /* 057454 7F022924 8FAC00D4 */  lw    $t4, 0xd4($sp)
 .L7F022928:

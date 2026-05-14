@@ -32,7 +32,7 @@ struct BulletHit {
     s32 room;               // 0x40
     s32 unk44;              // 0x44
     Model *model;           // 0x48
-    s32 shootthrough;       // 0x4c
+    s32 countsAsPenetration;       // 0x4c
 };   
 
 struct ShotData {
@@ -41,7 +41,7 @@ struct ShotData {
     ITEM_IDS weapon;            // 0x18
     coord3d gunpos;             // 0x1c
     coord3d dir;                // 0x28
-    f32 unk34;                  // 0x34, max/stop distance?
+    f32 maxdist;                // 0x34
     struct BulletHit hits[10];  // 0x38
 };     
 
