@@ -4077,10 +4077,10 @@ struct damage_display_val {
     s16 unk06;
     s16 unk08;
     s16 unk0A;
-    s8 unk0C;
-    s8 unk0D;
-    s8 unk0E;
-    s8 unk0F;
+    u8 unk0C;
+    u8 unk0D;
+    u8 unk0E;
+    u8 unk0F;
 };
 
 struct damage_display_parent {
