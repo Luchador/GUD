@@ -181,7 +181,9 @@ void bgInit(void);
 s32 sub_GAME_7F0B8FD0(s32 roomA, s32 roomB);
 
 //f32 sub_GAME_7F0B4F9C(s32 room); // u8 not s32 for sub_GAME_7F0B2FE0
+s32 bgCopyVisibleRoomsToList(s32 *rooms, s32 max);
 u32 bgDecompress(u8* source, u8 *target);
+bool bgTestBulletHitBackground(coord3d *from, coord3d *to, s32 roomnum, struct HitThing *hit);
 void delete_room_data(s32 roomID);
 void load_bg_file(LEVEL_INDEX stagenum);
 

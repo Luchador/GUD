@@ -24,15 +24,15 @@ struct HitThing {
 };      
 
 struct BulletHit {
-    f32 dist;               // 0x00
-    PropRecord *prop;       // 0x04
-    s32 hitpart;            // 0x08
-    ModelNode *node;        // 0x0c
-    struct HitThing hit;    // 0x10, size 0x30
-    s32 room;               // 0x40
-    s32 unk44;              // 0x44
-    Model *model;           // 0x48
-    s32 countsAsPenetration;       // 0x4c
+    f32 dist;                   // 0x00
+    PropRecord *prop;           // 0x04
+    s32 hitpart;                // 0x08
+    ModelNode *node;            // 0x0c
+    struct HitThing hit;        // 0x10, size 0x30
+    s32 room;                   // 0x40
+    s32 unk44;                  // 0x44
+    Model *model;               // 0x48
+    s32 countsAsPenetration;    // 0x4c
 };   
 
 struct ShotData {

@@ -583,13 +583,17 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
  * @return TRUE if the ray intersects, otherwise FALSE.
  * Address: 0x7f03a97c
 */
-s32 chrpropRayIntersectsRoomBbox(s32 room, coord3d* start, coord3d* dir) {
+s32 chrpropRayIntersectsRoomBbox(s32 room, coord3d* start, coord3d* dir) 
+{
     s32 max[3];
     s32 min[3];
     s_room_info* roominfo;
 
     roominfo = &g_BgRoomInfo[room];
-    if (roominfo->vtx_batch_bounds != NULL) { // Skip check if room has no collision data
+    
+    // Skip check if room has no collision data
+    if (roominfo->vtx_batch_bounds != NULL) 
+    { 
         min[0] = roominfo->minbounds.f[0];
         min[1] = roominfo->minbounds.f[1];
         min[2] = roominfo->minbounds.f[2];
@@ -636,194 +640,82 @@ void chrpropFlagRoomsFromRayTest(s32 arg0, coord3d *from, coord3d *to, u8 *rooms
 }
 
 
-#ifdef NONMATCHING
-void sub_GAME_7F03AB58(void) {
+/**
+ * Address: 7F03AB58
+ */
+s32 sub_GAME_7F03AB58(coord3d *from, coord3d *to, coord3d *dir, coord3d *scaledDir, u8 *visited, struct HitThing *besthit, s32 bestroom)
+{
+    s32 rooms[100];
+    s32 *roomptr;
+    s32 *end;
+    s32 numrooms;
+    struct HitThing hit;
+    f32 scale;
+    s32 room;
 
+    scale = get_room_data_float2();
+
+    numrooms = bgCopyVisibleRoomsToList(&rooms[0], 100);
+
+    if (numrooms > 0)
+    {
+        roomptr = rooms;
+        end = roomptr + (numrooms & 0xFFFFFFFF);
+
+        do
+        {
+            if (visited[*roomptr] == 0)
+            {
+                visited[*roomptr] = 1;
+
+                if (chrpropRayIntersectsRoomBbox(*roomptr, scaledDir, dir))
+                {
+                    if (bgTestBulletHitBackground(from, to, *roomptr, &hit))
+                    {
+                        room = *roomptr;
+                        hit.hitpos.x *= scale;
+                        hit.hitpos.y *= scale;
+                        hit.hitpos.z *= scale;
+
+                        /**
+                         * The (numrooms * 0) is weird but harmless and needed for matching.
+                         */
+                        if ((bestroom <= (numrooms * 0))
+                                || (((((from->x <= besthit->hitpos.x)
+                                            && (from->x <= hit.hitpos.x))
+                                            && (hit.hitpos.x < besthit->hitpos.x))
+                                        || (((besthit->hitpos.x <= from->x)
+                                            && (hit.hitpos.x <= from->x))
+                                            && (besthit->hitpos.x < hit.hitpos.x)))
+                                    && ((((from->y <= besthit->hitpos.y)
+                                            && (from->y <= hit.hitpos.y))
+                                            && (hit.hitpos.y < besthit->hitpos.y))
+                                        || (((besthit->hitpos.y <= from->y)
+                                            && (hit.hitpos.y <= from->y))
+                                            && (besthit->hitpos.y < hit.hitpos.y)))
+                                    && ((((from->z <= besthit->hitpos.z)
+                                            && (from->z <= hit.hitpos.z))
+                                            && (hit.hitpos.z < besthit->hitpos.z))
+                                        || (((besthit->hitpos.z <= from->z)
+                                            && (hit.hitpos.z <= from->z))
+                                            && (besthit->hitpos.z < hit.hitpos.z)))))
+                        {
+                            bestroom = room;
+                            *besthit = hit;
+                        }
+                    }
+                }
+            }
+
+            roomptr++;
+        }
+        while (roomptr < end);
+
+        if (rooms);
+    }
+
+    return bestroom;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F03AB58
-/* 06F688 7F03AB58 27BDFDE0 */  addiu $sp, $sp, -0x220
-/* 06F68C 7F03AB5C AFBF003C */  sw    $ra, 0x3c($sp)
-/* 06F690 7F03AB60 AFB20024 */  sw    $s2, 0x24($sp)
-/* 06F694 7F03AB64 00809025 */  move  $s2, $a0
-/* 06F698 7F03AB68 AFB70038 */  sw    $s7, 0x38($sp)
-/* 06F69C 7F03AB6C AFB60034 */  sw    $s6, 0x34($sp)
-/* 06F6A0 7F03AB70 AFB50030 */  sw    $s5, 0x30($sp)
-/* 06F6A4 7F03AB74 AFB4002C */  sw    $s4, 0x2c($sp)
-/* 06F6A8 7F03AB78 AFB30028 */  sw    $s3, 0x28($sp)
-/* 06F6AC 7F03AB7C AFB10020 */  sw    $s1, 0x20($sp)
-/* 06F6B0 7F03AB80 AFB0001C */  sw    $s0, 0x1c($sp)
-/* 06F6B4 7F03AB84 F7B40010 */  sdc1  $f20, 0x10($sp)
-/* 06F6B8 7F03AB88 AFA50224 */  sw    $a1, 0x224($sp)
-/* 06F6BC 7F03AB8C AFA60228 */  sw    $a2, 0x228($sp)
-/* 06F6C0 7F03AB90 0FC2D20C */  jal   get_room_data_float2
-/* 06F6C4 7F03AB94 AFA7022C */   sw    $a3, 0x22c($sp)
-/* 06F6C8 7F03AB98 46000506 */  mov.s $f20, $f0
-/* 06F6CC 7F03AB9C 27A40090 */  addiu $a0, $sp, 0x90
-/* 06F6D0 7F03ABA0 0FC2E3A6 */  jal   bgCopyVisibleRoomsToList
-/* 06F6D4 7F03ABA4 24050064 */   li    $a1, 100
-/* 06F6D8 7F03ABA8 18400085 */  blez  $v0, .L7F03ADC0
-/* 06F6DC 7F03ABAC 27B00090 */   addiu $s0, $sp, 0x90
-/* 06F6E0 7F03ABB0 00027880 */  sll   $t7, $v0, 2
-/* 06F6E4 7F03ABB4 01F0A021 */  addu  $s4, $t7, $s0
-/* 06F6E8 7F03ABB8 24170001 */  li    $s7, 1
-/* 06F6EC 7F03ABBC 8FB60230 */  lw    $s6, 0x230($sp)
-/* 06F6F0 7F03ABC0 27B30054 */  addiu $s3, $sp, 0x54
-/* 06F6F4 7F03ABC4 8FB10234 */  lw    $s1, 0x234($sp)
-/* 06F6F8 7F03ABC8 8E180000 */  lw    $t8, ($s0)
-.L7F03ABCC:
-/* 06F6FC 7F03ABCC 03161021 */  addu  $v0, $t8, $s6
-/* 06F700 7F03ABD0 90590000 */  lbu   $t9, ($v0)
-/* 06F704 7F03ABD4 57200077 */  bnezl $t9, .L7F03ADB4
-/* 06F708 7F03ABD8 26100004 */   addiu $s0, $s0, 4
-/* 06F70C 7F03ABDC A0570000 */  sb    $s7, ($v0)
-/* 06F710 7F03ABE0 8FA60228 */  lw    $a2, 0x228($sp)
-/* 06F714 7F03ABE4 8FA5022C */  lw    $a1, 0x22c($sp)
-/* 06F718 7F03ABE8 0FC0EA5F */  jal   chrpropRayIntersectsRoomBbox
-/* 06F71C 7F03ABEC 8E040000 */   lw    $a0, ($s0)
-/* 06F720 7F03ABF0 1040006F */  beqz  $v0, .L7F03ADB0
-/* 06F724 7F03ABF4 02402025 */   move  $a0, $s2
-/* 06F728 7F03ABF8 8FA50224 */  lw    $a1, 0x224($sp)
-/* 06F72C 7F03ABFC 8E060000 */  lw    $a2, ($s0)
-/* 06F730 7F03AC00 0FC2DE9E */  jal   bgTestBulletHitBackground
-/* 06F734 7F03AC04 02603825 */   move  $a3, $s3
-/* 06F738 7F03AC08 10400069 */  beqz  $v0, .L7F03ADB0
-/* 06F73C 7F03AC0C C7A40054 */   lwc1  $f4, 0x54($sp)
-/* 06F740 7F03AC10 46142182 */  mul.s $f6, $f4, $f20
-/* 06F744 7F03AC14 C7A80058 */  lwc1  $f8, 0x58($sp)
-/* 06F748 7F03AC18 C7B0005C */  lwc1  $f16, 0x5c($sp)
-/* 06F74C 7F03AC1C 8FA80238 */  lw    $t0, 0x238($sp)
-/* 06F750 7F03AC20 46144282 */  mul.s $f10, $f8, $f20
-/* 06F754 7F03AC24 8E020000 */  lw    $v0, ($s0)
-/* 06F758 7F03AC28 02606025 */  move  $t4, $s3
-/* 06F75C 7F03AC2C 46148482 */  mul.s $f18, $f16, $f20
-/* 06F760 7F03AC30 E7A60054 */  swc1  $f6, 0x54($sp)
-/* 06F764 7F03AC34 02206825 */  move  $t5, $s1
-/* 06F768 7F03AC38 266B0030 */  addiu $t3, $s3, 0x30
-/* 06F76C 7F03AC3C E7AA0058 */  swc1  $f10, 0x58($sp)
-/* 06F770 7F03AC40 19000051 */  blez  $t0, .L7F03AD88
-/* 06F774 7F03AC44 E7B2005C */   swc1  $f18, 0x5c($sp)
-/* 06F778 7F03AC48 C6200000 */  lwc1  $f0, ($s1)
-/* 06F77C 7F03AC4C C6420000 */  lwc1  $f2, ($s2)
-/* 06F780 7F03AC50 4600103E */  c.le.s $f2, $f0
-/* 06F784 7F03AC54 00000000 */  nop
-/* 06F788 7F03AC58 4502000A */  bc1fl .L7F03AC84
-/* 06F78C 7F03AC5C 4602003E */   c.le.s $f0, $f2
-/* 06F790 7F03AC60 4606103E */  c.le.s $f2, $f6
-/* 06F794 7F03AC64 00000000 */  nop
-/* 06F798 7F03AC68 45020006 */  bc1fl .L7F03AC84
-/* 06F79C 7F03AC6C 4602003E */   c.le.s $f0, $f2
-/* 06F7A0 7F03AC70 4600303C */  c.lt.s $f6, $f0
-/* 06F7A4 7F03AC74 00000000 */  nop
-/* 06F7A8 7F03AC78 4503000E */  bc1tl .L7F03ACB4
-/* 06F7AC 7F03AC7C C6200004 */   lwc1  $f0, 4($s1)
-/* 06F7B0 7F03AC80 4602003E */  c.le.s $f0, $f2
-.L7F03AC84:
-/* 06F7B4 7F03AC84 C7A40054 */  lwc1  $f4, 0x54($sp)
-/* 06F7B8 7F03AC88 4502004A */  bc1fl .L7F03ADB4
-/* 06F7BC 7F03AC8C 26100004 */   addiu $s0, $s0, 4
-/* 06F7C0 7F03AC90 4602203E */  c.le.s $f4, $f2
-/* 06F7C4 7F03AC94 00000000 */  nop
-/* 06F7C8 7F03AC98 45020046 */  bc1fl .L7F03ADB4
-/* 06F7CC 7F03AC9C 26100004 */   addiu $s0, $s0, 4
-/* 06F7D0 7F03ACA0 4604003C */  c.lt.s $f0, $f4
-/* 06F7D4 7F03ACA4 00000000 */  nop
-/* 06F7D8 7F03ACA8 45020042 */  bc1fl .L7F03ADB4
-/* 06F7DC 7F03ACAC 26100004 */   addiu $s0, $s0, 4
-/* 06F7E0 7F03ACB0 C6200004 */  lwc1  $f0, 4($s1)
-.L7F03ACB4:
-/* 06F7E4 7F03ACB4 C6420004 */  lwc1  $f2, 4($s2)
-/* 06F7E8 7F03ACB8 C7A80058 */  lwc1  $f8, 0x58($sp)
-/* 06F7EC 7F03ACBC 4600103E */  c.le.s $f2, $f0
-/* 06F7F0 7F03ACC0 00000000 */  nop
-/* 06F7F4 7F03ACC4 4502000A */  bc1fl .L7F03ACF0
-/* 06F7F8 7F03ACC8 4602003E */   c.le.s $f0, $f2
-/* 06F7FC 7F03ACCC 4608103E */  c.le.s $f2, $f8
-/* 06F800 7F03ACD0 00000000 */  nop
-/* 06F804 7F03ACD4 45020006 */  bc1fl .L7F03ACF0
-/* 06F808 7F03ACD8 4602003E */   c.le.s $f0, $f2
-/* 06F80C 7F03ACDC 4600403C */  c.lt.s $f8, $f0
-/* 06F810 7F03ACE0 00000000 */  nop
-/* 06F814 7F03ACE4 4503000E */  bc1tl .L7F03AD20
-/* 06F818 7F03ACE8 C6200008 */   lwc1  $f0, 8($s1)
-/* 06F81C 7F03ACEC 4602003E */  c.le.s $f0, $f2
-.L7F03ACF0:
-/* 06F820 7F03ACF0 C7AA0058 */  lwc1  $f10, 0x58($sp)
-/* 06F824 7F03ACF4 4502002F */  bc1fl .L7F03ADB4
-/* 06F828 7F03ACF8 26100004 */   addiu $s0, $s0, 4
-/* 06F82C 7F03ACFC 4602503E */  c.le.s $f10, $f2
-/* 06F830 7F03AD00 00000000 */  nop
-/* 06F834 7F03AD04 4502002B */  bc1fl .L7F03ADB4
-/* 06F838 7F03AD08 26100004 */   addiu $s0, $s0, 4
-/* 06F83C 7F03AD0C 460A003C */  c.lt.s $f0, $f10
-/* 06F840 7F03AD10 00000000 */  nop
-/* 06F844 7F03AD14 45020027 */  bc1fl .L7F03ADB4
-/* 06F848 7F03AD18 26100004 */   addiu $s0, $s0, 4
-/* 06F84C 7F03AD1C C6200008 */  lwc1  $f0, 8($s1)
-.L7F03AD20:
-/* 06F850 7F03AD20 C6420008 */  lwc1  $f2, 8($s2)
-/* 06F854 7F03AD24 C7B0005C */  lwc1  $f16, 0x5c($sp)
-/* 06F858 7F03AD28 4600103E */  c.le.s $f2, $f0
-/* 06F85C 7F03AD2C 00000000 */  nop
-/* 06F860 7F03AD30 4502000A */  bc1fl .L7F03AD5C
-/* 06F864 7F03AD34 4602003E */   c.le.s $f0, $f2
-/* 06F868 7F03AD38 4610103E */  c.le.s $f2, $f16
-/* 06F86C 7F03AD3C 00000000 */  nop
-/* 06F870 7F03AD40 45020006 */  bc1fl .L7F03AD5C
-/* 06F874 7F03AD44 4602003E */   c.le.s $f0, $f2
-/* 06F878 7F03AD48 4600803C */  c.lt.s $f16, $f0
-/* 06F87C 7F03AD4C 00000000 */  nop
-/* 06F880 7F03AD50 4503000E */  bc1tl .L7F03AD8C
-/* 06F884 7F03AD54 AFA20238 */   sw    $v0, 0x238($sp)
-/* 06F888 7F03AD58 4602003E */  c.le.s $f0, $f2
-.L7F03AD5C:
-/* 06F88C 7F03AD5C C7B2005C */  lwc1  $f18, 0x5c($sp)
-/* 06F890 7F03AD60 45020014 */  bc1fl .L7F03ADB4
-/* 06F894 7F03AD64 26100004 */   addiu $s0, $s0, 4
-/* 06F898 7F03AD68 4602903E */  c.le.s $f18, $f2
-/* 06F89C 7F03AD6C 00000000 */  nop
-/* 06F8A0 7F03AD70 45020010 */  bc1fl .L7F03ADB4
-/* 06F8A4 7F03AD74 26100004 */   addiu $s0, $s0, 4
-/* 06F8A8 7F03AD78 4612003C */  c.lt.s $f0, $f18
-/* 06F8AC 7F03AD7C 00000000 */  nop
-/* 06F8B0 7F03AD80 4502000C */  bc1fl .L7F03ADB4
-/* 06F8B4 7F03AD84 26100004 */   addiu $s0, $s0, 4
-.L7F03AD88:
-/* 06F8B8 7F03AD88 AFA20238 */  sw    $v0, 0x238($sp)
-.L7F03AD8C:
-/* 06F8BC 7F03AD8C 8D810000 */  lw    $at, ($t4)
-/* 06F8C0 7F03AD90 258C000C */  addiu $t4, $t4, 0xc
-/* 06F8C4 7F03AD94 25AD000C */  addiu $t5, $t5, 0xc
-/* 06F8C8 7F03AD98 ADA1FFF4 */  sw    $at, -0xc($t5)
-/* 06F8CC 7F03AD9C 8D81FFF8 */  lw    $at, -8($t4)
-/* 06F8D0 7F03ADA0 ADA1FFF8 */  sw    $at, -8($t5)
-/* 06F8D4 7F03ADA4 8D81FFFC */  lw    $at, -4($t4)
-/* 06F8D8 7F03ADA8 158BFFF8 */  bne   $t4, $t3, .L7F03AD8C
-/* 06F8DC 7F03ADAC ADA1FFFC */   sw    $at, -4($t5)
-.L7F03ADB0:
-/* 06F8E0 7F03ADB0 26100004 */  addiu $s0, $s0, 4
-.L7F03ADB4:
-/* 06F8E4 7F03ADB4 0214082B */  sltu  $at, $s0, $s4
-/* 06F8E8 7F03ADB8 5420FF84 */  bnezl $at, .L7F03ABCC
-/* 06F8EC 7F03ADBC 8E180000 */   lw    $t8, ($s0)
-.L7F03ADC0:
-/* 06F8F0 7F03ADC0 8FBF003C */  lw    $ra, 0x3c($sp)
-/* 06F8F4 7F03ADC4 8FA20238 */  lw    $v0, 0x238($sp)
-/* 06F8F8 7F03ADC8 D7B40010 */  ldc1  $f20, 0x10($sp)
-/* 06F8FC 7F03ADCC 8FB0001C */  lw    $s0, 0x1c($sp)
-/* 06F900 7F03ADD0 8FB10020 */  lw    $s1, 0x20($sp)
-/* 06F904 7F03ADD4 8FB20024 */  lw    $s2, 0x24($sp)
-/* 06F908 7F03ADD8 8FB30028 */  lw    $s3, 0x28($sp)
-/* 06F90C 7F03ADDC 8FB4002C */  lw    $s4, 0x2c($sp)
-/* 06F910 7F03ADE0 8FB50030 */  lw    $s5, 0x30($sp)
-/* 06F914 7F03ADE4 8FB60034 */  lw    $s6, 0x34($sp)
-/* 06F918 7F03ADE8 8FB70038 */  lw    $s7, 0x38($sp)
-/* 06F91C 7F03ADEC 03E00008 */  jr    $ra
-/* 06F920 7F03ADF0 27BD0220 */   addiu $sp, $sp, 0x220
-)
-#endif
 
 
 /**
