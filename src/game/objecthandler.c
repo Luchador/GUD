@@ -487,22 +487,22 @@ def_7F06B16C:
 #endif
 
 
-void sub_GAME_7F06B248(ModelNode *node)
+void sub_GAME_7F06B248(ModelHitEntry *entry)
 {
     ModelNode *oldhead;
     ModelNode *tail;
     
-    if (node != NULL) {
+    if (entry != NULL) {
         oldhead = D_80036060;
         if (oldhead != NULL) {
-            tail = node;
+            tail = entry;
             while (tail->Next != NULL) {
                 tail = tail->Next;
             }
             tail->Next = oldhead;
             D_80036060->Prev = tail;
         }
-        D_80036060 = node;
+        D_80036060 = entry;
     }
 }
 
@@ -1453,7 +1453,7 @@ const char aDrawjointlistObjectNotInitialised0[] = "drawjointlist: object not in
 #endif
 
 #ifdef NONMATCHING
-void drawjointlist(ModelRenderData *mrData, void *field_20)
+void drawjointlist(ModelRenderData *mrData, ModelHitEntry *entry)
 {
     Model           *temp_a2;
     ModelFileHeader *mfhModel;
@@ -1902,325 +1902,135 @@ glabel drawjointlist
 #endif
 
 
-
-f32 probably_damage_detail_blood_effect_related(ModelFileHeader *head, s32 unused, s32 unused2, s32 *arg3, s32 *arg4);
-#ifdef NONMATCHING
-/* DISPLAY WARNING: Type casts are NOT being printed */
-
-void *probably_damage_detail_blood_effect_related(ModelFileHeader *node, Coord3d *param_2, Coord3d *param_3, ulonglong param_4, ModelFileHeader *param_5)
-
+s32 probably_damage_detail_blood_effect_related(ModelHitEntry **entryptr, coord3d *raypos, coord3d *raydir, Model **outModel, ModelNode **inoutNode)
 {
-    bool       bVar1;
-    void      *pvVar4;
-    undefined8 uVar2;
-    double     dVar3;
-    ModelNode *rootNode;
-    ModelNode *chrNode;
-    ModelNode *chr;
+    ModelHitEntry *entry = *entryptr;
+    ModelNode *node;
+    s32 descend;
+    ModelNode *root;
+    ModelNode *next;
 
-    rootNode = node->RootNode;
-    do
-    {
-        if (rootNode == NULL)
-        {
-            node->RootNode = NULL;
-            dVar3          = 0.0;
-LAB_8239ec34:
-            return dVar3;
+    while (entry != NULL) {
+        ModelNode *resume = *inoutNode;
+
+        root = entry->rootnode;
+        descend = TRUE;
+
+        if (resume != NULL) {
+            node = resume;
+            *inoutNode = NULL;
+        } else {
+            node = root;
         }
-        bVar1   = true;
-        chr     = rootNode->Data;
-        chrNode = chr;
-        if (param_5->RootNode != NULL)
-        {
-            chrNode           = param_5->RootNode;
-            param_5->RootNode = NULL;
-        }
-        while (chrNode != NULL)
-        {
-            if ((bVar1) && (chrNode->Child != NULL))
-            {
-                chrNode = chrNode->Child;
-            }
-            else
-            {
-                for (; chrNode != NULL; chrNode = chrNode->Parent)
-                {
-                    if (chrNode == chr)
-                    {
-                        chrNode = NULL;
-                        break;
-                    }
-                    if (chrNode->Next != NULL)
-                    {
-                        chrNode = chrNode->Next;
-                        break;
+
+        while (node != NULL) {
+            if (descend && node->Child != NULL) {
+                node = node->Child;
+            } else {
+                if (node != NULL) {
+walk_node:
+                    if (node == root) {
+                        node = NULL;
+                    } else {
+                        next = node->Next;
+
+                        if (next != NULL) {
+                            node = next;
+                        } else {
+                            node = node->Parent;
+
+                            if (node != NULL) {
+                                goto walk_node;
+                            }
+                        }
                     }
                 }
-                if (chrNode == NULL) break;
+
+                if (node == NULL) {
+                    break;
+                }
             }
-            bVar1 = true;
-            switch (*&chrNode->Opcode & 0xff)
+
+            descend = TRUE;
+            
             {
-                case 1:
-                case 2:
-                case 3:
-                case 0x15:
-                    bVar1 = false;
+                u16 opcode = node->Opcode;
+            
+                descend = TRUE;
+            
+                switch (opcode & 0xff) {
+                case MODELNODE_OPCODE_HEADER:
+                case MODELNODE_OPCODE_GROUP:
+                case MODELNODE_OPCODE_OP03:
+                case MODELNODE_OPCODE_GROUPSIMPLE:
+                    descend = FALSE;
                     break;
-                case 8:
-                    modelApplyDistanceRelations(rootNode->Opcode, chrNode);
+            
+                case MODELNODE_OPCODE_OP11:
+                case MODELNODE_OPCODE_GUNFIRE:
+                case MODELNODE_OPCODE_SHADOW:
+                case MODELNODE_OPCODE_OP14:
+                case MODELNODE_OPCODE_INTERLINK:
+                case MODELNODE_OPCODE_OP16:
+                    descend = FALSE;
                     break;
-                case 10:
-                    pvVar4 = sub_GAME_7F074C68(rootNode->Opcode, chrNode, param_2, param_3);
-                    if (pvVar4 != NULL)
-                    {
-                        *param_4          = rootNode->Opcode;
-                        param_5->RootNode = chrNode;
-                        node->RootNode    = rootNode;
-                        /* WARNING: Load size is inaccurate */
-                        dVar3             = *chrNode->Data;
-                        goto LAB_8239ec34;
+            
+                case MODELNODE_OPCODE_BBOX:
+                    if (sub_GAME_7F074C68(entry->model, node, raypos, raydir)) {
+                        *outModel = entry->model;
+                        *inoutNode = node;
+                        *entryptr = entry;
+            
+                        return *(s32 *)node->Data;
                     }
-                    bVar1 = false;
+            
+                    descend = FALSE;
                     break;
-                case 0xb:
-                case 0xc:
-                case 0xd:
-                case 0xe:
-                case 0xf:
-                case 0x10:
-                    bVar1 = false;
-                    break;
-                case 0x11:
-                    uVar2 = sub_GAME_7F074CAC(rootNode->Opcode, chrNode, &param_2->x, &param_3->x);
-                    if (uVar2 != 0)
-                    {
-                        *param_4          = rootNode->Opcode;
-                        param_5->RootNode = chrNode;
-                        node->RootNode    = rootNode;
-                        /* WARNING: Load size is inaccurate */
-                        dVar3             = *chrNode->Data;
-                        goto LAB_8239ec34;
+            
+                case MODELNODE_OPCODE_OP17:
+                    if (sub_GAME_7F074CAC(entry->model, node, raypos, raydir)) {
+                        *outModel = entry->model;
+                        *inoutNode = node;
+                        *entryptr = entry;
+            
+                        return *(s32 *)node->Data;
                     }
-                    bVar1 = false;
+            
+                    descend = FALSE;
                     break;
-                case 0x12:
-                    modelApplyToggleRelations(rootNode->Opcode, chrNode);
+            
+                case MODELNODE_OPCODE_LOD:
+                    modelApplyDistanceRelations(entry->model, node);
                     break;
-                case 0x17:
-                    modelApplyHeadRelations(rootNode->Opcode, chrNode);
+            
+                case MODELNODE_OPCODE_SWITCH:
+                    modelApplyToggleRelations(entry->model, node);
+                    break;
+            
+                case MODELNODE_OPCODE_HEAD:
+                    modelApplyHeadRelations(entry->model, node);
+                    break;
+            
+                case MODELNODE_OPCODE_DLCOLLISION:
+                default:
+                    break;
+                }
             }
         }
-        rootNode = rootNode->Prev;
-    } while (true);
+
+        entry = entry->prev;
+    }
+
+    *entryptr = NULL;
+    return 0;
 }
-#else
-GLOBAL_ASM(
-.late_rodata
-/*D:80054598*/
-glabel jpt_damage_detail
-.word .L7F06BEF4
-.word .L7F06BEF4
-.word .L7F06BEF4
-.word .L7F06BFC8
-.word .L7F06BFC8
-.word .L7F06BFC8
-.word .L7F06BFC8
-.word .L7F06BF94
-.word .L7F06BFC8
-.word .L7F06BF04
-.word .L7F06BEFC
-.word .L7F06BEFC
-.word .L7F06BEFC
-.word .L7F06BEFC
-.word .L7F06BEFC
-.word .L7F06BEFC
-.word .L7F06BF4C
-.word .L7F06BFA8
-.word .L7F06BFC8
-.word .L7F06BFC8
-.word .L7F06BEF4
-.word .L7F06BFC8
-.word .L7F06BFBC
-.word .L7F06BFC8
-.size jpt_damage_detail, . - jpt_damage_detail
-
-/*D:800545F8*/
-glabel D_800545F8
-.word 0,0
-
-.text
-glabel probably_damage_detail_blood_effect_related
-/* 0A0930 7F06BE00 27BDFFC8 */  addiu $sp, $sp, -0x38
-/* 0A0934 7F06BE04 AFBF0034 */  sw    $ra, 0x34($sp)
-/* 0A0938 7F06BE08 AFB60030 */  sw    $s6, 0x30($sp)
-/* 0A093C 7F06BE0C AFB5002C */  sw    $s5, 0x2c($sp)
-/* 0A0940 7F06BE10 AFB40028 */  sw    $s4, 0x28($sp)
-/* 0A0944 7F06BE14 AFB30024 */  sw    $s3, 0x24($sp)
-/* 0A0948 7F06BE18 AFB20020 */  sw    $s2, 0x20($sp)
-/* 0A094C 7F06BE1C AFB1001C */  sw    $s1, 0x1c($sp)
-/* 0A0950 7F06BE20 AFB00018 */  sw    $s0, 0x18($sp)
-/* 0A0954 7F06BE24 AFA40038 */  sw    $a0, 0x38($sp)
-/* 0A0958 7F06BE28 AFA70044 */  sw    $a3, 0x44($sp)
-/* 0A095C 7F06BE2C 8C930000 */  lw    $s3, ($a0)
-/* 0A0960 7F06BE30 00A0A025 */  move  $s4, $a1
-/* 0A0964 7F06BE34 00C0A825 */  move  $s5, $a2
-/* 0A0968 7F06BE38 12600068 */  beqz  $s3, .L7F06BFDC
-/* 0A096C 7F06BE3C 8FB60048 */   lw    $s6, 0x48($sp)
-/* 0A0970 7F06BE40 8EC20000 */  lw    $v0, ($s6)
-.L7F06BE44:
-/* 0A0974 7F06BE44 8E720004 */  lw    $s2, 4($s3)
-/* 0A0978 7F06BE48 24110001 */  li    $s1, 1
-/* 0A097C 7F06BE4C 10400004 */  beqz  $v0, .L7F06BE60
-/* 0A0980 7F06BE50 02408025 */   move  $s0, $s2
-/* 0A0984 7F06BE54 00408025 */  move  $s0, $v0
-/* 0A0988 7F06BE58 10000001 */  b     .L7F06BE60
-/* 0A098C 7F06BE5C AEC00000 */   sw    $zero, ($s6)
-.L7F06BE60:
-/* 0A0990 7F06BE60 5200005C */  beql  $s0, $zero, .L7F06BFD4
-/* 0A0994 7F06BE64 8E730010 */   lw    $s3, 0x10($s3)
-.L7F06BE68:
-/* 0A0998 7F06BE68 12200006 */  beqz  $s1, .L7F06BE84
-/* 0A099C 7F06BE6C 00000000 */   nop
-/* 0A09A0 7F06BE70 8E020014 */  lw    $v0, 0x14($s0)
-/* 0A09A4 7F06BE74 10400003 */  beqz  $v0, .L7F06BE84
-/* 0A09A8 7F06BE78 00000000 */   nop
-/* 0A09AC 7F06BE7C 10000011 */  b     .L7F06BEC4
-/* 0A09B0 7F06BE80 00408025 */   move  $s0, $v0
-.L7F06BE84:
-/* 0A09B4 7F06BE84 1200000D */  beqz  $s0, .L7F06BEBC
-/* 0A09B8 7F06BE88 00000000 */   nop
-.L7F06BE8C:
-/* 0A09BC 7F06BE8C 56120004 */  bnel  $s0, $s2, .L7F06BEA0
-/* 0A09C0 7F06BE90 8E02000C */   lw    $v0, 0xc($s0)
-/* 0A09C4 7F06BE94 10000009 */  b     .L7F06BEBC
-/* 0A09C8 7F06BE98 00008025 */   move  $s0, $zero
-/* 0A09CC 7F06BE9C 8E02000C */  lw    $v0, 0xc($s0)
-.L7F06BEA0:
-/* 0A09D0 7F06BEA0 50400004 */  beql  $v0, $zero, .L7F06BEB4
-/* 0A09D4 7F06BEA4 8E100008 */   lw    $s0, 8($s0)
-/* 0A09D8 7F06BEA8 10000004 */  b     .L7F06BEBC
-/* 0A09DC 7F06BEAC 00408025 */   move  $s0, $v0
-/* 0A09E0 7F06BEB0 8E100008 */  lw    $s0, 8($s0)
-.L7F06BEB4:
-/* 0A09E4 7F06BEB4 1600FFF5 */  bnez  $s0, .L7F06BE8C
-/* 0A09E8 7F06BEB8 00000000 */   nop
-.L7F06BEBC:
-/* 0A09EC 7F06BEBC 52000045 */  beql  $s0, $zero, .L7F06BFD4
-/* 0A09F0 7F06BEC0 8E730010 */   lw    $s3, 0x10($s3)
-.L7F06BEC4:
-/* 0A09F4 7F06BEC4 96020000 */  lhu   $v0, ($s0)
-/* 0A09F8 7F06BEC8 24110001 */  li    $s1, 1
-/* 0A09FC 7F06BECC 304F00FF */  andi  $t7, $v0, 0xff
-/* 0A0A00 7F06BED0 25F8FFFF */  addiu $t8, $t7, -1
-/* 0A0A04 7F06BED4 2F010018 */  sltiu $at, $t8, 0x18
-/* 0A0A08 7F06BED8 1020003B */  beqz  $at, .L7F06BFC8
-/* 0A0A0C 7F06BEDC 0018C080 */   sll   $t8, $t8, 2
-/* 0A0A10 7F06BEE0 3C018005 */  lui   $at, %hi(jpt_damage_detail)
-/* 0A0A14 7F06BEE4 00380821 */  addu  $at, $at, $t8
-/* 0A0A18 7F06BEE8 8C384598 */  lw    $t8, %lo(jpt_damage_detail)($at)
-.L7F06BEEC:
-/* 0A0A1C 7F06BEEC 03000008 */  jr    $t8
-/* 0A0A20 7F06BEF0 00000000 */   nop
-.L7F06BEF4:
-/* 0A0A24 7F06BEF4 10000034 */  b     .L7F06BFC8
-/* 0A0A28 7F06BEF8 00008825 */   move  $s1, $zero
-.L7F06BEFC:
-/* 0A0A2C 7F06BEFC 10000032 */  b     .L7F06BFC8
-/* 0A0A30 7F06BF00 00008825 */   move  $s1, $zero
-.L7F06BF04:
-/* 0A0A34 7F06BF04 8E640000 */  lw    $a0, ($s3)
-/* 0A0A38 7F06BF08 02002825 */  move  $a1, $s0
-/* 0A0A3C 7F06BF0C 02803025 */  move  $a2, $s4
-/* 0A0A40 7F06BF10 0FC1D31A */  jal   sub_GAME_7F074C68
-/* 0A0A44 7F06BF14 02A03825 */   move  $a3, $s5
-/* 0A0A48 7F06BF18 1040000A */  beqz  $v0, .L7F06BF44
-/* 0A0A4C 7F06BF1C 00000000 */   nop
-/* 0A0A50 7F06BF20 8E790000 */  lw    $t9, ($s3)
-/* 0A0A54 7F06BF24 8FA80044 */  lw    $t0, 0x44($sp)
-/* 0A0A58 7F06BF28 AD190000 */  sw    $t9, ($t0)
-/* 0A0A5C 7F06BF2C AED00000 */  sw    $s0, ($s6)
-/* 0A0A60 7F06BF30 8FA90038 */  lw    $t1, 0x38($sp)
-/* 0A0A64 7F06BF34 AD330000 */  sw    $s3, ($t1)
-/* 0A0A68 7F06BF38 8E0A0004 */  lw    $t2, 4($s0)
-/* 0A0A6C 7F06BF3C 1000002A */  b     .L7F06BFE8
-/* 0A0A70 7F06BF40 8D420000 */   lw    $v0, ($t2)
-.L7F06BF44:
-/* 0A0A74 7F06BF44 10000020 */  b     .L7F06BFC8
-/* 0A0A78 7F06BF48 00008825 */   move  $s1, $zero
-.L7F06BF4C:
-/* 0A0A7C 7F06BF4C 8E640000 */  lw    $a0, ($s3)
-/* 0A0A80 7F06BF50 02002825 */  move  $a1, $s0
-/* 0A0A84 7F06BF54 02803025 */  move  $a2, $s4
-/* 0A0A88 7F06BF58 0FC1D32B */  jal   sub_GAME_7F074CAC
-/* 0A0A8C 7F06BF5C 02A03825 */   move  $a3, $s5
-/* 0A0A90 7F06BF60 1040000A */  beqz  $v0, .L7F06BF8C
-/* 0A0A94 7F06BF64 00000000 */   nop
-/* 0A0A98 7F06BF68 8E6B0000 */  lw    $t3, ($s3)
-/* 0A0A9C 7F06BF6C 8FAC0044 */  lw    $t4, 0x44($sp)
-/* 0A0AA0 7F06BF70 AD8B0000 */  sw    $t3, ($t4)
-/* 0A0AA4 7F06BF74 AED00000 */  sw    $s0, ($s6)
-/* 0A0AA8 7F06BF78 8FAD0038 */  lw    $t5, 0x38($sp)
-/* 0A0AAC 7F06BF7C ADB30000 */  sw    $s3, ($t5)
-/* 0A0AB0 7F06BF80 8E0E0004 */  lw    $t6, 4($s0)
-/* 0A0AB4 7F06BF84 10000018 */  b     .L7F06BFE8
-/* 0A0AB8 7F06BF88 8DC20000 */   lw    $v0, ($t6)
-.L7F06BF8C:
-/* 0A0ABC 7F06BF8C 1000000E */  b     .L7F06BFC8
-/* 0A0AC0 7F06BF90 00008825 */   move  $s1, $zero
-.L7F06BF94:
-/* 0A0AC4 7F06BF94 8E640000 */  lw    $a0, ($s3)
-/* 0A0AC8 7F06BF98 0FC1BA5C */  jal   modelApplyDistanceRelations
-/* 0A0ACC 7F06BF9C 02002825 */   move  $a1, $s0
-/* 0A0AD0 7F06BFA0 10000009 */  b     .L7F06BFC8
-/* 0A0AD4 7F06BFA4 00000000 */   nop
-.L7F06BFA8:
-/* 0A0AD8 7F06BFA8 8E640000 */  lw    $a0, ($s3)
-/* 0A0ADC 7F06BFAC 0FC1BA6F */  jal   modelApplyToggleRelations
-/* 0A0AE0 7F06BFB0 02002825 */   move  $a1, $s0
-/* 0A0AE4 7F06BFB4 10000004 */  b     .L7F06BFC8
-/* 0A0AE8 7F06BFB8 00000000 */   nop
-.L7F06BFBC:
-/* 0A0AEC 7F06BFBC 8E640000 */  lw    $a0, ($s3)
-/* 0A0AF0 7F06BFC0 0FC1BA82 */  jal   modelApplyHeadRelations
-/* 0A0AF4 7F06BFC4 02002825 */   move  $a1, $s0
-def_7F06BEEC:
-.L7F06BFC8:
-/* 0A0AF8 7F06BFC8 1600FFA7 */  bnez  $s0, .L7F06BE68
-/* 0A0AFC 7F06BFCC 00000000 */   nop
-/* 0A0B00 7F06BFD0 8E730010 */  lw    $s3, 0x10($s3)
-.L7F06BFD4:
-/* 0A0B04 7F06BFD4 5660FF9B */  bnezl $s3, .L7F06BE44
-/* 0A0B08 7F06BFD8 8EC20000 */   lw    $v0, ($s6)
-.L7F06BFDC:
-/* 0A0B0C 7F06BFDC 8FAF0038 */  lw    $t7, 0x38($sp)
-/* 0A0B10 7F06BFE0 00001025 */  move  $v0, $zero
-/* 0A0B14 7F06BFE4 ADE00000 */  sw    $zero, ($t7)
-.L7F06BFE8:
-/* 0A0B18 7F06BFE8 8FBF0034 */  lw    $ra, 0x34($sp)
-/* 0A0B1C 7F06BFEC 8FB00018 */  lw    $s0, 0x18($sp)
-/* 0A0B20 7F06BFF0 8FB1001C */  lw    $s1, 0x1c($sp)
-/* 0A0B24 7F06BFF4 8FB20020 */  lw    $s2, 0x20($sp)
-/* 0A0B28 7F06BFF8 8FB30024 */  lw    $s3, 0x24($sp)
-/* 0A0B2C 7F06BFFC 8FB40028 */  lw    $s4, 0x28($sp)
-/* 0A0B30 7F06C000 8FB5002C */  lw    $s5, 0x2c($sp)
-/* 0A0B34 7F06C004 8FB60030 */  lw    $s6, 0x30($sp)
-/* 0A0B38 7F06C008 03E00008 */  jr    $ra
-/* 0A0B3C 7F06C00C 27BD0038 */   addiu $sp, $sp, 0x38
-)
-#endif
 
 
-
-
-
-#if 1
-/*
-* Address: 0x7F06C010
+/**
+ * Address: 0x7F06C010
 * https://decomp.me/scratch/IDiXU
  * #MATCH! Unlikley match, not sure why we are setting the root node to the last node.
- */
+ 
 f32 sub_GAME_7F06C010(ModelFileHeader *head, s32 unused, s32 unused2, s32 *arg3, s32 *arg4)
 {
     ModelNode *lastnode = head->RootNode;
@@ -2234,36 +2044,28 @@ f32 sub_GAME_7F06C010(ModelFileHeader *head, s32 unused, s32 unused2, s32 *arg3,
     *arg3          = 0;
     *arg4          = 0;
     return probably_damage_detail_blood_effect_related(head, unused, unused2, arg3, arg4);
+}*/
+
+
+/**
+ * Address: 7F06C010
+ * 
+ * Update: decompiling probably_damage_detail_blood_effect_related revealed that the first argument for this function is a ModelHitEntry.
+ * The previous function matched because both ModelNode and ModelHitEntry happen to have a normal 32 bit field at offset 0x0c.
+ */
+s32 sub_GAME_7F06C010(ModelHitEntry **entryptr, coord3d *modelRayStart, coord3d *modelRayDir, Model **outModel, ModelNode **outNode)
+{
+    ModelHitEntry *entry = *entryptr;
+
+    while (entry->next != NULL) 
+    {
+        entry = entry->next;
+    }
+
+    *entryptr = entry;
+    *outModel = NULL;
+    *outNode = NULL;
+
+    return probably_damage_detail_blood_effect_related( entryptr, modelRayStart, modelRayDir, outModel, outNode);
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F06C010
-/* 0A0B40 7F06C010 27BDFFE0 */  addiu $sp, $sp, -0x20
-/* 0A0B44 7F06C014 AFBF001C */  sw    $ra, 0x1c($sp)
-/* 0A0B48 7F06C018 8C830000 */  lw    $v1, ($a0)
-/* 0A0B4C 7F06C01C 8C62000C */  lw    $v0, 0xc($v1)
-/* 0A0B50 7F06C020 50400006 */  beql  $v0, $zero, .L7F06C03C
-/* 0A0B54 7F06C024 8FA20030 */   lw    $v0, 0x30($sp)
-/* 0A0B58 7F06C028 00401825 */  move  $v1, $v0
-.L7F06C02C:
-/* 0A0B5C 7F06C02C 8C42000C */  lw    $v0, 0xc($v0)
-/* 0A0B60 7F06C030 5440FFFE */  bnezl $v0, .L7F06C02C
-/* 0A0B64 7F06C034 00401825 */   move  $v1, $v0
-/* 0A0B68 7F06C038 8FA20030 */  lw    $v0, 0x30($sp)
-.L7F06C03C:
-/* 0A0B6C 7F06C03C AC830000 */  sw    $v1, ($a0)
-/* 0A0B70 7F06C040 ACE00000 */  sw    $zero, ($a3)
-/* 0A0B74 7F06C044 AC400000 */  sw    $zero, ($v0)
-/* 0A0B78 7F06C048 0FC1AF80 */  jal   probably_damage_detail_blood_effect_related
-/* 0A0B7C 7F06C04C AFA20010 */   sw    $v0, 0x10($sp)
-/* 0A0B80 7F06C050 8FBF001C */  lw    $ra, 0x1c($sp)
-/* 0A0B84 7F06C054 27BD0020 */  addiu $sp, $sp, 0x20
-/* 0A0B88 7F06C058 03E00008 */  jr    $ra
-/* 0A0B8C 7F06C05C 00000000 */   nop
-)
-#endif
-
-
-
 

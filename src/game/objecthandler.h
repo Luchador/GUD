@@ -105,8 +105,8 @@ void load_object_into_memory_unused_maybe(ModelFileHeader *header,int *recallstr
 PropRecord *chrGiveWeapon(ChrRecord *self, s32 PropID, ITEM_IDS ItemID, s32 flags);
 
 // called with struct ChrRecord->field_20
-void sub_GAME_7F06B248(ModelNode *node);
-void drawjointlist(ModelRenderData *arg0, void* arg1);
+void sub_GAME_7F06B248(ModelHitEntry *entry);
+void drawjointlist(ModelRenderData *arg0, ModelHitEntry *entry);
 
 void load_object_fill_header(struct ModelFileHeader *objheader, u8 *name, u8* dst, s32 size, struct texpool * buffer);
 

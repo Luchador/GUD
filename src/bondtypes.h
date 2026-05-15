@@ -2280,29 +2280,29 @@ typedef union
     /* unfinished struct, WIP */
     typedef struct ChrRecord
     {
-        s16         chrnum;                      /* 0x0000 */
-        s8          accuracyrating;              /* 0x0002 */
-        s8          speedrating; /* 0x0003 */    //0-100
-        u8          firecount[2];                /* 0x0004 */
-        s8          headnum;                     /* 0x0006 */
-        ACT_TYPE    actiontype : 8; /* 0x0007 */ //force 8bit
-        s8          sleep;                       /* 0x0008 */
-        s8          invalidmove;                 /* 0x0009 */
-        s8          numclosearghs;               /* 0x000A */
-        s8          numarghs;                    /* 0x000B */
-        u8          fadealpha;                   /* 0x000C */
-        s8          arghrating;                  /* 0x000D */
-        s8          aimendcount;                 /* 0x000E */
-        s8          bodynum;                     /* 0x000F */
-        u8          grenadeprob;                 /* 0x0010 */
-        s8          flinchcnt;                   /* 0x0011 */
-        u16         hidden;                      /* 0x0012 */
-        CHRFLAG     chrflags;                    /* 0x0014 */
-        PropRecord *prop;                        /* 0x0018 */
-        Model      *model;                       /* 0x001C */
-        ModelNode  *field_20;                    /* 0x0020 */
-        f32         chrwidth;              /* 0x0024 */
-        f32         chrheight;             /* 0x0028 */
+        s16             chrnum;                      /* 0x0000 */
+        s8              accuracyrating;              /* 0x0002 */
+        s8              speedrating;                 /* 0x0003 */    //0-100
+        u8              firecount[2];                /* 0x0004 */
+        s8              headnum;                     /* 0x0006 */
+        ACT_TYPE        actiontype : 8;              /* 0x0007 */ //force 8bit
+        s8              sleep;                       /* 0x0008 */
+        s8              invalidmove;                 /* 0x0009 */
+        s8              numclosearghs;               /* 0x000A */
+        s8              numarghs;                    /* 0x000B */
+        u8              fadealpha;                   /* 0x000C */
+        s8              arghrating;                  /* 0x000D */
+        s8              aimendcount;                 /* 0x000E */
+        s8              bodynum;                     /* 0x000F */
+        u8              grenadeprob;                 /* 0x0010 */
+        s8              flinchcnt;                   /* 0x0011 */
+        u16             hidden;                      /* 0x0012 */
+        CHRFLAG         chrflags;                    /* 0x0014 */
+        PropRecord     *prop;                        /* 0x0018 */
+        Model          *model;                       /* 0x001C */
+        ModelHitEntry  *field_20;                    /* 0x0020 */
+        f32             chrwidth;                    /* 0x0024 */
+        f32             chrheight;                   /* 0x0028 */
         union
         {
             struct act_init         act_init;
