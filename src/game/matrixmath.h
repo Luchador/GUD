@@ -53,6 +53,6 @@ void matrix_4x4_multiply_homogeneous_eu(f32 lhs[3][3], f32 rhs[3][3], f32 result
 
 /* matrixmath_misc.h */
 
-void sub_GAME_7F05AE00(vec3d *x, vec3d *y, f32 scaler, vec3d *result);
+void vec3Lerp(vec3d *x, vec3d *y, f32 scaler, vec3d *result);
 
 #endif

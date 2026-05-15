@@ -360,7 +360,7 @@ void bheadUpdate(f32 percent_speed, f32 speedsideways)
 
         // result = x vector plus ((y - x vector) * scaler)
         // lookvel = ...
-        sub_GAME_7F05AE00(
+        vec3Lerp(
             &g_CurrentPlayer->standlook[g_CurrentPlayer->standcnt].f[0],
             &g_CurrentPlayer->standlook[1 - g_CurrentPlayer->standcnt].f[0],
             g_CurrentPlayer->standfrac,
@@ -371,7 +371,7 @@ void bheadUpdate(f32 percent_speed, f32 speedsideways)
 
         // result = x vector plus ((y - x vector) * scaler)
         // upvel = ...
-        sub_GAME_7F05AE00(
+        vec3Lerp(
             &g_CurrentPlayer->standup[g_CurrentPlayer->standcnt].f[0],
             &g_CurrentPlayer->standup[1 - g_CurrentPlayer->standcnt].f[0],
             g_CurrentPlayer->standfrac,
