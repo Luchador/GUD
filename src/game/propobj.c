@@ -1055,7 +1055,10 @@ float objGetWidth(struct ObjectRecord * obj)
 }
 
 
-bool sub_GAME_7F041074(coord3d *zeropos, coord3d *pos, coord3d *vec, f32 scale)
+/**
+ * Address: 7F041074
+ */
+bool projectileTestPropBoundingSphere(coord3d *zeropos, coord3d *pos, coord3d *vec, f32 scale)
 {
     vec3d vector;
     f32 dist2rd;
@@ -1071,11 +1074,11 @@ bool sub_GAME_7F041074(coord3d *zeropos, coord3d *pos, coord3d *vec, f32 scale)
         f32 b = vector.f[0] * vector.f[0] + vector.f[1] * vector.f[1] + vector.f[2] * vector.f[2];
 
         if ((b - scale * scale) * a <= dist2rd * dist2rd) {
-            return 1;
+            return TRUE;
         }
     }
 
-    return 0;
+    return FALSE;
 }
 
 
@@ -1484,7 +1487,7 @@ bool projectileTestObjectCollision(ObjectRecord *obj, coord3d *worldRayOrigin, c
                 prop = obj->prop;
                 instsize = getinstsize(modelstack[0]);
 
-                if (sub_GAME_7F041074(worldRayOrigin, worldRayDir, &obj->runtime_pos, instsize)) {
+                if (projectileTestPropBoundingSphere(worldRayOrigin, worldRayDir, &obj->runtime_pos, instsize)) {
                     *hitDist = maxDist;
 
                     if (sub_GAME_7F041400(prop, worldRayOrigin, worldRayEnd, worldRayDir, hitPos, hitNormal, hitDist)) {

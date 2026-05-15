@@ -4,46 +4,7 @@
 #include <ultra64.h>
 #include <bondconstants.h>
 #include <bondtypes.h>
-#include <snd.h>
-
-struct HitThing {
-    coord3d hitpos;     // 0x00
-    coord3d normal;     // 0x0c
-
-    Vertex *vtx0;       // 0x18
-    Vertex *vtx1;       // 0x1c
-    Vertex *vtx2;       // 0x20
-
-    Gfx *tricmd;        // 0x24 - display-list command associated with hit triangle
-
-    s16 unk28;          // 0x28
-    s16 texturenum;     // 0x2a
-
-    s16 tileformat;     // 0x2c
-    s16 tilesize;       // 0x2e
-};      
-
-struct BulletHit {
-    f32 dist;                   // 0x00
-    PropRecord *prop;           // 0x04
-    s32 hitpart;                // 0x08
-    ModelNode *node;            // 0x0c
-    struct HitThing hit;        // 0x10, size 0x30
-    s32 room;                   // 0x40
-    s32 unk44;                  // 0x44
-    Model *model;               // 0x48
-    s32 countsAsPenetration;    // 0x4c
-};   
-
-struct ShotData {
-    coord3d unk00;              // 0x00
-    coord3d unk0c;              // 0x0c
-    ITEM_IDS weapon;            // 0x18
-    coord3d gunpos;             // 0x1c
-    coord3d dir;                // 0x28
-    f32 maxdist;                // 0x34
-    struct BulletHit hits[10];  // 0x38
-};     
+#include <snd.h>   
 
 extern f32 F_80030B14;
 extern f32 F_80030B18;
@@ -105,7 +66,7 @@ void                 sub_GAME_7F03FDA8(PropRecord *);
 void                 projectileSetSticky(PropRecord *);
 void                 chrobjCollisionRelated(ObjectRecord *);
 void                 objChangeShading(ObjectRecord *, coord3d *, Mtxf *, StandTile *);
-s32                  sub_GAME_7F041074(coord3d *arg0, coord3d *arg1, coord3d *arg2, f32 arg3);
+s32                  projectileTestPropBoundingSphere(coord3d *arg0, coord3d *arg1, coord3d *arg2, f32 arg3);
 void                 sub_GAME_7F04F244(PropRecord *arg0, struct rect4f **arg1, s32 *arg2, f32 *arg3, f32 *arg4);
 void                 doorActivate(DoorRecord *door, DOORSTATE State);
 s32                  posIsInFrontOfDoor(PropRecord *arg0, DoorRecord *arg1);

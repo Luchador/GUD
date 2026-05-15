@@ -1535,6 +1535,57 @@ typedef union
         } ExplosionDetailsRecordEuList;
 #pragma endregion Explosion Stuff
 
+#pragma region Hit Structures
+
+    typedef struct HitThing {
+        coord3d hitpos;     // 0x00
+        coord3d normal;     // 0x0c
+
+        Vertex *vtx0;       // 0x18
+        Vertex *vtx1;       // 0x1c
+        Vertex *vtx2;       // 0x20
+
+        Gfx *tricmd;        // 0x24 - display-list command associated with hit triangle
+
+        s16 unk28;          // 0x28
+        s16 texturenum;     // 0x2a
+
+        s16 tileformat;     // 0x2c
+        s16 tilesize;       // 0x2e
+    } HitThing;
+
+    typedef struct BulletHit {
+        f32 dist;                   // 0x00
+        struct PropRecord *prop;    // 0x04
+        s32 hitpart;                // 0x08
+        struct ModelNode *node;     // 0x0c
+        HitThing hit;               // 0x10, size 0x30
+        s32 room;                   // 0x40
+        s32 unk44;                  // 0x44
+        struct Model *model;        // 0x48
+        s32 countsAsPenetration;    // 0x4c
+    } BulletHit;
+
+    typedef struct ShotData {
+        coord3d unk00;              // 0x00
+        coord3d unk0c;              // 0x0c
+        ITEM_IDS weapon;            // 0x18
+        coord3d gunpos;             // 0x1c
+        coord3d dir;                // 0x28
+        f32 maxdist;                // 0x34
+        BulletHit hits[10];         // 0x38
+    } ShotData;
+
+    typedef struct ModelHitEntry {
+        struct Model *model;                  /* 0x00 */
+        struct ModelNode *rootnode;           /* 0x04 */
+        void *unk08;                          /* 0x08 */
+        struct ModelHitEntry *next;           /* 0x0c */
+        struct ModelHitEntry *prev;           /* 0x10 */
+    } ModelHitEntry;
+
+#pragma endregion Hit Structures
+
 #pragma region PadAndPaths
     /**
      * Pads hold a location in space and are tied to a specified Stand Tile.

@@ -109,7 +109,6 @@ void sub_GAME_7F06B248(ModelNode *node);
 void drawjointlist(ModelRenderData *arg0, void* arg1);
 
 void load_object_fill_header(struct ModelFileHeader *objheader, u8 *name, u8* dst, s32 size, struct texpool * buffer);
-void modelApplyDistanceRelations(Model* model, ModelNode* node);
 
 
 #endif

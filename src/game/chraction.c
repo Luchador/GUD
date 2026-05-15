@@ -10487,7 +10487,7 @@ bool sub_GAME_7F0333F8(ChrRecord *self)
         getsuboffset(mymodel, &vec);
         mtx4TransformVecInPlace(camGetWorldToScreenMtxf(), &vec);
 
-        if (sub_GAME_7F041074(&zeropos, &pos, &vec, scale))
+        if (projectileTestPropBoundingSphere(&zeropos, &pos, &vec, scale))
         {
             return TRUE;
         }
