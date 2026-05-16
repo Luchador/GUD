@@ -13394,35 +13394,13 @@ glabel sub_GAME_7F06359C
 #endif
 
 
-
-
-
-#ifdef NONMATCHING
-void sub_GAME_7F064364(void) {
-
+/**
+ * Address: 7F064364
+ */
+Gfx *sub_GAME_7F064364(Gfx *gdl, Mtxf *arg1, s32 arg2, s32 arg3, s8 *contpadnum)
+{
+    return sub_GAME_7F06359C(gdl, arg1, 0xff, arg2, arg3, contpadnum);
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F064364
-/* 098E94 7F064364 27BDFFE0 */  addiu $sp, $sp, -0x20
-/* 098E98 7F064368 AFA7002C */  sw    $a3, 0x2c($sp)
-/* 098E9C 7F06436C 8FAE002C */  lw    $t6, 0x2c($sp)
-/* 098EA0 7F064370 8FAF0030 */  lw    $t7, 0x30($sp)
-/* 098EA4 7F064374 00C03825 */  move  $a3, $a2
-/* 098EA8 7F064378 AFBF001C */  sw    $ra, 0x1c($sp)
-/* 098EAC 7F06437C AFA60028 */  sw    $a2, 0x28($sp)
-/* 098EB0 7F064380 240600FF */  li    $a2, 255
-/* 098EB4 7F064384 AFAE0010 */  sw    $t6, 0x10($sp)
-/* 098EB8 7F064388 0FC18D67 */  jal   sub_GAME_7F06359C
-/* 098EBC 7F06438C AFAF0014 */   sw    $t7, 0x14($sp)
-/* 098EC0 7F064390 8FBF001C */  lw    $ra, 0x1c($sp)
-/* 098EC4 7F064394 27BD0020 */  addiu $sp, $sp, 0x20
-/* 098EC8 7F064398 03E00008 */  jr    $ra
-/* 098ECC 7F06439C 00000000 */   nop
-)
-#endif
-
 
 
 ALSoundState* sub_GAME_7F0643A0(void)
