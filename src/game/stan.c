@@ -149,7 +149,7 @@ const char aStanlinelog[] = "-stanlinelog";
 
 void setLevelScale(f32 ls);
 s32 stanIsSpecialBit1Set(StandTile *arg0, struct StandTileLocusCallbackRecord* arg1);
-s32 sub_GAME_7F0B2274(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3, s32 arg4, s32 *outFlags);
+s32 stanCheckLinkedSpecialTile(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3, s32 arg4, s32 *outFlags);
 s32 sub_GAME_7F0B21B0(StandTile **tileStack, f32 target_x, f32 target_z, f32 radius, s32 *rooms, s32 *count_rtn, s32 bufMax);
 
 s32 sub_GAME_7F0B1DDC(
@@ -2858,21 +2858,28 @@ PropRecord *sub_GAME_7F0B1410(StandTile *t, f32 start_x, f32 start_z, f32 end_x,
 }
 
 
-f32 sub_GAME_7F0B16C4(f32 x1, f32 z1, f32 x2, f32 z2, f32 x3, f32 z3)
+/**
+ * Address: 7F0B16C4
+ * 
+ * Computes the signed perpendicular distance from point P to the infinite
+ * line that goes through point A and point B.
+ * The sign indicates which side of the line the point is on.
+ */
+f32 stanGetSignedPointLineDistance(f32 a_x, f32 a_z, f32 b_x, f32 b_z, f32 p_x, f32 p_z)
 {
     u32 stack[8];
     f32 result; //d
 
-    result = sqrtf((x2 - x1) * (x2 - x1) + (z2 - z1) * (z2 - z1));
+    result = sqrtf((b_x - a_x) * (b_x - a_x) + (b_z - a_z) * (b_z - a_z));
 
     if (result == 0.0f)
     {
-        return sqrtf((x3 - x2) * (x3 - x2) + (z3 - z2) * (z3 - z2));
+        return sqrtf((p_x - b_x) * (p_x - b_x) + (p_z - b_z) * (p_z - b_z));
     }
     #ifdef DEBUG
     assert(d>0.0F);
     #endif
-    return ((z2 - z1) * (x3 - x1) + -(x2 - x1) * (z3 - z1)) / result;
+    return ((b_z - a_z) * (p_x - a_x) + -(b_x - a_x) * (p_z - a_z)) / result;
 }
 
 
@@ -2884,30 +2891,30 @@ f32 distBetweenPoints2d(f32 o_x,f32 o_z,f32 p_x,f32 p_z)
 }
 
 
-
-
-
-bool sub_GAME_7F0B17E4(f32 x1, f32 z1, f32 x2, f32 z2, f32 x3, f32 z3)
+/**
+ * Address: 7F0B17E4
+ * 
+ * Tests whether a point P's perpendicular projection onto the infinite line
+ * going through points A and B falls inside the finite edge segment.
+ */
+bool stanPointProjectsOntoEdge(f32 a_x, f32 a_z, f32 b_x, f32 b_z, f32 p_x, f32 p_z)
 {
     f32 f0;
     f32 f2;
     f32 f16;
     f32 f18;
 
-    x3 -= x1;
-    z3 -= z1;
+    p_x -= a_x;
+    p_z -= a_z;
 
-    f0 = x2 - x1;
-    f2 = z2 - z1;
+    f0 = b_x - a_x;
+    f2 = b_z - a_z;
 
-    f16 = x3 * f0 + z3 * f2;
+    f16 = p_x * f0 + p_z * f2;
     f18 = f0 * f0 + f2 * f2;
 
     return (f18 < f16 && f16 < 0) || (f16 > 0 && f16 < f18);
 }
-
-
-
 
 
 /**
@@ -2995,7 +3002,7 @@ s32 stanTestVolume(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, 
                     {
                         next = (i + 1) % numvertices0;
 
-                        var_f20 = sub_GAME_7F0B16C4(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], arg1, arg2);
+                        var_f20 = stanGetSignedPointLineDistance(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], arg1, arg2);
 
                         if (var_f20 < 0.0f)
                         {
@@ -3011,7 +3018,7 @@ s32 stanTestVolume(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, 
                                 && (
                                     (temp_f0_2 < arg3)
                                     || (temp_f0_3 < arg3)
-                                    || (sub_GAME_7F0B17E4(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], arg1, arg2) != 0)))
+                                    || (stanPointProjectsOntoEdge(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], arg1, arg2) != 0)))
                             {
                                 D_800413BC = 1;
                                 var_f24 = var_f20;
@@ -3436,7 +3443,10 @@ s32 stanIsSpecialBit1Set(StandTile *arg0, struct StandTileLocusCallbackRecord *a
 }
 
 
-s32 sub_GAME_7F0B2274(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3, s32 arg4, s32 *outFlags)
+/**
+ * Address: 7F0B2274
+ */
+s32 stanCheckLinkedSpecialTile(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3, s32 arg4, s32 *outFlags)
 {
     u16 link;
     StandTile *target;
@@ -3496,7 +3506,7 @@ s32 stanTileDistanceRelated(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, stru
     }
     */
 
-    return sub_GAME_7F0B1DDC(arg0, arg1, arg2, arg3, stanIsSpecialBit1Set, sub_GAME_7F0B2274, NULL, arg4);
+    return sub_GAME_7F0B1DDC(arg0, arg1, arg2, arg3, stanIsSpecialBit1Set, stanCheckLinkedSpecialTile, NULL, arg4);
 }
 
 
@@ -3512,7 +3522,10 @@ s32 stanGetLocusCount(struct StandTileLocusCallbackRecord *arg0)
 }
 
 
-void sub_GAME_7F0B23AC(StandTile *tile, s32 pointnum, coord3d *out)
+/**
+ * Address: 7F0B23AC
+ */
+void stanGetTileOrderedPointWorldPos(StandTile *tile, s32 pointnum, coord3d *out)
 {
     StandTilePoint *point;
     f32 scale;
@@ -3575,13 +3588,13 @@ void stanGetMoveBondCollisionTiles(StandTile **tile1, StandTile **tile2, coord3d
                     {
                         for (k = 0; k < 3; k++)
                         {
-                            sub_GAME_7F0B23AC(
+                            stanGetTileOrderedPointWorldPos(
                                 linktile,
                                 ((j >> 2) + k) % 3,
                                 (coord3d *)((s32)coords + (((j + k) & 3) * 0xc)));
                         }
 
-                        sub_GAME_7F0B23AC(
+                        stanGetTileOrderedPointWorldPos(
                             curtileStore,
                             curtilePointI,
                             (coord3d *)((s32)coords + (((j + 3) & 3) * 0xc)));
@@ -4028,7 +4041,10 @@ void copy_tile_RGB_as_24bit(StandTile *tile, f32 p_x, f32 p_z, u8 *rtn)
 }
 
 
-void sub_GAME_7F0B2C74(StandTile *tile, f32 *out)
+/**
+ * Address: 7F0B2C74
+ */
+void stanGetTileHeaderCYBounds(StandTile *tile, f32 *out)
 {
     f32 y0;
     f32 y1;
@@ -4036,7 +4052,15 @@ void sub_GAME_7F0B2C74(StandTile *tile, f32 *out)
     f32 min;
     f32 max;
 
-    // Use headerD as the point index.
+     /*
+     * This seems like a bug.
+     * The function is structured like it wants the min/max Y of the
+     * three packed indices headerC/headerD/headerE, but
+     * all three reads use headerC: (tail >> 8) & 0xf.
+     * 
+     * Ultimately the function call chain leads nowhere so this is
+     * dead code and the bug doesn't matter.
+     */
     y0 = (f32)tile->points[(tile->tail.half >> 8) & 0xf].y;
     y1 = (f32)tile->points[(tile->tail.half >> 8) & 0xf].y;
     y2 = (f32)tile->points[(tile->tail.half >> 8) & 0xf].y;
@@ -4070,10 +4094,13 @@ void sub_GAME_7F0B2C74(StandTile *tile, f32 *out)
 }
 
 
-f32 sub_GAME_7F0B2D14(StandTile *tile) {
+/**
+ * Address: 7F0B2D14
+ */
+f32 stanGetTileHeaderCMinY(StandTile *tile) {
     f32 vs[2];
 
-    sub_GAME_7F0B2C74(tile, vs);
+    stanGetTileHeaderCYBounds(tile, vs);
     return vs[0];
 }
 
@@ -4243,7 +4270,7 @@ void sub_GAME_7F0B2F00(StandTilePoint** arg0) {
 }
 
 
-void stanDetermineEOF(struct StanPrefixRecord *file, s32 origBase, u8 *newBase)
+void stanDetermineEOF(struct StanPrefixRecord *file /* canonically r */, s32 origBase, u8 *newBase)
 {
     s32 delta;
     void **roomPtr;
@@ -4253,6 +4280,10 @@ void stanDetermineEOF(struct StanPrefixRecord *file, s32 origBase, u8 *newBase)
     delta = ((s32) newBase) - origBase;
     stan_prefix = file;
     
+    #ifdef DEBUG
+    assert(*r==0);
+    #endif
+  
     standTileStart = (StandTile *)(((s32)file->ptr_firstroom + delta) - 0x80);
     ptr_firstroom_0 = (s32)file->ptr_firstroom + delta;
     
@@ -4314,8 +4345,13 @@ s32 sub_GAME_7F0B2FE0(StandTile *tile)
     return sub_GAME_7F0B4F9C(room);
 }
 
-f32 sub_GAME_7F0B3004(StandTile *tile) {
-    return sub_GAME_7F0B2D14(tile);
+/**
+ * Address: 7F0B3004
+ * 
+ * Unused.
+ */
+f32 stanGetTileHeaderCMinYWrapper(StandTile *tile) {
+    return stanGetTileHeaderCMinY(tile);
 }
 
 Gfx * sub_GAME_7F0B3024(Gfx *ptrdl, StandTilePoint *tile_point, u32 RGBAColor) {

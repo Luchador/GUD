@@ -4738,7 +4738,7 @@ s32 chrobjTestPointPolygonCollision(struct coord3d *point, f32 collision_radius,
     {
         temp_s0 = &polygon->points[(i+1) % edges];
 
-        temp_f0 = sub_GAME_7F0B16C4(polygon->points[i].f[0], polygon->points[i].f[1], temp_s0->f[0], temp_s0->f[1], px, pz);
+        temp_f0 = stanGetSignedPointLineDistance(polygon->points[i].f[0], polygon->points[i].f[1], temp_s0->f[0], temp_s0->f[1], px, pz);
 
         if (temp_f0 < 0.0f)
         {
@@ -4751,7 +4751,7 @@ s32 chrobjTestPointPolygonCollision(struct coord3d *point, f32 collision_radius,
         if ((temp_f0 < collision_radius)
             && ((temp_f26 < collision_radius)
                 || (temp_f30 < collision_radius)
-                || sub_GAME_7F0B17E4(polygon->points[i].f[0], polygon->points[i].f[1], temp_s0->f[0], temp_s0->f[1], px, pz)
+                || stanPointProjectsOntoEdge(polygon->points[i].f[0], polygon->points[i].f[1], temp_s0->f[0], temp_s0->f[1], px, pz)
             )
         )
         {
