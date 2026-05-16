@@ -8329,65 +8329,50 @@ Gfx *sub_GAME_7F0B8D78(Gfx *arg0)
 }
 
 
+/**
+ * Unreferenced.
+ */
+s32 sub_GAME_7F0B8DF4(s32 room, s32 *portalnums, s32 max)
+{
+    bg_portal_data_entry *base;
+    bg_portal_data_entry *portal;
+    s32 count;
+    s32 i;
+    s32 offset;
 
-// Unused/unreferenced function
-#ifdef NONMATCHING
-void sub_GAME_7F0B8DF4(void) {
-
+    count = 0;
+    i = 0;
+    base = g_BgPortals;
+    
+    if (room);
+    
+    if (base->offset_portal != NULL)
+    {
+        offset = 0;
+        portal = base;
+        
+        do
+        {
+            if ((room == portal->connectedRoom1) || (room == portal->connectedRoom2))
+            {
+                portalnums[count] = i;
+                count++;
+            }
+        
+            if (count >= max)
+            {
+                return count;
+            }
+            
+            offset += 8;
+            i++;
+            portal = (bg_portal_data_entry *) (((u8 *) g_BgPortals) + offset);
+        }
+        while (portal->offset_portal != NULL);
+    }
+    
+    return count;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B8DF4
-/* 0ED924 7F0B8DF4 3C088008 */  lui   $t0, %hi(g_BgPortals)
-/* 0ED928 7F0B8DF8 2508FF80 */  addiu $t0, %lo(g_BgPortals) # addiu $t0, $t0, -0x80
-/* 0ED92C 7F0B8DFC 8D070000 */  lw    $a3, ($t0)
-/* 0ED930 7F0B8E00 27BDFFF0 */  addiu $sp, $sp, -0x10
-/* 0ED934 7F0B8E04 AFB1000C */  sw    $s1, 0xc($sp)
-/* 0ED938 7F0B8E08 AFB00008 */  sw    $s0, 8($sp)
-/* 0ED93C 7F0B8E0C 8CEE0000 */  lw    $t6, ($a3)
-/* 0ED940 7F0B8E10 00A08025 */  move  $s0, $a1
-/* 0ED944 7F0B8E14 00C08825 */  move  $s1, $a2
-/* 0ED948 7F0B8E18 00001825 */  move  $v1, $zero
-/* 0ED94C 7F0B8E1C 11C00019 */  beqz  $t6, .L7F0B8E84
-/* 0ED950 7F0B8E20 00001025 */   move  $v0, $zero
-/* 0ED954 7F0B8E24 00002825 */  move  $a1, $zero
-/* 0ED958 7F0B8E28 00E03025 */  move  $a2, $a3
-/* 0ED95C 7F0B8E2C 90CF0004 */  lbu   $t7, 4($a2)
-.L7F0B8E30:
-/* 0ED960 7F0B8E30 0003C880 */  sll   $t9, $v1, 2
-/* 0ED964 7F0B8E34 02194821 */  addu  $t1, $s0, $t9
-/* 0ED968 7F0B8E38 508F0005 */  beql  $a0, $t7, .L7F0B8E50
-/* 0ED96C 7F0B8E3C AD220000 */   sw    $v0, ($t1)
-/* 0ED970 7F0B8E40 90D80005 */  lbu   $t8, 5($a2)
-/* 0ED974 7F0B8E44 54980004 */  bnel  $a0, $t8, .L7F0B8E58
-/* 0ED978 7F0B8E48 0071082A */   slt   $at, $v1, $s1
-/* 0ED97C 7F0B8E4C AD220000 */  sw    $v0, ($t1)
-.L7F0B8E50:
-/* 0ED980 7F0B8E50 24630001 */  addiu $v1, $v1, 1
-/* 0ED984 7F0B8E54 0071082A */  slt   $at, $v1, $s1
-.L7F0B8E58:
-/* 0ED988 7F0B8E58 54200004 */  bnezl $at, .L7F0B8E6C
-/* 0ED98C 7F0B8E5C 8D0A0000 */   lw    $t2, ($t0)
-/* 0ED990 7F0B8E60 10000009 */  b     .L7F0B8E88
-/* 0ED994 7F0B8E64 00601025 */   move  $v0, $v1
-/* 0ED998 7F0B8E68 8D0A0000 */  lw    $t2, ($t0)
-.L7F0B8E6C:
-/* 0ED99C 7F0B8E6C 24A50008 */  addiu $a1, $a1, 8
-/* 0ED9A0 7F0B8E70 24420001 */  addiu $v0, $v0, 1
-/* 0ED9A4 7F0B8E74 01453021 */  addu  $a2, $t2, $a1
-/* 0ED9A8 7F0B8E78 8CCB0000 */  lw    $t3, ($a2)
-/* 0ED9AC 7F0B8E7C 5560FFEC */  bnezl $t3, .L7F0B8E30
-/* 0ED9B0 7F0B8E80 90CF0004 */   lbu   $t7, 4($a2)
-.L7F0B8E84:
-/* 0ED9B4 7F0B8E84 00601025 */  move  $v0, $v1
-.L7F0B8E88:
-/* 0ED9B8 7F0B8E88 8FB00008 */  lw    $s0, 8($sp)
-/* 0ED9BC 7F0B8E8C 8FB1000C */  lw    $s1, 0xc($sp)
-/* 0ED9C0 7F0B8E90 03E00008 */  jr    $ra
-/* 0ED9C4 7F0B8E94 27BD0010 */   addiu $sp, $sp, 0x10
-)
-#endif
 
 
 // Copies visible rooms to a list
