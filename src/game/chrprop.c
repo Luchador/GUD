@@ -81,7 +81,7 @@ PropRecord *g_InteractProp;
 //CODE.bss:80071DFC
 u32 dword_CODE_bss_80071DFC;
 //CODE.bss:80071E00
-WeaponObjRecord* temp_mine_table[30];
+WeaponObjRecord* proxy_mine_table[30];
 
 //CODE.bss:80071E78
 f32 gasTimeToFullOpacity;

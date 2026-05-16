@@ -35015,9 +35015,9 @@ void add_obj_to_temp_proxmine_table(WeaponObjRecord* proxy)
     s32 i = 0;
 
     while (1) {
-        if (temp_mine_table[i] == NULL)
+        if (proxy_mine_table[i] == NULL)
         {
-            temp_mine_table[i] = proxy;
+            proxy_mine_table[i] = proxy;
             #ifdef DEBUG
                 assert(i<PROXIMITYARRMAX);
             #endif
@@ -35039,9 +35039,9 @@ void remove_obj_from_temp_proxmine_table(WeaponObjRecord* proxy)
 
     while (1)
     {
-        if (temp_mine_table[i] == proxy)
+        if (proxy_mine_table[i] == proxy)
         {
-            temp_mine_table[i] = NULL;
+            proxy_mine_table[i] = NULL;
             return;
         }
         i++;
@@ -35060,7 +35060,7 @@ void detonate_proxmine_In_range(coord3d* pos)
     s32 i;
     for (i = 0; i < 30; i++)
     {
-        WeaponObjRecord* obj = temp_mine_table[i];
+        WeaponObjRecord* obj = proxy_mine_table[i];
 
         if (obj && (obj->timer == 1))
         {

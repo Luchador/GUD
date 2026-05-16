@@ -17,7 +17,7 @@ f32 g_DoorScale = 1.0f;
 
 void alloc_lookup_buffers();
 void write_monitor_ani_control_blocks();
-void initialize_temp_mine_table();
+void initialize_proxy_mine_table();
 
 // end forward declarations
 
@@ -101,7 +101,7 @@ void reinit_between_menus(void)
     s32 i;
 
     write_monitor_ani_control_blocks();
-    initialize_temp_mine_table();
+    initialize_proxy_mine_table();
     alarm_timer = 0;
     ptr_alarm_sfx = 0;
     toxic_gas_sound_timer = 0.0f;
@@ -215,13 +215,13 @@ void write_monitor_ani_control_blocks(void)
 }
 
 
-void initialize_temp_mine_table(void)
+void initialize_proxy_mine_table(void)
 {
     s32 i;
 
     for (i=0; i<30; i++)
     {
-        temp_mine_table[i] = NULL;
+        proxy_mine_table[i] = NULL;
     }
 }
 

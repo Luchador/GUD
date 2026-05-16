@@ -217,7 +217,7 @@ extern u32 monAnim2DRandEffectFlash[];
 extern u32 monAnim00Bond[];
 extern u32 monAnim34[];
 extern u32 monAnim35Taser[];
-extern WeaponObjRecord* temp_mine_table[30];
+extern WeaponObjRecord* proxy_mine_table[30];
 extern f32 gasTimeToFullOpacity;
 extern u32 gasDoesDamageFlag;
 extern f32 difficulty ;
