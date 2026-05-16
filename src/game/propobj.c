@@ -35052,7 +35052,9 @@ void remove_obj_from_temp_proxmine_table(WeaponObjRecord* proxy)
     }
 }
 
-
+/*
+* Address: 0x7f051bcc
+*/
 void detonate_proxmine_In_range(coord3d* pos)
 {
     s32 i;
