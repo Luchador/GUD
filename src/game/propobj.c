@@ -35073,7 +35073,7 @@ void detonate_proxmine_In_range(coord3d* pos)
             diff_z = pos->z - obj->runtime_pos.z;
             dist_sqr = (diff_x * diff_x) + (diff_y * diff_y) + (diff_z * diff_z);
 
-            if (dist_sqr < 62500.0f)
+            if (dist_sqr < PROXIMITY_MINE_TRIGGER_DISTANCE)
             {
                 obj->timer = 0;
             }
