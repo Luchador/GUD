@@ -4531,8 +4531,11 @@ void set_mTrack2Vol(u16 param_1)
 
 /**
  * Address: 7F0A9398
+ * 
+ * This draws the text for the toggle options (both option titles and values).
+ * It also draws button names and the actions mapped to them on the controller screen.
  */
-Gfx *sub_GAME_7F0A9398(Gfx *gdl, s32 x, s32 y, char *text, u32 colour, s32 outlined, u32 outlinecolour, s32 centre, s32 drawbg, u32 bgcolour, s32 rightalign)
+Gfx *draw_options_labels(Gfx *gdl, s32 x, s32 y, char *text, u32 colour, s32 outlined, u32 outlinecolour, s32 centre, s32 drawbg, u32 bgcolour, s32 rightalign)
 {
     s32 textx;
     s32 textright;
@@ -4565,6 +4568,10 @@ Gfx *sub_GAME_7F0A9398(Gfx *gdl, s32 x, s32 y, char *text, u32 colour, s32 outli
 
     if (g_WatchBackgroundGreen < 0xe0) 
     { 
+        /**
+         * Increases the effect of fuzzy static mode on the text,
+         * making text pixels more subject to disappearing or almost disappearing.
+         */
         gDPSetRenderMode(gdl++, G_RM_AA_PCL_SURF, G_RM_AA_PCL_SURF2); 
     } 
     else 
@@ -5329,7 +5336,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DE7B4 7F0A9C84 00403825 */  move  $a3, $v0
 /* 0DE7B8 7F0A9C88 AFA0001C */  sw    $zero, 0x1c($sp)
 /* 0DE7BC 7F0A9C8C AFA00020 */  sw    $zero, 0x20($sp)
-/* 0DE7C0 7F0A9C90 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DE7C0 7F0A9C90 0FC2A4E6 */  jal   draw_options_labels
 /* 0DE7C4 7F0A9C94 AFA00028 */   sw    $zero, 0x28($sp)
 /* 0DE7C8 7F0A9C98 3C0F8008 */  lui   $t7, %hi(g_CurrentPlayer)
 /* 0DE7CC 7F0A9C9C 8DEFA0B0 */  lw    $t7, %lo(g_CurrentPlayer)($t7)
@@ -5373,7 +5380,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DE860 7F0A9D30 AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DE864 7F0A9D34 AFA0001C */  sw    $zero, 0x1c($sp)
 /* 0DE868 7F0A9D38 AFA00020 */  sw    $zero, 0x20($sp)
-/* 0DE86C 7F0A9D3C 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DE86C 7F0A9D3C 0FC2A4E6 */  jal   draw_options_labels
 /* 0DE870 7F0A9D40 AFA00028 */   sw    $zero, 0x28($sp)
 /* 0DE874 7F0A9D44 00408025 */  move  $s0, $v0
 .L7F0A9D48:
@@ -5418,7 +5425,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DE90C 7F0A9DDC AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DE910 7F0A9DE0 AFA0001C */  sw    $zero, 0x1c($sp)
 /* 0DE914 7F0A9DE4 AFA00020 */  sw    $zero, 0x20($sp)
-/* 0DE918 7F0A9DE8 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DE918 7F0A9DE8 0FC2A4E6 */  jal   draw_options_labels
 /* 0DE91C 7F0A9DEC AFA00028 */   sw    $zero, 0x28($sp)
 /* 0DE920 7F0A9DF0 10000051 */  b     .L7F0A9F38
 /* 0DE924 7F0A9DF4 00408025 */   move  $s0, $v0
@@ -5507,7 +5514,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DEA50 7F0A9F20 8FA6004C */  lw    $a2, 0x4c($sp)
 /* 0DEA54 7F0A9F24 AFA0001C */  sw    $zero, 0x1c($sp)
 /* 0DEA58 7F0A9F28 AFA00020 */  sw    $zero, 0x20($sp)
-/* 0DEA5C 7F0A9F2C 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DEA5C 7F0A9F2C 0FC2A4E6 */  jal   draw_options_labels
 /* 0DEA60 7F0A9F30 AFA00028 */   sw    $zero, 0x28($sp)
 /* 0DEA64 7F0A9F34 00408025 */  move  $s0, $v0
 .L7F0A9F38:
@@ -5539,7 +5546,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DEACC 7F0A9F9C AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DEAD0 7F0A9FA0 AFA0001C */  sw    $zero, 0x1c($sp)
 /* 0DEAD4 7F0A9FA4 AFA00020 */  sw    $zero, 0x20($sp)
-/* 0DEAD8 7F0A9FA8 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DEAD8 7F0A9FA8 0FC2A4E6 */  jal   draw_options_labels
 /* 0DEADC 7F0A9FAC AFA00028 */   sw    $zero, 0x28($sp)
 /* 0DEAE0 7F0A9FB0 8FAF004C */  lw    $t7, 0x4c($sp)
 /* 0DEAE4 7F0A9FB4 00408025 */  move  $s0, $v0
@@ -5576,7 +5583,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DEB60 7F0AA030 00403825 */  move  $a3, $v0
 /* 0DEB64 7F0AA034 AFA0001C */  sw    $zero, 0x1c($sp)
 /* 0DEB68 7F0AA038 AFA00020 */  sw    $zero, 0x20($sp)
-/* 0DEB6C 7F0AA03C 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DEB6C 7F0AA03C 0FC2A4E6 */  jal   draw_options_labels
 /* 0DEB70 7F0AA040 AFA00028 */   sw    $zero, 0x28($sp)
 /* 0DEB74 7F0AA044 3C198008 */  lui   $t9, %hi(g_CurrentPlayer)
 /* 0DEB78 7F0AA048 8F39A0B0 */  lw    $t9, %lo(g_CurrentPlayer)($t9)
@@ -5619,7 +5626,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DEC08 7F0AA0D8 AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DEC0C 7F0AA0DC AFA0001C */  sw    $zero, 0x1c($sp)
 /* 0DEC10 7F0AA0E0 AFA00020 */  sw    $zero, 0x20($sp)
-/* 0DEC14 7F0AA0E4 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DEC14 7F0AA0E4 0FC2A4E6 */  jal   draw_options_labels
 /* 0DEC18 7F0AA0E8 AFA00028 */   sw    $zero, 0x28($sp)
 /* 0DEC1C 7F0AA0EC 00408025 */  move  $s0, $v0
 .L7F0AA0F0:
@@ -5659,7 +5666,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DECA0 7F0AA170 8FA6004C */  lw    $a2, 0x4c($sp)
 /* 0DECA4 7F0AA174 00403825 */  move  $a3, $v0
 /* 0DECA8 7F0AA178 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DECAC 7F0AA17C 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DECAC 7F0AA17C 0FC2A4E6 */  jal   draw_options_labels
 /* 0DECB0 7F0AA180 AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DECB4 7F0AA184 3C0F8008 */  lui   $t7, %hi(g_CurrentPlayer)
 /* 0DECB8 7F0AA188 8DEFA0B0 */  lw    $t7, %lo(g_CurrentPlayer)($t7)
@@ -5703,7 +5710,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DED4C 7F0AA21C 00403825 */  move  $a3, $v0
 /* 0DED50 7F0AA220 AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DED54 7F0AA224 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DED58 7F0AA228 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DED58 7F0AA228 0FC2A4E6 */  jal   draw_options_labels
 /* 0DED5C 7F0AA22C AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DED60 7F0AA230 00408025 */  move  $s0, $v0
 .L7F0AA234:
@@ -5751,7 +5758,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DEE00 7F0AA2D0 00403825 */  move  $a3, $v0
 /* 0DEE04 7F0AA2D4 AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DEE08 7F0AA2D8 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DEE0C 7F0AA2DC 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DEE0C 7F0AA2DC 0FC2A4E6 */  jal   draw_options_labels
 /* 0DEE10 7F0AA2E0 AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DEE14 7F0AA2E4 10000076 */  b     .L7F0AA4C0
 /* 0DEE18 7F0AA2E8 00408025 */   move  $s0, $v0
@@ -5848,7 +5855,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DEF64 7F0AA434 2405010E */  li    $a1, 270
 /* 0DEF68 7F0AA438 8FA6004C */  lw    $a2, 0x4c($sp)
 /* 0DEF6C 7F0AA43C AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DEF70 7F0AA440 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DEF70 7F0AA440 0FC2A4E6 */  jal   draw_options_labels
 /* 0DEF74 7F0AA444 AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DEF78 7F0AA448 1000001D */  b     .L7F0AA4C0
 /* 0DEF7C 7F0AA44C 00408025 */   move  $s0, $v0
@@ -5878,7 +5885,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DEFD8 7F0AA4A8 00403825 */  move  $a3, $v0
 /* 0DEFDC 7F0AA4AC AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DEFE0 7F0AA4B0 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DEFE4 7F0AA4B4 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DEFE4 7F0AA4B4 0FC2A4E6 */  jal   draw_options_labels
 /* 0DEFE8 7F0AA4B8 AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DEFEC 7F0AA4BC 00408025 */  move  $s0, $v0
 .L7F0AA4C0:
@@ -5917,7 +5924,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DF070 7F0AA540 8FA6004C */  lw    $a2, 0x4c($sp)
 /* 0DF074 7F0AA544 00403825 */  move  $a3, $v0
 /* 0DF078 7F0AA548 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DF07C 7F0AA54C 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DF07C 7F0AA54C 0FC2A4E6 */  jal   draw_options_labels
 /* 0DF080 7F0AA550 AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DF084 7F0AA554 1000001D */  b     .L7F0AA5CC
 /* 0DF088 7F0AA558 00408025 */   move  $s0, $v0
@@ -5947,7 +5954,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DF0E4 7F0AA5B4 00403825 */  move  $a3, $v0
 /* 0DF0E8 7F0AA5B8 AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DF0EC 7F0AA5BC AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DF0F0 7F0AA5C0 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DF0F0 7F0AA5C0 0FC2A4E6 */  jal   draw_options_labels
 /* 0DF0F4 7F0AA5C4 AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DF0F8 7F0AA5C8 00408025 */  move  $s0, $v0
 .L7F0AA5CC:
@@ -5986,7 +5993,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DF17C 7F0AA64C 8FA6004C */  lw    $a2, 0x4c($sp)
 /* 0DF180 7F0AA650 00403825 */  move  $a3, $v0
 /* 0DF184 7F0AA654 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DF188 7F0AA658 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DF188 7F0AA658 0FC2A4E6 */  jal   draw_options_labels
 /* 0DF18C 7F0AA65C AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DF190 7F0AA660 1000001D */  b     .L7F0AA6D8
 /* 0DF194 7F0AA664 00408025 */   move  $s0, $v0
@@ -6016,7 +6023,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DF1F0 7F0AA6C0 00403825 */  move  $a3, $v0
 /* 0DF1F4 7F0AA6C4 AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DF1F8 7F0AA6C8 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DF1FC 7F0AA6CC 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DF1FC 7F0AA6CC 0FC2A4E6 */  jal   draw_options_labels
 /* 0DF200 7F0AA6D0 AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DF204 7F0AA6D4 00408025 */  move  $s0, $v0
 .L7F0AA6D8:
@@ -6043,7 +6050,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DF258 7F0AA728 240600C3 */  li    $a2, 195
 /* 0DF25C 7F0AA72C 00403825 */  move  $a3, $v0
 /* 0DF260 7F0AA730 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DF264 7F0AA734 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DF264 7F0AA734 0FC2A4E6 */  jal   draw_options_labels
 /* 0DF268 7F0AA738 AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DF26C 7F0AA73C 1000001D */  b     .L7F0AA7B4
 /* 0DF270 7F0AA740 00408025 */   move  $s0, $v0
@@ -6073,7 +6080,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DF2CC 7F0AA79C 00403825 */  move  $a3, $v0
 /* 0DF2D0 7F0AA7A0 AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DF2D4 7F0AA7A4 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DF2D8 7F0AA7A8 0FC2A4E6 */  jal   sub_GAME_7F0A9398
+/* 0DF2D8 7F0AA7A8 0FC2A4E6 */  jal   draw_options_labels
 /* 0DF2DC 7F0AA7AC AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DF2E0 7F0AA7B0 00408025 */  move  $s0, $v0
 .L7F0AA7B4:
@@ -6209,7 +6216,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DB9B4 7F0A8FC4 00403825 */  move  $a3, $v0
 /* 0DB9B8 7F0A8FC8 AFA0001C */  sw    $zero, 0x1c($sp)
 /* 0DB9BC 7F0A8FCC AFA00020 */  sw    $zero, 0x20($sp)
-/* 0DB9C0 7F0A8FD0 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DB9C0 7F0A8FD0 0FC2A1B6 */  jal   draw_options_labels
 /* 0DB9C4 7F0A8FD4 AFA00028 */   sw    $zero, 0x28($sp)
 /* 0DB9C8 7F0A8FD8 3C0F8007 */  lui   $t7, %hi(g_CurrentPlayer) # $t7, 0x8007
 /* 0DB9CC 7F0A8FDC 8DEF8BC0 */  lw    $t7, %lo(g_CurrentPlayer)($t7)
@@ -6253,7 +6260,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DBA60 7F0A9070 AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DBA64 7F0A9074 AFA0001C */  sw    $zero, 0x1c($sp)
 /* 0DBA68 7F0A9078 AFA00020 */  sw    $zero, 0x20($sp)
-/* 0DBA6C 7F0A907C 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DBA6C 7F0A907C 0FC2A1B6 */  jal   draw_options_labels
 /* 0DBA70 7F0A9080 AFA00028 */   sw    $zero, 0x28($sp)
 /* 0DBA74 7F0A9084 00408025 */  move  $s0, $v0
 .L7F0A9088:
@@ -6298,7 +6305,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DBB0C 7F0A911C AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DBB10 7F0A9120 AFA0001C */  sw    $zero, 0x1c($sp)
 /* 0DBB14 7F0A9124 AFA00020 */  sw    $zero, 0x20($sp)
-/* 0DBB18 7F0A9128 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DBB18 7F0A9128 0FC2A1B6 */  jal   draw_options_labels
 /* 0DBB1C 7F0A912C AFA00028 */   sw    $zero, 0x28($sp)
 /* 0DBB20 7F0A9130 10000051 */  b     .L7F0A9278
 /* 0DBB24 7F0A9134 00408025 */   move  $s0, $v0
@@ -6387,7 +6394,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DBC50 7F0A9260 8FA6004C */  lw    $a2, 0x4c($sp)
 /* 0DBC54 7F0A9264 AFA0001C */  sw    $zero, 0x1c($sp)
 /* 0DBC58 7F0A9268 AFA00020 */  sw    $zero, 0x20($sp)
-/* 0DBC5C 7F0A926C 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DBC5C 7F0A926C 0FC2A1B6 */  jal   draw_options_labels
 /* 0DBC60 7F0A9270 AFA00028 */   sw    $zero, 0x28($sp)
 /* 0DBC64 7F0A9274 00408025 */  move  $s0, $v0
 .L7F0A9278:
@@ -6419,7 +6426,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DBCCC 7F0A92DC AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DBCD0 7F0A92E0 AFA0001C */  sw    $zero, 0x1c($sp)
 /* 0DBCD4 7F0A92E4 AFA00020 */  sw    $zero, 0x20($sp)
-/* 0DBCD8 7F0A92E8 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DBCD8 7F0A92E8 0FC2A1B6 */  jal   draw_options_labels
 /* 0DBCDC 7F0A92EC AFA00028 */   sw    $zero, 0x28($sp)
 /* 0DBCE0 7F0A92F0 8FAF004C */  lw    $t7, 0x4c($sp)
 /* 0DBCE4 7F0A92F4 00408025 */  move  $s0, $v0
@@ -6456,7 +6463,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DBD60 7F0A9370 00403825 */  move  $a3, $v0
 /* 0DBD64 7F0A9374 AFA0001C */  sw    $zero, 0x1c($sp)
 /* 0DBD68 7F0A9378 AFA00020 */  sw    $zero, 0x20($sp)
-/* 0DBD6C 7F0A937C 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DBD6C 7F0A937C 0FC2A1B6 */  jal   draw_options_labels
 /* 0DBD70 7F0A9380 AFA00028 */   sw    $zero, 0x28($sp)
 /* 0DBD74 7F0A9384 3C198007 */  lui   $t9, %hi(g_CurrentPlayer) # $t9, 0x8007
 /* 0DBD78 7F0A9388 8F398BC0 */  lw    $t9, %lo(g_CurrentPlayer)($t9)
@@ -6499,7 +6506,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DBE08 7F0A9418 AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DBE0C 7F0A941C AFA0001C */  sw    $zero, 0x1c($sp)
 /* 0DBE10 7F0A9420 AFA00020 */  sw    $zero, 0x20($sp)
-/* 0DBE14 7F0A9424 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DBE14 7F0A9424 0FC2A1B6 */  jal   draw_options_labels
 /* 0DBE18 7F0A9428 AFA00028 */   sw    $zero, 0x28($sp)
 /* 0DBE1C 7F0A942C 00408025 */  move  $s0, $v0
 .L7F0A9430:
@@ -6539,7 +6546,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DBEA0 7F0A94B0 8FA6004C */  lw    $a2, 0x4c($sp)
 /* 0DBEA4 7F0A94B4 00403825 */  move  $a3, $v0
 /* 0DBEA8 7F0A94B8 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DBEAC 7F0A94BC 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DBEAC 7F0A94BC 0FC2A1B6 */  jal   draw_options_labels
 /* 0DBEB0 7F0A94C0 AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DBEB4 7F0A94C4 3C0F8007 */  lui   $t7, %hi(g_CurrentPlayer) # $t7, 0x8007
 /* 0DBEB8 7F0A94C8 8DEF8BC0 */  lw    $t7, %lo(g_CurrentPlayer)($t7)
@@ -6583,7 +6590,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DBF4C 7F0A955C 00403825 */  move  $a3, $v0
 /* 0DBF50 7F0A9560 AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DBF54 7F0A9564 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DBF58 7F0A9568 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DBF58 7F0A9568 0FC2A1B6 */  jal   draw_options_labels
 /* 0DBF5C 7F0A956C AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DBF60 7F0A9570 00408025 */  move  $s0, $v0
 .L7F0A9574:
@@ -6631,7 +6638,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DC000 7F0A9610 00403825 */  move  $a3, $v0
 /* 0DC004 7F0A9614 AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DC008 7F0A9618 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DC00C 7F0A961C 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DC00C 7F0A961C 0FC2A1B6 */  jal   draw_options_labels
 /* 0DC010 7F0A9620 AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DC014 7F0A9624 10000076 */  b     .L7F0A9800
 /* 0DC018 7F0A9628 00408025 */   move  $s0, $v0
@@ -6728,7 +6735,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DC164 7F0A9774 2405010E */  li    $a1, 270
 /* 0DC168 7F0A9778 8FA6004C */  lw    $a2, 0x4c($sp)
 /* 0DC16C 7F0A977C AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DC170 7F0A9780 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DC170 7F0A9780 0FC2A1B6 */  jal   draw_options_labels
 /* 0DC174 7F0A9784 AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DC178 7F0A9788 1000001D */  b     .L7F0A9800
 /* 0DC17C 7F0A978C 00408025 */   move  $s0, $v0
@@ -6758,7 +6765,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DC1D8 7F0A97E8 00403825 */  move  $a3, $v0
 /* 0DC1DC 7F0A97EC AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DC1E0 7F0A97F0 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DC1E4 7F0A97F4 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DC1E4 7F0A97F4 0FC2A1B6 */  jal   draw_options_labels
 /* 0DC1E8 7F0A97F8 AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DC1EC 7F0A97FC 00408025 */  move  $s0, $v0
 .L7F0A9800:
@@ -6797,7 +6804,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DC270 7F0A9880 8FA6004C */  lw    $a2, 0x4c($sp)
 /* 0DC274 7F0A9884 00403825 */  move  $a3, $v0
 /* 0DC278 7F0A9888 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DC27C 7F0A988C 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DC27C 7F0A988C 0FC2A1B6 */  jal   draw_options_labels
 /* 0DC280 7F0A9890 AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DC284 7F0A9894 1000001D */  b     .L7F0A990C
 /* 0DC288 7F0A9898 00408025 */   move  $s0, $v0
@@ -6827,7 +6834,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DC2E4 7F0A98F4 00403825 */  move  $a3, $v0
 /* 0DC2E8 7F0A98F8 AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DC2EC 7F0A98FC AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DC2F0 7F0A9900 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DC2F0 7F0A9900 0FC2A1B6 */  jal   draw_options_labels
 /* 0DC2F4 7F0A9904 AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DC2F8 7F0A9908 00408025 */  move  $s0, $v0
 .L7F0A990C:
@@ -6866,7 +6873,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DC37C 7F0A998C 8FA6004C */  lw    $a2, 0x4c($sp)
 /* 0DC380 7F0A9990 00403825 */  move  $a3, $v0
 /* 0DC384 7F0A9994 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DC388 7F0A9998 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DC388 7F0A9998 0FC2A1B6 */  jal   draw_options_labels
 /* 0DC38C 7F0A999C AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DC390 7F0A99A0 1000001D */  b     .L7F0A9A18
 /* 0DC394 7F0A99A4 00408025 */   move  $s0, $v0
@@ -6896,7 +6903,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DC3F0 7F0A9A00 00403825 */  move  $a3, $v0
 /* 0DC3F4 7F0A9A04 AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DC3F8 7F0A9A08 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DC3FC 7F0A9A0C 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DC3FC 7F0A9A0C 0FC2A1B6 */  jal   draw_options_labels
 /* 0DC400 7F0A9A10 AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DC404 7F0A9A14 00408025 */  move  $s0, $v0
 .L7F0A9A18:
@@ -6923,7 +6930,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DC458 7F0A9A68 240600E1 */  li    $a2, 225
 /* 0DC45C 7F0A9A6C 00403825 */  move  $a3, $v0
 /* 0DC460 7F0A9A70 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DC464 7F0A9A74 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DC464 7F0A9A74 0FC2A1B6 */  jal   draw_options_labels
 /* 0DC468 7F0A9A78 AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DC46C 7F0A9A7C 1000001D */  b     .L7F0A9AF4
 /* 0DC470 7F0A9A80 00408025 */   move  $s0, $v0
@@ -6953,7 +6960,7 @@ glabel sub_GAME_7F0A9AB8
 /* 0DC4CC 7F0A9ADC 00403825 */  move  $a3, $v0
 /* 0DC4D0 7F0A9AE0 AFA00014 */  sw    $zero, 0x14($sp)
 /* 0DC4D4 7F0A9AE4 AFA0001C */  sw    $zero, 0x1c($sp)
-/* 0DC4D8 7F0A9AE8 0FC2A1B6 */  jal   sub_GAME_7F0A9398
+/* 0DC4D8 7F0A9AE8 0FC2A1B6 */  jal   draw_options_labels
 /* 0DC4DC 7F0A9AEC AFA00020 */   sw    $zero, 0x20($sp)
 /* 0DC4E0 7F0A9AF0 00408025 */  move  $s0, $v0
 .L7F0A9AF4:
@@ -6976,20 +6983,20 @@ Gfx *display_text_buttons_dual_control(Gfx *gdl)
 
     if (joyGetButtons(PLAYER_1, A_BUTTON))
     {
-        gdl = sub_GAME_7F0A9398(gdl, 0x5A, YOFFSET_WEAPTEXT, langGet(getStringID(LOPTIONS, OPTION_STR_03_WEAPON_LF)), -1, 1, 0x7000A0, 0, 0, 0x3000B0, 0); //weapon
+        gdl = draw_options_labels(gdl, 0x5A, YOFFSET_WEAPTEXT, langGet(getStringID(LOPTIONS, OPTION_STR_03_WEAPON_LF)), -1, 1, 0x7000A0, 0, 0, 0x3000B0, 0); //weapon
     }
     else
     {
-        gdl = sub_GAME_7F0A9398(gdl, 0x5A, YOFFSET_WEAPTEXT, langGet(getStringID(LOPTIONS, OPTION_STR_03_WEAPON_LF)), 0xAA00B0, 0, -1, 0, 0, 0x3000B0, 0); //weapon
+        gdl = draw_options_labels(gdl, 0x5A, YOFFSET_WEAPTEXT, langGet(getStringID(LOPTIONS, OPTION_STR_03_WEAPON_LF)), 0xAA00B0, 0, -1, 0, 0, 0x3000B0, 0); //weapon
     }
 
     if (joyGetButtons(PLAYER_1, B_BUTTON))
     {
-        gdl = sub_GAME_7F0A9398(gdl, 0x5A, YOFFSET_ACTIONTEXT, langGet(getStringID(LOPTIONS, OPTION_STR_02_ACTION_LF)), -1, 1, 0x7000A0, 0, 0, 0x3000B0, 0); //action
+        gdl = draw_options_labels(gdl, 0x5A, YOFFSET_ACTIONTEXT, langGet(getStringID(LOPTIONS, OPTION_STR_02_ACTION_LF)), -1, 1, 0x7000A0, 0, 0, 0x3000B0, 0); //action
     }
     else
     {
-        gdl = sub_GAME_7F0A9398(gdl, 0x5A, YOFFSET_ACTIONTEXT, langGet(getStringID(LOPTIONS, OPTION_STR_02_ACTION_LF)), 0xAA00B0, 0, -1, 0, 0, 0x3000B0, 0); //action
+        gdl = draw_options_labels(gdl, 0x5A, YOFFSET_ACTIONTEXT, langGet(getStringID(LOPTIONS, OPTION_STR_02_ACTION_LF)), 0xAA00B0, 0, -1, 0, 0, 0x3000B0, 0); //action
     }
 
     if ((g_CurrentPlayer->cur_player_control_type_0 == CONTROLLER_CONFIG_PLENTY) || (g_CurrentPlayer->cur_player_control_type_0 == CONTROLLER_CONFIG_GALORE))
@@ -7003,11 +7010,11 @@ Gfx *display_text_buttons_dual_control(Gfx *gdl)
 
     if (joyGetButtons(PLAYER_1, Z_TRIG))
     {
-        gdl = sub_GAME_7F0A9398(gdl, 0x5A, YOFFSET_5, textptr_aux, -1, 1, 0x7000A0, 0, 0, 0x3000B0, 0);
+        gdl = draw_options_labels(gdl, 0x5A, YOFFSET_5, textptr_aux, -1, 1, 0x7000A0, 0, 0, 0x3000B0, 0);
     }
     else
     {
-        gdl = sub_GAME_7F0A9398(gdl, 0x5A, YOFFSET_5, textptr_aux, 0xAA00B0, 0, -1, 0, 0, 0x3000B0, 0);
+        gdl = draw_options_labels(gdl, 0x5A, YOFFSET_5, textptr_aux, 0xAA00B0, 0, -1, 0, 0, 0x3000B0, 0);
     }
 
     if ((g_CurrentPlayer->cur_player_control_type_0 == CONTROLLER_CONFIG_PLENTY) || (g_CurrentPlayer->cur_player_control_type_0 == CONTROLLER_CONFIG_DOMINO))
@@ -7019,24 +7026,24 @@ Gfx *display_text_buttons_dual_control(Gfx *gdl)
         textptr_aux = langGet(getStringID(LOPTIONS, OPTION_STR_06_LOOK_LF)); //look
     }
 
-    gdl = sub_GAME_7F0A9398(gdl, 0x5A, YOFFSET_4, textptr_aux, 0xAA00B0, 0, -1, 0, 0, 0x3000B0, 0);
+    gdl = draw_options_labels(gdl, 0x5A, YOFFSET_4, textptr_aux, 0xAA00B0, 0, -1, 0, 0, 0x3000B0, 0);
 
     if (joyGetButtons(1, A_BUTTON))
     {
-        gdl = sub_GAME_7F0A9398(gdl, 0xE6, YOFFSET_WEAPTEXT, langGet(getStringID(LOPTIONS, OPTION_STR_03_WEAPON_LF)), -1, 1, 0x7000A0, 0, 0, 0x3000B0, 1); //weapon
+        gdl = draw_options_labels(gdl, 0xE6, YOFFSET_WEAPTEXT, langGet(getStringID(LOPTIONS, OPTION_STR_03_WEAPON_LF)), -1, 1, 0x7000A0, 0, 0, 0x3000B0, 1); //weapon
     }
     else
     {
-        gdl = sub_GAME_7F0A9398(gdl, 0xE6, YOFFSET_WEAPTEXT, langGet(getStringID(LOPTIONS, OPTION_STR_03_WEAPON_LF)), 0xAA00B0, 0, -1, 0, 0, 0x3000B0, 1); //weapon
+        gdl = draw_options_labels(gdl, 0xE6, YOFFSET_WEAPTEXT, langGet(getStringID(LOPTIONS, OPTION_STR_03_WEAPON_LF)), 0xAA00B0, 0, -1, 0, 0, 0x3000B0, 1); //weapon
     }
 
     if (joyGetButtons(1, B_BUTTON))
     {
-        gdl = sub_GAME_7F0A9398(gdl, 0xE6, YOFFSET_ACTIONTEXT, langGet(getStringID(LOPTIONS, OPTION_STR_02_ACTION_LF)), -1, 1, 0x7000A0, 0, 0, 0x3000B0, 1); //action
+        gdl = draw_options_labels(gdl, 0xE6, YOFFSET_ACTIONTEXT, langGet(getStringID(LOPTIONS, OPTION_STR_02_ACTION_LF)), -1, 1, 0x7000A0, 0, 0, 0x3000B0, 1); //action
     }
     else
     {
-        gdl = sub_GAME_7F0A9398(gdl, 0xE6, YOFFSET_ACTIONTEXT, langGet(getStringID(LOPTIONS, OPTION_STR_02_ACTION_LF)), 0xAA00B0, 0, -1, 0, 0, 0x3000B0, 1); //action
+        gdl = draw_options_labels(gdl, 0xE6, YOFFSET_ACTIONTEXT, langGet(getStringID(LOPTIONS, OPTION_STR_02_ACTION_LF)), 0xAA00B0, 0, -1, 0, 0, 0x3000B0, 1); //action
     }
 
     if ((g_CurrentPlayer->cur_player_control_type_0 == CONTROLLER_CONFIG_PLENTY) || (g_CurrentPlayer->cur_player_control_type_0 == CONTROLLER_CONFIG_GALORE))
@@ -7050,11 +7057,11 @@ Gfx *display_text_buttons_dual_control(Gfx *gdl)
 
     if (joyGetButtons(1, Z_TRIG))
     {
-        gdl = sub_GAME_7F0A9398(gdl, 0xE6, YOFFSET_5, textptr_aux, -1, 1, 0x7000A0, 0, 0, 0x3000B0, 1);
+        gdl = draw_options_labels(gdl, 0xE6, YOFFSET_5, textptr_aux, -1, 1, 0x7000A0, 0, 0, 0x3000B0, 1);
     }
     else
     {
-        gdl = sub_GAME_7F0A9398(gdl, 0xE6, YOFFSET_5, textptr_aux, 0xAA00B0, 0, -1, 0, 0, 0x3000B0, 1);
+        gdl = draw_options_labels(gdl, 0xE6, YOFFSET_5, textptr_aux, 0xAA00B0, 0, -1, 0, 0, 0x3000B0, 1);
     }
 
     if ((g_CurrentPlayer->cur_player_control_type_0 == CONTROLLER_CONFIG_PLENTY) || (g_CurrentPlayer->cur_player_control_type_0 == CONTROLLER_CONFIG_DOMINO))
@@ -7066,7 +7073,7 @@ Gfx *display_text_buttons_dual_control(Gfx *gdl)
         textptr_aux = langGet(getStringID(LOPTIONS, OPTION_STR_05_MOVE_LF)); //move
     }
 
-    gdl = sub_GAME_7F0A9398(gdl, 0xE6, YOFFSET_4, textptr_aux, 0xAA00B0, 0, -1, 0, 0, 0x3000B0, 1);
+    gdl = draw_options_labels(gdl, 0xE6, YOFFSET_4, textptr_aux, 0xAA00B0, 0, -1, 0, 0, 0x3000B0, 1);
     return gdl;
 }
 
@@ -8769,12 +8776,12 @@ after_state:
 
         drawentry = entry;
     
-        gdl = sub_GAME_7F0A9398(gdl, x1, y, langGet(drawentry->text[1]), colour1, 0, -1, 1, 0, 0x3000B0, 0); // Draw text of option's first value e.g. "Full" for the Screen option.
-        gdl = sub_GAME_7F0A9398(gdl, x2, y, langGet(drawentry->text[2]), colour2, 0, -1, 1, 0, 0x3000B0, 0); // Draw text of option's second value e.g. "Wide" for the Screen option.
+        gdl = draw_options_labels(gdl, x1, y, langGet(drawentry->text[1]), colour1, 0, -1, 1, 0, 0x3000B0, 0); // Draw text of option's first value e.g. "Full" for the Screen option.
+        gdl = draw_options_labels(gdl, x2, y, langGet(drawentry->text[2]), colour2, 0, -1, 1, 0, 0x3000B0, 0); // Draw text of option's second value e.g. "Wide" for the Screen option.
     
         if (drawentry->text[3])
         {
-            gdl = sub_GAME_7F0A9398(gdl, 0x10E, y, langGet(drawentry->text[3]), colour3, 0, -1, 1, 0, 0x3000B0, 0); // Draw text of option's third value e.g. "Cinema" for the Screen option.
+            gdl = draw_options_labels(gdl, 0x10E, y, langGet(drawentry->text[3]), colour3, 0, -1, 1, 0, 0x3000B0, 0); // Draw text of option's third value e.g. "Cinema" for the Screen option.
         }
     
     return gdl;
@@ -8795,18 +8802,18 @@ Gfx *draw_toggle_options(Gfx *gdl)
             // Draw option that is highlighted and selected, if there is one.
             if (watch_item_is_actively_selected)
             {
-                gdl = draw_toggle_option_values(sub_GAME_7F0A9398(gdl, XOFFSET_1, y_offset, langGet(game_options_entries[i].text[0]), -1, 1, 0x7000A0, 0, 0, 0x3000B0, 0), y_offset, i, 2);
+                gdl = draw_toggle_option_values(draw_options_labels(gdl, XOFFSET_1, y_offset, langGet(game_options_entries[i].text[0]), -1, 1, 0x7000A0, 0, 0, 0x3000B0, 0), y_offset, i, 2);
             }
             // Draw option that is highlighted but not selected, if there is one.
             else
             {
-                gdl = draw_toggle_option_values(sub_GAME_7F0A9398(gdl, XOFFSET_1, y_offset, langGet(game_options_entries[i].text[0]), 0xA0FFA0F0, 0, -1, 0, 0, 0x3000B0, 0), y_offset, i, 1);
+                gdl = draw_toggle_option_values(draw_options_labels(gdl, XOFFSET_1, y_offset, langGet(game_options_entries[i].text[0]), 0xA0FFA0F0, 0, -1, 0, 0, 0x3000B0, 0), y_offset, i, 1);
             }
         }
         // Draw the options that are neither highlighted nor selected.
         else
         {
-            gdl = draw_toggle_option_values(sub_GAME_7F0A9398(gdl, XOFFSET_1, y_offset, langGet(game_options_entries[i].text[0]), 0xFF00B0, 0, -1, 0, 0, 0x3000B0, 0), y_offset, i, 0);
+            gdl = draw_toggle_option_values(draw_options_labels(gdl, XOFFSET_1, y_offset, langGet(game_options_entries[i].text[0]), 0xFF00B0, 0, -1, 0, 0, 0x3000B0, 0), y_offset, i, 0);
         }
 
     }
