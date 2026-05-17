@@ -2250,10 +2250,10 @@ struct player
   f32 speedgo;
   s32 lock_hand_model[2];
   s32 cur_player_control_type_0;
-  s32 cur_player_control_type_1;
-  f32 cur_player_control_type_2;
-  s32 neg_vspacing_for_control_type_entry;
-  u32 has_set_control_type_data;
+  s32 cur_player_control_type_1;             //0x2a5c
+  f32 cur_player_control_type_2;             //0x2a60
+  s32 neg_vspacing_for_control_type_entry;   //0x2a64
+  u32 has_set_control_type_data;             //0x2a68
   /**
    * Collision / clipping related.
    * Related to 0ffset 0x2a70.
