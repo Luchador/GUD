@@ -8729,8 +8729,15 @@ void game_option_toggle_input(s32 option_index)
 
 /**
  * Address: 7F0AB908
+ * 
+ * Set the color and draw the text for the values of the toggle options.
+ * For example, draw the "ON" and "OFF" text for the Auto-Aim option,
+ * but not the "AUTO-AIM" text itself.
+ * 
+ * Options are highlighted by using the controller to advance up and down the toggle options list,
+ * but options are not selected until the A button is pressed.
  */
-Gfx *sub_GAME_7F0AB908(Gfx *gdl, s32 y, s32 option_index, unsigned long state)
+Gfx *draw_toggle_option_values(Gfx *gdl, s32 y, s32 option_index, u32 state)
 {
     s32 colour1;
     s32 colour2;
@@ -8740,9 +8747,9 @@ Gfx *sub_GAME_7F0AB908(Gfx *gdl, s32 y, s32 option_index, unsigned long state)
     struct game_options *entry;
     struct game_options *drawentry;
 
-    colour1 = 0x800080;
-    colour2 = 0x800080;
-    colour3 = 0x800080;
+    colour1 = 0x00800080;
+    colour2 = 0x00800080;
+    colour3 = 0x00800080;
     
     entry = &game_options_entries[option_index];
     
@@ -8765,53 +8772,64 @@ Gfx *sub_GAME_7F0AB908(Gfx *gdl, s32 y, s32 option_index, unsigned long state)
         x2 = 0xE1;
     }
 
+    // Option is unhighlighted
     if (state == 0)
     {
-        goto state_0;
+        goto state_unhighlighted;
     }
+    // Option is highlighted
     else if (state == 1)
     {
-        goto state_1;
+        goto state_highlighted;
     }
+    // Option is selected
     else if (state == 2)
     {
-        goto state_2;
+        goto state_selected;
     }
     goto after_state;
 
-state_0:
+state_unhighlighted:
     entry = &game_options_entries[option_index];
     if (entry->current_value == 0)
     {
-        colour1 = 0xFF00B0;
+        colour1 = 0x00FF00B0;
     }
     else if (entry->current_value == 1)
     {
-        colour2 = 0xFF00B0;
+        colour2 = 0x00FF00B0;
     }
     else if (entry->current_value == 2)
     {
-        colour3 = 0xFF00B0;
+        colour3 = 0x00FF00B0;
     }
     goto after_state;
 
-state_1:
+/**
+ * Sets color of the active value of the highlighted option.
+ * These use the same colors as the active values of the unhighlighted options,
+ * so changing the highlighted option has no visual effect.
+ */
+state_highlighted:
     entry = &game_options_entries[option_index];
     if (entry->current_value == 0)
     {
-        colour1 = 0xFF00B0;
+        colour1 = 0x00FF00B0;
     }
     else if (entry->current_value == 1)
     {
-        colour2 = 0xFF00B0;
+        colour2 = 0x00FF00B0;
     }
     else if (entry->current_value == 2)
     {
-        colour3 = 0xFF00B0;
+        colour3 = 0x00FF00B0;
     }
     goto after_state;
 
-state_2:
+/**
+ * Make the active value of the selected option extra bright.
+ */
+state_selected:
     game_option_toggle_input(option_index);
     entry = &game_options_entries[option_index];
     if (entry->current_value == 0)
@@ -8847,12 +8865,12 @@ after_state:
 
         drawentry = entry;
     
-        gdl = sub_GAME_7F0A9398(gdl, x1, y, langGet(drawentry->text[1]), colour1, 0, -1, 1, 0, 0x3000B0, 0);
-        gdl = sub_GAME_7F0A9398(gdl, x2, y, langGet(drawentry->text[2]), colour2, 0, -1, 1, 0, 0x3000B0, 0);
+        gdl = sub_GAME_7F0A9398(gdl, x1, y, langGet(drawentry->text[1]), colour1, 0, -1, 1, 0, 0x3000B0, 0); // Draw text of option's first value e.g. "Full" for the Screen option.
+        gdl = sub_GAME_7F0A9398(gdl, x2, y, langGet(drawentry->text[2]), colour2, 0, -1, 1, 0, 0x3000B0, 0); // Draw text of option's second value e.g. "Wide" for the Screen option.
     
         if (drawentry->text[3])
         {
-            gdl = sub_GAME_7F0A9398(gdl, 0x10E, y, langGet(drawentry->text[3]), colour3, 0, -1, 1, 0, 0x3000B0, 0);
+            gdl = sub_GAME_7F0A9398(gdl, 0x10E, y, langGet(drawentry->text[3]), colour3, 0, -1, 1, 0, 0x3000B0, 0); // Draw text of option's third value e.g. "Cinema" for the Screen option.
         }
     
     return gdl;
@@ -8870,19 +8888,21 @@ Gfx *draw_toggle_options(Gfx *gdl)
 
         if ( i == game_options_index - 2)
         {
+            // Draw option that is highlighted and selected, if there is one.
             if (watch_item_is_actively_selected)
             {
-                gdl = sub_GAME_7F0AB908(sub_GAME_7F0A9398(gdl, XOFFSET_1, y_offset, langGet(game_options_entries[i].text[0]), -1, 1, 0x7000A0, 0, 0, 0x3000B0, 0), y_offset, i, 2);
+                gdl = draw_toggle_option_values(sub_GAME_7F0A9398(gdl, XOFFSET_1, y_offset, langGet(game_options_entries[i].text[0]), -1, 1, 0x7000A0, 0, 0, 0x3000B0, 0), y_offset, i, 2);
             }
+            // Draw option that is highlighted but not selected, if there is one.
             else
             {
-
-                gdl = sub_GAME_7F0AB908(sub_GAME_7F0A9398(gdl, XOFFSET_1, y_offset, langGet(game_options_entries[i].text[0]), 0xA0FFA0F0, 0, -1, 0, 0, 0x3000B0, 0), y_offset, i, 1);
+                gdl = draw_toggle_option_values(sub_GAME_7F0A9398(gdl, XOFFSET_1, y_offset, langGet(game_options_entries[i].text[0]), 0xA0FFA0F0, 0, -1, 0, 0, 0x3000B0, 0), y_offset, i, 1);
             }
         }
+        // Draw the options that are neither highlighted nor selected.
         else
         {
-            gdl = sub_GAME_7F0AB908(sub_GAME_7F0A9398(gdl, XOFFSET_1, y_offset, langGet(game_options_entries[i].text[0]), 0xFF00B0, 0, -1, 0, 0, 0x3000B0, 0), y_offset, i, 0);
+            gdl = draw_toggle_option_values(sub_GAME_7F0A9398(gdl, XOFFSET_1, y_offset, langGet(game_options_entries[i].text[0]), 0xFF00B0, 0, -1, 0, 0, 0x3000B0, 0), y_offset, i, 0);
         }
 
     }
