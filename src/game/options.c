@@ -4406,7 +4406,7 @@ void sub_GAME_7F0A91A0(u16 arg0) {
 /**
  * Address: 7F0A91C8
  */
-Gfx *sub_GAME_7F0A91C8(Gfx *gdl)
+Gfx *draw_music_volume_slider(Gfx *gdl)
 {
     u16 volume;
     f32 fvolume;
@@ -4426,15 +4426,17 @@ Gfx *sub_GAME_7F0A91C8(Gfx *gdl)
 
     if(1);
     
-    cmd = gdl++; cmd->words.w0 = 0xB900031D; cmd->words.w1 = 0x00504240;
+    cmd = gdl++;
+    gDPSetRenderMode(cmd, G_RM_XLU_SURF, G_RM_XLU_SURF2);
     
-    gdl = sub_GAME_7F0A3B40(gdl, (s32 *)((u32)vtx1 + 0x80000000));
+    gdl = sub_GAME_7F0A3B40(gdl, OS_K0_TO_PHYSICAL(vtx1));
     vtx = setup_watch_rectangles(vtx1, 0, 0, 600, 20, -299, -275);
     
-    gdl = sub_GAME_7F0A3B40(gdl, (s32 *)((u32)vtx + 0x80000000));
+
+    gdl = sub_GAME_7F0A3B40(gdl, OS_K0_TO_PHYSICAL(vtx));
     vtx = setup_watch_rectangles(vtx, 0, 0, 600, 20, -299, -275);
     
-    gdl = sub_GAME_7F0A3B40(gdl, (s32 *)((u32)vtx + 0x80000000));
+    gdl = sub_GAME_7F0A3B40(gdl, OS_K0_TO_PHYSICAL(vtx));
     setup_watch_rectangles(vtx, 0, 0, 600, 20, -299, -275);
     
     sub_GAME_7F0A8D40(vtx1, fvolume, 30);
@@ -8763,7 +8765,7 @@ Gfx *draw_watch_game_options_page(Gfx *gdl, Mtx *param_2) {
 
     if (check_watch_page_transistion_running() != 1)
     {
-        gdl = sub_GAME_7F0A91C8(gdl);
+        gdl = draw_music_volume_slider(gdl);
         gdl = sub_GAME_7F0A8FEC(gdl);
         pFontFile = ptrFontBankGothic;
         pFontChars = ptrFontBankGothicChars;
