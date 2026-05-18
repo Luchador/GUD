@@ -20,6 +20,8 @@
 
 #define WATCH_BACKGROUND_VERTEX_COUNT 30
 
+#define WATCH_VOL_ADJUST_STEP 1024
+
 // bss
 Mtx gfx_background_8007B0A0;
 Mtx gfx_background_8007B0E0;
@@ -253,7 +255,7 @@ Gfx *draw_background_health_and_armor_transitioning(Gfx *gdl, Mtx *param_2);
 Gfx *draw_background_health_and_armor(Gfx *gdl, Mtx *arg1, s32 zoom_squish);
 void sub_GAME_7F0A68D8(s32 *arg0);
 void game_option_select_value(u32 *param_1, u32 param_2);
-void sub_GAME_7F0A8ED0(u16* arg0);
+void watch_adjust_volume_slider(u16* arg0);
 Gfx *sub_GAME_7F0A3B40(Gfx *gdl, s32 *arg1);
 void sub_GAME_7F0A8D40(struct WatchVertex *vtx, f32 fvolume, s32 arg2);
 
@@ -4237,37 +4239,45 @@ glabel sub_GAME_7F0A8D40
 )
 #endif
 
-void sub_GAME_7F0A8ED0(u16* arg0) {
-    s32 sp1C;
-    s32 temp_v1;
 
-    sp1C = joyGetStickX(PLAYER_1);
-    temp_v1 = *arg0;
+/**
+ * Address: 7F0A8ED0
+ */
+void watch_adjust_volume_slider(u16* outVolume) {
+    s32 joy_x;
+    s32 adjusted_volume;
+
+    joy_x = joyGetStickX(PLAYER_1);
+    adjusted_volume = *outVolume;
 
     if (joyGetButtons(PLAYER_1, R_CBUTTONS|R_TRIG|R_JPAD)) {
-        temp_v1 = temp_v1 + 0x400;
+        adjusted_volume = adjusted_volume + WATCH_VOL_ADJUST_STEP;
     } else if (joyGetButtons(PLAYER_1, L_CBUTTONS|L_TRIG|L_JPAD)) {
-        temp_v1 = temp_v1 - 0x400;
+        adjusted_volume = adjusted_volume - WATCH_VOL_ADJUST_STEP;
     }
 
-    if (sp1C >= 0x47) {
-        sp1C = 0x46;
-    } else if (sp1C < -0x46) {
-        sp1C = -0x46;
+    // Clamp stick deflection
+    if (joy_x >= 0x47) {
+        joy_x = 0x46;
+    } else if (joy_x < -0x46) {
+        joy_x = -0x46;
     }
 
-    if (sp1C >= 8) {
-        temp_v1 += (sp1C * 0x800 + -0x3800) / 0x46;
-    } else if (sp1C < -7) {
-        temp_v1 += (sp1C * 0x800 + 0x3800) / 0x46;
+    // Increase volume
+    if (joy_x >= 8) {
+        adjusted_volume += (joy_x * 0x800 + -0x3800) / 0x46;
+    // Decrease volume
+    } else if (joy_x < -7) {
+        adjusted_volume += (joy_x * 0x800 + 0x3800) / 0x46;
     }
 
-    if (temp_v1 >= 0x8000) {
-        *arg0 = 0x7FFF;
-    } else if (temp_v1 < 0) {
-        *arg0 = 0;
+    // Clamp volume between min and max allowed volume.
+    if (adjusted_volume >= VOLUME_MAX + 1) {
+        *outVolume = VOLUME_MAX;
+    } else if (adjusted_volume < 0) {
+        *outVolume = 0;
     } else {
-        *arg0 = temp_v1;
+        *outVolume = adjusted_volume;
     }
 }
 
@@ -4289,7 +4299,7 @@ Gfx *draw_fx_volume_slider(Gfx *gdl)
 
     if (watch_item_is_actively_selected && game_options_index == 1)
     {
-        sub_GAME_7F0A8ED0(&volume);
+        watch_adjust_volume_slider(&volume);
     }
 
     fvolume = (f32)(u32)volume / 32767.0f;
@@ -4341,7 +4351,7 @@ Gfx *draw_music_volume_slider(Gfx *gdl)
     volume = get_mTrack2Vol();
     
     if (watch_item_is_actively_selected && game_options_index == 0) {
-        sub_GAME_7F0A8ED0(&volume);
+        watch_adjust_volume_slider(&volume);
     }
     
     fvolume = (f32)(u32)volume / 32767.0f;
@@ -4372,6 +4382,7 @@ u16 get_mTrack2Vol(void)
 {
   return mTrack2Vol;
 }
+
 
 void set_mTrack2Vol(u16 param_1)
 {
