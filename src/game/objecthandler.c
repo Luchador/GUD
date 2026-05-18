@@ -292,215 +292,97 @@ s32 D_8003641C =  0;
 /*
 */
 
+ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context) {
+    ModelHitEntry* freeListCursor;
+    ModelNode* sceneCursor;
+    ModelNode* childPtr;
+    s32 nodeType;
 
+    sceneCursor = context->obj->RootNode;
+    freeListCursor = D_80036060;
 
-#ifdef NONMATCHING
-*makejointlist * /
-    void sub_GAME_7F06B120(void)
-{
-    local_20 = **(param_2 + 8);
-    local_1c = freedist;
-    do
-    {
-        while (true)
-        {
-            if ((local_20 == NULL) || (local_1c == NULL))
-            {
-                param_11 = param_1;
-                if (local_1c != freedist)
-                {
-                    piStack_14 = param_1;
-                    if (param_1 == NULL)
-                    {
-                        param_11 = freedist;
-                    }
-                    else
-                    {
-                        for (; piStack_14[3] != 0; piStack_14 = piStack_14[3])
-                        {
-                        }
-                        piStack_14[3] = freedist;
-                        freedist[4]   = piStack_14;
-                    }
-                    if ((local_1c != NULL) && (local_1c[4] != 0))
-                    {
-                        *(local_1c[4] + 0xc) = 0;
-                        local_1c[4]          = 0;
-                    }
-                    freedist = local_1c;
-                }
-                if (freedist == NULL)
-                {
-                    piVar1 = osSyncPrintf("makejointlist: freedist is NULL!\n", param_2, param_3, param_4, param_5, param_6, param_7);
-                    return piVar1;
-                }
-                return param_11;
-            }
-            switch (*local_20 & 0xff)
-            {
-                case 1:
-                case 2:
-                case 3:
-                case 0xb:
-                case 0xc:
-                case 0xd:
-                case 0xe:
-                case 0xf:
-                case 0x10:
-                case 0x15:
-                    *local_1c   = param_2;
-                    local_1c[1] = local_20;
-                    local_1c    = local_1c[3];
-            }
-            if (*(local_20 + 10) == 0) break;
-            local_20 = *(local_20 + 10);
+    while ((sceneCursor != NULL) && (freeListCursor != NULL)) {
+        nodeType = sceneCursor->Opcode & 0xFF;
+
+        switch (nodeType) {
+        case 1:
+        case 2:
+        case 3:
+        case 0xb:
+        case 0xc:
+        case 0xd:
+        case 0xe:
+        case 0xf:
+        case 0x10:
+        case 0x15:
+            freeListCursor->model = context;
+            freeListCursor->rootnode = sceneCursor;
+            freeListCursor = freeListCursor->next;
+            break;
+
+        default:
+            break;
         }
-        for (; local_20 != NULL; local_20 = *(local_20 + 4))
-        {
-            if (*(local_20 + 6) != 0)
-            {
-                local_20 = *(local_20 + 6);
+
+        childPtr = sceneCursor->Child;
+        if (childPtr != NULL) {
+            sceneCursor = childPtr;
+            continue;
+        }
+
+        while (sceneCursor != NULL) {
+            childPtr = sceneCursor->Next;
+            if (childPtr != NULL) {
+                sceneCursor = childPtr;
                 break;
             }
+            sceneCursor = sceneCursor->Parent;
         }
-    } while (true);
+    }
+
+    if (freeListCursor != D_80036060) {
+        if (head != NULL) {
+            ModelHitEntry *tail = head;
+
+            while (tail->next != NULL) {
+                tail = tail->next;
+            }
+
+            tail->next = D_80036060;
+            D_80036060->prev = tail;
+        } else {
+            head = D_80036060;
+        }
+
+        if (freeListCursor != NULL) {
+            ModelHitEntry* prevNode = freeListCursor->prev;
+            if (prevNode != NULL) {
+                prevNode->next = NULL;
+                freeListCursor->prev = NULL;
+            }
+        }
+
+        D_80036060 = freeListCursor;
+    }
+
+    return head;
 }
-#else
-
-GLOBAL_ASM(
-.late_rodata
-/*D:80054490*/
-glabel jpt_80054490
-.word loc_CODE_7F06B174
-.word loc_CODE_7F06B174
-.word loc_CODE_7F06B174
-.word def_7F06B16C
-.word def_7F06B16C
-.word def_7F06B16C
-.word def_7F06B16C
-.word def_7F06B16C
-.word def_7F06B16C
-.word def_7F06B16C
-.word loc_CODE_7F06B174
-.word loc_CODE_7F06B174
-.word loc_CODE_7F06B174
-.word loc_CODE_7F06B174
-.word loc_CODE_7F06B174
-.word loc_CODE_7F06B174
-.word def_7F06B16C
-.word def_7F06B16C
-.word def_7F06B16C
-.word def_7F06B16C
-.word loc_CODE_7F06B174
-
-.text
-glabel sub_GAME_7F06B120
-/* 09FC50 7F06B120 8CAE0008 */  lw    $t6, 8($a1)
-/* 09FC54 7F06B124 3C078003 */  lui   $a3, %hi(D_80036060)
-/* 09FC58 7F06B128 24E76060 */  addiu $a3, %lo(D_80036060) # addiu $a3, $a3, 0x6060
-/* 09FC5C 7F06B12C 8DC20000 */  lw    $v0, ($t6)
-/* 09FC60 7F06B130 00803025 */  move  $a2, $a0
-/* 09FC64 7F06B134 8CE30000 */  lw    $v1, ($a3)
-/* 09FC68 7F06B138 50400027 */  beql  $v0, $zero, .L7F06B1D8
-/* 09FC6C 7F06B13C 8CE20000 */   lw    $v0, ($a3)
-/* 09FC70 7F06B140 50600025 */  beql  $v1, $zero, .L7F06B1D8
-/* 09FC74 7F06B144 8CE20000 */   lw    $v0, ($a3)
-/* 09FC78 7F06B148 94440000 */  lhu   $a0, ($v0)
-.L7F06B14C:
-/* 09FC7C 7F06B14C 308F00FF */  andi  $t7, $a0, 0xff
-/* 09FC80 7F06B150 25F8FFFF */  addiu $t8, $t7, -1
-/* 09FC84 7F06B154 2F010015 */  sltiu $at, $t8, 0x15
-/* 09FC88 7F06B158 1020000B */  beqz  $at, .L7F06B188
-/* 09FC8C 7F06B15C 0018C080 */   sll   $t8, $t8, 2
-/* 09FC90 7F06B160 3C018005 */  lui   $at, %hi(jpt_80054490)
-/* 09FC94 7F06B164 00380821 */  addu  $at, $at, $t8
-/* 09FC98 7F06B168 8C384490 */  lw    $t8, %lo(jpt_80054490)($at)
-/* 09FC9C 7F06B16C 03000008 */  jr    $t8
-/* 09FCA0 7F06B170 00000000 */   nop
-loc_CODE_7F06B174:
-/* 09FCA4 7F06B174 AC650000 */  sw    $a1, ($v1)
-/* 09FCA8 7F06B178 AC620004 */  sw    $v0, 4($v1)
-/* 09FCAC 7F06B17C 8C63000C */  lw    $v1, 0xc($v1)
-/* 09FCB0 7F06B180 10000002 */  b     .L7F06B18C
-/* 09FCB4 7F06B184 8C440014 */   lw    $a0, 0x14($v0)
-def_7F06B16C:
-.L7F06B188:
-/* 09FCB8 7F06B188 8C440014 */  lw    $a0, 0x14($v0)
-.L7F06B18C:
-/* 09FCBC 7F06B18C 10800003 */  beqz  $a0, .L7F06B19C
-/* 09FCC0 7F06B190 00000000 */   nop
-/* 09FCC4 7F06B194 1000000B */  b     .L7F06B1C4
-/* 09FCC8 7F06B198 00801025 */   move  $v0, $a0
-.L7F06B19C:
-/* 09FCCC 7F06B19C 10400009 */  beqz  $v0, .L7F06B1C4
-/* 09FCD0 7F06B1A0 00000000 */   nop
-/* 09FCD4 7F06B1A4 8C44000C */  lw    $a0, 0xc($v0)
-.L7F06B1A8:
-/* 09FCD8 7F06B1A8 50800004 */  beql  $a0, $zero, .L7F06B1BC
-/* 09FCDC 7F06B1AC 8C420008 */   lw    $v0, 8($v0)
-/* 09FCE0 7F06B1B0 10000004 */  b     .L7F06B1C4
-/* 09FCE4 7F06B1B4 00801025 */   move  $v0, $a0
-/* 09FCE8 7F06B1B8 8C420008 */  lw    $v0, 8($v0)
-.L7F06B1BC:
-/* 09FCEC 7F06B1BC 5440FFFA */  bnezl $v0, .L7F06B1A8
-/* 09FCF0 7F06B1C0 8C44000C */   lw    $a0, 0xc($v0)
-.L7F06B1C4:
-/* 09FCF4 7F06B1C4 50400004 */  beql  $v0, $zero, .L7F06B1D8
-/* 09FCF8 7F06B1C8 8CE20000 */   lw    $v0, ($a3)
-/* 09FCFC 7F06B1CC 5460FFDF */  bnezl $v1, .L7F06B14C
-/* 09FD00 7F06B1D0 94440000 */   lhu   $a0, ($v0)
-/* 09FD04 7F06B1D4 8CE20000 */  lw    $v0, ($a3)
-.L7F06B1D8:
-/* 09FD08 7F06B1D8 10620019 */  beq   $v1, $v0, .L7F06B240
-/* 09FD0C 7F06B1DC 00000000 */   nop
-/* 09FD10 7F06B1E0 50C0000F */  beql  $a2, $zero, .L7F06B220
-/* 09FD14 7F06B1E4 00403025 */   move  $a2, $v0
-/* 09FD18 7F06B1E8 8CD9000C */  lw    $t9, 0xc($a2)
-/* 09FD1C 7F06B1EC 00C02025 */  move  $a0, $a2
-/* 09FD20 7F06B1F0 53200007 */  beql  $t9, $zero, .L7F06B210
-/* 09FD24 7F06B1F4 AC82000C */   sw    $v0, 0xc($a0)
-/* 09FD28 7F06B1F8 8C85000C */  lw    $a1, 0xc($a0)
-/* 09FD2C 7F06B1FC 00A02025 */  move  $a0, $a1
-.L7F06B200:
-/* 09FD30 7F06B200 8CA5000C */  lw    $a1, 0xc($a1)
-/* 09FD34 7F06B204 54A0FFFE */  bnezl $a1, .L7F06B200
-/* 09FD38 7F06B208 00A02025 */   move  $a0, $a1
-/* 09FD3C 7F06B20C AC82000C */  sw    $v0, 0xc($a0)
-.L7F06B210:
-/* 09FD40 7F06B210 8CE80000 */  lw    $t0, ($a3)
-/* 09FD44 7F06B214 10000002 */  b     .L7F06B220
-/* 09FD48 7F06B218 AD040010 */   sw    $a0, 0x10($t0)
-/* 09FD4C 7F06B21C 00403025 */  move  $a2, $v0
-.L7F06B220:
-/* 09FD50 7F06B220 50600007 */  beql  $v1, $zero, .L7F06B240
-/* 09FD54 7F06B224 ACE30000 */   sw    $v1, ($a3)
-/* 09FD58 7F06B228 8C620010 */  lw    $v0, 0x10($v1)
-/* 09FD5C 7F06B22C 50400004 */  beql  $v0, $zero, .L7F06B240
-/* 09FD60 7F06B230 ACE30000 */   sw    $v1, ($a3)
-/* 09FD64 7F06B234 AC40000C */  sw    $zero, 0xc($v0)
-/* 09FD68 7F06B238 AC600010 */  sw    $zero, 0x10($v1)
-/* 09FD6C 7F06B23C ACE30000 */  sw    $v1, ($a3)
-.L7F06B240:
-/* 09FD70 7F06B240 03E00008 */  jr    $ra
-/* 09FD74 7F06B244 00C01025 */   move  $v0, $a2
-)
-#endif
 
 
 void sub_GAME_7F06B248(ModelHitEntry *entry)
 {
-    ModelNode *oldhead;
-    ModelNode *tail;
+    ModelHitEntry *oldhead;
+    ModelHitEntry *tail;
     
     if (entry != NULL) {
         oldhead = D_80036060;
         if (oldhead != NULL) {
             tail = entry;
-            while (tail->Next != NULL) {
-                tail = tail->Next;
+            while (tail->next != NULL) {
+                tail = tail->next;
             }
-            tail->Next = oldhead;
-            D_80036060->Prev = tail;
+            tail->next = oldhead;
+            D_80036060->prev = tail;
         }
         D_80036060 = entry;
     }

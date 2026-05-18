@@ -85,7 +85,7 @@ struct ptr_1_s {
 extern struct ptr_0_s *ptr_allocation_0;
 extern struct ptr_1_s *ptr_allocation_1;
 
-extern struct ModelNode *D_80036060;
+extern struct ModelHitEntry *D_80036060;
 extern s32 g_ModelDistanceDisabled;
 extern f32 g_ModelDistanceScale;
 extern u32 g_ModelAnimMergingEnabled;
@@ -105,6 +105,7 @@ void load_object_into_memory_unused_maybe(ModelFileHeader *header,int *recallstr
 PropRecord *chrGiveWeapon(ChrRecord *self, s32 PropID, ITEM_IDS ItemID, s32 flags);
 
 // called with struct ChrRecord->field_20
+ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context);
 void sub_GAME_7F06B248(ModelHitEntry *entry);
 void drawjointlist(ModelRenderData *arg0, ModelHitEntry *entry);
 

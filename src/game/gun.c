@@ -550,7 +550,7 @@ u16 D_80036058[] = { 0, 0, 0, 0, };
 
 //i may belong to objecthandler.c
 // D:80036060 canonically freedist
-struct ModelNode *D_80036060 = NULL;
+struct ModelHitEntry *D_80036060 = NULL;
 
 
 
