@@ -977,217 +977,90 @@ void sub_GAME_7F0AF630(s32 arg0)
 }
 
 
+/**
+ * Address: 7F0AF638
+ * 
+ * Unreferenced
+ * 
+ * Somewhere in this function a loop is checked for overflow
+ * if (i < param4)
+ * {
+ *     printf("stanFillin: Stack overflow %d>%d",local_20,uStack);
+ * }
+ */
+s32 stanFillin(StandTile *starttile, u8 targetbit, StandTile **stack) // Canonical function name
+{
+    StandTile *tile;
+    StandTile *linkedtile;
+    StandTilePoint *point;
+    u16 *tmp;
+    s32 pointcount;
+    s32 link;
+    s32 result;
+    s32 count;
+    s32 i;
+    s32 stackcount;
 
+    count = 0;
+    stack[0] = starttile;
+    stackcount = 1;
 
-
-
-#ifdef NONMATCHING
-//stanFillin()
-s32 sub_GAME_7F0AF638(s32 arg0, s32 arg1, void *arg2) {
-    s32 temp_s4;
-    void *temp_s3;
-    s32 temp_s1;
-    void *temp_s2;
-    s32 temp_a1;
-    s32 temp_v0;
-    s32 temp_s0;
-    void *temp_v1;
-    void *phi_s2;
-    s32 phi_a1;
-    void *phi_a0;
-    void *phi_s2_2;
-    s32 phi_s0;
-    s32 phi_a1_2;
-    s32 phi_s1;
-    s32 phi_s7;
-    void *phi_s2_3;
-    s32 phi_a1_3;
-    s32 phi_s1_2;
-    s32 phi_s1_3;
-    s32 phi_s7_2;
-    s32 phi_s7_3;
-    s32 phi_s1_4;
-
-    // Node 0
-    temp_s4 = (arg1 & 0xff);
-    *arg2 = arg0;
-    phi_s2 = (arg2 + 4);
-    phi_a1 = arg1;
-    phi_s1_3 = 1;
-    phi_s7_3 = 0;
-loop_1:
-    // Node 1
-    temp_s3 = phi_s2->unk-4;
-    temp_s1 = (phi_s1_3 + -1);
-    temp_s2 = (phi_s2 + -4);
-    phi_s1 = temp_s1;
-    phi_s7 = phi_s7_3;
-    phi_s2 = temp_s2;
-    phi_a1 = phi_a1;
-    if (temp_s4 != (((s32) *temp_s3 >> 0xf) & 1))
+    for (stack += stackcount; stackcount != 0;)
     {
-        // Node 2
-        *temp_s3 = (s16) (*temp_s3 ^ 0x8000);
-        phi_s7_2 = phi_s7_3;
-        if (stanTileHasZeroArea(temp_s3, phi_a1) == 0)
+        tile = stack[-1];
+        stackcount--;
+        stack--;
+        i = 0;
+
+        if (targetbit != (((*((u16 *) tile)) >> 15) & 1))
         {
-            // Node 3
-            phi_s7_2 = (phi_s7_3 + 1);
-        }
-        // Node 4
-        temp_a1 = (((s32) temp_s3->unk6 >> 0xc) & 0xf);
-        phi_a0 = temp_s3;
-        phi_s2_2 = temp_s2;
-        phi_s0 = 0;
-        phi_s1 = temp_s1;
-        phi_s7 = phi_s7_2;
-        phi_s2 = temp_s2;
-        phi_a1 = temp_a1;
-        phi_a1_3 = temp_a1;
-        phi_s1_4 = temp_s1;
-        if (temp_a1 > 0)
-        {
-loop_5:
-            // Node 5
-            temp_v0 = phi_a0->unkE;
-            temp_s0 = (phi_s0 + 1);
-            phi_a1_2 = phi_a1_3;
-            phi_s2_3 = phi_s2_2;
-            phi_s1_2 = phi_s1_4;
-            if ((temp_v0 >> 4) != 0)
+            tmp = (u16 *) tile;
+            *tmp ^= 0x8000;
+            result = stanTileHasZeroArea(tile);
+            point = (StandTilePoint *) tile;
+
+            if (stackcount);
+            
+            if (result == 0)
             {
-                // Node 6
-                temp_v1 = ((temp_v0 * 8) + standTileStart);
-                phi_a1_2 = phi_a1_3;
-                phi_s2_3 = phi_s2_2;
-                phi_s1_2 = phi_s1_4;
-                if (temp_s4 != (((s32) *temp_v1 >> 0xf) & 1))
+                count++;
+            }
+
+            pointcount = ((&tile->tail)->half >> 12) & 0xf;
+
+            if (pointcount > 0)
+            {
+                do
                 {
-                    // Node 7
-                    *phi_s2_2 = temp_v1;
-                    phi_a1_2 = (((s32) temp_s3->unk6 >> 0xc) & 0xf);
-                    phi_s2_3 = (phi_s2_2 + 4);
-                    phi_s1_2 = (phi_s1_4 + 1);
+                    link = point[1].link;
+                    i++;
+
+                    if (stackcount);
+                    
+                    if ((link >> 4) != 0)
+                    {
+                        linkedtile = (StandTile *) (((u8 *) standTileStart) + (((0, link)) << 3));
+
+                        if (targetbit != (((*((u16 *) linkedtile)) >> 15) & 1))
+                        {
+                            *stack = linkedtile;
+                            pointcount = (tile->tail.half >> 12) & 0xf;
+                            stackcount++;
+                            stack++;
+                        }
+                    }
+
+                    point++;
+
+                    if (starttile);
                 }
-            }
-            // Node 8
-            phi_a0 = (phi_a0 + 8);
-            phi_s2_2 = phi_s2_3;
-            phi_s0 = temp_s0;
-            phi_s1 = phi_s1_2;
-            phi_s7 = phi_s7_2;
-            phi_s2 = phi_s2_3;
-            phi_a1 = phi_a1_2;
-            phi_a1_3 = phi_a1_2;
-            phi_s1_4 = phi_s1_2;
-            if (temp_s0 < phi_a1_2)
-            {
-                goto loop_5;
+                while (i < pointcount);
             }
         }
     }
-    // Node 9
-    phi_s1_3 = phi_s1;
-    phi_s7_3 = phi_s7;
-    if (phi_s1 != 0)
-    {
-        goto loop_1;
-    }
-    // Node 10
-    return phi_s7;
 
-    /*somewhere in this function a loop is checked for overflow
-    if (i < param4)
-    {
-        printf("stanFillin: Stack overflow %d>%d",local_20,uStack);
-    }
-    */
+    return count;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0AF638
-/* 0E4168 7F0AF638 27BDFFC8 */  addiu $sp, $sp, -0x38
-/* 0E416C 7F0AF63C AFB70030 */  sw    $s7, 0x30($sp)
-/* 0E4170 7F0AF640 AFB6002C */  sw    $s6, 0x2c($sp)
-/* 0E4174 7F0AF644 AFB40024 */  sw    $s4, 0x24($sp)
-/* 0E4178 7F0AF648 AFB2001C */  sw    $s2, 0x1c($sp)
-/* 0E417C 7F0AF64C AFB10018 */  sw    $s1, 0x18($sp)
-/* 0E4180 7F0AF650 AFBF0034 */  sw    $ra, 0x34($sp)
-/* 0E4184 7F0AF654 AFB50028 */  sw    $s5, 0x28($sp)
-/* 0E4188 7F0AF658 AFB30020 */  sw    $s3, 0x20($sp)
-/* 0E418C 7F0AF65C AFB00014 */  sw    $s0, 0x14($sp)
-/* 0E4190 7F0AF660 AFA5003C */  sw    $a1, 0x3c($sp)
-/* 0E4194 7F0AF664 3C168004 */  lui   $s6, %hi(standTileStart)
-/* 0E4198 7F0AF668 30B400FF */  andi  $s4, $a1, 0xff
-/* 0E419C 7F0AF66C 0000B825 */  move  $s7, $zero
-/* 0E41A0 7F0AF670 ACC40000 */  sw    $a0, ($a2)
-/* 0E41A4 7F0AF674 24110001 */  li    $s1, 1
-/* 0E41A8 7F0AF678 26D60F58 */  addiu $s6, %lo(standTileStart) # addiu $s6, $s6, 0xf58
-/* 0E41AC 7F0AF67C 24D20004 */  addiu $s2, $a2, 4
-/* 0E41B0 7F0AF680 8E53FFFC */  lw    $s3, -4($s2)
-.L7F0AF684:
-/* 0E41B4 7F0AF684 2631FFFF */  addiu $s1, $s1, -1
-/* 0E41B8 7F0AF688 2652FFFC */  addiu $s2, $s2, -4
-/* 0E41BC 7F0AF68C 96620000 */  lhu   $v0, ($s3)
-/* 0E41C0 7F0AF690 00008025 */  move  $s0, $zero
-/* 0E41C4 7F0AF694 02602025 */  move  $a0, $s3
-/* 0E41C8 7F0AF698 00027BC3 */  sra   $t7, $v0, 0xf
-/* 0E41CC 7F0AF69C 31F80001 */  andi  $t8, $t7, 1
-/* 0E41D0 7F0AF6A0 12980021 */  beq   $s4, $t8, .L7F0AF728
-/* 0E41D4 7F0AF6A4 38598000 */   xori  $t9, $v0, 0x8000
-/* 0E41D8 7F0AF6A8 0FC2BDD8 */  jal   stanTileHasZeroArea
-/* 0E41DC 7F0AF6AC A6790000 */   sh    $t9, ($s3)
-/* 0E41E0 7F0AF6B0 14400002 */  bnez  $v0, .L7F0AF6BC
-/* 0E41E4 7F0AF6B4 02602025 */   move  $a0, $s3
-/* 0E41E8 7F0AF6B8 26F70001 */  addiu $s7, $s7, 1
-.L7F0AF6BC:
-/* 0E41EC 7F0AF6BC 86650006 */  lh    $a1, 6($s3)
-/* 0E41F0 7F0AF6C0 00054303 */  sra   $t0, $a1, 0xc
-/* 0E41F4 7F0AF6C4 3105000F */  andi  $a1, $t0, 0xf
-/* 0E41F8 7F0AF6C8 18A00017 */  blez  $a1, .L7F0AF728
-/* 0E41FC 7F0AF6CC 00000000 */   nop
-.L7F0AF6D0:
-/* 0E4200 7F0AF6D0 9482000E */  lhu   $v0, 0xe($a0)
-/* 0E4204 7F0AF6D4 26100001 */  addiu $s0, $s0, 1
-/* 0E4208 7F0AF6D8 00025103 */  sra   $t2, $v0, 4
-/* 0E420C 7F0AF6DC 51400010 */  beql  $t2, $zero, .L7F0AF720
-/* 0E4210 7F0AF6E0 0205082A */   slt   $at, $s0, $a1
-/* 0E4214 7F0AF6E4 8ECC0000 */  lw    $t4, ($s6)
-/* 0E4218 7F0AF6E8 000258C0 */  sll   $t3, $v0, 3
-/* 0E421C 7F0AF6EC 016C1821 */  addu  $v1, $t3, $t4
-/* 0E4220 7F0AF6F0 946D0000 */  lhu   $t5, ($v1)
-/* 0E4224 7F0AF6F4 000D73C3 */  sra   $t6, $t5, 0xf
-/* 0E4228 7F0AF6F8 31CF0001 */  andi  $t7, $t6, 1
-/* 0E422C 7F0AF6FC 528F0008 */  beql  $s4, $t7, .L7F0AF720
-/* 0E4230 7F0AF700 0205082A */   slt   $at, $s0, $a1
-/* 0E4234 7F0AF704 AE430000 */  sw    $v1, ($s2)
-/* 0E4238 7F0AF708 86650006 */  lh    $a1, 6($s3)
-/* 0E423C 7F0AF70C 26310001 */  addiu $s1, $s1, 1
-/* 0E4240 7F0AF710 26520004 */  addiu $s2, $s2, 4
-/* 0E4244 7F0AF714 0005C303 */  sra   $t8, $a1, 0xc
-/* 0E4248 7F0AF718 3305000F */  andi  $a1, $t8, 0xf
-/* 0E424C 7F0AF71C 0205082A */  slt   $at, $s0, $a1
-.L7F0AF720:
-/* 0E4250 7F0AF720 1420FFEB */  bnez  $at, .L7F0AF6D0
-/* 0E4254 7F0AF724 24840008 */   addiu $a0, $a0, 8
-.L7F0AF728:
-/* 0E4258 7F0AF728 5620FFD6 */  bnezl $s1, .L7F0AF684
-/* 0E425C 7F0AF72C 8E53FFFC */   lw    $s3, -4($s2)
-/* 0E4260 7F0AF730 8FBF0034 */  lw    $ra, 0x34($sp)
-/* 0E4264 7F0AF734 02E01025 */  move  $v0, $s7
-/* 0E4268 7F0AF738 8FB70030 */  lw    $s7, 0x30($sp)
-/* 0E426C 7F0AF73C 8FB00014 */  lw    $s0, 0x14($sp)
-/* 0E4270 7F0AF740 8FB10018 */  lw    $s1, 0x18($sp)
-/* 0E4274 7F0AF744 8FB2001C */  lw    $s2, 0x1c($sp)
-/* 0E4278 7F0AF748 8FB30020 */  lw    $s3, 0x20($sp)
-/* 0E427C 7F0AF74C 8FB40024 */  lw    $s4, 0x24($sp)
-/* 0E4280 7F0AF750 8FB50028 */  lw    $s5, 0x28($sp)
-/* 0E4284 7F0AF754 8FB6002C */  lw    $s6, 0x2c($sp)
-/* 0E4288 7F0AF758 03E00008 */  jr    $ra
-/* 0E428C 7F0AF75C 27BD0038 */   addiu $sp, $sp, 0x38
-)
-#endif
 
 
 /**
