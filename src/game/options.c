@@ -4275,7 +4275,7 @@ void sub_GAME_7F0A8ED0(u16* arg0) {
 /**
  * Address: 7F0A8FEC
  */
-Gfx *sub_GAME_7F0A8FEC(Gfx *gdl)
+Gfx *draw_fx_volume_slider(Gfx *gdl)
 {
     u16 volume;
     f32 fvolume;
@@ -8689,7 +8689,7 @@ Gfx *draw_watch_game_options_page(Gfx *gdl, Mtx *param_2) {
     if (check_watch_page_transistion_running() != 1)
     {
         gdl = draw_music_volume_slider(gdl);
-        gdl = sub_GAME_7F0A8FEC(gdl);
+        gdl = draw_fx_volume_slider(gdl);
         pFontFile = ptrFontBankGothic;
         pFontChars = ptrFontBankGothicChars;
         gdl = microcode_constructor(gdl);
