@@ -257,7 +257,7 @@ void sub_GAME_7F0A68D8(s32 *arg0);
 void game_option_select_value(u32 *param_1, u32 param_2);
 void watch_adjust_volume_slider(u16* arg0);
 Gfx *sub_GAME_7F0A3B40(Gfx *gdl, s32 *arg1);
-void sub_GAME_7F0A8D40(struct WatchVertex *vtx, f32 fvolume, s32 arg2);
+void update_volume_slider_verts(struct WatchVertex *verts, f32 fill_amount, s32 transition_width);
 
 // end forward declarations
 
@@ -4121,20 +4121,24 @@ Gfx *unused_draw_watch_inventory_page(Gfx *gdl, Mtx *param_2) {
 
 
 /**
- * Address: sub_GAME_7F0A8D40
+ * Address: 7F0A8D40
  */
-void sub_GAME_7F0A8D40(struct WatchVertex *arg0, f32 arg1, s32 arg2)
+void update_volume_slider_verts(struct WatchVertex *verts, f32 fill_amount, s32 transition_width)
 {
     s32 i;
     struct WatchVertex *vtx;
     s32 xdiff;
-    s32 temp;
-    xdiff = arg0[2].coord1.x - arg0[4].coord1.x;
-    arg2 = (s32) (((f32) arg2) * (1.2f - arg1));
+    s32 filledrightx;
+
+    xdiff = verts[2].coord1.x - verts[4].coord1.x;
+    transition_width = (s32) (((f32) transition_width) * (1.2f - fill_amount));
     i = 0;
-    vtx = arg0;
+    vtx = verts;
     
-    // Make the unfilled part of the slider dark green.
+    /**
+     * Verts 0-3: unfilled right section.
+     * Dark green.
+     */
     do
     {
         i++;
@@ -4146,47 +4150,56 @@ void sub_GAME_7F0A8D40(struct WatchVertex *arg0, f32 arg1, s32 arg2)
     } while (i < 4);
     
     i = 4;
-    vtx = &arg0[4];
+    vtx = &verts[4];
     
+    /**
+     * Verts 4-9: filled left section and transition.
+     * Verts 10 and 11: moving boundary between transition and unfilled section.
+     */
     do
     {
-        temp = xdiff + arg2;
+        filledrightx = xdiff + transition_width;
         
         if (i < 10)
         {
+            // The filled section gets brighter as the volume increases.
             s32 rb;
             s32 g;
-            rb = ((s32) (48.0f * arg1)) + 0x40;
-            g = ((s32) (96.0f * arg1)) + 0x80;
+            rb = ((s32) (48.0f * fill_amount)) + 0x40;
+            g = ((s32) (96.0f * fill_amount)) + 0x80;
             vtx->color.r = rb;
             vtx->color.g = g;
             vtx->color.b = rb;
+
+            // Left edge of the transition band.
             if (i >= 6)
             {
-                vtx->coord1.x = (s32) ((((f32) arg0[4].coord1.x) + ((((f32) xdiff) + ((f32) arg2)) * arg1)) - ((f32) arg2));
-                if (vtx->coord1.x < arg0[4].coord1.x)
+                vtx->coord1.x = (s32) ((((f32) verts[4].coord1.x) + ((((f32) xdiff) + ((f32) transition_width)) * fill_amount)) - ((f32) transition_width));
+                if (vtx->coord1.x < verts[4].coord1.x)
                 {
-                    vtx->coord1.x = arg0[4].coord1.x;
+                    vtx->coord1.x = verts[4].coord1.x;
                 }
             }
         }
         else
         {
-        vtx->coord1.x = (s32) ((((f32) arg0[4].coord1.x) + (((f32) temp) * arg1)) + ((f32) arg2));
-            if (arg0[2].coord1.x < vtx->coord1.x)
+        // Right edge of the transition band.
+        vtx->coord1.x = (s32) ((((f32) verts[4].coord1.x) + (((f32) filledrightx) * fill_amount)) + ((f32) transition_width));
+            if (verts[2].coord1.x < vtx->coord1.x)
             {
-                vtx->coord1.x = arg0[2].coord1.x;
+                vtx->coord1.x = verts[2].coord1.x;
             }
         }
         
     i++;
     vtx++;
-        
+    
     } while (i != 12);
     
-    temp = arg0[10].coord1.x;
-    arg0[1].coord1.x = temp;
-    arg0[0].coord1.x = temp;
+    // Make the unfilled section begin at the right edge of the transition area.
+    filledrightx = verts[10].coord1.x;
+    verts[1].coord1.x = filledrightx;
+    verts[0].coord1.x = filledrightx;
 }
 
 
@@ -4271,7 +4284,7 @@ Gfx *draw_fx_volume_slider(Gfx *gdl)
     gdl = sub_GAME_7F0A3B40(gdl, OS_K0_TO_PHYSICAL(vtx));
     setup_watch_rectangles(vtx, 0, 0, 600, 20, -299, -205);
 
-    sub_GAME_7F0A8D40(vtx1, fvolume, 30);
+    update_volume_slider_verts(vtx1, fvolume, 30);
 
     return gdl;
 }
@@ -4323,7 +4336,7 @@ Gfx *draw_music_volume_slider(Gfx *gdl)
     gdl = sub_GAME_7F0A3B40(gdl, OS_K0_TO_PHYSICAL(vtx));
     setup_watch_rectangles(vtx, 0, 0, 600, 20, -299, -275);
     
-    sub_GAME_7F0A8D40(vtx1, fvolume, 30);
+    update_volume_slider_verts(vtx1, fvolume, 30);
     
     return gdl;
 }
