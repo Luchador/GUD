@@ -1570,172 +1570,64 @@ bool projectileTestObjectCollisionRecursive(ObjectRecord *obj, coord3d *worldRay
 }
 
 
-#ifdef NONMATCHING
-// PD: func0f06c28c
-bool sub_GAME_7F041BB8(ChrRecord *chr, coord3d *arg1, coord3d *arg2, f32 arg3, coord3d *arg4, coord3d *arg5, coord3d *arg6, coord3d *arg7, f32 *arg8) {
+s32 sub_GAME_7F06C010(ModelHitEntry **entryptr, coord3d *modelRayStart, coord3d *modelRayDir, Model **outModel, ModelNode **outNode);
 
+bool sub_GAME_7F041BB8(ChrRecord *chr, coord3d *arg1, coord3d *arg2, f32 arg3, coord3d *arg4, coord3d *arg5, coord3d *arg6, coord3d *arg7, f32 *arg8) {
+    f32 instSize;
+    f32 dx;
+    f32 dy;
+    f32 dz;
+    f32 planeDist;
+    f32 *new_var2;
+    f32 hitDist;
+    f32 pad;
+    s32 bodyPart;
+    Model *model;
+    ModelNode *node;
+    ModelHitEntry *entry;
+    Mtxf *mtx;
+    PropRecord *prop;
+
+    prop = chr->prop;
+    instSize = getinstsize(chr->model);
+    dx = prop->pos.x - arg1->x;
+    dy = prop->pos.y - arg1->y;
+    dz = prop->pos.z - arg1->z;
+    planeDist = (dz * arg2->z) + ((dx * arg2->x) + (dy * arg2->y));
+
+    if ((-instSize <= planeDist) && (planeDist <= (arg3 + instSize)) && (prop->flags & PROPFLAG_ONSCREEN)) {
+        entry = chr->field_20;
+        bodyPart = sub_GAME_7F06C010(&entry, arg4, arg5, &model, &node);
+        if (bodyPart > 0) {
+            mtx = modelFindNodeMtx(model, node, 0);
+            dx = mtx->m[3][0] - arg4->x;
+            dy = mtx->m[3][1] - arg4->y;
+            new_var2 = mtx->m[3];
+            dz = new_var2[2] - arg4->z;
+            hitDist = (dz * arg5->z) + ((dx * arg5->x) + (dy * arg5->y));
+            if (hitDist < *arg8) {
+                *arg8 = hitDist;
+                arg6->x = (arg2->x * hitDist) + arg1->x;
+                arg6->y = (arg2->y * hitDist) + arg1->y;
+                arg6->z = (arg2->z * hitDist) + arg1->z;
+                arg7->x = -arg2->x;
+                arg7->y = 0.0f;
+                arg7->z = -arg2->z;
+                if ((arg7->x != 0.0f) || (arg7->z != 0.0f)) {
+                    guNormalize(&arg7->x, &arg7->y, &arg7->z);
+                } else {
+                    arg7->z = 1.0f;
+                }
+                D_80030B0C = prop;
+                bodypartshot = bodyPart;
+                g_CurrentProjectileModel = model;
+                dword_CODE_bss_80075B74 = node;
+                return 1;
+            }
+        }
+    }
+    return 0;
 }
-#else
-bool sub_GAME_7F041BB8(ChrRecord *chr, coord3d *arg1, coord3d *arg2, f32 arg3, coord3d *arg4, coord3d *arg5, coord3d *arg6, coord3d *arg7, f32 *arg8);
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F041BB8
-/* 0766E8 7F041BB8 27BDFF98 */  addiu $sp, $sp, -0x68
-/* 0766EC 7F041BBC AFA70074 */  sw    $a3, 0x74($sp)
-/* 0766F0 7F041BC0 AFBF002C */  sw    $ra, 0x2c($sp)
-/* 0766F4 7F041BC4 AFB20028 */  sw    $s2, 0x28($sp)
-/* 0766F8 7F041BC8 AFB10024 */  sw    $s1, 0x24($sp)
-/* 0766FC 7F041BCC AFB00020 */  sw    $s0, 0x20($sp)
-/* 076700 7F041BD0 AFA40068 */  sw    $a0, 0x68($sp)
-/* 076704 7F041BD4 00803825 */  move  $a3, $a0
-/* 076708 7F041BD8 8C920018 */  lw    $s2, 0x18($a0)
-/* 07670C 7F041BDC 8C84001C */  lw    $a0, 0x1c($a0)
-/* 076710 7F041BE0 00C08025 */  move  $s0, $a2
-/* 076714 7F041BE4 00A08825 */  move  $s1, $a1
-/* 076718 7F041BE8 0FC1B403 */  jal   getinstsize
-/* 07671C 7F041BEC AFA70068 */   sw    $a3, 0x68($sp)
-/* 076720 7F041BF0 C6440008 */  lwc1  $f4, 8($s2)
-/* 076724 7F041BF4 C6260000 */  lwc1  $f6, ($s1)
-/* 076728 7F041BF8 C648000C */  lwc1  $f8, 0xc($s2)
-/* 07672C 7F041BFC C62A0004 */  lwc1  $f10, 4($s1)
-/* 076730 7F041C00 46062081 */  sub.s $f2, $f4, $f6
-/* 076734 7F041C04 C6060000 */  lwc1  $f6, ($s0)
-/* 076738 7F041C08 C6240008 */  lwc1  $f4, 8($s1)
-/* 07673C 7F041C0C 460A4301 */  sub.s $f12, $f8, $f10
-/* 076740 7F041C10 C6520010 */  lwc1  $f18, 0x10($s2)
-/* 076744 7F041C14 46061202 */  mul.s $f8, $f2, $f6
-/* 076748 7F041C18 C60A0004 */  lwc1  $f10, 4($s0)
-/* 07674C 7F041C1C 46049381 */  sub.s $f14, $f18, $f4
-/* 076750 7F041C20 C6060008 */  lwc1  $f6, 8($s0)
-/* 076754 7F041C24 460A6482 */  mul.s $f18, $f12, $f10
-/* 076758 7F041C28 46124100 */  add.s $f4, $f8, $f18
-/* 07675C 7F041C2C 460E3282 */  mul.s $f10, $f6, $f14
-/* 076760 7F041C30 C7B20074 */  lwc1  $f18, 0x74($sp)
-/* 076764 7F041C34 46000207 */  neg.s $f8, $f0
-/* 076768 7F041C38 46045400 */  add.s $f16, $f10, $f4
-/* 07676C 7F041C3C 4610403E */  c.le.s $f8, $f16
-/* 076770 7F041C40 00000000 */  nop
-/* 076774 7F041C44 4502006B */  bc1fl .L7F041DF4
-/* 076778 7F041C48 00001025 */   move  $v0, $zero
-/* 07677C 7F041C4C 46009180 */  add.s $f6, $f18, $f0
-/* 076780 7F041C50 4606803E */  c.le.s $f16, $f6
-/* 076784 7F041C54 00000000 */  nop
-/* 076788 7F041C58 45020066 */  bc1fl .L7F041DF4
-/* 07678C 7F041C5C 00001025 */   move  $v0, $zero
-/* 076790 7F041C60 924E0001 */  lbu   $t6, 1($s2)
-/* 076794 7F041C64 8FB80068 */  lw    $t8, 0x68($sp)
-/* 076798 7F041C68 27A40038 */  addiu $a0, $sp, 0x38
-/* 07679C 7F041C6C 31CF0002 */  andi  $t7, $t6, 2
-/* 0767A0 7F041C70 11E0005F */  beqz  $t7, .L7F041DF0
-/* 0767A4 7F041C74 27A70040 */   addiu $a3, $sp, 0x40
-/* 0767A8 7F041C78 8F190020 */  lw    $t9, 0x20($t8)
-/* 0767AC 7F041C7C 27A8003C */  addiu $t0, $sp, 0x3c
-/* 0767B0 7F041C80 AFA80010 */  sw    $t0, 0x10($sp)
-/* 0767B4 7F041C84 8FA50078 */  lw    $a1, 0x78($sp)
-/* 0767B8 7F041C88 8FA6007C */  lw    $a2, 0x7c($sp)
-/* 0767BC 7F041C8C 0FC1B004 */  jal   sub_GAME_7F06C010
-/* 0767C0 7F041C90 AFB90038 */   sw    $t9, 0x38($sp)
-/* 0767C4 7F041C94 18400056 */  blez  $v0, .L7F041DF0
-/* 0767C8 7F041C98 AFA20044 */   sw    $v0, 0x44($sp)
-/* 0767CC 7F041C9C 8FA40040 */  lw    $a0, 0x40($sp)
-/* 0767D0 7F041CA0 8FA5003C */  lw    $a1, 0x3c($sp)
-/* 0767D4 7F041CA4 0FC1B198 */  jal   modelFindNodeMtx
-/* 0767D8 7F041CA8 00003025 */   move  $a2, $zero
-/* 0767DC 7F041CAC 8FA30078 */  lw    $v1, 0x78($sp)
-/* 0767E0 7F041CB0 C44A0030 */  lwc1  $f10, 0x30($v0)
-/* 0767E4 7F041CB4 8FA7007C */  lw    $a3, 0x7c($sp)
-/* 0767E8 7F041CB8 C4640000 */  lwc1  $f4, ($v1)
-/* 0767EC 7F041CBC C4480034 */  lwc1  $f8, 0x34($v0)
-/* 0767F0 7F041CC0 C4720004 */  lwc1  $f18, 4($v1)
-/* 0767F4 7F041CC4 46045081 */  sub.s $f2, $f10, $f4
-/* 0767F8 7F041CC8 C4E40000 */  lwc1  $f4, ($a3)
-/* 0767FC 7F041CCC C4460038 */  lwc1  $f6, 0x38($v0)
-/* 076800 7F041CD0 46124301 */  sub.s $f12, $f8, $f18
-/* 076804 7F041CD4 C46A0008 */  lwc1  $f10, 8($v1)
-/* 076808 7F041CD8 46041202 */  mul.s $f8, $f2, $f4
-/* 07680C 7F041CDC C4F20004 */  lwc1  $f18, 4($a3)
-/* 076810 7F041CE0 460A3381 */  sub.s $f14, $f6, $f10
-/* 076814 7F041CE4 C4E40008 */  lwc1  $f4, 8($a3)
-/* 076818 7F041CE8 46126182 */  mul.s $f6, $f12, $f18
-/* 07681C 7F041CEC 8FA50088 */  lw    $a1, 0x88($sp)
-/* 076820 7F041CF0 8FA20080 */  lw    $v0, 0x80($sp)
-/* 076824 7F041CF4 460E2482 */  mul.s $f18, $f4, $f14
-/* 076828 7F041CF8 8FA40084 */  lw    $a0, 0x84($sp)
-/* 07682C 7F041CFC 46064280 */  add.s $f10, $f8, $f6
-/* 076830 7F041D00 C4A80000 */  lwc1  $f8, ($a1)
-/* 076834 7F041D04 460A9000 */  add.s $f0, $f18, $f10
-/* 076838 7F041D08 4608003C */  c.lt.s $f0, $f8
-/* 07683C 7F041D0C 00000000 */  nop
-/* 076840 7F041D10 45020038 */  bc1fl .L7F041DF4
-/* 076844 7F041D14 00001025 */   move  $v0, $zero
-/* 076848 7F041D18 E4A00000 */  swc1  $f0, ($a1)
-/* 07684C 7F041D1C C6060000 */  lwc1  $f6, ($s0)
-/* 076850 7F041D20 C6320000 */  lwc1  $f18, ($s1)
-/* 076854 7F041D24 44801000 */  mtc1  $zero, $f2
-/* 076858 7F041D28 46003102 */  mul.s $f4, $f6, $f0
-/* 07685C 7F041D2C 24850004 */  addiu $a1, $a0, 4
-/* 076860 7F041D30 46122280 */  add.s $f10, $f4, $f18
-/* 076864 7F041D34 E44A0000 */  swc1  $f10, ($v0)
-/* 076868 7F041D38 C6080004 */  lwc1  $f8, 4($s0)
-/* 07686C 7F041D3C C6240004 */  lwc1  $f4, 4($s1)
-/* 076870 7F041D40 46004182 */  mul.s $f6, $f8, $f0
-/* 076874 7F041D44 46043480 */  add.s $f18, $f6, $f4
-/* 076878 7F041D48 E4520004 */  swc1  $f18, 4($v0)
-/* 07687C 7F041D4C C60A0008 */  lwc1  $f10, 8($s0)
-/* 076880 7F041D50 C6260008 */  lwc1  $f6, 8($s1)
-/* 076884 7F041D54 46005202 */  mul.s $f8, $f10, $f0
-/* 076888 7F041D58 46064100 */  add.s $f4, $f8, $f6
-/* 07688C 7F041D5C E4440008 */  swc1  $f4, 8($v0)
-/* 076890 7F041D60 C6120000 */  lwc1  $f18, ($s0)
-/* 076894 7F041D64 E4820004 */  swc1  $f2, 4($a0)
-/* 076898 7F041D68 46009287 */  neg.s $f10, $f18
-/* 07689C 7F041D6C E48A0000 */  swc1  $f10, ($a0)
-/* 0768A0 7F041D70 C4840000 */  lwc1  $f4, ($a0)
-/* 0768A4 7F041D74 C6080008 */  lwc1  $f8, 8($s0)
-/* 0768A8 7F041D78 46041032 */  c.eq.s $f2, $f4
-/* 0768AC 7F041D7C 46004187 */  neg.s $f6, $f8
-/* 0768B0 7F041D80 45000007 */  bc1f  .L7F041DA0
-/* 0768B4 7F041D84 E4860008 */   swc1  $f6, 8($a0)
-/* 0768B8 7F041D88 C4920008 */  lwc1  $f18, 8($a0)
-/* 0768BC 7F041D8C 3C013F80 */  li    $at, 0x3F800000 # 1.000000
-/* 0768C0 7F041D90 46121032 */  c.eq.s $f2, $f18
-/* 0768C4 7F041D94 00000000 */  nop
-/* 0768C8 7F041D98 45030006 */  bc1tl .L7F041DB4
-/* 0768CC 7F041D9C 44815000 */   mtc1  $at, $f10
-.L7F041DA0:
-/* 0768D0 7F041DA0 0C007DD4 */  jal   guNormalize
-/* 0768D4 7F041DA4 24860008 */   addiu $a2, $a0, 8
-/* 0768D8 7F041DA8 10000005 */  b     .L7F041DC0
-/* 0768DC 7F041DAC 8FA90044 */   lw    $t1, 0x44($sp)
-/* 0768E0 7F041DB0 44815000 */  mtc1  $at, $f10
-.L7F041DB4:
-/* 0768E4 7F041DB4 00000000 */  nop
-/* 0768E8 7F041DB8 E48A0008 */  swc1  $f10, 8($a0)
-/* 0768EC 7F041DBC 8FA90044 */  lw    $t1, 0x44($sp)
-.L7F041DC0:
-/* 0768F0 7F041DC0 3C018003 */  lui   $at, %hi(D_80030B0C)
-/* 0768F4 7F041DC4 AC320B0C */  sw    $s2, %lo(D_80030B0C)($at)
-/* 0768F8 7F041DC8 8FAA0040 */  lw    $t2, 0x40($sp)
-/* 0768FC 7F041DCC 3C018003 */  lui   $at, %hi(bodypartshot)
-/* 076900 7F041DD0 AC290B10 */  sw    $t1, %lo(bodypartshot)($at)
-/* 076904 7F041DD4 3C018007 */  lui   $at, %hi(g_CurrentProjectileModel)
-/* 076908 7F041DD8 8FAB003C */  lw    $t3, 0x3c($sp)
-/* 07690C 7F041DDC AC2A5B70 */  sw    $t2, %lo(g_CurrentProjectileModel)($at)
-/* 076910 7F041DE0 3C018007 */  lui   $at, %hi(dword_CODE_bss_80075B74)
-/* 076914 7F041DE4 24020001 */  li    $v0, 1
-/* 076918 7F041DE8 10000002 */  b     .L7F041DF4
-/* 07691C 7F041DEC AC2B5B74 */   sw    $t3, %lo(dword_CODE_bss_80075B74)($at)
-.L7F041DF0:
-/* 076920 7F041DF0 00001025 */  move  $v0, $zero
-.L7F041DF4:
-/* 076924 7F041DF4 8FBF002C */  lw    $ra, 0x2c($sp)
-/* 076928 7F041DF8 8FB00020 */  lw    $s0, 0x20($sp)
-/* 07692C 7F041DFC 8FB10024 */  lw    $s1, 0x24($sp)
-/* 076930 7F041E00 8FB20028 */  lw    $s2, 0x28($sp)
-/* 076934 7F041E04 03E00008 */  jr    $ra
-/* 076938 7F041E08 27BD0068 */   addiu $sp, $sp, 0x68
-)
-#endif
 
 
 bool projectileFindCollidingProp(PropRecord *ignoreProp, coord3d *worldRayStart, coord3d *worldRayEnd, u32 cdtypes, coord3d *outHitPos, coord3d *outHitNormal, s32 *rooms)
