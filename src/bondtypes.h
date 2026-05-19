@@ -1579,7 +1579,7 @@ typedef union
     typedef struct ModelHitEntry {
         struct Model *model;                  /* 0x00 */
         struct ModelNode *rootnode;           /* 0x04 */
-        void *unk08;                          /* 0x08 */
+        f32 sortvalue;                        /* 0x08 */
         struct ModelHitEntry *next;           /* 0x0c */
         struct ModelHitEntry *prev;           /* 0x10 */
     } ModelHitEntry;
@@ -1589,7 +1589,7 @@ typedef union
 #pragma region PadAndPaths
     /**
      * Pads hold a location in space and are tied to a specified Stand Tile.
-     * Other attributes include its roation and normal.
+     * Other attributes include its rotation and normal.
      */
     typedef struct PadRecord /*0x2c (44) long confirmed*/
     {

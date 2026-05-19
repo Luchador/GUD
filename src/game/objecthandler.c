@@ -1216,112 +1216,90 @@ def_7F06B2F4:
 #endif
 
 
-
-
-
-#ifdef NONMATCHING
-int sub_GAME_7F06BB28(double param_1, undefined param_2, undefined param_3, ModelNode *param_4, ModelNode *param_5, ModelNode *param_6, ModelNode *param_7, ModelNode *param_8, ModelNode *param_9, undefined4 param_10, undefined4 param_11)
-
+/**
+ * Address: 7F06BB28
+ */
+ModelHitEntry *sub_GAME_7F06BB28(ModelHitEntry *modelhit)
 {
-    while (param_6 = param_6->Next, param_6 != &param_3)
+    ModelHitEntry stacknodes[2];
+    ModelHitEntry *last;
+    ModelHitEntry *current;
+    ModelHitEntry *next;
+    ModelHitEntry *scan;
+    ModelHitEntry *best;
+    f32 bestvalue;
+
+    if (modelhit != NULL)
     {
-        param_7 = NULL;
-        param_9 = 0xcf800000;
-        for (param_8 = param_6->Next; param_8 != &param_3; param_8 = param_8->Next)
+        last = modelhit;
+
+        if (last->next != NULL)
         {
-            if (param_9 < param_8->Parent)
+            do
             {
-                param_9 = param_8->Parent;
-                param_7 = param_8;
+                last = last->next;
+
+                if (next);
             }
+            while (last->next != NULL);
         }
-        if (param_7 != NULL)
+
+        stacknodes[1].next = modelhit;
+        modelhit->prev = &stacknodes[1];
+
+        stacknodes[0].prev = last;
+        last->next = &stacknodes[0];
+
+        current = &stacknodes[1];
+
+        do
         {
-            *(param_7->Next + 0x10) = param_7->Prev;
-            *(param_7->Prev + 0xc)  = param_7->Next;
-            param_7->Prev           = param_6;
-            param_7->Next           = param_6->Next;
-            *(param_6->Next + 0x10) = param_7;
-            param_6->Next           = param_7;
+            next = current->next;
+            best = NULL;
+            bestvalue = -M_U32_MAX_VALUE_F;
+
+            if (next != &stacknodes[0])
+            {
+                scan = next;
+
+                do
+                {
+                    if (bestvalue < scan->sortvalue)
+                    {
+                        bestvalue = scan->sortvalue;
+                        best = scan;
+                    }
+
+                    scan = scan->next;
+                }
+                while (scan != &stacknodes[0]);
+            }
+
+            if (best != NULL)
+            {
+                best->next->prev = best->prev;
+                best->prev->next = best->next;
+
+                best->prev = current;
+                best->next = current->next;
+
+                current->next->prev = best;
+                current->next = best;
+
+                next = best;
+            }
+
+            current = next;
         }
+        while (next != &stacknodes[0]);
+
+        modelhit = stacknodes[1].next;
+        stacknodes[1].next->prev = NULL;
+        stacknodes[0].prev->next = NULL;
     }
-    param_5->Prev = NULL;
-    param_4->Next = NULL;
-    return param_5;
+
+    return modelhit;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F06BB28
-/* 0A0658 7F06BB28 10800035 */  beqz  $a0, .L7F06BC00
-/* 0A065C 7F06BB2C 27BDFFB8 */   addiu $sp, $sp, -0x48
-/* 0A0660 7F06BB30 8C8E000C */  lw    $t6, 0xc($a0)
-/* 0A0664 7F06BB34 00801025 */  move  $v0, $a0
-/* 0A0668 7F06BB38 27A60020 */  addiu $a2, $sp, 0x20
-/* 0A066C 7F06BB3C 11C00006 */  beqz  $t6, .L7F06BB58
-/* 0A0670 7F06BB40 3C01CF80 */   li    $at, 0xCF800000 # -4294967296.000000
-/* 0A0674 7F06BB44 8C43000C */  lw    $v1, 0xc($v0)
-/* 0A0678 7F06BB48 00601025 */  move  $v0, $v1
-.L7F06BB4C:
-/* 0A067C 7F06BB4C 8C63000C */  lw    $v1, 0xc($v1)
-/* 0A0680 7F06BB50 5460FFFE */  bnezl $v1, .L7F06BB4C
-/* 0A0684 7F06BB54 00601025 */   move  $v0, $v1
-.L7F06BB58:
-/* 0A0688 7F06BB58 27A30034 */  addiu $v1, $sp, 0x34
-/* 0A068C 7F06BB5C AFA40040 */  sw    $a0, 0x40($sp)
-/* 0A0690 7F06BB60 AC830010 */  sw    $v1, 0x10($a0)
-/* 0A0694 7F06BB64 AFA20030 */  sw    $v0, 0x30($sp)
-/* 0A0698 7F06BB68 44816000 */  mtc1  $at, $f12
-/* 0A069C 7F06BB6C AC46000C */  sw    $a2, 0xc($v0)
-.L7F06BB70:
-/* 0A06A0 7F06BB70 8C65000C */  lw    $a1, 0xc($v1)
-/* 0A06A4 7F06BB74 00001025 */  move  $v0, $zero
-/* 0A06A8 7F06BB78 46006006 */  mov.s $f0, $f12
-/* 0A06AC 7F06BB7C 10A6000B */  beq   $a1, $a2, .L7F06BBAC
-/* 0A06B0 7F06BB80 00A02025 */   move  $a0, $a1
-/* 0A06B4 7F06BB84 C4820008 */  lwc1  $f2, 8($a0)
-.L7F06BB88:
-/* 0A06B8 7F06BB88 4602003C */  c.lt.s $f0, $f2
-/* 0A06BC 7F06BB8C 00000000 */  nop
-/* 0A06C0 7F06BB90 45020004 */  bc1fl .L7F06BBA4
-/* 0A06C4 7F06BB94 8C84000C */   lw    $a0, 0xc($a0)
-/* 0A06C8 7F06BB98 46001006 */  mov.s $f0, $f2
-/* 0A06CC 7F06BB9C 00801025 */  move  $v0, $a0
-/* 0A06D0 7F06BBA0 8C84000C */  lw    $a0, 0xc($a0)
-.L7F06BBA4:
-/* 0A06D4 7F06BBA4 5486FFF8 */  bnel  $a0, $a2, .L7F06BB88
-/* 0A06D8 7F06BBA8 C4820008 */   lwc1  $f2, 8($a0)
-.L7F06BBAC:
-/* 0A06DC 7F06BBAC 1040000E */  beqz  $v0, .L7F06BBE8
-/* 0A06E0 7F06BBB0 00000000 */   nop
-/* 0A06E4 7F06BBB4 8C4F0010 */  lw    $t7, 0x10($v0)
-/* 0A06E8 7F06BBB8 8C58000C */  lw    $t8, 0xc($v0)
-/* 0A06EC 7F06BBBC 00402825 */  move  $a1, $v0
-/* 0A06F0 7F06BBC0 AF0F0010 */  sw    $t7, 0x10($t8)
-/* 0A06F4 7F06BBC4 8C59000C */  lw    $t9, 0xc($v0)
-/* 0A06F8 7F06BBC8 8C480010 */  lw    $t0, 0x10($v0)
-/* 0A06FC 7F06BBCC AD19000C */  sw    $t9, 0xc($t0)
-/* 0A0700 7F06BBD0 AC430010 */  sw    $v1, 0x10($v0)
-/* 0A0704 7F06BBD4 8C69000C */  lw    $t1, 0xc($v1)
-/* 0A0708 7F06BBD8 AC49000C */  sw    $t1, 0xc($v0)
-/* 0A070C 7F06BBDC 8C6A000C */  lw    $t2, 0xc($v1)
-/* 0A0710 7F06BBE0 AD420010 */  sw    $v0, 0x10($t2)
-/* 0A0714 7F06BBE4 AC62000C */  sw    $v0, 0xc($v1)
-.L7F06BBE8:
-/* 0A0718 7F06BBE8 14A6FFE1 */  bne   $a1, $a2, .L7F06BB70
-/* 0A071C 7F06BBEC 00A01825 */   move  $v1, $a1
-/* 0A0720 7F06BBF0 8FA40040 */  lw    $a0, 0x40($sp)
-/* 0A0724 7F06BBF4 AC800010 */  sw    $zero, 0x10($a0)
-/* 0A0728 7F06BBF8 8FAC0030 */  lw    $t4, 0x30($sp)
-/* 0A072C 7F06BBFC AD80000C */  sw    $zero, 0xc($t4)
-.L7F06BC00:
-/* 0A0730 7F06BC00 00801025 */  move  $v0, $a0
-/* 0A0734 7F06BC04 03E00008 */  jr    $ra
-/* 0A0738 7F06BC08 27BD0048 */   addiu $sp, $sp, 0x48
-)
-#endif
-
-
 
 
 #if defined(LEFTOVERDEBUG)
