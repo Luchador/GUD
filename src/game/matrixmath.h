@@ -54,5 +54,6 @@ void matrix_4x4_multiply_homogeneous_eu(f32 lhs[3][3], f32 rhs[3][3], f32 result
 /* matrixmath_misc.h */
 
 void vec3Lerp(vec3d *x, vec3d *y, f32 scaler, vec3d *result);
+void coord3dCubicSplineInterp(coord3d *prev, coord3d *start, coord3d *end, coord3d *next, f32 fraction, f32 tangentScale, coord3d *result);
 
 #endif

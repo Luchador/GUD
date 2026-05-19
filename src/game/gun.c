@@ -559,7 +559,7 @@ struct ModelHitEntry *D_80036060 = NULL;
 
 void bullet_path_from_screen_center(coord3d* arg0, coord3d* arg1, enum GUNHAND arg2);
 void sub_GAME_7F05EC1C(struct WeaponObjectRecord *arg0, struct coord3d *arg1, Mtxf *arg2, struct coord3d *arg3, s32 *arg4);
-s32 sub_GAME_7F05C6FC(struct Weapon1PTransformKeyframe *, f32, Mtxf *, enum GUNHAND);
+s32 sub_GAME_7F05C6FC(Weapon1PTransformKeyframe *keyframes, f32 time, Mtxf *matrix, GUNHAND hand);
 void analyzeGEKey(void);
 void give_weapon_case_items(void);
 struct ModelFileHeader * get_ptr_weapon_model_header_line(ITEM_IDS weapon);
@@ -644,177 +644,78 @@ void sub_GAME_7F05C6B8(void)
 }
 
 
+/**
+ * Address: 7F05C6FC
+ */
+s32 sub_GAME_7F05C6FC(Weapon1PTransformKeyframe *keyframes, f32 time, Mtxf *matrix, GUNHAND hand)
+{
+    Weapon1PTransformKeyframe *current;
+    f32 frac;
+    f32 tangent;
+    coord3d posResult;
+    quatf qResult;
+    quatf q0;
+    quatf q1;
+    quatf q2;
+    quatf q3;
+    s32 i;
 
-#ifdef NONMATCHING
-void sub_GAME_7F05C6FC(void) {
-    fStack0000001c = param_1;
-    local_90       = 1;
-    do
+    i = 1;
+    frac = keyframes[1].duration;
+    current = keyframes + i;
+
+    while (time >= current->duration)
     {
-        if (fStack0000001c < *(param_2 + local_90 * 0x24 + 0x20)) break;
-        fStack0000001c = fStack0000001c - *(param_2 + local_90 * 0x24 + 0x20);
-        iVar6          = local_90 + 1;
-        iVar2          = local_90 + 3;
-        local_90       = iVar6;
-    } while ((*(param_2 + iVar2 * 0x24) & 1) == 0);
-    iStack00000014  = param_2;
-    pfStack00000024 = param_4;
-    iStack0000002c  = param_5;
-    if ((*(param_2 + (local_90 + 2) * 0x24) & 1) == 0)
-    {
-        fVar3 = fStack0000001c / *(param_2 + local_90 * 0x24 + 0x20);
-        fVar1 = *(param_2 + local_90 * 0x24 + 0x1c);
-        Function_8237C1C0(param_2 + (local_90 + -1) * 0x24 + 0x10, afStack_30);
-        Function_8237C1C0(iStack00000014 + local_90 * 0x24 + 0x10, afStack_50);
-        Function_8237C1C0(iStack00000014 + (local_90 + 1) * 0x24 + 0x10, afStack_80);
-        Function_8237C1C0(iStack00000014 + (local_90 + 2) * 0x24 + 0x10, afStack_40);
-        Function_8237D298(afStack_50, afStack_80);
-        Function_8237D298(afStack_80, afStack_40);
-        Function_8237D298(afStack_50, afStack_30);
-        lVar5 = ZEXT48(&stack0x00000000) - 0x70;
-        Function_8237DA60(fVar3, afStack_30, afStack_50, afStack_80, afStack_40, param_6, lVar5);
-        Function_82376408(fVar3, fVar1, iStack00000014 + (local_90 + -1) * 0x24 + 4, iStack00000014 + local_90 * 0x24 + 4, iStack00000014 + (local_90 + 1) * 0x24 + 4, iStack00000014 + (local_90 + 2) * 0x24 + 4, param_6, lVar5, local_18);
-        if (iStack0000002c == 1)
+        time -= current->duration;
+        i++;
+        current++;
+
+        if (current[2].isFinalKey & 1)
         {
-            local_18[0] = -local_18[0];
+            break;
         }
-        Function_8237C548(&local_70, pfStack00000024);
-        matrix_4x4_set_position(local_18, pfStack00000024);
-        uVar4 = 1;
     }
-    else
+
+     // Comma operator is intentional: nudges IDO to emit addu s0,a0,t8.
+    current = (0, keyframes) + i;
+
+    i = 2;
+
+    if (current[i].isFinalKey & 1)
     {
-        matrix_4x4_set_rotation_around_xyz(param_2 + local_90 * 0x24 + 0x10, param_4);
-        matrix_4x4_set_position(iStack00000014 + local_90 * 0x24 + 4, pfStack00000024);
-        uVar4 = 0;
+        matrix_4x4_set_rotation_around_xyz(&current->rot, matrix);
+        matrix_4x4_set_position(&current->pos, matrix);
+        return 0;
     }
-    return uVar4;
+
+    frac = time / current->duration;
+    tangent = current->interpParam;
+
+    quaternion_set_rotation_around_xyzf(&current[-1].rot, &q0);
+    quaternion_set_rotation_around_xyzf(&current->rot, &q1);
+    quaternion_set_rotation_around_xyzf(&current[1].rot, &q2);
+    quaternion_set_rotation_around_xyzf(&current[2].rot, &q3);
+
+    quaternion_ensure_shortest_path(&q1, &q2);
+    quaternion_ensure_shortest_path(&q2, &q3);
+    quaternion_ensure_shortest_path(&q1, &q0);
+
+    quaternion_7F05C2F0(&q0, &q1, &q2, &q3, frac, &qResult);
+
+    coord3dCubicSplineInterp(&current[-1].pos, &current->pos, &current[1].pos, &current[2].pos, frac, tangent, &posResult);
+
+    if (hand == GUNLEFT)
+    {
+        posResult.x = -posResult.x;
+        qResult[0] = -qResult[0];
+        qResult[1] = -qResult[1];
+    }
+
+    quaternion_to_matrix(&qResult, matrix);
+    matrix_4x4_set_position(&posResult, matrix);
+
+    return 1;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F05C6FC
-/* 09122C 7F05C6FC 27BDFF60 */  addiu $sp, $sp, -0xa0
-/* 091230 7F05C700 AFBF002C */  sw    $ra, 0x2c($sp)
-/* 091234 7F05C704 AFB00028 */  sw    $s0, 0x28($sp)
-/* 091238 7F05C708 AFA600A8 */  sw    $a2, 0xa8($sp)
-/* 09123C 7F05C70C AFA700AC */  sw    $a3, 0xac($sp)
-/* 091240 7F05C710 44856000 */  mtc1  $a1, $f12
-/* 091244 7F05C714 C4840044 */  lwc1  $f4, 0x44($a0)
-/* 091248 7F05C718 24020001 */  li    $v0, 1
-/* 09124C 7F05C71C 24900024 */  addiu $s0, $a0, 0x24
-/* 091250 7F05C720 460C203E */  c.le.s $f4, $f12
-/* 091254 7F05C724 00000000 */  nop
-/* 091258 7F05C728 4502000E */  bc1fl .L7F05C764
-/* 09125C 7F05C72C 0002C0C0 */   sll   $t8, $v0, 3
-/* 091260 7F05C730 C6000020 */  lwc1  $f0, 0x20($s0)
-/* 091264 7F05C734 8E0E006C */  lw    $t6, 0x6c($s0)
-.L7F05C738:
-/* 091268 7F05C738 46006301 */  sub.s $f12, $f12, $f0
-/* 09126C 7F05C73C 24420001 */  addiu $v0, $v0, 1
-/* 091270 7F05C740 31CF0001 */  andi  $t7, $t6, 1
-/* 091274 7F05C744 15E00006 */  bnez  $t7, .L7F05C760
-/* 091278 7F05C748 26100024 */   addiu $s0, $s0, 0x24
-/* 09127C 7F05C74C C6000020 */  lwc1  $f0, 0x20($s0)
-/* 091280 7F05C750 460C003E */  c.le.s $f0, $f12
-/* 091284 7F05C754 00000000 */  nop
-/* 091288 7F05C758 4503FFF7 */  bc1tl .L7F05C738
-/* 09128C 7F05C75C 8E0E006C */   lw    $t6, 0x6c($s0)
-.L7F05C760:
-/* 091290 7F05C760 0002C0C0 */  sll   $t8, $v0, 3
-.L7F05C764:
-/* 091294 7F05C764 0302C021 */  addu  $t8, $t8, $v0
-/* 091298 7F05C768 0018C080 */  sll   $t8, $t8, 2
-/* 09129C 7F05C76C 00988021 */  addu  $s0, $a0, $t8
-/* 0912A0 7F05C770 8E190048 */  lw    $t9, 0x48($s0)
-/* 0912A4 7F05C774 33280001 */  andi  $t0, $t9, 1
-/* 0912A8 7F05C778 11000008 */  beqz  $t0, .L7F05C79C
-/* 0912AC 7F05C77C 26040010 */   addiu $a0, $s0, 0x10
-/* 0912B0 7F05C780 0FC161C5 */  jal   matrix_4x4_set_rotation_around_xyz
-/* 0912B4 7F05C784 8FA500A8 */   lw    $a1, 0xa8($sp)
-/* 0912B8 7F05C788 26040004 */  addiu $a0, $s0, 4
-/* 0912BC 7F05C78C 0FC16266 */  jal   matrix_4x4_set_position
-/* 0912C0 7F05C790 8FA500A8 */   lw    $a1, 0xa8($sp)
-/* 0912C4 7F05C794 10000042 */  b     .L7F05C8A0
-/* 0912C8 7F05C798 00001025 */   move  $v0, $zero
-.L7F05C79C:
-/* 0912CC 7F05C79C C6060020 */  lwc1  $f6, 0x20($s0)
-/* 0912D0 7F05C7A0 2604FFEC */  addiu $a0, $s0, -0x14
-/* 0912D4 7F05C7A4 27A50068 */  addiu $a1, $sp, 0x68
-/* 0912D8 7F05C7A8 46066203 */  div.s $f8, $f12, $f6
-/* 0912DC 7F05C7AC E7A80098 */  swc1  $f8, 0x98($sp)
-/* 0912E0 7F05C7B0 C60A001C */  lwc1  $f10, 0x1c($s0)
-/* 0912E4 7F05C7B4 0FC16CFD */  jal   quaternion_set_rotation_around_xyzf
-/* 0912E8 7F05C7B8 E7AA0094 */   swc1  $f10, 0x94($sp)
-/* 0912EC 7F05C7BC 26040010 */  addiu $a0, $s0, 0x10
-/* 0912F0 7F05C7C0 0FC16CFD */  jal   quaternion_set_rotation_around_xyzf
-/* 0912F4 7F05C7C4 27A50058 */   addiu $a1, $sp, 0x58
-/* 0912F8 7F05C7C8 26040034 */  addiu $a0, $s0, 0x34
-/* 0912FC 7F05C7CC 0FC16CFD */  jal   quaternion_set_rotation_around_xyzf
-/* 091300 7F05C7D0 27A50048 */   addiu $a1, $sp, 0x48
-/* 091304 7F05C7D4 26040058 */  addiu $a0, $s0, 0x58
-/* 091308 7F05C7D8 0FC16CFD */  jal   quaternion_set_rotation_around_xyzf
-/* 09130C 7F05C7DC 27A50038 */   addiu $a1, $sp, 0x38
-/* 091310 7F05C7E0 27A40058 */  addiu $a0, $sp, 0x58
-/* 091314 7F05C7E4 0FC16F84 */  jal   quaternion_ensure_shortest_path
-/* 091318 7F05C7E8 27A50048 */   addiu $a1, $sp, 0x48
-/* 09131C 7F05C7EC 27A40048 */  addiu $a0, $sp, 0x48
-/* 091320 7F05C7F0 0FC16F84 */  jal   quaternion_ensure_shortest_path
-/* 091324 7F05C7F4 27A50038 */   addiu $a1, $sp, 0x38
-/* 091328 7F05C7F8 27A40058 */  addiu $a0, $sp, 0x58
-/* 09132C 7F05C7FC 0FC16F84 */  jal   quaternion_ensure_shortest_path
-/* 091330 7F05C800 27A50068 */   addiu $a1, $sp, 0x68
-/* 091334 7F05C804 C7B00098 */  lwc1  $f16, 0x98($sp)
-/* 091338 7F05C808 27A90078 */  addiu $t1, $sp, 0x78
-/* 09133C 7F05C80C AFA90014 */  sw    $t1, 0x14($sp)
-/* 091340 7F05C810 27A40068 */  addiu $a0, $sp, 0x68
-/* 091344 7F05C814 27A50058 */  addiu $a1, $sp, 0x58
-/* 091348 7F05C818 27A60048 */  addiu $a2, $sp, 0x48
-/* 09134C 7F05C81C 27A70038 */  addiu $a3, $sp, 0x38
-/* 091350 7F05C820 0FC170BC */  jal   quaternion_7F05C2F0
-/* 091354 7F05C824 E7B00010 */   swc1  $f16, 0x10($sp)
-/* 091358 7F05C828 C7B20098 */  lwc1  $f18, 0x98($sp)
-/* 09135C 7F05C82C C7A40094 */  lwc1  $f4, 0x94($sp)
-/* 091360 7F05C830 27AA0088 */  addiu $t2, $sp, 0x88
-/* 091364 7F05C834 AFAA0018 */  sw    $t2, 0x18($sp)
-/* 091368 7F05C838 2604FFE0 */  addiu $a0, $s0, -0x20
-/* 09136C 7F05C83C 26050004 */  addiu $a1, $s0, 4
-/* 091370 7F05C840 26060028 */  addiu $a2, $s0, 0x28
-/* 091374 7F05C844 2607004C */  addiu $a3, $s0, 0x4c
-/* 091378 7F05C848 E7B20010 */  swc1  $f18, 0x10($sp)
-/* 09137C 7F05C84C 0FC16C09 */  jal   coord3dCubicSplineInterp
-/* 091380 7F05C850 E7A40014 */   swc1  $f4, 0x14($sp)
-/* 091384 7F05C854 8FAB00AC */  lw    $t3, 0xac($sp)
-/* 091388 7F05C858 24010001 */  li    $at, 1
-/* 09138C 7F05C85C C7A60088 */  lwc1  $f6, 0x88($sp)
-/* 091390 7F05C860 15610009 */  bne   $t3, $at, .L7F05C888
-/* 091394 7F05C864 27A40078 */   addiu $a0, $sp, 0x78
-/* 091398 7F05C868 C7AA0078 */  lwc1  $f10, 0x78($sp)
-/* 09139C 7F05C86C C7B2007C */  lwc1  $f18, 0x7c($sp)
-/* 0913A0 7F05C870 46003207 */  neg.s $f8, $f6
-/* 0913A4 7F05C874 46005407 */  neg.s $f16, $f10
-/* 0913A8 7F05C878 46009107 */  neg.s $f4, $f18
-/* 0913AC 7F05C87C E7A80088 */  swc1  $f8, 0x88($sp)
-/* 0913B0 7F05C880 E7B00078 */  swc1  $f16, 0x78($sp)
-/* 0913B4 7F05C884 E7A4007C */  swc1  $f4, 0x7c($sp)
-.L7F05C888:
-/* 0913B8 7F05C888 0FC16D8A */  jal   quaternion_to_matrix
-/* 0913BC 7F05C88C 8FA500A8 */   lw    $a1, 0xa8($sp)
-/* 0913C0 7F05C890 27A40088 */  addiu $a0, $sp, 0x88
-/* 0913C4 7F05C894 0FC16266 */  jal   matrix_4x4_set_position
-/* 0913C8 7F05C898 8FA500A8 */   lw    $a1, 0xa8($sp)
-/* 0913CC 7F05C89C 24020001 */  li    $v0, 1
-.L7F05C8A0:
-/* 0913D0 7F05C8A0 8FBF002C */  lw    $ra, 0x2c($sp)
-/* 0913D4 7F05C8A4 8FB00028 */  lw    $s0, 0x28($sp)
-/* 0913D8 7F05C8A8 27BD00A0 */  addiu $sp, $sp, 0xa0
-/* 0913DC 7F05C8AC 03E00008 */  jr    $ra
-/* 0913E0 7F05C8B0 00000000 */   nop
-)
-#endif
-
-
-
 
 
 WeaponStats *get_ptr_item_statistics(ITEM_IDS item) {
