@@ -2671,10 +2671,10 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
     var_s0->shadecol.rgba[2] = var_s0->nextcol.rgba[2];
     var_s0->shadecol.rgba[3] = var_s0->nextcol.rgba[3];
     var_s0->fadealpha = 0xFF;
-    var_s0->ptr_SEbuffer1 = NULL;
-    var_s0->ptr_SEbuffer2 = NULL;
-    var_s0->ptr_SEbuffer3 = NULL;
-    var_s0->ptr_SEbuffer4 = NULL;
+    var_s0->field_160[0].ptr_SEbuffer1 = NULL;
+    var_s0->field_160[0].ptr_SEbuffer2 = NULL;
+    var_s0->field_160[1].ptr_SEbuffer1 = NULL;
+    var_s0->field_160[1].ptr_SEbuffer2 = NULL;
     var_s0->field_178[0] = 0;
     var_s0->field_178[1] = 0;
     var_s0->chrflags = CHRFLAG_INIT;
@@ -2768,17 +2768,17 @@ void chrpropCleanupForRemoval(PropRecord *prop)
     chr = prop->chr;
     model = chr->model;
     
-    if (chr->ptr_SEbuffer1 != NULL && sndGetPlayingState(chr->ptr_SEbuffer1) != 0) {
-        sndDeactivate(chr->ptr_SEbuffer1);
+    if (chr->field_160[0].ptr_SEbuffer1 != NULL && sndGetPlayingState(chr->field_160[0].ptr_SEbuffer1) != 0) {
+        sndDeactivate(chr->field_160[0].ptr_SEbuffer1);
     }
-    if (chr->ptr_SEbuffer2 != NULL && sndGetPlayingState(chr->ptr_SEbuffer2) != 0) {
-        sndDeactivate(chr->ptr_SEbuffer2);
+    if (chr->field_160[0].ptr_SEbuffer2 != NULL && sndGetPlayingState(chr->field_160[0].ptr_SEbuffer2) != 0) {
+        sndDeactivate(chr->field_160[0].ptr_SEbuffer2);
     }
-    if (chr->ptr_SEbuffer3 != NULL && sndGetPlayingState(chr->ptr_SEbuffer3) != 0) {
-        sndDeactivate(chr->ptr_SEbuffer3);
+    if (chr->field_160[1].ptr_SEbuffer1 != NULL && sndGetPlayingState(chr->field_160[1].ptr_SEbuffer1) != 0) {
+        sndDeactivate(chr->field_160[1].ptr_SEbuffer1);
     }
-    if (chr->ptr_SEbuffer4 != NULL && sndGetPlayingState(chr->ptr_SEbuffer4) != 0) {
-        sndDeactivate(chr->ptr_SEbuffer4);
+    if (chr->field_160[1].ptr_SEbuffer2 != NULL && sndGetPlayingState(chr->field_160[1].ptr_SEbuffer2) != 0) {
+        sndDeactivate(chr->field_160[1].ptr_SEbuffer2);
     }
     
     sub_GAME_7F050DE8(model);

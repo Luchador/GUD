@@ -2400,11 +2400,11 @@ typedef union
         f32            aimendback;
         f32            aimendsideback;
 
-        PropRecord    *weapons_held[2]; /* handle_positiondata 0x0160 0x0164  0x0168 Right, Left*/
-        ALSoundState *ptr_SEbuffer1;  // 0x168
-        ALSoundState *ptr_SEbuffer2;  // 0x16c
-        ALSoundState *ptr_SEbuffer3;  // 0x170
-        ALSoundState *ptr_SEbuffer4;  // 0x174
+        PropRecord    *weapons_held[2]; /* handle_positiondata 0x0160 0x0164 Right, Left */
+        struct { /* 0x0168 */
+            ALSoundState *ptr_SEbuffer1;
+            ALSoundState *ptr_SEbuffer2;
+        } field_160[2];
         s32            field_178[2];  // 0x178-17c
 
         /* 0x0180 */

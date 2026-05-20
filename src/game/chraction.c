@@ -5831,28 +5831,14 @@ void chrlvTickSurprised(ChrRecord *self)
 
 
 
-#ifdef NONMATCHING
-/**
- * Address 0x7F02BFE4.
- *
- * decomp status:
- * - compiles: yes
- * - stack resize: no
- * - identical instructions: fail
- * - identical registers: fail
- *
- * notes: ChrRecord needs some changes, but not sure what to figure out the weird section below.
-*/
 void sub_GAME_7F02BFE4(ChrRecord *self, s32 arg1, s32 arg2)
 {
     PropRecord *prop;
-    u8 sp33;
-    u16 sp30;
-    s32 phi_a1;
     ChrRecord *temp_v1;
-    s32 unused[1];
-    s32 sp28;
-    ALSoundState *phi_a2;
+    s32 phi_a1;
+    u8 sp33;
+    s16 sp30;
+    ALSoundState **phi_a2;
 
     prop = chrGetEquippedWeaponProp(self, arg1);
     temp_v1 = prop->chr;
@@ -5863,9 +5849,9 @@ void sub_GAME_7F02BFE4(ChrRecord *self, s32 arg1, s32 arg2)
 
     if (arg2 != 0)
     {
-        if ((s32) sp33 > 0)
+        if (sp33 > 0)
         {
-            if (((self->hidden & CHRHIDDEN_FIRE_TRACER) == 0) && self->field_178[arg1] < g_GlobalTimer)
+            if (((self->hidden & 0x80) == 0) && (self->field_178[arg1] < g_GlobalTimer))
             {
                 phi_a1 = 1;
             }
@@ -5878,172 +5864,45 @@ void sub_GAME_7F02BFE4(ChrRecord *self, s32 arg1, s32 arg2)
 
     if (phi_a1 != 0)
     {
-        // begin decomp problem area.
-        // I can't make sense of this with the current ChrRecord definition.
+        if (self->field_160[arg1].ptr_SEbuffer1 != NULL)
+        {
+            if (sndGetPlayingState(self->field_160[arg1].ptr_SEbuffer1) != 0)
+            {
+                sndDeactivate(self->field_160[arg1].ptr_SEbuffer1);
+            }
+        }
 
-        // if (self->unk160 != NULL)
-        // {
-        //     if (sndGetPlayingState(self->unk160[arg1]) != AL_STOPPED)
-        //     {
-        //         sndDeactivate(self->unk160[arg1]);
-        //     }
-        // }
+        if (self->field_160[arg1].ptr_SEbuffer2 != NULL)
+        {
+            if (sndGetPlayingState(self->field_160[arg1].ptr_SEbuffer2) != 0)
+            {
+                sndDeactivate(self->field_160[arg1].ptr_SEbuffer2);
+            }
+        }
 
-        // if (self->unk164[arg1] != NULL)
-        // {
-        //     if (sndGetPlayingState(self->unk164[arg1]) != AL_STOPPED)
-        //     {
-        //         sndDeactivate(self->unk164[arg1]);
-        //     }
-        // }
+        if (((u16) sp30) != 0)
+        {
+            phi_a2 = NULL;
 
-        // if (sp30 != 0)
-        // {
-        //     phi_a2 = NULL;
-        //     if (self->unk160[arg1] == NULL)
-        //     {
-        //         phi_a2 = self->unk160[arg1];
-        //     }
-        //     else if (self->unk164[arg1] == NULL)
-        //     {
-        //         phi_a2 = self->unk164[arg1];
-        //     }
+            if (self->field_160[arg1].ptr_SEbuffer1 == NULL)
+            {
+                phi_a2 = (ALSoundState **) (&self->field_160[arg1].ptr_SEbuffer1);
+            }
+            else if (self->field_160[arg1].ptr_SEbuffer2 == NULL)
+            {
+                phi_a2 = (ALSoundState **) (&self->field_160[arg1].ptr_SEbuffer2);
+            }
 
-        //     if (phi_a2 != NULL)
-        //     {
-        //         sndPlaySfx(g_musicSfxBufferPtr, (s16) sp30, phi_a2);
-        //         chrobjSndCreatePostEventDefault(phi_a2, &self->prop->pos);
-
-        //         self->field_178[arg1] = g_GlobalTimer + sp33;
-        //         self->hidden |= 0x80;
-        //     }
-        // }
-        // end decomp problem area.
+            if (phi_a2 != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, sp30, (ALSoundState *) phi_a2);
+                chrobjSndCreatePostEventDefault(*phi_a2, &self->prop->pos);
+                self->field_178[arg1] = ((0, g_GlobalTimer)) + ((s32) sp33);
+                self->hidden |= 0x80;
+            }
+        }
     }
 }
-
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F02BFE4
-/* 060B14 7F02BFE4 27BDFFC0 */  addiu $sp, $sp, -0x40
-/* 060B18 7F02BFE8 AFBF001C */  sw    $ra, 0x1c($sp)
-/* 060B1C 7F02BFEC AFB00018 */  sw    $s0, 0x18($sp)
-/* 060B20 7F02BFF0 00808025 */  move  $s0, $a0
-/* 060B24 7F02BFF4 AFA50044 */  sw    $a1, 0x44($sp)
-/* 060B28 7F02BFF8 0FC08C0B */  jal   chrGetEquippedWeaponProp
-/* 060B2C 7F02BFFC AFA60048 */   sw    $a2, 0x48($sp)
-/* 060B30 7F02C000 8C430004 */  lw    $v1, 4($v0)
-/* 060B34 7F02C004 80640080 */  lb    $a0, 0x80($v1)
-/* 060B38 7F02C008 AFA00034 */  sw    $zero, 0x34($sp)
-/* 060B3C 7F02C00C 0FC177FC */  jal   bondwalkItemGetSoundTriggerRate
-/* 060B40 7F02C010 AFA30038 */   sw    $v1, 0x38($sp)
-/* 060B44 7F02C014 8FA30038 */  lw    $v1, 0x38($sp)
-/* 060B48 7F02C018 A3A20033 */  sb    $v0, 0x33($sp)
-/* 060B4C 7F02C01C 0FC17805 */  jal   bondwalkItemGetSound
-/* 060B50 7F02C020 80640080 */   lb    $a0, 0x80($v1)
-/* 060B54 7F02C024 8FAE0048 */  lw    $t6, 0x48($sp)
-/* 060B58 7F02C028 8FA50034 */  lw    $a1, 0x34($sp)
-/* 060B5C 7F02C02C A7A20030 */  sh    $v0, 0x30($sp)
-/* 060B60 7F02C030 11C00012 */  beqz  $t6, .L7F02C07C
-/* 060B64 7F02C034 93AF0033 */   lbu   $t7, 0x33($sp)
-/* 060B68 7F02C038 59E00010 */  blezl $t7, .L7F02C07C
-/* 060B6C 7F02C03C 24050001 */   li    $a1, 1
-/* 060B70 7F02C040 96180012 */  lhu   $t8, 0x12($s0)
-/* 060B74 7F02C044 8FA80044 */  lw    $t0, 0x44($sp)
-/* 060B78 7F02C048 3C0C8005 */  lui   $t4, %hi(g_GlobalTimer)
-/* 060B7C 7F02C04C 33190080 */  andi  $t9, $t8, 0x80
-/* 060B80 7F02C050 1720000A */  bnez  $t9, .L7F02C07C
-/* 060B84 7F02C054 00084880 */   sll   $t1, $t0, 2
-/* 060B88 7F02C058 02095021 */  addu  $t2, $s0, $t1
-/* 060B8C 7F02C05C 8D4B0178 */  lw    $t3, 0x178($t2)
-/* 060B90 7F02C060 8D8C837C */  lw    $t4, %lo(g_GlobalTimer)($t4)
-/* 060B94 7F02C064 016C082A */  slt   $at, $t3, $t4
-/* 060B98 7F02C068 10200004 */  beqz  $at, .L7F02C07C
-/* 060B9C 7F02C06C 00000000 */   nop
-/* 060BA0 7F02C070 10000002 */  b     .L7F02C07C
-/* 060BA4 7F02C074 24050001 */   li    $a1, 1
-/* 060BA8 7F02C078 24050001 */  li    $a1, 1
-.L7F02C07C:
-/* 060BAC 7F02C07C 10A0003F */  beqz  $a1, .L7F02C17C
-/* 060BB0 7F02C080 8FAD0044 */   lw    $t5, 0x44($sp)
-/* 060BB4 7F02C084 000D70C0 */  sll   $t6, $t5, 3
-/* 060BB8 7F02C088 020E1821 */  addu  $v1, $s0, $t6
-/* 060BBC 7F02C08C 8C640168 */  lw    $a0, 0x168($v1)
-/* 060BC0 7F02C090 5080000A */  beql  $a0, $zero, .L7F02C0BC
-/* 060BC4 7F02C094 8C64016C */   lw    $a0, 0x16c($v1)
-/* 060BC8 7F02C098 0C00237C */  jal   sndGetPlayingState
-/* 060BCC 7F02C09C AFA30028 */   sw    $v1, 0x28($sp)
-/* 060BD0 7F02C0A0 10400005 */  beqz  $v0, .L7F02C0B8
-/* 060BD4 7F02C0A4 8FA30028 */   lw    $v1, 0x28($sp)
-/* 060BD8 7F02C0A8 8C640168 */  lw    $a0, 0x168($v1)
-/* 060BDC 7F02C0AC 0C002408 */  jal   sndDeactivate
-/* 060BE0 7F02C0B0 AFA30028 */   sw    $v1, 0x28($sp)
-/* 060BE4 7F02C0B4 8FA30028 */  lw    $v1, 0x28($sp)
-.L7F02C0B8:
-/* 060BE8 7F02C0B8 8C64016C */  lw    $a0, 0x16c($v1)
-.L7F02C0BC:
-/* 060BEC 7F02C0BC 5080000A */  beql  $a0, $zero, .L7F02C0E8
-/* 060BF0 7F02C0C0 97AF0030 */   lhu   $t7, 0x30($sp)
-/* 060BF4 7F02C0C4 0C00237C */  jal   sndGetPlayingState
-/* 060BF8 7F02C0C8 AFA30028 */   sw    $v1, 0x28($sp)
-/* 060BFC 7F02C0CC 10400005 */  beqz  $v0, .L7F02C0E4
-/* 060C00 7F02C0D0 8FA30028 */   lw    $v1, 0x28($sp)
-/* 060C04 7F02C0D4 8C64016C */  lw    $a0, 0x16c($v1)
-/* 060C08 7F02C0D8 0C002408 */  jal   sndDeactivate
-/* 060C0C 7F02C0DC AFA30028 */   sw    $v1, 0x28($sp)
-/* 060C10 7F02C0E0 8FA30028 */  lw    $v1, 0x28($sp)
-.L7F02C0E4:
-/* 060C14 7F02C0E4 97AF0030 */  lhu   $t7, 0x30($sp)
-.L7F02C0E8:
-/* 060C18 7F02C0E8 51E00025 */  beql  $t7, $zero, .L7F02C180
-/* 060C1C 7F02C0EC 8FBF001C */   lw    $ra, 0x1c($sp)
-/* 060C20 7F02C0F0 8C780168 */  lw    $t8, 0x168($v1)
-/* 060C24 7F02C0F4 00003025 */  move  $a2, $zero
-/* 060C28 7F02C0F8 3C048006 */  lui   $a0, %hi(g_musicSfxBufferPtr)
-/* 060C2C 7F02C0FC 17000003 */  bnez  $t8, .L7F02C10C
-/* 060C30 7F02C100 87A50030 */   lh    $a1, 0x30($sp)
-/* 060C34 7F02C104 10000005 */  b     .L7F02C11C
-/* 060C38 7F02C108 24660168 */   addiu $a2, $v1, 0x168
-.L7F02C10C:
-/* 060C3C 7F02C10C 8C79016C */  lw    $t9, 0x16c($v1)
-/* 060C40 7F02C110 17200002 */  bnez  $t9, .L7F02C11C
-/* 060C44 7F02C114 00000000 */   nop
-/* 060C48 7F02C118 2466016C */  addiu $a2, $v1, 0x16c
-.L7F02C11C:
-/* 060C4C 7F02C11C 10C00017 */  beqz  $a2, .L7F02C17C
-/* 060C50 7F02C120 93A80033 */   lbu   $t0, 0x33($sp)
-/* 060C54 7F02C124 8FA90044 */  lw    $t1, 0x44($sp)
-/* 060C58 7F02C128 8C843720 */  lw    $a0, %lo(g_musicSfxBufferPtr)($a0)
-/* 060C5C 7F02C12C AFA80028 */  sw    $t0, 0x28($sp)
-/* 060C60 7F02C130 00095080 */  sll   $t2, $t1, 2
-/* 060C64 7F02C134 020A5821 */  addu  $t3, $s0, $t2
-/* 060C68 7F02C138 AFAB0024 */  sw    $t3, 0x24($sp)
-/* 060C6C 7F02C13C 0C002382 */  jal   sndPlaySfx
-/* 060C70 7F02C140 AFA6002C */   sw    $a2, 0x2c($sp)
-/* 060C74 7F02C144 8FA6002C */  lw    $a2, 0x2c($sp)
-/* 060C78 7F02C148 8E050018 */  lw    $a1, 0x18($s0)
-/* 060C7C 7F02C14C 8CC40000 */  lw    $a0, ($a2)
-/* 060C80 7F02C150 0FC14E84 */  jal   chrobjSndCreatePostEventDefault
-/* 060C84 7F02C154 24A50008 */   addiu $a1, $a1, 8
-/* 060C88 7F02C158 3C0C8005 */  lui   $t4, %hi(g_GlobalTimer)
-/* 060C8C 7F02C15C 8D8C837C */  lw    $t4, %lo(g_GlobalTimer)($t4)
-/* 060C90 7F02C160 8FAD0028 */  lw    $t5, 0x28($sp)
-/* 060C94 7F02C164 8FAF0024 */  lw    $t7, 0x24($sp)
-/* 060C98 7F02C168 018D7021 */  addu  $t6, $t4, $t5
-/* 060C9C 7F02C16C ADEE0178 */  sw    $t6, 0x178($t7)
-/* 060CA0 7F02C170 96180012 */  lhu   $t8, 0x12($s0)
-/* 060CA4 7F02C174 37190080 */  ori   $t9, $t8, 0x80
-/* 060CA8 7F02C178 A6190012 */  sh    $t9, 0x12($s0)
-.L7F02C17C:
-/* 060CAC 7F02C17C 8FBF001C */  lw    $ra, 0x1c($sp)
-.L7F02C180:
-/* 060CB0 7F02C180 8FB00018 */  lw    $s0, 0x18($sp)
-/* 060CB4 7F02C184 27BD0040 */  addiu $sp, $sp, 0x40
-/* 060CB8 7F02C188 03E00008 */  jr    $ra
-/* 060CBC 7F02C18C 00000000 */   nop
-)
-#endif
 
 
 /**
