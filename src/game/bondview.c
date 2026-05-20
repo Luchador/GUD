@@ -11736,7 +11736,7 @@ void sub_GAME_7F0876C4(coord3d* cam_pos, coord3d* cam_look, coord3d* cam_up)
 /**
  * Address: 7F087A08
  */
-Gfx *sub_GAME_7F087A08(Gfx *gdl)
+Gfx *bondviewRenderDebugBondView(Gfx *gdl)
 {
     coord3d cam_pos;
     coord3d cam_look;

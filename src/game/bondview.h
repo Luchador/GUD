@@ -2687,7 +2687,7 @@ void hudmsgBottomShow(char *string);
 void setFontTables(s32 arg0, s32 arg1);
 #endif
 
-Gfx * sub_GAME_7F087A08(Gfx *arg0);
+Gfx * bondviewRenderDebugBondView(Gfx *arg0);
 s32 bond_pressed_reload_activate(void);
 Gfx* write_stan_tiles_in_yellow(Gfx *arg0);
 Gfx * maybe_mp_interface(Gfx *arg0);

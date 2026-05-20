@@ -983,7 +983,7 @@ Gfx* lvlRender(Gfx* DL)
 
             if (get_debug_render_raster() == DEB_BOND_VIEW)
             {
-                DL = sub_GAME_7F087A08(DL);
+                DL = bondviewRenderDebugBondView(DL);
             }
 
             DL = viSetupScreensForNumPlayers(DL);
