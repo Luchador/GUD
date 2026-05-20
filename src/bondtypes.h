@@ -1113,10 +1113,12 @@ typedef union
          */
         typedef struct ModelNode_Op16Record
         {
-            coord3d pos;      /*0x0*/
-            u32     unknown1; /*0xC*/
-            u32     unknown2; /*0x10*/
-            f32     Scale;    /*0x14*/
+            coord3d pos;     /* 0x00 */
+            s16 nodeindex0c; /* 0x0c */
+            s16 nodeindex0e; /* 0x0e */
+            s16 nodeindex10; /* 0x10 */
+            s16 unk12;       /* 0x12 */
+            f32 Scale;       /* 0x14 */
         } ModelNode_Op16Record;
 
         /**

@@ -388,6 +388,25 @@ void sub_GAME_7F06B248(ModelHitEntry *entry)
     }
 }
 
+#define MODELNODE_GET_OPCODE(node) ((node)->Opcode & 0xff)
+
+#define MTX_POS_Z(mtx, pos) \
+    ((pos)->x * (mtx)->m[0][2] + \
+     (pos)->y * (mtx)->m[1][2] + \
+     (pos)->z * (mtx)->m[2][2] + \
+     (mtx)->m[3][2])
+
+#define MTX_POS_X(mtx, pos) \
+    ((pos)->x * (mtx)->m[0][0] + \
+     (pos)->y * (mtx)->m[1][0] + \
+     (pos)->z * (mtx)->m[2][0] + \
+     (mtx)->m[3][0])
+
+#define MTX_POS_Y(mtx, pos) \
+    ((pos)->x * (mtx)->m[0][1] + \
+     (pos)->y * (mtx)->m[1][1] + \
+     (pos)->z * (mtx)->m[2][1] + \
+     (mtx)->m[3][1])
 
 #ifdef NONMATCHING
 void sub_GAME_7F06B29C(void)
@@ -1215,6 +1234,10 @@ def_7F06B2F4:
 )
 #endif
 
+#undef MODELNODE_GET_OPCODE
+#undef MTX_POS_Z
+#undef MTX_POS_X
+#undef MTX_POS_Y
 
 /**
  * Address: 7F06BB28
