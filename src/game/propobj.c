@@ -33111,7 +33111,7 @@ extern s32 get_max_ammo_for_weapon(ITEM_IDS weapon);
 extern s32 get_ammo_count_for_weapon(ITEM_IDS weapon);
 extern s32 bondinvHasDualWeapon(ITEM_IDS right, ITEM_IDS left);
 extern s32 check_cur_player_ammo_amount_in_inventory(AMMOTYPE type);
-extern f32 get_curplay_vertical_rotation_in_degrees(void);
+
 
 /*
 * US Address: 0x7F0506DC
