@@ -388,856 +388,425 @@ void sub_GAME_7F06B248(ModelHitEntry *entry)
     }
 }
 
-#define MODELNODE_GET_OPCODE(node) ((node)->Opcode & 0xff)
 
-#define MTX_POS_Z(mtx, pos) \
-    ((pos)->x * (mtx)->m[0][2] + \
-     (pos)->y * (mtx)->m[1][2] + \
-     (pos)->z * (mtx)->m[2][2] + \
-     (mtx)->m[3][2])
+#define OP16_NODEINDEX_0C(data) (((ModelNode_Op16Record *)(data))->nodeindex0c)
+#define OP16_NODEINDEX_0E(data) (((ModelNode_Op16Record *)(data))->nodeindex0e)
+#define OP16_NODEINDEX_10(data) (((ModelNode_Op16Record *)(data))->nodeindex10)
 
-#define MTX_POS_X(mtx, pos) \
-    ((pos)->x * (mtx)->m[0][0] + \
-     (pos)->y * (mtx)->m[1][0] + \
-     (pos)->z * (mtx)->m[2][0] + \
-     (mtx)->m[3][0])
+#define OP16_POS_X_VOL(data) (((volatile ModelNode_Op16Record *)(data))->pos.f[0])
+#define OP16_POS_Y_VOL(data) (((volatile ModelNode_Op16Record *)(data))->pos.f[1])
+#define OP16_POS_Z_VOL(data) (((volatile ModelNode_Op16Record *)(data))->pos.f[2])
 
-#define MTX_POS_Y(mtx, pos) \
-    ((pos)->x * (mtx)->m[0][1] + \
-     (pos)->y * (mtx)->m[1][1] + \
-     (pos)->z * (mtx)->m[2][1] + \
-     (mtx)->m[3][1])
-
-#ifdef NONMATCHING
-void sub_GAME_7F06B29C(void)
+/**
+ * Address: 7F06B29C
+ */
+void sub_GAME_7F06B29C(ModelHitEntry *arg0)
 {
-    local_10c  = NULL;
-    piStack_34 = param_1;
-    for (param_11 = piStack_34; param_11 != NULL; param_11 = param_11[3])
-    {
-        puVar5 = param_11[1];
-        switch (*puVar5 & 0xff)
+    ModelHitEntry *entry;
+    ModelHitEntry *special;
+
+    entry = arg0;
+    special = NULL;
+
+    while (arg0 != NULL) {
+        ModelNode *node = arg0->rootnode;
+        u16 opcode = node->Opcode;
+
+        switch (opcode & 0xFF)
         {
-            case 1:
-                iVar14 = *(*(puVar5 + 2) + 4);
-                lVar13 = modelFindNodeMtx(*param_11, puVar5, 0);
-                if (iVar14 == 0)
+            case MODELNODE_OPCODE_HEADER:
+            {
+                union ModelRoData *data;
+                ModelNode *othernode;
+                Mtxf *mtx;
+
+                data = node->Data;
+                othernode = data->Header.FirstGroupNode;
+
+                mtx = modelFindNodeMtx(arg0->model, node, 0);
+
+                if (othernode != NULL)
                 {
-                    param_11[2] = -*(lVar13 + 0x38);
+                    Mtxf *othermtx;
+
+                    othermtx = modelFindNodeMtx(arg0->model, othernode, 0);
+                    arg0->sortvalue = -(mtx->m[3][2] + othermtx->m[3][2]) * 0.5f;
                 }
                 else
                 {
-                    lVar12      = modelFindNodeMtx(*param_11, iVar14, 0);
-                    param_11[2] = -(*(lVar13 + 0x38) + *(lVar12 + 0x38)) * 0.5;
+                    arg0->sortvalue = -mtx->m[3][2];
                 }
                 break;
-            case 2:
-                iVar14 = *(*(puVar5 + 2) + 0x14);
-                lVar13 = modelFindNodeMtx(*param_11, puVar5, 0);
-                if (iVar14 == 0)
+            }
+
+            case MODELNODE_OPCODE_GROUP:
+            {
+                union ModelRoData *data;
+                ModelNode *othernode;
+                Mtxf *mtx;
+
+                data = node->Data;
+                othernode = data->Group.ChildGroupNode;
+
+                mtx = modelFindNodeMtx(arg0->model, node, 0);
+
+                if (othernode != NULL)
                 {
-                    param_11[2] = -*(lVar13 + 0x38);
+                    Mtxf *othermtx;
+
+                    othermtx = modelFindNodeMtx(arg0->model, othernode, 0);
+                    arg0->sortvalue = -(mtx->m[3][2] + othermtx->m[3][2]) * 0.5f;
                 }
                 else
                 {
-                    lVar12      = modelFindNodeMtx(*param_11, iVar14, 0);
-                    param_11[2] = -(*(lVar13 + 0x38) + *(lVar12 + 0x38)) * 0.5;
+                    arg0->sortvalue = -mtx->m[3][2];
                 }
                 break;
-            case 3:
-                iVar14 = *(*(puVar5 + 2) + 0x14);
-                lVar13 = modelFindNodeMtx(*param_11, puVar5, 0);
-                if (iVar14 == 0)
+            }
+
+            case MODELNODE_OPCODE_OP03:
+            {
+                union ModelRoData *data;
+                ModelNode *othernode;
+                Mtxf *mtx;
+
+                data = node->Data;
+                othernode = data->Group.ChildGroupNode;
+
+                mtx = modelFindNodeMtx(arg0->model, node, 0);
+
+                if (othernode != NULL)
                 {
-                    param_11[2] = -*(lVar13 + 0x38);
+                    Mtxf *othermtx;
+
+                    othermtx = modelFindNodeMtx(arg0->model, othernode, 0);
+                    arg0->sortvalue = -(mtx->m[3][2] + othermtx->m[3][2]) * 0.5f;
                 }
                 else
                 {
-                    lVar12      = modelFindNodeMtx(*param_11, iVar14, 0);
-                    param_11[2] = -(*(lVar13 + 0x38) + *(lVar12 + 0x38)) * 0.5;
+                    arg0->sortvalue = -mtx->m[3][2];
                 }
                 break;
-            case 0xb:
-                lVar13      = modelFindNodeMtx(*param_11, puVar5, 0);
-                iVar14      = lVar13;
-                pfVar6      = *(puVar5 + 2);
-                param_11[2] = -(*pfVar6 * *(iVar14 + 8) + pfVar6[1] * *(iVar14 + 0x18) +
-                                pfVar6[2] * *(iVar14 + 0x28) + *(iVar14 + 0x38));
+            }
+
+            case MODELNODE_OPCODE_GROUPSIMPLE:
+            {
+                Mtxf *mtx;
+
+                mtx = modelFindNodeMtx(arg0->model, node, 0);
+                arg0->sortvalue = -mtx->m[3][2];
                 break;
-            case 0xc:
-                lVar13      = modelFindNodeMtx(*param_11, puVar5, 0);
-                iVar14      = lVar13;
-                pfVar6      = *(puVar5 + 2);
-                param_11[2] = -(*pfVar6 * *(iVar14 + 8) + pfVar6[1] * *(iVar14 + 0x18) +
-                                pfVar6[2] * *(iVar14 + 0x28) + *(iVar14 + 0x38));
+            }
+
+            case MODELNODE_OPCODE_OP14:
+            {
+                Mtxf *mtx;
+                f32 *data;
+
+                mtx = modelFindNodeMtx(arg0->model, node, 0);
+                data = (f32 *)node->Data;
+
+                arg0->sortvalue = -(data[0] * mtx->m[0][2]
+                                + data[1] * mtx->m[1][2]
+                                + data[2] * mtx->m[2][2]
+                                + mtx->m[3][2]);
                 break;
-            case 0xd:
-                lVar13      = modelFindNodeMtx(*param_11, puVar5, 0);
-                iVar14      = lVar13;
-                pfVar6      = *(puVar5 + 2);
-                lVar13      = modelGetNodeRwData(*param_11, pfVar6[4]);
-                param_11[2] = -(*pfVar6 * *(iVar14 + 8) + (*(lVar13 + 4) - *(lVar13 + 0xc)) * *(iVar14 + 0x18) + pfVar6[1] * *(iVar14 + 0x28) + *(iVar14 + 0x38));
-                break;
-            case 0xe:
-                lVar13      = modelFindNodeMtx(*param_11, puVar5, 0);
-                iVar14      = lVar13;
-                pfVar6      = *(puVar5 + 2);
-                param_11[2] = -(*pfVar6 * *(iVar14 + 8) + pfVar6[1] * *(iVar14 + 0x18) +
-                                pfVar6[2] * *(iVar14 + 0x28) + *(iVar14 + 0x38));
-                break;
-            case 0xf:
-                lVar13    = modelFindNodeMtx(*param_11, puVar5, 0);
-                iVar14    = lVar13;
-                pfVar6    = *(puVar5 + 2);
-                fVar1     = -(*pfVar6 * *(iVar14 + 8) + pfVar6[1] * *(iVar14 + 0x18) +
-                          pfVar6[2] * *(iVar14 + 0x28) + *(iVar14 + 0x38));
-                fStack_18 = -(pfVar6[3] * *(iVar14 + 8) + pfVar6[4] * *(iVar14 + 0x18) +
-                              pfVar6[5] * *(iVar14 + 0x28) + *(iVar14 + 0x38));
-                if (fVar1 < fStack_18)
+            }
+
+            case MODELNODE_OPCODE_INTERLINK:
+            {
+                Mtxf *mtx;
+                ModelRoData_InterlinkageRecord *interlinkage;
+                f32 sortvalue1;
+                f32 sortvalue2;
+
+                mtx = modelFindNodeMtx(arg0->model, node, 0);
+                interlinkage = &node->Data->Interlinkage;
+
+                sortvalue1 = -(interlinkage->pos.x * mtx->m[0][2]
+                            + interlinkage->pos.y * mtx->m[1][2]
+                            + interlinkage->pos.z * mtx->m[2][2]
+                            + mtx->m[3][2]);
+
+                sortvalue2 = -(interlinkage->pos2.x * mtx->m[0][2]
+                            + interlinkage->pos2.y * mtx->m[1][2]
+                            + interlinkage->pos2.z * mtx->m[2][2]
+                            + mtx->m[3][2]);
+
+                if (sortvalue1 < sortvalue2)
                 {
-                    fStack_18 = fVar1;
+                    arg0->sortvalue = sortvalue1;
                 }
-                param_11[2] = fStack_18;
+                else
+                {
+                    arg0->sortvalue = sortvalue2;
+                }
                 break;
-            case 0x10:
-                lVar13      = modelFindNodeMtx(*param_11, puVar5, 0);
-                iVar14      = lVar13;
-                pfVar6      = *(puVar5 + 2);
-                param_11[2] = -(*pfVar6 * *(iVar14 + 8) + pfVar6[1] * *(iVar14 + 0x18) +
-                                pfVar6[2] * *(iVar14 + 0x28) + *(iVar14 + 0x38));
-                local_10c   = param_11;
+            }
+
+            case MODELNODE_OPCODE_OP16:
+            {
+                Mtxf *mtx;
+                f32 *data;
+
+                mtx = modelFindNodeMtx(arg0->model, node, 0);
+                data = (f32 *)node->Data;
+
+                arg0->sortvalue = -(data[0] * mtx->m[0][2]
+                                + data[1] * mtx->m[1][2]
+                                + data[2] * mtx->m[2][2]
+                                + mtx->m[3][2]);
+
+                special = arg0;
                 break;
-            case 0x15:
-                lVar13      = modelFindNodeMtx(*param_11, puVar5, 0);
-                param_11[2] = -*(lVar13 + 0x38);
+            }
+
+            case MODELNODE_OPCODE_OP11:
+            {
+                Mtxf *mtx;
+                ModelRoData_Op11Record *op11;
+
+                mtx = modelFindNodeMtx(arg0->model, node, 0);
+                op11 = &node->Data->Op11;
+
+                arg0->sortvalue = -(op11->pos.x * mtx->m[0][2]
+                                + op11->pos.y * mtx->m[1][2]
+                                + op11->pos.z * mtx->m[2][2]
+                                + mtx->m[3][2]);
+                break;
+            }
+
+            case MODELNODE_OPCODE_GUNFIRE:
+            {
+                Mtxf *mtx;
+                f32 *data;
+
+                mtx = modelFindNodeMtx(arg0->model, node, 0);
+                data = (f32 *)node->Data;
+
+                arg0->sortvalue = -(data[0] * mtx->m[0][2]
+                                + data[1] * mtx->m[1][2]
+                                + data[2] * mtx->m[2][2]
+                                + mtx->m[3][2]);
+                break;
+            }
+
+            case MODELNODE_OPCODE_SHADOW:
+            {
+                Mtxf *mtx;
+                ModelRoData_ShadowRecord *shadow;
+                union ModelRwData *rwdata;
+
+                mtx = modelFindNodeMtx(arg0->model, node, 0);
+                shadow = &node->Data->Shadow;
+
+                rwdata = modelGetNodeRwData(arg0->model, shadow->HeaderNode);
+
+                arg0->sortvalue = -(shadow->pos.x * mtx->m[0][2]
+                                + (rwdata->Header.ground - rwdata->Header.pos.y) * mtx->m[1][2]
+                                + shadow->pos.y * mtx->m[2][2]
+                                + mtx->m[3][2]);
+                break;
+            }
         }
+
+        arg0 = arg0->next;
     }
-    if ((local_10c != NULL) && (iVar14 = *local_10c, *(iVar14 + 0x18) != 0))
+
+    if (special != NULL)
     {
-        fVar1      = local_10c[2];
-        pfVar6     = *(local_10c[1] + 4);
-        iVar7      = *(*(*(*(iVar14 + 0x18) + 8) + 8) + *(pfVar6 + 0xe) * 4);
-        iVar8      = *(*(*(*(iVar14 + 0x18) + 8) + 8) + *(pfVar6 + 3) * 4);
-        iVar9      = *(*(*(*(iVar14 + 0x18) + 8) + 8) + *(pfVar6 + 4) * 4);
-        piStack_64 = NULL;
-        piStack_2c = NULL;
-        piStack_30 = NULL;
-        lVar13     = modelFindNodeMtx(iVar14, local_10c[1], 0);
-        pfVar15    = lVar13;
-        for (; piStack_34 != NULL; piStack_34 = piStack_34[3])
+        Model *model = special->model;
+
+        if (model->attachedto != NULL)
         {
-            if (piStack_34[1] == iVar7)
+            ModelNode **switches;
+            ModelNode *node0e;
+            ModelNode *specialnode;
+            void *op16data;
+            ModelNode *node0c;
+            ModelNode *node10;
+            ModelHitEntry *entry0e;
+            ModelHitEntry *entry0c;
+            ModelHitEntry *entry10;
+            Mtxf *mtx;
+            f32 axis2dot;
+            f32 axis1dot;
+            f32 sort0e;
+            coord3d axis2;
+            coord3d axis1;
+            f32 sort0c;
+            f32 sort10;
+            coord3d transformed;
+            ModelHitEntry *scan;
+            f32 tempf;
+
+            tempf = special->sortvalue;
+            specialnode = special->rootnode;
+            op16data = specialnode->Data;
+
+            switches = model->attachedto->obj->Switches;
+
+            node0e = switches[OP16_NODEINDEX_0E(op16data)];
+            node0c = switches[OP16_NODEINDEX_0C(op16data)];
+            node10 = switches[OP16_NODEINDEX_10(op16data)];
+
+            entry10 = NULL;
+            entry0e = NULL;
+            entry0c = NULL;
+
+
+            mtx = modelFindNodeMtx(model, specialnode, 0);
+            scan = entry;
+
+            while (scan != NULL)
             {
-                piStack_64 = piStack_34;
-            }
-            if (piStack_34[1] == iVar8)
-            {
-                piStack_2c = piStack_34;
-            }
-            if (piStack_34[1] == iVar9)
-            {
-                piStack_30 = piStack_34;
-            }
-        }
-        fVar2  = *pfVar6 * *pfVar15 + pfVar6[1] * pfVar15[4] + pfVar6[2] * pfVar15[8] + pfVar15[0xc];
-        fVar3  = *pfVar6 * pfVar15[1] + pfVar6[1] * pfVar15[5] + pfVar6[2] * pfVar15[9] + pfVar15[0xd];
-        fVar4  = *pfVar6 * pfVar15[2] + pfVar6[1] * pfVar15[6] + pfVar6[2] * pfVar15[10] + pfVar15[0xe];
-        fVar10 = pfVar15[8] * fVar2 + pfVar15[9] * fVar3 + pfVar15[10] * fVar4;
-        fVar11 = pfVar15[4] * fVar2 + pfVar15[5] * fVar3 + pfVar15[6] * fVar4;
-        fVar2  = piStack_64[2];
-        fVar3  = piStack_2c[2];
-        fVar4  = piStack_30[2];
-        if (0.0 <= fVar10)
-        {
-            if (0.0 <= fVar10)
-            {
-                if (fVar1 < fVar2)
+                if (node0e == scan->rootnode)
                 {
-                    piStack_64[2] = fVar1 - 6.103516e-05;
+                    entry0e = scan;
                 }
-                if (fVar1 < fVar4)
+
+                if (node0c == scan->rootnode)
                 {
-                    if (fVar2 <= fVar4)
+                    entry0c = scan;
+                }
+
+                if (node10 == scan->rootnode)
+                {
+                    entry10 = scan;
+                }
+
+                scan = scan->next;
+            }
+
+            axis2.f[0] = mtx->m[2][0];
+            axis2.f[1] = mtx->m[2][1];
+            axis2.f[2] = mtx->m[2][2];
+
+            axis1.f[0] = mtx->m[1][0];
+            axis1.f[1] = mtx->m[1][1];
+            axis1.f[2] = mtx->m[1][2];
+
+            transformed.f[0] = OP16_POS_X_VOL(op16data) * mtx->m[0][0]
+                          + OP16_POS_Y_VOL(op16data) * mtx->m[1][0]
+                          + OP16_POS_Z_VOL(op16data) * mtx->m[2][0]
+                          + mtx->m[3][0];
+            
+            transformed.f[1] = OP16_POS_X_VOL(op16data) * mtx->m[0][1]
+                          + OP16_POS_Y_VOL(op16data) * mtx->m[1][1]
+                          + OP16_POS_Z_VOL(op16data) * mtx->m[2][1]
+                          + mtx->m[3][1];
+            
+            transformed.f[2] = OP16_POS_X_VOL(op16data) * mtx->m[0][2]
+                          + OP16_POS_Y_VOL(op16data) * mtx->m[1][2]
+                          + OP16_POS_Z_VOL(op16data) * mtx->m[2][2]
+                          + mtx->m[3][2];
+
+            axis2dot = axis2.f[0] * transformed.f[0]
+                     + axis2.f[1] * transformed.f[1]
+                     + axis2.f[2] * transformed.f[2];
+            axis1dot = axis1.f[0] * transformed.f[0]
+                     + axis1.f[1] * transformed.f[1]
+                     + axis1.f[2] * transformed.f[2];
+            
+            
+            sort0e = entry0e->sortvalue;
+            sort0c = entry0c->sortvalue;
+            sort10 = entry10->sortvalue;
+            if (axis2dot < 0.0f)
+            {
+                if (sort10 < sort0e)
+                {
+                    if (sort10 < tempf)
                     {
-                        piStack_30[2] = fVar1 - 3.051758e-05;
+                        special->sortvalue = sort10 - 0.000030517578125f; // 2/65536
+                    }
+                }
+                else
+                {
+                    if (sort0e < tempf)
+                    {
+                        special->sortvalue = sort0e - 0.000030517578125f; // 2/65536
+                    }
+                }
+            }
+            else if (0.0f <= axis2dot)
+            {
+                if (tempf < sort0e)
+                {
+                    entry0e->sortvalue = tempf - 0.00006103515625f; // 4/65536
+                }
+
+                if (tempf < sort10)
+                {
+                    if (sort10 < sort0e)
+                    {
+                        entry10->sortvalue = tempf - 0.000091552734375f; // 6/65536
                     }
                     else
                     {
-                        piStack_30[2] = fVar1 - 9.155273e-05;
+                        entry10->sortvalue = tempf - 0.000030517578125f; // 2/65536
+                    }
+                }
+            }
+
+            if (axis1dot < 0.0f)
+            {
+                if (sort0c < special->sortvalue)
+                {
+                    if (entry0e->sortvalue < special->sortvalue && sort0c < entry0e->sortvalue)
+                    {
+                        entry0e->sortvalue = sort0c - 0.00006103515625f; // 4/65536
+                    }
+
+                    if (entry10->sortvalue < special->sortvalue && sort0c < entry10->sortvalue)
+                    {
+                        if (sort10 < sort0e)
+                        {
+                            entry10->sortvalue = sort0c - 0.000091552734375f; // 6/65536
+                        }
+                        else
+                        {
+                            entry10->sortvalue = sort0c - 0.000030517578125f; // 2/65536
+                        }
+                    }
+
+                    special->sortvalue = sort0c - 0.0000152587890625f; // 1/65536
+                }
+            }
+            else if (0.0f <= axis1dot)
+            {
+                if (special->sortvalue < sort0c)
+                {
+                    entry0c->sortvalue = special->sortvalue - 0.0000152587890625f; // 1/65536
+
+                    if (sort0c < sort0e)
+                    {
+                        if (entry0e->sortvalue < entry0c->sortvalue)
+                        {
+                            entry0c->sortvalue = entry0e->sortvalue - 0.0000152587890625f; // 1/65536
+                        }
+                    }
+
+                    if (sort0c < sort10)
+                    {
+                        if (entry10->sortvalue < entry0c->sortvalue)
+                        {
+                            entry0c->sortvalue = entry10->sortvalue - 0.0000152587890625f; // 1/65536
+                        }
                     }
                 }
             }
         }
-        else if (fVar2 <= fVar4)
-        {
-            if (fVar2 < fVar1)
-            {
-                local_10c[2] = fVar2 - 3.051758e-05;
-            }
-        }
-        else if (fVar4 < fVar1)
-        {
-            local_10c[2] = fVar4 - 3.051758e-05;
-        }
-        if (0.0 <= fVar11)
-        {
-            if ((0.0 <= fVar11) && (local_10c[2] < fVar3))
-            {
-                piStack_2c[2] = local_10c[2] - 1.525879e-05;
-                if ((fVar3 < fVar2) && (piStack_64[2] < piStack_2c[2]))
-                {
-                    piStack_2c[2] = piStack_64[2] - 1.525879e-05;
-                }
-                if ((fVar3 < fVar4) && (piStack_30[2] < piStack_2c[2]))
-                {
-                    piStack_2c[2] = piStack_30[2] - 1.525879e-05;
-                }
-            }
-        }
-        else if (fVar3 < local_10c[2])
-        {
-            if ((piStack_64[2] < local_10c[2]) && (fVar3 < piStack_64[2]))
-            {
-                piStack_64[2] = fVar3 - 6.103516e-05;
-            }
-            if ((piStack_30[2] < local_10c[2]) && (fVar3 < piStack_30[2]))
-            {
-                if (fVar2 <= fVar4)
-                {
-                    piStack_30[2] = fVar3 - 3.051758e-05;
-                }
-                else
-                {
-                    piStack_30[2] = fVar3 - 9.155273e-05;
-                }
-            }
-            local_10c[2] = fVar3 - 1.525879e-05;
-        }
     }
 }
-#else
-GLOBAL_ASM(
-.late_rodata
-/*D:800544E4*/
-glabel jpt_800544E4
-.word .L7F06B2FC
-.word .L7F06B360
-.word .L7F06B3C4
-.word .L7F06B6A4
-.word .L7F06B6A4
-.word .L7F06B6A4
-.word .L7F06B6A4
-.word .L7F06B6A4
-.word .L7F06B6A4
-.word .L7F06B6A4
-.word .L7F06B588
-.word .L7F06B5DC
-.word .L7F06B630
-.word .L7F06B448
-.word .L7F06B49C
-.word .L7F06B530
-.word .L7F06B6A4
-.word .L7F06B6A4
-.word .L7F06B6A4
-.word .L7F06B6A4
-.word .L7F06B428
-.size jpt_800544E4, . - jpt_800544E4
 
-.text
-glabel sub_GAME_7F06B29C
-/* 09FDCC 7F06B29C 27BDFEE8 */  addiu $sp, $sp, -0x118
-/* 09FDD0 7F06B2A0 AFB10020 */  sw    $s1, 0x20($sp)
-/* 09FDD4 7F06B2A4 00808825 */  move  $s1, $a0
-/* 09FDD8 7F06B2A8 AFBF0024 */  sw    $ra, 0x24($sp)
-/* 09FDDC 7F06B2AC AFB0001C */  sw    $s0, 0x1c($sp)
-/* 09FDE0 7F06B2B0 F7B40010 */  sdc1  $f20, 0x10($sp)
-/* 09FDE4 7F06B2B4 AFA40114 */  sw    $a0, 0x114($sp)
-/* 09FDE8 7F06B2B8 108000FD */  beqz  $a0, .L7F06B6B0
-/* 09FDEC 7F06B2BC AFA00110 */   sw    $zero, 0x110($sp)
-/* 09FDF0 7F06B2C0 3C013F00 */  li    $at, 0x3F000000 # 0.500000
-/* 09FDF4 7F06B2C4 4481A000 */  mtc1  $at, $f20
-/* 09FDF8 7F06B2C8 00000000 */  nop
-/* 09FDFC 7F06B2CC 8E300004 */  lw    $s0, 4($s1)
-.L7F06B2D0:
-/* 09FE00 7F06B2D0 96020000 */  lhu   $v0, ($s0)
-/* 09FE04 7F06B2D4 305800FF */  andi  $t8, $v0, 0xff
-/* 09FE08 7F06B2D8 2719FFFF */  addiu $t9, $t8, -1
-/* 09FE0C 7F06B2DC 2F210015 */  sltiu $at, $t9, 0x15
-/* 09FE10 7F06B2E0 102000F0 */  beqz  $at, .L7F06B6A4
-/* 09FE14 7F06B2E4 0019C880 */   sll   $t9, $t9, 2
-/* 09FE18 7F06B2E8 3C018005 */  lui    $at, %hi(jpt_800544E4) # -0.000000
-/* 09FE1C 7F06B2EC 00390821 */  addu  $at, $at, $t9
-/* 09FE20 7F06B2F0 8C3944E4 */  lw    $t9, %lo(jpt_800544E4)($at)
-.L7F06B2F4:
-/* 09FE24 7F06B2F4 03200008 */  jr    $t9
-/* 09FE28 7F06B2F8 00000000 */   nop
-.L7F06B2FC:
-/* 09FE2C 7F06B2FC 8E020004 */  lw    $v0, 4($s0)
-/* 09FE30 7F06B300 8E240000 */  lw    $a0, ($s1)
-/* 09FE34 7F06B304 02002825 */  move  $a1, $s0
-/* 09FE38 7F06B308 8C470004 */  lw    $a3, 4($v0)
-/* 09FE3C 7F06B30C 00003025 */  move  $a2, $zero
-/* 09FE40 7F06B310 0FC1B198 */  jal   modelFindNodeMtx
-/* 09FE44 7F06B314 AFA70100 */   sw    $a3, 0x100($sp)
-/* 09FE48 7F06B318 8FA70100 */  lw    $a3, 0x100($sp)
-/* 09FE4C 7F06B31C 00408025 */  move  $s0, $v0
-/* 09FE50 7F06B320 00003025 */  move  $a2, $zero
-/* 09FE54 7F06B324 10E0000A */  beqz  $a3, .L7F06B350
-/* 09FE58 7F06B328 00E02825 */   move  $a1, $a3
-/* 09FE5C 7F06B32C 0FC1B198 */  jal   modelFindNodeMtx
-/* 09FE60 7F06B330 8E240000 */   lw    $a0, ($s1)
-/* 09FE64 7F06B334 C44A0038 */  lwc1  $f10, 0x38($v0)
-/* 09FE68 7F06B338 C6040038 */  lwc1  $f4, 0x38($s0)
-/* 09FE6C 7F06B33C 46045180 */  add.s $f6, $f10, $f4
-/* 09FE70 7F06B340 46003207 */  neg.s $f8, $f6
-/* 09FE74 7F06B344 46144282 */  mul.s $f10, $f8, $f20
-/* 09FE78 7F06B348 100000D6 */  b     .L7F06B6A4
-/* 09FE7C 7F06B34C E62A0008 */   swc1  $f10, 8($s1)
-.L7F06B350:
-/* 09FE80 7F06B350 C4440038 */  lwc1  $f4, 0x38($v0)
-/* 09FE84 7F06B354 46002187 */  neg.s $f6, $f4
-/* 09FE88 7F06B358 100000D2 */  b     .L7F06B6A4
-/* 09FE8C 7F06B35C E6260008 */   swc1  $f6, 8($s1)
-.L7F06B360:
-/* 09FE90 7F06B360 8E020004 */  lw    $v0, 4($s0)
-/* 09FE94 7F06B364 8E240000 */  lw    $a0, ($s1)
-/* 09FE98 7F06B368 02002825 */  move  $a1, $s0
-/* 09FE9C 7F06B36C 8C470014 */  lw    $a3, 0x14($v0)
-/* 09FEA0 7F06B370 00003025 */  move  $a2, $zero
-/* 09FEA4 7F06B374 0FC1B198 */  jal   modelFindNodeMtx
-/* 09FEA8 7F06B378 AFA700F0 */   sw    $a3, 0xf0($sp)
-/* 09FEAC 7F06B37C 8FA700F0 */  lw    $a3, 0xf0($sp)
-/* 09FEB0 7F06B380 00408025 */  move  $s0, $v0
-/* 09FEB4 7F06B384 00003025 */  move  $a2, $zero
-/* 09FEB8 7F06B388 10E0000A */  beqz  $a3, .L7F06B3B4
-/* 09FEBC 7F06B38C 00E02825 */   move  $a1, $a3
-/* 09FEC0 7F06B390 0FC1B198 */  jal   modelFindNodeMtx
-/* 09FEC4 7F06B394 8E240000 */   lw    $a0, ($s1)
-/* 09FEC8 7F06B398 C4480038 */  lwc1  $f8, 0x38($v0)
-/* 09FECC 7F06B39C C60A0038 */  lwc1  $f10, 0x38($s0)
-/* 09FED0 7F06B3A0 460A4100 */  add.s $f4, $f8, $f10
-/* 09FED4 7F06B3A4 46002187 */  neg.s $f6, $f4
-/* 09FED8 7F06B3A8 46143202 */  mul.s $f8, $f6, $f20
-/* 09FEDC 7F06B3AC 100000BD */  b     .L7F06B6A4
-/* 09FEE0 7F06B3B0 E6280008 */   swc1  $f8, 8($s1)
-.L7F06B3B4:
-/* 09FEE4 7F06B3B4 C44A0038 */  lwc1  $f10, 0x38($v0)
-/* 09FEE8 7F06B3B8 46005107 */  neg.s $f4, $f10
-/* 09FEEC 7F06B3BC 100000B9 */  b     .L7F06B6A4
-/* 09FEF0 7F06B3C0 E6240008 */   swc1  $f4, 8($s1)
-.L7F06B3C4:
-/* 09FEF4 7F06B3C4 8E020004 */  lw    $v0, 4($s0)
-/* 09FEF8 7F06B3C8 8E240000 */  lw    $a0, ($s1)
-/* 09FEFC 7F06B3CC 02002825 */  move  $a1, $s0
-/* 09FF00 7F06B3D0 8C470014 */  lw    $a3, 0x14($v0)
-/* 09FF04 7F06B3D4 00003025 */  move  $a2, $zero
-/* 09FF08 7F06B3D8 0FC1B198 */  jal   modelFindNodeMtx
-/* 09FF0C 7F06B3DC AFA700E0 */   sw    $a3, 0xe0($sp)
-/* 09FF10 7F06B3E0 8FA700E0 */  lw    $a3, 0xe0($sp)
-/* 09FF14 7F06B3E4 00408025 */  move  $s0, $v0
-/* 09FF18 7F06B3E8 00003025 */  move  $a2, $zero
-/* 09FF1C 7F06B3EC 10E0000A */  beqz  $a3, .L7F06B418
-/* 09FF20 7F06B3F0 00E02825 */   move  $a1, $a3
-/* 09FF24 7F06B3F4 0FC1B198 */  jal   modelFindNodeMtx
-/* 09FF28 7F06B3F8 8E240000 */   lw    $a0, ($s1)
-/* 09FF2C 7F06B3FC C4460038 */  lwc1  $f6, 0x38($v0)
-/* 09FF30 7F06B400 C6080038 */  lwc1  $f8, 0x38($s0)
-/* 09FF34 7F06B404 46083280 */  add.s $f10, $f6, $f8
-/* 09FF38 7F06B408 46005107 */  neg.s $f4, $f10
-/* 09FF3C 7F06B40C 46142182 */  mul.s $f6, $f4, $f20
-/* 09FF40 7F06B410 100000A4 */  b     .L7F06B6A4
-/* 09FF44 7F06B414 E6260008 */   swc1  $f6, 8($s1)
-.L7F06B418:
-/* 09FF48 7F06B418 C4480038 */  lwc1  $f8, 0x38($v0)
-/* 09FF4C 7F06B41C 46004287 */  neg.s $f10, $f8
-/* 09FF50 7F06B420 100000A0 */  b     .L7F06B6A4
-/* 09FF54 7F06B424 E62A0008 */   swc1  $f10, 8($s1)
-.L7F06B428:
-/* 09FF58 7F06B428 8E240000 */  lw    $a0, ($s1)
-/* 09FF5C 7F06B42C 02002825 */  move  $a1, $s0
-/* 09FF60 7F06B430 0FC1B198 */  jal   modelFindNodeMtx
-/* 09FF64 7F06B434 00003025 */   move  $a2, $zero
-/* 09FF68 7F06B438 C4440038 */  lwc1  $f4, 0x38($v0)
-/* 09FF6C 7F06B43C 46002187 */  neg.s $f6, $f4
-/* 09FF70 7F06B440 10000098 */  b     .L7F06B6A4
-/* 09FF74 7F06B444 E6260008 */   swc1  $f6, 8($s1)
-.L7F06B448:
-/* 09FF78 7F06B448 8E240000 */  lw    $a0, ($s1)
-/* 09FF7C 7F06B44C 02002825 */  move  $a1, $s0
-/* 09FF80 7F06B450 0FC1B198 */  jal   modelFindNodeMtx
-/* 09FF84 7F06B454 00003025 */   move  $a2, $zero
-/* 09FF88 7F06B458 8E030004 */  lw    $v1, 4($s0)
-/* 09FF8C 7F06B45C C44A0008 */  lwc1  $f10, 8($v0)
-/* 09FF90 7F06B460 C4680000 */  lwc1  $f8, ($v1)
-/* 09FF94 7F06B464 C4660004 */  lwc1  $f6, 4($v1)
-/* 09FF98 7F06B468 460A4102 */  mul.s $f4, $f8, $f10
-/* 09FF9C 7F06B46C C4480018 */  lwc1  $f8, 0x18($v0)
-/* 09FFA0 7F06B470 46083282 */  mul.s $f10, $f6, $f8
-/* 09FFA4 7F06B474 C4680008 */  lwc1  $f8, 8($v1)
-/* 09FFA8 7F06B478 460A2180 */  add.s $f6, $f4, $f10
-/* 09FFAC 7F06B47C C4440028 */  lwc1  $f4, 0x28($v0)
-/* 09FFB0 7F06B480 46044282 */  mul.s $f10, $f8, $f4
-/* 09FFB4 7F06B484 C4440038 */  lwc1  $f4, 0x38($v0)
-/* 09FFB8 7F06B488 460A3200 */  add.s $f8, $f6, $f10
-/* 09FFBC 7F06B48C 46082180 */  add.s $f6, $f4, $f8
-/* 09FFC0 7F06B490 46003287 */  neg.s $f10, $f6
-/* 09FFC4 7F06B494 10000083 */  b     .L7F06B6A4
-/* 09FFC8 7F06B498 E62A0008 */   swc1  $f10, 8($s1)
-.L7F06B49C:
-/* 09FFCC 7F06B49C 8E240000 */  lw    $a0, ($s1)
-/* 09FFD0 7F06B4A0 02002825 */  move  $a1, $s0
-/* 09FFD4 7F06B4A4 0FC1B198 */  jal   modelFindNodeMtx
-/* 09FFD8 7F06B4A8 00003025 */   move  $a2, $zero
-/* 09FFDC 7F06B4AC 8E030004 */  lw    $v1, 4($s0)
-/* 09FFE0 7F06B4B0 C4420008 */  lwc1  $f2, 8($v0)
-/* 09FFE4 7F06B4B4 C44C0018 */  lwc1  $f12, 0x18($v0)
-/* 09FFE8 7F06B4B8 C4640000 */  lwc1  $f4, ($v1)
-/* 09FFEC 7F06B4BC C4660004 */  lwc1  $f6, 4($v1)
-/* 09FFF0 7F06B4C0 C44E0028 */  lwc1  $f14, 0x28($v0)
-/* 09FFF4 7F06B4C4 46022202 */  mul.s $f8, $f4, $f2
-/* 09FFF8 7F06B4C8 C4400038 */  lwc1  $f0, 0x38($v0)
-/* 09FFFC 7F06B4CC 460C3282 */  mul.s $f10, $f6, $f12
-/* 0A0000 7F06B4D0 C4660008 */  lwc1  $f6, 8($v1)
-/* 0A0004 7F06B4D4 460A4100 */  add.s $f4, $f8, $f10
-/* 0A0008 7F06B4D8 460E3202 */  mul.s $f8, $f6, $f14
-/* 0A000C 7F06B4DC C466000C */  lwc1  $f6, 0xc($v1)
-/* 0A0010 7F06B4E0 46082280 */  add.s $f10, $f4, $f8
-/* 0A0014 7F06B4E4 46023102 */  mul.s $f4, $f6, $f2
-/* 0A0018 7F06B4E8 C4680010 */  lwc1  $f8, 0x10($v1)
-/* 0A001C 7F06B4EC 460A0400 */  add.s $f16, $f0, $f10
-/* 0A0020 7F06B4F0 460C4282 */  mul.s $f10, $f8, $f12
-/* 0A0024 7F06B4F4 C4680014 */  lwc1  $f8, 0x14($v1)
-/* 0A0028 7F06B4F8 46008407 */  neg.s $f16, $f16
-/* 0A002C 7F06B4FC 460A2180 */  add.s $f6, $f4, $f10
-/* 0A0030 7F06B500 460E4102 */  mul.s $f4, $f8, $f14
-/* 0A0034 7F06B504 46043280 */  add.s $f10, $f6, $f4
-/* 0A0038 7F06B508 460A0480 */  add.s $f18, $f0, $f10
-/* 0A003C 7F06B50C 46009487 */  neg.s $f18, $f18
-/* 0A0040 7F06B510 4612803C */  c.lt.s $f16, $f18
-/* 0A0044 7F06B514 00000000 */  nop
-/* 0A0048 7F06B518 45000003 */  bc1f  .L7F06B528
-/* 0A004C 7F06B51C 00000000 */   nop
-/* 0A0050 7F06B520 10000060 */  b     .L7F06B6A4
-/* 0A0054 7F06B524 E6300008 */   swc1  $f16, 8($s1)
-.L7F06B528:
-/* 0A0058 7F06B528 1000005E */  b     .L7F06B6A4
-/* 0A005C 7F06B52C E6320008 */   swc1  $f18, 8($s1)
-.L7F06B530:
-/* 0A0060 7F06B530 8E240000 */  lw    $a0, ($s1)
-/* 0A0064 7F06B534 02002825 */  move  $a1, $s0
-/* 0A0068 7F06B538 0FC1B198 */  jal   modelFindNodeMtx
-/* 0A006C 7F06B53C 00003025 */   move  $a2, $zero
-/* 0A0070 7F06B540 8E030004 */  lw    $v1, 4($s0)
-/* 0A0074 7F06B544 C4460008 */  lwc1  $f6, 8($v0)
-/* 0A0078 7F06B548 C4680000 */  lwc1  $f8, ($v1)
-/* 0A007C 7F06B54C C46A0004 */  lwc1  $f10, 4($v1)
-/* 0A0080 7F06B550 46064102 */  mul.s $f4, $f8, $f6
-/* 0A0084 7F06B554 C4480018 */  lwc1  $f8, 0x18($v0)
-/* 0A0088 7F06B558 46085182 */  mul.s $f6, $f10, $f8
-/* 0A008C 7F06B55C C4680008 */  lwc1  $f8, 8($v1)
-/* 0A0090 7F06B560 46062280 */  add.s $f10, $f4, $f6
-/* 0A0094 7F06B564 C4440028 */  lwc1  $f4, 0x28($v0)
-/* 0A0098 7F06B568 46044182 */  mul.s $f6, $f8, $f4
-/* 0A009C 7F06B56C C4440038 */  lwc1  $f4, 0x38($v0)
-/* 0A00A0 7F06B570 46065200 */  add.s $f8, $f10, $f6
-/* 0A00A4 7F06B574 46082280 */  add.s $f10, $f4, $f8
-/* 0A00A8 7F06B578 46005187 */  neg.s $f6, $f10
-/* 0A00AC 7F06B57C E6260008 */  swc1  $f6, 8($s1)
-/* 0A00B0 7F06B580 10000048 */  b     .L7F06B6A4
-/* 0A00B4 7F06B584 AFB10110 */   sw    $s1, 0x110($sp)
-.L7F06B588:
-/* 0A00B8 7F06B588 8E240000 */  lw    $a0, ($s1)
-/* 0A00BC 7F06B58C 02002825 */  move  $a1, $s0
-/* 0A00C0 7F06B590 0FC1B198 */  jal   modelFindNodeMtx
-/* 0A00C4 7F06B594 00003025 */   move  $a2, $zero
-/* 0A00C8 7F06B598 8E030004 */  lw    $v1, 4($s0)
-/* 0A00CC 7F06B59C C4480008 */  lwc1  $f8, 8($v0)
-/* 0A00D0 7F06B5A0 C4640000 */  lwc1  $f4, ($v1)
-/* 0A00D4 7F06B5A4 C4660004 */  lwc1  $f6, 4($v1)
-/* 0A00D8 7F06B5A8 46082282 */  mul.s $f10, $f4, $f8
-/* 0A00DC 7F06B5AC C4440018 */  lwc1  $f4, 0x18($v0)
-/* 0A00E0 7F06B5B0 46043202 */  mul.s $f8, $f6, $f4
-/* 0A00E4 7F06B5B4 C4640008 */  lwc1  $f4, 8($v1)
-/* 0A00E8 7F06B5B8 46085180 */  add.s $f6, $f10, $f8
-/* 0A00EC 7F06B5BC C44A0028 */  lwc1  $f10, 0x28($v0)
-/* 0A00F0 7F06B5C0 460A2202 */  mul.s $f8, $f4, $f10
-/* 0A00F4 7F06B5C4 C44A0038 */  lwc1  $f10, 0x38($v0)
-/* 0A00F8 7F06B5C8 46083100 */  add.s $f4, $f6, $f8
-/* 0A00FC 7F06B5CC 46045180 */  add.s $f6, $f10, $f4
-/* 0A0100 7F06B5D0 46003207 */  neg.s $f8, $f6
-/* 0A0104 7F06B5D4 10000033 */  b     .L7F06B6A4
-/* 0A0108 7F06B5D8 E6280008 */   swc1  $f8, 8($s1)
-.L7F06B5DC:
-/* 0A010C 7F06B5DC 8E240000 */  lw    $a0, ($s1)
-/* 0A0110 7F06B5E0 02002825 */  move  $a1, $s0
-/* 0A0114 7F06B5E4 0FC1B198 */  jal   modelFindNodeMtx
-/* 0A0118 7F06B5E8 00003025 */   move  $a2, $zero
-/* 0A011C 7F06B5EC 8E030004 */  lw    $v1, 4($s0)
-/* 0A0120 7F06B5F0 C4440008 */  lwc1  $f4, 8($v0)
-/* 0A0124 7F06B5F4 C46A0000 */  lwc1  $f10, ($v1)
-/* 0A0128 7F06B5F8 C4680004 */  lwc1  $f8, 4($v1)
-/* 0A012C 7F06B5FC 46045182 */  mul.s $f6, $f10, $f4
-/* 0A0130 7F06B600 C44A0018 */  lwc1  $f10, 0x18($v0)
-/* 0A0134 7F06B604 460A4102 */  mul.s $f4, $f8, $f10
-/* 0A0138 7F06B608 C46A0008 */  lwc1  $f10, 8($v1)
-/* 0A013C 7F06B60C 46043200 */  add.s $f8, $f6, $f4
-/* 0A0140 7F06B610 C4460028 */  lwc1  $f6, 0x28($v0)
-/* 0A0144 7F06B614 46065102 */  mul.s $f4, $f10, $f6
-/* 0A0148 7F06B618 C4460038 */  lwc1  $f6, 0x38($v0)
-/* 0A014C 7F06B61C 46044280 */  add.s $f10, $f8, $f4
-/* 0A0150 7F06B620 460A3200 */  add.s $f8, $f6, $f10
-/* 0A0154 7F06B624 46004107 */  neg.s $f4, $f8
-/* 0A0158 7F06B628 1000001E */  b     .L7F06B6A4
-/* 0A015C 7F06B62C E6240008 */   swc1  $f4, 8($s1)
-.L7F06B630:
-/* 0A0160 7F06B630 8E240000 */  lw    $a0, ($s1)
-/* 0A0164 7F06B634 02002825 */  move  $a1, $s0
-/* 0A0168 7F06B638 0FC1B198 */  jal   modelFindNodeMtx
-/* 0A016C 7F06B63C 00003025 */   move  $a2, $zero
-/* 0A0170 7F06B640 8E060004 */  lw    $a2, 4($s0)
-/* 0A0174 7F06B644 8E240000 */  lw    $a0, ($s1)
-/* 0A0178 7F06B648 8CC50014 */  lw    $a1, 0x14($a2)
-/* 0A017C 7F06B64C AFA200A0 */  sw    $v0, 0xa0($sp)
-/* 0A0180 7F06B650 0FC1B1E7 */  jal   modelGetNodeRwData
-/* 0A0184 7F06B654 AFA6009C */   sw    $a2, 0x9c($sp)
-/* 0A0188 7F06B658 8FA300A0 */  lw    $v1, 0xa0($sp)
-/* 0A018C 7F06B65C 8FA6009C */  lw    $a2, 0x9c($sp)
-/* 0A0190 7F06B660 C4440004 */  lwc1  $f4, 4($v0)
-/* 0A0194 7F06B664 C46A0008 */  lwc1  $f10, 8($v1)
-/* 0A0198 7F06B668 C4C60000 */  lwc1  $f6, ($a2)
-/* 0A019C 7F06B66C 460A3202 */  mul.s $f8, $f6, $f10
-/* 0A01A0 7F06B670 C446000C */  lwc1  $f6, 0xc($v0)
-/* 0A01A4 7F06B674 46062281 */  sub.s $f10, $f4, $f6
-/* 0A01A8 7F06B678 C4640018 */  lwc1  $f4, 0x18($v1)
-/* 0A01AC 7F06B67C 46045182 */  mul.s $f6, $f10, $f4
-/* 0A01B0 7F06B680 C4C40004 */  lwc1  $f4, 4($a2)
-/* 0A01B4 7F06B684 46064280 */  add.s $f10, $f8, $f6
-/* 0A01B8 7F06B688 C4680028 */  lwc1  $f8, 0x28($v1)
-/* 0A01BC 7F06B68C 46082182 */  mul.s $f6, $f4, $f8
-/* 0A01C0 7F06B690 C4680038 */  lwc1  $f8, 0x38($v1)
-/* 0A01C4 7F06B694 46065100 */  add.s $f4, $f10, $f6
-/* 0A01C8 7F06B698 46044280 */  add.s $f10, $f8, $f4
-/* 0A01CC 7F06B69C 46005187 */  neg.s $f6, $f10
-/* 0A01D0 7F06B6A0 E6260008 */  swc1  $f6, 8($s1)
-def_7F06B2F4:
-.L7F06B6A4:
-/* 0A01D4 7F06B6A4 8E31000C */  lw    $s1, 0xc($s1)
-/* 0A01D8 7F06B6A8 5620FF09 */  bnezl $s1, .L7F06B2D0
-/* 0A01DC 7F06B6AC 8E300004 */   lw    $s0, 4($s1)
-.L7F06B6B0:
-/* 0A01E0 7F06B6B0 8FAC0110 */  lw    $t4, 0x110($sp)
-/* 0A01E4 7F06B6B4 51800117 */  beql  $t4, $zero, .L7F06BB14
-/* 0A01E8 7F06B6B8 8FBF0024 */   lw    $ra, 0x24($sp)
-/* 0A01EC 7F06B6BC 8D840000 */  lw    $a0, ($t4)
-/* 0A01F0 7F06B6C0 8C830018 */  lw    $v1, 0x18($a0)
-/* 0A01F4 7F06B6C4 50600113 */  beql  $v1, $zero, .L7F06BB14
-/* 0A01F8 7F06B6C8 8FBF0024 */   lw    $ra, 0x24($sp)
-/* 0A01FC 7F06B6CC 8D850004 */  lw    $a1, 4($t4)
-/* 0A0200 7F06B6D0 8C6D0008 */  lw    $t5, 8($v1)
-/* 0A0204 7F06B6D4 C5940008 */  lwc1  $f20, 8($t4)
-/* 0A0208 7F06B6D8 8CB00004 */  lw    $s0, 4($a1)
-/* 0A020C 7F06B6DC 8DA20008 */  lw    $v0, 8($t5)
-/* 0A0210 7F06B6E0 00003025 */  move  $a2, $zero
-/* 0A0214 7F06B6E4 860E000E */  lh    $t6, 0xe($s0)
-/* 0A0218 7F06B6E8 8619000C */  lh    $t9, 0xc($s0)
-/* 0A021C 7F06B6EC 000E7880 */  sll   $t7, $t6, 2
-/* 0A0220 7F06B6F0 860E0010 */  lh    $t6, 0x10($s0)
-/* 0A0224 7F06B6F4 004FC021 */  addu  $t8, $v0, $t7
-/* 0A0228 7F06B6F8 8F110000 */  lw    $s1, ($t8)
-/* 0A022C 7F06B6FC 00196080 */  sll   $t4, $t9, 2
-/* 0A0230 7F06B700 000E7880 */  sll   $t7, $t6, 2
-/* 0A0234 7F06B704 004C6821 */  addu  $t5, $v0, $t4
-/* 0A0238 7F06B708 004FC021 */  addu  $t8, $v0, $t7
-/* 0A023C 7F06B70C 8DA70000 */  lw    $a3, ($t5)
-/* 0A0240 7F06B710 8F080000 */  lw    $t0, ($t8)
-/* 0A0244 7F06B714 AFA00070 */  sw    $zero, 0x70($sp)
-/* 0A0248 7F06B718 AFA00078 */  sw    $zero, 0x78($sp)
-/* 0A024C 7F06B71C AFA00074 */  sw    $zero, 0x74($sp)
-/* 0A0250 7F06B720 AFA70080 */  sw    $a3, 0x80($sp)
-/* 0A0254 7F06B724 0FC1B198 */  jal   modelFindNodeMtx
-/* 0A0258 7F06B728 AFA8007C */   sw    $t0, 0x7c($sp)
-/* 0A025C 7F06B72C 8FA30114 */  lw    $v1, 0x114($sp)
-/* 0A0260 7F06B730 8FA70080 */  lw    $a3, 0x80($sp)
-/* 0A0264 7F06B734 8FA8007C */  lw    $t0, 0x7c($sp)
-/* 0A0268 7F06B738 8FA90074 */  lw    $t1, 0x74($sp)
-/* 0A026C 7F06B73C 8FAA0078 */  lw    $t2, 0x78($sp)
-/* 0A0270 7F06B740 1060000E */  beqz  $v1, .L7F06B77C
-/* 0A0274 7F06B744 8FAB0070 */   lw    $t3, 0x70($sp)
-/* 0A0278 7F06B748 8C640004 */  lw    $a0, 4($v1)
-.L7F06B74C:
-/* 0A027C 7F06B74C 16240002 */  bne   $s1, $a0, .L7F06B758
-/* 0A0280 7F06B750 00000000 */   nop
-/* 0A0284 7F06B754 00605025 */  move  $t2, $v1
-.L7F06B758:
-/* 0A0288 7F06B758 14E40002 */  bne   $a3, $a0, .L7F06B764
-/* 0A028C 7F06B75C 00000000 */   nop
-/* 0A0290 7F06B760 00604825 */  move  $t1, $v1
-.L7F06B764:
-/* 0A0294 7F06B764 55040003 */  bnel  $t0, $a0, .L7F06B774
-/* 0A0298 7F06B768 8C63000C */   lw    $v1, 0xc($v1)
-/* 0A029C 7F06B76C 00605825 */  move  $t3, $v1
-/* 0A02A0 7F06B770 8C63000C */  lw    $v1, 0xc($v1)
-.L7F06B774:
-/* 0A02A4 7F06B774 5460FFF5 */  bnezl $v1, .L7F06B74C
-/* 0A02A8 7F06B778 8C640004 */   lw    $a0, 4($v1)
-.L7F06B77C:
-/* 0A02AC 7F06B77C C4480020 */  lwc1  $f8, 0x20($v0)
-/* 0A02B0 7F06B780 E7A80054 */  swc1  $f8, 0x54($sp)
-/* 0A02B4 7F06B784 C4440024 */  lwc1  $f4, 0x24($v0)
-/* 0A02B8 7F06B788 E7A40058 */  swc1  $f4, 0x58($sp)
-/* 0A02BC 7F06B78C C44A0028 */  lwc1  $f10, 0x28($v0)
-/* 0A02C0 7F06B790 E7AA005C */  swc1  $f10, 0x5c($sp)
-/* 0A02C4 7F06B794 C4460010 */  lwc1  $f6, 0x10($v0)
-/* 0A02C8 7F06B798 E7A60048 */  swc1  $f6, 0x48($sp)
-/* 0A02CC 7F06B79C C4480014 */  lwc1  $f8, 0x14($v0)
-/* 0A02D0 7F06B7A0 E7A8004C */  swc1  $f8, 0x4c($sp)
-/* 0A02D4 7F06B7A4 C4440018 */  lwc1  $f4, 0x18($v0)
-/* 0A02D8 7F06B7A8 E7A40050 */  swc1  $f4, 0x50($sp)
-/* 0A02DC 7F06B7AC C60A0000 */  lwc1  $f10, ($s0)
-/* 0A02E0 7F06B7B0 C4460000 */  lwc1  $f6, ($v0)
-/* 0A02E4 7F06B7B4 C6040004 */  lwc1  $f4, 4($s0)
-/* 0A02E8 7F06B7B8 46065202 */  mul.s $f8, $f10, $f6
-/* 0A02EC 7F06B7BC C44A0010 */  lwc1  $f10, 0x10($v0)
-/* 0A02F0 7F06B7C0 460A2182 */  mul.s $f6, $f4, $f10
-/* 0A02F4 7F06B7C4 C60A0008 */  lwc1  $f10, 8($s0)
-/* 0A02F8 7F06B7C8 46064100 */  add.s $f4, $f8, $f6
-/* 0A02FC 7F06B7CC C4480020 */  lwc1  $f8, 0x20($v0)
-/* 0A0300 7F06B7D0 46085182 */  mul.s $f6, $f10, $f8
-/* 0A0304 7F06B7D4 C4480030 */  lwc1  $f8, 0x30($v0)
-/* 0A0308 7F06B7D8 46062280 */  add.s $f10, $f4, $f6
-/* 0A030C 7F06B7DC 460A4100 */  add.s $f4, $f8, $f10
-/* 0A0310 7F06B7E0 E7A40034 */  swc1  $f4, 0x34($sp)
-/* 0A0314 7F06B7E4 C6060000 */  lwc1  $f6, ($s0)
-/* 0A0318 7F06B7E8 C4480004 */  lwc1  $f8, 4($v0)
-/* 0A031C 7F06B7EC C6040004 */  lwc1  $f4, 4($s0)
-/* 0A0320 7F06B7F0 46083282 */  mul.s $f10, $f6, $f8
-/* 0A0324 7F06B7F4 C4460014 */  lwc1  $f6, 0x14($v0)
-/* 0A0328 7F06B7F8 46062202 */  mul.s $f8, $f4, $f6
-/* 0A032C 7F06B7FC C6060008 */  lwc1  $f6, 8($s0)
-/* 0A0330 7F06B800 46085100 */  add.s $f4, $f10, $f8
-/* 0A0334 7F06B804 C44A0024 */  lwc1  $f10, 0x24($v0)
-/* 0A0338 7F06B808 460A3202 */  mul.s $f8, $f6, $f10
-/* 0A033C 7F06B80C C44A0034 */  lwc1  $f10, 0x34($v0)
-/* 0A0340 7F06B810 46082180 */  add.s $f6, $f4, $f8
-/* 0A0344 7F06B814 46065100 */  add.s $f4, $f10, $f6
-/* 0A0348 7F06B818 E7A40038 */  swc1  $f4, 0x38($sp)
-/* 0A034C 7F06B81C C44A0008 */  lwc1  $f10, 8($v0)
-/* 0A0350 7F06B820 C6080000 */  lwc1  $f8, ($s0)
-/* 0A0354 7F06B824 C6040004 */  lwc1  $f4, 4($s0)
-/* 0A0358 7F06B828 460A4182 */  mul.s $f6, $f8, $f10
-/* 0A035C 7F06B82C C4480018 */  lwc1  $f8, 0x18($v0)
-/* 0A0360 7F06B830 46082282 */  mul.s $f10, $f4, $f8
-/* 0A0364 7F06B834 C6080008 */  lwc1  $f8, 8($s0)
-/* 0A0368 7F06B838 460A3100 */  add.s $f4, $f6, $f10
-/* 0A036C 7F06B83C C4460028 */  lwc1  $f6, 0x28($v0)
-/* 0A0370 7F06B840 46064282 */  mul.s $f10, $f8, $f6
-/* 0A0374 7F06B844 C4460038 */  lwc1  $f6, 0x38($v0)
-/* 0A0378 7F06B848 460A2200 */  add.s $f8, $f4, $f10
-/* 0A037C 7F06B84C C7AA0054 */  lwc1  $f10, 0x54($sp)
-/* 0A0380 7F06B850 46083100 */  add.s $f4, $f6, $f8
-/* 0A0384 7F06B854 C7A60034 */  lwc1  $f6, 0x34($sp)
-/* 0A0388 7F06B858 46065202 */  mul.s $f8, $f10, $f6
-/* 0A038C 7F06B85C E7A4003C */  swc1  $f4, 0x3c($sp)
-/* 0A0390 7F06B860 C7A40058 */  lwc1  $f4, 0x58($sp)
-/* 0A0394 7F06B864 C7AA0038 */  lwc1  $f10, 0x38($sp)
-/* 0A0398 7F06B868 E7A60028 */  swc1  $f6, 0x28($sp)
-/* 0A039C 7F06B86C C7A6005C */  lwc1  $f6, 0x5c($sp)
-/* 0A03A0 7F06B870 460A2102 */  mul.s $f4, $f4, $f10
-/* 0A03A4 7F06B874 C54E0008 */  lwc1  $f14, 8($t2)
-/* 0A03A8 7F06B878 C52C0008 */  lwc1  $f12, 8($t1)
-/* 0A03AC 7F06B87C C5700008 */  lwc1  $f16, 8($t3)
-/* 0A03B0 7F06B880 46044200 */  add.s $f8, $f8, $f4
-/* 0A03B4 7F06B884 C7A4003C */  lwc1  $f4, 0x3c($sp)
-/* 0A03B8 7F06B888 46062182 */  mul.s $f6, $f4, $f6
-/* 0A03BC 7F06B88C 46083080 */  add.s $f2, $f6, $f8
-/* 0A03C0 7F06B890 C7A80028 */  lwc1  $f8, 0x28($sp)
-/* 0A03C4 7F06B894 C7A60048 */  lwc1  $f6, 0x48($sp)
-/* 0A03C8 7F06B898 46083182 */  mul.s $f6, $f6, $f8
-/* 0A03CC 7F06B89C C7A8004C */  lwc1  $f8, 0x4c($sp)
-/* 0A03D0 7F06B8A0 460A4202 */  mul.s $f8, $f8, $f10
-/* 0A03D4 7F06B8A4 46083280 */  add.s $f10, $f6, $f8
-/* 0A03D8 7F06B8A8 C7A60050 */  lwc1  $f6, 0x50($sp)
-/* 0A03DC 7F06B8AC 46062202 */  mul.s $f8, $f4, $f6
-/* 0A03E0 7F06B8B0 44802000 */  mtc1  $zero, $f4
-/* 0A03E4 7F06B8B4 00000000 */  nop
-/* 0A03E8 7F06B8B8 4604103C */  c.lt.s $f2, $f4
-/* 0A03EC 7F06B8BC 460A4480 */  add.s $f18, $f8, $f10
-/* 0A03F0 7F06B8C0 45020018 */  bc1fl .L7F06B924
-/* 0A03F4 7F06B8C4 44803000 */   mtc1  $zero, $f6
-/* 0A03F8 7F06B8C8 460E803C */  c.lt.s $f16, $f14
-/* 0A03FC 7F06B8CC 00000000 */  nop
-/* 0A0400 7F06B8D0 4502000B */  bc1fl .L7F06B900
-/* 0A0404 7F06B8D4 4614703C */   c.lt.s $f14, $f20
-/* 0A0408 7F06B8D8 4614803C */  c.lt.s $f16, $f20
-/* 0A040C 7F06B8DC 3C013800 */  li    $at, 0x38000000 # 0.000031
-/* 0A0410 7F06B8E0 45020030 */  bc1fl .L7F06B9A4
-/* 0A0414 7F06B8E4 44802000 */   mtc1  $zero, $f4
-/* 0A0418 7F06B8E8 44813000 */  mtc1  $at, $f6
-/* 0A041C 7F06B8EC 8FAC0110 */  lw    $t4, 0x110($sp)
-/* 0A0420 7F06B8F0 46068201 */  sub.s $f8, $f16, $f6
-/* 0A0424 7F06B8F4 1000002A */  b     .L7F06B9A0
-/* 0A0428 7F06B8F8 E5880008 */   swc1  $f8, 8($t4)
-/* 0A042C 7F06B8FC 4614703C */  c.lt.s $f14, $f20
-.L7F06B900:
-/* 0A0430 7F06B900 3C013800 */  li    $at, 0x38000000 # 0.000031
-/* 0A0434 7F06B904 45020027 */  bc1fl .L7F06B9A4
-/* 0A0438 7F06B908 44802000 */   mtc1  $zero, $f4
-/* 0A043C 7F06B90C 44815000 */  mtc1  $at, $f10
-/* 0A0440 7F06B910 8FAD0110 */  lw    $t5, 0x110($sp)
-/* 0A0444 7F06B914 460A7101 */  sub.s $f4, $f14, $f10
-/* 0A0448 7F06B918 10000021 */  b     .L7F06B9A0
-/* 0A044C 7F06B91C E5A40008 */   swc1  $f4, 8($t5)
-/* 0A0450 7F06B920 44803000 */  mtc1  $zero, $f6
-.L7F06B924:
-/* 0A0454 7F06B924 00000000 */  nop
-/* 0A0458 7F06B928 4602303E */  c.le.s $f6, $f2
-/* 0A045C 7F06B92C 00000000 */  nop
-/* 0A0460 7F06B930 4502001C */  bc1fl .L7F06B9A4
-/* 0A0464 7F06B934 44802000 */   mtc1  $zero, $f4
-/* 0A0468 7F06B938 460EA03C */  c.lt.s $f20, $f14
-/* 0A046C 7F06B93C 3C013880 */  li    $at, 0x38800000 # 0.000061
-/* 0A0470 7F06B940 45020006 */  bc1fl .L7F06B95C
-/* 0A0474 7F06B944 4610A03C */   c.lt.s $f20, $f16
-/* 0A0478 7F06B948 44814000 */  mtc1  $at, $f8
-/* 0A047C 7F06B94C 00000000 */  nop
-/* 0A0480 7F06B950 4608A281 */  sub.s $f10, $f20, $f8
-/* 0A0484 7F06B954 E54A0008 */  swc1  $f10, 8($t2)
-/* 0A0488 7F06B958 4610A03C */  c.lt.s $f20, $f16
-.L7F06B95C:
-/* 0A048C 7F06B95C 00000000 */  nop
-/* 0A0490 7F06B960 45020010 */  bc1fl .L7F06B9A4
-/* 0A0494 7F06B964 44802000 */   mtc1  $zero, $f4
-/* 0A0498 7F06B968 460E803C */  c.lt.s $f16, $f14
-/* 0A049C 7F06B96C 3C013800 */  li    $at, 0x38000000 # 0.000031
-/* 0A04A0 7F06B970 45020008 */  bc1fl .L7F06B994
-/* 0A04A4 7F06B974 44814000 */   mtc1  $at, $f8
-/* 0A04A8 7F06B978 3C0138C0 */  li    $at, 0x38C00000 # 0.000092
-/* 0A04AC 7F06B97C 44812000 */  mtc1  $at, $f4
-/* 0A04B0 7F06B980 00000000 */  nop
-/* 0A04B4 7F06B984 4604A181 */  sub.s $f6, $f20, $f4
-/* 0A04B8 7F06B988 10000005 */  b     .L7F06B9A0
-/* 0A04BC 7F06B98C E5660008 */   swc1  $f6, 8($t3)
-/* 0A04C0 7F06B990 44814000 */  mtc1  $at, $f8
-.L7F06B994:
-/* 0A04C4 7F06B994 00000000 */  nop
-/* 0A04C8 7F06B998 4608A281 */  sub.s $f10, $f20, $f8
-/* 0A04CC 7F06B99C E56A0008 */  swc1  $f10, 8($t3)
-.L7F06B9A0:
-/* 0A04D0 7F06B9A0 44802000 */  mtc1  $zero, $f4
-.L7F06B9A4:
-/* 0A04D4 7F06B9A4 8FAE0110 */  lw    $t6, 0x110($sp)
-/* 0A04D8 7F06B9A8 4604903C */  c.lt.s $f18, $f4
-/* 0A04DC 7F06B9AC 00000000 */  nop
-/* 0A04E0 7F06B9B0 45020033 */  bc1fl .L7F06BA80
-/* 0A04E4 7F06B9B4 44802000 */   mtc1  $zero, $f4
-/* 0A04E8 7F06B9B8 C5C20008 */  lwc1  $f2, 8($t6)
-/* 0A04EC 7F06B9BC 4602603C */  c.lt.s $f12, $f2
-/* 0A04F0 7F06B9C0 00000000 */  nop
-/* 0A04F4 7F06B9C4 45020053 */  bc1fl .L7F06BB14
-/* 0A04F8 7F06B9C8 8FBF0024 */   lw    $ra, 0x24($sp)
-/* 0A04FC 7F06B9CC C5400008 */  lwc1  $f0, 8($t2)
-/* 0A0500 7F06B9D0 4602003C */  c.lt.s $f0, $f2
-/* 0A0504 7F06B9D4 00000000 */  nop
-/* 0A0508 7F06B9D8 4502000C */  bc1fl .L7F06BA0C
-/* 0A050C 7F06B9DC C5600008 */   lwc1  $f0, 8($t3)
-/* 0A0510 7F06B9E0 4600603C */  c.lt.s $f12, $f0
-/* 0A0514 7F06B9E4 3C013880 */  li    $at, 0x38800000 # 0.000061
-/* 0A0518 7F06B9E8 45020008 */  bc1fl .L7F06BA0C
-/* 0A051C 7F06B9EC C5600008 */   lwc1  $f0, 8($t3)
-/* 0A0520 7F06B9F0 44813000 */  mtc1  $at, $f6
-/* 0A0524 7F06B9F4 00000000 */  nop
-/* 0A0528 7F06B9F8 46066201 */  sub.s $f8, $f12, $f6
-/* 0A052C 7F06B9FC E5480008 */  swc1  $f8, 8($t2)
-/* 0A0530 7F06BA00 8FAF0110 */  lw    $t7, 0x110($sp)
-/* 0A0534 7F06BA04 C5E20008 */  lwc1  $f2, 8($t7)
-/* 0A0538 7F06BA08 C5600008 */  lwc1  $f0, 8($t3)
-.L7F06BA0C:
-/* 0A053C 7F06BA0C 4602003C */  c.lt.s $f0, $f2
-/* 0A0540 7F06BA10 00000000 */  nop
-/* 0A0544 7F06BA14 45020014 */  bc1fl .L7F06BA68
-/* 0A0548 7F06BA18 3C013780 */   lui   $at, 0x3780
-/* 0A054C 7F06BA1C 4600603C */  c.lt.s $f12, $f0
-/* 0A0550 7F06BA20 00000000 */  nop
-/* 0A0554 7F06BA24 45020010 */  bc1fl .L7F06BA68
-/* 0A0558 7F06BA28 3C013780 */   li    $at, 0x37800000 # 0.000015
-/* 0A055C 7F06BA2C 460E803C */  c.lt.s $f16, $f14
-/* 0A0560 7F06BA30 3C013800 */  li    $at, 0x38000000 # 0.000031
-/* 0A0564 7F06BA34 45020008 */  bc1fl .L7F06BA58
-/* 0A0568 7F06BA38 44813000 */   mtc1  $at, $f6
-/* 0A056C 7F06BA3C 3C0138C0 */  li    $at, 0x38C00000 # 0.000092
-/* 0A0570 7F06BA40 44815000 */  mtc1  $at, $f10
-/* 0A0574 7F06BA44 00000000 */  nop
-/* 0A0578 7F06BA48 460A6101 */  sub.s $f4, $f12, $f10
-/* 0A057C 7F06BA4C 10000005 */  b     .L7F06BA64
-/* 0A0580 7F06BA50 E5640008 */   swc1  $f4, 8($t3)
-/* 0A0584 7F06BA54 44813000 */  mtc1  $at, $f6
-.L7F06BA58:
-/* 0A0588 7F06BA58 00000000 */  nop
-/* 0A058C 7F06BA5C 46066201 */  sub.s $f8, $f12, $f6
-/* 0A0590 7F06BA60 E5680008 */  swc1  $f8, 8($t3)
-.L7F06BA64:
-/* 0A0594 7F06BA64 3C013780 */  li    $at, 0x37800000 # 0.000015
-.L7F06BA68:
-/* 0A0598 7F06BA68 44819000 */  mtc1  $at, $f18
-/* 0A059C 7F06BA6C 8FB80110 */  lw    $t8, 0x110($sp)
-/* 0A05A0 7F06BA70 46126281 */  sub.s $f10, $f12, $f18
-/* 0A05A4 7F06BA74 10000026 */  b     .L7F06BB10
-/* 0A05A8 7F06BA78 E70A0008 */   swc1  $f10, 8($t8)
-/* 0A05AC 7F06BA7C 44802000 */  mtc1  $zero, $f4
-.L7F06BA80:
-/* 0A05B0 7F06BA80 8FB90110 */  lw    $t9, 0x110($sp)
-/* 0A05B4 7F06BA84 4612203E */  c.le.s $f4, $f18
-/* 0A05B8 7F06BA88 00000000 */  nop
-/* 0A05BC 7F06BA8C 45020021 */  bc1fl .L7F06BB14
-/* 0A05C0 7F06BA90 8FBF0024 */   lw    $ra, 0x24($sp)
-/* 0A05C4 7F06BA94 C7220008 */  lwc1  $f2, 8($t9)
-/* 0A05C8 7F06BA98 3C013780 */  li    $at, 0x37800000 # 0.000015
-/* 0A05CC 7F06BA9C 460C103C */  c.lt.s $f2, $f12
-/* 0A05D0 7F06BAA0 00000000 */  nop
-/* 0A05D4 7F06BAA4 4502001B */  bc1fl .L7F06BB14
-/* 0A05D8 7F06BAA8 8FBF0024 */   lw    $ra, 0x24($sp)
-/* 0A05DC 7F06BAAC 44819000 */  mtc1  $at, $f18
-/* 0A05E0 7F06BAB0 460E603C */  c.lt.s $f12, $f14
-/* 0A05E4 7F06BAB4 46121181 */  sub.s $f6, $f2, $f18
-/* 0A05E8 7F06BAB8 45000009 */  bc1f  .L7F06BAE0
-/* 0A05EC 7F06BABC E5260008 */   swc1  $f6, 8($t1)
-/* 0A05F0 7F06BAC0 C5400008 */  lwc1  $f0, 8($t2)
-/* 0A05F4 7F06BAC4 C5280008 */  lwc1  $f8, 8($t1)
-/* 0A05F8 7F06BAC8 4608003C */  c.lt.s $f0, $f8
-/* 0A05FC 7F06BACC 00000000 */  nop
-/* 0A0600 7F06BAD0 45020004 */  bc1fl .L7F06BAE4
-/* 0A0604 7F06BAD4 4610603C */   c.lt.s $f12, $f16
-/* 0A0608 7F06BAD8 46120281 */  sub.s $f10, $f0, $f18
-/* 0A060C 7F06BADC E52A0008 */  swc1  $f10, 8($t1)
-.L7F06BAE0:
-/* 0A0610 7F06BAE0 4610603C */  c.lt.s $f12, $f16
-.L7F06BAE4:
-/* 0A0614 7F06BAE4 00000000 */  nop
-/* 0A0618 7F06BAE8 4502000A */  bc1fl .L7F06BB14
-/* 0A061C 7F06BAEC 8FBF0024 */   lw    $ra, 0x24($sp)
-/* 0A0620 7F06BAF0 C5600008 */  lwc1  $f0, 8($t3)
-/* 0A0624 7F06BAF4 C5240008 */  lwc1  $f4, 8($t1)
-/* 0A0628 7F06BAF8 4604003C */  c.lt.s $f0, $f4
-/* 0A062C 7F06BAFC 00000000 */  nop
-/* 0A0630 7F06BB00 45020004 */  bc1fl .L7F06BB14
-/* 0A0634 7F06BB04 8FBF0024 */   lw    $ra, 0x24($sp)
-/* 0A0638 7F06BB08 46120181 */  sub.s $f6, $f0, $f18
-/* 0A063C 7F06BB0C E5260008 */  swc1  $f6, 8($t1)
-.L7F06BB10:
-/* 0A0640 7F06BB10 8FBF0024 */  lw    $ra, 0x24($sp)
-.L7F06BB14:
-/* 0A0644 7F06BB14 D7B40010 */  ldc1  $f20, 0x10($sp)
-/* 0A0648 7F06BB18 8FB0001C */  lw    $s0, 0x1c($sp)
-/* 0A064C 7F06BB1C 8FB10020 */  lw    $s1, 0x20($sp)
-/* 0A0650 7F06BB20 03E00008 */  jr    $ra
-/* 0A0654 7F06BB24 27BD0118 */   addiu $sp, $sp, 0x118
-)
-#endif
+#undef OP16_NODEINDEX_0C
+#undef OP16_NODEINDEX_0E
+#undef OP16_NODEINDEX_10
+#undef OP16_POS_X_VOL
+#undef OP16_POS_Y_VOL
+#undef OP16_POS_Z_VOL
 
-#undef MODELNODE_GET_OPCODE
-#undef MTX_POS_Z
-#undef MTX_POS_X
-#undef MTX_POS_Y
 
 /**
  * Address: 7F06BB28

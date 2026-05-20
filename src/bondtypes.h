@@ -816,8 +816,11 @@ typedef union
          */
         typedef struct ModelRoData_HeaderRecord
         {
-            u32                           ModelType;    /*0x0 Legnth of Record (4)*/
-            struct ModelRoData_GroupRecord *FirstGroup; /*0x4 First group in tree*/
+            u32 ModelType;  /*0x0 Legnth of Record (4)*/
+            union {                                       
+                struct ModelRoData_GroupRecord *FirstGroup;  /* 0x04 */ /*0x4 First group in tree*/
+                ModelNode *FirstGroupNode;
+            }; 
 
             union
             {
@@ -880,7 +883,10 @@ typedef union
                     s16 MatrixID2; /*0x12 never used*/
                 };
             };
-            struct ModelRoData_GroupRecord *ChildGroup;           /*0x14*/
+            union {                                             /*0x14*/
+                struct ModelRoData_GroupRecord *ChildGroup;
+                ModelNode *ChildGroupNode;
+            }; 
             f32                           BoundingVolumeRadius; /*0x18*/
         } ModelRoData_GroupRecord;
 
@@ -1029,11 +1035,15 @@ typedef union
          */
         typedef struct ModelRoData_Op11Record
         {
-            u32 unk0c[16]; /*0x0*/
-            f32 BoundingVolumeRadius;
-            u16 RwDataIndex; /*0x44*/
-            u16 unk46;
-            void* BaseAddr;
+            union {
+                coord3d pos;       /* 0x00 */
+                u32 unk0c[16];     /* 0x00 */
+            };
+
+            f32 BoundingVolumeRadius; /* 0x40 */
+            u16 RwDataIndex;          /* 0x44 */
+            u16 unk46;                /* 0x46 */
+            void *BaseAddr;           /* 0x48 */
         } ModelRoData_Op11Record;
 
         typedef struct ModelRwData_Op11Record
@@ -1068,12 +1078,17 @@ typedef union
          */
         typedef struct ModelRoData_ShadowRecord
         {
-            coord2d                   pos;      /*0x0*/
-            coord2d                   size;     /*0x8*/
-            void                     *image;    /*0x10*/
-            ModelRoData_HeaderRecord *Header;   /*0x14*/
-            f32                       Scale;    /*0x18*/
-            void                     *BaseAddr; /*0x1C*/
+            coord2d pos;      /* 0x00 */
+            coord2d size;     /* 0x08 */
+            void *image;      /* 0x10 */
+
+            union {           /* 0x14 */
+                ModelRoData_HeaderRecord *Header;
+                ModelNode *HeaderNode;
+            };
+
+            f32 Scale;        /* 0x18 */
+            void *BaseAddr;   /* 0x1c */
         } ModelRoData_ShadowRecord;
 
         /**
@@ -1100,16 +1115,14 @@ typedef union
          */
         typedef struct ModelRoData_InterlinkageRecord
         {
-            coord3d pos;      /*0x0*/
-            u32     unknown1; /*0xC*/
-            u32     unknown2; /*0x10*/
-            u32     unknown3; /*0x14*/
-            f32     Scale;    /*0x18*/
+            coord3d pos;      /* 0x00 */
+            coord3d pos2;     /* 0x0c */
+            f32     Scale;    /* 0x18 */
         } ModelRoData_InterlinkageRecord;
 
         /**
          *  Opcode 16
-         *  unused
+         *  unused but referenced
          */
         typedef struct ModelNode_Op16Record
         {
