@@ -14093,21 +14093,25 @@ glabel sub_GAME_7F087E74
 
 /**
  * Address: 7F088618
+ * 
+ * Renders the in-game health and armor gauges. 
+ * The watch menu gauges are handled by trigger_solo_watch_menu().
  */
-Gfx *sub_GAME_7F088618(Gfx *gdl)
+Gfx *bondviewRenderGaugeBars(Gfx *gdl)
 {
     Mtx *lookatmtx;
     Mtx *orthomtx;
-    Mtxf sp78;
+    Mtxf lookatmtxf;
 
+    //Set up armor bars.
     sub_GAME_7F0A2F30(&g_CurrentPlayer->armor_display_values[0].items[0], 0x2e, 1, g_CurrentPlayer->apparentarmour);
-
     buildGaugeBarDL((Gfx *)&g_CurrentPlayer->watch_body_armor_bar_gdl, OS_PHYSICAL_TO_K0(&g_CurrentPlayer->armor_display_values[0].items[0]), 0x2e);
 
+    // Set up health bars.
     sub_GAME_7F0A2F30(&g_CurrentPlayer->health_display_values[0].items[0], 0x2e, -1, g_CurrentPlayer->apparenthealth);
-
     buildGaugeBarDL((Gfx *)&g_CurrentPlayer->watch_health_bar_gdl, OS_PHYSICAL_TO_K0(&g_CurrentPlayer->health_display_values[0].items[0]), 0x2e);
     
+    // Create an orthographic render state for the gauge.
     lookatmtx = dynAllocateMatrix();
     orthomtx = dynAllocateMatrix();
 
@@ -14116,13 +14120,13 @@ Gfx *sub_GAME_7F088618(Gfx *gdl)
     gSPMatrix(gdl++, osVirtualToPhysical(orthomtx), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
 
     matrix_4x4_set_lookat_target(
-        &sp78,
+        &lookatmtxf,
         0.0f, 500.0f, 0.0f,
         0.0f, 0.0f,   0.0f,
         0.0f, 0.0f,  -1.0f
     );
 
-    matrix_4x4_f32_to_s32(&sp78, (Mtxf *)lookatmtx);
+    matrix_4x4_f32_to_s32(&lookatmtxf, (Mtxf *)lookatmtx);
 
     gSPMatrix(gdl++, osVirtualToPhysical(lookatmtx), G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
 
@@ -15349,7 +15353,7 @@ glabel maybe_mp_interface
 /* 0BDE6C 7F08933C 8DCF01C8 */  lw    $t7, 0x1c8($t6)
 /* 0BDE70 7F089340 15E00005 */  bnez  $t7, .L7F089358
 /* 0BDE74 7F089344 00000000 */   nop
-/* 0BDE78 7F089348 0FC22186 */  jal   sub_GAME_7F088618
+/* 0BDE78 7F089348 0FC22186 */  jal   bondviewRenderGaugeBars
 /* 0BDE7C 7F08934C 8FA40058 */   lw    $a0, 0x58($sp)
 /* 0BDE80 7F089350 10000017 */  b     .L7F0893B0
 /* 0BDE84 7F089354 AFA20058 */   sw    $v0, 0x58($sp)
@@ -15358,7 +15362,7 @@ glabel maybe_mp_interface
 /* 0BDE8C 7F08935C 00000000 */   nop
 /* 0BDE90 7F089360 10400013 */  beqz  $v0, .L7F0893B0
 /* 0BDE94 7F089364 00000000 */   nop
-/* 0BDE98 7F089368 0FC22186 */  jal   sub_GAME_7F088618
+/* 0BDE98 7F089368 0FC22186 */  jal   bondviewRenderGaugeBars
 /* 0BDE9C 7F08936C 8FA40058 */   lw    $a0, 0x58($sp)
 /* 0BDEA0 7F089370 3C038008 */  lui   $v1, %hi(g_CurrentPlayer)
 /* 0BDEA4 7F089374 8C63A0B0 */  lw    $v1, %lo(g_CurrentPlayer)($v1)
@@ -15679,7 +15683,7 @@ glabel maybe_mp_interface
 /* 0BBE94 7F0894A4 8DCF01C8 */  lw    $t7, 0x1c8($t6)
 /* 0BBE98 7F0894A8 15E00005 */  bnez  $t7, .L7F0894C0
 /* 0BBE9C 7F0894AC 00000000 */   nop
-/* 0BBEA0 7F0894B0 0FC221E0 */  jal   sub_GAME_7F088618
+/* 0BBEA0 7F0894B0 0FC221E0 */  jal   bondviewRenderGaugeBars
 /* 0BBEA4 7F0894B4 8FA40058 */   lw    $a0, 0x58($sp)
 /* 0BBEA8 7F0894B8 10000017 */  b     .L7F089518
 /* 0BBEAC 7F0894BC AFA20058 */   sw    $v0, 0x58($sp)
@@ -15688,7 +15692,7 @@ glabel maybe_mp_interface
 /* 0BBEB4 7F0894C4 00000000 */   nop
 /* 0BBEB8 7F0894C8 10400013 */  beqz  $v0, .L7F089518
 /* 0BBEBC 7F0894CC 00000000 */   nop
-/* 0BBEC0 7F0894D0 0FC221E0 */  jal   sub_GAME_7F088618
+/* 0BBEC0 7F0894D0 0FC221E0 */  jal   bondviewRenderGaugeBars
 /* 0BBEC4 7F0894D4 8FA40058 */   lw    $a0, 0x58($sp)
 /* 0BBEC8 7F0894D8 3C038007 */  lui   $v1, %hi(g_CurrentPlayer) # $v1, 0x8007
 /* 0BBECC 7F0894DC 8C638BC0 */  lw    $v1, %lo(g_CurrentPlayer)($v1)
