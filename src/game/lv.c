@@ -978,7 +978,7 @@ Gfx* lvlRender(Gfx* DL)
 
             if (get_debug_render_raster() == DEB_STAN_VIEW)
             {
-                DL = sub_GAME_7F0B2D48(DL);
+                DL = stanRenderDebugStanView(DL);
             }
 
             if (get_debug_render_raster() == DEB_BOND_VIEW)

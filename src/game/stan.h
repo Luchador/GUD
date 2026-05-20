@@ -46,7 +46,7 @@ void stanInit(void);
 void debugStanView(s8 joyX, s8 joyY, u16 joyBtns);
 void sub_GAME_7F0AF630(s32 arg0);
 void sub_GAME_7F0B1CC4(void);
-Gfx * sub_GAME_7F0B2D48(Gfx *arg0);
+Gfx * stanRenderDebugStanView(Gfx *arg0);
 Gfx * sub_GAME_7F0B303C(Gfx *arg0);
 Gfx * sub_GAME_7F0B3034(Gfx *arg0);
 Gfx * sub_GAME_7F0B312C(Gfx *arg0, s32 arg1);

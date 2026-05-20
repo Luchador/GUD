@@ -3983,7 +3983,10 @@ void debugStanView(s8 joyX, s8 joyY, u16 joyBtns) {
 }
 
 
-Gfx * sub_GAME_7F0B2D48(Gfx *arg0) {
+/**
+ * Address: 7F0B2D48
+ */
+Gfx * stanRenderDebugStanView(Gfx *arg0) {
     return arg0;
 }
 
