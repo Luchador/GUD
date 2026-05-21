@@ -2751,7 +2751,7 @@ void     hudmsgTopShow(char* string);
 void     SurroundWithExplosions(int delay);
 s32 check_watch_page_transistion_running(void);
 f32 bondviewWatchAnimationRelated(void);
-struct coord3d *get_BONDdata_field408(void);
+struct coord3d *getCurrentPlayerPrevPos(void);
 struct PropRecord *get_ptr_for_players_tank(void);
 s32 bondviewGetRandomSpawnPadIndex(void);
 void change_player_pos_to_target(struct collision434* arg0, struct coord3d *arg1, struct StandTile *arg2);

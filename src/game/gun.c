@@ -1927,7 +1927,7 @@ void generate_player_thrown_grenade(s32 hand)
     base_velocity = 16.666666f;
 
     player_prop = get_curplayer_positiondata();
-    bondprevpos = get_BONDdata_field408();
+    bondprevpos = getCurrentPlayerPrevPos();
     current_weapon = getCurrentPlayerWeaponId(hand);
 
     sub_GAME_7F057C14(&throw_speed_vec, &spFC);
@@ -2015,7 +2015,7 @@ void generate_player_thrown_knife(s32 hand)
     base_velocity = 25.0f;
 
     player_prop = get_curplayer_positiondata();
-    bondprevpos = get_BONDdata_field408();
+    bondprevpos = getCurrentPlayerPrevPos();
 
     sub_GAME_7F057C14(&throw_speed_vec, &spFC);
     bullet_path_from_screen_center(&sp94, &base_speed_vec, hand);
@@ -2108,7 +2108,7 @@ void generate_player_thrown_object(s32 hand)
     base_velocity = 16.666666f;
 
     player_prop = get_curplayer_positiondata();
-    bondprevpos = get_BONDdata_field408();
+    bondprevpos = getCurrentPlayerPrevPos();
     current_weapon = getCurrentPlayerWeaponId(hand);
 
     if (current_weapon == ITEM_GOLDENEYEKEY)
@@ -2297,7 +2297,7 @@ void gunSpawnGLGrenade(s32 handnum)
     hand = &g_CurrentPlayer->hands[handnum];
 
     playerprop = get_curplayer_positiondata();
-    prevplayerpos = get_BONDdata_field408();
+    prevplayerpos = getCurrentPlayerPrevPos();
 
     matrix_4x4_set_identity(&identitymtx);
     bullet_path_from_screen_center(&aimpos, &aimdir, handnum);
@@ -2365,7 +2365,7 @@ glabel gunSpawnGLGrenade
 /* 09261C 7F05FC2C AFB900E0 */  sw    $t9, 0xe0($sp)
 /* 092620 7F05FC30 0FC22640 */  jal   get_curplayer_positiondata
 /* 092624 7F05FC34 AFAE0028 */   sw    $t6, 0x28($sp)
-/* 092628 7F05FC38 0FC2287E */  jal   get_BONDdata_field408
+/* 092628 7F05FC38 0FC2287E */  jal   getCurrentPlayerPrevPos
 /* 09262C 7F05FC3C AFA20034 */   sw    $v0, 0x34($sp)
 /* 092630 7F05FC40 AFA20030 */  sw    $v0, 0x30($sp)
 /* 092634 7F05FC44 0FC1611E */  jal   matrix_4x4_set_identity
@@ -2609,7 +2609,7 @@ glabel gunFireTankShell
 /* 0946CC 7F05FB9C AFB90100 */  sw    $t9, 0x100($sp)
 /* 0946D0 7F05FBA0 0FC225E6 */  jal   get_curplayer_positiondata
 /* 0946D4 7F05FBA4 AFAE0024 */   sw    $t6, 0x24($sp)
-/* 0946D8 7F05FBA8 0FC2280B */  jal   get_BONDdata_field408
+/* 0946D8 7F05FBA8 0FC2280B */  jal   getCurrentPlayerPrevPos
 /* 0946DC 7F05FBAC AFA20048 */   sw    $v0, 0x48($sp)
 /* 0946E0 7F05FBB0 AFA20044 */  sw    $v0, 0x44($sp)
 /* 0946E4 7F05FBB4 0FC17674 */  jal   getCurrentPlayerWeaponId
@@ -2915,7 +2915,7 @@ glabel gunFireTankShell
 /* 092A44 7F060054 AFB90100 */  sw    $t9, 0x100($sp)
 /* 092A48 7F060058 0FC22640 */  jal   get_curplayer_positiondata
 /* 092A4C 7F06005C AFAE0024 */   sw    $t6, 0x24($sp)
-/* 092A50 7F060060 0FC2287E */  jal   get_BONDdata_field408
+/* 092A50 7F060060 0FC2287E */  jal   getCurrentPlayerPrevPos
 /* 092A54 7F060064 AFA20048 */   sw    $v0, 0x48($sp)
 /* 092A58 7F060068 AFA20044 */  sw    $v0, 0x44($sp)
 /* 092A5C 7F06006C 0FC177A2 */  jal   getCurrentPlayerWeaponId
