@@ -3301,7 +3301,7 @@ void interface_menu07_missionsel(void)
         temp_s4 = (struct ModelRoData_DisplayList_CollisionRecord *)mnode->Data;
 
         temp_s1 = (struct ModelRwData_DisplayList_CollisionRecord *)modelGetNodeRwData(walletinst[0], mnode);
-        temp_s1->Vertices = dynAllocate7F0BD6C4(temp_s4->numVertices);
+        temp_s1->Vertices = dynAllocateVertices(temp_s4->numVertices);
 
         for (i = 0; i < temp_s4->numVertices; i++)
         {
@@ -5152,7 +5152,7 @@ Gfx *frontRenderCharacterPortrait(Gfx *DL, s32 arg1, s32 arg2, s32 arg3, s32 arg
 
     spD4 = dynAllocateMatrix();
     spD0 = dynAllocateMatrix();
-    spCC = dynAllocate7F0BD6C4(16);
+    spCC = dynAllocateVertices(16);
     DL = microcode_constructor(DL);
 
     guOrtho(spD4, 0.0f, 440.0f, 0.0f, 330.0f, 1.0f, 10.0f, 1.0f);

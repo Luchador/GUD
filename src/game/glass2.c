@@ -1143,7 +1143,7 @@ glabel sub_GAME_7F0A3F04
 /* 0D8AB0 7F0A3F80 24040004 */  li    $a0, 4
 /* 0D8AB4 7F0A3F84 8D4B0000 */  lw    $t3, ($t2)
 /* 0D8AB8 7F0A3F88 AFA200A4 */  sw    $v0, 0xa4($sp)
-/* 0D8ABC 7F0A3F8C 0FC2F5B1 */  jal   dynAllocate7F0BD6C4
+/* 0D8ABC 7F0A3F8C 0FC2F5B1 */  jal   dynAllocateVertices
 /* 0D8AC0 7F0A3F90 AFAB00A0 */   sw    $t3, 0xa0($sp)
 /* 0D8AC4 7F0A3F94 86040006 */  lh    $a0, 6($s0)
 /* 0D8AC8 7F0A3F98 00408825 */  move  $s1, $v0

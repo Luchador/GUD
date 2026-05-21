@@ -23315,7 +23315,7 @@ struct tvcmd {
 Gfx *process_monitor_animation_microcode(Model *model, ModelNode *node, MonitorRecord *screen, Gfx *gdl, s32 arg4, s32 arg5)
 {
     if (node && (node->Opcode & 0xff) == MODELNODE_OPCODE_DISPLAYLIST_COLLISIONRECORD) {
-        Vertex *vertices = dynAllocate7F0BD6C4(4);
+        Vertex *vertices = dynAllocateVertices(4);
         Gfx *savedgdl = gdl++;
         union ModelRoData *rodata = node->Data;
         union ModelRwData *rwdata = modelGetNodeRwData(model, node);
@@ -23738,7 +23738,7 @@ void *process_monitor_animation_microcode(Model *arg0, ModelNode *arg1, MonitorR
     if ((arg1 != 0) && ((arg1->Opcode & 0xFF) == MODELNODE_OPCODE_DLCOLLISION))
     {
         temp_t8 = arg3;
-        temp_s2 = dynAllocate7F0BD6C4(4);
+        temp_s2 = dynAllocateVertices(4);
         arg3    = temp_t8 + 8;
         spA8    = temp_t8;
         spA4    = arg1->Data;
@@ -24249,7 +24249,7 @@ glabel process_monitor_animation_microcode
 /* 07EAB8 7F049F88 31CF00FF */  andi  $t7, $t6, 0xff
 /* 07EABC 7F049F8C 55E1031A */  bnel  $t7, $at, .L7F04ABF8
 /* 07EAC0 7F049F90 8FBF004C */   lw    $ra, 0x4c($sp)
-/* 07EAC4 7F049F94 0FC2F5B1 */  jal   dynAllocate7F0BD6C4
+/* 07EAC4 7F049F94 0FC2F5B1 */  jal   dynAllocateVertices
 /* 07EAC8 7F049F98 24040004 */   li    $a0, 4
 /* 07EACC 7F049F9C 8FB800BC */  lw    $t8, 0xbc($sp)
 /* 07EAD0 7F049FA0 00409025 */  move  $s2, $v0
@@ -25170,7 +25170,7 @@ glabel process_monitor_animation_microcode
 /* 07EAB8 7F049F88 31CF00FF */  andi  $t7, $t6, 0xff
 /* 07EABC 7F049F8C 55E1031A */  bnel  $t7, $at, .L7F04ABF8
 /* 07EAC0 7F049F90 8FBF004C */   lw    $ra, 0x4c($sp)
-/* 07EAC4 7F049F94 0FC2F5B1 */  jal   dynAllocate7F0BD6C4
+/* 07EAC4 7F049F94 0FC2F5B1 */  jal   dynAllocateVertices
 /* 07EAC8 7F049F98 24040004 */   li    $a0, 4
 /* 07EACC 7F049F9C 8FB800BC */  lw    $t8, 0xbc($sp)
 /* 07EAD0 7F049FA0 00409025 */  move  $s2, $v0
@@ -26091,7 +26091,7 @@ glabel process_monitor_animation_microcode
 /* 07EAB8 7F049F88 31CF00FF */  andi  $t7, $t6, 0xff
 /* 07EABC 7F049F8C 55E1031A */  bnel  $t7, $at, .L7F04ABF8
 /* 07EAC0 7F049F90 8FBF004C */   lw    $ra, 0x4c($sp)
-/* 07EAC4 7F049F94 0FC2F5B1 */  jal   dynAllocate7F0BD6C4
+/* 07EAC4 7F049F94 0FC2F5B1 */  jal   dynAllocateVertices
 /* 07EAC8 7F049F98 24040004 */   li    $a0, 4
 /* 07EACC 7F049F9C 8FB800BC */  lw    $t8, 0xbc($sp)
 /* 07EAD0 7F049FA0 00409025 */  move  $s2, $v0
@@ -35268,7 +35268,7 @@ void sub_GAME_7F052D8C(DoorRecord *door)
             cutoff = door->bbox.Bounds.xmin + 0.5f;
         }
 
-        dst->Vertices = dynAllocate7F0BD6C4(src->numVertices);
+        dst->Vertices = dynAllocateVertices(src->numVertices);
 
         for (var_fp = 0; var_fp < src->numVertices / 4; var_fp++) //block of 4 vertices (quad)
         {
@@ -35396,7 +35396,7 @@ glabel sub_GAME_7F052D8C
 /* 087974 7F052E44 00186C03 */  sra   $t5, $t8, 0x10
 .L7F052E48:
 /* 087978 7F052E48 86A4000C */  lh    $a0, 0xc($s5)
-/* 08797C 7F052E4C 0FC2F5B1 */  jal   dynAllocate7F0BD6C4
+/* 08797C 7F052E4C 0FC2F5B1 */  jal   dynAllocateVertices
 /* 087980 7F052E50 A7AD0042 */   sh    $t5, 0x42($sp)
 /* 087984 7F052E54 87AD0042 */  lh    $t5, 0x42($sp)
 /* 087988 7F052E58 AEE20000 */  sw    $v0, ($s7)

@@ -76,9 +76,13 @@ s32 dynGetFreeGfx2(Gfx *gdl) {
     return (Gfx*)g_GfxBuffers[g_GfxActiveBufferIndex + 1] - gdl;
 }
 
-void/*Vtx?*/ *dynAllocate7F0BD6C4(s32 count) {
+/**
+ * Address: 7F0BD6C4
+ */
+Vtx *dynAllocateVertices(s32 count) 
+{
     void *ptr = g_GfxMemPos;
-	g_GfxMemPos += count * 0x10/*sizeof(Vtx)?*/;
+	g_GfxMemPos += count * sizeof(Vtx);
 	return ptr;
 }
 

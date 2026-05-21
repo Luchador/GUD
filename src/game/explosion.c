@@ -987,7 +987,7 @@ Gfx *explosionRenderPart(struct ExplosionPart *arg0, Gfx *gdl, struct coord3d *c
     sp48 = sp98->f[1] + (sp60 * f2);
     sp44 = sp98->f[2] + (sp5C * f2);
 
-    vertices = dynAllocate7F0BD6C4(4);
+    vertices = dynAllocateVertices(4);
 
     vertices[0] = spA0;
     vertices[1] = spA0;
@@ -1089,7 +1089,7 @@ Gfx *explosionSmokeRenderPart(struct Smoke *smoke, struct SmokePart *smoke_part,
         sp77 = smoke_part->alpha;
     }
 
-    vertices = dynAllocate7F0BD6C4(4);
+    vertices = dynAllocateVertices(4);
 
     vertices[0] = spC0;
     vertices[1] = spC0;

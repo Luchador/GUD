@@ -2359,8 +2359,8 @@ Gfx *draw_background_health_and_armor(Gfx *gdl, Mtx *arg1, s32 zoom_squish)
 
     f32 scale;
 
-    sp48 = dynAllocate7F0BD6C4(WATCH_BACKGROUND_VERTEX_COUNT);
-    sp44 = dynAllocate7F0BD6C4(WATCH_BACKGROUND_VERTEX_COUNT);
+    sp48 = dynAllocateVertices(WATCH_BACKGROUND_VERTEX_COUNT);
+    sp44 = dynAllocateVertices(WATCH_BACKGROUND_VERTEX_COUNT);
     sp40 = dynAllocate(0xF8);
     sp3C = dynAllocate(0xF8);
 
@@ -4253,7 +4253,7 @@ Gfx *draw_fx_volume_slider(Gfx *gdl)
     struct WatchVertex *vtx;
     Gfx *cmd;
 
-    vtx1 = (struct WatchVertex *)dynAllocate7F0BD6C4(12);
+    vtx1 = (struct WatchVertex *)dynAllocateVertices(12);
 
     volume = sndGetSfxSlotFirstNaturalVolume();
 
@@ -4307,7 +4307,7 @@ Gfx *draw_music_volume_slider(Gfx *gdl)
     struct WatchVertex *vtx;
     Gfx *cmd;
     
-    vtx1 = (struct WatchVertex *)dynAllocate7F0BD6C4(12);
+    vtx1 = (struct WatchVertex *)dynAllocateVertices(12);
     volume = get_mTrack2Vol();
     
     if (watch_item_is_actively_selected && game_options_index == 0) {
