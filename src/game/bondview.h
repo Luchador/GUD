@@ -2730,7 +2730,7 @@ u8 get_bondata_invincible_flag(void);
 void set_bondata_invincible_flag(u32 arg0);
 void bondviewSetVisibleToGuardsFlag(s32 param_1);
 Mtxf *currentPlayerGetMatrix10EC(void);
-f32 get_curplay_horizontal_rotation_in_degrees(void);
+f32 bondviewGetPlayerYawRadians(void);
 Mtxf *camGetWorldToScreenMtxf(void);
 void transformAndNormalizeByLength2Dto3D(struct coord2d *in, coord3d *out, f32 value);
 s32 camIsPosInScreenBox(coord3d *, f32, struct bbox2d *);

@@ -125,6 +125,7 @@ PropRecord*          sub_GAME_7F051DD8(struct ObjectRecord* arg0, ModelFileHeade
 void                 sub_GAME_7F052030(WeaponObjRecord* arg0, ChrRecord* arg1);
 void                 drop_inventory(void);
 void                 sub_GAME_7F056690(void);
-f32                  get_curplay_vertical_rotation_in_degrees(void);
+f32                  bondviewGetPlayerPitchRadians(void);
+s32                  object_collectability_routines(struct PropRecord* arg0);
 
 #endif

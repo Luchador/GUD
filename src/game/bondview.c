@@ -1753,7 +1753,7 @@ void solo_char_load(void)
     s32 folderBond;
     //s32 numRecords;
     s32 cuffId;
-    hRot = get_curplay_horizontal_rotation_in_degrees();
+    hRot = bondviewGetPlayerYawRadians();
     curChr = g_CurrentPlayer->prop->chr;
     if (curChr == NULL)
     {
@@ -2052,7 +2052,7 @@ glabel D_8005502C
 glabel solo_char_load
 /* 0AE820 7F079CF0 27BDFEE8 */  addiu $sp, $sp, -0x118
 /* 0AE824 7F079CF4 AFBF001C */  sw    $ra, 0x1c($sp)
-/* 0AE828 7F079CF8 0FC227B9 */  jal   get_curplay_horizontal_rotation_in_degrees
+/* 0AE828 7F079CF8 0FC227B9 */  jal   bondviewGetPlayerYawRadians
 /* 0AE82C 7F079CFC 00000000 */   nop
 /* 0AE830 7F079D00 3C0E8008 */  lui   $t6, %hi(g_CurrentPlayer)
 /* 0AE834 7F079D04 8DCEA0B0 */  lw    $t6, %lo(g_CurrentPlayer)($t6)
@@ -2645,7 +2645,7 @@ glabel D_8005502C
 glabel solo_char_load
 /* 0AEE50 7F07A2E0 27BDFEE8 */  addiu $sp, $sp, -0x118
 /* 0AEE54 7F07A2E4 AFBF001C */  sw    $ra, 0x1c($sp)
-/* 0AEE58 7F07A2E8 0FC22987 */  jal   get_curplay_horizontal_rotation_in_degrees
+/* 0AEE58 7F07A2E8 0FC22987 */  jal   bondviewGetPlayerYawRadians
 /* 0AEE5C 7F07A2EC 00000000 */   nop
 /* 0AEE60 7F07A2F0 3C0E8008 */  lui   $t6, %hi(g_CurrentPlayer) # $t6, 0x8008
 /* 0AEE64 7F07A2F4 8DCEA120 */  lw    $t6, %lo(g_CurrentPlayer)($t6)
@@ -3251,7 +3251,7 @@ glabel D_8005502C
 glabel solo_char_load
 /* 0AC760 7F079D70 27BDFEE8 */  addiu $sp, $sp, -0x118
 /* 0AC764 7F079D74 AFBF001C */  sw    $ra, 0x1c($sp)
-/* 0AC768 7F079D78 0FC2282C */  jal   get_curplay_horizontal_rotation_in_degrees
+/* 0AC768 7F079D78 0FC2282C */  jal   bondviewGetPlayerYawRadians
 /* 0AC76C 7F079D7C 00000000 */   nop
 /* 0AC770 7F079D80 3C0E8007 */  lui   $t6, %hi(g_CurrentPlayer) # $t6, 0x8007
 /* 0AC774 7F079D84 8DCE8BC0 */  lw    $t6, %lo(g_CurrentPlayer)($t6)
@@ -4315,7 +4315,7 @@ void bondviewSetCameraMode(s32 arg0)
             temp_v1_2->chrflags |= CHRFLAG_INIT;
 
             setsuboffset(g_CurrentPlayer->ptr_char_objectinstance, &g_CurrentPlayer->prop->pos);
-            var_f0 = get_curplay_horizontal_rotation_in_degrees();
+            var_f0 = bondviewGetPlayerYawRadians();
             setsubroty(g_CurrentPlayer->ptr_char_objectinstance, var_f0);
         }
 
@@ -11822,7 +11822,7 @@ Gfx *bondviewRenderDebugBondView(Gfx *gdl)
 
     vec_y = vec.y;
     horizontal_len = sqrtf((vec.z * vec.z) + (vec.x * vec.x));
-    vertical_rot = get_curplay_vertical_rotation_in_degrees();
+    vertical_rot = bondviewGetPlayerPitchRadians();
     ft4 = atan2f(vec_y, horizontal_len) + vertical_rot;
 
     if (ft4 >= M_PI_F) {
@@ -15879,9 +15879,6 @@ void bondviewCallRecordDamageKills(f32 damage_amount, f32 angle, s32 playerid, s
 }
 
 
-
-
-
 int bondviewGetIfCurrentPlayerDamageShowTime(void)
 {
     return (g_CurrentPlayer->damageshowtime >= (s32)0);
@@ -15893,38 +15890,30 @@ int bondviewGetIfCurrentPlayerHealthShowTime(void)
 }
 
 
-
-
-
-
 f32 bondviewGetBondBreathing(void)
 {
     return g_CurrentPlayer->bondbreathing;
 }
 
 
-
-
 /**
- * Get the Current Heading of Current Player in Radians
- * @return f32 Heading in Radians
+ * Gets the current player's heading angle, converted from degrees to radians.
+ * @return Heading (Yaw) in Radians
 */
-f32 get_curplay_horizontal_rotation_in_degrees(void)
+f32 bondviewGetPlayerYawRadians(void)
 {
     return DegToRad(360.0f - g_CurrentPlayer->vv_theta);
 }
 
 
-
 /**
- * Get the Current Pitch of Current Player in Radians
- * @return f32 Pitch in Radians
-*/
-f32 get_curplay_vertical_rotation_in_degrees(void)
+ * Gets the current player's vertical look angle, converted from degrees to radians.
+ * @return Pitch in radians.
+ */
+f32 bondviewGetPlayerPitchRadians(void)
 {
     return DegToRad(g_CurrentPlayer->vv_verta);
 }
-
 
 
 s32 bond_pressed_reload_activate(void) {
@@ -15932,16 +15921,9 @@ s32 bond_pressed_reload_activate(void) {
 }
 
 
-
-
-
-
 void set_bondata_invincible_flag(u32 arg0) {
     g_CurrentPlayer->bondinvincible = arg0;
 }
-
-
-
 
 
 u8 get_bondata_invincible_flag(void) {

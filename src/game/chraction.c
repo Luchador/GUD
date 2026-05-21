@@ -9917,7 +9917,7 @@ coord3d *chrlvGetChrOrPresetLocation(ChrRecord *self, s32 flags, s32 lookup_id, 
 */
 f32 chrGetAngleFromBond(ChrRecord *self)
 {
-    f32 radBondHeading   = get_curplay_horizontal_rotation_in_degrees();
+    f32 radBondHeading   = bondviewGetPlayerYawRadians();
     PropRecord *myprop   = self->prop;
     PropRecord *bondprop = getCurrentPlayerProp();
     f32 anglebetween     = atan2f(myprop->pos.x - bondprop->pos.x, myprop->pos.z - bondprop->pos.z);
@@ -10765,7 +10765,7 @@ bool sub_GAME_7F033AAC(ChrRecord *self, u8 padnum)
         return check_2328_preset_set_with_method(self, padnum);
     }
 
-    sp1C           = get_curplay_horizontal_rotation_in_degrees();
+    sp1C           = bondviewGetPlayerYawRadians();
     bondprop       = getCurrentPlayerProp();
     bondnearestpad = chrlvFindPathNeighborRelated(&bondprop->pos, bondprop->stan, sp1C, padnum);
 
