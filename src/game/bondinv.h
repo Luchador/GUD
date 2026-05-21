@@ -15,7 +15,7 @@ textoverride *bondinvGetTextbyWeaponID(ITEM_IDS weaponnum);
 
 void bondinvCycleBackward(s32 *nextright, s32 *nextleft, s32 requireammo);
 void bondinvCycleForward(s32 *nextright, s32 *nextleft, s32 requireammo);
-int bondinvHasGoldenGun(void);
+bool bondinvHasGoldenGun(void);
 int bondinvAddInvItem(ITEM_IDS item);
 int bondinvAddDoublesInvItem(ITEM_IDS right, ITEM_IDS left);
 s32 bondinvGetAllGunsFlag(void);

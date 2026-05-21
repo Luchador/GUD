@@ -33109,7 +33109,7 @@ extern s32 bondinvHasInvItem(ITEM_IDS weapon);
 extern s32 get_ammo_type_for_weapon(ITEM_IDS weapon);
 extern s32 get_max_ammo_for_weapon(ITEM_IDS weapon);
 extern s32 get_ammo_count_for_weapon(ITEM_IDS weapon);
-extern s32 bondinvHasDualWeapon(ITEM_IDS right, ITEM_IDS left);
+extern bool bondinvHasDualWeapon(ITEM_IDS right, ITEM_IDS left);
 extern s32 check_cur_player_ammo_amount_in_inventory(AMMOTYPE type);
 
 
