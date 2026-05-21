@@ -10262,7 +10262,7 @@ _AI_CMD(
     {
         AIRecord * ai = AiListp + Offset;
         f32       bondpos = (s16) CharArrayTo16(ai->val,0);
-        if (get_curplayer_positiondata()->pos.y < bondpos)
+        if (getCurrentPlayerProp()->pos.y < bondpos)
         {
             Offset = chraiGoToLabel(AiListp, Offset, ai->val[2]);
         }

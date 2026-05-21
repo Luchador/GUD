@@ -2649,7 +2649,7 @@ void bondviewTriggerWatchZoom(f32 zoominfovy);
 
 void trigger_watch_zoom(f32 final, f32 time);
 
-PropRecord* get_curplayer_positiondata(void);
+PropRecord* getCurrentPlayerProp(void);
 
 void currentPlayerSetScreenSize(f32 width, f32 height);
 void currentPlayerSetCameraScale(void);

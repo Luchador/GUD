@@ -4219,7 +4219,7 @@ bool chrCanSeeBond(ChrRecord *self)
     if (bondviewGetVisibleToGuardsFlag())
     {
         myprop   = self->prop;
-        bondprop = get_curplayer_positiondata();
+        bondprop = getCurrentPlayerProp();
         myheight = self->chrheight - 20.0f;
 
         chrSetMoving(self, FALSE);
@@ -4309,7 +4309,7 @@ s32 chrlvCurrentPlayerCall7F0B0E24(ChrRecord *self)
     s32 ret;
 
     sp3C = self->prop;
-    bond_prop = get_curplayer_positiondata();
+    bond_prop = getCurrentPlayerProp();
     ret = 0;
 
     bondviewUpdateGuardTankFlagsRelated(g_CurrentPlayer->prop, 0);
@@ -4458,7 +4458,7 @@ void chrlvSetTargetToPlayer(ChrRecord *self)
 {
     PropRecord *temp_v0;
 
-    temp_v0 = get_curplayer_positiondata();
+    temp_v0 = getCurrentPlayerProp();
     self->lastseetarget60 = g_GlobalTimer;
     self->lastknowntargetpos.f[0] = temp_v0->pos.f[0];
     self->lastknowntargetpos.f[1] = temp_v0->pos.f[1];
@@ -4478,7 +4478,7 @@ void chrlvAlertGuardToPlayerPosition(ChrRecord *self)
 {
     PropRecord *temp_v0;
 
-    temp_v0 = get_curplayer_positiondata();
+    temp_v0 = getCurrentPlayerProp();
     self->hidden |= CHRHIDDEN_ALERT_GUARD_RELATED;
     self->lastheartarget60 = g_GlobalTimer;
     self->lastknowntargetpos.f[0] = temp_v0->pos.x;
@@ -4536,7 +4536,7 @@ bool chrCheckTargetInSight(ChrRecord *self)
     s32         distance;
 
     myprop               = self->prop;
-    bondprop             = get_curplayer_positiondata();
+    bondprop             = getCurrentPlayerProp();
     myRadDirection       = getsubroty(self->model);
     //Note: x and z get swapped
     vec.z                = bondprop->pos.x - myprop->pos.x;
@@ -4633,7 +4633,7 @@ void chrlvNormDistanceToPlayer(ChrRecord *self, GUNHAND side, vec3d *vec)
     PropRecord *player_prop;
 
     prop = self->prop;
-    player_prop = get_curplayer_positiondata();
+    player_prop = getCurrentPlayerProp();
     dx = player_prop->pos.f[0] - prop->pos.f[0];
     dz = player_prop->pos.f[2] - prop->pos.f[2];
 
@@ -4781,7 +4781,7 @@ bool actor_steps_sideways(ChrRecord *self)
     if (chrIsNotDeadOrShot(self))
     {
         myprop                = self->prop;
-        bondprop              = get_curplayer_positiondata();
+        bondprop              = getCurrentPlayerProp();
         myRadDirection        = getsubroty(self->model);
         myRadDirectionToBond  = atan2f(bondprop->pos.x - myprop->pos.x, bondprop->pos.z - myprop->pos.z);
         radChangeToFaceBond   = myRadDirectionToBond - myRadDirection;
@@ -4837,7 +4837,7 @@ bool actor_hops_sideways(ChrRecord *self)
     if (chrIsNotDeadOrShot(self))
     {
         myprop                = self->prop;
-        bondprop              = get_curplayer_positiondata();
+        bondprop              = getCurrentPlayerProp();
         myRadDirection        = getsubroty(self->model);
         myRadDirectionToBond  = atan2f(bondprop->pos.x - myprop->pos.x, bondprop->pos.z - myprop->pos.z);
         radChangeToFaceBond   = myRadDirectionToBond - myRadDirection;
@@ -4931,7 +4931,7 @@ bool actor_walks_and_fires(ChrRecord *self)
     if (chrIsNotDeadOrShot(self))
     {
         myprop   = self->prop;
-        bondprop = get_curplayer_positiondata();
+        bondprop = getCurrentPlayerProp();
 
         if (
             (chrGetEquippedWeaponPropWithCheck(self, GUNRIGHT) || chrGetEquippedWeaponPropWithCheck(self, GUNLEFT))
@@ -4967,7 +4967,7 @@ bool actor_runs_and_fires(ChrRecord *self)
     if (chrIsNotDeadOrShot(self))
     {
         myprop   = self->prop;
-        bondprop = get_curplayer_positiondata();
+        bondprop = getCurrentPlayerProp();
 
         if (
             (chrGetEquippedWeaponPropWithCheck(self, GUNRIGHT) || chrGetEquippedWeaponPropWithCheck(self, GUNLEFT))
@@ -5009,7 +5009,7 @@ bool actor_rolls_fires_crouched(ChrRecord *self)
     if (chrIsNotDeadOrShot(self))
     {
         myprop   = self->prop;
-        bondprop = get_curplayer_positiondata();
+        bondprop = getCurrentPlayerProp();
 
         if (chrGetEquippedWeaponPropWithCheck(self, GUNRIGHT) || chrGetEquippedWeaponPropWithCheck(self, GUNLEFT))
         {
@@ -6013,7 +6013,7 @@ s32 chrlvSetSubroty(ChrRecord *self, s32 arg1, f32 arg2, f32 arg3, f32 arg4)
         else
         {
             PropRecord* p;
-            p = get_curplayer_positiondata();
+            p = getCurrentPlayerProp();
             dist = get_distance_actor_to_position(self, &p->pos);
         }
 
@@ -6120,7 +6120,7 @@ s32 chrlvUpdateAimendsideback(ChrRecord *self, struct weapon_firing_animation_ta
 
     if ((attack_type & TARGET_FRONT_OF_CHR) == 0)
     {
-        player_prop = get_curplayer_positiondata();
+        player_prop = getCurrentPlayerProp();
         self_prop = self->prop;
         current_player_pos = &player_prop->pos;
 
@@ -6619,7 +6619,7 @@ void chrlvUpdateShotbondsum(ChrRecord *self, s32 *arg1, s32 *arg2, ITEM_IDS item
     s32 padding; // unused
     s32 phi_v1;
 
-    player_prop = get_curplayer_positiondata();
+    player_prop = getCurrentPlayerProp();
     self_prop = self->prop;
 
     dx = player_prop->pos.f[0] - self_prop->pos.f[0];
@@ -6838,7 +6838,7 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
         sp27C = 0;
         sp278 = 0;
         prop_selfchr = weapon_prop->chr;
-        player_prop = get_curplayer_positiondata();
+        player_prop = getCurrentPlayerProp();
         phi_v1 = 1;
 
         if (self->actiontype == ACT_ATTACK)
@@ -8093,7 +8093,7 @@ void chrlvTickAttackWalk(ChrRecord *self)
 
     self_model = self->model;
     self_prop = self->prop;
-    player_prop = get_curplayer_positiondata();
+    player_prop = getCurrentPlayerProp();
     self->act_attackwalk.clock_timer30 += g_ClockTimer;
     self->lastwalk60 = g_GlobalTimer;
 
@@ -9852,7 +9852,7 @@ f32 get_distance_actor_to_position(ChrRecord *self, coord3d *pos)
 */
 f32 chrGetAngleToBond(ChrRecord *self)
 {
-    return get_distance_actor_to_position(self, &get_curplayer_positiondata()->pos);
+    return get_distance_actor_to_position(self, &getCurrentPlayerProp()->pos);
 }
 
 
@@ -9905,7 +9905,7 @@ coord3d *chrlvGetChrOrPresetLocation(ChrRecord *self, s32 flags, s32 lookup_id, 
         return &preset_pad->pos;
     }
 
-    player_prop = get_curplayer_positiondata();
+    player_prop = getCurrentPlayerProp();
     *stan = (StandTile *) player_prop->stan;
 
     return &player_prop->pos;
@@ -9919,7 +9919,7 @@ f32 chrGetAngleFromBond(ChrRecord *self)
 {
     f32 radBondHeading   = get_curplay_horizontal_rotation_in_degrees();
     PropRecord *myprop   = self->prop;
-    PropRecord *bondprop = get_curplayer_positiondata();
+    PropRecord *bondprop = getCurrentPlayerProp();
     f32 anglebetween     = atan2f(myprop->pos.x - bondprop->pos.x, myprop->pos.z - bondprop->pos.z);
     f32 radFromBond      = anglebetween - radBondHeading;
 
@@ -9944,7 +9944,7 @@ f32 chrGetDistanceToBond(ChrRecord *guardData)
     float zDiff;
 
     guardPosData = guardData->prop;
-    playerPosData = get_curplayer_positiondata();
+    playerPosData = getCurrentPlayerProp();
     xDiff = playerPosData->pos.x - guardPosData->pos.x;
     yDiff = playerPosData->pos.y - guardPosData->pos.y;
     zDiff = playerPosData->pos.z - guardPosData->pos.z;
@@ -10130,7 +10130,7 @@ f32 chrGetDistanceFromBondToPad(ChrRecord *self, s32 padid)
     PropRecord *bondprop;
     PadRecord *pad;
 
-    bondprop = get_curplayer_positiondata();
+    bondprop = getCurrentPlayerProp();
     padid    = chrResolvePadId(self, padid);
 
     if (isNotBoundPad(padid))
@@ -10376,7 +10376,7 @@ bool chrGoToBond(ChrRecord *self, SPEED speed)
 
     if (chrIsNotDeadOrShot(self) && (g_SeenBondRecentlyGuardCount < 10))
     {
-        bondprop = get_curplayer_positiondata();
+        bondprop = getCurrentPlayerProp();
 
         if (plot_course_for_actor(self, &bondprop->pos, bondprop->stan, speed))
         {
@@ -10706,7 +10706,7 @@ bool check_2328_preset_set_with_method(ChrRecord *self, u8 quadrant)
     if ((quadrant == QUADRANT_2NDWPTOTARGET) || (quadrant == QUADRANT_20))
     {
         myprop               = self->prop;
-        bondprop             = get_curplayer_positiondata();
+        bondprop             = getCurrentPlayerProp();
         myclosestwaypoint    = chrlvStanPathRelated(&myprop->pos, myprop->stan);
         bondsclosestwaypoint = chrlvStanPathRelated(&bondprop->pos, bondprop->stan);
 
@@ -10766,7 +10766,7 @@ bool sub_GAME_7F033AAC(ChrRecord *self, u8 padnum)
     }
 
     sp1C           = get_curplay_horizontal_rotation_in_degrees();
-    bondprop       = get_curplayer_positiondata();
+    bondprop       = getCurrentPlayerProp();
     bondnearestpad = chrlvFindPathNeighborRelated(&bondprop->pos, bondprop->stan, sp1C, padnum);
 
     if (bondnearestpad >= 0)
@@ -10895,7 +10895,7 @@ s32 chrIsTargetNearlyInSight(ChrRecord *self)
     coord3d sp48;
     coord3d sp3C;
 
-    player_prop = get_curplayer_positiondata();
+    player_prop = getCurrentPlayerProp();
     self_prop   = self->prop;
     stan        = self_prop->stan;
 
@@ -11141,7 +11141,7 @@ bool check_if_actor_is_at_preset(ChrRecord *self, s32 padnum)
     PropRecord *bondprop;
     PadRecord  *pad;
 
-    bondprop = get_curplayer_positiondata();
+    bondprop = getCurrentPlayerProp();
     padnum   = chrResolvePadId(self, padnum);
 
     if (isNotBoundPad(padnum))

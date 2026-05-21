@@ -15623,10 +15623,6 @@ void sub_GAME_7F08976C(f32 param_1) {
 }
 
 
-
-
-
-
 /**
  * Address 0x7F089778.
  */
@@ -15634,9 +15630,6 @@ f32 bondviewGetPlayerStanHeight(struct player *player)
 {
     return player->stanHeight;
 }
-
-
-
 
 
 /**
@@ -15648,15 +15641,9 @@ f32 bondviewGetPlayerDuckingHeightRelated(struct player *player)
 }
 
 
-
-
-
-PropRecord* get_curplayer_positiondata(void) {
+PropRecord* getCurrentPlayerProp(void) {
     return g_CurrentPlayer->prop;
 }
-
-
-
 
 
 /**
@@ -15697,8 +15684,6 @@ void bondviewKillCurrentPlayer(void)
 }
 
 
-
-
 /**
  * Unreferenced.
  *
@@ -15708,8 +15693,6 @@ s32 sub_GAME_7F0898E8(void)
 {
     return (s32) ((joyGetStickY(0) * 8) + 0x280) / 0xA0;
 }
-
-
 
 
 /**

@@ -4013,7 +4013,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 {
                     AiIFBondYPosLessThanRecord *ai      = AiListp + Offset;
                     f32                         bondpos = (s16)ntohs(ai->Y_POS);
-                    if (get_curplayer_positiondata()->pos.y < bondpos)
+                    if (getCurrentPlayerProp()->pos.y < bondpos)
                     {
                         Offset = chraiGoToLabel(AiListp, Offset, ai->GOTOLABEL);
                     }

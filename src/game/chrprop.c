@@ -885,7 +885,7 @@ glabel chraiDefaultWeaponFireHandler
 /* 06FCA4 7F03B174 AFA0056C */  sw    $zero, 0x56c($sp)
 /* 06FCA8 7F03B178 AFA0055C */  sw    $zero, 0x55c($sp)
 /* 06FCAC 7F03B17C AFA00554 */  sw    $zero, 0x554($sp)
-/* 06FCB0 7F03B180 0FC225E6 */  jal   get_curplayer_positiondata
+/* 06FCB0 7F03B180 0FC225E6 */  jal   getCurrentPlayerProp
 /* 06FCB4 7F03B184 AFA00544 */   sw    $zero, 0x544($sp)
 /* 06FCB8 7F03B188 8C4E0014 */  lw    $t6, 0x14($v0)
 /* 06FCBC 7F03B18C 27B20194 */  addiu $s2, $sp, 0x194
@@ -1057,7 +1057,7 @@ glabel chraiDefaultWeaponFireHandler
 /* 06FF40 7F03B410 8D4B0000 */  lw    $t3, ($t2)
 /* 06FF44 7F03B414 11600012 */  beqz  $t3, .L7F03B460
 /* 06FF48 7F03B418 00000000 */   nop
-/* 06FF4C 7F03B41C 0FC225E6 */  jal   get_curplayer_positiondata
+/* 06FF4C 7F03B41C 0FC225E6 */  jal   getCurrentPlayerProp
 /* 06FF50 7F03B420 00000000 */   nop
 /* 06FF54 7F03B424 0FC2CBF6 */  jal   getTileRoom
 /* 06FF58 7F03B428 8C440014 */   lw    $a0, 0x14($v0)
@@ -1075,7 +1075,7 @@ glabel chraiDefaultWeaponFireHandler
 /* 06FF88 7F03B458 10000011 */  b     .L7F03B4A0
 /* 06FF8C 7F03B45C AFA20544 */   sw    $v0, 0x544($sp)
 .L7F03B460:
-/* 06FF90 7F03B460 0FC225E6 */  jal   get_curplayer_positiondata
+/* 06FF90 7F03B460 0FC225E6 */  jal   getCurrentPlayerProp
 /* 06FF94 7F03B464 00000000 */   nop
 /* 06FF98 7F03B468 0FC2CBF6 */  jal   getTileRoom
 /* 06FF9C 7F03B46C 8C440014 */   lw    $a0, 0x14($v0)
@@ -1602,7 +1602,7 @@ glabel chraiFistAttackHandler
 /* 070948 7F03BE18 F7B60038 */  sdc1  $f22, 0x38($sp)
 /* 07094C 7F03BE1C F7B40030 */  sdc1  $f20, 0x30($sp)
 /* 070950 7F03BE20 AFA400C8 */  sw    $a0, 0xc8($sp)
-/* 070954 7F03BE24 0FC225E6 */  jal   get_curplayer_positiondata
+/* 070954 7F03BE24 0FC225E6 */  jal   getCurrentPlayerProp
 /* 070958 7F03BE28 AFA000BC */   sw    $zero, 0xbc($sp)
 /* 07095C 7F03BE2C 3C048008 */  lui   $a0, %hi(g_CurrentPlayer)
 /* 070960 7F03BE30 0040A025 */  move  $s4, $v0
@@ -1927,7 +1927,7 @@ void propExecuteTickOperation(PropRecord *prop, INV_ITEM_TYPE type) //#MATCH
         chrpropDisable(prop);
         objDetach(prop);
         objFreeEmbedmentOrProjectile(prop);
-        chrpropReparent(prop, get_curplayer_positiondata());
+        chrpropReparent(prop, getCurrentPlayerProp());
     }
 }
 
@@ -3202,7 +3202,7 @@ f32 sub_GAME_7F03D188(PropRecord *prop, coord3d *arg1, f32 *arg2, f32 *arg3, f32
 
         if (sp4c)
         {
-            playerprop = get_curplayer_positiondata();
+            playerprop = getCurrentPlayerProp();
             stan = playerprop->stan;
             ducking_height_related = bondviewGetPlayerDuckingHeightRelated(g_CurrentPlayer);
             bondviewUpdateGuardTankFlagsRelated(playerprop, FALSE);

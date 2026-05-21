@@ -1687,7 +1687,7 @@ void sub_GAME_7F05EC1C(void)
     phi_return = arg0->unk10;
     if (arg0->unk10 != 0)
     {
-        temp_s0 = get_curplayer_positiondata();
+        temp_s0 = getCurrentPlayerProp();
         temp_f0 = sub_GAME_7F089778(pPlayer);
         spB0    = 0;
         if (arg1->unk4 < temp_s0->unkC)
@@ -1770,7 +1770,7 @@ glabel sub_GAME_7F05EC1C
 /* 093770 7F05EC40 00809025 */  move  $s2, $a0
 /* 093774 7F05EC44 50400072 */  beql  $v0, $zero, .L7F05EE10
 /* 093778 7F05EC48 8FBF003C */   lw    $ra, 0x3c($sp)
-/* 09377C 7F05EC4C 0FC225E6 */  jal   get_curplayer_positiondata
+/* 09377C 7F05EC4C 0FC225E6 */  jal   getCurrentPlayerProp
 /* 093780 7F05EC50 00000000 */   nop
 /* 093784 7F05EC54 3C048008 */  lui   $a0, %hi(g_CurrentPlayer)
 /* 093788 7F05EC58 00408025 */  move  $s0, $v0
@@ -1926,7 +1926,7 @@ void generate_player_thrown_grenade(s32 hand)
     wor = NULL;
     base_velocity = 16.666666f;
 
-    player_prop = get_curplayer_positiondata();
+    player_prop = getCurrentPlayerProp();
     bondprevpos = getCurrentPlayerPrevPos();
     current_weapon = getCurrentPlayerWeaponId(hand);
 
@@ -2014,7 +2014,7 @@ void generate_player_thrown_knife(s32 hand)
     wor = NULL;
     base_velocity = 25.0f;
 
-    player_prop = get_curplayer_positiondata();
+    player_prop = getCurrentPlayerProp();
     bondprevpos = getCurrentPlayerPrevPos();
 
     sub_GAME_7F057C14(&throw_speed_vec, &spFC);
@@ -2107,7 +2107,7 @@ void generate_player_thrown_object(s32 hand)
     wor = NULL;
     base_velocity = 16.666666f;
 
-    player_prop = get_curplayer_positiondata();
+    player_prop = getCurrentPlayerProp();
     bondprevpos = getCurrentPlayerPrevPos();
     current_weapon = getCurrentPlayerWeaponId(hand);
 
@@ -2296,7 +2296,7 @@ void gunSpawnGLGrenade(s32 handnum)
 
     hand = &g_CurrentPlayer->hands[handnum];
 
-    playerprop = get_curplayer_positiondata();
+    playerprop = getCurrentPlayerProp();
     prevplayerpos = getCurrentPlayerPrevPos();
 
     matrix_4x4_set_identity(&identitymtx);
@@ -2363,7 +2363,7 @@ glabel gunSpawnGLGrenade
 /* 092614 7F05FC24 27190868 */  addiu $t9, $t8, 0x868
 /* 092618 7F05FC28 AFA400E8 */  sw    $a0, 0xe8($sp)
 /* 09261C 7F05FC2C AFB900E0 */  sw    $t9, 0xe0($sp)
-/* 092620 7F05FC30 0FC22640 */  jal   get_curplayer_positiondata
+/* 092620 7F05FC30 0FC22640 */  jal   getCurrentPlayerProp
 /* 092624 7F05FC34 AFAE0028 */   sw    $t6, 0x28($sp)
 /* 092628 7F05FC38 0FC2287E */  jal   getCurrentPlayerPrevPos
 /* 09262C 7F05FC3C AFA20034 */   sw    $v0, 0x34($sp)
@@ -2503,7 +2503,7 @@ void gunUpdateAttachedRocket(s32 handIndex)
         return;
     }
 
-    prop = get_curplayer_positiondata();
+    prop = getCurrentPlayerProp();
     rocketModel = attachedRocket->model;
 
     matrix_4x4_copy(&entry->throw_item_pos_related, &worldMtx);
@@ -2607,7 +2607,7 @@ glabel gunFireTankShell
 /* 0946C4 7F05FB94 27190870 */  addiu $t9, $t8, 0x870
 /* 0946C8 7F05FB98 AFA40108 */  sw    $a0, 0x108($sp)
 /* 0946CC 7F05FB9C AFB90100 */  sw    $t9, 0x100($sp)
-/* 0946D0 7F05FBA0 0FC225E6 */  jal   get_curplayer_positiondata
+/* 0946D0 7F05FBA0 0FC225E6 */  jal   getCurrentPlayerProp
 /* 0946D4 7F05FBA4 AFAE0024 */   sw    $t6, 0x24($sp)
 /* 0946D8 7F05FBA8 0FC2280B */  jal   getCurrentPlayerPrevPos
 /* 0946DC 7F05FBAC AFA20048 */   sw    $v0, 0x48($sp)
@@ -2913,7 +2913,7 @@ glabel gunFireTankShell
 /* 092A3C 7F06004C 27190868 */  addiu $t9, $t8, 0x868
 /* 092A40 7F060050 AFA40108 */  sw    $a0, 0x108($sp)
 /* 092A44 7F060054 AFB90100 */  sw    $t9, 0x100($sp)
-/* 092A48 7F060058 0FC22640 */  jal   get_curplayer_positiondata
+/* 092A48 7F060058 0FC22640 */  jal   getCurrentPlayerProp
 /* 092A4C 7F06005C AFAE0024 */   sw    $t6, 0x24($sp)
 /* 092A50 7F060060 0FC2287E */  jal   getCurrentPlayerPrevPos
 /* 092A54 7F060064 AFA20048 */   sw    $v0, 0x48($sp)
@@ -15569,12 +15569,12 @@ void gunTickGameplay(s32 triggerOn)
 
     if (g_CurrentPlayer->resetshadecol)
     {
-        set_color_shading_from_tile(get_curplayer_positiondata(), (struct rgba_u8 *) &g_CurrentPlayer->tileColor);
+        set_color_shading_from_tile(getCurrentPlayerProp(), (struct rgba_u8 *) &g_CurrentPlayer->tileColor);
         g_CurrentPlayer->resetshadecol = FALSE;
     }
     else
     {
-        set_color_shading_from_tile(get_curplayer_positiondata(), &weapon_color);
+        set_color_shading_from_tile(getCurrentPlayerProp(), &weapon_color);
         update_color_shading(&g_CurrentPlayer->tileColor, &weapon_color);
     }
 

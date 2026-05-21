@@ -4340,7 +4340,7 @@ void chrobjWeaponTick(struct PropRecord* prop)
             }
             else if (weapon->timer == 1)
             {
-                player_prop = get_curplayer_positiondata();
+                player_prop = getCurrentPlayerProp();
 
                 diff_x = player_prop->pos.f[0] - prop->pos.f[0];
                 diff_y = player_prop->pos.f[1] - prop->pos.f[1];
@@ -5217,7 +5217,7 @@ glabel sub_GAME_7F044B38
 
 s32 glassCalculateOpacity(coord3d *pos, f32 xludist, f32 opadist, f32 arg3)
 {
-    coord3d *campos = &get_curplayer_positiondata()->pos;
+    coord3d *campos = &getCurrentPlayerProp()->pos;
     s32 opacity;
     f32 xdiff = pos->x - campos->x;
     f32 ydiff = pos->y - campos->y;
@@ -6114,7 +6114,7 @@ s32 object_interaction(struct PropRecord *arg0)
                 sp518 = camera->unkD0;
             }
 
-            sp514 = get_curplayer_positiondata();
+            sp514 = getCurrentPlayerProp();
 
             temp_f0_13 = camera->unkE8;
             var_s2_4 = 1;
@@ -6280,7 +6280,7 @@ s32 object_interaction(struct PropRecord *arg0)
             struct AutogunRecord *autogun = (struct AutogunRecord*)arg0->obj;
             // autogun is temp_s0_4
 
-            temp_v0_19 = get_curplayer_positiondata();
+            temp_v0_19 = getCurrentPlayerProp();
             sp4AC = 0;
             sp4A8 = 0;
             sp4A4 = 0;
@@ -7501,7 +7501,7 @@ s32 object_interaction(struct PropRecord *arg0)
                     sp10C = NULL;
                     sp108 = arg0->stan;
                     sp104 = (autogun->unkAC & 3) == 0;
-                    sp100 = get_curplayer_positiondata();
+                    sp100 = getCurrentPlayerProp();
                     var_a0_6 = 5;
                     temp_v1_10 = model->obj->Switches;
 
@@ -9276,7 +9276,7 @@ glabel object_interaction
 /* 07B2FC 7F0467CC C61200CC */   lwc1  $f18, 0xcc($s0)
 /* 07B300 7F0467D0 C61200D0 */  lwc1  $f18, 0xd0($s0)
 .L7F0467D4:
-/* 07B304 7F0467D4 0FC225E6 */  jal   get_curplayer_positiondata
+/* 07B304 7F0467D4 0FC225E6 */  jal   getCurrentPlayerProp
 /* 07B308 7F0467D8 E7B20518 */   swc1  $f18, 0x518($sp)
 /* 07B30C 7F0467DC AFA20514 */  sw    $v0, 0x514($sp)
 /* 07B310 7F0467E0 C6280058 */  lwc1  $f8, 0x58($s1)
@@ -9597,7 +9597,7 @@ glabel object_interaction
 /* 07B7A0 7F046C70 000C70C0 */  sll   $t6, $t4, 3
 /* 07B7A4 7F046C74 05C2023B */  bltzl $t6, .L7F047564
 /* 07B7A8 7F046C78 24010027 */   li    $at, 39
-/* 07B7AC 7F046C7C 0FC225E6 */  jal   get_curplayer_positiondata
+/* 07B7AC 7F046C7C 0FC225E6 */  jal   getCurrentPlayerProp
 /* 07B7B0 7F046C80 8E700004 */   lw    $s0, 4($s3)
 /* 07B7B4 7F046C84 AFA004AC */  sw    $zero, 0x4ac($sp)
 /* 07B7B8 7F046C88 AFA004A8 */  sw    $zero, 0x4a8($sp)
@@ -12335,7 +12335,7 @@ glabel object_interaction
 /* 07DFBC 7F04948C 8E0A00AC */  lw    $t2, 0xac($s0)
 /* 07DFC0 7F049490 314E0003 */  andi  $t6, $t2, 3
 /* 07DFC4 7F049494 2DCD0001 */  sltiu $t5, $t6, 1
-/* 07DFC8 7F049498 0FC225E6 */  jal   get_curplayer_positiondata
+/* 07DFC8 7F049498 0FC225E6 */  jal   getCurrentPlayerProp
 /* 07DFCC 7F04949C AFAD0104 */   sw    $t5, 0x104($sp)
 /* 07DFD0 7F0494A0 AFA20100 */  sw    $v0, 0x100($sp)
 /* 07DFD4 7F0494A4 8E980008 */  lw    $t8, 8($s4)
@@ -14382,7 +14382,7 @@ glabel object_interaction
 /* 07B740 7F046BD0 C61200CC */   lwc1  $f18, 0xcc($s0)
 /* 07B744 7F046BD4 C61200D0 */  lwc1  $f18, 0xd0($s0)
 .Ljp7F046BD8:
-/* 07B748 7F046BD8 0FC2279B */  jal   get_curplayer_positiondata
+/* 07B748 7F046BD8 0FC2279B */  jal   getCurrentPlayerProp
 /* 07B74C 7F046BDC E7B2051C */   swc1  $f18, 0x51c($sp)
 /* 07B750 7F046BE0 AFA20518 */  sw    $v0, 0x518($sp)
 /* 07B754 7F046BE4 C6280058 */  lwc1  $f8, 0x58($s1)
@@ -14703,7 +14703,7 @@ glabel object_interaction
 /* 07BBE4 7F047074 000848C0 */  sll   $t1, $t0, 3
 /* 07BBE8 7F047078 0522023B */  bltzl $t1, .Ljp7F047968
 /* 07BBEC 7F04707C 24010027 */   li    $at, 39
-/* 07BBF0 7F047080 0FC2279B */  jal   get_curplayer_positiondata
+/* 07BBF0 7F047080 0FC2279B */  jal   getCurrentPlayerProp
 /* 07BBF4 7F047084 8E700004 */   lw    $s0, 4($s3)
 /* 07BBF8 7F047088 AFA004B0 */  sw    $zero, 0x4b0($sp)
 /* 07BBFC 7F04708C AFA004AC */  sw    $zero, 0x4ac($sp)
@@ -17441,7 +17441,7 @@ glabel object_interaction
 /* 07E400 7F049890 8E1800AC */  lw    $t8, 0xac($s0)
 /* 07E404 7F049894 33090003 */  andi  $t1, $t8, 3
 /* 07E408 7F049898 2D2B0001 */  sltiu $t3, $t1, 1
-/* 07E40C 7F04989C 0FC2279B */  jal   get_curplayer_positiondata
+/* 07E40C 7F04989C 0FC2279B */  jal   getCurrentPlayerProp
 /* 07E410 7F0498A0 AFAB0108 */   sw    $t3, 0x108($sp)
 /* 07E414 7F0498A4 AFA20104 */  sw    $v0, 0x104($sp)
 /* 07E418 7F0498A8 8E8E0008 */  lw    $t6, 8($s4)
@@ -19495,7 +19495,7 @@ glabel object_interaction
 /* 079398 7F0469A8 C61200CC */   lwc1  $f18, 0xcc($s0)
 /* 07939C 7F0469AC C61200D0 */  lwc1  $f18, 0xd0($s0)
 .L7F0469B0:
-/* 0793A0 7F0469B0 0FC22640 */  jal   get_curplayer_positiondata
+/* 0793A0 7F0469B0 0FC22640 */  jal   getCurrentPlayerProp
 /* 0793A4 7F0469B4 E7B2051C */   swc1  $f18, 0x51c($sp)
 /* 0793A8 7F0469B8 AFA20518 */  sw    $v0, 0x518($sp)
 /* 0793AC 7F0469BC C6280058 */  lwc1  $f8, 0x58($s1)
@@ -19816,7 +19816,7 @@ glabel object_interaction
 /* 07983C 7F046E4C 000FC8C0 */  sll   $t9, $t7, 3
 /* 079840 7F046E50 0722023B */  bltzl $t9, .L7F047740
 /* 079844 7F046E54 24010027 */   li    $at, 39
-/* 079848 7F046E58 0FC22640 */  jal   get_curplayer_positiondata
+/* 079848 7F046E58 0FC22640 */  jal   getCurrentPlayerProp
 /* 07984C 7F046E5C 8E700004 */   lw    $s0, 4($s3)
 /* 079850 7F046E60 AFA004B0 */  sw    $zero, 0x4b0($sp)
 /* 079854 7F046E64 AFA004AC */  sw    $zero, 0x4ac($sp)
@@ -22554,7 +22554,7 @@ glabel object_interaction
 /* 07C058 7F049668 8E0C00AC */  lw    $t4, 0xac($s0)
 /* 07C05C 7F04966C 318D0003 */  andi  $t5, $t4, 3
 /* 07C060 7F049670 2DAE0001 */  sltiu $t6, $t5, 1
-/* 07C064 7F049674 0FC22640 */  jal   get_curplayer_positiondata
+/* 07C064 7F049674 0FC22640 */  jal   getCurrentPlayerProp
 /* 07C068 7F049678 AFAE0108 */   sw    $t6, 0x108($sp)
 /* 07C06C 7F04967C AFA20104 */  sw    $v0, 0x104($sp)
 /* 07C070 7F049680 8E980008 */  lw    $t8, 8($s4)
@@ -28801,7 +28801,7 @@ void objBounce(ObjectRecord *obj, coord3d *arg1)
 
         projectile->speed.x += 3.3333333f * dir.x;
         projectile->speed.z += 3.3333333f * dir.z;
-        projectile->ownerprop = get_curplayer_positiondata();
+        projectile->ownerprop = getCurrentPlayerProp();
         projectile->unk90 = 1;
     }
 }
@@ -28950,7 +28950,7 @@ s32 objDrop(PropRecord *prop)
         else if (projectile->droptype == DROPTYPE_HAT)
         {
             coord3d rot = { 0.0f, 0.0f, 0.0f };
-            PropRecord *playerprop = get_curplayer_positiondata();
+            PropRecord *playerprop = getCurrentPlayerProp();
             f32 x = parent->pos.x - playerprop->pos.x;
             f32 z = parent->pos.z - playerprop->pos.z;
             f32 angle = atan2f(x, z);
@@ -32039,7 +32039,7 @@ bool objTestForInteract(PropRecord* prop)
                 && !(obj->flags & PROPFLAG_CANNOT_ACTIVATE))
         {
 
-            player = get_curplayer_positiondata();
+            player = getCurrentPlayerProp();
 
             xdiff = obj->runtime_pos.x - player->pos.x;
             ydiff = obj->runtime_pos.y - player->pos.y;
@@ -33259,7 +33259,7 @@ s32 object_collectability_routines(struct PropRecord* arg0) {
         struct PropRecord* temp_v0_5;
         s32 pickup;
 
-        temp_v0_5 = get_curplayer_positiondata();
+        temp_v0_5 = getCurrentPlayerProp();
 
         temp_f0 = var_a0->runtime_pos.x - temp_v0_5->pos.x;
         temp_f12 = var_a0->runtime_pos.y - temp_v0_5->pos.y;
@@ -33682,7 +33682,7 @@ glabel object_collectability_routines
 /* 085B94 7F051024 1000007C */  b     .Ljp7F051218
 /* 085B98 7F051028 00001025 */   move  $v0, $zero
 .Ljp7F05102C:
-/* 085B9C 7F05102C 0FC2279B */  jal   get_curplayer_positiondata
+/* 085B9C 7F05102C 0FC2279B */  jal   getCurrentPlayerProp
 /* 085BA0 7F051030 00000000 */   nop
 /* 085BA4 7F051034 3C0D8008 */  lui   $t5, %hi(g_CurrentPlayer) # $t5, 0x8008
 /* 085BA8 7F051038 8FAC008C */  lw    $t4, 0x8c($sp)
@@ -34218,7 +34218,7 @@ glabel object_collectability_routines
 /* 085B94 7F051024 1000007C */  b     .Ljp7F051218
 /* 085B98 7F051028 00001025 */   move  $v0, $zero
 .Ljp7F05102C:
-/* 085B9C 7F05102C 0FC2279B */  jal   get_curplayer_positiondata
+/* 085B9C 7F05102C 0FC2279B */  jal   getCurrentPlayerProp
 /* 085BA0 7F051030 00000000 */   nop
 /* 085BA4 7F051034 3C0D8008 */  lui   $t5, %hi(g_CurrentPlayer) # $t5, 0x8008
 /* 085BA8 7F051038 8FAC008C */  lw    $t4, 0x8c($sp)
@@ -37495,7 +37495,7 @@ void door7F05522C(DoorRecord *door, f32 *arg1, f32 *arg2, s32 altcoordsystem)
     f32 xbound;
 
     pad = &g_CurrentSetup.boundpads[door->pad];
-    playerprop = get_curplayer_positiondata();
+    playerprop = getCurrentPlayerProp();
 
     if (1) { scale = 1.0f; }
     playerpos.f[0] = (((g_CurrentPlayer->field_488.theta_transform.x * 30.0f) * scale) * 0.75f) + playerprop->pos.x;
@@ -37680,7 +37680,7 @@ bool doorTestForInteract(PropRecord *prop)
 			&& (prop->flags & PROPFLAG_ONSCREEN))
     {
 		maybe = FALSE;
-		playerprop = get_curplayer_positiondata();
+		playerprop = getCurrentPlayerProp();
 
 		xdiff = door->runtime_pos.x - playerprop->pos.x;
 		ydiff = door->runtime_pos.y - playerprop->pos.y;
@@ -37916,7 +37916,7 @@ s32 propdoorInteract(PropRecord* doorprop)
 
     door = doorprop->door;
     sp28 = 0;
-    playerprop = get_curplayer_positiondata();
+    playerprop = getCurrentPlayerProp();
 
     if (door->keyflags == 0)
     {
