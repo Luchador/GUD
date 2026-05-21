@@ -2275,16 +2275,21 @@ void generate_player_thrown_object(s32 hand)
 }
 
 
+/**
+ * Address: 7F05F73C
+ * 
+ * Spawns Grenade Launcher rounds and makes them inherit the player's momentum.
+ */
 #if defined(VERSION_US) || defined(VERSION_JP)
-void sub_GAME_7F05F73C(s32 handnum)
+void gunSpawnGLGrenade(s32 handnum)
 {
-    WeaponObjRecord *thrownobj;
+    WeaponObjRecord *grenadeobj;
     struct hand *hand;
     Mtxf identitymtx;
-    coord3d velocity;
+    coord3d launchvel;
     s32 pad;
-    Mtxf throwmtx;
-    coord3d screenpos;
+    Mtxf launchmtx;
+    coord3d aimpos;
     coord3d aimdir;
     PropRecord *playerprop;
     coord3d *prevplayerpos;
@@ -2295,38 +2300,38 @@ void sub_GAME_7F05F73C(s32 handnum)
     prevplayerpos = get_BONDdata_field408();
 
     matrix_4x4_set_identity(&identitymtx);
-    bullet_path_from_screen_center(&screenpos, &aimdir, handnum);
+    bullet_path_from_screen_center(&aimpos, &aimdir, handnum);
     mtx4RotateVecInPlace(currentPlayerGetMatrix10D4(), &aimdir);
 
-    velocity.x = aimdir.x * 33.333332f;
-    velocity.y = aimdir.y * 33.333332f;
-    velocity.z = aimdir.z * 33.333332f;
+    launchvel.x = aimdir.x * 33.333332f;
+    launchvel.y = aimdir.y * 33.333332f;
+    launchvel.z = aimdir.z * 33.333332f;
 
     if (g_ClockTimer > 0) {
-        velocity.x += (playerprop->pos.x - prevplayerpos->x) / g_GlobalTimerDelta;
-        velocity.y += (playerprop->pos.y - prevplayerpos->y) / g_GlobalTimerDelta;
-        velocity.z += (playerprop->pos.z - prevplayerpos->z) / g_GlobalTimerDelta;
+        launchvel.x += (playerprop->pos.x - prevplayerpos->x) / g_GlobalTimerDelta;
+        launchvel.y += (playerprop->pos.y - prevplayerpos->y) / g_GlobalTimerDelta;
+        launchvel.z += (playerprop->pos.z - prevplayerpos->z) / g_GlobalTimerDelta;
     }
 
-    matrix_4x4_copy(&g_CurrentPlayer->hands[handnum].throw_item_pos_related, &throwmtx);
+    matrix_4x4_copy(&g_CurrentPlayer->hands[handnum].throw_item_pos_related, &launchmtx);
 
-    throwmtx.m[3][0] = 0.0f;
-    throwmtx.m[3][1] = 0.0f;
-    throwmtx.m[3][2] = 0.0f;
+    launchmtx.m[3][0] = 0.0f;
+    launchmtx.m[3][1] = 0.0f;
+    launchmtx.m[3][2] = 0.0f;
 
-    thrownobj = create_new_item_instance_of_model(0xCB, 0x57);
+    grenadeobj = create_new_item_instance_of_model(PROP_CHRGRENADEROUND, ITEM_GRENADEROUND);
 
-    if (thrownobj != NULL) {
-        thrownobj->timer = 1200;
-        thrownobj->runtime_bitflags &= 0xFFF9FFFF;
-        thrownobj->runtime_bitflags |= get_cur_playernum() << 17;
+    if (grenadeobj != NULL) {
+        grenadeobj->timer = 1200;
+        grenadeobj->runtime_bitflags &= 0xFFF9FFFF;
+        grenadeobj->runtime_bitflags |= get_cur_playernum() << 17;
 
-        sub_GAME_7F05EC1C(thrownobj, &hand->field_B58, &throwmtx, &velocity, (s32 *)&identitymtx);
+        sub_GAME_7F05EC1C(grenadeobj, &hand->field_B58, &launchmtx, &launchvel, (s32 *)&identitymtx);
 
-        if (thrownobj->runtime_bitflags & 0x80) {
-            thrownobj->projectile->unk8C = 0.3f;
-            thrownobj->projectile->unk94 = 0.13333333f;
-            thrownobj->projectile->refreshrate = THROWN_ITEM_REFRESH_RATE;
+        if (grenadeobj->runtime_bitflags & 0x80) {
+            grenadeobj->projectile->unk8C = 0.3f;
+            grenadeobj->projectile->unk94 = 0.13333333f;
+            grenadeobj->projectile->refreshrate = THROWN_ITEM_REFRESH_RATE;
         }
     }
 }
@@ -2342,7 +2347,7 @@ glabel D_80053DD0
 glabel D_80053DD4
 .word 0x3e088888 /*0.13333333*/
 .text
-glabel sub_GAME_7F05F73C
+glabel gunSpawnGLGrenade
 /* 0925E4 7F05FBF4 000470C0 */  sll   $t6, $a0, 3
 /* 0925E8 7F05FBF8 01C47023 */  subu  $t6, $t6, $a0
 /* 0925EC 7F05FBFC 000E7080 */  sll   $t6, $t6, 2
@@ -3848,7 +3853,7 @@ void handles_firing_or_throwing_weapon_in_hand(void) {
         sub_GAME_7F068508(arg0, bondviewGetPlayerStanHeight(g_CurrentPlayer));
         if (spFC == 0x18)
         {
-            sub_GAME_7F05F73C(arg0);
+            gunSpawnGLGrenade(arg0);
             return;
         }
         if (spFC == 0x1A)
@@ -3873,12 +3878,12 @@ void handles_firing_or_throwing_weapon_in_hand(void) {
         }
         if (spFC == 0x23)
         {
-            sub_GAME_7F05F73C(arg0);
+            gunSpawnGLGrenade(arg0);
             return;
         }
         if (spFC == 0x24)
         {
-            sub_GAME_7F05F73C(arg0);
+            gunSpawnGLGrenade(arg0);
         }
     }
 }
@@ -5596,7 +5601,7 @@ weapon_bullet_type_shotgun_mine:
 /* 096348 7F061818 8FB800FC */  lw    $t8, 0xfc($sp)
 /* 09634C 7F06181C 55C10006 */  bnel  $t6, $at, .L7F061838
 /* 096350 7F061820 2401001A */   li    $at, 26
-/* 096354 7F061824 0FC17DCF */  jal   sub_GAME_7F05F73C
+/* 096354 7F061824 0FC17DCF */  jal   gunSpawnGLGrenade
 /* 096358 7F061828 8FA402A8 */   lw    $a0, 0x2a8($sp)
 /* 09635C 7F06182C 10000038 */  b     .L7F061910
 /* 096360 7F061830 8FBF0034 */   lw    $ra, 0x34($sp)
@@ -5651,7 +5656,7 @@ weapon_bullet_type_shotgun_mine:
 /* 09640C 7F0618DC 24010023 */  li    $at, 35
 /* 096410 7F0618E0 15C10005 */  bne   $t6, $at, .L7F0618F8
 /* 096414 7F0618E4 8FB800FC */   lw    $t8, 0xfc($sp)
-/* 096418 7F0618E8 0FC17DCF */  jal   sub_GAME_7F05F73C
+/* 096418 7F0618E8 0FC17DCF */  jal   gunSpawnGLGrenade
 /* 09641C 7F0618EC 8FA402A8 */   lw    $a0, 0x2a8($sp)
 /* 096420 7F0618F0 10000007 */  b     .L7F061910
 /* 096424 7F0618F4 8FBF0034 */   lw    $ra, 0x34($sp)
@@ -5659,7 +5664,7 @@ weapon_bullet_type_shotgun_mine:
 /* 096428 7F0618F8 24010024 */  li    $at, 36
 /* 09642C 7F0618FC 57010004 */  bnel  $t8, $at, .L7F061910
 /* 096430 7F061900 8FBF0034 */   lw    $ra, 0x34($sp)
-/* 096434 7F061904 0FC17DCF */  jal   sub_GAME_7F05F73C
+/* 096434 7F061904 0FC17DCF */  jal   gunSpawnGLGrenade
 /* 096438 7F061908 8FA402A8 */   lw    $a0, 0x2a8($sp)
 /* 09643C 7F06190C 8FBF0034 */  lw    $ra, 0x34($sp)
 .L7F061910:
@@ -7384,7 +7389,7 @@ weapon_bullet_type_shotgun_mine:
 /* 0968B4 7F061D44 8FAF00FC */  lw    $t7, 0xfc($sp)
 /* 0968B8 7F061D48 55A10006 */  bnel  $t5, $at, .Ljp7F061D64
 /* 0968BC 7F061D4C 2401001A */   li    $at, 26
-/* 0968C0 7F061D50 0FC17F17 */  jal   sub_GAME_7F05F73C
+/* 0968C0 7F061D50 0FC17F17 */  jal   gunSpawnGLGrenade
 /* 0968C4 7F061D54 8FA402A8 */   lw    $a0, 0x2a8($sp)
 /* 0968C8 7F061D58 10000038 */  b     .Ljp7F061E3C
 /* 0968CC 7F061D5C 8FBF0034 */   lw    $ra, 0x34($sp)
@@ -7439,7 +7444,7 @@ weapon_bullet_type_shotgun_mine:
 /* 096978 7F061E08 24010023 */  li    $at, 35
 /* 09697C 7F061E0C 15A10005 */  bne   $t5, $at, .Ljp7F061E24
 /* 096980 7F061E10 8FAF00FC */   lw    $t7, 0xfc($sp)
-/* 096984 7F061E14 0FC17F17 */  jal   sub_GAME_7F05F73C
+/* 096984 7F061E14 0FC17F17 */  jal   gunSpawnGLGrenade
 /* 096988 7F061E18 8FA402A8 */   lw    $a0, 0x2a8($sp)
 /* 09698C 7F061E1C 10000007 */  b     .Ljp7F061E3C
 /* 096990 7F061E20 8FBF0034 */   lw    $ra, 0x34($sp)
@@ -7447,7 +7452,7 @@ weapon_bullet_type_shotgun_mine:
 /* 096994 7F061E24 24010024 */  li    $at, 36
 /* 096998 7F061E28 55E10004 */  bnel  $t7, $at, .Ljp7F061E3C
 /* 09699C 7F061E2C 8FBF0034 */   lw    $ra, 0x34($sp)
-/* 0969A0 7F061E30 0FC17F17 */  jal   sub_GAME_7F05F73C
+/* 0969A0 7F061E30 0FC17F17 */  jal   gunSpawnGLGrenade
 /* 0969A4 7F061E34 8FA402A8 */   lw    $a0, 0x2a8($sp)
 /* 0969A8 7F061E38 8FBF0034 */  lw    $ra, 0x34($sp)
 .Ljp7F061E3C:
@@ -9173,7 +9178,7 @@ weapon_bullet_type_shotgun_mine:
 /* 0946CC 7F061CDC 8FB900FC */  lw    $t9, 0xfc($sp)
 /* 0946D0 7F061CE0 55C10006 */  bnel  $t6, $at, .L7F061CFC
 /* 0946D4 7F061CE4 2401001A */   li    $at, 26
-/* 0946D8 7F061CE8 0FC17EFD */  jal   sub_GAME_7F05F73C
+/* 0946D8 7F061CE8 0FC17EFD */  jal   gunSpawnGLGrenade
 /* 0946DC 7F061CEC 8FA402A8 */   lw    $a0, 0x2a8($sp)
 /* 0946E0 7F061CF0 10000038 */  b     .L7F061DD4
 /* 0946E4 7F061CF4 8FBF0034 */   lw    $ra, 0x34($sp)
@@ -9228,7 +9233,7 @@ weapon_bullet_type_shotgun_mine:
 /* 094790 7F061DA0 24010023 */  li    $at, 35
 /* 094794 7F061DA4 15C10005 */  bne   $t6, $at, .L7F061DBC
 /* 094798 7F061DA8 8FB900FC */   lw    $t9, 0xfc($sp)
-/* 09479C 7F061DAC 0FC17EFD */  jal   sub_GAME_7F05F73C
+/* 09479C 7F061DAC 0FC17EFD */  jal   gunSpawnGLGrenade
 /* 0947A0 7F061DB0 8FA402A8 */   lw    $a0, 0x2a8($sp)
 /* 0947A4 7F061DB4 10000007 */  b     .L7F061DD4
 /* 0947A8 7F061DB8 8FBF0034 */   lw    $ra, 0x34($sp)
@@ -9236,7 +9241,7 @@ weapon_bullet_type_shotgun_mine:
 /* 0947AC 7F061DBC 24010024 */  li    $at, 36
 /* 0947B0 7F061DC0 57210004 */  bnel  $t9, $at, .L7F061DD4
 /* 0947B4 7F061DC4 8FBF0034 */   lw    $ra, 0x34($sp)
-/* 0947B8 7F061DC8 0FC17EFD */  jal   sub_GAME_7F05F73C
+/* 0947B8 7F061DC8 0FC17EFD */  jal   gunSpawnGLGrenade
 /* 0947BC 7F061DCC 8FA402A8 */   lw    $a0, 0x2a8($sp)
 /* 0947C0 7F061DD0 8FBF0034 */  lw    $ra, 0x34($sp)
 .L7F061DD4:
