@@ -2085,7 +2085,7 @@ Gfx *constructor_menu04_goldeneyelogo(Gfx *DL)
     DL = viSetFillColor(DL, 0, 0, 0);
     DL = viFillScreen(DL);
 
-    logoLookAt = (LookAt *)dynAllocate7F0BD6F8(2);
+    logoLookAt = (LookAt *)dynAllocateLights(2);
     guLookAtReflect(&logoReflectMtx, logoLookAt, 0.0f, 0.0f, 4000.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
 
     // Lights macro? These need to be on one line.
@@ -10177,7 +10177,7 @@ Gfx * constructor_menu18_displaycast(Gfx *DL)
     sp238.f[0] += cosf(flt_CODE_bss_800695AC) * 0.2f * flt_CODE_bss_800695A0;
     sp238.f[2] += -sinf(flt_CODE_bss_800695AC) * 0.2f * flt_CODE_bss_800695A0;
 
-    temp_v0 = (LookAt *)dynAllocate7F0BD6F8(2);
+    temp_v0 = (LookAt *)dynAllocateLights(2);
     guLookAtReflect(&spE0, temp_v0, 0.0f, 0.0f, 4000.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
 
     gSPNumLights(DL++, 1);
@@ -10697,7 +10697,7 @@ glabel constructor_menu18_displaycast
 /* 04E164 7F019634 24040002 */  li    $a0, 2
 /* 04E168 7F019638 46062282 */  mul.s $f10, $f4, $f6
 /* 04E16C 7F01963C 460A4100 */  add.s $f4, $f8, $f10
-/* 04E170 7F019640 0FC2F5BE */  jal   dynAllocate7F0BD6F8
+/* 04E170 7F019640 0FC2F5BE */  jal   dynAllocateLights
 /* 04E174 7F019644 E7A40240 */   swc1  $f4, 0x240($sp)
 /* 04E178 7F019648 44800000 */  mtc1  $zero, $f0
 /* 04E17C 7F01964C 3C01457A */  li    $at, 0x457A0000 # 4000.000000
@@ -11821,7 +11821,7 @@ glabel constructor_menu18_displaycast
 /* 04C0A0 7F0196B0 24040002 */  li    $a0, 2
 /* 04C0A4 7F0196B4 46062282 */  mul.s $f10, $f4, $f6
 /* 04C0A8 7F0196B8 460A4100 */  add.s $f4, $f8, $f10
-/* 04C0AC 7F0196BC 0FC2F2AA */  jal   dynAllocate7F0BD6F8
+/* 04C0AC 7F0196BC 0FC2F2AA */  jal   dynAllocateLights
 /* 04C0B0 7F0196C0 E7A40240 */   swc1  $f4, 0x240($sp)
 /* 04C0B4 7F0196C4 44800000 */  mtc1  $zero, $f0
 /* 04C0B8 7F0196C8 3C01457A */  li    $at, 0x457A0000 # 4000.000000

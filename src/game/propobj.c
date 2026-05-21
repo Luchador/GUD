@@ -33293,7 +33293,8 @@ s32 object_collectability_routines(struct PropRecord* prop)
         }
     }
 
-    if ((bondviewGetPlayerPitchRadians() < -0.7853982f) && (g_CurrentPlayer->magnetattracttime < 0)) {
+    if ((bondviewGetPlayerPitchRadians() < -0.7853982f) && (g_CurrentPlayer->magnetattracttime < 0)) 
+    {
         return 0;
     }
 
@@ -33329,19 +33330,7 @@ s32 object_collectability_routines(struct PropRecord* prop)
         if ((pickup != 0) && !(obj->flags2 & 0x1000)) {
             struct StandTile* stan = temp_v0_5->stan;
 
-            if ((stanTestLineUnobstructed(
-                    &stan,
-                    temp_v0_5->pos.x,
-                    temp_v0_5->pos.z,
-                    prop->pos.x,
-                    prop->pos.z,
-                    2,
-                    30.0f,
-                    30.0f,
-                    0.0f,
-                    1.0f
-                ) == 0)
-                || (stan != prop->stan))
+            if ((stanTestLineUnobstructed(&stan, temp_v0_5->pos.x, temp_v0_5->pos.z, prop->pos.x, prop->pos.z, 2, 30.0f, 30.0f, 0.0f, 1.0f) == 0) || (stan != prop->stan))
             {
                 pickup = 0;
             }

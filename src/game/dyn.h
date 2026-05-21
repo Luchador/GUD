@@ -9,7 +9,7 @@ Gfx *dynGetMasterDisplayList(void);
 s32 dynGetFreeGfx2(Gfx *gdl);
 void *dynAllocate7F0BD6C4(s32 count);
 Mtx *dynAllocateMatrix(void);
-void *dynAllocate7F0BD6F8(s32 count);
+Light *dynAllocateLights(s32 count);
 void *dynAllocate(s32 size);
 void dynSwapBuffers(void);
 void dynRemovedFunc(Gfx *gdl);

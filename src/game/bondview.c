@@ -11670,7 +11670,7 @@ void sub_GAME_7F0876C4(coord3d* cam_pos, coord3d* cam_look, coord3d* cam_up)
     g_CurrentPlayer->field_64 = dynAllocateMatrix();
     g_CurrentPlayer->field_68 = dynAllocateMatrix();
 
-    lookat = dynAllocate7F0BD6F8(2);
+    lookat = dynAllocateLights(2);
 
     scale = D_800364CC;
 

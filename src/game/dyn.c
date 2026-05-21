@@ -89,10 +89,14 @@ Mtx *dynAllocateMatrix(void)
 	return ptr;
 }
 
-void/*Light?*/ *dynAllocate7F0BD6F8(s32 count) {
+/**
+ * Address: 7F0BD6F8
+ */
+Light *dynAllocateLights(s32 count)
+{
     void *ptr = g_GfxMemPos;
-	g_GfxMemPos += count * 0x10/*sizeof(Light)?*/;
-	return ptr;
+    g_GfxMemPos += count * sizeof(Light);
+    return ptr;
 }
 
 void *dynAllocate(s32 size) {
