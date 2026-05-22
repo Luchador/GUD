@@ -1479,216 +1479,60 @@ Gfx *display_aligned_white_text_to_screen(Gfx *dl, s32 arg1, s32 arg2, s32 halig
 }
 
 
-
-
-
-#ifdef NONMATCHING
-/**
- * https://decomp.me/scratch/hx7ye 99.27%
- *
- * decomp notes:
- * compiles: yes
- * stack resize: match
- * instructions match: yes
- * resgisters match: false
- *
- * decomp notes: match down to regalloc in final loop.
- */
 Gfx *constructor_menu00_legalscreen(Gfx *DL)
 {
-    s32 padding;
-    ModelRenderData spE4;
+    struct legal_screen_text *legal_text_end;
+    struct ModelRenderData renderdata;
     Mtxf *temp;
-    Mtxf spA0;
+    Mtxf lookatmtx;
     s32 i;
     u8 *txt;
-    Mtxf sp58;
+    Mtxf tmpmtx;
     struct legal_screen_text *legal_text_ptr;
 
-    spE4 = legalscreen_MRD;
-
+    renderdata = legalscreen_MRD;
+    
     DL = insert_imageDL(DL);
-    matrix_4x4_set_lookat_target(&spA0, 0.0f, 0.0f, 4000.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
-    spE4.unk_matrix = &spA0;
-    spE4.mtxlist = (Mtxf*)dynAllocate(logoinst->obj->numMatrices << 6);
-    matrix_4x4_copy(&spA0, spE4.mtxlist);
-    logoinst->render_pos = spE4.mtxlist;
+    
+    matrix_4x4_set_lookat_target(&lookatmtx, 0.0f, 0.0f, 4000.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, legal_text_ptr->v_pos * 0.0f);
+    
+    renderdata.unk_matrix = &lookatmtx;
+    renderdata.mtxlist = (Mtxf *) dynAllocate(logoinst->obj->numMatrices << 6);
+    
+    matrix_4x4_copy(&lookatmtx, renderdata.mtxlist);
+    
+    logoinst->render_pos = (union RenderPosView *) renderdata.mtxlist;
+    
     modelUpdateNodeRelations(logoinst);
-    spE4.unk08 = 3;
-    spE4.unk04 = 0;
-    spE4.gdl = DL;
-    subdraw(&spE4, logoinst);
-    DL = spE4.gdl;
-
-    for (i=0; i<logoinst->obj->numMatrices; i++)
+    
+    renderdata.flags = 3;
+    renderdata.zbufferenabled = 0;
+    renderdata.gdl = DL;
+    
+    subdraw(&renderdata, logoinst);
+    
+    DL = renderdata.gdl;
+    
+    for (i = 0; i < logoinst->obj->numMatrices; i++)
     {
-        // hack: source address steps by sizeof(Mtxf), but can't get that to match
-        matrix_4x4_copy(&((s8*)logoinst->render_pos)[i*0x40], &sp58);
-        matrix_4x4_f32_to_s32(&sp58, &((Mtxf*)logoinst->render_pos)[i]);
+        matrix_4x4_copy((Mtxf *)&((s8 *)logoinst->render_pos)[i * 0x40], &tmpmtx);
+        matrix_4x4_f32_to_s32(&tmpmtx, &((Mtxf *) logoinst->render_pos)[i]);
     }
-
+    
     DL = microcode_constructor(DL);
-
-    for (legal_text_ptr = &legalpage_text_array[0]; legal_text_ptr < &legalpage_text_array[12]; legal_text_ptr++)
+    
+    legal_text_ptr = legalpage_text_array;
+    legal_text_end = (struct legal_screen_text *)&legalscreen_MRD;
+    
+    do
     {
-        txt = langGet(legal_text_ptr->txtID);
-
-        DL = display_aligned_white_text_to_screen(
-            DL,
-            legal_text_ptr->h_pos,
-            legal_text_ptr->v_pos,
-            legal_text_ptr->halign,
-            legal_text_ptr->valign,
-            txt,
-            ptrFontZurichBoldChars,
-            ptrFontZurichBold);
-
+        DL = display_aligned_white_text_to_screen(DL, legal_text_ptr->h_pos, legal_text_ptr->v_pos, legal_text_ptr->halign, legal_text_ptr->valign, langGet(legal_text_ptr->txtID), ptrFontZurichBoldChars, ptrFontZurichBold);
+        legal_text_ptr++;
     }
-
+    while (legal_text_ptr < legal_text_end);
+    
     return DL;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel constructor_menu00_legalscreen
-/* 03F410 7F00A8E0 27BDFED8 */  addiu $sp, $sp, -0x128
-/* 03F414 7F00A8E4 AFB10034 */  sw    $s1, 0x34($sp)
-/* 03F418 7F00A8E8 3C0E8003 */  lui   $t6, %hi(legalscreen_MRD)
-/* 03F41C 7F00A8EC 27B100E4 */  addiu $s1, $sp, 0xe4
-/* 03F420 7F00A8F0 AFB40040 */  sw    $s4, 0x40($sp)
-/* 03F424 7F00A8F4 25CEAABC */  addiu $t6, %lo(legalscreen_MRD) # addiu $t6, $t6, -0x5544
-/* 03F428 7F00A8F8 0080A025 */  move  $s4, $a0
-/* 03F42C 7F00A8FC AFBF0044 */  sw    $ra, 0x44($sp)
-/* 03F430 7F00A900 AFB3003C */  sw    $s3, 0x3c($sp)
-/* 03F434 7F00A904 AFB20038 */  sw    $s2, 0x38($sp)
-/* 03F438 7F00A908 AFB00030 */  sw    $s0, 0x30($sp)
-/* 03F43C 7F00A90C 25D9003C */  addiu $t9, $t6, 0x3c
-/* 03F440 7F00A910 02204025 */  move  $t0, $s1
-.L7F00A914:
-/* 03F444 7F00A914 8DC10000 */  lw    $at, ($t6)
-/* 03F448 7F00A918 25CE000C */  addiu $t6, $t6, 0xc
-/* 03F44C 7F00A91C 2508000C */  addiu $t0, $t0, 0xc
-/* 03F450 7F00A920 AD01FFF4 */  sw    $at, -0xc($t0)
-/* 03F454 7F00A924 8DC1FFF8 */  lw    $at, -8($t6)
-/* 03F458 7F00A928 AD01FFF8 */  sw    $at, -8($t0)
-/* 03F45C 7F00A92C 8DC1FFFC */  lw    $at, -4($t6)
-/* 03F460 7F00A930 15D9FFF8 */  bne   $t6, $t9, .L7F00A914
-/* 03F464 7F00A934 AD01FFFC */   sw    $at, -4($t0)
-/* 03F468 7F00A938 8DC10000 */  lw    $at, ($t6)
-/* 03F46C 7F00A93C 02802025 */  move  $a0, $s4
-/* 03F470 7F00A940 0FC07034 */  jal   insert_imageDL
-/* 03F474 7F00A944 AD010000 */   sw    $at, ($t0)
-/* 03F478 7F00A948 44800000 */  mtc1  $zero, $f0
-/* 03F47C 7F00A94C 3C013F80 */  li    $at, 0x3F800000 # 1.000000
-/* 03F480 7F00A950 44812000 */  mtc1  $at, $f4
-/* 03F484 7F00A954 27B000A0 */  addiu $s0, $sp, 0xa0
-/* 03F488 7F00A958 44050000 */  mfc1  $a1, $f0
-/* 03F48C 7F00A95C 44060000 */  mfc1  $a2, $f0
-/* 03F490 7F00A960 0040A025 */  move  $s4, $v0
-/* 03F494 7F00A964 02002025 */  move  $a0, $s0
-/* 03F498 7F00A968 3C07457A */  lui   $a3, 0x457a
-/* 03F49C 7F00A96C E7A00010 */  swc1  $f0, 0x10($sp)
-/* 03F4A0 7F00A970 E7A00014 */  swc1  $f0, 0x14($sp)
-/* 03F4A4 7F00A974 E7A00018 */  swc1  $f0, 0x18($sp)
-/* 03F4A8 7F00A978 E7A0001C */  swc1  $f0, 0x1c($sp)
-/* 03F4AC 7F00A97C E7A00024 */  swc1  $f0, 0x24($sp)
-/* 03F4B0 7F00A980 0FC165A5 */  jal   matrix_4x4_set_lookat_target
-/* 03F4B4 7F00A984 E7A40020 */   swc1  $f4, 0x20($sp)
-/* 03F4B8 7F00A988 3C138003 */  lui   $s3, %hi(logoinst)
-/* 03F4BC 7F00A98C 2673A958 */  addiu $s3, %lo(logoinst) # addiu $s3, $s3, -0x56a8
-/* 03F4C0 7F00A990 8E690000 */  lw    $t1, ($s3)
-/* 03F4C4 7F00A994 AFB000E4 */  sw    $s0, 0xe4($sp)
-/* 03F4C8 7F00A998 8D2A0008 */  lw    $t2, 8($t1)
-/* 03F4CC 7F00A99C 8544000E */  lh    $a0, 0xe($t2)
-/* 03F4D0 7F00A9A0 00045980 */  sll   $t3, $a0, 6
-/* 03F4D4 7F00A9A4 0FC2F5C5 */  jal   dynAllocate
-/* 03F4D8 7F00A9A8 01602025 */   move  $a0, $t3
-/* 03F4DC 7F00A9AC AFA200F4 */  sw    $v0, 0xf4($sp)
-/* 03F4E0 7F00A9B0 02002025 */  move  $a0, $s0
-/* 03F4E4 7F00A9B4 0FC16008 */  jal   matrix_4x4_copy
-/* 03F4E8 7F00A9B8 00402825 */   move  $a1, $v0
-/* 03F4EC 7F00A9BC 8FAC00F4 */  lw    $t4, 0xf4($sp)
-/* 03F4F0 7F00A9C0 8E6D0000 */  lw    $t5, ($s3)
-/* 03F4F4 7F00A9C4 ADAC000C */  sw    $t4, 0xc($t5)
-/* 03F4F8 7F00A9C8 0FC1BBF1 */  jal   modelUpdateNodeRelations
-/* 03F4FC 7F00A9CC 8E640000 */   lw    $a0, ($s3)
-/* 03F500 7F00A9D0 24180003 */  li    $t8, 3
-/* 03F504 7F00A9D4 AFB800EC */  sw    $t8, 0xec($sp)
-/* 03F508 7F00A9D8 AFA000E8 */  sw    $zero, 0xe8($sp)
-/* 03F50C 7F00A9DC AFB400F0 */  sw    $s4, 0xf0($sp)
-/* 03F510 7F00A9E0 02202025 */  move  $a0, $s1
-/* 03F514 7F00A9E4 0FC1D1A1 */  jal   subdraw
-/* 03F518 7F00A9E8 8E650000 */   lw    $a1, ($s3)
-/* 03F51C 7F00A9EC 8E620000 */  lw    $v0, ($s3)
-/* 03F520 7F00A9F0 8FB400F0 */  lw    $s4, 0xf0($sp)
-/* 03F524 7F00A9F4 00008025 */  move  $s0, $zero
-/* 03F528 7F00A9F8 8C4F0008 */  lw    $t7, 8($v0)
-/* 03F52C 7F00A9FC 00008825 */  move  $s1, $zero
-/* 03F530 7F00AA00 27B20058 */  addiu $s2, $sp, 0x58
-/* 03F534 7F00AA04 85F9000E */  lh    $t9, 0xe($t7)
-/* 03F538 7F00AA08 1B200013 */  blez  $t9, .L7F00AA58
-/* 03F53C 7F00AA0C 00000000 */   nop
-/* 03F540 7F00AA10 8C4E000C */  lw    $t6, 0xc($v0)
-.L7F00AA14:
-/* 03F544 7F00AA14 02402825 */  move  $a1, $s2
-/* 03F548 7F00AA18 0FC16008 */  jal   matrix_4x4_copy
-/* 03F54C 7F00AA1C 01D12021 */   addu  $a0, $t6, $s1
-/* 03F550 7F00AA20 8E680000 */  lw    $t0, ($s3)
-/* 03F554 7F00AA24 00105180 */  sll   $t2, $s0, 6
-/* 03F558 7F00AA28 02402025 */  move  $a0, $s2
-/* 03F55C 7F00AA2C 8D09000C */  lw    $t1, 0xc($t0)
-/* 03F560 7F00AA30 0FC16327 */  jal   matrix_4x4_f32_to_s32
-/* 03F564 7F00AA34 012A2821 */   addu  $a1, $t1, $t2
-/* 03F568 7F00AA38 8E620000 */  lw    $v0, ($s3)
-/* 03F56C 7F00AA3C 26100001 */  addiu $s0, $s0, 1
-/* 03F570 7F00AA40 26310040 */  addiu $s1, $s1, 0x40
-/* 03F574 7F00AA44 8C4B0008 */  lw    $t3, 8($v0)
-/* 03F578 7F00AA48 856C000E */  lh    $t4, 0xe($t3)
-/* 03F57C 7F00AA4C 020C082A */  slt   $at, $s0, $t4
-/* 03F580 7F00AA50 5420FFF0 */  bnezl $at, .L7F00AA14
-/* 03F584 7F00AA54 8C4E000C */   lw    $t6, 0xc($v0)
-.L7F00AA58:
-/* 03F588 7F00AA58 0FC2B366 */  jal   microcode_constructor
-/* 03F58C 7F00AA5C 02802025 */   move  $a0, $s4
-/* 03F590 7F00AA60 3C108003 */  lui   $s0, %hi(legalpage_text_array)
-/* 03F594 7F00AA64 3C118003 */  lui   $s1, %hi(legalscreen_MRD)
-/* 03F598 7F00AA68 3C138004 */  lui   $s3, %hi(ptrFontZurichBold)
-/* 03F59C 7F00AA6C 3C128004 */  lui   $s2, %hi(ptrFontZurichBoldChars)
-/* 03F5A0 7F00AA70 0040A025 */  move  $s4, $v0
-/* 03F5A4 7F00AA74 2610A9CC */  addiu $s0, %lo(legalpage_text_array) # addiu $s0, $s0, -0x5634
-/* 03F5A8 7F00AA78 2631AABC */  addiu $s1, %lo(legalscreen_MRD) # addiu $s1, $s1, -0x5544
-/* 03F5AC 7F00AA7C 26520EB8 */  addiu $s2, %lo(ptrFontZurichBoldChars) # addiu $s2, $s2, 0xeb8
-/* 03F5B0 7F00AA80 26730EB4 */  addiu $s3, %lo(ptrFontZurichBold) # addiu $s3, $s3, 0xeb4
-.L7F00AA84:
-/* 03F5B4 7F00AA84 0FC30776 */  jal   langGet
-/* 03F5B8 7F00AA88 96040010 */   lhu   $a0, 0x10($s0)
-/* 03F5BC 7F00AA8C 8E0D000C */  lw    $t5, 0xc($s0)
-/* 03F5C0 7F00AA90 8E050000 */  lw    $a1, ($s0)
-/* 03F5C4 7F00AA94 8E060004 */  lw    $a2, 4($s0)
-/* 03F5C8 7F00AA98 8E070008 */  lw    $a3, 8($s0)
-/* 03F5CC 7F00AA9C 8E580000 */  lw    $t8, ($s2)
-/* 03F5D0 7F00AAA0 8E6F0000 */  lw    $t7, ($s3)
-/* 03F5D4 7F00AAA4 AFA20014 */  sw    $v0, 0x14($sp)
-/* 03F5D8 7F00AAA8 02802025 */  move  $a0, $s4
-/* 03F5DC 7F00AAAC AFAD0010 */  sw    $t5, 0x10($sp)
-/* 03F5E0 7F00AAB0 AFB80018 */  sw    $t8, 0x18($sp)
-/* 03F5E4 7F00AAB4 0FC029F9 */  jal   display_aligned_white_text_to_screen
-/* 03F5E8 7F00AAB8 AFAF001C */   sw    $t7, 0x1c($sp)
-/* 03F5EC 7F00AABC 26100014 */  addiu $s0, $s0, 0x14
-/* 03F5F0 7F00AAC0 0211082B */  sltu  $at, $s0, $s1
-/* 03F5F4 7F00AAC4 1420FFEF */  bnez  $at, .L7F00AA84
-/* 03F5F8 7F00AAC8 0040A025 */   move  $s4, $v0
-/* 03F5FC 7F00AACC 8FBF0044 */  lw    $ra, 0x44($sp)
-/* 03F600 7F00AAD0 8FB00030 */  lw    $s0, 0x30($sp)
-/* 03F604 7F00AAD4 8FB10034 */  lw    $s1, 0x34($sp)
-/* 03F608 7F00AAD8 8FB20038 */  lw    $s2, 0x38($sp)
-/* 03F60C 7F00AADC 8FB3003C */  lw    $s3, 0x3c($sp)
-/* 03F610 7F00AAE0 8FB40040 */  lw    $s4, 0x40($sp)
-/* 03F614 7F00AAE4 03E00008 */  jr    $ra
-/* 03F618 7F00AAE8 27BD0128 */   addiu $sp, $sp, 0x128
-)
-#endif
-
 
 
 void reset_menutimer(void) {
