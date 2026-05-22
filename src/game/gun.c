@@ -558,7 +558,7 @@ struct ModelHitEntry *D_80036060 = NULL;
 // forward declarations
 
 void bullet_path_from_screen_center(coord3d* arg0, coord3d* arg1, enum GUNHAND arg2);
-void sub_GAME_7F05EC1C(ObjectRecord *obj, coord3d *targetpos, Mtxf *arg2, coord3d *arg3, Mtxf *arg4);
+void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *arg2, coord3d *velocity, Mtxf *arg4);
 s32 sub_GAME_7F05C6FC(Weapon1PTransformKeyframe *keyframes, f32 time, Mtxf *matrix, GUNHAND hand);
 void analyzeGEKey(void);
 void give_weapon_case_items(void);
@@ -1627,7 +1627,7 @@ void sub_GAME_7F05EA94(Model* model, s32 val)
 /**
  * Address 0x7F05EB0C.
 */
-void sub_GAME_7F05EB0C(ObjectRecord *obj, coord3d *pos, StandTile *stan, Mtxf *matrix, coord3d *arg4, Mtxf *arg5, PropRecord *arg6)
+void gunInitProjectileObject(ObjectRecord *obj, coord3d *pos, StandTile *stan, Mtxf *matrix, coord3d *velocity, Mtxf *arg5, PropRecord *owner)
 {
     PropRecord *temp_s1;
     Projectile *temp_v0;
@@ -1651,12 +1651,12 @@ void sub_GAME_7F05EB0C(ObjectRecord *obj, coord3d *pos, StandTile *stan, Mtxf *m
         {
             temp_v0 = obj->projectile;
             temp_v0->flags |= 0x41;
-            obj->projectile->ownerprop = arg6;
+            obj->projectile->ownerprop = owner;
             projectileSetSticky(temp_s1);
             matrix_4x4_copy(arg5, &obj->projectile->mtx);
-            obj->projectile->speed.f[0] = arg4->f[0];
-            obj->projectile->speed.f[1] = arg4->f[1];
-            obj->projectile->speed.f[2] = arg4->f[2];
+            obj->projectile->speed.f[0] = velocity->f[0];
+            obj->projectile->speed.f[1] = velocity->f[1];
+            obj->projectile->speed.f[2] = velocity->f[2];
             obj->projectile->obj = obj;
             obj->projectile->unkE8 = D_80048380;
         }
@@ -1666,8 +1666,12 @@ void sub_GAME_7F05EB0C(ObjectRecord *obj, coord3d *pos, StandTile *stan, Mtxf *m
 
 /**
  * Address: 7F05EC1C
+ * 
+ * Determines where the projectile may safely enter the world. Ideally that is the targetpos position, but if targetpos
+ * is obstructed the player's position used as a fallback. This prevents the player from launching
+ * projectiles through nearby surfaces.
  */
-void sub_GAME_7F05EC1C(ObjectRecord *obj, coord3d *targetpos, Mtxf *arg2, coord3d *arg3, Mtxf *arg4)
+void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *arg2, coord3d *velocity, Mtxf *arg4)
 {
     PropRecord *playerprop;
     coord3d pos;
@@ -1708,12 +1712,14 @@ void sub_GAME_7F05EC1C(ObjectRecord *obj, coord3d *targetpos, Mtxf *arg2, coord3
     tile = playerprop->stan;
     bondviewUpdateGuardTankFlagsRelated(playerprop, 0);
 
+    // If there is no obstruction, spawn the projectile at the target position.
     if (stanTestLineUnobstructed(&tile, playerprop->pos.x, playerprop->pos.z, targetpos->x, targetpos->z, 0x1f, yhi, ylo, 0.0f, 1.0f)) 
     {
         pos.x = targetpos->x;
         pos.y = targetpos->y;
         pos.z = targetpos->z;
     } 
+    // Otherwise spawn it from the player's position.
     else 
     {
         tile = playerprop->stan;
@@ -1725,11 +1731,11 @@ void sub_GAME_7F05EC1C(ObjectRecord *obj, coord3d *targetpos, Mtxf *arg2, coord3
 
     bondviewUpdateGuardTankFlagsRelated(playerprop, 1);
 
-    sub_GAME_7F05EB0C(obj, &pos, tile, arg2, arg3, arg4, playerprop);
+    gunInitProjectileObject(obj, &pos, tile, arg2, velocity, arg4, playerprop);
 
     if (obj->runtime_bitflags & 0x80) {
         if (usedfallback) {
-            obj->projectile->flags |= 0x100;
+            obj->projectile->flags |= PROJECTILEFLAG_00000100;
             ((coord3d *)&obj->projectile->unkd4)->x = targetpos->x;
             ((coord3d *)&obj->projectile->unkd4)->y = targetpos->y;
             ((coord3d *)&obj->projectile->unkd4)->z = targetpos->z;
@@ -1813,7 +1819,7 @@ void generate_player_thrown_grenade(s32 hand)
         wor->runtime_bitflags &= ~(RUNTIMEBITFLAG_OWNER);
         wor->runtime_bitflags |= get_cur_playernum() << RUNTIMEBITSHIFT_OWNER;
 
-        sub_GAME_7F05EC1C(wor, &spE0, &spA0_a, &throw_speed_vec, &spFC);
+        gunInitProjectileFromPlayer(wor, &spE0, &spA0_a, &throw_speed_vec, &spFC);
 
         if ((wor->runtime_bitflags & RUNTIMEBITFLAG_DEPOSIT) != 0)
         {
@@ -1898,7 +1904,7 @@ void generate_player_thrown_knife(s32 hand)
         wor->runtime_bitflags &= ~(RUNTIMEBITFLAG_OWNER);
         wor->runtime_bitflags |= get_cur_playernum() << RUNTIMEBITSHIFT_OWNER;
 
-        sub_GAME_7F05EC1C(wor, &spE0, &spA0_a, &throw_speed_vec, &spFC);
+        gunInitProjectileFromPlayer(wor, &spE0, &spA0_a, &throw_speed_vec, &spFC);
 
         if ((wor->runtime_bitflags & RUNTIMEBITFLAG_DEPOSIT) != 0)
         {
@@ -2098,7 +2104,7 @@ void generate_player_thrown_object(s32 hand)
         wor->runtime_bitflags &= ~(RUNTIMEBITFLAG_OWNER);
         wor->runtime_bitflags |= get_cur_playernum() << RUNTIMEBITSHIFT_OWNER;
 
-        sub_GAME_7F05EC1C(wor, &spE0, &spA0_a, &throw_speed_vec, &unk_mtxf);
+        gunInitProjectileFromPlayer(wor, &spE0, &spA0_a, &throw_speed_vec, &unk_mtxf);
 
         if ((wor->runtime_bitflags & RUNTIMEBITFLAG_DEPOSIT) != 0)
         {
@@ -2169,7 +2175,7 @@ void gunSpawnGLGrenade(s32 handnum)
         grenadeobj->runtime_bitflags &= 0xFFF9FFFF;
         grenadeobj->runtime_bitflags |= get_cur_playernum() << 17;
 
-        sub_GAME_7F05EC1C(grenadeobj, &hand->field_B58, &launchmtx, &launchvel, (s32 *)&identitymtx);
+        gunInitProjectileFromPlayer(grenadeobj, &hand->field_B58, &launchmtx, &launchvel, (s32 *)&identitymtx);
 
         if (grenadeobj->runtime_bitflags & 0x80) {
             grenadeobj->projectile->unk8C = 0.3f;
@@ -2293,7 +2299,7 @@ glabel gunSpawnGLGrenade
 /* 09276C 7F05FD7C AC980064 */  sw    $t8, 0x64($a0)
 /* 092770 7F05FD80 8FA500E0 */  lw    $a1, 0xe0($sp)
 /* 092774 7F05FD84 AFB90010 */  sw    $t9, 0x10($sp)
-/* 092778 7F05FD88 0FC17C35 */  jal   sub_GAME_7F05EC1C
+/* 092778 7F05FD88 0FC17C35 */  jal   gunInitProjectileFromPlayer
 /* 09277C 7F05FD8C 24A502E8 */   addiu $a1, $a1, 0x2e8
 /* 092780 7F05FD90 8FA400E4 */  lw    $a0, 0xe4($sp)
 /* 092784 7F05FD94 3C018005 */  lui   $at, %hi(D_80053DD0) # $at, 0x8005
@@ -2531,7 +2537,7 @@ void gunFireTankShell(s32 handnum)
     obj->runtime_bitflags &= 0xFFF9FFFF;
     obj->runtime_bitflags |= get_cur_playernum() << 17;
 
-    sub_GAME_7F05EC1C(obj, &spawnpos, &shellmtx, &velocity, (s32 *) &identitymtx);
+    gunInitProjectileFromPlayer(obj, &spawnpos, &shellmtx, &velocity, (s32 *) &identitymtx);
 
     if (obj->runtime_bitflags & 0x80) {
         obj->projectile->flags |= PROJECTILEFLAG_LAUNCHING;
