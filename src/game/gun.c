@@ -16540,8 +16540,101 @@ void update_bullet_casings(void)
 
 
 #ifdef NONMATCHING
-void sub_GAME_7F068EC4(void) {
 
+/**
+ * This matches but I'm not sure how to handle the .late_rodata.
+ */
+typedef struct ModelHead {
+    s16 unk00;
+    s16 Type;
+    void *chr;
+    ModelFileHeader *obj;
+    RenderPosView *render_pos;
+    ModelRwData **datas;
+    f32 scale;
+    Model *attachedto;
+    ModelNode *attachedto_objinst;
+} ModelHead;
+
+void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
+{
+    Gfx *savedgdl;
+    ModelFileHeader *header;
+    RenderPosView *mtxlist;
+    ModelHead model;
+    ModelRenderData renderdata;
+    Mtxf sp34;
+    s32 i;
+    s32 visible;
+    f32 highbound;
+    f32 lowbound;
+    u8 *ptr;
+
+    savedgdl = *gdl;
+    header = casing->header;
+    mtxlist = dynAllocate(header->numMatrices * sizeof(RenderPosView));
+
+    renderdata = D_80035EB0;
+    visible = 1;
+
+    modelCalculateRwDataLen(header);
+    modelInit((Model *)&model, header, NULL);
+
+    model.render_pos = mtxlist;
+
+    matrix_4x4_copy(&casing->unk1C, &sp34);
+
+    lowbound = D_80054408;
+    matrix_scalar_multiply(lowbound, &sp34);
+
+    matrix_4x4_set_position(&casing->pos, &sp34);
+
+    matrix_4x4_multiply_homogeneous(
+        camGetWorldToScreenMtxf(),
+        &sp34,
+        (Mtxf *)model.render_pos
+    );
+
+    lowbound = D_8005440C;
+    highbound = D_80054410;
+
+    i = 0;
+    ptr = (u8 *)model.render_pos;
+
+    while (i != 0xc)
+    {
+        if (highbound < *(f32 *)(ptr + 0x30))
+        {
+            visible = 0;
+        }
+        else if (*(f32 *)(ptr + 0x30) < lowbound)
+        {
+            visible = 0;
+        }
+
+        i += 4;
+        ptr += 4;
+    }
+
+    if (visible)
+    {
+        renderdata.zbufferenabled = 0;
+        renderdata.gdl = savedgdl;
+        renderdata.mtxlist = (Mtxf *)mtxlist;
+        renderdata.PropType = PROP_TYPE_WEAPON;
+
+        renderdata.envcolour.word =
+            ((g_CurrentPlayer->tileColor.a |
+              (g_CurrentPlayer->tileColor.r << 0x18)) |
+              (g_CurrentPlayer->tileColor.g << 0x10)) |
+              (g_CurrentPlayer->tileColor.b << 8);
+
+        subdraw(&renderdata, (Model *)&model);
+
+        *gdl = renderdata.gdl;
+
+        bondviewTransformManyPosToViewMatrix(mtxlist, header->numMatrices);
+    }
 }
 #else
 
