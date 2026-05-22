@@ -569,6 +569,9 @@ void give_weapon_case_items(void);
 void sub_GAME_7F05DA8C(GUNHAND hand, ITEM_IDS weaponnum_watchmenu);
 void sub_GAME_7F05E808(GUNHAND hand);
 void sub_GAME_7F0649D8(enum GUNHAND hand);
+void sub_GAME_7F061BF4(enum GUNHAND hand);
+CasingRecord* casingCreate(ModelFileHeader* header, Mtxf* mtx);
+Gfx *microcode_generation_ammo_related(Gfx *gdl, struct sImageTableEntry *tconfig, f32 x, f32 y, f32 arg4, s32 arg5, f32 arg6, s32 arg7, s32 red, s32 green, s32 blue, s32 alpha);
 
 // end forward declarations
 
@@ -717,7 +720,8 @@ s32 sub_GAME_7F05C6FC(Weapon1PTransformKeyframe *keyframes, f32 time, Mtxf *matr
 }
 
 
-WeaponStats *get_ptr_item_statistics(ITEM_IDS item) {
+WeaponStats *get_ptr_item_statistics(ITEM_IDS item) 
+{
     if (gitem_structs[item].has_no_model == 0) { /* weapon has model, return stats struct */
         return gitem_structs[item].item_weapon_stats;
     }
@@ -8912,7 +8916,8 @@ void CapBeamLengthAndDecideIfRendered(struct ChrRecord_f180 *arg0, ITEM_IDS item
 }
 
 
-void sub_GAME_7F061BF4(enum GUNHAND hand) {
+void sub_GAME_7F061BF4(enum GUNHAND hand) 
+{
     coord3d *field_2A18;
     Mtxf *player_matrix;
     struct hand *hand_ptr;
@@ -17621,46 +17626,10 @@ glabel microcode_generation_ammo_related
 
 
 
-
-
-#ifdef NONMATCHING
-void set_rgba_redirect_generate_microcode(? arg2, ? arg3, f32 arg4, ?32 arg5, f32 arg6, ?32 arg7) {
-    // Node 0
-    return microcode_generation_ammo_related(arg2, arg3, arg2, arg3, arg4, arg5, arg6, arg7, 0xff, 0xff, 0xff, 0xff);
+Gfx *set_rgba_redirect_generate_microcode(Gfx *gdl, sImageTableEntry *tconfig, f32 x, f32 y, f32 arg4, s32 arg5, f32 arg6, s32 arg7, s32 red, s32 green, s32 blue, s32 alpha) 
+{
+    microcode_generation_ammo_related(gdl, tconfig, x, y, arg4, arg5, arg6, arg7, 0xff, 0xff, 0xff, 0xff);
 }
-#else
-GLOBAL_ASM(
-.text
-glabel set_rgba_redirect_generate_microcode
-/* 09E514 7F0699E4 27BDFFC8 */  addiu $sp, $sp, -0x38
-/* 09E518 7F0699E8 44866000 */  mtc1  $a2, $f12
-/* 09E51C 7F0699EC 44877000 */  mtc1  $a3, $f14
-/* 09E520 7F0699F0 C7A40048 */  lwc1  $f4, 0x48($sp)
-/* 09E524 7F0699F4 8FAE004C */  lw    $t6, 0x4c($sp)
-/* 09E528 7F0699F8 C7A60050 */  lwc1  $f6, 0x50($sp)
-/* 09E52C 7F0699FC 8FAF0054 */  lw    $t7, 0x54($sp)
-/* 09E530 7F069A00 AFBF0034 */  sw    $ra, 0x34($sp)
-/* 09E534 7F069A04 241800FF */  li    $t8, 255
-/* 09E538 7F069A08 241900FF */  li    $t9, 255
-/* 09E53C 7F069A0C 240800FF */  li    $t0, 255
-/* 09E540 7F069A10 240900FF */  li    $t1, 255
-/* 09E544 7F069A14 44066000 */  mfc1  $a2, $f12
-/* 09E548 7F069A18 44077000 */  mfc1  $a3, $f14
-/* 09E54C 7F069A1C AFA9002C */  sw    $t1, 0x2c($sp)
-/* 09E550 7F069A20 AFA80028 */  sw    $t0, 0x28($sp)
-/* 09E554 7F069A24 AFB90024 */  sw    $t9, 0x24($sp)
-/* 09E558 7F069A28 AFB80020 */  sw    $t8, 0x20($sp)
-/* 09E55C 7F069A2C E7A40010 */  swc1  $f4, 0x10($sp)
-/* 09E560 7F069A30 AFAE0014 */  sw    $t6, 0x14($sp)
-/* 09E564 7F069A34 E7A60018 */  swc1  $f6, 0x18($sp)
-/* 09E568 7F069A38 0FC1A53A */  jal   microcode_generation_ammo_related
-/* 09E56C 7F069A3C AFAF001C */   sw    $t7, 0x1c($sp)
-/* 09E570 7F069A40 8FBF0034 */  lw    $ra, 0x34($sp)
-/* 09E574 7F069A44 27BD0038 */  addiu $sp, $sp, 0x38
-/* 09E578 7F069A48 03E00008 */  jr    $ra
-/* 09E57C 7F069A4C 00000000 */   nop
-)
-#endif
 
 
 Gfx *gunDrawHudString(Gfx *gdl, s8 *text, s32 x, s32 halign, s32 y, s32 valign, bool glow)

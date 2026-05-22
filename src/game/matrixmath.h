@@ -44,6 +44,8 @@ void matrix_column_3_scalar_multiply(f32 scalar, f32 *matrix);
 void matrix_column_3_scalar_multiply_2(f32 scalar, f32 *matrix);
 void matrix_4x4_set_position_and_rotation_around_xyz(struct coord3d *position, struct coord3d * rotation, Mtxf *matrix);
 void matrix_scalar_multiply_3(f32 scalar, f32 *matrix);
+void matrix_4x4_align(Mtxf *matrix, f32 angle, f32 x, f32 y, f32 z);
+void matrix_4x4_set_rotation_axis_angle(Mtxf *matrix, f32 angle, f32 x, f32 y, f32 z);
 
 // tenative guess
 void sub_GAME_7F058E78(Mtxf *arg0, Mtxf *arg1);
@@ -55,5 +57,5 @@ void matrix_4x4_multiply_homogeneous_eu(f32 lhs[3][3], f32 rhs[3][3], f32 result
 
 void vec3Lerp(vec3d *x, vec3d *y, f32 scaler, vec3d *result);
 void coord3dCubicSplineInterp(coord3d *prev, coord3d *start, coord3d *end, coord3d *next, f32 fraction, f32 tangentScale, coord3d *result);
-
+void coord3dCatmullRomInterp(coord3d *p0, coord3d *p1, coord3d *p2, coord3d *p3, f32 fraction, coord3d *result);
 #endif

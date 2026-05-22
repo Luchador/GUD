@@ -1566,7 +1566,8 @@ void matrix_4x4_set_projection(Mtxf *matrix, u16* depth_scale, f32 fovy, f32 asp
 /*
  * Address: 0x7F059B58
 */
-void matrix_4x4_set_rotation_axis_angle(Mtxf *matrix, f32 angle, f32 x, f32 y, f32 z) {
+void matrix_4x4_set_rotation_axis_angle(Mtxf *matrix, f32 angle, f32 x, f32 y, f32 z) 
+{
     f32 sine;
     f32 cosine;
     f32 norm;
@@ -1607,7 +1608,8 @@ void matrix_4x4_set_rotation_axis_angle(Mtxf *matrix, f32 angle, f32 x, f32 y, f
 }
 
 
-void matrix_4x4_align(Mtxf *matrix, f32 angle, f32 x, f32 y, f32 z) {
+void matrix_4x4_align(Mtxf *matrix, f32 angle, f32 x, f32 y, f32 z) 
+{
     angle = RadToDeg(angle);
     guAlignF(matrix->m, angle, x, y, z);
 }
