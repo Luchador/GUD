@@ -3250,6 +3250,9 @@ void handles_firing_or_throwing_weapon_in_hand(void) {
 }
 #else
 
+/**
+ * In order to get gunFireTankShell to match, I had to move D_80053DD8 and D_80053DDC down here.
+*/
 #ifdef VERSION_US
 GLOBAL_ASM(
 .late_rodata
@@ -17565,13 +17568,13 @@ glabel microcode_generation_ammo_related
 
 
 
-Gfx *set_rgba_redirect_generate_microcode(Gfx *gdl, sImageTableEntry *tconfig, f32 x, f32 y, f32 arg4, s32 arg5, f32 arg6, s32 arg7, s32 red, s32 green, s32 blue, s32 alpha) 
+Gfx *set_rgba_redirect_generate_microcode(Gfx *gdl, sImageTableEntry *tconfig, f32 x, f32 y, f32 arg4, s32 arg5, f32 arg6, s32 arg7) 
 {
     microcode_generation_ammo_related(gdl, tconfig, x, y, arg4, arg5, arg6, arg7, 0xff, 0xff, 0xff, 0xff);
 }
 
 
-Gfx *gunDrawHudString(Gfx *gdl, s8 *text, s32 x, s32 halign, s32 y, s32 valign, bool glow)
+Gfx *gunDrawHudString(Gfx *gdl, s8 *text, s32 x, s32 halign, s32 y, s32 valign, bool outline)
 {
     s32 x1;
     s32 y1;
@@ -17613,7 +17616,7 @@ Gfx *gunDrawHudString(Gfx *gdl, s8 *text, s32 x, s32 halign, s32 y, s32 valign, 
 
     gdl = draw_blackbox_to_screen(gdl, &x1, &y1, &x2, &y2);
 
-    if (glow) {
+    if (outline) {
         gdl = textRenderOutlined(gdl, &x1, &y1, text, ptrFontBankGothicChars, ptrFontBankGothic, -1, 0x646464FF, (s32) viGetX(), viGetY(), 0, 0);
     } else {
         gdl = textRender(gdl, &x1, &y1, text, ptrFontBankGothicChars, ptrFontBankGothic, 0xFF00B0, (s32) viGetX(), viGetY(), 0, 0);
@@ -17623,11 +17626,11 @@ Gfx *gunDrawHudString(Gfx *gdl, s8 *text, s32 x, s32 halign, s32 y, s32 valign, 
 }
 
 
-Gfx *gunDrawHudInteger(Gfx *gdl, s32 value, s32 x, s32 halign, s32 y, s32 valign, bool glow)
+Gfx *gunDrawHudInteger(Gfx *gdl, s32 value, s32 x, s32 halign, s32 y, s32 valign, bool outline)
 {
     char buffer[12];
     sprintf(buffer, "%d\n", value);
-    return gunDrawHudString(gdl, buffer, x, halign, y, valign, glow);
+    return gunDrawHudString(gdl, buffer, x, halign, y, valign, outline);
 }
 
 #ifdef NONMATCHING
@@ -18764,315 +18767,82 @@ glabel generate_ammo_total_microcode
 #endif
 
 
+#if defined(VERSION_US) || defined (VERSION_JP)
+/**
+ * Address: sub_GAME_7F06A334
+ */
+Gfx *sub_GAME_7F06A334(Gfx *gdl)
+{
+    ITEM_IDS offhanditem;
+    ITEM_IDS item;
+    s32 ammotype;
+    s32 reserveammo;
+    s32 magammo;
+    u32 imageoffset;
+    s32 textwidth;
+    s32 pad;
 
+    offhanditem = getCurrentPlayerWeaponId(1);
+    item = getCurrentPlayerWeaponId(0);
 
-
-#ifdef NONMATCHING
-s32 sub_GAME_7F06A334(s32 arg0) {
-    void *sp30;
-    s16 sp34;
-    s32 sp3C;
-    void *sp40;
-    s32 sp44;
-    s32 sp48;
-    s32 sp4C;
-    s32 sp50;
-    s32 sp54;
-    ? temp_ret;
-    ? temp_ret_2;
-    void *temp_v0;
-    s32 temp_s0;
-    s32 temp_v1;
-    s32 temp_a2;
-    s32 phi_s0;
-    s32 phi_v1;
-    s32 phi_t4;
-    s32 phi_s0_2;
-    s32 phi_t9;
-    s32 phi_s0_3;
-    s32 phi_s0_4;
-
-    // Node 0
-    sp54 = getCurrentPlayerWeaponId(1);
-    temp_ret = getCurrentPlayerWeaponId(0);
-    phi_s0_4 = arg0;
-    if (temp_ret != 0)
+    if (item != ITEM_UNARMED)
     {
-        // Node 1
-        sp50 = temp_ret;
-        temp_ret_2 = get_ammo_type_for_weapon(temp_ret);
-        sp4C = temp_ret_2;
-        phi_s0_4 = arg0;
-        if (temp_ret_2 != 0)
-        {
-            // Node 2
-            phi_s0_4 = arg0;
-            if (g_CurrentPlayer->unk894 != 7)
-            {
-                // Node 3
-                phi_s0_4 = arg0;
-                if (g_CurrentPlayer->unk894 != 7)
-                {
-                    // Node 4
-                    phi_s0_4 = arg0;
-                    if (bondwalkItemCheckBitflags(sp50, 0x80000) == 0)
-                    {
-                        // Node 5
-                        temp_v0 = ((sp4C * 0xc) + &ammo_related);
-                        sp3C = 5;
-                        sp30 = temp_v0;
-                        sp40 = (void *) temp_v0->unk4;
-                        get_ptr_item_statistics(sp50);
-                        phi_s0 = arg0;
-                        if (sp40 != 0)
-                        {
-                            // Node 6
-                            sp40 = (void *) (sp40 + globalbank_rdram_offset);
-                            sp34 = viGetViewTop();
-                            sp3C = (s32) sp40->unk4;
-                            phi_s0 = set_rgba_redirect_generate_microcode(arg0, sp40, 0x43480000, 0x43340000, (f32) ((viGetViewHeight() + sp34) + -0x14), 0, (f32) sp30->unk8, 1);
-                        }
-                        // Node 7
-                        temp_s0 = microcode_constructor(phi_s0);
-                        if (bondwalkItemCheckBitflags(sp50, 0x400000) != 0)
-                        {
-                            // Node 8
-                            sp44 = 0;
-                            temp_v1 = (g_CurrentPlayer->unk89C + (g_CurrentPlayer + (sp4C * 4))->unk1130);
-                            phi_v1 = temp_v1;
-                            if (sp54 == sp50)
-                            {
-                                // Node 9
-                                phi_v1 = (temp_v1 + g_CurrentPlayer->unkC44);
-                            }
-                            // Node 10
-                            sp48 = (s32) phi_v1;
-                        }
-                        else
-                        {
-                            // Node 11
-                            sp44 = (s32) g_CurrentPlayer->unk89C;
-                            sp48 = (s32) (g_CurrentPlayer + (sp4C * 4))->unk1130;
-                        }
-                        // Node 12
-                        phi_s0_2 = temp_s0;
-                        if (bondwalkItemCheckBitflags(sp50, 0x400000) == 0)
-                        {
-                            // Node 13
-                            phi_t4 = (sp3C >> 1);
-                            if (sp3C < 0)
-                            {
-                                // Node 14
-                                phi_t4 = ((s32) (sp3C + 1) >> 1);
-                            }
-                            // Node 15
-                            phi_s0_2 = gunDrawHudInteger(temp_s0, sp44, (0xc4 - phi_t4), 0, 0);
-                        }
-                        // Node 16
-                        if ((sp48 > 0) || (bondwalkItemCheckBitflags(sp50, 0x400000) != 0))
-                        {
-                            // Node 18
-                            temp_a2 = (sp3C + 1);
-                            phi_t9 = (temp_a2 >> 1);
-                            if (temp_a2 < 0)
-                            {
-                                // Node 19
-                                phi_t9 = ((s32) (temp_a2 + 1) >> 1);
-                            }
-                            // Node 20
-                            phi_s0_3 = gunDrawHudInteger(phi_s0_2, sp48, (phi_t9 + 0xcb), 1, 0);
-                        }
-                        else
-                        {
+        ammotype = get_ammo_type_for_weapon(item);
 
-                        }
-                        // Node 21
-                        phi_s0_4 = combiner_bayer_lod_perspective(phi_s0_3);
-                    }
+        if (ammotype != 0
+            && g_CurrentPlayer->hands[0].when_detonating_mines_is_0 != 6
+            && g_CurrentPlayer->hands[0].when_detonating_mines_is_0 != 7
+            && !bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_HIDE_AMMO_DISPLAY))
+        {
+            imageoffset = *(u32 *)&ammo_related[ammotype].field_04;
+            textwidth = 5;
+
+            get_ptr_item_statistics(item);
+
+            if (imageoffset != 0)
+            {
+                imageoffset += globalbank_rdram_offset;
+
+                gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset, 200.0f, 180.0f, (viGetViewTop() + viGetViewHeight()) - 20, 0, *(f32 *)&ammo_related[ammotype].field_08, 1);
+
+                textwidth = ((u8 *)imageoffset)[4];
+            }
+
+            gdl = microcode_constructor(gdl);
+
+            if (bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_NO_CLIP_RELOADS))
+            {
+                magammo = 0;
+                reserveammo = g_CurrentPlayer->ammoheldarr[ammotype] + g_CurrentPlayer->hands[0].weapon_ammo_in_magazine;
+
+                if (offhanditem == item)
+                {
+                    reserveammo += g_CurrentPlayer->hands[1].weapon_ammo_in_magazine;
                 }
             }
+            else
+            {
+                magammo = g_CurrentPlayer->hands[0].weapon_ammo_in_magazine;
+                reserveammo = g_CurrentPlayer->ammoheldarr[ammotype];
+            }
+
+            if (!bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_NO_CLIP_RELOADS))
+            {
+                gdl = gunDrawHudInteger(gdl, magammo, 196 - (textwidth / 2), 0, 177, 2, 0);
+            }
+
+            if (reserveammo > 0 || bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_NO_CLIP_RELOADS))
+            {
+                gdl = gunDrawHudInteger(gdl, reserveammo, 203 + ((textwidth + 1) / 2), 1, 177, 2, 0);
+            }
+
+            gdl = combiner_bayer_lod_perspective(gdl);
         }
     }
-    // Node 22
-    return phi_s0_4;
+
+    return gdl;
 }
-#else
-
-#if defined(VERSION_US) || defined(VERSION_JP)
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F06A334
-/* 09EE64 7F06A334 27BDFFA8 */  addiu $sp, $sp, -0x58
-/* 09EE68 7F06A338 AFB00028 */  sw    $s0, 0x28($sp)
-/* 09EE6C 7F06A33C 00808025 */  move  $s0, $a0
-/* 09EE70 7F06A340 AFBF002C */  sw    $ra, 0x2c($sp)
-/* 09EE74 7F06A344 0FC17674 */  jal   getCurrentPlayerWeaponId
-/* 09EE78 7F06A348 24040001 */   li    $a0, 1
-/* 09EE7C 7F06A34C AFA20054 */  sw    $v0, 0x54($sp)
-/* 09EE80 7F06A350 0FC17674 */  jal   getCurrentPlayerWeaponId
-/* 09EE84 7F06A354 00002025 */   move  $a0, $zero
-/* 09EE88 7F06A358 1040008E */  beqz  $v0, .L7F06A594
-/* 09EE8C 7F06A35C 00402025 */   move  $a0, $v0
-/* 09EE90 7F06A360 0FC1A50B */  jal   get_ammo_type_for_weapon
-/* 09EE94 7F06A364 AFA20050 */   sw    $v0, 0x50($sp)
-/* 09EE98 7F06A368 1040008A */  beqz  $v0, .L7F06A594
-/* 09EE9C 7F06A36C AFA2004C */   sw    $v0, 0x4c($sp)
-/* 09EEA0 7F06A370 3C0E8008 */  lui   $t6, %hi(g_CurrentPlayer)
-/* 09EEA4 7F06A374 8DCEA0B0 */  lw    $t6, %lo(g_CurrentPlayer)($t6)
-/* 09EEA8 7F06A378 24010006 */  li    $at, 6
-/* 09EEAC 7F06A37C 8DC20894 */  lw    $v0, 0x894($t6)
-/* 09EEB0 7F06A380 10410084 */  beq   $v0, $at, .L7F06A594
-/* 09EEB4 7F06A384 24010007 */   li    $at, 7
-/* 09EEB8 7F06A388 10410082 */  beq   $v0, $at, .L7F06A594
-/* 09EEBC 7F06A38C 8FA40050 */   lw    $a0, 0x50($sp)
-/* 09EEC0 7F06A390 0FC1782D */  jal   bondwalkItemCheckBitflags
-/* 09EEC4 7F06A394 3C050008 */   lui   $a1, 8
-/* 09EEC8 7F06A398 1440007E */  bnez  $v0, .L7F06A594
-/* 09EECC 7F06A39C 8FAF004C */   lw    $t7, 0x4c($sp)
-/* 09EED0 7F06A3A0 000FC080 */  sll   $t8, $t7, 2
-/* 09EED4 7F06A3A4 030FC023 */  subu  $t8, $t8, $t7
-/* 09EED8 7F06A3A8 3C198003 */  lui   $t9, %hi(ammo_related)
-/* 09EEDC 7F06A3AC 27395EF0 */  addiu $t9, %lo(ammo_related) # addiu $t9, $t9, 0x5ef0
-/* 09EEE0 7F06A3B0 0018C080 */  sll   $t8, $t8, 2
-/* 09EEE4 7F06A3B4 03191021 */  addu  $v0, $t8, $t9
-/* 09EEE8 7F06A3B8 8C480004 */  lw    $t0, 4($v0)
-/* 09EEEC 7F06A3BC 24090005 */  li    $t1, 5
-/* 09EEF0 7F06A3C0 AFA9003C */  sw    $t1, 0x3c($sp)
-/* 09EEF4 7F06A3C4 AFA20030 */  sw    $v0, 0x30($sp)
-/* 09EEF8 7F06A3C8 8FA40050 */  lw    $a0, 0x50($sp)
-/* 09EEFC 7F06A3CC 0FC1722D */  jal   get_ptr_item_statistics
-/* 09EF00 7F06A3D0 AFA80040 */   sw    $t0, 0x40($sp)
-/* 09EF04 7F06A3D4 8FA30040 */  lw    $v1, 0x40($sp)
-/* 09EF08 7F06A3D8 3C0A8009 */  lui   $t2, %hi(globalbank_rdram_offset)
-/* 09EF0C 7F06A3DC 1060001C */  beqz  $v1, .L7F06A450
-/* 09EF10 7F06A3E0 00000000 */   nop
-/* 09EF14 7F06A3E4 8D4AD0B0 */  lw    $t2, %lo(globalbank_rdram_offset)($t2)
-/* 09EF18 7F06A3E8 006A1821 */  addu  $v1, $v1, $t2
-/* 09EF1C 7F06A3EC 0C001149 */  jal   viGetViewTop
-/* 09EF20 7F06A3F0 AFA30040 */   sw    $v1, 0x40($sp)
-/* 09EF24 7F06A3F4 0C00112B */  jal   viGetViewHeight
-/* 09EF28 7F06A3F8 A7A20034 */   sh    $v0, 0x34($sp)
-/* 09EF2C 7F06A3FC 87AB0034 */  lh    $t3, 0x34($sp)
-/* 09EF30 7F06A400 8FAE0030 */  lw    $t6, 0x30($sp)
-/* 09EF34 7F06A404 AFA00014 */  sw    $zero, 0x14($sp)
-/* 09EF38 7F06A408 004B6021 */  addu  $t4, $v0, $t3
-/* 09EF3C 7F06A40C 258DFFEC */  addiu $t5, $t4, -0x14
-/* 09EF40 7F06A410 448D2000 */  mtc1  $t5, $f4
-/* 09EF44 7F06A414 240F0001 */  li    $t7, 1
-/* 09EF48 7F06A418 02002025 */  move  $a0, $s0
-/* 09EF4C 7F06A41C 468021A0 */  cvt.s.w $f6, $f4
-/* 09EF50 7F06A420 8FA50040 */  lw    $a1, 0x40($sp)
-/* 09EF54 7F06A424 3C064348 */  lui   $a2, 0x4348
-/* 09EF58 7F06A428 3C074334 */  lui   $a3, 0x4334
-/* 09EF5C 7F06A42C E7A60010 */  swc1  $f6, 0x10($sp)
-/* 09EF60 7F06A430 C5C80008 */  lwc1  $f8, 8($t6)
-/* 09EF64 7F06A434 AFAF001C */  sw    $t7, 0x1c($sp)
-/* 09EF68 7F06A438 0FC1A679 */  jal   set_rgba_redirect_generate_microcode
-/* 09EF6C 7F06A43C E7A80018 */   swc1  $f8, 0x18($sp)
-/* 09EF70 7F06A440 8FB80040 */  lw    $t8, 0x40($sp)
-/* 09EF74 7F06A444 00408025 */  move  $s0, $v0
-/* 09EF78 7F06A448 93190004 */  lbu   $t9, 4($t8)
-/* 09EF7C 7F06A44C AFB9003C */  sw    $t9, 0x3c($sp)
-.L7F06A450:
-/* 09EF80 7F06A450 0FC2B366 */  jal   microcode_constructor
-/* 09EF84 7F06A454 02002025 */   move  $a0, $s0
-/* 09EF88 7F06A458 00408025 */  move  $s0, $v0
-/* 09EF8C 7F06A45C 8FA40050 */  lw    $a0, 0x50($sp)
-/* 09EF90 7F06A460 0FC1782D */  jal   bondwalkItemCheckBitflags
-/* 09EF94 7F06A464 3C050040 */   lui   $a1, 0x40
-/* 09EF98 7F06A468 10400011 */  beqz  $v0, .L7F06A4B0
-/* 09EF9C 7F06A46C 3C050040 */   lui   $a1, 0x40
-/* 09EFA0 7F06A470 8FA9004C */  lw    $t1, 0x4c($sp)
-/* 09EFA4 7F06A474 3C028008 */  lui   $v0, %hi(g_CurrentPlayer)
-/* 09EFA8 7F06A478 8C42A0B0 */  lw    $v0, %lo(g_CurrentPlayer)($v0)
-/* 09EFAC 7F06A47C AFA00044 */  sw    $zero, 0x44($sp)
-/* 09EFB0 7F06A480 00095080 */  sll   $t2, $t1, 2
-/* 09EFB4 7F06A484 8FAD0054 */  lw    $t5, 0x54($sp)
-/* 09EFB8 7F06A488 8FAE0050 */  lw    $t6, 0x50($sp)
-/* 09EFBC 7F06A48C 004A5821 */  addu  $t3, $v0, $t2
-/* 09EFC0 7F06A490 8D6C1130 */  lw    $t4, 0x1130($t3)
-/* 09EFC4 7F06A494 8C48089C */  lw    $t0, 0x89c($v0)
-/* 09EFC8 7F06A498 15AE0003 */  bne   $t5, $t6, .L7F06A4A8
-/* 09EFCC 7F06A49C 010C1821 */   addu  $v1, $t0, $t4
-/* 09EFD0 7F06A4A0 8C4F0C44 */  lw    $t7, 0xc44($v0)
-/* 09EFD4 7F06A4A4 006F1821 */  addu  $v1, $v1, $t7
-.L7F06A4A8:
-/* 09EFD8 7F06A4A8 1000000A */  b     .L7F06A4D4
-/* 09EFDC 7F06A4AC AFA30048 */   sw    $v1, 0x48($sp)
-.L7F06A4B0:
-/* 09EFE0 7F06A4B0 3C028008 */  lui   $v0, %hi(g_CurrentPlayer)
-/* 09EFE4 7F06A4B4 8C42A0B0 */  lw    $v0, %lo(g_CurrentPlayer)($v0)
-/* 09EFE8 7F06A4B8 8FB9004C */  lw    $t9, 0x4c($sp)
-/* 09EFEC 7F06A4BC 8C58089C */  lw    $t8, 0x89c($v0)
-/* 09EFF0 7F06A4C0 00194880 */  sll   $t1, $t9, 2
-/* 09EFF4 7F06A4C4 00495021 */  addu  $t2, $v0, $t1
-/* 09EFF8 7F06A4C8 AFB80044 */  sw    $t8, 0x44($sp)
-/* 09EFFC 7F06A4CC 8D4B1130 */  lw    $t3, 0x1130($t2)
-/* 09F000 7F06A4D0 AFAB0048 */  sw    $t3, 0x48($sp)
-.L7F06A4D4:
-/* 09F004 7F06A4D4 0FC1782D */  jal   bondwalkItemCheckBitflags
-/* 09F008 7F06A4D8 8FA40050 */   lw    $a0, 0x50($sp)
-/* 09F00C 7F06A4DC 14400011 */  bnez  $v0, .L7F06A524
-/* 09F010 7F06A4E0 02002025 */   move  $a0, $s0
-/* 09F014 7F06A4E4 8FA8003C */  lw    $t0, 0x3c($sp)
-/* 09F018 7F06A4E8 240D00C4 */  li    $t5, 196
-/* 09F01C 7F06A4EC 240E00B1 */  li    $t6, 177
-/* 09F020 7F06A4F0 240F0002 */  li    $t7, 2
-/* 09F024 7F06A4F4 AFAF0014 */  sw    $t7, 0x14($sp)
-/* 09F028 7F06A4F8 AFAE0010 */  sw    $t6, 0x10($sp)
-/* 09F02C 7F06A4FC 8FA50044 */  lw    $a1, 0x44($sp)
-/* 09F030 7F06A500 05010003 */  bgez  $t0, .L7F06A510
-/* 09F034 7F06A504 00086043 */   sra   $t4, $t0, 1
-/* 09F038 7F06A508 25010001 */  addiu $at, $t0, 1
-/* 09F03C 7F06A50C 00016043 */  sra   $t4, $at, 1
-.L7F06A510:
-/* 09F040 7F06A510 01AC3023 */  subu  $a2, $t5, $t4
-/* 09F044 7F06A514 00003825 */  move  $a3, $zero
-/* 09F048 7F06A518 0FC1A723 */  jal   gunDrawHudInteger
-/* 09F04C 7F06A51C AFA00018 */   sw    $zero, 0x18($sp)
-/* 09F050 7F06A520 00408025 */  move  $s0, $v0
-.L7F06A524:
-/* 09F054 7F06A524 8FB80048 */  lw    $t8, 0x48($sp)
-/* 09F058 7F06A528 8FA40050 */  lw    $a0, 0x50($sp)
-/* 09F05C 7F06A52C 5F000006 */  bgtzl $t8, .L7F06A548
-/* 09F060 7F06A530 8FA6003C */   lw    $a2, 0x3c($sp)
-/* 09F064 7F06A534 0FC1782D */  jal   bondwalkItemCheckBitflags
-/* 09F068 7F06A538 3C050040 */   lui   $a1, 0x40
-/* 09F06C 7F06A53C 10400012 */  beqz  $v0, .L7F06A588
-/* 09F070 7F06A540 00000000 */   nop
-/* 09F074 7F06A544 8FA6003C */  lw    $a2, 0x3c($sp)
-.L7F06A548:
-/* 09F078 7F06A548 240900B1 */  li    $t1, 177
-/* 09F07C 7F06A54C 240A0002 */  li    $t2, 2
-/* 09F080 7F06A550 24C60001 */  addiu $a2, $a2, 1
-/* 09F084 7F06A554 AFAA0014 */  sw    $t2, 0x14($sp)
-/* 09F088 7F06A558 AFA90010 */  sw    $t1, 0x10($sp)
-/* 09F08C 7F06A55C 02002025 */  move  $a0, $s0
-/* 09F090 7F06A560 8FA50048 */  lw    $a1, 0x48($sp)
-/* 09F094 7F06A564 04C10003 */  bgez  $a2, .L7F06A574
-/* 09F098 7F06A568 0006C843 */   sra   $t9, $a2, 1
-/* 09F09C 7F06A56C 24C10001 */  addiu $at, $a2, 1
-/* 09F0A0 7F06A570 0001C843 */  sra   $t9, $at, 1
-.L7F06A574:
-/* 09F0A4 7F06A574 272600CB */  addiu $a2, $t9, 0xcb
-/* 09F0A8 7F06A578 24070001 */  li    $a3, 1
-/* 09F0AC 7F06A57C 0FC1A723 */  jal   gunDrawHudInteger
-/* 09F0B0 7F06A580 AFA00018 */   sw    $zero, 0x18($sp)
-/* 09F0B4 7F06A584 00408025 */  move  $s0, $v0
-.L7F06A588:
-/* 09F0B8 7F06A588 0FC2B3BC */  jal   combiner_bayer_lod_perspective
-/* 09F0BC 7F06A58C 02002025 */   move  $a0, $s0
-/* 09F0C0 7F06A590 00408025 */  move  $s0, $v0
-.L7F06A594:
-/* 09F0C4 7F06A594 8FBF002C */  lw    $ra, 0x2c($sp)
-/* 09F0C8 7F06A598 02001025 */  move  $v0, $s0
-/* 09F0CC 7F06A59C 8FB00028 */  lw    $s0, 0x28($sp)
-/* 09F0D0 7F06A5A0 03E00008 */  jr    $ra
-/* 09F0D4 7F06A5A4 27BD0058 */   addiu $sp, $sp, 0x58
-)
-#endif
-
-#if defined(VERSION_EU)
+#elif defined(VERSION_EU)
 GLOBAL_ASM(
 .text
 glabel sub_GAME_7F06A334
@@ -19244,7 +19014,6 @@ glabel sub_GAME_7F06A334
 /* 09D724 7F06AD34 03E00008 */  jr    $ra
 /* 09D728 7F06AD38 27BD0058 */   addiu $sp, $sp, 0x58
 )
-#endif
 #endif
 
 
