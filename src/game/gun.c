@@ -18769,9 +18769,9 @@ glabel generate_ammo_total_microcode
 
 #if defined(VERSION_US) || defined (VERSION_JP)
 /**
- * Address: sub_GAME_7F06A334
+ * Address: 7F06A334
  */
-Gfx *sub_GAME_7F06A334(Gfx *gdl)
+Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
 {
     ITEM_IDS offhanditem;
     ITEM_IDS item;
@@ -18803,6 +18803,7 @@ Gfx *sub_GAME_7F06A334(Gfx *gdl)
             {
                 imageoffset += globalbank_rdram_offset;
 
+                // Draw the ammo icon
                 gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset, 200.0f, 180.0f, (viGetViewTop() + viGetViewHeight()) - 20, 0, *(f32 *)&ammo_related[ammotype].field_08, 1);
 
                 textwidth = ((u8 *)imageoffset)[4];
@@ -18828,11 +18829,13 @@ Gfx *sub_GAME_7F06A334(Gfx *gdl)
 
             if (!bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_NO_CLIP_RELOADS))
             {
+                // Draw the magazine ammo count.
                 gdl = gunDrawHudInteger(gdl, magammo, 196 - (textwidth / 2), 0, 177, 2, 0);
             }
 
             if (reserveammo > 0 || bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_NO_CLIP_RELOADS))
             {
+                // Draw the reserve ammo count.
                 gdl = gunDrawHudInteger(gdl, reserveammo, 203 + ((textwidth + 1) / 2), 1, 177, 2, 0);
             }
 
@@ -18845,7 +18848,7 @@ Gfx *sub_GAME_7F06A334(Gfx *gdl)
 #elif defined(VERSION_EU)
 GLOBAL_ASM(
 .text
-glabel sub_GAME_7F06A334
+glabel gunDrawWatchAmmoDisplay
 /* 09D4B8 7F06AAC8 27BDFFA8 */  addiu $sp, $sp, -0x58
 /* 09D4BC 7F06AACC AFB00028 */  sw    $s0, 0x28($sp)
 /* 09D4C0 7F06AAD0 00808025 */  move  $s0, $a0

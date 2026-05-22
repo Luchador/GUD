@@ -2802,7 +2802,7 @@ Gfx* draw_current_hand_item_and_ammo(Gfx* gdl) {
         gdl = set_enviro_fog_for_items_in_solo_watch_menu(gdl, sp70, &matrix2, 0xFF, 0x64DC6428);
     }
 
-    gdl = microcode_constructor(sub_GAME_7F06A334(gdl));
+    gdl = microcode_constructor(gunDrawWatchAmmoDisplay(gdl));
 
     sp8C = 0x60;
 #if defined(LEFTOVERDEBUG)
