@@ -34,6 +34,7 @@
 #include "joy.h"
 #include "matrixmath.h"
 #include "bondinv.h"
+#include "stan.h"
 
 
 // bss
@@ -557,7 +558,7 @@ struct ModelHitEntry *D_80036060 = NULL;
 // forward declarations
 
 void bullet_path_from_screen_center(coord3d* arg0, coord3d* arg1, enum GUNHAND arg2);
-void sub_GAME_7F05EC1C(struct WeaponObjectRecord *arg0, struct coord3d *arg1, Mtxf *arg2, struct coord3d *arg3, s32 *arg4);
+void sub_GAME_7F05EC1C(ObjectRecord *obj, coord3d *targetpos, Mtxf *arg2, coord3d *arg3, Mtxf *arg4);
 s32 sub_GAME_7F05C6FC(Weapon1PTransformKeyframe *keyframes, f32 time, Mtxf *matrix, GUNHAND hand);
 void analyzeGEKey(void);
 void give_weapon_case_items(void);
@@ -1663,244 +1664,83 @@ void sub_GAME_7F05EB0C(ObjectRecord *obj, coord3d *pos, StandTile *stan, Mtxf *m
 }
 
 
-
-
-
-#ifdef NONMATCHING
-void sub_GAME_7F05EC1C(void)
+/**
+ * Address: 7F05EC1C
+ */
+void sub_GAME_7F05EC1C(ObjectRecord *obj, coord3d *targetpos, Mtxf *arg2, coord3d *arg3, Mtxf *arg4)
 {
-    f32 spD0;
-    f32 spCC;
-    f32 spC8;
-    s32 spC4;
-    f32 spB8;
-    f32 spB4;
-    s32 spB0;
-    s8  spA9;
-    s8  spA8;
-    ? sp54;
-    ? sp50;
-    f32   temp_f0;
-    f32   temp_f14;
-    void *temp_s0;
-    f32   phi_f16;
-    f32   phi_f14;
-    s32   phi_return;
+    PropRecord *playerprop;
+    coord3d pos;
+    StandTile *tile;
+    u32 pad_c[2];
+    f32 yhi;
+    f32 ylo;
+    s32 usedfallback;
+    f32 stanheight;
+    u8 rooms[2];
+    s32 pad_rooms;
+    u8 pad_a[0x4c];
+    s32 sp54;
+    s32 sp50;
+    s32 pad_sp;
 
-    phi_return = arg0->unk10;
-    if (arg0->unk10 != 0)
-    {
-        temp_s0 = getCurrentPlayerProp();
-        temp_f0 = sub_GAME_7F089778(pPlayer);
-        spB0    = 0;
-        if (arg1->unk4 < temp_s0->unkC)
-        {
-            phi_f16 = arg1->unk4 - temp_f0;
-            phi_f14 = temp_s0->unkC - temp_f0;
-        }
-        else
-        {
-            phi_f16 = temp_s0->unkC - temp_f0;
-            phi_f14 = arg1->unk4 - temp_f0;
-        }
-        spB4 = phi_f16;
-        spB8 = phi_f14;
-        spC4 = temp_s0->unk14;
-        bondviewUpdateGuardTankFlagsRelated(temp_s0->unkC, phi_f14, temp_s0, 0);
-        temp_f14 = phi_f14;
-        if (stanTestLineUnobstructed(temp_f14,
-                              &spC4,
-                              temp_s0->unk8,
-                              temp_s0->unk10,
-                              arg1->unk0,
-                              arg1->unk8,
-                              CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER,
-                              temp_f14,
-                              phi_f16,
-                              0.0f,
-                              1.0f) != 0)
-        {
-            spC8 = (bitwise f32)arg1->unk0;
-            spCC = arg1->unk4;
-            spD0 = arg1->unk8;
-        }
-        else
-        {
-            spC4 = temp_s0->unk14;
-            spC8 = (bitwise f32)temp_s0->unk8;
-            spCC = temp_s0->unkC;
-            spB0 = 1;
-            spD0 = (bitwise f32)temp_s0->unk10;
-        }
-        bondviewUpdateGuardTankFlagsRelated(temp_s0, 1);
-        phi_return =
-            sub_GAME_7F05EB0C(arg0, &spC8, spC4, arg2, arg3, arg4, temp_s0);
-        if ((arg0->unk64 & 0x80) != 0)
-        {
-            if (spB0 != 0)
-            {
-                arg0->unk6C->unk0  = (s32)(arg0->unk6C->unk0 | 0x100);
-                arg0->unk6C->unkD4 = (bitwise f32)arg1->unk0;
-                arg0->unk6C->unkD8 = (f32)arg1->unk4;
-                arg0->unk6C->unkDC = (f32)arg1->unk8;
-            }
-            spA8       = get_cur_players_room();
-            spA9       = (u8)0xFF;
-            phi_return = sub_GAME_7F0B4AB4(get_BONDdata_position3(),
-                                           &spC8,
-                                           &spA8,
-                                           arg0->unk6C + 0xCC,
-                                           &sp54,
-                                           &sp50,
-                                           0x14);
-        }
+    // fake
+    if (obj->prop);
+    if (obj->prop == NULL) {
+        return;
     }
-    return phi_return;
+
+    playerprop = getCurrentPlayerProp();
+    stanheight = bondviewGetPlayerStanHeight(g_CurrentPlayer);
+
+    usedfallback = 0;
+
+    if (targetpos->y < playerprop->pos.y) {
+        yhi = playerprop->pos.y - stanheight;
+        ylo = targetpos->y - stanheight;
+    } 
+    else 
+    {
+        yhi = targetpos->y - stanheight;
+        ylo = playerprop->pos.y - stanheight;
+    }
+
+    tile = playerprop->stan;
+    bondviewUpdateGuardTankFlagsRelated(playerprop, 0);
+
+    if (stanTestLineUnobstructed(&tile, playerprop->pos.x, playerprop->pos.z, targetpos->x, targetpos->z, 0x1f, yhi, ylo, 0.0f, 1.0f)) 
+    {
+        pos.x = targetpos->x;
+        pos.y = targetpos->y;
+        pos.z = targetpos->z;
+    } 
+    else 
+    {
+        tile = playerprop->stan;
+        pos.x = playerprop->pos.x;
+        pos.y = playerprop->pos.y;
+        pos.z = playerprop->pos.z;
+        usedfallback = 1;
+    }
+
+    bondviewUpdateGuardTankFlagsRelated(playerprop, 1);
+
+    sub_GAME_7F05EB0C(obj, &pos, tile, arg2, arg3, arg4, playerprop);
+
+    if (obj->runtime_bitflags & 0x80) {
+        if (usedfallback) {
+            obj->projectile->flags |= 0x100;
+            ((coord3d *)&obj->projectile->unkd4)->x = targetpos->x;
+            ((coord3d *)&obj->projectile->unkd4)->y = targetpos->y;
+            ((coord3d *)&obj->projectile->unkd4)->z = targetpos->z;
+        }
+
+        rooms[0] = bondviewGetCurrentPlayersRoom();
+        rooms[1] = 0xff;
+
+        sub_GAME_7F0B4AB4(bondviewGetCurrentPlayersPosition3(), &pos, rooms, obj->projectile->unkCC, &sp54, &sp50, 0x14);
+    }
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F05EC1C
-/* 09374C 7F05EC1C 27BDFF28 */  addiu $sp, $sp, -0xd8
-/* 093750 7F05EC20 AFBF003C */  sw    $ra, 0x3c($sp)
-/* 093754 7F05EC24 AFB20038 */  sw    $s2, 0x38($sp)
-/* 093758 7F05EC28 AFB10034 */  sw    $s1, 0x34($sp)
-/* 09375C 7F05EC2C AFB00030 */  sw    $s0, 0x30($sp)
-/* 093760 7F05EC30 AFA600E0 */  sw    $a2, 0xe0($sp)
-/* 093764 7F05EC34 AFA700E4 */  sw    $a3, 0xe4($sp)
-/* 093768 7F05EC38 8C820010 */  lw    $v0, 0x10($a0)
-/* 09376C 7F05EC3C 00A08825 */  move  $s1, $a1
-/* 093770 7F05EC40 00809025 */  move  $s2, $a0
-/* 093774 7F05EC44 50400072 */  beql  $v0, $zero, .L7F05EE10
-/* 093778 7F05EC48 8FBF003C */   lw    $ra, 0x3c($sp)
-/* 09377C 7F05EC4C 0FC225E6 */  jal   getCurrentPlayerProp
-/* 093780 7F05EC50 00000000 */   nop
-/* 093784 7F05EC54 3C048008 */  lui   $a0, %hi(g_CurrentPlayer)
-/* 093788 7F05EC58 00408025 */  move  $s0, $v0
-/* 09378C 7F05EC5C 0FC225DE */  jal   bondviewGetPlayerStanHeight
-/* 093790 7F05EC60 8C84A0B0 */   lw    $a0, %lo(g_CurrentPlayer)($a0)
-/* 093794 7F05EC64 AFA000B0 */  sw    $zero, 0xb0($sp)
-/* 093798 7F05EC68 C60C000C */  lwc1  $f12, 0xc($s0)
-/* 09379C 7F05EC6C C6220004 */  lwc1  $f2, 4($s1)
-/* 0937A0 7F05EC70 02002025 */  move  $a0, $s0
-/* 0937A4 7F05EC74 00002825 */  move  $a1, $zero
-/* 0937A8 7F05EC78 460C103C */  c.lt.s $f2, $f12
-/* 0937AC 7F05EC7C 00000000 */  nop
-/* 0937B0 7F05EC80 45020005 */  bc1fl .L7F05EC98
-/* 0937B4 7F05EC84 46001381 */   sub.s $f14, $f2, $f0
-/* 0937B8 7F05EC88 46006381 */  sub.s $f14, $f12, $f0
-/* 0937BC 7F05EC8C 10000003 */  b     .L7F05EC9C
-/* 0937C0 7F05EC90 46001401 */   sub.s $f16, $f2, $f0
-/* 0937C4 7F05EC94 46001381 */  sub.s $f14, $f2, $f0
-.L7F05EC98:
-/* 0937C8 7F05EC98 46006401 */  sub.s $f16, $f12, $f0
-.L7F05EC9C:
-/* 0937CC 7F05EC9C 8E0E0014 */  lw    $t6, 0x14($s0)
-/* 0937D0 7F05ECA0 E7B000B4 */  swc1  $f16, 0xb4($sp)
-/* 0937D4 7F05ECA4 E7AE00B8 */  swc1  $f14, 0xb8($sp)
-/* 0937D8 7F05ECA8 0FC2280F */  jal   bondviewUpdateGuardTankFlagsRelated
-/* 0937DC 7F05ECAC AFAE00C4 */   sw    $t6, 0xc4($sp)
-/* 0937E0 7F05ECB0 C6240008 */  lwc1  $f4, 8($s1)
-/* 0937E4 7F05ECB4 8E050008 */  lw    $a1, 8($s0)
-/* 0937E8 7F05ECB8 8E060010 */  lw    $a2, 0x10($s0)
-/* 0937EC 7F05ECBC 8E270000 */  lw    $a3, ($s1)
-/* 0937F0 7F05ECC0 3C013F80 */  li    $at, 0x3F800000 # 1.000000
-/* 0937F4 7F05ECC4 C7AE00B8 */  lwc1  $f14, 0xb8($sp)
-/* 0937F8 7F05ECC8 C7B000B4 */  lwc1  $f16, 0xb4($sp)
-/* 0937FC 7F05ECCC 44814000 */  mtc1  $at, $f8
-/* 093800 7F05ECD0 44803000 */  mtc1  $zero, $f6
-/* 093804 7F05ECD4 240F001F */  li    $t7, 31
-/* 093808 7F05ECD8 AFAF0014 */  sw    $t7, 0x14($sp)
-/* 09380C 7F05ECDC 27A400C4 */  addiu $a0, $sp, 0xc4
-/* 093810 7F05ECE0 E7A40010 */  swc1  $f4, 0x10($sp)
-/* 093814 7F05ECE4 E7AE0018 */  swc1  $f14, 0x18($sp)
-/* 093818 7F05ECE8 E7B0001C */  swc1  $f16, 0x1c($sp)
-/* 09381C 7F05ECEC E7A80024 */  swc1  $f8, 0x24($sp)
-/* 093820 7F05ECF0 0FC2C389 */  jal   stanTestLineUnobstructed
-/* 093824 7F05ECF4 E7A60020 */   swc1  $f6, 0x20($sp)
-/* 093828 7F05ECF8 10400008 */  beqz  $v0, .L7F05ED1C
-/* 09382C 7F05ECFC 02002025 */   move  $a0, $s0
-/* 093830 7F05ED00 C62A0000 */  lwc1  $f10, ($s1)
-/* 093834 7F05ED04 E7AA00C8 */  swc1  $f10, 0xc8($sp)
-/* 093838 7F05ED08 C6320004 */  lwc1  $f18, 4($s1)
-/* 09383C 7F05ED0C E7B200CC */  swc1  $f18, 0xcc($sp)
-/* 093840 7F05ED10 C6240008 */  lwc1  $f4, 8($s1)
-/* 093844 7F05ED14 1000000B */  b     .L7F05ED44
-/* 093848 7F05ED18 E7A400D0 */   swc1  $f4, 0xd0($sp)
-.L7F05ED1C:
-/* 09384C 7F05ED1C 8E180014 */  lw    $t8, 0x14($s0)
-/* 093850 7F05ED20 24190001 */  li    $t9, 1
-/* 093854 7F05ED24 AFB800C4 */  sw    $t8, 0xc4($sp)
-/* 093858 7F05ED28 C6060008 */  lwc1  $f6, 8($s0)
-/* 09385C 7F05ED2C E7A600C8 */  swc1  $f6, 0xc8($sp)
-/* 093860 7F05ED30 C608000C */  lwc1  $f8, 0xc($s0)
-/* 093864 7F05ED34 E7A800CC */  swc1  $f8, 0xcc($sp)
-/* 093868 7F05ED38 C60A0010 */  lwc1  $f10, 0x10($s0)
-/* 09386C 7F05ED3C AFB900B0 */  sw    $t9, 0xb0($sp)
-/* 093870 7F05ED40 E7AA00D0 */  swc1  $f10, 0xd0($sp)
-.L7F05ED44:
-/* 093874 7F05ED44 0FC2280F */  jal   bondviewUpdateGuardTankFlagsRelated
-/* 093878 7F05ED48 24050001 */   li    $a1, 1
-/* 09387C 7F05ED4C 8FA800E4 */  lw    $t0, 0xe4($sp)
-/* 093880 7F05ED50 8FA900E8 */  lw    $t1, 0xe8($sp)
-/* 093884 7F05ED54 02402025 */  move  $a0, $s2
-/* 093888 7F05ED58 27A500C8 */  addiu $a1, $sp, 0xc8
-/* 09388C 7F05ED5C 8FA600C4 */  lw    $a2, 0xc4($sp)
-/* 093890 7F05ED60 8FA700E0 */  lw    $a3, 0xe0($sp)
-/* 093894 7F05ED64 AFB00018 */  sw    $s0, 0x18($sp)
-/* 093898 7F05ED68 AFA80010 */  sw    $t0, 0x10($sp)
-/* 09389C 7F05ED6C 0FC17AC3 */  jal   sub_GAME_7F05EB0C
-/* 0938A0 7F05ED70 AFA90014 */   sw    $t1, 0x14($sp)
-/* 0938A4 7F05ED74 8E4A0064 */  lw    $t2, 0x64($s2)
-/* 0938A8 7F05ED78 8FAC00B0 */  lw    $t4, 0xb0($sp)
-/* 0938AC 7F05ED7C 314B0080 */  andi  $t3, $t2, 0x80
-/* 0938B0 7F05ED80 51600023 */  beql  $t3, $zero, .L7F05EE10
-/* 0938B4 7F05ED84 8FBF003C */   lw    $ra, 0x3c($sp)
-/* 0938B8 7F05ED88 1180000E */  beqz  $t4, .L7F05EDC4
-/* 0938BC 7F05ED8C 00000000 */   nop
-/* 0938C0 7F05ED90 8E42006C */  lw    $v0, 0x6c($s2)
-/* 0938C4 7F05ED94 8C4D0000 */  lw    $t5, ($v0)
-/* 0938C8 7F05ED98 35AE0100 */  ori   $t6, $t5, 0x100
-/* 0938CC 7F05ED9C AC4E0000 */  sw    $t6, ($v0)
-/* 0938D0 7F05EDA0 8E4F006C */  lw    $t7, 0x6c($s2)
-/* 0938D4 7F05EDA4 C6320000 */  lwc1  $f18, ($s1)
-/* 0938D8 7F05EDA8 E5F200D4 */  swc1  $f18, 0xd4($t7)
-/* 0938DC 7F05EDAC 8E58006C */  lw    $t8, 0x6c($s2)
-/* 0938E0 7F05EDB0 C6240004 */  lwc1  $f4, 4($s1)
-/* 0938E4 7F05EDB4 E70400D8 */  swc1  $f4, 0xd8($t8)
-/* 0938E8 7F05EDB8 8E59006C */  lw    $t9, 0x6c($s2)
-/* 0938EC 7F05EDBC C6260008 */  lwc1  $f6, 8($s1)
-/* 0938F0 7F05EDC0 E72600DC */  swc1  $f6, 0xdc($t9)
-.L7F05EDC4:
-/* 0938F4 7F05EDC4 0FC227E6 */  jal   bondviewGetCurrentPlayersRoom
-/* 0938F8 7F05EDC8 00000000 */   nop
-/* 0938FC 7F05EDCC 240800FF */  li    $t0, 255
-/* 093900 7F05EDD0 A3A200A8 */  sb    $v0, 0xa8($sp)
-/* 093904 7F05EDD4 0FC22800 */  jal   bondviewGetCurrentPlayersPosition3
-/* 093908 7F05EDD8 A3A800A9 */   sb    $t0, 0xa9($sp)
-/* 09390C 7F05EDDC 8E47006C */  lw    $a3, 0x6c($s2)
-/* 093910 7F05EDE0 27A90054 */  addiu $t1, $sp, 0x54
-/* 093914 7F05EDE4 27AA0050 */  addiu $t2, $sp, 0x50
-/* 093918 7F05EDE8 240B0014 */  li    $t3, 20
-/* 09391C 7F05EDEC AFAB0018 */  sw    $t3, 0x18($sp)
-/* 093920 7F05EDF0 AFAA0014 */  sw    $t2, 0x14($sp)
-/* 093924 7F05EDF4 AFA90010 */  sw    $t1, 0x10($sp)
-/* 093928 7F05EDF8 00402025 */  move  $a0, $v0
-/* 09392C 7F05EDFC 27A500C8 */  addiu $a1, $sp, 0xc8
-/* 093930 7F05EE00 27A600A8 */  addiu $a2, $sp, 0xa8
-/* 093934 7F05EE04 0FC2D2AD */  jal   sub_GAME_7F0B4AB4
-/* 093938 7F05EE08 24E700CC */   addiu $a3, $a3, 0xcc
-/* 09393C 7F05EE0C 8FBF003C */  lw    $ra, 0x3c($sp)
-.L7F05EE10:
-/* 093940 7F05EE10 8FB00030 */  lw    $s0, 0x30($sp)
-/* 093944 7F05EE14 8FB10034 */  lw    $s1, 0x34($sp)
-/* 093948 7F05EE18 8FB20038 */  lw    $s2, 0x38($sp)
-/* 09394C 7F05EE1C 03E00008 */  jr    $ra
-/* 093950 7F05EE20 27BD00D8 */   addiu $sp, $sp, 0xd8
-)
-#endif
-
-
 
 
 /**
