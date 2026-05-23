@@ -3174,7 +3174,7 @@ void handles_firing_or_throwing_weapon_in_hand(void) {
                 var_a2 += 4;
             } while (var_v1_3 != 5);
         }
-        sub_GAME_7F06EFC4(sp44);
+        modelUpdateNodeRelations(sp44);
         if (temp_s0->unkC != 0)
         {
             switch (spFC)

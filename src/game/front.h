@@ -190,7 +190,7 @@ extern s32 mp_char_cur_select_player[4];
 extern s32 mp_char_prev_select_player[4];
 
 //CODE.bss:80069730
-extern s32 dword_CODE_bss_80069730[4];
+extern s32 mp_char_select_scroll_offset[4];
 
 //CODE.bss:80069740
 extern s32 player_has_selected_char[];
