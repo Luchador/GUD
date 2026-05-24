@@ -1236,7 +1236,7 @@ void chrlvInitActAttack(ChrRecord *self, struct anim_group_info **arg1, s32 arg2
         );
 
     if ((self->chrflags & CHRSTART_FORCENOBLOOD)
-        && ((s32)panim_float->anim_num == (s32)&ptr_animation_table->data[(s32)&ANIM_DATA_fire_hip]))
+        && ((s32)panim_float->anim.anim == (s32)&ptr_animation_table->data[(s32)&ANIM_DATA_fire_hip]))
     {
         // should be:
         //     panim_float = &arg1[anim_index]->table[(next_anim + 1) % len]
@@ -1326,7 +1326,7 @@ void chrlvInitActAttack(ChrRecord *self, struct anim_group_info **arg1, s32 arg2
 
     modelSetAnimation(
         self_model,
-        (struct ModelAnimation *) panim_float->anim_num,
+        (struct ModelAnimation *) panim_float->anim.anim,
         arg2,
         panim_float->start_frame,
         chrlvGetGuard007SpeedRating(self, 0.5f, 0.8f),
@@ -1656,7 +1656,7 @@ void chrlvInitActAttackWalk(ChrRecord *chr, s32 arg1)
     chr->sleep = 0;
     chr->act_attackwalk.speed = 0.0f;
 
-    modelSetAnimation(chr->model, (struct ModelAnimation *) panim_float->anim_num, sp78, panim_float->start_frame, 0.5f, 16.0f);
+    modelSetAnimation(chr->model, (struct ModelAnimation *) panim_float->anim.anim, sp78, panim_float->start_frame, 0.5f, 16.0f);
 }
 
 
@@ -1837,7 +1837,7 @@ void chrlvInitActAttackRoll(ChrRecord *chr, GUNHAND side)
 
     modelSetAnimation(
         self_model,
-        (struct ModelAnimation *) panim_float->anim_num,
+        (struct ModelAnimation *) panim_float->anim.anim,
         sp7C,
         panim_float->start_frame,
         chrlvGetGuard007SpeedRating(chr, 0.5f, 0.8f),
@@ -7213,7 +7213,7 @@ s32 chrlvAttackrollAnimationRelated7F02E2E0(ChrRecord *self)
 
         modelSetAnimation(
             model,
-            (void *) p->anim_num,
+            (void *) p->anim.anim,
             sp24,
             p->shoot_end_frame,
             chrlvGetGuard007SpeedRating(self, 0.7f, 1.12f),
@@ -7770,7 +7770,7 @@ void chrlvTickAttackRoll(ChrRecord *self)
                 self->act_attackroll.animfloats = phi_v1;
                 self->sleep = 0;
 
-                modelSetAnimation(temp_a0, (void *) phi_v1->anim_num, sp38, phi_v1->start_frame, chrlvGetGuard007SpeedRating(self, 0.5f, 0.8f), phi_f2_2);
+                modelSetAnimation(temp_a0, (void *) phi_v1->anim.anim, sp38, phi_v1->start_frame, chrlvGetGuard007SpeedRating(self, 0.5f, 0.8f), phi_f2_2);
 
                 if (self->act_attackroll.unk36 != 0)
                 {

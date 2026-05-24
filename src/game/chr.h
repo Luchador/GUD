@@ -60,7 +60,12 @@ struct explosion_anim_group_info
 
 struct weapon_firing_animation_table
 {
-    s32 anim_num;
+    union
+    {
+        s32 offset;
+        struct ModelAnimation *anim;
+    } anim;
+    
     f32 unk04;
     f32 turn_angle_per_frame;
     f32 angle_offset;
