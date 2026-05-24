@@ -219,7 +219,7 @@ s32 sub_GAME_7F0004D0(ModelAnimationEntry *entries)
     ((0.10000001f * ((f32)sub_GAME_7F000290(ANIM_PTR(anim), 0, ANIM_PTR(anim)->unk04 - 1))) / \
         ((f32)((u32)ANIM_PTR(anim)->unk04)))
 
-void somethingwith_weapon_animation_groups(void)
+void initWeaponAnimGroups(void)
 {
     s32 i;
 
