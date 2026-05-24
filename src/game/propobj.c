@@ -121,6 +121,7 @@ s32 sub_GAME_7F042A0C(struct ObjectRecord *arg0, f32 *arg1, struct coord3d *arg2
 s32 handles_projectile_motion(struct ObjectRecord *arg0, f32 *arg1, struct coord3d *arg2, struct coord3d *arg3, s32 arg4, s32 arg5);
 void sub_GAME_7F0431E4(struct ObjectRecord *arg0, struct coord3d *arg1);
 void door7F054FB4(struct DoorRecord *arg0);
+void door7F0526EC(DoorRecord *door, Mtxf *rhs);
 
 /* PD: projectileFree (similar but not the same structure) */
 void projectileFree(Projectile* projectile)
@@ -30410,63 +30411,29 @@ void sub_GAME_7F04DCB4(ObjectRecord* obj)
 }
 
 
-#ifdef NONMATCHING
-void sub_GAME_7F04DD68(void) {
+/**
+ * Address: 7F04DD68
+ */
+void sub_GAME_7F04DD68(DoorRecord *door)
+{
+    PropRecord *prop;
+    Model *model;
+    struct ModelRoData_BoundingBoxRecord *bbox;
+    struct ModelRwData_SwitchRecord *switchdata;
+    Mtxf mtx;
+    
+    prop = door->prop;
+    model = door->model;
+    bbox = (struct ModelRoData_BoundingBoxRecord *) model->obj->Switches[2]->Data;
+    
+    door7F0526EC(door, &mtx);
+    sub_GAME_7F0A1DA0(&mtx.m[3][0], &mtx.m[0][0], &mtx.m[1][0], &mtx.m[2][0], bbox->Bounds.xmin, bbox->Bounds.xmax, bbox->Bounds.ymin, bbox->Bounds.ymax, bbox->Bounds.zmin, bbox->Bounds.zmax);
 
+    explosionClearBulletImpactRoomByFlag(prop, 1);
+    
+    switchdata = (struct ModelRwData_SwitchRecord *)modelGetNodeRwData(model, model->obj->Switches[1]);
+    switchdata->visible = FALSE;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F04DD68
-/* 082898 7F04DD68 27BDFF80 */  addiu $sp, $sp, -0x80
-/* 08289C 7F04DD6C AFBF002C */  sw    $ra, 0x2c($sp)
-/* 0828A0 7F04DD70 8C8E0010 */  lw    $t6, 0x10($a0)
-/* 0828A4 7F04DD74 27A50030 */  addiu $a1, $sp, 0x30
-/* 0828A8 7F04DD78 AFAE007C */  sw    $t6, 0x7c($sp)
-/* 0828AC 7F04DD7C 8C830014 */  lw    $v1, 0x14($a0)
-/* 0828B0 7F04DD80 8C6F0008 */  lw    $t7, 8($v1)
-/* 0828B4 7F04DD84 8DF80008 */  lw    $t8, 8($t7)
-/* 0828B8 7F04DD88 8F190008 */  lw    $t9, 8($t8)
-/* 0828BC 7F04DD8C 8F220004 */  lw    $v0, 4($t9)
-/* 0828C0 7F04DD90 AFA30078 */  sw    $v1, 0x78($sp)
-/* 0828C4 7F04DD94 0FC149BB */  jal   door7F0526EC
-/* 0828C8 7F04DD98 AFA20074 */   sw    $v0, 0x74($sp)
-/* 0828CC 7F04DD9C 8FA20074 */  lw    $v0, 0x74($sp)
-/* 0828D0 7F04DDA0 27A40060 */  addiu $a0, $sp, 0x60
-/* 0828D4 7F04DDA4 27A50030 */  addiu $a1, $sp, 0x30
-/* 0828D8 7F04DDA8 C4440004 */  lwc1  $f4, 4($v0)
-/* 0828DC 7F04DDAC 27A60040 */  addiu $a2, $sp, 0x40
-/* 0828E0 7F04DDB0 27A70050 */  addiu $a3, $sp, 0x50
-/* 0828E4 7F04DDB4 E7A40010 */  swc1  $f4, 0x10($sp)
-/* 0828E8 7F04DDB8 C4460008 */  lwc1  $f6, 8($v0)
-/* 0828EC 7F04DDBC E7A60014 */  swc1  $f6, 0x14($sp)
-/* 0828F0 7F04DDC0 C448000C */  lwc1  $f8, 0xc($v0)
-/* 0828F4 7F04DDC4 E7A80018 */  swc1  $f8, 0x18($sp)
-/* 0828F8 7F04DDC8 C44A0010 */  lwc1  $f10, 0x10($v0)
-/* 0828FC 7F04DDCC E7AA001C */  swc1  $f10, 0x1c($sp)
-/* 082900 7F04DDD0 C4500014 */  lwc1  $f16, 0x14($v0)
-/* 082904 7F04DDD4 E7B00020 */  swc1  $f16, 0x20($sp)
-/* 082908 7F04DDD8 C4520018 */  lwc1  $f18, 0x18($v0)
-/* 08290C 7F04DDDC 0FC28768 */  jal   sub_GAME_7F0A1DA0
-/* 082910 7F04DDE0 E7B20024 */   swc1  $f18, 0x24($sp)
-/* 082914 7F04DDE4 8FA4007C */  lw    $a0, 0x7c($sp)
-/* 082918 7F04DDE8 0FC28333 */  jal   explosionClearBulletImpactRoomByFlag
-/* 08291C 7F04DDEC 24050001 */   li    $a1, 1
-/* 082920 7F04DDF0 8FA40078 */  lw    $a0, 0x78($sp)
-/* 082924 7F04DDF4 8C880008 */  lw    $t0, 8($a0)
-/* 082928 7F04DDF8 8D090008 */  lw    $t1, 8($t0)
-/* 08292C 7F04DDFC 0FC1B1E7 */  jal   modelGetNodeRwData
-/* 082930 7F04DE00 8D250004 */   lw    $a1, 4($t1)
-/* 082934 7F04DE04 AC400000 */  sw    $zero, ($v0)
-/* 082938 7F04DE08 8FBF002C */  lw    $ra, 0x2c($sp)
-/* 08293C 7F04DE0C 27BD0080 */  addiu $sp, $sp, 0x80
-/* 082940 7F04DE10 03E00008 */  jr    $ra
-/* 082944 7F04DE14 00000000 */   nop
-)
-#endif
-
-
-
 
 
 #ifdef NONMATCHING
