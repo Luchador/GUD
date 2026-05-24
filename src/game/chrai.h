@@ -178,7 +178,7 @@ Rotate Image:
  * Getting a match on alloc_lookup_buffers makes it seem
  * the struct is just one continuous array. (or maybe there's no struct....)
 */
-struct roomproplistchunk
+struct roomproplistblock
 {
     s16 propnums[16];
 };
@@ -233,8 +233,8 @@ extern s32                                g_OnScreenPropCount;
 extern PropRecord **                      g_LastOnScreenProp;
 extern PropRecord *                       g_OnScreenPropList[];
 extern PropRecord *                       g_InteractProp;
-extern s16 *                              RoomPropListChunkIndexes;
-extern struct roomproplistchunk *         RoomPropListChunks;
+extern s16 *                              RoomPropListBlockIndices;
+extern struct roomproplistblock *         RoomPropListBlocks;
 extern sfxRecord                          sfx_related[];
 extern struct WeaponObjRecord             g_WeaponSlots[];
 extern struct HatRecord                   g_HatSlots[];

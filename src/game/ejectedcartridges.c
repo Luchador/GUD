@@ -9,7 +9,7 @@ extern s32 dword_CODE_bss_80075DB4;
 extern ALSoundState* dword_CODE_bss_80075DB8[4];
 
 extern u32 cartridges_eject;
-extern u32 D_80034CA0;
+extern u32 g_gunDebKeyframeIndex;
 
 extern CartridgeModelFileRecord ejected_cartridge[] ;
 
@@ -25,7 +25,7 @@ void init_ejected_cartridges(void) {
 
     i = 0;
     cartridges_eject = 0;
-    D_80034CA0 = 0;
+    g_gunDebKeyframeIndex = 0;
 
     while (ejected_cartridge[i].header != 0) {
         fileLoad(ejected_cartridge[i].header, ejected_cartridge[i].text);

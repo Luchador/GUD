@@ -120,7 +120,7 @@ CartridgeModelFileRecord ejected_cartridge[] = {
 //D:80034C9C
 u32 cartridges_eject = 0;
 //D:80034CA0
-u32 D_80034CA0 = 0;
+u32 g_gunDebKeyframeIndex = 0;
 
 //D:80034CA4
 u32 D_80034CA4[] = {
@@ -574,28 +574,35 @@ void sub_GAME_7F061BF4(enum GUNHAND hand);
 CasingRecord* casingCreate(ModelFileHeader* header, Mtxf* mtx);
 Gfx *microcode_generation_ammo_related(Gfx *gdl, struct sImageTableEntry *tconfig, f32 x, f32 y, f32 arg4, s32 arg5, f32 arg6, s32 arg7, s32 red, s32 green, s32 blue, s32 alpha);
 
+
+// current debug keyframes
+#define DEB_KEYFRAMES sniperMeleeKeyframes2
+
 // end forward declarations
 
 
 
 
-void set_cartridges_eject(u32 uParm1) {
+void set_cartridges_eject(u32 uParm1)
+{
     cartridges_eject = uParm1;
 }
 
-u32 get_cartridges_eject(void) {
+u32 get_cartridges_eject(void)
+{
     return cartridges_eject;
 }
 
 
-// Unreferenced
+// Unreferenced debPrintKeyframe
+// Address: ~ 7F05C538
 void nullsub_73(void)
 {
 #ifdef DEBUG
     osSyncPrintf("\t{");
     osSyncPrintf("0");
-    osSyncPrintf(",{%ff,%ff,%ff}", sniperMeleeKeyframes2[D_80034CA0].pos.x, sniperMeleeKeyframes2[D_80034CA0].pos.y, sniperMeleeKeyframes2[D_80034CA0].pos.z);
-    osSyncPrintf(",{%ff,%ff,%ff}", sniperMeleeKeyframes2[D_80034CA0].rot.x, sniperMeleeKeyframes2[D_80034CA0].rot.y, sniperMeleeKeyframes2[D_80034CA0].rot.z);
+    osSyncPrintf(",{%ff,%ff,%ff}", DEB_KEYFRAMES[g_gunDebKeyframeIndex].pos.x, DEB_KEYFRAMES[g_gunDebKeyframeIndex].pos.y, DEB_KEYFRAMES[g_gunDebKeyframeIndex].pos.z);
+    osSyncPrintf(",{%ff,%ff,%ff}", DEB_KEYFRAMES[g_gunDebKeyframeIndex].rot.x, DEB_KEYFRAMES[g_gunDebKeyframeIndex].rot.y, DEB_KEYFRAMES[g_gunDebKeyframeIndex].rot.z);
     osSyncPrintf(",0.5f,20.0f");
     osSyncPrintf("},\n");
 #endif
@@ -603,12 +610,13 @@ void nullsub_73(void)
 }
 
 
-// Unreferenced
+// Unreferenced - force keyframe to position
+// Address: 7F05C540
 void sub_GAME_7F05C540(coord3d* pos)
 {
     Weapon1PTransformKeyframe* temp_v0;
 
-    temp_v0 = &sniperMeleeKeyframes2[D_80034CA0];
+    temp_v0 = &DEB_KEYFRAMES[g_gunDebKeyframeIndex];
     temp_v0->pos.x += pos->x;
     temp_v0->pos.y += pos->y;
     temp_v0->pos.z += pos->z;
@@ -619,9 +627,9 @@ void sub_GAME_7F05C540(coord3d* pos)
 void sub_GAME_7F05C594(Mtxf* mtxf)
 {
     Mtxf sp18;
-    matrix_4x4_set_rotation_around_xyz(&sniperMeleeKeyframes2[D_80034CA0].rot, &sp18);
+    matrix_4x4_set_rotation_around_xyz(&DEB_KEYFRAMES[g_gunDebKeyframeIndex].rot, &sp18);
     matrix_4x4_multiply_in_place(mtxf, &sp18);
-    matrix_4x4_get_rotation_around_xyz(&sp18, &sniperMeleeKeyframes2[D_80034CA0].rot);
+    matrix_4x4_get_rotation_around_xyz(&sp18, &DEB_KEYFRAMES[g_gunDebKeyframeIndex].rot);
 }
 
 
@@ -630,19 +638,20 @@ void sub_GAME_7F05C614(void)
     if (!cartridges_eject) { return; }
 
     g_CurrentPlayer->hands[0].field_92C = 1;
-    matrix_4x4_set_rotation_around_xyz(&sniperMeleeKeyframes2[D_80034CA0].rot, (Mtxf* ) &g_CurrentPlayer->hands[0].field_8EC);
-    matrix_4x4_set_position(&sniperMeleeKeyframes2[D_80034CA0].pos, (Mtxf* ) &g_CurrentPlayer->hands[0].field_8EC);
+    matrix_4x4_set_rotation_around_xyz(&DEB_KEYFRAMES[g_gunDebKeyframeIndex].rot, (Mtxf *)&g_CurrentPlayer->hands[0].field_8EC);
+    matrix_4x4_set_position(&DEB_KEYFRAMES[g_gunDebKeyframeIndex].pos, (Mtxf *)&g_CurrentPlayer->hands[0].field_8EC);
     cartridges_eject = 0;
 }
 
 
-// Unreferenced
-void sub_GAME_7F05C6B8(void)
+// Unreferenced increment keyframe index, loop back to start if final keyframe is reached
+// Address: 7F05C6B8
+void gunDebAdvanceKeyframe(void)
 {
-    D_80034CA0++;
-    if (sniperMeleeKeyframes2[D_80034CA0].isFinalKey & 1)
+    g_gunDebKeyframeIndex++;
+    if (DEB_KEYFRAMES[g_gunDebKeyframeIndex].isFinalKey & 1)
     {
-        D_80034CA0 = 0;
+        g_gunDebKeyframeIndex = 0;
     }
 }
 
@@ -721,9 +730,10 @@ s32 sub_GAME_7F05C6FC(Weapon1PTransformKeyframe *keyframes, f32 time, Mtxf *matr
 }
 
 
-WeaponStats *get_ptr_item_statistics(ITEM_IDS item) 
+WeaponStats *get_ptr_item_statistics(ITEM_IDS item)
 {
-    if (gitem_structs[item].has_no_model == 0) { /* weapon has model, return stats struct */
+    if (gitem_structs[item].has_no_model == 0)
+    { /* weapon has model, return stats struct */
         return gitem_structs[item].item_weapon_stats;
     }
     return &default_weaponstats; /* no model, return defaults */
@@ -876,18 +886,20 @@ void place_item_in_hand_swap_and_make_visible(GUNHAND hand, ITEM_IDS item)
 }
 
 
-char * get_ptr_item_text_call_line(ITEM_IDS item)
+char *get_ptr_item_text_call_line(ITEM_IDS item)
 {
-  if (item == ITEM_FIST) {
-    item = g_CurrentPlayer->cur_item_weapon_getname;
-  }
-  return gitem_structs[item].item_file_name;
+    if (item == ITEM_FIST)
+    {
+        item = g_CurrentPlayer->cur_item_weapon_getname;
+    }
+    return gitem_structs[item].item_file_name;
 }
 
 
-struct ModelFileHeader * get_ptr_weapon_model_header_line(ITEM_IDS weapon)
+ ModelFileHeader *get_ptr_weapon_model_header_line(ITEM_IDS weapon)
 {
-    if (weapon == ITEM_FIST) {
+    if (weapon == ITEM_FIST)
+    {
         weapon = g_CurrentPlayer->cur_item_weapon_getname;
     }
     return gitem_structs[weapon].item_header;
@@ -900,50 +912,49 @@ int getCurrentWeaponOrItem(void)
 }
 
 
-void used_to_load_1st_person_model_on_demand(enum GUNHAND hand)
+void used_to_load_1st_person_model_on_demand(GUNHAND hand)
 {
-    u32 size_buffer_weapon;
-    s8* ptr_item_text;
-    ModelFileHeader* ptr_weapon_model;
-    u8* buffer_weapon;
-    enum ITEM_IDS field_2a44;
+    u32              size_buffer_weapon;
+    s8              *ptr_item_text;
+    ModelFileHeader *ptr_weapon_model;
+    u8              *buffer_weapon;
+    enum ITEM_IDS    item;
 
     if ((g_CurrentPlayer->hand_invisible[hand] < 0) && (g_CurrentPlayer->lock_hand_model[hand] == 0))
     {
         if ((g_CurrentPlayer->hand_invisible[hand] < -2) || (g_CurrentPlayer->hand_item[hand] == ITEM_UNARMED))
         {
-            field_2a44 = g_CurrentPlayer->field_2A44[hand];
-            ptr_item_text = (s8*)get_ptr_item_text_call_line(field_2a44);
-            ptr_weapon_model = get_ptr_weapon_model_header_line(field_2a44);
+            item             = g_CurrentPlayer->field_2A44[hand];
+            ptr_item_text    = (s8 *)get_ptr_item_text_call_line(item);
+            ptr_weapon_model = get_ptr_weapon_model_header_line(item);
 
             if ((ptr_item_text != NULL) && (ptr_weapon_model != NULL))
             {
-                buffer_weapon = getPlayerWeaponBufferForHand(hand);
+                buffer_weapon      = getPlayerWeaponBufferForHand(hand);
                 size_buffer_weapon = getSizeBufferWeaponInHand(hand);
 
                 g_CurrentPlayer->copy_of_body_obj_header[hand] = *ptr_weapon_model;
 
-                if (field_2a44 == ITEM_SUIT_LF_HAND)
+                if (item == ITEM_SUIT_LF_HAND)
                 {
                     texInitPool(&g_CurrentPlayer->item_related[hand], buffer_weapon + 0xBD70, size_buffer_weapon + 0xFFFF4290);
-                    load_object_fill_header(&g_CurrentPlayer->copy_of_body_obj_header[hand], (u8* ) ptr_item_text, buffer_weapon, 0xBD70, &g_CurrentPlayer->item_related[hand]);
+                    load_object_fill_header(&g_CurrentPlayer->copy_of_body_obj_header[hand], (u8 *)ptr_item_text, buffer_weapon, 0xBD70, &g_CurrentPlayer->item_related[hand]);
                 }
-                else if ((field_2a44 == ITEM_TRIGGER) || (field_2a44 == ITEM_WATCHLASER))
+                else if ((item == ITEM_TRIGGER) || (item == ITEM_WATCHLASER))
                 {
                     texInitPool(&g_CurrentPlayer->item_related[hand], buffer_weapon + 0xAFD0, size_buffer_weapon + 0xFFFF5030);
-                    load_object_fill_header(&g_CurrentPlayer->copy_of_body_obj_header[hand], (u8* ) ptr_item_text, buffer_weapon, 0xAFD0, &g_CurrentPlayer->item_related[hand]);
+                    load_object_fill_header(&g_CurrentPlayer->copy_of_body_obj_header[hand], (u8 *)ptr_item_text, buffer_weapon, 0xAFD0, &g_CurrentPlayer->item_related[hand]);
                 }
                 else
                 {
                     texInitPool(&g_CurrentPlayer->item_related[hand], &buffer_weapon[D_80032464[hand]], size_buffer_weapon - D_80032464[hand]);
-                    load_object_fill_header(&g_CurrentPlayer->copy_of_body_obj_header[hand], (u8* ) ptr_item_text, buffer_weapon, D_80032464[hand], &g_CurrentPlayer->item_related[hand]);
+                    load_object_fill_header(&g_CurrentPlayer->copy_of_body_obj_header[hand], (u8 *)ptr_item_text, buffer_weapon, D_80032464[hand], &g_CurrentPlayer->item_related[hand]);
                 }
             }
 
             g_CurrentPlayer->hand_invisible[hand] = 1;
-            g_CurrentPlayer->hand_item[hand] = field_2a44;
-            g_CurrentPlayer->field_2A44[hand] = -1;
-
+            g_CurrentPlayer->hand_item[hand]      = item;
+            g_CurrentPlayer->field_2A44[hand]     = -1;
         }
         else
         {
@@ -951,7 +962,6 @@ void used_to_load_1st_person_model_on_demand(enum GUNHAND hand)
         }
     }
 }
-
 
 // Called by unused functions.
 ITEM_IDS sub_GAME_7F05D334(ITEM_IDS item, s32 arg1)
@@ -1666,7 +1676,7 @@ void gunInitProjectileObject(ObjectRecord *obj, coord3d *pos, StandTile *stan, M
 
 /**
  * Address: 7F05EC1C
- * 
+ *
  * Determines where the projectile may safely enter the world. Ideally that is the targetpos position, but if targetpos
  * is obstructed the player's position used as a fallback. This prevents the player from launching
  * projectiles through nearby surfaces.
@@ -1702,8 +1712,8 @@ void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *ar
     if (targetpos->y < playerprop->pos.y) {
         yhi = playerprop->pos.y - stanheight;
         ylo = targetpos->y - stanheight;
-    } 
-    else 
+    }
+    else
     {
         yhi = targetpos->y - stanheight;
         ylo = playerprop->pos.y - stanheight;
@@ -1713,14 +1723,14 @@ void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *ar
     bondviewUpdateGuardTankFlagsRelated(playerprop, 0);
 
     // If there is no obstruction, spawn the projectile at the target position.
-    if (stanTestLineUnobstructed(&tile, playerprop->pos.x, playerprop->pos.z, targetpos->x, targetpos->z, 0x1f, yhi, ylo, 0.0f, 1.0f)) 
+    if (stanTestLineUnobstructed(&tile, playerprop->pos.x, playerprop->pos.z, targetpos->x, targetpos->z, 0x1f, yhi, ylo, 0.0f, 1.0f))
     {
         pos.x = targetpos->x;
         pos.y = targetpos->y;
         pos.z = targetpos->z;
-    } 
+    }
     // Otherwise spawn it from the player's position.
-    else 
+    else
     {
         tile = playerprop->stan;
         pos.x = playerprop->pos.x;
@@ -2126,7 +2136,7 @@ void generate_player_thrown_object(s32 hand)
 
 /**
  * Address: 7F05F73C
- * 
+ *
  * Spawns Grenade Launcher rounds and makes them inherit the player's momentum.
  */
 #if defined(VERSION_US) || defined(VERSION_JP)
@@ -2402,7 +2412,7 @@ void currentPlayerCreateRocket(GUNHAND hand)
 
 
 
-/* 
+/*
 * Address: 0x7F05FB00
 * This function frees some sort of ObjectRecord from the given hand
 */
@@ -8765,7 +8775,7 @@ void CapBeamLengthAndDecideIfRendered(struct ChrRecord_f180 *arg0, ITEM_IDS item
 }
 
 
-void sub_GAME_7F061BF4(enum GUNHAND hand) 
+void sub_GAME_7F061BF4(enum GUNHAND hand)
 {
     coord3d *field_2A18;
     Mtxf *player_matrix;
@@ -14783,7 +14793,7 @@ s32 gunCanUseWeapon(enum GUNHAND hand)
 /**
  * US address 7F067420.
  * Perfect Dark method bgunTickGameplay.
- * 
+ *
  * Handles logic for single gun and dual wield trigger presses.
  * Calls updates to first person gun animations, gun model loading, noise to AI, and updating color from collision tiles.
  * Also handles the Watch Magnet Attract hum noise.
@@ -17568,7 +17578,7 @@ glabel microcode_generation_ammo_related
 
 
 
-Gfx *set_rgba_redirect_generate_microcode(Gfx *gdl, sImageTableEntry *tconfig, f32 x, f32 y, f32 arg4, s32 arg5, f32 arg6, s32 arg7) 
+Gfx *set_rgba_redirect_generate_microcode(Gfx *gdl, sImageTableEntry *tconfig, f32 x, f32 y, f32 arg4, s32 arg5, f32 arg6, s32 arg7)
 {
     microcode_generation_ammo_related(gdl, tconfig, x, y, arg4, arg5, arg6, arg7, 0xff, 0xff, 0xff, 0xff);
 }

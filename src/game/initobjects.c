@@ -70,23 +70,23 @@ void alloc_lookup_buffers(void)
     s32 i;
 
     ptr_list_object_lookup_indices = (s16 *)mempAllocBytesInBank(PTR_LIST_OBJECT_LOOKUP_INDICES_LEN * sizeof(s16), MEMPOOL_STAGE);
-    RoomPropListChunkIndexes       = (s16 *)mempAllocBytesInBank((((g_MaxNumRooms * 4) + 0xF) | 0xF) ^ 0xF, MEMPOOL_STAGE);
-    RoomPropListChunks             = (s16 *)mempAllocBytesInBank(BSS_8007161C_LEN * sizeof(struct roomproplistchunk), MEMPOOL_STAGE);
+    RoomPropListBlockIndices       = (s16 *)mempAllocBytesInBank((((g_MaxNumRooms * 4) + 0xF) | 0xF) ^ 0xF, MEMPOOL_STAGE);
+    RoomPropListBlocks             = (s16 *)mempAllocBytesInBank(BSS_8007161C_LEN * sizeof(struct roomproplistblock), MEMPOOL_STAGE);
 
     ptr_list_object_lookup_indices[0] = -1;
 
     for (i=0; i<g_MaxNumRooms; i++)
     {
-        RoomPropListChunkIndexes[i] = -1;
+        RoomPropListBlockIndices[i] = -1;
     }
 
     for (i=0; i<BSS_8007161C_LEN; i++)
     {
-        RoomPropListChunks[i].propnums[0] = -2;
+        RoomPropListBlocks[i].propnums[0] = -2;
 
         for (j=1; j<BSS_8007161C_DATA_LEN; j++)
         {
-            RoomPropListChunks[i].propnums[j] = -1;
+            RoomPropListBlocks[i].propnums[j] = -1;
         }
     }
 }

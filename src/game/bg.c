@@ -182,7 +182,7 @@ s32 bgViewRelated[] = { 1, 1, -1, -1 };
  * Address 0x80041414
 */
 s_room_info g_BgRoomInfo[MAXROOMCOUNT] = {0};
-//D:800442F4
+//D:800442F4 canonically roomnumber
 s32 g_MaxNumRooms = MAXROOMCOUNT;
 
 /**
@@ -4115,7 +4115,7 @@ void bgLoadRoomModelData(s32 roomID)
     s32 used;
     s32 result;
     u8 *data;
-    
+
     used = 0;
 
     if (roomID >= g_MaxNumRooms) goto end;
@@ -4137,7 +4137,7 @@ void bgLoadRoomModelData(s32 roomID)
     }
 
     /**
-    * Allocate one contiguous block for vertices and display lists. 
+    * Allocate one contiguous block for vertices and display lists.
     */
     data = memaAlloc(allocsize);
 
@@ -8343,14 +8343,14 @@ s32 sub_GAME_7F0B8DF4(s32 room, s32 *portalnums, s32 max)
     count = 0;
     i = 0;
     base = g_BgPortals;
-    
+
     if (room);
-    
+
     if (base->offset_portal != NULL)
     {
         offset = 0;
         portal = base;
-        
+
         do
         {
             if ((room == portal->connectedRoom1) || (room == portal->connectedRoom2))
@@ -8358,26 +8358,26 @@ s32 sub_GAME_7F0B8DF4(s32 room, s32 *portalnums, s32 max)
                 portalnums[count] = i;
                 count++;
             }
-        
+
             if (count >= max)
             {
                 return count;
             }
-            
+
             offset += 8;
             i++;
             portal = (bg_portal_data_entry *) (((u8 *) g_BgPortals) + offset);
         }
         while (portal->offset_portal != NULL);
     }
-    
+
     return count;
 }
 
 
 // Copies visible rooms to a list
 // Address: 0x7F0B8E98
-s32 bgCopyVisibleRoomsToList(s32 *rooms, s32 max) 
+s32 bgCopyVisibleRoomsToList(s32 *rooms, s32 max)
 {
     s32 i;
 
@@ -10242,7 +10242,6 @@ glabel sub_GAME_7F0BA2D4
 /* 0EF0EC 7F0BA5BC 27BD00B8 */   addiu $sp, $sp, 0xb8
 )
 #endif
-
 
 
 

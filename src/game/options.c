@@ -663,12 +663,7 @@ void watch_screen0_navigation(void)
                 goto_watch_screen_index_1 = TRUE;
             }
         }
-        #ifdef DEBUG
-        else
-        {
-            osSyncPrintf("gun watch pos x=%f[CL,CR] y=%f[CD,CU] z=%f[TL,TR] ");
-        }
-        #endif
+
 
         if ((joyGetButtonsPressedThisFrame(PLAYER_1, L_JPAD)) || (sub_GAME_7F0A4FB0()))
         {
@@ -2751,7 +2746,7 @@ Gfx* draw_current_hand_item_and_ammo(Gfx* gdl) {
     roty = bondinvGetYrotWatchForIndex(temp_v0);
     text = bondinvGetFirstTitlebyIndex(temp_v0);
     text2 = bondinvGetSecondTitlebyIndex(temp_v0);
-    
+
     if (get_debug_gunwatchpos_flag() != 0) {
         gitem = &gitem_structs[getCurrentPlayerWeaponId(0)];
 
@@ -2778,7 +2773,13 @@ Gfx* draw_current_hand_item_and_ammo(Gfx* gdl) {
         if (joyGetButtons(0, 0x10) != 0) {
              gitem->watch_pos_z *= 1.0204082f;
         }
+#ifdef DEBUG
+
+            osSyncPrintf("gun watch pos x=%f[CL,CR] y=%f[CD,CU] z=%f[TL,TR] ", gitem->watch_pos_x, gitem->watch_pos_y, gitem->watch_pos_z);
+
+#endif
     }
+
 
 #if defined(LEFTOVERDEBUG)
     guPerspective(sp114, &perspNorm, sp60, 1.33333337f, 10.0f, 10000.0f, 1.0f);
@@ -2907,7 +2908,7 @@ Gfx* draw_watch_inventory_page(Gfx *gdl, Mtx *param_2) {
     GunModelFileRecord *gitem;
     s32 x1;
     s32 y1;
-    
+
     gdl = draw_background_health_and_armor(gdl, param_2, 0);
 
     if (check_watch_page_transistion_running() != 1) {
@@ -2942,6 +2943,11 @@ Gfx* draw_watch_inventory_page(Gfx *gdl, Mtx *param_2) {
             if (joyGetButtons(0, 0x10) != 0) {
                 gitem->equip_watch_z *= 1.0204082f;
             }
+    #ifdef DEBUG
+
+            osSyncPrintf("gun list pos x=%f[CL,CR] y=%f[CD,CU] z=%f[TL,TR] ", gitem->equip_watch_x, gitem->equip_watch_y, gitem->equip_watch_z);
+
+    #endif
         }
 
         guPerspective(sp924, &perspNorm, sp894, 1.3333333730698, 10.0f, 10000.0f, 1.0f);
@@ -2964,32 +2970,32 @@ Gfx* draw_watch_inventory_page(Gfx *gdl, Mtx *param_2) {
             s32 pFontFile2;
             s32 pFontChars2;
             char string_builder_allocation[2000];
-            
+
             textheight = 0;
             textwidth = 0;
             string_builder_allocation[0] = 0;
             pFontFile2 = ptrFontBankGothic;
             pFontChars2 = ptrFontBankGothicChars;
-    
+
             // Build a large string
             for (i = 0; i < bondinvCountTotalItemsInInv(); i++) {
                 char* name = bondinvGetNameByIndex(i);
                 strcat(string_builder_allocation, name);
             }
-    
+
             if (D_800409C4 > 0) {
                 D_800409C4--;
             }
-    
+
             sub_GAME_7F0A5B80();
-    
+
             x1 = 0x4E;
             y1 = 0x8C;
-    
+
 #define LINEHEIGHT() (j_text_trigger ? 14 : 12)
-    
+
             temp_s0_3 = (LINEHEIGHT() * 2) + 0x8D;
-    
+
             gdl = microcode_constructor(gdl);
             textMeasure(&textheight, &textwidth, string_builder_allocation, pFontChars2, pFontFile2, LINEHEIGHT());
             gdl = microcode_constructor_related_to_menus(gdl, 0x4E, 0x8C, textwidth + 0x4E, (LINEHEIGHT() * 5) + 0x8C, 0);
@@ -3009,9 +3015,9 @@ Gfx* draw_watch_inventory_page(Gfx *gdl, Mtx *param_2) {
                 invItemName = bondinvGetNameByIndex(g_curWatchItemIndex);
                 sprintf(formattedString, "%d, %d\n%d %f\n", D_800409B0, D_800409B4, g_curWatchItemIndex, (f64) D_800409BC);
                 gdl = microcode_constructor(gdl);
-        
+
                 textMeasure(&y2, &x2, formattedString, pFontChars, pFontFile, 0);
-        
+
                 if (D_800409C0 != 0) {
                     textMeasure(&y2, &x2, invItemName, pFontChars, pFontFile, LINEHEIGHT());
                     x1 = 0x4E;
@@ -3021,7 +3027,7 @@ Gfx* draw_watch_inventory_page(Gfx *gdl, Mtx *param_2) {
                     } else {
                         gdl = textRenderOutlined(gdl, &x1, &y1, invItemName, pFontChars, pFontFile, -1, 0x7000A0, x2 + 1, 0x64, 0, LINEHEIGHT());
                     }
-        
+
                     sub_GAME_7F0A8378();
                 }
             }
@@ -4130,7 +4136,7 @@ void update_volume_slider_verts(struct WatchVertex *verts, f32 fill_amount, s32 
     transition_width = (s32) (((f32) transition_width) * (1.2f - fill_amount));
     i = 0;
     vtx = verts;
-    
+
     /**
      * Verts 0-3: unfilled right section.
      * Dark green.
@@ -4144,10 +4150,10 @@ void update_volume_slider_verts(struct WatchVertex *verts, f32 fill_amount, s32 
         vtx[-1].color.b = 0x20;
         vtx[-1].color.a = 0xE0;
     } while (i < 4);
-    
+
     i = 4;
     vtx = &verts[4];
-    
+
     /**
      * Verts 4-9: filled left section and transition.
      * Verts 10 and 11: moving boundary between transition and unfilled section.
@@ -4155,7 +4161,7 @@ void update_volume_slider_verts(struct WatchVertex *verts, f32 fill_amount, s32 
     do
     {
         filledrightx = xdiff + transition_width;
-        
+
         if (i < 10)
         {
             // The filled section gets brighter as the volume increases.
@@ -4186,12 +4192,12 @@ void update_volume_slider_verts(struct WatchVertex *verts, f32 fill_amount, s32 
                 vtx->coord1.x = verts[2].coord1.x;
             }
         }
-        
+
     i++;
     vtx++;
-    
+
     } while (i != 12);
-    
+
     // Make the unfilled section begin at the right edge of the transition area.
     filledrightx = verts[10].coord1.x;
     verts[1].coord1.x = filledrightx;
@@ -4306,34 +4312,34 @@ Gfx *draw_music_volume_slider(Gfx *gdl)
     struct WatchVertex *vtx1;
     struct WatchVertex *vtx;
     Gfx *cmd;
-    
+
     vtx1 = (struct WatchVertex *)dynAllocateVertices(12);
     volume = get_mTrack2Vol();
-    
+
     if (watch_item_is_actively_selected && game_options_index == 0) {
         watch_adjust_volume_slider(&volume);
     }
-    
+
     fvolume = (f32)(u32)volume / 32767.0f;
     set_mTrack2Vol(volume);
 
     if(1);
-    
+
     cmd = gdl++;
     gDPSetRenderMode(cmd, G_RM_XLU_SURF, G_RM_XLU_SURF2);
-    
+
     gdl = sub_GAME_7F0A3B40(gdl, OS_K0_TO_PHYSICAL(vtx1));
     vtx = setup_watch_rectangles(vtx1, 0, 0, 600, 20, -299, -275);
-    
+
 
     gdl = sub_GAME_7F0A3B40(gdl, OS_K0_TO_PHYSICAL(vtx));
     vtx = setup_watch_rectangles(vtx, 0, 0, 600, 20, -299, -275);
-    
+
     gdl = sub_GAME_7F0A3B40(gdl, OS_K0_TO_PHYSICAL(vtx));
     setup_watch_rectangles(vtx, 0, 0, 600, 20, -299, -275);
-    
+
     update_volume_slider_verts(vtx1, fvolume, 30);
-    
+
     return gdl;
 }
 
@@ -4353,7 +4359,7 @@ void set_mTrack2Vol(u16 param_1)
 
 /**
  * Address: 7F0A9398
- * 
+ *
  * This draws the text for the toggle options (both option titles and values).
  * It also draws button names and the actions mapped to them on the controller screen.
  */
@@ -4386,25 +4392,25 @@ Gfx *draw_options_labels(Gfx *gdl, s32 x, s32 y, char *text, u32 colour, s32 out
     }
 
     textright = textx + textwidth;
-    textbottom = y + textheight; 
+    textbottom = y + textheight;
 
-    if (g_WatchBackgroundGreen < 0xe0) 
-    { 
+    if (g_WatchBackgroundGreen < 0xe0)
+    {
         /**
          * Increases the effect of fuzzy static mode on the text,
          * making text pixels more subject to disappearing or almost disappearing.
          */
-        gDPSetRenderMode(gdl++, G_RM_AA_PCL_SURF, G_RM_AA_PCL_SURF2); 
-    } 
-    else 
-    { 
-        gDPSetRenderMode(gdl++, G_RM_AA_XLU_SURF, G_RM_AA_XLU_SURF2); 
-    } 
+        gDPSetRenderMode(gdl++, G_RM_AA_PCL_SURF, G_RM_AA_PCL_SURF2);
+    }
+    else
+    {
+        gDPSetRenderMode(gdl++, G_RM_AA_XLU_SURF, G_RM_AA_XLU_SURF2);
+    }
 
-    if (drawbg) 
-    { 
-        gdl = microcode_constructor_related_to_menus(gdl, textx - 1, (y + outlined) + 1, textright + 1, textbottom + 1, bgcolour); 
-    } 
+    if (drawbg)
+    {
+        gdl = microcode_constructor_related_to_menus(gdl, textx - 1, (y + outlined) + 1, textright + 1, textbottom + 1, bgcolour);
+    }
 
     gDPSetRenderMode(gdl++, G_RM_AA_XLU_SURF, G_RM_AA_XLU_SURF2);
 
@@ -8462,11 +8468,11 @@ void game_option_toggle_input(s32 option_index)
 
 /**
  * Address: 7F0AB908
- * 
+ *
  * Set the color and draw the text for the values of the toggle options.
  * For example, draw the "ON" and "OFF" text for the Auto-Aim option,
  * but not the "AUTO-AIM" text itself.
- * 
+ *
  * Options are highlighted by using the controller to advance up and down the toggle options list,
  * but options are not selected until the A button is pressed.
  */
@@ -8483,9 +8489,9 @@ Gfx *draw_toggle_option_values(Gfx *gdl, s32 y, s32 option_index, u32 state)
     colour1 = 0x00800080;
     colour2 = 0x00800080;
     colour3 = 0x00800080;
-    
+
     entry = &game_options_entries[option_index];
-    
+
     if (j_text_trigger)
     {
         x1 = 0xAA;
@@ -8577,7 +8583,7 @@ state_selected:
     {
         colour3 = 0xA0FFA0F0;
     }
-    
+
 after_state:
     if (entry->text[3] == 0)
     {
@@ -8589,23 +8595,23 @@ after_state:
         {
             x1 = 0xC8;
         }
-        
+
         if (j_text_trigger)
-        { 
+        {
             // This weird code must be kept on one line for matching.
-            x2 = 0xFA; } else { x2 = 0xFA; } 
+            x2 = 0xFA; } else { x2 = 0xFA; }
         }
 
         drawentry = entry;
-    
+
         gdl = draw_options_labels(gdl, x1, y, langGet(drawentry->text[1]), colour1, 0, -1, 1, 0, 0x3000B0, 0); // Draw text of option's first value e.g. "Full" for the Screen option.
         gdl = draw_options_labels(gdl, x2, y, langGet(drawentry->text[2]), colour2, 0, -1, 1, 0, 0x3000B0, 0); // Draw text of option's second value e.g. "Wide" for the Screen option.
-    
+
         if (drawentry->text[3])
         {
             gdl = draw_options_labels(gdl, 0x10E, y, langGet(drawentry->text[3]), colour3, 0, -1, 1, 0, 0x3000B0, 0); // Draw text of option's third value e.g. "Cinema" for the Screen option.
         }
-    
+
     return gdl;
 }
 
@@ -8805,7 +8811,7 @@ Gfx *draw_watch_mission_briefing_page(Gfx *gdl, Mtx *param_2)
 
         struct font *font = ptrFontBankGothic;
         struct fontchar *chars = ptrFontBankGothicChars;
-        
+
 #if defined(VERSION_EU)
             char wrappedText[3000];
 #else
@@ -8952,7 +8958,7 @@ Gfx *draw_watch_mission_briefing_page(Gfx *gdl, Mtx *param_2)
 
                             case OBJECTIVESTATUS_FAILED:
                                 strcat(objectiveBuffer, failedText);
-                            
+
                                 if (j_text_trigger)
                                 {
                                     colour = 0xa0ffa0f0;

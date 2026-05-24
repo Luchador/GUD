@@ -304,7 +304,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
             }
         }
 
-        if (sub_GAME_7F056850(&spD0, spCC, 0.0f, &spE0, &spDC) != 0)
+        if (getposstan(&spD0, spCC, 0.0f, &spE0, &spDC) != 0)
         {
             if (arg1->type == PROP_TYPE_SMOKE)
             {
@@ -1036,7 +1036,7 @@ void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
         }
     }
 
-    if (sub_GAME_7F056850(&pad->pos, pad->stan, 0.0f, &sp1B8, &sp1C8_stan) != 0)
+    if (getposstan(&pad->pos, pad->stan, 0.0f, &sp1B8, &sp1C8_stan) != 0)
     {
         matrix_4x4_set_basis_and_position_target(&sp12C, 0, 0, 0, -pad->look.f[0], -pad->look.f[1], -pad->look.f[2], pad->up.f[0], pad->up.f[1], pad->up.f[2]);
         sp124 = PitemZ_entries[modelnum].header;
@@ -1920,7 +1920,7 @@ void proplvreset2(enum LEVELID stageId)
                                 chrpropReparent(pdef_tintg->prop, inobj->prop);
                             }
 #ifdef DEBUG
-
+                            //possibly wrong place
                             else
                             {
                                 osSyncPrintf("inobj link not found for object number %d\n", pdefIndex + 1);

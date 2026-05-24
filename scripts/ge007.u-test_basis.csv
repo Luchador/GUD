@@ -253,7 +253,7 @@ d41d8cd98f00b204e9800998ecf8427e,.code,build/u/src/game/bondinv.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/src/game/bondinv.o
 d41d8cd98f00b204e9800998ecf8427e,.data,build/u/src/game/bondinv.o
 d41d8cd98f00b204e9800998ecf8427e,.rodata,build/u/src/game/bondinv.o
-6cac89ce9950d6da1cdfbaa89cc94dbe,.text,build/u/src/game/bondview.o
+4f29c5b8ad92f7856d4da9364834871e,.text,build/u/src/game/bondview.o
 d41d8cd98f00b204e9800998ecf8427e,.code,build/u/src/game/bondview.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/src/game/bondview.o
 9a2ea906234912531f10259886af5a71,.data,build/u/src/game/bondview.o
@@ -458,11 +458,16 @@ d41d8cd98f00b204e9800998ecf8427e,.code,build/u/src/game/game_debug.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/src/game/game_debug.o
 4ae71336e44bf9bf79d2752e234818a5,.data,build/u/src/game/game_debug.o
 9b7ce57fe7617597f32ff056b43202c4,.rodata,build/u/src/game/game_debug.o
-6411d8583989288929902f699ff8f253,.text,build/u/src/game/glass.o
+9ee7b104a58bf24b3e0c94593fa66155,.text,build/u/src/game/glass.o
 d41d8cd98f00b204e9800998ecf8427e,.code,build/u/src/game/glass.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/src/game/glass.o
-7449248de18da3f5a96c70e5dd0570e9,.data,build/u/src/game/glass.o
-91e9c74a6ac093c98ffc9e1515ea270d,.rodata,build/u/src/game/glass.o
+70bc8f4b72a86921468bf8e8441dce51,.data,build/u/src/game/glass.o
+2777eee61f3d2834ab4f9e75b1e6a3aa,.rodata,build/u/src/game/glass.o
+eee76ecf1254152e56c799b08633c7e7,.text,build/u/src/game/glass2.o
+d41d8cd98f00b204e9800998ecf8427e,.code,build/u/src/game/glass2.o
+d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/src/game/glass2.o
+78cdaf0a51b9fc310467772a89ece367,.data,build/u/src/game/glass2.o
+50f68dfbb6232a95fc5c4e2067b206c7,.rodata,build/u/src/game/glass2.o
 d41d8cd98f00b204e9800998ecf8427e,.text,build/u/src/game/gobjdata.o
 d41d8cd98f00b204e9800998ecf8427e,.code,build/u/src/game/gobjdata.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/src/game/gobjdata.o
@@ -473,7 +478,7 @@ d41d8cd98f00b204e9800998ecf8427e,.code,build/u/src/game/gobjdata2.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/src/game/gobjdata2.o
 5b486cfa5049803b6e6480dc1db84c6c,.data,build/u/src/game/gobjdata2.o
 d41d8cd98f00b204e9800998ecf8427e,.rodata,build/u/src/game/gobjdata2.o
-328b98f1fdabe1c489d36f7c34de979b,.text,build/u/src/game/gun.o
+92f21351a534d7e501f792541e071ebb,.text,build/u/src/game/gun.o
 d41d8cd98f00b204e9800998ecf8427e,.code,build/u/src/game/gun.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/src/game/gun.o
 0289c36e967840bba7f6fbd026dda001,.data,build/u/src/game/gun.o
@@ -508,7 +513,7 @@ d41d8cd98f00b204e9800998ecf8427e,.code,build/u/src/game/initBondDATAdefaults.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/src/game/initBondDATAdefaults.o
 31507984a7ba9b284e07be5ec9215734,.data,build/u/src/game/initBondDATAdefaults.o
 bb937d22d13b6582963664b638217077,.rodata,build/u/src/game/initBondDATAdefaults.o
-aa2690d8ca90d088dd990f1d1717cc70,.text,build/u/src/game/initactorpropstuff.o
+95168eefd6ab31c2c07026b668af073e,.text,build/u/src/game/initactorpropstuff.o
 d41d8cd98f00b204e9800998ecf8427e,.code,build/u/src/game/initactorpropstuff.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/src/game/initactorpropstuff.o
 d41d8cd98f00b204e9800998ecf8427e,.data,build/u/src/game/initactorpropstuff.o
@@ -698,7 +703,7 @@ d41d8cd98f00b204e9800998ecf8427e,.code,build/u/src/game/matrixmath_misc.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/src/game/matrixmath_misc.o
 d41d8cd98f00b204e9800998ecf8427e,.data,build/u/src/game/matrixmath_misc.o
 d41d8cd98f00b204e9800998ecf8427e,.rodata,build/u/src/game/matrixmath_misc.o
-28ca4d2e4215b93ca23f7ecd7690e75c,.text,build/u/src/game/model.o
+a9fa4686fa019c631f06a8630af5a709,.text,build/u/src/game/model.o
 d41d8cd98f00b204e9800998ecf8427e,.code,build/u/src/game/model.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/src/game/model.o
 d41d8cd98f00b204e9800998ecf8427e,.data,build/u/src/game/model.o
@@ -738,7 +743,7 @@ d41d8cd98f00b204e9800998ecf8427e,.code,build/u/src/game/ob.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/src/game/ob.o
 c2028385babc92baad8fcbe57e4a7882,.data,build/u/src/game/ob.o
 f04d26298c53b9ed2b1846e108c4f0f5,.rodata,build/u/src/game/ob.o
-3cfcae2ddcf69c0d104d787245961440,.text,build/u/src/game/objecthandler.o
+88b59629302ca7571727462b2c581b4f,.text,build/u/src/game/objecthandler.o
 d41d8cd98f00b204e9800998ecf8427e,.code,build/u/src/game/objecthandler.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/src/game/objecthandler.o
 766d7aee05f96dff2a5649eb36ac32c1,.data,build/u/src/game/objecthandler.o
@@ -763,7 +768,7 @@ d41d8cd98f00b204e9800998ecf8427e,.code,build/u/src/game/objective_status2.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/src/game/objective_status2.o
 4ae71336e44bf9bf79d2752e234818a5,.data,build/u/src/game/objective_status2.o
 66c72a9f52883a35821c069094d98950,.rodata,build/u/src/game/objective_status2.o
-2db020c48120d8b90e4619dd09401c08,.text,build/u/src/game/options.o
+b7c0820dc394f3b1cb653a0b39e9b33a,.text,build/u/src/game/options.o
 d41d8cd98f00b204e9800998ecf8427e,.code,build/u/src/game/options.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/src/game/options.o
 5761f5a56e201189104122ad0642a536,.data,build/u/src/game/options.o
@@ -1124,7 +1129,7 @@ d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/assets/obseg/setup/Ump_setuprefZ.o
 a192e4098a04675dc0406394441c5596,.data,build/u/assets/obseg/setup/Ump_setuprefZ.o
 acc9011f897a5b3b45cad7c1ea4b4715,.rodata,build/u/assets/obseg/setup/Ump_setuprefZ.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/assets/obseg/setup/Ump_setuprunZ.o
-b14e999c1634c7fd7cf5f3b2f3a56513,.data,build/u/assets/obseg/setup/Ump_setuprunZ.o
+840c26a79b0425b9635f70ea5d1cce2c,.data,build/u/assets/obseg/setup/Ump_setuprunZ.o
 d8dd467ddada77c0a04028e782a49e22,.rodata,build/u/assets/obseg/setup/Ump_setuprunZ.o
 d41d8cd98f00b204e9800998ecf8427e,.bss,build/u/assets/obseg/setup/Ump_setupsevbZ.o
 fa7a848eb5dac0a60671450aa46df0aa,.data,build/u/assets/obseg/setup/Ump_setupsevbZ.o

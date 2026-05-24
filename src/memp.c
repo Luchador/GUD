@@ -148,7 +148,7 @@ void *mempAllocBytesInBank(s32 bytes, u8 heap)
 #    ifdef DEBUG
     if ((heap < 0) || (4 < heap))
     {
-        osSyncPrintf(__FILE__, __LINE__, "mempAllocBytesInBank from invalid heap %d!", heap);
+        osSyncPrintf("mempAllocBytesInBank from invalid heap %d!", heap);
     }
 #    endif
     for (;;)

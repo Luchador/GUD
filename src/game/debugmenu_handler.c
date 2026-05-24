@@ -534,49 +534,6 @@ s32 debug_menu_processor(s8 stick_h, s8 stick_v, u16 button_held, u16 button_pre
                 g_DebugHighlightedOption = get_highlighted_debug_option();
                 break;
 
-#ifdef XBLADEBUG
-            case DEB_MARGTOP: //marg top
-            /*
-                printf("Margins: %5.2f.0F %5.2f.0F %5.2f.0F %5.2f.0F\n",
-                    bgTimesAddViewRelatedMaybe(1.0,0.0,0),
-                    bgTimesAddViewRelatedMaybe(1.0,(((button_pressed & 1) >> 5 & 1 ^ 1) - ((button_pressed & 2) >> 5 & 1 ^ 1)) * 4.0,1),
-                    bgTimesAddViewRelatedMaybe(1.0,0.0,2),
-                    bgTimesAddViewRelatedMaybe(1.0,0.0,3));
-            //*/
-            case DEB_MARGBOT: //marg bot
-            /*
-                printf("Margins: %5.2f.0F %5.2f.0F %5.2f.0F %5.2f.0F\n",
-                    bgTimesAddViewRelatedMaybe(1.0,0.0,0),
-                    bgTimesAddViewRelatedMaybe(1.0,0.0,1),
-                    bgTimesAddViewRelatedMaybe(1.0,0.0,2),
-                    bgTimesAddViewRelatedMaybe(1.0,(((button_pressed & 1) >> 5 & 1 ^ 1) - ((button_pressed & 2) >> 5 & 1 ^ 1)) * 4.0,3));
-            //*/
-            case DEB_MARGLEFT: //marg left
-            /*
-                printf("Margins: %5.2f.0F %5.2f.0F %5.2f.0F %5.2f.0F\n",
-                    bgTimesAddViewRelatedMaybe(1.0,(((button_pressed & 1) >> 5 & 1 ^ 1) - ((button_pressed & 2) >> 5 & 1 ^ 1)) * 4.0,0),
-                    bgTimesAddViewRelatedMaybe(1.0,0.0,1),
-                    bgTimesAddViewRelatedMaybe(1.0,0.0,2),
-                    bgTimesAddViewRelatedMaybe(1.0,0.0,3));
-            //*/
-            case DEB_MARGRIGHT: //marg right
-            /*
-                printf("Margins: %5.2f.0F %5.2f.0F %5.2f.0F %5.2f.0F\n",
-                    bgTimesAddViewRelatedMaybe(1.0,0.0,0),
-                    bgTimesAddViewRelatedMaybe(1.0,0.0,1),
-                    bgTimesAddViewRelatedMaybe(1.0,(((button_pressed & 1) >> 5 & 1 ^ 1) - ((button_pressed & 2) >> 5 & 1 ^ 1)) * 4.0,2),
-                    bgTimesAddViewRelatedMaybe(1.0,0.0,3));
-            //*/
-            case DEB_MARGRESET: //marg reset
-            /*
-                printf("Margins: %5.2f.0F %5.2f.0F %5.2f.0F %5.2f.0F\n",
-                    bgTimesAddViewRelatedMaybe(1.0,0.0,0),
-                    bgTimesAddViewRelatedMaybe(1.0,0.0,1),
-                    bgTimesAddViewRelatedMaybe(1.0,0.0,2),
-                    bgTimesAddViewRelatedMaybe(1.0,0.0,3));
-            //*/
-                break;
-#endif
             case DEB_SCREENSIZE: // screen size
                 g_DebugHighlightedOption = get_highlighted_debug_option();
                 break;
