@@ -240,11 +240,11 @@ typedef struct CasingRecord {
     coord3d pos;
     coord3d vel;
 #if VERSION_EU
-    f32 unk1C[3][3];
-    f32 unk40[3][3];
+    f32 rot_mtx[3][3];
+    f32 rot_velocity_mtx[3][3];
 #else
-    Mtxf unk1C;
-    Mtxf unk5C;
+    Mtxf rot_mtx;
+    Mtxf rot_velocity_mtx;
 #endif
     ModelFileHeader *header;
 } CasingRecord;

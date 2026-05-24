@@ -59,7 +59,7 @@ void reset_counter_rand_body_head(void)
 
 
 u32 sub_GAME_7F0001F0(void *ani, int aniid, int param_3) {
-    short asStack8[4];
+    u16 asStack8[4];
     u16 result = 0;
 
     while (aniid < param_3) {
@@ -271,22 +271,27 @@ void somethingwith_weapon_animation_groups(void)
 #undef ANIM_FRAC
 #undef ANIM_FRAC_MUL_FIRST
 
-void sub_GAME_7F000980(void) {
-    sub_GAME_7F0009A0();
+
+/**
+ * Address: 7F000980
+ */
+void casingsInit(void) {
+    initCasingPool();
 }
 
-#if defined (VERSION_EU)
-#define POS 0x19
-#else
-#define POS 0x27
-#endif
 
-void sub_GAME_7F0009A0(void) {
-    u32 *end = &g_Casings[20];
-    u32 *ptr = &g_Casings[0];
-    while(end > ptr) {
-        ptr[POS] = 0;
-        ptr += POS+1;
+/**
+ * Address: 7F0009A0
+ * 
+ * Sets the header field of every g_Casings entry to NULL.
+ */
+void initCasingPool(void) {
+    CasingRecord *end = &g_Casings[20];
+    CasingRecord *ptr = &g_Casings[0];
+    
+    while (end > ptr) 
+    {
+        ptr->header = NULL;
+        ptr++;
     }
 }
-

@@ -15262,27 +15262,27 @@ CasingRecord* casingCreate(ModelFileHeader* header, Mtxf* mtx)
         entry->pos.y = mtx->m[3][1];
         entry->pos.z = mtx->m[3][2];
 #if VERSION_EU
-        matrix_7f05842c_eu(mtx, entry->unk1C);
+        matrix_7f05842c_eu(mtx, entry->rot_mtx);
 #else
-        entry->unk1C.m[0][0] = mtx->m[0][0];
-        entry->unk1C.m[0][1] = mtx->m[0][1];
-        entry->unk1C.m[0][2] = mtx->m[0][2];
-        entry->unk1C.m[0][3] = 0.0f;
+        entry->rot_mtx.m[0][0] = mtx->m[0][0];
+        entry->rot_mtx.m[0][1] = mtx->m[0][1];
+        entry->rot_mtx.m[0][2] = mtx->m[0][2];
+        entry->rot_mtx.m[0][3] = 0.0f;
 
-        entry->unk1C.m[1][0] = mtx->m[1][0];
-        entry->unk1C.m[1][1] = mtx->m[1][1];
-        entry->unk1C.m[1][2] = mtx->m[1][2];
-        entry->unk1C.m[1][3] = 0.0f;
+        entry->rot_mtx.m[1][0] = mtx->m[1][0];
+        entry->rot_mtx.m[1][1] = mtx->m[1][1];
+        entry->rot_mtx.m[1][2] = mtx->m[1][2];
+        entry->rot_mtx.m[1][3] = 0.0f;
 
-        entry->unk1C.m[2][0] = mtx->m[2][0];
-        entry->unk1C.m[2][1] = mtx->m[2][1];
-        entry->unk1C.m[2][2] = mtx->m[2][2];
-        entry->unk1C.m[2][3] = 0.0f;
+        entry->rot_mtx.m[2][0] = mtx->m[2][0];
+        entry->rot_mtx.m[2][1] = mtx->m[2][1];
+        entry->rot_mtx.m[2][2] = mtx->m[2][2];
+        entry->rot_mtx.m[2][3] = 0.0f;
 
-        entry->unk1C.m[3][0] = 0.0f;
-        entry->unk1C.m[3][1] = 0.0f;
-        entry->unk1C.m[3][2] = 0.0f;
-        entry->unk1C.m[3][3] = 1.0f;
+        entry->rot_mtx.m[3][0] = 0.0f;
+        entry->rot_mtx.m[3][1] = 0.0f;
+        entry->rot_mtx.m[3][2] = 0.0f;
+        entry->rot_mtx.m[3][3] = 1.0f;
 #endif
         return entry;
     }
@@ -16519,9 +16519,9 @@ void update_bullet_casing(CasingRecord* casing)
     for (i = 0; i < g_ClockTimer; i++)
     {
 #if defined(VERSION_US) || defined(VERSION_JP)
-        matrix_4x4_multiply_homogeneous_in_place(&casing->unk5C, &casing->unk1C);
+        matrix_4x4_multiply_homogeneous_in_place(&casing->rot_velocity_mtx, &casing->rot_mtx);
 #else
-        matrix_4x4_multiply_homogeneous_in_place_eu(casing->unk40, casing->unk1C);
+        matrix_4x4_multiply_homogeneous_in_place_eu(casing->rot_velocity_mtx, casing->rot_mtx);
 #endif
     }
 }
