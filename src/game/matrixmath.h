@@ -36,6 +36,7 @@ void matrix_column_3_scalar_multiply_2(f32 scalar, f32 *matrix);
 void matrix_4x4_set_position_and_rotation_around_y(f32 *position, f32 angle, Mtxf *matrix);
 void matrix_scalar_multiply_2(f32 scalar, f32 *matrix);
 void matrix_4x4_set_rotation_around_xyz(struct coord3d *angles, Mtxf *matrix);
+void matrix_4x4_get_rotation_around_xyz(Mtxf *matrix, struct coord3d *angles);
 void matrix_4x4_set_basis_and_position(Mtxf *arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, f32 arg5, f32 arg6, f32 arg7, f32 arg8, f32 arg9);
 void matrix_4x4_set_inverse_rotation_and_translation(Mtxf *arg0, Mtxf *arg1);
 void matrix_column_1_scalar_multiply(f32 scalar, f32 *matrix);
@@ -46,6 +47,7 @@ void matrix_4x4_set_position_and_rotation_around_xyz(struct coord3d *position, s
 void matrix_scalar_multiply_3(f32 scalar, f32 *matrix);
 void matrix_4x4_align(Mtxf *matrix, f32 angle, f32 x, f32 y, f32 z);
 void matrix_4x4_set_rotation_axis_angle(Mtxf *matrix, f32 angle, f32 x, f32 y, f32 z);
+void matrix_4x4_set_rotation_inverse(Mtxf *rotation, Mtxf *transpose);
 
 // tenative guess
 void sub_GAME_7F058E78(Mtxf *arg0, Mtxf *arg1);

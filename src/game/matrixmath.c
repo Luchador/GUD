@@ -1633,7 +1633,8 @@ void matrix_4x4_7F059D30(Mtxf *matrix)
     return;
 }
 
-void matrix_4x4_set_rotation_inverse(Mtxf *rotation, Mtxf *transpose) {
+void matrix_4x4_set_rotation_inverse(Mtxf *rotation, Mtxf *transpose) 
+{
     transpose->m[0][0] = rotation->m[0][0];
     transpose->m[0][1] = rotation->m[1][0];
     transpose->m[0][2] = rotation->m[2][0];
