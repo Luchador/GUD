@@ -119,7 +119,7 @@ void add_obj_to_temp_proxmine_table(WeaponObjRecord* proxy);
 s32 sub_GAME_7F042EB4(struct ObjectRecord *arg0, f32 *arg1, struct coord3d *arg2, struct coord3d *arg3, s32 arg4, s32 arg5);
 s32 sub_GAME_7F042A0C(struct ObjectRecord *arg0, f32 *arg1, struct coord3d *arg2, struct coord3d *arg3, s32 arg4);
 s32 handles_projectile_motion(struct ObjectRecord *arg0, f32 *arg1, struct coord3d *arg2, struct coord3d *arg3, s32 arg4, s32 arg5);
-void sub_GAME_7F0431E4(struct ObjectRecord *arg0, struct coord3d *arg1);
+void propobjSettle(struct ObjectRecord *arg0, struct coord3d *arg1);
 void door7F054FB4(struct DoorRecord *arg0);
 void door7F0526EC(DoorRecord *door, Mtxf *rhs);
 
@@ -2798,8 +2798,11 @@ void chrobjCallsApplySpeed(f32 *openPosition, f32 maxFrac, f32 *speedPtr, f32 ac
 
 /**
  * Address: 7F0431E4
+ * 
+ * Some objects such as hats, ammo crates, or dropped weapons will bounce after falling or being shot.
+ * This function causes subsqeuent bounces to become smaller and eventually stop.
  */
-void sub_GAME_7F0431E4(ObjectRecord *obj, coord3d *arg1)
+void propobjSettle(ObjectRecord *obj, coord3d *arg1)
 {
     coord3d angles;
     Mtxf rotmtx;
@@ -2809,7 +2812,7 @@ void sub_GAME_7F0431E4(ObjectRecord *obj, coord3d *arg1)
     f32 z;
     f32 invlen;
     f32 tmp;
-    f32 modelunk14;
+    f32 modelscale;
     s32 pad;
     f32 angle;
     Projectile *projectile;
@@ -2896,7 +2899,7 @@ void sub_GAME_7F0431E4(ObjectRecord *obj, coord3d *arg1)
     aimmtx.m[3][1] = 0.0f;
     aimmtx.m[3][2] = 0.0f;
     aimmtx.m[3][3] = 1.0f;
-
+    
     matrix_4x4_get_rotation_around_xyz(&aimmtx, &angles);
     quaternion_set_rotation_around_xyzf((f32 *)&angles, projectile->unk78);
     quaternion_ensure_shortest_path(projectile->unk68, projectile->unk78);
@@ -2917,13 +2920,13 @@ void sub_GAME_7F0431E4(ObjectRecord *obj, coord3d *arg1)
     {
         projectile->unk64 = 0.050000001f / ((angle * 4.0f) / M_TAU_F);
     } else {
-        modelunk14 = *((f32 *)(((u8 *)obj->model) + 0x14));
+        modelscale = obj->model->scale;
 
         tmp = acosf(
             (((arg1->x * obj->mtx.m[0][0])
             + (arg1->y * obj->mtx.m[0][1]))
             + (obj->mtx.m[0][2] * arg1->z))
-            / (modelunk14 * modelunk14));
+            / (modelscale * modelscale));
 
         tmp = tmp / g_GlobalTimerDelta;
 
@@ -5662,13 +5665,13 @@ s32 object_interaction(struct PropRecord *arg0)
                                 }
                                 else
                                 {
-                                    sub_GAME_7F0431E4(obj, &sp62C);
+                                    propobjSettle(obj, &sp62C);
                                 }
                             }
                         }
                         else
                         {
-                            sub_GAME_7F0431E4(obj, &sp62C);
+                            propobjSettle(obj, &sp62C);
                         }
                     }
 
@@ -8529,12 +8532,12 @@ glabel object_interaction
 /* 07AAE0 7F045FB0 10000007 */  b     .L7F045FD0
 /* 07AAE4 7F045FB4 E6000008 */   swc1  $f0, 8($s0)
 .L7F045FB8:
-/* 07AAE8 7F045FB8 0FC10C79 */  jal   sub_GAME_7F0431E4
+/* 07AAE8 7F045FB8 0FC10C79 */  jal   propobjSettle
 /* 07AAEC 7F045FBC 27A5062C */   addiu $a1, $sp, 0x62c
 /* 07AAF0 7F045FC0 10000004 */  b     .L7F045FD4
 /* 07AAF4 7F045FC4 922C0003 */   lbu   $t4, 3($s1)
 .L7F045FC8:
-/* 07AAF8 7F045FC8 0FC10C79 */  jal   sub_GAME_7F0431E4
+/* 07AAF8 7F045FC8 0FC10C79 */  jal   propobjSettle
 /* 07AAFC 7F045FCC 27A5062C */   addiu $a1, $sp, 0x62c
 .L7F045FD0:
 /* 07AB00 7F045FD0 922C0003 */  lbu   $t4, 3($s1)
@@ -13626,12 +13629,12 @@ glabel object_interaction
 /* 07AF04 7F046394 10000007 */  b     .Ljp7F0463B4
 /* 07AF08 7F046398 E6000008 */   swc1  $f0, 8($s0)
 .Ljp7F04639C:
-/* 07AF0C 7F04639C 0FC10D39 */  jal   sub_GAME_7F0431E4
+/* 07AF0C 7F04639C 0FC10D39 */  jal   propobjSettle
 /* 07AF10 7F0463A0 27A50634 */   addiu $a1, $sp, 0x634
 /* 07AF14 7F0463A4 10000004 */  b     .Ljp7F0463B8
 /* 07AF18 7F0463A8 92390003 */   lbu   $t9, 3($s1)
 .Ljp7F0463AC:
-/* 07AF1C 7F0463AC 0FC10D39 */  jal   sub_GAME_7F0431E4
+/* 07AF1C 7F0463AC 0FC10D39 */  jal   propobjSettle
 /* 07AF20 7F0463B0 27A50634 */   addiu $a1, $sp, 0x634
 .Ljp7F0463B4:
 /* 07AF24 7F0463B4 92390003 */  lbu   $t9, 3($s1)
@@ -18732,12 +18735,12 @@ glabel object_interaction
 /* 078B44 7F046154 10000007 */  b     .L7F046174
 /* 078B48 7F046158 E6000008 */   swc1  $f0, 8($s0)
 .L7F04615C:
-/* 078B4C 7F04615C 0FC10CA9 */  jal   sub_GAME_7F0431E4
+/* 078B4C 7F04615C 0FC10CA9 */  jal   propobjSettle
 /* 078B50 7F046160 27A50634 */   addiu $a1, $sp, 0x634
 /* 078B54 7F046164 10000004 */  b     .L7F046178
 /* 078B58 7F046168 922E0003 */   lbu   $t6, 3($s1)
 .L7F04616C:
-/* 078B5C 7F04616C 0FC10CA9 */  jal   sub_GAME_7F0431E4
+/* 078B5C 7F04616C 0FC10CA9 */  jal   propobjSettle
 /* 078B60 7F046170 27A50634 */   addiu $a1, $sp, 0x634
 .L7F046174:
 /* 078B64 7F046174 922E0003 */  lbu   $t6, 3($s1)
