@@ -180,8 +180,9 @@ struct coord2d g_DefaultAutoAimCoord = { 0 };
 Gfx *chrpropRender(Gfx *arg0, PropRecord *arg1, s32 withalpha);
 void chraiCheckUseHeldItem(s32 hand);
 void chraiDefaultWeaponFireHandler(s32);
-void chraiFistAttackHandler(s32, s32);
+void chraiFistAttackHandler(s32 hand, s32 item_id);
 void propExecuteTickOperation(PropRecord *prop, INV_ITEM_TYPE op);
+void modelGetAxisExtents(Model* model, f32* max, f32* min, s32 axis);
 
 // end forward declarations
 
@@ -1580,221 +1581,144 @@ void chrpropAddBulletHit(struct ShotData *shotdata, PropRecord *prop, f32 dist, 
 }
 
 
-#ifdef NONMATCHING
-void chraiFistAttackHandler(void) {
+void chraiFistAttackHandler(s32 hand, s32 item_id)
+{
+    PropRecord *playerprop;
+    f32 ducking;
+    s32 hit;
+    PropRecord *prop;
+    PropRecord **propptr;
+    ChrRecord *chr;
+    f32 max0;
+    f32 min0;
+    f32 max1;
+    f32 min1;
+    f32 max2;
+    f32 min2;
+    s32 hitpart;
+    StandTile *tile;
+    coord3d from;
+    coord3d vector;
+    f32 reach;
 
+    hit = 0;
+    playerprop = getCurrentPlayerProp();
+    ducking = bondviewGetPlayerDuckingHeightRelated(g_CurrentPlayer);
+
+    for (propptr = g_LastOnScreenProp - 1; propptr >= g_OnScreenPropList; propptr--)
+    {
+        prop = *propptr;
+
+        if (prop == NULL) 
+        {
+            continue;
+        }
+
+        if (!(prop->zDepth < 500.0f)) 
+        {
+            continue;
+        }
+
+        if (prop->type != PROP_TYPE_CHR) 
+        {
+            if (prop->type != PROP_TYPE_VIEWER) 
+            {
+                continue;
+            }
+
+            if (prop->chr == NULL)
+            {
+                continue;
+            }
+
+            if (getPlayerPointerIndex(prop) == get_cur_playernum()) 
+            {
+                continue;
+            }
+        }
+
+        reach = 50.0f;
+        chr = prop->chr;
+
+        if (getCurrentWeaponOrItem() == ITEM_SNIPERRIFLE) 
+        {
+            reach = 100.0f;
+        }
+
+        modelGetAxisExtents(chr->model, &max0, &min0, 0);
+
+        if (!(0.0f <= max0)) 
+        {
+            continue;
+        }
+
+        if (!(min0 <= 0.0f)) 
+        {
+            continue;
+        }
+
+        modelGetAxisExtents(chr->model, &max1, &min1, 1);
+
+        if (!(0.0f <= max1)) 
+        {
+            continue;
+        }
+
+        if (!(min1 <= 0.0f)) 
+        {
+            continue;
+        }
+
+        modelGetAxisExtents(chr->model, &max2, &min2, 2);
+
+        if (!(min2 <= 0.0f)) 
+        {
+            continue;
+        }
+
+        if (!((-reach) <= max2)) 
+        {
+            continue;
+        }
+
+        tile = playerprop->stan;
+
+        if (!stanTestLineUnobstructed(&tile, playerprop->pos.x, playerprop->pos.z, prop->pos.x, prop->pos.z, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PATHBLOCKER, ducking, ducking, 0.0f, 1.0f)) 
+        {
+            continue;
+        }
+
+        if (tile != prop->stan) {
+            continue;
+        }
+
+        hitpart = HIT_CHEST;
+
+        if (currentPlayerGetCrouchPos() == CROUCH_HALF) {
+            hitpart = HIT_GENERAL;
+        } 
+        else if (currentPlayerGetCrouchPos() == CROUCH_SQUAT) 
+        {
+            hitpart = HIT_GENERALHALF;
+        }
+
+        if (g_musicSfxBufferPtr && g_musicSfxBufferPtr);
+
+        bullet_path_from_screen_center(&from, &vector, hand);
+        mtx4RotateVecInPlace(currentPlayerGetMatrix10D4(), &vector);
+
+        if (handles_shot_actors(chr, hitpart, &vector, item_id, 1)) 
+        {
+            recall_joy2_hits_edit_detail_edit_flag(item_id, prop, -1);
+            hit = 1;
+        }
+    }
+
+    if ((!hit) && (item_id == ITEM_FIST)) 
+    {
+        sndPlaySfx(g_musicSfxBufferPtr, PUNCHING_AIR_SFX, 0);
+    }
 }
-#else
-GLOBAL_ASM(
-.text
-glabel chraiFistAttackHandler
-/* 07091C 7F03BDEC 27BDFF38 */  addiu $sp, $sp, -0xc8
-/* 070920 7F03BDF0 AFBF0064 */  sw    $ra, 0x64($sp)
-/* 070924 7F03BDF4 AFB60060 */  sw    $s6, 0x60($sp)
-/* 070928 7F03BDF8 00A0B025 */  move  $s6, $a1
-/* 07092C 7F03BDFC AFB5005C */  sw    $s5, 0x5c($sp)
-/* 070930 7F03BE00 AFB40058 */  sw    $s4, 0x58($sp)
-/* 070934 7F03BE04 AFB30054 */  sw    $s3, 0x54($sp)
-/* 070938 7F03BE08 AFB20050 */  sw    $s2, 0x50($sp)
-/* 07093C 7F03BE0C AFB1004C */  sw    $s1, 0x4c($sp)
-/* 070940 7F03BE10 AFB00048 */  sw    $s0, 0x48($sp)
-/* 070944 7F03BE14 F7B80040 */  sdc1  $f24, 0x40($sp)
-/* 070948 7F03BE18 F7B60038 */  sdc1  $f22, 0x38($sp)
-/* 07094C 7F03BE1C F7B40030 */  sdc1  $f20, 0x30($sp)
-/* 070950 7F03BE20 AFA400C8 */  sw    $a0, 0xc8($sp)
-/* 070954 7F03BE24 0FC225E6 */  jal   getCurrentPlayerProp
-/* 070958 7F03BE28 AFA000BC */   sw    $zero, 0xbc($sp)
-/* 07095C 7F03BE2C 3C048008 */  lui   $a0, %hi(g_CurrentPlayer)
-/* 070960 7F03BE30 0040A025 */  move  $s4, $v0
-/* 070964 7F03BE34 0FC225E0 */  jal   bondviewGetPlayerDuckingHeightRelated
-/* 070968 7F03BE38 8C84A0B0 */   lw    $a0, %lo(g_CurrentPlayer)($a0)
-/* 07096C 7F03BE3C 3C138007 */  lui   $s3, %hi(g_LastOnScreenProp)
-/* 070970 7F03BE40 8E731DF0 */  lw    $s3, %lo(g_LastOnScreenProp)($s3)
-/* 070974 7F03BE44 3C0E8007 */  lui   $t6, %hi(g_OnScreenPropList)
-/* 070978 7F03BE48 25CE1620 */  addiu $t6, %lo(g_OnScreenPropList) # addiu $t6, $t6, 0x1620
-/* 07097C 7F03BE4C 2673FFFC */  addiu $s3, $s3, -4
-/* 070980 7F03BE50 026E082B */  sltu  $at, $s3, $t6
-/* 070984 7F03BE54 1420008F */  bnez  $at, .L7F03C094
-/* 070988 7F03BE58 46000606 */   mov.s $f24, $f0
-/* 07098C 7F03BE5C 4480B000 */  mtc1  $zero, $f22
-/* 070990 7F03BE60 27B50078 */  addiu $s5, $sp, 0x78
-/* 070994 7F03BE64 8E700000 */  lw    $s0, ($s3)
-.L7F03BE68:
-/* 070998 7F03BE68 3C0143FA */  li    $at, 0x43FA0000 # 500.000000
-/* 07099C 7F03BE6C 12000083 */  beqz  $s0, .L7F03C07C
-/* 0709A0 7F03BE70 00000000 */   nop
-/* 0709A4 7F03BE74 C6040018 */  lwc1  $f4, 0x18($s0)
-/* 0709A8 7F03BE78 44813000 */  mtc1  $at, $f6
-/* 0709AC 7F03BE7C 00000000 */  nop
-/* 0709B0 7F03BE80 4606203C */  c.lt.s $f4, $f6
-/* 0709B4 7F03BE84 00000000 */  nop
-/* 0709B8 7F03BE88 4500007C */  bc1f  .L7F03C07C
-/* 0709BC 7F03BE8C 00000000 */   nop
-/* 0709C0 7F03BE90 92020000 */  lbu   $v0, ($s0)
-/* 0709C4 7F03BE94 24010003 */  li    $at, 3
-/* 0709C8 7F03BE98 1041000B */  beq   $v0, $at, .L7F03BEC8
-/* 0709CC 7F03BE9C 24010006 */   li    $at, 6
-/* 0709D0 7F03BEA0 14410076 */  bne   $v0, $at, .L7F03C07C
-/* 0709D4 7F03BEA4 00000000 */   nop
-/* 0709D8 7F03BEA8 8E0F0004 */  lw    $t7, 4($s0)
-/* 0709DC 7F03BEAC 11E00073 */  beqz  $t7, .L7F03C07C
-/* 0709E0 7F03BEB0 00000000 */   nop
-/* 0709E4 7F03BEB4 0FC26C57 */  jal   getPlayerPointerIndex
-/* 0709E8 7F03BEB8 02002025 */   move  $a0, $s0
-/* 0709EC 7F03BEBC 0FC26C54 */  jal   get_cur_playernum
-/* 0709F0 7F03BEC0 00408825 */   move  $s1, $v0
-/* 0709F4 7F03BEC4 1051006D */  beq   $v0, $s1, .L7F03C07C
-.L7F03BEC8:
-/* 0709F8 7F03BEC8 3C014248 */   li    $at, 0x42480000 # 50.000000
-/* 0709FC 7F03BECC 4481A000 */  mtc1  $at, $f20
-/* 070A00 7F03BED0 0FC1741E */  jal   getCurrentWeaponOrItem
-/* 070A04 7F03BED4 8E120004 */   lw    $s2, 4($s0)
-/* 070A08 7F03BED8 24010011 */  li    $at, 17
-/* 070A0C 7F03BEDC 14410004 */  bne   $v0, $at, .L7F03BEF0
-/* 070A10 7F03BEE0 27A500AC */   addiu $a1, $sp, 0xac
-/* 070A14 7F03BEE4 3C0142C8 */  li    $at, 0x42C80000 # 100.000000
-/* 070A18 7F03BEE8 4481A000 */  mtc1  $at, $f20
-/* 070A1C 7F03BEEC 00000000 */  nop
-.L7F03BEF0:
-/* 070A20 7F03BEF0 8E44001C */  lw    $a0, 0x1c($s2)
-/* 070A24 7F03BEF4 27A600A8 */  addiu $a2, $sp, 0xa8
-/* 070A28 7F03BEF8 0FC0FDD2 */  jal   modelGetAxisExtents
-/* 070A2C 7F03BEFC 00003825 */   move  $a3, $zero
-/* 070A30 7F03BF00 C7A800AC */  lwc1  $f8, 0xac($sp)
-/* 070A34 7F03BF04 C7AA00A8 */  lwc1  $f10, 0xa8($sp)
-/* 070A38 7F03BF08 4608B03E */  c.le.s $f22, $f8
-/* 070A3C 7F03BF0C 00000000 */  nop
-/* 070A40 7F03BF10 4500005A */  bc1f  .L7F03C07C
-/* 070A44 7F03BF14 00000000 */   nop
-/* 070A48 7F03BF18 4616503E */  c.le.s $f10, $f22
-/* 070A4C 7F03BF1C 27A500A4 */  addiu $a1, $sp, 0xa4
-/* 070A50 7F03BF20 27A600A0 */  addiu $a2, $sp, 0xa0
-/* 070A54 7F03BF24 24070001 */  li    $a3, 1
-/* 070A58 7F03BF28 45000054 */  bc1f  .L7F03C07C
-/* 070A5C 7F03BF2C 00000000 */   nop
-/* 070A60 7F03BF30 0FC0FDD2 */  jal   modelGetAxisExtents
-/* 070A64 7F03BF34 8E44001C */   lw    $a0, 0x1c($s2)
-/* 070A68 7F03BF38 C7B000A4 */  lwc1  $f16, 0xa4($sp)
-/* 070A6C 7F03BF3C C7B200A0 */  lwc1  $f18, 0xa0($sp)
-/* 070A70 7F03BF40 4610B03E */  c.le.s $f22, $f16
-/* 070A74 7F03BF44 00000000 */  nop
-/* 070A78 7F03BF48 4500004C */  bc1f  .L7F03C07C
-/* 070A7C 7F03BF4C 00000000 */   nop
-/* 070A80 7F03BF50 4616903E */  c.le.s $f18, $f22
-/* 070A84 7F03BF54 27A5009C */  addiu $a1, $sp, 0x9c
-/* 070A88 7F03BF58 27A60098 */  addiu $a2, $sp, 0x98
-/* 070A8C 7F03BF5C 24070002 */  li    $a3, 2
-/* 070A90 7F03BF60 45000046 */  bc1f  .L7F03C07C
-/* 070A94 7F03BF64 00000000 */   nop
-/* 070A98 7F03BF68 0FC0FDD2 */  jal   modelGetAxisExtents
-/* 070A9C 7F03BF6C 8E44001C */   lw    $a0, 0x1c($s2)
-/* 070AA0 7F03BF70 C7A40098 */  lwc1  $f4, 0x98($sp)
-/* 070AA4 7F03BF74 C7A6009C */  lwc1  $f6, 0x9c($sp)
-/* 070AA8 7F03BF78 4616203E */  c.le.s $f4, $f22
-/* 070AAC 7F03BF7C 00000000 */  nop
-/* 070AB0 7F03BF80 4500003E */  bc1f  .L7F03C07C
-/* 070AB4 7F03BF84 00000000 */   nop
-/* 070AB8 7F03BF88 4600A207 */  neg.s $f8, $f20
-/* 070ABC 7F03BF8C 27A40090 */  addiu $a0, $sp, 0x90
-/* 070AC0 7F03BF90 4606403E */  c.le.s $f8, $f6
-/* 070AC4 7F03BF94 24190013 */  li    $t9, 19
-/* 070AC8 7F03BF98 45000038 */  bc1f  .L7F03C07C
-/* 070ACC 7F03BF9C 00000000 */   nop
-/* 070AD0 7F03BFA0 8E980014 */  lw    $t8, 0x14($s4)
-/* 070AD4 7F03BFA4 3C013F80 */  li    $at, 0x3F800000 # 1.000000
-/* 070AD8 7F03BFA8 44818000 */  mtc1  $at, $f16
-/* 070ADC 7F03BFAC AFB80090 */  sw    $t8, 0x90($sp)
-/* 070AE0 7F03BFB0 C60A0010 */  lwc1  $f10, 0x10($s0)
-/* 070AE4 7F03BFB4 8E070008 */  lw    $a3, 8($s0)
-/* 070AE8 7F03BFB8 8E860010 */  lw    $a2, 0x10($s4)
-/* 070AEC 7F03BFBC 8E850008 */  lw    $a1, 8($s4)
-/* 070AF0 7F03BFC0 E7B60020 */  swc1  $f22, 0x20($sp)
-/* 070AF4 7F03BFC4 E7B8001C */  swc1  $f24, 0x1c($sp)
-/* 070AF8 7F03BFC8 E7B80018 */  swc1  $f24, 0x18($sp)
-/* 070AFC 7F03BFCC AFB90014 */  sw    $t9, 0x14($sp)
-/* 070B00 7F03BFD0 E7B00024 */  swc1  $f16, 0x24($sp)
-/* 070B04 7F03BFD4 0FC2C389 */  jal   stanTestLineUnobstructed
-/* 070B08 7F03BFD8 E7AA0010 */   swc1  $f10, 0x10($sp)
-/* 070B0C 7F03BFDC 10400027 */  beqz  $v0, .L7F03C07C
-/* 070B10 7F03BFE0 8FA80090 */   lw    $t0, 0x90($sp)
-/* 070B14 7F03BFE4 8E090014 */  lw    $t1, 0x14($s0)
-/* 070B18 7F03BFE8 15090024 */  bne   $t0, $t1, .L7F03C07C
-/* 070B1C 7F03BFEC 00000000 */   nop
-/* 070B20 7F03BFF0 0FC1E67C */  jal   currentPlayerGetCrouchPos
-/* 070B24 7F03BFF4 2411000F */   li    $s1, 15
-/* 070B28 7F03BFF8 24010001 */  li    $at, 1
-/* 070B2C 7F03BFFC 14410003 */  bne   $v0, $at, .L7F03C00C
-/* 070B30 7F03C000 00000000 */   nop
-/* 070B34 7F03C004 10000006 */  b     .L7F03C020
-/* 070B38 7F03C008 241100C8 */   li    $s1, 200
-.L7F03C00C:
-/* 070B3C 7F03C00C 0FC1E67C */  jal   currentPlayerGetCrouchPos
-/* 070B40 7F03C010 00000000 */   nop
-/* 070B44 7F03C014 54400003 */  bnezl $v0, .L7F03C024
-/* 070B48 7F03C018 27A40084 */   addiu $a0, $sp, 0x84
-/* 070B4C 7F03C01C 241100C9 */  li    $s1, 201
-.L7F03C020:
-/* 070B50 7F03C020 27A40084 */  addiu $a0, $sp, 0x84
-.L7F03C024:
-/* 070B54 7F03C024 02A02825 */  move  $a1, $s5
-/* 070B58 7F03C028 0FC1A073 */  jal   bullet_path_from_screen_center
-/* 070B5C 7F03C02C 8FA600C8 */   lw    $a2, 0xc8($sp)
-/* 070B60 7F03C030 0FC1E111 */  jal   currentPlayerGetMatrix10D4
-/* 070B64 7F03C034 00000000 */   nop
-/* 070B68 7F03C038 00402025 */  move  $a0, $v0
-/* 070B6C 7F03C03C 0FC160F6 */  jal   mtx4RotateVecInPlace
-/* 070B70 7F03C040 02A02825 */   move  $a1, $s5
-/* 070B74 7F03C044 240A0001 */  li    $t2, 1
-/* 070B78 7F03C048 AFAA0010 */  sw    $t2, 0x10($sp)
-/* 070B7C 7F03C04C 02402025 */  move  $a0, $s2
-/* 070B80 7F03C050 02202825 */  move  $a1, $s1
-/* 070B84 7F03C054 02A03025 */  move  $a2, $s5
-/* 070B88 7F03C058 0FC09C9F */  jal   handles_shot_actors
-/* 070B8C 7F03C05C 02C03825 */   move  $a3, $s6
-/* 070B90 7F03C060 10400006 */  beqz  $v0, .L7F03C07C
-/* 070B94 7F03C064 02C02025 */   move  $a0, $s6
-/* 070B98 7F03C068 240B0001 */  li    $t3, 1
-/* 070B9C 7F03C06C AFAB00BC */  sw    $t3, 0xbc($sp)
-/* 070BA0 7F03C070 02002825 */  move  $a1, $s0
-/* 070BA4 7F03C074 0FC19107 */  jal   recall_joy2_hits_edit_detail_edit_flag
-/* 070BA8 7F03C078 2406FFFF */   li    $a2, -1
-.L7F03C07C:
-/* 070BAC 7F03C07C 3C0C8007 */  lui   $t4, %hi(g_OnScreenPropList)
-/* 070BB0 7F03C080 258C1620 */  addiu $t4, %lo(g_OnScreenPropList) # addiu $t4, $t4, 0x1620
-/* 070BB4 7F03C084 2673FFFC */  addiu $s3, $s3, -4
-/* 070BB8 7F03C088 026C082B */  sltu  $at, $s3, $t4
-/* 070BBC 7F03C08C 5020FF76 */  beql  $at, $zero, .L7F03BE68
-/* 070BC0 7F03C090 8E700000 */   lw    $s0, ($s3)
-.L7F03C094:
-/* 070BC4 7F03C094 8FAD00BC */  lw    $t5, 0xbc($sp)
-/* 070BC8 7F03C098 24010001 */  li    $at, 1
-/* 070BCC 7F03C09C 55A00008 */  bnezl $t5, .L7F03C0C0
-/* 070BD0 7F03C0A0 8FBF0064 */   lw    $ra, 0x64($sp)
-/* 070BD4 7F03C0A4 16C10005 */  bne   $s6, $at, .L7F03C0BC
-/* 070BD8 7F03C0A8 3C048006 */   lui   $a0, %hi(g_musicSfxBufferPtr)
-/* 070BDC 7F03C0AC 8C843720 */  lw    $a0, %lo(g_musicSfxBufferPtr)($a0)
-/* 070BE0 7F03C0B0 24050069 */  li    $a1, 105
-/* 070BE4 7F03C0B4 0C002382 */  jal   sndPlaySfx
-/* 070BE8 7F03C0B8 00003025 */   move  $a2, $zero
-.L7F03C0BC:
-/* 070BEC 7F03C0BC 8FBF0064 */  lw    $ra, 0x64($sp)
-.L7F03C0C0:
-/* 070BF0 7F03C0C0 D7B40030 */  ldc1  $f20, 0x30($sp)
-/* 070BF4 7F03C0C4 D7B60038 */  ldc1  $f22, 0x38($sp)
-/* 070BF8 7F03C0C8 D7B80040 */  ldc1  $f24, 0x40($sp)
-/* 070BFC 7F03C0CC 8FB00048 */  lw    $s0, 0x48($sp)
-/* 070C00 7F03C0D0 8FB1004C */  lw    $s1, 0x4c($sp)
-/* 070C04 7F03C0D4 8FB20050 */  lw    $s2, 0x50($sp)
-/* 070C08 7F03C0D8 8FB30054 */  lw    $s3, 0x54($sp)
-/* 070C0C 7F03C0DC 8FB40058 */  lw    $s4, 0x58($sp)
-/* 070C10 7F03C0E0 8FB5005C */  lw    $s5, 0x5c($sp)
-/* 070C14 7F03C0E4 8FB60060 */  lw    $s6, 0x60($sp)
-/* 070C18 7F03C0E8 03E00008 */  jr    $ra
-/* 070C1C 7F03C0EC 27BD00C8 */   addiu $sp, $sp, 0xc8
-)
-#endif
-
-
 
 
 void chraiDefaultWeaponFireHandler(s32);
@@ -5142,9 +5066,6 @@ void modelGetAxisExtents(Model* model, f32* max, f32* min, s32 axis)
 }
 
 
-/*
-* Address: 7F03F748
-*/
 void modelGetXYExtents(Model *model, f32 *arg1, f32 *arg2, f32 *arg3, f32 *arg4)
 {
     modelGetAxisExtents(model, arg1, arg2, 0);
