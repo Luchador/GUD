@@ -416,7 +416,7 @@ void initBONDdataforPlayer(s32 player_num)
     g_playerPointers[player_num]->field_10C8 = NULL;
     g_playerPointers[player_num]->field_10CC = NULL;
     g_playerPointers[player_num]->field_10D0 = 0;
-    g_playerPointers[player_num]->field_10D4 = NULL;
+    g_playerPointers[player_num]->viewtoworldmtxf = NULL;
     g_playerPointers[player_num]->projmatrix = NULL;
     g_playerPointers[player_num]->projmatrixf = NULL;
     g_playerPointers[player_num]->field_10E0 = 0;

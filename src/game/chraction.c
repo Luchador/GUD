@@ -6760,7 +6760,7 @@ s32 sub_GAME_7F02D630(ChrRecord *self, GUNHAND hand, coord3d *arg2)
                 arg2->f[1] = spB8[1];
                 arg2->f[2] = spB8[2];
 
-                matrix_4x4_multiply_homogeneous(currentPlayerGetMatrix10D4(), temp_a0, &sp74);
+                matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), temp_a0, &sp74);
                 mtx4TransformVecInPlace(&sp74, arg2);
 
                 ret = 1;
@@ -6768,7 +6768,7 @@ s32 sub_GAME_7F02D630(ChrRecord *self, GUNHAND hand, coord3d *arg2)
             else if (weapon_prop_model->obj->Switches[1])
             {
                 temp_a0_2 = modelFindNodeMtx(weapon_prop_model, weapon_prop_model->obj->Switches[1], 0);
-                matrix_4x4_multiply_homogeneous(currentPlayerGetMatrix10D4(), temp_a0_2, &sp68);
+                matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), temp_a0_2, &sp68);
 
                 arg2->f[0] = sp68.m[3][0];
                 arg2->f[1] = sp68.m[3][1];

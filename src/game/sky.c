@@ -30,7 +30,7 @@ void skyGetWorldPosFromScreenPos(f32 offset_x, f32 offset_y, coord3d* out) {
     coord2d coords;
     f32 screen_top;
 
-    player_mtxf = currentPlayerGetMatrix10D4();
+    player_mtxf = currentPlayerGetViewToWorldMtxf();
     coords.x = getPlayer_c_screenleft() + offset_x;
     screen_top = getPlayer_c_screentop();
     coords.y = fogGetCurrentEnvironmentp()->WaterConcavity + (offset_y + screen_top);

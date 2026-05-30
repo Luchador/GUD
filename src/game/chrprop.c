@@ -931,7 +931,7 @@ glabel chraiDefaultWeaponFireHandler
 /* 06FD54 7F03B224 C7AA019C */  lwc1  $f10, 0x19c($sp)
 /* 06FD58 7F03B228 E7A601B0 */  swc1  $f6, 0x1b0($sp)
 /* 06FD5C 7F03B22C E7A801B4 */  swc1  $f8, 0x1b4($sp)
-/* 06FD60 7F03B230 0FC1E111 */  jal   currentPlayerGetMatrix10D4
+/* 06FD60 7F03B230 0FC1E111 */  jal   currentPlayerGetViewToWorldMtxf
 /* 06FD64 7F03B234 E7AA01B8 */   swc1  $f10, 0x1b8($sp)
 /* 06FD68 7F03B238 00402025 */  move  $a0, $v0
 /* 06FD6C 7F03B23C 0FC1611D */  jal   mtx4TransformVecInPlace
@@ -941,7 +941,7 @@ glabel chraiDefaultWeaponFireHandler
 /* 06FD7C 7F03B24C C7A401A8 */  lwc1  $f4, 0x1a8($sp)
 /* 06FD80 7F03B250 E7B001BC */  swc1  $f16, 0x1bc($sp)
 /* 06FD84 7F03B254 E7B201C0 */  swc1  $f18, 0x1c0($sp)
-/* 06FD88 7F03B258 0FC1E111 */  jal   currentPlayerGetMatrix10D4
+/* 06FD88 7F03B258 0FC1E111 */  jal   currentPlayerGetViewToWorldMtxf
 /* 06FD8C 7F03B25C E7A401C4 */   swc1  $f4, 0x1c4($sp)
 /* 06FD90 7F03B260 00402025 */  move  $a0, $v0
 /* 06FD94 7F03B264 0FC160F6 */  jal   mtx4RotateVecInPlace
@@ -1705,7 +1705,7 @@ void chraiFistAttackHandler(s32 hand, s32 item_id)
         if (g_musicSfxBufferPtr && g_musicSfxBufferPtr);
 
         bullet_path_from_screen_center(&from, &vector, hand);
-        mtx4RotateVecInPlace(currentPlayerGetMatrix10D4(), &vector);
+        mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), &vector);
 
         if (handles_shot_actors(chr, hitpart, &vector, item_id, 1)) 
         {

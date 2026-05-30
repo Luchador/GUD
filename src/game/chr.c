@@ -3377,7 +3377,7 @@ glabel sub_GAME_7F02083C
 /* 055720 7F020BF0 460A6300 */  add.s $f12, $f12, $f10
 /* 055724 7F020BF4 E7AC008C */  swc1  $f12, 0x8c($sp)
 .L7F020BF8:
-/* 055728 7F020BF8 0FC1E111 */  jal   currentPlayerGetMatrix10D4
+/* 055728 7F020BF8 0FC1E111 */  jal   currentPlayerGetViewToWorldMtxf
 /* 05572C 7F020BFC E7AE0090 */   swc1  $f14, 0x90($sp)
 /* 055730 7F020C00 00402025 */  move  $a0, $v0
 /* 055734 7F020C04 0FC16026 */  jal   matrix_4x4_multiply_homogeneous_in_place
@@ -3771,7 +3771,7 @@ glabel sub_GAME_7F02083C
 /* 0559F8 7F020E88 460A6300 */  add.s $f12, $f12, $f10
 /* 0559FC 7F020E8C E7AC008C */  swc1  $f12, 0x8c($sp)
 .L7F020E90:
-/* 055A00 7F020E90 0FC1E28D */  jal   currentPlayerGetMatrix10D4
+/* 055A00 7F020E90 0FC1E28D */  jal   currentPlayerGetViewToWorldMtxf
 /* 055A04 7F020E94 E7AE0090 */   swc1  $f14, 0x90($sp)
 /* 055A08 7F020E98 00402025 */  move  $a0, $v0
 /* 055A0C 7F020E9C 0FC1616E */  jal   matrix_4x4_multiply_homogeneous_in_place
@@ -6899,7 +6899,7 @@ void chrCreateHitPuffs(PropRecord *prop, s32 anim_id, coord3d *vec, coord3d *pos
             sp3c.y = vec->y * scale;
             sp3c.z = vec->z * scale;
 
-            mtx4TransformVecInPlace(currentPlayerGetMatrix10D4(), &sp3c);
+            mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), &sp3c);
 
             sub_GAME_7F0A3E1C(&sp3c, entry->field_10, entry->field_18, prop->stan->room);
         }
@@ -7376,7 +7376,7 @@ glabel sub_GAME_7F022648
 /* 057360 7F022830 C6520010 */  lwc1  $f18, 0x10($s2)
 /* 057364 7F022834 E7B20078 */  swc1  $f18, 0x78($sp)
 /* 057368 7F022838 C6440014 */  lwc1  $f4, 0x14($s2)
-/* 05736C 7F02283C 0FC1E111 */  jal   currentPlayerGetMatrix10D4
+/* 05736C 7F02283C 0FC1E111 */  jal   currentPlayerGetViewToWorldMtxf
 /* 057370 7F022840 E7A4007C */   swc1  $f4, 0x7c($sp)
 /* 057374 7F022844 00402025 */  move  $a0, $v0
 /* 057378 7F022848 0FC160F6 */  jal   mtx4RotateVecInPlace
@@ -7501,7 +7501,7 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
     nearhitpos.y = hitpos.f[1] * scale;
     nearhitpos.z = hitpos.f[2] * scale;
 
-    mtx4TransformVecInPlace(currentPlayerGetMatrix10D4(), &nearhitpos);
+    mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), &nearhitpos);
 
     // Point the tracer effect towards the impact position.
     gunSetTracerTarget(&nearhitpos);

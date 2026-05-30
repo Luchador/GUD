@@ -1131,7 +1131,7 @@ bool projectileLineTestModel(ObjectRecord *obj, coord3d *modelRayOrigin, coord3d
         hitPos->z = hitthing.hitpos.z;
         
         mtx4TransformVecInPlace(mtx, hitPos);
-        mtx4TransformVecInPlace(currentPlayerGetMatrix10D4(), hitPos);
+        mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), hitPos);
     
         hitNormal->x = hitthing.normal.x;
         hitNormal->y = hitthing.normal.y;
@@ -1145,7 +1145,7 @@ bool projectileLineTestModel(ObjectRecord *obj, coord3d *modelRayOrigin, coord3d
             hitNormal->z = -hitNormal->z;
         }
     
-        mtx4RotateVecInPlace(currentPlayerGetMatrix10D4(), hitNormal);
+        mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), hitNormal);
     
         if (hitNormal->x != 0.0f || hitNormal->y != 0.0f || hitNormal->z != 0.0f) {
             guNormalize(&hitNormal->x, &hitNormal->y, &hitNormal->z);
@@ -3890,7 +3890,7 @@ bool objEmbed(PropRecord *prop, PropRecord *parent, Model *model, ModelNode *nod
 
             matrix_4x4_copy(&obj->mtx, &mtx1);
             matrix_4x4_set_position(&obj->runtime_pos, &mtx1);
-            matrix_4x4_multiply_homogeneous(currentPlayerGetMatrix10D4(), nodemtx, &mtx2);
+            matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), nodemtx, &mtx2);
             matrix_4x4_invert_affine((f32 (*)[4]) &mtx2.m, (f32 (*)[4]) &mtx3.m);
             matrix_4x4_multiply_homogeneous((Mtxf* ) &mtx3.m, &mtx1, &obj->embedment->matrix);
 
@@ -3943,7 +3943,7 @@ void propExplode(PropRecord *prop, s32 /* enum EXPLOSION_DEF */ explosionType)
 			pos.y = mtx->m[3][1];
 			pos.z = mtx->m[3][2];
 
-            mtx4TransformVecInPlace(currentPlayerGetMatrix10D4(), &pos);
+            mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), &pos);
         }
         else
         {
@@ -7207,7 +7207,7 @@ s32 object_interaction(struct PropRecord *arg0)
 
                     matrix_4x4_set_identity_and_position(sp15C, &model->render_pos[2].pos);
                     matrix_4x4_multiply_homogeneous_in_place(sp6C, &model->render_pos[2].pos);
-                    matrix_4x4_multiply_homogeneous(currentPlayerGetMatrix10D4(), &model->render_pos[1].pos, &sp16C);
+                    matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), &model->render_pos[1].pos, &sp16C);
 
                     sub_GAME_7F03F540(sp158, &sp16C, &temp_s1->rect, temp_s1->unk80);
 
@@ -7339,7 +7339,7 @@ s32 object_interaction(struct PropRecord *arg0)
                         sp12C.f[0] = temp_v1_11->f[0];
                         sp12C.f[1] = temp_v1_11->f[1];
                         sp12C.f[2] = temp_v1_11->f[2];
-                        matrix_4x4_multiply_homogeneous(currentPlayerGetMatrix10D4(), temp_s2_7, &spB8);
+                        matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), temp_s2_7, &spB8);
                         mtx4TransformVecInPlace(&spB8, &sp12C);
                         if (walkTilesBetweenPoints_NoCallback(&sp108, arg0->pos.f[0], arg0->pos.f[2], sp12C.f[0], sp12C.f[2]) == 0)
                         {
@@ -11930,7 +11930,7 @@ glabel object_interaction
 /* 07DC74 7F049144 8FA4006C */  lw    $a0, 0x6c($sp)
 /* 07DC78 7F049148 0FC16026 */  jal   matrix_4x4_multiply_homogeneous_in_place
 /* 07DC7C 7F04914C 8FA50068 */   lw    $a1, 0x68($sp)
-/* 07DC80 7F049150 0FC1E111 */  jal   currentPlayerGetMatrix10D4
+/* 07DC80 7F049150 0FC1E111 */  jal   currentPlayerGetViewToWorldMtxf
 /* 07DC84 7F049154 00000000 */   nop
 /* 07DC88 7F049158 27B0016C */  addiu $s0, $sp, 0x16c
 /* 07DC8C 7F04915C 02003025 */  move  $a2, $s0
@@ -12194,7 +12194,7 @@ glabel object_interaction
 /* 07E04C 7F04951C C4660004 */  lwc1  $f6, 4($v1)
 /* 07E050 7F049520 E7A60130 */  swc1  $f6, 0x130($sp)
 /* 07E054 7F049524 C4680008 */  lwc1  $f8, 8($v1)
-/* 07E058 7F049528 0FC1E111 */  jal   currentPlayerGetMatrix10D4
+/* 07E058 7F049528 0FC1E111 */  jal   currentPlayerGetViewToWorldMtxf
 /* 07E05C 7F04952C E7A80134 */   swc1  $f8, 0x134($sp)
 /* 07E060 7F049530 27B100B8 */  addiu $s1, $sp, 0xb8
 /* 07E064 7F049534 02203025 */  move  $a2, $s1
@@ -17036,7 +17036,7 @@ glabel object_interaction
 /* 07E0B8 7F049548 8FA40070 */  lw    $a0, 0x70($sp)
 /* 07E0BC 7F04954C 0FC1616E */  jal   matrix_4x4_multiply_homogeneous_in_place
 /* 07E0C0 7F049550 8FA5006C */   lw    $a1, 0x6c($sp)
-/* 07E0C4 7F049554 0FC1E28D */  jal   currentPlayerGetMatrix10D4
+/* 07E0C4 7F049554 0FC1E28D */  jal   currentPlayerGetViewToWorldMtxf
 /* 07E0C8 7F049558 00000000 */   nop
 /* 07E0CC 7F04955C 27B00170 */  addiu $s0, $sp, 0x170
 /* 07E0D0 7F049560 02003025 */  move  $a2, $s0
@@ -17300,7 +17300,7 @@ glabel object_interaction
 /* 07E490 7F049920 C4660004 */  lwc1  $f6, 4($v1)
 /* 07E494 7F049924 E7A60134 */  swc1  $f6, 0x134($sp)
 /* 07E498 7F049928 C4680008 */  lwc1  $f8, 8($v1)
-/* 07E49C 7F04992C 0FC1E28D */  jal   currentPlayerGetMatrix10D4
+/* 07E49C 7F04992C 0FC1E28D */  jal   currentPlayerGetViewToWorldMtxf
 /* 07E4A0 7F049930 E7A80138 */   swc1  $f8, 0x138($sp)
 /* 07E4A4 7F049934 27B100BC */  addiu $s1, $sp, 0xbc
 /* 07E4A8 7F049938 02203025 */  move  $a2, $s1
@@ -22149,7 +22149,7 @@ glabel object_interaction
 /* 07BD10 7F049320 8FA40070 */  lw    $a0, 0x70($sp)
 /* 07BD14 7F049324 0FC16150 */  jal   matrix_4x4_multiply_homogeneous_in_place
 /* 07BD18 7F049328 8FA5006C */   lw    $a1, 0x6c($sp)
-/* 07BD1C 7F04932C 0FC1E131 */  jal   currentPlayerGetMatrix10D4
+/* 07BD1C 7F04932C 0FC1E131 */  jal   currentPlayerGetViewToWorldMtxf
 /* 07BD20 7F049330 00000000 */   nop
 /* 07BD24 7F049334 27B00170 */  addiu $s0, $sp, 0x170
 /* 07BD28 7F049338 02003025 */  move  $a2, $s0
@@ -22413,7 +22413,7 @@ glabel object_interaction
 /* 07C0E8 7F0496F8 C4660004 */  lwc1  $f6, 4($v1)
 /* 07C0EC 7F0496FC E7A60134 */  swc1  $f6, 0x134($sp)
 /* 07C0F0 7F049700 C4680008 */  lwc1  $f8, 8($v1)
-/* 07C0F4 7F049704 0FC1E131 */  jal   currentPlayerGetMatrix10D4
+/* 07C0F4 7F049704 0FC1E131 */  jal   currentPlayerGetViewToWorldMtxf
 /* 07C0F8 7F049708 E7A80138 */   swc1  $f8, 0x138($sp)
 /* 07C0FC 7F04970C 27B100BC */  addiu $s1, $sp, 0xbc
 /* 07C100 7F049710 02203025 */  move  $a2, $s1
@@ -28619,7 +28619,7 @@ void objBounce(ObjectRecord *obj, coord3d *arg1)
         dir.y = arg1->y;
         dir.z = arg1->z;
 
-        mtx4RotateVecInPlace(currentPlayerGetMatrix10D4(), (f32*)&dir);
+        mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), (f32*)&dir);
 
         projectile->speed.x += 3.3333333f * dir.x;
         projectile->speed.z += 3.3333333f * dir.z;
@@ -28813,7 +28813,7 @@ s32 objDrop(PropRecord *prop)
             Mtxf *sp58 = getsubmatrix(model);
             s32 cdtypes = CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER;
 
-            matrix_4x4_multiply_homogeneous(currentPlayerGetMatrix10D4(), sp58, &spB8);
+            matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), sp58, &spB8);
 
             if (projectile->flags & 0x40)
             {
@@ -30257,76 +30257,36 @@ void sub_GAME_7F04DD68(DoorRecord *door)
 }
 
 
-#ifdef NONMATCHING
+/**
+ * Address: 7F04DE18
+ */
+void sub_GAME_7F04DE18(ObjectRecord *obj)
+{
+    PropRecord *prop;
+    s32 unused[2];
+    union ModelRoData *rodata;
+    Mtxf *node_mtx;
+    Mtxf sp44;
+    Model *model;
 
-#else
-GLOBAL_ASM(
+    prop = obj->prop;
+    model = obj->model;
 
-.text
-glabel sub_GAME_7F04DE18
-/* 082948 7F04DE18 27BDFF68 */  addiu $sp, $sp, -0x98
-/* 08294C 7F04DE1C AFBF0034 */  sw    $ra, 0x34($sp)
-/* 082950 7F04DE20 AFB00030 */  sw    $s0, 0x30($sp)
-/* 082954 7F04DE24 8C8E0010 */  lw    $t6, 0x10($a0)
-/* 082958 7F04DE28 AFAE0094 */  sw    $t6, 0x94($sp)
-/* 08295C 7F04DE2C 91D80001 */  lbu   $t8, 1($t6)
-/* 082960 7F04DE30 8C900014 */  lw    $s0, 0x14($a0)
-/* 082964 7F04DE34 33190002 */  andi  $t9, $t8, 2
-/* 082968 7F04DE38 53200023 */  beql  $t9, $zero, .L7F04DEC8
-/* 08296C 7F04DE3C 8FA40094 */   lw    $a0, 0x94($sp)
-/* 082970 7F04DE40 8E080008 */  lw    $t0, 8($s0)
-/* 082974 7F04DE44 02002025 */  move  $a0, $s0
-/* 082978 7F04DE48 00003025 */  move  $a2, $zero
-/* 08297C 7F04DE4C 8D020008 */  lw    $v0, 8($t0)
-/* 082980 7F04DE50 8C490008 */  lw    $t1, 8($v0)
-/* 082984 7F04DE54 8C450004 */  lw    $a1, 4($v0)
-/* 082988 7F04DE58 8D230004 */  lw    $v1, 4($t1)
-/* 08298C 7F04DE5C 0FC1B198 */  jal   modelFindNodeMtx
-/* 082990 7F04DE60 AFA30088 */   sw    $v1, 0x88($sp)
-/* 082994 7F04DE64 0FC1E111 */  jal   currentPlayerGetMatrix10D4
-/* 082998 7F04DE68 AFA20084 */   sw    $v0, 0x84($sp)
-/* 08299C 7F04DE6C 00402025 */  move  $a0, $v0
-/* 0829A0 7F04DE70 8FA50084 */  lw    $a1, 0x84($sp)
-/* 0829A4 7F04DE74 0FC16063 */  jal   matrix_4x4_multiply_homogeneous
-/* 0829A8 7F04DE78 27A60044 */   addiu $a2, $sp, 0x44
-/* 0829AC 7F04DE7C 8FA30088 */  lw    $v1, 0x88($sp)
-/* 0829B0 7F04DE80 27A40074 */  addiu $a0, $sp, 0x74
-/* 0829B4 7F04DE84 27A50044 */  addiu $a1, $sp, 0x44
-/* 0829B8 7F04DE88 C4640004 */  lwc1  $f4, 4($v1)
-/* 0829BC 7F04DE8C 27A60054 */  addiu $a2, $sp, 0x54
-/* 0829C0 7F04DE90 27A70064 */  addiu $a3, $sp, 0x64
-/* 0829C4 7F04DE94 E7A40010 */  swc1  $f4, 0x10($sp)
-/* 0829C8 7F04DE98 C4660008 */  lwc1  $f6, 8($v1)
-/* 0829CC 7F04DE9C E7A60014 */  swc1  $f6, 0x14($sp)
-/* 0829D0 7F04DEA0 C468000C */  lwc1  $f8, 0xc($v1)
-/* 0829D4 7F04DEA4 E7A80018 */  swc1  $f8, 0x18($sp)
-/* 0829D8 7F04DEA8 C46A0010 */  lwc1  $f10, 0x10($v1)
-/* 0829DC 7F04DEAC E7AA001C */  swc1  $f10, 0x1c($sp)
-/* 0829E0 7F04DEB0 C4700014 */  lwc1  $f16, 0x14($v1)
-/* 0829E4 7F04DEB4 E7B00020 */  swc1  $f16, 0x20($sp)
-/* 0829E8 7F04DEB8 C4720018 */  lwc1  $f18, 0x18($v1)
-/* 0829EC 7F04DEBC 0FC28768 */  jal   sub_GAME_7F0A1DA0
-/* 0829F0 7F04DEC0 E7B20024 */   swc1  $f18, 0x24($sp)
-/* 0829F4 7F04DEC4 8FA40094 */  lw    $a0, 0x94($sp)
-.L7F04DEC8:
-/* 0829F8 7F04DEC8 0FC28333 */  jal   explosionClearBulletImpactRoomByFlag
-/* 0829FC 7F04DECC 24050001 */   li    $a1, 1
-/* 082A00 7F04DED0 8E0A0008 */  lw    $t2, 8($s0)
-/* 082A04 7F04DED4 02002025 */  move  $a0, $s0
-/* 082A08 7F04DED8 8D4B0008 */  lw    $t3, 8($t2)
-/* 082A0C 7F04DEDC 0FC1B1E7 */  jal   modelGetNodeRwData
-/* 082A10 7F04DEE0 8D65000C */   lw    $a1, 0xc($t3)
-/* 082A14 7F04DEE4 AC400000 */  sw    $zero, ($v0)
-/* 082A18 7F04DEE8 8FBF0034 */  lw    $ra, 0x34($sp)
-/* 082A1C 7F04DEEC 8FB00030 */  lw    $s0, 0x30($sp)
-/* 082A20 7F04DEF0 27BD0098 */  addiu $sp, $sp, 0x98
-/* 082A24 7F04DEF4 03E00008 */  jr    $ra
-/* 082A28 7F04DEF8 00000000 */   nop
-)
-#endif
+    if (prop->flags & PROPFLAG_ONSCREEN)
+    {
+        rodata = model->obj->Switches[2]->Data;
 
+        node_mtx = modelFindNodeMtx(model, model->obj->Switches[1], 0);
 
+        matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), node_mtx, &sp44);
 
+        sub_GAME_7F0A1DA0(sp44.m[3], sp44.m[0], sp44.m[1], sp44.m[2], ((f32 *)rodata)[1], ((f32 *)rodata)[2], ((f32 *)rodata)[3], ((f32 *)rodata)[4], ((f32 *)rodata)[5], ((f32 *)rodata)[6]);
+    }
+
+    explosionClearBulletImpactRoomByFlag(prop, 1);
+
+    *(s32 *)modelGetNodeRwData(model, model->obj->Switches[3]) = 0;
+}
 
 
 /**
@@ -31472,7 +31432,7 @@ void objHit(ShotData *shotdata, BulletHit *hit)
     pos.y -= 26.0f * shotdata->viewDir.y;
     pos.z -= 26.0f * shotdata->viewDir.z;
 
-    mtx4TransformVecInPlace(currentPlayerGetMatrix10D4(), &pos);
+    mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), &pos);
 
     if (hit->countsAsPenetration != 0)
     {

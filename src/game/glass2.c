@@ -1137,7 +1137,7 @@ glabel sub_GAME_7F0A3F04
 /* 0D8A98 7F0A3F68 8F29000C */  lw    $t1, 0xc($t9)
 /* 0D8A9C 7F0A3F6C 8F210008 */  lw    $at, 8($t9)
 /* 0D8AA0 7F0A3F70 AF09000C */  sw    $t1, 0xc($t8)
-/* 0D8AA4 7F0A3F74 0FC1E111 */  jal   currentPlayerGetMatrix10D4
+/* 0D8AA4 7F0A3F74 0FC1E111 */  jal   currentPlayerGetViewToWorldMtxf
 /* 0D8AA8 7F0A3F78 AF010008 */   sw    $at, 8($t8)
 /* 0D8AAC 7F0A3F7C 8FAA00BC */  lw    $t2, 0xbc($sp)
 /* 0D8AB0 7F0A3F80 24040004 */  li    $a0, 4

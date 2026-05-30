@@ -1092,7 +1092,7 @@ struct player
   /**
    * Offset 0x10d4.
    */
-  Mtxf* field_10D4;
+  Mtxf* viewtoworldmtxf;
   Mtx* projmatrix;
   Mtxf* projmatrixf;
   s32 field_10E0; // ptr
@@ -2722,7 +2722,7 @@ void bondviewResetIntroCameraMessageDialogs(void);
 void hudmsgsSetOn(s32 flag);
 void hudmsgsSetOff(s32 flags);
 Gfx* bondviewGfxPlayerField5cMatrix(Gfx* gdl);
-Mtxf *currentPlayerGetMatrix10D4(void);
+Mtxf *currentPlayerGetViewToWorldMtxf(void);
 void sub_GAME_7F08BEEC(Mtxf *arg0, s32 arg1);
 void currentPlayerStartChrFade(f32 duration60, f32 targetfrac);
 s32 bondviewGetVisibleToGuardsFlag(void);

@@ -982,13 +982,13 @@ s32 sub_GAME_7F078414(void) {
     return g_CurrentPlayer->field_10D0;
 }
 
-void currentPlayerSetMatrix10D4(Mtxf *matrix) {
-    g_CurrentPlayer->field_10EC = g_CurrentPlayer->field_10D4;
-    g_CurrentPlayer->field_10D4 = matrix;
+void currentPlayerSetViewToWorldMtxf(Mtxf *matrix) {
+    g_CurrentPlayer->field_10EC = g_CurrentPlayer->viewtoworldmtxf;
+    g_CurrentPlayer->viewtoworldmtxf = matrix;
 }
 
-Mtxf *currentPlayerGetMatrix10D4(void) {
-    return g_CurrentPlayer->field_10D4;
+Mtxf *currentPlayerGetViewToWorldMtxf(void) {
+    return g_CurrentPlayer->viewtoworldmtxf;
 }
 
 Mtxf *currentPlayerGetMatrix10EC(void) {
@@ -1091,46 +1091,46 @@ void sub_GAME_7F0785DC()
     h *= h_div;
     nh_div = -h_div;
 
-    flt_CODE_bss_80079940.x = (-nh_div * g_CurrentPlayer->field_10D4->m[1][0]) + (h * g_CurrentPlayer->field_10D4->m[2][0]);
-    flt_CODE_bss_80079940.y = (-nh_div * g_CurrentPlayer->field_10D4->m[1][1]) + (h * g_CurrentPlayer->field_10D4->m[2][1]);
-    flt_CODE_bss_80079940.z = (-nh_div * g_CurrentPlayer->field_10D4->m[1][2]) + (h * g_CurrentPlayer->field_10D4->m[2][2]);
+    flt_CODE_bss_80079940.x = (-nh_div * g_CurrentPlayer->viewtoworldmtxf->m[1][0]) + (h * g_CurrentPlayer->viewtoworldmtxf->m[2][0]);
+    flt_CODE_bss_80079940.y = (-nh_div * g_CurrentPlayer->viewtoworldmtxf->m[1][1]) + (h * g_CurrentPlayer->viewtoworldmtxf->m[2][1]);
+    flt_CODE_bss_80079940.z = (-nh_div * g_CurrentPlayer->viewtoworldmtxf->m[1][2]) + (h * g_CurrentPlayer->viewtoworldmtxf->m[2][2]);
 
-    flt_CODE_bss_8007994C = (flt_CODE_bss_80079940.x * g_CurrentPlayer->field_10D4->m[3][0])
-                          + (flt_CODE_bss_80079940.y * g_CurrentPlayer->field_10D4->m[3][1])
-                          + (flt_CODE_bss_80079940.z * g_CurrentPlayer->field_10D4->m[3][2]);
+    flt_CODE_bss_8007994C = (flt_CODE_bss_80079940.x * g_CurrentPlayer->viewtoworldmtxf->m[3][0])
+                          + (flt_CODE_bss_80079940.y * g_CurrentPlayer->viewtoworldmtxf->m[3][1])
+                          + (flt_CODE_bss_80079940.z * g_CurrentPlayer->viewtoworldmtxf->m[3][2]);
 
-    flt_CODE_bss_80079950.x = (nh_div * g_CurrentPlayer->field_10D4->m[1][0]) + (h * g_CurrentPlayer->field_10D4->m[2][0]);
-    flt_CODE_bss_80079950.y = (nh_div * g_CurrentPlayer->field_10D4->m[1][1]) + (h * g_CurrentPlayer->field_10D4->m[2][1]);
-    flt_CODE_bss_80079950.z = (nh_div * g_CurrentPlayer->field_10D4->m[1][2]) + (h * g_CurrentPlayer->field_10D4->m[2][2]);
+    flt_CODE_bss_80079950.x = (nh_div * g_CurrentPlayer->viewtoworldmtxf->m[1][0]) + (h * g_CurrentPlayer->viewtoworldmtxf->m[2][0]);
+    flt_CODE_bss_80079950.y = (nh_div * g_CurrentPlayer->viewtoworldmtxf->m[1][1]) + (h * g_CurrentPlayer->viewtoworldmtxf->m[2][1]);
+    flt_CODE_bss_80079950.z = (nh_div * g_CurrentPlayer->viewtoworldmtxf->m[1][2]) + (h * g_CurrentPlayer->viewtoworldmtxf->m[2][2]);
 
-    flt_CODE_bss_8007995C = (flt_CODE_bss_80079950.x * g_CurrentPlayer->field_10D4->m[3][0])
-                          + (flt_CODE_bss_80079950.y * g_CurrentPlayer->field_10D4->m[3][1])
-                          + (flt_CODE_bss_80079950.z * g_CurrentPlayer->field_10D4->m[3][2]);
+    flt_CODE_bss_8007995C = (flt_CODE_bss_80079950.x * g_CurrentPlayer->viewtoworldmtxf->m[3][0])
+                          + (flt_CODE_bss_80079950.y * g_CurrentPlayer->viewtoworldmtxf->m[3][1])
+                          + (flt_CODE_bss_80079950.z * g_CurrentPlayer->viewtoworldmtxf->m[3][2]);
 
     h2 = (-g_CurrentPlayer->c_halfwidth) * g_CurrentPlayer->c_scalex;
     h2_div = 1.0f / sqrtf((h2 * h2) + 1.0f);
     h2 *= h2_div;
     nh2_div = -h2_div;
 
-    flt_CODE_bss_80079960.x = (nh2_div * g_CurrentPlayer->field_10D4->m[0][0]) - (h2 * g_CurrentPlayer->field_10D4->m[2][0]);
-    flt_CODE_bss_80079960.y = (nh2_div * g_CurrentPlayer->field_10D4->m[0][1]) - (h2 * g_CurrentPlayer->field_10D4->m[2][1]);
-    flt_CODE_bss_80079960.z = (nh2_div * g_CurrentPlayer->field_10D4->m[0][2]) - (h2 * g_CurrentPlayer->field_10D4->m[2][2]);
+    flt_CODE_bss_80079960.x = (nh2_div * g_CurrentPlayer->viewtoworldmtxf->m[0][0]) - (h2 * g_CurrentPlayer->viewtoworldmtxf->m[2][0]);
+    flt_CODE_bss_80079960.y = (nh2_div * g_CurrentPlayer->viewtoworldmtxf->m[0][1]) - (h2 * g_CurrentPlayer->viewtoworldmtxf->m[2][1]);
+    flt_CODE_bss_80079960.z = (nh2_div * g_CurrentPlayer->viewtoworldmtxf->m[0][2]) - (h2 * g_CurrentPlayer->viewtoworldmtxf->m[2][2]);
 
-    flt_CODE_bss_8007996C = (flt_CODE_bss_80079960.x * g_CurrentPlayer->field_10D4->m[3][0])
-                          + (flt_CODE_bss_80079960.y * g_CurrentPlayer->field_10D4->m[3][1])
-                          + (flt_CODE_bss_80079960.z * g_CurrentPlayer->field_10D4->m[3][2]);
+    flt_CODE_bss_8007996C = (flt_CODE_bss_80079960.x * g_CurrentPlayer->viewtoworldmtxf->m[3][0])
+                          + (flt_CODE_bss_80079960.y * g_CurrentPlayer->viewtoworldmtxf->m[3][1])
+                          + (flt_CODE_bss_80079960.z * g_CurrentPlayer->viewtoworldmtxf->m[3][2]);
 
-    flt_CODE_bss_80079970.x = (-nh2_div * g_CurrentPlayer->field_10D4->m[0][0]) - (h2 * g_CurrentPlayer->field_10D4->m[2][0]);
-    flt_CODE_bss_80079970.y = (-nh2_div * g_CurrentPlayer->field_10D4->m[0][1]) - (h2 * g_CurrentPlayer->field_10D4->m[2][1]);
-    flt_CODE_bss_80079970.z = (-nh2_div * g_CurrentPlayer->field_10D4->m[0][2]) - (h2 * g_CurrentPlayer->field_10D4->m[2][2]);
+    flt_CODE_bss_80079970.x = (-nh2_div * g_CurrentPlayer->viewtoworldmtxf->m[0][0]) - (h2 * g_CurrentPlayer->viewtoworldmtxf->m[2][0]);
+    flt_CODE_bss_80079970.y = (-nh2_div * g_CurrentPlayer->viewtoworldmtxf->m[0][1]) - (h2 * g_CurrentPlayer->viewtoworldmtxf->m[2][1]);
+    flt_CODE_bss_80079970.z = (-nh2_div * g_CurrentPlayer->viewtoworldmtxf->m[0][2]) - (h2 * g_CurrentPlayer->viewtoworldmtxf->m[2][2]);
 
-    flt_CODE_bss_8007997C = (flt_CODE_bss_80079970.x * g_CurrentPlayer->field_10D4->m[3][0])
-                          + (flt_CODE_bss_80079970.y * g_CurrentPlayer->field_10D4->m[3][1])
-                          + (flt_CODE_bss_80079970.z * g_CurrentPlayer->field_10D4->m[3][2]);
+    flt_CODE_bss_8007997C = (flt_CODE_bss_80079970.x * g_CurrentPlayer->viewtoworldmtxf->m[3][0])
+                          + (flt_CODE_bss_80079970.y * g_CurrentPlayer->viewtoworldmtxf->m[3][1])
+                          + (flt_CODE_bss_80079970.z * g_CurrentPlayer->viewtoworldmtxf->m[3][2]);
 
-    flt_CODE_bss_80079980 = (g_CurrentPlayer->field_10D4->m[2][0] * g_CurrentPlayer->field_10D4->m[3][0])
-                          + (g_CurrentPlayer->field_10D4->m[2][1] * g_CurrentPlayer->field_10D4->m[3][1])
-                          + (g_CurrentPlayer->field_10D4->m[2][2] * g_CurrentPlayer->field_10D4->m[3][2]);
+    flt_CODE_bss_80079980 = (g_CurrentPlayer->viewtoworldmtxf->m[2][0] * g_CurrentPlayer->viewtoworldmtxf->m[3][0])
+                          + (g_CurrentPlayer->viewtoworldmtxf->m[2][1] * g_CurrentPlayer->viewtoworldmtxf->m[3][1])
+                          + (g_CurrentPlayer->viewtoworldmtxf->m[2][2] * g_CurrentPlayer->viewtoworldmtxf->m[3][2]);
 }
 
 void sub_GAME_7F078950(coord3d *arg0, f32 *arg1) {
@@ -1162,9 +1162,9 @@ void sub_GAME_7F0789E0(coord3d *arg0, f32 *arg1) {
 }
 
 void sub_GAME_7F078A10(coord3d *arg0, f32 *arg1) {
-    arg0->x = g_CurrentPlayer->field_10D4->m[2][0];
-    arg0->y = g_CurrentPlayer->field_10D4->m[2][1];
-    arg0->z = g_CurrentPlayer->field_10D4->m[2][2];
+    arg0->x = g_CurrentPlayer->viewtoworldmtxf->m[2][0];
+    arg0->y = g_CurrentPlayer->viewtoworldmtxf->m[2][1];
+    arg0->z = g_CurrentPlayer->viewtoworldmtxf->m[2][2];
     *arg1 = flt_CODE_bss_80079980;
 }
 
@@ -1174,17 +1174,17 @@ void sub_GAME_7F078A10(coord3d *arg0, f32 *arg1) {
  * Takes dot product of some position and compares each to an associated scalar value.
  * Returns 0 if the dot product exceeds the scalar amount, 1 otherwise.
  *
- * @param pos: Applies dot product of this position against g_CurrentPlayer->field_10D4
+ * @param pos: Applies dot product of this position against g_CurrentPlayer->viewtoworldmtxf
  * and four coords starting at flt_CODE_bss_80079960.
  *
- * @param margin: Value added to flt_CODE_bss_80079980 to compare g_CurrentPlayer->field_10D4,
+ * @param margin: Value added to flt_CODE_bss_80079980 to compare g_CurrentPlayer->viewtoworldmtxf,
  * and the four values starting at flt_CODE_bss_8007996C.
  *
  * Address 0x7F078A58.
  */
 s32 camIsPosInScreen(coord3d *pos, f32 margin)
 {
-    if (flt_CODE_bss_80079980 + margin < (g_CurrentPlayer->field_10D4->m[2][0] * pos->f[0]) + (g_CurrentPlayer->field_10D4->m[2][1] * pos->f[1]) + (g_CurrentPlayer->field_10D4->m[2][2] * pos->f[2]))
+    if (flt_CODE_bss_80079980 + margin < (g_CurrentPlayer->viewtoworldmtxf->m[2][0] * pos->f[0]) + (g_CurrentPlayer->viewtoworldmtxf->m[2][1] * pos->f[1]) + (g_CurrentPlayer->viewtoworldmtxf->m[2][2] * pos->f[2]))
     {
         return 0;
     }
@@ -1234,7 +1234,7 @@ bool camIsPosInScreenBox(coord3d *pos, f32 margin, bbox2d *box)
     f32 sp1c;
     f32 sp18;
 
-    if (flt_CODE_bss_80079980 + margin < g_CurrentPlayer->field_10D4->m[2][0] * pos->f[0] + g_CurrentPlayer->field_10D4->m[2][1] * pos->f[1] + g_CurrentPlayer->field_10D4->m[2][2] * pos->f[2])
+    if (flt_CODE_bss_80079980 + margin < g_CurrentPlayer->viewtoworldmtxf->m[2][0] * pos->f[0] + g_CurrentPlayer->viewtoworldmtxf->m[2][1] * pos->f[1] + g_CurrentPlayer->viewtoworldmtxf->m[2][2] * pos->f[2])
     {
         return FALSE;
     }
@@ -1245,11 +1245,11 @@ bool camIsPosInScreenBox(coord3d *pos, f32 margin, bbox2d *box)
     sp38 *= sp3c;
     sp24 = -sp3c;
 
-    sp54.f[0] = sp24 * g_CurrentPlayer->field_10D4->m[0][0] - sp38 * g_CurrentPlayer->field_10D4->m[2][0];
-    sp54.f[1] = sp24 * g_CurrentPlayer->field_10D4->m[0][1] - sp38 * g_CurrentPlayer->field_10D4->m[2][1];
-    sp54.f[2] = sp24 * g_CurrentPlayer->field_10D4->m[0][2] - sp38 * g_CurrentPlayer->field_10D4->m[2][2];
+    sp54.f[0] = sp24 * g_CurrentPlayer->viewtoworldmtxf->m[0][0] - sp38 * g_CurrentPlayer->viewtoworldmtxf->m[2][0];
+    sp54.f[1] = sp24 * g_CurrentPlayer->viewtoworldmtxf->m[0][1] - sp38 * g_CurrentPlayer->viewtoworldmtxf->m[2][1];
+    sp54.f[2] = sp24 * g_CurrentPlayer->viewtoworldmtxf->m[0][2] - sp38 * g_CurrentPlayer->viewtoworldmtxf->m[2][2];
 
-    sp50 = sp54.f[0] * g_CurrentPlayer->field_10D4->m[3][0] + sp54.f[1] * g_CurrentPlayer->field_10D4->m[3][1] + sp54.f[2] * g_CurrentPlayer->field_10D4->m[3][2];
+    sp50 = sp54.f[0] * g_CurrentPlayer->viewtoworldmtxf->m[3][0] + sp54.f[1] * g_CurrentPlayer->viewtoworldmtxf->m[3][1] + sp54.f[2] * g_CurrentPlayer->viewtoworldmtxf->m[3][2];
 
     if (sp50 + margin < sp54.f[0] * pos->f[0] + sp54.f[1] * pos->f[1] + sp54.f[2] * pos->f[2])
     {
@@ -1261,11 +1261,11 @@ bool camIsPosInScreenBox(coord3d *pos, f32 margin, bbox2d *box)
     sp38 *= sp30;
     sp20 = -sp30;
 
-    sp44.f[0] = -sp20 * g_CurrentPlayer->field_10D4->m[0][0] - sp38 * g_CurrentPlayer->field_10D4->m[2][0];
-    sp44.f[1] = -sp20 * g_CurrentPlayer->field_10D4->m[0][1] - sp38 * g_CurrentPlayer->field_10D4->m[2][1];
-    sp44.f[2] = -sp20 * g_CurrentPlayer->field_10D4->m[0][2] - sp38 * g_CurrentPlayer->field_10D4->m[2][2];
+    sp44.f[0] = -sp20 * g_CurrentPlayer->viewtoworldmtxf->m[0][0] - sp38 * g_CurrentPlayer->viewtoworldmtxf->m[2][0];
+    sp44.f[1] = -sp20 * g_CurrentPlayer->viewtoworldmtxf->m[0][1] - sp38 * g_CurrentPlayer->viewtoworldmtxf->m[2][1];
+    sp44.f[2] = -sp20 * g_CurrentPlayer->viewtoworldmtxf->m[0][2] - sp38 * g_CurrentPlayer->viewtoworldmtxf->m[2][2];
 
-    sp40 = sp44.f[0] * g_CurrentPlayer->field_10D4->m[3][0] + sp44.f[1] * g_CurrentPlayer->field_10D4->m[3][1] + sp44.f[2] * g_CurrentPlayer->field_10D4->m[3][2];
+    sp40 = sp44.f[0] * g_CurrentPlayer->viewtoworldmtxf->m[3][0] + sp44.f[1] * g_CurrentPlayer->viewtoworldmtxf->m[3][1] + sp44.f[2] * g_CurrentPlayer->viewtoworldmtxf->m[3][2];
 
     if (sp40 + margin < sp44.f[0] * pos->f[0] + sp44.f[1] * pos->f[1] + sp44.f[2] * pos->f[2])
     {
@@ -1277,11 +1277,11 @@ bool camIsPosInScreenBox(coord3d *pos, f32 margin, bbox2d *box)
     sp34 *= sp2c;
     sp1c = -sp2c;
 
-    sp74.f[0] = -sp1c * g_CurrentPlayer->field_10D4->m[1][0] + sp34 * g_CurrentPlayer->field_10D4->m[2][0];
-    sp74.f[1] = -sp1c * g_CurrentPlayer->field_10D4->m[1][1] + sp34 * g_CurrentPlayer->field_10D4->m[2][1];
-    sp74.f[2] = -sp1c * g_CurrentPlayer->field_10D4->m[1][2] + sp34 * g_CurrentPlayer->field_10D4->m[2][2];
+    sp74.f[0] = -sp1c * g_CurrentPlayer->viewtoworldmtxf->m[1][0] + sp34 * g_CurrentPlayer->viewtoworldmtxf->m[2][0];
+    sp74.f[1] = -sp1c * g_CurrentPlayer->viewtoworldmtxf->m[1][1] + sp34 * g_CurrentPlayer->viewtoworldmtxf->m[2][1];
+    sp74.f[2] = -sp1c * g_CurrentPlayer->viewtoworldmtxf->m[1][2] + sp34 * g_CurrentPlayer->viewtoworldmtxf->m[2][2];
 
-    sp70 = sp74.f[0] * g_CurrentPlayer->field_10D4->m[3][0] + sp74.f[1] * g_CurrentPlayer->field_10D4->m[3][1] + sp74.f[2] * g_CurrentPlayer->field_10D4->m[3][2];
+    sp70 = sp74.f[0] * g_CurrentPlayer->viewtoworldmtxf->m[3][0] + sp74.f[1] * g_CurrentPlayer->viewtoworldmtxf->m[3][1] + sp74.f[2] * g_CurrentPlayer->viewtoworldmtxf->m[3][2];
 
     if (sp70 + margin < sp74.f[0] * pos->f[0] + sp74.f[1] * pos->f[1] + sp74.f[2] * pos->f[2])
     {
@@ -1293,11 +1293,11 @@ bool camIsPosInScreenBox(coord3d *pos, f32 margin, bbox2d *box)
     sp34 *= sp28;
     sp18 = -sp28;
 
-    sp64.f[0] = sp18 * g_CurrentPlayer->field_10D4->m[1][0] + sp34 * g_CurrentPlayer->field_10D4->m[2][0];
-    sp64.f[1] = sp18 * g_CurrentPlayer->field_10D4->m[1][1] + sp34 * g_CurrentPlayer->field_10D4->m[2][1];
-    sp64.f[2] = sp18 * g_CurrentPlayer->field_10D4->m[1][2] + sp34 * g_CurrentPlayer->field_10D4->m[2][2];
+    sp64.f[0] = sp18 * g_CurrentPlayer->viewtoworldmtxf->m[1][0] + sp34 * g_CurrentPlayer->viewtoworldmtxf->m[2][0];
+    sp64.f[1] = sp18 * g_CurrentPlayer->viewtoworldmtxf->m[1][1] + sp34 * g_CurrentPlayer->viewtoworldmtxf->m[2][1];
+    sp64.f[2] = sp18 * g_CurrentPlayer->viewtoworldmtxf->m[1][2] + sp34 * g_CurrentPlayer->viewtoworldmtxf->m[2][2];
 
-    sp60 = sp64.f[0] * g_CurrentPlayer->field_10D4->m[3][0] + sp64.f[1] * g_CurrentPlayer->field_10D4->m[3][1] + sp64.f[2] * g_CurrentPlayer->field_10D4->m[3][2];
+    sp60 = sp64.f[0] * g_CurrentPlayer->viewtoworldmtxf->m[3][0] + sp64.f[1] * g_CurrentPlayer->viewtoworldmtxf->m[3][1] + sp64.f[2] * g_CurrentPlayer->viewtoworldmtxf->m[3][2];
 
     if (sp60 + margin < sp64.f[0] * pos->f[0] + sp64.f[1] * pos->f[1] + sp64.f[2] * pos->f[2])
     {
@@ -11726,7 +11726,7 @@ void sub_GAME_7F0876C4(coord3d* cam_pos, coord3d* cam_look, coord3d* cam_up)
     currentPlayerSetMatrix10C8((Mtx* ) g_CurrentPlayer->field_5C);
     currentPlayerSetMatrix10C4((Mtx* ) g_CurrentPlayer->field_60);
     currentPlayerSetMatrix10CC((Mtxf* ) g_CurrentPlayer->field_64);
-    currentPlayerSetMatrix10D4((Mtxf* ) g_CurrentPlayer->field_68);
+    currentPlayerSetViewToWorldMtxf((Mtxf* ) g_CurrentPlayer->field_68);
     sub_GAME_7F078464((s32) lookat);
     sub_GAME_7F0785DC();
     store_BONDdata_curpos_to_previous();
@@ -17885,7 +17885,7 @@ glabel playerTickBeams
 /* 0BFD3C 7F08B20C 00000000 */   nop
 /* 0BFD40 7F08B210 8E2A0000 */  lw    $t2, ($s1)
 /* 0BFD44 7F08B214 8D4B00D4 */  lw    $t3, 0xd4($t2)
-/* 0BFD48 7F08B218 0FC1E111 */  jal   currentPlayerGetMatrix10D4
+/* 0BFD48 7F08B218 0FC1E111 */  jal   currentPlayerGetViewToWorldMtxf
 /* 0BFD4C 7F08B21C 8D70000C */   lw    $s0, 0xc($t3)
 /* 0BFD50 7F08B220 00402025 */  move  $a0, $v0
 /* 0BFD54 7F08B224 02002825 */  move  $a1, $s0
@@ -18723,7 +18723,7 @@ glabel playerTickBeams
 /* 0BDEF0 7F08B500 00000000 */   nop
 /* 0BDEF4 7F08B504 8E2A0000 */  lw    $t2, ($s1)
 /* 0BDEF8 7F08B508 8D4B00D4 */  lw    $t3, 0xd4($t2)
-/* 0BDEFC 7F08B50C 0FC1E131 */  jal   currentPlayerGetMatrix10D4
+/* 0BDEFC 7F08B50C 0FC1E131 */  jal   currentPlayerGetViewToWorldMtxf
 /* 0BDF00 7F08B510 8D70000C */   lw    $s0, 0xc($t3)
 /* 0BDF04 7F08B514 00402025 */  move  $a0, $v0
 /* 0BDF08 7F08B518 02002825 */  move  $a1, $s0
@@ -19612,7 +19612,7 @@ void sub_GAME_7F08BEEC(Mtxf *matrices, s32 count)
 
     for (i = 0, j = 0; i < count; i++, j += sizeof(Mtxf))
     {
-        matrix_4x4_multiply_homogeneous(currentPlayerGetMatrix10D4(), (Mtxf *)((u32)matrices + j), &sp40);
+        matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), (Mtxf *)((u32)matrices + j), &sp40);
 
         sp40.m[3][0] -= g_CurrentPlayer->current_model_pos.f[0];
         sp40.m[3][1] -= g_CurrentPlayer->current_model_pos.f[1];
