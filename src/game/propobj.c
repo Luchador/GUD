@@ -121,6 +121,7 @@ s32 handles_projectile_motion(struct ObjectRecord *arg0, f32 *arg1, struct coord
 void objSettle(struct ObjectRecord *arg0, struct coord3d *arg1);
 void door7F054FB4(struct DoorRecord *arg0);
 void door7F0526EC(DoorRecord *door, Mtxf *rhs);
+void objBreakCCTVGlass(ObjectRecord *obj);
 
 /* PD: projectileFree (similar but not the same structure) */
 void projectileFree(Projectile* projectile)
@@ -30260,13 +30261,13 @@ void sub_GAME_7F04DD68(DoorRecord *door)
 /**
  * Address: 7F04DE18
  */
-void sub_GAME_7F04DE18(ObjectRecord *obj)
+void objBreakCCTVGlass(ObjectRecord *obj)
 {
     PropRecord *prop;
     s32 unused[2];
     union ModelRoData *rodata;
     Mtxf *node_mtx;
-    Mtxf sp44;
+    Mtxf glassNodeWorldMtx;
     Model *model;
 
     prop = obj->prop;
@@ -30278,9 +30279,9 @@ void sub_GAME_7F04DE18(ObjectRecord *obj)
 
         node_mtx = modelFindNodeMtx(model, model->obj->Switches[1], 0);
 
-        matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), node_mtx, &sp44);
+        matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), node_mtx, &glassNodeWorldMtx);
 
-        sub_GAME_7F0A1DA0(sp44.m[3], sp44.m[0], sp44.m[1], sp44.m[2], ((f32 *)rodata)[1], ((f32 *)rodata)[2], ((f32 *)rodata)[3], ((f32 *)rodata)[4], ((f32 *)rodata)[5], ((f32 *)rodata)[6]);
+        sub_GAME_7F0A1DA0(glassNodeWorldMtx.m[3], glassNodeWorldMtx.m[0], glassNodeWorldMtx.m[1], glassNodeWorldMtx.m[2], ((f32 *)rodata)[1], ((f32 *)rodata)[2], ((f32 *)rodata)[3], ((f32 *)rodata)[4], ((f32 *)rodata)[5], ((f32 *)rodata)[6]);
     }
 
     explosionClearBulletImpactRoomByFlag(prop, 1);
@@ -31523,7 +31524,7 @@ void objHit(ShotData *shotdata, BulletHit *hit)
                 if (hit->unk44 == obj->model->obj->Switches[1])
                 {
                     damage *= 100.0f;
-                    sub_GAME_7F04DE18(obj);
+                    objBreakCCTVGlass(obj);
                 }
             }
 
