@@ -1264,7 +1264,7 @@ glabel chraiDefaultWeaponFireHandler
 /* 07022C 7F03B6FC 54410004 */  bnel  $v0, $at, .L7F03B710
 /* 070230 7F03B700 8E0C0084 */   lw    $t4, 0x84($s0)
 .L7F03B704:
-/* 070234 7F03B704 0FC13A9A */  jal   sub_GAME_7F04EA68
+/* 070234 7F03B704 0FC13A9A */  jal   objHit
 /* 070238 7F03B708 26050038 */   addiu $a1, $s0, 0x38
 /* 07023C 7F03B70C 8E0C0084 */  lw    $t4, 0x84($s0)
 .L7F03B710:
@@ -1312,19 +1312,19 @@ glabel chraiDefaultWeaponFireHandler
 /* 0702D0 7F03B7A0 00000000 */   nop
 /* 0702D4 7F03B7A4 05410004 */  bgez  $t2, .L7F03B7B8
 /* 0702D8 7F03B7A8 87AB053A */   lh    $t3, 0x53a($sp)
-/* 0702DC 7F03B7AC 3C108005 */  lui   $s0, %hi(D_8004E86C)
+/* 0702DC 7F03B7AC 3C108005 */  lui   $s0, %hi(g_HitTypeSounds)
 /* 0702E0 7F03B7B0 1000000A */  b     .L7F03B7DC
-/* 0702E4 7F03B7B4 8E10E86C */   lw    $s0, %lo(D_8004E86C)($s0)
+/* 0702E4 7F03B7B4 8E10E86C */   lw    $s0, %lo(g_HitTypeSounds)($s0)
 .L7F03B7B8:
 /* 0702E8 7F03B7B8 000B60C0 */  sll   $t4, $t3, 3
 /* 0702EC 7F03B7BC 3C0D8005 */  lui   $t5, %hi(g_Textures)
 /* 0702F0 7F03B7C0 01AC6821 */  addu  $t5, $t5, $t4
 /* 0702F4 7F03B7C4 91AD9300 */  lbu   $t5, %lo(g_Textures)($t5)
-/* 0702F8 7F03B7C8 3C108005 */  lui   $s0, %hi(D_8004E86C)
+/* 0702F8 7F03B7C8 3C108005 */  lui   $s0, %hi(g_HitTypeSounds)
 /* 0702FC 7F03B7CC 31AE000F */  andi  $t6, $t5, 0xf
 /* 070300 7F03B7D0 000E7880 */  sll   $t7, $t6, 2
 /* 070304 7F03B7D4 020F8021 */  addu  $s0, $s0, $t7
-/* 070308 7F03B7D8 8E10E86C */  lw    $s0, %lo(D_8004E86C)($s0)
+/* 070308 7F03B7D8 8E10E86C */  lw    $s0, %lo(g_HitTypeSounds)($s0)
 .L7F03B7DC:
 /* 07030C 7F03B7DC 12200022 */  beqz  $s1, .L7F03B868
 /* 070310 7F03B7E0 00000000 */   nop

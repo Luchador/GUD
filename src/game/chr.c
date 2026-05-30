@@ -7488,9 +7488,9 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
     chr = bhit->prop->chr;
 
     // Calculate the view space hit position for impact effects.
-    hitpos.f[0] = shot->unk00.x - ((bhit->dist * shot->unk0c.x) / shot->unk0c.z);
-    hitpos.f[1] = shot->unk00.y - ((bhit->dist * shot->unk0c.y) / shot->unk0c.z);
-    hitpos.f[2] = shot->unk00.z - bhit->dist;
+    hitpos.f[0] = shot->viewOrigin.x - ((bhit->dist * shot->viewDir.x) / shot->viewDir.z);
+    hitpos.f[1] = shot->viewOrigin.y - ((bhit->dist * shot->viewDir.y) / shot->viewDir.z);
+    hitpos.f[2] = shot->viewOrigin.z - bhit->dist;
 
     scale = 1.0f - (42.0f / sqrtf(SQ(hitpos.f[0]) + SQ(hitpos.f[1]) + SQ(hitpos.f[2])));
 
@@ -7539,13 +7539,13 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
                         propobjSetDropped(prop, 1);
                         chr->hidden |= 1;
                     
-                        maybe_detonate_object(prop->obj, bondwalkItemGetDestructionAmount(shot->weapon), &hitpos, shot->weapon, get_cur_playernum());
+                        maybe_detonate_object(prop->obj, gunItemGetDestructionAmount(shot->weapon), &hitpos, shot->weapon, get_cur_playernum());
                     // Create a bullet hole on the character's held weapon.
                     } else {
                         if (bhit->hit.texturenum < 0) {
-                            sound = D_8004E86C[0];
+                            sound = g_HitTypeSounds[0];
                         } else {
-                            sound = D_8004E86C[g_Textures[bhit->hit.texturenum].hitTexture];
+                            sound = g_HitTypeSounds[g_Textures[bhit->hit.texturenum].hitTexture];
                         }
 
                         temp = randomGetNext() % (s16)sound->thing2_len;
@@ -7561,9 +7561,9 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
     // Create a bullet on hole on a hat or helmet attached to a character's head.
     if (bhit->hitpart == HIT_HAT) {
         if (bhit->hit.texturenum < 0) {
-            sound2 = D_8004E86C[0];
+            sound2 = g_HitTypeSounds[0];
         } else {
-            sound2 = D_8004E86C[g_Textures[bhit->hit.texturenum].hitTexture];
+            sound2 = g_HitTypeSounds[g_Textures[bhit->hit.texturenum].hitTexture];
         }
 
         temp2 = randomGetNext() % (s16)sound2->thing2_len; 
@@ -7582,9 +7582,9 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
     jointpos.y += (jointpos.y - mtx->m[3][1]) * 0.5f;
     jointpos.z += (jointpos.z - mtx->m[3][2]) * 0.5f;
 
-    jointpos.x -= getjointsize(bhit->model, bhit->node) * 0.5f * shot->unk0c.x;
-    jointpos.y -= getjointsize(bhit->model, bhit->node) * 0.5f * shot->unk0c.y;
-    jointpos.z -= getjointsize(bhit->model, bhit->node) * 0.5f * shot->unk0c.z;
+    jointpos.x -= getjointsize(bhit->model, bhit->node) * 0.5f * shot->viewDir.x;
+    jointpos.y -= getjointsize(bhit->model, bhit->node) * 0.5f * shot->viewDir.y;
+    jointpos.z -= getjointsize(bhit->model, bhit->node) * 0.5f * shot->viewDir.z;
 
     matrix_4x4_set_inverse_rotation_and_translation(mtx, &invmtx);
     mtx4TransformVecInPlace(&invmtx, &jointpos);

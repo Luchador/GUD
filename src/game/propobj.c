@@ -7402,7 +7402,7 @@ s32 object_interaction(struct PropRecord *arg0)
 
                             if (autogun->unkD4 >= 1.0f)
                             {
-                                bondviewCallRecordDamageKills(bondwalkItemGetDestructionAmount(ITEM_FNP90) * 0.125f * F_80030B20, autogun->unk90, -1, 1);
+                                bondviewCallRecordDamageKills(gunItemGetDestructionAmount(ITEM_FNP90) * 0.125f * F_80030B20, autogun->unk90, -1, 1);
 
                                 autogun->unkD4 = 0.0f;
 
@@ -12378,7 +12378,7 @@ glabel object_interaction
 /* 07E318 7F0497E8 00000000 */  nop
 /* 07E31C 7F0497EC 45020014 */  bc1fl .L7F049840
 /* 07E320 7F0497F0 8FB9011C */   lw    $t9, 0x11c($sp)
-/* 07E324 7F0497F4 0FC177E1 */  jal   bondwalkItemGetDestructionAmount
+/* 07E324 7F0497F4 0FC177E1 */  jal   gunItemGetDestructionAmount
 /* 07E328 7F0497F8 2404000E */   li    $a0, 14
 /* 07E32C 7F0497FC 3C013E00 */  li    $at, 0x3E000000 # 0.125000
 /* 07E330 7F049800 44815000 */  mtc1  $at, $f10
@@ -17484,7 +17484,7 @@ glabel object_interaction
 /* 07E75C 7F049BEC 00000000 */  nop
 /* 07E760 7F049BF0 45020014 */  bc1fl .Ljp7F049C44
 /* 07E764 7F049BF4 8FB90120 */   lw    $t9, 0x120($sp)
-/* 07E768 7F049BF8 0FC17929 */  jal   bondwalkItemGetDestructionAmount
+/* 07E768 7F049BF8 0FC17929 */  jal   gunItemGetDestructionAmount
 /* 07E76C 7F049BFC 2404000E */   li    $a0, 14
 /* 07E770 7F049C00 3C013E00 */  li    $at, 0x3E000000 # 0.125000
 /* 07E774 7F049C04 44815000 */  mtc1  $at, $f10
@@ -22597,7 +22597,7 @@ glabel object_interaction
 /* 07C3B4 7F0499C4 00000000 */  nop
 /* 07C3B8 7F0499C8 45020014 */  bc1fl .L7F049A1C
 /* 07C3BC 7F0499CC 8FAA0120 */   lw    $t2, 0x120($sp)
-/* 07C3C0 7F0499D0 0FC1790F */  jal   bondwalkItemGetDestructionAmount
+/* 07C3C0 7F0499D0 0FC1790F */  jal   gunItemGetDestructionAmount
 /* 07C3C4 7F0499D4 2404000E */   li    $a0, 14
 /* 07C3C8 7F0499D8 3C013E00 */  li    $at, 0x3E000000 # 0.125000
 /* 07C3CC 7F0499DC 44815000 */  mtc1  $at, $f10
@@ -31449,7 +31449,7 @@ void sub_GAME_7F04E9BC(PropRecord* prop, struct ShotData* shotdata)
 /**
  * Address: 7F04EA68
  */
-void sub_GAME_7F04EA68(ShotData *shotdata, BulletHit *hit)
+void objHit(ShotData *shotdata, BulletHit *hit)
 {
     ObjectRecord *obj;
     coord3d pos;
@@ -31464,13 +31464,13 @@ void sub_GAME_7F04EA68(ShotData *shotdata, BulletHit *hit)
 
     obj = hit->prop->obj;
 
-    pos.x = shotdata->unk00.x - ((hit->dist * shotdata->unk0c.x) / shotdata->unk0c.z);
-    pos.y = shotdata->unk00.y - ((hit->dist * shotdata->unk0c.y) / shotdata->unk0c.z);
-    pos.z = shotdata->unk00.z - hit->dist;
+    pos.x = shotdata->viewOrigin.x - ((hit->dist * shotdata->viewDir.x) / shotdata->viewDir.z);
+    pos.y = shotdata->viewOrigin.y - ((hit->dist * shotdata->viewDir.y) / shotdata->viewDir.z);
+    pos.z = shotdata->viewOrigin.z - hit->dist;
 
-    pos.x -= 26.0f * shotdata->unk0c.x;
-    pos.y -= 26.0f * shotdata->unk0c.y;
-    pos.z -= 26.0f * shotdata->unk0c.z;
+    pos.x -= 26.0f * shotdata->viewDir.x;
+    pos.y -= 26.0f * shotdata->viewDir.y;
+    pos.z -= 26.0f * shotdata->viewDir.z;
 
     mtx4TransformVecInPlace(currentPlayerGetMatrix10D4(), &pos);
 
@@ -31500,60 +31500,62 @@ void sub_GAME_7F04EA68(ShotData *shotdata, BulletHit *hit)
         if (hit->countsAsPenetration == 0)
         {
             PropRecord *hitprop;
-            s8 special_impact_flag;
+            s8 room_clear_flag;
             s16 impact_type;
 
             hitprop = hit->prop;
-            special_impact_flag = 0;
+            room_clear_flag = 0;
 
             if (obj->model->obj->Skeleton == &skeleton_door)
             {
-                special_impact_flag = 1;
+                room_clear_flag = 1;
             }
 
             impact_type = (randomGetNext() % 3) + 0x11;
 
-            explosionCreateBulletImpact(&hit->hit.hitpos, &hit->hit.normal, impact_type, 1, hitprop, hit->room, special_impact_flag);
+            explosionCreateBulletImpact(&hit->hit.hitpos, &hit->hit.normal, impact_type, 1, hitprop, hit->room, room_clear_flag);
         }
         else
         {
             struct image_sound *impact_sounds;
             s32 thing2_index;
-            s8 special_impact_flag;
+            s8 room_clear_flag;
             s16 texturenum;
 
             texturenum = hit->hit.texturenum;
-            special_impact_flag = 0;
+            room_clear_flag = 0;
 
             if (texturenum < 0)
             {
-                impact_sounds = D_8004E86C[0];
+                impact_sounds = g_HitTypeSounds[0];
             }
             else
             {
-                impact_sounds = D_8004E86C[((u8 *)&g_Textures[texturenum])[0] & 0x0f];
+                impact_sounds = g_HitTypeSounds[((u8 *)&g_Textures[texturenum])[0] & 0x0f];
             }
 
             thing2_index = randomGetNext() % impact_sounds->thing2_len;
 
             if (((obj->model->obj->Skeleton == &skeleton_door) && (hit->unk44 == obj->model->obj->Switches[3])) || ((obj->model->obj->Skeleton == &skeleton_cctv) && (hit->unk44 == obj->model->obj->Switches[1])))
             {
-                special_impact_flag = 1;
+                room_clear_flag = 1;
             }
 
-            explosionCreateBulletImpact(&hit->hit.hitpos, &hit->hit.normal, impact_sounds->thing2[thing2_index], 1, hit->prop, hit->room, special_impact_flag);
+            explosionCreateBulletImpact(&hit->hit.hitpos, &hit->hit.normal, impact_sounds->thing2[thing2_index], 1, hit->prop, hit->room, room_clear_flag);
         }
     }
 
     {
         f32 damage;
 
-        damage = bondwalkItemGetDestructionAmount(shotdata->weapon);
+        damage = gunItemGetDestructionAmount(shotdata->weapon);
 
+        // On Agent player shots to drone guns do 2x normal damage.
         if (obj->type == PROPDEF_AUTOGUN)
         {
             damage *= F_80030B24;
         }
+        // Shots to CCTV camera glass do 100x normal damage.
         else if (obj->type == PROPDEF_CCTV)
         {
             if (obj->model->obj->Skeleton == &skeleton_cctv)
@@ -31615,7 +31617,7 @@ void sub_GAME_7F04EA68(ShotData *shotdata, BulletHit *hit)
 
         if (do_bounce)
         {
-            objBounce(obj, &shotdata->unk0c);
+            objBounce(obj, &shotdata->viewDir);
         }
     }
 }

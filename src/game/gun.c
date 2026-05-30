@@ -1309,7 +1309,7 @@ void camera_sniper_zoom_in(f32 zoom)
 	}
 }
 
-f32 bondwalkItemGetDestructionAmount(ITEM_IDS item)
+f32 gunItemGetDestructionAmount(ITEM_IDS item)
 {
   return get_ptr_item_statistics(item)->DestructionAmount;
 }
@@ -12661,12 +12661,12 @@ void recall_joy2_hits_edit_detail_edit_flag(enum ITEM_IDS item, PropRecord* prop
     sound_state = sub_GAME_7F0643A0();
     if ((sound_state != NULL) && (texture_index >= 0))
     {
-        if (D_8004E86C[g_Textures[texture_index].hitSound] != NULL)
+        if (g_HitTypeSounds[g_Textures[texture_index].hitSound] != NULL)
         {
-            if (D_8004E86C[g_Textures[texture_index].hitSound]->sfx_len > 0)
+            if (g_HitTypeSounds[g_Textures[texture_index].hitSound]->sfx_len > 0)
             {
-                sfx_index = rnd2 % D_8004E86C[g_Textures[texture_index].hitSound]->sfx_len;
-                sndPlaySfx((struct ALBankAlt_s* ) g_musicSfxBufferPtr, D_8004E86C[g_Textures[texture_index].hitSound]->sfx[sfx_index], sound_state);
+                sfx_index = rnd2 % g_HitTypeSounds[g_Textures[texture_index].hitSound]->sfx_len;
+                sndPlaySfx((struct ALBankAlt_s* ) g_musicSfxBufferPtr, g_HitTypeSounds[g_Textures[texture_index].hitSound]->sfx[sfx_index], sound_state);
             }
 
             if (sound_state->link.next != NULL)
@@ -12754,7 +12754,7 @@ void recall_joy2_hits_edit_flag(enum ITEM_IDS item, coord3d* arg1, s32 texture_i
     sound_state = sub_GAME_7F0643A0();
     if ((sound_state != NULL) && (texture_index >= 0))
     {
-        img_sound = D_8004E86C[g_Textures[texture_index].hitSound];
+        img_sound = g_HitTypeSounds[g_Textures[texture_index].hitSound];
         if (img_sound->sfx_len > 0)
         {
             if (img_sound != NULL)

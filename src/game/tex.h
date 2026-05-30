@@ -49,7 +49,7 @@ typedef struct s_bss_8008D2A8
 } s_bss_8008D2A8;
 
 
-extern struct image_sound *D_8004E86C[];
+extern struct image_sound *g_HitTypeSounds[];
 
 s32 texGetHeightAtLod(struct tex *tex, s32 lod);
 void texGetDepthAndSize(struct tex *tex, s32 *deptharg, s32 *lenarg);

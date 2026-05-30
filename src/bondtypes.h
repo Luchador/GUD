@@ -1582,8 +1582,8 @@ typedef union
     } BulletHit;
 
     typedef struct ShotData {
-        coord3d unk00;              // 0x00
-        coord3d unk0c;              // 0x0c
+        coord3d viewOrigin;         // 0x00
+        coord3d viewDir;            // 0x0c
         ITEM_IDS weapon;            // 0x18
         coord3d gunpos;             // 0x1c
         coord3d dir;                // 0x28

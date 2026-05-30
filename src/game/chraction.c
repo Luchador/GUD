@@ -2714,7 +2714,7 @@ bool handles_shot_actors(ChrRecord *self, s32 hitpart, coord3d *vector, s32 weap
         f32   damageToCause;
         s32   playerNum;
 
-        damageToCause = bondwalkItemGetDestructionAmount(weaponid);
+        damageToCause = gunItemGetDestructionAmount(weaponid);
 
         if (isPlayer && (getPlayerCount() == 1))
         {
@@ -6704,7 +6704,7 @@ void chrlvUpdateShotbondsum(ChrRecord *self, s32 *arg1, s32 *arg2, ITEM_IDS item
 
         if (self->shotbondsum >= 1.0f)
         {
-            t2 = (0.125f * bondwalkItemGetDestructionAmount(item) * g_AiDamageModifier) * get_007_damage_mod();
+            t2 = (0.125f * gunItemGetDestructionAmount(item) * g_AiDamageModifier) * get_007_damage_mod();
 
             if ((item == ITEM_SHOTGUN) || (item == ITEM_AUTOSHOT))
             {
@@ -7108,7 +7108,7 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                                 {
                                     chrobjMaybeDetonateObjectIfFlags(
                                         stanSavedColl_posData->obj,
-                                        bondwalkItemGetDestructionAmount(prop_selfchr->act_attack.attack_item),
+                                        gunItemGetDestructionAmount(prop_selfchr->act_attack.attack_item),
                                         &sp258,
                                         prop_selfchr->act_attack.attack_item,
                                         get_cur_playernum());
