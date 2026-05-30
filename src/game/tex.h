@@ -21,7 +21,7 @@ struct image_sound
     /**
      * Number of items in thing2 array.
     */
-    u16 thing2_len;
+    s16 thing2_len;
 };
 
 typedef struct s_bss_8008D148

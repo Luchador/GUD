@@ -32,11 +32,8 @@ extern LockDoorRecord *g_LevelLoadPropLockDoor;
 extern ObjectRecord *g_LevelLoadPropSafeItem;
 extern struct PropRecord *D_80030B0C;
 extern s32 bodypartshot;
-extern f32 F_80030B14;
-extern f32 F_80030B18;
 extern f32 g_AutogunPendingDamageTick;
 extern f32 g_AutogunDamageScalar;
-extern f32 F_80030B24;
 extern f32 g_SoloAmmoMultiplier;
 extern struct Model *g_CurrentProjectileModel;
 extern struct ModelNode *dword_CODE_bss_80075B74;
@@ -54,6 +51,7 @@ void                 chrobjCallsApplySpeed(f32 *openPosition, f32 maxFrac, f32 *
 Gfx                 *sub_GAME_7F049B58(Gfx *arg0);
 void                 set_color_shading_from_tile(PropRecord *, rgba_u8 *);
 void                 propobjSetDropped(PropRecord *prop, DROPTYPE droptype);
+void                 objDropRecursively(PropRecord *prop);
 void                 chrobjSndCreatePostEventDefault(ALSoundState *, coord3d *);
 void                 alarmActivate(void);
 void                 weaponSetGunfireVisible(PropRecord *prop, s32 firing);
@@ -82,6 +80,7 @@ void                 trigger_remote_mine_detonation(void);
 
 void                 objDetach(PropRecord *prop);
 void                 objFreeEmbedmentOrProjectile(PropRecord *);
+void                 objBounce(ObjectRecord *obj, coord3d *arg1);
 bool                 alarmIsActive(void);
 void                 init_trigger_toxic_gas_effect(coord3d *source);
 void                 chrSetWeaponFlag4(ChrRecord *chr, GUNHAND hand);
@@ -99,11 +98,13 @@ void                 countdownTimerSetVisible(int clocklockbits, bool unset);
 void                 sub_GAME_7F04088C(ObjectRecord *baseobj, struct coord3d *pad, Mtxf *matrix, StandTile *stan, struct coord3d *pos2);
 void                 sub_GAME_7F040BA0(ObjectRecord *obj, struct coord3d *pos, Mtxf *arg2, StandTile *stan2, struct coord3d *pos2);
 bool                 chrEquipWeapon(WeaponObjRecord *wep, ChrRecord *chr);
+bool                 objIsCollectable(PropDefHeaderRecord *obj);
 INV_ITEM_TYPE        collect_or_interact_object(PropRecord *prop, bool showstring);
 INV_ITEM_TYPE        propobjInteract(PropRecord *prop);
 s32                  objGetDestroyedLevel(ObjectRecord *obj);
 void                 doorActivateWrapper(PropRecord *prop);
 bool                 objIsHealthy(ObjectRecord *self);
+bool                 objIsMortal(ObjectRecord* obj);
 KeyRecord            *weaponFindThrown(s32 ID);
 bool                 check_if_toxic_gas_activated(void);
 HatRecord           *hatCreate(bool musthaveprop, bool musthavemodel, ModelFileHeader *modeldef);
@@ -127,5 +128,6 @@ void                 drop_inventory(void);
 void                 sub_GAME_7F056690(void);
 f32                  bondviewGetPlayerPitchRadians(void);
 s32                  object_collectability_routines(struct PropRecord* arg0);
+void                 sub_GAME_7F04DD68(DoorRecord *door);
 
 #endif

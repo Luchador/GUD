@@ -333,6 +333,7 @@ s32          currentPlayerGetAmmoCount(AMMOTYPE ammotype);
 s32          get_civilian_casualties(void);
 s32 Gun_hand_without_item(enum GUNHAND arg0);
 void sub_GAME_7F05FB00(enum GUNHAND hand);
+void gunSetTracerTarget(coord3d* pos);
 
 void bgunCalculateBlend(enum GUNHAND handnum);
 void gunSetBondWeaponSway(f32 arg0, f32 arg1, f32 speed_verta, f32 speed_theta);
@@ -359,6 +360,7 @@ void gunSetAimType(s32 param_1);
 void sub_GAME_7F067FBC(f32 turn_x, f32 turn_y);
 void gunTickGameplay(s32 arg0);
 u8 bondwalkItemGetObjectsShootThrough(ITEM_IDS item);
+void sub_GAME_7F064720(coord3d* pos);
 
 Gfx *gunDrawHudString(Gfx *gdl, s8 *text, s32 x, s32 halign, s32 y, s32 valign, bool outline);
 Gfx *gunDrawHudInteger(Gfx *gdl, s32 value, s32 x, s32 halign, s32 y, s32 valign, bool outline);

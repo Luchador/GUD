@@ -1576,7 +1576,7 @@ typedef union
         struct ModelNode *node;     // 0x0c
         HitThing hit;               // 0x10, size 0x30
         s32 room;                   // 0x40
-        s32 unk44;                  // 0x44
+        struct ModelNode *unk44;    // 0x44
         struct Model *model;        // 0x48
         s32 countsAsPenetration;    // 0x4c
     } BulletHit;
@@ -2876,7 +2876,7 @@ typedef union
          */
         s8                 openstate;
 
-        u8                 unkbd; /*0xbd*/
+        s8                 unkbd; /*0xbd*/
 
         // something related to rendering
         s16                calculatedopacity;      /*0xbe*/
