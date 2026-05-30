@@ -696,132 +696,23 @@ glabel matrix_4x4_f32_to_s32
 
 
 
-#ifdef NONMATCHING
-void sub_GAME_7F058E78(void) {
+/*
+ * Address: 0x7F058E78
+ * Reads packed s32 words from src, writes floats to dst (inverse of matrix_4x4_f32_to_s32).
+*/
+void sub_GAME_7F058E78(Mtxf *src, Mtxf *dst) {
+    u32 *srcwords = (u32 *) src;
+    f32 *dstfloats = (f32 *) dst;
+    s32 i;
 
+    for (i = 0; i < 8; i++) {
+        u32 word1 = srcwords[i + 0];
+        u32 word2 = srcwords[i + 8];
+
+        dstfloats[(i << 1) + 0] = (s32) ((word1 & 0xffff0000) | (word2 >> 16)) / D_80032310[0];
+        dstfloats[(i << 1) + 1] = (s32) ((word1 << 16) | (word2 & 0xffff)) / D_80032310[i & 1];
+    }
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F058E78
-/* 08D9A8 7F058E78 27BDFFE8 */  addiu $sp, $sp, -0x18
-/* 08D9AC 7F058E7C AFB20010 */  sw    $s2, 0x10($sp)
-/* 08D9B0 7F058E80 AFB30014 */  sw    $s3, 0x14($sp)
-/* 08D9B4 7F058E84 AFB1000C */  sw    $s1, 0xc($sp)
-/* 08D9B8 7F058E88 3C128003 */  lui   $s2, %hi(D_80032310)
-/* 08D9BC 7F058E8C AFB00008 */  sw    $s0, 8($sp)
-/* 08D9C0 7F058E90 26522310 */  addiu $s2, %lo(D_80032310) # addiu $s2, $s2, 0x2310
-/* 08D9C4 7F058E94 3C11FFFF */  lui   $s1, 0xffff
-/* 08D9C8 7F058E98 24130008 */  li    $s3, 8
-/* 08D9CC 7F058E9C 00001025 */  move  $v0, $zero
-/* 08D9D0 7F058EA0 00805025 */  move  $t2, $a0
-.L7F058EA4:
-/* 08D9D4 7F058EA4 8D430000 */  lw    $v1, ($t2)
-/* 08D9D8 7F058EA8 8D460020 */  lw    $a2, 0x20($t2)
-/* 08D9DC 7F058EAC C6480000 */  lwc1  $f8, ($s2)
-/* 08D9E0 7F058EB0 0071C024 */  and   $t8, $v1, $s1
-/* 08D9E4 7F058EB4 0006CC02 */  srl   $t9, $a2, 0x10
-/* 08D9E8 7F058EB8 03197025 */  or    $t6, $t8, $t9
-/* 08D9EC 7F058EBC 448E2000 */  mtc1  $t6, $f4
-/* 08D9F0 7F058EC0 000278C0 */  sll   $t7, $v0, 3
-/* 08D9F4 7F058EC4 00AF5821 */  addu  $t3, $a1, $t7
-/* 08D9F8 7F058EC8 468021A0 */  cvt.s.w $f6, $f4
-/* 08D9FC 7F058ECC 00037C00 */  sll   $t7, $v1, 0x10
-/* 08DA00 7F058ED0 30D8FFFF */  andi  $t8, $a2, 0xffff
-/* 08DA04 7F058ED4 01F8C825 */  or    $t9, $t7, $t8
-/* 08DA08 7F058ED8 44998000 */  mtc1  $t9, $f16
-/* 08DA0C 7F058EDC 304E0001 */  andi  $t6, $v0, 1
-/* 08DA10 7F058EE0 46083283 */  div.s $f10, $f6, $f8
-/* 08DA14 7F058EE4 000E7880 */  sll   $t7, $t6, 2
-/* 08DA18 7F058EE8 024FC021 */  addu  $t8, $s2, $t7
-/* 08DA1C 7F058EEC 24470001 */  addiu $a3, $v0, 1
-/* 08DA20 7F058EF0 468084A0 */  cvt.s.w $f18, $f16
-/* 08DA24 7F058EF4 000770C0 */  sll   $t6, $a3, 3
-/* 08DA28 7F058EF8 00AE6021 */  addu  $t4, $a1, $t6
-/* 08DA2C 7F058EFC 24480002 */  addiu $t0, $v0, 2
-/* 08DA30 7F058F00 24490003 */  addiu $t1, $v0, 3
-/* 08DA34 7F058F04 24420004 */  addiu $v0, $v0, 4
-/* 08DA38 7F058F08 254A0010 */  addiu $t2, $t2, 0x10
-/* 08DA3C 7F058F0C E56A0000 */  swc1  $f10, ($t3)
-/* 08DA40 7F058F10 C7040000 */  lwc1  $f4, ($t8)
-/* 08DA44 7F058F14 46049183 */  div.s $f6, $f18, $f4
-/* 08DA48 7F058F18 E5660004 */  swc1  $f6, 4($t3)
-/* 08DA4C 7F058F1C 8D460014 */  lw    $a2, 0x14($t2)
-/* 08DA50 7F058F20 8D43FFF4 */  lw    $v1, -0xc($t2)
-/* 08DA54 7F058F24 C6500000 */  lwc1  $f16, ($s2)
-/* 08DA58 7F058F28 0006C402 */  srl   $t8, $a2, 0x10
-/* 08DA5C 7F058F2C 00717824 */  and   $t7, $v1, $s1
-/* 08DA60 7F058F30 01F8C825 */  or    $t9, $t7, $t8
-/* 08DA64 7F058F34 44994000 */  mtc1  $t9, $f8
-/* 08DA68 7F058F38 30CFFFFF */  andi  $t7, $a2, 0xffff
-/* 08DA6C 7F058F3C 00037400 */  sll   $t6, $v1, 0x10
-/* 08DA70 7F058F40 468042A0 */  cvt.s.w $f10, $f8
-/* 08DA74 7F058F44 01CFC025 */  or    $t8, $t6, $t7
-/* 08DA78 7F058F48 44982000 */  mtc1  $t8, $f4
-/* 08DA7C 7F058F4C 30F90001 */  andi  $t9, $a3, 1
-/* 08DA80 7F058F50 00197080 */  sll   $t6, $t9, 2
-/* 08DA84 7F058F54 468021A0 */  cvt.s.w $f6, $f4
-/* 08DA88 7F058F58 024E7821 */  addu  $t7, $s2, $t6
-/* 08DA8C 7F058F5C 0008C8C0 */  sll   $t9, $t0, 3
-/* 08DA90 7F058F60 00B96821 */  addu  $t5, $a1, $t9
-/* 08DA94 7F058F64 46105483 */  div.s $f18, $f10, $f16
-/* 08DA98 7F058F68 E5920000 */  swc1  $f18, ($t4)
-/* 08DA9C 7F058F6C C5E80000 */  lwc1  $f8, ($t7)
-/* 08DAA0 7F058F70 46083283 */  div.s $f10, $f6, $f8
-/* 08DAA4 7F058F74 E58A0004 */  swc1  $f10, 4($t4)
-/* 08DAA8 7F058F78 8D460018 */  lw    $a2, 0x18($t2)
-/* 08DAAC 7F058F7C 8D43FFF8 */  lw    $v1, -8($t2)
-/* 08DAB0 7F058F80 C6440000 */  lwc1  $f4, ($s2)
-/* 08DAB4 7F058F84 00067C02 */  srl   $t7, $a2, 0x10
-/* 08DAB8 7F058F88 00717024 */  and   $t6, $v1, $s1
-/* 08DABC 7F058F8C 01CFC025 */  or    $t8, $t6, $t7
-/* 08DAC0 7F058F90 44988000 */  mtc1  $t8, $f16
-/* 08DAC4 7F058F94 30CEFFFF */  andi  $t6, $a2, 0xffff
-/* 08DAC8 7F058F98 0003CC00 */  sll   $t9, $v1, 0x10
-/* 08DACC 7F058F9C 468084A0 */  cvt.s.w $f18, $f16
-/* 08DAD0 7F058FA0 032E7825 */  or    $t7, $t9, $t6
-/* 08DAD4 7F058FA4 448F4000 */  mtc1  $t7, $f8
-/* 08DAD8 7F058FA8 31180001 */  andi  $t8, $t0, 1
-/* 08DADC 7F058FAC 0018C880 */  sll   $t9, $t8, 2
-/* 08DAE0 7F058FB0 468042A0 */  cvt.s.w $f10, $f8
-/* 08DAE4 7F058FB4 02597021 */  addu  $t6, $s2, $t9
-/* 08DAE8 7F058FB8 0009C0C0 */  sll   $t8, $t1, 3
-/* 08DAEC 7F058FBC 00B88021 */  addu  $s0, $a1, $t8
-/* 08DAF0 7F058FC0 46049183 */  div.s $f6, $f18, $f4
-/* 08DAF4 7F058FC4 E5A60000 */  swc1  $f6, ($t5)
-/* 08DAF8 7F058FC8 C5D00000 */  lwc1  $f16, ($t6)
-/* 08DAFC 7F058FCC 46105483 */  div.s $f18, $f10, $f16
-/* 08DB00 7F058FD0 E5B20004 */  swc1  $f18, 4($t5)
-/* 08DB04 7F058FD4 8D46001C */  lw    $a2, 0x1c($t2)
-/* 08DB08 7F058FD8 8D43FFFC */  lw    $v1, -4($t2)
-/* 08DB0C 7F058FDC C6480000 */  lwc1  $f8, ($s2)
-/* 08DB10 7F058FE0 00067402 */  srl   $t6, $a2, 0x10
-/* 08DB14 7F058FE4 0071C824 */  and   $t9, $v1, $s1
-/* 08DB18 7F058FE8 032E7825 */  or    $t7, $t9, $t6
-/* 08DB1C 7F058FEC 448F2000 */  mtc1  $t7, $f4
-/* 08DB20 7F058FF0 30D9FFFF */  andi  $t9, $a2, 0xffff
-/* 08DB24 7F058FF4 0003C400 */  sll   $t8, $v1, 0x10
-/* 08DB28 7F058FF8 468021A0 */  cvt.s.w $f6, $f4
-/* 08DB2C 7F058FFC 03197025 */  or    $t6, $t8, $t9
-/* 08DB30 7F059000 448E8000 */  mtc1  $t6, $f16
-/* 08DB34 7F059004 312F0001 */  andi  $t7, $t1, 1
-/* 08DB38 7F059008 000FC080 */  sll   $t8, $t7, 2
-/* 08DB3C 7F05900C 468084A0 */  cvt.s.w $f18, $f16
-/* 08DB40 7F059010 0258C821 */  addu  $t9, $s2, $t8
-/* 08DB44 7F059014 46083283 */  div.s $f10, $f6, $f8
-/* 08DB48 7F059018 E60A0000 */  swc1  $f10, ($s0)
-/* 08DB4C 7F05901C C7240000 */  lwc1  $f4, ($t9)
-/* 08DB50 7F059020 46049183 */  div.s $f6, $f18, $f4
-/* 08DB54 7F059024 1453FF9F */  bne   $v0, $s3, .L7F058EA4
-/* 08DB58 7F059028 E6060004 */   swc1  $f6, 4($s0)
-/* 08DB5C 7F05902C 8FB00008 */  lw    $s0, 8($sp)
-/* 08DB60 7F059030 8FB1000C */  lw    $s1, 0xc($sp)
-/* 08DB64 7F059034 8FB20010 */  lw    $s2, 0x10($sp)
-/* 08DB68 7F059038 8FB30014 */  lw    $s3, 0x14($sp)
-/* 08DB6C 7F05903C 03E00008 */  jr    $ra
-/* 08DB70 7F059040 27BD0018 */   addiu $sp, $sp, 0x18
-)
-#endif
 
 void matrix_4x4_7F059044(Mtxf *arg0, Mtx* arg1) {
     s32 i, j;
@@ -841,185 +732,22 @@ void matrix_4x4_7F05914C(Mtx* arg0, Mtxf *arg1) {
     }
 }
 
-//#ifdef NONMATCHING
-#if 0
-#define MTX_INTPART_PACK(w1, w2) (((w1) & 0xFFFF0000) | ((w2) >> 16))
-#define MTX_FRACPART_PACK(w1, w2) (((w1) << 16) | ((w2) & 0xFFFF))
-
-void sub_GAME_7F059244(Mtx* a0, Mtx* a1) {
-    // s32 i;
-    // s32 j;
-    // u32 w1;
-    // u32 w2;
-    // for (i = 0; i < 2; i++) {
-    //     for (j = 0; j < 4; j++) {
-    //         w1 = a0->m[i * 2 + j / 2][((j * 2) % 4) + 0];
-    //         w2 = a0->m[i * 2 + j / 2][((j * 2) % 4) + 1];
-    //         a1->m[i + 0][j] = MTX_INTPART_PACK(w1, w2);
-    //         a1->m[i + 2][j] = MTX_FRACPART_PACK(w1, w2);
-    //     }
-    // }
-
-    // Reg alloc and iteration mostly!
-    // s32 i;
-    // s32 j;
-    // for (i = 0; i < 2; i++) {
-    //     for (j = 0; j < 4; j++) {
-    //         u32 w1 = a0[i * 2 + j / 2][(j % 2) * 2 + 0];
-    //         u32 w2 = a0[i * 2 + j / 2][(j % 2) * 2 + 1];
-    //         a1[i + 0][j] = MTX_INTPART_PACK(w1, w2);
-    //         a1[i + 2][j] = MTX_FRACPART_PACK(w1, w2);
-    //     }
-    // }
-
-    // s32 i;
-    // s32 j;
-    // s32 *mtxInt = (s32 *)&a1[0][0];
-    // s32 *mtxFrc = (s32 *)&a1[2][0];
-    // for (i = 0; i < 8; i++) {
-    //     *mtxInt++ = MTX_INTPART_PACK(a0[i * 2], (u32)a0[i * 2 + 1]);
-    //     *mtxFrc++ = MTX_FRACPART_PACK(a0[i * 2], a0[i * 2 + 1]);
-    // }
-
-    // s32 i;
-    // s32 j;
-    // s32 *mtxInt = (s32 *)&a1[0][0];
-    // s32 *mtxFrc = (s32 *)&a1[2][0];
-    // for (i = 0; i < 8; i++) {
-    //     *mtxInt++ = MTX_INTPART_PACK(a0[i * 2], (u32)a0[i * 2 + 1]);
-    //     *mtxFrc++ = MTX_FRACPART_PACK(a0[i * 2], a0[i * 2 + 1]);
-    // }
-    // s32 i;
-    // s32 j;
-    // for (i = 0; i < 2; i++) {
-    //     for (j = 0; j < 4; j++) {
-    //         a1[i + 0][j] = MTX_INTPART_PACK(a0[i * 8 + j * 2], (u32)a0[i * 8 + j*2 + 1]);
-    //         a1[i + 2][j] = MTX_FRACPART_PACK(a0[i * 8 + j * 2], a0[i * 8 + j*2 + 1]);
-    //     }
-    // }
-
+/*
+ * Address: 0x7F059244
+*/
+#ifdef NONMATCHING
+void sub_GAME_7F059244(Mtx *src, Mtx *dst) {
+    u32 *srcwords = (u32 *) src;
+    u32 *dstwords = (u32 *) dst;
     s32 i;
-    s32 j;
-    s32* ptr = &a0->m[0][0];
-    for (i = 0; i < 2; i++) {
-        for (j = 0; j < 4; j++) {
-            s32 w1 = *ptr++;
-            s32 w2 = *ptr++;
-            a1->m[i + 0][j] = MTX_INTPART_PACK(w1, (u32)w2);
-            a1->m[i + 2][j] = MTX_FRACPART_PACK(w1, w2);
-        }
+
+    for (i = 0; i < 8; i++) {
+        u32 word1 = srcwords[i * 2 + 0];
+        u32 word2 = srcwords[i * 2 + 1];
+
+        dstwords[i + 0] = (word1 & 0xffff0000) | (word2 >> 16);
+        dstwords[i + 8] = (word1 << 16) | (word2 & 0xffff);
     }
-
-    // s32 i;
-    // s32 j;
-    // s32 w1;
-    // s32 w2;
-    // for (i = 0; i < 2; i++) {
-    //     for (j = 0; j < 4; j++) {
-    //         w1 = a0[i * 8 + j * 2 + 0];
-    //         w2 = a0[i * 8 + j * 2 + 1];
-    //         a1[i + 0][j] = MTX_INTPART_PACK(w1, (u32)w2);
-    //         a1[i + 2][j] = MTX_FRACPART_PACK(w1, w2);
-    //     }
-    // }
-
-    // s32 i = 0;
-    // s32 *w1 = &a0[0][0];
-    // s32 *w2 = &a0[0][1];
-    // for (i = 0; i < 2; i++) {
-    //     a1[i + 0][0] = MTX_INTPART_PACK(*w1, (u32)*w2);
-    //     a1[i + 2][0] = MTX_FRACPART_PACK(*w1, *w2);
-    //     w1 += 2;
-    //     w2 += 2;
-    //     a1[i + 0][1] = MTX_INTPART_PACK(*w1, (u32)*w2);
-    //     a1[i + 2][1] = MTX_FRACPART_PACK(*w1, *w2);
-    //     w1 += 2;
-    //     w2 += 2;
-    //     a1[i + 0][2] = MTX_INTPART_PACK(*w1, (u32)*w2);
-    //     a1[i + 2][2] = MTX_FRACPART_PACK(*w1, *w2);
-    //     w1 += 2;
-    //     w2 += 2;
-    //     a1[i + 0][3] = MTX_INTPART_PACK(*w1, (u32)*w2);
-    //     a1[i + 2][3] = MTX_FRACPART_PACK(*w1, *w2);
-    // }
-
-    // s32 i = 0;
-    // s32 w1;
-    // s32 w2;
-    // for (i = 0; i < 2; i++) {
-    //     w1 = a0[i * 2 + 0][0];
-    //     w2 = a0[i * 2 + 0][1];
-    //     a1[i + 0][0] = MTX_INTPART_PACK(w1, (u32)w2);
-    //     a1[i + 2][0] = MTX_FRACPART_PACK(w1, w2);
-    //     w1 = a0[i * 2 + 0][2];
-    //     w2 = a0[i * 2 + 0][3];
-    //     a1[i + 0][1] = MTX_INTPART_PACK(w1, (u32)w2);
-    //     a1[i + 2][1] = MTX_FRACPART_PACK(w1, w2);
-    //     w1 = a0[i * 2 + 1][0];
-    //     w2 = a0[i * 2 + 1][1];
-    //     a1[i + 0][2] = MTX_INTPART_PACK(w1, (u32)w2);
-    //     a1[i + 2][2] = MTX_FRACPART_PACK(w1, w2);
-    //     w1 = a0[i * 2 + 1][2];
-    //     w2 = a0[i * 2 + 1][3];
-    //     a1[i + 0][3] = MTX_INTPART_PACK(w1, (u32)w2);
-    //     a1[i + 2][3] = MTX_FRACPART_PACK(w1, w2);
-    // }
-
-
-    // s32 i;
-    // for (i = 0; i < 2; i++) {
-    //     a1[i + 0][0] = MTX_INTPART_PACK(a0[i * 2 + 0][0], (u32)a0[i * 2 + 0][1]);
-    //     a1[i + 2][0] = MTX_FRACPART_PACK(a0[i * 2 + 0][0], a0[i * 2 + 0][1]);
-    //     a1[i + 0][1] = MTX_INTPART_PACK(a0[i * 2 + 0][2], (u32)a0[i * 2 + 0][3]);
-    //     a1[i + 2][1] = MTX_FRACPART_PACK(a0[i * 2 + 0][2], a0[i * 2 + 0][3]);
-    //     a1[i + 0][2] = MTX_INTPART_PACK(a0[i * 2 + 1][0], (u32)a0[i * 2 + 1][1]);
-    //     a1[i + 2][2] = MTX_FRACPART_PACK(a0[i * 2 + 1][0], a0[i * 2 + 1][1]);
-    //     a1[i + 0][3] = MTX_INTPART_PACK(a0[i * 2 + 1][2], (u32)a0[i * 2 + 1][3]);
-    //     a1[i + 2][3] = MTX_FRACPART_PACK(a0[i * 2 + 1][2], a0[i * 2 + 1][3]);
-    // }
-
-
-    // a1[0][0] = MTX_INTPART_PACK(a0[0][0], (u32)a0[0][1]);
-    // a1[2][0] = MTX_FRACPART_PACK(a0[0][0], a0[0][1]);
-    // a1[0][1] = MTX_INTPART_PACK(a0[0][2], (u32)a0[0][3]);
-    // a1[2][1] = MTX_FRACPART_PACK(a0[0][2], a0[0][3]);
-    // a1[0][2] = MTX_INTPART_PACK(a0[1][0], (u32)a0[1][1]);
-    // a1[2][2] = MTX_FRACPART_PACK(a0[1][0], a0[1][1]);
-    // a1[0][3] = MTX_INTPART_PACK(a0[1][2], (u32)a0[1][3]);
-    // a1[2][3] = MTX_FRACPART_PACK(a0[1][2], a0[1][3]);
-
-    // a1[1][0] = MTX_INTPART_PACK(a0[2][0], (u32)a0[2][1]);
-    // a1[3][0] = MTX_FRACPART_PACK(a0[2][0], a0[2][1]);
-    // a1[1][1] = MTX_INTPART_PACK(a0[2][2], (u32)a0[2][3]);
-    // a1[3][1] = MTX_FRACPART_PACK(a0[2][2], a0[2][3]);
-    // a1[1][2] = MTX_INTPART_PACK(a0[3][0], (u32)a0[3][1]);
-    // a1[3][2] = MTX_FRACPART_PACK(a0[3][0], a0[3][1]);
-    // a1[1][3] = MTX_INTPART_PACK(a0[3][2], (u32)a0[3][3]);
-    // a1[3][3] = MTX_FRACPART_PACK(a0[3][2], a0[3][3]);
-
-/*  $v0 = 0
-    loop:
-    $a1 += 0x10
-    $v1 = *($a0 + $v0 * 8 + 0x00)
-    $a2 = *($a0 + $v0 * 8 + 0x04)
-    *($a1 - 0x10) = MTX_INTPART_PACK($v1, (u32)$a2)
-    *($a1 + 0x10) = MTX_FRACPART_PACK($v1, $a2)
-    $v1 = *($a0 + ($v0 + 1) * 8 + 0x00)
-    $a2 = *($a0 + ($v0 + 1) * 8 + 0x04)
-    *($a1 - 0x0C) = MTX_INTPART_PACK($v1, (u32)$a2)
-    *($a1 + 0x14) = MTX_FRACPART_PACK($v1, $a2)
-    $v1 = *($a0 + ($v0 + 2) * 8 + 0x00)
-    $a2 = *($a0 + ($v0 + 2) * 8 + 0x04)
-    *($a1 - 0x08) = MTX_INTPART_PACK($v1, (u32)$a2)
-    *($a1 + 0x18) = MTX_FRACPART_PACK($v1, $a2)
-    $v1 = *($a0 + ($v0 + 3) * 8 + 0x00)
-    $a2 = *($a0 + ($v0 + 3) * 8 + 0x04)
-    *($a1 - 0x04) = MTX_INTPART_PACK($v1, (u32)$a2)
-    *($a1 + 0x1C) = MTX_FRACPART_PACK($v1, $a2)
-    $v0 += 4
-    if ($v0 != 8) {
-        goto loop;
-    }*/
 }
 #else
 GLOBAL_ASM(
