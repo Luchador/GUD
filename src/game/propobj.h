@@ -129,5 +129,10 @@ void                 sub_GAME_7F056690(void);
 f32                  bondviewGetPlayerPitchRadians(void);
 s32                  object_collectability_routines(struct PropRecord* arg0);
 void                 sub_GAME_7F04DD68(DoorRecord *door);
+bool                 sub_GAME_7F054D6C(PropRecord *prop, coord3d *pos, f32 arg2, bool arg3);
+void                 update_color_shading(rgba_u8 *dest, rgba_u8 *src);
+void                 chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl);
+HATTYPE              get_hat_model(PropRecord *prop);
+s32                  objDrop(PropRecord *prop);
 
 #endif

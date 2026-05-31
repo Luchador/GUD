@@ -32,7 +32,6 @@ void matrix_4x4_set_basis_and_position_target(Mtxf *arg0, f32 arg1, f32 arg2, f3
 void matrix_4x4_set_rotation_around_z(f32 angle, Mtxf *matrix);
 void matrix_4x4_multiply_in_place(Mtxf *lhs, Mtxf *rhs);
 void matrix_4x4_set_identity_and_position(struct coord3d *position, Mtxf *matrix);
-void matrix_column_3_scalar_multiply_2(f32 scalar, f32 *matrix);
 void matrix_4x4_set_position_and_rotation_around_y(f32 *position, f32 angle, Mtxf *matrix);
 void matrix_scalar_multiply_2(f32 scalar, f32 *matrix);
 void matrix_4x4_set_rotation_around_xyz(struct coord3d *angles, Mtxf *matrix);

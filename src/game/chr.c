@@ -13,16 +13,21 @@
 #include "chrai.h"
 #include "chraction.h"
 #include "chrobjdata.h"
+#include "debugmenu_handler.h"
+#include "dyn.h"
 #include "glass.h"
 #include "propobj.h"
 #include "explosion.h"
 #include "file.h"
 #include "gun.h"
 #include "initanitable.h"
+#include "joy.h"
 #include "lv.h"
 #include "language.h"
+#include "matrixmath.h"
 #include "objecthandler.h"
 #include "player.h"
+#include "propobj.h"
 #include "stan.h"
 #include "model.h"
 #include "tex.h"
@@ -92,9 +97,7 @@ s32 g_NumChrSlots = 0;
                                       {0, 0, 0, 0},
                                       {0, 0, 0, 0},
                                       CULLMODE_BOTH};
-s32 D_8002CCAC = 0;
-s32 D_8002CCB0 = 0;
-s32 D_8002CCB4 = 0;
+coord3d D_8002CCAC = {0, 0, 0};
 
  rgba_u8 gBloodColour = { 0x5a, 0, 0, 0};
 

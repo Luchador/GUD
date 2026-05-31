@@ -238,9 +238,7 @@ extern s32 player1_guardID;
 extern ChrRecord *g_ChrSlots;
 extern s32 g_NumChrSlots;
 extern ModelRenderData D_8002CC6C;
-extern s32 D_8002CCAC;
-extern s32 D_8002CCB0;
-extern s32 D_8002CCB4;
+extern coord3d D_8002CCAC;
 extern rgba_u8 gBloodColour;
 
 extern f32 D_80030984;

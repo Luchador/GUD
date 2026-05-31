@@ -5,10 +5,6 @@
 #include <bondconstants.h>
 #include <bondtypes.h>
 
-
-
-
-
 struct headHat
 {
     float xoffset;

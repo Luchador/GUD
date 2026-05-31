@@ -108,6 +108,8 @@ PropRecord *chrGiveWeapon(ChrRecord *self, s32 PropID, ITEM_IDS ItemID, s32 flag
 ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context);
 void sub_GAME_7F06B248(ModelHitEntry *entry);
 void drawjointlist(ModelRenderData *arg0, ModelHitEntry *entry);
+void sub_GAME_7F06B29C(ModelHitEntry *arg0);
+ModelHitEntry *sub_GAME_7F06BB28(ModelHitEntry *modelhit);
 
 void load_object_fill_header(struct ModelFileHeader *objheader, u8 *name, u8* dst, s32 size, struct texpool * buffer);
 
