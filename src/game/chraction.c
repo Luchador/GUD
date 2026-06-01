@@ -605,9 +605,9 @@ void chrlvPerformAnimationForActor(ChrRecord *self, s32 animID, s32 startframe, 
         modelSetAnimEndFrame(self->model, (f32)endframe);
     }
 
-    if ((bitfield & 0x20) != 0)
+    if ((bitfield & ANIM_TRANSLATION_SCALE_4X) != 0)
     {
-        sub_GAME_7F06CE84(self->model, self->model->unkb8 * 4.0f);
+        modelSetAnimTranslationScale(self->model, self->model->anim_translation_scale * 4.0f);
     }
 
     self->chrflags &= ~CHRFLAG_02000000;

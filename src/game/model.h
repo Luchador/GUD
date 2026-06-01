@@ -28,7 +28,7 @@ void setsuboffset(Model *objinst, coord3d *offset);
 f32 getsubroty(Model *objinst);
 void setsubroty(Model *model, f32 angle);
 void modelSetScale(Model *objinst, f32 scale);
-void sub_GAME_7F06CE84(Model* self, f32 arg1);
+void modelSetAnimTranslationScale(Model* model, f32 scale);
 f32 getjointsize(Model *model, ModelNode *node);
 f32 getinstsize(Model *arg0);
 void interpolate3dVectors(vec3d *v, vec3d *w, float frac);

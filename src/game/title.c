@@ -911,7 +911,7 @@ void initializeGunBarrelIntro(u8 *gfxBuffer, s32 bufferSize)
     chrModelInstance = setup_chr_instance(BODY_Brosnan_Tuxedo, BODY_Male_Pierce_Bond_Tuxedo, c_item_entries[BODY_Brosnan_Tuxedo].header, c_item_entries[BODY_Male_Pierce_Bond_Tuxedo].header, 0);
 
     modelSetScale(chrModelInstance, 0.18779343f);
-    sub_GAME_7F06CE84(chrModelInstance, 1.0f);
+    modelSetAnimTranslationScale(chrModelInstance, 1.0f);
     setsuboffset(chrModelInstance, &sp50);
     setsubroty(chrModelInstance, 0.0f);
 #if defined(VERSION_EU)

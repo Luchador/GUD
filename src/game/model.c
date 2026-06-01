@@ -743,9 +743,17 @@ void modelSetScale(Model *objinst, f32 scale)
 }
 
 
-void sub_GAME_7F06CE84(Model* self, f32 arg1)
+/**
+ * Address: 7F06CE84
+ * 
+ * Scales only the translation component of the root node of an animation.
+ * For example, the animation for the plane flight in Runway's outro doesn't
+ * actually move the plane very far. This function is used to scale up the translation
+ * ~10x to allow it to fly near the camera.
+ */
+void modelSetAnimTranslationScale(Model* model, f32 scale)
 {
-    self->unkb8 = arg1;
+    model->anim_translation_scale = scale;
 }
 
 
@@ -3092,7 +3100,7 @@ void modelSetAnimation2(Model *model, void *anim, s32 arg2, f32 startframe, f32 
         sp80      = temp_a1->Data;
         temp_v0   = modelGetNodeRwData(model, temp_a1);
         sp5C.unk0 = D_80036244.unk0;
-        temp_f2   = model->scale * model->unkB8;
+        temp_f2   = model->scale * model->anim_translation_scale;
         sp5C.unk4 = D_80036244.unk4;
         sp5C.unk8 = D_80036244.unk8;
         sp70      = temp_f2;
@@ -3471,7 +3479,7 @@ typedef struct ModelCopyBc {
 /**
  * Unreferenced.
  * 
- * The function copies the Model data through unkb8 (0x00-0xbb),
+ * The function copies the Model data through anim_translation_scale (0x00-0xbb),
  * then restores the destination's base/resource fields (0x00-0x1f).
  * Maybe some kind of old/abandoned anim copy function.
  */
@@ -9041,7 +9049,7 @@ void animInit(struct Model *objinst, struct ModelFileHeader *header, u32 *data)
     objinst->speed = 1.0f;
     objinst->speed2 = 1.0f;
     objinst->playspeed = 1.0f;
-    objinst->unkb8 = 1.0f;
+    objinst->anim_translation_scale = 1.0f;
     objinst->endframe = -1.0f;
     objinst->unk6c = -1.0f;
 }

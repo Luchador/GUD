@@ -1511,7 +1511,7 @@ typedef union
             // 0xb0
             f32               unkb0;
             f32               unkb4;
-            f32               unkb8; // used by ACT_ANIM in chrlv
+            f32               anim_translation_scale; // used by ACT_ANIM in chrlv
             s32               unkbc;
         } Model;
 

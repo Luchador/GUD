@@ -6637,22 +6637,22 @@ s32 object_interaction(struct PropRecord *arg0)
 
                 if (temp_s0_6->anim == animation_table_ptrs2[AIRCRAFT_ANIMATION_plane_runway])
                 {
-                    sub_GAME_7F06CE84(temp_s0_6, 10.438f);
+                    modelSetAnimTranslationScale(temp_s0_6, 10.438f);
                     setsubroty(temp_s1->model, 3.1415927f);
                 }
                 else if (bossGetStageNum() == LEVELID_STATUE)
                 {
-                    sub_GAME_7F06CE84(temp_s1->model, 1.0438f);
+                    modelSetAnimTranslationScale(temp_s1->model, 1.0438f);
                     setsubroty(temp_s1->model, 2.3561945f);
                 }
                 else if (bossGetStageNum() == LEVELID_FRIGATE)
                 {
-                    sub_GAME_7F06CE84(temp_s1->model, 1.0438f);
+                    modelSetAnimTranslationScale(temp_s1->model, 1.0438f);
                     setsubroty(temp_s1->model, 3.9269907f);
                 }
                 else
                 {
-                    sub_GAME_7F06CE84(temp_s1->model, 1.0438f);
+                    modelSetAnimTranslationScale(temp_s1->model, 1.0438f);
                     setsubroty(temp_s1->model, 0.0f);
                 }
 
@@ -10688,7 +10688,7 @@ glabel object_interaction
 /* 07CA34 7F047F04 02002025 */  move  $a0, $s0
 /* 07CA38 7F047F08 154E0009 */  bne   $t2, $t6, .L7F047F30
 /* 07CA3C 7F047F0C 00000000 */   nop
-/* 07CA40 7F047F10 0FC1B3A1 */  jal   sub_GAME_7F06CE84
+/* 07CA40 7F047F10 0FC1B3A1 */  jal   modelSetAnimTranslationScale
 /* 07CA44 7F047F14 34A5020C */   ori   $a1, (0x4127020C & 0xFFFF) # ori $a1, $a1, 0x20c
 /* 07CA48 7F047F18 3C054049 */  lui   $a1, (0x40490FDB >> 16) # lui $a1, 0x4049
 /* 07CA4C 7F047F1C 34A50FDB */  ori   $a1, (0x40490FDB & 0xFFFF) # ori $a1, $a1, 0xfdb
@@ -10703,7 +10703,7 @@ glabel object_interaction
 /* 07CA6C 7F047F3C 1441000A */  bne   $v0, $at, .L7F047F68
 /* 07CA70 7F047F40 3C053F85 */   lui   $a1, (0x3F859B3D >> 16) # lui $a1, 0x3f85
 /* 07CA74 7F047F44 8E240014 */  lw    $a0, 0x14($s1)
-/* 07CA78 7F047F48 0FC1B3A1 */  jal   sub_GAME_7F06CE84
+/* 07CA78 7F047F48 0FC1B3A1 */  jal   modelSetAnimTranslationScale
 /* 07CA7C 7F047F4C 34A59B3D */   ori   $a1, (0x3F859B3D & 0xFFFF) # ori $a1, $a1, 0x9b3d
 /* 07CA80 7F047F50 3C054016 */  lui   $a1, (0x4016CBE4 >> 16) # lui $a1, 0x4016
 /* 07CA84 7F047F54 34A5CBE4 */  ori   $a1, (0x4016CBE4 & 0xFFFF) # ori $a1, $a1, 0xcbe4
@@ -10719,7 +10719,7 @@ glabel object_interaction
 /* 07CAA8 7F047F78 3C053F85 */   lui   $a1, 0x3f85
 /* 07CAAC 7F047F7C 3C053F85 */  lui   $a1, (0x3F859B3D >> 16) # lui $a1, 0x3f85
 /* 07CAB0 7F047F80 34A59B3D */  ori   $a1, (0x3F859B3D & 0xFFFF) # ori $a1, $a1, 0x9b3d
-/* 07CAB4 7F047F84 0FC1B3A1 */  jal   sub_GAME_7F06CE84
+/* 07CAB4 7F047F84 0FC1B3A1 */  jal   modelSetAnimTranslationScale
 /* 07CAB8 7F047F88 8E240014 */   lw    $a0, 0x14($s1)
 /* 07CABC 7F047F8C 3C05407B */  lui   $a1, (0x407B9B3D >> 16) # lui $a1, 0x407b
 /* 07CAC0 7F047F90 34A553D1 */  ori   $a1, (0x407B53D1 & 0xFFFF) # ori $a1, $a1, 0x53d1
@@ -10729,7 +10729,7 @@ glabel object_interaction
 /* 07CAD0 7F047FA0 00000000 */   nop
 .L7F047FA4:
 /* 07CAD4 7F047FA4 8E240014 */  lw    $a0, 0x14($s1)
-/* 07CAD8 7F047FA8 0FC1B3A1 */  jal   sub_GAME_7F06CE84
+/* 07CAD8 7F047FA8 0FC1B3A1 */  jal   modelSetAnimTranslationScale
 /* 07CADC 7F047FAC 34A59B3D */   ori   $a1, (0x407B9B3D & 0xFFFF) # ori $a1, $a1, 0x9b3d
 /* 07CAE0 7F047FB0 4405B000 */  mfc1  $a1, $f22
 /* 07CAE4 7F047FB4 0FC1B34F */  jal   setsubroty
@@ -15794,7 +15794,7 @@ glabel object_interaction
 /* 07CE78 7F048308 02002025 */  move  $a0, $s0
 /* 07CE7C 7F04830C 17090009 */  bne   $t8, $t1, .Ljp7F048334
 /* 07CE80 7F048310 00000000 */   nop
-/* 07CE84 7F048314 0FC1B51D */  jal   sub_GAME_7F06CE84
+/* 07CE84 7F048314 0FC1B51D */  jal   modelSetAnimTranslationScale
 /* 07CE88 7F048318 34A5020C */   ori   $a1, (0x4127020C & 0xFFFF) # ori $a1, $a1, 0x20c
 /* 07CE8C 7F04831C 3C054049 */  lui   $a1, (0x40490FDB >> 16) # lui $a1, 0x4049
 /* 07CE90 7F048320 34A50FDB */  ori   $a1, (0x40490FDB & 0xFFFF) # ori $a1, $a1, 0xfdb
@@ -15809,7 +15809,7 @@ glabel object_interaction
 /* 07CEB0 7F048340 1441000A */  bne   $v0, $at, .Ljp7F04836C
 /* 07CEB4 7F048344 3C053F85 */   lui   $a1, (0x3F859B3D >> 16) # lui $a1, 0x3f85
 /* 07CEB8 7F048348 8E240014 */  lw    $a0, 0x14($s1)
-/* 07CEBC 7F04834C 0FC1B51D */  jal   sub_GAME_7F06CE84
+/* 07CEBC 7F04834C 0FC1B51D */  jal   modelSetAnimTranslationScale
 /* 07CEC0 7F048350 34A59B3D */   ori   $a1, (0x3F859B3D & 0xFFFF) # ori $a1, $a1, 0x9b3d
 /* 07CEC4 7F048354 3C054016 */  lui   $a1, (0x4016CBE4 >> 16) # lui $a1, 0x4016
 /* 07CEC8 7F048358 34A5CBE4 */  ori   $a1, (0x4016CBE4 & 0xFFFF) # ori $a1, $a1, 0xcbe4
@@ -15825,7 +15825,7 @@ glabel object_interaction
 /* 07CEEC 7F04837C 3C053F85 */   lui   $a1, 0x3f85
 /* 07CEF0 7F048380 3C053F85 */  lui   $a1, (0x3F859B3D >> 16) # lui $a1, 0x3f85
 /* 07CEF4 7F048384 34A59B3D */  ori   $a1, (0x3F859B3D & 0xFFFF) # ori $a1, $a1, 0x9b3d
-/* 07CEF8 7F048388 0FC1B51D */  jal   sub_GAME_7F06CE84
+/* 07CEF8 7F048388 0FC1B51D */  jal   modelSetAnimTranslationScale
 /* 07CEFC 7F04838C 8E240014 */   lw    $a0, 0x14($s1)
 /* 07CF00 7F048390 3C05407B */  lui   $a1, (0x407B9B3D >> 16) # lui $a1, 0x407b
 /* 07CF04 7F048394 34A553D1 */  ori   $a1, (0x407B53D1 & 0xFFFF) # ori $a1, $a1, 0x53d1
@@ -15835,7 +15835,7 @@ glabel object_interaction
 /* 07CF14 7F0483A4 00000000 */   nop
 .Ljp7F0483A8:
 /* 07CF18 7F0483A8 8E240014 */  lw    $a0, 0x14($s1)
-/* 07CF1C 7F0483AC 0FC1B51D */  jal   sub_GAME_7F06CE84
+/* 07CF1C 7F0483AC 0FC1B51D */  jal   modelSetAnimTranslationScale
 /* 07CF20 7F0483B0 34A59B3D */   ori   $a1, (0x407B9B3D & 0xFFFF) # ori $a1, $a1, 0x9b3d
 /* 07CF24 7F0483B4 4405B000 */  mfc1  $a1, $f22
 /* 07CF28 7F0483B8 0FC1B4CB */  jal   setsubroty
@@ -20908,7 +20908,7 @@ glabel object_interaction
 /* 07AAD4 7F0480E4 3C054127 */  lui   $a1, (0x4127020C >> 16) # lui $a1, 0x4127
 /* 07AAD8 7F0480E8 15D80009 */  bne   $t6, $t8, .L7F048110
 /* 07AADC 7F0480EC 00000000 */   nop
-/* 07AAE0 7F0480F0 0FC1B4D2 */  jal   sub_GAME_7F06CE84
+/* 07AAE0 7F0480F0 0FC1B4D2 */  jal   modelSetAnimTranslationScale
 /* 07AAE4 7F0480F4 34A5020C */   ori   $a1, (0x4127020C & 0xFFFF) # ori $a1, $a1, 0x20c
 /* 07AAE8 7F0480F8 3C054049 */  lui   $a1, (0x40490FDB >> 16) # lui $a1, 0x4049
 /* 07AAEC 7F0480FC 34A50FDB */  ori   $a1, (0x40490FDB & 0xFFFF) # ori $a1, $a1, 0xfdb
@@ -20923,7 +20923,7 @@ glabel object_interaction
 /* 07AB0C 7F04811C 1441000A */  bne   $v0, $at, .L7F048148
 /* 07AB10 7F048120 3C053F85 */   lui   $a1, (0x3F859B3D >> 16) # lui $a1, 0x3f85
 /* 07AB14 7F048124 8E240014 */  lw    $a0, 0x14($s1)
-/* 07AB18 7F048128 0FC1B4D2 */  jal   sub_GAME_7F06CE84
+/* 07AB18 7F048128 0FC1B4D2 */  jal   modelSetAnimTranslationScale
 /* 07AB1C 7F04812C 34A59B3D */   ori   $a1, (0x3F859B3D & 0xFFFF) # ori $a1, $a1, 0x9b3d
 /* 07AB20 7F048130 3C054016 */  lui   $a1, (0x4016CBE4 >> 16) # lui $a1, 0x4016
 /* 07AB24 7F048134 34A5CBE4 */  ori   $a1, (0x4016CBE4 & 0xFFFF) # ori $a1, $a1, 0xcbe4
@@ -20939,7 +20939,7 @@ glabel object_interaction
 /* 07AB48 7F048158 3C053F85 */   lui   $a1, 0x3f85
 /* 07AB4C 7F04815C 3C053F85 */  lui   $a1, (0x3F859B3D >> 16) # lui $a1, 0x3f85
 /* 07AB50 7F048160 34A59B3D */  ori   $a1, (0x3F859B3D & 0xFFFF) # ori $a1, $a1, 0x9b3d
-/* 07AB54 7F048164 0FC1B4D2 */  jal   sub_GAME_7F06CE84
+/* 07AB54 7F048164 0FC1B4D2 */  jal   modelSetAnimTranslationScale
 /* 07AB58 7F048168 8E240014 */   lw    $a0, 0x14($s1)
 /* 07AB5C 7F04816C 3C05407B */  lui   $a1, (0x407B9B3D >> 16) # lui $a1, 0x407b
 /* 07AB60 7F048170 34A553D1 */  ori   $a1, (0x407B53D1 & 0xFFFF) # ori $a1, $a1, 0x53d1
@@ -20949,7 +20949,7 @@ glabel object_interaction
 /* 07AB70 7F048180 00000000 */   nop
 .L7F048184:
 /* 07AB74 7F048184 8E240014 */  lw    $a0, 0x14($s1)
-/* 07AB78 7F048188 0FC1B4D2 */  jal   sub_GAME_7F06CE84
+/* 07AB78 7F048188 0FC1B4D2 */  jal   modelSetAnimTranslationScale
 /* 07AB7C 7F04818C 34A59B3D */   ori   $a1, (0x407B9B3D & 0xFFFF) # ori $a1, $a1, 0x9b3d
 /* 07AB80 7F048190 4405B000 */  mfc1  $a1, $f22
 /* 07AB84 7F048194 0FC1B49D */  jal   setsubroty

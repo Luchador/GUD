@@ -51,9 +51,9 @@ typedef struct s_bss_8008D2A8
 
 extern struct image_sound *g_HitTypeSounds[];
 
-s32 texGetHeightAtLod(struct tex *tex, s32 lod);
-void texGetDepthAndSize(struct tex *tex, s32 *deptharg, s32 *lenarg);
-
 void texCopyGdls(Gfx *arg0, Gfx *arg1, s32 arg2);
+void texGetDepthAndSize(struct tex *tex, s32 *deptharg, s32 *lenarg);
+s32 texGetHeightAtLod(struct tex *tex, s32 lod);
+s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool);
 
 #endif

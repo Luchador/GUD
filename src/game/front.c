@@ -7837,7 +7837,7 @@ void init_menu18_displaycast(void)
         cast_model_weapon = NULL;
     }
 
-    sub_GAME_7F06CE84(cast_model, 0.1f);
+    modelSetAnimTranslationScale(cast_model, 0.1f);
     setsuboffset(cast_model, &spA0);
     setsubroty(cast_model, 0.0f);
 #if defined(VERSION_EU)
@@ -8284,7 +8284,7 @@ glabel init_menu18_displaycast
 .L7F018C54:
 /* 04D784 7F018C54 3C053DCC */  lui   $a1, (0x3DCCCCCD >> 16) # lui $a1, 0x3dcc
 /* 04D788 7F018C58 34A5CCCD */  ori   $a1, (0x3DCCCCCD & 0xFFFF) # ori $a1, $a1, 0xcccd
-/* 04D78C 7F018C5C 0FC1B3A1 */  jal   sub_GAME_7F06CE84
+/* 04D78C 7F018C5C 0FC1B3A1 */  jal   modelSetAnimTranslationScale
 /* 04D790 7F018C60 8CC40000 */   lw    $a0, ($a2)
 /* 04D794 7F018C64 3C048003 */  lui   $a0, %hi(cast_model)
 /* 04D798 7F018C68 8C84B5F4 */  lw    $a0, %lo(cast_model)($a0)
@@ -8881,7 +8881,7 @@ glabel init_menu18_displaycast
 .L7F018CCC:
 /* 04B6BC 7F018CCC 3C053DCC */  lui   $a1, (0x3DCCCCCD >> 16) # lui $a1, 0x3dcc
 /* 04B6C0 7F018CD0 34A5CCCD */  ori   $a1, (0x3DCCCCCD & 0xFFFF) # ori $a1, $a1, 0xcccd
-/* 04B6C4 7F018CD4 0FC1B4D2 */  jal   sub_GAME_7F06CE84
+/* 04B6C4 7F018CD4 0FC1B4D2 */  jal   modelSetAnimTranslationScale
 /* 04B6C8 7F018CD8 8CC40000 */   lw    $a0, ($a2)
 /* 04B6CC 7F018CDC 3C048002 */  lui   $a0, %hi(cast_model) # $a0, 0x8002
 /* 04B6D0 7F018CE0 8C846B44 */  lw    $a0, %lo(cast_model)($a0)
