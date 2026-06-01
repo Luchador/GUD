@@ -1063,7 +1063,7 @@ Gfx* lvlRender(Gfx* DL)
 #else /* VERSION_US, VERSION_JP, unspecified */
             sub_GAME_7F0A4824(&DL, 1);
 #endif
-            DL = sub_GAME_7F0A2C44(DL);
+            DL = glassRenderShards(DL);
             DL = explosionRenderFlyingParticles(DL);
 
             if (

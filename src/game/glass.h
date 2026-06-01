@@ -95,7 +95,7 @@ void sub_GAME_7F0A47FC(void);
 void update_broken_windows(void);
 void sub_GAME_7F0A4528(Gfx *arg0, s32 arg1);
 void sub_GAME_7F0A4824(Gfx *arg0, s32 arg1);
-Gfx * sub_GAME_7F0A2C44(Gfx *arg0);
+Gfx * glassRenderShards(Gfx *arg0);
 
 // tentative signature
 bondstruct_unk_8007A170 *sub_GAME_7F0A3E1C(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3);
