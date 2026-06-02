@@ -329,6 +329,7 @@ typedef enum PROPFLAG
     PROPFLAG_80000000                    = 0x80000000, // Open By Default/Weapon Paired for Player
     PROPFLAG_IS_DOUBLE                   = 0x80000000
 }PROPFLAG;
+
 // prop definition flags
 typedef enum PROPFLAG2
 {
@@ -383,7 +384,6 @@ typedef enum DOORFLAG
     DOORFLAG_4000            = 0x00004000, // Two Investigation vertical doors after lasers
     DOORFLAG_CANNOT_ACTIVATE = 0x02000000,
     DOORFLAG_KEEPOPEN        = 0x80000000
-
 } DOORFLAG;
 
 typedef enum DOORMODE
@@ -556,9 +556,10 @@ BITFLAG(RUNTIMEBITFLAG,
         80000000
 )
 
-#define RUNTIMEBITFLAG_OWNER    0x60000
-#define RUNTIMEBITSHIFT_OWNER   0x11
-#define RUNTIMEBITFLAG_00000001   0x1
+#define RUNTIMEBITFLAG_OWNER     0x60000
+#define RUNTIMEBITSHIFT_OWNER    0x11
+#define RUNTIMEBITFLAG_00000001  0x1
+#define RUNTIMEBITFLAG_00000800  0X00000800
 
 #define WEAPONSTATBITFLAG_00000001 0x1
 /* skip from fire to reload animation; item "disappears" after use, redrawn from off-screen like knives" */

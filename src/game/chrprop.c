@@ -1475,7 +1475,8 @@ void chrpropAddBulletHit(struct ShotData *shotdata, PropRecord *prop, f32 dist, 
      */
     if (countsAsPenetration)
     {
-        prevfurthest = (furthest = 0.0f);
+        furthest = 0.0f;
+        prevfurthest = furthest;
         furthestindex = 0;
         numPenetratedObjects = 0;
         localshot = shotdata;
@@ -1786,9 +1787,6 @@ void chraiCheckUseHeldItem(s32 hand)
 }
 
 
-
-
-
 /**
  * Address 0x7F03C294.
 */
@@ -1799,10 +1797,7 @@ void chraiCheckUseHeldItems(void)
 }
 
 
-
-
-
-void propExecuteTickOperation(PropRecord *prop, INV_ITEM_TYPE type) //#MATCH
+void propExecuteTickOperation(PropRecord *prop, INV_ITEM_TYPE type)
 {
     ObjectRecord *propobj;
 
@@ -1811,15 +1806,15 @@ void propExecuteTickOperation(PropRecord *prop, INV_ITEM_TYPE type) //#MATCH
         if ((prop->type == PROP_TYPE_WEAPON) || (prop->type == PROP_TYPE_OBJ))
         {
             propobj = prop->obj;
-            if (prop->obj->state & 4) //matches only is called directly (not propobj)
+            if (prop->obj->state & PROPSTATE_RESPAWN) //matches only if called directly (not propobj)
             {
                 #ifndef VERSION_EU
                 prop->timetoregen = 0x4B0;
                 #else
                 prop->timetoregen = 0x3E8;
                 #endif
-                propobj->runtime_bitflags |= 0x800;
-                propobj->runtime_bitflags &= ~4;
+                propobj->runtime_bitflags |= RUNTIMEBITFLAG_00000800;
+                propobj->runtime_bitflags &= ~RUNTIMEBITFLAG_REMOVE;
                 propobj->state &= ~0x80;
                 propobj->maxdamage = 0.0f;
                 chrpropDeregisterRooms(prop);
