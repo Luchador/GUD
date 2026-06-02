@@ -6656,7 +6656,7 @@ s32 object_interaction(struct PropRecord *arg0)
                     setsubroty(temp_s1->model, 0.0f);
                 }
 
-                modelTickAnimQuarterSpeed(temp_s1->model, g_ClockTimer, 1);
+                modelTickAnim(temp_s1->model, g_ClockTimer, 1);
                 subcalcpos(temp_s1->model);
                 getsuboffset(temp_s1->model, &temp_s1->runtime_pos);
                 arg0->pos.f[0] = temp_s1->runtime_pos.f[0];
@@ -10738,7 +10738,7 @@ glabel object_interaction
 /* 07CAEC 7F047FBC 3C058005 */  lui   $a1, %hi(g_ClockTimer)
 /* 07CAF0 7F047FC0 8CA58374 */  lw    $a1, %lo(g_ClockTimer)($a1)
 /* 07CAF4 7F047FC4 8E240014 */  lw    $a0, 0x14($s1)
-/* 07CAF8 7F047FC8 0FC1C2BB */  jal   modelTickAnimQuarterSpeed
+/* 07CAF8 7F047FC8 0FC1C2BB */  jal   modelTickAnim
 /* 07CAFC 7F047FCC 24060001 */   li    $a2, 1
 /* 07CB00 7F047FD0 0FC1B5AC */  jal   subcalcpos
 /* 07CB04 7F047FD4 8E240014 */   lw    $a0, 0x14($s1)
@@ -15844,7 +15844,7 @@ glabel object_interaction
 /* 07CF30 7F0483C0 3C058005 */  lui   $a1, %hi(g_ClockTimer) # $a1, 0x8005
 /* 07CF34 7F0483C4 8CA583A4 */  lw    $a1, %lo(g_ClockTimer)($a1)
 /* 07CF38 7F0483C8 8E240014 */  lw    $a0, 0x14($s1)
-/* 07CF3C 7F0483CC 0FC1C437 */  jal   modelTickAnimQuarterSpeed
+/* 07CF3C 7F0483CC 0FC1C437 */  jal   modelTickAnim
 /* 07CF40 7F0483D0 24060001 */   li    $a2, 1
 /* 07CF44 7F0483D4 0FC1B728 */  jal   subcalcpos
 /* 07CF48 7F0483D8 8E240014 */   lw    $a0, 0x14($s1)
@@ -20958,7 +20958,7 @@ glabel object_interaction
 /* 07AB8C 7F04819C 3C058004 */  lui   $a1, %hi(g_ClockTimer) # $a1, 0x8004
 /* 07AB90 7F0481A0 8CA50FF4 */  lw    $a1, %lo(g_ClockTimer)($a1)
 /* 07AB94 7F0481A4 8E240014 */  lw    $a0, 0x14($s1)
-/* 07AB98 7F0481A8 0FC1C323 */  jal   modelTickAnimQuarterSpeed
+/* 07AB98 7F0481A8 0FC1C323 */  jal   modelTickAnim
 /* 07AB9C 7F0481AC 24060001 */   li    $a2, 1
 /* 07ABA0 7F0481B0 0FC1B6B8 */  jal   subcalcpos
 /* 07ABA4 7F0481B4 8E240014 */   lw    $a0, 0x14($s1)

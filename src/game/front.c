@@ -9283,7 +9283,7 @@ Gfx * constructor_menu18_displaycast(Gfx *DL)
     gSPLookAtX(DL++, &temp_v0->l[0]);
     gSPLookAtY(DL++, &temp_v0->l[1]);
 
-    modelTickAnimQuarterSpeed(cast_model, g_ClockTimer, 1);
+    modelTickAnim(cast_model, g_ClockTimer, 1);
     modelSetDistanceDisabled(1);
     sub_GAME_7F073FC8(0);
     subcalcpos(cast_model);
@@ -9856,7 +9856,7 @@ glabel constructor_menu18_displaycast
 /* 04E25C 7F01972C 26730008 */  addiu $s3, $s3, 8
 /* 04E260 7F019730 8CA58374 */  lw    $a1, %lo(g_ClockTimer)($a1)
 /* 04E264 7F019734 8E840000 */  lw    $a0, ($s4)
-/* 04E268 7F019738 0FC1C2BB */  jal   modelTickAnimQuarterSpeed
+/* 04E268 7F019738 0FC1C2BB */  jal   modelTickAnim
 /* 04E26C 7F01973C 24060001 */   li    $a2, 1
 /* 04E270 7F019740 0FC1B100 */  jal   modelSetDistanceDisabled
 /* 04E274 7F019744 24040001 */   li    $a0, 1
@@ -10980,7 +10980,7 @@ glabel constructor_menu18_displaycast
 /* 04C198 7F0197A8 26730008 */  addiu $s3, $s3, 8
 /* 04C19C 7F0197AC 8CA50FF4 */  lw    $a1, %lo(g_ClockTimer)($a1)
 /* 04C1A0 7F0197B0 8E840000 */  lw    $a0, ($s4)
-/* 04C1A4 7F0197B4 0FC1C323 */  jal   modelTickAnimQuarterSpeed
+/* 04C1A4 7F0197B4 0FC1C323 */  jal   modelTickAnim
 /* 04C1A8 7F0197B8 24060001 */   li    $a2, 1
 /* 04C1AC 7F0197BC 0FC1B2D0 */  jal   modelSetDistanceDisabled
 /* 04C1B0 7F0197C0 24040001 */   li    $a0, 1

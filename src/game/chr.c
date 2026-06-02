@@ -3930,7 +3930,7 @@ void chrPositionRelated7F020E40(ChrRecord *chr, s32 arg1)
     if (!(chr->hidden & CHRHIDDEN_FREEZE))
     {
         getsuboffset(model, &chr->prevpos);
-        modelTickAnimQuarterSpeed(model, arg1, 1);
+        modelTickAnim(model, arg1, 1);
         subcalcpos(model);
         set_color_shading_from_tile(prop, &chr->nextcol);
         getsuboffset(model, &prop->pos);
@@ -4131,7 +4131,7 @@ glabel chrTickBeams
 /* 055C7C 7F02114C 00003025 */  move  $a2, $zero
 /* 055C80 7F021150 11600005 */  beqz  $t3, .L7F021168
 /* 055C84 7F021154 00000000 */   nop
-/* 055C88 7F021158 0FC1C2BB */  jal   modelTickAnimQuarterSpeed
+/* 055C88 7F021158 0FC1C2BB */  jal   modelTickAnim
 /* 055C8C 7F02115C 8FA40110 */   lw    $a0, 0x110($sp)
 /* 055C90 7F021160 10000003 */  b     .L7F021170
 /* 055C94 7F021164 00000000 */   nop
@@ -4246,7 +4246,7 @@ glabel chrTickBeams
 /* 055E1C 7F0212EC 8FA40110 */  lw    $a0, 0x110($sp)
 .L7F0212F0:
 /* 055E20 7F0212F0 8FA50104 */  lw    $a1, 0x104($sp)
-/* 055E24 7F0212F4 0FC1C2BB */  jal   modelTickAnimQuarterSpeed
+/* 055E24 7F0212F4 0FC1C2BB */  jal   modelTickAnim
 /* 055E28 7F0212F8 00003025 */   move  $a2, $zero
 .L7F0212FC:
 /* 055E2C 7F0212FC 10000032 */  b     .L7F0213C8
@@ -4280,7 +4280,7 @@ glabel chrTickBeams
 /* 055E90 7F021360 8FA50104 */  lw    $a1, 0x104($sp)
 /* 055E94 7F021364 13000003 */  beqz  $t8, .L7F021374
 /* 055E98 7F021368 00000000 */   nop
-/* 055E9C 7F02136C 0FC1C2BB */  jal   modelTickAnimQuarterSpeed
+/* 055E9C 7F02136C 0FC1C2BB */  jal   modelTickAnim
 /* 055EA0 7F021370 00003025 */   move  $a2, $zero
 .L7F021374:
 /* 055EA4 7F021374 10000014 */  b     .L7F0213C8
@@ -4290,7 +4290,7 @@ glabel chrTickBeams
 /* 055EB0 7F021380 02002025 */   move  $a0, $s0
 /* 055EB4 7F021384 8FA40110 */  lw    $a0, 0x110($sp)
 /* 055EB8 7F021388 8FA50104 */  lw    $a1, 0x104($sp)
-/* 055EBC 7F02138C 0FC1C2BB */  jal   modelTickAnimQuarterSpeed
+/* 055EBC 7F02138C 0FC1C2BB */  jal   modelTickAnim
 /* 055EC0 7F021390 00003025 */   move  $a2, $zero
 /* 055EC4 7F021394 10000003 */  b     .L7F0213A4
 /* 055EC8 7F021398 00000000 */   nop
@@ -4983,7 +4983,7 @@ glabel chrTickBeams
 /* 055F54 7F0213E4 00003025 */  move  $a2, $zero
 /* 055F58 7F0213E8 11600005 */  beqz  $t3, .Ljp7F021400
 /* 055F5C 7F0213EC 00000000 */   nop
-/* 055F60 7F0213F0 0FC1C437 */  jal   modelTickAnimQuarterSpeed
+/* 055F60 7F0213F0 0FC1C437 */  jal   modelTickAnim
 /* 055F64 7F0213F4 8FA40110 */   lw    $a0, 0x110($sp)
 /* 055F68 7F0213F8 10000003 */  b     .Ljp7F021408
 /* 055F6C 7F0213FC 00000000 */   nop
@@ -5098,7 +5098,7 @@ glabel chrTickBeams
 /* 0560F4 7F021584 8FA40110 */  lw    $a0, 0x110($sp)
 .Ljp7F021588:
 /* 0560F8 7F021588 8FA50104 */  lw    $a1, 0x104($sp)
-/* 0560FC 7F02158C 0FC1C437 */  jal   modelTickAnimQuarterSpeed
+/* 0560FC 7F02158C 0FC1C437 */  jal   modelTickAnim
 /* 056100 7F021590 00003025 */   move  $a2, $zero
 .Ljp7F021594:
 /* 056104 7F021594 10000032 */  b     .Ljp7F021660
@@ -5132,7 +5132,7 @@ glabel chrTickBeams
 /* 056168 7F0215F8 8FA50104 */  lw    $a1, 0x104($sp)
 /* 05616C 7F0215FC 13000003 */  beqz  $t8, .Ljp7F02160C
 /* 056170 7F021600 00000000 */   nop
-/* 056174 7F021604 0FC1C437 */  jal   modelTickAnimQuarterSpeed
+/* 056174 7F021604 0FC1C437 */  jal   modelTickAnim
 /* 056178 7F021608 00003025 */   move  $a2, $zero
 .Ljp7F02160C:
 /* 05617C 7F02160C 10000014 */  b     .Ljp7F021660
@@ -5142,7 +5142,7 @@ glabel chrTickBeams
 /* 056188 7F021618 02002025 */   move  $a0, $s0
 /* 05618C 7F02161C 8FA40110 */  lw    $a0, 0x110($sp)
 /* 056190 7F021620 8FA50104 */  lw    $a1, 0x104($sp)
-/* 056194 7F021624 0FC1C437 */  jal   modelTickAnimQuarterSpeed
+/* 056194 7F021624 0FC1C437 */  jal   modelTickAnim
 /* 056198 7F021628 00003025 */   move  $a2, $zero
 /* 05619C 7F02162C 10000003 */  b     .Ljp7F02163C
 /* 0561A0 7F021630 00000000 */   nop
@@ -5909,7 +5909,7 @@ glabel chrTickBeams
 /* 053AB4 7F0210C4 00003025 */  move  $a2, $zero
 /* 053AB8 7F0210C8 11600005 */  beqz  $t3, .L7F0210E0
 /* 053ABC 7F0210CC 00000000 */   nop
-/* 053AC0 7F0210D0 0FC1C323 */  jal   modelTickAnimQuarterSpeed
+/* 053AC0 7F0210D0 0FC1C323 */  jal   modelTickAnim
 /* 053AC4 7F0210D4 8FA40110 */   lw    $a0, 0x110($sp)
 /* 053AC8 7F0210D8 10000003 */  b     .L7F0210E8
 /* 053ACC 7F0210DC 00000000 */   nop
@@ -6024,7 +6024,7 @@ glabel chrTickBeams
 /* 053C54 7F021264 8FA40110 */  lw    $a0, 0x110($sp)
 .L7F021268:
 /* 053C58 7F021268 8FA50104 */  lw    $a1, 0x104($sp)
-/* 053C5C 7F02126C 0FC1C323 */  jal   modelTickAnimQuarterSpeed
+/* 053C5C 7F02126C 0FC1C323 */  jal   modelTickAnim
 /* 053C60 7F021270 00003025 */   move  $a2, $zero
 .L7F021274:
 /* 053C64 7F021274 10000032 */  b     .L7F021340
@@ -6058,7 +6058,7 @@ glabel chrTickBeams
 /* 053CC8 7F0212D8 8FA50104 */  lw    $a1, 0x104($sp)
 /* 053CCC 7F0212DC 13000003 */  beqz  $t8, .L7F0212EC
 /* 053CD0 7F0212E0 00000000 */   nop
-/* 053CD4 7F0212E4 0FC1C323 */  jal   modelTickAnimQuarterSpeed
+/* 053CD4 7F0212E4 0FC1C323 */  jal   modelTickAnim
 /* 053CD8 7F0212E8 00003025 */   move  $a2, $zero
 .L7F0212EC:
 /* 053CDC 7F0212EC 10000014 */  b     .L7F021340
@@ -6068,7 +6068,7 @@ glabel chrTickBeams
 /* 053CE8 7F0212F8 02002025 */   move  $a0, $s0
 /* 053CEC 7F0212FC 8FA40110 */  lw    $a0, 0x110($sp)
 /* 053CF0 7F021300 8FA50104 */  lw    $a1, 0x104($sp)
-/* 053CF4 7F021304 0FC1C323 */  jal   modelTickAnimQuarterSpeed
+/* 053CF4 7F021304 0FC1C323 */  jal   modelTickAnim
 /* 053CF8 7F021308 00003025 */   move  $a2, $zero
 /* 053CFC 7F02130C 10000003 */  b     .L7F02131C
 /* 053D00 7F021310 00000000 */   nop

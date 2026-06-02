@@ -28,6 +28,11 @@ typedef struct ModelGroupMtxBuildArg {
     ModelNode *parentnode;
 } ModelGroupMtxBuildArg;
 
+// forward declarations
+void modelSetAnimFrame2WithChrStuff(struct Model *model, f32 framea, f32 frameb, f32 frame2a, f32 frame2b);
+
+
+
 //newfile per EU
 bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef)
 {
@@ -2831,7 +2836,7 @@ s8 objecthandlerGetModelGunhand(Model *model) {
 */
 f32 objecthandlerGetModelField28(Model *model)
 {
-    return model->unk28;
+    return model->animframe1;
 }
 
 f32 sub_GAME_7F06F5C4(Model *model)
@@ -2929,7 +2934,7 @@ void modelCopyAnimForMerge(Model *model, f32 timemerge)
             opcode = root->Opcode & 0xff;
 
             model->anim2 = anim;
-            model->unk58 = model->unk28;
+            model->animframe2 = model->animframe1;
             model->unk5c = model->unk2c;
             model->unk25 = model->gunhand;
             model->frame2a = model->framea;
@@ -3431,7 +3436,7 @@ void modelSetAnimEndFrame(Model *model, f32 endframe) {
     }
 #ifdef DEBUG
     // not too sure why debug wants to call this - must have some significance when most debug has been stripped from this file in XBLA
-    modelSetAnimFrame(model, (int)model->unk28);
+    modelSetAnimFrame(model, (int)model->animframe1);
 #endif
 }
 
@@ -3474,7 +3479,7 @@ void sub_GAME_7F06FE90(Model *model, f32 arg1, f32 arg2)
     f32 phi_f2;
     f32 t;
 
-    temp_f0 = model->unk28;
+    temp_f0 = model->animframe1;
 
     if (temp_f0 <= arg1)
     {
@@ -3524,19 +3529,19 @@ void modelSetAnimFrame(Model* model, f32 frame)
     if (model->framea == model->frameb)
     {
         model->unk2c = 0.0f;
-        model->unk28 = model->framea;
+        model->animframe1 = model->framea;
     }
     else if (forwards)
     {
         f32 tmp = frame - framea;
         model->unk2c = tmp;
-        model->unk28 = model->framea + tmp;
+        model->animframe1 = model->framea + tmp;
     }
     else
     {
         f32 tmp = 1.0f - (frame - (f32) frameb);
         model->unk2c = tmp;
-        model->unk28 = model->frameb + (1.0f - tmp);
+        model->animframe1 = model->frameb + (1.0f - tmp);
     }
 }
 
@@ -3562,19 +3567,19 @@ void modelSetAnimFrame2(Model* model, f32 frame1, f32 frame2)
         if (model->frame2a == model->frame2b)
         {
             model->unk5c = 0.0f;
-            model->unk58 = model->frame2a;
+            model->animframe2 = model->frame2a;
         }
         else if (forwards != 0)
         {
             f32 tmp = frame2 - framea;
             model->unk5c = tmp;
-            model->unk58 = model->frame2a + tmp;
+            model->animframe2 = model->frame2a + tmp;
         }
         else
         {
             f32 tmp = 1.0f - (frame2 - (f32) frameb);
             model->unk5c = tmp;
-            model->unk58 = model->frame2b + (1.0f - tmp);
+            model->animframe2 = model->frame2b + (1.0f - tmp);
         }
     }
 }
@@ -3680,7 +3685,7 @@ void modelSetAnimFrame2WithChrStuff(void *arg0, f32 arg1, f32 arg2, f32 arg3, f3
             spB4      = temp_v0->unk3C;
             var_f28   = temp_v0->unk30;
             sp9C      = temp_v0->unk24;
-            spA0      = temp_v0->unk28;
+            spA0      = temp_v0->animframe1;
             spA4      = temp_v0->unk2C;
             sp98      = temp_v0->unk20;
             sp94      = temp_v0->unk1;
@@ -3854,7 +3859,7 @@ block_16:
                         {
                             temp_v0->unk5C = temp_f0_6 - temp_f2_2;
                         }
-                        var_f22_2 += temp_v0->unk58 * var_f12;
+                        var_f22_2 += temp_v0->animframe2 * var_f12;
                         if (var_f22_2 < 0.0f)
                         {
                             var_f22_2 += 6.2831855f;
@@ -3881,7 +3886,7 @@ block_16:
             temp_v0->unk30 = var_f28;
             temp_v0->unk3C = spB4;
             temp_v0->unk24 = sp9C;
-            temp_v0->unk28 = spA0;
+            temp_v0->animframe1 = spA0;
             temp_v0->unk2C = spA4;
             temp_v0->unk20 = sp98;
             temp_v0_4      = arg0->unk30;
@@ -3889,19 +3894,19 @@ block_16:
             if (temp_v1 == temp_v0_4)
             {
                 arg0->unk2C = 0.0f;
-                arg0->unk28 = temp_v0_4;
+                arg0->animframe1 = temp_v0_4;
             }
             else if (var_s3 != 0)
             {
                 temp_f0_8   = arg2 - spB8;
                 arg0->unk2C = temp_f0_8;
-                arg0->unk28 = temp_v0_4 + temp_f0_8;
+                arg0->animframe1 = temp_v0_4 + temp_f0_8;
             }
             else
             {
                 temp_f0_9   = spB8 - arg2;
                 arg0->unk2C = temp_f0_9;
-                arg0->unk28 = temp_v1 + (1.0f - temp_f0_9);
+                arg0->animframe1 = temp_v1 + (1.0f - temp_f0_9);
             }
             if (arg0->unk54 != 0)
             {
@@ -3933,21 +3938,21 @@ block_16:
                 {
                     temp_f0_10  = arg4 - sp6C;
                     arg0->unk5C = temp_f0_10;
-                    arg0->unk58 = arg0->unk60 + temp_f0_10;
+                    arg0->animframe2 = arg0->unk60 + temp_f0_10;
                     return;
                 }
                 temp_f0_11  = 1.0f - (arg4 - sp6C);
                 arg0->unk5C = temp_f0_11;
-                arg0->unk58 = arg0->unk62 + (1.0f - temp_f0_11);
+                arg0->animframe2 = arg0->unk62 + (1.0f - temp_f0_11);
                 return;
             }
             temp_v0->unk2 = 0;
             return;
         }
-        modelSetAnimFrame2(arg0, arg2, arg4);
+        modelSetAnimFrame2(arg0, animframe2, arg4);
         return;
     }
-    modelSetAnimFrame2(arg0, arg2, arg4);
+    modelSetAnimFrame2(arg0, animframe2, arg4);
 }
 #else
 GLOBAL_ASM(
@@ -4579,341 +4584,206 @@ glabel modelSetAnimFrame2WithChrStuff
 #endif
 
 
+void modelTickAnim(struct Model *model, s32 numticks, s32 update_chrstuff)
+{
+    f32 frame;
+    f32 frame2;
+    f32 animlast;
 
+    frame = model->animframe1;
+    frame2 = model->animframe2;
 
+    if (numticks > 0) 
+    {
+        while (numticks > 0) 
+        {
+            f32 playspeed;
+            f32 speed;
+            f32 limit;
+            f32 endframe;
+            f32 saved_newspeed;
+            f32 saved_oldspeed;
+            f32 saved_timespeed;
+            f32 saved_elapsespeed;
+            f32 loopframe;
+            
+            if (model->unkb0 > 0.0f) 
+            {
+                model->unkb4 += 1.0f;
 
-#ifdef NONMATCHING
-void modelTickAnimQuarterSpeed(void) {
+                if (model->unkb4 < model->unkb0) 
+                {
+                    model->playspeed = model->unkac + ((model->animrate - model->unkac) * model->unkb4) / model->unkb0;
+                } 
+                else 
+                {
+                    model->unkb0 = 0.0f;
+                    model->playspeed = model->animrate;
+                }
+            }
 
+            playspeed = model->playspeed;
+
+            if (model->unk88 > 0.0f)
+            {
+                model->unk8c += playspeed;
+
+                if (model->unk8c == 0.0f)
+                {
+                    model->unk84 = 1.0f;
+                    playspeed = model->playspeed;
+                } 
+                else if (model->unk8c < model->unk88) 
+                {
+                    model->unk84 = (model->unk88 - model->unk8c) / model->unk88;
+                    playspeed = model->playspeed;
+                } 
+                else 
+                {
+                    model->unk88 = 0.0f;
+                    model->unk84 = 0.0f;
+                    model->anim2 = NULL;
+                    playspeed = model->playspeed;
+                }
+            }
+
+            if (model->timespeed > 0.0f) 
+            {
+                model->elapsespeed += playspeed;
+
+                if (model->elapsespeed < model->timespeed) 
+                {
+                    model->speed = model->oldspeed
+                        + ((model->newspeed - model->oldspeed) * model->elapsespeed)
+                        / model->timespeed;
+                    playspeed = model->playspeed;
+                } 
+                else 
+                {
+                    model->timespeed = 0.0f;
+                    playspeed = model->playspeed;
+                    model->speed = model->newspeed;
+                }
+            }
+
+            speed = model->speed;
+            frame += playspeed * speed;
+
+            if (model->anim2 != NULL) 
+            {
+                if (model->unk7c > 0.0f) 
+                {
+                    model->unk80 += playspeed;
+
+                    if (model->unk80 < model->unk7c) 
+                    {
+                        model->speed2 = model->unk78 + ((model->unk74 - model->unk78) * model->unk80) / model->unk7c;
+                        playspeed = model->playspeed;
+                    } 
+                    else 
+                    {
+                        model->unk7c = 0.0f;
+                        playspeed = model->playspeed;
+                        model->speed2 = model->unk74;
+                    }
+                }
+
+                if (frame2);
+
+                frame2 += playspeed * model->speed2;
+            }
+
+            if (model->animlooping) 
+            {
+                animlast = model->anim->unk04 - 1;
+                endframe = model->endframe;
+
+                if (endframe);
+
+                if (speed >= 0.0f) 
+                {
+                    limit = animlast;
+                    loopframe = model->animloopframe;
+
+                    if (endframe >= 0.0f && endframe < animlast) 
+                    {
+                        limit = endframe;
+                    }
+                } 
+                else 
+                {
+                    limit = model->animloopframe;
+                    loopframe = animlast;
+
+                    if (endframe >= 0.0f && endframe < animlast) 
+                    {
+                        loopframe = endframe;
+                    }
+                }
+
+                if ((speed >= 0.0f && frame >= limit) || (speed < 0.0f && frame <= limit)) 
+                {
+                    saved_newspeed = model->newspeed;
+                    saved_oldspeed = model->oldspeed;
+                    saved_timespeed = model->timespeed;
+                    saved_elapsespeed = model->elapsespeed;
+
+                    if (update_chrstuff) 
+                    {
+                        modelSetAnimFrame2WithChrStuff(model, model->animframe1, limit, 0.0f, 0.0f);
+                    } 
+                    else 
+                    {
+                        modelSetAnimFrame2(model, limit, 0.0f);
+                    }
+
+                    modelSetAnimation(model, model->anim, model->gunhand, loopframe, model->speed, model->animloopmerge);
+
+                    model->animlooping = 1;
+                    model->endframe = endframe;
+                    model->newspeed = saved_newspeed;
+                    model->oldspeed = saved_oldspeed;
+                    model->timespeed = saved_timespeed;
+                    model->elapsespeed = saved_elapsespeed;
+
+                    frame2 = frame;
+                    frame = loopframe + frame - limit;
+
+                    if (model->animflipfunc != 0) 
+                    {
+                        ((void (*)(void))model->animflipfunc)();
+                    }
+                }
+            }
+
+            numticks--;
+        }
+
+        if (update_chrstuff) 
+        {
+            if (model->anim2 != NULL) 
+            {
+                modelSetAnimFrame2WithChrStuff(model, model->animframe1, frame, model->animframe2, frame2);
+            } 
+            else 
+            {
+                modelSetAnimFrame2WithChrStuff(model, model->animframe1, frame, 0.0f, 0.0f);
+            }
+        } 
+        else 
+        {
+            if (model->anim2 != NULL) 
+            {
+                modelSetAnimFrame2(model, frame, frame2);
+            }
+            else 
+            {
+                modelSetAnimFrame2(model, frame, 0.0f);
+            }
+        }
+    }
 }
-#else
-GLOBAL_ASM(
-.text
-glabel modelTickAnimQuarterSpeed
-/* 0A561C 7F070AEC 27BDFF78 */  addiu $sp, $sp, -0x88
-/* 0A5620 7F070AF0 AFBF0054 */  sw    $ra, 0x54($sp)
-/* 0A5624 7F070AF4 AFB10050 */  sw    $s1, 0x50($sp)
-/* 0A5628 7F070AF8 AFB0004C */  sw    $s0, 0x4c($sp)
-/* 0A562C 7F070AFC F7BE0040 */  sdc1  $f30, 0x40($sp)
-/* 0A5630 7F070B00 F7BC0038 */  sdc1  $f28, 0x38($sp)
-/* 0A5634 7F070B04 F7BA0030 */  sdc1  $f26, 0x30($sp)
-/* 0A5638 7F070B08 F7B80028 */  sdc1  $f24, 0x28($sp)
-/* 0A563C 7F070B0C F7B60020 */  sdc1  $f22, 0x20($sp)
-/* 0A5640 7F070B10 F7B40018 */  sdc1  $f20, 0x18($sp)
-/* 0A5644 7F070B14 AFA60090 */  sw    $a2, 0x90($sp)
-/* 0A5648 7F070B18 C4840058 */  lwc1  $f4, 0x58($a0)
-/* 0A564C 7F070B1C C4920028 */  lwc1  $f18, 0x28($a0)
-/* 0A5650 7F070B20 00808025 */  move  $s0, $a0
-/* 0A5654 7F070B24 00A08825 */  move  $s1, $a1
-/* 0A5658 7F070B28 18A0010A */  blez  $a1, .L7F070F54
-/* 0A565C 7F070B2C E7A40080 */   swc1  $f4, 0x80($sp)
-/* 0A5660 7F070B30 58A000E6 */  blezl $a1, .L7F070ECC
-/* 0A5664 7F070B34 8FAB0090 */   lw    $t3, 0x90($sp)
-/* 0A5668 7F070B38 4480C000 */  mtc1  $zero, $f24
-/* 0A566C 7F070B3C 00000000 */  nop
-/* 0A5670 7F070B40 C60200B0 */  lwc1  $f2, 0xb0($s0)
-.L7F070B44:
-/* 0A5674 7F070B44 3C013F80 */  li    $at, 0x3F800000 # 1.000000
-/* 0A5678 7F070B48 4602C03C */  c.lt.s $f24, $f2
-/* 0A567C 7F070B4C 00000000 */  nop
-/* 0A5680 7F070B50 45020017 */  bc1fl .L7F070BB0
-/* 0A5684 7F070B54 C6080088 */   lwc1  $f8, 0x88($s0)
-/* 0A5688 7F070B58 C60600B4 */  lwc1  $f6, 0xb4($s0)
-/* 0A568C 7F070B5C 44814000 */  mtc1  $at, $f8
-/* 0A5690 7F070B60 00000000 */  nop
-/* 0A5694 7F070B64 46083280 */  add.s $f10, $f6, $f8
-/* 0A5698 7F070B68 E60A00B4 */  swc1  $f10, 0xb4($s0)
-/* 0A569C 7F070B6C C60C00B4 */  lwc1  $f12, 0xb4($s0)
-/* 0A56A0 7F070B70 4602603C */  c.lt.s $f12, $f2
-/* 0A56A4 7F070B74 00000000 */  nop
-/* 0A56A8 7F070B78 4502000A */  bc1fl .L7F070BA4
-/* 0A56AC 7F070B7C C60600A8 */   lwc1  $f6, 0xa8($s0)
-/* 0A56B0 7F070B80 C60000AC */  lwc1  $f0, 0xac($s0)
-/* 0A56B4 7F070B84 C60400A8 */  lwc1  $f4, 0xa8($s0)
-/* 0A56B8 7F070B88 46002181 */  sub.s $f6, $f4, $f0
-/* 0A56BC 7F070B8C 460C3202 */  mul.s $f8, $f6, $f12
-/* 0A56C0 7F070B90 46024283 */  div.s $f10, $f8, $f2
-/* 0A56C4 7F070B94 460A0100 */  add.s $f4, $f0, $f10
-/* 0A56C8 7F070B98 10000004 */  b     .L7F070BAC
-/* 0A56CC 7F070B9C E60400A4 */   swc1  $f4, 0xa4($s0)
-/* 0A56D0 7F070BA0 C60600A8 */  lwc1  $f6, 0xa8($s0)
-.L7F070BA4:
-/* 0A56D4 7F070BA4 E61800B0 */  swc1  $f24, 0xb0($s0)
-/* 0A56D8 7F070BA8 E60600A4 */  swc1  $f6, 0xa4($s0)
-.L7F070BAC:
-/* 0A56DC 7F070BAC C6080088 */  lwc1  $f8, 0x88($s0)
-.L7F070BB0:
-/* 0A56E0 7F070BB0 C60200A4 */  lwc1  $f2, 0xa4($s0)
-/* 0A56E4 7F070BB4 4608C03C */  c.lt.s $f24, $f8
-/* 0A56E8 7F070BB8 00000000 */  nop
-/* 0A56EC 7F070BBC 4502001D */  bc1fl .L7F070C34
-/* 0A56F0 7F070BC0 C60C004C */   lwc1  $f12, 0x4c($s0)
-/* 0A56F4 7F070BC4 C60A008C */  lwc1  $f10, 0x8c($s0)
-/* 0A56F8 7F070BC8 3C013F80 */  li    $at, 0x3F800000 # 1.000000
-/* 0A56FC 7F070BCC 46025100 */  add.s $f4, $f10, $f2
-/* 0A5700 7F070BD0 E604008C */  swc1  $f4, 0x8c($s0)
-/* 0A5704 7F070BD4 C60C008C */  lwc1  $f12, 0x8c($s0)
-/* 0A5708 7F070BD8 460CC032 */  c.eq.s $f24, $f12
-/* 0A570C 7F070BDC 00000000 */  nop
-/* 0A5710 7F070BE0 45020006 */  bc1fl .L7F070BFC
-/* 0A5714 7F070BE4 C6000088 */   lwc1  $f0, 0x88($s0)
-/* 0A5718 7F070BE8 44813000 */  mtc1  $at, $f6
-/* 0A571C 7F070BEC C60200A4 */  lwc1  $f2, 0xa4($s0)
-/* 0A5720 7F070BF0 1000000F */  b     .L7F070C30
-/* 0A5724 7F070BF4 E6060084 */   swc1  $f6, 0x84($s0)
-/* 0A5728 7F070BF8 C6000088 */  lwc1  $f0, 0x88($s0)
-.L7F070BFC:
-/* 0A572C 7F070BFC 4600603C */  c.lt.s $f12, $f0
-/* 0A5730 7F070C00 00000000 */  nop
-/* 0A5734 7F070C04 45020007 */  bc1fl .L7F070C24
-/* 0A5738 7F070C08 E6180088 */   swc1  $f24, 0x88($s0)
-/* 0A573C 7F070C0C 460C0201 */  sub.s $f8, $f0, $f12
-/* 0A5740 7F070C10 C60200A4 */  lwc1  $f2, 0xa4($s0)
-/* 0A5744 7F070C14 46004283 */  div.s $f10, $f8, $f0
-/* 0A5748 7F070C18 10000005 */  b     .L7F070C30
-/* 0A574C 7F070C1C E60A0084 */   swc1  $f10, 0x84($s0)
-/* 0A5750 7F070C20 E6180088 */  swc1  $f24, 0x88($s0)
-.L7F070C24:
-/* 0A5754 7F070C24 E6180084 */  swc1  $f24, 0x84($s0)
-/* 0A5758 7F070C28 AE000054 */  sw    $zero, 0x54($s0)
-/* 0A575C 7F070C2C C60200A4 */  lwc1  $f2, 0xa4($s0)
-.L7F070C30:
-/* 0A5760 7F070C30 C60C004C */  lwc1  $f12, 0x4c($s0)
-.L7F070C34:
-/* 0A5764 7F070C34 460CC03C */  c.lt.s $f24, $f12
-/* 0A5768 7F070C38 00000000 */  nop
-/* 0A576C 7F070C3C 45020017 */  bc1fl .L7F070C9C
-/* 0A5770 7F070C40 C6100040 */   lwc1  $f16, 0x40($s0)
-/* 0A5774 7F070C44 C6040050 */  lwc1  $f4, 0x50($s0)
-/* 0A5778 7F070C48 46022180 */  add.s $f6, $f4, $f2
-/* 0A577C 7F070C4C E6060050 */  swc1  $f6, 0x50($s0)
-/* 0A5780 7F070C50 C60E0050 */  lwc1  $f14, 0x50($s0)
-/* 0A5784 7F070C54 460C703C */  c.lt.s $f14, $f12
-/* 0A5788 7F070C58 00000000 */  nop
-/* 0A578C 7F070C5C 4502000B */  bc1fl .L7F070C8C
-/* 0A5790 7F070C60 C60A0044 */   lwc1  $f10, 0x44($s0)
-/* 0A5794 7F070C64 C6000048 */  lwc1  $f0, 0x48($s0)
-/* 0A5798 7F070C68 C6080044 */  lwc1  $f8, 0x44($s0)
-/* 0A579C 7F070C6C C60200A4 */  lwc1  $f2, 0xa4($s0)
-/* 0A57A0 7F070C70 46004281 */  sub.s $f10, $f8, $f0
-/* 0A57A4 7F070C74 460E5102 */  mul.s $f4, $f10, $f14
-/* 0A57A8 7F070C78 460C2183 */  div.s $f6, $f4, $f12
-/* 0A57AC 7F070C7C 46060200 */  add.s $f8, $f0, $f6
-/* 0A57B0 7F070C80 10000005 */  b     .L7F070C98
-/* 0A57B4 7F070C84 E6080040 */   swc1  $f8, 0x40($s0)
-/* 0A57B8 7F070C88 C60A0044 */  lwc1  $f10, 0x44($s0)
-.L7F070C8C:
-/* 0A57BC 7F070C8C E618004C */  swc1  $f24, 0x4c($s0)
-/* 0A57C0 7F070C90 C60200A4 */  lwc1  $f2, 0xa4($s0)
-/* 0A57C4 7F070C94 E60A0040 */  swc1  $f10, 0x40($s0)
-.L7F070C98:
-/* 0A57C8 7F070C98 C6100040 */  lwc1  $f16, 0x40($s0)
-.L7F070C9C:
-/* 0A57CC 7F070C9C 8E0E0054 */  lw    $t6, 0x54($s0)
-/* 0A57D0 7F070CA0 46101102 */  mul.s $f4, $f2, $f16
-/* 0A57D4 7F070CA4 11C00020 */  beqz  $t6, .L7F070D28
-/* 0A57D8 7F070CA8 46049480 */   add.s $f18, $f18, $f4
-/* 0A57DC 7F070CAC C60C007C */  lwc1  $f12, 0x7c($s0)
-/* 0A57E0 7F070CB0 460CC03C */  c.lt.s $f24, $f12
-/* 0A57E4 7F070CB4 00000000 */  nop
-/* 0A57E8 7F070CB8 45020017 */  bc1fl .L7F070D18
-/* 0A57EC 7F070CBC C6000070 */   lwc1  $f0, 0x70($s0)
-/* 0A57F0 7F070CC0 C6060080 */  lwc1  $f6, 0x80($s0)
-/* 0A57F4 7F070CC4 46023200 */  add.s $f8, $f6, $f2
-/* 0A57F8 7F070CC8 E6080080 */  swc1  $f8, 0x80($s0)
-/* 0A57FC 7F070CCC C60E0080 */  lwc1  $f14, 0x80($s0)
-/* 0A5800 7F070CD0 460C703C */  c.lt.s $f14, $f12
-/* 0A5804 7F070CD4 00000000 */  nop
-/* 0A5808 7F070CD8 4502000B */  bc1fl .L7F070D08
-/* 0A580C 7F070CDC C6040074 */   lwc1  $f4, 0x74($s0)
-/* 0A5810 7F070CE0 C6000078 */  lwc1  $f0, 0x78($s0)
-/* 0A5814 7F070CE4 C60A0074 */  lwc1  $f10, 0x74($s0)
-/* 0A5818 7F070CE8 C60200A4 */  lwc1  $f2, 0xa4($s0)
-/* 0A581C 7F070CEC 46005101 */  sub.s $f4, $f10, $f0
-/* 0A5820 7F070CF0 460E2182 */  mul.s $f6, $f4, $f14
-/* 0A5824 7F070CF4 460C3203 */  div.s $f8, $f6, $f12
-/* 0A5828 7F070CF8 46080280 */  add.s $f10, $f0, $f8
-/* 0A582C 7F070CFC 10000005 */  b     .L7F070D14
-/* 0A5830 7F070D00 E60A0070 */   swc1  $f10, 0x70($s0)
-/* 0A5834 7F070D04 C6040074 */  lwc1  $f4, 0x74($s0)
-.L7F070D08:
-/* 0A5838 7F070D08 E618007C */  swc1  $f24, 0x7c($s0)
-/* 0A583C 7F070D0C C60200A4 */  lwc1  $f2, 0xa4($s0)
-/* 0A5840 7F070D10 E6040070 */  swc1  $f4, 0x70($s0)
-.L7F070D14:
-/* 0A5844 7F070D14 C6000070 */  lwc1  $f0, 0x70($s0)
-.L7F070D18:
-/* 0A5848 7F070D18 C7A60080 */  lwc1  $f6, 0x80($sp)
-/* 0A584C 7F070D1C 46001202 */  mul.s $f8, $f2, $f0
-/* 0A5850 7F070D20 46083280 */  add.s $f10, $f6, $f8
-/* 0A5854 7F070D24 E7AA0080 */  swc1  $f10, 0x80($sp)
-.L7F070D28:
-/* 0A5858 7F070D28 820F0026 */  lb    $t7, 0x26($s0)
-/* 0A585C 7F070D2C 51E00064 */  beql  $t7, $zero, .L7F070EC0
-/* 0A5860 7F070D30 2631FFFF */   addiu $s1, $s1, -1
-/* 0A5864 7F070D34 8E180020 */  lw    $t8, 0x20($s0)
-/* 0A5868 7F070D38 4610C03E */  c.le.s $f24, $f16
-/* 0A586C 7F070D3C C616003C */  lwc1  $f22, 0x3c($s0)
-/* 0A5870 7F070D40 97190004 */  lhu   $t9, 4($t8)
-/* 0A5874 7F070D44 C6020090 */  lwc1  $f2, 0x90($s0)
-/* 0A5878 7F070D48 2728FFFF */  addiu $t0, $t9, -1
-/* 0A587C 7F070D4C 44882000 */  mtc1  $t0, $f4
-/* 0A5880 7F070D50 4500000C */  bc1f  .L7F070D84
-/* 0A5884 7F070D54 46802020 */   cvt.s.w $f0, $f4
-/* 0A5888 7F070D58 4616C03E */  c.le.s $f24, $f22
-/* 0A588C 7F070D5C 46000506 */  mov.s $f20, $f0
-/* 0A5890 7F070D60 46001686 */  mov.s $f26, $f2
-/* 0A5894 7F070D64 45020012 */  bc1fl .L7F070DB0
-/* 0A5898 7F070D68 4610C03E */   c.le.s $f24, $f16
-/* 0A589C 7F070D6C 4600B03C */  c.lt.s $f22, $f0
-/* 0A58A0 7F070D70 00000000 */  nop
-/* 0A58A4 7F070D74 4502000E */  bc1fl .L7F070DB0
-/* 0A58A8 7F070D78 4610C03E */   c.le.s $f24, $f16
-/* 0A58AC 7F070D7C 1000000B */  b     .L7F070DAC
-/* 0A58B0 7F070D80 4600B506 */   mov.s $f20, $f22
-.L7F070D84:
-/* 0A58B4 7F070D84 4616C03E */  c.le.s $f24, $f22
-/* 0A58B8 7F070D88 46001506 */  mov.s $f20, $f2
-/* 0A58BC 7F070D8C 46000686 */  mov.s $f26, $f0
-/* 0A58C0 7F070D90 45020007 */  bc1fl .L7F070DB0
-/* 0A58C4 7F070D94 4610C03E */   c.le.s $f24, $f16
-/* 0A58C8 7F070D98 4600B03C */  c.lt.s $f22, $f0
-/* 0A58CC 7F070D9C 00000000 */  nop
-/* 0A58D0 7F070DA0 45020003 */  bc1fl .L7F070DB0
-/* 0A58D4 7F070DA4 4610C03E */   c.le.s $f24, $f16
-/* 0A58D8 7F070DA8 4600B686 */  mov.s $f26, $f22
-.L7F070DAC:
-/* 0A58DC 7F070DAC 4610C03E */  c.le.s $f24, $f16
-.L7F070DB0:
-/* 0A58E0 7F070DB0 00000000 */  nop
-/* 0A58E4 7F070DB4 45020006 */  bc1fl .L7F070DD0
-/* 0A58E8 7F070DB8 4618803C */   c.lt.s $f16, $f24
-/* 0A58EC 7F070DBC 4612A03E */  c.le.s $f20, $f18
-/* 0A58F0 7F070DC0 00000000 */  nop
-/* 0A58F4 7F070DC4 4503000A */  bc1tl .L7F070DF0
-/* 0A58F8 7F070DC8 C606004C */   lwc1  $f6, 0x4c($s0)
-/* 0A58FC 7F070DCC 4618803C */  c.lt.s $f16, $f24
-.L7F070DD0:
-/* 0A5900 7F070DD0 00000000 */  nop
-/* 0A5904 7F070DD4 4502003A */  bc1fl .L7F070EC0
-/* 0A5908 7F070DD8 2631FFFF */   addiu $s1, $s1, -1
-/* 0A590C 7F070DDC 4614903E */  c.le.s $f18, $f20
-/* 0A5910 7F070DE0 00000000 */  nop
-/* 0A5914 7F070DE4 45020036 */  bc1fl .L7F070EC0
-/* 0A5918 7F070DE8 2631FFFF */   addiu $s1, $s1, -1
-/* 0A591C 7F070DEC C606004C */  lwc1  $f6, 0x4c($s0)
-.L7F070DF0:
-/* 0A5920 7F070DF0 C61C0044 */  lwc1  $f28, 0x44($s0)
-/* 0A5924 7F070DF4 C61E0048 */  lwc1  $f30, 0x48($s0)
-/* 0A5928 7F070DF8 8FA90090 */  lw    $t1, 0x90($sp)
-/* 0A592C 7F070DFC E7A60060 */  swc1  $f6, 0x60($sp)
-/* 0A5930 7F070E00 C6080050 */  lwc1  $f8, 0x50($s0)
-/* 0A5934 7F070E04 02002025 */  move  $a0, $s0
-/* 0A5938 7F070E08 1120000A */  beqz  $t1, .L7F070E34
-/* 0A593C 7F070E0C E7A8005C */   swc1  $f8, 0x5c($sp)
-/* 0A5940 7F070E10 8E050028 */  lw    $a1, 0x28($s0)
-/* 0A5944 7F070E14 4406A000 */  mfc1  $a2, $f20
-/* 0A5948 7F070E18 4407C000 */  mfc1  $a3, $f24
-/* 0A594C 7F070E1C E7B20084 */  swc1  $f18, 0x84($sp)
-/* 0A5950 7F070E20 E7B80010 */  swc1  $f24, 0x10($sp)
-/* 0A5954 7F070E24 0FC1C07B */  jal   modelSetAnimFrame2WithChrStuff
-/* 0A5958 7F070E28 02002025 */   move  $a0, $s0
-/* 0A595C 7F070E2C 10000006 */  b     .L7F070E48
-/* 0A5960 7F070E30 C7B20084 */   lwc1  $f18, 0x84($sp)
-.L7F070E34:
-/* 0A5964 7F070E34 4405A000 */  mfc1  $a1, $f20
-/* 0A5968 7F070E38 4406C000 */  mfc1  $a2, $f24
-/* 0A596C 7F070E3C 0FC1C024 */  jal   modelSetAnimFrame2
-/* 0A5970 7F070E40 E7B20084 */   swc1  $f18, 0x84($sp)
-/* 0A5974 7F070E44 C7B20084 */  lwc1  $f18, 0x84($sp)
-.L7F070E48:
-/* 0A5978 7F070E48 C60A0040 */  lwc1  $f10, 0x40($s0)
-/* 0A597C 7F070E4C 8E050020 */  lw    $a1, 0x20($s0)
-/* 0A5980 7F070E50 82060024 */  lb    $a2, 0x24($s0)
-/* 0A5984 7F070E54 E7AA0010 */  swc1  $f10, 0x10($sp)
-/* 0A5988 7F070E58 C6040094 */  lwc1  $f4, 0x94($s0)
-/* 0A598C 7F070E5C 4407D000 */  mfc1  $a3, $f26
-/* 0A5990 7F070E60 E7B20084 */  swc1  $f18, 0x84($sp)
-/* 0A5994 7F070E64 02002025 */  move  $a0, $s0
-/* 0A5998 7F070E68 0FC1BF2A */  jal   modelSetAnimation
-/* 0A599C 7F070E6C E7A40014 */   swc1  $f4, 0x14($sp)
-/* 0A59A0 7F070E70 C7B20084 */  lwc1  $f18, 0x84($sp)
-/* 0A59A4 7F070E74 240A0001 */  li    $t2, 1
-/* 0A59A8 7F070E78 A20A0026 */  sb    $t2, 0x26($s0)
-/* 0A59AC 7F070E7C E616003C */  swc1  $f22, 0x3c($s0)
-/* 0A59B0 7F070E80 E61C0044 */  swc1  $f28, 0x44($s0)
-/* 0A59B4 7F070E84 E61E0048 */  swc1  $f30, 0x48($s0)
-/* 0A59B8 7F070E88 C7A60060 */  lwc1  $f6, 0x60($sp)
-/* 0A59BC 7F070E8C 4612D280 */  add.s $f10, $f26, $f18
-/* 0A59C0 7F070E90 E606004C */  swc1  $f6, 0x4c($s0)
-/* 0A59C4 7F070E94 C7A8005C */  lwc1  $f8, 0x5c($sp)
-/* 0A59C8 7F070E98 E6080050 */  swc1  $f8, 0x50($s0)
-/* 0A59CC 7F070E9C E7B20080 */  swc1  $f18, 0x80($sp)
-/* 0A59D0 7F070EA0 8E020098 */  lw    $v0, 0x98($s0)
-/* 0A59D4 7F070EA4 46145481 */  sub.s $f18, $f10, $f20
-/* 0A59D8 7F070EA8 50400005 */  beql  $v0, $zero, .L7F070EC0
-/* 0A59DC 7F070EAC 2631FFFF */   addiu $s1, $s1, -1
-/* 0A59E0 7F070EB0 0040F809 */  jalr  $v0
-/* 0A59E4 7F070EB4 E7B20084 */  swc1  $f18, 0x84($sp)
-/* 0A59E8 7F070EB8 C7B20084 */  lwc1  $f18, 0x84($sp)
-/* 0A59EC 7F070EBC 2631FFFF */  addiu $s1, $s1, -1
-.L7F070EC0:
-/* 0A59F0 7F070EC0 5E20FF20 */  bgtzl $s1, .L7F070B44
-/* 0A59F4 7F070EC4 C60200B0 */   lwc1  $f2, 0xb0($s0)
-/* 0A59F8 7F070EC8 8FAB0090 */  lw    $t3, 0x90($sp)
-.L7F070ECC:
-/* 0A59FC 7F070ECC 4480C000 */  mtc1  $zero, $f24
-/* 0A5A00 7F070ED0 8E020054 */  lw    $v0, 0x54($s0)
-/* 0A5A04 7F070ED4 11600014 */  beqz  $t3, .L7F070F28
-/* 0A5A08 7F070ED8 00000000 */   nop
-/* 0A5A0C 7F070EDC 1040000A */  beqz  $v0, .L7F070F08
-/* 0A5A10 7F070EE0 C6000028 */   lwc1  $f0, 0x28($s0)
-/* 0A5A14 7F070EE4 C7A40080 */  lwc1  $f4, 0x80($sp)
-/* 0A5A18 7F070EE8 44050000 */  mfc1  $a1, $f0
-/* 0A5A1C 7F070EEC 44069000 */  mfc1  $a2, $f18
-/* 0A5A20 7F070EF0 8E070058 */  lw    $a3, 0x58($s0)
-/* 0A5A24 7F070EF4 02002025 */  move  $a0, $s0
-/* 0A5A28 7F070EF8 0FC1C07B */  jal   modelSetAnimFrame2WithChrStuff
-/* 0A5A2C 7F070EFC E7A40010 */   swc1  $f4, 0x10($sp)
-/* 0A5A30 7F070F00 10000015 */  b     .L7F070F58
-/* 0A5A34 7F070F04 8FBF0054 */   lw    $ra, 0x54($sp)
-.L7F070F08:
-/* 0A5A38 7F070F08 44050000 */  mfc1  $a1, $f0
-/* 0A5A3C 7F070F0C 44069000 */  mfc1  $a2, $f18
-/* 0A5A40 7F070F10 4407C000 */  mfc1  $a3, $f24
-/* 0A5A44 7F070F14 02002025 */  move  $a0, $s0
-/* 0A5A48 7F070F18 0FC1C07B */  jal   modelSetAnimFrame2WithChrStuff
-/* 0A5A4C 7F070F1C E7B80010 */   swc1  $f24, 0x10($sp)
-/* 0A5A50 7F070F20 1000000D */  b     .L7F070F58
-/* 0A5A54 7F070F24 8FBF0054 */   lw    $ra, 0x54($sp)
-.L7F070F28:
-/* 0A5A58 7F070F28 10400006 */  beqz  $v0, .L7F070F44
-/* 0A5A5C 7F070F2C 02002025 */   move  $a0, $s0
-/* 0A5A60 7F070F30 44059000 */  mfc1  $a1, $f18
-/* 0A5A64 7F070F34 0FC1C024 */  jal   modelSetAnimFrame2
-/* 0A5A68 7F070F38 8FA60080 */   lw    $a2, 0x80($sp)
-/* 0A5A6C 7F070F3C 10000006 */  b     .L7F070F58
-/* 0A5A70 7F070F40 8FBF0054 */   lw    $ra, 0x54($sp)
-.L7F070F44:
-/* 0A5A74 7F070F44 44059000 */  mfc1  $a1, $f18
-/* 0A5A78 7F070F48 4406C000 */  mfc1  $a2, $f24
-/* 0A5A7C 7F070F4C 0FC1C024 */  jal   modelSetAnimFrame2
-/* 0A5A80 7F070F50 02002025 */   move  $a0, $s0
-.L7F070F54:
-/* 0A5A84 7F070F54 8FBF0054 */  lw    $ra, 0x54($sp)
-.L7F070F58:
-/* 0A5A88 7F070F58 D7B40018 */  ldc1  $f20, 0x18($sp)
-/* 0A5A8C 7F070F5C D7B60020 */  ldc1  $f22, 0x20($sp)
-/* 0A5A90 7F070F60 D7B80028 */  ldc1  $f24, 0x28($sp)
-/* 0A5A94 7F070F64 D7BA0030 */  ldc1  $f26, 0x30($sp)
-/* 0A5A98 7F070F68 D7BC0038 */  ldc1  $f28, 0x38($sp)
-/* 0A5A9C 7F070F6C D7BE0040 */  ldc1  $f30, 0x40($sp)
-/* 0A5AA0 7F070F70 8FB0004C */  lw    $s0, 0x4c($sp)
-/* 0A5AA4 7F070F74 8FB10050 */  lw    $s1, 0x50($sp)
-/* 0A5AA8 7F070F78 03E00008 */  jr    $ra
-/* 0A5AAC 7F070F7C 27BD0088 */   addiu $sp, $sp, 0x88
-)
-#endif
+
 
 /**
  * @brief Model Type 1: 1Cycle No Secondary
@@ -6454,7 +6324,7 @@ void doshadow(void)
             temp_v0_4->unk1C = sp58.unkC;
             temp_v0_4->unk20 = sp58.unk0;
             temp_v0_4->unk24 = sp58.unk4;
-            temp_v0_4->unk28 = sp58.unk8;
+            temp_v0_4->animframe1 = sp58.unk8;
             temp_v0_4->unk2C = sp58.unkC;
             temp_v0_4->unk30 = sp58.unk0;
             temp_v0_4->unk34 = sp58.unk4;
@@ -6486,7 +6356,7 @@ void doshadow(void)
                 sp54->unkA  = 0;
                 sp54->unk1A = 0;
                 sp54->unk18 = (temp_v1_2->unk4 << 5) - 1;
-                sp54->unk28 = (temp_v1_2->unk4 << 5) - 1;
+                sp54->animframe1 = (temp_v1_2->unk4 << 5) - 1;
                 sp54->unk38 = 0;
                 sp54->unk2A = (temp_v1_2->unk5 << 5) - 1;
                 sp54->unk3A = (temp_v1_2->unk5 << 5) - 1;

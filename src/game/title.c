@@ -280,7 +280,7 @@ glabel sub_GAME_7F007F30
 .L7F008030:
 /* 03CB60 7F008030 8E640000 */  lw    $a0, ($s3)
 /* 03CB64 7F008034 24050001 */  li    $a1, 1
-/* 03CB68 7F008038 0FC1C2BB */  jal   modelTickAnimQuarterSpeed
+/* 03CB68 7F008038 0FC1C2BB */  jal   modelTickAnim
 /* 03CB6C 7F00803C 24060001 */   li    $a2, 1
 /* 03CB70 7F008040 8E0C0000 */  lw    $t4, ($s0)
 /* 03CB74 7F008044 240100E6 */  li    $at, 230
@@ -532,7 +532,7 @@ glabel sub_GAME_7F007F30
 .L7F007FB0:
 /* 03A9A0 7F007FB0 8E640000 */  lw    $a0, ($s3)
 /* 03A9A4 7F007FB4 24050001 */  li    $a1, 1
-/* 03A9A8 7F007FB8 0FC1C323 */  jal   modelTickAnimQuarterSpeed
+/* 03A9A8 7F007FB8 0FC1C323 */  jal   modelTickAnim
 /* 03A9AC 7F007FBC 24060001 */   li    $a2, 1
 /* 03A9B0 7F007FC0 8E0C0000 */  lw    $t4, ($s0)
 /* 03A9B4 7F007FC4 240100BF */  li    $at, 191

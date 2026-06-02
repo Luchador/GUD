@@ -1136,8 +1136,16 @@ typedef union
 
         /**
          *  Opcode 17
-         *  unused
          */
+        typedef struct ModelRoData_Op17Record
+        {
+            s32        hitpart;     /* 0x00 */
+            f32        radiusSq;    /* 0x04 */
+            coord3d    pos;         /* 0x08 */
+            ModelNode *othernode;   /* 0x14 */
+            f32        scale1;      /* 0x18 */
+            f32        scale2;      /* 0x1c */
+        } ModelRoData_Op17Record;
 
         /**
          *  Opcode 18 0x12
@@ -1439,7 +1447,7 @@ typedef union
             s8                animlooping; /*0x26*/
             s8                unk27;
 
-            f32               unk28; // animation related
+            f32               animframe1; /*0x28*/
             f32               unk2c;
 
             /**
@@ -1465,7 +1473,7 @@ typedef union
 
             ModelAnimation   *anim2;
 
-            f32               unk58;
+            f32               animframe2; /* 0x58*/
             f32               unk5c;
 
             /**
@@ -1497,7 +1505,7 @@ typedef union
             f32               unk84;
 
             f32               unk88;
-            s32               unk8c;
+            f32               unk8c;
             // 0x90
             f32               animloopframe; /*0x90*/
             f32               animloopmerge; /*0x94*/

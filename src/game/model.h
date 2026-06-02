@@ -76,7 +76,7 @@ void modelSetAnimFrame(Model* model, f32 frame);
 void modelSetAnimFrame2(Model* model, f32 frame1, f32 frame2);
 void modelSetAnimMergingEnabled(s32 arg0);
 u32 modelIsAnimMergingEnabled(void);
-void modelTickAnimQuarterSpeed(Model *, s32, s32);
+void modelTickAnim(struct Model *model, s32 numticks, s32 update_chrstuff);
 void modelApplyRenderModeType1(ModelRenderData *renderdata);
 void modelApplyRenderModeType3(ModelRenderData *renderdata, bool isPrimary);
 void modelApplyRenderModeType4(ModelRenderData *renderdata, bool isPrimary);
