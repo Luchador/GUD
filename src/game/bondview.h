@@ -177,7 +177,7 @@ struct hand
   s32 field_A48;
   s32 field_A4C;
   s32 field_A50;
-  ChrRecord_f180 field_A54;
+  BeamRecord weapon_beam;
   f32 noise;
   f32 field_A84;
   f32 field_A88;

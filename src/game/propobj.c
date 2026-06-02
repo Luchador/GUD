@@ -49,28 +49,9 @@
 #include "tex.h"
 #include "textrelated.h"
 
-#ifdef VERSION_EU
-
-#define CHROBJ_TIMETOREGEN   50
-#define CHROBJ_TIMETOREGEN_F 50.0f
-#define CHROBJ_GAS_TIMER 0x5dc /* 1500 */
-
-#define PLASTIQUE_EXPLOSION_DELAY_TICKS 100
-
-#else
-
-#define CHROBJ_TIMETOREGEN   60
-#define CHROBJ_TIMETOREGEN_F 60.0f
-#define CHROBJ_GAS_TIMER 0x708 /* 1800 */
-#define PLASTIQUE_EXPLOSION_DELAY_TICKS 120
-
-#endif
-
 
 
 #define PROXIMITY_MINE_TRIGGER_DISTANCE 62500.0f
-
-
 
 
 /* 0x80030AC8 */ s32 alarm_timer = 0;
@@ -112,7 +93,6 @@ s32 objGetShotsTaken(ObjectRecord *);
 void sub_GAME_7F04AC20(PropRecord *prop, ModelRenderData *, s32 arg2);
 bool chrobjSeparatingAxisTheorem(rect4f* rect1, s32 numvertices0, rect4f* rect2, s32 numvertices1);
 void chrobjSndCreatePostEvent(ALSoundState *state, coord3d *pos, f32 low, f32 high);
-void sub_GAME_7F050DE8(Model* model);
 void remove_obj_from_temp_proxmine_table(WeaponObjRecord* proxy);
 void add_obj_to_temp_proxmine_table(WeaponObjRecord* proxy);
 s32 sub_GAME_7F042EB4(struct ObjectRecord *arg0, f32 *arg1, struct coord3d *arg2, struct coord3d *arg3, s32 arg4, s32 arg5);

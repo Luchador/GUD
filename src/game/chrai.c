@@ -816,7 +816,6 @@ PathRecord *pathFindById(s32 ID)
 }
 
 // forward
-extern void            chrpropDelist(PropRecord *prop);
 extern PadRecord      *dword_CODE_bss_800799F8;
 extern CutsceneRecord *gBondViewCutscene;
 extern enum CAMERAMODE dword_CODE_bss_80079A18;

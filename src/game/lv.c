@@ -1526,7 +1526,7 @@ void lvlManageMpGame(void)
         update_bullet_casings();
         update_broken_windows();
         explosionUpdateFlyingParticles();
-        handle_mp_respawn_and_some_things();
+        chrpropTick();
         reset_all_music_slots();
         langTick();
 

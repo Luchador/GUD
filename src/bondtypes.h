@@ -2252,9 +2252,11 @@ typedef union
     #pragma region GlobalPropDef
 
     /**
+     * Record for bullet/laser beam tracers.
+     * 
      * sizeof = 0x2c = 44 bytes.
      */
-    typedef struct ChrRecord_f180
+    typedef struct BeamRecord
     {
         /***/
         s8      unk00;
@@ -2273,7 +2275,7 @@ typedef union
         f32     unk20;
         f32     unk24;
         f32     unk28;
-    } ChrRecord_f180;
+    } BeamRecord;
 
 
     typedef struct PropDefHeaderRecord
@@ -2435,7 +2437,7 @@ typedef union
          * Method chrlvFireWeaponRelated calls CapBeamLengthAndDecideIfRendered, and passes an address
          * which makes it look like this is an array at ChrRecord offset 180.
         */
-        ChrRecord_f180 unk180[2];
+        BeamRecord beams[2];
 
         PropRecord    *handle_positiondata_hat;
     } ChrRecord;

@@ -2705,8 +2705,8 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
     var_s0->chrseeshot = -1;
     var_s0->chrseedie = -1;
     var_s0->chrpreset1 = -1;
-    var_s0->unk180[0].unk00 = -1;
-    var_s0->unk180[1].unk00 = -1;
+    var_s0->beams[0].unk00 = -1;
+    var_s0->beams[1].unk00 = -1;
     var_s0->firecount[0] = 0;
     var_s0->firecount[1] = 0;
     var_s0->grenadeprob = 0;

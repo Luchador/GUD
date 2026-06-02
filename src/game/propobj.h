@@ -6,6 +6,23 @@
 #include <bondtypes.h>
 #include <snd.h>   
 
+#ifdef VERSION_EU
+
+#define CHROBJ_TIMETOREGEN   50
+#define CHROBJ_TIMETOREGEN_F 50.0f
+#define CHROBJ_GAS_TIMER 0x5dc /* 1500 */
+
+#define PLASTIQUE_EXPLOSION_DELAY_TICKS 100
+
+#else
+
+#define CHROBJ_TIMETOREGEN   60
+#define CHROBJ_TIMETOREGEN_F 60.0f
+#define CHROBJ_GAS_TIMER 0x708 /* 1800 */
+#define PLASTIQUE_EXPLOSION_DELAY_TICKS 120
+
+#endif
+
 extern f32 F_80030B14;
 extern f32 F_80030B18;
 extern f32 g_AutogunPendingDamageTick;
@@ -134,5 +151,6 @@ void                 update_color_shading(rgba_u8 *dest, rgba_u8 *src);
 void                 chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl);
 HATTYPE              get_hat_model(PropRecord *prop);
 s32                  objDrop(PropRecord *prop);
+void                 sub_GAME_7F050DE8(Model* model);
 
 #endif

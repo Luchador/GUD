@@ -117,7 +117,7 @@ struct hand hand_data_dummy = {
     0, // s32 field_A4C;
     0, // s32 field_A50;
 
-    // // struct ChrRecord_f180 {
+    // // struct BeamRecord {
     {
         0xff, //     s8      unk00;
         0, //     s8      item_id; // type ITEM_IDS

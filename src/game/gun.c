@@ -570,7 +570,7 @@ void give_weapon_case_items(void);
 void sub_GAME_7F05DA8C(GUNHAND hand, ITEM_IDS weaponnum_watchmenu);
 void sub_GAME_7F05E808(GUNHAND hand);
 void sub_GAME_7F0649D8(enum GUNHAND hand);
-void sub_GAME_7F061BF4(enum GUNHAND hand);
+void gunCreateBeamForHand(enum GUNHAND hand);
 CasingRecord* casingCreate(ModelFileHeader* header, Mtxf* mtx);
 Gfx *microcode_generation_ammo_related(Gfx *gdl, struct sImageTableEntry *tconfig, f32 x, f32 y, f32 arg4, s32 arg5, f32 arg6, s32 arg7, s32 red, s32 green, s32 blue, s32 alpha);
 
@@ -3205,12 +3205,12 @@ void handles_firing_or_throwing_weapon_in_hand(void) {
                 case 19:
                 case 20:
                 case 21:
-                    sub_GAME_7F061BF4(arg0);
+                    gunCreateBeamForHand(arg0);
                     temp_s0->unk30 = temp_s0->unk30 + 1;
                     break;
                 case 22:
                 case 23:
-                    sub_GAME_7F061BF4(arg0);
+                    gunCreateBeamForHand(arg0);
                     break;
             }
         }
@@ -4946,14 +4946,14 @@ glabel handles_firing_or_throwing_weapon_in_hand
 /* 0962DC 7F0617AC 01C00008 */  jr    $t6
 /* 0962E0 7F0617B0 00000000 */   nop
 weapon_bullet_type_pistol:
-/* 0962E4 7F0617B4 0FC186FD */  jal   sub_GAME_7F061BF4
+/* 0962E4 7F0617B4 0FC186FD */  jal   gunCreateBeamForHand
 /* 0962E8 7F0617B8 8FA402A8 */   lw    $a0, 0x2a8($sp)
 /* 0962EC 7F0617BC 8E180030 */  lw    $t8, 0x30($s0)
 /* 0962F0 7F0617C0 270D0001 */  addiu $t5, $t8, 1
 /* 0962F4 7F0617C4 10000003 */  b     .L7F0617D4
 /* 0962F8 7F0617C8 AE0D0030 */   sw    $t5, 0x30($s0)
 weapon_bullet_type_none:
-/* 0962FC 7F0617CC 0FC186FD */  jal   sub_GAME_7F061BF4
+/* 0962FC 7F0617CC 0FC186FD */  jal   gunCreateBeamForHand
 /* 096300 7F0617D0 8FA402A8 */   lw    $a0, 0x2a8($sp)
 weapon_bullet_type_shotgun_mine:
 .L7F0617D4:
@@ -6736,7 +6736,7 @@ glabel handles_firing_or_throwing_weapon_in_hand
 /* 09683C 7F061CCC 01C00008 */  jr    $t6
 /* 096840 7F061CD0 00000000 */   nop
 weapon_bullet_type_pistol:
-/* 096844 7F061CD4 0FC18848 */  jal   sub_GAME_7F061BF4
+/* 096844 7F061CD4 0FC18848 */  jal   gunCreateBeamForHand
 /* 096848 7F061CD8 8FA402A8 */   lw    $a0, 0x2a8($sp)
 /* 09684C 7F061CDC 8E180030 */  lw    $t8, 0x30($s0)
 /* 096850 7F061CE0 270D0001 */  addiu $t5, $t8, 1
@@ -6746,7 +6746,7 @@ weapon_bullet_type_none:
 /* 09685C 7F061CEC 8E0F0030 */  lw    $t7, 0x30($s0)
 /* 096860 7F061CF0 25F90001 */  addiu $t9, $t7, 1
 /* 096864 7F061CF4 AE190030 */  sw    $t9, 0x30($s0)
-/* 096868 7F061CF8 0FC18848 */  jal   sub_GAME_7F061BF4
+/* 096868 7F061CF8 0FC18848 */  jal   gunCreateBeamForHand
 /* 09686C 7F061CFC 8FA402A8 */   lw    $a0, 0x2a8($sp)
 weapon_bullet_type_shotgun_mine:
 /* 096870 7F061D00 8FAE00FC */  lw    $t6, 0xfc($sp)
@@ -8528,7 +8528,7 @@ glabel handles_firing_or_throwing_weapon_in_hand
 /* 094654 7F061C64 03000008 */  jr    $t8
 /* 094658 7F061C68 00000000 */   nop
 weapon_bullet_type_pistol:
-/* 09465C 7F061C6C 0FC1882E */  jal   sub_GAME_7F061BF4
+/* 09465C 7F061C6C 0FC1882E */  jal   gunCreateBeamForHand
 /* 094660 7F061C70 8FA402A8 */   lw    $a0, 0x2a8($sp)
 /* 094664 7F061C74 8E0F0030 */  lw    $t7, 0x30($s0)
 /* 094668 7F061C78 25EE0001 */  addiu $t6, $t7, 1
@@ -8538,7 +8538,7 @@ weapon_bullet_type_none:
 /* 094674 7F061C84 8E190030 */  lw    $t9, 0x30($s0)
 /* 094678 7F061C88 272D0001 */  addiu $t5, $t9, 1
 /* 09467C 7F061C8C AE0D0030 */  sw    $t5, 0x30($s0)
-/* 094680 7F061C90 0FC1882E */  jal   sub_GAME_7F061BF4
+/* 094680 7F061C90 0FC1882E */  jal   gunCreateBeamForHand
 /* 094684 7F061C94 8FA402A8 */   lw    $a0, 0x2a8($sp)
 weapon_bullet_type_shotgun_mine:
 .L7F061C98:
@@ -8670,7 +8670,7 @@ void bondwalkFireBothHands(void)
  * fires into the void, there may be graphical glitches with the beam.
  *
 */
-void CapBeamLengthAndDecideIfRendered(struct ChrRecord_f180 *arg0, ITEM_IDS item, coord3d *arg2, coord3d *arg3)
+void CapBeamLengthAndDecideIfRendered(struct BeamRecord *arg0, ITEM_IDS item, coord3d *arg2, coord3d *arg3)
 {
     f32 phi_f12_2;
 
@@ -8775,7 +8775,7 @@ void CapBeamLengthAndDecideIfRendered(struct ChrRecord_f180 *arg0, ITEM_IDS item
 }
 
 
-void sub_GAME_7F061BF4(enum GUNHAND hand)
+void gunCreateBeamForHand(enum GUNHAND hand)
 {
     coord3d *field_2A18;
     Mtxf *player_matrix;
@@ -8788,22 +8788,26 @@ void sub_GAME_7F061BF4(enum GUNHAND hand)
     f32 diff2_z;
     f32 diff2_y;
     f32 diff2_x;
-    ChrRecord_f180 *field_A54;
+    BeamRecord *weapon_beam;
 
     hand_ptr = &g_CurrentPlayer->hands[hand];
     player_matrix = camGetWorldToScreenMtxf();
 
     val = -((((hand_ptr->item_related.x * player_matrix->m[0][2]) + (hand_ptr->item_related.y * player_matrix->m[1][2])) + (hand_ptr->item_related.z * player_matrix->m[2][2])) + player_matrix->m[3][2]);
-    if (val < hand_ptr->field_B64) { return; }
 
-    field_A54 = &hand_ptr->field_A54;
-    CapBeamLengthAndDecideIfRendered(
-        field_A54,
-        getCurrentPlayerWeaponId(hand),
-        &hand_ptr->field_B58,
-        &hand_ptr->item_related);
+    if (val < hand_ptr->field_B64)
+    { 
+        return; 
+    }
 
-    if ((g_CurrentPlayer->prop->chr == NULL) || (getPlayerCount() < 2)) { return; }
+    weapon_beam = &hand_ptr->weapon_beam;
+
+    CapBeamLengthAndDecideIfRendered(weapon_beam, getCurrentPlayerWeaponId(hand), &hand_ptr->field_B58, &hand_ptr->item_related);
+
+    if ((g_CurrentPlayer->prop->chr == NULL) || (getPlayerCount() < 2)) 
+    { 
+        return; 
+    }
 
     chr = g_CurrentPlayer->prop->chr;
 
@@ -8821,13 +8825,13 @@ void sub_GAME_7F061BF4(enum GUNHAND hand)
         + (diff2_z * diff1_z)
         + ((diff1_x * diff2_x)
         + (diff1_y * diff2_y)));
-    if (val > 0.08726647f) { return; }
 
-    CapBeamLengthAndDecideIfRendered(
-        &chr->unk180[hand],
-        getCurrentPlayerWeaponId(hand),
-        &g_CurrentPlayer->field_2A18[hand],
-        &hand_ptr->item_related);
+    if (val > 0.08726647f) 
+    { 
+        return; 
+    }
+
+    CapBeamLengthAndDecideIfRendered(&chr->beams[hand], getCurrentPlayerWeaponId(hand), &g_CurrentPlayer->field_2A18[hand], &hand_ptr->item_related);
 }
 
 
@@ -10591,30 +10595,30 @@ glabel sub_GAME_7F061E18
 /*
 * Address: 0x7F062B00
 */
-void sub_GAME_7F062B00(ChrRecord_f180* arg0)
+void gunAdvanceBeamTimer(BeamRecord* beam)
 {
-    if (arg0->unk00 >= 0)
+    if (beam->unk00 >= 0)
     {
         if (g_ClockTimer < 3)
         {
 #ifdef VERSION_US
-            arg0->unk28 += arg0->unk20 * g_GlobalTimerDelta;
+            beam->unk28 += beam->unk20 * g_GlobalTimerDelta;
 #else
-            arg0->unk28 += arg0->unk20 * g_JP_GlobalTimerDelta;
+            beam->unk28 += beam->unk20 * g_JP_GlobalTimerDelta;
 #endif
         }
         else
         {
-            arg0->unk28 += arg0->unk20 * (2.0f + ((f32) randomGetNext() * 2.3283064e-10f * 0.5f));
+            beam->unk28 += beam->unk20 * (2.0f + ((f32) randomGetNext() * 2.3283064e-10f * 0.5f));
         }
 
-        if (arg0->unk1c <= arg0->unk28)
+        if (beam->unk1c <= beam->unk28)
         {
-            arg0->unk00 = -1;
+            beam->unk00 = -1;
             return;
         }
 
-        arg0->unk00++;
+        beam->unk00++;
     }
 }
 

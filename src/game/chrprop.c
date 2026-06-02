@@ -181,7 +181,6 @@ Gfx *chrpropRender(Gfx *arg0, PropRecord *arg1, s32 withalpha);
 void chraiCheckUseHeldItem(s32 hand);
 void chraiDefaultWeaponFireHandler(s32);
 void chraiFistAttackHandler(s32 hand, s32 item_id);
-void propExecuteTickOperation(PropRecord *prop, INV_ITEM_TYPE op);
 void modelGetAxisExtents(Model* model, f32* max, f32* min, s32 axis);
 
 // end forward declarations
@@ -1927,8 +1926,10 @@ bool bond_interact_object(void)
 }
 
 
-/* Not quite sure what to name this, it returns true when the given prop isn't within 400 units of any player prop */
-s32 sub_GAME_7F03C574(PropRecord* prop)
+/**
+* Returns true when the given prop isn't within 400 units of any player prop.
+*/
+s32 chrpropIsFarFromPlayers(PropRecord* prop)
 {
     PropRecord* player_prop;
     coord3d pos_diff;
@@ -1957,717 +1958,208 @@ s32 sub_GAME_7F03C574(PropRecord* prop)
 }
 
 
-
-
-#ifdef NONMATCHING
-void handle_mp_respawn_and_some_things(void) {
-    void *prev_prop;//sp4C
-    s32 sp38;
-    s32 sp30;
-    s32 pad; // sp2C is pad
-    void *sp28;
-    s16 prop_time_to_regen; //temp_v0_3
-    s16 prop_time_to_regen_2; //temp_v0_4
-    s32 var_s2;
-    s32 var_s3;
-    s32 var_v1;
-    u8 prop_type; //temp_v0_2
-    void *temp_a0;
-    void *temp_s0;
-    ObjectRecord *temp_s0_2;
-    void *temp_s0_3;
-    PropRecord *prop; //temp_v0
-    void *temp_v0_5;
-    void *prop_s0; // var_s0
-    PropRecord *prop_s1; //var_s1
-
+/**
+ * Per-frame tick for chrprop-managed props.
+ * 
+ * 1) Advance all AI act states.
+ * 2) Update NPC bullet tracers.
+ * 3) Handle MP pickup respawns.
+ * 4) Update autogun bullet tracers.
+ * 5) Tick explosions and smoke.
+ * 6) Update MP character bullet tracers.
+ * 7) Handle prop delisting or activation.
+ */
+void chrpropTick(void)
+{
+    PropRecord *prop;
+    ObjectRecord *obj;
+    PropRecord *prev;
+    PropRecord *next;
+    ChrRecord *chr;
+    bool skip_regen_sfx;
+    s32 tickop;
+    bool is_under_60;
+    struct ObjectRecord *autogun;
+    s32 cmdindex;
+    s32 pad;
+    ObjectRecord *setupobj;
+    
+    // Advance AI states e.g. attacking, walking, dying, etc...
     chrlvAllChrTick();
+    
     prop = get_ptr_obj_pos_list_current_entry();
-    prop_s1 = prop;
-    if (prop != NULL) {
-        do {
-            var_s2 = 0;
-            prev_prop = prop_s1->prev; //unk24
-            prop_type = prop_s1->type;
-            if (prop_type == 3) {
-                temp_s0 = prop_s1->obj; //unk4
-                sub_GAME_7F062B00(temp_s0 + 0x180); // function receives ChrRecord_f180
-                sub_GAME_7F062B00(temp_s0 + 0x1AC); // function receives ChrRecord_f180
-            } else if ((prop_type == PROP_TYPE_OBJ) || (prop_type == PROP_TYPE_WEAPON) || (prop_type == PROP_TYPE_DOOR)) {
-                prop_time_to_regen = prop_s1->timetoregen; //unk2
-                temp_s0_2 = prop_s1->obj; //unk4
-                var_s3 = 0;
-                if (prop_time_to_regen > 0) {
-                    var_v1 = 1;
-                    if (prop_time_to_regen >= 0x3C) {
-                        var_v1 = 0;
-                    }
-                    prop_s1->timetoregen = (s16) (prop_time_to_regen - g_ClockTimer);
-                    if ((prop_s1->timetoregen < 0x3C) && (var_v1 == 0)) {
-                        sp38 = var_v1;
-                        if (sub_GAME_7F03C574(prop_s1) == 0) {
-                            prop_s1->timetoregen = (s16) (prop_s1->timetoregen + 0x3C);
-                        }
-                    }
-                    prop_time_to_regen_2 = prop_s1->timetoregen;
-                    if (prop_time_to_regen_2 <= 0) {
-                        prop_s1->timetoregen = 0;
-                        if (temp_s0_2->state & 0x10) {
-                            temp_s0_2->runtime_bitflags = (s32) (temp_s0_2->runtime_bitflags | 0x1000);
-                        } else {
-                            temp_s0_2->runtime_bitflags = (s32) (temp_s0_2->runtime_bitflags & ~0x1000);
-                        }
-                    } else if ((prop_time_to_regen_2 < 0x3C) && (var_v1 == 0)) {
-                        if ((temp_s0_2->maxdamage == 0.0f) && !(temp_s0_2->state & 0x80)) {
-                            if (temp_s0_2->flags & 0x8000) {
-                                chrpropDeregisterRooms(prop_s1);
-                                chrpropDelist(prop_s1);
-                                temp_s0_2->runtime_bitflags = (s32) (temp_s0_2->runtime_bitflags & ~0x800);
-                                sp30 = setupGetCommandIndexByProp(prop_s1);
-                                pad = (s32) temp_s0_2->pad;
-                                temp_v0_5 = setupCommandGetObject(lvlGetCurrentStageToLoad(), sp30 + pad);
-                                if ((temp_v0_5 != NULL) && (temp_v0_5->prop != 0)) { //unk10 is prop
-                                    temp_a0 = temp_s0_2->model; //unk14
-                                    sp28 = temp_v0_5;
-                                    modelSetScale(temp_a0, temp_a0->unk14);
-                                    chrpropReparent(temp_s0_2->unk10, sp28->unk10);
-                                    var_s3 = 1;
-                                }
-    #ifdef DEBUG
-                                else
-                                {
-                                    osSyncPrintf("inobj link not found for object number %d\n", sp30 + 1);
-                                }
-    #endif
-                            } else {
-                                chrpropEnable(prop_s1);
-                                sub_GAME_7F03E134(prop_s1);
-                                temp_s0_2->runtime_bitflags = (s32) (temp_s0_2->runtime_bitflags & ~0x800);
-                            }
-                        } else {
-                            if (temp_s0_2->state & 8) {
-                                temp_s0_2->flags = (s32) (temp_s0_2->flags | 0x100);
-                            } else {
-                                temp_s0_2->flags = (s32) (temp_s0_2->flags & ~0x100);
-                            }
-                            temp_s0_2->maxdamage = 0.0f;
-                            temp_s0_2->state = (u8) (temp_s0_2->state & 0xFF7F);
-                            sub_GAME_7F050DE8(temp_s0_2->model);
-                        }
-                        if (temp_s0_2->type == 0x15) {
-                            temp_s0_2->unk84 = (f32) temp_s0_2->unk80; // unk80 and unk84 invalid??
-                        }
-                        if (var_s3 == 0) {
-                            chrobjSndCreatePostEventDefault(sndPlaySfx(g_musicSfxBufferPtr, OBJ_REGEN_SFX, 0), prop_s1->pos); //this function is in prop.c
+    
+    while (prop != NULL)
+    {
+        prev = prop->prev;
+        tickop = 0;
+        if (prop->type == PROP_TYPE_CHR)
+        {
+            chr = prop->chr;
+            // Update NPC bullet tracers.
+            gunAdvanceBeamTimer(&chr->beams[0]);
+            gunAdvanceBeamTimer(&chr->beams[1]);
+        }
+        else if (((prop->type == PROP_TYPE_OBJ) || (prop->type == PROP_TYPE_WEAPON)) || (prop->type == PROP_TYPE_DOOR))
+        {
+            obj = prop->obj;
+            skip_regen_sfx = FALSE;
+            
+            if (prop->timetoregen > 0)
+            {
+                is_under_60 = TRUE;
+                
+                if (prop->timetoregen >= CHROBJ_TIMETOREGEN)
+                {
+                    is_under_60 = FALSE;
+                }
+                
+                prop->timetoregen -= g_ClockTimer;
+                
+                if (prop->timetoregen < CHROBJ_TIMETOREGEN)
+                {
+                    if (!is_under_60)
+                    {
+                        if (!chrpropIsFarFromPlayers(prop))
+                        {
+                            prop->timetoregen += CHROBJ_TIMETOREGEN;
                         }
                     }
                 }
-                if (temp_s0_2->unk3 == 0xD) { // type == unk3 == 0xD ??? invald??
-                    sub_GAME_7F062B00(prop_s1->unk4->unkCC); // unkCC invalid??, function receives ChrRecord_f180
-                    // 0x04 is chr, obj, door, weapon
+                
+                if (prop->timetoregen <= 0)
+                {
+                    prop->timetoregen = 0;
+                    if (obj->state & PROPSTATE_10)
+                    {
+                        obj->runtime_bitflags |= RUNTIMEBITFLAG_00001000;
+                    }
+                    else
+                    {
+                        obj->runtime_bitflags &= ~RUNTIMEBITFLAG_00001000;
+                    }
                 }
-            } else if (prop_type == PROP_TYPE_EXPLOSION) {
-                var_s2 = explosionTick(prop_s1); // explosions related
-            } else if (prop_type == PROP_TYPE_SMOKE) {
-                var_s2 = explosionSmokeTick(prop_s1); // smoke related
-            } else if (prop_type == PROP_TYPE_VIEWER) {
-                sub_GAME_7F062B00(*(&g_playerPointers + (getPlayerPointerIndex(prop_s1) * 4)) + 0xA54); // function receives ChrRecord_f180
-                sub_GAME_7F062B00(*(&g_playerPointers + (getPlayerPointerIndex(prop_s1) * 4)) + 0xDFC); // function receives ChrRecord_f180
-                if ((prop_s1->unk4 != NULL) && (getPlayerCount() >= 2)) {
-                    temp_s0_3 = prop_s1->unk4;
-                    sub_GAME_7F062B00(temp_s0_3 + 0x180); // function receives ChrRecord_f180
-                    sub_GAME_7F062B00(temp_s0_3 + 0x1AC); // function receives ChrRecord_f180
+                else if ((prop->timetoregen < CHROBJ_TIMETOREGEN) && (!is_under_60))
+                {
+                    if ((obj->maxdamage == 0.0f) && (!(obj->state & PROPSTATE_DESTROYED)))
+                    {
+                        if (obj->flags & PROPFLAG_INSIDEANOTHEROBJ)
+                        {
+                            chrpropDeregisterRooms(prop);
+                            chrpropDelist(prop);
+                            
+                            obj->runtime_bitflags &= ~RUNTIMEBITFLAG_00000800;
+                            cmdindex = setupGetCommandIndexByProp(prop);
+                            pad = obj->pad;
+                            setupobj = setupCommandGetObject(lvlGetCurrentStageToLoad(), cmdindex + pad);
+                            
+                            if ((setupobj != NULL) && (setupobj->prop != NULL))
+                            {
+                                modelSetScale(obj->model, obj->model->scale);
+                                chrpropReparent(obj->prop, setupobj->prop);
+                                skip_regen_sfx = TRUE;
+                            }
+                        }
+                        else
+                        {
+                            chrpropEnable(prop);
+                            sub_GAME_7F03E134(prop);
+                            obj->runtime_bitflags &= ~RUNTIMEBITFLAG_00000800;
+                        }
+                    }
+                    else
+                    {
+                        if (obj->state & PROPSTATE_EXT_COLISION_BLOCK)
+                        {
+                            obj->flags |= PROPFLAG_00000100;
+                        }
+                        else
+                        {
+                            obj->flags &= ~PROPFLAG_00000100;
+                        }
+                        
+                        obj->maxdamage = 0.0f;
+                        obj->state &= ~PROPSTATE_DESTROYED;
+                        sub_GAME_7F050DE8(obj->model);
+                    }
+                        
+                    if (obj->type == PROPDEF_ARMOUR)
+                    {
+                        ((BodyArmourRecord *) obj)->amount = ((BodyArmourRecord *) obj)->initialamount;
+                    }
+                        
+                    if (!skip_regen_sfx)
+                    {
+                        chrobjSndCreatePostEventDefault(sndPlaySfx(g_musicSfxBufferPtr, OBJ_REGEN_SFX, NULL), &prop->pos);
+                    }
+                
                 }
             }
-            if (var_s2 == 5) {
-                prop_s0 = prev_prop;
-            } else {
-                prop_s0 = prop_s1->prev;
-                if (var_s2 == 3) {
-                    chrpropDelist(prop_s1);
-                    chrpropActivateThisFrame(prop_s1);
-                    if (prop_s0 == NULL) {
-                        prop_s0 = prop_s1;
+            
+            // Update autogun bullet tracers.
+            if (obj->type == PROPDEF_AUTOGUN)
+            {
+                autogun = prop->obj;
+                gunAdvanceBeamTimer((BeamRecord *) ((AutogunRecord *) autogun)->beam);
+            }
+        }
+        else if (prop->type == PROP_TYPE_EXPLOSION)
+        {
+            tickop = explosionTick(prop);
+        }
+        else if (prop->type == PROP_TYPE_SMOKE)
+        {
+            tickop = explosionSmokeTick(prop);
+        }
+        else
+        {
+            if (prop->type == PROP_TYPE_VIEWER)
+            {
+                s32 playernum;
+                playernum = getPlayerPointerIndex(prop);
+                gunAdvanceBeamTimer(&g_playerPointers[playernum]->hands[0].weapon_beam);
+                playernum = getPlayerPointerIndex(prop);
+                gunAdvanceBeamTimer(&g_playerPointers[playernum]->hands[1].weapon_beam);
+                
+                // Update MP character bullet tracers.
+                if (prop->chr != NULL)
+                {
+                    if (getPlayerCount() >= 2)
+                    {
+                        chr = prop->chr;
+                        gunAdvanceBeamTimer(&chr->beams[0]);
+                        gunAdvanceBeamTimer(&chr->beams[1]);
                     }
-                } else {
-                    propExecuteTickOperation(prop_s1, var_s2);
                 }
             }
-            prop_s1 = prop_s0; // next prop in list
-        } while (prop_s0 != NULL);
+        }
+        
+        if (tickop == 5)
+        {
+          next = prev;
+        }
+        else
+        {
+            next = prop->prev;
+            if (tickop == 3)
+            {
+                chrpropDelist(prop);
+                chrpropActivateThisFrame(prop);
+                
+                if (next == NULL)
+                {
+                    next = prop;
+                }
+            }
+            else
+            {
+                propExecuteTickOperation(prop, tickop);
+            }
+        }
+            
+        prop = next;
     }
 }
-#else
-
-#if defined(VERSION_US) || defined(VERSION_JP)
-GLOBAL_ASM(
-.text
-glabel handle_mp_respawn_and_some_things
-/* 071178 7F03C648 27BDFFA8 */  addiu $sp, $sp, -0x58
-/* 07117C 7F03C64C AFBF0024 */  sw    $ra, 0x24($sp)
-/* 071180 7F03C650 AFB30020 */  sw    $s3, 0x20($sp)
-/* 071184 7F03C654 AFB2001C */  sw    $s2, 0x1c($sp)
-/* 071188 7F03C658 AFB10018 */  sw    $s1, 0x18($sp)
-/* 07118C 7F03C65C 0FC0CA47 */  jal   chrlvAllChrTick
-/* 071190 7F03C660 AFB00014 */   sw    $s0, 0x14($sp)
-/* 071194 7F03C664 0FC0E909 */  jal   get_ptr_obj_pos_list_current_entry
-/* 071198 7F03C668 00000000 */   nop
-/* 07119C 7F03C66C 104000E9 */  beqz  $v0, .L7F03CA14
-/* 0711A0 7F03C670 00408825 */   move  $s1, $v0
-.L7F03C674:
-/* 0711A4 7F03C674 8E2E0024 */  lw    $t6, 0x24($s1)
-/* 0711A8 7F03C678 24010003 */  li    $at, 3
-/* 0711AC 7F03C67C 00009025 */  move  $s2, $zero
-/* 0711B0 7F03C680 AFAE004C */  sw    $t6, 0x4c($sp)
-/* 0711B4 7F03C684 92220000 */  lbu   $v0, ($s1)
-/* 0711B8 7F03C688 54410009 */  bnel  $v0, $at, .L7F03C6B0
-/* 0711BC 7F03C68C 24010001 */   li    $at, 1
-/* 0711C0 7F03C690 8E300004 */  lw    $s0, 4($s1)
-/* 0711C4 7F03C694 0FC18AC0 */  jal   sub_GAME_7F062B00
-/* 0711C8 7F03C698 26040180 */   addiu $a0, $s0, 0x180
-/* 0711CC 7F03C69C 0FC18AC0 */  jal   sub_GAME_7F062B00
-/* 0711D0 7F03C6A0 260401AC */   addiu $a0, $s0, 0x1ac
-/* 0711D4 7F03C6A4 100000C7 */  b     .L7F03C9C4
-/* 0711D8 7F03C6A8 24010005 */   li    $at, 5
-/* 0711DC 7F03C6AC 24010001 */  li    $at, 1
-.L7F03C6B0:
-/* 0711E0 7F03C6B0 10410005 */  beq   $v0, $at, .L7F03C6C8
-/* 0711E4 7F03C6B4 24010004 */   li    $at, 4
-/* 0711E8 7F03C6B8 10410003 */  beq   $v0, $at, .L7F03C6C8
-/* 0711EC 7F03C6BC 24010002 */   li    $at, 2
-/* 0711F0 7F03C6C0 54410092 */  bnel  $v0, $at, .L7F03C90C
-/* 0711F4 7F03C6C4 24010007 */   li    $at, 7
-.L7F03C6C8:
-/* 0711F8 7F03C6C8 86220002 */  lh    $v0, 2($s1)
-/* 0711FC 7F03C6CC 8E300004 */  lw    $s0, 4($s1)
-/* 071200 7F03C6D0 00009825 */  move  $s3, $zero
-/* 071204 7F03C6D4 18400083 */  blez  $v0, .L7F03C8E4
-/* 071208 7F03C6D8 2841003C */   slti  $at, $v0, 0x3c
-/* 07120C 7F03C6DC 14200002 */  bnez  $at, .L7F03C6E8
-/* 071210 7F03C6E0 24030001 */   li    $v1, 1
-/* 071214 7F03C6E4 00001825 */  move  $v1, $zero
-.L7F03C6E8:
-/* 071218 7F03C6E8 3C0F8005 */  lui   $t7, %hi(g_ClockTimer)
-/* 07121C 7F03C6EC 8DEF8374 */  lw    $t7, %lo(g_ClockTimer)($t7)
-/* 071220 7F03C6F0 004FC023 */  subu  $t8, $v0, $t7
-/* 071224 7F03C6F4 A6380002 */  sh    $t8, 2($s1)
-/* 071228 7F03C6F8 86390002 */  lh    $t9, 2($s1)
-/* 07122C 7F03C6FC 2B21003C */  slti  $at, $t9, 0x3c
-/* 071230 7F03C700 5020000B */  beql  $at, $zero, .L7F03C730
-/* 071234 7F03C704 86220002 */   lh    $v0, 2($s1)
-/* 071238 7F03C708 14600008 */  bnez  $v1, .L7F03C72C
-/* 07123C 7F03C70C 02202025 */   move  $a0, $s1
-/* 071240 7F03C710 0FC0F15D */  jal   sub_GAME_7F03C574
-/* 071244 7F03C714 AFA30038 */   sw    $v1, 0x38($sp)
-/* 071248 7F03C718 14400004 */  bnez  $v0, .L7F03C72C
-/* 07124C 7F03C71C 8FA30038 */   lw    $v1, 0x38($sp)
-/* 071250 7F03C720 86280002 */  lh    $t0, 2($s1)
-/* 071254 7F03C724 2509003C */  addiu $t1, $t0, 0x3c
-/* 071258 7F03C728 A6290002 */  sh    $t1, 2($s1)
-.L7F03C72C:
-/* 07125C 7F03C72C 86220002 */  lh    $v0, 2($s1)
-.L7F03C730:
-/* 071260 7F03C730 1C40000F */  bgtz  $v0, .L7F03C770
-/* 071264 7F03C734 2841003C */   slti  $at, $v0, 0x3c
-/* 071268 7F03C738 A6200002 */  sh    $zero, 2($s1)
-/* 07126C 7F03C73C 920A0002 */  lbu   $t2, 2($s0)
-/* 071270 7F03C740 314B0010 */  andi  $t3, $t2, 0x10
-/* 071274 7F03C744 51600006 */  beql  $t3, $zero, .L7F03C760
-/* 071278 7F03C748 8E0E0064 */   lw    $t6, 0x64($s0)
-/* 07127C 7F03C74C 8E0C0064 */  lw    $t4, 0x64($s0)
-/* 071280 7F03C750 358D1000 */  ori   $t5, $t4, 0x1000
-/* 071284 7F03C754 10000063 */  b     .L7F03C8E4
-/* 071288 7F03C758 AE0D0064 */   sw    $t5, 0x64($s0)
-/* 07128C 7F03C75C 8E0E0064 */  lw    $t6, 0x64($s0)
-.L7F03C760:
-/* 071290 7F03C760 2401EFFF */  li    $at, -4097
-/* 071294 7F03C764 01C17824 */  and   $t7, $t6, $at
-/* 071298 7F03C768 1000005E */  b     .L7F03C8E4
-/* 07129C 7F03C76C AE0F0064 */   sw    $t7, 0x64($s0)
-.L7F03C770:
-/* 0712A0 7F03C770 5020005D */  beql  $at, $zero, .L7F03C8E8
-/* 0712A4 7F03C774 92190003 */   lbu   $t9, 3($s0)
-/* 0712A8 7F03C778 5460005B */  bnezl $v1, .L7F03C8E8
-/* 0712AC 7F03C77C 92190003 */   lbu   $t9, 3($s0)
-/* 0712B0 7F03C780 44800000 */  mtc1  $zero, $f0
-/* 0712B4 7F03C784 C6040070 */  lwc1  $f4, 0x70($s0)
-/* 0712B8 7F03C788 46040032 */  c.eq.s $f0, $f4
-/* 0712BC 7F03C78C 00000000 */  nop
-/* 0712C0 7F03C790 45020035 */  bc1fl .L7F03C868
-/* 0712C4 7F03C794 92080002 */   lbu   $t0, 2($s0)
-/* 0712C8 7F03C798 92180002 */  lbu   $t8, 2($s0)
-/* 0712CC 7F03C79C 33190080 */  andi  $t9, $t8, 0x80
-/* 0712D0 7F03C7A0 57200031 */  bnezl $t9, .L7F03C868
-/* 0712D4 7F03C7A4 92080002 */   lbu   $t0, 2($s0)
-/* 0712D8 7F03C7A8 8E080008 */  lw    $t0, 8($s0)
-/* 0712DC 7F03C7AC 31098000 */  andi  $t1, $t0, 0x8000
-/* 0712E0 7F03C7B0 11200023 */  beqz  $t1, .L7F03C840
-/* 0712E4 7F03C7B4 00000000 */   nop
-/* 0712E8 7F03C7B8 0FC0F863 */  jal   chrpropDeregisterRooms
-/* 0712EC 7F03C7BC 02202025 */   move  $a0, $s1
-/* 0712F0 7F03C7C0 0FC0E94E */  jal   chrpropDelist
-/* 0712F4 7F03C7C4 02202025 */   move  $a0, $s1
-/* 0712F8 7F03C7C8 8E0A0064 */  lw    $t2, 0x64($s0)
-/* 0712FC 7F03C7CC 2401F7FF */  li    $at, -2049
-/* 071300 7F03C7D0 02202025 */  move  $a0, $s1
-/* 071304 7F03C7D4 01415824 */  and   $t3, $t2, $at
-/* 071308 7F03C7D8 0FC15AEA */  jal   setupGetCommandIndexByProp
-/* 07130C 7F03C7DC AE0B0064 */   sw    $t3, 0x64($s0)
-/* 071310 7F03C7E0 AFA20030 */  sw    $v0, 0x30($sp)
-/* 071314 7F03C7E4 860C0006 */  lh    $t4, 6($s0)
-/* 071318 7F03C7E8 0FC2F7C1 */  jal   lvlGetCurrentStageToLoad
-/* 07131C 7F03C7EC AFAC002C */   sw    $t4, 0x2c($sp)
-/* 071320 7F03C7F0 8FAD0030 */  lw    $t5, 0x30($sp)
-/* 071324 7F03C7F4 8FAE002C */  lw    $t6, 0x2c($sp)
-/* 071328 7F03C7F8 00402025 */  move  $a0, $v0
-/* 07132C 7F03C7FC 0FC15BA8 */  jal   setupCommandGetObject
-/* 071330 7F03C800 01AE2821 */   addu  $a1, $t5, $t6
-/* 071334 7F03C804 5040002A */  beql  $v0, $zero, .L7F03C8B0
-/* 071338 7F03C808 92180003 */   lbu   $t8, 3($s0)
-/* 07133C 7F03C80C 8C4F0010 */  lw    $t7, 0x10($v0)
-/* 071340 7F03C810 51E00027 */  beql  $t7, $zero, .L7F03C8B0
-/* 071344 7F03C814 92180003 */   lbu   $t8, 3($s0)
-/* 071348 7F03C818 8E040014 */  lw    $a0, 0x14($s0)
-/* 07134C 7F03C81C 8C850014 */  lw    $a1, 0x14($a0)
-/* 071350 7F03C820 0FC1B39E */  jal   modelSetScale
-/* 071354 7F03C824 AFA20028 */   sw    $v0, 0x28($sp)
-/* 071358 7F03C828 8FA30028 */  lw    $v1, 0x28($sp)
-/* 07135C 7F03C82C 8E040010 */  lw    $a0, 0x10($s0)
-/* 071360 7F03C830 0FC0E969 */  jal   chrpropReparent
-/* 071364 7F03C834 8C650010 */   lw    $a1, 0x10($v1)
-/* 071368 7F03C838 1000001C */  b     .L7F03C8AC
-/* 07136C 7F03C83C 24130001 */   li    $s3, 1
-.L7F03C840:
-/* 071370 7F03C840 0FC0E901 */  jal   chrpropEnable
-/* 071374 7F03C844 02202025 */   move  $a0, $s1
-/* 071378 7F03C848 0FC0F84D */  jal   sub_GAME_7F03E134
-/* 07137C 7F03C84C 02202025 */   move  $a0, $s1
-/* 071380 7F03C850 8E180064 */  lw    $t8, 0x64($s0)
-/* 071384 7F03C854 2401F7FF */  li    $at, -2049
-/* 071388 7F03C858 0301C824 */  and   $t9, $t8, $at
-/* 07138C 7F03C85C 10000013 */  b     .L7F03C8AC
-/* 071390 7F03C860 AE190064 */   sw    $t9, 0x64($s0)
-/* 071394 7F03C864 92080002 */  lbu   $t0, 2($s0)
-.L7F03C868:
-/* 071398 7F03C868 31090008 */  andi  $t1, $t0, 8
-/* 07139C 7F03C86C 51200006 */  beql  $t1, $zero, .L7F03C888
-/* 0713A0 7F03C870 8E0C0008 */   lw    $t4, 8($s0)
-/* 0713A4 7F03C874 8E0A0008 */  lw    $t2, 8($s0)
-/* 0713A8 7F03C878 354B0100 */  ori   $t3, $t2, 0x100
-/* 0713AC 7F03C87C 10000005 */  b     .L7F03C894
-/* 0713B0 7F03C880 AE0B0008 */   sw    $t3, 8($s0)
-/* 0713B4 7F03C884 8E0C0008 */  lw    $t4, 8($s0)
-.L7F03C888:
-/* 0713B8 7F03C888 2401FEFF */  li    $at, -257
-/* 0713BC 7F03C88C 01816824 */  and   $t5, $t4, $at
-/* 0713C0 7F03C890 AE0D0008 */  sw    $t5, 8($s0)
-.L7F03C894:
-/* 0713C4 7F03C894 920E0002 */  lbu   $t6, 2($s0)
-/* 0713C8 7F03C898 E6000070 */  swc1  $f0, 0x70($s0)
-/* 0713CC 7F03C89C 8E040014 */  lw    $a0, 0x14($s0)
-/* 0713D0 7F03C8A0 31CFFF7F */  andi  $t7, $t6, 0xff7f
-/* 0713D4 7F03C8A4 0FC1437A */  jal   sub_GAME_7F050DE8
-/* 0713D8 7F03C8A8 A20F0002 */   sb    $t7, 2($s0)
-.L7F03C8AC:
-/* 0713DC 7F03C8AC 92180003 */  lbu   $t8, 3($s0)
-.L7F03C8B0:
-/* 0713E0 7F03C8B0 24010015 */  li    $at, 21
-/* 0713E4 7F03C8B4 3C048006 */  lui   $a0, %hi(g_musicSfxBufferPtr)
-/* 0713E8 7F03C8B8 17010003 */  bne   $t8, $at, .L7F03C8C8
-/* 0713EC 7F03C8BC 24050052 */   li    $a1, 82
-/* 0713F0 7F03C8C0 C6060080 */  lwc1  $f6, 0x80($s0)
-/* 0713F4 7F03C8C4 E6060084 */  swc1  $f6, 0x84($s0)
-.L7F03C8C8:
-/* 0713F8 7F03C8C8 16600006 */  bnez  $s3, .L7F03C8E4
-/* 0713FC 7F03C8CC 00003025 */   move  $a2, $zero
-/* 071400 7F03C8D0 0C002382 */  jal   sndPlaySfx
-/* 071404 7F03C8D4 8C843720 */   lw    $a0, %lo(g_musicSfxBufferPtr)($a0)
-/* 071408 7F03C8D8 00402025 */  move  $a0, $v0
-/* 07140C 7F03C8DC 0FC14E84 */  jal   chrobjSndCreatePostEventDefault
-/* 071410 7F03C8E0 26250008 */   addiu $a1, $s1, 8
-.L7F03C8E4:
-/* 071414 7F03C8E4 92190003 */  lbu   $t9, 3($s0)
-.L7F03C8E8:
-/* 071418 7F03C8E8 2401000D */  li    $at, 13
-/* 07141C 7F03C8EC 57210035 */  bnel  $t9, $at, .L7F03C9C4
-/* 071420 7F03C8F0 24010005 */   li    $at, 5
-/* 071424 7F03C8F4 8E220004 */  lw    $v0, 4($s1)
-/* 071428 7F03C8F8 0FC18AC0 */  jal   sub_GAME_7F062B00
-/* 07142C 7F03C8FC 8C4400CC */   lw    $a0, 0xcc($v0)
-/* 071430 7F03C900 10000030 */  b     .L7F03C9C4
-/* 071434 7F03C904 24010005 */   li    $at, 5
-/* 071438 7F03C908 24010007 */  li    $at, 7
-.L7F03C90C:
-/* 07143C 7F03C90C 54410006 */  bnel  $v0, $at, .L7F03C928
-/* 071440 7F03C910 24010008 */   li    $at, 8
-/* 071444 7F03C914 0FC273BA */  jal   explosionTick
-/* 071448 7F03C918 02202025 */   move  $a0, $s1
-/* 07144C 7F03C91C 10000028 */  b     .L7F03C9C0
-/* 071450 7F03C920 00409025 */   move  $s2, $v0
-/* 071454 7F03C924 24010008 */  li    $at, 8
-.L7F03C928:
-/* 071458 7F03C928 54410006 */  bnel  $v0, $at, .L7F03C944
-/* 07145C 7F03C92C 24010006 */   li    $at, 6
-/* 071460 7F03C930 0FC27A2B */  jal   explosionSmokeTick
-/* 071464 7F03C934 02202025 */   move  $a0, $s1
-/* 071468 7F03C938 10000021 */  b     .L7F03C9C0
-/* 07146C 7F03C93C 00409025 */   move  $s2, $v0
-/* 071470 7F03C940 24010006 */  li    $at, 6
-.L7F03C944:
-/* 071474 7F03C944 5441001F */  bnel  $v0, $at, .L7F03C9C4
-/* 071478 7F03C948 24010005 */   li    $at, 5
-/* 07147C 7F03C94C 0FC26C57 */  jal   getPlayerPointerIndex
-/* 071480 7F03C950 02202025 */   move  $a0, $s1
-/* 071484 7F03C954 00024080 */  sll   $t0, $v0, 2
-/* 071488 7F03C958 3C048008 */  lui   $a0, %hi(g_playerPointers)
-/* 07148C 7F03C95C 00882021 */  addu  $a0, $a0, $t0
-/* 071490 7F03C960 8C849EE0 */  lw    $a0, %lo(g_playerPointers)($a0)
-/* 071494 7F03C964 0FC18AC0 */  jal   sub_GAME_7F062B00
-/* 071498 7F03C968 24840A54 */   addiu $a0, $a0, 0xa54
-/* 07149C 7F03C96C 0FC26C57 */  jal   getPlayerPointerIndex
-/* 0714A0 7F03C970 02202025 */   move  $a0, $s1
-/* 0714A4 7F03C974 00024880 */  sll   $t1, $v0, 2
-/* 0714A8 7F03C978 3C048008 */  lui   $a0, %hi(g_playerPointers)
-/* 0714AC 7F03C97C 00892021 */  addu  $a0, $a0, $t1
-/* 0714B0 7F03C980 8C849EE0 */  lw    $a0, %lo(g_playerPointers)($a0)
-/* 0714B4 7F03C984 0FC18AC0 */  jal   sub_GAME_7F062B00
-/* 0714B8 7F03C988 24840DFC */   addiu $a0, $a0, 0xdfc
-/* 0714BC 7F03C98C 8E2A0004 */  lw    $t2, 4($s1)
-/* 0714C0 7F03C990 5140000C */  beql  $t2, $zero, .L7F03C9C4
-/* 0714C4 7F03C994 24010005 */   li    $at, 5
-/* 0714C8 7F03C998 0FC26919 */  jal   getPlayerCount
-/* 0714CC 7F03C99C 00000000 */   nop
-/* 0714D0 7F03C9A0 28410002 */  slti  $at, $v0, 2
-/* 0714D4 7F03C9A4 54200007 */  bnezl $at, .L7F03C9C4
-/* 0714D8 7F03C9A8 24010005 */   li    $at, 5
-/* 0714DC 7F03C9AC 8E300004 */  lw    $s0, 4($s1)
-/* 0714E0 7F03C9B0 0FC18AC0 */  jal   sub_GAME_7F062B00
-/* 0714E4 7F03C9B4 26040180 */   addiu $a0, $s0, 0x180
-/* 0714E8 7F03C9B8 0FC18AC0 */  jal   sub_GAME_7F062B00
-/* 0714EC 7F03C9BC 260401AC */   addiu $a0, $s0, 0x1ac
-.L7F03C9C0:
-/* 0714F0 7F03C9C0 24010005 */  li    $at, 5
-.L7F03C9C4:
-/* 0714F4 7F03C9C4 56410004 */  bnel  $s2, $at, .L7F03C9D8
-/* 0714F8 7F03C9C8 24010003 */   li    $at, 3
-/* 0714FC 7F03C9CC 1000000F */  b     .L7F03CA0C
-/* 071500 7F03C9D0 8FB0004C */   lw    $s0, 0x4c($sp)
-/* 071504 7F03C9D4 24010003 */  li    $at, 3
-.L7F03C9D8:
-/* 071508 7F03C9D8 16410009 */  bne   $s2, $at, .L7F03CA00
-/* 07150C 7F03C9DC 8E300024 */   lw    $s0, 0x24($s1)
-/* 071510 7F03C9E0 0FC0E94E */  jal   chrpropDelist
-/* 071514 7F03C9E4 02202025 */   move  $a0, $s1
-/* 071518 7F03C9E8 0FC0E93C */  jal   chrpropActivateThisFrame
-/* 07151C 7F03C9EC 02202025 */   move  $a0, $s1
-/* 071520 7F03C9F0 16000006 */  bnez  $s0, .L7F03CA0C
-/* 071524 7F03C9F4 00000000 */   nop
-/* 071528 7F03C9F8 10000004 */  b     .L7F03CA0C
-/* 07152C 7F03C9FC 02208025 */   move  $s0, $s1
-.L7F03CA00:
-/* 071530 7F03CA00 02202025 */  move  $a0, $s1
-/* 071534 7F03CA04 0FC0F0AF */  jal   propExecuteTickOperation
-/* 071538 7F03CA08 02402825 */   move  $a1, $s2
-.L7F03CA0C:
-/* 07153C 7F03CA0C 1600FF19 */  bnez  $s0, .L7F03C674
-/* 071540 7F03CA10 02008825 */   move  $s1, $s0
-.L7F03CA14:
-/* 071544 7F03CA14 8FBF0024 */  lw    $ra, 0x24($sp)
-/* 071548 7F03CA18 8FB00014 */  lw    $s0, 0x14($sp)
-/* 07154C 7F03CA1C 8FB10018 */  lw    $s1, 0x18($sp)
-/* 071550 7F03CA20 8FB2001C */  lw    $s2, 0x1c($sp)
-/* 071554 7F03CA24 8FB30020 */  lw    $s3, 0x20($sp)
-/* 071558 7F03CA28 03E00008 */  jr    $ra
-/* 07155C 7F03CA2C 27BD0058 */   addiu $sp, $sp, 0x58
-)
-#endif
-
-#if defined(VERSION_EU)
-GLOBAL_ASM(
-.text
-glabel handle_mp_respawn_and_some_things
-/* 06F0F8 7F03C708 27BDFFA8 */  addiu $sp, $sp, -0x58
-/* 06F0FC 7F03C70C AFBF0024 */  sw    $ra, 0x24($sp)
-/* 06F100 7F03C710 AFB30020 */  sw    $s3, 0x20($sp)
-/* 06F104 7F03C714 AFB2001C */  sw    $s2, 0x1c($sp)
-/* 06F108 7F03C718 AFB10018 */  sw    $s1, 0x18($sp)
-/* 06F10C 7F03C71C 0FC0CA58 */  jal   chrlvAllChrTick
-/* 06F110 7F03C720 AFB00014 */   sw    $s0, 0x14($sp)
-/* 06F114 7F03C724 0FC0E939 */  jal   get_ptr_obj_pos_list_current_entry
-/* 06F118 7F03C728 00000000 */   nop
-/* 06F11C 7F03C72C 104000E9 */  beqz  $v0, .L7F03CAD4
-/* 06F120 7F03C730 00408825 */   move  $s1, $v0
-.L7F03C734:
-/* 06F124 7F03C734 8E2E0024 */  lw    $t6, 0x24($s1)
-/* 06F128 7F03C738 24010003 */  li    $at, 3
-/* 06F12C 7F03C73C 00009025 */  move  $s2, $zero
-/* 06F130 7F03C740 AFAE004C */  sw    $t6, 0x4c($sp)
-/* 06F134 7F03C744 92220000 */  lbu   $v0, ($s1)
-/* 06F138 7F03C748 54410009 */  bnel  $v0, $at, .L7F03C770
-/* 06F13C 7F03C74C 24010001 */   li    $at, 1
-/* 06F140 7F03C750 8E300004 */  lw    $s0, 4($s1)
-/* 06F144 7F03C754 0FC18BF1 */  jal   sub_GAME_7F062B00
-/* 06F148 7F03C758 26040180 */   addiu $a0, $s0, 0x180
-/* 06F14C 7F03C75C 0FC18BF1 */  jal   sub_GAME_7F062B00
-/* 06F150 7F03C760 260401AC */   addiu $a0, $s0, 0x1ac
-/* 06F154 7F03C764 100000C7 */  b     .L7F03CA84
-/* 06F158 7F03C768 24010005 */   li    $at, 5
-/* 06F15C 7F03C76C 24010001 */  li    $at, 1
-.L7F03C770:
-/* 06F160 7F03C770 10410005 */  beq   $v0, $at, .L7F03C788
-/* 06F164 7F03C774 24010004 */   li    $at, 4
-/* 06F168 7F03C778 10410003 */  beq   $v0, $at, .L7F03C788
-/* 06F16C 7F03C77C 24010002 */   li    $at, 2
-/* 06F170 7F03C780 54410092 */  bnel  $v0, $at, .L7F03C9CC
-/* 06F174 7F03C784 24010007 */   li    $at, 7
-.L7F03C788:
-/* 06F178 7F03C788 86220002 */  lh    $v0, 2($s1)
-/* 06F17C 7F03C78C 8E300004 */  lw    $s0, 4($s1)
-/* 06F180 7F03C790 00009825 */  move  $s3, $zero
-/* 06F184 7F03C794 18400083 */  blez  $v0, .L7F03C9A4
-/* 06F188 7F03C798 28410032 */   slti  $at, $v0, 0x32
-/* 06F18C 7F03C79C 14200002 */  bnez  $at, .L7F03C7A8
-/* 06F190 7F03C7A0 24030001 */   li    $v1, 1
-/* 06F194 7F03C7A4 00001825 */  move  $v1, $zero
-.L7F03C7A8:
-/* 06F198 7F03C7A8 3C0F8004 */  lui   $t7, %hi(g_ClockTimer) # $t7, 0x8004
-/* 06F19C 7F03C7AC 8DEF0FF4 */  lw    $t7, %lo(g_ClockTimer)($t7)
-/* 06F1A0 7F03C7B0 004FC023 */  subu  $t8, $v0, $t7
-/* 06F1A4 7F03C7B4 A6380002 */  sh    $t8, 2($s1)
-/* 06F1A8 7F03C7B8 86390002 */  lh    $t9, 2($s1)
-/* 06F1AC 7F03C7BC 2B210032 */  slti  $at, $t9, 0x32
-/* 06F1B0 7F03C7C0 5020000B */  beql  $at, $zero, .L7F03C7F0
-/* 06F1B4 7F03C7C4 86220002 */   lh    $v0, 2($s1)
-/* 06F1B8 7F03C7C8 14600008 */  bnez  $v1, .L7F03C7EC
-/* 06F1BC 7F03C7CC 02202025 */   move  $a0, $s1
-/* 06F1C0 7F03C7D0 0FC0F18D */  jal   sub_GAME_7F03C574
-/* 06F1C4 7F03C7D4 AFA30038 */   sw    $v1, 0x38($sp)
-/* 06F1C8 7F03C7D8 14400004 */  bnez  $v0, .L7F03C7EC
-/* 06F1CC 7F03C7DC 8FA30038 */   lw    $v1, 0x38($sp)
-/* 06F1D0 7F03C7E0 86280002 */  lh    $t0, 2($s1)
-/* 06F1D4 7F03C7E4 25090032 */  addiu $t1, $t0, 0x32
-/* 06F1D8 7F03C7E8 A6290002 */  sh    $t1, 2($s1)
-.L7F03C7EC:
-/* 06F1DC 7F03C7EC 86220002 */  lh    $v0, 2($s1)
-.L7F03C7F0:
-/* 06F1E0 7F03C7F0 1C40000F */  bgtz  $v0, .L7F03C830
-/* 06F1E4 7F03C7F4 28410032 */   slti  $at, $v0, 0x32
-/* 06F1E8 7F03C7F8 A6200002 */  sh    $zero, 2($s1)
-/* 06F1EC 7F03C7FC 920A0002 */  lbu   $t2, 2($s0)
-/* 06F1F0 7F03C800 314B0010 */  andi  $t3, $t2, 0x10
-/* 06F1F4 7F03C804 51600006 */  beql  $t3, $zero, .L7F03C820
-/* 06F1F8 7F03C808 8E0E0064 */   lw    $t6, 0x64($s0)
-/* 06F1FC 7F03C80C 8E0C0064 */  lw    $t4, 0x64($s0)
-/* 06F200 7F03C810 358D1000 */  ori   $t5, $t4, 0x1000
-/* 06F204 7F03C814 10000063 */  b     .L7F03C9A4
-/* 06F208 7F03C818 AE0D0064 */   sw    $t5, 0x64($s0)
-/* 06F20C 7F03C81C 8E0E0064 */  lw    $t6, 0x64($s0)
-.L7F03C820:
-/* 06F210 7F03C820 2401EFFF */  li    $at, -4097
-/* 06F214 7F03C824 01C17824 */  and   $t7, $t6, $at
-/* 06F218 7F03C828 1000005E */  b     .L7F03C9A4
-/* 06F21C 7F03C82C AE0F0064 */   sw    $t7, 0x64($s0)
-.L7F03C830:
-/* 06F220 7F03C830 5020005D */  beql  $at, $zero, .L7F03C9A8
-/* 06F224 7F03C834 92190003 */   lbu   $t9, 3($s0)
-/* 06F228 7F03C838 5460005B */  bnezl $v1, .L7F03C9A8
-/* 06F22C 7F03C83C 92190003 */   lbu   $t9, 3($s0)
-/* 06F230 7F03C840 44800000 */  mtc1  $zero, $f0
-/* 06F234 7F03C844 C6040070 */  lwc1  $f4, 0x70($s0)
-/* 06F238 7F03C848 46040032 */  c.eq.s $f0, $f4
-/* 06F23C 7F03C84C 00000000 */  nop
-/* 06F240 7F03C850 45020035 */  bc1fl .L7F03C928
-/* 06F244 7F03C854 92080002 */   lbu   $t0, 2($s0)
-/* 06F248 7F03C858 92180002 */  lbu   $t8, 2($s0)
-/* 06F24C 7F03C85C 33190080 */  andi  $t9, $t8, 0x80
-/* 06F250 7F03C860 57200031 */  bnezl $t9, .L7F03C928
-/* 06F254 7F03C864 92080002 */   lbu   $t0, 2($s0)
-/* 06F258 7F03C868 8E080008 */  lw    $t0, 8($s0)
-/* 06F25C 7F03C86C 31098000 */  andi  $t1, $t0, 0x8000
-/* 06F260 7F03C870 11200023 */  beqz  $t1, .L7F03C900
-/* 06F264 7F03C874 00000000 */   nop
-/* 06F268 7F03C878 0FC0F893 */  jal   chrpropDeregisterRooms
-/* 06F26C 7F03C87C 02202025 */   move  $a0, $s1
-/* 06F270 7F03C880 0FC0E97E */  jal   chrpropDelist
-/* 06F274 7F03C884 02202025 */   move  $a0, $s1
-/* 06F278 7F03C888 8E0A0064 */  lw    $t2, 0x64($s0)
-/* 06F27C 7F03C88C 2401F7FF */  li    $at, -2049
-/* 06F280 7F03C890 02202025 */  move  $a0, $s1
-/* 06F284 7F03C894 01415824 */  and   $t3, $t2, $at
-/* 06F288 7F03C898 0FC15BA2 */  jal   setupGetCommandIndexByProp
-/* 06F28C 7F03C89C AE0B0064 */   sw    $t3, 0x64($s0)
-/* 06F290 7F03C8A0 AFA20030 */  sw    $v0, 0x30($sp)
-/* 06F294 7F03C8A4 860C0006 */  lh    $t4, 6($s0)
-/* 06F298 7F03C8A8 0FC2F4B1 */  jal   lvlGetCurrentStageToLoad
-/* 06F29C 7F03C8AC AFAC002C */   sw    $t4, 0x2c($sp)
-/* 06F2A0 7F03C8B0 8FAD0030 */  lw    $t5, 0x30($sp)
-/* 06F2A4 7F03C8B4 8FAE002C */  lw    $t6, 0x2c($sp)
-/* 06F2A8 7F03C8B8 00402025 */  move  $a0, $v0
-/* 06F2AC 7F03C8BC 0FC15C60 */  jal   setupCommandGetObject
-/* 06F2B0 7F03C8C0 01AE2821 */   addu  $a1, $t5, $t6
-/* 06F2B4 7F03C8C4 5040002A */  beql  $v0, $zero, .L7F03C970
-/* 06F2B8 7F03C8C8 92180003 */   lbu   $t8, 3($s0)
-/* 06F2BC 7F03C8CC 8C4F0010 */  lw    $t7, 0x10($v0)
-/* 06F2C0 7F03C8D0 51E00027 */  beql  $t7, $zero, .L7F03C970
-/* 06F2C4 7F03C8D4 92180003 */   lbu   $t8, 3($s0)
-/* 06F2C8 7F03C8D8 8E040014 */  lw    $a0, 0x14($s0)
-/* 06F2CC 7F03C8DC 8C850014 */  lw    $a1, 0x14($a0)
-/* 06F2D0 7F03C8E0 0FC1B4CF */  jal   modelSetScale
-/* 06F2D4 7F03C8E4 AFA20028 */   sw    $v0, 0x28($sp)
-/* 06F2D8 7F03C8E8 8FA30028 */  lw    $v1, 0x28($sp)
-/* 06F2DC 7F03C8EC 8E040010 */  lw    $a0, 0x10($s0)
-/* 06F2E0 7F03C8F0 0FC0E999 */  jal   chrpropReparent
-/* 06F2E4 7F03C8F4 8C650010 */   lw    $a1, 0x10($v1)
-/* 06F2E8 7F03C8F8 1000001C */  b     .L7F03C96C
-/* 06F2EC 7F03C8FC 24130001 */   li    $s3, 1
-.L7F03C900:
-/* 06F2F0 7F03C900 0FC0E931 */  jal   chrpropEnable
-/* 06F2F4 7F03C904 02202025 */   move  $a0, $s1
-/* 06F2F8 7F03C908 0FC0F87D */  jal   sub_GAME_7F03E134
-/* 06F2FC 7F03C90C 02202025 */   move  $a0, $s1
-/* 06F300 7F03C910 8E180064 */  lw    $t8, 0x64($s0)
-/* 06F304 7F03C914 2401F7FF */  li    $at, -2049
-/* 06F308 7F03C918 0301C824 */  and   $t9, $t8, $at
-/* 06F30C 7F03C91C 10000013 */  b     .L7F03C96C
-/* 06F310 7F03C920 AE190064 */   sw    $t9, 0x64($s0)
-/* 06F314 7F03C924 92080002 */  lbu   $t0, 2($s0)
-.L7F03C928:
-/* 06F318 7F03C928 31090008 */  andi  $t1, $t0, 8
-/* 06F31C 7F03C92C 51200006 */  beql  $t1, $zero, .L7F03C948
-/* 06F320 7F03C930 8E0C0008 */   lw    $t4, 8($s0)
-/* 06F324 7F03C934 8E0A0008 */  lw    $t2, 8($s0)
-/* 06F328 7F03C938 354B0100 */  ori   $t3, $t2, 0x100
-/* 06F32C 7F03C93C 10000005 */  b     .L7F03C954
-/* 06F330 7F03C940 AE0B0008 */   sw    $t3, 8($s0)
-/* 06F334 7F03C944 8E0C0008 */  lw    $t4, 8($s0)
-.L7F03C948:
-/* 06F338 7F03C948 2401FEFF */  li    $at, -257
-/* 06F33C 7F03C94C 01816824 */  and   $t5, $t4, $at
-/* 06F340 7F03C950 AE0D0008 */  sw    $t5, 8($s0)
-.L7F03C954:
-/* 06F344 7F03C954 920E0002 */  lbu   $t6, 2($s0)
-/* 06F348 7F03C958 E6000070 */  swc1  $f0, 0x70($s0)
-/* 06F34C 7F03C95C 8E040014 */  lw    $a0, 0x14($s0)
-/* 06F350 7F03C960 31CFFF7F */  andi  $t7, $t6, 0xff7f
-/* 06F354 7F03C964 0FC14432 */  jal   sub_GAME_7F050DE8
-/* 06F358 7F03C968 A20F0002 */   sb    $t7, 2($s0)
-.L7F03C96C:
-/* 06F35C 7F03C96C 92180003 */  lbu   $t8, 3($s0)
-.L7F03C970:
-/* 06F360 7F03C970 24010015 */  li    $at, 21
-/* 06F364 7F03C974 3C048005 */  lui   $a0, %hi(g_musicSfxBufferPtr) # $a0, 0x8005
-/* 06F368 7F03C978 17010003 */  bne   $t8, $at, .L7F03C988
-/* 06F36C 7F03C97C 24050052 */   li    $a1, 82
-/* 06F370 7F03C980 C6060080 */  lwc1  $f6, 0x80($s0)
-/* 06F374 7F03C984 E6060084 */  swc1  $f6, 0x84($s0)
-.L7F03C988:
-/* 06F378 7F03C988 16600006 */  bnez  $s3, .L7F03C9A4
-/* 06F37C 7F03C98C 00003025 */   move  $a2, $zero
-/* 06F380 7F03C990 0C00209A */  jal   sndPlaySfx
-/* 06F384 7F03C994 8C846900 */   lw    $a0, %lo(g_musicSfxBufferPtr)($a0)
-/* 06F388 7F03C998 00402025 */  move  $a0, $v0
-/* 06F38C 7F03C99C 0FC14F3C */  jal   chrobjSndCreatePostEventDefault
-/* 06F390 7F03C9A0 26250008 */   addiu $a1, $s1, 8
-.L7F03C9A4:
-/* 06F394 7F03C9A4 92190003 */  lbu   $t9, 3($s0)
-.L7F03C9A8:
-/* 06F398 7F03C9A8 2401000D */  li    $at, 13
-/* 06F39C 7F03C9AC 57210035 */  bnel  $t9, $at, .L7F03CA84
-/* 06F3A0 7F03C9B0 24010005 */   li    $at, 5
-/* 06F3A4 7F03C9B4 8E220004 */  lw    $v0, 4($s1)
-/* 06F3A8 7F03C9B8 0FC18BF1 */  jal   sub_GAME_7F062B00
-/* 06F3AC 7F03C9BC 8C4400CC */   lw    $a0, 0xcc($v0)
-/* 06F3B0 7F03C9C0 10000030 */  b     .L7F03CA84
-/* 06F3B4 7F03C9C4 24010005 */   li    $at, 5
-/* 06F3B8 7F03C9C8 24010007 */  li    $at, 7
-.L7F03C9CC:
-/* 06F3BC 7F03C9CC 54410006 */  bnel  $v0, $at, .L7F03C9E8
-/* 06F3C0 7F03C9D0 24010008 */   li    $at, 8
-/* 06F3C4 7F03C9D4 0FC2710B */  jal   explosionTick
-/* 06F3C8 7F03C9D8 02202025 */   move  $a0, $s1
-/* 06F3CC 7F03C9DC 10000028 */  b     .L7F03CA80
-/* 06F3D0 7F03C9E0 00409025 */   move  $s2, $v0
-/* 06F3D4 7F03C9E4 24010008 */  li    $at, 8
-.L7F03C9E8:
-/* 06F3D8 7F03C9E8 54410006 */  bnel  $v0, $at, .L7F03CA04
-/* 06F3DC 7F03C9EC 24010006 */   li    $at, 6
-/* 06F3E0 7F03C9F0 0FC2777C */  jal   explosionSmokeTick
-/* 06F3E4 7F03C9F4 02202025 */   move  $a0, $s1
-/* 06F3E8 7F03C9F8 10000021 */  b     .L7F03CA80
-/* 06F3EC 7F03C9FC 00409025 */   move  $s2, $v0
-/* 06F3F0 7F03CA00 24010006 */  li    $at, 6
-.L7F03CA04:
-/* 06F3F4 7F03CA04 5441001F */  bnel  $v0, $at, .L7F03CA84
-/* 06F3F8 7F03CA08 24010005 */   li    $at, 5
-/* 06F3FC 7F03CA0C 0FC269A7 */  jal   getPlayerPointerIndex
-/* 06F400 7F03CA10 02202025 */   move  $a0, $s1
-/* 06F404 7F03CA14 00024080 */  sll   $t0, $v0, 2
-/* 06F408 7F03CA18 3C048007 */  lui   $a0, %hi(g_playerPointers)
-/* 06F40C 7F03CA1C 00882021 */  addu  $a0, $a0, $t0
-/* 06F410 7F03CA20 8C8489F0 */  lw    $a0, %lo(g_playerPointers)($a0)
-/* 06F414 7F03CA24 0FC18BF1 */  jal   sub_GAME_7F062B00
-/* 06F418 7F03CA28 24840A4C */   addiu $a0, $a0, 0xa4c
-/* 06F41C 7F03CA2C 0FC269A7 */  jal   getPlayerPointerIndex
-/* 06F420 7F03CA30 02202025 */   move  $a0, $s1
-/* 06F424 7F03CA34 00024880 */  sll   $t1, $v0, 2
-/* 06F428 7F03CA38 3C048007 */  lui   $a0, %hi(g_playerPointers)
-/* 06F42C 7F03CA3C 00892021 */  addu  $a0, $a0, $t1
-/* 06F430 7F03CA40 8C8489F0 */  lw    $a0, %lo(g_playerPointers)($a0)
-/* 06F434 7F03CA44 0FC18BF1 */  jal   sub_GAME_7F062B00
-/* 06F438 7F03CA48 24840DF4 */   addiu $a0, $a0, 0xdf4
-/* 06F43C 7F03CA4C 8E2A0004 */  lw    $t2, 4($s1)
-/* 06F440 7F03CA50 5140000C */  beql  $t2, $zero, .L7F03CA84
-/* 06F444 7F03CA54 24010005 */   li    $at, 5
-/* 06F448 7F03CA58 0FC26669 */  jal   getPlayerCount
-/* 06F44C 7F03CA5C 00000000 */   nop
-/* 06F450 7F03CA60 28410002 */  slti  $at, $v0, 2
-/* 06F454 7F03CA64 54200007 */  bnezl $at, .L7F03CA84
-/* 06F458 7F03CA68 24010005 */   li    $at, 5
-/* 06F45C 7F03CA6C 8E300004 */  lw    $s0, 4($s1)
-/* 06F460 7F03CA70 0FC18BF1 */  jal   sub_GAME_7F062B00
-/* 06F464 7F03CA74 26040180 */   addiu $a0, $s0, 0x180
-/* 06F468 7F03CA78 0FC18BF1 */  jal   sub_GAME_7F062B00
-/* 06F46C 7F03CA7C 260401AC */   addiu $a0, $s0, 0x1ac
-.L7F03CA80:
-/* 06F470 7F03CA80 24010005 */  li    $at, 5
-.L7F03CA84:
-/* 06F474 7F03CA84 56410004 */  bnel  $s2, $at, .L7F03CA98
-/* 06F478 7F03CA88 24010003 */   li    $at, 3
-/* 06F47C 7F03CA8C 1000000F */  b     .L7F03CACC
-/* 06F480 7F03CA90 8FB0004C */   lw    $s0, 0x4c($sp)
-/* 06F484 7F03CA94 24010003 */  li    $at, 3
-.L7F03CA98:
-/* 06F488 7F03CA98 16410009 */  bne   $s2, $at, .L7F03CAC0
-/* 06F48C 7F03CA9C 8E300024 */   lw    $s0, 0x24($s1)
-/* 06F490 7F03CAA0 0FC0E97E */  jal   chrpropDelist
-/* 06F494 7F03CAA4 02202025 */   move  $a0, $s1
-/* 06F498 7F03CAA8 0FC0E96C */  jal   chrpropActivateThisFrame
-/* 06F49C 7F03CAAC 02202025 */   move  $a0, $s1
-/* 06F4A0 7F03CAB0 16000006 */  bnez  $s0, .L7F03CACC
-/* 06F4A4 7F03CAB4 00000000 */   nop
-/* 06F4A8 7F03CAB8 10000004 */  b     .L7F03CACC
-/* 06F4AC 7F03CABC 02208025 */   move  $s0, $s1
-.L7F03CAC0:
-/* 06F4B0 7F03CAC0 02202025 */  move  $a0, $s1
-/* 06F4B4 7F03CAC4 0FC0F0DF */  jal   propExecuteTickOperation
-/* 06F4B8 7F03CAC8 02402825 */   move  $a1, $s2
-.L7F03CACC:
-/* 06F4BC 7F03CACC 1600FF19 */  bnez  $s0, .L7F03C734
-/* 06F4C0 7F03CAD0 02008825 */   move  $s1, $s0
-.L7F03CAD4:
-/* 06F4C4 7F03CAD4 8FBF0024 */  lw    $ra, 0x24($sp)
-/* 06F4C8 7F03CAD8 8FB00014 */  lw    $s0, 0x14($sp)
-/* 06F4CC 7F03CADC 8FB10018 */  lw    $s1, 0x18($sp)
-/* 06F4D0 7F03CAE0 8FB2001C */  lw    $s2, 0x1c($sp)
-/* 06F4D4 7F03CAE4 8FB30020 */  lw    $s3, 0x20($sp)
-/* 06F4D8 7F03CAE8 03E00008 */  jr    $ra
-/* 06F4DC 7F03CAEC 27BD0058 */   addiu $sp, $sp, 0x58
-)
-#endif
-#endif
-
-
-
 
 
 /*
