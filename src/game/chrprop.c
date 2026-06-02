@@ -266,16 +266,10 @@ void chrpropDisable(PropRecord *prop)
 }
 
 
-
-
-
-
-
 PropRecord *get_ptr_obj_pos_list_current_entry(void)
 {
     return ptr_obj_pos_list_current_entry;
 }
-
 
 
 PropRecord* chrpropAllocate(void)
@@ -493,11 +487,11 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
             {
                 flag = 0;
 
-                if ((renderpass == 0) && ((prop->flags & 0x21) == 0))
+                if ((renderpass == 0) && ((prop->flags & (PROPFLAG_00000020 | PROPFLAG_RENDERPOSTBG)) == 0))
                 {
                     flag = 1;
                 }
-                else if ((renderpass == 2) && ((prop->flags & 0x21) == 1))
+                else if ((renderpass == 2) && ((prop->flags & (PROPFLAG_00000020 | PROPFLAG_RENDERPOSTBG)) == PROPFLAG_RENDERPOSTBG))
                 {
                     flag = 1;
                 }
@@ -554,7 +548,7 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
 
                 if (flag)
                 {
-                    if (prop->flags & 0x20)
+                    if (prop->flags & PROPFLAG_00000020)
                     {
                         gdl = chrpropRender(gdl, prop, 0);
                     }
