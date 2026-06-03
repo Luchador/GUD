@@ -548,87 +548,19 @@ void matrix_4x4_7F05914C(Mtx* arg0, Mtxf *arg1) {
 /*
  * Address: 0x7F059244
 */
-#ifdef NONMATCHING
 void sub_GAME_7F059244(Mtx *src, Mtx *dst) {
     u32 *srcwords = (u32 *) src;
     u32 *dstwords = (u32 *) dst;
     s32 i;
 
     for (i = 0; i < 8; i++) {
-        u32 word1 = srcwords[i * 2 + 0];
-        u32 word2 = srcwords[i * 2 + 1];
+        u32 word1 = srcwords[i << 1];
+        u32 word2 = srcwords[(i << 1) + 1];
 
         dstwords[i + 0] = (word1 & 0xffff0000) | (word2 >> 16);
         dstwords[i + 8] = (word1 << 16) | (word2 & 0xffff);
     }
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F059244
-/* 08DD74 7F059244 00001025 */  move  $v0, $zero
-/* 08DD78 7F059248 00A04025 */  move  $t0, $a1
-/* 08DD7C 7F05924C 240D0008 */  li    $t5, 8
-/* 08DD80 7F059250 3C0CFFFF */  lui   $t4, 0xffff
-.L7F059254:
-/* 08DD84 7F059254 000278C0 */  sll   $t7, $v0, 3
-/* 08DD88 7F059258 008F3821 */  addu  $a3, $a0, $t7
-/* 08DD8C 7F05925C 8CE30000 */  lw    $v1, ($a3)
-/* 08DD90 7F059260 8CE60004 */  lw    $a2, 4($a3)
-/* 08DD94 7F059264 25080010 */  addiu $t0, $t0, 0x10
-/* 08DD98 7F059268 006CC024 */  and   $t8, $v1, $t4
-/* 08DD9C 7F05926C 0006CC02 */  srl   $t9, $a2, 0x10
-/* 08DDA0 7F059270 03197025 */  or    $t6, $t8, $t9
-/* 08DDA4 7F059274 00037C00 */  sll   $t7, $v1, 0x10
-/* 08DDA8 7F059278 30D8FFFF */  andi  $t8, $a2, 0xffff
-/* 08DDAC 7F05927C 01F8C825 */  or    $t9, $t7, $t8
-/* 08DDB0 7F059280 244F0001 */  addiu $t7, $v0, 1
-/* 08DDB4 7F059284 000FC0C0 */  sll   $t8, $t7, 3
-/* 08DDB8 7F059288 00984821 */  addu  $t1, $a0, $t8
-/* 08DDBC 7F05928C AD0EFFF0 */  sw    $t6, -0x10($t0)
-/* 08DDC0 7F059290 AD190010 */  sw    $t9, 0x10($t0)
-/* 08DDC4 7F059294 8D260004 */  lw    $a2, 4($t1)
-/* 08DDC8 7F059298 8D230000 */  lw    $v1, ($t1)
-/* 08DDCC 7F05929C 00067402 */  srl   $t6, $a2, 0x10
-/* 08DDD0 7F0592A0 006CC824 */  and   $t9, $v1, $t4
-/* 08DDD4 7F0592A4 032E7825 */  or    $t7, $t9, $t6
-/* 08DDD8 7F0592A8 30D9FFFF */  andi  $t9, $a2, 0xffff
-/* 08DDDC 7F0592AC 0003C400 */  sll   $t8, $v1, 0x10
-/* 08DDE0 7F0592B0 03197025 */  or    $t6, $t8, $t9
-/* 08DDE4 7F0592B4 24580002 */  addiu $t8, $v0, 2
-/* 08DDE8 7F0592B8 0018C8C0 */  sll   $t9, $t8, 3
-/* 08DDEC 7F0592BC 00995021 */  addu  $t2, $a0, $t9
-/* 08DDF0 7F0592C0 AD0E0014 */  sw    $t6, 0x14($t0)
-/* 08DDF4 7F0592C4 AD0FFFF4 */  sw    $t7, -0xc($t0)
-/* 08DDF8 7F0592C8 8D460004 */  lw    $a2, 4($t2)
-/* 08DDFC 7F0592CC 8D430000 */  lw    $v1, ($t2)
-/* 08DE00 7F0592D0 00067C02 */  srl   $t7, $a2, 0x10
-/* 08DE04 7F0592D4 006C7024 */  and   $t6, $v1, $t4
-/* 08DE08 7F0592D8 01CFC025 */  or    $t8, $t6, $t7
-/* 08DE0C 7F0592DC 30CEFFFF */  andi  $t6, $a2, 0xffff
-/* 08DE10 7F0592E0 0003CC00 */  sll   $t9, $v1, 0x10
-/* 08DE14 7F0592E4 032E7825 */  or    $t7, $t9, $t6
-/* 08DE18 7F0592E8 24590003 */  addiu $t9, $v0, 3
-/* 08DE1C 7F0592EC 001970C0 */  sll   $t6, $t9, 3
-/* 08DE20 7F0592F0 008E5821 */  addu  $t3, $a0, $t6
-/* 08DE24 7F0592F4 AD0F0018 */  sw    $t7, 0x18($t0)
-/* 08DE28 7F0592F8 AD18FFF8 */  sw    $t8, -8($t0)
-/* 08DE2C 7F0592FC 8D660004 */  lw    $a2, 4($t3)
-/* 08DE30 7F059300 8D630000 */  lw    $v1, ($t3)
-/* 08DE34 7F059304 24420004 */  addiu $v0, $v0, 4
-/* 08DE38 7F059308 0006C402 */  srl   $t8, $a2, 0x10
-/* 08DE3C 7F05930C 006C7824 */  and   $t7, $v1, $t4
-/* 08DE40 7F059310 01F8C825 */  or    $t9, $t7, $t8
-/* 08DE44 7F059314 30CFFFFF */  andi  $t7, $a2, 0xffff
-/* 08DE48 7F059318 00037400 */  sll   $t6, $v1, 0x10
-/* 08DE4C 7F05931C 01CFC025 */  or    $t8, $t6, $t7
-/* 08DE50 7F059320 AD18001C */  sw    $t8, 0x1c($t0)
-/* 08DE54 7F059324 144DFFCB */  bne   $v0, $t5, .L7F059254
-/* 08DE58 7F059328 AD19FFFC */   sw    $t9, -4($t0)
-/* 08DE5C 7F05932C 03E00008 */  jr    $ra
-/* 08DE60 7F059330 00000000 */   nop
-)
-#endif
 
 
 /*
