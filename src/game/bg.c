@@ -390,6 +390,8 @@ Gfx *bgScissorCurrentPlayerView(Gfx *arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg
 
 bool bgIsRoomOnScreen(s32 roomID, struct rectbbox *screenbox);
 s32 sub_GAME_7F0B39BC(s32 curroom, s32 unk1, bbox2d *screensize, s32 next);
+void bgUpdateCurrentPlayerScreenMinMax(void);
+void *sub_GAME_7F0B8A24(s32 *pc);
 
 // end forward declarations
 
@@ -2860,7 +2862,8 @@ Gfx *bgScissorCurrentPlayerView(Gfx *arg0, s32 left, s32 top, s32 width, s32 hei
 }
 
 
-void sub_GAME_7F0B5168(void) {
+void sub_GAME_7F0B5168(void) 
+{
     s32 i;
 
     for (i = 0; i < 200; i++) {
@@ -6060,7 +6063,8 @@ glabel bgTestBulletHitBackground
 /**
  * Address: 7F0B7D94
  */
-void bgResetPortalQueue(void) {
+void bgResetPortalQueue(void)
+{
     g_BgPortalQueueWriteIndex = 0;
     g_BgPortalQueueReadIndex = 0;
 }
@@ -7832,7 +7836,8 @@ invalid_type_terminate:
 
 
 // Something about portals. Void* are structs.
-void *sub_GAME_7F0B8A24(s32 *pc) {
+void *sub_GAME_7F0B8A24(s32 *pc) 
+{
 
     current_visibility = 0;
     if (!pc)
