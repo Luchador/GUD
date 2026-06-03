@@ -2452,24 +2452,10 @@ typedef union
 
     typedef struct collision_data
     {
-        s32 edges; // 0x00
-
-        rect4f polygon; // 0x04
-
-        s32 unk24;
-        s32 unk28;
-        s32 unk2C;
-
-        s32 unk30;
-        s32 unk34;
-        s32 unk38;
-        s32 unk3C;
-
-        s32 unk40;
-        f32 top; // 0x44
-
-        // Might be related to collision radius
-        f32 bottom; // 0x48
+        s32 edges;          // 0x00
+        coord2d polygon[8]; // 0x04 - 0x43
+        f32 top;            // 0x44
+        f32 bottom;         // 0x48
     } collision_data;
 
     typedef struct Projectile {
