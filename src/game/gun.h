@@ -365,5 +365,7 @@ void sub_GAME_7F064720(coord3d* pos);
 Gfx *gunDrawHudString(Gfx *gdl, s8 *text, s32 x, s32 halign, s32 y, s32 valign, bool outline);
 Gfx *gunDrawHudInteger(Gfx *gdl, s32 value, s32 x, s32 halign, s32 y, s32 valign, bool outline);
 void gunAdvanceBeamTimer(BeamRecord* arg0);
+Gfx *sub_GAME_7F06359C(Gfx *gdl, Mtxf *matrix, s32 arg2, s32 arg3, void *arg4, s8 *contpadnum);
+Gfx *sub_GAME_7F064364(Gfx *gdl, Mtxf *arg1, s32 arg2, s32 arg3, s8 *contpadnum);
 
 #endif
