@@ -1231,13 +1231,7 @@ glabel getTileMidPoint
 #endif
 
 
-
-
-
-#ifdef NONMATCHING
-// Saves a1 (tripleIndex) to the stack completely unnecessarily
-// Otherwise just regalloc, but maybe that alone fixes it.
-void getPointJustInsideOfTileTriple(StandTile *tile, s32 tripleIndex /*canonically c */, coord3d* pnt)
+void getPointJustInsideOfTileTriple(StandTile *tile, s32 tripleIndex /*canonically c */, coord3d *out)
 {
     coord3d midPoint;
     s32 pntIndex;
@@ -1246,99 +1240,22 @@ void getPointJustInsideOfTileTriple(StandTile *tile, s32 tripleIndex /*canonical
     assert(c<3);
     #endif
 
-    pntIndex = STAN_TRIPLE_TO_PNT_INDEX(tile, tripleIndex);
-
-    pnt->x = tile->points[pntIndex].x * inv_level_scale;
-    pnt->y = tile->points[pntIndex].y * inv_level_scale;
-    pnt->z = tile->points[pntIndex].z * inv_level_scale;
-
-    getTileMidPoint(tile,&midPoint);
-
+    pntIndex = (tile->tail.half >> (8 - (tripleIndex * 4))) & 0xf;
+    
+    if (1);
+    if (&midPoint);
+    
+    out->x = ((f32) tile->points[pntIndex].x) * inv_level_scale;
+    out->y = ((f32) tile->points[pntIndex].y) * inv_level_scale;
+    out->z = ((f32) tile->points[pntIndex].z) * inv_level_scale;
+    
+    getTileMidPoint(tile, &midPoint);
+    
     // 10% of the way from the actual tile point towards the tile's centre.
-    pnt->x = midPoint.x * 0.1f + pnt->x * 0.9f;
-    pnt->y = midPoint.y * 0.1f + pnt->y * 0.9f;
-    pnt->z = midPoint.z * 0.1f + pnt->z * 0.9f;
-
-    return;
+    out->x = (midPoint.x * 0.1f) + (0.9f * out->x);
+    out->y = (midPoint.y * 0.1f) + (0.9f * out->y);
+    out->z = (midPoint.z * 0.1f) + (0.9f * out->z);
 }
-#else
-GLOBAL_ASM(
-.late_rodata
-glabel D_800585D8
-.word 0x3dcccccd /*0.1*/
-glabel D_800585DC
-.word 0x3f666666 /*0.89999998*/
-.text
-glabel getPointJustInsideOfTileTriple
-/* 0E454C 7F0AFA1C 27BDFFD8 */  addiu $sp, $sp, -0x28
-/* 0E4550 7F0AFA20 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0E4554 7F0AFA24 848E0006 */  lh    $t6, 6($a0)
-/* 0E4558 7F0AFA28 00057880 */  sll   $t7, $a1, 2
-/* 0E455C 7F0AFA2C 24180008 */  li    $t8, 8
-/* 0E4560 7F0AFA30 030FC823 */  subu  $t9, $t8, $t7
-/* 0E4564 7F0AFA34 032E3807 */  srav  $a3, $t6, $t9
-/* 0E4568 7F0AFA38 30E8000F */  andi  $t0, $a3, 0xf
-/* 0E456C 7F0AFA3C 000848C0 */  sll   $t1, $t0, 3
-/* 0E4570 7F0AFA40 00891021 */  addu  $v0, $a0, $t1
-/* 0E4574 7F0AFA44 844A0008 */  lh    $t2, 8($v0)
-/* 0E4578 7F0AFA48 3C038004 */  lui   $v1, %hi(inv_level_scale)
-/* 0E457C 7F0AFA4C 24630F48 */  addiu $v1, %lo(inv_level_scale) # addiu $v1, $v1, 0xf48
-/* 0E4580 7F0AFA50 448A2000 */  mtc1  $t2, $f4
-/* 0E4584 7F0AFA54 C4680000 */  lwc1  $f8, ($v1)
-/* 0E4588 7F0AFA58 27A5001C */  addiu $a1, $sp, 0x1c
-/* 0E458C 7F0AFA5C 468021A0 */  cvt.s.w $f6, $f4
-/* 0E4590 7F0AFA60 46083282 */  mul.s $f10, $f6, $f8
-/* 0E4594 7F0AFA64 E4CA0000 */  swc1  $f10, ($a2)
-/* 0E4598 7F0AFA68 844B000A */  lh    $t3, 0xa($v0)
-/* 0E459C 7F0AFA6C C4640000 */  lwc1  $f4, ($v1)
-/* 0E45A0 7F0AFA70 448B8000 */  mtc1  $t3, $f16
-/* 0E45A4 7F0AFA74 00000000 */  nop
-/* 0E45A8 7F0AFA78 468084A0 */  cvt.s.w $f18, $f16
-/* 0E45AC 7F0AFA7C 46049182 */  mul.s $f6, $f18, $f4
-/* 0E45B0 7F0AFA80 E4C60004 */  swc1  $f6, 4($a2)
-/* 0E45B4 7F0AFA84 844C000C */  lh    $t4, 0xc($v0)
-/* 0E45B8 7F0AFA88 C4700000 */  lwc1  $f16, ($v1)
-/* 0E45BC 7F0AFA8C 448C4000 */  mtc1  $t4, $f8
-/* 0E45C0 7F0AFA90 00000000 */  nop
-/* 0E45C4 7F0AFA94 468042A0 */  cvt.s.w $f10, $f8
-/* 0E45C8 7F0AFA98 46105482 */  mul.s $f18, $f10, $f16
-/* 0E45CC 7F0AFA9C E4D20008 */  swc1  $f18, 8($a2)
-/* 0E45D0 7F0AFAA0 0FC2BE49 */  jal   getTileMidPoint
-/* 0E45D4 7F0AFAA4 AFA60030 */   sw    $a2, 0x30($sp)
-/* 0E45D8 7F0AFAA8 3C018006 */  lui   $at, %hi(D_800585D8)
-/* 0E45DC 7F0AFAAC C42085D8 */  lwc1  $f0, %lo(D_800585D8)($at)
-/* 0E45E0 7F0AFAB0 8FA60030 */  lw    $a2, 0x30($sp)
-/* 0E45E4 7F0AFAB4 C7A4001C */  lwc1  $f4, 0x1c($sp)
-/* 0E45E8 7F0AFAB8 3C018006 */  lui   $at, %hi(D_800585DC)
-/* 0E45EC 7F0AFABC C42285DC */  lwc1  $f2, %lo(D_800585DC)($at)
-/* 0E45F0 7F0AFAC0 46002182 */  mul.s $f6, $f4, $f0
-/* 0E45F4 7F0AFAC4 C4C80000 */  lwc1  $f8, ($a2)
-/* 0E45F8 7F0AFAC8 46081282 */  mul.s $f10, $f2, $f8
-/* 0E45FC 7F0AFACC C4C80004 */  lwc1  $f8, 4($a2)
-/* 0E4600 7F0AFAD0 460A3400 */  add.s $f16, $f6, $f10
-/* 0E4604 7F0AFAD4 E4D00000 */  swc1  $f16, ($a2)
-/* 0E4608 7F0AFAD8 C7B20020 */  lwc1  $f18, 0x20($sp)
-/* 0E460C 7F0AFADC 46009102 */  mul.s $f4, $f18, $f0
-/* 0E4610 7F0AFAE0 00000000 */  nop
-/* 0E4614 7F0AFAE4 46081182 */  mul.s $f6, $f2, $f8
-/* 0E4618 7F0AFAE8 C4C80008 */  lwc1  $f8, 8($a2)
-/* 0E461C 7F0AFAEC 46062280 */  add.s $f10, $f4, $f6
-/* 0E4620 7F0AFAF0 E4CA0004 */  swc1  $f10, 4($a2)
-/* 0E4624 7F0AFAF4 C7B00024 */  lwc1  $f16, 0x24($sp)
-/* 0E4628 7F0AFAF8 46008482 */  mul.s $f18, $f16, $f0
-/* 0E462C 7F0AFAFC 00000000 */  nop
-/* 0E4630 7F0AFB00 46081102 */  mul.s $f4, $f2, $f8
-/* 0E4634 7F0AFB04 46049180 */  add.s $f6, $f18, $f4
-/* 0E4638 7F0AFB08 E4C60008 */  swc1  $f6, 8($a2)
-/* 0E463C 7F0AFB0C 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 0E4640 7F0AFB10 27BD0028 */  addiu $sp, $sp, 0x28
-/* 0E4644 7F0AFB14 03E00008 */  jr    $ra
-/* 0E4648 7F0AFB18 00000000 */   nop
-)
-#endif
-
-
-
 
 
 /*
@@ -1356,10 +1273,6 @@ f32 sub_GAME_7F0AFB1C(coord3d *p,coord3d *q)
 
     return components[0]*components[0] + components[1]*components[1] + components[2]*components[2];
 }
-
-
-
-
 
 
 #ifdef NONMATCHING

@@ -3834,7 +3834,7 @@ s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, co
 
     found = 0;
     outertries = 0;
-    angleRange = 6.2831855f;
+    angleRange = M_TAU_F;
 
     while ((outertries <= 0x80) && (!found))
     {
@@ -3848,7 +3848,7 @@ s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, co
 
         while ((angletries < 0x10) && (!found))
         {
-            angleRange = 6.2831855f;
+            angleRange = M_TAU_F;
 
             angle += 0.39269909f;
 
@@ -3945,7 +3945,7 @@ s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, co
             angletries++;
         }
 
-        angleRange = 6.2831855f;
+        angleRange = M_TAU_F;
 
         outertries++;
     }

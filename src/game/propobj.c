@@ -31687,7 +31687,7 @@ void sub_GAME_7F04F218(PropRecord* prop, s32 arg1) {
 
     if (arg1 != 0)
     {
-        chr->accuracyrating = (u8) chr->accuracyrating & 0xFFDF;
+        chr->accuracyrating = (u8) chr->accuracyrating & ~0x20;
     }
     else
     {
