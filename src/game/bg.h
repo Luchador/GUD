@@ -212,5 +212,6 @@ s32 bgGetPortalBetweenRooms(s32 arg0, s32 arg1, struct coord3d *arg2, struct coo
 void sub_GAME_7F0B96CC(s32 arg0, struct PortalMetric *arg1);
 void bgApplyDynamicCCRMLUT(Gfx *arg0, Gfx *arg1, enum CCRMLUT arg2);
 void sub_GAME_7F0BA2D4(coord3d *, coord3d *, s32 *, s32 *, s32);
+void sub_GAME_7F0B4AB4(coord3d *pos1, coord3d *pos2, u8 *initialRooms, u8 *outRoomSet, s32 *outRoomNums, s32 *outRoomNumsCount, s32 outRoomNumsMax);
 
 #endif
