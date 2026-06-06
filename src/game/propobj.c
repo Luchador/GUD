@@ -1164,7 +1164,6 @@ bool sub_GAME_7F041400(PropRecord *prop, coord3d *rayStart, coord3d *rayEnd, coo
     coord3d intersection;
     s32 next;
     
-    return;
     bestfrac = 1.0f;
     bestedge = -1;
     chraiGetCollisionBounds(prop, &polygon, &numedges, &ymax, &ymin);
@@ -1187,7 +1186,7 @@ bool sub_GAME_7F041400(PropRecord *prop, coord3d *rayStart, coord3d *rayEnd, coo
                     edgeEnd2d.x = polygon->points[next].x;
                     edgeEnd2d.y = polygon->points[next].y;
                     dist = calculateSegmentIntersectionFraction(&rayStart2d, &rayEnd2d, &edgeStart2d, &edgeEnd2d);
-
+                    
                     if (dist < bestfrac) 
                     {
                         bestfrac = dist;
