@@ -55,6 +55,12 @@ extern f32 g_SoloAmmoMultiplier;
 extern struct Model *g_CurrentProjectileModel;
 extern struct ModelNode *dword_CODE_bss_80075B74;
 
+#if defined(VERSION_EU)
+extern ExplosionDetailsRecordEuList object_explosion_details;
+#else
+extern ExplosionDetailsRecord object_explosion_details[];
+#endif
+
 /**
  * @param arg0: Prop for tank
  * @param arg1: maybe flags
