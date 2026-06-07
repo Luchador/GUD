@@ -22641,105 +22641,70 @@ glabel object_interaction
 #endif
 
 
-#ifdef NONMATCHING
-/*
-* https://decomp.me/scratch/WSRxX  82.48%
-*/
-Gfx * sub_GAME_7F049B58(Gfx *arg0) {
+/**
+ * Address: 7F049B58
+ * 
+ * Draws tracers for characters other than the player, and draws tracers for drone guns as well.
+ */
+Gfx *weaponRenderTracers(Gfx *gdl)
+{
+    ChrRecord *chr;
+    ChrRecord *chr2;
+    PropRecord *prop;
+    ObjectRecord *obj;
+    s32 playernum;
+    s32 type;
+    s32 type_viewer;
+    s32 obj_type_0d;
+    s32 match;
+    s32 one;
+    s32 type_chr;
+    
+    prop = get_ptr_obj_pos_list_current_entry();
+    if (prop != NULL)
+    {
+        type_viewer = PROP_TYPE_VIEWER;
+        obj_type_0d = 0x0d;
+        one = 1;
+        type_chr = PROP_TYPE_CHR;
 
+        do
+        {
+            type = prop->type;
+            if (type_chr == type)
+            {
+                chr = prop->chr;
+                gdl = sub_GAME_7F061E18(gdl, &chr->beams[0], one);
+                gdl = sub_GAME_7F061E18(gdl, &chr->beams[1], one);
+            }
+            else if (one == type)
+            {
+                obj = prop->obj;
+                match = obj_type_0d == obj->type;
+                if (match)
+                {
+                    gdl = sub_GAME_7F061E18(gdl, (BeamRecord *)((AutogunRecord *)obj)->beam, one);
+                }
+            }
+            else if (type_viewer == type)
+            {
+                if (prop->voidp != NULL)
+                {
+                    playernum = getPlayerPointerIndex(prop);
+                    if (get_cur_playernum() != playernum)
+                    {
+                        chr2 = prop->chr;
+                        gdl = sub_GAME_7F061E18(gdl, &chr2->beams[0], one);
+                        gdl = sub_GAME_7F061E18(gdl, &chr2->beams[1], one);
+                    }
+                }
+            }
+            prop = prop->prev;
+        }
+        while (prop != NULL);
+    }
+    return gdl;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F049B58
-/* 07E688 7F049B58 27BDFFC8 */  addiu $sp, $sp, -0x38
-/* 07E68C 7F049B5C AFBF0034 */  sw    $ra, 0x34($sp)
-/* 07E690 7F049B60 AFB20020 */  sw    $s2, 0x20($sp)
-/* 07E694 7F049B64 00809025 */  move  $s2, $a0
-/* 07E698 7F049B68 AFB60030 */  sw    $s6, 0x30($sp)
-/* 07E69C 7F049B6C AFB5002C */  sw    $s5, 0x2c($sp)
-/* 07E6A0 7F049B70 AFB40028 */  sw    $s4, 0x28($sp)
-/* 07E6A4 7F049B74 AFB30024 */  sw    $s3, 0x24($sp)
-/* 07E6A8 7F049B78 AFB1001C */  sw    $s1, 0x1c($sp)
-/* 07E6AC 7F049B7C 0FC0E909 */  jal   get_ptr_obj_pos_list_current_entry
-/* 07E6B0 7F049B80 AFB00018 */   sw    $s0, 0x18($sp)
-/* 07E6B4 7F049B84 10400036 */  beqz  $v0, .L7F049C60
-/* 07E6B8 7F049B88 00408025 */   move  $s0, $v0
-/* 07E6BC 7F049B8C 24160006 */  li    $s6, 6
-/* 07E6C0 7F049B90 2415000D */  li    $s5, 13
-/* 07E6C4 7F049B94 24140001 */  li    $s4, 1
-/* 07E6C8 7F049B98 24130003 */  li    $s3, 3
-/* 07E6CC 7F049B9C 92020000 */  lbu   $v0, ($s0)
-.L7F049BA0:
-/* 07E6D0 7F049BA0 02402025 */  move  $a0, $s2
-/* 07E6D4 7F049BA4 1662000B */  bne   $s3, $v0, .L7F049BD4
-/* 07E6D8 7F049BA8 00000000 */   nop
-/* 07E6DC 7F049BAC 8E110004 */  lw    $s1, 4($s0)
-/* 07E6E0 7F049BB0 02803025 */  move  $a2, $s4
-/* 07E6E4 7F049BB4 0FC18786 */  jal   sub_GAME_7F061E18
-/* 07E6E8 7F049BB8 26250180 */   addiu $a1, $s1, 0x180
-/* 07E6EC 7F049BBC 00402025 */  move  $a0, $v0
-/* 07E6F0 7F049BC0 262501AC */  addiu $a1, $s1, 0x1ac
-/* 07E6F4 7F049BC4 0FC18786 */  jal   sub_GAME_7F061E18
-/* 07E6F8 7F049BC8 02803025 */   move  $a2, $s4
-/* 07E6FC 7F049BCC 10000021 */  b     .L7F049C54
-/* 07E700 7F049BD0 00409025 */   move  $s2, $v0
-.L7F049BD4:
-/* 07E704 7F049BD4 1682000B */  bne   $s4, $v0, .L7F049C04
-/* 07E708 7F049BD8 00000000 */   nop
-/* 07E70C 7F049BDC 8E030004 */  lw    $v1, 4($s0)
-/* 07E710 7F049BE0 02402025 */  move  $a0, $s2
-/* 07E714 7F049BE4 02803025 */  move  $a2, $s4
-/* 07E718 7F049BE8 906E0003 */  lbu   $t6, 3($v1)
-/* 07E71C 7F049BEC 56AE001A */  bnel  $s5, $t6, .L7F049C58
-/* 07E720 7F049BF0 8E100024 */   lw    $s0, 0x24($s0)
-/* 07E724 7F049BF4 0FC18786 */  jal   sub_GAME_7F061E18
-/* 07E728 7F049BF8 8C6500CC */   lw    $a1, 0xcc($v1)
-/* 07E72C 7F049BFC 10000015 */  b     .L7F049C54
-/* 07E730 7F049C00 00409025 */   move  $s2, $v0
-.L7F049C04:
-/* 07E734 7F049C04 56C20014 */  bnel  $s6, $v0, .L7F049C58
-/* 07E738 7F049C08 8E100024 */   lw    $s0, 0x24($s0)
-/* 07E73C 7F049C0C 8E0F0004 */  lw    $t7, 4($s0)
-/* 07E740 7F049C10 51E00011 */  beql  $t7, $zero, .L7F049C58
-/* 07E744 7F049C14 8E100024 */   lw    $s0, 0x24($s0)
-/* 07E748 7F049C18 0FC26C57 */  jal   getPlayerPointerIndex
-/* 07E74C 7F049C1C 02002025 */   move  $a0, $s0
-/* 07E750 7F049C20 0FC26C54 */  jal   get_cur_playernum
-/* 07E754 7F049C24 00408825 */   move  $s1, $v0
-/* 07E758 7F049C28 1051000A */  beq   $v0, $s1, .L7F049C54
-/* 07E75C 7F049C2C 02402025 */   move  $a0, $s2
-/* 07E760 7F049C30 8E110004 */  lw    $s1, 4($s0)
-/* 07E764 7F049C34 02803025 */  move  $a2, $s4
-/* 07E768 7F049C38 0FC18786 */  jal   sub_GAME_7F061E18
-/* 07E76C 7F049C3C 26250180 */   addiu $a1, $s1, 0x180
-/* 07E770 7F049C40 00402025 */  move  $a0, $v0
-/* 07E774 7F049C44 262501AC */  addiu $a1, $s1, 0x1ac
-/* 07E778 7F049C48 0FC18786 */  jal   sub_GAME_7F061E18
-/* 07E77C 7F049C4C 02803025 */   move  $a2, $s4
-/* 07E780 7F049C50 00409025 */  move  $s2, $v0
-.L7F049C54:
-/* 07E784 7F049C54 8E100024 */  lw    $s0, 0x24($s0)
-.L7F049C58:
-/* 07E788 7F049C58 5600FFD1 */  bnezl $s0, .L7F049BA0
-/* 07E78C 7F049C5C 92020000 */   lbu   $v0, ($s0)
-.L7F049C60:
-/* 07E790 7F049C60 8FBF0034 */  lw    $ra, 0x34($sp)
-/* 07E794 7F049C64 02401025 */  move  $v0, $s2
-/* 07E798 7F049C68 8FB20020 */  lw    $s2, 0x20($sp)
-/* 07E79C 7F049C6C 8FB00018 */  lw    $s0, 0x18($sp)
-/* 07E7A0 7F049C70 8FB1001C */  lw    $s1, 0x1c($sp)
-/* 07E7A4 7F049C74 8FB30024 */  lw    $s3, 0x24($sp)
-/* 07E7A8 7F049C78 8FB40028 */  lw    $s4, 0x28($sp)
-/* 07E7AC 7F049C7C 8FB5002C */  lw    $s5, 0x2c($sp)
-/* 07E7B0 7F049C80 8FB60030 */  lw    $s6, 0x30($sp)
-/* 07E7B4 7F049C84 03E00008 */  jr    $ra
-/* 07E7B8 7F049C88 27BD0038 */   addiu $sp, $sp, 0x38
-)
-#endif
-
-
-
 
 
 void save_ptr_monitor_ani_code_to_obj_ani_slot(MonitorRecord *mon, void *image)

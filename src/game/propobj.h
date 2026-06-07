@@ -71,7 +71,7 @@ void                 objFreePermanently(struct ObjectRecord *obj, bool freeprop)
 
 void                 chrobjApplySpeed(f32 *openPosition, f32 maxFrac, f32 *speedPtr, f32 accel, f32 decel, f32 maxSpeed);
 void                 chrobjCallsApplySpeed(f32 *openPosition, f32 maxFrac, f32 *speedPtr, f32 accel, f32 decel, f32 maxSpeed);
-Gfx                 *sub_GAME_7F049B58(Gfx *arg0);
+Gfx                 *weaponRenderTracers(Gfx *gdl);
 void                 set_color_shading_from_tile(PropRecord *, rgba_u8 *);
 void                 propobjSetDropped(PropRecord *prop, DROPTYPE droptype);
 void                 objDropRecursively(PropRecord *prop);

@@ -1056,7 +1056,7 @@ Gfx* lvlRender(Gfx* DL)
             }
 
             setanimationdebugflag(getDebugMode() == DEB_SELANIM);
-            DL = sub_GAME_7F049B58(DL);
+            DL = weaponRenderTracers(DL);
 
 #if defined(VERSION_EU)
             sub_GAME_7F0A46A0(&DL, 1);
