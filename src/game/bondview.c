@@ -361,7 +361,7 @@ CreditsEntry *credits_pointer = NULL;
 s32 g_SurroundBondWithExplosionsFlag = 0;
 
 //D:80036448
-s32 in_tank_flag = 0;
+s32 g_PlayerIsInTank = 0;
 
 //D:8003644C
 struct PropRecord *g_WorldTankProp = NULL;
@@ -454,7 +454,7 @@ struct SetupIntroSwirl *g_IntroSwirl = NULL;
 //D:800364B0
 s32 is_timer_active = 1;
 //D:800364B4
-s32 g_PlayerInvincible = 0;
+bool g_PlayerInvincible = FALSE;
 //D:800364B8
 struct SetupIntroCamera* g_CurrentSetupIntroCamera = NULL;
 //D:800364BC
@@ -562,27 +562,31 @@ WeaponObjRecord dummy_08_pp7_obj[] = {
 
 //D:80036634
 struct DamageType g_DamageTypes[] = {
-        {   0,    10.0,    60.0,    0.6,    0,    5.0,    40.0,    1.0,            0xFF,       0xFF,       0xFF},
+        {   0,    10.0,    60.0,    0.6,    0,    5.0,    40.0,    1.0,            0xFF,       0xFF,       0xFF}, // 1 bars
         {   0,    10.0,    60.0,    0.6,    0,    5.0,    40.0,    1.0,            0xFF,       0xFF,       0xFF},
         {   0,    10.0,    50.0,    0.6,    0,    5.0,    30.0,    0.800000011921, 0xFF,       0xFF,       0xFF},
         {   0,    10.0,    40.0,    0.6,    0,    5.0,    25.0,    0.600000023842, 0xFF,       0xFF,       0xFF},
         {   0,    10.0,    35.0,    0.6,    0,    5.0,    22.0,    0.550000011921, 0xFF,       0xFF,       0xFF},
         {   0,    10.0,    30.0,    0.6,    0,    5.0,    19.0,    0.5,            0xFF,       0xFF,       0xFF},
         {   0,    10.0,    30.0,    0.6,    0,    5.0,    17.0,    0.449999988079, 0xFF,       0xFF,       0xFF},
-        {   0,    10.0,    30.0,    0.6,    0,    5.0,    15.0,    0.40000000596,  0xFF,       0xFF,       0xFF}
+        {   0,    10.0,    30.0,    0.6,    0,    5.0,    15.0,    0.40000000596,  0xFF,       0xFF,       0xFF}  // 8 bars
 };
 
 
 //D:80036794
-struct HealthDamageType g_HealthDamageTypes[8] = {
-    { 0, 40, 100 },
+/**
+ * The second column is how many frames before the gauge switches from showing the old health to the new health.
+ * The third column is how many frames before the health display is hidden.
+ */
+struct HealthDisplayDuration g_HealthDisplayDurations[8] = {
+    { 0, 40, 100 }, // 1 bar of health
     { 0, 30, 80 },
     { 0, 20, 60 },
     { 0, 20, 60 },
     { 0, 20, 60 },
     { 0, 20, 50 },
     { 0, 20, 50 },
-    { 0, 20, 50 }
+    { 0, 20, 50 }  // 8 bars of health
 };
 
 /**
@@ -4088,7 +4092,7 @@ void bondviewSetCameraMode(s32 arg0)
         else
         {
             // This branch restarts Bond's death animation for his death replay
-            in_tank_flag = 0;
+            g_PlayerIsInTank = 0;
 
             // struct copy
             g_CurrentPlayer->field_488 = g_CurrentPlayer->previous_collision_info;
@@ -5403,7 +5407,7 @@ s32 sub_GAME_7F07CDD4(struct coord3d *arg0, f32 arg1, StandTile **arg2)
 
 bool isBondInTank(void)
 {
-    return in_tank_flag;
+    return g_PlayerIsInTank;
 }
 
 
@@ -5413,7 +5417,7 @@ bool isBondInTank(void)
 
 struct PropRecord *get_ptr_for_players_tank(void)
 {
-    if (in_tank_flag == 1)
+    if (g_PlayerIsInTank == 1)
     {
         return g_PlayerTankProp;
     }
@@ -5488,7 +5492,7 @@ s32 bondviewTryMoveToStan(struct coord3d *arg0, StandTile **stan)
 
     sp94 = 0;
 
-    if ((in_tank_flag == 1) && (g_EnterTankAudioState != TANK_RUN_STATE_NOT_RUNNING))
+    if ((g_PlayerIsInTank == 1) && (g_EnterTankAudioState != TANK_RUN_STATE_NOT_RUNNING))
     {
         sp94 = sub_GAME_7F07CDD4(arg0, g_TankOrientationAngle, stan);
     }
@@ -5928,7 +5932,7 @@ void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot)
     {
         chraiGetCollisionBoundsWithoutY(g_WorldTankProp, &polygon, &edges);
 
-        if ((in_tank_flag == 1)
+        if ((g_PlayerIsInTank == 1)
             || (chrpropTestPointInPolygon(&g_CurrentPlayer->field_488.collision_position, polygon, edges) != 0)
             || ((chrobjTestPointPolygonCollision(&g_CurrentPlayer->field_488.collision_position, g_CurrentPlayer->field_488.collision_radius, polygon, edges) != 0)))
         {
@@ -5943,14 +5947,14 @@ void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot)
 
             temp_f2 = (farr5[4] - farr5[3]) * obj->model->scale;
 
-            if (in_tank_flag == 1
+            if (g_PlayerIsInTank == 1
                 || (chrpropTestPointInPolygon(&g_CurrentPlayer->field_488.collision_position, &tank_objrecord->rect, (s32)tank_objrecord->collision) != 0))
             {
                 temp_f2 += (farr6[4] - farr6[3]) * obj->model->scale;
                 g_BondCanEnterTank = 1;
             }
 
-            if ((in_tank_flag == 0) && (g_PlayerTankYOffset < temp_f2))
+            if ((g_PlayerIsInTank == 0) && (g_PlayerTankYOffset < temp_f2))
             {
                 g_PlayerTankYOffset += (20.0f * g_GlobalTimerDelta);
                 if ((temp_f2 < g_PlayerTankYOffset))
@@ -5969,7 +5973,7 @@ void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot)
                 g_PlayerTankYOffset = temp_f2;
             }
 
-            if (in_tank_flag == 1)
+            if (g_PlayerIsInTank == 1)
             {
                 if (g_EnterTankAudioState == TANK_RUN_STATE_NOT_RUNNING)
                 {
@@ -7756,7 +7760,7 @@ void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
 
     if (1);
 
-    if (in_tank_flag == 1)
+    if (g_PlayerIsInTank == 1)
     {
         g_CurrentPlayer->stanHeight = bondviewYPositionRelated(
             g_CurrentPlayer->field_488.current_tile_ptr,
@@ -8270,7 +8274,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             }
             else
             {
-                if (in_tank_flag == 1 && !g_CurrentPlayer->insightaimmode)
+                if (g_PlayerIsInTank == 1 && !g_CurrentPlayer->insightaimmode)
                 {
                     moveData.analogTurn = adjustedStickX;
                 }
@@ -8443,7 +8447,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                     moveData.btap = 0;
                 }
 
-                if (in_tank_flag == 1 && g_CurrentPlayer->insightaimmode)
+                if (g_PlayerIsInTank == 1 && g_CurrentPlayer->insightaimmode)
                 {
                     if (getCurrentPlayerWeaponId(GUNRIGHT) == ITEM_TANKSHELLS)
                     {
@@ -8523,7 +8527,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                         {
                             if (!g_CurrentPlayer->insightaimmode)
                             {
-                                if (in_tank_flag == 1)
+                                if (g_PlayerIsInTank == 1)
                                 {
                                     moveData.aimTurnLeftSpeed = 1.0f;
                                 }
@@ -8542,7 +8546,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                         {
                             if (!g_CurrentPlayer->insightaimmode)
                             {
-                                if (in_tank_flag == 1)
+                                if (g_PlayerIsInTank == 1)
                                 {
                                     moveData.aimTurnRightSpeed = 1.0f;
                                 }
@@ -8565,7 +8569,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                         moveData.canNaturalPitch = !g_CurrentPlayer->insightaimmode;
 
-                        if (in_tank_flag == 1)
+                        if (g_PlayerIsInTank == 1)
                         {
                             moveData.canTurnTank = !g_CurrentPlayer->insightaimmode;
                         }
@@ -8708,7 +8712,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                         moveData.btap = 0;
                     }
 
-                    if ((in_tank_flag == 1) && (g_CurrentPlayer->insightaimmode))
+                    if ((g_PlayerIsInTank == 1) && (g_CurrentPlayer->insightaimmode))
                     {
                         if (getCurrentPlayerWeaponId(GUNRIGHT) == ITEM_TANKSHELLS)
                         {
@@ -8751,7 +8755,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
     if (moveData.btap)
     {
         /* If Bond is in the tank and pressed B, then exit. */
-        if (in_tank_flag == 1)
+        if (g_PlayerIsInTank == 1)
         {
             spF4 = (struct TankRecord *)g_PlayerTankProp->obj;
             spF4->unkD8 = get_ammo_count_for_weapon(ITEM_TANKSHELLS);
@@ -8766,7 +8770,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             }
 
             spF4->is_firing_tank = 0;
-            in_tank_flag = 0;
+            g_PlayerIsInTank = 0;
             g_CurrentPlayer->speedsideways = 0;
             g_CurrentPlayer->speedforwards = 0;
             g_CurrentPlayer->speedtheta = 0;
@@ -8797,7 +8801,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             tank_turret_turn_speed = 0;
             g_TankOrientationAngle = spEC->tank_orientation_angle;
             g_TankTurnSpeed = 0;
-            in_tank_flag = 1;
+            g_PlayerIsInTank = 1;
             g_EnterTankAudioState = TANK_RUN_STATE_NOT_RUNNING;
             g_CurrentPlayer->speedsideways = 0;
             g_CurrentPlayer->speedforwards = 0;
@@ -8887,7 +8891,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         bondviewUpdateWatchZoomIn();
     }
 
-    if (in_tank_flag == 1)
+    if (g_PlayerIsInTank == 1)
     {
         g_TankTurretTurn = 0;
 
@@ -9165,7 +9169,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             g_CurrentPlayer->movecentrerelease = FALSE;
         }
 
-        if (in_tank_flag == 0)
+        if (g_PlayerIsInTank == 0)
         {
             if ((moveData.speedVertaDown > 0) || (moveData.speedVertaUp > 0))
             {
@@ -9213,7 +9217,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
         if (g_CurrentPlayer->field_104)
         {
-            if (in_tank_flag == 0)
+            if (g_PlayerIsInTank == 0)
             {
                 ftemp_nostack_spB8 = (g_CurrentPlayer->speedverta * g_CurrentPlayer->speedverta * 0.5f) / 0.05f;
 
@@ -9304,7 +9308,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
             g_CurrentPlayer->vv_verta += g_CurrentPlayer->speedverta * g_GlobalTimerDelta * 3.5f;
 
-            if ((in_tank_flag == 1) && (g_EnterTankAudioState == TANK_RUN_STATE_RUNNING) && (g_CurrentPlayer->vv_verta < -20.0f))
+            if ((g_PlayerIsInTank == 1) && (g_EnterTankAudioState == TANK_RUN_STATE_RUNNING) && (g_CurrentPlayer->vv_verta < -20.0f))
             {
                 g_CurrentPlayer->vv_verta = -20.0f;
             }
@@ -9350,7 +9354,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         bondviewCurrentPlayerUpdateSpeedTheta(0);
     }
 
-    if (in_tank_flag == 1)
+    if (g_PlayerIsInTank == 1)
     {
         if (g_EnterTankAudioState == TANK_RUN_STATE_RUNNING)
         {
@@ -9486,6 +9490,7 @@ void bondviewPlayerTickDamageAndHealth(void)
                 g_CurrentPlayer->damagetype = 7;
             }
 
+// Ensure we don't read out of bounds of the g_DamageTypes array.
 #if defined(VERSION_EU) || defined(VERSION_JP)
             if (g_CurrentPlayer->damagetype < 0)
             {
@@ -9601,8 +9606,8 @@ void bondviewPlayerTickDamageAndHealth(void)
 
         if (!g_CurrentPlayer->bonddead)
         {
-            if ((g_CurrentPlayer->healthshowtime >= g_HealthDamageTypes[g_CurrentPlayer->healthDamageType].updateStartFrame)
-                && (g_HealthDamageTypes[g_CurrentPlayer->healthDamageType].updateEndFrame >= g_CurrentPlayer->healthshowtime))
+            if ((g_CurrentPlayer->healthshowtime >= g_HealthDisplayDurations[g_CurrentPlayer->healthDamageType].validStartFrame)
+                && (g_HealthDisplayDurations[g_CurrentPlayer->healthDamageType].updateToRealHealthFrame >= g_CurrentPlayer->healthshowtime))
             {
                 g_CurrentPlayer->apparenthealth = g_CurrentPlayer->oldhealth;
                 g_CurrentPlayer->apparentarmour = g_CurrentPlayer->oldarmour;
@@ -9612,8 +9617,8 @@ void bondviewPlayerTickDamageAndHealth(void)
                 g_CurrentPlayer->healthshowtime += g_GlobalTimerDelta;
 #endif
             }
-            else if ((g_CurrentPlayer->healthshowtime >= g_HealthDamageTypes[g_CurrentPlayer->healthDamageType].updateStartFrame)
-                && (g_HealthDamageTypes[g_CurrentPlayer->healthDamageType].otherEndFrame >= g_CurrentPlayer->healthshowtime))
+            else if ((g_CurrentPlayer->healthshowtime >= g_HealthDisplayDurations[g_CurrentPlayer->healthDamageType].validStartFrame)
+                && (g_HealthDisplayDurations[g_CurrentPlayer->healthDamageType].hideHealthFrame >= g_CurrentPlayer->healthshowtime))
             {
                 g_CurrentPlayer->apparenthealth = g_CurrentPlayer->bondhealth;
                 g_CurrentPlayer->apparentarmour = g_CurrentPlayer->bondarmour;
@@ -9647,7 +9652,7 @@ void bondviewPlayerTickExplode(void)
     g_PlayerTickExplodeCreatePosition++;
 
     if (g_SurroundBondWithExplosionsFlag
-        && g_PlayerInvincible == 0
+        && (g_PlayerInvincible == FALSE)
         && g_SurroundBondWithExplosionsTicks < g_GlobalTimer)
     {
         struct coord3d pos;
@@ -9752,7 +9757,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         Crouching applies a 50% base speed reduction before applying boost.
         Bond can't be boosted while in the tank.
     */
-    if (in_tank_flag == 0)
+    if (g_PlayerIsInTank == 0)
     {
         // This `if` block is Perfect Dark bwalkApplyCrouchSpeed.
         if (currentPlayerGetCrouchPos() == CROUCH_SQUAT)
@@ -9818,7 +9823,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
      * This section updates the tank turret horizontal position (turning left and right),
      * as well as turning the tank left and right.
     */
-    if (in_tank_flag == 1)
+    if (g_PlayerIsInTank == 1)
     {
         f32 ftemp2;
         struct coord3d check_collision_p1;
@@ -10165,7 +10170,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
     /**
      * Update forwards/backwards movement.
     */
-    if (in_tank_flag == 1)
+    if (g_PlayerIsInTank == 1)
     {
         /**
          * This section handles the forward/backwards movement of the tank.
@@ -10453,7 +10458,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             g_CurrentPlayer->speedforwards = calc_speedforwards;
         }
     }
-    else // not in tank: in_tank_flag != 1
+    else // not in tank: g_PlayerIsInTank != 1
     {
         f32 sp220;
         f32 sp21C;
@@ -10834,7 +10839,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
      * with the tank. If colliding with character, play the "arrrhghhg" sound effect, or if
      * colliding with prop then set tank movement penalty and create an explosion.
     */
-    if ((g_PlayerTankProp != NULL) && (in_tank_flag == 1) && (g_EnterTankAudioState == TANK_RUN_STATE_RUNNING))
+    if ((g_PlayerTankProp != NULL) && (g_PlayerIsInTank == 1) && (g_EnterTankAudioState == TANK_RUN_STATE_RUNNING))
     {
         struct PropRecord *prop;
         struct TankRecord *sp140_tank_as_TankRecord;
@@ -15456,7 +15461,7 @@ PropRecord* getCurrentPlayerProp(void) {
  */
 void bondviewKillCurrentPlayer(void)
 {
-    if ((g_CurrentPlayer->bondinvincible == 0) && (g_CurrentPlayer->bonddead == FALSE))
+    if ((g_CurrentPlayer->cheatBondInvincible == 0) && (g_CurrentPlayer->bonddead == FALSE))
     {
         if (g_CurrentPlayer->watch_animation_state != WATCH_ANIMATION_0x0)
         {
@@ -15527,12 +15532,12 @@ void record_damage_kills(f32 damage_amount, f32 vectorx, f32 vectorz, s32 player
 
     if (getPlayerCount() < 2 || (g_stopPlayFlag == 0 && g_gameOverFlag == 0))
     {
-        if (in_tank_flag == 1)
+        if (g_PlayerIsInTank == 1)
         {
             damage_dealt *= 0.25f;
         }
 
-        if (g_CurrentPlayer->bonddead == FALSE && g_CurrentPlayer->bondinvincible == FALSE)
+        if (g_CurrentPlayer->bonddead == FALSE && g_CurrentPlayer->cheatBondInvincible == FALSE)
         {
             joyRumblePakStart(get_cur_playernum(), 0.25);
             if (cur_player_get_control_type() >= 4)
@@ -15549,7 +15554,7 @@ void record_damage_kills(f32 damage_amount, f32 vectorx, f32 vectorz, s32 player
             damage_dealt = (g_CurrentPlayer->bondhealth * g_CurrentPlayer->actual_health) + (g_CurrentPlayer->bondarmour * g_CurrentPlayer->actual_armor);
         }
 
-        if (g_CurrentPlayer->bondinvincible == FALSE && g_CurrentPlayer->bonddead == FALSE && g_PlayerInvincible == FALSE &&
+        if (g_CurrentPlayer->cheatBondInvincible == FALSE && g_CurrentPlayer->bonddead == FALSE && g_PlayerInvincible == FALSE &&
             (g_CurrentPlayer->damageshowtime < 0 || (getPlayerCount() >= 2 && g_CurrentPlayer->damageshowtime == 0)))
         {
             if (g_CurrentPlayer->watch_animation_state != WATCH_ANIMATION_0x5 && g_CurrentPlayer->watch_animation_state != WATCH_ANIMATION_0xc)
@@ -15727,12 +15732,12 @@ s32 bond_pressed_reload_activate(void) {
 
 
 void set_bondata_invincible_flag(u32 arg0) {
-    g_CurrentPlayer->bondinvincible = arg0;
+    g_CurrentPlayer->cheatBondInvincible = arg0;
 }
 
 
 u8 get_bondata_invincible_flag(void) {
-    return g_CurrentPlayer->bondinvincible;
+    return g_CurrentPlayer->cheatBondInvincible;
 }
 
 
@@ -15818,23 +15823,24 @@ struct coord3d *getCurrentPlayerPrevPos(void)
 /**
  * Address 0x7F08A03C.
  */
-void bondviewUpdateGuardTankFlagsRelated(PropRecord *arg0, s32 flags)
+void bondviewUpdateGuardTankFlagsRelated(PropRecord *prop, s32 flag)
 {
-    s32 sp1C;
+    s32 playerIndex;
 
-    sp1C = getPlayerPointerIndex(arg0);
+    playerIndex = getPlayerPointerIndex(prop);
 
-    if (arg0->chr != NULL)
+    if (prop->chr != NULL)
     {
-        chrSetMoving(arg0->chr, flags);
+        chrSetMoving(prop->chr, flag);
     }
 
     if (g_PlayerTankProp != NULL)
     {
-        sub_GAME_7F04F218(g_PlayerTankProp, flags);
+        // When commented out tank shells fired from the tank detonate immediately.
+        sub_GAME_7F04F218(g_PlayerTankProp, flag);
     }
 
-    g_playerPointers[sp1C]->field_AC = flags;
+    g_playerPointers[playerIndex]->field_AC = flag;
 }
 
 
@@ -15878,7 +15884,7 @@ void bondviewGetPropHeightRelatedValues(PropRecord *arg0, struct rect4f **field_
 void bondviewUpdatePlayerCollisionBounds(void)
 {
 
-    if (in_tank_flag == 1)
+    if (g_PlayerIsInTank == 1)
     {
         bondviewGetTankCollisionBounds(&g_CurrentPlayer->collision_bounds, &g_CurrentPlayer->field_488.collision_position, g_TankOrientationAngle);
 

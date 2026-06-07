@@ -133,7 +133,7 @@ void bondviewLoadSetupIntroSection(void)
     g_ForceBondMoveOffset.f[2] = FLOAT_INIT;
     g_SurroundBondWithExplosionsFlag = 0;
     startpadcount = 0;
-    in_tank_flag = 0;
+    g_PlayerIsInTank = 0;
     g_WorldTankProp = 0;
     g_PlayerTankProp = NULL;
     g_PlayerTankYOffset = FLOAT_INIT;
@@ -152,7 +152,7 @@ void bondviewLoadSetupIntroSection(void)
     g_TankTurretTurn = FLOAT_INIT;
     g_ExplodeTankOnDeathFlag = 0;
     is_timer_active = 1;
-    g_PlayerInvincible = 0;
+    g_PlayerInvincible = FALSE;
     g_CameraMode = 0;
     g_CameraAfterCinema = 0;
     camera_fade_active = 0;

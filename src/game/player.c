@@ -454,7 +454,7 @@ void initBONDdataforPlayer(s32 player_num)
     g_playerPointers[player_num]->field_1280 = 0.0f;
     g_playerPointers[player_num]->players_cur_animation = 0;
     g_playerPointers[player_num]->field_1288 = 0.0f;
-    g_playerPointers[player_num]->bondinvincible = FALSE;
+    g_playerPointers[player_num]->cheatBondInvincible = FALSE;
     g_playerPointers[player_num]->healthDamageType = 7;
     g_playerPointers[player_num]->field_29BC = 1.0f;
     g_playerPointers[player_num]->field_29C0 = 0.0f;

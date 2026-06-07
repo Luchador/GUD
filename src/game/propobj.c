@@ -21,6 +21,7 @@
 #include "assets/obseg/text/LpropobjE.h"
 #include "bg.h"
 #include "bgfog.h"
+#include "bondaicommands.h"
 #include "bondinv.h"
 #include "bondview.h"
 #include "chr.h"
@@ -104,6 +105,7 @@ void door7F0526EC(DoorRecord *door, Mtxf *rhs);
 void objBreakCCTVGlass(ObjectRecord *obj);
 void save_img_index_to_obj_ani_slot(MonitorRecord *mon, void *unk88);
 void save_ptr_monitor_ani_code_to_obj_ani_slot(MonitorRecord *mon, void *image);
+s32 sub_GAME_7F06C010(ModelHitEntry **entryptr, coord3d *modelRayStart, coord3d *modelRayDir, Model **outModel, ModelNode **outNode);
 
 /* PD: projectileFree (similar but not the same structure) */
 void projectileFree(Projectile* projectile)
@@ -1165,7 +1167,7 @@ bool sub_GAME_7F041400(PropRecord *prop, coord3d *rayStart, coord3d *rayEnd, coo
     f32 dist;
     coord3d intersection;
     s32 next;
-    
+
     bestfrac = 1.0f;
     bestedge = -1;
     chraiGetCollisionBounds(prop, &polygon, &numedges, &ymax, &ymin);
@@ -1228,7 +1230,7 @@ bool sub_GAME_7F041400(PropRecord *prop, coord3d *rayStart, coord3d *rayEnd, coo
                     }
                     
                     D_80030B0C = prop;
-                    bodypartshot = 0;
+                    bodypartshot = HIT_NULL_PART;
                     g_CurrentProjectileModel = NULL;
                     dword_CODE_bss_80075B74 = NULL;
                     return TRUE;
@@ -1374,7 +1376,7 @@ bool projectileTestObjectCollisionRecursive(ObjectRecord *obj, coord3d *worldRay
 }
 
 
-s32 sub_GAME_7F06C010(ModelHitEntry **entryptr, coord3d *modelRayStart, coord3d *modelRayDir, Model **outModel, ModelNode **outNode);
+
 
 bool sub_GAME_7F041BB8(ChrRecord *chr, coord3d *arg1, coord3d *arg2, f32 arg3, coord3d *arg4, coord3d *arg5, coord3d *arg6, coord3d *arg7, f32 *arg8) {
     f32 instSize;
@@ -1440,7 +1442,7 @@ bool projectileFindCollidingProp(PropRecord *ignoreProp, coord3d *worldRayStart,
     f32 dist;
     s16 *propnumptr;
     f32 spa8;
-    bool spa4;
+    bool found_collision;
     coord3d sp98;
     ChrRecord *chr;
     coord3d sp88;
@@ -1451,7 +1453,7 @@ bool projectileFindCollidingProp(PropRecord *ignoreProp, coord3d *worldRayStart,
     s32 unused;
 
     result = FALSE;
-    spa4 = FALSE;
+    found_collision = FALSE;
     playerstank = get_ptr_for_players_tank();
 
     sp98.x = worldRayEnd->x - worldRayStart->x;
@@ -1519,7 +1521,7 @@ bool projectileFindCollidingProp(PropRecord *ignoreProp, coord3d *worldRayStart,
                         {
                             if (projectileTestObjectCollisionRecursive(obj, worldRayStart, worldRayEnd, &sp98, dist, &sp88, &sp7c, outHitPos, outHitNormal, &spa8))
                             {
-                                spa4 = TRUE;
+                                found_collision = TRUE;
                             }
                         }
                     }
@@ -1545,21 +1547,21 @@ bool projectileFindCollidingProp(PropRecord *ignoreProp, coord3d *worldRayStart,
 
                     if (sub_GAME_7F041BB8(chr, worldRayStart, &sp98, dist, &sp88, &sp7c, outHitPos, outHitNormal, &spa8))
                     {
-                        spa4 = TRUE;
+                        found_collision = TRUE;
                     }
                 } 
                 else if (iterprop->type == PROP_TYPE_VIEWER && g_playerPointers[getPlayerPointerIndex(iterprop)]->field_AC)
                 {
                     if (sub_GAME_7F041400(iterprop, worldRayStart, worldRayEnd, &sp98, outHitPos, outHitNormal, &spa8))
                     {
-                        spa4 = TRUE;
+                        found_collision = TRUE;
                     }
                 }
             }
         }
     }
 
-    if (spa4)
+    if (found_collision)
     {
         result = TRUE;
 
@@ -28818,7 +28820,7 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
         {
             if ((!(tailprop->flags & PROPFLAG_00000008)) && walkTilesBetweenPoints_NoCallback(&stan, tailprop->pos.x, tailprop->pos.z, target_pos->x, target_pos->z))
             {
-                explosionCreate(prop, target_pos, stan, explosion_type, (obj->flags & (PROPFLAG_ONSCREEN | PROPFLAG_ENABLED | PROPFLAG_00000008)) == 0, playernum, tailprop->rooms, 0);
+                explosionCreate(prop, target_pos, stan, explosion_type, (obj->flags & 0xe) == 0, playernum, tailprop->rooms, 0);
             }
             else
             {
@@ -36415,7 +36417,7 @@ void doorsChooseSwingDirection(PropRecord *chrprop, DoorRecord *door)
         bool infront = posIsInFrontOfDoor(chrprop, door);
         u32 wantflag = 0;
 
-        if ((door->doorFlags & 8) == 0)
+        if ((door->doorFlags & DOORFLAG_FLIP) == 0)
         {
             if (!infront)
             {
@@ -36531,6 +36533,7 @@ void alarmActivate(void)
     return;
 }
 
+
 void deactivate_alarm_sound_effect(void)
 {
     if ((ptr_alarm_sfx != 0) && (sndGetPlayingState(ptr_alarm_sfx) != AL_STOPPED)) {
@@ -36539,6 +36542,7 @@ void deactivate_alarm_sound_effect(void)
     return;
 }
 
+
 void alarmDeactivate(void)
 {
   alarm_timer = 0;
@@ -36546,13 +36550,11 @@ void alarmDeactivate(void)
   return;
 }
 
+
 bool alarmIsActive(void)
 {
   return (0 < alarm_timer);
 }
-
-
-
 
 
 void init_trigger_toxic_gas_effect(coord3d *source) //#MATCH
@@ -36573,10 +36575,6 @@ void init_trigger_toxic_gas_effect(coord3d *source) //#MATCH
 }
 
 
-
-
-
-
 void check_deactivate_gas_sound(void)
 {
     if ((ptr_gas_sound != NULL) && (sndGetPlayingState(ptr_gas_sound) != AL_STOPPED)) {
@@ -36584,7 +36582,6 @@ void check_deactivate_gas_sound(void)
     }
     return;
 }
-
 
 
 bool check_if_toxic_gas_activated() //#MATCH
@@ -36605,7 +36602,7 @@ void handle_gas_damage(void)
         }
     }
 
-    if (toxic_gas_sound_timer > 0.0f && g_PlayerInvincible == 0)
+    if (toxic_gas_sound_timer > 0.0f && g_PlayerInvincible == FALSE)
     {
         fogSwitchToSolosky2(toxic_gas_sound_timer / gasTimeToFullOpacity);
 

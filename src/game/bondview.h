@@ -1165,7 +1165,7 @@ struct player
    */
   /* 0x12B4 */ u8 cheatInputBufferIndex;
   /* 0x12B5 */ u8 cheatInputCount;
-  /* 0x12B6 */ u8 bondinvincible;
+  /* 0x12B6 */ u8 cheatBondInvincible;
   /* 0x12B7 */ u8 field_12B7;
   /* 0x12B8 */ struct damage_display_parent armor_display_values[23];
   /* 0x1598 */ struct damage_display_parent health_display_values[23];
@@ -2319,11 +2319,12 @@ typedef struct DamageType
 } DamageType;
 #endif
 
-typedef struct HealthDamageType { // time related idk
-    s32 updateStartFrame;
-    s32 updateEndFrame;
-    s32 otherEndFrame;
-} HealthDamageType;
+typedef struct HealthDisplayDuration 
+{
+    s32 validStartFrame;          // When positive the health display does not show up at all.
+    s32 updateToRealHealthFrame;  // Frame to switch from showing the health before taking damage, to showing the new health value.
+    s32 hideHealthFrame;          // Frame to remove the health/armor gauge from the screen.
+} HealthDisplayDuration;
 
 /**
  * First person weapon animation keyframe. Used for special weapons like the Throwing Knife and Taser.
@@ -2361,7 +2362,7 @@ extern CreditsEntry *credits_pointer;
 //D:80036444
 extern s32 g_SurroundBondWithExplosionsFlag;
 //D:80036448
-extern s32 in_tank_flag;
+extern s32 g_PlayerIsInTank;
 //D:8003644C
 extern struct PropRecord *g_WorldTankProp;
 
@@ -2420,7 +2421,11 @@ extern struct SetupIntroSwirl *g_IntroSwirl;
 //D:800364B0
 extern s32 is_timer_active;
 //D:800364B4
-extern s32 g_PlayerInvincible;
+/**
+ * Used to make the player invincible upon level completion.
+ * This is separate from the invincibility cheat, stored in cheatBondInvincible.
+ */
+extern bool g_PlayerInvincible;
 //D:800364B8
 extern struct SetupIntroCamera* g_CurrentSetupIntroCamera;
 //D:800364BC
@@ -2521,7 +2526,7 @@ D:8003676C                     .byte 0
 D:8003676D                     .byte 0, 0, 0xA
 D:80036770                     .word 0x1E, 0x3F19999A, 0
 D:8003677C                     .word 5, 0xF, 0x3ECCCCCD, 0xFF, 0xFF, 0xFF
-D:80036794     g_HealthDamageTypes:.word 0
+D:80036794     g_HealthDisplayDurations:.word 0
 D:80036798                     .byte 0
 D:80036799                     .byte 0, 0, 0x28
 D:8003679C                     .word 0x64, 0
@@ -2715,7 +2720,7 @@ int bondviewGetIfCurrentPlayerDamageShowTime(void);
 int bondviewGetIfCurrentPlayerHealthShowTime(void);
 u8 bondviewGetCurrentPlayersRoom(void);
 coord3d *bondviewGetCurrentPlayersPosition(void);
-void bondviewUpdateGuardTankFlagsRelated(PropRecord *arg0, s32 flags);
+void bondviewUpdateGuardTankFlagsRelated(PropRecord *prop, s32 flag);
 void bondviewGetPropHeightRelatedValues(PropRecord *arg0, struct rect4f **field_B0, s32 *arg2, f32 *height_related, f32 *collision);
 void bondviewAddCurrentPlayerArmor(f32 arg0);
 void bondviewResetIntroCameraMessageDialogs(void);

@@ -13872,7 +13872,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
             if ((g_ClockTimer > 0)
                 && (g_CurrentPlayer->unknown != 1)
                 && (Gun_hand_without_item(arg0) != 0)
-                && (g_PlayerInvincible == 0)
+                && (g_PlayerInvincible == FALSE)
 #if defined(VERSION_JP) || defined(VERSION_EU)
                 && (g_CurrentPlayer->bonddead == 0)
 #endif
@@ -13995,7 +13995,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
 #endif
             && (g_CurrentPlayer->unknown != 1)
             && (Gun_hand_without_item(arg0) != 0)
-            && (g_PlayerInvincible == 0)
+            && (g_PlayerInvincible == FALSE)
 #if defined(VERSION_JP) || defined(VERSION_EU)
             && (g_CurrentPlayer->bonddead == 0)
 #endif
