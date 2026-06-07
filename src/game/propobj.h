@@ -90,7 +90,7 @@ void                 objChangeShading(ObjectRecord *, coord3d *, Mtxf *, StandTi
 s32                  projectileTestPropBoundingSphere(coord3d *arg0, coord3d *arg1, coord3d *arg2, f32 arg3);
 void                 sub_GAME_7F04F244(PropRecord *arg0, struct rect4f **arg1, s32 *arg2, f32 *arg3, f32 *arg4);
 void                 doorActivate(DoorRecord *door, DOORSTATE State);
-s32                  posIsInFrontOfDoor(PropRecord *arg0, DoorRecord *arg1);
+bool                 posIsInFrontOfDoor(PropRecord *prop, DoorRecord *door);
 void                 doorsChooseSwingDirection(PropRecord *arg0, DoorRecord *arg1);
 Gfx                 *chrobjRenderProp(PropRecord *arg0, Gfx *arg1, s32 arg2);
 

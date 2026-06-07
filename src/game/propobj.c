@@ -36290,124 +36290,44 @@ void doorActivateWrapper(PropRecord *prop) //#MATCH
 }
 
 
-
-
-#ifdef NONMATCHING
-// https://decomp.me/scratch/B63wV 79.17%
-s32 posIsInFrontOfDoor(PropRecord* prop, DoorRecord* door)
+bool posIsInFrontOfDoor(PropRecord *prop, DoorRecord *door)
 {
-    BoundPadRecord* pad;
-    f32 other;
-    struct coord3d normal;
-    f32 value = 0;
-
-    pad = (BoundPadRecord*)&g_CurrentSetup.boundpads[door->pad];
-
-    normal.f[0] = (pad->up.f[1] * pad->look.f[2]) - (pad->up.f[2] * pad->look.f[1]);
-    normal.f[1] = (pad->up.f[2] * pad->look.f[0]) - (pad->up.f[0] * pad->look.f[2]);
-    normal.f[2] = (pad->up.f[0] * pad->look.f[1]) - (pad->up.f[1] * pad->look.f[0]);
-
-    value += (normal.f[0] * (prop->pos.f[0] - pad->pos.f[0]));
-    value += (normal.f[1] * (prop->pos.f[1] - pad->pos.f[1]));
-    value += (normal.f[2] * (prop->pos.f[2] - pad->pos.f[2]));
-
-    other = value;
-
-    if (door->doorFlags & 8)
+    BoundPadRecord *pad;
+    coord3d diff;
+    coord3d normal;
+    f32 dot;
+    f32 side;
+    
+    pad = &g_CurrentSetup.boundpads[((ObjectRecord *) door)->pad];
+    
+    normal.f[0] = (pad->up.y * pad->look.z) - (pad->look.y * pad->up.z);
+    normal.f[1] = (pad->up.z * pad->look.x) - (pad->look.z * pad->up.x);
+    normal.f[2] = (pad->up.x * pad->look.y) - (pad->look.x * pad->up.y);
+    
+    diff.x = prop->pos.x - pad->pos.x;
+    diff.y = prop->pos.y - pad->pos.y;
+    diff.z = prop->pos.z - pad->pos.z;
+    
+    dot = (side = ((diff.x * normal.f[0]) + (diff.y * normal.f[1])) + (diff.z * normal.f[2]));
+    
+    if (door->doorFlags & DOORFLAG_FLIP)
     {
-        other = -value;
+        side = -dot;
     }
-
-    if (other < 0)
+    
+    if (side < 0.0f)
     {
-        return 0;
+        return FALSE;
     }
-
-    if (other > 0)
+    else if (side > 0.0f)
     {
-        return 1;
+        return TRUE;
     }
-
-
-    return 1;
+    else
+    {
+        return TRUE;
+    }
 }
-
-#else
-s32 posIsInFrontOfDoor(PropRecord* prop, DoorRecord* door);
-GLOBAL_ASM(
-.text
-glabel posIsInFrontOfDoor
-/* 08A5A0 7F055A70 84AE0006 */  lh    $t6, 6($a1)
-/* 08A5A4 7F055A74 3C188007 */  lui   $t8, %hi(g_CurrentSetup+0x1C)
-/* 08A5A8 7F055A78 8F185D1C */  lw    $t8, %lo(g_CurrentSetup+0x1C)($t8)
-/* 08A5AC 7F055A7C 000E7900 */  sll   $t7, $t6, 4
-/* 08A5B0 7F055A80 01EE7821 */  addu  $t7, $t7, $t6
-/* 08A5B4 7F055A84 000F7880 */  sll   $t7, $t7, 2
-/* 08A5B8 7F055A88 01F81021 */  addu  $v0, $t7, $t8
-/* 08A5BC 7F055A8C C4440010 */  lwc1  $f4, 0x10($v0)
-/* 08A5C0 7F055A90 C4460020 */  lwc1  $f6, 0x20($v0)
-/* 08A5C4 7F055A94 C44A001C */  lwc1  $f10, 0x1c($v0)
-/* 08A5C8 7F055A98 C4520014 */  lwc1  $f18, 0x14($v0)
-/* 08A5CC 7F055A9C 46062202 */  mul.s $f8, $f4, $f6
-/* 08A5D0 7F055AA0 27BDFFE0 */  addiu $sp, $sp, -0x20
-/* 08A5D4 7F055AA4 46125102 */  mul.s $f4, $f10, $f18
-/* 08A5D8 7F055AA8 46044181 */  sub.s $f6, $f8, $f4
-/* 08A5DC 7F055AAC E7A60004 */  swc1  $f6, 4($sp)
-/* 08A5E0 7F055AB0 C4520018 */  lwc1  $f18, 0x18($v0)
-/* 08A5E4 7F055AB4 C44A0014 */  lwc1  $f10, 0x14($v0)
-/* 08A5E8 7F055AB8 C4440020 */  lwc1  $f4, 0x20($v0)
-/* 08A5EC 7F055ABC 46125202 */  mul.s $f8, $f10, $f18
-/* 08A5F0 7F055AC0 C44A000C */  lwc1  $f10, 0xc($v0)
-/* 08A5F4 7F055AC4 460A2482 */  mul.s $f18, $f4, $f10
-/* 08A5F8 7F055AC8 46124101 */  sub.s $f4, $f8, $f18
-/* 08A5FC 7F055ACC E7A40008 */  swc1  $f4, 8($sp)
-/* 08A600 7F055AD0 C448001C */  lwc1  $f8, 0x1c($v0)
-/* 08A604 7F055AD4 C44A000C */  lwc1  $f10, 0xc($v0)
-/* 08A608 7F055AD8 46085482 */  mul.s $f18, $f10, $f8
-/* 08A60C 7F055ADC C4480010 */  lwc1  $f8, 0x10($v0)
-/* 08A610 7F055AE0 C44A0018 */  lwc1  $f10, 0x18($v0)
-/* 08A614 7F055AE4 46085282 */  mul.s $f10, $f10, $f8
-/* 08A618 7F055AE8 460A9201 */  sub.s $f8, $f18, $f10
-/* 08A61C 7F055AEC E7A8000C */  swc1  $f8, 0xc($sp)
-/* 08A620 7F055AF0 C44A0000 */  lwc1  $f10, ($v0)
-/* 08A624 7F055AF4 C4920008 */  lwc1  $f18, 8($a0)
-/* 08A628 7F055AF8 94B90098 */  lhu   $t9, 0x98($a1)
-/* 08A62C 7F055AFC 460A9001 */  sub.s $f0, $f18, $f10
-/* 08A630 7F055B00 C44A0004 */  lwc1  $f10, 4($v0)
-/* 08A634 7F055B04 C492000C */  lwc1  $f18, 0xc($a0)
-/* 08A638 7F055B08 33280008 */  andi  $t0, $t9, 8
-/* 08A63C 7F055B0C 460A9081 */  sub.s $f2, $f18, $f10
-/* 08A640 7F055B10 C44A0008 */  lwc1  $f10, 8($v0)
-/* 08A644 7F055B14 C4920010 */  lwc1  $f18, 0x10($a0)
-/* 08A648 7F055B18 460A9301 */  sub.s $f12, $f18, $f10
-/* 08A64C 7F055B1C 46060482 */  mul.s $f18, $f0, $f6
-/* 08A650 7F055B20 44800000 */  mtc1  $zero, $f0
-/* 08A654 7F055B24 46041282 */  mul.s $f10, $f2, $f4
-/* 08A658 7F055B28 460A9180 */  add.s $f6, $f18, $f10
-/* 08A65C 7F055B2C 460C4102 */  mul.s $f4, $f8, $f12
-/* 08A660 7F055B30 46062400 */  add.s $f16, $f4, $f6
-/* 08A664 7F055B34 11000002 */  beqz  $t0, .L7F055B40
-/* 08A668 7F055B38 46008386 */   mov.s $f14, $f16
-/* 08A66C 7F055B3C 46008387 */  neg.s $f14, $f16
-.L7F055B40:
-/* 08A670 7F055B40 4600703C */  c.lt.s $f14, $f0
-/* 08A674 7F055B44 00000000 */  nop
-/* 08A678 7F055B48 45020004 */  bc1fl .L7F055B5C
-/* 08A67C 7F055B4C 460E003C */   c.lt.s $f0, $f14
-/* 08A680 7F055B50 10000007 */  b     .L7F055B70
-/* 08A684 7F055B54 00001025 */   move  $v0, $zero
-/* 08A688 7F055B58 460E003C */  c.lt.s $f0, $f14
-.L7F055B5C:
-/* 08A68C 7F055B5C 24020001 */  li    $v0, 1
-/* 08A690 7F055B60 45000003 */  bc1f  .L7F055B70
-/* 08A694 7F055B64 00000000 */   nop
-/* 08A698 7F055B68 10000001 */  b     .L7F055B70
-/* 08A69C 7F055B6C 24020001 */   li    $v0, 1
-.L7F055B70:
-/* 08A6A0 7F055B70 03E00008 */  jr    $ra
-/* 08A6A4 7F055B74 27BD0020 */   addiu $sp, $sp, 0x20
-)
-#endif
 
 
 void doorsChooseSwingDirection(PropRecord *chrprop, DoorRecord *door)
