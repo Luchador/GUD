@@ -2542,133 +2542,148 @@ void sub_GAME_7F03D0D4(void)
 }
 
 
-f32 sub_GAME_7F03D188(PropRecord *prop, coord3d *arg1, f32 *arg2, f32 *arg3, f32 *arg4)
+/**
+ * Address: 7F03D188
+ * 
+ * Calculates an auto-aim score for a given prop based roughly on how close it is to the center of the screen.
+ * Higher scores are better, with 1.0 being the best possible score.
+ */
+f32 chrpropScoreAutoAimTarget(PropRecord *targetprop, coord3d *aimpos, f32 *world_xbounds, f32 *world_ybounds, coord2d *out_screen)
 {
-    f32 spa0[2];
-    coord3d sp94;
-    f32 sp8c[2];
-    f32 sp84[2];
-    f32 sp7c[2];
-    f32 sp74[2];
-    f32 sp70;
-    f32 sp6c;
-    f32 top;
-    f32 bottom;
-    f32 left;
-    f32 right;
-    f32 result;
-    bool sp4c;
-    f32 sp48;
+    f32 aim_screen[2];
+    coord3d testpos;
+    f32 screen_left_edge[2];
+    f32 screen_right_edge[2];
+    f32 screen_top_edge[2];
+    f32 screen_bottom_edge[2];
+    f32 crosshair_x;
+    f32 crosshair_y;
+    f32 autoaim_top;
+    f32 autoaim_bottom;
+    f32 autoaim_left;
+    f32 autoaim_right;
+    f32 score;
+    bool passes_horizontal_check;
+    f32 horizontal_tolerance;
     PropRecord *playerprop;
-    StandTile* stan;
-    f32 ducking_height_related;
+    StandTile* line_stan;
+    f32 player_los_height;
 
-    top = getPlayer_c_screentop() + getPlayer_c_screenheight() * 0.175f;
-    bottom = getPlayer_c_screentop() + getPlayer_c_screenheight() * 0.825f;
-    left = getPlayer_c_screenleft() + getPlayer_c_screenwidth() * 0.25f;
-    right = getPlayer_c_screenleft() + getPlayer_c_screenwidth() * 0.75f;
+    /**
+     * Define a central auto-aim acceptance region.
+     * The sweet spot is 65% vertically in favor of the top of the screen and 50% horizontally.
+     */
+    autoaim_top = getPlayer_c_screentop() + getPlayer_c_screenheight() * 0.175f;
+    autoaim_bottom = getPlayer_c_screentop() + getPlayer_c_screenheight() * 0.825f;
+    autoaim_left = getPlayer_c_screenleft() + getPlayer_c_screenwidth() * 0.25f;
+    autoaim_right = getPlayer_c_screenleft() + getPlayer_c_screenwidth() * 0.75f;
 
-    result = -2;
+    score = -2.0f;
 
-    transform3Dto2DCoords(arg1, (coord3d*)spa0);
-    sp94.x = arg2[0];
-    sp94.y = arg1->y;
-    sp94.z = arg1->z;
-    transform3Dto2DCoords(&sp94, (coord3d*)sp8c);
-    sp94.x = arg2[1];
-    sp94.y = arg1->y;
-    sp94.z = arg1->z;
-    transform3Dto2DCoords(&sp94, (coord3d*)sp84);
-    sp94.x = arg1->x;
-    sp94.y = arg3[1];
-    sp94.z = arg1->z;
-    transform3Dto2DCoords(&sp94, (coord3d*)sp7c);
-    sp94.x = arg1->x;
-    sp94.y = arg3[0];
-    sp94.z = arg1->z;
-    transform3Dto2DCoords(&sp94, (coord3d*)sp74);
+    transform3Dto2DCoords(aimpos, (coord3d*)aim_screen);
+    testpos.x = world_xbounds[0];
+    testpos.y = aimpos->y;
+    testpos.z = aimpos->z;
+    transform3Dto2DCoords(&testpos, (coord3d*)screen_left_edge);
+    testpos.x = world_xbounds[1];
+    testpos.y = aimpos->y;
+    testpos.z = aimpos->z;
+    transform3Dto2DCoords(&testpos, (coord3d*)screen_right_edge);
+    testpos.x = aimpos->x;
+    testpos.y = world_ybounds[1];
+    testpos.z = aimpos->z;
+    transform3Dto2DCoords(&testpos, (coord3d*)screen_top_edge);
+    testpos.x = aimpos->x;
+    testpos.y = world_ybounds[0];
+    testpos.z = aimpos->z;
+    transform3Dto2DCoords(&testpos, (coord3d*)screen_bottom_edge);
 
-    if (sp74[1] >= top && bottom >= sp7c[1])
+    if (screen_bottom_edge[1] >= autoaim_top && autoaim_bottom >= screen_top_edge[1])
     {
-        sp4c = FALSE;
-        get_bullet_angle(&sp70, &sp6c);
-        sp8c[0] = floorFloat(sp8c[0]);
-        sp84[0] = ceilFloat(sp84[0]);
+        passes_horizontal_check = FALSE;
+        get_bullet_angle(&crosshair_x, &crosshair_y);
+        screen_left_edge[0] = floorFloat(screen_left_edge[0]);
+        screen_right_edge[0] = ceilFloat(screen_right_edge[0]);
 
-        if (redirect_get_BONDdata_autoaim_x())
+        if (getXAutoAimEnabledRedirect())
         {
-            if (sp8c[0] <= right && left <= sp84[0])
+            if (screen_left_edge[0] <= autoaim_right && autoaim_left <= screen_right_edge[0])
             {
-                sp48 = (sp84[0] - sp8c[0]) * 1.5f;
+                horizontal_tolerance = (screen_right_edge[0] - screen_left_edge[0]) * 1.5f;
 
                 if (getPlayerCount() == 1)
                 {
-                    sp48 = sp48 * difficulty;
+                    horizontal_tolerance = horizontal_tolerance * difficulty;
                 }
 
-                sp4c = getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth() >= (sp8c[0] + sp84[0]) * 0.5f - sp48
-                    && getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth() <= (sp8c[0] + sp84[0]) * 0.5f + sp48
-                    && left <= spa0[0]
-                    && right >= spa0[0];
+                passes_horizontal_check = getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth() >= (screen_left_edge[0] + screen_right_edge[0]) * 0.5f - horizontal_tolerance
+                    && getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth() <= (screen_left_edge[0] + screen_right_edge[0]) * 0.5f + horizontal_tolerance
+                    && autoaim_left <= aim_screen[0]
+                    && autoaim_right >= aim_screen[0];
             }
         }
         else
         {
-            sp4c = sp8c[0] <= sp70 && sp70 <= sp84[0];
+            passes_horizontal_check = screen_left_edge[0] <= crosshair_x && crosshair_x <= screen_right_edge[0];
         }
 
-        if (sp4c)
+        if (passes_horizontal_check)
         {
             playerprop = getCurrentPlayerProp();
-            stan = playerprop->stan;
-            ducking_height_related = bondviewGetPlayerDuckingHeightRelated(g_CurrentPlayer);
+            line_stan = playerprop->stan;
+            player_los_height = bondviewGetPlayerDuckingHeightRelated(g_CurrentPlayer);
             bondviewUpdateGuardTankFlagsRelated(playerprop, FALSE);
 
-            if ((stanTestLineUnobstructed(&stan, playerprop->pos.f[0], playerprop->pos.f[2], prop->pos.f[0], prop->pos.f[2], CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PATHBLOCKER, ducking_height_related, ducking_height_related, 0.0f, 1.0f) != 0))
+            // Can auto-aim see the target?
+            if ((stanTestLineUnobstructed(&line_stan, playerprop->pos.f[0], playerprop->pos.f[2], targetprop->pos.f[0], targetprop->pos.f[2], CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PATHBLOCKER, player_los_height, player_los_height, 0.0f, 1.0f) != 0))
             {
-                if (stan == prop->stan)
+                if (line_stan == targetprop->stan)
                 {
-                    f32 value = spa0[1];
+                    f32 clamped_screen_y = aim_screen[1];
 
-                    if (value < top)
+                    if (clamped_screen_y < autoaim_top)
                     {
-                        value = top;
+                        clamped_screen_y = autoaim_top;
                     }
-                    else if (value > bottom)
+                    else if (clamped_screen_y > autoaim_bottom)
                     {
-                        value = bottom;
+                        clamped_screen_y = autoaim_bottom;
                     }
 
-                    arg4[1] = value;
+                    out_screen->y = clamped_screen_y;
 
-                    if (redirect_get_BONDdata_autoaim_x())
+                    if (getXAutoAimEnabledRedirect())
                     {
-                        f32 value = spa0[0];
+                        f32 clamped_screen_x = aim_screen[0];
 
-                        if (value < left)
+                        if (clamped_screen_x < autoaim_left)
                         {
-                            value = left;
+                            clamped_screen_x = autoaim_left;
                         }
-                        else if (value > right)
+                        else if (clamped_screen_x > autoaim_right)
                         {
-                            value = right;
+                            clamped_screen_x = autoaim_right;
                         }
 
-                        arg4[0] = value;
+                        out_screen->x = clamped_screen_x;
                     }
 
-                    if (getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth() >= sp8c[0]
-                            && getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth() <= sp84[0])
+                    /** If the screen's center x-coord overlaps the target's horizontal span, give it the best possible score of 1.0.
+                     *  If this happens, this function's caller, chrpropUpdateAutoaimTarget, treats this as the winning prop and stops searching.
+                     */
+                    if (getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth() >= screen_left_edge[0] && getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth() <= screen_right_edge[0])
                     {
-                        result = 1;
+                        score = 1.0f;
                     }
-                    else if (getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth() >= sp8c[0])
+                    // If the target is towards the left side of the screen, penalize it based on how far towards the left.
+                    else if (getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth() >= screen_left_edge[0])
                     {
-                        result = 1 - ((getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth()) - sp84[0]) / sp48;
+                        score = 1.0f - ((getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth()) - screen_right_edge[0]) / horizontal_tolerance;
                     }
+                    // If the target is towards the right side of the screen, penalize it based on how far towards the right.
                     else
                     {
-                        result = 1 - (sp8c[0] - (getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth())) / sp48;
+                        score = 1.0f - (screen_left_edge[0] - (getPlayer_c_screenleft() + 0.5f * getPlayer_c_screenwidth())) / horizontal_tolerance;
                     }
                 }
             }
@@ -2677,7 +2692,7 @@ f32 sub_GAME_7F03D188(PropRecord *prop, coord3d *arg1, f32 *arg2, f32 *arg3, f32
         }
     }
 
-    return result;
+    return score;
 }
 
 
@@ -2688,65 +2703,69 @@ f32 sub_GAME_7F03D188(PropRecord *prop, coord3d *arg1, f32 *arg2, f32 *arg3, f32
 */
 void chrpropUpdateAutoaimTarget(void)
 {
-    f32 var_f20;
-    struct coord2d sp9C;
-    f32 var_f0;
-    struct PropRecord **pprop_iter;
-    struct coord3d sp88;
-    struct coord2d sp80;
-    struct coord2d sp78;
-    struct PropRecord *prop;
-    struct coord2d sp6C;
-    struct PropRecord *winning_prop;
-    struct ChrRecord *chr;
+    f32 best_score;
+    struct coord2d best_screen_aim; // Winning target's screen space aim point.
+    f32 candidate_score;
+    struct PropRecord **onscreen_prop_iter;
+    struct coord3d target_aimpos;
+    struct coord2d target_world_xbounds;
+    struct coord2d target_world_ybounds;
+    struct PropRecord *candidate_prop;
+    struct coord2d candidate_screen_aim;
+    struct PropRecord *best_prop;
+    struct ChrRecord *candidate_chr;
 
-    winning_prop = NULL;
-    sp9C = g_DefaultAutoAimCoord;
+    best_prop = NULL;
+    best_screen_aim = g_DefaultAutoAimCoord;
 
-    if (redirect_get_BONDdata_autoaim_y() != 0)
+    if (getYAutoAimEnabledRedirect() != FALSE)
     {
-        var_f20 = -1.0f;
+        best_score = -1.0f;
 
-        for (pprop_iter = g_LastOnScreenProp - 1; pprop_iter >= &g_OnScreenPropList[0]; pprop_iter--)
+        // Search all on screen props and record the best target.
+        for (onscreen_prop_iter = g_LastOnScreenProp - 1; onscreen_prop_iter >= &g_OnScreenPropList[0]; onscreen_prop_iter--)
         {
-            prop = *pprop_iter;
+            candidate_prop = *onscreen_prop_iter;
 
-            if (prop == NULL)
+            if (candidate_prop == NULL)
             {
                 continue;
             }
 
-            if ((prop->type != PROP_TYPE_CHR)
-                    && ((prop->type != PROP_TYPE_VIEWER)
-                        || (prop->obj == NULL)
-                        || (getPlayerPointerIndex(prop) == get_cur_playernum())))
+            if ((candidate_prop->type != PROP_TYPE_CHR)
+                    && ((candidate_prop->type != PROP_TYPE_VIEWER)
+                        || (candidate_prop->obj == NULL)
+                        || (getPlayerPointerIndex(candidate_prop) == get_cur_playernum())))
             {
                 continue;
             }
 
-            chr = prop->chr;
+            candidate_chr = candidate_prop->chr;
 
-            if (((chrGetEquippedWeaponProp(chr, GUNRIGHT) == 0) && (chrGetEquippedWeaponProp(chr, GUNLEFT) == 0)))
+            // Characters not holding a weapon are exempt from being a target.
+            if (((chrGetEquippedWeaponProp(candidate_chr, GUNRIGHT) == 0) && (chrGetEquippedWeaponProp(candidate_chr, GUNLEFT) == 0)))
             {
                 continue;
             }
 
-            if ((chrGetOnscreenRenderBounds(prop, &sp88, &sp80, &sp78) == 0))
+            if ((chrGetOnscreenRenderBounds(candidate_prop, &target_aimpos, &target_world_xbounds, &target_world_ybounds) == 0))
             {
                 continue;
             }
 
-            var_f0 = sub_GAME_7F03D188(prop, &sp88, &sp80.x, &sp78.x, &sp6C.x);
+            // Score the candidate based on how close it is to the center of the screen.
+            candidate_score = chrpropScoreAutoAimTarget(candidate_prop, &target_aimpos, &target_world_xbounds.x, &target_world_ybounds.x, &candidate_screen_aim.x);
 
-            if (var_f20 < var_f0)
+            if (best_score < candidate_score)
             {
-                var_f20 = var_f0;
+                best_score = candidate_score;
 
-                winning_prop = prop;
-                sp9C.x = sp6C.x;
-                sp9C.y = sp6C.y;
+                best_prop = candidate_prop;
+                best_screen_aim.x = candidate_screen_aim.x;
+                best_screen_aim.y = candidate_screen_aim.y;
 
-                if (1.0f <= var_f0)
+                // If we find a score of 1.0, we can't do any better, so break out of this search.
+                if (1.0f <= candidate_score)
                 {
                     break;
                 }
@@ -2754,15 +2773,16 @@ void chrpropUpdateAutoaimTarget(void)
         }
     }
 
-    if (winning_prop != NULL)
+    if (best_prop != NULL)
     {
-        if (sp9C.x > 1.0f);
+        // Fake but needed for matching.
+        if (best_screen_aim.x > 1.0f);
 
-        bondviewUpdateYAutoAimTime(winning_prop, ((sp9C.y - getPlayer_c_screentop()) / (getPlayer_c_screenheight() * 0.5f)) - 1.0f);
+        bondviewUpdateYAutoAimTime(best_prop, ((best_screen_aim.y - getPlayer_c_screentop()) / (getPlayer_c_screenheight() * 0.5f)) - 1.0f);
 
-        if (redirect_get_BONDdata_autoaim_x() != 0)
+        if (getXAutoAimEnabledRedirect() != FALSE)
         {
-            bondviewUpdateXAutoAimTime(winning_prop, ((sp9C.x - getPlayer_c_screenleft()) / (getPlayer_c_screenwidth() * 0.5f)) - 1.0f);
+            bondviewUpdateXAutoAimTime(best_prop, ((best_screen_aim.x - getPlayer_c_screenleft()) / (getPlayer_c_screenwidth() * 0.5f)) - 1.0f);
         }
     }
     else
@@ -2771,6 +2791,7 @@ void chrpropUpdateAutoaimTarget(void)
         bondviewUpdateXAutoAimTime(NULL, 0.0f);
     }
 }
+
 
 /*
 * Address: 7F03D9EC

@@ -1161,6 +1161,36 @@ void getTileMidPoint(StandTile *tile, coord3d *midPnt)
     return;
 }
 
+/**
+ * This is a 99.84% match with just a swapped register. After much permutation I can't get it, so I'm moving on from this one.
+ * https://decomp.me/scratch/HvisN
+ * 
+void getTileMidPoint(StandTile *tile, coord3d *out)
+{
+    s16 tail;
+    u32 indexA;
+    u32 indexB;
+    u32 indexC;
+    StandTilePoint *pointA;
+    StandTilePoint *pointB;
+    unsigned int new_var2;
+    StandTilePoint *pointC;
+    s16 *new_var3;
+
+    tail = (indexC = tile->tail.half);
+    new_var2 = (tail & 0xFFFF) >> 4;
+    indexA = (tail >> 8) & 0xf;
+    indexB = new_var2 & 0xf;
+    indexC = indexC & 0xf;
+    new_var3 = &(&tile->points[indexC])->x;
+    pointA = &tile->points[indexA];
+    pointB = &tile->points[indexB];
+    out->x = (((((f32) pointA->x) + ((f32) pointB->x)) + ((f32) (*new_var3))) / 3.0f) * inv_level_scale;
+    out->y = (((((f32) (&tile->points[indexA])->y) + ((f32) pointB->y)) + ((f32) (&tile->points[indexC])->y)) / 3.0f) * inv_level_scale;
+    out->z = (((((f32) (&tile->points[indexA])->z) + ((f32) pointB->z)) + ((f32) ((float) (&tile->points[indexC])->z))) / 3.0f) * inv_level_scale;
+}
+ */
+
 #else
 GLOBAL_ASM(
 .text

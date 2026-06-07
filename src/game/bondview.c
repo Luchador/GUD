@@ -4980,53 +4980,49 @@ void sub_GAME_7F07C540(s32 arg0)
     g_CurrentPlayer->field_42c = arg0;
 }
 
+
 void set_BONDdata_lookahead_setting(s32 arg0)
 {
     g_CurrentPlayer->automovecentreenabled = arg0;
 }
+
 
 s32 get_BONDdata_lookahead_setting(void)
 {
     return g_CurrentPlayer->automovecentreenabled;
 }
 
-void set_BONDdata_autoaim_y(s32 param_1)
+
+void setYAutoAimEnabled(bool enabled)
 {
-  g_CurrentPlayer->autoyaimenabled = param_1;
+  g_CurrentPlayer->autoyaimenabled = enabled;
 }
-
-
-
-
 
 
 /**
  * Address 0x7F07C580.
  */
-s32 get_BONDdata_autoaim_y(void)
+bool getYAutoAimEnabled(void)
 {
     if (getPlayerCount() == 1)
     {
         return g_CurrentPlayer->autoyaimenabled;
     }
-    return (s32) g_playerPerm->autoaim;
+
+    return (bool) g_playerPerm->autoaim;
 }
 
 
-
-
-
-int redirect_get_BONDdata_autoaim_y(void) {
-    // Node 0
-    return get_BONDdata_autoaim_y();
+bool getYAutoAimEnabledRedirect(void) 
+{
+    return getYAutoAimEnabled();
 }
 
-s32 get_BONDdata_is_aiming(void) {
+
+s32 get_BONDdata_is_aiming(void) 
+{
   return g_CurrentPlayer->insightaimmode;
 }
-
-
-
 
 
 /**
@@ -5059,42 +5055,32 @@ void bondviewUpdateYAutoAimTime(struct PropRecord *autoaim_target, f32 auto_aim_
 }
 
 
+void setXAutoAimEnabled(bool enabled) 
+{
+  g_CurrentPlayer->autoxaimenabled = enabled;
 
-
-
-void set_BONDdata_autoaim_x(s32 param_1) {
-  g_CurrentPlayer->autoxaimenabled = param_1;
   return;
 }
-
-
-
 
 
 /**
  * Address 0x7F07C668.
  */
-s32 get_BONDdata_autoaim_x(void)
+bool getXAutoAimEnabled(void)
 {
     if (getPlayerCount() == 1)
     {
         return g_CurrentPlayer->autoxaimenabled;
     }
-    return (s32) g_playerPerm->autoaim;
+
+    return (bool) g_playerPerm->autoaim;
 }
 
 
-
-
-
-
-int redirect_get_BONDdata_autoaim_x(void) {
-    return get_BONDdata_autoaim_x();
+bool getXAutoAimEnabledRedirect(void) 
+{
+    return getXAutoAimEnabled();
 }
-
-
-
-
 
 
 /**
@@ -9427,7 +9413,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         gunSetAimType(0);
 
         if (moveData.canAutoAim
-            && redirect_get_BONDdata_autoaim_x()
+            && getXAutoAimEnabledRedirect()
             && g_CurrentPlayer->autoaim_target_x
             && bondwalkItemCheckBitflags(getCurrentPlayerWeaponId(GUNRIGHT), WEAPONSTATBITFLAG_HAS_AUTO_AIM))
         {
@@ -9439,7 +9425,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         }
 
         if (moveData.canAutoAim
-            && redirect_get_BONDdata_autoaim_y()
+            && getYAutoAimEnabledRedirect()
             && g_CurrentPlayer->autoaim_target_y
             && bondwalkItemCheckBitflags(getCurrentPlayerWeaponId(GUNRIGHT), WEAPONSTATBITFLAG_HAS_AUTO_AIM))
         {
@@ -11340,8 +11326,8 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
     viSetViewPosition(get_curplayer_viewport_ulx(), bondviewGetCurrentPlayerViewportUly());
     currentPlayerUpdateColourScreenProperties();
     currentPlayerTickChrFade();
-    set_BONDdata_autoaim_y(cur_player_get_autoaim());
-    set_BONDdata_autoaim_x(cur_player_get_autoaim());
+    setYAutoAimEnabled(cur_player_get_autoaim());
+    setXAutoAimEnabled(cur_player_get_autoaim());
     set_BONDdata_lookahead_setting(cur_player_get_lookahead());
     gunSetGunAmmoVisible(GUNAMMOREASON_OPTION, cur_player_get_ammo_onscreen_setting());
 

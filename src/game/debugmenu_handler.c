@@ -694,11 +694,11 @@ s32 debug_menu_processor(s8 stick_h, s8 stick_v, u16 button_held, u16 button_pre
                 break;
 
             case DEB_AUTOAIMY: // auto y aim
-                set_BONDdata_autoaim_y(get_BONDdata_autoaim_y() == 0);
+                setYAutoAimEnabled(getYAutoAimEnabled() == 0);
                 break;
 
             case DEB_AUTOAIMX: // auto x aim
-                set_BONDdata_autoaim_x(get_BONDdata_autoaim_x() == 0);
+                setXAutoAimEnabled(getXAutoAimEnabled() == 0);
                 break;
 
             case DEB_007: // 007

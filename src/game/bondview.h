@@ -2709,9 +2709,12 @@ void bondviewGetCollisionRadius(PropRecord* arg0, f32 *collision_radius, f32 *he
 void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset);
 void currentPlayerSetFadeColour(s32 r, s32 g, s32 b, f32 frac);
 void currentPlayerSetFadeFrac(f32 maxfadetime, f32 frac);
-void set_BONDdata_autoaim_x(s32 param_1);
-s32 get_BONDdata_autoaim_x(void);
-void set_BONDdata_autoaim_y(s32 param_1);
+void setXAutoAimEnabled(bool enabled);
+bool getXAutoAimEnabled(void);
+bool getXAutoAimEnabledRedirect(void);
+void setYAutoAimEnabled(s32 enabled);
+bool getYAutoAimEnabled(void);
+bool getYAutoAimEnabledRedirect(void);
 void set_BONDdata_lookahead_setting(s32 arg0);
 f32 bondviewGetPlayerStanHeight(struct player *player);
 void record_damage_kills(f32, f32, f32, s32, s32);
@@ -2763,8 +2766,6 @@ void change_player_pos_to_target(struct collision434* arg0, struct coord3d *arg1
 void sub_GAME_7F089718(f32);
 void bondviewResetUpperTextDisplay(void);
 Mtxf *currentPlayerGetProjectionMatrixF(void);
-int redirect_get_BONDdata_autoaim_x(void);
-int redirect_get_BONDdata_autoaim_y(void);
 void transform3Dto2DCoords(coord3d *in, coord2d *out);
 void maybe_solo_intro_camera_handler(void);
 s32 get_BONDdata_is_aiming(void);
