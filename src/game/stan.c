@@ -2872,7 +2872,7 @@ s32 stanTestVolume(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, 
 
 
 //stanResetHits
-void sub_GAME_7F0B1CC4(void) {
+void stanResetHits(void) {
     stanSavedColl_tile = 0;
     stanSavedColl_pointI = 0;
     D_800413BC = 0;

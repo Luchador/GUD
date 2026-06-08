@@ -972,7 +972,7 @@ glabel chraiDefaultWeaponFireHandler
 /* 06FE14 7F03B2E4 46020202 */  mul.s $f8, $f0, $f2
 /* 06FE18 7F03B2E8 0FC227F5 */  jal   bondviewGetCurrentPlayersPosition
 /* 06FE1C 7F03B2EC E7A8006C */   swc1  $f8, 0x6c($sp)
-/* 06FE20 7F03B2F0 0FC2C731 */  jal   sub_GAME_7F0B1CC4
+/* 06FE20 7F03B2F0 0FC2C731 */  jal   stanResetHits
 /* 06FE24 7F03B2F4 00408025 */   move  $s0, $v0
 /* 06FE28 7F03B2F8 C7B004F4 */  lwc1  $f16, 0x4f4($sp)
 /* 06FE2C 7F03B2FC 27A404F8 */  addiu $a0, $sp, 0x4f8

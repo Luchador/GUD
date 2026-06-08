@@ -2008,7 +2008,7 @@ f32 chrlvPathingCollisionRelated(PropRecord *arg0, f32 arg1, f32 arg2, s32 cdtyp
     dest_z = arg0->pos.f[2] + (sp5C.f[2] * arg2);
 
     chrSetMoving(chr, 0);
-    sub_GAME_7F0B1CC4();
+    stanResetHits();
 
     if (stanTestLineUnobstructed(&stan, arg0->pos.f[0], arg0->pos.f[2], dest_x, dest_z, cdtypes, unkHeight, unkA, 0.0f, 1.0f) != 0)
     {
@@ -6931,7 +6931,7 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                     sp258.f[2] = sp240.f[2] + (sp220.f[2] * M_U16_MAX_VALUE_F);
 
                     chrSetMoving(self, 0);
-                    sub_GAME_7F0B1CC4();
+                    stanResetHits();
                     self_stan = sp238;
 
                     if (stanTestLineUnobstructed(&self_stan, sp240.f[0], sp240.f[2], sp258.f[0], sp258.f[2], CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER, sp240.f[1], sp240.f[1], sp258.f[1], sp258.f[1]) == 0)
@@ -8626,7 +8626,7 @@ s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     sp90 = 1.2f * (arg7 * spA0.f[2]);
 
     chrSetMoving(self, 0);
-    sub_GAME_7F0B1CC4();
+    stanResetHits();
 
     spAC = arg2;
 
@@ -8800,7 +8800,7 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     sp90 = 1.2f * (arg7 * spA0.f[2]);
 
     chrSetMoving(self, 0);
-    sub_GAME_7F0B1CC4();
+    stanResetHits();
 
     spAC = arg2;
 
@@ -10899,7 +10899,7 @@ s32 chrIsTargetNearlyInSight(ChrRecord *self)
     self_prop   = self->prop;
     stan        = self_prop->stan;
 
-    sub_GAME_7F0B1CC4();
+    stanResetHits();
 
     if (walkTilesBetweenPoints_NoCallback(&stan, self_prop->pos.x, self_prop->pos.z, player_prop->pos.x, player_prop->pos.z))
     {

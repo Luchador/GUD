@@ -3869,7 +3869,7 @@ s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, co
             spB0.y = pos->y;
             spB0.z = (((f32 *) (&spBC))[2] * spD0) + pos->z;
 
-            sub_GAME_7F0B1CC4();
+            stanResetHits();
 
             spC8 = tile;
 
@@ -5585,7 +5585,7 @@ s32 bondviewTrySimpleMovePlayerCollision(coord3d *next_pos, coord3d *collision_p
     struct StandTile *stan;
 
     // resets stan global collision variables
-    sub_GAME_7F0B1CC4();
+    stanResetHits();
 
     if (bondviewTryMoveToStan(next_pos, &stan) != 0)
     {
@@ -9114,7 +9114,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             spAC.f[1] = g_CurrentPlayer->field_488.collision_position.f[1];
             spAC.f[2] = g_CurrentPlayer->field_488.collision_position.f[2] + (g_CurrentPlayer->field_488.theta_transform.f[2] * 300.0f);
 
-            sub_GAME_7F0B1CC4();
+            stanResetHits();
 
             if (stanTestLineUnobstructed(&spC0, g_CurrentPlayer->field_488.collision_position.f[0], g_CurrentPlayer->field_488.collision_position.f[2], spAC.f[0], spAC.f[2], CDTYPE_CLOSEDDOORS, spA0.f[2], spA0.f[1], 0, 1.0f))
             {

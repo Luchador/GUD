@@ -1261,7 +1261,7 @@ glabel sub_GAME_7F01F614
 /* 054180 7F01F650 8FA40098 */  lw    $a0, 0x98($sp)
 /* 054184 7F01F654 0FC07D7A */  jal   chrSetMoving
 /* 054188 7F01F658 00002825 */   move  $a1, $zero
-/* 05418C 7F01F65C 0FC2C731 */  jal   sub_GAME_7F0B1CC4
+/* 05418C 7F01F65C 0FC2C731 */  jal   stanResetHits
 /* 054190 7F01F660 00000000 */   nop
 /* 054194 7F01F664 C6240008 */  lwc1  $f4, 8($s1)
 /* 054198 7F01F668 8E050000 */  lw    $a1, ($s0)
