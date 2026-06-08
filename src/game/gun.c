@@ -13391,7 +13391,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
                 if ((temp_s0->field_88C == 0)
                     || (temp_s0->weapon_hold_time != 0)
                     || ((bondwalkItemCheckBitflags(var_s1, WEAPONSTATBITFLAG_BURST_FIRE) != 0)
-                        && (get_BONDdata_is_aiming() == 0)
+                        && (currentPlayerGetIsAiming() == 0)
                         && (((s32) temp_s0->volley % 3) != 0)))
                 {
                     if (((s32) temp_s0->field_88C % bondwalkItemGetAutomaticFiringRate(var_s1)) == 0)

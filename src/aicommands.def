@@ -6394,7 +6394,7 @@ _AI_CMD(
     {
         AIRecord *ai  = AiListp + Offset;
         float     val = (ai->val[0]) / 255.0f;
-        if (val > bondviewGetCurrentPlayerHealth())
+        if (val > currentPlayerGetHealth())
         {
             Offset = chraiGoToLabel(AiListp, Offset, ai->val[1]);
         }
@@ -6436,7 +6436,7 @@ _AI_CMD(
     {
         AIRecord *ai  = AiListp + Offset;
         float     val = (ai->val[0]) / 255.0f;
-        if (val < bondviewGetCurrentPlayerHealth())
+        if (val < currentPlayerGetHealth())
         {
             Offset = chraiGoToLabel(AiListp, Offset, ai->val[1]);
         }

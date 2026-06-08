@@ -1527,14 +1527,14 @@ void init_player_BONDdata(void)
     g_CurrentPlayer->bondshotspeed.x = 0.0f;
     g_CurrentPlayer->bondshotspeed.y = 0.0f;
     g_CurrentPlayer->bondshotspeed.z = 0.0f;
-    g_CurrentPlayer->field_104 = 0;
+    g_CurrentPlayer->lookahead_auto_adjust_pitch_active = FALSE;
     g_CurrentPlayer->field_108 = 0;
-    g_CurrentPlayer->field_10C = 0;
-    g_CurrentPlayer->movecentrerelease = FALSE;
-    g_CurrentPlayer->lookaheadcentreenabled = TRUE;
-    g_CurrentPlayer->automovecentreenabled = TRUE;
+    g_CurrentPlayer->manual_adjust_pitch_active = FALSE;
+    g_CurrentPlayer->suppress_move_centre_until_walk_release = FALSE;
+    g_CurrentPlayer->lookahead_enable_stan_test = TRUE;
+    g_CurrentPlayer->lookaheadenabled = TRUE;
     g_CurrentPlayer->fastmovecentreenabled = FALSE;
-    g_CurrentPlayer->automovecentre = TRUE;
+    g_CurrentPlayer->lookahead_auto_centre_armed = TRUE;
     g_CurrentPlayer->insightaimmode = FALSE;
     g_CurrentPlayer->autoyaimenabled = TRUE;
     g_CurrentPlayer->autoaimy = 0.0f;
@@ -4981,19 +4981,22 @@ void sub_GAME_7F07C540(s32 arg0)
 }
 
 
-void set_BONDdata_lookahead_setting(s32 arg0)
+void currentPlayerSetLookAheadSetting(bool enabled)
 {
-    g_CurrentPlayer->automovecentreenabled = arg0;
+    g_CurrentPlayer->lookaheadenabled = enabled;
 }
 
 
-s32 get_BONDdata_lookahead_setting(void)
+/**
+ * Unreferenced
+ */
+bool currentPlayerGetLookAheadSetting(void)
 {
-    return g_CurrentPlayer->automovecentreenabled;
+    return g_CurrentPlayer->lookaheadenabled;
 }
 
 
-void setYAutoAimEnabled(bool enabled)
+void currentPlayerSetYAutoAimEnabled(bool enabled)
 {
   g_CurrentPlayer->autoyaimenabled = enabled;
 }
@@ -5002,7 +5005,7 @@ void setYAutoAimEnabled(bool enabled)
 /**
  * Address 0x7F07C580.
  */
-bool getYAutoAimEnabled(void)
+bool currentPlayerGetYAutoAimEnabled(void)
 {
     if (getPlayerCount() == 1)
     {
@@ -5013,13 +5016,13 @@ bool getYAutoAimEnabled(void)
 }
 
 
-bool getYAutoAimEnabledRedirect(void) 
+bool currentPlayerGetYAutoAimEnabledRedirect(void) 
 {
-    return getYAutoAimEnabled();
+    return currentPlayerGetYAutoAimEnabled();
 }
 
 
-s32 get_BONDdata_is_aiming(void) 
+bool currentPlayerGetIsAiming(void) 
 {
   return g_CurrentPlayer->insightaimmode;
 }
@@ -5055,7 +5058,7 @@ void bondviewUpdateYAutoAimTime(struct PropRecord *autoaim_target, f32 auto_aim_
 }
 
 
-void setXAutoAimEnabled(bool enabled) 
+void currentPlayerSetXAutoAimEnabled(bool enabled) 
 {
   g_CurrentPlayer->autoxaimenabled = enabled;
 
@@ -5066,7 +5069,7 @@ void setXAutoAimEnabled(bool enabled)
 /**
  * Address 0x7F07C668.
  */
-bool getXAutoAimEnabled(void)
+bool currentPlayerGetXAutoAimEnabled(void)
 {
     if (getPlayerCount() == 1)
     {
@@ -5077,9 +5080,9 @@ bool getXAutoAimEnabled(void)
 }
 
 
-bool getXAutoAimEnabledRedirect(void) 
+bool currentPlayerGetXAutoAimEnabledRedirect(void) 
 {
-    return getXAutoAimEnabled();
+    return currentPlayerGetXAutoAimEnabled();
 }
 
 
@@ -7133,10 +7136,10 @@ void trigger_solo_watch_menu(s32 arg0)
             sub_GAME_7F07DEFC();
             bondviewTriggerWatchZoomDefault();
 
-            sub_GAME_7F0A2F30(&g_CurrentPlayer->armor_display_values, 0x2E, 1, get_BONDdata_watch_armor());
+            sub_GAME_7F0A2F30(&g_CurrentPlayer->armor_display_values, 0x2E, 1, currentPlayerGetArmor());
             buildGaugeBarDL(&g_CurrentPlayer->watch_body_armor_bar_gdl, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->armor_display_values), 0x2E);
 
-            sub_GAME_7F0A2F30(&g_CurrentPlayer->health_display_values, 0x2E, -1, bondviewGetCurrentPlayerHealth());
+            sub_GAME_7F0A2F30(&g_CurrentPlayer->health_display_values, 0x2E, -1, currentPlayerGetHealth());
             buildGaugeBarDL(&g_CurrentPlayer->watch_health_bar_gdl, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->health_display_values), 0x2E);
 
             sub_GAME_7F0A69A8();
@@ -8075,10 +8078,6 @@ void bondviewApplyVertaTheta(void)
 }
 
 
-
-
-
-
 /**
  * US address 7F081974.
  * EU address 7F081A18.
@@ -8114,7 +8113,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
     f32 ftemp_nostack_spD0;
     f32 ftemp_nostack_spCC;
     f32 ftemp_nostack_spC8;
-    f32 spC4;
+    f32 targetPitch;
     StandTile *spC0;
     f32 spBC;
     f32 ftemp_nostack_spB8;
@@ -9100,9 +9099,11 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
     if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x0)
     {
-        spC4 = -4.0f;
+        // By default the camera is pitched slightly below the horizon
+        targetPitch = -4.0f;
 
-        if (g_CurrentPlayer->lookaheadcentreenabled)
+        // lookahead_enable_stan_test is always true, so this block always executes.
+        if (g_CurrentPlayer->lookahead_enable_stan_test)
         {
             spC0 = g_CurrentPlayer->field_488.current_tile_ptr;
             spBC = 300.0f;
@@ -9135,83 +9136,89 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                 if ((ftemp_nostack_spC8 > -300.0f) && (ftemp_nostack_spC8 < 500.0f))
                 {
-                    spC4 = ((atan2f(ftemp_nostack_spC8, spBC) * 360.0f) / M_TAU_F) + -4.0f;
+                    targetPitch = ((atan2f(ftemp_nostack_spC8, spBC) * 360.0f) / M_TAU_F) + -4.0f;
 
-                    if (spC4 >= 180.0f)
+                    if (targetPitch >= 180.0f)
                     {
-                        spC4 -= 360.0f;
+                        targetPitch -= 360.0f;
                     }
 
-                    if (spC4 > 0)
+                    if (targetPitch > 0)
                     {
-                        spC4 *= 0.8666667f;
+                        targetPitch *= 0.8666667f;
                     }
                 }
             }
         }
 
-        if ((g_CurrentPlayer->movecentrerelease) && (moveData.analogWalk < 40) && (moveData.analogWalk > -40))
+        if ((g_CurrentPlayer->suppress_move_centre_until_walk_release) && (moveData.analogWalk < 40) && (moveData.analogWalk > -40))
         {
-            g_CurrentPlayer->movecentrerelease = FALSE;
+            g_CurrentPlayer->suppress_move_centre_until_walk_release = FALSE;
         }
 
+        
         if (g_PlayerIsInTank == 0)
         {
+            /**
+             * If the player is giving manual pitch inputs, stop the automatic look ahead pitch adjust.
+             */
             if ((moveData.speedVertaDown > 0) || (moveData.speedVertaUp > 0))
             {
-                g_CurrentPlayer->field_104 = 0;
-                g_CurrentPlayer->field_10C = 1;
-                g_CurrentPlayer->automovecentre = FALSE;
+                g_CurrentPlayer->lookahead_auto_adjust_pitch_active = FALSE;
+                g_CurrentPlayer->manual_adjust_pitch_active = TRUE;
+                g_CurrentPlayer->lookahead_auto_centre_armed = FALSE;
             }
             else
             {
                 if (moveData.disableLookAhead)
                 {
-                    g_CurrentPlayer->automovecentre = FALSE;
+                    g_CurrentPlayer->lookahead_auto_centre_armed = FALSE;
                 }
-                else if (g_CurrentPlayer->automovecentreenabled)
+                else if (g_CurrentPlayer->lookaheadenabled)
                 {
                     if ((moveData.canLookAhead) && ((moveData.analogWalk > 60) || (moveData.analogWalk < -60)))
                     {
-                        g_CurrentPlayer->automovecentre = TRUE;
+                        g_CurrentPlayer->lookahead_auto_centre_armed = TRUE;
                     }
 
-                    if ((
-                        g_CurrentPlayer->automovecentre)
-                        && (( ((spC4 + 5.0f) < g_CurrentPlayer->vv_verta)) || (g_CurrentPlayer->vv_verta < (spC4 + -FLOAT_TEN_A)))
-                        && (g_CurrentPlayer->movecentrerelease == FALSE))
+                    /**
+                     * If the player's camera pitch is 5 degrees above the target pitch or 10 degrees below the target pitch,
+                     * and move centre is allowed, look ahead can be activated.
+                     */
+                    if ((g_CurrentPlayer->lookahead_auto_centre_armed)
+                        && (( ((targetPitch + 5.0f) < g_CurrentPlayer->vv_verta)) || (g_CurrentPlayer->vv_verta < (targetPitch + -FLOAT_TEN_A)))
+                        && (g_CurrentPlayer->suppress_move_centre_until_walk_release == FALSE))
                     {
-                        g_CurrentPlayer->field_104 = 1;
+                        g_CurrentPlayer->lookahead_auto_adjust_pitch_active = TRUE;
                     }
                 }
-                else if (
-                    (g_CurrentPlayer->fastmovecentreenabled)
+                /**
+                 * fastmovecentreenabled is never set to true, so this block can never execute. Cut option?
+                 */
+                else if ((g_CurrentPlayer->fastmovecentreenabled)
                     && (moveData.canLookAhead)
-                    && (
-                        (moveData.analogWalk > 60)
-                        || (moveData.analogWalk < -60)
-                    ) && (
-                        ( ((spC4 + 5.0f) < g_CurrentPlayer->vv_verta)) || (g_CurrentPlayer->vv_verta < (spC4 + -FLOAT_TEN_A))
-                    ) && (g_CurrentPlayer->movecentrerelease == FALSE))
+                    && ((moveData.analogWalk > 60) || (moveData.analogWalk < -60)) 
+                    && (( ((targetPitch + 5.0f) < g_CurrentPlayer->vv_verta)) || (g_CurrentPlayer->vv_verta < (targetPitch + -FLOAT_TEN_A))) 
+                    && (g_CurrentPlayer->suppress_move_centre_until_walk_release == FALSE))
                 {
-                    g_CurrentPlayer->field_104 = 1;
+                    g_CurrentPlayer->lookahead_auto_adjust_pitch_active = TRUE;
                 }
 
-                g_CurrentPlayer->field_10C = 0;
+                g_CurrentPlayer->manual_adjust_pitch_active = FALSE;
             }
         }
 
-        if (g_CurrentPlayer->field_104)
+        if (g_CurrentPlayer->lookahead_auto_adjust_pitch_active)
         {
             if (g_PlayerIsInTank == 0)
             {
                 ftemp_nostack_spB8 = (g_CurrentPlayer->speedverta * g_CurrentPlayer->speedverta * 0.5f) / 0.05f;
 
-                if ((spC4 + ftemp_nostack_spB8) < g_CurrentPlayer->vv_verta)
+                if ((targetPitch + ftemp_nostack_spB8) < g_CurrentPlayer->vv_verta)
                 {
                     bondviewCurrentPlayerUpdateSpeedVerta(1.0f);
                 }
-                else if (g_CurrentPlayer->vv_verta < (spC4 - ftemp_nostack_spB8))
+                else if (g_CurrentPlayer->vv_verta < (targetPitch - ftemp_nostack_spB8))
                 {
                     bondviewCurrentPlayerUpdateSpeedVerta(-1.0f);
                 }
@@ -9222,22 +9229,22 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                 ftemp_nostack_spB8 = g_CurrentPlayer->vv_verta + (2.0f * (g_CurrentPlayer->speedverta * g_GlobalTimerDelta));
 
-                if ((spC4 < g_CurrentPlayer->vv_verta) && (spC4 < ftemp_nostack_spB8))
+                if ((targetPitch < g_CurrentPlayer->vv_verta) && (targetPitch < ftemp_nostack_spB8))
                 {
                     g_CurrentPlayer->vv_verta = ftemp_nostack_spB8;
                 }
-                else if ((g_CurrentPlayer->vv_verta < spC4) && (ftemp_nostack_spB8 < spC4))
+                else if ((g_CurrentPlayer->vv_verta < targetPitch) && (ftemp_nostack_spB8 < targetPitch))
                 {
                     g_CurrentPlayer->vv_verta = ftemp_nostack_spB8;
                 }
                 else
                 {
-                    g_CurrentPlayer->vv_verta = spC4;
+                    g_CurrentPlayer->vv_verta = targetPitch;
                     g_CurrentPlayer->speedverta = 0;
 
-                    if (g_CurrentPlayer->field_10C == 0)
+                    if (g_CurrentPlayer->manual_adjust_pitch_active == FALSE)
                     {
-                        g_CurrentPlayer->field_104 = 0;
+                        g_CurrentPlayer->lookahead_auto_adjust_pitch_active = FALSE;
                     }
                 }
             }
@@ -9273,9 +9280,10 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             {
                 bondviewCurrentPlayerUpdateSpeedVerta(moveData.speedVertaDown);
 
+                // Bug? This is true for every value except exactly 60.
                 if ((moveData.canLookAhead) && ((moveData.analogWalk > 60) || (moveData.analogWalk < 60)))
                 {
-                    g_CurrentPlayer->movecentrerelease = TRUE;
+                    g_CurrentPlayer->suppress_move_centre_until_walk_release = TRUE;
                 }
             }
             else if (moveData.speedVertaUp > 0)
@@ -9284,7 +9292,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                 if ((moveData.canLookAhead) && ((moveData.analogWalk > 60) || (moveData.analogWalk < 60)))
                 {
-                    g_CurrentPlayer->movecentrerelease = TRUE;
+                    g_CurrentPlayer->suppress_move_centre_until_walk_release = TRUE;
                 }
             }
             else
@@ -9413,7 +9421,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         gunSetAimType(0);
 
         if (moveData.canAutoAim
-            && getXAutoAimEnabledRedirect()
+            && currentPlayerGetXAutoAimEnabledRedirect()
             && g_CurrentPlayer->autoaim_target_x
             && bondwalkItemCheckBitflags(getCurrentPlayerWeaponId(GUNRIGHT), WEAPONSTATBITFLAG_HAS_AUTO_AIM))
         {
@@ -9425,7 +9433,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         }
 
         if (moveData.canAutoAim
-            && getYAutoAimEnabledRedirect()
+            && currentPlayerGetYAutoAimEnabledRedirect()
             && g_CurrentPlayer->autoaim_target_y
             && bondwalkItemCheckBitflags(getCurrentPlayerWeaponId(GUNRIGHT), WEAPONSTATBITFLAG_HAS_AUTO_AIM))
         {
@@ -9444,8 +9452,6 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         sub_GAME_7F067FBC(((f32) moveData.controlStickXRaw * 0.65f) / 80.0f, ((f32) moveData.controlStickYRaw * 0.65f) / 80.0f);
     }
 }
-
-
 
 
 /**
@@ -9469,7 +9475,7 @@ void bondviewPlayerTickDamageAndHealth(void)
             bondviewSetUpperTextDisplayFlag(PLAYERFLAG_NOTIMER);
             countdownTimerSetVisible(8, 0);
 
-            g_CurrentPlayer->damagetype = (s32)(bondviewGetCurrentPlayerHealth() * 8.0f);
+            g_CurrentPlayer->damagetype = (s32)(currentPlayerGetHealth() * 8.0f);
 
             if (g_CurrentPlayer->damagetype >= 8)
             {
@@ -9575,7 +9581,7 @@ void bondviewPlayerTickDamageAndHealth(void)
         // 0: This is the first frame of damage
         if (g_CurrentPlayer->healthshowtime == 0)
         {
-            g_CurrentPlayer->healthDamageType = (s32)(bondviewGetCurrentPlayerHealth() * 8.0f);
+            g_CurrentPlayer->healthDamageType = (s32)(currentPlayerGetHealth() * 8.0f);
 
             if (g_CurrentPlayer->healthDamageType >= 8)
             {
@@ -11326,9 +11332,9 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
     viSetViewPosition(get_curplayer_viewport_ulx(), bondviewGetCurrentPlayerViewportUly());
     currentPlayerUpdateColourScreenProperties();
     currentPlayerTickChrFade();
-    setYAutoAimEnabled(cur_player_get_autoaim());
-    setXAutoAimEnabled(cur_player_get_autoaim());
-    set_BONDdata_lookahead_setting(cur_player_get_lookahead());
+    currentPlayerSetYAutoAimEnabled(cur_player_get_autoaim());
+    currentPlayerSetXAutoAimEnabled(cur_player_get_autoaim());
+    currentPlayerSetLookAheadSetting(cur_player_get_lookahead());
     gunSetGunAmmoVisible(GUNAMMOREASON_OPTION, cur_player_get_ammo_onscreen_setting());
 
     gunSetSightVisible(
@@ -15512,8 +15518,8 @@ void record_damage_kills(f32 damage_amount, f32 vectorx, f32 vectorz, s32 player
 
     if (g_CurrentPlayer->watch_animation_state != WATCH_ANIMATION_0x0)
     {
-        sub_GAME_7F0A2F30(g_CurrentPlayer->armor_display_values, 0x2E, 1, get_BONDdata_watch_armor());
-        sub_GAME_7F0A2F30(g_CurrentPlayer->health_display_values, 0x2E, -1, bondviewGetCurrentPlayerHealth());
+        sub_GAME_7F0A2F30(g_CurrentPlayer->armor_display_values, 0x2E, 1, currentPlayerGetArmor());
+        sub_GAME_7F0A2F30(g_CurrentPlayer->health_display_values, 0x2E, -1, currentPlayerGetHealth());
     }
 
     if (getPlayerCount() < 2 || (g_stopPlayFlag == 0 && g_gameOverFlag == 0))
@@ -15916,13 +15922,13 @@ void bondviewGetCollisionRadius(PropRecord* arg0, f32 *collision_radius, f32 *he
 /**
  * Address 0x7F08A2EC.
  */
-f32 bondviewGetCurrentPlayerHealth(void)
+f32 currentPlayerGetHealth(void)
 {
     return g_CurrentPlayer->bondhealth;
 }
 
 
-f32 get_BONDdata_watch_armor(void)
+f32 currentPlayerGetArmor(void)
 {
   return g_CurrentPlayer->bondarmour;
 }

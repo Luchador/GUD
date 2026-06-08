@@ -694,11 +694,11 @@ s32 debug_menu_processor(s8 stick_h, s8 stick_v, u16 button_held, u16 button_pre
                 break;
 
             case DEB_AUTOAIMY: // auto y aim
-                setYAutoAimEnabled(getYAutoAimEnabled() == 0);
+                currentPlayerSetYAutoAimEnabled(currentPlayerGetYAutoAimEnabled() == 0);
                 break;
 
             case DEB_AUTOAIMX: // auto x aim
-                setXAutoAimEnabled(getXAutoAimEnabled() == 0);
+                currentPlayerSetXAutoAimEnabled(currentPlayerGetXAutoAimEnabled() == 0);
                 break;
 
             case DEB_007: // 007

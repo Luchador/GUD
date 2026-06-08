@@ -32097,7 +32097,7 @@ s32 object_collectability_routines(struct PropRecord* prop)
         armorObj = (BodyArmourRecord*)prop->obj;
         ignore = 0;
 
-        if (armorObj->amount <= get_BONDdata_watch_armor()) {
+        if (armorObj->amount <= currentPlayerGetArmor()) {
             ignore = 1;
         } else if (getPlayerCount() >= 2) {
             sp58 = get_scenario();
@@ -32499,7 +32499,7 @@ glabel object_collectability_routines
 /* 085AB8 7F050F48 14410029 */  bne   $v0, $at, .Ljp7F050FF0
 /* 085ABC 7F050F4C 8FAE0090 */   lw    $t6, 0x90($sp)
 /* 085AC0 7F050F50 8DD00004 */  lw    $s0, 4($t6)
-/* 085AC4 7F050F54 0FC22A8D */  jal   get_BONDdata_watch_armor
+/* 085AC4 7F050F54 0FC22A8D */  jal   currentPlayerGetArmor
 /* 085AC8 7F050F58 AFA00064 */   sw    $zero, 0x64($sp)
 /* 085ACC 7F050F5C C6040084 */  lwc1  $f4, 0x84($s0)
 /* 085AD0 7F050F60 240F0001 */  li    $t7, 1

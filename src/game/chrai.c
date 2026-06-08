@@ -2671,7 +2671,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 {
                     AiIFBondHealthLessThanRecord *ai  = AiListp + Offset;
                     float                         val = (ai->HEALTH) / 255.0f;
-                    if (val > bondviewGetCurrentPlayerHealth())
+                    if (val > currentPlayerGetHealth())
                     {
                         Offset = chraiGoToLabel(AiListp, Offset, ai->GOTOLABEL);
                     }
@@ -2685,7 +2685,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 {
                     AiIFBondHealthGreaterThanRecord *ai  = AiListp + Offset;
                     float                            val = (ai->HEALTH) / 255.0f;
-                    if (val < bondviewGetCurrentPlayerHealth())
+                    if (val < currentPlayerGetHealth())
                     {
                         Offset = chraiGoToLabel(AiListp, Offset, ai->GOTOLABEL);
                     }

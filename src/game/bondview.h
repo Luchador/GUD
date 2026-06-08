@@ -475,14 +475,48 @@ struct player
 
   /* 0x00fc */ s32 healthshowmode;
   /* 0x0100 */ s32 field_100;
-  /* 0x0104 */ s32 field_104;
+  /* 0x0104 */ bool lookahead_auto_adjust_pitch_active;
   /* 0x0108 */ s32 field_108;
-  /* 0x010c */ s32 field_10C;
-  /* 0x0120 */ s32 movecentrerelease;
-  /* 0x0124 */ s32 lookaheadcentreenabled;
-  /* 0x0128 */ s32 automovecentreenabled;
-  /* 0x012c */ s32 fastmovecentreenabled;
-  /* 0x0120 */ s32 automovecentre;
+  
+  /**
+   * When the player is doing manual pitch inputs, this is set to true so
+   * the automatic look ahead pitch adjust is interrupted.
+   * 0x010c
+   */
+  bool manual_adjust_pitch_active;
+
+  /**
+  * If the player is moving forward quickly, and has made a manual pitch adjustment, suppress
+  * the automatic look ahead pitch adjusting until the player has slowed down.
+  * 0x0110
+  */
+  bool suppress_move_centre_until_walk_release;
+
+  /**
+   * If enabled, test the tiles ahead of the player for the look ahead functionality.
+   * This is always enabled.
+   * 0x0114
+   */
+  bool lookahead_enable_stan_test;
+
+  /**
+   * Look Ahead Setting in the watch menu.
+   * 0x0118
+   */
+  bool lookaheadenabled;
+
+  /**
+   * Always false.
+   * 0x011c
+   */
+  bool fastmovecentreenabled;
+
+  /**
+   * True when Look Ahead is enabled and the player is giving strong
+   * forwards or backwards input.
+   * 0x0120
+   */
+  bool lookahead_auto_centre_armed;
 
   /**
    * 0: crosshair shown on screen
@@ -2648,13 +2682,14 @@ extern StandTilePoint *dword_CODE_bss_80079DA4;
 extern s32 dword_CODE_bss_80079DA8[];
 
 
-u32 bondviewGetCameraMode(void);
 
-void bondviewTriggerWatchZoom(f32 zoominfovy);
-
-void trigger_watch_zoom(f32 final, f32 time);
 
 PropRecord* getCurrentPlayerProp(void);
+
+f32 currentPlayerGetHealth(void);
+f32 currentPlayerGetArmor(void);
+
+bool currentPlayerGetIsAiming(void);
 
 void currentPlayerSetScreenSize(f32 width, f32 height);
 void currentPlayerSetCameraScale(void);
@@ -2662,23 +2697,32 @@ void currentPlayerSetScreenPosition(f32 left, f32 top);
 void currentPlayerSetPerspective(f32 near, f32 fovy, f32 aspect);
 
 f32 getPlayer_c_screenwidth(void);
-
 f32 getPlayer_c_screenheight(void);
-
 f32 getPlayer_c_screenleft(void);
-
 f32 getPlayer_c_screentop(void);
-
 f32 getPlayer_c_perspfovy(void);
-
 f32 getPlayer_c_perspaspect(void);
+
+void currentPlayerSetXAutoAimEnabled(bool enabled);
+bool currentPlayerGetXAutoAimEnabled(void);
+bool currentPlayerGetXAutoAimEnabledRedirect(void);
+void currentPlayerSetYAutoAimEnabled(s32 enabled);
+bool currentPlayerGetYAutoAimEnabled(void);
+bool currentPlayerGetYAutoAimEnabledRedirect(void);
+void currentPlayerSetLookAheadSetting(bool enabled);
+
+u32 bondviewGetCameraMode(void);
+
+void bondviewTriggerWatchZoom(f32 zoominfovy);
+
+void trigger_watch_zoom(f32 final, f32 time);
 
 void set_open_close_solo_watch_menu_to1(void);
 
 void init_player_BONDdata(void);
 void bondviewPlayerSpawnRelated(void);
-f32 bondviewGetCurrentPlayerHealth(void);
-f32 get_BONDdata_watch_armor(void);
+
+
 void bondviewMovePlayerUpdateViewport(s8 arg0, s8 arg1, u16 arg2);
 
 #if defined(BUGFIX_R1)
@@ -2709,13 +2753,6 @@ void bondviewGetCollisionRadius(PropRecord* arg0, f32 *collision_radius, f32 *he
 void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset);
 void currentPlayerSetFadeColour(s32 r, s32 g, s32 b, f32 frac);
 void currentPlayerSetFadeFrac(f32 maxfadetime, f32 frac);
-void setXAutoAimEnabled(bool enabled);
-bool getXAutoAimEnabled(void);
-bool getXAutoAimEnabledRedirect(void);
-void setYAutoAimEnabled(s32 enabled);
-bool getYAutoAimEnabled(void);
-bool getYAutoAimEnabledRedirect(void);
-void set_BONDdata_lookahead_setting(s32 arg0);
 f32 bondviewGetPlayerStanHeight(struct player *player);
 void record_damage_kills(f32, f32, f32, s32, s32);
 void bondviewCallRecordDamageKills(f32 arg0, f32 rad, s32 arg2, s32 arg3);
@@ -2768,7 +2805,6 @@ void bondviewResetUpperTextDisplay(void);
 Mtxf *currentPlayerGetProjectionMatrixF(void);
 void transform3Dto2DCoords(coord3d *in, coord2d *out);
 void maybe_solo_intro_camera_handler(void);
-s32 get_BONDdata_is_aiming(void);
 void currentPlayerAdjustFade(f32 maxfadetime, s32 r, s32 g, s32 b, f32 frac);
 
 #endif

@@ -2605,7 +2605,7 @@ f32 chrpropScoreAutoAimTarget(PropRecord *targetprop, coord3d *aimpos, f32 *worl
         screen_left_edge[0] = floorFloat(screen_left_edge[0]);
         screen_right_edge[0] = ceilFloat(screen_right_edge[0]);
 
-        if (getXAutoAimEnabledRedirect())
+        if (currentPlayerGetXAutoAimEnabledRedirect())
         {
             if (screen_left_edge[0] <= autoaim_right && autoaim_left <= screen_right_edge[0])
             {
@@ -2652,7 +2652,7 @@ f32 chrpropScoreAutoAimTarget(PropRecord *targetprop, coord3d *aimpos, f32 *worl
 
                     out_screen->y = clamped_screen_y;
 
-                    if (getXAutoAimEnabledRedirect())
+                    if (currentPlayerGetXAutoAimEnabledRedirect())
                     {
                         f32 clamped_screen_x = aim_screen[0];
 
@@ -2718,7 +2718,7 @@ void chrpropUpdateAutoaimTarget(void)
     best_prop = NULL;
     best_screen_aim = g_DefaultAutoAimCoord;
 
-    if (getYAutoAimEnabledRedirect() != FALSE)
+    if (currentPlayerGetYAutoAimEnabledRedirect() != FALSE)
     {
         best_score = -1.0f;
 
@@ -2780,7 +2780,7 @@ void chrpropUpdateAutoaimTarget(void)
 
         bondviewUpdateYAutoAimTime(best_prop, ((best_screen_aim.y - getPlayer_c_screentop()) / (getPlayer_c_screenheight() * 0.5f)) - 1.0f);
 
-        if (getXAutoAimEnabledRedirect() != FALSE)
+        if (currentPlayerGetXAutoAimEnabledRedirect() != FALSE)
         {
             bondviewUpdateXAutoAimTime(best_prop, ((best_screen_aim.x - getPlayer_c_screenleft()) / (getPlayer_c_screenwidth() * 0.5f)) - 1.0f);
         }
