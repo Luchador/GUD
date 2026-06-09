@@ -52,16 +52,16 @@ char dword_CODE_bss_80076AE0[0x2E28];
 char dword_CODE_bss_80079908[0x28];
 
 //CODE.bss:80079930
-struct ptr_0_s *g_AnimModelSlots;
+struct AnimModelSlot *g_AnimModelSlots;
 //CODE.bss:80079934
-struct ptr_1_s *g_ModelSlots;
+struct ModelSlot *g_ModelSlots;
 
 
 // data
 //D:80036070
-s32 g_NumAnimModelSlots = 0;
+s32 g_MaxAnimModelSlots = 0;
 //D:80036074
-s32 g_NumModelSlots = 0;
+s32 g_MaxModelSlots = 0;
 //D:80036078
 s32 g_ModelIsLvResetting = 0;
 //D:8003607C

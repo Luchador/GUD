@@ -1531,8 +1531,8 @@ void proplvreset2(enum LEVELID stageId)
             guardcount += load_proptype(PROPDEF_AIRCRAFT);
         }
 
-        sub_GAME_7F005540(collectcount); // without plane
-        sub_GAME_7F005624(guardcount);
+        modelmgrAllocateModelSlots(collectcount); // without plane
+        modelmgrAllocateAnimModelSlots(guardcount);
 
         //if (1)
         {
@@ -2091,8 +2091,8 @@ void proplvreset2(enum LEVELID stageId)
         g_CurrentSetup.padnames = NULL;
         g_CurrentSetup.boundpadnames = NULL;
         alloc_init_GUARDdata_entries(0);
-        sub_GAME_7F005540(0);
-        sub_GAME_7F005624(0);
+        modelmgrAllocateModelSlots(0);
+        modelmgrAllocateAnimModelSlots(0);
     }
 
     alloc_false_GUARDdata_to_exec_global_action();
@@ -2666,9 +2666,9 @@ glabel proplvreset2
 /* 038DCC 7F00429C 24040028 */   li    $a0, 40
 /* 038DD0 7F0042A0 0282A021 */  addu  $s4, $s4, $v0
 .L7F0042A4:
-/* 038DD4 7F0042A4 0FC01550 */  jal   sub_GAME_7F005540
+/* 038DD4 7F0042A4 0FC01550 */  jal   modelmgrAllocateModelSlots
 /* 038DD8 7F0042A8 02602025 */   move  $a0, $s3
-/* 038DDC 7F0042AC 0FC01589 */  jal   sub_GAME_7F005624
+/* 038DDC 7F0042AC 0FC01589 */  jal   modelmgrAllocateAnimModelSlots
 /* 038DE0 7F0042B0 02802025 */   move  $a0, $s4
 /* 038DE4 7F0042B4 0FC26919 */  jal   getPlayerCount
 /* 038DE8 7F0042B8 00008025 */   move  $s0, $zero
@@ -3469,9 +3469,9 @@ other_obj_expand:
 /* 03998C 7F004E5C AC205D24 */  sw    $zero, %lo(g_CurrentSetup+0x24)($at)
 /* 039990 7F004E60 0FC003AE */  jal   alloc_init_GUARDdata_entries
 /* 039994 7F004E64 00002025 */   move  $a0, $zero
-/* 039998 7F004E68 0FC01550 */  jal   sub_GAME_7F005540
+/* 039998 7F004E68 0FC01550 */  jal   modelmgrAllocateModelSlots
 /* 03999C 7F004E6C 00002025 */   move  $a0, $zero
-/* 0399A0 7F004E70 0FC01589 */  jal   sub_GAME_7F005624
+/* 0399A0 7F004E70 0FC01589 */  jal   modelmgrAllocateAnimModelSlots
 /* 0399A4 7F004E74 00002025 */   move  $a0, $zero
 .L7F004E78:
 /* 0399A8 7F004E78 0FC00417 */  jal   alloc_false_GUARDdata_to_exec_global_action
@@ -4059,9 +4059,9 @@ glabel jpt_8004F02C
 /* 038E0C 7F00429C 24040028 */   li    $a0, 40
 /* 038E10 7F0042A0 0282A021 */  addu  $s4, $s4, $v0
 .L7F0042A4:
-/* 038E14 7F0042A4 0FC01558 */  jal   sub_GAME_7F005540
+/* 038E14 7F0042A4 0FC01558 */  jal   modelmgrAllocateModelSlots
 /* 038E18 7F0042A8 02602025 */   move  $a0, $s3
-/* 038E1C 7F0042AC 0FC01591 */  jal   sub_GAME_7F005624
+/* 038E1C 7F0042AC 0FC01591 */  jal   modelmgrAllocateAnimModelSlots
 /* 038E20 7F0042B0 02802025 */   move  $a0, $s4
 /* 038E24 7F0042B4 0FC26C01 */  jal   getPlayerCount
 /* 038E28 7F0042B8 00008025 */   move  $s0, $zero
@@ -4867,9 +4867,9 @@ other_obj_expand:
 /* 0399DC 7F004E6C AC205D64 */  sw    $zero, %lo(g_CurrentSetup+0x24)($at)
 /* 0399E0 7F004E70 0FC003AE */  jal   alloc_init_GUARDdata_entries
 /* 0399E4 7F004E74 00002025 */   move  $a0, $zero
-/* 0399E8 7F004E78 0FC01558 */  jal   sub_GAME_7F005540
+/* 0399E8 7F004E78 0FC01558 */  jal   modelmgrAllocateModelSlots
 /* 0399EC 7F004E7C 00002025 */   move  $a0, $zero
-/* 0399F0 7F004E80 0FC01591 */  jal   sub_GAME_7F005624
+/* 0399F0 7F004E80 0FC01591 */  jal   modelmgrAllocateAnimModelSlots
 /* 0399F4 7F004E84 00002025 */   move  $a0, $zero
 .L7F004E88:
 /* 0399F8 7F004E88 0FC00417 */  jal   alloc_false_GUARDdata_to_exec_global_action
@@ -5457,9 +5457,9 @@ glabel proplvreset2
 /* 036C18 7F004228 24040028 */   li    $a0, 40
 /* 036C1C 7F00422C 0282A021 */  addu  $s4, $s4, $v0
 .L7F004230:
-/* 036C20 7F004230 0FC01538 */  jal   sub_GAME_7F005540
+/* 036C20 7F004230 0FC01538 */  jal   modelmgrAllocateModelSlots
 /* 036C24 7F004234 02602025 */   move  $a0, $s3
-/* 036C28 7F004238 0FC01571 */  jal   sub_GAME_7F005624
+/* 036C28 7F004238 0FC01571 */  jal   modelmgrAllocateAnimModelSlots
 /* 036C2C 7F00423C 02802025 */   move  $a0, $s4
 /* 036C30 7F004240 0FC26669 */  jal   getPlayerCount
 /* 036C34 7F004244 00008025 */   move  $s0, $zero
@@ -6264,9 +6264,9 @@ other_obj_expand:
 /* 0377E0 7F004DF0 AC204C64 */  sw    $zero, %lo(g_CurrentSetup+0x24)($at)
 /* 0377E4 7F004DF4 0FC003AE */  jal   alloc_init_GUARDdata_entries
 /* 0377E8 7F004DF8 00002025 */   move  $a0, $zero
-/* 0377EC 7F004DFC 0FC01538 */  jal   sub_GAME_7F005540
+/* 0377EC 7F004DFC 0FC01538 */  jal   modelmgrAllocateModelSlots
 /* 0377F0 7F004E00 00002025 */   move  $a0, $zero
-/* 0377F4 7F004E04 0FC01571 */  jal   sub_GAME_7F005624
+/* 0377F4 7F004E04 0FC01571 */  jal   modelmgrAllocateAnimModelSlots
 /* 0377F8 7F004E08 00002025 */   move  $a0, $zero
 .L7F004E88:
 /* 0377FC 7F004E0C 0FC00417 */  jal   alloc_false_GUARDdata_to_exec_global_action

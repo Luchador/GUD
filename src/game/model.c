@@ -1,19 +1,19 @@
 #include <ultra64.h>
 #include <memp.h>
+#include "model.h"
 #include "../rmon.h" /*<PR/rmon.h>*/
+#include "bondview.h"
 #include "chr.h"
-#include "objecthandler.h"
-#include "math_floor.h"
-#include "math_ceil.h"
-#include "quaternion.h"
+#include "chrobjdata.h"
+#include "gbi_extension.h"
 #include "initunk_005520.h"
 #include "math_asinfacosf.h"
+#include "math_floor.h"
+#include "math_ceil.h"
 #include "math_unk_05A9E0.h"
-#include "chrobjdata.h"
-#include "bondview.h"
+#include "objecthandler.h"
+#include "quaternion.h"
 #include "random.h"
-#include "gbi_extension.h"
-#include "model.h"
 
 
 extern void (*D_80036090)(s32, s32, s32);
@@ -60,7 +60,7 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
     {
         s32 i;
 
-        for (i = 0; i < (g_NumModelSlots - 30); i++) 
+        for (i = 0; i < (g_MaxModelSlots - 30); i++) 
         {
             if (g_ModelSlots[i].unk08 == 0) 
             {
@@ -84,7 +84,7 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
     {
         s32 i;
 
-        for (i = 0; i < g_NumModelSlots; i++) 
+        for (i = 0; i < g_MaxModelSlots; i++) 
         {
             if (g_ModelSlots[i].unk08 == 0 && modelmgrCanSlotFitRwdata((Model *)&g_ModelSlots[i], header)) 
             {
@@ -99,7 +99,7 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
     if (model != NULL) 
     {
         modelInit(model, header, rwdata);
-        ((struct ptr_1_s *)model)->unk02 = rwdatalen;
+        ((struct ModelSlot *)model)->unk02 = rwdatalen;
     }
 
     return model;
@@ -130,7 +130,7 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
 
     if (g_ModelIsLvResetting) 
     {
-        for (i = 0; i < (g_NumAnimModelSlots - 10); i++) 
+        for (i = 0; i < (g_MaxAnimModelSlots - 10); i++) 
         {
             if (g_AnimModelSlots[i].unk08 == 0)
             {
@@ -161,7 +161,7 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
     {
         requiredRwdatalen = modelFileHeader->numRecords;
 
-        for (i2 = 0; i2 < g_NumAnimModelSlots; i2++) 
+        for (i2 = 0; i2 < g_MaxAnimModelSlots; i2++) 
         {
             if ((g_AnimModelSlots[i2].unk08 == 0) && ((requiredRwdatalen <= 0) || ((g_AnimModelSlots[i2].unk10 != NULL) &&(g_AnimModelSlots[i2].unk02 >= requiredRwdatalen)))) 
             {

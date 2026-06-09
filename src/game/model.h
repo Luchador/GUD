@@ -5,8 +5,9 @@
 #include <bondtypes.h>
 #include "bondconstants.h"
 
-extern s32 g_NumModelSlots;
-extern s32 g_NumAnimModelSlots;
+
+extern s32 g_MaxModelSlots;
+extern s32 g_MaxAnimModelSlots;
 extern s32 g_ModelIsLvResetting;
 
 bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef);

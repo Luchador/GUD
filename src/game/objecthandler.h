@@ -16,7 +16,7 @@ struct bondstruct_unk_op07_related {
     s32 unk0C;
 };
 
-struct ptr_0_s {
+struct AnimModelSlot {
     s16 unk00;
     s16 unk02;
     s32 unk04;
@@ -70,7 +70,7 @@ struct ptr_0_s {
     //s32 unkbc;
 };
 
-struct ptr_1_s {
+struct ModelSlot {
     s16 unk00;
     s16 unk02;
     s32 unk04;
@@ -82,8 +82,8 @@ struct ptr_1_s {
     s32 unk1c;
 };
 
-extern struct ptr_0_s *g_AnimModelSlots;
-extern struct ptr_1_s *g_ModelSlots;
+extern struct AnimModelSlot *g_AnimModelSlots;
+extern struct ModelSlot *g_ModelSlots;
 
 extern struct ModelHitEntry *D_80036060;
 extern s32 g_ModelDistanceDisabled;
