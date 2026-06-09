@@ -6,6 +6,7 @@
 #include "math_floor.h"
 #include "math_ceil.h"
 #include "quaternion.h"
+#include "initunk_005520.h"
 #include "math_asinfacosf.h"
 #include "math_unk_05A9E0.h"
 #include "chrobjdata.h"
@@ -14,9 +15,7 @@
 #include "gbi_extension.h"
 #include "model.h"
 
-// used in get_obj_instance_controller_for_header
-extern s32 D_80036074;
-extern s32 D_80036078;
+
 extern void (*D_80036090)(s32, s32, s32);
 
 typedef void (*ModelMatrixCallback2)(s32 matrixId, Mtxf *mtx);
@@ -51,7 +50,8 @@ Model *get_obj_instance_controller_for_header(ModelFileHeader *header)
     rwdata = NULL;
     numrecords = -1;
 
-    if (D_80036078) {
+    if (D_80036078) 
+    {
         s32 i;
 
         for (i = 0; i < (D_80036074 - 30); i++) {
@@ -69,14 +69,15 @@ Model *get_obj_instance_controller_for_header(ModelFileHeader *header)
             rwdata = mempAllocBytesInBank((((header->numRecords * 4) + 0xf) | 0xf) ^ 0xf, 4);
             numrecords = header->numRecords;
         }
-    } else {
+    } 
+    else 
+    {
         s32 i;
 
-        for (i = 0; i < D_80036074; i++) {
-
-            if (ptr_allocation_1[i].unk08 == 0
-                    && modelmgrCanSlotFitRwdata((Model *)&ptr_allocation_1[i], header)) {
-
+        for (i = 0; i < D_80036074; i++) 
+        {
+            if (ptr_allocation_1[i].unk08 == 0 && modelmgrCanSlotFitRwdata((Model *)&ptr_allocation_1[i], header)) 
+            {
                 rwdata = ptr_allocation_1[i].unk10;
                 numrecords = ptr_allocation_1[i].unk02;
                 model = (Model *)&ptr_allocation_1[i];
@@ -85,7 +86,8 @@ Model *get_obj_instance_controller_for_header(ModelFileHeader *header)
         }
     }
 
-    if (model != NULL) {
+    if (model != NULL) 
+    {
         modelInit(model, header, rwdata);
         ((struct ptr_1_s *)model)->unk02 = numrecords;
     }
@@ -100,126 +102,72 @@ void clear_model_obj(Model* model)
 }
 
 
-#ifdef NONMATCHING
-void get_aircraft_obj_instance_controller(void) {
-    #ifdef DEBUG
-    if (arg0->numRecords > 140) osSyncPrintf("WARNING: increase OISAVESIZE to %d!\n", *(arg0->numRecords));
-    #endif
-}
-#else
-GLOBAL_ASM(
-.text
-glabel get_aircraft_obj_instance_controller
-/* 0A0D6C 7F06C23C 3C0E8003 */  lui   $t6, %hi(D_80036078)
-/* 0A0D70 7F06C240 8DCE6078 */  lw    $t6, %lo(D_80036078)($t6)
-/* 0A0D74 7F06C244 27BDFFD0 */  addiu $sp, $sp, -0x30
-/* 0A0D78 7F06C248 AFB00018 */  sw    $s0, 0x18($sp)
-/* 0A0D7C 7F06C24C AFBF001C */  sw    $ra, 0x1c($sp)
-/* 0A0D80 7F06C250 AFA40030 */  sw    $a0, 0x30($sp)
-/* 0A0D84 7F06C254 00008025 */  move  $s0, $zero
-/* 0A0D88 7F06C258 AFA00028 */  sw    $zero, 0x28($sp)
-/* 0A0D8C 7F06C25C 11C00028 */  beqz  $t6, .L7F06C300
-/* 0A0D90 7F06C260 2408FFFF */   li    $t0, -1
-/* 0A0D94 7F06C264 3C058003 */  lui   $a1, %hi(D_80036070)
-/* 0A0D98 7F06C268 8CA56070 */  lw    $a1, %lo(D_80036070)($a1)
-/* 0A0D9C 7F06C26C 00001025 */  move  $v0, $zero
-/* 0A0DA0 7F06C270 3C078008 */  lui   $a3, %hi(ptr_allocation_0)
-/* 0A0DA4 7F06C274 24A5FFF6 */  addiu $a1, $a1, -0xa
-/* 0A0DA8 7F06C278 18A0000D */  blez  $a1, .L7F06C2B0
-/* 0A0DAC 7F06C27C 00000000 */   nop
-/* 0A0DB0 7F06C280 8CE79930 */  lw    $a3, %lo(ptr_allocation_0)($a3)
-/* 0A0DB4 7F06C284 00002025 */  move  $a0, $zero
-/* 0A0DB8 7F06C288 00E01825 */  move  $v1, $a3
-.L7F06C28C:
-/* 0A0DBC 7F06C28C 8C6F0008 */  lw    $t7, 8($v1)
-/* 0A0DC0 7F06C290 24420001 */  addiu $v0, $v0, 1
-/* 0A0DC4 7F06C294 0045082A */  slt   $at, $v0, $a1
-/* 0A0DC8 7F06C298 15E00003 */  bnez  $t7, .L7F06C2A8
-/* 0A0DCC 7F06C29C 246300BC */   addiu $v1, $v1, 0xbc
-/* 0A0DD0 7F06C2A0 10000003 */  b     .L7F06C2B0
-/* 0A0DD4 7F06C2A4 00878021 */   addu  $s0, $a0, $a3
-.L7F06C2A8:
-/* 0A0DD8 7F06C2A8 1420FFF8 */  bnez  $at, .L7F06C28C
-/* 0A0DDC 7F06C2AC 248400BC */   addiu $a0, $a0, 0xbc
-.L7F06C2B0:
-/* 0A0DE0 7F06C2B0 16000006 */  bnez  $s0, .L7F06C2CC
-/* 0A0DE4 7F06C2B4 240400C0 */   li    $a0, 192
-/* 0A0DE8 7F06C2B8 24050004 */  li    $a1, 4
-/* 0A0DEC 7F06C2BC 0C0025C8 */  jal   mempAllocBytesInBank
-/* 0A0DF0 7F06C2C0 A7A80026 */   sh    $t0, 0x26($sp)
-/* 0A0DF4 7F06C2C4 87A80026 */  lh    $t0, 0x26($sp)
-/* 0A0DF8 7F06C2C8 00408025 */  move  $s0, $v0
-.L7F06C2CC:
-/* 0A0DFC 7F06C2CC 8FB80030 */  lw    $t8, 0x30($sp)
-/* 0A0E00 7F06C2D0 24050004 */  li    $a1, 4
-/* 0A0E04 7F06C2D4 87060014 */  lh    $a2, 0x14($t8)
-/* 0A0E08 7F06C2D8 18C00029 */  blez  $a2, .L7F06C380
-/* 0A0E0C 7F06C2DC 00062080 */   sll   $a0, $a2, 2
-/* 0A0E10 7F06C2E0 2484000F */  addiu $a0, $a0, 0xf
-/* 0A0E14 7F06C2E4 3499000F */  ori   $t9, $a0, 0xf
-/* 0A0E18 7F06C2E8 0C0025C8 */  jal   mempAllocBytesInBank
-/* 0A0E1C 7F06C2EC 3B24000F */   xori  $a0, $t9, 0xf
-/* 0A0E20 7F06C2F0 8FAA0030 */  lw    $t2, 0x30($sp)
-/* 0A0E24 7F06C2F4 AFA20028 */  sw    $v0, 0x28($sp)
-/* 0A0E28 7F06C2F8 10000021 */  b     .L7F06C380
-/* 0A0E2C 7F06C2FC 85480014 */   lh    $t0, 0x14($t2)
-.L7F06C300:
-/* 0A0E30 7F06C300 3C058003 */  lui   $a1, %hi(D_80036070)
-/* 0A0E34 7F06C304 8CA56070 */  lw    $a1, %lo(D_80036070)($a1)
-/* 0A0E38 7F06C308 8FAB0030 */  lw    $t3, 0x30($sp)
-/* 0A0E3C 7F06C30C 00001825 */  move  $v1, $zero
-/* 0A0E40 7F06C310 18A0001B */  blez  $a1, .L7F06C380
-/* 0A0E44 7F06C314 85660014 */   lh    $a2, 0x14($t3)
-/* 0A0E48 7F06C318 3C078008 */  lui   $a3, %hi(ptr_allocation_0)
-/* 0A0E4C 7F06C31C 8CE79930 */  lw    $a3, %lo(ptr_allocation_0)($a3)
-/* 0A0E50 7F06C320 00002025 */  move  $a0, $zero
-/* 0A0E54 7F06C324 00E01025 */  move  $v0, $a3
-.L7F06C328:
-/* 0A0E58 7F06C328 8C4C0008 */  lw    $t4, 8($v0)
-/* 0A0E5C 7F06C32C 24630001 */  addiu $v1, $v1, 1
-/* 0A0E60 7F06C330 55800010 */  bnezl $t4, .L7F06C374
-/* 0A0E64 7F06C334 0065082A */   slt   $at, $v1, $a1
-/* 0A0E68 7F06C338 58C00009 */  blezl $a2, .L7F06C360
-/* 0A0E6C 7F06C33C 8C4F0010 */   lw    $t7, 0x10($v0)
-/* 0A0E70 7F06C340 8C4D0010 */  lw    $t5, 0x10($v0)
-/* 0A0E74 7F06C344 51A0000B */  beql  $t5, $zero, .L7F06C374
-/* 0A0E78 7F06C348 0065082A */   slt   $at, $v1, $a1
-/* 0A0E7C 7F06C34C 844E0002 */  lh    $t6, 2($v0)
-/* 0A0E80 7F06C350 01C6082A */  slt   $at, $t6, $a2
-/* 0A0E84 7F06C354 54200007 */  bnezl $at, .L7F06C374
-/* 0A0E88 7F06C358 0065082A */   slt   $at, $v1, $a1
-/* 0A0E8C 7F06C35C 8C4F0010 */  lw    $t7, 0x10($v0)
-.L7F06C360:
-/* 0A0E90 7F06C360 00878021 */  addu  $s0, $a0, $a3
-/* 0A0E94 7F06C364 AFAF0028 */  sw    $t7, 0x28($sp)
-/* 0A0E98 7F06C368 10000005 */  b     .L7F06C380
-/* 0A0E9C 7F06C36C 84480002 */   lh    $t0, 2($v0)
-/* 0A0EA0 7F06C370 0065082A */  slt   $at, $v1, $a1
-.L7F06C374:
-/* 0A0EA4 7F06C374 248400BC */  addiu $a0, $a0, 0xbc
-/* 0A0EA8 7F06C378 1420FFEB */  bnez  $at, .L7F06C328
-/* 0A0EAC 7F06C37C 244200BC */   addiu $v0, $v0, 0xbc
-.L7F06C380:
-/* 0A0EB0 7F06C380 12000007 */  beqz  $s0, .L7F06C3A0
-/* 0A0EB4 7F06C384 02002025 */   move  $a0, $s0
-/* 0A0EB8 7F06C388 8FA50030 */  lw    $a1, 0x30($sp)
-/* 0A0EBC 7F06C38C 8FA60028 */  lw    $a2, 0x28($sp)
-/* 0A0EC0 7F06C390 0FC1D7EB */  jal   animInit
-/* 0A0EC4 7F06C394 A7A80026 */   sh    $t0, 0x26($sp)
-/* 0A0EC8 7F06C398 87A80026 */  lh    $t0, 0x26($sp)
-/* 0A0ECC 7F06C39C A6080002 */  sh    $t0, 2($s0)
-.L7F06C3A0:
-/* 0A0ED0 7F06C3A0 8FBF001C */  lw    $ra, 0x1c($sp)
-/* 0A0ED4 7F06C3A4 02001025 */  move  $v0, $s0
-/* 0A0ED8 7F06C3A8 8FB00018 */  lw    $s0, 0x18($sp)
-/* 0A0EDC 7F06C3AC 03E00008 */  jr    $ra
-/* 0A0EE0 7F06C3B0 27BD0030 */   addiu $sp, $sp, 0x30
-)
+Model *get_aircraft_obj_instance_controller(ModelFileHeader *modelFileHeader)
+{
+    Model *result;
+    void *rwdatas;
+    s16 type_val;
+    s32 i;
+    s16 numRecords;
+    s32 i2;
+
+    result = NULL;
+    rwdatas = NULL;
+    type_val = -1;
+
+    if (D_80036078) 
+    {
+        for (i = 0; i < (D_80036070 - 10); i++) 
+        {
+            if (ptr_allocation_0[i].unk08 == 0)
+            {
+                result = (Model *)&ptr_allocation_0[i];
+                break;
+            }
+        }
+
+        if (result == NULL) 
+        {
+            result = mempAllocBytesInBank(0xc0, 4);
+        }
+
+        numRecords = modelFileHeader->numRecords;
+
+#ifdef DEBUG
+        if (modelFileHeader->numRecords > 140) osSyncPrintf("WARNING: increase OISAVESIZE to %d!\n", *(modelFileHeader->numRecords));
 #endif
 
+        if (numRecords > 0) 
+        {
+            i = numRecords;
+            rwdatas = mempAllocBytesInBank((((i * 4) + 0xf) | 0xf) ^ 0xf, 4);
+            type_val = modelFileHeader->numRecords;
+        }
+    } 
+    else 
+    {
+        numRecords = modelFileHeader->numRecords;
 
+        for (i2 = 0; i2 < D_80036070; i2++) 
+        {
+            if ((ptr_allocation_0[i2].unk08 == 0) &&((numRecords <= 0) || ((ptr_allocation_0[i2].unk10 != NULL) &&(ptr_allocation_0[i2].unk02 >= numRecords)))) 
+            {
+                result = (Model *)&ptr_allocation_0[i2];
+                rwdatas = ptr_allocation_0[i2].unk10;
+                type_val = ptr_allocation_0[i2].unk02;
+                break;
+            }
+        }
+    }
 
+    if (result != NULL) 
+    {
+        animInit(result, modelFileHeader, rwdatas);
+        result->Type = type_val;
+    }
 
+    return result;
+}
 
 
 void modelAttachHead(Model *model, ModelNode *node,  ModelFileHeader *head)
@@ -232,16 +180,18 @@ void modelAttachHead(Model *model, ModelNode *node,  ModelFileHeader *head)
     modelInitRwData(model,head->RootNode);
 }
 
-void clear_aircraft_model_obj(Model *objinstance)
 
+void clear_aircraft_model_obj(Model *objinstance)
 {
     objinstance->obj = NULL;
     return;
 }
 
+
 void modelSetDistanceDisabled(s32 param_1) {
   g_ModelDistanceDisabled = param_1;
 }
+
 
 // PD: modelSetDistanceScale
 void modelSetDistanceScale(f32 param_1) {
@@ -275,7 +225,10 @@ void return_null(void)
 #endif
 
 
-void sub_GAME_7F06C474(Model* model, coord3d* coord)
+/**
+ * Address: 7F06C474
+ */
+void modelCalculateScaledRootToOriginDir(Model* model, coord3d* coord)
 {
     Mtxf* mtx;
     f32 dist;
@@ -305,9 +258,12 @@ void sub_GAME_7F06C474(Model* model, coord3d* coord)
 }
 
 
-void sub_GAME_7F06C550(Model* model, coord3d* coord)
+/**
+ * Address: 7F06C550
+ */
+void modelGetScaledRootToOriginDir(Model* model, coord3d* coord)
 {
-  sub_GAME_7F06C474(model, coord);
+  modelCalculateScaledRootToOriginDir(model, coord);
 }
 
 
@@ -2459,7 +2415,7 @@ void process_07_unknown(Model *model, ModelNode *node)
     s32 index2;
     s32 index3;
 
-    sub_GAME_7F06C550(model, &coord);
+    modelGetScaledRootToOriginDir(model, &coord);
 
     theta = acosf(((coord.x * mtx->m[1][0]) + (coord.y * mtx->m[1][1])) + (coord.z * mtx->m[1][2]));
     ratio = acosf((((coord.x * mtx->m[2][0]) + (coord.y * mtx->m[2][1])) + (coord.z * mtx->m[2][2])) / sinf(theta));

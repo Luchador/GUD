@@ -1,19 +1,16 @@
 #include <ultra64.h>
 #include <memp.h>
+#include "model.h"
 #include "initunk_005520.h"
 #include "objecthandler.h"
 #include "memp.h"
-
-extern s32 D_80036070;
-extern s32 D_80036074;
-extern s32 D_80036078;
-
 
 
 void zero_contents_of_80036070_74(void) {
     D_80036070 = 0;
     D_80036074 = 0;
 }
+
 
 void set_contents_of_80036078(s32 arg0) {
     D_80036078 = arg0;

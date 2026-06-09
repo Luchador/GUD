@@ -1716,8 +1716,7 @@ Gfx *viSetupCurrentPlayerView(Gfx *gdl)
     {
         gDPSetColorImage(gdl++, G_IM_FMT_RGBA, G_IM_SIZ_16b, g_ViBackData->bufx, OS_K0_TO_PHYSICAL(g_ViBackData->framebuf));
     }
-    
-    // 32-bit mode is only used for the 32-bit JPG screenshot routines.
+    // 32-bit mode is only used for the 32-bit screenshot routines.
     else
     {
         gDPSetColorImage(gdl++, G_IM_FMT_RGBA, G_IM_SIZ_32b, g_ViBackData->bufx, OS_K0_TO_PHYSICAL(cfb_16[0]));

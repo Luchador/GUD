@@ -5,6 +5,9 @@
 #include <bondtypes.h>
 #include "bondconstants.h"
 
+extern s32 D_80036074;
+extern s32 D_80036078;
+
 bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef);
 Model* get_obj_instance_controller_for_header(struct ModelFileHeader* arg0);
 void clear_model_obj(Model* model);
@@ -14,8 +17,8 @@ void clear_aircraft_model_obj(Model *objinstance);
 void modelSetDistanceDisabled(s32 param_1);
 void modelSetDistanceScale(f32 param_1);
 void set_vtxallocator(s32 param_1);
-void sub_GAME_7F06C474(Model* model, coord3d* coord);
-void sub_GAME_7F06C550(Model* model, coord3d* coord);
+void modelCalculateScaledRootToOriginDir(Model* model, coord3d* coord);
+void modelGetScaledRootToOriginDir(Model* model, coord3d* coord);
 s32 modelFindNodeMtxIndex(ModelNode *node, s32 arg1);
 Mtxf *modelFindNodeMtx(struct Model *model, struct ModelNode *node, s32 arg2);
 Mtxf *getsubmatrix(Model *objinst);
