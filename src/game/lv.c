@@ -946,7 +946,7 @@ Gfx* lvlRender(Gfx* DL)
     if (g_CurrentStageToLoad == LEVELID_TITLE)
     {
         DL = viClearZBufCurrentPlayer(DL);
-        DL = video_related_F(DL);
+        DL = viSetupCurrentPlayerView(DL);
         gDPSetScissor(DL++, G_SC_NON_INTERLACE, 0, 0, (s16)viGetX(), (s16)viGetY());
         DL = menu_jump_constructor_handler(DL);
     }
@@ -969,7 +969,7 @@ Gfx* lvlRender(Gfx* DL)
             viSetAspect(g_CurrentPlayer->aspect);
 
             DL = viClearZBufCurrentPlayer(DL);
-            DL = video_related_F(DL);
+            DL = viSetupCurrentPlayerView(DL);
 
             if (get_debug_render_raster() == DEB_MOVE_VIEW)
             {

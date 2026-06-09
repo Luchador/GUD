@@ -1681,7 +1681,8 @@ u16 viGetPerspNorm(void)
     return g_viPerspNorm;
 }
 
-Gfx *video_related_F(Gfx *gdl)
+
+Gfx *viSetupCurrentPlayerView(Gfx *gdl)
 {
     if (g_CurrentPlayer != NULL)
     {
@@ -1691,19 +1692,32 @@ Gfx *video_related_F(Gfx *gdl)
         g_CurrentPlayer->viewports[g_ViBackIndex].vp.vtrans[1] = (g_ViBackData->viewy * 2) + (g_ViBackData->viewtop * 4);
     }
 
+    // Make the RSP's viewport transform the current player's screen rectangle.
     gSPViewport(gdl++, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->viewports[g_ViBackIndex]));
+
+    // Create both a floating-point matrix for the CPU side and a fixed-point matrix for the RSP.
     g_viProjectionMatrix = dynAllocateMatrix();
     guPerspectiveF(g_viProjectionMatrixF, &g_viPerspNorm, g_ViBackData->fovy, g_ViBackData->aspect, g_ViBackData->znear, g_ViBackData->zfar, 1.0f);
     guMtxF2L(g_viProjectionMatrixF, g_viProjectionMatrix);
+
+    /** 
+     * Load g_viProjectionMatrix as the current projection matrix.
+     * All subsequent rendering uses this projection until a another projection matrix is loaded.
+     */
     gSPMatrix(gdl++, OS_K0_TO_PHYSICAL(g_viProjectionMatrix), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
     gSPPerspNormalize(gdl++, g_viPerspNorm);
+
+    // Store the float and non-float projection matrices so we can recall them later instead of having to rebuild them.
     currentPlayerSetProjectionMatrix(g_viProjectionMatrix);
     currentPlayerSetProjectionMatrixF(g_viProjectionMatrixF);
 
+    // Normal rendering mode is a 16-bit RGBA image.
     if (g_viColorOutputMode != COLORMODE_32BIT)
     {
         gDPSetColorImage(gdl++, G_IM_FMT_RGBA, G_IM_SIZ_16b, g_ViBackData->bufx, OS_K0_TO_PHYSICAL(g_ViBackData->framebuf));
     }
+    
+    // 32-bit mode is only used for the 32-bit JPG screenshot routines.
     else
     {
         gDPSetColorImage(gdl++, G_IM_FMT_RGBA, G_IM_SIZ_32b, g_ViBackData->bufx, OS_K0_TO_PHYSICAL(cfb_16[0]));
@@ -1711,6 +1725,7 @@ Gfx *video_related_F(Gfx *gdl)
 
     return gdl;
 }
+
 
 Gfx *viClearZBufCurrentPlayer(Gfx *gdl)
 {
