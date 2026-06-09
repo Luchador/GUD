@@ -2945,7 +2945,7 @@ bool bgIsRoomOnScreen(s32 roomID, struct rectbbox *screenbox)
             corner.z = g_BgRoomInfo[roomID].maxbounds.z;
         }
 
-        if (sub_GAME_7F0B5488(&corner, &projected) == 0) {
+        if (bgProjectRoomCoordToScreen(&corner, &projected) == 0) {
             if (zrange[1] <= -projected.z) {
                 count_z++;
             }
@@ -2986,6 +2986,10 @@ bool bgIsRoomOnScreen(s32 roomID, struct rectbbox *screenbox)
         }
     }
 
+    /**
+     * If all 8 of the room's bounding box corners are behind the camera,
+     * reject this room
+     */
     if (count_failed_projection == 8
             || count_z == 8
             || count_left == 8
@@ -2999,26 +3003,29 @@ bool bgIsRoomOnScreen(s32 roomID, struct rectbbox *screenbox)
 }
 
 
-s32 sub_GAME_7F0B5488(coord3d* arg0, coord3d* arg1)
+/**
+ * Address: 7F0B5488
+ */
+bool bgProjectRoomCoordToScreen(coord3d* src, coord3d* dst)
 {
     Mtxf* temp_a0;
     s32 var_v0;
 
     temp_a0 = camGetWorldToScreenMtxf();
-    arg1->x = arg0->x * room_data_float2;
-    arg1->y = arg0->y * room_data_float2;
-    arg1->z = arg0->z * room_data_float2;
-    mtx4TransformVecInPlace(temp_a0, arg1);
+    dst->x = src->x * room_data_float2;
+    dst->y = src->y * room_data_float2;
+    dst->z = src->z * room_data_float2;
+    mtx4TransformVecInPlace(temp_a0, dst);
 
-    transform3Dto2DWithZScaling(arg1, arg1);
+    transform3Dto2DWithZScaling(dst, dst);
 
-    if (arg1->z > 0.0f)
+    if (dst->z > 0.0f)
     {
-        return 0;
+        return FALSE;
     }
     else
     {
-        return 1;
+        return TRUE;
     }
 }
 
