@@ -76,7 +76,7 @@ struct Model *makeonebody(s32 body, s32 head, struct ModelFileHeader *bodyHeader
 
     if (model == 0)
     {
-        model = get_aircraft_obj_instance_controller(bodyHeader);
+        model = modelmgrInstantiateModelWithAnim(bodyHeader);
     }
     #ifdef DEBUG
     assert(chrsub->inst.savesize>=bodyobj->savesize); //bodyHeader = chrsub, model = bodyobj

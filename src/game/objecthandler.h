@@ -82,8 +82,8 @@ struct ptr_1_s {
     s32 unk1c;
 };
 
-extern struct ptr_0_s *ptr_allocation_0;
-extern struct ptr_1_s *ptr_allocation_1;
+extern struct ptr_0_s *g_AnimModelSlots;
+extern struct ptr_1_s *g_ModelSlots;
 
 extern struct ModelHitEntry *D_80036060;
 extern s32 D_80036070;

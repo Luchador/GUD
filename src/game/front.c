@@ -2054,7 +2054,7 @@ void load_walletbond(void)
 
         for (i = FOLDER1; i < MAX_FOLDER_COUNT; i++)
         {
-            walletinst[i]  = get_aircraft_obj_instance_controller(PitemZ_entries[PROP_WALLETBOND].header);
+            walletinst[i]  = modelmgrInstantiateModelWithAnim(PitemZ_entries[PROP_WALLETBOND].header);
             #ifdef DEBUG
             assert(walletinst[i]);
             #endif

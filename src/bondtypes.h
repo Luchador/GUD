@@ -1422,9 +1422,8 @@ typedef union
          */
         typedef struct Model
         {
-            s16                unk00; /*0x00*/   // objInit() indicates that unk00 is a s16...
-            s16                Type;  /*0x01*/  // but modelInit() indicates that Type is a s16...
-                                                // not sure which is correct.
+            s16                unk00;      /*0x00*/   // objInit() indicates that unk00 is a s16...
+            s16                rwdatalen;  /*0x01*/
 
             struct ChrRecord  *chr;   /*0x04*/
             ModelFileHeader   *obj;   /*0x08 GE Name confirmed*/

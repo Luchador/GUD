@@ -36,7 +36,7 @@ void modelSetAnimFrame2WithChrStuff(struct Model *model, f32 framea, f32 frameb,
 bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef)
 {
     return modeldef->numRecords <= 0
-        || (modelslot->datas != NULL && modelslot->Type >= modeldef->numRecords);
+        || (modelslot->datas != NULL && modelslot->rwdatalen >= modeldef->numRecords);
 }
 
 // Address: 7F06C094
@@ -54,9 +54,9 @@ Model *get_obj_instance_controller_for_header(ModelFileHeader *header)
     {
         s32 i;
 
-        for (i = 0; i < (D_80036074 - 30); i++) {
-            if (ptr_allocation_1[i].unk08 == 0) {
-                model = (Model *)&ptr_allocation_1[i];
+        for (i = 0; i < (g_NumModelSlots - 30); i++) {
+            if (g_ModelSlots[i].unk08 == 0) {
+                model = (Model *)&g_ModelSlots[i];
                 break;
             }
         }
@@ -74,13 +74,13 @@ Model *get_obj_instance_controller_for_header(ModelFileHeader *header)
     {
         s32 i;
 
-        for (i = 0; i < D_80036074; i++) 
+        for (i = 0; i < g_NumModelSlots; i++) 
         {
-            if (ptr_allocation_1[i].unk08 == 0 && modelmgrCanSlotFitRwdata((Model *)&ptr_allocation_1[i], header)) 
+            if (g_ModelSlots[i].unk08 == 0 && modelmgrCanSlotFitRwdata((Model *)&g_ModelSlots[i], header)) 
             {
-                rwdata = ptr_allocation_1[i].unk10;
-                numrecords = ptr_allocation_1[i].unk02;
-                model = (Model *)&ptr_allocation_1[i];
+                rwdata = g_ModelSlots[i].unk10;
+                numrecords = g_ModelSlots[i].unk02;
+                model = (Model *)&g_ModelSlots[i];
                 break;
             }
         }
@@ -102,71 +102,74 @@ void clear_model_obj(Model* model)
 }
 
 
-Model *get_aircraft_obj_instance_controller(ModelFileHeader *modelFileHeader)
+/**
+ * Allocates 0xc0 bytes for a new model to allow enough memory for animations.
+ */
+Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
 {
-    Model *result;
+    Model *newModel;
     void *rwdatas;
-    s16 type_val;
+    s16 rwdatalen;
     s32 i;
-    s16 numRecords;
+    s16 requiredRwdatalen;
     s32 i2;
 
-    result = NULL;
+    newModel = NULL;
     rwdatas = NULL;
-    type_val = -1;
+    rwdatalen = -1;
 
     if (D_80036078) 
     {
         for (i = 0; i < (D_80036070 - 10); i++) 
         {
-            if (ptr_allocation_0[i].unk08 == 0)
+            if (g_AnimModelSlots[i].unk08 == 0)
             {
-                result = (Model *)&ptr_allocation_0[i];
+                newModel = (Model *)&g_AnimModelSlots[i];
                 break;
             }
         }
 
-        if (result == NULL) 
+        if (newModel == NULL) 
         {
-            result = mempAllocBytesInBank(0xc0, 4);
+            newModel = mempAllocBytesInBank(0xc0, MEMPOOL_STAGE);
         }
 
-        numRecords = modelFileHeader->numRecords;
+        requiredRwdatalen = modelFileHeader->numRecords;
 
 #ifdef DEBUG
         if (modelFileHeader->numRecords > 140) osSyncPrintf("WARNING: increase OISAVESIZE to %d!\n", *(modelFileHeader->numRecords));
 #endif
 
-        if (numRecords > 0) 
+        if (requiredRwdatalen > 0) 
         {
-            i = numRecords;
-            rwdatas = mempAllocBytesInBank((((i * 4) + 0xf) | 0xf) ^ 0xf, 4);
-            type_val = modelFileHeader->numRecords;
+            i = requiredRwdatalen;
+            rwdatas = mempAllocBytesInBank((((i * 4) + 0xf) | 0xf) ^ 0xf, MEMPOOL_STAGE);
+            rwdatalen = modelFileHeader->numRecords;
         }
     } 
     else 
     {
-        numRecords = modelFileHeader->numRecords;
+        requiredRwdatalen = modelFileHeader->numRecords;
 
         for (i2 = 0; i2 < D_80036070; i2++) 
         {
-            if ((ptr_allocation_0[i2].unk08 == 0) &&((numRecords <= 0) || ((ptr_allocation_0[i2].unk10 != NULL) &&(ptr_allocation_0[i2].unk02 >= numRecords)))) 
+            if ((g_AnimModelSlots[i2].unk08 == 0) && ((requiredRwdatalen <= 0) || ((g_AnimModelSlots[i2].unk10 != NULL) &&(g_AnimModelSlots[i2].unk02 >= requiredRwdatalen)))) 
             {
-                result = (Model *)&ptr_allocation_0[i2];
-                rwdatas = ptr_allocation_0[i2].unk10;
-                type_val = ptr_allocation_0[i2].unk02;
+                newModel = (Model *)&g_AnimModelSlots[i2];
+                rwdatas = g_AnimModelSlots[i2].unk10;
+                rwdatalen = g_AnimModelSlots[i2].unk02;
                 break;
             }
         }
     }
 
-    if (result != NULL) 
+    if (newModel != NULL) 
     {
-        animInit(result, modelFileHeader, rwdatas);
-        result->Type = type_val;
+        animInit(newModel, modelFileHeader, rwdatas);
+        newModel->rwdatalen = rwdatalen;
     }
 
-    return result;
+    return newModel;
 }
 
 
@@ -8768,7 +8771,7 @@ void modelInit(struct Model *objinst, struct ModelFileHeader *header, u32 *data)
 {
   objinst->obj = header;
   objinst->datas = data;
-  objinst->Type = -1;
+  objinst->rwdatalen = -1;
   objinst->attachedto = NULL;
   objinst->attachedto_objinst = NULL;
   objinst->scale = 1.0;

@@ -614,7 +614,7 @@ PropRecord* objInit(ObjectRecord* obj, ModelFileHeader* model_header, PropRecord
     {
         if (obj->type == PROPDEF_AIRCRAFT)
         {
-            model = get_aircraft_obj_instance_controller(model_header);
+            model = modelmgrInstantiateModelWithAnim(model_header);
         }
         else
         {

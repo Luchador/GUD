@@ -5,13 +5,13 @@
 #include <bondtypes.h>
 #include "bondconstants.h"
 
-extern s32 D_80036074;
+extern s32 g_NumModelSlots;
 extern s32 D_80036078;
 
 bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef);
 Model* get_obj_instance_controller_for_header(struct ModelFileHeader* arg0);
 void clear_model_obj(Model* model);
-Model *get_aircraft_obj_instance_controller(ModelFileHeader *);
+Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *);
 void modelAttachHead(Model *, ModelNode*,  ModelFileHeader *);
 void clear_aircraft_model_obj(Model *objinstance);
 void modelSetDistanceDisabled(s32 param_1);
