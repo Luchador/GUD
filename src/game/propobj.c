@@ -618,7 +618,7 @@ PropRecord* objInit(ObjectRecord* obj, ModelFileHeader* model_header, PropRecord
         }
         else
         {
-            model = get_obj_instance_controller_for_header(model_header);
+            model = modelmgrInstantiateModel(model_header);
         }
     }
 
@@ -32842,7 +32842,7 @@ PropRecord *hatCreateForChr(ChrRecord *chr, s32 modelnum, u32 flags)
 
     modelLoad(modelnum);
     prop = chrpropAllocate();
-    model = get_obj_instance_controller_for_header(modeldef);
+    model = modelmgrInstantiateModel(modeldef);
     hat = hatCreate(prop == NULL, model == NULL, modeldef);
 
     if (prop == NULL)
@@ -32852,7 +32852,7 @@ PropRecord *hatCreateForChr(ChrRecord *chr, s32 modelnum, u32 flags)
 
     if (model == NULL)
     {
-        model = get_obj_instance_controller_for_header(modeldef);
+        model = modelmgrInstantiateModel(modeldef);
     }
 
     if (hat && prop && model)
@@ -33509,7 +33509,7 @@ ObjectRecord *create_new_item_instance_of_model(PROP modelnum, s32 weaponid)
 
     prop = chrpropAllocate();
 
-    model = get_obj_instance_controller_for_header(modeldef);
+    model = modelmgrInstantiateModel(modeldef);
 
     obj = weaponCreate(prop == NULL, model == NULL, modeldef);
 
@@ -33520,7 +33520,7 @@ ObjectRecord *create_new_item_instance_of_model(PROP modelnum, s32 weaponid)
 
     if (model == NULL)
     {
-        model = get_obj_instance_controller_for_header(modeldef);
+        model = modelmgrInstantiateModel(modeldef);
     }
 
     if (obj != NULL && prop != NULL && model != NULL)
@@ -33609,7 +33609,7 @@ PropRecord *something_with_generating_object(ChrRecord *self, s32 propid, ITEM_I
     }
 
     lastobjentry = chrpropAllocate();
-    objinst = get_obj_instance_controller_for_header((ModelFileHeader *)prop_header);
+    objinst = modelmgrInstantiateModel((ModelFileHeader *)prop_header);
 
     if (!weapon)
     {
@@ -33623,7 +33623,7 @@ PropRecord *something_with_generating_object(ChrRecord *self, s32 propid, ITEM_I
 
     if (!objinst)
     {
-        objinst = get_obj_instance_controller_for_header((ModelFileHeader *)prop_header);
+        objinst = modelmgrInstantiateModel((ModelFileHeader *)prop_header);
     }
 
     if (weapon && lastobjentry && objinst)

@@ -59,11 +59,11 @@ struct ptr_1_s *g_ModelSlots;
 
 // data
 //D:80036070
-s32 D_80036070 = 0;
+s32 g_NumAnimModelSlots = 0;
 //D:80036074
 s32 g_NumModelSlots = 0;
 //D:80036078
-s32 D_80036078 = 0;
+s32 g_ModelIsLvResetting = 0;
 //D:8003607C
 u32 D_8003607C = 0;
 //D:80036080

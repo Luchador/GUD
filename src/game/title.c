@@ -938,7 +938,7 @@ void initializeGunBarrelIntro(u8 *gfxBuffer, s32 bufferSize)
     
     modelCalculateRwDataLen(PitemZ_entries[191].header);
     
-    gunModelInstance = get_obj_instance_controller_for_header(PitemZ_entries[PROP_CHRWPPK].header);
+    gunModelInstance = modelmgrInstantiateModel(PitemZ_entries[PROP_CHRWPPK].header);
     
     modelSetScale(gunModelInstance, 0.18779343f);
     

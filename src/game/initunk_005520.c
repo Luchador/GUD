@@ -6,14 +6,16 @@
 #include "memp.h"
 
 
-void zero_contents_of_80036070_74(void) {
-    D_80036070 = 0;
+void modelmgrResetSlotCounts(void)
+{
+    g_NumAnimModelSlots = 0;
     g_NumModelSlots = 0;
 }
 
 
-void set_contents_of_80036078(s32 arg0) {
-    D_80036078 = arg0;
+void modelmgrSetLevelResetting(bool resetting) 
+{
+    g_ModelIsLvResetting = resetting;
 }
 
 //this may be a file split
@@ -55,13 +57,13 @@ void sub_GAME_7F005624(s32 arg0)
     s32 temp_t6;
     s32 var_s1;
 
-    D_80036070 = arg0 + 10;
+    g_NumAnimModelSlots = arg0 + 10;
 
     // mips2c says: g_AnimModelSlots = mempAllocBytesInBank(temp_t6 * 0xC0, 4);
     // however, the pointer is incremented by 0xbc in the loop below.
-    g_AnimModelSlots = mempAllocBytesInBank(D_80036070 * (4 + sizeof(struct ptr_0_s)), MEMPOOL_STAGE);
+    g_AnimModelSlots = mempAllocBytesInBank(g_NumAnimModelSlots * (4 + sizeof(struct ptr_0_s)), MEMPOOL_STAGE);
 
-    for (var_s1 = 0; var_s1 < D_80036070; var_s1++)
+    for (var_s1 = 0; var_s1 < g_NumAnimModelSlots; var_s1++)
     {
         g_AnimModelSlots[var_s1].unk08 = 0;
 

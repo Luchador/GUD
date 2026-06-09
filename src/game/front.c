@@ -1393,7 +1393,7 @@ void init_menu00_legalscreen(void)
     load_object_fill_header(PitemZ_entries[PROP_LEGALPAGE].header, PitemZ_entries[PROP_LEGALPAGE].filename, ptr_logo_and_walletbond_DL, 0x3c000, 0);
     modelCalculateRwDataLen(PitemZ_entries[PROP_LEGALPAGE].header);
 
-    logoinst = get_obj_instance_controller_for_header(PitemZ_entries[PROP_LEGALPAGE].header);
+    logoinst = modelmgrInstantiateModel(PitemZ_entries[PROP_LEGALPAGE].header);
     #ifdef DEBUG
         assert(logoinst);
     #endif
@@ -1580,7 +1580,7 @@ void init_menu01_nintendo(void)
     pos = nintendologo_pos;
     load_object_fill_header(PitemZ_entries[PROP_NINTENDOLOGO].header, PitemZ_entries[PROP_NINTENDOLOGO].filename, ptr_logo_and_walletbond_DL, 0x3c000, 0);
     modelCalculateRwDataLen(PitemZ_entries[PROP_NINTENDOLOGO].header);
-    logoinst = get_obj_instance_controller_for_header(PitemZ_entries[PROP_NINTENDOLOGO].header);
+    logoinst = modelmgrInstantiateModel(PitemZ_entries[PROP_NINTENDOLOGO].header);
     modelSetScale(logoinst, 1.0f);
     setsuboffset(logoinst, &pos);
     musicTrack1Play(M_INTROSWOOSH);
@@ -1851,7 +1851,7 @@ void init_menu04_goldeneyelogo(void)
     pos = goldeneyelogo_pos;
     load_object_fill_header(PitemZ_entries[PROP_GOLDENEYELOGO].header, PitemZ_entries[PROP_GOLDENEYELOGO].filename, ptr_logo_and_walletbond_DL, 0x3c000, 0);
     modelCalculateRwDataLen(PitemZ_entries[PROP_GOLDENEYELOGO].header);
-    logoinst = get_obj_instance_controller_for_header(PitemZ_entries[PROP_GOLDENEYELOGO].header);
+    logoinst = modelmgrInstantiateModel(PitemZ_entries[PROP_GOLDENEYELOGO].header);
     #ifdef DEBUG
         assert(logoinst);
     #endif
@@ -7825,7 +7825,7 @@ void init_menu18_displaycast(void)
         spB4 += temp_t0;
 
         modelCalculateRwDataLen(sp78);
-        cast_model_weapon = get_obj_instance_controller_for_header(sp78);
+        cast_model_weapon = modelmgrInstantiateModel(sp78);
         modelSetScale((Model *) cast_model_weapon, 0.1f);
 
         cast_model_weapon->attachedto = cast_model;
@@ -8243,7 +8243,7 @@ glabel init_menu18_displaycast
 /* 04D6E8 7F018BB8 8C440004 */   lw    $a0, 4($v0)
 /* 04D6EC 7F018BBC 0FC1D73D */  jal   modelCalculateRwDataLen
 /* 04D6F0 7F018BC0 8FA40078 */   lw    $a0, 0x78($sp)
-/* 04D6F4 7F018BC4 0FC1B025 */  jal   get_obj_instance_controller_for_header
+/* 04D6F4 7F018BC4 0FC1B025 */  jal   modelmgrInstantiateModel
 /* 04D6F8 7F018BC8 8FA40078 */   lw    $a0, 0x78($sp)
 /* 04D6FC 7F018BCC 3C038003 */  lui   $v1, %hi(cast_model_weapon)
 /* 04D700 7F018BD0 2463B5F8 */  addiu $v1, %lo(cast_model_weapon) # addiu $v1, $v1, -0x4a08
@@ -8840,7 +8840,7 @@ glabel init_menu18_displaycast
 /* 04B620 7F018C30 8C440004 */   lw    $a0, 4($v0)
 /* 04B624 7F018C34 0FC1D75F */  jal   modelCalculateRwDataLen
 /* 04B628 7F018C38 8FA40078 */   lw    $a0, 0x78($sp)
-/* 04B62C 7F018C3C 0FC1B1F5 */  jal   get_obj_instance_controller_for_header
+/* 04B62C 7F018C3C 0FC1B1F5 */  jal   modelmgrInstantiateModel
 /* 04B630 7F018C40 8FA40078 */   lw    $a0, 0x78($sp)
 /* 04B634 7F018C44 3C038002 */  lui   $v1, %hi(cast_model_weapon) # $v1, 0x8002
 /* 04B638 7F018C48 24636B48 */  addiu $v1, %lo(cast_model_weapon) # addiu $v1, $v1, 0x6b48

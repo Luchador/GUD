@@ -348,7 +348,7 @@ void lvlStageLoad(s32 stage)
     musicTrack2ApplySeqpVol(VOLUME_MAX);
     musicTrack3ApplySeqpVol(VOLUME_MAX);
     sub_GAME_7F0C1364();
-    set_contents_of_80036078(1);
+    modelmgrSetLevelResetting(TRUE);
     set_mt_tex_alloc();
 #ifdef VERSION_EU
     sub_GAME_7F0A45D8();
@@ -461,7 +461,7 @@ void lvlStageLoad(s32 stage)
     mpwatchUnpauseGame();
     sub_GAME_7F09B820();
     sub_GAME_7F005450();
-    zero_contents_of_80036070_74();
+    modelmgrResetSlotCounts();
     init_load_objpos_table();
     reinit_between_menus();
     init_sound_effects_registers();
@@ -499,7 +499,12 @@ void lvlStageLoad(s32 stage)
         set_cur_player(0);
     }
 
-    set_contents_of_80036078(0);
+    /**
+     * Leave stage load allocation mode.
+     * From this point on, model creation should try to reuse existing slots.
+     */
+    modelmgrSetLevelResetting(FALSE);
+    
     zbufDeallocate();
     viSetVideoMode(MD_NORMAL);
     D_80048368 = 1.0f;

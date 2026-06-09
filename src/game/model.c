@@ -39,35 +39,45 @@ bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef)
         || (modelslot->datas != NULL && modelslot->rwdatalen >= modeldef->numRecords);
 }
 
-// Address: 7F06C094
-Model *get_obj_instance_controller_for_header(ModelFileHeader *header)
+
+/**
+ * Address: 7F06C094
+ * 
+ * Allocates 0x20 bytes for a new model without animations.
+ * Models that need animations use modelmgrInstantiateModelWithAnim.
+ */
+Model *modelmgrInstantiateModel(ModelFileHeader *header)
 {
     Model *model;
     u32 *rwdata;
-    s16 numrecords;
+    s16 rwdatalen;
 
     model = NULL;
     rwdata = NULL;
-    numrecords = -1;
+    rwdatalen = -1;
 
-    if (D_80036078) 
+    if (g_ModelIsLvResetting) 
     {
         s32 i;
 
-        for (i = 0; i < (g_NumModelSlots - 30); i++) {
-            if (g_ModelSlots[i].unk08 == 0) {
+        for (i = 0; i < (g_NumModelSlots - 30); i++) 
+        {
+            if (g_ModelSlots[i].unk08 == 0) 
+            {
                 model = (Model *)&g_ModelSlots[i];
                 break;
             }
         }
 
-        if (model == NULL) {
-            model = mempAllocBytesInBank(0x20, 4);
+        if (model == NULL) 
+        {
+            model = mempAllocBytesInBank(0x20, MEMPOOL_STAGE);
         }
 
-        if (header->numRecords > 0) {
-            rwdata = mempAllocBytesInBank((((header->numRecords * 4) + 0xf) | 0xf) ^ 0xf, 4);
-            numrecords = header->numRecords;
+        if (header->numRecords > 0) 
+        {
+            rwdata = mempAllocBytesInBank((((header->numRecords * 4) + 0xf) | 0xf) ^ 0xf, MEMPOOL_STAGE);
+            rwdatalen = header->numRecords;
         }
     } 
     else 
@@ -79,7 +89,7 @@ Model *get_obj_instance_controller_for_header(ModelFileHeader *header)
             if (g_ModelSlots[i].unk08 == 0 && modelmgrCanSlotFitRwdata((Model *)&g_ModelSlots[i], header)) 
             {
                 rwdata = g_ModelSlots[i].unk10;
-                numrecords = g_ModelSlots[i].unk02;
+                rwdatalen = g_ModelSlots[i].unk02;
                 model = (Model *)&g_ModelSlots[i];
                 break;
             }
@@ -89,7 +99,7 @@ Model *get_obj_instance_controller_for_header(ModelFileHeader *header)
     if (model != NULL) 
     {
         modelInit(model, header, rwdata);
-        ((struct ptr_1_s *)model)->unk02 = numrecords;
+        ((struct ptr_1_s *)model)->unk02 = rwdatalen;
     }
 
     return model;
@@ -118,9 +128,9 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
     rwdatas = NULL;
     rwdatalen = -1;
 
-    if (D_80036078) 
+    if (g_ModelIsLvResetting) 
     {
-        for (i = 0; i < (D_80036070 - 10); i++) 
+        for (i = 0; i < (g_NumAnimModelSlots - 10); i++) 
         {
             if (g_AnimModelSlots[i].unk08 == 0)
             {
@@ -151,7 +161,7 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
     {
         requiredRwdatalen = modelFileHeader->numRecords;
 
-        for (i2 = 0; i2 < D_80036070; i2++) 
+        for (i2 = 0; i2 < g_NumAnimModelSlots; i2++) 
         {
             if ((g_AnimModelSlots[i2].unk08 == 0) && ((requiredRwdatalen <= 0) || ((g_AnimModelSlots[i2].unk10 != NULL) &&(g_AnimModelSlots[i2].unk02 >= requiredRwdatalen)))) 
             {

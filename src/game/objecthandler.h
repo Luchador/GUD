@@ -86,7 +86,6 @@ extern struct ptr_0_s *g_AnimModelSlots;
 extern struct ptr_1_s *g_ModelSlots;
 
 extern struct ModelHitEntry *D_80036060;
-extern s32 D_80036070;
 extern s32 g_ModelDistanceDisabled;
 extern f32 g_ModelDistanceScale;
 extern u32 g_ModelAnimMergingEnabled;

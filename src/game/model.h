@@ -6,10 +6,11 @@
 #include "bondconstants.h"
 
 extern s32 g_NumModelSlots;
-extern s32 D_80036078;
+extern s32 g_NumAnimModelSlots;
+extern s32 g_ModelIsLvResetting;
 
 bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef);
-Model* get_obj_instance_controller_for_header(struct ModelFileHeader* arg0);
+Model* modelmgrInstantiateModel(struct ModelFileHeader* arg0);
 void clear_model_obj(Model* model);
 Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *);
 void modelAttachHead(Model *, ModelNode*,  ModelFileHeader *);
