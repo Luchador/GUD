@@ -2791,15 +2791,15 @@ char *TEXTBANK_LEVEL_INDEX_ToString[] =
 #define GUNAMMOREASON_DAMAGE     0x08
 
 typedef enum WATCH_ANIMATION_STATE_IDS {
-    WATCH_ANIMATION_0x0 = 0,
-    WATCH_ANIMATION_0x1,
-    WATCH_ANIMATION_0x2,
-    WATCH_ANIMATION_0x3,
-    WATCH_ANIMATION_0x4,
-    WATCH_ANIMATION_0x5,
-    WATCH_ANIMATION_0x6,
-    WATCH_ANIMATION_0x7,
-    WATCH_ANIMATION_0x8,
+    WATCH_ANIMATION_0x0 = 0,  /* Watch closed, normal play. */
+    WATCH_ANIMATION_0x1,      /* Pause initiated, lower any weapon in left hand. */
+    WATCH_ANIMATION_0x2,      /* Tilt player camera to watch angle. */
+    WATCH_ANIMATION_0x3,      /* Raise left arm. */
+    WATCH_ANIMATION_0x4,      /* Zoom into watch face. */
+    WATCH_ANIMATION_0x5,      /* Watch open, game paused. */
+    WATCH_ANIMATION_0x6,      /* Zoom out from watch face. */
+    WATCH_ANIMATION_0x7,      /* Lower left arm. */
+    WATCH_ANIMATION_0x8,      /* Tilt player camera to where it was before pause initiated, finish pause. */
     WATCH_ANIMATION_0x9,
     WATCH_ANIMATION_0xa,
     WATCH_ANIMATION_0xb,
@@ -2816,7 +2816,6 @@ typedef enum WATCH_BRIEFING_PAGE
     BRIEFING_Q,
     BRIEFING_MONEYPENNY
 } WATCH_BRIEFING_PAGE;
-
 
 typedef enum AWARD {
 
@@ -2838,7 +2837,6 @@ typedef enum AWARD {
     AWARD_TRIPLEKILL       = 0x08000,
     AWARD_QUADKILL         = 0x10000
 } AWARD;
-
 
 typedef enum WAYMODE
 {

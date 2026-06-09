@@ -368,4 +368,6 @@ void gunAdvanceBeamTimer(BeamRecord* arg0);
 Gfx *sub_GAME_7F06359C(Gfx *gdl, Mtxf *matrix, s32 arg2, s32 arg3, void *arg4, s8 *contpadnum);
 Gfx *sub_GAME_7F064364(Gfx *gdl, Mtxf *arg1, s32 arg2, s32 arg3, s8 *contpadnum);
 
+Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf *mtx, s32 arg3, s32 arg4);
+
 #endif

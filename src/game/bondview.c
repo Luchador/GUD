@@ -15686,6 +15686,7 @@ int bondviewGetIfCurrentPlayerDamageShowTime(void)
     return (g_CurrentPlayer->damageshowtime >= (s32)0);
 }
 
+
 int bondviewGetIfCurrentPlayerHealthShowTime(void)
 {
     return (g_CurrentPlayer->healthshowtime > (s32)0);
