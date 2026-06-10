@@ -6888,9 +6888,6 @@ glabel doshadow
 #endif
 
 
-
-
-
 void sub_GAME_7F074514(s32 param_1,struct Model *param_2,struct ModelNode *param_3)
 {
     return;
@@ -6901,12 +6898,6 @@ void sub_GAME_7F074524(Gfx *param_1,struct Model *param_2, struct ModelNode *par
 {
     return;
 }
-
-
-
-
-
-
 
 
 void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node) {
@@ -6970,9 +6961,6 @@ void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node) {
         return;
     }
 }
-
-
-
 
 
 #if 1
