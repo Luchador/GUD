@@ -1527,14 +1527,14 @@ void init_player_BONDdata(void)
     g_CurrentPlayer->bondshotspeed.x = 0.0f;
     g_CurrentPlayer->bondshotspeed.y = 0.0f;
     g_CurrentPlayer->bondshotspeed.z = 0.0f;
-    g_CurrentPlayer->lookahead_auto_adjust_pitch_active = FALSE;
-    g_CurrentPlayer->field_108 = 0;
-    g_CurrentPlayer->manual_adjust_pitch_active = FALSE;
-    g_CurrentPlayer->suppress_move_centre_until_walk_release = FALSE;
-    g_CurrentPlayer->lookahead_enable_stan_test = TRUE;
-    g_CurrentPlayer->lookaheadenabled = TRUE;
+    g_CurrentPlayer->docentreupdown = FALSE;
+    g_CurrentPlayer->lastupdown60 = 0;
+    g_CurrentPlayer->prevupdown = FALSE;
+    g_CurrentPlayer->movecentrerelease = FALSE;
+    g_CurrentPlayer->lookaheadcentreenabled = TRUE;
+    g_CurrentPlayer->automovecentreenabled = TRUE;
     g_CurrentPlayer->fastmovecentreenabled = FALSE;
-    g_CurrentPlayer->lookahead_auto_centre_armed = TRUE;
+    g_CurrentPlayer->automovecentre = TRUE;
     g_CurrentPlayer->insightaimmode = FALSE;
     g_CurrentPlayer->autoyaimenabled = TRUE;
     g_CurrentPlayer->autoaimy = 0.0f;
@@ -1590,7 +1590,7 @@ void bondviewPlayerSpawnRelated(void)
     g_CurrentPlayer->field_29BC = ((g_playerPerm->player_perspective_height * 185.0f * (s32)1) - 10.0f);
 
     g_CurrentPlayer->kills_this_life = 0;
-    g_CurrentPlayer->field_29F4 = getMissiontimer();
+    g_CurrentPlayer->lifestarttime60 = getMissiontimer();
     g_CurrentPlayer->healthdisplaytime = 0;
 
     bondinvAddInvItem(ITEM_FIST);
@@ -4983,7 +4983,7 @@ void sub_GAME_7F07C540(s32 arg0)
 
 void currentPlayerSetLookAheadSetting(bool enabled)
 {
-    g_CurrentPlayer->lookaheadenabled = enabled;
+    g_CurrentPlayer->automovecentreenabled = enabled;
 }
 
 
@@ -4992,7 +4992,7 @@ void currentPlayerSetLookAheadSetting(bool enabled)
  */
 bool currentPlayerGetLookAheadSetting(void)
 {
-    return g_CurrentPlayer->lookaheadenabled;
+    return g_CurrentPlayer->automovecentreenabled;
 }
 
 
@@ -9102,8 +9102,8 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         // By default the camera is pitched slightly below the horizon
         targetPitch = -4.0f;
 
-        // lookahead_enable_stan_test is always true, so this block always executes.
-        if (g_CurrentPlayer->lookahead_enable_stan_test)
+        // lookaheadcentreenabled is always true, so this block always executes.
+        if (g_CurrentPlayer->lookaheadcentreenabled)
         {
             spC0 = g_CurrentPlayer->field_488.current_tile_ptr;
             spBC = 300.0f;
@@ -9151,9 +9151,9 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             }
         }
 
-        if ((g_CurrentPlayer->suppress_move_centre_until_walk_release) && (moveData.analogWalk < 40) && (moveData.analogWalk > -40))
+        if ((g_CurrentPlayer->movecentrerelease) && (moveData.analogWalk < 40) && (moveData.analogWalk > -40))
         {
-            g_CurrentPlayer->suppress_move_centre_until_walk_release = FALSE;
+            g_CurrentPlayer->movecentrerelease = FALSE;
         }
 
         
@@ -9164,32 +9164,32 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
              */
             if ((moveData.speedVertaDown > 0) || (moveData.speedVertaUp > 0))
             {
-                g_CurrentPlayer->lookahead_auto_adjust_pitch_active = FALSE;
-                g_CurrentPlayer->manual_adjust_pitch_active = TRUE;
-                g_CurrentPlayer->lookahead_auto_centre_armed = FALSE;
+                g_CurrentPlayer->docentreupdown = FALSE;
+                g_CurrentPlayer->prevupdown = TRUE;
+                g_CurrentPlayer->automovecentre = FALSE;
             }
             else
             {
                 if (moveData.disableLookAhead)
                 {
-                    g_CurrentPlayer->lookahead_auto_centre_armed = FALSE;
+                    g_CurrentPlayer->automovecentre = FALSE;
                 }
-                else if (g_CurrentPlayer->lookaheadenabled)
+                else if (g_CurrentPlayer->automovecentreenabled)
                 {
                     if ((moveData.canLookAhead) && ((moveData.analogWalk > 60) || (moveData.analogWalk < -60)))
                     {
-                        g_CurrentPlayer->lookahead_auto_centre_armed = TRUE;
+                        g_CurrentPlayer->automovecentre = TRUE;
                     }
 
                     /**
                      * If the player's camera pitch is 5 degrees above the target pitch or 10 degrees below the target pitch,
-                     * and move centre is allowed, look ahead can be activated.
+                     * and move centre is allowed, look ahead (docentreupdown) can be activated.
                      */
-                    if ((g_CurrentPlayer->lookahead_auto_centre_armed)
+                    if ((g_CurrentPlayer->automovecentre)
                         && (( ((targetPitch + 5.0f) < g_CurrentPlayer->vv_verta)) || (g_CurrentPlayer->vv_verta < (targetPitch + -FLOAT_TEN_A)))
-                        && (g_CurrentPlayer->suppress_move_centre_until_walk_release == FALSE))
+                        && (g_CurrentPlayer->movecentrerelease == FALSE))
                     {
-                        g_CurrentPlayer->lookahead_auto_adjust_pitch_active = TRUE;
+                        g_CurrentPlayer->docentreupdown = TRUE;
                     }
                 }
                 /**
@@ -9199,16 +9199,19 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                     && (moveData.canLookAhead)
                     && ((moveData.analogWalk > 60) || (moveData.analogWalk < -60)) 
                     && (( ((targetPitch + 5.0f) < g_CurrentPlayer->vv_verta)) || (g_CurrentPlayer->vv_verta < (targetPitch + -FLOAT_TEN_A))) 
-                    && (g_CurrentPlayer->suppress_move_centre_until_walk_release == FALSE))
+                    && (g_CurrentPlayer->movecentrerelease == FALSE))
                 {
-                    g_CurrentPlayer->lookahead_auto_adjust_pitch_active = TRUE;
+                    g_CurrentPlayer->docentreupdown = TRUE;
                 }
 
-                g_CurrentPlayer->manual_adjust_pitch_active = FALSE;
+                g_CurrentPlayer->prevupdown = FALSE;
             }
         }
 
-        if (g_CurrentPlayer->lookahead_auto_adjust_pitch_active)
+        /**
+         * If look ahead (docentreupdown) is active, adjust the player's camera pitch to the target pitch.
+         */
+        if (g_CurrentPlayer->docentreupdown)
         {
             if (g_PlayerIsInTank == 0)
             {
@@ -9242,9 +9245,9 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                     g_CurrentPlayer->vv_verta = targetPitch;
                     g_CurrentPlayer->speedverta = 0;
 
-                    if (g_CurrentPlayer->manual_adjust_pitch_active == FALSE)
+                    if (g_CurrentPlayer->prevupdown == FALSE)
                     {
-                        g_CurrentPlayer->lookahead_auto_adjust_pitch_active = FALSE;
+                        g_CurrentPlayer->docentreupdown = FALSE;
                     }
                 }
             }
@@ -9283,7 +9286,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                 // Bug? This is true for every value except exactly 60.
                 if ((moveData.canLookAhead) && ((moveData.analogWalk > 60) || (moveData.analogWalk < 60)))
                 {
-                    g_CurrentPlayer->suppress_move_centre_until_walk_release = TRUE;
+                    g_CurrentPlayer->movecentrerelease = TRUE;
                 }
             }
             else if (moveData.speedVertaUp > 0)
@@ -9292,7 +9295,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                 if ((moveData.canLookAhead) && ((moveData.analogWalk > 60) || (moveData.analogWalk < 60)))
                 {
-                    g_CurrentPlayer->suppress_move_centre_until_walk_release = TRUE;
+                    g_CurrentPlayer->movecentrerelease = TRUE;
                 }
             }
             else
@@ -9581,25 +9584,25 @@ void bondviewPlayerTickDamageAndHealth(void)
         // 0: This is the first frame of damage
         if (g_CurrentPlayer->healthshowtime == 0)
         {
-            g_CurrentPlayer->healthDamageType = (s32)(currentPlayerGetHealth() * 8.0f);
+            g_CurrentPlayer->healthdamagetype = (s32)(currentPlayerGetHealth() * 8.0f);
 
-            if (g_CurrentPlayer->healthDamageType >= 8)
+            if (g_CurrentPlayer->healthdamagetype >= 8)
             {
-                g_CurrentPlayer->healthDamageType = 7;
+                g_CurrentPlayer->healthdamagetype = 7;
             }
 
 #if defined(VERSION_EU) || defined(VERSION_JP)
-            if (g_CurrentPlayer->healthDamageType < 0)
+            if (g_CurrentPlayer->healthdamagetype < 0)
             {
-                g_CurrentPlayer->healthDamageType = 0;
+                g_CurrentPlayer->healthdamagetype = 0;
             }
 #endif
         }
 
         if (!g_CurrentPlayer->bonddead)
         {
-            if ((g_CurrentPlayer->healthshowtime >= g_HealthDisplayDurations[g_CurrentPlayer->healthDamageType].validStartFrame)
-                && (g_HealthDisplayDurations[g_CurrentPlayer->healthDamageType].updateToRealHealthFrame >= g_CurrentPlayer->healthshowtime))
+            if ((g_CurrentPlayer->healthshowtime >= g_HealthDisplayDurations[g_CurrentPlayer->healthdamagetype].validStartFrame)
+                && (g_HealthDisplayDurations[g_CurrentPlayer->healthdamagetype].updateToRealHealthFrame >= g_CurrentPlayer->healthshowtime))
             {
                 g_CurrentPlayer->apparenthealth = g_CurrentPlayer->oldhealth;
                 g_CurrentPlayer->apparentarmour = g_CurrentPlayer->oldarmour;
@@ -9609,8 +9612,8 @@ void bondviewPlayerTickDamageAndHealth(void)
                 g_CurrentPlayer->healthshowtime += g_GlobalTimerDelta;
 #endif
             }
-            else if ((g_CurrentPlayer->healthshowtime >= g_HealthDisplayDurations[g_CurrentPlayer->healthDamageType].validStartFrame)
-                && (g_HealthDisplayDurations[g_CurrentPlayer->healthDamageType].hideHealthFrame >= g_CurrentPlayer->healthshowtime))
+            else if ((g_CurrentPlayer->healthshowtime >= g_HealthDisplayDurations[g_CurrentPlayer->healthdamagetype].validStartFrame)
+                && (g_HealthDisplayDurations[g_CurrentPlayer->healthdamagetype].hideHealthFrame >= g_CurrentPlayer->healthshowtime))
             {
                 g_CurrentPlayer->apparenthealth = g_CurrentPlayer->bondhealth;
                 g_CurrentPlayer->apparentarmour = g_CurrentPlayer->bondarmour;
@@ -13625,7 +13628,7 @@ void mp_respawn_handler(void) {
     g_CurrentPlayer->deathanimfinished = 0;
     g_CurrentPlayer->redbloodfinished = 0;
     g_CurrentPlayer->startnewbonddie = 1;
-    g_CurrentPlayer->healthDamageType = 7;
+    g_CurrentPlayer->healthdamagetype = 7;
     g_CurrentPlayer->damagetype = 7;
     g_CurrentPlayer->gunammooff = 0;
     g_CurrentPlayer->gunsightmode = 2;
@@ -15476,12 +15479,12 @@ void bondviewKillCurrentPlayer(void)
         currentPlayerEquipWeaponWrapper(GUNLEFT, 0);
         currentPlayerEquipWeaponWrapper(GUNRIGHT, 0);
 
-        if ((getMissiontimer() - g_CurrentPlayer->field_29F4) < g_playerPerm->shortest_inning)
+        if ((getMissiontimer() - g_CurrentPlayer->lifestarttime60) < g_playerPerm->shortest_inning)
         {
-            g_playerPerm->shortest_inning = getMissiontimer() - g_CurrentPlayer->field_29F4;
+            g_playerPerm->shortest_inning = getMissiontimer() - g_CurrentPlayer->lifestarttime60;
         }
 
-        g_CurrentPlayer->field_29F4 = getMissiontimer();
+        g_CurrentPlayer->lifestarttime60 = getMissiontimer();
     }
 }
 

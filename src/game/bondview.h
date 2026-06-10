@@ -305,12 +305,12 @@ typedef struct gunheld {
 
 struct player
 {
-  /* 0x0000 */ s32 unknown;
+  /* 0x0000 */ s32 unknown; // canonical "cameramode" ?
 
   /**
    * Offset 0x0004.
    */
-  coord3d pos;
+  coord3d pos; // canonical "memcampos" ?
 
   /**
    * Offset 0x0010.
@@ -416,12 +416,12 @@ struct player
   /**
    * Flag: 0, 1, 2
   */
-  /* 0x009c */ s32 crouchpos;
+  /* 0x009c */ s32 crouchpos; // canonical name
 
   /**
    * Varies from 0.0f to -100.0f
    * /
-  /* 0x00a0 */ f32 ducking_height_offset;
+  /* 0x00a0 */ f32 ducking_height_offset; // canonical "crouchoffset" ?
 
   /**
    * Crouch related, only used while moving up or down into or
@@ -438,13 +438,13 @@ struct player
 
   /* 0x00d0 */ s32 field_D0;
   /* 0x00d4 */ struct Model *ptr_char_objectinstance; //canonically bondsub
-  /* 0x00d8 */ s32 bonddead;
-  /* 0x00dc */ f32 bondhealth;
+  /* 0x00d8 */ s32 bonddead; // canonical name
+  /* 0x00dc */ f32 bondhealth; // canonical name
   /* 0x00e0 */ f32 bondarmour;
-  /* 0x00e4 */ f32 oldhealth;
-  /* 0x00e8 */ f32 oldarmour;
-  /* 0x00ec */ f32 apparenthealth;
-  /* 0x00f0 */ f32 apparentarmour;
+  /* 0x00e4 */ f32 oldhealth; // canonical name
+  /* 0x00e8 */ f32 oldarmour; // canonical name
+  /* 0x00ec */ f32 apparenthealth; // canonical name
+  /* 0x00f0 */ f32 apparentarmour; // canonical name
 
 #if defined(VERSION_JP) || defined (VERSION_EU)
 
@@ -468,42 +468,54 @@ struct player
      **/
     f32 healthshowtime;
 #else
-  /* See comments above. 0x00f4 */ s32 damageshowtime;
-  /* See comments above. 0x00f8 */ s32 healthshowtime;
+  /* See comments above. 0x00f4 */ s32 damageshowtime; // canonical name
+  /* See comments above. 0x00f8 */ s32 healthshowtime; // canonical name
 #endif
 
 
-  /* 0x00fc */ s32 healthshowmode;
-  /* 0x0100 */ s32 field_100;
-  /* 0x0104 */ bool lookahead_auto_adjust_pitch_active;
-  /* 0x0108 */ s32 field_108;
-  
+  /* 0x00fc */ s32 healthshowmode; // canonical name
+  /* 0x0100 */ s32 field_100; // unused
+
+  /**
+  * The field names from this point up to bondbreathing are canonical names
+  * with the exceptions of autoaim_target_y and autoaim_target_x.
+  */
+
+  /* 0x0104 */ bool docentreupdown;
+
+  /**
+   * Assigned to 0 but never read.
+   * Probably "lastupdown60" based on this list: https://gist.github.com/kholdfuzion/ec713f2c0a36fbfbd4f71568073f47bc
+   * 0x0108
+   */
+  s32 lastupdown60;
+
   /**
    * When the player is doing manual pitch inputs, this is set to true so
    * the automatic look ahead pitch adjust is interrupted.
    * 0x010c
    */
-  bool manual_adjust_pitch_active;
+  bool prevupdown;
 
   /**
   * If the player is moving forward quickly, and has made a manual pitch adjustment, suppress
   * the automatic look ahead pitch adjusting until the player has slowed down.
   * 0x0110
   */
-  bool suppress_move_centre_until_walk_release;
+  bool movecentrerelease;
 
   /**
    * If enabled, test the tiles ahead of the player for the look ahead functionality.
    * This is always enabled.
    * 0x0114
    */
-  bool lookahead_enable_stan_test;
+  bool lookaheadcentreenabled;
 
   /**
    * Look Ahead Setting in the watch menu.
    * 0x0118
    */
-  bool lookaheadenabled;
+  bool automovecentreenabled;
 
   /**
    * Always false.
@@ -516,7 +528,7 @@ struct player
    * forwards or backwards input.
    * 0x0120
    */
-  bool lookahead_auto_centre_armed;
+  bool automovecentre;
 
   /**
    * 0: crosshair shown on screen
@@ -533,6 +545,7 @@ struct player
   /* 0x013c */ f32 autoaimx;
   /* 0x0140 */ struct PropRecord *autoaim_target_x;
   /* 0x0144 */ s32 autoxaimtime60;
+
   /* 0x0148 */ f32 vv_theta;
   /* 0x014c */ f32 speedtheta;
 
@@ -797,6 +810,10 @@ struct player
   f32 field_3C4;
   f32 field_3C8;
   f32 field_3CC;
+
+  /**
+   * Canonical names from up through deathanimfinished.
+   */
   s32 colourscreenred;
   s32 colourscreengreen;
   s32 colourscreenblue;
@@ -820,11 +837,11 @@ struct player
   * Something with position, like previous x position.
   * Offset 0x408.
   */
-  coord3d bondprevpos; //0x408
+  coord3d bondprevpos;
 
   f32 thetadie; //0x414
   f32 vertadie; //0x418
-  s32 bondtype;
+  s32 bondtype; //0x41c
   s32 startnewbonddie; //0x420
 
   /**
@@ -839,10 +856,14 @@ struct player
    */
   s32 deathanimfinished;
   s32 field_42c; 
-  s32 controldef; //0x430
+  s32 controldef; //0x430 canonical name
 
-  struct collision434 previous_collision_info;
+  struct collision434 previous_collision_info; // canonical "periminfo" ?
   struct collision434 field_488;
+
+  /**
+   * Canonical names from here up to standcnt.
+   */
 
   s32 resetheadpos; // bool
   s32 resetheadrot; // bool
@@ -1004,8 +1025,8 @@ struct player
    * Offset 0x870.
    */
   struct hand hands[2];
-  f32 gunposamplitude;
-  f32 gunxamplitude;
+  f32 gunposamplitude; // canonical name
+  f32 gunxamplitude; // canonical name
 
   // Whether the trigger was released this frame.
   s32 trigger_released;
@@ -1025,7 +1046,8 @@ struct player
   s32 current_trigger_hand;
   
   struct rgba_u8 tileColor;
-  s32 resetshadecol;
+
+  s32 resetshadecol; // canonical name
 
   // unused. Name comes from XBLA debug.
   s32 aimtype;
@@ -1037,26 +1059,30 @@ struct player
   coord2d crosshair_angle;
   f32 crosshair_x_pos;
   f32 crosshair_y_pos;
-  f32 guncrossdamp;
+  f32 guncrossdamp; // canonical name
   coord2d field_FFC;
   f32 gun_azimuth_angle;
   f32 gun_azimuth_turning;
-  f32 gunaimdamp;
+  f32 gunaimdamp; // canonical name
   coord3d field_1010;
   Mtxf field_101C;
   s32 last_z_trigger_timer;
-  s32 copiedgoldeneye;
-  s32 gunammooff;
+  s32 copiedgoldeneye; // canonical name
+  s32 gunammooff; // canonical name
   s32 field_1068;
-  f32 gunsync;
-  f32 syncchange;
-  f32 synccount;
-  s32 syncoffset;
+  f32 gunsync; // canonical name
+  f32 syncchange; // canonical name
+  f32 synccount; // canonical name
+  s32 syncoffset; // canonical name
   f32 field_107C;
   f32 field_1080;
   f32 sniper_zoom;
   f32 camera_zoom;
   s32 curRoomIndex;
+
+  /**
+   * Canonical names from here up through c_recipscaley.
+   */
 
   /**
    * Offset 0x1090.
@@ -1118,6 +1144,7 @@ struct player
    */
   f32 c_recipscalex;
   f32 c_recipscaley;
+
   Mtx* field_10C4;
   Mtx* field_10C8;
   Mtxf* field_10CC;
@@ -1133,12 +1160,12 @@ struct player
   s32 field_10E4; // ptr
   Mtxf* field_10E8;
   Mtxf* field_10EC;
-  f32 c_scalelod60;
-  f32 c_scalelod;
-  f32 c_lodscalez;
-  u32 c_lodscalezu32;
-  coord3d c_cameratopnorm;
-  coord3d c_cameraleftnorm;
+  f32 c_scalelod60; // canonical name
+  f32 c_scalelod; // canonical name
+  f32 c_lodscalez; // canonical name
+  u32 c_lodscalezu32; // canonical name
+  coord3d c_cameratopnorm; // canonical name
+  coord3d c_cameraleftnorm; // canonical name
 
   /**
    * Offset 0x1118.
@@ -1154,11 +1181,16 @@ struct player
    */
   s32 gunsightmode;
   s32 field_112C;
-  s32 ammoheldarr[30];
+  s32 ammoheldarr[30]; // canonical name
   u8 *bloodImgCur;
   u8 *bloodImgNxt;
   u8 *bloodImgBufPtrArray[2];
   s32 bloodImgIdx;
+
+  /**
+   * Canonical names from here up through bondmesscnt.
+   */
+
   f32 zoomintime;
   f32 zoomintimemax;
   f32 zoominfovy;
@@ -1168,16 +1200,17 @@ struct player
   f32 aspect;
   s32 hudmessoff;
   s32 bondmesscnt;
+
   InvItem *ptr_inventory_first_in_cycle;
   InvItem *p_itemcur;
-  s32 equipmaxitems;
-  s32 equipallguns;
-  s32 equipcuritem;
+  s32 equipmaxitems; // canonical name
+  s32 equipallguns;  // canonical name
+  s32 equipcuritem;  // canonical name
   textoverride *textoverrides;
-  gunheld gunheldarr[10];
+  gunheld gunheldarr[10]; // canonical name
 
   // -1 for inactive, 0 or greater for active.
-  s32 magnetattracttime;
+  s32 magnetattracttime; // canonical name
 
   f32 swaytarget;
   f32 swayoffset0;
@@ -1192,14 +1225,14 @@ struct player
    * Entry seems to be added only on other button presses.
    * Offset 0x128c.
    */
-  u16 cheatInputBuffer[20];
+  u16 cheatInputBuffer[20]; // canonically "buthist"
 
   /**
    * Offset 0x12b4.
    */
-  /* 0x12B4 */ u8 cheatInputBufferIndex;
-  /* 0x12B5 */ u8 cheatInputCount;
-  /* 0x12B6 */ u8 cheatBondInvincible;
+  /* 0x12B4 */ u8 cheatInputBufferIndex; // canonically "buthistindex"
+  /* 0x12B5 */ u8 cheatInputCount; // canonically "buthistlen"
+  /* 0x12B6 */ u8 cheatBondInvincible; // canonically "bondinvincible"
   /* 0x12B7 */ u8 field_12B7;
   /* 0x12B8 */ struct damage_display_parent armor_display_values[23];
   /* 0x1598 */ struct damage_display_parent health_display_values[23];
@@ -2235,7 +2268,7 @@ struct player
   s32 field_29B4;
 
   // Alt field_29C0 ?? Used in EU.
-  s32 healthDamageType;
+  s32 healthdamagetype; // canonical name
 
   /**
    * Related to player perspective.
@@ -2244,12 +2277,12 @@ struct player
   f32 field_29BC;
   f32 field_29C0;
 
-  s32 mpmenuon;           // 29C4
-  s32 mpmenumode;         // 29C8
-  s32 mpquitconfirm;      // 29CC
-  s32 mpjoywascentre;     // 29D0
-  s32 damagetype;         // 29D4
-  s32 deathcount;         // 29D8
+  s32 mpmenuon;           // 29C4 canonincal name
+  s32 mpmenumode;         // 29C8 canonincal name
+  s32 mpquitconfirm;      // 29CC canonincal name
+  s32 mpjoywascentre;     // 29D0 canonincal name
+  s32 damagetype;         // 29D4 canonincal name
+  s32 deathcount;         // 29D8 canonincal name
   s32 num_suicides;       // 29DC
   s32 field_29E0;         // 29E0
   s32 last_kill_time[4];  // 29E4
@@ -2258,11 +2291,11 @@ struct player
    * Holds mission offset timer value.
    * Offset 0x29f4.
    */
-  s32 field_29F4;
+  s32 lifestarttime60; // canonical name
 
-  s32 kills_this_life;    // 29F8
+  s32 kills_this_life;    // 29F8 canonically "killsthislife"
   s32 autocrouchpos;
-  s32 healthdisplaytime;
+  s32 healthdisplaytime; // canonically "healthdisplaytime60"
 
   /**
    * Current tile pointer -> room.

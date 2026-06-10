@@ -584,9 +584,9 @@ void mpwatchMenuTick(void)
                 g_playerPerm->most_killed_one_life = g_CurrentPlayer->kills_this_life;
             }
 
-            if (g_playerPerm->longest_inning < (getMissiontimer() - g_CurrentPlayer->field_29F4))
+            if (g_playerPerm->longest_inning < (getMissiontimer() - g_CurrentPlayer->lifestarttime60))
             {
-                g_playerPerm->longest_inning = getMissiontimer() - g_CurrentPlayer->field_29F4;
+                g_playerPerm->longest_inning = getMissiontimer() - g_CurrentPlayer->lifestarttime60;
             }
 
             if (g_CurrentPlayer->mpmenuon != FALSE)
