@@ -812,7 +812,7 @@ struct player
   f32 field_3CC;
 
   /**
-   * Canonical names from up through deathanimfinished.
+   * Canonical names from here up through deathanimfinished.
    */
   s32 colourscreenred;
   s32 colourscreengreen;
