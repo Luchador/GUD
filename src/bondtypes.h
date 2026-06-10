@@ -1511,7 +1511,7 @@ typedef union
             s32               animflipfunc; /*0x98*/
             s32               unk9c;
             // 0xa0
-            s32               unka0;
+            s32               unka0; // This is likely a function pointer, see sub_GAME_7F06D490()
             f32               playspeed; // used by ACT_STAND in chrlv
             f32               animrate;
             f32               unkac;
