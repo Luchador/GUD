@@ -95,6 +95,11 @@ extern s32 D_80036418;
 extern s32 D_8003641C;
 extern u32 D_800363F0;
 
+extern coord3d D_80036094;
+extern coord3d D_800360A0;
+extern coord3d D_800360AC;
+extern coord3d D_800360B8;
+
 extern struct Vertex* (*vtxallocator)(s32 numvertices);
 extern struct bondstruct_unk_op07_related D_800360C4[];
 extern Vertex D_800363E0;
