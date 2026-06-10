@@ -141,7 +141,7 @@ s32                  chrobjTestPointPolygonCollision(struct coord3d *arg0, f32 a
 void                 maybe_detonate_object_and_its_children(PropRecord *arg0, f32 arg1, struct coord3d *arg2, s32 arg3, s32 owner);
 struct ModelRoData_BoundingBoxRecord* chrobjGetBboxFromObjectRecord(ObjectRecord *arg0);
 void                 deactivate_alarm_sound_effect(void);
-s32                  sub_GAME_7F03F598(coord3d* pos, f32 arg1, BoundPadRecord *boundpads);
+bool                 chrpropTestPointInPaddedBoundPad(coord3d* pos, f32 arg1, BoundPadRecord *boundpads);
 void                 sub_GAME_7F0A1DA0(f32*, f32*, f32*, f32*, f32, f32, f32, f32, f32, f32);
 void                 modelGetXYExtents(Model *model, f32 *arg1, f32 *arg2, f32 *arg3, f32 *arg4);
 s32                  sub_GAME_7F0448A8(struct PropRecord *arg0);

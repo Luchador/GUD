@@ -4347,7 +4347,13 @@ void sub_GAME_7F03F540(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf* arg1, s
 }
 
 
-s32 sub_GAME_7F03F598(coord3d *pos, f32 radius, BoundPadRecord *pad)
+/**
+ * Address: 7F03F598
+ * 
+ * Tests whether a world-space point is inside a bound pad's local bbox plus
+ * a padding on all axes defined by the radius parameter.
+ */
+bool chrpropTestPointInPaddedBoundPad(coord3d *pos, f32 radius, BoundPadRecord *pad)
 {
     f32 dx;
     f32 dy;
@@ -4366,22 +4372,22 @@ s32 sub_GAME_7F03F598(coord3d *pos, f32 radius, BoundPadRecord *pad)
     d = (pad->look.z * dz) + ((dx * pad->look.x) + (dy * pad->look.y));
     if ((pad->bbox.zmax + radius < d) || (d < pad->bbox.zmin - radius))
     {
-        return 0;
+        return FALSE;
     }
 
     d = (pad->up.z * dz) + ((dx * pad->up.x) + (dy * pad->up.y));
     if ((pad->bbox.ymax + radius < d) || (d < pad->bbox.ymin - radius))
     {
-        return 0;
+        return FALSE;
     }
 
     d = (dx * side[0]) + (dy * side[1]) + (side[2] * dz);
     if ((pad->bbox.xmax + radius < d) || (d < pad->bbox.xmin - radius))
     {
-        return 0;
+        return FALSE;
     }
 
-    return 1;
+    return TRUE;
 }
 
 

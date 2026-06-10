@@ -36038,7 +36038,7 @@ bool doorTestForInteract(PropRecord *prop)
             if (sub_GAME_7F03DB70((s32*)rooms1, (s32*)rooms2) != 0)
             {
                 boundpads = &g_CurrentSetup.boundpads[door->pad];
-                if (sub_GAME_7F03F598(&playerprop->pos, 150.0f, boundpads) != 0)
+                if (chrpropTestPointInPaddedBoundPad(&playerprop->pos, 150.0f, boundpads))
                 {
                     maybe = TRUE;
                 }
