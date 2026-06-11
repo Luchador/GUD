@@ -665,32 +665,47 @@ typedef union
     typedef struct Vertex
     {
         coord16 coord;
-        s16     index; /*0x6 Collisions Only - points to vertex*/
+
+        s16 index; /* 0x6 Collisions Only - points to vertex */
+
         union
         {
             struct
             {
-                s16 s; /*0x8*/
-                s16 t; /*0xa*/
+                s16 s; /* 0x8 */
+                s16 t; /* 0xa */
             };
+
             struct Vertex *LinkedTo;
+
+            /* Collision vertices only: points to related model node. */
+            void *CollisionRelatedNode; /* 0x8 */
         };
+
         union
         {
-            u8 r; /*0xc*/
-            u8 nx;
+            struct
+            {
+                u8 r; /* 0xc */
+                u8 g; /* 0xd */
+                u8 b; /* 0xe */
+                u8 a; /* 0xf */
+            };
+
+            struct
+            {
+                u8 nx; /* 0xc */
+                u8 ny; /* 0xd */
+                u8 nz; /* 0xe */
+                u8 nflag; /* 0xf */
+            };
+
+            struct
+            {
+                s16 CollisionRelatedIndex; /* 0xc */
+                s16 CollisionReserved;     /* 0xe */
+            };
         };
-        union
-        {
-            u8 g; /*0xd*/
-            u8 ny;
-        };
-        union
-        {
-            u8 b; /*0xe*/
-            u8 nz;
-        };
-        u8 a; /*0xf*/
     } Vertex;
 
     #pragma region OpenFlight Records
