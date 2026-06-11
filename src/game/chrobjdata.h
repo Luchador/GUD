@@ -15,6 +15,8 @@ struct headHat
     float zsize;
 };
 
+extern struct headHat headHat_array_8003E464[168];
+
 extern struct ItemModelFileRecord PitemZ_entries[];
 
 extern struct ModelSkeleton SKELETON(cctv);  /* macro declaration for skeleton_cctv */
