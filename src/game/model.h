@@ -114,6 +114,7 @@ void animInit(struct Model *objinst, struct ModelFileHeader *header, u32 *data);
 void modelAttachPart(Model *pmodel, ModelFileHeader *pmodeldef, ModelNode *pnode, ModelFileHeader *cmodeldef);
 void modelIterateDisplayLists(ModelFileHeader *fileheader, ModelNode **nodeptr, Gfx **gdlptr);
 void modelNodeReplaceGdl(u32 arg0, ModelNode *node, Gfx *find, Gfx *replacement);
+s32 sub_GAME_7F0747D0(ModelRoData_BoundingBoxRecord *bbox, Mtxf *mtx, coord3d *pos, coord3d *dir);
 
 #ifndef VERSION_EU
 void return_null(void);
