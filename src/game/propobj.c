@@ -210,21 +210,21 @@ Projectile *projectileAllocate(void)
 
 void sub_GAME_7F03FDA8(PropRecord *prop)
 {
-    ObjectRecord *obj = prop->obj; //po
-    if (obj->runtime_bitflags & RUNTIMEBITFLAG_EMBEDDED)
+    ObjectRecord *po = prop->obj; //canonical name
+    if (po->runtime_bitflags & RUNTIMEBITFLAG_EMBEDDED)
     {
         #ifdef DEBUG
-        //assert(po->move.attach->fallinfo==NULL);
+        assert(po->move.attach->fallinfo==NULL);
         #endif
-        obj->embedment->projectile = projectileAllocate();
+        po->embedment->projectile = projectileAllocate();
     }
-    else if ((obj->runtime_bitflags & RUNTIMEBITFLAG_DEPOSIT) == 0)
+    else if ((po->runtime_bitflags & RUNTIMEBITFLAG_DEPOSIT) == 0)
     {
-        obj->projectile = projectileAllocate();
+        po->projectile = projectileAllocate();
 
-        if (obj->projectile)
+        if (po->projectile)
         {
-            obj->runtime_bitflags |= RUNTIMEBITFLAG_DEPOSIT;
+            po->runtime_bitflags |= RUNTIMEBITFLAG_DEPOSIT;
         }
     }
 }
@@ -1079,7 +1079,7 @@ bool projectileLineTestModel(ObjectRecord *obj, coord3d *modelRayOrigin, coord3d
     s32 mtxindex;
     ModelNode *hitnode;
     Model *model;
-    
+
     model = obj->model;
     found = 0;
     node = NULL;
@@ -1110,34 +1110,34 @@ bool projectileLineTestModel(ObjectRecord *obj, coord3d *modelRayOrigin, coord3d
 
     if (found > 0) {
         mtx = &model->render_pos[mtxindex].pos;
-        
+
         hitPos->x = hitthing.hitpos.x;
         hitPos->y = hitthing.hitpos.y;
         hitPos->z = hitthing.hitpos.z;
-        
+
         mtx4TransformVecInPlace(mtx, hitPos);
         mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), hitPos);
-    
+
         hitNormal->x = hitthing.normal.x;
         hitNormal->y = hitthing.normal.y;
         hitNormal->z = hitthing.normal.z;
-    
+
         mtx4RotateVecInPlace(mtx, hitNormal);
-    
+
         if (hitNormal->f[0] * modelRayDir->f[0] + hitNormal->f[1] * modelRayDir->f[1] + hitNormal->f[2] * modelRayDir->f[2] > 0.0f) {
             hitNormal->x = -hitNormal->x;
             hitNormal->y = -hitNormal->y;
             hitNormal->z = -hitNormal->z;
         }
-    
+
         mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), hitNormal);
-    
+
         if (hitNormal->x != 0.0f || hitNormal->y != 0.0f || hitNormal->z != 0.0f) {
             guNormalize(&hitNormal->x, &hitNormal->y, &hitNormal->z);
         } else {
             hitNormal->z = 1.0f;
         }
-        
+
         *hitModel = model;
         *hitNode = hitnode;
         return TRUE;
@@ -1171,10 +1171,10 @@ bool sub_GAME_7F041400(PropRecord *prop, coord3d *rayStart, coord3d *rayEnd, coo
     bestfrac = 1.0f;
     bestedge = -1;
     chraiGetCollisionBounds(prop, &polygon, &numedges, &ymax, &ymin);
-    
-    if (numedges > 0) 
+
+    if (numedges > 0)
     {
-        if (!(((ymax < rayStart->y) && (ymax < rayEnd->y)) || ((rayStart->y < ymin) && (rayEnd->y < ymin)))) 
+        if (!(((ymax < rayStart->y) && (ymax < rayEnd->y)) || ((rayStart->y < ymin) && (rayEnd->y < ymin))))
         {
             rayStart2d.x = rayStart->x;
             rayStart2d.y = rayStart->z;
@@ -1183,22 +1183,22 @@ bool sub_GAME_7F041400(PropRecord *prop, coord3d *rayStart, coord3d *rayEnd, coo
             for (i = 0; i < numedges; i++)
             {
                 next = (i + 1) % numedges;
-                if (sub_GAME_7F0B0688(rayStart->x, rayStart->z, rayEnd->x, rayEnd->z, polygon->points[i].x, polygon->points[i].y, polygon->points[next].x, polygon->points[next].y)) 
+                if (sub_GAME_7F0B0688(rayStart->x, rayStart->z, rayEnd->x, rayEnd->z, polygon->points[i].x, polygon->points[i].y, polygon->points[next].x, polygon->points[next].y))
                 {
                     edgeStart2d.x = polygon->points[i].x;
                     edgeStart2d.y = polygon->points[i].y;
                     edgeEnd2d.x = polygon->points[next].x;
                     edgeEnd2d.y = polygon->points[next].y;
                     dist = calculateSegmentIntersectionFraction(&rayStart2d, &rayEnd2d, &edgeStart2d, &edgeEnd2d);
-                    
-                    if (dist < bestfrac) 
+
+                    if (dist < bestfrac)
                     {
                         bestfrac = dist;
                         bestedge = i;
                     }
                 }
             }
-            if (bestedge > 0) 
+            if (bestedge > 0)
             {
                 next = (bestedge + 1) % numedges;
                 edgeStart3d.x = polygon->points[bestedge].x;
@@ -1207,11 +1207,11 @@ bool sub_GAME_7F041400(PropRecord *prop, coord3d *rayStart, coord3d *rayEnd, coo
                 edgeEnd3d.x = polygon->points[next].x;
                 edgeEnd3d.y = 0.0f;
                 edgeEnd3d.z = polygon->points[next].y;
-                
+
                 chrlvLineLineIntersection(&edgeStart3d, &edgeEnd3d, rayStart, rayDir, &intersection);
                 dist = (rayDir->z * (intersection.z - rayStart->z)) + (((intersection.x - rayStart->x) * rayDir->x) + ((intersection.y - rayStart->y) * rayDir->y));
-                
-                if (dist < (*hitDist)) 
+
+                if (dist < (*hitDist))
                 {
                     *hitDist = dist;
                     hitPos->x = intersection.x;
@@ -1220,15 +1220,15 @@ bool sub_GAME_7F041400(PropRecord *prop, coord3d *rayStart, coord3d *rayEnd, coo
                     hitNormal->x = -rayDir->x;
                     hitNormal->y = 0.0f;
                     hitNormal->z = -rayDir->z;
-                    
+
                     if ((hitNormal->x != 0.0f) || (hitNormal->z != 0.0f))
                     {
                         guNormalize(&hitNormal->x, &hitNormal->y, &hitNormal->z);
-                    } else 
+                    } else
                     {
                         hitNormal->z = 1.0f;
                     }
-                    
+
                     D_80030B0C = prop;
                     bodypartshot = HIT_NULL_PART;
                     g_CurrentProjectileModel = NULL;
@@ -1244,7 +1244,7 @@ bool sub_GAME_7F041400(PropRecord *prop, coord3d *rayStart, coord3d *rayEnd, coo
 
 /**
  * Address: 7F0417DC
- * 
+ *
  * Test a single object for collision between the object and a projectile.
  * If there is a collision, update hit parameters with collision data.
  * @return TRUE if the object and projectile collide, FALSE otherwise.
@@ -1295,7 +1295,7 @@ bool projectileTestObjectCollision(ObjectRecord *obj, coord3d *worldRayOrigin, c
                 if (projectileTestPropBoundingSphere(worldRayOrigin, worldRayDir, &obj->runtime_pos, instsize)) {
                     *hitDist = maxDist;
 
-                    if (sub_GAME_7F041400(prop, worldRayOrigin, worldRayEnd, worldRayDir, hitPos, hitNormal, hitDist)) 
+                    if (sub_GAME_7F041400(prop, worldRayOrigin, worldRayEnd, worldRayDir, hitPos, hitNormal, hitDist))
                     {
                         *hitModel = modelstack[0];
                         *hitNode = *(ModelNode **)modelstack[0]->obj;
@@ -1312,9 +1312,9 @@ bool projectileTestObjectCollision(ObjectRecord *obj, coord3d *worldRayOrigin, c
 
 /**
  * Address: 7F0419E4
- * 
+ *
  * Tests an object and its on screen child hierarchy for projectile collision.
- * If a closer hit is found, updates the caller's hit collision data. 
+ * If a closer hit is found, updates the caller's hit collision data.
  * @returns TRUE if this object or one of its recursive children produced a closer hit, FALSE otherwise.
  */
 bool projectileTestObjectCollisionRecursive(ObjectRecord *obj, coord3d *worldRayOrigin, coord3d *worldRayEnd, coord3d *worldRayDir, f32 maxDist, coord3d *modelRayOrigin, coord3d *modelRayDir, coord3d *bestHitPos, coord3d *bestHitNormal, f32 *bestHitDist)
@@ -1324,16 +1324,16 @@ bool projectileTestObjectCollisionRecursive(ObjectRecord *obj, coord3d *worldRay
     f32 hitDist;
     Model *hitModel;
     ModelNode *hitNode;
-    bool found; 
+    bool found;
     PropRecord *prop;
     PropRecord *child;
 
     prop = obj->prop;
     found = FALSE;
 
-    if (projectileTestObjectCollision(obj, worldRayOrigin, worldRayEnd, worldRayDir, maxDist, modelRayOrigin, modelRayDir, &hitPos, &hitNormal, &hitDist, &hitModel, &hitNode)) 
+    if (projectileTestObjectCollision(obj, worldRayOrigin, worldRayEnd, worldRayDir, maxDist, modelRayOrigin, modelRayDir, &hitPos, &hitNormal, &hitDist, &hitModel, &hitNode))
     {
-        if (hitDist < *bestHitDist) 
+        if (hitDist < *bestHitDist)
         {
             *bestHitDist = hitDist;
 
@@ -1354,15 +1354,15 @@ bool projectileTestObjectCollisionRecursive(ObjectRecord *obj, coord3d *worldRay
         }
     }
 
-    if (prop->flags & PROPFLAG_ONSCREEN) 
+    if (prop->flags & PROPFLAG_ONSCREEN)
     {
         child = prop->child;
 
-        while (child != NULL) 
+        while (child != NULL)
         {
-            if (child->flags & PROPFLAG_ONSCREEN) 
+            if (child->flags & PROPFLAG_ONSCREEN)
             {
-                if (projectileTestObjectCollisionRecursive(child->obj, worldRayOrigin, worldRayEnd, worldRayDir, maxDist, modelRayOrigin, modelRayDir, bestHitPos, bestHitNormal, bestHitDist)) 
+                if (projectileTestObjectCollisionRecursive(child->obj, worldRayOrigin, worldRayEnd, worldRayDir, maxDist, modelRayOrigin, modelRayDir, bestHitPos, bestHitNormal, bestHitDist))
                 {
                     found = TRUE;
                 }
@@ -1437,7 +1437,7 @@ bool sub_GAME_7F041BB8(ChrRecord *chr, coord3d *arg1, coord3d *arg2, f32 arg3, c
 
 
 bool projectileFindCollidingProp(PropRecord *ignoreProp, coord3d *worldRayStart, coord3d *worldRayEnd, u32 cdtypes, coord3d *outHitPos, coord3d *outHitNormal, s32 *rooms)
-{ 
+{
     bool result;
     f32 dist;
     s16 *propnumptr;
@@ -1549,7 +1549,7 @@ bool projectileFindCollidingProp(PropRecord *ignoreProp, coord3d *worldRayStart,
                     {
                         found_collision = TRUE;
                     }
-                } 
+                }
                 else if (iterprop->type == PROP_TYPE_VIEWER && g_playerPointers[getPlayerPointerIndex(iterprop)]->field_AC)
                 {
                     if (sub_GAME_7F041400(iterprop, worldRayStart, worldRayEnd, &sp98, outHitPos, outHitNormal, &spa8))
@@ -2433,7 +2433,7 @@ void chrobjCallsApplySpeed(f32 *openPosition, f32 maxFrac, f32 *speedPtr, f32 ac
 
 /**
  * Address: 7F0431E4
- * 
+ *
  * This function handles an object's transition from the bouncing state to the rest state.
  */
 void objSettle(ObjectRecord *obj, coord3d *arg1)
@@ -2533,7 +2533,7 @@ void objSettle(ObjectRecord *obj, coord3d *arg1)
     aimmtx.m[3][1] = 0.0f;
     aimmtx.m[3][2] = 0.0f;
     aimmtx.m[3][3] = 1.0f;
-    
+
     matrix_4x4_get_rotation_around_xyz(&aimmtx, &angles);
     quaternion_set_rotation_around_xyzf((f32 *)&angles, projectile->unk78);
     quaternion_ensure_shortest_path(projectile->unk68, projectile->unk78);
@@ -2588,7 +2588,7 @@ void sub_GAME_7F043650(ObjectRecord *obj) {
     if (!(obj->runtime_bitflags & PROJECTILEFLAG_LAUNCHING)) {
         return;
     }
-    
+
     if ((obj->projectile->flags & PROJECTILEFLAG_AIRBORNE) &&
         ((s32)obj->projectile->unk90 <= 0) &&
         (obj->runtime_bitflags & PROJECTILEFLAG_00000020)) {
@@ -2633,13 +2633,13 @@ void sub_GAME_7F043650(ObjectRecord *obj) {
         }
     } else {
         obj->runtime_bitflags &= ~PROJECTILEFLAG_00000020;
-    
+
         if (obj->projectile->sounds[0] != NULL) {
             if (sndGetPlayingState(obj->projectile->sounds[0])) {
                 sndDeactivate(obj->projectile->sounds[0]);
             }
         }
-    
+
         if (obj->projectile->sounds[1] != NULL) {
             if (sndGetPlayingState(obj->projectile->sounds[1])) {
                 sndDeactivate(obj->projectile->sounds[1]);
@@ -22477,7 +22477,7 @@ glabel object_interaction
 
 /**
  * Address: 7F049B58
- * 
+ *
  * Draws tracers for characters other than the player, and draws tracers for drone guns as well.
  */
 Gfx *weaponRenderTracers(Gfx *gdl)
@@ -22493,7 +22493,7 @@ Gfx *weaponRenderTracers(Gfx *gdl)
     s32 match;
     s32 one;
     s32 type_chr;
-    
+
     prop = get_ptr_obj_pos_list_current_entry();
     if (prop != NULL)
     {
@@ -22728,7 +22728,7 @@ void save_img_index_to_obj_ani_slot(MonitorRecord *mon, void *unk88)
 
 struct tvcmd {
     u32 type;
-    s32 arg1;
+    s32 time;
     u32 arg2;
 };
 
@@ -22746,9 +22746,9 @@ Gfx *process_monitor_animation_microcode(Model *model, ModelNode *node, MonitorR
         bool yielding = FALSE;
 
         while (!yielding) {
-            struct tvcmd *cmd = (struct tvcmd *) &screen->cmdlist[screen->offset];
+            struct tvcmd *m = (struct tvcmd *) &screen->cmdlist[screen->offset];
 
-            switch (cmd->type) {
+            switch (m->type) {
             case TVCMD_STOPSCROLL:
                 screen->xmidinc = 0.0f;
                 screen->ymidinc = 0.0f;
@@ -22756,48 +22756,48 @@ Gfx *process_monitor_animation_microcode(Model *model, ModelNode *node, MonitorR
                 break;
             case TVCMD_SCROLLRELX:
                 screen->xmidfrac = 0.0f;
-                screen->xmidinc = 1.0f / cmd->arg2;
+                screen->xmidinc = 1.0f / m->arg2;
                 screen->xmidold = screen->xmid;
-                screen->xmidnew = screen->xmid + cmd->arg1 * (1.0f / 1024.0f);
+                screen->xmidnew = screen->xmid + m->time * (1.0f / 1024.0f);
                 screen->offset += 3;
                 break;
             case TVCMD_SCROLLRELY:
                 screen->ymidfrac = 0.0f;
-                screen->ymidinc = 1.0f / cmd->arg2;
+                screen->ymidinc = 1.0f / m->arg2;
                 screen->ymidold = screen->ymid;
-                screen->ymidnew = screen->ymid + cmd->arg1 * (1.0f / 1024.0f);
+                screen->ymidnew = screen->ymid + m->time * (1.0f / 1024.0f);
                 screen->offset += 3;
                 break;
             case TVCMD_SCROLLABSX:
                 screen->xmidfrac = 0.0f;
-                screen->xmidinc = 1.0f / cmd->arg2;
+                screen->xmidinc = 1.0f / m->arg2;
                 screen->xmidold = screen->xmid;
-                screen->xmidnew = cmd->arg1 * (1.0f / 1024.0f);
+                screen->xmidnew = m->time * (1.0f / 1024.0f);
                 screen->offset += 3;
                 break;
             case TVCMD_SCROLLABSY:
                 screen->ymidfrac = 0.0f;
-                screen->ymidinc = 1.0f / cmd->arg2;
+                screen->ymidinc = 1.0f / m->arg2;
                 screen->ymidold = screen->ymid;
-                screen->ymidnew = cmd->arg1 * (1.0f / 1024.0f);
+                screen->ymidnew = m->time * (1.0f / 1024.0f);
                 screen->offset += 3;
                 break;
             case TVCMD_SCALEABSX:
                 screen->xscalefrac = 0.0f;
-                screen->xscaleinc = 1.0f / cmd->arg2;
+                screen->xscaleinc = 1.0f / m->arg2;
                 screen->xscaleold = screen->xscale;
-                screen->xscalenew = cmd->arg1 * (1.0f / 1024.0f);
+                screen->xscalenew = m->time * (1.0f / 1024.0f);
                 screen->offset += 3;
                 break;
             case TVCMD_SCALEABSY:
                 screen->yscalefrac = 0.0f;
-                screen->yscaleinc = 1.0f / cmd->arg2;
+                screen->yscaleinc = 1.0f / m->arg2;
                 screen->yscaleold = screen->yscale;
-                screen->yscalenew = cmd->arg1 * (1.0f / 1024.0f);
+                screen->yscalenew = m->time * (1.0f / 1024.0f);
                 screen->offset += 3;
                 break;
             case TVCMD_SETTEXTURE:
-                save_img_index_to_obj_ani_slot(screen, cmd->arg1);
+                save_img_index_to_obj_ani_slot(screen, m->time);
                 screen->offset += 2;
                 break;
             case TVCMD_PAUSE:
@@ -22810,16 +22810,19 @@ Gfx *process_monitor_animation_microcode(Model *model, ModelNode *node, MonitorR
                         screen->offset += 2;
                     }
                 } else {
+                     #ifdef DEBUG
+                    assert(m->time>0);
+                    #endif
                     yielding = TRUE;
-                    screen->pause60 = cmd->arg1;
+                    screen->pause60 = m->time;
                 }
                 break;
             case TVCMD_SETCMDLIST:
-                save_ptr_monitor_ani_code_to_obj_ani_slot(screen, (u32 *) cmd->arg1);
+                save_ptr_monitor_ani_code_to_obj_ani_slot(screen, (u32 *) m->time);
                 break;
             case TVCMD_RANDSETCMDLIST:
-                if ((randomGetNext() >> 16) < cmd->arg2) {
-                    save_ptr_monitor_ani_code_to_obj_ani_slot(screen, (u32 *) cmd->arg1);
+                if ((randomGetNext() >> 16) < m->arg2) {
+                    save_ptr_monitor_ani_code_to_obj_ani_slot(screen, (u32 *) m->time);
                 } else {
                     screen->offset += 3;
                 }
@@ -22832,28 +22835,28 @@ Gfx *process_monitor_animation_microcode(Model *model, ModelNode *node, MonitorR
                 break;
             case TVCMD_SETCOLOUR:
                 screen->colfrac = 0.0f;
-                screen->colinc = 1.0f / cmd->arg2;
+                screen->colinc = 1.0f / m->arg2;
 
                 screen->redold = screen->red;
-                screen->rednew = ((u32)cmd->arg1 >> 24) & 0xff;
+                screen->rednew = ((u32)m->time >> 24) & 0xff;
 
                 screen->greenold = screen->green;
-                screen->greennew = ((u32)cmd->arg1 >> 16) & 0xff;
+                screen->greennew = ((u32)m->time >> 16) & 0xff;
 
                 screen->blueold = screen->blue;
-                screen->bluenew = ((u32)cmd->arg1 >> 8) & 0xff;
+                screen->bluenew = ((u32)m->time >> 8) & 0xff;
 
                 screen->alphaold = screen->alpha;
-                screen->alphanew = cmd->arg1 & 0xff;
+                screen->alphanew = m->time & 0xff;
 
                 screen->offset += 3;
                 break;
             case TVCMD_ROTATEABS:
-                screen->rot = cmd->arg1 * M_TAU_F / M_U16_MAX_VALUE_F;
+                screen->rot = m->time * M_TAU_F / M_U16_MAX_VALUE_F;
                 screen->offset += 2;
                 break;
             case TVCMD_ROTATEREL:
-                screen->rot += g_GlobalTimerDelta * cmd->arg1 * M_TAU_F / M_U16_MAX_VALUE_F;
+                screen->rot += g_GlobalTimerDelta * m->time * M_TAU_F / M_U16_MAX_VALUE_F;
 
                 if (screen->rot >= M_TAU_F) {
                     screen->rot -= M_TAU_F;
@@ -29486,16 +29489,16 @@ void sub_GAME_7F04DD68(DoorRecord *door)
     struct ModelRoData_BoundingBoxRecord *bbox;
     struct ModelRwData_SwitchRecord *switchdata;
     Mtxf mtx;
-    
+
     prop = door->prop;
     model = door->model;
     bbox = (struct ModelRoData_BoundingBoxRecord *) model->obj->Switches[2]->Data;
-    
+
     door7F0526EC(door, &mtx);
     sub_GAME_7F0A1DA0(&mtx.m[3][0], &mtx.m[0][0], &mtx.m[1][0], &mtx.m[2][0], bbox->Bounds.xmin, bbox->Bounds.xmax, bbox->Bounds.ymin, bbox->Bounds.ymax, bbox->Bounds.zmin, bbox->Bounds.zmax);
 
     explosionClearBulletImpactRoomByFlag(prop, 1);
-    
+
     switchdata = (struct ModelRwData_SwitchRecord *)modelGetNodeRwData(model, model->obj->Switches[1]);
     switchdata->visible = FALSE;
 }
@@ -30433,7 +30436,12 @@ glabel maybe_detonate_object
 
 
 #ifdef NONMATCHING
-void sub_GAME_7F04E720(PropRecord* prop, struct ShotData* shotdata) {
+void sub_GAME_7F04E720(PropRecord* prop, struct ShotData* hitinfo) {
+        mtx4TransformVecInPlace(?, hitinfo.hitpos);
+    assert(!IsBadVec3d( (vec3d*)hitinfo.hitpos  );
+    mtx4TransformVecInPlace(?, hitinfo.normal);
+           assert(!IsBadVec3d( (vec3d*)hitinfo.normal  );
+}
 
 }
 #else
@@ -32021,8 +32029,8 @@ s32 object_collectability_routines(struct PropRecord* prop)
                 }
             }
         }
-    } 
-    else if (obj->type == PROPDEF_MAGAZINE) 
+    }
+    else if (obj->type == PROPDEF_MAGAZINE)
     {
         struct AmmoCrateRecord* ammoCrateObj;
 
@@ -32114,7 +32122,7 @@ s32 object_collectability_routines(struct PropRecord* prop)
         }
     }
 
-    if ((bondviewGetPlayerPitchRadians() < -0.7853982f) && (g_CurrentPlayer->magnetattracttime < 0)) 
+    if ((bondviewGetPlayerPitchRadians() < -0.7853982f) && (g_CurrentPlayer->magnetattracttime < 0))
     {
         return 0;
     }
@@ -32707,7 +32715,7 @@ glabel object_collectability_routines
 
 /*
 * Address: 7F050D30
-*/ 
+*/
 bool objGetOnscreenRenderBounds(PropRecord *prop, coord3d *arg1, struct coord2d *arg2, struct coord2d *arg3)
 {
     if (prop->flags & PROPFLAG_ONSCREEN)
@@ -33492,7 +33500,7 @@ WeaponObjRecord blank_08_object_preset_1 = {
 
 /**
  * Address: 7F05206C
- * 
+ *
  * @param modelnum: index into PitemZ_entries, which is enum PROP
  * @param weaponid: object_weapon.gun_pickup value
  */
@@ -33668,7 +33676,7 @@ PropRecord *chrGiveWeapon(ChrRecord *self, s32 PropID, ITEM_IDS ItemID, s32 flag
 
 
 /**
- * Must remain immediately above chrRenderHeldWeapon for matching. 
+ * Must remain immediately above chrRenderHeldWeapon for matching.
 */
 ModelRenderData D_800322A4 = {
     0,
@@ -33719,7 +33727,7 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
 
                 chrModel = chr->model;
                 prop->flags |= 2;
-                
+
                 renderData.unk_matrix = modelFindNodeMtx(chrModel, heldModel->attachedto_objinst, 0);
 
                 if (hand == GUNLEFT) {
@@ -36096,24 +36104,24 @@ bool posIsInFrontOfDoor(PropRecord *prop, DoorRecord *door)
     coord3d normal;
     f32 dot;
     f32 side;
-    
+
     pad = &g_CurrentSetup.boundpads[((ObjectRecord *) door)->pad];
-    
+
     normal.f[0] = (pad->up.y * pad->look.z) - (pad->look.y * pad->up.z);
     normal.f[1] = (pad->up.z * pad->look.x) - (pad->look.z * pad->up.x);
     normal.f[2] = (pad->up.x * pad->look.y) - (pad->look.x * pad->up.y);
-    
+
     diff.x = prop->pos.x - pad->pos.x;
     diff.y = prop->pos.y - pad->pos.y;
     diff.z = prop->pos.z - pad->pos.z;
-    
+
     dot = (side = ((diff.x * normal.f[0]) + (diff.y * normal.f[1])) + (diff.z * normal.f[2]));
-    
+
     if (door->doorFlags & DOORFLAG_FLIP)
     {
         side = -dot;
     }
-    
+
     if (side < 0.0f)
     {
         return FALSE;

@@ -58,17 +58,17 @@ s32 sizepropdef(PropDefHeaderRecord *pdef)
         case PROPDEF_PROP:
             return sizeof(ObjectRecord) / 4;
         case PROPDEF_GLASS:
-            return sizeof(ObjectRecord) / 4;
+            return sizeof(ObjectRecord) / 4; // Rare typo?
         case PROPDEF_TINTED_GLASS:
-            return 0x25;//return sizeof(TintedGlassRecord) / 4;
+            return sizeof(TintedGlassRecord) / 4;
         case PROPDEF_SAFE:
-            return 0x20;//return sizeof(GlassRecord) / 4;
+            return sizeof(ObjectRecord) / 4; // wrong
         case PROPDEF_GAS_RELEASING:
-            return 0x20;//return sizeof(GlassRecord) / 4;
+            return sizeof(ObjectRecord) / 4; // also wrong, gas is only 2 words
         case PROPDEF_KEY:
-            return 0x21;//return sizeof(GlassRecord) / 4;
+            return sizeof(KeyRecord) / 4;
         case PROPDEF_ALARM:
-            return 0x20;//return sizeof(GlassRecord) / 4;
+            return sizeof(ObjectRecord) / 4;
         case PROPDEF_CCTV:
             return 0x3b;//return sizeof(GlassRecord) / 4;
         case PROPDEF_MAGAZINE:
@@ -80,13 +80,13 @@ s32 sizepropdef(PropDefHeaderRecord *pdef)
         case PROPDEF_MULTI_MONITOR:
             return 0x95;//return sizeof(GlassRecord) / 4;
         case PROPDEF_RACK:
-            return 0x20;//return sizeof(GlassRecord) / 4;
+            return sizeof(ObjectRecord) / 4;
         case PROPDEF_AUTOGUN:
             return 0x36;//return sizeof(GlassRecord) / 4;
         case PROPDEF_LINK:
             return 3;//return sizeof(GlassRecord) / 4;
         case PROPDEF_HAT:
-            return 0x20;//return sizeof(GlassRecord) / 4;
+            return sizeof(ObjectRecord) / 4;
         case PROPDEF_GUARD_ATTRIBUTE:
             return 3;//return sizeof(GlassRecord) / 4;
         case PROPDEF_SWITCH:

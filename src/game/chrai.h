@@ -111,7 +111,7 @@ primarily used to reset rotation to 0
 /*
 Rotate Image:
 0000000F	rrrr.rrrr
-[r]otate image incrementally rrrr.rrrr%; 
+[r]otate image incrementally rrrr.rrrr%;
 0x2000 rotates approximately 45 degrees, 0x1555 to mimic a clock
 */
 #define MONROTATEIMAGE(r) 0xF, r
@@ -169,6 +169,7 @@ Rotate Image:
 #define MAX_HAT_SLOTS 10
 #define MAX_AMMO_CRATES 20
 #define PROJECTILES_ARR_MAX 20
+#define PROXIMITYARRMAX 30 /*canonical name for max mines*/
 #define EMBEDMENT_ARR_MAX 40
 #define ONSCREEN_PROP_LIST_LEN 500
 

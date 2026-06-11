@@ -5016,13 +5016,13 @@ bool currentPlayerGetYAutoAimEnabled(void)
 }
 
 
-bool currentPlayerGetYAutoAimEnabledRedirect(void) 
+bool currentPlayerGetYAutoAimEnabledRedirect(void)
 {
     return currentPlayerGetYAutoAimEnabled();
 }
 
 
-bool currentPlayerGetIsAiming(void) 
+bool currentPlayerGetIsAiming(void)
 {
   return g_CurrentPlayer->insightaimmode;
 }
@@ -5058,7 +5058,7 @@ void bondviewUpdateYAutoAimTime(struct PropRecord *autoaim_target, f32 auto_aim_
 }
 
 
-void currentPlayerSetXAutoAimEnabled(bool enabled) 
+void currentPlayerSetXAutoAimEnabled(bool enabled)
 {
   g_CurrentPlayer->autoxaimenabled = enabled;
 
@@ -5080,7 +5080,7 @@ bool currentPlayerGetXAutoAimEnabled(void)
 }
 
 
-bool currentPlayerGetXAutoAimEnabledRedirect(void) 
+bool currentPlayerGetXAutoAimEnabledRedirect(void)
 {
     return currentPlayerGetXAutoAimEnabled();
 }
@@ -9156,7 +9156,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             g_CurrentPlayer->movecentrerelease = FALSE;
         }
 
-        
+
         if (g_PlayerIsInTank == 0)
         {
             /**
@@ -9197,8 +9197,8 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                  */
                 else if ((g_CurrentPlayer->fastmovecentreenabled)
                     && (moveData.canLookAhead)
-                    && ((moveData.analogWalk > 60) || (moveData.analogWalk < -60)) 
-                    && (( ((targetPitch + 5.0f) < g_CurrentPlayer->vv_verta)) || (g_CurrentPlayer->vv_verta < (targetPitch + -FLOAT_TEN_A))) 
+                    && ((moveData.analogWalk > 60) || (moveData.analogWalk < -60))
+                    && (( ((targetPitch + 5.0f) < g_CurrentPlayer->vv_verta)) || (g_CurrentPlayer->vv_verta < (targetPitch + -FLOAT_TEN_A)))
                     && (g_CurrentPlayer->movecentrerelease == FALSE))
                 {
                     g_CurrentPlayer->docentreupdown = TRUE;
@@ -13549,8 +13549,8 @@ glabel sub_GAME_7F087E74
 
 /**
  * Address: 7F088618
- * 
- * Renders the in-game health and armor gauges. 
+ *
+ * Renders the in-game health and armor gauges.
  * The watch menu gauges are handled by trigger_solo_watch_menu().
  */
 Gfx *bondviewRenderGaugeBars(Gfx *gdl)
@@ -13566,7 +13566,7 @@ Gfx *bondviewRenderGaugeBars(Gfx *gdl)
     // Set up health bars.
     sub_GAME_7F0A2F30(&g_CurrentPlayer->health_display_values[0].items[0], 0x2e, -1, g_CurrentPlayer->apparenthealth);
     buildGaugeBarDL((Gfx *)&g_CurrentPlayer->watch_health_bar_gdl, OS_PHYSICAL_TO_K0(&g_CurrentPlayer->health_display_values[0].items[0]), 0x2e);
-    
+
     // Create an orthographic render state for the gauge.
     lookatmtx = dynAllocateMatrix();
     orthomtx = dynAllocateMatrix();
@@ -16000,7 +16000,7 @@ void setFontTables(s32 arg0, s32 arg1)
 
 
 #ifdef BUGFIX_R1
-void hudmsgBottomShow(char *string, s32 arg1, s32 arg2)
+void hudmsgBottomShow(char *string, s32 font, s32 arg2)
 {
     s32 abs_index;
     s32 index;
@@ -16013,7 +16013,7 @@ void hudmsgBottomShow(char *string, s32 arg1, s32 arg2)
             abs_index = index;
             strncpy(stringbuffer_lowerleft[abs_index], string, (BONDVIEW_HUD_MSG_BOTTOM_BUFFER_LENGTH-1));
             stringbuffer_lowerleft[abs_index][(BONDVIEW_HUD_MSG_BOTTOM_BUFFER_LENGTH-1)] = 0;
-            dword_CODE_bss_jp80079CEC[abs_index] = arg1;
+            dword_CODE_bss_jp80079CEC[abs_index] = font;
             dword_CODE_bss_jp80079Cd8[abs_index] = arg2;
             display_statusbar++;
         }
@@ -16023,7 +16023,7 @@ void hudmsgBottomShow(char *string, s32 arg1, s32 arg2)
         index = get_cur_playernum();
         strncpy(stringbuffer_lowerleft[index], string, (BONDVIEW_HUD_MSG_BOTTOM_BUFFER_LENGTH-1));
         stringbuffer_lowerleft[index][(BONDVIEW_HUD_MSG_BOTTOM_BUFFER_LENGTH-1)] = 0;
-        dword_CODE_bss_jp80079CEC[index] = arg1;
+        dword_CODE_bss_jp80079CEC[index] = arfontg1;
         dword_CODE_bss_jp80079Cd8[index] = arg2;
 #if defined(VERSION_EU)
         g_CurrentPlayer->bondmesscnt = 0x64;
@@ -16034,14 +16034,17 @@ void hudmsgBottomShow(char *string, s32 arg1, s32 arg2)
 }
 
 #else
-
-void hudmsgBottomShow(char *string)
+#ifdef DEBUG
+void hudmsgBottomShow(char *mess, void *font)
+#else
+void hudmsgBottomShow(char *mess)
+#endif
 {
     s32 abs_index;
     s32 index;
     #ifdef DEBUG
         assert(font);
-        assert(wcslen(mess)<=MAXMESSAGELEN);
+        assert(strlen(mess)<=MAXMESSAGELEN);
     #endif
     if (getPlayerCount() == 1)
     {
@@ -16049,7 +16052,7 @@ void hudmsgBottomShow(char *string)
         {
             abs_index = status_bar_text_buffer_index + display_statusbar;
             index = abs_index % 5;
-            strncpy(stringbuffer_lowerleft[index], string, MAXMESSAGELEN);
+            strncpy(stringbuffer_lowerleft[index], mess, MAXMESSAGELEN);
             display_statusbar++;
             stringbuffer_lowerleft[index][MAXMESSAGELEN] = 0;
         }
@@ -16057,7 +16060,7 @@ void hudmsgBottomShow(char *string)
     else
     {
         index = get_cur_playernum();
-        strncpy(stringbuffer_lowerleft[index], string, MAXMESSAGELEN);
+        strncpy(stringbuffer_lowerleft[index], mess, MAXMESSAGELEN);
         stringbuffer_lowerleft[index][MAXMESSAGELEN] = 0;
         g_CurrentPlayer->bondmesscnt = 0x78;
     }
@@ -16220,21 +16223,21 @@ void bondviewSetUpperTextDisplayFlag(PLAYERFLAG flag)
 }
 
 
-void hudmsgTopShow(char* string)
+void hudmsgTopShow(char* mess)
 {
     s32 index;
     #ifdef DEBUG
-        assert(wcslen(mess)<=MAXTALKMESSLEN);
+        assert(strlen(mess)<=MAXTALKMESSLEN);
     #endif
     if (display_upper_text_window >= 2) { return; }
 
     index = (upper_text_buffer_index + display_upper_text_window) % 2;
 #if defined(LEFTOVERDEBUG)
-    strncpy(stringbuffer_top[index], string, (BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH-1));
+    strncpy(stringbuffer_top[index], mess, (BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH-1));
     display_upper_text_window += 1;
     stringbuffer_top[index][(BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH-1)] = 0;
 #else
-    strncpy(dword_CODE_bss_80079DC8[index], string, (BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH-1));
+    strncpy(dword_CODE_bss_80079DC8[index], mess, (BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH-1));
     display_upper_text_window += 1;
     dword_CODE_bss_80079DC8[index][(BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH-1)] = 0;
 #endif
