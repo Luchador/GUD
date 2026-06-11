@@ -5209,7 +5209,7 @@ s32 object_interaction(struct PropRecord *arg0)
 
                                         matrix_4x4_set_inverse_rotation_and_translation(temp_s2_4, sp58C);
                                         mtx4TransformVecInPlace(sp58C, &sp5CC);
-                                        sub_GAME_7F0221DC(objinst, bodypartshot, dword_CODE_bss_80075B74, &sp5CC);
+                                        chrCreateBloodStain(objinst, bodypartshot, dword_CODE_bss_80075B74, &sp5CC);
                                     }
                                 }
                             }
@@ -7965,7 +7965,7 @@ glabel object_interaction
 /* 07A7FC 7F045CCC 8CC65B74 */  lw    $a2, %lo(dword_CODE_bss_80075B74)($a2)
 /* 07A800 7F045CD0 8CA50B10 */  lw    $a1, %lo(bodypartshot)($a1)
 /* 07A804 7F045CD4 8C845B70 */  lw    $a0, %lo(g_CurrentProjectileModel)($a0)
-/* 07A808 7F045CD8 0FC08877 */  jal   sub_GAME_7F0221DC
+/* 07A808 7F045CD8 0FC08877 */  jal   chrCreateBloodStain
 /* 07A80C 7F045CDC 27A705CC */   addiu $a3, $sp, 0x5cc
 /* 07A810 7F045CE0 10000021 */  b     .L7F045D68
 /* 07A814 7F045CE4 8FAC0604 */   lw    $t4, 0x604($sp)
@@ -13062,7 +13062,7 @@ glabel object_interaction
 /* 07AC20 7F0460B0 8CC65BB4 */  lw    $a2, %lo(dword_CODE_bss_80075B74)($a2)
 /* 07AC24 7F0460B4 8CA50B50 */  lw    $a1, %lo(bodypartshot)($a1)
 /* 07AC28 7F0460B8 8C845BB0 */  lw    $a0, %lo(g_CurrentProjectileModel)($a0)
-/* 07AC2C 7F0460BC 0FC08931 */  jal   sub_GAME_7F0221DC
+/* 07AC2C 7F0460BC 0FC08931 */  jal   chrCreateBloodStain
 /* 07AC30 7F0460C0 27A705D4 */   addiu $a3, $sp, 0x5d4
 /* 07AC34 7F0460C4 10000021 */  b     .Ljp7F04614C
 /* 07AC38 7F0460C8 8FB9060C */   lw    $t9, 0x60c($sp)
@@ -18168,7 +18168,7 @@ glabel object_interaction
 /* 078860 7F045E70 8CC64AB4 */  lw    $a2, %lo(dword_CODE_bss_80075B74)($a2)
 /* 078864 7F045E74 8CA5C060 */  lw    $a1, %lo(bodypartshot)($a1)
 /* 078868 7F045E78 8C844AB0 */  lw    $a0, %lo(g_CurrentProjectileModel)($a0)
-/* 07886C 7F045E7C 0FC08869 */  jal   sub_GAME_7F0221DC
+/* 07886C 7F045E7C 0FC08869 */  jal   chrCreateBloodStain
 /* 078870 7F045E80 27A705D4 */   addiu $a3, $sp, 0x5d4
 /* 078874 7F045E84 10000021 */  b     .L7F045F0C
 /* 078878 7F045E88 8FAE060C */   lw    $t6, 0x60c($sp)
@@ -27046,7 +27046,7 @@ void objDeform(ObjectRecord *obj, s32 arg1) {
         if (obj->unk4 == 0x4C) {
             var_s7 = 0;
         }
-        temp_v0_3 = sub_GAME_7F09BE4C(temp_s5->unkC, 0xB0B, temp_s1->unk8, objGetDestroyedLevel(obj));
+        temp_v0_3 = vtxstore_allocate(temp_s5->unkC, 0xB0B, temp_s1->unk8, objGetDestroyedLevel(obj));
         if (temp_v0_3 != NULL) {
             if (temp_s5->unk8 != *temp_s3) {
                 var_s2 = 0;
@@ -27304,7 +27304,7 @@ glabel objDeform
 /* 080298 7F04B768 86A4000C */  lh    $a0, 0xc($s5)
 /* 08029C 7F04B76C 24050B0B */  li    $a1, 2827
 /* 0802A0 7F04B770 8E260008 */  lw    $a2, 8($s1)
-/* 0802A4 7F04B774 0FC26F93 */  jal   sub_GAME_7F09BE4C
+/* 0802A4 7F04B774 0FC26F93 */  jal   vtxstore_allocate
 /* 0802A8 7F04B778 00403825 */   move  $a3, $v0
 /* 0802AC 7F04B77C 1040003A */  beqz  $v0, .L7F04B868
 /* 0802B0 7F04B780 00408025 */   move  $s0, $v0
@@ -27796,7 +27796,7 @@ glabel objDeform
 /* 07E34C 7F04B95C 86A4000C */  lh    $a0, 0xc($s5)
 /* 07E350 7F04B960 24050B0B */  li    $a1, 2827
 /* 07E354 7F04B964 8E060008 */  lw    $a2, 8($s0)
-/* 07E358 7F04B968 0FC26CE3 */  jal   sub_GAME_7F09BE4C
+/* 07E358 7F04B968 0FC26CE3 */  jal   vtxstore_allocate
 /* 07E35C 7F04B96C 00403825 */   move  $a3, $v0
 /* 07E360 7F04B970 1040003A */  beqz  $v0, .L7F04BA5C
 /* 07E364 7F04B974 00408025 */   move  $s0, $v0

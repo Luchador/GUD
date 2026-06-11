@@ -318,7 +318,7 @@ void        propExecuteTickOperation(PropRecord *prop, INV_ITEM_TYPE op);
 
 //tentative signature
 s32         sub_GAME_7F01FC10(Model *, coord3d *, coord3d *, f32 *);
-void        sub_GAME_7F0221DC(Model *arg0, s32 arg1, ModelNode *arg2, struct coord3d *arg3);
+void        chrCreateBloodStain(Model *arg0, s32 arg1, ModelNode *arg2, struct coord3d *arg3);
 void        sub_GAME_7F022648(PropRecord *prop, ShotData *shotdata);
 void        sub_GAME_7F03E134(PropRecord* p);
 

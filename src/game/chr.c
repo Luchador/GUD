@@ -6682,326 +6682,222 @@ void chrCreateHitPuffs(PropRecord *prop, s32 anim_id, coord3d *vec, coord3d *pos
 }
 
 
-#ifdef NONMATCHING
-void sub_GAME_7F0221DC(void) {
+void chrCreateBloodStain(Model *model, s32 arg1, ModelNode *root, struct coord3d *pos)
+{
+    s32 sp_pos[3];
+    s32 unused_stack_pad[1];
+    s32 bestdist;
+    ModelNode *bestnode;
+    s32 bestindex;
+    ModelNode *node;
+    s32 opcode;
+    ModelRoData_DisplayList_CollisionRecord *rodata;
+    ModelRoData_DisplayList_CollisionRecord *relatedrodata;
+    ModelRwData_DisplayList_CollisionRecord *relatedrwdata;
+    ModelNode *relatednode;
+    ModelNode *rwdata;
+    Vertex *vtx;
+    Vertex *newvertices;
+    s32 i;
+    s32 n;
+    s32 paintval;
+    s32 relatedindex;
 
+    sp_pos[0] = pos->x;
+    sp_pos[1] = pos->y;
+    sp_pos[2] = pos->z;
+
+    bestnode = NULL;
+    bestindex = 0;
+    bestdist = 0x7fffffff;
+    node = root;
+
+    while (node != NULL)
+    {
+        opcode = node->Opcode & 0xff;
+
+        if (opcode == MODELNODE_OPCODE_LOD)
+        {
+            goto apply_distance;
+        }
+
+        if (opcode == MODELNODE_OPCODE_SWITCH)
+        {
+            goto apply_toggle;
+        }
+
+        if (opcode == MODELNODE_OPCODE_HEAD)
+        {
+            goto apply_head;
+        }
+
+        if (opcode != MODELNODE_OPCODE_DLCOLLISION)
+        {
+            goto after_opcode;
+        }
+
+        rodata = &node->Data->DisplayListCollisions;
+        n = 0;
+
+        if (rodata->numCollisionVertices > 0)
+        {
+            vtx = rodata->CollisionVertices;
+
+            do
+            {
+                s32 dx;
+                s32 dy;
+                s32 dz;
+                s32 dist;
+
+                dx = sp_pos[0] - vtx->coord.x;
+                dy = sp_pos[1] - vtx->coord.y;
+                dz = sp_pos[2] - vtx->coord.z;
+                dist = ((((u32) dx) * ((u32) dx)) + (((u32) dy) * ((u32) dy))) + (((u32) dz) * ((u32) dz));
+
+                if (dist < bestdist)
+                {
+                    bestdist = dist;
+                    bestnode = node;
+                    bestindex = n;
+                }
+
+                n++;
+                vtx++;
+            }
+            while (n < rodata->numCollisionVertices);
+        }
+
+        goto after_opcode;
+
+apply_distance:
+        modelApplyDistanceRelations(model, node);
+        goto after_opcode;
+
+apply_toggle:
+        modelApplyToggleRelations(model, node);
+        goto after_opcode;
+
+apply_head:
+        modelApplyHeadRelations(model, node);
+
+after_opcode:
+        if ((node->Child != NULL) && ((node == root) || ((opcode != MODELNODE_OPCODE_BBOX) && (opcode != MODELNODE_OPCODE_OP17))))
+        {
+            node = node->Child;
+        }
+        else
+        {
+            while (node != NULL)
+            {
+                if (node == root)
+                {
+                    node = NULL;
+                    break;
+                }
+
+                if (node->Next != NULL)
+                {
+                    node = node->Next;
+                    break;
+                }
+
+                node = node->Parent;
+            }
+        }
+    }
+
+    if (bestnode == NULL)
+    {
+        return;
+    }
+    
+    node = (ModelNode *) bestnode->Data;
+    rwdata = (ModelNode *) modelGetNodeRwData(model, bestnode);
+    relatedrodata = NULL;
+    relatedrwdata = NULL;
+    relatedindex = 0;
+    paintval = (randomGetNext() % 50) + 20;
+    
+    if (arg1 == 8)
+    {
+        paintval += 100;
+    }
+    
+    if (arg1 == 0x0f)
+    {
+        paintval += 50;
+    }
+    
+    relatednode = (ModelNode *) ((ModelRoData_DisplayList_CollisionRecord *) node)->CollisionVertices[bestindex].CollisionRelatedNode;
+    
+    if (((ModelRoData_DisplayList_CollisionRecord *) node)->CollisionVertices[bestindex].CollisionRelatedNode != NULL)
+    {
+        relatedrodata = &relatednode->Data->DisplayListCollisions;
+        relatedrwdata = (ModelRwData_DisplayList_CollisionRecord *) modelGetNodeRwData(model, relatednode);
+        relatedindex = ((ModelRoData_DisplayList_CollisionRecord *) node)->CollisionVertices[bestindex].CollisionRelatedIndex;
+    }
+    
+    if (((ModelRwData_DisplayList_CollisionRecord *) rwdata)->Vertices == ((ModelRoData_DisplayList_CollisionRecord *) node)->Vertices)
+    {
+        newvertices = (Vertex *) vtxstore_allocate(((ModelRoData_DisplayList_CollisionRecord *) node)->numVertices, 0xcccc, 0, 0);
+    
+        if (newvertices != NULL)
+        {
+            s32 j;
+    
+            ((ModelRwData_DisplayList_CollisionRecord *) rwdata)->Vertices = newvertices;
+    
+            for (j = 0; j < ((ModelRoData_DisplayList_CollisionRecord *) node)->numVertices; j++)
+            {
+                newvertices[j] = ((ModelRoData_DisplayList_CollisionRecord *) node)->Vertices[j];
+            }
+        }
+    }
+    
+    if ((relatedrwdata != NULL) && (relatedrwdata->Vertices == relatedrodata->Vertices))
+    {
+        newvertices = (Vertex *) vtxstore_allocate(relatedrodata->numVertices, 0xcccc, 0, 0);
+    
+        if (newvertices != NULL)
+        {
+            s32 j;
+    
+            relatedrwdata->Vertices = newvertices;
+    
+            for (j = 0; j < relatedrodata->numVertices; j++)
+            {
+                newvertices[j] = relatedrodata->Vertices[j];
+            }
+        }
+    }
+    
+    if (((ModelRwData_DisplayList_CollisionRecord *) rwdata)->Vertices != ((ModelRoData_DisplayList_CollisionRecord *) node)->Vertices)
+    {
+        s32 index;
+    
+        index = ((ModelRoData_DisplayList_CollisionRecord *) node)->CollisionVertices[bestindex].index;
+    
+        while (index >= 0)
+        {
+            ((ModelRwData_DisplayList_CollisionRecord *) rwdata)->Vertices[index].a = paintval;
+            index = ((ModelRoData_DisplayList_CollisionRecord *) node)->PointUsage[index];
+        }
+    }
+    
+    if ((relatedrwdata != NULL) && (relatedrwdata->Vertices != relatedrodata->Vertices))
+    {
+        s32 index;
+    
+        index = relatedrodata->CollisionVertices[relatedindex].index;
+    
+        while (index >= 0)
+        {
+            relatedrwdata->Vertices[index].a = paintval;
+            index = relatedrodata->PointUsage[index];
+        }
+    }
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0221DC
-/* 056D0C 7F0221DC 27BDFF50 */  addiu $sp, $sp, -0xb0
-/* 056D10 7F0221E0 AFBF0034 */  sw    $ra, 0x34($sp)
-/* 056D14 7F0221E4 AFB60030 */  sw    $s6, 0x30($sp)
-/* 056D18 7F0221E8 AFB5002C */  sw    $s5, 0x2c($sp)
-/* 056D1C 7F0221EC AFB40028 */  sw    $s4, 0x28($sp)
-/* 056D20 7F0221F0 AFB30024 */  sw    $s3, 0x24($sp)
-/* 056D24 7F0221F4 AFB20020 */  sw    $s2, 0x20($sp)
-/* 056D28 7F0221F8 AFB1001C */  sw    $s1, 0x1c($sp)
-/* 056D2C 7F0221FC AFB00018 */  sw    $s0, 0x18($sp)
-/* 056D30 7F022200 AFA500B4 */  sw    $a1, 0xb4($sp)
-/* 056D34 7F022204 C4E40000 */  lwc1  $f4, ($a3)
-/* 056D38 7F022208 3C117FFF */  lui   $s1, (0x7FFFFFFF >> 16) # lui $s1, 0x7fff
-/* 056D3C 7F02220C 00C09025 */  move  $s2, $a2
-/* 056D40 7F022210 4600218D */  trunc.w.s $f6, $f4
-/* 056D44 7F022214 0080B025 */  move  $s6, $a0
-/* 056D48 7F022218 0000A025 */  move  $s4, $zero
-/* 056D4C 7F02221C 0000A825 */  move  $s5, $zero
-/* 056D50 7F022220 440F3000 */  mfc1  $t7, $f6
-/* 056D54 7F022224 3631FFFF */  ori   $s1, (0x7FFFFFFF & 0xFFFF) # ori $s1, $s1, 0xffff
-/* 056D58 7F022228 00C08025 */  move  $s0, $a2
-/* 056D5C 7F02222C AFAF00A4 */  sw    $t7, 0xa4($sp)
-/* 056D60 7F022230 C4E80004 */  lwc1  $f8, 4($a3)
-/* 056D64 7F022234 4600428D */  trunc.w.s $f10, $f8
-/* 056D68 7F022238 44195000 */  mfc1  $t9, $f10
-/* 056D6C 7F02223C 00000000 */  nop
-/* 056D70 7F022240 AFB900A8 */  sw    $t9, 0xa8($sp)
-/* 056D74 7F022244 C4F00008 */  lwc1  $f16, 8($a3)
-/* 056D78 7F022248 4600848D */  trunc.w.s $f18, $f16
-/* 056D7C 7F02224C 440B9000 */  mfc1  $t3, $f18
-/* 056D80 7F022250 10C0005B */  beqz  $a2, .L7F0223C0
-/* 056D84 7F022254 AFAB00AC */   sw    $t3, 0xac($sp)
-/* 056D88 7F022258 96130000 */  lhu   $s3, ($s0)
-.L7F02225C:
-/* 056D8C 7F02225C 24010008 */  li    $at, 8
-/* 056D90 7F022260 02C02025 */  move  $a0, $s6
-/* 056D94 7F022264 326C00FF */  andi  $t4, $s3, 0xff
-/* 056D98 7F022268 11810030 */  beq   $t4, $at, .L7F02232C
-/* 056D9C 7F02226C 01809825 */   move  $s3, $t4
-/* 056DA0 7F022270 24010012 */  li    $at, 18
-/* 056DA4 7F022274 11810031 */  beq   $t4, $at, .L7F02233C
-/* 056DA8 7F022278 02C02025 */   move  $a0, $s6
-/* 056DAC 7F02227C 24010017 */  li    $at, 23
-/* 056DB0 7F022280 11810032 */  beq   $t4, $at, .L7F02234C
-/* 056DB4 7F022284 02C02025 */   move  $a0, $s6
-/* 056DB8 7F022288 24010018 */  li    $at, 24
-/* 056DBC 7F02228C 15810032 */  bne   $t4, $at, .L7F022358
-/* 056DC0 7F022290 8E090014 */   lw    $t1, 0x14($s0)
-/* 056DC4 7F022294 8E020004 */  lw    $v0, 4($s0)
-/* 056DC8 7F022298 00003025 */  move  $a2, $zero
-/* 056DCC 7F02229C 8448000E */  lh    $t0, 0xe($v0)
-/* 056DD0 7F0222A0 1900002D */  blez  $t0, .L7F022358
-/* 056DD4 7F0222A4 00000000 */   nop
-/* 056DD8 7F0222A8 8C450010 */  lw    $a1, 0x10($v0)
-.L7F0222AC:
-/* 056DDC 7F0222AC 8FAD00A4 */  lw    $t5, 0xa4($sp)
-/* 056DE0 7F0222B0 84AE0000 */  lh    $t6, ($a1)
-/* 056DE4 7F0222B4 8FAF00A8 */  lw    $t7, 0xa8($sp)
-/* 056DE8 7F0222B8 84B80002 */  lh    $t8, 2($a1)
-/* 056DEC 7F0222BC 01AE1023 */  subu  $v0, $t5, $t6
-/* 056DF0 7F0222C0 00420019 */  multu $v0, $v0
-/* 056DF4 7F0222C4 01F81823 */  subu  $v1, $t7, $t8
-/* 056DF8 7F0222C8 8FB900AC */  lw    $t9, 0xac($sp)
-/* 056DFC 7F0222CC 84AA0004 */  lh    $t2, 4($a1)
-/* 056E00 7F0222D0 032A2023 */  subu  $a0, $t9, $t2
-/* 056E04 7F0222D4 00005812 */  mflo  $t3
-/* 056E08 7F0222D8 00000000 */  nop
-/* 056E0C 7F0222DC 00000000 */  nop
-/* 056E10 7F0222E0 00630019 */  multu $v1, $v1
-/* 056E14 7F0222E4 00006012 */  mflo  $t4
-/* 056E18 7F0222E8 016C6821 */  addu  $t5, $t3, $t4
-/* 056E1C 7F0222EC 00000000 */  nop
-/* 056E20 7F0222F0 00840019 */  multu $a0, $a0
-/* 056E24 7F0222F4 00007012 */  mflo  $t6
-/* 056E28 7F0222F8 01AE3821 */  addu  $a3, $t5, $t6
-/* 056E2C 7F0222FC 00F1082A */  slt   $at, $a3, $s1
-/* 056E30 7F022300 50200005 */  beql  $at, $zero, .L7F022318
-/* 056E34 7F022304 24C60001 */   addiu $a2, $a2, 1
-/* 056E38 7F022308 00E08825 */  move  $s1, $a3
-/* 056E3C 7F02230C 0200A025 */  move  $s4, $s0
-/* 056E40 7F022310 00C0A825 */  move  $s5, $a2
-/* 056E44 7F022314 24C60001 */  addiu $a2, $a2, 1
-.L7F022318:
-/* 056E48 7F022318 00C8082A */  slt   $at, $a2, $t0
-/* 056E4C 7F02231C 1420FFE3 */  bnez  $at, .L7F0222AC
-/* 056E50 7F022320 24A50010 */   addiu $a1, $a1, 0x10
-/* 056E54 7F022324 1000000C */  b     .L7F022358
-/* 056E58 7F022328 00000000 */   nop
-.L7F02232C:
-/* 056E5C 7F02232C 0FC1BA5C */  jal   modelApplyDistanceRelations
-/* 056E60 7F022330 02002825 */   move  $a1, $s0
-/* 056E64 7F022334 10000008 */  b     .L7F022358
-/* 056E68 7F022338 8E090014 */   lw    $t1, 0x14($s0)
-.L7F02233C:
-/* 056E6C 7F02233C 0FC1BA6F */  jal   modelApplyToggleRelations
-/* 056E70 7F022340 02002825 */   move  $a1, $s0
-/* 056E74 7F022344 10000004 */  b     .L7F022358
-/* 056E78 7F022348 8E090014 */   lw    $t1, 0x14($s0)
-.L7F02234C:
-/* 056E7C 7F02234C 0FC1BA82 */  jal   modelApplyHeadRelations
-/* 056E80 7F022350 02002825 */   move  $a1, $s0
-/* 056E84 7F022354 8E090014 */  lw    $t1, 0x14($s0)
-.L7F022358:
-/* 056E88 7F022358 11200009 */  beqz  $t1, .L7F022380
-/* 056E8C 7F02235C 00000000 */   nop
-/* 056E90 7F022360 12120005 */  beq   $s0, $s2, .L7F022378
-/* 056E94 7F022364 2401000A */   li    $at, 10
-/* 056E98 7F022368 12610005 */  beq   $s3, $at, .L7F022380
-/* 056E9C 7F02236C 24010011 */   li    $at, 17
-/* 056EA0 7F022370 12610003 */  beq   $s3, $at, .L7F022380
-/* 056EA4 7F022374 00000000 */   nop
-.L7F022378:
-/* 056EA8 7F022378 1000000F */  b     .L7F0223B8
-/* 056EAC 7F02237C 01208025 */   move  $s0, $t1
-.L7F022380:
-/* 056EB0 7F022380 1200000D */  beqz  $s0, .L7F0223B8
-/* 056EB4 7F022384 00000000 */   nop
-.L7F022388:
-/* 056EB8 7F022388 56120004 */  bnel  $s0, $s2, .L7F02239C
-/* 056EBC 7F02238C 8E02000C */   lw    $v0, 0xc($s0)
-/* 056EC0 7F022390 10000009 */  b     .L7F0223B8
-/* 056EC4 7F022394 00008025 */   move  $s0, $zero
-/* 056EC8 7F022398 8E02000C */  lw    $v0, 0xc($s0)
-.L7F02239C:
-/* 056ECC 7F02239C 50400004 */  beql  $v0, $zero, .L7F0223B0
-/* 056ED0 7F0223A0 8E100008 */   lw    $s0, 8($s0)
-/* 056ED4 7F0223A4 10000004 */  b     .L7F0223B8
-/* 056ED8 7F0223A8 00408025 */   move  $s0, $v0
-/* 056EDC 7F0223AC 8E100008 */  lw    $s0, 8($s0)
-.L7F0223B0:
-/* 056EE0 7F0223B0 1600FFF5 */  bnez  $s0, .L7F022388
-/* 056EE4 7F0223B4 00000000 */   nop
-.L7F0223B8:
-/* 056EE8 7F0223B8 5600FFA8 */  bnezl $s0, .L7F02225C
-/* 056EEC 7F0223BC 96130000 */   lhu   $s3, ($s0)
-.L7F0223C0:
-/* 056EF0 7F0223C0 12800097 */  beqz  $s4, .L7F022620
-/* 056EF4 7F0223C4 02C02025 */   move  $a0, $s6
-/* 056EF8 7F0223C8 8E900004 */  lw    $s0, 4($s4)
-/* 056EFC 7F0223CC 0FC1B1E7 */  jal   modelGetNodeRwData
-/* 056F00 7F0223D0 02802825 */   move  $a1, $s4
-/* 056F04 7F0223D4 0040A025 */  move  $s4, $v0
-/* 056F08 7F0223D8 00008825 */  move  $s1, $zero
-/* 056F0C 7F0223DC 00009825 */  move  $s3, $zero
-/* 056F10 7F0223E0 0C002914 */  jal   randomGetNext
-/* 056F14 7F0223E4 AFA00060 */   sw    $zero, 0x60($sp)
-/* 056F18 7F0223E8 24010032 */  li    $at, 50
-/* 056F1C 7F0223EC 0041001B */  divu  $zero, $v0, $at
-/* 056F20 7F0223F0 8FAF00B4 */  lw    $t7, 0xb4($sp)
-/* 056F24 7F0223F4 00001810 */  mfhi  $v1
-/* 056F28 7F0223F8 24630014 */  addiu $v1, $v1, 0x14
-/* 056F2C 7F0223FC 24010008 */  li    $at, 8
-/* 056F30 7F022400 15E10002 */  bne   $t7, $at, .L7F02240C
-/* 056F34 7F022404 00609025 */   move  $s2, $v1
-/* 056F38 7F022408 24720064 */  addiu $s2, $v1, 0x64
-.L7F02240C:
-/* 056F3C 7F02240C 8FB800B4 */  lw    $t8, 0xb4($sp)
-/* 056F40 7F022410 2401000F */  li    $at, 15
-/* 056F44 7F022414 02C02025 */  move  $a0, $s6
-/* 056F48 7F022418 57010003 */  bnel  $t8, $at, .L7F022428
-/* 056F4C 7F02241C 8E190010 */   lw    $t9, 0x10($s0)
-/* 056F50 7F022420 26520032 */  addiu $s2, $s2, 0x32
-/* 056F54 7F022424 8E190010 */  lw    $t9, 0x10($s0)
-.L7F022428:
-/* 056F58 7F022428 00154100 */  sll   $t0, $s5, 4
-/* 056F5C 7F02242C 03285021 */  addu  $t2, $t9, $t0
-/* 056F60 7F022430 8D420008 */  lw    $v0, 8($t2)
-/* 056F64 7F022434 1040000A */  beqz  $v0, .L7F022460
-/* 056F68 7F022438 00402825 */   move  $a1, $v0
-/* 056F6C 7F02243C 8C510004 */  lw    $s1, 4($v0)
-/* 056F70 7F022440 0FC1B1E7 */  jal   modelGetNodeRwData
-/* 056F74 7F022444 AFA8003C */   sw    $t0, 0x3c($sp)
-/* 056F78 7F022448 8FA8003C */  lw    $t0, 0x3c($sp)
-/* 056F7C 7F02244C 8E0B0010 */  lw    $t3, 0x10($s0)
-/* 056F80 7F022450 00409825 */  move  $s3, $v0
-/* 056F84 7F022454 01686021 */  addu  $t4, $t3, $t0
-/* 056F88 7F022458 858D000C */  lh    $t5, 0xc($t4)
-/* 056F8C 7F02245C AFAD0060 */  sw    $t5, 0x60($sp)
-.L7F022460:
-/* 056F90 7F022460 8E0E0008 */  lw    $t6, 8($s0)
-/* 056F94 7F022464 8E8F0000 */  lw    $t7, ($s4)
-/* 056F98 7F022468 3405CCCC */  li    $a1, 52428
-/* 056F9C 7F02246C 00003025 */  move  $a2, $zero
-/* 056FA0 7F022470 15CF001D */  bne   $t6, $t7, .L7F0224E8
-/* 056FA4 7F022474 00003825 */   move  $a3, $zero
-/* 056FA8 7F022478 8604000C */  lh    $a0, 0xc($s0)
-/* 056FAC 7F02247C 0FC26F93 */  jal   sub_GAME_7F09BE4C
-/* 056FB0 7F022480 AFA8003C */   sw    $t0, 0x3c($sp)
-/* 056FB4 7F022484 10400018 */  beqz  $v0, .L7F0224E8
-/* 056FB8 7F022488 8FA8003C */   lw    $t0, 0x3c($sp)
-/* 056FBC 7F02248C AE820000 */  sw    $v0, ($s4)
-/* 056FC0 7F022490 8618000C */  lh    $t8, 0xc($s0)
-/* 056FC4 7F022494 00001825 */  move  $v1, $zero
-/* 056FC8 7F022498 00002025 */  move  $a0, $zero
-/* 056FCC 7F02249C 1B000012 */  blez  $t8, .L7F0224E8
-/* 056FD0 7F0224A0 00402825 */   move  $a1, $v0
-/* 056FD4 7F0224A4 8E190008 */  lw    $t9, 8($s0)
-.L7F0224A8:
-/* 056FD8 7F0224A8 24630001 */  addiu $v1, $v1, 1
-/* 056FDC 7F0224AC 24A50010 */  addiu $a1, $a1, 0x10
-/* 056FE0 7F0224B0 03245021 */  addu  $t2, $t9, $a0
-/* 056FE4 7F0224B4 8D410000 */  lw    $at, ($t2)
-/* 056FE8 7F0224B8 24840010 */  addiu $a0, $a0, 0x10
-/* 056FEC 7F0224BC ACA1FFF0 */  sw    $at, -0x10($a1)
-/* 056FF0 7F0224C0 8D4C0004 */  lw    $t4, 4($t2)
-/* 056FF4 7F0224C4 ACACFFF4 */  sw    $t4, -0xc($a1)
-/* 056FF8 7F0224C8 8D410008 */  lw    $at, 8($t2)
-/* 056FFC 7F0224CC ACA1FFF8 */  sw    $at, -8($a1)
-/* 057000 7F0224D0 8D4C000C */  lw    $t4, 0xc($t2)
-/* 057004 7F0224D4 ACACFFFC */  sw    $t4, -4($a1)
-/* 057008 7F0224D8 860D000C */  lh    $t5, 0xc($s0)
-/* 05700C 7F0224DC 006D082A */  slt   $at, $v1, $t5
-/* 057010 7F0224E0 5420FFF1 */  bnezl $at, .L7F0224A8
-/* 057014 7F0224E4 8E190008 */   lw    $t9, 8($s0)
-.L7F0224E8:
-/* 057018 7F0224E8 52600024 */  beql  $s3, $zero, .L7F02257C
-/* 05701C 7F0224EC 8E0E0008 */   lw    $t6, 8($s0)
-/* 057020 7F0224F0 8E2E0008 */  lw    $t6, 8($s1)
-/* 057024 7F0224F4 8E6F0000 */  lw    $t7, ($s3)
-/* 057028 7F0224F8 3405CCCC */  li    $a1, 52428
-/* 05702C 7F0224FC 00003025 */  move  $a2, $zero
-/* 057030 7F022500 15CF001D */  bne   $t6, $t7, .L7F022578
-/* 057034 7F022504 00003825 */   move  $a3, $zero
-/* 057038 7F022508 8624000C */  lh    $a0, 0xc($s1)
-/* 05703C 7F02250C 0FC26F93 */  jal   sub_GAME_7F09BE4C
-/* 057040 7F022510 AFA8003C */   sw    $t0, 0x3c($sp)
-/* 057044 7F022514 10400018 */  beqz  $v0, .L7F022578
-/* 057048 7F022518 8FA8003C */   lw    $t0, 0x3c($sp)
-/* 05704C 7F02251C AE620000 */  sw    $v0, ($s3)
-/* 057050 7F022520 8638000C */  lh    $t8, 0xc($s1)
-/* 057054 7F022524 00001825 */  move  $v1, $zero
-/* 057058 7F022528 00002025 */  move  $a0, $zero
-/* 05705C 7F02252C 1B000012 */  blez  $t8, .L7F022578
-/* 057060 7F022530 00402825 */   move  $a1, $v0
-/* 057064 7F022534 8E390008 */  lw    $t9, 8($s1)
-.L7F022538:
-/* 057068 7F022538 24630001 */  addiu $v1, $v1, 1
-/* 05706C 7F02253C 24A50010 */  addiu $a1, $a1, 0x10
-/* 057070 7F022540 03245821 */  addu  $t3, $t9, $a0
-/* 057074 7F022544 8D610000 */  lw    $at, ($t3)
-/* 057078 7F022548 24840010 */  addiu $a0, $a0, 0x10
-/* 05707C 7F02254C ACA1FFF0 */  sw    $at, -0x10($a1)
-/* 057080 7F022550 8D6C0004 */  lw    $t4, 4($t3)
-/* 057084 7F022554 ACACFFF4 */  sw    $t4, -0xc($a1)
-/* 057088 7F022558 8D610008 */  lw    $at, 8($t3)
-/* 05708C 7F02255C ACA1FFF8 */  sw    $at, -8($a1)
-/* 057090 7F022560 8D6C000C */  lw    $t4, 0xc($t3)
-/* 057094 7F022564 ACACFFFC */  sw    $t4, -4($a1)
-/* 057098 7F022568 862D000C */  lh    $t5, 0xc($s1)
-/* 05709C 7F02256C 006D082A */  slt   $at, $v1, $t5
-/* 0570A0 7F022570 5420FFF1 */  bnezl $at, .L7F022538
-/* 0570A4 7F022574 8E390008 */   lw    $t9, 8($s1)
-.L7F022578:
-/* 0570A8 7F022578 8E0E0008 */  lw    $t6, 8($s0)
-.L7F02257C:
-/* 0570AC 7F02257C 8E8F0000 */  lw    $t7, ($s4)
-/* 0570B0 7F022580 11CF0010 */  beq   $t6, $t7, .L7F0225C4
-/* 0570B4 7F022584 00000000 */   nop
-/* 0570B8 7F022588 8E180010 */  lw    $t8, 0x10($s0)
-/* 0570BC 7F02258C 0308C821 */  addu  $t9, $t8, $t0
-/* 0570C0 7F022590 87220006 */  lh    $v0, 6($t9)
-/* 0570C4 7F022594 0440000B */  bltz  $v0, .L7F0225C4
-/* 0570C8 7F022598 00000000 */   nop
-/* 0570CC 7F02259C 8E8A0000 */  lw    $t2, ($s4)
-.L7F0225A0:
-/* 0570D0 7F0225A0 00025900 */  sll   $t3, $v0, 4
-/* 0570D4 7F0225A4 00027040 */  sll   $t6, $v0, 1
-/* 0570D8 7F0225A8 014B6021 */  addu  $t4, $t2, $t3
-/* 0570DC 7F0225AC A192000F */  sb    $s2, 0xf($t4)
-/* 0570E0 7F0225B0 8E0D0014 */  lw    $t5, 0x14($s0)
-/* 0570E4 7F0225B4 01AE7821 */  addu  $t7, $t5, $t6
-/* 0570E8 7F0225B8 85E20000 */  lh    $v0, ($t7)
-/* 0570EC 7F0225BC 0443FFF8 */  bgezl $v0, .L7F0225A0
-/* 0570F0 7F0225C0 8E8A0000 */   lw    $t2, ($s4)
-.L7F0225C4:
-/* 0570F4 7F0225C4 52600017 */  beql  $s3, $zero, .L7F022624
-/* 0570F8 7F0225C8 8FBF0034 */   lw    $ra, 0x34($sp)
-/* 0570FC 7F0225CC 8E380008 */  lw    $t8, 8($s1)
-/* 057100 7F0225D0 8E790000 */  lw    $t9, ($s3)
-/* 057104 7F0225D4 8FAB0060 */  lw    $t3, 0x60($sp)
-/* 057108 7F0225D8 53190012 */  beql  $t8, $t9, .L7F022624
-/* 05710C 7F0225DC 8FBF0034 */   lw    $ra, 0x34($sp)
-/* 057110 7F0225E0 8E2A0010 */  lw    $t2, 0x10($s1)
-/* 057114 7F0225E4 000B6100 */  sll   $t4, $t3, 4
-/* 057118 7F0225E8 014C6821 */  addu  $t5, $t2, $t4
-/* 05711C 7F0225EC 85A20006 */  lh    $v0, 6($t5)
-/* 057120 7F0225F0 0442000C */  bltzl $v0, .L7F022624
-/* 057124 7F0225F4 8FBF0034 */   lw    $ra, 0x34($sp)
-/* 057128 7F0225F8 8E6E0000 */  lw    $t6, ($s3)
-.L7F0225FC:
-/* 05712C 7F0225FC 00027900 */  sll   $t7, $v0, 4
-/* 057130 7F022600 00025840 */  sll   $t3, $v0, 1
-/* 057134 7F022604 01CFC021 */  addu  $t8, $t6, $t7
-/* 057138 7F022608 A312000F */  sb    $s2, 0xf($t8)
-/* 05713C 7F02260C 8E390014 */  lw    $t9, 0x14($s1)
-/* 057140 7F022610 032B5021 */  addu  $t2, $t9, $t3
-/* 057144 7F022614 85420000 */  lh    $v0, ($t2)
-/* 057148 7F022618 0443FFF8 */  bgezl $v0, .L7F0225FC
-/* 05714C 7F02261C 8E6E0000 */   lw    $t6, ($s3)
-.L7F022620:
-/* 057150 7F022620 8FBF0034 */  lw    $ra, 0x34($sp)
-.L7F022624:
-/* 057154 7F022624 8FB00018 */  lw    $s0, 0x18($sp)
-/* 057158 7F022628 8FB1001C */  lw    $s1, 0x1c($sp)
-/* 05715C 7F02262C 8FB20020 */  lw    $s2, 0x20($sp)
-/* 057160 7F022630 8FB30024 */  lw    $s3, 0x24($sp)
-/* 057164 7F022634 8FB40028 */  lw    $s4, 0x28($sp)
-/* 057168 7F022638 8FB5002C */  lw    $s5, 0x2c($sp)
-/* 05716C 7F02263C 8FB60030 */  lw    $s6, 0x30($sp)
-/* 057170 7F022640 03E00008 */  jr    $ra
-/* 057174 7F022644 27BD00B0 */   addiu $sp, $sp, 0xb0
-)
-#endif
 
 
 // PD: chr_test_hit
@@ -7361,7 +7257,7 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
     mtx4TransformVecInPlace(&invmtx, &jointpos);
 
     // Create a blood stain at the impact point.
-    sub_GAME_7F0221DC(bhit->model, bhit->hitpart, bhit->node, &jointpos);
+    chrCreateBloodStain(bhit->model, bhit->hitpart, bhit->node, &jointpos);
 }
 
 

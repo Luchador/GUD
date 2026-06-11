@@ -261,14 +261,13 @@ void sub_GAME_7F09BBBC(void)
 }
 
 
-
-
 /*
 * Address: 7F09BE4C
 * PD name: vtxstore_allocate
 * Description: Allocation for batches within the storage space
 */
-s32 sub_GAME_7F09BE4C(s32 arg0, s32 type, s32 arg2, s32 arg3) {
+s32 vtxstore_allocate(s32 arg0, s32 type, s32 arg2, s32 arg3) 
+{
     s16* var_t3;
     s16 temp_t2;
     s32 var_a1;
@@ -293,9 +292,11 @@ s32 sub_GAME_7F09BE4C(s32 arg0, s32 type, s32 arg2, s32 arg3) {
         default:
             return 0;
     }
+
     var_v1_2 = 0;
     var_v0 = 0;
     var_a1 = 0;
+    
     do {
         if ((var_t0[var_a1].unk0E == 0) && (var_t0[var_a1].unk0C >= arg0)) {
             var_v1_2 = 1;
