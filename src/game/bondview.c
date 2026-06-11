@@ -16023,7 +16023,7 @@ void hudmsgBottomShow(char *string, s32 font, s32 arg2)
         index = get_cur_playernum();
         strncpy(stringbuffer_lowerleft[index], string, (BONDVIEW_HUD_MSG_BOTTOM_BUFFER_LENGTH-1));
         stringbuffer_lowerleft[index][(BONDVIEW_HUD_MSG_BOTTOM_BUFFER_LENGTH-1)] = 0;
-        dword_CODE_bss_jp80079CEC[index] = arfontg1;
+        dword_CODE_bss_jp80079CEC[index] = font;
         dword_CODE_bss_jp80079Cd8[index] = arg2;
 #if defined(VERSION_EU)
         g_CurrentPlayer->bondmesscnt = 0x64;
