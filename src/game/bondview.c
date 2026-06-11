@@ -7136,10 +7136,10 @@ void trigger_solo_watch_menu(s32 arg0)
             sub_GAME_7F07DEFC();
             bondviewTriggerWatchZoomDefault();
 
-            sub_GAME_7F0A2F30(&g_CurrentPlayer->armor_display_values, 0x2E, 1, currentPlayerGetArmor());
+            hudMakeDamageSegments(&g_CurrentPlayer->armor_display_values, 23*2, 1, currentPlayerGetArmor());
             buildGaugeBarDL(&g_CurrentPlayer->watch_body_armor_bar_gdl, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->armor_display_values), 0x2E);
 
-            sub_GAME_7F0A2F30(&g_CurrentPlayer->health_display_values, 0x2E, -1, currentPlayerGetHealth());
+            hudMakeDamageSegments(&g_CurrentPlayer->health_display_values, 23*2, -1, currentPlayerGetHealth());
             buildGaugeBarDL(&g_CurrentPlayer->watch_health_bar_gdl, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->health_display_values), 0x2E);
 
             sub_GAME_7F0A69A8();
@@ -13560,11 +13560,11 @@ Gfx *bondviewRenderGaugeBars(Gfx *gdl)
     Mtxf lookatmtxf;
 
     //Set up armor bars.
-    sub_GAME_7F0A2F30(&g_CurrentPlayer->armor_display_values[0].items[0], 0x2e, 1, g_CurrentPlayer->apparentarmour);
+    hudMakeDamageSegments(&g_CurrentPlayer->armor_display_values[0].items[0], 0x2e, 1, g_CurrentPlayer->apparentarmour);
     buildGaugeBarDL((Gfx *)&g_CurrentPlayer->watch_body_armor_bar_gdl, OS_PHYSICAL_TO_K0(&g_CurrentPlayer->armor_display_values[0].items[0]), 0x2e);
 
     // Set up health bars.
-    sub_GAME_7F0A2F30(&g_CurrentPlayer->health_display_values[0].items[0], 0x2e, -1, g_CurrentPlayer->apparenthealth);
+    hudMakeDamageSegments(&g_CurrentPlayer->health_display_values[0].items[0], 0x2e, -1, g_CurrentPlayer->apparenthealth);
     buildGaugeBarDL((Gfx *)&g_CurrentPlayer->watch_health_bar_gdl, OS_PHYSICAL_TO_K0(&g_CurrentPlayer->health_display_values[0].items[0]), 0x2e);
 
     // Create an orthographic render state for the gauge.
@@ -15521,8 +15521,8 @@ void record_damage_kills(f32 damage_amount, f32 vectorx, f32 vectorz, s32 player
 
     if (g_CurrentPlayer->watch_animation_state != WATCH_ANIMATION_0x0)
     {
-        sub_GAME_7F0A2F30(g_CurrentPlayer->armor_display_values, 0x2E, 1, currentPlayerGetArmor());
-        sub_GAME_7F0A2F30(g_CurrentPlayer->health_display_values, 0x2E, -1, currentPlayerGetHealth());
+        hudMakeDamageSegments(g_CurrentPlayer->armor_display_values, 0x2E, 1, currentPlayerGetArmor());
+        hudMakeDamageSegments(g_CurrentPlayer->health_display_values, 0x2E, -1, currentPlayerGetHealth());
     }
 
     if (getPlayerCount() < 2 || (g_stopPlayFlag == 0 && g_gameOverFlag == 0))

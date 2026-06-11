@@ -37,175 +37,182 @@ bondstruct_unk_8007A4E0 dword_CODE_bss_8007A4E0[50];
 
 
 #if defined(LEFTOVERDEBUG)
-void sub_GAME_7F0A2F30(struct damage_display_val *arg0, s32 arg1, s32 arg2, f32 arg3)
+/*
+  Render Health Bars
+  AI Comment: This function populates a radial array of HUD elements (HealthSegments) with position and color data
+  based on a damage value (HealthValue) and a display mode (isArmour). It loops through 23 segments, calculating their
+  screen-space coordinates and visual properties using trigonometric functions.
+  @healthSegments : A pointer to an Array of 46 vertices.
+  @isArmour : Armour/Health if positive/negative
+  @numsegments : Not Used
+  @HealthValue : amount of health/armour 0-10
+  @Address: 7F0A2F30
+*/
+void hudMakeDamageSegments(struct damage_display_val *HealthSegments, s32 numSegments, s32 isArmour, f32 HealthValue)
 {
-	s32 new_var2;
-	f32 new_var;
-	s32 var_s4;
-	s32 var_s2;
-	s16 temp_s1;
-	s32 sp80;
-	f32 temp_f18;
-	f32 temp_f4;
-	f32 sp74;
-	f32 temp_f24;
-	arg3 *= 8.0f;
-	sp80 = 0;
+	s32 unused;
+    s32 i;
+    s32 pairIndex;
+    f32 angleRadians;
 
-	for (var_s2 = 0; var_s2 < 23; var_s2++)
-	{
-		temp_f18 = (f32) ((s32) (142.5 - ((f64) sp80)));
-		temp_f24 = ((temp_f18 * M_PI_F) * ((f32) 2)) / 360.0f;
-		for (var_s4 = 0; var_s4 < 2; var_s4++)
-		{
-	        sp74 = (f32) arg2;
-			temp_s1 = (s16) ((s32) (((((sinf(temp_f24) * 4.0f) * 130.0f) * ((f32) (6 - var_s4))) / 5.0f) * sp74));
-			temp_f4 = cosf(temp_f24) * 4.0f;
-			arg0->unk00 = temp_s1 + 1;
-			arg0->unk02 = 0;
-			arg0->unk06 = 0;
-			arg0->unk08 = 0;
-			new_var = arg3 - 5.0f;
-			arg0->unk0A = 0;
-			arg0->unk0C = 0xFF;
-			arg0->unk0D = 0xFF;
-			temp_s1 = ((temp_f4 * 130.0f) * ((f32) (6 - var_s4))) / 5;
-			arg0->unk0E = 0xFF;
-			arg0->unk04 = (s16) (-((s32) temp_s1));
-			if (arg2 > 0)
-			{
-				arg0->unk0C = (s8) ((s32) (96.0f - (cosf(temp_f24) * 96.0f)));
-				arg0->unk0D = (s8) ((s32) (127.0f - (cosf(temp_f24) * 127.0f)));
-				arg0->unk0E = 0xFF;
-			}
-			else if (arg2 < 0)
-			{
-				arg0->unk0D = (s8) ((s32) (127.0f - (cosf(temp_f24) * 127.0f)));
-				arg0->unk0E = (s8) ((s32) (32.0f - (cosf(temp_f24) * 32.0f)));
-			}
-			if (var_s2 < 10)
-			{
-				if (((((s32) arg3) * 2) - 1) >= var_s2)
-				{
-					arg0->unk0F = 0xFF;
-				}
-				else if ((var_s2 < ((s32) (2.0f * arg3))) && (((((s32) arg3) * 2) - 1) < var_s2))
-				{
-					arg0->unk0F = (s8) (((s32) ((arg3 - ((f32) ((s32) arg3))) * 207.0f)) + 0x30);
-				}
-				else
-				{
-					arg0->unk0F = 0x30;
-				}
-			}
-			else if (var_s2 >= 10)
-			{
-				if (((f32) var_s2) <= (9.0f + ((arg3 - 5.0f) * 4.0f)))
-				{
-					arg0->unk0F = 0xFF;
-				}
-				else
-				{
-					new_var2 = var_s2;
-					if (((((s32) ((new_var * 4.0f) + 0.5f)) + 9) >= new_var2) && (((((s32) (arg3 - 5.0f)) * 2) + 8) < new_var2))
-					{
-						arg0->unk0F = (s8) (((s32) ((arg3 - ((f32) ((s32) arg3))) * 207.0f)) + 0x30);
-					}
-					else
-					{
-						arg0->unk0F = 0x30;
-					}
-				}
-			}
-			arg0 += 1;
-		}
-		sp80 += 5;
-	}
+    HealthValue *= 8;
+
+
+    //for 145.2 to 35.2 degrees, calculate health/armour
+    for (i=0; i<23; i++)
+    {
+        //This line calculates an angle in radians, starting from 142° (cast truncated) and decreasing by 5° per iteration.
+        angleRadians = ((f32) (s32)(142.5 - (i*5))* M_PI_F * 2) / 360;
+
+        for (pairIndex = 0; pairIndex < 2; pairIndex++)
+        {
+            s16 radialOffsetX = (((sinf(angleRadians) * 4 * 130 * (6 - pairIndex)) / 5) * isArmour);
+            s16 radialOffsetZ = (((cosf(angleRadians) * 4) * 130 * (6 - pairIndex)) / 5);
+
+            HealthSegments->pos.x    = (radialOffsetX + 1);
+            HealthSegments->pos.y    = 0;
+            HealthSegments->pos.z    = -radialOffsetZ;
+            HealthSegments->normal.x = 0;
+            HealthSegments->normal.y = 0;
+            HealthSegments->normal.z = 0;
+            HealthSegments->colour.r = 255;
+            HealthSegments->colour.g = 255;
+            HealthSegments->colour.b = 255;
+
+            if (isArmour >= TRUE) //armour shade
+            {
+                HealthSegments->colour.r = (int)(96 - (cosf(angleRadians) * 96));
+                HealthSegments->colour.g = (int)(127 - (cosf(angleRadians) * 127));
+                HealthSegments->colour.b = 255;
+            }
+            else if (isArmour < FALSE) //health shade
+            {
+                HealthSegments->colour.g =  (int)(127 - (cosf(angleRadians) * 127));
+                HealthSegments->colour.b = (int)(32 - (cosf(angleRadians) * 32));
+            }
+
+            // segments 0-9 are single, 10-22 are doubled with single gaps
+            // IF i < damage fill, if fractional, shade else no fill.
+            if (i < 10) //145 to 95
+            {
+                //full shade
+                if (i <= (((int)HealthValue * 2) - 1))
+                {
+                    HealthSegments->colour.a = 255;
+                }
+                // Fraction fill
+                else if ((i < (int)(HealthValue * 2.0f)) && (i > (((int)HealthValue * 2) - 1))) //yes, it looks like one is float, the other is cast
+                {
+                    HealthSegments->colour.a = (int)((HealthValue - (int)HealthValue) * 207) + 48;
+                }
+                else //no fill
+                {
+                    HealthSegments->colour.a = 48;
+                }
+            }
+            else if (i >= 10) //95 to 35
+            {
+                if ( i <= (9 + ((HealthValue - 5.0f) * 4)))
+                {
+                    HealthSegments->colour.a = 255;
+                }
+                else if (i <= (((int)(((HealthValue - 5.0f) * 4) + 0.5f) + 9)) && (i > (((int)(HealthValue - 5.0f) * 2) + 8)))
+                {
+                    HealthSegments->colour.a = (int)((HealthValue - (int)HealthValue) * 207) + 48;
+                }
+                else
+                {
+                    HealthSegments->colour.a = 48;
+                }
+            }
+            HealthSegments++;
+        }
+    }
 }
 #endif
 
 #if !defined(LEFTOVERDEBUG)
-void sub_GAME_7F0A2F30(struct damage_display_val *arg0, s32 arg1, s32 arg2, f32 arg3)
+void hudMakeDamageSegments(struct damage_display_val *HealthSegments, s32 numSegments, s32 isArmour, f32 HealthValue)
 {
 	s32 new_var2;
 	f32 new_var;
-	s32 var_s4;
-	s32 var_s2;
+	s32 pairIndex;
+	s32 i;
 	s16 temp_s1;
 	s32 sp80;
 	f32 temp_f18;
 	f32 temp_f4;
 	f32 sp74;
-	f32 temp_f24;
-	arg3 *= 8.0f;
+	f32 angleRadians;
+	HealthValue *= 8.0f;
 	sp80 = 0;
 
-	for (var_s2 = 0; var_s2 < 23; var_s2++)
+	for (i = 0; i < 23; i++)
 	{
 		temp_f18 = (f32) ((s32) (142.5 - ((f64) sp80)));
-		temp_f24 = ((temp_f18 * M_PI_F) * ((f32) 2)) / 360.0f;
-		for (var_s4 = 0; var_s4 < 2; var_s4++)
+		angleRadians = ((temp_f18 * M_PI_F) * ((f32) 2)) / 360.0f;
+		for (pairIndex = 0; pairIndex < 2; pairIndex++)
 		{
-	        sp74 = (f32) arg2;
-			temp_s1 = (s16) ((s32) (((((sinf(temp_f24) * 4.0f) * 130.0f) * ((f32) (6 - var_s4))) / 5.0f) * sp74));
-			temp_f4 = cosf(temp_f24) * 4.0f;
-			arg0->unk00 = temp_s1 + 1;
-			arg0->unk02 = 0;
-			arg0->unk06 = 0;
-			arg0->unk08 = 0;
-			new_var = arg3 - 5.0f;
-			arg0->unk0A = 0;
-			arg0->unk0C = 0xFF;
-			arg0->unk0D = 0xFF;
-			temp_s1 = ((temp_f4 * 130.0f) * ((f32) (6 - var_s4))) / 5;
-			arg0->unk0E = 0xFF;
-			arg0->unk04 = (s16) (-((s32) temp_s1));
-			if (arg2 > 0)
+	        sp74 = (f32) isArmour;
+			temp_s1 = (s16) ((s32) (((((sinf(angleRadians) * 4.0f) * 130.0f) * ((f32) (6 - pairIndex))) / 5.0f) * sp74));
+			temp_f4 = cosf(angleRadians) * 4.0f;
+			HealthSegments->pos.x = temp_s1 + 1;
+			HealthSegments->pos.y = 0;
+			HealthSegments->normal.x = 0;
+			HealthSegments->normal.y = 0;
+			new_var = HealthValue - 5.0f;
+			HealthSegments->normal.z = 0;
+			HealthSegments->colour.r = 0xFF;
+			HealthSegments->colour.g = 0xFF;
+			temp_s1 = ((temp_f4 * 130.0f) * ((f32) (6 - pairIndex))) / 5;
+			HealthSegments->colour.b = 0xFF;
+			HealthSegments->pos.z = (s16) (-((s32) temp_s1));
+			if (isArmour > 0)
 			{
-				arg0->unk0C = (s8) ((s32) (96.0f - (cosf(temp_f24) * 96.0f)));
-				arg0->unk0D = (s8) ((s32) (127.0f - (cosf(temp_f24) * 127.0f)));
-				arg0->unk0E = 0xFF;
+				HealthSegments->colour.r = (s8) ((s32) (96.0f - (cosf(angleRadians) * 96.0f)));
+				HealthSegments->colour.g = (s8) ((s32) (127.0f - (cosf(angleRadians) * 127.0f)));
+				HealthSegments->colour.b = 0xFF;
 			}
-			else if (arg2 < 0)
+			else if (isArmour < 0)
 			{
-				arg0->unk0D = (s8) ((s32) (127.0f - (cosf(temp_f24) * 127.0f)));
-				arg0->unk0E = (s8) ((s32) (32.0f - (cosf(temp_f24) * 32.0f)));
+				HealthSegments->colour.g = (s8) ((s32) (127.0f - (cosf(angleRadians) * 127.0f)));
+				HealthSegments->colour.b = (s8) ((s32) (32.0f - (cosf(angleRadians) * 32.0f)));
 			}
-			if (var_s2 < 10)
+			if (i < 10)
 			{
-				if (((((s32) arg3) * 2) - 1) >= var_s2)
+				if (((((s32) HealthValue) * 2) - 1) >= i)
 				{
-					arg0->unk0F = 0xFF;
+					HealthSegments->colour.a = 0xFF;
 				}
-				else if ((var_s2 < ((s32) (2.0f * arg3))) && (((((s32) arg3) * 2) - 1) < var_s2))
+				else if ((i < ((s32) (2.0f * HealthValue))) && (((((s32) HealthValue) * 2) - 1) < i))
 				{
-					arg0->unk0F = (s8) (((s32) ((arg3 - ((f32) ((s32) arg3))) * 207.0f)) + 0x30);
+					HealthSegments->colour.a = (s8) (((s32) ((HealthValue - ((f32) ((s32) HealthValue))) * 207.0f)) + 0x30);
 				}
 				else
 				{
-					arg0->unk0F = 0x30;
+					HealthSegments->colour.a = 0x30;
 				}
 			}
-			else if (var_s2 >= 10)
+			else if (i >= 10)
 			{
-				if (((f32) var_s2) <= (9.0f + ((arg3 - 5.0f) * 4.0f)))
+				if (((f32) i) <= (9.0f + ((HealthValue - 5.0f) * 4.0f)))
 				{
-					arg0->unk0F = 0xFF;
+					HealthSegments->colour.a = 0xFF;
 				}
 				else
 				{
-					new_var2 = var_s2;
-					if (((((s32) ((new_var * 4.0f) + 0.5f)) + 9) >= new_var2) && (((((s32) (arg3 - 5.0f)) * 2) + 8) < new_var2))
+					new_var2 = i;
+					if (((((s32) ((new_var * 4.0f) + 0.5f)) + 9) >= new_var2) && (((((s32) (HealthValue - 5.0f)) * 2) + 8) < new_var2))
 					{
-						arg0->unk0F = (s8) (((s32) ((arg3 - ((f32) ((s32) arg3))) * 207.0f)) + 0x30);
+						HealthSegments->colour.a = (s8) (((s32) ((HealthValue - ((f32) ((s32) HealthValue))) * 207.0f)) + 0x30);
 					}
 					else
 					{
-						arg0->unk0F = 0x30;
+						HealthSegments->colour.a = 0x30;
 					}
 				}
 			}
-			arg0 += 1;
+			HealthSegments += 1;
 		}
 		sp80 += 5;
 	}
@@ -217,7 +224,7 @@ void sub_GAME_7F0A2F30(struct damage_display_val *arg0, s32 arg1, s32 arg2, f32 
  * Address: 7F0A3330
  *
  * Creates the display list for HUD and watch health and armor bars.
- * 
+ *
  * Unsure of the exact gfx macro for the B1 packet, so sticking with raw words for now.
  *
  * gfxdis was unable to decode:
@@ -255,7 +262,7 @@ Gfx *buildGaugeBarDL(Gfx *gdl, u32 arg1, s32 arg2)
     }
 
     gSPEndDisplayList(gdl++);
-    
+
     return gdl;
 }
 
@@ -270,7 +277,7 @@ void sub_GAME_7F0A33F8(struct WatchVertex *vtx, s32 numverts, f32 scale, s32 arg
     s32 i;
     s16 sinval;
     s16 cosval;
-    
+
     if (arg3)
     {
         vtx->coord1.x = 1;
@@ -330,14 +337,14 @@ void sub_GAME_7F0A33F8(struct WatchVertex *vtx, s32 numverts, f32 scale, s32 arg
 }
 #else
 /* NOTE:
-    D_8004CE1C and D_8004CE20 were originally in sub_GAME_7F0A2F30's
+    D_8004CE1C and D_8004CE20 were originally in hudMakeDamageSegments's
     late_rodata (EU build). Now that function is C, these must live here.
  */
 GLOBAL_ASM(
 .late_rodata
-glabel D_8004CE1C /* Originally in sub_GAME_7F0A2F30's late_rodata (EU build) */
+glabel D_8004CE1C /* Originally in hudMakeDamageSegments's late_rodata (EU build) */
 .word 0x40490fdb /* M_PI_F */
-glabel D_8004CE20 /* Originally in sub_GAME_7F0A2F30's late_rodata (EU build) */
+glabel D_8004CE20 /* Originally in hudMakeDamageSegments's late_rodata (EU build) */
 .word 0x40c90fdb /* M_TAU_F */
 glabel D_8005774C
 .word 0x3fb501e2

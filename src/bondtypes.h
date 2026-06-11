@@ -4132,16 +4132,9 @@ struct FolderSelect {
 };
 
 struct damage_display_val {
-    s16 unk00;
-    s16 unk02;
-    s16 unk04;
-    s16 unk06;
-    s16 unk08;
-    s16 unk0A;
-    u8 unk0C;
-    u8 unk0D;
-    u8 unk0E;
-    u8 unk0F;
+    coord16 pos;
+    coord16 normal;
+    rgba_u8 colour;
 };
 
 struct damage_display_parent {
