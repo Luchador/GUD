@@ -136,7 +136,7 @@ void chrlvTravelTickMagic                     (ChrRecord *self, struct waydata *
 void chrlvTravelTick                          (ChrRecord *, coord3d *, StandTile *, struct waydata *);
 void chrlvTickGoPos                           (ChrRecord *self);
 void chrlvSetNextActPatrolStepPadPos          (ChrRecord *self);
-void sub_GAME_7F0284DC                        (ChrRecord *self);
+void chrlvAdvancePatrolStep                   (ChrRecord *self);
 void chrlvTickPatrol                          (ChrRecord *self);
 f32 get_distance_actor_to_position            (ChrRecord *self, coord3d *pos);
 s32 chrResolveId                              (ChrRecord *self, s32 id);
@@ -146,7 +146,7 @@ s32 chrIsPosOffScreen                         (coord3d *arg0, StandTile *arg1);
 PropRecord *chrSpawnAtCoord(s32 bodynum, s32 headnum, coord3d *pos, StandTile *stan, f32 angle, AIListRecord *ailist, s32 spawnflags);
 void chrlvInitActAttack                       (ChrRecord *self, struct anim_group_info ** arg1, s32 arg2, point2d *arg3, s32 attack_type, s32 arg5, s32 arg6);
 s32 chrlvPatrolCalculateStep                  (ChrRecord *self, bool *forward, s32 numsteps);
-s32 chrlvIsPosClearOfObjectBounds                         (coord3d *arg0, StandTile *arg1);
+bool chrlvIsPosClearOfObjectBounds            (coord3d *pos, StandTile *stan);
 s32 sub_GAME_7F03130C                         (ChrRecord *self,coord3d *arg1,s32 arg2,coord3d *arg3,f32 arg4,s32 arg5,coord3d *arg6,struct waydata *arg7,f32 arg8,s32 arg9,s32 set_copy);
 void chrlvTickStand                           (ChrRecord *self);
 PadRecord * chrlvGetPatrolStepPad             (ChrRecord *self, s32 numsteps);
@@ -157,8 +157,6 @@ void chrlvUpdateAimendbackShoulders           (ChrRecord *, void *, s32, s32, f3
 
 
 // end forward declarations
-
-
 
 
 /**
@@ -3005,7 +3003,6 @@ void chrlvActGoposRelated(ChrRecord *self, coord3d *target_point, StandTile **ta
 }
 
 
-
 /**
  * Address 0x7F027FA8.
  * PD: func0f0370a8 (but GE has much more cases)
@@ -3321,7 +3318,7 @@ void chrlvSetNextActPatrolStepPadPos(ChrRecord *self)
 /**
  * Address 0x7F0284DC.
 */
-void sub_GAME_7F0284DC(ChrRecord *self)
+void chrlvAdvancePatrolStep(ChrRecord *self)
 {
     self->act_patrol.nextstep = chrlvPatrolCalculateStep(self, &self->act_patrol.forward, 1);
     chrlvSetNextActPatrolStepPadPos(self);
@@ -3410,7 +3407,7 @@ void chrlvTravelTickMagic(ChrRecord *self, struct waydata *arg1, f32 arg2, coord
 
             if (self->actiontype == ACT_PATROL)
             {
-                sub_GAME_7F0284DC(self);
+                chrlvAdvancePatrolStep(self);
                 chrlvSetGoposSegDistTotal(self, arg1, chrlvGetNextPatrolStepPad(self));
             }
             else if (self->actiontype == ACT_GOPOS)
@@ -9464,7 +9461,7 @@ void chrlvTickPatrol(ChrRecord *self)
 
         if (chrlvIsArrivingLaterallyAtPos(&self->prevpos, &self_prop->pos, &temp_v0->pos, 30.0f))
         {
-            sub_GAME_7F0284DC(self);
+            chrlvAdvancePatrolStep(self);
             temp_v0 = (PadRecord *)chrlvGetNextPatrolStepPad(self);
         }
 
