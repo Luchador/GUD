@@ -32,7 +32,7 @@
 #include "model.h"
 
 
-
+point2d D_800309F0 = {0, 0};
 
 // forward declarations
 
@@ -71,7 +71,6 @@ s32 check_if_any_path_preset_lies_on_tile     (StandTile* tile);
 f32 chrlvPadPresetRelated                     (coord3d *arg0, waypoint *arg1);
 waypoint *chrlvStanPathRelated                (coord3d *arg0, StandTile *arg1);
 s32 chrlvStanRoomRelatedPad                   (ChrRecord *self, PadRecord *arg1);
-void play_sound_for_shot_actor                (ChrRecord *);
 void sub_GAME_7F025560                        (ChrRecord *self, s32 attack_type, s32 arg2);
 coord3d *chrlvGetChrOrPresetLocation          (ChrRecord *self, s32 flags, s32 lookup_id, StandTile **stan);
 void chrStopFiring                            (ChrRecord *self);
@@ -162,16 +161,6 @@ void chrlvUpdateAimendbackShoulders           (ChrRecord *, void *, s32, s32, f3
 
 
 
-
-
-
-
-
-
-
-
-
-
 /**
  * Address 0x7F0234D0.
  */
@@ -204,13 +193,10 @@ Model * retrieve_header_for_body_and_head(s32 body, s32 head, u32 bitflags)
 }
 
 
-
 s32 get_current_random_body(void)
 {
   return list_of_bodies[current_random_body];
 }
-
-
 
 
 /**
@@ -247,7 +233,6 @@ s32 get_random_head(s32 id)
 {
     return (c_item_entries[id].isMale ? random_male_heads[randomGetNext() % num_male_heads] : random_female_heads[randomGetNext() % num_female_heads]);
 }
-
 
 
 /**
@@ -348,7 +333,6 @@ u32 weaponIsOneHanded(PropRecord *arg0)
 }
 
 
-
 /**
  * Address 0x7F023948.
  */
@@ -378,8 +362,6 @@ void chrlvIdleAnimationRelated(ChrRecord *self, f32 duration)
 
     return;
 }
-
-
 
 
 /**
@@ -2386,250 +2368,96 @@ s32 chrlvAttackAnimationRelated7F026F30(ChrRecord *self, f32 *result)
 }
 
 
-
-// # This point forward is definatly chraction.c
-
-#ifdef NONMATCHING
-
 /**
  * Address 0x7F027060.
- *
- * decomp status:
- * - compiles: yes
- * - stack resize: ok
- * - identical instructions: fail
- * - identical registers: fail
- *
- * this file should be chraction.c and with at this point about 2000 lines above
- *
- * notes: mystery section, seems to be missing something mips_to_c can't see.
- * male_guard_yelp_counter, female_guard_yelp_counter are static, need to be moved from chr.c
- * Also need to remove female_guard_yelps, male_guard_yelps from chr.c once this matches.
-*/
-void play_sound_for_shot_actor(ChrRecord *self)
+ */
+play_sound_for_shot_actor(ChrRecord *self)
 {
-    ALSoundState * sndstate = NULL;
-    s32 male = 0;
-
+    PropRecord *prop;
+    bool male;
+    ALSoundState *sndstate;
+ 
     static s32 male_guard_yelp_counter = 0;
     static s32 female_guard_yelp_counter = 0;
+ 
+    prop = self->prop;
+    male = 0;
 
-    if ((self->prop->type != PROP_TYPE_VIEWER) || (g_playerPointers[getPlayerPointerIndex(self->prop)]->bonddead == FALSE))
+    if (prop->type == PROP_TYPE_VIEWER)
     {
-        /*
-        * decomp issue: mystery section.
-        * what is going on right here?
-        * self = 104(sp), why is it only loaded six times instead of seven?
-        */
-        if (self->prop->type == PROP_TYPE_VIEWER)
+        if (g_playerPointers[getPlayerPointerIndex(prop)]->bonddead != FALSE)
         {
-            if (getPlayerCount() == 1)
-            {
-                if (c_item_entries[self->bodynum].isMale != 0)
-                {
-                    male = 1;
-                }
-            }
-            else
-            {
-                if (get_player_mp_char_gender(getPlayerPointerIndex(self->prop)) != 0)
-                {
-                    male = 1;
-                }
-            }
+            return;
         }
-        else if (c_item_entries[self->bodynum].isMale != 0)
+    }
+
+    if (self->prop->type == PROP_TYPE_VIEWER)
+    {
+        if (getPlayerCount() == 1)
         {
-            male = 1;
-        }
-
-        if (male != 0)
-        {
-            //s16 sounds[26] = male_guard_yelps;
-            s16 sounds[] = {
-                GET_HIT_MALE0_SFX,  GET_HIT_MALE1_SFX,  GET_HIT_MALE2_SFX,  GET_HIT_MALE3_SFX,  GET_HIT_MALE4_SFX,  GET_HIT_MALE5_SFX,  GET_HIT_MALE6_SFX,  GET_HIT_MALE7_SFX,  GET_HIT_MALE8_SFX,  GET_HIT_MALE9_SFX,
-                GET_HIT_MALE10_SFX, GET_HIT_MALE11_SFX, GET_HIT_MALE12_SFX, GET_HIT_MALE13_SFX, GET_HIT_MALE14_SFX, GET_HIT_MALE15_SFX, GET_HIT_MALE16_SFX, GET_HIT_MALE17_SFX, GET_HIT_MALE18_SFX, GET_HIT_MALE19_SFX,
-                GET_HIT_MALE20_SFX, GET_HIT_MALE21_SFX, GET_HIT_MALE22_SFX, GET_HIT_MALE23_SFX, GET_HIT_MALE24_SFX
-            };
-
-            sndstate = sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, sounds[male_guard_yelp_counter], NULL);
-
-            male_guard_yelp_counter++;
-            if (male_guard_yelp_counter >= 25)
+            if (c_item_entries[self->bodynum].isMale != FALSE)
             {
-                male_guard_yelp_counter = 0;
+                male = TRUE;
             }
         }
         else
         {
-            //s16 sounds[4] = female_guard_yelps;
-            s16 sounds[] = {
-                GET_HIT_GIRL1_SFX, GET_HIT_GIRL2_SFX, GET_HIT_GIRL3_SFX
-            };
-
-            sndstate = sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, sounds[female_guard_yelp_counter], NULL);
-
-            female_guard_yelp_counter++;
-            if (female_guard_yelp_counter >= 3)
+            if (get_player_mp_char_gender(getPlayerPointerIndex(self->prop)) != FEMALE)
             {
-                female_guard_yelp_counter = 0;
+                male = TRUE;
             }
         }
-
-        chrobjSndCreatePostEventDefault(sndstate, &self->prop->pos);
     }
+    else
+    {
+        if (c_item_entries[self->bodynum].isMale != FALSE)
+        {
+            male = TRUE;
+        }
+    }
+
+    if (male)
+    {
+        s16 male_yelps[] = {
+            GET_HIT_MALE0_SFX,  GET_HIT_MALE1_SFX,  GET_HIT_MALE2_SFX,  GET_HIT_MALE3_SFX,  GET_HIT_MALE4_SFX,
+            GET_HIT_MALE5_SFX,  GET_HIT_MALE6_SFX,  GET_HIT_MALE7_SFX,  GET_HIT_MALE8_SFX,  GET_HIT_MALE9_SFX,
+            GET_HIT_MALE10_SFX, GET_HIT_MALE11_SFX, GET_HIT_MALE12_SFX, GET_HIT_MALE13_SFX, GET_HIT_MALE14_SFX,
+            GET_HIT_MALE15_SFX, GET_HIT_MALE16_SFX, GET_HIT_MALE17_SFX, GET_HIT_MALE18_SFX, GET_HIT_MALE19_SFX,
+            GET_HIT_MALE20_SFX, GET_HIT_MALE21_SFX, GET_HIT_MALE22_SFX, GET_HIT_MALE23_SFX, GET_HIT_MALE24_SFX
+        };
+        
+        sndstate = sndPlaySfx(g_musicSfxBufferPtr, male_yelps[male_guard_yelp_counter], NULL);
+        male_guard_yelp_counter++;
+
+        if (male_guard_yelp_counter >= 25)
+        {
+            male_guard_yelp_counter = 0;
+        }
+    }
+    else
+    {
+        s16 female_yelps[] = {
+            GET_HIT_GIRL1_SFX,
+            GET_HIT_GIRL2_SFX,
+            GET_HIT_GIRL3_SFX
+        };
+
+        sndstate = sndPlaySfx(g_musicSfxBufferPtr, female_yelps[female_guard_yelp_counter], NULL);
+        female_guard_yelp_counter++;
+
+        if (female_guard_yelp_counter >= 3)
+        {
+            female_guard_yelp_counter = 0;
+        }
+    }
+
+    chrobjSndCreatePostEventDefault(sndstate, &self->prop->pos);
 }
-#else
-GLOBAL_ASM(
-.text
-glabel play_sound_for_shot_actor
-/* 05BB90 7F027060 27BDFF98 */  addiu $sp, $sp, -0x68
-/* 05BB94 7F027064 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 05BB98 7F027068 AFA40068 */  sw    $a0, 0x68($sp)
-/* 05BB9C 7F02706C 8C850018 */  lw    $a1, 0x18($a0)
-/* 05BBA0 7F027070 24010006 */  li    $at, 6
-/* 05BBA4 7F027074 00001825 */  move  $v1, $zero
-/* 05BBA8 7F027078 90AF0000 */  lbu   $t7, ($a1)
-/* 05BBAC 7F02707C 00A02025 */  move  $a0, $a1
-/* 05BBB0 7F027080 55E1000C */  bnel  $t7, $at, .L7F0270B4
-/* 05BBB4 7F027084 8FA90068 */   lw    $t1, 0x68($sp)
-/* 05BBB8 7F027088 0FC26C57 */  jal   getPlayerPointerIndex
-/* 05BBBC 7F02708C AFA00060 */   sw    $zero, 0x60($sp)
-/* 05BBC0 7F027090 0002C080 */  sll   $t8, $v0, 2
-/* 05BBC4 7F027094 3C198008 */  lui   $t9, %hi(g_playerPointers)
-/* 05BBC8 7F027098 0338C821 */  addu  $t9, $t9, $t8
-/* 05BBCC 7F02709C 8F399EE0 */  lw    $t9, %lo(g_playerPointers)($t9)
-/* 05BBD0 7F0270A0 8FA30060 */  lw    $v1, 0x60($sp)
-/* 05BBD4 7F0270A4 8F2800D8 */  lw    $t0, 0xd8($t9)
-/* 05BBD8 7F0270A8 55000071 */  bnezl $t0, .L7F027270
-/* 05BBDC 7F0270AC 8FBF0014 */   lw    $ra, 0x14($sp)
-/* 05BBE0 7F0270B0 8FA90068 */  lw    $t1, 0x68($sp)
-.L7F0270B4:
-/* 05BBE4 7F0270B4 24010006 */  li    $at, 6
-/* 05BBE8 7F0270B8 8FB90068 */  lw    $t9, 0x68($sp)
-/* 05BBEC 7F0270BC 8D2A0018 */  lw    $t2, 0x18($t1)
-/* 05BBF0 7F0270C0 914B0000 */  lbu   $t3, ($t2)
-/* 05BBF4 7F0270C4 5561001D */  bnel  $t3, $at, .L7F02713C
-/* 05BBF8 7F0270C8 8328000F */   lb    $t0, 0xf($t9)
-/* 05BBFC 7F0270CC 0FC26919 */  jal   getPlayerCount
-/* 05BC00 7F0270D0 AFA30060 */   sw    $v1, 0x60($sp)
-/* 05BC04 7F0270D4 24010001 */  li    $at, 1
-/* 05BC08 7F0270D8 1441000D */  bne   $v0, $at, .L7F027110
-/* 05BC0C 7F0270DC 8FA30060 */   lw    $v1, 0x60($sp)
-/* 05BC10 7F0270E0 8FAC0068 */  lw    $t4, 0x68($sp)
-/* 05BC14 7F0270E4 3C0F8004 */  lui   $t7, %hi(c_item_entries+16)
-/* 05BC18 7F0270E8 818D000F */  lb    $t5, 0xf($t4)
-/* 05BC1C 7F0270EC 000D7080 */  sll   $t6, $t5, 2
-/* 05BC20 7F0270F0 01CD7021 */  addu  $t6, $t6, $t5
-/* 05BC24 7F0270F4 000E7080 */  sll   $t6, $t6, 2
-/* 05BC28 7F0270F8 01EE7821 */  addu  $t7, $t7, $t6
-/* 05BC2C 7F0270FC 91EFDE20 */  lbu   $t7, %lo(c_item_entries+16)($t7)
-/* 05BC30 7F027100 11E00017 */  beqz  $t7, .L7F027160
-/* 05BC34 7F027104 00000000 */   nop
-/* 05BC38 7F027108 10000015 */  b     .L7F027160
-/* 05BC3C 7F02710C 24030001 */   li    $v1, 1
-.L7F027110:
-/* 05BC40 7F027110 8FB80068 */  lw    $t8, 0x68($sp)
-/* 05BC44 7F027114 8F040018 */  lw    $a0, 0x18($t8)
-/* 05BC48 7F027118 0FC26C57 */  jal   getPlayerPointerIndex
-/* 05BC4C 7F02711C AFA30060 */   sw    $v1, 0x60($sp)
-/* 05BC50 7F027120 0FC040C3 */  jal   get_player_mp_char_gender
-/* 05BC54 7F027124 00402025 */   move  $a0, $v0
-/* 05BC58 7F027128 1040000D */  beqz  $v0, .L7F027160
-/* 05BC5C 7F02712C 8FA30060 */   lw    $v1, 0x60($sp)
-/* 05BC60 7F027130 1000000B */  b     .L7F027160
-/* 05BC64 7F027134 24030001 */   li    $v1, 1
-/* 05BC68 7F027138 8328000F */  lb    $t0, 0xf($t9)
-.L7F02713C:
-/* 05BC6C 7F02713C 3C0A8004 */  lui   $t2, %hi(c_item_entries+16)
-/* 05BC70 7F027140 00084880 */  sll   $t1, $t0, 2
-/* 05BC74 7F027144 01284821 */  addu  $t1, $t1, $t0
-/* 05BC78 7F027148 00094880 */  sll   $t1, $t1, 2
-/* 05BC7C 7F02714C 01495021 */  addu  $t2, $t2, $t1
-/* 05BC80 7F027150 914ADE20 */  lbu   $t2, %lo(c_item_entries+16)($t2)
-/* 05BC84 7F027154 11400002 */  beqz  $t2, .L7F027160
-/* 05BC88 7F027158 00000000 */   nop
-/* 05BC8C 7F02715C 24030001 */  li    $v1, 1
-.L7F027160:
-/* 05BC90 7F027160 10600025 */  beqz  $v1, .L7F0271F8
-/* 05BC94 7F027164 3C088003 */   lui   $t0, %hi(female_guard_yelps)
-/* 05BC98 7F027168 3C0B8003 */  lui   $t3, %hi(male_guard_yelps)
-/* 05BC9C 7F02716C 27A20028 */  addiu $v0, $sp, 0x28
-/* 05BCA0 7F027170 256B09F8 */  addiu $t3, %lo(male_guard_yelps) # addiu $t3, $t3, 0x9f8
-/* 05BCA4 7F027174 256D0030 */  addiu $t5, $t3, 0x30
-/* 05BCA8 7F027178 00407025 */  move  $t6, $v0
-.L7F02717C:
-/* 05BCAC 7F02717C 8D610000 */  lw    $at, ($t3)
-/* 05BCB0 7F027180 256B000C */  addiu $t3, $t3, 0xc
-/* 05BCB4 7F027184 25CE000C */  addiu $t6, $t6, 0xc
-/* 05BCB8 7F027188 ADC1FFF4 */  sw    $at, -0xc($t6)
-/* 05BCBC 7F02718C 8D61FFF8 */  lw    $at, -8($t3)
-/* 05BCC0 7F027190 ADC1FFF8 */  sw    $at, -8($t6)
-/* 05BCC4 7F027194 8D61FFFC */  lw    $at, -4($t3)
-/* 05BCC8 7F027198 156DFFF8 */  bne   $t3, $t5, .L7F02717C
-/* 05BCCC 7F02719C ADC1FFFC */   sw    $at, -4($t6)
-/* 05BCD0 7F0271A0 95610000 */  lhu   $at, ($t3)
-/* 05BCD4 7F0271A4 3C0F8003 */  lui   $t7, %hi(male_guard_yelp_counter)
-/* 05BCD8 7F0271A8 3C048006 */  lui   $a0, %hi(g_musicSfxBufferPtr)
-/* 05BCDC 7F0271AC A5C10000 */  sh    $at, ($t6)
-/* 05BCE0 7F0271B0 8DEF0A34 */  lw    $t7, %lo(male_guard_yelp_counter)($t7)
-/* 05BCE4 7F0271B4 8C843720 */  lw    $a0, %lo(g_musicSfxBufferPtr)($a0)
-/* 05BCE8 7F0271B8 00003025 */  move  $a2, $zero
-/* 05BCEC 7F0271BC 000FC040 */  sll   $t8, $t7, 1
-/* 05BCF0 7F0271C0 0058C821 */  addu  $t9, $v0, $t8
-/* 05BCF4 7F0271C4 0C002382 */  jal   sndPlaySfx
-/* 05BCF8 7F0271C8 87250000 */   lh    $a1, ($t9)
-/* 05BCFC 7F0271CC 3C038003 */  lui   $v1, %hi(male_guard_yelp_counter)
-/* 05BD00 7F0271D0 8C630A34 */  lw    $v1, %lo(male_guard_yelp_counter)($v1)
-/* 05BD04 7F0271D4 3C018003 */  lui   $at, %hi(male_guard_yelp_counter)
-/* 05BD08 7F0271D8 00402025 */  move  $a0, $v0
-/* 05BD0C 7F0271DC 24630001 */  addiu $v1, $v1, 1
-/* 05BD10 7F0271E0 AC230A34 */  sw    $v1, %lo(male_guard_yelp_counter)($at)
-/* 05BD14 7F0271E4 28610019 */  slti  $at, $v1, 0x19
-/* 05BD18 7F0271E8 1420001C */  bnez  $at, .L7F02725C
-/* 05BD1C 7F0271EC 3C018003 */   lui   $at, %hi(male_guard_yelp_counter)
-/* 05BD20 7F0271F0 1000001A */  b     .L7F02725C
-/* 05BD24 7F0271F4 AC200A34 */   sw    $zero, %lo(male_guard_yelp_counter)($at)
-.L7F0271F8:
-/* 05BD28 7F0271F8 25080A2C */  addiu $t0, %lo(female_guard_yelps) # addiu $t0, $t0, 0xa2c
-/* 05BD2C 7F0271FC 8D010000 */  lw    $at, ($t0)
-/* 05BD30 7F027200 27A20020 */  addiu $v0, $sp, 0x20
-/* 05BD34 7F027204 3C0D8003 */  lui   $t5, %hi(female_guard_yelp_counter)
-/* 05BD38 7F027208 AC410000 */  sw    $at, ($v0)
-/* 05BD3C 7F02720C 95010004 */  lhu   $at, 4($t0)
-/* 05BD40 7F027210 3C048006 */  lui   $a0, %hi(g_musicSfxBufferPtr)
-/* 05BD44 7F027214 00003025 */  move  $a2, $zero
-/* 05BD48 7F027218 A4410004 */  sh    $at, 4($v0)
-/* 05BD4C 7F02721C 8DAD0A38 */  lw    $t5, %lo(female_guard_yelp_counter)($t5)
-/* 05BD50 7F027220 8C843720 */  lw    $a0, %lo(g_musicSfxBufferPtr)($a0)
-/* 05BD54 7F027224 000D5840 */  sll   $t3, $t5, 1
-/* 05BD58 7F027228 004B7021 */  addu  $t6, $v0, $t3
-/* 05BD5C 7F02722C 0C002382 */  jal   sndPlaySfx
-/* 05BD60 7F027230 85C50000 */   lh    $a1, ($t6)
-/* 05BD64 7F027234 3C038003 */  lui   $v1, %hi(female_guard_yelp_counter)
-/* 05BD68 7F027238 8C630A38 */  lw    $v1, %lo(female_guard_yelp_counter)($v1)
-/* 05BD6C 7F02723C 3C018003 */  lui   $at, %hi(female_guard_yelp_counter)
-/* 05BD70 7F027240 00402025 */  move  $a0, $v0
-/* 05BD74 7F027244 24630001 */  addiu $v1, $v1, 1
-/* 05BD78 7F027248 AC230A38 */  sw    $v1, %lo(female_guard_yelp_counter)($at)
-/* 05BD7C 7F02724C 28610003 */  slti  $at, $v1, 3
-/* 05BD80 7F027250 14200002 */  bnez  $at, .L7F02725C
-/* 05BD84 7F027254 3C018003 */   lui   $at, %hi(female_guard_yelp_counter)
-/* 05BD88 7F027258 AC200A38 */  sw    $zero, %lo(female_guard_yelp_counter)($at)
-.L7F02725C:
-/* 05BD8C 7F02725C 8FAF0068 */  lw    $t7, 0x68($sp)
-/* 05BD90 7F027260 8DE50018 */  lw    $a1, 0x18($t7)
-/* 05BD94 7F027264 0FC14E84 */  jal   chrobjSndCreatePostEventDefault
-/* 05BD98 7F027268 24A50008 */   addiu $a1, $a1, 8
-/* 05BD9C 7F02726C 8FBF0014 */  lw    $ra, 0x14($sp)
-.L7F027270:
-/* 05BDA0 7F027270 27BD0068 */  addiu $sp, $sp, 0x68
-/* 05BDA4 7F027274 03E00008 */  jr    $ra
-/* 05BDA8 7F027278 00000000 */   nop
-)
-#endif
 
 
+//metal_ricochet_SFX and D_80030A44 must be placed here for matching.
+s16 metal_ricochet_SFX[3] = {HIT_BULLET_METAL_A3_SFX, HIT_BULLET_METAL_A_SFX, HIT_BULLET_METAL_B_SFX};
+coord3d D_80030A44 = {0, 0, 0};
 
 /**
  * Address 0x7F02727C.

@@ -1136,51 +1136,30 @@ f32 D_800309A0 = 0;
 */
 f32 D_800309A4 = 0;
 
- point2d D_800309A8 = {0, 0};
+point2d D_800309A8 = {0, 0};
 //s32 D_800309AC = 0;
- point2d D_800309B0 = {0, 0};
+point2d D_800309B0 = {0, 0};
 //s32 D_800309B4 = 0;
 
 /**
  * Default firing state, left and right hand.
  * Address 0x800309B8.
 */
- point2d D_800309B8 = {0, 0};
+point2d D_800309B8 = {0, 0};
 
 /**
  * Default firing state when crouched, left and right hand.
  * Address 0x800309C0.
 */
- point2d D_800309C0 = {0, 0};
+point2d D_800309C0 = {0, 0};
 
- point2d D_800309C8 = {0, 0};
- point2d D_800309D0 = {0, 0};
- point2d D_800309D8 = {0, 0};
+point2d D_800309C8 = {0, 0};
+point2d D_800309D0 = {0, 0};
+point2d D_800309D8 = {0, 0};
 
- point2d D_800309E0 = {0, 0};
+point2d D_800309E0 = {0, 0};
 
- point2d D_800309E8 = {0, 0};
-
- point2d D_800309F0 = {0, 0};
-
-s16 male_guard_yelps[] = {
-    0x86,  0x87,  0x88,  0x89,  0x8A,  0x8B,  0x8C,  0x8D,  0x8E,  0x8F,
-    0x90,  0x91,  0x92,  0x93,  0x94,  0x95,  0x96,  0x97,  0x98,  0x99,
-    0x9A,  0x9B,  0x9C,  0x9D,  0x9E,     0
-};
-
-s16 female_guard_yelps[] = {
-    0xD,   0xE,   0xF,     0
-};
-
-s32 male_guard_yelp_counter = 0;
-s32 female_guard_yelp_counter = 0;
-
-s16 metal_ricochet_SFX[3] = {0xEF, 0x48, 0x49};
-
-
-// // probably better described as vec3d than coordinates.
-coord3d D_80030A44 = {0,0,0};
+point2d D_800309E8 = {0, 0};
 
 
 void sub_GAME_7F02083C(s32 arg0, Mtxf *matrix);
