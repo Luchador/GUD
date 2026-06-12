@@ -9,14 +9,15 @@
 #include <music.h>
 #include <random.h>
 #include "bg.h"
+#include "bgfog.h"
+#include "bondhead.h"
 #include "bondview.h"
 #include "chr.h"
 #include "chr_b.h"
 #include "chrai.h"
-#include "propobj.h"
 #include "file.h"
-#include "bgfog.h"
 #include "front.h"
+#include "glass.h"
 #include "gun.h"
 #include "initanitable.h"
 #include "loadobjectmodel.h"
@@ -24,12 +25,11 @@
 #include "math_asinfacosf.h"
 #include "math_atan2f.h"
 #include "matrixmath.h"
+#include "model.h"
 #include "objecthandler.h"
 #include "player.h"
+#include "propobj.h"
 #include "stan.h"
-#include "bondhead.h"
-#include "glass.h"
-#include "model.h"
 
 
 point2d D_800309F0 = {0, 0};
@@ -3751,44 +3751,49 @@ void chrlvWalkingAnimationRelated(ChrRecord *self)
 }
 
 
-
-
-#ifdef NONMATCHING
-
-/*
-* 7F0290F8
-*/
+/**
+ * Address: 7F0290F8
+ */
 void set_actor_on_path(ChrRecord *self, struct patrol_path *path)
 {
-    PadRecord * pad;
+    PadRecord *pad;
     s32 next_step = -1;
     PropRecord *prop = self->prop;
     s32 count = 0;
-    s32 index;
+    PadRecord *new_var;
+    waypoint *pta;
+    StandTile *stan;
+    s32 *dataptr;
+    f32 dx;
+    f32 dz;
 
-    // decomp problem area: can't seem to get arr[count] to dereference the correct number of times.
-    for (index = path->data[count] ; index >= 0; count++, index = path->data[count])
+    if (path->data[0] >= 0)
     {
-        //s32 aa;
-
-        //aa = g_CurrentSetup.pathwaypoints[index].id;
-        //pad = &g_CurrentSetup.pads[aa];
-        waypoint *pta = &g_CurrentSetup.pathwaypoints[index];
-        pad = &g_CurrentSetup.pads[pta->padID];
-
-        if ((pad->stan != NULL) && (prop->stan == pad->stan))
+        do
         {
-            f32 dx = pad->pos.f[0] - prop->pos.f[0];
-            f32 dz = pad->pos.f[2] - prop->pos.f[2];
+            dataptr = &path->data[count];
+            pta = &g_CurrentSetup.pathwaypoints[*dataptr];
+            new_var = &g_CurrentSetup.pads[pta->padID];
+            pad = new_var;
 
-            if (((((dx * dx) + (dz * dz)) < 10000.0f)))
+            if ((pad->stan != NULL) && (pad->stan == prop->stan))
             {
-                next_step = count;
-                break;
+                dx = pad->pos.f[0] - prop->pos.f[0];
+                dz = pad->pos.f[2] - prop->pos.f[2];
+
+                if (((dx * dx) + (dz * dz)) < 10000.0f)
+                {
+                    if (((pad->pos.f) && (pad->pos.f)) && (pad->pos.f));
+                    
+                    next_step = count;
+                    break;
+                }
             }
+
+            count++;
         }
+        while (path->data[count] >= 0);
     }
-    // end problem area.
 
     if (next_step < 0)
     {
@@ -3799,23 +3804,25 @@ void set_actor_on_path(ChrRecord *self, struct patrol_path *path)
     }
 
     chrStopFiring(self);
+
     self->actiontype = ACT_PATROL;
     self->act_patrol.path = path;
-
     self->act_patrol.nextstep = next_step;
-    self->act_patrol.forward = TRUE;
-
+    self->act_patrol.forward = 1;
     self->act_patrol.waydata.age = randomGetNext() % 0x64U;
     self->act_patrol.waydata.unk03 = 0;
     self->act_init.padding[0x13] = -1;
+    self->act_patrol.speed = 0.0f;
 
-    self->act_patrol.unk7c = 0.0f;
     chrlvSetNextActPatrolStepPadPos(self);
+
     self->sleep = 0;
+
     chrlvWalkingAnimationRelated(self);
+
     pad = chrlvGetNextPatrolStepPad(self);
 
-    if ((self->prop->flags & 2) == 0)
+    if ((self->prop->flags & PROPFLAG_ONSCREEN) == FALSE)
     {
         if (chrlvStanRoomRelatedPad(self, pad) != 0)
         {
@@ -3823,128 +3830,6 @@ void set_actor_on_path(ChrRecord *self, struct patrol_path *path)
         }
     }
 }
-
-#else
-GLOBAL_ASM(
-.late_rodata
-glabel D_80051DF8
-.word 0x461c4000 /*10000.0*/
-.text
-glabel set_actor_on_path
-/* 05DC28 7F0290F8 27BDFFD8 */  addiu $sp, $sp, -0x28
-/* 05DC2C 7F0290FC AFBF001C */  sw    $ra, 0x1c($sp)
-/* 05DC30 7F029100 AFB00018 */  sw    $s0, 0x18($sp)
-/* 05DC34 7F029104 AFA5002C */  sw    $a1, 0x2c($sp)
-/* 05DC38 7F029108 8CA80000 */  lw    $t0, ($a1)
-/* 05DC3C 7F02910C 00808025 */  move  $s0, $a0
-/* 05DC40 7F029110 240CFFFF */  li    $t4, -1
-/* 05DC44 7F029114 8D0F0000 */  lw    $t7, ($t0)
-/* 05DC48 7F029118 8C870018 */  lw    $a3, 0x18($a0)
-/* 05DC4C 7F02911C 00003025 */  move  $a2, $zero
-/* 05DC50 7F029120 05E0002C */  bltz  $t7, .L7F0291D4
-/* 05DC54 7F029124 3C098007 */   lui   $t1, %hi(g_CurrentSetup+0)
-/* 05DC58 7F029128 3C0A8007 */  lui   $t2, %hi(g_CurrentSetup+0x18)
-/* 05DC5C 7F02912C 3C018005 */  lui   $at, %hi(D_80051DF8)
-/* 05DC60 7F029130 C42C1DF8 */  lwc1  $f12, %lo(D_80051DF8)($at)
-/* 05DC64 7F029134 8D4A5D18 */  lw    $t2, %lo(g_CurrentSetup+0x18)($t2)
-/* 05DC68 7F029138 8D295D00 */  lw    $t1, %lo(g_CurrentSetup+0)($t1)
-/* 05DC6C 7F02913C 240B002C */  li    $t3, 44
-/* 05DC70 7F029140 0006C080 */  sll   $t8, $a2, 2
-.L7F029144:
-/* 05DC74 7F029144 01181021 */  addu  $v0, $t0, $t8
-/* 05DC78 7F029148 8C590000 */  lw    $t9, ($v0)
-/* 05DC7C 7F02914C 00196900 */  sll   $t5, $t9, 4
-/* 05DC80 7F029150 01A91821 */  addu  $v1, $t5, $t1
-/* 05DC84 7F029154 8C6E0000 */  lw    $t6, ($v1)
-/* 05DC88 7F029158 01CB0019 */  multu $t6, $t3
-/* 05DC8C 7F02915C 00007812 */  mflo  $t7
-/* 05DC90 7F029160 01EA2021 */  addu  $a0, $t7, $t2
-/* 05DC94 7F029164 8C850028 */  lw    $a1, 0x28($a0)
-/* 05DC98 7F029168 50A00015 */  beql  $a1, $zero, .L7F0291C0
-/* 05DC9C 7F02916C 24C60001 */   addiu $a2, $a2, 1
-/* 05DCA0 7F029170 8CF80014 */  lw    $t8, 0x14($a3)
-/* 05DCA4 7F029174 57050012 */  bnel  $t8, $a1, .L7F0291C0
-/* 05DCA8 7F029178 24C60001 */   addiu $a2, $a2, 1
-/* 05DCAC 7F02917C C4840000 */  lwc1  $f4, ($a0)
-/* 05DCB0 7F029180 C4E60008 */  lwc1  $f6, 8($a3)
-/* 05DCB4 7F029184 C4880008 */  lwc1  $f8, 8($a0)
-/* 05DCB8 7F029188 C4EA0010 */  lwc1  $f10, 0x10($a3)
-/* 05DCBC 7F02918C 46062001 */  sub.s $f0, $f4, $f6
-/* 05DCC0 7F029190 460A4081 */  sub.s $f2, $f8, $f10
-/* 05DCC4 7F029194 46000402 */  mul.s $f16, $f0, $f0
-/* 05DCC8 7F029198 00000000 */  nop
-/* 05DCCC 7F02919C 46021482 */  mul.s $f18, $f2, $f2
-/* 05DCD0 7F0291A0 46128100 */  add.s $f4, $f16, $f18
-/* 05DCD4 7F0291A4 460C203C */  c.lt.s $f4, $f12
-/* 05DCD8 7F0291A8 00000000 */  nop
-/* 05DCDC 7F0291AC 45000003 */  bc1f  .L7F0291BC
-/* 05DCE0 7F0291B0 00000000 */   nop
-/* 05DCE4 7F0291B4 10000007 */  b     .L7F0291D4
-/* 05DCE8 7F0291B8 00C06025 */   move  $t4, $a2
-.L7F0291BC:
-/* 05DCEC 7F0291BC 24C60001 */  addiu $a2, $a2, 1
-.L7F0291C0:
-/* 05DCF0 7F0291C0 0006C880 */  sll   $t9, $a2, 2
-/* 05DCF4 7F0291C4 01196821 */  addu  $t5, $t0, $t9
-/* 05DCF8 7F0291C8 8DAE0000 */  lw    $t6, ($t5)
-/* 05DCFC 7F0291CC 05C3FFDD */  bgezl $t6, .L7F029144
-/* 05DD00 7F0291D0 0006C080 */   sll   $t8, $a2, 2
-.L7F0291D4:
-/* 05DD04 7F0291D4 05810002 */  bgez  $t4, .L7F0291E0
-/* 05DD08 7F0291D8 02002025 */   move  $a0, $s0
-/* 05DD0C 7F0291DC 00006025 */  move  $t4, $zero
-.L7F0291E0:
-/* 05DD10 7F0291E0 0FC0B461 */  jal   chrStopFiring
-/* 05DD14 7F0291E4 AFAC0020 */   sw    $t4, 0x20($sp)
-/* 05DD18 7F0291E8 8FAC0020 */  lw    $t4, 0x20($sp)
-/* 05DD1C 7F0291EC 240F000E */  li    $t7, 14
-/* 05DD20 7F0291F0 A20F0007 */  sb    $t7, 7($s0)
-/* 05DD24 7F0291F4 8FB8002C */  lw    $t8, 0x2c($sp)
-/* 05DD28 7F0291F8 24190001 */  li    $t9, 1
-/* 05DD2C 7F0291FC AE190034 */  sw    $t9, 0x34($s0)
-/* 05DD30 7F029200 AE0C0030 */  sw    $t4, 0x30($s0)
-/* 05DD34 7F029204 0C002914 */  jal   randomGetNext
-/* 05DD38 7F029208 AE18002C */   sw    $t8, 0x2c($s0)
-/* 05DD3C 7F02920C 24010064 */  li    $at, 100
-/* 05DD40 7F029210 0041001B */  divu  $zero, $v0, $at
-/* 05DD44 7F029214 44803000 */  mtc1  $zero, $f6
-/* 05DD48 7F029218 00006810 */  mfhi  $t5
-/* 05DD4C 7F02921C 240EFFFF */  li    $t6, -1
-/* 05DD50 7F029220 AE0D0060 */  sw    $t5, 0x60($s0)
-/* 05DD54 7F029224 A200003B */  sb    $zero, 0x3b($s0)
-/* 05DD58 7F029228 AE0E0078 */  sw    $t6, 0x78($s0)
-/* 05DD5C 7F02922C 02002025 */  move  $a0, $s0
-/* 05DD60 7F029230 0FC0A125 */  jal   chrlvSetNextActPatrolStepPadPos
-/* 05DD64 7F029234 E606007C */   swc1  $f6, 0x7c($s0)
-/* 05DD68 7F029238 A2000008 */  sb    $zero, 8($s0)
-/* 05DD6C 7F02923C 0FC0A3EB */  jal   chrlvWalkingAnimationRelated
-/* 05DD70 7F029240 02002025 */   move  $a0, $s0
-/* 05DD74 7F029244 0FC0A11D */  jal   chrlvGetNextPatrolStepPad
-/* 05DD78 7F029248 02002025 */   move  $a0, $s0
-/* 05DD7C 7F02924C 8E0F0018 */  lw    $t7, 0x18($s0)
-/* 05DD80 7F029250 02002025 */  move  $a0, $s0
-/* 05DD84 7F029254 00402825 */  move  $a1, $v0
-/* 05DD88 7F029258 91F80001 */  lbu   $t8, 1($t7)
-/* 05DD8C 7F02925C 33190002 */  andi  $t9, $t8, 2
-/* 05DD90 7F029260 57200009 */  bnezl $t9, .L7F029288
-/* 05DD94 7F029264 8FBF001C */   lw    $ra, 0x1c($sp)
-/* 05DD98 7F029268 0FC09F9C */  jal   chrlvStanRoomRelatedPad
-/* 05DD9C 7F02926C AFA20024 */   sw    $v0, 0x24($sp)
-/* 05DDA0 7F029270 10400004 */  beqz  $v0, .L7F029284
-/* 05DDA4 7F029274 8FA60024 */   lw    $a2, 0x24($sp)
-/* 05DDA8 7F029278 02002025 */  move  $a0, $s0
-/* 05DDAC 7F02927C 0FC09FA4 */  jal   chrlvSetGoposSegDistTotal
-/* 05DDB0 7F029280 26050038 */   addiu $a1, $s0, 0x38
-.L7F029284:
-/* 05DDB4 7F029284 8FBF001C */  lw    $ra, 0x1c($sp)
-.L7F029288:
-/* 05DDB8 7F029288 8FB00018 */  lw    $s0, 0x18($sp)
-/* 05DDBC 7F02928C 27BD0028 */  addiu $sp, $sp, 0x28
-/* 05DDC0 7F029290 03E00008 */  jr    $ra
-/* 05DDC4 7F029294 00000000 */   nop
-)
-#endif
-
 
 
 void setSeenBondTimeToNow(ChrRecord *self)
@@ -6985,7 +6870,6 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
 }
 
 
-
 /**
  * Address 0x7F02E26C.
 */
@@ -7007,7 +6891,6 @@ void chrlvTriggerFireWeapon(ChrRecord *self)
         self->hidden &= ~CHRHIDDEN_FIRE_WEAPON_LEFT;
     }
 }
-
 
 
 /**
@@ -7049,9 +6932,6 @@ s32 chrlvAttackrollAnimationRelated7F02E2E0(ChrRecord *self)
 }
 
 
-
-
-
 /**
  * Address 0x7F02E3B8.
 */
@@ -7087,7 +6967,6 @@ void chrlvAttackrollAnimationRelated7F02E3B8(ChrRecord *self)
         modelSetAnimEndFrame(model, self->act_attackroll.animfloats->end_frame);
     }
 }
-
 
 
 /**
@@ -7488,9 +7367,6 @@ void chrlvTickAttack(ChrRecord *self)
 }
 
 
-
-
-
 /**
  * Address 0x7F02EEE0.
 */
@@ -7665,8 +7541,6 @@ void chrlvTickAttackRoll(ChrRecord *self)
 }
 
 
-
-
 /**
  * Address 0x7F02F3F8.
 */
@@ -7714,8 +7588,6 @@ void chrlvTickThrowGrenade(ChrRecord *self)
 }
 
 
-
-
 /**
  * Address 0x7F02F5A4.
 */
@@ -7747,7 +7619,6 @@ void chrlvTickBondIntro(ChrRecord *self)
         chrlvKneelingAnimationRelated(self);
     }
 }
-
 
 
 /**
@@ -7896,7 +7767,6 @@ s32 chrlvApplySpeed(ChrRecord *self, coord3d *arg1, s32 arg2, f32 *speedPtr)
 }
 
 
-
 /**
  * Address 0x7F02F888.
 */
@@ -8020,8 +7890,6 @@ void chrlvTickAttackWalk(ChrRecord *self)
 }
 
 
-
-
 /**
  * @param arg0: point in 3d
  * @param arg1: 3 vec
@@ -8061,7 +7929,6 @@ s32 chrlvGeometryRelated7F02FC34(coord3d *arg0, coord3d *arg1, coord3d *arg2, f3
 
     return 0;
 }
-
 
 
 /**
@@ -8104,7 +7971,6 @@ s32 chrlvIsArrivingLaterallyAtPos(coord3d *prevpos, coord3d *curpos, coord3d *ta
 
     return chrlvGeometryRelated7F02FC34(prevpos, &sp34, targetpos, range);
 }
-
 
 
 /**
@@ -8186,7 +8052,6 @@ void chrlvTickRunPos(ChrRecord *self)
 }
 
 
-
 /**
  * Address 0x7F030128.
 */
@@ -8216,7 +8081,6 @@ s32 sub_GAME_7F030128(ChrRecord *self, coord3d *point, StandTile *arg2, coord3d 
 
     return sp40;
 }
-
 
 
 /**
@@ -8280,7 +8144,6 @@ s32 sub_GAME_7F0301FC(ChrRecord *self, coord3d *point, StandTile *arg2, coord3d 
 }
 
 
-
 /**
  * Address 0x7F0304AC.
 */
@@ -8314,7 +8177,6 @@ s32 sub_GAME_7F0304AC(ChrRecord *self, coord3d *mypos, StandTile *mystan, coord3
 
     return pass;
 }
-
 
 
 /**
@@ -8389,7 +8251,6 @@ void chrlvSwapIfDiffArg2Determinate(coord3d *arg0, coord3d *arg1, coord3d *arg2)
         arg1->f[2] = spock.f[2];
     }
 }
-
 
 
 /**
@@ -8751,7 +8612,6 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
 }
 
 
-
 /**
  * Address 0x7F03130C.
 */
@@ -8846,7 +8706,6 @@ s32 sub_GAME_7F03130C(
 
     return 0;
 }
-
 
 
 /**
@@ -9237,10 +9096,6 @@ void chrlvTravelTick(ChrRecord *self, coord3d *arg1, StandTile *arg2, struct way
 }
 
 
-
-
-
-
 /**
  * Address 0x7F032088.
 */
@@ -9414,7 +9269,6 @@ void chrlvTickGoPos(ChrRecord *self)
 }
 
 
-
 /**
  * Address 0x7F032548.
 */
@@ -9468,7 +9322,6 @@ void chrlvTickPatrol(ChrRecord *self)
         chrlvTravelTick(self, &temp_v0->pos, temp_v0->stan, &self->act_patrol.waydata);
     }
 }
-
 
 
 /**
@@ -9624,8 +9477,6 @@ s32 chrSawTargetRecently(ChrRecord *self)
 }
 
 
-
-
 /**
  * Address 0x7F032BA0.
 */
@@ -9637,7 +9488,6 @@ s32 chrHeardTargetRecently(ChrRecord *self)
     }
     return FALSE;
 }
-
 
 
 /**
@@ -9672,7 +9522,6 @@ f32 chrGetAngleToBond(ChrRecord *self)
 {
     return get_distance_actor_to_position(self, &getCurrentPlayerProp()->pos);
 }
-
 
 
 /**
@@ -9798,7 +9647,6 @@ f32 chrGetDistanceToPad(ChrRecord *self, s32 padID)
 }
 
 
-
 /**
  * Address 0x7F032EFC.
 */
@@ -9884,7 +9732,6 @@ s32 chrResolveId(ChrRecord *self, s32 id)
 }
 
 
-
 /**
  * Address 0x7F033040.
  * chrFindById
@@ -9913,7 +9760,6 @@ ChrRecord *chrFindById(ChrRecord *self, s32 guard_id)
 }
 
 
-
 /**
  * Address 0x7F0330C4.
 */
@@ -9937,7 +9783,6 @@ f32 chrGetDistanceToChr(ChrRecord *self, s32 chrID)
 
     return distance;
 }
-
 
 
 /**
@@ -9977,7 +9822,6 @@ void chrSetFlags2(ChrRecord *self, u8 flags2)
 }
 
 
-
 /**
  * The property is named "flags2".
  * Address 0x7F03322C.
@@ -9988,7 +9832,6 @@ void chrUnsetFlags2(ChrRecord *self, u8 flags2)
 }
 
 
-
 /**
  * The property is named "flags2".
  * Address 0x7F033244.
@@ -9997,7 +9840,6 @@ s32 chrHasFlags2(ChrRecord *self, u8 flags2)
 {
     return (self->flags2 & flags2) != 0;
 }
-
 
 
 /**
@@ -10017,7 +9859,6 @@ void chrSetFlags2ById(ChrRecord *self, s32 chrNum, u8 flags2)
 }
 
 
-
 /**
  * The property is named "flags2".
  * Address 0x7F033290.
@@ -10033,7 +9874,6 @@ void chrUnsetFlags2ById(ChrRecord *self, s32 chrNum, u8 flags2)
         chrUnsetFlags2(chr, flags2);
     }
 }
-
 
 
 /**
@@ -10055,7 +9895,6 @@ bool chrHasFlags2ById(ChrRecord *self, s32 chrNum, u8 flags2)
 }
 
 
-
 /**
  * Address 0x7F0332FC.
 */
@@ -10063,7 +9902,6 @@ void chrSetStageFlags(ChrRecord *self, s32 arg1)
 {
     objectiveregisters1 |= arg1;
 }
-
 
 
 /**
@@ -10084,7 +9922,6 @@ bool chrHasStageFlag(ChrRecord *self, s32 flags)
 }
 
 
-
 /**
  * Address 0x7F033354.
 */
@@ -10092,7 +9929,6 @@ bool chrIsHearingBond(ChrRecord *self)
 {
     return (self->hidden & CHRHIDDEN_ALERT_GUARD_RELATED) != 0;
 }
-
 
 
 /**
@@ -10111,7 +9947,6 @@ bool chrTrySurrender(ChrRecord *self)
 }
 
 
-
 /**
  * Address 0x7F0333A0.
 */
@@ -10121,7 +9956,6 @@ bool chrFadeOut(ChrRecord *self)
 
     return TRUE;
 }
-
 
 
 /**
@@ -10134,7 +9968,6 @@ void chrRestartTimer(ChrRecord *self)
 }
 
 
-
 /**
  * Address 0x7F0333D8.
 */
@@ -10142,7 +9975,6 @@ f32 chrGetTimer(ChrRecord *self)
 {
     return self->timer60 / CHRLV_FRAMERATE_F;
 }
-
 
 
 /**
@@ -10174,7 +10006,6 @@ bool sub_GAME_7F0333F8(ChrRecord *self)
 }
 
 
-
 /**
  * Address 0x7F033490.
 */
@@ -10182,7 +10013,6 @@ bool chrIfNearMiss(ChrRecord *self)
 {
     return (self->chrflags & CHRFLAG_NEAR_MISS) != 0;
 }
-
 
 
 /**
@@ -10232,7 +10062,6 @@ bool chrGoToChr(ChrRecord *self, s32 chrid, SPEED speed)
 }
 
 
-
 /**
  * Return number of hits.
  *
@@ -10243,7 +10072,6 @@ s8 chrGetNumArghs(ChrRecord *self)
 {
     return self->numarghs;
 }
-
 
 
 /**
@@ -10280,7 +10108,6 @@ bool chrSawDeath(ChrRecord *self)
 }
 
 
-
 /**
  * Address 0x7F0335D4.
 */
@@ -10297,7 +10124,6 @@ bool chraiStopAnimation(ChrRecord *self)
 }
 
 
-
 /**
  * Address 0x7F033610.
 */
@@ -10312,7 +10138,6 @@ bool chrTrySurprisedOneHand(ChrRecord *self)
 
     return FALSE;
 }
-
 
 
 /**
@@ -10347,7 +10172,6 @@ bool chrTrySurprisedLookAround(ChrRecord *self)
 }
 
 
-
 /**
  * Address 0x7F0336C4.
 */
@@ -10380,7 +10204,6 @@ s32 check_if_able_to_then_perform_animation(ChrRecord *self, s32 animID, s32 sta
 }
 
 
-
 /**
  * Address 0x7F033760.
  * PD: chrCanHearAlarm
@@ -10395,7 +10218,6 @@ bool chrCanHearAlarm(ChrRecord *self)
      */
     return alarmIsActive();
 }
-
 
 
 /**
@@ -10429,8 +10251,6 @@ s32 sub_GAME_7F033780(waypoint *arg0, coord3d *arg1, f32 angle)
 
     return 0;
 }
-
-
 
 
 /**
@@ -10507,7 +10327,6 @@ s32 chrlvFindPathNeighborRelated(coord3d *bondpos, StandTile *stan, f32 rot, u8 
 }
 
 
-
 /**
  * Address 0x7F033998.
 */
@@ -10567,8 +10386,6 @@ bool check_2328_preset_set_with_method(ChrRecord *self, u8 quadrant)
 }
 
 
-
-
 /**
  * Address 0x7F033AAC.
 */
@@ -10596,7 +10413,6 @@ bool sub_GAME_7F033AAC(ChrRecord *self, u8 padnum)
 
     return FALSE;
 }
-
 
 
 /**
@@ -10651,7 +10467,6 @@ bool sub_GAME_7F033B38(ChrRecord *self, f32 distance)
 }
 
 
-
 /**
  * Address 0x7F033CF4.
 */
@@ -10677,7 +10492,6 @@ void chrSetChrPreset2(ChrRecord *self, s32 id, s32 id2)
 }
 
 
-
 /**
  * Address 0x7F033D5C.
 */
@@ -10699,7 +10513,6 @@ void chrSetPadPresetByChrnum(ChrRecord *self, s32 chrid, s32 padid)
         chr->padpreset1 = chrResolvePadId(self, padid);
     }
 }
-
 
 
 /**
@@ -10737,9 +10550,6 @@ s32 chrIsTargetNearlyInSight(ChrRecord *self)
 
     return FALSE;
 }
-
-
-
 
 
 /**
@@ -10821,7 +10631,6 @@ bool chrAdjustPosForSpawn(coord3d *pos, StandTile **arg1, f32 facing, bool allow
 }
 
 
-
 /**
  * Address 0x7F03415C.
  * PD: chrSpawnAtCoord
@@ -10872,7 +10681,6 @@ PropRecord *chrSpawnAtCoord(s32 bodynum, s32 headnum, coord3d *pos, StandTile *s
 }
 
 
-
 /**
  * Address 0x7F034258.
 */
@@ -10897,7 +10705,6 @@ PropRecord *chrSpawnAtPad(ChrRecord *self, s32 bodynum, s32 headnum, s32 padid, 
 }
 
 
-
 /**
  * Address 0x7F034308.
  */
@@ -10916,7 +10723,6 @@ PropRecord *chrSpawnAtChr(ChrRecord *self, s32 bodynum, s32 headnum, s32 chrnum,
 
     return NULL;
 }
-
 
 
 /**
@@ -10980,7 +10786,6 @@ bool check_if_actor_is_at_preset(ChrRecord *self, s32 padnum)
 }
 
 
-
 /**
  * Address 0x7F0344FC.
 */
@@ -10989,6 +10794,7 @@ bool removed_animation_routine_27(ChrRecord *self)
     return FALSE;
 }
 
+
 /**
  * Address 0x7F034508.
 */
@@ -10996,7 +10802,6 @@ bool removed_animation_routine_2B(ChrRecord *self)
 {
     return FALSE;
 }
-
 
 
 /**
@@ -11022,7 +10827,6 @@ bool chrTryStartAlarm(ChrRecord *self, s32 PadId)
 
     return FALSE;
 }
-
 
 
 /**
