@@ -2698,145 +2698,36 @@ void chrSetHiddenToRandom(ChrRecord *self)
 }
 
 
-
-
-#ifdef NONMATCHING
-/**
- * Address 0x7F020794.
- */
+extern f32 D_80051D28; // M_TAU_F
+extern f32 D_80051D2C; // M_TAU_F
+ 
 f32 sub_GAME_7F020794(ChrRecord *arg0)
 {
-    // this method matches, but references D_80051D28,D_80051D2C
-    // for the M_TAU_F variable.
-
     f32 temp_f2;
     f32 phi_f2;
-
-    temp_f2 = (f32) arg0->flinchcnt;
-
-    if (temp_f2 < 10.0f)
+#if defined(LEFTOVERDEBUG)
+    f32 rise = 10.0f;
+    f32 fall = 20.0f;
+#else
+    f32 rise = 8.0f;
+    f32 fall = 16.0f;
+#endif
+ 
+    phi_f2 = arg0->flinchcnt;
+    temp_f2 = (f32) phi_f2;
+ 
+    if (temp_f2 < rise)
     {
-        phi_f2 = sinf((temp_f2 * M_TAU_F * 0.25f) / 10.0f);
+        phi_f2 = sinf(((temp_f2 * D_80051D28) * 0.25f) / rise);
     }
     else
     {
-        phi_f2 = 1.0f - sinf(((temp_f2 - 10.0f) * M_TAU_F * 0.25f) / 20.0f);
+        phi_f2 = 1.0f - sinf((((temp_f2 - rise) * D_80051D2C) * 0.25f) / fall);
     }
-
+ 
     return phi_f2;
 }
-#else
 
-#if defined(LEFTOVERDEBUG)
-GLOBAL_ASM(
-.late_rodata
-
-.text
-glabel sub_GAME_7F020794
-/* 0552C4 7F020794 27BDFFE8 */  addiu $sp, $sp, -0x18
-/* 0552C8 7F020798 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0552CC 7F02079C 808E0011 */  lb    $t6, 0x11($a0)
-/* 0552D0 7F0207A0 3C014120 */  li    $at, 0x41200000 # 10.000000
-/* 0552D4 7F0207A4 44810000 */  mtc1  $at, $f0
-/* 0552D8 7F0207A8 448E2000 */  mtc1  $t6, $f4
-/* 0552DC 7F0207AC 3C018005 */  lui   $at, %hi(D_80051D2C)
-/* 0552E0 7F0207B0 468020A0 */  cvt.s.w $f2, $f4
-/* 0552E4 7F0207B4 4600103C */  c.lt.s $f2, $f0
-/* 0552E8 7F0207B8 00000000 */  nop
-/* 0552EC 7F0207BC 4502000D */  bc1fl .L7F0207F4
-/* 0552F0 7F0207C0 46001481 */   sub.s $f18, $f2, $f0
-/* 0552F4 7F0207C4 3C018005 */  lui   $at, %hi(D_80051D28)
-/* 0552F8 7F0207C8 C4261D28 */  lwc1  $f6, %lo(D_80051D28)($at)
-/* 0552FC 7F0207CC 3C013E80 */  li    $at, 0x3E800000 # 0.250000
-/* 055300 7F0207D0 44815000 */  mtc1  $at, $f10
-/* 055304 7F0207D4 46061202 */  mul.s $f8, $f2, $f6
-/* 055308 7F0207D8 00000000 */  nop
-/* 05530C 7F0207DC 460A4402 */  mul.s $f16, $f8, $f10
-/* 055310 7F0207E0 0FC15FAB */  jal   sinf
-/* 055314 7F0207E4 46008303 */   div.s $f12, $f16, $f0
-/* 055318 7F0207E8 1000000F */  b     .L7F020828
-/* 05531C 7F0207EC 46000086 */   mov.s $f2, $f0
-/* 055320 7F0207F0 46001481 */  sub.s $f18, $f2, $f0
-.L7F0207F4:
-/* 055324 7F0207F4 C4241D2C */  lwc1  $f4, %lo(D_80051D2C)($at)
-/* 055328 7F0207F8 3C013E80 */  li    $at, 0x3E800000 # 0.250000
-/* 05532C 7F0207FC 44814000 */  mtc1  $at, $f8
-/* 055330 7F020800 46049182 */  mul.s $f6, $f18, $f4
-/* 055334 7F020804 3C0141A0 */  li    $at, 0x41A00000 # 20.000000
-/* 055338 7F020808 44818000 */  mtc1  $at, $f16
-/* 05533C 7F02080C 46083282 */  mul.s $f10, $f6, $f8
-/* 055340 7F020810 0FC15FAB */  jal   sinf
-/* 055344 7F020814 46105303 */   div.s $f12, $f10, $f16
-/* 055348 7F020818 3C013F80 */  li    $at, 0x3F800000 # 1.000000
-/* 05534C 7F02081C 44819000 */  mtc1  $at, $f18
-/* 055350 7F020820 00000000 */  nop
-/* 055354 7F020824 46009081 */  sub.s $f2, $f18, $f0
-.L7F020828:
-/* 055358 7F020828 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 05535C 7F02082C 27BD0018 */  addiu $sp, $sp, 0x18
-/* 055360 7F020830 46001006 */  mov.s $f0, $f2
-/* 055364 7F020834 03E00008 */  jr    $ra
-/* 055368 7F020838 00000000 */   nop
-)
-#endif
-
-#if !defined(LEFTOVERDEBUG)
-GLOBAL_ASM(
-.late_rodata
-glabel D_80051D28
-.word 0x40c90fdb /*6.2831855*/
-glabel D_80051D2C
-.word 0x40c90fdb /*6.2831855*/
-
-.text
-glabel sub_GAME_7F020794
-/* 053014 7F020624 27BDFFE8 */  addiu $sp, $sp, -0x18
-/* 053018 7F020628 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 05301C 7F02062C 808E0011 */  lb    $t6, 0x11($a0)
-/* 053020 7F020630 3C014100 */  li    $at, 0x41000000 # 8.000000
-/* 053024 7F020634 44810000 */  mtc1  $at, $f0
-/* 053028 7F020638 448E2000 */  mtc1  $t6, $f4
-/* 05302C 7F02063C 3C018004 */  lui   $at, %hi(D_80051D2C)
-/* 053030 7F020640 468020A0 */  cvt.s.w $f2, $f4
-/* 053034 7F020644 4600103C */  c.lt.s $f2, $f0
-/* 053038 7F020648 00000000 */  nop
-/* 05303C 7F02064C 4502000D */  bc1fl .L7F020684
-/* 053040 7F020650 46001481 */   sub.s $f18, $f2, $f0
-/* 053044 7F020654 3C018004 */  lui   $at, %hi(D_80051D28) # $at, 0x8004
-/* 053048 7F020658 C4267E50 */  lwc1  $f6, %lo(D_80051D28)($at)
-/* 05304C 7F02065C 3C013E80 */  li    $at, 0x3E800000 # 0.250000
-/* 053050 7F020660 44815000 */  mtc1  $at, $f10
-/* 053054 7F020664 46061202 */  mul.s $f8, $f2, $f6
-/* 053058 7F020668 00000000 */  nop
-/* 05305C 7F02066C 460A4402 */  mul.s $f16, $f8, $f10
-/* 053060 7F020670 0FC1606B */  jal   sinf
-/* 053064 7F020674 46008303 */   div.s $f12, $f16, $f0
-/* 053068 7F020678 1000000F */  b     .L7F0206B8
-/* 05306C 7F02067C 46000086 */   mov.s $f2, $f0
-/* 053070 7F020680 46001481 */  sub.s $f18, $f2, $f0
-.L7F020684:
-/* 053074 7F020684 C4247E54 */  lwc1  $f4, %lo(D_80051D2C)($at)
-/* 053078 7F020688 3C013E80 */  li    $at, 0x3E800000 # 0.250000
-/* 05307C 7F02068C 44814000 */  mtc1  $at, $f8
-/* 053080 7F020690 46049182 */  mul.s $f6, $f18, $f4
-/* 053084 7F020694 3C014180 */  li    $at, 0x41800000 # 16.000000
-/* 053088 7F020698 44818000 */  mtc1  $at, $f16
-/* 05308C 7F02069C 46083282 */  mul.s $f10, $f6, $f8
-/* 053090 7F0206A0 0FC1606B */  jal   sinf
-/* 053094 7F0206A4 46105303 */   div.s $f12, $f10, $f16
-/* 053098 7F0206A8 3C013F80 */  li    $at, 0x3F800000 # 1.000000
-/* 05309C 7F0206AC 44819000 */  mtc1  $at, $f18
-/* 0530A0 7F0206B0 00000000 */  nop
-/* 0530A4 7F0206B4 46009081 */  sub.s $f2, $f18, $f0
-.L7F0206B8:
-/* 0530A8 7F0206B8 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 0530AC 7F0206BC 27BD0018 */  addiu $sp, $sp, 0x18
-/* 0530B0 7F0206C0 46001006 */  mov.s $f0, $f2
-/* 0530B4 7F0206C4 03E00008 */  jr    $ra
-/* 0530B8 7F0206C8 00000000 */   nop
-)
-#endif
-#endif
 
 #ifdef BUGFIX_R1
 s32 not_in_us_7F0209EC(s32 bodynum, s32 headnum)
@@ -3685,8 +3576,6 @@ void chrPositionRelated7F020D94(ChrRecord *self)
 }
 
 
-
-
 /**
  * Address 0x7F020E40.
  */
@@ -3713,7 +3602,6 @@ void chrPositionRelated7F020E40(ChrRecord *chr, s32 arg1)
     subcalcpos(model);
     getsuboffset(model, &prop->pos);
 }
-
 
 
 #ifdef NONMATCHING
@@ -4210,8 +4098,13 @@ after_position_update:
 
 #ifdef VERSION_EU
 GLOBAL_ASM(
-/* i belong to sub_GAME_7F02083C*/
+/* i belong to sub_GAME_7F020794*/
 .late_rodata
+glabel D_80051D28
+.word 0x40c90fdb /*6.2831855*/
+glabel D_80051D2C
+.word 0x40c90fdb /*6.2831855*/
+/* i belong to sub_GAME_7F02083C*/
 glabel D_80051D30
 .word 0x3f860a92 /*1.0471976*/
 glabel D_80051D34
