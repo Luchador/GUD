@@ -146,7 +146,7 @@ s32 chrIsPosOffScreen                         (coord3d *arg0, StandTile *arg1);
 PropRecord *chrSpawnAtCoord(s32 bodynum, s32 headnum, coord3d *pos, StandTile *stan, f32 angle, AIListRecord *ailist, s32 spawnflags);
 void chrlvInitActAttack                       (ChrRecord *self, struct anim_group_info ** arg1, s32 arg2, point2d *arg3, s32 attack_type, s32 arg5, s32 arg6);
 s32 chrlvPatrolCalculateStep                  (ChrRecord *self, bool *forward, s32 numsteps);
-s32 sub_GAME_7F028510                         (coord3d *arg0, StandTile *arg1);
+s32 chrlvIsPosClearOfObjectBounds                         (coord3d *arg0, StandTile *arg1);
 s32 sub_GAME_7F03130C                         (ChrRecord *self,coord3d *arg1,s32 arg2,coord3d *arg3,f32 arg4,s32 arg5,coord3d *arg6,struct waydata *arg7,f32 arg8,s32 arg9,s32 set_copy);
 void chrlvTickStand                           (ChrRecord *self);
 PadRecord * chrlvGetPatrolStepPad             (ChrRecord *self, s32 numsteps);
@@ -2371,7 +2371,7 @@ s32 chrlvAttackAnimationRelated7F026F30(ChrRecord *self, f32 *result)
 /**
  * Address 0x7F027060.
  */
-play_sound_for_shot_actor(ChrRecord *self)
+void play_sound_for_shot_actor(ChrRecord *self)
 {
     PropRecord *prop;
     bool male;
@@ -3293,8 +3293,6 @@ PadRecord *chrlvGetPatrolStepPad(ChrRecord *self, s32 numsteps)
 
 
 /**
- * Unknown return type.
- *
  * Address 0x7F028474.
 */
 PadRecord * chrlvGetNextPatrolStepPad(ChrRecord *self)
@@ -3320,8 +3318,6 @@ void chrlvSetNextActPatrolStepPadPos(ChrRecord *self)
 }
 
 
-
-
 /**
  * Address 0x7F0284DC.
 */
@@ -3332,44 +3328,42 @@ void sub_GAME_7F0284DC(ChrRecord *self)
 }
 
 
-
 /**
  * Address 0x7F028510.
+ * 
+ * Returns true if pos is not inside the 2D collision footprint of
+ * any normal object (PROP_TYPE_OBJ) in the stan's room.
 */
-s32 sub_GAME_7F028510(coord3d *point, StandTile *stan)
+bool chrlvIsPosClearOfObjectBounds(coord3d *pos, StandTile *stan)
 {
     s32 roomids[8];
-    s16 *temp_s0;
-    PropRecord *propss = (PropRecord *)&pos_data_entry;
-    struct rect4f *polygon; // 68
-    s32 edges;
+    s16 *propnum;
+    PropRecord *props = (PropRecord *)&pos_data_entry;
+    struct rect4f *polygon;
+    s32 numedges;
 
     roomids[0] = stan->room;
     roomids[1] = -1;
-    roomGetProps((s32*)&roomids);
 
-    for (temp_s0 = ptr_list_object_lookup_indices; *temp_s0 >= 0; temp_s0++)
+    roomGetProps(roomids);
+
+    for (propnum = ptr_list_object_lookup_indices; *propnum >= 0; propnum++)
     {
-        PropRecord *prop = &propss[*temp_s0];
+        PropRecord *prop = &props[*propnum];
 
         if (prop->type == PROP_TYPE_OBJ)
         {
-            chraiGetCollisionBoundsWithoutY(prop, &polygon, &edges);
+            chraiGetCollisionBoundsWithoutY(prop, &polygon, &numedges);
 
-            if ((edges > 0) && chrpropTestPointInPolygon(point, polygon, edges))
+            if (numedges > 0 && chrpropTestPointInPolygon(pos, polygon, numedges))
             {
-                return 0;
+                return FALSE;
             }
         }
     }
 
-    return 1;
+    return TRUE;
 }
-
-
-
-
-
 
 
 /**
@@ -3381,7 +3375,6 @@ void chrlvTravelTickMagic(ChrRecord *self, struct waydata *arg1, f32 arg2, coord
     /**
      * Three unused stack variables.
     */
-    //
     PropRecord *self_prop;
     s32 unused1;
     s32 unused2;
@@ -3402,7 +3395,7 @@ void chrlvTravelTickMagic(ChrRecord *self, struct waydata *arg1, f32 arg2, coord
 
         if (
             (stanTestVolume(&arg4, arg3->f[0], arg3->f[2], self->chrwidth, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER, 0.0f, 1.0f) < 0)
-            && sub_GAME_7F028510(arg3, arg4))
+            && chrlvIsPosClearOfObjectBounds(arg3, arg4))
         {
             self_prop = self->prop;
             self_prop->stan = arg4;
