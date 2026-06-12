@@ -8891,10 +8891,101 @@ glabel sub_GAME_7F0B95D8
 
 
 #ifdef NONMATCHING
-void sub_GAME_7F0B96CC(int p) {
-    #ifdef
-    assert(levelportals[p].p->n>=3)
-    #endif
+
+// This assert belongs somewhere in the function
+//#ifdef
+//assert(levelportals[p].p->n>=3)
+//#endif
+
+// 99.74% match on decomp.me. 4 million iterations on the permuter were not able to improve this.
+// https://decomp.me/scratch/nqX6x
+void sub_GAME_7F0B96CC(s32 portalnum, f32 *out)
+{
+    f32 sp6c[3];
+    f32 sp60[3];
+    bg_portal_entry *portal;
+    s32 numPoints;
+    f32 *ptr;
+    f32 min;
+    f32 f20;
+    f32 max;
+    f32 dot;
+    s32 i;
+    s32 end;
+
+    for (i = 0; i < 3; i++)
+    {
+        f20 = ((f32 *)g_BgPortals[portalnum].offset_portal)[i + 1];
+        dot = f20 - ((f32 *)g_BgPortals[portalnum].offset_portal)[i + 4];
+        sp6c[i] = dot;
+    }
+
+    for (i = 0; i < 3; i++)
+    {
+        f20 = ((f32 *)g_BgPortals[portalnum].offset_portal)[i + 7];
+        dot = ((f32 *)g_BgPortals[portalnum].offset_portal)[i + 4];
+        sp60[i] = f20 - dot;
+    }
+
+    out[0] = (sp6c[1] * sp60[2]) - (sp6c[2] * sp60[1]);
+    out[1] = (sp6c[2] * sp60[0]) - (sp6c[0] * sp60[2]);
+    out[2] = (sp6c[0] * sp60[1]) - (sp6c[1] * sp60[0]);
+
+    dot = sqrtf(((out[0] * out[0]) + (out[1] * out[1])) + (out[2] * out[2]));
+    f20 = dot;
+    i = 0;
+
+    if (dot != 0.0f)
+    {
+        f20 = 1.0f / dot;
+    }
+
+    out[0] *= f20;
+    out[1] *= f20;
+    out[2] *= f20;
+
+    portal = g_BgPortals[portalnum].offset_portal;
+
+    if (max)
+    {
+    }
+
+    min = 3.4028235e38f;
+    max = -3.4028235e38f;
+    numPoints = portal->numPoints;
+
+    if (numPoints > 0)
+    {
+        ptr = (f32 *)portal;
+        i = 0;
+        end = numPoints * 12;
+
+        do
+        {
+            dot = ((ptr[1] * out[0]) + (ptr[2] * out[1])) + (ptr[3] * out[2]);
+
+            if (dot < min)
+            {
+                min = dot;
+            }
+
+            if (!max)
+            {
+            }
+
+            if (max < dot)
+            {
+                max = dot;
+            }
+
+            i += 12;
+            ptr += 3;
+        }
+        while (i < end);
+    }
+
+    out[3] = min;
+    out[4] = max;
 }
 #else
 GLOBAL_ASM(
@@ -9072,9 +9163,6 @@ glabel sub_GAME_7F0B96CC
 /* 0EE468 7F0B9938 27BD0078 */   addiu $sp, $sp, 0x78
 )
 #endif
-
-
-
 
 
 /**
