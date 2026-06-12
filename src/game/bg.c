@@ -8365,7 +8365,8 @@ end:
 // the whole list of portals which seems naive and inefficient.
 //
 // Address: 0x7F0B8FD0
-s32 sub_GAME_7F0B8FD0(s32 room1, s32 room2) {
+bool bgRoomsSharePortal(s32 room1, s32 room2) 
+{
     s32 i;
 
     for (i = 0; g_BgPortals[i].offset_portal != NULL; i++)
@@ -8375,18 +8376,16 @@ s32 sub_GAME_7F0B8FD0(s32 room1, s32 room2) {
 
         if (v0 == room1 && v1 == room2)
         {
-            return 1;
+            return TRUE;
         }
 
         if (v1 == room1 && v0 == room2)
         {
-            return 1;
+            return TRUE;
         }
     }
-    return 0;
+    return FALSE;
 }
-
-
 
 
 /**

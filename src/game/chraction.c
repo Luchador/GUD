@@ -10821,7 +10821,7 @@ bool sub_GAME_7F033B38(ChrRecord *self, f32 distance)
                 (pos->y <= distplus.y) &&
                 (pos->z >= distneg.z)  &&
                 (pos->z <= distplus.z) &&
-                ((chr->prop->stan->room == myroom) || sub_GAME_7F0B8FD0(myroom, chr->prop->stan->room)))
+                ((chr->prop->stan->room == myroom) || bgRoomsSharePortal(myroom, chr->prop->stan->room)))
             {
                 self->chrpreset1 = chr->chrnum;
 

@@ -2332,7 +2332,7 @@ s32 sub_GAME_7F0B0D0C(StandTile *tile, f32 start_x, f32 start_z, StandTile **des
         }
 
         // Next fastest case: both rooms directly connected by a portal, write two room IDs and return a count of 2.
-        if (sub_GAME_7F0B8FD0(roomA & 0xff, roomB & 0xff)) { 
+        if (bgRoomsSharePortal(roomA & 0xff, roomB & 0xff)) { 
             roomBuffer[0] = tile->room;
             roomBuffer[1] = (*destTile)->room;
             return 2;
