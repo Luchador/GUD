@@ -133,7 +133,7 @@ void initBONDdataforPlayer(s32 player_num)
     assert(players[num]!=NULL);
 #endif
 
-    g_playerPointers[player_num]->unknown = 0;
+    g_playerPointers[player_num]->cameramode = 0;
     g_playerPointers[player_num]->pos.x = 0.0f;
     g_playerPointers[player_num]->pos.y = 0.0f;
     g_playerPointers[player_num]->pos.z = 0.0f;

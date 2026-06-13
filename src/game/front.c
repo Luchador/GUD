@@ -4045,7 +4045,7 @@ u16 get_player_mp_char_head(s32 player)
     return mp_chr_setup[player_char[player]].head;
 }
 
-u8 get_player_mp_char_gender(int player)
+u8 get_player_mp_char_gender(s32 player)
 {
     if (player_char[player] < 0)
     {
@@ -4054,7 +4054,7 @@ u8 get_player_mp_char_gender(int player)
     return mp_chr_setup[player_char[player]].gender;
 }
 
-u16 get_player_mp_char_body(int player)
+u16 get_player_mp_char_body(s32 player)
 {
     if (player_char[player] < 0)
     {
@@ -4063,12 +4063,12 @@ u16 get_player_mp_char_body(int player)
     return mp_chr_setup[player_char[player]].body;
 }
 
-f32 get_player_mp_handicap(int player)
+f32 get_player_mp_handicap(s32 player)
 {
     return MP_handicap_table[player_handicap[player]].damage_modifier;
 }
 
-f32 get_player_mp_char_height(int player)
+f32 get_player_mp_char_height(s32 player)
 {
     if (player_char[player] < 0) {
         return mp_chr_setup[player].pov;
@@ -4076,11 +4076,11 @@ f32 get_player_mp_char_height(int player)
     return mp_chr_setup[player_char[player]].pov;
 }
 
-int get_mp_timelimit(void) {
+s32 get_mp_timelimit(void) {
   return multi_game_lengths[game_length].time;
 }
 
-int get_mp_pointlimit(void) {
+s32 get_mp_pointlimit(void) {
   return multi_game_lengths[game_length].points;
 }
 

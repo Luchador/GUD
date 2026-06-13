@@ -3429,7 +3429,7 @@ s32 chrTickBeams(PropRecord *prop)
     }
     else
     {
-        if (((prop->type == 6) && (g_playerPointers[getPlayerPointerIndex(prop)]->unknown == 1)) || (chr->chrflags & CHRFLAG_CULL_USING_HITBOX))
+        if (((prop->type == 6) && (g_playerPointers[getPlayerPointerIndex(prop)]->cameramode == 1)) || (chr->chrflags & CHRFLAG_CULL_USING_HITBOX))
         {
             headSwitchVisible = 1;
 

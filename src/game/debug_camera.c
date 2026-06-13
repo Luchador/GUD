@@ -202,7 +202,7 @@ coord3d debugCameraPreviousPosition = {0.0f,0.0f,0.0f};
 * Address: 0x7F091580
 */
 Gfx * sub_GAME_7F091580(Gfx * arg0) {
-    sub_GAME_7F0876C4(&debugCameraPosition, &debugCameraForward, &debugCameraUp);
+    bondviewUpdateCameraMatrices(&debugCameraPosition, &debugCameraForward, &debugCameraUp);
     return arg0;
 }
 

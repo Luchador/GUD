@@ -68,8 +68,8 @@ glabel sub_GAME_7F005450
 /* 039FCC 7F00549C 3C078007 */  lui   $a3, %hi(dword_CODE_bss_80076AB4)
 /* 039FD0 7F0054A0 3C088007 */  lui   $t0, %hi(dword_CODE_bss_80076AC8)
 /* 039FD4 7F0054A4 3C098007 */  lui   $t1, %hi(dword_CODE_bss_80076ADC)
-/* 039FD8 7F0054A8 3C028008 */  lui   $v0, %hi(flt_CODE_bss_8007996C)
-/* 039FDC 7F0054AC 2442996C */  addiu $v0, %lo(flt_CODE_bss_8007996C) # addiu $v0, $v0, -0x6694
+/* 039FD8 7F0054A8 3C028008 */  lui   $v0, %hi(g_CamFrustumLeftOffset)
+/* 039FDC 7F0054AC 2442996C */  addiu $v0, %lo(g_CamFrustumLeftOffset) # addiu $v0, $v0, -0x6694
 /* 039FE0 7F0054B0 25296ADC */  addiu $t1, %lo(dword_CODE_bss_80076ADC) # addiu $t1, $t1, 0x6adc
 /* 039FE4 7F0054B4 25086AC8 */  addiu $t0, %lo(dword_CODE_bss_80076AC8) # addiu $t0, $t0, 0x6ac8
 /* 039FE8 7F0054B8 24E76AB4 */  addiu $a3, %lo(dword_CODE_bss_80076AB4) # addiu $a3, $a3, 0x6ab4

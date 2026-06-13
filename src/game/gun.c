@@ -846,7 +846,7 @@ u8 * getPlayerWeaponBufferForHand(GUNHAND hand)
 }
 
 
-u32 getSizeBufferWeaponInHand(int hand)
+u32 getSizeBufferWeaponInHand(s32 hand)
 {
     return size_item_buffer[hand];
 }
@@ -13870,7 +13870,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
             g_CurrentPlayer->trigger_released = 0;
 
             if ((g_ClockTimer > 0)
-                && (g_CurrentPlayer->unknown != 1)
+                && (g_CurrentPlayer->cameramode != CAMERAMODE_INTRO)
                 && (Gun_hand_without_item(arg0) != 0)
                 && (g_PlayerInvincible == FALSE)
 #if defined(VERSION_JP) || defined(VERSION_EU)
@@ -13993,7 +13993,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
 #if defined(VERSION_JP) || defined(VERSION_EU)
             && (g_ClockTimer > 0)
 #endif
-            && (g_CurrentPlayer->unknown != 1)
+            && (g_CurrentPlayer->cameramode != CAMERAMODE_INTRO)
             && (Gun_hand_without_item(arg0) != 0)
             && (g_PlayerInvincible == FALSE)
 #if defined(VERSION_JP) || defined(VERSION_EU)
