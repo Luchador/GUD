@@ -7055,7 +7055,7 @@ s32 object_interaction(struct PropRecord *arg0)
                     {
                         if (sp10C != NULL)
                         {
-                            sub_GAME_7F0A3E1C(&sp110, 1, 26.0f, (s16) sp10C->room);
+                            bullet_spark_create(&sp110, 1, 26.0f, (s16) sp10C->room);
                         }
 
                         recall_joy2_hits_edit_flag(ITEM_FNP90, &sp110, -1);
@@ -12045,7 +12045,7 @@ glabel object_interaction
 /* 07E38C 7F04985C 51800005 */  beql  $t4, $zero, .L7F049874
 /* 07E390 7F049860 2404000E */   li    $a0, 14
 /* 07E394 7F049864 44068000 */  mfc1  $a2, $f16
-/* 07E398 7F049868 0FC28F87 */  jal   sub_GAME_7F0A3E1C
+/* 07E398 7F049868 0FC28F87 */  jal   bullet_spark_create
 /* 07E39C 7F04986C 91870003 */   lbu   $a3, 3($t4)
 /* 07E3A0 7F049870 2404000E */  li    $a0, 14
 .L7F049874:
@@ -17151,7 +17151,7 @@ glabel object_interaction
 /* 07E7D0 7F049C60 51000005 */  beql  $t0, $zero, .Ljp7F049C78
 /* 07E7D4 7F049C64 2404000E */   li    $a0, 14
 /* 07E7D8 7F049C68 44068000 */  mfc1  $a2, $f16
-/* 07E7DC 7F049C6C 0FC2926F */  jal   sub_GAME_7F0A3E1C
+/* 07E7DC 7F049C6C 0FC2926F */  jal   bullet_spark_create
 /* 07E7E0 7F049C70 91070003 */   lbu   $a3, 3($t0)
 /* 07E7E4 7F049C74 2404000E */  li    $a0, 14
 .Ljp7F049C78:
@@ -22264,7 +22264,7 @@ glabel object_interaction
 /* 07C428 7F049A38 51600005 */  beql  $t3, $zero, .L7F049A50
 /* 07C42C 7F049A3C 2404000E */   li    $a0, 14
 /* 07C430 7F049A40 44068000 */  mfc1  $a2, $f16
-/* 07C434 7F049A44 0FC28CD7 */  jal   sub_GAME_7F0A3E1C
+/* 07C434 7F049A44 0FC28CD7 */  jal   bullet_spark_create
 /* 07C438 7F049A48 91670003 */   lbu   $a3, 3($t3)
 /* 07C43C 7F049A4C 2404000E */  li    $a0, 14
 .L7F049A50:
@@ -30605,7 +30605,7 @@ void objHit(ShotData *shotdata, BulletHit *hit)
         gunSetTracerTarget(&pos);
     }
 
-    sub_GAME_7F0A3E1C(&pos, 1, 26.0f, rootprop->stan->room);
+    bullet_spark_create(&pos, 1, 26.0f, rootprop->stan->room);
 
     if ((objIsHealthy(obj) && objIsMortal(obj)) && (hit->countsAsPenetration != 0))
     {

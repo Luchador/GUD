@@ -351,9 +351,9 @@ void lvlStageLoad(s32 stage)
     modelmgrSetLevelResetting(TRUE);
     set_mt_tex_alloc();
 #ifdef VERSION_EU
-    sub_GAME_7F0A45D8();
+    bullet_moving_sparks_reset();
 #else
-    sub_GAME_7F0A47D4();
+    bullet_sparks_reset_all();
 #endif
     texReset();
     load_font_tables();
@@ -1064,9 +1064,9 @@ Gfx* lvlRender(Gfx* DL)
             DL = weaponRenderTracers(DL);
 
 #if defined(VERSION_EU)
-            sub_GAME_7F0A46A0(&DL, 1);
+            bullet_moving_sparks_update(&DL, 1);
 #else /* VERSION_US, VERSION_JP, unspecified */
-            sub_GAME_7F0A4824(&DL, 1);
+            bullet_sparks_render_all(&DL, 1);
 #endif
             DL = glassRenderShards(DL);
             DL = explosionRenderFlyingParticles(DL);
@@ -1524,9 +1524,9 @@ void lvlManageMpGame(void)
         sub_GAME_7F092E50();
         skyTick();
 #ifdef VERSION_EU
-        sub_GAME_7F0A4600();
+        bullet_moving_spark_create();
 #else
-        update_bullet_sparks_and_dust_clouds();
+        bullet_sparks_update_all();
 #endif
         update_bullet_casings();
         update_broken_windows();

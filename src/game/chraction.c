@@ -6793,7 +6793,7 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                         {
                             if (sp254 != 0)
                             {
-                                sub_GAME_7F0A3E1C(&sp258, 1, 26.0f, (s16) sp254->room);
+                                bullet_spark_create(&sp258, 1, 26.0f, (s16) sp254->room);
                             }
 
                             if (stanSavedColl_posData != NULL)

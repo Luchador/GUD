@@ -5029,12 +5029,12 @@ void chrCreateHitPuffs(PropRecord *prop, s32 anim_id, coord3d *vec, coord3d *pos
 
             mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), &sp3c);
 
-            sub_GAME_7F0A3E1C(&sp3c, entry->field_10, entry->field_18, prop->stan->room);
+            bullet_spark_create(&sp3c, entry->field_10, entry->field_18, prop->stan->room);
         }
     }
 
     if (entry->field_4) {
-        sub_GAME_7F0A3E1C(pos, entry->field_4, entry->field_C, prop->stan->room);
+        bullet_spark_create(pos, entry->field_4, entry->field_C, prop->stan->room);
     }
 }
 

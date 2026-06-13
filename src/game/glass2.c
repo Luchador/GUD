@@ -7,10 +7,11 @@
 #include "lv.h"
 #include "objective_status.h"
 
-#define UNK_8007A170_MAX 20
+#define BULLET_SPARKS_MAX 20
+#define BULLET_MOVING_SPARKS_MAX 50
 
 //D:80040960
-struct rgba_u8 D_80040960[8] = {
+struct rgba_u8 g_BulletSparkColors[8] = {
     { 0xFF, 0xFF, 0xFF, 0xFF },
     { 0xFF, 0xFF, 0xC8, 0xFF },
     { 0xFF, 0x00, 0x00, 0xFF },
@@ -24,14 +25,14 @@ u32 D_80040980 = 0;
 
 
 // something explosion related
-// size of each item is 0x2c (see sub_GAME_7F0A3E1C)
+// size of each item is 0x2c (see bullet_spark_create)
 //CODE.bss:8007A170
-bondstruct_unk_8007A170 dword_CODE_bss_8007A170[UNK_8007A170_MAX];
+s_bullet_spark g_BulletSparkArray[BULLET_SPARKS_MAX];
 
 #ifndef VERSION_EU
 
 //CODE.bss:8007A4E0
-bondstruct_unk_8007A4E0 dword_CODE_bss_8007A4E0[50];
+s_moving_bullet_spark g_MovingBulletSparkArray[BULLET_MOVING_SPARKS_MAX];
 
 #endif
 
@@ -957,10 +958,10 @@ Gfx *sub_GAME_7F0A3B40(Gfx *gdl, s32 *arg1)
 // unreferenced
 void unused_7F0A3B70(s32 arg0, struct rgba_u8 *arg1)
 {
-    arg1->r = D_80040960[arg0].r;
-    arg1->g = D_80040960[arg0].g;
-    arg1->b = D_80040960[arg0].b;
-    arg1->a = D_80040960[arg0].a;
+    arg1->r = g_BulletSparkColors[arg0].r;
+    arg1->g = g_BulletSparkColors[arg0].g;
+    arg1->b = g_BulletSparkColors[arg0].b;
+    arg1->a = g_BulletSparkColors[arg0].a;
 }
 
 
@@ -970,25 +971,28 @@ void unused_7F0A3B70(s32 arg0, struct rgba_u8 *arg1)
 // unreferenced
 void unused_7F0A3BA4(s32 arg0, struct rgba_u8 *arg1)
 {
-    D_80040960[arg0].r = arg1->r;
-    D_80040960[arg0].g = arg1->g;
-    D_80040960[arg0].b = arg1->b;
-    D_80040960[arg0].a = arg1->a;
+    g_BulletSparkColors[arg0].r = arg1->r;
+    g_BulletSparkColors[arg0].g = arg1->g;
+    g_BulletSparkColors[arg0].b = arg1->b;
+    g_BulletSparkColors[arg0].a = arg1->a;
 }
 
 
-void sub_GAME_7F0A3BD8(void)
+/**
+ * Address: 7F0A3BD8
+ */
+void bullet_sparks_reset(void)
 {
     s32 i;
     s32 start_index;
 
     if (1) { start_index = 0; }
 
-    for (i = start_index; (i < UNK_8007A170_MAX) ^ 0; i++)
+    for (i = start_index; (i < BULLET_SPARKS_MAX) ^ 0; i++)
     {
-        dword_CODE_bss_8007A170[i].unk0C = 0;
-        dword_CODE_bss_8007A170[i].unk04 = 0;
-        dword_CODE_bss_8007A170[i].unk00 = 0;
+        g_BulletSparkArray[i].unk0C = 0;
+        g_BulletSparkArray[i].lifetime = 0;
+        g_BulletSparkArray[i].age = 0;
     }
 }
 
@@ -1005,117 +1009,127 @@ extern f32 D_8005774C; // M_SQRT2_F (0x3fb501e2)
 #define _SQRT2_F M_SQRT2_F
 #endif
 
-void sub_GAME_7F0A3C08(
-    bondstruct_unk_8007A170 *arg0,
-    coord3d *arg1,
-    s32 arg2,
-    f32 arg3,
-    s16 arg4)
+/**
+ * Address: 7F0A3C08
+ */
+void bullet_sparks_init(s_bullet_spark *spark, coord3d *arg1, s32 arg2, f32 arg3, s16 arg4)
 {
     f32 angle;
 
     angle = randomGetNext();
-    angle *= (1.0f / 4294967296.0f);
+    angle *= (1.0f / M_U32_MAX_VALUE_F);
     angle *= _TAU_F;
 
-    arg0->unk00 = 0;
-    arg0->unk06 = arg4;
+    spark->age = 0;
+    spark->unk06 = arg4;
 
     if (arg2 == 4)
     {
-        arg0->unk04 = 1;
-        arg0->unk08 = 1.0f;
-        arg0->unk0C = flareimage2;
+        spark->lifetime = 1;
+        spark->unk08 = 1.0f;
+        spark->unk0C = flareimage2;
     }
     else if (arg2 == 1)
     {
-        arg0->unk04 = 11;
-        arg0->unk08 = 0.5f;
-        arg0->unk0C = explosion_smokeimages;
+        spark->lifetime = 11;
+        spark->unk08 = 0.5f;
+        spark->unk0C = explosion_smokeimages;
     }
     else if (arg2 == 3)
     {
-        arg0->unk04 = 9;
-        arg0->unk08 = 0.5f;
-        arg0->unk0C = scattered_explosions;
+        spark->lifetime = 9;
+        spark->unk08 = 0.5f;
+        spark->unk0C = scattered_explosions;
     }
     else if (arg2 == 6)
     {
-        arg0->unk04 = 100;
-        arg0->unk08 = 0.0f;
-        arg0->unk0C = flareimage2;
+        spark->lifetime = 100;
+        spark->unk08 = 0.0f;
+        spark->unk0C = flareimage2;
     }
     else
     {
-        arg0->unk04 = 11;
-        arg0->unk08 = 0.5f;
-        arg0->unk0C = explosion_smokeimages;
+        spark->lifetime = 11;
+        spark->unk08 = 0.5f;
+        spark->unk0C = explosion_smokeimages;
     }
 
-    arg0->unk28 = D_80040960[arg2].r;
-    arg0->unk29 = D_80040960[arg2].g;
-    arg0->unk2A = D_80040960[arg2].b;
-    arg0->unk2B = D_80040960[arg2].a;
+    spark->unk28 = g_BulletSparkColors[arg2].r;
+    spark->unk29 = g_BulletSparkColors[arg2].g;
+    spark->unk2A = g_BulletSparkColors[arg2].b;
+    spark->unk2B = g_BulletSparkColors[arg2].a;
 
-    arg0->unk10 = arg1->x;
-    arg0->unk14 = arg1->y;
-    arg0->unk18 = arg1->z;
+    spark->unk10 = arg1->x;
+    spark->unk14 = arg1->y;
+    spark->unk18 = arg1->z;
 
-    arg3 *= 1.0f + ((f32)randomGetNext() * (1.0f / 4294967296.0f) * 0.25f);
+    arg3 *= 1.0f + ((f32)randomGetNext() * (1.0f / M_U32_MAX_VALUE_F) * 0.25f);
     arg3 *= _SQRT2_F;
-    arg0->unk24 = arg3;
+    spark->unk24 = arg3;
 
-    arg0->unk1c = cosf(angle) * arg3;
-    arg0->unk20 = sinf(angle) * arg3;
+    spark->unk1c = cosf(angle) * arg3;
+    spark->unk20 = sinf(angle) * arg3;
 }
 
 #undef _TAU_F
 #undef _SQRT2_F
 
 
+/**
+ * Address: 7F0A3E1C
+ */
+s_bullet_spark *bullet_spark_create(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3) 
+{
+    s_bullet_spark *ptr;
 
-bondstruct_unk_8007A170 *sub_GAME_7F0A3E1C(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3) {
-    bondstruct_unk_8007A170 *ptr;
-    for (ptr = &dword_CODE_bss_8007A170[0]; ptr < &dword_CODE_bss_8007A170[UNK_8007A170_MAX]; ptr++) {
-        if (ptr->unk04 == 0) {
-            sub_GAME_7F0A3C08(ptr, arg0, arg1, arg2, arg3);
+    for (ptr = &g_BulletSparkArray[0]; ptr < &g_BulletSparkArray[BULLET_SPARKS_MAX]; ptr++) 
+    {
+        if (ptr->lifetime == 0) 
+        {
+            bullet_sparks_init(ptr, arg0, arg1, arg2, arg3);
             return ptr;
         }
     }
+
     return NULL;
 }
 
 
-
-void sub_GAME_7F0A3EA0(void)
+/**
+ * Address: 7F0A3EA0
+ */
+void bullet_sparks_update(void)
 {
-    bondstruct_unk_8007A170 *thing = &dword_CODE_bss_8007A170[0]; \
-    bondstruct_unk_8007A170 *end = dword_CODE_bss_8007A170 + UNK_8007A170_MAX;
+    s_bullet_spark *thing = &g_BulletSparkArray[0]; \
+    s_bullet_spark *end = g_BulletSparkArray + BULLET_SPARKS_MAX;
 
-    for (; thing < end; thing++) {
-        if (thing->unk04 > 0) {
-            thing->unk00 += g_ClockTimer;
+    for (; thing < end; thing++) 
+    {
+        if (thing->lifetime > 0) 
+        {
+            thing->age += g_ClockTimer;
 
-            if (thing->unk00 >= 0 && thing->unk00 >= thing->unk04) {
-                thing->unk04 = 0;
+            if (thing->age >= 0 && thing->age >= thing->lifetime) 
+            {
+                thing->lifetime = 0;
             }
         }
     }
 }
 
 
-
-
-
+/**
+ * Address: 7F0A3F04
+ */
 #ifdef NONMATCHING
-void sub_GAME_7F0A3F04(void) {
+void bullet_spark_render(void) {
 
 }
 #else
-void sub_GAME_7F0A3F04(bondstruct_unk_8007A170 *arg0, Gfx *arg1, s32 arg2);
+void bullet_spark_render(s_bullet_spark *arg0, Gfx *arg1, s32 arg2);
 GLOBAL_ASM(
 .text
-glabel sub_GAME_7F0A3F04
+glabel bullet_spark_render
 /* 0D8A34 7F0A3F04 27BDFF48 */  addiu $sp, $sp, -0xb8
 /* 0D8A38 7F0A3F08 AFBF002C */  sw    $ra, 0x2c($sp)
 /* 0D8A3C 7F0A3F0C AFB20028 */  sw    $s2, 0x28($sp)
@@ -1514,103 +1528,125 @@ glabel sub_GAME_7F0A3F04
 )
 #endif
 
-void sub_GAME_7F0A4528(Gfx *gdl, s32 arg1) {
 
-    bondstruct_unk_8007A170 *thing = &dword_CODE_bss_8007A170[0]; \
-    bondstruct_unk_8007A170 *end = dword_CODE_bss_8007A170 + UNK_8007A170_MAX;
+/**
+ * Address: 7F0A4528
+ */
+void bullet_sparks_render(Gfx *gdl, s32 arg1) 
+{
+
+    s_bullet_spark *thing = &g_BulletSparkArray[0]; \
+    s_bullet_spark *end = g_BulletSparkArray + BULLET_SPARKS_MAX;
 
     for (; (thing < end); thing++)
     {
-        sub_GAME_7F0A3F04(thing, gdl, arg1);
+        bullet_spark_render(thing, gdl, arg1);
     }
 }
 
 
-f32 sub_GAME_7F0A4594(bondstruct_unk_8007A170* arg0) {
+/**
+ * Address: 7F0A4594
+ */
+f32 bullet_spark_get_depth(s_bullet_spark* spark) 
+{
     coord3d tempVec;
 
-    tempVec.x = arg0->unk10;
-    tempVec.y = arg0->unk14;
-    tempVec.z = arg0->unk18;
+    tempVec.x = spark->unk10;
+    tempVec.y = spark->unk14;
+    tempVec.z = spark->unk18;
+
     mtx4TransformVecInPlace(camGetWorldToScreenMtxf(), &tempVec);
+
     return -tempVec.z;
 }
 
 
-
-
-
+/**
+ * Address: 7F0A45D8
+ */
 #ifndef VERSION_EU
-void sub_GAME_7F0A45D8(void) {
-    bondstruct_unk_8007A4E0 *ptr;
-    ptr = dword_CODE_bss_8007A4E0;
-    for (ptr = &dword_CODE_bss_8007A4E0[0]; ptr < &dword_CODE_bss_8007A4E0[50]; ptr++) {
-        ptr->unk00.unk04 = 0;
-    }
-}
-#else
-void sub_GAME_7F0A45D8(void)
+void bullet_moving_sparks_reset(void) 
 {
-    sub_GAME_7F0A3BD8();
-}
-#endif
+    s_moving_bullet_spark *ptr;
 
+    ptr = g_MovingBulletSparkArray;
 
-
-
-#ifndef VERSION_EU
-bondstruct_unk_8007A4E0 *sub_GAME_7F0A4600(coord3d *arg0, coord3d *arg1, s32 arg2, f32 arg3, f32 arg4, s16 arg5)
-{
-  bondstruct_unk_8007A4E0 *ptr;
-  for (ptr = &dword_CODE_bss_8007A4E0[0]; ptr < &dword_CODE_bss_8007A4E0[50]; ptr++)
-  {
-    if (ptr->unk00.unk04 == 0)
+    for (ptr = &g_MovingBulletSparkArray[0]; ptr < &g_MovingBulletSparkArray[BULLET_MOVING_SPARKS_MAX]; ptr++) 
     {
-      sub_GAME_7F0A3C08(&ptr->unk00, arg0, arg2, arg3, arg5);
-      ptr->unk2c = arg1->x;
-      ptr->unk30 = arg1->y;
-      ptr->unk34 = arg1->z;
-      ptr->unk38 = arg4;
-      return ptr;
+        ptr->unk00.lifetime = 0;
     }
-  }
-
-  return NULL;
 }
 #else
-void sub_GAME_7F0A4600(void)
+void bullet_moving_sparks_reset(void)
 {
-    sub_GAME_7F0A3EA0();
+    bullet_sparks_reset();
 }
 #endif
 
 
-
-
+/**
+ * Address: 7F0A4600
+ */
 #ifndef VERSION_EU
-void sub_GAME_7F0A46A0(void)
+s_moving_bullet_spark *bullet_moving_spark_create(coord3d *arg0, coord3d *arg1, s32 arg2, f32 arg3, f32 arg4, s16 arg5)
 {
-    bondstruct_unk_8007A4E0 *ptr;
-    bondstruct_unk_8007A4E0 *end;
-    ptr = &dword_CODE_bss_8007A4E0[0]; end = &dword_CODE_bss_8007A4E0[50];
+    s_moving_bullet_spark *ptr;
+
+    for (ptr = &g_MovingBulletSparkArray[0]; ptr < &g_MovingBulletSparkArray[BULLET_MOVING_SPARKS_MAX]; ptr++)
+    {
+        if (ptr->unk00.lifetime == 0)
+        {
+            bullet_sparks_init(&ptr->unk00, arg0, arg2, arg3, arg5);
+
+            ptr->velocity.x = arg1->x;
+            ptr->velocity.y = arg1->y;
+            ptr->velocity.z = arg1->z;
+            ptr->unk38 = arg4;
+
+            return ptr;
+        }
+    }
+
+    return NULL;
+}
+#else
+void bullet_moving_spark_create(void)
+{
+    bullet_sparks_update();
+}
+#endif
+
+
+/**
+ * Address: 7F0A46A0
+ */
+#ifndef VERSION_EU
+void bullet_moving_sparks_update(void)
+{
+    s_moving_bullet_spark *ptr;
+    s_moving_bullet_spark *end;
+
+    ptr = &g_MovingBulletSparkArray[0]; end = &g_MovingBulletSparkArray[BULLET_MOVING_SPARKS_MAX];
+
     while (ptr < end)
     {
-        if (ptr->unk00.unk04 > 0)
+        if (ptr->unk00.lifetime > 0)
         {
-            ptr->unk00.unk00 += g_ClockTimer;
-            if (ptr->unk00.unk00 >= 0)
+            ptr->unk00.age += g_ClockTimer;
+            if (ptr->unk00.age >= 0)
             {
-                if (ptr->unk00.unk04 > ptr->unk00.unk00)
+                if (ptr->unk00.lifetime > ptr->unk00.age)
                 {
-                    sub_GAME_7F057D88(&ptr->unk00.unk10, &ptr->unk2c, g_GlobalTimerDelta);
+                    sub_GAME_7F057D88(&ptr->unk00.unk10, &ptr->velocity, g_GlobalTimerDelta);
                     if (ptr->unk00.unk14 < ptr->unk38)
                     {
-                        ptr->unk00.unk04 = 0;
+                        ptr->unk00.lifetime = 0;
                     }
                 }
                 else
                 {
-                    ptr->unk00.unk04 = 0;
+                    ptr->unk00.lifetime = 0;
                 }
             }
         }
@@ -1618,47 +1654,60 @@ void sub_GAME_7F0A46A0(void)
     }
 }
 #else
-void sub_GAME_7F0A46A0(Gfx *arg0, s32 arg1)
+void bullet_moving_sparks_update(Gfx *arg0, s32 arg1)
 {
-    sub_GAME_7F0A4528(arg0, arg1);
+    bullet_sparks_render(arg0, arg1);
 }
 #endif
 
 
+/**
+ * Address: 7F0A4768
+ */
 #ifndef VERSION_EU
 
-void sub_GAME_7F0A4768(Gfx *arg0, s32 arg1)
+void bullet_moving_sparks_render_all(Gfx *arg0, s32 arg1)
 {
-    int max_index;
-    bondstruct_unk_8007A4E0 *ptr;
-    max_index = 50;
-    for (ptr = &dword_CODE_bss_8007A4E0[0]; ptr < (&dword_CODE_bss_8007A4E0[max_index]); ptr++)
+    s32 max_index;
+    s_moving_bullet_spark *ptr;
+
+    max_index = BULLET_MOVING_SPARKS_MAX;
+
+    for (ptr = &g_MovingBulletSparkArray[0]; ptr < (&g_MovingBulletSparkArray[max_index]); ptr++)
     {
-        sub_GAME_7F0A3F04(&ptr->unk00, arg0, arg1);
+        bullet_spark_render(&ptr->unk00, arg0, arg1);
     }
 
 }
 
-void sub_GAME_7F0A47D4(void) {
-    sub_GAME_7F0A3BD8();
-    sub_GAME_7F0A45D8();
+
+/**
+ * Address: 7F0A47D4
+ */
+void bullet_sparks_reset_all(void) 
+{
+    bullet_sparks_reset();
+    bullet_moving_sparks_reset();
 }
 
-void update_bullet_sparks_and_dust_clouds(void) {
-    // unknown
-    sub_GAME_7F0A3EA0();
+
+void bullet_sparks_update_all(void) 
+{
+    bullet_sparks_update();
 
     // responsible for updating bullet sparks and dust clouds that spawn when shooting at other players
-    // the limit is 20, after which they'll stop spawning until some are removed
     // these are 2D and always facing the camera
-    sub_GAME_7F0A46A0();
+    bullet_moving_sparks_update();
 }
 
 
-
-void sub_GAME_7F0A4824(Gfx *arg0, s32 arg1) {
-    sub_GAME_7F0A4528(arg0, arg1);
-    sub_GAME_7F0A4768(arg0, arg1);
+/**
+ * Address: 7F0A4824
+ */
+void bullet_sparks_render_all(Gfx *arg0, s32 arg1) 
+{
+    bullet_sparks_render(arg0, arg1);
+    bullet_moving_sparks_render_all(arg0, arg1);
 }
 
 

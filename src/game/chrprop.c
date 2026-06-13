@@ -1438,7 +1438,7 @@ glabel chraiDefaultWeaponFireHandler
 /* 0704C4 7F03B994 02002025 */   move  $a0, $s0
 /* 0704C8 7F03B998 44060000 */  mfc1  $a2, $f0
 /* 0704CC 7F03B99C 24050001 */  li    $a1, 1
-/* 0704D0 7F03B9A0 0FC28F87 */  jal   sub_GAME_7F0A3E1C
+/* 0704D0 7F03B9A0 0FC28F87 */  jal   bullet_spark_create
 /* 0704D4 7F03B9A4 87A70546 */   lh    $a3, 0x546($sp)
 .L7F03B9A8:
 /* 0704D8 7F03B9A8 8FBF0034 */  lw    $ra, 0x34($sp)

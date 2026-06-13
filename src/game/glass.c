@@ -19,7 +19,7 @@
 #define SHARD_ANGVEL_SCALE 0.12f
 #endif
 
-#define UNK_8007A170_MAX 20
+#define BULLET_SPARKS_MAX 20
 
 // bss
 //CODE.bss:8007A160
