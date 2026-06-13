@@ -4140,10 +4140,10 @@ struct PortalMetric {
     f32 max;
 };
 
-struct FolderSelect {
-    s32 unk00;
-    s32 unk04;
-    s32 unk08;
+struct FolderSelectColour {
+    s32 red;
+    s32 green;
+    s32 blue;
 };
 
 struct damage_display_val {

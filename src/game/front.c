@@ -445,8 +445,8 @@ struct mission_folder_setup mission_folder_setup_entries[] = {
     {NULL, 0, 0, LEVELID_NONE, -1, MISSION_PART, -1, 0}
 };
 
-struct FolderSelect unknown_folderselect_constructor = { 0x14, 0x14, 0x14 };
-struct FolderSelect unknown_folderselect_constructor_0 = { 0x32, 0x32, 0x32 };
+struct FolderSelectColour unknown_folderselect_constructor = { 0x14, 0x14, 0x14 };
+struct FolderSelectColour unknown_folderselect_constructor_0 = { 0x32, 0x32, 0x32 };
 
 
 ModelRenderData     unknown_folderselect = {NULL,
@@ -2417,8 +2417,8 @@ char* get_ptr_difficulty_name(s32 difficulty)
 Gfx *constructor_menu05_fileselect(Gfx *DL)
 {
     s32 sp1B4;
-    struct FolderSelect sp1A8;
-    struct FolderSelect sp19C;
+    struct FolderSelectColour sp1A8;
+    struct FolderSelectColour sp19C;
     s32 j;
     s32 i;
     u8 *langp;
@@ -2441,7 +2441,7 @@ Gfx *constructor_menu05_fileselect(Gfx *DL)
     gDPSetCombineLERP(DL++, TEXEL0, PRIMITIVE, ENV_ALPHA, PRIMITIVE, 0, 0, 0, PRIMITIVE, TEXEL0, PRIMITIVE, ENV_ALPHA, PRIMITIVE, 0, 0, 0, PRIMITIVE);
     gDPSetEnvColor(DL++, 0xFF, 0xFF, 0xFF, 0x14);
 
-    DL = sub_GAME_7F007CC8(DL, (s32) floorFloat(((f32) viGetX() * -80.0f) / 1280.0f), &sp1A8, &sp19C);
+    DL = titleRenderFolderMenuBackground(DL, (s32) floorFloat(((f32) viGetX() * -80.0f) / 1280.0f), &sp1A8, &sp19C);
 
     gSPDisplayList(DL++, &dlBasicGeometry);
     gSPDisplayList(DL++, &dlFastPipelineSetup);

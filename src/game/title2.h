@@ -6,6 +6,6 @@
 
 #include "bondtypes.h"
 
-Gfx* sub_GAME_7F01B240(Gfx* gdl, s32 imgIndex, s32 x, struct FolderSelect* arg3, struct FolderSelect* arg4);
+Gfx* titleRenderFolderMenuBackgroundLines(Gfx* gdl, u8 *image, s32 x, struct FolderSelectColour* arg3, struct FolderSelectColour* arg4);
 
 #endif

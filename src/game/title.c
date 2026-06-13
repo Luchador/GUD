@@ -77,12 +77,9 @@ s32 dword_CODE_bss_80069594;
 u32 D_8002A7D0 = 0;
 u8 gunbarrel_mode = 0x3;
 u32 D_8002A7D8 = 0;
-/*
-s32 D_8002A7DC[3] = {0x00, 0x00, 0x00};
-s32 D_8002A7E8[3] = {0xFF, 0xFF, 0xFF};
-*/
-struct FolderSelect D_8002A7DC = { 0x00, 0x00, 0x00 };
-struct FolderSelect D_8002A7E8 = { 0xFF, 0xFF, 0xFF };
+
+struct FolderSelectColour g_FolderGradientBlack = { 0x00, 0x00, 0x00 };
+struct FolderSelectColour g_FolderGradientWhite = { 0xFF, 0xFF, 0xFF };
 
 Model *chrModelInstance = NULL;
 Model *gunModelInstance = NULL;
@@ -158,7 +155,11 @@ Gfx *insert_sight_backdrop_eye_intro(Gfx *gdl)
     return gdl;
 }
 
-Gfx *sub_GAME_7F007CC8(Gfx *gdl, s32 arg1, struct FolderSelect *arg2, struct FolderSelect *arg3)
+
+/**
+ * Address: 7F007CC8
+ */
+Gfx *titleRenderFolderMenuBackground(Gfx *gdl, s32 xOffset, struct FolderSelectColour *topColour, struct FolderSelectColour *bottomColour)
 {
     gDPSetRenderMode(gdl++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
     gDPSetCycleType(gdl++, G_CYC_1CYCLE);
@@ -166,13 +167,14 @@ Gfx *sub_GAME_7F007CC8(Gfx *gdl, s32 arg1, struct FolderSelect *arg2, struct Fol
     gDPSetTextureFilter(gdl++, G_TF_POINT);
     gDPPipeSync(gdl++);
 
-    return sub_GAME_7F01B240(gdl, OS_K0_TO_PHYSICAL(dword_CODE_bss_8006958C), arg1, arg2, arg3);
+    return titleRenderFolderMenuBackgroundLines(gdl, OS_K0_TO_PHYSICAL(dword_CODE_bss_8006958C), xOffset, topColour, bottomColour);
 }
+
 
 Gfx *insert_sniper_sight_eye_intro(Gfx *gdl)
 {
-    struct FolderSelect sp3C = D_8002A7DC;
-    struct FolderSelect sp30 = D_8002A7E8;
+    struct FolderSelectColour topGradientColour = g_FolderGradientBlack;
+    struct FolderSelectColour bottomGradientColour = g_FolderGradientWhite;
 
     gSPDisplayList(gdl++, &dlBasicGeometry);
 
@@ -180,8 +182,9 @@ Gfx *insert_sniper_sight_eye_intro(Gfx *gdl)
 
     gDPSetCombineMode(gdl++, G_CC_MODULATEI_PRIM, G_CC_MODULATEI_PRIM);
 
-    return sub_GAME_7F007CC8(gdl, floorFloat((viGetX() * g_TitleX) / 1280.0f), &sp3C, &sp30);
+    return titleRenderFolderMenuBackground(gdl, floorFloat((viGetX() * g_TitleX) / 1280.0f), &topGradientColour, &bottomGradientColour);
 }
+
 
 Gfx *sub_GAME_7F007E70(Gfx *gdl, u32 alpha)
 {
