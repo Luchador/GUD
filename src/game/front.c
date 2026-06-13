@@ -872,7 +872,7 @@ struct intro_random_pistols random_pistols_in_intro = {
 
 struct coord3d D_8002BA78 = { 0.0f, 0.0f, 1.0f };
 struct coord3d D_8002BA84 = { 0.0f, 0.0f, 0.0f };
-struct coord3d D_8002BA90 = { 0.0f, 1.0f, 0.0f };
+struct coord3d D_8002BA90 = { 0.0f, 1.0f, 0.0f }; // Display cast character up vector
 
 ModelRenderData D_8002BA9C = {NULL,
                               TRUE,

@@ -1455,76 +1455,53 @@ void sub_GAME_7F06DB5C(ModelRenderData *arg0, Model *arg1, ModelNode *arg2, quat
 }
 
 
+/**
+ * Address: 7F06DE04
+ */
+u32 modelAnimReadBitsAsU16Angle(u8 *bitstream, u8 width, u32 bitOffset)
+{
+    u32 value = 0;
+    u32 mask;
+    u8 numbitsthisbyte;
+    u8 remainingbits;
 
+    remainingbits = width;
+    value *= bitOffset / 8;
 
-u32 sub_GAME_7F06DE04(u8 *bitstream, u8 width, u32 bitOffset);
+    if(1);
 
-#ifdef NONMATCHING
-void sub_GAME_7F06DE04(void) {
+    remainingbits = width;
+    bitstream += bitOffset / 8;
+    bitOffset %= 8;
+    numbitsthisbyte = 8 - bitOffset;
 
+    while (remainingbits >= numbitsthisbyte)
+    {
+        remainingbits -= numbitsthisbyte;
+        mask = (1 << numbitsthisbyte) - 1;
+        value |= ((u16)((*bitstream) & mask)) << remainingbits;
+        value &= 0xffff;
+        bitstream++;
+        numbitsthisbyte = 8;
+    }
+
+    if (remainingbits > 0)
+    {
+        mask = (1 << remainingbits) - 1;
+        value |= ((*bitstream) >> (numbitsthisbyte - remainingbits)) & mask;
+        value &= 0xffff;
+    }
+
+    value <<= 16 - width;
+
+    return value & 0xffff;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F06DE04
-/* 0A2934 7F06DE04 30CF0007 */  andi  $t7, $a2, 7
-/* 0A2938 7F06DE08 24180008 */  li    $t8, 8
-/* 0A293C 7F06DE0C 030F4823 */  subu  $t1, $t8, $t7
-/* 0A2940 7F06DE10 30AA00FF */  andi  $t2, $a1, 0xff
-/* 0A2944 7F06DE14 313900FF */  andi  $t9, $t1, 0xff
-/* 0A2948 7F06DE18 000638C2 */  srl   $a3, $a2, 3
-/* 0A294C 7F06DE1C 0159082A */  slt   $at, $t2, $t9
-/* 0A2950 7F06DE20 AFA50004 */  sw    $a1, 4($sp)
-/* 0A2954 7F06DE24 00001825 */  move  $v1, $zero
-/* 0A2958 7F06DE28 314200FF */  andi  $v0, $t2, 0xff
-/* 0A295C 7F06DE2C 00872021 */  addu  $a0, $a0, $a3
-/* 0A2960 7F06DE30 14200013 */  bnez  $at, .L7F06DE80
-/* 0A2964 7F06DE34 312800FF */   andi  $t0, $t1, 0xff
-/* 0A2968 7F06DE38 00402825 */  move  $a1, $v0
-.L7F06DE3C:
-/* 0A296C 7F06DE3C 908C0000 */  lbu   $t4, ($a0)
-/* 0A2970 7F06DE40 240D0001 */  li    $t5, 1
-/* 0A2974 7F06DE44 010D7004 */  sllv  $t6, $t5, $t0
-/* 0A2978 7F06DE48 25CFFFFF */  addiu $t7, $t6, -1
-/* 0A297C 7F06DE4C 00A81023 */  subu  $v0, $a1, $t0
-/* 0A2980 7F06DE50 018FC024 */  and   $t8, $t4, $t7
-/* 0A2984 7F06DE54 304500FF */  andi  $a1, $v0, 0xff
-/* 0A2988 7F06DE58 3319FFFF */  andi  $t9, $t8, 0xffff
-/* 0A298C 7F06DE5C 00B95804 */  sllv  $t3, $t9, $a1
-/* 0A2990 7F06DE60 006B1825 */  or    $v1, $v1, $t3
-/* 0A2994 7F06DE64 306DFFFF */  andi  $t5, $v1, 0xffff
-/* 0A2998 7F06DE68 28A10008 */  slti  $at, $a1, 8
-/* 0A299C 7F06DE6C 00A01025 */  move  $v0, $a1
-/* 0A29A0 7F06DE70 01A01825 */  move  $v1, $t5
-/* 0A29A4 7F06DE74 24840001 */  addiu $a0, $a0, 1
-/* 0A29A8 7F06DE78 1020FFF0 */  beqz  $at, .L7F06DE3C
-/* 0A29AC 7F06DE7C 24080008 */   li    $t0, 8
-.L7F06DE80:
-/* 0A29B0 7F06DE80 1840000A */  blez  $v0, .L7F06DEAC
-/* 0A29B4 7F06DE84 01026023 */   subu  $t4, $t0, $v0
-/* 0A29B8 7F06DE88 908E0000 */  lbu   $t6, ($a0)
-/* 0A29BC 7F06DE8C 24180001 */  li    $t8, 1
-/* 0A29C0 7F06DE90 0058C804 */  sllv  $t9, $t8, $v0
-/* 0A29C4 7F06DE94 272BFFFF */  addiu $t3, $t9, -1
-/* 0A29C8 7F06DE98 018E7807 */  srav  $t7, $t6, $t4
-/* 0A29CC 7F06DE9C 01EB6824 */  and   $t5, $t7, $t3
-/* 0A29D0 7F06DEA0 006D1825 */  or    $v1, $v1, $t5
-/* 0A29D4 7F06DEA4 306EFFFF */  andi  $t6, $v1, 0xffff
-/* 0A29D8 7F06DEA8 01C01825 */  move  $v1, $t6
-.L7F06DEAC:
-/* 0A29DC 7F06DEAC 240C0010 */  li    $t4, 16
-/* 0A29E0 7F06DEB0 018AC023 */  subu  $t8, $t4, $t2
-/* 0A29E4 7F06DEB4 03031804 */  sllv  $v1, $v1, $t8
-/* 0A29E8 7F06DEB8 03E00008 */  jr    $ra
-/* 0A29EC 7F06DEBC 3062FFFF */   andi  $v0, $v1, 0xffff
-)
-#endif
 
 
 /**
  * Address: 7F06DEC0
  */
-void sub_GAME_7F06DEC0(s32 jointnum, s32 useAlternate, ModelSkeleton *skeleton, ModelAnimation *anim, u8 *bitstream, coord3d *rot)
+void sub_GAME_7F06DEC0(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnimation *anim, u8 *bitstream, coord3d *rot)
 {
     u32 bitoffset;
     u8 width;
@@ -1532,7 +1509,8 @@ void sub_GAME_7F06DEC0(s32 jointnum, s32 useAlternate, ModelSkeleton *skeleton, 
 
     width = anim->unk06;
 
-    if (useAlternate)
+    // Mirrored joint rotation?
+    if (flip)
     {
         bitoffset = skeleton->Joints[jointnum].mtxB * width;
     }
@@ -1543,17 +1521,17 @@ void sub_GAME_7F06DEC0(s32 jointnum, s32 useAlternate, ModelSkeleton *skeleton, 
 
     width = anim->unk06;
 
-    rotation[0] = sub_GAME_7F06DE04(bitstream, width, bitoffset);
+    rotation[0] = modelAnimReadBitsAsU16Angle(bitstream, width, bitoffset);
     bitoffset += (unsigned long) width;
 
-    rotation[1] = sub_GAME_7F06DE04(bitstream, width, bitoffset);
+    rotation[1] = modelAnimReadBitsAsU16Angle(bitstream, width, bitoffset);
     bitoffset += width;
 
-    rotation[2] = sub_GAME_7F06DE04(bitstream, width, bitoffset);
+    rotation[2] = modelAnimReadBitsAsU16Angle(bitstream, width, bitoffset);
 
     rot->x = (rotation[0] * M_TAU_F) / M_U16_MAX_VALUE_F;
 
-    if (useAlternate)
+    if (flip)
     {
         if (rotation[1] != 0)
         {
@@ -1774,7 +1752,7 @@ f32 sub_GAME_7F06E540(s32 jointIndex, s32 useMtxB, ModelSkeleton *skeleton, Mode
         bitOffset = skeleton->Joints[jointIndex].mtxA * width;
     }
 
-    raw = sub_GAME_7F06DE04(bitstream, width, bitOffset);
+    raw = modelAnimReadBitsAsU16Angle(bitstream, width, bitOffset);
 
     if (useMtxB != 0) {
         if (raw != 0) {

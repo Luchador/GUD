@@ -2988,6 +2988,7 @@ enum CCRMLUT
         BODY_Natalya_Jungle_Fatigues,
         BODIES_MAX
     } BODIES;
+    
     typedef enum GENDER
     {
         FEMALE,
