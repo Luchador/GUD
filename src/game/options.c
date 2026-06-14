@@ -126,7 +126,7 @@ u32 D_80040B00 = 0xA;
 s32 g_WatchBackgroundGreen = 0xE0;
 
 //D:80040B08
-u32 D_80040B08 = 0;
+u32 g_WatchStaticScanlineAlpha = 0;
 
 //D:80040B0C
 u32 D_80040B0C = 0xFFA0;
@@ -155,7 +155,7 @@ f32 D_80040B38 = 0.0f;
 //D:80040B3C
 s32 D_80040B3C = 0;
 //D:80040B40
-s32 D_80040B40 = 0;
+s32 g_WatchStaticScanlineY = 0;
 //D:80040B44
 u16 D_80040B44 = 0x1;
 //D:80040B48
@@ -265,7 +265,6 @@ Gfx *draw_watch_game_options_page(Gfx *gdl, Mtx *param_2);
 Gfx *draw_watch_mission_briefing_page(Gfx *gdl, Mtx *param_2);
 Gfx *draw_background_health_and_armor_transitioning(Gfx *gdl, Mtx *param_2);
 Gfx *draw_background_health_and_armor(Gfx *gdl, Mtx *arg1, s32 zoom_squish);
-void sub_GAME_7F0A68D8(s32 *arg0);
 void game_option_select_value(u32 *param_1, u32 param_2);
 void watch_adjust_volume_slider(u16* arg0);
 Gfx *sub_GAME_7F0A3B40(Gfx *gdl, s32 *arg1);
@@ -326,7 +325,7 @@ void init_watch_at_start_of_stage(int stage)
     D_80040AFC = 0xff;
     D_80040B00 = 10;
     g_WatchBackgroundGreen = 0xe0;
-    D_80040B08 = 0;
+    g_WatchStaticScanlineAlpha = 0;
     D_80040B0C = 0xffa0;
     D_80040B10 = 0xf800;
     D_80040B14 = 0.0f;
@@ -340,7 +339,7 @@ void init_watch_at_start_of_stage(int stage)
     D_80040B34 = 0.0f;
     D_80040B38 = 0.0f;
     D_80040B3C = 0;
-    D_80040B40 = 0;
+    g_WatchStaticScanlineY = 0;
     D_80040B44 = 1;
     D_80040B48 = 0x32;
     D_80040B4C = 0x32;
@@ -1604,73 +1603,42 @@ void mission_brief_objectives_navigation(void)
 }
 
 
-#ifdef NONMATCHING
-void sub_GAME_7F0A68D8(void) {
+void build_watch_static_scanline_vertices(Vtx *vertices)
+{
+    s32 halfWidth; // Half width for the scanline
+    Vtx *vertex;
+    s32 zoffs;
+    s32 greenChannelIndex;
+    s32 side;
 
+    // Fit the width of the scanline to the watch's green circle
+    halfWidth = sqrtf(213444.0f - ((f32) (g_WatchStaticScanlineY * g_WatchStaticScanlineY)));
+
+    for (zoffs = 0; zoffs != 8; zoffs += 4)
+    {
+        for (side = -1; side != 3; side += 2)
+        {
+            vertex = vertices;
+
+            vertex->v.ob[0] = halfWidth * side;
+            vertex->v.ob[1] = 0;
+            vertex->v.ob[2] = zoffs + g_WatchStaticScanlineY;
+
+            vertex->v.cn[1] = 0xA0;
+            vertex->v.flag = 0;
+            vertex->v.tc[0] = 0;
+            vertex->v.tc[1] = 0;
+            vertex->v.cn[0] = 0;
+
+            greenChannelIndex = 1;
+            vertex->v.cn[greenChannelIndex] = 0xA0;
+            vertex->v.cn[2] = 0;
+            vertex->v.cn[3] = g_WatchStaticScanlineAlpha;
+
+            vertices++;
+        }
+    }
 }
-#else
-GLOBAL_ASM(
-.late_rodata
-glabel D_800584AC
-.word 0x48507100 /*213444.0*/
-.text
-glabel sub_GAME_7F0A68D8
-/* 0DB408 7F0A68D8 3C098004 */  lui   $t1, %hi(D_80040B40)
-/* 0DB40C 7F0A68DC 25290B40 */  addiu $t1, %lo(D_80040B40) # addiu $t1, $t1, 0xb40
-/* 0DB410 7F0A68E0 8D220000 */  lw    $v0, ($t1)
-/* 0DB414 7F0A68E4 3C018006 */  lui   $at, %hi(D_800584AC)
-/* 0DB418 7F0A68E8 C42484AC */  lwc1  $f4, %lo(D_800584AC)($at)
-/* 0DB41C 7F0A68EC 00420019 */  multu $v0, $v0
-/* 0DB420 7F0A68F0 27BDFFE8 */  addiu $sp, $sp, -0x18
-/* 0DB424 7F0A68F4 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0DB428 7F0A68F8 AFA40018 */  sw    $a0, 0x18($sp)
-/* 0DB42C 7F0A68FC 00007012 */  mflo  $t6
-/* 0DB430 7F0A6900 448E3000 */  mtc1  $t6, $f6
-/* 0DB434 7F0A6904 00000000 */  nop
-/* 0DB438 7F0A6908 46803220 */  cvt.s.w $f8, $f6
-/* 0DB43C 7F0A690C 0C007DF8 */  jal   sqrtf
-/* 0DB440 7F0A6910 46082301 */   sub.s $f12, $f4, $f8
-/* 0DB444 7F0A6914 4600028D */  trunc.w.s $f10, $f0
-/* 0DB448 7F0A6918 3C098004 */  lui   $t1, %hi(D_80040B40)
-/* 0DB44C 7F0A691C 3C078004 */  lui   $a3, %hi(D_80040B08)
-/* 0DB450 7F0A6920 25290B40 */  addiu $t1, %lo(D_80040B40) # addiu $t1, $t1, 0xb40
-/* 0DB454 7F0A6924 44055000 */  mfc1  $a1, $f10
-/* 0DB458 7F0A6928 8FA40018 */  lw    $a0, 0x18($sp)
-/* 0DB45C 7F0A692C 24E70B08 */  addiu $a3, %lo(D_80040B08) # addiu $a3, $a3, 0xb08
-/* 0DB460 7F0A6930 00001825 */  move  $v1, $zero
-/* 0DB464 7F0A6934 240A0008 */  li    $t2, 8
-/* 0DB468 7F0A6938 24080003 */  li    $t0, 3
-/* 0DB46C 7F0A693C 240600A0 */  li    $a2, 160
-/* 0DB470 7F0A6940 2402FFFF */  li    $v0, -1
-.L7F0A6944:
-/* 0DB474 7F0A6944 00A20019 */  multu $a1, $v0
-/* 0DB478 7F0A6948 A4800002 */  sh    $zero, 2($a0)
-/* 0DB47C 7F0A694C 24420002 */  addiu $v0, $v0, 2
-/* 0DB480 7F0A6950 24840010 */  addiu $a0, $a0, 0x10
-/* 0DB484 7F0A6954 0000C012 */  mflo  $t8
-/* 0DB488 7F0A6958 A498FFF0 */  sh    $t8, -0x10($a0)
-/* 0DB48C 7F0A695C 8D390000 */  lw    $t9, ($t1)
-/* 0DB490 7F0A6960 A480FFF6 */  sh    $zero, -0xa($a0)
-/* 0DB494 7F0A6964 A480FFF8 */  sh    $zero, -8($a0)
-/* 0DB498 7F0A6968 00795821 */  addu  $t3, $v1, $t9
-/* 0DB49C 7F0A696C A48BFFF4 */  sh    $t3, -0xc($a0)
-/* 0DB4A0 7F0A6970 A480FFFA */  sh    $zero, -6($a0)
-/* 0DB4A4 7F0A6974 A080FFFC */  sb    $zero, -4($a0)
-/* 0DB4A8 7F0A6978 A086FFFD */  sb    $a2, -3($a0)
-/* 0DB4AC 7F0A697C A080FFFE */  sb    $zero, -2($a0)
-/* 0DB4B0 7F0A6980 8CEC0000 */  lw    $t4, ($a3)
-/* 0DB4B4 7F0A6984 1448FFEF */  bne   $v0, $t0, .L7F0A6944
-/* 0DB4B8 7F0A6988 A08CFFFF */   sb    $t4, -1($a0)
-/* 0DB4BC 7F0A698C 24630004 */  addiu $v1, $v1, 4
-/* 0DB4C0 7F0A6990 546AFFEC */  bnel  $v1, $t2, .L7F0A6944
-/* 0DB4C4 7F0A6994 2402FFFF */   li    $v0, -1
-/* 0DB4C8 7F0A6998 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 0DB4CC 7F0A699C 27BD0018 */  addiu $sp, $sp, 0x18
-/* 0DB4D0 7F0A69A0 03E00008 */  jr    $ra
-/* 0DB4D4 7F0A69A4 00000000 */   nop
-)
-#endif
-
 
 
 void sub_GAME_7F0A69A8(void)
@@ -1804,15 +1772,15 @@ void sub_GAME_7F0A6A80(void)
         g_WatchBackgroundGreen = 0xe0;
     }
 
-    D_80040B08 = ((-g_WatchBackgroundGreen * 4) + 0x380);
-    D_80040B40 = D_80040B40 - 4;
+    g_WatchStaticScanlineAlpha = ((-g_WatchBackgroundGreen * 4) + 0x380);
+    g_WatchStaticScanlineY = g_WatchStaticScanlineY - 4;
 
-    if (D_80040B40 >= 0x157) {
-        D_80040B40 = -0x156;
+    if (g_WatchStaticScanlineY >= 0x157) {
+        g_WatchStaticScanlineY = -0x156;
     }
 
-    if (D_80040B40 < -0x156) {
-        D_80040B40 = 0x156;
+    if (g_WatchStaticScanlineY < -0x156) {
+        g_WatchStaticScanlineY = 0x156;
     }
 
     D_80040B44 = (s16)D_80040B44 + 1;
@@ -2142,7 +2110,8 @@ Gfx *draw_background_health_and_armor(Gfx *gdl, Mtx *arg1, s32 zoom_squish)
 
     if (g_WatchBackgroundGreen < 0xE0)
     {
-        sub_GAME_7F0A68D8(g_CurrentPlayer->buffer_for_watch_static_vertices);
+        // Create the thin green scanline that moves up the screen while the watch does static.
+        build_watch_static_scanline_vertices(g_CurrentPlayer->buffer_for_watch_static_vertices);
 
         gDPSetRenderMode(gdl++, G_RM_AA_XLU_SURF, G_RM_AA_XLU_SURF2);
         gSPDisplayList(gdl++, OS_PHYSICAL_TO_K0(g_CurrentPlayer->buffer_for_watch_static_DL));
@@ -2150,6 +2119,7 @@ Gfx *draw_background_health_and_armor(Gfx *gdl, Mtx *arg1, s32 zoom_squish)
 
     return gdl;
 }
+
 
 Gfx *draw_background_health_and_armor_transitioning(Gfx *gdl, Mtx *param_2)
 {
