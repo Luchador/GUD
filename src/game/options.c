@@ -256,7 +256,7 @@ const char D_80058454[];
 
 // forward declarations
 
-void set_page_rectangle_colors(s32 watch_screen_index, struct WatchVertex *arg2);
+void set_page_rectangle_colors(s32 watch_screen_index, struct WatchVertex *vertices);
 Gfx *draw_watch_mission_status_page(Gfx *gdl, Mtx *param_2);
 Gfx *unused_draw_watch_inventory_page(Gfx *gdl, Mtx *param_2);
 Gfx *draw_watch_inventory_page(Gfx *gdl, Mtx *param_2);
@@ -1862,95 +1862,34 @@ Gfx *sub_GAME_7F0A6EE8(Gfx *DL)
 }
 
 
-#ifdef NONMATCHING
-/**
- * Decomp notes: match down to regalloc.
-*/
-void set_page_rectangle_colors(s32 watch_screen_index, struct WatchVertex *arg2)
+void set_page_rectangle_colors(s32 watch_screen_index, struct WatchVertex *vertices)
 {
     s32 i;
-    s32 limit;
 
-    // Default color for rectangle.
-    for (i=0; i<(4 * WATCH_NUMBER_SCREENS); i++)
+    // Unselected rectangles.
+    for (i = 0; i < 20; i++)
     {
-        arg2[i].color.r = 0x20;
-        arg2[i].color.g = 0x70;
-        arg2[i].color.b = 0x20;
+        vertices[i].color.r = 0x20;
+        vertices[i].color.g = 0x70;
+        vertices[i].color.b = 0x20;
     }
 
-    i = watch_screen_index * 4;
-    limit = i + 3;
-    for ( ; i <= limit; i++)
+    // Currently selected page rectangle.
+    for (i = watch_screen_index * 4; i <= watch_screen_index * 4 + 3; i++)
     {
-        // Color of currently selected screen
-        arg2[i].color.r = 0x50;
-        arg2[i].color.g = 0xF0;
-        arg2[i].color.b = 0x50;
+        vertices[i].color.r = 0x50;
+        vertices[i].color.g = 0xF0;
+        vertices[i].color.b = 0x50;
 
+        // Currently selected page rectangle, but something else is in focus e.g. toggling options or manipulating the controller on the controller screen.
         if (watch_item_is_actively_selected)
         {
-            // Color of currently selected screen when a menu option is selected.
-            // This applies on main screen, game options, controller options, objective status, but not inventory.
-            arg2[i].color.r = 0x30;
-            arg2[i].color.g = 0xA0;
-            arg2[i].color.b = 0x30;
+            vertices[i].color.r = 0x30;
+            vertices[i].color.g = 0xA0;
+            vertices[i].color.b = 0x30;
         }
     }
 }
-#else
-GLOBAL_ASM(
-.text
-glabel set_page_rectangle_colors
-/* 0DBBDC 7F0A70AC 00001025 */  move  $v0, $zero
-/* 0DBBE0 7F0A70B0 00A01825 */  move  $v1, $a1
-/* 0DBBE4 7F0A70B4 24070070 */  li    $a3, 112
-/* 0DBBE8 7F0A70B8 24060020 */  li    $a2, 32
-.L7F0A70BC:
-/* 0DBBEC 7F0A70BC 24420001 */  addiu $v0, $v0, 1
-/* 0DBBF0 7F0A70C0 28410014 */  slti  $at, $v0, 0x14
-/* 0DBBF4 7F0A70C4 24630010 */  addiu $v1, $v1, 0x10
-/* 0DBBF8 7F0A70C8 A066FFFC */  sb    $a2, -4($v1)
-/* 0DBBFC 7F0A70CC A067FFFD */  sb    $a3, -3($v1)
-/* 0DBC00 7F0A70D0 1420FFFA */  bnez  $at, .L7F0A70BC
-/* 0DBC04 7F0A70D4 A066FFFE */   sb    $a2, -2($v1)
-/* 0DBC08 7F0A70D8 00041880 */  sll   $v1, $a0, 2
-/* 0DBC0C 7F0A70DC 24660003 */  addiu $a2, $v1, 3
-/* 0DBC10 7F0A70E0 00C3082A */  slt   $at, $a2, $v1
-/* 0DBC14 7F0A70E4 14200017 */  bnez  $at, .L7F0A7144
-/* 0DBC18 7F0A70E8 00037100 */   sll   $t6, $v1, 4
-/* 0DBC1C 7F0A70EC 00067900 */  sll   $t7, $a2, 4
-/* 0DBC20 7F0A70F0 01E52021 */  addu  $a0, $t7, $a1
-/* 0DBC24 7F0A70F4 3C068004 */  lui   $a2, %hi(watch_item_is_actively_selected)
-/* 0DBC28 7F0A70F8 00AE1821 */  addu  $v1, $a1, $t6
-/* 0DBC2C 7F0A70FC 240500F0 */  li    $a1, 240
-/* 0DBC30 7F0A7100 24C609A8 */  addiu $a2, %lo(watch_item_is_actively_selected) # addiu $a2, $a2, 0x9a8
-/* 0DBC34 7F0A7104 240800A0 */  li    $t0, 160
-/* 0DBC38 7F0A7108 24070030 */  li    $a3, 48
-/* 0DBC3C 7F0A710C 24020050 */  li    $v0, 80
-/* 0DBC40 7F0A7110 A062000C */  sb    $v0, 0xc($v1)
-.L7F0A7114:
-/* 0DBC44 7F0A7114 A065000D */  sb    $a1, 0xd($v1)
-/* 0DBC48 7F0A7118 A062000E */  sb    $v0, 0xe($v1)
-/* 0DBC4C 7F0A711C 8CD80000 */  lw    $t8, ($a2)
-/* 0DBC50 7F0A7120 53000005 */  beql  $t8, $zero, .L7F0A7138
-/* 0DBC54 7F0A7124 24630010 */   addiu $v1, $v1, 0x10
-/* 0DBC58 7F0A7128 A067000C */  sb    $a3, 0xc($v1)
-/* 0DBC5C 7F0A712C A068000D */  sb    $t0, 0xd($v1)
-/* 0DBC60 7F0A7130 A067000E */  sb    $a3, 0xe($v1)
-/* 0DBC64 7F0A7134 24630010 */  addiu $v1, $v1, 0x10
-.L7F0A7138:
-/* 0DBC68 7F0A7138 0083082B */  sltu  $at, $a0, $v1
-/* 0DBC6C 7F0A713C 5020FFF5 */  beql  $at, $zero, .L7F0A7114
-/* 0DBC70 7F0A7140 A062000C */   sb    $v0, 0xc($v1)
-.L7F0A7144:
-/* 0DBC74 7F0A7144 03E00008 */  jr    $ra
-/* 0DBC78 7F0A7148 00000000 */   nop
-)
-#endif
-
-
-
 
 
 /**
