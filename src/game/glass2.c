@@ -10,6 +10,7 @@
 
 #define BULLET_SPARKS_MAX 20
 #define BULLET_MOVING_SPARKS_MAX 50
+#define GAUGE_BAR_VERTEX_PAIR_STRIDE (2 * sizeof(struct WatchVertex))
 
 //D:80040960
 struct rgba_u8 g_BulletSparkColors[8] = {
@@ -226,41 +227,31 @@ void hudMakeDamageSegments(struct damage_display_val *HealthSegments, s32 numSeg
  * Address: 7F0A3330
  *
  * Creates the display list for HUD and watch health and armor bars.
- *
- * Unsure of the exact gfx macro for the B1 packet, so sticking with raw words for now.
- *
- * gfxdis was unable to decode:
- *   0xB1000032 0x00002110
- *
- * Based on function use, it is almost certainly a two tri or quad command
- *
- * The line splice '\' is required for matching.
  */
-Gfx *buildGaugeBarDL(Gfx *gdl, u32 arg1, s32 arg2)
+Gfx *buildGaugeBarDL(Gfx *gdl, uintptr_t vtxaddr, s32 numvertices)
 {
     s8 i;
 
-    for (i = 0; i <= (arg2 / 2 - 2); i++) {
-        gSPVertex(gdl++, arg1, 4, 0);
-        if (i >= 9) {
-            if ((i + 3) % 4) {
-                {
-                    Gfx *_g = gdl++;\
-                    _g->words.w0 = 0xB1000032;\
-                    _g->words.w1 = 0x00002110;\
-                }
+    for (i = 0; i <= (numvertices / 2 - 2); i++) 
+    {
+        gSPVertex(gdl++, vtxaddr, 4, 0);
+
+        if (i >= 9) 
+        {
+            if ((i + 3) % 4) 
+            {
+                gSP2Triangles(gdl++, 0, 1, 2, 0, 1, 2, 3, 0);
             }
-        } else if (i < 9) {
-            if ((i & 1) == 0) {
-                {
-                    Gfx *_g = gdl++;\
-                    _g->words.w0 = 0xB1000032;\
-                    _g->words.w1 = 0x00002110;\
-                }
+        } 
+        else if (i < 9) 
+        {
+            if ((i & 1) == 0) 
+            {
+                gSP2Triangles(gdl++, 0, 1, 2, 0, 1, 2, 3, 0);
             }
         }
 
-        arg1 += 0x20;
+        vtxaddr += GAUGE_BAR_VERTEX_PAIR_STRIDE;
     }
 
     gSPEndDisplayList(gdl++);
