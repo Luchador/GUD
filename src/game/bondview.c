@@ -7150,7 +7150,7 @@ void trigger_solo_watch_menu(s32 arg0)
     Gfx *ptr_b;
     struct WatchVertex *next;
     struct WatchVertex *ptr_copy;
-    int i;
+    s32 i;
 
     if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x0)
     {
