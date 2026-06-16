@@ -864,8 +864,7 @@ s32 chrpropFindClosestBgHitRoom(s32 unused, coord3d *from, coord3d *to, coord3d 
 
 #ifdef NONMATCHING
 void chraiDefaultWeaponFireHandler(void) {
-
-}
+    assert(!IsBadVec3d((vec3d *)phit.hits[i].hitinfo.hitpos)}
 #else
 GLOBAL_ASM(
 .text
@@ -1603,19 +1602,19 @@ void chraiFistAttackHandler(s32 hand, s32 item_id)
     {
         prop = *propptr;
 
-        if (prop == NULL) 
+        if (prop == NULL)
         {
             continue;
         }
 
-        if (!(prop->zDepth < 500.0f)) 
+        if (!(prop->zDepth < 500.0f))
         {
             continue;
         }
 
-        if (prop->type != PROP_TYPE_CHR) 
+        if (prop->type != PROP_TYPE_CHR)
         {
-            if (prop->type != PROP_TYPE_VIEWER) 
+            if (prop->type != PROP_TYPE_VIEWER)
             {
                 continue;
             }
@@ -1625,7 +1624,7 @@ void chraiFistAttackHandler(s32 hand, s32 item_id)
                 continue;
             }
 
-            if (getPlayerPointerIndex(prop) == get_cur_playernum()) 
+            if (getPlayerPointerIndex(prop) == get_cur_playernum())
             {
                 continue;
             }
@@ -1634,50 +1633,50 @@ void chraiFistAttackHandler(s32 hand, s32 item_id)
         reach = 50.0f;
         chr = prop->chr;
 
-        if (getCurrentWeaponOrItem() == ITEM_SNIPERRIFLE) 
+        if (getCurrentWeaponOrItem() == ITEM_SNIPERRIFLE)
         {
             reach = 100.0f;
         }
 
         modelGetAxisExtents(chr->model, &max0, &min0, 0);
 
-        if (!(0.0f <= max0)) 
+        if (!(0.0f <= max0))
         {
             continue;
         }
 
-        if (!(min0 <= 0.0f)) 
+        if (!(min0 <= 0.0f))
         {
             continue;
         }
 
         modelGetAxisExtents(chr->model, &max1, &min1, 1);
 
-        if (!(0.0f <= max1)) 
+        if (!(0.0f <= max1))
         {
             continue;
         }
 
-        if (!(min1 <= 0.0f)) 
+        if (!(min1 <= 0.0f))
         {
             continue;
         }
 
         modelGetAxisExtents(chr->model, &max2, &min2, 2);
 
-        if (!(min2 <= 0.0f)) 
+        if (!(min2 <= 0.0f))
         {
             continue;
         }
 
-        if (!((-reach) <= max2)) 
+        if (!((-reach) <= max2))
         {
             continue;
         }
 
         tile = playerprop->stan;
 
-        if (!stanTestLineUnobstructed(&tile, playerprop->pos.x, playerprop->pos.z, prop->pos.x, prop->pos.z, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PATHBLOCKER, ducking, ducking, 0.0f, 1.0f)) 
+        if (!stanTestLineUnobstructed(&tile, playerprop->pos.x, playerprop->pos.z, prop->pos.x, prop->pos.z, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PATHBLOCKER, ducking, ducking, 0.0f, 1.0f))
         {
             continue;
         }
@@ -1690,8 +1689,8 @@ void chraiFistAttackHandler(s32 hand, s32 item_id)
 
         if (currentPlayerGetCrouchPos() == CROUCH_HALF) {
             hitpart = HIT_GENERAL;
-        } 
-        else if (currentPlayerGetCrouchPos() == CROUCH_SQUAT) 
+        }
+        else if (currentPlayerGetCrouchPos() == CROUCH_SQUAT)
         {
             hitpart = HIT_GENERALHALF;
         }
@@ -1701,14 +1700,14 @@ void chraiFistAttackHandler(s32 hand, s32 item_id)
         bullet_path_from_screen_center(&from, &vector, hand);
         mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), &vector);
 
-        if (handles_shot_actors(chr, hitpart, &vector, item_id, 1)) 
+        if (handles_shot_actors(chr, hitpart, &vector, item_id, 1))
         {
             recall_joy2_hits_edit_detail_edit_flag(item_id, prop, -1);
             hit = 1;
         }
     }
 
-    if ((!hit) && (item_id == ITEM_FIST)) 
+    if ((!hit) && (item_id == ITEM_FIST))
     {
         sndPlaySfx(g_musicSfxBufferPtr, PUNCHING_AIR_SFX, 0);
     }
@@ -1960,7 +1959,7 @@ s32 chrpropIsFarFromPlayers(PropRecord* prop)
 
 /**
  * Per-frame tick for chrprop-managed props.
- * 
+ *
  * 1) Advance all AI act states.
  * 2) Update NPC bullet tracers.
  * 3) Handle MP pickup respawns.
@@ -1983,12 +1982,12 @@ void chrpropTick(void)
     s32 cmdindex;
     s32 pad;
     ObjectRecord *setupobj;
-    
+
     // Advance AI states e.g. attacking, walking, dying, etc...
     chrlvAllChrTick();
-    
+
     prop = get_ptr_obj_pos_list_current_entry();
-    
+
     while (prop != NULL)
     {
         prev = prop->prev;
@@ -2004,18 +2003,18 @@ void chrpropTick(void)
         {
             obj = prop->obj;
             skip_regen_sfx = FALSE;
-            
+
             if (prop->timetoregen > 0)
             {
                 is_under_60 = TRUE;
-                
+
                 if (prop->timetoregen >= CHROBJ_TIMETOREGEN)
                 {
                     is_under_60 = FALSE;
                 }
-                
+
                 prop->timetoregen -= g_ClockTimer;
-                
+
                 if (prop->timetoregen < CHROBJ_TIMETOREGEN)
                 {
                     if (!is_under_60)
@@ -2026,7 +2025,7 @@ void chrpropTick(void)
                         }
                     }
                 }
-                
+
                 if (prop->timetoregen <= 0)
                 {
                     prop->timetoregen = 0;
@@ -2047,12 +2046,12 @@ void chrpropTick(void)
                         {
                             chrpropDeregisterRooms(prop);
                             chrpropDelist(prop);
-                            
+
                             obj->runtime_bitflags &= ~RUNTIMEBITFLAG_00000800;
                             cmdindex = setupGetCommandIndexByProp(prop);
                             pad = obj->pad;
                             setupobj = setupCommandGetObject(lvlGetCurrentStageToLoad(), cmdindex + pad);
-                            
+
                             if ((setupobj != NULL) && (setupobj->prop != NULL))
                             {
                                 modelSetScale(obj->model, obj->model->scale);
@@ -2083,25 +2082,25 @@ void chrpropTick(void)
                         {
                             obj->flags &= ~PROPFLAG_00000100;
                         }
-                        
+
                         obj->maxdamage = 0.0f;
                         obj->state &= ~PROPSTATE_DESTROYED;
                         sub_GAME_7F050DE8(obj->model);
                     }
-                        
+
                     if (obj->type == PROPDEF_ARMOUR)
                     {
                         ((BodyArmourRecord *) obj)->amount = ((BodyArmourRecord *) obj)->initialamount;
                     }
-                        
+
                     if (!skip_regen_sfx)
                     {
                         chrobjSndCreatePostEventDefault(sndPlaySfx(g_musicSfxBufferPtr, OBJ_REGEN_SFX, NULL), &prop->pos);
                     }
-                
+
                 }
             }
-            
+
             // Update autogun bullet tracers.
             if (obj->type == PROPDEF_AUTOGUN)
             {
@@ -2126,7 +2125,7 @@ void chrpropTick(void)
                 gunAdvanceBeamTimer(&g_playerPointers[playernum]->hands[0].weapon_beam);
                 playernum = getPlayerPointerIndex(prop);
                 gunAdvanceBeamTimer(&g_playerPointers[playernum]->hands[1].weapon_beam);
-                
+
                 // Update MP character bullet tracers.
                 if (prop->chr != NULL)
                 {
@@ -2139,7 +2138,7 @@ void chrpropTick(void)
                 }
             }
         }
-        
+
         if (tickop == 5)
         {
           next = prev;
@@ -2151,7 +2150,7 @@ void chrpropTick(void)
             {
                 chrpropDelist(prop);
                 chrpropActivateThisFrame(prop);
-                
+
                 if (next == NULL)
                 {
                     next = prop;
@@ -2162,7 +2161,7 @@ void chrpropTick(void)
                 propExecuteTickOperation(prop, tickop);
             }
         }
-            
+
         prop = next;
     }
 }
@@ -2544,7 +2543,7 @@ void sub_GAME_7F03D0D4(void)
 
 /**
  * Address: 7F03D188
- * 
+ *
  * Calculates an auto-aim score for a given prop based roughly on how close it is to the center of the screen.
  * Higher scores are better, with 1.0 being the best possible score.
  */
@@ -4349,7 +4348,7 @@ void sub_GAME_7F03F540(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf* arg1, s
 
 /**
  * Address: 7F03F598
- * 
+ *
  * Tests whether a world-space point is inside a bound pad's local bbox plus
  * a padding on all axes defined by the radius parameter.
  */

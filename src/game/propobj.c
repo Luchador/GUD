@@ -30435,7 +30435,7 @@ glabel maybe_detonate_object
 
 
 
-/**  
+/**
  * This is the former non-matching block for sub_GAME_7F04E720. These asserts belong somewhere in sub_GAME_7F04E720
  *
  *   void sub_GAME_7F04E720(PropRecord* prop, struct ShotData* hitinfo) {

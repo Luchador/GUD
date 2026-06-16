@@ -1078,13 +1078,13 @@ void bullet_sparks_init(s_bullet_spark *spark, coord3d *arg1, s32 arg2, f32 arg3
 /**
  * Address: 7F0A3E1C
  */
-s_bullet_spark *bullet_spark_create(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3) 
+s_bullet_spark *bullet_spark_create(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3)
 {
     s_bullet_spark *ptr;
 
-    for (ptr = &g_BulletSparkArray[0]; ptr < &g_BulletSparkArray[BULLET_SPARKS_MAX]; ptr++) 
+    for (ptr = &g_BulletSparkArray[0]; ptr < &g_BulletSparkArray[BULLET_SPARKS_MAX]; ptr++)
     {
-        if (ptr->lifetime == 0) 
+        if (ptr->lifetime == 0)
         {
             bullet_sparks_init(ptr, arg0, arg1, arg2, arg3);
             return ptr;
@@ -1103,16 +1103,16 @@ void bullet_sparks_update(void)
     s_bullet_spark *thing = &g_BulletSparkArray[0]; \
     s_bullet_spark *end = g_BulletSparkArray + BULLET_SPARKS_MAX;
 
-    for (; thing < end; thing++) 
+    for (; thing < end; thing++)
     {
-        if (thing->lifetime > 0) 
+        if (thing->lifetime > 0)
         {
             thing->age += g_ClockTimer;
 
-            if (thing->age >= 0 && thing->age >= thing->lifetime) 
+            if (thing->age >= 0 && thing->age >= thing->lifetime)
             {
                 thing->lifetime = 0;
-            }
+            } 
         }
     }
 }
@@ -1532,7 +1532,7 @@ glabel bullet_spark_render
 /**
  * Address: 7F0A4528
  */
-void bullet_sparks_render(Gfx *gdl, s32 arg1) 
+void bullet_sparks_render(Gfx *gdl, s32 arg1)
 {
 
     s_bullet_spark *thing = &g_BulletSparkArray[0]; \
@@ -1548,7 +1548,7 @@ void bullet_sparks_render(Gfx *gdl, s32 arg1)
 /**
  * Address: 7F0A4594
  */
-f32 bullet_spark_get_depth(s_bullet_spark* spark) 
+f32 bullet_spark_get_depth(s_bullet_spark* spark)
 {
     coord3d tempVec;
 
@@ -1566,13 +1566,13 @@ f32 bullet_spark_get_depth(s_bullet_spark* spark)
  * Address: 7F0A45D8
  */
 #ifndef VERSION_EU
-void bullet_moving_sparks_reset(void) 
+void bullet_moving_sparks_reset(void)
 {
     s_moving_bullet_spark *ptr;
 
     ptr = g_MovingBulletSparkArray;
 
-    for (ptr = &g_MovingBulletSparkArray[0]; ptr < &g_MovingBulletSparkArray[BULLET_MOVING_SPARKS_MAX]; ptr++) 
+    for (ptr = &g_MovingBulletSparkArray[0]; ptr < &g_MovingBulletSparkArray[BULLET_MOVING_SPARKS_MAX]; ptr++)
     {
         ptr->unk00.lifetime = 0;
     }
@@ -1684,14 +1684,14 @@ void bullet_moving_sparks_render_all(Gfx *arg0, s32 arg1)
 /**
  * Address: 7F0A47D4
  */
-void bullet_sparks_reset_all(void) 
+void bullet_sparks_reset_all(void)
 {
     bullet_sparks_reset();
     bullet_moving_sparks_reset();
 }
 
 
-void bullet_sparks_update_all(void) 
+void bullet_sparks_update_all(void)
 {
     bullet_sparks_update();
 
@@ -1704,7 +1704,7 @@ void bullet_sparks_update_all(void)
 /**
  * Address: 7F0A4824
  */
-void bullet_sparks_render_all(Gfx *arg0, s32 arg1) 
+void bullet_sparks_render_all(Gfx *arg0, s32 arg1)
 {
     bullet_sparks_render(arg0, arg1);
     bullet_moving_sparks_render_all(arg0, arg1);
