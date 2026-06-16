@@ -963,7 +963,7 @@ bool fileIsEgyptCompletedOn00ForFolder(int foldernum)
  */
 bool fileIsCradleCompletedAnyFolder(void)
 {
-    int folder;
+    s32 folder;
 
     for (folder = FOLDER1; folder < MAX_FOLDER_COUNT; folder++)
     {
@@ -983,7 +983,7 @@ bool fileIsCradleCompletedAnyFolder(void)
  */
 bool check_aztec_completed_any_folder_secret_00(void)
 {
-    int folder;
+    s32 folder;
 
     for (folder = FOLDER1; folder < MAX_FOLDER_COUNT; folder++)
     {
@@ -1003,7 +1003,7 @@ bool check_aztec_completed_any_folder_secret_00(void)
  */
 bool fileIsEgyptCompletedOn00AnyFolder(void)
 {
-    int folder;
+    s32 folder;
 
     for (folder = FOLDER1; folder < MAX_FOLDER_COUNT; folder++)
     {

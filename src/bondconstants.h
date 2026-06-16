@@ -4406,6 +4406,13 @@ typedef enum PROJECTILES
     };
 #endif
 
+    typedef enum INTRO_WEAPON_TYPE 
+    {
+        INTRO_WEAPON_TYPE_NONE,
+        INTRO_WEAPON_TYPE_PISTOL,
+        INTRO_WEAPON_TYPE_RIFLE
+    } INTRO_WEAPON_TYPE;
+    
     typedef enum MISSION_STATE_IDS
     {
         MISSION_STATE_0,

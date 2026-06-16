@@ -108,18 +108,18 @@ struct MP_sight_aim_settings {
 struct intro_char {
     enum BODIES body;
     enum HEADS head;
-    short text1;
-    short text2;
-    short text3;
-    short RESERVED;
-    int flag;
+    s16 text1;
+    s16 text2;
+    s16 text3;
+    s16 RESERVED;
+    s32 flag;
 };
 
 struct intro_animation {
-    int animID;
-    float startframeoffset;
-    float playback_speed;
-    int camera_preset;
+    s32 animID;
+    f32 startframeoffset;
+    f32 playback_speed;
+    s32 camera_preset;
 };
 
 struct solo_target_times {
@@ -333,7 +333,7 @@ extern u32 full_actor_intro;
 
 void frontChangeMenu(MENU menu, s32 reload);
 s32 get_selected_num_players(void);
-void do_extended_cast_display(s32 flag);
+void do_extended_cast_display(bool doExtended);
 MPSCENARIOS get_scenario(void);
 f32 get_player_mp_handicap(int player);
 f32 get_player_mp_char_height(int player);
