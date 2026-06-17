@@ -3140,7 +3140,7 @@ void handles_firing_or_throwing_weapon_in_hand(void) {
         }
         if (sp1A0->unkC >= 0x1E)
         {
-            seems_to_load_cuff_microcode(sp44, sp1A0, 0x1D);
+            bondviewSelectCuff(sp44, sp1A0, 0x1D);
         }
         temp_a0_7 = sp1A0->unk8->unk1C;
         if (temp_a0_7 != NULL)
@@ -4846,7 +4846,7 @@ glabel handles_firing_or_throwing_weapon_in_hand
 /* 09616C 7F06163C 2B01001E */  slti  $at, $t8, 0x1e
 /* 096170 7F061640 54200004 */  bnezl $at, .L7F061654
 /* 096174 7F061644 8FAF01A0 */   lw    $t7, 0x1a0($sp)
-/* 096178 7F061648 0FC21F05 */  jal   seems_to_load_cuff_microcode
+/* 096178 7F061648 0FC21F05 */  jal   bondviewSelectCuff
 /* 09617C 7F06164C 2406001D */   li    $a2, 29
 /* 096180 7F061650 8FAF01A0 */  lw    $t7, 0x1a0($sp)
 .L7F061654:
@@ -6636,7 +6636,7 @@ glabel handles_firing_or_throwing_weapon_in_hand
 /* 0966CC 7F061B5C 2B01001E */  slti  $at, $t8, 0x1e
 /* 0966D0 7F061B60 54200004 */  bnezl $at, .Ljp7F061B74
 /* 0966D4 7F061B64 8FAF01A0 */   lw    $t7, 0x1a0($sp)
-/* 0966D8 7F061B68 0FC220B8 */  jal   seems_to_load_cuff_microcode
+/* 0966D8 7F061B68 0FC220B8 */  jal   bondviewSelectCuff
 /* 0966DC 7F061B6C 2406001D */   li    $a2, 29
 /* 0966E0 7F061B70 8FAF01A0 */  lw    $t7, 0x1a0($sp)
 .Ljp7F061B74:
@@ -8428,7 +8428,7 @@ glabel handles_firing_or_throwing_weapon_in_hand
 /* 0944E4 7F061AF4 2B01001E */  slti  $at, $t8, 0x1e
 /* 0944E8 7F061AF8 54200004 */  bnezl $at, .L7F061B0C
 /* 0944EC 7F061AFC 8FAF01A0 */   lw    $t7, 0x1a0($sp)
-/* 0944F0 7F061B00 0FC21F5D */  jal   seems_to_load_cuff_microcode
+/* 0944F0 7F061B00 0FC21F5D */  jal   bondviewSelectCuff
 /* 0944F4 7F061B04 2406001D */   li    $a2, 29
 /* 0944F8 7F061B08 8FAF01A0 */  lw    $t7, 0x1a0($sp)
 .L7F061B0C:

@@ -11704,332 +11704,113 @@ Gfx *bondviewRenderDebugBondView(Gfx *gdl)
 }
 
 
-#ifdef NONMATCHING
-s32 seems_to_load_cuff_microcode(s32 arg0, void *arg1, s32 arg2) {
-    s32 sp40;
-    s32 temp_a3;
-    void *temp_a0;
-    s32 temp_v1;
-    s32 temp_v1_2;
-    s32 temp_v1_3;
-    s32 temp_v1_4;
-    s32 temp_v1_5;
-    s32 temp_v1_6;
-    s32 temp_v0;
-    s32 temp_ret;
-    void *phi_a0;
-    s32 phi_a3;
-    s32 phi_v1;
-    void *phi_a0_2;
-    s32 phi_a2;
-    s32 phi_v1_2;
-    s32 phi_a3_2;
-    s32 phi_v1_3;
-    void *phi_a0_3;
-    s32 phi_a2_2;
-    s32 phi_v1_4;
-    s32 phi_a3_3;
-    void *phi_a0_4;
-    s32 phi_a2_3;
-    s32 phi_v1_5;
-    s32 phi_a3_4;
-    void *phi_a0_5;
-    s32 phi_a2_4;
-    s32 phi_v1_6;
-    s32 phi_a3_5;
-    s32 phi_return;
-
-    // Node 0
-    sp40 = fileGetBondForCurrentFolder();
-    temp_a3 = (arg2 * 4);
-    temp_a0 = (arg1->unk8 + temp_a3);
-    phi_a0 = temp_a0;
-    phi_a3 = temp_a3;
-    if (*temp_a0 != 0)
+void bondviewSelectCuff(Model *model, ModelFileHeader *header, s32 switchindex)
+{
+    s32 pad;
+    s32 local;
+    ModelNode **switches;
+    ModelNode **base;
+    ModelNode *node;
+    s32 offset;
+    s32 *rwdata;
+    s32 index;
+    s32 visible;
+    s32 pad2;
+    
+    local = fileGetBondForCurrentFolder();
+    switches = header->Switches;
+    offset = switchindex << 2;
+    
+    if (1);
+    
+    // byte-indexed on purpose: offset = switchindex * 4. &switches[i] won't match.
+    base = (ModelNode **) (((u8 *) switches) + offset);
+    
+    if (base[0] != NULL)
     {
-        // Node 1
-        *modelGetNodeRwData(arg0, *temp_a0, arg1->unk8, temp_a3) = (s32) ((u32) (g_CurrentPlayer->field_41C ^ 3) < 1U);
-        phi_a0 = (arg1->unk8 + sp1C);
-        phi_a3 = sp1C;
+        rwdata = (s32 *) modelGetNodeRwData(model, base[0]);
+        *rwdata = g_CurrentPlayer->bondtype == CUFF_BOILER;
+        switches = header->Switches;
+        base = (ModelNode **) (((u8 *) switches) + offset);
     }
-    // Node 2
-    phi_a0_2 = phi_a0;
-    phi_a2 = arg1->unk8;
-    phi_v1_2 = arg2;
-    phi_a3_2 = phi_a3;
-    if (phi_a0->unk4 != 0)
+    
+    index = switchindex + 1;
+    
+    if (((void *) (index * 0)) != base[1])
     {
-        // Node 3
-        temp_v1 = ((u32) (g_CurrentPlayer->field_41C ^ 1) < 1U);
-        phi_v1 = temp_v1;
-        if (temp_v1 == 0)
+        node = switches[index];
+        rwdata = (s32 *) modelGetNodeRwData(model, node);
+        visible = g_CurrentPlayer->bondtype == CUFF_BROSNAN;
+        if (visible == 0)
         {
-            // Node 4
-            temp_v1_2 = ((u32) (g_CurrentPlayer->field_41C ^ 6) < 1U);
-            phi_v1 = temp_v1_2;
-            if (temp_v1_2 == 0)
+            visible = g_CurrentPlayer->bondtype == CUFF_DALTON;
+            if (visible == 0)
             {
-                // Node 5
-                temp_v1_3 = ((u32) (g_CurrentPlayer->field_41C ^ 7) < 1U);
-                phi_v1 = temp_v1_3;
-                if (temp_v1_3 == 0)
+                visible = g_CurrentPlayer->bondtype == CUFF_MOORE;
+                if (visible == 0)
                 {
-                    // Node 6
-                    temp_v1_4 = ((u32) (g_CurrentPlayer->field_41C ^ 8) < 1U);
-                    phi_v1 = temp_v1_4;
-                    if (temp_v1_4 != 0)
+                    visible = g_CurrentPlayer->bondtype == CUFF_FOLDER;
+                    if (visible != 0)
                     {
-                        // Node 7
-                        phi_v1 = (0U < (u32) (sp40 ^ 1));
+                        visible = local != 1;
                     }
                 }
             }
         }
-        // Node 8
-        *modelGetNodeRwData(arg0, *(arg1->unk8 + ((arg2 + 1) * 4)), arg1->unk8, phi_a3) = (s32) phi_v1;
-        phi_a0_2 = (arg1->unk8 + sp1C);
-        phi_a2 = arg1->unk8;
-        phi_v1_2 = arg2;
-        phi_a3_2 = sp1C;
+        *rwdata = visible;
+        switches = header->Switches;
+        base = (ModelNode **) (((u8 *) switches) + offset);
     }
-    // Node 9
-    phi_a0_3 = phi_a0_2;
-    phi_a2_2 = phi_a2;
-    phi_v1_4 = phi_v1_2;
-    phi_a3_3 = phi_a3_2;
-    if (phi_a0_2->unk8 != 0)
+    
+    index = switchindex + 2;
+    
+    if (base[2] != NULL)
     {
-        // Node 10
-        temp_v1_5 = ((u32) (g_CurrentPlayer->field_41C ^ 5) < 1U);
-        phi_v1_3 = temp_v1_5;
-        if (temp_v1_5 == 0)
+        rwdata = (s32 *) modelGetNodeRwData(model, switches[index]);
+        visible = g_CurrentPlayer->bondtype == CUFF_CONNERY;
+        
+        if (visible == 0)
         {
-            // Node 11
-            temp_v1_6 = ((u32) (g_CurrentPlayer->field_41C ^ 8) < 1U);
-            phi_v1_3 = temp_v1_6;
-            if (temp_v1_6 != 0)
+            visible = g_CurrentPlayer->bondtype == CUFF_FOLDER;
+            if (visible != 0)
             {
-                // Node 12
-                phi_v1_3 = ((u32) (sp40 ^ 1) < 1U);
+                visible = local == 1;
             }
         }
-        // Node 13
-        *modelGetNodeRwData(arg0, *(phi_a2 + ((phi_v1_2 + 2) * 4)), phi_a2, phi_a3_2) = (s32) phi_v1_3;
-        phi_a0_3 = (arg1->unk8 + sp1C);
-        phi_a2_2 = arg1->unk8;
-        phi_v1_4 = arg2;
-        phi_a3_3 = sp1C;
+        
+        *rwdata = visible;
+        switches = header->Switches;
+        base = (ModelNode **) (((u8 *) switches) + offset);
     }
-    // Node 14
-    phi_a0_4 = phi_a0_3;
-    phi_a2_3 = phi_a2_2;
-    phi_v1_5 = phi_v1_4;
-    phi_a3_4 = phi_a3_3;
-    if (phi_a0_3->unkC != 0)
+    
+    index = switchindex + 3;
+    
+    if (base[3] != NULL)
     {
-        // Node 15
-        *modelGetNodeRwData(arg0, *(phi_a2_2 + ((phi_v1_4 + 3) * 4)), phi_a2_2, phi_a3_3) = (s32) ((u32) g_CurrentPlayer->field_41C < 1U);
-        phi_a0_4 = (arg1->unk8 + sp1C);
-        phi_a2_3 = arg1->unk8;
-        phi_v1_5 = arg2;
-        phi_a3_4 = sp1C;
+        rwdata = (s32 *) modelGetNodeRwData(model, switches[index]);
+        *rwdata = g_CurrentPlayer->bondtype == CUFF_BLUE;
+        switches = header->Switches;
+        base = (ModelNode **) (((u8 *) switches) + offset);
     }
-    // Node 16
-    phi_a0_5 = phi_a0_4;
-    phi_a2_4 = phi_a2_3;
-    phi_v1_6 = phi_v1_5;
-    phi_a3_5 = phi_a3_4;
-    if (phi_a0_4->unk10 != 0)
+    
+    index = (switchindex + 4) ^ (((switchindex + 4) ^ 0) * 0);
+    
+    if (base[4])
     {
-        // Node 17
-        *modelGetNodeRwData(arg0, *(phi_a2_3 + ((phi_v1_5 + 4) * 4)), phi_a2_3, phi_a3_4) = (s32) ((u32) (g_CurrentPlayer->field_41C ^ 2) < 1U);
-        phi_a0_5 = (arg1->unk8 + sp1C);
-        phi_a2_4 = arg1->unk8;
-        phi_v1_6 = arg2;
-        phi_a3_5 = sp1C;
+        rwdata = (s32 *) modelGetNodeRwData(model, switches[index]);
+        *rwdata = g_CurrentPlayer->bondtype == CUFF_JUNGLE;
+        switches = header->Switches;
+        base = (ModelNode **) (((u8 *) switches) + offset);
     }
-    // Node 18
-    temp_v0 = (phi_v1_6 + 5);
-    phi_return = temp_v0;
-    if (phi_a0_5->unk14 != 0)
+    
+    index = switchindex + 5;
+    
+    if (base[5] != NULL)
     {
-        // Node 19
-        temp_ret = modelGetNodeRwData(arg0, *(phi_a2_4 + (temp_v0 * 4)), phi_a2_4, phi_a3_5);
-        *temp_ret = (s32) ((u32) (g_CurrentPlayer->field_41C ^ 4) < 1U);
-        phi_return = temp_ret;
+        rwdata = (s32 *) modelGetNodeRwData(model, switches[index]);
+        *rwdata = g_CurrentPlayer->bondtype == CUFF_SNOW;
     }
-    // Node 20
-    return phi_return;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel seems_to_load_cuff_microcode
-/* 0BC744 7F087C14 27BDFFB8 */  addiu $sp, $sp, -0x48
-/* 0BC748 7F087C18 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0BC74C 7F087C1C AFA40048 */  sw    $a0, 0x48($sp)
-/* 0BC750 7F087C20 AFA5004C */  sw    $a1, 0x4c($sp)
-/* 0BC754 7F087C24 0FC0755B */  jal   fileGetBondForCurrentFolder
-/* 0BC758 7F087C28 AFA60050 */   sw    $a2, 0x50($sp)
-/* 0BC75C 7F087C2C 8FAE004C */  lw    $t6, 0x4c($sp)
-/* 0BC760 7F087C30 8FA30050 */  lw    $v1, 0x50($sp)
-/* 0BC764 7F087C34 AFA20040 */  sw    $v0, 0x40($sp)
-/* 0BC768 7F087C38 8DC60008 */  lw    $a2, 8($t6)
-/* 0BC76C 7F087C3C 00033880 */  sll   $a3, $v1, 2
-/* 0BC770 7F087C40 00C72021 */  addu  $a0, $a2, $a3
-/* 0BC774 7F087C44 8C850000 */  lw    $a1, ($a0)
-/* 0BC778 7F087C48 50A00010 */  beql  $a1, $zero, .L7F087C8C
-/* 0BC77C 7F087C4C 8C890004 */   lw    $t1, 4($a0)
-/* 0BC780 7F087C50 8FA40048 */  lw    $a0, 0x48($sp)
-/* 0BC784 7F087C54 0FC1B1E7 */  jal   modelGetNodeRwData
-/* 0BC788 7F087C58 AFA7001C */   sw    $a3, 0x1c($sp)
-/* 0BC78C 7F087C5C 3C0F8008 */  lui   $t7, %hi(g_CurrentPlayer)
-/* 0BC790 7F087C60 8DEFA0B0 */  lw    $t7, %lo(g_CurrentPlayer)($t7)
-/* 0BC794 7F087C64 8FA7001C */  lw    $a3, 0x1c($sp)
-/* 0BC798 7F087C68 8DF8041C */  lw    $t8, 0x41c($t7)
-/* 0BC79C 7F087C6C 3B190003 */  xori  $t9, $t8, 3
-/* 0BC7A0 7F087C70 2F390001 */  sltiu $t9, $t9, 1
-/* 0BC7A4 7F087C74 AC590000 */  sw    $t9, ($v0)
-/* 0BC7A8 7F087C78 8FA8004C */  lw    $t0, 0x4c($sp)
-/* 0BC7AC 7F087C7C 8FA30050 */  lw    $v1, 0x50($sp)
-/* 0BC7B0 7F087C80 8D060008 */  lw    $a2, 8($t0)
-/* 0BC7B4 7F087C84 00C72021 */  addu  $a0, $a2, $a3
-/* 0BC7B8 7F087C88 8C890004 */  lw    $t1, 4($a0)
-.L7F087C8C:
-/* 0BC7BC 7F087C8C 24620001 */  addiu $v0, $v1, 1
-/* 0BC7C0 7F087C90 00025080 */  sll   $t2, $v0, 2
-/* 0BC7C4 7F087C94 11200021 */  beqz  $t1, .L7F087D1C
-/* 0BC7C8 7F087C98 00CA5821 */   addu  $t3, $a2, $t2
-/* 0BC7CC 7F087C9C 8D650000 */  lw    $a1, ($t3)
-/* 0BC7D0 7F087CA0 AFA7001C */  sw    $a3, 0x1c($sp)
-/* 0BC7D4 7F087CA4 0FC1B1E7 */  jal   modelGetNodeRwData
-/* 0BC7D8 7F087CA8 8FA40048 */   lw    $a0, 0x48($sp)
-/* 0BC7DC 7F087CAC 3C0C8008 */  lui   $t4, %hi(g_CurrentPlayer)
-/* 0BC7E0 7F087CB0 8D8CA0B0 */  lw    $t4, %lo(g_CurrentPlayer)($t4)
-/* 0BC7E4 7F087CB4 8FA7001C */  lw    $a3, 0x1c($sp)
-/* 0BC7E8 7F087CB8 8D84041C */  lw    $a0, 0x41c($t4)
-/* 0BC7EC 7F087CBC 38830001 */  xori  $v1, $a0, 1
-/* 0BC7F0 7F087CC0 2C630001 */  sltiu $v1, $v1, 1
-/* 0BC7F4 7F087CC4 54600011 */  bnezl $v1, .L7F087D0C
-/* 0BC7F8 7F087CC8 AC430000 */   sw    $v1, ($v0)
-/* 0BC7FC 7F087CCC 38830006 */  xori  $v1, $a0, 6
-/* 0BC800 7F087CD0 2C630001 */  sltiu $v1, $v1, 1
-/* 0BC804 7F087CD4 5460000D */  bnezl $v1, .L7F087D0C
-/* 0BC808 7F087CD8 AC430000 */   sw    $v1, ($v0)
-/* 0BC80C 7F087CDC 38830007 */  xori  $v1, $a0, 7
-/* 0BC810 7F087CE0 2C630001 */  sltiu $v1, $v1, 1
-/* 0BC814 7F087CE4 54600009 */  bnezl $v1, .L7F087D0C
-/* 0BC818 7F087CE8 AC430000 */   sw    $v1, ($v0)
-/* 0BC81C 7F087CEC 38830008 */  xori  $v1, $a0, 8
-/* 0BC820 7F087CF0 2C630001 */  sltiu $v1, $v1, 1
-/* 0BC824 7F087CF4 50600005 */  beql  $v1, $zero, .L7F087D0C
-/* 0BC828 7F087CF8 AC430000 */   sw    $v1, ($v0)
-/* 0BC82C 7F087CFC 8FA30040 */  lw    $v1, 0x40($sp)
-/* 0BC830 7F087D00 386D0001 */  xori  $t5, $v1, 1
-/* 0BC834 7F087D04 000D182B */  sltu  $v1, $zero, $t5
-/* 0BC838 7F087D08 AC430000 */  sw    $v1, ($v0)
-.L7F087D0C:
-/* 0BC83C 7F087D0C 8FAE004C */  lw    $t6, 0x4c($sp)
-/* 0BC840 7F087D10 8FA30050 */  lw    $v1, 0x50($sp)
-/* 0BC844 7F087D14 8DC60008 */  lw    $a2, 8($t6)
-/* 0BC848 7F087D18 00C72021 */  addu  $a0, $a2, $a3
-.L7F087D1C:
-/* 0BC84C 7F087D1C 8C8F0008 */  lw    $t7, 8($a0)
-/* 0BC850 7F087D20 24620002 */  addiu $v0, $v1, 2
-/* 0BC854 7F087D24 0002C080 */  sll   $t8, $v0, 2
-/* 0BC858 7F087D28 11E00019 */  beqz  $t7, .L7F087D90
-/* 0BC85C 7F087D2C 00D8C821 */   addu  $t9, $a2, $t8
-/* 0BC860 7F087D30 8F250000 */  lw    $a1, ($t9)
-/* 0BC864 7F087D34 AFA7001C */  sw    $a3, 0x1c($sp)
-/* 0BC868 7F087D38 0FC1B1E7 */  jal   modelGetNodeRwData
-/* 0BC86C 7F087D3C 8FA40048 */   lw    $a0, 0x48($sp)
-/* 0BC870 7F087D40 3C088008 */  lui   $t0, %hi(g_CurrentPlayer)
-/* 0BC874 7F087D44 8D08A0B0 */  lw    $t0, %lo(g_CurrentPlayer)($t0)
-/* 0BC878 7F087D48 8FA7001C */  lw    $a3, 0x1c($sp)
-/* 0BC87C 7F087D4C 8D04041C */  lw    $a0, 0x41c($t0)
-/* 0BC880 7F087D50 38830005 */  xori  $v1, $a0, 5
-/* 0BC884 7F087D54 2C630001 */  sltiu $v1, $v1, 1
-/* 0BC888 7F087D58 54600009 */  bnezl $v1, .L7F087D80
-/* 0BC88C 7F087D5C AC430000 */   sw    $v1, ($v0)
-/* 0BC890 7F087D60 38830008 */  xori  $v1, $a0, 8
-/* 0BC894 7F087D64 2C630001 */  sltiu $v1, $v1, 1
-/* 0BC898 7F087D68 50600005 */  beql  $v1, $zero, .L7F087D80
-/* 0BC89C 7F087D6C AC430000 */   sw    $v1, ($v0)
-/* 0BC8A0 7F087D70 8FA30040 */  lw    $v1, 0x40($sp)
-/* 0BC8A4 7F087D74 38690001 */  xori  $t1, $v1, 1
-/* 0BC8A8 7F087D78 2D230001 */  sltiu $v1, $t1, 1
-/* 0BC8AC 7F087D7C AC430000 */  sw    $v1, ($v0)
-.L7F087D80:
-/* 0BC8B0 7F087D80 8FAA004C */  lw    $t2, 0x4c($sp)
-/* 0BC8B4 7F087D84 8FA30050 */  lw    $v1, 0x50($sp)
-/* 0BC8B8 7F087D88 8D460008 */  lw    $a2, 8($t2)
-/* 0BC8BC 7F087D8C 00C72021 */  addu  $a0, $a2, $a3
-.L7F087D90:
-/* 0BC8C0 7F087D90 8C8B000C */  lw    $t3, 0xc($a0)
-/* 0BC8C4 7F087D94 24620003 */  addiu $v0, $v1, 3
-/* 0BC8C8 7F087D98 00026080 */  sll   $t4, $v0, 2
-/* 0BC8CC 7F087D9C 1160000F */  beqz  $t3, .L7F087DDC
-/* 0BC8D0 7F087DA0 00CC6821 */   addu  $t5, $a2, $t4
-/* 0BC8D4 7F087DA4 8DA50000 */  lw    $a1, ($t5)
-/* 0BC8D8 7F087DA8 AFA7001C */  sw    $a3, 0x1c($sp)
-/* 0BC8DC 7F087DAC 0FC1B1E7 */  jal   modelGetNodeRwData
-/* 0BC8E0 7F087DB0 8FA40048 */   lw    $a0, 0x48($sp)
-/* 0BC8E4 7F087DB4 3C0E8008 */  lui   $t6, %hi(g_CurrentPlayer)
-/* 0BC8E8 7F087DB8 8DCEA0B0 */  lw    $t6, %lo(g_CurrentPlayer)($t6)
-/* 0BC8EC 7F087DBC 8FA7001C */  lw    $a3, 0x1c($sp)
-/* 0BC8F0 7F087DC0 8DCF041C */  lw    $t7, 0x41c($t6)
-/* 0BC8F4 7F087DC4 2DF80001 */  sltiu $t8, $t7, 1
-/* 0BC8F8 7F087DC8 AC580000 */  sw    $t8, ($v0)
-/* 0BC8FC 7F087DCC 8FB9004C */  lw    $t9, 0x4c($sp)
-/* 0BC900 7F087DD0 8FA30050 */  lw    $v1, 0x50($sp)
-/* 0BC904 7F087DD4 8F260008 */  lw    $a2, 8($t9)
-/* 0BC908 7F087DD8 00C72021 */  addu  $a0, $a2, $a3
-.L7F087DDC:
-/* 0BC90C 7F087DDC 8C880010 */  lw    $t0, 0x10($a0)
-/* 0BC910 7F087DE0 24620004 */  addiu $v0, $v1, 4
-/* 0BC914 7F087DE4 00024880 */  sll   $t1, $v0, 2
-/* 0BC918 7F087DE8 11000010 */  beqz  $t0, .L7F087E2C
-/* 0BC91C 7F087DEC 00C95021 */   addu  $t2, $a2, $t1
-/* 0BC920 7F087DF0 8D450000 */  lw    $a1, ($t2)
-/* 0BC924 7F087DF4 AFA7001C */  sw    $a3, 0x1c($sp)
-/* 0BC928 7F087DF8 0FC1B1E7 */  jal   modelGetNodeRwData
-/* 0BC92C 7F087DFC 8FA40048 */   lw    $a0, 0x48($sp)
-/* 0BC930 7F087E00 3C0B8008 */  lui   $t3, %hi(g_CurrentPlayer)
-/* 0BC934 7F087E04 8D6BA0B0 */  lw    $t3, %lo(g_CurrentPlayer)($t3)
-/* 0BC938 7F087E08 8FA7001C */  lw    $a3, 0x1c($sp)
-/* 0BC93C 7F087E0C 8D6C041C */  lw    $t4, 0x41c($t3)
-/* 0BC940 7F087E10 398D0002 */  xori  $t5, $t4, 2
-/* 0BC944 7F087E14 2DAD0001 */  sltiu $t5, $t5, 1
-/* 0BC948 7F087E18 AC4D0000 */  sw    $t5, ($v0)
-/* 0BC94C 7F087E1C 8FAE004C */  lw    $t6, 0x4c($sp)
-/* 0BC950 7F087E20 8FA30050 */  lw    $v1, 0x50($sp)
-/* 0BC954 7F087E24 8DC60008 */  lw    $a2, 8($t6)
-/* 0BC958 7F087E28 00C72021 */  addu  $a0, $a2, $a3
-.L7F087E2C:
-/* 0BC95C 7F087E2C 8C8F0014 */  lw    $t7, 0x14($a0)
-/* 0BC960 7F087E30 24620005 */  addiu $v0, $v1, 5
-/* 0BC964 7F087E34 0002C080 */  sll   $t8, $v0, 2
-/* 0BC968 7F087E38 11E0000A */  beqz  $t7, .L7F087E64
-/* 0BC96C 7F087E3C 8FA40048 */   lw    $a0, 0x48($sp)
-/* 0BC970 7F087E40 00D8C821 */  addu  $t9, $a2, $t8
-/* 0BC974 7F087E44 0FC1B1E7 */  jal   modelGetNodeRwData
-/* 0BC978 7F087E48 8F250000 */   lw    $a1, ($t9)
-/* 0BC97C 7F087E4C 3C088008 */  lui   $t0, %hi(g_CurrentPlayer)
-/* 0BC980 7F087E50 8D08A0B0 */  lw    $t0, %lo(g_CurrentPlayer)($t0)
-/* 0BC984 7F087E54 8D09041C */  lw    $t1, 0x41c($t0)
-/* 0BC988 7F087E58 392A0004 */  xori  $t2, $t1, 4
-/* 0BC98C 7F087E5C 2D4A0001 */  sltiu $t2, $t2, 1
-/* 0BC990 7F087E60 AC4A0000 */  sw    $t2, ($v0)
-.L7F087E64:
-/* 0BC994 7F087E64 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 0BC998 7F087E68 27BD0048 */  addiu $sp, $sp, 0x48
-/* 0BC99C 7F087E6C 03E00008 */  jr    $ra
-/* 0BC9A0 7F087E70 00000000 */   nop
-)
-#endif
-
-
-
 
 
 #ifdef NONMATCHING
@@ -12189,7 +11970,7 @@ glabel sub_GAME_7F087E74
 /* 0BCBD0 7F0880A0 AFA20164 */  sw    $v0, 0x164($sp)
 /* 0BCBD4 7F0880A4 8FA50160 */  lw    $a1, 0x160($sp)
 /* 0BCBD8 7F0880A8 24060004 */  li    $a2, 4
-/* 0BCBDC 7F0880AC 0FC21F05 */  jal   seems_to_load_cuff_microcode
+/* 0BCBDC 7F0880AC 0FC21F05 */  jal   bondviewSelectCuff
 /* 0BCBE0 7F0880B0 24840230 */   addiu $a0, $a0, 0x230
 /* 0BCBE4 7F0880B4 3C058008 */  lui   $a1, %hi(g_CurrentPlayer)
 /* 0BCBE8 7F0880B8 8FAC0164 */  lw    $t4, 0x164($sp)
@@ -12710,7 +12491,7 @@ glabel sub_GAME_7F087E74
 /* 0BD2DC 7F08876C AFA20164 */  sw    $v0, 0x164($sp)
 /* 0BD2E0 7F088770 8FA50160 */  lw    $a1, 0x160($sp)
 /* 0BD2E4 7F088774 24060004 */  li    $a2, 4
-/* 0BD2E8 7F088778 0FC220B8 */  jal   seems_to_load_cuff_microcode
+/* 0BD2E8 7F088778 0FC220B8 */  jal   bondviewSelectCuff
 /* 0BD2EC 7F08877C 24840230 */   addiu $a0, $a0, 0x230
 /* 0BD2F0 7F088780 3C058008 */  lui   $a1, %hi(g_CurrentPlayer) # $a1, 0x8008
 /* 0BD2F4 7F088784 8FAC0164 */  lw    $t4, 0x164($sp)
@@ -13233,7 +13014,7 @@ glabel sub_GAME_7F087E74
 /* 0BABF0 7F088200 AFA20164 */  sw    $v0, 0x164($sp)
 /* 0BABF4 7F088204 8FA50160 */  lw    $a1, 0x160($sp)
 /* 0BABF8 7F088208 24060004 */  li    $a2, 4
-/* 0BABFC 7F08820C 0FC21F5D */  jal   seems_to_load_cuff_microcode
+/* 0BABFC 7F08820C 0FC21F5D */  jal   bondviewSelectCuff
 /* 0BAC00 7F088210 24840230 */   addiu $a0, $a0, 0x230
 /* 0BAC04 7F088214 3C058007 */  lui   $a1, %hi(g_CurrentPlayer) # $a1, 0x8007
 /* 0BAC08 7F088218 8FAC0164 */  lw    $t4, 0x164($sp)

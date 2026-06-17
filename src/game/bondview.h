@@ -2839,5 +2839,6 @@ Mtxf *currentPlayerGetProjectionMatrixF(void);
 void transform3Dto2DCoords(coord3d *in, coord2d *out);
 void maybe_solo_intro_camera_handler(void);
 void currentPlayerAdjustFade(f32 maxfadetime, s32 r, s32 g, s32 b, f32 frac);
+void bondviewSelectCuff(Model *model, ModelFileHeader *header, s32 switchindex);
 
 #endif

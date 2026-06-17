@@ -15,4 +15,8 @@ struct s_darkened_light {
     u16 vtx_index;
 };
 
+void save_ptrDL_enpoint_to_current_init_lightfixture_table(Gfx *param_1);
+s32 check_if_imageID_is_light(s32 imageID);
+void add_entry_to_init_lightfixture_table(Gfx *DL);
+
 #endif

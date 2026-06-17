@@ -1,5 +1,6 @@
 #include <ultra64.h>
 #include "gbi_extension.h"
+#include "lightfixture.h"
 #include "lv.h"
 #include "image.h"
 #include "tex.h"
