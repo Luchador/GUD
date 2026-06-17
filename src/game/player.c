@@ -122,7 +122,7 @@ void initBONDdataforPlayer(s32 player_num)
 #ifdef DEBUG
     assert(players[num]==NULL); //according to assert, this file name is "player.c"
 #endif
-    default_hand = *((struct hand*)D_8003FDA0);
+    default_hand = D_8003FDA0;
 #if defined(VERSION_US) || defined(VERSION_JP)
     g_playerPointers[player_num] = mempAllocBytesInBank(0x2A80U, MEMPOOL_STAGE);
 #elif defined(VERSION_EU)
