@@ -213,5 +213,6 @@ void sub_GAME_7F0B96CC(s32 portalnum, f32 *out);
 void bgApplyDynamicCCRMLUT(Gfx *arg0, Gfx *arg1, enum CCRMLUT arg2);
 void sub_GAME_7F0BA2D4(coord3d *, coord3d *, s32 *, s32 *, s32);
 void sub_GAME_7F0B4AB4(coord3d *pos1, coord3d *pos2, u8 *initialRooms, u8 *outRoomSet, s32 *outRoomNums, s32 *outRoomNumsCount, s32 outRoomNumsMax);
+s32 sub_GAME_7F0B9E04(coord3d *arg0, coord3d *arg1);
 
 #endif
