@@ -1162,7 +1162,7 @@ point2d D_800309E0 = {0, 0};
 point2d D_800309E8 = {0, 0};
 
 
-void sub_GAME_7F02083C(s32 arg0, Mtxf *matrix);
+void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix);
 
 
 s32 get_numguards(void)
@@ -1907,9 +1907,6 @@ void chrSetHiddenToRandom(ChrRecord *self)
     }
 }
 
-
-extern f32 D_80051D28; // M_TAU_F
-extern f32 D_80051D2C; // M_TAU_F
  
 f32 sub_GAME_7F020794(ChrRecord *arg0)
 {
@@ -1928,19 +1925,11 @@ f32 sub_GAME_7F020794(ChrRecord *arg0)
  
     if (temp_f2 < rise)
     {
-#if defined(VERSION_US) || defined(VERSION_EU) || defined(VERSION_JP)
-        phi_f2 = sinf(((temp_f2 * 6.2831855f) * 0.25f) / rise);
-#else
-        phi_f2 = sinf(((temp_f2 * D_80051D28) * 0.25f) / rise);
-#endif
+        phi_f2 = sinf(((temp_f2 * M_TAU_F) * 0.25f) / rise);
     }
     else
     {
-#if defined(VERSION_US) || defined(VERSION_EU) || defined(VERSION_JP)
-        phi_f2 = 1.0f - sinf((((temp_f2 - rise) * 6.2831855f) * 0.25f) / fall);
-#else
-        phi_f2 = 1.0f - sinf((((temp_f2 - rise) * D_80051D2C) * 0.25f) / fall);
-#endif
+        phi_f2 = 1.0f - sinf((((temp_f2 - rise) * M_TAU_F) * 0.25f) / fall);
     }
  
     return phi_f2;
@@ -1948,7 +1937,7 @@ f32 sub_GAME_7F020794(ChrRecord *arg0)
 
 
 #ifdef BUGFIX_R1
-s32 not_in_us_7F0209EC(s32 bodynum, s32 headnum)
+bool chrCanUseDKModeScaling(s32 bodynum, s32 headnum)
 {
     if (j_text_trigger == 0)
     {
@@ -1990,7 +1979,7 @@ s32 not_in_us_7F0209EC(s32 bodynum, s32 headnum)
 /**
  * Address: 7F02083C
  */
-void sub_GAME_7F02083C(s32 arg0, Mtxf *matrix)
+void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 {
     f32 scale; 
     f32 xrot; 
@@ -2013,13 +2002,13 @@ void sub_GAME_7F02083C(s32 arg0, Mtxf *matrix)
     {
         chr = (ChrRecord *) dword_CODE_bss_80069B60;
 
-        if (not_in_us_7F0209EC(chr->bodynum, chr->headnum)) 
+        if (chrCanUseDKModeScaling(chr->bodynum, chr->headnum)) 
         {
-            if (arg0 == 0) 
+            if (bodypart == CHR_RENDERPART_HEAD) 
             { 
                 scale = 4.0f;
             }
-            else if ((arg0 == 2) || (arg0 == 3)) 
+            else if ((bodypart == CHR_RENDERPART_LEFT_ARM) || (bodypart == CHR_RENDERPART_RIGHT_ARM)) 
             {
                 if (!(((ChrRecord *) dword_CODE_bss_80069B60)->chrflags & CHRFLAG_08000000)) 
                 { 
@@ -2031,17 +2020,17 @@ void sub_GAME_7F02083C(s32 arg0, Mtxf *matrix)
 #else
     if (cheatIsActive(CHEAT_DK_MODE)) 
     {
-        if (arg0 == 0) 
+        if (bodypart == CHR_RENDERPART_HEAD) 
         { 
             scale = 4.0f; 
         }
-        else if ((arg0 == 2) || (arg0 == 3)) 
+        else if ((bodypart == CHR_RENDERPART_LEFT_ARM) || (bodypart == CHR_RENDERPART_RIGHT_ARM)) 
         { 
             scale = 2.5f; 
         }
     }
 #endif
-    if ((((arg0 != 2) && (arg0 != 3)) && (arg0 != 1)) && (arg0 != 0)) 
+    if ((((bodypart != CHR_RENDERPART_LEFT_ARM) && (bodypart != CHR_RENDERPART_RIGHT_ARM)) && (bodypart != CHR_RENDERPART_TORSO)) && (bodypart != CHR_RENDERPART_HEAD)) 
     { 
         return; 
     }
@@ -2051,7 +2040,7 @@ void sub_GAME_7F02083C(s32 arg0, Mtxf *matrix)
 #ifdef BUGFIX_R1
     chr = (ChrRecord *) dword_CODE_bss_80069B60;
 #endif
-    if (arg0 == 3) 
+    if (bodypart == CHR_RENDERPART_RIGHT_ARM) 
     {
 #ifdef BUGFIX_R1
         xrot = chr->aimuprshoulder;
@@ -2059,7 +2048,7 @@ void sub_GAME_7F02083C(s32 arg0, Mtxf *matrix)
         xrot = ((ChrRecord *) dword_CODE_bss_80069B60)->aimuprshoulder;
 #endif
     } 
-    else if (arg0 == 2) 
+    else if (bodypart == CHR_RENDERPART_LEFT_ARM) 
     {
 #ifdef BUGFIX_R1
         xrot = chr->aimuplshoulder;
@@ -2067,7 +2056,7 @@ void sub_GAME_7F02083C(s32 arg0, Mtxf *matrix)
         xrot = ((ChrRecord *) dword_CODE_bss_80069B60)->aimuplshoulder;
 #endif
     } 
-    else if (arg0 == 1) 
+    else if (bodypart == CHR_RENDERPART_TORSO) 
     {
 #ifndef BUGFIX_R1
         chr = (ChrRecord *) dword_CODE_bss_80069B60;
@@ -2092,7 +2081,7 @@ void sub_GAME_7F02083C(s32 arg0, Mtxf *matrix)
         yrot = chr->aimsideback;
 
     } 
-    else if (arg0 == 0) 
+    else if (bodypart == CHR_RENDERPART_HEAD) 
     {
 #ifndef BUGFIX_R1
         chr = (ChrRecord *) dword_CODE_bss_80069B60;
@@ -2129,7 +2118,7 @@ void sub_GAME_7F02083C(s32 arg0, Mtxf *matrix)
     {
         if (0);
 
-        if ((arg0 == 3) || (arg0 == 2)) 
+        if ((bodypart == CHR_RENDERPART_RIGHT_ARM) || (bodypart == CHR_RENDERPART_LEFT_ARM)) 
         {
             amount = sub_GAME_7F020794(chr) * M_TAU_F * 15.0f / 360.0f;
             chr = (ChrRecord *) dword_CODE_bss_80069B60;
@@ -2145,7 +2134,7 @@ void sub_GAME_7F02083C(s32 arg0, Mtxf *matrix)
                 yrot += amount; 
             }
         } 
-        else if (arg0 == 1) 
+        else if (bodypart == CHR_RENDERPART_TORSO) 
         {
             tmp = sub_GAME_7F020794(chr);
             tmp *= M_TAU_F;
@@ -2534,7 +2523,7 @@ after_position_update:
 #ifdef BUGFIX_R1
     if (cheatIsActive(12))
     {
-        if (not_in_us_7F0209EC(chr->bodynum, chr->headnum))
+        if (chrCanUseDKModeScaling(chr->bodynum, chr->headnum))
         {
             modelSetDistanceScale(0.3125f);
 
@@ -3218,7 +3207,7 @@ glabel chrTickBeams
 /* 053DC4 7F0213D4 10400018 */  beqz  $v0, .L7F021438
 /* 053DC8 7F0213D8 00000000 */   nop
 /* 053DCC 7F0213DC 8204000F */  lb    $a0, 0xf($s0)
-/* 053DD0 7F0213E0 0FC081B3 */  jal   not_in_us_7F0209EC
+/* 053DD0 7F0213E0 0FC081B3 */  jal   chrCanUseDKModeScaling
 /* 053DD4 7F0213E4 82050006 */   lb    $a1, 6($s0)
 /* 053DD8 7F0213E8 10400013 */  beqz  $v0, .L7F021438
 /* 053DDC 7F0213EC 3C013EA0 */   li    $at, 0x3EA00000 # 0.312500

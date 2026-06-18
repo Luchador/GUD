@@ -324,7 +324,7 @@ void        sub_GAME_7F022648(PropRecord *prop, ShotData *shotdata);
 void        sub_GAME_7F03E134(PropRecord* p);
 
 #ifdef BUGFIX_R1
-s32 not_in_us_7F0209EC(s32 bodynum, s32 headnum);
+bool chrCanUseDKModeScaling(s32 bodynum, s32 headnum);
 #endif
 
 #endif

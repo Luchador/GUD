@@ -1714,7 +1714,7 @@ void cheatButtonSetDkMode(CHEAT_ID cheat_id)
             modelSetScale(model, model->scale * scale);
         }
 #else
-        if (guard->model && not_in_us_7F0209EC(guard->bodynum, guard->headnum))
+        if (guard->model && chrCanUseDKModeScaling(guard->bodynum, guard->headnum))
         {
             model = (Model*)guard->model;
             modelSetScale(model, model->scale * scale);

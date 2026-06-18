@@ -38,7 +38,7 @@ struct Model *makeonebody(s32 body, s32 head, struct ModelFileHeader *bodyHeader
 
     if (
 #ifdef BUGFIX_R1
-    cheatIsActive(CHEAT_DK_MODE) && not_in_us_7F0209EC(body, head)
+    cheatIsActive(CHEAT_DK_MODE) && chrCanUseDKModeScaling(body, head)
 #else
     cheatIsActive(CHEAT_DK_MODE)
 #endif

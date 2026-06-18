@@ -229,6 +229,13 @@ typedef enum CHRFLAG
     CHRFLAG_80000000                     = 0x80000000   // unknown
 }CHRFLAG;
 
+enum CHR_RENDER_PART {
+    CHR_RENDERPART_HEAD           = 0,
+    CHR_RENDERPART_TORSO          = 1,
+    CHR_RENDERPART_LEFT_ARM       = 2,
+    CHR_RENDERPART_RIGHT_ARM      = 3
+};
+
 // collision detection types
 typedef enum CDTYPE
 {
