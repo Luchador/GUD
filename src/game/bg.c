@@ -389,7 +389,7 @@ bool bgIsRoomOnScreen(s32 roomID, struct rectbbox *screenbox);
 s32 sub_GAME_7F0B39BC(s32 curroom, s32 unk1, bbox2d *screensize, s32 next);
 void bgUpdateCurrentPlayerScreenMinMax(void);
 void *sub_GAME_7F0B8A24(s32 *pc);
-void sub_GAME_7F0B8A6C(void);
+void bgDetermineVisibleRooms(void);
 
 // end forward declarations
 
@@ -2452,7 +2452,7 @@ void bgRoomVisibilityRelated(void)
     }
 
     g_BgCurrentRoom = room;
-    sub_GAME_7F0B8A6C();
+    bgDetermineVisibleRooms();
 }
 
 
@@ -7774,7 +7774,7 @@ void *sub_GAME_7F0B8A24(s32 *pc)
 /**
  * Address: 7F0B8A6C
  */
-void sub_GAME_7F0B8A6C(void) 
+void bgDetermineVisibleRooms(void) 
 {
     f32 screenbounds[4];
     s32 var_s0;
