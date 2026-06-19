@@ -52,6 +52,7 @@ s32 dword_CODE_bss_80076A48;
     #define THROWN_ITEM_TIMER_SOLO                     250
     #define THROWN_ITEM_TIMER_MULTI                    150
     #define THROWN_ITEM_TIMER_DEFAULT                  200
+    #define GLGRENADE_TIMER                            1000
     #define DUAL_WIELD_TRIGGER_SWAP_TICKS 24
     #define DUAL_WIELD_SINGLE_TRIGGER_SWAP_TICKS 36
     #define WATCH_SOUND_DURATION_TICKS 250
@@ -61,6 +62,7 @@ s32 dword_CODE_bss_80076A48;
     #define THROWN_ITEM_TIMER_SOLO                     300
     #define THROWN_ITEM_TIMER_MULTI                    180
     #define THROWN_ITEM_TIMER_DEFAULT                  240
+    #define GLGRENADE_TIMER                            1200
     #define DUAL_WIELD_TRIGGER_SWAP_TICKS 20
     #define DUAL_WIELD_SINGLE_TRIGGER_SWAP_TICKS 30
     #define WATCH_SOUND_DURATION_TICKS 300
@@ -2139,7 +2141,6 @@ void generate_player_thrown_object(s32 hand)
  *
  * Spawns Grenade Launcher rounds and makes them inherit the player's momentum.
  */
-#if defined(VERSION_US) || defined(VERSION_JP)
 void gunSpawnGLGrenade(s32 handnum)
 {
     WeaponObjRecord *grenadeobj;
@@ -2166,7 +2167,8 @@ void gunSpawnGLGrenade(s32 handnum)
     launchvel.y = aimdir.y * 33.333332f;
     launchvel.z = aimdir.z * 33.333332f;
 
-    if (g_ClockTimer > 0) {
+    if (g_ClockTimer > 0)
+    {
         launchvel.x += (playerprop->pos.x - prevplayerpos->x) / g_GlobalTimerDelta;
         launchvel.y += (playerprop->pos.y - prevplayerpos->y) / g_GlobalTimerDelta;
         launchvel.z += (playerprop->pos.z - prevplayerpos->z) / g_GlobalTimerDelta;
@@ -2180,161 +2182,22 @@ void gunSpawnGLGrenade(s32 handnum)
 
     grenadeobj = create_new_item_instance_of_model(PROP_CHRGRENADEROUND, ITEM_GRENADEROUND);
 
-    if (grenadeobj != NULL) {
-        grenadeobj->timer = 1200;
-        grenadeobj->runtime_bitflags &= 0xFFF9FFFF;
-        grenadeobj->runtime_bitflags |= get_cur_playernum() << 17;
+    if (grenadeobj != NULL)
+    {
+        grenadeobj->timer = GLGRENADE_TIMER;
+        grenadeobj->runtime_bitflags &= ~RUNTIMEBITFLAG_OWNER;
+        grenadeobj->runtime_bitflags |= get_cur_playernum() << RUNTIMEBITSHIFT_OWNER;
 
         gunInitProjectileFromPlayer(grenadeobj, &hand->field_B58, &launchmtx, &launchvel, (s32 *)&identitymtx);
 
-        if (grenadeobj->runtime_bitflags & 0x80) {
+        if (grenadeobj->runtime_bitflags & RUNTIMEBITFLAG_00000080)
+        {
             grenadeobj->projectile->unk8C = 0.3f;
             grenadeobj->projectile->unk94 = 0.13333333f;
             grenadeobj->projectile->refreshrate = THROWN_ITEM_REFRESH_RATE;
         }
     }
 }
-#endif
-
-#if defined(VERSION_EU)
-GLOBAL_ASM(
-.late_rodata
-glabel D_80053DCC
-.word 0x42055555 /*33.333332*/
-glabel D_80053DD0
-.word 0x3e99999a /*0.30000001*/
-glabel D_80053DD4
-.word 0x3e088888 /*0.13333333*/
-.text
-glabel gunSpawnGLGrenade
-/* 0925E4 7F05FBF4 000470C0 */  sll   $t6, $a0, 3
-/* 0925E8 7F05FBF8 01C47023 */  subu  $t6, $t6, $a0
-/* 0925EC 7F05FBFC 000E7080 */  sll   $t6, $t6, 2
-/* 0925F0 7F05FC00 01C47021 */  addu  $t6, $t6, $a0
-/* 0925F4 7F05FC04 3C0F8007 */  lui   $t7, %hi(g_CurrentPlayer) # $t7, 0x8007
-/* 0925F8 7F05FC08 8DEF8BC0 */  lw    $t7, %lo(g_CurrentPlayer)($t7)
-/* 0925FC 7F05FC0C 000E7080 */  sll   $t6, $t6, 2
-/* 092600 7F05FC10 01C47021 */  addu  $t6, $t6, $a0
-/* 092604 7F05FC14 27BDFF18 */  addiu $sp, $sp, -0xe8
-/* 092608 7F05FC18 000E70C0 */  sll   $t6, $t6, 3
-/* 09260C 7F05FC1C 01EEC021 */  addu  $t8, $t7, $t6
-/* 092610 7F05FC20 AFBF001C */  sw    $ra, 0x1c($sp)
-/* 092614 7F05FC24 27190868 */  addiu $t9, $t8, 0x868
-/* 092618 7F05FC28 AFA400E8 */  sw    $a0, 0xe8($sp)
-/* 09261C 7F05FC2C AFB900E0 */  sw    $t9, 0xe0($sp)
-/* 092620 7F05FC30 0FC22640 */  jal   getCurrentPlayerProp
-/* 092624 7F05FC34 AFAE0028 */   sw    $t6, 0x28($sp)
-/* 092628 7F05FC38 0FC2287E */  jal   getCurrentPlayerPrevPos
-/* 09262C 7F05FC3C AFA20034 */   sw    $v0, 0x34($sp)
-/* 092630 7F05FC40 AFA20030 */  sw    $v0, 0x30($sp)
-/* 092634 7F05FC44 0FC1611E */  jal   matrix_4x4_set_identity
-/* 092638 7F05FC48 27A400A0 */   addiu $a0, $sp, 0xa0
-/* 09263C 7F05FC4C 27A40044 */  addiu $a0, $sp, 0x44
-/* 092640 7F05FC50 27A50038 */  addiu $a1, $sp, 0x38
-/* 092644 7F05FC54 0FC1A25D */  jal   bullet_path_from_screen_center
-/* 092648 7F05FC58 8FA600E8 */   lw    $a2, 0xe8($sp)
-/* 09264C 7F05FC5C 0FC1E131 */  jal   currentPlayerGetViewToWorldMtxf
-/* 092650 7F05FC60 00000000 */   nop
-/* 092654 7F05FC64 00402025 */  move  $a0, $v0
-/* 092658 7F05FC68 0FC16220 */  jal   mtx4RotateVecInPlace
-/* 09265C 7F05FC6C 27A50038 */   addiu $a1, $sp, 0x38
-/* 092660 7F05FC70 3C018005 */  lui   $at, %hi(D_80053DCC) # $at, 0x8005
-/* 092664 7F05FC74 C4209F0C */  lwc1  $f0, %lo(D_80053DCC)($at)
-/* 092668 7F05FC78 C7A40038 */  lwc1  $f4, 0x38($sp)
-/* 09266C 7F05FC7C C7A8003C */  lwc1  $f8, 0x3c($sp)
-/* 092670 7F05FC80 C7B00040 */  lwc1  $f16, 0x40($sp)
-/* 092674 7F05FC84 46002182 */  mul.s $f6, $f4, $f0
-/* 092678 7F05FC88 3C088004 */  lui   $t0, %hi(g_ClockTimer) # $t0, 0x8004
-/* 09267C 7F05FC8C 8D080FF4 */  lw    $t0, %lo(g_ClockTimer)($t0)
-/* 092680 7F05FC90 46004282 */  mul.s $f10, $f8, $f0
-/* 092684 7F05FC94 8FA20030 */  lw    $v0, 0x30($sp)
-/* 092688 7F05FC98 8FA30034 */  lw    $v1, 0x34($sp)
-/* 09268C 7F05FC9C 46008482 */  mul.s $f18, $f16, $f0
-/* 092690 7F05FCA0 E7A60094 */  swc1  $f6, 0x94($sp)
-/* 092694 7F05FCA4 3C098007 */  lui   $t1, %hi(g_CurrentPlayer) # $t1, 0x8007
-/* 092698 7F05FCA8 E7AA0098 */  swc1  $f10, 0x98($sp)
-/* 09269C 7F05FCAC 19000015 */  blez  $t0, .L7F05FD04
-/* 0926A0 7F05FCB0 E7B2009C */   swc1  $f18, 0x9c($sp)
-/* 0926A4 7F05FCB4 C4640008 */  lwc1  $f4, 8($v1)
-/* 0926A8 7F05FCB8 C4480000 */  lwc1  $f8, ($v0)
-/* 0926AC 7F05FCBC 3C018004 */  lui   $at, %hi(g_GlobalTimerDelta) # $at, 0x8004
-/* 0926B0 7F05FCC0 C4201004 */  lwc1  $f0, %lo(g_GlobalTimerDelta)($at)
-/* 0926B4 7F05FCC4 46082401 */  sub.s $f16, $f4, $f8
-/* 0926B8 7F05FCC8 46008103 */  div.s $f4, $f16, $f0
-/* 0926BC 7F05FCCC 46043200 */  add.s $f8, $f6, $f4
-/* 0926C0 7F05FCD0 E7A80094 */  swc1  $f8, 0x94($sp)
-/* 0926C4 7F05FCD4 C4460004 */  lwc1  $f6, 4($v0)
-/* 0926C8 7F05FCD8 C470000C */  lwc1  $f16, 0xc($v1)
-/* 0926CC 7F05FCDC 46068101 */  sub.s $f4, $f16, $f6
-/* 0926D0 7F05FCE0 46002203 */  div.s $f8, $f4, $f0
-/* 0926D4 7F05FCE4 46085400 */  add.s $f16, $f10, $f8
-/* 0926D8 7F05FCE8 E7B00098 */  swc1  $f16, 0x98($sp)
-/* 0926DC 7F05FCEC C4440008 */  lwc1  $f4, 8($v0)
-/* 0926E0 7F05FCF0 C4660010 */  lwc1  $f6, 0x10($v1)
-/* 0926E4 7F05FCF4 46043281 */  sub.s $f10, $f6, $f4
-/* 0926E8 7F05FCF8 46005203 */  div.s $f8, $f10, $f0
-/* 0926EC 7F05FCFC 46089400 */  add.s $f16, $f18, $f8
-/* 0926F0 7F05FD00 E7B0009C */  swc1  $f16, 0x9c($sp)
-.L7F05FD04:
-/* 0926F4 7F05FD04 8D298BC0 */  lw    $t1, %lo(g_CurrentPlayer)($t1)
-/* 0926F8 7F05FD08 8FAA0028 */  lw    $t2, 0x28($sp)
-/* 0926FC 7F05FD0C 27A50050 */  addiu $a1, $sp, 0x50
-/* 092700 7F05FD10 012A2021 */  addu  $a0, $t1, $t2
-/* 092704 7F05FD14 0FC16132 */  jal   matrix_4x4_copy
-/* 092708 7F05FD18 24840AD0 */   addiu $a0, $a0, 0xad0
-/* 09270C 7F05FD1C 44800000 */  mtc1  $zero, $f0
-/* 092710 7F05FD20 240400CB */  li    $a0, 203
-/* 092714 7F05FD24 24050057 */  li    $a1, 87
-/* 092718 7F05FD28 E7A00080 */  swc1  $f0, 0x80($sp)
-/* 09271C 7F05FD2C E7A00084 */  swc1  $f0, 0x84($sp)
-/* 092720 7F05FD30 0FC148D3 */  jal   create_new_item_instance_of_model
-/* 092724 7F05FD34 E7A00088 */   swc1  $f0, 0x88($sp)
-/* 092728 7F05FD38 10400025 */  beqz  $v0, .L7F05FDD0
-/* 09272C 7F05FD3C 240B03E8 */   li    $t3, 1000
-/* 092730 7F05FD40 8C4C0064 */  lw    $t4, 0x64($v0)
-/* 092734 7F05FD44 3C01FFF9 */  lui   $at, (0xFFF9FFFF >> 16) # lui $at, 0xfff9
-/* 092738 7F05FD48 3421FFFF */  ori   $at, (0xFFF9FFFF & 0xFFFF) # ori $at, $at, 0xffff
-/* 09273C 7F05FD4C 01816824 */  and   $t5, $t4, $at
-/* 092740 7F05FD50 A44B0082 */  sh    $t3, 0x82($v0)
-/* 092744 7F05FD54 AC4D0064 */  sw    $t5, 0x64($v0)
-/* 092748 7F05FD58 0FC269A4 */  jal   get_cur_playernum
-/* 09274C 7F05FD5C AFA200E4 */   sw    $v0, 0xe4($sp)
-/* 092750 7F05FD60 8FA400E4 */  lw    $a0, 0xe4($sp)
-/* 092754 7F05FD64 00027C40 */  sll   $t7, $v0, 0x11
-/* 092758 7F05FD68 27B900A0 */  addiu $t9, $sp, 0xa0
-/* 09275C 7F05FD6C 8C8E0064 */  lw    $t6, 0x64($a0)
-/* 092760 7F05FD70 27A60050 */  addiu $a2, $sp, 0x50
-/* 092764 7F05FD74 27A70094 */  addiu $a3, $sp, 0x94
-/* 092768 7F05FD78 01CFC025 */  or    $t8, $t6, $t7
-/* 09276C 7F05FD7C AC980064 */  sw    $t8, 0x64($a0)
-/* 092770 7F05FD80 8FA500E0 */  lw    $a1, 0xe0($sp)
-/* 092774 7F05FD84 AFB90010 */  sw    $t9, 0x10($sp)
-/* 092778 7F05FD88 0FC17C35 */  jal   gunInitProjectileFromPlayer
-/* 09277C 7F05FD8C 24A502E8 */   addiu $a1, $a1, 0x2e8
-/* 092780 7F05FD90 8FA400E4 */  lw    $a0, 0xe4($sp)
-/* 092784 7F05FD94 3C018005 */  lui   $at, %hi(D_80053DD0) # $at, 0x8005
-/* 092788 7F05FD98 8C880064 */  lw    $t0, 0x64($a0)
-/* 09278C 7F05FD9C 31090080 */  andi  $t1, $t0, 0x80
-/* 092790 7F05FDA0 5120000C */  beql  $t1, $zero, .L7F05FDD4
-/* 092794 7F05FDA4 8FBF001C */   lw    $ra, 0x1c($sp)
-/* 092798 7F05FDA8 C4269F10 */  lwc1  $f6, %lo(D_80053DD0)($at)
-/* 09279C 7F05FDAC 8C8A006C */  lw    $t2, 0x6c($a0)
-/* 0927A0 7F05FDB0 3C018005 */  lui   $at, %hi(D_80053DD4) # $at, 0x8005
-/* 0927A4 7F05FDB4 240C0032 */  li    $t4, 50
-/* 0927A8 7F05FDB8 E546008C */  swc1  $f6, 0x8c($t2)
-/* 0927AC 7F05FDBC 8C8B006C */  lw    $t3, 0x6c($a0)
-/* 0927B0 7F05FDC0 C4249F14 */  lwc1  $f4, %lo(D_80053DD4)($at)
-/* 0927B4 7F05FDC4 E5640094 */  swc1  $f4, 0x94($t3)
-/* 0927B8 7F05FDC8 8C8D006C */  lw    $t5, 0x6c($a0)
-/* 0927BC 7F05FDCC ADAC00BC */  sw    $t4, 0xbc($t5)
-.L7F05FDD0:
-/* 0927C0 7F05FDD0 8FBF001C */  lw    $ra, 0x1c($sp)
-.L7F05FDD4:
-/* 0927C4 7F05FDD4 27BD00E8 */  addiu $sp, $sp, 0xe8
-/* 0927C8 7F05FDD8 03E00008 */  jr    $ra
-/* 0927CC 7F05FDDC 00000000 */   nop
-)
-#endif
 
 
 /**
@@ -2354,14 +2217,14 @@ void gunUpdateAttachedRocket(s32 handIndex)
 
     attachedRocket = entry->rocket;
 
-    if (attachedRocket == NULL) 
+    if (attachedRocket == NULL)
     {
         return;
     }
 
     attachmentChild = attachedRocket->child;
 
-    if (attachmentChild == NULL) 
+    if (attachmentChild == NULL)
     {
         return;
     }
@@ -2549,15 +2412,17 @@ void gunFireTankShell(s32 handnum)
     }
 
     obj->timer = -1;
-    obj->runtime_bitflags &= 0xFFF9FFFF;
-    obj->runtime_bitflags |= get_cur_playernum() << 17;
+    obj->runtime_bitflags &= ~RUNTIMEBITFLAG_OWNER;
+    obj->runtime_bitflags |= get_cur_playernum() << RUNTIMEBITSHIFT_OWNER;
 
     gunInitProjectileFromPlayer(obj, &spawnpos, &shellmtx, &velocity, (s32 *) &identitymtx);
 
-    if (obj->runtime_bitflags & 0x80) {
+    if (obj->runtime_bitflags & RUNTIMEBITFLAG_00000080)
+    {
         obj->projectile->flags |= PROJECTILEFLAG_LAUNCHING;
 
-        if (weaponid != ITEM_TANKSHELLS) {
+        if (weaponid != ITEM_TANKSHELLS)
+        {
             obj->projectile->flags |= PROJECTILEFLAG_00000020;
             obj->projectile->unkB0 = obj->runtime_pos.y;
             obj->projectile->unkB4 = obj->projectile->speed.y;
@@ -2566,9 +2431,12 @@ void gunFireTankShell(s32 handnum)
             obj->projectile->unk10.z = unscaledvelocity.z;
             obj->projectile->refreshrate = THROWN_ITEM_REFRESH_RATE;
 
-            if (obj->projectile->sounds[0] == NULL) {
+            if (obj->projectile->sounds[0] == NULL)
+            {
                 sndPlaySfx(g_musicSfxBufferPtr, 1, &obj->projectile->sounds[0]);
-            } else if (obj->projectile->sounds[1] == NULL) {
+            } 
+            else if (obj->projectile->sounds[1] == NULL)
+            {
                 sndPlaySfx(g_musicSfxBufferPtr, 1, &obj->projectile->sounds[1]);
             }
         }
