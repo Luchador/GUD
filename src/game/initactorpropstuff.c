@@ -6,29 +6,6 @@
 #include "math.h"
 #include "math_floor.h"
 
-/**
- * Representation of a model animation entry.
- *
- * This is intentionally smaller than ModelAnimation. 
- * Function sub_GAME_7F00032C walks this table with a 0x1c byte stride 
- * and patches the address field from an offset into ptr_animation_table to an absolute pointer.
- *
- * The runtime ModelAnimation struct is 0x40 bytes, so using ModelAnimation
- * here would make entries++ advance by 0x40 and would not match the original codegen.
- */
-typedef struct ModelAnimationEntry {
-    s32 address;
-    u16 unk04; // next frame
-    u8 unk06;
-    u8 unk07; // bit 0 is loop flag
-    u16 unk08;
-    u16 unk0A;
-    u16 unk0C;
-    u16 unk0E;
-    s32 unk10;
-    s32 unk14;
-    s32 unk18;
-} ModelAnimationEntry;
 
 /**
  * Gets the number of currently allocated heads and bodies
@@ -97,8 +74,12 @@ s32 sub_GAME_7F000290(ModelAnimation *anim, s32 startframe, s32 endframe)
  * Address: 7F00032C
  * 
  * pd is raceInitAnimGroup
+ * 
+ * Initializes a null-terminated table of weapon firing animation configs.
+ * 
+ * @returns the number of table entires.
  */
-s32 sub_GAME_7F00032C(struct weapon_firing_animation_table *animconfig)
+s32 initResolveAnimGroupTable(struct weapon_firing_animation_table *animconfig)
 {
     s32 animoffset;
     s32 numconfigs;
@@ -106,7 +87,7 @@ s32 sub_GAME_7F00032C(struct weapon_firing_animation_table *animconfig)
 
     union
     {
-        unsigned int offset;
+        u32 offset;
         struct ModelAnimation *anim;
     } *initialanim;
 
@@ -160,7 +141,10 @@ s32 sub_GAME_7F00032C(struct weapon_firing_animation_table *animconfig)
 
 
 //pd is raceInitAnimGroups
-void sub_GAME_7F00046C(struct anim_group_info **groups)
+/**
+ * Address: 7F00046C
+ */
+void initResolveAnimGroups(struct anim_group_info **groups)
 {
     s32 i;
 
@@ -168,7 +152,7 @@ void sub_GAME_7F00046C(struct anim_group_info **groups)
     {
         if (groups[i]->len < 0)
         {
-            groups[i]->len = sub_GAME_7F00032C(groups[i]->table);
+            groups[i]->len = initResolveAnimGroupTable(groups[i]->table);
         }
     }
 }
@@ -176,32 +160,35 @@ void sub_GAME_7F00046C(struct anim_group_info **groups)
 
 /**
  * Address: 7F0004D0
+ * 
+ * Resolves each entry's anim offset into an absolute ModelAnimation*.
+ * @returns the entry count.
  */
-s32 sub_GAME_7F0004D0(ModelAnimationEntry *entries)
+s32 initResolveAnimTable(struct StruckAnim *entries)
 {
     s32 count;
-    ModelAnimationEntry *entry;
+    struct StruckAnim *entry;
     s32 address;
-    ModelAnimationEntry *ptr_animation_table_addr;
+    struct StruckAnim *ptr_animation_table_addr;
 
     count = 0;
     entry = entries;
-    ptr_animation_table_addr = (ModelAnimationEntry *)(&ptr_animation_table);
+    ptr_animation_table_addr = (struct StruckAnim *)(&ptr_animation_table);
 
     if (1);
 
-    if (entry->address != 0)
+    if (entry->struck_anim != 0)
     {
         do
         {
-            address = (*entry).address;
+            address = (*entry).struck_anim;
             entries = ptr_animation_table_addr;
             count++;
             entry++;
-            ptr_animation_table_addr = (ModelAnimationEntry *)(&ptr_animation_table);
-            entry[-1].address = (*((s32 *)entries)) + (0, address);
+            ptr_animation_table_addr = (struct StruckAnim *)(&ptr_animation_table);
+            entry[-1].struck_anim = (ModelAnimation *)((*((s32 *)entries)) + (0, address));
         }
-        while (entry->address != 0);
+        while (entry->struck_anim != 0);
     }
 
     return count;
@@ -223,38 +210,39 @@ void initWeaponAnimGroups(void)
 {
     s32 i;
 
-    if (D_8002C914[0].id != (-1))
+    if (g_HitReactionTable[0].hitpart != (-1))
     {
         i = 0;
 
         do
         {
-            if (D_8002C914[i].field_1C != NULL)
+            if (g_HitReactionTable[i].deathAnims != NULL)
             {
-                D_8002C914[i].field_20 = sub_GAME_7F0004D0((ModelAnimationEntry *)D_8002C914[i].field_1C);
+                g_HitReactionTable[i].deathAnimCount = initResolveAnimTable(g_HitReactionTable[i].deathAnims);
             }
 
-            if (D_8002C914[i].field_24 != NULL)
+            if (g_HitReactionTable[i].flinchAnims != NULL)
             {
-                D_8002C914[i].field_28 = sub_GAME_7F0004D0((ModelAnimationEntry *)D_8002C914[i].field_24);
+                g_HitReactionTable[i].flinchAnimCount = initResolveAnimTable(g_HitReactionTable[i].flinchAnims);
             }
 
             i++;
         }
-        while (D_8002C914[i].id != (-1));
+        while (g_HitReactionTable[i].hitpart != (-1));
     }
 
-    sub_GAME_7F0004D0((ModelAnimationEntry *)D_8002DEBC);
 
-    sub_GAME_7F00046C(ptr_rifle_firing_animation_groups);
-    sub_GAME_7F00046C(ptr_pistol_firing_animation_groups);
-    sub_GAME_7F00046C(ptr_doubles_firing_animation_groups);
-    sub_GAME_7F00046C(ptr_crouched_rifle_firing_animation_groups);
-    sub_GAME_7F00046C(ptr_crouched_pistol_firing_animation_groups);
-    sub_GAME_7F00046C(ptr_crouched_doubles_firing_animation_groups);
+    initResolveAnimTable(death_stagger);
 
-    sub_GAME_7F00032C(D_80030078);
-    sub_GAME_7F00032C(D_80030660);
+    initResolveAnimGroups(ptr_rifle_firing_animation_groups);
+    initResolveAnimGroups(ptr_pistol_firing_animation_groups);
+    initResolveAnimGroups(ptr_doubles_firing_animation_groups);
+    initResolveAnimGroups(ptr_crouched_rifle_firing_animation_groups);
+    initResolveAnimGroups(ptr_crouched_pistol_firing_animation_groups);
+    initResolveAnimGroups(ptr_crouched_doubles_firing_animation_groups);
+
+    initResolveAnimGroupTable(D_80030078);
+    initResolveAnimGroupTable(D_80030660);
 
     D_80030984 = ANIM_FRAC(ANIM_DATA_walking);
     D_80030988 = ANIM_FRAC(ANIM_DATA_running);
@@ -275,7 +263,8 @@ void initWeaponAnimGroups(void)
 /**
  * Address: 7F000980
  */
-void casingsInit(void) {
+void casingsInit(void) 
+{
     initCasingPool();
 }
 
@@ -285,7 +274,8 @@ void casingsInit(void) {
  * 
  * Sets the header field of every g_Casings entry to NULL.
  */
-void initCasingPool(void) {
+void initCasingPool(void) 
+{
     CasingRecord *end = &g_Casings[20];
     CasingRecord *ptr = &g_Casings[0];
     

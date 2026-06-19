@@ -48,6 +48,7 @@ void matrix_4x4_align(Mtxf *matrix, f32 angle, f32 x, f32 y, f32 z);
 void matrix_4x4_set_rotation_axis_angle(Mtxf *matrix, f32 angle, f32 x, f32 y, f32 z);
 void matrix_4x4_set_rotation_inverse(Mtxf *rotation, Mtxf *transpose);
 void matrix_4x4_transform_vector(Mtxf *matrix, struct coord3d *vector, struct coord3d *result);
+void matrix_row_3_scalar_multiply(f32 scalar, f32 *matrix);
 
 // tenative guess
 void sub_GAME_7F058E78(Mtxf *arg0, Mtxf *arg1);

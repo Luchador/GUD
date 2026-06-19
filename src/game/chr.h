@@ -7,38 +7,36 @@
 
 #define EXPLOSION_ANIMATION_TABLE_LEN 8
 
-struct struck_animation_table;
+struct StruckAnim;
 
-struct animation_something
+// Per-body-part hits and deaths reaction descriptor.
+struct ChrHitReaction
 {
-    s32 id;
-    s32 field_4;
-    s32 field_8;
-    f32 field_C;
-    s32 field_10;
-    s32 field_14;
-    f32 field_18;
+    s32 hitpart; // HITTARGET key
+    s32 impactPuffCount;
+    s32 unused_8;
+    f32 impactPuffSize;
+    s32 backImpactPuffCount; // Count for the impact puff(s) that appears behind the hit point
+    s32 unused_14;
+    f32 backImpactPuffSize;
 
-    struct struck_animation_table *field_1C;
+    struct StruckAnim *deathAnims;
+    s32 deathAnimCount;
 
-    // maybe count of field_1C
-    s32 field_20;
-
-    struct struck_animation_table *field_24;
-
-    // maybe count of field_24
-    s32 field_28;
+    struct StruckAnim *flinchAnims;
+    s32 flinchAnimCount;
 };
 
-struct struck_animation_table
+// Animations for when characters are wounded or killed.
+struct StruckAnim
 {
-    void *anonymous_0; // This might be pointer to struct of ANIM_DATA_x
-    s32 anonymous_1;
-    f32 anonymous_2;
-    f32 anonymous_3;
-    s32 anonymous_4;
-    f32 sfx1_timer_60;
-    f32 sfx2_timer_60;
+    ModelAnimation *struck_anim;
+    s32 flip; // Mirror flag selecting left/right variant
+    f32 endframe;
+    f32 speed;
+    s32 knockback; // Enables characters to be pushed back when the gun's impact force > 0
+    f32 thudframe1;
+    f32 thudframe2;
 };
 
 struct explosion_death_animation
@@ -149,46 +147,46 @@ extern f32 g_AiHealthModifier;
 extern f32 g_AiReactionSpeed;
 extern s32 g_SeenBondRecentlyGuardCount;
 
-extern struct animation_something D_8002C914[];
+extern struct ChrHitReaction g_HitReactionTable[];
 
-extern struct struck_animation_table D_8002CE54[];
-extern struct struck_animation_table D_8002DF10[];
-extern struct struck_animation_table D_8002CEE0[];
-extern struct struck_animation_table D_8002DF64[];
-extern struct struck_animation_table D_8002CF6C[];
-extern struct struck_animation_table D_8002DFB8[];
-extern struct struck_animation_table D_8002D014[];
-extern struct struck_animation_table D_8002E028[];
-extern struct struck_animation_table D_8002D0A0[];
-extern struct struck_animation_table D_8002E07C[];
-extern struct struck_animation_table D_8002D12C[];
-extern struct struck_animation_table D_8002E0D0[];
-extern struct struck_animation_table D_8002D1D4[];
-extern struct struck_animation_table D_8002E140[];
-extern struct struck_animation_table D_8002D3B0[];
-extern struct struck_animation_table D_8002E23C[];
-extern struct struck_animation_table D_8002D6DC[];
-extern struct struck_animation_table D_8002E300[];
-extern struct struck_animation_table D_8002D768[];
-extern struct struck_animation_table D_8002E354[];
-extern struct struck_animation_table D_8002D7F4[];
-extern struct struck_animation_table D_8002E3A8[];
-extern struct struck_animation_table D_8002D880[];
-extern struct struck_animation_table D_8002E418[];
-extern struct struck_animation_table D_8002D90C[];
-extern struct struck_animation_table D_8002E46C[];
-extern struct struck_animation_table D_8002D998[];
-extern struct struck_animation_table D_8002E4C0[];
-extern struct struck_animation_table D_8002DA24[];
-extern struct struck_animation_table D_8002E530[];
-extern struct struck_animation_table D_8002DCE0[];
-extern struct struck_animation_table D_8002E5BC[];
+extern struct StruckAnim death_left_foot[];
+extern struct StruckAnim flinch_left_foot[];
+extern struct StruckAnim death_left_leg[];
+extern struct StruckAnim flinch_left_leg[];
+extern struct StruckAnim death_left_thigh[];
+extern struct StruckAnim flinch_left_thigh[];
+extern struct StruckAnim death_right_foot[];
+extern struct StruckAnim flinch_right_foot[];
+extern struct StruckAnim death_right_leg[];
+extern struct StruckAnim flinch_right_leg[];
+extern struct StruckAnim death_right_thigh[];
+extern struct StruckAnim flinch_right_thigh[];
+extern struct StruckAnim death_pelvis[];
+extern struct StruckAnim flinch_pelvis[];
+extern struct StruckAnim death_head[];
+extern struct StruckAnim flinch_head[];
+extern struct StruckAnim death_left_hand[];
+extern struct StruckAnim flinch_left_hand[];
+extern struct StruckAnim death_left_arm[];
+extern struct StruckAnim flinch_left_arm[];
+extern struct StruckAnim death_left_shoulder[];
+extern struct StruckAnim flinch_left_shoulder[];
+extern struct StruckAnim death_right_hand[];
+extern struct StruckAnim flinch_right_hand[];
+extern struct StruckAnim death_right_arm[];
+extern struct StruckAnim flinch_right_arm[];
+extern struct StruckAnim death_right_shoulder[];
+extern struct StruckAnim flinch_right_shoulder[];
+extern struct StruckAnim death_chest[];
+extern struct StruckAnim flinch_chest[];
+extern struct StruckAnim death_gun[];
+extern struct StruckAnim flinch_gun[];
+extern struct StruckAnim death_stagger[];
 
-extern struct struck_animation_table D_8002DEBC[];
-extern struct animation_something D_8002CAA0;
-extern struct animation_something D_8002CACC;
-extern struct animation_something D_8002CB24;
-extern struct animation_something D_8002CB50;
+extern struct ChrHitReaction D_8002CAA0;
+extern struct ChrHitReaction D_8002CACC;
+extern struct ChrHitReaction D_8002CB24;
+extern struct ChrHitReaction D_8002CB50;
 
 extern struct weapon_firing_animation_table rifle_firing_animation_group1[];
 extern struct weapon_firing_animation_table rifle_firing_animation_group2[];

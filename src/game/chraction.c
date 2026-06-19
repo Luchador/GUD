@@ -1936,7 +1936,6 @@ void chrlvStanLineDirIntersection(coord3d *line2_p3, coord3d *dir, coord3d *resu
 }
 
 
-
 /**
  * @param arg0:
  * @param arg1:
@@ -1961,8 +1960,6 @@ void chrlvStanPointPointIntersection(coord3d *arg0, coord3d *arg1, coord3d *resu
     result->f[1] = sp2C.f[1] + ((sp20.f[1] - sp2C.f[1]) * v);
     result->f[2] = sp2C.f[2] + ((sp20.f[2] - sp2C.f[2]) * v);
 }
-
-
 
 
 /**
@@ -2008,8 +2005,6 @@ f32 chrlvPathingCollisionRelated(PropRecord *arg0, f32 arg1, f32 arg2, s32 cdtyp
 }
 
 
-
-
 /**
  * Address 0x7F0264B0.
 */
@@ -2024,13 +2019,11 @@ f32 chrlvPathingCollisionRelated7F0264B0(PropRecord *arg0, f32 arg1, f32 arg2)
 }
 
 
-
-
 /**
  * @param arg0:
  * @param arg1:
  * @param arg2:
- * @param req_animation_id: Lookup by id property in D_8002C914
+ * @param req_animation_id: Lookup by id property in g_HitReactionTable
  * @param item: argument to bondwalkItemGetForceOfImpact
  *
  * Address 0x7F026508.
@@ -2047,13 +2040,13 @@ void triggered_on_shot_hit(ChrRecord *self, coord3d *arg1, f32 arg2, s32 req_ani
     s32 animation_something_index; // 136
     s32 flag1; // 132
     u8 *sp80 = NULL; // ?
-    struct animation_something *something_ani = NULL; // ?
+    struct ChrHitReaction *something_ani = NULL; // ?
     f32 fa;
     f32 fb;
     f32 f_under; // 112(sp)
     f32 f_over; // 108(sp)
     f32 ft;
-    struct struck_animation_table *struck_ani; // 100
+    struct StruckAnim *struck_ani; // 100
     s32 i;
 
     flag9c = 1;
@@ -2066,9 +2059,9 @@ void triggered_on_shot_hit(ChrRecord *self, coord3d *arg1, f32 arg2, s32 req_ani
     {
         flag1 = (self->actiontype == ACT_ARGH) && (g_GlobalTimer == self->act_argh.unk30);
 
-        for (i=0; D_8002C914[i].id != -1; i++)
+        for (i=0; g_HitReactionTable[i].hitpart != -1; i++)
         {
-            if (req_animation_id == D_8002C914[i].id)
+            if (req_animation_id == g_HitReactionTable[i].hitpart)
             {
                 animation_something_index = i;
 
@@ -2103,21 +2096,21 @@ void triggered_on_shot_hit(ChrRecord *self, coord3d *arg1, f32 arg2, s32 req_ani
                     ft = f_over - f_under;
                     if ((ft < 10.0f) && (ft > -10.0f))
                     {
-                        struck_ani = &D_8002DEBC[randomGetNext() & 1];
+                        struck_ani = &death_stagger[randomGetNext() & 1];
 
                         chrStopFiring(self);
                         self->actiontype = ACT_DIE;
                         self->act_die.notifychrindex = 0;
-                        self->act_die.thudframe1 = struck_ani->sfx1_timer_60;
-                        self->act_die.thudframe2 = struck_ani->sfx2_timer_60;
+                        self->act_die.thudframe1 = struck_ani->thudframe1;
+                        self->act_die.thudframe2 = struck_ani->thudframe2;
                         self->sleep = 0;
                         self->act_die.timeextra = 0.0f;
 
-                        modelSetAnimationWithMerge(model, (void*)struck_ani->anonymous_0, struck_ani->anonymous_1, 0.0f, struck_ani->anonymous_3, 16.0f, flag1 == 0);
+                        modelSetAnimationWithMerge(model, struck_ani->struck_anim, struck_ani->flip, 0.0f, struck_ani->speed, 16.0f, flag1 == 0);
 
-                        if (struck_ani->anonymous_2 >= 0.0f)
+                        if (struck_ani->endframe >= 0.0f)
                         {
-                            modelSetAnimEndFrame(model, struck_ani->anonymous_2);
+                            modelSetAnimEndFrame(model, struck_ani->endframe);
                         }
 
                         // Note: PD sets the chrwidth to 10 when a guard dies slumped against an object or wall
@@ -2130,9 +2123,9 @@ void triggered_on_shot_hit(ChrRecord *self, coord3d *arg1, f32 arg2, s32 req_ani
 
             if (another_flag == 0)
             {
-                if ((D_8002C914[animation_something_index].field_1C != NULL) && (D_8002C914[animation_something_index].field_20 > 0))
+                if ((g_HitReactionTable[animation_something_index].deathAnims != NULL) && (g_HitReactionTable[animation_something_index].deathAnimCount > 0))
                 {
-                    struct struck_animation_table *struck_anib; // sp(92)
+                    struct StruckAnim *struck_anib; // sp(92)
                     s32 tr;
 
                     if (0)
@@ -2142,26 +2135,26 @@ void triggered_on_shot_hit(ChrRecord *self, coord3d *arg1, f32 arg2, s32 req_ani
 
                     another_flag = 1;
 
-                    tr = (randomGetNext() % (u32)D_8002C914[animation_something_index].field_20);
-                    struck_anib = &D_8002C914[animation_something_index].field_1C[tr];
+                    tr = (randomGetNext() % (u32)g_HitReactionTable[animation_something_index].deathAnimCount);
+                    struck_anib = &g_HitReactionTable[animation_something_index].deathAnims[tr];
                     chrStopFiring(self);
 
                     self->actiontype = ACT_DIE;
                     self->act_die.notifychrindex = 0;
-                    self->act_die.thudframe1 = struck_anib->sfx1_timer_60;
-                    self->act_die.thudframe2 = struck_anib->sfx2_timer_60;
+                    self->act_die.thudframe1 = struck_anib->thudframe1;
+                    self->act_die.thudframe2 = struck_anib->thudframe2;
                     self->sleep = 0;
                     self->act_die.timeextra = 0.0f;
 
-                    modelSetAnimationWithMerge(model, (void*)struck_anib->anonymous_0, struck_anib->anonymous_1, 0.0f, struck_anib->anonymous_3, 16.0f, flag1 == 0);
+                    modelSetAnimationWithMerge(model, struck_anib->struck_anim, struck_anib->flip, 0.0f, struck_anib->speed, 16.0f, flag1 == 0);
 
-                    if ((s32)struck_anib->anonymous_0 == ((s32)&ptr_animation_table->data[(s32)&ANIM_DATA_death_neck]) && ((randomGetNext() % (u32)0x64) != 0))
+                    if ((s32)struck_anib->struck_anim == ((s32)&ptr_animation_table->data[(s32)&ANIM_DATA_death_neck]) && ((randomGetNext() % (u32)0x64) != 0))
                     {
                         modelSetAnimEndFrame(model, 241.0f);
                     }
-                    else if (struck_anib->anonymous_2 >= 0.0f)
+                    else if (struck_anib->endframe >= 0.0f)
                     {
-                        modelSetAnimEndFrame(model, struck_anib->anonymous_2);
+                        modelSetAnimEndFrame(model, struck_anib->endframe);
                     }
 
                     impact_force = bondwalkItemGetForceOfImpact(item);
@@ -2171,7 +2164,7 @@ void triggered_on_shot_hit(ChrRecord *self, coord3d *arg1, f32 arg2, s32 req_ani
                         impact_force = 6.0f;
                     }
 
-                    if ((struck_anib->anonymous_4 != 0) && (impact_force > 0.0f))
+                    if ((struck_anib->knockback != 0) && (impact_force > 0.0f))
                     {
                         self->act_die.elapseextra = 0.0f;
                         self->act_die.timeextra = ((impact_force * 90.0f) / 6.0f);
@@ -2243,29 +2236,29 @@ void triggered_on_shot_hit(ChrRecord *self, coord3d *arg1, f32 arg2, s32 req_ani
 
             if (another_flag == 0)
             {
-                if ((D_8002C914[animation_something_index].field_24 != NULL) && (D_8002C914[animation_something_index].field_28 > 0))
+                if ((g_HitReactionTable[animation_something_index].flinchAnims != NULL) && (g_HitReactionTable[animation_something_index].flinchAnimCount > 0))
                 {
-                    PropRecord *temp_left = chrGetEquippedWeaponProp(self, GUNLEFT); // 80(sp)
+                    PropRecord *temp_left = chrGetEquippedWeaponProp(self, GUNLEFT);
                     PropRecord *temp_right = chrGetEquippedWeaponProp(self, GUNRIGHT);
                     s32 tr;
-                    struct struck_animation_table *struck_ani; // 68(sp)
-                    s32 ff = flag1 == 0; // 52(sp) ??
+                    struct StruckAnim *struck_ani;
+                    s32 ff = flag1 == 0;
 
                     another_flag = 1;
-                    something_ani = &D_8002C914[animation_something_index];
+                    something_ani = &g_HitReactionTable[animation_something_index];
 
-                    if (((s32)&D_8002C914[9] == (s32)something_ani) && (temp_left != NULL))
+                    if (((s32)&g_HitReactionTable[9] == (s32)something_ani) && (temp_left != NULL))
                     {
                         animation_something_index = 10;
                     }
-                    else if (((s32)&D_8002C914[12] == (s32)something_ani) && (temp_right != NULL))
+                    else if (((s32)&g_HitReactionTable[12] == (s32)something_ani) && (temp_right != NULL))
                     {
                         animation_something_index = 13;
                     }
 
-                    something_ani = &D_8002C914[animation_something_index];
-                    tr = (randomGetNext() % (u32) something_ani->field_28);
-                    struck_ani = &something_ani->field_24[tr];
+                    something_ani = &g_HitReactionTable[animation_something_index];
+                    tr = (randomGetNext() % (u32) something_ani->flinchAnimCount);
+                    struck_ani = &something_ani->flinchAnims[tr];
 
                     chrStopFiring(self);
 
@@ -2274,15 +2267,15 @@ void triggered_on_shot_hit(ChrRecord *self, coord3d *arg1, f32 arg2, s32 req_ani
                     self->act_argh.unk30 = g_GlobalTimer;
                     self->sleep = 0;
 
-                    modelSetAnimationWithMerge(model, (void*)struck_ani->anonymous_0, struck_ani->anonymous_1, 0.0f, struck_ani->anonymous_3, 16.0f, ff);
+                    modelSetAnimationWithMerge(model, struck_ani->struck_anim, struck_ani->flip, 0.0f, struck_ani->speed, 16.0f, ff);
 
-                    if (struck_ani->anonymous_2 >= 0.0f)
+                    if (struck_ani->endframe >= 0.0f)
                     {
-                        modelSetAnimEndFrame(model, chrlvGetGuard007ArghRating(self, struck_ani->anonymous_2, 8.0f));
+                        modelSetAnimEndFrame(model, chrlvGetGuard007ArghRating(self, struck_ani->endframe, 8.0f));
                     }
                     else
                     {
-                        modelSetAnimEndFrame(model, chrlvGetGuard007ArghRating(self, (f32)((s32)((u16*)struck_ani->anonymous_0)[2] - (s32)1), 8.0f));
+                        modelSetAnimEndFrame(model, chrlvGetGuard007ArghRating(self, (f32)((s32)((u16*)struck_ani->struck_anim)[2] - (s32)1), 8.0f));
                     }
                 }
             }
@@ -2292,13 +2285,13 @@ void triggered_on_shot_hit(ChrRecord *self, coord3d *arg1, f32 arg2, s32 req_ani
 
         if (flag9c && another_flag)
         {
-            if ((self->weapons_held[GUNRIGHT] != NULL) && ((self->weapons_held[GUNRIGHT]->obj->flags & 0x2000) == 0))
+            if ((self->weapons_held[GUNRIGHT] != NULL) && ((self->weapons_held[GUNRIGHT]->obj->flags & PROPFLAG_AIUNDROPPABLE) == FALSE))
             {
                 propobjSetDropped(self->weapons_held[GUNRIGHT], 1);
                 self->hidden |= CHRHIDDEN_DROP_HELD_ITEMS;
             }
 
-            if ((self->weapons_held[GUNLEFT] != NULL) && ((self->weapons_held[GUNLEFT]->obj->flags & 0x2000) == 0))
+            if ((self->weapons_held[GUNLEFT] != NULL) && ((self->weapons_held[GUNLEFT]->obj->flags & PROPFLAG_AIUNDROPPABLE) == FALSE))
             {
                 propobjSetDropped(self->weapons_held[GUNLEFT], 1);
                 self->hidden |= CHRHIDDEN_DROP_HELD_ITEMS;

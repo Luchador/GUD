@@ -35746,7 +35746,7 @@ void door7F05522C(DoorRecord *door, f32 *arg1, f32 *arg2, s32 altcoordsystem)
     f32 anglediff;
     PropRecord *playerprop;
     BoundPadRecord *pad;
-    coord3d field_10;
+    coord3d backImpactPuffCount;
     coord3d normal;
     f32 xmin;
     f32 xmax;

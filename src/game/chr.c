@@ -60,38 +60,42 @@ s32 g_AnimationTablePointerCountRelated = 0;
 s32 D_8002C90C = 0;
 s32 D_8002C910 = 0;
 
-//D:8002C914
-struct animation_something D_8002C914[] = {
-    {0         , 0, 0,    0, 0, 0,    0,       NULL, 0,       NULL, 0},
-    {1         , 1, 0, 17.0, 3, 0, 34.0, D_8002CE54, 0, D_8002DF10, 0},
-    {2         , 1, 0, 17.0, 3, 0, 39.0, D_8002CEE0, 0, D_8002DF64, 0},
-    {3         , 1, 0, 21.0, 3, 0, 43.0, D_8002CF6C, 0, D_8002DFB8, 0},
-    {4         , 1, 0, 17.0, 3, 0, 34.0, D_8002D014, 0, D_8002E028, 0},
-    {5         , 1, 0, 17.0, 3, 0, 39.0, D_8002D0A0, 0, D_8002E07C, 0},
-    {6         , 1, 0, 21.0, 3, 0, 43.0, D_8002D12C, 0, D_8002E0D0, 0},
-    {7         , 1, 0, 21.0, 3, 0, 52.0, D_8002D1D4, 0, D_8002E140, 0},
-    {8         , 1, 0, 21.0, 3, 0, 43.0, D_8002D3B0, 0, D_8002E23C, 0},
-    {9         , 1, 0, 17.0, 3, 0, 34.0, D_8002D6DC, 0, D_8002E300, 0}, // previously D_8002CAA0 = &D_8002C914 + (0x2c * 9)
-    {0xA       , 1, 0, 17.0, 3, 0, 43.0, D_8002D768, 0, D_8002E354, 0}, // previously D_8002CACC
-    {0xB       , 1, 0, 21.0, 3, 0, 52.0, D_8002D7F4, 0, D_8002E3A8, 0},
-    {0xC       , 1, 0, 17.0, 3, 0, 34.0, D_8002D880, 0, D_8002E418, 0}, // previously D_8002CB24
-    {0xD       , 1, 0, 17.0, 3, 0, 43.0, D_8002D90C, 0, D_8002E46C, 0}, // previously D_8002CB50
-    {0xE       , 1, 0, 21.0, 3, 0, 52.0, D_8002D998, 0, D_8002E4C0, 0},
-    {0xF       , 1, 0, 26.0, 3, 0, 60.0, D_8002DA24, 0, D_8002E530, 0},
-    {0x64      , 1, 0, 26.0, 0, 0,  0.0, D_8002DCE0, 0, D_8002E5BC, 0},
-    {0x6E      , 1, 0, 21.0, 0, 0,  0.0,       NULL, 0,       NULL, 0},
-    {0xFFFFFFFF, 0, 0,  0.0, 0, 0,  0.0,       NULL, 0,       NULL, 0},
+/*
+ * D:8002C914
+ * Per-body-part hit reaction table, indexed by HITTARGET.
+ * Legend: iN/iSz = impact puff count/size, bN/bSz = back puff count/size,
+ *         u8/u14 = unused, dN/fN = death/flinch anim counts (filled at init by initWeaponAnimGroups).
+ */
+/*                       part,                       iN,  u8,  iSz,   bN, u14,  bSz,  deathAnims,           dN, flinchAnims,          fN */
+struct ChrHitReaction g_HitReactionTable[] = {     
+/* HIT_NULL_PART      */ {0                        , 0,   0,   0,     0,  0,    0,    NULL,                 0,  NULL,                  0},
+/* HIT_LEFT_FOOT      */ {1                        , 1,   0,   17.0,  3,  0,    34.0, death_left_foot,      0,  flinch_left_foot,      0},
+/* HIT_LEFT_LEG       */ {2                        , 1,   0,   17.0,  3,  0,    39.0, death_left_leg,       0,  flinch_left_leg,       0},
+/* HIT_LEFT_THIGH     */ {3                        , 1,   0,   21.0,  3,  0,    43.0, death_left_thigh,     0,  flinch_left_thigh,     0},
+/* HIT_RIGHT_FOOT     */ {4                        , 1,   0,   17.0,  3,  0,    34.0, death_right_foot,     0,  flinch_right_foot,     0},
+/* HIT_RIGHT_LEG      */ {5                        , 1,   0,   17.0,  3,  0,    39.0, death_right_leg,      0,  flinch_right_leg,      0},
+/* HIT_RIGHT_THIGH    */ {6                        , 1,   0,   21.0,  3,  0,    43.0, death_right_thigh,    0,  flinch_right_thigh,    0},
+/* HIT_PELVIS         */ {7                        , 1,   0,   21.0,  3,  0,    52.0, death_pelvis,         0,  flinch_pelvis,         0},
+/* HIT_HEAD           */ {8                        , 1,   0,   21.0,  3,  0,    43.0, death_head,           0,  flinch_head,           0},
+/* HIT_LEFT_HAND      */ {9                        , 1,   0,   17.0,  3,  0,    34.0, death_left_hand,      0,  flinch_left_hand,      0},
+/* HIT_LEFT_ARM       */ {0xA                      , 1,   0,   17.0,  3,  0,    43.0, death_left_arm,       0,  flinch_left_arm,       0},
+/* HIT_LEFT_SHOULDER  */ {0xB                      , 1,   0,   21.0,  3,  0,    52.0, death_left_shoulder,  0,  flinch_left_shoulder,  0},
+/* HIT_RIGHT_HAND     */ {0xC                      , 1,   0,   17.0,  3,  0,    34.0, death_right_hand,     0,  flinch_right_hand,     0},
+/* HIT_RIGHT_ARM      */ {0xD                      , 1,   0,   17.0,  3,  0,    43.0, death_right_arm,      0,  flinch_right_arm,      0},
+/* HIT_RIGHT_SHOULDER */ {0xE                      , 1,   0,   21.0,  3,  0,    52.0, death_right_shoulder, 0,  flinch_right_shoulder, 0},
+/* HIT_CHEST          */ {0xF                      , 1,   0,   26.0,  3,  0,    60.0, death_chest,          0,  flinch_chest,          0},
+/* HIT_GUN            */ {0x64                     , 1,   0,   26.0,  0,  0,    0.0,  death_gun,            0,  flinch_gun,            0},
+/* HIT_HAT            */ {0x6E                     , 1,   0,   21.0,  0,  0,    0.0,  NULL,                 0,  NULL,                  0},
+/* terminator         */ {0xFFFFFFFF               , 0,   0,   0.0,   0,  0,    0.0,  NULL,                 0,  NULL,                  0},
 };
 
-
-
-
-s32 D_8002CC58 = 0;
+s32 D_8002CC58 = 0; // Set to 0 but otherwise never used.
 s32 show_patrols_flag = FALSE;
 s32 player1_guardID = 5000;
- ChrRecord *g_ChrSlots = 0;
+ChrRecord *g_ChrSlots = 0;
 s32 g_NumChrSlots = 0;
- ModelRenderData D_8002CC6C        = {NULL,
+
+ModelRenderData D_8002CC6C         = {NULL,
                                       TRUE,
                                       0x00000003,
                                       NULL,
@@ -107,15 +111,16 @@ s32 g_NumChrSlots = 0;
                                       {0, 0, 0, 0},
                                       {0, 0, 0, 0},
                                       CULLMODE_BOTH};
+
 coord3d D_8002CCAC = {0, 0, 0};
 
- rgba_u8 gBloodColour = { 0x5a, 0, 0, 0};
+rgba_u8 gBloodColour = { 0x5a, 0, 0, 0};
 
 /**
  * Address 0x8002CCBC.
 */
 
-ModelRenderData D_8002CCBC = {NULL,
+ModelRenderData D_8002CCBC         = {NULL,
                                       TRUE,
                                       0x00000003,
                                       NULL,
@@ -131,8 +136,8 @@ ModelRenderData D_8002CCBC = {NULL,
                                       {0, 0, 0, 0},
                                       {0, 0, 0, 0},
                                       CULLMODE_BOTH};
-//s32 D_8002CCF8 = 0;
-s32 D_8002CCFC = 0;
+
+s32 D_8002CCFC = 0; // Unused.
 u32 num_bodies = 0;
 u32 num_male_heads = 0;
 u32 num_female_heads = 0;
@@ -199,7 +204,7 @@ f32 g_AiReactionSpeed = 1.0f;
 */
 s32 g_SeenBondRecentlyGuardCount = 0;
 
-struct struck_animation_table D_8002CE54[] = {
+struct StruckAnim death_left_foot[] = {
     { PTR_ANIM_death_backward_spin_face_down_left, 0, -1.0, 0.5, 0, 27.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_up_left, 0, -1.0, 0.5, 0, 26.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_down_right, 1, -1.0, 0.5, 0, 25.0, -1.0 },
@@ -207,7 +212,7 @@ struct struck_animation_table D_8002CE54[] = {
     {0, 0, 0.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002CEE0[] = {
+struct StruckAnim death_left_leg[] = {
     { PTR_ANIM_death_backward_spin_face_down_left, 0, -1.0, 0.5, 0, 27.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_up_left, 0, -1.0, 0.5, 0, 26.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_down_right, 1, -1.0, 0.5, 0, 25.0, -1.0 },
@@ -215,7 +220,7 @@ struct struck_animation_table D_8002CEE0[] = {
     {0, 0, 0.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002CF6C[] = {
+struct StruckAnim death_left_thigh[] = {
     { PTR_ANIM_death_backward_spin_face_down_left, 0, -1.0, 0.5, 1, 27.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_up_left, 0, -1.0, 0.5, 1, 26.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_down_right, 1, -1.0, 0.5, 1, 25.0, -1.0 },
@@ -224,7 +229,7 @@ struct struck_animation_table D_8002CF6C[] = {
     {0, 0, 0.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002D014[] = {
+struct StruckAnim death_right_foot[] = {
     { PTR_ANIM_death_backward_spin_face_down_right, 0, -1.0, 0.5, 0, 25.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_up_right, 0, -1.0, 0.5, 0, 23.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_down_left, 1, -1.0, 0.5, 0, 27.0, -1.0 },
@@ -232,7 +237,7 @@ struct struck_animation_table D_8002D014[] = {
     {0, 0, 0.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002D0A0[] = {
+struct StruckAnim death_right_leg[] = {
     { PTR_ANIM_death_backward_spin_face_down_right, 0, -1.0, 0.5, 0, 25.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_up_right, 0, -1.0, 0.5, 0, 23.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_down_left, 1, -1.0, 0.5, 0, 27.0, -1.0 },
@@ -240,7 +245,7 @@ struct struck_animation_table D_8002D0A0[] = {
     {0, 0, 0.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002D12C[] = {
+struct StruckAnim death_right_thigh[] = {
     { PTR_ANIM_death_backward_spin_face_down_right, 0, -1.0, 0.5, 1, 25.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_up_right, 0, -1.0, 0.5, 1, 23.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_down_left, 1, -1.0, 0.5, 1, 27.0, -1.0 },
@@ -249,7 +254,7 @@ struct struck_animation_table D_8002D12C[] = {
     {0, 0, 0.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002D1D4[] = {
+struct StruckAnim death_pelvis[] = {
     { PTR_ANIM_death_forward_face_down, 0, -1.0, 0.5, 0, 55.0, 39.0 },
     { PTR_ANIM_death_forward_face_down, 1, -1.0, 0.5, 0, 55.0, 39.0 },
     { PTR_ANIM_death_forward_spin_face_up, 0, -1.0, 0.5, 0, 36.0, -1.0 },
@@ -269,7 +274,7 @@ struct struck_animation_table D_8002D1D4[] = {
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002D3B0[] = {
+struct StruckAnim death_head[] = {
     { PTR_ANIM_death_forward_face_down, 0, -1.0, 0.5, 0, 55.0, 39.0 },
     { PTR_ANIM_death_forward_face_down, 1, -1.0, 0.5, 0, 55.0, 39.0 },
     { PTR_ANIM_death_forward_spin_face_up, 0, -1.0, 0.5, 0, 36.0, -1.0 },
@@ -301,7 +306,7 @@ struct struck_animation_table D_8002D3B0[] = {
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002D6DC[] = {
+struct StruckAnim death_left_hand[] = {
     { PTR_ANIM_death_backward_spin_face_down_left, 0, -1.0, 0.5, 0, 27.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_up_left, 0, -1.0, 0.5, 0, 26.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_down_right, 1, -1.0, 0.5, 0, 25.0, -1.0 },
@@ -309,7 +314,7 @@ struct struck_animation_table D_8002D6DC[] = {
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002D768[] = {
+struct StruckAnim death_left_arm[] = {
     { PTR_ANIM_death_backward_spin_face_down_left, 0, -1.0, 0.5, 0, 27.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_up_left, 0, -1.0, 0.5, 0, 26.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_down_right, 1, -1.0, 0.5, 0, 25.0, -1.0 },
@@ -317,7 +322,7 @@ struct struck_animation_table D_8002D768[] = {
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002D7F4[] = {
+struct StruckAnim death_left_shoulder[] = {
     { PTR_ANIM_death_backward_spin_face_down_left, 0, -1.0, 0.5, 1, 27.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_up_left, 0, -1.0, 0.5, 1, 26.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_down_right, 1, -1.0, 0.5, 1, 25.0, -1.0 },
@@ -325,7 +330,7 @@ struct struck_animation_table D_8002D7F4[] = {
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002D880[] = {
+struct StruckAnim death_right_hand[] = {
     { PTR_ANIM_death_backward_spin_face_down_right, 0, -1.0, 0.5, 0, 25.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_up_right, 0, -1.0, 0.5, 0, 23.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_down_left, 1, -1.0, 0.5, 0, 27.0, -1.0 },
@@ -333,7 +338,7 @@ struct struck_animation_table D_8002D880[] = {
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002D90C[] = {
+struct StruckAnim death_right_arm[] = {
     { PTR_ANIM_death_backward_spin_face_down_right, 0, -1.0, 0.5, 0, 25.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_up_right, 0, -1.0, 0.5, 0, 23.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_down_left, 1, -1.0, 0.5, 0, 27.0, -1.0 },
@@ -341,7 +346,7 @@ struct struck_animation_table D_8002D90C[] = {
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002D998[] = {
+struct StruckAnim death_right_shoulder[] = {
     { PTR_ANIM_death_backward_spin_face_down_right, 0, -1.0, 0.5, 1, 25.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_up_right, 0, -1.0, 0.5, 1, 23.0, -1.0 },
     { PTR_ANIM_death_backward_spin_face_down_left, 1, -1.0, 0.5, 1, 27.0, -1.0 },
@@ -349,7 +354,7 @@ struct struck_animation_table D_8002D998[] = {
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002DA24[] = {
+struct StruckAnim death_chest[] = {
     { PTR_ANIM_death_forward_face_down, 0, -1.0, 0.5, 0, 55.0, 39.0 },
     { PTR_ANIM_death_forward_face_down, 1, -1.0, 0.5, 0, 55.0, 39.0 },
     { PTR_ANIM_death_forward_spin_face_up, 0, -1.0, 0.5, 0, 36.0, -1.0 },
@@ -377,7 +382,7 @@ struct struck_animation_table D_8002DA24[] = {
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002DCE0[] = {
+struct StruckAnim death_gun[] = {
     { PTR_ANIM_death_forward_face_down, 0, -1.0, 0.5, 0, 55.0, 39.0 },
     { PTR_ANIM_death_forward_face_down, 1, -1.0, 0.5, 0, 55.0, 39.0 },
     { PTR_ANIM_death_forward_spin_face_up, 0, -1.0, 0.5, 0, 36.0, -1.0 },
@@ -397,51 +402,51 @@ struct struck_animation_table D_8002DCE0[] = {
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002DEBC[] = {
+struct StruckAnim death_stagger[] = {
     { PTR_ANIM_death_stagger_back_to_wall, 0, -1.0, 0.5, 0, 67.0, 54.0 },
     { PTR_ANIM_death_stagger_back_to_wall, 1, -1.0, 0.5, 0, 67.0, 54.0 },
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002DF10[] = {
+struct StruckAnim flinch_left_foot[] = {
     { PTR_ANIM_hit_left_leg, 0, -1.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_hit_right_leg, 1, -1.0, 0.5, 0, -1.0, -1.0 },
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002DF64[] = {
+struct StruckAnim flinch_left_leg[] = {
     { PTR_ANIM_hit_left_leg, 0, -1.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_hit_right_leg, 1, -1.0, 0.5, 0, -1.0, -1.0 },
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002DFB8[] = {
+struct StruckAnim flinch_left_thigh[] = {
     { PTR_ANIM_hit_left_leg, 0, -1.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_hit_right_leg, 1, -1.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_death_left_leg, 1, 20.0, 0.40000001, 0, -1.0, -1.0 },
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002E028[] = {
+struct StruckAnim flinch_right_foot[] = {
     { PTR_ANIM_hit_right_leg, 0, -1.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_hit_left_leg, 1, -1.0, 0.5, 0, -1.0, -1.0 },
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002E07C[] = {
+struct StruckAnim flinch_right_leg[] = {
     { PTR_ANIM_hit_right_leg, 0, -1.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_hit_left_leg, 1, -1.0, 0.5, 0, -1.0, -1.0 },
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002E0D0[] = {
+struct StruckAnim flinch_right_thigh[] = {
     { PTR_ANIM_hit_right_leg, 0, -1.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_hit_left_leg, 1, -1.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_death_left_leg, 0, 20.0, 0.40000001, 0, -1.0, -1.0 },
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002E140[] = {
+struct StruckAnim flinch_pelvis[] = {
     { PTR_ANIM_death_genitalia, 0, 20.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_death_genitalia, 1, 30.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_death_forward_face_down_soft, 0, 20.0, 0.5, 0, -1.0, -1.0 },
@@ -453,7 +458,7 @@ struct struck_animation_table D_8002E140[] = {
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002E23C[] = {
+struct StruckAnim flinch_head[] = {
     { PTR_ANIM_death_neck, 0, 15.0, 0.5, 0, 87.0, 203.0 },
     { PTR_ANIM_death_neck, 1, 15.0, 0.5, 0, 87.0, 203.0 },
     { PTR_ANIM_death_forward_face_down_soft, 0, 20.0, 0.5, 0, -1.0, -1.0 },
@@ -463,45 +468,45 @@ struct struck_animation_table D_8002E23C[] = {
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002E300[] = {
+struct StruckAnim flinch_left_hand[] = {
     { PTR_ANIM_hit_left_hand, 0, -1.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_hit_right_hand, 1, -1.0, 0.5, 0, -1.0, -1.0 },
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002E354[] = {
+struct StruckAnim flinch_left_arm[] = {
     { PTR_ANIM_hit_left_arm, 0, -1.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_hit_right_arm, 1, -1.0, 0.5, 0, -1.0, -1.0 },
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002E3A8[] = {
+struct StruckAnim flinch_left_shoulder[] = {
     { PTR_ANIM_hit_left_shoulder, 0, -1.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_hit_right_shoulder, 1, -1.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_death_forward_face_down_soft, 0, 20.0, 0.5, 0, -1.0, -1.0 },
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002E418[] = {
+struct StruckAnim flinch_right_hand[] = {
     { PTR_ANIM_hit_right_hand, 0, -1.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_hit_left_hand, 1, -1.0, 0.5, 0, -1.0, -1.0 },
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002E46C[] = {
+struct StruckAnim flinch_right_arm[] = {
     { PTR_ANIM_hit_right_arm, 0, -1.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_hit_left_arm, 1, -1.0, 0.5, 0, -1.0, -1.0 },
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002E4C0[] = {
+struct StruckAnim flinch_right_shoulder[] = {
     { PTR_ANIM_hit_right_shoulder, 0, -1.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_hit_left_shoulder, 1, -1.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_death_forward_face_down_soft, 1, 20.0, 0.5, 0, -1.0, -1.0 },
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002E530[] = {
+struct StruckAnim flinch_chest[] = {
     { PTR_ANIM_death_forward_face_down_soft, 0, 20.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_death_forward_face_down_soft, 1, 20.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_death_forward_face_down, 0, 15.0, 0.5, 0, -1.0, -1.0 },
@@ -509,7 +514,7 @@ struct struck_animation_table D_8002E530[] = {
     {0, 0, -1.0, 0.5, 0, -1.0, -1.0}
 };
 
-struct struck_animation_table D_8002E5BC[] = {
+struct StruckAnim flinch_gun[] = {
     { PTR_ANIM_death_forward_face_down_soft, 0, 20.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_death_forward_face_down_soft, 1, 20.0, 0.5, 0, -1.0, -1.0 },
     { PTR_ANIM_death_forward_face_down, 0, 15.0, 0.5, 0, -1.0, -1.0 },
@@ -3059,28 +3064,32 @@ void chrCreateHitPuffs(PropRecord *prop, s32 anim_id, coord3d *vec, coord3d *pos
     f32 scale;
     coord3d sp3c;
     s32 index;
-    struct animation_something *entry;
+    struct ChrHitReaction *entry;
 
     index = 0;
     i = 0;
 
-    if (D_8002C914[0].id != -1) {
-        do {
-            if (anim_id == D_8002C914[i].id) {
+    if (g_HitReactionTable[0].hitpart != -1) 
+    {
+        do 
+        {
+            if (anim_id == g_HitReactionTable[i].hitpart) 
+            {
                 index = i;
                 break;
             }
 
             i++;
         }
-        while (D_8002C914[i].id != -1);
+        while (g_HitReactionTable[i].hitpart != -1);
     }
 
-    entry = &D_8002C914[index];
+    entry = &g_HitReactionTable[index];
 
-    if (entry->field_10) {
+    if (entry->backImpactPuffCount) {
         // True when randomGetNext() bit 2 is 0, so roughly 50% chance.
-        if ((randomGetNext() & 4) == 0) {
+        if ((randomGetNext() & 4) == 0) 
+        {
             scale = (42.0f / sqrtf(vec->z * vec->z + (vec->x * vec->x + vec->y * vec->y))) + 1.0f;
 
             sp3c.x = vec->x * scale;
@@ -3089,12 +3098,13 @@ void chrCreateHitPuffs(PropRecord *prop, s32 anim_id, coord3d *vec, coord3d *pos
 
             mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), &sp3c);
 
-            bullet_spark_create(&sp3c, entry->field_10, entry->field_18, prop->stan->room);
+            bullet_spark_create(&sp3c, entry->backImpactPuffCount, entry->backImpactPuffSize, prop->stan->room);
         }
     }
 
-    if (entry->field_4) {
-        bullet_spark_create(pos, entry->field_4, entry->field_C, prop->stan->room);
+    if (entry->impactPuffCount) 
+    {
+        bullet_spark_create(pos, entry->impactPuffCount, entry->impactPuffSize, prop->stan->room);
     }
 }
 
