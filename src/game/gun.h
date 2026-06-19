@@ -5,6 +5,11 @@
 #include <bondconstants.h>
 #include <bondtypes.h>
 
+/**
+ * Pool of AlSoundState slots for impact and ricochet SFX.
+ */
+#define NUM_IMPACT_SFX_STATES 4
+
 typedef struct WeaponStats
 {
     /**

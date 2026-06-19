@@ -38,9 +38,9 @@
 
 
 // bss
-s32 dword_CODE_bss_80075DB0;
-s32 dword_CODE_bss_80075DB4;
-ALSoundState* dword_CODE_bss_80075DB8[4];
+ALSoundState *g_CasingSfxState;
+ALSoundState* g_UnusedSfxState; // Unused, type assumed from surrounding variables.
+ALSoundState* g_ImpactSfxStates[NUM_IMPACT_SFX_STATES];
 
 CasingRecord g_Casings[20];
 s32 dword_CODE_bss_80076A48;
@@ -2353,12 +2353,16 @@ void gunUpdateAttachedRocket(s32 handIndex)
     entry = &g_CurrentPlayer->hands[handIndex];
 
     attachedRocket = entry->rocket;
-    if (attachedRocket == 0) {
+
+    if (attachedRocket == NULL) 
+    {
         return;
     }
 
     attachmentChild = attachedRocket->child;
-    if (attachmentChild == 0) {
+
+    if (attachmentChild == NULL) 
+    {
         return;
     }
 
@@ -2388,6 +2392,7 @@ void gunUpdateAttachedRocket(s32 handIndex)
     attachmentChild->unk18 = -rocketModel->render_pos->pos.m[3][2];
 }
 
+
 /*
 * Address: 0x7f05fa7c
 */
@@ -2401,6 +2406,7 @@ void currentPlayerCreateRocket(GUNHAND hand)
     if ((hand_ptr->rocket == NULL) && (hand_ptr->weapon_ammo_in_magazine > 0))
     {
         rocket = (struct WeaponObjRecord *)create_new_item_instance_of_model(PROP_CHRROCKET, ITEM_ROCKETROUND);
+
         if (rocket != NULL)
         {
             hand_ptr->rocket = (ObjectRecord *)rocket;
@@ -2409,7 +2415,6 @@ void currentPlayerCreateRocket(GUNHAND hand)
         }
     }
 }
-
 
 
 /*
@@ -12567,14 +12572,21 @@ Gfx *sub_GAME_7F064364(Gfx *gdl, Mtxf *arg1, s32 arg2, s32 arg3, s8 *contpadnum)
 }
 
 
-ALSoundState* sub_GAME_7F0643A0(void)
+/**
+ * Address: 7F0643A0
+ */
+ALSoundState* gunGetFreeSfxState(void)
 {
     s32 i;
-    for (i = 0; i < 4; i++) {
-        if (dword_CODE_bss_80075DB8[i] == 0) {
-            return &dword_CODE_bss_80075DB8[i];
+
+    for (i = 0; i < NUM_IMPACT_SFX_STATES; i++) 
+    {
+        if (g_ImpactSfxStates[i] == NULL) 
+        {
+            return &g_ImpactSfxStates[i];
         }
     }
+    
     return NULL;
 }
 
@@ -12619,10 +12631,10 @@ void recall_joy2_hits_edit_detail_edit_flag(enum ITEM_IDS item, PropRecord* prop
     if (g_ClockTimer <= 0) { return; }
 #endif
 
-    sound_state = sub_GAME_7F0643A0();
+    sound_state = gunGetFreeSfxState();
     if (sound_state != NULL)
     {
-        if ((prop->type != 3) && (prop->type != 6))
+        if ((prop->type != PROP_TYPE_CHR) && (prop->type != PROP_TYPE_VIEWER))
         {
             if (item == ITEM_LASER)
             {
@@ -12662,7 +12674,7 @@ void recall_joy2_hits_edit_detail_edit_flag(enum ITEM_IDS item, PropRecord* prop
         }
     }
 
-    sound_state = sub_GAME_7F0643A0();
+    sound_state = gunGetFreeSfxState();
     if ((sound_state != NULL) && (texture_index >= 0))
     {
         if (g_HitTypeSounds[g_Textures[texture_index].hitSound] != NULL)
@@ -12697,7 +12709,7 @@ void sub_GAME_7F064720(coord3d* pos)
     if (g_ClockTimer <= 0) { return; }
 #endif
 
-    sound = sub_GAME_7F0643A0();
+    sound = gunGetFreeSfxState();
 
     if (sound != NULL)
     {
@@ -12732,7 +12744,7 @@ void recall_joy2_hits_edit_flag(enum ITEM_IDS item, coord3d* arg1, s32 texture_i
     if (g_ClockTimer <= 0) { return; }
 #endif
 
-    sound_state = sub_GAME_7F0643A0();
+    sound_state = gunGetFreeSfxState();
     if (sound_state != NULL)
     {
         if (item != ITEM_WATCHLASER)
@@ -12755,7 +12767,7 @@ void recall_joy2_hits_edit_flag(enum ITEM_IDS item, coord3d* arg1, s32 texture_i
         }
     }
 
-    sound_state = sub_GAME_7F0643A0();
+    sound_state = gunGetFreeSfxState();
     if ((sound_state != NULL) && (texture_index >= 0))
     {
         img_sound = g_HitTypeSounds[g_Textures[texture_index].hitSound];
@@ -16509,15 +16521,15 @@ void update_bullet_casing(CasingRecord* casing)
     if (casing->pos.y < casing->floor_y_pos)
     {
 #if defined(BUGFIX_R1)
-        if (dword_CODE_bss_80075DB0 == 0 && (g_ClockTimer > 0))
+        if (g_CasingSfxState == 0 && (g_ClockTimer > 0))
 #else
-        if (dword_CODE_bss_80075DB0 == 0)
+        if (g_CasingSfxState == 0)
 #endif
         {
             if ((g_CurrentPlayer->hands[0].when_detonating_mines_is_0 != 2) && (g_CurrentPlayer->hands[1].when_detonating_mines_is_0 != 2))
             {
                 // Play bullet casing rolling on floor sound
-                sndPlaySfx((struct ALBankAlt_s* ) g_musicSfxBufferPtr, CART_SPENT_SFX, (ALSoundState* ) &dword_CODE_bss_80075DB0);
+                sndPlaySfx((struct ALBankAlt_s* ) g_musicSfxBufferPtr, CART_SPENT_SFX, (ALSoundState* ) &g_CasingSfxState);
             }
         }
 
