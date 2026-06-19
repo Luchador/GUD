@@ -19,7 +19,7 @@ extern s16 word_CODE_bss_80069584;
 extern s32 dword_CODE_bss_80069588;
 extern s32 dword_CODE_bss_8006958C;
 extern s32 virtualaddress;
-extern s32 dword_CODE_bss_80069594;
+extern s32 gunbarrelTimer;
 
 extern u32 D_8002A7D0;
 

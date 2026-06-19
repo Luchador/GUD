@@ -637,7 +637,7 @@ typedef union
      */
     typedef struct ModelRenderData
     {
-        Mtxf   *unk_matrix;     /*0x00 */
+        Mtxf   *unk_matrix;     /*0x00*/
         bool    zbufferenabled; /*0x04*/
         u32     flags;          /*0x08*/
         Gfx    *gdl;            /*0x0c*/
