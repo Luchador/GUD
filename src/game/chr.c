@@ -1599,19 +1599,19 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
             break;
         }
     }
-    
+
     arg0->type = PROP_TYPE_CHR;
     arg0->chr = var_s0;
     arg0->pos.f[0] = arg2->f[0];
     arg0->pos.f[1] = arg2->f[1];
     arg0->pos.f[2] = arg2->f[2];
     arg0->stan = arg4;
-    
+
     sub_GAME_7F06FF5C(arg1, (s32) sub_GAME_7F01FC10);
-    
+
     arg1->unk00 = 0xA;
     arg1->chr = var_s0;
-    
+
     setsuboffset(arg1, arg2);
     setsubroty(arg1, arg3);
 
@@ -1620,7 +1620,7 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
     #else
     modelSetAnimPlaySpeed(arg1, animation_rate, 0.0f);
     #endif
-    
+
     var_s0->chrnum = (s16) player1_guardID;
     player1_guardID += 1;
     var_s0->headnum = 0;
@@ -1644,10 +1644,10 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
     var_s0->damage = 0.0f;
     var_s0->visionrange = 250.0f;
     var_s0->hearingscale = 1.0f;
-    
+
     var_s0->maxdamage = get_007_health_mod() * 4.0f;
     set_color_shading_from_tile(arg0, &var_s0->nextcol);
-    
+
     var_s0->shadecol.rgba[0] = var_s0->nextcol.rgba[0];
     var_s0->shadecol.rgba[1] = var_s0->nextcol.rgba[1];
     var_s0->shadecol.rgba[2] = var_s0->nextcol.rgba[2];
@@ -1707,10 +1707,10 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
     var_s0->handle_positiondata_hat = NULL;
     var_s0->chrwidth = 20.0f;
     var_s0->chrheight = 185.0f;
-    
+
     sub_GAME_7F01FC10(arg1, &arg0->pos, &arg0->pos, &var_s0->ground);
     chrPositionRelated7F020D94(var_s0);
-    
+
     return arg0;
 }
 
@@ -1746,10 +1746,10 @@ void chrpropCleanupForRemoval(PropRecord *prop)
     PropRecord *child;
     PropRecord *prev;
     ObjectRecord *obj;
-    
+
     chr = prop->chr;
     model = chr->model;
-    
+
     if (chr->field_160[0].ptr_SEbuffer1 != NULL && sndGetPlayingState(chr->field_160[0].ptr_SEbuffer1) != 0) {
         sndDeactivate(chr->field_160[0].ptr_SEbuffer1);
     }
@@ -1762,12 +1762,12 @@ void chrpropCleanupForRemoval(PropRecord *prop)
     if (chr->field_160[1].ptr_SEbuffer2 != NULL && sndGetPlayingState(chr->field_160[1].ptr_SEbuffer2) != 0) {
         sndDeactivate(chr->field_160[1].ptr_SEbuffer2);
     }
-    
+
     sub_GAME_7F050DE8(model);
     chrpropDeregisterRooms(prop);
-    
+
     child = prop->child;
-    
+
     if (child != NULL) {
         do {
             obj = (ObjectRecord *)child->obj;
@@ -1777,12 +1777,12 @@ void chrpropCleanupForRemoval(PropRecord *prop)
             child = prev;
         } while (child != NULL);
     }
-    
+
     clear_aircraft_model_obj(model);
-    
+
     chr->model = NULL;
     chr->chrnum = -1;
-    
+
     if (chr->field_20 != NULL) {
         sub_GAME_7F06B248(chr->field_20);
     }
@@ -1907,7 +1907,7 @@ void chrSetHiddenToRandom(ChrRecord *self)
     }
 }
 
- 
+
 f32 sub_GAME_7F020794(ChrRecord *arg0)
 {
     f32 temp_f2;
@@ -1919,10 +1919,10 @@ f32 sub_GAME_7F020794(ChrRecord *arg0)
     f32 rise = 8.0f;
     f32 fall = 16.0f;
 #endif
- 
+
     phi_f2 = arg0->flinchcnt;
     temp_f2 = (f32) phi_f2;
- 
+
     if (temp_f2 < rise)
     {
         phi_f2 = sinf(((temp_f2 * M_TAU_F) * 0.25f) / rise);
@@ -1931,7 +1931,7 @@ f32 sub_GAME_7F020794(ChrRecord *arg0)
     {
         phi_f2 = 1.0f - sinf((((temp_f2 - rise) * M_TAU_F) * 0.25f) / fall);
     }
- 
+
     return phi_f2;
 }
 
@@ -1981,58 +1981,58 @@ bool chrCanUseDKModeScaling(s32 bodynum, s32 headnum)
  */
 void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 {
-    f32 scale; 
-    f32 xrot; 
-    f32 yrot; 
-    f32 zrot; 
-    f32 tmp; 
+    f32 scale;
+    f32 xrot;
+    f32 yrot;
+    f32 zrot;
+    f32 tmp;
     f32 amount;
-    f32 saved38; 
-    f32 saved34; 
-    f32 saved30; 
+    f32 saved38;
+    f32 saved34;
+    f32 saved30;
     f32 sideback;
-    Mtxf sp30; 
-    u16 hidden; 
+    Mtxf sp30;
+    u16 hidden;
     ChrRecord *chr;
 
     scale = 1.0f;
 
 #ifdef BUGFIX_R1
-    if (cheatIsActive(CHEAT_DK_MODE)) 
+    if (cheatIsActive(CHEAT_DK_MODE))
     {
         chr = (ChrRecord *) dword_CODE_bss_80069B60;
 
-        if (chrCanUseDKModeScaling(chr->bodynum, chr->headnum)) 
+        if (chrCanUseDKModeScaling(chr->bodynum, chr->headnum))
         {
-            if (bodypart == CHR_RENDERPART_HEAD) 
-            { 
+            if (bodypart == CHR_RENDERPART_HEAD)
+            {
                 scale = 4.0f;
             }
-            else if ((bodypart == CHR_RENDERPART_LEFT_ARM) || (bodypart == CHR_RENDERPART_RIGHT_ARM)) 
+            else if ((bodypart == CHR_RENDERPART_LEFT_ARM) || (bodypart == CHR_RENDERPART_RIGHT_ARM))
             {
-                if (!(((ChrRecord *) dword_CODE_bss_80069B60)->chrflags & CHRFLAG_08000000)) 
-                { 
-                    scale = 2.5f; 
+                if (!(((ChrRecord *) dword_CODE_bss_80069B60)->chrflags & CHRFLAG_08000000))
+                {
+                    scale = 2.5f;
                 }
             }
         }
     }
 #else
-    if (cheatIsActive(CHEAT_DK_MODE)) 
+    if (cheatIsActive(CHEAT_DK_MODE))
     {
-        if (bodypart == CHR_RENDERPART_HEAD) 
-        { 
-            scale = 4.0f; 
+        if (bodypart == CHR_RENDERPART_HEAD)
+        {
+            scale = 4.0f;
         }
-        else if ((bodypart == CHR_RENDERPART_LEFT_ARM) || (bodypart == CHR_RENDERPART_RIGHT_ARM)) 
-        { 
-            scale = 2.5f; 
+        else if ((bodypart == CHR_RENDERPART_LEFT_ARM) || (bodypart == CHR_RENDERPART_RIGHT_ARM))
+        {
+            scale = 2.5f;
         }
     }
 #endif
-    if ((((bodypart != CHR_RENDERPART_LEFT_ARM) && (bodypart != CHR_RENDERPART_RIGHT_ARM)) && (bodypart != CHR_RENDERPART_TORSO)) && (bodypart != CHR_RENDERPART_HEAD)) 
-    { 
-        return; 
+    if ((((bodypart != CHR_RENDERPART_LEFT_ARM) && (bodypart != CHR_RENDERPART_RIGHT_ARM)) && (bodypart != CHR_RENDERPART_TORSO)) && (bodypart != CHR_RENDERPART_HEAD))
+    {
+        return;
     }
 
     zrot = (yrot = (xrot = 0.0f));
@@ -2040,101 +2040,101 @@ void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 #ifdef BUGFIX_R1
     chr = (ChrRecord *) dword_CODE_bss_80069B60;
 #endif
-    if (bodypart == CHR_RENDERPART_RIGHT_ARM) 
+    if (bodypart == CHR_RENDERPART_RIGHT_ARM)
     {
 #ifdef BUGFIX_R1
         xrot = chr->aimuprshoulder;
 #else
         xrot = ((ChrRecord *) dword_CODE_bss_80069B60)->aimuprshoulder;
 #endif
-    } 
-    else if (bodypart == CHR_RENDERPART_LEFT_ARM) 
+    }
+    else if (bodypart == CHR_RENDERPART_LEFT_ARM)
     {
 #ifdef BUGFIX_R1
         xrot = chr->aimuplshoulder;
 #else
         xrot = ((ChrRecord *) dword_CODE_bss_80069B60)->aimuplshoulder;
 #endif
-    } 
-    else if (bodypart == CHR_RENDERPART_TORSO) 
+    }
+    else if (bodypart == CHR_RENDERPART_TORSO)
     {
 #ifndef BUGFIX_R1
         chr = (ChrRecord *) dword_CODE_bss_80069B60;
 #endif
         xrot = chr->aimupback;
-        if (chr->hidden & CHRHIDDEN_0400) 
+        if (chr->hidden & CHRHIDDEN_0400)
         {
-            if (PI_OVER_3 < xrot) 
-            { 
-                xrot -= PI_OVER_3; 
+            if (PI_OVER_3 < xrot)
+            {
+                xrot -= PI_OVER_3;
             }
-            else if (-FIVEPI_OVER_18 > xrot) 
-            { 
-                xrot += FIVEPI_OVER_18; 
+            else if (-FIVEPI_OVER_18 > xrot)
+            {
+                xrot += FIVEPI_OVER_18;
             }
-            else 
-            { 
-                xrot = 0.0f; 
+            else
+            {
+                xrot = 0.0f;
             }
         }
 
         yrot = chr->aimsideback;
 
-    } 
-    else if (bodypart == CHR_RENDERPART_HEAD) 
+    }
+    else if (bodypart == CHR_RENDERPART_HEAD)
     {
 #ifndef BUGFIX_R1
         chr = (ChrRecord *) dword_CODE_bss_80069B60;
 #endif
-        if (chr->hidden & CHRHIDDEN_0400) 
+        if (chr->hidden & CHRHIDDEN_0400)
         {
             xrot = chr->aimupback;
 
-            if (chr->hidden & CHRHIDDEN_0400) 
+            if (chr->hidden & CHRHIDDEN_0400)
             {
-                if (PI_OVER_3 < xrot) 
-                { 
-                    xrot = PI_OVER_3; 
+                if (PI_OVER_3 < xrot)
+                {
+                    xrot = PI_OVER_3;
                 }
-                else if (xrot < -FIVEPI_OVER_18) 
-                { 
-                    xrot = -FIVEPI_OVER_18; 
+                else if (xrot < -FIVEPI_OVER_18)
+                {
+                    xrot = -FIVEPI_OVER_18;
                 }
             }
         }
-        else if (chr->model->gunhand != GUNRIGHT) 
-        { 
-            xrot = chr->aimuplshoulder; 
+        else if (chr->model->gunhand != GUNRIGHT)
+        {
+            xrot = chr->aimuplshoulder;
         }
-        else 
-        { 
-            xrot = chr->aimuprshoulder; 
+        else
+        {
+            xrot = chr->aimuprshoulder;
         }
     }
 
     chr = (ChrRecord *) dword_CODE_bss_80069B60;
 
-    if (chr->flinchcnt >= 0) 
+    if (chr->flinchcnt >= 0)
     {
         if (0);
 
-        if ((bodypart == CHR_RENDERPART_RIGHT_ARM) || (bodypart == CHR_RENDERPART_LEFT_ARM)) 
+        if ((bodypart == CHR_RENDERPART_RIGHT_ARM) || (bodypart == CHR_RENDERPART_LEFT_ARM))
         {
             amount = sub_GAME_7F020794(chr) * M_TAU_F * 15.0f / 360.0f;
             chr = (ChrRecord *) dword_CODE_bss_80069B60;
             hidden = chr->hidden;
             xrot -= amount;
 
-            if (hidden & CHRHIDDEN_RAND_FLINCH_1) 
-            { 
-                yrot -= amount; 
+            if (hidden & CHRHIDDEN_RAND_FLINCH_1)
+            {
+                yrot -= amount;
             }
-            else if (hidden & CHRHIDDEN_RAND_FLINCH_2) 
-            { 
-                yrot += amount; 
+            else if (hidden & CHRHIDDEN_RAND_FLINCH_2)
+            {
+                yrot += amount;
             }
-        } 
-        else if (bodypart == CHR_RENDERPART_TORSO) 
+        }
+        else if (bodypart == CHR_RENDERPART_TORSO)
         {
             tmp = sub_GAME_7F020794(chr);
             tmp *= M_TAU_F;
@@ -2144,97 +2144,97 @@ void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
             amount /= 360.0f;
             xrot += amount;
 
-            if (hidden & CHRHIDDEN_RAND_FLINCH_1) 
-            { 
-                yrot += amount; 
+            if (hidden & CHRHIDDEN_RAND_FLINCH_1)
+            {
+                yrot += amount;
             }
-            else if (hidden & CHRHIDDEN_RAND_FLINCH_2) 
-            { 
-                yrot -= amount; 
+            else if (hidden & CHRHIDDEN_RAND_FLINCH_2)
+            {
+                yrot -= amount;
             }
 
-            if (hidden & CHRHIDDEN_RAND_FLINCH_4) 
+            if (hidden & CHRHIDDEN_RAND_FLINCH_4)
             {
-                 zrot += (tmp * 10.0f) / 360.0f; 
+                 zrot += (tmp * 10.0f) / 360.0f;
             }
-            else if (hidden & CHRHIDDEN_RAND_FLINCH_8) 
-            { 
-                zrot -= (tmp * 10.0f) / 360.0f; 
+            else if (hidden & CHRHIDDEN_RAND_FLINCH_8)
+            {
+                zrot -= (tmp * 10.0f) / 360.0f;
             }
         }
     }
 
-    if ((((xrot == 0.0f) && (yrot == 0.0f)) && (zrot == 0.0f)) && (scale == 1.0f)) 
-    { 
-        return; 
+    if ((((xrot == 0.0f) && (yrot == 0.0f)) && (zrot == 0.0f)) && (scale == 1.0f))
+    {
+        return;
     }
 
     sideback = chrlvGetSubrotySideback(chr);
 
-    if (xrot < 0.0f) 
-    { 
+    if (xrot < 0.0f)
+    {
         xrot = -xrot;
-    } 
-    else 
-    { 
-        xrot = M_TAU_F - xrot; 
+    }
+    else
+    {
+        xrot = M_TAU_F - xrot;
     }
 
-    if (yrot < 0.0f) 
-    { 
-        yrot += M_TAU_F; 
+    if (yrot < 0.0f)
+    {
+        yrot += M_TAU_F;
     }
 
     matrix_4x4_multiply_homogeneous_in_place(currentPlayerGetViewToWorldMtxf(), matrix);
 
-    saved30 = matrix->m[3][0]; 
-    saved34 = matrix->m[3][1]; 
+    saved30 = matrix->m[3][0];
+    saved34 = matrix->m[3][1];
     saved38 = matrix->m[3][2];
 
     matrix->m[3][0] = 0.0f;
-    matrix->m[3][1] = 0.0f; 
-    matrix->m[3][2] = 0.0f; 
+    matrix->m[3][1] = 0.0f;
+    matrix->m[3][2] = 0.0f;
 
-    if ((xrot != 0.0f) || (zrot != 0.0f)) 
+    if ((xrot != 0.0f) || (zrot != 0.0f))
     {
         yrot -= sideback;
 
         if (yrot < 0.0f)
-        { 
-            yrot += M_TAU_F; 
+        {
+            yrot += M_TAU_F;
         }
 
         matrix_4x4_set_rotation_around_y(yrot, &sp30);
         matrix_4x4_multiply_homogeneous_in_place(&sp30, matrix);
 
-        if (xrot != 0.0f) 
-        { 
-            matrix_4x4_set_rotation_around_x(xrot, &sp30); 
-            matrix_4x4_multiply_homogeneous_in_place(&sp30, matrix); 
+        if (xrot != 0.0f)
+        {
+            matrix_4x4_set_rotation_around_x(xrot, &sp30);
+            matrix_4x4_multiply_homogeneous_in_place(&sp30, matrix);
         }
 
-        if (zrot != 0.0f) 
-        { 
-            matrix_4x4_set_rotation_around_z(zrot, &sp30); 
-            matrix_4x4_multiply_homogeneous_in_place(&sp30, matrix); 
+        if (zrot != 0.0f)
+        {
+            matrix_4x4_set_rotation_around_z(zrot, &sp30);
+            matrix_4x4_multiply_homogeneous_in_place(&sp30, matrix);
         }
 
         matrix_4x4_set_rotation_around_y(sideback, &sp30);
         matrix_4x4_multiply_homogeneous_in_place(&sp30, matrix);
-    } 
-    else 
+    }
+    else
     {
         matrix_4x4_set_rotation_around_y(yrot, &sp30);
         matrix_4x4_multiply_homogeneous_in_place(&sp30, matrix);
     }
 
-    if (scale != 1.0f) 
-    { 
-        matrix_scalar_multiply(scale, (f32 *) matrix); 
+    if (scale != 1.0f)
+    {
+        matrix_scalar_multiply(scale, (f32 *) matrix);
     }
 
-    matrix->m[3][0] = saved30; 
-    matrix->m[3][1] = saved34; 
+    matrix->m[3][0] = saved30;
+    matrix->m[3][1] = saved34;
     matrix->m[3][2] = saved38;
 
     matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), matrix);
@@ -2317,25 +2317,14 @@ extern f32 D_80051D88;
 extern f32 D_jp80051D88;
 #endif
 
-#ifdef NONMATCHING
-// These debug prints belong somewhere in chrTickBeams.
-void chrTickBeams(void) {
-    #ifdef DEBUG
-    osSyncPrintf("anim=%d frame=%f backy=%f\n", DAT_83bcf9d8, *(local_e8 + 0x28), (*(psVar2 + 0xa6) * 360.0) / 6.283185);
-    #endif
-    #ifdef DEBUG
-    osSyncPrintf("\nVISIBLE MAGIC MODE!!!!\n\n");
-    #endif
-}
-#endif
 
 
 /**
- * Address: 
+ * Address:
  * US: 0x7F020EF0
  * JP: 0x7F021188
  * EU: 0x7F020E68
- * 
+ *
  * Note: This function name is a misnomer. We might consider renaming it to something like chrTick().
  * It appears to do the following:
  * - Drive character animations
@@ -2392,6 +2381,9 @@ s32 chrTickBeams(PropRecord *prop)
             {
                 tickamount = 1;
             }
+#ifdef DEBUG
+            osSyncPrintf("anim=%d frame=%f backy=%f\n", g_AnimationTablePointerCountRelated, chr->model->animframe1, (chr->aimendlshoulder * 360.0) / 6.283185);
+#endif
         }
     }
 
@@ -2423,7 +2415,7 @@ s32 chrTickBeams(PropRecord *prop)
     }
     else
     {
-        if (((prop->type == 6) && (g_playerPointers[getPlayerPointerIndex(prop)]->cameramode == 1)) || (chr->chrflags & CHRFLAG_CULL_USING_HITBOX))
+        if (((prop->type == PROP_TYPE_VIEWER) && (g_playerPointers[getPlayerPointerIndex(prop)]->cameramode == 1)) || (chr->chrflags & CHRFLAG_CULL_USING_HITBOX))
         {
             headSwitchVisible = 1;
 
@@ -2447,6 +2439,10 @@ s32 chrTickBeams(PropRecord *prop)
 
                 if (headSwitchVisible)
                 {
+#ifdef DEBUG
+                    osSyncPrintf("\nVISIBLE MAGIC MODE!!!!\n\n");
+#endif
+
                     getsuboffset(model, &chr->prevpos);
                     subcalcpos(model);
                     set_color_shading_from_tile(prop, &chr->nextcol);
@@ -2636,38 +2632,38 @@ after_position_update:
                             entry->zoffset -= D_80051D58;
                             changed = 1;
                         }
-                    
+
                         if (joyGetButtons(PLAYER_1, B_BUTTON))
                         {
                             entry->zoffset += D_80051D5C;
                             changed = 1;
                         }
-                    
+
                         if (joyGetButtons(PLAYER_1, D_CBUTTONS))
                         {
                             entry->yoffset -= D_80051D60;
                             changed = 1;
                         }
-                    
+
                         if (joyGetButtons(PLAYER_1, U_CBUTTONS))
                         {
                             entry->yoffset += D_80051D64;
                             changed = 1;
                         }
-                    
+
                         if (joyGetButtons(PLAYER_1, L_CBUTTONS))
                         {
                             entry->xoffset -= D_80051D68;
                             changed = 1;
                         }
-                    
+
                         if (joyGetButtons(PLAYER_1, R_CBUTTONS))
                         {
                             entry->xoffset += D_80051D6C;
                             changed = 1;
                         }
                     }
-                    
+
                     if (joyGetButtons(PLAYER_1, R_TRIG))
                     {
                         if (joyGetButtons(PLAYER_1, A_BUTTON))
@@ -2675,31 +2671,31 @@ after_position_update:
                             entry->zsize *= D_80051D70;
                             changed = 1;
                         }
-                    
+
                         if (joyGetButtons(PLAYER_1, B_BUTTON))
                         {
                             entry->zsize *= D_80051D74;
                             changed = 1;
                         }
-                    
+
                         if (joyGetButtons(PLAYER_1, D_CBUTTONS))
                         {
                             entry->ysize *= D_80051D78;
                             changed = 1;
                         }
-                    
+
                         if (joyGetButtons(PLAYER_1, U_CBUTTONS))
                         {
                             entry->ysize *= D_80051D7C;
                             changed = 1;
                         }
-                    
+
                         if (joyGetButtons(PLAYER_1, L_CBUTTONS))
                         {
                             entry->xsize *= D_80051D80;
                             changed = 1;
                         }
-                    
+
                         if (joyGetButtons(PLAYER_1, R_CBUTTONS))
                         {
                             entry->xsize *= D_80051D84;
@@ -3232,86 +3228,86 @@ after_opcode:
     {
         return;
     }
-    
+
     node = (ModelNode *) bestnode->Data;
     rwdata = (ModelNode *) modelGetNodeRwData(model, bestnode);
     relatedrodata = NULL;
     relatedrwdata = NULL;
     relatedindex = 0;
     paintval = (randomGetNext() % 50) + 20;
-    
+
     if (arg1 == 8)
     {
         paintval += 100;
     }
-    
+
     if (arg1 == 0x0f)
     {
         paintval += 50;
     }
-    
+
     relatednode = (ModelNode *) ((ModelRoData_DisplayList_CollisionRecord *) node)->CollisionVertices[bestindex].CollisionRelatedNode;
-    
+
     if (((ModelRoData_DisplayList_CollisionRecord *) node)->CollisionVertices[bestindex].CollisionRelatedNode != NULL)
     {
         relatedrodata = &relatednode->Data->DisplayListCollisions;
         relatedrwdata = (ModelRwData_DisplayList_CollisionRecord *) modelGetNodeRwData(model, relatednode);
         relatedindex = ((ModelRoData_DisplayList_CollisionRecord *) node)->CollisionVertices[bestindex].CollisionRelatedIndex;
     }
-    
+
     if (((ModelRwData_DisplayList_CollisionRecord *) rwdata)->Vertices == ((ModelRoData_DisplayList_CollisionRecord *) node)->Vertices)
     {
         newvertices = (Vertex *) vtxstore_allocate(((ModelRoData_DisplayList_CollisionRecord *) node)->numVertices, 0xcccc, 0, 0);
-    
+
         if (newvertices != NULL)
         {
             s32 j;
-    
+
             ((ModelRwData_DisplayList_CollisionRecord *) rwdata)->Vertices = newvertices;
-    
+
             for (j = 0; j < ((ModelRoData_DisplayList_CollisionRecord *) node)->numVertices; j++)
             {
                 newvertices[j] = ((ModelRoData_DisplayList_CollisionRecord *) node)->Vertices[j];
             }
         }
     }
-    
+
     if ((relatedrwdata != NULL) && (relatedrwdata->Vertices == relatedrodata->Vertices))
     {
         newvertices = (Vertex *) vtxstore_allocate(relatedrodata->numVertices, 0xcccc, 0, 0);
-    
+
         if (newvertices != NULL)
         {
             s32 j;
-    
+
             relatedrwdata->Vertices = newvertices;
-    
+
             for (j = 0; j < relatedrodata->numVertices; j++)
             {
                 newvertices[j] = relatedrodata->Vertices[j];
             }
         }
     }
-    
+
     if (((ModelRwData_DisplayList_CollisionRecord *) rwdata)->Vertices != ((ModelRoData_DisplayList_CollisionRecord *) node)->Vertices)
     {
         s32 index;
-    
+
         index = ((ModelRoData_DisplayList_CollisionRecord *) node)->CollisionVertices[bestindex].index;
-    
+
         while (index >= 0)
         {
             ((ModelRwData_DisplayList_CollisionRecord *) rwdata)->Vertices[index].a = paintval;
             index = ((ModelRoData_DisplayList_CollisionRecord *) node)->PointUsage[index];
         }
     }
-    
+
     if ((relatedrwdata != NULL) && (relatedrwdata->Vertices != relatedrodata->Vertices))
     {
         s32 index;
-    
+
         index = relatedrodata->CollisionVertices[relatedindex].index;
-    
+
         while (index >= 0)
         {
             relatedrwdata->Vertices[index].a = paintval;
@@ -4080,8 +4076,8 @@ glabel sub_GAME_7F022648
 
 /**
  * Address: 7F022980
- * 
- * Resolves a known hit against a character. 
+ *
+ * Resolves a known hit against a character.
  */
 void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
 {
@@ -4099,7 +4095,7 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
     s32 temp2;
     coord3d jointpos;
     struct image_sound *sound2;
-    
+
     chr = bhit->prop->chr;
 
     // Calculate the view space hit position for impact effects.
@@ -4142,18 +4138,18 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
                  */
                 if (weaponobj->model == bhit->model) {
                     if (
-                        ((WeaponObjRecord *)weaponobj)->weaponnum == ITEM_GRENADE || 
-                        ((WeaponObjRecord *)weaponobj)->weaponnum == ITEM_GRENADEROUND || 
-                        ((WeaponObjRecord *)weaponobj)->weaponnum == ITEM_ROCKETROUND || 
-                        ((WeaponObjRecord *)weaponobj)->weaponnum == ITEM_TIMEDMINE || 
-                        ((WeaponObjRecord *)weaponobj)->weaponnum == ITEM_BOMBCASE  || 
-                        ((WeaponObjRecord *)weaponobj)->weaponnum == ITEM_REMOTEMINE  || 
+                        ((WeaponObjRecord *)weaponobj)->weaponnum == ITEM_GRENADE ||
+                        ((WeaponObjRecord *)weaponobj)->weaponnum == ITEM_GRENADEROUND ||
+                        ((WeaponObjRecord *)weaponobj)->weaponnum == ITEM_ROCKETROUND ||
+                        ((WeaponObjRecord *)weaponobj)->weaponnum == ITEM_TIMEDMINE ||
+                        ((WeaponObjRecord *)weaponobj)->weaponnum == ITEM_BOMBCASE  ||
+                        ((WeaponObjRecord *)weaponobj)->weaponnum == ITEM_REMOTEMINE  ||
                         ((WeaponObjRecord *)weaponobj)->weaponnum == ITEM_PROXIMITYMINE
                     )
                     {
                         propobjSetDropped(prop, 1);
                         chr->hidden |= 1;
-                    
+
                         maybe_detonate_object(prop->obj, gunItemGetDestructionAmount(shot->weapon), &hitpos, shot->weapon, get_cur_playernum());
                     // Create a bullet hole on the character's held weapon.
                     } else {
@@ -4181,7 +4177,7 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
             sound2 = g_HitTypeSounds[g_Textures[bhit->hit.texturenum].hitTexture];
         }
 
-        temp2 = randomGetNext() % (s16)sound2->thing2_len; 
+        temp2 = randomGetNext() % (s16)sound2->thing2_len;
         explosionCreateBulletImpact(&bhit->hit.hitpos, &bhit->hit.normal, sound2->thing2[temp2], 1, chr->handle_positiondata_hat, bhit->room, 0);
 
         return;

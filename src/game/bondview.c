@@ -1084,7 +1084,7 @@ f32 getPlayer_c_perspnear(void)
 
 /**
  * Address: 7F0785DC
- * 
+ *
  * Update the world space frustum planes used for object visibility tests.
  */
 void bondviewUpdateFrustumPlanes()
@@ -1146,7 +1146,7 @@ void bondviewUpdateFrustumPlanes()
 
 /**
  * Address: 7F078950
- * 
+ *
  * Unreferenced.
  */
 void bondviewGetFrustumTopPlane(coord3d *normal, f32 *offset)
@@ -1160,7 +1160,7 @@ void bondviewGetFrustumTopPlane(coord3d *normal, f32 *offset)
 
 /**
  * Address: 7F078980
- * 
+ *
  * Unreferenced.
  */
 void bondviewGetFrustumBottomPlane(coord3d *normal, f32 *offset)
@@ -1174,7 +1174,7 @@ void bondviewGetFrustumBottomPlane(coord3d *normal, f32 *offset)
 
 /**
  * Address: 7F0789B0
- * 
+ *
  * Unreferenced.
  */
 void bondviewGetFrustumLeftPlane(coord3d *normal, f32 *offset)
@@ -1188,7 +1188,7 @@ void bondviewGetFrustumLeftPlane(coord3d *normal, f32 *offset)
 
 /**
  * Address: 7F0789E0
- * 
+ *
  * Unreferenced.
  */
 void bondviewGetFrustumRightPlane(coord3d *normal, f32 *offset)
@@ -1202,7 +1202,7 @@ void bondviewGetFrustumRightPlane(coord3d *normal, f32 *offset)
 
 /**
  * Address: 7F078A10
- * 
+ *
  * Unreferenced.
  */
 void bondviewGetFrustumNearPlane(coord3d *normal, f32 *offset)
@@ -1676,7 +1676,7 @@ s32 playerGetCrouchPos(s32 playernum) {
 }
 
 
-void currentPlayerSetCameraMode(s32 mode) 
+void currentPlayerSetCameraMode(s32 mode)
 {
     g_CurrentPlayer->cameramode = mode;
 }
@@ -1754,20 +1754,6 @@ void bondviewSetCurrentPlayerPosition(coord3d *pos, coord3d *pos2, coord3d *offs
 
 
 #ifdef NONMATCHING
-/*
-            if ((g_CurrentPlayer->gunmemused[0] != 0) && (g_CurrentPlayer->gunmemtype[0] != 0)) {
-                assertPrint_8291E690
-                          (".\\ported\\bondview.cpp",0x342,
-                           "Assertion failed: g_CurrentPlayer->gunmemused[GUNRIGHT]==0 || g_CurrentPlayer->gunmemtype[GUNRIGHT]==0"
-                          );
-            }
-            if ((g_CurrentPlayer->gunmemused[1] != 0) && (g_CurrentPlayer->gunmemtype[1] != 0)) {
-                assertPrint_8291E690
-                          (".\\ported\\bondview.cpp",0x343,
-                           "Assertion failed: g_CurrentPlayer->gunmemused[GUNLEFT]==0 || g_CurrentPlayer->gunmemtype[GUNLEFT]==0"
-                          );
-            }
-//*/
 #define ALIGN64_V3(val) (((val) | 0x3f) ^ 0x3f)
 void solo_char_load(void)
 {
@@ -11562,15 +11548,15 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
     projmtx = currentPlayerGetProjectionMatrixF();
     matrix_4x4_multiply(projmtx, &spC4, &sp60);
 
-	for (i = 0; i < 4; i++) 
+	for (i = 0; i < 4; i++)
     {
-		for (j = 0; j < 4; j++) 
+		for (j = 0; j < 4; j++)
         {
-			if (sp60.m[i][j] > 32000.0f) 
+			if (sp60.m[i][j] > 32000.0f)
             {
 				sp60.m[i][j] = 32000.0f;
-			} 
-            else if (sp60.m[i][j] < -32000.0f) 
+			}
+            else if (sp60.m[i][j] < -32000.0f)
             {
 				sp60.m[i][j] = -32000.0f;
 			}
@@ -11716,16 +11702,16 @@ void bondviewSelectCuff(Model *model, ModelFileHeader *header, s32 switchindex)
     s32 index;
     s32 visible;
     s32 pad2;
-    
+
     local = fileGetBondForCurrentFolder();
     switches = header->Switches;
     offset = switchindex << 2;
-    
+
     if (1);
-    
+
     // byte-indexed on purpose: offset = switchindex * 4. &switches[i] won't match.
     base = (ModelNode **) (((u8 *) switches) + offset);
-    
+
     if (base[0] != NULL)
     {
         rwdata = (s32 *) modelGetNodeRwData(model, base[0]);
@@ -11733,9 +11719,9 @@ void bondviewSelectCuff(Model *model, ModelFileHeader *header, s32 switchindex)
         switches = header->Switches;
         base = (ModelNode **) (((u8 *) switches) + offset);
     }
-    
+
     index = switchindex + 1;
-    
+
     if (((void *) (index * 0)) != base[1])
     {
         node = switches[index];
@@ -11761,14 +11747,14 @@ void bondviewSelectCuff(Model *model, ModelFileHeader *header, s32 switchindex)
         switches = header->Switches;
         base = (ModelNode **) (((u8 *) switches) + offset);
     }
-    
+
     index = switchindex + 2;
-    
+
     if (base[2] != NULL)
     {
         rwdata = (s32 *) modelGetNodeRwData(model, switches[index]);
         visible = g_CurrentPlayer->bondtype == CUFF_CONNERY;
-        
+
         if (visible == 0)
         {
             visible = g_CurrentPlayer->bondtype == CUFF_FOLDER;
@@ -11777,14 +11763,14 @@ void bondviewSelectCuff(Model *model, ModelFileHeader *header, s32 switchindex)
                 visible = local == 1;
             }
         }
-        
+
         *rwdata = visible;
         switches = header->Switches;
         base = (ModelNode **) (((u8 *) switches) + offset);
     }
-    
+
     index = switchindex + 3;
-    
+
     if (base[3] != NULL)
     {
         rwdata = (s32 *) modelGetNodeRwData(model, switches[index]);
@@ -11792,9 +11778,9 @@ void bondviewSelectCuff(Model *model, ModelFileHeader *header, s32 switchindex)
         switches = header->Switches;
         base = (ModelNode **) (((u8 *) switches) + offset);
     }
-    
+
     index = (switchindex + 4) ^ (((switchindex + 4) ^ 0) * 0);
-    
+
     if (base[4])
     {
         rwdata = (s32 *) modelGetNodeRwData(model, switches[index]);
@@ -11802,9 +11788,9 @@ void bondviewSelectCuff(Model *model, ModelFileHeader *header, s32 switchindex)
         switches = header->Switches;
         base = (ModelNode **) (((u8 *) switches) + offset);
     }
-    
+
     index = switchindex + 5;
-    
+
     if (base[5] != NULL)
     {
         rwdata = (s32 *) modelGetNodeRwData(model, switches[index]);
