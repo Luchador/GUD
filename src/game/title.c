@@ -249,11 +249,11 @@ Gfx *sub_GAME_7F007F30(Gfx *gdl, s32 count, Mtxf *matrix)
         modelGetNodeRwData(gunModelInstance, gunModelInstance->obj->Switches[2])->Switch.visible = playedShot;
     }
 
-    renderData.unk_matrix = matrix;
+    renderData.basemtx = matrix;
     renderData.mtxlist = dynAllocate(chrModelInstance->obj->numMatrices << 6);
     subcalcmatrices(&renderData, chrModelInstance);
 
-    renderData.unk_matrix = modelFindNodeMtx(chrModelInstance, gunModelInstance->attachedto_objinst, 0);
+    renderData.basemtx = modelFindNodeMtx(chrModelInstance, gunModelInstance->attachedto_objinst, 0);
     renderData.mtxlist = dynAllocate(gunModelInstance->obj->numMatrices << 6);
     instcalcmatrices(&renderData, gunModelInstance);
 

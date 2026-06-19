@@ -2544,7 +2544,7 @@ after_position_update:
         D_80036090 = sub_GAME_7F02083C;
         dword_CODE_bss_80069B60 = (u32)chr;
 
-        renderdata.unk_matrix = camGetWorldToScreenMtxf();
+        renderdata.basemtx = camGetWorldToScreenMtxf();
         renderdata.mtxlist = dynAllocate(model->obj->numMatrices * (sizeof(Mtxf)));
 
         if (((ChrRecord *)dword_CODE_bss_80069B60)->flinchcnt >= 0)
@@ -2581,7 +2581,7 @@ after_position_update:
 
             chr->handle_positiondata_hat->flags |= PROPFLAG_ONSCREEN;
 
-            renderdata.unk_matrix = modelFindNodeMtx(model, hatmodel->attachedto_objinst, 0);
+            renderdata.basemtx = modelFindNodeMtx(model, hatmodel->attachedto_objinst, 0);
             renderdata.mtxlist = dynAllocate(hatmodel->obj->numMatrices * (sizeof(Mtxf)));
 
             instcalcmatrices(&renderdata, hatmodel);

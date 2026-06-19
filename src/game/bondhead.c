@@ -258,7 +258,7 @@ void bheadUpdate(f32 percent_speed, f32 speedsideways)
     subcalcpos(&g_CurrentPlayer->model);
     matrix_4x4_set_identity(&sp40);
 
-    renderData.unk_matrix = &sp40;
+    renderData.basemtx = &sp40;
     renderData.mtxlist = &g_CurrentPlayer->bondheadmatrices[0];
 
     subcalcmatrices(&renderData, &g_CurrentPlayer->model);

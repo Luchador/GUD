@@ -6762,7 +6762,7 @@ s32 object_interaction(struct PropRecord *arg0)
                 {
                     sp1B0 = D_80030B34;
 
-                    sp1B0.unk_matrix = camGetWorldToScreenMtxf();
+                    sp1B0.basemtx = camGetWorldToScreenMtxf();
                     sp1B0.mtxlist = &model->render_pos[0].pos;
                     subcalcmatrices(&sp1B0, temp_s1->model);
                 }
@@ -33634,27 +33634,32 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
 
         weaponObj = prop->obj;
 
-        if (!(weaponObj->runtime_bitflags & 0x800)) {
-            if ((s32)(weaponObj->flags2 << 12) >= 0) {
+        if (!(weaponObj->runtime_bitflags & RUNTIMEBITFLAG_00000800))
+        {
+            if ((s32)(weaponObj->flags2 << 12) >= 0) 
+            {
                 heldModel = weaponObj->model;
                 renderData = D_800322A4;
 
                 chrModel = chr->model;
-                prop->flags |= 2;
+                prop->flags |= PROPFLAG_ONSCREEN;
 
-                renderData.unk_matrix = modelFindNodeMtx(chrModel, heldModel->attachedto_objinst, 0);
+                renderData.basemtx = modelFindNodeMtx(chrModel, heldModel->attachedto_objinst, 0);
 
-                if (hand == GUNLEFT) {
+                if (hand == GUNLEFT) 
+                {
                     matrix_4x4_set_rotation_around_z(3.1415927f, &rotationMtx);
-                    matrix_4x4_multiply_in_place(renderData.unk_matrix, &rotationMtx);
-                    renderData.unk_matrix = &rotationMtx;
+                    matrix_4x4_multiply_in_place(renderData.basemtx, &rotationMtx);
+                    renderData.basemtx = &rotationMtx;
                 }
 
                 renderData.mtxlist = dynAllocate(heldModel->obj->numMatrices * sizeof(Mtxf));
                 instcalcmatrices(&renderData, heldModel);
 
-                if (gdl != NULL) {
-                    if (!(weaponObj->runtime_bitflags & 0x80)) {
+                if (gdl != NULL) 
+                {
+                    if (!(weaponObj->runtime_bitflags & RUNTIMEBITFLAG_00000080)) 
+                    {
                         *gdl = sub_GAME_7F06B120(*gdl, heldModel);
                     }
                 }
@@ -33663,7 +33668,7 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
             }
         }
 
-        prop->flags &= ~2;
+        prop->flags &= ~PROPFLAG_ONSCREEN;
     }
 }
 

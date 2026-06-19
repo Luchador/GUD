@@ -1493,7 +1493,7 @@ Gfx *constructor_menu00_legalscreen(Gfx *DL)
     
     matrix_4x4_set_lookat_target(&lookatmtx, 0.0f, 0.0f, 4000.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, legal_text_ptr->v_pos * 0.0f);
     
-    renderdata.unk_matrix = &lookatmtx;
+    renderdata.basemtx = &lookatmtx;
     renderdata.mtxlist = (Mtxf *) dynAllocate(logoinst->obj->numMatrices << 6);
     
     matrix_4x4_copy(&lookatmtx, renderdata.mtxlist);
@@ -1708,7 +1708,7 @@ Gfx *constructor_menu01_nintendo(Gfx *DL)
         matrix_4x4_copy(&tmpMtx, &ninlogoMtxf);
     }
 
-    ninlogo.unk_matrix = &ninlogoMtxf;
+    ninlogo.basemtx = &ninlogoMtxf;
 
     ninlogo.mtxlist = dynAllocate(logoinst->obj->numMatrices << 6);
 
@@ -1938,7 +1938,7 @@ Gfx *constructor_menu04_goldeneyelogo(Gfx *DL)
     gSPLookAt(DL++, logoLookAt);
 
     matrix_4x4_set_lookat_target(&logoMatrix, 0.0f, 0.0f, 3000.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
-    gelogo.unk_matrix = &logoMatrix;
+    gelogo.basemtx = &logoMatrix;
     gelogo.mtxlist = dynAllocate(logoinst->obj->numMatrices << 6);
 
     matrix_scalar_multiply(1.2f, logoMatrix.m[0]);
@@ -2822,7 +2822,7 @@ Gfx *frontSetupMenuBackground(Gfx *DL)
     matrix_scalar_multiply(0.25f, sp88.m[0]);
     matrix_4x4_multiply_in_place(&spC8, &sp88);
 
-    sp10C.unk_matrix = &sp88;
+    sp10C.basemtx = &sp88;
 
     sp10C.mtxlist = dynAllocate(walletinst[0]->obj->numMatrices << 6);
 
@@ -8070,7 +8070,7 @@ Gfx * constructor_menu18_displaycast(Gfx *DL)
     }
 
     sp1A8.mtxlist = dynAllocate(cast_model->obj->numMatrices << 6);
-    sp1A8.unk_matrix = &sp1E8;
+    sp1A8.basemtx = &sp1E8;
     matrix_4x4_set_identity(&sp1E8);
     subcalcmatrices(&sp1A8, cast_model);
     getsuboffset(cast_model, &sp128);
@@ -8166,19 +8166,19 @@ Gfx * constructor_menu18_displaycast(Gfx *DL)
 
     matrix_4x4_set_lookat_target(&sp1E8, sp244.f[0], sp244.f[1], sp244.f[2], flt_CODE_bss_800695E8.f[1], sp238.f[2], sp238.f[2], sp22C.f[0], sp22C.f[1], sp22C.f[2]);
 
-    sp1A8.unk_matrix = &sp1E8;
+    sp1A8.basemtx = &sp1E8;
     sp1A8.mtxlist = dynAllocate(cast_model->obj->numMatrices << 6);
     subcalcmatrices((ModelRenderData *) &sp1A8, cast_model);
 
     if (cast_model_weapon != NULL)
     {
-        sp1A8.unk_matrix = modelFindNodeMtx(cast_model, cast_model_weapon->attachedto_objinst, 0);
+        sp1A8.basemtx = modelFindNodeMtx(cast_model, cast_model_weapon->attachedto_objinst, 0);
 
         if (cast_model_weapon->attachedto_objinst == cast_model->obj->Switches[5])
         {
             matrix_4x4_set_rotation_around_z(3.1415927f, &sp160);
-            matrix_4x4_multiply_in_place(sp1A8.unk_matrix, &sp160);
-            sp1A8.unk_matrix = &sp160;
+            matrix_4x4_multiply_in_place(sp1A8.basemtx, &sp160);
+            sp1A8.basemtx = &sp160;
         }
 
         sp1A8.mtxlist = dynAllocate(cast_model_weapon->obj->numMatrices << 6);

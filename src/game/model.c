@@ -1216,7 +1216,7 @@ void process_01_group_heading(ModelRenderData* renderdata, Model* model, ModelNo
     }
     else
     {
-        var_a3 = renderdata->unk_matrix;
+        var_a3 = renderdata->basemtx;
     }
 
     if (rwdata->Header.unk18 != 0.0f)
@@ -1401,10 +1401,10 @@ void sub_GAME_7F06DB5C(ModelRenderData *arg0, Model *arg1, ModelNode *arg2, quat
     sp48 = arg1->render_pos;
     sp1C = (s32)arg2->Parent;
     if (*new_var != 0) {
-        sp9C = arg0->unk_matrix;
+        sp9C = arg0->basemtx;
         sp9C = modelFindNodeMtx(arg1, (ModelNode *)sp1C, 0);
     } else {
-        sp9C = arg0->unk_matrix;
+        sp9C = arg0->basemtx;
     }
     if (sp9C != 0) {
         quaternion_to_transform_matrix(&spA0->Origin, arg3, &sp58);
@@ -1651,7 +1651,7 @@ void sub_GAME_7F06E2B8(ModelRenderData *renderData, Model *model, ModelNode *nod
     }
     else
     {
-        mtx = renderData->unk_matrix;
+        mtx = renderData->basemtx;
     }
 
     localMtxPtr = &localMtx;
@@ -1815,7 +1815,7 @@ void process_15_subposition(ModelRenderData* arg0, Model *model, ModelNode *node
     }
     else
     {
-        sp68 = arg0->unk_matrix;
+        sp68 = arg0->basemtx;
     }
 
     if (sp68)
@@ -2294,7 +2294,7 @@ void instcalcmatrices(ModelRenderData* arg0, Model* arg1)
         return_null();
     }
 
-    if (arg0->unk_matrix == NULL)
+    if (arg0->basemtx == NULL)
     {
         osSyncPrintf("instcalcmatrices: no basemtx!\n");
         return_null();
@@ -2325,7 +2325,7 @@ void subcalcmatrices(ModelRenderData *arg0, struct Model *arg1)
         return_null();
     }
 
-    if (arg0->unk_matrix == NULL)
+    if (arg0->basemtx == NULL)
     {
         osSyncPrintf("subcalcmatrices: no basemtx!\n");
         return_null();
