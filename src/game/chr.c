@@ -1913,7 +1913,18 @@ void chrSetHiddenToRandom(ChrRecord *self)
 }
 
 
-f32 sub_GAME_7F020794(ChrRecord *arg0)
+/**
+ * Address: 7F020794
+ * 
+ * Flinch animation envelope. Maps a character's flinchcnt timer to a normalized
+ * intensity that goes 0->1 then falls 1->0, used to drive the flinch animation.
+ * 
+ * Flinches happen when a character has body armor or has the CHRFLAG_INVINCIBLE flag and is shot in the arm or torso.
+ * 
+ * Rise and fall are measured in VI retraces: 1/60 s on NTSC and 1/50 s on PAL.
+ * 
+ */
+f32 chrGetFlinchAmount(ChrRecord *chr)
 {
     f32 temp_f2;
     f32 phi_f2;
@@ -1925,7 +1936,7 @@ f32 sub_GAME_7F020794(ChrRecord *arg0)
     f32 fall = 16.0f;
 #endif
 
-    phi_f2 = arg0->flinchcnt;
+    phi_f2 = chr->flinchcnt;
     temp_f2 = (f32) phi_f2;
 
     if (temp_f2 < rise)
@@ -1944,9 +1955,9 @@ f32 sub_GAME_7F020794(ChrRecord *arg0)
 #ifdef BUGFIX_R1
 bool chrCanUseDKModeScaling(s32 bodynum, s32 headnum)
 {
-    if (j_text_trigger == 0)
+    if (j_text_trigger == FALSE)
     {
-        return 1;
+        return TRUE;
     }
 
     if ((bodynum != BODY_Boris) &&
@@ -1969,10 +1980,10 @@ bool chrCanUseDKModeScaling(s32 bodynum, s32 headnum)
         (headnum != BODY_Male_Pierce_Bond_Tuxedo) &&
         (headnum != BODY_Male_Mishkin))
     {
-        return 1;
+        return TRUE;
     }
 
-    return 0;
+    return FALSE;
 }
 #endif
 
@@ -2125,7 +2136,7 @@ void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 
         if ((bodypart == CHR_RENDERPART_RIGHT_ARM) || (bodypart == CHR_RENDERPART_LEFT_ARM))
         {
-            amount = sub_GAME_7F020794(chr) * M_TAU_F * 15.0f / 360.0f;
+            amount = chrGetFlinchAmount(chr) * M_TAU_F * 15.0f / 360.0f;
             chr = (ChrRecord *) dword_CODE_bss_80069B60;
             hidden = chr->hidden;
             xrot -= amount;
@@ -2141,7 +2152,7 @@ void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
         }
         else if (bodypart == CHR_RENDERPART_TORSO)
         {
-            tmp = sub_GAME_7F020794(chr);
+            tmp = chrGetFlinchAmount(chr);
             tmp *= M_TAU_F;
             amount = tmp * 15.0f;
             chr = (ChrRecord *) dword_CODE_bss_80069B60;
