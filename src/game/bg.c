@@ -1327,32 +1327,34 @@ glabel sub_GAME_7F0B3C8C
 #endif
 
 
-
-
-
 /*
  * Address: 0x7F0B4034
 */
 s32 getPriMappingBinCount(s32 room)
 {
-    int i = room;
+    s32 i = room;
+
     while (ptr_bgdata_room_fileposition_list[i].pPriMappingBin == 0)
     {
         i++;
     }
+
     return i;
 }
+
 
 /*
  * Address: 0x7F0B4084
 */
 s32 getSecMappingBinCount(s32 room)
 {
-    int i = room;
+    s32 i = room;
+
     while (ptr_bgdata_room_fileposition_list[i].pSecMappingBin == 0)
     {
         i++;
     }
+
     return i;
 }
 
@@ -1362,11 +1364,13 @@ s32 getSecMappingBinCount(s32 room)
 */
 s32 getPointTableBinCount(s32 room)
 {
-    int i = room;
+    s32 i = room;
+    
     while (ptr_bgdata_room_fileposition_list[i].pPointTableBin == 0)
     {
         i++;
     }
+
     return i;
 }
 
