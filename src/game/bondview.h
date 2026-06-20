@@ -700,7 +700,7 @@ struct player
   s32 field_238;
   s32 field_23C;
   s32 field_240;
-  s32 watch_scale_destination;
+  f32 watch_scale_destination;
   s32 field_248;
   s32 field_24C;
   s32 field_250;

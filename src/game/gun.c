@@ -16425,12 +16425,14 @@ void update_bullet_casings(void)
 {
     CasingRecord* end = g_Casings + ARRAYCOUNT(g_Casings);
     CasingRecord* entry = g_Casings;
+
     while (entry < end)
     {
         if (entry->header)
         {
             update_bullet_casing(entry);
         }
+
         entry++;
     }
 }
@@ -16807,12 +16809,14 @@ void sub_GAME_7F06908C(Gfx** arg0)
 {
     CasingRecord* end = g_Casings + ARRAYCOUNT(g_Casings);
     CasingRecord* entry = g_Casings;
+
     while (entry < end)
     {
         if (entry->header)
         {
             sub_GAME_7F068EC4(entry, arg0);
         }
+        
         entry++;
     }
 }
@@ -18661,7 +18665,6 @@ glabel generate_ammo_total_microcode
 #endif
 
 
-#if defined(VERSION_US) || defined (VERSION_JP)
 /**
  * Address: 7F06A334
  */
@@ -18698,7 +18701,11 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
                 imageoffset += globalbank_rdram_offset;
 
                 // Draw the ammo icon
+#if defined(VERSION_EU)
+                gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset, 200.0f, 208.0f, (viGetViewTop() + viGetViewHeight()) - 30, 0, *(f32 *)&ammo_related[ammotype].field_08, 1);
+#else
                 gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset, 200.0f, 180.0f, (viGetViewTop() + viGetViewHeight()) - 20, 0, *(f32 *)&ammo_related[ammotype].field_08, 1);
+#endif
 
                 textwidth = ((u8 *)imageoffset)[4];
             }
@@ -18724,13 +18731,21 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
             if (!bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_NO_CLIP_RELOADS))
             {
                 // Draw the magazine ammo count.
+#if defined(VERSION_EU)
+                gdl = gunDrawHudInteger(gdl, magammo, 196 - (textwidth / 2), 0, 205, 2, 0);
+#else
                 gdl = gunDrawHudInteger(gdl, magammo, 196 - (textwidth / 2), 0, 177, 2, 0);
+#endif
             }
 
             if (reserveammo > 0 || bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_NO_CLIP_RELOADS))
             {
                 // Draw the reserve ammo count.
+#if defined(VERSION_EU)
+                gdl = gunDrawHudInteger(gdl, reserveammo, 203 + ((textwidth + 1) / 2), 1, 205, 2, 0);
+#else
                 gdl = gunDrawHudInteger(gdl, reserveammo, 203 + ((textwidth + 1) / 2), 1, 177, 2, 0);
+#endif
             }
 
             gdl = combiner_bayer_lod_perspective(gdl);
@@ -18739,181 +18754,6 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
 
     return gdl;
 }
-#elif defined(VERSION_EU)
-GLOBAL_ASM(
-.text
-glabel gunDrawWatchAmmoDisplay
-/* 09D4B8 7F06AAC8 27BDFFA8 */  addiu $sp, $sp, -0x58
-/* 09D4BC 7F06AACC AFB00028 */  sw    $s0, 0x28($sp)
-/* 09D4C0 7F06AAD0 00808025 */  move  $s0, $a0
-/* 09D4C4 7F06AAD4 AFBF002C */  sw    $ra, 0x2c($sp)
-/* 09D4C8 7F06AAD8 0FC177A2 */  jal   getCurrentPlayerWeaponId
-/* 09D4CC 7F06AADC 24040001 */   li    $a0, 1
-/* 09D4D0 7F06AAE0 AFA20054 */  sw    $v0, 0x54($sp)
-/* 09D4D4 7F06AAE4 0FC177A2 */  jal   getCurrentPlayerWeaponId
-/* 09D4D8 7F06AAE8 00002025 */   move  $a0, $zero
-/* 09D4DC 7F06AAEC 1040008E */  beqz  $v0, .L7F06AD28
-/* 09D4E0 7F06AAF0 00402025 */   move  $a0, $v0
-/* 09D4E4 7F06AAF4 0FC1A6F0 */  jal   get_ammo_type_for_weapon
-/* 09D4E8 7F06AAF8 AFA20050 */   sw    $v0, 0x50($sp)
-/* 09D4EC 7F06AAFC 1040008A */  beqz  $v0, .L7F06AD28
-/* 09D4F0 7F06AB00 AFA2004C */   sw    $v0, 0x4c($sp)
-/* 09D4F4 7F06AB04 3C0E8007 */  lui   $t6, %hi(g_CurrentPlayer) # $t6, 0x8007
-/* 09D4F8 7F06AB08 8DCE8BC0 */  lw    $t6, %lo(g_CurrentPlayer)($t6)
-/* 09D4FC 7F06AB0C 24010006 */  li    $at, 6
-/* 09D500 7F06AB10 8DC2088C */  lw    $v0, 0x88c($t6)
-/* 09D504 7F06AB14 10410084 */  beq   $v0, $at, .L7F06AD28
-/* 09D508 7F06AB18 24010007 */   li    $at, 7
-/* 09D50C 7F06AB1C 10410082 */  beq   $v0, $at, .L7F06AD28
-/* 09D510 7F06AB20 8FA40050 */   lw    $a0, 0x50($sp)
-/* 09D514 7F06AB24 0FC1795B */  jal   bondwalkItemCheckBitflags
-/* 09D518 7F06AB28 3C050008 */   lui   $a1, 8
-/* 09D51C 7F06AB2C 1440007E */  bnez  $v0, .L7F06AD28
-/* 09D520 7F06AB30 8FAF004C */   lw    $t7, 0x4c($sp)
-/* 09D524 7F06AB34 000FC080 */  sll   $t8, $t7, 2
-/* 09D528 7F06AB38 030FC023 */  subu  $t8, $t8, $t7
-/* 09D52C 7F06AB3C 3C198003 */  lui   $t9, %hi(ammo_related) # $t9, 0x8003
-/* 09D530 7F06AB40 27391440 */  addiu $t9, %lo(ammo_related) # addiu $t9, $t9, 0x1440
-/* 09D534 7F06AB44 0018C080 */  sll   $t8, $t8, 2
-/* 09D538 7F06AB48 03191021 */  addu  $v0, $t8, $t9
-/* 09D53C 7F06AB4C 8C480004 */  lw    $t0, 4($v0)
-/* 09D540 7F06AB50 24090005 */  li    $t1, 5
-/* 09D544 7F06AB54 AFA9003C */  sw    $t1, 0x3c($sp)
-/* 09D548 7F06AB58 AFA20030 */  sw    $v0, 0x30($sp)
-/* 09D54C 7F06AB5C 8FA40050 */  lw    $a0, 0x50($sp)
-/* 09D550 7F06AB60 0FC17359 */  jal   get_ptr_item_statistics
-/* 09D554 7F06AB64 AFA80040 */   sw    $t0, 0x40($sp)
-/* 09D558 7F06AB68 8FA30040 */  lw    $v1, 0x40($sp)
-/* 09D55C 7F06AB6C 3C0A8007 */  lui   $t2, %hi(globalbank_rdram_offset) # $t2, 0x8007
-/* 09D560 7F06AB70 1060001C */  beqz  $v1, .L7F06ABE4
-/* 09D564 7F06AB74 00000000 */   nop
-/* 09D568 7F06AB78 8D4A4490 */  lw    $t2, %lo(globalbank_rdram_offset)($t2)
-/* 09D56C 7F06AB7C 006A1821 */  addu  $v1, $v1, $t2
-/* 09D570 7F06AB80 0C000FDD */  jal   viGetViewTop
-/* 09D574 7F06AB84 AFA30040 */   sw    $v1, 0x40($sp)
-/* 09D578 7F06AB88 0C000FBF */  jal   viGetViewHeight
-/* 09D57C 7F06AB8C A7A20034 */   sh    $v0, 0x34($sp)
-/* 09D580 7F06AB90 87AB0034 */  lh    $t3, 0x34($sp)
-/* 09D584 7F06AB94 8FAE0030 */  lw    $t6, 0x30($sp)
-/* 09D588 7F06AB98 AFA00014 */  sw    $zero, 0x14($sp)
-/* 09D58C 7F06AB9C 004B6021 */  addu  $t4, $v0, $t3
-/* 09D590 7F06ABA0 258DFFE2 */  addiu $t5, $t4, -0x1e
-/* 09D594 7F06ABA4 448D2000 */  mtc1  $t5, $f4
-/* 09D598 7F06ABA8 240F0001 */  li    $t7, 1
-/* 09D59C 7F06ABAC 02002025 */  move  $a0, $s0
-/* 09D5A0 7F06ABB0 468021A0 */  cvt.s.w $f6, $f4
-/* 09D5A4 7F06ABB4 8FA50040 */  lw    $a1, 0x40($sp)
-/* 09D5A8 7F06ABB8 3C064348 */  lui   $a2, 0x4348
-/* 09D5AC 7F06ABBC 3C074350 */  lui   $a3, 0x4350
-/* 09D5B0 7F06ABC0 E7A60010 */  swc1  $f6, 0x10($sp)
-/* 09D5B4 7F06ABC4 C5C80008 */  lwc1  $f8, 8($t6)
-/* 09D5B8 7F06ABC8 AFAF001C */  sw    $t7, 0x1c($sp)
-/* 09D5BC 7F06ABCC 0FC1A85E */  jal   set_rgba_redirect_generate_microcode
-/* 09D5C0 7F06ABD0 E7A80018 */   swc1  $f8, 0x18($sp)
-/* 09D5C4 7F06ABD4 8FB80040 */  lw    $t8, 0x40($sp)
-/* 09D5C8 7F06ABD8 00408025 */  move  $s0, $v0
-/* 09D5CC 7F06ABDC 93190004 */  lbu   $t9, 4($t8)
-/* 09D5D0 7F06ABE0 AFB9003C */  sw    $t9, 0x3c($sp)
-.L7F06ABE4:
-/* 09D5D4 7F06ABE4 0FC2B016 */  jal   microcode_constructor
-/* 09D5D8 7F06ABE8 02002025 */   move  $a0, $s0
-/* 09D5DC 7F06ABEC 00408025 */  move  $s0, $v0
-/* 09D5E0 7F06ABF0 8FA40050 */  lw    $a0, 0x50($sp)
-/* 09D5E4 7F06ABF4 0FC1795B */  jal   bondwalkItemCheckBitflags
-/* 09D5E8 7F06ABF8 3C050040 */   lui   $a1, 0x40
-/* 09D5EC 7F06ABFC 10400011 */  beqz  $v0, .L7F06AC44
-/* 09D5F0 7F06AC00 3C050040 */   lui   $a1, 0x40
-/* 09D5F4 7F06AC04 8FA9004C */  lw    $t1, 0x4c($sp)
-/* 09D5F8 7F06AC08 3C028007 */  lui   $v0, %hi(g_CurrentPlayer) # $v0, 0x8007
-/* 09D5FC 7F06AC0C 8C428BC0 */  lw    $v0, %lo(g_CurrentPlayer)($v0)
-/* 09D600 7F06AC10 AFA00044 */  sw    $zero, 0x44($sp)
-/* 09D604 7F06AC14 00095080 */  sll   $t2, $t1, 2
-/* 09D608 7F06AC18 8FAD0054 */  lw    $t5, 0x54($sp)
-/* 09D60C 7F06AC1C 8FAE0050 */  lw    $t6, 0x50($sp)
-/* 09D610 7F06AC20 004A5821 */  addu  $t3, $v0, $t2
-/* 09D614 7F06AC24 8D6C1128 */  lw    $t4, 0x1128($t3)
-/* 09D618 7F06AC28 8C480894 */  lw    $t0, 0x894($v0)
-/* 09D61C 7F06AC2C 15AE0003 */  bne   $t5, $t6, .L7F06AC3C
-/* 09D620 7F06AC30 010C1821 */   addu  $v1, $t0, $t4
-/* 09D624 7F06AC34 8C4F0C3C */  lw    $t7, 0xc3c($v0)
-/* 09D628 7F06AC38 006F1821 */  addu  $v1, $v1, $t7
-.L7F06AC3C:
-/* 09D62C 7F06AC3C 1000000A */  b     .L7F06AC68
-/* 09D630 7F06AC40 AFA30048 */   sw    $v1, 0x48($sp)
-.L7F06AC44:
-/* 09D634 7F06AC44 3C028007 */  lui   $v0, %hi(g_CurrentPlayer) # $v0, 0x8007
-/* 09D638 7F06AC48 8C428BC0 */  lw    $v0, %lo(g_CurrentPlayer)($v0)
-/* 09D63C 7F06AC4C 8FB9004C */  lw    $t9, 0x4c($sp)
-/* 09D640 7F06AC50 8C580894 */  lw    $t8, 0x894($v0)
-/* 09D644 7F06AC54 00194880 */  sll   $t1, $t9, 2
-/* 09D648 7F06AC58 00495021 */  addu  $t2, $v0, $t1
-/* 09D64C 7F06AC5C AFB80044 */  sw    $t8, 0x44($sp)
-/* 09D650 7F06AC60 8D4B1128 */  lw    $t3, 0x1128($t2)
-/* 09D654 7F06AC64 AFAB0048 */  sw    $t3, 0x48($sp)
-.L7F06AC68:
-/* 09D658 7F06AC68 0FC1795B */  jal   bondwalkItemCheckBitflags
-/* 09D65C 7F06AC6C 8FA40050 */   lw    $a0, 0x50($sp)
-/* 09D660 7F06AC70 14400011 */  bnez  $v0, .L7F06ACB8
-/* 09D664 7F06AC74 02002025 */   move  $a0, $s0
-/* 09D668 7F06AC78 8FA8003C */  lw    $t0, 0x3c($sp)
-/* 09D66C 7F06AC7C 240D00C4 */  li    $t5, 196
-/* 09D670 7F06AC80 240E00CD */  li    $t6, 205
-/* 09D674 7F06AC84 240F0002 */  li    $t7, 2
-/* 09D678 7F06AC88 AFAF0014 */  sw    $t7, 0x14($sp)
-/* 09D67C 7F06AC8C AFAE0010 */  sw    $t6, 0x10($sp)
-/* 09D680 7F06AC90 8FA50044 */  lw    $a1, 0x44($sp)
-/* 09D684 7F06AC94 05010003 */  bgez  $t0, .L7F06ACA4
-/* 09D688 7F06AC98 00086043 */   sra   $t4, $t0, 1
-/* 09D68C 7F06AC9C 25010001 */  addiu $at, $t0, 1
-/* 09D690 7F06ACA0 00016043 */  sra   $t4, $at, 1
-.L7F06ACA4:
-/* 09D694 7F06ACA4 01AC3023 */  subu  $a2, $t5, $t4
-/* 09D698 7F06ACA8 00003825 */  move  $a3, $zero
-/* 09D69C 7F06ACAC 0FC1A908 */  jal   gunDrawHudInteger
-/* 09D6A0 7F06ACB0 AFA00018 */   sw    $zero, 0x18($sp)
-/* 09D6A4 7F06ACB4 00408025 */  move  $s0, $v0
-.L7F06ACB8:
-/* 09D6A8 7F06ACB8 8FB80048 */  lw    $t8, 0x48($sp)
-/* 09D6AC 7F06ACBC 8FA40050 */  lw    $a0, 0x50($sp)
-/* 09D6B0 7F06ACC0 5F000006 */  bgtzl $t8, .L7F06ACDC
-/* 09D6B4 7F06ACC4 8FA6003C */   lw    $a2, 0x3c($sp)
-/* 09D6B8 7F06ACC8 0FC1795B */  jal   bondwalkItemCheckBitflags
-/* 09D6BC 7F06ACCC 3C050040 */   lui   $a1, 0x40
-/* 09D6C0 7F06ACD0 10400012 */  beqz  $v0, .L7F06AD1C
-/* 09D6C4 7F06ACD4 00000000 */   nop
-/* 09D6C8 7F06ACD8 8FA6003C */  lw    $a2, 0x3c($sp)
-.L7F06ACDC:
-/* 09D6CC 7F06ACDC 240900CD */  li    $t1, 205
-/* 09D6D0 7F06ACE0 240A0002 */  li    $t2, 2
-/* 09D6D4 7F06ACE4 24C60001 */  addiu $a2, $a2, 1
-/* 09D6D8 7F06ACE8 AFAA0014 */  sw    $t2, 0x14($sp)
-/* 09D6DC 7F06ACEC AFA90010 */  sw    $t1, 0x10($sp)
-/* 09D6E0 7F06ACF0 02002025 */  move  $a0, $s0
-/* 09D6E4 7F06ACF4 8FA50048 */  lw    $a1, 0x48($sp)
-/* 09D6E8 7F06ACF8 04C10003 */  bgez  $a2, .L7F06AD08
-/* 09D6EC 7F06ACFC 0006C843 */   sra   $t9, $a2, 1
-/* 09D6F0 7F06AD00 24C10001 */  addiu $at, $a2, 1
-/* 09D6F4 7F06AD04 0001C843 */  sra   $t9, $at, 1
-.L7F06AD08:
-/* 09D6F8 7F06AD08 272600CB */  addiu $a2, $t9, 0xcb
-/* 09D6FC 7F06AD0C 24070001 */  li    $a3, 1
-/* 09D700 7F06AD10 0FC1A908 */  jal   gunDrawHudInteger
-/* 09D704 7F06AD14 AFA00018 */   sw    $zero, 0x18($sp)
-/* 09D708 7F06AD18 00408025 */  move  $s0, $v0
-.L7F06AD1C:
-/* 09D70C 7F06AD1C 0FC2B06C */  jal   combiner_bayer_lod_perspective
-/* 09D710 7F06AD20 02002025 */   move  $a0, $s0
-/* 09D714 7F06AD24 00408025 */  move  $s0, $v0
-.L7F06AD28:
-/* 09D718 7F06AD28 8FBF002C */  lw    $ra, 0x2c($sp)
-/* 09D71C 7F06AD2C 02001025 */  move  $v0, $s0
-/* 09D720 7F06AD30 8FB00028 */  lw    $s0, 0x28($sp)
-/* 09D724 7F06AD34 03E00008 */  jr    $ra
-/* 09D728 7F06AD38 27BD0058 */   addiu $sp, $sp, 0x58
-)
-#endif
-
-
 
 
 void gunSetSightVisible(s32 reason, bool visible)

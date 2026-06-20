@@ -1178,7 +1178,7 @@ void bullet_moving_sparks_reset(void)
  * Address: 7F0A4600
  */
 #ifndef VERSION_EU
-s_moving_bullet_spark *bullet_moving_spark_create(coord3d *arg0, coord3d *arg1, s32 arg2, f32 arg3, f32 arg4, s16 arg5)
+s_moving_bullet_spark *bullet_moving_spark_create(coord3d *arg0, coord3d *velocity, s32 arg2, f32 arg3, f32 arg4, s16 arg5)
 {
     s_moving_bullet_spark *ptr;
 
@@ -1188,9 +1188,9 @@ s_moving_bullet_spark *bullet_moving_spark_create(coord3d *arg0, coord3d *arg1, 
         {
             bullet_sparks_init(&ptr->unk00, arg0, arg2, arg3, arg5);
 
-            ptr->velocity.x = arg1->x;
-            ptr->velocity.y = arg1->y;
-            ptr->velocity.z = arg1->z;
+            ptr->velocity.x = velocity->x;
+            ptr->velocity.y = velocity->y;
+            ptr->velocity.z = velocity->z;
             ptr->unk38 = arg4;
 
             return ptr;
