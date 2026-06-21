@@ -3753,17 +3753,23 @@ void bbox2dCopy(struct bbox2d *a, struct bbox2d *b)
 }
 
 
-
-
-
 #ifdef NONMATCHING
+/**
+ * Matches, but only with function-local statics.
+ * Recheck this once bg.c is fully decompiled.
+ */
 char *bgDebPrintPORTALID(s32 portID)
 {
-    s32 temp_hi = (bgDebPortalOutLineNum + 1) % 0xA;
+    static char bgDebPortalOutBuffer[10][9];
+    static s32 bgDebPortalOutLineNum = 0;
+    char *portIdStr;
 
-    bgDebPortalOutLineNum = temp_hi;
-    sprintf(&bgDebPortalOutBuffer[temp_hi], "PORT%d", portID);
-    return &bgDebPortalOutBuffer[temp_hi];
+    bgDebPortalOutLineNum = (bgDebPortalOutLineNum + 1) % 10;
+    portIdStr = bgDebPortalOutBuffer[bgDebPortalOutLineNum];
+
+    sprintf(portIdStr, "PORT%d", portID);
+
+    return portIdStr;
 }
 #else
 GLOBAL_ASM(
@@ -3772,9 +3778,6 @@ GLOBAL_ASM(
 glabel aPortD
 /*"PORT%d"*/
 .word 0x504F5254, 0x25640000
-
-
-
 .text
 glabel bgDebPrintPORTALID
 /* 0EA8AC 7F0B5D7C 3C028004 */  lui   $v0, %hi(bgDebPortalOutLineNum)
@@ -3804,9 +3807,6 @@ glabel bgDebPrintPORTALID
 /* 0EA90C 7F0B5DDC 00000000 */   nop
 )
 #endif
-
-
-
 
 
 #ifdef NONMATCHING
