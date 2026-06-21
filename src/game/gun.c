@@ -17534,6 +17534,7 @@ Gfx *gunDrawHudInteger(Gfx *gdl, s32 value, s32 x, s32 halign, s32 y, s32 valign
 
 /**
  * Draw magazine ammo number, ammo type icon, and total ammo number at the bottom right of the viewport.
+ * Render an additional ammo counter at the bottom left of the viewport when dual wielding.
  */
 Gfx *generate_ammo_total_microcode(Gfx *gdl)
 {
@@ -17840,7 +17841,6 @@ void gunDrawSight(s32 *gdl) {
 }
 
 
-
 void inc_curplayer_hitcount_with_weapon(ITEM_IDS item, SHOT_REGISTER shot_register) {
 
     if (bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_PLAYER_STAT_HIT)) {
@@ -17848,15 +17848,18 @@ void inc_curplayer_hitcount_with_weapon(ITEM_IDS item, SHOT_REGISTER shot_regist
     }
 }
 
+
 s32 get_curplayer_shot_register(SHOT_REGISTER shot_register)
 {
   return g_playerPerm->shot_count[shot_register];
 }
 
+
 void inc_cur_civilian_casualties(void)
 {
     g_playerPerm->killed_civilians++;
 }
+
 
 s32 get_civilian_casualties(void)
 {
