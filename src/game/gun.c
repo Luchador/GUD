@@ -17466,12 +17466,19 @@ glabel microcode_generation_ammo_related
 
 
 
+/**
+ * Address: TODO
+ * WARNING: This function is missing a "return". This will cause bugs on other compilers.
+ */
 Gfx *set_rgba_redirect_generate_microcode(Gfx *gdl, sImageTableEntry *tconfig, f32 x, f32 y, f32 arg4, s32 arg5, f32 arg6, s32 arg7)
 {
     microcode_generation_ammo_related(gdl, tconfig, x, y, arg4, arg5, arg6, arg7, 0xff, 0xff, 0xff, 0xff);
 }
 
 
+/**
+ * Address: TODO
+ */
 Gfx *gunDrawHudString(Gfx *gdl, s8 *text, s32 x, s32 halign, s32 y, s32 valign, bool outline)
 {
     s32 x1;
@@ -17524,6 +17531,9 @@ Gfx *gunDrawHudString(Gfx *gdl, s8 *text, s32 x, s32 halign, s32 y, s32 valign, 
 }
 
 
+/**
+ * Address: TODO
+ */
 Gfx *gunDrawHudInteger(Gfx *gdl, s32 value, s32 x, s32 halign, s32 y, s32 valign, bool outline)
 {
     char buffer[12];
