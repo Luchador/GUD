@@ -2637,11 +2637,7 @@ extern s32 D_80036884;
 //D:80036888
 extern s32 D_80036888;
 //D:8003688C
-extern s32 D_8003688C;
-//D:80036890
-extern s32 D_80036890;
-//D:80036894
-extern s32 D_80036894;
+extern coord3d D_8003688C;
 //D:80036898
 extern s32 status_bar_text_buffer_index;
 //D:8003689C
