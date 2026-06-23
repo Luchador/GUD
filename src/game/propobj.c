@@ -1086,29 +1086,38 @@ bool projectileLineTestModel(ObjectRecord *obj, coord3d *modelRayOrigin, coord3d
     hitnode = NULL;
 
     // Fast path: test door bounding box.
-    if (obj->type == PROPDEF_DOOR) {
-        found = sub_GAME_7F0747D0(&((DoorRecord *)obj)->bbox, &model->render_pos[0].pos, modelRayOrigin, modelRayDir);
+    if (obj->type == PROPDEF_DOOR) 
+    {
+        found = modelTestRayIntersectsTransformedBBox(&((DoorRecord *)obj)->bbox, &model->render_pos[0].pos, modelRayOrigin, modelRayDir);
         node = model->obj->RootNode;
-        if (found > 0) {
-            if (propobjFindHit(model, node, modelRayOrigin, modelRayDir, &hitthing, &mtxindex, &hitnode) == 0) {
+        if (found > 0) 
+        {
+            if (propobjFindHit(model, node, modelRayOrigin, modelRayDir, &hitthing, &mtxindex, &hitnode) == 0) 
+            {
                 found = 0;
             }
         }
     // General case: traverse model's nodes for collision.
-    } else {
-        do {
+    } 
+    else 
+    {
+        do 
+        {
             found = modelFindNextProjectileHitCandidate(model, modelRayOrigin, modelRayDir, &node);
 
-            if (found > 0) {
+            if (found > 0) 
+            {
                 bool hit = propobjFindHit(model, node, modelRayOrigin, modelRayDir, &hitthing, &mtxindex, &hitnode);
-                if (hit != 0) {
+                if (hit != 0) 
+                {
                     break;
                 }
             }
         } while (found > 0);
     }
 
-    if (found > 0) {
+    if (found > 0) 
+    {
         mtx = &model->render_pos[mtxindex].pos;
 
         hitPos->x = hitthing.hitpos.x;
@@ -1124,7 +1133,8 @@ bool projectileLineTestModel(ObjectRecord *obj, coord3d *modelRayOrigin, coord3d
 
         mtx4RotateVecInPlace(mtx, hitNormal);
 
-        if (hitNormal->f[0] * modelRayDir->f[0] + hitNormal->f[1] * modelRayDir->f[1] + hitNormal->f[2] * modelRayDir->f[2] > 0.0f) {
+        if (hitNormal->f[0] * modelRayDir->f[0] + hitNormal->f[1] * modelRayDir->f[1] + hitNormal->f[2] * modelRayDir->f[2] > 0.0f) 
+        {
             hitNormal->x = -hitNormal->x;
             hitNormal->y = -hitNormal->y;
             hitNormal->z = -hitNormal->z;
@@ -1132,9 +1142,12 @@ bool projectileLineTestModel(ObjectRecord *obj, coord3d *modelRayOrigin, coord3d
 
         mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), hitNormal);
 
-        if (hitNormal->x != 0.0f || hitNormal->y != 0.0f || hitNormal->z != 0.0f) {
+        if (hitNormal->x != 0.0f || hitNormal->y != 0.0f || hitNormal->z != 0.0f) 
+        {
             guNormalize(&hitNormal->x, &hitNormal->y, &hitNormal->z);
-        } else {
+        } 
+        else 
+        {
             hitNormal->z = 1.0f;
         }
 
@@ -30485,7 +30498,7 @@ dummy_label_995911:
 
         if ((obj->type == PROPDEF_DOOR) && (((((DoorRecord *) obj)->doorFlags & DOORFLAG_0004) || (((DoorRecord *) obj)->doorType == DOORTYPE_EYE)) || (((DoorRecord *) obj)->doorType == DOORTYPE_IRIS)))
         {
-            hitpart = sub_GAME_7F0747D0(&((DoorRecord *) obj)->bbox, &model->render_pos->pos, &hitinfo->viewOrigin, &hitinfo->viewDir);
+            hitpart = modelTestRayIntersectsTransformedBBox(&((DoorRecord *) obj)->bbox, &model->render_pos->pos, &hitinfo->viewOrigin, &hitinfo->viewDir);
             node = model->obj->RootNode;
 
             if (hitpart > HIT_NULL_PART)

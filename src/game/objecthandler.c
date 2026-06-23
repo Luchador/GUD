@@ -1181,7 +1181,7 @@ walk_node:
                     break;
             
                 case MODELNODE_OPCODE_BBOX:
-                    if (sub_GAME_7F074C68(entry->model, node, raypos, raydir)) {
+                    if (modelTestRayIntersectsNodeBBox(entry->model, node, raypos, raydir)) {
                         *outModel = entry->model;
                         *inoutNode = node;
                         *entryptr = entry;
