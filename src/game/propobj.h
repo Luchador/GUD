@@ -159,5 +159,6 @@ HATTYPE              get_hat_model(PropRecord *prop);
 s32                  objDrop(PropRecord *prop);
 void                 sub_GAME_7F050DE8(Model* model);
 PropRecord          *something_with_generating_object(ChrRecord *self, s32 propid, ITEM_IDS itemid, s32 flags, WeaponObjRecord *weapon, ItemModelFileRecord *prop_header);
+Gfx                 *countdownTimerRender(Gfx *DL);
 
 #endif

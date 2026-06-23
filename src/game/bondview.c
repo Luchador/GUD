@@ -9,39 +9,41 @@
 #include <str.h>
 #include <options.h>
 #include "bg.h"
-#include "bondview.h"
-#include "bondinv.h"
+#include "bgroomtrans.h"
+#include "blood_animation.h"
 #include "bondhead.h"
+#include "bondinv.h"
+#include "bondview.h"
 #include "chr.h"
-#include "chrai.h"
 #include "chr_b.h"
 #include "chraction.h"
-#include "propobj.h"
+#include "chrai.h"
 #include "debugmenu_handler.h"
+#include "explosion.h"
 #include "file.h"
+#include "frametiming.h"
 #include "front.h"
+#include "glass.h"
 #include "gun.h"
 #include "initanitable.h"
+#include "language.h"
 #include "loadobjectmodel.h"
 #include "lv.h"
-#include "language.h"
 #include "math_atan2f.h"
 #include "matrixmath.h"
 #include "model.h"
 #include "mp_music.h"
 #include "mpmenu.h"
 #include "objecthandler.h"
+#include "objective_status.h"
+#include "os_extension.h"
 #include "player.h"
+#include "propobj.h"
 #include "quaternion.h"
 #include "random.h"
 #include "stan.h"
-#include "textrelated.h"
-#include "frametiming.h"
-#include "bgroomtrans.h"
-#include "glass.h"
-#include "explosion.h"
-#include "os_extension.h"
 #include "stanintersection.h"
+#include "textrelated.h"
 
 #ifdef VERSION_EU
 
@@ -772,6 +774,11 @@ void bondviewUpdateSpeedForwards(s32 arg0);
 void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, struct coord3d *pos2, struct coord3d *offset, struct StandTile **stan, struct coord3d *arg6);
 void sub_GAME_7F07B2A0(s32, f32, struct coord3d *, struct coord3d *);
 s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, coord3d *collision_pos, StandTile *tile, f32 camera_dist);
+Gfx* sub_GAME_7F08A5FC(Gfx* arg0);
+Gfx *sub_GAME_7F08AAE8(Gfx *gdl);
+Gfx *sub_GAME_7F088CD8(Gfx *gdl);
+Gfx *sub_GAME_7F087E74(Gfx *gdl);
+Gfx *bondviewRenderGaugeBars(Gfx *gdl);
 
 // end forward declarations
 
@@ -7534,7 +7541,8 @@ void bondviewCurrentPlayerUpdateSpeedTheta(f32 value)
 }
 
 
-Gfx *currentPlayerDrawFade(Gfx *gdl) {
+Gfx *currentPlayerDrawFade(Gfx *gdl)
+{
     f32 frac = g_CurrentPlayer->colourscreenfrac;
     s32 r = g_CurrentPlayer->colourscreenred;
     s32 g = g_CurrentPlayer->colourscreengreen;
@@ -13569,7 +13577,7 @@ void mp_respawn_handler(void)
 
 
 #ifdef NONMATCHING
-void sub_GAME_7F088CD8(void) {
+Gfx *sub_GAME_7F088CD8(Gfx *gdl) {
 
 }
 #else

@@ -36360,8 +36360,8 @@ const char D_80052A44[] = ":\n";
 
     Timer value is set using countdownTimerSetValue()
 */
-Gfx *countdownTimerRender(Gfx *DL) {
-
+Gfx *countdownTimerRender(Gfx *DL)
+{
     s32 mins;
     s32 secs;
     s32 ms;

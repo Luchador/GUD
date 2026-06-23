@@ -338,7 +338,8 @@ void objectivestatusDisableStatusDisplay(void)
 #endif
 
 
-void display_objective_status_text_on_status_change(void) {
+void display_objective_status_text_on_status_change(void) 
+{
     s32 i;
     s32 availableindex = 0;
     char buffer[50] = "";
