@@ -5,7 +5,7 @@
 
 // bss
 //CODE.bss:80076A50
-char dword_CODE_bss_80076A50[0xC];
+char g_ModelHitEntries[0xC];
 //CODE.bss:80076A5C
 u32 dword_CODE_bss_80076A5C;
 //CODE.bss:80076A60
@@ -49,7 +49,7 @@ char dword_CODE_bss_80076ADE;
 char dword_CODE_bss_80076ADF;
 char dword_CODE_bss_80076AE0[0x2E28];
 //CODE.bss:80079908
-char dword_CODE_bss_80079908[0x28];
+char g_ModelHitEntriesPenultimate[0x28];
 
 //CODE.bss:80079930
 struct AnimModelSlot *g_AnimModelSlots;
@@ -276,7 +276,7 @@ ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context) {
     s32 nodeType;
 
     sceneCursor = context->obj->RootNode;
-    freeListCursor = D_80036060;
+    freeListCursor = g_ModelHitFreeList;
 
     while ((sceneCursor != NULL) && (freeListCursor != NULL)) {
         nodeType = sceneCursor->Opcode & 0xFF;
@@ -317,7 +317,7 @@ ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context) {
         }
     }
 
-    if (freeListCursor != D_80036060) {
+    if (freeListCursor != g_ModelHitFreeList) {
         if (head != NULL) {
             ModelHitEntry *tail = head;
 
@@ -325,10 +325,10 @@ ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context) {
                 tail = tail->next;
             }
 
-            tail->next = D_80036060;
-            D_80036060->prev = tail;
+            tail->next = g_ModelHitFreeList;
+            g_ModelHitFreeList->prev = tail;
         } else {
-            head = D_80036060;
+            head = g_ModelHitFreeList;
         }
 
         if (freeListCursor != NULL) {
@@ -339,7 +339,7 @@ ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context) {
             }
         }
 
-        D_80036060 = freeListCursor;
+        g_ModelHitFreeList = freeListCursor;
     }
 
     return head;
@@ -352,16 +352,16 @@ void sub_GAME_7F06B248(ModelHitEntry *entry)
     ModelHitEntry *tail;
     
     if (entry != NULL) {
-        oldhead = D_80036060;
+        oldhead = g_ModelHitFreeList;
         if (oldhead != NULL) {
             tail = entry;
             while (tail->next != NULL) {
                 tail = tail->next;
             }
             tail->next = oldhead;
-            D_80036060->prev = tail;
+            g_ModelHitFreeList->prev = tail;
         }
-        D_80036060 = entry;
+        g_ModelHitFreeList = entry;
     }
 }
 
