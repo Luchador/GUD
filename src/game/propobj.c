@@ -2080,7 +2080,7 @@ glabel handles_projectile_motion
 /* 07746C 7F04293C 8FA40048 */   lw    $a0, 0x48($sp)
 /* 077470 7F042940 27A50074 */  addiu $a1, $sp, 0x74
 /* 077474 7F042944 00003025 */  move  $a2, $zero
-/* 077478 7F042948 0FC2BC83 */  jal   sub_GAME_7F0AF20C
+/* 077478 7F042948 0FC2BC83 */  jal   stanFindTileBelowPos
 /* 07747C 7F04294C AFA80264 */   sw    $t0, 0x264($sp)
 /* 077480 7F042950 8FA80264 */  lw    $t0, 0x264($sp)
 /* 077484 7F042954 1040000F */  beqz  $v0, .L7F042994
