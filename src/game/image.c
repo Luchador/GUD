@@ -172,7 +172,7 @@ s32 texInflateZlib(u8 *src, u8 *dst, s32 arg2, s32 forcenumimages, struct texpoo
     }
 
     arg4->rightpos->maxlod = forcenumimages;
-    arg4->rightpos->unk0c_02 = arg2;
+    arg4->rightpos->hasExplicitLods = arg2;
 
     if (arg2)
     {
@@ -1079,7 +1079,7 @@ s32 texInflateNonZlib(u8 *src, u8 *dst, s32 arg2, s32 forcenumimages, struct tex
     numimages = arg2 && forcenumimages ? forcenumimages : 1;
 
     arg4->rightpos->maxlod = forcenumimages;
-    arg4->rightpos->unk0c_02 = arg2;
+    arg4->rightpos->hasExplicitLods = arg2;
 
     if (arg2)
     {

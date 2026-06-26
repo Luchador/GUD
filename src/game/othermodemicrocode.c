@@ -517,7 +517,7 @@ void texSelect(Gfx **gdlptr, struct sImageTableEntry *tconfig, u32 arg2, s32 arg
                 depth = tconfig->depth;
             }
 
-            if ((tex != NULL) && (tex->unk0c_02))
+            if ((tex != NULL) && (tex->hasExplicitLods))
             {
                 texGetDepthAndSize(tex, &depth2, &lrs);
             }
@@ -629,7 +629,7 @@ void texSelect(Gfx **gdlptr, struct sImageTableEntry *tconfig, u32 arg2, s32 arg
 
                 if (tile > 0)
                 {
-                    if ((tex != NULL) && (tex->unk0c_02))
+                    if ((tex != NULL) && (tex->hasExplicitLods))
                     {
                         width = texGetWidthAtLod(tex, tile);
                         height = texGetHeightAtLod(tex, tile);

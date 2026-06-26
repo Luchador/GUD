@@ -47,7 +47,7 @@ struct tex {
 	/*0x0b*/ u8 gbiformat : 3;
 	/*0x0b*/ u8 depth : 2;
 	/*0x0c*/ u32 lutmodeindex : 2;
-	/*0x0c*/ u32 unk0c_02 : 1;
+	/*0x0c*/ u32 hasExplicitLods : 1;
 	/*0x0c*/ u32 unk0c_03 : 1;
 	/*0x0c*/ u32 next : 24;
 };

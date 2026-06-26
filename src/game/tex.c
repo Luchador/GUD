@@ -252,7 +252,7 @@ s32 texGetWidthAtLod(struct tex *tex, s32 lod)
         return width;
     }
 
-    if (tex->unk0c_02)
+    if (tex->hasExplicitLods)
     {
         for (i = 0; i < g_TexCacheCount; i++)
         {
@@ -284,7 +284,7 @@ s32 texGetHeightAtLod(struct tex *tex, s32 lod)
         return height;
     }
 
-    if (tex->unk0c_02)
+    if (tex->hasExplicitLods)
     {
         for (i = 0; i < g_TexCacheCount; i++)
         {
@@ -455,10 +455,10 @@ Gfx *texWriteTileFromDefinition(Gfx *gdl, struct tex *tex, s32 offset, s32 shift
                 texModeToGbiMode(0), sp88 - s0->flag5, shifts);
     }
 
-    uls = (offset == 2 && !tex->unk0c_02 ? 2 : 0) + 0;
-    ult = (offset == 2 && !tex->unk0c_02 ? 2 : 0) + 0;
-    lrs = (offset == 2 && !tex->unk0c_02 ? 2 : 0) + ((tex->width - 1) << 2);
-    lrt = (offset == 2 && !tex->unk0c_02 ? 2 : 0) + ((tex->height - 1) << 2);
+    uls = (offset == 2 && !tex->hasExplicitLods ? 2 : 0) + 0;
+    ult = (offset == 2 && !tex->hasExplicitLods ? 2 : 0) + 0;
+    lrs = (offset == 2 && !tex->hasExplicitLods ? 2 : 0) + ((tex->width - 1) << 2);
+    lrt = (offset == 2 && !tex->hasExplicitLods ? 2 : 0) + ((tex->height - 1) << 2);
 
     if (texTrySetTileSize(0, uls, ult, lrs, lrt))
     {
@@ -563,252 +563,65 @@ Gfx *texWriteLoadToTmemAddr(Gfx *gdl, struct tex *tex, s32 tmemoffset)
 }
 
 
-#ifdef NONMATCHING
-void texWriteTileLods(void) {
+Gfx *texWriteTileLods(Gfx *gdl, struct tex *tex, s32 smode, s32 tmode, s32 offset, s32 basetile, s32 tmemaddr)
+{
+    s32 tmem;
+    s32 masks;
+    s32 tile;
+    s32 maskt;
+    s32 line;
+    s32 ult;
+    s32 lrs;
+    s32 lrt;
+    s32 lod;
+    s32 uls;
+    bool hasExplicitLods;
+    s32 end;
+    s32 pad;
+    s32 size;
+    s32 pad2;
 
+    tmem = tmemaddr;
+    end = tex->maxlod;
+    end = end + basetile;
+
+    for (tile = basetile; tile < (end ^ 0); tile++)
+    {
+        pad2 = basetile;
+        lod = tile - pad2;
+        masks = texDimensionToMask(texGetWidthAtLod(tex, lod));
+        maskt = texDimensionToMask(texGetHeightAtLod(tex, lod));
+        line = texGetLineSizeInBytes(tex, lod);
+        size = texGetSizeInBytes(tex, lod);
+        hasExplicitLods = tex->hasExplicitLods;
+
+        if (texSetLutMode(tex->lutmodeindex << 14))
+        {
+            gDPSetTextureLUT(gdl++, tex->lutmodeindex << G_MDSFT_TEXTLUT);
+        }
+
+        if (texTrySetTileState(tile, tex->gbiformat, tex->depth, line, tmem, smode, tmode, masks, maskt, tile - pad2, tile - pad2))
+        {
+            gDPSetTile(gdl++, tex->gbiformat, tex->depth, line, tmem, tile, 0, texModeToGbiMode(tmode), maskt, lod, texModeToGbiMode(smode), masks, tile - basetile);
+        }
+
+        uls = (((offset == 2) && (hasExplicitLods == 0)) ? (2) : (0)) + 0;
+        ult = (((offset == 2) && (hasExplicitLods == 0)) ? (2) : (0)) + 0;
+        lrs = ((texGetWidthAtLod(tex, lod) - 1) << 2) + (((offset == 2) && (hasExplicitLods == 0)) ? (2) : (0));
+        lrt = ((texGetHeightAtLod(tex, lod) - 1) << 2) + (((offset == 2) && (hasExplicitLods == 0)) ? (2) : (0));
+
+        if (texTrySetTileSize(tile, uls, ult, lrs, lrt))
+        {
+            gDPSetTileSize(gdl++, tile, uls, ult, lrs, lrt);
+        }
+
+        tmem += size;
+    }
+
+    lod = tile - pad2;
+    
+    return gdl;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel texWriteTileLods
-/* 101F60 7F0CD430 27BDFF48 */  addiu $sp, $sp, -0xb8
-/* 101F64 7F0CD434 8FAE00D0 */  lw    $t6, 0xd0($sp)
-/* 101F68 7F0CD438 AFBF005C */  sw    $ra, 0x5c($sp)
-/* 101F6C 7F0CD43C AFBE0058 */  sw    $fp, 0x58($sp)
-/* 101F70 7F0CD440 AFB70054 */  sw    $s7, 0x54($sp)
-/* 101F74 7F0CD444 AFB60050 */  sw    $s6, 0x50($sp)
-/* 101F78 7F0CD448 AFB5004C */  sw    $s5, 0x4c($sp)
-/* 101F7C 7F0CD44C AFB40048 */  sw    $s4, 0x48($sp)
-/* 101F80 7F0CD450 AFB30044 */  sw    $s3, 0x44($sp)
-/* 101F84 7F0CD454 AFB20040 */  sw    $s2, 0x40($sp)
-/* 101F88 7F0CD458 AFB1003C */  sw    $s1, 0x3c($sp)
-/* 101F8C 7F0CD45C AFB00038 */  sw    $s0, 0x38($sp)
-/* 101F90 7F0CD460 AFA600C0 */  sw    $a2, 0xc0($sp)
-/* 101F94 7F0CD464 AFA700C4 */  sw    $a3, 0xc4($sp)
-/* 101F98 7F0CD468 AFAE00B4 */  sw    $t6, 0xb4($sp)
-/* 101F9C 7F0CD46C 90A2000B */  lbu   $v0, 0xb($a1)
-/* 101FA0 7F0CD470 8FB000CC */  lw    $s0, 0xcc($sp)
-/* 101FA4 7F0CD474 00A0A825 */  move  $s5, $a1
-/* 101FA8 7F0CD478 00027942 */  srl   $t7, $v0, 5
-/* 101FAC 7F0CD47C 01F04021 */  addu  $t0, $t7, $s0
-/* 101FB0 7F0CD480 0208082A */  slt   $at, $s0, $t0
-/* 101FB4 7F0CD484 102000BC */  beqz  $at, .L7F0CD778
-/* 101FB8 7F0CD488 0080B025 */   move  $s6, $a0
-/* 101FBC 7F0CD48C 02109023 */  subu  $s2, $s0, $s0
-/* 101FC0 7F0CD490 AFB000AC */  sw    $s0, 0xac($sp)
-/* 101FC4 7F0CD494 AFA80064 */  sw    $t0, 0x64($sp)
-.L7F0CD498:
-/* 101FC8 7F0CD498 02A02025 */  move  $a0, $s5
-/* 101FCC 7F0CD49C 0FC331C5 */  jal   texGetWidthAtLod
-/* 101FD0 7F0CD4A0 02402825 */   move  $a1, $s2
-/* 101FD4 7F0CD4A4 0FC332A7 */  jal   texDimensionToMask
-/* 101FD8 7F0CD4A8 00402025 */   move  $a0, $v0
-/* 101FDC 7F0CD4AC 00409825 */  move  $s3, $v0
-/* 101FE0 7F0CD4B0 02A02025 */  move  $a0, $s5
-/* 101FE4 7F0CD4B4 0FC331FF */  jal   texGetHeightAtLod
-/* 101FE8 7F0CD4B8 02402825 */   move  $a1, $s2
-/* 101FEC 7F0CD4BC 0FC332A7 */  jal   texDimensionToMask
-/* 101FF0 7F0CD4C0 00402025 */   move  $a0, $v0
-/* 101FF4 7F0CD4C4 0040A025 */  move  $s4, $v0
-/* 101FF8 7F0CD4C8 02A02025 */  move  $a0, $s5
-/* 101FFC 7F0CD4CC 0FC33239 */  jal   texGetLineSizeInBytes
-/* 102000 7F0CD4D0 02402825 */   move  $a1, $s2
-/* 102004 7F0CD4D4 00408025 */  move  $s0, $v0
-/* 102008 7F0CD4D8 02A02025 */  move  $a0, $s5
-/* 10200C 7F0CD4DC 0FC33265 */  jal   texGetSizeInBytes
-/* 102010 7F0CD4E0 02402825 */   move  $a1, $s2
-/* 102014 7F0CD4E4 AFA20080 */  sw    $v0, 0x80($sp)
-/* 102018 7F0CD4E8 8EA3000C */  lw    $v1, 0xc($s5)
-/* 10201C 7F0CD4EC 0003F080 */  sll   $fp, $v1, 2
-/* 102020 7F0CD4F0 00032782 */  srl   $a0, $v1, 0x1e
-/* 102024 7F0CD4F4 001EC7C2 */  srl   $t8, $fp, 0x1f
-/* 102028 7F0CD4F8 0004CB80 */  sll   $t9, $a0, 0xe
-/* 10202C 7F0CD4FC 0300F025 */  move  $fp, $t8
-/* 102030 7F0CD500 0FC33152 */  jal   texSetLutMode
-/* 102034 7F0CD504 03202025 */   move  $a0, $t9
-/* 102038 7F0CD508 1040000A */  beqz  $v0, .L7F0CD534
-/* 10203C 7F0CD50C 02003825 */   move  $a3, $s0
-/* 102040 7F0CD510 3C09BA00 */  lui   $t1, (0xBA000E02 >> 16) # lui $t1, 0xba00
-/* 102044 7F0CD514 35290E02 */  ori   $t1, (0xBA000E02 & 0xFFFF) # ori $t1, $t1, 0xe02
-/* 102048 7F0CD518 02C01025 */  move  $v0, $s6
-/* 10204C 7F0CD51C AC490000 */  sw    $t1, ($v0)
-/* 102050 7F0CD520 8EAA000C */  lw    $t2, 0xc($s5)
-/* 102054 7F0CD524 26D60008 */  addiu $s6, $s6, 8
-/* 102058 7F0CD528 000A5F82 */  srl   $t3, $t2, 0x1e
-/* 10205C 7F0CD52C 000B6380 */  sll   $t4, $t3, 0xe
-/* 102060 7F0CD530 AC4C0004 */  sw    $t4, 4($v0)
-.L7F0CD534:
-/* 102064 7F0CD534 8EA20008 */  lw    $v0, 8($s5)
-/* 102068 7F0CD538 8FAE00B4 */  lw    $t6, 0xb4($sp)
-/* 10206C 7F0CD53C 8FAF00C0 */  lw    $t7, 0xc0($sp)
-/* 102070 7F0CD540 8FB800C4 */  lw    $t8, 0xc4($sp)
-/* 102074 7F0CD544 00022EC0 */  sll   $a1, $v0, 0x1b
-/* 102078 7F0CD548 00056F42 */  srl   $t5, $a1, 0x1d
-/* 10207C 7F0CD54C 01A02825 */  move  $a1, $t5
-/* 102080 7F0CD550 AFB20028 */  sw    $s2, 0x28($sp)
-/* 102084 7F0CD554 AFB20024 */  sw    $s2, 0x24($sp)
-/* 102088 7F0CD558 AFB40020 */  sw    $s4, 0x20($sp)
-/* 10208C 7F0CD55C AFB3001C */  sw    $s3, 0x1c($sp)
-/* 102090 7F0CD560 8FA400AC */  lw    $a0, 0xac($sp)
-/* 102094 7F0CD564 30460003 */  andi  $a2, $v0, 3
-/* 102098 7F0CD568 AFAE0010 */  sw    $t6, 0x10($sp)
-/* 10209C 7F0CD56C AFAF0014 */  sw    $t7, 0x14($sp)
-/* 1020A0 7F0CD570 0FC3315D */  jal   texTrySetTileState
-/* 1020A4 7F0CD574 AFB80018 */   sw    $t8, 0x18($sp)
-/* 1020A8 7F0CD578 1040002D */  beqz  $v0, .L7F0CD630
-/* 1020AC 7F0CD57C 02C08825 */   move  $s1, $s6
-/* 1020B0 7F0CD580 8EAD0008 */  lw    $t5, 8($s5)
-/* 1020B4 7F0CD584 3C01F500 */  lui   $at, 0xf500
-/* 1020B8 7F0CD588 26D60008 */  addiu $s6, $s6, 8
-/* 1020BC 7F0CD58C 000DCEC0 */  sll   $t9, $t5, 0x1b
-/* 1020C0 7F0CD590 00194F42 */  srl   $t1, $t9, 0x1d
-/* 1020C4 7F0CD594 312A0007 */  andi  $t2, $t1, 7
-/* 1020C8 7F0CD598 000A5D40 */  sll   $t3, $t2, 0x15
-/* 1020CC 7F0CD59C 01616025 */  or    $t4, $t3, $at
-/* 1020D0 7F0CD5A0 8FAB00B4 */  lw    $t3, 0xb4($sp)
-/* 1020D4 7F0CD5A4 31AE0003 */  andi  $t6, $t5, 3
-/* 1020D8 7F0CD5A8 000E7CC0 */  sll   $t7, $t6, 0x13
-/* 1020DC 7F0CD5AC 321901FF */  andi  $t9, $s0, 0x1ff
-/* 1020E0 7F0CD5B0 00194A40 */  sll   $t1, $t9, 9
-/* 1020E4 7F0CD5B4 018FC025 */  or    $t8, $t4, $t7
-/* 1020E8 7F0CD5B8 03095025 */  or    $t2, $t8, $t1
-/* 1020EC 7F0CD5BC 316D01FF */  andi  $t5, $t3, 0x1ff
-/* 1020F0 7F0CD5C0 014D7025 */  or    $t6, $t2, $t5
-/* 1020F4 7F0CD5C4 AE2E0000 */  sw    $t6, ($s1)
-/* 1020F8 7F0CD5C8 0FC332B3 */  jal   texModeToGbiMode
-/* 1020FC 7F0CD5CC 8FA400C4 */   lw    $a0, 0xc4($sp)
-/* 102100 7F0CD5D0 00408025 */  move  $s0, $v0
-/* 102104 7F0CD5D4 0FC332B3 */  jal   texModeToGbiMode
-/* 102108 7F0CD5D8 8FA400C0 */   lw    $a0, 0xc0($sp)
-/* 10210C 7F0CD5DC 8FB900AC */  lw    $t9, 0xac($sp)
-/* 102110 7F0CD5E0 304C0003 */  andi  $t4, $v0, 3
-/* 102114 7F0CD5E4 000C7A00 */  sll   $t7, $t4, 8
-/* 102118 7F0CD5E8 33380007 */  andi  $t8, $t9, 7
-/* 10211C 7F0CD5EC 00184E00 */  sll   $t1, $t8, 0x18
-/* 102120 7F0CD5F0 01E95825 */  or    $t3, $t7, $t1
-/* 102124 7F0CD5F4 320A0003 */  andi  $t2, $s0, 3
-/* 102128 7F0CD5F8 000A6C80 */  sll   $t5, $t2, 0x12
-/* 10212C 7F0CD5FC 016D7025 */  or    $t6, $t3, $t5
-/* 102130 7F0CD600 328C000F */  andi  $t4, $s4, 0xf
-/* 102134 7F0CD604 000CCB80 */  sll   $t9, $t4, 0xe
-/* 102138 7F0CD608 324F000F */  andi  $t7, $s2, 0xf
-/* 10213C 7F0CD60C 000F4A80 */  sll   $t1, $t7, 0xa
-/* 102140 7F0CD610 01D9C025 */  or    $t8, $t6, $t9
-/* 102144 7F0CD614 326B000F */  andi  $t3, $s3, 0xf
-/* 102148 7F0CD618 000B6900 */  sll   $t5, $t3, 4
-/* 10214C 7F0CD61C 03095025 */  or    $t2, $t8, $t1
-/* 102150 7F0CD620 014D6025 */  or    $t4, $t2, $t5
-/* 102154 7F0CD624 324E000F */  andi  $t6, $s2, 0xf
-/* 102158 7F0CD628 018EC825 */  or    $t9, $t4, $t6
-/* 10215C 7F0CD62C AE390004 */  sw    $t9, 4($s1)
-.L7F0CD630:
-/* 102160 7F0CD630 8FA200C8 */  lw    $v0, 0xc8($sp)
-/* 102164 7F0CD634 24030002 */  li    $v1, 2
-/* 102168 7F0CD638 02A02025 */  move  $a0, $s5
-/* 10216C 7F0CD63C 14430005 */  bne   $v0, $v1, .L7F0CD654
-/* 102170 7F0CD640 02402825 */   move  $a1, $s2
-/* 102174 7F0CD644 57C00004 */  bnezl $fp, .L7F0CD658
-/* 102178 7F0CD648 00008025 */   move  $s0, $zero
-/* 10217C 7F0CD64C 10000002 */  b     .L7F0CD658
-/* 102180 7F0CD650 00608025 */   move  $s0, $v1
-.L7F0CD654:
-/* 102184 7F0CD654 00008025 */  move  $s0, $zero
-.L7F0CD658:
-/* 102188 7F0CD658 14430005 */  bne   $v0, $v1, .L7F0CD670
-/* 10218C 7F0CD65C AFB00090 */   sw    $s0, 0x90($sp)
-/* 102190 7F0CD660 57C00004 */  bnezl $fp, .L7F0CD674
-/* 102194 7F0CD664 00008025 */   move  $s0, $zero
-/* 102198 7F0CD668 10000002 */  b     .L7F0CD674
-/* 10219C 7F0CD66C 00608025 */   move  $s0, $v1
-.L7F0CD670:
-/* 1021A0 7F0CD670 00008025 */  move  $s0, $zero
-.L7F0CD674:
-/* 1021A4 7F0CD674 0FC331C5 */  jal   texGetWidthAtLod
-/* 1021A8 7F0CD678 0200B825 */   move  $s7, $s0
-/* 1021AC 7F0CD67C 8FAF00C8 */  lw    $t7, 0xc8($sp)
-/* 1021B0 7F0CD680 00409825 */  move  $s3, $v0
-/* 1021B4 7F0CD684 24010002 */  li    $at, 2
-/* 1021B8 7F0CD688 15E10005 */  bne   $t7, $at, .L7F0CD6A0
-/* 1021BC 7F0CD68C 2678FFFF */   addiu $t8, $s3, -1
-/* 1021C0 7F0CD690 57C00004 */  bnezl $fp, .L7F0CD6A4
-/* 1021C4 7F0CD694 00008025 */   move  $s0, $zero
-/* 1021C8 7F0CD698 10000002 */  b     .L7F0CD6A4
-/* 1021CC 7F0CD69C 24100002 */   li    $s0, 2
-.L7F0CD6A0:
-/* 1021D0 7F0CD6A0 00008025 */  move  $s0, $zero
-.L7F0CD6A4:
-/* 1021D4 7F0CD6A4 00184880 */  sll   $t1, $t8, 2
-/* 1021D8 7F0CD6A8 0209A021 */  addu  $s4, $s0, $t1
-/* 1021DC 7F0CD6AC 02A02025 */  move  $a0, $s5
-/* 1021E0 7F0CD6B0 0FC331FF */  jal   texGetHeightAtLod
-/* 1021E4 7F0CD6B4 02402825 */   move  $a1, $s2
-/* 1021E8 7F0CD6B8 8FAB00C8 */  lw    $t3, 0xc8($sp)
-/* 1021EC 7F0CD6BC 24010002 */  li    $at, 2
-/* 1021F0 7F0CD6C0 00409825 */  move  $s3, $v0
-/* 1021F4 7F0CD6C4 15610005 */  bne   $t3, $at, .L7F0CD6DC
-/* 1021F8 7F0CD6C8 8FA400AC */   lw    $a0, 0xac($sp)
-/* 1021FC 7F0CD6CC 57C00004 */  bnezl $fp, .L7F0CD6E0
-/* 102200 7F0CD6D0 00008025 */   move  $s0, $zero
-/* 102204 7F0CD6D4 10000002 */  b     .L7F0CD6E0
-/* 102208 7F0CD6D8 24100002 */   li    $s0, 2
-.L7F0CD6DC:
-/* 10220C 7F0CD6DC 00008025 */  move  $s0, $zero
-.L7F0CD6E0:
-/* 102210 7F0CD6E0 266AFFFF */  addiu $t2, $s3, -1
-/* 102214 7F0CD6E4 000A6880 */  sll   $t5, $t2, 2
-/* 102218 7F0CD6E8 020D8821 */  addu  $s1, $s0, $t5
-/* 10221C 7F0CD6EC AFB10010 */  sw    $s1, 0x10($sp)
-/* 102220 7F0CD6F0 8FA50090 */  lw    $a1, 0x90($sp)
-/* 102224 7F0CD6F4 02E03025 */  move  $a2, $s7
-/* 102228 7F0CD6F8 0FC331A4 */  jal   texTrySetTileSize
-/* 10222C 7F0CD6FC 02803825 */   move  $a3, $s4
-/* 102230 7F0CD700 10400014 */  beqz  $v0, .L7F0CD754
-/* 102234 7F0CD704 26520001 */   addiu $s2, $s2, 1
-/* 102238 7F0CD708 8FAC0090 */  lw    $t4, 0x90($sp)
-/* 10223C 7F0CD70C 3C01F200 */  lui   $at, 0xf200
-/* 102240 7F0CD710 32F80FFF */  andi  $t8, $s7, 0xfff
-/* 102244 7F0CD714 318E0FFF */  andi  $t6, $t4, 0xfff
-/* 102248 7F0CD718 000ECB00 */  sll   $t9, $t6, 0xc
-/* 10224C 7F0CD71C 03217825 */  or    $t7, $t9, $at
-/* 102250 7F0CD720 01F84825 */  or    $t1, $t7, $t8
-/* 102254 7F0CD724 02C01025 */  move  $v0, $s6
-/* 102258 7F0CD728 AC490000 */  sw    $t1, ($v0)
-/* 10225C 7F0CD72C 8FAB00AC */  lw    $t3, 0xac($sp)
-/* 102260 7F0CD730 328C0FFF */  andi  $t4, $s4, 0xfff
-/* 102264 7F0CD734 000C7300 */  sll   $t6, $t4, 0xc
-/* 102268 7F0CD738 316A0007 */  andi  $t2, $t3, 7
-/* 10226C 7F0CD73C 000A6E00 */  sll   $t5, $t2, 0x18
-/* 102270 7F0CD740 01AEC825 */  or    $t9, $t5, $t6
-/* 102274 7F0CD744 322F0FFF */  andi  $t7, $s1, 0xfff
-/* 102278 7F0CD748 032FC025 */  or    $t8, $t9, $t7
-/* 10227C 7F0CD74C AC580004 */  sw    $t8, 4($v0)
-/* 102280 7F0CD750 26D60008 */  addiu $s6, $s6, 8
-.L7F0CD754:
-/* 102284 7F0CD754 8FAC00AC */  lw    $t4, 0xac($sp)
-/* 102288 7F0CD758 8FA900B4 */  lw    $t1, 0xb4($sp)
-/* 10228C 7F0CD75C 8FAB0080 */  lw    $t3, 0x80($sp)
-/* 102290 7F0CD760 8FAE0064 */  lw    $t6, 0x64($sp)
-/* 102294 7F0CD764 258D0001 */  addiu $t5, $t4, 1
-/* 102298 7F0CD768 012B5021 */  addu  $t2, $t1, $t3
-/* 10229C 7F0CD76C AFAD00AC */  sw    $t5, 0xac($sp)
-/* 1022A0 7F0CD770 15AEFF49 */  bne   $t5, $t6, .L7F0CD498
-/* 1022A4 7F0CD774 AFAA00B4 */   sw    $t2, 0xb4($sp)
-.L7F0CD778:
-/* 1022A8 7F0CD778 8FBF005C */  lw    $ra, 0x5c($sp)
-/* 1022AC 7F0CD77C 02C01025 */  move  $v0, $s6
-/* 1022B0 7F0CD780 8FB60050 */  lw    $s6, 0x50($sp)
-/* 1022B4 7F0CD784 8FB00038 */  lw    $s0, 0x38($sp)
-/* 1022B8 7F0CD788 8FB1003C */  lw    $s1, 0x3c($sp)
-/* 1022BC 7F0CD78C 8FB20040 */  lw    $s2, 0x40($sp)
-/* 1022C0 7F0CD790 8FB30044 */  lw    $s3, 0x44($sp)
-/* 1022C4 7F0CD794 8FB40048 */  lw    $s4, 0x48($sp)
-/* 1022C8 7F0CD798 8FB5004C */  lw    $s5, 0x4c($sp)
-/* 1022CC 7F0CD79C 8FB70054 */  lw    $s7, 0x54($sp)
-/* 1022D0 7F0CD7A0 8FBE0058 */  lw    $fp, 0x58($sp)
-/* 1022D4 7F0CD7A4 03E00008 */  jr    $ra
-/* 1022D8 7F0CD7A8 27BD00B8 */   addiu $sp, $sp, 0xb8
-)
-#endif
 
 
 Gfx *texWriteLoadToTmemZero(Gfx *gdl, struct tex *tex)
@@ -882,7 +695,7 @@ Gfx *texWriteTile(Gfx *gdl, struct tex *tex, s32 arg2, s32 arg3, s32 arg4, s32 t
     masks = texDimensionToMask(tex->width);
     maskt = texDimensionToMask(tex->height);
     line = texGetLineSizeInBytes(tex, 0);
-    sp50 = tex->unk0c_02;
+    sp50 = tex->hasExplicitLods;
 
     if (texSetLutMode(tex->lutmodeindex << G_MDSFT_TEXTLUT))
     {
