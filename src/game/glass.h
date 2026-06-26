@@ -101,8 +101,8 @@ struct WatchVertex *setup_watch_rectangles(struct WatchVertex *vtx, s32 startx, 
 void glassCreateShard(coord3d * pos, f32 rotX, f32 shard_size);
 s_bullet_spark *bullet_spark_create(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3);
 void bullet_sparks_init(s_bullet_spark *arg0, coord3d *arg1, s32 arg2, f32 arg3, s16 arg4);
-void bullet_sparks_render(Gfx *arg0, s32 arg1);
-void bullet_sparks_render_all(Gfx *arg0, s32 arg1);
+void bullet_sparks_render(Gfx *arg0, s32 zbufferMode);
+void bullet_sparks_render_all(Gfx *arg0, s32 zbufferMode);
 void bullet_sparks_reset_all(void);
 void bullet_sparks_update(void);
 void bullet_sparks_update_all(void);

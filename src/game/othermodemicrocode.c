@@ -168,7 +168,7 @@ s32 sub_GAME_7F076928(s32 arg0, s32 arg1, s32 arg2)
 }
 
 
-void texSetRenderMode(Gfx **gdlptr, s32 arg1, s32 numcycles, s32 arg3)
+void texSetRenderMode(Gfx **gdlptr, s32 arg1, s32 numcycles, s32 zbufferMode)
 {
     Gfx *gdl = *gdlptr;
 
@@ -181,9 +181,9 @@ void texSetRenderMode(Gfx **gdlptr, s32 arg1, s32 numcycles, s32 arg3)
         {
             default:
             case 1:
-                if (arg3)
+                if (zbufferMode)
                 {
-                    if (arg3 >= 2)
+                    if (zbufferMode >= 2)
                     {
                         gDPSetRenderMode(gdl++, G_RM_AA_ZB_OPA_DECAL, G_RM_AA_ZB_OPA_DECAL2);
                     }
@@ -199,9 +199,9 @@ void texSetRenderMode(Gfx **gdlptr, s32 arg1, s32 numcycles, s32 arg3)
                 break;
 
             case 2:
-                if (arg3)
+                if (zbufferMode)
                 {
-                    if (arg3 >= 2)
+                    if (zbufferMode >= 2)
                     {
                         gDPSetRenderMode(gdl++, G_RM_AA_ZB_XLU_DECAL, G_RM_AA_ZB_XLU_DECAL2);
                     }
@@ -217,7 +217,7 @@ void texSetRenderMode(Gfx **gdlptr, s32 arg1, s32 numcycles, s32 arg3)
                 break;
 
             case 3:
-                if (arg3)
+                if (zbufferMode)
                 {
                     gDPSetRenderMode(gdl++, G_RM_AA_ZB_TEX_EDGE, G_RM_AA_ZB_TEX_EDGE2);
                 }
@@ -228,7 +228,7 @@ void texSetRenderMode(Gfx **gdlptr, s32 arg1, s32 numcycles, s32 arg3)
                 break;
 
             case 4:
-                if (arg3)
+                if (zbufferMode)
                 {
                     gDPSetRenderMode(gdl++, G_RM_ZB_CLD_SURF, G_RM_ZB_CLD_SURF2);
                 }
@@ -248,9 +248,9 @@ void texSetRenderMode(Gfx **gdlptr, s32 arg1, s32 numcycles, s32 arg3)
         {
             default:
             case 1:
-                if (arg3)
+                if (zbufferMode)
                 {
-                    if (arg3 >= 2)
+                    if (zbufferMode >= 2)
                     {
                         gDPSetRenderMode(gdl++, G_RM_PASS, G_RM_AA_ZB_OPA_DECAL2);
                     }
@@ -266,9 +266,9 @@ void texSetRenderMode(Gfx **gdlptr, s32 arg1, s32 numcycles, s32 arg3)
                 break;
 
             case 2:
-                if (arg3)
+                if (zbufferMode)
                 {
-                    if (arg3 >= 2)
+                    if (zbufferMode >= 2)
                     {
                         gDPSetRenderMode(gdl++, G_RM_PASS, G_RM_AA_ZB_XLU_DECAL2);
                     }
@@ -284,7 +284,7 @@ void texSetRenderMode(Gfx **gdlptr, s32 arg1, s32 numcycles, s32 arg3)
                 break;
 
             case 3:
-                if (arg3)
+                if (zbufferMode)
                 {
                     gDPSetRenderMode(gdl++, G_RM_PASS, G_RM_AA_ZB_TEX_EDGE2);
                 }
@@ -295,7 +295,7 @@ void texSetRenderMode(Gfx **gdlptr, s32 arg1, s32 numcycles, s32 arg3)
                 break;
 
             case 4:
-                if (arg3)
+                if (zbufferMode)
                 {
                     gDPSetRenderMode(gdl++, G_RM_PASS, G_RM_ZB_CLD_SURF2);
                 }

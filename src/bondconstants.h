@@ -4506,6 +4506,14 @@ typedef enum PROJECTILES
         VIDEOMODE_320x240 = MD_NORMAL,
         VIDEOMODE_640x480 = MD_MAXIMUM
     } VIDEOMODE;
+
+    typedef enum ZBUFMODE
+    {
+        ZBUF_OFF     = 0,  /* G_RM_AA_*_SURF      (no z-buffer) */
+        ZBUF_SURFACE = 1,  /* G_RM_AA_ZB_*_SURF                 */
+        ZBUF_DECAL   = 2   /* G_RM_AA_ZB_*_DECAL                */
+    } ZBUFMODE;
+
 #pragma endregion
 
 #if !defined(VERSION_EU)

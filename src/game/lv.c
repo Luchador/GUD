@@ -1064,9 +1064,9 @@ Gfx* lvlRender(Gfx* DL)
             DL = weaponRenderTracers(DL);
 
 #if defined(VERSION_EU)
-            bullet_moving_sparks_update(&DL, 1);
+            bullet_moving_sparks_update(&DL, ZBUF_SURFACE);
 #else /* VERSION_US, VERSION_JP, unspecified */
-            bullet_sparks_render_all(&DL, 1);
+            bullet_sparks_render_all(&DL, ZBUF_SURFACE);
 #endif
             DL = glassRenderShards(DL);
             DL = explosionRenderFlyingParticles(DL);
