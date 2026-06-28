@@ -4879,7 +4879,7 @@ _AI_CMD(
             if (!objGetDestroyedLevel(obj))
             {
                 f32 damage = ((obj->damage - obj->maxdamage) + 1) / 250.0f;
-                maybe_detonate_object(obj, damage, &obj->runtime_pos, 29, -1);
+                objApplyDamage(obj, damage, &obj->runtime_pos, 29, -1);
             }
         }
         Offset += CAT(CAT(AI_, CMDNAME), _LENGTH);

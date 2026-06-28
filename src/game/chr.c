@@ -4171,7 +4171,7 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
                         propobjSetDropped(prop, 1);
                         chr->hidden |= 1;
 
-                        maybe_detonate_object(prop->obj, gunItemGetDestructionAmount(shot->weapon), &hitpos, shot->weapon, get_cur_playernum());
+                        objApplyDamage(prop->obj, gunItemGetDestructionAmount(shot->weapon), &hitpos, shot->weapon, get_cur_playernum());
                     // Create a bullet hole on the character's held weapon.
                     } else {
                         if (bhit->hit.texturenum < 0) {

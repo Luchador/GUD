@@ -106,6 +106,7 @@ void objBreakCCTVGlass(ObjectRecord *obj);
 void save_img_index_to_obj_ani_slot(MonitorRecord *mon, void *unk88);
 void save_ptr_monitor_ani_code_to_obj_ani_slot(MonitorRecord *mon, void *image);
 s32 sub_GAME_7F06C010(ModelHitEntry **entryptr, coord3d *modelRayStart, coord3d *modelRayDir, Model **outModel, ModelNode **outNode);
+AmmoCrateRecord *ammocrateAllocate(void);
 
 /* PD: projectileFree (similar but not the same structure) */
 void projectileFree(Projectile* projectile)
@@ -5237,7 +5238,7 @@ s32 object_interaction(struct PropRecord *arg0)
                             }
                             else if ((D_80030B0C->type == PROP_TYPE_OBJ) || (D_80030B0C->type == PROP_TYPE_WEAPON))
                             {
-                                maybe_detonate_object(D_80030B0C->obj, 100.0f, &obj->runtime_pos, ITEM_ROCKETROUND, (s32) ((u32) (obj->runtime_bitflags & RUNTIMEBITFLAG_OWNER) >> RUNTIMEBITSHIFT_OWNER));
+                                objApplyDamage(D_80030B0C->obj, 100.0f, &obj->runtime_pos, ITEM_ROCKETROUND, (s32) ((u32) (obj->runtime_bitflags & RUNTIMEBITFLAG_OWNER) >> RUNTIMEBITSHIFT_OWNER));
                             }
 
                             ((struct WeaponObjRecord *)obj)->timer = 0;
@@ -6905,7 +6906,7 @@ s32 object_interaction(struct PropRecord *arg0)
     {
         obj->runtime_bitflags &= ~0x100;
 
-        maybe_detonate_object(
+        objApplyDamage(
             obj,
             (RANDOMGETNEXT_F32() * 4.0f) + 2.0f,
             &arg0->pos,
@@ -8013,7 +8014,7 @@ glabel object_interaction
 /* 07A87C 7F045D4C 00195442 */  srl   $t2, $t9, 0x11
 /* 07A880 7F045D50 AFAA0010 */  sw    $t2, 0x10($sp)
 /* 07A884 7F045D54 26260058 */  addiu $a2, $s1, 0x58
-/* 07A888 7F045D58 0FC13842 */  jal   maybe_detonate_object
+/* 07A888 7F045D58 0FC13842 */  jal   objApplyDamage
 /* 07A88C 7F045D5C 24070056 */   li    $a3, 86
 /* 07A890 7F045D60 A6200082 */  sh    $zero, 0x82($s1)
 .L7F045D64:
@@ -11685,7 +11686,7 @@ glabel object_interaction
 /* 07DDFC 7F0492CC AFAB0010 */  sw    $t3, 0x10($sp)
 /* 07DE00 7F0492D0 46083100 */  add.s $f4, $f6, $f8
 /* 07DE04 7F0492D4 44052000 */  mfc1  $a1, $f4
-/* 07DE08 7F0492D8 0FC13842 */  jal   maybe_detonate_object
+/* 07DE08 7F0492D8 0FC13842 */  jal   objApplyDamage
 /* 07DE0C 7F0492DC 00000000 */   nop
 .L7F0492E0:
 /* 07DE10 7F0492E0 8FAF0678 */  lw    $t7, 0x678($sp)
@@ -13110,7 +13111,7 @@ glabel object_interaction
 /* 07ACA0 7F046130 000D7C42 */  srl   $t7, $t5, 0x11
 /* 07ACA4 7F046134 AFAF0010 */  sw    $t7, 0x10($sp)
 /* 07ACA8 7F046138 26260058 */  addiu $a2, $s1, 0x58
-/* 07ACAC 7F04613C 0FC13943 */  jal   maybe_detonate_object
+/* 07ACAC 7F04613C 0FC13943 */  jal   objApplyDamage
 /* 07ACB0 7F046140 24070056 */   li    $a3, 86
 /* 07ACB4 7F046144 A6200082 */  sh    $zero, 0x82($s1)
 .Ljp7F046148:
@@ -16791,7 +16792,7 @@ glabel object_interaction
 /* 07E240 7F0496D0 AFAF0010 */  sw    $t7, 0x10($sp)
 /* 07E244 7F0496D4 46083100 */  add.s $f4, $f6, $f8
 /* 07E248 7F0496D8 44052000 */  mfc1  $a1, $f4
-/* 07E24C 7F0496DC 0FC13943 */  jal   maybe_detonate_object
+/* 07E24C 7F0496DC 0FC13943 */  jal   objApplyDamage
 /* 07E250 7F0496E0 00000000 */   nop
 .Ljp7F0496E4:
 /* 07E254 7F0496E4 8FAC0680 */  lw    $t4, 0x680($sp)
@@ -18216,7 +18217,7 @@ glabel object_interaction
 /* 0788E0 7F045EF0 000C5C42 */  srl   $t3, $t4, 0x11
 /* 0788E4 7F045EF4 AFAB0010 */  sw    $t3, 0x10($sp)
 /* 0788E8 7F045EF8 26260058 */  addiu $a2, $s1, 0x58
-/* 0788EC 7F045EFC 0FC138BC */  jal   maybe_detonate_object
+/* 0788EC 7F045EFC 0FC138BC */  jal   objApplyDamage
 /* 0788F0 7F045F00 24070056 */   li    $a3, 86
 /* 0788F4 7F045F04 A6200082 */  sh    $zero, 0x82($s1)
 .L7F045F08:
@@ -21904,7 +21905,7 @@ glabel object_interaction
 /* 07BE98 7F0494A8 AFA90010 */  sw    $t1, 0x10($sp)
 /* 07BE9C 7F0494AC 46083100 */  add.s $f4, $f6, $f8
 /* 07BEA0 7F0494B0 44052000 */  mfc1  $a1, $f4
-/* 07BEA4 7F0494B4 0FC138BC */  jal   maybe_detonate_object
+/* 07BEA4 7F0494B4 0FC138BC */  jal   objApplyDamage
 /* 07BEA8 7F0494B8 00000000 */   nop
 .L7F0494BC:
 /* 07BEAC 7F0494BC 8FAF0680 */  lw    $t7, 0x680($sp)
@@ -29573,7 +29574,7 @@ void maybe_detonate_object_and_its_children(PropRecord *prop, f32 damage, struct
             node = iter_next;
         }
 
-        maybe_detonate_object(prop->obj, damage, pos, arg3, owner);
+        objApplyDamage(prop->obj, damage, pos, arg3, owner);
     }
 }
 
@@ -29653,15 +29654,11 @@ void chrobjMaybeDetonateObjectIfFlags(ObjectRecord *obj, f32 damage, coord3d *po
 {
     if ((obj->flags2 & 0x4000) == 0)
     {
-        maybe_detonate_object(obj, damage, pos, item, owner);
+        objApplyDamage(obj, damage, pos, item, owner);
     }
 }
 
 
-
-
-#ifdef NONMATCHING
-//https://decomp.me/scratch/UWQzo 44%
 ObjectRecord blank_07_object = {
     0x0100, //extrascale
     0x0, //state
@@ -29687,765 +29684,279 @@ ObjectRecord blank_07_object = {
     {0xFF, 0xFF, 0xFF, 0x00}, //shadecol
     {0xFF, 0xFF, 0xFF, 0x00}, //nextcol
 };
-void maybe_detonate_object(ObjectRecord* self, f32 damage,  coord3d* pos, bool flag, bool flag2)
+
+
+// Formerly maybe_detonate_object
+void objApplyDamage(ObjectRecord *obj, f32 damage, coord3d *pos, ITEM_IDS itemnum, s32 playernum)
 {
-    u32 spC8;
-    s32 randAmmoType;//c4
-    int randAmmoType_2;
+    s32 flags;
+    s32 shotsmod;
+    f32 maxdamage;
+    PropRecord *child;
+    MultiAmmoCrateRecord *slotview;
+    s32 startslot;
+    s32 slot;
+    AmmoCrateRecord *crate;
+    PropRecord *nextchild;
+    ObjectRecord tmpobj;
+    
+    /**
+     * Set the OWNER field (bits 17-18) to the player index; clear-then-set, equivalent to obj->owner = playernum.
+     * Used to record which player is responsible for the damage.
+     */ 
+    obj->runtime_bitflags &= ~RUNTIMEBITFLAG_OWNER;
+    obj->runtime_bitflags |= playernum << RUNTIMEBITSHIFT_OWNER;
 
-    s32 sp3C;
-     PropRecord* sp28;
-    u16 ammoAmmount;//24
-    f32 temp_f0;
-    f32 temp_f0_2;
-    f32 temp_f12;
-    s32 temp_a1;
-
-    s32 temp_t7;
-    s32 type;
-    s32* temp_t3;
-    s32* temp_t5;
-    s32* temp_t9;
-    s8 weaponnum;
-     PropRecord* temp_a0_2;
-    u16 temp_a3;
-    u8 temp_v0;
-    u8 temp_v0_4;
-    u8 temp_v0_6;
-    void* temp_a0;
-    void* temp_a2;
-    void* temp_t6;
-    void* temp_v0_5;
-
-    f32 phi_f12;
-     PropRecord* phi_f12_2;
-    s32* phi_t9;
-    s32* phi_t3;
-    s32* phi_t5;
-    void* phi_t6;
-    f32 phi_f0;
-    struct {
-        s32 rhgun:1;
-        s32 noammo:1;
-        s32 inmotion:1;
-        s32 lhgun:1;
-        s32 nocontrol:1;
-        s32 unk80000:1;
-        s32 jbush:1;
-        s32 petegrenade:1;
-        s32 embedded:1;
-        s32 normal:1;
-        s32 unk8000:1;
-        s32 immobile:1;
-        s32 dat:1;
-        s32 uncollectable:1;
-        s32 unk800:1;
-        s32 allowpickup:1;
-        s32 invincible:1;
-        s32 embeddedin:1;
-        s32 useguard:1;
-        s32 forcecollection:1;
-        s32 posabs:1;
-        s32 freestand:1;
-        s32 roadblock:1;
-        s32 glassimage:1;
-        s32 forcecollisions:1;
-        s32 onground:1;
-        s32 forcedonground:1;
-        s32 rotate90:1;
-        s32 upside_down:1;
-        s32 rightside_up:1;
-        s32 scalex:1;
-        s32 scaley:1;
-    } *flags = &self->flags;
-
-    #define OBJECT_UNTOUCHED 1
-    #define OBJECT_DESTROYED 0
-
-
-    temp_t7 = self->runtime_bitflags & ~(RUNTIMEBITFLAG_OWNER);
-    self->runtime_bitflags = temp_t7;
-    self->runtime_bitflags = temp_t7 | (flag2 << RUNTIMEBITSHIFT_OWNER);
-
-
-    if ((self->Head.type != PROPDEF_GAS_RELEASING) ||  (objGetDestroyedLevel(self) != OBJECT_UNTOUCHED))
+    if (obj->type == PROPDEF_GAS_RELEASING)
     {
-        if (!flag)
+        if (objGetDestroyedLevel(obj) == 1)
         {
-            if (objIsCollectable(self))
-            {
-                if (self->flags << 8 >= 0)
-                {
-                    return;
-                }
-            }
-            else if (flags->petegrenade) //looks like  bitfield (sll 7 + bgezl)
+            return;
+        }
+    }
+
+    if (itemnum == ITEM_UNARMED)
+    {
+        if (objIsCollectable((PropDefHeaderRecord *)obj))
+        {
+            // Equivalent to: if (!(obj->flags & PROPFLAG_00800000)) keep like this for matching
+            if ((s32)(obj->flags << 8) >= 0)
             {
                 return;
             }
-        }
-        else
-        {
-
-            if (flags->unk800)
-            {
-                return;
-            }
-
-            if (self->Head.type == PROPDEF_COLLECTABLE || PROPDEF_MAGAZINE)
-            //switch(self->Head.type)
-            {
-                if (self->Head.type == PROPDEF_COLLECTABLE  )
-                {
-                    weaponnum = ((WeaponObjRecord*)self)->weaponnum;
-                    if ((weaponnum == ITEM_GRENADE) ||
-                        (weaponnum == ITEM_TIMEDMINE) ||
-                        (weaponnum == ITEM_REMOTEMINE) ||
-                        (weaponnum == ITEM_PROXIMITYMINE) ||
-                        (weaponnum == ITEM_56) ||
-                        (weaponnum == ITEM_57) ||
-                        (weaponnum == ITEM_BOMBCASE) ||
-                        (weaponnum == ITEM_PLASTIQUE))
-                    {
-                        ((WeaponObjRecord*)self)->timer = 0;
-                    }
-                    return;
-                }
-                else if (self->Head.type == PROPDEF_MAGAZINE)
-                {
-                    type = ((AmmoCrateRecord*)self)->type;
-                    if ((type == AMMO_GRENADE) ||
-                        (type == AMMO_ROCKETS) ||
-                        (type == AMMO_REMOTEMINE) ||
-                        (type == AMMO_PROXMINE) ||
-                        (type == AMMO_TIMEDMINE) ||
-                        (type == AMMO_GRENADEROUND) ||
-                        (type == AMMO_EXPLOSIVEPEN) ||
-                        (type == AMMO_BOMBCASE) ||
-                        (type == AMMO_DYNAMITE))
-                    {
-                        self->flags |= 0x10000000;
-                    }
-                    return;
-                }
-            }
-            if (!objIsMortal(damage, self, 8) )
-            {
-                return;
-            }
-
-        } // if flag
-
-        if (objGetDestroyedLevel(self) == OBJECT_DESTROYED)
-        {
-            self->maxdamage += damage * 250.0f;
-        }
-        else
-        {
-            temp_f0 = 4 - (objGetShotsTaken(damage, self) % 4);
-            phi_f0 = temp_f0;
-            if (temp_f0 < damage)
-            {
-                damage = phi_f0;
-            }
-            phi_f0 = 1.0f;
-            if (damage < 1.0f)
-            {
-                damage = phi_f0;
-            }
-            self->maxdamage += damage;
-            //phi_f12_2 = (bitwise struct PropRecord* ) damage;
+            goto apply_damage;
         }
 
-        if (( self->Head.type == PROPDEF_GLASS) || ( self->Head.type == PROPDEF_TINTED_GLASS))
+        // Equivalent to: if (obj->flags & PROPFLAG_01000000) keep like this for matching
+        if ((s32)(obj->flags << 7) < 0)
         {
-            if (self->damage <= self->maxdamage)
-            {
-                sub_GAME_7F04DCB4(phi_f12_2, self); //smash glass?
-            }
+            return;
         }
-        else
+
+        goto apply_damage;
+    }
+
+    flags = obj->flags;
+
+    if (flags & PROPFLAG_INVINCIBLE)
+    {
+        return;
+    }
+
+    if (obj->type == PROPDEF_COLLECTABLE)
+    {
+        s32 weaponnum = ((WeaponObjRecord *)obj)->weaponnum;
+
+        // For these items, if they take damage, set their timers to 0, effectively causing them to immediately detonate.
+        if (weaponnum == ITEM_GRENADE
+                || weaponnum == ITEM_TIMEDMINE
+                || weaponnum == ITEM_REMOTEMINE
+                || weaponnum == ITEM_PROXIMITYMINE
+                || weaponnum == ITEM_ROCKETROUND
+                || weaponnum == ITEM_GRENADEROUND
+                || weaponnum == ITEM_BOMBCASE
+                || weaponnum == ITEM_PLASTIQUE)
         {
-            propobjSetDropped(self->prop, 1);
-            objExplode(self, pos, flag2);
+            ((WeaponObjRecord *)obj)->timer = 0;
         }
-        if ((self->Head.type == PROPDEF_AMMO) && (objGetDestroyedLevel(self) == OBJECT_UNTOUCHED))
+
+        return;
+    }
+
+    if (obj->type == PROPDEF_MAGAZINE)
+    {
+        s32 ammotype = ((AmmoCrateRecord *)obj)->ammoType;
+
+        // slot and startslot are double purposed here for matching.
+        slot = AMMO_REMOTEMINE;
+        startslot = AMMO_PROXMINE;
+
+        if (ammotype == AMMO_GRENADE
+                || ammotype == AMMO_ROCKETS
+                || slot == ammotype
+                || startslot == ammotype
+                || ammotype == AMMO_TIMEDMINE
+                || ammotype == AMMO_GRENADEROUND
+                || ammotype == AMMO_EXPLOSIVEPEN
+                || ammotype == AMMO_BOMBCASE
+                || ammotype == AMMO_DYNAMITE)
         {
-            randAmmoType = randomGetNext() % 0xD;
+            obj->flags = flags | 0x10000000;
+        }
+
+        return;
+    }
+
+    if (!objIsMortal(obj))
+    {
+        return;
+    }
+
+apply_damage:
+    // If the object is not yet destroyed, accumulate damage into the object's maxdamage field.
+    if (objGetDestroyedLevel(obj) == 0)
+    {
+        obj->maxdamage += damage * 250.0f; 
+    }
+    /**
+     * If already destroyed, further damage is based on number of shots taken, not how much damage is taken.
+     * maxdamage is repurposed to to hold the number of shots the object has taken since it reached the current destroyed level.
+     * When 4 shots are taken the object moves to the next destroyed level.
+     */
+    else
+    {
+        shotsmod = objGetShotsTaken(obj) % 4;
+        maxdamage = (f32)(4 - shotsmod);
+
+        if (maxdamage < damage)
+        {
+            damage = maxdamage;
+        }
+        else if (damage < 1.0f)
+        {
+            damage = 1.0f;
+        }
+
+        obj->maxdamage += damage;
+    }
+
+    if (obj->type == PROPDEF_GLASS || obj->type == PROPDEF_TINTED_GLASS)
+    {
+        if (obj->damage <= obj->maxdamage)
+        {
+            sub_GAME_7F04DCB4(obj);
+        }
+    }
+    else
+    {
+        propobjSetDropped(obj->prop, DROPTYPE_DEFAULT);
+        objExplode(obj, pos, playernum);
+    }
+
+    // What is this?
+    if (obj->type == PROPDEF_AMMO)
+    {
+        if (objGetDestroyedLevel(obj) == 1)
+        {
+            startslot = randomGetNext() % AMMOTYPE_GLOBAL_MAX;
+            slot = startslot;
+
             do
             {
-                MultiAmmoCrateRecord *ammo = self;
-                ammoAmmount = ammo->quantities[randAmmoType];
+                s32 off = slot * sizeof(struct multiammocrateslot);
+                slotview = (MultiAmmoCrateRecord *)((u8 *)obj + off);
 
-                if (ammoAmmount > 0 && (ammoAmmount != -1) )
+                if (slotview->slots[0].quantity > 0 && slotview->slots[0].modelnum != 0xffff)
                 {
-                    temp_v0_5 = ammocrateAllocate(randAmmoType, randAmmoType);
-                    if (temp_v0_5)
+                    crate = ammocrateAllocate();
+
+                    if (crate != NULL)
                     {
-                        //spawn magazine
-                        AmmoCrateRecord NewMag = blank_07_object; //New_AmmoCrateRecord()
-                        AmmoCrateRecord temp_a2 = NewMag;
+                        u16 modelnum = slotview->slots[0].modelnum;
 
-                        //temp_v0_5->obj = ammo->unk80;
-                        //temp_v0_5->unk80 = randAmmoType + 1;
-                        if (randAmmoType + 1 == 2)
-                        {
-                            //temp_v0_5->unk80 = 1;
-                        }
-                        if (objInitWithModelDef(&temp_a2, *(PitemZ_entries + (temp_a3 * 0xC)), &temp_a2, temp_a3) != 0)
-                        {
-                            //temp_a0 = temp_a2->unk14;
+                        tmpobj = blank_07_object;
+                        *(ObjectRecord *)crate = tmpobj;
 
-                            modelSetScale(temp_a0, 1);//tempa2
-                            chrpropReparent(temp_a2.base.prop, self->prop);
+                        // Matching trick.
+                        slotview++;
+                        slotview--;
+
+                        crate->obj = modelnum;
+                        crate->ammoType = slot + 1;
+
+                        if (crate->ammoType == AMMO_9MM_2)
+                        {
+                            crate->ammoType = AMMO_9MM;
                         }
+
+                        if (objInitWithModelDef((ObjectRecord *)crate, PitemZ_entries[modelnum].header) != NULL)
+                        {
+                            modelSetScale(crate->model, crate->model->scale);
+                            chrpropReparent(crate->prop, obj->prop);
+                        }
+
                         break;
                     }
                 }
-                else
-                {
-                    randAmmoType_2 = (randAmmoType + 1) % 0xD;
-                    randAmmoType = randAmmoType_2;
-                    randAmmoType = randAmmoType;
 
-                }
-            }while (randAmmoType_2 != randAmmoType);
+                slot++;
+                slot %= AMMOTYPE_GLOBAL_MAX;
+            }
+            while (slot != startslot);
         }
+    }
 
-
-        switch (self->Head.type)
-        {
-            case 13:
-            {
-                self->flags |= 0x40000000;
-                if (objGetDestroyedLevel(self) == OBJECT_UNTOUCHED)
-                {
-                    self->flags |= 0x10000000;
-                }
-            }
-            case 6:
-            {
-                if (objGetDestroyedLevel(self) == OBJECT_UNTOUCHED)
-                {
-                    self->flags |= 0x10000000;
-                }
-            }
-            case 10:
-            {
-                if (objGetDestroyedLevel(self) == OBJECT_UNTOUCHED)
-                {
-                    //save_ptr_monitor_ani_code_to_obj_ani_slot(self + 0x80, &D_80031EE8);
-                }
-            }
-            case 11:
-            {
-                if (objGetDestroyedLevel(self) == OBJECT_UNTOUCHED)
-                {
-                    //save_ptr_monitor_ani_code_to_obj_ani_slot(self + 0x80, &D_80031EE8);
-                    // save_ptr_monitor_ani_code_to_obj_ani_slot(self + 0xF4, &D_80031EE8);
-                    // save_ptr_monitor_ani_code_to_obj_ani_slot(self + 0x168, &D_80031EE8);
-                    // save_ptr_monitor_ani_code_to_obj_ani_slot(self + 0x1DC, &D_80031EE8);
-                }
-            }
-            case 36:
-            {
-                if (objGetDestroyedLevel(self) == OBJECT_UNTOUCHED)
-                {
-                    //init_trigger_toxic_gas_effect(&self->Pos);
-                }
-            }
-            case 21:
-            {
-                if (objGetDestroyedLevel(self) == OBJECT_DESTROYED)
-                {
-                    temp_f0_2 = self->damage;
-                    //self->unk84 = ((bitwise f32) self->unk80 * (temp_f0_2 - self->maxdamage)) / temp_f0_2;
-                }
-                else
-                {
-                    //self->unk84 = 0.0f;
-                }
-            }
-        }
-        if (objGetDestroyedLevel(self) == OBJECT_UNTOUCHED)
-        {
-            PropRecord *temp_a0_2 = self->prop->child;
-
-            if (temp_a0_2 != 0)
-            {
-                do
-                {
-                    temp_a0_2 = temp_a0_2->prev;
-                    propobjSetDropped(temp_a0_2, 1);
-
-                } while (temp_a0_2 != 0);
-            }
-        }
-    } // if PROPDEF_GAS_RELEASING or object not harmed
-
-}
-
-#else
-ObjectRecord blank_07_object = {
-    0x0100, //extrascale
-    0x0, //state
-    0x07, //type
-    0, //obj
-    0xFFFF, //pad
-    0x00000001, //flags
-    0, //flags2
-    NULL, //prop
-    NULL, //model
+    /**
+     * For drone guns, CCTV cameras, and monitors, cease unique functionality when destroyed, set monitors to black.
+     */
+    if (obj->type == PROPDEF_AUTOGUN)
     {
-       1.0f, 0.0f, 0.0f, 0.0f,
-       0.0f, 1.0f, 0.0f, 0.0f,
-       0.0f, 0.0f, 1.0f, 0.0f,
-       0.0f, 0.0f, 0.0f, 1.0f
-    }, //mtx
-    {0.0, 0.0, 0.0},//runtime_pos
-    {0x00000000}, //runtime_bitflags
-    NULL, //ptr_allocated_collisiondata_block
-    NULL, //projectile/embedment
-    0.0f, //maxdamage
-    1000.0f, //damage
-    {0xFF, 0xFF, 0xFF, 0x00}, //shadecol
-    {0xFF, 0xFF, 0xFF, 0x00}, //nextcol
-};
-GLOBAL_ASM(
-.text
-glabel maybe_detonate_object
-/* 082C38 7F04E108 27BDFF20 */  addiu $sp, $sp, -0xe0
-/* 082C3C 7F04E10C AFBF001C */  sw    $ra, 0x1c($sp)
-/* 082C40 7F04E110 AFB00018 */  sw    $s0, 0x18($sp)
-/* 082C44 7F04E114 AFA600E8 */  sw    $a2, 0xe8($sp)
-/* 082C48 7F04E118 AFA700EC */  sw    $a3, 0xec($sp)
-/* 082C4C 7F04E11C 8C8E0064 */  lw    $t6, 0x64($a0)
-/* 082C50 7F04E120 3C01FFF9 */  lui   $at, (0xFFF9FFFF >> 16) # lui $at, 0xfff9
-/* 082C54 7F04E124 3421FFFF */  ori   $at, (0xFFF9FFFF & 0xFFFF) # ori $at, $at, 0xffff
-/* 082C58 7F04E128 01C17824 */  and   $t7, $t6, $at
-/* 082C5C 7F04E12C AC8F0064 */  sw    $t7, 0x64($a0)
-/* 082C60 7F04E130 8FB900F0 */  lw    $t9, 0xf0($sp)
-/* 082C64 7F04E134 908B0003 */  lbu   $t3, 3($a0)
-/* 082C68 7F04E138 44856000 */  mtc1  $a1, $f12
-/* 082C6C 7F04E13C 00194C40 */  sll   $t1, $t9, 0x11
-/* 082C70 7F04E140 01E95025 */  or    $t2, $t7, $t1
-/* 082C74 7F04E144 24010024 */  li    $at, 36
-/* 082C78 7F04E148 00808025 */  move  $s0, $a0
-/* 082C7C 7F04E14C 15610006 */  bne   $t3, $at, .L7F04E168
-/* 082C80 7F04E150 AC8A0064 */   sw    $t2, 0x64($a0)
-/* 082C84 7F04E154 0FC0FFF0 */  jal   objGetDestroyedLevel
-/* 082C88 7F04E158 E7AC00E4 */   swc1  $f12, 0xe4($sp)
-/* 082C8C 7F04E15C 24010001 */  li    $at, 1
-/* 082C90 7F04E160 1041016A */  beq   $v0, $at, .L7F04E70C
-/* 082C94 7F04E164 C7AC00E4 */   lwc1  $f12, 0xe4($sp)
-.L7F04E168:
-/* 082C98 7F04E168 8FAC00EC */  lw    $t4, 0xec($sp)
-/* 082C9C 7F04E16C 02002025 */  move  $a0, $s0
-/* 082CA0 7F04E170 55800012 */  bnezl $t4, .L7F04E1BC
-/* 082CA4 7F04E174 8E030008 */   lw    $v1, 8($s0)
-/* 082CA8 7F04E178 0FC13803 */  jal   objIsCollectable
-/* 082CAC 7F04E17C E7AC00E4 */   swc1  $f12, 0xe4($sp)
-/* 082CB0 7F04E180 10400007 */  beqz  $v0, .L7F04E1A0
-/* 082CB4 7F04E184 C7AC00E4 */   lwc1  $f12, 0xe4($sp)
-/* 082CB8 7F04E188 8E0D0008 */  lw    $t5, 8($s0)
-/* 082CBC 7F04E18C 000D7200 */  sll   $t6, $t5, 8
-/* 082CC0 7F04E190 05C20045 */  bltzl $t6, .L7F04E2A8
-/* 082CC4 7F04E194 02002025 */   move  $a0, $s0
-/* 082CC8 7F04E198 1000015D */  b     .L7F04E710
-/* 082CCC 7F04E19C 8FBF001C */   lw    $ra, 0x1c($sp)
-.L7F04E1A0:
-/* 082CD0 7F04E1A0 8E0F0008 */  lw    $t7, 8($s0)
-/* 082CD4 7F04E1A4 000FC9C0 */  sll   $t9, $t7, 7
-/* 082CD8 7F04E1A8 0723003F */  bgezl $t9, .L7F04E2A8
-/* 082CDC 7F04E1AC 02002025 */   move  $a0, $s0
-/* 082CE0 7F04E1B0 10000157 */  b     .L7F04E710
-/* 082CE4 7F04E1B4 8FBF001C */   lw    $ra, 0x1c($sp)
-/* 082CE8 7F04E1B8 8E030008 */  lw    $v1, 8($s0)
-.L7F04E1BC:
-/* 082CEC 7F04E1BC 0003C380 */  sll   $t8, $v1, 0xe
-/* 082CF0 7F04E1C0 07020153 */  bltzl $t8, .L7F04E710
-/* 082CF4 7F04E1C4 8FBF001C */   lw    $ra, 0x1c($sp)
-/* 082CF8 7F04E1C8 92020003 */  lbu   $v0, 3($s0)
-/* 082CFC 7F04E1CC 24050008 */  li    $a1, 8
-/* 082D00 7F04E1D0 24040007 */  li    $a0, 7
-/* 082D04 7F04E1D4 14A20015 */  bne   $a1, $v0, .L7F04E22C
-/* 082D08 7F04E1D8 00000000 */   nop
-/* 082D0C 7F04E1DC 82020080 */  lb    $v0, 0x80($s0)
-/* 082D10 7F04E1E0 2401001A */  li    $at, 26
-/* 082D14 7F04E1E4 1041000F */  beq   $v0, $at, .L7F04E224
-/* 082D18 7F04E1E8 2401001B */   li    $at, 27
-/* 082D1C 7F04E1EC 1041000D */  beq   $v0, $at, .L7F04E224
-/* 082D20 7F04E1F0 2401001D */   li    $at, 29
-/* 082D24 7F04E1F4 1041000B */  beq   $v0, $at, .L7F04E224
-/* 082D28 7F04E1F8 2401001C */   li    $at, 28
-/* 082D2C 7F04E1FC 10410009 */  beq   $v0, $at, .L7F04E224
-/* 082D30 7F04E200 24010056 */   li    $at, 86
-/* 082D34 7F04E204 10410007 */  beq   $v0, $at, .L7F04E224
-/* 082D38 7F04E208 24010057 */   li    $at, 87
-/* 082D3C 7F04E20C 10410005 */  beq   $v0, $at, .L7F04E224
-/* 082D40 7F04E210 24010021 */   li    $at, 33
-/* 082D44 7F04E214 10410003 */  beq   $v0, $at, .L7F04E224
-/* 082D48 7F04E218 24010022 */   li    $at, 34
-/* 082D4C 7F04E21C 5441013C */  bnel  $v0, $at, .L7F04E710
-/* 082D50 7F04E220 8FBF001C */   lw    $ra, 0x1c($sp)
-.L7F04E224:
-/* 082D54 7F04E224 10000139 */  b     .L7F04E70C
-/* 082D58 7F04E228 A6000082 */   sh    $zero, 0x82($s0)
-.L7F04E22C:
-/* 082D5C 7F04E22C 54820019 */  bnel  $a0, $v0, .L7F04E294
-/* 082D60 7F04E230 02002025 */   move  $a0, $s0
-/* 082D64 7F04E234 8E020080 */  lw    $v0, 0x80($s0)
-/* 082D68 7F04E238 24010005 */  li    $at, 5
-/* 082D6C 7F04E23C 10410010 */  beq   $v0, $at, .L7F04E280
-/* 082D70 7F04E240 24010006 */   li    $at, 6
-/* 082D74 7F04E244 5041000F */  beql  $v0, $at, .L7F04E284
-/* 082D78 7F04E248 3C011000 */   lui   $at, 0x1000
-/* 082D7C 7F04E24C 5082000D */  beql  $a0, $v0, .L7F04E284
-/* 082D80 7F04E250 3C011000 */   lui   $at, 0x1000
-/* 082D84 7F04E254 10A2000A */  beq   $a1, $v0, .L7F04E280
-/* 082D88 7F04E258 24010009 */   li    $at, 9
-/* 082D8C 7F04E25C 10410008 */  beq   $v0, $at, .L7F04E280
-/* 082D90 7F04E260 2401000B */   li    $at, 11
-/* 082D94 7F04E264 10410006 */  beq   $v0, $at, .L7F04E280
-/* 082D98 7F04E268 2401000F */   li    $at, 15
-/* 082D9C 7F04E26C 10410004 */  beq   $v0, $at, .L7F04E280
-/* 082DA0 7F04E270 24010010 */   li    $at, 16
-/* 082DA4 7F04E274 10410002 */  beq   $v0, $at, .L7F04E280
-/* 082DA8 7F04E278 24010013 */   li    $at, 19
-/* 082DAC 7F04E27C 14410123 */  bne   $v0, $at, .L7F04E70C
-.L7F04E280:
-/* 082DB0 7F04E280 3C011000 */   li    $at, 0x10000000 # 0.000000
-.L7F04E284:
-/* 082DB4 7F04E284 00614825 */  or    $t1, $v1, $at
-/* 082DB8 7F04E288 10000120 */  b     .L7F04E70C
-/* 082DBC 7F04E28C AE090008 */   sw    $t1, 8($s0)
-/* 082DC0 7F04E290 02002025 */  move  $a0, $s0
-.L7F04E294:
-/* 082DC4 7F04E294 0FC13812 */  jal   objIsMortal
-/* 082DC8 7F04E298 E7AC00E4 */   swc1  $f12, 0xe4($sp)
-/* 082DCC 7F04E29C 1040011B */  beqz  $v0, .L7F04E70C
-/* 082DD0 7F04E2A0 C7AC00E4 */   lwc1  $f12, 0xe4($sp)
-/* 082DD4 7F04E2A4 02002025 */  move  $a0, $s0
-.L7F04E2A8:
-/* 082DD8 7F04E2A8 0FC0FFF0 */  jal   objGetDestroyedLevel
-/* 082DDC 7F04E2AC E7AC00E4 */   swc1  $f12, 0xe4($sp)
-/* 082DE0 7F04E2B0 14400008 */  bnez  $v0, .L7F04E2D4
-/* 082DE4 7F04E2B4 C7AC00E4 */   lwc1  $f12, 0xe4($sp)
-/* 082DE8 7F04E2B8 3C01437A */  li    $at, 0x437A0000 # 250.000000
-/* 082DEC 7F04E2BC 44813000 */  mtc1  $at, $f6
-/* 082DF0 7F04E2C0 C6040070 */  lwc1  $f4, 0x70($s0)
-/* 082DF4 7F04E2C4 46066202 */  mul.s $f8, $f12, $f6
-/* 082DF8 7F04E2C8 46082280 */  add.s $f10, $f4, $f8
-/* 082DFC 7F04E2CC 1000001F */  b     .L7F04E34C
-/* 082E00 7F04E2D0 E60A0070 */   swc1  $f10, 0x70($s0)
-.L7F04E2D4:
-/* 082E04 7F04E2D4 02002025 */  move  $a0, $s0
-/* 082E08 7F04E2D8 0FC0FFD8 */  jal   objGetShotsTaken
-/* 082E0C 7F04E2DC E7AC00E4 */   swc1  $f12, 0xe4($sp)
-/* 082E10 7F04E2E0 240B0004 */  li    $t3, 4
-/* 082E14 7F04E2E4 C7AC00E4 */  lwc1  $f12, 0xe4($sp)
-/* 082E18 7F04E2E8 04410004 */  bgez  $v0, .L7F04E2FC
-/* 082E1C 7F04E2EC 304A0003 */   andi  $t2, $v0, 3
-/* 082E20 7F04E2F0 11400002 */  beqz  $t2, .L7F04E2FC
-/* 082E24 7F04E2F4 00000000 */   nop
-/* 082E28 7F04E2F8 254AFFFC */  addiu $t2, $t2, -4
-.L7F04E2FC:
-/* 082E2C 7F04E2FC 016A6023 */  subu  $t4, $t3, $t2
-/* 082E30 7F04E300 448C8000 */  mtc1  $t4, $f16
-/* 082E34 7F04E304 3C013F80 */  li    $at, 0x3F800000 # 1.000000
-/* 082E38 7F04E308 46808020 */  cvt.s.w $f0, $f16
-/* 082E3C 7F04E30C 460C003C */  c.lt.s $f0, $f12
-/* 082E40 7F04E310 00000000 */  nop
-/* 082E44 7F04E314 45020004 */  bc1fl .L7F04E328
-/* 082E48 7F04E318 44810000 */   mtc1  $at, $f0
-/* 082E4C 7F04E31C 10000008 */  b     .L7F04E340
-/* 082E50 7F04E320 46000306 */   mov.s $f12, $f0
-/* 082E54 7F04E324 44810000 */  mtc1  $at, $f0
-.L7F04E328:
-/* 082E58 7F04E328 00000000 */  nop
-/* 082E5C 7F04E32C 4600603C */  c.lt.s $f12, $f0
-/* 082E60 7F04E330 00000000 */  nop
-/* 082E64 7F04E334 45020003 */  bc1fl .L7F04E344
-/* 082E68 7F04E338 C6120070 */   lwc1  $f18, 0x70($s0)
-/* 082E6C 7F04E33C 46000306 */  mov.s $f12, $f0
-.L7F04E340:
-/* 082E70 7F04E340 C6120070 */  lwc1  $f18, 0x70($s0)
-.L7F04E344:
-/* 082E74 7F04E344 460C9180 */  add.s $f6, $f18, $f12
-/* 082E78 7F04E348 E6060070 */  swc1  $f6, 0x70($s0)
-.L7F04E34C:
-/* 082E7C 7F04E34C 92020003 */  lbu   $v0, 3($s0)
-/* 082E80 7F04E350 2401002A */  li    $at, 42
-/* 082E84 7F04E354 10410003 */  beq   $v0, $at, .L7F04E364
-/* 082E88 7F04E358 2401002F */   li    $at, 47
-/* 082E8C 7F04E35C 1441000B */  bne   $v0, $at, .L7F04E38C
-/* 082E90 7F04E360 24050001 */   li    $a1, 1
-.L7F04E364:
-/* 082E94 7F04E364 C6040070 */  lwc1  $f4, 0x70($s0)
-/* 082E98 7F04E368 C6080074 */  lwc1  $f8, 0x74($s0)
-/* 082E9C 7F04E36C 4604403E */  c.le.s $f8, $f4
-/* 082EA0 7F04E370 00000000 */  nop
-/* 082EA4 7F04E374 4502000D */  bc1fl .L7F04E3AC
-/* 082EA8 7F04E378 24010014 */   li    $at, 20
-/* 082EAC 7F04E37C 0FC1372D */  jal   sub_GAME_7F04DCB4
-/* 082EB0 7F04E380 02002025 */   move  $a0, $s0
-/* 082EB4 7F04E384 10000008 */  b     .L7F04E3A8
-/* 082EB8 7F04E388 92020003 */   lbu   $v0, 3($s0)
-.L7F04E38C:
-/* 082EBC 7F04E38C 0FC12FF4 */  jal   propobjSetDropped
-/* 082EC0 7F04E390 8E040010 */   lw    $a0, 0x10($s0)
-/* 082EC4 7F04E394 02002025 */  move  $a0, $s0
-/* 082EC8 7F04E398 8FA500E8 */  lw    $a1, 0xe8($sp)
-/* 082ECC 7F04E39C 0FC13383 */  jal   objExplode
-/* 082ED0 7F04E3A0 8FA600F0 */   lw    $a2, 0xf0($sp)
-/* 082ED4 7F04E3A4 92020003 */  lbu   $v0, 3($s0)
-.L7F04E3A8:
-/* 082ED8 7F04E3A8 24010014 */  li    $at, 20
-.L7F04E3AC:
-/* 082EDC 7F04E3AC 54410065 */  bnel  $v0, $at, .L7F04E544
-/* 082EE0 7F04E3B0 92020003 */   lbu   $v0, 3($s0)
-/* 082EE4 7F04E3B4 0FC0FFF0 */  jal   objGetDestroyedLevel
-/* 082EE8 7F04E3B8 02002025 */   move  $a0, $s0
-/* 082EEC 7F04E3BC 24010001 */  li    $at, 1
-/* 082EF0 7F04E3C0 54410060 */  bnel  $v0, $at, .L7F04E544
-/* 082EF4 7F04E3C4 92020003 */   lbu   $v0, 3($s0)
-/* 082EF8 7F04E3C8 0C002914 */  jal   randomGetNext
-/* 082EFC 7F04E3CC 00000000 */   nop
-/* 082F00 7F04E3D0 2401000D */  li    $at, 13
-/* 082F04 7F04E3D4 0041001B */  divu  $zero, $v0, $at
-/* 082F08 7F04E3D8 00002010 */  mfhi  $a0
-/* 082F0C 7F04E3DC 00802825 */  move  $a1, $a0
-/* 082F10 7F04E3E0 00000000 */  nop
-/* 082F14 7F04E3E4 00046880 */  sll   $t5, $a0, 2
-.L7F04E3E8:
-/* 082F18 7F04E3E8 020D1821 */  addu  $v1, $s0, $t5
-/* 082F1C 7F04E3EC 946E0082 */  lhu   $t6, 0x82($v1)
-/* 082F20 7F04E3F0 59C0004E */  blezl $t6, .L7F04E52C
-/* 082F24 7F04E3F4 24840001 */   addiu $a0, $a0, 1
-/* 082F28 7F04E3F8 946F0080 */  lhu   $t7, 0x80($v1)
-/* 082F2C 7F04E3FC 3401FFFF */  li    $at, 65535
-/* 082F30 7F04E400 51E1004A */  beql  $t7, $at, .L7F04E52C
-/* 082F34 7F04E404 24840001 */   addiu $a0, $a0, 1
-/* 082F38 7F04E408 AFA30024 */  sw    $v1, 0x24($sp)
-/* 082F3C 7F04E40C AFA400C4 */  sw    $a0, 0xc4($sp)
-/* 082F40 7F04E410 0FC14634 */  jal   ammocrateAllocate
-/* 082F44 7F04E414 AFA500C8 */   sw    $a1, 0xc8($sp)
-/* 082F48 7F04E418 8FA30024 */  lw    $v1, 0x24($sp)
-/* 082F4C 7F04E41C 8FA400C4 */  lw    $a0, 0xc4($sp)
-/* 082F50 7F04E420 8FA500C8 */  lw    $a1, 0xc8($sp)
-/* 082F54 7F04E424 10400040 */  beqz  $v0, .L7F04E528
-/* 082F58 7F04E428 00403025 */   move  $a2, $v0
-/* 082F5C 7F04E42C 3C198003 */  lui   $t9, %hi(blank_07_object)
-/* 082F60 7F04E430 27A8003C */  addiu $t0, $sp, 0x3c
-/* 082F64 7F04E434 27392094 */  addiu $t9, %lo(blank_07_object) # addiu $t9, $t9, 0x2094
-/* 082F68 7F04E438 94670080 */  lhu   $a3, 0x80($v1)
-/* 082F6C 7F04E43C 27290078 */  addiu $t1, $t9, 0x78
-/* 082F70 7F04E440 01005825 */  move  $t3, $t0
-.L7F04E444:
-/* 082F74 7F04E444 8F210000 */  lw    $at, ($t9)
-/* 082F78 7F04E448 2739000C */  addiu $t9, $t9, 0xc
-/* 082F7C 7F04E44C 256B000C */  addiu $t3, $t3, 0xc
-/* 082F80 7F04E450 AD61FFF4 */  sw    $at, -0xc($t3)
-/* 082F84 7F04E454 8F21FFF8 */  lw    $at, -8($t9)
-/* 082F88 7F04E458 AD61FFF8 */  sw    $at, -8($t3)
-/* 082F8C 7F04E45C 8F21FFFC */  lw    $at, -4($t9)
-/* 082F90 7F04E460 1729FFF8 */  bne   $t9, $t1, .L7F04E444
-/* 082F94 7F04E464 AD61FFFC */   sw    $at, -4($t3)
-/* 082F98 7F04E468 8F210000 */  lw    $at, ($t9)
-/* 082F9C 7F04E46C 01006825 */  move  $t5, $t0
-/* 082FA0 7F04E470 00407025 */  move  $t6, $v0
-/* 082FA4 7F04E474 AD610000 */  sw    $at, ($t3)
-/* 082FA8 7F04E478 8F290004 */  lw    $t1, 4($t9)
-/* 082FAC 7F04E47C 250C0078 */  addiu $t4, $t0, 0x78
-/* 082FB0 7F04E480 0007C080 */  sll   $t8, $a3, 2
-/* 082FB4 7F04E484 AD690004 */  sw    $t1, 4($t3)
-.L7F04E488:
-/* 082FB8 7F04E488 8DA10000 */  lw    $at, ($t5)
-/* 082FBC 7F04E48C 25AD000C */  addiu $t5, $t5, 0xc
-/* 082FC0 7F04E490 25CE000C */  addiu $t6, $t6, 0xc
-/* 082FC4 7F04E494 ADC1FFF4 */  sw    $at, -0xc($t6)
-/* 082FC8 7F04E498 8DA1FFF8 */  lw    $at, -8($t5)
-/* 082FCC 7F04E49C ADC1FFF8 */  sw    $at, -8($t6)
-/* 082FD0 7F04E4A0 8DA1FFFC */  lw    $at, -4($t5)
-/* 082FD4 7F04E4A4 15ACFFF8 */  bne   $t5, $t4, .L7F04E488
-/* 082FD8 7F04E4A8 ADC1FFFC */   sw    $at, -4($t6)
-/* 082FDC 7F04E4AC 8DA10000 */  lw    $at, ($t5)
-/* 082FE0 7F04E4B0 24850001 */  addiu $a1, $a0, 1
-/* 082FE4 7F04E4B4 00C02025 */  move  $a0, $a2
-/* 082FE8 7F04E4B8 ADC10000 */  sw    $at, ($t6)
-/* 082FEC 7F04E4BC 8DAC0004 */  lw    $t4, 4($t5)
-/* 082FF0 7F04E4C0 24010002 */  li    $at, 2
-/* 082FF4 7F04E4C4 0307C023 */  subu  $t8, $t8, $a3
-/* 082FF8 7F04E4C8 ADCC0004 */  sw    $t4, 4($t6)
-/* 082FFC 7F04E4CC A4470004 */  sh    $a3, 4($v0)
-/* 083000 7F04E4D0 14A10003 */  bne   $a1, $at, .L7F04E4E0
-/* 083004 7F04E4D4 AC450080 */   sw    $a1, 0x80($v0)
-/* 083008 7F04E4D8 240F0001 */  li    $t7, 1
-/* 08300C 7F04E4DC AC4F0080 */  sw    $t7, 0x80($v0)
-.L7F04E4E0:
-/* 083010 7F04E4E0 0018C080 */  sll   $t8, $t8, 2
-/* 083014 7F04E4E4 3C058004 */  lui   $a1, %hi(PitemZ_entries)
-/* 083018 7F04E4E8 00B82821 */  addu  $a1, $a1, $t8
-/* 08301C 7F04E4EC 8CA5A228 */  lw    $a1, %lo(PitemZ_entries)($a1)
-/* 083020 7F04E4F0 0FC101BE */  jal   objInitWithModelDef
-/* 083024 7F04E4F4 AFA600C0 */   sw    $a2, 0xc0($sp)
-/* 083028 7F04E4F8 10400011 */  beqz  $v0, .L7F04E540
-/* 08302C 7F04E4FC 8FA600C0 */   lw    $a2, 0xc0($sp)
-/* 083030 7F04E500 8CC40014 */  lw    $a0, 0x14($a2)
-/* 083034 7F04E504 8C850014 */  lw    $a1, 0x14($a0)
-/* 083038 7F04E508 0FC1B39E */  jal   modelSetScale
-/* 08303C 7F04E50C AFA600C0 */   sw    $a2, 0xc0($sp)
-/* 083040 7F04E510 8FA600C0 */  lw    $a2, 0xc0($sp)
-/* 083044 7F04E514 8E050010 */  lw    $a1, 0x10($s0)
-/* 083048 7F04E518 0FC0E969 */  jal   chrpropReparent
-/* 08304C 7F04E51C 8CC40010 */   lw    $a0, 0x10($a2)
-/* 083050 7F04E520 10000008 */  b     .L7F04E544
-/* 083054 7F04E524 92020003 */   lbu   $v0, 3($s0)
-.L7F04E528:
-/* 083058 7F04E528 24840001 */  addiu $a0, $a0, 1
-.L7F04E52C:
-/* 08305C 7F04E52C 2401000D */  li    $at, 13
-/* 083060 7F04E530 0081001A */  div   $zero, $a0, $at
-/* 083064 7F04E534 00002010 */  mfhi  $a0
-/* 083068 7F04E538 5485FFAB */  bnel  $a0, $a1, .L7F04E3E8
-/* 08306C 7F04E53C 00046880 */   sll   $t5, $a0, 2
-.L7F04E540:
-/* 083070 7F04E540 92020003 */  lbu   $v0, 3($s0)
-.L7F04E544:
-/* 083074 7F04E544 2401000D */  li    $at, 13
-/* 083078 7F04E548 54410010 */  bnel  $v0, $at, .L7F04E58C
-/* 08307C 7F04E54C 24010006 */   li    $at, 6
-/* 083080 7F04E550 8E190008 */  lw    $t9, 8($s0)
-/* 083084 7F04E554 3C014000 */  lui   $at, 0x4000
-/* 083088 7F04E558 02002025 */  move  $a0, $s0
-/* 08308C 7F04E55C 03215825 */  or    $t3, $t9, $at
-/* 083090 7F04E560 0FC0FFF0 */  jal   objGetDestroyedLevel
-/* 083094 7F04E564 AE0B0008 */   sw    $t3, 8($s0)
-/* 083098 7F04E568 24010001 */  li    $at, 1
-/* 08309C 7F04E56C 14410057 */  bne   $v0, $at, .L7F04E6CC
-/* 0830A0 7F04E570 00000000 */   nop
-/* 0830A4 7F04E574 8E0A0008 */  lw    $t2, 8($s0)
-/* 0830A8 7F04E578 3C011000 */  lui   $at, 0x1000
-/* 0830AC 7F04E57C 01416025 */  or    $t4, $t2, $at
-/* 0830B0 7F04E580 10000052 */  b     .L7F04E6CC
-/* 0830B4 7F04E584 AE0C0008 */   sw    $t4, 8($s0)
-/* 0830B8 7F04E588 24010006 */  li    $at, 6
-.L7F04E58C:
-/* 0830BC 7F04E58C 5441000C */  bnel  $v0, $at, .L7F04E5C0
-/* 0830C0 7F04E590 2401000A */   li    $at, 10
-/* 0830C4 7F04E594 0FC0FFF0 */  jal   objGetDestroyedLevel
-/* 0830C8 7F04E598 02002025 */   move  $a0, $s0
-/* 0830CC 7F04E59C 24010001 */  li    $at, 1
-/* 0830D0 7F04E5A0 1441004A */  bne   $v0, $at, .L7F04E6CC
-/* 0830D4 7F04E5A4 00000000 */   nop
-/* 0830D8 7F04E5A8 8E0D0008 */  lw    $t5, 8($s0)
-/* 0830DC 7F04E5AC 3C011000 */  lui   $at, 0x1000
-/* 0830E0 7F04E5B0 01A17025 */  or    $t6, $t5, $at
-/* 0830E4 7F04E5B4 10000045 */  b     .L7F04E6CC
-/* 0830E8 7F04E5B8 AE0E0008 */   sw    $t6, 8($s0)
-/* 0830EC 7F04E5BC 2401000A */  li    $at, 10
-.L7F04E5C0:
-/* 0830F0 7F04E5C0 5441000C */  bnel  $v0, $at, .L7F04E5F4
-/* 0830F4 7F04E5C4 2401000B */   li    $at, 11
-/* 0830F8 7F04E5C8 0FC0FFF0 */  jal   objGetDestroyedLevel
-/* 0830FC 7F04E5CC 02002025 */   move  $a0, $s0
-/* 083100 7F04E5D0 24010001 */  li    $at, 1
-/* 083104 7F04E5D4 1441003D */  bne   $v0, $at, .L7F04E6CC
-/* 083108 7F04E5D8 26040080 */   addiu $a0, $s0, 0x80
-/* 08310C 7F04E5DC 3C058003 */  lui   $a1, %hi(monAnim33BlackSolid)
-/* 083110 7F04E5E0 0FC12723 */  jal   save_ptr_monitor_ani_code_to_obj_ani_slot
-/* 083114 7F04E5E4 24A51EE8 */   addiu $a1, %lo(monAnim33BlackSolid) # addiu $a1, $a1, 0x1ee8
-/* 083118 7F04E5E8 10000038 */  b     .L7F04E6CC
-/* 08311C 7F04E5EC 00000000 */   nop
-/* 083120 7F04E5F0 2401000B */  li    $at, 11
-.L7F04E5F4:
-/* 083124 7F04E5F4 54410018 */  bnel  $v0, $at, .L7F04E658
-/* 083128 7F04E5F8 24010024 */   li    $at, 36
-/* 08312C 7F04E5FC 0FC0FFF0 */  jal   objGetDestroyedLevel
-/* 083130 7F04E600 02002025 */   move  $a0, $s0
-/* 083134 7F04E604 24010001 */  li    $at, 1
-/* 083138 7F04E608 14410030 */  bne   $v0, $at, .L7F04E6CC
-/* 08313C 7F04E60C 26040080 */   addiu $a0, $s0, 0x80
-/* 083140 7F04E610 3C058003 */  lui   $a1, %hi(monAnim33BlackSolid)
-/* 083144 7F04E614 0FC12723 */  jal   save_ptr_monitor_ani_code_to_obj_ani_slot
-/* 083148 7F04E618 24A51EE8 */   addiu $a1, %lo(monAnim33BlackSolid) # addiu $a1, $a1, 0x1ee8
-/* 08314C 7F04E61C 3C058003 */  lui   $a1, %hi(monAnim33BlackSolid)
-/* 083150 7F04E620 24A51EE8 */  addiu $a1, %lo(monAnim33BlackSolid) # addiu $a1, $a1, 0x1ee8
-/* 083154 7F04E624 0FC12723 */  jal   save_ptr_monitor_ani_code_to_obj_ani_slot
-/* 083158 7F04E628 260400F4 */   addiu $a0, $s0, 0xf4
-/* 08315C 7F04E62C 3C058003 */  lui   $a1, %hi(monAnim33BlackSolid)
-/* 083160 7F04E630 24A51EE8 */  addiu $a1, %lo(monAnim33BlackSolid) # addiu $a1, $a1, 0x1ee8
-/* 083164 7F04E634 0FC12723 */  jal   save_ptr_monitor_ani_code_to_obj_ani_slot
-/* 083168 7F04E638 26040168 */   addiu $a0, $s0, 0x168
-/* 08316C 7F04E63C 3C058003 */  lui   $a1, %hi(monAnim33BlackSolid)
-/* 083170 7F04E640 24A51EE8 */  addiu $a1, %lo(monAnim33BlackSolid) # addiu $a1, $a1, 0x1ee8
-/* 083174 7F04E644 0FC12723 */  jal   save_ptr_monitor_ani_code_to_obj_ani_slot
-/* 083178 7F04E648 260401DC */   addiu $a0, $s0, 0x1dc
-/* 08317C 7F04E64C 1000001F */  b     .L7F04E6CC
-/* 083180 7F04E650 00000000 */   nop
-/* 083184 7F04E654 24010024 */  li    $at, 36
-.L7F04E658:
-/* 083188 7F04E658 5441000B */  bnel  $v0, $at, .L7F04E688
-/* 08318C 7F04E65C 24010015 */   li    $at, 21
-/* 083190 7F04E660 0FC0FFF0 */  jal   objGetDestroyedLevel
-/* 083194 7F04E664 02002025 */   move  $a0, $s0
-/* 083198 7F04E668 24010001 */  li    $at, 1
-/* 08319C 7F04E66C 14410017 */  bne   $v0, $at, .L7F04E6CC
-/* 0831A0 7F04E670 00000000 */   nop
-/* 0831A4 7F04E674 0FC15799 */  jal   init_trigger_toxic_gas_effect
-/* 0831A8 7F04E678 26040058 */   addiu $a0, $s0, 0x58
-/* 0831AC 7F04E67C 10000013 */  b     .L7F04E6CC
-/* 0831B0 7F04E680 00000000 */   nop
-/* 0831B4 7F04E684 24010015 */  li    $at, 21
-.L7F04E688:
-/* 0831B8 7F04E688 14410010 */  bne   $v0, $at, .L7F04E6CC
-/* 0831BC 7F04E68C 00000000 */   nop
-/* 0831C0 7F04E690 0FC0FFF0 */  jal   objGetDestroyedLevel
-/* 0831C4 7F04E694 02002025 */   move  $a0, $s0
-/* 0831C8 7F04E698 5440000A */  bnezl $v0, .L7F04E6C4
-/* 0831CC 7F04E69C 44804000 */   mtc1  $zero, $f8
-/* 0831D0 7F04E6A0 C6000074 */  lwc1  $f0, 0x74($s0)
-/* 0831D4 7F04E6A4 C6100070 */  lwc1  $f16, 0x70($s0)
-/* 0831D8 7F04E6A8 C60A0080 */  lwc1  $f10, 0x80($s0)
-/* 0831DC 7F04E6AC 46100481 */  sub.s $f18, $f0, $f16
-/* 0831E0 7F04E6B0 46125182 */  mul.s $f6, $f10, $f18
-/* 0831E4 7F04E6B4 46003103 */  div.s $f4, $f6, $f0
-/* 0831E8 7F04E6B8 10000004 */  b     .L7F04E6CC
-/* 0831EC 7F04E6BC E6040084 */   swc1  $f4, 0x84($s0)
-/* 0831F0 7F04E6C0 44804000 */  mtc1  $zero, $f8
-.L7F04E6C4:
-/* 0831F4 7F04E6C4 00000000 */  nop
-/* 0831F8 7F04E6C8 E6080084 */  swc1  $f8, 0x84($s0)
-.L7F04E6CC:
-/* 0831FC 7F04E6CC 0FC0FFF0 */  jal   objGetDestroyedLevel
-/* 083200 7F04E6D0 02002025 */   move  $a0, $s0
-/* 083204 7F04E6D4 24010001 */  li    $at, 1
-/* 083208 7F04E6D8 5441000D */  bnel  $v0, $at, .L7F04E710
-/* 08320C 7F04E6DC 8FBF001C */   lw    $ra, 0x1c($sp)
-/* 083210 7F04E6E0 8E0F0010 */  lw    $t7, 0x10($s0)
-/* 083214 7F04E6E4 8DE40020 */  lw    $a0, 0x20($t7)
-/* 083218 7F04E6E8 50800009 */  beql  $a0, $zero, .L7F04E710
-/* 08321C 7F04E6EC 8FBF001C */   lw    $ra, 0x1c($sp)
-/* 083220 7F04E6F0 8C820024 */  lw    $v0, 0x24($a0)
-.L7F04E6F4:
-/* 083224 7F04E6F4 24050001 */  li    $a1, 1
-/* 083228 7F04E6F8 0FC12FF4 */  jal   propobjSetDropped
-/* 08322C 7F04E6FC AFA20028 */   sw    $v0, 0x28($sp)
-/* 083230 7F04E700 8FA40028 */  lw    $a0, 0x28($sp)
-/* 083234 7F04E704 5480FFFB */  bnezl $a0, .L7F04E6F4
-/* 083238 7F04E708 8C820024 */   lw    $v0, 0x24($a0)
-.L7F04E70C:
-/* 08323C 7F04E70C 8FBF001C */  lw    $ra, 0x1c($sp)
-.L7F04E710:
-/* 083240 7F04E710 8FB00018 */  lw    $s0, 0x18($sp)
-/* 083244 7F04E714 27BD00E0 */  addiu $sp, $sp, 0xe0
-/* 083248 7F04E718 03E00008 */  jr    $ra
-/* 08324C 7F04E71C 00000000 */   nop
-)
-#endif
+        obj->flags |= PROPFLAG_NO_AMMO;
 
+        if (objGetDestroyedLevel(obj) == 1)
+        {
+            obj->flags |= PROPFLAG_IS_DRONE_GUN;
+        }
+    }
+    else if (obj->type == PROPDEF_CCTV)
+    {
+        if (objGetDestroyedLevel(obj) == 1)
+        {
+            obj->flags |= PROPFLAG_CCTV_DISABLED;
+        }
+    }
+    else if (obj->type == PROPDEF_MONITOR)
+    {
+        if (objGetDestroyedLevel(obj) == 1)
+        {
+            save_ptr_monitor_ani_code_to_obj_ani_slot(&((MonitorObjRecord *)obj)->Monitor, monAnim33BlackSolid);
+        }
+    }
+    else if (obj->type == PROPDEF_MULTI_MONITOR)
+    {
+        if (objGetDestroyedLevel(obj) == 1)
+        {
+            save_ptr_monitor_ani_code_to_obj_ani_slot(&((MultiMonitorObjRecord *)obj)->Monitor[0], monAnim33BlackSolid);
+            save_ptr_monitor_ani_code_to_obj_ani_slot(&((MultiMonitorObjRecord *)obj)->Monitor[1], monAnim33BlackSolid);
+            save_ptr_monitor_ani_code_to_obj_ani_slot(&((MultiMonitorObjRecord *)obj)->Monitor[2], monAnim33BlackSolid);
+            save_ptr_monitor_ani_code_to_obj_ani_slot(&((MultiMonitorObjRecord *)obj)->Monitor[3], monAnim33BlackSolid);
+        }
+    }
+    else if (obj->type == PROPDEF_GAS_RELEASING)
+    {
+        if (objGetDestroyedLevel(obj) == 1)
+        {
+            init_trigger_toxic_gas_effect(&obj->runtime_pos);
+        }
+    }
+    // Damage done to an armor gets subtracted from the amount of armor it provides when picked up.
+    else if (obj->type == PROPDEF_ARMOUR)
+    {
+        if (objGetDestroyedLevel(obj) == 0)
+        {
+            ((BodyArmourRecord *)obj)->amount = ((BodyArmourRecord *)obj)->initialamount
+                * (obj->damage - obj->maxdamage) / obj->damage;
+        }
+        else
+        {
+            ((BodyArmourRecord *)obj)->amount = 0.0f;
+        }
+    }
 
+    // If an object is destroyed drop its children, for example the monitor holders in Bunker.
+    if (objGetDestroyedLevel(obj) == 1)
+    {
+        child = obj->prop->child;
 
+        while (child != NULL)
+        {
+            PropRecord *nextchild = child->prev;
+
+            propobjSetDropped(child, DROPTYPE_DEFAULT);
+            child = nextchild;
+        }
+    }
+}
 
 
 /**
