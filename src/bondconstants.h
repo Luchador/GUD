@@ -378,7 +378,7 @@ typedef enum DOORFLAG
 {
     DOORFLAG_0001            = 0x00000001,
     DOORFLAG_WINDOWED        = 0x00000002,
-    DOORFLAG_0004            = 0x00000004,
+    DOORFLAG_CLIP_TO_BBOX            = 0x00000004,
     DOORFLAG_FLIP            = 0x00000008,
     DOORFLAG_AUTOMATIC       = 0x00000010,
     DOORFLAG_0020            = 0x00000020,

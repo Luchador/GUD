@@ -109,7 +109,7 @@ void                 init_trigger_toxic_gas_effect(coord3d *source);
 void                 chrSetWeaponFlag4(ChrRecord *chr, GUNHAND hand);
 void                 door7F053B10(DoorRecord *door);
 void                 doorActivatePortal(DoorRecord *door);
-void                 door7F052B00(DoorRecord *door);
+void                 doorUpdateBbox(DoorRecord *door);
 s32                  sub_GAME_7F0539B8(f32 vol);
 void                 monitorSetImageByNum(MonitorRecord *mon, s32 monAnimID);
 void                 propweaponSetDual(WeaponObjRecord *leftweapon, WeaponObjRecord *rightweapon);

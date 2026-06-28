@@ -4192,7 +4192,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                         door->openPosition = door->maxFrac;
                         door->openedTime   = g_GlobalTimer;
                         door->openstate    = DOORSTATE_STATIONARY;
-                        door7F052B00(door);
+                        doorUpdateBbox(door);
                         doorActivatePortal(door); // doorActivatePortal
                         door7F053B10(door);
                     }
