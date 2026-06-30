@@ -5259,11 +5259,11 @@ Gfx *draw_watch_controller(Gfx *gdl)
 
     if (green < 0xe0)
     {
-        gdl = sub_GAME_7F06359C(gdl, &finalmtx, green - 6, 1, watchTable, &contpadnum0);
+        gdl = watchRenderController(gdl, &finalmtx, green - 6, 1, watchTable, &contpadnum0);
     }
     else
     {
-        gdl = sub_GAME_7F064364(gdl, &finalmtx, 1, (s32) watchTable, &contpadnum0);
+        gdl = watchRenderControllerOpaque(gdl, &finalmtx, 1, (s32) watchTable, &contpadnum0);
     }
 
     if (controllerCheckDualControllerTypesAllowed())
@@ -5310,11 +5310,11 @@ Gfx *draw_watch_controller(Gfx *gdl)
 
         if (green < 0xe0)
         {
-            gdl = sub_GAME_7F06359C(gdl, &finalmtx, green - 6, 1, &table2, &contpadnum1);
+            gdl = watchRenderController(gdl, &finalmtx, green - 6, 1, &table2, &contpadnum1);
         }
         else
         {
-            gdl = sub_GAME_7F064364(gdl, &finalmtx, 1, (s32) (&table2), &contpadnum1);
+            gdl = watchRenderControllerOpaque(gdl, &finalmtx, 1, (s32) (&table2), &contpadnum1);
         }
     }
 

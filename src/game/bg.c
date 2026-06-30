@@ -4081,7 +4081,7 @@ void bgRoomsTickUnload(void)
  *
  * Render a room's primary (solid) geometry.
  * Ensures the room's bg data is loaded if budget allows, then appends its display list.
- * Also resets the age of rendered rooms to bgRoomsTickUnload won't unload it.
+ * Also resets the age of rendered rooms so bgRoomsTickUnload won't unload it.
 */
 Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
 {
@@ -4179,7 +4179,8 @@ void bgBuildRoomVtxBounds(s32 roomID)
     s32 numvertices;
     Vtx *vtx;
 
-    if (g_BgRoomInfo[roomID].vtx_batch_bounds != NULL) {
+    if (g_BgRoomInfo[roomID].vtx_batch_bounds != NULL)
+    {
         return;
     }
 
@@ -4189,9 +4190,10 @@ void bgBuildRoomVtxBounds(s32 roomID)
     cmdindex = 0;
     numpoints = 0;
 
-    while (gdl[cmdindex].dma.cmd != G_ENDDL) {
-
-        if (gdl[cmdindex].dma.cmd == G_VTX) {
+    while (gdl[cmdindex].dma.cmd != G_ENDDL)
+    {
+        if (gdl[cmdindex].dma.cmd == G_VTX) 
+        {
             numpoints++;
         }
         cmdindex++;
@@ -4201,7 +4203,8 @@ void bgBuildRoomVtxBounds(s32 roomID)
 
     if (ALIGN16(numpoints * sizeof(RoomVtxBatchBounds))) {}
 
-    if (points == NULL) {
+    if (points == NULL)
+    {
         return;
     }
 
@@ -4211,15 +4214,16 @@ void bgBuildRoomVtxBounds(s32 roomID)
     numpoints = 0;
     cmdindex = 0;
 
-    while (gdl[cmdindex].dma.cmd != G_ENDDL) {
-
-        if (gdl[cmdindex].dma.cmd == G_VTX) {
-
+    while (gdl[cmdindex].dma.cmd != G_ENDDL)
+    {
+        if (gdl[cmdindex].dma.cmd == G_VTX)
+        {
             point = &points[numpoints];
 
             points[numpoints].gdlindex = cmdindex;
 
-            for (i = 0; i < 3; i++) {
+            for (i = 0; i < 3; i++) 
+            {
                 points[numpoints].min[i] = 0x7fff;
                 points[numpoints].max[i] = -0x8000;
             }
@@ -4228,42 +4232,52 @@ void bgBuildRoomVtxBounds(s32 roomID)
 
             vtx = (Vtx *)(SEGMENT_OFFSET(gdl[cmdindex].dma.addr) + (u32)vertices);
 
-            for (i = 0; i < numvertices; i++) {
-                if (points[numpoints].xmin > vtx[i].v.ob[0]) {
+            for (i = 0; i < numvertices; i++)
+            {
+                if (points[numpoints].xmin > vtx[i].v.ob[0])
+                {
                     points[numpoints].xmin = vtx[i].v.ob[0];
                 }
 
-                if (points[numpoints].ymin > vtx[i].v.ob[1]) {
+                if (points[numpoints].ymin > vtx[i].v.ob[1])
+                {
                     points[numpoints].ymin = vtx[i].v.ob[1];
                 }
 
-                if (points[numpoints].zmin > vtx[i].v.ob[2]) {
+                if (points[numpoints].zmin > vtx[i].v.ob[2])
+                {
                     points[numpoints].zmin = vtx[i].v.ob[2];
                 }
 
-                if (points[numpoints].xmax < vtx[i].v.ob[0]) {
+                if (points[numpoints].xmax < vtx[i].v.ob[0])
+                {
                     points[numpoints].xmax = vtx[i].v.ob[0];
                 }
 
-                if (points[numpoints].ymax < vtx[i].v.ob[1]) {
+                if (points[numpoints].ymax < vtx[i].v.ob[1])
+                {
                     points[numpoints].ymax = vtx[i].v.ob[1];
                 }
 
-                if (points[numpoints].zmax < vtx[i].v.ob[2]) {
+                if (points[numpoints].zmax < vtx[i].v.ob[2])
+                {
                     points[numpoints].zmax = vtx[i].v.ob[2];
                 }
             }
 
 
-            if (points[numpoints].xmin == points[numpoints].xmax) {
+            if (points[numpoints].xmin == points[numpoints].xmax)
+            {
                 points[numpoints].xmax++;
             }
 
-            if (points[numpoints].ymin == points[numpoints].ymax) {
+            if (points[numpoints].ymin == points[numpoints].ymax)
+            {
                 points[numpoints].ymax++;
             }
 
-            if (points[numpoints].zmin == points[numpoints].zmax) {
+            if (points[numpoints].zmin == points[numpoints].zmax)
+            {
                 points[numpoints].zmax++;
             }
 
@@ -4285,10 +4299,13 @@ void bgBuildRoomVtxBounds(s32 roomID)
 #undef SEGMENT_OFFSET
 
 
-bool bgTestLineIntersectsBbox(coord3d *arg0, coord3d *arg1, s32 *arg2, s32 *arg3)
+/**
+ * Slab method ray vs axis aligned bounding box test, written to be division-free.
+ */
+bool bgTestLineIntersectsBbox(coord3d *origin, coord3d *dir, s32 *bbox_min, s32 *bbox_max)
 {
-    coord3d arg2f;
-    coord3d arg3f;
+    coord3d bbox_min_f;
+    coord3d bbox_max_f;
     u32 stack[4];
     f32 f0;
     f32 f0_2;
@@ -4307,18 +4324,18 @@ bool bgTestLineIntersectsBbox(coord3d *arg0, coord3d *arg1, s32 *arg2, s32 *arg3
     f32 f14;
     f32 f14_2;
 
-    arg2f.f[0] = arg2[0];
-    arg2f.f[1] = arg2[1];
-    arg2f.f[2] = arg2[2];
+    bbox_min_f.f[0] = bbox_min[0];
+    bbox_min_f.f[1] = bbox_min[1];
+    bbox_min_f.f[2] = bbox_min[2];
 
-    arg3f.f[0] = arg3[0];
-    arg3f.f[1] = arg3[1];
-    arg3f.f[2] = arg3[2];
+    bbox_max_f.f[0] = bbox_max[0];
+    bbox_max_f.f[1] = bbox_max[1];
+    bbox_max_f.f[2] = bbox_max[2];
 
     // x
-    f18 = arg1->x;
-    f16 = arg3f.x - arg0->x;
-    f14 = arg2f.x - arg0->x;
+    f18 = dir->x;
+    f16 = bbox_max_f.x - origin->x;
+    f14 = bbox_min_f.x - origin->x;
 
     if (f18 < 0.0f)
     {
@@ -4340,9 +4357,9 @@ bool bgTestLineIntersectsBbox(coord3d *arg0, coord3d *arg1, s32 *arg2, s32 *arg3
     }
 
     // y
-    f12 = arg1->y;
-    f2 = arg3f.y - arg0->y;
-    f0 = arg2f.y - arg0->y;
+    f12 = dir->y;
+    f2 = bbox_max_f.y - origin->y;
+    f0 = bbox_min_f.y - origin->y;
 
     if (f12 < 0.0f)
     {
@@ -4399,9 +4416,9 @@ bool bgTestLineIntersectsBbox(coord3d *arg0, coord3d *arg1, s32 *arg2, s32 *arg3
     }
 
     // z
-    f2_2 = arg1->z;
-    f12_2 = arg3f.z - arg0->z;
-    f18_2 = arg2f.z - arg0->z;
+    f2_2 = dir->z;
+    f12_2 = bbox_max_f.z - origin->z;
+    f18_2 = bbox_min_f.z - origin->z;
 
     if (f2_2 < 0.0f)
     {

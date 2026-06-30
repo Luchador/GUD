@@ -288,6 +288,22 @@ extern u32 size_item_buffer[];
 extern WeaponStats sniperrifle_stats;
 extern WeaponStats camera_stats;
 
+typedef struct WatchContButtonPositions {
+    f32 words[19];
+    struct coord3d start;
+    struct coord3d joystick;
+    struct coord3d dPad;
+    struct coord3d cUp;
+    struct coord3d cDown;
+    struct coord3d cLeft;
+    struct coord3d cRight;
+    struct coord3d a;
+    struct coord3d b;
+    struct coord3d l;
+    struct coord3d r;
+    struct coord3d z;
+} WatchContButtonPositions;
+
 f32 bondwalkItemGetForceOfImpact(ITEM_IDS item);
 
 u32 bondwalkItemCheckBitflags(ITEM_IDS item, u32 mask);
@@ -370,8 +386,8 @@ void sub_GAME_7F064720(coord3d* pos);
 Gfx *gunDrawHudString(Gfx *gdl, s8 *text, s32 x, s32 halign, s32 y, s32 valign, bool outline);
 Gfx *gunDrawHudInteger(Gfx *gdl, s32 value, s32 x, s32 halign, s32 y, s32 valign, bool outline);
 void gunAdvanceBeamTimer(BeamRecord* arg0);
-Gfx *sub_GAME_7F06359C(Gfx *gdl, Mtxf *matrix, s32 arg2, s32 arg3, void *arg4, s8 *contpadnum);
-Gfx *sub_GAME_7F064364(Gfx *gdl, Mtxf *arg1, s32 arg2, s32 arg3, s8 *contpadnum);
+Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animatebuttons, WatchContButtonPositions* buttonpositions, s8* contpadnum);
+Gfx *watchRenderControllerOpaque(Gfx *gdl, Mtxf *basemtx, bool animatebuttons, WatchContButtonPositions *buttonpositions, s8 *contpadnum);
 
 Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf *mtx, s32 arg3, s32 arg4);
 void sub_GAME_7F06908C(Gfx **arg0);
