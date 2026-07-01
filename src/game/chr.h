@@ -318,7 +318,7 @@ void        propExecuteTickOperation(PropRecord *prop, INV_ITEM_TYPE op);
 s32         sub_GAME_7F01FC10(Model *, coord3d *, coord3d *, f32 *);
 void        chrCreateBloodStain(Model *arg0, s32 arg1, ModelNode *arg2, struct coord3d *arg3);
 void        chrpropAddBulletHit(struct ShotData *shotdata, PropRecord *prop, f32 dist, s32 hitpart, ModelNode *node, struct HitThing *hitthing, s32 room, s32 unk44, Model *model, bool countsAsPenetration, s32 blocksFurtherHits);
-void        sub_GAME_7F022648(PropRecord *prop, ShotData *shotdata);
+void        chrTestHit(PropRecord *prop, ShotData *shotdata);
 void        sub_GAME_7F03E134(PropRecord* p);
 
 #ifdef BUGFIX_R1

@@ -117,6 +117,8 @@ void sub_GAME_7F06B248(ModelHitEntry *entry);
 void drawjointlist(ModelRenderData *arg0, ModelHitEntry *entry);
 void sub_GAME_7F06B29C(ModelHitEntry *arg0);
 ModelHitEntry *sub_GAME_7F06BB28(ModelHitEntry *modelhit);
+s32 probably_damage_detail_blood_effect_related(ModelHitEntry **entryptr, coord3d *raypos, coord3d *raydir, Model **outModel, ModelNode **inoutNode);
+s32 sub_GAME_7F06C010(ModelHitEntry **entryptr, coord3d *modelRayStart, coord3d *modelRayDir, Model **outModel, ModelNode **outNode);
 
 void load_object_fill_header(struct ModelFileHeader *objheader, u8 *name, u8* dst, s32 size, struct texpool * buffer);
 
