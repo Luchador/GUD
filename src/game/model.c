@@ -897,128 +897,71 @@ void sub_GAME_7F06D160(coord3d *arg0, coord3d *arg1, f32 mult)
 }
 
 
-#ifdef NONMATCHING
-void sub_GAME_7F06D1CC(int param_1, int param_2, int param_3)
-
+/**
+ * Address: 7F06D1CC
+ */
+u16 modelAnimReadRootMotionValue(ModelAnimation *anim, s32 fieldIndex, s32 extraBitOffset)
 {
-    byte   bVar1;
-    uint   uVar2;
-    dword  local_70;
-    byte   local_20;
-    dword  local_1c;
-    byte  *local_18;
-    dword  local_14;
-    ushort local_10;
-    byte   local_e;
-    dword  local_8;
+    u32 result;
+    u32 new_var2;
+    u32 oldResult;
+    struct ModelAnimBitField *desc;
+    u8 *byteptr;
+    u32 totalBitOffset;
+    u32 byteIndex;
+    u32 mask;
+    u8 bitsRemaining;
+    u8 bitsThisRead;
 
-    local_10 = 0;
-    local_20 = *(*(param_1 + 8) + param_2 * 6 + 2);
-    if (local_20 != 0)
+    result = 0;
+    desc = anim->bitDescriptors + fieldIndex;
+    bitsRemaining = desc->bitCount;
+
+    if (bitsRemaining > 0)
     {
-        uVar2    = param_3 + *(*(param_1 + 8) + param_2 * 6);
-        local_18 = *(param_1 + 0x10) + (uVar2 >> 3);
-        local_e  = 8 - (uVar2 & 7);
-        while (local_e <= local_20)
+        totalBitOffset = extraBitOffset + desc->bitOffset;
+        byteIndex = totalBitOffset >> 3;
+        totalBitOffset &= 7;
+        byteptr = anim->bitStream + byteIndex;
+        bitsThisRead = 8 - totalBitOffset;
+
+        if (bitsRemaining >= bitsThisRead)
         {
-            local_20 = local_20 - local_e;
-            local_10 = local_10 | (*local_18 & (1 << (local_e & 0x3f)) - 1U) << (local_20 & 0x3f);
-            local_18 = local_18 + 1;
-            local_e  = 8;
+            do
+            {
+                mask = (1 << bitsThisRead) - 1;
+                bitsRemaining -= bitsThisRead;
+                result |= ((*byteptr) & mask) << bitsRemaining;
+                result &= 0xffff;
+                byteptr++;
+                bitsThisRead = 8;
+            }
+            while (bitsRemaining >= 8);
         }
-        if (local_20 != 0)
+
+        if (bitsRemaining > 0)
         {
-            local_10 = local_10 | *local_18 >> (local_e - local_20 & 0x3f) & (1 << (local_20 & 0x3f)) - 1U;
+            result |= ((*byteptr) >> (bitsThisRead - bitsRemaining)) & ((1 << bitsRemaining) - 1);
+            result &= 0xffff;
         }
-        bVar1 = *(*(param_1 + 8) + param_2 * 6 + 2);
-        if ((bVar1 < 0x10) && ((local_10 & 1 << (bVar1 - 1 & 0x3f)) != 0))
+
+        bitsRemaining = desc->bitCount;
+
+        if (bitsRemaining < 16)
         {
-            local_10 = local_10 | (1 << (0x10 - bVar1 & 0x3f)) + -1 << (bVar1 & 0x3f);
+            oldResult = result;
+            mask = 1 << (bitsRemaining - 1);
+
+            if (result & mask)
+            {
+                result = ((new_var2 = oldResult) | (((1 << (16 - bitsRemaining)) - 1) << bitsRemaining)) & 0xffff;
+            }
         }
     }
-    return local_10 + *(*(param_1 + 8) + param_2 * 6 + 4);
+
+    result = desc->valueOffset + ((0, result));
+    return result;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F06D1CC
-/* 0A1CFC 7F06D1CC 8C8E0008 */  lw    $t6, 8($a0)
-/* 0A1D00 7F06D1D0 00057880 */  sll   $t7, $a1, 2
-/* 0A1D04 7F06D1D4 01E57823 */  subu  $t7, $t7, $a1
-/* 0A1D08 7F06D1D8 000F7840 */  sll   $t7, $t7, 1
-/* 0A1D0C 7F06D1DC 01CF3821 */  addu  $a3, $t6, $t7
-/* 0A1D10 7F06D1E0 90E80002 */  lbu   $t0, 2($a3)
-/* 0A1D14 7F06D1E4 00001825 */  move  $v1, $zero
-/* 0A1D18 7F06D1E8 01004825 */  move  $t1, $t0
-/* 0A1D1C 7F06D1EC 5920003A */  blezl $t1, .L7F06D2D8
-/* 0A1D20 7F06D1F0 94F80004 */   lhu   $t8, 4($a3)
-/* 0A1D24 7F06D1F4 94F80000 */  lhu   $t8, ($a3)
-/* 0A1D28 7F06D1F8 240E0008 */  li    $t6, 8
-/* 0A1D2C 7F06D1FC 8C8D0010 */  lw    $t5, 0x10($a0)
-/* 0A1D30 7F06D200 03061021 */  addu  $v0, $t8, $a2
-/* 0A1D34 7F06D204 30590007 */  andi  $t9, $v0, 7
-/* 0A1D38 7F06D208 01D96023 */  subu  $t4, $t6, $t9
-/* 0A1D3C 7F06D20C 318F00FF */  andi  $t7, $t4, 0xff
-/* 0A1D40 7F06D210 000228C2 */  srl   $a1, $v0, 3
-/* 0A1D44 7F06D214 012F082A */  slt   $at, $t1, $t7
-/* 0A1D48 7F06D218 318B00FF */  andi  $t3, $t4, 0xff
-/* 0A1D4C 7F06D21C 14200010 */  bnez  $at, .L7F06D260
-/* 0A1D50 7F06D220 01A55021 */   addu  $t2, $t5, $a1
-.L7F06D224:
-/* 0A1D54 7F06D224 91590000 */  lbu   $t9, ($t2)
-/* 0A1D58 7F06D228 240D0001 */  li    $t5, 1
-/* 0A1D5C 7F06D22C 016D7004 */  sllv  $t6, $t5, $t3
-/* 0A1D60 7F06D230 012B1023 */  subu  $v0, $t1, $t3
-/* 0A1D64 7F06D234 25CFFFFF */  addiu $t7, $t6, -1
-/* 0A1D68 7F06D238 304900FF */  andi  $t1, $v0, 0xff
-/* 0A1D6C 7F06D23C 032FC024 */  and   $t8, $t9, $t7
-/* 0A1D70 7F06D240 01386804 */  sllv  $t5, $t8, $t1
-/* 0A1D74 7F06D244 006D1825 */  or    $v1, $v1, $t5
-/* 0A1D78 7F06D248 306EFFFF */  andi  $t6, $v1, 0xffff
-/* 0A1D7C 7F06D24C 29210008 */  slti  $at, $t1, 8
-/* 0A1D80 7F06D250 01C01825 */  move  $v1, $t6
-/* 0A1D84 7F06D254 254A0001 */  addiu $t2, $t2, 1
-/* 0A1D88 7F06D258 1020FFF2 */  beqz  $at, .L7F06D224
-/* 0A1D8C 7F06D25C 240B0008 */   li    $t3, 8
-.L7F06D260:
-/* 0A1D90 7F06D260 1920000A */  blez  $t1, .L7F06D28C
-/* 0A1D94 7F06D264 01697823 */   subu  $t7, $t3, $t1
-/* 0A1D98 7F06D268 91590000 */  lbu   $t9, ($t2)
-/* 0A1D9C 7F06D26C 240D0001 */  li    $t5, 1
-/* 0A1DA0 7F06D270 012D7004 */  sllv  $t6, $t5, $t1
-/* 0A1DA4 7F06D274 01F9C007 */  srav  $t8, $t9, $t7
-/* 0A1DA8 7F06D278 25D9FFFF */  addiu $t9, $t6, -1
-/* 0A1DAC 7F06D27C 03197824 */  and   $t7, $t8, $t9
-/* 0A1DB0 7F06D280 006F1825 */  or    $v1, $v1, $t7
-/* 0A1DB4 7F06D284 306DFFFF */  andi  $t5, $v1, 0xffff
-/* 0A1DB8 7F06D288 01A01825 */  move  $v1, $t5
-.L7F06D28C:
-/* 0A1DBC 7F06D28C 310900FF */  andi  $t1, $t0, 0xff
-/* 0A1DC0 7F06D290 29210010 */  slti  $at, $t1, 0x10
-/* 0A1DC4 7F06D294 1020000F */  beqz  $at, .L7F06D2D4
-/* 0A1DC8 7F06D298 252E001F */   addiu $t6, $t1, 0x1f
-/* 0A1DCC 7F06D29C 24180001 */  li    $t8, 1
-/* 0A1DD0 7F06D2A0 01D8C804 */  sllv  $t9, $t8, $t6
-/* 0A1DD4 7F06D2A4 00797824 */  and   $t7, $v1, $t9
-/* 0A1DD8 7F06D2A8 11E0000A */  beqz  $t7, .L7F06D2D4
-/* 0A1DDC 7F06D2AC 00601025 */   move  $v0, $v1
-/* 0A1DE0 7F06D2B0 240D0010 */  li    $t5, 16
-/* 0A1DE4 7F06D2B4 01A9C023 */  subu  $t8, $t5, $t1
-/* 0A1DE8 7F06D2B8 240E0001 */  li    $t6, 1
-/* 0A1DEC 7F06D2BC 030EC804 */  sllv  $t9, $t6, $t8
-/* 0A1DF0 7F06D2C0 272FFFFF */  addiu $t7, $t9, -1
-/* 0A1DF4 7F06D2C4 012F6804 */  sllv  $t5, $t7, $t1
-/* 0A1DF8 7F06D2C8 004D1825 */  or    $v1, $v0, $t5
-/* 0A1DFC 7F06D2CC 306EFFFF */  andi  $t6, $v1, 0xffff
-/* 0A1E00 7F06D2D0 01C01825 */  move  $v1, $t6
-.L7F06D2D4:
-/* 0A1E04 7F06D2D4 94F80004 */  lhu   $t8, 4($a3)
-.L7F06D2D8:
-/* 0A1E08 7F06D2D8 00781821 */  addu  $v1, $v1, $t8
-/* 0A1E0C 7F06D2DC 03E00008 */  jr    $ra
-/* 0A1E10 7F06D2E0 3062FFFF */   andi  $v0, $v1, 0xffff
-)
-#endif
 
 
 /**
@@ -1042,10 +985,10 @@ u16 sub_GAME_7F06D2E4(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnim
         base = skeleton->Joints[jointnum].mtxA;
     }
     
-    out->x = sub_GAME_7F06D1CC(anim, base, scaled);
-    out->y = sub_GAME_7F06D1CC(anim, base + 1, scaled);
-    out->z = sub_GAME_7F06D1CC(anim, base + 2, scaled);
-    angle_raw = sub_GAME_7F06D1CC(anim, base + 3, scaled);
+    out->x = modelAnimReadRootMotionValue(anim, base, scaled);
+    out->y = modelAnimReadRootMotionValue(anim, base + 1, scaled);
+    out->z = modelAnimReadRootMotionValue(anim, base + 2, scaled);
+    angle_raw = modelAnimReadRootMotionValue(anim, base + 3, scaled);
     angle_ret = angle_raw;
     
     if (flip)

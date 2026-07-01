@@ -557,18 +557,31 @@ typedef union
         char b;
     } AnimTable2;
 
-    // unknown struct, unknown size.
+    typedef struct ModelAnimBitField {
+        u16 bitOffset;
+        u8 bitCount;
+        u8 padding;
+        u16 valueOffset;
+    } ModelAnimBitField;
+
+    typedef struct ModelAnimRootMotionChannel
+    {
+        u16 bitOffset;
+        u8 bitCount;
+        u8 padding;
+        u16 valueOffset;
+    } ModelAnimRootMotionChannel;
+
     typedef struct ModelAnimation
     {
         s32 address;
         u16 unk04; // next frame
         u8 unk06;
         u8 unk07; // bit 0 is a loop flag: 0 means freeze anim at end, 1 means loop anim
-        u16 unk08;
-        u16 unk0A;
+        ModelAnimBitField *bitDescriptors; // 0x08
         u16 unk0C;
         u16 unk0E;
-        s32 unk10;
+        u8  *bitStream; // 0x10
         s32 unk14;
         s32 unk18;
         s32 unk1c;
@@ -580,10 +593,7 @@ typedef union
         s32 unk34;
         s32 unk38;
         s32 unk3c; // end frame
-
-        // ...
     } ModelAnimation;
-
 
     struct object_animation_controller
     {
