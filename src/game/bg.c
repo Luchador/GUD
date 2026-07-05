@@ -3852,6 +3852,13 @@ s32 bgCheckIfRoomModelNeedsLoad(s32 roomID)
 
 /*
 * Allocates memory for room and update its display lists
+*
+* When a room is first allocated, the game will pick the largest block
+* available. It doesn't know the size of the decompressed asset as its
+* size is not stored as part of the GZIP format. It will then shrink
+* the allocated block to the correct size. The size is cached for the
+* next time the room is reloaded.
+*
 * Address: 7F0B6368
 */
 void bgLoadRoomModelData(s32 roomID)
@@ -3869,14 +3876,18 @@ void bgLoadRoomModelData(s32 roomID)
 
     used = 0;
 
+    // Room ID is out of range?
     if (roomID >= g_MaxNumRooms) goto end;
 
+    // Room is already loaded?
     if (g_BgRoomInfo[roomID].model_bin_loaded) goto end;
 
+    // Get the cached file size. Is zero when the size is not yet known.
     allocsize = g_BgRoomInfo[roomID].cur_room_totalsize;
 
     if (allocsize > 0)
     {
+        // Unknown debug code
         if (get_debug_joy2detailedit_flag())
         {
             allocsize += 0x400;
@@ -3884,6 +3895,7 @@ void bgLoadRoomModelData(s32 roomID)
     }
     else
     {
+        // On a first allocation, we'll allocate the largest memory block available.
         allocsize = memaGetLongestFree();
     }
 
@@ -3940,15 +3952,16 @@ void bgLoadRoomModelData(s32 roomID)
         g_BgRoomInfo[roomID].ptr_secondary_expanded_mapping_info = NULL;
     }
 
-
     g_BgRoomInfo[roomID].cur_room_totalsize = ((used + 0x20) & ~0xf);
     g_BgRoomInfo[roomID].model_bin_loaded = 1;
 
+    // If wasted space is detected, shrink allocated memory block.
     if (allocsize != ((used + 0x20) & ~0xf))
     {
         memaRealloc((s32)data, allocsize, ((used + 0x20) & ~0xf));
     }
 
+    // Same branches, only the LUT parameter changes
     if (g_FogSkyIsEnabled)
     {
         bgApplyDynamicCCRMLUT(
@@ -4179,6 +4192,7 @@ void bgBuildRoomVtxBounds(s32 roomID)
     s32 numvertices;
     Vtx *vtx;
 
+    // Check if a cached bounding box is already present for this room
     if (g_BgRoomInfo[roomID].vtx_batch_bounds != NULL)
     {
         return;
