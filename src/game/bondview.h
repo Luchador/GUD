@@ -24,7 +24,7 @@ typedef struct invitem_dual
 	s32 weapon_left;
 } invitem_dual;
 
-/** unknown struct, used in `strut player`.
+/**
  * We know this is a struct from the compiler auto-generated
  * code to copy structs in bondview.c bondviewKillCurrentPlayer.
  *
@@ -55,18 +55,18 @@ struct collision434 {
 
     /**
      * Some kind of alternative to pos3 (in player struct).
-     * Offset 0x20.
+     * Offset 0x1c.
      */
     coord3d pos3;
 
     /**
-     * Offset 0x2c.
+     * Offset 0x28.
      */
     f32 collision_radius;
 
     /**
      * Some kind of alternative to pos (in player struct).
-     * Offset 0x30.
+     * Offset 0x2c.
      */
     coord3d pos;
 
@@ -75,20 +75,43 @@ struct collision434 {
      * to this property and applied_view2. Removing the update to this property will fix
      * Bond's camera orientation such that Bond can still turn, but the camera is always
      * locked facing the starting position.
-     * Offset 0x3c.
+     * Offset 0x38.
      */
     struct coord3d applied_view;
 
     /**
-     * Offset 0x48.
+     * Offset 0x44.
      */
     struct coord3d applied_view2;
 
     /**
-     * Offset 0x54.
+     * Offset 0x50.
      */
     StandTile *current_tile_ptr_for_portals;
 };
+
+typedef struct
+{
+  u8 labels[9][3];
+} DirectionLabels;
+
+typedef struct TopMessageLocals
+{
+  s32 textwidth;
+  s32 textheight;
+  s32 bottom;
+  s32 y;
+  s32 x;
+} TopMessageLocals;
+
+typedef struct DebugTextBuffers
+{
+  char angle[0x10];
+  char z[0x10];
+  char y[0x10];
+  char x[0x10];
+  char room[0x10];
+} DebugTextBuffers;
 
 /**
  * first hand: 0x800c6fd0
