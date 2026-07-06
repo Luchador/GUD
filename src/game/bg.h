@@ -17,6 +17,9 @@ struct levelentry
 // cannon definition
 #define MAXPORTALSPERROOM 20
 
+// cannonical name
+#define PORTMAX 200
+
 typedef struct RoomVtxBatchBounds {
     s16 gdlindex;    // 0x00
     s16 pad02;       // 0x02
@@ -165,7 +168,7 @@ typedef struct bg_queued_portal_entry {
     #endif
 } bg_queued_portal_entry;
 
-extern struct unk_portalstruct table_for_portals[200];
+extern struct unk_portalstruct table_for_portals[PORTMAX];
 extern s32 g_MaxNumRooms;
 extern f32 room_data_float2;
 

@@ -2095,6 +2095,12 @@ typedef enum PLAYER_ID
     PLAYER_4
 } PLAYER_ID;
 
+typedef enum PORTALFLAGS
+{
+    PORTALFLAG_DISABLED    = 0x01,
+    PORTALFLAG_SPECIAL     = 0x02
+} PORTALFLAGS;
+
 #define SAVESLOT1 0x0
 #define SAVESLOT2 0x1
 #define SAVESLOT3 0x2
