@@ -513,37 +513,37 @@ u32 dword_D_80035EEC = 0;
 
 //D:80035EF0
 #define AMMO_RELATED_MAX 30
-AmmoStats ammo_related[AMMO_RELATED_MAX]  = {
-    {    0x0,       0x0,       0x0,       0x0,       0x0, },
-    {  0x320,     0x200,     0xC84,       0x0,       0x0, },
-    {   0xC8,       0x0,       0x0,       0x0,       0x0, },
-    {  0x190,     0x200,     0xC90,    0xC000,       0x0, },
-    {   0x64,     0x200,     0xC9C,       0x0,       0x0, },
-    {    0xC,     0x200,     0xCD8,       0x0,       0x0, },
-    {    0x3,     0x200,     0xCC0,    0xC000,       0x0, },
-    {    0xA,     0x200,     0xCFC,    0x3F80,       0x0, },
-    {    0xA,     0x200,     0xD14,    0x3F80,       0x0, },
-    {    0xA,     0x200,     0xD08,    0x3F80,       0x0, },
-    {    0xA,     0x200,     0xCA8,       0x0,       0x0, },
-    {    0xC,     0x200,     0xCB4,       0x0,       0x0, },
-    {   0xC8,     0x200,     0xCE4,       0x0,       0x0, },
-    {   0x64,     0x200,     0xCF0,       0x0,       0x0, },
-    {   0x32,       0x0,       0x0,       0x0,       0x0, },
-    {    0xA,       0x0,       0x0,       0x0,       0x0, },
-    {    0x2,       0x0,       0x0,       0x0,       0x0, },
-    {    0x8,       0x0,       0x0,       0x0,       0x0, },
-    {    0x6,       0x0,       0x0,       0x0,       0x0, },
-    {    0xA,       0x0,       0x0,       0x0,       0x0, },
-    {    0xA,       0x0,       0x0,       0x0,       0x0, },
-    {    0xA,       0x0,       0x0,       0x0,       0x0, },
-    {    0x1,       0x0,       0x0,       0x0,       0x0, },
-    {    0xA,       0x0,       0x0,       0x0,       0x0, },
-    {  0x3E8,       0x0,       0x0,       0x0,       0x0, },
-    {    0xA,       0x0,       0x0,       0x0,       0x0, },
-    {    0xA,       0x0,       0x0,       0x0,       0x0, },
-    {    0xA,       0x0,       0x0,       0x0,       0x0, },
-    {   0x32,     0x200,     0xD20,    0xBF80,       0x0, },
-    {    0x1,       0x0,       0x0,       0x0,       0x0, },
+AmmoStats ammo_related[AMMO_RELATED_MAX] = {
+    { 0x0    , 0x00000000,   0.0f, },
+    { 0x320  , 0x02000C84,   0.0f, },
+    { 0xC8   , 0x00000000,   0.0f, },
+    { 0x190  , 0x02000C90,  -2.0f, },
+    { 0x64   , 0x02000C9C,   0.0f, },
+    { 0xC    , 0x02000CD8,   0.0f, },
+    { 0x3    , 0x02000CC0,  -2.0f, },
+    { 0xA    , 0x02000CFC,   1.0f, },
+    { 0xA    , 0x02000D14,   1.0f, },
+    { 0xA    , 0x02000D08,   1.0f, },
+    { 0xA    , 0x02000CA8,   0.0f, },
+    { 0xC    , 0x02000CB4,   0.0f, },
+    { 0xC8   , 0x02000CE4,   0.0f, },
+    { 0x64   , 0x02000CF0,   0.0f, },
+    { 0x32   , 0x00000000,   0.0f, },
+    { 0xA    , 0x00000000,   0.0f, },
+    { 0x2    , 0x00000000,   0.0f, },
+    { 0x8    , 0x00000000,   0.0f, },
+    { 0x6    , 0x00000000,   0.0f, },
+    { 0xA    , 0x00000000,   0.0f, },
+    { 0xA    , 0x00000000,   0.0f, },
+    { 0xA    , 0x00000000,   0.0f, },
+    { 0x1    , 0x00000000,   0.0f, },
+    { 0xA    , 0x00000000,   0.0f, },
+    { 0x3E8  , 0x00000000,   0.0f, },
+    { 0xA    , 0x00000000,   0.0f, },
+    { 0xA    , 0x00000000,   0.0f, },
+    { 0xA    , 0x00000000,   0.0f, },
+    { 0x32   , 0x02000D20,  -1.0f, },
+    { 0x1    , 0x00000000,   0.0f, },
 };
 
 //was previously attached to ammo_related[] (array at D:80035EF0)
@@ -16985,7 +16985,7 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
                     && g_CurrentPlayer->hands[0].when_detonating_mines_is_0 != 7
                     && !bondwalkItemCheckBitflags(weapon_right, WEAPONSTATBITFLAG_HIDE_AMMO_DISPLAY))
                 {
-                    imageoffset_r = *(u32 *)&ammo_related[ammotype].field_04;
+                    imageoffset_r = ammo_related[ammotype].IconImage;
                     textwidth_r = 5;
 
                     if (imageoffset_r != 0)
@@ -16997,7 +16997,7 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
 #else
                             (viGetViewTop() + viGetViewHeight()) - 20, 0,
 #endif
-                            *(f32 *)&ammo_related[ammotype].field_08, 1);
+                            ammo_related[ammotype].IconYOffset, 1);
                         textwidth_r = ((u8 *)imageoffset_r)[4];
                     }
 
@@ -17051,7 +17051,7 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
                     && g_CurrentPlayer->hands[1].when_detonating_mines_is_0 != 7
                     && !bondwalkItemCheckBitflags(weapon_left, WEAPONSTATBITFLAG_HIDE_AMMO_DISPLAY))
                 {
-                    imageoffset_l = *(u32 *)&ammo_related[ammotype].field_04;
+                    imageoffset_l = ammo_related[ammotype].IconImage;
                     textwidth_l = 5;
 
                     if (imageoffset_l != 0)
@@ -17063,7 +17063,7 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
 #else
                             (viGetViewTop() + viGetViewHeight()) - 20, 1,
 #endif
-                            *(f32 *)&ammo_related[ammotype].field_08, 1);
+                            ammo_related[ammotype].IconYOffset, 1);
                         textwidth_l = ((u8 *)imageoffset_l)[4];
                     }
 
@@ -17140,7 +17140,7 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
             && g_CurrentPlayer->hands[0].when_detonating_mines_is_0 != 7
             && !bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_HIDE_AMMO_DISPLAY))
         {
-            imageoffset = *(u32 *)&ammo_related[ammotype].field_04;
+            imageoffset = ammo_related[ammotype].IconImage;
             textwidth = 5;
 
             get_ptr_item_statistics(item);
@@ -17151,9 +17151,9 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
 
                 // Draw the ammo icon
 #if defined(VERSION_EU)
-                gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset, 200.0f, 208.0f, (viGetViewTop() + viGetViewHeight()) - 30, 0, *(f32 *)&ammo_related[ammotype].field_08, 1);
+                gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset, 200.0f, 208.0f, (viGetViewTop() + viGetViewHeight()) - 30, 0, ammo_related[ammotype].IconYOffset, 1);
 #else
-                gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset, 200.0f, 180.0f, (viGetViewTop() + viGetViewHeight()) - 20, 0, *(f32 *)&ammo_related[ammotype].field_08, 1);
+                gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset, 200.0f, 180.0f, (viGetViewTop() + viGetViewHeight()) - 20, 0, ammo_related[ammotype].IconYOffset, 1);
 #endif
 
                 textwidth = ((u8 *)imageoffset)[4];

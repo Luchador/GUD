@@ -207,24 +207,16 @@ typedef struct AmmoStats {
     u32 MaxAmmo;
 
     /**
-     * Unknown (field 0x04).
+     * Segmented address (segment 0x02, global image bank) of this ammo
+     * type's HUD icon image. 0 for no icon. Resolved to an RDRAM pointer
+     * by adding globalbank_rdram_offset before use.
      */
-    u16 field_04;
+    u32 IconImage;
 
     /**
-     * Unknown (field 0x06).
+     * Vertical offset in pixels when the icon is drawn on the HUD.
      */
-    u16 field_06;
-
-    /**
-     * Unknown (field 0x08).
-     */
-    u16 field_08;
-
-    /**
-     * Unknown (field 0x0A).
-     */
-    u16 field_0A;
+    f32 IconYOffset;
 } AmmoStats;
 
 typedef struct GunModelFileRecord
