@@ -43,7 +43,7 @@ ALSoundState* g_UnusedSfxState; // Unused, type assumed from surrounding variabl
 ALSoundState* g_ImpactSfxStates[NUM_IMPACT_SFX_STATES];
 
 CasingRecord g_Casings[20];
-s32 dword_CODE_bss_80076A48;
+s32 dword_CODE_bss_80076A48; // Unused
 
 
 #ifdef REFRESH_PAL
@@ -13983,7 +13983,6 @@ f32 get_depth_offset_solo_watch_menu_inventory_page_for_item(ITEM_IDS item)
 }
 
 
-
 f32 getCurrentPlayerNoise(GUNHAND hand)
 {
     return g_CurrentPlayer->hands[hand].noise;
@@ -14026,8 +14025,8 @@ void gunTickNoise(void)
         }
     }
 
-    noise_reduction = (item_right_stats->NoiseIncreasePerShot * g_GlobalTimerDelta) / (item_right_stats->field_60 * 60.0f);
-    noise_reduction_max = ((g_CurrentPlayer->hands[GUNRIGHT].noise - item_right_stats->LoudnessMin) * g_GlobalTimerDelta) / (item_right_stats->field_64 * 60.0f);
+    noise_reduction = (item_right_stats->NoiseIncreasePerShot * g_GlobalTimerDelta) / (item_right_stats->NoiseDecayLinearTime * 60.0f);
+    noise_reduction_max = ((g_CurrentPlayer->hands[GUNRIGHT].noise - item_right_stats->LoudnessMin) * g_GlobalTimerDelta) / (item_right_stats->NoiseDecayScaledTime * 60.0f);
 
     if (noise_reduction < noise_reduction_max)
     {
@@ -14041,8 +14040,8 @@ void gunTickNoise(void)
         g_CurrentPlayer->hands[GUNRIGHT].noise = item_right_stats->LoudnessMin;
     }
 
-    noise_reduction = (item_left_stats->NoiseIncreasePerShot * g_GlobalTimerDelta) / (item_left_stats->field_60 * 60.0f);
-    noise_reduction_max = ((g_CurrentPlayer->hands[GUNLEFT].noise - item_left_stats->LoudnessMin) * g_GlobalTimerDelta) / (item_left_stats->field_64 * 60.0f);
+    noise_reduction = (item_left_stats->NoiseIncreasePerShot * g_GlobalTimerDelta) / (item_left_stats->NoiseDecayLinearTime * 60.0f);
+    noise_reduction_max = ((g_CurrentPlayer->hands[GUNLEFT].noise - item_left_stats->LoudnessMin) * g_GlobalTimerDelta) / (item_left_stats->NoiseDecayScaledTime * 60.0f);
 
     if (noise_reduction < noise_reduction_max)
     {
@@ -14056,6 +14055,7 @@ void gunTickNoise(void)
         g_CurrentPlayer->hands[GUNLEFT].noise = item_left_stats->LoudnessMin;
     }
 }
+
 
 /**
  * Returns true if the hand has a melee weapon or has ammo in the magazine.

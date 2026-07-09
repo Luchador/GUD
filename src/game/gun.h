@@ -173,14 +173,21 @@ typedef struct WeaponStats
     f32 NoiseIncreasePerShot;
 
     /**
-     * Unknown (field 0x60).
+     * Noise bleeds off at a constant NoiseIncreasePerShot / this value per
+     * second, i.e. one shot's worth of noise decays over this many seconds.
+     * This is the guaranteed minimum decay, so accumulated noise always
+     * drains to LoudnessMin in finite time. All weapons use 2.0 for this value.
      */
-    f32 field_60;
+    f32 NoiseDecayLinearTime;
 
     /**
-     * Unknown (field 0x64).
+     * Proportional noise decay time constant in seconds.
+     * Noise above LoudnessMin relaxes toward the floor with this time
+     * constant: (noise - LoudnessMin) / this value is removed per second.
+     * Dominates when the player is loud; near LoudnessMin the linear term
+     * (NoiseDecayLinearTime) takes over. All weapons use 4.0 for this value.
      */
-    f32 field_64;
+    f32 NoiseDecayScaledTime;
 
     /**
      * Force of impact.
