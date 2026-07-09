@@ -493,9 +493,9 @@ struct EarWhistleSounds ear_whistle_sounds = {
 };
 
 //D:80035E90
-struct sfx2 D_80035E90 = { RICO_LASER2_SFX, RICO_LASER3_SFX };
+struct sfx2 watchlaser_fire_sounds = { RICO_LASER2_SFX, RICO_LASER3_SFX };
 //D:80035E94
-struct sfx3 D_80035E94 = { KNIFE_THROW1_SFX, KNIFE_THROW2_SFX, KNIFE_THROW3_SFX };
+struct sfx3 knife_throw_sounds = { KNIFE_THROW1_SFX, KNIFE_THROW2_SFX, KNIFE_THROW3_SFX };
 //D:80035E9C
 struct gun_trigger_state g_ZeroTriggerState = { 0, 0 };
 //D:80035EA0
@@ -509,7 +509,7 @@ u32 D_80035EAC = 0;
 //D:80035EB0
 u32 D_80035EB0[] = {0, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //D:80035EEC
-u32 dword_D_80035EEC = 0;
+u32 dword_D_80035EEC = 0; // Unused
 
 //D:80035EF0
 #define AMMO_RELATED_MAX 30
@@ -12788,7 +12788,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
 
                     if (var_s1 == ITEM_WATCHLASER)
                     {
-                        sp1B0 = D_80035E90;
+                        sp1B0 = watchlaser_fire_sounds;
                         sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, sp1B0.half[randomGetNext() & 1], NULL);
                     }
                 }
@@ -13503,7 +13503,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
                 || (temp_s0->when_detonating_mines_is_0 == 0x14))
                 && (temp_s0->field_890 >= WHEN_11_FLD890_1))
         {
-            sp7C = D_80035E94;
+            sp7C = knife_throw_sounds;
             sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, sp7C.half[randomGetNext() % 3U], NULL);
 
 
