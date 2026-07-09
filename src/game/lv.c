@@ -1806,9 +1806,9 @@ void lvlViewMoveTick(void)
 
                 if(1);
 
-                if (g_CurrentPlayer->hands[GUNRIGHT].when_detonating_mines_is_0 == 2)
+                if (g_CurrentPlayer->hands[GUNRIGHT].weapon_action_state == GUN_ANIM_STATE_FIRE)
                 {
-                    g_CurrentPlayer->hands[GUNRIGHT].when_detonating_mines_is_0 = 5;
+                    g_CurrentPlayer->hands[GUNRIGHT].weapon_action_state = GUN_ANIM_STATE_SWITCH_LOWER;
                 }
             }
 

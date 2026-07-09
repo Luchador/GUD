@@ -30,7 +30,7 @@ struct hand hand_data_dummy = {
     0, // s32 field_888;
     0, // s32 field_88C;
     0, // s32 field_890;
-    0, // s32 when_detonating_mines_is_0;
+    0, // s32 weapon_action_state;
     0, // s32 weapon_current_animation;
     0, // s32 weapon_ammo_in_magazine;
     0, // s32 field_8A0;

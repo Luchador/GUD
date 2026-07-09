@@ -981,6 +981,7 @@ void used_to_load_1st_person_model_on_demand(GUNHAND hand)
     }
 }
 
+
 // Called by unused functions.
 ITEM_IDS sub_GAME_7F05D334(ITEM_IDS item, s32 arg1)
 {
@@ -1012,27 +1013,33 @@ ITEM_IDS sub_GAME_7F05D334(ITEM_IDS item, s32 arg1)
 
 ITEM_IDS get_next_weapon_in_cycle_for_hand(GUNHAND hand, s32 direction)
 {
-	if (g_CurrentPlayer->hands[hand].when_detonating_mines_is_0 == 5) {
+	if (g_CurrentPlayer->hands[hand].weapon_action_state == GUN_ANIM_STATE_SWITCH_LOWER) 
+    {
 		if (
 			(direction < 0 && (g_CurrentPlayer->hands[hand].field_8B8 > 0)) ||
-			(direction > 0 && (g_CurrentPlayer->hands[hand].field_8B8 < 0)) ) {
+			(direction > 0 && (g_CurrentPlayer->hands[hand].field_8B8 < 0)) ) 
+        {
 			return getCurrentPlayerWeaponId(hand);
 		}
-		else {
+		else 
+        {
 			return g_CurrentPlayer->hands[hand].weapon_next_weapon;
 		}
 
     }
-    if (g_CurrentPlayer->hands[hand].when_detonating_mines_is_0 == 6) {
+    
+    if (g_CurrentPlayer->hands[hand].weapon_action_state == GUN_ANIM_STATE_SWITCH_SWAP) 
+    {
         return g_CurrentPlayer->hands[hand].weapon_next_weapon;
     }
+
     return getCurrentPlayerWeaponId(hand);
 }
 
 
-void likely_change_weapon_in_hand(enum GUNHAND hand, s32 arg1, s32 arg2)
+void gunRequestHandWeaponChange(enum GUNHAND hand, s32 nextWeapon, s32 cycleDirection)
 {
-    if ((g_CurrentPlayer->hands[hand].when_detonating_mines_is_0 == 5) || (g_CurrentPlayer->hands[hand].when_detonating_mines_is_0 == 6))
+    if ((g_CurrentPlayer->hands[hand].weapon_action_state == GUN_ANIM_STATE_SWITCH_LOWER) || (g_CurrentPlayer->hands[hand].weapon_action_state == GUN_ANIM_STATE_SWITCH_SWAP))
     {
         g_CurrentPlayer->hands[hand].field_8B0 = g_CurrentPlayer->hands[hand].field_890;
 
@@ -1049,18 +1056,18 @@ void likely_change_weapon_in_hand(enum GUNHAND hand, s32 arg1, s32 arg2)
             g_CurrentPlayer->hands[hand].field_8B0 += 0xD;
         }
 #endif
-
     }
 
-    if (get_next_weapon_in_cycle_for_hand(hand, 0) != arg1)
+    if (get_next_weapon_in_cycle_for_hand(hand, 0) != nextWeapon)
     {
-        if ((g_CurrentPlayer->hands[hand].when_detonating_mines_is_0 != 5) && (g_CurrentPlayer->hands[hand].when_detonating_mines_is_0 != 6))
+        if ((g_CurrentPlayer->hands[hand].weapon_action_state != GUN_ANIM_STATE_SWITCH_LOWER) && (g_CurrentPlayer->hands[hand].weapon_action_state != GUN_ANIM_STATE_SWITCH_SWAP))
         {
             g_CurrentPlayer->hands[hand].weapon_current_animation = 5;
         }
-        g_CurrentPlayer->hands[hand].weapon_next_weapon = arg1;
+
+        g_CurrentPlayer->hands[hand].weapon_next_weapon = nextWeapon;
         g_CurrentPlayer->hands[hand].weapon_animation_trigger = 1;
-        g_CurrentPlayer->hands[hand].field_8B8 = arg2;
+        g_CurrentPlayer->hands[hand].field_8B8 = cycleDirection;
     }
 }
 
@@ -1068,14 +1075,14 @@ void likely_change_weapon_in_hand(enum GUNHAND hand, s32 arg1, s32 arg2)
 // Unused
 void sub_GAME_7F05D610(GUNHAND hand)
 {
-    likely_change_weapon_in_hand(hand, sub_GAME_7F05D334(get_next_weapon_in_cycle_for_hand(hand, 0), 1), 0);
+    gunRequestHandWeaponChange(hand, sub_GAME_7F05D334(get_next_weapon_in_cycle_for_hand(hand, 0), 1), 0);
 }
 
 
 // Unused
 void sub_GAME_7F05D650(GUNHAND hand)
 {
-    likely_change_weapon_in_hand(hand, sub_GAME_7F05D334(get_next_weapon_in_cycle_for_hand(hand, 0), -1), 0);
+    gunRequestHandWeaponChange(hand, sub_GAME_7F05D334(get_next_weapon_in_cycle_for_hand(hand, 0), -1), 0);
 }
 
 
@@ -1104,8 +1111,8 @@ void advance_through_inventory(void)
         bondinvCycleForward(&nextright, &nextleft, FALSE);
     }
 
-    likely_change_weapon_in_hand(GUNRIGHT, nextright, 1);
-    likely_change_weapon_in_hand(GUNLEFT, nextleft, 1);
+    gunRequestHandWeaponChange(GUNRIGHT, nextright, 1);
+    gunRequestHandWeaponChange(GUNLEFT, nextleft, 1);
 }
 
 
@@ -1127,8 +1134,8 @@ void backstep_through_inventory(void)
         bondinvCycleBackward(&nextright, &nextleft, FALSE);
     }
 
-    likely_change_weapon_in_hand(GUNRIGHT, nextright, -1);
-    likely_change_weapon_in_hand(GUNLEFT, nextleft, -1);
+    gunRequestHandWeaponChange(GUNRIGHT, nextright, -1);
+    gunRequestHandWeaponChange(GUNLEFT, nextleft, -1);
 }
 
 void autoadvance_on_deplete_all_ammo(void)
@@ -1166,8 +1173,8 @@ void autoadvance_on_deplete_all_ammo(void)
         }
     }
 
-    likely_change_weapon_in_hand(GUNRIGHT, duperight, 1);
-    likely_change_weapon_in_hand(GUNLEFT, dupeleft, 1);
+    gunRequestHandWeaponChange(GUNRIGHT, duperight, 1);
+    gunRequestHandWeaponChange(GUNLEFT, dupeleft, 1);
 }
 
 s32 currentPlayerEquipWeaponWrapper(GUNHAND hand, s32 next_weapon) {
@@ -12127,7 +12134,7 @@ void sub_GAME_7F0649D8(enum GUNHAND hand)
 }
 
 #if defined(VERSION_US) || defined(VERSION_JP)
-    #define F_7F05C6FC_ARG1(x) ((f32)(x))
+    #define WEAPON_1P_ANIM_TIME(x) ((f32)(x))
     #define WHEN_1_CASE_GRENADELAUNCH_FLD890 6
     #define WHEN_1_CASE_GRENADE_FLD890 0xf0
     #define WHEN_D_FLD890 0x14
@@ -12147,7 +12154,7 @@ void sub_GAME_7F0649D8(enum GUNHAND hand)
     #define WHEN_1E_FLD890 0x1e
 #endif
 #if defined(VERSION_EU)
-    #define F_7F05C6FC_ARG1(x) ((f32)(x)) * 60.0f / 50.0f
+    #define WEAPON_1P_ANIM_TIME(x) ((f32)(x)) * 60.0f / 50.0f
     #define WHEN_1_CASE_GRENADELAUNCH_FLD890 5
     #define WHEN_1_CASE_GRENADE_FLD890 0xc8
     #define WHEN_D_FLD890 0x10
@@ -12167,8 +12174,11 @@ void sub_GAME_7F0649D8(enum GUNHAND hand)
     #define WHEN_1E_FLD890 0x19
 #endif
 
-// 0x7f064b28 NTSC
-void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s32 arg1)
+
+/**
+ * Address: 7F064B28
+ */
+void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
 {
 #if defined(VERSION_US)
     s32 stack1;
@@ -12201,7 +12211,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
     s32 stack12;
     Mtxf spE4;
     f32 tempf;
-    struct hand *temp_s0;
+    struct hand *handptr;
     Mtxf sp9C;
     f32 sp98;
     f32 sp94;
@@ -12260,7 +12270,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
     Mtxf sp9C;
     f32 sp98;
     f32 sp94;
-    struct hand *temp_s0;
+    struct hand *handptr;
     f32 sp8C;
     f32 sp88;
     enum ITEM_IDS temp_v0_3;
@@ -12315,7 +12325,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
     Mtxf sp9C;
     f32 sp98;
     f32 sp94;
-    struct hand *temp_s0;
+    struct hand *handptr;
     f32 sp8C;
     f32 sp88;
     enum ITEM_IDS temp_v0_3;
@@ -12333,65 +12343,65 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
     s32 stack15;
 #endif
 
-    temp_s0 = &g_CurrentPlayer->hands[arg0];
-    var_s1 = get_item_in_hand_or_watch_menu(arg0);
+    handptr = &g_CurrentPlayer->hands[hand];
+    var_s1 = get_item_in_hand_or_watch_menu(hand);
     sp1C4 = get_ammo_type_for_weapon(var_s1);
 
-    temp_s0->field_884 = temp_s0->weapon_hold_time;
-    temp_s0->weapon_hold_time = arg1;
+    handptr->field_884 = handptr->weapon_hold_time;
+    handptr->weapon_hold_time = triggerOn;
 
-    if (arg1 == 0)
+    if (triggerOn == 0)
     {
-        temp_s0->field_888 = 1;
+        handptr->field_888 = 1;
     }
 
-    temp_s0->weapon_firing_status = 0;
-    temp_s0->field_87D = 0;
+    handptr->weapon_firing_status = 0;
+    handptr->field_87D = 0;
 
     if (g_ClockTimer > 0)
     {
-        temp_s0->field_890 += g_ClockTimer;
-        temp_s0->field_88C += 1;
+        handptr->field_890 += g_ClockTimer;
+        handptr->field_88C += 1;
     }
 
-    temp_s0->field_92C = 0;
+    handptr->field_92C = 0;
 
-    if (temp_s0->when_detonating_mines_is_0 == 0)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_IDLE)
     {
 #if defined(VERSION_JP) || defined(VERSION_EU)
-        if ((var_s1 == ITEM_LASER) && (temp_s0->field_888 != 0))
+        if ((var_s1 == ITEM_LASER) && (handptr->field_888 != 0))
         {
-            temp_s0->field_8A0 = 0;
+            handptr->field_8A0 = 0;
         }
 #endif
         if (
-            (temp_s0->weapon_hold_time != 0)
+            (handptr->weapon_hold_time != 0)
             && (var_s1 != ITEM_UNARMED)
-            && (((bondwalkItemCheckBitflags(var_s1, WEAPONSTATBITFLAG_CLICKY) != 0)) || (temp_s0->weapon_ammo_in_magazine > 0))
+            && (((bondwalkItemCheckBitflags(var_s1, WEAPONSTATBITFLAG_CLICKY) != 0)) || (handptr->weapon_ammo_in_magazine > 0))
 #if defined(VERSION_JP) || defined(VERSION_EU)
-            && ((var_s1 != ITEM_LASER) || (temp_s0->field_8A0 < 0xC8))
+            && ((var_s1 != ITEM_LASER) || (handptr->field_8A0 < 0xC8))
 #endif
         )
         {
-            temp_s0->when_detonating_mines_is_0 = 1;
-            temp_s0->field_890 = 0;
-            temp_s0->field_88C = 0;
-            temp_s0->field_888 = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_TRIGGER_PRESS;
+            handptr->field_890 = 0;
+            handptr->field_88C = 0;
+            handptr->field_888 = 0;
         }
         else
         {
-            if (temp_s0->weapon_current_animation != 0)
+            if (handptr->weapon_current_animation != 0)
             {
-                temp_s0->when_detonating_mines_is_0 = temp_s0->weapon_current_animation;
-                temp_s0->field_890 = 0;
-                temp_s0->field_88C = 0;
+                handptr->weapon_action_state = handptr->weapon_current_animation;
+                handptr->field_890 = 0;
+                handptr->field_88C = 0;
             }
         }
 
-        temp_s0->weapon_current_animation = 0;
+        handptr->weapon_current_animation = 0;
 
-        if ((temp_s0->when_detonating_mines_is_0 == 0)
-            && (temp_s0->weapon_ammo_in_magazine == 0)
+        if ((handptr->weapon_action_state == GUN_ANIM_STATE_IDLE)
+            && (handptr->weapon_ammo_in_magazine == 0)
             && (sp1C4 != 0))
         {
             if ((lvlGetControlsLockedFlag() == 0) && (g_CurrentPlayer->mpmenuon == 0))
@@ -12404,38 +12414,38 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
                     g_CurrentPlayer->ammoheldarr[sp1C4] = 1;
                 }
 
-                if (get_ammo_in_hands_weapon(arg0) > 0)
+                if (get_ammo_in_hands_weapon(hand) > 0)
                 {
-                    temp_s0->when_detonating_mines_is_0 = 9;
-                    temp_s0->field_890 = 0;
-                    temp_s0->field_88C = 0;
+                    handptr->weapon_action_state = GUN_ANIM_STATE_RELOAD_START;
+                    handptr->field_890 = 0;
+                    handptr->field_88C = 0;
                 }
                 else
                 {
                     if (g_CurrentPlayer->trigger_released != 0)
                     {
-                        temp_v0_3 = get_item_in_hand_or_watch_menu(1 - arg0);
+                        temp_v0_3 = get_item_in_hand_or_watch_menu(1 - hand);
 
-                        sp1BC = (g_CurrentPlayer->hands - arg0) + 1;
+                        sp1BC = (g_CurrentPlayer->hands - hand) + 1;
 
-                        if ((sp1BC->when_detonating_mines_is_0 == 0)
+                        if ((sp1BC->weapon_action_state == GUN_ANIM_STATE_IDLE)
                             && (sp1BC->weapon_current_animation == 0)
                             && (
                                 (temp_v0_3 == ITEM_UNARMED)
                                 || ((sp1BC->weapon_ammo_in_magazine == 0)
                                     && ((get_ammo_type_for_weapon(temp_v0_3) != 0))
-                                    && ((get_ammo_in_hands_weapon(1 - arg0) <= 0)))))
+                                    && ((get_ammo_in_hands_weapon(1 - hand) <= 0)))))
                         {
                             autoadvance_on_deplete_all_ammo();
 
-                            temp_s0->field_88C = 0;
-                            temp_s0->field_890 = 0;
-                            temp_s0->when_detonating_mines_is_0 = temp_s0->weapon_current_animation;
-                            temp_s0->weapon_current_animation = 0;
+                            handptr->field_88C = 0;
+                            handptr->field_890 = 0;
+                            handptr->weapon_action_state = handptr->weapon_current_animation;
+                            handptr->weapon_current_animation = 0;
 
                             sp1BC->field_88C = 0;
                             sp1BC->field_890 = 0;
-                            sp1BC->when_detonating_mines_is_0 = sp1BC->weapon_current_animation;
+                            sp1BC->weapon_action_state = sp1BC->weapon_current_animation;
                             sp1BC->weapon_current_animation = 0;
                         }
                     }
@@ -12444,30 +12454,30 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 1)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_TRIGGER_PRESS)
     {
         switch (var_s1)
         {
         case ITEM_RUGER:
         case ITEM_GRENADELAUNCH:
-            if (temp_s0->field_890 >= WHEN_1_CASE_GRENADELAUNCH_FLD890)
+            if (handptr->field_890 >= WHEN_1_CASE_GRENADELAUNCH_FLD890)
             {
-                temp_s0->when_detonating_mines_is_0 = 2;
-                temp_s0->field_890 = 0;
-                temp_s0->field_88C = 0;
+                handptr->weapon_action_state = GUN_ANIM_STATE_FIRE;
+                handptr->field_890 = 0;
+                handptr->field_88C = 0;
             }
             break;
         case ITEM_CAMERA:
-            if (temp_s0->field_88C == 0)
+            if (handptr->field_88C == 0)
             {
                 currentPlayerSetFadeColour(0, 0, 0, 1.0f);
             }
-            else if (temp_s0->field_890 > 0)
+            else if (handptr->field_890 > 0)
             {
                 currentPlayerAdjustFade(8.0f, 0, 0, 0, 0.0f);
-                temp_s0->when_detonating_mines_is_0 = 2;
-                temp_s0->field_890 = 0;
-                temp_s0->field_88C = 0;
+                handptr->weapon_action_state = GUN_ANIM_STATE_FIRE;
+                handptr->field_890 = 0;
+                handptr->field_88C = 0;
             }
             break;
         case ITEM_WPPK:
@@ -12495,9 +12505,9 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
         case ITEM_FLAREPISTOL:
         case ITEM_PITONGUN:
         case ITEM_WATCHMAGNETATTRACT:
-            temp_s0->when_detonating_mines_is_0 = 2;
-            temp_s0->field_890 = 0;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_FIRE;
+            handptr->field_890 = 0;
+            handptr->field_88C = 0;
             break;
         case ITEM_TIMEDMINE:
         case ITEM_PROXIMITYMINE:
@@ -12507,59 +12517,59 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
         case ITEM_BUG:
         case ITEM_MICROCAMERA:
         case ITEM_GOLDENEYEKEY:
-            temp_s0->when_detonating_mines_is_0 = 0x1C;
-            temp_s0->field_890 = 0;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_MINE_PLACE;
+            handptr->field_890 = 0;
+            handptr->field_88C = 0;
             break;
         case ITEM_KNIFE:
             if (!(randomGetNext() & 1))
             {
-                temp_s0->when_detonating_mines_is_0 = 0x11;
+                handptr->weapon_action_state = GUN_ANIM_STATE_KNIFE_SLASH1_BEGIN;
             }
             else
             {
-                temp_s0->when_detonating_mines_is_0 = 0x14;
+                handptr->weapon_action_state = GUN_ANIM_STATE_KNIFE_SLASH2_BEGIN;
             }
-            temp_s0->field_890 = 0;
-            temp_s0->field_88C = 0;
+            handptr->field_890 = 0;
+            handptr->field_88C = 0;
             break;
         case ITEM_GRENADE:
-            if ((temp_s0->field_888 != 0) || (temp_s0->field_890 >= WHEN_1_CASE_GRENADE_FLD890))
+            if ((handptr->field_888 != 0) || (handptr->field_890 >= WHEN_1_CASE_GRENADE_FLD890))
             {
-                g_CurrentPlayer->last_z_trigger_timer = temp_s0->field_890;
-                temp_s0->when_detonating_mines_is_0 = 0x1A;
-                temp_s0->field_88C = 0;
-                temp_s0->field_890 = 0;
+                g_CurrentPlayer->last_z_trigger_timer = handptr->field_890;
+                handptr->weapon_action_state = GUN_ANIM_STATE_GRENADE_THROW;
+                handptr->field_88C = 0;
+                handptr->field_890 = 0;
             }
             break;
         case ITEM_FIST:
             if (!(randomGetNext() & 1))
             {
-                temp_s0->when_detonating_mines_is_0 = 0x1E;
+                handptr->weapon_action_state = GUN_ANIM_STATE_PUNCH1_STRIKE;
             }
             else
             {
-                temp_s0->when_detonating_mines_is_0 = 0x20;
+                handptr->weapon_action_state = GUN_ANIM_STATE_PUNCH2_STRIKE;
             }
-            temp_s0->field_890 = 0;
-            temp_s0->field_88C = 0;
+            handptr->field_890 = 0;
+            handptr->field_88C = 0;
             break;
         case ITEM_THROWKNIFE:
-            temp_s0->when_detonating_mines_is_0 = 0x17;
-            temp_s0->field_890 = 0;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_THROWKNIFE_DRAW;
+            handptr->field_890 = 0;
+            handptr->field_88C = 0;
             break;
         case ITEM_TASER:
-            tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-            if (gunSample1PTransform(taserFireKeyFrames, tempf, &temp_s0->field_8EC, arg0) != 0)
+            tempf = WEAPON_1P_ANIM_TIME(handptr->field_890);
+            if (gunSample1PTransform(taserFireKeyFrames, tempf, &handptr->field_8EC, hand) != 0)
             {
-                temp_s0->field_92C = 1;
+                handptr->field_92C = 1;
             }
             else
             {
-                temp_s0->when_detonating_mines_is_0 = 2;
-                temp_s0->field_890 = 0;
-                temp_s0->field_88C = 0;
+                handptr->weapon_action_state = GUN_ANIM_STATE_FIRE;
+                handptr->field_890 = 0;
+                handptr->field_88C = 0;
             }
             break;
         case ITEM_BUNGEE:
@@ -12585,9 +12595,9 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
         case ITEM_KEYCARD:
         case ITEM_KEYYALE:
         case ITEM_KEYBOLT:
-            temp_s0->when_detonating_mines_is_0 = 0x24;
-            temp_s0->field_890 = 0;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_USE_ITEM;
+            handptr->field_890 = 0;
+            handptr->field_88C = 0;
             break;
         case ITEM_SUIT_LF_HAND:
         case ITEM_JOYPAD:
@@ -12595,32 +12605,32 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
         case ITEM_GRENADEROUND:
         case ITEM_TOKEN:
         default:
-            temp_s0->when_detonating_mines_is_0 = 0;
-            temp_s0->field_890 = 0;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+            handptr->field_890 = 0;
+            handptr->field_88C = 0;
             break;
         }
 
-        temp_s0->volley = 0;
+        handptr->volley = 0;
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 2)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_FIRE)
     {
-        if ((get_ammo_type_for_weapon(var_s1) == 0) || (temp_s0->weapon_ammo_in_magazine > 0))
+        if ((get_ammo_type_for_weapon(var_s1) == 0) || (handptr->weapon_ammo_in_magazine > 0))
         {
             switch (var_s1)
             {
             case ITEM_CAMERA:
             case ITEM_WATCHMAGNETATTRACT:
-                if (temp_s0->field_88C == 0)
+                if (handptr->field_88C == 0)
                 {
-                    temp_s0->weapon_firing_status = (lvlGetControlsLockedFlag() == 0) && (g_CurrentPlayer->mpmenuon == 0);
+                    handptr->weapon_firing_status = (lvlGetControlsLockedFlag() == 0) && (g_CurrentPlayer->mpmenuon == 0);
                 }
                 else
                 {
-                    temp_s0->when_detonating_mines_is_0 = 3;
-                    temp_s0->field_890 = 0;
-                    temp_s0->field_88C = 0;
+                    handptr->weapon_action_state = GUN_ANIM_STATE_RECOIL1;
+                    handptr->field_890 = 0;
+                    handptr->field_88C = 0;
                 }
                 break;
             case ITEM_WPPK:
@@ -12641,22 +12651,22 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
             case ITEM_TANKSHELLS:
             case ITEM_FLAREPISTOL:
             case ITEM_PITONGUN:
-                if (temp_s0->field_88C == 0)
+                if (handptr->field_88C == 0)
                 {
                     if ((getPlayerCount() == 1) || ((checkGamePaused() == 0) && (g_CurrentPlayer->mpmenuon == 0)))
                     {
-                        temp_s0->field_87D = 1;
+                        handptr->field_87D = 1;
                     }
 
-                    temp_s0->weapon_firing_status = (lvlGetControlsLockedFlag() == 0) && (g_CurrentPlayer->mpmenuon == 0);
+                    handptr->weapon_firing_status = (lvlGetControlsLockedFlag() == 0) && (g_CurrentPlayer->mpmenuon == 0);
 
-                    sub_GAME_7F05E808(arg0);
+                    sub_GAME_7F05E808(hand);
                 }
                 else
                 {
-                    temp_s0->when_detonating_mines_is_0 = 3;
-                    temp_s0->field_890 = 0;
-                    temp_s0->field_88C = 0;
+                    handptr->weapon_action_state = GUN_ANIM_STATE_RECOIL1;
+                    handptr->field_890 = 0;
+                    handptr->field_88C = 0;
                 }
                 break;
             case ITEM_SKORPION:
@@ -12667,68 +12677,68 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
             case ITEM_SPECTRE:
             case ITEM_M16:
             case ITEM_FNP90:
-                if ((temp_s0->field_88C == 0)
-                    || (temp_s0->weapon_hold_time != 0)
+                if ((handptr->field_88C == 0)
+                    || (handptr->weapon_hold_time != 0)
                     || ((bondwalkItemCheckBitflags(var_s1, WEAPONSTATBITFLAG_BURST_FIRE) != 0)
                         && (currentPlayerGetIsAiming() == 0)
-                        && (((s32) temp_s0->volley % 3) != 0)))
+                        && (((s32) handptr->volley % 3) != 0)))
                 {
-                    if (((s32) temp_s0->field_88C % bondwalkItemGetAutomaticFiringRate(var_s1)) == 0)
+                    if (((s32) handptr->field_88C % bondwalkItemGetAutomaticFiringRate(var_s1)) == 0)
                     {
                         if ((getPlayerCount() == 1) || ((checkGamePaused() == 0) && (g_CurrentPlayer->mpmenuon == 0)))
                         {
-                            temp_s0->field_87D = 1;
+                            handptr->field_87D = 1;
                         }
 
-                        temp_s0->weapon_firing_status = (lvlGetControlsLockedFlag() == 0)
+                        handptr->weapon_firing_status = (lvlGetControlsLockedFlag() == 0)
                             && (g_CurrentPlayer->mpmenuon == 0);
                     }
                 }
                 else
                 {
-                    temp_s0->when_detonating_mines_is_0 = 3;
-                    temp_s0->field_890 = 0;
-                    temp_s0->field_88C = 0;
+                    handptr->weapon_action_state = GUN_ANIM_STATE_RECOIL1;
+                    handptr->field_890 = 0;
+                    handptr->field_88C = 0;
                 }
                 break;
             case ITEM_KNIFE:
-                if ((temp_s0->field_88C == 0) || (temp_s0->weapon_hold_time != 0))
+                if ((handptr->field_88C == 0) || (handptr->weapon_hold_time != 0))
                 {
-                    temp_s0->weapon_firing_status = 0;
-                    temp_s0->field_87D = temp_s0->weapon_firing_status;
+                    handptr->weapon_firing_status = 0;
+                    handptr->field_87D = handptr->weapon_firing_status;
                 }
                 else
                 {
-                    temp_s0->when_detonating_mines_is_0 = 3;
-                    temp_s0->field_890 = 0;
-                    temp_s0->field_88C = 0;
+                    handptr->weapon_action_state = GUN_ANIM_STATE_RECOIL1;
+                    handptr->field_890 = 0;
+                    handptr->field_88C = 0;
                 }
                 break;
             case ITEM_TASER:
-                if ((temp_s0->field_88C == 0) || (temp_s0->weapon_hold_time != 0))
+                if ((handptr->field_88C == 0) || (handptr->weapon_hold_time != 0))
                 {
-                    gunSample1PTransform(taserRaiseKeyframes, 0.0f, &temp_s0->field_8EC, arg0);
+                    gunSample1PTransform(taserRaiseKeyframes, 0.0f, &handptr->field_8EC, hand);
 
-                    temp_s0->weapon_firing_status = 0;
-                    temp_s0->field_92C = 1;
-                    temp_s0->field_87D = temp_s0->weapon_firing_status;
+                    handptr->weapon_firing_status = 0;
+                    handptr->field_92C = 1;
+                    handptr->field_87D = handptr->weapon_firing_status;
 
-                    if (temp_s0->field_88C == 0)
+                    if (handptr->field_88C == 0)
                     {
-                        temp_s0->weapon_firing_status = (lvlGetControlsLockedFlag() == 0)
+                        handptr->weapon_firing_status = (lvlGetControlsLockedFlag() == 0)
                             && (g_CurrentPlayer->mpmenuon == 0);
                     }
                 }
                 else
                 {
-                    temp_s0->when_detonating_mines_is_0 = 3;
-                    temp_s0->field_890 = 0;
-                    temp_s0->field_88C = 0;
+                    handptr->weapon_action_state = GUN_ANIM_STATE_RECOIL1;
+                    handptr->field_890 = 0;
+                    handptr->field_88C = 0;
                 }
                 break;
             }
 
-            if (temp_s0->weapon_firing_status != 0)
+            if (handptr->weapon_firing_status != 0)
             {
                 if (var_s1 != ITEM_CAMERA)
                 {
@@ -12740,24 +12750,24 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
                     }
                 }
 
-                temp_s0->weapon_ammo_in_magazine -= 1;
-                temp_s0->volley += 1;
+                handptr->weapon_ammo_in_magazine -= 1;
+                handptr->volley += 1;
             }
 
-            if (temp_s0->when_detonating_mines_is_0 == 2)
+            if (handptr->weapon_action_state == GUN_ANIM_STATE_FIRE)
             {
                 sp1B4 = 0;
 
                 if (bondwalkItemGetSoundTriggerRate(var_s1) > 0)
                 {
-                    if ((g_CurrentPlayer->hands[1 - arg0].field_A50 != g_GlobalTimer)
-                        && (temp_s0->field_A4C < g_GlobalTimer))
+                    if ((g_CurrentPlayer->hands[1 - hand].field_A50 != g_GlobalTimer)
+                        && (handptr->field_A4C < g_GlobalTimer))
                     {
-                        temp_s0->field_A4C = bondwalkItemGetSoundTriggerRate(var_s1) + g_GlobalTimer;
+                        handptr->field_A4C = bondwalkItemGetSoundTriggerRate(var_s1) + g_GlobalTimer;
                         sp1B4 = 1;
                     }
                 }
-                else if (temp_s0->weapon_firing_status != 0)
+                else if (handptr->weapon_firing_status != 0)
                 {
                     sp1B4 = 1;
                 }
@@ -12766,29 +12776,29 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
                 {
                     if (sp1B4 != 0)
                     {
-                        if ((temp_s0->audioHandle != NULL) && (sndGetPlayingState(temp_s0->audioHandle) != 0))
+                        if ((handptr->audioHandle != NULL) && (sndGetPlayingState(handptr->audioHandle) != 0))
                         {
-                            sndDeactivate(temp_s0->audioHandle);
+                            sndDeactivate(handptr->audioHandle);
                         }
 
-                        if (((struct ALSoundState *)temp_s0->field_A48 != 0)
-                            && (sndGetPlayingState((struct ALSoundState *) temp_s0->field_A48) != 0))
+                        if (((struct ALSoundState *)handptr->field_A48 != 0)
+                            && (sndGetPlayingState((struct ALSoundState *) handptr->field_A48) != 0))
                         {
-                            sndDeactivate((struct ALSoundState *) temp_s0->field_A48);
+                            sndDeactivate((struct ALSoundState *) handptr->field_A48);
                         }
 
                         if (bondwalkItemGetSound(var_s1) != 0)
                         {
-                            if (temp_s0->audioHandle == NULL)
+                            if (handptr->audioHandle == NULL)
                             {
-                                sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, bondwalkItemGetSound(var_s1), (struct ALSoundState *) &temp_s0->audioHandle);
+                                sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, bondwalkItemGetSound(var_s1), (struct ALSoundState *) &handptr->audioHandle);
                             }
-                            else if ((struct ALSoundState *)temp_s0->field_A48 == 0)
+                            else if ((struct ALSoundState *)handptr->field_A48 == 0)
                             {
-                                sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, bondwalkItemGetSound(var_s1), (struct ALSoundState *) &temp_s0->field_A48);
+                                sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, bondwalkItemGetSound(var_s1), (struct ALSoundState *) &handptr->field_A48);
                             }
 
-                            temp_s0->field_A50 = g_GlobalTimer;
+                            handptr->field_A50 = g_GlobalTimer;
                         }
                     }
 
@@ -12800,17 +12810,17 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
                 }
             }
         }
-        else if (temp_s0->field_88C > 0)
+        else if (handptr->field_88C > 0)
         {
-            temp_s0->when_detonating_mines_is_0 = 3;
-            temp_s0->field_890 = 0;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_RECOIL1;
+            handptr->field_890 = 0;
+            handptr->field_88C = 0;
         }
         else
         {
-            temp_s0->when_detonating_mines_is_0 = 0xD;
-            temp_s0->field_890 = 0;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_DRY_FIRE;
+            handptr->field_890 = 0;
+            handptr->field_88C = 0;
 
             if ((getPlayerCount() == 1)
 #if defined(VERSION_JP) || defined(VERSION_EU)
@@ -12825,20 +12835,20 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 3)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_RECOIL1)
     {
         if (var_s1 == ITEM_TASER)
         {
-            tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-            if (gunSample1PTransform(taserRaiseKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
+            tempf = WEAPON_1P_ANIM_TIME(handptr->field_890);
+            if (gunSample1PTransform(taserRaiseKeyframes, tempf, &handptr->field_8EC, hand) != 0)
             {
-                temp_s0->field_92C = 1;
+                handptr->field_92C = 1;
             }
             else
             {
-                temp_s0->when_detonating_mines_is_0 = 0;
-                temp_s0->field_890 = 0.0f;
-                temp_s0->field_88C = 0;
+                handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+                handptr->field_890 = 0.0f;
+                handptr->field_88C = 0;
             }
         }
         else
@@ -12865,35 +12875,35 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
 #endif
 
             if ((
-                    (temp_s0->field_888 != 0)
-                    && (temp_s0->field_890 >= (sp1A4 + sp1A0))
+                    (handptr->field_888 != 0)
+                    && (handptr->field_890 >= (sp1A4 + sp1A0))
                 )
                 ||
                 (
                     ((weapon_stats->SingleFiringRate >= 0))
-                    && (temp_s0->field_888 == 0)
+                    && (handptr->field_888 == 0)
 #if defined(VERSION_US)
-                    && (temp_s0->field_890 >= (sp1A4 + sp1A0 + weapon_stats->SingleFiringRate))
+                    && (handptr->field_890 >= (sp1A4 + sp1A0 + weapon_stats->SingleFiringRate))
 #endif
 #if defined(VERSION_JP) ||  defined(VERSION_EU)
-                    && (temp_s0->field_890 >= (sp1A4 + sp1A0 + stat_4))
+                    && (handptr->field_890 >= (sp1A4 + sp1A0 + stat_4))
 #endif
                 )
                )
             {
-                temp_s0->when_detonating_mines_is_0 = 0;
-                temp_s0->field_890 = 0.0f;
-                temp_s0->field_88C = 0;
+                handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+                handptr->field_890 = 0.0f;
+                handptr->field_88C = 0;
             }
             else if (
-                (temp_s0->field_888 != 0)
-                && (temp_s0->weapon_hold_time != 0)
+                (handptr->field_888 != 0)
+                && (handptr->weapon_hold_time != 0)
 
 #if defined(VERSION_US)
-                && (temp_s0->field_890 >= weapon_stats->b44[2])
+                && (handptr->field_890 >= weapon_stats->b44[2])
 #endif
 #if defined(VERSION_JP) ||  defined(VERSION_EU)
-                && (temp_s0->field_890 >= stat_2)
+                && (handptr->field_890 >= stat_2)
 #endif
 
                 && (weapon_stats->b44[3] >= 0)
@@ -12901,158 +12911,158 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
 #if defined(VERSION_US)
                 // HACK: registers are swapped
                 // addu a1, v1, a0
-                && (temp_s0->field_890 + weapon_stats->b44[3] < (0,sp1A4) + sp1A0)
-                && (temp_s0->field_890 + weapon_stats->b44[3] >= (s32)weapon_stats->b44[2])
+                && (handptr->field_890 + weapon_stats->b44[3] < (0,sp1A4) + sp1A0)
+                && (handptr->field_890 + weapon_stats->b44[3] >= (s32)weapon_stats->b44[2])
 #endif
 #if defined(VERSION_JP) ||  defined(VERSION_EU)
-                && (temp_s0->field_890 + stat_3 < sp1A4 + sp1A0)
-                && (temp_s0->field_890 + stat_3 >= (s32)stat_2)
+                && (handptr->field_890 + stat_3 < sp1A4 + sp1A0)
+                && (handptr->field_890 + stat_3 >= (s32)stat_2)
 #endif
             )
             {
-                temp_s0->when_detonating_mines_is_0 = 4;
-                temp_s0->field_890 = 0;
-                temp_s0->field_88C = 0;
+                handptr->weapon_action_state = GUN_ANIM_STATE_RECOIL2;
+                handptr->field_890 = 0;
+                handptr->field_88C = 0;
 #if defined(VERSION_US)
-                temp_s0->field_8A8 = weapon_stats->b44[3];
+                handptr->field_8A8 = weapon_stats->b44[3];
 #endif
 #if defined(VERSION_JP) ||  defined(VERSION_EU)
-                temp_s0->field_8A8 = stat_3;
+                handptr->field_8A8 = stat_3;
 #endif
             }
-            else if (temp_s0->field_890 < sp1A4 + sp1A0)
+            else if (handptr->field_890 < sp1A4 + sp1A0)
             {
                 sp198 = weapon_stats->RecoilBack;
                 sp19C = weapon_stats->RecoilUp;
 
-                if (temp_s0->field_890 == 0)
+                if (handptr->field_890 == 0)
                 {
-                    temp_s0->field_8C8 = temp_s0->field_8E8;
-                    temp_s0->field_8BC = temp_s0->field_8DC;
-                    temp_s0->field_8C0 = temp_s0->field_8E0;
-                    temp_s0->field_8C4 = temp_s0->field_8E4;
+                    handptr->field_8C8 = handptr->field_8E8;
+                    handptr->field_8BC = handptr->field_8DC;
+                    handptr->field_8C0 = handptr->field_8E0;
+                    handptr->field_8C4 = handptr->field_8E4;
                 }
 
-                if (temp_s0->field_890 < sp1A4)
+                if (handptr->field_890 < sp1A4)
                 {
-                    temp_s0->field_8D8 = M_TAU_F - ((sp19C * M_TAU_F) / 360.0f);
+                    handptr->field_8D8 = M_TAU_F - ((sp19C * M_TAU_F) / 360.0f);
 
-                    temp_s0->field_8CC = ((gunSetHorizontalOffset(arg0) - temp_s0->field_A38) * sp198) / 1000.0f;
-                    temp_s0->field_8D0 = 0;
-                    temp_s0->field_8D4 = ((weapon_stats->PosZ - temp_s0->field_A40) * sp198) / 1000.0f;
+                    handptr->field_8CC = ((gunSetHorizontalOffset(hand) - handptr->field_A38) * sp198) / 1000.0f;
+                    handptr->field_8D0 = 0;
+                    handptr->field_8D4 = ((weapon_stats->PosZ - handptr->field_A40) * sp198) / 1000.0f;
 
-                    sp190 = sinf(((f32) temp_s0->field_890 * M_PI_2F) / (f32) sp1A4);
+                    sp190 = sinf(((f32) handptr->field_890 * M_PI_2F) / (f32) sp1A4);
                 }
                 else
                 {
-                    temp_s0->field_8D8 = M_TAU_F - ((sp19C * M_TAU_F) / 360.0f);
+                    handptr->field_8D8 = M_TAU_F - ((sp19C * M_TAU_F) / 360.0f);
 
-                    temp_s0->field_8CC = ((gunSetHorizontalOffset(arg0) - temp_s0->field_A38) * sp198) / 1000.0f;
-                    temp_s0->field_8D0 = 0;
-                    temp_s0->field_8D4 = ((weapon_stats->PosZ - temp_s0->field_A40) * sp198) / 1000.0f;
+                    handptr->field_8CC = ((gunSetHorizontalOffset(hand) - handptr->field_A38) * sp198) / 1000.0f;
+                    handptr->field_8D0 = 0;
+                    handptr->field_8D4 = ((weapon_stats->PosZ - handptr->field_A40) * sp198) / 1000.0f;
 
-                    sp190 = (cosf(((f32) (temp_s0->field_890 - sp1A4) * M_PI_F) / (f32) sp1A0) * 0.5f) + 0.5f;
+                    sp190 = (cosf(((f32) (handptr->field_890 - sp1A4) * M_PI_F) / (f32) sp1A0) * 0.5f) + 0.5f;
                 }
 
-                temp_f0_2 = sub_GAME_7F06D0CC(temp_s0->field_8C8, temp_s0->field_8D8, sp190);
+                temp_f0_2 = sub_GAME_7F06D0CC(handptr->field_8C8, handptr->field_8D8, sp190);
 
-                temp_s0->field_8E8 = temp_f0_2;
-                temp_s0->field_92C = 1;
-                temp_s0->field_8DC = ((temp_s0->field_8CC - temp_s0->field_8BC) * sp190) + temp_s0->field_8BC;
-                temp_s0->field_8E0 = ((temp_s0->field_8D0 - temp_s0->field_8C0) * sp190) + temp_s0->field_8C0;
-                temp_s0->field_8E4 = ((temp_s0->field_8D4 - temp_s0->field_8C4) * sp190) + temp_s0->field_8C4;
+                handptr->field_8E8 = temp_f0_2;
+                handptr->field_92C = 1;
+                handptr->field_8DC = ((handptr->field_8CC - handptr->field_8BC) * sp190) + handptr->field_8BC;
+                handptr->field_8E0 = ((handptr->field_8D0 - handptr->field_8C0) * sp190) + handptr->field_8C0;
+                handptr->field_8E4 = ((handptr->field_8D4 - handptr->field_8C4) * sp190) + handptr->field_8C4;
 
-                matrix_4x4_set_rotation_around_x(temp_f0_2, &temp_s0->field_8EC);
-                matrix_4x4_set_position((struct coord3d *)&temp_s0->field_8DC, &temp_s0->field_8EC);
+                matrix_4x4_set_rotation_around_x(temp_f0_2, &handptr->field_8EC);
+                matrix_4x4_set_position((struct coord3d *)&handptr->field_8DC, &handptr->field_8EC);
             }
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 4)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_RECOIL2)
     {
-        if (temp_s0->field_890 == 0)
+        if (handptr->field_890 == 0)
         {
-            temp_s0->field_8C8 = temp_s0->field_8E8;
-            temp_s0->field_8BC = temp_s0->field_8DC;
-            temp_s0->field_8C0 = temp_s0->field_8E0;
-            temp_s0->field_8C4 = temp_s0->field_8E4;
-            temp_s0->field_8D8 = 0.0f;
-            temp_s0->field_8CC = 0.0f;
-            temp_s0->field_8D0 = 0.0f;
-            temp_s0->field_8D4 = 0.0f;
+            handptr->field_8C8 = handptr->field_8E8;
+            handptr->field_8BC = handptr->field_8DC;
+            handptr->field_8C0 = handptr->field_8E0;
+            handptr->field_8C4 = handptr->field_8E4;
+            handptr->field_8D8 = 0.0f;
+            handptr->field_8CC = 0.0f;
+            handptr->field_8D0 = 0.0f;
+            handptr->field_8D4 = 0.0f;
         }
 
-        if (temp_s0->field_890 < temp_s0->field_8A8)
+        if (handptr->field_890 < handptr->field_8A8)
         {
-            sp18C = (cosf(((f32) (temp_s0->field_8A8 - temp_s0->field_890) * M_PI_2F) / (f32) temp_s0->field_8A8) * 0.5f) + 0.5f;
+            sp18C = (cosf(((f32) (handptr->field_8A8 - handptr->field_890) * M_PI_2F) / (f32) handptr->field_8A8) * 0.5f) + 0.5f;
 
-            temp_f0_2 = sub_GAME_7F06D0CC(temp_s0->field_8C8, temp_s0->field_8D8, sp18C);
+            temp_f0_2 = sub_GAME_7F06D0CC(handptr->field_8C8, handptr->field_8D8, sp18C);
 
-            temp_s0->field_8E8 = temp_f0_2;
-            temp_s0->field_92C = 1;
-            temp_s0->field_8DC = ((temp_s0->field_8CC - temp_s0->field_8BC) * sp18C) + temp_s0->field_8BC;
-            temp_s0->field_8E0 = ((temp_s0->field_8D0 - temp_s0->field_8C0) * sp18C) + temp_s0->field_8C0;
-            temp_s0->field_8E4 = ((temp_s0->field_8D4 - temp_s0->field_8C4) * sp18C) + temp_s0->field_8C4;
+            handptr->field_8E8 = temp_f0_2;
+            handptr->field_92C = 1;
+            handptr->field_8DC = ((handptr->field_8CC - handptr->field_8BC) * sp18C) + handptr->field_8BC;
+            handptr->field_8E0 = ((handptr->field_8D0 - handptr->field_8C0) * sp18C) + handptr->field_8C0;
+            handptr->field_8E4 = ((handptr->field_8D4 - handptr->field_8C4) * sp18C) + handptr->field_8C4;
 
-            matrix_4x4_set_rotation_around_x(temp_f0_2, &temp_s0->field_8EC);
-            matrix_4x4_set_position((struct coord3d *)&temp_s0->field_8DC, &temp_s0->field_8EC);
+            matrix_4x4_set_rotation_around_x(temp_f0_2, &handptr->field_8EC);
+            matrix_4x4_set_position((struct coord3d *)&handptr->field_8DC, &handptr->field_8EC);
         }
         else
         {
-            temp_s0->when_detonating_mines_is_0 = 0;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 0xD)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_DRY_FIRE)
     {
-        if (temp_s0->field_88C == 0)
+        if (handptr->field_88C == 0)
         {
-            sub_GAME_7F05E808(arg0);
+            sub_GAME_7F05E808(hand);
         }
 
-        if ((temp_s0->field_888 != 0) || ((temp_s0->field_888 == 0) && (temp_s0->field_890 >= WHEN_D_FLD890)))
+        if ((handptr->field_888 != 0) || ((handptr->field_888 == 0) && (handptr->field_890 >= WHEN_D_FLD890)))
         {
-            temp_s0->when_detonating_mines_is_0 = 0;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
     }
 
     sp188 = WHEN_5_SP188_INIT;
-    if (temp_s0->when_detonating_mines_is_0 == 5)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_SWITCH_LOWER)
     {
         if (getPlayerCount() >= 2)
         {
             sp188 = WHEN_5_SP188_MULTI;
         }
 
-        if (temp_s0->field_88C == 0)
+        if (handptr->field_88C == 0)
         {
             if (getPlayerCount() == 1)
             {
-                temp_s0->field_8B0 = WHEN_5_FLD8B0_SP;
+                handptr->field_8B0 = WHEN_5_FLD8B0_SP;
             }
             else
             {
-                temp_s0->field_8B0 = WHEN_5_FLD8B0_MULTI;
+                handptr->field_8B0 = WHEN_5_FLD8B0_MULTI;
             }
         }
 
-        if (temp_s0->field_890 >= sp188)
+        if (handptr->field_890 >= sp188)
         {
-            g_CurrentPlayer->ammoheldarr[get_ammo_type_for_weapon(var_s1)] += temp_s0->weapon_ammo_in_magazine;
-            temp_s0->weapon_ammo_in_magazine = 0;
+            g_CurrentPlayer->ammoheldarr[get_ammo_type_for_weapon(var_s1)] += handptr->weapon_ammo_in_magazine;
+            handptr->weapon_ammo_in_magazine = 0;
 
             if (getPlayerCount() >= 2)
             {
-                sub_GAME_7F09B368(arg0);
+                sub_GAME_7F09B368(hand);
             }
 
-            sub_GAME_7F05FB00(arg0);
+            sub_GAME_7F05FB00(hand);
 
-            temp_s0->when_detonating_mines_is_0 = 6;
+            handptr->weapon_action_state = GUN_ANIM_STATE_SWITCH_SWAP;
 
             if (bondinvItemAvailable(ITEM_SNIPERRIFLE) != 0)
             {
@@ -13065,70 +13075,70 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
         }
         else
         {
-            sp184 = ((f32) temp_s0->field_890 * M_LN2F) / (f32) sp188;
-            temp_s0->field_92C = 1;
+            sp184 = ((f32) handptr->field_890 * M_LN2F) / (f32) sp188;
+            handptr->field_92C = 1;
 
-            matrix_4x4_set_rotation_around_x(sp184, &temp_s0->field_8EC);
+            matrix_4x4_set_rotation_around_x(sp184, &handptr->field_8EC);
 
-            temp_s0->field_8EC.m[3][0] = 0.0f;
-            temp_s0->field_8EC.m[3][1] = (1.0f - cosf(sp184)) * -60.0f;
-            temp_s0->field_8EC.m[3][2] = sinf(sp184) * 15.0f;
+            handptr->field_8EC.m[3][0] = 0.0f;
+            handptr->field_8EC.m[3][1] = (1.0f - cosf(sp184)) * -60.0f;
+            handptr->field_8EC.m[3][2] = sinf(sp184) * 15.0f;
         }
     }
 
-    if ((temp_s0->when_detonating_mines_is_0 == 6) || (temp_s0->when_detonating_mines_is_0 == 7))
+    if ((handptr->weapon_action_state == GUN_ANIM_STATE_SWITCH_SWAP) || (handptr->weapon_action_state == GUN_ANIM_STATE_SWITCH_HOLD))
     {
-        if ((temp_s0->weapon_animation_trigger == 0) || (temp_s0->field_890 >= temp_s0->field_8B0))
+        if ((handptr->weapon_animation_trigger == 0) || (handptr->field_890 >= handptr->field_8B0))
         {
-            if (temp_s0->when_detonating_mines_is_0 == 6)
+            if (handptr->weapon_action_state == GUN_ANIM_STATE_SWITCH_SWAP)
             {
-                temp_v1_5 = (g_CurrentPlayer->hands - arg0) + 1;
+                temp_v1_5 = (g_CurrentPlayer->hands - hand) + 1;
 
-                if ((temp_v1_5->when_detonating_mines_is_0 != 6) && (temp_v1_5->when_detonating_mines_is_0 != 5))
+                if ((temp_v1_5->weapon_action_state != GUN_ANIM_STATE_SWITCH_SWAP) && (temp_v1_5->weapon_action_state != GUN_ANIM_STATE_SWITCH_LOWER))
                 {
                     if (
                         (temp_v1_5->weapon_current_animation != 5)
-                        && (temp_v1_5->when_detonating_mines_is_0 != 0xE)
-                        && (temp_v1_5->when_detonating_mines_is_0 != 0xF)
-                        && (temp_v1_5->when_detonating_mines_is_0 != 0x10)
+                        && (temp_v1_5->weapon_action_state != GUN_ANIM_STATE_WATCH_LOWER)
+                        && (temp_v1_5->weapon_action_state != GUN_ANIM_STATE_WATCH_SWAP)
+                        && (temp_v1_5->weapon_action_state != GUN_ANIM_STATE_WATCH_RAISE)
                         && (temp_v1_5->weapon_current_animation != 0xE))
                     {
-                        if (arg0 == GUNRIGHT)
+                        if (hand == GUNRIGHT)
                         {
-                            if (bondinvItemAvailableForHand(temp_s0->weapon_next_weapon, getCurrentPlayerWeaponId(GUNLEFT)) == 0)
+                            if (bondinvItemAvailableForHand(handptr->weapon_next_weapon, getCurrentPlayerWeaponId(GUNLEFT)) == 0)
                             {
                                 currentPlayerEquipWeaponWrapper(GUNLEFT, 0);
                             }
                         }
-                        else if (bondinvItemAvailableForHand(getCurrentPlayerWeaponId(GUNRIGHT), temp_s0->weapon_next_weapon) == 0)
+                        else if (bondinvItemAvailableForHand(getCurrentPlayerWeaponId(GUNRIGHT), handptr->weapon_next_weapon) == 0)
                         {
-                            temp_s0->weapon_next_weapon = ITEM_UNARMED;
+                            handptr->weapon_next_weapon = ITEM_UNARMED;
                         }
                     }
                 }
-                currentPlayerUnEquipWeaponWrapper(arg0, temp_s0->weapon_next_weapon);
-                var_s1 = get_item_in_hand_or_watch_menu(arg0);
-                temp_s0->when_detonating_mines_is_0 = 7;
+                currentPlayerUnEquipWeaponWrapper(hand, handptr->weapon_next_weapon);
+                var_s1 = get_item_in_hand_or_watch_menu(hand);
+                handptr->weapon_action_state = GUN_ANIM_STATE_SWITCH_HOLD;
             }
-            else if (Gun_hand_without_item(arg0) != 0)
+            else if (Gun_hand_without_item(hand) != 0)
             {
-                temp_s0->when_detonating_mines_is_0 = 8;
-                temp_s0->field_890 = 0.0f;
-                temp_s0->field_88C = 0;
+                handptr->weapon_action_state = GUN_ANIM_STATE_SWITCH_RAISE;
+                handptr->field_890 = 0.0f;
+                handptr->field_88C = 0;
             }
         }
 
-        if ((temp_s0->when_detonating_mines_is_0 == 6) || (temp_s0->when_detonating_mines_is_0 == 7))
+        if ((handptr->weapon_action_state == GUN_ANIM_STATE_SWITCH_SWAP) || (handptr->weapon_action_state == GUN_ANIM_STATE_SWITCH_HOLD))
         {
-            temp_s0->field_92C = 1;
-            matrix_4x4_set_rotation_around_x(M_LN2F, &temp_s0->field_8EC);
-            temp_s0->field_8EC.m[3][0] = 0.0f;
-            temp_s0->field_8EC.m[3][1] = (1.0f - cosf(M_LN2F)) * -60.0f;
-            temp_s0->field_8EC.m[3][2] = sinf(M_LN2F) * 15.0f;
+            handptr->field_92C = 1;
+            matrix_4x4_set_rotation_around_x(M_LN2F, &handptr->field_8EC);
+            handptr->field_8EC.m[3][0] = 0.0f;
+            handptr->field_8EC.m[3][1] = (1.0f - cosf(M_LN2F)) * -60.0f;
+            handptr->field_8EC.m[3][2] = sinf(M_LN2F) * 15.0f;
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 8)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_SWITCH_RAISE)
     {
         sp178 = WHEN_8_SP178_INIT;
 
@@ -13137,20 +13147,20 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
             sp178 = WHEN_8_SP178_MULTI;
         }
 
-        if (temp_s0->field_88C == 0)
+        if (handptr->field_88C == 0)
         {
             if (getPlayerCount() >= 2)
             {
-                sub_GAME_7F09B398(arg0);
+                sub_GAME_7F09B398(hand);
             }
 
-            sub_GAME_7F0649D8(arg0);
+            sub_GAME_7F0649D8(hand);
 
             g_CurrentPlayer->trigger_released = 0;
 
             if ((g_ClockTimer > 0)
                 && (g_CurrentPlayer->cameramode != CAMERAMODE_INTRO)
-                && (Gun_hand_without_item(arg0) != 0)
+                && (Gun_hand_without_item(hand) != 0)
                 && (g_PlayerInvincible == FALSE)
 #if defined(VERSION_JP) || defined(VERSION_EU)
                 && (g_CurrentPlayer->bonddead == 0)
@@ -13198,82 +13208,82 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
             }
         }
 
-        if ((temp_s0->field_890 >= sp178)
+        if ((handptr->field_890 >= sp178)
             || (get_ptr_weapon_model_header_line(var_s1) == NULL)
             || (bondwalkItemCheckBitflags(var_s1, WEAPONSTATBITFLAG_SHOW_FIRST_PERSON) == 0)
             || (bondwalkItemCheckBitflags(var_s1, WEAPONSTATBITFLAG_HIDE_FIRST_PERSON_HAND) != 0))
         {
-            temp_s0->when_detonating_mines_is_0 = 0;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
         else
         {
-            sp174 = ((f32) (sp178 - temp_s0->field_890) * M_LN2F) / (f32) sp178;
-            temp_s0->field_92C = 1;
-            matrix_4x4_set_rotation_around_x(sp174, &temp_s0->field_8EC);
-            temp_s0->field_8EC.m[3][0] = 0.0f;
-            temp_s0->field_8EC.m[3][1] = (1.0f - cosf(sp174)) * -60.0f;
-            temp_s0->field_8EC.m[3][2] = sinf(sp174) * 15.0f;
+            sp174 = ((f32) (sp178 - handptr->field_890) * M_LN2F) / (f32) sp178;
+            handptr->field_92C = 1;
+            matrix_4x4_set_rotation_around_x(sp174, &handptr->field_8EC);
+            handptr->field_8EC.m[3][0] = 0.0f;
+            handptr->field_8EC.m[3][1] = (1.0f - cosf(sp174)) * -60.0f;
+            handptr->field_8EC.m[3][2] = sinf(sp174) * 15.0f;
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 9)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_RELOAD_START)
     {
-        if (((temp_s0->weapon_ammo_in_magazine < get_ptr_item_statistics(var_s1)->MagSize)
+        if (((handptr->weapon_ammo_in_magazine < get_ptr_item_statistics(var_s1)->MagSize)
              || (bondwalkItemCheckBitflags(var_s1, WEAPONSTATBITFLAG_AMMO_CLIP_LIMIT) != 0))
-            && ((get_ammo_in_hands_weapon(arg0) > 0)))
+            && ((get_ammo_in_hands_weapon(hand) > 0)))
         {
-            temp_s0->when_detonating_mines_is_0 = 0xA;
+            handptr->weapon_action_state = GUN_ANIM_STATE_RELOAD_LOWER;
         }
         else
         {
-            temp_s0->when_detonating_mines_is_0 = 0;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 0xA)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_RELOAD_LOWER)
     {
-        if ((temp_s0->field_890 >= WHEN_A_FLD890) || (temp_s0->field_87F == 0))
+        if ((handptr->field_890 >= WHEN_A_FLD890) || (handptr->field_87F == 0))
         {
-            temp_s0->when_detonating_mines_is_0 = 0xB;
-            temp_s0->field_8B0 = WHEN_A_FLD8B0;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_RELOAD_SWAP;
+            handptr->field_8B0 = WHEN_A_FLD8B0;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
         else
         {
-            sp128 = ((f32) temp_s0->field_890 * M_LN2F) / un_f32_div_1;
-            temp_s0->field_92C = 1;
+            sp128 = ((f32) handptr->field_890 * M_LN2F) / un_f32_div_1;
+            handptr->field_92C = 1;
 
-            if (arg0 == GUNRIGHT)
+            if (hand == GUNRIGHT)
             {
-                matrix_4x4_set_rotation_around_z((un_f32_num / un_f32_div_1), &temp_s0->field_8EC);
+                matrix_4x4_set_rotation_around_z((un_f32_num / un_f32_div_1), &handptr->field_8EC);
             }
             else
             {
-                matrix_4x4_set_rotation_around_z(-(un_f32_num / un_f32_div_1), &temp_s0->field_8EC);
+                matrix_4x4_set_rotation_around_z(-(un_f32_num / un_f32_div_1), &handptr->field_8EC);
             }
 
             matrix_4x4_set_rotation_around_x(sp128, &sp12C);
-            matrix_4x4_multiply_in_place(&sp12C, &temp_s0->field_8EC);
+            matrix_4x4_multiply_in_place(&sp12C, &handptr->field_8EC);
             sinf((un_f32_num / un_f32_div_1));
-            temp_s0->field_8EC.m[3][0] = 0.0f;
-            temp_s0->field_8EC.m[3][1] = sub_GAME_7F0649AC(var_s1) * (1.0f - cosf(sp128));
-            temp_s0->field_8EC.m[3][2] = sinf(sp128) * 15.0f;
+            handptr->field_8EC.m[3][0] = 0.0f;
+            handptr->field_8EC.m[3][1] = sub_GAME_7F0649AC(var_s1) * (1.0f - cosf(sp128));
+            handptr->field_8EC.m[3][2] = sinf(sp128) * 15.0f;
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 0xB)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_RELOAD_SWAP)
     {
-        if ((temp_s0->field_88C == 0)
+        if ((handptr->field_88C == 0)
 #if defined(VERSION_JP) || defined(VERSION_EU)
             && (g_ClockTimer > 0)
 #endif
             && (g_CurrentPlayer->cameramode != CAMERAMODE_INTRO)
-            && (Gun_hand_without_item(arg0) != 0)
+            && (Gun_hand_without_item(hand) != 0)
             && (g_PlayerInvincible == FALSE)
 #if defined(VERSION_JP) || defined(VERSION_EU)
             && (g_CurrentPlayer->bonddead == 0)
@@ -13352,199 +13362,199 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
             }
         }
 
-        if ((temp_s0->field_890 >= temp_s0->field_8B0) && !(((temp_s0->field_88C < 2))))
+        if ((handptr->field_890 >= handptr->field_8B0) && !(((handptr->field_88C < 2))))
         {
-            temp_s0->when_detonating_mines_is_0 = 0xC;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_RELOAD_RAISE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
         else
         {
-            temp_s0->field_92C = 1;
+            handptr->field_92C = 1;
 
-            if (arg0 == GUNRIGHT)
+            if (hand == GUNRIGHT)
             {
-                matrix_4x4_set_rotation_around_z(un_f32_num, &temp_s0->field_8EC);
+                matrix_4x4_set_rotation_around_z(un_f32_num, &handptr->field_8EC);
             }
             else
             {
-                matrix_4x4_set_rotation_around_z(-un_f32_num, &temp_s0->field_8EC);
+                matrix_4x4_set_rotation_around_z(-un_f32_num, &handptr->field_8EC);
             }
 
             matrix_4x4_set_rotation_around_x(M_LN2F, &spE4);
-            matrix_4x4_multiply_in_place(&spE4, &temp_s0->field_8EC);
+            matrix_4x4_multiply_in_place(&spE4, &handptr->field_8EC);
             sinf(un_f32_num);
-            temp_s0->field_8EC.m[3][0] = 0.0f;
-            temp_s0->field_8EC.m[3][1] = sub_GAME_7F0649AC(var_s1) * (1.0f - cosf(M_LN2F));
-            temp_s0->field_8EC.m[3][2] = sinf(M_LN2F) * 15.0f;
+            handptr->field_8EC.m[3][0] = 0.0f;
+            handptr->field_8EC.m[3][1] = sub_GAME_7F0649AC(var_s1) * (1.0f - cosf(M_LN2F));
+            handptr->field_8EC.m[3][2] = sinf(M_LN2F) * 15.0f;
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 0xC)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_RELOAD_RAISE)
     {
-        if (temp_s0->field_88C == 0)
+        if (handptr->field_88C == 0)
         {
-            sub_GAME_7F0649D8(arg0);
+            sub_GAME_7F0649D8(hand);
             g_CurrentPlayer->trigger_released = 0;
         }
 
-        if ((temp_s0->field_890 >= WHEN_C_FLD890)
+        if ((handptr->field_890 >= WHEN_C_FLD890)
             || (get_ptr_weapon_model_header_line(var_s1) == NULL)
             || (bondwalkItemCheckBitflags(var_s1, WEAPONSTATBITFLAG_SHOW_FIRST_PERSON) == 0)
             || (bondwalkItemCheckBitflags(var_s1, WEAPONSTATBITFLAG_HIDE_FIRST_PERSON_HAND) != 0))
         {
-            temp_s0->when_detonating_mines_is_0 = 0;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
         else
         {
-            sp98 = ((f32) (WHEN_C_FLD890 - temp_s0->field_890) * M_LN2F) / un_f32_div_2;
-            temp_s0->field_92C = 1;
+            sp98 = ((f32) (WHEN_C_FLD890 - handptr->field_890) * M_LN2F) / un_f32_div_2;
+            handptr->field_92C = 1;
 
-            if (arg0 == GUNRIGHT)
+            if (hand == GUNRIGHT)
             {
-                matrix_4x4_set_rotation_around_z((un_f32_num / un_f32_div_2), &temp_s0->field_8EC);
+                matrix_4x4_set_rotation_around_z((un_f32_num / un_f32_div_2), &handptr->field_8EC);
             }
             else
             {
-                matrix_4x4_set_rotation_around_z(-(un_f32_num / un_f32_div_2), &temp_s0->field_8EC);
+                matrix_4x4_set_rotation_around_z(-(un_f32_num / un_f32_div_2), &handptr->field_8EC);
             }
 
             matrix_4x4_set_rotation_around_x(sp98, &sp9C);
-            matrix_4x4_multiply_in_place(&sp9C, &temp_s0->field_8EC);
+            matrix_4x4_multiply_in_place(&sp9C, &handptr->field_8EC);
             sinf(un_f32_num / un_f32_div_2);
-            temp_s0->field_8EC.m[3][0] = 0.0f;
-            temp_s0->field_8EC.m[3][1] = sub_GAME_7F0649AC(var_s1) * (1.0f - cosf(sp98));
-            temp_s0->field_8EC.m[3][2] = sinf(sp98) * 15.0f;
+            handptr->field_8EC.m[3][0] = 0.0f;
+            handptr->field_8EC.m[3][1] = sub_GAME_7F0649AC(var_s1) * (1.0f - cosf(sp98));
+            handptr->field_8EC.m[3][2] = sinf(sp98) * 15.0f;
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 0xE)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_WATCH_LOWER)
     {
-        if ((temp_s0->field_890 >= WHEN_E_FLD890) || (temp_s0->field_87F == 0))
+        if ((handptr->field_890 >= WHEN_E_FLD890) || (handptr->field_87F == 0))
         {
-            temp_s0->when_detonating_mines_is_0 = 0xF;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_WATCH_SWAP;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
         else
         {
-            sp94 = ((f32) temp_s0->field_890 * M_LN2F) / un_f32_div_1;
-            temp_s0->field_92C = 1;
+            sp94 = ((f32) handptr->field_890 * M_LN2F) / un_f32_div_1;
+            handptr->field_92C = 1;
 
-            matrix_4x4_set_rotation_around_x(sp94, &temp_s0->field_8EC);
-            temp_s0->field_8EC.m[3][0] = 0.0f;
-            temp_s0->field_8EC.m[3][1] = (1.0f - cosf(sp94)) * -60.0f;
-            temp_s0->field_8EC.m[3][2] = sinf(sp94) * 15.0f;
+            matrix_4x4_set_rotation_around_x(sp94, &handptr->field_8EC);
+            handptr->field_8EC.m[3][0] = 0.0f;
+            handptr->field_8EC.m[3][1] = (1.0f - cosf(sp94)) * -60.0f;
+            handptr->field_8EC.m[3][2] = sinf(sp94) * 15.0f;
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 0xF)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_WATCH_SWAP)
     {
-        if ((temp_s0->field_88C == 0) || (Gun_hand_without_item(arg0) == 0))
+        if ((handptr->field_88C == 0) || (Gun_hand_without_item(hand) == 0))
         {
-            sub_GAME_7F05DA8C(arg0, temp_s0->weapon_next_weapon);
-            var_s1 = get_item_in_hand_or_watch_menu(arg0);
+            sub_GAME_7F05DA8C(hand, handptr->weapon_next_weapon);
+            var_s1 = get_item_in_hand_or_watch_menu(hand);
         }
 
-        if (Gun_hand_without_item(arg0) != 0)
+        if (Gun_hand_without_item(hand) != 0)
         {
-            temp_s0->when_detonating_mines_is_0 = 0x10;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_WATCH_RAISE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
         else
         {
-            temp_s0->field_92C = 1;
-            matrix_4x4_set_rotation_around_x(M_LN2F, &temp_s0->field_8EC);
-            temp_s0->field_8EC.m[3][0] = 0.0f;
-            temp_s0->field_8EC.m[3][1] = (1.0f - cosf(M_LN2F)) * -60.0f;
-            temp_s0->field_8EC.m[3][2] = sinf(M_LN2F) * 15.0f;
+            handptr->field_92C = 1;
+            matrix_4x4_set_rotation_around_x(M_LN2F, &handptr->field_8EC);
+            handptr->field_8EC.m[3][0] = 0.0f;
+            handptr->field_8EC.m[3][1] = (1.0f - cosf(M_LN2F)) * -60.0f;
+            handptr->field_8EC.m[3][2] = sinf(M_LN2F) * 15.0f;
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 0x10)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_WATCH_RAISE)
     {
-        if ((temp_s0->field_88C == 0) && (var_s1 < 0x21))
+        if ((handptr->field_88C == 0) && (var_s1 < 0x21))
         {
             if (getPlayerCount() >= 2)
             {
-                sub_GAME_7F09B398(arg0);
+                sub_GAME_7F09B398(hand);
             }
-            sub_GAME_7F0649D8(arg0);
+            sub_GAME_7F0649D8(hand);
             g_CurrentPlayer->trigger_released = 0;
         }
 
-        if ((temp_s0->field_890 >= WHEN_10_FLD890)
+        if ((handptr->field_890 >= WHEN_10_FLD890)
             || (get_ptr_weapon_model_header_line(var_s1) == NULL)
             || (bondwalkItemCheckBitflags(var_s1, WEAPONSTATBITFLAG_SHOW_FIRST_PERSON) == 0)
             || (bondwalkItemCheckBitflags(var_s1, WEAPONSTATBITFLAG_HIDE_FIRST_PERSON_HAND) != 0))
         {
-            temp_s0->when_detonating_mines_is_0 = 0;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
         else
         {
-            sp8C = ((f32) (WHEN_10_FLD890 - temp_s0->field_890) * M_LN2F) / un_f32_div_2;
-            temp_s0->field_92C = 1;
-            matrix_4x4_set_rotation_around_x(sp8C, &temp_s0->field_8EC);
-            temp_s0->field_8EC.m[3][0] = 0.0f;
-            temp_s0->field_8EC.m[3][1] = (1.0f - cosf(sp8C)) * -60.0f;
-            temp_s0->field_8EC.m[3][2] = sinf(sp8C) * 15.0f;
+            sp8C = ((f32) (WHEN_10_FLD890 - handptr->field_890) * M_LN2F) / un_f32_div_2;
+            handptr->field_92C = 1;
+            matrix_4x4_set_rotation_around_x(sp8C, &handptr->field_8EC);
+            handptr->field_8EC.m[3][0] = 0.0f;
+            handptr->field_8EC.m[3][1] = (1.0f - cosf(sp8C)) * -60.0f;
+            handptr->field_8EC.m[3][2] = sinf(sp8C) * 15.0f;
         }
     }
 
-    if ((temp_s0->when_detonating_mines_is_0 == 0x11)
-        || (temp_s0->when_detonating_mines_is_0 == 0x12)
-        || (temp_s0->when_detonating_mines_is_0 == 0x13)
-        || (temp_s0->when_detonating_mines_is_0 == 0x14)
-        || (temp_s0->when_detonating_mines_is_0 == 0x15)
-        || (temp_s0->when_detonating_mines_is_0 == 0x16))
+    if ((handptr->weapon_action_state == GUN_ANIM_STATE_KNIFE_SLASH1_BEGIN)
+        || (handptr->weapon_action_state == GUN_ANIM_STATE_KNIFE_SLASH1_STRIKE)
+        || (handptr->weapon_action_state == GUN_ANIM_STATE_KNIFE_SLASH1_RECOVER)
+        || (handptr->weapon_action_state == GUN_ANIM_STATE_KNIFE_SLASH2_BEGIN)
+        || (handptr->weapon_action_state == GUN_ANIM_STATE_KNIFE_SLASH2_STRIKE)
+        || (handptr->weapon_action_state == GUN_ANIM_STATE_KNIFE_SLASH2_RECOVER))
     {
-        sp88 = F_7F05C6FC_ARG1(temp_s0->field_890);
+        sp88 = WEAPON_1P_ANIM_TIME(handptr->field_890);
 
-        if (((temp_s0->when_detonating_mines_is_0 == 0x11)
-                || (temp_s0->when_detonating_mines_is_0 == 0x14))
-                && (temp_s0->field_890 >= WHEN_11_FLD890_1))
+        if (((handptr->weapon_action_state == GUN_ANIM_STATE_KNIFE_SLASH1_BEGIN)
+                || (handptr->weapon_action_state == GUN_ANIM_STATE_KNIFE_SLASH2_BEGIN))
+                && (handptr->field_890 >= WHEN_11_FLD890_1))
         {
             sp7C = knife_throw_sounds;
             sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, sp7C.half[randomGetNext() % 3U], NULL);
 
 
-            if (temp_s0->when_detonating_mines_is_0 == 0x11)
+            if (handptr->weapon_action_state == GUN_ANIM_STATE_KNIFE_SLASH1_BEGIN)
             {
-                temp_s0->when_detonating_mines_is_0 = 0x12;
-                temp_s0->when_detonating_mines_is_0 = 0x12;
+                handptr->weapon_action_state = GUN_ANIM_STATE_KNIFE_SLASH1_STRIKE;
+                handptr->weapon_action_state = GUN_ANIM_STATE_KNIFE_SLASH1_STRIKE;
             }
             else
             {
-                temp_s0->when_detonating_mines_is_0 = 0x15;
-                temp_s0->when_detonating_mines_is_0 = 0x15;
+                handptr->weapon_action_state = GUN_ANIM_STATE_KNIFE_SLASH2_STRIKE;
+                handptr->weapon_action_state = GUN_ANIM_STATE_KNIFE_SLASH2_STRIKE;
             }
         }
 
-        if ((temp_s0->when_detonating_mines_is_0 != 0x13)
-            && (temp_s0->when_detonating_mines_is_0 != 0x16)
-            && (temp_s0->field_890 >= WHEN_11_FLD890_2))
+        if ((handptr->weapon_action_state != GUN_ANIM_STATE_KNIFE_SLASH1_RECOVER)
+            && (handptr->weapon_action_state != GUN_ANIM_STATE_KNIFE_SLASH2_RECOVER)
+            && (handptr->field_890 >= WHEN_11_FLD890_2))
         {
-            temp_s0->weapon_firing_status = 1;
-            if ((temp_s0->when_detonating_mines_is_0 == 0x11) || (temp_s0->when_detonating_mines_is_0 == 0x12))
+            handptr->weapon_firing_status = 1;
+            if ((handptr->weapon_action_state == GUN_ANIM_STATE_KNIFE_SLASH1_BEGIN) || (handptr->weapon_action_state == GUN_ANIM_STATE_KNIFE_SLASH1_STRIKE))
             {
-                temp_s0->when_detonating_mines_is_0 = 0x13;
-                temp_s0->when_detonating_mines_is_0 = 0x13;
+                handptr->weapon_action_state = GUN_ANIM_STATE_KNIFE_SLASH1_RECOVER;
+                handptr->weapon_action_state = GUN_ANIM_STATE_KNIFE_SLASH1_RECOVER;
             }
             else
             {
-                temp_s0->when_detonating_mines_is_0 = 0x16;
-                temp_s0->when_detonating_mines_is_0 = 0x16;
+                handptr->weapon_action_state = GUN_ANIM_STATE_KNIFE_SLASH2_RECOVER;
+                handptr->weapon_action_state = GUN_ANIM_STATE_KNIFE_SLASH2_RECOVER;
             }
         }
 
-        if ((temp_s0->when_detonating_mines_is_0 == 0x11)
-            || (temp_s0->when_detonating_mines_is_0 == 0x12)
-            || (temp_s0->when_detonating_mines_is_0 == 0x13))
+        if ((handptr->weapon_action_state == GUN_ANIM_STATE_KNIFE_SLASH1_BEGIN)
+            || (handptr->weapon_action_state == GUN_ANIM_STATE_KNIFE_SLASH1_STRIKE)
+            || (handptr->weapon_action_state == GUN_ANIM_STATE_KNIFE_SLASH1_RECOVER))
         {
             var_a0_2 = D_80034CA4;
         }
@@ -13553,28 +13563,28 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
             var_a0_2 = D_80034E0C;
         }
 
-        if (gunSample1PTransform(var_a0_2, sp88, &temp_s0->field_8EC, arg0) != 0)
+        if (gunSample1PTransform(var_a0_2, sp88, &handptr->field_8EC, hand) != 0)
         {
-            temp_s0->field_92C = 1;
+            handptr->field_92C = 1;
         }
         else
         {
-            temp_s0->when_detonating_mines_is_0 = 0;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
     }
 
-    if ((temp_s0->when_detonating_mines_is_0 == 0x1E)
-        || (temp_s0->when_detonating_mines_is_0 == 0x1F)
-        || (temp_s0->when_detonating_mines_is_0 == 0x20)
-        || (temp_s0->when_detonating_mines_is_0 == 0x21))
+    if ((handptr->weapon_action_state == GUN_ANIM_STATE_PUNCH1_STRIKE)
+        || (handptr->weapon_action_state == GUN_ANIM_STATE_PUNCH1_RECOVER)
+        || (handptr->weapon_action_state == GUN_ANIM_STATE_PUNCH2_STRIKE)
+        || (handptr->weapon_action_state == GUN_ANIM_STATE_PUNCH2_RECOVER))
     {
-        temp_v1_9 = F_7F05C6FC_ARG1(temp_s0->field_890);
+        temp_v1_9 = WEAPON_1P_ANIM_TIME(handptr->field_890);
 
-        if ((temp_s0->when_detonating_mines_is_0 == 0x1E) || (temp_s0->when_detonating_mines_is_0 == 0x1F))
+        if ((handptr->weapon_action_state == GUN_ANIM_STATE_PUNCH1_STRIKE) || (handptr->weapon_action_state == GUN_ANIM_STATE_PUNCH1_RECOVER))
         {
-            if (g_CurrentPlayer->cur_item_weapon_getname == 0x11) // Sniper Rifle
+            if (g_CurrentPlayer->cur_item_weapon_getname == ITEM_SNIPERRIFLE)
             {
                 sp74 = sniperMeleeKeyframes1;
             }
@@ -13583,15 +13593,15 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
                 sp74 = fistMeleeKeyframes1;
             }
 
-            if ((temp_s0->when_detonating_mines_is_0 != 0x1F) && (temp_s0->field_890 >= WHEN_1E_FLD890))
+            if ((handptr->weapon_action_state != GUN_ANIM_STATE_PUNCH1_RECOVER) && (handptr->field_890 >= WHEN_1E_FLD890))
             {
-                temp_s0->weapon_firing_status = 1;
-                temp_s0->when_detonating_mines_is_0 = 0x1F;
+                handptr->weapon_firing_status = 1;
+                handptr->weapon_action_state = GUN_ANIM_STATE_PUNCH1_RECOVER;
             }
         }
-        else if ((temp_s0->when_detonating_mines_is_0 == 0x20) || (temp_s0->when_detonating_mines_is_0 == 0x21))
+        else if ((handptr->weapon_action_state == GUN_ANIM_STATE_PUNCH2_STRIKE) || (handptr->weapon_action_state == GUN_ANIM_STATE_PUNCH2_RECOVER))
         {
-            if (g_CurrentPlayer->cur_item_weapon_getname == 0x11) // Sniper Rifle
+            if (g_CurrentPlayer->cur_item_weapon_getname == ITEM_SNIPERRIFLE)
             {
                 sp74 = sniperMeleeKeyframes2;
             }
@@ -13600,199 +13610,200 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
                 sp74 = fistMeleeKeyframes2;
             }
 
-            if ((temp_s0->when_detonating_mines_is_0 != 0x21) && (temp_s0->field_890 >= WHEN_1E_FLD890))
+            if ((handptr->weapon_action_state != GUN_ANIM_STATE_PUNCH2_RECOVER) && (handptr->field_890 >= WHEN_1E_FLD890))
             {
-                temp_s0->weapon_firing_status = 1;
-                temp_s0->when_detonating_mines_is_0 = 0x21;
+                handptr->weapon_firing_status = 1;
+                handptr->weapon_action_state = GUN_ANIM_STATE_PUNCH2_RECOVER;
             }
         }
 
-        if (gunSample1PTransform(sp74, temp_v1_9, &temp_s0->field_8EC, arg0) != 0)
+        if (gunSample1PTransform(sp74, temp_v1_9, &handptr->field_8EC, hand) != 0)
         {
-            temp_s0->field_92C = 1;
+            handptr->field_92C = 1;
         }
         else
         {
-            temp_s0->when_detonating_mines_is_0 = 0;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 0x1A)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_GRENADE_THROW)
     {
-        if (temp_s0->weapon_ammo_in_magazine > 0)
+        if (handptr->weapon_ammo_in_magazine > 0)
         {
-            tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-            if (gunSample1PTransform(grenadeThrowKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
+            tempf = WEAPON_1P_ANIM_TIME(handptr->field_890);
+            if (gunSample1PTransform(grenadeThrowKeyframes, tempf, &handptr->field_8EC, hand) != 0)
             {
-                temp_s0->field_92C = 1;
+                handptr->field_92C = 1;
             }
             else
             {
-                temp_s0->field_87E = 0;
-                temp_s0->weapon_firing_status = 1;
-                temp_s0->weapon_ammo_in_magazine -= 1;
-                temp_s0->when_detonating_mines_is_0 = 0x1B;
-                temp_s0->field_890 = 0.0f;
-                temp_s0->field_88C = 0;
+                handptr->field_87E = 0;
+                handptr->weapon_firing_status = 1;
+                handptr->weapon_ammo_in_magazine -= 1;
+                handptr->weapon_action_state = GUN_ANIM_STATE_GRENADE_RECOVER;
+                handptr->field_890 = 0.0f;
+                handptr->field_88C = 0;
             }
         }
         else
         {
-            temp_s0->when_detonating_mines_is_0 = 0;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 0x1B)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_GRENADE_RECOVER)
     {
-        tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-        if (gunSample1PTransform(timedMineThrowKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
+        tempf = WEAPON_1P_ANIM_TIME(handptr->field_890);
+        if (gunSample1PTransform(timedMineThrowKeyframes, tempf, &handptr->field_8EC, hand) != 0)
         {
-            temp_s0->field_92C = 1;
+            handptr->field_92C = 1;
         }
         else
         {
-            temp_s0->field_87E = 1;
-            temp_s0->when_detonating_mines_is_0 = 0;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->field_87E = 1;
+            handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 0x17)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_THROWKNIFE_DRAW)
     {
-        if (temp_s0->weapon_ammo_in_magazine > 0)
+        if (handptr->weapon_ammo_in_magazine > 0)
         {
-            if (temp_s0->field_888 != 0)
+            if (handptr->field_888 != 0)
             {
-                temp_s0->when_detonating_mines_is_0 = 0x18;
+                handptr->weapon_action_state = GUN_ANIM_STATE_THROWKNIFE_THROW;
             }
             else
             {
-                tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-                if (gunSample1PTransform(throwKnifeDrawBackKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
+                tempf = WEAPON_1P_ANIM_TIME(handptr->field_890);
+                if (gunSample1PTransform(throwKnifeDrawBackKeyframes, tempf, &handptr->field_8EC, hand) != 0)
                 {
-                    temp_s0->field_92C = 1;
+                    handptr->field_92C = 1;
                 }
-                else if (gunSample1PTransform(throwKnifeReleaseKeyframes, 0.0f, &temp_s0->field_8EC, arg0) != 0)
+                else if (gunSample1PTransform(throwKnifeReleaseKeyframes, 0.0f, &handptr->field_8EC, hand) != 0)
                 {
-                    temp_s0->field_92C = 1;
+                    handptr->field_92C = 1;
                 }
                 else
                 {
-                    temp_s0->when_detonating_mines_is_0 = 0x18;
+                    handptr->weapon_action_state = GUN_ANIM_STATE_THROWKNIFE_THROW;
                 }
             }
         }
         else
         {
-            temp_s0->when_detonating_mines_is_0 = 0;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 0x18)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_THROWKNIFE_THROW)
     {
-        if (temp_s0->weapon_ammo_in_magazine > 0)
+        if (handptr->weapon_ammo_in_magazine > 0)
         {
-            tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-            if (gunSample1PTransform(throwKnifeDrawBackKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
+            tempf = WEAPON_1P_ANIM_TIME(handptr->field_890);
+            if (gunSample1PTransform(throwKnifeDrawBackKeyframes, tempf, &handptr->field_8EC, hand) != 0)
             {
-                temp_s0->field_92C = 1;
+                handptr->field_92C = 1;
             }
             else
             {
-                temp_s0->field_87E = 0;
-                temp_s0->weapon_firing_status = 1;
-                temp_s0->weapon_ammo_in_magazine -= 1;
-                temp_s0->when_detonating_mines_is_0 = 0x19;
-                temp_s0->field_890 = 0.0f;
-                temp_s0->field_88C = 0;
+                handptr->field_87E = 0;
+                handptr->weapon_firing_status = 1;
+                handptr->weapon_ammo_in_magazine -= 1;
+                handptr->weapon_action_state = GUN_ANIM_STATE_THROWKNIFE_RECOVER;
+                handptr->field_890 = 0.0f;
+                handptr->field_88C = 0;
             }
         }
         else
         {
-            temp_s0->when_detonating_mines_is_0 = 0;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 0x19)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_THROWKNIFE_RECOVER)
     {
-        tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-        if (gunSample1PTransform(throwKnifeReleaseKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
+        tempf = WEAPON_1P_ANIM_TIME(handptr->field_890);
+        if (gunSample1PTransform(throwKnifeReleaseKeyframes, tempf, &handptr->field_8EC, hand) != 0)
         {
-            temp_s0->field_92C = 1;
+            handptr->field_92C = 1;
         }
         else
         {
-            temp_s0->field_87E = 1;
-            temp_s0->when_detonating_mines_is_0 = 0;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->field_87E = 1;
+            handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 0x1C)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_MINE_PLACE)
     {
-        if ((temp_s0->weapon_ammo_in_magazine > 0) || (bondwalkItemCheckBitflags(var_s1, WEAPONSTATBITFLAG_CLICKY) != 0))
+        if ((handptr->weapon_ammo_in_magazine > 0) || (bondwalkItemCheckBitflags(var_s1, WEAPONSTATBITFLAG_CLICKY) != 0))
         {
-            tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-            if (gunSample1PTransform(proxMineThrowKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
+            tempf = WEAPON_1P_ANIM_TIME(handptr->field_890);
+            
+            if (gunSample1PTransform(proxMineThrowKeyframes, tempf, &handptr->field_8EC, hand) != 0)
             {
-                temp_s0->field_92C = 1;
+                handptr->field_92C = 1;
             }
             else
             {
-                temp_s0->field_87E = 0;
-                temp_s0->weapon_firing_status = 1;
-                temp_s0->weapon_ammo_in_magazine -= 1;
-                temp_s0->when_detonating_mines_is_0 = 0x1D;
-                temp_s0->field_890 = 0.0f;
-                temp_s0->field_88C = 0;
+                handptr->field_87E = 0;
+                handptr->weapon_firing_status = 1;
+                handptr->weapon_ammo_in_magazine -= 1;
+                handptr->weapon_action_state = GUN_ANIM_STATE_MINE_RECOVER;
+                handptr->field_890 = 0.0f;
+                handptr->field_88C = 0;
             }
         }
         else
         {
-            temp_s0->when_detonating_mines_is_0 = 0;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 0x1D)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_MINE_RECOVER)
     {
-        tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-        if (gunSample1PTransform(remoteMineThrowKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
+        tempf = WEAPON_1P_ANIM_TIME(handptr->field_890);
+        if (gunSample1PTransform(remoteMineThrowKeyframes, tempf, &handptr->field_8EC, hand) != 0)
         {
-            temp_s0->field_92C = 1;
+            handptr->field_92C = 1;
         }
         else
         {
-            temp_s0->field_87E = 1;
-            temp_s0->when_detonating_mines_is_0 = 0;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->field_87E = 1;
+            handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
     }
 
-    if (temp_s0->when_detonating_mines_is_0 == 0x24)
+    if (handptr->weapon_action_state == GUN_ANIM_STATE_USE_ITEM)
     {
         if (var_s1 == ITEM_KEYANALYSERCASE)
         {
-            if (temp_s0->field_88C == 0)
+            if (handptr->field_88C == 0)
             {
                 analyzeGEKey();
             }
         }
         else if (var_s1 == ITEM_WEAPONCASE)
         {
-            if (temp_s0->field_88C == 0)
+            if (handptr->field_88C == 0)
             {
                 give_weapon_case_items();
             }
@@ -13803,7 +13814,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
             || (var_s1 == ITEM_EXPLOSIVEFLOPPY)
             || (var_s1 == ITEM_DATTAPE))
         {
-            if (temp_s0->field_88C == 0)
+            if (handptr->field_88C == 0)
             {
                 temp_v0_8 = propFindForInteract();
 
@@ -13836,15 +13847,16 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
             // removed
         }
 
-        if (temp_s0->field_888 != 0)
+        if (handptr->field_888 != 0)
         {
-            temp_s0->when_detonating_mines_is_0 = 0;
-            temp_s0->field_890 = 0.0f;
-            temp_s0->field_88C = 0;
+            handptr->weapon_action_state = GUN_ANIM_STATE_IDLE;
+            handptr->field_890 = 0.0f;
+            handptr->field_88C = 0;
         }
     }
 }
-#undef F_7F05C6FC_ARG1
+
+#undef WEAPON_1P_ANIM_TIME
 #undef WHEN_1_CASE_GRENADELAUNCH_FLD890
 #undef WHEN_1_CASE_GRENADE_FLD890
 #undef WHEN_D_FLD890
@@ -13862,8 +13874,6 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
 #undef WHEN_11_FLD890_1
 #undef WHEN_11_FLD890_2
 #undef WHEN_1E_FLD890
-
-
 
 
 void analyzeGEKey(void)
@@ -13885,7 +13895,7 @@ void analyzeGEKey(void)
 }
 
 
-int get_keyanalyzer_flag(void)
+s32 get_keyanalyzer_flag(void)
 {
   return g_CurrentPlayer->copiedgoldeneye;
 }
@@ -14231,8 +14241,8 @@ void gunTickGameplay(s32 triggerOn)
         g_CurrentPlayer->z_trigger_timer = 0;
     }
 
-    handle_weapon_id_values_possibly_1st_person_animation(0, trigger_state.triggerOn[0]); // Right hand
-    handle_weapon_id_values_possibly_1st_person_animation(1, trigger_state.triggerOn[1]); // Left hand
+    gunTickHandState(0, trigger_state.triggerOn[0]); // Right hand
+    gunTickHandState(1, trigger_state.triggerOn[1]); // Left hand
     used_to_load_1st_person_model_on_demand(0);
     used_to_load_1st_person_model_on_demand(1);
     gunTickNoise();
@@ -14387,7 +14397,6 @@ void caclulate_gun_crosshair_position_rotation(f32 turn_x, f32 turn_y, f32 guncr
 }
 
 
-
 void sub_GAME_7F067F58(f32 turn_x, f32 turn_y, f32 max_aim_lock_speed)
 {
     f32 aim_lock_speed;
@@ -14405,7 +14414,6 @@ void sub_GAME_7F067F58(f32 turn_x, f32 turn_y, f32 max_aim_lock_speed)
 
     caclulate_gun_crosshair_position_rotation(turn_x, turn_y, max_aim_lock_speed, aim_lock_speed);
 }
-
 
 
 void sub_GAME_7F067FBC(f32 turn_x, f32 turn_y)
@@ -14431,7 +14439,6 @@ void sub_GAME_7F067FBC(f32 turn_x, f32 turn_y)
 }
 
 
-
 /*
 * Address: 0x7f068008
 */
@@ -14439,7 +14446,6 @@ void get_bullet_angle(f32* horizontal_angle, f32* vertical_angle) {
 	*horizontal_angle = g_CurrentPlayer->crosshair_angle.f[0];
 	*vertical_angle = g_CurrentPlayer->crosshair_angle.f[1];
 }
-
 
 
 void sub_GAME_7F06802C(void)
@@ -14458,7 +14464,6 @@ void sub_GAME_7F06802C(void)
     transformAndNormalizeByLength2Dto3D((coord2d *) &g_CurrentPlayer->field_FFC, &coord, 1000.0f);
     sub_GAME_7F067AB4(&coord);
 }
-
 
 
 void sub_GAME_7F0680D4(coord3d * coord)
@@ -14482,7 +14487,6 @@ void sub_GAME_7F0680D4(coord3d * coord)
 }
 
 
-
 /**
  * Address 0x7F068190.
 */
@@ -14494,6 +14498,7 @@ void sub_GAME_7F068190(coord3d *zeropos, coord3d *vec)
 
     transformAndNormalizeByLength2Dto3D(&g_CurrentPlayer->crosshair_angle, vec, 1.0f);
 }
+
 
 /*
 * Address: 0x7f0681cc
@@ -15793,7 +15798,7 @@ void update_bullet_casing(CasingRecord* casing)
         if (g_CasingSfxState == 0)
 #endif
         {
-            if ((g_CurrentPlayer->hands[0].when_detonating_mines_is_0 != 2) && (g_CurrentPlayer->hands[1].when_detonating_mines_is_0 != 2))
+            if ((g_CurrentPlayer->hands[0].weapon_action_state != GUN_ANIM_STATE_FIRE) && (g_CurrentPlayer->hands[1].weapon_action_state != GUN_ANIM_STATE_FIRE))
             {
                 // Play bullet casing rolling on floor sound
                 sndPlaySfx((struct ALBankAlt_s* ) g_musicSfxBufferPtr, CART_SPENT_SFX, (ALSoundState* ) &g_CasingSfxState);
@@ -16987,8 +16992,8 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
                 ammotype = get_ammo_type_for_weapon(weapon_right);
 
                 if (ammotype != 0
-                    && g_CurrentPlayer->hands[0].when_detonating_mines_is_0 != 6
-                    && g_CurrentPlayer->hands[0].when_detonating_mines_is_0 != 7
+                    && g_CurrentPlayer->hands[0].weapon_action_state != GUN_ANIM_STATE_SWITCH_SWAP
+                    && g_CurrentPlayer->hands[0].weapon_action_state != GUN_ANIM_STATE_SWITCH_HOLD
                     && !bondwalkItemCheckBitflags(weapon_right, WEAPONSTATBITFLAG_HIDE_AMMO_DISPLAY))
                 {
                     imageoffset_r = ammo_related[ammotype].IconImage;
@@ -17053,8 +17058,8 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
                 ammotype = get_ammo_type_for_weapon(weapon_left);
 
                 if (ammotype != 0
-                    && g_CurrentPlayer->hands[1].when_detonating_mines_is_0 != 6
-                    && g_CurrentPlayer->hands[1].when_detonating_mines_is_0 != 7
+                    && g_CurrentPlayer->hands[1].weapon_action_state != GUN_ANIM_STATE_SWITCH_SWAP
+                    && g_CurrentPlayer->hands[1].weapon_action_state != GUN_ANIM_STATE_SWITCH_HOLD
                     && !bondwalkItemCheckBitflags(weapon_left, WEAPONSTATBITFLAG_HIDE_AMMO_DISPLAY))
                 {
                     imageoffset_l = ammo_related[ammotype].IconImage;
@@ -17142,8 +17147,8 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
         ammotype = get_ammo_type_for_weapon(item);
 
         if (ammotype != 0
-            && g_CurrentPlayer->hands[0].when_detonating_mines_is_0 != 6
-            && g_CurrentPlayer->hands[0].when_detonating_mines_is_0 != 7
+            && g_CurrentPlayer->hands[GUNRIGHT].weapon_action_state != GUN_ANIM_STATE_SWITCH_SWAP
+            && g_CurrentPlayer->hands[GUNRIGHT].weapon_action_state != GUN_ANIM_STATE_SWITCH_HOLD
             && !bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_HIDE_AMMO_DISPLAY))
         {
             imageoffset = ammo_related[ammotype].IconImage;

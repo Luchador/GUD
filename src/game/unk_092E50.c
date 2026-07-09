@@ -66,7 +66,7 @@ struct hand D_8003FDA0 = {
     0, /* field_888 */
     0, /* field_88C */
     0, /* field_890 */
-    0, /* when_detonating_mines_is_0 */
+    0, /* weapon_action_state */
     0, /* weapon_current_animation */
     0, /* weapon_ammo_in_magazine */
     0, /* field_8A0 */

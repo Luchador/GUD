@@ -136,7 +136,7 @@ struct hand
   s32 field_888;
   s32 field_88C;
   s32 field_890;
-  s32 when_detonating_mines_is_0;
+  s32 weapon_action_state;
   s32 weapon_current_animation;
   s32 weapon_ammo_in_magazine;
   s32 field_8A0;

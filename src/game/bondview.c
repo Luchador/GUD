@@ -7086,10 +7086,10 @@ void bondviewWatchAnimationTick(void)
             if (Gun_hand_without_item(GUNLEFT)
                 && Gun_hand_without_item(GUNRIGHT))
             {
-                if ((g_CurrentPlayer->hands[1].when_detonating_mines_is_0 != 5)
-                    && (g_CurrentPlayer->hands[1].when_detonating_mines_is_0 != 6)
-                    && (g_CurrentPlayer->hands[1].when_detonating_mines_is_0 != 7)
-                    && (g_CurrentPlayer->hands[1].when_detonating_mines_is_0 != 8))
+                if ((g_CurrentPlayer->hands[GUNLEFT].weapon_action_state != GUN_ANIM_STATE_SWITCH_LOWER)
+                    && (g_CurrentPlayer->hands[GUNLEFT].weapon_action_state != GUN_ANIM_STATE_SWITCH_SWAP)
+                    && (g_CurrentPlayer->hands[GUNLEFT].weapon_action_state != GUN_ANIM_STATE_SWITCH_HOLD)
+                    && (g_CurrentPlayer->hands[GUNLEFT].weapon_action_state != GUN_ANIM_STATE_SWITCH_RAISE))
                 {
                     g_CurrentPlayer->watch_animation_state = WATCH_ANIMATION_0x1;
                     g_CurrentPlayer->watch_pause_time = 0;
@@ -7122,13 +7122,10 @@ void bondviewWatchAnimationTick(void)
 }
 
 
-
-void set_open_close_solo_watch_menu_to1(void) {
+void set_open_close_solo_watch_menu_to1(void) 
+{
     g_CurrentPlayer->open_close_solo_watch_menu = TRUE;
 }
-
-
-
 
 
 /**
@@ -7155,10 +7152,10 @@ void trigger_solo_watch_menu(s32 arg0)
 
             if ((Gun_hand_without_item(GUNLEFT) != ITEM_UNARMED)
                 && (Gun_hand_without_item(GUNRIGHT) != ITEM_UNARMED)
-                && (g_CurrentPlayer->hands[1].when_detonating_mines_is_0 != 5)
-                && (g_CurrentPlayer->hands[1].when_detonating_mines_is_0 != 6)
-                && (g_CurrentPlayer->hands[1].when_detonating_mines_is_0 != 7)
-                && (g_CurrentPlayer->hands[1].when_detonating_mines_is_0 != 8))
+                && (g_CurrentPlayer->hands[GUNLEFT].weapon_action_state != GUN_ANIM_STATE_SWITCH_LOWER)
+                && (g_CurrentPlayer->hands[GUNLEFT].weapon_action_state != GUN_ANIM_STATE_SWITCH_SWAP)
+                && (g_CurrentPlayer->hands[GUNLEFT].weapon_action_state != GUN_ANIM_STATE_SWITCH_HOLD)
+                && (g_CurrentPlayer->hands[GUNLEFT].weapon_action_state != GUN_ANIM_STATE_SWITCH_RAISE))
             {
                 g_CurrentPlayer->watch_animation_state = WATCH_ANIMATION_0x1;
             }
@@ -9423,7 +9420,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
     if (moveData.detonating)
     {
-        g_CurrentPlayer->hands[GUNRIGHT].when_detonating_mines_is_0 = 0;
+        g_CurrentPlayer->hands[GUNRIGHT].weapon_action_state = GUN_ANIM_STATE_IDLE;
         g_CurrentPlayer->hands[GUNRIGHT].weapon_current_animation = 0;
         trigger_remote_mine_detonation();
     }
