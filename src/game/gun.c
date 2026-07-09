@@ -571,7 +571,7 @@ typedef struct ModelHeader {
 
 void bullet_path_from_screen_center(coord3d* arg0, coord3d* arg1, enum GUNHAND arg2);
 void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *arg2, coord3d *velocity, Mtxf *arg4);
-s32 sub_GAME_7F05C6FC(Weapon1PTransformKeyframe *keyframes, f32 time, Mtxf *matrix, GUNHAND hand);
+s32 gunSample1PTransform(Weapon1PTransformKeyframe *keyframes, f32 time, Mtxf *matrix, GUNHAND hand);
 void analyzeGEKey(void);
 void give_weapon_case_items(void);
 struct ModelFileHeader * get_ptr_weapon_model_header_line(ITEM_IDS weapon);
@@ -670,8 +670,14 @@ void gunDebAdvanceKeyframe(void)
 
 /**
  * Address: 7F05C6FC
+ * 
+ * Sample a first person weapon transform keyframe animation at `time` and
+ * write the interpolated transform into `matrix`
+ * 
+ * @returns 1 when an in-progress frame was interpolated, 0 when `time` reached
+ * the final keyframe and the static end pose was written.
  */
-s32 sub_GAME_7F05C6FC(Weapon1PTransformKeyframe *keyframes, f32 time, Mtxf *matrix, GUNHAND hand)
+s32 gunSample1PTransform(Weapon1PTransformKeyframe *keyframes, f32 time, Mtxf *matrix, GUNHAND hand)
 {
     Weapon1PTransformKeyframe *current;
     f32 frac;
@@ -12545,7 +12551,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
             break;
         case ITEM_TASER:
             tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-            if (sub_GAME_7F05C6FC(taserFireKeyFrames, tempf, &temp_s0->field_8EC, arg0) != 0)
+            if (gunSample1PTransform(taserFireKeyFrames, tempf, &temp_s0->field_8EC, arg0) != 0)
             {
                 temp_s0->field_92C = 1;
             }
@@ -12701,7 +12707,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
             case ITEM_TASER:
                 if ((temp_s0->field_88C == 0) || (temp_s0->weapon_hold_time != 0))
                 {
-                    sub_GAME_7F05C6FC(taserRaiseKeyframes, 0.0f, &temp_s0->field_8EC, arg0);
+                    gunSample1PTransform(taserRaiseKeyframes, 0.0f, &temp_s0->field_8EC, arg0);
 
                     temp_s0->weapon_firing_status = 0;
                     temp_s0->field_92C = 1;
@@ -12824,7 +12830,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
         if (var_s1 == ITEM_TASER)
         {
             tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-            if (sub_GAME_7F05C6FC(taserRaiseKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
+            if (gunSample1PTransform(taserRaiseKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
             {
                 temp_s0->field_92C = 1;
             }
@@ -13547,7 +13553,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
             var_a0_2 = D_80034E0C;
         }
 
-        if (sub_GAME_7F05C6FC(var_a0_2, sp88, &temp_s0->field_8EC, arg0) != 0)
+        if (gunSample1PTransform(var_a0_2, sp88, &temp_s0->field_8EC, arg0) != 0)
         {
             temp_s0->field_92C = 1;
         }
@@ -13601,7 +13607,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
             }
         }
 
-        if (sub_GAME_7F05C6FC(sp74, temp_v1_9, &temp_s0->field_8EC, arg0) != 0)
+        if (gunSample1PTransform(sp74, temp_v1_9, &temp_s0->field_8EC, arg0) != 0)
         {
             temp_s0->field_92C = 1;
         }
@@ -13618,7 +13624,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
         if (temp_s0->weapon_ammo_in_magazine > 0)
         {
             tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-            if (sub_GAME_7F05C6FC(grenadeThrowKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
+            if (gunSample1PTransform(grenadeThrowKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
             {
                 temp_s0->field_92C = 1;
             }
@@ -13643,7 +13649,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
     if (temp_s0->when_detonating_mines_is_0 == 0x1B)
     {
         tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-        if (sub_GAME_7F05C6FC(timedMineThrowKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
+        if (gunSample1PTransform(timedMineThrowKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
         {
             temp_s0->field_92C = 1;
         }
@@ -13667,11 +13673,11 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
             else
             {
                 tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-                if (sub_GAME_7F05C6FC(throwKnifeDrawBackKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
+                if (gunSample1PTransform(throwKnifeDrawBackKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
                 {
                     temp_s0->field_92C = 1;
                 }
-                else if (sub_GAME_7F05C6FC(throwKnifeReleaseKeyframes, 0.0f, &temp_s0->field_8EC, arg0) != 0)
+                else if (gunSample1PTransform(throwKnifeReleaseKeyframes, 0.0f, &temp_s0->field_8EC, arg0) != 0)
                 {
                     temp_s0->field_92C = 1;
                 }
@@ -13694,7 +13700,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
         if (temp_s0->weapon_ammo_in_magazine > 0)
         {
             tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-            if (sub_GAME_7F05C6FC(throwKnifeDrawBackKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
+            if (gunSample1PTransform(throwKnifeDrawBackKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
             {
                 temp_s0->field_92C = 1;
             }
@@ -13719,7 +13725,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
     if (temp_s0->when_detonating_mines_is_0 == 0x19)
     {
         tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-        if (sub_GAME_7F05C6FC(throwKnifeReleaseKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
+        if (gunSample1PTransform(throwKnifeReleaseKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
         {
             temp_s0->field_92C = 1;
         }
@@ -13737,7 +13743,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
         if ((temp_s0->weapon_ammo_in_magazine > 0) || (bondwalkItemCheckBitflags(var_s1, WEAPONSTATBITFLAG_CLICKY) != 0))
         {
             tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-            if (sub_GAME_7F05C6FC(proxMineThrowKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
+            if (gunSample1PTransform(proxMineThrowKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
             {
                 temp_s0->field_92C = 1;
             }
@@ -13762,7 +13768,7 @@ void handle_weapon_id_values_possibly_1st_person_animation(enum GUNHAND arg0, s3
     if (temp_s0->when_detonating_mines_is_0 == 0x1D)
     {
         tempf = F_7F05C6FC_ARG1(temp_s0->field_890);
-        if (sub_GAME_7F05C6FC(remoteMineThrowKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
+        if (gunSample1PTransform(remoteMineThrowKeyframes, tempf, &temp_s0->field_8EC, arg0) != 0)
         {
             temp_s0->field_92C = 1;
         }
