@@ -7680,14 +7680,95 @@ void bgGetRoomCenter(s32 roomnum, coord3d *dst)
 
 #ifdef NONMATCHING
 //bgRoomCalcBB
-void sub_GAME_7F0B9338(int room) {
-    if ((room < dword_CODE_bss_8007B9DC) && (firststaninroom[room] != NULL))
-    #ifdef DEBUG
-        else
+/**
+ * 99.36% match on decomp.me
+ * https://decomp.me/scratch/Sg7UA
+ */
+void sub_GAME_7F0B9338(s32 room)
+{
+    bg_room_data *roomdata;
+    Vtx *vertices;
+    s32 j;
+    s16 limits[6];
+    u8 wasloaded;
+    s16 new_var;
+    roomdata = (bg_room_data *) ((s32) ptr_bgdata_room_fileposition_list + room * 24);
+    if (roomdata->pPointTableBin == ((void *) 0))
     {
-          osSyncPrintf("bg: bgRoomCalcBB: ROOM%d has no gfx, and no stans! Can\'t make bb & roomoffset ", room);
-          }
-    #endif
+        if ((room < dword_CODE_bss_8007B9DC) && ((j = (&firststaninroom)[room]) != NULL))
+        {
+            for (j = 0; j < 3; j++)
+            {
+                g_BgRoomInfo[room].minbounds.f[j] = ((s16 *) (&dword_CODE_bss_8007B358[room * 3]))[j];
+                g_BgRoomInfo[room].maxbounds.f[j] = ((s16 *) (&dword_CODE_bss_8007B358[room * 3]))[j + 3];
+                ptr_bgdata_room_fileposition_list[room].pos.f[j] = (((s16 *) (&dword_CODE_bss_8007B358[room * 3]))[j] + ((s16 *) (&dword_CODE_bss_8007B358[room * 3]))[j + 3]) / 2;
+            }
+        }
+#ifdef DEBUG
+        else
+        {
+            osSyncPrintf("bg: bgRoomCalcBB: ROOM%d has no gfx, and no stans! Can\'t make bb & roomoffset ", room);
+        }
+#endif
+        
+        return;
+    }
+    
+    wasloaded = g_BgRoomInfo[room].model_bin_loaded;
+    
+    if (!wasloaded)
+    {
+        bgLoadRoomModelData(room);
+    }
+    
+    vertices = g_BgRoomInfo[room].vertices;
+    roomdata = (bg_room_data *) ((s32) ptr_bgdata_room_fileposition_list + room * 24);
+    limits[0] = 0x7fff;
+    limits[1] = 0x7fff;
+    limits[2] = 0x7fff;
+    limits[3] = -0x7fff;
+    limits[4] = -0x7fff;
+    limits[5] = -0x7fff;
+    
+    for (; vertices < (Vtx *) ((s32) g_BgRoomInfo[room].vertices + g_BgRoomInfo[room].usize_point_index_binary); vertices++)
+    {
+        for (j = 0; j < 3; j++)
+        {
+            if (((s16 *) vertices)[j] < limits[j])
+            {
+                limits[j] = ((s16 *) vertices)[j];
+            }
+            
+            if (limits[j + 3] < ((s16 *) vertices)[j])
+            {
+                limits[j + 3] = ((s16 *) vertices)[j];
+            }
+        }
+    }
+    
+    new_var = limits[0];
+    if(1);
+    g_BgRoomInfo[room].minbounds.x = roomdata->pos.x + new_var;
+    new_var = limits[1];
+    if(1);
+    g_BgRoomInfo[room].minbounds.y = roomdata->pos.y + new_var;
+    new_var = limits[2];
+    if(1);
+    g_BgRoomInfo[room].minbounds.z = roomdata->pos.z + new_var;
+    new_var = limits[3];
+    if(1);
+    g_BgRoomInfo[room].maxbounds.x = roomdata->pos.x + new_var;
+    new_var = limits[4];
+    if(1);
+    g_BgRoomInfo[room].maxbounds.y = roomdata->pos.y + new_var;
+    new_var = limits[5];
+    if(1);
+    g_BgRoomInfo[room].maxbounds.z = roomdata->pos.z + new_var;
+    
+    if (wasloaded == 0)
+    {
+        delete_room_data(room);
+    }
 }
 #else
 GLOBAL_ASM(
