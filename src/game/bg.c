@@ -9190,377 +9190,131 @@ bool bgIsBboxOverlapping(coord3d *portalbbmin, coord3d *portalbbmax, coord3d *pr
 }
 
 
-#ifdef NONMATCHING
-void sub_GAME_7F0BA2D4(void *arg0, void *arg1, s32 *arg2, s32 *arg3, s32 arg4)
+void sub_GAME_7F0BA2D4(coord3d *bbmin, coord3d *bbmax, s32 *room_list, s32 *count, s32 max_count)
 {
-    f32   spA8;
-    f32   spA4;
-    f32   spA0;
-    f32   sp9C;
-    f32   sp98;
-    f32   sp94;
-    s32   sp8C;
-    s32   sp7C;
-    f32   sp70;
-    f32   sp64;
-    s32  *sp5C;
-    f32  *var_v0;
-    f32  *var_v1;
-    f32   temp_f0;
-    s32  *var_v0_2;
-    s32   temp_s3;
-    s32   temp_t2;
-    s32   var_a0;
-    s32   var_a2;
-    s32   var_s1;
-    s32   var_s2;
-    s32   var_t0;
-    s32   var_t0_2;
-    u8  **temp_v0;
-    u8  **var_a3;
-    u8    temp_v0_2;
-    u8    var_v1_2;
-    void *temp_a3;
-
-    var_s1 = *arg3;
-    var_t0 = 0;
-    spA0   = arg0->unk0 * room_data_float1;
-    spA4   = arg0->unk4 * room_data_float1;
-    spA8   = arg0->unk8 * room_data_float1;
-    sp94   = arg1->unk0 * room_data_float1;
-    sp98   = arg1->unk4 * room_data_float1;
-    sp7C   = var_s1;
-    sp9C   = arg1->unk8 * room_data_float1;
-loop_1:
-    if (var_t0 < var_s1)
+    bg_portal_entry *portal_pts;
+    f32 v;
+    s32 cur_room;
+    coord3d scaled_bbmin;
+    coord3d scaled_bbmax;
+    s32 cur_count;
+    s32 i;
+    s32 j;
+    s32 k;
+    s32 pad;
+    s32 saved_count;
+    coord3d portal_min;
+    coord3d portal_max;
+    s32 portal_idx;
+    s32 *p;
+    s32 other_room;
+    
+    cur_count = *count;
+    i = 0;
+    scaled_bbmin.x = bbmin->x * room_data_float1;
+    scaled_bbmin.y = bbmin->y * room_data_float1;
+    scaled_bbmin.z = bbmin->z * room_data_float1;
+    scaled_bbmax.x = bbmax->x * room_data_float1;
+    scaled_bbmax.y = bbmax->y * room_data_float1;
+    scaled_bbmax.z = bbmax->z * room_data_float1;
+    saved_count = cur_count;
+    
+    while (1)
     {
-        temp_v0 = g_BgPortals;
-        sp5C    = arg2 + (var_t0 * 4);
-loop_3:
-        var_s2  = 0;
-        temp_s3 = *sp5C;
-        if (*temp_v0 != NULL)
+        if (i < cur_count)
         {
-            sp8C   = var_t0;
-            var_a3 = temp_v0;
-loop_5:
-            if (!(var_a3->unk6 & 1) && ((temp_s3 == var_a3->unk4) || (temp_s3 == var_a3->unk5)))
+            p = (s32 *)((u8 *)room_list + (i << 2)); do {
+            cur_room = *p;
+            portal_idx = 0;
+ 
+            if (g_BgPortals[0].offset_portal != ((void *) 0))
             {
-                sp70.unk0 = D_80044904.unk0;
-                sp70.unk4 = D_80044904.unk4;
-                sp70.unk8 = D_80044904.unk8;
-                var_a2    = 0;
-                sp64.unk0 = D_80044910.unk0;
-                sp64.unk4 = D_80044910.unk4;
-                sp64.unk8 = D_80044910.unk8;
-                if (*var_a3->unk0 > 0) //g_BgRoomInfo->numportals 0x47 in debug, 0x0 in retail... maybesomething comes before ?
+                do
                 {
-                    do
+                    if ((g_BgPortals[portal_idx].controlbytes1 & 1) || ((cur_room != g_BgPortals[portal_idx].connectedRoom1) && (cur_room != g_BgPortals[portal_idx].connectedRoom2)))
                     {
-                        var_a0 = 0;
-                        var_v1 = &sp70;
-                        var_v0 = &sp64;
-loop_10:
-                        temp_f0 = (var_a3->unk0 + (var_a2 * 0xC) + var_a0)->unk4;
-                        var_a0 += 4;
-                        if (temp_f0 < *var_v1)
-                        {
-                            *var_v1 = temp_f0;
-                        }
-                        var_v1 += 4;
-                        if (*var_v0 < temp_f0)
-                        {
-                            *var_v0 = temp_f0;
-                        }
-                        var_v0 += 4;
-                        if (var_v0 != &sp70)
-                        {
-                            goto loop_10;
-                        }
-                        var_a2 += 1;
-                    } while (var_a2 < *var_a3->unk0);
-                }
-                if (bgIsBboxOverlapping(&sp70, &sp64, &spA0, &sp94) != 0)
-                {
-                    var_t0_2  = 0;
-                    temp_a3   = g_BgPortals + var_s2;
-                    temp_v0_2 = temp_a3->unk4;
-                    var_v1_2  = temp_v0_2;
-                    if (temp_s3 == temp_v0_2)
-                    {
-                        var_v1_2 = temp_a3->unk5;
+                        goto next_portal;
                     }
-                    var_v0_2 = arg2;
-                    if (var_s1 > 0)
+                    
+                    portal_min = *(coord3d *) &D_80044904;
+                    portal_max = *(coord3d *) &D_80044910;
+                    portal_pts = g_BgPortals[portal_idx].offset_portal;
+                    
+                    for (j = 0; j < portal_pts->numPoints; j++)
                     {
-loop_20:
-                        if (var_v1_2 != *var_v0_2)
+                        for (k = 0; k < 3; k++)
                         {
-                            var_t0_2 += 1;
-                            var_v0_2 += 4;
-                            if (var_t0_2 != var_s1)
+                            v = (&portal_pts->point)[j].f[k];
+                            
+                            if (v < portal_min.f[k])
                             {
-                                goto loop_20;
+                                portal_min.f[k] = v;
                             }
+                            
+                            if (portal_max.f[k] < v)
+                            {
+                                portal_max.f[k] = v;
+                            }
+                            
+                            portal_pts = g_BgPortals[portal_idx].offset_portal;
+                        }
+ 
+                        if (portal_pts->numPoints);
+                    }
+                    
+                if (bgIsBboxOverlapping(&portal_min, &portal_max, &scaled_bbmin, &scaled_bbmax))
+                {
+                    if (cur_room == g_BgPortals[portal_idx].connectedRoom1)
+                    {
+                        other_room = g_BgPortals[portal_idx].connectedRoom2;
+                    }
+                    else
+                    {
+                        other_room = g_BgPortals[portal_idx].connectedRoom1;
+                    }
+                    
+                    for (k = 0; k < cur_count; k++)
+                    {
+                        if (room_list[k] == other_room)
+                        {
+                            break;
                         }
                     }
-                    if (var_t0_2 == var_s1)
+                    
+                    if (k == cur_count)
                     {
-                        if (var_s1 < arg4)
+                        if (cur_count < max_count)
                         {
-                            *(arg2 + (var_s1 * 4)) = var_v1_2;
-                            var_s1 += 1;
+                            room_list[cur_count] = other_room;
+                            cur_count++;
                         }
-                        if (var_s1 >= arg4)
+                        
+                        if (cur_count >= max_count)
                         {
-                            *arg3 = var_s1;
+                            *count = cur_count;
                             return;
                         }
-                        goto block_27;
                     }
-                    goto block_27;
                 }
-block_27:
-                var_a3 = g_BgPortals + var_s2;
-                goto block_28;
+                    
+next_portal:
+                portal_idx++;
+                }         
+                while (g_BgPortals[portal_idx].offset_portal != NULL);
             }
-block_28:
-            temp_t2 = var_a3->unk8;
-            var_s2 += 8;
-            var_a3 += 8;
-            if (temp_t2 == 0)
-            {
-                var_t0 = sp8C;
-                goto block_30;
-            }
-            goto loop_5;
-        }
-block_30:
-        var_t0 += 1;
-        sp5C += 4;
-        if (var_t0 >= sp7C)
+
+            i++;
+            p++;
+                    
+            } while (i < saved_count);
+        }    
+ 
+        if (cur_count == saved_count)
         {
-            goto block_31;
+            break;
         }
-        goto loop_3;
+     
+        saved_count = cur_count;
     }
-block_31:
-    if (var_s1 != sp7C)
-    {
-        sp7C = var_s1;
-        goto loop_1;
-    }
-    *arg3 = var_s1;
+    *count = cur_count;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0BA2D4
-/* 0EEE04 7F0BA2D4 27BDFF48 */  addiu $sp, $sp, -0xb8
-/* 0EEE08 7F0BA2D8 AFBF003C */  sw    $ra, 0x3c($sp)
-/* 0EEE0C 7F0BA2DC AFBE0038 */  sw    $fp, 0x38($sp)
-/* 0EEE10 7F0BA2E0 AFB70034 */  sw    $s7, 0x34($sp)
-/* 0EEE14 7F0BA2E4 AFB60030 */  sw    $s6, 0x30($sp)
-/* 0EEE18 7F0BA2E8 AFB5002C */  sw    $s5, 0x2c($sp)
-/* 0EEE1C 7F0BA2EC AFB40028 */  sw    $s4, 0x28($sp)
-/* 0EEE20 7F0BA2F0 AFB30024 */  sw    $s3, 0x24($sp)
-/* 0EEE24 7F0BA2F4 AFB20020 */  sw    $s2, 0x20($sp)
-/* 0EEE28 7F0BA2F8 AFB1001C */  sw    $s1, 0x1c($sp)
-/* 0EEE2C 7F0BA2FC AFB00018 */  sw    $s0, 0x18($sp)
-/* 0EEE30 7F0BA300 AFA700C4 */  sw    $a3, 0xc4($sp)
-/* 0EEE34 7F0BA304 3C018004 */  lui   $at, %hi(room_data_float1)
-/* 0EEE38 7F0BA308 C42013F4 */  lwc1  $f0, %lo(room_data_float1)($at)
-/* 0EEE3C 7F0BA30C C4840000 */  lwc1  $f4, ($a0)
-/* 0EEE40 7F0BA310 8CF10000 */  lw    $s1, ($a3)
-/* 0EEE44 7F0BA314 3C1E8004 */  lui   $fp, %hi(D_80044904)
-/* 0EEE48 7F0BA318 46002182 */  mul.s $f6, $f4, $f0
-/* 0EEE4C 7F0BA31C 00C0A025 */  move  $s4, $a2
-/* 0EEE50 7F0BA320 00004025 */  move  $t0, $zero
-/* 0EEE54 7F0BA324 27DE4904 */  addiu $fp, %lo(D_80044904) # addiu $fp, $fp, 0x4904
-/* 0EEE58 7F0BA328 27B00070 */  addiu $s0, $sp, 0x70
-/* 0EEE5C 7F0BA32C 8FB500C8 */  lw    $s5, 0xc8($sp)
-/* 0EEE60 7F0BA330 27B60070 */  addiu $s6, $sp, 0x70
-/* 0EEE64 7F0BA334 E7A600A0 */  swc1  $f6, 0xa0($sp)
-/* 0EEE68 7F0BA338 C4880004 */  lwc1  $f8, 4($a0)
-/* 0EEE6C 7F0BA33C 27B70064 */  addiu $s7, $sp, 0x64
-/* 0EEE70 7F0BA340 46004282 */  mul.s $f10, $f8, $f0
-/* 0EEE74 7F0BA344 E7AA00A4 */  swc1  $f10, 0xa4($sp)
-/* 0EEE78 7F0BA348 C4900008 */  lwc1  $f16, 8($a0)
-/* 0EEE7C 7F0BA34C 46008482 */  mul.s $f18, $f16, $f0
-/* 0EEE80 7F0BA350 E7B200A8 */  swc1  $f18, 0xa8($sp)
-/* 0EEE84 7F0BA354 C4A40000 */  lwc1  $f4, ($a1)
-/* 0EEE88 7F0BA358 46002182 */  mul.s $f6, $f4, $f0
-/* 0EEE8C 7F0BA35C E7A60094 */  swc1  $f6, 0x94($sp)
-/* 0EEE90 7F0BA360 C4A80004 */  lwc1  $f8, 4($a1)
-/* 0EEE94 7F0BA364 46004282 */  mul.s $f10, $f8, $f0
-/* 0EEE98 7F0BA368 E7AA0098 */  swc1  $f10, 0x98($sp)
-/* 0EEE9C 7F0BA36C C4B00008 */  lwc1  $f16, 8($a1)
-/* 0EEEA0 7F0BA370 AFB1007C */  sw    $s1, 0x7c($sp)
-/* 0EEEA4 7F0BA374 46008482 */  mul.s $f18, $f16, $f0
-/* 0EEEA8 7F0BA378 E7B2009C */  swc1  $f18, 0x9c($sp)
-.L7F0BA37C:
-/* 0EEEAC 7F0BA37C 0111082A */  slt   $at, $t0, $s1
-/* 0EEEB0 7F0BA380 1020007C */  beqz  $at, .L7F0BA574
-/* 0EEEB4 7F0BA384 00087880 */   sll   $t7, $t0, 2
-/* 0EEEB8 7F0BA388 028FC021 */  addu  $t8, $s4, $t7
-/* 0EEEBC 7F0BA38C 3C028008 */  lui   $v0, %hi(g_BgPortals)
-/* 0EEEC0 7F0BA390 8C42FF80 */  lw    $v0, %lo(g_BgPortals)($v0)
-/* 0EEEC4 7F0BA394 AFB8005C */  sw    $t8, 0x5c($sp)
-.L7F0BA398:
-/* 0EEEC8 7F0BA398 8C490000 */  lw    $t1, ($v0)
-/* 0EEECC 7F0BA39C 8FB9005C */  lw    $t9, 0x5c($sp)
-/* 0EEED0 7F0BA3A0 00009025 */  move  $s2, $zero
-/* 0EEED4 7F0BA3A4 1120006C */  beqz  $t1, .L7F0BA558
-/* 0EEED8 7F0BA3A8 8F330000 */   lw    $s3, ($t9)
-/* 0EEEDC 7F0BA3AC AFA8008C */  sw    $t0, 0x8c($sp)
-/* 0EEEE0 7F0BA3B0 00403825 */  move  $a3, $v0
-/* 0EEEE4 7F0BA3B4 90EA0006 */  lbu   $t2, 6($a3)
-.L7F0BA3B8:
-/* 0EEEE8 7F0BA3B8 314B0001 */  andi  $t3, $t2, 1
-/* 0EEEEC 7F0BA3BC 55600061 */  bnezl $t3, .L7F0BA544
-/* 0EEEF0 7F0BA3C0 8CEA0008 */   lw    $t2, 8($a3)
-/* 0EEEF4 7F0BA3C4 90EC0004 */  lbu   $t4, 4($a3)
-/* 0EEEF8 7F0BA3C8 526C0005 */  beql  $s3, $t4, .L7F0BA3E0
-/* 0EEEFC 7F0BA3CC 8FC10000 */   lw    $at, ($fp)
-/* 0EEF00 7F0BA3D0 90ED0005 */  lbu   $t5, 5($a3)
-/* 0EEF04 7F0BA3D4 566D005B */  bnel  $s3, $t5, .L7F0BA544
-/* 0EEF08 7F0BA3D8 8CEA0008 */   lw    $t2, 8($a3)
-/* 0EEF0C 7F0BA3DC 8FC10000 */  lw    $at, ($fp)
-.L7F0BA3E0:
-/* 0EEF10 7F0BA3E0 8FCF0004 */  lw    $t7, 4($fp)
-/* 0EEF14 7F0BA3E4 3C188004 */  lui   $t8, %hi(D_80044910)
-/* 0EEF18 7F0BA3E8 AEC10000 */  sw    $at, ($s6)
-/* 0EEF1C 7F0BA3EC 8FC10008 */  lw    $at, 8($fp)
-/* 0EEF20 7F0BA3F0 27184910 */  addiu $t8, %lo(D_80044910) # addiu $t8, $t8, 0x4910
-/* 0EEF24 7F0BA3F4 AECF0004 */  sw    $t7, 4($s6)
-/* 0EEF28 7F0BA3F8 AEC10008 */  sw    $at, 8($s6)
-/* 0EEF2C 7F0BA3FC 8F010000 */  lw    $at, ($t8)
-/* 0EEF30 7F0BA400 00003025 */  move  $a2, $zero
-/* 0EEF34 7F0BA404 AEE10000 */  sw    $at, ($s7)
-/* 0EEF38 7F0BA408 8F090004 */  lw    $t1, 4($t8)
-/* 0EEF3C 7F0BA40C AEE90004 */  sw    $t1, 4($s7)
-/* 0EEF40 7F0BA410 8F010008 */  lw    $at, 8($t8)
-/* 0EEF44 7F0BA414 AEE10008 */  sw    $at, 8($s7)
-/* 0EEF48 7F0BA418 8CE50000 */  lw    $a1, ($a3)
-/* 0EEF4C 7F0BA41C 90AA0000 */  lbu   $t2, ($a1)
-/* 0EEF50 7F0BA420 1940001F */  blez  $t2, .L7F0BA4A0
-/* 0EEF54 7F0BA424 00002025 */   move  $a0, $zero
-.L7F0BA428:
-/* 0EEF58 7F0BA428 27A30070 */  addiu $v1, $sp, 0x70
-/* 0EEF5C 7F0BA42C 27A20064 */  addiu $v0, $sp, 0x64
-.L7F0BA430:
-/* 0EEF60 7F0BA430 00065880 */  sll   $t3, $a2, 2
-/* 0EEF64 7F0BA434 01665823 */  subu  $t3, $t3, $a2
-/* 0EEF68 7F0BA438 000B5880 */  sll   $t3, $t3, 2
-/* 0EEF6C 7F0BA43C 00AB6021 */  addu  $t4, $a1, $t3
-/* 0EEF70 7F0BA440 01846821 */  addu  $t5, $t4, $a0
-/* 0EEF74 7F0BA444 C5A00004 */  lwc1  $f0, 4($t5)
-/* 0EEF78 7F0BA448 C4640000 */  lwc1  $f4, ($v1)
-/* 0EEF7C 7F0BA44C 24840004 */  addiu $a0, $a0, 4
-/* 0EEF80 7F0BA450 4604003C */  c.lt.s $f0, $f4
-/* 0EEF84 7F0BA454 00000000 */  nop
-/* 0EEF88 7F0BA458 45020003 */  bc1fl .L7F0BA468
-/* 0EEF8C 7F0BA45C C4460000 */   lwc1  $f6, ($v0)
-/* 0EEF90 7F0BA460 E4600000 */  swc1  $f0, ($v1)
-/* 0EEF94 7F0BA464 C4460000 */  lwc1  $f6, ($v0)
-.L7F0BA468:
-/* 0EEF98 7F0BA468 24630004 */  addiu $v1, $v1, 4
-/* 0EEF9C 7F0BA46C 4600303C */  c.lt.s $f6, $f0
-/* 0EEFA0 7F0BA470 00000000 */  nop
-/* 0EEFA4 7F0BA474 45020003 */  bc1fl .L7F0BA484
-/* 0EEFA8 7F0BA478 24420004 */   addiu $v0, $v0, 4
-/* 0EEFAC 7F0BA47C E4400000 */  swc1  $f0, ($v0)
-/* 0EEFB0 7F0BA480 24420004 */  addiu $v0, $v0, 4
-.L7F0BA484:
-/* 0EEFB4 7F0BA484 1450FFEA */  bne   $v0, $s0, .L7F0BA430
-/* 0EEFB8 7F0BA488 8CE50000 */   lw    $a1, ($a3)
-/* 0EEFBC 7F0BA48C 90A20000 */  lbu   $v0, ($a1)
-/* 0EEFC0 7F0BA490 24C60001 */  addiu $a2, $a2, 1
-/* 0EEFC4 7F0BA494 00C2082A */  slt   $at, $a2, $v0
-/* 0EEFC8 7F0BA498 5420FFE3 */  bnezl $at, .L7F0BA428
-/* 0EEFCC 7F0BA49C 00002025 */   move  $a0, $zero
-.L7F0BA4A0:
-/* 0EEFD0 7F0BA4A0 02C02025 */  move  $a0, $s6
-/* 0EEFD4 7F0BA4A4 02E02825 */  move  $a1, $s7
-/* 0EEFD8 7F0BA4A8 27A600A0 */  addiu $a2, $sp, 0xa0
-/* 0EEFDC 7F0BA4AC 0FC2E89B */  jal   bgIsBboxOverlapping
-/* 0EEFE0 7F0BA4B0 27A70094 */   addiu $a3, $sp, 0x94
-/* 0EEFE4 7F0BA4B4 1040001F */  beqz  $v0, .L7F0BA534
-/* 0EEFE8 7F0BA4B8 3C0E8008 */   lui   $t6, %hi(g_BgPortals)
-/* 0EEFEC 7F0BA4BC 8DCEFF80 */  lw    $t6, %lo(g_BgPortals)($t6)
-/* 0EEFF0 7F0BA4C0 00004025 */  move  $t0, $zero
-/* 0EEFF4 7F0BA4C4 0235082A */  slt   $at, $s1, $s5
-/* 0EEFF8 7F0BA4C8 01D23821 */  addu  $a3, $t6, $s2
-/* 0EEFFC 7F0BA4CC 90E20004 */  lbu   $v0, 4($a3)
-/* 0EF000 7F0BA4D0 16620003 */  bne   $s3, $v0, .L7F0BA4E0
-/* 0EF004 7F0BA4D4 00401825 */   move  $v1, $v0
-/* 0EF008 7F0BA4D8 10000001 */  b     .L7F0BA4E0
-/* 0EF00C 7F0BA4DC 90E30005 */   lbu   $v1, 5($a3)
-.L7F0BA4E0:
-/* 0EF010 7F0BA4E0 1A200007 */  blez  $s1, .L7F0BA500
-/* 0EF014 7F0BA4E4 02801025 */   move  $v0, $s4
-.L7F0BA4E8:
-/* 0EF018 7F0BA4E8 8C4F0000 */  lw    $t7, ($v0)
-/* 0EF01C 7F0BA4EC 106F0004 */  beq   $v1, $t7, .L7F0BA500
-/* 0EF020 7F0BA4F0 00000000 */   nop
-/* 0EF024 7F0BA4F4 25080001 */  addiu $t0, $t0, 1
-/* 0EF028 7F0BA4F8 1511FFFB */  bne   $t0, $s1, .L7F0BA4E8
-/* 0EF02C 7F0BA4FC 24420004 */   addiu $v0, $v0, 4
-.L7F0BA500:
-/* 0EF030 7F0BA500 1511000C */  bne   $t0, $s1, .L7F0BA534
-/* 0EF034 7F0BA504 00000000 */   nop
-/* 0EF038 7F0BA508 10200004 */  beqz  $at, .L7F0BA51C
-/* 0EF03C 7F0BA50C 0011C880 */   sll   $t9, $s1, 2
-/* 0EF040 7F0BA510 0299C021 */  addu  $t8, $s4, $t9
-/* 0EF044 7F0BA514 AF030000 */  sw    $v1, ($t8)
-/* 0EF048 7F0BA518 26310001 */  addiu $s1, $s1, 1
-.L7F0BA51C:
-/* 0EF04C 7F0BA51C 0235082A */  slt   $at, $s1, $s5
-/* 0EF050 7F0BA520 14200004 */  bnez  $at, .L7F0BA534
-/* 0EF054 7F0BA524 00000000 */   nop
-/* 0EF058 7F0BA528 8FA900C4 */  lw    $t1, 0xc4($sp)
-/* 0EF05C 7F0BA52C 10000018 */  b     .L7F0BA590
-/* 0EF060 7F0BA530 AD310000 */   sw    $s1, ($t1)
-.L7F0BA534:
-/* 0EF064 7F0BA534 3C028008 */  lui   $v0, %hi(g_BgPortals)
-/* 0EF068 7F0BA538 8C42FF80 */  lw    $v0, %lo(g_BgPortals)($v0)
-/* 0EF06C 7F0BA53C 00523821 */  addu  $a3, $v0, $s2
-/* 0EF070 7F0BA540 8CEA0008 */  lw    $t2, 8($a3)
-.L7F0BA544:
-/* 0EF074 7F0BA544 26520008 */  addiu $s2, $s2, 8
-/* 0EF078 7F0BA548 24E70008 */  addiu $a3, $a3, 8
-/* 0EF07C 7F0BA54C 5540FF9A */  bnezl $t2, .L7F0BA3B8
-/* 0EF080 7F0BA550 90EA0006 */   lbu   $t2, 6($a3)
-/* 0EF084 7F0BA554 8FA8008C */  lw    $t0, 0x8c($sp)
-.L7F0BA558:
-/* 0EF088 7F0BA558 8FAB005C */  lw    $t3, 0x5c($sp)
-/* 0EF08C 7F0BA55C 8FAD007C */  lw    $t5, 0x7c($sp)
-/* 0EF090 7F0BA560 25080001 */  addiu $t0, $t0, 1
-/* 0EF094 7F0BA564 256C0004 */  addiu $t4, $t3, 4
-/* 0EF098 7F0BA568 010D082A */  slt   $at, $t0, $t5
-/* 0EF09C 7F0BA56C 1420FF8A */  bnez  $at, .L7F0BA398
-/* 0EF0A0 7F0BA570 AFAC005C */   sw    $t4, 0x5c($sp)
-.L7F0BA574:
-/* 0EF0A4 7F0BA574 8FAE007C */  lw    $t6, 0x7c($sp)
-/* 0EF0A8 7F0BA578 522E0004 */  beql  $s1, $t6, .L7F0BA58C
-/* 0EF0AC 7F0BA57C 8FAF00C4 */   lw    $t7, 0xc4($sp)
-/* 0EF0B0 7F0BA580 1000FF7E */  b     .L7F0BA37C
-/* 0EF0B4 7F0BA584 AFB1007C */   sw    $s1, 0x7c($sp)
-/* 0EF0B8 7F0BA588 8FAF00C4 */  lw    $t7, 0xc4($sp)
-.L7F0BA58C:
-/* 0EF0BC 7F0BA58C ADF10000 */  sw    $s1, ($t7)
-.L7F0BA590:
-/* 0EF0C0 7F0BA590 8FBF003C */  lw    $ra, 0x3c($sp)
-/* 0EF0C4 7F0BA594 8FB00018 */  lw    $s0, 0x18($sp)
-/* 0EF0C8 7F0BA598 8FB1001C */  lw    $s1, 0x1c($sp)
-/* 0EF0CC 7F0BA59C 8FB20020 */  lw    $s2, 0x20($sp)
-/* 0EF0D0 7F0BA5A0 8FB30024 */  lw    $s3, 0x24($sp)
-/* 0EF0D4 7F0BA5A4 8FB40028 */  lw    $s4, 0x28($sp)
-/* 0EF0D8 7F0BA5A8 8FB5002C */  lw    $s5, 0x2c($sp)
-/* 0EF0DC 7F0BA5AC 8FB60030 */  lw    $s6, 0x30($sp)
-/* 0EF0E0 7F0BA5B0 8FB70034 */  lw    $s7, 0x34($sp)
-/* 0EF0E4 7F0BA5B4 8FBE0038 */  lw    $fp, 0x38($sp)
-/* 0EF0E8 7F0BA5B8 03E00008 */  jr    $ra
-/* 0EF0EC 7F0BA5BC 27BD00B8 */   addiu $sp, $sp, 0xb8
-)
-#endif
