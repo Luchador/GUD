@@ -2502,315 +2502,122 @@ void sub_GAME_7F07B1A4(void)
         }
     }
 }
-
-
-#ifdef NONMATCHING
-void sub_GAME_7F07B2A0(void)
+void sub_GAME_7F07B2A0(s32 index, f32 time, coord3d *pos, coord3d *lookat)
 {
-    ? sp84;
-    ? sp78;
-    ? sp6C;
-    ? sp60;
-    f32 sp58;
-    ? sp54;
-    s32 sp40;
-    ? *var_a1;
-    f32   temp_f0;
-    f32   var_f0;
-    f32   var_f2;
-    s32   temp_t4;
-    s32   var_a2;
-    u32   temp_a0;
-    u32   temp_a3;
-    u32   var_v0;
-    void *temp_t3;
-    void *temp_t3_2;
+    u8                      pointbuf[0x28];
+    struct SetupIntroSwirl *base;
+    struct SetupIntroSwirl *loopbase;
+    struct SetupIntroSwirl *swirl;
+    f32                     frac;
+    f32                    *dst;
 
-    temp_t4 = arg0 << 5;
-    temp_t3 = g_IntroSwirl + temp_t4;
-    var_f2  = 0.0f;
-    temp_f0 = temp_t3->unk18;
-    var_a1  = &sp54;
-    var_a2  = -1;
-    temp_a3 = (arg0 << 5) + g_IntroSwirl;
-    if (temp_f0 > 0.0f)
+#define POINTBUF ((coord3d *)(pointbuf - 8))
+
+    base  = g_IntroSwirl;
+    swirl = (struct SetupIntroSwirl *)(((u32)base) + (index << 5));
+    frac  = 0.0f;
+
+    if (swirl->duration.fval > 0.0f)
     {
-        var_f2 = arg1 / temp_f0;
+        frac = time / swirl->duration.fval;
     }
-    do
+
     {
-        temp_a0 = (var_a2 << 5) + temp_a3;
-        var_v0  = temp_a3;
-        if (var_a2 < 0)
+        struct SetupIntroSwirl *entry;
+        struct SetupIntroSwirl *target;
+        s32                     i;
+
+        loopbase = (struct SetupIntroSwirl *)((((u32)index) << (5 ^ 0)) + ((u32)base));
+
+        for (i = -1; i < 3; i++)
         {
-            if (temp_a0 < g_IntroSwirl)
+            entry    = loopbase;
+            loopbase = (struct SetupIntroSwirl *)((((u32)index) << 5) + ((u32)base));
+            target   = entry + i;
+            dst      = &POINTBUF[i].x;
+
+            if (i < 0)
             {
-                var_v0 = g_IntroSwirl;
+                if (target < base)
+                {
+                    entry = base;
+                }
+                else
+                {
+                    entry = target;
+                }
             }
             else
             {
-                var_v0 = temp_a0;
-            }
-        }
-        else if (var_v0 < temp_a0)
-        {
-loop_8:
-            if (!(var_v0->unk24 & 1))
-            {
-                var_v0 += 0x20;
-                if (var_v0 < temp_a0)
+                while (entry < target)
                 {
-                    goto loop_8;
+                    if (entry[1].bitflags & 1)
+                    {
+                        break;
+                    }
+
+                    entry++;
                 }
             }
+
+            if (entry->bitflags & 2)
+            {
+                target = (struct SetupIntroSwirl *)g_CurrentPlayer;
+                dst[3] = (entry->offsetfromBond[2].fval * ((struct player *)target)->field_488.theta_transform.f[0]) + (entry->offsetfromBond[0].fval * ((struct player *)target)->field_488.theta_transform.f[2]),
+                dst[4] = entry->offsetfromBond[1].fval,
+                dst[5] = (entry->offsetfromBond[2].fval * ((struct player *)target)->field_488.theta_transform.f[2]) - (entry->offsetfromBond[0].fval * ((struct player *)target)->field_488.theta_transform.f[0]);
+            }
+            else
+            {
+                dst[3] = entry->offsetfromBond[0].fval;
+                dst[4] = entry->offsetfromBond[1].fval;
+                dst[5] = entry->offsetfromBond[2].fval;
+            }
         }
-        var_a2 += 1;
-        if (var_v0->unk4 & 2)
+    }
+
+    {
+        f32 scale;
+
+        base  = swirl;
+        scale = base->scale.fval;
+        base  = (struct SetupIntroSwirl *)(index << 5);
+        coord3dCubicSplineInterp(POINTBUF + 0, POINTBUF + 1, POINTBUF + 2, POINTBUF + 3, frac, scale, pos);
+        pos->x += g_CurrentPlayer->field_3C4;
+        pos->y += g_CurrentPlayer->field_3C8;
+        pos->z += g_CurrentPlayer->field_3CC;
+        lookat->x = g_CurrentPlayer->field_3C4;
+        lookat->y = g_CurrentPlayer->field_3C8;
+        lookat->z = g_CurrentPlayer->field_3CC;
+        swirl     = (struct SetupIntroSwirl *)(((u32)g_IntroSwirl) + (u32)base);
+
+        if (!(swirl->bitflags & 4))
         {
-            // pre-scaled offset eg 2812 = 646 RCP units
-            var_a1->unkC  = (g_CurrentPlayer->field_488.theta_transform.f[1] * var_v0->unk8) + (var_v0->unk10 * g_CurrentPlayer->unk498);
-            var_a1->unk10 = var_v0->unkC;
-            var_a1->unk14 = (var_v0->unk10 * g_CurrentPlayer->unk4A0) - (g_CurrentPlayer->unk498 * var_v0->unk8);
+            if (!(swirl[1].bitflags & 4))
+            {
+                scale = 1.0f;
+            }
+            else
+            {
+                scale = 1.0f - frac;
+            }
+        }
+        else if (swirl[1].bitflags & 4)
+        {
+            scale = 0.0f;
         }
         else
         {
-            var_a1->unkC  = var_v0->unk8;
-            var_a1->unk10 = var_v0->unkC;
-            var_a1->unk14 = var_v0->unk10;
+            scale = frac;
         }
-        var_a1 += 0xC;
-    } while (var_a2 != 3);
-    sp58 = var_f2;
-    sp40 = temp_t4;
-    coord3dCubicSplineInterp(arg1, &sp60, &sp6C, &sp78, &sp84, var_f2, temp_t3->unk14, arg2);
-    arg2->unk0 = arg2->unk0 + g_CurrentPlayer->unk3C4;
-    arg2->unk4 = arg2->unk4 + g_CurrentPlayer->unk3C8;
-    arg2->unk8 = arg2->unk8 + g_CurrentPlayer->unk3CC;
-    arg3->unk0 = g_CurrentPlayer->unk3C4;
-    arg3->unk4 = g_CurrentPlayer->unk3C8;
-    arg3->unk8 = g_CurrentPlayer->unk3CC;
-    temp_t3_2  = g_IntroSwirl + sp40;
-    if (!(temp_t3_2->unk4 & 4))
-    {
-        if (!(temp_t3_2->unk24 & 4))
-        {
-            var_f0 = 1.0f;
-        }
-        else
-        {
-            var_f0 = 1.0f - sp58;
-        }
+
+        lookat->x += (g_CurrentPlayer->field_488.applied_view.x * 40.0f) * scale;
+        lookat->y += (g_CurrentPlayer->field_488.applied_view.y * 40.0f) * scale;
+        lookat->z += (g_CurrentPlayer->field_488.applied_view.z * 40.0f) * scale;
     }
-    else if (temp_t3_2->unk24 & 4)
-    {
-        var_f0 = 0.0f;
-    }
-    else
-    {
-        var_f0 = sp58;
-    }
-    arg3->unk0 = arg3->unk0 + (g_CurrentPlayer->unk4C0 * 40.0f * var_f0);
-    arg3->unk4 = arg3->unk4 + (g_CurrentPlayer->unk4C4 * 40.0f * var_f0);
-    arg3->unk8 = arg3->unk8 + (g_CurrentPlayer->unk4C8 * 40.0f * var_f0);
+
+#undef POINTBUF
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F07B2A0
-/* 0AFDD0 7F07B2A0 3C088003 */  lui   $t0, %hi(g_IntroSwirl)
-/* 0AFDD4 7F07B2A4 8D0864AC */  lw    $t0, %lo(g_IntroSwirl)($t0)
-/* 0AFDD8 7F07B2A8 27BDFF70 */  addiu $sp, $sp, -0x90
-/* 0AFDDC 7F07B2AC 00046140 */  sll   $t4, $a0, 5
-/* 0AFDE0 7F07B2B0 AFBF002C */  sw    $ra, 0x2c($sp)
-/* 0AFDE4 7F07B2B4 AFB00028 */  sw    $s0, 0x28($sp)
-/* 0AFDE8 7F07B2B8 AFA60098 */  sw    $a2, 0x98($sp)
-/* 0AFDEC 7F07B2BC 010C5821 */  addu  $t3, $t0, $t4
-/* 0AFDF0 7F07B2C0 44801000 */  mtc1  $zero, $f2
-/* 0AFDF4 7F07B2C4 C5600018 */  lwc1  $f0, 0x18($t3)
-/* 0AFDF8 7F07B2C8 00E08025 */  move  $s0, $a3
-/* 0AFDFC 7F07B2CC 44856000 */  mtc1  $a1, $f12
-/* 0AFE00 7F07B2D0 4600103C */  c.lt.s $f2, $f0
-/* 0AFE04 7F07B2D4 00047140 */  sll   $t6, $a0, 5
-/* 0AFE08 7F07B2D8 27A50054 */  addiu $a1, $sp, 0x54
-/* 0AFE0C 7F07B2DC 2406FFFF */  li    $a2, -1
-/* 0AFE10 7F07B2E0 45000002 */  bc1f  .L7F07B2EC
-/* 0AFE14 7F07B2E4 01C83821 */   addu  $a3, $t6, $t0
-/* 0AFE18 7F07B2E8 46006083 */  div.s $f2, $f12, $f0
-.L7F07B2EC:
-/* 0AFE1C 7F07B2EC 3C098008 */  lui   $t1, %hi(g_CurrentPlayer)
-/* 0AFE20 7F07B2F0 2529A0B0 */  addiu $t1, %lo(g_CurrentPlayer) # addiu $t1, $t1, -0x5f50
-/* 0AFE24 7F07B2F4 240A0003 */  li    $t2, 3
-.L7F07B2F8:
-/* 0AFE28 7F07B2F8 00067940 */  sll   $t7, $a2, 5
-/* 0AFE2C 7F07B2FC 01E72021 */  addu  $a0, $t7, $a3
-/* 0AFE30 7F07B300 00E01025 */  move  $v0, $a3
-/* 0AFE34 7F07B304 04C10008 */  bgez  $a2, .L7F07B328
-/* 0AFE38 7F07B308 00801825 */   move  $v1, $a0
-/* 0AFE3C 7F07B30C 0088082B */  sltu  $at, $a0, $t0
-/* 0AFE40 7F07B310 10200003 */  beqz  $at, .L7F07B320
-/* 0AFE44 7F07B314 00000000 */   nop
-/* 0AFE48 7F07B318 1000000E */  b     .L7F07B354
-/* 0AFE4C 7F07B31C 01001025 */   move  $v0, $t0
-.L7F07B320:
-/* 0AFE50 7F07B320 1000000C */  b     .L7F07B354
-/* 0AFE54 7F07B324 00601025 */   move  $v0, $v1
-.L7F07B328:
-/* 0AFE58 7F07B328 0044082B */  sltu  $at, $v0, $a0
-/* 0AFE5C 7F07B32C 5020000A */  beql  $at, $zero, .L7F07B358
-/* 0AFE60 7F07B330 8C4D0004 */   lw    $t5, 4($v0)
-/* 0AFE64 7F07B334 8C580024 */  lw    $t8, 0x24($v0)
-.L7F07B338:
-/* 0AFE68 7F07B338 33190001 */  andi  $t9, $t8, 1
-/* 0AFE6C 7F07B33C 57200006 */  bnezl $t9, .L7F07B358
-/* 0AFE70 7F07B340 8C4D0004 */   lw    $t5, 4($v0)
-/* 0AFE74 7F07B344 24420020 */  addiu $v0, $v0, 0x20
-/* 0AFE78 7F07B348 0043082B */  sltu  $at, $v0, $v1
-/* 0AFE7C 7F07B34C 5420FFFA */  bnezl $at, .L7F07B338
-/* 0AFE80 7F07B350 8C580024 */   lw    $t8, 0x24($v0)
-.L7F07B354:
-/* 0AFE84 7F07B354 8C4D0004 */  lw    $t5, 4($v0)
-.L7F07B358:
-/* 0AFE88 7F07B358 24C60001 */  addiu $a2, $a2, 1
-/* 0AFE8C 7F07B35C 31AE0002 */  andi  $t6, $t5, 2
-/* 0AFE90 7F07B360 51C00018 */  beql  $t6, $zero, .L7F07B3C4
-/* 0AFE94 7F07B364 C4500008 */   lwc1  $f16, 8($v0)
-/* 0AFE98 7F07B368 8D230000 */  lw    $v1, ($t1)
-/* 0AFE9C 7F07B36C C4460008 */  lwc1  $f6, 8($v0)
-/* 0AFEA0 7F07B370 C44A0010 */  lwc1  $f10, 0x10($v0)
-/* 0AFEA4 7F07B374 C46404A0 */  lwc1  $f4, 0x4a0($v1)
-/* 0AFEA8 7F07B378 C4700498 */  lwc1  $f16, 0x498($v1)
-/* 0AFEAC 7F07B37C 46062202 */  mul.s $f8, $f4, $f6
-/* 0AFEB0 7F07B380 00000000 */  nop
-/* 0AFEB4 7F07B384 46105482 */  mul.s $f18, $f10, $f16
-/* 0AFEB8 7F07B388 46124100 */  add.s $f4, $f8, $f18
-/* 0AFEBC 7F07B38C E4A4000C */  swc1  $f4, 0xc($a1)
-/* 0AFEC0 7F07B390 C446000C */  lwc1  $f6, 0xc($v0)
-/* 0AFEC4 7F07B394 E4A60010 */  swc1  $f6, 0x10($a1)
-/* 0AFEC8 7F07B398 C44A0010 */  lwc1  $f10, 0x10($v0)
-/* 0AFECC 7F07B39C C47004A0 */  lwc1  $f16, 0x4a0($v1)
-/* 0AFED0 7F07B3A0 C4440008 */  lwc1  $f4, 8($v0)
-/* 0AFED4 7F07B3A4 C4720498 */  lwc1  $f18, 0x498($v1)
-/* 0AFED8 7F07B3A8 46105202 */  mul.s $f8, $f10, $f16
-/* 0AFEDC 7F07B3AC 00000000 */  nop
-/* 0AFEE0 7F07B3B0 46049182 */  mul.s $f6, $f18, $f4
-/* 0AFEE4 7F07B3B4 46064281 */  sub.s $f10, $f8, $f6
-/* 0AFEE8 7F07B3B8 10000007 */  b     .L7F07B3D8
-/* 0AFEEC 7F07B3BC E4AA0014 */   swc1  $f10, 0x14($a1)
-/* 0AFEF0 7F07B3C0 C4500008 */  lwc1  $f16, 8($v0)
-.L7F07B3C4:
-/* 0AFEF4 7F07B3C4 E4B0000C */  swc1  $f16, 0xc($a1)
-/* 0AFEF8 7F07B3C8 C452000C */  lwc1  $f18, 0xc($v0)
-/* 0AFEFC 7F07B3CC E4B20010 */  swc1  $f18, 0x10($a1)
-/* 0AFF00 7F07B3D0 C4440010 */  lwc1  $f4, 0x10($v0)
-/* 0AFF04 7F07B3D4 E4A40014 */  swc1  $f4, 0x14($a1)
-.L7F07B3D8:
-/* 0AFF08 7F07B3D8 14CAFFC7 */  bne   $a2, $t2, .L7F07B2F8
-/* 0AFF0C 7F07B3DC 24A5000C */   addiu $a1, $a1, 0xc
-/* 0AFF10 7F07B3E0 C5600014 */  lwc1  $f0, 0x14($t3)
-/* 0AFF14 7F07B3E4 8FAF0098 */  lw    $t7, 0x98($sp)
-/* 0AFF18 7F07B3E8 E7A20058 */  swc1  $f2, 0x58($sp)
-/* 0AFF1C 7F07B3EC AFAC0040 */  sw    $t4, 0x40($sp)
-/* 0AFF20 7F07B3F0 E7A20010 */  swc1  $f2, 0x10($sp)
-/* 0AFF24 7F07B3F4 27A40060 */  addiu $a0, $sp, 0x60
-/* 0AFF28 7F07B3F8 27A5006C */  addiu $a1, $sp, 0x6c
-/* 0AFF2C 7F07B3FC 27A60078 */  addiu $a2, $sp, 0x78
-/* 0AFF30 7F07B400 27A70084 */  addiu $a3, $sp, 0x84
-/* 0AFF34 7F07B404 E7A00014 */  swc1  $f0, 0x14($sp)
-/* 0AFF38 7F07B408 0FC16C09 */  jal   coord3dCubicSplineInterp
-/* 0AFF3C 7F07B40C AFAF0018 */   sw    $t7, 0x18($sp)
-/* 0AFF40 7F07B410 3C098008 */  lui   $t1, %hi(g_CurrentPlayer)
-/* 0AFF44 7F07B414 2529A0B0 */  addiu $t1, %lo(g_CurrentPlayer) # addiu $t1, $t1, -0x5f50
-/* 0AFF48 7F07B418 8FA20098 */  lw    $v0, 0x98($sp)
-/* 0AFF4C 7F07B41C 8D380000 */  lw    $t8, ($t1)
-/* 0AFF50 7F07B420 8FAC0040 */  lw    $t4, 0x40($sp)
-/* 0AFF54 7F07B424 C4480000 */  lwc1  $f8, ($v0)
-/* 0AFF58 7F07B428 C70603C4 */  lwc1  $f6, 0x3c4($t8)
-/* 0AFF5C 7F07B42C C7A20058 */  lwc1  $f2, 0x58($sp)
-/* 0AFF60 7F07B430 C4500004 */  lwc1  $f16, 4($v0)
-/* 0AFF64 7F07B434 46064280 */  add.s $f10, $f8, $f6
-/* 0AFF68 7F07B438 C4480008 */  lwc1  $f8, 8($v0)
-/* 0AFF6C 7F07B43C 44807000 */  mtc1  $zero, $f14
-/* 0AFF70 7F07B440 E44A0000 */  swc1  $f10, ($v0)
-/* 0AFF74 7F07B444 8D390000 */  lw    $t9, ($t1)
-/* 0AFF78 7F07B448 C73203C8 */  lwc1  $f18, 0x3c8($t9)
-/* 0AFF7C 7F07B44C 3C198003 */  lui   $t9, %hi(g_IntroSwirl)
-/* 0AFF80 7F07B450 46128100 */  add.s $f4, $f16, $f18
-/* 0AFF84 7F07B454 E4440004 */  swc1  $f4, 4($v0)
-/* 0AFF88 7F07B458 8D2D0000 */  lw    $t5, ($t1)
-/* 0AFF8C 7F07B45C C5A603CC */  lwc1  $f6, 0x3cc($t5)
-/* 0AFF90 7F07B460 46064280 */  add.s $f10, $f8, $f6
-/* 0AFF94 7F07B464 E44A0008 */  swc1  $f10, 8($v0)
-/* 0AFF98 7F07B468 8D2E0000 */  lw    $t6, ($t1)
-/* 0AFF9C 7F07B46C C5D003C4 */  lwc1  $f16, 0x3c4($t6)
-/* 0AFFA0 7F07B470 E6100000 */  swc1  $f16, ($s0)
-/* 0AFFA4 7F07B474 8D2F0000 */  lw    $t7, ($t1)
-/* 0AFFA8 7F07B478 C5F203C8 */  lwc1  $f18, 0x3c8($t7)
-/* 0AFFAC 7F07B47C E6120004 */  swc1  $f18, 4($s0)
-/* 0AFFB0 7F07B480 8D380000 */  lw    $t8, ($t1)
-/* 0AFFB4 7F07B484 C70403CC */  lwc1  $f4, 0x3cc($t8)
-/* 0AFFB8 7F07B488 E6040008 */  swc1  $f4, 8($s0)
-/* 0AFFBC 7F07B48C 8F3964AC */  lw    $t9, %lo(g_IntroSwirl)($t9)
-/* 0AFFC0 7F07B490 032C5821 */  addu  $t3, $t9, $t4
-/* 0AFFC4 7F07B494 8D6D0004 */  lw    $t5, 4($t3)
-/* 0AFFC8 7F07B498 31AE0004 */  andi  $t6, $t5, 4
-/* 0AFFCC 7F07B49C 55C0000E */  bnezl $t6, .L7F07B4D8
-/* 0AFFD0 7F07B4A0 8D790024 */   lw    $t9, 0x24($t3)
-/* 0AFFD4 7F07B4A4 8D6F0024 */  lw    $t7, 0x24($t3)
-/* 0AFFD8 7F07B4A8 3C013F80 */  li    $at, 0x3F800000 # 1.000000
-/* 0AFFDC 7F07B4AC 31F80004 */  andi  $t8, $t7, 4
-/* 0AFFE0 7F07B4B0 57000006 */  bnezl $t8, .L7F07B4CC
-/* 0AFFE4 7F07B4B4 44814000 */   mtc1  $at, $f8
-/* 0AFFE8 7F07B4B8 3C013F80 */  li    $at, 0x3F800000 # 1.000000
-/* 0AFFEC 7F07B4BC 44810000 */  mtc1  $at, $f0
-/* 0AFFF0 7F07B4C0 1000000C */  b     .L7F07B4F4
-/* 0AFFF4 7F07B4C4 8D2E0000 */   lw    $t6, ($t1)
-/* 0AFFF8 7F07B4C8 44814000 */  mtc1  $at, $f8
-.L7F07B4CC:
-/* 0AFFFC 7F07B4CC 10000008 */  b     .L7F07B4F0
-/* 0B0000 7F07B4D0 46024001 */   sub.s $f0, $f8, $f2
-/* 0B0004 7F07B4D4 8D790024 */  lw    $t9, 0x24($t3)
-.L7F07B4D8:
-/* 0B0008 7F07B4D8 332D0004 */  andi  $t5, $t9, 4
-/* 0B000C 7F07B4DC 51A00004 */  beql  $t5, $zero, .L7F07B4F0
-/* 0B0010 7F07B4E0 46001006 */   mov.s $f0, $f2
-/* 0B0014 7F07B4E4 10000002 */  b     .L7F07B4F0
-/* 0B0018 7F07B4E8 46007006 */   mov.s $f0, $f14
-/* 0B001C 7F07B4EC 46001006 */  mov.s $f0, $f2
-.L7F07B4F0:
-/* 0B0020 7F07B4F0 8D2E0000 */  lw    $t6, ($t1)
-.L7F07B4F4:
-/* 0B0024 7F07B4F4 3C014220 */  li    $at, 0x42200000 # 40.000000
-/* 0B0028 7F07B4F8 44811000 */  mtc1  $at, $f2
-/* 0B002C 7F07B4FC C5CA04C0 */  lwc1  $f10, 0x4c0($t6)
-/* 0B0030 7F07B500 C6060000 */  lwc1  $f6, ($s0)
-/* 0B0034 7F07B504 C6080004 */  lwc1  $f8, 4($s0)
-/* 0B0038 7F07B508 46025402 */  mul.s $f16, $f10, $f2
-/* 0B003C 7F07B50C 00000000 */  nop
-/* 0B0040 7F07B510 46008482 */  mul.s $f18, $f16, $f0
-/* 0B0044 7F07B514 46123100 */  add.s $f4, $f6, $f18
-/* 0B0048 7F07B518 E6040000 */  swc1  $f4, ($s0)
-/* 0B004C 7F07B51C 8D2F0000 */  lw    $t7, ($t1)
-/* 0B0050 7F07B520 C6040008 */  lwc1  $f4, 8($s0)
-/* 0B0054 7F07B524 C5EA04C4 */  lwc1  $f10, 0x4c4($t7)
-/* 0B0058 7F07B528 46025402 */  mul.s $f16, $f10, $f2
-/* 0B005C 7F07B52C 00000000 */  nop
-/* 0B0060 7F07B530 46008182 */  mul.s $f6, $f16, $f0
-/* 0B0064 7F07B534 46064480 */  add.s $f18, $f8, $f6
-/* 0B0068 7F07B538 E6120004 */  swc1  $f18, 4($s0)
-/* 0B006C 7F07B53C 8D380000 */  lw    $t8, ($t1)
-/* 0B0070 7F07B540 C70A04C8 */  lwc1  $f10, 0x4c8($t8)
-/* 0B0074 7F07B544 46025402 */  mul.s $f16, $f10, $f2
-/* 0B0078 7F07B548 00000000 */  nop
-/* 0B007C 7F07B54C 46008202 */  mul.s $f8, $f16, $f0
-/* 0B0080 7F07B550 46082180 */  add.s $f6, $f4, $f8
-/* 0B0084 7F07B554 E6060008 */  swc1  $f6, 8($s0)
-/* 0B0088 7F07B558 8FBF002C */  lw    $ra, 0x2c($sp)
-/* 0B008C 7F07B55C 8FB00028 */  lw    $s0, 0x28($sp)
-/* 0B0090 7F07B560 27BD0090 */  addiu $sp, $sp, 0x90
-/* 0B0094 7F07B564 03E00008 */  jr    $ra
-/* 0B0098 7F07B568 00000000 */   nop
-)
-#endif
 
 
 
