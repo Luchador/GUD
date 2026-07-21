@@ -17,6 +17,8 @@ typedef struct StanRoomBounds {
     s16 maxZ;
 } StanRoomBounds;
 
+void getTileMidPoint(StandTile *tile, coord3d *out);
+
 // bss
 struct StanPrefixRecord {
     //CODE.bss:8007B120
@@ -923,43 +925,10 @@ StandTile *stanFindFloorTileBelowY(f32 x, f32 maxY, f32 z, f32 radius)
 
     return NULL;
 }
-
-
-#ifdef NONMATCHING
-// 2 instructions swapped, regalloc.
-// I've tried all orderings of the A,B,C assignments, both as indices and as pointers to StandTilePoints
-// Summing the x,y,z components first just makes more regalloc issues
-// Placing the macros directly in the indexing doesn't help either.
-// Making midPnt a f32* did nothing.
-
-// I'm out of ideas.
-void getTileMidPoint(StandTile *tile, coord3d *midPnt)
-{
-    short headerTail;
-    // may be RGB
-    s32 indexA;
-    s32 indexB;
-    s32 indexC;
-
-    indexA = STAN_TRIPLE_TO_PNT_INDEX(tile, 0);
-    indexB = STAN_TRIPLE_TO_PNT_INDEX(tile, 1);
-    indexC = STAN_TRIPLE_TO_PNT_INDEX(tile, 2);
-
-    midPnt->x = ((f32)tile->points[indexA].x + tile->points[indexB].x + tile->points[indexC].x) / 3 * inv_level_scale;
-    midPnt->y = ((f32)tile->points[indexA].y + tile->points[indexB].y + tile->points[indexC].y) / 3 * inv_level_scale;
-    midPnt->z = ((f32)tile->points[indexA].z + tile->points[indexB].z + tile->points[indexC].z) / 3 * inv_level_scale;
-
-    return;
-}
-
-/**
- * This is a 99.84% match with just a swapped register. After much permutation I can't get it, so I'm moving on from this one.
- * https://decomp.me/scratch/HvisN
- * 
 void getTileMidPoint(StandTile *tile, coord3d *out)
 {
-    s16 tail;
-    u32 indexA;
+    u16 tail;
+    u8 indexA;
     u32 indexB;
     u32 indexC;
     StandTilePoint *pointA;
@@ -980,76 +949,6 @@ void getTileMidPoint(StandTile *tile, coord3d *out)
     out->y = (((((f32) (&tile->points[indexA])->y) + ((f32) pointB->y)) + ((f32) (&tile->points[indexC])->y)) / 3.0f) * inv_level_scale;
     out->z = (((((f32) (&tile->points[indexA])->z) + ((f32) pointB->z)) + ((f32) ((float) (&tile->points[indexC])->z))) / 3.0f) * inv_level_scale;
 }
- */
-
-#else
-GLOBAL_ASM(
-.text
-glabel getTileMidPoint
-/* 0E4454 7F0AF924 84870006 */  lh    $a3, 6($a0)
-/* 0E4458 7F0AF928 3C014040 */  li    $at, 0x40400000 # 3.000000
-/* 0E445C 7F0AF92C 44810000 */  mtc1  $at, $f0
-/* 0E4460 7F0AF930 00077203 */  sra   $t6, $a3, 8
-/* 0E4464 7F0AF934 31CF000F */  andi  $t7, $t6, 0xf
-/* 0E4468 7F0AF938 0007C103 */  sra   $t8, $a3, 4
-/* 0E446C 7F0AF93C 3319000F */  andi  $t9, $t8, 0xf
-/* 0E4470 7F0AF940 000F70C0 */  sll   $t6, $t7, 3
-/* 0E4474 7F0AF944 001978C0 */  sll   $t7, $t9, 3
-/* 0E4478 7F0AF948 008F5021 */  addu  $t2, $a0, $t7
-/* 0E447C 7F0AF94C 008E4821 */  addu  $t1, $a0, $t6
-/* 0E4480 7F0AF950 85380008 */  lh    $t8, 8($t1)
-/* 0E4484 7F0AF954 85590008 */  lh    $t9, 8($t2)
-/* 0E4488 7F0AF958 30EC000F */  andi  $t4, $a3, 0xf
-/* 0E448C 7F0AF95C 000C68C0 */  sll   $t5, $t4, 3
-/* 0E4490 7F0AF960 44982000 */  mtc1  $t8, $f4
-/* 0E4494 7F0AF964 44994000 */  mtc1  $t9, $f8
-/* 0E4498 7F0AF968 008D4021 */  addu  $t0, $a0, $t5
-/* 0E449C 7F0AF96C 850C0008 */  lh    $t4, 8($t0)
-/* 0E44A0 7F0AF970 468021A0 */  cvt.s.w $f6, $f4
-/* 0E44A4 7F0AF974 3C0B8004 */  lui   $t3, %hi(inv_level_scale)
-/* 0E44A8 7F0AF978 448C9000 */  mtc1  $t4, $f18
-/* 0E44AC 7F0AF97C 256B0F48 */  addiu $t3, %lo(inv_level_scale) # addiu $t3, $t3, 0xf48
-/* 0E44B0 7F0AF980 468042A0 */  cvt.s.w $f10, $f8
-/* 0E44B4 7F0AF984 46809120 */  cvt.s.w $f4, $f18
-/* 0E44B8 7F0AF988 460A3400 */  add.s $f16, $f6, $f10
-/* 0E44BC 7F0AF98C C56A0000 */  lwc1  $f10, ($t3)
-/* 0E44C0 7F0AF990 46102200 */  add.s $f8, $f4, $f16
-/* 0E44C4 7F0AF994 46004183 */  div.s $f6, $f8, $f0
-/* 0E44C8 7F0AF998 460A3482 */  mul.s $f18, $f6, $f10
-/* 0E44CC 7F0AF99C E4B20000 */  swc1  $f18, ($a1)
-/* 0E44D0 7F0AF9A0 854E000A */  lh    $t6, 0xa($t2)
-/* 0E44D4 7F0AF9A4 852D000A */  lh    $t5, 0xa($t1)
-/* 0E44D8 7F0AF9A8 850F000A */  lh    $t7, 0xa($t0)
-/* 0E44DC 7F0AF9AC 448E4000 */  mtc1  $t6, $f8
-/* 0E44E0 7F0AF9B0 448D2000 */  mtc1  $t5, $f4
-/* 0E44E4 7F0AF9B4 448F9000 */  mtc1  $t7, $f18
-/* 0E44E8 7F0AF9B8 468041A0 */  cvt.s.w $f6, $f8
-/* 0E44EC 7F0AF9BC 46802420 */  cvt.s.w $f16, $f4
-/* 0E44F0 7F0AF9C0 46809120 */  cvt.s.w $f4, $f18
-/* 0E44F4 7F0AF9C4 46068280 */  add.s $f10, $f16, $f6
-/* 0E44F8 7F0AF9C8 C5660000 */  lwc1  $f6, ($t3)
-/* 0E44FC 7F0AF9CC 460A2200 */  add.s $f8, $f4, $f10
-/* 0E4500 7F0AF9D0 46004403 */  div.s $f16, $f8, $f0
-/* 0E4504 7F0AF9D4 46068482 */  mul.s $f18, $f16, $f6
-/* 0E4508 7F0AF9D8 E4B20004 */  swc1  $f18, 4($a1)
-/* 0E450C 7F0AF9DC 8559000C */  lh    $t9, 0xc($t2)
-/* 0E4510 7F0AF9E0 8538000C */  lh    $t8, 0xc($t1)
-/* 0E4514 7F0AF9E4 850C000C */  lh    $t4, 0xc($t0)
-/* 0E4518 7F0AF9E8 44994000 */  mtc1  $t9, $f8
-/* 0E451C 7F0AF9EC 44982000 */  mtc1  $t8, $f4
-/* 0E4520 7F0AF9F0 448C9000 */  mtc1  $t4, $f18
-/* 0E4524 7F0AF9F4 46804420 */  cvt.s.w $f16, $f8
-/* 0E4528 7F0AF9F8 468022A0 */  cvt.s.w $f10, $f4
-/* 0E452C 7F0AF9FC 46809120 */  cvt.s.w $f4, $f18
-/* 0E4530 7F0AFA00 46105180 */  add.s $f6, $f10, $f16
-/* 0E4534 7F0AFA04 C5700000 */  lwc1  $f16, ($t3)
-/* 0E4538 7F0AFA08 46062200 */  add.s $f8, $f4, $f6
-/* 0E453C 7F0AFA0C 46004283 */  div.s $f10, $f8, $f0
-/* 0E4540 7F0AFA10 46105482 */  mul.s $f18, $f10, $f16
-/* 0E4544 7F0AFA14 03E00008 */  jr    $ra
-/* 0E4548 7F0AFA18 E4B20008 */   swc1  $f18, 8($a1)
-)
-#endif
 
 
 void getPointJustInsideOfTileTriple(StandTile *tile, s32 tripleIndex /*canonically c */, coord3d *out)
