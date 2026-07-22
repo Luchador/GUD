@@ -379,7 +379,6 @@ Gfx *draw_watch_background(Gfx *gdl, struct WatchVertex *watch_verts, s32 unused
 }
 
 
-#ifdef NONMATCHING
 /**
  * Setup watch rectangles in the usual manner.
  * This is called to setup the screen select rectangles, but note
@@ -392,15 +391,6 @@ Gfx *draw_watch_background(Gfx *gdl, struct WatchVertex *watch_verts, s32 unused
  * @param height:
  * @param horizontal_offset:
  * @param vertical_offset:
- *
- * decomp status:
- * - compiles: yes
- * - stack resize: ok
- * - identical instructions: no
- * - identical registers: fail
- *
- * Notes: Instruction order is just wrong until the loop starts.
- * There's an extra move instruction.
 */
 struct WatchVertex *setup_watch_rectangles(struct WatchVertex *vtx, s32 startx, s32 startz, s32 width, s32 height, s32 horizontal_offset, s32 vertical_offset)
 {
@@ -409,15 +399,24 @@ struct WatchVertex *setup_watch_rectangles(struct WatchVertex *vtx, s32 startx, 
     s32 xval;
     s32 zval;
 
+    i = 0;
+    j = 0;
     xval = startx + horizontal_offset;
 
-    if(vtx); // seems to be needed to match return and last few lines.
+    if (i);
+    if (j);
+    if (vtx);
+    if (width);
+    if (height);
 
-    for (i=0; i<2; i++, xval += width)
+    for (i = 0; i < 2; i++, xval += width)
     {
-        zval = startz + vertical_offset;
+        startz ^= 0;
+    
+        if (vertical_offset);
+        if (height);
 
-        for (j=0; j<2; j++, zval += height)
+        for (j = 0, zval = startz + vertical_offset; j < 2; j++, zval += height)
         {
             vtx->coord1.AsArray[0] = xval;
             vtx->coord1.AsArray[1] = 0;
@@ -438,92 +437,14 @@ struct WatchVertex *setup_watch_rectangles(struct WatchVertex *vtx, s32 startx, 
 
     return vtx;
 }
-#elif defined(VERSION_EU)
+
+#ifdef VERSION_EU
 GLOBAL_ASM(
 .late_rodata
 glabel D_8004CE20
 .word 0x40c90fdb /* M_TAU_F */
 glabel D_8005774C
 .word 0x3fb501e2 /* M_SQRT2_F */
-.text
-glabel setup_watch_rectangles
-/* 0D85E8 7F0A3AB8 27BDFFF8 */  addiu $sp, $sp, -8
-/* 0D85EC 7F0A3ABC 8FAE001C */  lw    $t6, 0x1c($sp)
-/* 0D85F0 7F0A3AC0 AFB00004 */  sw    $s0, 4($sp)
-/* 0D85F4 7F0A3AC4 24100002 */  li    $s0, 2
-/* 0D85F8 7F0A3AC8 00AE4021 */  addu  $t0, $a1, $t6
-/* 0D85FC 7F0A3ACC 8FA50018 */  lw    $a1, 0x18($sp)
-/* 0D8600 7F0A3AD0 8FA90020 */  lw    $t1, 0x20($sp)
-/* 0D8604 7F0A3AD4 00001025 */  move  $v0, $zero
-/* 0D8608 7F0A3AD8 240D00F0 */  li    $t5, 240
-/* 0D860C 7F0A3ADC 240C0070 */  li    $t4, 112
-/* 0D8610 7F0A3AE0 240B0020 */  li    $t3, 32
-.L7F0A3AE4:
-/* 0D8614 7F0A3AE4 00001825 */  move  $v1, $zero
-/* 0D8618 7F0A3AE8 00C95021 */  addu  $t2, $a2, $t1
-.L7F0A3AEC:
-/* 0D861C 7F0A3AEC 24630001 */  addiu $v1, $v1, 1
-/* 0D8620 7F0A3AF0 A48A0004 */  sh    $t2, 4($a0)
-/* 0D8624 7F0A3AF4 01455021 */  addu  $t2, $t2, $a1
-/* 0D8628 7F0A3AF8 A4880000 */  sh    $t0, ($a0)
-/* 0D862C 7F0A3AFC A4800002 */  sh    $zero, 2($a0)
-/* 0D8630 7F0A3B00 A4800006 */  sh    $zero, 6($a0)
-/* 0D8634 7F0A3B04 A4800008 */  sh    $zero, 8($a0)
-/* 0D8638 7F0A3B08 A480000A */  sh    $zero, 0xa($a0)
-/* 0D863C 7F0A3B0C A08B000C */  sb    $t3, 0xc($a0)
-/* 0D8640 7F0A3B10 A08C000D */  sb    $t4, 0xd($a0)
-/* 0D8644 7F0A3B14 A08B000E */  sb    $t3, 0xe($a0)
-/* 0D8648 7F0A3B18 A08D000F */  sb    $t5, 0xf($a0)
-/* 0D864C 7F0A3B1C 1470FFF3 */  bne   $v1, $s0, .L7F0A3AEC
-/* 0D8650 7F0A3B20 24840010 */   addiu $a0, $a0, 0x10
-/* 0D8654 7F0A3B24 24420001 */  addiu $v0, $v0, 1
-/* 0D8658 7F0A3B28 1450FFEE */  bne   $v0, $s0, .L7F0A3AE4
-/* 0D865C 7F0A3B2C 01074021 */   addu  $t0, $t0, $a3
-/* 0D8660 7F0A3B30 8FB00004 */  lw    $s0, 4($sp)
-/* 0D8664 7F0A3B34 27BD0008 */  addiu $sp, $sp, 8
-/* 0D8668 7F0A3B38 03E00008 */  jr    $ra
-/* 0D866C 7F0A3B3C 00801025 */   move  $v0, $a0
-)
-#else
-GLOBAL_ASM(
-.text
-glabel setup_watch_rectangles
-/* 0D85E8 7F0A3AB8 27BDFFF8 */  addiu $sp, $sp, -8
-/* 0D85EC 7F0A3ABC 8FAE001C */  lw    $t6, 0x1c($sp)
-/* 0D85F0 7F0A3AC0 AFB00004 */  sw    $s0, 4($sp)
-/* 0D85F4 7F0A3AC4 24100002 */  li    $s0, 2
-/* 0D85F8 7F0A3AC8 00AE4021 */  addu  $t0, $a1, $t6
-/* 0D85FC 7F0A3ACC 8FA50018 */  lw    $a1, 0x18($sp)
-/* 0D8600 7F0A3AD0 8FA90020 */  lw    $t1, 0x20($sp)
-/* 0D8604 7F0A3AD4 00001025 */  move  $v0, $zero
-/* 0D8608 7F0A3AD8 240D00F0 */  li    $t5, 240
-/* 0D860C 7F0A3ADC 240C0070 */  li    $t4, 112
-/* 0D8610 7F0A3AE0 240B0020 */  li    $t3, 32
-.L7F0A3AE4:
-/* 0D8614 7F0A3AE4 00001825 */  move  $v1, $zero
-/* 0D8618 7F0A3AE8 00C95021 */  addu  $t2, $a2, $t1
-.L7F0A3AEC:
-/* 0D861C 7F0A3AEC 24630001 */  addiu $v1, $v1, 1
-/* 0D8620 7F0A3AF0 A48A0004 */  sh    $t2, 4($a0)
-/* 0D8624 7F0A3AF4 01455021 */  addu  $t2, $t2, $a1
-/* 0D8628 7F0A3AF8 A4880000 */  sh    $t0, ($a0)
-/* 0D862C 7F0A3AFC A4800002 */  sh    $zero, 2($a0)
-/* 0D8630 7F0A3B00 A4800006 */  sh    $zero, 6($a0)
-/* 0D8634 7F0A3B04 A4800008 */  sh    $zero, 8($a0)
-/* 0D8638 7F0A3B08 A480000A */  sh    $zero, 0xa($a0)
-/* 0D863C 7F0A3B0C A08B000C */  sb    $t3, 0xc($a0)
-/* 0D8640 7F0A3B10 A08C000D */  sb    $t4, 0xd($a0)
-/* 0D8644 7F0A3B14 A08B000E */  sb    $t3, 0xe($a0)
-/* 0D8648 7F0A3B18 A08D000F */  sb    $t5, 0xf($a0)
-/* 0D864C 7F0A3B1C 1470FFF3 */  bne   $v1, $s0, .L7F0A3AEC
-/* 0D8650 7F0A3B20 24840010 */   addiu $a0, $a0, 0x10
-/* 0D8654 7F0A3B24 24420001 */  addiu $v0, $v0, 1
-/* 0D8658 7F0A3B28 1450FFEE */  bne   $v0, $s0, .L7F0A3AE4
-/* 0D865C 7F0A3B2C 01074021 */   addu  $t0, $t0, $a3
-/* 0D8660 7F0A3B30 8FB00004 */  lw    $s0, 4($sp)
-/* 0D8664 7F0A3B34 27BD0008 */  addiu $sp, $sp, 8
-/* 0D8668 7F0A3B38 03E00008 */  jr    $ra
-/* 0D866C 7F0A3B3C 00801025 */   move  $v0, $a0
 )
 #endif
 
