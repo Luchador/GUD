@@ -409,13 +409,15 @@ struct WatchVertex *setup_watch_rectangles(struct WatchVertex *vtx, s32 startx, 
     if (width);
     if (height);
 
-    for (i = 0; i < 2; i++, xval += width) {
+    for (i = 0; i < 2; i++, xval += width)
+    {
         startz ^= 0;
     
         if (vertical_offset);
         if (height);
 
-        for (j = 0, zval = startz + vertical_offset; j < 2; j++, zval += height) {
+        for (j = 0, zval = startz + vertical_offset; j < 2; j++, zval += height)
+        {
             vtx->coord1.AsArray[0] = xval;
             vtx->coord1.AsArray[1] = 0;
             vtx->coord1.AsArray[2] = zval;
