@@ -321,55 +321,40 @@ void *memaAlloc(u32 amount) {
 // amount. If successful, return the same address, otherwise 0.
 s32 memaGrow(u32 addr, u32 amount)
 {
-    u32        new_var;
-    u32        new_var3;
-    s32        new_var4;
-    short      new_var2;
-    s32        __p;
-    short      __rotate_0;
-    short      __rotate_1;
+    u32        size = 0;
+    s32        new_addr;
     memaspace *curr;
+    short      __unused_1 = addr + 3;
+    u32        __unused_2;
+    s32        __unused_3;
+    short      __unused_4;
+    short      __unused_5;
 
-    new_var2 = addr + 3;
-    if (addr + (new_var = 0))
-    {
-    }
-    if (new_var2)
-    {
-    }
+    if (addr) {}
+    if (__unused_1) {}
 
     curr     = &g_MemoryAllocations.spaces[0];
-    new_var4 = addr;
-    new_var3 = !new_var4;
+    new_addr = addr;
+    __unused_2 = !new_addr;
 
     while (curr->addr != -1)
     {
-        new_var2 = new_var3;
-        if (new_var2)
-        {
-        }
+        __unused_1 = __unused_2;
+        if (__unused_1) {}
 
-        __p = new_var3 + 1;
-        if ((double)__p)
-        {
-        }
+        __unused_3 = __unused_2 + 1;
+        if ((double)__unused_3) {}
 
-        if (curr->addr == new_var4 && curr->size >= amount)
+        if (curr->addr == new_addr && curr->size >= amount)
         {
             goto found;
         }
 
-        if (__p)
-        {
-        }
-        __rotate_0 = new_var4 + 2;
-        if ((double)__rotate_0)
-        {
-        }
-        __rotate_1 = new_var4 + 3;
-        if ((double)__rotate_1)
-        {
-        }
+        if (__unused_3) {}
+        __unused_4 = new_addr + 2;
+        if ((double)__unused_4) {}
+        __unused_5 = new_addr + 3;
+        if ((double)__unused_5) {}
 
         curr++;
     }
@@ -380,14 +365,14 @@ found:
     curr->addr += amount;
     curr->size -= amount;
 
-    new_var = curr->size;
+    size = curr->size;
 
-    if (new_var == 0)
+    if (size == 0)
     {
         curr->addr = 0;
     }
 
-    return new_var4;
+    return new_addr;
 }
 
 void memaFree(void *addr, s32 size)

@@ -507,7 +507,7 @@ u32 D_80035EA8 = 0;
 //D:80035EAC
 u32 D_80035EAC = 0;
 //D:80035EB0
-u32 D_80035EB0[] = {0, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+u32 g_DefaultCasingModelRenderData[] = {0, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //D:80035EEC
 u32 dword_D_80035EEC = 0; // Unused
 
@@ -15309,20 +15309,20 @@ glabel sub_GAME_7F068508
 #endif
 
 
-extern f32 D_80054404;
-extern f32 D_80054408;
-extern f32 D_8005440C;
-extern f32 D_80054410;
+extern f32 g_CasingGravity;
+extern f32 g_CasingModelScale;
+extern f32 g_CasingMinMatrixTranslation;
+extern f32 g_CasingMaxMatrixTranslation;
 
 GLOBAL_ASM(
 .late_rodata
-glabel D_80054404
+glabel g_CasingGravity
 .word 0x3e8e38e4 /*0.27777779*/
-glabel D_80054408
+glabel g_CasingModelScale
 .word 0x3dccccce /*0.10000001*/
-glabel D_8005440C
+glabel g_CasingMinMatrixTranslation
 .word 0xc6ea6000 /*-30000.0*/
-glabel D_80054410
+glabel g_CasingMaxMatrixTranslation
 .word 0x46ea6000 /*30000.0*/
 )
 
@@ -15334,7 +15334,7 @@ void update_bullet_casing(CasingRecord* casing)
     struct player* current_player;
 
     delta = g_GlobalTimerDelta;
-    new_val_y = casing->vel.y - (delta * D_80054404);
+    new_val_y = casing->vel.y - (delta * g_CasingGravity);
 
     casing->pos.y += delta * 0.5f * (casing->vel.y + new_val_y);
 
@@ -15391,7 +15391,7 @@ void update_bullet_casings(void)
 
 typedef struct ModelHead {
     s16 unk00;
-    s16 Type;
+    s16 rwdatalen;
     void *chr;
     ModelFileHeader *obj;
     RenderPosView *render_pos;
@@ -15403,90 +15403,84 @@ typedef struct ModelHead {
 
 void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
 {
-    Gfx             *savedgdl;
-    ModelFileHeader *header;
-    RenderPosView   *mtxlist;
+    Gfx             *savedgdl = *gdl;
+    ModelFileHeader *model_header = casing->header;
+    RenderPosView   *model_matrices = dynAllocate(model_header->numMatrices * sizeof(RenderPosView));
     ModelHead        model;
-    ModelRenderData  renderdata;
-    Mtxf             sp34;
-    s32              i;
-    s32              visible;
-    f32              highbound;
-    f32              lowbound;
-    u8              *ptr;
+    ModelRenderData  render_data = *(ModelRenderData *)g_DefaultCasingModelRenderData;
+    Mtxf             casing_model_mtx;
+    s32              axis_offset;
+    s32              matrix_translation_in_range = TRUE;
+    f32              max_matrix_translation;
+    f32              model_scale_or_min_translation;
+    u8              *matrix_axis_ptr;
 
-    savedgdl = *gdl;
-    header   = casing->header;
-    mtxlist  = dynAllocate(header->numMatrices * sizeof(RenderPosView));
+    modelCalculateRwDataLen(model_header);
+    modelInit((Model *)&model, model_header, NULL);
 
-    renderdata = *(ModelRenderData *)D_80035EB0;
-    visible    = 1;
-
-    modelCalculateRwDataLen(header);
-    modelInit((Model *)&model, header, NULL);
-
-    model.render_pos = mtxlist;
+    model.render_pos = model_matrices;
 
 #if defined(VERSION_EU)
-    matrix_4x4_copy_eu(casing->rot_mtx, sp34.m);
+    matrix_4x4_copy_eu(casing->rot_mtx, casing_model_mtx.m);
 #else
-    matrix_4x4_copy(&casing->rot_mtx, &sp34);
+    matrix_4x4_copy(&casing->rot_mtx, &casing_model_mtx);
 #endif
 
-    lowbound = D_80054408;
-    matrix_scalar_multiply(lowbound, &sp34);
+    model_scale_or_min_translation = g_CasingModelScale;
+    matrix_scalar_multiply(model_scale_or_min_translation, &casing_model_mtx);
 
-    matrix_4x4_set_position(&casing->pos, &sp34);
+    matrix_4x4_set_position(&casing->pos, &casing_model_mtx);
 
     matrix_4x4_multiply_homogeneous(
         camGetWorldToScreenMtxf(),
-        &sp34,
+        &casing_model_mtx,
         (Mtxf *)model.render_pos);
 
-    lowbound  = D_8005440C;
-    highbound = D_80054410;
+    model_scale_or_min_translation = g_CasingMinMatrixTranslation;
+    max_matrix_translation         = g_CasingMaxMatrixTranslation;
 
-    i   = 0;
-    ptr = (u8 *)model.render_pos;
+    axis_offset     = 0;
+    matrix_axis_ptr = (u8 *)model.render_pos;
 
-    while (i != 0xc)
+    // Offset 0x30 is m[3][0]; advancing the pointer checks translation X, Y and Z.
+    while (axis_offset != 12)
     {
-        if (highbound < *(f32 *)(ptr + 0x30))
+        if (max_matrix_translation < *(f32 *)(matrix_axis_ptr + 0x30))
         {
-            visible = 0;
+            matrix_translation_in_range = FALSE;
         }
-        else if (*(f32 *)(ptr + 0x30) < lowbound)
+        else if (*(f32 *)(matrix_axis_ptr + 0x30) < model_scale_or_min_translation)
         {
-            visible = 0;
+            matrix_translation_in_range = FALSE;
         }
 
-        i += 4;
-        ptr += 4;
+        axis_offset += 4;
+        matrix_axis_ptr += 4;
     }
 
-    if (visible)
+    if (matrix_translation_in_range)
     {
-        renderdata.zbufferenabled = 0;
-        renderdata.gdl            = savedgdl;
-        renderdata.mtxlist        = (Mtxf *)mtxlist;
-        renderdata.PropType       = PROP_TYPE_WEAPON;
+        render_data.zbufferenabled = 0;
+        render_data.gdl            = savedgdl;
+        render_data.mtxlist        = (Mtxf *)model_matrices;
+        render_data.PropType       = PROP_TYPE_WEAPON;
 
-        renderdata.envcolour.word =
+        render_data.envcolour.word =
             ((g_CurrentPlayer->tileColor.a |
-              (g_CurrentPlayer->tileColor.r << 0x18)) |
-             (g_CurrentPlayer->tileColor.g << 0x10)) |
+              (g_CurrentPlayer->tileColor.r << 24)) |
+             (g_CurrentPlayer->tileColor.g << 16)) |
             (g_CurrentPlayer->tileColor.b << 8);
 
-        subdraw(&renderdata, (Model *)&model);
+        subdraw(&render_data, (Model *)&model);
 
-        *gdl = renderdata.gdl;
+        *gdl = render_data.gdl;
 
-        bondviewTransformManyPosToViewMatrix(mtxlist, header->numMatrices);
+        bondviewTransformManyPosToViewMatrix(model_matrices, model_header->numMatrices);
     }
 }
 
 
-void sub_GAME_7F06908C(Gfx** arg0)
+void sub_GAME_7F06908C(Gfx **gdl)
 {
     CasingRecord* end = g_Casings + ARRAYCOUNT(g_Casings);
     CasingRecord* entry = g_Casings;
@@ -15495,7 +15489,7 @@ void sub_GAME_7F06908C(Gfx** arg0)
     {
         if (entry->header)
         {
-            sub_GAME_7F068EC4(entry, arg0);
+            sub_GAME_7F068EC4(entry, gdl);
         }
         
         entry++;

@@ -1953,9 +1953,6 @@ void solo_char_load(void)
                 *headheader = *c_item_entries[head].header;
                 goto dummy_label_442687;
 dummy_label_442687:;
-
-                ;
-                ;
                 load_object_fill_header(headheader, (u8 *)c_item_entries[head].filename, weaponbuf0 + cursor, size0 - cursor, &pool);
                 cursor = ALIGN64_V3(get_pc_buffer_remaining_value((u8 *)c_item_entries[head].filename) + cursor + 0x3f);
                 model  = (Model *)(weaponbuf0 + cursor);
@@ -1971,7 +1968,7 @@ dummy_label_442687:;
                     animInit(model, bodyheader, animdata);
                     model->rwdatalen = nrec;
                 }
-            } while (0);
+            } while (FALSE);
         }
         else
         {
@@ -2502,8 +2499,11 @@ void sub_GAME_7F07B1A4(void)
         }
     }
 }
+
 void sub_GAME_7F07B2A0(s32 index, f32 time, coord3d *pos, coord3d *lookat)
 {
+    // Certainly not how it was originally written but I can't find that...
+#define POINTBUF ((coord3d *) (pointbuf - 8))
     u8                      pointbuf[0x28];
     struct SetupIntroSwirl *base;
     struct SetupIntroSwirl *loopbase;
@@ -2511,11 +2511,11 @@ void sub_GAME_7F07B2A0(s32 index, f32 time, coord3d *pos, coord3d *lookat)
     f32                     frac;
     f32                    *dst;
 
-#define POINTBUF ((coord3d *)(pointbuf - 8))
 
-    base  = g_IntroSwirl;
-    swirl = (struct SetupIntroSwirl *)(((u32)base) + (index << 5));
-    frac  = 0.0f;
+    base = g_IntroSwirl;
+    swirl = base;
+    swirl += index;
+    frac = 0.0f;
 
     if (swirl->duration.fval > 0.0f)
     {
@@ -2524,32 +2524,35 @@ void sub_GAME_7F07B2A0(s32 index, f32 time, coord3d *pos, coord3d *lookat)
 
     {
         struct SetupIntroSwirl *entry;
-        struct SetupIntroSwirl *target;
-        s32                     i;
+        union {
+            struct SetupIntroSwirl *swirl;
+            struct player *player;
+        } target;
+        s32 i;
 
-        loopbase = (struct SetupIntroSwirl *)((((u32)index) << (5 ^ 0)) + ((u32)base));
+        loopbase = base + (u32) index;
 
         for (i = -1; i < 3; i++)
         {
             entry    = loopbase;
-            loopbase = (struct SetupIntroSwirl *)((((u32)index) << 5) + ((u32)base));
-            target   = entry + i;
+            loopbase = base + (u32) index;
+            target.swirl = entry + i;
             dst      = &POINTBUF[i].x;
 
             if (i < 0)
             {
-                if (target < base)
+                if (target.swirl < base)
                 {
                     entry = base;
                 }
                 else
                 {
-                    entry = target;
+                    entry = target.swirl;
                 }
             }
             else
             {
-                while (entry < target)
+                while (entry < target.swirl)
                 {
                     if (entry[1].bitflags & 1)
                     {
@@ -2562,10 +2565,12 @@ void sub_GAME_7F07B2A0(s32 index, f32 time, coord3d *pos, coord3d *lookat)
 
             if (entry->bitflags & 2)
             {
-                target = (struct SetupIntroSwirl *)g_CurrentPlayer;
-                dst[3] = (entry->offsetfromBond[2].fval * ((struct player *)target)->field_488.theta_transform.f[0]) + (entry->offsetfromBond[0].fval * ((struct player *)target)->field_488.theta_transform.f[2]),
-                dst[4] = entry->offsetfromBond[1].fval,
-                dst[5] = (entry->offsetfromBond[2].fval * ((struct player *)target)->field_488.theta_transform.f[2]) - (entry->offsetfromBond[0].fval * ((struct player *)target)->field_488.theta_transform.f[0]);
+                target.player = g_CurrentPlayer;
+                dst[3] = (entry->offsetfromBond[2].fval * target.player->field_488.theta_transform.f[0])
+                    + (entry->offsetfromBond[0].fval * target.player->field_488.theta_transform.f[2]);
+                dst[4] = entry->offsetfromBond[1].fval;
+                dst[5] = (entry->offsetfromBond[2].fval * target.player->field_488.theta_transform.f[2])
+                    - (entry->offsetfromBond[0].fval * target.player->field_488.theta_transform.f[0]);
             }
             else
             {
@@ -2581,7 +2586,7 @@ void sub_GAME_7F07B2A0(s32 index, f32 time, coord3d *pos, coord3d *lookat)
 
         base  = swirl;
         scale = base->scale.fval;
-        base  = (struct SetupIntroSwirl *)(index << 5);
+        base  = (void *)(index << 5);
         coord3dCubicSplineInterp(POINTBUF + 0, POINTBUF + 1, POINTBUF + 2, POINTBUF + 3, frac, scale, pos);
         pos->x += g_CurrentPlayer->field_3C4;
         pos->y += g_CurrentPlayer->field_3C8;
@@ -2589,7 +2594,7 @@ void sub_GAME_7F07B2A0(s32 index, f32 time, coord3d *pos, coord3d *lookat)
         lookat->x = g_CurrentPlayer->field_3C4;
         lookat->y = g_CurrentPlayer->field_3C8;
         lookat->z = g_CurrentPlayer->field_3CC;
-        swirl     = (struct SetupIntroSwirl *)(((u32)g_IntroSwirl) + (u32)base);
+        swirl     = (void *)(((u32)g_IntroSwirl) + (u32)base);
 
         if (!(swirl->bitflags & 4))
         {
@@ -10554,6 +10559,7 @@ glabel sub_GAME_7F088CD8
 /* 0BDD34 7F089204 27BD00B8 */   addiu $sp, $sp, 0xb8
 )
 #endif
+
 Gfx *maybe_mp_interface(Gfx *gdl)
 {
     s32 ulx;
@@ -10662,7 +10668,7 @@ Gfx *maybe_mp_interface(Gfx *gdl)
                     }
                     if (die_blood_image_routine(doblood))
                     {
-                        g_CurrentPlayer->redbloodfinished = 1;
+                        g_CurrentPlayer->redbloodfinished = TRUE;
                     }
                     gdl = gameplayBloodOverlayDL(gdl);
                 }
@@ -10673,9 +10679,9 @@ Gfx *maybe_mp_interface(Gfx *gdl)
         {
             if (g_CurrentPlayer->redbloodfinished)
             {
-                if (g_CurrentPlayer->deathanimfinished == 0)
+                if (!g_CurrentPlayer->deathanimfinished)
                 {
-                    g_CurrentPlayer->deathanimfinished = 1;
+                    g_CurrentPlayer->deathanimfinished = TRUE;
                     currentPlayerAdjustFade(60.0f, 0, 0, 0, 1.0f);
                     currentPlayerStartChrFade(120.0f, 0.0f);
                 }
@@ -10683,7 +10689,7 @@ Gfx *maybe_mp_interface(Gfx *gdl)
                 {
                     if (getPlayerCount() == 1)
                     {
-                        bondviewSetCameraMode(5);
+                        bondviewSetCameraMode(CAMERAMODE_DEATH_CAM_SP);
                     }
                     else
                     {
@@ -10695,7 +10701,7 @@ Gfx *maybe_mp_interface(Gfx *gdl)
                         {
                             total += g_playerPlayerData[i].kill_counts[cur];
                         }
-                        if ((scenario != 1) || (total < 2))
+                        if ((scenario != SCENARIO_YOLT) || (total < 2))
                         {
                             if (joyGetButtons(get_cur_playernum(), 0xB000))
                             {
@@ -12381,7 +12387,4 @@ void SurroundWithExplosions(int delay)
     g_SurroundBondWithExplosionsTicks = delay + g_GlobalTimer;
     g_PlayerTickExplodeCreatePosition = 0;
 }
-
-
-
 

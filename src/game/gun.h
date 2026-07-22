@@ -389,7 +389,7 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
 Gfx *watchRenderControllerOpaque(Gfx *gdl, Mtxf *basemtx, bool animatebuttons, WatchContButtonPositions *buttonpositions, s8 *contpadnum);
 
 Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf *mtx, s32 arg3, s32 arg4);
-void sub_GAME_7F06908C(Gfx **arg0);
+void sub_GAME_7F06908C(Gfx **gdl);
 void sub_GAME_7F062BE4(Gfx **gdl);
 Gfx *generate_ammo_total_microcode(Gfx *gdl);
 
