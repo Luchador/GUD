@@ -46,8 +46,8 @@ s32 sub_GAME_7F0D37DC(u32 cycles, u8 specA, u8 port, u8 value);
 
 // data
 s8 D_8004EC30 = 0x0;
-extern u8 D_8004EC34;
-#pragma weak D_8004EC34 = spec_keyboard_buffer
+extern u8 spec_keyboard_row_caps_z_x_c_v;
+#pragma weak spec_keyboard_row_caps_z_x_c_v = spec_keyboard_buffer
 u8 spec_keyboard_buffer[] = 
 {
     0xFF, 0xFF, 0xFF, 0xFF,
@@ -55,7 +55,7 @@ u8 spec_keyboard_buffer[] =
     0xFF
 };
 
-u8 D_8004EC40 = 0;
+u8 spec_kempston_joystick_state = 0;
 
 s16 D_8004EC44[] = 
 {
@@ -236,134 +236,135 @@ void sub_GAME_7F0D2A84(u8 *spec, u8 *alloc_ptr)
         ptr_300alloc[j] = 0;
     }
 }
+
 void spectrum_p1controller_to_kempston(void)
 {
-    s32 sp34;
-    s32 sp30;
-    s32 sp2C;
-    s32 sp28;
-    s32 sp24;
-    s32 sp20;
-    s32 sp1C;
-    s32 temp_v0;
+    s32 kempston_up;
+    s32 kempston_down;
+    s32 kempston_left;
+    s32 kempston_right;
+    s32 kempston_fire;
+    s32 buttons;
+    s32 stick_x;
+    s32 stick_y;
 
-    s32 i;
+    s32 index;
 
-    sp34 = 0;
-    sp30 = 0;
-    sp2C = 0;
-    sp28 = 0;
-    sp24 = 0;
+    kempston_up = 0;
+    kempston_down = 0;
+    kempston_left = 0;
+    kempston_right = 0;
+    kempston_fire = 0;
 
     joyConsumeSamplesWrapper();
-    sp20    = joyGetButtons(PLAYER_1, ANY_BUTTON);
-    sp1C    = joyGetStickXInRange(PLAYER_1, -3, 3);
-    temp_v0 = joyGetStickYInRange(PLAYER_1, -3, 3);
+    buttons = joyGetButtons(PLAYER_1, ANY_BUTTON);
+    stick_x = joyGetStickXInRange(PLAYER_1, -3, 3);
+    stick_y = joyGetStickYInRange(PLAYER_1, -3, 3);
 
-    for (i = 1; i != 9; i += 4)
+    for (index = 1; index != 9; index += 4)
     {
-        D_8004EC34                  = 0xff;
-        spec_keyboard_buffer[i + 1] = 0xff;
-        spec_keyboard_buffer[i + 2] = 0xff;
-        spec_keyboard_buffer[i + 3] = 0xff;
-        spec_keyboard_buffer[i]     = 0xff;
+        spec_keyboard_row_caps_z_x_c_v  = 0xff;
+        spec_keyboard_buffer[index + 1] = 0xff;
+        spec_keyboard_buffer[index + 2] = 0xff;
+        spec_keyboard_buffer[index + 3] = 0xff;
+        spec_keyboard_buffer[index]     = 0xff;
     }
 
-    if (sp20 & Z_TRIG)
+    if (buttons & Z_TRIG)
     {
-        sp24 = 1;
+        kempston_fire = 1;
     }
-    if ((sp20 & (L_JPAD | L_CBUTTONS)) || (sp1C < -1))
+    if ((buttons & (L_JPAD | L_CBUTTONS)) || (stick_x < -1))
     {
-        sp2C = 1;
+        kempston_left = 1;
     }
-    if ((sp20 & (R_JPAD | R_CBUTTONS)) || (sp1C >= 2))
+    if ((buttons & (R_JPAD | R_CBUTTONS)) || (stick_x >= 2))
     {
-        sp28 = 1;
+        kempston_right = 1;
     }
-    if ((sp20 & (U_JPAD | U_CBUTTONS)) || (temp_v0 >= 2))
+    if ((buttons & (U_JPAD | U_CBUTTONS)) || (stick_y >= 2))
     {
-        sp34 = 1;
+        kempston_up = 1;
     }
-    if ((sp20 & (D_JPAD | D_CBUTTONS)) || (temp_v0 < -1))
+    if ((buttons & (D_JPAD | D_CBUTTONS)) || (stick_y < -1))
     {
-        sp30 = 1;
+        kempston_down = 1;
     }
-    if ((spec_cur_rom_id == ROM_JETPAC) && (sp20 & (A_BUTTON | B_BUTTON)))
+    if ((spec_cur_rom_id == ROM_JETPAC) && (buttons & (A_BUTTON | B_BUTTON)))
     {
-        sp34 = 1;
+        kempston_up = 1;
     }
-    if (((spec_cur_rom_id == ROM_ALIEN8) || (spec_cur_rom_id == ROM_KNIGHTLORE)) && (sp20 & (A_BUTTON | B_BUTTON)))
+    if (((spec_cur_rom_id == ROM_ALIEN8) || (spec_cur_rom_id == ROM_KNIGHTLORE)) && (buttons & (A_BUTTON | B_BUTTON)))
     {
-        sp30 = 1;
+        kempston_down = 1;
     }
-    if (((spec_cur_rom_id == ROM_SABRE) || (spec_cur_rom_id == ROM_ATIC) || (spec_cur_rom_id == ROM_UNDER) || (spec_cur_rom_id == ROM_COOKIE) || (spec_cur_rom_id == ROM_ALIEN8) || (spec_cur_rom_id == ROM_KNIGHTLORE)) && (sp20 & (A_BUTTON | B_BUTTON)))
+    if (((spec_cur_rom_id == ROM_SABRE) || (spec_cur_rom_id == ROM_ATIC) || (spec_cur_rom_id == ROM_UNDER) || (spec_cur_rom_id == ROM_COOKIE) || (spec_cur_rom_id == ROM_ALIEN8) || (spec_cur_rom_id == ROM_KNIGHTLORE)) && (buttons & (A_BUTTON | B_BUTTON)))
     {
         spec_keyboard_buffer[4] = (u8)(spec_keyboard_buffer[4] & 0xFE);
     }
-    if (((spec_cur_rom_id == ROM_JETPAC) || (spec_cur_rom_id == ROM_PSSST)) && (sp20 & (A_BUTTON | B_BUTTON)))
+    if (((spec_cur_rom_id == ROM_JETPAC) || (spec_cur_rom_id == ROM_PSSST)) && (buttons & (A_BUTTON | B_BUTTON)))
     {
         spec_keyboard_buffer[3] = (u8)(spec_keyboard_buffer[3] & 0xEF);
     }
-    if ((spec_cur_rom_id == ROM_GUNFRIGHT) && (sp20 & (A_BUTTON | B_BUTTON)))
+    if ((spec_cur_rom_id == ROM_GUNFRIGHT) && (buttons & (A_BUTTON | B_BUTTON)))
     {
         spec_keyboard_buffer[3] = (u8)(spec_keyboard_buffer[3] & 0xFB);
     }
     if (spec_cur_rom_id == ROM_JETMAN)
     {
-        if (sp20 & (A_BUTTON | B_BUTTON))
+        if (buttons & (A_BUTTON | B_BUTTON))
         {
             spec_keyboard_buffer[4] = (u8)(spec_keyboard_buffer[4] & 0xEF);
         }
-        if (sp20 & A_BUTTON)
+        if (buttons & A_BUTTON)
         {
             spec_keyboard_buffer[0] = (u8)(spec_keyboard_buffer[0] & 0xFD);
         }
-        if (sp20 & B_BUTTON)
+        if (buttons & B_BUTTON)
         {
             spec_keyboard_buffer[7] = (u8)(spec_keyboard_buffer[7] & 0xFE);
         }
     }
     if (spec_cur_rom_id == ROM_UNDER)
     {
-        if (sp20 & A_BUTTON)
+        if (buttons & A_BUTTON)
         {
-            sp34 = 1;
+            kempston_up = 1;
         }
-        if (sp20 & B_BUTTON)
+        if (buttons & B_BUTTON)
         {
             spec_keyboard_buffer[7] = (u8)(spec_keyboard_buffer[7] & 0xFE);
         }
     }
     if (spec_cur_rom_id == ROM_ATIC)
     {
-        if (sp20 & (A_BUTTON | B_BUTTON))
+        if (buttons & (A_BUTTON | B_BUTTON))
         {
             spec_keyboard_buffer[0] = (u8)(spec_keyboard_buffer[0] & 0xFD);
         }
-        if (sp20 & L_JPAD)
+        if (buttons & L_JPAD)
         {
             spec_keyboard_buffer[3] = (u8)(spec_keyboard_buffer[3] & 0xF7);
         }
-        if (sp20 & D_JPAD)
+        if (buttons & D_JPAD)
         {
             spec_keyboard_buffer[3] = (u8)(spec_keyboard_buffer[3] & 0xEF);
         }
-        if (sp20 & R_JPAD)
+        if (buttons & R_JPAD)
         {
             spec_keyboard_buffer[4] = (u8)(spec_keyboard_buffer[4] & 0xEF);
         }
     }
 
-    if (sp20 & L_TRIG)
+    if (buttons & L_TRIG)
     {
-        for (i = 0; i < B_BUTTON; i++)
+        for (index = 0; index < B_BUTTON; index++)
         {
-            ptr_spectrum_roms[i] = 0;
+            ptr_spectrum_roms[index] = 0;
         }
     }
 
-    D_8004EC40 = (sp24 << 4) | (sp34 << 3) | (sp30 << 2) | (sp2C << 1) | sp28;
+    spec_kempston_joystick_state = (kempston_fire << 4) | (kempston_up << 3) | (kempston_down << 2) | (kempston_left << 1) | kempston_right;
 }
 
 
@@ -561,7 +562,7 @@ u8 spectrum_input_handling(s32 arg0, u8 arg1, u8 arg2)
     
     if (arg2 == 0x1F)
     {
-        return D_8004EC40;
+        return spec_kempston_joystick_state;
     }
     
     return 0xFFU;

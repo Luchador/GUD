@@ -52,7 +52,7 @@ u32 D_8004095C = 0;
 
 
 // rodata
-void sub_GAME_7F0A1DA0(f32 *pos, f32 *xaxis, f32 *yaxis, f32 *zaxis, f32 xmin, f32 xmax, f32 ymin, f32 ymax, f32 arg8, f32 arg9)
+void sub_GAME_7F0A1DA0(coord3d *pos, coord3d *xaxis, coord3d *yaxis, coord3d *zaxis, f32 xmin, f32 xmax, f32 ymin, f32 ymax, f32 arg8, f32 arg9)
 {
     f32      len;
     f32      angle;
@@ -70,49 +70,40 @@ void sub_GAME_7F0A1DA0(f32 *pos, f32 *xaxis, f32 *yaxis, f32 *zaxis, f32 xmin, f
     coord3d  xnorm;
     coord3d  ynorm;
     coord3d *new_var3;
-    xnorm.x = ((coord3d *)xaxis)->x;
-    xnorm.y = ((coord3d *)xaxis)->y;
+    xnorm.x = xaxis->x;
+    xnorm.y = xaxis->y;
+    xnorm.z = xaxis->z;
     len     = xnorm.x * xnorm.x;
-    xnorm.z = ((coord3d *)xaxis)->z;
     len     = sqrtf((xnorm.z * xnorm.z) + (len + (xnorm.y * xnorm.y)));
     xnorm.x *= 1.0f / len;
     xnorm.y *= 1.0f / len;
     xnorm.z *= 1.0f / len;
     xmin *= len;
     xmax *= len;
-    ynorm.x = ((coord3d *)yaxis)->x;
-    ynorm.y = ((coord3d *)yaxis)->y;
+    ynorm.x = yaxis->x;
+    ynorm.y = yaxis->y;
+    ynorm.z = yaxis->z;
     len     = ynorm.x * ynorm.x;
-    ynorm.z = ((coord3d *)yaxis)->z;
     len     = sqrtf((ynorm.z * ynorm.z) + (len + (ynorm.y * ynorm.y)));
     ynorm.x *= 1.0f / len;
     ynorm.y *= 1.0f / len;
     ynorm.z *= 1.0f / len;
     ymin *= len;
     ymax *= len;
-    if (&ymax)
-    {
-        ;
-    }
-    if (&xnorm)
-    {
-        ;
-    }
-    angle    = atan2f(((coord3d *)zaxis)->x, ((coord3d *)zaxis)->z);
+    if (&ymax) {}
+    if (&xnorm) {}
+    angle    = atan2f(zaxis->x, zaxis->z);
     arg8     = xmax - xmin;
     arg9     = ymax - ymin;
     new_var3 = &ynorm;
-    if (xmin)
-    {
-        ;
-    }
-    shard_size = sqrtf((0, (((float)arg8) * arg9) / (SHATTERED_WINDOW_PIECES_BUFFER_LEN / 2)));
+    if (xmin) {}
+    shard_size = sqrtf((0, (arg8 * arg9) / (SHATTERED_WINDOW_PIECES_BUFFER_LEN / 2)));
     step       = (s32)shard_size;
     new_var    = step;
-    basepos.x  = (((coord3d *)pos)->x + ((xmin + ((f32)(new_var >> 1))) * xnorm.x)) + ((*new_var3).x * (ymin + ((f32)(new_var >> 1))));
-    basepos.y  = (((coord3d *)pos)->y + ((xmin + ((f32)(new_var >> 1))) * xnorm.y)) + ((*new_var3).y * (ymin + ((f32)(new_var >> 1))));
-    basepos.z  = (((coord3d *)pos)->z + ((xmin + ((f32)(new_var >> 1))) * xnorm.z)) + ((*new_var3).z * (ymin + ((f32)(new_var >> 1))));
-    chrobjSndCreatePostEventDefault(sndPlaySfx(g_musicSfxBufferPtr, 0x47, 0), (coord3d *)pos);
+    basepos.x  = (pos->x + ((xmin + ((f32)(new_var >> 1))) * xnorm.x)) + ((*new_var3).x * (ymin + ((f32)(new_var >> 1))));
+    basepos.y  = (pos->y + ((xmin + ((f32)(new_var >> 1))) * xnorm.y)) + ((*new_var3).y * (ymin + ((f32)(new_var >> 1))));
+    basepos.z  = (pos->z + ((xmin + ((f32)(new_var >> 1))) * xnorm.z)) + ((*new_var3).z * (ymin + ((f32)(new_var >> 1))));
+    chrobjSndCreatePostEventDefault(sndPlaySfx(g_musicSfxBufferPtr, 0x47, 0), pos);
     y      = 0;
     xlimit = (xcount = (s32)(arg8 / ((f32)step)));
     ycount = (s32)(arg9 / ((f32)new_var));
@@ -121,7 +112,7 @@ void sub_GAME_7F0A1DA0(f32 *pos, f32 *xaxis, f32 *yaxis, f32 *zaxis, f32 xmin, f
         f32 rand_min;
         do
         {
-            if (1)
+            if (TRUE)
             {
                 x = 0;
             }

@@ -6267,6 +6267,7 @@ s32 bgStackGetNthValueFromEnd(s32 n)
 {
     return g_BgStack[((g_BgStackCount - n) + (BG_STACK_SIZE - 1)) % BG_STACK_SIZE];
 }
+
 GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execute)
 {
     static Unk80081600 dword_CODE_bss_80081600;
@@ -6275,17 +6276,16 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
     s32                value;
     bbox2d             sp68;
     bbox2d             sp58;
-    u8                 preload_ok;
+    u8                 preload_ok = TRUE;
 
-    preload_ok                    = 1;
-    dword_CODE_bss_80081600.unk10 = 0;
+    dword_CODE_bss_80081600.unk10 = FALSE;
 
     if (cmd == NULL)
     {
         return cmd;
     }
 
-    while (1)
+    while (TRUE)
     {
         switch (cmd->type)
         {
@@ -6370,7 +6370,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
                     dword_CODE_bss_80081600.unk0.f[1][0] = g_CurrentPlayer->screensize.f[1][0];
                     dword_CODE_bss_80081600.unk0.f[1][1] = g_CurrentPlayer->screensize.f[1][1];
 
-                    current_visibility = 0;
+                    current_visibility = FALSE;
                 }
 
                 cmd += cmd->length;
@@ -6381,15 +6381,15 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
                 {
                     if (sub_GAME_7F0B5864(cmd[1].arg, &dword_CODE_bss_80081600.unk0) == 0)
                     {
-                        current_visibility = 1;
+                        current_visibility = TRUE;
                     }
                     else if (bgRectIntersect(&dword_CODE_bss_80081600.unk0, &g_CurrentPlayer->screensize) == 0)
                     {
-                        current_visibility = 1;
+                        current_visibility = TRUE;
                     }
                     else
                     {
-                        current_visibility = 0;
+                        current_visibility = FALSE;
                     }
                 }
 
@@ -6404,7 +6404,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
                         if (current_visibility)
                         {
                             bbox2dCopy(&dword_CODE_bss_80081600.unk0, &sp68);
-                            current_visibility = 0;
+                            current_visibility = FALSE;
                         }
                         else
                         {
@@ -6417,19 +6417,19 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
                 break;
 
             case VISOP_NOT_VISIBLE_IF_SEEN_THROUGH_PORTAL:
-                if (execute && current_visibility == 0)
+                if (execute && !current_visibility)
                 {
-                    if (sub_GAME_7F0B5864(cmd[1].arg, &sp58) == 0)
+                    if (!sub_GAME_7F0B5864(cmd[1].arg, &sp58))
                     {
-                        current_visibility = 1;
+                        current_visibility = TRUE;
                     }
-                    else if (bgRectIntersect(&sp58, &g_CurrentPlayer->screensize) == 0)
+                    else if (!bgRectIntersect(&sp58, &g_CurrentPlayer->screensize))
                     {
-                        current_visibility = 1;
+                        current_visibility = TRUE;
                     }
-                    else if (bgRectIntersect(&dword_CODE_bss_80081600.unk0, &sp58) == 0)
+                    else if (!bgRectIntersect(&dword_CODE_bss_80081600.unk0, &sp58))
                     {
-                        current_visibility = 1;
+                        current_visibility = TRUE;
                     }
                 }
 
@@ -6437,7 +6437,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
                 break;
 
             case VISOP_ADD_VISIBLE_ROOM:
-                if (execute && current_visibility == 0)
+                if (execute && !current_visibility)
                 {
                     if (bgIsRoomOnScreen(cmd[1].arg, (struct rectbbox *)&dword_CODE_bss_80081600.unk0))
                     {
@@ -6455,7 +6455,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
             case VISOP_DISABLE_ROOM:
                 if (execute)
                 {
-                    g_BgRoomInfo[cmd[1].arg].room_loaded_mask = 1;
+                    g_BgRoomInfo[cmd[1].arg].room_loaded_mask = TRUE;
                 }
 
                 cmd += cmd->length;
@@ -6470,7 +6470,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
 
                     while (room <= cmd[2].arg)
                     {
-                        g_BgRoomInfo[room].room_loaded_mask = 1;
+                        g_BgRoomInfo[room].room_loaded_mask = TRUE;
                         room++;
                     }
                 }
@@ -6481,7 +6481,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
             case VISOP_PRELOAD_ROOM:
                 if (execute && preload_ok)
                 {
-                    preload_ok = (bgCheckIfRoomModelNeedsLoad(cmd[1].arg) == 0);
+                    preload_ok = !bgCheckIfRoomModelNeedsLoad(cmd[1].arg);
                 }
 
                 cmd += cmd->length;
@@ -6498,7 +6498,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
                     {
                         if (preload_ok)
                         {
-                            preload_ok = (bgCheckIfRoomModelNeedsLoad(room) == 0);
+                            preload_ok = !bgCheckIfRoomModelNeedsLoad(room);
                         }
 
                         room++;
@@ -6511,7 +6511,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
             case VISOP_REMOVE_VIS:
                 if (execute)
                 {
-                    current_visibility = 1;
+                    current_visibility = TRUE;
                 }
 
                 cmd += cmd->length;
@@ -6525,20 +6525,20 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
 
             case VISOP_ENDIF_CONTINUE_EXEC:
                 cmd += cmd->length;
-                dword_CODE_bss_80081600.unk10 = 0;
+                dword_CODE_bss_80081600.unk10 = FALSE;
                 return cmd;
 
             case VISOP_DONT_EXEC_COMMANDS_EVEN_ON_RETURN:
-                cmd = cmd += cmd->length;
+                cmd += cmd->length;
 
                 if (execute)
                 {
-                    execute                       = 0;
-                    dword_CODE_bss_80081600.unk10 = 1;
+                    execute                       = FALSE;
+                    dword_CODE_bss_80081600.unk10 = TRUE;
                 }
                 else
                 {
-                    execute = 0;
+                    execute = FALSE;
                 }
 
                 break;
@@ -6549,21 +6549,22 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
                 ret = parse_global_vis_command_list(cmd + cmd->length, value & execute);
                 cmd = ret;
 
-                if (dword_CODE_bss_80081600.unk10 == 0)
+                if (!dword_CODE_bss_80081600.unk10)
                 {
                     continue;
                 }
 
-                execute = 0;
+                execute = FALSE;
                 break;
 
             case VISOP_TOGGLE_EXEC_VS_READONLY:
-                execute ^= 1;
-                cmd = cmd += cmd->length;
+                execute ^= TRUE;
+                cmd += cmd->length;
                 break;
 
             case VISOP_ENDIF:
-                return cmd += cmd->length;
+                cmd += cmd->length;
+                return cmd;
 
             default:
                 return cmd;

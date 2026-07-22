@@ -789,11 +789,11 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
 {
     s32         texnum;
     struct tex *tex;
-    Gfx        *saved = (void *)0;
+    Gfx        *saved = NULL;
     s32         count;
-    s32         valid = 0;
+    s32         valid = FALSE;
     s32         texnum2;
-    s32         syncEmitted = 0;
+    s32         syncEmitted = FALSE;
     s32         smode;
     s32         tmode;
     s32         offset;
@@ -801,8 +801,8 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
     s32         shiftt;
     s32         min;
     s32         pad;
-    s32         writeTexFlag = 1;
-    s32         lightPending = 0;
+    s32         writeTexFlag = TRUE;
+    s32         lightPending = FALSE;
     Gfx        *in           = src;
     Gfx        *out          = dst;
 
@@ -810,57 +810,57 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
 
     sub_GAME_7F0CC4C8();
 
-    if (texpool == ((void *)0))
+    if (texpool == NULL)
     {
         texpool = &ptr_texture_alloc_start;
     }
 
     while (count > 0)
     {
-        switch (*((u8 *)in))
+        switch (*(u8 *)in)
         {
             case G_NOOP:
                 if (!syncEmitted)
                 {
                     gDPPipeSync(out++);
-                    syncEmitted = 1;
+                    syncEmitted = TRUE;
                 }
 
                 if (lightPending)
                 {
                     save_ptrDL_enpoint_to_current_init_lightfixture_table(out);
-                    lightPending = 0;
+                    lightPending = FALSE;
                 }
 
                 texnum = in->words.w1 & 0xfff;
 
-                if ((texnum == D_800483C4) && (D_800483C8 != ((void *)0)))
+                if ((texnum == D_800483C4) && (D_800483C8 != NULL))
                 {
                     if (D_800483C8[texnum].unk_0_0 < 0xffU)
                     {
-                        valid = 1;
+                        valid = TRUE;
                     }
                     else
                     {
-                        valid = 0;
+                        valid = FALSE;
                     }
                 }
                 else
                 {
-                    valid = 0;
+                    valid = FALSE;
                 }
 
                 texLoadFromTextureNum(texnum, texpool);
                 tex = texFindInPool(texnum, texpool);
 
-                if (tex != ((void *)0))
+                if (tex != NULL)
                 {
                     out          = texWriteTextureCmd(out, saved, tex, writeTexFlag);
-                    writeTexFlag = 0;
+                    writeTexFlag = FALSE;
 
                     switch (in->words.w0 & 7)
                     {
-                        case 0:
+                        case TEXTURETYPE_LOD:
                             min    = (in->words.w1 >> 24) & 0xff;
                             smode  = (in->words.w0 >> 22) & 3;
                             tmode  = (in->words.w0 >> 20) & 3;
@@ -868,14 +868,12 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
                             shifts = (in->words.w0 >> 14) & 0xf;
                             shiftt = (in->words.w0 >> 10) & 0xf;
 
-                            if ((D_800483C8 != ((void *)0)) && (D_800483C8[texnum].unk_0_0 == 0xff))
+                            if ((D_800483C8 != NULL) && (D_800483C8[texnum].unk_0_0 == 0xff))
                             {
                                 do
                                 {
-                                    if (1)
-                                    {
-                                    }
-                                } while (0);
+                                    if (TRUE) {}
+                                } while (FALSE);
 
                                 D_800483C8[texnum].unk_0_0 = min;
                                 D_800483C8[texnum].unk_1_3 = 15 - shifts;
@@ -904,7 +902,7 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
                             }
                             break;
 
-                        case 1:
+                        case TEXTURETYPE_DETAIL:
                         {
                             struct tex *tex2;
 
@@ -913,7 +911,7 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
                             texLoadFromTextureNum(texnum2, texpool);
                             tex2 = texFindInPool(texnum2, texpool);
 
-                            if (tex2 != ((void *)0))
+                            if (tex2 != NULL)
                             {
                                 min    = ((*in).words.w1 >> 24) & 0xff;
                                 smode  = (in->words.w0 >> 22) & 3;
@@ -927,7 +925,7 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
                             break;
                         }
 
-                        case 2:
+                        case TEXTURETYPE_MIPMAP:
                             smode  = (in->words.w0 >> 22) & 3;
                             tmode  = (in->words.w0 >> 20) & 3;
                             offset = (in->words.w0 >> 18) & 3;
@@ -954,14 +952,14 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
                             }
                             break;
 
-                        case 3:
+                        case TEXTURETYPE_TILE:
                             smode  = (in->words.w0 >> 22) & 3;
                             tmode  = (in->words.w0 >> 20) & 3;
                             offset = (in->words.w0 >> 18) & 3;
                             out    = texHandleType3(out, tex, smode, tmode, offset);
                             break;
 
-                        case 4:
+                        case TEXTURETYPE_TILE_PRESWAPPED:
                             smode  = (in->words.w0 >> 22) & 3;
                             tmode  = (in->words.w0 >> 20) & 3;
                             offset = (in->words.w0 >> 18) & 3;
@@ -971,20 +969,20 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
 
                     if (texnum == 1508)
                     {
-                        out = sub_GAME_7F09343C(out, 1);
+                        out = sub_GAME_7F09343C(out, TRUE);
                         sub_GAME_7F0CC4C8();
                     }
 
                     if (texnum == 1511)
                     {
-                        out = sub_GAME_7F09365C(out, 1);
+                        out = sub_GAME_7F09365C(out, TRUE);
                         sub_GAME_7F0CC4C8();
                     }
 
                     if (check_if_imageID_is_light(texnum))
                     {
                         add_entry_to_init_lightfixture_table(out);
-                        lightPending = 1;
+                        lightPending = TRUE;
                     }
                 }
 
@@ -992,20 +990,20 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
                 break;
 
             case G_RDPPIPESYNC:
-                syncEmitted = 1;
+                syncEmitted = TRUE;
                 *(out++)    = *(in++);
                 break;
 
             case 0xb1:
             case 0xbf:
-                writeTexFlag = 1;
-                syncEmitted  = 0;
+                writeTexFlag = TRUE;
+                syncEmitted  = FALSE;
                 *(out++)     = *(in++);
                 break;
 
             case 0xbb:
                 saved        = out;
-                writeTexFlag = 0;
+                writeTexFlag = FALSE;
                 *(out++)     = *(in++);
                 break;
 
