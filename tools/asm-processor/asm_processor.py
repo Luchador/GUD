@@ -1090,6 +1090,7 @@ def fixup_objfile(objfile_name, functions, asm_prelude, assembler, output_enc, d
     late_rodata_source_name_end = None
 
     late_rodata_carrier_ranges = []
+    omitted_late_rodata_carriers = set()
     text_section = objfile.find_section('.text')
     for function in functions:
         if function.late_rodata_carrier is None:
@@ -1100,6 +1101,7 @@ def fixup_objfile(objfile_name, functions, asm_prelude, assembler, output_enc, d
             None)
         if carrier is None:
             # The surrounding preprocessor condition omitted this block.
+            omitted_late_rodata_carriers.add(function.late_rodata_carrier)
             continue
         if carrier.st_shndx != text_section.index or carrier.st_size == 0:
             raise Failure("could not determine generated late rodata carrier size, " + function.fn_desc)
@@ -1112,6 +1114,8 @@ def fixup_objfile(objfile_name, functions, asm_prelude, assembler, output_enc, d
     all_text_glabels = set()
     func_sizes = {}
     for function in functions:
+        if function.late_rodata_carrier in omitted_late_rodata_carriers:
+            continue
         ifdefed = False
         for sectype, (temp_name, size) in function.data.items():
             if temp_name is None:
