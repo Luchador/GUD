@@ -35,6 +35,7 @@ extern struct ModelSkeleton SKELETON(hat);  /* macro declaration for skeleton_ha
 extern struct ModelSkeleton SKELETON(standard_object);  /* macro declaration for skeleton_standard_object */
 extern struct ModelSkeleton SKELETON(prop_weapon);  /* macro declaration for skeleton_prop_weapon */
 extern struct ModelSkeleton SKELETON(guard);  /* macro declaration for skeleton_guard */
+extern struct ModelSkeleton SKELETON(gun_revolver);  /* macro declaration for skeleton_gun_revolver */
 extern struct ModelNode player_gait_hdr;
 extern struct ModelNode player_gait_pos_hdr_1;
 extern struct ModelNode player_gait_pos_hdr_2;
