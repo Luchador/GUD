@@ -10671,6 +10671,7 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
     }
 
     matrices = dynAllocate(bodymodel->numMatrices << 6);
+    
     for (i = 0; i < bodymodel->numMatrices; i++)
     {
         matrix_4x4_set_identity(&matrices[i]);
