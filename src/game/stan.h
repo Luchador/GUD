@@ -42,7 +42,7 @@ extern s32 stanlinelog_flag;
 void noteTileRoomIfDifferentToPrev( StandTile *tile,  StandTile *unused,  struct StandTileWalkCallbackRecord *data);
 
 void stanInit(void);
-
+void setLevelScale(f32 ls);
 void debugStanView(s8 joyX, s8 joyY, u16 joyBtns);
 void sub_GAME_7F0AF630(s32 arg0);
 void stanResetHits(void);

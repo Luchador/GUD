@@ -10764,7 +10764,8 @@ void sub_GAME_7F089718(f32 arg0)
 }
 
 
-void sub_GAME_7F08976C(f32 param_1) {
+void sub_GAME_7F08976C(f32 param_1)
+{
   D_800364CC = param_1;
 }
 
