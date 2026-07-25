@@ -438,19 +438,6 @@ struct WatchVertex *setup_watch_rectangles(struct WatchVertex *vtx, s32 startx, 
     return vtx;
 }
 
-#ifdef VERSION_EU
-GLOBAL_ASM(
-.late_rodata
-glabel D_8004CE20
-.word 0x40c90fdb /* M_TAU_F */
-glabel D_8005774C
-.word 0x3fb501e2 /* M_SQRT2_F */
-)
-#endif
-
-
-
-
 
 Gfx *sub_GAME_7F0A3B40(Gfx *gdl, s32 *arg1)
 {
@@ -468,7 +455,6 @@ Gfx *sub_GAME_7F0A3B40(Gfx *gdl, s32 *arg1)
 }
 
 
-
 // unreferenced
 void unused_7F0A3B70(s32 arg0, struct rgba_u8 *arg1)
 {
@@ -477,9 +463,6 @@ void unused_7F0A3B70(s32 arg0, struct rgba_u8 *arg1)
     arg1->b = g_BulletSparkColors[arg0].b;
     arg1->a = g_BulletSparkColors[arg0].a;
 }
-
-
-
 
 
 // unreferenced
@@ -511,18 +494,6 @@ void bullet_sparks_reset(void)
 }
 
 
-#ifdef VERSION_EU
-// M_TAU_F and M_SQRT2_F are owned by still-asm functions' late_rodata;
-// reference them by label so no duplicate rodata entry is emitted.
-extern f32 D_8004CE20; // M_TAU_F  (0x40c90fdb)
-extern f32 D_8005774C; // M_SQRT2_F (0x3fb501e2)
-#define _TAU_F   D_8004CE20
-#define _SQRT2_F D_8005774C
-#else
-#define _TAU_F   M_TAU_F
-#define _SQRT2_F M_SQRT2_F
-#endif
-
 /**
  * Address: 7F0A3C08
  */
@@ -532,7 +503,7 @@ void bullet_sparks_init(s_bullet_spark *spark, coord3d *arg1, s32 arg2, f32 arg3
 
     angle = randomGetNext();
     angle *= (1.0f / M_U32_MAX_VALUE_F);
-    angle *= _TAU_F;
+    angle *= M_TAU_F;
 
     spark->age = 0;
     spark->unk06 = arg4;
@@ -578,15 +549,12 @@ void bullet_sparks_init(s_bullet_spark *spark, coord3d *arg1, s32 arg2, f32 arg3
     spark->unk18 = arg1->z;
 
     arg3 *= 1.0f + ((f32)randomGetNext() * (1.0f / M_U32_MAX_VALUE_F) * 0.25f);
-    arg3 *= _SQRT2_F;
+    arg3 *= M_SQRT2_F;
     spark->unk24 = arg3;
 
     spark->unk1c = cosf(angle) * arg3;
     spark->unk20 = sinf(angle) * arg3;
 }
-
-#undef _TAU_F
-#undef _SQRT2_F
 
 
 /**
