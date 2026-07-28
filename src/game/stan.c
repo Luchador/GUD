@@ -3146,16 +3146,25 @@ s32 stanTestLocusEdgeAboveY(StandTile **tile, f32 target_x, f32 target_z, f32 ra
 }
 
 
-#ifdef NONMATCHING
+typedef struct BfsSearchLocals {
+    StandTile **stackptr;
+    s32 pad48;
+    s32 pad4c;
+    s32 pad50;
+    s32 pad54;
+    s32 lastnumtiles;
+} BfsSearchLocals;
+
+
 // Horrifc BFS on tiles
 //
 // Four things look like they could be improved
-// 1. The outer loop always restarts to zero
+// 1. The outer loop always restarts at bfsTileStack[0].
 //    The next 'wave' will process tiles it already scanned in the second wave
 //    Neighbors are checked again needlessly
 //    This has a high cost if the waypoint the game is trying to find
 //    is far away on the stans
-//    Should reset to the previous value of countForIter
+//    Should reset to the previous value of loc.lastnumtiles
 // 2. 'seenCount' can become really big because it's all the stans discovered so far
 //    Neighbor checks thus become exponentially expensive
 //    There could be a faster way to check that a stan was already visited
@@ -3163,221 +3172,123 @@ s32 stanTestLocusEdgeAboveY(StandTile **tile, f32 target_x, f32 target_z, f32 ra
 //    because it's static and never changes at run-time
 // 4. This function is called at one single location and the second arg
 //    is always the same. It could return the result from tilePred already.
-//
-// stanFillSearch()
-StandTile *sub_GAME_7F0B2718(StandTile *srcTile, tilePredicate_t tilePred)
+StandTile *stanFillSearch(StandTile *starttile, tilePredicate_t predicate) // stanFillSearch is the canonical name for this function
 {
-    StandTile *tile;
-    u32 i;
-    u32 pointCount;
-    s32 link;
-    StandTile *linkTile;
-
-    s32 countForIter;
-
-    s32 pntI;
+    StandTile **stackbase;
+    BfsSearchLocals loc;
+    StandTile **tileStartAddr;
+    StandTilePoint *point;
+    StandTile *linkedtile;
     s32 seenCount;
-    s32 linkI;
-    s32 linkOffset;
-    s32 madeProgress;   // bool
+    s32 pointindex;
+    s32 pointcount;
+    s32 link;
+    s32 i;
+    s32 stackindex;
+    StandTile **tileStack;
 
-    // 0x44(sp) looks to be the ptr onto the stack
-
-    // madeProgress =
-    if (tilePred(srcTile)) {
-        return srcTile;
+    if (predicate(starttile))
+    {
+        return starttile;
     }
 
-    bfsTileStack[0] = srcTile;
+    tileStartAddr = &standTileStart;
+
+    // Add the starting tile to the discovered tile stack.
+    bfsTileStack[0] = starttile;
     seenCount = 1;
-    countForIter = seenCount;
 
-    do {
-        // Loop over everyone for this iteration
-        for(pntI=0; pntI < countForIter; pntI++)
+    // Process the discovered tiles in waves. loc.lastnumtiles is the number of tiles that existed at the beginning of the current wave.
+    for (loc.lastnumtiles = 1, tileStack = bfsTileStack, stackbase = tileStack;; loc.lastnumtiles = seenCount)
+    {
+        stackindex = 0;
+
+        if (seenCount > 0)
         {
+            // This restarts at the beginning of the stack for every wave rather than beginning at the new frontier.
+            loc.stackptr = tileStack;
 
-            tile = bfsTileStack[pntI];
-            pointCount = STAN_POINT_COUNT(tile);
-
-            // Loop over linked tiles
-            for (linkI = 0; linkI < pointCount; linkI++)
+            do
             {
-                link = tile->points[linkI].link;
-                linkOffset = link * 8;  // somehow it's doing this << 3 before testing the >> 4, but this isn't working.
+                pointindex = 0;
+                starttile = *loc.stackptr;
+                point = (StandTilePoint *)starttile;
+                pointcount = (starttile->tail.half >> 12) & 0xf;
 
-                if (link >> 4 != 0) {
-                    linkTile = (struct StandTile*)((s32)standTileStart + linkOffset);
-
-                    // Loop to see if this is a new tile (disgusting)
-                    // If was a < and the while was a != though
-                    for (i = 0; i < seenCount; i++)
+                // Loop over the tile's linked points.
+                if (pointcount > 0)
+                {
+                    do
                     {
-                        if (bfsTileStack[i] == linkTile) {
-                            goto LAB_7f0b283c;  // continue named loop?
+                        link = point[1].link;
+
+                        // This assignment is logically redundant but needed for matching.
+                        tileStartAddr = &standTileStart;
+
+                        // Keep this expression as written. Simplifying it to "link << 3" changes register usage.
+                        linkedtile = (StandTile *)(((u8 *)(*tileStartAddr)) + (link << ((0, 3))));
+
+                        // A zero high portion indicates that there is no valid linked tile to visit.
+                        if ((link >> 4) != 0)
+                        {
+                            // Loop to see if this is a new tile (disgusting)
+                            for (i = 0; i < seenCount; i++)
+                            {
+                                if (linkedtile == tileStack[i])
+                                {
+                                    goto nextpoint;
+                                }
+                            }
+
+                            // Return as soon as a matching tile is found.
+                            if (predicate(linkedtile))
+                            {
+                                return linkedtile;
+                            }
+
+                            // Add the newly discovered tile to the stack.
+                            stackbase[seenCount] = linkedtile;
+                            seenCount++;
+
+                            if ((u32)seenCount >= 351)
+                            {
+                                #ifdef DEBUG
+                                    osSyncPrintf("Out of confs[] in stanFillSearch()\n");
+                                #endif
+                                return 0;
+                            }
+
+                            pointcount = (starttile->tail.half >> 12) & 0xf;
                         }
+
+nextpoint:
+                        pointindex++;
+                        point++;
                     }
-
-                    if (tilePred(linkTile)) {
-                        return linkTile;
-                    }
-
-                    bfsTileStack[seenCount] = linkTile;
-                    if (350 < seenCount + 1)
-                    {    // as written
-                        #ifdef DEBUG
-                        osSyncPrintf("Out of confs[] in stanFillSearch()\n");
-                        #endif
-                        return 0;
-                    }
-
-                    pointCount = STAN_POINT_COUNT(tile);
-                    seenCount = seenCount + 1;
-
+                    while (pointindex < pointcount);
                 }
 
-                // they may also have needed something to put by the label
-                LAB_7f0b283c: linkI = linkI;
+                stackindex++;
+                loc.stackptr++;
             }
-
+            while (stackindex < loc.lastnumtiles);
         }
+
+        if (predicate || tileStartAddr);
 
         // We only continue if we made progress with this iteration
-        if (seenCount == countForIter){
-            break;
+        if (seenCount != loc.lastnumtiles)
+        {
+            // This is logically redundant because both pointers refer to bfsTileStack, but it's still needed for matching.
+            stackbase = tileStack;
+
+            continue;
         }
 
-        // does appear to be down here - two li,X,1s initially and a mov zero in the delay slot
-        countForIter = seenCount;
-
-    } while (1);
-
-
-    return 0;
+        // No new tiles were discovered so the search is exhausted.
+        return 0;
+    }
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B2718
-/* 0E7248 7F0B2718 27BDFFA0 */  addiu $sp, $sp, -0x60
-/* 0E724C 7F0B271C AFBF003C */  sw    $ra, 0x3c($sp)
-/* 0E7250 7F0B2720 AFB5002C */  sw    $s5, 0x2c($sp)
-/* 0E7254 7F0B2724 AFB40028 */  sw    $s4, 0x28($sp)
-/* 0E7258 7F0B2728 0080A025 */  move  $s4, $a0
-/* 0E725C 7F0B272C 00A0A825 */  move  $s5, $a1
-/* 0E7260 7F0B2730 AFBE0038 */  sw    $fp, 0x38($sp)
-/* 0E7264 7F0B2734 AFB70034 */  sw    $s7, 0x34($sp)
-/* 0E7268 7F0B2738 AFB60030 */  sw    $s6, 0x30($sp)
-/* 0E726C 7F0B273C AFB30024 */  sw    $s3, 0x24($sp)
-/* 0E7270 7F0B2740 AFB20020 */  sw    $s2, 0x20($sp)
-/* 0E7274 7F0B2744 AFB1001C */  sw    $s1, 0x1c($sp)
-/* 0E7278 7F0B2748 00A0F809 */  jalr  $a1
-/* 0E727C 7F0B274C AFB00018 */  sw    $s0, 0x18($sp)
-/* 0E7280 7F0B2750 10400003 */  beqz  $v0, .L7F0B2760
-/* 0E7284 7F0B2754 3C018008 */   lui   $at, %hi(bfsTileStack)
-/* 0E7288 7F0B2758 10000049 */  b     .L7F0B2880
-/* 0E728C 7F0B275C 02801025 */   move  $v0, $s4
-.L7F0B2760:
-/* 0E7290 7F0B2760 240E0001 */  li    $t6, 1
-/* 0E7294 7F0B2764 3C178008 */  lui   $s7, %hi(bfsTileStack)
-/* 0E7298 7F0B2768 3C168004 */  lui   $s6, %hi(standTileStart)
-/* 0E729C 7F0B276C AC34BA10 */  sw    $s4, %lo(bfsTileStack)($at)
-/* 0E72A0 7F0B2770 24110001 */  li    $s1, 1
-/* 0E72A4 7F0B2774 26D60F58 */  addiu $s6, %lo(standTileStart) # addiu $s6, $s6, 0xf58
-/* 0E72A8 7F0B2778 26F7BA10 */  addiu $s7, %lo(bfsTileStack) # addiu $s7, $s7, -0x45f0
-/* 0E72AC 7F0B277C AFAE0058 */  sw    $t6, 0x58($sp)
-/* 0E72B0 7F0B2780 0000F025 */  move  $fp, $zero
-.L7F0B2784:
-/* 0E72B4 7F0B2784 1A200037 */  blez  $s1, .L7F0B2864
-/* 0E72B8 7F0B2788 3C0F8008 */   lui   $t7, %hi(bfsTileStack)
-/* 0E72BC 7F0B278C 25EFBA10 */  addiu $t7, %lo(bfsTileStack) # addiu $t7, $t7, -0x45f0
-/* 0E72C0 7F0B2790 AFAF0044 */  sw    $t7, 0x44($sp)
-.L7F0B2794:
-/* 0E72C4 7F0B2794 8FB80044 */  lw    $t8, 0x44($sp)
-/* 0E72C8 7F0B2798 00009025 */  move  $s2, $zero
-/* 0E72CC 7F0B279C 8F140000 */  lw    $s4, ($t8)
-/* 0E72D0 7F0B27A0 86840006 */  lh    $a0, 6($s4)
-/* 0E72D4 7F0B27A4 02809825 */  move  $s3, $s4
-/* 0E72D8 7F0B27A8 0004CB03 */  sra   $t9, $a0, 0xc
-/* 0E72DC 7F0B27AC 3324000F */  andi  $a0, $t9, 0xf
-/* 0E72E0 7F0B27B0 58800026 */  blezl $a0, .L7F0B284C
-/* 0E72E4 7F0B27B4 8FB90044 */   lw    $t9, 0x44($sp)
-.L7F0B27B8:
-/* 0E72E8 7F0B27B8 9662000E */  lhu   $v0, 0xe($s3)
-/* 0E72EC 7F0B27BC 8ECA0000 */  lw    $t2, ($s6)
-/* 0E72F0 7F0B27C0 000248C0 */  sll   $t1, $v0, 3
-/* 0E72F4 7F0B27C4 00025903 */  sra   $t3, $v0, 4
-/* 0E72F8 7F0B27C8 1160001B */  beqz  $t3, .L7F0B2838
-/* 0E72FC 7F0B27CC 012A8021 */   addu  $s0, $t1, $t2
-/* 0E7300 7F0B27D0 1A200009 */  blez  $s1, .L7F0B27F8
-/* 0E7304 7F0B27D4 00001025 */   move  $v0, $zero
-/* 0E7308 7F0B27D8 3C038008 */  lui   $v1, %hi(bfsTileStack)
-/* 0E730C 7F0B27DC 2463BA10 */  addiu $v1, %lo(bfsTileStack) # addiu $v1, $v1, -0x45f0
-.L7F0B27E0:
-/* 0E7310 7F0B27E0 8C6C0000 */  lw    $t4, ($v1)
-/* 0E7314 7F0B27E4 24420001 */  addiu $v0, $v0, 1
-/* 0E7318 7F0B27E8 520C0014 */  beql  $s0, $t4, .L7F0B283C
-/* 0E731C 7F0B27EC 26520001 */   addiu $s2, $s2, 1
-/* 0E7320 7F0B27F0 1451FFFB */  bne   $v0, $s1, .L7F0B27E0
-/* 0E7324 7F0B27F4 24630004 */   addiu $v1, $v1, 4
-.L7F0B27F8:
-/* 0E7328 7F0B27F8 02A0F809 */  jalr  $s5
-/* 0E732C 7F0B27FC 02002025 */  move  $a0, $s0
-/* 0E7330 7F0B2800 10400003 */  beqz  $v0, .L7F0B2810
-/* 0E7334 7F0B2804 00116880 */   sll   $t5, $s1, 2
-/* 0E7338 7F0B2808 1000001D */  b     .L7F0B2880
-/* 0E733C 7F0B280C 02001025 */   move  $v0, $s0
-.L7F0B2810:
-/* 0E7340 7F0B2810 26310001 */  addiu $s1, $s1, 1
-/* 0E7344 7F0B2814 02ED7021 */  addu  $t6, $s7, $t5
-/* 0E7348 7F0B2818 2E21015F */  sltiu $at, $s1, 0x15f
-/* 0E734C 7F0B281C 14200003 */  bnez  $at, .L7F0B282C
-/* 0E7350 7F0B2820 ADD00000 */   sw    $s0, ($t6)
-/* 0E7354 7F0B2824 10000016 */  b     .L7F0B2880
-/* 0E7358 7F0B2828 00001025 */   move  $v0, $zero
-.L7F0B282C:
-/* 0E735C 7F0B282C 86840006 */  lh    $a0, 6($s4)
-/* 0E7360 7F0B2830 00047B03 */  sra   $t7, $a0, 0xc
-/* 0E7364 7F0B2834 31E4000F */  andi  $a0, $t7, 0xf
-.L7F0B2838:
-/* 0E7368 7F0B2838 26520001 */  addiu $s2, $s2, 1
-.L7F0B283C:
-/* 0E736C 7F0B283C 0244082A */  slt   $at, $s2, $a0
-/* 0E7370 7F0B2840 1420FFDD */  bnez  $at, .L7F0B27B8
-/* 0E7374 7F0B2844 26730008 */   addiu $s3, $s3, 8
-/* 0E7378 7F0B2848 8FB90044 */  lw    $t9, 0x44($sp)
-.L7F0B284C:
-/* 0E737C 7F0B284C 8FA90058 */  lw    $t1, 0x58($sp)
-/* 0E7380 7F0B2850 27DE0001 */  addiu $fp, $fp, 1
-/* 0E7384 7F0B2854 27280004 */  addiu $t0, $t9, 4
-/* 0E7388 7F0B2858 03C9082A */  slt   $at, $fp, $t1
-/* 0E738C 7F0B285C 1420FFCD */  bnez  $at, .L7F0B2794
-/* 0E7390 7F0B2860 AFA80044 */   sw    $t0, 0x44($sp)
-.L7F0B2864:
-/* 0E7394 7F0B2864 8FAA0058 */  lw    $t2, 0x58($sp)
-/* 0E7398 7F0B2868 0000F025 */  move  $fp, $zero
-/* 0E739C 7F0B286C 522A0004 */  beql  $s1, $t2, .L7F0B2880
-/* 0E73A0 7F0B2870 00001025 */   move  $v0, $zero
-/* 0E73A4 7F0B2874 1000FFC3 */  b     .L7F0B2784
-/* 0E73A8 7F0B2878 AFB10058 */   sw    $s1, 0x58($sp)
-/* 0E73AC 7F0B287C 00001025 */  move  $v0, $zero
-.L7F0B2880:
-/* 0E73B0 7F0B2880 8FBF003C */  lw    $ra, 0x3c($sp)
-/* 0E73B4 7F0B2884 8FB00018 */  lw    $s0, 0x18($sp)
-/* 0E73B8 7F0B2888 8FB1001C */  lw    $s1, 0x1c($sp)
-/* 0E73BC 7F0B288C 8FB20020 */  lw    $s2, 0x20($sp)
-/* 0E73C0 7F0B2890 8FB30024 */  lw    $s3, 0x24($sp)
-/* 0E73C4 7F0B2894 8FB40028 */  lw    $s4, 0x28($sp)
-/* 0E73C8 7F0B2898 8FB5002C */  lw    $s5, 0x2c($sp)
-/* 0E73CC 7F0B289C 8FB60030 */  lw    $s6, 0x30($sp)
-/* 0E73D0 7F0B28A0 8FB70034 */  lw    $s7, 0x34($sp)
-/* 0E73D4 7F0B28A4 8FBE0038 */  lw    $fp, 0x38($sp)
-/* 0E73D8 7F0B28A8 03E00008 */  jr    $ra
-/* 0E73DC 7F0B28AC 27BD0060 */   addiu $sp, $sp, 0x60
-)
-#endif
-
-
 
 
 /**

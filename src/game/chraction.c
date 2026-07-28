@@ -2861,7 +2861,7 @@ waypoint *chrlvStanPathRelated(coord3d *arg0, StandTile *arg1)
     waypoint *wayp = NULL;
     s32 *n = NULL;
 
-    tile = sub_GAME_7F0B2718(arg1, check_if_any_path_preset_lies_on_tile);
+    tile = stanFillSearch(arg1, check_if_any_path_preset_lies_on_tile);
     if (tile != NULL)
     {
         ret = get_ptrpreset_in_table_matching_tile(tile);
