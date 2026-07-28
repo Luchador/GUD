@@ -26,6 +26,12 @@ struct move_bond_collision {
     struct coord3d sp1A8;
 };
 
+typedef enum StanCollisionResult {
+    STAN_COLLISION_NONE = -2,
+    STAN_COLLISION_FOUND = 2,
+    STAN_COLLISION_TRAVERSAL_LIMIT = 5
+} StanCollisionResult;
+
 
 /////////////////
 // extern

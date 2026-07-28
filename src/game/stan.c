@@ -161,7 +161,7 @@ s32 stanIsSpecialBit1Set(StandTile *arg0, struct StandTileLocusCallbackRecord* a
 s32 stanCheckLinkedSpecialTile(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3, s32 arg4, s32 *outFlags);
 s32 sub_GAME_7F0B21B0(StandTile **tileStack, f32 target_x, f32 target_z, f32 radius, s32 *rooms, s32 *count_rtn, s32 bufMax);
 f32 getShortest2dDispToInfTripleEdge(StandTile *tile, s32 start3index, f32 p_x, f32 p_z);
-s32 sub_GAME_7F0B1DDC(struct StandTile**, f32, f32, f32, standTileLocusCallback_A_t, standTileLocusCallback_B_t, standTileLocusCallback_C_t, struct StandTileLocusCallbackRecord*);
+StanCollisionResult sub_GAME_7F0B1DDC(struct StandTile**, f32, f32, f32, standTileLocusCallback_A_t, standTileLocusCallback_B_t, standTileLocusCallback_C_t, struct StandTileLocusCallbackRecord*);
 s32 stanLocusAddTileRoomIfNew(StandTile *tile, struct StandTileLocusCallbackRecord *rec);
 s32 stanGetLocusField0(struct StandTileLocusCallbackRecord *arg0);
 s32 stanGetLocusCount(struct StandTileLocusCallbackRecord *arg0);
@@ -2559,232 +2559,125 @@ void getTileEdgePoints(StandTile *tile, s32 pointI, coord3d *currPntRtn, coord3d
 }
 
 
-#ifdef NONMATCHING
-s32 sub_GAME_7F0B1DDC(void)
+/**
+ * Traverses linked stan tiles that intersect a circle at the given X/Z
+ * position. The callbacks can observe visited tiles, reject linked edges, or
+ * allow traversal to continue after encountering a blocking edge.
+ *
+ * @return STAN_COLLISION_FOUND when a blocking edge is found,
+ * STAN_COLLISION_TRAVERSAL_LIMIT when the tile stack limit is reached, or
+ * STAN_COLLISION_NONE when traversal completes without a collision.
+ */
+StanCollisionResult sub_GAME_7F0B1DDC(StandTile **startTile, f32 x, f32 z, f32 radius, standTileLocusCallback_A_t callbackA, standTileLocusCallback_B_t callbackB, standTileLocusCallback_C_t callbackC, struct StandTileLocusCallbackRecord *record)
 {
-    #ifdef DEBUG
-    if (cat>= 0x190)
+    s32 i;
+    StandTile *tileStack[39];
+    StandTile *tile;
+    StandTile *linkedTile;
+    s32 visitedCount;
+    s32 cat;
+    s32 pointI;
+    s32 pointINext;
+    s32 nextPointI;
+    f32 edgeDist;
+    f32 pointDistA;
+    f32 pointDistB;
+
+    x *= level_scale;
+    z *= level_scale;
+    radius *= level_scale;
+    visitedCount = 0;
+    cat = 1;
+    tileStack[0] = *startTile;
+
+    do
     {
-      osSyncPrintf("cat=%d !!!!!!!!!!!!!!!!!!!! NEED TO INCREASE ARRAY SIZE\n",cat);
-    }
-    #endif
-    if (cat >= 0x320)
-    {
-      return 5; //error value?
-    }
-}
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B1DDC
-/* 0E690C 7F0B1DDC 27BDFEB0 */  addiu $sp, $sp, -0x150
-/* 0E6910 7F0B1DE0 F7BA0038 */  sdc1  $f26, 0x38($sp)
-/* 0E6914 7F0B1DE4 3C018004 */  lui   $at, %hi(level_scale)
-/* 0E6918 7F0B1DE8 4485D000 */  mtc1  $a1, $f26
-/* 0E691C 7F0B1DEC C4200F44 */  lwc1  $f0, %lo(level_scale)($at)
-/* 0E6920 7F0B1DF0 F7BC0040 */  sdc1  $f28, 0x40($sp)
-/* 0E6924 7F0B1DF4 4486E000 */  mtc1  $a2, $f28
-/* 0E6928 7F0B1DF8 4600D682 */  mul.s $f26, $f26, $f0
-/* 0E692C 7F0B1DFC F7BE0048 */  sdc1  $f30, 0x48($sp)
-/* 0E6930 7F0B1E00 4487F000 */  mtc1  $a3, $f30
-/* 0E6934 7F0B1E04 4600E702 */  mul.s $f28, $f28, $f0
-/* 0E6938 7F0B1E08 AFBF0074 */  sw    $ra, 0x74($sp)
-/* 0E693C 7F0B1E0C AFBE0070 */  sw    $fp, 0x70($sp)
-/* 0E6940 7F0B1E10 AFB7006C */  sw    $s7, 0x6c($sp)
-/* 0E6944 7F0B1E14 AFB60068 */  sw    $s6, 0x68($sp)
-/* 0E6948 7F0B1E18 AFB50064 */  sw    $s5, 0x64($sp)
-/* 0E694C 7F0B1E1C AFB40060 */  sw    $s4, 0x60($sp)
-/* 0E6950 7F0B1E20 AFB3005C */  sw    $s3, 0x5c($sp)
-/* 0E6954 7F0B1E24 AFB20058 */  sw    $s2, 0x58($sp)
-/* 0E6958 7F0B1E28 AFB10054 */  sw    $s1, 0x54($sp)
-/* 0E695C 7F0B1E2C AFB00050 */  sw    $s0, 0x50($sp)
-/* 0E6960 7F0B1E30 F7B80030 */  sdc1  $f24, 0x30($sp)
-/* 0E6964 7F0B1E34 F7B60028 */  sdc1  $f22, 0x28($sp)
-/* 0E6968 7F0B1E38 F7B40020 */  sdc1  $f20, 0x20($sp)
-/* 0E696C 7F0B1E3C AFA000A4 */  sw    $zero, 0xa4($sp)
-/* 0E6970 7F0B1E40 8C8E0000 */  lw    $t6, ($a0)
-/* 0E6974 7F0B1E44 27AF00B0 */  addiu $t7, $sp, 0xb0
-/* 0E6978 7F0B1E48 4600F782 */  mul.s $f30, $f30, $f0
-/* 0E697C 7F0B1E4C 24140001 */  li    $s4, 1
-/* 0E6980 7F0B1E50 AFAF0084 */  sw    $t7, 0x84($sp)
-/* 0E6984 7F0B1E54 27B200B0 */  addiu $s2, $sp, 0xb0
-/* 0E6988 7F0B1E58 8FB60164 */  lw    $s6, 0x164($sp)
-/* 0E698C 7F0B1E5C 8FB7016C */  lw    $s7, 0x16c($sp)
-/* 0E6990 7F0B1E60 8FBE0168 */  lw    $fp, 0x168($sp)
-/* 0E6994 7F0B1E64 AFAE00B0 */  sw    $t6, 0xb0($sp)
-/* 0E6998 7F0B1E68 8FB80084 */  lw    $t8, 0x84($sp)
-.L7F0B1E6C:
-/* 0E699C 7F0B1E6C 8FB900A4 */  lw    $t9, 0xa4($sp)
-/* 0E69A0 7F0B1E70 8FAA0160 */  lw    $t2, 0x160($sp)
-/* 0E69A4 7F0B1E74 8F130000 */  lw    $s3, ($t8)
-/* 0E69A8 7F0B1E78 27090004 */  addiu $t1, $t8, 4
-/* 0E69AC 7F0B1E7C 27280001 */  addiu $t0, $t9, 1
-/* 0E69B0 7F0B1E80 AFA800A4 */  sw    $t0, 0xa4($sp)
-/* 0E69B4 7F0B1E84 AFA90084 */  sw    $t1, 0x84($sp)
-/* 0E69B8 7F0B1E88 11400004 */  beqz  $t2, .L7F0B1E9C
-/* 0E69BC 7F0B1E8C 00008025 */   move  $s0, $zero
-/* 0E69C0 7F0B1E90 02602025 */  move  $a0, $s3
-/* 0E69C4 7F0B1E94 0140F809 */  jalr  $t2
-/* 0E69C8 7F0B1E98 02E02825 */  move  $a1, $s7
-.L7F0B1E9C:
-/* 0E69CC 7F0B1E9C 86620006 */  lh    $v0, 6($s3)
-/* 0E69D0 7F0B1EA0 00025B03 */  sra   $t3, $v0, 0xc
-/* 0E69D4 7F0B1EA4 316C000F */  andi  $t4, $t3, 0xf
-/* 0E69D8 7F0B1EA8 19800069 */  blez  $t4, .L7F0B2050
-/* 0E69DC 7F0B1EAC 01801025 */   move  $v0, $t4
-.L7F0B1EB0:
-/* 0E69E0 7F0B1EB0 26150001 */  addiu $s5, $s0, 1
-/* 0E69E4 7F0B1EB4 02A2001A */  div   $zero, $s5, $v0
-/* 0E69E8 7F0B1EB8 00008810 */  mfhi  $s1
-/* 0E69EC 7F0B1EBC 4406D000 */  mfc1  $a2, $f26
-/* 0E69F0 7F0B1EC0 14400002 */  bnez  $v0, .L7F0B1ECC
-/* 0E69F4 7F0B1EC4 00000000 */   nop
-/* 0E69F8 7F0B1EC8 0007000D */  break 7
-.L7F0B1ECC:
-/* 0E69FC 7F0B1ECC 2401FFFF */  li    $at, -1
-/* 0E6A00 7F0B1ED0 14410004 */  bne   $v0, $at, .L7F0B1EE4
-/* 0E6A04 7F0B1ED4 3C018000 */   lui   $at, 0x8000
-/* 0E6A08 7F0B1ED8 16A10002 */  bne   $s5, $at, .L7F0B1EE4
-/* 0E6A0C 7F0B1EDC 00000000 */   nop
-/* 0E6A10 7F0B1EE0 0006000D */  break 6
-.L7F0B1EE4:
-/* 0E6A14 7F0B1EE4 4407E000 */  mfc1  $a3, $f28
-/* 0E6A18 7F0B1EE8 02602025 */  move  $a0, $s3
-/* 0E6A1C 7F0B1EEC 0FC2BF47 */  jal   getShortest2dDispToInfTileEdge
-/* 0E6A20 7F0B1EF0 02002825 */   move  $a1, $s0
-/* 0E6A24 7F0B1EF4 4406D000 */  mfc1  $a2, $f26
-/* 0E6A28 7F0B1EF8 4407E000 */  mfc1  $a3, $f28
-/* 0E6A2C 7F0B1EFC 46000586 */  mov.s $f22, $f0
-/* 0E6A30 7F0B1F00 02602025 */  move  $a0, $s3
-/* 0E6A34 7F0B1F04 0FC2C019 */  jal   distToTilePnt2D
-/* 0E6A38 7F0B1F08 02002825 */   move  $a1, $s0
-/* 0E6A3C 7F0B1F0C 4406D000 */  mfc1  $a2, $f26
-/* 0E6A40 7F0B1F10 4407E000 */  mfc1  $a3, $f28
-/* 0E6A44 7F0B1F14 46000506 */  mov.s $f20, $f0
-/* 0E6A48 7F0B1F18 02602025 */  move  $a0, $s3
-/* 0E6A4C 7F0B1F1C 0FC2C019 */  jal   distToTilePnt2D
-/* 0E6A50 7F0B1F20 02202825 */   move  $a1, $s1
-/* 0E6A54 7F0B1F24 461EB03C */  c.lt.s $f22, $f30
-/* 0E6A58 7F0B1F28 46000606 */  mov.s $f24, $f0
-/* 0E6A5C 7F0B1F2C 45020042 */  bc1fl .L7F0B2038
-/* 0E6A60 7F0B1F30 86620006 */   lh    $v0, 6($s3)
-/* 0E6A64 7F0B1F34 461EA03C */  c.lt.s $f20, $f30
-/* 0E6A68 7F0B1F38 00000000 */  nop
-/* 0E6A6C 7F0B1F3C 4501000B */  bc1t  .L7F0B1F6C
-/* 0E6A70 7F0B1F40 00000000 */   nop
-/* 0E6A74 7F0B1F44 461E003C */  c.lt.s $f0, $f30
-/* 0E6A78 7F0B1F48 02602025 */  move  $a0, $s3
-/* 0E6A7C 7F0B1F4C 45010007 */  bc1t  .L7F0B1F6C
-/* 0E6A80 7F0B1F50 00000000 */   nop
-/* 0E6A84 7F0B1F54 4406D000 */  mfc1  $a2, $f26
-/* 0E6A88 7F0B1F58 4407E000 */  mfc1  $a3, $f28
-/* 0E6A8C 7F0B1F5C 0FC2C066 */  jal   stanPointProjectsOntoTileEdge
-/* 0E6A90 7F0B1F60 02002825 */   move  $a1, $s0
-/* 0E6A94 7F0B1F64 50400034 */  beql  $v0, $zero, .L7F0B2038
-/* 0E6A98 7F0B1F68 86620006 */   lh    $v0, 6($s3)
-.L7F0B1F6C:
-/* 0E6A9C 7F0B1F6C 12C00008 */  beqz  $s6, .L7F0B1F90
-/* 0E6AA0 7F0B1F70 02602025 */   move  $a0, $s3
-/* 0E6AA4 7F0B1F74 4406B000 */  mfc1  $a2, $f22
-/* 0E6AA8 7F0B1F78 4407A000 */  mfc1  $a3, $f20
-/* 0E6AAC 7F0B1F7C 02002825 */  move  $a1, $s0
-/* 0E6AB0 7F0B1F80 E7B80010 */  swc1  $f24, 0x10($sp)
-/* 0E6AB4 7F0B1F84 02C0F809 */  jalr  $s6
-/* 0E6AB8 7F0B1F88 AFB70014 */  sw    $s7, 0x14($sp)
-/* 0E6ABC 7F0B1F8C 1440001B */  bnez  $v0, .L7F0B1FFC
-.L7F0B1F90:
-/* 0E6AC0 7F0B1F90 001068C0 */   sll   $t5, $s0, 3
-/* 0E6AC4 7F0B1F94 026D7021 */  addu  $t6, $s3, $t5
-/* 0E6AC8 7F0B1F98 95C4000E */  lhu   $a0, 0xe($t6)
-/* 0E6ACC 7F0B1F9C 3C088004 */  lui   $t0, %hi(standTileStart)
-/* 0E6AD0 7F0B1FA0 2682FFFF */  addiu $v0, $s4, -1
-/* 0E6AD4 7F0B1FA4 00047903 */  sra   $t7, $a0, 4
-/* 0E6AD8 7F0B1FA8 11E00014 */  beqz  $t7, .L7F0B1FFC
-/* 0E6ADC 7F0B1FAC 0004C8C0 */   sll   $t9, $a0, 3
-/* 0E6AE0 7F0B1FB0 8D080F58 */  lw    $t0, %lo(standTileStart)($t0)
-/* 0E6AE4 7F0B1FB4 00402825 */  move  $a1, $v0
-/* 0E6AE8 7F0B1FB8 0440000B */  bltz  $v0, .L7F0B1FE8
-/* 0E6AEC 7F0B1FBC 03281821 */   addu  $v1, $t9, $t0
-/* 0E6AF0 7F0B1FC0 0002C080 */  sll   $t8, $v0, 2
-/* 0E6AF4 7F0B1FC4 27A900B0 */  addiu $t1, $sp, 0xb0
-/* 0E6AF8 7F0B1FC8 03091021 */  addu  $v0, $t8, $t1
-/* 0E6AFC 7F0B1FCC 8C4A0000 */  lw    $t2, ($v0)
-.L7F0B1FD0:
-/* 0E6B00 7F0B1FD0 2442FFFC */  addiu $v0, $v0, -4
-/* 0E6B04 7F0B1FD4 0052082B */  sltu  $at, $v0, $s2
-/* 0E6B08 7F0B1FD8 506A0017 */  beql  $v1, $t2, .L7F0B2038
-/* 0E6B0C 7F0B1FDC 86620006 */   lh    $v0, 6($s3)
-/* 0E6B10 7F0B1FE0 5020FFFB */  beql  $at, $zero, .L7F0B1FD0
-/* 0E6B14 7F0B1FE4 8C4A0000 */   lw    $t2, ($v0)
-.L7F0B1FE8:
-/* 0E6B18 7F0B1FE8 00145880 */  sll   $t3, $s4, 2
-/* 0E6B1C 7F0B1FEC 03AB6021 */  addu  $t4, $sp, $t3
-/* 0E6B20 7F0B1FF0 AD8300B0 */  sw    $v1, 0xb0($t4)
-/* 0E6B24 7F0B1FF4 1000000F */  b     .L7F0B2034
-/* 0E6B28 7F0B1FF8 26940001 */   addiu $s4, $s4, 1
-.L7F0B1FFC:
-/* 0E6B2C 7F0B1FFC 3C018008 */  lui   $at, %hi(stanSavedColl_tile)
-/* 0E6B30 7F0B2000 AC33B9E4 */  sw    $s3, %lo(stanSavedColl_tile)($at)
-/* 0E6B34 7F0B2004 3C018008 */  lui   $at, %hi(stanSavedColl_pointI)
-/* 0E6B38 7F0B2008 13C00008 */  beqz  $fp, .L7F0B202C
-/* 0E6B3C 7F0B200C AC30B9E8 */   sw    $s0, %lo(stanSavedColl_pointI)($at)
-/* 0E6B40 7F0B2010 27A400B0 */  addiu $a0, $sp, 0xb0
-/* 0E6B44 7F0B2014 02802825 */  move  $a1, $s4
-/* 0E6B48 7F0B2018 03C0F809 */  jalr  $fp
-/* 0E6B4C 7F0B201C 02E03025 */  move  $a2, $s7
-/* 0E6B50 7F0B2020 24010001 */  li    $at, 1
-/* 0E6B54 7F0B2024 50410004 */  beql  $v0, $at, .L7F0B2038
-/* 0E6B58 7F0B2028 86620006 */   lh    $v0, 6($s3)
-.L7F0B202C:
-/* 0E6B5C 7F0B202C 10000016 */  b     .L7F0B2088
-/* 0E6B60 7F0B2030 24020002 */   li    $v0, 2
-.L7F0B2034:
-/* 0E6B64 7F0B2034 86620006 */  lh    $v0, 6($s3)
-.L7F0B2038:
-/* 0E6B68 7F0B2038 02A08025 */  move  $s0, $s5
-/* 0E6B6C 7F0B203C 00026B03 */  sra   $t5, $v0, 0xc
-/* 0E6B70 7F0B2040 31AE000F */  andi  $t6, $t5, 0xf
-/* 0E6B74 7F0B2044 02AE082A */  slt   $at, $s5, $t6
-/* 0E6B78 7F0B2048 1420FF99 */  bnez  $at, .L7F0B1EB0
-/* 0E6B7C 7F0B204C 01C01025 */   move  $v0, $t6
-.L7F0B2050:
-/* 0E6B80 7F0B2050 2E810029 */  sltiu $at, $s4, 0x29
-/* 0E6B84 7F0B2054 14200003 */  bnez  $at, .L7F0B2064
-/* 0E6B88 7F0B2058 8FAF00A4 */   lw    $t7, 0xa4($sp)
-/* 0E6B8C 7F0B205C 1000000A */  b     .L7F0B2088
-/* 0E6B90 7F0B2060 24020005 */   li    $v0, 5
-.L7F0B2064:
-/* 0E6B94 7F0B2064 01F4082A */  slt   $at, $t7, $s4
-/* 0E6B98 7F0B2068 5420FF80 */  bnezl $at, .L7F0B1E6C
-/* 0E6B9C 7F0B206C 8FB80084 */   lw    $t8, 0x84($sp)
-/* 0E6BA0 7F0B2070 13C00004 */  beqz  $fp, .L7F0B2084
-/* 0E6BA4 7F0B2074 27A400B0 */   addiu $a0, $sp, 0xb0
-/* 0E6BA8 7F0B2078 02802825 */  move  $a1, $s4
-/* 0E6BAC 7F0B207C 03C0F809 */  jalr  $fp
-/* 0E6BB0 7F0B2080 02E03025 */  move  $a2, $s7
-.L7F0B2084:
-/* 0E6BB4 7F0B2084 2402FFFE */  li    $v0, -2
-.L7F0B2088:
-/* 0E6BB8 7F0B2088 8FBF0074 */  lw    $ra, 0x74($sp)
-/* 0E6BBC 7F0B208C D7B40020 */  ldc1  $f20, 0x20($sp)
-/* 0E6BC0 7F0B2090 D7B60028 */  ldc1  $f22, 0x28($sp)
-/* 0E6BC4 7F0B2094 D7B80030 */  ldc1  $f24, 0x30($sp)
-/* 0E6BC8 7F0B2098 D7BA0038 */  ldc1  $f26, 0x38($sp)
-/* 0E6BCC 7F0B209C D7BC0040 */  ldc1  $f28, 0x40($sp)
-/* 0E6BD0 7F0B20A0 D7BE0048 */  ldc1  $f30, 0x48($sp)
-/* 0E6BD4 7F0B20A4 8FB00050 */  lw    $s0, 0x50($sp)
-/* 0E6BD8 7F0B20A8 8FB10054 */  lw    $s1, 0x54($sp)
-/* 0E6BDC 7F0B20AC 8FB20058 */  lw    $s2, 0x58($sp)
-/* 0E6BE0 7F0B20B0 8FB3005C */  lw    $s3, 0x5c($sp)
-/* 0E6BE4 7F0B20B4 8FB40060 */  lw    $s4, 0x60($sp)
-/* 0E6BE8 7F0B20B8 8FB50064 */  lw    $s5, 0x64($sp)
-/* 0E6BEC 7F0B20BC 8FB60068 */  lw    $s6, 0x68($sp)
-/* 0E6BF0 7F0B20C0 8FB7006C */  lw    $s7, 0x6c($sp)
-/* 0E6BF4 7F0B20C4 8FBE0070 */  lw    $fp, 0x70($sp)
-/* 0E6BF8 7F0B20C8 03E00008 */  jr    $ra
-/* 0E6BFC 7F0B20CC 27BD0150 */   addiu $sp, $sp, 0x150
-)
+        tile = tileStack[visitedCount++];
+        pointI = 0;
+
+        if (callbackA != NULL)
+        {
+            callbackA(tile, record);
+        }
+
+        if (((tile->tail.half >> 12) & 0xf) > 0)
+        {
+            do
+            {
+                pointINext = pointI;
+                do
+                {
+                    i = cat;
+                    pointINext = pointINext + 1;
+                    if (i);
+
+                    nextPointI = pointINext;
+                    nextPointI %= (tile->tail.half >> 12) & 0xf;
+                    edgeDist = getShortest2dDispToInfTileEdge(tile, pointI, x, z);
+                    pointDistA = distToTilePnt2D(tile, pointI, x, z);
+                    pointDistB = distToTilePnt2D(tile, nextPointI, x, z);
+
+                    if (edgeDist < radius && (pointDistA < radius || pointDistB < radius || stanPointProjectsOntoTileEdge(tile, pointI, x, z)))
+                    {
+                        if ((callbackB == NULL || !callbackB(tile, pointI, edgeDist, pointDistA, pointDistB, record)) && (tile->points[pointI].link >> 4))
+                        {
+                            linkedTile = ((u32) standTileStart) + (tile->points[pointI].link << 3);
+                            for (i = cat - 1; i >= 0; i--)
+                            {
+                                if (linkedTile == tileStack[i])
+                                {
+                                    goto next_point;
+                                }
+                            }
+                            tileStack[cat] = linkedTile;
+                            cat++;
+                            goto next_point;
+                        }
+
+                        stanSavedColl_tile = tile;
+                        stanSavedColl_pointI = pointI;
+                        if (callbackC != NULL && callbackC(tileStack, cat, record) == 1)
+                        {
+                            goto next_point;
+                        }
+                        return STAN_COLLISION_FOUND;
+                    }
+                    next_point:
+                    pointI = pointINext;
+                }
+                while (FALSE);
+            }
+            while (pointINext < (((*tile).tail.half >> 12) & 0xf));
+        }
+
+#ifdef DEBUG
+        if (cat>= 0x190)
+        {
+            osSyncPrintf("cat=%d !!!!!!!!!!!!!!!!!!!! NEED TO INCREASE ARRAY SIZE\n",cat);
+        }
 #endif
+        // if (cat >= 0x320)
+        // {
+        //     return 5; //error value?
+        // }
+
+        if (((u32) cat) >= 41)
+        {
+            return STAN_COLLISION_TRAVERSAL_LIMIT;
+        }
+    }
+    while (visitedCount < cat);
+
+    visitedCount = radius;
+
+    if (callbackC != NULL)
+    {
+        if (visitedCount);
+        callbackC(tileStack, cat, record);
+    }
+
+    return STAN_COLLISION_NONE;
+}
 
 
 
