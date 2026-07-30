@@ -23847,10 +23847,6 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
 }
 
 
-typedef struct BoundVec { 
-    s32 x, y, z; 
-} BoundVec;
-
 BoundVec D_8003204C = {0x7FFF, 0x7FFF, 0x7FFF};
 BoundVec D_80032058 = {-0x8000, -0x8000, -0x8000};
 coord3d  D_80032064 = {0, 0, 0};

@@ -43,6 +43,10 @@ typedef struct RoomVtxBatchBounds {
     };
 } RoomVtxBatchBounds; // size = 0x1c
 
+typedef struct BoundVec { 
+    s32 x, y, z; 
+} BoundVec;
+
 typedef struct s_room_info {
     // is room being rendered? boolean
     u8 room_rendered;                       // 0x00
