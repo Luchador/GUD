@@ -708,7 +708,9 @@ def main():
         'tlb_resolve.s']
 
      # files to count as complete, in src/libultrare directory
-    src_libultrare_completed_list = [ 'audio/env.s' ]
+     src_libultrare_completed_list = [ 
+        'ultra80069080.s',
+        'audio/env.s']
 
     search = []
     search.append(SearchDir('src', False, completed=src_completed_list))
