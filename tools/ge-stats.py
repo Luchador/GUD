@@ -709,8 +709,7 @@ def main():
 
      # files to count as complete, in src/libultrare directory
     src_libultrare_completed_list = [
-        'ultra80069080.s',
-        'env.s']
+        'ultra80069080.s']
 
     search = []
     search.append(SearchDir('src', False, completed=src_completed_list))
