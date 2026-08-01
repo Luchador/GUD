@@ -187,6 +187,7 @@ LIBULTRARE_IO_C_FILES := \
     pfsisplug \
     pimgr \
     sptask \
+    ultra80069080 \
     vi \
     vimgr \
     vimodepallan1 \
