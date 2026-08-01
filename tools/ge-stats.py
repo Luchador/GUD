@@ -714,7 +714,7 @@ def main():
     search.append(SearchDir('src', False, completed=src_completed_list))
     search.append(SearchDir('src/game', False))
     search.append(SearchDir('src/inflate', False))
-    search.append(SearchDir('src/libultrare', True, src_libultrare_completed_list))
+    search.append(SearchDir('src/libultrare', True, completed=src_libultrare_completed_list))
 
     stats = StatResults()
 
