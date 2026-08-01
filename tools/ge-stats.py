@@ -707,11 +707,14 @@ def main():
         'tlb_hardwire.s',
         'tlb_resolve.s']
 
+     # files to count as complete, in src/libultrare directory
+    src_libultrare_completed_list = [ 'audio/env.s' ]
+
     search = []
     search.append(SearchDir('src', False, completed=src_completed_list))
     search.append(SearchDir('src/game', False))
     search.append(SearchDir('src/inflate', False))
-    search.append(SearchDir('src/libultrare', True))
+    search.append(SearchDir('src/libultrare', True, src_libultrare_completed_list))
 
     stats = StatResults()
 
