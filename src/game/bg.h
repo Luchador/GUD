@@ -158,6 +158,11 @@ typedef struct unk_portalstruct
     s32 unk10;
 } unk_portalstruct;
 
+typedef struct PortalCache {
+    s32 count;
+    bbox2d bbox;
+} PortalCache;
+
 typedef struct bg_queued_portal_entry {
 
     #if defined(VERSION_EU)
