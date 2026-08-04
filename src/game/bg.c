@@ -5395,49 +5395,6 @@ glabel sub_GAME_7F0B9338
 #endif
 
 
-/**
- * Large amounts of permutation haven't solved this one. v1 and v0 are flipped and I can't find a mechanism to correct it.
- * 95.41% match on decomp.me
- * https://decomp.me/scratch/sv4wA
-
- s32 sub_GAME_7F0B95D8(s32 room)
-{    
-    s32 numupdated;
-    s32 i;
-    s32 j;
-    s32 k;
-    f32 value;
-
-    for (i = 0, numupdated = 0; g_BgPortals[i].offset_portal != NULL; i++)
-    {
-        if ((room == g_BgPortals[i].connectedRoom1) || (room == g_BgPortals[i].connectedRoom2))
-        {
-            for (j = 0; j < g_BgPortals[i].offset_portal->numPoints; j++)
-            {
-                for (k = 0; k < 3; k++)
-                {
-                    value = g_BgPortals[i].offset_portal->point[j].f[k];
-
-                    if (g_BgRoomInfo[room].minbounds.f[k] > value)
-                    {
-                        g_BgRoomInfo[room].minbounds.f[k] = value;
-                        numupdated++;
-                    }
-
-                    if (g_BgRoomInfo[room].maxbounds.f[k] < value)
-                    {
-                        g_BgRoomInfo[room].maxbounds.f[k] = value;
-                        numupdated++;
-                    }
-                }
-            }
-        }
-    }
-
-    return numupdated;
-}
-*/
-
 void sub_GAME_7F0B95D8(s32 roomID)
 {
     s32 numupdated = 0;
