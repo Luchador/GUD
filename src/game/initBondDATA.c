@@ -164,29 +164,19 @@ struct hand hand_data_dummy = {
     0, // s32 field_AD0;
     0, // s32 field_AD4;
 
-    // // offset 0xad8
+    // offset 0xad8
     // Mtxf throw_item_pos_related;
     0,0,0,0,
     0,0,0,0,
     0,0,0,0,
     0,0,0,0,
 
-    0, // s32 field_B18;
-    0, // s32 field_B1C;
-    0, // s32 field_B20;
-    0, // s32 field_B24;
-    0, // s32 field_B28;
-    0, // s32 field_B2C;
-    0, // s32 field_B30;
-    0, // s32 field_B34;
-    0, // s32 field_B38;
-    0, // s32 field_B3C;
-    0, // s32 field_B40;
-    0, // s32 field_B44;
-    0, // s32 field_B48;
-    0, // s32 field_B4C;
-    0, // s32 field_B50;
-    0, // s32 field_B54;
+    // offset 0xb18
+    // Mtxf throw_item_pos_related_prev;
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
 
     // coord3d field_B58;
     0,0,0,

@@ -226,23 +226,8 @@ struct hand
 
   // offset 0xad8
   Mtxf throw_item_pos_related;
-
-  s32 field_B18;
-  s32 field_B1C;
-  s32 field_B20;
-  s32 field_B24;
-  s32 field_B28;
-  s32 field_B2C;
-  s32 field_B30;
-  s32 field_B34;
-  s32 field_B38;
-  s32 field_B3C;
-  s32 field_B40;
-  s32 field_B44;
-  s32 field_B48;
-  s32 field_B4C;
-  s32 field_B50;
-  s32 field_B54;
+  // offset 0xb18
+  Mtxf throw_item_pos_related_prev;
   coord3d field_B58;
   f32 field_B64;
   s32 field_B68;

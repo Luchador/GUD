@@ -162,22 +162,7 @@ struct hand D_8003FDA0 = {
     0, /* field_AD0 */
     0, /* field_AD4 */
     { { {0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0} } }, /* throw_item_pos_related */
-    0, /* field_B18 */
-    0, /* field_B1C */
-    0, /* field_B20 */
-    0, /* field_B24 */
-    0, /* field_B28 */
-    0, /* field_B2C */
-    0, /* field_B30 */
-    0, /* field_B34 */
-    0, /* field_B38 */
-    0, /* field_B3C */
-    0, /* field_B40 */
-    0, /* field_B44 */
-    0, /* field_B48 */
-    0, /* field_B4C */
-    0, /* field_B50 */
-    0, /* field_B54 */
+    { { {0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0} } }, /* throw_item_pos_related_prev */
     { {0,0,0} }, /* field_B58 */
     0, /* field_B64 */
     0, /* field_B68 */
