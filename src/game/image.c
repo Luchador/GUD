@@ -7,6 +7,9 @@
 #include "ramrom.h"
 #include "decompress.h"
 
+
+#define TEX_ALPHA_WEIGHT 961
+
 // bss
 //8008C720
 struct texpool *ptr_texture_alloc_start;
@@ -321,7 +324,7 @@ s32 texAlignIndices(u8 *src, s32 width, s32 height, s32 format, u8 *dst)
     {
         indicesperbyte = 1;
     }
-    else if (format == TEXFORMAT_RGBA16_CI4 || format == TEXFORMAT_0C)
+    else if (format == TEXFORMAT_RGBA16_CI4 || format == TEXFORMAT_IA16_CI4)
     {
         indicesperbyte = 2;
     }
@@ -385,7 +388,7 @@ s32 texShrinkPaletted(u8 *src, u8 *dst, s32 srcwidth, s32 srcheight, s32 format,
             break;
 
         case TEXFORMAT_RGBA16_CI4:
-        case TEXFORMAT_0C:
+        case TEXFORMAT_IA16_CI4:
             aligneddstwidth = (((srcwidth + 1) >> 1) + 15) & 0xff0;
             alignedsrcwidth = (srcwidth + 15) & 0xff0;
             break;
@@ -486,7 +489,7 @@ s32 texShrinkPaletted(u8 *src, u8 *dst, s32 srcwidth, s32 srcheight, s32 format,
 
             return (aligneddstwidth >> 1) * dstheight;
 
-        case TEXFORMAT_0C:
+        case TEXFORMAT_IA16_CI4:
             for (i = 0; i < srcheight; i += 2)
             {
                 nextrow = i + 1 < srcheight ? alignedsrcwidth >> 1 : 0;
@@ -529,226 +532,277 @@ s32 texShrinkPaletted(u8 *src, u8 *dst, s32 srcwidth, s32 srcheight, s32 format,
 }
 
 
+/**
+ * Find the palette entry closest to the target colour and return its index.
+ * Used for texture LOD generation/shrinking a colour-indexed texture (see texShrinkPaletted): the 2x2
+ * box filter averages four palette entries, and the average may not be a colour
+ * the palette already holds, so it has to be requantized to the nearest entry. This allows the LOD
+ * textures to use existing palettes instead of creating new ones.
+ * 
+ * The design of the algorithm is to:
+ * 1) Return an exact match in the palette for the target colour if there is one.
+ * 2) Failing that, a binary search uses cheap scalar ordering to find a promising region in the palette.
+ * 3) Perform a more meaningful RGBA comparison on only a small section of the palette.
+ * 
+ * Stage 2 is an approximation so this function isn't necessarily guaranteed to return the closest matching palette index for a target colour.
+ * 
+ * Used by TEXFORMAT_RGBA16_CI8, TEXFORMAT_RGBA16_CI4
+ *
+ * @param palette    Palette to search, RGBA5551, assumed ordered by the stage 2 key
+ * @param numcolours Number of entries in palette
+ * @param r          Target red, 0..31
+ * @param g          Target green, 0..31
+ * @param b          Target blue, 0..31
+ * @param a          Target alpha, 0..1
+ * @return Index of the closest entry, or 0 if numcolours is not positive
+ */
 s32 texFindClosestColourIndexRGBA(u16 *palette, s32 numcolours, s32 r, s32 g, s32 b, s32 a)
 {
-    s32 var_v1;
+    s32 low;
+    s32 high;
     s32 i;
-    s32 j;
-    u16 temp_t6;
-    s32 temp_t0;
-    s32 var_a1;
-    s32 temp_a0;
-
-    s32 loop_start;
-    s32 loop_end;
-
+    u16 targetcolour;
+    s32 targetmagnitude;
+ 
+    // Cursor into the palette: the midpoint in stage 2, the scan position in stage 3.
+    s32 paletteidx;
+ 
+    u16 colour;
+    s32 red;
+    s32 green;
+    s32 blue;
+    s32 alpha;
+    s32 magnitude;
+ 
+    s32 diffr;
+    s32 diffg;
+    s32 diffb;
+    s32 alphapenalty;
+    s32 distance;
+ 
     s32 bestindex;
     s32 bestvalue;
-    
-    u16 local_color;
-    s32 local_r;
-    s32 local_g;
-    s32 local_b;
-    s32 local_a;
-    s32 temp_s4;
-
-    temp_t6 = ((r << 11) | (g << 6) | (b << 1) | a);
-    
+ 
+    // Stage 1: scan the whole palette for a matching colour and return its index if one is found.
+    targetcolour = ((r << 11) | (g << 6) | (b << 1) | a);
+ 
     for (i = 0; i < numcolours; i++)
     {
-        if (temp_t6 == palette[i])
+        if (targetcolour == palette[i])
         {
             return i;
         }
     }
-
-    var_v1 = 0;
-    var_a1 = numcolours - 1;
-    temp_t0 = (r * r) + (g * g) + (b * b) + (a * 0x3C1);
-
-    // binary search for a region
-    while (var_a1 - var_v1 >= 2)
+ 
+    /** 
+     * Stage 2: Find a promising palette neighborhood.
+     */
+    low = 0;
+    high = numcolours - 1;
+    // TEX_ALPHA_WEIGHT = 31^2, the maximum possible squared difference in one five-bit color channel.
+    targetmagnitude = (r * r) + (g * g) + (b * b) + (a * TEX_ALPHA_WEIGHT);
+ 
+    while (high - low >= 2)
     {
-        temp_a0 = (s32) (var_a1 + var_v1) >> 1;
-
-        local_color = palette[temp_a0];
-        local_r = ((s32) local_color >> 0xB) & 0x1F;
-        local_g = ((s32) local_color >> 0x6) & 0x1F;
-        local_b = ((s32) local_color >> 0x1) & 0x1F;
-        local_a = local_color & 1;
-
-        temp_s4 = (local_r * local_r) + (local_g * local_g) + (local_b * local_b) + (local_a * 0x3C1);
-
-        if (temp_s4 < temp_t0)
+        paletteidx = (high + low) >> 1;
+ 
+        colour = palette[paletteidx];
+        red = (colour >> 11) & 0x1F;
+        green = (colour >> 6) & 0x1F;
+        blue = (colour >> 1) & 0x1F;
+        alpha = colour & 1;
+ 
+        magnitude = (red * red) + (green * green) + (blue * blue) + (alpha * TEX_ALPHA_WEIGHT);
+ 
+        if (magnitude < targetmagnitude)
         {
-            var_v1 = temp_a0;
+            low = paletteidx;
+            continue;
+        }
+ 
+        if (targetmagnitude < magnitude)
+        {
+            high = paletteidx;
         }
         else
         {
-            if (temp_t0 < temp_s4)
-            {
-                var_a1 = temp_a0;
-            }
-            else
-            {
-                var_a1 = temp_a0;
-                var_v1 = temp_a0;
-            }            
+            high = paletteidx;
+            low = paletteidx;
         }
     }
-
-    var_v1 = var_a1 - 4;
-    j = var_v1;
-
-    if (var_v1 < 0)
+ 
+    // Stage 3: Search the nearby palette entries accurately. 
+    low = high - 4;
+ 
+    if (low < 0)
     {
-        var_v1 = 0;
+        low = 0;
     }
-
-    var_a1 += 4;
-    
-    if (var_a1 >= numcolours)
+ 
+    high += 4;
+ 
+    if (high >= numcolours)
     {
-        var_a1 = numcolours - 1;
+        high = numcolours - 1;
     }
-
-    if (j);
-
+ 
     bestindex = 0;
     bestvalue = 999999;
-
-    // search for best within the region
-    for (temp_a0 = var_v1; temp_a0 <= var_a1; temp_a0++)
+ 
+    for (paletteidx = low; paletteidx <= high; paletteidx++)
     {
-        local_color = palette[temp_a0];
-        local_r = (((s32) local_color >> 0xB) & 0x1F) - r;
-        local_g = (((s32) local_color >> 0x6) & 0x1F) - g;
-        local_b = (((s32) local_color >> 0x1) & 0x1F) - b;
-
-        if (a == (local_color & 1))
+        colour = palette[paletteidx];
+        diffr = ((colour >> 11) & 0x1F) - r;
+        diffg = ((colour >> 6) & 0x1F) - g;
+        diffb = ((colour >> 1) & 0x1F) - b;
+ 
+        // An alpha mismatch costs 961, strongly discouraging a palette entry with the wrong transparency.
+        alphapenalty = (a == (colour & 1)) ? 0 : TEX_ALPHA_WEIGHT;
+ 
+        distance = alphapenalty;
+        distance += diffr * diffr;
+        distance += diffg * diffg;
+        distance += diffb * diffb;
+ 
+        if (distance < bestvalue)
         {
-            local_a = 0;
-        }
-        else
-        {
-            local_a = 0x3C1;
-        }
-
-        temp_s4 = local_a;
-        temp_s4 += local_r * local_r;
-        temp_s4 += local_g * local_g;
-        temp_s4 += local_b * local_b;
-
-        if (temp_s4 < bestvalue)
-        {
-            bestindex = temp_a0;
-            bestvalue = temp_s4;
+            bestindex = paletteidx;
+            bestvalue = distance;
         }
     }
-
+ 
     return bestindex;
 }
 
 
+/**
+ * Find the palette entry closest to the given intensity/alpha pair and return its index.
+ *
+ * Used by TEXFORMAT_IA16_CI8 and TEXFORMAT_IA16_CI4 to
+ * requantize box-filtered averages back onto the palette.
+ *
+ * Colours are IA16, packed iiiiiiiiaaaaaaaa, intensity and alpha both 0..255.
+ *
+ * @param palette    Palette to search, IA16, assumed ordered by the stage 2 key
+ * @param numcolours Number of entries in palette
+ * @param intensity  Target intensity, 0..255
+ * @param alpha      Target alpha, 0..255
+ * @return Index of the closest entry, or 0 if numcolours is not positive
+ */
 s32 texFindClosestColourIndexIA(u16 *palette, s32 numcolours, s32 intensity, s32 alpha)
 {
-    s32 loop_start;
-    s32 loop_end;
+    s32 scanstart;
+    s32 high;
     s32 i;
-    s32 j;
+    s32 scanidx;
     s32 bestindex;
     s32 bestvalue;
     s32 low;
+    s32 targetcolour;
+    s32 targetmagnitude;
     s32 colour;
-    s32 value;
-    s32 a;
-    s32 b;
-    s32 sum;
-    u32 sum2;
-
-    // check palette for existing color
-    colour = (intensity << 8) | alpha;
-    
+    s32 entryintensity;
+    s32 entryalpha;
+    s32 magnitude;
+    s32 diffi;
+    s32 diffa;
+    s32 distance;
+ 
+    // Stage 1: scan the whole palette for a matching intensity and return its index if one is found.
+    targetcolour = (intensity << 8) | alpha;
+ 
     for (i = 0; i < numcolours; i++)
     {
-        if (palette[i] == (colour & 0xFFFFU))
+        if ((u16)targetcolour == palette[i])
         {
             return i;
         }
     }
-
-    // binary search for a region
+ 
+    // Stage 2: binary search by squared magnitude.
     low = 0;
-    loop_end = numcolours - 1;
-    colour = (intensity * intensity) + (alpha * alpha);
-    
-    while ((loop_end - low) >= 2)
+    high = numcolours - 1;
+    targetmagnitude = (intensity * intensity) + (alpha * alpha);
+ 
+    while (high - low >= 2)
     {
-        s32 index;
-        
-        index = (loop_end + low) >> 1;
-        value = palette[index];
-        
-        a = (((s32) value) >> 8) & 0xFF;
-        b = value & 0xFF;
-        sum = (a * a) + (b * b);
-        
-        if (sum < colour)
+        s32 mid;
+ 
+        mid = (high + low) >> 1;
+        colour = palette[mid];
+ 
+        entryintensity = (colour >> 8) & 0xFF;
+        entryalpha = colour & 0xFF;
+        magnitude = (entryintensity * entryintensity) + (entryalpha * entryalpha);
+ 
+        if (magnitude < targetmagnitude)
         {
-            low = index;
+            low = mid;
             continue;
         }
-        
-        if (colour < sum)
+ 
+        if (targetmagnitude < magnitude)
         {
-            loop_end = index;
+            high = mid;
         }
         else
         {
-            low = index;
-            loop_end = index;
+            // Equal magnitude. Collapse the window to end the search here.
+            low = mid;
+            high = mid;
         }
     }
+ 
+    // Stage 3: widen the window by four entries either side and clamp it.
+    scanstart = high - 4;
+    scanidx = scanstart;
+    high += 4;
 
-    loop_start = loop_end - 4;
-    low = j = loop_start;
-    
-    if (low < 0)
+    if (scanidx < 0)
     {
-        loop_start = 0;
+        scanstart = 0;
     }
-    
-    loop_end += 4;
-    
-    if (loop_end >= numcolours)
+ 
+    if (high >= numcolours)
     {
-        loop_end = numcolours - 1;
+        high = numcolours - 1;
     }
 
-    if(j);
-
-    // search for best within the region
+    /* 999999 is an unreachable sentinel: the worst possible distance is
+     * 2 * 255 * 255 = 130050. */
     bestindex = 0;
     bestvalue = 999999;
-    
-    for (j = loop_start; j <= loop_end; j++)
+
+    scanidx = scanstart;
+ 
+    if (scanidx <= high)
     {
-        value = palette[j];
-        
-        a = ((value >> 8) & 0xff) - intensity;
-        b = (value & 0xff) - alpha;
-        sum = (a * a) + (b * b);
-        sum2 = sum;
-        
-        if (sum < bestvalue)
+        s32 scanend;
+
+        for (;;)
         {
-            bestindex = j;
-            bestvalue = sum;
+            colour = palette[scanidx];
+ 
+            diffi = ((colour >> 8) & 0xff) - intensity;
+            diffa = (colour & 0xff) - alpha;
+            distance = (diffi * diffi) + (diffa * diffa);
+            scanend = high + 1;
+ 
+            if (distance < bestvalue)
+            {
+                bestindex = scanidx;
+                bestvalue = distance;
+            }
+
+            scanidx++;
+
+            if (scanend == scanidx)
+            {
+                break;
+            }
         }
-
-        if (j);
     }
-
+ 
     return bestindex;
 }
 
@@ -2135,7 +2189,7 @@ void texSwapAltRowBytes(u8 *dst, s32 width, s32 height, s32 format)
 	case TEXFORMAT_IA4:
 	case TEXFORMAT_I4:
 	case TEXFORMAT_RGBA16_CI4:
-	case TEXFORMAT_0C:
+	case TEXFORMAT_IA16_CI4:
 		alignedwidth = ((width + 0xf) & 0xff0) >> 3;
 		break;
 	}
