@@ -2324,8 +2324,7 @@ extern void *D_80036090;
  * JP: 0x7F021188
  * EU: 0x7F020E68
  *
- * Note: This function name is a misnomer. We might consider renaming it to something like chrTick().
- * It appears to do the following:
+ *   This function does the following:
  * - Drive character animations
  * - Remove characters if needed
  * - Held weapon garbage collection
@@ -2335,7 +2334,7 @@ extern void *D_80036090;
  * - Fire held weapons
  */
 
-s32 chrTickBeams(PropRecord *prop)
+s32 chrTick(PropRecord *prop)
 {
     ModelRenderData renderdata;
     ChrRecord *chr;

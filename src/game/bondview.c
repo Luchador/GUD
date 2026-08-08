@@ -714,7 +714,7 @@ f32 D_80036AC4 = 0.1;
 // forward declarations
 
 void sub_GAME_7F07DE9C(struct player *player);
-s32 chrTickBeams(PropRecord *prop);
+s32 chrTick(PropRecord *prop);
 void sub_GAME_7F07DE64(struct player *player);
 void bondviewUpdateWatchZoomIn(void);
 void bondviewSetPauseWatchRelated(f32 arg0);
@@ -11809,7 +11809,7 @@ s32 playerTickBeams(PropRecord *prop)
         if ((g_playerPointers[index]->ptr_char_objectinstance != NULL) && (!(get_debug_render_raster() && (g_playerPointers[index]->cameramode != 1))))
         {
             g_playerPointers[index]->field_AC = 0;
-            ret = chrTickBeams(prop);
+            ret = chrTick(prop);
             g_playerPointers[index]->field_AC = 1;
  
             g_playerPointers[index]->field_488.collision_position.x = g_playerPointers[index]->prop->pos.x;
@@ -12194,7 +12194,7 @@ join_768:
     chrSetFiring(chr, GUNRIGHT, ppointers[index]->hands[GUNRIGHT].field_87D);
     chrSetFiring(chr, GUNLEFT, ppointers[index]->hands[GUNLEFT].field_87D);
  
-    tailret = chrTickBeams(prop);
+    tailret = chrTick(prop);
  
     for (i = 0; i != 2; i++)
     {

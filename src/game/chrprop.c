@@ -1885,7 +1885,7 @@ void determing_type_of_object_and_detection(void)
 
         if (prop->type == PROP_TYPE_CHR)
         {
-            tickop = chrTickBeams(prop);
+            tickop = chrTick(prop);
         }
         else if ((prop->type == PROP_TYPE_OBJ) || (prop->type == PROP_TYPE_WEAPON) || (prop->type == PROP_TYPE_DOOR))
         {
