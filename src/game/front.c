@@ -217,9 +217,9 @@ s32 highlight_enemy_reaction;
 //CODE.bss:80069798
 s32 highlight_enemy_health;
 //CODE.bss:8006979C
-s32 highlight_enemy_accuracy;
-//CODE.bss:800697A0
 s32 highlight_enemy_damage;
+//CODE.bss:800697A0
+s32 highlight_enemy_accuracy;
 
 //CODE.bss:800697A4
 s32 dword_CODE_bss_800697A4;
@@ -2215,7 +2215,7 @@ s32 interface_menu05_fileselect(void)
         g_MenuTimer += g_ClockTimer;
     }
 
-    viSetFovY(60.0f);
+    viSetFovY(FOV_Y_F);
     viSetAspect(ASPECT_RATIO_SD);
     viSetZRange(100.0f, 10000.0f);
     viSetUseZBuf(0);
@@ -3075,7 +3075,7 @@ void interface_menu07_missionsel(void)
     ModelNode *mnode;
     s32 padding;
 
-    viSetFovY(60.0f);
+    viSetFovY(FOV_Y_F);
     viSetAspect(ASPECT_RATIO_SD);
     viSetZRange(100.0f, 10000.0f);
     viSetUseZBuf(0);
@@ -3674,6 +3674,7 @@ Gfx *constructor_menu08_difficulty(Gfx *DL)
 //********************************************************************************************************
 //007 DIFFICULTY SELECT
 //********************************************************************************************************
+
 void init_menu09_007difficultyselect(void)
 {
     tab_start_selected = 0;
@@ -3684,12 +3685,14 @@ void init_menu09_007difficultyselect(void)
     tab_start_highlight = 0;
     highlight_enemy_reaction = 0;
     highlight_enemy_health = 0;
-    highlight_enemy_accuracy = 0;
     highlight_enemy_damage = 0;
+    highlight_enemy_accuracy = 0;
     load_walletbond();
 }
 
-void update_menu09_007options(void) {
+
+void update_menu09_007options(void) 
+{
     return;
 }
 
@@ -3710,8 +3713,9 @@ void interface_menu09_007options(void)
         tab_start_highlight = FALSE;
         highlight_enemy_reaction = FALSE;
         highlight_enemy_health = FALSE;
-        highlight_enemy_accuracy = FALSE;
         highlight_enemy_damage = FALSE;
+        highlight_enemy_accuracy = FALSE;
+
         if (frontCheckCursorOnPreviousTab())
         {
             tab_prev_highlight = TRUE;
@@ -3734,11 +3738,11 @@ void interface_menu09_007options(void)
             }
             else if (temp_y >= 0xE6)
             {
-                highlight_enemy_damage = TRUE;
+                highlight_enemy_accuracy = TRUE;
             }
             else if (temp_y >= 0xC5)
             {
-                highlight_enemy_accuracy = TRUE;
+                highlight_enemy_damage = TRUE;
             }
             else if (temp_y >= 0xA4)
             {
@@ -3750,6 +3754,7 @@ void interface_menu09_007options(void)
             }
         }
     }
+
     if (joyGetButtonsPressedThisFrame(PLAYER_1, START_BUTTON))
     {
         tab_start_selected = TRUE;
@@ -3776,17 +3781,21 @@ void interface_menu09_007options(void)
         tab_prev_selected = TRUE;
         sndPlaySfx(g_musicSfxBufferPtr, DOOR_METAL_CLOSE2_SFX, NULL);
     }
+
     if (joyGetButtons(PLAYER_1, Z_TRIG|A_BUTTON))
     {
         temp_x = (cursor_h_pos - 55.0f) / 300.0f;
+
         if (temp_x > 1.0f)
         {
             temp_x = 1.0f;
         }
+
         if (temp_x < 0.0f)
         {
             temp_x = 0.0f;
         }
+
         if (highlight_enemy_reaction)
         {
             slider_007_mode_reaction = temp_x;
@@ -3795,31 +3804,35 @@ void interface_menu09_007options(void)
         {
             slider_007_mode_health = (f32) (temp_x * temp_x * 10.0f);
         }
-        else if (highlight_enemy_accuracy)
+        else if (highlight_enemy_damage)
         {
             slider_007_mode_damage = (f32) (temp_x * temp_x * 10.0f);
         }
-        else if (highlight_enemy_damage)
+        else if (highlight_enemy_accuracy)
         {
             slider_007_mode_accuracy = (f32) (temp_x * temp_x * 10.0f);
         }
     }
+
     disable_all_switches(walletinst[0]);
     set_item_visibility_in_objinstance(walletinst[0], SW_TABS, 1);
     set_item_visibility_in_objinstance(walletinst[0], SW_PAPER, 1);
     set_item_visibility_in_objinstance(walletinst[0], SW_OHMSS, 1);
     set_item_visibility_in_objinstance(walletinst[0], SW_CLASSIFIED, 1);
     frontUpdateControlStickPosition();
+
     if (tab_start_selected)
     {
         frontChangeMenu(MENU_RUN_STAGE, TRUE);
         return;
     }
+
     if (tab_next_selected)
     {
         frontChangeMenu(MENU_BRIEFING, FALSE);
         return;
     }
+
     if (tab_prev_selected)
     {
         frontChangeMenu(MENU_DIFFICULTY, FALSE);
@@ -3828,21 +3841,23 @@ void interface_menu09_007options(void)
 }
 
 
-
-
 #if !defined(VERSION_EU)
 const struct MatchHack_front_rodata_3000 asc_D_80050074 = { "\n" };
 #endif
 
+/**
+ * Render the 007 Mode options. The slider bars are 300 pixels wide and
+ * sit 33 pixels apart vertically.
+ */
 Gfx *constructor_menu09_007options(Gfx *DL)
 {
-    u8 *spC14;
-    s32 spC10;
-    s32 spC0C;
-    struct MatchHack_front_rodata_3000 sp54;
-    s32 sp50;
-    s32 sp4C;
-    s32 val;
+    u8 *labeltext;
+    s32 textx;
+    s32 texty;
+    struct MatchHack_front_rodata_3000 textbuffer;
+    s32 textheight;
+    s32 textwidth;
+    s32 barwidth;
 
     DL = viSetFillColor(DL, 0, 0, 0);
     DL = viFillScreen(DL);
@@ -3853,129 +3868,155 @@ Gfx *constructor_menu09_007options(Gfx *DL)
     DL = frontSetupMenuBackground(DL);
 
 #if !defined(VERSION_EU)
-    sp54 = asc_D_80050074;
+    textbuffer = asc_D_80050074;
 #endif
 
     DL = microcode_constructor(DL);
-    DL = print_current_solo_briefing_stage_name(DL, (char*)&sp54);
+    DL = print_current_solo_briefing_stage_name(DL, (char*)&textbuffer);
 
-    spC14 = langGet(getStringID(LTITLE, TITLE_STR_40_SPECOPS));
+    labeltext = langGet(getStringID(LTITLE, TITLE_STR_40_SPECOPS)); /* SPECIAL OPTIONS */
 
-    spC10 = 0x37;
-    spC0C = 0x8f;
+    textx = 55;
+    texty = 143;
 
-    DL = frontPrintText(DL, &spC10, &spC0C, (s8 *)spC14, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
+    DL = frontPrintText(DL, &textx, &texty, (s8 *)labeltext, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
 
-    spC14 = langGet(getStringID(LTITLE, TITLE_STR_42_HEALTH));
 
-    spC10 = 0x39;
-    spC0C = 0xA4;
+    /**
+     * ENEMY HEALTH
+     */
+    labeltext = langGet(getStringID(LTITLE, TITLE_STR_42_HEALTH)); /* Enemy health */
 
-    DL = microcode_constructor_related_to_menus(DL, 0x37, 0xB5, 0x163, 0xC0, 0x32);
-    val = (sqrtf(slider_007_mode_health / 10.0f)) * 300.0f;
-    DL = microcode_constructor_related_to_menus(DL, 0x37, spC0C + 0x11, val + 0x37, spC0C + 0x1c, 0x64);
+    textx = 57;
+    texty = 164;
+
+    // Render the bar background with a black color and an opacity of 50/255.
+    DL = microcode_constructor_related_to_menus(DL, 55, 181, 355, 192, 0x00000032);
+
+    barwidth = (sqrtf(slider_007_mode_health / 10.0f)) * 300.0f;
+
+    // Render the filled portion of the bar with a black color and an opacity of 100/255.
+    DL = microcode_constructor_related_to_menus(DL, 55, texty + 17, barwidth + 55, texty + 28, 0x00000064);
 
     if (highlight_enemy_health != 0)
     {
-        DL = microcode_constructor_related_to_menus(DL, 0x37, spC0C - 1, 0xC7, spC0C + 0xE, 0x32);
+        // Render a black rectangle over the "Enemy health" text to indicate it's highlighted.
+        DL = microcode_constructor_related_to_menus(DL, 55, texty - 1, 199, texty + 14, 0x00000032);
     }
 
-    DL = frontPrintText(DL, &spC10, &spC0C, (s8 *)spC14, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
+    // Render "Enemy health" text.
+    DL = frontPrintText(DL, &textx, &texty, (s8 *)labeltext, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
 
-    sprintf((char*)&sp54, "%d%%\n", (s32) (slider_007_mode_health * 100.0f));
+    sprintf((char*)&textbuffer, "%d%%\n", (s32) (slider_007_mode_health * 100.0f));
 
-    sp4C = 0;
-    sp50 = 0;
+    textwidth = 0;
+    textheight = 0;
 
-    textMeasure(&sp50, &sp4C, (char*)&sp54, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
+    textMeasure(&textheight, &textwidth, (char*)&textbuffer, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
 
-    spC10 = 0x11D - sp4C;
-    spC0C = 0xA4;
+    textx = 285 - textwidth;
+    texty = 164;
 
-    DL = frontPrintText(DL, &spC10, &spC0C, (s8*)&sp54, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
+    // Render enemy health percentage text.
+    DL = frontPrintText(DL, &textx, &texty, (s8*)&textbuffer, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
 
-    spC14 = langGet(getStringID(LTITLE, TITLE_STR_43_DAMAGE));
 
-    spC10 = 0x39;
-    spC0C = 0xC5;
+    /**
+     * ENEMY DAMAGE
+     */
+    labeltext = langGet(getStringID(LTITLE, TITLE_STR_43_DAMAGE)); /* Enemy damage */
 
-    DL = microcode_constructor_related_to_menus(DL, 0x37, 0xD6, 0x163, 0xE1, 0x32);
-    val = (sqrtf(slider_007_mode_damage / 10.0f)) * 300.0f;
-    DL = microcode_constructor_related_to_menus(DL, 0x37, spC0C + 0x11, val + 0x37, spC0C + 0x1c, 0x64);
+    textx = 57;
+    texty = 197;
 
-    if (highlight_enemy_accuracy != 0)
-    {
-        DL = microcode_constructor_related_to_menus(DL, 0x37, spC0C - 1, 0xC7, spC0C + 0xE, 0x32);
-    }
-
-    DL = frontPrintText(DL, &spC10, &spC0C, (s8*)spC14, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
-
-    sprintf((char*)&sp54, "%d%%\n", (s32) (slider_007_mode_damage * 100.0f));
-
-    sp4C = 0;
-    sp50 = 0;
-
-    textMeasure(&sp50, &sp4C, (char*)&sp54, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
-
-    spC10 = 0x11D - sp4C;
-    spC0C = 0xC5;
-
-    DL = frontPrintText(DL, &spC10, &spC0C, (s8*)&sp54, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
-
-    spC14 = langGet(getStringID(LTITLE, TITLE_STR_44_ACCURACY));
-
-    spC10 = 0x39;
-    spC0C = 0xE6;
-
-    DL = microcode_constructor_related_to_menus(DL, 0x37, 0xF7, 0x163, 0x102, 0x32);
-    val = (sqrtf(slider_007_mode_accuracy / 10.0f)) * 300.0f;
-    DL = microcode_constructor_related_to_menus(DL, 0x37, spC0C + 0x11, val + 0x37, spC0C + 0x1c, 0x64);
+    DL = microcode_constructor_related_to_menus(DL, 55, 214, 355, 225, 0x00000032);
+    barwidth = (sqrtf(slider_007_mode_damage / 10.0f)) * 300.0f;
+    DL = microcode_constructor_related_to_menus(DL, 55, texty + 17, barwidth + 55, texty + 28, 0x00000064);
 
     if (highlight_enemy_damage != 0)
     {
-        DL = microcode_constructor_related_to_menus(DL, 0x37, spC0C - 1, 0xC7, spC0C + 0xE, 0x32);
+        DL = microcode_constructor_related_to_menus(DL, 55, texty - 1, 199, texty + 14, 0x00000032);
     }
 
-    DL = frontPrintText(DL, &spC10, &spC0C, (s8*)spC14, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
+    DL = frontPrintText(DL, &textx, &texty, (s8*)labeltext, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
 
-    sprintf((char*)&sp54, "%d%%\n", (s32) (slider_007_mode_accuracy * 10.0f));
+    sprintf((char*)&textbuffer, "%d%%\n", (s32) (slider_007_mode_damage * 100.0f));
 
-    sp4C = 0;
-    sp50 = 0;
+    textwidth = 0;
+    textheight = 0;
 
-    textMeasure(&sp50, &sp4C, (char*)&sp54, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
+    textMeasure(&textheight, &textwidth, (char*)&textbuffer, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
 
-    spC10 = 0x11D - sp4C;
-    spC0C = 0xE6;
+    textx = 285 - textwidth;
+    texty = 197;
 
-    DL = frontPrintText(DL, &spC10, &spC0C, (s8*)&sp54, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
+    // Render enemy damage percentage text.
+    DL = frontPrintText(DL, &textx, &texty, (s8*)&textbuffer, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
 
-    spC14 = langGet(getStringID(LTITLE, TITLE_STR_41_REACTION));
 
-    spC10 = 0x39;
-    spC0C = 0x107;
+    /**
+     * ENEMY ACCURACY
+     */
+    labeltext = langGet(getStringID(LTITLE, TITLE_STR_44_ACCURACY)); /* Enemy accuracy */
 
-    DL = microcode_constructor_related_to_menus(DL, 0x37, 0x118, 0x163, 0x123, 0x32);
-    DL = microcode_constructor_related_to_menus(DL, 0x37, spC0C + 0x11, (s32) (slider_007_mode_reaction * 300.0f * 1) + 0x37, spC0C + 0x1c, 0x64);
+    textx = 57;
+    texty = 230;
+
+    DL = microcode_constructor_related_to_menus(DL, 55, 247, 355, 258, 0x00000032);
+    barwidth = (sqrtf(slider_007_mode_accuracy / 10.0f)) * 300.0f;
+    DL = microcode_constructor_related_to_menus(DL, 55, texty + 17, barwidth + 55, texty + 28, 0x00000064);
+
+    if (highlight_enemy_accuracy != 0)
+    {
+        DL = microcode_constructor_related_to_menus(DL, 55, texty - 1, 199, texty + 14, 0x00000032);
+    }
+
+    DL = frontPrintText(DL, &textx, &texty, (s8*)labeltext, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
+
+    sprintf((char*)&textbuffer, "%d%%\n", (s32) (slider_007_mode_accuracy * 10.0f));
+
+    textwidth = 0;
+    textheight = 0;
+
+    textMeasure(&textheight, &textwidth, (char*)&textbuffer, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
+
+    textx = 285 - textwidth;
+    texty = 230;
+
+    // Render enemy accuracy percentage text.
+    DL = frontPrintText(DL, &textx, &texty, (s8*)&textbuffer, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
+
+
+    /**
+     * ENEMY REACTION
+     */
+    labeltext = langGet(getStringID(LTITLE, TITLE_STR_41_REACTION)); /* Enemy reaction speed */
+
+    textx = 57;
+    texty = 263;
+
+    DL = microcode_constructor_related_to_menus(DL, 55, 280, 355, 291, 0x00000032);
+    DL = microcode_constructor_related_to_menus(DL, 55, texty + 17, (s32) (slider_007_mode_reaction * 300.0f * 1) + 55, texty + 28, 0x00000064);
 
     if (highlight_enemy_reaction != 0)
     {
-        DL = microcode_constructor_related_to_menus(DL, 0x37, spC0C - 1, 0xC7, spC0C + 0xE, 0x32);
+        DL = microcode_constructor_related_to_menus(DL, 55, texty - 1, 199, texty + 14, 0x00000032);
     }
 
-    DL = frontPrintText(DL, &spC10, &spC0C, (s8*)spC14, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
+    DL = frontPrintText(DL, &textx, &texty, (s8*)labeltext, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
 
-    sprintf((char*)&sp54, "%d%%\n", (s32) (slider_007_mode_reaction * 100.0f));
+    sprintf((char*)&textbuffer, "%d%%\n", (s32) (slider_007_mode_reaction * 100.0f));
 
-    sp4C = 0;
-    sp50 = 0;
+    textwidth = 0;
+    textheight = 0;
 
-    textMeasure(&sp50, &sp4C, (char*)&sp54, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
+    textMeasure(&textheight, &textwidth, (char*)&textbuffer, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
 
-    spC10 = 0x11D - sp4C;
-    spC0C = 0x107;
+    textx = 285 - textwidth;
+    texty = 263;
 
-    DL = frontPrintText(DL, &spC10, &spC0C, (s8*)&sp54, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
+    // Render enemy reaction speed percentage text.
+    DL = frontPrintText(DL, &textx, &texty, (s8*)&textbuffer, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
 
     DL = frontAddStartTabText(DL);
     DL = frontAddPreviousTabText(DL);
@@ -3984,7 +4025,6 @@ Gfx *constructor_menu09_007options(Gfx *DL)
 
     return DL;
 }
-
 
 
 u32 get_player_control_style(s32 playernum)
@@ -4865,7 +4905,7 @@ void interface_menu0F_mpcharsel(void)
 
     numplayers = get_selected_num_players();
     ready_players = 0;
-    viSetFovY(60.0f);
+    viSetFovY(FOV_Y_F);
     viSetAspect(ASPECT_RATIO_SD);
     viSetZRange(100.0f, 10000.0f);
     viSetUseZBuf(0);
@@ -5272,7 +5312,7 @@ void interface_menu10_mphandicap(void)
 
     sp44 = get_selected_num_players();
     var_fp = 0;
-    viSetFovY(60.0f);
+    viSetFovY(FOV_Y_F);
     viSetAspect(ASPECT_RATIO_SD);
     viSetZRange(100.0f, 10000.0f);
     viSetUseZBuf(0);
@@ -5473,7 +5513,7 @@ void interface_menu11_mpcontrols(void)
 
     sp44 = get_selected_num_players();
     var_fp = 0;
-    viSetFovY(60.0f);
+    viSetFovY(FOV_Y_F);
     viSetAspect(ASPECT_RATIO_SD);
     viSetZRange(100.0f, 10000.0f);
     viSetUseZBuf(0);
@@ -6200,7 +6240,7 @@ void interface_menu14_mpteams(void)
     s32 i;
     s32 var_a1;
 
-    viSetFovY(60.0f);
+    viSetFovY(FOV_Y_F);
     viSetAspect(ASPECT_RATIO_SD);
     viSetZRange(100.0f, 10000.0f);
     viSetUseZBuf(0);
@@ -7376,7 +7416,7 @@ void interface_menu15_cheat(void)
 {
     s32 i;
 
-    viSetFovY(60.0f);
+    viSetFovY(FOV_Y_F);
     viSetAspect(ASPECT_RATIO_SD);
     viSetZRange(100.0f, 10000.0f);
     viSetUseZBuf(0);
@@ -7861,6 +7901,7 @@ void interface_menu18_displaycast(void)
 {
     s32 f;
 
+    // Unlike all other menu functions, this one uses a FOV of 46.0 degrees instead of 60.0 degrees.
     viSetFovY(46.0f);
     viSetZRange(10.0f, 2000.0f);
     viSetUseZBuf(TRUE);

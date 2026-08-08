@@ -218,9 +218,9 @@ extern s32 highlight_enemy_reaction;
 //CODE.bss:80069798
 extern s32 highlight_enemy_health;
 //CODE.bss:8006979C
-extern s32 highlight_enemy_accuracy;
-//CODE.bss:800697A0
 extern s32 highlight_enemy_damage;
+//CODE.bss:800697A0
+extern s32 highlight_enemy_accuracy;
 
 //CODE.bss:800697A4                     .align 3
 
