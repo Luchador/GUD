@@ -1213,7 +1213,8 @@ void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
 }
 
 
-void proplvreset2(s32 stageId)
+// Perfect Dark void setupLoadFiles(s32 stagenum)
+void proplvreset2(enum LEVELID stageId)
 {
     ItemModelFileRecord *pitem;
     s32 withchrs;
@@ -1237,7 +1238,7 @@ void proplvreset2(s32 stageId)
 
     if ((stageId <= (LEVELID_MAX + 1)) && setup_text_pointers[stageId])
     {
-        char strResource[0x100] = ""; // scratch buffer for synthesizing the setup file's name at runtime
+        char strResource[0x100] = ""; // Scratch buffer for synthesizing the setup file's name at runtime.
         s32 numAnimatedObjects = 0;
         s32 numObjects = 0;
         s32 i1 = 0;
@@ -1250,7 +1251,7 @@ void proplvreset2(s32 stageId)
         struct stagesetup *local_stage;
 
         strResource[0] = setup_text_pointers[stageId][0]; // 'U' -> "U"
-        strResource[1] = 0; // terminate so strcat has a valid string
+        strResource[1] = 0; // Terminate so strcat has a valid string.
 
         /**
          * There are no slots for the mp stages in setup_text_pointers. The name is created
@@ -1261,7 +1262,7 @@ void proplvreset2(s32 stageId)
             strcat(strResource, "mp_"); // -> "Ump_"
         }
 
-        strcat(strResource, setup_text_pointers[stageId] + 1); // + "setuparchZ" for example
+        strcat(strResource, setup_text_pointers[stageId] + 1); // Add remaining text back U[mp_] + setupxxxZ
 
         g_ptrStageSetupFile = _fileNameLoadToBank(strResource, FILELOADMETHOD_DEFAULT, 256, MEMPOOL_STAGE);
 
@@ -1731,19 +1732,19 @@ void proplvreset2(s32 stageId)
                                 }
                             }
 
-                            pdef_veh->speed = 0.0f;
-                            pdef_veh->wheelxrot = 0.0f;
-                            pdef_veh->wheelyrot = 0.0f;
-                            pdef_veh->speedaim = 0.0f;
-                            pdef_veh->turnrot60 = 0.0f;
-                            pdef_veh->roty = 0.0f;
-                            pdef_veh->speedtime60 = -1.0f;
-                            pdef_veh->ailist = ailistFindById(pdef_veh->ailist);
-                            pdef_veh->aioffset = 0;
+                            pdef_veh->speed        = 0.0f;
+                            pdef_veh->wheelxrot    = 0.0f;
+                            pdef_veh->wheelyrot    = 0.0f;
+                            pdef_veh->speedaim     = 0.0f;
+                            pdef_veh->turnrot60    = 0.0f;
+                            pdef_veh->roty         = 0.0f;
+                            pdef_veh->speedtime60  = -1.0f;
+                            pdef_veh->ailist       = ailistFindById(pdef_veh->ailist);
+                            pdef_veh->aioffset     = 0;
                             pdef_veh->aireturnlist = -1;
-                            pdef_veh->path = 0;
-                            pdef_veh->nextstep = 0;
-                            pdef_veh->Sound = 0;
+                            pdef_veh->path         = 0;
+                            pdef_veh->nextstep     = 0;
+                            pdef_veh->Sound        = 0;
                         }
                         break;
                     case PROPDEF_AIRCRAFT:
@@ -1752,20 +1753,20 @@ void proplvreset2(s32 stageId)
                             struct AircraftRecord *pdef_air = (struct AircraftRecord *) phead;
 
                             domakedefaultobj(stageId, (struct ObjectRecord *) pdef_air, pdefIndex);
-                            pdef_air->speed = 0.0f;
-                            pdef_air->speedaim = 0.0f;
-                            pdef_air->rotoryrot = 0.0f;
-                            pdef_air->rotaryspeed = 0.0f;
-                            pdef_air->rotaryspeedaim = 0.0f;
-                            pdef_air->yrot = 0.0f;
-                            pdef_air->speedtime60 = -1.0f;
+                            pdef_air->speed           = 0.0f;
+                            pdef_air->speedaim        = 0.0f;
+                            pdef_air->rotoryrot       = 0.0f;
+                            pdef_air->rotaryspeed     = 0.0f;
+                            pdef_air->rotaryspeedaim  = 0.0f;
+                            pdef_air->yrot            = 0.0f;
+                            pdef_air->speedtime60     = -1.0f;
                             pdef_air->rotaryspeedtime = -1.0f;
-                            pdef_air->ailist = ailistFindById(pdef_air->ailist);
-                            pdef_air->aioffset = 0;
-                            pdef_air->aireturnlist = -1;
-                            pdef_air->nextstep = 0;
-                            pdef_air->path = 0;
-                            pdef_air->Sound = 0;
+                            pdef_air->ailist          = ailistFindById(pdef_air->ailist);
+                            pdef_air->aioffset        = 0;
+                            pdef_air->aireturnlist    = -1;
+                            pdef_air->nextstep        = 0;
+                            pdef_air->path            = 0;
+                            pdef_air->Sound           = 0;
                         }
                         break;
                     case PROPDEF_TAG:
@@ -1856,10 +1857,12 @@ void proplvreset2(s32 stageId)
                     case PROPDEF_TINTED_GLASS:
                     {
                         struct ObjectRecord *pdef_obj = (struct ObjectRecord *) phead;
+
                         if (pdef_obj->prop && (pdef_obj->flags & PROPFLAG_INSIDEANOTHEROBJ))
                         {
-                            unsigned int offset = pdef_obj->pad;
+                            u32 offset = pdef_obj->pad;
                             struct ObjectRecord *inobj = setupCommandGetObject(stageId, offset + pdefIndex);
+
                             if (inobj && inobj->prop)
                             {
                                 pdef_obj->runtime_bitflags |= RUNTIMEBITFLAG_HASOWNER;
