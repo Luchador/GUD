@@ -114,7 +114,7 @@ Gfx *manipulateGunbarrelAndLogoMatrices(Gfx *gdl)
     guTranslate(&matrixBufferGunbarrel1[D_8002A7D0], titleTransitionX, titleTransitionY, -5.0f);
     gSPDisplayList(gdl++, &dlBasicGeometry);
 
-    gdl = sub_GAME_7F01C1A4(insert_imageDL(gdl));
+    gdl = sub_GAME_7F01C1A4(clear_framebuffer_black(gdl));
 
     gDPSetCombineMode(gdl++, G_CC_PRIMITIVE, G_CC_PRIMITIVE);
     gDPSetPrimColor(gdl++, 0, 0, 0xE6, 0xE6, 0xE6, 0x00);
@@ -163,7 +163,7 @@ Gfx *insert_sniper_sight_eye_intro(Gfx *gdl)
 
     gSPDisplayList(gdl++, &dlBasicGeometry);
 
-    gdl = insert_imageDL(gdl);
+    gdl = clear_framebuffer_black(gdl);
 
     gDPSetCombineMode(gdl++, G_CC_MODULATEI_PRIM, G_CC_MODULATEI_PRIM);
 
@@ -324,7 +324,7 @@ extern u8 *D_02005FF0;
 Gfx *load_display_rare_logo(Gfx *gdl, s32 arg1, s32 arg2, s32 arg3, s32 arg4) {
     cameraPosition1[2] = arg3;
     gSPDisplayList(gdl++, &dlBasicGeometry);
-    gdl = insert_imageDL(gdl);
+    gdl = clear_framebuffer_black(gdl);
     {
         u16 perspNorm;
         guPerspective(&matrixBufferRareLogo0[D_8002A7D0], &perspNorm, 60.0f, (320.0f / 240.0f), 100.0f, 5000.0f, 1.0f);
@@ -601,11 +601,11 @@ Gfx *renderGunbarrelEyeIntroSequence (Gfx *gdl) {
     case 1:
         #if defined(LEFTOVERDEBUG)
         gSPDisplayList(gdl++, &dlBasicGeometry);
-        gdl = insert_imageDL(gdl++);
-        gdl = insert_imageDL(gdl++);
-        gdl = insert_imageDL(gdl++);
-        gdl = insert_imageDL(gdl++);
-        gdl = insert_imageDL(gdl++);
+        gdl = clear_framebuffer_black(gdl++);
+        gdl = clear_framebuffer_black(gdl++);
+        gdl = clear_framebuffer_black(gdl++);
+        gdl = clear_framebuffer_black(gdl++);
+        gdl = clear_framebuffer_black(gdl++);
         #endif
         gdl = insert_sniper_sight_eye_intro(gdl++);
         gdl = insert_sight_backdrop_eye_intro(gdl++);
@@ -685,7 +685,7 @@ Gfx *renderGunbarrelEyeIntroSequence (Gfx *gdl) {
 
     case 6:
         gSPDisplayList(gdl++, &dlBasicGeometry);
-        gdl = insert_imageDL(gdl);
+        gdl = clear_framebuffer_black(gdl);
         if (intro_eye_counter++ >= INTRO_EYE_COUNTER_CASE_6) {
             intro_eye_counter = 0;
             gunbarrel_mode++;

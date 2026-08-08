@@ -136,7 +136,7 @@ f32 ninLogoScale;
 //CODE.bss:8006961C
 f32 flt_CODE_bss_8006961C;
 //CODE.bss:80069620
-coord3d dword_CODE_bss_80069620[MAX_FOLDER_COUNT];
+coord3d folderpositions_camspace[MAX_FOLDER_COUNT];
 
 //CODE.bss:80069650
 u8 cheat_available[CHEAT_MAX];
@@ -432,36 +432,37 @@ struct rectbbox folder_option_COPY_bound = { 0 };
 struct rectbbox folder_option_ERASE_bound = { 0 };
 
 struct mission_folder_setup mission_folder_setup_entries[] = {
-    {"1",   getStringID(LTITLE, TITLE_STR_120_ARK),                  0, LEVELID_NONE,     0, MISSION_HEADER,   -1, 0},
-    {"i",   getStringID(LTITLE, TITLE_STR_121_DAM),                  0, LEVELID_DAM,      0, MISSION_PART,      0, "UbriefdamZ"},
-    {"ii",  getStringID(LTITLE, TITLE_STR_122_FAC),                  0, LEVELID_FACILITY, 0, MISSION_PART,      1, "UbriefarkZ"},
-    {"iii", getStringID(LTITLE, TITLE_STR_123_RUN),                  0, LEVELID_RUNWAY,   0, MISSION_PART,      2, "UbriefrunZ"},
-    {"2",   getStringID(LTITLE, TITLE_STR_124_SEV),                  0, LEVELID_NONE,     0, MISSION_HEADER,   -1, 0},
-    {"i",   getStringID(LTITLE, TITLE_STR_125_SURF),                  0, LEVELID_SURFACE,  0, MISSION_PART,      3, "UbriefsevxZ"},
-    {"ii",  getStringID(LTITLE, TITLE_STR_126_BUNK),                  0, LEVELID_BUNKER1,  0, MISSION_PART,      4, "UbriefsevbunkerZ"},
-    {"3",   getStringID(LTITLE, TITLE_STR_127_KIRG),                  0, LEVELID_NONE,     1, MISSION_HEADER,   -1, 0},
-    {"i",   getStringID(LTITLE, TITLE_STR_128_SILO4), getStringID(LTITLE, TITLE_STR_129_SILO), LEVELID_SILO,     1, MISSION_PART,      5, "UbriefsiloZ"},
-    {"4",   getStringID(LTITLE, TITLE_STR_130_MONTE),                  0, LEVELID_NONE,     1, MISSION_HEADER,   -1, 0},
-    {"i",   getStringID(LTITLE, TITLE_STR_131_FRIG),                  0, LEVELID_FRIGATE,  1, MISSION_PART,      6, "UbriefdestZ"},
-    {"5",   getStringID(LTITLE, TITLE_STR_124_SEV),                  0, LEVELID_NONE,     1, MISSION_HEADER,   -1, 0},
-    {"i",   getStringID(LTITLE, TITLE_STR_125_SURF),                  0, LEVELID_SURFACE2, 1, MISSION_PART,      7, "UbriefsevxbZ"},
-    {"ii",  getStringID(LTITLE, TITLE_STR_126_BUNK),                  0, LEVELID_BUNKER2,  1, MISSION_PART,      8, "UbriefsevbZ"},
-    {"6",   getStringID(LTITLE, TITLE_STR_132_STPETER),                  0, LEVELID_NONE,     2, MISSION_HEADER,   -1, 0},
-    {"i",   getStringID(LTITLE, TITLE_STR_133_STATPARK), getStringID(LTITLE, TITLE_STR_134_STAT), LEVELID_STATUE,   2, MISSION_PART,      9, "UbriefstatueZ"},
-    {"ii",  getStringID(LTITLE, TITLE_STR_135_MILARCH), getStringID(LTITLE, TITLE_STR_136_ARCH), LEVELID_ARCHIVES, 2, MISSION_PART,    0xA, "UbriefarchZ"},
-    {"iii", getStringID(LTITLE, TITLE_STR_137_STREETS),                  0, LEVELID_STREETS,  2, MISSION_PART,    0xB, "UbriefpeteZ"},
-    {"iv",  getStringID(LTITLE, TITLE_STR_138_DEPOT),                  0, LEVELID_DEPOT,    2, MISSION_PART,    0xC, "UbriefdepoZ"},
-    {"v",   getStringID(LTITLE, TITLE_STR_139_TRAIN),                  0, LEVELID_TRAIN,    2, MISSION_PART,    0xD, "UbrieftraZ"},
-    {"7",   getStringID(LTITLE, TITLE_STR_140_CUBA),                  0, LEVELID_NONE,     3, MISSION_HEADER,   -1, 0},
-    {"i",   getStringID(LTITLE, TITLE_STR_141_JUN),                  0, LEVELID_JUNGLE,   3, MISSION_PART,    0xE, "UbriefjunZ"},
-    {"ii",  getStringID(LTITLE, TITLE_STR_142_CONCENTER), getStringID(LTITLE, TITLE_STR_143_CON), LEVELID_CONTROL,  3, MISSION_PART,    0xF, "UbriefcontrolZ"},
-    {"iii", getStringID(LTITLE, TITLE_STR_144_WATERCAV), getStringID(LTITLE, TITLE_STR_145_CAV), LEVELID_CAVERNS,  3, MISSION_PART,   0x10, "UbriefcaveZ"},
-    {"iv",  getStringID(LTITLE, TITLE_STR_146_ANTENNA), getStringID(LTITLE, TITLE_STR_147_CRADLE), LEVELID_CRADLE,   3, MISSION_PART,   0x11, "UbriefcradZ"},
-    {"8",   getStringID(LTITLE, TITLE_STR_148_TEOTIHUACA),                  0, LEVELID_NONE,     4, MISSION_HEADER,   -1, 0},
-    {"i",   getStringID(LTITLE, TITLE_STR_149_AZTECCOMPLEX), getStringID(LTITLE, TITLE_STR_150_AZTEC), LEVELID_AZTEC,    4, MISSION_PART,   0x12, "UbriefaztZ"},
-    {"9",   getStringID(LTITLE, TITLE_STR_151_ELSAGHIRA),                  0, LEVELID_NONE,     4, MISSION_HEADER,   -1, 0},
-    {"i",   getStringID(LTITLE, TITLE_STR_152_EGYPTIANTEMPLE), getStringID(LTITLE, TITLE_STR_153_EGYPTIAN), LEVELID_EGYPT,    4, MISSION_PART,   0x13, "UbriefcrypZ"},
-    {NULL, 0, 0, LEVELID_NONE, -1, MISSION_PART, -1, 0}
+  /* string_ptr  folder_text_preset                                                         icon_text_preset                                            stage_id           unknown type             mission_num briefing_name_ptr */
+    {"1",        getStringID(LTITLE, TITLE_STR_120_ARK)            /* Arkangelsk */,        0,                                                          LEVELID_NONE,           0, MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_121_DAM)            /* Dam */,               0,                                                          LEVELID_DAM,            0, MISSION_PART,             0, "UbriefdamZ"},
+    {"ii",       getStringID(LTITLE, TITLE_STR_122_FAC)            /* Facility */,          0,                                                          LEVELID_FACILITY,       0, MISSION_PART,             1, "UbriefarkZ"},
+    {"iii",      getStringID(LTITLE, TITLE_STR_123_RUN)            /* Runway */,            0,                                                          LEVELID_RUNWAY,         0, MISSION_PART,             2, "UbriefrunZ"},
+    {"2",        getStringID(LTITLE, TITLE_STR_124_SEV)            /* Severnaya */,         0,                                                          LEVELID_NONE,           0, MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_125_SURF)           /* Surface */,           0,                                                          LEVELID_SURFACE,        0, MISSION_PART,             3, "UbriefsevxZ"},
+    {"ii",       getStringID(LTITLE, TITLE_STR_126_BUNK)           /* Bunker */,            0,                                                          LEVELID_BUNKER1,        0, MISSION_PART,             4, "UbriefsevbunkerZ"},
+    {"3",        getStringID(LTITLE, TITLE_STR_127_KIRG)           /* Kirghizstan */,       0,                                                          LEVELID_NONE,           1, MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_128_SILO4)          /* Launch Silo #4 */,    getStringID(LTITLE, TITLE_STR_129_SILO)     /* Silo */,     LEVELID_SILO,           1, MISSION_PART,             5, "UbriefsiloZ"},
+    {"4",        getStringID(LTITLE, TITLE_STR_130_MONTE)          /* Monte Carlo */,       0,                                                          LEVELID_NONE,           1, MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_131_FRIG)           /* Frigate */,           0,                                                          LEVELID_FRIGATE,        1, MISSION_PART,             6, "UbriefdestZ"},
+    {"5",        getStringID(LTITLE, TITLE_STR_124_SEV)            /* Severnaya */,         0,                                                          LEVELID_NONE,           1, MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_125_SURF)           /* Surface */,           0,                                                          LEVELID_SURFACE2,       1, MISSION_PART,             7, "UbriefsevxbZ"},
+    {"ii",       getStringID(LTITLE, TITLE_STR_126_BUNK)           /* Bunker */,            0,                                                          LEVELID_BUNKER2,        1, MISSION_PART,             8, "UbriefsevbZ"},
+    {"6",        getStringID(LTITLE, TITLE_STR_132_STPETER)        /* St. Petersburg */,    0,                                                          LEVELID_NONE,           2, MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_133_STATPARK)       /* Statue Park */,       getStringID(LTITLE, TITLE_STR_134_STAT)     /* Statue */,   LEVELID_STATUE,         2, MISSION_PART,             9, "UbriefstatueZ"},
+    {"ii",       getStringID(LTITLE, TITLE_STR_135_MILARCH)        /* Military Archives */, getStringID(LTITLE, TITLE_STR_136_ARCH)     /* Archives */, LEVELID_ARCHIVES,       2, MISSION_PART,            10, "UbriefarchZ"},
+    {"iii",      getStringID(LTITLE, TITLE_STR_137_STREETS)        /* Streets */,           0,                                                          LEVELID_STREETS,        2, MISSION_PART,            11, "UbriefpeteZ"},
+    {"iv",       getStringID(LTITLE, TITLE_STR_138_DEPOT)          /* Depot */,             0,                                                          LEVELID_DEPOT,          2, MISSION_PART,            12, "UbriefdepoZ"},
+    {"v",        getStringID(LTITLE, TITLE_STR_139_TRAIN)          /* Train */,             0,                                                          LEVELID_TRAIN,          2, MISSION_PART,            13, "UbrieftraZ"},
+    {"7",        getStringID(LTITLE, TITLE_STR_140_CUBA)           /* Cuba */,              0,                                                          LEVELID_NONE,           3, MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_141_JUN)            /* Jungle */,            0,                                                          LEVELID_JUNGLE,         3, MISSION_PART,            14, "UbriefjunZ"},
+    {"ii",       getStringID(LTITLE, TITLE_STR_142_CONCENTER)      /* Control Center */,    getStringID(LTITLE, TITLE_STR_143_CON)      /* Control */,  LEVELID_CONTROL,        3, MISSION_PART,            15, "UbriefcontrolZ"},
+    {"iii",      getStringID(LTITLE, TITLE_STR_144_WATERCAV)       /* Water Caverns */,     getStringID(LTITLE, TITLE_STR_145_CAV)      /* Caverns */,  LEVELID_CAVERNS,        3, MISSION_PART,            16, "UbriefcaveZ"},
+    {"iv",       getStringID(LTITLE, TITLE_STR_146_ANTENNA)        /* Antenna Cradle */,    getStringID(LTITLE, TITLE_STR_147_CRADLE)   /* Cradle */,   LEVELID_CRADLE,         3, MISSION_PART,            17, "UbriefcradZ"},
+    {"8",        getStringID(LTITLE, TITLE_STR_148_TEOTIHUACA)     /* Teotihuaca'n */,      0,                                                          LEVELID_NONE,           4, MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_149_AZTECCOMPLEX)   /* Aztec Complex */,     getStringID(LTITLE, TITLE_STR_150_AZTEC)    /* Aztec */,    LEVELID_AZTEC,          4, MISSION_PART,            18, "UbriefaztZ"},
+    {"9",        getStringID(LTITLE, TITLE_STR_151_ELSAGHIRA)      /* el-Saghira */,        0,                                                          LEVELID_NONE,           4, MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_152_EGYPTIANTEMPLE) /* Egyptian Temple */,   getStringID(LTITLE, TITLE_STR_153_EGYPTIAN) /* Egyptian */, LEVELID_EGYPT,          4, MISSION_PART,            19, "UbriefcrypZ"},
+    {NULL,       0,                                                                         0,                                                          LEVELID_NONE,          -1, MISSION_PART,            -1, 0}
 };
 
 struct FolderSelectColour unknown_folderselect_constructor = { 0x14, 0x14, 0x14 };
@@ -756,26 +757,26 @@ s32 unlock_aim_sight = TRUE;
 u32 D_8002B560 = 0;
 
 s16 solo_target_time_array[20][3] = {
-    {0, 160, 0},
-    {0, 0, 125},
-    {300, 0, 0},
-    {0, 210, 0},
-    {0, 0, 240},
-    {180, 0, 0},
-    {0, 270, 0},
-    {0, 0, 255},
-    {90, 0, 0},
-    {0, 195, 0},
-    {0, 0, 80},
-    {105, 0, 0},
-    {0, 100, 0},
-    {0, 0, 325},
-    {225, 0, 0},
-    {0, 600, 0},
-    {0, 0, 570},
-    {135, 0, 0},
-    {0, 540, 0},
-    {0, 0, 360}
+    {0, 160, 0}, // Dam
+    {0, 0, 125}, // Facility
+    {300, 0, 0}, // Runway
+    {0, 210, 0}, // Surface 1
+    {0, 0, 240}, // Bunker 1
+    {180, 0, 0}, // Silo
+    {0, 270, 0}, // Frigate
+    {0, 0, 255}, // Surface 2
+    {90, 0, 0},  // Bunker 2
+    {0, 195, 0}, // Statue
+    {0, 0, 80},  // Archives
+    {105, 0, 0}, // Streets
+    {0, 100, 0}, // Depot
+    {0, 0, 325}, // Train
+    {225, 0, 0}, // Jungle
+    {0, 600, 0}, // Control
+    {0, 0, 570}, // Caverns
+    {135, 0, 0}, // Cradle
+    {0, 540, 0}, // Aztec
+    {0, 0, 360}  // Egyptian
 };
 
 s32 totalunlockedcheats = 0;
@@ -1506,7 +1507,7 @@ Gfx *constructor_menu00_legalscreen(Gfx *DL)
 
     renderdata = legalscreen_MRD;
     
-    DL = insert_imageDL(DL);
+    DL = clear_framebuffer_black(DL);
     
     matrix_4x4_set_lookat_target(&lookatmtx, 0.0f, 0.0f, 4000.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, legal_text_ptr->v_pos * 0.0f);
     
@@ -1581,7 +1582,7 @@ void interface_menu17_switchscreens(void)
 
 Gfx * constructor_menu17_switchscreens(Gfx * DL)
 {
-    return insert_imageDL(DL);
+    return clear_framebuffer_black(DL);
 }
 
 
@@ -1665,7 +1666,7 @@ Gfx *constructor_menu01_nintendo(Gfx *DL)
 
     ninlogo = nintendologo_MRD;
 
-    DL = insert_imageDL(DL);
+    DL = clear_framebuffer_black(DL);
 
     // Lights macro? These need to be on one line.
     gSPNumLights(DL++, 1); \
@@ -2181,25 +2182,30 @@ void toggle_deletion_menu_for_folder(int index)
 {
   struct coord2d local_8;
 
-  transform3Dto2DCoords(&dword_CODE_bss_80069620[index],&local_8);
+  transform3Dto2DCoords(&folderpositions_camspace[index],&local_8);
   cursor_h_pos = local_8.x + -1.0f;
   cursor_v_pos = local_8.y + 20.0f;
 }
 
 
-
-
-
-
-// address 0x7F00BBCC NTSC
+/**
+ * Address: 7F00BBCC
+ * 
+ * Tick function for the file folder select screen. Rebuild's each folder model's render matrix
+ * then handles input. Also keeps track of the 30 second idle timeout for going back to the legal screen.
+ */
 s32 interface_menu05_fileselect(void)
 {
-    s32 i1;
-    s32 i2;
-    Mtxf spC8;
-    Mtxf sp88;
-    struct coord3d *sp54;
+    s32 walletnum;
+    s32 foldernum;
+    Mtxf lookatmtx;
+    Mtxf walletmtx;
+    struct coord3d *folderpos;
 
+    /**
+     *  Accumulate the menu timer if there's been no button inputs and no more than marginal stick input.
+     *  The menu timer is checked at the end of this function to determine if we should switch to the legal screen.
+     */
     if (((((joyGetButtonsPressedThisFrame(PLAYER_1, ANY_BUTTON) != 0) || (joyGetStickX(0) < -5)) || (joyGetStickX(0) >= 6)) || (joyGetStickY(0) < -5)) || (joyGetStickY(0) >= 6))
     {
         g_MenuTimer = 0;
@@ -2210,31 +2216,31 @@ s32 interface_menu05_fileselect(void)
     }
 
     viSetFovY(60.0f);
-    viSetAspect(1.3333334f);
+    viSetAspect(ASPECT_RATIO_SD);
     viSetZRange(100.0f, 10000.0f);
     viSetUseZBuf(0);
 
-    for (i1 = 0; i1 < 4; i1++)
+    for (walletnum = 0; walletnum < MAX_FOLDER_COUNT; walletnum++)
     {
-        sp54 = &folderpositions[i1];
+        folderpos = &folderpositions[walletnum];
 
-        matrix_4x4_set_lookat_target(&spC8, 0.0f, 0.0f, 4000.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
-        matrix_4x4_set_identity_and_position(sp54, &sp88);
-        matrix_scalar_multiply(0.37f, (f32*)&sp88);
-        matrix_4x4_multiply_in_place(&spC8, &sp88);
+        matrix_4x4_set_lookat_target(&lookatmtx, 0.0f, 0.0f, 4000.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+        matrix_4x4_set_identity_and_position(folderpos, &walletmtx);
+        matrix_scalar_multiply(0.37f, (f32*)&walletmtx);
+        matrix_4x4_multiply_in_place(&lookatmtx, &walletmtx);
 
-        walletinst[i1]->render_pos = dynAllocate(walletinst[i1]->obj->numMatrices << 6);
-        matrix_4x4_copy(&sp88, &walletinst[i1]->render_pos->pos);
+        walletinst[walletnum]->render_pos = dynAllocate(walletinst[walletnum]->obj->numMatrices << 6);
+        matrix_4x4_copy(&walletmtx, &walletinst[walletnum]->render_pos->pos);
 
-        dword_CODE_bss_80069620[i1].f[0] = walletinst[i1]->render_pos->pos.m[3][0];
-        dword_CODE_bss_80069620[i1].f[1] = walletinst[i1]->render_pos->pos.m[3][1];
-        dword_CODE_bss_80069620[i1].f[2] = walletinst[i1]->render_pos->pos.m[3][2];
+        folderpositions_camspace[walletnum].f[0] = walletinst[walletnum]->render_pos->pos.m[3][0];
+        folderpositions_camspace[walletnum].f[1] = walletinst[walletnum]->render_pos->pos.m[3][1];
+        folderpositions_camspace[walletnum].f[2] = walletinst[walletnum]->render_pos->pos.m[3][2];
 
-        disable_all_switches(walletinst[i1]);
+        disable_all_switches(walletinst[walletnum]);
 
-        select_load_bond_picture(walletinst[i1], fileGetBondForFolder(i1));
-        set_item_visibility_in_objinstance(walletinst[i1], 0xE, 1);
-        set_item_visibility_in_objinstance(walletinst[i1], 0xD, 1);
+        select_load_bond_picture(walletinst[walletnum], fileGetBondForFolder(walletnum));
+        set_item_visibility_in_objinstance(walletinst[walletnum], 0xE, 1);
+        set_item_visibility_in_objinstance(walletinst[walletnum], 0xD, 1);
     }
 
     if (selected_folder_num >= FOLDER1)
@@ -2255,12 +2261,12 @@ s32 interface_menu05_fileselect(void)
 
     if (folder_selected_for_deletion >= 0)
     {
-        if ((joyGetButtonsPressedThisFrame(0, 0x222U) != 0) && (folder_selected_for_deletion_choice == 0))
+        if ((joyGetButtonsPressedThisFrame(PLAYER_1, L_JPAD | L_TRIG | L_CBUTTONS) != 0) && (folder_selected_for_deletion_choice == 0))
         {
             folder_selected_for_deletion_choice = 1;
             sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, OPTION_CLICK2_SFX, NULL);
         }
-        else if ((joyGetButtonsPressedThisFrame(0, 0x111U) != 0) && (folder_selected_for_deletion_choice != 0))
+        else if ((joyGetButtonsPressedThisFrame(PLAYER_1, R_JPAD | R_TRIG | R_CBUTTONS) != 0) && (folder_selected_for_deletion_choice != 0))
         {
             folder_selected_for_deletion_choice = 0;
             sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, OPTION_CLICK2_SFX, NULL);
@@ -2275,7 +2281,7 @@ s32 interface_menu05_fileselect(void)
             folder_selected_for_deletion_choice = 0;
             sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, OPTION_CLICK2_SFX, NULL);
         }
-        if (joyGetButtonsPressedThisFrame(0, A_BUTTON | Z_TRIG | START_BUTTON) != 0)
+        if (joyGetButtonsPressedThisFrame(PLAYER_1, A_BUTTON | Z_TRIG | START_BUTTON) != 0)
         {
             if (folder_selected_for_deletion_choice == 0)
             {
@@ -2289,7 +2295,7 @@ s32 interface_menu05_fileselect(void)
             toggle_deletion_menu_for_folder(folder_selected_for_deletion);
             folder_selected_for_deletion = -1;
         }
-        else if (joyGetButtonsPressedThisFrame(0, B_BUTTON) != 0)
+        else if (joyGetButtonsPressedThisFrame(PLAYER_1, B_BUTTON) != 0)
         {
             toggle_deletion_menu_for_folder(folder_selected_for_deletion);
             folder_selected_for_deletion = -1;
@@ -2298,49 +2304,49 @@ s32 interface_menu05_fileselect(void)
     }
     else
     {
-        for (i2 = FOLDER1; i2 < MAX_FOLDER_COUNT; i2++)
+        for (foldernum = FOLDER1; foldernum < MAX_FOLDER_COUNT; foldernum++)
         {
-            f32 sp80;
-            f32 sp7C;
-            f32 sp78;
-            f32 sp74;
+            f32 xmax;
+            f32 xmin;
+            f32 ymax;
+            f32 ymin;
 
-            struct rectbbox sp64;
+            struct rectbbox folderbbox;
 
-            LEVEL_SOLO_SEQUENCE sp60;
-            DIFFICULTY sp5C;
+            LEVEL_SOLO_SEQUENCE higheststage;
+            DIFFICULTY highestdifficulty;
 
-            modelGetXYExtents(walletinst[i2], &sp80, &sp7C, &sp78, &sp74);
-            projectRectCornersTo2D(&dword_CODE_bss_80069620[i2], &sp7C, &sp74, &sp64.right, &sp64.left);
+            modelGetXYExtents(walletinst[foldernum], &xmax, &xmin, &ymax, &ymin);
+            projectRectCornersTo2D(&folderpositions_camspace[foldernum], &xmin, &ymin, &folderbbox.right, &folderbbox.left);
 
-            if ((sp64.right <= cursor_h_pos)
-                && (cursor_h_pos <= sp64.left)
-                && (sp64.down <= cursor_v_pos)
-                && (cursor_v_pos <= sp64.up))
+            if ((folderbbox.right <= cursor_h_pos)
+                && (cursor_h_pos <= folderbbox.left)
+                && (folderbbox.down <= cursor_v_pos)
+                && (cursor_v_pos <= folderbbox.up))
             {
-                fileGetHighestStageDifficultyCompletedForFolder(i2, &sp60, &sp5C);
+                fileGetHighestStageDifficultyCompletedForFolder(foldernum, &higheststage, &highestdifficulty);
 #ifdef DEBUG
-                osSyncPrintf("selected file %d\n", i2);
+                osSyncPrintf("selected file %d\n", foldernum);
 #endif
 
-                if (joyGetButtonsPressedThisFrame(0, A_BUTTON | Z_TRIG | START_BUTTON) != 0)
+                if (joyGetButtonsPressedThisFrame(PLAYER_1, A_BUTTON | Z_TRIG | START_BUTTON) != 0)
                 {
                     if (folder_selection_screen_option_icon == 0)
                     {
-                        selected_folder_num = i2;
+                        selected_folder_num = foldernum;
                         sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, PAPER_TURN_SFX, NULL);
                     }
                     else if (folder_selection_screen_option_icon == 1)
                     {
-                        fileCopyFolderToFirstFree(i2);
+                        fileCopyFolderToFirstFree(foldernum);
                         folder_selection_screen_option_icon = 0;
                         sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, COPY_FILE_SFX, NULL);
                     }
                     else if (folder_selection_screen_option_icon == 2)
                     {
-                        if ((sp60 >= SP_LEVEL_DAM) && (sp5C >= DIFFICULTY_AGENT))
+                        if ((higheststage >= SP_LEVEL_DAM) && (highestdifficulty >= DIFFICULTY_AGENT))
                         {
-                            folder_selected_for_deletion = i2;
+                            folder_selected_for_deletion = foldernum;
                             folder_selected_for_deletion_choice = 1;
                         }
 
@@ -2353,7 +2359,7 @@ s32 interface_menu05_fileselect(void)
             }
         }
 
-        if (joyGetButtonsPressedThisFrame(0, A_BUTTON | Z_TRIG | START_BUTTON) != 0)
+        if (joyGetButtonsPressedThisFrame(PLAYER_1, A_BUTTON | Z_TRIG | START_BUTTON) != 0)
         {
             if ((folder_option_COPY_bound.left <= cursor_h_pos)
                 && (cursor_h_pos <= folder_option_COPY_bound.right)
@@ -2377,7 +2383,7 @@ s32 interface_menu05_fileselect(void)
                 sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, GUN_M60AMMGUN_3_SFX, NULL);
             }
         }
-        else if ((joyGetButtonsPressedThisFrame(0, B_BUTTON) != 0)
+        else if ((joyGetButtonsPressedThisFrame(PLAYER_1, B_BUTTON) != 0)
             && (folder_selection_screen_option_icon != 0))
         {
             folder_selection_screen_option_icon = 0;
@@ -2395,6 +2401,7 @@ s32 interface_menu05_fileselect(void)
         return;
     }
 
+    // Change to the legal screen if 30 seconds of no input have elapsed
 #if defined(VERSION_EU)
     if (g_MenuTimer >= 1501) // PAL (50fps): 30 seconds + 1 frame
 #else
@@ -2404,7 +2411,6 @@ s32 interface_menu05_fileselect(void)
         frontChangeMenu(MENU_LEGAL_SCREEN, TRUE);
     }
 }
-
 
 
 char* get_ptr_difficulty_name(s32 difficulty)
@@ -2429,38 +2435,48 @@ char* get_ptr_difficulty_name(s32 difficulty)
 }
 
 
-
-
-// Warning: The declaration of spD0 is likely incorrect, if this if this function is modified
-// make sure to extend spD0 to avoid overflow.
+/**
+ * Address: 7F00C408
+ * 
+ * Render the file folder select screen. That includes the background texture, four 3D wallet models, the progress text written on them,
+ * the crosshair cursor, and the "SELECT FILE", "Copy", and "Erase" text and icons.
+ *
+ * The declaration of difficultytext (spD0) is likely incorrect, if this function is modified
+ * make sure to extend difficultytext to avoid overflow.
+ */
 Gfx *constructor_menu05_fileselect(Gfx *DL)
 {
-    s32 sp1B4;
-    struct FolderSelectColour sp1A8;
-    struct FolderSelectColour sp19C;
+    s32 foldernum;
+    struct FolderSelectColour topcolour;
+    struct FolderSelectColour bottomcolour;
     s32 j;
     s32 i;
     u8 *langp;
-    s32 var_s2_2;
-    ModelRenderData sp14C;
-    s32 var_s1_2;
-    Mtxf sp108;
-    f32 temp_f4;
-    struct point2d spFC;
-    struct point2d spF4;
-    LEVEL_SOLO_SEQUENCE spF0;
-    DIFFICULTY spEC;
-    struct coord2d spE4;
+    s32 chapterindex;                       // index of the chapter (MISSION_HEADER) row in mission_folder_setup_entries
+    ModelRenderData renderdata;
+    s32 missionindex;                       // index of the mission (MISSION_PART) row in mission_folder_setup_entries
+    Mtxf mtx;
+    f32 folderx;
+    struct point2d textpos;
+    struct point2d textsize;
+    LEVEL_SOLO_SEQUENCE higheststage;
+    DIFFICULTY highestdifficulty;
+    struct coord2d folderpos2d;             // folder position projected to screen space
 
-    sp1A8 = unknown_folderselect_constructor;
-    sp19C = unknown_folderselect_constructor_0;
+    topcolour = unknown_folderselect_constructor;
+    bottomcolour = unknown_folderselect_constructor_0;
 
-    DL = insert_imageDL(DL);
+    /** 
+     * The background image doesn't fully cover the screen so it's necessary to clear the back framebuffer to opaque black.
+     * This creates the impression of the folder menu having a black border.
+     */ 
+    DL = clear_framebuffer_black(DL);
 
     gDPSetCombineLERP(DL++, TEXEL0, PRIMITIVE, ENV_ALPHA, PRIMITIVE, 0, 0, 0, PRIMITIVE, TEXEL0, PRIMITIVE, ENV_ALPHA, PRIMITIVE, 0, 0, 0, PRIMITIVE);
     gDPSetEnvColor(DL++, 0xFF, 0xFF, 0xFF, 0x14);
 
-    DL = titleRenderFolderMenuBackground(DL, (s32) floorFloat(((f32) viGetX() * -80.0f) / 1280.0f), &sp1A8, &sp19C);
+    // Render the gun barrel background image.
+    DL = titleRenderFolderMenuBackground(DL, (s32) floorFloat(((f32) viGetX() * -80.0f) / 1280.0f), &topcolour, &bottomcolour);
 
     gSPDisplayList(DL++, &dlBasicGeometry);
     gSPDisplayList(DL++, &dlFastPipelineSetup);
@@ -2468,24 +2484,21 @@ Gfx *constructor_menu05_fileselect(Gfx *DL)
     for (j = 3; j >= 0; j--)
     {
         // struct copy
-        sp14C = unknown_folderselect;
+        renderdata = unknown_folderselect;
 
-        sp14C.flags = 3;
-        sp14C.zbufferenabled = FALSE;
-        sp14C.gdl = DL;
+        renderdata.flags = 3;
+        renderdata.zbufferenabled = FALSE;
+        renderdata.gdl = DL;
 
-        subdraw(&sp14C, walletinst[j]);
+        // Render the folder wall model.
+        subdraw(&renderdata, walletinst[j]);
 
-        DL = sp14C.gdl;
+        DL = renderdata.gdl;
 
         for (i=0; i < walletinst[j]->obj->numMatrices; i++)
         {
-            // hack: source address steps by sizeof(Mtxf), but can't get that to match
-            matrix_4x4_copy(
-                (Mtxf*)&((s8*)walletinst[j]->render_pos)[i*0x40],
-                &sp108);
-
-            matrix_4x4_f32_to_s32(&sp108, &((Mtxf*)walletinst[j]->render_pos)[i]);
+            matrix_4x4_copy((Mtxf*)&((s8*)walletinst[j]->render_pos)[i * sizeof(Mtxf)], &mtx);
+            matrix_4x4_f32_to_s32(&mtx, &((Mtxf*)walletinst[j]->render_pos)[i]);
 
         }
     }
@@ -2493,202 +2506,198 @@ Gfx *constructor_menu05_fileselect(Gfx *DL)
     DL = microcode_constructor(DL);
     setTextSpacingInverted(0);
 
-    for (sp1B4 = FOLDER1; sp1B4 < MAX_FOLDER_COUNT; sp1B4++)
+    for (foldernum = FOLDER1; foldernum < MAX_FOLDER_COUNT; foldernum++)
     {
-        // HACK:
-        char spD0[4]; // this needs to be at least 14 characters.
-        char spBC[18];
+        char difficultytext[4]; // spD0
+        char missiontext[18];   // spBC: "Mission <chapter>.<part>\n"
         s32 padding3;
-        struct coord3d * sp74;
+        struct coord3d * folderworldpos;
 
-        sp74 = &dword_CODE_bss_80069620[sp1B4];
+        folderworldpos = &folderpositions_camspace[foldernum];
 
-        transform3Dto2DCoords(sp74, &spE4);
+        transform3Dto2DCoords(folderworldpos, &folderpos2d);
 
-        if (sp1B4 == folder_selected_for_deletion)
+        if (foldernum == folder_selected_for_deletion)
         {
-            spFC.p[1] = (s32) floorFloat(spE4.f[0]) - 0x31;
-            spFC.p[0] = (s32) floorFloat(spE4.f[1]) + 0x19;
+            textpos.p[1] = (s32) floorFloat(folderpos2d.f[0]) - 0x31;
+            textpos.p[0] = (s32) floorFloat(folderpos2d.f[1]) + 0x19;
 
-            DL = microcode_constructor_related_to_menus(DL, spFC.p[1], spFC.p[0], spFC.p[1] + 0x63, spFC.p[0] + 0x2A, 0x32);
+            DL = microcode_constructor_related_to_menus(DL, textpos.p[1], textpos.p[0], textpos.p[1] + 0x63, textpos.p[0] + 0x2A, 0x32);
 
-            langp     = langGet(getStringID(LTITLE, TITLE_STR_23_ERASEFILE));
-            spFC.p[1] = (s32) floorFloat(spE4.f[0]) - 0x2F;
-            spFC.p[0] = (s32) floorFloat(spE4.f[1]) + 0x1E;
+            langp = langGet(getStringID(LTITLE, TITLE_STR_23_ERASEFILE)); /* Erase file? */
+            textpos.p[1] = (s32) floorFloat(folderpos2d.f[0]) - 0x2F;
+            textpos.p[0] = (s32) floorFloat(folderpos2d.f[1]) + 0x1E;
 
-            // 0xEBD879FF
-            DL = textRender(DL, &spFC.p[1], &spFC.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, 0xEBD879FF, viGetX(), viGetY(), 0, 0);
+            DL = textRender(DL, &textpos.p[1], &textpos.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, 0xEBD879FF, viGetX(), viGetY(), 0, 0);
 
-            langp     = langGet(getStringID(LTITLE, TITLE_STR_24_CANCEL));
-            spFC.p[1] = (s32) floorFloat(spE4.f[0]) - 0x2F;
-            spFC.p[0] = (s32) floorFloat(spE4.f[1]) + 0x32;
-
-            if (folder_selected_for_deletion_choice != 0)
-            {
-                spF4.p[0] = 0;
-                spF4.p[1] = 0;
-                textMeasure(&spF4.p[1], &spF4.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
-                DL = microcode_constructor_related_to_menus(DL, spFC.p[1] - 1, spFC.p[0] - 1, spF4.p[0] + spFC.p[1] + 3, spF4.p[1] + spFC.p[0], 0x32);
-                DL = textRender(DL, &spFC.p[1], &spFC.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
-            }
-            else
-            {
-                DL = textRender(DL, &spFC.p[1], &spFC.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, 0xEBD879FF, viGetX(), viGetY(), 0, 0);
-            }
-
-            langp = langGet(getStringID(LTITLE, TITLE_STR_25_CONFIRM));
-
-            temp_f4 = floorFloat(spE4.f[0]);
-            spFC.p[1] = (((j_text_trigger != 0) ? 0x17 : -1) + (s32) temp_f4) - 1;
-            spFC.p[0] = (s32) floorFloat(spE4.f[1]) + 0x32;
+            langp = langGet(getStringID(LTITLE, TITLE_STR_24_CANCEL)); /* cancel */
+            textpos.p[1] = (s32) floorFloat(folderpos2d.f[0]) - 0x2F;
+            textpos.p[0] = (s32) floorFloat(folderpos2d.f[1]) + 0x32;
 
             if (folder_selected_for_deletion_choice != 0)
             {
-                DL = textRender(DL, &spFC.p[1], &spFC.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, 0xEBD879FF, viGetX(), viGetY(), 0, 0);
+                textsize.p[0] = 0;
+                textsize.p[1] = 0;
+                textMeasure(&textsize.p[1], &textsize.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
+                DL = microcode_constructor_related_to_menus(DL, textpos.p[1] - 1, textpos.p[0] - 1, textsize.p[0] + textpos.p[1] + 3, textsize.p[1] + textpos.p[0], 0x32);
+                DL = textRender(DL, &textpos.p[1], &textpos.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
             }
             else
             {
-                spF4.p[0] = 0;
-                spF4.p[1] = 0;
-                textMeasure(&spF4.p[1], &spF4.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
-                DL = microcode_constructor_related_to_menus(DL, spFC.p[1] - 1, spFC.p[0] - 1, spF4.p[0] + spFC.p[1] + 3, spF4.p[1] + spFC.p[0], 0x32);
-                DL = textRender(DL, &spFC.p[1], &spFC.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
+                DL = textRender(DL, &textpos.p[1], &textpos.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, 0xEBD879FF, viGetX(), viGetY(), 0, 0);
+            }
+
+            langp = langGet(getStringID(LTITLE, TITLE_STR_25_CONFIRM)); /* confirm */
+
+            folderx = floorFloat(folderpos2d.f[0]);
+            textpos.p[1] = (((j_text_trigger != 0) ? 0x17 : -1) + (s32) folderx) - 1;
+            textpos.p[0] = (s32) floorFloat(folderpos2d.f[1]) + 0x32;
+
+            if (folder_selected_for_deletion_choice != 0)
+            {
+                DL = textRender(DL, &textpos.p[1], &textpos.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, 0xEBD879FF, viGetX(), viGetY(), 0, 0);
+            }
+            else
+            {
+                textsize.p[0] = 0;
+                textsize.p[1] = 0;
+                textMeasure(&textsize.p[1], &textsize.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
+                DL = microcode_constructor_related_to_menus(DL, textpos.p[1] - 1, textpos.p[0] - 1, textsize.p[0] + textpos.p[1] + 3, textsize.p[1] + textpos.p[0], 0x32);
+                DL = textRender(DL, &textpos.p[1], &textpos.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
             }
 
         }
         else
         {
+            fileGetHighestStageDifficultyCompletedForFolder(foldernum, &higheststage, &highestdifficulty);
 
-            fileGetHighestStageDifficultyCompletedForFolder(sp1B4, &spF0, &spEC);
-
-            if ((spF0 >= SP_LEVEL_DAM) && (spEC >= DIFFICULTY_AGENT))
+            if ((higheststage >= SP_LEVEL_DAM) && (highestdifficulty >= DIFFICULTY_AGENT))
             {
-                langp = get_ptr_difficulty_name(spEC);
+                langp = get_ptr_difficulty_name(highestdifficulty);
 
                 if (langp != NULL)
                 {
-                    strcpy((char *)&spD0, langp);
-                    strcat((char *)&spD0, "\n");
+                    strcpy((char *)&difficultytext, langp);
+                    strcat((char *)&difficultytext, "\n");
 
-                    spF4.p[0] = 0;
-                    spF4.p[1] = 0;
+                    textsize.p[0] = 0;
+                    textsize.p[1] = 0;
 
-                    textMeasure(&spF4.p[1], &spF4.p[0], (char *)&spD0, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
-                    spFC.p[1] = ((s32) floorFloat(spE4.f[0]) - (spF4.p[0] / 2)) - 1;
-                    spFC.p[0] = (s32) floorFloat(spE4.f[1]) + 0x15;
-                    DL = textRender(DL, &spFC.p[1], &spFC.p[0], (char *)&spD0, ptrFontZurichBoldChars, ptrFontZurichBold, 0xEBD879FF, viGetX(), viGetY(), 0, 0);
+                    textMeasure(&textsize.p[1], &textsize.p[0], (char *)&difficultytext, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
+                    textpos.p[1] = ((s32) floorFloat(folderpos2d.f[0]) - (textsize.p[0] / 2)) - 1;
+                    textpos.p[0] = (s32) floorFloat(folderpos2d.f[1]) + 0x15;
+                    DL = textRender(DL, &textpos.p[1], &textpos.p[0], (char *)&difficultytext, ptrFontZurichBoldChars, ptrFontZurichBold, 0xEBD879FF, viGetX(), viGetY(), 0, 0);
                 }
 
-                if (spEC != DIFFICULTY_007)
+                if (highestdifficulty != DIFFICULTY_007)
                 {
-                    var_s2_2 = -1;
+                    chapterindex = -1;
 
-                    strcpy(spBC, langGet(getStringID(LTITLE, TITLE_STR_26_MISSION)));
+                    strcpy(missiontext, langGet(getStringID(LTITLE, TITLE_STR_26_MISSION))); /* Mission */
 
-                    for (var_s1_2 = 0; mission_folder_setup_entries[var_s1_2].folder_text_preset != 0; var_s1_2++)
+                    for (missionindex = 0; mission_folder_setup_entries[missionindex].folder_text_preset != 0; missionindex++)
                     {
-                        if (spF0 == mission_folder_setup_entries[var_s1_2].mission_num)
+                        if (higheststage == mission_folder_setup_entries[missionindex].mission_num)
                         {
-                            var_s2_2 = get_chapter_briefing_entry(var_s1_2);
+                            chapterindex = get_chapter_briefing_entry(missionindex);
                             break;
                         }
                     }
 
-                    if (var_s2_2 >= 0)
+                    if (chapterindex >= 0)
                     {
-                        strcat((char *)spBC, (char *)mission_folder_setup_entries[var_s2_2].string_ptr);
-                        strcat((char *)spBC, ".");
+                        strcat((char *)missiontext, (char *)mission_folder_setup_entries[chapterindex].string_ptr);
+                        strcat((char *)missiontext, ".");
                     }
 
-                    strcat((char *)spBC, (char *)mission_folder_setup_entries[var_s1_2].string_ptr);
-                    strcat((char *)spBC, "\n");
-                    spF4.p[0] = 0;
-                    spF4.p[1] = 0;
+                    strcat((char *)missiontext, (char *)mission_folder_setup_entries[missionindex].string_ptr);
+                    strcat((char *)missiontext, "\n");
+                    textsize.p[0] = 0;
+                    textsize.p[1] = 0;
 
-                    textMeasure(&spF4.p[1], &spF4.p[0], (char *)spBC, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
-                    spFC.p[1] = ((s32) floorFloat(spE4.f[0]) - (spF4.p[0] / 2)) - 1;
-                    spFC.p[0] = (s32) floorFloat(spE4.f[1]) + 0x2D;
+                    textMeasure(&textsize.p[1], &textsize.p[0], (char *)missiontext, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
+                    textpos.p[1] = ((s32) floorFloat(folderpos2d.f[0]) - (textsize.p[0] / 2)) - 1;
+                    textpos.p[0] = (s32) floorFloat(folderpos2d.f[1]) + 0x2D;
 
-                    DL = textRender(DL, &spFC.p[1], &spFC.p[0], (char *)spBC, ptrFontZurichBoldChars, ptrFontZurichBold, 0xEBD879FF, viGetX(), viGetY(), 0, 0);
+                    DL = textRender(DL, &textpos.p[1], &textpos.p[0], (char *)missiontext, ptrFontZurichBoldChars, ptrFontZurichBold, 0xEBD879FF, viGetX(), viGetY(), 0, 0);
                 }
             }
         }
     }
 
-    if(1)
     {
         // The above for loops makes a lot of compiler temp variables on the stack,
         // These need to be declared sometime after the above for loop.
-        struct coord2d spAC;
-        struct coord2d spA4;
-        struct coord2d sp9C;
-        struct coord2d sp94;
-        struct coord2d sp8C;
-        struct coord2d sp84;
+        struct coord2d copypos;
+        struct coord2d copyhalfsize;
+        struct coord2d erasepos;
+        struct coord2d erasehalfsize;
+        struct coord2d selectpos;
+        struct coord2d selecthalfsize;
 
         setTextSpacingInverted(0);
 
-        langp = langGet(getStringID(LTITLE, TITLE_STR_27_COPY));
+        langp = langGet(getStringID(LTITLE, TITLE_STR_27_COPY)); /* Copy */
 
-        spF4.p[0] = 0;
-        spF4.p[1] = 0;
+        textsize.p[0] = 0;
+        textsize.p[1] = 0;
 
-        textMeasure(&spF4.p[1], &spF4.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
+        textMeasure(&textsize.p[1], &textsize.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
 
-        spFC.p[0] = 0x11D - (spF4.p[1] / 2);
-        spFC.p[1] = 0xF7;
+        textpos.p[0] = 285 - (textsize.p[1] / 2);
+        textpos.p[1] = 247;
 
-        DL = textRender(DL, &spFC.p[1], &spFC.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
-        folder_option_COPY_bound.right = (f32) (spF4.p[0] + spFC.p[1]);
+        DL = textRender(DL, &textpos.p[1], &textpos.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
+        folder_option_COPY_bound.right = (f32) (textsize.p[0] + textpos.p[1]);
 
-        langp = langGet(getStringID(LTITLE, TITLE_STR_28_ERASE));
+        langp = langGet(getStringID(LTITLE, TITLE_STR_28_ERASE)); /* Erase */
 
-        spF4.p[0] = 0;
-        spF4.p[1] = 0;
+        textsize.p[0] = 0;
+        textsize.p[1] = 0;
 
-        textMeasure(&spF4.p[1], &spF4.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
+        textMeasure(&textsize.p[1], &textsize.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
 
-        spFC.p[1] = 0x165;
-        spFC.p[0] = 0x11D - (spF4.p[1] / 2);
+        textpos.p[1] = 357;
+        textpos.p[0] = 285 - (textsize.p[1] / 2);
 
-        DL = textRender(DL, &spFC.p[1], &spFC.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
+        DL = textRender(DL, &textpos.p[1], &textpos.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
 
-        folder_option_ERASE_bound.right = (f32) (spF4.p[0] + spFC.p[1]);
+        folder_option_ERASE_bound.right = (f32) (textsize.p[0] + textpos.p[1]);
 
-        spAC.f[0] = 225.0f;
-        spAC.f[1] = 285.0f;
+        copypos.f[0] = 225.0f;
+        copypos.f[1] = 285.0f;
 
-        spA4.f[0] = (f32) (mainfolderimages + IMG_COPY)->width * 0.5f;
-        spA4.f[1] = (f32) (mainfolderimages + IMG_COPY)->height * 0.5f;
+        copyhalfsize.f[0] = (f32) (mainfolderimages + IMG_COPY)->width * 0.5f;
+        copyhalfsize.f[1] = (f32) (mainfolderimages + IMG_COPY)->height * 0.5f;
 
         texSelect(&DL, mainfolderimages, 4, 0, 0);
-        display_image_at_position(&DL, &spAC.f[0], &spA4.f[0], mainfolderimages->width, mainfolderimages->height, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, (s32) mainfolderimages->level > 0, 0);
+        display_image_at_position(&DL, &copypos.f[0], &copyhalfsize.f[0], mainfolderimages->width, mainfolderimages->height, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, (s32) mainfolderimages->level > 0, 0);
 
-        folder_option_COPY_bound.left = spAC.f[0] - spA4.f[0];
-        folder_option_COPY_bound.up = spAC.f[1] - spA4.f[1];
-        folder_option_COPY_bound.down = spAC.f[1] + spA4.f[1];
+        folder_option_COPY_bound.left = copypos.f[0] - copyhalfsize.f[0];
+        folder_option_COPY_bound.up = copypos.f[1] - copyhalfsize.f[1];
+        folder_option_COPY_bound.down = copypos.f[1] + copyhalfsize.f[1];
 
-        sp9C.f[0] = 335.0f;
-        sp9C.f[1] = 285.0f;
+        erasepos.f[0] = 335.0f;
+        erasepos.f[1] = 285.0f;
 
-        sp94.f[0] = (mainfolderimages + IMG_DEL)->width * 0.5f;
-        sp94.f[1] = (mainfolderimages + IMG_DEL)->height * 0.5f;
+        erasehalfsize.f[0] = (mainfolderimages + IMG_DEL)->width * 0.5f;
+        erasehalfsize.f[1] = (mainfolderimages + IMG_DEL)->height * 0.5f;
 
         texSelect(&DL, mainfolderimages + IMG_DEL, 4, 0, 0);
-        display_image_at_position(&DL, &sp9C.f[0], &sp94.f[0], (mainfolderimages + IMG_DEL)->width, (mainfolderimages + IMG_DEL)->height, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, (s32) (mainfolderimages + IMG_DEL)->level > 0, 0);
+        display_image_at_position(&DL, &erasepos.f[0], &erasehalfsize.f[0], (mainfolderimages + IMG_DEL)->width, (mainfolderimages + IMG_DEL)->height, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, (s32) (mainfolderimages + IMG_DEL)->level > 0, 0);
 
-        folder_option_ERASE_bound.left = (f32) (sp9C.f[0] - sp94.f[0]);
-        folder_option_ERASE_bound.up = (f32) (sp9C.f[1] - sp94.f[1]);
-        folder_option_ERASE_bound.down = (f32) (sp9C.f[1] + sp94.f[1]);
+        folder_option_ERASE_bound.left = (f32) (erasepos.f[0] - erasehalfsize.f[0]);
+        folder_option_ERASE_bound.up = (f32) (erasepos.f[1] - erasehalfsize.f[1]);
+        folder_option_ERASE_bound.down = (f32) (erasepos.f[1] + erasehalfsize.f[1]);
 
-        sp8C.f[0] = 110.0f;
-        sp8C.f[1] = 285.0f;
+        selectpos.f[0] = 110.0f;
+        selectpos.f[1] = 285.0f;
 
-        sp84.f[0] = (mainfolderimages + IMG_SEL)->width * 0.5f;
-        sp84.f[1] = (mainfolderimages + IMG_SEL)->height * 0.5f;
+        selecthalfsize.f[0] = (mainfolderimages + IMG_SEL)->width * 0.5f;
+        selecthalfsize.f[1] = (mainfolderimages + IMG_SEL)->height * 0.5f;
 
         texSelect(&DL, mainfolderimages + IMG_SEL, 4, 0, 0);
-        display_image_at_position(&DL, &sp8C.f[0], &sp84.f[0], (mainfolderimages + IMG_SEL)->width, (mainfolderimages + IMG_SEL)->height, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, (s32) (mainfolderimages + IMG_SEL)->level > 0, 0);
+        display_image_at_position(&DL, &selectpos.f[0], &selecthalfsize.f[0], (mainfolderimages + IMG_SEL)->width, (mainfolderimages + IMG_SEL)->height, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, (s32) (mainfolderimages + IMG_SEL)->level > 0, 0);
     }
 
     if (folder_selected_for_deletion < 0)
@@ -2712,7 +2721,9 @@ void init_menu06_modeselect(void)
     fileUpdateBondInCurrentFolder();
 }
 
-void update_menu06_modesel(void) {
+
+void update_menu06_modesel(void) 
+{
     return;
 }
 
@@ -3044,13 +3055,11 @@ void init_menu07_missionselect(void)
     load_walletbond();
 }
 
-void update_menu07_missionsel(void) {
+
+void update_menu07_missionsel(void) 
+{
     return;
 }
-
-
-
-
 
 
 // Address 0x7F00DEB8 NTSC
@@ -3067,7 +3076,7 @@ void interface_menu07_missionsel(void)
     s32 padding;
 
     viSetFovY(60.0f);
-    viSetAspect(1.3333334f);
+    viSetAspect(ASPECT_RATIO_SD);
     viSetZRange(100.0f, 10000.0f);
     viSetUseZBuf(0);
     disable_all_switches(walletinst[0]);
@@ -4837,10 +4846,11 @@ void init_menu0f_mpcharsel(void)
 //********************************************************************************************************
 //MULTIPLAYER CHARACTER SELECT
 //********************************************************************************************************
-void update_menu0F_mpcharsel(void) {
+
+void update_menu0F_mpcharsel(void) 
+{
     return;
 }
-
 
 
 // Address 0x7F011ED4 NTSC
@@ -4856,7 +4866,7 @@ void interface_menu0F_mpcharsel(void)
     numplayers = get_selected_num_players();
     ready_players = 0;
     viSetFovY(60.0f);
-    viSetAspect(1.3333334f);
+    viSetAspect(ASPECT_RATIO_SD);
     viSetZRange(100.0f, 10000.0f);
     viSetUseZBuf(0);
 
@@ -5247,12 +5257,10 @@ void init_menu10_mphandicap(void)
     load_walletbond();
 }
 
-void update_menu10_mphandicap(void) {
+void update_menu10_mphandicap(void) 
+{
     return;
 }
-
-
-
 
 
 // Address 0x7F012EC4 NTSC
@@ -5265,7 +5273,7 @@ void interface_menu10_mphandicap(void)
     sp44 = get_selected_num_players();
     var_fp = 0;
     viSetFovY(60.0f);
-    viSetAspect(1.3333334f);
+    viSetAspect(ASPECT_RATIO_SD);
     viSetZRange(100.0f, 10000.0f);
     viSetUseZBuf(0);
 
@@ -5466,7 +5474,7 @@ void interface_menu11_mpcontrols(void)
     sp44 = get_selected_num_players();
     var_fp = 0;
     viSetFovY(60.0f);
-    viSetAspect(1.3333334f);
+    viSetAspect(ASPECT_RATIO_SD);
     viSetZRange(100.0f, 10000.0f);
     viSetUseZBuf(0);
 
@@ -6159,30 +6167,31 @@ void set_players_team_or_scenario_item_flag(int player,s32 flag)
 //********************************************************************************************************
 //MULTIPLAYER TEAM SELECT
 //********************************************************************************************************
+
 void init_menu14_mpteamsel(void)
 {
-  tab_start_selected = FALSE;
-  tab_next_selected = FALSE;
-  tab_prev_selected = FALSE;
-  tab_prev_highlight = FALSE;
-  tab_next_highlight = FALSE;
-  tab_start_highlight = FALSE;
-  if (scenario == SCENARIO_2v1) {
-    teamsize = 2;
-  }
-  else {
-    teamsize = 3;
-  }
-  D_8002B560 = 0;
-  load_walletbond();
+    tab_start_selected = FALSE;
+    tab_next_selected = FALSE;
+    tab_prev_selected = FALSE;
+    tab_prev_highlight = FALSE;
+    tab_next_highlight = FALSE;
+    tab_start_highlight = FALSE;
+
+    if (scenario == SCENARIO_2v1) {
+        teamsize = 2;
+    }
+    else {
+        teamsize = 3;
+    }
+
+    D_8002B560 = 0;
+    load_walletbond();
 }
 
-void update_menu14_mpteams(void) {
-return;
+void update_menu14_mpteams(void) 
+{
+    return;
 }
-
-
-
 
 
 // Address 0x7F014D48 NTSC
@@ -6192,7 +6201,7 @@ void interface_menu14_mpteams(void)
     s32 var_a1;
 
     viSetFovY(60.0f);
-    viSetAspect(1.3333334f);
+    viSetAspect(ASPECT_RATIO_SD);
     viSetZRange(100.0f, 10000.0f);
     viSetUseZBuf(0);
 
@@ -7313,17 +7322,10 @@ Gfx *constructor_menu0D_missioncomplete(Gfx *DL)
 }
 
 
-
-
-
-
-
-
-
-
 //********************************************************************************************************
 //CHEAT SCREEN
 //********************************************************************************************************
+
 void init_menu15_cheat(void)
 {
     int i;
@@ -7375,7 +7377,7 @@ void interface_menu15_cheat(void)
     s32 i;
 
     viSetFovY(60.0f);
-    viSetAspect(1.3333334f);
+    viSetAspect(ASPECT_RATIO_SD);
     viSetZRange(100.0f, 10000.0f);
     viSetUseZBuf(0);
 
@@ -7590,7 +7592,7 @@ Gfx *constructor_menu16_nocontrollers(Gfx *DL)
     if ((conConnected & 2)) {
         numContCon++;
     }
-    DL = microcode_constructor(insert_imageDL(DL));
+    DL = microcode_constructor(clear_framebuffer_black(DL));
 
 
     if ((numContCon == 0) || (numContCon == 1) || (numContCon == 2) || (numContCon == 3)) {
@@ -8286,7 +8288,8 @@ void init_menu19_spectrum(void)
 }
 
 
-void update_menu19_spectrum(void) {
+void update_menu19_spectrum(void) 
+{
     return;
 }
 
@@ -8303,19 +8306,16 @@ void interface_menu19_spectrum(void)
 }
 
 
-
-
 #if !defined(LEFTOVERSPECTRUM)
 Gfx* constructor_menu19_spectrum(Gfx* DL)
 {
     return DL;
 }
 #else
-
 // Address 0x7F01A4E0 NTSC
 Gfx * constructor_menu19_spectrum(Gfx * DL)
 {
-    DL = insert_imageDL(DL);
+    DL = clear_framebuffer_black(DL);
 
     gDPSetCycleType(DL++, G_CYC_1CYCLE);
     gDPSetRenderMode(DL++, G_RM_AA_OPA_SURF, G_RM_AA_OPA_SURF2);
@@ -8334,11 +8334,6 @@ Gfx * constructor_menu19_spectrum(Gfx * DL)
     return DL;
 }
 #endif
-
-
-
-
-
 
 
 void frontChangeMenu(MENU menu, s32 reload)
@@ -8362,8 +8357,6 @@ MENU get_currentmenu(void)
 {
   return current_menu;
 }
-
-
 
 
 void menu_init(void)

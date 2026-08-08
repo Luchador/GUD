@@ -9635,21 +9635,21 @@ Gfx *bondviewRenderDebugBondView(Gfx *gdl)
     {
         if (cur_player_get_screen_setting() == SCREEN_SIZE_CINEMA)
         {
-            gdl = insert_imageDL(gdl);
-            gdl = insert_imageDL(gdl);
-            gdl = insert_imageDL(gdl);
-            gdl = insert_imageDL(gdl);
+            gdl = clear_framebuffer_black(gdl);
+            gdl = clear_framebuffer_black(gdl);
+            gdl = clear_framebuffer_black(gdl);
+            gdl = clear_framebuffer_black(gdl);
         }
         else if (cur_player_get_screen_setting() == SCREEN_SIZE_WIDESCREEN)
         {
-            gdl = insert_imageDL(gdl);
-            gdl = insert_imageDL(gdl);
-            gdl = insert_imageDL(gdl);
+            gdl = clear_framebuffer_black(gdl);
+            gdl = clear_framebuffer_black(gdl);
+            gdl = clear_framebuffer_black(gdl);
         }
         else
         {
-            gdl = insert_imageDL(gdl);
-            gdl = insert_imageDL(gdl);
+            gdl = clear_framebuffer_black(gdl);
+            gdl = clear_framebuffer_black(gdl);
         }
     }
 #endif

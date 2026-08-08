@@ -193,7 +193,8 @@ u8 die_blood_image_1[] = {
 
 u8 die_blood_image_end = 0;
 
-Gfx *insert_imageDL(Gfx *gdl) {
+Gfx *clear_framebuffer_black(Gfx *gdl) 
+{
    gDPSetCycleType(gdl++, G_CYC_FILL);
    gDPSetColorImage(gdl++, G_IM_FMT_RGBA, G_IM_SIZ_16b, viGetX(), osVirtualToPhysical(viGetFrameBuf2()));
    gDPSetFillColor(gdl++, ((GPACK_RGBA5551(0, 0, 0, 1) << 16) | GPACK_RGBA5551(0, 0, 0, 1)));
