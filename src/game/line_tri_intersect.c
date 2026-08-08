@@ -15,7 +15,7 @@
  * @param rayDirection Direction of the line and forward ray test.
  * @param hit Receives the intersection position and face normal on success.
  */
-bool intersectLineTriangle(Vertex *vertex0, Vertex *vertex1, Vertex *vertex2, coord3d *vertexOffset, coord3d *rayStart, coord3d *linePoint, coord3d *rayDirection, HitThing *hit)
+bool intersectRayTriangle(Vertex *vertex0, Vertex *vertex1, Vertex *vertex2, coord3d *vertexOffset, coord3d *rayStart, coord3d *linePoint, coord3d *rayDirection, HitThing *hit)
 {
     f64 edge01[3];
     f64 edge12[3];

@@ -23966,7 +23966,7 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
                 zero = D_80032064;
                 pt0 = vtxbase; pt0 += idx[0]; pt1 = vtxbase; pt1 += idx[1]; pt2 = vtxbase; pt2 += idx[2];
 
-                if (intersectLineTriangle(pt0, pt1, pt2, &zero, arg0, arg1, arg2, &hitbuf))
+                if (intersectRayTriangle(pt0, pt1, pt2, &zero, arg0, arg1, arg2, &hitbuf))
                 {
                     dx = (f32) (((s32) hitbuf.hitpos.x) - ((s32) arg0->x));
                     dy = (f32) (((s32) hitbuf.hitpos.y) - ((s32) arg0->y));
@@ -24087,7 +24087,7 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
                     zero2 = D_80032088;
                     pt0 = vtxbase; pt0 += idx2[0]; pt1 = vtxbase; pt1 += idx2[1]; pt2 = vtxbase; pt2 += idx2[2];
 
-                    if (intersectLineTriangle(pt0, pt1, pt2, &zero2, arg0, arg1, arg2, &hitbuf))
+                    if (intersectRayTriangle(pt0, pt1, pt2, &zero2, arg0, arg1, arg2, &hitbuf))
                     {
                         dx = (f32) (((s32) hitbuf.hitpos.x) - ((s32) arg0->x));
                         dy = (f32) (((s32) hitbuf.hitpos.y) - ((s32) arg0->y));
