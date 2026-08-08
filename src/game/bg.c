@@ -3302,7 +3302,7 @@ void bgBuildRoomVtxBounds(s32 roomID)
 /**
  * Slab method ray vs axis aligned bounding box test, written to be division-free.
  */
-bool bgTestLineIntersectsBbox(coord3d *origin, coord3d *dir, s32 *bbox_min, s32 *bbox_max)
+bool bgTestRayIntersectsBbox(coord3d *origin, coord3d *dir, s32 *bbox_min, s32 *bbox_max)
 {
     coord3d bbox_min_f;
     coord3d bbox_max_f;
@@ -3568,7 +3568,7 @@ bool bgTestLineIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, Room
                 bboxMax.y += (s32) ptr_bgdata_room_fileposition_list[roomnum].pos.y;
                 bboxMax.z += (s32) ptr_bgdata_room_fileposition_list[roomnum].pos.z;
 
-                if (bgTestLineIntersectsBbox(from, dir, (s32 *) (&bboxMin), (s32 *) (&bboxMax)))
+                if (bgTestRayIntersectsBbox(from, dir, (s32 *) (&bboxMin), (s32 *) (&bboxMax)))
                 {
                     if (intersectLineTriangle((Vertex *)((s32)vtxbase - (0 - (idx[0] << 4))), (Vertex *)((s32)vtxbase - (0 - (idx[1] << 4))), (Vertex *)((s32)vtxbase - (0 - (idx[2] << 4))), (coord3d *) (((roomnum * 24) + ((s32) ptr_bgdata_room_fileposition_list)) + 12), from, to, dir, &hitbuf))
                     {
@@ -3706,7 +3706,7 @@ bool bgTestLineIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, Room
                         bboxMax2.y += (s32) ptr_bgdata_room_fileposition_list[roomnum].pos.y;
                         bboxMax2.z += (s32) ptr_bgdata_room_fileposition_list[roomnum].pos.z;
 
-                        if (bgTestLineIntersectsBbox(from, dir, (s32 *) (&bboxMin2), (s32 *) (&bboxMax2)))
+                        if (bgTestRayIntersectsBbox(from, dir, (s32 *) (&bboxMin2), (s32 *) (&bboxMax2)))
                         {
                             if (intersectLineTriangle((Vertex *)((s32)vtxbase - (0 - (idx2[0] << 4))), (Vertex *)((s32)vtxbase - (0 - (idx2[1] << 4))), (Vertex *)((s32)vtxbase - (0 - (idx2[2] << 4))), (coord3d *) (((roomnum * 24) + ((s32) ptr_bgdata_room_fileposition_list)) + 12), from, to, dir, &hitbuf))
                             {
@@ -3844,7 +3844,7 @@ bool bgTestBulletHitBackground(coord3d *from, coord3d *to, s32 roomnum, struct H
 
     for (i = 0; i < numpoints; i++) 
     {
-        if (!bgTestLineIntersectsBbox(&fromscaled, &dir, &point[i].xmin, &point[i].xmax)) 
+        if (!bgTestRayIntersectsBbox(&fromscaled, &dir, &point[i].xmin, &point[i].xmax)) 
         {
             continue;
         }

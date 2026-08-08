@@ -23961,7 +23961,7 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
                 }
             }
 
-            if (bgTestLineIntersectsBbox(arg0, arg2, (s32 *) (&bboxMin), (s32 *) (&bboxMax)))
+            if (bgTestRayIntersectsBbox(arg0, arg2, (s32 *) (&bboxMin), (s32 *) (&bboxMax)))
             {
                 zero = D_80032064;
                 pt0 = vtxbase; pt0 += idx[0]; pt1 = vtxbase; pt1 += idx[1]; pt2 = vtxbase; pt2 += idx[2];
@@ -24082,7 +24082,7 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
                     }
                 }
 
-                if (bgTestLineIntersectsBbox(arg0, arg2, (s32 *) (&bboxMin2), (s32 *) (&bboxMax2)))
+                if (bgTestRayIntersectsBbox(arg0, arg2, (s32 *) (&bboxMin2), (s32 *) (&bboxMax2)))
                 {
                     zero2 = D_80032088;
                     pt0 = vtxbase; pt0 += idx2[0]; pt1 = vtxbase; pt1 += idx2[1]; pt2 = vtxbase; pt2 += idx2[2];

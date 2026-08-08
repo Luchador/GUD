@@ -585,7 +585,7 @@ s32 chrpropRayIntersectsRoomBbox(s32 room, coord3d* start, coord3d* dir)
         max[0] = roominfo->maxbounds.f[0];
         max[1] = roominfo->maxbounds.f[1];
         max[2] = roominfo->maxbounds.f[2];
-        if (bgTestLineIntersectsBbox(start, dir, min, max)) {
+        if (bgTestRayIntersectsBbox(start, dir, min, max)) {
             return TRUE;
         }
     }
