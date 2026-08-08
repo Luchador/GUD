@@ -1869,7 +1869,7 @@ void chrpropTick(void)
 * Address: 0x7F03CA30
 * PD: propsTick (src/game/proptick.c)
 */
-void determing_type_of_object_and_detection(void)
+void propsTick(void)
 {
     s32 tickop;
     PropRecord *prop;

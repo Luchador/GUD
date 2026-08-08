@@ -257,7 +257,7 @@ void          alarmDeactivate(void);
 s32           chraiitemsize(u8 *AIList, s32 offset);
 void          check_deactivate_gas_sound(void);
 void          chrpropTick(void);
-void          determing_type_of_object_and_detection(void);
+void          propsTick(void);
 void          chraiUpdateOnscreenPropCount(void);
 void          chrpropUpdateAutoaimTarget(void);
 void          chraiCheckUseHeldItems(void);

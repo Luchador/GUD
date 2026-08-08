@@ -994,7 +994,7 @@ Gfx* lvlRender(Gfx* DL)
             DL = viSetupScreensForNumPlayers(DL);
             DL = skyRender(DL);
             bgRoomVisibilityRelated();
-            determing_type_of_object_and_detection();
+            propsTick();
             chraiUpdateOnscreenPropCount();
             chrpropUpdateAutoaimTarget();
             chraiCheckUseHeldItems();
