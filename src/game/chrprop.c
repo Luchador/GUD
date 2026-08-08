@@ -744,14 +744,18 @@ s32 chrpropFindFirstBgHitInConnectedRooms(s32 startroom, coord3d *from, coord3d 
     rooms[0] = startroom;
     count = 1;
 
-    for (curindex = 0; curindex < count; curindex++) {
+    for (curindex = 0; curindex < count; curindex++)
+    {
         room = rooms[curindex];
 
-        if (visited[room] == 0) {
+        if (visited[room] == 0)
+        {
             visited[room] = 1;
 
-            if (chrpropRayIntersectsRoomBbox(room, scaledDir, dir)) {
-                if (bgTestBulletHitBackground(from, to, room, hit)) {
+            if (chrpropRayIntersectsRoomBbox(room, scaledDir, dir))
+            {
+                if (bgTestBulletHitBackground(from, to, room, hit))
+                {
                     return room;
                 }
             }
@@ -759,14 +763,18 @@ s32 chrpropFindFirstBgHitInConnectedRooms(s32 startroom, coord3d *from, coord3d 
 
         numneighbours = bgGetConnectedRooms(room, neighbours, 100);
 
-        for (i = 0; i < numneighbours; i++) {
-            for (j = 0; j < count; j++) {
-                if (rooms[j] == neighbours[i]) {
+        for (i = 0; i < numneighbours; i++)
+        {
+            for (j = 0; j < count; j++)
+            {
+                if (rooms[j] == neighbours[i])
+                {
                     break;
                 }
             }
 
-            if (j == count) {
+            if (j == count)
+            {
                 rooms[count] = neighbours[i];
                 count++;
             }
