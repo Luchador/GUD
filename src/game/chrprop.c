@@ -869,7 +869,17 @@ s32 chrpropFindClosestBgHitRoom(s32 unused, coord3d *from, coord3d *to, coord3d 
     return bestroom;
 }
 
-
+/*
+* Address: 0x7F03B15C
+*
+* This function has a bunch of issues. It allows the player to shoot through walls
+* and even creates sparks in the distance when they shoot at the sky. Some of these
+* issues arise because it traces over the stan tiles to find the first room to test.
+* This leads to the player being able to shoot through floors if they have a portal
+* in front of them (because it's a room boundary which leads to another room) as
+* the code tracing over stan tiles only cares about the furthest stan's room. Luckily,
+* none of those bugs affect props, so prop hits are always the best candidate.
+*/
 void chraiDefaultWeaponFireHandler(s32 hand)
 {
     f32 new_var;
