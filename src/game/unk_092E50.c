@@ -90,32 +90,34 @@ struct hand D_8003FDA0 = {
     0, /* field_8E8 */
     { { {1.0f,0.0f,0.0f,0.0f}, {0.0f,1.0f,0.0f,0.0f}, {0.0f,0.0f,1.0f,0.0f}, {0.0f,0.0f,0.0f,1.0f} } }, /* field_8EC (identity) */
     0, /* field_92C */
-    0, /* field_930 */
-    0, /* field_934 */
-    0, /* field_938 */
-    0, /* field_93C */
-    0, /* field_940 */
-    -1.0f, /* field_944 */
-    0, /* field_948 */
-    1.0f, /* field_94C */
-    0, /* field_950 */
-    0, /* field_954 */
-    0, /* field_958 */
-    0, /* field_95C */
-    0, /* field_960 */
-    0, /* field_964 */
+    0, /* sway_pos_x */
+    0, /* sway_pos_y */
+    0, /* sway_pos_z */
+    0, /* sway_look_x */
+    0, /* sway_look_y */
+    -1.0f, /* sway_look_z */
+    0, /* sway_up_x */
+    1.0f, /* sway_up_y */
+    0, /* sway_up_z */
+    0, /* spring_pos_x */
+    0, /* spring_pos_y */
+    0, /* spring_pos_z */
+    0, /* spring_look_x */
+    0, /* spring_look_y */
+    /* spring_look_z = 1 / GUN_SPRING_SCALE, so the derived sway vector starts unit-length */
 #if defined(BUGFIX_R2)
     -16.7504158f,
 #else
     -19.999996f,
 #endif
-    0, /* field_96C */
+    0, /* spring_up_x */
+    /* spring_up_y = 1 / GUN_SPRING_SCALE */
 #if defined(BUGFIX_R2)
     16.7504158f,
 #else
     19.999996f,
 #endif
-    0, /* field_974 */
+    0, /* spring_up_z */
     { {{0,0,0}}, {{0,0,0}}, {{0,0,0}}, {{0,0,0}} }, /* blendpos[4] */
     { {{0,0,-1.0f}}, {{0,0,-1.0f}}, {{0,0,-1.0f}}, {{0,0,-1.0f}} }, /* blendlook[4] */
     { {{0,1.0f,0}}, {{0,1.0f,0}}, {{0,1.0f,0}}, {{0,1.0f,0}} }, /* blendup[4] */
@@ -127,9 +129,9 @@ struct hand D_8003FDA0 = {
     0, /* weapon_theta_displacement */
     0, /* weapon_verta_displacement */
     0, /* field_A24 */
-    0, /* field_A28 */
-    0, /* field_A2C */
-    0, /* field_A30 */
+    0, /* gunofs2_x */
+    0, /* gunofs2_y */
+    0, /* gunofs2_z */
     0, /* field_A34 */
     0, /* field_A38 */
     0, /* field_A3C */
@@ -145,22 +147,22 @@ struct hand D_8003FDA0 = {
     0, /* field_A8C */
     0, /* rocket */
     0, /* firedrocket */
-    0, /* field_A98 */
-    0, /* field_A9C */
-    0, /* field_AA0 */
-    0, /* field_AA4 */
-    0, /* field_AA8 */
-    0, /* field_AAC */
-    0, /* field_AB0 */
-    0, /* field_AB4 */
-    0, /* field_AB8 */
-    0, /* field_ABC */
-    0, /* field_AC0 */
-    0, /* field_AC4 */
-    0, /* field_AC8 */
-    0, /* field_ACC */
-    0, /* field_AD0 */
-    0, /* field_AD4 */
+    0, /* gunmtx_camspace.m[0][0] */
+    0, /* gunmtx_camspace.m[0][1] */
+    0, /* gunmtx_camspace.m[0][2] */
+    0, /* gunmtx_camspace.m[0][3] */
+    0, /* gunmtx_camspace.m[1][0] */
+    0, /* gunmtx_camspace.m[1][1] */
+    0, /* gunmtx_camspace.m[1][2] */
+    0, /* gunmtx_camspace.m[1][3] */
+    0, /* gunmtx_camspace.m[2][0] */
+    0, /* gunmtx_camspace.m[2][1] */
+    0, /* gunmtx_camspace.m[2][2] */
+    0, /* gunmtx_camspace.m[2][3] */
+    0, /* gunmtx_camspace.m[3][0] */
+    0, /* gunmtx_camspace.m[3][1] */
+    0, /* gunmtx_camspace.m[3][2] */
+    0, /* gunmtx_camspace.m[3][3] */
     { { {0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0} } }, /* throw_item_pos_related */
     { { {0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0} } }, /* throw_item_pos_related_prev */
     { {0,0,0} }, /* field_B58 */
@@ -168,12 +170,12 @@ struct hand D_8003FDA0 = {
     0, /* field_B68 */
     0, /* field_B6C */
     0, /* field_B70 */
-    0, /* field_B74 */
+    0, /* mtxlist */
     0, /* field_B78 */
     0, /* field_B7C */
     0, /* field_B80 */
     0, /* field_B84 */
-    0, /* field_B88 */
+    0, /* modeldatas */
     0, /* field_B8C */
     0, /* field_B90 */
     0, /* field_B94 */
