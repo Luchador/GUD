@@ -5087,8 +5087,8 @@ void gunAdvanceBeamTimer(BeamRecord* beam)
     }
 }
 
-
-void sub_GAME_7F062BE4(Gfx **gdlptr)
+// Address: 0x7F062BE4
+void bondviewRenderFirstPersonGunModels(Gfx **gdlptr)
 {
     Gfx *gdl = *gdlptr;
     ModelRenderData renderdata;
