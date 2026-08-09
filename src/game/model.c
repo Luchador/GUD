@@ -2360,7 +2360,7 @@ void subcalcmatrices(ModelRenderData *arg0, struct Model *arg1)
             }
         }
 
-        sub_GAME_7F0755B0();
+        modelResetAnimationsScratchBuffer();
     }
 
     instcalcmatrices(arg0, arg1);
@@ -6183,7 +6183,7 @@ s32 loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
         // Load that frame from RAM
         ret = anim->address + (frame * frameSize);
     }
-    else if (D_80036414 != NULL) // should never be NULL after sub_GAME_7F0009E0 is called
+    else if (D_80036414 != NULL) // should never be NULL after initAnimationsBuffer is called
     {
         // Get dest from this D_80036414 which points to an array. Align to 16 bytes.
         dest = ((u32) (D_80036414->animBufferPtr2 + 15) >> 4) * 16;
@@ -6218,9 +6218,9 @@ s32 loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
 /**
  * Address 7F0755B0.
 */
-void sub_GAME_7F0755B0(void)
+void modelResetAnimationsScratchBuffer(void)
 {
-    if (D_80036414 != NULL) // should never be NULL after sub_GAME_7F0009E0 is called
+    if (D_80036414 != NULL) // should never be NULL after initAnimationsBuffer is called
     {
         // Reset the pointer to point to the start of the array
         D_80036414->animBufferPtr2 = D_80036414->animBufferPtr1;

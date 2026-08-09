@@ -256,7 +256,7 @@ void alloc_load_expand_ani_table(void)
     s32 animsDataSegmentSize;
     
     osCreateMesgQueue(&animMsgQ, animMesg, 8);
-    sub_GAME_7F0009E0(&D_80029D60, &animMsgQ, &dword_CODE_bss_80069458);
+    initAnimationsBuffer(&D_80029D60, &animMsgQ, &dword_CODE_bss_80069458);
     
     animsDataSegmentSize = (s32)&_animation_dataSegmentEnd - (s32)&_animation_dataSegmentStart;
     
