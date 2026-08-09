@@ -70,7 +70,7 @@ struct hand D_8003FDA0 = {
     0, /* weapon_current_animation */
     0, /* weapon_ammo_in_magazine */
     0, /* field_8A0 */
-    0, /* field_8A4 */
+    0, /* numvisibleshells */
     0, /* field_8A8 */
     0, /* weapon_next_weapon */
     0, /* field_8B0 */

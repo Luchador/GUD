@@ -10584,7 +10584,7 @@ Gfx *maybe_mp_interface(Gfx *gdl)
         return sub_GAME_7F088CD8(gdl);
     }
 
-    bondwalkFireBothHands();
+    gunUpdateAndFireBothHands();
     sub_GAME_7F06908C(&gdl);
     sub_GAME_7F062BE4(&gdl);
     gdl = sub_GAME_7F087E74(gdl);

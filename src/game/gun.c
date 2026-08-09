@@ -2443,57 +2443,62 @@ glabel D_80053DDC
 )
 
 
-void handles_firing_or_throwing_weapon_in_hand(GUNHAND handnum)
+void gunUpdateAndFire(GUNHAND handnum)
 {
     Mtxf *rwmtx;
-    Mtxf m264;
-    Mtxf m224;
-    Mtxf m1E4;
-    Mtxf m1A4;
+    Mtxf gunmtx;
+    Mtxf flashmtx;
+    Mtxf flash2mtx;
+    Mtxf tmpmtx;
     ModelFileHeader *mdlhdr;
     coord3d gunofs = D_80035C40;
-    Mtxf m154;
-    Mtxf m114;
+    Mtxf rotmtx;
+    Mtxf aimmtx;
     struct hand *hand;
-    s32 *matidxptr;
-    f32 *spnoiseptr;
+    s32 *flashvisptr;
+    f32 *flashdata;
     ModelNode *node;
-    s32 pad_after_m114;
+    s32 j;
     ITEM_IDS item;
     WeaponStats *itemstats;
     f32 rndf;
     u32 rnd;
     f32 stackpad_scale;
-    coord3d vE0;
-    coord3d vD4;
-    coord3d vC8;
+    coord3d blendedpos;
+    coord3d blendedlook;
+    coord3d blendedup;
     s32 i;
-    coord3d vB8;
-    coord3d vrot;
-    coord3d vA0;
-    f32 *revdata1;
+    coord3d trigrot;
+    coord3d taserrot;
+    coord3d fistrot;
+    f32 *cylinderdata;
     u8 stackpad1[4];
-    ModelNode **nodes;
+    ModelNode **hammerdata;
     Model *model;
-    coord3d v84;
-    f32 fscale;
-    f32 fz;
-    f32 *earlyp;
-    f32 *earlyq;
-    f32 *p6;
-    s32 idx6;
-    f32 *q6;
-    f32 *p7;
-    s32 idx7;
-    s32 visindex;
+    coord3d flashpos;
+    f32 flashscale;
+    f32 flashext;
+    f32 *nodeptr;
+    f32 *nodepos;
+    f32 *swdata;
+    s32 sw6mtxidx;
+    f32 *hingedata;
+    f32 *sw7data;
+    s32 sw7mtxidx;
+    s32 shellidx;
     u8 stackpad2[4];
 
-    matidxptr = NULL;
-    spnoiseptr = NULL;
+    flashvisptr = NULL;
+    flashdata = NULL;
     hand = &g_CurrentPlayer->hands[handnum];
     item = get_item_in_hand_or_watch_menu(handnum);
     itemstats = get_ptr_item_statistics(item);
 
+    /**
+     * When switching from a single weapon to dual wielding, both gun models interpolate a little to the sides of the screen
+     * over a period of 4 seconds. And when switching back to a single weapon that weapon moves back more towards the
+     * center of the screen.
+     */
     if (handnum == GUNRIGHT)
     {
         if (bondwalkItemCheckBitflags(get_item_in_hand_or_watch_menu(1), WEAPONSTATBITFLAG_SHOW_FIRST_PERSON) != 0)
@@ -2534,39 +2539,44 @@ void handles_firing_or_throwing_weapon_in_hand(GUNHAND handnum)
         }
     }
 
-    vE0 = D_80035C4C;
-    vD4 = D_80035C58;
-    vC8 = D_80035C64;
+    /**
+     * Gun sway system. This moves the held weapons in figure-eight pattern which becomes bigger depending how fast the player is moving.
+     */
+    blendedpos = D_80035C4C;
+    blendedlook = D_80035C58;
+    blendedup = D_80035C64;
+
     i = hand->curblendpos;
 
-    coord3dCatmullRomInterp(&hand->blendpos[(i + 3) % 4], &hand->blendpos[i], &hand->blendpos[(i + 1) % 4], &hand->blendpos[(i + 2) % 4], hand->dampt, &vE0);
-    coord3dCatmullRomInterp(&hand->blendlook[(i + 3) % 4], &hand->blendlook[i], &hand->blendlook[(i + 1) % 4], &hand->blendlook[(i + 2) % 4], hand->dampt, &vD4);
-    coord3dCatmullRomInterp(&hand->blendup[(i + 3) % 4], &hand->blendup[i], &hand->blendup[(i + 1) % 4], &hand->blendup[(i + 2) % 4], hand->dampt, &vC8);
+    coord3dCatmullRomInterp(&hand->blendpos[(i + 3) % 4], &hand->blendpos[i], &hand->blendpos[(i + 1) % 4], &hand->blendpos[(i + 2) % 4], hand->dampt, &blendedpos);
+    coord3dCatmullRomInterp(&hand->blendlook[(i + 3) % 4], &hand->blendlook[i], &hand->blendlook[(i + 1) % 4], &hand->blendlook[(i + 2) % 4], hand->dampt, &blendedlook);
+    coord3dCatmullRomInterp(&hand->blendup[(i + 3) % 4], &hand->blendup[i], &hand->blendup[(i + 1) % 4], &hand->blendup[(i + 2) % 4], hand->dampt, &blendedup);
 
-    vE0.x *= g_CurrentPlayer->gunposamplitude;
-    vE0.y *= g_CurrentPlayer->gunposamplitude;
-    vE0.z *= g_CurrentPlayer->gunposamplitude;
-    vE0.x += hand->weapon_theta_displacement;
-    vE0.y += hand->weapon_verta_displacement;
-    vE0.x += sub_GAME_7F05DCB8(handnum);
-    pad_after_m114 = 0;
+    blendedpos.x *= g_CurrentPlayer->gunposamplitude;
+    blendedpos.y *= g_CurrentPlayer->gunposamplitude;
+    blendedpos.z *= g_CurrentPlayer->gunposamplitude;
+    blendedpos.x += hand->weapon_theta_displacement;
+    blendedpos.y += hand->weapon_verta_displacement;
+    blendedpos.x += sub_GAME_7F05DCB8(handnum);
+
+    j = 0;
 
     if (g_ClockTimer > 0)
     {
         do
         {
-            pad_after_m114 += 1;
-            hand->spring_pos_x = (GUN_SPRING_DAMP * hand->spring_pos_x) + ((f32 *) (&vE0))[0];
-            hand->spring_pos_y = (GUN_SPRING_DAMP * hand->spring_pos_y) + ((f32 *) (&vE0))[1];
-            hand->spring_pos_z = (GUN_SPRING_DAMP * hand->spring_pos_z) + ((f32 *) (&vE0))[2];
-            hand->spring_look_x = (GUN_SPRING_DAMP * hand->spring_look_x) + ((f32 *) (&vD4))[0];
-            hand->spring_look_y = (GUN_SPRING_DAMP * hand->spring_look_y) + ((f32 *) (&vD4))[1];
-            hand->spring_look_z = (GUN_SPRING_DAMP * hand->spring_look_z) + ((f32 *) (&vD4))[2];
-            hand->spring_up_x = (GUN_SPRING_DAMP * hand->spring_up_x) + ((f32 *) (&vC8))[0];
-            hand->spring_up_y = (GUN_SPRING_DAMP * hand->spring_up_y) + ((f32 *) (&vC8))[1];
-            hand->spring_up_z = (GUN_SPRING_DAMP * hand->spring_up_z) + ((f32 *) (&vC8))[2];
+            j += 1;
+            hand->spring_pos_x = (GUN_SPRING_DAMP * hand->spring_pos_x) + ((f32 *) (&blendedpos))[0];
+            hand->spring_pos_y = (GUN_SPRING_DAMP * hand->spring_pos_y) + ((f32 *) (&blendedpos))[1];
+            hand->spring_pos_z = (GUN_SPRING_DAMP * hand->spring_pos_z) + ((f32 *) (&blendedpos))[2];
+            hand->spring_look_x = (GUN_SPRING_DAMP * hand->spring_look_x) + ((f32 *) (&blendedlook))[0];
+            hand->spring_look_y = (GUN_SPRING_DAMP * hand->spring_look_y) + ((f32 *) (&blendedlook))[1];
+            hand->spring_look_z = (GUN_SPRING_DAMP * hand->spring_look_z) + ((f32 *) (&blendedlook))[2];
+            hand->spring_up_x = (GUN_SPRING_DAMP * hand->spring_up_x) + ((f32 *) (&blendedup))[0];
+            hand->spring_up_y = (GUN_SPRING_DAMP * hand->spring_up_y) + ((f32 *) (&blendedup))[1];
+            hand->spring_up_z = (GUN_SPRING_DAMP * hand->spring_up_z) + ((f32 *) (&blendedup))[2];
         }
-        while (pad_after_m114 < g_ClockTimer);
+        while (j < g_ClockTimer);
     }
 
     hand->sway_pos_x = hand->spring_pos_x * GUN_SPRING_SCALE;
@@ -2579,6 +2589,7 @@ void handles_firing_or_throwing_weapon_in_hand(GUNHAND handnum)
     hand->sway_up_y = hand->spring_up_y * GUN_SPRING_SCALE;
     hand->sway_up_z = hand->spring_up_z * GUN_SPRING_SCALE;
 
+    // Offset the weapon to the right or left side of the screen depending on which hand it's in.
     if (handnum == GUNRIGHT)
     {
         gunofs.x = (gunSetHorizontalOffset(handnum) + hand->sway_pos_x) + (*hand).gunofs2_x;
@@ -2641,25 +2652,25 @@ void handles_firing_or_throwing_weapon_in_hand(GUNHAND handnum)
     }
 
     sub_GAME_7F05C614();
-    matrix_4x4_set_identity(&m154);
+    matrix_4x4_set_identity(&rotmtx);
 
     if ((item == ITEM_TRIGGER) || (item == ITEM_WATCHLASER))
     {
-            vB8 = D_80035C70;
-            matrix_4x4_set_rotation_around_xyz(&vB8, &m1A4);
-            matrix_4x4_multiply_homogeneous_in_place(&m1A4, &m154);
+            trigrot = D_80035C70;
+            matrix_4x4_set_rotation_around_xyz(&trigrot, &tmpmtx);
+            matrix_4x4_multiply_homogeneous_in_place(&tmpmtx, &rotmtx);
     }
     else if (item == ITEM_TASER)
     {
-        vrot = D_80035C7C;
-        matrix_4x4_set_rotation_around_xyz(&vrot, &m1A4);
-        matrix_4x4_multiply_homogeneous_in_place(&m1A4, &m154);
+        taserrot = D_80035C7C;
+        matrix_4x4_set_rotation_around_xyz(&taserrot, &tmpmtx);
+        matrix_4x4_multiply_homogeneous_in_place(&tmpmtx, &rotmtx);
     }
     else if ((item == ITEM_FIST) && (g_CurrentPlayer->cur_item_weapon_getname == ITEM_SNIPERRIFLE))
     {
-        vA0 = D_80035C88;
-        matrix_4x4_set_rotation_around_xyz(&vA0, &m1A4);
-        matrix_4x4_multiply_homogeneous_in_place(&m1A4, &m154);
+        fistrot = D_80035C88;
+        matrix_4x4_set_rotation_around_xyz(&fistrot, &tmpmtx);
+        matrix_4x4_multiply_homogeneous_in_place(&tmpmtx, &rotmtx);
         gunofs.x += -2.5f;
         gunofs.y += 27.8f;
         gunofs.z += 2.0f;
@@ -2670,10 +2681,10 @@ void handles_firing_or_throwing_weapon_in_hand(GUNHAND handnum)
         gunofs.x += hand->field_8EC.m[3][0];
         gunofs.y += hand->field_8EC.m[3][1];
         gunofs.z += hand->field_8EC.m[3][2];
-        matrix_4x4_multiply_homogeneous_in_place(&hand->field_8EC, &m154);
-        m154.m[3][0] = 0.0f;
-        m154.m[3][1] = 0.0f;
-        m154.m[3][2] = 0.0f;
+        matrix_4x4_multiply_homogeneous_in_place(&hand->field_8EC, &rotmtx);
+        rotmtx.m[3][0] = 0.0f;
+        rotmtx.m[3][1] = 0.0f;
+        rotmtx.m[3][2] = 0.0f;
     }
     else
     {
@@ -2683,13 +2694,13 @@ void handles_firing_or_throwing_weapon_in_hand(GUNHAND handnum)
         hand->field_8E4 = (-0.0f) + 0.0f;
     }
 
-    matrix_4x4_set_basis_and_position_target(&m1A4, 0.0f, 0.0f, 0.0f, hand->sway_look_x, hand->sway_look_y, hand->sway_look_z, hand->sway_up_x, hand->sway_up_y, hand->sway_up_z);
-    matrix_4x4_multiply_homogeneous_in_place(&m1A4, &m154);
-    matrix_4x4_align(&m1A4, 0.0f, gunofs.x - hand->field_A38, gunofs.y - hand->field_A3C, gunofs.z - hand->field_A40);
-    matrix_4x4_multiply_homogeneous_in_place(&m1A4, &m154);
-    matrix_4x4_copy(&m154, &m264);
-    matrix_4x4_set_position(&gunofs, &m264);
-    matrix_4x4_copy(&m264, &hand->gunmtx_camspace);
+    matrix_4x4_set_basis_and_position_target(&tmpmtx, 0.0f, 0.0f, 0.0f, hand->sway_look_x, hand->sway_look_y, hand->sway_look_z, hand->sway_up_x, hand->sway_up_y, hand->sway_up_z);
+    matrix_4x4_multiply_homogeneous_in_place(&tmpmtx, &rotmtx);
+    matrix_4x4_align(&tmpmtx, 0.0f, gunofs.x - hand->field_A38, gunofs.y - hand->field_A3C, gunofs.z - hand->field_A40);
+    matrix_4x4_multiply_homogeneous_in_place(&tmpmtx, &rotmtx);
+    matrix_4x4_copy(&rotmtx, &gunmtx);
+    matrix_4x4_set_position(&gunofs, &gunmtx);
+    matrix_4x4_copy(&gunmtx, &hand->gunmtx_camspace);
     matrix_4x4_copy(&hand->throw_item_pos_related, &hand->throw_item_pos_related_prev);
     matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), &hand->gunmtx_camspace, &hand->throw_item_pos_related);
     hand->field_87F = 1;
@@ -2709,22 +2720,24 @@ void handles_firing_or_throwing_weapon_in_hand(GUNHAND handnum)
     {
         mdlhdr = &g_CurrentPlayer->copy_of_body_obj_header[handnum];
         rwmtx = (Mtxf *) dynAllocate(mdlhdr->numMatrices * ((s32) (sizeof(Mtxf))));
-        pad_after_m114 = 0;
+        j = 0;
 
         if (mdlhdr->numMatrices > 0)
         {
             do
             {
-                matrix_4x4_set_identity((Mtxf *) (((u8 *) rwmtx) + (pad_after_m114 * ((s32) (sizeof(Mtxf))))));
-                pad_after_m114 += 1;
+                matrix_4x4_set_identity((Mtxf *) (((u8 *) rwmtx) + (j * ((s32) (sizeof(Mtxf))))));
+                j += 1;
             }
-            while (pad_after_m114 < mdlhdr->numMatrices);
+            while (j < mdlhdr->numMatrices);
         }
 
         modelCalculateRwDataLen(mdlhdr);
 #ifdef DEBUG
-        /* The model's runtime data is written into hand->modeldatas, which is a
-          * fixed run of 32 words (modeldatas .. field_C04, ending at volley). */
+        /** 
+         * The model's runtime data is written into hand->modeldatas, which is a
+         * fixed run of 32 words (modeldatas .. field_C04, ending at volley).
+         */
         if (mdlhdr->numRecords >= 32)
         {
                 osSyncPrintf("Increase GUNSAVESIZE to %d!!! ", mdlhdr->numRecords);
@@ -2743,32 +2756,32 @@ void handles_firing_or_throwing_weapon_in_hand(GUNHAND handnum)
         {
             if (&node->Data->Switch);
 
-            matidxptr = ((s32 *) (&hand->modeldatas)) + node->Data->Switch.RwDataIndex;
+            flashvisptr = ((s32 *) (&hand->modeldatas)) + node->Data->Switch.RwDataIndex;
         }
 
         if (mdlhdr->Switches[3] != NULL)
         {
-            spnoiseptr = (f32 *) mdlhdr->Switches[3]->Data;
+            flashdata = (f32 *) mdlhdr->Switches[3]->Data;
         }
 
         hand->mtxlist = rwmtx;
 
         if ((bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_MIRROR_DUAL) != 0) && (handnum == GUNLEFT))
         {
-            matrix_column_1_scalar_multiply(-1.0f, m264.m[0]);
+            matrix_column_1_scalar_multiply(-1.0f, gunmtx.m[0]);
         }
 
-        matrix_scalar_multiply(IDO_POINT_ONE, m264.m[0]);
-        matrix_4x4_copy(&m264, rwmtx);
+        matrix_scalar_multiply(IDO_POINT_ONE, gunmtx.m[0]);
+        matrix_4x4_copy(&gunmtx, rwmtx);
 
         if (mdlhdr->Skeleton == (&skeleton_gun_revolver))
         {
-            p6 = (f32 *) mdlhdr->Switches[4];
+            swdata = (f32 *) mdlhdr->Switches[4];
 
-            if (p6 != NULL)
+            if (swdata != NULL)
             {
                 rndf = 0.0f;
-                revdata1 = (f32 *) ((ModelNode *) p6)->Data;
+                cylinderdata = (f32 *) ((ModelNode *) swdata)->Data;
 
                 if (item == ITEM_RUGER)
                 {
@@ -2800,16 +2813,16 @@ void handles_firing_or_throwing_weapon_in_hand(GUNHAND handnum)
 #endif
             }
 
-                matrix_4x4_set_rotation_around_z(rndf, &m1A4);
-                matrix_4x4_set_position((coord3d *) revdata1, &m1A4);
-                matrix_4x4_multiply(&m264, &m1A4, &rwmtx[3]);
+                matrix_4x4_set_rotation_around_z(rndf, &tmpmtx);
+                matrix_4x4_set_position((coord3d *) cylinderdata, &tmpmtx);
+                matrix_4x4_multiply(&gunmtx, &tmpmtx, &rwmtx[3]);
             }
 
-            p6 = (f32 *) mdlhdr->Switches[5];
+            swdata = (f32 *) mdlhdr->Switches[5];
 
-            if (p6 != NULL)
+            if (swdata != NULL)
             {
-                nodes = (ModelNode **) ((ModelNode *) p6)->Data;
+                hammerdata = (ModelNode **) ((ModelNode *) swdata)->Data;
 
                 if (hand->weapon_action_state == 1)
                 {
@@ -2832,96 +2845,98 @@ void handles_firing_or_throwing_weapon_in_hand(GUNHAND handnum)
                         rndf = (2.0f * ((-((f32) (6 - hand->field_890))) * DegToRad(30.0f))) / 6.0f;
                     }
 #endif
-                    matrix_4x4_set_rotation_around_x(rndf, &m1A4);
-                    matrix_4x4_set_position((coord3d *) nodes, &m1A4);
+                    matrix_4x4_set_rotation_around_x(rndf, &tmpmtx);
+                    matrix_4x4_set_position((coord3d *) hammerdata, &tmpmtx);
                 }
                 else
                 {
-                    matrix_4x4_set_identity_and_position((coord3d *) nodes, &m1A4);
+                    matrix_4x4_set_identity_and_position((coord3d *) hammerdata, &tmpmtx);
                 }
 
-                matrix_4x4_multiply(&m264, &m1A4, &rwmtx[4]);
+                matrix_4x4_multiply(&gunmtx, &tmpmtx, &rwmtx[4]);
             }
         }
 
-        if (matidxptr != NULL)
+        if (flashvisptr != NULL)
         {
-            *matidxptr = 0;
+            *flashvisptr = 0;
         }
 
-        if (spnoiseptr != NULL)
+        if (flashdata != NULL)
         {
             rnd = randomGetNext();
             rndf = (f32) ((u32) rnd);
-            fscale = ((rndf * (1.0f / M_U32_MAX_VALUE_F)) * 0.25f) + 1.0f;
-            fz = itemstats->MuzzleFlashExtension;
+            flashscale = ((rndf * (1.0f / M_U32_MAX_VALUE_F)) * 0.25f) + 1.0f;
+            flashext = itemstats->MuzzleFlashExtension;
 
             if (bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_00000001) != 0)
             {
                 rnd = randomGetNext();
                 rndf = (f32) ((u32) rnd);
-                matrix_4x4_set_rotation_around_z((rndf * (1.0f / M_U32_MAX_VALUE_F)) * M_TAU_F, &m224);
-                matrix_4x4_set_position((coord3d *) spnoiseptr, &m224);
+                matrix_4x4_set_rotation_around_z((rndf * (1.0f / M_U32_MAX_VALUE_F)) * M_TAU_F, &flashmtx);
+                matrix_4x4_set_position((coord3d *) flashdata, &flashmtx);
             }
             else
             {
-                matrix_4x4_set_identity_and_position((coord3d *) spnoiseptr, &m224);
+                matrix_4x4_set_identity_and_position((coord3d *) flashdata, &flashmtx);
             }
 
-            matrix_scalar_multiply(fscale, m224.m[0]);
-            matrix_column_3_scalar_multiply(fz, m224.m[0]);
-            matrix_4x4_multiply_in_place(&m264, &m224);
-            matrix_4x4_copy(&m224, &rwmtx[1]);
-            hand->field_B58.x = m224.m[3][0];
-            hand->field_B58.y = m224.m[3][1];
-            hand->field_B58.z = m224.m[3][2];
+            matrix_scalar_multiply(flashscale, flashmtx.m[0]);
+            matrix_column_3_scalar_multiply(flashext, flashmtx.m[0]);
+            matrix_4x4_multiply_in_place(&gunmtx, &flashmtx);
+            matrix_4x4_copy(&flashmtx, &rwmtx[1]);
+
+            hand->field_B58.x = flashmtx.m[3][0];
+            hand->field_B58.y = flashmtx.m[3][1];
+            hand->field_B58.z = flashmtx.m[3][2];
             mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), &hand->field_B58);
-            hand->field_B64 = -m224.m[3][2];
+            hand->field_B64 = -flashmtx.m[3][2];
 
             if (hand->field_87D != 0)
             {
-                if (matidxptr != NULL)
+                if (flashvisptr != NULL)
                 {
-                    *matidxptr = 1;
+                    *flashvisptr = 1;
                 }
 
-                earlyp = (f32 *) mdlhdr->Switches[2];
+                nodeptr = (f32 *) mdlhdr->Switches[2];
 
-                if (earlyp != NULL)
+                if (nodeptr != NULL)
                 {
-                    earlyq = (f32 *) ((ModelNode *) earlyp)->Data;
-                    v84.x = (((((f32 *) earlyq)[0] * m224.m[0][0]) + (((f32 *) earlyq)[1] * m224.m[1][0])) + (((f32 *) earlyq)[2] * m224.m[2][0])) + m224.m[3][0];
-                    v84.y = (((((f32 *) earlyq)[0] * m224.m[0][1]) + (((f32 *) earlyq)[1] * m224.m[1][1])) + (((f32 *) earlyq)[2] * m224.m[2][1])) + m224.m[3][1];
-                    v84.z = (((((f32 *) earlyq)[0] * m224.m[0][2]) + (((f32 *) earlyq)[1] * m224.m[1][2])) + (((f32 *) earlyq)[2] * m224.m[2][2])) + m224.m[3][2];
-                    matrix_4x4_align(&m1E4, (randomGetNext() * (1.0f / M_U32_MAX_VALUE_F)) * M_TAU_F, -v84.x, -v84.y, -v84.z);
-                    matrix_scalar_multiply(IDO_POINT_ONE * fscale, m1E4.m[0]);
-                    matrix_4x4_set_rotation_axis_angle(&m114, 0, gunofs.x - hand->field_A38, gunofs.y - hand->field_A3C, gunofs.z - hand->field_A40);
-                    matrix_4x4_multiply_in_place(&m114, &m1E4);
-                    matrix_row_3_scalar_multiply(fz, m1E4.m[0]);
-                    matrix_4x4_multiply_in_place(&m154, &m1E4);
-                    matrix_4x4_set_position(&v84, &m1E4);
-                    matrix_4x4_copy(&m1E4, &rwmtx[2]);
+                    nodepos = (f32 *) ((ModelNode *) nodeptr)->Data;
+                    flashpos.x = (((((f32 *) nodepos)[0] * flashmtx.m[0][0]) + (((f32 *) nodepos)[1] * flashmtx.m[1][0])) + (((f32 *) nodepos)[2] * flashmtx.m[2][0])) + flashmtx.m[3][0];
+                    flashpos.y = (((((f32 *) nodepos)[0] * flashmtx.m[0][1]) + (((f32 *) nodepos)[1] * flashmtx.m[1][1])) + (((f32 *) nodepos)[2] * flashmtx.m[2][1])) + flashmtx.m[3][1];
+                    flashpos.z = (((((f32 *) nodepos)[0] * flashmtx.m[0][2]) + (((f32 *) nodepos)[1] * flashmtx.m[1][2])) + (((f32 *) nodepos)[2] * flashmtx.m[2][2])) + flashmtx.m[3][2];
+
+                    matrix_4x4_align(&flash2mtx, (randomGetNext() * (1.0f / M_U32_MAX_VALUE_F)) * M_TAU_F, -flashpos.x, -flashpos.y, -flashpos.z);
+                    matrix_scalar_multiply(IDO_POINT_ONE * flashscale, flash2mtx.m[0]);
+                    matrix_4x4_set_rotation_axis_angle(&aimmtx, 0, gunofs.x - hand->field_A38, gunofs.y - hand->field_A3C, gunofs.z - hand->field_A40);
+                    matrix_4x4_multiply_in_place(&aimmtx, &flash2mtx);
+                    matrix_row_3_scalar_multiply(flashext, flash2mtx.m[0]);
+                    matrix_4x4_multiply_in_place(&rotmtx, &flash2mtx);
+                    matrix_4x4_set_position(&flashpos, &flash2mtx);
+                    matrix_4x4_copy(&flash2mtx, &rwmtx[2]);
                 }
 
                 if (mdlhdr->Skeleton == (&skeleton_gun_kf7))
                 {
-                    earlyp = (f32 *) mdlhdr->Switches[4];
+                    nodeptr = (f32 *) mdlhdr->Switches[4];
 
-                    if (earlyp != NULL)
+                    if (nodeptr != NULL)
                     {
-                        earlyq = (f32 *) ((ModelNode *) earlyp)->Data;
-                        v84.x = (((((f32 *) earlyq)[0] * m224.m[0][0]) + (((f32 *) earlyq)[1] * m224.m[1][0])) + (((f32 *) earlyq)[2] * m224.m[2][0])) + m224.m[3][0];
-                        v84.y = (((((f32 *) earlyq)[0] * m224.m[0][1]) + (((f32 *) earlyq)[1] * m224.m[1][1])) + (((f32 *) earlyq)[2] * m224.m[2][1])) + m224.m[3][1];
-                        v84.z = (((((f32 *) earlyq)[0] * m224.m[0][2]) + (((f32 *) earlyq)[1] * m224.m[1][2])) + (((f32 *) earlyq)[2] * m224.m[2][2])) + m224.m[3][2];
-                        ((f32 *) stackpad2)[-8] = IDO_POINT_ONE * fscale;
-                        matrix_4x4_align(&m1E4, (randomGetNext() * (1.0f / M_U32_MAX_VALUE_F)) * M_TAU_F, -v84.x, -v84.y, -v84.z);
-                        matrix_scalar_multiply(((f32 *) stackpad2)[-8], m1E4.m[0]);
-                        matrix_4x4_set_rotation_axis_angle(&m114, 0, gunofs.x - hand->field_A38, gunofs.y - hand->field_A3C, gunofs.z - hand->field_A40);
-                        matrix_4x4_multiply_in_place(&m114, &m1E4);
-                        matrix_row_3_scalar_multiply(fz, m1E4.m[0]);
-                        matrix_4x4_multiply_in_place(&m154, &m1E4);
-                        matrix_4x4_set_position(&v84, &m1E4);
-                        matrix_4x4_copy(&m1E4, &rwmtx[3]);
+                        nodepos = (f32 *) ((ModelNode *) nodeptr)->Data;
+                        flashpos.x = (((((f32 *) nodepos)[0] * flashmtx.m[0][0]) + (((f32 *) nodepos)[1] * flashmtx.m[1][0])) + (((f32 *) nodepos)[2] * flashmtx.m[2][0])) + flashmtx.m[3][0];
+                        flashpos.y = (((((f32 *) nodepos)[0] * flashmtx.m[0][1]) + (((f32 *) nodepos)[1] * flashmtx.m[1][1])) + (((f32 *) nodepos)[2] * flashmtx.m[2][1])) + flashmtx.m[3][1];
+                        flashpos.z = (((((f32 *) nodepos)[0] * flashmtx.m[0][2]) + (((f32 *) nodepos)[1] * flashmtx.m[1][2])) + (((f32 *) nodepos)[2] * flashmtx.m[2][2])) + flashmtx.m[3][2];
+                        ((f32 *) stackpad2)[-8] = IDO_POINT_ONE * flashscale;
+                        matrix_4x4_align(&flash2mtx, (randomGetNext() * (1.0f / M_U32_MAX_VALUE_F)) * M_TAU_F, -flashpos.x, -flashpos.y, -flashpos.z);
+                        matrix_scalar_multiply(((f32 *) stackpad2)[-8], flash2mtx.m[0]);
+                        matrix_4x4_set_rotation_axis_angle(&aimmtx, 0, gunofs.x - hand->field_A38, gunofs.y - hand->field_A3C, gunofs.z - hand->field_A40);
+                        matrix_4x4_multiply_in_place(&aimmtx, &flash2mtx);
+                        matrix_row_3_scalar_multiply(flashext, flash2mtx.m[0]);
+                        matrix_4x4_multiply_in_place(&rotmtx, &flash2mtx);
+                        matrix_4x4_set_position(&flashpos, &flash2mtx);
+                        matrix_4x4_copy(&flash2mtx, &rwmtx[3]);
                     }
                 }
             }
@@ -2938,22 +2953,22 @@ void handles_firing_or_throwing_weapon_in_hand(GUNHAND handnum)
 
         if (node != NULL)
         {
-            p6 = (f32 *) node->Data;
-            idx6 = modelFindNodeMtxIndex(node, 0);
+            swdata = (f32 *) node->Data;
+            sw6mtxidx = modelFindNodeMtxIndex(node, 0);
             sub_GAME_7F05E6B4(handnum, hand->weapon_hold_time);
 
             if ((mdlhdr->numSwitches >= 0x1D) && (mdlhdr->Switches[28] != NULL))
             {
-                q6 = (f32 *) mdlhdr->Switches[28]->Data;
-                guRotateF(m1A4.m, (((hand->field_A84 + M_TAU_F) - get_value_if_watch_is_on_hand_or_not(handnum)) * 360.0f) / M_TAU_F, q6[0] - q6[3], q6[1] - q6[4], q6[2] - q6[5]);
-                matrix_4x4_set_position((coord3d *) p6, &m1A4);
+                hingedata = (f32 *) mdlhdr->Switches[28]->Data;
+                guRotateF(tmpmtx.m, (((hand->field_A84 + M_TAU_F) - get_value_if_watch_is_on_hand_or_not(handnum)) * 360.0f) / M_TAU_F, hingedata[0] - hingedata[3], hingedata[1] - hingedata[4], hingedata[2] - hingedata[5]);
+                matrix_4x4_set_position((coord3d *) swdata, &tmpmtx);
             }
             else
             {
-                matrix_4x4_set_position_and_rotation_around_y(p6, hand->field_A84, &m1A4);
+                matrix_4x4_set_position_and_rotation_around_y(swdata, hand->field_A84, &tmpmtx);
             }
 
-            matrix_4x4_multiply_homogeneous(&m264, &m1A4, &rwmtx[idx6]);
+            matrix_4x4_multiply_homogeneous(&gunmtx, &tmpmtx, &rwmtx[sw6mtxidx]);
         }
 
         if (mdlhdr->numSwitches >= 0x1E)
@@ -2965,43 +2980,46 @@ void handles_firing_or_throwing_weapon_in_hand(GUNHAND handnum)
 
         if (node != NULL)
         {
-            p7 = (f32 *) node->Data;
-            idx7 = modelFindNodeMtxIndex(node, 0);
+            sw7data = (f32 *) node->Data;
+            sw7mtxidx = modelFindNodeMtxIndex(node, 0);
             sub_GAME_7F05E83C(handnum);
-            matrix_4x4_set_identity_and_position((coord3d *) p7, &m1A4);
-            m1A4.m[3][2] -= hand->field_A88;
-            matrix_4x4_multiply(&m264, &m1A4, &rwmtx[idx7]);
+            matrix_4x4_set_identity_and_position((coord3d *) sw7data, &tmpmtx);
+            tmpmtx.m[3][2] -= hand->field_A88;
+            matrix_4x4_multiply(&gunmtx, &tmpmtx, &rwmtx[sw7mtxidx]);
         }
 
-        visindex = 0;
+        shellidx = 0;
 
+        /**
+         * For the shotguns, show or hide the shells in the shell holder based on how much ammunition is in the player's reserve.
+         */
         if (mdlhdr->numSwitches >= 0x13)
         {
             do
             {
-                if (mdlhdr->Switches[18 + visindex] != 0)
+                if (mdlhdr->Switches[18 + shellidx] != 0)
                 {
-                    earlyp = (f32 *) modelGetNodeRwData(model, mdlhdr->Switches[18 + visindex]);
+                    nodeptr = (f32 *) modelGetNodeRwData(model, mdlhdr->Switches[18 + shellidx]);
 
-                    if (earlyp != NULL)
+                    if (nodeptr != NULL)
                     {
-                        *((s32 *) earlyp) = hand->field_8A4 >= (5 - visindex);
+                        *((s32 *) nodeptr) = hand->numvisibleshells >= (5 - shellidx);
                     }
                 }
 
-                if (mdlhdr->Switches[23 + visindex] != 0)
+                if (mdlhdr->Switches[23 + shellidx] != 0)
                 {
-                    earlyp = (f32 *) modelGetNodeRwData(model, mdlhdr->Switches[23 + visindex]);
+                    nodeptr = (f32 *) modelGetNodeRwData(model, mdlhdr->Switches[23 + shellidx]);
 
-                    if (earlyp != NULL)
+                    if (nodeptr != NULL)
                     {
-                        *((s32 *) earlyp) = hand->field_8A4 >= (5 - visindex);
+                        *((s32 *) nodeptr) = hand->numvisibleshells >= (5 - shellidx);
                     }
                 }
 
-                visindex += 1;
+                shellidx += 1;
             }
-            while (visindex != 5);
+            while (shellidx != 5);
         }
 
         modelUpdateNodeRelations(model);
@@ -3093,10 +3111,10 @@ void handles_firing_or_throwing_weapon_in_hand(GUNHAND handnum)
 }
 
 
-void bondwalkFireBothHands(void)
+void gunUpdateAndFireBothHands(void)
 {
-    handles_firing_or_throwing_weapon_in_hand(GUNRIGHT);
-    handles_firing_or_throwing_weapon_in_hand(GUNLEFT);
+    gunUpdateAndFire(GUNRIGHT);
+    gunUpdateAndFire(GUNLEFT);
 }
 
 
@@ -6047,10 +6065,10 @@ void sub_GAME_7F0649D8(enum GUNHAND hand)
         ammo_in_hands = get_ammo_in_hands_weapon(hand);
         if (ammo_in_hands >= 5)
         {
-            hand_ptr->field_8A4 = 5;
+            hand_ptr->numvisibleshells = 5;
             return;
         }
-        hand_ptr->field_8A4 = ammo_in_hands;
+        hand_ptr->numvisibleshells = ammo_in_hands;
     }
 }
 
@@ -9114,7 +9132,7 @@ s32 get_ammo_in_hands_weapon(enum GUNHAND hand)
 
         if ((other_weapon_id == ITEM_SHOTGUN) || (other_weapon_id == ITEM_AUTOSHOT))
         {
-            return ammo_count - g_CurrentPlayer->hands[1 - hand].field_8A4;
+            return ammo_count - g_CurrentPlayer->hands[1 - hand].numvisibleshells;
         }
 
         /* I don't know why there's an extra return here, but it's needed to match */

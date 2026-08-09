@@ -140,7 +140,7 @@ struct hand
   s32 weapon_current_animation;
   s32 weapon_ammo_in_magazine;
   s32 field_8A0;
-  s32 field_8A4;
+  s32 numvisibleshells;
   s32 field_8A8;
   s32 weapon_next_weapon;
   s32 field_8B0;
