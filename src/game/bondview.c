@@ -10585,8 +10585,8 @@ Gfx *maybe_mp_interface(Gfx *gdl)
     }
 
     gunUpdateAndFireBothHands();
-    sub_GAME_7F06908C(&gdl);
-    bondviewRenderFirstPersonGunModels(&gdl);
+    gunRenderCasings(&gdl);
+    gunRenderFirstPersonGunModels(&gdl);
     gdl = sub_GAME_7F087E74(gdl);
 
     if (g_CurrentPlayer->mpmenuon != 0)

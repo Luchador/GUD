@@ -5088,7 +5088,7 @@ void gunAdvanceBeamTimer(BeamRecord* beam)
 }
 
 // Address: 0x7F062BE4
-void bondviewRenderFirstPersonGunModels(Gfx **gdlptr)
+void gunRenderFirstPersonGunModels(Gfx **gdlptr)
 {
     Gfx *gdl = *gdlptr;
     ModelRenderData renderdata;
@@ -9011,7 +9011,8 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
 }
 
 
-void sub_GAME_7F06908C(Gfx **gdl)
+// Address: 0x7F06908C
+void gunRenderCasings(Gfx **gdl)
 {
     CasingRecord* end = g_Casings + ARRAYCOUNT(g_Casings);
     CasingRecord* entry = g_Casings;
