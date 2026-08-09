@@ -779,7 +779,7 @@ s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, co
 Gfx* sub_GAME_7F08A5FC(Gfx* arg0);
 Gfx *sub_GAME_7F08AAE8(Gfx *gdl);
 Gfx *sub_GAME_7F088CD8(Gfx *gdl);
-Gfx *sub_GAME_7F087E74(Gfx *gdl);
+Gfx *bondviewRenderWatch(Gfx *gdl);
 Gfx *bondviewRenderGaugeBars(Gfx *gdl);
 
 // end forward declarations
@@ -9830,7 +9830,7 @@ void bondviewSelectCuff(Model *model, ModelFileHeader *header, s32 switchindex)
 /**
  * Address: 7F087E74
  */
-Gfx *sub_GAME_7F087E74(Gfx *gdl)
+Gfx *bondviewRenderWatch(Gfx *gdl)
 {
     ModelRenderData renderdata;
     Mtxf watchmtx;
@@ -10587,7 +10587,7 @@ Gfx *maybe_mp_interface(Gfx *gdl)
     gunUpdateAndFireBothHands();
     gunRenderCasings(&gdl);
     gunRenderFirstPersonGunModels(&gdl);
-    gdl = sub_GAME_7F087E74(gdl);
+    gdl = bondviewRenderWatch(gdl);
 
     if (g_CurrentPlayer->mpmenuon != 0)
     {
