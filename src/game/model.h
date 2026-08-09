@@ -103,7 +103,7 @@ void sub_GAME_7F074524(Gfx *param_1,struct Model *param_2, struct ModelNode *par
 void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node);
 void subdraw(ModelRenderData *arg0, struct Model *);
 s32 loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused);
-void sub_GAME_7F0755B0(void);
+void modelResetAnimationsScratchBuffer(void);
 void modelPromoteNodeOffsetsToPointers(ModelNode *node, u32 vma, u32 fileramaddr);
 void sub_GAME_7F075A90(ModelFileHeader *header, s32 vma, u32 addr);
 s32 modelCalculateRwDataIndexes(ModelNode *basenode);
