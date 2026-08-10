@@ -1021,9 +1021,9 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
     s32 y;
     s32 k;
     s32 textwidth;
-    s32 textheight; 
-    s32 m; 
-    s32 h1; 
+    s32 textheight;
+    s32 m;
+    s32 h1;
     s32 h2;
     char rankbuffer[4];
     s32 two_player_x_offset;
@@ -1044,8 +1044,9 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
     char *text3;
     s32 self_paused;
     s32 total_kills_against_current;
-    s16 x2; s16 viewleft;
-    volatile s32 colour; 
+    s16 x2;
+    s16 viewleft;
+    s32 colour;
     s32 q;
  
     curplayernum = get_cur_playernum();
@@ -1069,6 +1070,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
         {
             two_player_x_offset = 0;
         }
+
         switch (g_CurrentPlayer->mpmenumode)
         {
             case MENU_GOWOC:
@@ -1121,12 +1123,14 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
  
         if (self_paused)
         {
-            viewleft = viGetX(); h1 = viGetY();
+            viewleft = viGetX(); 
+            h1 = viGetY();
             gdl = textRenderOutlined(gdl, &x, &y, text, ptrFontBankGothicChars, ptrFontBankGothic, 0xa0ffa0f0, 0x007000a0, viewleft, h1, 0, 0);
         }
         else
         {
-            viewleft = viGetX(); h1 = viGetY();
+            viewleft = viGetX(); 
+            h1 = viGetY();
             gdl = textRender(gdl, &x, &y, text, ptrFontBankGothicChars, ptrFontBankGothic, 0x00ff00b0, viewleft, h1, 0, 0);
         }
  
@@ -1134,8 +1138,11 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
         {
             viewleft = viGetViewLeft();
     
-            // Must stay on one line for matching
-            if (g_gameOverFlag) { colour = 10; } else { colour = 0; } x = ((viewleft + two_player_x_offset) - colour) + 40;
+            /**
+             *  Colour is reused to store a pixel offset here. Efforts to introduce a new variable to store the offset resulted in stack problem I could not solve,
+             *  so it's possible Rare really did reuse one variable for this. Perhaps it was not named "colour" but something more generic like "tmp."
+             */ 
+            colour = g_gameOverFlag ? 10 : 0, x = ((viewleft + two_player_x_offset) - colour) + 40;
     
             if (g_gameOverFlag)
             {
@@ -1159,9 +1166,9 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
         if (mpwatchMenuCanGoRight())
         {
             viewleft = viGetViewLeft();
- 
-            // Must stay on one line for matching
-            if (g_gameOverFlag) { colour = 10; } else { colour = 0; } x = ((colour + 112) + viewleft) + two_player_x_offset;
+
+            // Colour is again used to store a pixel offset.
+            colour = g_gameOverFlag ? 10 : 0, x = ((colour + 112) + viewleft) + two_player_x_offset;
  
             if (g_gameOverFlag)
             {
@@ -1216,7 +1223,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
                 h1 = viGetY();
                 gdl = textRender(gdl, &x, &y, rankbuffer, ptrFontBankGothicChars, ptrFontBankGothic, 0x00ff00b0, viewleft, h1, 0, 0);
             }
- 
+
             fav_x_offset = (g_gameOverFlag == 0); 
  
             if (fav_x_offset) 
@@ -1268,15 +1275,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
                     }
                     else
                     {
-                        if (g_playerPlayerData[0].have_token_or_goldengun == g_playerPlayerData[curplayernum].have_token_or_goldengun) 
-                        { 
-                            q = same_team_colour; 
-                        } 
-                        else 
-                        { 
-                            q = other_team_colour; 
-                        }
-
+                        q = g_playerPlayerData[0].have_token_or_goldengun == g_playerPlayerData[curplayernum].have_token_or_goldengun ? same_team_colour : other_team_colour;
                         colour = q;
                     }
  
@@ -1284,19 +1283,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
                     viewleft = viGetViewLeft();
                     x2 = viGetViewTop();
 
-                    if (curplayernum == 1) 
-                    { 
-                        // Must stay on one line for matching.
-                        colour = current_colour; } else { if (g_playerPlayerData[1].have_token_or_goldengun == g_playerPlayerData[curplayernum].have_token_or_goldengun) 
-                        { 
-                            q = same_team_colour; 
-                        } 
-                        else 
-                        { 
-                            q = other_team_colour; 
-                        } 
-                        colour = q; 
-                    }
+                    curplayernum == 1 ? (colour = current_colour) : (q = g_playerPlayerData[1].have_token_or_goldengun == g_playerPlayerData[curplayernum].have_token_or_goldengun ? same_team_colour : other_team_colour, colour = q);
 
                     gdl = display_text_for_playerdata_on_MP_menu(gdl, (viewleft + two_player_x_offset) + 80, x2 + (86 + MPMENU_YOFF), scores[1], colour);
                 }
@@ -1311,15 +1298,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
                     }
                     else
                     {
-                        if (g_playerPlayerData[0].have_token_or_goldengun == g_playerPlayerData[curplayernum].have_token_or_goldengun)
-                        { 
-                            q = same_team_colour; 
-                        } 
-                        else 
-                        { 
-                            q = other_team_colour; 
-                        }
-
+                        q = g_playerPlayerData[0].have_token_or_goldengun == g_playerPlayerData[curplayernum].have_token_or_goldengun ? same_team_colour : other_team_colour;
                         colour = q;
                     }
  
@@ -1333,15 +1312,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
                     }
                     else
                     {
-                        if (g_playerPlayerData[1].have_token_or_goldengun == g_playerPlayerData[curplayernum].have_token_or_goldengun) 
-                        { 
-                            q = same_team_colour; 
-                        } 
-                        else 
-                        { 
-                            q = other_team_colour;
-                        }
-
+                        q = g_playerPlayerData[1].have_token_or_goldengun == g_playerPlayerData[curplayernum].have_token_or_goldengun ? same_team_colour : other_team_colour;
                         colour = q;
                     }
  
@@ -1355,16 +1326,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
                     }
                     else
                     {
-                        if (g_playerPlayerData[2].have_token_or_goldengun == g_playerPlayerData[curplayernum].have_token_or_goldengun) 
-                        { 
-                            q = same_team_colour; 
-                        } 
-                        else 
-                        { 
-                            q = other_team_colour; 
-                        
-                        }
-
+                        q = g_playerPlayerData[2].have_token_or_goldengun == g_playerPlayerData[curplayernum].have_token_or_goldengun ? same_team_colour : other_team_colour;
                         colour = q;
                     }
  
@@ -1375,21 +1337,14 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
                         viewleft = viGetViewLeft();
                         x2 = viGetViewTop();
 
-                        if (curplayernum == 3) { colour = current_colour; } else { if (g_playerPlayerData[3].have_token_or_goldengun == g_playerPlayerData[curplayernum].have_token_or_goldengun) 
-                        { 
-                            q = same_team_colour; 
-                        } 
-                        else 
-                        { 
-                            q = other_team_colour; 
-                        } 
-
-                        colour = q; 
-                    }
+                        curplayernum == 3 ? (colour = current_colour) : (q = g_playerPlayerData[3].have_token_or_goldengun == g_playerPlayerData[curplayernum].have_token_or_goldengun ? same_team_colour : other_team_colour, colour = q);
                         gdl = display_text_for_playerdata_on_MP_menu(gdl, (viewleft + two_player_x_offset) + 96, x2 + (86 + MPMENU_YOFF), scores[3], colour);
                     }
                 }
             }
+
+            // Keep colour live through this branch to reproduce the original register allocation.
+            if (colour);
         }
         else if (g_CurrentPlayer->mpmenumode == MENU_KILLS)
         {
@@ -1412,8 +1367,9 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
  
             q = (s32) langGet(0xa01c); /* P */
  
-            // Must stay on one line for matching
-            h2 = (s32) langGet(0xa01d); /* KILLS */ sprintf(rankbuffer, ascii_pnum_KILLS, (char *) q, curplayernum + 1, (char *) h2); /* -> "P<n> KILLS" */
+            // Must remain a comma expression for matching
+            h2 = (s32) langGet(0xa01d), /* KILLS */
+                sprintf(rankbuffer, ascii_pnum_KILLS, (char *) q, curplayernum + 1, (char *) h2); /* -> "P<n> KILLS" */
  
             textMeasure(&textheight, &textwidth, rankbuffer, ptrFontBankGothicChars, ptrFontBankGothic, 0);
             x = ((viGetViewLeft() + two_player_x_offset) - (textwidth >> 1)) + 80;
@@ -1481,8 +1437,9 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
  
             q = (s32) langGet(0xa01c); /* P */
  
-            // Must stay on one line for matching.
-            h2 = (s32) langGet(0xa01e); /* LOSSES */ sprintf(rankbuffer, ascii_pnum_LOSSES, (char *) q, curplayernum + 1, (char *) h2); /* -> "P<n> LOSSES" */
+            // Must remain a comma expression for matching.
+            h2 = (s32) langGet(0xa01e), /* LOSSES */
+                sprintf(rankbuffer, ascii_pnum_LOSSES, (char *) q, curplayernum + 1, (char *) h2); /* -> "P<n> LOSSES" */
  
             textMeasure(&textheight, &textwidth, rankbuffer, ptrFontBankGothicChars, ptrFontBankGothic, 0);
             x = ((viGetViewLeft() + two_player_x_offset) - (textwidth >> 1)) + 80;
