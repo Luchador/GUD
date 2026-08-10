@@ -1094,7 +1094,7 @@ void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
             sp118.f[2] = sp1B8.f[2];
         }
 
-        if ((door->doorType == 4) || (door->doorType == 8))
+        if ((door->doorType == DOORTYPE_VERTICAL) || (door->doorType == DOORTYPE_FALLAWAY))
         {
             sp7C.f[0] = pad->look.f[0] * (bb2.xmin - bb2.xmax);
             sp7C.f[1] = pad->look.f[1] * (bb2.xmin - bb2.xmax);

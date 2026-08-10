@@ -4485,7 +4485,7 @@ _AI_CMD(
 * Is Key, if it exists, "Dropped"? (not moving/in mid-air)
 ********************************************************************************
 * @return     Continue execution from LABEL if TRUE
-* @exception: Used to check if a Key with ID has been "Dropped" (RUNTIMEBITFLAG_DEPOSIT)
+* @exception: Used to check if a Key with ID has been "Dropped" (RUNTIMEBITFLAG_HASPROJECTILE)
 *             Make sure IFItemIsAttachedToObject takes priority over
 *             IFKeyDropped when using both commands
 *******************************************************************************/
@@ -11850,7 +11850,7 @@ _AI_CMD(
         if (obj && obj->prop)
         {
             sub_GAME_7F03FDA8(obj->prop);
-            if (obj->runtime_bitflags & RUNTIMEBITFLAG_DEPOSIT)
+            if (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
             {
                 obj->projectile->flags |= 0x601;
                 projectileSetSticky(obj->prop);

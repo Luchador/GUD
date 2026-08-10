@@ -294,7 +294,7 @@ BITFLAG(PS_FLAGS2,
 typedef enum PROPFLAG
 {
     PROPFLAG_RENDERPOSTBG                = 0x00000001, // Fall to Ground
-    PROPFLAG_ONSCREEN                    = 0x00000002, //  In Air Rotated 90 Deg Upside-Down
+    PROPFLAG_ONSCREEN                    = 0x00000002, // In Air Rotated 90 Deg Upside-Down
     PROPFLAG_ENABLED                     = 0x00000004, // In Air Upside-Down
     PROPFLAG_00000008                    = 0x00000008, // In Air
     PROPFLAG_00000010                    = 0x00000010, // Scale to Pad Bounds
@@ -303,17 +303,17 @@ typedef enum PROPFLAG
     PROPFLAG_00000080                    = 0x00000080, // Scale Z to Pad Bounds
     PROPFLAG_00000100                    = 0x00000100, // Force Collisions
     PROPFLAG_00000200                    = 0x00000200, // Glass Env Mapping Style
-    PROPFLAG_ILLUMINATED                 = 0x00000400, /* ignore Stan Colour?*/
+    PROPFLAG_ILLUMINATED                 = 0x00000400, // ignore Stan Colour?
     PROPFLAG_00000800                    = 0x00000800, // Free Standing Glass
     PROPFLAG_00001000                    = 0x00001000, // Absolute Position
-    PROPFLAG_AIUNDROPPABLE               = 0x00002000, /* Item Not Droppedz*/
+    PROPFLAG_AIUNDROPPABLE               = 0x00002000, // Item Not Droppedz
     PROPFLAG_ASSIGNEDTOCHR               = 0x00004000, // Assigned to Actor
     PROPFLAG_INSIDEANOTHEROBJ            = 0x00008000, // Embedded Object
     PROPFLAG_FORCEMORTAL                 = 0x00010000, // unknown
     PROPFLAG_INVINCIBLE                  = 0x00020000, // Invincible
     PROPFLAG_00040000                    = 0x00040000, // Allow Pickup (chr_type)
     PROPFLAG_00080000                    = 0x00080000, // Collect Object by Interaction Button Only
-    PROPFLAG_UNCOLLECTABLE               = 0x00100000, /* Item Not Collectable*/
+    PROPFLAG_UNCOLLECTABLE               = 0x00100000, // Item Not Collectable
     PROPFLAG_00200000                    = 0x00200000, // Bounce and Destroy If Shot
     PROPFLAG_00400000                    = 0x00400000, // unknown
     PROPFLAG_00800000                    = 0x00800000, // unknown
@@ -321,20 +321,22 @@ typedef enum PROPFLAG
     PROPFLAG_CANNOT_ACTIVATE             = 0x02000000, // Cannot Activate Door/Object
     PROPFLAG_04000000                    = 0x04000000, // AI Sees Through Door/Object
     PROPFLAG_DOOR_TWOWAY                 = 0x08000000, // Open Away From Player
-    PROPFLAG_WEAPON_LEFTHANDED           = 0x10000000, /* Left-Handed weapon*/
-    PROPFLAG_GLASS_HASPORTAL             = 0x10000000, /* Glass Has Portal*/
+    PROPFLAG_WEAPON_LEFTHANDED           = 0x10000000, // Left-Handed weapon
+    PROPFLAG_GLASS_HASPORTAL             = 0x10000000, // Glass Has Portal
     PROPFLAG_CULL_BEHIND_DOOR            = 0x10000000, // Area Behind Door Invisible
     PROPFLAG_FIXED_MONITOR               = 0x10000000, // Monitor Fixed
     PROPFLAG_CCTV_DISABLED               = 0x10000000, // Disable security camera
     PROPFLAG_IS_DRONE_GUN                = 0x10000000, // drone gun
-    PROPFLAG_DOOR_OPENTOFRONT            = 0x20000000, /* Open Backwards*/
-    PROPFLAG_SPECIAL_FUNC                = 0x20000000, //Special Function
-    PROPFLAG_CONCEAL_GUN                 = 0x20000000, //Conceal Weapon
+    PROPFLAG_DOOR_OPENTOFRONT            = 0x20000000, // Open Backwards
+    PROPFLAG_SPECIAL_FUNC                = 0x20000000, // Special Function
+    PROPFLAG_INMOTION                    = 0x20000000, // projectile/prop is in motion
+    PROPFLAG_CONCEAL_GUN                 = 0x20000000, // Conceal Weapon
     PROPFLAG_MONITOR_RENDERPOSTBG        = 0x40000000,
     PROPFLAG_NO_PORTAL_CLOSE             = 0x40000000, // Area Behind Door Visible
-    PROPFLAG_NO_AMMO                     = 0x40000000,/* No Ammo on pickup */
+    PROPFLAG_NO_AMMO                     = 0x40000000, // No Ammo on pickup
     PROPFLAG_80000000                    = 0x80000000, // Open By Default/Weapon Paired for Player
-    PROPFLAG_IS_DOUBLE                   = 0x80000000
+    PROPFLAG_IS_DOUBLE                   = 0x80000000,
+    PROPFLAG_DOOR_KEEPOPEN               = 0x80000000
 }PROPFLAG;
 
 // prop definition flags
@@ -378,7 +380,7 @@ typedef enum DOORFLAG
 {
     DOORFLAG_0001            = 0x00000001,
     DOORFLAG_WINDOWED        = 0x00000002,
-    DOORFLAG_CLIP_TO_BBOX            = 0x00000004,
+    DOORFLAG_CLIP_TO_BBOX    = 0x00000004,
     DOORFLAG_FLIP            = 0x00000008,
     DOORFLAG_AUTOMATIC       = 0x00000010,
     DOORFLAG_0020            = 0x00000020,
@@ -393,41 +395,27 @@ typedef enum DOORFLAG
     DOORFLAG_KEEPOPEN        = 0x80000000
 } DOORFLAG;
 
-typedef enum DOORMODE
-{
-    DOORMODE_IDLE,
-    DOORMODE_OPENING,
-    DOORMODE_CLOSING,
-    // Waiting for sibling door to close. Eg. Dam gates in GE
-    DOORMODE_WAITING
-} DOORMODE;
-
 typedef enum DOORSTATE
 {
     DOORSTATE_STATIONARY,
-    DOORSTATE_OPENING,// also OPEN but NOT AIlist compatible (02)
+    DOORSTATE_OPENING, // also OPEN but NOT AIlist compatible (02)
     DOORSTATE_CLOSING, // also CLOSE but NOT AIlist compatible (01)
-    DOORSTATE_WAITING
+    DOORSTATE_WAITING  // Waiting for sibling door to close. Eg. Dam gates
 } DOORSTATE;
 
-#define DOORTYPE_SLIDING    0
-// GE only - Bunker flexi door
-#define DOORTYPE_FLEXI1     1
-#define DOORTYPE_FLEXI2     2
-#define DOORTYPE_FLEXI3     3
-#define DOORTYPE_VERTICAL   4
-#define DOORTYPE_SWINGING   5
-// GE only - Caverns
-#define DOORTYPE_EYE        6
-// GE only - Caverns
-#define DOORTYPE_IRIS       7
-// GE only - Surface grate and Train floor panel
-#define DOORTYPE_FALLAWAY   8
-// GE only
-#define DOORTYPE_AZTECCHAIR 9
-// Attack Ship windows
-#define DOORTYPE_HULL       10
-#define DOORTYPE_LASER      11
+typedef enum DOORTYPE
+{
+    DOORTYPE_SLIDING    = 0,
+    DOORTYPE_FLEXI1     = 1,  // Bunker flexi door
+    DOORTYPE_FLEXI2     = 2,
+    DOORTYPE_FLEXI3     = 3,
+    DOORTYPE_VERTICAL   = 4,
+    DOORTYPE_SWINGING   = 5,
+    DOORTYPE_EYE        = 6,  // Caverns
+    DOORTYPE_IRIS       = 7,  // Caverns
+    DOORTYPE_FALLAWAY   = 8,  // Surface grate and Train floor panel
+    DOORTYPE_AZTECCHAIR = 9
+} DOORTYPE;
 
 typedef enum DOOR_OPEN_SOUND
 {
@@ -471,6 +459,7 @@ typedef enum PROJECTILEFLAG
     PROJECTILEFLAG_00000040    = 0x00000040,
     PROJECTILEFLAG_LAUNCHING   = 0x00000080,
     PROJECTILEFLAG_00000100    = 0x00000100,
+    PROJECTILEFLAG_00000200    = 0x00000200,
     PROJECTILEFLAG_FALLING     = 0x00000400,
     PROJECTILEFLAG_SLIDING     = 0x00000800,
     PROJECTILEFLAG_00001000    = 0x00001000,
@@ -532,23 +521,23 @@ BITFLAG(PLAYERFLAG,
 BITFLAG(RUNTIMEBITFLAG,
         00000001,
         00000002,
-        REMOVE, /* removes object when set                                     */
+        REMOVE, /* removes object when set                                         */
         ISRETICK,
         TAGGED,
         THROWING_KNIFE_RELATED,
         EMBEDDED,
-        DEPOSIT, /* depositted (thrown/launching)                               */
+        HASPROJECTILE, /* this object owns a live Projectile record in obj->projectile   */
         00000100,
         BEENOPENED,
-        DESTROYED, /* only set with disabled or destroyed doors                   */
+        DESTROYED, /* only set with disabled or destroyed doors                    */
         00000800,
         00001000,
         PADLOCKEDDOOR,
-        ACTIVATED, /* activated                                                   */
+        ACTIVATED, /* activated                                                    */
         00008000,
         00010000,
-        00020000, /* owner 2bit (0-3) used to                                    */
-        00040000, /* attribute kills to players                                  */
+        00020000, /* owner 2bit (0-3) used to                                      */
+        00040000, /* attribute kills to players                                    */
         HASOWNER,
         00100000,
         00200000,

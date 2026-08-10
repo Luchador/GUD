@@ -519,7 +519,7 @@ ObjectRecord *setupFindObjForReuse(s32 wanttype, ObjectRecord **offscreenobjptr,
                     }
                 }
                 else if (wanttype != PROP_TYPE_SMOKE
-                        && (obj->runtime_bitflags & RUNTIMEBITFLAG_DEPOSIT) == 0
+                        && (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE) == 0
                         && (obj->state & PROPSTATE_RESPAWN) == 0
                         && obj->prop->parent == NULL
                         && (!musthavemodel || modelmgrCanSlotFitRwdata(obj->model, modeldef)))

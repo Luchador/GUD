@@ -4502,7 +4502,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                     {
                         sub_GAME_7F03FDA8(obj->prop);
 
-                        if (obj->runtime_bitflags & RUNTIMEBITFLAG_DEPOSIT)
+                        if (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
                         {
                             obj->projectile->flags |= 0x601;
                             projectileSetSticky(obj->prop);

@@ -6669,7 +6669,7 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
 
                                 gunInitProjectileObject((ObjectRecord *)sp208, &sp240, sp238, &sp16C, &sp1BC, &sp1C8, self_prop);
 
-                                if (sp208->runtime_bitflags & RUNTIMEBITFLAG_DEPOSIT)
+                                if (sp208->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
                                 {
                                     sp208->projectile->flags |= 0x80;
                                     sp208->timer = -1;
@@ -6718,7 +6718,7 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                                 sp128->timer = CHRLV_DEFAULT_TIMER;
                                 gunInitProjectileObject((ObjectRecord *) sp128, &sp240, sp238, &sp9C, &spDC, &spE8, self_prop);
 
-                                if (sp128->runtime_bitflags & RUNTIMEBITFLAG_DEPOSIT)
+                                if (sp128->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
                                 {
                                     sp128->projectile->unk8C = 0.3f;
                                     sp128->projectile->unk94 = 0.13333333f;

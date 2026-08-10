@@ -2523,7 +2523,7 @@ typedef union
         u32 unkD8;
         u32 unkDC;
 
-        u32 unkE0;
+        u32 age; //0xE0
         struct ObjectRecord* obj; // 0xE4;
         s32 unkE8;
     } Projectile;

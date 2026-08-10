@@ -1645,7 +1645,7 @@ void gunInitProjectileObject(ObjectRecord *obj, coord3d *pos, StandTile *stan, M
         chrobjCollisionRelated(obj);
         sub_GAME_7F03FDA8(temp_s1);
 
-        if (obj->runtime_bitflags & RUNTIMEBITFLAG_DEPOSIT)
+        if (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
         {
             temp_v0 = obj->projectile;
             temp_v0->flags |= 0x41;
@@ -1819,7 +1819,7 @@ void generate_player_thrown_grenade(s32 hand)
 
         gunInitProjectileFromPlayer(wor, &spE0, &spA0_a, &throw_speed_vec, &spFC);
 
-        if ((wor->runtime_bitflags & RUNTIMEBITFLAG_DEPOSIT) != 0)
+        if ((wor->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE) != 0)
         {
             wor->projectile->flags = (s32) (wor->projectile->flags | 2);
 
@@ -1904,7 +1904,7 @@ void generate_player_thrown_knife(s32 hand)
 
         gunInitProjectileFromPlayer(wor, &spE0, &spA0_a, &throw_speed_vec, &spFC);
 
-        if ((wor->runtime_bitflags & RUNTIMEBITFLAG_DEPOSIT) != 0)
+        if ((wor->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE) != 0)
         {
             wor->projectile->flags = (s32) (wor->projectile->flags | 2);
 
@@ -1914,7 +1914,7 @@ void generate_player_thrown_knife(s32 hand)
             wor->runtime_bitflags |= RUNTIMEBITFLAG_THROWING_KNIFE_RELATED;
         }
 
-        sub_GAME_7F043650(wor);
+        objUpdateThrowKnifeSound(wor);
     }
 }
 
@@ -2104,7 +2104,7 @@ void generate_player_thrown_object(s32 hand)
 
         gunInitProjectileFromPlayer(wor, &spE0, &spA0_a, &throw_speed_vec, &unk_mtxf);
 
-        if ((wor->runtime_bitflags & RUNTIMEBITFLAG_DEPOSIT) != 0)
+        if ((wor->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE) != 0)
         {
             wor->projectile->flags = (s32) (wor->projectile->flags | 2);
 
