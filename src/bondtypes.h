@@ -3064,7 +3064,7 @@ typedef union
 
         /**
          * Offset 0xd0.
-         * Used in object_interaction, setting to zero won't disable.
+         * Used in objTick, setting to zero won't disable.
         */
         s32 is_active; // 0xD0
 

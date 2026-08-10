@@ -1907,7 +1907,7 @@ void propsTick(void)
         }
         else if ((prop->type == PROP_TYPE_OBJ) || (prop->type == PROP_TYPE_WEAPON) || (prop->type == PROP_TYPE_DOOR))
         {
-            tickop = object_interaction(prop);
+            tickop = objTick(prop);
         }
         else if (prop->type == PROP_TYPE_EXPLOSION)
         {

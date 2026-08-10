@@ -4298,7 +4298,7 @@ s32 glassCalculateOpacity(coord3d *pos, f32 xludist, f32 opadist, f32 arg3)
 }
 
 
-s32 object_interaction(struct PropRecord *prop)
+s32 objTick(struct PropRecord *prop)
 {
 	Mtxf *mtxs;
 	f32 temp_f14_3;
@@ -5030,9 +5030,11 @@ s32 object_interaction(struct PropRecord *prop)
 			else
 			{
 				projectileAlive = 1;
+
 				if (Rocket->unk60 < 1.0f)
 				{
 					Rocket->unk60 += Rocket->unk64 * g_GlobalTimerDelta;
+
 					if (g_ClockTimer > 0)
 					{
 						Rocket->unk64 *= 1.1f;
