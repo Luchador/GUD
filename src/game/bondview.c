@@ -776,7 +776,7 @@ void bondviewUpdateSpeedForwards(s32 arg0);
 void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, struct coord3d *pos2, struct coord3d *offset, struct StandTile **stan, struct coord3d *arg6);
 void sub_GAME_7F07B2A0(s32, f32, struct coord3d *, struct coord3d *);
 s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, coord3d *collision_pos, StandTile *tile, f32 camera_dist);
-Gfx* sub_GAME_7F08A5FC(Gfx* arg0);
+Gfx* hudmsgBottomRender(Gfx* arg0);
 Gfx *sub_GAME_7F08AAE8(Gfx *gdl);
 Gfx *sub_GAME_7F088CD8(Gfx *gdl);
 Gfx *bondviewRenderWatch(Gfx *gdl);
@@ -10576,7 +10576,7 @@ Gfx *maybe_mp_interface(Gfx *gdl)
     if (g_CurrentPlayer->cameramode == 1)
     {
         bondviewIntroCameraTextTick();
-        gdl = sub_GAME_7F08A5FC(gdl);
+        gdl = hudmsgBottomRender(gdl);
         bondviewUpperTextWindowTimerTick();
         gdl = sub_GAME_7F08AAE8(gdl);
         gdl = countdownTimerRender(gdl);
@@ -10715,7 +10715,7 @@ Gfx *maybe_mp_interface(Gfx *gdl)
     }
 
     bondviewIntroCameraTextTick();
-    gdl = sub_GAME_7F08A5FC(gdl);
+    gdl = hudmsgBottomRender(gdl);
     bondviewUpperTextWindowTimerTick();
     gdl = sub_GAME_7F08AAE8(gdl);
     gunDrawSight(&gdl);
@@ -11458,7 +11458,11 @@ void bondviewIntroCameraTextTick(void)
     }
 }
 
-Gfx* sub_GAME_7F08A5FC(Gfx* arg0)
+
+/**
+ * Address: 7F08A5FC
+ */
+Gfx* hudmsgBottomRender(Gfx* arg0)
 {
     s32 var_v1;
     s32 view_left;
