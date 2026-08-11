@@ -129,42 +129,42 @@ struct solo_target_times {
 
 
 
-extern f32 flt_CODE_bss_800695A0;
+extern f32 cast_camera_dist;
 //CODE.bss:800695A4
-extern f32 flt_CODE_bss_800695A4;
+extern f32 cast_camera_dist_start;
 //CODE.bss:800695A8
-extern f32 flt_CODE_bss_800695A8;
+extern f32 cast_camera_dist_end;
 //CODE.bss:800695AC
-extern f32 flt_CODE_bss_800695AC;
+extern f32 cast_camera_angle;
 //CODE.bss:800695B0
-extern f32 flt_CODE_bss_800695B0;
+extern f32 cast_camera_angle_start;
 //CODE.bss:800695B4
-extern f32 flt_CODE_bss_800695B4;
+extern f32 cast_camera_angle_end;
 //CODE.bss:800695B8
-extern f32 flt_CODE_bss_800695B8;
+extern f32 cast_camera_height;
 //CODE.bss:800695BC
-extern f32 flt_CODE_bss_800695BC;
+extern f32 cast_camera_height_start;
 //CODE.bss:800695C0
-extern f32 flt_CODE_bss_800695C0;
+extern f32 cast_camera_height_end;
 //CODE.bss:800695C4                     .align 3
 //CODE.bss:800695C8
-extern struct coord3d flt_CODE_bss_800695C8;
+extern struct coord3d cast_target_smoothed;
 //CODE.bss:800695D4                     .align 3
 //CODE.bss:800695D8
-extern struct coord3d flt_CODE_bss_800695D8;
+extern struct coord3d cast_target_accumulator;
 
 //CODE.bss:800695E4
-extern s32 bss_800695E4;
+extern s32 cast_camera_reset;
 
 //CODE.bss:800695E8
-extern struct coord3d flt_CODE_bss_800695E8;
+extern struct coord3d cast_rootpos_smoothed;
 
 //CODE.bss:800695F4                     .align 3
 //CODE.bss:800695F8
-extern struct coord3d flt_CODE_bss_800695F8;
+extern struct coord3d cast_rootvel_smoothed;
 //CODE.bss:80069604                     .align 3
 //CODE.bss:80069608
-extern struct coord3d flt_CODE_bss_80069608;
+extern struct coord3d cast_rootvel_accumulator;
 
 //CODE.bss:80069614
 extern f32 ninLogoRotRate;

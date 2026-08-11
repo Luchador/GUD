@@ -81,47 +81,47 @@ struct BriefingData
 
 // bss
 //CODE.bss:800695A0
-f32 flt_CODE_bss_800695A0;
+f32 cast_camera_dist;
 //CODE.bss:800695A4
-f32 flt_CODE_bss_800695A4;
+f32 cast_camera_dist_start;
 //CODE.bss:800695A8
-f32 flt_CODE_bss_800695A8;
+f32 cast_camera_dist_end;
 //CODE.bss:800695AC
-f32 flt_CODE_bss_800695AC;
+f32 cast_camera_angle;
 //CODE.bss:800695B0
-f32 flt_CODE_bss_800695B0;
+f32 cast_camera_angle_start;
 //CODE.bss:800695B4
-f32 flt_CODE_bss_800695B4;
+f32 cast_camera_angle_end;
 //CODE.bss:800695B8
-f32 flt_CODE_bss_800695B8;
+f32 cast_camera_height;
 //CODE.bss:800695BC
-f32 flt_CODE_bss_800695BC;
+f32 cast_camera_height_start;
 //CODE.bss:800695C0
-f32 flt_CODE_bss_800695C0;
+f32 cast_camera_height_end;
 //CODE.bss:800695C4
-f32 flt_CODE_bss_800695C4;
+f32 flt_CODE_bss_800695C4; // unused
 //CODE.bss:800695C8
-struct coord3d flt_CODE_bss_800695C8;
+struct coord3d cast_target_smoothed;
 //CODE.bss:800695D4
-f32 flt_CODE_bss_800695D4;
+f32 flt_CODE_bss_800695D4; // unused
 //CODE.bss:800695D8
-struct coord3d flt_CODE_bss_800695D8;
+struct coord3d cast_target_accumulator;
 
 //CODE.bss:800695E4
-s32 bss_800695E4;
+bool cast_camera_reset;
 
 //CODE.bss:800695E8
-struct coord3d flt_CODE_bss_800695E8;
+struct coord3d cast_rootpos_smoothed;
 
 //CODE.bss:800695F4
 f32 flt_CODE_bss_800695F4;
 //CODE.bss:800695F8
-struct coord3d flt_CODE_bss_800695F8;
+struct coord3d cast_rootvel_smoothed;
 //CODE.bss:80069604
 f32 flt_CODE_bss_80069604;
 
 //CODE.bss:80069608
-struct coord3d flt_CODE_bss_80069608;
+struct coord3d cast_rootvel_accumulator;
 
 
 //CODE.bss:80069614
@@ -855,13 +855,14 @@ struct intro_animation intro_animation_table[] = {
     {0xFFFFFFFF, 0.0, 0.0, 0}
 };
 
-struct coord3d D_8002BA2C = { 0 };
+struct coord3d zeroCoord = { 0 };
 
 #define INTRO_RANDOM_RIFLE_LEN 6
 struct intro_random_rifles
 {
     PROP props[INTRO_RANDOM_RIFLE_LEN];
 };
+
 struct intro_random_rifles random_rifles_in_intro = {
     PROP_CHRKALASH,
     PROP_CHRM16,
@@ -876,6 +877,7 @@ struct intro_random_pistols
 {
     PROP props[INTRO_RANDOM_PISTO_LEN];
 };
+
 struct intro_random_pistols random_pistols_in_intro = {
     PROP_CHRWPPK,
     PROP_CHRWPPKSIL,
@@ -889,36 +891,35 @@ struct intro_random_pistols random_pistols_in_intro = {
     PROP_CHRGOLDEN
 };
 
+struct coord3d cast_camera_pos    = { 0.0f, 0.0f, 1.0f }; // campos in constructor_menu18_displaycast is set to this, but is then immediately overwritten, so the values here have no effect.
+struct coord3d cast_camera_target = { 0.0f, 0.0f, 0.0f };
+struct coord3d cast_camera_up     = { 0.0f, 1.0f, 0.0f }; // Display cast character up vector
 
-struct coord3d D_8002BA78 = { 0.0f, 0.0f, 1.0f };
-struct coord3d D_8002BA84 = { 0.0f, 0.0f, 0.0f };
-struct coord3d D_8002BA90 = { 0.0f, 1.0f, 0.0f }; // Display cast character up vector
+ModelRenderData cast_renderdata_default = { NULL,
+                                            TRUE,
+                                            0x00000003,
+                                            NULL,
 
-ModelRenderData D_8002BA9C = {NULL,
-                              TRUE,
-                              0x00000003,
-                              NULL,
+                                            NULL,
+                                            0,
+                                            0,
+                                            0,
 
-                              NULL,
-                              0,
-                              0,
-                              0,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
 
-                              0,
-                              0,
-                              0,
-                              0,
-
-                              0,
-                              {0, 0, 0, 0},
-                              {0, 0, 0, 0},
-                              CULLMODE_BOTH};
+                                            0,
+                                           {0, 0, 0, 0},
+                                           {0, 0, 0, 0},
+                                           CULLMODE_BOTH};
 
 
-struct coord3d D_8002BADC = { 0.0f, 40.0f, 25.0f };
+struct coord3d cast_camera_offset = { 0.0f, 40.0f, 25.0f }; // vec in constructor_menu18_displaycast is initialized to this, but then gets overwritten before it's read, so these values don't have any effect.
 
-u32 D_8002BAE8 = 0;
-u32 D_8002BAEC = 1;
+u32 D_8002BAE8 = 0; // unused
+u32 D_8002BAEC = 1; // unused
 
 u16 color_palette_entries_50_percent[] = {1, 0x1F, 0x3C1, 0x3DF, 0x7801, 0x781F, 0x7BC1, 0x7BDF};
 
@@ -7709,7 +7710,7 @@ void init_menu18_displaycast(void)
     struct intro_random_pistols pistols;
     
     bufferPtr = ptr_logo_and_walletbond_DL;
-    subOffset = D_8002BA2C;
+    subOffset = zeroCoord;
     headHeader = NULL;
     flip = randomGetNext() & 1;
 
@@ -7868,19 +7869,19 @@ void init_menu18_displaycast(void)
     modelSetAnimation(cast_model, animation_table_ptrs1[intro_animation_table[randomly_selected_intro_animation].animID], flip, intro_animation_table[randomly_selected_intro_animation].startframeoffset, intro_animation_table[randomly_selected_intro_animation].playback_speed, 0.0f);
 
     g_MenuTimer = 0;
-    flt_CODE_bss_800695A4 = ((((f32) ((u32) randomGetNext())) * (1.0f / U32_MAX)) * 80.0f) + 70.0f;
-    flt_CODE_bss_800695A8 = ((((f32) ((u32) randomGetNext())) * (1.0f / U32_MAX)) * 80.0f) + 70.0f;
-    flt_CODE_bss_800695B0 = ((((f32) ((u32) randomGetNext())) * (1.0f / U32_MAX)) - 0.5f) * M_TAU_F;
-    flt_CODE_bss_800695B4 = ((((f32) ((u32) randomGetNext())) * (1.0f / U32_MAX)) - 0.5f) * 2.5132742f;
-    flt_CODE_bss_800695BC = ((((f32) ((u32) randomGetNext())) * (1.0f / U32_MAX)) * 200.0f) + (-100.0f);
-    flt_CODE_bss_800695C0 = ((((f32) ((u32) randomGetNext())) * (1.0f / U32_MAX)) * 200.0f) + (-100.0f);
-    flt_CODE_bss_800695A0 = flt_CODE_bss_800695A4;
-    flt_CODE_bss_800695AC = flt_CODE_bss_800695B0;
-    flt_CODE_bss_800695B8 = flt_CODE_bss_800695BC;
-    bss_800695E4 = 1;
-    flt_CODE_bss_800695E8.f[0] = 0.0f;
-    flt_CODE_bss_800695E8.f[1] = 0.0f;
-    flt_CODE_bss_800695E8.f[2] = 0.0f;
+    cast_camera_dist_start = ((((f32) ((u32) randomGetNext())) * (1.0f / U32_MAX)) * 80.0f) + 70.0f;
+    cast_camera_dist_end = ((((f32) ((u32) randomGetNext())) * (1.0f / U32_MAX)) * 80.0f) + 70.0f;
+    cast_camera_angle_start = ((((f32) ((u32) randomGetNext())) * (1.0f / U32_MAX)) - 0.5f) * M_TAU_F;
+    cast_camera_angle_end = ((((f32) ((u32) randomGetNext())) * (1.0f / U32_MAX)) - 0.5f) * 2.5132742f;
+    cast_camera_height_start = ((((f32) ((u32) randomGetNext())) * (1.0f / U32_MAX)) * 200.0f) + (-100.0f);
+    cast_camera_height_end = ((((f32) ((u32) randomGetNext())) * (1.0f / U32_MAX)) * 200.0f) + (-100.0f);
+    cast_camera_dist = cast_camera_dist_start;
+    cast_camera_angle = cast_camera_angle_start;
+    cast_camera_height = cast_camera_height_start;
+    cast_camera_reset = TRUE;
+    cast_rootpos_smoothed.f[0] = 0.0f;
+    cast_rootpos_smoothed.f[1] = 0.0f;
+    cast_rootpos_smoothed.f[2] = 0.0f;
 }
 
 
@@ -8004,12 +8005,12 @@ void interface_menu18_displaycast(void)
 
 Gfx *constructor_menu18_displaycast(Gfx *DL)
 {
-    coord3d campos = D_8002BA78;
-    coord3d tarpos = D_8002BA84;
-    coord3d up = D_8002BA90;
+    coord3d campos = cast_camera_pos;
+    coord3d tarpos = cast_camera_target;
+    coord3d up = cast_camera_up;
     Light *light;
     Mtxf mtx;
-    ModelRenderData renderdata = D_8002BA9C;
+    ModelRenderData renderdata = cast_renderdata_default;
     s32 pad1A4;
     s32 pad1A0;
     Mtxf mtx2;
@@ -8021,7 +8022,7 @@ Gfx *constructor_menu18_displaycast(Gfx *DL)
     f32 menufrac = (f32)g_MenuTimer / CAST_INTRO_LEN_F;
     f32 fade;
     char *text;
-    coord3d vec = D_8002BADC;
+    coord3d vec = cast_camera_offset;
     coord3d suboffset;
     s32 pad120;
     s32 pad124;
@@ -8047,21 +8048,21 @@ Gfx *constructor_menu18_displaycast(Gfx *DL)
  
     DL = viFillScreen(viSetFillColor(DL, 0, 0, 0));
  
-    flt_CODE_bss_800695A0 = (flt_CODE_bss_800695A8 - flt_CODE_bss_800695A4) * menufrac + flt_CODE_bss_800695A4;
-    flt_CODE_bss_800695AC = (flt_CODE_bss_800695B4 - flt_CODE_bss_800695B0) * menufrac + flt_CODE_bss_800695B0;
-    flt_CODE_bss_800695B8 = (flt_CODE_bss_800695C0 - flt_CODE_bss_800695BC) * menufrac + flt_CODE_bss_800695BC;
+    cast_camera_dist = (cast_camera_dist_end - cast_camera_dist_start) * menufrac + cast_camera_dist_start;
+    cast_camera_angle = (cast_camera_angle_end - cast_camera_angle_start) * menufrac + cast_camera_angle_start;
+    cast_camera_height = (cast_camera_height_end - cast_camera_height_start) * menufrac + cast_camera_height_start;
  
-    if (flt_CODE_bss_800695AC < 0.0f)
+    if (cast_camera_angle < 0.0f)
     {
-        flt_CODE_bss_800695AC += M_TAU_F;
+        cast_camera_angle += M_TAU_F;
     }
  
-    campos.x = flt_CODE_bss_800695A0 * sinf(flt_CODE_bss_800695AC) + cosf(flt_CODE_bss_800695AC) * 0.2f * flt_CODE_bss_800695A0;
-    campos.y = flt_CODE_bss_800695B8;
-    campos.z = flt_CODE_bss_800695A0 * cosf(flt_CODE_bss_800695AC) - sinf(flt_CODE_bss_800695AC) * 0.2f * flt_CODE_bss_800695A0;
+    campos.x = cast_camera_dist * sinf(cast_camera_angle) + cosf(cast_camera_angle) * 0.2f * cast_camera_dist;
+    campos.y = cast_camera_height;
+    campos.z = cast_camera_dist * cosf(cast_camera_angle) - sinf(cast_camera_angle) * 0.2f * cast_camera_dist;
  
-    tarpos.x += cosf(flt_CODE_bss_800695AC) * 0.2f * flt_CODE_bss_800695A0;
-    tarpos.z += -sinf(flt_CODE_bss_800695AC) * 0.2f * flt_CODE_bss_800695A0;
+    tarpos.x += cosf(cast_camera_angle) * 0.2f * cast_camera_dist;
+    tarpos.z += -sinf(cast_camera_angle) * 0.2f * cast_camera_dist;
  
     light = dynAllocateLights(2);
  
@@ -8097,74 +8098,74 @@ Gfx *constructor_menu18_displaycast(Gfx *DL)
     subcalcmatrices(&renderdata, cast_model);
     getsuboffset(cast_model, &suboffset);
  
-    if (bss_800695E4 != 0)
+    if (cast_camera_reset)
     {
-        flt_CODE_bss_800695E8.y = suboffset.y;
+        cast_rootpos_smoothed.y = suboffset.y;
     }
  
-    vec.f[0] = (suboffset.x - flt_CODE_bss_800695E8.x) / g_GlobalTimerDelta;
-    vec.f[1] = (suboffset.y - flt_CODE_bss_800695E8.y) / g_GlobalTimerDelta;
-    vec.f[2] = (suboffset.z - flt_CODE_bss_800695E8.z) / g_GlobalTimerDelta;
+    vec.f[0] = (suboffset.x - cast_rootpos_smoothed.x) / g_GlobalTimerDelta;
+    vec.f[1] = (suboffset.y - cast_rootpos_smoothed.y) / g_GlobalTimerDelta;
+    vec.f[2] = (suboffset.z - cast_rootpos_smoothed.z) / g_GlobalTimerDelta;
  
-    if (bss_800695E4 != 0)
+    if (cast_camera_reset)
     {
-        flt_CODE_bss_80069608.x = vec.f[0] / CAST_DAMP_COMP;
-        flt_CODE_bss_80069608.y = vec.f[1] / CAST_DAMP_COMP;
-        flt_CODE_bss_80069608.z = vec.f[2] / CAST_DAMP_COMP;
+        cast_rootvel_accumulator.x = vec.f[0] / CAST_DAMP_COMP;
+        cast_rootvel_accumulator.y = vec.f[1] / CAST_DAMP_COMP;
+        cast_rootvel_accumulator.z = vec.f[2] / CAST_DAMP_COMP;
     }
  
     for (i = 0; i < g_ClockTimer; i++)
     {
-        flt_CODE_bss_80069608.x = vec.f[0] + CAST_DAMP * flt_CODE_bss_80069608.x;
-        flt_CODE_bss_80069608.y = vec.f[1] + CAST_DAMP * flt_CODE_bss_80069608.y;
-        flt_CODE_bss_80069608.z = vec.f[2] + CAST_DAMP * flt_CODE_bss_80069608.z;
+        cast_rootvel_accumulator.x = vec.f[0] + CAST_DAMP * cast_rootvel_accumulator.x;
+        cast_rootvel_accumulator.y = vec.f[1] + CAST_DAMP * cast_rootvel_accumulator.y;
+        cast_rootvel_accumulator.z = vec.f[2] + CAST_DAMP * cast_rootvel_accumulator.z;
     }
  
-    flt_CODE_bss_800695F8.x = flt_CODE_bss_80069608.x * CAST_DAMP_COMP;
-    flt_CODE_bss_800695F8.y = flt_CODE_bss_80069608.y * CAST_DAMP_COMP;
-    flt_CODE_bss_800695F8.z = flt_CODE_bss_80069608.z * CAST_DAMP_COMP;
+    cast_rootvel_smoothed.x = cast_rootvel_accumulator.x * CAST_DAMP_COMP;
+    cast_rootvel_smoothed.y = cast_rootvel_accumulator.y * CAST_DAMP_COMP;
+    cast_rootvel_smoothed.z = cast_rootvel_accumulator.z * CAST_DAMP_COMP;
  
-    flt_CODE_bss_800695E8.x += flt_CODE_bss_800695F8.x * g_GlobalTimerDelta;
-    flt_CODE_bss_800695E8.y += flt_CODE_bss_800695F8.y * g_GlobalTimerDelta;
-    flt_CODE_bss_800695E8.z += flt_CODE_bss_800695F8.z * g_GlobalTimerDelta;
+    cast_rootpos_smoothed.x += cast_rootvel_smoothed.x * g_GlobalTimerDelta;
+    cast_rootpos_smoothed.y += cast_rootvel_smoothed.y * g_GlobalTimerDelta;
+    cast_rootpos_smoothed.z += cast_rootvel_smoothed.z * g_GlobalTimerDelta;
  
     mtx4TransformVecInPlace(cast_model->render_pos, &vec);
  
-    vec.f[0] -= flt_CODE_bss_800695E8.x;
-    vec.f[1] -= flt_CODE_bss_800695E8.y;
-    vec.f[2] -= flt_CODE_bss_800695E8.z;
+    vec.f[0] -= cast_rootpos_smoothed.x;
+    vec.f[1] -= cast_rootpos_smoothed.y;
+    vec.f[2] -= cast_rootpos_smoothed.z;
  
-    if (bss_800695E4 != 0)
+    if (cast_camera_reset)
     {
-        bss_800695E4 = 0;
+        cast_camera_reset = FALSE;
 
-        flt_CODE_bss_800695D8.x = vec.f[0] / CAST_DAMP_COMP;
-        flt_CODE_bss_800695D8.y = vec.f[1] / CAST_DAMP_COMP;
-        flt_CODE_bss_800695D8.z = vec.f[2] / CAST_DAMP_COMP;
+        cast_target_accumulator.x = vec.f[0] / CAST_DAMP_COMP;
+        cast_target_accumulator.y = vec.f[1] / CAST_DAMP_COMP;
+        cast_target_accumulator.z = vec.f[2] / CAST_DAMP_COMP;
     }
  
     for (i = 0; i < g_ClockTimer; i++)
     {
-        flt_CODE_bss_800695D8.x = vec.f[0] + CAST_DAMP * flt_CODE_bss_800695D8.x;
-        flt_CODE_bss_800695D8.y = vec.f[1] + CAST_DAMP * flt_CODE_bss_800695D8.y;
-        flt_CODE_bss_800695D8.z = vec.f[2] + CAST_DAMP * flt_CODE_bss_800695D8.z;
+        cast_target_accumulator.x = vec.f[0] + CAST_DAMP * cast_target_accumulator.x;
+        cast_target_accumulator.y = vec.f[1] + CAST_DAMP * cast_target_accumulator.y;
+        cast_target_accumulator.z = vec.f[2] + CAST_DAMP * cast_target_accumulator.z;
     }
  
-    flt_CODE_bss_800695C8.x = flt_CODE_bss_800695D8.x * CAST_DAMP_COMP;
-    flt_CODE_bss_800695C8.y = flt_CODE_bss_800695D8.y * CAST_DAMP_COMP;
-    flt_CODE_bss_800695C8.z = flt_CODE_bss_800695D8.z * CAST_DAMP_COMP;
+    cast_target_smoothed.x = cast_target_accumulator.x * CAST_DAMP_COMP;
+    cast_target_smoothed.y = cast_target_accumulator.y * CAST_DAMP_COMP;
+    cast_target_smoothed.z = cast_target_accumulator.z * CAST_DAMP_COMP;
  
-    vec.f[0] = flt_CODE_bss_800695E8.x + flt_CODE_bss_800695C8.x;
-    vec.f[1] = (flt_CODE_bss_800695E8.y + flt_CODE_bss_800695C8.y) - 10.0f;
-    vec.f[2] = flt_CODE_bss_800695E8.z + flt_CODE_bss_800695C8.z;
+    vec.f[0] = cast_rootpos_smoothed.x + cast_target_smoothed.x;
+    vec.f[1] = (cast_rootpos_smoothed.y + cast_target_smoothed.y) - 10.0f;
+    vec.f[2] = cast_rootpos_smoothed.z + cast_target_smoothed.z;
  
     tarpos.x += vec.f[0];
     tarpos.y += vec.f[1];
     tarpos.z += vec.f[2];
  
-    campos.x += flt_CODE_bss_800695E8.x;
-    campos.y += flt_CODE_bss_800695E8.y + 52.5f;
-    campos.z += flt_CODE_bss_800695E8.z;
+    campos.x += cast_rootpos_smoothed.x;
+    campos.y += cast_rootpos_smoothed.y + 52.5f;
+    campos.z += cast_rootpos_smoothed.z;
  
     matrix_4x4_set_lookat_target(&mtx, campos.x, campos.y, campos.z, tarpos.x, tarpos.y, tarpos.z, up.x, up.y, up.z);
  
@@ -8190,8 +8191,8 @@ Gfx *constructor_menu18_displaycast(Gfx *DL)
         instcalcmatrices(&renderdata, cast_model_weapon);
     }
  
-    renderdata.PropType = 7;
-    renderdata.zbufferenabled = 1;
+    renderdata.PropType = PROP_TYPE_EXPLOSION;
+    renderdata.zbufferenabled = TRUE;
     renderdata.gdl = DL;
     renderdata.flags = 3;
  
