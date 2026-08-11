@@ -43,7 +43,7 @@ StandTile *firststaninroom[139];
 //CODE.bss:8007B354
 s32 dword_CODE_bss_8007B354;
 //CODE.bss:8007B358 //stan list array
-StanRoomBounds dword_CODE_bss_8007B358[139];
+StanRoomBounds dword_CODE_bss_8007B358[139]; // TODO: rename to g_StanRoomBounds after sub_GAME_7F0B9338 is decompiled
 //CODE.bss:8007B9DC
 s32 dword_CODE_bss_8007B9DC; //region?
 //CODE.bss:8007B9E0
@@ -259,7 +259,7 @@ void stanInit(void)
 /**
  * Address: 7F0AF038
  */
-void sub_GAME_7F0AF038(void)
+void stanBuildRoomData(void)
 {
     StandTile *tile;
     u8 lastRoom;
@@ -513,7 +513,7 @@ void stanLoadFile(struct StanPrefixRecord *file)
         stanlinelog_flag = 1;
     }
 
-    sub_GAME_7F0AF038();
+    stanBuildRoomData();
     setLevelScale(1.0f);
 }
 
