@@ -828,7 +828,7 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
 
                 if (lightPending)
                 {
-                    save_ptrDL_enpoint_to_current_init_lightfixture_table(out);
+                    lightFixtureEntryEnd(out);
                     lightPending = FALSE;
                 }
 
@@ -967,12 +967,19 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
                             break;
                     }
 
+                    // Caverns water
                     if (texnum == 1508)
                     {
                         out = sub_GAME_7F09343C(out, TRUE);
                         sub_GAME_7F0CC4C8();
                     }
 
+                    /**
+                     * This texture is used on the water in Complex. You can't actually
+                     * see the texture because it's at the bottom of the pits and the
+                     * vertex coloring is pitch black. You can still it's water by
+                     * the splash sound it makes when shot.
+                     */
                     if (texnum == 1511)
                     {
                         out = sub_GAME_7F09365C(out, TRUE);
@@ -981,7 +988,7 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
 
                     if (check_if_imageID_is_light(texnum))
                     {
-                        add_entry_to_init_lightfixture_table(out);
+                        lightFixtureEntryBegin(out);
                         lightPending = TRUE;
                     }
                 }
@@ -1035,7 +1042,7 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
 
     if (lightPending)
     {
-        save_ptrDL_enpoint_to_current_init_lightfixture_table(out);
+        lightFixtureEntryEnd(out);
     }
 
     return ((s32)out) - ((s32)dst);

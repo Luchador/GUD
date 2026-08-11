@@ -2,6 +2,7 @@
 #define _LIGHTFIXTURE_H_
 
 #include <ultra64.h>
+#include <bondtypes.h>
 
 typedef struct s_lightfixture {
     s16 room_index;
@@ -15,8 +16,8 @@ struct s_darkened_light {
     u16 vtx_index;
 };
 
-void save_ptrDL_enpoint_to_current_init_lightfixture_table(Gfx *param_1);
-s32 check_if_imageID_is_light(s32 imageID);
-void add_entry_to_init_lightfixture_table(Gfx *DL);
+void lightFixtureEntryEnd(Gfx *param_1);
+bool check_if_imageID_is_light(s32 imageID);
+void lightFixtureEntryBegin(Gfx *DL);
 
 #endif

@@ -1172,7 +1172,7 @@ void load_bg_file(LEVEL_INDEX levelid)
         }
     }
  
-    init_lightfixture_tables();
+    lightFixtureInitTables();
  
     ptr_bg_data = (s32)header;
     obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, (u8 *) ptr_bg_data, 0, 0x40);
