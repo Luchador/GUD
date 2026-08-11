@@ -10353,7 +10353,7 @@ bool check_2328_preset_set_with_method(ChrRecord *self, u8 quadrant)
             }
             else
             {
-                myclosestwaypoint = sub_GAME_7F08FB90(myclosestwaypoint, bondsclosestwaypoint);
+                myclosestwaypoint = waypointFindNextStepToward(myclosestwaypoint, bondsclosestwaypoint);
                 if (myclosestwaypoint != NULL)
                 {
                     self->padpreset1 = myclosestwaypoint->padID;
