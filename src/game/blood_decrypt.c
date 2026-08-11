@@ -67,8 +67,6 @@ u8 *decrypt_bleeding_animation_data(u8 *arg0, u8 arg1, u8 arg2, u8 *arg3, u8 *ar
 }
 
 
-
-
 void sub_GAME_7F01CC94(u8* arg0, u16 arg1, u8* arg2)
 {
     while (arg1-- > 0)
@@ -77,6 +75,7 @@ void sub_GAME_7F01CC94(u8* arg0, u16 arg1, u8* arg2)
         arg0 += 2;
     }
 }
+
 
 // Address 0x7F01CCEC NTSC
 void sub_GAME_7F01CCEC(u8 *arg0, u8 arg1, u8 arg2, u8 *arg3, u8 arg4)
@@ -124,7 +123,6 @@ void sub_GAME_7F01CCEC(u8 *arg0, u8 arg1, u8 arg2, u8 *arg3, u8 arg4)
 }
 
 
-
 // Averages 4 pixel data, ending on "second" row.
 // Address 0x7F01CEEC NTSC
 void sub_GAME_7F01CEEC(u8 *arg0, s32 arg1, u8 *arg2)
@@ -141,7 +139,6 @@ void sub_GAME_7F01CEEC(u8 *arg0, s32 arg1, u8 *arg2)
         }
     }
 }
-
 
 
 // Averages 4 pixel data, ending on "first" row.
@@ -161,44 +158,54 @@ void sub_GAME_7F01D02C(u8 *arg0, s32 arg1, u8 *arg2)
     }
 }
 
-// Address 0x7F01D16C NTSC
-void sub_GAME_7F01D16C(u8 *arg0, s32 arg1, s32 arg2, u8 *arg3)
+
+/**
+ * Address: 7F01D16C
+ * 
+ * Converts the decoded blood frame from column-major to row-major order.
+ */
+void bloodImgTranspose(u8 *src, s32 srcwidth, s32 srcheight, u8 *dst)
 {
-    s32 temp_lo;
-    u32 temp_a0;
+    s32 pixelcount;
+    u32 rowend;
     u32 var_t2;
     u8 *var_t0;
     u8 *var_v1;
     u32 t1;
 
-    temp_lo = arg1 * arg2;
-    var_v1 = arg0;
-    var_t0 = arg3;
-    t1 = arg0 + temp_lo;
-    var_t2 = arg0 + arg1;
+    pixelcount = srcwidth * srcheight;
+    var_v1 = src;
+    var_t0 = dst;
+    t1 = src + pixelcount;
+    var_t2 = src + srcwidth;
 
     do
     {
-        temp_a0 = var_t2;
+        rowend = var_t2;
 
         do
         {
             *var_t0 = *var_v1++;
             var_t2 += 1;
-            var_t0 += arg2;
+            var_t0 += srcheight;
             
-        } while ((u32) var_v1 < temp_a0);
+        } while ((u32) var_v1 < rowend);
 
-        var_t0 = (var_t0 - (temp_lo)) + 1;
+        var_t0 = (var_t0 - (pixelcount)) + 1;
         
     } while ((u32) var_v1 < (u32) t1);
 }
 
 
-
 #ifdef NONMATCHING
-// Unreferenced.
-// Address 0x7F01D1C0 NTSC.
+/**
+ * Address: 7F01D1C0
+ * 
+ * Unreferenced.
+ * 
+ * The j instruction in the assembly indicates this is likely hand-written assembly
+ * since the IDO compiler wouldn't typically emit that instruction in this situation.
+ */
 u8 *sub_GAME_7F01D1C0(u8 *arg0, s32 arg1, s32 arg2, u8 *arg3)
 {
     // mips2c output makes this look like `decrypt_bleeding_animation_data`, but without
