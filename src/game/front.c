@@ -1477,8 +1477,9 @@ void interface_menu00_legalscreen(void)
 }
 
 
-
-
+/**
+ * Render a string of standard text on the legal screen e.g. "TWYCROSS BOARD OF GAME CLASSIFICATION"
+ */
 Gfx *display_aligned_white_text_to_screen(Gfx *dl, s32 arg1, s32 arg2, s32 halign, s32 valign, u8 *text, s32 arg6, s32 arg7)
 {
     s32 sp4C;
@@ -1491,6 +1492,7 @@ Gfx *display_aligned_white_text_to_screen(Gfx *dl, s32 arg1, s32 arg2, s32 halig
     textMeasure(&sp4C, &sp48, text, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
     x = arg1 - ((s32) (halign * sp48) / 2);
     y = arg2 - ((s32) (valign * sp4C) / 2);
+
     return textRender(dl, &x, &y, text, arg6, arg7, -1, viGetX(), viGetY(), 0, 0);
 }
 

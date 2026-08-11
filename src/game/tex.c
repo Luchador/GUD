@@ -966,9 +966,9 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
                     }
 
                     /**
-                     * This texture is used on the water in Complex. You can't actually
-                     * see the texture because it's at the bottom of the pits and the
-                     * vertex coloring is pitch black. You can still it's water by
+                     * This texture is used on the water in Dam and Complex. You can't actually
+                     * see the texture in Complex because it's at the bottom of the pits and the
+                     * vertex coloring is pitch black. You can still tell it's water by
                      * the splash sound it makes when shot.
                      */
                     if (texnum == 1511)

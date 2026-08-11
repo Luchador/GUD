@@ -9,12 +9,20 @@
 #include "assert.h"
 
 typedef struct StanRoomBounds {
-    s16 minX;
-    s16 minY;
-    s16 minZ;
-    s16 maxX;
-    s16 maxY;
-    s16 maxZ;
+    union {
+        struct {
+            s16 minX;
+            s16 minY;
+            s16 minZ;
+            s16 maxX;
+            s16 maxY;
+            s16 maxZ;
+        };
+        struct {
+            s16 min[3];
+            s16 max[3];
+        };
+    };
 } StanRoomBounds;
 
 void getTileMidPoint(StandTile *tile, coord3d *out);
@@ -31,27 +39,15 @@ struct StanPrefixRecord *stan_prefix;
 s32 dword_CODE_bss_8007B124;
 
 //CODE.bss:8007B128
-s32 firststaninroom;
-//CODE.bss:8007B12C
-s32 dword_CODE_bss_8007B12C;
-//CODE.bss:8007B130
-s32 dword_CODE_bss_8007B130; //stanladder s1
-//CODE.bss:8007B134
-char dword_CODE_bss_8007B134;
-char dword_CODE_bss_8007B135;
-char dword_CODE_bss_8007B136;
-char dword_CODE_bss_8007B137;
-char dword_CODE_bss_8007B138[0x21C];
+StandTile *firststaninroom[139];
 //CODE.bss:8007B354
 s32 dword_CODE_bss_8007B354;
 //CODE.bss:8007B358 //stan list array
-s32 dword_CODE_bss_8007B358[0x1a1];
+StanRoomBounds dword_CODE_bss_8007B358[139];
 //CODE.bss:8007B9DC
 s32 dword_CODE_bss_8007B9DC; //region?
 //CODE.bss:8007B9E0
 s32 dword_CODE_bss_8007B9E0;
-
-
 
 // All relating to a saved collision, but not one struct
 //CODE.bss:8007B9E4
@@ -238,7 +234,8 @@ void sub_GAME_7F0AEFE0(StandTile *tile)
 
 
 //stanChecksf
-u32 stanRemovedAnimationRoutine(s32 arg0) {
+u32 stanRemovedAnimationRoutine(s32 arg0) 
+{
 #ifdef DEBUG
     if (arg0 < ptr_firstroom_0)
     {
@@ -252,286 +249,68 @@ u32 stanRemovedAnimationRoutine(s32 arg0) {
     return 0;
 }
 
-void stanInit(void) {
-    debTryAdd(&stan_c_debug_notice_list_entry, &aStan_c_debug);//"stan_c_debug");
+
+void stanInit(void) 
+{
+    debTryAdd(&stan_c_debug_notice_list_entry, &aStan_c_debug); //"stan_c_debug");
 }
 
 
+/**
+ * Address: 7F0AF038
+ */
+void sub_GAME_7F0AF038(void)
+{
+    StandTile *tile;
+    u8 lastRoom;
+    s32 i;
+    s32 j;
+    s32 k;
 
-
-
-
-#ifdef NONMATCHING
-void sub_GAME_7F0AF038(void) {
-    void *temp_v1;
-    s32 temp_s0;
-    s32 temp_a2;
-    void *temp_s0_2;
-    s32 temp_s0_4;
-    s16 temp_s0_3;
-    s32 temp_s2;
-    s32 temp_v1_2;
-    s32 temp_s0_5;
-    void *temp_a0;
-    void *phi_v1;
-    s32 curroom;
-    void *firststan;
-    void *phi_s3;
-    void *phi_s5;
-    s16 phi_s0;
-    s32 phi_s2;
-    s32 phi_v1_2;
-    s32 phi_s0_2;
-    void *phi_s1;
-    s32 phi_a2;
-
-    // Node 0
+    lastRoom = 0xff;
     dword_CODE_bss_8007B9DC = 0;
-    dword_CODE_bss_8007B12C = 0;
-    dword_CODE_bss_8007B12C = 0;
-    dword_CODE_bss_8007B130 = 0;
-    phi_v1 = &dword_CODE_bss_8007B134;
-loop_1:
-    // Node 1
-    temp_v1 = (phi_v1 + 0x10);
-    temp_v1->unk-10 = 0;
-    temp_v1->unk-C = 0;
-    temp_v1->unk-8 = 0;
-    temp_v1->unk-4 = 0;
-    phi_v1 = temp_v1;
-    if (temp_v1 != &dword_CODE_bss_8007B354)
+
+    // Must remain on one line for matching.
+    for (k = 0; k < 139; k++) firststaninroom[k] = NULL;
+
+    tile = stan_prefix->ptr_firstroom;
+
+    while (*(u32 *)tile)
     {
-        goto loop_1;
+        if (tile->room != lastRoom)
+        {
+            lastRoom = tile->room;
+
+            if (dword_CODE_bss_8007B9DC <= lastRoom)
+            {
+                dword_CODE_bss_8007B9DC = lastRoom + 1;
+            }
+
+            firststaninroom[lastRoom] = tile;
+
+            dword_CODE_bss_8007B358[lastRoom].min[0] = dword_CODE_bss_8007B358[lastRoom].min[1] = dword_CODE_bss_8007B358[lastRoom].min[2] = 0x7fff;
+            dword_CODE_bss_8007B358[lastRoom].max[0] = dword_CODE_bss_8007B358[lastRoom].max[1] = dword_CODE_bss_8007B358[lastRoom].max[2] = -0x8000;
+        }
+
+        for (i = 0; i < (tile->tail.hdrTail.pointCount & 0xf); i++)
+        {
+            for (j = 0; j < 3; j++)
+            {
+                if (tile->points[i].AsArray[j] < dword_CODE_bss_8007B358[lastRoom].min[j])
+                {
+                    dword_CODE_bss_8007B358[lastRoom].min[j] = tile->points[i].AsArray[j];
+                }
+
+                if (tile->points[i].AsArray[j] > dword_CODE_bss_8007B358[lastRoom].max[j])
+                {
+                    dword_CODE_bss_8007B358[lastRoom].max[j] = tile->points[i].AsArray[j];
+                }
+            }
+        }
+
+        tile = (StandTile *)(((u8 *)tile) + list_of_tilesizes[tile->tail.hdrTail.pointCount & 0xf]);
     }
-    // Node 2
-    if (*stan_prefix.ptr_firstroom != 0)
-    {
-        // Node 3
-        curroom = 0xff;
-        firststan = stan_prefix.ptr_firstroom;
-        curroom = 0xff;
-loop_4:
-        // Node 4
-        temp_s0 = firststan->unk3;
-        curroom = curroom;
-        if (curroom != temp_s0)
-        {
-            // Node 5
-            curroom = (temp_s0 & 0xff);
-            //assert(curroom<MAXSTANROOMS);
-            if (curroom >= dword_CODE_bss_8007B9DC)
-            {
-                // Node 6
-                dword_CODE_bss_8007B9DC = (s32) (curroom + 1);
-            }
-            //        assert(firststaninroom[curroom]==NULL);
-            // Node 7
-            *(&firststaninroom + (curroom * 4)) = (void *) firststan;
-            temp_s0_2 = (&dword_CODE_bss_8007B358 + (curroom * 0xc));
-            temp_s0_2->unk4 = (u16)0x7fff;
-            temp_s0_2->unkA = (u16)-0x8000;
-            temp_s0_2->unk2 = (s16) temp_s0_2->unk4;
-            *temp_s0_2 = (s16) temp_s0_2->unk4;
-            temp_s0_2->unk8 = (s16) temp_s0_2->unkA;
-            temp_s0_2->unk6 = (s16) temp_s0_2->unkA;
-            curroom = curroom;
-            curroom = curroom;
-        }
-        // Node 8
-        temp_s0_4 = (((s32) firststan->unk6 >> 0xc) & 0xf);
-        phi_s0_2 = temp_s0_4;
-        if (temp_s0_4 > 0)
-        {
-            // Node 9
-            phi_v1_2 = 0;
-            phi_s1 = firststan;
-loop_10:
-            // Node 10
-            phi_s3 = phi_s1;
-            phi_s5 = (&dword_CODE_bss_8007B358 + (((curroom * 4) - curroom) * 4));
-            phi_s2 = 0;
-loop_11:
-            // Node 11
-            temp_s0_3 = phi_s3->unk8;
-            temp_s2 = (phi_s2 + 2);
-            phi_s0 = temp_s0_3;
-            if (temp_s0_3 < *phi_s5)
-            {
-                // Node 12
-                *phi_s5 = temp_s0_3;
-                phi_s0 = phi_s3->unk8;
-            }
-            // Node 13
-            if (phi_s5->unk6 < phi_s0)
-            {
-                // Node 14
-                phi_s5->unk6 = (s16) phi_s0;
-            }
-            // Node 15
-            phi_s3 = (phi_s3 + 2);
-            phi_s5 = (phi_s5 + 2);
-            phi_s2 = temp_s2;
-            if (temp_s2 != 6)
-            {
-                goto loop_11;
-            }
-            // Node 16
-            temp_v1_2 = (phi_v1_2 + 1);
-            temp_s0_5 = (((s32) firststan->unk6 >> 0xc) & 0xf);
-            phi_v1_2 = temp_v1_2;
-            phi_s0_2 = temp_s0_5;
-            phi_s1 = (phi_s1 + 8);
-            if (temp_v1_2 < temp_s0_5)
-            {
-                goto loop_10;
-            }
-        }
-        // Node 17
-        temp_a0 = (*(&list_of_tilesizes + phi_s0_2) + firststan);
-        firststan = temp_a0;
-        curroom = curroom;
-        if (*temp_a0 != 0)
-        {
-            goto loop_4;
-        }
-    }
-    // Node 18
-    // Error: assert not self.is_leaf
-    return;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0AF038
-/* 0E3B68 7F0AF038 27BDFFE0 */  addiu $sp, $sp, -0x20
-/* 0E3B6C 7F0AF03C 3C078008 */  lui   $a3, %hi(dword_CODE_bss_8007B9DC)
-/* 0E3B70 7F0AF040 24E7B9DC */  addiu $a3, %lo(dword_CODE_bss_8007B9DC) # addiu $a3, $a3, -0x4624
-/* 0E3B74 7F0AF044 ACE00000 */  sw    $zero, ($a3)
-/* 0E3B78 7F0AF048 3C018008 */  lui   $at, %hi(dword_CODE_bss_8007B12C)
-/* 0E3B7C 7F0AF04C AC20B128 */  sw    $zero, %lo(firststaninroom)($at)
-/* 0E3B80 7F0AF050 AC20B12C */  sw    $zero, %lo(dword_CODE_bss_8007B12C)($at)
-/* 0E3B84 7F0AF054 3C018008 */  lui   $at, %hi(dword_CODE_bss_8007B130)
-/* 0E3B88 7F0AF058 3C038008 */  lui   $v1, %hi(dword_CODE_bss_8007B134)
-/* 0E3B8C 7F0AF05C 3C028008 */  lui   $v0, %hi(dword_CODE_bss_8007B354)
-/* 0E3B90 7F0AF060 AFB5001C */  sw    $s5, 0x1c($sp)
-/* 0E3B94 7F0AF064 AFB40018 */  sw    $s4, 0x18($sp)
-/* 0E3B98 7F0AF068 AFB30014 */  sw    $s3, 0x14($sp)
-/* 0E3B9C 7F0AF06C AFB20010 */  sw    $s2, 0x10($sp)
-/* 0E3BA0 7F0AF070 AFB1000C */  sw    $s1, 0xc($sp)
-/* 0E3BA4 7F0AF074 AFB00008 */  sw    $s0, 8($sp)
-/* 0E3BA8 7F0AF078 240600FF */  li    $a2, 255
-/* 0E3BAC 7F0AF07C 2442B354 */  addiu $v0, %lo(dword_CODE_bss_8007B354) # addiu $v0, $v0, -0x4cac
-/* 0E3BB0 7F0AF080 2463B134 */  addiu $v1, %lo(dword_CODE_bss_8007B134) # addiu $v1, $v1, -0x4ecc
-/* 0E3BB4 7F0AF084 AC20B130 */  sw    $zero, %lo(dword_CODE_bss_8007B130)($at)
-.L7F0AF088:
-/* 0E3BB8 7F0AF088 24630010 */  addiu $v1, $v1, 0x10
-/* 0E3BBC 7F0AF08C AC60FFF0 */  sw    $zero, -0x10($v1)
-/* 0E3BC0 7F0AF090 AC60FFF4 */  sw    $zero, -0xc($v1)
-/* 0E3BC4 7F0AF094 AC60FFF8 */  sw    $zero, -8($v1)
-/* 0E3BC8 7F0AF098 1462FFFB */  bne   $v1, $v0, .L7F0AF088
-/* 0E3BCC 7F0AF09C AC60FFFC */   sw    $zero, -4($v1)
-/* 0E3BD0 7F0AF0A0 3C0E8008 */  lui   $t6, %hi(stan_prefix)
-/* 0E3BD4 7F0AF0A4 8DCEB120 */  lw    $t6, %lo(stan_prefix)($t6)
-/* 0E3BD8 7F0AF0A8 3C0D8004 */  lui   $t5, %hi(list_of_tilesizes)
-/* 0E3BDC 7F0AF0AC 25AD0F4C */  addiu $t5, %lo(list_of_tilesizes) # addiu $t5, $t5, 0xf4c
-/* 0E3BE0 7F0AF0B0 8DC40004 */  lw    $a0, 4($t6)
-/* 0E3BE4 7F0AF0B4 00C02825 */  move  $a1, $a2
-/* 0E3BE8 7F0AF0B8 240C8000 */  li    $t4, -32768
-/* 0E3BEC 7F0AF0BC 8C8F0000 */  lw    $t7, ($a0)
-/* 0E3BF0 7F0AF0C0 240B7FFF */  li    $t3, 32767
-/* 0E3BF4 7F0AF0C4 240A000C */  li    $t2, 12
-/* 0E3BF8 7F0AF0C8 11E00048 */  beqz  $t7, .L7F0AF1EC
-/* 0E3BFC 7F0AF0CC 3C098008 */   lui   $t1, %hi(dword_CODE_bss_8007B358)
-/* 0E3C00 7F0AF0D0 3C088008 */  lui   $t0, %hi(firststaninroom)
-/* 0E3C04 7F0AF0D4 2508B128 */  addiu $t0, %lo(firststaninroom) # addiu $t0, $t0, -0x4ed8
-/* 0E3C08 7F0AF0D8 2529B358 */  addiu $t1, %lo(dword_CODE_bss_8007B358) # addiu $t1, $t1, -0x4ca8
-/* 0E3C0C 7F0AF0DC 24020006 */  li    $v0, 6
-/* 0E3C10 7F0AF0E0 90900003 */  lbu   $s0, 3($a0)
-.L7F0AF0E4:
-/* 0E3C14 7F0AF0E4 00001825 */  move  $v1, $zero
-/* 0E3C18 7F0AF0E8 50B00017 */  beql  $a1, $s0, .L7F0AF148
-/* 0E3C1C 7F0AF0EC 84900006 */   lh    $s0, 6($a0)
-/* 0E3C20 7F0AF0F0 8CF80000 */  lw    $t8, ($a3)
-/* 0E3C24 7F0AF0F4 320600FF */  andi  $a2, $s0, 0xff
-/* 0E3C28 7F0AF0F8 00C02825 */  move  $a1, $a2
-/* 0E3C2C 7F0AF0FC 00D8082A */  slt   $at, $a2, $t8
-/* 0E3C30 7F0AF100 14200002 */  bnez  $at, .L7F0AF10C
-/* 0E3C34 7F0AF104 24B90001 */   addiu $t9, $a1, 1
-/* 0E3C38 7F0AF108 ACF90000 */  sw    $t9, ($a3)
-.L7F0AF10C:
-/* 0E3C3C 7F0AF10C 00CA0019 */  multu $a2, $t2
-/* 0E3C40 7F0AF110 00067080 */  sll   $t6, $a2, 2
-/* 0E3C44 7F0AF114 010E7821 */  addu  $t7, $t0, $t6
-/* 0E3C48 7F0AF118 ADE40000 */  sw    $a0, ($t7)
-/* 0E3C4C 7F0AF11C 0000C012 */  mflo  $t8
-/* 0E3C50 7F0AF120 01388021 */  addu  $s0, $t1, $t8
-/* 0E3C54 7F0AF124 A60B0004 */  sh    $t3, 4($s0)
-/* 0E3C58 7F0AF128 86110004 */  lh    $s1, 4($s0)
-/* 0E3C5C 7F0AF12C A60C000A */  sh    $t4, 0xa($s0)
-/* 0E3C60 7F0AF130 A6110002 */  sh    $s1, 2($s0)
-/* 0E3C64 7F0AF134 A6110000 */  sh    $s1, ($s0)
-/* 0E3C68 7F0AF138 8611000A */  lh    $s1, 0xa($s0)
-/* 0E3C6C 7F0AF13C A6110008 */  sh    $s1, 8($s0)
-/* 0E3C70 7F0AF140 A6110006 */  sh    $s1, 6($s0)
-/* 0E3C74 7F0AF144 84900006 */  lh    $s0, 6($a0)
-.L7F0AF148:
-/* 0E3C78 7F0AF148 00067880 */  sll   $t7, $a2, 2
-/* 0E3C7C 7F0AF14C 01E67823 */  subu  $t7, $t7, $a2
-/* 0E3C80 7F0AF150 0010CB03 */  sra   $t9, $s0, 0xc
-/* 0E3C84 7F0AF154 3330000F */  andi  $s0, $t9, 0xf
-/* 0E3C88 7F0AF158 1A00001E */  blez  $s0, .L7F0AF1D4
-/* 0E3C8C 7F0AF15C 00808825 */   move  $s1, $a0
-/* 0E3C90 7F0AF160 000F7880 */  sll   $t7, $t7, 2
-/* 0E3C94 7F0AF164 012FA021 */  addu  $s4, $t1, $t7
-/* 0E3C98 7F0AF168 00009025 */  move  $s2, $zero
-.L7F0AF16C:
-/* 0E3C9C 7F0AF16C 02209825 */  move  $s3, $s1
-/* 0E3CA0 7F0AF170 0280A825 */  move  $s5, $s4
-.L7F0AF174:
-/* 0E3CA4 7F0AF174 86700008 */  lh    $s0, 8($s3)
-/* 0E3CA8 7F0AF178 86B80000 */  lh    $t8, ($s5)
-/* 0E3CAC 7F0AF17C 26520002 */  addiu $s2, $s2, 2
-/* 0E3CB0 7F0AF180 0218082A */  slt   $at, $s0, $t8
-/* 0E3CB4 7F0AF184 50200004 */  beql  $at, $zero, .L7F0AF198
-/* 0E3CB8 7F0AF188 86B90006 */   lh    $t9, 6($s5)
-/* 0E3CBC 7F0AF18C A6B00000 */  sh    $s0, ($s5)
-/* 0E3CC0 7F0AF190 86700008 */  lh    $s0, 8($s3)
-/* 0E3CC4 7F0AF194 86B90006 */  lh    $t9, 6($s5)
-.L7F0AF198:
-/* 0E3CC8 7F0AF198 26730002 */  addiu $s3, $s3, 2
-/* 0E3CCC 7F0AF19C 0330082A */  slt   $at, $t9, $s0
-/* 0E3CD0 7F0AF1A0 10200002 */  beqz  $at, .L7F0AF1AC
-/* 0E3CD4 7F0AF1A4 00000000 */   nop
-/* 0E3CD8 7F0AF1A8 A6B00006 */  sh    $s0, 6($s5)
-.L7F0AF1AC:
-/* 0E3CDC 7F0AF1AC 1642FFF1 */  bne   $s2, $v0, .L7F0AF174
-/* 0E3CE0 7F0AF1B0 26B50002 */   addiu $s5, $s5, 2
-/* 0E3CE4 7F0AF1B4 84900006 */  lh    $s0, 6($a0)
-/* 0E3CE8 7F0AF1B8 24630001 */  addiu $v1, $v1, 1
-/* 0E3CEC 7F0AF1BC 26310008 */  addiu $s1, $s1, 8
-/* 0E3CF0 7F0AF1C0 00107303 */  sra   $t6, $s0, 0xc
-/* 0E3CF4 7F0AF1C4 31D0000F */  andi  $s0, $t6, 0xf
-/* 0E3CF8 7F0AF1C8 0070082A */  slt   $at, $v1, $s0
-/* 0E3CFC 7F0AF1CC 5420FFE7 */  bnezl $at, .L7F0AF16C
-/* 0E3D00 7F0AF1D0 00009025 */   move  $s2, $zero
-.L7F0AF1D4:
-/* 0E3D04 7F0AF1D4 01B0C021 */  addu  $t8, $t5, $s0
-/* 0E3D08 7F0AF1D8 93190000 */  lbu   $t9, ($t8)
-/* 0E3D0C 7F0AF1DC 03242021 */  addu  $a0, $t9, $a0
-/* 0E3D10 7F0AF1E0 8C8E0000 */  lw    $t6, ($a0)
-/* 0E3D14 7F0AF1E4 55C0FFBF */  bnezl $t6, .L7F0AF0E4
-/* 0E3D18 7F0AF1E8 90900003 */   lbu   $s0, 3($a0)
-.L7F0AF1EC:
-/* 0E3D1C 7F0AF1EC 8FB00008 */  lw    $s0, 8($sp)
-/* 0E3D20 7F0AF1F0 8FB1000C */  lw    $s1, 0xc($sp)
-/* 0E3D24 7F0AF1F4 8FB20010 */  lw    $s2, 0x10($sp)
-/* 0E3D28 7F0AF1F8 8FB30014 */  lw    $s3, 0x14($sp)
-/* 0E3D2C 7F0AF1FC 8FB40018 */  lw    $s4, 0x18($sp)
-/* 0E3D30 7F0AF200 8FB5001C */  lw    $s5, 0x1c($sp)
-/* 0E3D34 7F0AF204 03E00008 */  jr    $ra
-/* 0E3D38 7F0AF208 27BD0020 */   addiu $sp, $sp, 0x20
-)
-#endif
 
 
 /**
