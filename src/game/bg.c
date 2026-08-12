@@ -282,7 +282,7 @@ void sub_GAME_7F0B7F84(s32 roomnum, s32 portalnum, s32 depth, bbox2d *parentbox)
 #endif
 void sub_GAME_7F0B4810(f32 arg0);
 s32 sub_GAME_7F0B5528(s32 portalnum, f32 scale, coord3d *points);
-void sub_GAME_7F0B9B94(s32 portalnum);
+void bgOrderPortal(s32 portalnum);
 
 // end forward declarations
 
@@ -942,7 +942,7 @@ void load_bg_file(LEVEL_INDEX levelid)
  
         for (i = 0; g_BgPortals[i].offset_portal != (NULL); i++)
         {
-            sub_GAME_7F0B9B94(i);
+            bgOrderPortal(i);
         }
  
         for (i = 0; i < g_MaxNumRooms; i++)
@@ -5405,7 +5405,7 @@ s8 bgSwapConnectedRooms(s32 index)
 /**
  * Address: 7F0B9B94
  */
-void sub_GAME_7F0B9B94(s32 portalnum)
+void bgOrderPortal(s32 portalnum) // canonical name
 {
     coord3d room1centre;
     coord3d room2centre;
