@@ -190,13 +190,27 @@ struct LvlMpUnknown *D_800483C8 = NULL;
 * Debug variable, something to do with portals.
 * Address 0x800483CC.
 */
-s32 g_DebugPortalsD_800483CC = 0;
+s32 g_DebugPortalIndex = 0;
 
 /**
- * Input buffer, used in debug portal method. Might be array.
+ * Input buffer used in debug portal method.
  * Address 0x800483D0.
  */
-s32 g_DebugPortalsInputBuffer[5] = { 0 };
+s32 g_DebugPortalsInputBuffer = 0;
+s32 g_DebugPortalsInputBuffer1 = 0;
+s32 g_DebugPortalsInputBuffer2 = 0;
+s32 g_DebugPortalsInputBuffer3 = 0;
+s32 g_DebugPortalsInputBuffer4 = 0;
+
+extern s32 g_DebugPortalsInputBufferSource1;
+extern s32 g_DebugPortalsInputBufferSource2;
+extern s32 g_DebugPortalsInputBufferSource3;
+extern s32 g_DebugPortalsInputBufferSource4;
+
+#pragma weak g_DebugPortalsInputBufferSource1 = g_DebugPortalsInputBuffer1
+#pragma weak g_DebugPortalsInputBufferSource2 = g_DebugPortalsInputBuffer2
+#pragma weak g_DebugPortalsInputBufferSource3 = g_DebugPortalsInputBuffer3
+#pragma weak g_DebugPortalsInputBufferSource4 = g_DebugPortalsInputBuffer4
 
 /**
  * Something debug related in the MP manage method.
@@ -519,418 +533,135 @@ s32 lvlGetCurrentStageToLoad(void)
 }
 
 
-#ifdef NONMATCHING
-/**
+ /**
+ * Address: 7F0BDF10
+ * 
  * Debug method. Something to do with portals. Button press
  * on controller 1 and 2 are used for control flow.
- *
- * address 0x7F0BDF10.
- *
- * https://decomp.me/scratch/C83v8 90.47%
- *
- * decomp status:
- * - compiles: yes
- * - stack resize: wrong
- * - identical instructions: no
- * - identical registers: fail
  */
-Gfx * lvlPortalDebug7F0BDF10(Gfx * arg0)
+Gfx *lvlPortalDebug7F0BDF10(Gfx *gdl)
 {
     s32 temp_v1;
-    s32 sp20;
-    s32 i;
+    bool portalDebugStateChanged; // This value has no observable use in the final assembly but the variable definitely existed in the orignal code.
+    s32 *selectedPortal = &g_DebugPortalIndex;
 
-    sp20 = 0;
+    portalDebugStateChanged = FALSE;
 
-    if (arg0 != 0)
+    if (gdl)
     {
-        arg0 = bgDebugRemoved7F0B9DE4(arg0, g_DebugPortalsD_800483CC, -1);
+        gdl = bgDebugRemoved7F0B9DE4(gdl, g_DebugPortalIndex, -1);
 
-        for (i = 0; i < 4; i++)
-        {
-            g_DebugPortalsInputBuffer[i] = g_DebugPortalsInputBuffer[i+1];
-        }
+        g_DebugPortalsInputBuffer = g_DebugPortalsInputBufferSource1;
+        g_DebugPortalsInputBuffer1 = g_DebugPortalsInputBufferSource2;
+        temp_v1 = g_DebugPortalsInputBufferSource4;
+        g_DebugPortalsInputBuffer2 = g_DebugPortalsInputBufferSource3;
+        g_DebugPortalsInputBuffer3 = temp_v1;
 
         temp_v1 = joyGetButtons(PLAYER_1, A_BUTTON) | joyGetButtons(PLAYER_2, A_BUTTON);
 
-        if (g_DebugPortalsInputBuffer[3] != temp_v1)
+        if ((temp_v1 == g_DebugPortalsInputBuffer3) == FALSE)
         {
             D_800483C0 ^= 1;
         }
 
-        if (g_DebugPortalsInputBuffer[0] != g_DebugPortalsInputBuffer[1])
+        if ((g_DebugPortalsInputBuffer1 == g_DebugPortalsInputBuffer) == FALSE)
         {
             D_800483C0 ^= 1;
         }
 
-        g_DebugPortalsInputBuffer[4] = temp_v1;
+        g_DebugPortalsInputBuffer4 = temp_v1;
 
-        bgRemoved7F0B9DF4(temp_v1 ? g_DebugPortalsD_800483CC : -1);
+        bgRemoved7F0B9DF4(temp_v1 ? g_DebugPortalIndex : -1);
 
-        return arg0;
+        return gdl;
     }
 
-    if (joyGetButtonsPressedThisFrame(PLAYER_1, L_JPAD) | joyGetButtonsPressedThisFrame(PLAYER_2, L_JPAD))
+    if (joyGetButtonsPressedThisFrame(PLAYER_1, L_JPAD) |
+        joyGetButtonsPressedThisFrame(PLAYER_2, L_JPAD))
     {
-        g_DebugPortalsD_800483CC--;
-        sp20 = 1;
-        if (g_DebugPortalsD_800483CC < 0)
+        g_DebugPortalIndex = *selectedPortal - 1;
+
+        if (portalDebugStateChanged = TRUE, *selectedPortal < 0)
         {
-            g_DebugPortalsD_800483CC = 0;
+            g_DebugPortalIndex = 0;
         }
     }
 
-    if (joyGetButtonsPressedThisFrame(PLAYER_1, R_JPAD) | joyGetButtonsPressedThisFrame(PLAYER_2, R_JPAD))
+    if (joyGetButtonsPressedThisFrame(PLAYER_1, R_JPAD) |
+        joyGetButtonsPressedThisFrame(PLAYER_2, R_JPAD))
     {
-        g_DebugPortalsD_800483CC++;
-        sp20 = 1;
+        g_DebugPortalIndex = *selectedPortal + 1;
+        portalDebugStateChanged = TRUE;
     }
 
-    if (
-        (joyGetButtons(PLAYER_1, R_TRIG) | joyGetButtons(PLAYER_2, R_TRIG))
-        && (joyGetButtons(PLAYER_1, L_TRIG) | joyGetButtons(PLAYER_2, L_TRIG)))
+    if ((joyGetButtons(PLAYER_1, R_TRIG) | joyGetButtons(PLAYER_2, R_TRIG)) &&
+        (joyGetButtons(PLAYER_1, L_TRIG) | joyGetButtons(PLAYER_2, L_TRIG)))
     {
         if (joyGetButtonsPressedThisFrame(PLAYER_1, D_JPAD))
         {
-            bgSwapConnectedRooms(g_DebugPortalsD_800483CC);
+            bgSwapConnectedRooms(*selectedPortal);
         }
     }
     else if (joyGetButtons(PLAYER_1, R_TRIG) | joyGetButtons(PLAYER_2, R_TRIG))
     {
-        if (
-            (joyGetButtonsPressedThisFrame(PLAYER_1, D_JPAD) | joyGetButtonsPressedThisFrame(PLAYER_2, D_JPAD))
-            && (bgGetDataPortalsControlBytes1Bit1(g_DebugPortalsD_800483CC) == 0))
+        if ((joyGetButtonsPressedThisFrame(PLAYER_1, D_JPAD) |
+             joyGetButtonsPressedThisFrame(PLAYER_2, D_JPAD)) &&
+            (bgGetDataPortalsControlBytes1Bit1(g_DebugPortalIndex) == 0))
         {
-            bgToggleDataPortalsContrlBytes1Bit1(g_DebugPortalsD_800483CC, 0);
-            sp20 = 1;
+            bgToggleDataPortalsContrlBytes1Bit1(g_DebugPortalIndex, 0);
+            portalDebugStateChanged = TRUE;
         }
 
-        if (
-            (joyGetButtonsPressedThisFrame(PLAYER_1, U_JPAD) | joyGetButtonsPressedThisFrame(PLAYER_2, U_JPAD))
-            && (bgGetDataPortalsControlBytes1Bit1(g_DebugPortalsD_800483CC) != 0))
+        if ((joyGetButtonsPressedThisFrame(PLAYER_1, U_JPAD) |
+             joyGetButtonsPressedThisFrame(PLAYER_2, U_JPAD)) &&
+            (bgGetDataPortalsControlBytes1Bit1(g_DebugPortalIndex) != 0))
         {
-            bgToggleDataPortalsContrlBytes1Bit1(g_DebugPortalsD_800483CC, 1);
-            sp20 = 1;
+            bgToggleDataPortalsContrlBytes1Bit1(g_DebugPortalIndex, 1);
+            portalDebugStateChanged = TRUE;
         }
     }
     else if (joyGetButtons(PLAYER_1, L_TRIG) | joyGetButtons(PLAYER_2, L_TRIG))
     {
-        if (
-            (joyGetButtonsPressedThisFrame(PLAYER_1, D_JPAD) | joyGetButtonsPressedThisFrame(PLAYER_2, D_JPAD))
-            && bgGetDataPortalsControlBytes1Bit2(g_DebugPortalsD_800483CC))
+        if ((joyGetButtonsPressedThisFrame(PLAYER_1, D_JPAD) |
+             joyGetButtonsPressedThisFrame(PLAYER_2, D_JPAD)) &&
+            bgGetDataPortalsControlBytes1Bit2(g_DebugPortalIndex))
         {
-            bgClearDataPortalsControlBytes1Low2Bits(g_DebugPortalsD_800483CC);
-            sp20 = 1;
+            bgClearDataPortalsControlBytes1Low2Bits(g_DebugPortalIndex);
+            portalDebugStateChanged = TRUE;
         }
 
-        if (
-            (joyGetButtonsPressedThisFrame(PLAYER_1, U_JPAD) | joyGetButtonsPressedThisFrame(PLAYER_2, U_JPAD))
-            && (bgGetDataPortalsControlBytes1Bit2(g_DebugPortalsD_800483CC) == 0))
+        if ((joyGetButtonsPressedThisFrame(PLAYER_1, U_JPAD) |
+             joyGetButtonsPressedThisFrame(PLAYER_2, U_JPAD)) &&
+            (bgGetDataPortalsControlBytes1Bit2(g_DebugPortalIndex) == 0))
         {
-            bgSetDataPortalsControlBytes1Bit2(g_DebugPortalsD_800483CC);
-            sp20 = 1;
+            bgSetDataPortalsControlBytes1Bit2(g_DebugPortalIndex);
+            portalDebugStateChanged = TRUE;
         }
     }
     else
     {
-        if (joyGetButtonsPressedThisFrame(PLAYER_1, D_JPAD) | joyGetButtonsPressedThisFrame(PLAYER_2, D_JPAD))
+        if (joyGetButtonsPressedThisFrame(PLAYER_1, D_JPAD) |
+            joyGetButtonsPressedThisFrame(PLAYER_2, D_JPAD))
         {
-            sub_GAME_7F0B9A7C(g_DebugPortalsD_800483CC);
-            sp20 = 1;
+            sub_GAME_7F0B9A7C(g_DebugPortalIndex);
+            portalDebugStateChanged = TRUE;
         }
 
-        if (joyGetButtonsPressedThisFrame(PLAYER_1, U_JPAD) | joyGetButtonsPressedThisFrame(PLAYER_2, U_JPAD))
+        if (joyGetButtonsPressedThisFrame(PLAYER_1, U_JPAD) |
+            joyGetButtonsPressedThisFrame(PLAYER_2, U_JPAD))
         {
-            sub_GAME_7F0B9A2C(g_DebugPortalsD_800483CC);
-            sp20 = 1;
+            sub_GAME_7F0B9A2C(g_DebugPortalIndex);
+            portalDebugStateChanged = TRUE;
         }
     }
 
-    if (sp20)
+    if (portalDebugStateChanged)
     {
-        // removed?
+        // Removed
     }
 
-    return 0;
-
+    return NULL;
 }
-#else
-GLOBAL_ASM(
-.text
-glabel lvlPortalDebug7F0BDF10
-/* 0F2A40 7F0BDF10 27BDFFD8 */  addiu $sp, $sp, -0x28
-/* 0F2A44 7F0BDF14 AFBF001C */  sw    $ra, 0x1c($sp)
-/* 0F2A48 7F0BDF18 AFB00018 */  sw    $s0, 0x18($sp)
-/* 0F2A4C 7F0BDF1C 1080003B */  beqz  $a0, .L7F0BE00C
-/* 0F2A50 7F0BDF20 AFA00020 */   sw    $zero, 0x20($sp)
-/* 0F2A54 7F0BDF24 3C058005 */  lui   $a1, %hi(g_DebugPortalsD_800483CC)
-/* 0F2A58 7F0BDF28 8CA583CC */  lw    $a1, %lo(g_DebugPortalsD_800483CC)($a1)
-/* 0F2A5C 7F0BDF2C 0FC2E779 */  jal   bgDebugRemoved7F0B9DE4
-/* 0F2A60 7F0BDF30 2406FFFF */   li    $a2, -1
-/* 0F2A64 7F0BDF34 3C0E8005 */  lui   $t6, %hi(g_DebugPortalsInputBuffer + 0x4)
-/* 0F2A68 7F0BDF38 8DCE83D4 */  lw    $t6, %lo(g_DebugPortalsInputBuffer + 0x4)($t6)
-/* 0F2A6C 7F0BDF3C 3C0F8005 */  lui   $t7, %hi(g_DebugPortalsInputBuffer + 0x8)
-/* 0F2A70 7F0BDF40 8DEF83D8 */  lw    $t7, %lo(g_DebugPortalsInputBuffer + 0x8)($t7)
-/* 0F2A74 7F0BDF44 3C018005 */  lui   $at, %hi(g_DebugPortalsInputBuffer + 0x0)
-/* 0F2A78 7F0BDF48 3C188005 */  lui   $t8, %hi(g_DebugPortalsInputBuffer + 0xc)
-/* 0F2A7C 7F0BDF4C AC2E83D0 */  sw    $t6, %lo(g_DebugPortalsInputBuffer + 0x0)($at)
-/* 0F2A80 7F0BDF50 8F1883DC */  lw    $t8, %lo(g_DebugPortalsInputBuffer + 0xc)($t8)
-/* 0F2A84 7F0BDF54 3C018005 */  lui   $at, %hi(g_DebugPortalsInputBuffer + 0x4)
-/* 0F2A88 7F0BDF58 AC2F83D4 */  sw    $t7, %lo(g_DebugPortalsInputBuffer + 0x4)($at)
-/* 0F2A8C 7F0BDF5C 3C038005 */  lui   $v1, %hi(g_DebugPortalsInputBuffer + 0x10)
-/* 0F2A90 7F0BDF60 3C018005 */  lui   $at, %hi(g_DebugPortalsInputBuffer + 0x8)
-/* 0F2A94 7F0BDF64 8C6383E0 */  lw    $v1, %lo(g_DebugPortalsInputBuffer + 0x10)($v1)
-/* 0F2A98 7F0BDF68 AC3883D8 */  sw    $t8, %lo(g_DebugPortalsInputBuffer + 0x8)($at)
-/* 0F2A9C 7F0BDF6C 3C018005 */  lui   $at, %hi(g_DebugPortalsInputBuffer + 0xc)
-/* 0F2AA0 7F0BDF70 AFA20028 */  sw    $v0, 0x28($sp)
-/* 0F2AA4 7F0BDF74 00002025 */  move  $a0, $zero
-/* 0F2AA8 7F0BDF78 34058000 */  li    $a1, 32768
-/* 0F2AAC 7F0BDF7C 0C0030C3 */  jal   joyGetButtons
-/* 0F2AB0 7F0BDF80 AC2383DC */   sw    $v1, %lo(g_DebugPortalsInputBuffer + 0xc)($at)
-/* 0F2AB4 7F0BDF84 3050FFFF */  andi  $s0, $v0, 0xffff
-/* 0F2AB8 7F0BDF88 24040001 */  li    $a0, 1
-/* 0F2ABC 7F0BDF8C 0C0030C3 */  jal   joyGetButtons
-/* 0F2AC0 7F0BDF90 34058000 */   li    $a1, 32768
-/* 0F2AC4 7F0BDF94 3C198005 */  lui   $t9, %hi(g_DebugPortalsInputBuffer + 0xc)
-/* 0F2AC8 7F0BDF98 8F3983DC */  lw    $t9, %lo(g_DebugPortalsInputBuffer + 0xc)($t9)
-/* 0F2ACC 7F0BDF9C 00501825 */  or    $v1, $v0, $s0
-/* 0F2AD0 7F0BDFA0 3C0B8005 */  lui   $t3, %hi(g_DebugPortalsInputBuffer + 0x0)
-/* 0F2AD4 7F0BDFA4 13230006 */  beq   $t9, $v1, .L7F0BDFC0
-/* 0F2AD8 7F0BDFA8 3C0C8005 */   lui   $t4, %hi(g_DebugPortalsInputBuffer + 0x4)
-/* 0F2ADC 7F0BDFAC 3C028005 */  lui   $v0, %hi(D_800483C0)
-/* 0F2AE0 7F0BDFB0 244283C0 */  addiu $v0, %lo(D_800483C0) # addiu $v0, $v0, -0x7c40
-/* 0F2AE4 7F0BDFB4 8C490000 */  lw    $t1, ($v0)
-/* 0F2AE8 7F0BDFB8 392A0001 */  xori  $t2, $t1, 1
-/* 0F2AEC 7F0BDFBC AC4A0000 */  sw    $t2, ($v0)
-.L7F0BDFC0:
-/* 0F2AF0 7F0BDFC0 8D6B83D0 */  lw    $t3, %lo(g_DebugPortalsInputBuffer + 0x0)($t3)
-/* 0F2AF4 7F0BDFC4 8D8C83D4 */  lw    $t4, %lo(g_DebugPortalsInputBuffer + 0x4)($t4)
-/* 0F2AF8 7F0BDFC8 3C028005 */  lui   $v0, %hi(D_800483C0)
-/* 0F2AFC 7F0BDFCC 244283C0 */  addiu $v0, %lo(D_800483C0) # addiu $v0, $v0, -0x7c40
-/* 0F2B00 7F0BDFD0 116C0004 */  beq   $t3, $t4, .L7F0BDFE4
-/* 0F2B04 7F0BDFD4 3C018005 */   lui   $at, %hi(g_DebugPortalsInputBuffer + 0x10)
-/* 0F2B08 7F0BDFD8 8C4E0000 */  lw    $t6, ($v0)
-/* 0F2B0C 7F0BDFDC 39CF0001 */  xori  $t7, $t6, 1
-/* 0F2B10 7F0BDFE0 AC4F0000 */  sw    $t7, ($v0)
-.L7F0BDFE4:
-/* 0F2B14 7F0BDFE4 10600004 */  beqz  $v1, .L7F0BDFF8
-/* 0F2B18 7F0BDFE8 AC2383E0 */   sw    $v1, %lo(g_DebugPortalsInputBuffer + 0x10)($at)
-/* 0F2B1C 7F0BDFEC 3C048005 */  lui   $a0, %hi(g_DebugPortalsD_800483CC)
-/* 0F2B20 7F0BDFF0 10000002 */  b     .L7F0BDFFC
-/* 0F2B24 7F0BDFF4 8C8483CC */   lw    $a0, %lo(g_DebugPortalsD_800483CC)($a0)
-.L7F0BDFF8:
-/* 0F2B28 7F0BDFF8 2404FFFF */  li    $a0, -1
-.L7F0BDFFC:
-/* 0F2B2C 7F0BDFFC 0FC2E77D */  jal   bgRemoved7F0B9DF4
-/* 0F2B30 7F0BE000 00000000 */   nop
-/* 0F2B34 7F0BE004 100000BC */  b     .L7F0BE2F8
-/* 0F2B38 7F0BE008 8FA20028 */   lw    $v0, 0x28($sp)
-.L7F0BE00C:
-/* 0F2B3C 7F0BE00C 00002025 */  move  $a0, $zero
-/* 0F2B40 7F0BE010 0C0030EB */  jal   joyGetButtonsPressedThisFrame
-/* 0F2B44 7F0BE014 24050200 */   li    $a1, 512
-/* 0F2B48 7F0BE018 3050FFFF */  andi  $s0, $v0, 0xffff
-/* 0F2B4C 7F0BE01C 24040001 */  li    $a0, 1
-/* 0F2B50 7F0BE020 0C0030EB */  jal   joyGetButtonsPressedThisFrame
-/* 0F2B54 7F0BE024 24050200 */   li    $a1, 512
-/* 0F2B58 7F0BE028 0050C025 */  or    $t8, $v0, $s0
-/* 0F2B5C 7F0BE02C 1300000B */  beqz  $t8, .L7F0BE05C
-/* 0F2B60 7F0BE030 24050100 */   li    $a1, 256
-/* 0F2B64 7F0BE034 3C048005 */  lui   $a0, %hi(g_DebugPortalsD_800483CC)
-/* 0F2B68 7F0BE038 8C8483CC */  lw    $a0, %lo(g_DebugPortalsD_800483CC)($a0)
-/* 0F2B6C 7F0BE03C 24190001 */  li    $t9, 1
-/* 0F2B70 7F0BE040 3C018005 */  lui   $at, %hi(g_DebugPortalsD_800483CC)
-/* 0F2B74 7F0BE044 2484FFFF */  addiu $a0, $a0, -1
-/* 0F2B78 7F0BE048 AC2483CC */  sw    $a0, %lo(g_DebugPortalsD_800483CC)($at)
-/* 0F2B7C 7F0BE04C 04810003 */  bgez  $a0, .L7F0BE05C
-/* 0F2B80 7F0BE050 AFB90020 */   sw    $t9, 0x20($sp)
-/* 0F2B84 7F0BE054 3C018005 */  lui   $at, %hi(g_DebugPortalsD_800483CC)
-/* 0F2B88 7F0BE058 AC2083CC */  sw    $zero, %lo(g_DebugPortalsD_800483CC)($at)
-.L7F0BE05C:
-/* 0F2B8C 7F0BE05C 0C0030EB */  jal   joyGetButtonsPressedThisFrame
-/* 0F2B90 7F0BE060 00002025 */   move  $a0, $zero
-/* 0F2B94 7F0BE064 3050FFFF */  andi  $s0, $v0, 0xffff
-/* 0F2B98 7F0BE068 24040001 */  li    $a0, 1
-/* 0F2B9C 7F0BE06C 0C0030EB */  jal   joyGetButtonsPressedThisFrame
-/* 0F2BA0 7F0BE070 24050100 */   li    $a1, 256
-/* 0F2BA4 7F0BE074 00504025 */  or    $t0, $v0, $s0
-/* 0F2BA8 7F0BE078 11000008 */  beqz  $t0, .L7F0BE09C
-/* 0F2BAC 7F0BE07C 24050010 */   li    $a1, 16
-/* 0F2BB0 7F0BE080 3C048005 */  lui   $a0, %hi(g_DebugPortalsD_800483CC)
-/* 0F2BB4 7F0BE084 8C8483CC */  lw    $a0, %lo(g_DebugPortalsD_800483CC)($a0)
-/* 0F2BB8 7F0BE088 24090001 */  li    $t1, 1
-/* 0F2BBC 7F0BE08C 3C018005 */  lui   $at, %hi(g_DebugPortalsD_800483CC)
-/* 0F2BC0 7F0BE090 24840001 */  addiu $a0, $a0, 1
-/* 0F2BC4 7F0BE094 AC2483CC */  sw    $a0, %lo(g_DebugPortalsD_800483CC)($at)
-/* 0F2BC8 7F0BE098 AFA90020 */  sw    $t1, 0x20($sp)
-.L7F0BE09C:
-/* 0F2BCC 7F0BE09C 0C0030C3 */  jal   joyGetButtons
-/* 0F2BD0 7F0BE0A0 00002025 */   move  $a0, $zero
-/* 0F2BD4 7F0BE0A4 3050FFFF */  andi  $s0, $v0, 0xffff
-/* 0F2BD8 7F0BE0A8 24040001 */  li    $a0, 1
-/* 0F2BDC 7F0BE0AC 0C0030C3 */  jal   joyGetButtons
-/* 0F2BE0 7F0BE0B0 24050010 */   li    $a1, 16
-/* 0F2BE4 7F0BE0B4 00505025 */  or    $t2, $v0, $s0
-/* 0F2BE8 7F0BE0B8 11400012 */  beqz  $t2, .L7F0BE104
-/* 0F2BEC 7F0BE0BC 00002025 */   move  $a0, $zero
-/* 0F2BF0 7F0BE0C0 0C0030C3 */  jal   joyGetButtons
-/* 0F2BF4 7F0BE0C4 24050020 */   li    $a1, 32
-/* 0F2BF8 7F0BE0C8 3050FFFF */  andi  $s0, $v0, 0xffff
-/* 0F2BFC 7F0BE0CC 24040001 */  li    $a0, 1
-/* 0F2C00 7F0BE0D0 0C0030C3 */  jal   joyGetButtons
-/* 0F2C04 7F0BE0D4 24050020 */   li    $a1, 32
-/* 0F2C08 7F0BE0D8 00505825 */  or    $t3, $v0, $s0
-/* 0F2C0C 7F0BE0DC 11600009 */  beqz  $t3, .L7F0BE104
-/* 0F2C10 7F0BE0E0 00002025 */   move  $a0, $zero
-/* 0F2C14 7F0BE0E4 0C0030EB */  jal   joyGetButtonsPressedThisFrame
-/* 0F2C18 7F0BE0E8 24050400 */   li    $a1, 1024
-/* 0F2C1C 7F0BE0EC 10400081 */  beqz  $v0, .L7F0BE2F4
-/* 0F2C20 7F0BE0F0 3C048005 */   lui   $a0, %hi(g_DebugPortalsD_800483CC)
-/* 0F2C24 7F0BE0F4 0FC2E6D9 */  jal   bgSwapConnectedRooms
-/* 0F2C28 7F0BE0F8 8C8483CC */   lw    $a0, %lo(g_DebugPortalsD_800483CC)($a0)
-/* 0F2C2C 7F0BE0FC 1000007E */  b     .L7F0BE2F8
-/* 0F2C30 7F0BE100 00001025 */   move  $v0, $zero
-.L7F0BE104:
-/* 0F2C34 7F0BE104 00002025 */  move  $a0, $zero
-/* 0F2C38 7F0BE108 0C0030C3 */  jal   joyGetButtons
-/* 0F2C3C 7F0BE10C 24050010 */   li    $a1, 16
-/* 0F2C40 7F0BE110 3050FFFF */  andi  $s0, $v0, 0xffff
-/* 0F2C44 7F0BE114 24040001 */  li    $a0, 1
-/* 0F2C48 7F0BE118 0C0030C3 */  jal   joyGetButtons
-/* 0F2C4C 7F0BE11C 24050010 */   li    $a1, 16
-/* 0F2C50 7F0BE120 00506025 */  or    $t4, $v0, $s0
-/* 0F2C54 7F0BE124 11800029 */  beqz  $t4, .L7F0BE1CC
-/* 0F2C58 7F0BE128 00002025 */   move  $a0, $zero
-/* 0F2C5C 7F0BE12C 00002025 */  move  $a0, $zero
-/* 0F2C60 7F0BE130 0C0030EB */  jal   joyGetButtonsPressedThisFrame
-/* 0F2C64 7F0BE134 24050400 */   li    $a1, 1024
-/* 0F2C68 7F0BE138 3050FFFF */  andi  $s0, $v0, 0xffff
-/* 0F2C6C 7F0BE13C 24040001 */  li    $a0, 1
-/* 0F2C70 7F0BE140 0C0030EB */  jal   joyGetButtonsPressedThisFrame
-/* 0F2C74 7F0BE144 24050400 */   li    $a1, 1024
-/* 0F2C78 7F0BE148 00506825 */  or    $t5, $v0, $s0
-/* 0F2C7C 7F0BE14C 11A0000A */  beqz  $t5, .L7F0BE178
-/* 0F2C80 7F0BE150 3C048005 */   lui   $a0, %hi(g_DebugPortalsD_800483CC)
-/* 0F2C84 7F0BE154 0FC2E6B9 */  jal   bgGetDataPortalsControlBytes1Bit1
-/* 0F2C88 7F0BE158 8C8483CC */   lw    $a0, %lo(g_DebugPortalsD_800483CC)($a0)
-/* 0F2C8C 7F0BE15C 14400006 */  bnez  $v0, .L7F0BE178
-/* 0F2C90 7F0BE160 3C048005 */   lui   $a0, %hi(g_DebugPortalsD_800483CC)
-/* 0F2C94 7F0BE164 240E0001 */  li    $t6, 1
-/* 0F2C98 7F0BE168 AFAE0020 */  sw    $t6, 0x20($sp)
-/* 0F2C9C 7F0BE16C 8C8483CC */  lw    $a0, %lo(g_DebugPortalsD_800483CC)($a0)
-/* 0F2CA0 7F0BE170 0FC2E76F */  jal   bgToggleDataPortalsContrlBytes1Bit1
-/* 0F2CA4 7F0BE174 00002825 */   move  $a1, $zero
-.L7F0BE178:
-/* 0F2CA8 7F0BE178 00002025 */  move  $a0, $zero
-/* 0F2CAC 7F0BE17C 0C0030EB */  jal   joyGetButtonsPressedThisFrame
-/* 0F2CB0 7F0BE180 24050800 */   li    $a1, 2048
-/* 0F2CB4 7F0BE184 3050FFFF */  andi  $s0, $v0, 0xffff
-/* 0F2CB8 7F0BE188 24040001 */  li    $a0, 1
-/* 0F2CBC 7F0BE18C 0C0030EB */  jal   joyGetButtonsPressedThisFrame
-/* 0F2CC0 7F0BE190 24050800 */   li    $a1, 2048
-/* 0F2CC4 7F0BE194 00507825 */  or    $t7, $v0, $s0
-/* 0F2CC8 7F0BE198 11E00056 */  beqz  $t7, .L7F0BE2F4
-/* 0F2CCC 7F0BE19C 3C048005 */   lui   $a0, %hi(g_DebugPortalsD_800483CC)
-/* 0F2CD0 7F0BE1A0 0FC2E6B9 */  jal   bgGetDataPortalsControlBytes1Bit1
-/* 0F2CD4 7F0BE1A4 8C8483CC */   lw    $a0, %lo(g_DebugPortalsD_800483CC)($a0)
-/* 0F2CD8 7F0BE1A8 10400052 */  beqz  $v0, .L7F0BE2F4
-/* 0F2CDC 7F0BE1AC 3C048005 */   lui   $a0, %hi(g_DebugPortalsD_800483CC)
-/* 0F2CE0 7F0BE1B0 24180001 */  li    $t8, 1
-/* 0F2CE4 7F0BE1B4 AFB80020 */  sw    $t8, 0x20($sp)
-/* 0F2CE8 7F0BE1B8 8C8483CC */  lw    $a0, %lo(g_DebugPortalsD_800483CC)($a0)
-/* 0F2CEC 7F0BE1BC 0FC2E76F */  jal   bgToggleDataPortalsContrlBytes1Bit1
-/* 0F2CF0 7F0BE1C0 24050001 */   li    $a1, 1
-/* 0F2CF4 7F0BE1C4 1000004C */  b     .L7F0BE2F8
-/* 0F2CF8 7F0BE1C8 00001025 */   move  $v0, $zero
-.L7F0BE1CC:
-/* 0F2CFC 7F0BE1CC 0C0030C3 */  jal   joyGetButtons
-/* 0F2D00 7F0BE1D0 24050020 */   li    $a1, 32
-/* 0F2D04 7F0BE1D4 3050FFFF */  andi  $s0, $v0, 0xffff
-/* 0F2D08 7F0BE1D8 24040001 */  li    $a0, 1
-/* 0F2D0C 7F0BE1DC 0C0030C3 */  jal   joyGetButtons
-/* 0F2D10 7F0BE1E0 24050020 */   li    $a1, 32
-/* 0F2D14 7F0BE1E4 0050C825 */  or    $t9, $v0, $s0
-/* 0F2D18 7F0BE1E8 13200027 */  beqz  $t9, .L7F0BE288
-/* 0F2D1C 7F0BE1EC 00002025 */   move  $a0, $zero
-/* 0F2D20 7F0BE1F0 00002025 */  move  $a0, $zero
-/* 0F2D24 7F0BE1F4 0C0030EB */  jal   joyGetButtonsPressedThisFrame
-/* 0F2D28 7F0BE1F8 24050400 */   li    $a1, 1024
-/* 0F2D2C 7F0BE1FC 3050FFFF */  andi  $s0, $v0, 0xffff
-/* 0F2D30 7F0BE200 24040001 */  li    $a0, 1
-/* 0F2D34 7F0BE204 0C0030EB */  jal   joyGetButtonsPressedThisFrame
-/* 0F2D38 7F0BE208 24050400 */   li    $a1, 1024
-/* 0F2D3C 7F0BE20C 00504025 */  or    $t0, $v0, $s0
-/* 0F2D40 7F0BE210 11000009 */  beqz  $t0, .L7F0BE238
-/* 0F2D44 7F0BE214 3C048005 */   lui   $a0, %hi(g_DebugPortalsD_800483CC)
-/* 0F2D48 7F0BE218 0FC2E6C1 */  jal   bgGetDataPortalsControlBytes1Bit2
-/* 0F2D4C 7F0BE21C 8C8483CC */   lw    $a0, %lo(g_DebugPortalsD_800483CC)($a0)
-/* 0F2D50 7F0BE220 10400005 */  beqz  $v0, .L7F0BE238
-/* 0F2D54 7F0BE224 3C048005 */   lui   $a0, %hi(g_DebugPortalsD_800483CC)
-/* 0F2D58 7F0BE228 24090001 */  li    $t1, 1
-/* 0F2D5C 7F0BE22C AFA90020 */  sw    $t1, 0x20($sp)
-/* 0F2D60 7F0BE230 0FC2E6D1 */  jal   bgClearDataPortalsControlBytes1Low2Bits
-/* 0F2D64 7F0BE234 8C8483CC */   lw    $a0, %lo(g_DebugPortalsD_800483CC)($a0)
-.L7F0BE238:
-/* 0F2D68 7F0BE238 00002025 */  move  $a0, $zero
-/* 0F2D6C 7F0BE23C 0C0030EB */  jal   joyGetButtonsPressedThisFrame
-/* 0F2D70 7F0BE240 24050800 */   li    $a1, 2048
-/* 0F2D74 7F0BE244 3050FFFF */  andi  $s0, $v0, 0xffff
-/* 0F2D78 7F0BE248 24040001 */  li    $a0, 1
-/* 0F2D7C 7F0BE24C 0C0030EB */  jal   joyGetButtonsPressedThisFrame
-/* 0F2D80 7F0BE250 24050800 */   li    $a1, 2048
-/* 0F2D84 7F0BE254 00505025 */  or    $t2, $v0, $s0
-/* 0F2D88 7F0BE258 11400026 */  beqz  $t2, .L7F0BE2F4
-/* 0F2D8C 7F0BE25C 3C048005 */   lui   $a0, %hi(g_DebugPortalsD_800483CC)
-/* 0F2D90 7F0BE260 0FC2E6C1 */  jal   bgGetDataPortalsControlBytes1Bit2
-/* 0F2D94 7F0BE264 8C8483CC */   lw    $a0, %lo(g_DebugPortalsD_800483CC)($a0)
-/* 0F2D98 7F0BE268 14400022 */  bnez  $v0, .L7F0BE2F4
-/* 0F2D9C 7F0BE26C 3C048005 */   lui   $a0, %hi(g_DebugPortalsD_800483CC)
-/* 0F2DA0 7F0BE270 240B0001 */  li    $t3, 1
-/* 0F2DA4 7F0BE274 AFAB0020 */  sw    $t3, 0x20($sp)
-/* 0F2DA8 7F0BE278 0FC2E6C9 */  jal   bgSetDataPortalsControlBytes1Bit2
-/* 0F2DAC 7F0BE27C 8C8483CC */   lw    $a0, %lo(g_DebugPortalsD_800483CC)($a0)
-/* 0F2DB0 7F0BE280 1000001D */  b     .L7F0BE2F8
-/* 0F2DB4 7F0BE284 00001025 */   move  $v0, $zero
-.L7F0BE288:
-/* 0F2DB8 7F0BE288 0C0030EB */  jal   joyGetButtonsPressedThisFrame
-/* 0F2DBC 7F0BE28C 24050400 */   li    $a1, 1024
-/* 0F2DC0 7F0BE290 3050FFFF */  andi  $s0, $v0, 0xffff
-/* 0F2DC4 7F0BE294 24040001 */  li    $a0, 1
-/* 0F2DC8 7F0BE298 0C0030EB */  jal   joyGetButtonsPressedThisFrame
-/* 0F2DCC 7F0BE29C 24050400 */   li    $a1, 1024
-/* 0F2DD0 7F0BE2A0 00506025 */  or    $t4, $v0, $s0
-/* 0F2DD4 7F0BE2A4 11800005 */  beqz  $t4, .L7F0BE2BC
-/* 0F2DD8 7F0BE2A8 3C048005 */   lui   $a0, %hi(g_DebugPortalsD_800483CC)
-/* 0F2DDC 7F0BE2AC 240D0001 */  li    $t5, 1
-/* 0F2DE0 7F0BE2B0 AFAD0020 */  sw    $t5, 0x20($sp)
-/* 0F2DE4 7F0BE2B4 0FC2E69F */  jal   sub_GAME_7F0B9A7C
-/* 0F2DE8 7F0BE2B8 8C8483CC */   lw    $a0, %lo(g_DebugPortalsD_800483CC)($a0)
-.L7F0BE2BC:
-/* 0F2DEC 7F0BE2BC 00002025 */  move  $a0, $zero
-/* 0F2DF0 7F0BE2C0 0C0030EB */  jal   joyGetButtonsPressedThisFrame
-/* 0F2DF4 7F0BE2C4 24050800 */   li    $a1, 2048
-/* 0F2DF8 7F0BE2C8 3050FFFF */  andi  $s0, $v0, 0xffff
-/* 0F2DFC 7F0BE2CC 24040001 */  li    $a0, 1
-/* 0F2E00 7F0BE2D0 0C0030EB */  jal   joyGetButtonsPressedThisFrame
-/* 0F2E04 7F0BE2D4 24050800 */   li    $a1, 2048
-/* 0F2E08 7F0BE2D8 00507025 */  or    $t6, $v0, $s0
-/* 0F2E0C 7F0BE2DC 11C00005 */  beqz  $t6, .L7F0BE2F4
-/* 0F2E10 7F0BE2E0 3C048005 */   lui   $a0, %hi(g_DebugPortalsD_800483CC)
-/* 0F2E14 7F0BE2E4 240F0001 */  li    $t7, 1
-/* 0F2E18 7F0BE2E8 AFAF0020 */  sw    $t7, 0x20($sp)
-/* 0F2E1C 7F0BE2EC 0FC2E68B */  jal   sub_GAME_7F0B9A2C
-/* 0F2E20 7F0BE2F0 8C8483CC */   lw    $a0, %lo(g_DebugPortalsD_800483CC)($a0)
-.L7F0BE2F4:
-/* 0F2E24 7F0BE2F4 00001025 */  move  $v0, $zero
-.L7F0BE2F8:
-/* 0F2E28 7F0BE2F8 8FBF001C */  lw    $ra, 0x1c($sp)
-/* 0F2E2C 7F0BE2FC 8FB00018 */  lw    $s0, 0x18($sp)
-/* 0F2E30 7F0BE300 27BD0028 */  addiu $sp, $sp, 0x28
-/* 0F2E34 7F0BE304 03E00008 */  jr    $ra
-/* 0F2E38 7F0BE308 00000000 */   nop
-)
-#endif
-
 
 
 /**
