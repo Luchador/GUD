@@ -2373,27 +2373,31 @@ struct ModelAnimation * objecthandlerGetModelAnim(struct Model* model) {
     return model->anim;
 }
 
-s8 objecthandlerGetModelGunhand(Model *model) {
+s8 objecthandlerGetModelGunhand(Model *model) 
+{
     return model->gunhand;
 }
+
 
 /**
  * Address 0x7F06F5BC.
 */
-f32 objecthandlerGetModelField28(Model *model)
+f32 modelGetAnimFrame(Model *model)
 {
     return model->animframe1;
 }
 
-f32 sub_GAME_7F06F5C4(Model *model)
+
+f32 modelGetAnimEndFrame(Model *model)
 {
-    f32 unk3c;
+    f32 end;
     ModelAnimation *modelAnimation;
 
-    unk3c = model->endframe;
-    if (unk3c >= 0.0f)
+    end = model->endframe;
+
+    if (end >= 0.0f)
     {
-        return unk3c;
+        return end;
     }
 
     modelAnimation = model->anim;
@@ -2402,6 +2406,7 @@ f32 sub_GAME_7F06F5C4(Model *model)
     {
         return modelAnimation->unk04 - 1;
     }
+
     return 0.0f;
 }
 

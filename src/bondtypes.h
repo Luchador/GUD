@@ -575,7 +575,7 @@ typedef union
     typedef struct ModelAnimation
     {
         s32 address;
-        u16 unk04; // next frame
+        u16 unk04; // number of frames in the animation
         u8 unk06;
         u8 unk07; // bit 0 is a loop flag: 0 means freeze anim at end, 1 means loop anim
         ModelAnimBitField *bitDescriptors; // 0x08

@@ -178,7 +178,7 @@ void initBONDdataforPlayer(s32 player_num)
     g_playerPointers[player_num]->prop = NULL;
     g_playerPointers[player_num]->field_AC = 1;
     g_playerPointers[player_num]->field_D0 = 0;
-    g_playerPointers[player_num]->ptr_char_objectinstance = NULL;
+    g_playerPointers[player_num]->bodyModel = NULL;
     g_playerPointers[player_num]->bonddead = FALSE;
     g_playerPointers[player_num]->bondhealth = 1.0f;
     g_playerPointers[player_num]->bondarmour = 0.0f;

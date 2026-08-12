@@ -816,7 +816,7 @@ PathRecord *pathFindById(s32 ID)
 }
 
 // forward
-extern PadRecord      *dword_CODE_bss_800799F8;
+extern PadRecord      *g_CameraLookAtBondPad;
 extern CutsceneRecord *gBondViewCutscene;
 extern enum CAMERAMODE dword_CODE_bss_80079A18;
 extern s32             dword_CODE_bss_80079A1C;
@@ -3973,11 +3973,11 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                     u16                              padnum = ntohs(ai->PAD);
                     if (isNotBoundPad(padnum))
                     {
-                        dword_CODE_bss_800799F8 = &g_CurrentSetup.pads[padnum];
+                        g_CameraLookAtBondPad = &g_CurrentSetup.pads[padnum];
                     }
                     else
                     {
-                        dword_CODE_bss_800799F8 = (PadRecord *)&g_CurrentSetup.boundpads[getBoundPadNum(padnum)];
+                        g_CameraLookAtBondPad = (PadRecord *)&g_CurrentSetup.boundpads[getBoundPadNum(padnum)];
                     }
                     bondviewSetCameraMode(CAMERAMODE_POSEND);
                     Offset += sizeof(AiCameraLookAtBondFromPadRecord);
@@ -3998,7 +3998,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                             /*".\\ported\\chrai.c", 0xc2b, "Assertion failed: cdef->type==PROPDEF_CAMERAPOS") */
                             assert(cdef->type == PROPDEF_CAMERAPOS);
     #endif
-                            dword_CODE_bss_800799F8 = NULL;
+                            g_CameraLookAtBondPad = NULL;
                             gBondViewCutscene       = cdef;
                             dword_CODE_bss_80079A18 = ntohs(ai->LOOK_AT_BOND_FLAG);
                             dword_CODE_bss_80079A1C = ntohs(ai->UNUSED_FLAG);
@@ -4349,7 +4349,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                     padnum                  = ntohs(ai->PAD);
                     targetHeight            = (s16)ntohs(ai->Y_POS_OFFSET);
                     start                   = ntohs(ai->INITIAL_ROTATION);
-                    dword_CODE_bss_800799F8 = NULL;
+                    g_CameraLookAtBondPad = NULL;
                     gBondViewCutscene       = NULL;
                     flt_CODE_bss_80079A00   = (start * M_TAU_F) / M_U16_MAX_VALUE_F;   /*unit direction 0 - 1 (increments are 0.000001) */
                     flt_CODE_bss_80079A04   = (speed60 * M_TAU_F) / M_U16_MAX_VALUE_F; /*how many increments per frame */

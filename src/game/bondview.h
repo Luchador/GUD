@@ -429,7 +429,13 @@ struct player
   struct rect4f collision_bounds;
 
   /* 0x00d0 */ s32 field_D0;
-  /* 0x00d4 */ struct Model *ptr_char_objectinstance; //canonically bondsub
+
+  /**
+   * bodyModel is the third person model - it's seen by the other players in MP, and
+   * during intro/outros/death scenes in SP.
+   */
+  /* 0x00d4 */ struct Model *bodyModel; //canonically bondsub
+  
   /* 0x00d8 */ s32 bonddead; // canonical name
   /* 0x00dc */ f32 bondhealth; // canonical name
   /* 0x00e0 */ f32 bondarmour;

@@ -10165,11 +10165,11 @@ _AI_CMD(
         u16       padnum = CharArrayTo16(ai->val,0);
         if (isNotBoundPad(padnum))
         {
-            dword_CODE_bss_800799F8 = &g_CurrentSetup.pads[padnum];
+            g_CameraLookAtBondPad = &g_CurrentSetup.pads[padnum];
         }
         else
         {
-            dword_CODE_bss_800799F8 = (PadRecord *) &g_CurrentSetup.boundpads[getBoundPadNum(padnum)];
+            g_CameraLookAtBondPad = (PadRecord *) &g_CurrentSetup.boundpads[getBoundPadNum(padnum)];
         }
         set_camera_mode(CAMERAMODE_POSEND);
         Offset += CAT(CAT(AI_, CMDNAME), _LENGTH);
@@ -10218,7 +10218,7 @@ _AI_CMD(
             if (TagIndex >= 0)
             {
                 CutsceneRecord *cdef = setupGetPtrToCommandByIndex(tag->OffsetToObj + TagIndex);
-                dword_CODE_bss_800799F8 = NULL;
+                g_CameraLookAtBondPad = NULL;
                 gBondViewCutscene = cdef;
                 dword_CODE_bss_80079A18 = CharArrayTo16(ai->val,1);
                 dword_CODE_bss_80079A1C = CharArrayTo16(ai->val,3);
@@ -11294,7 +11294,7 @@ _AI_CMD(
         padnum                  = CharArrayTo16(ai->val, 6);
         targetHeight            = (s16)CharArrayTo16(ai->val, 8);
         start                   = CharArrayTo16(ai->val, 10);
-        dword_CODE_bss_800799F8 = NULL;
+        g_CameraLookAtBondPad = NULL;
         gBondViewCutscene       = NULL;
         flt_CODE_bss_80079A00   = (start * M_TAU_F) / M_U16_MAX_VALUE_F; /*unit direction 0 - 1 (increments are 0.000001)*/
         flt_CODE_bss_80079A04   = (speed60 * M_TAU_F) / M_U16_MAX_VALUE_F; /*how many increments per frame*/

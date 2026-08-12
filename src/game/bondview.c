@@ -166,28 +166,20 @@ coord3d g_CamFrustumLeftNormal;
 f32 g_CamFrustumLeftOffset;
 coord3d g_CamFrustumRightNormal;
 f32 g_CamFrustumRightOffset;
-//CODE.bss:80079980
 f32 g_CamFrustumNearOffset;
-//CODE.bss:80079984
-f32 flt_CODE_bss_80079984;
-//CODE.bss:80079988
-f32 flt_CODE_bss_80079988;
-//CODE.bss:8007998C
-f32 flt_CODE_bss_8007998C;
 
-//CODE.bss:80079990
+f32 flt_CODE_bss_80079984; // unused
+f32 flt_CODE_bss_80079988; // unused
+f32 flt_CODE_bss_8007998C; // unused
+
 vec3d g_ForceBondMoveOffset;
-// //CODE.bss:80079994
-// f32 flt_CODE_bss_80079994;
-// //CODE.bss:80079998
-// f32 flt_CODE_bss_80079998;
 
 //CODE.bss:8007999C
 s32 g_SurroundBondWithExplosionsTicks;
 //CODE.bss:800799A0
 s32 g_PlayerTickExplodeCreatePosition;
 //CODE.bss:800799A4
-s32 dword_CODE_bss_800799A4;
+s32 dword_CODE_bss_800799A4; // unused
 
 //CODE.bss:800799A8
 struct coord3d g_TankModelPositionOffset;
@@ -224,17 +216,15 @@ f32 g_TankEnterBondHorizAngleDeg;
 f32 g_TankEnterBondVertAngleDeg;
 
 //CODE.bss:800799CC
-f32 flt_CODE_bss_800799CC;
+f32 flt_CODE_bss_800799CC; // unused/padding
 
 //CODE.bss:800799D0
 struct coord3d g_EnterTankCoord;
 
 //CODE.bss:800799DC
-f32 flt_CODE_bss_800799DC;
+f32 flt_CODE_bss_800799DC; // unused/padding
 
 //CODE.bss:800799E0
-//s32 starting_right_weapon;
-//s32 starting_left_weapon;
 ITEM_IDS starting_weapon[2];
 
 //CODE.bss:800799E8
@@ -244,7 +234,7 @@ struct coord3d flt_CODE_bss_800799E8;
 struct PropRecord* dword_CODE_bss_800799F4;
 
 //CODE.bss:800799F8
-PadRecord * dword_CODE_bss_800799F8;
+PadRecord * g_CameraLookAtBondPad;
 //CODE.bss:800799FC
 CutsceneRecord *gBondViewCutscene;
 //CODE.bss:80079A00
@@ -596,7 +586,6 @@ struct HealthDisplayDuration g_HealthDisplayDurations[8] = {
 */
 struct coord3d g_DefaultMoveBondOffset = { 0 };
 
-
 /**
  * struct player property `pos` .
  * US address 80036800.
@@ -643,14 +632,12 @@ ModelRenderData D_8003683C = {NULL,
 
 //D:8003687C
 s32 D_8003687C = 0;
-
 //D:80036880
 s32 D_80036880 = 0;
 //D:80036884
 s32 D_80036884 = 0;
 //D:80036888
 s32 D_80036888 = 0;
-
 //D:8003688C
 coord3d D_8003688C = {0};
 //D:80036898
@@ -1671,7 +1658,7 @@ void bondviewPlayerSpawnRelated(void)
         currentPlayerEquipWeaponWrapper(GUNLEFT, starting_weapon[GUNLEFT]);
         currentPlayerEquipWeaponWrapper(GUNRIGHT, starting_weapon[GUNRIGHT]);
 
-        if (g_CurrentPlayer->ptr_char_objectinstance == NULL)
+        if (g_CurrentPlayer->bodyModel == NULL)
         {
             solo_char_load();
         }
@@ -1993,16 +1980,16 @@ dummy_label_442687:;
                 }
             }
         }
-        g_CurrentPlayer->ptr_char_objectinstance = makeonebody(body, head, bodyheader, headheader, 0, model);
-        modelSetScale(g_CurrentPlayer->ptr_char_objectinstance, g_CurrentPlayer->ptr_char_objectinstance->scale * 0.97f);
-        init_GUARDdata_with_set_values(g_CurrentPlayer->prop, g_CurrentPlayer->ptr_char_objectinstance, &g_CurrentPlayer->prop->pos, yaw, g_CurrentPlayer->prop->stan, NULL);
+        g_CurrentPlayer->bodyModel = makeonebody(body, head, bodyheader, headheader, 0, model);
+        modelSetScale(g_CurrentPlayer->bodyModel, g_CurrentPlayer->bodyModel->scale * 0.97f);
+        init_GUARDdata_with_set_values(g_CurrentPlayer->prop, g_CurrentPlayer->bodyModel, &g_CurrentPlayer->prop->pos, yaw, g_CurrentPlayer->prop->stan, NULL);
         pp = &g_CurrentPlayer;
         ;
         (*pp)->prop->type = PROP_TYPE_VIEWER;
         self              = (*pp)->prop->chr;
         self->chrflags |= CHRFLAG_INIT;
-        setsuboffset((*pp)->ptr_char_objectinstance, &(*pp)->prop->pos);
-        setsubroty(g_CurrentPlayer->ptr_char_objectinstance, yaw);
+        setsuboffset((*pp)->bodyModel, &(*pp)->prop->pos);
+        setsubroty(g_CurrentPlayer->bodyModel, yaw);
 #ifndef VERSION_US
         self->headnum = head;
         self->bodynum = body;
@@ -2039,10 +2026,11 @@ dummy_label_442687:;
         }
         self->chrflags |= CHRFLAG_INIT;
         chrlvIdleAnimationRelated7F023A94(self, 0.0f);
-        setsuboffset(g_CurrentPlayer->ptr_char_objectinstance, &g_CurrentPlayer->prop->pos);
-        setsubroty(g_CurrentPlayer->ptr_char_objectinstance, yaw);
+        setsuboffset(g_CurrentPlayer->bodyModel, &g_CurrentPlayer->prop->pos);
+        setsubroty(g_CurrentPlayer->bodyModel, yaw);
     }
 }
+
 
 /**
  * Address 0x7F07A4A0.
@@ -2053,7 +2041,7 @@ void maybe_solo_intro_camera_handler(void)
     {
         chrpropCleanupForRemoval(g_CurrentPlayer->prop);
         g_CurrentPlayer->prop->chr = NULL;
-        g_CurrentPlayer->ptr_char_objectinstance = 0;
+        g_CurrentPlayer->bodyModel = 0;
         g_bondviewForceDisarm = 1;
         sub_GAME_7F07DE9C(g_CurrentPlayer);
     }
@@ -2269,7 +2257,7 @@ void bondviewSetCameraMode(s32 arg0)
             ftemp_3 = stage_intro_anim_table[g_IntroAnimationIndex].anonymous_3;
 
             modelSetAnimation(
-                g_CurrentPlayer->ptr_char_objectinstance,
+                g_CurrentPlayer->bodyModel,
                 sp38,
                 0,
                 ftemp_1,
@@ -2278,7 +2266,7 @@ void bondviewSetCameraMode(s32 arg0)
 
             if (sp78 > 0.0f)
             {
-                modelSetAnimEndFrame(g_CurrentPlayer->ptr_char_objectinstance, sp78);
+                modelSetAnimEndFrame(g_CurrentPlayer->bodyModel, sp78);
             }
 
             temp_v1 = g_CurrentPlayer->prop->chr;
@@ -2358,7 +2346,7 @@ void bondviewSetCameraMode(s32 arg0)
             solo_char_load();
 
             modelSetAnimation(
-                g_CurrentPlayer->ptr_char_objectinstance,
+                g_CurrentPlayer->bodyModel,
                 objecthandlerGetModelAnim((Model *) &g_CurrentPlayer->model),
                 objecthandlerGetModelGunhand(&g_CurrentPlayer->model),
                 0.0f,
@@ -2370,9 +2358,9 @@ void bondviewSetCameraMode(s32 arg0)
             temp_v1_2->sleep = 0;
             temp_v1_2->chrflags |= CHRFLAG_INIT;
 
-            setsuboffset(g_CurrentPlayer->ptr_char_objectinstance, &g_CurrentPlayer->prop->pos);
+            setsuboffset(g_CurrentPlayer->bodyModel, &g_CurrentPlayer->prop->pos);
             var_f0 = bondviewGetPlayerYawRadians();
-            setsubroty(g_CurrentPlayer->ptr_char_objectinstance, var_f0);
+            setsubroty(g_CurrentPlayer->bodyModel, var_f0);
         }
 
         if (g_ExplodeTankOnDeathFlag && (g_PlayerTankProp != NULL))
@@ -2625,10 +2613,6 @@ void sub_GAME_7F07B2A0(s32 index, f32 time, coord3d *pos, coord3d *lookat)
 }
 
 
-
-
-
-
 /**
  * US address 7F07B56C.
  * JP address 7F07BB8C.
@@ -2874,10 +2858,10 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
         {
             camera_transition_timer += g_GlobalTimerDelta;
 
-            if (g_CurrentPlayer->ptr_char_objectinstance != NULL)
+            if (g_CurrentPlayer->bodyModel != NULL)
             {
-                if (objecthandlerGetModelField28((Model *) g_CurrentPlayer->ptr_char_objectinstance)
-                    >= sub_GAME_7F06F5C4((Model *) g_CurrentPlayer->ptr_char_objectinstance))
+                if (modelGetAnimFrame((Model *) g_CurrentPlayer->bodyModel)
+                    >= modelGetAnimEndFrame((Model *) g_CurrentPlayer->bodyModel))
                 {
                     g_CameraAfterCinema = CAMERAMODE_INTRO;
                 }
@@ -2939,21 +2923,21 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
     }
     else if (g_CameraMode == CAMERAMODE_POSEND)
     {
-        if (dword_CODE_bss_800799F8 != NULL)
+        if (g_CameraLookAtBondPad != NULL)
         {
-            pos->f[0] = dword_CODE_bss_800799F8->pos.f[0];
-            pos->f[1] = dword_CODE_bss_800799F8->pos.f[1];
-            pos->f[2] = dword_CODE_bss_800799F8->pos.f[2];
+            pos->f[0] = g_CameraLookAtBondPad->pos.f[0];
+            pos->f[1] = g_CameraLookAtBondPad->pos.f[1];
+            pos->f[2] = g_CameraLookAtBondPad->pos.f[2];
 
             pos2->f[0] = g_CurrentPlayer->field_3C4;
             pos2->f[1] = g_CurrentPlayer->field_3C8;
             pos2->f[2] = g_CurrentPlayer->field_3CC;
 
-            *stan = dword_CODE_bss_800799F8->stan;
+            *stan = g_CameraLookAtBondPad->stan;
 
-            arg6->f[0] = dword_CODE_bss_800799F8->pos.f[0];
-            arg6->f[1] = dword_CODE_bss_800799F8->pos.f[1];
-            arg6->f[2] = dword_CODE_bss_800799F8->pos.f[2];
+            arg6->f[0] = g_CameraLookAtBondPad->pos.f[0];
+            arg6->f[1] = g_CameraLookAtBondPad->pos.f[1];
+            arg6->f[2] = g_CameraLookAtBondPad->pos.f[2];
 
             return;
         }
@@ -3032,7 +3016,6 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
         }
     }
 }
-
 
 
 //begin bondmove.c per pd
@@ -3243,7 +3226,6 @@ void bondviewTankModelRotationRelated(void) {
 }
 
 
-
 /**
  * Address 0x7F07C888.
 */
@@ -3289,7 +3271,6 @@ void bondviewGetTankCollisionBounds(struct rect4f *tank_collision_bounds, struct
 }
 
 
-
 /**
  * Address 0x7F07CA2C.
 */
@@ -3310,9 +3291,6 @@ s32 bondviewTestLineUnobstructed(StandTile **pTile, f32 p_x, f32 p_z, f32 dest_x
 
     return temp_v0;
 }
-
-
-
 
 
 /**
@@ -6012,7 +5990,7 @@ void bondviewUpdatePlayerCollisionPositionFields(void)
     g_CurrentPlayer->field_488.collision_position.f[1] = g_CurrentPlayer->field_70 + phi_f0;
 
     if (((g_CameraMode != CAMERAMODE_DEATH_CAM_SP) && (g_CameraMode != CAMERAMODE_DEATH_CAM_MP) && (g_CameraMode != CAMERAMODE_POSEND))
-        || (g_CurrentPlayer->ptr_char_objectinstance == 0))
+        || (g_CurrentPlayer->bodyModel == 0))
     {
         g_CurrentPlayer->field_488.pos.f[0] = g_CurrentPlayer->field_488.collision_position.f[0];
         g_CurrentPlayer->field_488.pos.f[1] = g_CurrentPlayer->field_488.collision_position.f[1];
@@ -10674,8 +10652,8 @@ Gfx *maybe_mp_interface(Gfx *gdl)
                 }
             }
         }
-        if (objecthandlerGetModelField28(&g_CurrentPlayer->model) >=
-            sub_GAME_7F06F5C4(&g_CurrentPlayer->model))
+        if (modelGetAnimFrame(&g_CurrentPlayer->model) >=
+            modelGetAnimEndFrame(&g_CurrentPlayer->model))
         {
             if (g_CurrentPlayer->redbloodfinished)
             {
@@ -11810,7 +11788,7 @@ s32 playerTickBeams(PropRecord *prop)
  
     if (chr != NULL)
     {
-        if ((g_playerPointers[index]->ptr_char_objectinstance != NULL) && (!(get_debug_render_raster() && (g_playerPointers[index]->cameramode != 1))))
+        if ((g_playerPointers[index]->bodyModel != NULL) && (!(get_debug_render_raster() && (g_playerPointers[index]->cameramode != 1))))
         {
             g_playerPointers[index]->field_AC = 0;
             ret = chrTick(prop);
@@ -11824,7 +11802,7 @@ s32 playerTickBeams(PropRecord *prop)
  
             if (prop->flags & PROPFLAG_ONSCREEN)
             {
-                RenderPosView *rp = g_playerPointers[index]->ptr_char_objectinstance->render_pos;
+                RenderPosView *rp = g_playerPointers[index]->bodyModel->render_pos;
                 matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), (Mtxf *) rp, (Mtxf *) mtx);
                 g_playerPointers[index]->field_488.pos.x = mtx[12] + (mtx[4] * 7.0f);
                 g_playerPointers[index]->field_488.pos.y = mtx[13] + (mtx[5] * 7.0f);
@@ -11840,7 +11818,7 @@ s32 playerTickBeams(PropRecord *prop)
         goto clear_and_return;
     }
 
-    if (g_playerPointers[index]->ptr_char_objectinstance == NULL)
+    if (g_playerPointers[index]->bodyModel == NULL)
     {
         goto clear_and_return;
     }
@@ -12113,7 +12091,7 @@ join_768:
  
         if (0.0f <= frame)
         {
-            if ((ppointers[index]->ptr_char_objectinstance->animlooping == 0) || (frame != ppointers[index]->ptr_char_objectinstance->animloopframe))
+            if ((ppointers[index]->bodyModel->animlooping == 0) || (frame != ppointers[index]->bodyModel->animloopframe))
             {
                 setanim = 1;
             }
@@ -12121,7 +12099,7 @@ join_768:
  
         if (frame < 0.0f)
         {
-            if (ppointers[index]->ptr_char_objectinstance->animlooping)
+            if (ppointers[index]->bodyModel->animlooping)
             {
                 setanim = 1;
             }
@@ -12129,21 +12107,21 @@ join_768:
  
         if (setanim != 0)
         {
-            if (ppointers[index]->ptr_char_objectinstance->anim2 == NULL)
+            if (ppointers[index]->bodyModel->anim2 == NULL)
             {
                 startframe = (0.0f <= frame) ? (frame) : (0.0f);
-                modelSetAnimation(ppointers[index]->ptr_char_objectinstance, (ModelAnimation *) anim, 0, startframe, angle, 16.0f);
+                modelSetAnimation(ppointers[index]->bodyModel, (ModelAnimation *) anim, 0, startframe, angle, 16.0f);
                 ppointers[index]->players_cur_animation = anim;
                 ppointers[index]->field_1288 = angle;
  
                 if (0.0f <= frame)
                 {
-                    modelSetAnimLooping(ppointers[index]->ptr_char_objectinstance, frame, 16.0f);
+                    modelSetAnimLooping(ppointers[index]->bodyModel, frame, 16.0f);
                 }
  
                 if (0.0f <= local90)
                 {
-                    modelSetAnimEndFrame(ppointers[index]->ptr_char_objectinstance, local90);
+                    modelSetAnimEndFrame(ppointers[index]->bodyModel, local90);
                 }
             }
  
@@ -12153,7 +12131,7 @@ join_768:
         {
             if (angle != ppointers[index]->field_1288)
             {
-                modelSetAnimSpeed(ppointers[index]->ptr_char_objectinstance, angle, 1.0f);
+                modelSetAnimSpeed(ppointers[index]->bodyModel, angle, 1.0f);
                 ppointers[index]->field_1288 = angle;
             }
  
