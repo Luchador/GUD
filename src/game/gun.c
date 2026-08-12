@@ -71,6 +71,8 @@ s32 dword_CODE_bss_80076A48; // Unused
     #define GUN_SPRING_SCALE                           0.050000012f
 #endif
 
+#define TANK_SHELL_SPEED 66.666664f
+
 // data
 ////D:80032440
 //rgba_u8 D_80032440[] = {
@@ -2286,7 +2288,6 @@ void sub_GAME_7F05FB00(enum GUNHAND hand)
 }
 
 
-extern f32 D_80053DD8;
 extern f32 D_80053DDC;
 
 /*
@@ -2317,21 +2318,25 @@ void gunFireTankShell(s32 handnum)
 
     matrix_4x4_set_identity(&identitymtx);
 
-    if (weaponid == ITEM_TANKSHELLS) {
+    if (weaponid == ITEM_TANKSHELLS) 
+    {
         tankprop = get_ptr_for_players_tank();
 
         if (1);
 
-        if ((tankprop != NULL) && (tankprop->flags & TANK_RUN_STATE_RUNNING)) {
+        if ((tankprop != NULL) && (tankprop->flags & TANK_RUN_STATE_RUNNING)) 
+        {
             bondviewSet3dCoord7F07CEB0(&aimdir);
-        } else {
+        } 
+        else 
+        {
             sub_GAME_7F068190(&screenpos, &aimdir);
             mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), &aimdir);
         }
 
-        velocity.x = aimdir.x * D_80053DD8;
-        velocity.y = aimdir.y * D_80053DD8;
-        velocity.z = aimdir.z * D_80053DD8;
+        velocity.x = aimdir.x * TANK_SHELL_SPEED;
+        velocity.y = aimdir.y * TANK_SHELL_SPEED;
+        velocity.z = aimdir.z * TANK_SHELL_SPEED;
 
         if (g_ClockTimer > 0) {
             velocity.x += (playerprop->pos.x - prevplayerpos->x) / g_GlobalTimerDelta;
@@ -2339,14 +2344,17 @@ void gunFireTankShell(s32 handnum)
             velocity.z += (playerprop->pos.z - prevplayerpos->z) / g_GlobalTimerDelta;
         }
 
-        if ((tankprop != NULL) && (tankprop->flags & TANK_RUN_STATE_RUNNING)) {
+        if ((tankprop != NULL) && (tankprop->flags & TANK_RUN_STATE_RUNNING)) 
+        {
             tankobj = tankprop->obj;
             spawnpos.x = tankobj->model->render_pos[4].pos.m[3][0];
             spawnpos.y = tankobj->model->render_pos[4].pos.m[3][1];
             spawnpos.z = tankobj->model->render_pos[4].pos.m[3][2];
 
             mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), &spawnpos);
-        } else {
+        } 
+        else 
+        {
             spawnpos.x = playerprop->pos.x;
             spawnpos.y = playerprop->pos.y;
             spawnpos.z = playerprop->pos.z;
@@ -2355,7 +2363,9 @@ void gunFireTankShell(s32 handnum)
         if ((g_CurrentPlayer && g_CurrentPlayer));
 
         setSixExplosionAndSmokeEntries();
-    } else {
+    } 
+    else 
+    {
         bullet_path_from_screen_center(&screenpos, &aimdir, handnum);
         mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), &aimdir);
 
@@ -2373,7 +2383,8 @@ void gunFireTankShell(s32 handnum)
         velocity.y = unscaledvelocity.y * g_GlobalTimerDelta;
         velocity.z = unscaledvelocity.z * g_GlobalTimerDelta;
 
-        if (g_ClockTimer > 0) {
+        if (g_ClockTimer > 0) 
+        {
             velocity.x += (playerprop->pos.x - prevplayerpos->x) / g_GlobalTimerDelta;
             velocity.y += (playerprop->pos.y - prevplayerpos->y) / g_GlobalTimerDelta;
             velocity.z += (playerprop->pos.z - prevplayerpos->z) / g_GlobalTimerDelta;
@@ -2386,14 +2397,18 @@ void gunFireTankShell(s32 handnum)
     shellmtx.m[3][1] = 0.0f;
     shellmtx.m[3][2] = 0.0f;
 
-    if (hand->rocket != NULL) {
+    if (hand->rocket != NULL) 
+    {
         obj = (WeaponObjRecord *) hand->rocket;
         hand->firedrocket = 1;
-    } else {
+    } 
+    else 
+    {
         obj = (WeaponObjRecord *) create_new_item_instance_of_model(PROP_CHRROCKET, ITEM_ROCKETROUND);
     }
 
-    if (obj == NULL) {
+    if (obj == NULL) 
+    {
         return;
     }
 
@@ -2431,13 +2446,11 @@ void gunFireTankShell(s32 handnum)
 
 
 /**
- * D_80053DD8 and D_80053DDC belong to gunFireTankShell, but must sit here
+ * D_80053DDC belongs to gunFireTankShell, but must sit here
  * immediately ahead of this function's pool for that function to match.
  */
 GLOBAL_ASM(
 .late_rodata
-glabel D_80053DD8
-.word 0x42855555 /*66.666664*/
 glabel D_80053DDC
 .word 0x3f8e38e3 /*1.111111*/
 )
