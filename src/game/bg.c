@@ -282,6 +282,7 @@ void sub_GAME_7F0B7F84(s32 roomnum, s32 portalnum, s32 depth, bbox2d *parentbox)
 #endif
 void sub_GAME_7F0B4810(f32 arg0);
 s32 sub_GAME_7F0B5528(s32 portalnum, f32 scale, coord3d *points);
+void sub_GAME_7F0B9B94(s32 portalnum);
 
 // end forward declarations
 
@@ -5384,7 +5385,6 @@ void bgClearDataPortalsControlBytes1Low2Bits(s32 index)
 }
 
 
-
 /**
  * Swaps connected rooms.
  *
@@ -5402,166 +5402,64 @@ s8 bgSwapConnectedRooms(s32 index)
 }
 
 
+/**
+ * Address: 7F0B9B94
+ */
+void sub_GAME_7F0B9B94(s32 portalnum)
+{
+    coord3d room1centre;
+    coord3d room2centre;
+    struct PortalMetric metric;
+    f32 tmp;
+    f32 tmp2;
+    s32 roomnum2;
+    s32 swapped;
+    s32 roomnum1;
+    f32 tmp1;
 
+    roomnum1 = g_BgPortals[portalnum].connectedRoom1;
+    roomnum2 = g_BgPortals[portalnum].connectedRoom2;
 
+    bgGetRoomCenter(roomnum1, &room1centre);
+    bgGetRoomCenter(roomnum2, &room2centre);
 
-#ifdef NONMATCHING
-//bgorderPortal
-f32 sub_GAME_7F0B9B94(s32 arg0) {
-    s32 sp24;
-    ?32 sp28;
-    f32 sp34;
-    f32 sp38;
-    f32 sp3C;
-    f32 sp48;
-    f32 sp54;
-    void *temp_v0;
-    f32 temp_f0;
-    f32 phi_f16;
-    f32 phi_f18;
-    f32 phi_f14;
-    s32 phi_v0;
-    f32 phi_f12;
-    f32 phi_return;
+    sub_GAME_7F0B96CC(portalnum, &metric);
 
-    // Node 0
-    temp_v0 = (g_BgPortals + (arg0 * 8));
-    sp28 = (?32) temp_v0->unk5;
-    bgGetRoomCenter(temp_v0->unk4, &sp54);
-    bgGetRoomCenter(sp28, &sp48);
-    sub_GAME_7F0B96CC(arg0, &sp34); //possible float return
-    #ifdef DEBUG
-    if (0.1 < local_50 - local_54)
-    {
-        iVar4  = osSyncPrintf("bg: bgOrderPortal: Portal \'%s\' not planar by %5.2f\n", bgDebPrintPORTALID(param_1), local_50 - local_54);
+    if (metric.max - metric.min < 0.1f) {
+#ifdef DEBUG
+        osSyncPrintf("bg: bgOrderPortal: Portal '%s' not planar by %5.2f\n", bgDebPrintPORTALID(portalnum), metric.max - metric.min);
+#endif
     }
-    #endif
 
-    phi_f16 = sp3C;
-    phi_f18 = sp34;
-    phi_f14 = sp40;
-    phi_v0 = 0;
-    phi_f12 = sp44;
-    if (sp44 < ((sp5C * sp3C) + ((sp34 * sp54) + (sp38 * sp58))))
-    {
-        // Node 1
-        sp24 = 1;
-        bgSwapConnectedRooms(sp44, sp40, arg0);
-        sp38 = (f32) -sp38;
-        phi_f16 = -sp3C;
-        phi_f18 = -sp34;
-        phi_f14 = -sp44;
-        phi_v0 = 1;
-        phi_f12 = -sp40;
+    tmp2 = metric.normal.f[2];
+    tmp1 = metric.normal.f[0] * room1centre.f[0] + metric.normal.f[1] * room1centre.f[1] + tmp2 * room1centre.f[2];
+
+    swapped = 0;
+
+    if (tmp1 > metric.max) {
+        swapped = 1;
+
+        bgSwapConnectedRooms(portalnum);
+
+        metric.normal.x = -metric.normal.x;
+        metric.normal.y = -metric.normal.y;
+        metric.normal.z = -metric.normal.z;
+
+        tmp = metric.min;
+        metric.min = -metric.max;
+        metric.max = -tmp;
     }
-    // Node 2
-    sp3C = (f32) phi_f16;
-    sp34 = (f32) phi_f18;
-    temp_f0 = ((sp50 * phi_f16) + ((phi_f18 * sp48) + (sp38 * sp4C)));
-    phi_return = temp_f0;
-    if (temp_f0 <= phi_f14)
-    {
-        // Node 3
-        phi_return = temp_f0;
-        if (phi_v0 != 0)
-        {
-            // Node 4
-            sp24 = (s32) phi_v0;
-            phi_return = bgSwapConnectedRooms(phi_f12, phi_f14, arg0);
+
+	tmp2 = metric.normal.f[0] * room2centre.f[0] + metric.normal.f[1] * room2centre.f[1] + metric.normal.f[2] * room2centre.f[2];
+
+	if (tmp2 <= metric.min) {
+        if (swapped) {
+            bgSwapConnectedRooms(portalnum);
         }
     }
-    // Node 5
-    return phi_return;
+
+    if (swapped);
 }
-#else
-GLOBAL_ASM(
-.text
-glabel sub_GAME_7F0B9B94
-/* 0EE6C4 7F0B9B94 3C0E8008 */  lui   $t6, %hi(g_BgPortals)
-/* 0EE6C8 7F0B9B98 8DCEFF80 */  lw    $t6, %lo(g_BgPortals)($t6)
-/* 0EE6CC 7F0B9B9C 27BDFFA0 */  addiu $sp, $sp, -0x60
-/* 0EE6D0 7F0B9BA0 0004C0C0 */  sll   $t8, $a0, 3
-/* 0EE6D4 7F0B9BA4 AFBF0014 */  sw    $ra, 0x14($sp)
-/* 0EE6D8 7F0B9BA8 AFA40060 */  sw    $a0, 0x60($sp)
-/* 0EE6DC 7F0B9BAC 01D81021 */  addu  $v0, $t6, $t8
-/* 0EE6E0 7F0B9BB0 90590005 */  lbu   $t9, 5($v0)
-/* 0EE6E4 7F0B9BB4 90440004 */  lbu   $a0, 4($v0)
-/* 0EE6E8 7F0B9BB8 27A50054 */  addiu $a1, $sp, 0x54
-/* 0EE6EC 7F0B9BBC 0FC2E4AD */  jal   bgGetRoomCenter
-/* 0EE6F0 7F0B9BC0 AFB90028 */   sw    $t9, 0x28($sp)
-/* 0EE6F4 7F0B9BC4 8FA40028 */  lw    $a0, 0x28($sp)
-/* 0EE6F8 7F0B9BC8 0FC2E4AD */  jal   bgGetRoomCenter
-/* 0EE6FC 7F0B9BCC 27A50048 */   addiu $a1, $sp, 0x48
-/* 0EE700 7F0B9BD0 8FA40060 */  lw    $a0, 0x60($sp)
-/* 0EE704 7F0B9BD4 0FC2E5B3 */  jal   sub_GAME_7F0B96CC
-/* 0EE708 7F0B9BD8 27A50034 */   addiu $a1, $sp, 0x34
-/* 0EE70C 7F0B9BDC C7A40038 */  lwc1  $f4, 0x38($sp)
-/* 0EE710 7F0B9BE0 C7A60058 */  lwc1  $f6, 0x58($sp)
-/* 0EE714 7F0B9BE4 C7B20034 */  lwc1  $f18, 0x34($sp)
-/* 0EE718 7F0B9BE8 C7AA0054 */  lwc1  $f10, 0x54($sp)
-/* 0EE71C 7F0B9BEC 46062202 */  mul.s $f8, $f4, $f6
-/* 0EE720 7F0B9BF0 C7B0003C */  lwc1  $f16, 0x3c($sp)
-/* 0EE724 7F0B9BF4 C7AC0044 */  lwc1  $f12, 0x44($sp)
-/* 0EE728 7F0B9BF8 460A9102 */  mul.s $f4, $f18, $f10
-/* 0EE72C 7F0B9BFC C7AA005C */  lwc1  $f10, 0x5c($sp)
-/* 0EE730 7F0B9C00 C7AE0040 */  lwc1  $f14, 0x40($sp)
-/* 0EE734 7F0B9C04 00001025 */  move  $v0, $zero
-/* 0EE738 7F0B9C08 8FA40060 */  lw    $a0, 0x60($sp)
-/* 0EE73C 7F0B9C0C 46082180 */  add.s $f6, $f4, $f8
-/* 0EE740 7F0B9C10 46105102 */  mul.s $f4, $f10, $f16
-/* 0EE744 7F0B9C14 46062080 */  add.s $f2, $f4, $f6
-/* 0EE748 7F0B9C18 4602603C */  c.lt.s $f12, $f2
-/* 0EE74C 7F0B9C1C 00000000 */  nop
-/* 0EE750 7F0B9C20 45020012 */  bc1fl .L7F0B9C6C
-/* 0EE754 7F0B9C24 C7A40038 */   lwc1  $f4, 0x38($sp)
-/* 0EE758 7F0B9C28 24020001 */  li    $v0, 1
-/* 0EE75C 7F0B9C2C 0FC2E6D9 */  jal   bgSwapConnectedRooms
-/* 0EE760 7F0B9C30 AFA20024 */   sw    $v0, 0x24($sp)
-/* 0EE764 7F0B9C34 C7AC0044 */  lwc1  $f12, 0x44($sp)
-/* 0EE768 7F0B9C38 C7A00040 */  lwc1  $f0, 0x40($sp)
-/* 0EE76C 7F0B9C3C C7A80038 */  lwc1  $f8, 0x38($sp)
-/* 0EE770 7F0B9C40 C7B0003C */  lwc1  $f16, 0x3c($sp)
-/* 0EE774 7F0B9C44 C7B20034 */  lwc1  $f18, 0x34($sp)
-/* 0EE778 7F0B9C48 46006387 */  neg.s $f14, $f12
-/* 0EE77C 7F0B9C4C 46000307 */  neg.s $f12, $f0
-/* 0EE780 7F0B9C50 46004287 */  neg.s $f10, $f8
-/* 0EE784 7F0B9C54 8FA20024 */  lw    $v0, 0x24($sp)
-/* 0EE788 7F0B9C58 E7AA0038 */  swc1  $f10, 0x38($sp)
-/* 0EE78C 7F0B9C5C E7AC0044 */  swc1  $f12, 0x44($sp)
-/* 0EE790 7F0B9C60 46008407 */  neg.s $f16, $f16
-/* 0EE794 7F0B9C64 46009487 */  neg.s $f18, $f18
-/* 0EE798 7F0B9C68 C7A40038 */  lwc1  $f4, 0x38($sp)
-.L7F0B9C6C:
-/* 0EE79C 7F0B9C6C C7A6004C */  lwc1  $f6, 0x4c($sp)
-/* 0EE7A0 7F0B9C70 C7AA0048 */  lwc1  $f10, 0x48($sp)
-/* 0EE7A4 7F0B9C74 E7AE0040 */  swc1  $f14, 0x40($sp)
-/* 0EE7A8 7F0B9C78 46062202 */  mul.s $f8, $f4, $f6
-/* 0EE7AC 7F0B9C7C E7B0003C */  swc1  $f16, 0x3c($sp)
-/* 0EE7B0 7F0B9C80 E7B20034 */  swc1  $f18, 0x34($sp)
-/* 0EE7B4 7F0B9C84 460A9102 */  mul.s $f4, $f18, $f10
-/* 0EE7B8 7F0B9C88 C7AA0050 */  lwc1  $f10, 0x50($sp)
-/* 0EE7BC 7F0B9C8C 46082180 */  add.s $f6, $f4, $f8
-/* 0EE7C0 7F0B9C90 46105102 */  mul.s $f4, $f10, $f16
-/* 0EE7C4 7F0B9C94 46062000 */  add.s $f0, $f4, $f6
-/* 0EE7C8 7F0B9C98 460E003E */  c.le.s $f0, $f14
-/* 0EE7CC 7F0B9C9C 00000000 */  nop
-/* 0EE7D0 7F0B9CA0 45020006 */  bc1fl .L7F0B9CBC
-/* 0EE7D4 7F0B9CA4 8FBF0014 */   lw    $ra, 0x14($sp)
-/* 0EE7D8 7F0B9CA8 10400003 */  beqz  $v0, .L7F0B9CB8
-/* 0EE7DC 7F0B9CAC 8FA40060 */   lw    $a0, 0x60($sp)
-/* 0EE7E0 7F0B9CB0 0FC2E6D9 */  jal   bgSwapConnectedRooms
-/* 0EE7E4 7F0B9CB4 AFA20024 */   sw    $v0, 0x24($sp)
-.L7F0B9CB8:
-/* 0EE7E8 7F0B9CB8 8FBF0014 */  lw    $ra, 0x14($sp)
-.L7F0B9CBC:
-/* 0EE7EC 7F0B9CBC 27BD0060 */  addiu $sp, $sp, 0x60
-/* 0EE7F0 7F0B9CC0 03E00008 */  jr    $ra
-/* 0EE7F4 7F0B9CC4 00000000 */   nop
-)
-#endif
-
-
-
 
 
 /**
