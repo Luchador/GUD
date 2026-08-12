@@ -1076,7 +1076,7 @@ void lvlManageMpGame(void)
 
             if ((current_time < g_MpTime) && (sp180 >= g_MpTime))
             {
-                mpCalculateAwards(0);
+                mpCalculateAwards(FALSE);
             }
         }
 
@@ -1112,7 +1112,7 @@ void lvlManageMpGame(void)
                 if (mp_player_currently_in_dying_animation == 0)
                 {
                     // end game after dying players are finished dying
-                    mpCalculateAwards(0);
+                    mpCalculateAwards(FALSE);
                 }
                 else
                 {
@@ -1172,7 +1172,7 @@ void lvlManageMpGame(void)
 
             if (fully_dead_total >= player_count - 1)
             {
-                mpCalculateAwards(0);
+                mpCalculateAwards(FALSE);
             }
             else if (killed_total >= player_count - 1)
             {

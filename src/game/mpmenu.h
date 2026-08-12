@@ -31,20 +31,16 @@ struct AwardMetrics {
 extern s32 g_stopPlayFlag;
 extern s32 g_gameOverFlag;
 
-s32 mpFindMaxInt(int param_1, int param_2, int param_3, int param_4, int param_5);
-
-s32 mpFindMinInt(int param_1, int param_2, int param_3, int param_4, int param_5);
-
 void mpwatchUnpauseGame(void);
 Gfx *display_text_for_playerdata_on_MP_menu(Gfx *gdl, s32 x, s32 y, s32 points, TEXTCOLORS text_color);
 
 s32 checkGamePaused(void);
 
-void mpCalculateAwards(int arg0);
+void mpCalculateAwards(bool gameoverdelay);
 s32 get_points_for_mp_player(s32 arg0);
 void mpwatchSetStopPlayFlag(void);
 Gfx * mp_watch_menu_display(Gfx *arg0);
 s32 disablePlayerActionsWhenPausedOrInMpMenu(void);
-s32 sub_GAME_7F0C6048(void);
+s32 mpwatchShouldDisplayGauges(void);
 
 #endif

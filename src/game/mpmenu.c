@@ -26,11 +26,17 @@
 
 // bss
 s32 g_stopPlayFlag;
+
+/**
+ * g_gameOverFlag has two meanings. One is the standard true/false for whether the game is over.
+ * The other is as a timer. Values >= 2 mean a countdown is still running.
+ */
 s32 g_gameOverFlag;
-s32 dword_CODE_bss_8008C708;
-s32 dword_CODE_bss_8008C70C;
-s32 time_trigger_alt_gameover_msg;
-s32 dword_CODE_bss_8008C714;
+
+s32 chevron_glow;
+s32 chevron_glow_timer;
+s32 alt_gameover_msg;
+s32 alt_gameover_msg_timer;
 s32 g_pausedFlag;
 s32 who_paused;
 
@@ -102,7 +108,7 @@ s32 mpwatchIsPlayerPressingRight(s32 player)
 
 s32 mpwatchIsPlayerPressingLeft(s32 player)
 {
-    s32 iVar3 =  joyGetStickXInRange(player, -2, 1);
+    s32 iVar3 = joyGetStickXInRange(player, -2, 1);
 
     if ((joyGetButtonsPressedThisFrame(player, L_JPAD|L_CBUTTONS)) || ((iVar3 < -1 && (g_CurrentPlayer->mpjoywascentre)))) 
     {
@@ -127,150 +133,167 @@ void mpwatchUnpauseGame(void)
 }
 
 
-s32 mpFindMaxInt(int numplayers, int param_2, int param_3, int param_4, int param_5)
+/**
+ * Returns the index (0-3) of the player with the highest value.
+ */
+s32 mpFindMaxInt(s32 numplayers, s32 value0, s32 value1, s32 value2, s32 value3)
 {
     s32 aux;
     s32 result;
-
-    if ((param_2 < param_3) || ((param_3 == param_2 && ((randomGetNext() & 1))))) 
+ 
+    if ((value0 < value1) || ((value1 == value0 && ((randomGetNext() & 1))))) 
     {
         result = 1;
-        aux = param_3;
+        aux = value1;
     }
     else 
     {
         result = 0;
-        aux = param_2;
+        aux = value0;
     }
-
+ 
     if (numplayers >= 3) 
     {
-
-        if ((aux < param_4) || ((param_4 == aux && ((randomGetNext() & 1))))) 
+ 
+        if ((aux < value2) || ((value2 == aux && ((randomGetNext() & 1))))) 
         {
             result = 2;
-            aux = param_4;
+            aux = value2;
         }
-
+ 
         if (numplayers >= 4) 
         {
-            if ((aux < param_5) || ((param_5 == aux && ((randomGetNext() & 1))))) {
+            if ((aux < value3) || ((value3 == aux && ((randomGetNext() & 1))))) {
                 result = 3;
             }
         }
     }
-
+ 
     return result;
 }
 
 
-s32 mpFindMinInt(int numplayers, int param_2, int param_3, int param_4, int param_5)
+/**
+ * Returns the index (0-3) of the player with the lowest value.
+ */
+s32 mpFindMinInt(s32 numplayers, s32 value0, s32 value1, s32 value2, s32 value3)
 {
     s32 aux;
     s32 result;
-
-    if ((param_3 < param_2) || ((param_3 == param_2 && ((randomGetNext() & 1))))) 
+ 
+    if ((value1 < value0) || ((value1 == value0 && ((randomGetNext() & 1))))) 
     {
         result = 1;
-        aux = param_3;
+        aux = value1;
     }
     else 
     {
         result = 0;
-        aux = param_2;
+        aux = value0;
     }
-
+ 
     if (numplayers >= 3) 
     {
-        if ((param_4 < aux) || ((param_4 == aux && ((randomGetNext() & 1)))))
+        if ((value2 < aux) || ((value2 == aux && ((randomGetNext() & 1)))))
         {
             result = 2;
-            aux = param_4;
+            aux = value2;
         }
-
+ 
         if (numplayers >= 4) 
         {
-            if ((param_5 < aux) || ((param_5 == aux && ((randomGetNext() & 1))))) 
+            if ((value3 < aux) || ((value3 == aux && ((randomGetNext() & 1))))) 
             {
                 result = 3;
             }
         }
     }
-
+ 
     return result;
 }
 
 
-s32 mpFindMaxFloat(s32 numplayers, f32 arg1, f32 arg2, f32 arg3, f32 arg4)
+/**
+ * Returns the index of the player with the highest value.
+ * 
+ * @bug: aux is s32 so each time it's set to one of the values, the decimal portion gets truncated.
+ * The first comparison is safe from this since it doesn't use aux, but the rest are impacted.
+ */
+s32 mpFindMaxFloat(s32 numplayers, f32 value0, f32 value1, f32 value2, f32 value3)
 {
     s32 aux;
     s32 result;
-
-    if ((arg1 < arg2) || ((arg2 == arg1 && ((randomGetNext() & 1))))) 
+ 
+    if ((value0 < value1) || ((value1 == value0 && ((randomGetNext() & 1))))) 
     {
-        aux = (s32) arg2;
+        aux = (s32) value1;
         result = 1;
     }
     else 
     {
-        aux = (s32) arg1;
+        aux = (s32) value0;
         result = 0;
     }
-
+ 
     if (numplayers >= 3)
     {
-        if ((aux < arg3) || ((arg3 == aux && ((randomGetNext() & 1))))) 
+        if ((aux < value2) || ((value2 == aux && ((randomGetNext() & 1))))) 
         {
-            aux = (s32) arg3;
+            aux = (s32) value2;
             result = 2;
         }
-
+ 
         if (numplayers >= 4)
         {
-            if ((aux < arg4) || ((arg4 == aux && ((randomGetNext() & 1))))) 
+            if ((aux < value3) || ((value3 == aux && ((randomGetNext() & 1))))) 
             {
                 result = 3;
             }
         }
     }
-
+ 
     return result;
 }
 
 
-s32 mpFindMinFloat(s32 numplayers, f32 arg1, f32 arg2, f32 arg3, f32 arg4)
+/**
+ * Returns the index of the player with the lowest value.
+ * 
+ * Also suffers from the same bug as the above function.
+ */
+s32 mpFindMinFloat(s32 numplayers, f32 value0, f32 value1, f32 value2, f32 value3)
 {
     s32 aux;
     s32 result;
-
-    if ((arg2 < arg1) || ((arg2 == arg1 && ((randomGetNext() & 1))))) 
+ 
+    if ((value1 < value0) || ((value1 == value0 && ((randomGetNext() & 1))))) 
     {
-        aux = (s32) arg2;
+        aux = (s32) value1;
         result = 1;
     }
     else 
     {
-        aux = (s32) arg1;
+        aux = (s32) value0;
         result = 0;
     }
-
+ 
     if (numplayers >= 3)
     {
-        if ((arg3 < aux) || ((arg3 == aux && ((randomGetNext() & 1))))) 
+        if ((value2 < aux) || ((value2 == aux && ((randomGetNext() & 1))))) 
         {
-            aux = (s32) arg3;
+            aux = (s32) value2;
             result = 2;
         }
-
+ 
         if (numplayers >= 4)
         {
-            if ((arg4 < aux) || ((arg4 == aux && ((randomGetNext() & 1))))) 
+            if ((value3 < aux) || ((value3 == aux && ((randomGetNext() & 1))))) 
             {
                 result = 3;
             }
         }
     }
-
+ 
     return result;
 }
 
@@ -282,7 +305,7 @@ void pauseAndLockControls(void)
 }
 
 
-s32 disablePlayerActionsWhenPausedOrInMpMenu(void)
+bool disablePlayerActionsWhenPausedOrInMpMenu(void)
 {
     if (getPlayerCount() == 1)
     {
@@ -309,7 +332,8 @@ void mpwatchSetStopPlayFlag(void)
 }
 
 
-void mpCalculateAwards(s32 arg0)
+
+void mpCalculateAwards(bool gameoverdelay)
 {
     s32 player_count;
     s32 i;
@@ -329,25 +353,26 @@ void mpCalculateAwards(s32 arg0)
 
     musicTrack1ApplySeqpVol(sub_GAME_7F0C0BF0());
     g_musicXTrack1Fade = 0;
-    musicTrack1Play(0x2C);
+    musicTrack1Play(M_INTROSWOOSH);
 
     pauseAndLockControls();
 
-    if (arg0 != 0)
+    if (gameoverdelay != 0)
     {
-        g_gameOverFlag = (PAL ? 0xFA : 0x12C);
+        g_gameOverFlag = (PAL ? 250 : 300);
     }
     else
     {
         g_gameOverFlag = 1;
     }
 
-    time_trigger_alt_gameover_msg = 1;
+    alt_gameover_msg = 1;
 
-    dword_CODE_bss_8008C714 =  (PAL ? 0x10 : 0x14);
+    // Possible copy/paste error: these are the timer values for the chevron glow
+    alt_gameover_msg_timer =  (PAL ? 16 : 20);
 
-    dword_CODE_bss_8008C708 = 0;
-    dword_CODE_bss_8008C70C = 0;
+    chevron_glow = 0;
+    chevron_glow_timer = 0;
 
     prev_player_num = get_cur_playernum();
 
@@ -558,15 +583,21 @@ void mpwatchMenuTick(void)
     player_count = getPlayerCount();
     x_centered = joyGetStickXInRange(player_num, -2, 1);
 
+    // The player in shuffled position 0 drives down g_gameOverFlag which is both a flag and a timer.
     if (!get_player_position_in_shuffled(player_num) && (g_gameOverFlag >= 2))
     {
         g_gameOverFlag -= speedgraphframes;
-        if (g_gameOverFlag <= 0) { g_gameOverFlag = 1; }
+
+        if (g_gameOverFlag <= 0) 
+        { 
+            g_gameOverFlag = 1;
+        }
     }
 
     if (player_count != 1)
     {
-        if ((g_CurrentPlayer->bonddead != FALSE) && (g_gameOverFlag == FALSE))
+        // If a player has their pause menu up when they die and the game isn't over, turn their menu off. 
+        if ((g_CurrentPlayer->bonddead) && (!g_gameOverFlag))
         {
             g_CurrentPlayer->mpmenuon = FALSE;
             g_CurrentPlayer->healthdisplaytime = 0;
@@ -577,19 +608,21 @@ void mpwatchMenuTick(void)
         {
             if (get_player_position_in_shuffled(player_num) == 0)
             {
-                dword_CODE_bss_8008C70C += speedgraphframes;
-                dword_CODE_bss_8008C714 += speedgraphframes;
+                chevron_glow_timer += speedgraphframes;
+                alt_gameover_msg_timer += speedgraphframes;
 
-                if (dword_CODE_bss_8008C70C >= (PAL ? 0x10 : 0x14))
+                // Toggle chevron glow
+                if (chevron_glow_timer >= (PAL ? 16 : 20))
                 {
-                    dword_CODE_bss_8008C70C -= (PAL ? 0x10 : 0x14);
-                    dword_CODE_bss_8008C708 = !dword_CODE_bss_8008C708;
+                    chevron_glow_timer -= (PAL ? 16 : 20);
+                    chevron_glow = !chevron_glow;
                 }
 
-                if (dword_CODE_bss_8008C714 >= (PAL ? 0x64 : 0x78))
+                // Flip between "GAME OVER" and "START TO EXIT" text.
+                if (alt_gameover_msg_timer >= (PAL ? 100 : 120))
                 {
-                    dword_CODE_bss_8008C714 -= (PAL ? 0x64: 0x78);
-                    time_trigger_alt_gameover_msg = !time_trigger_alt_gameover_msg;
+                    alt_gameover_msg_timer -= (PAL ? 100: 120);
+                    alt_gameover_msg = !alt_gameover_msg;
                 }
             }
 
@@ -625,7 +658,7 @@ void mpwatchMenuTick(void)
                     mpwatchPlayBeep();
                     g_CurrentPlayer->mpquitconfirm = 0;
                 }
-                else if (joyGetButtonsPressedThisFrame(player_num, 0x8000U) && (g_CurrentPlayer->mpmenumode == MENU_PAUSE))
+                else if (joyGetButtonsPressedThisFrame(player_num, A_BUTTON) && (g_CurrentPlayer->mpmenumode == MENU_PAUSE))
                 {
                     mpwatchPlayBeep();
                     if (!g_pausedFlag)
@@ -642,17 +675,18 @@ void mpwatchMenuTick(void)
                 }
                 else if (g_CurrentPlayer->mpmenumode == MENU_FINISHED)
                 {
-                    if (joyGetButtonsPressedThisFrame(player_num, 0x4000U))
+                    if (joyGetButtonsPressedThisFrame(player_num, B_BUTTON))
                     {
                         mpwatchPlayBeep();
                         g_CurrentPlayer->mpmenuon = TRUE;
                         g_CurrentPlayer->mpmenumode = MENU_SCORES;
                     }
                 }
-                else if (((joyGetButtonsPressedThisFrame(player_num, 0x9000U) != 0) && ((((g_CurrentPlayer->mpmenumode != MENU_EXIT)) && (g_CurrentPlayer->mpmenumode != MENU_EXIT_CONFIRM)) || ((g_CurrentPlayer->mpmenumode == MENU_EXIT_CONFIRM) && (g_CurrentPlayer->mpquitconfirm != 1)))) || (joyGetButtonsPressedThisFrame(player_num, 0x4000U) != 0))
+                else if (((joyGetButtonsPressedThisFrame(player_num, A_BUTTON | START_BUTTON)) && ((((g_CurrentPlayer->mpmenumode != MENU_EXIT)) && (g_CurrentPlayer->mpmenumode != MENU_EXIT_CONFIRM)) || ((g_CurrentPlayer->mpmenumode == MENU_EXIT_CONFIRM) && (g_CurrentPlayer->mpquitconfirm != 1)))) || (joyGetButtonsPressedThisFrame(player_num, B_BUTTON)))
                 {
                     mpwatchPlayBeep();
-                    if (g_gameOverFlag != 0)
+
+                    if (g_gameOverFlag)
                     {
                         menu_count = 0;
                         g_CurrentPlayer->mpmenumode = MENU_FINISHED;
@@ -673,7 +707,8 @@ void mpwatchMenuTick(void)
                     else
                     {
                         g_CurrentPlayer->mpmenuon = FALSE;
-                        g_CurrentPlayer->healthdisplaytime = (PAL ? 0x32 : 0x3C);
+                        g_CurrentPlayer->healthdisplaytime = (PAL ? 50 : 60);
+
                         if (get_cur_playernum() == who_paused)
                         {
                             g_pausedFlag = 0;
@@ -681,20 +716,20 @@ void mpwatchMenuTick(void)
                         }
                     }
                 }
-                else if ((joyGetButtonsPressedThisFrame(player_num, 0x9000U) != 0) && (g_CurrentPlayer->mpmenumode == MENU_EXIT))
+                else if ((joyGetButtonsPressedThisFrame(player_num, A_BUTTON | START_BUTTON)) && (g_CurrentPlayer->mpmenumode == MENU_EXIT))
                 {
                     mpwatchPlayBeep();
                     g_CurrentPlayer->mpmenumode = MENU_EXIT_CONFIRM;
                     g_CurrentPlayer->mpquitconfirm = 0;
                 }
-                else if (joyGetButtonsPressedThisFrame(player_num, 0x9000U) != 0)
+                else if (joyGetButtonsPressedThisFrame(player_num, A_BUTTON | START_BUTTON))
                 {
                     if ((g_CurrentPlayer->mpmenumode == MENU_EXIT_CONFIRM) && (g_CurrentPlayer->mpquitconfirm == 1))
                     {
                         mpwatchPlayBeep();
                         g_CurrentPlayer->mpmenuon = FALSE;
                         g_CurrentPlayer->healthdisplaytime = 0;
-                        mpCalculateAwards(0);
+                        mpCalculateAwards(FALSE);
                     }
                 }
 
@@ -708,7 +743,7 @@ void mpwatchMenuTick(void)
                 return;
             }
 
-            if (joyGetButtonsPressedThisFrame(player_num, 0x1000U) != 0)
+            if (joyGetButtonsPressedThisFrame(player_num, START_BUTTON))
             {
                 mpwatchPlayBeep();
                 g_CurrentPlayer->mpmenuon = TRUE;
@@ -724,58 +759,58 @@ void mpwatchMenuTick(void)
 
 Gfx *display_text_for_playerdata_on_MP_menu(Gfx *gdl, s32 x, s32 y, s32 points, TEXTCOLORS text_color) {
 
-    s32 sp5C;
-    s32 sp58;
-    s32 sp54;
-    s32 sp50;
+    s32 textX;
+    s32 textY;
+    s32 textwidth;
+    s32 textheight;
     s32 unused;
-    u16 *sp48;
+    u16 *text;
     s16 viX;
     s32 viY;
 
-    sprintf(&sp48, "%d", points);
+    sprintf(&text, "%d", points);
 
-    textMeasure(&sp50, &sp54, &sp48, ptrFontBankGothicChars, ptrFontBankGothic, 0);
+    textMeasure(&textheight, &textwidth, &text, ptrFontBankGothicChars, ptrFontBankGothic, 0);
 
-    sp5C = x - (sp54 >> 1);
-    sp58 = y;
+    textX = x - (textwidth >> 1);
+    textY = y;
 
     switch (text_color) 
     {
         case GREEN_NORMAL:
             viX = viGetX();
             viY = viGetY();
-            gdl = textRender(gdl, &sp5C, &sp58, &sp48, ptrFontBankGothicChars, ptrFontBankGothic, 0xFF00B0, viX, viY, 0, 0);
+            gdl = textRender(gdl, &textX, &textY, &text, ptrFontBankGothicChars, ptrFontBankGothic, 0xFF00B0, viX, viY, 0, 0);
             break;
 
         case GREEN_HIGHLIGHT:
             viX = viGetX();
             viY = viGetY();
-            gdl = textRenderOutlined(gdl, &sp5C, &sp58, &sp48, ptrFontBankGothicChars, ptrFontBankGothic, 0xA0FFA0F0, 0x7000A0, viX, viY, 0, 0);
+            gdl = textRenderOutlined(gdl, &textX, &textY, &text, ptrFontBankGothicChars, ptrFontBankGothic, 0xA0FFA0F0, 0x7000A0, viX, viY, 0, 0);
             break;
 
         case RED_NORMAL:
             viX = viGetX();
             viY = viGetY();
-            gdl = textRender(gdl, &sp5C, &sp58, &sp48, ptrFontBankGothicChars, ptrFontBankGothic, 0xFF4040B0, viX, viY, 0, 0);
+            gdl = textRender(gdl, &textX, &textY, &text, ptrFontBankGothicChars, ptrFontBankGothic, 0xFF4040B0, viX, viY, 0, 0);
             break;
 
         case RED_HIGHLIGHT:
             viX = viGetX();
             viY = viGetY();
-            gdl = textRenderOutlined(gdl, &sp5C, &sp58, &sp48, ptrFontBankGothicChars, ptrFontBankGothic, 0xFFA0A0F0, 0x700000A0, viX, viY, 0, 0);
+            gdl = textRenderOutlined(gdl, &textX, &textY, &text, ptrFontBankGothicChars, ptrFontBankGothic, 0xFFA0A0F0, 0x700000A0, viX, viY, 0, 0);
             break;
 
         case BLUE_NORMAL:
             viX = viGetX();
             viY = viGetY();
-            gdl = textRender(gdl, &sp5C, &sp58, &sp48, ptrFontBankGothicChars, ptrFontBankGothic, 0x4040FFB0, viX, viY, 0, 0);
+            gdl = textRender(gdl, &textX, &textY, &text, ptrFontBankGothicChars, ptrFontBankGothic, 0x4040FFB0, viX, viY, 0, 0);
             break;
 
         case BLUE_HIGHLIGHT:
             viX = viGetX();
             viY = viGetY();
-            gdl = textRenderOutlined(gdl, &sp5C, &sp58, &sp48, ptrFontBankGothicChars, ptrFontBankGothic, 0xA0A0FFF0, 0x70A0, viX, viY, 0, 0);
+            gdl = textRenderOutlined(gdl, &textX, &textY, &text, ptrFontBankGothicChars, ptrFontBankGothic, 0xA0A0FFF0, 0x70A0, viX, viY, 0, 0);
             break;
     }
 
@@ -864,9 +899,10 @@ s32 get_points_for_mp_player(s32 playernum)
     return points;
 }
 
+
 void write_playerrank_to_buffer(char *buffer, s32 playernum)
 {
-    s32 new_var;
+    s32 scenario;
     s32 count;
     s32 scores[4];
     s32 players[4];
@@ -874,7 +910,7 @@ void write_playerrank_to_buffer(char *buffer, s32 playernum)
     s32 i;
     s32 j;
 
-    new_var = get_scenario();
+    scenario = get_scenario();
     count = getPlayerCount();
 
     for (i = 0; i < count; i++)
@@ -919,29 +955,29 @@ void write_playerrank_to_buffer(char *buffer, s32 playernum)
     switch (j)
     {
         case 0:
-            sprintf(buffer, langGet(40977));
+            sprintf(buffer, langGet(getStringID(LMPMENU, MPMENU_STR_11_RANK1ST))); /* Rank: 1st */
             break;
         case 1:
-            sprintf(buffer, langGet(40978));
+            sprintf(buffer, langGet(getStringID(LMPMENU, MPMENU_STR_12_RANK2ND))); /* Rank: 2nd */
             break;
         case 2:
-            if ((new_var != 5) && (new_var != 7))
+            if ((scenario != SCENARIO_2v2) && (scenario != SCENARIO_2v1))
             {
-                sprintf(buffer, langGet(40979));
+                sprintf(buffer, langGet(getStringID(LMPMENU, MPMENU_STR_13_RANK3RD))); /* Rank: 3rd */
             }
             else
             {
-                sprintf(buffer, langGet(40978));
+                sprintf(buffer, langGet(getStringID(LMPMENU, MPMENU_STR_12_RANK2ND))); /* Rank: 2nd */
             }
             break;
         case 3:
-            if (new_var != 6)
+            if (scenario != SCENARIO_3v1)
             {
-                sprintf(buffer, langGet(40980));
+                sprintf(buffer, langGet(getStringID(LMPMENU, MPMENU_STR_14_RANK4TH))); /* Rank: 4th */
             }
             else
             {
-                sprintf(buffer, langGet(40978));
+                sprintf(buffer, langGet(getStringID(LMPMENU, MPMENU_STR_12_RANK2ND))); /* Rank: 2nd */
             }
             break;
     }
@@ -1079,17 +1115,17 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
             case MENU_SCORES:
                 if (!g_gameOverFlag)
                 {
-                    text = (char *) langGet(0xa015); /* PLAY */
+                    text = (char *) langGet(getStringID(LMPMENU, MPMENU_STR_15_PLAY)); /* PLAY */
                 }
                 else
                 {
-                    if (time_trigger_alt_gameover_msg)
+                    if (alt_gameover_msg)
                     {
-                        text = (char *) langGet(0xa016); /* GAME OVER */
+                        text = (char *) langGet(getStringID(LMPMENU, MPMENU_STR_16_GAMEOVER)); /* GAME OVER */
                     }
                     else
                     {
-                        text = (char *) langGet(0xa017); /* START TO EXIT */
+                        text = (char *) langGet(getStringID(LMPMENU, MPMENU_STR_17_STARTTTOEXIT)); /* START TO EXIT */
                     }
                 }
                 break;
@@ -1099,7 +1135,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
             case MENU_PAUSE:
                 if (g_pausedFlag)
                 {
-                    text = (char *) langGet(0xa018); /* PAUSED */
+                    text = (char *) langGet(getStringID(LMPMENU, MPMENU_STR_18_PAUSED)); /* PAUSED */
                     if (get_cur_playernum() == who_paused)
                     {
                         self_paused = 1;
@@ -1107,12 +1143,12 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
                 }
                 else
                 {
-                    text = (char *) langGet(0xa019); /* PAUSE */
+                    text = (char *) langGet(getStringID(LMPMENU, MPMENU_STR_19_PAUSE)); /* PAUSE */
                 }
                 break;
             case MENU_EXIT:
             case MENU_EXIT_CONFIRM:
-                text = (char *) langGet(0xa01a); /* EXIT */
+                text = (char *) langGet(getStringID(LMPMENU, MPMENU_STR_1A_EXIT)); /* EXIT */
                 x = (viGetViewLeft() + two_player_x_offset) + 65;
                 break;
         }
@@ -1151,14 +1187,16 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
  
             y = viGetViewTop() + (22 + MPMENU_YOFF);
  
-            if (!dword_CODE_bss_8008C708)
+            if (!chevron_glow)
             {
-                viewleft = viGetX(); h1 = viGetY();
+                viewleft = viGetX(); 
+                h1 = viGetY();
                 gdl = textRender(gdl, &x, &y, (char *) ascii_MP_watch_menu_left_chevron, ptrFontBankGothicChars, ptrFontBankGothic, 0x00ff00b0, viewleft, h1, 0, 0);
             }
             else
             {
-                viewleft = viGetX(); h1 = viGetY();
+                viewleft = viGetX(); 
+                h1 = viGetY();
                 gdl = textRenderOutlined(gdl, &x, &y, (char *) ascii_MP_watch_menu_left_chevron, ptrFontBankGothicChars, ptrFontBankGothic, 0xa0ffa0f0, 0x007000a0, viewleft, h1, 0, 0);
             }
         }
@@ -1177,16 +1215,16 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
  
             y = viGetViewTop() + (22 + MPMENU_YOFF);
  
-            if (!dword_CODE_bss_8008C708)
+            if (!chevron_glow)
             {
                 viewleft = viGetX(); 
                 h1 = viGetY();
- 
                 gdl = textRender(gdl, &x, &y, (char *) ascii_MP_watch_menu_right_chevron, ptrFontBankGothicChars, ptrFontBankGothic, 0x00ff00b0, viewleft, h1, 0, 0);
             }
             else
             {
-                viewleft = viGetX(); h1 = viGetY();
+                viewleft = viGetX(); 
+                h1 = viGetY();
                 gdl = textRenderOutlined(gdl, &x, &y, (char *) ascii_MP_watch_menu_right_chevron, ptrFontBankGothicChars, ptrFontBankGothic, 0xa0ffa0f0, 0x007000a0, viewleft, h1, 0, 0);
             }
         }
@@ -1234,7 +1272,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
             if (mpwatchShouldDisplayScore(fav_x_offset))
             {
                 scenario = get_scenario();
-                text = (char *) langGet(0xa01b); /* SCORES */
+                text = (char *) langGet(getStringID(LMPMENU, MPMENU_STR_1B_SCORES)); /* SCORES */
                 textMeasure(&textheight, &textwidth, text, ptrFontBankGothicChars, ptrFontBankGothic, 0);
                 x = ((viGetViewLeft() + two_player_x_offset) - (textwidth >> 1)) + 80;
                 y = (viGetViewTop() - (textheight >> 1)) + (53 + MPMENU_YOFF);
@@ -1365,10 +1403,10 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
                 gdl = textRender(gdl, &x, &y, rankbuffer, ptrFontBankGothicChars, ptrFontBankGothic, 0x00ff00b0, viewleft, h1, 0, 0);
             }
  
-            q = (s32) langGet(0xa01c); /* P */
+            q = (s32) langGet(getStringID(LMPMENU, MPMENU_STR_1C_P)); /* P */
  
             // Must remain a comma expression for matching
-            h2 = (s32) langGet(0xa01d), /* KILLS */
+            h2 = (s32) langGet(getStringID(LMPMENU, MPMENU_STR_1D_KILLS)), /* KILLS */
                 sprintf(rankbuffer, ascii_pnum_KILLS, (char *) q, curplayernum + 1, (char *) h2); /* -> "P<n> KILLS" */
  
             textMeasure(&textheight, &textwidth, rankbuffer, ptrFontBankGothicChars, ptrFontBankGothic, 0);
@@ -1435,10 +1473,10 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
                 gdl = textRender(gdl, &x, &y, rankbuffer, ptrFontBankGothicChars, ptrFontBankGothic, 0x00ff00b0, viewleft, h1, 0, 0);
             }
  
-            q = (s32) langGet(0xa01c); /* P */
+            q = (s32) langGet(getStringID(LMPMENU, MPMENU_STR_1C_P)); /* P */
  
             // Must remain a comma expression for matching.
-            h2 = (s32) langGet(0xa01e), /* LOSSES */
+            h2 = (s32) langGet(getStringID(LMPMENU, MPMENU_STR_1E_LOSSES)), /* LOSSES */
                 sprintf(rankbuffer, ascii_pnum_LOSSES, (char *) q, curplayernum + 1, (char *) h2); /* -> "P<n> LOSSES" */
  
             textMeasure(&textheight, &textwidth, rankbuffer, ptrFontBankGothicChars, ptrFontBankGothic, 0);
@@ -1549,7 +1587,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
                 }
             }
  
-            text = (char *) langGet(0xa01f); /* Weapon of choice: */
+            text = (char *) langGet(getStringID(LMPMENU, MPMENU_STR_1F_WEAPONOFCHOICE)); /* Weapon of choice: */
             textMeasure(&fav_textheight, &fav_textwidth, text, ptrFontBankGothicChars, ptrFontBankGothic, 0);
             x = ((viGetViewLeft() + fav_x_offset) - (fav_textwidth >> 1)) + 80;
             y = (viGetViewTop() - (fav_textheight >> 1)) + (37 + MPMENU_YOFF);
@@ -1600,7 +1638,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
 
         if (g_CurrentPlayer->mpmenumode == MENU_EXIT_CONFIRM)
         {
-            text = (char *) langGet(0xa020); /* cancel */
+            text = (char *) langGet(getStringID(LMPMENU, MPMENU_STR_20_CANCEL)); /* cancel */
             textMeasure(&textheight, &textwidth, text, ptrFontBankGothicChars, ptrFontBankGothic, 0);
             x = ((viGetViewLeft() + two_player_x_offset) - (textwidth >> 1)) + 54;
             y = (viGetViewTop() - (textheight >> 1)) + (54 + MPMENU_YOFF);
@@ -1618,7 +1656,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
                 gdl = textRender(gdl, &x, &y, text, ptrFontBankGothicChars, ptrFontBankGothic, 0x00ff00b0, viewleft, h1, 0, 0);
             }
  
-            text = (char *) langGet(0xa021); /* confirm */
+            text = (char *) langGet(getStringID(LMPMENU, MPMENU_STR_21_CONFIRM)); /* confirm */
             textMeasure(&textheight, &textwidth, text, ptrFontBankGothicChars, ptrFontBankGothic, 0);
             x = ((viGetViewLeft() + two_player_x_offset) - (textwidth >> 1)) + 104;
             y = (viGetViewTop() - (textheight >> 1)) + (54 + MPMENU_YOFF);
@@ -1651,7 +1689,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
         {
             gdl = bgScissorCurrentPlayerViewDefault(gdl);
             gdl = microcode_constructor(gdl);
-            text3 = (char *) langGet(0xa022); /* press start */
+            text3 = (char *) langGet(getStringID(LMPMENU, MPMENU_STR_22_PRESSSTART_LF)); /* press start */
             textMeasure(&textheight3, &textwidth3, text3, ptrFontBankGothicChars, ptrFontBankGothic, 0);
             x2 = viGetViewLeft();
             x3 = (x2 + (viGetViewWidth() >> 1)) - (textwidth3 >> 1);
@@ -1671,12 +1709,13 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
 }
 
 
-s32 sub_GAME_7F0C6048(void)
+s32 mpwatchShouldDisplayGauges(void)
 {
     return g_gameOverFlag ? FALSE : (g_CurrentPlayer->mpmenuon | (g_CurrentPlayer->healthdisplaytime > 0));
 }
 
 
-s32 checkGamePaused(void) {
+s32 checkGamePaused(void) 
+{
     return g_pausedFlag;
 }

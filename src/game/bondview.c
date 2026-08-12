@@ -10604,7 +10604,7 @@ Gfx *maybe_mp_interface(Gfx *gdl)
     {
         gdl = bondviewRenderGaugeBars(gdl);
     }
-    else if (sub_GAME_7F0C6048())
+    else if (mpwatchShouldDisplayGauges())
     {
         gdl = bondviewRenderGaugeBars(gdl);
         if (g_CurrentPlayer->healthdisplaytime > 0)
