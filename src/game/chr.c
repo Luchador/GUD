@@ -44,8 +44,9 @@
 // forward declarations
 
 void chrUpdateAimProperties( ChrRecord *arg0);
-void chrPositionRelated7F020E40( ChrRecord *chr, s32 arg1);
+void chrUpdateAnim( ChrRecord *chr, s32 tickamount);
 void sub_GAME_7F057D44(f32 *arg0, f32 *arg1, f32 arg2);
+f32  get_007_health_mod(void);
 
 // end forward declarations
 
@@ -1561,22 +1562,23 @@ s32 chrGetNumFree(void)
 }
 
 
-f32  get_007_health_mod(void);
-
 void chrSetMaxDamage(ChrRecord *chr, f32 maxdamage)
 {
     chr->maxdamage = (get_007_health_mod() * maxdamage);
 }
+
 
 f32 chrGetMaxDamage(ChrRecord *chr)
 {
     return chr->maxdamage;
 }
 
+
 void chrAddHealth(ChrRecord *chr, f32 health)
 {
     chr->damage -= (health * get_007_health_mod());
 }
+
 
 f32 chrGetArmor(ChrRecord *chr)
 {
@@ -1587,6 +1589,7 @@ f32 chrGetArmor(ChrRecord *chr)
 
     return 0;
 }
+
 
 PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct coord3d *arg2, f32 arg3, StandTile *arg4, struct AIListRecord *arg5)
 {
@@ -1720,8 +1723,6 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
 }
 
 
-
-
 /**
  * Address 0x7F0203B8.
  */
@@ -1819,13 +1820,10 @@ void setAnimationRate(f32 arg0)
 }
 
 
-
-
 f32 getAnimationRate(void)
 {
   return animation_rate;
 }
-
 
 
 /**
@@ -1862,7 +1860,6 @@ void chrUpdateAimProperties( ChrRecord *self)
     self->aimupback = self->aimendback;
     self->aimsideback = self->aimendsideback;
 }
-
 
 
 /**
@@ -2297,7 +2294,7 @@ void chrDetectRooms(ChrRecord *self)
 /**
  * Address 0x7F020E40.
  */
-void chrPositionRelated7F020E40(ChrRecord *chr, s32 arg1)
+void chrUpdateAnim(ChrRecord *chr, s32 tickamount)
 {
     Model *model;
     PropRecord* prop;
@@ -2308,7 +2305,7 @@ void chrPositionRelated7F020E40(ChrRecord *chr, s32 arg1)
     if (!(chr->hidden & CHRHIDDEN_FREEZE))
     {
         getsuboffset(model, &chr->prevpos);
-        modelTickAnim(model, arg1, 1);
+        modelTickAnim(model, tickamount, 1);
         subcalcpos(model);
         set_color_shading_from_tile(prop, &chr->nextcol);
         getsuboffset(model, &prop->pos);
@@ -2322,11 +2319,7 @@ void chrPositionRelated7F020E40(ChrRecord *chr, s32 arg1)
 }
 
 
-
-
-
 extern void *D_80036090;
-
 
 
 /**
@@ -2344,7 +2337,6 @@ extern void *D_80036090;
  * - Drop held items
  * - Fire held weapons
  */
-
 s32 chrTick(PropRecord *prop)
 {
     ModelRenderData renderdata;
@@ -2434,7 +2426,7 @@ s32 chrTick(PropRecord *prop)
             }
             else
             {
-                chrPositionRelated7F020E40(chr, tickamount);
+                chrUpdateAnim(chr, tickamount);
             }
 
             goto after_position_update;
@@ -2461,7 +2453,7 @@ s32 chrTick(PropRecord *prop)
             }
             else
             {
-                chrPositionRelated7F020E40(chr, tickamount);
+                chrUpdateAnim(chr, tickamount);
                 headSwitchVisible = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
 
                 if (headSwitchVisible)
@@ -2483,7 +2475,7 @@ s32 chrTick(PropRecord *prop)
 
             if (headSwitchVisible && (chr->act_anim.noTranslate == 0))
             {
-                chrPositionRelated7F020E40(chr, tickamount);
+                chrUpdateAnim(chr, tickamount);
             }
             else
             {
@@ -2496,7 +2488,7 @@ s32 chrTick(PropRecord *prop)
 
             if (headSwitchVisible || (chr->chrflags & CHRFLAG_INIT))
             {
-                chrPositionRelated7F020E40(chr, tickamount);
+                chrUpdateAnim(chr, tickamount);
             }
             else if (model->anim2 != NULL)
             {
@@ -2511,7 +2503,7 @@ s32 chrTick(PropRecord *prop)
             }
             else
             {
-                chrPositionRelated7F020E40(chr, tickamount);
+                chrUpdateAnim(chr, tickamount);
             }
 
             headSwitchVisible = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
