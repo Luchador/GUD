@@ -230,10 +230,10 @@ typedef enum CHRFLAG
 }CHRFLAG;
 
 enum CHR_RENDER_PART {
-    CHR_RENDERPART_HEAD           = 0,
-    CHR_RENDERPART_TORSO          = 1,
-    CHR_RENDERPART_LEFT_ARM       = 2,
-    CHR_RENDERPART_RIGHT_ARM      = 3
+    CHR_RENDERPART_HEAD,
+    CHR_RENDERPART_TORSO,
+    CHR_RENDERPART_LEFT_ARM,
+    CHR_RENDERPART_RIGHT_ARM
 };
 
 // collision detection types
@@ -405,21 +405,21 @@ typedef enum DOORSTATE
 
 typedef enum DOORTYPE
 {
-    DOORTYPE_SLIDING    = 0,
-    DOORTYPE_FLEXI1     = 1,  // Bunker flexi door
-    DOORTYPE_FLEXI2     = 2,
-    DOORTYPE_FLEXI3     = 3,
-    DOORTYPE_VERTICAL   = 4,
-    DOORTYPE_SWINGING   = 5,
-    DOORTYPE_EYE        = 6,  // Caverns
-    DOORTYPE_IRIS       = 7,  // Caverns
-    DOORTYPE_FALLAWAY   = 8,  // Surface grate and Train floor panel
-    DOORTYPE_AZTECCHAIR = 9
+    DOORTYPE_SLIDING,
+    DOORTYPE_FLEXI1,   // Bunker flexi door
+    DOORTYPE_FLEXI2,
+    DOORTYPE_FLEXI3,
+    DOORTYPE_VERTICAL,
+    DOORTYPE_SWINGING,
+    DOORTYPE_EYE,      // Caverns
+    DOORTYPE_IRIS,     // Caverns
+    DOORTYPE_FALLAWAY, // Surface grate and Train floor panel
+    DOORTYPE_AZTECCHAIR
 } DOORTYPE;
 
 typedef enum DOOR_OPEN_SOUND
 {
-    DOOR_OPEN_SOUND_NONE = 0,
+    DOOR_OPEN_SOUND_NONE,
     DOOR_OPEN_SOUND_01,
     DOOR_OPEN_SOUND_02,
     DOOR_OPEN_SOUND_METAL,
@@ -2836,7 +2836,7 @@ char *TEXTBANK_LEVEL_INDEX_ToString[] =
 #define GUNAMMOREASON_DAMAGE     0x08
 
 typedef enum WATCH_ANIMATION_STATE_IDS {
-    WATCH_ANIMATION_0x0 = 0,  /* Watch closed, normal play. */
+    WATCH_ANIMATION_0x0,      /* Watch closed, normal play. */
     WATCH_ANIMATION_0x1,      /* Pause initiated, lower any weapon in left hand. */
     WATCH_ANIMATION_0x2,      /* Tilt player camera to watch angle. */
     WATCH_ANIMATION_0x3,      /* Raise left arm. */
@@ -2910,22 +2910,22 @@ typedef enum SPSEGMENT
 
 typedef enum TVCMD
 {
-    TVCMD_STOPSCROLL     = 0x00,
-    TVCMD_SCROLLRELX     = 0x01,
-    TVCMD_SCROLLRELY     = 0x02,
-    TVCMD_SCROLLABSX     = 0x03,
-    TVCMD_SCROLLABSY     = 0x04,
-    TVCMD_SCALEABSX      = 0x05,
-    TVCMD_SCALEABSY      = 0x06,
-    TVCMD_SETTEXTURE     = 0x07,
-    TVCMD_PAUSE          = 0x08,
-    TVCMD_SETCMDLIST     = 0x09,
-    TVCMD_RANDSETCMDLIST = 0x0a,
-    TVCMD_RESTART        = 0x0b,
-    TVCMD_YIELD          = 0x0c,
-    TVCMD_SETCOLOUR      = 0x0d,
-    TVCMD_ROTATEABS      = 0x0e,
-    TVCMD_ROTATEREL      = 0x0f
+    TVCMD_STOPSCROLL,
+    TVCMD_SCROLLRELX,
+    TVCMD_SCROLLRELY,
+    TVCMD_SCROLLABSX,
+    TVCMD_SCROLLABSY,
+    TVCMD_SCALEABSX,
+    TVCMD_SCALEABSY,
+    TVCMD_SETTEXTURE,
+    TVCMD_PAUSE,
+    TVCMD_SETCMDLIST,
+    TVCMD_RANDSETCMDLIST,
+    TVCMD_RESTART,
+    TVCMD_YIELD,
+    TVCMD_SETCOLOUR,
+    TVCMD_ROTATEABS,
+    TVCMD_ROTATEREL
 } TVCMD;
 
 enum CCRMLUT
@@ -4092,12 +4092,12 @@ typedef enum PROJECTILES
      */
      typedef enum TICKOP
      {
-         TICKOP_NONE         = 0, // Default, do nothing.
-         TICKOP_FREE         = 1, // Deregister, delist, disable and free the prop except for weapons flagged PROPSTATE_RESPAWN which begin their respawn timer instead.
-         TICKOP_DISABLE      = 2, // Deregister, delist and disable the prop, but keep the record.
-         TICKOP_RETICK       = 3, // Delist the prop and reactivate it so it is ticked again this frame.
-         TICKOP_GIVETOPLAYER = 4, // Detach the prop and reparent it to the player prop e.g. collected pickups.
-         TICKOP_CHANGEDLIST  = 5  // The tick restructured the prop list (such as being embedded), so prop->prev is stale. The loop resumes from the prev captured before the tick.
+         TICKOP_NONE,         // Default, do nothing.
+         TICKOP_FREE,         // Deregister, delist, disable and free the prop except for weapons flagged PROPSTATE_RESPAWN which begin their respawn timer instead.
+         TICKOP_DISABLE,      // Deregister, delist and disable the prop, but keep the record.
+         TICKOP_RETICK,       // Delist the prop and reactivate it so it is ticked again this frame.
+         TICKOP_GIVETOPLAYER, // Detach the prop and reparent it to the player prop e.g. collected pickups.
+         TICKOP_CHANGEDLIST   // The tick restructured the prop list (such as being embedded), so prop->prev is stale. The loop resumes from the prev captured before the tick.
      } TICKOP;
 
     typedef enum ITEM_IDS
@@ -4514,7 +4514,7 @@ typedef enum PROJECTILES
 
     typedef enum TANK_RUN_STATE
     {
-        TANK_RUN_STATE_NOT_RUNNING = 0,
+        TANK_RUN_STATE_NOT_RUNNING,
         TANK_RUN_STATE_STARTING,
         TANK_RUN_STATE_RUNNING
     } TANK_RUN_STATE;
@@ -4562,9 +4562,9 @@ typedef enum PROJECTILES
 
     typedef enum ZBUFMODE
     {
-        ZBUF_OFF     = 0,  /* G_RM_AA_*_SURF      (no z-buffer) */
-        ZBUF_SURFACE = 1,  /* G_RM_AA_ZB_*_SURF                 */
-        ZBUF_DECAL   = 2   /* G_RM_AA_ZB_*_DECAL                */
+        ZBUF_OFF,     /* G_RM_AA_*_SURF      (no z-buffer) */
+        ZBUF_SURFACE, /* G_RM_AA_ZB_*_SURF                 */
+        ZBUF_DECAL    /* G_RM_AA_ZB_*_DECAL                */
     } ZBUFMODE;
 
 #pragma endregion
