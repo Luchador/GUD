@@ -1714,7 +1714,7 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
     var_s0->chrheight = 185.0f;
 
     sub_GAME_7F01FC10(arg1, &arg0->pos, &arg0->pos, &var_s0->ground);
-    chrPositionRelated7F020D94(var_s0);
+    chrDetectRooms(var_s0);
 
     return arg0;
 }
@@ -2263,13 +2263,18 @@ void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 
 /**
  * Address 0x7F020D94.
+ * 
+ * For visibility, player collision, tank collision, bullet collision, and explosion damage
+ * tests the game needs to know which room(s) a character is in. This allows the game to perform
+ * tests on only characters in loaded rooms, not the entire stage.
  */
-void chrPositionRelated7F020D94(ChrRecord *self)
+void chrDetectRooms(ChrRecord *self)
 {
     PropRecord *myprop;
     coord3d     lowerbounds;
     coord3d     upperbounds;
 
+    // Create a roughly character sized bounding box.
     myprop        = self->prop;
     lowerbounds.x = myprop->pos.x - 50.0f;
     lowerbounds.y = self->ground - 1.0f;
@@ -2277,8 +2282,14 @@ void chrPositionRelated7F020D94(ChrRecord *self)
     upperbounds.x = myprop->pos.x + 50.0f;
     upperbounds.y = myprop->pos.y + 100.0f;
     upperbounds.z = myprop->pos.z + 50.0f;
+
+    // Delist the character prop from its previous room(s)
     chrpropDeregisterRooms(myprop);
+
+    // Detect rooms overlapped by the bounding box
     chrpropUpdateRoomList(myprop, &lowerbounds, &upperbounds, 50.0f);
+
+    // Re-register the character prop in those rooms
     chrpropRegisterRooms(myprop);
 }
 
@@ -2301,7 +2312,7 @@ void chrPositionRelated7F020E40(ChrRecord *chr, s32 arg1)
         subcalcpos(model);
         set_color_shading_from_tile(prop, &chr->nextcol);
         getsuboffset(model, &prop->pos);
-        chrPositionRelated7F020D94(chr);
+        chrDetectRooms(chr);
 
         return;
     }
@@ -2445,7 +2456,7 @@ s32 chrTick(PropRecord *prop)
                     subcalcpos(model);
                     set_color_shading_from_tile(prop, &chr->nextcol);
                     getsuboffset(model, &prop->pos);
-                    chrPositionRelated7F020D94(chr);
+                    chrDetectRooms(chr);
                 }
             }
             else

@@ -3396,7 +3396,7 @@ void chrlvTravelTickMagic(ChrRecord *self, struct waydata *arg1, f32 arg2, coord
 
             setsuboffset(self->model, arg3);
             sub_GAME_7F01FC10(self->model, &self_prop->pos, &self_prop->pos, &self->ground);
-            chrPositionRelated7F020D94(self);
+            chrDetectRooms(self);
 
             if (self->actiontype == ACT_PATROL)
             {

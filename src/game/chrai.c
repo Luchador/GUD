@@ -4100,7 +4100,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                             chr->chrflags   = chr->chrflags | CHRFLAG_INIT;
                             setsubroty(chr->model, FacingDirection);
                             setsuboffset(chr->model, &pos);
-                            chrPositionRelated7F020D94(chr);
+                            chrDetectRooms(chr);
                             if (chr->prop == g_CurrentPlayer->prop)
                             {
                                 g_CurrentPlayer->field_488.collision_position.x = pos.x;

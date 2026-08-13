@@ -2828,7 +2828,7 @@ void sub_GAME_7F03E134(PropRecord* p)
 {
     if (p->type == PROP_TYPE_CHR)
     {
-        chrPositionRelated7F020D94(p->chr);
+        chrDetectRooms(p->chr);
     } else if ((p->type == PROP_TYPE_OBJ) || (p->type == PROP_TYPE_WEAPON))
     {
         setupUpdateObjectRoomPosition((ObjectRecord* ) p->obj);

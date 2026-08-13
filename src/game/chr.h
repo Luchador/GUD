@@ -285,7 +285,7 @@ extern struct explosion_death_animation D_8002E648[];
 void        sub_GAME_7F022EE0(s32 param_1);
 void        setanimationdebugflag(s32 param_1);
 void        chrpropCleanupForRemoval(PropRecord* prop);
-void        chrPositionRelated7F020D94(ChrRecord *);
+void        chrDetectRooms(ChrRecord *);
 void        chrSetMoving(ChrRecord *guard,s32 param_2);
 f32         getAnimationRate(void);
 void        setAnimationRate(f32);
