@@ -5862,7 +5862,7 @@ s32 objTick(struct PropRecord *prop)
 	}
 	else
 	{
-		var_v1_5 = ((!(obj->runtime_bitflags & RUNTIMEBITFLAG_00000800)) && (!(obj->flags2 & PROPFLAG2_00080000))) ? (sub_GAME_7F054D6C(prop, &obj->runtime_pos, getinstsize(model), applyFogCull)) : (0);
+		var_v1_5 = ((!(obj->runtime_bitflags & RUNTIMEBITFLAG_00000800)) && (!(obj->flags2 & PROPFLAG2_00080000))) ? (posIsOnScreen(prop, &obj->runtime_pos, getinstsize(model), applyFogCull)) : (0);
 	}
 
 	if (var_v1_5 != 0)
@@ -13362,8 +13362,11 @@ bool sub_GAME_7F054C58(coord3d *coord, f32 arg1)
     return result;
 }
 
-// PD: func0f08e8ac
-bool sub_GAME_7F054D6C(PropRecord *prop, coord3d *pos, f32 arg2, bool arg3)
+
+/**
+ * Address: 7F054D6C
+ */
+bool posIsOnScreen(PropRecord *prop, coord3d *pos, f32 arg2, bool arg3)
 {
     s32 room_ids[8];
     s32 *rooms;

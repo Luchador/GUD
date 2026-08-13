@@ -2444,7 +2444,7 @@ s32 chrTick(PropRecord *prop)
         {
             if (((chr->actiontype == ACT_PATROL) && (chr->act_patrol.waydata.mode == WAYMODE_MAGIC)) || ((chr->actiontype == ACT_GOPOS) && (chr->act_gopos.waydata.mode == WAYMODE_MAGIC)))
             {
-                headSwitchVisible = sub_GAME_7F054D6C(prop, &prop->pos, getinstsize(model), 1);
+                headSwitchVisible = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
 
                 if (headSwitchVisible)
                 {
@@ -2462,7 +2462,7 @@ s32 chrTick(PropRecord *prop)
             else
             {
                 chrPositionRelated7F020E40(chr, tickamount);
-                headSwitchVisible = sub_GAME_7F054D6C(prop, &prop->pos, getinstsize(model), 1);
+                headSwitchVisible = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
 
                 if (headSwitchVisible)
                 {
@@ -2479,7 +2479,7 @@ s32 chrTick(PropRecord *prop)
         }
         else if ((chr->actiontype == ACT_ANIM) && (chr->act_anim.unk02c == 0))
         {
-            headSwitchVisible = sub_GAME_7F054D6C(prop, &prop->pos, getinstsize(model), 1);
+            headSwitchVisible = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
 
             if (headSwitchVisible && (chr->act_anim.noTranslate == 0))
             {
@@ -2492,7 +2492,7 @@ s32 chrTick(PropRecord *prop)
         }
         else if (chr->actiontype == ACT_STAND)
         {
-            headSwitchVisible = sub_GAME_7F054D6C(prop, &prop->pos, getinstsize(model), 1);
+            headSwitchVisible = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
 
             if (headSwitchVisible || (chr->chrflags & CHRFLAG_INIT))
             {
@@ -2514,7 +2514,7 @@ s32 chrTick(PropRecord *prop)
                 chrPositionRelated7F020E40(chr, tickamount);
             }
 
-            headSwitchVisible = sub_GAME_7F054D6C(prop, &prop->pos, getinstsize(model), 1);
+            headSwitchVisible = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
         }
     }
 
