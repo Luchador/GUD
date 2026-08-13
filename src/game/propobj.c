@@ -1514,7 +1514,7 @@ bool projectileFindCollidingProp(PropRecord *ignoreProp, coord3d *worldRayStart,
 
         for (propnumptr = ptr_list_object_lookup_indices; *propnumptr >= 0; propnumptr++)
         {
-            iterprop = &pos_data_entry[*propnumptr];
+            iterprop = &g_Props[*propnumptr];
 
             if (iterprop != ignoreProp)
             {
@@ -3876,7 +3876,7 @@ s32 sub_GAME_7F0448A8(struct PropRecord *argProp)
     chraiGetPropRoomIds(argProp, (s32*)&roomids);
     roomGetProps((s32*)&roomids);
 
-    propss = (PropRecord *)&pos_data_entry;
+    propss = (PropRecord *)&g_Props;
 
     for (temp_s0 = ptr_list_object_lookup_indices; *temp_s0 >= 0; temp_s0++)
     {
@@ -4196,7 +4196,7 @@ s32 objTick(struct PropRecord *prop)
 	f32 temp_f20;
 	f32 nextVerticalSpeed;
 	struct PropRecord *sp684;
-	s32 tickop;
+	TICKOP tickop;
 	f32 previousOpenPosition; // Start-of-tick snapshot for how open a door is.
 
     /** 
@@ -4403,7 +4403,7 @@ s32 objTick(struct PropRecord *prop)
 	model = obj->model;
 
 	objMovedThisFrame = 0;
-	tickop = 0;
+	tickop = TICKOP_NONE;
     
     /**
      * Since objMovedThisFrame and tickop are both set to 0 right above here,
@@ -4646,7 +4646,7 @@ s32 objTick(struct PropRecord *prop)
 							if (objEmbed(prop, D_80030B0C, g_CurrentProjectileModel, dword_CODE_bss_80075B74) != 0)
 							{
 								prop->stan = temp_s2;
-								tickop = 5;
+								tickop = TICKOP_CHANGEDLIST;
 								projectileStopped = 1;
 							}
 						}
@@ -6511,7 +6511,7 @@ s32 objTick(struct PropRecord *prop)
 		objDropRecursively(prop);
 	}
 
-	if (tickop == 5)
+	if (tickop == TICKOP_CHANGEDLIST)
 	{
 		prop->stan = NULL;
 	}
@@ -6539,7 +6539,7 @@ Gfx *weaponRenderTracers(Gfx *gdl)
     s32 one;
     s32 type_chr;
 
-    prop = get_ptr_obj_pos_list_current_entry();
+    prop = chrpropGetActiveTail();
     if (prop != NULL)
     {
         type_viewer = PROP_TYPE_VIEWER;
@@ -8259,7 +8259,7 @@ void objDestroySupportedObjects(PropRecord* tableprop, s32 playernum)
 
     if (edges > 0)
     {
-        prop = get_ptr_obj_pos_list_current_entry();
+        prop = chrpropGetActiveTail();
         while (prop)
         {
             if (((prop->type == PROP_TYPE_OBJ) || (prop->type == PROP_TYPE_WEAPON)) && (prop->stan->room == room))
@@ -9748,10 +9748,10 @@ bool objTestForInteract(PropRecord* prop)
 /*
  * Return TYPE if Collected or Interacted (except for Alarm which always returns False)
  */
-INV_ITEM_TYPE propobjInteract(PropRecord *prop) //#MATCH
+TICKOP propobjInteract(PropRecord *prop)
 {
     ObjectRecord *obj        = prop->obj;
-    INV_ITEM_TYPE colllected = INV_ITEM_NONE;
+    TICKOP op = TICKOP_NONE;
 
     if (obj->type == PROPDEF_ALARM)
     {
@@ -9765,13 +9765,16 @@ INV_ITEM_TYPE propobjInteract(PropRecord *prop) //#MATCH
             alarmActivate();
         }
     }
+
     if (obj->flags & PROPFLAG_00080000)
     {
-        colllected = collect_or_interact_object(prop, TRUE);
+        op = propPickupByPlayer(prop, TRUE);
     }
+
     obj->runtime_bitflags |= RUNTIMEBITFLAG_ACTIVATED;
     sub_GAME_7F03E6A0(prop);
-    return colllected;
+
+    return op;
 }
 
 
@@ -10442,17 +10445,17 @@ void display_text_for_weapon_in_lower_left_corner(ITEM_IDS weaponid)
 
 
 // Perfect Dark propobj.c: s32 propPickupByPlayer(struct prop *prop, bool showhudmsg)
-INV_ITEM_TYPE collect_or_interact_object(PropRecord *prop, s32 showstring)
+TICKOP propPickupByPlayer(PropRecord *prop, s32 showstring)
 {
     ObjectRecord *obj;
-    INV_ITEM_TYPE collectType;
+    TICKOP op;
 
-    collectType = INV_ITEM_NONE;
+    op = TICKOP_NONE;
     obj = prop->obj;
 
     if (g_CurrentPlayer->bonddead || g_ClockTimer == 0)
     {
-        return INV_ITEM_NONE;
+        return TICKOP_NONE;
     }
 
     switch (obj->type)
@@ -10460,9 +10463,11 @@ INV_ITEM_TYPE collect_or_interact_object(PropRecord *prop, s32 showstring)
         case PROPDEF_KEY:
         {
             sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, KEYCARD_SFX, 0);
+
             if (showstring)
             {
                 char *text = bondinvGetActivatedTextObject(obj);
+
                 if (text == NULL)
                 {
                     text = langGet(getStringID(LPROPOBJ, PROPOBJ_STR_3C_PICKEDUPAKEY)); // "Picked up a key.\n",
@@ -10475,7 +10480,7 @@ INV_ITEM_TYPE collect_or_interact_object(PropRecord *prop, s32 showstring)
 #endif
             }
 
-            collectType = INV_ITEM_PICKUP;
+            op = INV_ITEM_PICKUP;
 
             break;
         }
@@ -10490,7 +10495,7 @@ INV_ITEM_TYPE collect_or_interact_object(PropRecord *prop, s32 showstring)
             amount = get_ammo_in_magazine(crate);
             add_ammo_to_inventory(crate->ammoType, amount, 1, showstring);
 
-            collectType = INV_ITEM_WEAPON;
+            op = TICKOP_FREE;
 
             break;
         }
@@ -10525,7 +10530,7 @@ INV_ITEM_TYPE collect_or_interact_object(PropRecord *prop, s32 showstring)
 
             sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, PICKUP_AMMO_SFX, 0);
 
-            collectType = INV_ITEM_WEAPON;
+            op = TICKOP_FREE;
 
             break;
         }
@@ -10577,7 +10582,7 @@ INV_ITEM_TYPE collect_or_interact_object(PropRecord *prop, s32 showstring)
                     collected = 1;
                 }
 
-                collectType = INV_ITEM_PICKUP;
+                op = TICKOP_GIVETOPLAYER;
             }
             else
             {
@@ -10606,18 +10611,21 @@ INV_ITEM_TYPE collect_or_interact_object(PropRecord *prop, s32 showstring)
                     }
                 }
 
-                collectType = INV_ITEM_WEAPON;
+                op = TICKOP_FREE;
             }
 
             ammo_type = get_ammo_type_for_weapon(wep->weaponnum);
+
             if (ammo_type)
             {
                 s32 pickupqty = ammo_collected_from_weapon(wep);
+
                 if (pickupqty > 0)
                 {
                     if (check_cur_player_ammo_amount_in_inventory(ammo_type) < get_max_ammo_for_type(ammo_type))
                     {
                         s32 heldqty = check_cur_player_ammo_amount_in_inventory(ammo_type);
+
                         give_cur_player_ammo(ammo_type, heldqty + pickupqty);
 
                         if ((collected == 0) && showstring)
@@ -10660,7 +10668,7 @@ INV_ITEM_TYPE collect_or_interact_object(PropRecord *prop, s32 showstring)
 #endif
             }
 
-            collectType = INV_ITEM_WEAPON;
+            op = TICKOP_FREE;
 
             break;
         }
@@ -10724,29 +10732,28 @@ INV_ITEM_TYPE collect_or_interact_object(PropRecord *prop, s32 showstring)
 #endif
             }
 
-            collectType = INV_ITEM_PICKUP;
+            op = TICKOP_GIVETOPLAYER;
 
             break;
         }
     }
 
-    if ((collectType == INV_ITEM_WEAPON) && ((obj->runtime_bitflags & RUNTIMEBITFLAG_TAGGED) == 0))
+    if ((op == TICKOP_FREE) && ((obj->runtime_bitflags & RUNTIMEBITFLAG_TAGGED) == 0))
     {
         objFree(obj, 0, (obj->state & RUNTIMEBITFLAG_REMOVE));
 
         return INV_ITEM_WEAPON;
     }
 
-    if (collectType != INV_ITEM_NONE)
+    if (op != TICKOP_NONE)
     {
         bondinvAddPropToInv(prop);
 
-        return INV_ITEM_PICKUP;
+        return TICKOP_GIVETOPLAYER;
     }
 
-    return INV_ITEM_NONE;
+    return TICKOP_NONE;
 }
-
 
 
 // They're missing from .h associated with them, meaning they're only found in the .c file.
@@ -10761,37 +10768,47 @@ extern s32 get_ammo_count_for_weapon(ITEM_IDS weapon);
 extern bool bondinvHasDualWeapon(ITEM_IDS right, ITEM_IDS left);
 extern s32 check_cur_player_ammo_amount_in_inventory(AMMOTYPE type);
 
-s32 object_collectability_routines(struct PropRecord* prop)
+TICKOP objTickPlayer(struct PropRecord* prop)
 {
     struct ObjectRecord* obj;
 
     obj = prop->obj;
 
-    if ((objIsCollectable(obj) != 0) && (obj->type != PROPDEF_HAT)) {
-        if (obj->flags & PROPFLAG_UNCOLLECTABLE) {
-            return 0;
+    if ((objIsCollectable(obj) != 0) && (obj->type != PROPDEF_HAT))
+    {
+        if (obj->flags & PROPFLAG_UNCOLLECTABLE)
+        {
+            return TICKOP_NONE;
         }
-    } else {
-        if (!(obj->flags & PROPFLAG_00040000)) {
-            return 0;
-        }
-    }
-
-    if (obj->flags & PROPFLAG_00080000) {
-        return 0;
-    }
-
-    if (obj->runtime_bitflags & 0x80) {
-        if (((s32)obj->projectile->refreshrate > 0) && (obj->projectile->unk90 == 0)) {
-            return 0;
+    } 
+    else 
+    {
+        if (!(obj->flags & PROPFLAG_00040000))
+        {
+            return TICKOP_NONE;
         }
     }
 
-    if (objCanPickupFromSafe(obj) == 0) {
-        return 0;
+    if (obj->flags & PROPFLAG_00080000)
+    {
+        return TICKOP_NONE;
     }
 
-    if (obj->type == PROPDEF_COLLECTABLE) {
+    if (obj->runtime_bitflags & 0x80) 
+    {
+        if (((s32)obj->projectile->refreshrate > 0) && (obj->projectile->unk90 == 0)) 
+        {
+            return TICKOP_NONE;
+        }
+    }
+
+    if (objCanPickupFromSafe(obj) == 0) 
+    {
+        return TICKOP_NONE;
+    }
+
+    if (obj->type == PROPDEF_COLLECTABLE) 
+    {
         struct WeaponObjRecord* weaponObj;
         s32 var_a1;
         s32 obj_2;
@@ -10801,7 +10818,7 @@ s32 object_collectability_routines(struct PropRecord* prop)
         if (((weaponObj->weaponnum == ITEM_GRENADE) || (weaponObj->weaponnum == ITEM_GRENADEROUND))
             && ((weaponObj->timer >= 0) || (obj->runtime_bitflags & 4)))
         {
-            return 0;
+            return TICKOP_NONE;
         }
 
         if (((weaponObj->weaponnum == ITEM_REMOTEMINE)
@@ -10813,36 +10830,50 @@ s32 object_collectability_routines(struct PropRecord* prop)
                 || (weaponObj->weaponnum == ITEM_PLASTIQUE))
             && ((weaponObj->timer >= 0) || (obj->runtime_bitflags & 4)))
         {
-            return 0;
+            return TICKOP_NONE;
         }
 
-        if ((weaponObj->weaponnum == ITEM_ROCKETROUND) && (obj->runtime_bitflags & 0x80)) {
-            return 0;
+        if ((weaponObj->weaponnum == ITEM_ROCKETROUND) && (obj->runtime_bitflags & 0x80))
+        {
+            return TICKOP_NONE;
         }
 
-        if (bondinvHasInvItem(weaponObj->weaponnum) != 0) {
-            if (get_ammo_type_for_weapon(weaponObj->weaponnum) != 0) {
-                if (get_ammo_count_for_weapon(weaponObj->weaponnum) >= get_max_ammo_for_weapon(weaponObj->weaponnum)) {
-                    if ((weaponObj->dualweapon != NULL) || (weaponObj->LinkedWeaponType >= 0)) {
-                        if (weaponObj->dualweapon != NULL) {
+        if (bondinvHasInvItem(weaponObj->weaponnum) != 0) 
+        {
+            if (get_ammo_type_for_weapon(weaponObj->weaponnum) != 0) 
+            {
+                if (get_ammo_count_for_weapon(weaponObj->weaponnum) >= get_max_ammo_for_weapon(weaponObj->weaponnum)) 
+                {
+                    if ((weaponObj->dualweapon != NULL) || (weaponObj->LinkedWeaponType >= 0)) 
+                    {
+                        if (weaponObj->dualweapon != NULL) 
+                        {
                             var_a1 = weaponObj->dualweapon->weaponnum;
                             obj_2 = var_a1;
-                        } else {
+                        } 
+                        else 
+                        {
                             var_a1 = weaponObj->LinkedWeaponType;
                             obj_2 = var_a1;
                         }
 
-                        if (weaponObj->flags & 0x10000000) {
+                        if (weaponObj->flags & 0x10000000) 
+                        {
                             var_a1 = weaponObj->weaponnum;
-                        } else {
+                        } 
+                        else 
+                        {
                             obj_2 = weaponObj->weaponnum;
                         }
 
-                        if (bondinvHasDualWeapon(obj_2, var_a1) != 0) {
-                            return 0;
+                        if (bondinvHasDualWeapon(obj_2, var_a1) != 0) 
+                        {
+                            return TICKOP_NONE;
                         }
-                    } else {
-                        return 0;
+                    } 
+                    else 
+                    {
+                        return TICKOP_NONE;
                     }
                 }
             }
@@ -10864,14 +10895,16 @@ s32 object_collectability_routines(struct PropRecord* prop)
                 || ((ammoCrateObj->ammoType == AMMO_KNIFE) && (!bondinvHasInvItem(ITEM_THROWKNIFE)))
             )
         ) {
-            return 0;
+            return TICKOP_NONE;
         }
 #else
         if (check_cur_player_ammo_amount_in_inventory(ammoCrateObj->ammoType) >= get_max_ammo_for_type(ammoCrateObj->ammoType)) {
-            return 0;
+            return TICKOP_NONE;
         }
 #endif
-    } else if (obj->type == PROPDEF_AMMO) {
+    } 
+    else if (obj->type == PROPDEF_AMMO) 
+    {
         struct MultiAmmoCrateRecord* multiAmmoCrateObj;
         s32 sp6C;
         s32 i;
@@ -10879,11 +10912,13 @@ s32 object_collectability_routines(struct PropRecord* prop)
         multiAmmoCrateObj = (MultiAmmoCrateRecord*)prop->obj;
         sp6C = 1;
 
-        if (objGetDestroyedLevel(obj) != 0) {
+        if (objGetDestroyedLevel(obj) != 0)
+        {
             return 0;
         }
 
-        for (i = 0; i < AMMOTYPE_GLOBAL_MAX; i++) {
+        for (i = 0; i < AMMOTYPE_GLOBAL_MAX; i++)
+        {
             s32 sp64;
 
             sp64 = i + 1;
@@ -10912,10 +10947,13 @@ s32 object_collectability_routines(struct PropRecord* prop)
             }
         }
 
-        if (sp6C) {
-            return 0;
+        if (sp6C) 
+        {
+            return TICKOP_NONE;
         }
-    } else if (obj->type == PROPDEF_ARMOUR) { // PROPDEF_ARMOUR
+    } 
+    else if (obj->type == PROPDEF_ARMOUR) 
+    {
         struct BodyArmourRecord* armorObj;
         s32 ignore;
         s32 sp58;
@@ -10923,26 +10961,33 @@ s32 object_collectability_routines(struct PropRecord* prop)
         armorObj = (BodyArmourRecord*)prop->obj;
         ignore = 0;
 
-        if (armorObj->amount <= currentPlayerGetArmor()) {
+        if (armorObj->amount <= currentPlayerGetArmor()) 
+        {
             ignore = 1;
-        } else if (getPlayerCount() >= 2) {
+        } 
+        else if (getPlayerCount() >= 2) 
+        {
             sp58 = get_scenario();
 
-            if ((sp58 == 2) && (bondinvIsAliveWithFlag() != 0)) {
+            if ((sp58 == 2) && (bondinvIsAliveWithFlag() != 0)) 
+            {
                 ignore = 1;
-            } else if ((sp58 == 3) && (bondinvHasGoldenGun() != 0)) {
+            } 
+            else if ((sp58 == 3) && (bondinvHasGoldenGun() != 0)) 
+            {
                 ignore = 1;
             }
         }
 
-        if (ignore != 0) {
-            return 0;
+        if (ignore != 0) 
+        {
+            return TICKOP_NONE;
         }
     }
 
     if ((bondviewGetPlayerPitchRadians() < -0.7853982f) && (g_CurrentPlayer->magnetattracttime < 0))
     {
-        return 0;
+        return TICKOP_NONE;
     }
 
     {
@@ -10964,17 +11009,21 @@ s32 object_collectability_routines(struct PropRecord* prop)
         temp_f12 = obj->runtime_pos.y - temp_v0_5->pos.y;
         temp_f2 = obj->runtime_pos.z - temp_v0_5->pos.z;
 
-        if (g_CurrentPlayer->magnetattracttime >= 0x3C) {
+        if (g_CurrentPlayer->magnetattracttime >= 0x3C) 
+        {
             pickup = (((temp_f0 * temp_f0) + (temp_f2 * temp_f2)) <= 122500.0f)
                 && (temp_f12 >= -500.0f)
                 && (temp_f12 <= 500.0f);
-        } else {
+        } 
+        else 
+        {
             pickup = (((temp_f0 * temp_f0) + (temp_f2 * temp_f2)) <= 10000.0f)
                 && (temp_f12 >= -200.0f)
                 && (temp_f12 <= 200.0f);
         }
 
-        if ((pickup != 0) && !(obj->flags2 & 0x1000)) {
+        if ((pickup != 0) && !(obj->flags2 & 0x1000)) 
+        {
             struct StandTile* stan = temp_v0_5->stan;
 
             if ((stanTestLineUnobstructed(&stan, temp_v0_5->pos.x, temp_v0_5->pos.z, prop->pos.x, prop->pos.z, 2, 30.0f, 30.0f, 0.0f, 1.0f) == 0) || (stan != prop->stan))
@@ -10983,11 +11032,12 @@ s32 object_collectability_routines(struct PropRecord* prop)
             }
         }
 
-        if (pickup != 0) {
-            return collect_or_interact_object(prop, 1);
+        if (pickup != 0) 
+        {
+            return propPickupByPlayer(prop, 1);
         }
 
-        return 0;
+        return TICKOP_NONE;
     }
 }
 
@@ -11518,7 +11568,7 @@ KeyRecord *weaponFindThrown(s32 KeyID) //MATCH
     KeyRecord  *obj;
     PropRecord *prop;
 
-    for (prop = get_ptr_obj_pos_list_current_entry(); prop; prop = prop->prev)
+    for (prop = chrpropGetActiveTail(); prop; prop = prop->prev)
     {
         obj = check_if_entry_is_collectable(KeyID, prop);
         if (obj && (!(obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)))
@@ -12041,9 +12091,9 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
 /*
 * Address: 0x7f052554
 */
-void redirect_object_collectability_routines(struct PropRecord* arg0)
+TICKOP weaponTickPlayer(struct PropRecord* arg0)
 {
-    object_collectability_routines(arg0);
+    return objTickPlayer(arg0);
 }
 
 
@@ -13898,7 +13948,7 @@ void doorsChooseSwingDirection(PropRecord *chrprop, DoorRecord *door)
 }
 
 
-s32 propdoorInteract(PropRecord* doorprop)
+TICKOP propdoorInteract(PropRecord* doorprop)
 {
     s32 unused;
     s32 sp28;
@@ -13971,7 +14021,8 @@ s32 propdoorInteract(PropRecord* doorprop)
             }
         #endif
     }
-    return 0;
+
+    return TICKOP_NONE;
 }
 
 
@@ -14239,7 +14290,7 @@ void sub_GAME_7F056690(void)
     ModelNode *t0;
     ModelRoData_DisplayList_CollisionRecord *s0;
 
-    s2 = get_ptr_obj_pos_list_current_entry();
+    s2 = chrpropGetActiveTail();
     for (; s2 != NULL; s2 = s2->prev)
     {
         if ((s2->type == 1) && ((s2->flags & 2) == 0))

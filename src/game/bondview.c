@@ -4747,7 +4747,7 @@ void bondviewPlayerStopAudioForPause(void)
 		}
     }
 
-    for (prop = get_ptr_obj_pos_list_current_entry(); prop; prop = prop->prev)
+    for (prop = chrpropGetActiveTail(); prop; prop = prop->prev)
     {
         if (prop->type != PROP_TYPE_DOOR && prop->type == PROP_TYPE_OBJ)
         {
@@ -9027,7 +9027,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
         for (lookup_index=ptr_list_object_lookup_indices; *lookup_index>=0; lookup_index++)
         {
-            prop = &pos_data_entry[*lookup_index];
+            prop = &g_Props[*lookup_index];
             if (prop != sp138_tank_as_ObjectRecord->prop)
             {
                 if (prop->type == PROP_TYPE_CHR)
@@ -12281,7 +12281,8 @@ join_768:
  
 clear_and_return:
     prop->flags &= ~PROPFLAG_ONSCREEN;
-    return 0;
+
+    return TICKOP_NONE;
 }
 
 
@@ -12296,9 +12297,6 @@ Gfx * bondviewRemoved7F08BCB8(Gfx *arg0)
 
     return arg0;
 }
-
-
-
 
 
 /**

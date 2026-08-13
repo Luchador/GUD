@@ -150,7 +150,7 @@ void sub_GAME_7F09BAC4(s32 find, s32 replacement) {
     ModelFileHeader* var_v1;
     s32 val;
 
-    var_s1 = get_ptr_obj_pos_list_current_entry();
+    var_s1 = chrpropGetActiveTail();
     while (var_s1 != NULL) {
         if (var_s1->type == 1) {
             var_v0 = var_s1->chr;

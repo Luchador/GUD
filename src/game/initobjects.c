@@ -45,16 +45,15 @@ void init_load_objpos_table(void)
     s32 i;
 
     difficulty = 1.0f;
-    ptr_obj_pos_list_current_entry = 
-        ptr_obj_pos_list_first_entry = NULL;
+    g_ActivePropsTail = g_ActivePropsHead = NULL;
     g_OnScreenPropCount = 0;
     g_OnScreenPropList[0] = NULL;
     g_LastOnScreenProp = (PropRecord *) g_OnScreenPropList;
-    ptr_obj_pos_list_final_entry = pos_data_entry;
+    g_FreeProps = g_Props;
 
-    for (i=0; i<(POS_DATA_ENTRY_LEN-1); i++)
+    for (i = 0; i < (MAX_PROPS - 1); i++)
     {
-        pos_data_entry[i].prev = &pos_data_entry[i+1];
+        g_Props[i].prev = &g_Props[i + 1];
     }
 
     alloc_lookup_buffers();

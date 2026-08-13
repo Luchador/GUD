@@ -1880,7 +1880,7 @@ s32 stanTestLineUnobstructed(StandTile **pTile, f32 p_x, f32 p_z, f32 dest_x, f3
 
         for (spB8 = ptr_list_object_lookup_indices; *spB8 >= 0; spB8++)
         {
-            prop = &pos_data_entry[*spB8];
+            prop = &g_Props[*spB8];
 
             if (propIsOfCdType(prop, cdtypes) != 0)
             {
@@ -2043,7 +2043,7 @@ PropRecord *sub_GAME_7F0B1410(StandTile *t, f32 start_x, f32 start_z, f32 end_x,
         {
             do
             {
-                prop = &pos_data_entry[*propIndexPtr];
+                prop = &g_Props[*propIndexPtr];
 
                 if (propIsOfCdType(prop, cdtypes))
                 {
@@ -2220,7 +2220,7 @@ s32 stanTestVolume(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, 
 
         for (sp100 = ptr_list_object_lookup_indices; *sp100 >= 0; sp100++)
         {
-            prop = &pos_data_entry[*sp100];
+            prop = &g_Props[*sp100];
 
             if (propIsOfCdType(prop, cdtypes) != 0)
             {

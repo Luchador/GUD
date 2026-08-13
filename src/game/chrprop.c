@@ -49,8 +49,14 @@ u32 num_obj_position_data_entries;
 
 /**
  * Address 0x80069C38.
+ * 
+ * This 600 length prop pool provides storage for every PropRecord in the game.
+ * Props are never allocated anywhere else. init_load_objpos_table threads
+ * all 600 slots onto the free list, and chrpropAllocate/chrpropFree pop and push to that list.
+ * 
+ * This is g_Vars.props in PD.
 */
-PropRecord pos_data_entry[POS_DATA_ENTRY_LEN];
+PropRecord g_Props[MAX_PROPS];
 
 //CODE.bss:80071618
 s16 *RoomPropListBlockIndices;
@@ -169,9 +175,10 @@ stagesetup g_CurrentSetup; //Public Working Setup
 //CODE.bss:80075D28
 stagesetup                        *g_ptrStageSetupFile;
 
-PropRecord *ptr_obj_pos_list_current_entry = 0;
-PropRecord *ptr_obj_pos_list_first_entry = 0;
-PropRecord *ptr_obj_pos_list_final_entry = 0;
+PropRecord *g_ActivePropsTail = 0;
+PropRecord *g_ActivePropsHead = 0;
+PropRecord *g_FreeProps = 0;
+
 f32 difficulty = 1.0;
 struct coord2d g_DefaultAutoAimCoord = { 0 };
 
@@ -202,7 +209,7 @@ void chraiUpdateOnscreenPropCount(void)
 
     i = 0;
     count = 0;
-    prop = get_ptr_obj_pos_list_current_entry();
+    prop = chrpropGetActiveTail();
 
     for (; prop != NULL; prop = prop->prev)
     {
@@ -265,9 +272,9 @@ void chrpropDisable(PropRecord *prop)
 }
 
 
-PropRecord *get_ptr_obj_pos_list_current_entry(void)
+PropRecord *chrpropGetActiveTail(void)
 {
-    return ptr_obj_pos_list_current_entry;
+    return g_ActivePropsTail;
 }
 
 
@@ -275,10 +282,10 @@ PropRecord* chrpropAllocate(void)
 {
     PropRecord* prop;
 
-    if (ptr_obj_pos_list_final_entry)
+    if (g_FreeProps)
     {
-        prop = ptr_obj_pos_list_final_entry;
-        ptr_obj_pos_list_final_entry = prop->prev;
+        prop = g_FreeProps;
+        g_FreeProps = prop->prev;
 
         prop->prev = NULL;
         prop->next = NULL;
@@ -298,10 +305,10 @@ PropRecord* chrpropAllocate(void)
 
 void chrpropFree(PropRecord *prop)
 {
-    prop->prev = ptr_obj_pos_list_final_entry;
+    prop->prev = g_FreeProps;
     prop->next = 0x0;
     prop->stan = 0x0;
-    ptr_obj_pos_list_final_entry = prop;
+    g_FreeProps = prop;
 }
 
 
@@ -309,39 +316,39 @@ void chrpropActivate(PropRecord* prop)
 {
     PropRecord* cur;
 
-    cur = ptr_obj_pos_list_current_entry;
+    cur = g_ActivePropsTail;
     if (cur != NULL)
     {
         cur->next = prop;
 
-        prop->prev = ptr_obj_pos_list_current_entry;
+        prop->prev = g_ActivePropsTail;
         prop->next = NULL;
 
-        ptr_obj_pos_list_current_entry = prop;
+        g_ActivePropsTail = prop;
         return;
     }
 
     prop->prev = NULL;
     prop->next = NULL;
-    ptr_obj_pos_list_current_entry = ptr_obj_pos_list_first_entry = prop;
+    g_ActivePropsTail = g_ActivePropsHead = prop;
 }
 
 
 void chrpropActivateThisFrame(PropRecord* prop) {
     PropRecord* first;
 
-    first = ptr_obj_pos_list_first_entry;
+    first = g_ActivePropsHead;
     if (first != NULL) {
         first->prev = prop;
-        prop->next = ptr_obj_pos_list_first_entry;
+        prop->next = g_ActivePropsHead;
         prop->prev = NULL;
-        ptr_obj_pos_list_first_entry = prop;
+        g_ActivePropsHead = prop;
         return;
     }
     prop->prev = NULL;
     prop->next = NULL;
-    ptr_obj_pos_list_first_entry = prop;
-    ptr_obj_pos_list_current_entry = prop;
+    g_ActivePropsHead = prop;
+    g_ActivePropsTail = prop;
 }
 
 
@@ -350,13 +357,13 @@ void chrpropDelist(PropRecord *prop)
     PropRecord *temp_v0;
     PropRecord *temp_v0_2;
 
-    if (prop == ptr_obj_pos_list_current_entry)
+    if (prop == g_ActivePropsTail)
     {
-        ptr_obj_pos_list_current_entry = prop->prev;
+        g_ActivePropsTail = prop->prev;
     }
-    if (prop == ptr_obj_pos_list_first_entry)
+    if (prop == g_ActivePropsHead)
     {
-        ptr_obj_pos_list_first_entry = prop->next;
+        g_ActivePropsHead = prop->next;
     }
     temp_v0 = prop->prev;
     if (temp_v0 != 0)
@@ -1511,11 +1518,11 @@ void chraiCheckUseHeldItems(void)
 }
 
 
-void propExecuteTickOperation(PropRecord *prop, INV_ITEM_TYPE type)
+void propExecuteTickOperation(PropRecord *prop, TICKOP op)
 {
     ObjectRecord *propobj;
 
-    if (type == INV_ITEM_WEAPON)
+    if (op == TICKOP_FREE)
     {
         if ((prop->type == PROP_TYPE_WEAPON) || (prop->type == PROP_TYPE_OBJ))
         {
@@ -1541,13 +1548,13 @@ void propExecuteTickOperation(PropRecord *prop, INV_ITEM_TYPE type)
         chrpropDisable(prop);
         chrpropFree(prop);
     }
-    else if (type == INV_ITEM_PROP)
+    else if (op == TICKOP_DISABLE)
     {
         chrpropDeregisterRooms(prop);
         chrpropDelist(prop);
         chrpropDisable(prop);
     }
-    else if (type == INV_ITEM_PICKUP)
+    else if (op == TICKOP_GIVETOPLAYER)
     {
         chrpropDeregisterRooms(prop);
         chrpropDelist(prop);
@@ -1609,10 +1616,10 @@ PropRecord *propFindForInteract(void)
 bool bond_interact_object(void)
 {
     PropRecord *prop;
-    bool op;
+    TICKOP tickop;
 
     prop = propFindForInteract();
-    op = INV_ITEM_NONE;
+    tickop = TICKOP_NONE;
 
     if (prop)
     {
@@ -1620,10 +1627,10 @@ bool bond_interact_object(void)
         {
             case PROP_TYPE_OBJ:
             case PROP_TYPE_WEAPON:
-                op = propobjInteract(prop);
+                tickop = propobjInteract(prop);
                 break;
             case PROP_TYPE_DOOR:
-                op = propdoorInteract(prop);
+                tickop = propdoorInteract(prop);
                 break;
             case PROP_TYPE_CHR:
             case PROP_TYPE_PLAYER:
@@ -1632,7 +1639,7 @@ bool bond_interact_object(void)
                 break;
         }
 
-        propExecuteTickOperation(prop, op);
+        propExecuteTickOperation(prop, tickop);
 
         return FALSE;
     }
@@ -1692,7 +1699,7 @@ void chrpropTick(void)
     PropRecord *next;
     ChrRecord *chr;
     bool skip_regen_sfx;
-    s32 tickop;
+    TICKOP tickop;
     bool is_under_60;
     struct ObjectRecord *autogun;
     s32 cmdindex;
@@ -1702,15 +1709,17 @@ void chrpropTick(void)
     // Advance AI states e.g. attacking, walking, dying, etc...
     chrlvAllChrTick();
 
-    prop = get_ptr_obj_pos_list_current_entry();
+    prop = chrpropGetActiveTail();
 
     while (prop != NULL)
     {
         prev = prop->prev;
-        tickop = 0;
+        tickop = TICKOP_NONE;
+
         if (prop->type == PROP_TYPE_CHR)
         {
             chr = prop->chr;
+
             // Update NPC bullet tracers.
             gunAdvanceBeamTimer(&chr->beams[0]);
             gunAdvanceBeamTimer(&chr->beams[1]);
@@ -1855,14 +1864,15 @@ void chrpropTick(void)
             }
         }
 
-        if (tickop == 5)
+        // The tick restructured the prop list which made prop->prev stale. Resume from the prev captured before the tick.
+        if (tickop == TICKOP_CHANGEDLIST)
         {
           next = prev;
         }
         else
         {
             next = prop->prev;
-            if (tickop == 3)
+            if (tickop == TICKOP_RETICK)
             {
                 chrpropDelist(prop);
                 chrpropActivateThisFrame(prop);
@@ -1889,16 +1899,16 @@ void chrpropTick(void)
 */
 void propsTick(void)
 {
-    s32 tickop;
+    TICKOP tickop;
     PropRecord *prop;
     PropRecord *prev;
     PropRecord *propprev;
 
-    prop = get_ptr_obj_pos_list_current_entry();
+    prop = chrpropGetActiveTail();
 
     while (prop != NULL)
     {
-        tickop = 0;
+        tickop = TICKOP_NONE;
         prev = prop->prev;
 
         if (prop->type == PROP_TYPE_CHR)
@@ -1922,7 +1932,7 @@ void propsTick(void)
             tickop = playerTick(prop);
         }
 
-		if (tickop == 5)
+		if (tickop == TICKOP_CHANGEDLIST)
         {
 			propprev = prev;
 		}
@@ -1930,7 +1940,7 @@ void propsTick(void)
         {
 			propprev = prop->prev;
 
-			if (tickop == 3)
+			if (tickop == TICKOP_RETICK)
             {
 				chrpropDelist(prop);
 				chrpropActivateThisFrame(prop);
@@ -1956,10 +1966,6 @@ void propsTick(void)
         propsDefragRoomProps();
     }
 }
-
-
-
-
 
 
 /**
@@ -1997,8 +2003,6 @@ void chraiGetPropRoomIds(PropRecord *self, s32 *roomids)
         roomids[i] = -1;
     }
 }
-
-
 
 
 /**
@@ -2214,7 +2218,7 @@ void sub_GAME_7F03D058(PropRecord *prop, bool unset) //#MATCH
 /**
  * NTSC address: 0x7F03D0D4.
 */
-void sub_GAME_7F03D0D4(void)
+void propsTickPlayer(void)
 {
     PropRecord *prop;
     PropRecord *propprev;
@@ -2224,7 +2228,7 @@ void sub_GAME_7F03D0D4(void)
     {
         //for each prop in setup
 
-        for (prop = get_ptr_obj_pos_list_current_entry(); prop != NULL; prop = propprev)
+        for (prop = chrpropGetActiveTail(); prop != NULL; prop = propprev)
         {
             isCollected = 0;
 
@@ -2241,11 +2245,11 @@ void sub_GAME_7F03D0D4(void)
                          break;
 
                     case PROP_TYPE_OBJ:
-                        isCollected = object_collectability_routines(prop);
+                        isCollected = objTickPlayer(prop);
                         break;
 
                     case PROP_TYPE_WEAPON:
-                        isCollected = redirect_object_collectability_routines(prop);
+                        isCollected = weaponTickPlayer(prop);
                         break;
                 }
             }
@@ -2714,7 +2718,7 @@ void chrpropRegisterRoom(PropRecord *prop, s16 room)
     {
         // Find which chunk to start at
         s32 block = RoomPropListBlockIndices[room];
-        s16 propnum = (prop - pos_data_entry);
+        s16 propnum = (prop - g_Props);
 #ifdef DEBUG
         assert(block<MAXBLOCKS);
 #endif
@@ -2761,7 +2765,7 @@ void chrpropDeregisterRoom(PropRecord* prop, s16 room) {
     if (room >= 0)
     {
         s16 block = RoomPropListBlockIndices[room];
-        s16 propIndex = (prop - pos_data_entry);
+        s16 propIndex = (prop - g_Props);
 #ifdef DEBUG
         assert(block<MAXBLOCKS);
 #endif
@@ -3807,7 +3811,7 @@ ObjectRecord *scan_position_data_table_for_normal_object_at_preset(s32 PadId) {
     PropRecord *prop;
     s16 tempPadId = PadId;
 
-    prop = get_ptr_obj_pos_list_current_entry();
+    prop = chrpropGetActiveTail();
     while (prop != NULL)
     {
         if (prop->type == PROP_TYPE_OBJ)
@@ -3834,7 +3838,7 @@ ObjectRecord * sub_GAME_7F03FAB0(struct coord3d *pos, s32 RoomID)
     s32 edges;
     PropRecord * prop;
 
-    prop = get_ptr_obj_pos_list_current_entry();
+    prop = chrpropGetActiveTail();
     while (prop != NULL)
     {
         if ((prop->type == PROP_TYPE_OBJ) && (RoomID == prop->stan->room))

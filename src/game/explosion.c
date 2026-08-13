@@ -479,7 +479,7 @@ void explosionInflictDamage(PropRecord *arg0, f32 horiz_range, f32 vert_range)
 
         for (var_s3 = ptr_list_object_lookup_indices; *var_s3 >= 0; var_s3++)
         {
-            temp_s0 = &pos_data_entry[*var_s3];
+            temp_s0 = &g_Props[*var_s3];
 
             if ((temp_s0 != temp_s2->source) && (temp_s0->timetoregen == 0))
             {
@@ -690,7 +690,7 @@ s32 explosionTick(PropRecord* arg0)
 
     if (g_ClockTimer == 0)
     {
-        return 0;
+        return TICKOP_NONE;
     }
 
     lvupdate = (g_ClockTimer < 15) ? (f32) g_ClockTimer : 15.0f;
@@ -807,12 +807,12 @@ s32 explosionTick(PropRecord* arg0)
     if (exp->age >= explosiontype->duration + (s32) (16.0f * explosiontype->flareanimspeed))
     {
         exp->prop = NULL;
-        return 1;
+
+        return TICKOP_FREE;
     }
 
-    return 0;
+    return TICKOP_NONE;
 }
-
 
 
 /*
@@ -836,10 +836,10 @@ u8 explosionChrpropExplosionTick(PropRecord* prop)
 
     if (g_ClockTimer == 0)
     {
-        return 0;
+        return TICKOP_NONE;
     }
 
-    return 0;
+    return TICKOP_NONE;
 }
 
 
@@ -1291,7 +1291,7 @@ s32 explosionSmokeTick(PropRecord *arg0)
 
 	if (g_ClockTimer == 0)
     {
-		return 0;
+		return TICKOP_NONE;
 	}
 
     lvupdate = (g_ClockTimer < 15) ? (f32) g_ClockTimer : 15.0f;
@@ -1430,10 +1430,10 @@ s32 explosionSmokeTick(PropRecord *arg0)
     if (var_v1 != 0)
     {
         smoke->prop = NULL;
-        return 1;
+        return TICKOP_FREE;
     }
 
-    return 0;
+    return TICKOP_NONE;
 }
 
 
@@ -1456,7 +1456,7 @@ u8 explosionChrpropSmokeTick(PropRecord* prop)
         prop->zDepth -= 100.0f;
     }
 
-    return 0;
+    return TICKOP_NONE;
 }
 
 

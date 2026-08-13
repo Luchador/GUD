@@ -2367,7 +2367,7 @@ s32 chrTick(PropRecord *prop)
 
             if (chr->model == NULL)
             {
-                return 1;
+                return TICKOP_FREE;
             }
         }
 
@@ -2388,7 +2388,7 @@ s32 chrTick(PropRecord *prop)
     if (chr->hidden & CHRHIDDEN_REMOVE)
     {
         chrpropCleanupForRemoval(prop);
-        return 1;
+        return TICKOP_FREE;
     }
 
     if (chr->weapons_held[GUNRIGHT] != NULL)
@@ -2800,7 +2800,7 @@ after_position_update:
         chrlvTriggerFireWeapon(chr);
     }
 
-    return 0;
+    return TICKOP_NONE;
 }
 
 

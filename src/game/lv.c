@@ -736,7 +736,7 @@ Gfx* lvlRender(Gfx* DL)
                 attempt_reload_item_in_hand(GUNLEFT);
             }
 
-            sub_GAME_7F03D0D4();
+            propsTickPlayer();
             DL = bgLevelRender(DL);
 
             if (get_debug_portal_flag())

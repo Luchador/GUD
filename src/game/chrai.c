@@ -2335,8 +2335,8 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                     ObjectRecord              *obj = objFindByTagId(ai->OBJECT_TAG);
                     if (obj && obj->prop)
                     {
-                        INV_ITEM_TYPE iType = collect_or_interact_object(obj->prop, FALSE);
-                        propExecuteTickOperation(obj->prop, iType);
+                        TICKOP op = propPickupByPlayer(obj->prop, FALSE);
+                        propExecuteTickOperation(obj->prop, op);
                     }
                     Offset += sizeof(AiBondCollectObjectRecord);
                     break;

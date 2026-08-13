@@ -4083,6 +4083,23 @@ typedef enum PROJECTILES
         INV_ITEM_PICKUP
     } INV_ITEM_TYPE;
 
+    /**
+     * Tick operations
+     * The per-prop tick functions like chrTick, objTick, playerTick, explosionTick, explosionSmokeTick
+     * and the collect/interact chain returns a tickop telling the game what to do with the prop it just processed.
+     * 
+     * TICKOP_DISABLE and TICKOP_RETICK are handled but never actually used.
+     */
+     typedef enum TICKOP
+     {
+         TICKOP_NONE         = 0, // Default, do nothing.
+         TICKOP_FREE         = 1, // Deregister, delist, disable and free the prop except for weapons flagged PROPSTATE_RESPAWN which begin their respawn timer instead.
+         TICKOP_DISABLE      = 2, // Deregister, delist and disable the prop, but keep the record.
+         TICKOP_RETICK       = 3, // Delist the prop and reactivate it so it is ticked again this frame.
+         TICKOP_GIVETOPLAYER = 4, // Detach the prop and reparent it to the player prop e.g. collected pickups.
+         TICKOP_CHANGEDLIST  = 5  // The tick restructured the prop list (such as being embedded), so prop->prev is stale. The loop resumes from the prev captured before the tick.
+     } TICKOP;
+
     typedef enum ITEM_IDS
     {
         ITEM_NOTHING = -1,
