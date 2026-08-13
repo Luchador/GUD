@@ -1168,23 +1168,23 @@ point2d D_800309E0 = {0, 0};
 point2d D_800309E8 = {0, 0};
 
 
-void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix);
-
-
 s32 get_numguards(void)
 {
   return g_NumChrSlots;
 }
+
 
 void get_ptr_allocated_block_for_vertices(int param_1)
 {
   dynAllocate(param_1 << 4);
 }
 
+
 void set_show_patrols_flag(s32 flag)
 {
   show_patrols_flag = flag;
 }
+
 
 s32 get_show_patrols_flag(void)
 {
@@ -1992,7 +1992,7 @@ bool chrCanUseDKModeScaling(s32 bodynum, s32 headnum)
 /**
  * Address: 7F02083C
  */
-void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
+void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 {
     f32 scale;
     f32 xrot;
@@ -2000,11 +2000,11 @@ void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
     f32 zrot;
     f32 tmp;
     f32 amount;
-    f32 saved38;
-    f32 saved34;
-    f32 saved30;
+    f32 savedposz;
+    f32 savedposy;
+    f32 savedposx;
     f32 sideback;
-    Mtxf sp30;
+    Mtxf rotmtx;
     u16 hidden;
     ChrRecord *chr;
 
@@ -2013,7 +2013,7 @@ void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 #ifdef BUGFIX_R1
     if (cheatIsActive(CHEAT_DK_MODE))
     {
-        chr = (ChrRecord *) dword_CODE_bss_80069B60;
+        chr = g_CurModelChr;
 
         if (chrCanUseDKModeScaling(chr->bodynum, chr->headnum))
         {
@@ -2023,7 +2023,7 @@ void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
             }
             else if ((bodypart == CHR_RENDERPART_LEFT_ARM) || (bodypart == CHR_RENDERPART_RIGHT_ARM))
             {
-                if (!(((ChrRecord *) dword_CODE_bss_80069B60)->chrflags & CHRFLAG_08000000))
+                if (!(g_CurModelChr->chrflags & CHRFLAG_08000000))
                 {
                     scale = 2.5f;
                 }
@@ -2051,14 +2051,14 @@ void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
     zrot = (yrot = (xrot = 0.0f));
 
 #ifdef BUGFIX_R1
-    chr = (ChrRecord *) dword_CODE_bss_80069B60;
+    chr = g_CurModelChr;
 #endif
     if (bodypart == CHR_RENDERPART_RIGHT_ARM)
     {
 #ifdef BUGFIX_R1
         xrot = chr->aimuprshoulder;
 #else
-        xrot = ((ChrRecord *) dword_CODE_bss_80069B60)->aimuprshoulder;
+        xrot = g_CurModelChr->aimuprshoulder;
 #endif
     }
     else if (bodypart == CHR_RENDERPART_LEFT_ARM)
@@ -2066,13 +2066,13 @@ void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 #ifdef BUGFIX_R1
         xrot = chr->aimuplshoulder;
 #else
-        xrot = ((ChrRecord *) dword_CODE_bss_80069B60)->aimuplshoulder;
+        xrot = g_CurModelChr->aimuplshoulder;
 #endif
     }
     else if (bodypart == CHR_RENDERPART_TORSO)
     {
 #ifndef BUGFIX_R1
-        chr = (ChrRecord *) dword_CODE_bss_80069B60;
+        chr = g_CurModelChr;
 #endif
         xrot = chr->aimupback;
         if (chr->hidden & CHRHIDDEN_0400)
@@ -2097,7 +2097,7 @@ void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
     else if (bodypart == CHR_RENDERPART_HEAD)
     {
 #ifndef BUGFIX_R1
-        chr = (ChrRecord *) dword_CODE_bss_80069B60;
+        chr = g_CurModelChr;
 #endif
         if (chr->hidden & CHRHIDDEN_0400)
         {
@@ -2125,7 +2125,7 @@ void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
         }
     }
 
-    chr = (ChrRecord *) dword_CODE_bss_80069B60;
+    chr = g_CurModelChr;
 
     if (chr->flinchcnt >= 0)
     {
@@ -2134,7 +2134,7 @@ void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
         if ((bodypart == CHR_RENDERPART_RIGHT_ARM) || (bodypart == CHR_RENDERPART_LEFT_ARM))
         {
             amount = chrGetFlinchAmount(chr) * M_TAU_F * 15.0f / 360.0f;
-            chr = (ChrRecord *) dword_CODE_bss_80069B60;
+            chr = g_CurModelChr;
             hidden = chr->hidden;
             xrot -= amount;
 
@@ -2152,7 +2152,7 @@ void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
             tmp = chrGetFlinchAmount(chr);
             tmp *= M_TAU_F;
             amount = tmp * 15.0f;
-            chr = (ChrRecord *) dword_CODE_bss_80069B60;
+            chr = g_CurModelChr;
             hidden = chr->hidden;
             amount /= 360.0f;
             xrot += amount;
@@ -2200,9 +2200,9 @@ void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 
     matrix_4x4_multiply_homogeneous_in_place(currentPlayerGetViewToWorldMtxf(), matrix);
 
-    saved30 = matrix->m[3][0];
-    saved34 = matrix->m[3][1];
-    saved38 = matrix->m[3][2];
+    savedposx = matrix->m[3][0];
+    savedposy = matrix->m[3][1];
+    savedposz = matrix->m[3][2];
 
     matrix->m[3][0] = 0.0f;
     matrix->m[3][1] = 0.0f;
@@ -2217,28 +2217,28 @@ void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
             yrot += M_TAU_F;
         }
 
-        matrix_4x4_set_rotation_around_y(yrot, &sp30);
-        matrix_4x4_multiply_homogeneous_in_place(&sp30, matrix);
+        matrix_4x4_set_rotation_around_y(yrot, &rotmtx);
+        matrix_4x4_multiply_homogeneous_in_place(&rotmtx, matrix);
 
         if (xrot != 0.0f)
         {
-            matrix_4x4_set_rotation_around_x(xrot, &sp30);
-            matrix_4x4_multiply_homogeneous_in_place(&sp30, matrix);
+            matrix_4x4_set_rotation_around_x(xrot, &rotmtx);
+            matrix_4x4_multiply_homogeneous_in_place(&rotmtx, matrix);
         }
 
         if (zrot != 0.0f)
         {
-            matrix_4x4_set_rotation_around_z(zrot, &sp30);
-            matrix_4x4_multiply_homogeneous_in_place(&sp30, matrix);
+            matrix_4x4_set_rotation_around_z(zrot, &rotmtx);
+            matrix_4x4_multiply_homogeneous_in_place(&rotmtx, matrix);
         }
 
-        matrix_4x4_set_rotation_around_y(sideback, &sp30);
-        matrix_4x4_multiply_homogeneous_in_place(&sp30, matrix);
+        matrix_4x4_set_rotation_around_y(sideback, &rotmtx);
+        matrix_4x4_multiply_homogeneous_in_place(&rotmtx, matrix);
     }
     else
     {
-        matrix_4x4_set_rotation_around_y(yrot, &sp30);
-        matrix_4x4_multiply_homogeneous_in_place(&sp30, matrix);
+        matrix_4x4_set_rotation_around_y(yrot, &rotmtx);
+        matrix_4x4_multiply_homogeneous_in_place(&rotmtx, matrix);
     }
 
     if (scale != 1.0f)
@@ -2246,9 +2246,9 @@ void sub_GAME_7F02083C(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
         matrix_scalar_multiply(scale, (f32 *) matrix);
     }
 
-    matrix->m[3][0] = saved30;
-    matrix->m[3][1] = saved34;
-    matrix->m[3][2] = saved38;
+    matrix->m[3][0] = savedposx;
+    matrix->m[3][1] = savedposy;
+    matrix->m[3][2] = savedposz;
 
     matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), matrix);
 }
@@ -2317,9 +2317,6 @@ void chrUpdateAnim(ChrRecord *chr, s32 tickamount)
     subcalcpos(model);
     getsuboffset(model, &prop->pos);
 }
-
-
-extern void *D_80036090;
 
 
 /**
@@ -2552,29 +2549,29 @@ after_position_update:
         }
 #endif
 
-        D_80036090 = sub_GAME_7F02083C;
-        dword_CODE_bss_80069B60 = (u32)chr;
+        g_ModelJointPositionedFunc = chrHandleJointPositioned;
+        g_CurModelChr = chr;
 
         renderdata.basemtx = camGetWorldToScreenMtxf();
         renderdata.mtxlist = dynAllocate(model->obj->numMatrices * (sizeof(Mtxf)));
 
-        if (((ChrRecord *)dword_CODE_bss_80069B60)->flinchcnt >= 0)
+        if (g_CurModelChr->flinchcnt >= 0)
         {
-            ((ChrRecord *)dword_CODE_bss_80069B60)->flinchcnt += g_ClockTimer;
+            g_CurModelChr->flinchcnt += g_ClockTimer;
 
 #ifdef VERSION_EU
-               if (((ChrRecord *)dword_CODE_bss_80069B60)->flinchcnt >= 24)
+               if (g_CurModelChr->flinchcnt >= 24)
 #else
-               if (((ChrRecord *)dword_CODE_bss_80069B60)->flinchcnt >= 30)
+               if (g_CurModelChr->flinchcnt >= 30)
 #endif
             {
-                ((ChrRecord *)dword_CODE_bss_80069B60)->flinchcnt = -1;
+                g_CurModelChr->flinchcnt = -1;
             }
         }
 
         subcalcmatrices(&renderdata, model);
 
-        D_80036090 = NULL;
+        g_ModelJointPositionedFunc = NULL;
         modelSetDistanceScale(1.0f);
 
         update_color_shading(&chr->shadecol, &chr->nextcol);

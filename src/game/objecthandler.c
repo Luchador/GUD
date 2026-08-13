@@ -75,7 +75,7 @@ f32 g_ModelDistanceScale = 1.0;
 //D:8003608C
 struct Vertex* (*vtxallocator)(s32 numvertices) = NULL;
 //D:80036090
-u32 D_80036090 = 0;
+void (*g_ModelJointPositionedFunc)(s32 mtxindex, Mtxf *mtx) = NULL;
 //D:80036094
 coord3d D_80036094 = {0};
 //D:800360A0

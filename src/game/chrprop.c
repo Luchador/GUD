@@ -2227,10 +2227,9 @@ void propsTickPlayer(void)
     if (!isBondInTank() && !g_PlayerInvincible)
     {
         //for each prop in setup
-
         for (prop = chrpropGetActiveTail(); prop != NULL; prop = propprev)
         {
-            isCollected = 0;
+            isCollected = FALSE;
 
             if (prop->timetoregen <= 0)
             {

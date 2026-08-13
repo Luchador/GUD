@@ -10445,7 +10445,7 @@ void display_text_for_weapon_in_lower_left_corner(ITEM_IDS weaponid)
 
 
 // Perfect Dark propobj.c: s32 propPickupByPlayer(struct prop *prop, bool showhudmsg)
-TICKOP propPickupByPlayer(PropRecord *prop, s32 showstring)
+TICKOP propPickupByPlayer(PropRecord *prop, bool showstring)
 {
     ObjectRecord *obj;
     TICKOP op;
@@ -11034,7 +11034,7 @@ TICKOP objTickPlayer(struct PropRecord* prop)
 
         if (pickup != 0) 
         {
-            return propPickupByPlayer(prop, 1);
+            return propPickupByPlayer(prop, TRUE);
         }
 
         return TICKOP_NONE;

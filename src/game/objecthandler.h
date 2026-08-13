@@ -102,6 +102,7 @@ extern coord3d D_800360B8;
 extern coord3d D_80036254;
 
 extern struct Vertex* (*vtxallocator)(s32 numvertices);
+extern void (*g_ModelJointPositionedFunc)(s32 mtxindex, Mtxf *mtx);
 extern struct bondstruct_unk_op07_related D_800360C4[];
 extern Vertex D_800363E0;
 extern Vtx D_800363F8;

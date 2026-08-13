@@ -16,10 +16,6 @@
 #include "random.h"
 
 
-extern void (*D_80036090)(s32, s32, s32);
-
-typedef void (*ModelMatrixCallback2)(s32 matrixId, Mtxf *mtx);
-
 typedef struct ModelGroupMtxBuildArg {
     u16 flags;
     u16 pad;
@@ -1241,9 +1237,9 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
         matrix0_mtx = &render_pos[matrix0].pos;
         matrix_4x4_multiply_homogeneous(parent, &tmp, matrix0_mtx);
 
-        if (D_80036090 != NULL)
+        if (g_ModelJointPositionedFunc != NULL)
         {
-            ((ModelMatrixCallback2)D_80036090)(matrix0, matrix0_mtx);
+            g_ModelJointPositionedFunc(matrix0, matrix0_mtx);
         }
     }
     else
@@ -1343,22 +1339,25 @@ void sub_GAME_7F06DB5C(ModelRenderData *arg0, Model *arg1, ModelNode *arg2, quat
     new_var = &sp1C;
     sp48 = arg1->render_pos;
     sp1C = (s32)arg2->Parent;
+
     if (*new_var != 0) {
         sp9C = arg0->basemtx;
         sp9C = modelFindNodeMtx(arg1, (ModelNode *)sp1C, 0);
     } else {
         sp9C = arg0->basemtx;
     }
+
     if (sp9C != 0) {
         quaternion_to_transform_matrix(&spA0->Origin, arg3, &sp58);
         sp1C = (s32)&sp48[sp54];
         matrix_4x4_multiply_homogeneous(sp9C, &sp58, (Mtxf *)sp1C);
-        if (D_80036090 != NULL) {
-            D_80036090(sp54, sp1C, sp1C);
+        if (g_ModelJointPositionedFunc != NULL) {
+            ((void (*)(s32, s32, s32)) g_ModelJointPositionedFunc)(sp54, sp1C, sp1C);
         }
     } else {
         quaternion_to_transform_matrix(&spA0->Origin, arg3, (Mtxf *)&sp48[sp54]);
     }
+
     if (spA4 & 0x100) {
         quaternion_7F05BC68(arg3, 0.5f, sp2C);
         if (sp9C != 0) {
@@ -1368,6 +1367,7 @@ void sub_GAME_7F06DB5C(ModelRenderData *arg0, Model *arg1, ModelNode *arg2, quat
             quaternion_to_transform_matrix(&spA0->Origin, sp2C, (Mtxf *)&sp48[sp50]);
         }
     }
+
     if (spA4 & 0x200) {
         if (sp9C != 0) {
             sp28 = &sp58;
