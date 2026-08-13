@@ -335,7 +335,7 @@ void debmenuHandleMoveView(void)
 */
 void debmenuHandleStanView(void)
 {
-    maybe_solo_intro_camera_handler();
+    bondviewRemovePlayerBody();
     g_DebugHighlightedOption = get_highlighted_debug_option();
     debug_render_raster = debug_freeze_processing = g_DebugHighlightedOption;
 }
@@ -347,7 +347,7 @@ void debmenuHandleStanView(void)
 */
 void debmenuHandleBondView(void)
 {
-    maybe_solo_intro_camera_handler();
+    bondviewRemovePlayerBody();
     g_DebugHighlightedOption = get_highlighted_debug_option();
     debug_render_raster = debug_freeze_processing = g_DebugHighlightedOption;
 }

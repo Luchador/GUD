@@ -322,7 +322,7 @@ struct player
   /**
    * Offset 0x0034.
    */
-  StandTile *room_pointer;
+  StandTile *cameratile;
 
   /**
    * Offset 0x0038.
@@ -2272,7 +2272,7 @@ struct player
    * Related to player perspective.
    * Offset 0x29bc.
    */
-  f32 field_29BC;
+  f32 eyeheight;
   f32 field_29C0;
 
   s32 mpmenuon;           // 29C4 canonincal name
@@ -2625,17 +2625,10 @@ extern struct coord3d g_DefaultFrozenMoveOffset;
 extern coord3d ZeroCoord;
 //D:8003683C
 extern ModelRenderData D_8003683C;
-
 //D:8003687C
-extern s32 D_8003687C;
-//D:80036880
-extern s32 D_80036880;
-//D:80036884
-extern s32 D_80036884;
-//D:80036888
-extern s32 D_80036888;
+extern coord3d ZeroCoordWatchPos;
 //D:8003688C
-extern coord3d D_8003688C;
+extern coord3d ZeroCoordSpawnPos;
 //D:80036898
 extern s32 status_bar_text_buffer_index;
 //D:8003689C
@@ -2747,7 +2740,7 @@ void trigger_watch_zoom(f32 final, f32 time);
 void set_open_close_solo_watch_menu_to1(void);
 
 void init_player_BONDdata(void);
-void bondviewPlayerSpawnRelated(void);
+void bondviewPlayerBeginLife(void);
 
 
 void bondviewMovePlayerUpdateViewport(s8 arg0, s8 arg1, u16 arg2);
@@ -2768,7 +2761,8 @@ s32 bond_pressed_reload_activate(void);
 Gfx* write_stan_tiles_in_yellow(Gfx *arg0);
 Gfx * maybe_mp_interface(Gfx *arg0);
 Gfx * bondviewRemoved7F08BCB8(Gfx *arg0);
-s32 camIsPosInScreen(coord3d *vec_scale, f32 norm_scale);
+bool camIsPosInScreen(coord3d *vec_scale, f32 norm_scale);
+bool camIsPosInScreenBox(coord3d *, f32, struct bbox2d *);
 s32 getMissiontimer(void);
 void solo_char_load(void);
 void bondviewUpdateYAutoAimTime(struct PropRecord *autoaim_target, f32 auto_aim_y);
@@ -2805,8 +2799,6 @@ Mtxf *currentPlayerGetMatrix10EC(void);
 f32 bondviewGetPlayerYawRadians(void);
 Mtxf *camGetWorldToScreenMtxf(void);
 void transformAndNormalizeByLength2Dto3D(struct coord2d *in, coord3d *out, f32 value);
-s32 camIsPosInScreenBox(coord3d *, f32, struct bbox2d *);
-
 void bondviewTransformManyPosToViewMatrix(RenderPosView *arg0, s32 arg1);
 s32 sub_GAME_7F078474(void);
 s32 get_BONDdata_field_10E0(void);
@@ -2831,7 +2823,7 @@ void sub_GAME_7F089718(f32);
 void bondviewResetUpperTextDisplay(void);
 Mtxf *currentPlayerGetProjectionMatrixF(void);
 void transform3Dto2DCoords(coord3d *in, coord2d *out);
-void maybe_solo_intro_camera_handler(void);
+void bondviewRemovePlayerBody(void);
 void currentPlayerAdjustFade(f32 maxfadetime, s32 r, s32 g, s32 b, f32 frac);
 void bondviewSelectCuff(Model *model, ModelFileHeader *header, s32 switchindex);
 void sub_GAME_7F08976C(f32 param_1);

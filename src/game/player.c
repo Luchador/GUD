@@ -146,7 +146,7 @@ void initBONDdataforPlayer(s32 player_num)
     g_playerPointers[player_num]->pos3.x = 0.0f;
     g_playerPointers[player_num]->pos3.y = 0.0f;
     g_playerPointers[player_num]->pos3.z = 0.0f;
-    g_playerPointers[player_num]->room_pointer = NULL;
+    g_playerPointers[player_num]->cameratile = NULL;
     g_playerPointers[player_num]->current_model_pos.x = 0.0f;
     g_playerPointers[player_num]->current_model_pos.y = 0.0f;
     g_playerPointers[player_num]->current_model_pos.z = 0.0f;
@@ -456,7 +456,7 @@ void initBONDdataforPlayer(s32 player_num)
     g_playerPointers[player_num]->field_1288 = 0.0f;
     g_playerPointers[player_num]->cheatBondInvincible = FALSE;
     g_playerPointers[player_num]->healthdamagetype = 7;
-    g_playerPointers[player_num]->field_29BC = 1.0f;
+    g_playerPointers[player_num]->eyeheight = 1.0f;
     g_playerPointers[player_num]->field_29C0 = 0.0f;
     g_playerPointers[player_num]->mpmenuon = FALSE;
     g_playerPointers[player_num]->damagetype = 7;

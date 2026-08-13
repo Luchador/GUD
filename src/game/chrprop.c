@@ -1919,7 +1919,7 @@ void propsTick(void)
         }
         else if (prop->type == PROP_TYPE_VIEWER)
         {
-            tickop = playerTickBeams(prop);
+            tickop = playerTick(prop);
         }
 
 		if (tickop == 5)
