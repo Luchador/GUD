@@ -5823,7 +5823,7 @@ s32 objTick(struct PropRecord *prop)
 
 		applyFogCull = FALSE;
 	}
-	else if ((obj->type == PROPDEF_DOOR) && (((struct DoorRecord *) obj)->doorFlags & PROPFLAG_ONSCREEN))
+	else if ((obj->type == PROPDEF_DOOR) && (((struct DoorRecord *) obj)->doorFlags & DOORFLAG_WINDOWED))
 	{
 		pad36C = (struct DoorRecord *) prop->obj;
 		var_s2_6 = 1;
@@ -7455,7 +7455,7 @@ Gfx *chrobjRenderProp(PropRecord *prop, Gfx *gdl, s32 arg2)
         {
             mrData.envcolour.word = ((struct TintedGlassRecord*)obj)->calculatedopacity << 8;
         }
-        else if ((obj->type == PROPDEF_DOOR) && ((((struct DoorRecord*)obj)->doorFlags & 2) != 0))
+        else if ((obj->type == PROPDEF_DOOR) && (((struct DoorRecord*)obj)->doorFlags & DOORFLAG_WINDOWED))
         {
             mrData.envcolour.word = ((struct DoorRecord*)obj)->calculatedopacity << 8;
         }
@@ -12300,7 +12300,7 @@ void door7F0526EC(DoorRecord *door, Mtxf *rhs)
         matrix_4x4_set_position(&sp2C, rhs);
     }
 
-    if (door->doorFlags & 8)
+    if (door->doorFlags & DOORFLAG_FLIP)
     {
         matrix_column_3_scalar_multiply_2(-1.0f, rhs);
     }
@@ -12356,7 +12356,7 @@ void doorUpdateBbox(DoorRecord *door)
     {
         door->ptr_allocated_collisiondata_block->bottom = sp2C.m[3][1] + chrpropSumMatrixPosY(&door->bbox, &sp2C);
 
-        if (door->doorFlags & DOORFLAG_0001)
+        if (door->doorFlags & DOORFLAG_EXTENDEDY)
         {
             door->ptr_allocated_collisiondata_block->bottom -= 1000.0f;
         }
@@ -12377,7 +12377,7 @@ void doorUpdateBbox(DoorRecord *door)
     {
         door->ptr_allocated_collisiondata_block->top = sp2C.m[3][1] + chrpropSumMatrixNegY(&door->bbox, &sp2C);
 
-        if (door->doorFlags & DOORFLAG_0001)
+        if (door->doorFlags & DOORFLAG_EXTENDEDY)
         {
             door->ptr_allocated_collisiondata_block->top += 1000.0f;
         }
@@ -12561,7 +12561,7 @@ PropRecord* doorInit(DoorRecord* door, coord3d* pos, Mtxf* mtx, StandTile* stan,
     door->unkbd = 0;
     door->linkedDoor = NULL;
 
-    if (door->doorFlags & 4) {
+    if (door->doorFlags & DOORFLAG_CLIP_TO_BBOX) {
         union ModelRoData *rodata = door->model->obj->RootNode->Child->Child->Data;
         door->unkcc = mempAllocBytesInBank(rodata->DisplayListCollisions.numVertices * sizeof(Vertex), MEMPOOL_STAGE);
     } else {
@@ -13108,7 +13108,7 @@ void doorPlayCloseSound1(DoorRecord *door)
  */
 void doorStartOpen(DoorRecord *door)
 {
-    door->flags &= ~DOORFLAG_KEEPOPEN;
+    door->flags &= ~PROPFLAG_DOOR_KEEPOPEN;
     door->runtime_bitflags |= RUNTIMEBITFLAG_BEENOPENED;
 
     doorPlayOpenSound0(door);
@@ -13117,11 +13117,11 @@ void doorStartOpen(DoorRecord *door)
     if (door->doorType == DOORTYPE_FALLAWAY)
     {
         struct collision_data *col = door->ptr_allocated_collisiondata_block;
-        door->flags |= DOORFLAG_CANNOT_ACTIVATE;
+        door->flags |= PROPFLAG_CANNOT_ACTIVATE;
         door->perimFrac = 0;
 
         if (col) { col->edges = 0; }
-        door->flags &= ~DOORFLAG_100;
+        door->flags &= ~PROPFLAG_00000100;
     }
 }
 
@@ -13131,7 +13131,7 @@ void doorStartOpen(DoorRecord *door)
  */
 void doorStartClose(DoorRecord *door)
 {
-    door->flags &= ~DOORFLAG_KEEPOPEN;
+    door->flags &= ~PROPFLAG_DOOR_KEEPOPEN;
     doorPlayOpenSound1(door);
 }
 

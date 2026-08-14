@@ -376,23 +376,13 @@ typedef enum PROPFLAG2
     PROPFLAG2_DOOR_ALTCOORDSYSTEM = 0x80000000  // Massive Explosion (08 Type)/Rotating Disabled Drone Gun (0D Type)
 } PROPFLAG2;
 
+// Flags on DoorRecord.doorFlags (u16, offset 0x98)
 typedef enum DOORFLAG
 {
-    DOORFLAG_0001            = 0x00000001,
+    DOORFLAG_EXTENDEDY       = 0x00000001,
     DOORFLAG_WINDOWED        = 0x00000002,
-    DOORFLAG_CLIP_TO_BBOX    = 0x00000004,
-    DOORFLAG_FLIP            = 0x00000008,
-    DOORFLAG_AUTOMATIC       = 0x00000010,
-    DOORFLAG_0020            = 0x00000020,
-    DOORFLAG_ROTATEDPAD      = 0x00000040,
-    DOORFLAG_080             = 0x00000080,
-    DOORFLAG_100             = 0x00000100,
-    DOORFLAG_LONGRANGE       = 0x00000200,
-    DOORFLAG_DAMAGEONCONTACT = 0x00000400, // Lasers
-    DOORFLAG_UNBLOCKABLEOPEN = 0x00000800, // Skip collision checks when opening
-    DOORFLAG_4000            = 0x00004000, // Two Investigation vertical doors after lasers
-    DOORFLAG_CANNOT_ACTIVATE = 0x02000000,
-    DOORFLAG_KEEPOPEN        = 0x80000000
+    DOORFLAG_CLIP_TO_BBOX    = 0x00000004, // Clip the mesh to the shrinking/expanding bbox while sliding
+    DOORFLAG_FLIP            = 0x00000008
 } DOORFLAG;
 
 typedef enum DOORSTATE
