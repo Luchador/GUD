@@ -469,7 +469,8 @@ class BinaryModelParser:
         """Parse ModelRoData_HeaderRecord (16 bytes)"""
         return {
             '_type': 'HeaderRecord',
-            'model_type': read_u32(self.data, offset),
+            'anim_part': read_u16(self.data, offset),
+            'matrix_index': read_s16(self.data, offset + 2),
             'first_group_offset': self.to_file_offset(read_u32(self.data, offset + 4)),
             'group1': read_u16(self.data, offset + 8),
             'group2': read_u16(self.data, offset + 10),
@@ -1423,13 +1424,14 @@ def generate_model_c(prop_name: str, parsed_model: Dict, metadata: Dict, image_m
             struct_lines = []
             struct_lines.append(f"ModelRoData_HeaderRecord HeaderRecord_0x{node.data_offset:03x} = ")
             struct_lines.append("{")
-            struct_lines.append(f"    0x{node.data['model_type']:X}, //ModelType")
-            # FirstGroup pointer (points to ModelNode, despite the type name in bondtypes.h)
+            struct_lines.append(f"    0x{node.data['anim_part']:X}, //AnimPart")
+            struct_lines.append(f"    {node.data['matrix_index']}, //MatrixIndex")
+            # FirstGroup points to the first child node in the header subtree.
             first_group_offset = node.data.get('first_group_offset', 0)
-            group_ptr = f"(struct ModelRoData_GroupRecord *)&ModelNode_0x{first_group_offset:03x}" if first_group_offset > 0 else "NULL"
+            group_ptr = f"&ModelNode_0x{first_group_offset:03x}" if first_group_offset > 0 else "NULL"
             struct_lines.append(f"    {group_ptr}, //FirstGroup")
             struct_lines.append(f"    0x{node.data['group1']:X}, 0x{node.data['group2']:X}, //Group1, Group2")
-            struct_lines.append(f"    0x{node.data['rw_data_index']:X} //RwDataIndex")
+            struct_lines.append(f"    0x{node.data['rw_data_index']:X}, 0x{node.data['reserved']:X} //RwDataIndex, reserved")
             struct_lines.append("};")
             all_structures.append((node.data_offset, '\n'.join(struct_lines)))
 
