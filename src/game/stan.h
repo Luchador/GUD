@@ -32,6 +32,22 @@ typedef enum StanCollisionResult {
     STAN_COLLISION_TRAVERSAL_LIMIT = 5
 } StanCollisionResult;
 
+typedef struct StanRoomBounds {
+    union {
+        struct {
+            s16 minX;
+            s16 minY;
+            s16 minZ;
+            s16 maxX;
+            s16 maxY;
+            s16 maxZ;
+        };
+        struct {
+            s16 min[3];
+            s16 max[3];
+        };
+    };
+} StanRoomBounds;
 
 /////////////////
 // extern
@@ -40,6 +56,9 @@ extern f32 stanSavedColl_someMin;
 extern PropRecord *stanSavedColl_posData;
 extern struct StandTile *standTileStart;
 extern s32 stanlinelog_flag;
+extern StandTile *firststaninroom[139];
+extern StanRoomBounds dword_CODE_bss_8007B358[139];
+extern s32 dword_CODE_bss_8007B9DC;
 
 /////////////////
 // prototypes

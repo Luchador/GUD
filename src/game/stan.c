@@ -8,23 +8,6 @@
 #include "stanintersection.h"
 #include "assert.h"
 
-typedef struct StanRoomBounds {
-    union {
-        struct {
-            s16 minX;
-            s16 minY;
-            s16 minZ;
-            s16 maxX;
-            s16 maxY;
-            s16 maxZ;
-        };
-        struct {
-            s16 min[3];
-            s16 max[3];
-        };
-    };
-} StanRoomBounds;
-
 void getTileMidPoint(StandTile *tile, coord3d *out);
 
 // bss
