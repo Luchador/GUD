@@ -2300,7 +2300,7 @@ struct player
    *
    * Offset 0x2a04.
    */
-  s16 field_2A04;
+  s16 registeredroom;
   f32 field_2A08;
   f32 field_2A0C;
   s32 ptr_text_first_mp_award;

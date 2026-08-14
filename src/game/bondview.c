@@ -696,9 +696,9 @@ f32 D_80036AC4 = 0.1;
 
 // forward declarations
 
-void sub_GAME_7F07DE9C(struct player *player);
+void bondviewUpdatePlayerRoom(struct player *player);
 s32 chrTick(PropRecord *prop);
-void sub_GAME_7F07DE64(struct player *player);
+void bondviewDeregisterPlayerRoom(struct player *player);
 void bondviewUpdateWatchZoomIn(void);
 void bondviewSetPauseWatchRelated(f32 arg0);
 void bondviewSetPauseWatchRelatedAlt(f32 arg0);
@@ -724,7 +724,6 @@ void bondviewUpdatePlayerCollisionBounds(void);
 void bondviewGetTankCollisionBounds(struct rect4f *, coord3d *, f32);
 void bondviewIntroCameraTextTick(void);
 void bondviewUpperTextWindowTimerTick(void);
-void sub_GAME_7F07DEFC(void);
 void MoveBond(s8 arg0, s8 arg1, u16 arg2, u16 arg3);
 void bondviewProcessInput(s8 arg0, s8 arg1, u16 arg2, u16 arg3);
 void bondviewPlayerTickDamageAndHealth(void);
@@ -747,7 +746,7 @@ void bondviewApplyVertaTheta(void);
 f32 bheadGetBreathingValue(void);
 void bondviewMoveAnimationTick(f32 speed, f32 speedforwards, f32 speedsideways);
 void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot);
-f32 bondviewPauseAngleRelated(s32 arg0);
+f32 bondviewSetupPauseTransition(bool topause);
 void bondviewStartPauseTransition(f32 duration);
 void bondviewStartUnpauseTransition(f32 duration);
 bool bondViewIsPauseTransitioning(void);
@@ -1668,7 +1667,7 @@ void init_player_BONDdata(void)
     g_CurrentPlayer->buttons_pressed = (u16)0;
     g_CurrentPlayer->prev_buttons_pressed = (u16)0;
     g_CurrentPlayer->field_29C0 = 15.0f;
-    g_CurrentPlayer->field_2A04 = -1;
+    g_CurrentPlayer->registeredroom = -1;
     g_CurrentPlayer->field_2A08 = 0.0f;
     g_CurrentPlayer->field_2A0C = 0.0f;
     g_CurrentPlayer->field_2A6C = 0;
@@ -1857,7 +1856,7 @@ void solo_char_load(void)
         model      = NULL;
         bodyheader = NULL;
 
-        sub_GAME_7F07DE64(g_CurrentPlayer);
+        bondviewDeregisterPlayerRoom(g_CurrentPlayer);
 
         if (getPlayerCount() == 1)
         {
@@ -2112,7 +2111,7 @@ void bondviewRemovePlayerBody(void)
         g_CurrentPlayer->prop->chr = NULL;
         g_CurrentPlayer->bodyModel = 0;
         g_bondviewForceDisarm = 1;
-        sub_GAME_7F07DE9C(g_CurrentPlayer);
+        bondviewUpdatePlayerRoom(g_CurrentPlayer);
     }
 }
 
@@ -4189,7 +4188,7 @@ void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot)
         }
     }
 
-    sub_GAME_7F07DE9C(g_CurrentPlayer);
+    bondviewUpdatePlayerRoom(g_CurrentPlayer);
 
     if (g_CurrentPlayer->field_488.current_tile_ptr != NULL)
     {
@@ -4198,21 +4197,22 @@ void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot)
 }
 
 
-
-void sub_GAME_7F07DE64(struct player *player) {
-    chrpropDeregisterRoom(player->prop, player->field_2A04, player);
-    player->field_2A04 = -1;
+/**
+ * Address: 7F07DE64
+ */
+void bondviewDeregisterPlayerRoom(struct player *player) 
+{
+    chrpropDeregisterRoom(player->prop, player->registeredroom);
+    player->registeredroom = -1;
 }
 
-
- /* extern */
 
 /**
  * Address 0x7F07DE9C.
  */
-void sub_GAME_7F07DE9C(struct player *player)
+void bondviewUpdatePlayerRoom(struct player *player)
 {
-    sub_GAME_7F07DE64(player);
+    bondviewDeregisterPlayerRoom(player);
 
     if (player->prop->chr)
     {
@@ -4222,33 +4222,40 @@ void sub_GAME_7F07DE9C(struct player *player)
 
     if (player->field_488.current_tile_ptr)
     {
-        player->field_2A04 = (s16) player->field_488.current_tile_ptr->room;
+        player->registeredroom = (s16) player->field_488.current_tile_ptr->room;
 
-        chrpropRegisterRoom(player->prop, player->field_2A04);
+        chrpropRegisterRoom(player->prop, player->registeredroom);
     }
 }
 
 
-void sub_GAME_7F07DEFC(void)
+/**
+ * Address: 7F07DEFC
+ */
+void bondviewInitPauseTransition(void)
 {
     g_CurrentPlayer->pause_starting_angle = g_CurrentPlayer->vv_verta;
     g_CurrentPlayer->pause_transition_time = 0.0f;
     g_CurrentPlayer->pause_state = 0;
 }
 
+
 /**
- * Pause angle related.
+ * Set the pause tilt's start and end pitch. Also calculates how long the transition should take.
+ * The greater the angular distance between the player's camera pitch and the pause pitch of -40 degrees,
+ * the longer it takes to pause.
  *
- * @param arg0: When set, pause_target_verta will be -40.0f, otherwise g_CurrentPlayer->vv_verta.
+ * @param topause: When set, pause_target_verta will be -40.0f, otherwise g_CurrentPlayer->vv_verta.
+ * @return: How long the tilt should take.
  *
  * Address 0x7F07DF28.
  */
-f32 bondviewPauseAngleRelated(s32 arg0)
+f32 bondviewSetupPauseTransition(bool topause)
 {
-    f32 f;
-    f32 ret;
+    f32 anglediff;
+    f32 duration;
 
-    if (arg0)
+    if (topause)
     {
         g_CurrentPlayer->pause_saved_verta = g_CurrentPlayer->vv_verta;
         g_CurrentPlayer->pause_target_verta = -40.0f;
@@ -4259,28 +4266,32 @@ f32 bondviewPauseAngleRelated(s32 arg0)
         g_CurrentPlayer->pause_target_verta = g_CurrentPlayer->vv_verta;
     }
 
-    f = g_CurrentPlayer->pause_saved_verta - g_CurrentPlayer->pause_target_verta;
+    anglediff = g_CurrentPlayer->pause_saved_verta - g_CurrentPlayer->pause_target_verta;
 
-    if (f < 0.0f)
+    if (anglediff < 0.0f)
     {
-        f = -f;
+        anglediff = -anglediff;
     }
 
-    if (f >= 60.0f)
+    /**
+     * If the delta between pause_saved_verta and pause_target_verta is large,
+     * the time penalty per degree above 60 is cut in half.
+     */
+    if (anglediff >= 60.0f)
     {
-        ret = (((f - 60.0f) * 60.0f * 0.5f) / 60.0f) + 60.0f;
+        duration = (((anglediff - 60.0f) * 60.0f * 0.5f) / 60.0f) + 60.0f;
     }
-    else if (f <= 0.0f)
+    else if (anglediff <= 0.0f)
     {
-        ret = 0.0f;
+        duration = 0.0f;
     }
     else
     {
         // this is a different `60` than the other values above!
-        ret = (f * 60.f) / 60.f;
+        duration = (anglediff * 60.f) / 60.f;
     }
 
-    return ret;
+    return duration;
 }
 
 
@@ -4869,7 +4880,7 @@ void bondviewWatchAnimationTick(void)
 
                 if ((g_CurrentPlayer->pause_state == 0) || (g_CurrentPlayer->pause_state == 2) || (g_CurrentPlayer->pause_state == 3))
                 {
-                    sp20 = bondviewPauseAngleRelated(1);
+                    sp20 = bondviewSetupPauseTransition(TRUE);
 
                     if (sp20 < 30.0f)
                     {
@@ -4903,7 +4914,7 @@ void bondviewWatchAnimationTick(void)
 
                 if ((g_CurrentPlayer->pause_state == 0) || (g_CurrentPlayer->pause_state == 2) || (g_CurrentPlayer->pause_state == 3))
                 {
-                    sp2c = bondviewPauseAngleRelated(1);
+                    sp2c = bondviewSetupPauseTransition(TRUE);
                     sp20 = sp30 - 10.0f;
 
                     if (sp2c < sp20)
@@ -5018,7 +5029,7 @@ void bondviewWatchAnimationTick(void)
             if (g_CurrentPlayer->watch_pause_time == 1)
             {
                 sp28 = 40.0f;
-                sp24 = bondviewPauseAngleRelated(0);
+                sp24 = bondviewSetupPauseTransition(FALSE);
 
                 if ((g_CurrentPlayer->step_in_view_watch_animation != 0) && (g_CurrentPlayer->step_in_view_watch_animation != 3))
                 {
@@ -5120,7 +5131,7 @@ void bondviewWatchAnimationTick(void)
 
             if (g_CurrentPlayer->watch_pause_time == 1)
             {
-                bondviewStartUnpauseTransition(bondviewPauseAngleRelated(0));
+                bondviewStartUnpauseTransition(bondviewSetupPauseTransition(FALSE));
             }
 
             if (
@@ -5243,7 +5254,7 @@ void trigger_solo_watch_menu(s32 arg0)
             g_CurrentPlayer->watch_pause_time = 0;
             g_CurrentPlayer->timer_1C4 = 0;
 
-            sub_GAME_7F07DEFC();
+            bondviewInitPauseTransition();
             bondviewTriggerWatchZoomDefault();
 
             hudMakeDamageSegments(&g_CurrentPlayer->armor_display_values, 23*2, 1, currentPlayerGetArmor());
@@ -11869,7 +11880,7 @@ s32 playerTick(PropRecord *prop)
             g_playerPointers[index]->field_488.collision_position.y = g_playerPointers[index]->prop->pos.y;
             g_playerPointers[index]->field_488.collision_position.z = g_playerPointers[index]->prop->pos.z;
             g_playerPointers[index]->field_488.current_tile_ptr = g_playerPointers[index]->prop->stan;
-            sub_GAME_7F07DE9C(g_playerPointers[index]);
+            bondviewUpdatePlayerRoom(g_playerPointers[index]);
  
             if (prop->flags & PROPFLAG_ONSCREEN)
             {
