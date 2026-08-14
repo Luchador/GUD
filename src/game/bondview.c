@@ -760,7 +760,7 @@ void bondviewCalcIntroSwirlCamera(s32, f32, struct coord3d *, struct coord3d *);
 s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, coord3d *collision_pos, StandTile *tile, f32 camera_dist);
 Gfx* hudmsgBottomRender(Gfx* arg0);
 Gfx *sub_GAME_7F08AAE8(Gfx *gdl);
-Gfx *sub_GAME_7F088CD8(Gfx *gdl);
+Gfx *bondviewRenderCredits(Gfx *gdl);
 Gfx *bondviewRenderWatch(Gfx *gdl);
 Gfx *bondviewRenderGaugeBars(Gfx *gdl);
 
@@ -10250,7 +10250,10 @@ void mp_respawn_handler(void)
 }
 
 
-Gfx *sub_GAME_7F088CD8(Gfx *gdl)
+/**
+ * Address: 7F088CD8
+ */
+Gfx *bondviewRenderCredits(Gfx *gdl)
 {
     s32 frame;
     s32 start;
@@ -10335,8 +10338,7 @@ Gfx *sub_GAME_7F088CD8(Gfx *gdl)
                     xpos1 = credits_pointer[i].Position1;
                 }
 
-                if ((s16) credits_pointer[i].Alignment1
-                    >= CREDITS_ALIGN_RIGHT)
+                if ((s16) credits_pointer[i].Alignment1 >= CREDITS_ALIGN_RIGHT)
                 {
                     align1 = (s16) credits_pointer[i].Alignment1;
                 }
@@ -10346,13 +10348,7 @@ Gfx *sub_GAME_7F088CD8(Gfx *gdl)
                 textheight = 0;
                 textwidth = 0;
 
-                textMeasure(
-                    &textheight,
-                    &textwidth,
-                    text,
-                    ptrFontZurichBoldChars,
-                    ptrFontZurichBold,
-                    0);
+                textMeasure(&textheight, &textwidth, text, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
 
                 entrysize = y + textheight;
 
@@ -10372,23 +10368,9 @@ Gfx *sub_GAME_7F088CD8(Gfx *gdl)
                     x2 = xpos1 + textwidth;
                 }
 
-                gdl = microcode_constructor_related_to_menus(
-                    gdl,
-                    x,
-                    y - 1,
-                    x2 + 1,
-                    entrysize + 1,
-                    0);
+                gdl = microcode_constructor_related_to_menus(gdl, x, y - 1, x2 + 1, entrysize + 1, 0);
 
-                gdl = textRender(gdl, &x, &y,
-                    text,
-                    ptrFontZurichBoldChars,
-                    ptrFontZurichBold,
-                    -1,
-                    viGetX(),
-                    viGetY(),
-                    0,
-                    0);
+                gdl = textRender(gdl, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
             }
 
             if (credits_pointer[i].TextId2 != 0x5011)
@@ -10464,7 +10446,7 @@ Gfx *maybe_mp_interface(Gfx *gdl)
         gdl = sub_GAME_7F08AAE8(gdl);
         gdl = countdownTimerRender(gdl);
         gdl = currentPlayerDrawFade(gdl);
-        return sub_GAME_7F088CD8(gdl);
+        return bondviewRenderCredits(gdl);
     }
 
     gunUpdateAndFireBothHands();
