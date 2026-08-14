@@ -841,7 +841,8 @@ typedef union
          */
         typedef struct ModelRoData_HeaderRecord
         {
-            u32 ModelType;  /*0x0 Legnth of Record (4)*/
+            u16 AnimPart;    /* 0x00 */
+            s16 MatrixIndex; /* 0x02 */
             union {                                       
                 struct ModelRoData_GroupRecord *FirstGroup;  /* 0x04 */ /*0x4 First group in tree*/
                 ModelNode *FirstGroupNode;

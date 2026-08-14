@@ -2019,8 +2019,9 @@ void set_item_visibility_in_objinstance(Model* objinstance, s32 item, s32 mode)
 {
     if (objinstance->obj->Switches[item] != NULL)
     {
-        struct ModelRoData_HeaderRecord *node = modelGetNodeRwData(objinstance, objinstance->obj->Switches[item]);
-        node->ModelType = mode;
+        ModelRwData_SwitchRecord *rwdata = &modelGetNodeRwData(objinstance, objinstance->obj->Switches[item])->Switch;
+
+        rwdata->visible = mode;
     }
 }
 

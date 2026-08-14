@@ -121,11 +121,7 @@ struct bondstruct_unk_op07_related D_800360C4[32] = {
 };
 
 //D:80036244
-u32 D_80036244 = 0;
-//D:80036248
-u32 D_80036248 = 0;
-//D:8003624C
-u32 D_8003624C = 0;
+coord3d D_80036244 = { 0 };
 //D:80036250
 u32 g_ModelAnimMergingEnabled = 1;
 //D:80036254

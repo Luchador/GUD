@@ -30,7 +30,7 @@ struct Model *makeonebody(s32 body, s32 head, struct ModelFileHeader *bodyHeader
     f32 scale;
     f32 pov;
     s32 opcode;
-    struct ModelRoData_HeaderRecord *node;
+    ModelRwData_SwitchRecord *rwdata;
 
     scale = c_item_entries[body].scale * 0.10000001f;
     opcode = 0;
@@ -106,8 +106,8 @@ struct Model *makeonebody(s32 body, s32 head, struct ModelFileHeader *bodyHeader
             {
                 if (headHeader->Switches[0] != 0)
                 {
-                    node = modelGetNodeRwData(model, headHeader->Switches[0]);
-                    node->ModelType = 0;
+                    rwdata = &modelGetNodeRwData(model, headHeader->Switches[0])->Switch;
+                    rwdata->visible = 0;
                 }
             }
         }

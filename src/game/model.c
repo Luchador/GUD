@@ -291,7 +291,7 @@ s32 modelFindNodeMtxIndex(ModelNode *node, s32 arg1)
         {
             case MODELNODE_OPCODE_HEADER:
                 rodata1 = node->Data;
-                return (s16)rodata1->Header.ModelType;
+                return rodata1->Header.MatrixIndex;
 
             case MODELNODE_OPCODE_GROUP:
                 rodata2 = node->Data;
@@ -1146,7 +1146,7 @@ void process_01_group_heading(ModelRenderData* renderdata, Model* model, ModelNo
     scale = model->scale;
     pos = &rwdata->Header.pos.x;
     unk14 = rwdata->Header.unk14;
-    modeltype = (s16)rodata->Header.ModelType;
+    modeltype = rodata->Header.MatrixIndex;
     renderpos = &model->render_pos[modeltype];
 
     if (node->Parent != NULL)
@@ -2516,414 +2516,133 @@ void modelCopyAnimForMerge(Model *model, f32 timemerge)
 }
 
 
-#ifdef NONMATCHING
-void modelSetAnimation2(Model *model, void *anim, s32 arg2, f32 startframe, f32 half, f32 arg5)
+void modelSetAnimation2(Model *model, ModelAnimation *anim, s32 flip, f32 frame, f32 speed, f32 arg5)
 {
-    void           *sp80;
-    f32             sp70;
-    f32             sp6C;
-    f32             sp64;
-    f32             sp60;
-    f32             sp5C;
-    f32             sp58;
-    f32             sp54;
-    f32             sp50;
-    f32             sp4C;
-    f32             sp48;
-    f32             sp44;
-    f32             sp40;
-    f32             sp30;
-    s32             sp2C;
-    ModelNode      *temp_a1;
-    f32             temp_f0;
-    f32             temp_f0_2;
-    f32             temp_f0_3;
-    f32             temp_f10;
-    f32             temp_f12;
-    f32             temp_f12_2;
-    f32             temp_f14;
-    f32             temp_f14_2;
-    f32             temp_f2;
-    f32             temp_f2_2;
-    f32             temp_f2_3;
-    f32             temp_f2_4;
-    f32             temp_f4;
-    f32             temp_f6;
-    modeldata_root *temp_v0;
-    f32             phi_f14;
+    s32 hadNoAnim = !model->anim;
+    s32 padding;
+    s32 type;
 
-    sp2C = model->anim == 0;
-    if (model->unk54 != 0)
-    {
+    if (model->anim2 != NULL) {
         model->unk88 = arg5;
-        model->unk8C = 0.0f;
+        model->unk8c = 0.0f;
         model->unk84 = 1.0f;
-    }
-    else
-    {
+    } else {
         model->unk88 = 0.0f;
         model->unk84 = 0.0f;
     }
-    model->anim  = anim;
-    model->unk24 = arg2;
+
+    model->anim = anim;
+    model->gunhand = flip;
     model->endframe = -1.0f;
-    model->speed = half;
+    model->speed = speed;
     model->timespeed = 0.0f;
-    modelSetAnimFrame(startframe, model, startframe, anim);
-    model->unk26 = 0;
-    temp_a1      = model->obj->RootNode;
-    if ((temp_a1->Opcode & 0xFF) == 1)
-    {
-        sp80      = temp_a1->Data;
-        temp_v0   = modelGetNodeRwData(model, temp_a1);
-        sp5C.unk0 = D_80036244.unk0;
-        temp_f2   = model->scale * model->anim_translation_scale;
-        sp5C.unk4 = D_80036244.unk4;
-        sp5C.unk8 = D_80036244.unk8;
-        sp70      = temp_f2;
-        sp58      = sub_GAME_7F06D3F4(*sp80, model->unk24, model->obj->Skeleton, model->anim, model->unk32, &sp5C);
-        if (temp_f2 != 1.0f)
-        {
-            sp5C *= temp_f2;
-            sp60 *= temp_f2;
-            sp64 *= temp_f2;
+
+    modelSetAnimFrame(model, frame);
+
+    model->animlooping = 0;
+
+    type = model->obj->RootNode->Opcode & 0xff;
+
+    if (type == MODELNODE_OPCODE_HEADER) {
+        ModelRoData_HeaderRecord *rodata = &model->obj->RootNode->Data->Header;
+        ModelRwData_HeaderRecord *rwdata = modelGetNodeRwData(model, model->obj->RootNode);
+        f32 temp_f14;
+        f32 sinAngle;
+        f32 scale;
+        f32 cosAngle;
+        s32 animPart;
+        coord3d pos;
+        f32 angleDelta;
+        coord3d tmppos[2];
+        ModelSkeleton *skeleton;
+
+        animPart = rodata->AnimPart;
+        skeleton = model->obj->Skeleton;
+        scale = model->scale * model->anim_translation_scale;
+        pos = D_80036244;
+
+        angleDelta = sub_GAME_7F06D3F4(animPart, model->gunhand, skeleton, model->anim, model->frameb, &pos
+        );
+
+        if (scale != 1.0f) {
+            pos.f[0] *= scale;
+            pos.f[1] *= scale;
+            pos.f[2] *= scale;
         }
-        sp6C      = cosf(temp_v0->unk14);
-        temp_f0   = sinf(temp_v0->unk14);
-        temp_f2_2 = model->unk2C;
-        if (temp_f2_2 == 0.0f)
-        {
-            temp_f2_3                 = temp_v0->pos.x;
-            temp_v0->unk34.x          = temp_f2_3;
-            temp_v0->unk34.AsArray[2] = temp_v0->pos.AsArray[2];
-            temp_v0->unk34.AsArray[1] = temp_v0->pos.AsArray[1] - temp_v0->ground;
-            temp_v0->unk30            = temp_v0->unk14;
-            temp_f4                   = (sp64 * temp_f0) + (temp_f2_3 + (sp5C * sp6C));
-            sp4C                      = temp_f4;
-            sp50                      = sp60;
-            sp54                      = (sp64 * sp6C) + (temp_v0->unk34.AsArray[2] - (sp5C * temp_f0));
-            temp_v0->unk24.x          = temp_f4;
-            temp_v0->unk24.AsArray[1] = sp50;
-            temp_v0->unk24.AsArray[2] = sp54;
-            if (temp_v0->unk18 == 0.0f)
-            {
-                temp_f0_2      = temp_v0->unk30 + sp58;
-                temp_v0->unk20 = temp_f0_2;
-                if (temp_f0_2 >= M_TAU_F)
-                {
-                    temp_v0->unk20 -= M_TAU_F;
+
+        cosAngle = cosf(rwdata->unk14);
+        sinAngle = sinf(rwdata->unk14);
+        scale = model->unk2c;
+
+        if (model->unk2c == 0.0f) {
+            rwdata->unk34.x = rwdata->pos.f[0];
+            rwdata->unk34.y = rwdata->pos.f[1] - rwdata->ground;
+            rwdata->unk34.z = rwdata->pos.f[2];
+
+            rwdata->unk30 = rwdata->unk14;
+
+            tmppos[1].x = rwdata->unk34.f[0] + (pos.f[0] * cosAngle) + (pos.f[2] * sinAngle);
+            tmppos[1].y = pos.f[1];
+            tmppos[1].z = rwdata->unk34.f[2] - (pos.f[0] * sinAngle) + (pos.f[2] * cosAngle);
+
+            rwdata->unk24.x = tmppos[1].f[0];
+            rwdata->unk24.y = tmppos[1].f[1];
+            rwdata->unk24.z = tmppos[1].f[2];
+
+            if (rwdata->unk18 == 0.0f) {
+                rwdata->unk20 = rwdata->unk30 + angleDelta;
+
+                if (rwdata->unk20 >= M_TAU_F) {
+                    rwdata->unk20 -= M_TAU_F;
                 }
             }
-            temp_v0->unk1 = 1;
-        }
-        else
-        {
-            temp_f14                  = (sp64 * temp_f0) + (sp5C * sp6C);
-            temp_f10                  = (sp64 * sp6C) + (-sp5C * temp_f0);
-            sp30                      = temp_f10;
-            sp44                      = sp60;
-            temp_f6                   = temp_v0->pos.x + (temp_f14 * (1.0f - temp_f2_2));
-            sp40                      = temp_f6;
-            sp48                      = temp_v0->pos.AsArray[2] + (temp_f10 * (1.0f - model->unk2C));
-            temp_v0->unk24.x          = temp_f6;
-            temp_v0->unk24.AsArray[1] = sp44;
-            temp_v0->unk24.AsArray[2] = sp48;
-            temp_v0->unk34.x          = temp_v0->unk24.x - temp_f14;
-            temp_f12                  = temp_v0->pos.AsArray[1] - temp_v0->ground;
-            temp_f2_4                 = model->unk2C;
-            temp_f12_2                = temp_v0->unk14;
-            temp_v0->unk34.AsArray[1] = temp_f12 - (((sp60 - temp_f12) * temp_f2_4) / (1.0f - temp_f2_4));
-            temp_v0->unk34.AsArray[2] = temp_v0->unk24.AsArray[2] - sp30;
-            temp_f14_2                = temp_f12_2 - sp58;
-            phi_f14                   = temp_f14_2;
-            if (temp_f14_2 < 0.0f)
-            {
-                phi_f14 = temp_f14_2 + M_TAU_F;
+
+            rwdata->unk01 = 1;
+        } else {
+            f32 x;
+            f32 y;
+            f32 z;
+
+            x = pos.f[0] * cosAngle + pos.f[2] * sinAngle;
+            y = pos.f[1];
+            z = -pos.f[0] * sinAngle + pos.f[2] * cosAngle;
+
+            tmppos[0].x = rwdata->pos.f[0] + x * (1.0f - model->unk2c);
+            tmppos[0].y = y;
+            tmppos[0].z = rwdata->pos.f[2] + z * (1.0f - model->unk2c);
+
+            rwdata->unk24.x = tmppos[0].x;
+            rwdata->unk24.y = tmppos[0].y;
+            rwdata->unk24.z = tmppos[0].z;
+
+            rwdata->unk34.f[0] = rwdata->unk24.f[0] - x;
+            rwdata->unk34.f[1] = (rwdata->pos.f[1] - rwdata->ground) - (y - (rwdata->pos.f[1] - rwdata->ground)) * model->unk2c / (1.0f - model->unk2c);
+            rwdata->unk34.f[2] = rwdata->unk24.f[2] - z;
+
+            temp_f14 = rwdata->unk14 - angleDelta;
+
+            if (temp_f14 < 0.0f) {
+                temp_f14 += M_TAU_F;
             }
-            temp_v0->unk30 = sub_GAME_7F06D0CC(temp_f12_2, phi_f14, model->unk2C);
-            if (temp_v0->unk18 == 0.0f)
-            {
-                temp_f0_3      = temp_v0->unk30 + sp58;
-                temp_v0->unk20 = temp_f0_3;
-                if (temp_f0_3 >= M_TAU_F)
-                {
-                    temp_v0->unk20 -= M_TAU_F;
+
+            rwdata->unk30 = sub_GAME_7F06D0CC(rwdata->unk14, temp_f14, model->unk2c);
+
+            if (rwdata->unk18 == 0.0f) {
+                rwdata->unk20 = rwdata->unk30 + angleDelta;
+
+                if (rwdata->unk20 >= M_TAU_F) {
+                    rwdata->unk20 -= M_TAU_F;
                 }
             }
-            temp_v0->unk1 = 1;
+
+            rwdata->unk01 = 1;
         }
-        if (sp2C != 0)
-        {
-            temp_v0->unk34.AsArray[1] = temp_v0->unk24.AsArray[1];
+
+        if (hadNoAnim) {
+            rwdata->unk34.y = rwdata->unk24.y;
         }
     }
 }
-#else
-GLOBAL_ASM(
-.late_rodata
-glabel D_80054D40
-.word 0x40c90fdb /*6.2831855*/
-glabel D_80054D44
-.word 0x40c90fdb /*6.2831855*/
-glabel D_80054D48
-.word 0x40c90fdb /*6.2831855*/
-.text
-glabel modelSetAnimation2
-/* 0A43A8 7F06F878 27BDFF70 */  addiu $sp, $sp, -0x90
-/* 0A43AC 7F06F87C AFBF0024 */  sw    $ra, 0x24($sp)
-/* 0A43B0 7F06F880 AFB10020 */  sw    $s1, 0x20($sp)
-/* 0A43B4 7F06F884 AFB0001C */  sw    $s0, 0x1c($sp)
-/* 0A43B8 7F06F888 AFA50094 */  sw    $a1, 0x94($sp)
-/* 0A43BC 7F06F88C 8C8E0020 */  lw    $t6, 0x20($a0)
-/* 0A43C0 7F06F890 44876000 */  mtc1  $a3, $f12
-/* 0A43C4 7F06F894 00A03825 */  move  $a3, $a1
-/* 0A43C8 7F06F898 2DCF0001 */  sltiu $t7, $t6, 1
-/* 0A43CC 7F06F89C AFAF002C */  sw    $t7, 0x2c($sp)
-/* 0A43D0 7F06F8A0 8C980054 */  lw    $t8, 0x54($a0)
-/* 0A43D4 7F06F8A4 44056000 */  mfc1  $a1, $f12
-/* 0A43D8 7F06F8A8 00808825 */  move  $s1, $a0
-/* 0A43DC 7F06F8AC 13000008 */  beqz  $t8, .L7F06F8D0
-/* 0A43E0 7F06F8B0 C7A400A4 */   lwc1  $f4, 0xa4($sp)
-/* 0A43E4 7F06F8B4 3C013F80 */  li    $at, 0x3F800000 # 1.000000
-/* 0A43E8 7F06F8B8 44803000 */  mtc1  $zero, $f6
-/* 0A43EC 7F06F8BC 44814000 */  mtc1  $at, $f8
-/* 0A43F0 7F06F8C0 E4840088 */  swc1  $f4, 0x88($a0)
-/* 0A43F4 7F06F8C4 E486008C */  swc1  $f6, 0x8c($a0)
-/* 0A43F8 7F06F8C8 10000005 */  b     .L7F06F8E0
-/* 0A43FC 7F06F8CC E4880084 */   swc1  $f8, 0x84($a0)
-.L7F06F8D0:
-/* 0A4400 7F06F8D0 44805000 */  mtc1  $zero, $f10
-/* 0A4404 7F06F8D4 44802000 */  mtc1  $zero, $f4
-/* 0A4408 7F06F8D8 E62A0088 */  swc1  $f10, 0x88($s1)
-/* 0A440C 7F06F8DC E6240084 */  swc1  $f4, 0x84($s1)
-.L7F06F8E0:
-/* 0A4410 7F06F8E0 3C01BF80 */  li    $at, 0xBF800000 # -1.000000
-/* 0A4414 7F06F8E4 44813000 */  mtc1  $at, $f6
-/* 0A4418 7F06F8E8 AE270020 */  sw    $a3, 0x20($s1)
-/* 0A441C 7F06F8EC A2260024 */  sb    $a2, 0x24($s1)
-/* 0A4420 7F06F8F0 E626003C */  swc1  $f6, 0x3c($s1)
-/* 0A4424 7F06F8F4 C7A800A0 */  lwc1  $f8, 0xa0($sp)
-/* 0A4428 7F06F8F8 44805000 */  mtc1  $zero, $f10
-/* 0A442C 7F06F8FC 02202025 */  move  $a0, $s1
-/* 0A4430 7F06F900 E6280040 */  swc1  $f8, 0x40($s1)
-/* 0A4434 7F06F904 0FC1BFD9 */  jal   modelSetAnimFrame
-/* 0A4438 7F06F908 E62A004C */   swc1  $f10, 0x4c($s1)
-/* 0A443C 7F06F90C 8E390008 */  lw    $t9, 8($s1)
-/* 0A4440 7F06F910 A2200026 */  sb    $zero, 0x26($s1)
-/* 0A4444 7F06F914 24010001 */  li    $at, 1
-/* 0A4448 7F06F918 8F250000 */  lw    $a1, ($t9)
-/* 0A444C 7F06F91C 94A20000 */  lhu   $v0, ($a1)
-/* 0A4450 7F06F920 304800FF */  andi  $t0, $v0, 0xff
-/* 0A4454 7F06F924 550100C5 */  bnel  $t0, $at, .L7F06FC3C
-/* 0A4458 7F06F928 8FBF0024 */   lw    $ra, 0x24($sp)
-/* 0A445C 7F06F92C 8CA90004 */  lw    $t1, 4($a1)
-/* 0A4460 7F06F930 02202025 */  move  $a0, $s1
-/* 0A4464 7F06F934 0FC1B1E7 */  jal   modelGetNodeRwData
-/* 0A4468 7F06F938 AFA90080 */   sw    $t1, 0x80($sp)
-/* 0A446C 7F06F93C 3C0C8003 */  lui   $t4, %hi(D_80036244)
-/* 0A4470 7F06F940 8FAA0080 */  lw    $t2, 0x80($sp)
-/* 0A4474 7F06F944 8E2B0008 */  lw    $t3, 8($s1)
-/* 0A4478 7F06F948 258C6244 */  addiu $t4, %lo(D_80036244) # addiu $t4, $t4, 0x6244
-/* 0A447C 7F06F94C 8D810000 */  lw    $at, ($t4)
-/* 0A4480 7F06F950 C6240014 */  lwc1  $f4, 0x14($s1)
-/* 0A4484 7F06F954 C62600B8 */  lwc1  $f6, 0xb8($s1)
-/* 0A4488 7F06F958 27A3005C */  addiu $v1, $sp, 0x5c
-/* 0A448C 7F06F95C 95440000 */  lhu   $a0, ($t2)
-/* 0A4490 7F06F960 8D660004 */  lw    $a2, 4($t3)
-/* 0A4494 7F06F964 AC610000 */  sw    $at, ($v1)
-/* 0A4498 7F06F968 8D8F0004 */  lw    $t7, 4($t4)
-/* 0A449C 7F06F96C 46062082 */  mul.s $f2, $f4, $f6
-/* 0A44A0 7F06F970 00408025 */  move  $s0, $v0
-/* 0A44A4 7F06F974 AC6F0004 */  sw    $t7, 4($v1)
-/* 0A44A8 7F06F978 8D810008 */  lw    $at, 8($t4)
-/* 0A44AC 7F06F97C AC610008 */  sw    $at, 8($v1)
-/* 0A44B0 7F06F980 86380032 */  lh    $t8, 0x32($s1)
-/* 0A44B4 7F06F984 8E270020 */  lw    $a3, 0x20($s1)
-/* 0A44B8 7F06F988 82250024 */  lb    $a1, 0x24($s1)
-/* 0A44BC 7F06F98C E7A20070 */  swc1  $f2, 0x70($sp)
-/* 0A44C0 7F06F990 AFA30014 */  sw    $v1, 0x14($sp)
-/* 0A44C4 7F06F994 0FC1B4FD */  jal   sub_GAME_7F06D3F4
-/* 0A44C8 7F06F998 AFB80010 */   sw    $t8, 0x10($sp)
-/* 0A44CC 7F06F99C 3C013F80 */  li    $at, 0x3F800000 # 1.000000
-/* 0A44D0 7F06F9A0 C7A20070 */  lwc1  $f2, 0x70($sp)
-/* 0A44D4 7F06F9A4 44814000 */  mtc1  $at, $f8
-/* 0A44D8 7F06F9A8 E7A00058 */  swc1  $f0, 0x58($sp)
-/* 0A44DC 7F06F9AC C7AA005C */  lwc1  $f10, 0x5c($sp)
-/* 0A44E0 7F06F9B0 46081032 */  c.eq.s $f2, $f8
-/* 0A44E4 7F06F9B4 00000000 */  nop
-/* 0A44E8 7F06F9B8 45010009 */  bc1t  .L7F06F9E0
-/* 0A44EC 7F06F9BC 00000000 */   nop
-/* 0A44F0 7F06F9C0 46025102 */  mul.s $f4, $f10, $f2
-/* 0A44F4 7F06F9C4 C7A60060 */  lwc1  $f6, 0x60($sp)
-/* 0A44F8 7F06F9C8 C7AA0064 */  lwc1  $f10, 0x64($sp)
-/* 0A44FC 7F06F9CC 46023202 */  mul.s $f8, $f6, $f2
-/* 0A4500 7F06F9D0 E7A4005C */  swc1  $f4, 0x5c($sp)
-/* 0A4504 7F06F9D4 46025102 */  mul.s $f4, $f10, $f2
-/* 0A4508 7F06F9D8 E7A80060 */  swc1  $f8, 0x60($sp)
-/* 0A450C 7F06F9DC E7A40064 */  swc1  $f4, 0x64($sp)
-.L7F06F9E0:
-/* 0A4510 7F06F9E0 0FC15FA8 */  jal   cosf
-/* 0A4514 7F06F9E4 C60C0014 */   lwc1  $f12, 0x14($s0)
-/* 0A4518 7F06F9E8 C60C0014 */  lwc1  $f12, 0x14($s0)
-/* 0A451C 7F06F9EC 0FC15FAB */  jal   sinf
-/* 0A4520 7F06F9F0 E7A0006C */   swc1  $f0, 0x6c($sp)
-/* 0A4524 7F06F9F4 C622002C */  lwc1  $f2, 0x2c($s1)
-/* 0A4528 7F06F9F8 44803000 */  mtc1  $zero, $f6
-/* 0A452C 7F06F9FC C7B2006C */  lwc1  $f18, 0x6c($sp)
-/* 0A4530 7F06FA00 24190001 */  li    $t9, 1
-/* 0A4534 7F06FA04 46023032 */  c.eq.s $f6, $f2
-/* 0A4538 7F06FA08 C7A60064 */  lwc1  $f6, 0x64($sp)
-/* 0A453C 7F06FA0C C7AA005C */  lwc1  $f10, 0x5c($sp)
-/* 0A4540 7F06FA10 45000032 */  bc1f  .L7F06FADC
-/* 0A4544 7F06FA14 00000000 */   nop
-/* 0A4548 7F06FA18 C608000C */  lwc1  $f8, 0xc($s0)
-/* 0A454C 7F06FA1C C60A0004 */  lwc1  $f10, 4($s0)
-/* 0A4550 7F06FA20 C6020008 */  lwc1  $f2, 8($s0)
-/* 0A4554 7F06FA24 C6060010 */  lwc1  $f6, 0x10($s0)
-/* 0A4558 7F06FA28 460A4101 */  sub.s $f4, $f8, $f10
-/* 0A455C 7F06FA2C C6080014 */  lwc1  $f8, 0x14($s0)
-/* 0A4560 7F06FA30 E6020034 */  swc1  $f2, 0x34($s0)
-/* 0A4564 7F06FA34 E606003C */  swc1  $f6, 0x3c($s0)
-/* 0A4568 7F06FA38 E6040038 */  swc1  $f4, 0x38($s0)
-/* 0A456C 7F06FA3C E6080030 */  swc1  $f8, 0x30($s0)
-/* 0A4570 7F06FA40 C7AA0064 */  lwc1  $f10, 0x64($sp)
-/* 0A4574 7F06FA44 C7A6005C */  lwc1  $f6, 0x5c($sp)
-/* 0A4578 7F06FA48 46005102 */  mul.s $f4, $f10, $f0
-/* 0A457C 7F06FA4C 00000000 */  nop
-/* 0A4580 7F06FA50 46123202 */  mul.s $f8, $f6, $f18
-/* 0A4584 7F06FA54 46081200 */  add.s $f8, $f2, $f8
-/* 0A4588 7F06FA58 46003182 */  mul.s $f6, $f6, $f0
-/* 0A458C 7F06FA5C 46082100 */  add.s $f4, $f4, $f8
-/* 0A4590 7F06FA60 C7A80060 */  lwc1  $f8, 0x60($sp)
-/* 0A4594 7F06FA64 E7A4004C */  swc1  $f4, 0x4c($sp)
-/* 0A4598 7F06FA68 E7A80050 */  swc1  $f8, 0x50($sp)
-/* 0A459C 7F06FA6C C608003C */  lwc1  $f8, 0x3c($s0)
-/* 0A45A0 7F06FA70 46064201 */  sub.s $f8, $f8, $f6
-/* 0A45A4 7F06FA74 46125182 */  mul.s $f6, $f10, $f18
-/* 0A45A8 7F06FA78 46083280 */  add.s $f10, $f6, $f8
-/* 0A45AC 7F06FA7C E7AA0054 */  swc1  $f10, 0x54($sp)
-/* 0A45B0 7F06FA80 E6040024 */  swc1  $f4, 0x24($s0)
-/* 0A45B4 7F06FA84 C6040018 */  lwc1  $f4, 0x18($s0)
-/* 0A45B8 7F06FA88 44805000 */  mtc1  $zero, $f10
-/* 0A45BC 7F06FA8C C7A60050 */  lwc1  $f6, 0x50($sp)
-/* 0A45C0 7F06FA90 46045032 */  c.eq.s $f10, $f4
-/* 0A45C4 7F06FA94 E6060028 */  swc1  $f6, 0x28($s0)
-/* 0A45C8 7F06FA98 C7A80054 */  lwc1  $f8, 0x54($sp)
-/* 0A45CC 7F06FA9C 4500000D */  bc1f  .L7F06FAD4
-/* 0A45D0 7F06FAA0 E608002C */   swc1  $f8, 0x2c($s0)
-/* 0A45D4 7F06FAA4 C6060030 */  lwc1  $f6, 0x30($s0)
-/* 0A45D8 7F06FAA8 C7A80058 */  lwc1  $f8, 0x58($sp)
-/* 0A45DC 7F06FAAC 3C018005 */  lui    $at, %hi(D_80054D40)
-/* 0A45E0 7F06FAB0 C4224D40 */  lwc1  $f2, %lo(D_80054D40)($at)
-/* 0A45E4 7F06FAB4 46083000 */  add.s $f0, $f6, $f8
-/* 0A45E8 7F06FAB8 4600103E */  c.le.s $f2, $f0
-/* 0A45EC 7F06FABC E6000020 */  swc1  $f0, 0x20($s0)
-/* 0A45F0 7F06FAC0 45000004 */  bc1f  .L7F06FAD4
-/* 0A45F4 7F06FAC4 00000000 */   nop
-/* 0A45F8 7F06FAC8 C60A0020 */  lwc1  $f10, 0x20($s0)
-/* 0A45FC 7F06FACC 46025101 */  sub.s $f4, $f10, $f2
-/* 0A4600 7F06FAD0 E6040020 */  swc1  $f4, 0x20($s0)
-.L7F06FAD4:
-/* 0A4604 7F06FAD4 10000053 */  b     .L7F06FC24
-/* 0A4608 7F06FAD8 A2190001 */   sb    $t9, 1($s0)
-.L7F06FADC:
-/* 0A460C 7F06FADC 46003202 */  mul.s $f8, $f6, $f0
-/* 0A4610 7F06FAE0 3C013F80 */  li    $at, 0x3F800000 # 1.000000
-/* 0A4614 7F06FAE4 C7B00060 */  lwc1  $f16, 0x60($sp)
-/* 0A4618 7F06FAE8 46125102 */  mul.s $f4, $f10, $f18
-/* 0A461C 7F06FAEC 46044380 */  add.s $f14, $f8, $f4
-/* 0A4620 7F06FAF0 46123202 */  mul.s $f8, $f6, $f18
-/* 0A4624 7F06FAF4 46005107 */  neg.s $f4, $f10
-/* 0A4628 7F06FAF8 46002182 */  mul.s $f6, $f4, $f0
-/* 0A462C 7F06FAFC 46064280 */  add.s $f10, $f8, $f6
-/* 0A4630 7F06FB00 44814000 */  mtc1  $at, $f8
-/* 0A4634 7F06FB04 00000000 */  nop
-/* 0A4638 7F06FB08 46024181 */  sub.s $f6, $f8, $f2
-/* 0A463C 7F06FB0C E7AA0030 */  swc1  $f10, 0x30($sp)
-/* 0A4640 7F06FB10 C6040008 */  lwc1  $f4, 8($s0)
-/* 0A4644 7F06FB14 E7B00044 */  swc1  $f16, 0x44($sp)
-/* 0A4648 7F06FB18 46067202 */  mul.s $f8, $f14, $f6
-/* 0A464C 7F06FB1C 46082180 */  add.s $f6, $f4, $f8
-/* 0A4650 7F06FB20 44812000 */  mtc1  $at, $f4
-/* 0A4654 7F06FB24 E7A60040 */  swc1  $f6, 0x40($sp)
-/* 0A4658 7F06FB28 C628002C */  lwc1  $f8, 0x2c($s1)
-/* 0A465C 7F06FB2C 46082181 */  sub.s $f6, $f4, $f8
-/* 0A4660 7F06FB30 C6080010 */  lwc1  $f8, 0x10($s0)
-/* 0A4664 7F06FB34 46065102 */  mul.s $f4, $f10, $f6
-/* 0A4668 7F06FB38 C7A60040 */  lwc1  $f6, 0x40($sp)
-/* 0A466C 7F06FB3C 46044280 */  add.s $f10, $f8, $f4
-/* 0A4670 7F06FB40 E7AA0048 */  swc1  $f10, 0x48($sp)
-/* 0A4674 7F06FB44 E6060024 */  swc1  $f6, 0x24($s0)
-/* 0A4678 7F06FB48 C7A80044 */  lwc1  $f8, 0x44($sp)
-/* 0A467C 7F06FB4C C60A0024 */  lwc1  $f10, 0x24($s0)
-/* 0A4680 7F06FB50 E6080028 */  swc1  $f8, 0x28($s0)
-/* 0A4684 7F06FB54 C7A40048 */  lwc1  $f4, 0x48($sp)
-/* 0A4688 7F06FB58 C608000C */  lwc1  $f8, 0xc($s0)
-/* 0A468C 7F06FB5C 460E5181 */  sub.s $f6, $f10, $f14
-/* 0A4690 7F06FB60 E604002C */  swc1  $f4, 0x2c($s0)
-/* 0A4694 7F06FB64 C6040004 */  lwc1  $f4, 4($s0)
-/* 0A4698 7F06FB68 E6060034 */  swc1  $f6, 0x34($s0)
-/* 0A469C 7F06FB6C 46044301 */  sub.s $f12, $f8, $f4
-/* 0A46A0 7F06FB70 C622002C */  lwc1  $f2, 0x2c($s1)
-/* 0A46A4 7F06FB74 44814000 */  mtc1  $at, $f8
-/* 0A46A8 7F06FB78 3C018005 */  lui   $at, %hi(D_80054D44)
-/* 0A46AC 7F06FB7C 460C8281 */  sub.s $f10, $f16, $f12
-/* 0A46B0 7F06FB80 46024101 */  sub.s $f4, $f8, $f2
-/* 0A46B4 7F06FB84 46025182 */  mul.s $f6, $f10, $f2
-/* 0A46B8 7F06FB88 46043283 */  div.s $f10, $f6, $f4
-/* 0A46BC 7F06FB8C C606002C */  lwc1  $f6, 0x2c($s0)
-/* 0A46C0 7F06FB90 460A6201 */  sub.s $f8, $f12, $f10
-/* 0A46C4 7F06FB94 C60C0014 */  lwc1  $f12, 0x14($s0)
-/* 0A46C8 7F06FB98 E6080038 */  swc1  $f8, 0x38($s0)
-/* 0A46CC 7F06FB9C C7A40030 */  lwc1  $f4, 0x30($sp)
-/* 0A46D0 7F06FBA0 46043281 */  sub.s $f10, $f6, $f4
-/* 0A46D4 7F06FBA4 44803000 */  mtc1  $zero, $f6
-/* 0A46D8 7F06FBA8 E60A003C */  swc1  $f10, 0x3c($s0)
-/* 0A46DC 7F06FBAC C7A80058 */  lwc1  $f8, 0x58($sp)
-/* 0A46E0 7F06FBB0 46086381 */  sub.s $f14, $f12, $f8
-/* 0A46E4 7F06FBB4 4606703C */  c.lt.s $f14, $f6
-/* 0A46E8 7F06FBB8 00000000 */  nop
-/* 0A46EC 7F06FBBC 45000003 */  bc1f  .L7F06FBCC
-/* 0A46F0 7F06FBC0 00000000 */   nop
-/* 0A46F4 7F06FBC4 C4244D44 */  lwc1  $f4, %lo(D_80054D44)($at)
-/* 0A46F8 7F06FBC8 46047380 */  add.s $f14, $f14, $f4
-.L7F06FBCC:
-/* 0A46FC 7F06FBCC 0FC1B433 */  jal   sub_GAME_7F06D0CC
-/* 0A4700 7F06FBD0 8E26002C */   lw    $a2, 0x2c($s1)
-/* 0A4704 7F06FBD4 44805000 */  mtc1  $zero, $f10
-/* 0A4708 7F06FBD8 C6080018 */  lwc1  $f8, 0x18($s0)
-/* 0A470C 7F06FBDC 3C018005 */  lui   $at, %hi(D_80054D48)
-/* 0A4710 7F06FBE0 C4224D48 */  lwc1  $f2, %lo(D_80054D48)($at)
-/* 0A4714 7F06FBE4 46085032 */  c.eq.s $f10, $f8
-/* 0A4718 7F06FBE8 E6000030 */  swc1  $f0, 0x30($s0)
-/* 0A471C 7F06FBEC C7A40058 */  lwc1  $f4, 0x58($sp)
-/* 0A4720 7F06FBF0 24080001 */  li    $t0, 1
-/* 0A4724 7F06FBF4 4502000B */  bc1fl .L7F06FC24
-/* 0A4728 7F06FBF8 A2080001 */   sb    $t0, 1($s0)
-/* 0A472C 7F06FBFC C6060030 */  lwc1  $f6, 0x30($s0)
-/* 0A4730 7F06FC00 46043000 */  add.s $f0, $f6, $f4
-/* 0A4734 7F06FC04 4600103E */  c.le.s $f2, $f0
-/* 0A4738 7F06FC08 E6000020 */  swc1  $f0, 0x20($s0)
-/* 0A473C 7F06FC0C 45020005 */  bc1fl .L7F06FC24
-/* 0A4740 7F06FC10 A2080001 */   sb    $t0, 1($s0)
-/* 0A4744 7F06FC14 C60A0020 */  lwc1  $f10, 0x20($s0)
-/* 0A4748 7F06FC18 46025201 */  sub.s $f8, $f10, $f2
-/* 0A474C 7F06FC1C E6080020 */  swc1  $f8, 0x20($s0)
-/* 0A4750 7F06FC20 A2080001 */  sb    $t0, 1($s0)
-.L7F06FC24:
-/* 0A4754 7F06FC24 8FA9002C */  lw    $t1, 0x2c($sp)
-/* 0A4758 7F06FC28 51200004 */  beql  $t1, $zero, .L7F06FC3C
-/* 0A475C 7F06FC2C 8FBF0024 */   lw    $ra, 0x24($sp)
-/* 0A4760 7F06FC30 C6060028 */  lwc1  $f6, 0x28($s0)
-/* 0A4764 7F06FC34 E6060038 */  swc1  $f6, 0x38($s0)
-/* 0A4768 7F06FC38 8FBF0024 */  lw    $ra, 0x24($sp)
-.L7F06FC3C:
-/* 0A476C 7F06FC3C 8FB0001C */  lw    $s0, 0x1c($sp)
-/* 0A4770 7F06FC40 8FB10020 */  lw    $s1, 0x20($sp)
-/* 0A4774 7F06FC44 03E00008 */  jr    $ra
-/* 0A4778 7F06FC48 27BD0090 */   addiu $sp, $sp, 0x90
-)
-#endif
 
 
 void modelSetAnimationWithMerge(Model *model, ModelAnimation *modelAnimation, s32 flip, f32 startframe, f32 speed, f32 timemerge, s32 domerge) {
