@@ -932,7 +932,7 @@ void load_bg_file(LEVEL_INDEX levelid)
  
         for (i = 1; i < g_MaxNumRooms; i++)
         {
-            sub_GAME_7F0B9338(i);
+            bgRoomCalcBB(i);
         }
  
         for (i = 0; g_BgPortals[i].offset_portal != (NULL); i++)
@@ -4698,10 +4698,10 @@ void bgGetRoomCenter(s32 roomnum, coord3d *dst)
 /**
  * Address: 7F0B9338
  */
-void sub_GAME_7F0B9338(s32 room)
+void bgRoomCalcBB(s32 room) // canonical name
 {
     bg_room_data *roomdata;
-    Vtx *vertices = (Vtx *) &dword_CODE_bss_8007B358[0];
+    Vtx *vertices = (Vtx *) &g_StanRoomBounds[0];
     s32 j = 0;
     StanRoomBounds limits;
     u8 wasloaded;
@@ -4714,11 +4714,11 @@ void sub_GAME_7F0B9338(s32 room)
         {
             for (j = 0; j < 3; j++)
             {
-                g_BgRoomInfo[room].minbounds.f[j] = dword_CODE_bss_8007B358[room].min[j];
+                g_BgRoomInfo[room].minbounds.f[j] = g_StanRoomBounds[room].min[j];
 
-                g_BgRoomInfo[room].maxbounds.f[j] = dword_CODE_bss_8007B358[room].max[j];
+                g_BgRoomInfo[room].maxbounds.f[j] = g_StanRoomBounds[room].max[j];
 
-                ptr_bgdata_room_fileposition_list[room].pos.f[j] = (dword_CODE_bss_8007B358[room].min[j] + dword_CODE_bss_8007B358[room].max[j]) / 2;
+                ptr_bgdata_room_fileposition_list[room].pos.f[j] = (g_StanRoomBounds[room].min[j] + g_StanRoomBounds[room].max[j]) / 2;
             }
         }
 #ifdef DEBUG

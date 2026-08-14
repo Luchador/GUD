@@ -26,7 +26,7 @@ StandTile *firststaninroom[139];
 //CODE.bss:8007B354
 s32 dword_CODE_bss_8007B354;
 //CODE.bss:8007B358 //stan list array
-StanRoomBounds dword_CODE_bss_8007B358[139]; // TODO: rename to g_StanRoomBounds after sub_GAME_7F0B9338 is decompiled
+StanRoomBounds g_StanRoomBounds[139];
 //CODE.bss:8007B9DC
 s32 dword_CODE_bss_8007B9DC; //region?
 //CODE.bss:8007B9E0
@@ -271,22 +271,22 @@ void stanBuildRoomData(void)
 
             firststaninroom[lastRoom] = tile;
 
-            dword_CODE_bss_8007B358[lastRoom].min[0] = dword_CODE_bss_8007B358[lastRoom].min[1] = dword_CODE_bss_8007B358[lastRoom].min[2] = 0x7fff;
-            dword_CODE_bss_8007B358[lastRoom].max[0] = dword_CODE_bss_8007B358[lastRoom].max[1] = dword_CODE_bss_8007B358[lastRoom].max[2] = -0x8000;
+            g_StanRoomBounds[lastRoom].min[0] = g_StanRoomBounds[lastRoom].min[1] = g_StanRoomBounds[lastRoom].min[2] = 0x7fff;
+            g_StanRoomBounds[lastRoom].max[0] = g_StanRoomBounds[lastRoom].max[1] = g_StanRoomBounds[lastRoom].max[2] = -0x8000;
         }
 
         for (i = 0; i < (tile->tail.hdrTail.pointCount & 0xf); i++)
         {
             for (j = 0; j < 3; j++)
             {
-                if (tile->points[i].AsArray[j] < dword_CODE_bss_8007B358[lastRoom].min[j])
+                if (tile->points[i].AsArray[j] < g_StanRoomBounds[lastRoom].min[j])
                 {
-                    dword_CODE_bss_8007B358[lastRoom].min[j] = tile->points[i].AsArray[j];
+                    g_StanRoomBounds[lastRoom].min[j] = tile->points[i].AsArray[j];
                 }
 
-                if (tile->points[i].AsArray[j] > dword_CODE_bss_8007B358[lastRoom].max[j])
+                if (tile->points[i].AsArray[j] > g_StanRoomBounds[lastRoom].max[j])
                 {
-                    dword_CODE_bss_8007B358[lastRoom].max[j] = tile->points[i].AsArray[j];
+                    g_StanRoomBounds[lastRoom].max[j] = tile->points[i].AsArray[j];
                 }
             }
         }
@@ -358,27 +358,27 @@ StandTile *stanFindTileBelowPos(coord3d *pos, u8 *rooms, f32 *yRtn)
             
             if (firstTile != NULL)
             {
-                if (scaledShort[0] < (&((StanRoomBounds *) dword_CODE_bss_8007B358)[room])->minX)
+                if (scaledShort[0] < (&((StanRoomBounds *) g_StanRoomBounds)[room])->minX)
                 {
                     goto next_room;
                 }
 
-                if ((&((StanRoomBounds *) dword_CODE_bss_8007B358)[room])->maxX < scaledShort[0])
+                if ((&((StanRoomBounds *) g_StanRoomBounds)[room])->maxX < scaledShort[0])
                 {
                     goto next_room;
                 }
 
-                if (scaledShort[2] < (&((StanRoomBounds *) dword_CODE_bss_8007B358)[room])->minZ)
+                if (scaledShort[2] < (&((StanRoomBounds *) g_StanRoomBounds)[room])->minZ)
                 {
                     goto next_room;
                 }
 
-                if ((&((StanRoomBounds *) dword_CODE_bss_8007B358)[room])->maxZ < scaledShort[2])
+                if ((&((StanRoomBounds *) g_StanRoomBounds)[room])->maxZ < scaledShort[2])
                 {
                     goto next_room;
                 }
 
-                if (scaledShort[1] < (&((StanRoomBounds *) dword_CODE_bss_8007B358)[room])->minY)
+                if (scaledShort[1] < (&((StanRoomBounds *) g_StanRoomBounds)[room])->minY)
                 {
                     goto next_room;
                 }

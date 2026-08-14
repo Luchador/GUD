@@ -57,7 +57,7 @@ extern PropRecord *stanSavedColl_posData;
 extern struct StandTile *standTileStart;
 extern s32 stanlinelog_flag;
 extern StandTile *firststaninroom[139];
-extern StanRoomBounds dword_CODE_bss_8007B358[139];
+extern StanRoomBounds g_StanRoomBounds[139];
 extern s32 dword_CODE_bss_8007B9DC;
 
 /////////////////
