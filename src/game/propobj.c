@@ -1647,7 +1647,7 @@ s32 handles_projectile_motion(struct ObjectRecord *arg0, coord3d *arg1, coord3d 
     }
 
     roomCount = 0;
-    sub_GAME_7F0B4AB4(&obj->runtime_pos, &endpos, obj->projectile->unkCC, roomSet, roomNums, &roomCount, 20);
+    bgFindRoomsAlongSegment(&obj->runtime_pos, &endpos, obj->projectile->unkCC, roomSet, roomNums, &roomCount, 20);
 
     if (roomCount > 20)
     {
@@ -1753,14 +1753,14 @@ after_bg_loop:
 
             if (arg5 == 0)
             {
-                sub_GAME_7F0B4AB4(&arg0->runtime_pos, hitpos, obj->projectile->unkCC, roomSet, roomNums, &roomCount, 20);
+                bgFindRoomsAlongSegment(&arg0->runtime_pos, hitpos, obj->projectile->unkCC, roomSet, roomNums, &roomCount, 20);
             }
         }
         else if ((result == 1) || (arg5 == 0))
         {
             if (result != 1)
             {
-                sub_GAME_7F0B4AB4(&arg0->runtime_pos, &endpos, obj->projectile->unkCC, roomSet, roomNums, &roomCount, 20);
+                bgFindRoomsAlongSegment(&arg0->runtime_pos, &endpos, obj->projectile->unkCC, roomSet, roomNums, &roomCount, 20);
             }
 
             obj->runtime_pos.x = endpos.x;
@@ -1777,7 +1777,7 @@ after_bg_loop:
             endpos.x = obj->runtime_pos.x;
             endpos.z = arg0->runtime_pos.z;
 
-            sub_GAME_7F0B4AB4(&arg0->runtime_pos, &endpos, obj->projectile->unkCC, roomSet, roomNums, &roomCount, 20);
+            bgFindRoomsAlongSegment(&arg0->runtime_pos, &endpos, obj->projectile->unkCC, roomSet, roomNums, &roomCount, 20);
 
             dist = endpos.y;
         }
