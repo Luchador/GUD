@@ -1173,6 +1173,28 @@ typedef union
             f32        scale2;      /* 0x1c */
         } ModelRoData_Op17Record;
 
+        typedef struct 
+        {
+            u8 pad0[0x8];
+            struct 
+            {
+                coord3d pos;
+                f32     radiusSq;
+                coord3d rel;
+                coord3d dir;
+            } data;
+        } ModelOp17MainStack;
+
+        typedef struct 
+        {
+            struct 
+            {
+                coord3d axis;
+                f32     scale;
+            } axisAdjustment;
+            u8 pad0[0x0c];
+        } ModelOp17AxisStack;
+
         /**
          *  Opcode 18 0x12
          *  A switch node is a set of masks that controls the display of its children.

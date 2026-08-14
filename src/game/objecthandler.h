@@ -107,6 +107,7 @@ extern void (*g_ModelJointPositionedFunc)(s32 mtxindex, Mtxf *mtx);
 extern struct bondstruct_unk_op07_related D_800360C4[];
 extern Vertex D_800363E0;
 extern Vtx D_800363F8;
+extern coord3d D_80036408;
 
 void fileLoad(ModelFileHeader *header,char *name);
 void load_object_into_memory_unused_maybe(ModelFileHeader *header,int *recallstring,int *targetloc,int sizeleft);
