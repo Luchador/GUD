@@ -115,28 +115,6 @@ struct anim_group_info
     s32 len;
 };
 
-struct unk_joint_list {
-    Mtxf * unk_matrix;
-    s32 unk04;
-    s32 unk08;
-    Gfx *gdl;
-
-    Mtxf * mtxlist;
-    u32 unk14;
-    u32 unk18;
-    u32 unk1C;
-
-    u32 unk20;
-    u32 unk24;
-    u32 unk28;
-    u32 unk2C;
-
-    s32 PropType;
-    s32 unk34;
-    rgba_u8 unk38;
-    s32 unk3C;
-};
-
 extern s32 objectiveregisters1;
 extern ChrRecord* g_ActiveChrs;
 extern s32 g_ActiveChrsCount;
