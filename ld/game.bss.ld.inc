@@ -76,6 +76,7 @@
       build/OUTCODE/src/game/objecthandler_2.o (.bss);
       build/OUTCODE/src/game/othermodemicrocode.o (.bss);
       build/OUTCODE/src/game/bondview.o (.bss);
+      build/OUTCODE/src/game/bondview2.o (.bss);
       build/OUTCODE/src/game/bondinv.o (.bss);
       build/OUTCODE/src/game/bondhead.o (.bss);
       build/OUTCODE/src/game/padhalllv.o (.bss);

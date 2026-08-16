@@ -76,6 +76,7 @@
       build/OUTCODE/src/game/objecthandler_2.o (.rodata);
       build/OUTCODE/src/game/othermodemicrocode.o (.rodata);
       build/OUTCODE/src/game/bondview.o (.rodata);
+      build/OUTCODE/src/game/bondview2.o (.rodata);
       build/OUTCODE/src/game/bondinv.o (.rodata);
       build/OUTCODE/src/game/bondhead.o (.rodata);
       build/OUTCODE/src/game/padhalllv.o (.rodata);
