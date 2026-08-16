@@ -135,139 +135,68 @@ void mempSetBankStarts(s32 poolSizes[MEMPOOL_COUNT+1])
     */
 }
 
-/**
- * A320	70009720
- *     V0=p->A0 bytes of memory allocated in bank A1; fries: AT,V0,V1,A0,A1,A2,A3,T0,T2,T5,T6,T7,T8,T9
- *     accepts: A0=size, A1=bank
- */
-#ifdef NONMATCHING
-// https://decomp.me/scratch/cdPCZ
-// Non-matching - maybe asm?
-void *mempAllocBytesInBank(s32 bytes, u8 heap)
+
+void *mempAllocBytesInBank(u32 bytes, u8 poolnum)
 {
-#    ifdef DEBUG
-    if ((heap < 0) || (4 < heap))
+    /*
+     * Retain this address expression. Using
+     * &g_mempPools[poolnum] changes regalloc.
+     */
+    MemoryPool *pool = (MemoryPool *)(((u8 **)g_mempPools) + ((poolnum * 2) << 1));
+    u8 *allocation = pool->pos;
+
+#ifdef DEBUG
+    if ((poolnum < 0) || (4 < poolnum))
     {
-        osSyncPrintf("mempAllocBytesInBank from invalid heap %d!", heap);
+        osSyncPrintf("mempAllocBytesInBank from invalid heap %d!", poolnum);
     }
-#    endif
-    for (;;)
-    {
-        u8 *allocation = g_mempPools[heap].pos;
-
-        if (g_mempPools[heap].pos == 0) // uninitialized
-        {
-            for (;;);
-        }
-        else
-        {
-            if (g_mempPools[heap].pos > g_mempPools[heap].end) // overflow
-            {
-                nulled_mempLoopAllMemBanks();
-                for (;;);
-            }
-
-            if (g_mempPools[heap].pos + bytes > g_mempPools[heap].end) // Overflow, try pool 6
-            {
-                heap = MEMPOOL_PERMANENT;
-
-                if (g_mempPools[MEMPOOL_PERMANENT].pos + bytes <= g_mempPools[MEMPOOL_PERMANENT].end) // good
-                {
-                    u32 v0 = needmemallocation;
-                    if (1);
-                    needmemallocation = TRUE;
-
-                    if (v0 == 0);
-                }
-                else // overflow
-                {
-                    nulled_mempLoopAllMemBanks();
-                    for (;;);
-                }
-            }
-            else // good, allocate the mem and exit
-            {
-                g_mempPools[heap].pos += bytes;
-                g_mempPools[heap].prevpos = allocation;
-
-                if (1);
-
-                return allocation;
-            }
-        }
-    }
-}
-#else
-GLOBAL_ASM(
-.text
-glabel mempAllocBytesInBank
-/* 00A320 70009720 27BDFFE8 */  addiu $sp, $sp, -0x18
-/* 00A324 70009724 AFA5001C */  sw    $a1, 0x1c($sp)
-/* 00A328 70009728 30A700FF */  andi  $a3, $a1, 0xff
-/* 00A32C 7000972C 3C058006 */  lui   $a1, %hi(g_mempPools)
-/* 00A330 70009730 3C0A8002 */  lui   $t2, %hi(needmemallocation)
-/* 00A334 70009734 254A4404 */  addiu $t2, %lo(needmemallocation) # addiu $t2, $t2, 0x4404
-/* 00A338 70009738 24A53BB0 */  addiu $a1, %lo(g_mempPools) # addiu $a1, $a1, 0x3bb0
-/* 00A33C 7000973C AFBF0014 */  sw    $ra, 0x14($sp)
-/* 00A340 70009740 00803025 */  move  $a2, $a0
-/* 00A344 70009744 0007C100 */  sll   $t8, $a3, 4
-.L70009748:
-/* 00A348 70009748 00B81821 */  addu  $v1, $a1, $t8
-/* 00A34C 7000974C 8C620004 */  lw    $v0, 4($v1)
-/* 00A350 70009750 14400006 */  bnez  $v0, .L7000976C
-/* 00A354 70009754 00404025 */   move  $t0, $v0
-/* 00A358 70009758 24190001 */  li    $t9, 1
-/* 00A35C 7000975C 3C018002 */  lui   $at, %hi(needmemallocation)
-/* 00A360 70009760 AC394404 */  sw    $t9, %lo(needmemallocation)($at)
-.L70009764:
-/* 00A364 70009764 1000FFFF */  b     .L70009764
-/* 00A368 70009768 00000000 */   nop
-.L7000976C:
-/* 00A36C 7000976C 8C640008 */  lw    $a0, 8($v1)
-/* 00A370 70009770 00466821 */  addu  $t5, $v0, $a2
-/* 00A374 70009774 0082082B */  sltu  $at, $a0, $v0
-/* 00A378 70009778 50200006 */  beql  $at, $zero, .L70009794
-/* 00A37C 7000977C 008D082B */   sltu  $at, $a0, $t5
-/* 00A380 70009780 0C00263C */  jal   nulled_mempLoopAllMemBanks
-/* 00A384 70009784 24070006 */   li    $a3, 6
-.L70009788:
-/* 00A388 70009788 1000FFFF */  b     .L70009788
-/* 00A38C 7000978C 00000000 */   nop
-/* 00A390 70009790 008D082B */  sltu  $at, $a0, $t5
-.L70009794:
-/* 00A394 70009794 50200014 */  beql  $at, $zero, .L700097E8
-/* 00A398 70009798 00466821 */   addu  $t5, $v0, $a2
-/* 00A39C 7000979C 8CAF0064 */  lw    $t7, 0x64($a1)
-/* 00A3A0 700097A0 8CAE0068 */  lw    $t6, 0x68($a1)
-/* 00A3A4 700097A4 24070006 */  li    $a3, 6
-/* 00A3A8 700097A8 01E6C021 */  addu  $t8, $t7, $a2
-/* 00A3AC 700097AC 01D8082B */  sltu  $at, $t6, $t8
-/* 00A3B0 700097B0 14200008 */  bnez  $at, .L700097D4
-/* 00A3B4 700097B4 00000000 */   nop
-/* 00A3B8 700097B8 8D420000 */  lw    $v0, ($t2)
-/* 00A3BC 700097BC 24190001 */  li    $t9, 1
-/* 00A3C0 700097C0 AD590000 */  sw    $t9, ($t2)
-/* 00A3C4 700097C4 5440FFE0 */  bnezl $v0, .L70009748
-/* 00A3C8 700097C8 0007C100 */   sll   $t8, $a3, 4
-/* 00A3CC 700097CC 1000FFDE */  b     .L70009748
-/* 00A3D0 700097D0 0007C100 */   sll   $t8, $a3, 4
-.L700097D4:
-/* 00A3D4 700097D4 0C00263C */  jal   nulled_mempLoopAllMemBanks
-/* 00A3D8 700097D8 00000000 */   nop
-.L700097DC:
-/* 00A3DC 700097DC 1000FFFF */  b     .L700097DC
-/* 00A3E0 700097E0 00000000 */   nop
-/* 00A3E4 700097E4 00466821 */  addu  $t5, $v0, $a2
-.L700097E8:
-/* 00A3E8 700097E8 AC6D0004 */  sw    $t5, 4($v1)
-/* 00A3EC 700097EC AC68000C */  sw    $t0, 0xc($v1)
-/* 00A3F0 700097F0 8FBF0014 */  lw    $ra, 0x14($sp)
-/* 00A3F4 700097F4 27BD0018 */  addiu $sp, $sp, 0x18
-/* 00A3F8 700097F8 01001025 */  move  $v0, $t0
-/* 00A3FC 700097FC 03E00008 */  jr    $ra
-/* 00A400 70009800 00000000 */   nop
-)
 #endif
+
+    if (pool->pos == NULL)
+    {
+        while (1);
+    }
+
+    if (pool->pos > pool->end)
+    {
+        nulled_mempLoopAllMemBanks();
+
+        while (1);
+    }
+
+    if (pool->pos + bytes > pool->end)
+    {
+        if (g_mempPools[MEMPOOL_PERMANENT].pos + bytes <= g_mempPools[MEMPOOL_PERMANENT].end)
+        {
+            /*
+             * There was probably debug code in the original that got mostly
+             * stripped, but it still perturbs register allocation. These
+             * statements fill t1/t3/t4 so the registers match.
+             */
+            if (needmemallocation);
+            if (&D_8002440C == &D_80024408);
+            if (needmemallocation);
+            if (&D_80024410 == &D_80024408);
+            if (!needmemallocation);
+
+            needmemallocation = TRUE;
+
+            return mempAllocBytesInBank(bytes, MEMPOOL_PERMANENT);
+        }
+
+        nulled_mempLoopAllMemBanks();
+
+        while (1);
+    }
+
+    pool->pos += bytes;
+    pool->prevpos = allocation;
+
+    if (needmemallocation);
+
+    return allocation;
+}
+
 
 /**
  * Resize the most recent allocation in a pool without moving it.
