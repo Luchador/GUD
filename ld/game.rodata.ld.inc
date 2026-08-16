@@ -47,6 +47,7 @@
       build/OUTCODE/src/game/title3.o (.rodata);
       build/OUTCODE/src/game/blood_animation.o (.rodata);
       build/OUTCODE/src/game/blood_decrypt.o (.rodata);
+      build/OUTCODE/src/game/sub_GAME_7F01D1C0.o (.rodata);
       build/OUTCODE/src/game/file.o (.rodata);
       build/OUTCODE/src/game/file2.o (.rodata);
       build/OUTCODE/src/game/chr.o (.rodata);

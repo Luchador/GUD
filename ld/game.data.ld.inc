@@ -47,6 +47,7 @@
       build/OUTCODE/src/game/title3.o (.data);
       build/OUTCODE/src/game/blood_animation.o (.data);
       build/OUTCODE/src/game/blood_decrypt.o (.data);
+      build/OUTCODE/src/game/sub_GAME_7F01D1C0.o (.data);
       build/OUTCODE/src/game/file.o (.data);
       build/OUTCODE/src/game/file2.o (.data);
       build/OUTCODE/src/game/chr.o (.data);
