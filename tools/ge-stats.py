@@ -698,12 +698,15 @@ def main():
     src_completed_list = [
         '_start.s',
         'aspboot.s',
+        'boot.s',
         'bootcode.s',
         'getra.s',
         'gspboot.s',
         'osMapTLB.s',
+        'random.s',
         'rom_header.s',
         'rspboot.s',
+        'tlb_random.s',
         'tlb_hardwire.s',
         'tlb_resolve.s']
 
