@@ -60,13 +60,13 @@ static s16 eqpower[ EQPOWER_LENGTH ] = {
  */
 static  Acmd *_pullSubFrame(void *filter, s16 *inp, s16 *outp, s32 outCount, s32 sampleOffset, Acmd *p) ;
 static  s16 _getRate(f32 vol, f32 tgt, s32 count, u16* ratel);
+static  f32 _getVol(f32 ivol, s32 samples, s16 ratem, u16 ratel);
 
 
 /***********************************************************************
  * Enveloper filter public interfaces
  ***********************************************************************/
 
-// NONMATCHING
 Acmd *alEnvmixerPull(void *filter, s16 *outp, s32 outCount, s32 sampleOffset, Acmd *p) 
 {
     Acmd        *ptr = p;
@@ -96,6 +96,7 @@ Acmd *alEnvmixerPull(void *filter, s16 *outp, s32 outCount, s32 sampleOffset, Ac
         if (samples > outCount)
             break;
         
+#line 104 "env.c"
         assert(samples >= 0);
         assert(samples <= AL_MAX_RSP_SAMPLES);
         
@@ -179,32 +180,8 @@ Acmd *alEnvmixerPull(void *filter, s16 *outp, s32 outCount, s32 sampleOffset, Ac
                    * Estimate the current volume
                    */
 
-                  // begin decomp problem area
-
-                  /**
-                   * e->cvolL : 0x1c
-                   * e->cvolR : 0x1e
-                   * e->lratl : 0x24
-                   * e->lratm : 0x26
-                   * e->rratl : 0x2a
-                   * e->rratm : 0x2c
-                   * e->delta : 0x30
-                  */
-
-                  //e->cvolL = _getVol(e->cvolL, e->delta, e->lratm, e->lratl);
-                  //e->cvolR = _getVol(e->cvolR, e->delta, e->rratm, e->rratl);
-
-                  /**
-                e->cvolL = (f32)e->cvolL + (((((f32)(e->lratm<<16) + (f32)e->lratl) / 65536.0) * (f32)e->delta) * 0.125);
-                e->cvolR = (f32)e->cvolR + (((((f32)(e->rratm<<16) + (f32)e->rratl) / 65536.0) * (f32)e->delta) * 0.125);
-                  */
-
-                  s32 stack_padding[10];
-
-                  e->cvolL = (f32)e->cvolL + (((((f32)(e->lratm<<16) + (f32)e->lratl) / 65536.0) * (f32)e->delta) * 0.125);
-                  e->cvolR = (f32)e->cvolR + (((((f32)(e->rratm<<16) + (f32)e->rratl) / 65536.0) * (f32)e->delta) * 0.125);
-
-                  // end decomp problem area
+                  e->cvolL = _getVol(e->cvolL, e->delta, e->lratm, e->lratl);
+                  e->cvolR = _getVol(e->cvolR, e->delta, e->rratm, e->rratl);
               }
     
               /*
@@ -402,6 +379,7 @@ static Acmd* _pullSubFrame(void *filter, s16 *inp, s16 *outp, s32 outCount, s32 
      * ask all filters upstream from us to build their command
      * lists.
      */
+#line 373 "env.c"
     assert(source);
     
     ptr = (*source->handler)(source, inp, outCount, sampleOffset, p);
@@ -445,7 +423,6 @@ static Acmd* _pullSubFrame(void *filter, s16 *inp, s16 *outp, s32 outCount, s32 
     return ptr;
 }
 
-/* match */
 f64 _frexpf(f64 value, s32 *eptr)
 {
     f64 absvalue;
@@ -461,7 +438,6 @@ f64 _frexpf(f64 value, s32 *eptr)
     return (value > 0.0 ? absvalue : -absvalue);
 }
 
-/* match */
 f64 _ldexpf(f64 in, s32 ex)
 {
     s32 exp;
@@ -486,8 +462,15 @@ f64 _ldexpf(f64 in, s32 ex)
 		    RWW 28jun95
 */
 
-/* match */
-/* ultra_7001AAF4 */
+static f32 _getVol(f32 ivol, s32 samples, s16 ratem, u16 ratel)
+{
+    f32 rate;
+
+    rate = ((f32)(ratem << 16) + (f32)ratel) / 65536.0;
+    ivol += (rate * (f32)samples) * 0.125;
+    return ivol;
+}
+
 static s16 _getRate(f32 vol, f32 tgt, s32 count, u16* ratel)
 {
     f32 tempf2;
@@ -523,7 +506,6 @@ static s16 _getRate(f32 vol, f32 tgt, s32 count, u16* ratel)
     *ratel = (s16)(0xffff * (tempf2 - (f32) s));
     return (s16)tempf2;
 }
-
 
 
 
