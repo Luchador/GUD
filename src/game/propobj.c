@@ -1206,7 +1206,7 @@ bool sub_GAME_7F041400(PropRecord *prop, coord3d *rayStart, coord3d *rayEnd, coo
             for (i = 0; i < numedges; i++)
             {
                 next = (i + 1) % numedges;
-                if (sub_GAME_7F0B0688(rayStart->x, rayStart->z, rayEnd->x, rayEnd->z, polygon->points[i].x, polygon->points[i].y, polygon->points[next].x, polygon->points[next].y))
+                if (doSegmentsIntersect(rayStart->x, rayStart->z, rayEnd->x, rayEnd->z, polygon->points[i].x, polygon->points[i].y, polygon->points[next].x, polygon->points[next].y))
                 {
                     edgeStart2d.x = polygon->points[i].x;
                     edgeStart2d.y = polygon->points[i].y;

@@ -1188,31 +1188,38 @@ int getRotationalDirectionBetween(f32 a_x,f32 a_z,f32 b_x,f32 b_z)
 }
 
 
-
-
-
-s32 sub_GAME_7F0B0688(f32 arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, f32 arg5, f32 arg6, f32 arg7)
+/**
+ * Address: 7F0B0688
+ * 
+ * Test if two 2D line segments intersect.
+ * 
+ * Segment 1 runs from start1 -> end1. Segment 2 runs from start2 -> end2.
+ * 
+ * This function acts as a gate for calculateSegmentIntersectionFraction,
+ * so callers can decide if it's worth computing where along segment 1 the crossing lands.
+ */
+bool doSegmentsIntersect(f32 start1X, f32 start1Z, f32 end1X, f32 end1Z, f32 start2X, f32 start2Z, f32 end2X, f32 end2Z)
 {
     s32 unused1;
     s32 unused2;
-    f32 sp24;
-    f32 sp20;
-    f32 sp1C;
-    f32 sp18;
-
-    sp24 = arg0 - arg4;
-    sp20 = arg1 - arg5;
-    sp1C = arg2 - arg0;
-    sp18 = arg3 - arg1;
-
+    f32 start1RelX;
+    f32 start1RelZ;
+    f32 seg1Dx;
+    f32 seg1Dz;
+ 
+    start1RelX = start1X - start2X;
+    start1RelZ = start1Z - start2Z;
+    seg1Dx = end1X - start1X;
+    seg1Dz = end1Z - start1Z;
+ 
     return
         (
-            (getRotationalDirectionBetween(sp1C, sp18, -sp24, -sp20)
-            * getRotationalDirectionBetween(sp1C, sp18, arg6 - arg0, arg7 - arg1)) < 1)
+            (getRotationalDirectionBetween(seg1Dx, seg1Dz, -start1RelX, -start1RelZ)
+            * getRotationalDirectionBetween(seg1Dx, seg1Dz, end2X - start1X, end2Z - start1Z)) < 1)
         &&
         (
-            (getRotationalDirectionBetween(arg6 - arg4, arg7 - arg5, sp24, sp20)
-            * getRotationalDirectionBetween(arg6 - arg4, arg7 - arg5, arg2 - arg4, arg3 - arg5)) < 1)
+            (getRotationalDirectionBetween(end2X - start2X, end2Z - start2Z, start1RelX, start1RelZ)
+            * getRotationalDirectionBetween(end2X - start2X, end2Z - start2Z, end1X - start2X, end1Z - start2Z)) < 1)
         ;
 }
 
@@ -1427,8 +1434,6 @@ s32 walkTilesBetweenPoints_NoCallback(StandTile **tileStack, f32 start_x, f32 st
 {
     return sub_GAME_7F0B0914(tileStack, start_x, start_z, dest_x, dest_z, 0, 0);
 }
-
-
 
 
 /**
@@ -1652,7 +1657,7 @@ s32 stanTestLineUnobstructed(StandTile **pTile, f32 p_x, f32 p_z, f32 dest_x, f3
                     {
                         next = (i + 1) % numvertices0;
 
-                        if (sub_GAME_7F0B0688(p_x, p_z, dest_x, dest_z, polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1]) != 0)
+                        if (doSegmentsIntersect(p_x, p_z, dest_x, dest_z, polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1]) != 0)
                         {
                             sp134.f[0] = polygon->points[i].f[0];
                             sp134.f[1] = polygon->points[i].f[1];
@@ -1817,7 +1822,7 @@ PropRecord *sub_GAME_7F0B1410(StandTile *t, f32 start_x, f32 start_z, f32 end_x,
                         {
                             next = (i + 1) % numEdges;
 
-                            if (sub_GAME_7F0B0688(start_x, start_z, end_x, end_z, polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1]))
+                            if (doSegmentsIntersect(start_x, start_z, end_x, end_z, polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1]))
                             {
                                 edgeStart.f[0] = polygon->points[i].f[0];
                                 tmp = &polygon->points[i];
