@@ -103,6 +103,7 @@
       build/OUTCODE/src/game/stan.o (.bss);
       build/OUTCODE/src/game/stanintersection.o (.bss);
       build/OUTCODE/src/game/bg.o (.bss);
+      build/OUTCODE/src/game/bg_portal_table.o (.bss);
       build/OUTCODE/src/game/bgapply.o (.bss);
       build/OUTCODE/src/game/bgfog.o (.bss);
       build/OUTCODE/src/game/lightfixture.o (.bss);
