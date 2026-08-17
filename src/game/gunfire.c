@@ -4823,7 +4823,7 @@ void sub_GAME_7F0680D4(coord3d * coord)
     sub_GAME_7F067AB4(&tmp);
 }
 
-extern f32 g_GunScreenAspectRatio;
+extern const f32 g_GunScreenAspectRatio;
 
 
 /**
@@ -4944,26 +4944,26 @@ CasingRecord* casingCreate(ModelFileHeader* header, Mtxf* mtx)
 #define THROWPOS(k)  (((f32 *) ((u8 *) g_CurrentPlayer + handoffset + THROWPOS_OFFSET))[k])
 #define THROWPREV(k) (((f32 *) ((u8 *) g_CurrentPlayer + handoffset + THROWPOS_PREV_OFFSET))[k])
  
-extern f32 D_800543B4;
-extern f32 D_800543B8;
-extern f32 D_800543BC;
-extern f32 D_800543C0;
-extern f32 D_800543C4;
-extern f32 D_800543C8;
-extern f32 D_800543CC;
-extern f32 D_800543D0;
-extern f32 D_800543D4;
-extern f32 expended_shell_initial_gravity_modifier_pistol;
-extern f32 D_800543DC;
-extern f32 D_800543E0;
-extern f32 D_800543E4;
-extern f32 D_800543E8;
-extern f32 D_800543EC;
-extern f32 D_800543F0;
-extern f32 D_800543F4;
-extern f32 D_800543F8;
-extern f32 D_800543FC;
-extern f32 expended_shell_initial_gravity_modifier_non_pistol;
+extern const f32 g_CasingSwitchScale;
+extern const f32 g_PistolCasingHorizontalSpeed;
+extern const f32 g_PistolCasingRotationScaleX;
+extern const f32 g_PistolCasingRotationOffsetX;
+extern const f32 g_PistolCasingRotationScaleY;
+extern const f32 g_PistolCasingRotationOffsetY;
+extern const f32 g_PistolCasingRotationScaleZ;
+extern const f32 g_PistolCasingRotationOffsetZ;
+extern const f32 g_PistolCasingRandomDivisor;
+extern const f32 g_PistolCasingGravity;
+extern const f32 g_RifleCasingHorizontalSpeed;
+extern const f32 g_RifleCasingVerticalSpeed;
+extern const f32 g_RifleCasingRotationScaleX;
+extern const f32 g_RifleCasingRotationOffsetX;
+extern const f32 g_RifleCasingRotationScaleY;
+extern const f32 g_RifleCasingRotationOffsetY;
+extern const f32 g_RifleCasingRotationScaleZ;
+extern const f32 g_RifleCasingRotationOffsetZ;
+extern const f32 g_RifleCasingRandomDivisor;
+extern const f32 g_RifleCasingGravity;
  
  
 /**
@@ -5018,9 +5018,9 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
     {
         switchdata = (coord3d *) switch0->Data;
  
-        switchpos.x = switchdata->x * D_800543B4;
-        switchpos.y = switchdata->y * D_800543B4;
-        switchpos.z = switchdata->z * D_800543B4;
+        switchpos.x = switchdata->x * g_CasingSwitchScale;
+        switchpos.y = switchdata->y * g_CasingSwitchScale;
+        switchpos.z = switchdata->z * g_CasingSwitchScale;
  
         matrix_4x4_set_identity_and_position(&switchpos, &mtx);
         matrix_4x4_multiply_in_place(THROWMTX, &mtx);
@@ -5044,7 +5044,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
     {
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
         newvely = 0.0625f;
-        casing->vel.x = -(((rand * D_800543B8) * newvely) + D_800543B8);
+        casing->vel.x = -(((rand * g_PistolCasingHorizontalSpeed) * newvely) + g_PistolCasingHorizontalSpeed);
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
         casing->vel.y = ((rand * 2.5f) * 0.0625f) + 2.5f;
@@ -5053,13 +5053,13 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
         mtx4RotateVecInPlace(THROWMTX, &casing->vel);
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.x = (((rand + rand) * D_800543BC) * newvely) - D_800543C0;
+        rot.x = (((rand + rand) * g_PistolCasingRotationScaleX) * newvely) - g_PistolCasingRotationOffsetX;
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.y = (((rand + rand) * D_800543C4) * newvely) - D_800543C8;
+        rot.y = (((rand + rand) * g_PistolCasingRotationScaleY) * newvely) - g_PistolCasingRotationOffsetY;
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.z = (((rand + rand) * D_800543CC) * newvely) - D_800543D0;
+        rot.z = (((rand + rand) * g_PistolCasingRotationScaleZ) * newvely) - g_PistolCasingRotationOffsetZ;
  
 #if VERSION_EU
         matrix_4x4_set_rotation_around_xyz(&rot, &rotmtx);
@@ -5074,15 +5074,15 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
         randlimit = randlimit + 0x158679;
         randval = randomGetNext();
         oldvely = casing->vel.y;
-        frac = ((f32) ((u32) (randval % randlimit))) / D_800543D4;
+        frac = ((f32) ((u32) (randval % randlimit))) / g_PistolCasingRandomDivisor;
 #else
         randlimit = (((s32) ((randomGetNext() >> 24) * 0x158679)) >> 10) + 0x158679;
         new_var = randlimit;
         randval = randomGetNext();
         oldvely = casing->vel.y;
-        frac = ((f32) ((u32) (randval % new_var))) / D_800543D4;
+        frac = ((f32) ((u32) (randval % new_var))) / g_PistolCasingRandomDivisor;
 #endif
-        newvely = oldvely - (frac * expended_shell_initial_gravity_modifier_pistol);
+        newvely = oldvely - (frac * g_PistolCasingGravity);
  
         casing->vel.y = newvely;
         casing->pos.y += (frac * (oldvely + newvely)) * 0.5f;
@@ -5100,22 +5100,22 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
     else
     {
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        casing->vel.x = -(((rand * D_800543DC) * 0.125f) + D_800543DC);
+        casing->vel.x = -(((rand * g_RifleCasingHorizontalSpeed) * 0.125f) + g_RifleCasingHorizontalSpeed);
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        casing->vel.y = ((rand * D_800543E0) * 0.125f) + D_800543E0;
+        casing->vel.y = ((rand * g_RifleCasingVerticalSpeed) * 0.125f) + g_RifleCasingVerticalSpeed;
         casing->vel.z = 0.0f;
  
         mtx4RotateVecInPlace(THROWMTX, &casing->vel);
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.x = (((rand + rand) * D_800543E4) * 0.0625f) - D_800543E8;
+        rot.x = (((rand + rand) * g_RifleCasingRotationScaleX) * 0.0625f) - g_RifleCasingRotationOffsetX;
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.y = (((rand + rand) * D_800543EC) * 0.0625f) - D_800543F0;
+        rot.y = (((rand + rand) * g_RifleCasingRotationScaleY) * 0.0625f) - g_RifleCasingRotationOffsetY;
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.z = (((rand + rand) * D_800543F4) * 0.0625f) - D_800543F8;
+        rot.z = (((rand + rand) * g_RifleCasingRotationScaleZ) * 0.0625f) - g_RifleCasingRotationOffsetZ;
  
 #if VERSION_EU
         matrix_4x4_set_rotation_around_xyz(&rot, &rotmtx);
@@ -5129,14 +5129,14 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
         randval = randval + 0x158679;
         randlimit = randomGetNext();
         oldvely = (&casing->vel)->y;
-        frac = ((f32) ((u32) (randlimit % randval))) / D_800543FC;
+        frac = ((f32) ((u32) (randlimit % randval))) / g_RifleCasingRandomDivisor;
 #else
         randlimit = randval + 0x158679;
         randval = randomGetNext();
         oldvely = (&casing->vel)->y;
-        frac = ((f32) ((u32) (randval % randlimit))) / D_800543FC;
+        frac = ((f32) ((u32) (randval % randlimit))) / g_RifleCasingRandomDivisor;
 #endif
-        newvely = (casing->vel.y = oldvely - (frac * expended_shell_initial_gravity_modifier_non_pistol));
+        newvely = (casing->vel.y = oldvely - (frac * g_RifleCasingGravity));
  
         casing->pos.y += (frac * (oldvely + newvely)) * 0.5f;
         casing->pos.x += frac * casing->vel.x;
@@ -5159,7 +5159,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
 /* ===== merged from gun2.c ===== */
 
 #if VERSION_EU
-extern f32 g_GunSightAspectRatio;
+extern const f32 g_GunSightAspectRatio;
 #endif
 extern ALSoundState *g_CasingSfxState;
 extern u32 g_DefaultCasingModelRenderData[];
@@ -5335,9 +5335,9 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
     {
         switchdata = (coord3d *) switch0->Data;
  
-        switchpos.x = switchdata->x * D_800543B4;
-        switchpos.y = switchdata->y * D_800543B4;
-        switchpos.z = switchdata->z * D_800543B4;
+        switchpos.x = switchdata->x * g_CasingSwitchScale;
+        switchpos.y = switchdata->y * g_CasingSwitchScale;
+        switchpos.z = switchdata->z * g_CasingSwitchScale;
  
         matrix_4x4_set_identity_and_position(&switchpos, &mtx);
         matrix_4x4_multiply_in_place(THROWMTX, &mtx);
@@ -5361,7 +5361,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
     {
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
         newvely = 0.0625f;
-        casing->vel.x = -(((rand * D_800543B8) * newvely) + D_800543B8);
+        casing->vel.x = -(((rand * g_PistolCasingHorizontalSpeed) * newvely) + g_PistolCasingHorizontalSpeed);
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
         casing->vel.y = ((rand * 2.5f) * 0.0625f) + 2.5f;
@@ -5370,13 +5370,13 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
         mtx4RotateVecInPlace(THROWMTX, &casing->vel);
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.x = (((rand + rand) * D_800543BC) * newvely) - D_800543C0;
+        rot.x = (((rand + rand) * g_PistolCasingRotationScaleX) * newvely) - g_PistolCasingRotationOffsetX;
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.y = (((rand + rand) * D_800543C4) * newvely) - D_800543C8;
+        rot.y = (((rand + rand) * g_PistolCasingRotationScaleY) * newvely) - g_PistolCasingRotationOffsetY;
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.z = (((rand + rand) * D_800543CC) * newvely) - D_800543D0;
+        rot.z = (((rand + rand) * g_PistolCasingRotationScaleZ) * newvely) - g_PistolCasingRotationOffsetZ;
  
 #if VERSION_EU
         matrix_4x4_set_rotation_around_xyz(&rot, &rotmtx);
@@ -5391,15 +5391,15 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
         randlimit = randlimit + 0x158679;
         randval = randomGetNext();
         oldvely = casing->vel.y;
-        frac = ((f32) ((u32) (randval % randlimit))) / D_800543D4;
+        frac = ((f32) ((u32) (randval % randlimit))) / g_PistolCasingRandomDivisor;
 #else
         randlimit = (((s32) ((randomGetNext() >> 24) * 0x158679)) >> 10) + 0x158679;
         new_var = randlimit;
         randval = randomGetNext();
         oldvely = casing->vel.y;
-        frac = ((f32) ((u32) (randval % new_var))) / D_800543D4;
+        frac = ((f32) ((u32) (randval % new_var))) / g_PistolCasingRandomDivisor;
 #endif
-        newvely = oldvely - (frac * expended_shell_initial_gravity_modifier_pistol);
+        newvely = oldvely - (frac * g_PistolCasingGravity);
  
         casing->vel.y = newvely;
         casing->pos.y += (frac * (oldvely + newvely)) * 0.5f;
@@ -5417,22 +5417,22 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
     else
     {
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        casing->vel.x = -(((rand * D_800543DC) * 0.125f) + D_800543DC);
+        casing->vel.x = -(((rand * g_RifleCasingHorizontalSpeed) * 0.125f) + g_RifleCasingHorizontalSpeed);
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        casing->vel.y = ((rand * D_800543E0) * 0.125f) + D_800543E0;
+        casing->vel.y = ((rand * g_RifleCasingVerticalSpeed) * 0.125f) + g_RifleCasingVerticalSpeed;
         casing->vel.z = 0.0f;
  
         mtx4RotateVecInPlace(THROWMTX, &casing->vel);
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.x = (((rand + rand) * D_800543E4) * 0.0625f) - D_800543E8;
+        rot.x = (((rand + rand) * g_RifleCasingRotationScaleX) * 0.0625f) - g_RifleCasingRotationOffsetX;
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.y = (((rand + rand) * D_800543EC) * 0.0625f) - D_800543F0;
+        rot.y = (((rand + rand) * g_RifleCasingRotationScaleY) * 0.0625f) - g_RifleCasingRotationOffsetY;
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.z = (((rand + rand) * D_800543F4) * 0.0625f) - D_800543F8;
+        rot.z = (((rand + rand) * g_RifleCasingRotationScaleZ) * 0.0625f) - g_RifleCasingRotationOffsetZ;
  
 #if VERSION_EU
         matrix_4x4_set_rotation_around_xyz(&rot, &rotmtx);
@@ -5446,14 +5446,14 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
         randval = randval + 0x158679;
         randlimit = randomGetNext();
         oldvely = (&casing->vel)->y;
-        frac = ((f32) ((u32) (randlimit % randval))) / D_800543FC;
+        frac = ((f32) ((u32) (randlimit % randval))) / g_RifleCasingRandomDivisor;
 #else
         randlimit = randval + 0x158679;
         randval = randomGetNext();
         oldvely = (&casing->vel)->y;
-        frac = ((f32) ((u32) (randval % randlimit))) / D_800543FC;
+        frac = ((f32) ((u32) (randval % randlimit))) / g_RifleCasingRandomDivisor;
 #endif
-        newvely = (casing->vel.y = oldvely - (frac * expended_shell_initial_gravity_modifier_non_pistol));
+        newvely = (casing->vel.y = oldvely - (frac * g_RifleCasingGravity));
  
         casing->pos.y += (frac * (oldvely + newvely)) * 0.5f;
         casing->pos.x += frac * casing->vel.x;
@@ -5472,10 +5472,10 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
 #endif
 
 
-extern f32 g_CasingGravity;
-extern f32 g_CasingModelScale;
-extern f32 g_CasingMinMatrixTranslation;
-extern f32 g_CasingMaxMatrixTranslation;
+extern const f32 g_CasingGravity;
+extern const f32 g_CasingModelScale;
+extern const f32 g_CasingMinMatrixTranslation;
+extern const f32 g_CasingMaxMatrixTranslation;
 
 void update_bullet_casing(CasingRecord* casing)
 {
@@ -6418,3 +6418,48 @@ void increment_num_suicides_display_MP(void) {
 s32 get_curplayer_numsuicides(void) {
     return g_CurrentPlayer->num_suicides;
 }
+
+/*
+ * IDO emits scalar const objects to .data. The linker keeps this block directly
+ * after gunfire's .rodata so these values retain their original ROM layout.
+ */
+#if VERSION_EU
+const f32 g_GunScreenAspectRatio = 20.0f / 17.0f;
+#else
+const f32 g_GunScreenAspectRatio = 4.0f / 3.0f;
+#endif
+const f32 g_CasingSwitchScale = 0.10000001f;
+const f32 g_PistolCasingHorizontalSpeed = 0.5333333f;
+const f32 g_PistolCasingRotationScaleX = M_TAU_F;
+const f32 g_PistolCasingRotationOffsetX = M_PI_F / 8.0f;
+const f32 g_PistolCasingRotationScaleY = M_TAU_F;
+const f32 g_PistolCasingRotationOffsetY = M_PI_F / 8.0f;
+const f32 g_PistolCasingRotationScaleZ = M_TAU_F;
+const f32 g_PistolCasingRotationOffsetZ = M_PI_F / 8.0f;
+#if VERSION_EU
+const f32 g_PistolCasingRandomDivisor = 931050.0f;
+#else
+const f32 g_PistolCasingRandomDivisor = 775875.0f;
+#endif
+const f32 g_PistolCasingGravity = 0.2777778f;
+const f32 g_RifleCasingHorizontalSpeed = 1.4166666f;
+const f32 g_RifleCasingVerticalSpeed = 1.6666666f;
+const f32 g_RifleCasingRotationScaleX = M_TAU_F;
+const f32 g_RifleCasingRotationOffsetX = M_PI_F / 8.0f;
+const f32 g_RifleCasingRotationScaleY = M_TAU_F;
+const f32 g_RifleCasingRotationOffsetY = M_PI_F / 8.0f;
+const f32 g_RifleCasingRotationScaleZ = M_TAU_F;
+const f32 g_RifleCasingRotationOffsetZ = M_PI_F / 8.0f;
+#if VERSION_EU
+const f32 g_RifleCasingRandomDivisor = 931050.0f;
+#else
+const f32 g_RifleCasingRandomDivisor = 775875.0f;
+#endif
+const f32 g_RifleCasingGravity = 0.2777778f;
+const f32 g_CasingGravity = 0.2777778f;
+const f32 g_CasingModelScale = 0.10000001f;
+const f32 g_CasingMinMatrixTranslation = -30000.0f;
+const f32 g_CasingMaxMatrixTranslation = 30000.0f;
+#if VERSION_EU
+const f32 g_GunSightAspectRatio = 25.0f / 21.0f;
+#endif
