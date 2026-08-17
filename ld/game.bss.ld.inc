@@ -70,6 +70,8 @@
       build/OUTCODE/src/game/math_floor.o (.bss);
       build/OUTCODE/src/game/math_ceil.o (.bss);
       build/OUTCODE/src/game/gun.o (.bss);
+      build/OUTCODE/src/game/gun2.o (.bss);
+      build/OUTCODE/src/game/gun_constants.o (.bss);
       build/OUTCODE/src/game/bondwalk2.o (.bss);
       build/OUTCODE/src/game/objecthandler.o (.bss);
       build/OUTCODE/src/game/model.o (.bss);
