@@ -38,7 +38,7 @@ bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef)
 
 /**
  * Address: 7F06C094
- * 
+ *
  * Allocates 0x20 bytes for a new model without animations.
  * Models that need animations use modelmgrInstantiateModelWithAnim.
  */
@@ -52,37 +52,37 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
     rwdata = NULL;
     rwdatalen = -1;
 
-    if (g_ModelIsLvResetting) 
+    if (g_ModelIsLvResetting)
     {
         s32 i;
 
-        for (i = 0; i < (g_MaxModelSlots - 30); i++) 
+        for (i = 0; i < (g_MaxModelSlots - 30); i++)
         {
-            if (g_ModelSlots[i].unk08 == 0) 
+            if (g_ModelSlots[i].unk08 == 0)
             {
                 model = (Model *)&g_ModelSlots[i];
                 break;
             }
         }
 
-        if (model == NULL) 
+        if (model == NULL)
         {
             model = mempAllocBytesInBank(0x20, MEMPOOL_STAGE);
         }
 
-        if (header->numRecords > 0) 
+        if (header->numRecords > 0)
         {
             rwdata = mempAllocBytesInBank((((header->numRecords * 4) + 0xf) | 0xf) ^ 0xf, MEMPOOL_STAGE);
             rwdatalen = header->numRecords;
         }
-    } 
-    else 
+    }
+    else
     {
         s32 i;
 
-        for (i = 0; i < g_MaxModelSlots; i++) 
+        for (i = 0; i < g_MaxModelSlots; i++)
         {
-            if (g_ModelSlots[i].unk08 == 0 && modelmgrCanSlotFitRwdata((Model *)&g_ModelSlots[i], header)) 
+            if (g_ModelSlots[i].unk08 == 0 && modelmgrCanSlotFitRwdata((Model *)&g_ModelSlots[i], header))
             {
                 rwdata = g_ModelSlots[i].unk10;
                 rwdatalen = g_ModelSlots[i].unk02;
@@ -92,7 +92,7 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
         }
     }
 
-    if (model != NULL) 
+    if (model != NULL)
     {
         modelInit(model, header, rwdata);
         ((struct ModelSlot *)model)->unk02 = rwdatalen;
@@ -124,9 +124,9 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
     rwdatas = NULL;
     rwdatalen = -1;
 
-    if (g_ModelIsLvResetting) 
+    if (g_ModelIsLvResetting)
     {
-        for (i = 0; i < (g_MaxAnimModelSlots - 10); i++) 
+        for (i = 0; i < (g_MaxAnimModelSlots - 10); i++)
         {
             if (g_AnimModelSlots[i].unk08 == 0)
             {
@@ -135,7 +135,7 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
             }
         }
 
-        if (newModel == NULL) 
+        if (newModel == NULL)
         {
             newModel = mempAllocBytesInBank(0xc0, MEMPOOL_STAGE);
         }
@@ -146,20 +146,20 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
         if (modelFileHeader->numRecords > 140) osSyncPrintf("WARNING: increase OISAVESIZE to %d!\n", *(modelFileHeader->numRecords));
 #endif
 
-        if (requiredRwdatalen > 0) 
+        if (requiredRwdatalen > 0)
         {
             i = requiredRwdatalen;
             rwdatas = mempAllocBytesInBank((((i * 4) + 0xf) | 0xf) ^ 0xf, MEMPOOL_STAGE);
             rwdatalen = modelFileHeader->numRecords;
         }
-    } 
-    else 
+    }
+    else
     {
         requiredRwdatalen = modelFileHeader->numRecords;
 
-        for (i2 = 0; i2 < g_MaxAnimModelSlots; i2++) 
+        for (i2 = 0; i2 < g_MaxAnimModelSlots; i2++)
         {
-            if ((g_AnimModelSlots[i2].unk08 == 0) && ((requiredRwdatalen <= 0) || ((g_AnimModelSlots[i2].unk10 != NULL) &&(g_AnimModelSlots[i2].unk02 >= requiredRwdatalen)))) 
+            if ((g_AnimModelSlots[i2].unk08 == 0) && ((requiredRwdatalen <= 0) || ((g_AnimModelSlots[i2].unk10 != NULL) &&(g_AnimModelSlots[i2].unk02 >= requiredRwdatalen))))
             {
                 newModel = (Model *)&g_AnimModelSlots[i2];
                 rwdatas = g_AnimModelSlots[i2].unk10;
@@ -169,7 +169,7 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
         }
     }
 
-    if (newModel != NULL) 
+    if (newModel != NULL)
     {
         animInit(newModel, modelFileHeader, rwdatas);
         newModel->rwdatalen = rwdatalen;
@@ -724,7 +724,7 @@ void modelSetScale(Model *objinst, f32 scale)
 
 /**
  * Address: 7F06CE84
- * 
+ *
  * Scales only the translation component of the root node of an animation.
  * For example, the animation for the plane flight in Runway's outro doesn't
  * actually move the plane very far. This function is used to scale up the translation
@@ -969,9 +969,9 @@ u16 sub_GAME_7F06D2E4(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnim
     s32 base;
     u32 angle_raw;
     u16 angle_ret;
-    
+
     scaled = ((u32) anim->unk0C) * ((u32) frame);
-    
+
     if (flip)
     {
         base = skeleton->Joints[jointnum].mtxB;
@@ -980,23 +980,23 @@ u16 sub_GAME_7F06D2E4(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnim
     {
         base = skeleton->Joints[jointnum].mtxA;
     }
-    
+
     out->x = modelAnimReadRootMotionValue(anim, base, scaled);
     out->y = modelAnimReadRootMotionValue(anim, base + 1, scaled);
     out->z = modelAnimReadRootMotionValue(anim, base + 2, scaled);
     angle_raw = modelAnimReadRootMotionValue(anim, base + 3, scaled);
     angle_ret = angle_raw;
-    
+
     if (flip)
     {
         out->x = -out->x;
-        
+
         if (angle_raw != 0)
         {
             angle_ret = 0x10000 - (angle_raw & 0xFFFFFFFFu);
         }
     }
-    
+
     return angle_ret;
 }
 
@@ -1207,7 +1207,7 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
     Mtxf *dst;
     f32 angle;
     Mtxf **parentMtxPtr;
-    
+
     flags = mgm->flags;
     group = mgm->group;
     matrix0 = group->MatrixID0;
@@ -1216,7 +1216,7 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
     origin = group->Origin.f;
     matrix2 = group->MatrixID2;
     render_pos = model->render_pos;
-    
+
     if (((Mtxf *) mgm->parentnode) != NULL)
     {
         parentNodeMtx = modelFindNodeMtx(model, (ModelNode *) ((Mtxf *) mgm->parentnode), 0);
@@ -1226,10 +1226,10 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
     {
         parent = parentMtxPtr[0];
     }
-    
+
     has_matrix2 = flags & MODELGROUP_MTX_HAS_MATRIX2;
     matrix0_mtx = (Mtxf *) mgm->parentnode;
-    
+
     if (parent != NULL)
     {
         matrix_4x4_set_position_and_rotation_around_xyz(&group->Origin, rot, &tmp);
@@ -1246,12 +1246,12 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
     {
         matrix_4x4_set_position_and_rotation_around_xyz(&group->Origin, rot, &render_pos[matrix0].pos);
     }
-    
+
     if (flags & MODELGROUP_MTX_HAS_MATRIX1)
     {
         quaternion_set_rotation_around_xyzf(rot->f, q);
         quaternion_7F05BC68(q, 0.5f, q2);
-        
+
         if (parent != NULL)
         {
             quaternion_to_transform_matrix(origin, q2, tmp.m);
@@ -1273,9 +1273,9 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
         {
             dst = &render_pos[matrix2].pos;
         }
-        
+
         angle = rot->y;
-        
+
         if (angle < M_PI_F)
         {
             angle = angle * 0.5f;
@@ -1284,9 +1284,9 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
         {
             angle = M_TAU_F - ((M_TAU_F - angle) * 0.5f);
         }
-        
+
         matrix_4x4_set_rotation_around_y(angle, dst);
-        
+
         if (angle >= M_PI_F)
         {
             angle = M_TAU_F - angle;
@@ -1299,10 +1299,10 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
         {
             angle = 1.5f;
         }
-        
+
         matrix_column_3_scalar_multiply_2(angle, (f32 *) dst);
         matrix_4x4_set_position(&group->Origin, dst);
-        
+
         if (parent != NULL)
         {
             matrix_4x4_multiply_homogeneous(parent, dst, &render_pos[matrix2].pos);
@@ -1525,7 +1525,7 @@ void process_02_position(ModelRenderData *arg0, Model *model, ModelNode *node)
     skeleton = model->obj->Skeleton;
 
     rot1 = D_80036094;
-    
+
     sub_GAME_7F06DEC0(jointnum.v, model->gunhand, skeleton, model->anim, model->unk34, &rot1);
 
     if (model->unk2c != 0.0f)
@@ -1680,7 +1680,7 @@ void sub_GAME_7F06E2B8(ModelRenderData *renderData, Model *model, ModelNode *nod
 
 // Decodes a packed joint angle from the animation bitstream using either mtxA or mtxB.
 f32 sub_GAME_7F06E540(s32 jointIndex, s32 useMtxB, ModelSkeleton *skeleton, ModelAnimation *anim, u8 *bitstream)
-{    
+{
     u32 bitOffset;
     u32 raw;
     u8 width;
@@ -1710,7 +1710,7 @@ f32 sub_GAME_7F06E540(s32 jointIndex, s32 useMtxB, ModelSkeleton *skeleton, Mode
 
 
 void process_03_unknown(ModelRenderData *renderData, Model *model, ModelNode *node)
-{    
+{
     ModelSkeleton *skeleton;
     ModelRoData_GroupRecord *rodata;
     s32 jointIndex;
@@ -2373,7 +2373,7 @@ struct ModelAnimation * objecthandlerGetModelAnim(struct Model* model) {
     return model->anim;
 }
 
-s8 objecthandlerGetModelGunhand(Model *model) 
+s8 objecthandlerGetModelGunhand(Model *model)
 {
     return model->gunhand;
 }
@@ -2475,7 +2475,7 @@ void modelCopyAnimForMerge(Model *model, f32 timemerge)
     ModelAnimation *anim;
     ModelNode *root;
     struct modeldata_root *rwdata;
-    s32 opcode; 
+    s32 opcode;
 
     if (0.0f < timemerge) {
         anim = model->anim;
@@ -2674,7 +2674,7 @@ typedef struct ModelCopyBc {
 
 /**
  * Unreferenced.
- * 
+ *
  * The function copies the Model data through anim_translation_scale (0x00-0xbb),
  * then restores the destination's base/resource fields (0x00-0x1f).
  * Maybe some kind of old/abandoned anim copy function.
@@ -3246,9 +3246,9 @@ void modelTickAnim(struct Model *model, s32 numticks, s32 update_chrstuff)
     frame = model->animframe1;
     frame2 = model->animframe2;
 
-    if (numticks > 0) 
+    if (numticks > 0)
     {
-        while (numticks > 0) 
+        while (numticks > 0)
         {
             f32 playspeed;
             f32 speed;
@@ -3259,16 +3259,16 @@ void modelTickAnim(struct Model *model, s32 numticks, s32 update_chrstuff)
             f32 saved_timespeed;
             f32 saved_elapsespeed;
             f32 loopframe;
-            
-            if (model->unkb0 > 0.0f) 
+
+            if (model->unkb0 > 0.0f)
             {
                 model->unkb4 += 1.0f;
 
-                if (model->unkb4 < model->unkb0) 
+                if (model->unkb4 < model->unkb0)
                 {
                     model->playspeed = model->unkac + ((model->animrate - model->unkac) * model->unkb4) / model->unkb0;
-                } 
-                else 
+                }
+                else
                 {
                     model->unkb0 = 0.0f;
                     model->playspeed = model->animrate;
@@ -3285,13 +3285,13 @@ void modelTickAnim(struct Model *model, s32 numticks, s32 update_chrstuff)
                 {
                     model->unk84 = 1.0f;
                     playspeed = model->playspeed;
-                } 
-                else if (model->unk8c < model->unk88) 
+                }
+                else if (model->unk8c < model->unk88)
                 {
                     model->unk84 = (model->unk88 - model->unk8c) / model->unk88;
                     playspeed = model->playspeed;
-                } 
-                else 
+                }
+                else
                 {
                     model->unk88 = 0.0f;
                     model->unk84 = 0.0f;
@@ -3300,18 +3300,18 @@ void modelTickAnim(struct Model *model, s32 numticks, s32 update_chrstuff)
                 }
             }
 
-            if (model->timespeed > 0.0f) 
+            if (model->timespeed > 0.0f)
             {
                 model->elapsespeed += playspeed;
 
-                if (model->elapsespeed < model->timespeed) 
+                if (model->elapsespeed < model->timespeed)
                 {
                     model->speed = model->oldspeed
                         + ((model->newspeed - model->oldspeed) * model->elapsespeed)
                         / model->timespeed;
                     playspeed = model->playspeed;
-                } 
-                else 
+                }
+                else
                 {
                     model->timespeed = 0.0f;
                     playspeed = model->playspeed;
@@ -3322,18 +3322,18 @@ void modelTickAnim(struct Model *model, s32 numticks, s32 update_chrstuff)
             speed = model->speed;
             frame += playspeed * speed;
 
-            if (model->anim2 != NULL) 
+            if (model->anim2 != NULL)
             {
-                if (model->unk7c > 0.0f) 
+                if (model->unk7c > 0.0f)
                 {
                     model->unk80 += playspeed;
 
-                    if (model->unk80 < model->unk7c) 
+                    if (model->unk80 < model->unk7c)
                     {
                         model->speed2 = model->unk78 + ((model->unk74 - model->unk78) * model->unk80) / model->unk7c;
                         playspeed = model->playspeed;
-                    } 
-                    else 
+                    }
+                    else
                     {
                         model->unk7c = 0.0f;
                         playspeed = model->playspeed;
@@ -3346,46 +3346,46 @@ void modelTickAnim(struct Model *model, s32 numticks, s32 update_chrstuff)
                 frame2 += playspeed * model->speed2;
             }
 
-            if (model->animlooping) 
+            if (model->animlooping)
             {
                 animlast = model->anim->unk04 - 1;
                 endframe = model->endframe;
 
                 if (endframe);
 
-                if (speed >= 0.0f) 
+                if (speed >= 0.0f)
                 {
                     limit = animlast;
                     loopframe = model->animloopframe;
 
-                    if (endframe >= 0.0f && endframe < animlast) 
+                    if (endframe >= 0.0f && endframe < animlast)
                     {
                         limit = endframe;
                     }
-                } 
-                else 
+                }
+                else
                 {
                     limit = model->animloopframe;
                     loopframe = animlast;
 
-                    if (endframe >= 0.0f && endframe < animlast) 
+                    if (endframe >= 0.0f && endframe < animlast)
                     {
                         loopframe = endframe;
                     }
                 }
 
-                if ((speed >= 0.0f && frame >= limit) || (speed < 0.0f && frame <= limit)) 
+                if ((speed >= 0.0f && frame >= limit) || (speed < 0.0f && frame <= limit))
                 {
                     saved_newspeed = model->newspeed;
                     saved_oldspeed = model->oldspeed;
                     saved_timespeed = model->timespeed;
                     saved_elapsespeed = model->elapsespeed;
 
-                    if (update_chrstuff) 
+                    if (update_chrstuff)
                     {
                         modelSetAnimFrame2WithChrStuff(model, model->animframe1, limit, 0.0f, 0.0f);
-                    } 
-                    else 
+                    }
+                    else
                     {
                         modelSetAnimFrame2(model, limit, 0.0f);
                     }
@@ -3402,7 +3402,7 @@ void modelTickAnim(struct Model *model, s32 numticks, s32 update_chrstuff)
                     frame2 = frame;
                     frame = loopframe + frame - limit;
 
-                    if (model->animflipfunc != 0) 
+                    if (model->animflipfunc != 0)
                     {
                         ((void (*)(void))model->animflipfunc)();
                     }
@@ -3412,24 +3412,24 @@ void modelTickAnim(struct Model *model, s32 numticks, s32 update_chrstuff)
             numticks--;
         }
 
-        if (update_chrstuff) 
+        if (update_chrstuff)
         {
-            if (model->anim2 != NULL) 
+            if (model->anim2 != NULL)
             {
                 modelSetAnimFrame2WithChrStuff(model, model->animframe1, frame, model->animframe2, frame2);
-            } 
-            else 
+            }
+            else
             {
                 modelSetAnimFrame2WithChrStuff(model, model->animframe1, frame, 0.0f, 0.0f);
             }
-        } 
-        else 
+        }
+        else
         {
-            if (model->anim2 != NULL) 
+            if (model->anim2 != NULL)
             {
                 modelSetAnimFrame2(model, frame, frame2);
             }
-            else 
+            else
             {
                 modelSetAnimFrame2(model, frame, 0.0f);
             }
@@ -4865,10 +4865,6 @@ void sub_GAME_7F073FC8(s32 arg0)
 }
 
 
-#ifdef LEFTOVERDEBUG
-//D:80054A94
-const char aDoshadowNoVtxAllocator[] = "doshadow: no vtx allocator!\n";
-#endif
 
 void doshadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
 {
@@ -4942,7 +4938,7 @@ void doshadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
     if (vtxallocator == NULL)
     {
         if (1);
-        osSyncPrintf(aDoshadowNoVtxAllocator);
+        osSyncPrintf("doshadow: no vtx allocator!\n");
         return_null();
     }
 #endif
@@ -5136,10 +5132,10 @@ void sub_GAME_7F074790(ModelRenderData* arg0, Model* arg1)
 
 /**
  * Address: 7F0747D0
- * 
+ *
  * Ray vs transformed bounding box test. The bbox is transformed by mtx while the ray
  * is defined by pos and dir.
- * 
+ *
  * @returns TRUE if the ray intersects the bbox, otherwise FALSE.
  */
 bool modelTestRayIntersectsTransformedBBox(ModelRoData_BoundingBoxRecord *bbox, Mtxf *mtx, coord3d *pos, coord3d *dir)
@@ -5377,7 +5373,7 @@ s32 sub_GAME_7F074CAC(Model *model, ModelNode *node, coord3d *raypos, coord3d *r
     f32 centerDistanceSq;
     u32 nodeFlags;
     f32 directionDotProduct;
-    
+
     hitData = (ModelRoData_Op17Record *) node->Data;
     nodeMtx = modelFindNodeMtx(model, node, 0);
     rayData->data.rel = D_80036408;
@@ -5386,7 +5382,7 @@ s32 sub_GAME_7F074CAC(Model *model, ModelNode *node, coord3d *raypos, coord3d *r
     rayData->data.dir.f[1] = raydir->y;
     rayData->data.dir.f[2] = raydir->z;
     nodeFlags = node->Opcode;
-    
+
     if (nodeFlags & 0x100)
     {
         rayData->data.pos.f[0] = hitData->pos.f[0];
@@ -5465,33 +5461,33 @@ s32 sub_GAME_7F074CAC(Model *model, ModelNode *node, coord3d *raypos, coord3d *r
             axisData->axisAdjustment.axis.f[1] = nodeMtx->m[2][1];
             axisData->axisAdjustment.axis.f[2] = nodeMtx->m[2][2];
         }
-        
+
         directionDotProduct = axisData->axisAdjustment.scale * (
         (rayData->data.dir.f[0] * axisData->axisAdjustment.axis.f[0]) +
         (rayData->data.dir.f[1] * axisData->axisAdjustment.axis.f[1]) +
         (rayData->data.dir.f[2] * axisData->axisAdjustment.axis.f[2])
         );
-        
+
         rayData->data.dir.f[0] = rayData->data.dir.f[0] + (axisData->axisAdjustment.axis.f[0] * directionDotProduct);
         rayData->data.dir.f[1] = rayData->data.dir.f[1] + (axisData->axisAdjustment.axis.f[1] * directionDotProduct);
         rayData->data.dir.f[2] = rayData->data.dir.f[2] + (axisData->axisAdjustment.axis.f[2] * directionDotProduct);
-        
+
         scaledProjection = axisData->axisAdjustment.scale * (
         (rayData->data.rel.f[0] * axisData->axisAdjustment.axis.f[0]) +
         (rayData->data.rel.f[1] * axisData->axisAdjustment.axis.f[1]) +
         (rayData->data.rel.f[2] * axisData->axisAdjustment.axis.f[2])
         );
-        
+
         rayData->data.rel.f[0] = rayData->data.rel.f[0] + (axisData->axisAdjustment.axis.f[0] * scaledProjection);
         rayData->data.rel.f[1] = rayData->data.rel.f[1] + (axisData->axisAdjustment.axis.f[1] * scaledProjection);
         rayData->data.rel.f[2] = rayData->data.rel.f[2] + (axisData->axisAdjustment.axis.f[2] * scaledProjection);
     }
-    
-    projectionScalar = 
+
+    projectionScalar =
     (rayData->data.dir.f[0] * rayData->data.rel.f[0]) +
     (rayData->data.dir.f[1] * rayData->data.rel.f[1]) +
     (rayData->data.dir.f[2] * rayData->data.rel.f[2]);
-    
+
     if (0.0f < projectionScalar)
     {
         directionDotProduct = (rayData->data.dir.f[0] * rayData->data.dir.f[0]) + (rayData->data.dir.f[1] * rayData->data.dir.f[1]) + (rayData->data.dir.f[2] * rayData->data.dir.f[2]);

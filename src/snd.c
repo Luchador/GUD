@@ -790,8 +790,8 @@ u8 sndGetPlayingState(ALSoundState *state)
 }
 
 #ifdef DEBUG
-#    define _sndPlaySfx(sbank, id, state) sndPlaySfx(sbank, id, state, g_sndSfxVolume, __FILE__, __LINE__)
-ALSoundState *sndPlaySfx(struct ALBankAlt_s *soundBank, s16 soundIndex, ALSoundState *pendingState, f32 volume, char*file, int line)
+#    define sndPlaySfx(sbank, id, state) _sndPlaySfx(sbank, id, state, g_sndSfxVolume, __FILE__, __LINE__)
+ALSoundState *_sndPlaySfx(struct ALBankAlt_s *soundBank, s16 soundIndex, ALSoundState *pendingState, f32 volume, char*file, int line)
 #else
 /**
  * 9A08    70008E08

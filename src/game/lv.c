@@ -381,6 +381,9 @@ void lvlStageLoad(s32 stage)
     */
     if (stage == LEVELID_TITLE)
     {
+#ifdef DEBUG
+        fogLoadLevelEnvironment(bossGetStageNum(), 0);
+#endif
         init_menus_or_reset();
     }
     else
@@ -399,6 +402,12 @@ void lvlStageLoad(s32 stage)
                     {
                         cheatButtonTurnOnCheatForPlayers(s0);
                     }
+#ifdef DEBUG
+                    else
+                    {
+                        cheatButtonHandleCheatsTurnedOff(s0);
+                    }
+#endif
                 }
             }
         }
@@ -518,7 +527,7 @@ void lvlStageLoad(s32 stage)
      * From this point on, model creation should try to reuse existing slots.
      */
     modelmgrSetLevelResetting(FALSE);
-    
+
     zbufDeallocate();
     viSetVideoMode(MD_NORMAL);
     D_80048368 = 1.0f;
@@ -535,7 +544,7 @@ s32 lvlGetCurrentStageToLoad(void)
 
  /**
  * Address: 7F0BDF10
- * 
+ *
  * Debug method. Something to do with portals. Button press
  * on controller 1 and 2 are used for control flow.
  */

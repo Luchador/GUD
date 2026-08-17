@@ -547,7 +547,7 @@ void divide3DCoordinates(coord3d *in, f32 divisor, coord3d *out);
 
 // end forward declarations
 
-// current debug keyframes
+// current debug keyframes  (Statically assigned at compile time)
 #define DEB_KEYFRAMES sniperMeleeKeyframes2
 
 
@@ -627,10 +627,10 @@ void gunDebAdvanceKeyframe(void)
 
 /**
  * Address: 7F05C6FC
- * 
+ *
  * Sample a first person weapon transform keyframe animation at `time` and
  * write the interpolated transform into `matrix`
- * 
+ *
  * @returns 1 when an in-progress frame was interpolated, 0 when `time` reached
  * the final keyframe and the static end pose was written.
  */
@@ -970,22 +970,22 @@ ITEM_IDS sub_GAME_7F05D334(ITEM_IDS item, s32 arg1)
 
 ITEM_IDS get_next_weapon_in_cycle_for_hand(GUNHAND hand, s32 direction)
 {
-	if (g_CurrentPlayer->hands[hand].weapon_action_state == GUN_ANIM_STATE_SWITCH_LOWER) 
+	if (g_CurrentPlayer->hands[hand].weapon_action_state == GUN_ANIM_STATE_SWITCH_LOWER)
     {
 		if (
 			(direction < 0 && (g_CurrentPlayer->hands[hand].field_8B8 > 0)) ||
-			(direction > 0 && (g_CurrentPlayer->hands[hand].field_8B8 < 0)) ) 
+			(direction > 0 && (g_CurrentPlayer->hands[hand].field_8B8 < 0)) )
         {
 			return getCurrentPlayerWeaponId(hand);
 		}
-		else 
+		else
         {
 			return g_CurrentPlayer->hands[hand].weapon_next_weapon;
 		}
 
     }
-    
-    if (g_CurrentPlayer->hands[hand].weapon_action_state == GUN_ANIM_STATE_SWITCH_SWAP) 
+
+    if (g_CurrentPlayer->hands[hand].weapon_action_state == GUN_ANIM_STATE_SWITCH_SWAP)
     {
         return g_CurrentPlayer->hands[hand].weapon_next_weapon;
     }
@@ -2311,17 +2311,17 @@ void gunFireTankShell(s32 handnum)
 
     matrix_4x4_set_identity(&identitymtx);
 
-    if (weaponid == ITEM_TANKSHELLS) 
+    if (weaponid == ITEM_TANKSHELLS)
     {
         tankprop = get_ptr_for_players_tank();
 
         if (1);
 
-        if ((tankprop != NULL) && (tankprop->flags & TANK_RUN_STATE_RUNNING)) 
+        if ((tankprop != NULL) && (tankprop->flags & TANK_RUN_STATE_RUNNING))
         {
             bondviewSet3dCoord7F07CEB0(&aimdir);
-        } 
-        else 
+        }
+        else
         {
             sub_GAME_7F068190(&screenpos, &aimdir);
             mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), &aimdir);
@@ -2337,7 +2337,7 @@ void gunFireTankShell(s32 handnum)
             velocity.z += (playerprop->pos.z - prevplayerpos->z) / g_GlobalTimerDelta;
         }
 
-        if ((tankprop != NULL) && (tankprop->flags & TANK_RUN_STATE_RUNNING)) 
+        if ((tankprop != NULL) && (tankprop->flags & TANK_RUN_STATE_RUNNING))
         {
             tankobj = tankprop->obj;
             spawnpos.x = tankobj->model->render_pos[4].pos.m[3][0];
@@ -2345,8 +2345,8 @@ void gunFireTankShell(s32 handnum)
             spawnpos.z = tankobj->model->render_pos[4].pos.m[3][2];
 
             mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), &spawnpos);
-        } 
-        else 
+        }
+        else
         {
             spawnpos.x = playerprop->pos.x;
             spawnpos.y = playerprop->pos.y;
@@ -2356,8 +2356,8 @@ void gunFireTankShell(s32 handnum)
         if ((g_CurrentPlayer && g_CurrentPlayer));
 
         setSixExplosionAndSmokeEntries();
-    } 
-    else 
+    }
+    else
     {
         bullet_path_from_screen_center(&screenpos, &aimdir, handnum);
         mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), &aimdir);
@@ -2376,7 +2376,7 @@ void gunFireTankShell(s32 handnum)
         velocity.y = unscaledvelocity.y * g_GlobalTimerDelta;
         velocity.z = unscaledvelocity.z * g_GlobalTimerDelta;
 
-        if (g_ClockTimer > 0) 
+        if (g_ClockTimer > 0)
         {
             velocity.x += (playerprop->pos.x - prevplayerpos->x) / g_GlobalTimerDelta;
             velocity.y += (playerprop->pos.y - prevplayerpos->y) / g_GlobalTimerDelta;
@@ -2390,17 +2390,17 @@ void gunFireTankShell(s32 handnum)
     shellmtx.m[3][1] = 0.0f;
     shellmtx.m[3][2] = 0.0f;
 
-    if (hand->rocket != NULL) 
+    if (hand->rocket != NULL)
     {
         obj = (WeaponObjRecord *) hand->rocket;
         hand->firedrocket = 1;
-    } 
-    else 
+    }
+    else
     {
         obj = (WeaponObjRecord *) create_new_item_instance_of_model(PROP_CHRROCKET, ITEM_ROCKETROUND);
     }
 
-    if (obj == NULL) 
+    if (obj == NULL)
     {
         return;
     }
@@ -2428,7 +2428,7 @@ void gunFireTankShell(s32 handnum)
             if (obj->projectile->sounds[0] == NULL)
             {
                 sndPlaySfx(g_musicSfxBufferPtr, 1, &obj->projectile->sounds[0]);
-            } 
+            }
             else if (obj->projectile->sounds[1] == NULL)
             {
                 sndPlaySfx(g_musicSfxBufferPtr, 1, &obj->projectile->sounds[1]);

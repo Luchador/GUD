@@ -68,7 +68,7 @@ s32 D_8002C910 = 0;
  *         u8/u14 = unused, dN/fN = death/flinch anim counts (filled at init by initWeaponAnimGroups).
  */
 /*                       part,                       iN,  u8,  iSz,   bN, u14,  bSz,  deathAnims,           dN, flinchAnims,          fN */
-struct ChrHitReaction g_HitReactionTable[] = {     
+struct ChrHitReaction g_HitReactionTable[] = {
 /* HIT_NULL_PART      */ {0                        , 0,   0,   0,     0,  0,    0,    NULL,                 0,  NULL,                  0},
 /* HIT_LEFT_FOOT      */ {1                        , 1,   0,   17.0,  3,  0,    34.0, death_left_foot,      0,  flinch_left_foot,      0},
 /* HIT_LEFT_LEG       */ {2                        , 1,   0,   17.0,  3,  0,    39.0, death_left_leg,       0,  flinch_left_leg,       0},
@@ -1912,14 +1912,14 @@ void chrSetHiddenToRandom(ChrRecord *self)
 
 /**
  * Address: 7F020794
- * 
+ *
  * Flinch animation envelope. Maps a character's flinchcnt timer to a normalized
  * intensity that goes 0->1 then falls 1->0, used to drive the flinch animation.
- * 
+ *
  * Flinches happen when a character has body armor or has the CHRFLAG_INVINCIBLE flag and is shot in the arm or torso.
- * 
+ *
  * Rise and fall are measured in VI retraces: 1/60 s on NTSC and 1/50 s on PAL.
- * 
+ *
  */
 f32 chrGetFlinchAmount(ChrRecord *chr)
 {
@@ -2010,12 +2010,12 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 
     scale = 1.0f;
 
-#ifdef BUGFIX_R1
     if (cheatIsActive(CHEAT_DK_MODE))
     {
+#ifdef BUGFIX_R1
         chr = g_CurModelChr;
-
         if (chrCanUseDKModeScaling(chr->bodynum, chr->headnum))
+#endif
         {
             if (bodypart == CHR_RENDERPART_HEAD)
             {
@@ -2023,26 +2023,16 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
             }
             else if ((bodypart == CHR_RENDERPART_LEFT_ARM) || (bodypart == CHR_RENDERPART_RIGHT_ARM))
             {
+#ifdef BUGFIX_R1
                 if (!(g_CurModelChr->chrflags & CHRFLAG_08000000))
+#endif
                 {
                     scale = 2.5f;
                 }
             }
         }
     }
-#else
-    if (cheatIsActive(CHEAT_DK_MODE))
-    {
-        if (bodypart == CHR_RENDERPART_HEAD)
-        {
-            scale = 4.0f;
-        }
-        else if ((bodypart == CHR_RENDERPART_LEFT_ARM) || (bodypart == CHR_RENDERPART_RIGHT_ARM))
-        {
-            scale = 2.5f;
-        }
-    }
-#endif
+
     if ((((bodypart != CHR_RENDERPART_LEFT_ARM) && (bodypart != CHR_RENDERPART_RIGHT_ARM)) && (bodypart != CHR_RENDERPART_TORSO)) && (bodypart != CHR_RENDERPART_HEAD))
     {
         return;
@@ -2051,27 +2041,23 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
     zrot = (yrot = (xrot = 0.0f));
 
 #ifdef BUGFIX_R1
+    //Use local chr earlier - although its just a pointer so...makes no difference?
     chr = g_CurModelChr;
+    #define g_CurModelChr chr
 #endif
     if (bodypart == CHR_RENDERPART_RIGHT_ARM)
     {
-#ifdef BUGFIX_R1
-        xrot = chr->aimuprshoulder;
-#else
         xrot = g_CurModelChr->aimuprshoulder;
-#endif
     }
     else if (bodypart == CHR_RENDERPART_LEFT_ARM)
     {
-#ifdef BUGFIX_R1
-        xrot = chr->aimuplshoulder;
-#else
         xrot = g_CurModelChr->aimuplshoulder;
-#endif
     }
     else if (bodypart == CHR_RENDERPART_TORSO)
     {
-#ifndef BUGFIX_R1
+#ifdef BUGFIX_R1
+    #undef g_CurModelChr
+#else
         chr = g_CurModelChr;
 #endif
         xrot = chr->aimupback;
@@ -2260,7 +2246,7 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 
 /**
  * Address 0x7F020D94.
- * 
+ *
  * For visibility, player collision, tank collision, bullet collision, and explosion damage
  * tests the game needs to know which room(s) a character is in. This allows the game to perform
  * tests on only characters in loaded rooms, not the entire stage.
@@ -3067,11 +3053,11 @@ void chrCreateHitPuffs(PropRecord *prop, s32 anim_id, coord3d *vec, coord3d *pos
     index = 0;
     i = 0;
 
-    if (g_HitReactionTable[0].hitpart != -1) 
+    if (g_HitReactionTable[0].hitpart != -1)
     {
-        do 
+        do
         {
-            if (anim_id == g_HitReactionTable[i].hitpart) 
+            if (anim_id == g_HitReactionTable[i].hitpart)
             {
                 index = i;
                 break;
@@ -3086,7 +3072,7 @@ void chrCreateHitPuffs(PropRecord *prop, s32 anim_id, coord3d *vec, coord3d *pos
 
     if (entry->backImpactPuffCount) {
         // True when randomGetNext() bit 2 is 0, so roughly 50% chance.
-        if ((randomGetNext() & 4) == 0) 
+        if ((randomGetNext() & 4) == 0)
         {
             scale = (42.0f / sqrtf(vec->z * vec->z + (vec->x * vec->x + vec->y * vec->y))) + 1.0f;
 
@@ -3100,7 +3086,7 @@ void chrCreateHitPuffs(PropRecord *prop, s32 anim_id, coord3d *vec, coord3d *pos
         }
     }
 
-    if (entry->impactPuffCount) 
+    if (entry->impactPuffCount)
     {
         bullet_spark_create(pos, entry->impactPuffCount, entry->impactPuffSize, prop->stan->room);
     }
@@ -3326,14 +3312,14 @@ after_opcode:
 
 
 /**
- * 
+ *
  * Address: 7F022648
- * 
+ *
  * Tests a shot's ray against a character.
  *
  * First tests the shot against the chr's bounding sphere expanded by the
  * largest held weapon's model size. On a bounds hit, the model hit list is
- * walked for a body part. A confirmed body hit is registered via chrpropAddBulletHit; 
+ * walked for a body part. A confirmed body hit is registered via chrpropAddBulletHit;
  * a near miss inside max range flags CHRFLAG_NEAR_MISS and bumps numclosearghs.
  *
  * PD: chr_test_hit
@@ -3341,7 +3327,7 @@ after_opcode:
 
 /**
  * This assert is from the former NONMATCHING block and belongs somewhere in chrTestHit.
- * 
+ *
  * #ifdef DEBUG
  * assert(hits && hits->HasHits());
  * #endif

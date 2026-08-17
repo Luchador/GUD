@@ -12,22 +12,32 @@ glabel g_tlbRandomSeed
 .word 0x81280783
 
 .section .text, "ax"
+
+#########################################################################
+# u64 tlbRandomGetNext(void)
+#
+# Returns next 64-bit pseudorandom value and updates global seed.
+#########################################################################
+
 glabel tlbRandomGetNext
-/* 002710 70001B10 3C048002 */  lui   $a0, %hi(g_tlbRandomSeed)
-/* 002714 70001B14 DC8430E0 */  ld    $a0, %lo(g_tlbRandomSeed)($a0)
-/* 002718 70001B18 3C018002 */  lui   $at, %hi(g_tlbRandomSeed)
-/* 00271C 70001B1C 000437FC */  dsll32 $a2, $a0, 0x1f
-/* 002720 70001B20 00042FF8 */  dsll  $a1, $a0, 0x1f
-/* 002724 70001B24 000637FA */  dsrl  $a2, $a2, 0x1f
-/* 002728 70001B28 0005283E */  dsrl32 $a1, $a1, 0
-/* 00272C 70001B2C 0004233C */  dsll32 $a0, $a0, 0xc
-/* 002730 70001B30 00C53025 */  or    $a2, $a2, $a1
-/* 002734 70001B34 0004203E */  dsrl32 $a0, $a0, 0
-/* 002738 70001B38 00C43026 */  xor   $a2, $a2, $a0
-/* 00273C 70001B3C 0006253A */  dsrl  $a0, $a2, 0x14
-/* 002740 70001B40 30840FFF */  andi  $a0, $a0, 0xfff
-/* 002744 70001B44 00862026 */  xor   $a0, $a0, $a2
-/* 002748 70001B48 0004103C */  dsll32 $v0, $a0, 0
-/* 00274C 70001B4C FC2430E0 */  sd    $a0, %lo(g_tlbRandomSeed)($at)
-/* 002750 70001B50 03E00008 */  jr    $ra
-/* 002754 70001B54 0002103F */   dsra32 $v0, $v0, 0
+	# load 64-bit seed
+	lui	$a0, %hi(g_tlbRandomSeed)
+	ld	$a0, %lo(g_tlbRandomSeed)($a0)
+	lui	$at, %hi(g_tlbRandomSeed)
+	dsll32	$a2, $a0, 0x1f  # a2 = seed << 63 (upper 32 bits)
+	dsll	$a1, $a0, 0x1f   # a1 = seed << 31 (full 64-bit)
+	dsrl	$a2, $a2, 0x1f   # a2 = (seed >> 32) & 1
+	dsrl32	$a1, $a1, 0     # a1 = (seed << 31) >> 32 = top 32 bits of (seed << 31)
+	# Extract upper 32 bits of (seed << 12) and Combine the shifted parts
+	dsll32	$a0, $a0, 0xc   # a0 = seed << 44
+	or	$a2, $a2, $a1    # a2 = (bit31) | (upper32(seed<<31))
+	dsrl32	$a0, $a0, 0     # a0 = (seed << 12) >> 32
+	xor	$a2, $a2, $a0    # a2 ^= upper32(seed<<12)
+	dsrl	$a0, $a2, 0x14
+	andi	$a0, $a0, 0xfff  # mask to 12 bits
+	xor	$a0, $a0, $a2
+	# Store/Return new seed
+	dsll32	$v0, $a0, 0
+	sd	$a0, %lo(g_tlbRandomSeed)($at)
+	jr	$ra
+	 dsra32	$v0, $v0, 0

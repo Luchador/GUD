@@ -7,7 +7,7 @@
 
 
 
-Gfx globalDL_0x000[] = { 
+Gfx globalDL_0x000[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_ZB_CLD_SURF, G_RM_ZB_CLD_SURF2),
@@ -27,7 +27,7 @@ Gfx globalDL_0x000[] = {
     gsSPEndDisplayList()
 };
 
-Gfx globalDL_0x078[] = { 
+Gfx globalDL_0x078[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_CLD_SURF2),
@@ -55,7 +55,7 @@ Gfx globalDL_0x078[] = {
     gsSPEndDisplayList(),
 };
 
-Gfx globalDL_0x120[] = { 
+Gfx globalDL_0x120[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_CLD_SURF2),
@@ -82,7 +82,7 @@ Gfx globalDL_0x120[] = {
     gsSPEndDisplayList(),
 };
 
-Gfx globalDL_0x1c8[] = { 
+Gfx globalDL_0x1c8[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_CLD_SURF2),
@@ -109,7 +109,7 @@ Gfx globalDL_0x1c8[] = {
     gsSPEndDisplayList(),
 };
 
-Gfx globalDL_0x270[] = { 
+Gfx globalDL_0x270[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_CLD_SURF2),
@@ -136,7 +136,7 @@ Gfx globalDL_0x270[] = {
     gsSPEndDisplayList(),
 };
 
-Gfx globalDL_0x318[] = { 
+Gfx globalDL_0x318[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_CLD_SURF2),
@@ -163,7 +163,7 @@ Gfx globalDL_0x318[] = {
     gsSPEndDisplayList(),
 };
 
-Gfx globalDL_0x3c0[] = { 
+Gfx globalDL_0x3c0[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_CLD_SURF2),
@@ -190,7 +190,7 @@ Gfx globalDL_0x3c0[] = {
     gsSPEndDisplayList(),
 };
 
-Gfx globalDL_0x468[] = { 
+Gfx globalDL_0x468[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_CLD_SURF2),
@@ -217,7 +217,7 @@ Gfx globalDL_0x468[] = {
     gsSPEndDisplayList(),
 };
 
-Gfx globalDL_0x510[] = { 
+Gfx globalDL_0x510[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_CLD_SURF2),
@@ -244,7 +244,7 @@ Gfx globalDL_0x510[] = {
     gsSPEndDisplayList(),
 };
 
-Gfx globalDL_0x5b8[] = { 
+Gfx globalDL_0x5b8[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_CLD_SURF2),
@@ -271,7 +271,7 @@ Gfx globalDL_0x5b8[] = {
     gsSPEndDisplayList(),
 };
 
-Gfx globalDL_0x660[] = { 
+Gfx globalDL_0x660[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_CLD_SURF2),
@@ -298,7 +298,7 @@ Gfx globalDL_0x660[] = {
     gsSPEndDisplayList(),
 };
 
-Gfx globalDL_0x708[] = { 
+Gfx globalDL_0x708[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_CLD_SURF2),
@@ -325,7 +325,7 @@ Gfx globalDL_0x708[] = {
     gsSPEndDisplayList(),
 };
 
-Gfx globalDL_0x7b0[] = { 
+Gfx globalDL_0x7b0[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_CLD_SURF2),
@@ -352,7 +352,7 @@ Gfx globalDL_0x7b0[] = {
     gsSPEndDisplayList(),
 };
 
-Gfx globalDL_0x858[] = { 
+Gfx globalDL_0x858[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_CLD_SURF2),
@@ -379,7 +379,7 @@ Gfx globalDL_0x858[] = {
     gsSPEndDisplayList(),
 };
 
-Gfx globalDL_0x900[] = { 
+Gfx globalDL_0x900[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_CLD_SURF2),
@@ -406,7 +406,7 @@ Gfx globalDL_0x900[] = {
     gsSPEndDisplayList(),
 };
 
-Gfx globalDL_0x9a8[] = { 
+Gfx globalDL_0x9a8[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_2CYCLE),
     gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_CLD_SURF2),
@@ -433,7 +433,7 @@ Gfx globalDL_0x9a8[] = {
     gsSPEndDisplayList(),
 };
 
-Gfx globalDL_0xa50[] = { 
+Gfx globalDL_0xa50[] = {
     gsDPPipeSync(),
     gsDPSetCycleType(G_CYC_1CYCLE),
     gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2),
@@ -454,31 +454,31 @@ Gfx globalDL_0xa50[] = {
     gsSPEndDisplayList(),
 };
 
-sImageTableEntry s_genericimage[] = { 
-    {IMAGE_FLAREWHITEROUND, 0x36, 0x36, 3, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0}
+sImageTableEntry s_genericimage[] = {
+    {IMAGE_FLAREWHITEROUND, 0x36, 0x36, 3, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0} // bg/debris?
 };
 
-sImageTableEntry s_impactimages[] = { // bg/debris?
-    {IMAGE_IMPACT1, 0x30, 0x30, 6, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/windowhit
-    {IMAGE_IMPACT2, 0x40, 0x20, 7, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/bullethit
-    {IMAGE_IMPACT3, 0x40, 0x40, 0, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/wallhit
-    {IMAGE_IMPACTLOTS, 0x40, 0x20, 7, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/bulletholesplaster
-    {IMAGE_IMPACT1, 0x30, 0x30, 6, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/windowhit
-    {IMAGE_IMPACT1, 0x30, 0x30, 6, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/windowhit
-    {IMAGE_IMPACT1, 0x30, 0x30, 6, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/windowhit
-    {IMAGE_IMPACT4, 0x20, 0x20, 0, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/bullethole
-    {IMAGE_IMPACTMULTI, 0x20, 0x20, 0, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/bulletholesplasterrgb
-    {IMAGE_IMPACTREDBRICK1, 0x20, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/wallhole1
-    {IMAGE_IMPACTREDBRICK2, 0x20, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/wallhole2
-    {IMAGE_IMPACTREDBRICK3, 0x20, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/wallhole3
-    {IMAGE_IMPACTBRICK2, 0x20, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/wallhole6
-    {IMAGE_IMPACTBRICK3, 0x20, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/wallhole7
-    {IMAGE_IMPACTBROWNBRICK1, 0x20, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/wallhole8
-    {IMAGE_IMPACTBROWNBRICK2, 0x20, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/wallhole9
-    {IMAGE_IMPACT3, 0x40, 0x40, 0, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/wallhit
-    {IMAGE_IMPACT1, 0x30, 0x30, 6, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/windowhit
-    {IMAGE_IMPACT1, 0x30, 0x30, 6, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bg/windowhit
-    {IMAGE_IMPACT1, 0x30, 0x30, 6, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0}  // bg/windowhit
+sImageTableEntry s_impactimages[] = {
+    {IMAGE_IMPACT1, 0x30, 0x30, 6, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0},              // bulletholes/windowhit
+    {IMAGE_IMPACT2, 0x40, 0x20, 7, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0},              // bulletholes/bullethit
+    {IMAGE_IMPACT3, 0x40, 0x40, 0, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0},              // bulletholes/wallhit
+    {IMAGE_IMPACTLOTS, 0x40, 0x20, 7, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0},           // bulletholes/bulletholesplaster
+    {IMAGE_IMPACT1, 0x30, 0x30, 6, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0},              // bulletholes/windowhit
+    {IMAGE_IMPACT1, 0x30, 0x30, 6, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0},              // bulletholes/windowhit
+    {IMAGE_IMPACT1, 0x30, 0x30, 6, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0},              // bulletholes/windowhit
+    {IMAGE_IMPACT4, 0x20, 0x20, 0, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0},              // bulletholes/bullethole
+    {IMAGE_IMPACTMULTI, 0x20, 0x20, 0, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_CLAMP, G_TX_CLAMP, 0},       // bulletholes/bulletholesplasterrgb
+    {IMAGE_IMPACTREDBRICK1, 0x20, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_CLAMP, G_TX_CLAMP, 0},   // bulletholes/wallhole1
+    {IMAGE_IMPACTREDBRICK2, 0x20, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_CLAMP, G_TX_CLAMP, 0},   // bulletholes/wallhole2
+    {IMAGE_IMPACTREDBRICK3, 0x20, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_CLAMP, G_TX_CLAMP, 0},   // bulletholes/wallhole3
+    {IMAGE_IMPACTBRICK2, 0x20, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_CLAMP, G_TX_CLAMP, 0},      // bulletholes/wallhole6
+    {IMAGE_IMPACTBRICK3, 0x20, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_CLAMP, G_TX_CLAMP, 0},      // bulletholes/wallhole7
+    {IMAGE_IMPACTBROWNBRICK1, 0x20, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bulletholes/wallhole8
+    {IMAGE_IMPACTBROWNBRICK2, 0x20, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_CLAMP, G_TX_CLAMP, 0}, // bulletholes/wallhole9
+    {IMAGE_IMPACT3, 0x40, 0x40, 0, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0},              // bulletholes/wallhit
+    {IMAGE_IMPACT1, 0x30, 0x30, 6, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0},              // bulletholes/windowhit
+    {IMAGE_IMPACT1, 0x30, 0x30, 6, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0},              // bulletholes/windowhit
+    {IMAGE_IMPACT1, 0x30, 0x30, 6, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0}               // bulletholes/windowhit
 };
 
 sImageTableEntry s_explosion_smokeimages[] = {  // sfx/smoke?
@@ -498,29 +498,29 @@ sImageTableEntry s_scattered_explosions[] = { // sfx/firebomb?
     {IMAGE_SMOKEBALLS5, 0x40, 0x40, 0, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_WRAP, G_TX_WRAP, 0}  // sfx/backhit30
 };
 
-sImageTableEntry s_flareimage1[] = { 
+sImageTableEntry s_flareimage1[] = {
     {IMAGE_FLARENOVA, 0x40, 0x40, 0, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_WRAP, G_TX_WRAP, 0}
 };
 
-sImageTableEntry s_flareimage2[] = { 
+sImageTableEntry s_flareimage2[] = {
     {IMAGE_WHITEBOX, 0x40, 0x40, 0, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_WRAP, G_TX_WRAP, 0} // sfx/white
 };
 
-sImageTableEntry s_flareimage3[] = { 
+sImageTableEntry s_flareimage3[] = {
     {IMAGE_FLAREORANGELINE, 0x10, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_32b, G_TX_WRAP, G_TX_WRAP, 0} // sfx/laser
 };
 
-sImageTableEntry s_flareimage4[] = { 
+sImageTableEntry s_flareimage4[] = {
     {IMAGE_FLAREBLUELINE, 0x10, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_32b, G_TX_WRAP, G_TX_WRAP, 0} // sfx/beam
 };
 
-sImageTableEntry s_flareimage5[] = { 
+sImageTableEntry s_flareimage5[] = {
     {IMAGE_FLAREBLUEROUND, 0x20, 0x20, 0, G_IM_FMT_RGBA, G_IM_SIZ_32b, G_TX_WRAP, G_TX_WRAP, 0} // sfx/beamhead
 };
 
 
 
-sImageTableEntry s_ammo9mmimage[] = { 
+sImageTableEntry s_ammo9mmimage[] = {
     {IMAGE_9MMAMMO, 5, 0xC, 0, G_IM_FMT_RGBA, G_IM_SIZ_32b, G_TX_CLAMP, G_TX_CLAMP, 0} // bg/ammoicon9mm
 };
 
@@ -589,7 +589,7 @@ sImageTableEntry s_glassoverlayimage[] = {
     {IMAGE_GLASS3, 0x36, 0x36, 3, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0} // sfx/glass?
 };
 
-sImageTableEntry s_monitorimages[] = { 
+sImageTableEntry s_monitorimages[] = {
     {IMAGE_MONITOR_BOND, 0x20, 0x20, 0, G_IM_FMT_I, G_IM_SIZ_8b, G_TX_WRAP, G_TX_WRAP, 0},                 // monitors/bondlogo
     {IMAGE_MONITOR_LOCATION, 0x80, 0x10, 0, G_IM_FMT_I, G_IM_SIZ_8b, G_TX_WRAP, G_TX_WRAP, 0},             // monitors/cyrlocation
     {IMAGE_MONITOR_BEGINARMING, 0x80, 0x10, 0, G_IM_FMT_I, G_IM_SIZ_8b, G_TX_WRAP, G_TX_WRAP, 0},          // monitors/cyrweaponarmed
@@ -642,13 +642,13 @@ sImageTableEntry s_monitorimages[] = {
     {IMAGE_MONITOR_KEYBOARDKEY, 0x20, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_WRAP, G_TX_WRAP, 0}       // monitors/keyboardkey
 };
 
-sImageTableEntry s_skywaterimages[] = { 
+sImageTableEntry s_skywaterimages[] = {
     {IMAGE_CLOUDS_GRAYSCALE, 0x40, 0x40, 0, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_WRAP, G_TX_WRAP, 0}, // bg/clouds
     {IMAGE_WATER_GRAYSCALE, 0x40, 0x40, 0, G_IM_FMT_I, G_IM_SIZ_8b, G_TX_WRAP, G_TX_WRAP, 0},   // bg/water1
     {IMAGE_WATER_BLUE, 0x20, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_WRAP, G_TX_WRAP, 0}     // bg/water2
 };
 
-sImageTableEntry s_mainfolderimages[] = { 
+sImageTableEntry s_mainfolderimages[] = {
     {IMAGE_COPYICON, 0x20, 0x1C, 0, G_IM_FMT_RGBA, G_IM_SIZ_32b, G_TX_WRAP, G_TX_CLAMP, 0}, //
     {IMAGE_DELICON, 0x20, 0x1C, 0, G_IM_FMT_RGBA, G_IM_SIZ_32b, G_TX_WRAP, G_TX_CLAMP, 0}, //
     {IMAGE_SELECTFILE, 0x7A, 0x12, 0, G_IM_FMT_IA, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0}, //
@@ -657,11 +657,11 @@ sImageTableEntry s_mainfolderimages[] = {
     {IMAGE_DOT, 0x10, 0x10, 0, G_IM_FMT_I, G_IM_SIZ_8b, G_TX_WRAP, G_TX_WRAP, 0} //
 };
 
-sImageTableEntry s_mpradarimages[] = { 
+sImageTableEntry s_mpradarimages[] = {
     {IMAGE_RUSTYDRUM_END, 0x20, 0x20, 6, G_IM_FMT_RGBA, G_IM_SIZ_16b, G_TX_WRAP, G_TX_WRAP, 0} //circle
 };
 
-sImageTableEntry s_mpcharselimages[] = { 
+sImageTableEntry s_mpcharselimages[] = {
     {IMAGE_BROSNAN_UL, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}, // characters/brosnan
     {IMAGE_BROSNAN_UR, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}, // characters/brosnan
     {IMAGE_BROSNAN_LL, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}, // characters/brosnan
@@ -686,10 +686,10 @@ sImageTableEntry s_mpcharselimages[] = {
     {IMAGE_OURUMOV_UR, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}, // characters/ourumov/oumorov
     {IMAGE_OURUMOV_LL, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}, // characters/ourumov/oumorov
     {IMAGE_OURUMOV_LR, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}, // characters/ourumov/oumorov
-    {IMAGE_TREVELYAN_UL, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0 }, // characters/trevelyan 
-    {IMAGE_TREVELYAN_UR, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0 }, // characters/trevelyan 
-    {IMAGE_TREVELYAN_LL, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0 }, // characters/trevelyan 
-    {IMAGE_TREVELYAN_LR, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0 }, // characters/trevelyan 
+    {IMAGE_TREVELYAN_UL, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0 }, // characters/trevelyan
+    {IMAGE_TREVELYAN_UR, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0 }, // characters/trevelyan
+    {IMAGE_TREVELYAN_LL, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0 }, // characters/trevelyan
+    {IMAGE_TREVELYAN_LR, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0 }, // characters/trevelyan
     {IMAGE_VALENTIN_UL, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}, // characters/valentin
     {IMAGE_VALENTIN_UR, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}, // characters/valentin
     {IMAGE_VALENTIN_LL, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}, // characters/valentin
@@ -705,7 +705,7 @@ sImageTableEntry s_mpcharselimages[] = {
     {IMAGE_BARON_UL, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}, // characters/baron
     {IMAGE_BARON_UR, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}, // characters/baron
     {IMAGE_BARON_LL, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}, // characters/baron
-    {IMAGE_BARON_LR, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}, // characters/baron 
+    {IMAGE_BARON_LR, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}, // characters/baron
     {IMAGE_JAWS_UL, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}, // characters/jaws
     {IMAGE_JAWS_UR, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}, // characters/jaws
     {IMAGE_JAWS_LL, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}, // characters/jaws
@@ -728,7 +728,7 @@ sImageTableEntry s_mpcharselimages[] = {
     {IMAGE_MISHKIN_LR, 0x41, 0x41, 7, G_IM_FMT_I, G_IM_SIZ_4b, G_TX_CLAMP, G_TX_CLAMP, 0}  // characters/mishkin
 };
 
-sImageTableEntry s_mpstageselimages[] = { 
+sImageTableEntry s_mpstageselimages[] = {
     //{IMAGE_MP_BUNKER, 0x44, 0x2C, 0, G_IM_FMT_I, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0},   // level/sevicon
     //{IMAGE_MP_SILO, 0x44, 0x2C, 0, G_IM_FMT_I, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0},     // level/siloicon
     //{IMAGE_MP_CONTROL, 0x44, 0x2C, 0, G_IM_FMT_I, G_IM_SIZ_8b, G_TX_CLAMP, G_TX_CLAMP, 0},  // level/arecicon
