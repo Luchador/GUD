@@ -70,7 +70,8 @@
       build/OUTCODE/src/game/math_floor.o (.data);
       build/OUTCODE/src/game/math_ceil.o (.data);
       build/OUTCODE/src/game/gun.o (.data);
-      build/OUTCODE/src/game/gun2.o (.data);
+      build/OUTCODE/src/game/gun_rodata.o (.data);
+      build/OUTCODE/src/game/gunfire.o (.data);
       build/OUTCODE/src/game/gun_constants.o (.data);
       build/OUTCODE/src/game/bondwalk2.o (.data);
       build/OUTCODE/src/game/objecthandler.o (.data);
