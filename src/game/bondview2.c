@@ -581,7 +581,7 @@ void solo_char_load(void)
             something_with_generating_object(self, prop, item, 0, (WeaponObjRecord *)helddst, (ItemModelFileRecord *)pitemheader);
         }
 
-        chrlvIdleAnimationRelated7F023A94(self, 0.0f);
+        chrlvMergeKneelToStand(self, 0.0f);
     }
     else
     {
@@ -593,7 +593,7 @@ void solo_char_load(void)
         }
 
         self->chrflags |= CHRFLAG_INIT;
-        chrlvIdleAnimationRelated7F023A94(self, 0.0f);
+        chrlvMergeKneelToStand(self, 0.0f);
         setsuboffset(g_CurrentPlayer->bodyModel, &g_CurrentPlayer->prop->pos);
         setsubroty(g_CurrentPlayer->bodyModel, yaw);
     }

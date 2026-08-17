@@ -372,7 +372,10 @@ void chrlvIdleAnimationRelated(ChrRecord *self, f32 duration)
 #define RATE 1.0f
 #endif
 
-void chrlvIdleAnimationRelated7F023A94(ChrRecord *self, f32 mergetime)
+/**
+ * At the end of a character's kneeling animation smoothly merge into their standing animation.
+ */
+void chrlvMergeKneelToStand(ChrRecord *self, f32 mergetime)
 {
     f32 fsleep;
 
@@ -497,7 +500,7 @@ void chrlvKneelingAnimationRelated(ChrRecord *self)
         return;
     }
 
-    chrlvIdleAnimationRelated7F023A94(self, 16.0f);
+    chrlvMergeKneelToStand(self, 16.0f);
 }
 
 
@@ -508,7 +511,7 @@ void chrlvKneelingAnimationRelated(ChrRecord *self)
  */
 void chrlvIdleAnimationRelated7F023E14(ChrRecord *self, f32 arg1)
 {
-    chrlvIdleAnimationRelated7F023A94(self, arg1);
+    chrlvMergeKneelToStand(self, arg1);
     self->act_stand.checkfacingwall = 1;
 }
 
@@ -9327,7 +9330,7 @@ void chrlvActionTick(ChrRecord *self)
         if (self->actiontype == ACT_INIT)
         {
             self->chrflags |= CHRFLAG_INIT;
-            chrlvIdleAnimationRelated7F023A94(self, 0.0f);
+            chrlvMergeKneelToStand(self, 0.0f);
             self->sleep = 0;
         }
 
