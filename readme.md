@@ -12,6 +12,6 @@ GUD is a fork of the GoldenEye decompilation repo. Some of the goals of this pro
 
 * [Setup Guide:](./docs/SetupGuide.md) useful information about installing the necessary dependencies and how to use it
 
-## Original Debug Repo
+## Original Decomp Repo
 
-[Original GoldenEye Decompilation Project]([https://www.google.com](https://github.com/n64decomp/007))
+[Original GoldenEye Decompilation Project](https://github.com/n64decomp/007)
