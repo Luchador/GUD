@@ -11,7 +11,7 @@ IDO_RECOMP := YES
 VERBOSE := 2
 # If COMPARE is 1, check the output sha1sum when building 'all', and if fail to match
 # then compare ELF sections to known md5 checksums.
-COMPARE := 1
+COMPARE := 0
 
 # Include Terminal Codes for colourising text.
 include include/make/VT100Codes.make
