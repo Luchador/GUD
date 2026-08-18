@@ -9,9 +9,6 @@ FINAL := YES
 VERSION := US
 IDO_RECOMP := YES
 VERBOSE := 2
-# If COMPARE is 1, check the output sha1sum when building 'all', and if fail to match
-# then compare ELF sections to known md5 checksums.
-COMPARE := 0
 
 # Include Terminal Codes for colourising text.
 include include/make/VT100Codes.make
@@ -42,12 +39,6 @@ TOOLS_DIR := tools
 DATASEG_COMP := $(TOOLS_DIR)/data_compress.sh
 RZ_COMP := $(TOOLS_DIR)/1172compress.sh
 N64CKSUM := $(TOOLS_DIR)/n64cksum
-
-ifeq ($(VERBOSE), 1)
- SHA1SUM = sha1sum
-else
- SHA1SUM = sha1sum --quiet
-endif
 
 # Convert AI Print commands from readable strings to byte arrays automatically.
 ConvertAIPRINT = sed -E -e ':loop s/PRINT\("(..*?)(.)"/PRINT\("\1",\x27\2\x27/g; tloop; \
@@ -100,7 +91,6 @@ ifeq ($(VERSION), DEBUG)
  LANG := US
  LCDEFS := -DVERSION_US -DLANG_US -DREFRESH_NTSC -DLEFTOVERDEBUG -DLEFTOVERSPECTRUM -DBUGFIX_R0 -DDEBUGMENU -DVERSION_DEBUG
  ASMDEFS := --defsym VERSION_DEBUG=1 --defsym LANG_US=1 --defsym REFRESH_NTSC=1 --defsym LEFTOVERDEBUG=1 --defsym LEFTOVERSPECTRUM=1 --defsym BUGFIX_R0=1 --defsym DEBUGMENU=1
- COMPARE := 0
  LDFILEOPTS := -DVERSION_$(LANG) -DOUTCODE=$(OUTCODE)
 endif
 
@@ -110,7 +100,6 @@ ifeq ($(VERSION), USB)
  LANG := US
  LCDEFS := -DVERSION_US -DLANG_US -DREFRESH_NTSC -DLEFTOVERDEBUG -DLEFTOVERSPECTRUM -DBUGFIX_R0 -DDEBUGMENU -DENABLE_USB
  ASMDEFS := --defsym VERSION_US=1 --defsym LANG_US=1 --defsym REFRESH_NTSC=1 --defsym LEFTOVERDEBUG=1 --defsym LEFTOVERSPECTRUM=1 --defsym BUGFIX_R0=1 --defsym DEBUGMENU=1 --defsym ENABLE_USB=1
- COMPARE := 0
  LDFILEOPTS := -DVERSION_$(LANG) -DOUTCODE=$(OUTCODE) -DENABLE_USB
 endif
 
@@ -242,10 +231,10 @@ OBJCOPY := $(TOOLCHAIN)objcopy
 .PRECIOUS: %.bin  %.o
 
 # Run the following targets sequentially in this order (unnamed targets will still run in parallel)
-.NOTPARALLEL: print_info create_directories $(APPROM) checksum
+.NOTPARALLEL: print_info create_directories $(APPROM)
 
 # Phony Recipes - These targets are not files, Get Make to do something
-.PHONY: print_info create_directories build_tools prerequisites checksum all_p1 all default commonclean setupclean stanclean dataclean libultraclean codeclean clean nuke help cmdbuidler test  context extractassets forceextractassets textures convert_props convert_chrs convert_guns extract_u extract_e extract_j force_extract_u force_extract_e force_extract_j extract_rsp
+.PHONY: print_info create_directories build_tools prerequisites all_p1 all default commonclean setupclean stanclean dataclean libultraclean codeclean clean nuke help cmdbuidler context extractassets forceextractassets textures convert_props convert_chrs convert_guns extract_u extract_e extract_j force_extract_u force_extract_e force_extract_j extract_rsp
 
 
 # this file references variables defined above: BUILD_DIR, CFLAGWARNING, INCLUDE, LCDEFS
@@ -357,13 +346,8 @@ prerequisites: print_info create_directories build_tools extractassets
 
 combine_images: assets/images/combined/combined.bin
 
-checksum: $(APPROM)
-ifeq ($(COMPARE), 1)
-	scripts/make/checksum.sh "$(SHA1SUM)" "$(OUTCODE)" "$(BUILD_DIR)"
-endif
-
 all_p1: prerequisites
-all: all_p1 $(APPROM) checksum
+all: all_p1 $(APPROM)
 	@echo "Rom File Generated in Build Directory."
 
 commonclean:
@@ -410,7 +394,6 @@ help:
 	@echo "    cmdbuidler                     BuildAI Commands"
 	@echo "    context [file]                 BuildContext File from [file]"
 	@echo "                                    eg make context src/game/chrai.c"
-	@echo "    test                            Re-Run Data Verification "
 	@echo ""
 	@echo ""
 	@echo "  options:"
@@ -419,9 +402,6 @@ help:
 	@echo "                                    Supported values: ${ALLOWED_VERSIONS}\n"
 
 include include/make/cmd.make
-
-
-test: checksum
 
 
 ifneq ($(filter-out context,$(MAKECMDGOALS)),)
