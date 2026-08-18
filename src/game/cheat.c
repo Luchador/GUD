@@ -865,11 +865,10 @@ void cheatTryActivateFromInputBuffer(void)
 }
 
 
-
 /**
  * Address 0x7F09193C.
  */
-void cheat_buttons_mp_related(void)
+void cheatButtonSampleInput(void)
 {
     u16 currentButtons;
     u16 buttonsPressedThisFrame;

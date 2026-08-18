@@ -99,7 +99,7 @@ extern u8 g_CheatPlayerTextRelated[0x4C];
 //public Functions
 bool cheatIsEnemyRockets(CHEAT_ID cheatindex);
 void cheatButtonTurnOnCheatForPlayers(CHEAT_ID cheatindex);
-void cheat_buttons_mp_related(void);
+void cheatButtonSampleInput(void);
 bool cheatIsActive(CHEAT_ID cheatindex);
 bool cheatCheckIfMPCheat(CHEAT_ID cheatindex);
 void cheatDisableAllCheats(void);

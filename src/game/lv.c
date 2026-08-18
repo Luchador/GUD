@@ -1265,7 +1265,7 @@ void lvlTick(void)
 
     if (g_CurrentStageToLoad == LEVELID_TITLE)
     {
-        cheat_buttons_mp_related();
+        cheatButtonSampleInput();
         menu_init();
         langTick();
     }
@@ -1498,7 +1498,7 @@ void lvlViewMoveTick(void)
     f32 temp_f2;
 
     local_player_number = get_cur_playernum();
-    cheat_buttons_mp_related();
+    cheatButtonSampleInput();
 
     switch (get_debug_freeze_processing())
     {
