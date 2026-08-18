@@ -63,7 +63,7 @@ extern f32 g_JP_GlobalTimerDelta;
 void lvInit(void);
 Gfx * lvlRender(Gfx *);
 void lvlSetSelectedDifficulty(DIFFICULTY arg0);
-void lvlManageMpGame(void);
+void lvlTick(void);
 void lvlViewMoveTick(void);
 void lvlUnloadStageTextData(void);
 DIFFICULTY lvlGetSelectedDifficulty(void);

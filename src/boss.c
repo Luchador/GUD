@@ -516,7 +516,9 @@ void bossMainloop(void)
 			                	g_BossIsDebugMenuOpen = debug_menu_processor(joyStickXPos, joyStickYPos, joyButtons, joyGetButtonsPressedThisFrame(0, ANY_BUTTON));
 			                }
 
-                            lvlManageMpGame();
+                            // Primary game tick function.
+                            lvlTick();
+
                             shuffle_player_ids();
 
                             if (g_StageNum != LEVELID_TITLE)
@@ -535,9 +537,10 @@ void bossMainloop(void)
                                 }
                             }
 
+                            // Primary game rendering function.
                             gdl = lvlRender(gdl);
 
-                            // Lets Visualise the Coverage Value used for Scilohete Anti-Ailising (edges)
+                            // Lets Visualise the Coverage Value used for Silhouette Anti-Aliasing (edges)
                             // (done on the VI), also produces a cool looking linemode - providing AA is working.
                             if (get_debug_VisCVG_flag())
                             {

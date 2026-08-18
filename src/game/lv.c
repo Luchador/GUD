@@ -968,15 +968,17 @@ void lvlSetMultipliersForDifficulty(void)
 
 
 /**
- * Multiplayer method. Manages a lot of stuff.
- * Tracks you-only-live-twice kills/deaths.
- * Lots of debug code.
- *
  * Address: 0x7F0BEB88 (NTSC).
  * Address: 0x7F0BF7AC (NTSC-J).
  * Address: 0x7F0BDFAC (PAL).
+ * 
+ * Per-frame game tick called once per frame from the main loop in boss.c 
+ * Advances the clock variables the game runs on: g_ClockTimer, g_GlobalTimerDelta, g_GlobalTimer, and g_GlobalTickCount.
+ * Updates characters, sky, bullet casings, bullet sparks, explosion debris.
+ * Handles multiplayer states (timers, end of match warning alarm, and concluding the match)
+ * Also a fair amount of leftover debug code.
  */
-void lvlManageMpGame(void)
+void lvlTick(void)
 {
     tlbmanageResetCurrentEntriesCount();
 
@@ -1005,6 +1007,7 @@ void lvlManageMpGame(void)
 #endif
 #endif
     g_GlobalTimer += g_ClockTimer;
+
     if ((g_CurrentStageToLoad != LEVELID_TITLE) && (D_80048394 == 0) && (g_ClockTimer > 0))
     {
         if (g_AppendCheatSinglePlayer != 0)
