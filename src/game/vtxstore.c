@@ -141,51 +141,65 @@ void sub_GAME_7F09B820(void)
 *  Search all props and their model data for references to the `find` address
 *  and replace it with the `replacement` address.
 */
-void sub_GAME_7F09BAC4(s32 find, s32 replacement) {
-    PropRecord* var_s1;
-    ChrRecord* var_v0;
-    Model* temp_a0;
-    s32* temp_v0_2;
-    ModelNode* var_a1;
-    ModelFileHeader* var_v1;
-    s32 val;
+void vtxstoreFixRefs(Vertex* find, Vertex* replacement)
+{
+    PropRecord* prop;
+    ObjectRecord* obj;
+    union ModelRwData* rwdata;
+    ModelNode* node;
+    ModelFileHeader* modelfile;
+    s32 opcode;
 
-    var_s1 = chrpropGetActiveTail();
-    while (var_s1 != NULL) {
-        if (var_s1->type == 1) {
-            var_v0 = var_s1->chr;
-            var_v1 = ((Model*)var_v0->chrflags)->obj;
-            var_a1 = var_v1->RootNode;
-            while (var_a1 != NULL) {
-                val = var_a1->Opcode & 0xFF;
-                if (val == 0x18) {
-                    temp_v0_2 = modelGetNodeRwData(var_v0->chrflags, var_a1);
-                    if (find == *temp_v0_2) {
-                        *temp_v0_2 = replacement;
+    prop = chrpropGetActiveTail();
+
+    while (prop != NULL) 
+    {
+        if (prop->type == PROP_TYPE_OBJ)
+        {
+            obj = prop->obj;
+            modelfile = obj->model->obj;
+            node = modelfile->RootNode;
+
+            while (node != NULL)
+            {
+                opcode = node->Opcode & 0xFF;
+
+                if (opcode == MODELNODE_OPCODE_DLCOLLISION)
+                {
+                    rwdata = modelGetNodeRwData(obj->model, node);
+
+                    if (find == rwdata->DisplayListCollisions.Vertices)
+                    {
+                        rwdata->DisplayListCollisions.Vertices = replacement;
                     }
                     break;
-                } else {
-                    if (var_a1->Child != NULL) {
-                        var_a1 = var_a1->Child;
-                    } else {
-                        while (var_a1 != NULL) {
-                            if (var_a1->Next != NULL) {
-                                var_a1 = var_a1->Next;
+                }
+                else 
+                {
+                    if (node->Child != NULL)
+                    {
+                        node = node->Child;
+                    }
+                    else 
+                    {
+                        while (node != NULL)
+                        {
+                            if (node->Next != NULL)
+                            {
+                                node = node->Next;
                                 break;
                             }
-                            var_a1 = var_a1->Parent;
+
+                            node = node->Parent;
                         }
                     }
                 }
             }
         }
 
-        var_s1 = var_s1->prev;
+        prop = prop->prev;
     }
 }
-
-
-
 
 
 /*
@@ -206,7 +220,8 @@ void sub_GAME_7F09BBBC(void)
 
     if (word_CODE_bss_8007A0F2 < ((s32)dword_CODE_bss_8007A0D8 >> 2))
     {
-        for (var_fp = 0; var_fp < dword_CODE_bss_8007A0DC - 1; var_fp++) {
+        for (var_fp = 0; var_fp < dword_CODE_bss_8007A0DC - 1; var_fp++) 
+        {
             if (dword_CODE_bss_8007A0EC[var_fp].unk0E > 0)
             {
                 for (var_s2 = var_fp + 1; var_s2 < dword_CODE_bss_8007A0DC; var_s2++) {
@@ -214,7 +229,7 @@ void sub_GAME_7F09BBBC(void)
                         (dword_CODE_bss_8007A0EC[var_fp].unk04 == dword_CODE_bss_8007A0EC[var_s2].unk04) &&
                         (dword_CODE_bss_8007A0EC[var_fp].unk08 == dword_CODE_bss_8007A0EC[var_s2].unk08))
                     {
-                        sub_GAME_7F09BAC4((s32)dword_CODE_bss_8007A0EC[var_s2].unk00, (s32)dword_CODE_bss_8007A0EC[var_fp].unk00);
+                        vtxstoreFixRefs(dword_CODE_bss_8007A0EC[var_s2].unk00, dword_CODE_bss_8007A0EC[var_fp].unk00);
                         var_s6 = 1;
 
                         dword_CODE_bss_8007A0EC[var_fp].unk0E += dword_CODE_bss_8007A0EC[var_s2].unk0E;
