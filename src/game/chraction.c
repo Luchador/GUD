@@ -5154,7 +5154,7 @@ void chrlvTickAnim(ChrRecord *self)
         && !(self->chrflags & CHRFLAG_02000000)
        )
     {
-        if (((D_80048380 & 1) == 0) && (chrGetDistanceToBond(self) < 800.0f))
+        if (((g_GlobalTickCount & 1) == 0) && (chrGetDistanceToBond(self) < 800.0f))
         {
             chrobjSndCreatePostEventDefault(sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, SNEEZE_SFX, 0), &self->prop->pos);
         }

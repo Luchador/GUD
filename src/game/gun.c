@@ -1650,7 +1650,7 @@ void gunInitProjectileObject(ObjectRecord *obj, coord3d *pos, StandTile *stan, M
             obj->projectile->speed.f[1] = velocity->f[1];
             obj->projectile->speed.f[2] = velocity->f[2];
             obj->projectile->obj = obj;
-            obj->projectile->unkE8 = D_80048380;
+            obj->projectile->unkE8 = g_GlobalTickCount;
         }
     }
 }

@@ -7569,11 +7569,11 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 #endif
                             {
                                 sp6C->chrflags |= CHRFLAG_01000000;
-                                if ((D_80048380 % 3) < 2)
+                                if ((g_GlobalTickCount % 3) < 2)
                                 {
                                     chrobjSndCreatePostEventDefault(sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, CRUSHED_YELL_SFX, NULL), &prop->pos);
                                 }
-                                if ((D_80048380 % 3) > 0)
+                                if ((g_GlobalTickCount % 3) > 0)
                                 {
                                     chrobjSndCreatePostEventDefault(sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, TANK_CRUSH_MAN_SFX, NULL), &prop->pos);
                                 }
@@ -10569,9 +10569,9 @@ join_768:
     {
         if (sub_GAME_7F02D630(chr, i, &ppointers[index]->field_2A18[i]) != 0)
         {
-            (&ppointers[index]->field_2A30)[i] = D_80048380;
+            (&ppointers[index]->field_2A30)[i] = g_GlobalTickCount;
         }
-        else if ((&ppointers[index]->field_2A30)[i] < (D_80048380 - 1))
+        else if ((&ppointers[index]->field_2A30)[i] < (g_GlobalTickCount - 1))
         {
             ppointers[index]->field_2A18[i].x = ppointers[index]->hands[i].field_B58.x;
             ppointers[index]->field_2A18[i].y = ppointers[index]->hands[i].field_B58.y;

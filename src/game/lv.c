@@ -100,16 +100,26 @@ f32 g_JP_GlobalTimerDelta = 0;
 // 800483ac
 s32 g_GlobalTimer = 0;
 // 800483b0
-s32 D_80048380 = 0;
+s32 g_GlobalTickCount = 0;
 // 800483b4
 f32 g_GlobalTimerDelta = 0;
 #else
 //D:80048378
 f32 g_GlobalTimerDelta = 0;
+
 //D:8004837C
+/**
+ * Accumulated video field periods since stage load i.e. 60/s on NTSC and 50/s on PAL. This remains true no
+ * matter how badly the frame rate dips. Freezes while the game is paused or controls are locked.
+ */
 s32 g_GlobalTimer = 0;
+
 //D:80048380
-s32 D_80048380 = 0;
+/**
+ * Set to 0 on stage load, increments by one tick per rendered *frame*. This means the rate it increases depends on the frame rate.
+ */
+s32 g_GlobalTickCount = 0;
+
 //D:80048384
 #endif
 /*
@@ -338,7 +348,7 @@ void lvlStageLoad(s32 stage)
     g_JP_GlobalTimerDelta = 1.0f;
 #endif
 
-    D_80048380 = 0;
+    g_GlobalTickCount = 0;
     g_GlobalTimer = 0;
 
 #if defined(VERSION_JP)
@@ -981,7 +991,7 @@ void lvlManageMpGame(void)
     else
     {
         g_ClockTimer = speedgraphframes;
-        D_80048380 += 1;
+        g_GlobalTickCount += 1;
     }
 
 #ifdef VERSION_US

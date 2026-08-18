@@ -4874,7 +4874,7 @@ s32 objTick(struct PropRecord *prop)
 
 						if ((moveResult == 0) || (hitGround != 0))
 						{
-							if (((s32) Rocket->unkAC) < (((s32) D_80048380) - 2))
+							if (((s32) Rocket->unkAC) < (((s32) g_GlobalTickCount) - 2))
 							{
 								if ((airborneWeapon->weaponnum == ITEM_THROWKNIFE) || (airborneWeapon->weaponnum == ITEM_KNIFE))
 								{
@@ -4888,18 +4888,18 @@ s32 objTick(struct PropRecord *prop)
 								chrobjSndCreatePostEventDefault(sfx_state, &prop->pos);
 							}
 
-							Rocket->unkAC = D_80048380;
+							Rocket->unkAC = g_GlobalTickCount;
 						}
 					}
 				}
 
-				if (((airborneWeapon->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE) && (Rocket->flags & PROJECTILEFLAG_FALLING)) && (!(D_80048380 & 7)))
+				if (((airborneWeapon->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE) && (Rocket->flags & PROJECTILEFLAG_FALLING)) && (!(g_GlobalTickCount & 7)))
 				{
 					sp564.f[0] = airborneWeapon->runtime_pos.f[0] + 400.0f;
 					sp564.f[1] = airborneWeapon->runtime_pos.f[1] - 1800.0f;
 					sp564.f[2] = airborneWeapon->runtime_pos.f[2];
 
-					if (!(D_80048380 & 0xF))
+					if (!(g_GlobalTickCount & 0xF))
 					{
 						sp564.f[2] += 400.0f;
 					}
@@ -4910,7 +4910,7 @@ s32 objTick(struct PropRecord *prop)
 
 					explosionCreate(NULL, &sp564, airborneWeapon->prop->stan, 0x14, 0, 0, airborneWeapon->prop->rooms, 0);
                     //Spawn smoke every 40 frames
-					if ((((s32) D_80048380) % 40) == 0)
+					if ((((s32) g_GlobalTickCount) % 40) == 0)
 					{
 						explosionCreateSmoke(&sp564, airborneWeapon->prop->stan, 0xA, airborneWeapon->prop->rooms, 1);
 					}
