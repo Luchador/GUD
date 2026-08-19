@@ -314,7 +314,6 @@ s32 modelFindNodeMtxIndex(ModelNode *node, s32 arg1)
 }
 
 
-// PD: model0001a5cc
 Mtxf *modelFindNodeMtx(struct Model *model, struct ModelNode *node, s32 arg2) {
     s32 index = modelFindNodeMtxIndex(node, arg2);
 
@@ -326,8 +325,6 @@ Mtxf *modelFindNodeMtx(struct Model *model, struct ModelNode *node, s32 arg2) {
 }
 
 
-//rejoined per EU
-// PD: model0001a60c
 Mtxf *getsubmatrix(Model *objinst)
 {
     #if defined(LEFTOVERDEBUG)
@@ -346,26 +343,6 @@ Mtxf *getsubmatrix(Model *objinst)
 }
 
 
-// unreferenced
-void sub_GAME_7F06C710(Model* model, coord3d* pos)
-{
-    Mtxf* mtx;
-
-    mtx = getsubmatrix(model);
-    if (mtx != NULL)
-    {
-        pos->f[0] = (f32) mtx->m[3][0];
-        pos->f[1] = (f32) mtx->m[3][1];
-        pos->f[2] = (f32) mtx->m[3][2];
-        return;
-    }
-
-    pos->f[0] = 0.0f;
-    pos->f[1] = 0.0f;
-    pos->f[2] = 0.0f;
-}
-
-
 f32 sub_GAME_7F06C768(Model *objinst)
 {
     Mtxf *mtx = getsubmatrix(objinst);
@@ -377,9 +354,6 @@ f32 sub_GAME_7F06C768(Model *objinst)
 }
 
 
-/**
- * Address 0x7F06C79C.
-*/
 union ModelRwData* modelGetNodeRwData(Model *Objinst, ModelNode *root)
 {
     s32 index  = 0;
@@ -2435,35 +2409,37 @@ f32 modelGetAbsAnimSpeed(Model *model)
     return speed;
 }
 
-/**
- * Unused Function
- * Unreferenced
-*/
-f32 modelGetEffectiveAnimSpeed(Model *model) {
-    return modelGetAnimSpeed(model) * model->playspeed;
-}
-
 
 s32 modelConstrainOrWrapAnimFrame(s32 frame, ModelAnimation *anim, f32 endframe)
 {
-    if (frame < 0) {
-        if (anim->unk07 & 1) {
+    if (frame < 0) 
+    {
+        if (anim->unk07 & 1) 
+        {
             frame = anim->unk04 - ((-frame) % anim->unk04);
-        } else {
+        } 
+        else 
+        {
             frame = 0;
         }
     }
-    else if ((0.0f <= endframe) && ((s32)endframe < frame)) {
+    else if ((0.0f <= endframe) && ((s32)endframe < frame)) 
+    {
         frame = ceilFloatToInt(endframe);
     }
-    else if (frame >= anim->unk04) {
-        if (anim->unk07 & 1) {
+    else if (frame >= anim->unk04)
+    {
+        if (anim->unk07 & 1) 
+        {
             frame %= anim->unk04;
-        } else {
+        } 
+        else 
+        {
             frame = anim->unk04 - 1;
         }
     }
-    else {
+    else 
+    {
     }
 
     return frame;
@@ -2645,51 +2621,26 @@ void modelSetAnimation2(Model *model, ModelAnimation *anim, s32 flip, f32 frame,
 }
 
 
-void modelSetAnimationWithMerge(Model *model, ModelAnimation *modelAnimation, s32 flip, f32 startframe, f32 speed, f32 timemerge, s32 domerge) {
-    if (domerge != 0) {
+void modelSetAnimationWithMerge(Model *model, ModelAnimation *modelAnimation, s32 flip, f32 startframe, f32 speed, f32 timemerge, s32 domerge)
+{
+    if (domerge != 0) 
+    {
         modelCopyAnimForMerge(model, timemerge);
     }
+
     modelSetAnimation2(model, modelAnimation, flip, startframe, speed, timemerge);
 }
 
 
-void modelSetAnimation(Model *model, ModelAnimation *modelAnimation, s32 flip, f32 startframe, f32 speed, f32 merge) {
+void modelSetAnimation(Model *model, ModelAnimation *modelAnimation, s32 flip, f32 startframe, f32 speed, f32 merge)
+{
     modelCopyAnimForMerge(model, merge);
     modelSetAnimation2(model, modelAnimation, flip, startframe, speed, merge);
 }
 
 
-/*
- * Match-only overlay types for sub_GAME_7F06FCFC.
- */
-typedef struct ModelCopyHead {
-    u32 words[8];      // 0x00-0x1f
-} ModelCopyHead;
-
-
-typedef struct ModelCopyBc {
-    u32 words[0x2f];   // 0x00-0xbb
-} ModelCopyBc;
-
-
-/**
- * Unreferenced.
- *
- * The function copies the Model data through anim_translation_scale (0x00-0xbb),
- * then restores the destination's base/resource fields (0x00-0x1f).
- * Maybe some kind of old/abandoned anim copy function.
- */
-void sub_GAME_7F06FCFC(Model *src, Model *dst)
+void modelSetAnimLooping(Model *model, f32 loopframe, f32 loopmerge)
 {
-    ModelCopyHead tmp;
-
-    tmp = *(ModelCopyHead *)dst;
-    *(ModelCopyBc *)dst = *(ModelCopyBc *)src;
-    *(ModelCopyHead *)dst = tmp;
-}
-
-
-void modelSetAnimLooping(Model *model, f32 loopframe, f32 loopmerge) {
     model->animlooping = 1;
     model->animloopframe = loopframe;
     model->animloopmerge = loopmerge;
@@ -5121,18 +5072,7 @@ void subdraw(ModelRenderData *mrData, Model *mdl)
 }
 
 
-// unreferenced
-void sub_GAME_7F074790(ModelRenderData* arg0, Model* arg1)
-{
-    subcalcpos(arg1);
-    subcalcmatrices(arg0, arg1);
-    subdraw((s32) arg0, arg1);
-}
-
-
 /**
- * Address: 7F0747D0
- *
  * Ray vs transformed bounding box test. The bbox is transformed by mtx while the ray
  * is defined by pos and dir.
  *
@@ -5595,17 +5535,6 @@ u32 modelFindNextProjectileHitCandidate(Model *model, coord3d *arg1, coord3d *ar
 
 
 /**
- * Unreferenced
- */
-u32 *sub_GAME_7F07549C(void *arg0, f32 *arg1, f32 *arg2, ModelNode **nodeptr)
-{
-    *nodeptr = NULL;
-    return modelFindNextProjectileHitCandidate(arg0, arg1, arg2, nodeptr);
-}
-
-
-/**
- * Address 7F0754BC.
  * Copy animation from ROM to RAM
 */
 s32 loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
@@ -5871,10 +5800,9 @@ void modelPromoteNodeOffsetsToPointers(ModelNode *node, u32 vma, u32 fileramaddr
     }
 }
 
-/**
- * Address 7F075A90.
-*/
-void sub_GAME_7F075A90(ModelFileHeader *header, s32 vma, u32 addr) {
+
+void sub_GAME_7F075A90(ModelFileHeader *header, s32 vma, u32 addr)
+{
     s32 diff = addr - vma;
     s32 i;
 
@@ -5882,16 +5810,8 @@ void sub_GAME_7F075A90(ModelFileHeader *header, s32 vma, u32 addr) {
     {
         PROMOTE(header->Switches[i]);
     }
-    modelPromoteNodeOffsetsToPointers(header->RootNode, vma, addr);
-}
 
-/**
- * unreferenced
- * Address 7F075B08.
-*/
-void REMOVED_sub_GAME_7F075B08(s32 param_1,s32 param_2,s32 param_3,s32 param_4)
-{
-    return;
+    modelPromoteNodeOffsetsToPointers(header->RootNode, vma, addr);
 }
 
 

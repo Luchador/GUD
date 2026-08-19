@@ -159,48 +159,6 @@ void UpdateGraphPosition(f32 delta) {
 
 
 /**
- * @brief Draws a graph bar with an adjusted offset.
- *
- * This unreferenced function draws a graph bar with an offset that accounts 
- * for the difference between the current and next graph positions. This may 
- * be used for drawing bars relative to the previous position.
- *
- * @param gdl A pointer to the current display list.
- * @param offset The position of the bar.
- * @param r The red component of the bar's color (0-255).
- * @param g The green component of the bar's color (0-255).
- * @param b The blue component of the bar's color (0-255).
- * @return A pointer to the next available display list entry.
- */
-Gfx *DrawAdjustedGraphBar(Gfx *gdl, f32 offset, s32 r, s32 g, s32 b)
-{
-    return DrawGraphBarWithSimpleOffset(gdl, (gCurrentGraphPosition + offset) - gNextGraphPosition, r, g, b);
-}
-
-
-/**
- * @brief Draws a graph bar with a specified offset and dimensions.
- *
- * This unreferenced function draws a graph bar with an offset that takes into 
- * account both the current graph position and the provided width and height 
- * offsets.
- *
- * @param gdl A pointer to the current display list.
- * @param offset The position of the bar.
- * @param r The red component of the bar's color (0-255).
- * @param g The green component of the bar's color (0-255).
- * @param b The blue component of the bar's color (0-255).
- * @param width The width of the bar.
- * @param height The height of the bar.
- * @return A pointer to the next available display list entry.
- */
-Gfx *DrawGraphBarWithOffset(Gfx *gdl, f32 offset, s32 r, s32 g, s32 b, s32 width, s32 height)
-{
-    return DrawGraphBar(gdl, (gCurrentGraphPosition + offset) - gNextGraphPosition, r, g, b, width, height);
-}
-
-
-/**
  * @brief Draws vertical lines on the graph.
  *
  * This function draws vertical lines on the graph, using the specified 

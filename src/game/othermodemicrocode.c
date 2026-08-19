@@ -680,16 +680,3 @@ void texSelect(Gfx **gdlptr, struct sImageTableEntry *tconfig, u32 arg2, s32 arg
 
     *gdlptr = gdl;
 }
-
-
-
-/**
- * Unreferenced.
-*/
-void sub_GAME_7F077BB8(s32 arg0, s32 arg1, s32 arg2, s32 arg3)
-{
-    return;
-}
-
-
-

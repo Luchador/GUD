@@ -5,87 +5,6 @@
 #include "random.h"
 
 
-/**
- * Unreferenced.
- */
-waypoint *waypointFindNearestToPos(coord3d *pos, s32 arg1)
-{
-    waypoint *head;
-    PadRecord *pad;
-    f32 sqrdist;
-    f32 compare;
-    waypoint *node;
-    waypoint *ret;
-
-    head = g_CurrentSetup.pathwaypoints;
-    ret = NULL;
-
-    if (head)
-    {
-        node = head;
-        compare = -1.0f;
-        while (node->padID >= 0)
-        {
-            pad = &g_CurrentSetup.pads[node->padID];
-            sqrdist = ((pos->z - pad->pos.z) * (pos->z - pad->pos.z))
-                    + ((pos->x - pad->pos.x) * (pos->x - pad->pos.x));
-
-            if ((compare < 0.0f) || (sqrdist < compare))
-            {
-                compare = sqrdist;
-                ret = node;
-            }
-
-            node++;
-        }
-    }
-
-    return ret;
-}
-
-
-/**
- * Unreferenced.
- */
-waypoint* waypointRefineNearestToPos(coord3d* pos, s32 arg1, waypoint* arg2)
-{
-    PadRecord* pad;
-    f32 sqrdist2;
-    f32 sqrdist;
-    s32* neighbor;
-    waypoint* node;
-    waypoint* ret;
-    waypoint* waypoints;
-
-    neighbor = arg2->neighbours;
-    ret = arg2;
-
-    if (neighbor != NULL)
-    {
-        pad = &g_CurrentSetup.pads[arg2->padID];
-        sqrdist = ((pos->z - pad->pos.z) * (pos->z - pad->pos.z))
-                + ((pos->x - pad->pos.x) * (pos->x - pad->pos.x));
-        waypoints = g_CurrentSetup.pathwaypoints;
-
-        while (*neighbor >= 0)
-        {
-            node = &waypoints[*neighbor];
-            pad = &g_CurrentSetup.pads[node->padID];
-            sqrdist2 = ((pos->z - pad->pos.z) * (pos->z - pad->pos.z))
-                     + ((pos->x - pad->pos.x) * (pos->x - pad->pos.x));
-
-            if (sqrdist2 < sqrdist)
-            {
-                sqrdist = sqrdist2;
-                ret = node;
-            }
-            neighbor++;
-        }
-    }
-    return ret;
-}
-
-
 waygroup *waygroupFindByDist(s32 *groupnums, s32 value)
 {
     waygroup *groups = g_CurrentSetup.waypointgroups;
@@ -197,40 +116,6 @@ bool waygroupsMarkRoute(waygroup *from, waygroup *to, waygroup *groups)
     }
 
     return result;
-}
-
-
-/**
- * Unreferenced.
- */
-s32 waygroupFindRoute(waygroup* from, waygroup* to, waygroup** arr, s32 arrlen)
-{
-    waygroup **arrptr = arr;
-    waygroup *curfrom;
-    s32 i;
-
-    if (arrlen >= 2 && g_CurrentSetup.waypointgroups && waygroupsMarkRoute(from, to, g_CurrentSetup.waypointgroups) != 0)
-    {
-        *arr = from;
-        arrptr++;
-
-        curfrom = from;
-        arrlen += 9999;
-        i = 10001;
-
-        while (i <= to->dist && i < arrlen)
-        {
-            curfrom = waygroupFindByDist(curfrom->neighbours, i);
-            *arrptr = curfrom;
-            arrptr++;
-            i++;
-        }
-    }
-
-    *arrptr = NULL;
-    arrptr++;
-
-    return arrptr - arr;
 }
 
 
@@ -637,60 +522,4 @@ waypoint *waypointFindNextStepToward(waypoint *pointa, waypoint *pointb)
     }
 
     return NULL;
-}
-
-
-/**
- * Unreferenced
- */
-void waypointDebugTestRandomRoute(void)
-{
-    waypoint* waypoints;
-    s32 count;
-    waypoint* entry;
-    waypoint* from;
-    waypoint* to;
-    waypoint** arr_entry;
-    u32 unused[0x30];
-
-    waypoints = g_CurrentSetup.pathwaypoints;
-
-    if (waypoints != NULL)
-    {
-        waypoint *arr;
-        count = 0;
-        entry = waypoints;
-
-        while (entry->padID >= 0)
-        {
-            entry++;
-            count++;
-        }
-
-        from = &waypoints[randomGetNext() % count];
-        to = &waypoints[randomGetNext() % count];
-
-#ifdef DEBUG
-        osSyncPrintf("route from loc number %d to number %d", from->padID, to->padID);
-#endif
-
-        if (waypointFindRoute(from, to, &arr, 0x32) != 0)
-        {
-            for (arr_entry = &arr; *arr_entry; arr_entry++)
-            {
-#ifdef DEBUG
-                osSyncPrintf("%d", arr_entry[0]->padID);
-#endif
-            }
-        }
-#ifdef DEBUG
-        else
-        {
-            osSyncPrintf(" not connected");
-        }
-#endif
-    }
-#ifdef DEBUG
-    osSyncPrintf("\n");
-#endif
 }

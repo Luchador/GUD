@@ -877,15 +877,3 @@ void textWrap(s32 wrapwidth, char *src, char *dst, struct fontchar *chars, struc
         src++;
     }
 }
-
-// Unreferenced
-void sub_GAME_7F0AEF0C(s32 arg0, s32 arg1, s32 arg2, s32 arg3) {
-
-}
-
-// Unreferenced
-u32 sub_GAME_7F0AEF20(u32 param_1,u32 param_2){
-  return param_1;
-}
-
-

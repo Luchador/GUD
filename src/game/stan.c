@@ -207,15 +207,6 @@ char *sub_GAME_7F0AEF3C(StandTile *tile)
 }
 
 
-/**
- * Unreferenced.
- */
-void sub_GAME_7F0AEFE0(StandTile *tile)
-{
-    sub_GAME_7F0AEF3C(tile); //maybe getstanroomID
-}
-
-
 //stanChecksf
 u32 stanRemovedAnimationRoutine(s32 arg0) 
 {
@@ -532,94 +523,6 @@ void sub_GAME_7F0AF630(s32 arg0)
 
 
 /**
- * Address: 7F0AF638
- * 
- * Unreferenced
- * 
- * Somewhere in this function a loop is checked for overflow
- * if (i < param4)
- * {
- *     printf("stanFillin: Stack overflow %d>%d",local_20,uStack);
- * }
- */
-s32 stanFillin(StandTile *starttile, u8 targetbit, StandTile **stack) // Canonical function name
-{
-    StandTile *tile;
-    StandTile *linkedtile;
-    StandTilePoint *point;
-    u16 *tmp;
-    s32 pointcount;
-    s32 link;
-    s32 result;
-    s32 count;
-    s32 i;
-    s32 stackcount;
-
-    count = 0;
-    stack[0] = starttile;
-    stackcount = 1;
-
-    for (stack += stackcount; stackcount != 0;)
-    {
-        tile = stack[-1];
-        stackcount--;
-        stack--;
-        i = 0;
-
-        if (targetbit != (((*((u16 *) tile)) >> 15) & 1))
-        {
-            tmp = (u16 *) tile;
-            *tmp ^= 0x8000;
-            result = stanTileHasZeroArea(tile);
-            point = (StandTilePoint *) tile;
-
-            if (stackcount);
-            
-            if (result == 0)
-            {
-                count++;
-            }
-
-            pointcount = ((&tile->tail)->half >> 12) & 0xf;
-
-            if (pointcount > 0)
-            {
-                do
-                {
-                    link = point[1].link;
-                    i++;
-
-                    if (stackcount);
-                    
-                    if ((link >> 4) != 0)
-                    {
-                        linkedtile = (StandTile *) (((u8 *) standTileStart) + (((0, link)) << 3));
-
-                        if (targetbit != (((*((u16 *) linkedtile)) >> 15) & 1))
-                        {
-                            *stack = linkedtile;
-                            pointcount = (tile->tail.half >> 12) & 0xf;
-                            stackcount++;
-                            stack++;
-                        }
-                    }
-
-                    point++;
-
-                    if (starttile);
-                }
-                while (i < pointcount);
-            }
-        }
-    }
-
-    return count;
-}
-
-
-/**
- * Address: 7F0AF760
- * 
  * Returns true if x/z coords from the three point indices out of tile->tail.half are colinear i.e. the triangle has zero horizontal area.
  */
 bool stanTileHasZeroArea(StandTile *tile)
@@ -646,46 +549,6 @@ bool stanTileHasZeroArea(StandTile *tile)
 }
 
 
-/**
- * Address: 7F0AF808
- * 
- * Unreferenced.
- */
-StandTile *stanFindFloorTileBelowY(f32 x, f32 maxY, f32 z, f32 radius)
-{
-    StandTile *tileStack[2];
-    StandTile *tile;
-    s32 temp;
-
-    tile = stan_prefix->ptr_firstroom;
-
-    while (*(u32 *)tile != 0)
-    {
-        tileStack[0] = tile;
-
-        if (stanTileHasZeroArea(tile) == 0)
-        {
-            if (isPointInsideTriStandTileUnscaled_Maybe(tile, x, z))
-            {
-                if (sub_GAME_7F0B20D0(tileStack, x, z, radius))
-                {
-                    if (tileStack[0] == tile)
-                    {
-                        if (stanGetPositionYValue(tile, x, z) < maxY)
-                        {
-                            return tile;
-                        }
-                    }
-                }
-            }
-        }
-
-        temp = tile->tail.hdrTail.pointCount;
-        tile = (StandTile *)((u8 *)tile + list_of_tilesizes[temp & 0xf]);
-    }
-
-    return NULL;
-}
 void getTileMidPoint(StandTile *tile, coord3d *out)
 {
     u16 tail;
@@ -965,39 +828,6 @@ f32 distToTilePnt2D(StandTile *tile,int pntI,f32 p_x,f32 p_z)
   p_x -= (f32)tile->points[pntI].x;
   p_z -= (f32)tile->points[pntI].z;
   return sqrtf(p_x * p_x + p_z * p_z);
-}
-
-
-/**
- * Unreferenced.
- */
-f32 sub_GAME_7F0B00C4(StandTile *tile, s32 pntI, f32 p_x, f32 p_z)
-{
-    p_x *= level_scale;
-    p_z *= level_scale;
-
-    p_x -= tile->points[pntI].x;
-    p_z -= tile->points[pntI].z;
-
-    return sqrtf((p_x * p_x) + (p_z * p_z)) * inv_level_scale;
-}
-
-
-/**
- * Address: 7F0B0140
- * 
- * Unreferenced.
- */
-f32 stanPointDot2D(StandTile *tile, s32 index, f32 x, f32 z)
-{
-    StandTilePoint *point;
-
-    point = &tile->points[index];
-
-    x *= level_scale;
-    z *= level_scale;
-
-    return (((f32)point->z * z) + (x * (f32)point->x)) * inv_level_scale;
 }
 
 
@@ -3193,102 +3023,8 @@ s32 sub_GAME_7F0B3044(void) {
     return sp1C;
 }
 
+
 Gfx * sub_GAME_7F0B312C(Gfx *arg0, s32 arg1)
 {
-    #ifdef DEBUG
-      qword *pqVar1;
-      qword *pqVar2;
-      int iVar3;
-      char cVar4;
-      ulonglong uVar5;
-      ulonglong uVar6;
-      uint uStack00000014;
-      stanRecord *psStack0000001c;
-      char cStack00000027;
-      ushort **ppuStack0000002c;
-      uint uStack00000034;
-      dword local_80;
-      char *local_30;
-      dword local_2c;
-      uint local_28;
-      dword local_24;
-      dword local_20;
-      qword local_10;
-      dword local_8;
-
-      uStack00000034 = param_5;
-      ppuStack0000002c = param_4;
-      uVar6 = ZEXT48(param_2);
-      *ppuStack0000002c = param_2;
-      local_30 = &DAT_00000001;
-      uStack00000014 = param_1;
-      psStack0000001c = param_2;
-      cStack00000027 = param_3;
-      pqVar1 = Function_8237F158();
-      pqVar2 = Function_8237F058();
-      uVar5 = 0;
-      Function_82278968(pqVar2,pqVar1,0,param_4,param_5,param_6,uVar6);
-      do {
-        do {
-          if (local_30 == NULL) {
-            Function_82279088();
-            return;
-          }
-          local_30 = local_30 + -1;
-          psStack0000001c = ppuStack0000002c[local_30];
-        } while (*psStack0000001c >> 0xf == cStack00000027);
-        *psStack0000001c = *psStack0000001c ^ 0x8000;
-        stanTileHasZeroArea(psStack0000001c);
-        iVar3 = sub_GAME_7F0B3044();
-        if (iVar3 != 0) {
-          Function_8238AC90(psStack0000001c,uStack00000014,uVar5,param_4,param_5,param_6,uVar6);
-        }
-        for (local_28 = 0; cVar4 = getsides(psStack0000001c), local_28 < cVar4; local_28 = local_28 + 1)
-        {
-          if (psStack0000001c[local_28 + 1].tail >> 4 == 0) {
-            iVar3 = sub_GAME_7F0B3044();
-            if (iVar3 != 0) {
-              uVar5 = local_28 + 1;
-              cVar4 = getsides(psStack0000001c);
-              trapWord(6,cVar4,0);
-              trapWord(5,cVar4 & ~(((uVar5 & 0x7fffffff) << 1 | (uVar5 << 0x20) >> 0x3f) - 1),0xffff);
-              uVar5 = uVar5 - (uVar5 / cVar4) * cVar4;
-              param_4 = 0xffffffffffffffc0;
-              Function_8238B8F0(psStack0000001c,local_28,uVar5,0xffffffffffffffc0,param_5,param_6,uVar6)
-              ;
-            }
-          }
-          else if (*(stanTileStart + psStack0000001c[local_28 + 1].tail) >> 0xf != cStack00000027) {
-            uVar6 = ZEXT48(ppuStack0000002c);
-            ppuStack0000002c[local_30] = stanTileStart + psStack0000001c[local_28 + 1].tail;
-            local_30 = local_30 + 1;
-            if (uStack00000034 < local_30) {
-              osSyncPrintf("stanFillinVis: Stack overflow %d>%d",local_30,uStack00000034);
-              return;
-            }
-          }
-        }
-      } while( TRUE );
-    #endif
     return arg0;
 }
-
-
-/**
- * Unreferenced.
- */
-s32 sub_GAME_7F0B3138(StandTile *tile, StandTile **pTile, f32 p_x, f32 p_z, f32 dest_x, f32 dest_z, s32 cdtypes, f32 unkHeight, f32 unkA)
-{
-    // Fake but needed for matching.
-    if (pTile);
-
-    return stanTestLineUnobstructed(pTile, p_x, p_z, dest_x, dest_z, cdtypes, unkHeight, unkA, 0.0f, 1.0f);
-}
-
-
-void sub_GAME_7F0B31A4(s32 arg0, StandTile *arg1, f32 arg2, f32 arg3, f32 arg4, s32 arg5, f32 arg6, f32 arg7) {
-    stanTestVolume(arg1, arg2, arg3, arg4, arg5, arg6, arg7);
-}
-
-
-

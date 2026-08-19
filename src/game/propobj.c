@@ -733,20 +733,6 @@ void objChangeShading(ObjectRecord* obj, coord3d* pos, Mtxf* matrix, StandTile* 
 }
 
 
-// Unreferenced function (unused)
-void sub_GAME_7F0407F4(ObjectRecord* obj, coord3d* pos, Mtxf* matrix, StandTile* stan)
-{
-    u32 a; // Adds 4 bytes to the stack so it matches. Could be anything 4 bytes long.
-    struct ModelRoData_BoundingBoxRecord *modelunk = chrobjGetBboxFromObjFile(obj->model->obj);
-
-    pos->y = stanGetPositionYValue(stan, pos->x, pos->z) + 4.0f;
-    pos->y = pos->y - chrpropSumMatrixPosY(modelunk, matrix);
-
-    objChangeShading(obj, pos, matrix, stan);
-    chrobjCollisionRelated(obj);
-}
-
-
 //moveToPad
 void sub_GAME_7F04088C(ObjectRecord *baseobj, struct coord3d *pos, Mtxf *matrix, StandTile *stan, struct coord3d *pos2)
 {
