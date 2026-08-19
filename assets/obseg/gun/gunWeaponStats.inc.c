@@ -1,5 +1,5 @@
 //as this file is included c, not standalone object, save the parent: gun.c to rebuild the object
-#ifdef BUGFIX_R0
+#ifdef VERSION_US
 #define SCALEVAL1 0.80000001
 #define SCALEVAL_KNIFE 0.80000001
 #define SCALEVAL_SKORPION 0.80000001

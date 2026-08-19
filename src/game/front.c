@@ -570,7 +570,7 @@ struct mp_stage_setup multi_stage_setups[] = {
 
 s32 num_chars_selectable_mp = 8;
 
-#ifdef BUGFIX_R0
+#ifdef VERSION_US
 struct MP_selectable_chars mp_chr_setup[] = {
     {getStringID(LTITLE, TITLE_STR_184_BOND), MALE,   IMG_MPC_BROSNAN, BODY_Brosnan_Tuxedo,                   HEAD_Male_Brosnan_Tuxedo, 1.0},
     {getStringID(LTITLE, TITLE_STR_191_NATALYA), FEMALE, IMG_MPC_NATALYA, BODY_Natalya_Skirt,            HEAD_Male_Brosnan_Tuxedo, 0.96609998},

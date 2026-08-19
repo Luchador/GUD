@@ -9545,11 +9545,8 @@ void bondviewResetIntroCameraMessageDialogs(void)
     g_CurrentPlayer->bondmesscnt = -1;
     display_statusbar = 0;
     status_bar_text_buffer_index = 0;
-
-#ifdef BUGFIX_R0
     copy_1stfonttable = ptrFontBankGothic;
     copy_2ndfonttable = ptrFontBankGothicChars;
-#endif
 }
 
 

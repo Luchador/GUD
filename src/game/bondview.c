@@ -455,11 +455,9 @@ struct coord3d g_DefaultFrozenPlayerOffset = { 0, 1.0f, 0 };
 
 /**
  * struct player property `offset`.
- * US address 80036824.
  */
 struct coord3d g_DefaultFrozenMoveOffset = { 0 };
 
-//D:80036830
 struct coord3d ZeroCoordShake = { 0 };
 
 ModelRenderData D_8003683C = {NULL,
@@ -479,34 +477,20 @@ ModelRenderData D_8003683C = {NULL,
                               {0, 0, 0, 0},
                               CULLMODE_BOTH};
 
-//D:8003687C
 coord3d ZeroCoordWatchPos = {0};
-//D:80036888
 s32 D_80036888 = 0; // unused/padding
-//D:8003688C
 coord3d ZeroCoordSpawnPos = {0};
-//D:80036898
 s32 status_bar_text_buffer_index = 0;
-//D:8003689C
 s32 display_statusbar = 0;
-#ifdef BUGFIX_R0
-//D:800368A0
 s32 copy_1stfonttable = 0;
-//D:800368A4
 s32 copy_2ndfonttable = 0;
-#endif
-//D:800368A8
 s32 upper_text_buffer_index = 0;
-//D:800368AC
 s32 display_upper_text_window = 0;
-//D:800368B0
 s32 upper_text_window_timer = 0xFFFFFFFF;
 s32 g_UpperTextDisplayFlag = 0;
-//D:800368B8
 DirectionLabels g_DebugCompassLabels = {{"n", "ne", "e", "se", "s", "sw", "w", "nw", "n"}};
 s32 g_PlayerTickCount = 0;
 
-//D:800368D8
 struct firing_anim_struct firing_animation_groups[][6] = {
     {{pistol_firing_animation_group1, 0, 0.1, 79.0, 87.0},
      {&D_80030660[2], 0, 0.5, 0.0, -1.0},
@@ -534,13 +518,9 @@ struct firing_anim_struct firing_animation_groups[][6] = {
      {crouched_doubles_firing_animation_group1, 0, 0.1, 37.0, 47.0}}
  };
 
-//D:80036AB8
 s32 D_80036AB8 = 2;
-//D:80036ABC
 s32 D_80036ABC = 0xFFFFFFFF;
-//D:80036AC0
 f32 D_80036AC0 = 1.0;
-//D:80036AC4
 f32 D_80036AC4 = 0.1;
 
 // forward declarations

@@ -2352,22 +2352,6 @@ struct struct_4 {
     float anonymous_3;
 };
 
-#ifdef BUGFIX_R0
-typedef struct DamageType
-{
-    u32 field_0x0;
-    u32 field_0x4;
-    s32 field_0x8;
-    f32 field_0xC;
-    s32 flashStartFrame;
-    u32 flashFullFrame;
-    s32 flashEndFrame;
-    f32 maxAlpha;
-    u32 red;
-    u32 green;
-    u32 blue;
-} DamageType;
-#else
 typedef struct DamageType
 {
     f32 field_0x0;
@@ -2382,7 +2366,6 @@ typedef struct DamageType
     u32 green;
     u32 blue;
 } DamageType;
-#endif
 
 typedef struct HealthDisplayDuration 
 {

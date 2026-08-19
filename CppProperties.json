@@ -27,7 +27,6 @@
             "REFRESH_NTSC",
             "LEFTOVERDEBUG",
             "LEFTOVERSPECTRUM",
-            "BUGFIX_R0",
             "BYTEMATCH"
             /* IDO 5.3 Defs below */,
             "_MIPS_FPSET=16",
@@ -87,7 +86,6 @@
             "REFRESH_NTSC",
             "LEFTOVERDEBUG",
             "LEFTOVERSPECTRUM",
-            "BUGFIX_R0",
             "BYTEMATCH"
             /* IDO 5.3 Defs below */,
             "_MIPS_FPSET=16",
