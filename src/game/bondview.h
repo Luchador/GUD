@@ -2720,7 +2720,6 @@ f32 getPlayer_c_screenwidth(void);
 f32 getPlayer_c_screenheight(void);
 f32 getPlayer_c_screenleft(void);
 f32 getPlayer_c_screentop(void);
-f32 getPlayer_c_perspfovy(void);
 f32 getPlayer_c_perspaspect(void);
 
 void currentPlayerSetXAutoAimEnabled(bool enabled);

@@ -83,15 +83,11 @@ void musicTrack2Play(s32 track);
 void musicTrack2Stop(void);
 u16 musicTrack2GetVolume(void);
 void musicTrack2ApplySeqpVol(u16 volume);
-void musicTrack2SaveCurrentVolumeAsTrackDefault(void);
 void musicTrack2FadeOut(f32 fadeTime);
-void musicTrack2FadeIn(f32 fadeTime, u16 volume);
-
 void musicTrack3Play(s32 track);
 void musicTrack3Stop(void);
 u16 musicTrack3GetVolume(void);
 void musicTrack3ApplySeqpVol(u16 volume);
-void musicTrack3SaveCurrentVolumeAsTrackDefault(void);
 void musicTrack3FadeOut(f32 fadeTime);
 void musicTrack3FadeIn(f32 fadeTime, u16 volume);
 

@@ -8950,36 +8950,6 @@ void maybe_detonate_object_and_its_children(PropRecord *prop, f32 damage, struct
 }
 
 
-
-
-
-bool check_if_destroyable_object_type(PropDefHeaderRecord *obj)//#MATCH
-{
-    switch (obj->type)
-    {
-        case PROPDEF_DOOR:
-        case PROPDEF_PROP:
-        case PROPDEF_ALARM:
-        case PROPDEF_CCTV:
-        case PROPDEF_MONITOR:
-        case PROPDEF_MULTI_MONITOR:
-        case PROPDEF_RACK:
-        case PROPDEF_AUTOGUN:
-        case PROPDEF_GAS_RELEASING:
-        case PROPDEF_VEHICHLE:
-        case PROPDEF_AIRCRAFT:
-        case PROPDEF_UNK41:
-        case PROPDEF_GLASS:
-        case PROPDEF_SAFE:
-        case PROPDEF_TANK:
-        case PROPDEF_TINTED_GLASS:
-            return TRUE;
-        default:
-            return FALSE;
-    }
-}
-
-
 bool objIsCollectable(PropDefHeaderRecord *obj)
 {
     switch (obj->type)
@@ -11344,12 +11314,6 @@ WeaponObjRecord* weaponCreate(bool musthaveprop, bool musthavemodel, ModelFileHe
 }
 
 
-void sub_GAME_7F051588(void)
-{
-    weaponCreate(FALSE, FALSE, NULL);
-}
-
-
 HatRecord *hatCreate(bool musthaveprop, bool musthavemodel, ModelFileHeader *modeldef)
 {
 	s32 i;
@@ -11449,12 +11413,6 @@ HatRecord *hatCreate(bool musthaveprop, bool musthavemodel, ModelFileHeader *mod
 	}
 
 	return NULL;
-}
-
-
-HatRecord* sub_GAME_7F0518A8(void)
-{
-    return hatCreate(0, 0, NULL);
 }
 
 
@@ -12108,36 +12066,6 @@ void weaponSetGunfireVisible(PropRecord *prop, s32 firing)
         }
     }
 }
-
-
-
-/*
-* Address: 0x7f052604
-*/
-s32 weaponIsGunfireVisible(PropRecord *prop)
-{
-    ObjectRecord *obj = prop->obj;
-    Model *model = obj->model;
-    ModelNode *node;
-
-    if (model && model->obj->Skeleton == &skeleton_prop_weapon) {
-        node = model->obj->Switches[0];
-        if (node) {
-            struct ModelRwData_GunfireRecord *rwdata = modelGetNodeRwData(model, node);
-            return rwdata->visible;
-        }
-
-        node = model->obj->Switches[2];
-        if (node) {
-            struct ModelRwData_BSPRecord *rwdata = modelGetNodeRwData(model, node);
-            return rwdata->visible;
-        }
-    }
-
-    return FALSE;
-}
-
-
 
 
 /*

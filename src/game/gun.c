@@ -550,19 +550,6 @@ void divide3DCoordinates(coord3d *in, f32 divisor, coord3d *out);
 // current debug keyframes  (Statically assigned at compile time)
 #define DEB_KEYFRAMES sniperMeleeKeyframes2
 
-
-void set_cartridges_eject(u32 uParm1)
-{
-    cartridges_eject = uParm1;
-}
-
-
-u32 get_cartridges_eject(void)
-{
-    return cartridges_eject;
-}
-
-
 void sub_GAME_7F05C614(void)
 {
     if (!cartridges_eject) 
@@ -661,37 +648,8 @@ WeaponStats *get_ptr_item_statistics(ITEM_IDS item)
     { /* weapon has model, return stats struct */
         return gitem_structs[item].item_weapon_stats;
     }
+
     return &default_weaponstats; /* no model, return defaults */
-}
-
-
-
-
-void copy_item_in_hand(coord3d *pos)
-{
-    ITEM_IDS item;
-    WeaponStats *stats;
-
-    item = getCurrentPlayerWeaponId(0);
-    stats = get_ptr_item_statistics(item);
-
-    pos->x = stats->PosX;
-    pos->y = stats->PosY;
-    pos->z = stats->PosZ;
-}
-
-
-void copy_item_in_hand_to_main_list(coord3d *pos) {
-
-    WeaponStats *stats;
-    ITEM_IDS item;
-
-    item = getCurrentPlayerWeaponId(0);
-    stats = get_ptr_item_statistics(item);
-
-    stats->PosX = pos->x;
-    stats->PosY = pos->y;
-    stats->PosZ = pos->z;
 }
 
 
@@ -889,35 +847,6 @@ void used_to_load_1st_person_model_on_demand(GUNHAND hand)
 }
 
 
-// Called by unused functions.
-ITEM_IDS sub_GAME_7F05D334(ITEM_IDS item, s32 arg1)
-{
-    while (arg1 > 0)
-    {
-        do
-        {
-            item = (item + 1) % ITEM_BOMBCASE;
-        } while (bondinvItemAvailable(item) == 0);
-        arg1--;
-    }
-
-    while (arg1 < 0)
-    {
-        do
-        {
-            item--;
-            if (item < 0)
-            {
-                item = 0x20 - (-(item + 1) % ITEM_BOMBCASE);
-            }
-        } while (bondinvItemAvailable(item) == 0);
-        arg1++;
-    }
-
-    return item;
-}
-
-
 ITEM_IDS get_next_weapon_in_cycle_for_hand(GUNHAND hand, s32 direction)
 {
 	if (g_CurrentPlayer->hands[hand].weapon_action_state == GUN_ANIM_STATE_SWITCH_LOWER)
@@ -976,20 +905,6 @@ void gunRequestHandWeaponChange(enum GUNHAND hand, s32 nextWeapon, s32 cycleDire
         g_CurrentPlayer->hands[hand].weapon_animation_trigger = 1;
         g_CurrentPlayer->hands[hand].field_8B8 = cycleDirection;
     }
-}
-
-
-// Unused
-void sub_GAME_7F05D610(GUNHAND hand)
-{
-    gunRequestHandWeaponChange(hand, sub_GAME_7F05D334(get_next_weapon_in_cycle_for_hand(hand, 0), 1), 0);
-}
-
-
-// Unused
-void sub_GAME_7F05D650(GUNHAND hand)
-{
-    gunRequestHandWeaponChange(hand, sub_GAME_7F05D334(get_next_weapon_in_cycle_for_hand(hand, 0), -1), 0);
 }
 
 

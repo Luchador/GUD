@@ -616,12 +616,6 @@ Gfx *bondviewRenderGaugeBars(Gfx *gdl);
 
 // end forward declarations
 
-void nullsub_75(void)
-{
-    return;
-}
-
-
 void currentPlayerSetScreenSize(f32 width, f32 height)
 {
     g_CurrentPlayer->c_screenwidth = width;
@@ -712,13 +706,6 @@ void transformAndNormalizeByLength2Dto3D(coord2d *in, coord3d *out, f32 length)
 }
 
 
-void scale3DCoordinates(coord3d *in, f32 value, coord3d *out)
-{
-    out->y = ((in->y * value) * g_CurrentPlayer->c_scaley);
-    out->x = ((in->x * value) * g_CurrentPlayer->c_scalex);
-}
-
-
 void transform3Dto2DCoords(coord3d *in, coord2d *out)
 {
     f32 inv_z = (1.0f / in->z);
@@ -752,33 +739,9 @@ void divide3DCoordinates(coord3d *in, f32 divisor, coord3d *out)
 }
 
 
-void transform3DCoordinatesWithAngle(coord3d *in, coord3d *out, f32 value1, f32 angle, f32 value2)
-{
-    f32 var1;
-    f32 x;
-    f32 y;
-    f32 z;
-    f32 var2 = sinf(mDegToHalfRad(angle)) / (cosf(mDegToHalfRad(angle)) * g_CurrentPlayer->c_halfheight);
-    f32 var3 = (var2 * value2 * g_CurrentPlayer->c_halfheight) / g_CurrentPlayer->c_halfwidth;
-    y = (g_CurrentPlayer->c_halfheight - (in->y - g_CurrentPlayer->c_screentop)) * var2;
-    x = ((in->x - g_CurrentPlayer->c_screenleft) - g_CurrentPlayer->c_halfwidth) * var3;
-    z = -1.0f;
-    var1 = value1 / sqrtf((x * x) + (y * y) + (z * z));
-    out->x = (x * var1);
-    out->y = (y * var1);
-    out->z = (-1.0f * var1);
-}
-
-
 void currentPlayerSetMatrix10C4(Mtx *matrix)
 {
     g_CurrentPlayer->field_10C4 = matrix;
-}
-
-
-Mtx *currentPlayerGetMatrix10C4(void)
-{
-    return g_CurrentPlayer->field_10C4;
 }
 
 
@@ -843,24 +806,6 @@ Mtxf *currentPlayerGetProjectionMatrixF(void)
 }
 
 
-Mtxf *currentPlayerGetMatrix10E8(void)
-{
-    return g_CurrentPlayer->field_10E8;
-}
-
-
-void sub_GAME_7F078404(s32 arg0)
-{
-    g_CurrentPlayer->field_10D0 = arg0;
-}
-
-
-s32 sub_GAME_7F078414(void)
-{
-    return g_CurrentPlayer->field_10D0;
-}
-
-
 void currentPlayerSetViewToWorldMtxf(Mtxf *matrix)
 {
     g_CurrentPlayer->field_10EC = g_CurrentPlayer->viewtoworldmtxf;
@@ -898,12 +843,6 @@ f32 getPlayer_c_lodscalez(void)
 }
 
 
-u32 getPlayer_c_lodscalezu32(void)
-{
-    return g_CurrentPlayer->c_lodscalezu32;
-}
-
-
 f32 getPlayer_c_screenwidth(void)
 {
     return g_CurrentPlayer->c_screenwidth;
@@ -928,49 +867,9 @@ f32 getPlayer_c_screentop(void)
 }
 
 
-f32 getPlayer_c_perspfovy(void)
-{
-    return g_CurrentPlayer->c_perspfovy;
-}
-
-
 f32 getPlayer_c_perspaspect(void)
 {
     return g_CurrentPlayer->c_perspaspect;
-}
-
-
-void getPlayer_c_cameratopnorm(coord3d *out)
-{
-    out->x = (g_CurrentPlayer->c_cameratopnorm).x;
-    out->y = (g_CurrentPlayer->c_cameratopnorm).y;
-    out->z = (g_CurrentPlayer->c_cameratopnorm).z;
-}
-
-void getPlayer_c_cameratopnorm_inverted_y(coord3d *out)
-{
-    out->x = (g_CurrentPlayer->c_cameratopnorm).x;
-    out->y = -(g_CurrentPlayer->c_cameratopnorm).y;
-    out->z = (g_CurrentPlayer->c_cameratopnorm).z;
-}
-
-void getPlayer_c_cameraleftnorm(coord3d *out)
-{
-    out->x = (g_CurrentPlayer->c_cameraleftnorm).x;
-    out->y = (g_CurrentPlayer->c_cameraleftnorm).y;
-    out->z = (g_CurrentPlayer->c_cameraleftnorm).z;
-}
-
-void getPlayer_c_cameraleftnorm_inverted_x(coord3d *out)
-{
-    out->x = -(g_CurrentPlayer->c_cameraleftnorm).x;
-    out->y = (g_CurrentPlayer->c_cameraleftnorm).y;
-    out->z = (g_CurrentPlayer->c_cameraleftnorm).z;
-}
-
-f32 getPlayer_c_perspnear(void)
-{
-    return g_CurrentPlayer->c_perspnear;
 }
 
 

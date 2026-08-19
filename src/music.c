@@ -1086,22 +1086,6 @@ void musicTrack2ApplySeqpVol(u16 volume)
     alCSPSetVol(g_musicXTrack2SeqPlayer, t1);
 }
 
-/**
- * 8028	70007428
- * g_musicDefaultTrackVolume is updated so that the currently playing
- * track's default volume is now the current volume.
- */
-void musicTrack2SaveCurrentVolumeAsTrackDefault(void)
-{
-    s32 i;
-    
-    g_musicDefaultTrackVolume[g_musicXTrack2CurrentTrackNum] = musicTrack2GetVolume();
-
-    for (i = 0; g_musicDefaultTrackVolume[i] >= 0; i++)
-    {
-        // removed;
-    }
-}
 
 /**
  * 8080	70007480
@@ -1123,37 +1107,6 @@ void musicTrack2FadeOut(f32 fadeTime)
     }
 }
 
-/**
- * 80F0	700074F0
- * Updates internal variables to fadein state, if not already fading in.
- * Calls alCSPPlay on cseq player. 
- * Sets g_musicXTrack1Fade to MUSIC_FADESTATE_FADE_IN.
- * 
- * @param fadeTime: length of time in seconds for fade to last. This number is 
- * multiplied by the FPS to get the number of frames fade should last.
- * 
- * @param volume: volume of track. Pass -1 to use previously saved volume.
- */
-void musicTrack2FadeIn(f32 fadeTime, u16 volume)
-{
-    if (g_musicXTrack2Fade <= MUSIC_FADESTATE_UNSET)
-    {
-        alCSPPlay(g_musicXTrack2SeqPlayer);
-
-        if (volume == 0xffff)
-        {
-            g_musicXTrack2FadeToVolume = g_musicXTrack2PreFadeSavedVolume;
-        }
-        else
-        {
-            g_musicXTrack2FadeToVolume = volume;
-        }
-
-        g_musicXTrack2PreFadeSavedVolume = 0;
-        g_musicXTrack2FadeRemainingFrames = (s32) (fadeTime * FADE_FRAMERATE);
-        g_musicXTrack2Fade = MUSIC_FADESTATE_FADE_IN;
-    }
-}
 
 /**
  * 818C	7000758C
@@ -1275,22 +1228,6 @@ void musicTrack3ApplySeqpVol(u16 volume)
     alCSPSetVol(g_musicXTrack3SeqPlayer, t1);
 }
 
-/**
- * 83B0	700077B0
- * g_musicDefaultTrackVolume is updated so that the currently playing
- * track's default volume is now the current volume.
- */
-void musicTrack3SaveCurrentVolumeAsTrackDefault(void)
-{
-    s32 i;
-    
-    g_musicDefaultTrackVolume[g_musicXTrack3CurrentTrackNum] = musicTrack3GetVolume();
-
-    for (i = 0; g_musicDefaultTrackVolume[i] >= 0; i++)
-    {
-        // removed;
-    }
-}
 
 /**
  * 8408	70007808

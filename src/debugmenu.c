@@ -205,48 +205,9 @@ void debmenuResetBuffer(void) {
     #endif
 }
 
-/**
- * Removed.
- * Called from debmenu7000AF98
- */
-#ifdef LEFTOVERDEBUG
-void debmenu7000AF84(s32 x1, s32 y1, s32 x2, s32 y2) {
-    // Removed
-}
-#endif
 
-
-void debmenu7000AF98(s32 height)
+void debmenuSetPos(s32 x, s32 y)
 {
-#ifdef LEFTOVERDEBUG
-    s32 x;
-    s32 y;
-
-    for (y = 34, height += y - 1; y--; height-- )
-    {
-        if ((height >= 0) && (height < 35))
-        {
-            for ( x = 0; x != 80; x++)
-            {
-                debmenu7000AF84(x, height, x, y);
-            }
-        }
-        else
-        {
-            for (x = 0; x != 80; x++)
-            {
-                debmenuWriteCharAtPos(x, y, 0);
-            }
-        }
-    }
-#endif
-}
-
-
-/*
-* Address: 0x7000b040
-*/
-void debmenuSetPos(s32 x, s32 y) {
     #ifdef LEFTOVERDEBUG
     x += g_DebugMenuTextStartX;
     y += g_DebugMenuTextStartY;
@@ -255,19 +216,25 @@ void debmenuSetPos(s32 x, s32 y) {
     #endif
 }
 
-void debmenuSetFgColour(s32 r, s32 g, s32 b, s32 a) {
+
+void debmenuSetFgColour(s32 r, s32 g, s32 b, s32 a)
+{
     #ifdef LEFTOVERDEBUG
     g_DebugMenuPrimitiveColor.words.w1 = ((r << 24) | (g << 16) | (b << 8) | (255 - a));
     #endif
 }
 
-void debmenuSetEnvColor(s32 r, s32 g, s32 b, s32 a) {
+
+void debmenuSetEnvColor(s32 r, s32 g, s32 b, s32 a)
+{
     #ifdef LEFTOVERDEBUG
     g_DebugMenuEnvironmentColor.words.w1 = ((r << 24) | (g << 16) | (b << 8) | (255 - a));
     #endif
 }
 
-void debmenuWriteChar(unsigned char c) {
+
+void debmenuWriteChar(unsigned char c)
+{
     #ifdef LEFTOVERDEBUG
     s32 width = ((viGetX() - 13) / 4);
     s32 height = ((viGetY() - 10) / 7);
@@ -285,25 +252,10 @@ void debmenuWriteChar(unsigned char c) {
     #endif
 }
 
-void debmenuSetPositionAndWriteChar(s32 x, s32 y, unsigned char c)
+
+void debmenuPrintString(const unsigned char *str)
 {
     #ifdef LEFTOVERDEBUG
-    debmenuSetPos(x, y);
-    debmenuWriteChar(c);
-    #endif
-}
-
-void debmenuPrintString(const unsigned char *str) {
-    #ifdef LEFTOVERDEBUG
-    while (*str != '\0') {
-        debmenuWriteChar(*str++);
-    }
-    #endif
-}
-
-void debmenuSetPositionAndWriteString(s32 x, s32 y, const unsigned char *str) {
-    #ifdef LEFTOVERDEBUG
-    debmenuSetPos(x, y);
     while (*str != '\0') {
         debmenuWriteChar(*str++);
     }
@@ -311,9 +263,6 @@ void debmenuSetPositionAndWriteString(s32 x, s32 y, const unsigned char *str) {
 }
 
 
-/*
-* Address: 0x7000b27c
-*/
 Gfx *debmenuDraw(Gfx *gdl)
 {
 #if defined(LEFTOVERDEBUG)

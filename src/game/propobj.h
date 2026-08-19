@@ -78,7 +78,6 @@ void                 objDropRecursively(PropRecord *prop);
 void                 chrobjSndCreatePostEventDefault(ALSoundState *, coord3d *);
 void                 alarmActivate(void);
 void                 weaponSetGunfireVisible(PropRecord *prop, s32 firing);
-s32                  weaponIsGunfireVisible(PropRecord *);
 s32                  sub_GAME_7F0539E4(coord3d *pos); //getVolume?
 ObjectRecord        *create_new_item_instance_of_model(PROP modelnum, s32 weaponid);
 void                 objApplyDamage(ObjectRecord *obj, f32 damage, coord3d *pos, ITEM_IDS, s32 playernum);

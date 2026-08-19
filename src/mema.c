@@ -375,47 +375,12 @@ found:
     return new_addr;
 }
 
+
 void memaFree(void *addr, s32 size)
 {
 	_memaFree((uintptr_t) addr, size);
 }
 
-
-void mema7000A040(void)
-{
-    s32 i;
-    struct memaspace *curr;
-
-    for (i=0; i<ALLOCATIONS_LENGTH - 1; i++)
-    {
-        curr = &g_MemoryAllocations.spaces[i];
-
-        if (curr->addr)
-        {
-            // removed
-        }
-    }
-}
-
-
-// Calculate the ratio between the sum of all allocations minus
-// the largest one, and the sum of all allocations.
-f32 memaCalculateNonLargestToTotalRatio(void) {
-    u32 tot = 0;
-    u32 max = 0;
-    memaspace *curr = &g_MemoryAllocations.spaces[0];
-    while (curr->addr != -1) {
-        tot += curr->size;
-        if (max < curr->size) {
-            max = curr->size;
-        }
-        curr++;
-    }
-    if (tot == 0) {
-        return 0.0f;
-    }
-    return ((f32)(tot - max) / tot);
-}
 
 // Print a list of allocations, in descending size order. Sizes are specified in
 // kilobytes, rounded to nearest integer. Up to 200 allocations can be listed.
@@ -484,22 +449,20 @@ void memaDump(void)
 
 // Dump a list of allocations before and after a full
 // merge pass.
-void memaDumpPrePostMerge(void) {
+void memaDumpPrePostMerge(void)
+{
     s32 i;    
+
     memaDump();
-    for (i = 0; i < (ALLOCATIONS_LENGTH-1); i++) {
+
+    for (i = 0; i < (ALLOCATIONS_LENGTH-1); i++)
+    {
         memaDefragPass(&g_MemoryAllocations);
     }
+
     memaDump();
 }
 
-void mema7000A2F8(void (*func)(u32, memaspace*)) {
-    memaspace *curr = &g_MemoryAllocations.spaces[0];
-    while (curr->addr != -1) {
-        func((curr->addr + curr->size), curr);
-        curr++;
-    }
-}
 
 /**
  * Find and return the largest amount of contiguous free space in the pool.

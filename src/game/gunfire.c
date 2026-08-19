@@ -2386,21 +2386,6 @@ void recall_joy2_hits_edit_flag(enum ITEM_IDS item, coord3d* arg1, s32 texture_i
 }
 
 
-void sub_GAME_7F064934(ITEM_IDS item)
-{
-    struct EarWhistleSounds copied;
-
-#ifdef BUGFIX_R1
-    if (g_ClockTimer <= 0) { return; }
-#endif
-    if ((item != ITEM_LASER) && (item != ITEM_WATCHLASER))
-    {
-        copied = ear_whistle_sounds;
-        sndPlaySfx((struct ALBankAlt_s*) g_musicSfxBufferPtr, copied.arr[randomGetNext() % 5], 0);
-    }
-}
-
-
 f32 sub_GAME_7F0649AC(s32 param_1)
 {
   f32 fVar1;
@@ -4771,45 +4756,6 @@ void get_bullet_angle(f32* horizontal_angle, f32* vertical_angle) {
 	*vertical_angle = g_CurrentPlayer->crosshair_angle.f[1];
 }
 
-
-void sub_GAME_7F06802C(void)
-{
-    coord3d coord;
-    f32 tmp;
-
-    tmp = getPlayer_c_screenleft() + (getPlayer_c_screenwidth() * 0.5f);
-    g_CurrentPlayer->crosshair_angle.x = tmp;
-    g_CurrentPlayer->field_FFC.x = tmp;
-
-    tmp = getPlayer_c_screentop() + (getPlayer_c_screenheight() * 0.5f);
-    g_CurrentPlayer->crosshair_angle.y = tmp;
-    g_CurrentPlayer->field_FFC.y = tmp;
-
-    transformAndNormalizeByLength2Dto3D((coord2d *) &g_CurrentPlayer->field_FFC, &coord, 1000.0f);
-    sub_GAME_7F067AB4(&coord);
-}
-
-
-void sub_GAME_7F0680D4(coord3d * coord)
-{
-    coord3d tmp;
-
-    g_CurrentPlayer->field_1010.x = coord->x;
-    g_CurrentPlayer->field_1010.y = coord->y;
-    g_CurrentPlayer->field_1010.z = coord->z;
-    matrix_4x4_set_rotation_around_xyz(coord->f, &g_CurrentPlayer->field_101C);
-
-    tmp.x = g_CurrentPlayer->field_101C.m[2][0] * 1000.0f;
-    tmp.y = g_CurrentPlayer->field_101C.m[2][1] * 1000.0f;
-    tmp.z = g_CurrentPlayer->field_101C.m[2][2] * 1000.0f;
-    transform3Dto2DCoords(&tmp, (coord3d* ) &g_CurrentPlayer->crosshair_angle);
-
-    g_CurrentPlayer->field_FFC.x = g_CurrentPlayer->crosshair_angle.x;
-    g_CurrentPlayer->field_FFC.y = g_CurrentPlayer->crosshair_angle.y;
-
-    sub_GAME_7F067AB4(&tmp);
-}
-
 extern const f32 g_GunScreenAspectRatio;
 
 
@@ -6304,17 +6250,15 @@ void increment_num_kills_display_text_in_MP(void)
 }
 
 
-
-s32 get_curplay_killcount(void) {
+s32 get_curplay_killcount(void)
+{
     return g_playerPerm->kill_count;
 }
 
-void increment_num_times_killed_MwtGC(void){
-    g_playerPerm->killed_gg_owner_count++;
-}
 
-s32 get_times_killed_mwtgx(void) {
-    return g_playerPerm->killed_gg_owner_count;
+void increment_num_times_killed_MwtGC(void)
+{
+    g_playerPerm->killed_gg_owner_count++;
 }
 
 
@@ -6340,10 +6284,6 @@ void increment_num_deaths(void)
     }
 }
 
-
-s32 get_curplayer_numdeaths(void) {
-    return g_CurrentPlayer->deathcount;
-}
 
 void increment_num_suicides_display_MP(void) {
     char buffer[256];
@@ -6402,9 +6342,6 @@ void increment_num_suicides_display_MP(void) {
     }
 }
 
-s32 get_curplayer_numsuicides(void) {
-    return g_CurrentPlayer->num_suicides;
-}
 
 /*
  * IDO emits scalar const objects to .data. The linker keeps this block directly

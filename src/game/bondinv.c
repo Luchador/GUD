@@ -1124,66 +1124,6 @@ u16 *bondinvGetNameByIndex(s32 index)
     return get_ptr_short_watch_text_for_item(weaponnum);
 }
 
-u16 *bondinvGetLongNameByIndex(s32 index)
-{
-    InvItem      *item      = bondinvGetItemByIndex(index);
-    ITEM_IDS      weaponnum = 0;
-    textoverride *override;
-
-    if (item)
-    {
-        if (item->type == INV_ITEM_PROP)
-        {
-            PropRecord *prop = item->type_inv_item.type_prop.prop;
-            override         = bondinvGetTextbyObj(prop->obj);
-
-            if (override)
-            {
-                if (override->longtext)
-                {
-                    return langGet(override->longtext);
-                }
-
-                weaponnum = override->weapon;
-            }
-        }
-        else if (item->type == INV_ITEM_WEAPON)
-        {
-            weaponnum = item->type_inv_item.type_weap.weapon;
-            override  = bondinvGetTextbyWeaponID(weaponnum);
-
-            if (override && override->longtext)
-            {
-                return langGet(override->longtext);
-            }
-        }
-    }
-    else
-    {
-        if (g_CurrentPlayer->equipallguns)
-        {
-#ifdef BUGFIX_R1
-            if (index < (j_text_trigger ? ITEM_TASER : ITEM_TANKSHELLS))
-            {
-                if (j_text_trigger && ((index + 1) >= ITEM_KNIFE))
-                {
-                    return get_ptr_long_watch_text_for_item(index + 2);
-                }
-
-                return get_ptr_long_watch_text_for_item(index + 1);
-            }
-#else
-            if (index < ITEM_TANKSHELLS)
-            {
-                return get_ptr_long_watch_text_for_item(index + 1);
-            }
-#endif
-        }
-    }
-
-    return get_ptr_long_watch_text_for_item(weaponnum);
-}
-
 extern f32 get_45_degree_angle_0(s32 item);
 f32 bondinvGet45AngleForIndex(int index)
 {
