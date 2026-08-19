@@ -1192,27 +1192,6 @@ s32 get_show_patrols_flag(void)
 }
 
 
-/**
- * Unreferenced.
- *
- * Address 0x7F01F574.
- */
-f32 chrUnusedYPositionRelated(PropRecord *arg0)
-{
-    if (arg0->stan != 0)
-    {
-        if (sub_GAME_7F0B20D0(&arg0->stan, arg0->pos.x, arg0->pos.z, 1.0f) < 0)
-        {
-            return stanGetPositionYValue(arg0->stan, arg0->pos.x, arg0->pos.z);
-        }
-
-        return 0.0f;
-    }
-
-    return 0.0f;
-}
-
-
 void chrSetMoving(ChrRecord *self, bool unset)
 {
     if (unset)
@@ -2815,66 +2794,25 @@ void chrDropItems(ChrRecord *self)
 }
 
 
-
-/**
- * Unreferenced.
- *
- * Sets gBloodColour 3 bytes from paramter.
- *
- * @param colour: rgba_u8.
- *
- * Address 0x7F021BB4.
- */
-void chrSetgBloodColour(rgba_u8 *colour)
-{
-    gBloodColour.r = colour->r;
-    gBloodColour.g = colour->g;
-    gBloodColour.b = colour->b;
-}
-
-
-/**
- * Unreferenced.
- *
- * Gets gBloodColour 3 bytes and sets them into parameter.
- *
- * @param colour: rgba_u8.
- *
- * Address 0x7F021BD8.
- */
-void chrGetgBloodColour(rgba_u8 *colour)
-{
-    colour->r = gBloodColour.r;
-    colour->g = gBloodColour.g;
-    colour->b = gBloodColour.b;
-}
-
-
-
-/**
- * Address 0x7F021BFC.
-*/
 Gfx *chrRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
 {
     ChrRecord *chr;
     Model *chrmodel;
-    struct rgba_f32 spC0; // 192
-    s32 spBC; // 188
-    s32 spB8; // 184
-    s32 chrfadealpha; // 180
+    struct rgba_f32 spC0;
+    s32 spBC;
+    s32 spB8;
+    s32 chrfadealpha;
     rgba_u8 temp_v1_2;
-    ModelRenderData mrData; // 112
-    struct view4f sp60; // -?? 96
+    ModelRenderData mrData;
+    struct view4f sp60;
     struct rgba_s32 chrShade;
-    s32 sp4C; // 76
-    PropRecord *prop_held_right; // 72
-    PropRecord *prop_held_left; // 68
-    PropRecord *prop_held_hat; // 64
-    ObjectRecord *held_right_obj; // 60
-    ObjectRecord *held_left_obj; // 56
-    ObjectRecord *held_hat_obj; // 52
-
-    //
+    s32 sp4C;
+    PropRecord *prop_held_right;
+    PropRecord *prop_held_left;
+    PropRecord *prop_held_hat;
+    ObjectRecord *held_right_obj;
+    ObjectRecord *held_left_obj;
+    ObjectRecord *held_hat_obj;
 
     chr = prop->chr;
     chrmodel = chr->model;

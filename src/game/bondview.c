@@ -770,142 +770,175 @@ void transform3DCoordinatesWithAngle(coord3d *in, coord3d *out, f32 value1, f32 
 }
 
 
-/**
- * Unreferenced.
- *
- * Address 0x7F078258.
- */
-void transform3DCoordinatesWithAngleAndValue(coord3d *in, coord3d *out, f32 angle, f32 value)
+void currentPlayerSetMatrix10C4(Mtx *matrix)
 {
-    f32 var1 = (cosf(mDegToHalfRad(angle)) * g_CurrentPlayer->c_halfheight) / (sinf(mDegToHalfRad(angle)) * in->f[2]);
-    f32 var2 = (var1 * g_CurrentPlayer->c_halfwidth) / (value * g_CurrentPlayer->c_halfheight);
-
-    out->f[1] = (in->f[1] * var1) + (g_CurrentPlayer->c_screentop + g_CurrentPlayer->c_halfheight);
-    out->f[0] = (g_CurrentPlayer->c_screenleft + g_CurrentPlayer->c_halfwidth) - (in->f[0] * var2);
-}
-
-void currentPlayerSetMatrix10C4(Mtx *matrix) {
     g_CurrentPlayer->field_10C4 = matrix;
 }
 
-Mtx *currentPlayerGetMatrix10C4(void) {
+
+Mtx *currentPlayerGetMatrix10C4(void)
+{
     return g_CurrentPlayer->field_10C4;
 }
 
-void currentPlayerSetMatrix10C8(Mtx *matrix) {
+
+void currentPlayerSetMatrix10C8(Mtx *matrix)
+{
     g_CurrentPlayer->field_10C8 = matrix;
 }
 
-Mtx *currentPlayerGetMatrix10C8(void) {
+
+Mtx *currentPlayerGetMatrix10C8(void)
+{
     return g_CurrentPlayer->field_10C8;
 }
 
-void currentPlayerSetProjectionMatrix(Mtx *matrix) {
+
+void currentPlayerSetProjectionMatrix(Mtx *matrix)
+{
     g_CurrentPlayer->projmatrix = matrix;
 }
 
-Mtx *currentPlayerGetProjectionMatrix(void) {
+
+Mtx *currentPlayerGetProjectionMatrix(void)
+{
     return g_CurrentPlayer->projmatrix;
 }
 
-void set_BONDdata_field_10E0(s32 arg0) {
+
+void set_BONDdata_field_10E0(s32 arg0)
+{
     g_CurrentPlayer->field_10E0 = arg0;
 }
 
-s32 get_BONDdata_field_10E0(void) {
+
+s32 get_BONDdata_field_10E0(void)
+{
     return g_CurrentPlayer->field_10E0;
 }
 
-void *currentPlayerSetMatrix10CC(Mtxf *matrix) {
+
+void *currentPlayerSetMatrix10CC(Mtxf *matrix)
+{
     g_CurrentPlayer->field_10E8 = g_CurrentPlayer->field_10CC;
     g_CurrentPlayer->field_10CC = matrix;
 }
 
-Mtxf *camGetWorldToScreenMtxf(void) {
+
+Mtxf *camGetWorldToScreenMtxf(void)
+{
     return g_CurrentPlayer->field_10CC;
 }
 
-void currentPlayerSetProjectionMatrixF(Mtxf *matrix) {
+
+void currentPlayerSetProjectionMatrixF(Mtxf *matrix)
+{
     g_CurrentPlayer->projmatrixf = matrix;
 }
 
-Mtxf *currentPlayerGetProjectionMatrixF(void) {
+
+Mtxf *currentPlayerGetProjectionMatrixF(void)
+{
     return g_CurrentPlayer->projmatrixf;
 }
 
-Mtxf *currentPlayerGetMatrix10E8(void) {
+
+Mtxf *currentPlayerGetMatrix10E8(void)
+{
     return g_CurrentPlayer->field_10E8;
 }
 
-void sub_GAME_7F078404(s32 arg0) {
+
+void sub_GAME_7F078404(s32 arg0)
+{
     g_CurrentPlayer->field_10D0 = arg0;
 }
 
-s32 sub_GAME_7F078414(void) {
+
+s32 sub_GAME_7F078414(void)
+{
     return g_CurrentPlayer->field_10D0;
 }
 
-void currentPlayerSetViewToWorldMtxf(Mtxf *matrix) {
+
+void currentPlayerSetViewToWorldMtxf(Mtxf *matrix)
+{
     g_CurrentPlayer->field_10EC = g_CurrentPlayer->viewtoworldmtxf;
     g_CurrentPlayer->viewtoworldmtxf = matrix;
 }
 
-Mtxf *currentPlayerGetViewToWorldMtxf(void) {
+
+Mtxf *currentPlayerGetViewToWorldMtxf(void)
+{
     return g_CurrentPlayer->viewtoworldmtxf;
 }
 
-Mtxf *currentPlayerGetMatrix10EC(void) {
+
+Mtxf *currentPlayerGetMatrix10EC(void)
+{
     return g_CurrentPlayer->field_10EC;
 }
 
-void sub_GAME_7F078464(s32 arg0) {
+
+void sub_GAME_7F078464(s32 arg0)
+{
     g_CurrentPlayer->field_10E4 = arg0;
 }
+
 
 s32 sub_GAME_7F078474(void)
 {
     return g_CurrentPlayer->field_10E4;
 }
 
+
 f32 getPlayer_c_lodscalez(void)
 {
     return g_CurrentPlayer->c_lodscalez;
 }
+
 
 u32 getPlayer_c_lodscalezu32(void)
 {
     return g_CurrentPlayer->c_lodscalezu32;
 }
 
+
 f32 getPlayer_c_screenwidth(void)
 {
     return g_CurrentPlayer->c_screenwidth;
 }
+
 
 f32 getPlayer_c_screenheight(void)
 {
     return g_CurrentPlayer->c_screenheight;
 }
 
+
 f32 getPlayer_c_screenleft(void)
 {
     return g_CurrentPlayer->c_screenleft;
 }
+
 
 f32 getPlayer_c_screentop(void)
 {
     return g_CurrentPlayer->c_screentop;
 }
 
+
 f32 getPlayer_c_perspfovy(void)
 {
     return g_CurrentPlayer->c_perspfovy;
 }
 
+
 f32 getPlayer_c_perspaspect(void)
 {
     return g_CurrentPlayer->c_perspaspect;
 }
+
 
 void getPlayer_c_cameratopnorm(coord3d *out)
 {
@@ -1000,76 +1033,6 @@ void bondviewUpdateFrustumPlanes()
     g_CamFrustumNearOffset = (g_CurrentPlayer->viewtoworldmtxf->m[2][0] * g_CurrentPlayer->viewtoworldmtxf->m[3][0])
                            + (g_CurrentPlayer->viewtoworldmtxf->m[2][1] * g_CurrentPlayer->viewtoworldmtxf->m[3][1])
                            + (g_CurrentPlayer->viewtoworldmtxf->m[2][2] * g_CurrentPlayer->viewtoworldmtxf->m[3][2]);
-}
-
-
-/**
- * Address: 7F078950
- *
- * Unreferenced.
- */
-void bondviewGetFrustumTopPlane(coord3d *normal, f32 *offset)
-{
-    normal->x = g_CamFrustumTopNormal.x;
-    normal->y = g_CamFrustumTopNormal.y;
-    normal->z = g_CamFrustumTopNormal.z;
-    *offset = g_CamFrustumTopOffset;
-}
-
-
-/**
- * Address: 7F078980
- *
- * Unreferenced.
- */
-void bondviewGetFrustumBottomPlane(coord3d *normal, f32 *offset)
-{
-    normal->x = g_CamFrustumBottomNormal.x;
-    normal->y = g_CamFrustumBottomNormal.y;
-    normal->z = g_CamFrustumBottomNormal.z;
-    *offset = g_CamFrustumBottomOffset;
-}
-
-
-/**
- * Address: 7F0789B0
- *
- * Unreferenced.
- */
-void bondviewGetFrustumLeftPlane(coord3d *normal, f32 *offset)
-{
-    normal->x = g_CamFrustumLeftNormal.x;
-    normal->y = g_CamFrustumLeftNormal.y;
-    normal->z = g_CamFrustumLeftNormal.z;
-    *offset = g_CamFrustumLeftOffset;
-}
-
-
-/**
- * Address: 7F0789E0
- *
- * Unreferenced.
- */
-void bondviewGetFrustumRightPlane(coord3d *normal, f32 *offset)
-{
-    normal->x = g_CamFrustumRightNormal.x;
-    normal->y = g_CamFrustumRightNormal.y;
-    normal->z = g_CamFrustumRightNormal.z;
-    *offset = g_CamFrustumRightOffset;
-}
-
-
-/**
- * Address: 7F078A10
- *
- * Unreferenced.
- */
-void bondviewGetFrustumNearPlane(coord3d *normal, f32 *offset)
-{
-    normal->x = g_CurrentPlayer->viewtoworldmtxf->m[2][0];
-    normal->y = g_CurrentPlayer->viewtoworldmtxf->m[2][1];
-    normal->z = g_CurrentPlayer->viewtoworldmtxf->m[2][2];
-    *offset = g_CamFrustumNearOffset;
 }
 
 

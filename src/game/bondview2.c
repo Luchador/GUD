@@ -1604,15 +1604,6 @@ void currentPlayerSetLookAheadSetting(bool enabled)
 }
 
 
-/**
- * Unreferenced
- */
-bool currentPlayerGetLookAheadSetting(void)
-{
-    return g_CurrentPlayer->automovecentreenabled;
-}
-
-
 void currentPlayerSetYAutoAimEnabled(bool enabled)
 {
   g_CurrentPlayer->autoyaimenabled = enabled;
@@ -2057,24 +2048,6 @@ void bondviewSet3dCoord7F07CEB0(coord3d *arg0)
 }
 
 
-
-
-
-
-/**
- * Unreferenced.
- *
- * Returns global variable g_TankTurretVerticalAngle, which is in radians.
- *
- * Address 0x7F07CF80.
- */
-f32 bondviewGet8003646CRad(void)
-{
-    return g_TankTurretVerticalAngle;
-}
-
-
-
 /**
  * Address 0x7F07CF8C.
 */
@@ -2463,21 +2436,6 @@ s32 bondviewTryEndHopPlayerCollision(struct coord3d *prior_next_pos, struct coor
 
     return 0;
 }
-
-
-/**
- * Unreferenced.
- *
- * Bitwise convert 32bit int to float.
- *
- * Address 0x7F07D954.
- */
-f32 bondviewBitconvertIntToFloat(s32 arg0)
-{
-    return *(f32*)&arg0;
-}
-
-
 
 
 struct dummy_struct {
@@ -9197,17 +9155,6 @@ void bondviewKillCurrentPlayer(void)
 
 
 /**
- * Unreferenced.
- *
- * Address 0x7F0898E8.
- */
-s32 sub_GAME_7F0898E8(void)
-{
-    return (s32) ((joyGetStickY(0) * 8) + 0x280) / 0xA0;
-}
-
-
-/**
  * @param damage_amount: damage amount
  * @param vectorx: damage source x coordinate
  * @param vectorz: damage source y coordinate
@@ -10622,12 +10569,6 @@ Gfx *bondviewRenderProp(PropRecord *arg0, Gfx *arg1, s32 arg2)
 }
 
 
-
-
-
-/**
- * Address 0x7F08BCF4.
- */
 Gfx* bondviewGfxPlayerField5cMatrix(Gfx* gdl)
 {
     gSPMatrix(gdl++, g_CurrentPlayer->field_5C, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
@@ -10635,27 +10576,7 @@ Gfx* bondviewGfxPlayerField5cMatrix(Gfx* gdl)
 }
 
 
-
-
-
 /**
- * Unreferenced.
- *
- * Address 0x7F08BD18.
- */
-void bondviewTransformPosToViewMatrix(RenderPosView *arg0)
-{
-    Mtxf sp18;
-
-    matrix_4x4_copy(&arg0->pos, (Mtxf *) &sp18);
-    matrix_4x4_f32_to_s32((Mtxf *) &sp18, &arg0->view);
-}
-
-
-
-/**
- * Address 0x7F08BD48.
- *
  * Notes: Similar to sub_GAME_7F08BE2C.
  *
  */
@@ -10677,47 +10598,6 @@ void bondviewTransformManyPosToViewMatrix(RenderPosView * arg0, s32 arg1)
         i++;
         rpv_entry++;
     } while (i != arg1);
-}
-
-
-
-/**
- * Unreferenced.
- *
- * Address 0x7F08BDC4.
- */
-void sub_GAME_7F08BDC4(Mtxf *arg0)
-{
-    Mtxf sp20;
-
-    matrix_4x4_copy(arg0, (Mtxf *) &sp20);
-    sp20.m[3][0] -= g_CurrentPlayer->previous_model_pos.f[0];
-    sp20.m[3][1] -= g_CurrentPlayer->previous_model_pos.f[1];
-    sp20.m[3][2] -= g_CurrentPlayer->previous_model_pos.f[2];
-    matrix_4x4_f32_to_s32((Mtxf *) &sp20, arg0);
-}
-
-
-/**
- * Unreferenced.
- *
- * Address 0x7F08BE2C.
- */
-void sub_GAME_7F08BE2C(Mtxf *matrices, s32 count)
-{
-    Mtxf copy;
-    s32 i;
-
-    for (i = 0; i < count; i++)
-    {
-        matrix_4x4_copy((Mtxf *)((uintptr_t)matrices + i * sizeof(Mtxf)), &copy);
-
-        copy.m[3][0] -= g_CurrentPlayer->previous_model_pos.x;
-        copy.m[3][1] -= g_CurrentPlayer->previous_model_pos.y;
-        copy.m[3][2] -= g_CurrentPlayer->previous_model_pos.z;
-
-        matrix_4x4_f32_to_s32(&copy, matrices + i);
-    }
 }
 
 

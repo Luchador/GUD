@@ -56,24 +56,9 @@ EnvironmentRecord * g_EnvironmentMainp;
 */
 EnvironmentRecord * g_EnvironmentAltp;
 
-/**
- * Unreferenced.
- *
- * Address 0x800825F4.
-*/
-s32 D_800825F4;
-
 #if defined(VERSION_EU)
 struct NearFogRecordF eu_loadCurrentNearFog;
 #endif
-
-/**
- * Unreferenced.
- *
- * Address 0x80044DC0.
-*/
-s32 D_80044DC0 = 0;
-
 
 /**
  * Address 0x80044DC4.
@@ -240,17 +225,6 @@ void fogLoadFoglessCurrentEnvironment(EnvironmentFoglessRecord *arg0);
 // end forward declarations
 
 
-
-/**
- * Unreferenced.
- *
- * Address 0x7F0BA720.
-*/
-void sub_GAME_7F0BA720(s32 a, s32 b)
-{
-    return;
-}
-
 /**
 * @return Pointer to Current Environment
  * canonically "bgFogGet"
@@ -258,15 +232,6 @@ void sub_GAME_7F0BA720(s32 a, s32 b)
 CurrentEnvironmentRecord *fogGetCurrentEnvironmentp(void)
 {
     return &g_CurrentEnvironment;
-}
-
-
-/**
- * Unreferenced.
-*/
-f32 fogGetScaledFarFogIntensity(void)
-{
-    return g_ScaledFarFogIntensity;
 }
 
 

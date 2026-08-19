@@ -1059,21 +1059,6 @@ void sub_GAME_7F024CF8(ChrRecord *self, coord3d *arg1)
 }
 
 
-
-// unused / unreferenced
-void chrlvDeathStaggerAnimationRelated(ChrRecord *self)
-{
-    chrStopFiring(self);
-    self->actiontype = ACT_TEST;
-    self->sleep = 0;
-    modelSetAnimation(self->model, (struct ModelAnimation*)&ptr_animation_table->data[(s32)&ANIM_DATA_death_stagger_back_to_wall], 0, 10.0f, 0.5f, 16.0f);
-    modelSetAnimLooping(self->model, 10.0f, 16.0f);
-    modelSetAnimEndFrame(self->model, 40.0f);
-}
-
-
-
-
 /**
  * Called from actor_fire_or_aim_at_target_update, where action type is ACT_ATTACK.
  *
@@ -4104,11 +4089,6 @@ s32 chrlvCall7F0B0E24WithChrWidthHeight(PropRecord *arg0, coord3d *arg1, coord3d
 }
 
 
-
-
-/**
- * Addres 0x7F029A94.
-*/
 s32 chrlvCall7F02982C(PropRecord *arg0, coord3d *arg1, f32 arg2)
 {
     coord3d sp1C;
@@ -4119,37 +4099,6 @@ s32 chrlvCall7F02982C(PropRecord *arg0, coord3d *arg1, f32 arg2)
 
     return chrlvCall7F0B0E24WithChrWidthHeight(arg0, &sp1C, arg1);
 }
-
-
-
-/**
- * Unreferenced.
- *
- * Address 0x7F029AF0.
-*/
-s32 chrlvCall7F0B0E24Normalized(PropRecord *arg0, coord3d *arg1)
-{
-    coord3d sp24;
-    f32 temp_f2;
-
-    sp24.f[0] = arg1->f[0] - arg0->pos.f[0];
-    sp24.f[1] = 0.0f;
-    sp24.f[2] = arg1->f[2] - arg0->pos.f[2];
-
-    if ((sp24.f[0] == 0.0f) && (sp24.f[2] == 0.0f))
-    {
-        return 1;
-    }
-
-    temp_f2 = 1.0f / sqrtf(SQR(sp24.f[0]) + SQR(sp24.f[2]));
-
-    sp24.f[0] *= temp_f2;
-    sp24.f[2] *= temp_f2;
-
-    return chrlvCall7F0B0E24WithChrWidthHeight(arg0, arg1, &sp24);
-}
-
-
 
 
 /**
@@ -6199,27 +6148,6 @@ void chrSetFiring(ChrRecord *self, s32 hand, s32 firing)
 }
 
 
-
-/**
- * Unreferenced.
- *
- * Address 0x7F02D148.
-*/
-s32 sub_GAME_7F02D148(ChrRecord *self, s32 hand)
-{
-    PropRecord *prop;
-
-    prop = chrGetEquippedWeaponProp(self, hand);
-
-    if (prop != NULL)
-    {
-        return weaponIsGunfireVisible(prop);
-    }
-
-    return 0;
-}
-
-
 /**
  * Address 0x7F02D184.
  * PD: chrStopFiring
@@ -8144,9 +8072,6 @@ s32 sub_GAME_7F0301FC(ChrRecord *self, coord3d *point, StandTile *arg2, coord3d 
 }
 
 
-/**
- * Address 0x7F0304AC.
-*/
 s32 sub_GAME_7F0304AC(ChrRecord *self, coord3d *mypos, StandTile *mystan, coord3d *arg3, coord3d *bondpos, StandTile *bondstan, s32 cdtypes)
 {
     StandTile *sp44;
@@ -8180,48 +8105,8 @@ s32 sub_GAME_7F0304AC(ChrRecord *self, coord3d *mypos, StandTile *mystan, coord3
 
 
 /**
- * Unreferenced.
- *
- * Address 0x7F0305E0.
-*/
-s32 sub_GAME_7F0305E0(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *arg3, coord3d *arg4, f32 arg5, s32 cdtypes)
-{
-    StandTile *sp4C;
-    s32 sp48;
-    f32 sp44;
-    f32 sp40;
-    f32 sp3C;
-    StandTile *sp38;
-
-    sp4C = arg2;
-    sp48 = 0;
-
-    chrGetChrWidthHeight(self->prop, &sp3C, &sp44, &sp40);
-    chrSetMoving(self, 0);
-
-    if (stanTestLineUnobstructed(&sp4C, arg1->x, arg1->f[2], arg3->x, arg3->f[2], cdtypes, sp44, sp40, 0.0f, 1.0f))
-    {
-        sp38 = sp4C;
-
-        if (stanTestLineUnobstructed(&sp38, arg3->x, arg3->f[2], arg4->x, arg4->f[2], cdtypes, sp44, sp40, 0.0f, 1.0f)
-            && sub_GAME_7F0301FC(self, arg1, arg2, arg3, arg5, cdtypes)
-            && sub_GAME_7F0301FC(self, arg3, sp4C, arg4, arg5, cdtypes))
-        {
-            sp48 = 1;
-        }
-    }
-
-    chrSetMoving(self, 1);
-
-    return sp48;
-}
-
-
-/**
  * Subtract arg0 from arg1. Take the determinate of the result and arg2.
  * If determinate is not greater than zero, then swap arg0 and arg1.
- *
- * Address 0x7F03074C.
 */
 void chrlvSwapIfDiffArg2Determinate(coord3d *arg0, coord3d *arg1, coord3d *arg2)
 {
