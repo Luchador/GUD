@@ -237,12 +237,6 @@ extern u8* _fontdlSegmentRomStart;
 extern u8* _fontdlSegmentRomEnd;
 
 
-// forward declarations
-
-Gfx * lvlPortalDebug7F0BDF10(Gfx * arg0);
-
-// end forward declarations
-
 s32 sub_GAME_7F0BD8F0(void)
 {
     return D_800483C0;
@@ -545,141 +539,9 @@ void lvlStageLoad(s32 stage)
 }
 
 
-
 s32 lvlGetCurrentStageToLoad(void)
 {
     return g_CurrentStageToLoad;
-}
-
-
- /**
- * Address: 7F0BDF10
- *
- * Debug method. Something to do with portals. Button press
- * on controller 1 and 2 are used for control flow.
- */
-Gfx *lvlPortalDebug7F0BDF10(Gfx *gdl)
-{
-    s32 temp_v1;
-    bool portalDebugStateChanged; // This value has no observable use in the final assembly but the variable definitely existed in the orignal code.
-    s32 *selectedPortal = &g_DebugPortalIndex;
-
-    portalDebugStateChanged = FALSE;
-
-    if (gdl)
-    {
-        gdl = bgDebugRemoved7F0B9DE4(gdl, g_DebugPortalIndex, -1);
-
-        g_DebugPortalsInputBuffer = g_DebugPortalsInputBufferSource1;
-        g_DebugPortalsInputBuffer1 = g_DebugPortalsInputBufferSource2;
-        temp_v1 = g_DebugPortalsInputBufferSource4;
-        g_DebugPortalsInputBuffer2 = g_DebugPortalsInputBufferSource3;
-        g_DebugPortalsInputBuffer3 = temp_v1;
-
-        temp_v1 = joyGetButtons(PLAYER_1, A_BUTTON) | joyGetButtons(PLAYER_2, A_BUTTON);
-
-        if ((temp_v1 == g_DebugPortalsInputBuffer3) == FALSE)
-        {
-            D_800483C0 ^= 1;
-        }
-
-        if ((g_DebugPortalsInputBuffer1 == g_DebugPortalsInputBuffer) == FALSE)
-        {
-            D_800483C0 ^= 1;
-        }
-
-        g_DebugPortalsInputBuffer4 = temp_v1;
-
-        bgRemoved7F0B9DF4(temp_v1 ? g_DebugPortalIndex : -1);
-
-        return gdl;
-    }
-
-    if (joyGetButtonsPressedThisFrame(PLAYER_1, L_JPAD) |
-        joyGetButtonsPressedThisFrame(PLAYER_2, L_JPAD))
-    {
-        g_DebugPortalIndex = *selectedPortal - 1;
-
-        if (portalDebugStateChanged = TRUE, *selectedPortal < 0)
-        {
-            g_DebugPortalIndex = 0;
-        }
-    }
-
-    if (joyGetButtonsPressedThisFrame(PLAYER_1, R_JPAD) |
-        joyGetButtonsPressedThisFrame(PLAYER_2, R_JPAD))
-    {
-        g_DebugPortalIndex = *selectedPortal + 1;
-        portalDebugStateChanged = TRUE;
-    }
-
-    if ((joyGetButtons(PLAYER_1, R_TRIG) | joyGetButtons(PLAYER_2, R_TRIG)) &&
-        (joyGetButtons(PLAYER_1, L_TRIG) | joyGetButtons(PLAYER_2, L_TRIG)))
-    {
-        if (joyGetButtonsPressedThisFrame(PLAYER_1, D_JPAD))
-        {
-            bgSwapConnectedRooms(*selectedPortal);
-        }
-    }
-    else if (joyGetButtons(PLAYER_1, R_TRIG) | joyGetButtons(PLAYER_2, R_TRIG))
-    {
-        if ((joyGetButtonsPressedThisFrame(PLAYER_1, D_JPAD) |
-             joyGetButtonsPressedThisFrame(PLAYER_2, D_JPAD)) &&
-            (bgGetDataPortalsControlBytes1Bit1(g_DebugPortalIndex) == 0))
-        {
-            bgToggleDataPortalsContrlBytes1Bit1(g_DebugPortalIndex, 0);
-            portalDebugStateChanged = TRUE;
-        }
-
-        if ((joyGetButtonsPressedThisFrame(PLAYER_1, U_JPAD) |
-             joyGetButtonsPressedThisFrame(PLAYER_2, U_JPAD)) &&
-            (bgGetDataPortalsControlBytes1Bit1(g_DebugPortalIndex) != 0))
-        {
-            bgToggleDataPortalsContrlBytes1Bit1(g_DebugPortalIndex, 1);
-            portalDebugStateChanged = TRUE;
-        }
-    }
-    else if (joyGetButtons(PLAYER_1, L_TRIG) | joyGetButtons(PLAYER_2, L_TRIG))
-    {
-        if ((joyGetButtonsPressedThisFrame(PLAYER_1, D_JPAD) |
-             joyGetButtonsPressedThisFrame(PLAYER_2, D_JPAD)) &&
-            bgGetDataPortalsControlBytes1Bit2(g_DebugPortalIndex))
-        {
-            bgClearDataPortalsControlBytes1Low2Bits(g_DebugPortalIndex);
-            portalDebugStateChanged = TRUE;
-        }
-
-        if ((joyGetButtonsPressedThisFrame(PLAYER_1, U_JPAD) |
-             joyGetButtonsPressedThisFrame(PLAYER_2, U_JPAD)) &&
-            (bgGetDataPortalsControlBytes1Bit2(g_DebugPortalIndex) == 0))
-        {
-            bgSetDataPortalsControlBytes1Bit2(g_DebugPortalIndex);
-            portalDebugStateChanged = TRUE;
-        }
-    }
-    else
-    {
-        if (joyGetButtonsPressedThisFrame(PLAYER_1, D_JPAD) |
-            joyGetButtonsPressedThisFrame(PLAYER_2, D_JPAD))
-        {
-            sub_GAME_7F0B9A7C(g_DebugPortalIndex);
-            portalDebugStateChanged = TRUE;
-        }
-
-        if (joyGetButtonsPressedThisFrame(PLAYER_1, U_JPAD) |
-            joyGetButtonsPressedThisFrame(PLAYER_2, U_JPAD))
-        {
-            sub_GAME_7F0B9A2C(g_DebugPortalIndex);
-            portalDebugStateChanged = TRUE;
-        }
-    }
-
-    if (portalDebugStateChanged)
-    {
-        // Removed
-    }
-
-    return NULL;
 }
 
 
@@ -760,7 +622,6 @@ Gfx* lvlRender(Gfx* DL)
 
             if (get_debug_portal_flag())
             {
-                DL = lvlPortalDebug7F0BDF10(DL);
             }
 
             if (get_debug_stan_problems_flag())
@@ -1301,11 +1162,6 @@ void lvlTick(void)
                     D_800483C8[i].unk_1 = (D_800483C8[i].unk_1 & 0xFFE3) | 4;
                 }
             }
-        }
-
-        if (get_debug_portal_flag() != 0)
-        {
-            lvlPortalDebug7F0BDF10(0);
         }
 
         switch (getDebugMode())

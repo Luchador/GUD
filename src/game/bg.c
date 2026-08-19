@@ -1366,32 +1366,6 @@ void sub_GAME_7F0B5168(void)
 
 
 /**
- * Unreferenced.
- *
- * Loosely checks that arg1 surrounds arg0. Requires points be ordered according to min/max.
- *
- * Address 0x7F0B519C.
- */
-s32 bgRectIsInside(struct bbox2d *arg0, struct bbox2d *arg1)
-{
-    if (arg1->min.x <= arg0->min.x)
-    {
-        if (arg0->min.x <= arg1->max.x)
-        {
-            if (arg1->min.y <= arg0->min.y)
-            {
-                if (arg0->min.y <= arg1->max.y)
-                {
-                    return 1;
-                }
-            }
-        }
-    }
-    return 0;
-}
-
-
-/**
  * Address: 7F0B5208
  */
 bool bgIsRoomOnScreen(s32 roomID, struct rectbbox *screenbox)
@@ -1703,35 +1677,6 @@ s32 sub_GAME_7F0B5864(s32 portalnum, bbox2d *bbox)
 
     return onscreencount;
 }
-
-
-/**
- * Unreferenced.
- *
- * Address 0x7F0B5B14.
- */
-Gfx *bgFillRectangle(Gfx *gdl, s32 ulx, s32 uly, s32 lrx, s32 lry)
-{
-    gDPFillRectangle(gdl++, ulx, uly, lrx + 1, lry + 1);
-    return gdl;
-}
-
-
-/**
- * Unreferenced.
- */
-void bgFillRectangleWithSides(Gfx *gdl, s32 ulx, s32 uly, s32 lrx, s32 lry)
-{
-    bgFillRectangle(
-        bgFillRectangle(
-            bgFillRectangle(
-                bgFillRectangle(gdl,
-                ulx, uly, lrx, uly), /* full rectangle */
-                lrx, uly, lrx, lry), /* right side */
-                ulx, lry, lrx, lry), /* bottom */
-                ulx, uly, ulx, lry); /* top */
-}
-
 
 
 /**
@@ -4453,52 +4398,6 @@ Gfx *sub_GAME_7F0B8D78(Gfx *arg0)
 }
 
 
-/**
- * Unreferenced.
- */
-s32 sub_GAME_7F0B8DF4(s32 room, s32 *portalnums, s32 max)
-{
-    bg_portal_data_entry *base;
-    bg_portal_data_entry *portal;
-    s32 count;
-    s32 i;
-    s32 offset;
-
-    count = 0;
-    i = 0;
-    base = g_BgPortals;
-
-    if (room);
-
-    if (base->offset_portal != NULL)
-    {
-        offset = 0;
-        portal = base;
-
-        do
-        {
-            if ((room == portal->connectedRoom1) || (room == portal->connectedRoom2))
-            {
-                portalnums[count] = i;
-                count++;
-            }
-
-            if (count >= max)
-            {
-                return count;
-            }
-
-            offset += 8;
-            i++;
-            portal = (bg_portal_data_entry *) (((u8 *) g_BgPortals) + offset);
-        }
-        while (portal->offset_portal != NULL);
-    }
-
-    return count;
-}
-
-
 // Copies visible rooms to a list
 // Address: 0x7F0B8E98
 s32 bgCopyVisibleRoomsToList(s32 *rooms, s32 max)
@@ -4586,27 +4485,6 @@ bool bgRoomsSharePortal(s32 room1, s32 room2)
     }
     return FALSE;
 }
-
-
-/**
- * Unreferenced.
- *
- * Adjusts value in bgViewRelated and returns the new value.
- *
- * @param index: index into bgViewRelated.
- * @param times: multiples value by this amount first.
- * @param add: then adds this.
- *
- * Address 0x7F0B9040.
- */
-f32 bgTimesAddViewRelatedMaybe(s32 index, f32 times, f32 add)
-{
-    bgViewRelated[index] = (s32) (((f32) bgViewRelated[index] * times) + add);
-    return (f32) bgViewRelated[index];
-}
-
-
-
 
 
 /**
@@ -4906,17 +4784,6 @@ f32 sub_GAME_7F0B9990(s32 portalnum)
 }
 
 
-/**
- * Unreferenced.
- *
- * Address 0x7F0B9A14.
- */
-u8 bgGetDataPortalsControlBytes2(s32 p)
-{
-    return g_BgPortals[p].controlbytes2;
-}
-
-
 void sub_GAME_7F0B9A2C(s32 portalnum)
 {
     u8 value;
@@ -5149,74 +5016,6 @@ void bgToggleDataPortalsContrlBytes1Bit1(s32 portal, s32 toggle)
     assert(portal<PORTMAX);
     #endif
     g_BgPortals[portal].controlbytes1 = (g_BgPortals[portal].controlbytes1 | 1) ^ (toggle != 0);
-}
-
-
-
-
-/**
- * Debug method, called from lvl.c.
- * Something to do with portals.
- *
- * Address 0x7F0B9DE4.
- */
-s32 bgDebugRemoved7F0B9DE4(s32 arg0, s32 arg1, s32 arg2)
-{
-#if DEBUG
-    // removed
-    /*
- if (arg2 == NULL)
- {
-     arg2 = {0};
- }
- *arg0          = *arg1 + *arg2;
- arg0[1]        = arg1[1] + arg2[1];
- arg0[2]        = arg1[2] + arg2[2];
- *(arg0 + 3)    = 0;
- arg0[4]        = 0.0;
- arg0[5]        = 0.0;
- *(arg0 + 6)    = (param_4 & 0xcf00cf40) >> 0x18;
- *(arg0 + 0x19) = 0;
- *(arg0 + 0x1a) = (param_4 & 0xcf00cf40) >> 8;
- *(arg0 + 0x1b) = 0x40;
-
- */
-
-#endif
-
-    return arg0;
-}
-
-
-
-
-/**
- * Debug method, called from lvl.c.
- * Something to do with portals.
- *
- * Address 0x7F0B9DF4.
- */
-void bgRemoved7F0B9DF4(s32 arg0)
-{
-#if DEBUG
-    // removed
-#endif
-
-    return;
-}
-
-/**
- * Unreferenced.
- *
- * Address 0x7F0B9DFC.
- */
-void bgRemoved7F0B9DFC(s32 p)
-{
-#if DEBUG
-        osSyncPrintf("bg: Error: Multiple portals intersect line; \'%s\' dropped ", bgDebPrintPORTALID(p));
-#endif
-
-    return;
 }
 
 
