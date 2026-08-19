@@ -32,13 +32,6 @@ D:80036B9C                     .word 0
 #endif
 
 
-#if defined(LEFTOVERDEBUG)
-void nullsub_32(void) {
-    return;
-}
-#endif
-
-
 /*
 * Address: 0x7f08fe08
 */
@@ -80,7 +73,6 @@ Gfx *debugmenuRender(Gfx *gdl)
 
 
 	for (i = 0; i < g_DMenuNumOptions; i++) {
-        nullsub_32();
 		if (i == g_DMenuSelectedOption) {
 			debmenuSetFgColour(0xc0, 0x00, 0x00, 0xc0);
         }else{
@@ -92,31 +84,6 @@ Gfx *debugmenuRender(Gfx *gdl)
     #endif
 	return gdl;
 }
-
-/*
-* Address: 0x7f09000c
-*/
-void sub_GAME_7F09000C(int a0,int a1,int a2)
-{
-    #if defined (LEFTOVERDEBUG)
-	s32 i;
-	s32 xscale = g_DMenuXScales[g_DMenuScaleIndex];
-	s32 yscale = g_DMenuYScales[g_DMenuScaleIndex];
-
-    for (i = 0; i < g_DMenuNumOptions; i++) {
-        nullsub_32();       
-        if (i == g_DMenuSelectedOption) {
-            debmenuSetFgColour(0xC0, 0, 0, 0xC0);
-        } else {
-            debmenuSetFgColour(0xC0, 0xC0, 0xC0, 0xC0);
-        }
-        debmenuSetPos((g_DMenuCurPositions[i][0] * xscale - 20) / 4, (g_DMenuCurPositions[i][1] * yscale - 8) / 7);
-        debmenuPrintString(g_DMenuCurLabels[i]);
-        osSyncPrintf("menu.c: ERROR! Tried to call font_makegt\n");
-    }
-    #endif
-}
-
 
 
 /*

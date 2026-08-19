@@ -1,15 +1,6 @@
 #include <ultra64.h>
 #include "title2.h"
 
-
-f32 D_8002BB00 = 0; // Set but never read
-f32 D_8002BB04 = 0; // Set but never read
-f32 D_8002BB08 = 0; // Set but never read
-f32 D_8002BB0C = 255.0; // Set but never read
-f32 D_8002BB10 = 255.0; // Set but never read
-f32 D_8002BB14 = 255.0; // Set but never read
-
-
 /**
  * Render the gun barrel background in the folder select menu. 
  * Like all front end screens, this screen renders at the high res 440x330 resolution.
@@ -27,7 +18,6 @@ Gfx* titleRenderFolderMenuBackgroundLines(Gfx* gdl, u8 *image, s32 xOffset, stru
     f32 bottomRed;
     f32 bottomGreen;
     f32 bottomBlue;
-    f32 temp_f14_2; // unused
     s32 i;
 
     topRed = topColour->red;
@@ -36,9 +26,6 @@ Gfx* titleRenderFolderMenuBackgroundLines(Gfx* gdl, u8 *image, s32 xOffset, stru
     bottomRed = bottomColour->red;
     bottomGreen = bottomColour->green;
     bottomBlue = bottomColour->blue;
-    D_8002BB0C = bottomRed;
-    D_8002BB10 = bottomGreen;
-    D_8002BB14 = bottomBlue;
 
     i = 0;
 
@@ -73,10 +60,6 @@ Gfx* titleRenderFolderMenuBackgroundLines(Gfx* gdl, u8 *image, s32 xOffset, stru
         i++;
         image += 440; // Advance the image data by 440 bytes, since each texel is 1 byte.
     }
-
-    D_8002BB08 = topBlue;
-    D_8002BB04 = topGreen;
-    D_8002BB00 = topRed;
 
     return gdl;
 }

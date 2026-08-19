@@ -158,9 +158,11 @@ void matrix_4x4_multiply(Mtxf *lhs, Mtxf *rhs, Mtxf *result)
     }
 }
 
+
 void matrix_4x4_multiply_homogeneous(Mtxf *lhs, Mtxf *rhs, Mtxf *result)
 {
     s32 i, j;
+
     for (i = 0; i < 3; i++)
     {
         for (j = 0; j < 4; j++)
@@ -179,34 +181,17 @@ void matrix_4x4_multiply_homogeneous(Mtxf *lhs, Mtxf *rhs, Mtxf *result)
     result->m[3][3] = 1.0f;
 }
 
-void matrix_4x4_7F058274(Mtxf *arg0, Mtxf *arg1, Mtxf *arg2)
-{
-    arg2->m[0][0] = (arg0->m[0][0] * arg1->m[0][0]);
-    arg2->m[1][0] = (arg0->m[0][0] * arg1->m[1][0]);
-    arg2->m[2][0] = (arg0->m[0][0] * arg1->m[2][0]);
-    arg2->m[3][0] = (arg0->m[0][0] * arg1->m[3][0]);
-    arg2->m[0][1] = (arg0->m[1][1] * arg1->m[0][1]);
-    arg2->m[1][1] = (arg0->m[1][1] * arg1->m[1][1]);
-    arg2->m[2][1] = (arg0->m[1][1] * arg1->m[2][1]);
-    arg2->m[3][1] = (arg0->m[1][1] * arg1->m[3][1]);
-    arg2->m[0][2] = (arg0->m[2][2] * arg1->m[0][2]);
-    arg2->m[1][2] = (arg0->m[2][2] * arg1->m[1][2]);
-    arg2->m[2][2] = (arg0->m[2][2] * arg1->m[2][2]);
-    arg2->m[3][2] = (arg0->m[2][2] * arg1->m[3][2]) + arg0->m[3][2];
-    arg2->m[0][3] = (arg0->m[2][3] * arg1->m[0][2]);
-    arg2->m[1][3] = (arg0->m[2][3] * arg1->m[1][2]);
-    arg2->m[2][3] = (arg0->m[2][3] * arg1->m[2][2]);
-    arg2->m[3][3] = (arg0->m[2][3] * arg1->m[3][2]);
-}
 
 void matrix_4x4_rotate_vector(Mtxf *matrix, struct coord3d *vector, struct coord3d *result)
 {
     s32 i;
+
     for (i = 0; i < 3; i++)
     {
         result->f[i] = matrix->m[0][i] * vector->f[0] + matrix->m[1][i] * vector->f[1] + matrix->m[2][i] * vector->f[2];
     }
 }
+
 
 void mtx4RotateVecInPlace(Mtxf *matrix, struct coord3d *vector)
 {
@@ -510,7 +495,6 @@ void matrix_4x4_f32_to_s32(f32 mf[4][4], s32 ms[4][4])
 }
 
 /*
- * Address: 0x7F058E78
  * Reads packed s32 words from src, writes floats to dst (inverse of matrix_4x4_f32_to_s32).
 */
 void sub_GAME_7F058E78(Mtxf *src, Mtxf *dst) {
@@ -527,51 +511,15 @@ void sub_GAME_7F058E78(Mtxf *src, Mtxf *dst) {
     }
 }
 
-void matrix_4x4_7F059044(Mtxf *arg0, Mtx* arg1) {
-    s32 i, j;
-    for (i = 0; i < 4; i++) {
-        for (j = 0; j < 4; j++) {
-            arg1->m[i][j] = arg0->m[i][j] * M_U16_MAX_VALUE_F;
-        }
-    }
-}
 
-void matrix_4x4_7F05914C(Mtx* arg0, Mtxf *arg1) {
-    s32 i, j;
-    for (i = 0; i < 4; i++) {
-        for (j = 0; j < 4; j++) {
-            arg1->m[i][j] = arg0->m[i][j] / M_U16_MAX_VALUE_F;
-        }
-    }
-}
-
-/*
- * Address: 0x7F059244
-*/
-void sub_GAME_7F059244(Mtx *src, Mtx *dst) {
+void sub_GAME_7F059334(Mtx *src, Mtx *dst)
+{
     u32 *srcwords = (u32 *) src;
     u32 *dstwords = (u32 *) dst;
     s32 i;
 
-    for (i = 0; i < 8; i++) {
-        u32 word1 = srcwords[i << 1];
-        u32 word2 = srcwords[(i << 1) + 1];
-
-        dstwords[i + 0] = (word1 & 0xffff0000) | (word2 >> 16);
-        dstwords[i + 8] = (word1 << 16) | (word2 & 0xffff);
-    }
-}
-
-
-/*
- * Address: 0x7F059334
-*/
-void sub_GAME_7F059334(Mtx *src, Mtx *dst) {
-    u32 *srcwords = (u32 *) src;
-    u32 *dstwords = (u32 *) dst;
-    s32 i;
-
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 8; i++) 
+    {
         u32 word1 = srcwords[i + 0];
         u32 word2 = srcwords[i + 8];
 
@@ -580,10 +528,9 @@ void sub_GAME_7F059334(Mtx *src, Mtx *dst) {
     }
 }
 
-/*
- * Address: 0x7F059424
-*/
-void matrix_4x4_set_lookat(Mtxf *matrix, f32 eye_x, f32 eye_y, f32 eye_z, f32 forward_x, f32 forward_y, f32 forward_z, f32 up_x, f32 up_y, f32 up_z) {
+
+void matrix_4x4_set_lookat(Mtxf *matrix, f32 eye_x, f32 eye_y, f32 eye_z, f32 forward_x, f32 forward_y, f32 forward_z, f32 up_x, f32 up_y, f32 up_z)
+{
     f32 right_x;
     f32 right_y;
     f32 norm_right;
@@ -637,23 +584,22 @@ void matrix_4x4_set_lookat(Mtxf *matrix, f32 eye_x, f32 eye_y, f32 eye_z, f32 fo
     matrix->m[3][3] = 1.0f;
 }
 
-/*
- * Address: 0x7F059694
-*/
-void matrix_4x4_set_lookat_target(Mtxf *matrix, f32 eye_x, f32 eye_y, f32 eye_z, f32 target_x, f32 target_y, f32 target_z, f32 up_x, f32 up_y, f32 up_z) {
+
+void matrix_4x4_set_lookat_target(Mtxf *matrix, f32 eye_x, f32 eye_y, f32 eye_z, f32 target_x, f32 target_y, f32 target_z, f32 up_x, f32 up_y, f32 up_z)
+{
     matrix_4x4_set_lookat(matrix, eye_x, eye_y, eye_z, target_x - eye_x, target_y - eye_y, target_z - eye_z, up_x, up_y, up_z);
 }
 
-/*
- * Address: 0x7F059708
-*/
-void matrix_4x4_set_basis_and_position(Mtxf *matrix, f32 pos_x, f32 pos_y, f32 pos_z, f32 basis_x, f32 basis_y, f32 basis_z, f32 up_x, f32 up_y, f32 up_z) {
+
+void matrix_4x4_set_basis_and_position(Mtxf *matrix, f32 pos_x, f32 pos_y, f32 pos_z, f32 basis_x, f32 basis_y, f32 basis_z, f32 up_x, f32 up_y, f32 up_z)
+{
     f32 right_x;
     f32 right_y;
     f32 norm_right;
     f32 norm_up;
     f32 right_z;
     f32 norm_basis = -1.0f / sqrtf((basis_x * basis_x) + (basis_y * basis_y) + (basis_z * basis_z));
+
     basis_x *= norm_basis;
     basis_y *= norm_basis;
     basis_z *= norm_basis;
@@ -689,17 +635,13 @@ void matrix_4x4_set_basis_and_position(Mtxf *matrix, f32 pos_x, f32 pos_y, f32 p
     matrix->m[3][3] = 1.0f;
 }
 
-/*
- * Address: 0x7F059908
-*/
-void matrix_4x4_set_basis_and_position_target(Mtxf *matrix, f32 pos_x, f32 pos_y, f32 pos_z, f32 target_x, f32 target_y, f32 target_z, f32 up_x, f32 up_y, f32 up_z) {
+
+void matrix_4x4_set_basis_and_position_target(Mtxf *matrix, f32 pos_x, f32 pos_y, f32 pos_z, f32 target_x, f32 target_y, f32 target_z, f32 up_x, f32 up_y, f32 up_z)
+{
     matrix_4x4_set_basis_and_position(matrix, pos_x, pos_y, pos_z, target_x - pos_x, target_y - pos_y, target_z - pos_z, up_x, up_y, up_z);
 }
 
 
-/*
- * Address: 0x7F05997C
-*/
 u32 matrix_4x4_calc_depth_scale(f32 near, f32 far)
 {
     f32 sum = near + far;
@@ -722,37 +664,7 @@ u32 matrix_4x4_calc_depth_scale(f32 near, f32 far)
     return result;
 }
 
-/*
- * Address: 0x7F059A48
-*/
-void matrix_4x4_set_projection(Mtxf *matrix, u16* depth_scale, f32 fovy, f32 aspect, f32 near, f32 far, f32 scale)
-{
-    f32 temp = cosf(fovy * 0.5f) / sinf(fovy * 0.5f);
-    scale *= M_U16_MAX_VALUE_F;
-    matrix->m[0][0] = ((temp / aspect) * scale);
-    matrix->m[1][1] = (temp * scale);
-    matrix->m[1][0] = 0.0f;
-    matrix->m[2][0] = 0.0f;
-    matrix->m[3][0] = 0.0f;
-    matrix->m[0][1] = 0.0f;
-    matrix->m[2][1] = 0.0f;
-    matrix->m[3][1] = 0.0f;
-    matrix->m[0][2] = 0.0f;
-    matrix->m[1][2] = 0.0f;
-    matrix->m[2][2] = (((near + far) / (near - far)) * scale);
-    matrix->m[3][2] = ((((near + near) * far) / (near - far)) * scale);
-    matrix->m[2][3] = -scale;
-    matrix->m[0][3] = 0.0f;
-    matrix->m[1][3] = 0.0f;
-    matrix->m[3][3] = 0.0f;
-    if (depth_scale != 0) {
-        *depth_scale = matrix_4x4_calc_depth_scale(near, far);
-    }
-}
 
-/*
- * Address: 0x7F059B58
-*/
 void matrix_4x4_set_rotation_axis_angle(Mtxf *matrix, f32 angle, f32 x, f32 y, f32 z) 
 {
     f32 sine;
@@ -801,24 +713,6 @@ void matrix_4x4_align(Mtxf *matrix, f32 angle, f32 x, f32 y, f32 z)
     guAlignF(matrix->m, angle, x, y, z);
 }
 
-// DEBUG prints a 4x4 matrix
-void matrix_4x4_7F059D30(Mtxf *matrix)
-{
-#ifdef DEBUG
-    int i, j;
-
-    for (i = 0; i < 4; i++)
-    {
-        osSyncPrintf("(");
-        for (j = 0; j < 4; j++)
-        {
-            osSyncPrintf(" %9f", matrix->m[i][j]);
-        }
-        osSyncPrintf(" )\n");
-    }
-#endif
-    return;
-}
 
 void matrix_4x4_set_rotation_inverse(Mtxf *rotation, Mtxf *transpose) 
 {
@@ -840,40 +734,15 @@ void matrix_4x4_set_rotation_inverse(Mtxf *rotation, Mtxf *transpose)
     transpose->m[3][3] = 1.0f;
 }
 
-/*
- * Address: 0x7F059DAC
-*/
-void matrix_4x4_normalize_rotation(Mtxf *matrix, Mtxf *result) {
-    f32 norm = ((matrix->m[0][0] * matrix->m[0][0]) +
-                (matrix->m[1][0] * matrix->m[1][0]) +
-                (matrix->m[2][0] * matrix->m[2][0]));
-    norm = 1.0f / norm;
-    result->m[0][0] = (matrix->m[0][0] * norm);
-    result->m[0][1] = (matrix->m[1][0] * norm);
-    result->m[0][2] = (matrix->m[2][0] * norm);
-    result->m[1][0] = (matrix->m[0][1] * norm);
-    result->m[1][1] = (matrix->m[1][1] * norm);
-    result->m[1][2] = (matrix->m[2][1] * norm);
-    result->m[2][0] = (matrix->m[0][2] * norm);
-    result->m[2][1] = (matrix->m[1][2] * norm);
-    result->m[2][2] = (matrix->m[2][2] * norm);
-    result->m[3][0] = 0.0f;
-    result->m[3][1] = 0.0f;
-    result->m[3][2] = 0.0f;
-    result->m[0][3] = 0.0f;
-    result->m[1][3] = 0.0f;
-    result->m[2][3] = 0.0f;
-    result->m[3][3] = 1.0f;
-}
 
-/*
- * Address: 0x7F059E64
-*/
-void matrix_4x4_set_inverse_rotation_and_translation(Mtxf *matrix, Mtxf *result) {
+void matrix_4x4_set_inverse_rotation_and_translation(Mtxf *matrix, Mtxf *result)
+{
     f32 norm = (matrix->m[0][0] * matrix->m[0][0]) +
                (matrix->m[1][0] * matrix->m[1][0]) +
                (matrix->m[2][0] * matrix->m[2][0]);
+
     norm = 1.0f / norm;
+
     result->m[0][0] = (matrix->m[0][0] * norm);
     result->m[0][1] = (matrix->m[1][0] * norm);
     result->m[0][2] = (matrix->m[2][0] * norm);
@@ -923,96 +792,4 @@ void matrix_4x4_invert_affine(Mtxf *matrix, Mtxf *result)
     result->m[1][3] = 0.0f;
     result->m[2][3] = 0.0f;
     result->m[3][3] = 1.0f;
-}
-
-
-/*
- * Address: 0x7F05A250
-*/
-void matrix_4x4_invert(Mtxf *matrix, Mtxf *result) {
-    s32 i, j;
-    f32 inv_det;
-    matrix_4x4_calc_adjugate(matrix, result);
-    inv_det = 1.0f / matrix_4x4_determinant(matrix);
-    for (i = 0; i < 4; i++) {
-        for (j = 0; j < 4; j++) {
-            result->m[i][j] *= inv_det;
-        }
-    }
-}
-
-/*
- * Address: 0x7F05A310
-*/
-void matrix_4x4_calc_adjugate(Mtxf *matrix, Mtxf *result)
-{
-    f32 mtx00, mtx10, mtx20, mtx30;
-    f32 mtx04, mtx14, mtx24, mtx34;
-    f32 mtx08, mtx18, mtx28, mtx38;
-    f32 mtx0c, mtx1c, mtx2c, mtx3c;
-
-    mtx00 = matrix->m[0][0]; mtx04 = matrix->m[0][1];
-    mtx08 = matrix->m[0][2]; mtx0c = matrix->m[0][3];
-    mtx10 = matrix->m[1][0]; mtx14 = matrix->m[1][1];
-    mtx18 = matrix->m[1][2]; mtx1c = matrix->m[1][3];
-    mtx20 = matrix->m[2][0]; mtx24 = matrix->m[2][1];
-    mtx28 = matrix->m[2][2]; mtx2c = matrix->m[2][3];
-    mtx30 = matrix->m[3][0]; mtx34 = matrix->m[3][1];
-    mtx38 = matrix->m[3][2]; mtx3c = matrix->m[3][3];
-
-    result->m[0][0] =  matrix_3x3_determinant(mtx14, mtx24, mtx34, mtx18, mtx28, mtx38, mtx1c, mtx2c, mtx3c);
-    result->m[1][0] = -matrix_3x3_determinant(mtx10, mtx20, mtx30, mtx18, mtx28, mtx38, mtx1c, mtx2c, mtx3c);
-    result->m[2][0] =  matrix_3x3_determinant(mtx10, mtx20, mtx30, mtx14, mtx24, mtx34, mtx1c, mtx2c, mtx3c);
-    result->m[3][0] = -matrix_3x3_determinant(mtx10, mtx20, mtx30, mtx14, mtx24, mtx34, mtx18, mtx28, mtx38);
-    result->m[0][1] = -matrix_3x3_determinant(mtx04, mtx24, mtx34, mtx08, mtx28, mtx38, mtx0c, mtx2c, mtx3c);
-    result->m[1][1] =  matrix_3x3_determinant(mtx00, mtx20, mtx30, mtx08, mtx28, mtx38, mtx0c, mtx2c, mtx3c);
-    result->m[2][1] = -matrix_3x3_determinant(mtx00, mtx20, mtx30, mtx04, mtx24, mtx34, mtx0c, mtx2c, mtx3c);
-    result->m[3][1] =  matrix_3x3_determinant(mtx00, mtx20, mtx30, mtx04, mtx24, mtx34, mtx08, mtx28, mtx38);
-    result->m[0][2] =  matrix_3x3_determinant(mtx04, mtx14, mtx34, mtx08, mtx18, mtx38, mtx0c, mtx1c, mtx3c);
-    result->m[1][2] = -matrix_3x3_determinant(mtx00, mtx10, mtx30, mtx08, mtx18, mtx38, mtx0c, mtx1c, mtx3c);
-    result->m[2][2] =  matrix_3x3_determinant(mtx00, mtx10, mtx30, mtx04, mtx14, mtx34, mtx0c, mtx1c, mtx3c);
-    result->m[3][2] = -matrix_3x3_determinant(mtx00, mtx10, mtx30, mtx04, mtx14, mtx34, mtx08, mtx18, mtx38);
-    result->m[0][3] = -matrix_3x3_determinant(mtx04, mtx14, mtx24, mtx08, mtx18, mtx28, mtx0c, mtx1c, mtx2c);
-    result->m[1][3] =  matrix_3x3_determinant(mtx00, mtx10, mtx20, mtx08, mtx18, mtx28, mtx0c, mtx1c, mtx2c);
-    result->m[2][3] = -matrix_3x3_determinant(mtx00, mtx10, mtx20, mtx04, mtx14, mtx24, mtx0c, mtx1c, mtx2c);
-    result->m[3][3] =  matrix_3x3_determinant(mtx00, mtx10, mtx20, mtx04, mtx14, mtx24, mtx08, mtx18, mtx28);
-}
-
-f32 matrix_4x4_determinant(Mtxf *matrix)
-{
-    f32 tmp;
-	f32 sp78, sp74, sp70, sp6c;
-	f32 sp68, sp64, sp60, sp5c;
-	f32 sp58, sp54, sp50, sp4c;
-	f32 sp48, sp44, sp40, sp3c;
-	f32 sp38;
-	f32 sp34;
-	f32 sp30;
-
-	sp78 = matrix->m[0][0]; sp68 = matrix->m[0][1];
-	sp58 = matrix->m[0][2]; sp48 = matrix->m[0][3];
-	sp74 = matrix->m[1][0]; sp64 = matrix->m[1][1];
-	sp54 = matrix->m[1][2]; sp44 = matrix->m[1][3];
-	sp70 = matrix->m[2][0]; sp60 = matrix->m[2][1];
-	sp50 = matrix->m[2][2]; sp40 = matrix->m[2][3];
-	sp6c = matrix->m[3][0]; sp5c = matrix->m[3][1];
-	sp4c = matrix->m[3][2]; sp3c = matrix->m[3][3];
-
-	sp30 = matrix_3x3_determinant(sp74, sp70, sp6c, sp64, sp60, sp5c, sp44, sp40, sp3c);
-	sp34 = matrix_3x3_determinant(sp74, sp70, sp6c, sp54, sp50, sp4c, sp44, sp40, sp3c);
-	sp38 = matrix_3x3_determinant(sp64, sp60, sp5c, sp54, sp50, sp4c, sp44, sp40, sp3c);
-
-	tmp = matrix_3x3_determinant(sp74, sp70, sp6c, sp64, sp60, sp5c, sp54, sp50, sp4c);
-
-	return (sp78 * sp38 - sp68 * sp34 + sp58 * sp30) - tmp * sp48;
-
-}
-
-f32 matrix_3x3_determinant(f32 a, f32 d, f32 g, f32 b, f32 e, f32 h, f32 c, f32 f, f32 i) {
-    f32 determinant = (a * matrix_2x2_determinant(e, h, f, i)) - (b * matrix_2x2_determinant(d, g, f, i)) + (c * matrix_2x2_determinant(d, g, e, h));
-    return determinant;
-}
-
-f32 matrix_2x2_determinant(f32 a, f32 c, f32 b, f32 d) {
-     return (a * d) - (c * b);
 }

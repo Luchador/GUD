@@ -11,11 +11,6 @@ void matrix_4x4_multiply(Mtxf *lhs, Mtxf *rhs, Mtxf *result);
 void matrix_4x4_set_position(struct coord3d *position, Mtxf *matrix);
 void matrix_4x4_set_lookat(Mtxf *arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, f32 arg5, f32 arg6, f32 arg7, f32 arg8, f32 arg9);
 u32 matrix_4x4_calc_depth_scale(f32 arg0, f32 arg1);
-void matrix_4x4_calc_adjugate(Mtxf *arg0, Mtxf *arg1);
-
-f32  matrix_4x4_determinant(Mtxf *matrix);
-f32  matrix_3x3_determinant(f32 a, f32 d, f32 g, f32 b, f32 e, f32 h, f32 c, f32 f, f32 i);
-f32  matrix_2x2_determinant(f32 a, f32 c, f32 b, f32 d);
 
 void matrix_4x4_7F058C4C(f32 arg0);
 void matrix_4x4_copy(Mtxf *src, Mtxf *dst);

@@ -2,8 +2,6 @@
 #include "matrixmath.h"
 
 /**
- * Address: 7F05AE00
- * 
  * result = x vector plus ((y - x vector) * scaler).
  * 
  * Standard linear interpolation between two 3D points.
@@ -13,39 +11,6 @@ void vec3Lerp(vec3d *x, vec3d *y, f32 scaler, vec3d *result)
     result->x = ((y->x - x->x) * scaler) + x->x;
     result->y = ((y->y - x->y) * scaler) + x->y;
     result->z = ((y->z - x->z) * scaler) + x->z;
-}
-
-
-/**
- * Address: 7F05AE50
- * 
- * Catmull-Rom cubic interpolation for a float.
- * 
- * Unused.
- */ 
-f32 scalarCatmullRomInterp(f32 arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4)
-{
-    f32 cube;
-    f32 square;
-    f32 total;
-    f32 t2;
-
-    square = arg4 * arg4;
-    cube   = square * arg4;
-
-    t2     = square - ((arg4 + cube) * 0.5f);
-    total  = arg0 * t2;
-
-    t2     = ((1.5f * cube) - (2.5f * square)) + 1.0f;
-    total += arg1 * t2;
-
-    t2     = (-1.5f * cube) + (2.0f * square) + (0.5f * arg4);
-    total += arg2 * t2;
-
-    t2     = (cube - square) * 0.5f;
-    total += arg3 * t2;
-
-    return total;
 }
 
 
@@ -118,27 +83,3 @@ void coord3dCubicSplineInterp(coord3d *prev, coord3d *start, coord3d *end, coord
     result->f[1] = (((temp_f16 * prev->f[1]) + (temp_f18 * start->f[1])) + (temp_f8 * end->f[1])) + (((cube - square) * tangentScale) * next->f[1]);
     result->f[2] = (((temp_f16 * prev->f[2]) + (temp_f18 * start->f[2])) + (temp_f8 * end->f[2])) + (((cube - square) * tangentScale) * next->f[2]);
 }
-
-
-/**
- * Address: 7F05B154
- * 
- * Unused.
- */ 
-f32 scalarCubicHermiteInterp(f32 arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4)
-{
-    /*
-    Quick substition (so this may be wrong), but let x=arg4. Then
-    return
-    x^3 * (arg3 + arg2 - 2*arg1 + 2*arg0) + x^2 * (-arg3 - 2*arg2 + 3*arg1 - 3*arg0) + x^1 * (arg2) + x^0 * (arg0)
-    */
-    f32 cube;
-    f32 temp_f18;
-    f32 square;
-
-    square = arg4 * arg4;
-    cube = square * arg4;
-    temp_f18 = ((2.0f * cube) - (3.0f * square)) + 1.0f;
-    return (arg0 * temp_f18) + (arg1 * (1.0f - temp_f18)) + (arg2 * ((cube - (2.0f * square)) + arg4)) + (arg3 * (cube - square));
-}
-
