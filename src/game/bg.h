@@ -191,24 +191,14 @@ extern Gfx DL_LUT_PRIMARY_ADDFOG[];
 
 
 void bgInit(void);
-
-// sub_GAME_7F033B38 requres arg be s32
 bool bgRoomsSharePortal(s32 roomA, s32 roomB);
-
-//f32 sub_GAME_7F0B4F9C(s32 room); // u8 not s32 for sub_GAME_7F0B2FE0
 s32 bgCopyVisibleRoomsToList(s32 *rooms, s32 max);
 u32 bgDecompress(u8* source, u8 *target);
 bool bgTestBulletHitBackground(coord3d *from, coord3d *to, s32 roomnum, struct HitThing *hit);
 void delete_room_data(s32 roomID);
 void load_bg_file(LEVEL_INDEX stagenum);
 s8 bgSwapConnectedRooms(s32 index);
-s32 bgGetDataPortalsControlBytes1Bit1(s32 index);
 void bgToggleDataPortalsContrlBytes1Bit1(s32 index, s32 toggle);
-s32 bgGetDataPortalsControlBytes1Bit2(s32 arg0);
-void bgClearDataPortalsControlBytes1Low2Bits(s32 index);
-void bgSetDataPortalsControlBytes1Bit2(s32 index);
-void sub_GAME_7F0B9A7C(s32 portalnum);
-void sub_GAME_7F0B9A2C(s32 portalnum);
 void bgRoomVisibilityRelated(void);
 Gfx* bgLevelRender(Gfx *arg0);
 Gfx *bgScissorCurrentPlayerView(Gfx *arg0, s32 left, s32 top, s32 width, s32 height);

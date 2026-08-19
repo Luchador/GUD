@@ -359,62 +359,6 @@ void sub_GAME_7F0B37EC(void) {
 }
 
 
-/*
-* Unused function
-* Address: 7F0B38B4
-*/
-void sub_GAME_7F0B38B4(s32 arg0, u8 *arg1) {
-
-    u8 *s0;
-    u8 *entry_start;
-    s32 v0;
-    s32 v1;
-
-    s0 = arg1;
-    v0 = *arg1;
-    v1 = arg0 & 0xff;
-
-    do {
-        entry_start = s0;
-
-        do {
-            if (v1 == v0) goto found;
-            v0 = *(s0 + 1);
-            s0++;
-        } while (v0 != 0);
-
-        do { s0++; } while (*s0 != 0);
-        s0++;
-        goto next_entry;
-
-found:
-        s0 = entry_start;
-        for (v0 = *entry_start; ; ) {
-            if (bgIsRoomOnScreen(v0 ^ 0, &g_CurrentPlayer->screensize)) {
-                sub_GAME_7F0B39BC(*s0, 0, &g_CurrentPlayer->screensize, 1);
-            }
-            v0 = *(s0 + 1);
-            s0++;
-            if (v0 == 0) break;
-        }
-        s0++;
-        v0 = *s0;
-        do {
-            if (bgIsRoomOnScreen(v0 ^ 0, &g_CurrentPlayer->screensize)) {
-                sub_GAME_7F0B39BC(*s0, 0, &g_CurrentPlayer->screensize, 1);
-            }
-            v0 = *(s0 + 1);
-            s0++;
-        } while (v0 != 0);
-        return;
-
-next_entry:
-        v0 = *s0;
-    } while (v0 != 0);
-
-}
-
-
 /**
  * Address 0x7F0B39BC.
  *
@@ -485,37 +429,6 @@ s32 sub_GAME_7F0B39BC(int curroom,int unk1, bbox2d * screensize, s32 next)
 }
 
 
-/*
-* Unused function
-* Address: ?
-*/
-void bgZeroPortalsToRoom(s32 roomnum)
-{
-  g_BgRoomInfo[roomnum].portal_visit_count = 0;
-}
-
-
-/*
-* Unused function
-* Address: 7F0B3B20
-*/
-s32 bgFindFirstPortalVisitedRoom(void)
-{
-    s32 i;
-
-    for (i=0;i<MAXROOMCOUNT;i++)
-    {
-        if (g_BgRoomInfo[i].portal_visit_count) {
-            return i;
-        };
-    }
-    return -1;
-}
-
-
-/**
- * Address: 7F0B3BC4
- */
 void bgResetPortalVisitCounts(void)
 {
   s32 i;
@@ -1019,14 +932,8 @@ f32 get_room_data_float1(void){
 }
 
 
-f32 sub_GAME_7F0B4848(void)
+f32 bgGetLevelVisibilityScale(void)
 {
-    return levelinfotable[levelentry_index].unknownfloat / levelinfotable[levelentry_index].levelscale;
-}
-
-
-//sub_GAME_7F0B4878
-f32 bgGetLevelVisibilityScale(void) {
     return mCurrentLevelVisibilityScale;
 }
 
@@ -1261,22 +1168,8 @@ Gfx *bgLevelRender(Gfx *arg0)
 }
 
 
-
-
-
-f32 sub_GAME_7F0B4F9C(s32 arg0)
-{
-	return dword_CODE_bss_8007FF94[arg0 + 1];
-}
-
-
-
-
-
-
 /**
  * Calls @see bgScissorCurrentPlayerView with default current player values.
- * Address 0x7F0B4FB4.
  */
 Gfx* bgScissorCurrentPlayerViewDefault(Gfx* arg0)
 {
@@ -1729,24 +1622,6 @@ void bbox2dCopy(struct bbox2d *a, struct bbox2d *b)
 
 
 /**
- * Formats a portal ID for debug output.
- */
-char *bgDebPrintPORTALID(s32 portID)
-{
-    static char bgDebPortalOutBuffer[10][9];
-    static s32 bgDebPortalOutLineNum = 0;
-    char *portIdStr;
-
-    bgDebPortalOutLineNum = (bgDebPortalOutLineNum + 1) % 10;
-    portIdStr = bgDebPortalOutBuffer[bgDebPortalOutLineNum];
-
-    sprintf(portIdStr, "PORT%d", portID);
-
-    return portIdStr;
-}
-
-
-/**
  * Formats a room ID for debug output.
  */
 char *bgDebPrintROOMID(s32 roomId)
@@ -2122,15 +1997,6 @@ s32 getMaxNumRooms(void)
 u8 getROOMID_isRendered(s32 roomID)
 {
     return g_BgRoomInfo[roomID].room_rendered;
-}
-
-
-/*
- * Return butflags1 (confirmed u8)
- */
-u8 getROOMID_isNeighborToRendered(s32 roomID)
-{
-    return g_BgRoomInfo[roomID].room_neighbor_to_rendered;
 }
 
 
@@ -3630,11 +3496,6 @@ void sub_GAME_7F0B7F84(s32 roomnum, s32 portalnum /*canonically p*/, s32 depth, 
     }
  
     if (depth);
- 
-#ifdef DEBUG
-    assert(portalnum < PORTMAX);
-    osSyncPrintf("bg: << bgPortalDescend: Inside out portal '%s' ", bgDebPrintPORTALID(portalnum));
-#endif
 
     if (g_BgPortals[portalnum].controlbytes1 & PORTALFLAG_DISABLED)
     {
@@ -3771,11 +3632,6 @@ s32 sub_GAME_7F0B7F84(s32 value, s32 roomnum, s32 portalnum /*canonically p*/, s
     }
  
     if (depth);
- 
-#ifdef DEBUG
-    assert(portalnum < PORTMAX);
-    osSyncPrintf("bg: << bgPortalDescend: Inside out portal '%s' ", bgDebPrintPORTALID(portalnum));
-#endif
  
     if (g_BgPortals[portalnum].controlbytes1 & PORTALFLAG_DISABLED)
     {
@@ -4784,108 +4640,6 @@ f32 sub_GAME_7F0B9990(s32 portalnum)
 }
 
 
-void sub_GAME_7F0B9A2C(s32 portalnum)
-{
-    u8 value;
-    s32 upper;
-
-    value = g_BgPortals[portalnum].controlbytes2;
-
-    if (value >= 0xff)
-    {
-        value = 0xff;
-    }
-    else
-    {
-        value++;
-        upper = (value >> 4) & 0xf;
-
-        if (upper > 0)
-        {
-            value |= 8;
-        }
-    }
-
-    g_BgPortals[portalnum].controlbytes2 = value;
-}
-
-
-void sub_GAME_7F0B9A7C(s32 portalnum)
-{
-    u8 value;
-    s32 temp;
-
-    value = g_BgPortals[portalnum].controlbytes2;
-    temp = value;
-
-    if (((value >> 4) & 0xf) == 0)
-    {
-        if (temp > 0)
-        {
-            value--;
-        }
-    }
-    else
-    {
-        value--;
-
-        if ((value & 0xf) < 8)
-        {
-            value -= 8;
-        }
-    }
-
-    g_BgPortals[portalnum].controlbytes2 = value;
-}
-
-
-/**
- * @param index: index into portal array.
- *
- * Address 0x7F0B9AE4.
- */
-s32 bgGetDataPortalsControlBytes1Bit1(s32 index)
-{
-    return g_BgPortals[index].controlbytes1 & 1;
-}
-
-
-
-/**
- * @param index: index into portal array.
- *
- * Address 0x7F0B9B04.
- */
-s32 bgGetDataPortalsControlBytes1Bit2(s32 index)
-{
-    return g_BgPortals[index].controlbytes1 & 2;
-}
-
-
-
-/**
- * @param index: index into portal array.
- *
- * Address 0x7F0B9B24.
- */
-void bgSetDataPortalsControlBytes1Bit2(s32 index)
-{
-    g_BgPortals[index].controlbytes1 |= 2;
-}
-
-
-
-/**
- * @param index: index into portal array.
- *
- * Address 0x7F0B9B44.
- */
-void bgClearDataPortalsControlBytes1Low2Bits(s32 index)
-{
-    g_BgPortals[index].controlbytes1 &= 0xFD;
-}
-
-
 /**
  * Swaps connected rooms.
  *
@@ -4927,9 +4681,6 @@ void bgOrderPortal(s32 portalnum) // canonical name
     sub_GAME_7F0B96CC(portalnum, &metric);
 
     if (metric.max - metric.min < 0.1f) {
-#ifdef DEBUG
-        osSyncPrintf("bg: bgOrderPortal: Portal '%s' not planar by %5.2f\n", bgDebPrintPORTALID(portalnum), metric.max - metric.min);
-#endif
     }
 
     tmp2 = metric.normal.f[2];
@@ -5037,19 +4788,14 @@ s32 sub_GAME_7F0B9E04(coord3d *arg0, coord3d *arg1)
             if (thisthing < 0)
             {
                 thisthing = -thisthing;
-#if DEBUG
-                osSyncPrintf("bg: Portal \'%s\' briefly considered for window\n", bgDebPrintPORTALID(i));
-#endif
             }
 
             if (thisthing < bestthing)
             {
                 if (count)
                 {
-#if DEBUG
-                    osSyncPrintf("bg: Portal \'%s\' briefly considered for window\n", bgDebPrintPORTALID(i));
-#endif
                 }
+
                 if (i);
                 bestportalnum = i;
                 bestthing = thisthing;

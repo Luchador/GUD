@@ -148,81 +148,6 @@ bool stanLocusEdgeIsAboveY(StandTile *tile, s32 edgeIndex, f32 edgeDist, f32 dis
 
 // end forward declarations
 
-s32 stanBitwiseCastF32(f32 arg0)
-{
-    // disgusting
-    return *(s32*)&arg0;
-}
-
-
-// maybe getstanroomID and returns a string
-char *sub_GAME_7F0AEF3C(StandTile *tile)
-{
-    char *buffer;
-    s32 nextidx;
-    s32 type;
-    s32 letter;
-    s32 digit_raw;
-    s32 masked_number;
-    s32 idpart1;
-    u8 idpart2;
-    s32 idx;
-    
-    idx = D_80040FAC;
-    buffer = (char *)D_80040F64 + (idx * 9);
-    
-    idpart1 = *((u16 *) tile);
-    digit_raw = ((u8 *) tile)[2];
-    idpart2 = digit_raw;
-    
-    letter = idpart2 >> 3;
-    idx = (idx + 1) & 7;
-    masked_number = idpart1 & 0x7fff;
-    type = (idpart1 >> 15) & 1;
-    letter &= 0x1f;
-    nextidx = idx;
-    digit_raw = idpart2 & 7;
-    
-    if (digit_raw)
-    {
-        idpart1 = *((u16 *) tile);
-    }
-    
-    D_80040FAC = nextidx;
-    
-    if (!digit_raw)
-    {
-        if (digit_raw && digit_raw);
-        
-        idpart1 = 0;
-    }
-    else 
-    {
-        idpart1 = digit_raw + '0';
-    }
-    
-    sprintf(buffer, aCDCC, type + 'p', masked_number, letter + 'a', idpart1);
-    
-    return buffer;
-}
-
-
-//stanChecksf
-u32 stanRemovedAnimationRoutine(s32 arg0) 
-{
-#ifdef DEBUG
-    if (arg0 < ptr_firstroom_0)
-    {
-        osSyncPrintf("checksf: ERROR line %d %08x<%08x", __LINE__, arg0, ptr_firstroom_0);
-    }
-    if (stanTileEnd < arg0)
-    {
-        osSyncPrintf("checksf: ERROR line %d %08x>%08x", __LINE__, arg0, stanTileEnd);
-    }
-#endif
-    return 0;
-}
-
 
 void stanInit(void) 
 {
@@ -803,15 +728,6 @@ f32 getShortest2dDispToInfTripleEdge(StandTile *tile, s32 start3index, f32 p_x, 
 }
 
 
-f32 getShortest2dDispToInfTileEdgeUnscaled(StandTile *tile, int index,f32 x,f32 z)
-{
-  f32 disp;
-
-  disp = getShortest2dDispToInfTileEdge(tile, index, x * level_scale, z * level_scale);
-  return disp * inv_level_scale;
-}
-
-
 f32 getShortest2dDispToInfTripleEdgeUnscaled(StandTile *tile,s32 start3index,f32 p_x,f32 p_z)
 {
   f32 disp;
@@ -884,26 +800,6 @@ bool stanPointProjectsOntoTileEdge(StandTile *tile, s32 edgeIndex, f32 p_x, f32 
     return ((startZ < edgeZ) && (edgeZ < 0.0f))
         || ((0.0f < edgeZ) && (edgeZ < startZ));
 }
-
-
-// Determines if inside (presumably - it effectively does an && of the checks on signs of cross products)
-//   based on the 3 edges. So probably only for triangular tiles.
-s32 isPointInsideTriStandTile_Maybe(StandTile *tile, f32 p_x, f32 p_z)
-{
-    f32 disp;
-    s32 i;
-
-    for (i = 0; i != 3; i++)
-    {
-        disp = getShortest2dDispToInfTripleEdge(tile,i,p_x,p_z);
-        if (disp < 0) {
-            return 0;
-        }
-    }
-
-    return 1;
-}
-
 
 
 s32 isPointInsideTriStandTileUnscaled_Maybe(StandTile *tile, f32 p_x, f32 p_z)
@@ -1220,12 +1116,6 @@ bool sub_GAME_7F0B0914(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest
             }
         }
 
-#ifdef DEBUG
-        assert(crossings != 0);
-        assert(crossings != 3);
-        osSyncPrintf("sf: stanLineDo %d   %5.1f %5.1f %5.1f %5.1f  %s %s %s\n", 3, start_x, start_z, dest_x, dest_z, sub_GAME_7F0AEF3C(tile), sub_GAME_7F0AEF3C(previousTile), sub_GAME_7F0AEF3C(previousPreviousTile));
-#endif
-
         previousPreviousTile = previousTile;
         previousTile = tile;
 
@@ -1245,9 +1135,6 @@ bool sub_GAME_7F0B0914(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest
         {
             stanSavedColl_tile = previousTile;
             stanSavedColl_pointI = savedPointIndex;
-#ifdef DEBUG
-            osSyncPrintf("stanLine: Looping; ret=0\n");
-#endif
             return FALSE;
         }
 
@@ -1305,15 +1192,6 @@ void noteTileRoomIfDifferentToPrev(StandTile *tile, StandTile *unused, struct St
     }
 
     return;
-}
-
-
-
-/*
-* Address: 0x7f0b0cec
-*/
-void noteTileRoomIfDifferentToPrev_2(StandTile *tile, StandTile *unused, struct StandTileWalkCallbackRecord *data) {
-    noteTileRoomIfDifferentToPrev(tile, unused, data);
 }
 
 
@@ -1881,29 +1759,11 @@ s32 stanTestVolume(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, 
 }
 
 
-
-//stanResetHits
-void stanResetHits(void) {
+void stanResetHits(void)
+{
     stanSavedColl_tile = 0;
     stanSavedColl_pointI = 0;
     D_800413BC = 0;
-}
-
-StandTile *sub_GAME_7F0B1CE0(void)
-{
-    #ifdef DEBUG
-        osSyncPrintf("Don\'t call stanCircleLegalHit()!\n");
-    #endif
-    return stanSavedColl_tile;
-}
-
-s32 sub_GAME_7F0B1CEC(void)
-{
-    #ifdef DEBUG
-        osSyncPrintf("Don\'t call stanCircleLegalHitEdge()!\n");
-    #endif
-
-    return stanSavedColl_pointI;
 }
 
 
@@ -2672,70 +2532,6 @@ void copy_tile_RGB_as_24bit(StandTile *tile, f32 p_x, f32 p_z, u8 *rtn)
 }
 
 
-/**
- * Address: 7F0B2C74
- */
-void stanGetTileHeaderCYBounds(StandTile *tile, f32 *out)
-{
-    f32 y0;
-    f32 y1;
-    f32 y2;
-    f32 min;
-    f32 max;
-
-     /*
-     * This seems like a bug.
-     * The function is structured like it wants the min/max Y of the
-     * three packed indices headerC/headerD/headerE, but
-     * all three reads use headerC: (tail >> 8) & 0xf.
-     * 
-     * Ultimately the function call chain leads nowhere so this is
-     * dead code and the bug doesn't matter.
-     */
-    y0 = (f32)tile->points[(tile->tail.half >> 8) & 0xf].y;
-    y1 = (f32)tile->points[(tile->tail.half >> 8) & 0xf].y;
-    y2 = (f32)tile->points[(tile->tail.half >> 8) & 0xf].y;
-
-    min = y1;
-
-    if (y0 < y1)
-    {
-        min = y0;
-    }
-
-    if (y2 < min)
-    {
-        min = y2;
-    }
-
-    max = y0;
-
-    if (y0 < y1)
-    {
-        max = y1;
-    }
-
-    if (max < y2)
-    {
-        max = y2;
-    }
-
-    out[0] = min * inv_level_scale;
-    out[1] = max * inv_level_scale;
-}
-
-
-/**
- * Address: 7F0B2D14
- */
-f32 stanGetTileHeaderCMinY(StandTile *tile) {
-    f32 vs[2];
-
-    stanGetTileHeaderCYBounds(tile, vs);
-    return vs[0];
-}
-
-
 void debugStanView(s8 joyX, s8 joyY, u16 joyBtns) {
     return;
 }
@@ -2877,33 +2673,6 @@ struct StandTilePoint *stanMatchTileName(char *id)
 }
 
 
-#ifdef XBLADEBUG
-StandTile RemovedDebugFunctionOrXBLAUnique_7F0B2EFC()
-{
-    lVar1 = param_2;
-    local_10 = *(stanPrefix + 4);
-    cStack00000017 = param_1;
-    sStack0000001e = param_2;
-    while( true ) {
-    if (*local_10 == 0) {
-        return NULL;
-    }
-    cVar2 = sStack0000001e;
-    if ((*local_10 == sStack0000001e) && (cVar2 = cStack00000017, *(local_10 + 2) == cStack00000017)
-        ) break;
-    local_10 = Function_8238ED08(local_10,lVar1,in_r5,in_r6,in_r7,in_r8,in_r9,cVar2,
-                                    in_stack_ffffffab,in_stack_ffffffaf,in_stack_ffffffb4);
-    }
-    return local_10;
-}
-#endif
-
-
-void sub_GAME_7F0B2F00(StandTilePoint** arg0) {
-    *arg0 = stanMatchTileName(*arg0);
-}
-
-
 void stanDetermineEOF(struct StanPrefixRecord *file /* canonically r */, s32 origBase, u8 *newBase)
 {
     s32 delta;
@@ -2967,60 +2736,21 @@ s32 getTileRoom(StandTile *tile)
 }
 
 
-//incorrect here so that both this and sub_GAME_7F0B4F9C match
-extern s32 sub_GAME_7F0B4F9C(u8 arg0) ;
-
-s32 sub_GAME_7F0B2FE0(StandTile *tile)
+Gfx * sub_GAME_7F0B3024(Gfx *ptrdl, StandTilePoint *tile_point, u32 RGBAColor)
 {
-    // u8 -> s32 -> u8 causes the odd asm
-
-    s32 room = tile->room;
-
-    return sub_GAME_7F0B4F9C(room);
-}
-
-/**
- * Address: 7F0B3004
- * 
- * Unused.
- */
-f32 stanGetTileHeaderCMinYWrapper(StandTile *tile) {
-    return stanGetTileHeaderCMinY(tile);
-}
-
-Gfx * sub_GAME_7F0B3024(Gfx *ptrdl, StandTilePoint *tile_point, u32 RGBAColor) {
     return ptrdl;
 }
 
-Gfx * sub_GAME_7F0B3034(Gfx *arg0) {
+
+Gfx * sub_GAME_7F0B3034(Gfx *arg0)
+{
     return arg0;
 }
 
-Gfx * sub_GAME_7F0B303C(Gfx * arg0) {
+
+Gfx * sub_GAME_7F0B303C(Gfx * arg0)
+{
     return arg0;
-}
-
-s32 sub_GAME_7F0B3044(void) {
-    s32 sp1C;
-    f32 temp_f0;
-
-    sp1C = 0;
-    if (((dynGetFreeGfx() < 0x1000) || (dynGetFreeVtx() < 0x1000)) && (*D_800413D0 == 0)) {
-        D_800413C0 = 0.0f;
-        D_800413C4 = 0.0f;
-        D_800413C8 = D_800413CC;
-        *D_800413D0 = 1;
-    }
-    if (*D_800413D0 == 0) {
-        D_800413C0 += D_800413C4;
-        temp_f0 = D_800413C0;
-        if (temp_f0 > 1.0f) {
-            sp1C = 1;
-            D_800413C0 = temp_f0 - 1.0f;
-        }
-    }
-    D_800413CC += 1;
-    return sp1C;
 }
 
 

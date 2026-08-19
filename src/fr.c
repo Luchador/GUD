@@ -637,53 +637,38 @@ void viShake(f32 intensity)
     g_ViShakeTimer = 10;
 }
 
-void viRecvMesg(int count)
-{
-    do
-    {
-        osRecvMesg(&vi_c_debug_MQ, NULL, 1);
-        count--;
-    }
-    while (count > 0);
-}
 
 void viSetVideoMode(s32 m)
 {
-    //if (m < 0) {
-    //    assertPrint_8291E690(".\\ported\\fr.cpp",0x22a,"Assertion failed: m>=MD_BLACK");
-    //}
-    //if (2 < iStack00000014) {
-    //    assertPrint_8291E690(".\\ported\\fr.cpp",0x22b,"Assertion failed: m<MD_MAXIMUM");
-    //}
     g_ViBackData->mode = m;
     g_ViBackData->x = g_ViBackData->bufx = g_viRuntimeScreenWidths[m];
     g_ViBackData->y = g_ViBackData->bufy = g_viRuntimeScreenHeights[m];
 }
+
 
 void viSetColorMode16Bit(void)
 {
     g_viColorOutputMode = COLORMODE_16BIT;
 }
 
+
 void viSetColorMode32Bit(void)
 {
     g_viColorOutputMode = COLORMODE_32BIT;
 }
+
 
 u8 *viGetFrameBuf2(void)
 {
     return g_ViBackData->framebuf;
 }
 
-u8 *viGetFrameBuf1(void)
-{
-    return g_ViFrontData->framebuf;
-}
 
 void viSetFrameBuf2(u8 *buf)
 {
     g_ViBackData->framebuf = buf;
 }
+
 
 u16 viGetPerspNorm(void)
 {
@@ -745,6 +730,7 @@ Gfx *viClearZBufCurrentPlayer(Gfx *gdl)
     return gdl;
 }
 
+
 Gfx *viFillScreen(Gfx *gdl)
 {
 	gDPSetCycleType(gdl++, G_CYC_FILL);
@@ -753,6 +739,7 @@ Gfx *viFillScreen(Gfx *gdl)
 
     return gdl;
 }
+
 
 Gfx *viSetupScreensForNumPlayers(Gfx *gdl)
 {
@@ -807,25 +794,30 @@ Gfx *viSetupScreensForNumPlayers(Gfx *gdl)
     return gdl;
 }
 
+
 void viSet800232A0(s32 arg0)
 {
     D_800232A0 = arg0;
 }
+
 
 s32 viGet800232A0(void)
 {
     return D_800232A0;
 }
 
+
 void viSetHorizontalOffset(s32 arg0)
 {
     g_viHorizontalOffset = arg0;
 }
 
+
 s32 viGetHorizontalOffset(void)
 {
     return g_viHorizontalOffset;
 }
+
 
 void viSetBuf(s16 x, s16 y)
 {
@@ -833,15 +825,6 @@ void viSetBuf(s16 x, s16 y)
     g_ViBackData->bufy = y;
 }
 
-s16 viGetBufX(void)
-{
-    return g_ViBackData->bufx;
-}
-
-s16 viGetBufY(void)
-{
-    return g_ViBackData->bufy;
-}
 
 void viSetXY(s16 x, s16 y)
 {
@@ -849,15 +832,18 @@ void viSetXY(s16 x, s16 y)
     g_ViBackData->y = y;
 }
 
+
 s16 viGetX(void)
 {
     return g_ViBackData->x;
 }
 
+
 s16 viGetY(void)
 {
     return g_ViBackData->y;
 }
+
 
 void viSetViewSize(s16 x, s16 y)
 {
@@ -867,15 +853,18 @@ void viSetViewSize(s16 x, s16 y)
     currentPlayerSetCameraScale();
 }
 
+
 s16 viGetViewWidth(void)
 {
     return g_ViBackData->viewx;
 }
 
+
 s16 viGetViewHeight(void)
 {
     return g_ViBackData->viewy;
 }
+
 
 void viSetViewPosition(s16 left, s16 top)
 {
@@ -884,20 +873,24 @@ void viSetViewPosition(s16 left, s16 top)
     currentPlayerSetScreenPosition(g_ViBackData->viewleft, g_ViBackData->viewtop);
 }
 
+
 s16 viGetViewLeft(void)
 {
     return g_ViBackData->viewleft;
 }
+
 
 s16 viGetViewTop(void)
 {
     return g_ViBackData->viewtop;
 }
 
+
 void viSetUseZBuf(s32 usezbuf)
 {
   g_ViBackData->usezbuf = usezbuf;
 }
+
 
 void viSetFovY(f32 fovy)
 {
@@ -906,6 +899,7 @@ void viSetFovY(f32 fovy)
     currentPlayerSetCameraScale();
 }
 
+
 void viSetAspect(f32 aspect)
 {
     g_ViBackData->aspect = aspect;
@@ -913,18 +907,12 @@ void viSetAspect(f32 aspect)
     currentPlayerSetCameraScale();
 }
 
+
 f32 viGetFovY(void)
 {
     return g_ViBackData->fovy;
 }
 
-void viSetFov(f32 fovx, f32 fovy)
-{
-    g_ViBackData->fovy = fovy;
-    g_ViBackData->aspect = (f32) (fovx / fovy);
-    currentPlayerSetPerspective(g_ViBackData->znear, g_ViBackData->fovy, g_ViBackData->aspect);
-    currentPlayerSetCameraScale();
-}
 
 void viSetZRange(f32 near, f32 far)
 {
@@ -954,47 +942,6 @@ Gfx *viSetFillColor(Gfx *gdl, s32 r, s32 g, s32 b)
     return gdl;
 }
 
-/**
- * 5358	70004758
- *     image capture routine, jpeg 16bit colour
- */
-void indyGrabJpg16bit(void)
-{
-#ifdef LEFTOVERDEBUG
-    s32 *pgrabnum = &g_indyJpg16BitGrabnum;
-    char buffer[250];
-    s32 filesize;
-
-    while (1)
-    {
-        sprintf(buffer, "grab.%d.jpeg", *pgrabnum);
-        if (indycommHostCheckFileExists((u8*)&buffer, &filesize) == 0)
-        {
-            break;
-        }
-
-        *pgrabnum = *pgrabnum + 1;
-    }
-
-    sprintf(buffer, "grab.%d.temp.uix", *pgrabnum);
-    indycommHostSendDump((u8*)&buffer, (u8*)g_ViBackData->framebuf, (viGetX() * viGetY() * 2));
-
-    sprintf(buffer, "uix2pix grab.%d.temp.uix", *pgrabnum);
-    indycommHostSendCmd((u8*)&buffer);
-
-    sprintf(buffer, "fromalias grab.%d.temp.pix grab.%d.temp.rgb", *pgrabnum, *pgrabnum);
-    indycommHostSendCmd((u8*)&buffer);
-
-    sprintf(buffer, "imgcopy -fjfif grab.%d.temp.rgb grab.%d.jpeg", *pgrabnum, *pgrabnum);
-    indycommHostSendCmd((u8*)&buffer);
-
-    sprintf(buffer, "rm grab.%d.temp.uix grab.%d.temp.pix grab.%d.temp.rgb", *pgrabnum, *pgrabnum, *pgrabnum);
-    indycommHostSendCmd((u8*)&buffer);
-
-    sprintf(buffer, "imgview grab.%d.jpeg", *pgrabnum);
-    indycommHostSendCmd((u8*)&buffer);
-#endif
-}
 
 /**
  * 54D4	700048D4
@@ -1038,44 +985,6 @@ void indyGrabJpg32bit(void)
     #endif
 }
 
-/**
- * 5660	70004A60
- *     image capture routine, rgb 16bit colour
- */
-void indyGrabRgb16bit(void)
-{
-    #if defined(LEFTOVERDEBUG)
-    s32 *pgrabnum = &g_indyRgb16BitGrabnum;
-    char buffer[250];
-    s32 filesize;
-
-    while (1)
-    {
-        sprintf(buffer, "grab.%d.rgb", *pgrabnum);
-        if (indycommHostCheckFileExists((u8*)&buffer, &filesize) == 0)
-        {
-            break;
-        }
-
-        *pgrabnum = *pgrabnum + 1;
-    }
-
-    sprintf(buffer, "grab.%d.temp.uix", *pgrabnum);
-    indycommHostSendDump((u8*)&buffer, (u8*)g_ViBackData->framebuf, (viGetX() * viGetY() * 2));
-
-    sprintf(buffer, "uix2pix grab.%d.temp.uix", *pgrabnum);
-    indycommHostSendCmd((u8*)&buffer);
-
-    sprintf(buffer, "fromalias grab.%d.temp.pix grab.%d.rgb", *pgrabnum, *pgrabnum);
-    indycommHostSendCmd((u8*)&buffer);
-
-    sprintf(buffer, "rm grab.%d.temp.uix grab.%d.temp.pix", *pgrabnum, *pgrabnum);
-    indycommHostSendCmd((u8*)&buffer);
-
-    sprintf(buffer, "imgview grab.%d.rgb", *pgrabnum);
-    indycommHostSendCmd((u8*)&buffer);
-#endif
-}
 
 /**
  * 57B4	70004BB4

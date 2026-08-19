@@ -206,9 +206,7 @@ Gfx *viSetFillColor(Gfx *gdl, s32 r, s32 g, s32 b);
 Gfx *viFillScreen(Gfx *gdl);
 Gfx *viSetupScreensForNumPlayers(Gfx *gdl);
 
-void indyGrabJpg16bit(void);
 void indyGrabJpg32bit(void);
-void indyGrabRgb16bit(void);
 void indyGrabRgb32bit(void);
 
 void viSetVideoMode(s32 m);
