@@ -1,21 +1,6 @@
 #include <os_internal.h>
 #include "controller.h"
 
-u16 __osSumcalc(u8 *ptr, int length)
-{
-    int i;
-    u32 sum;
-    u8 *tmp;
-
-    sum = 0;
-    tmp = ptr;
-    for (i = 0; i < length; i++)
-    {
-        sum += *tmp++;
-        sum &= 0xffff;
-    }
-    return sum;
-}
 s32 __osIdCheckSum(u16 *ptr, u16 *csum, u16 *icsum)
 {
     u16 data;
@@ -195,93 +180,7 @@ s32 __osGetId(OSPfs *pfs)
     return 0;
 }
 
-s32 __osCheckId(OSPfs *pfs)
-{
-    int k;
-    u8 temp[32];
-    s32 ret;
 
-    SET_ACTIVEBANK_TO_ZERO;
-    ret = __osContRamRead(pfs->queue, pfs->channel, 1, (u8*)temp);
-    if (ret != 0)
-    {
-        if (ret != 2)
-            return ret;
-        else
-            ERRCK(__osContRamRead(pfs->queue, pfs->channel, 1, (u8*)temp));
-    }
-
-    for (k = 0; k < ARRLEN(temp); k++)
-    {
-        if (pfs->id[k] != temp[k])
-            return PFS_ERR_NEW_PACK;
-    }
-
-    return 0;
-}
-
-s32 __osPfsRWInode(OSPfs *pfs, __OSInode *inode, u8 flag, u8 bank)
-{
-    u8 sum;
-    int j;
-    s32 ret;
-    int offset;
-    u8 *addr;
-
-    SET_ACTIVEBANK_TO_ZERO;
-
-    if (bank > 0)
-        offset = 1;
-    else
-        offset = pfs->inode_start_page;
-
-    if (flag == PFS_WRITE)
-        inode->inode_page[0].inode_t.page = __osSumcalc((u8*)&inode->inode_page[offset], (-offset) * 2 + 256);
-
-    for (j = 0; j < 8; j++)
-    {
-        addr = ((u8 *)inode->inode_page + j * 32); //TODO: don't like this =/ //maybe &inode->inode_table[j*PFS_ONE_PAGE].ipage or something
-        if (flag == PFS_WRITE)
-        {
-            ret = __osContRamWrite(pfs->queue, pfs->channel, pfs->inode_table + bank * 8 + j, addr, FALSE);
-            ret = __osContRamWrite(pfs->queue, pfs->channel, pfs->minode_table + bank * 8 + j, addr, FALSE);
-        }
-        else
-        {
-            ret = __osContRamRead(pfs->queue, pfs->channel, pfs->inode_table + bank * 8 + j, addr);
-        }
-        if (ret != 0)
-            return ret;
-    }
-    if (flag == PFS_READ)
-    {
-        sum = __osSumcalc((u8*)&inode->inode_page[offset], (-offset) * 2 + 256);
-        if (sum != inode->inode_page[0].inode_t.page)
-        {
-            for (j = 0; j < PFS_ONE_PAGE; j++)
-            {
-                addr = ((u8 *)inode->inode_page + j * 32);
-                ret = __osContRamRead(pfs->queue, pfs->channel, pfs->minode_table + bank * PFS_ONE_PAGE + j, addr);
-            }
-            if (sum != inode->inode_page[0].inode_t.page)
-                return PFS_ERR_INCONSISTENT;
-            for (j = 0; j < PFS_ONE_PAGE; j++)
-            {
-                addr = ((u8 *)inode->inode_page + j * 32);
-                ret = __osContRamWrite(pfs->queue, pfs->channel, pfs->inode_table + bank * PFS_ONE_PAGE + j, addr, FALSE);
-            }
-        }
-        else
-        {
-            for (j = 0; j < PFS_ONE_PAGE; j++)
-            {
-                addr = ((u8 *)inode->inode_page + j * 32);
-                ret = __osContRamWrite(pfs->queue, pfs->channel, pfs->minode_table + bank * PFS_ONE_PAGE + j, addr, FALSE);
-            }
-        }
-    }
-    return 0;
-}
 
 s32 __osPfsSelectBank(OSPfs *pfs)
 {

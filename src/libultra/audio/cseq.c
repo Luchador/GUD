@@ -243,55 +243,11 @@ static u32 __alCSeqGetTrackEvent(ALCSeq *seq, u32 track, ALEvent *event)
     return TRUE;
 }
 
-f32 alCSeqTicksToSec(ALCSeq *seq, s32 ticks, u32 tempo)
-{
-    return ((f32) (((f32)(ticks) * (f32)(tempo)) /
-                     ((f32)(seq->base->division) * 1000000.0)));
-}
-
-u32 alCSeqSecToTicks(ALCSeq *seq, f32 sec, u32 tempo)
-{
-    return (u32)(((sec * 1000000.0) * seq->base->division) / tempo);
-}
 
 
-s32 alCSeqGetTicks(ALCSeq *seq)
-{
-    return seq->lastTicks; 
-}
 
 
-void alCSeqNewMarker(ALCSeq *seq, ALCSeqMarker *m, u32 ticks)
-{
-    ALEvent     evt;
-    ALCSeq      tempSeq;
-    s32         i;
-    
 
-    alCSeqNew(&tempSeq, (u8*)seq->base);
-    
-    do {
-        m->validTracks    = tempSeq.validTracks;
-        m->lastTicks      = tempSeq.lastTicks;
-        m->lastDeltaTicks = tempSeq.lastDeltaTicks;
-        
-        for(i=0;i<16;i++)
-        {
-            m->curLoc[i]        = tempSeq.curLoc[i];
-            m->curBUPtr[i]      = tempSeq.curBUPtr[i];
-            m->curBULen[i]      = tempSeq.curBULen[i];
-            m->lastStatus[i]    = tempSeq.lastStatus[i];
-            m->evtDeltaTicks[i] = tempSeq.evtDeltaTicks[i];
-        }
-        
-        alCSeqNextEvent(&tempSeq, &evt);
-        
-        if (evt.type == AL_SEQ_END_EVT)
-            break;
-        
-    } while (tempSeq.lastTicks < ticks);
-
-}
 
 void alCSeqSetLoc(ALCSeq *seq, ALCSeqMarker *m)
 {
@@ -311,23 +267,6 @@ void alCSeqSetLoc(ALCSeq *seq, ALCSeqMarker *m)
     }
 }
 
-void alCSeqGetLoc(ALCSeq *seq, ALCSeqMarker *m)
-{
-    s32     i;
-    
-    m->validTracks    = seq->validTracks;
-    m->lastTicks      = seq->lastTicks;
-    m->lastDeltaTicks = seq->lastDeltaTicks;
-
-    for(i=0;i<16;i++)
-    {
-        m->curLoc[i]        = seq->curLoc[i];
-        m->curBUPtr[i]      = seq->curBUPtr[i];
-        m->curBULen[i]      = seq->curBULen[i];
-        m->lastStatus[i]    = seq->lastStatus[i];
-        m->evtDeltaTicks[i] = seq->evtDeltaTicks[i];
-    }
-}
 
 /* non-aligned byte reading routines */
 static u8 __getTrackByte(ALCSeq *seq,u32 track)

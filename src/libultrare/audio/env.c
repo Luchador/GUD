@@ -423,32 +423,7 @@ static Acmd* _pullSubFrame(void *filter, s16 *inp, s16 *outp, s32 outCount, s32 
     return ptr;
 }
 
-f64 _frexpf(f64 value, s32 *eptr)
-{
-    f64 absvalue;
 
-    *eptr = 0;
-    if (value == 0.0) /* nothing to do for zero */
-        return (value);
-    absvalue = (value > 0.0) ? value : -value;
-    for ( ; absvalue >= 1.0; absvalue *= 0.5)
-        ++*eptr;
-    for ( ; absvalue < 0.5; absvalue += absvalue)
-        --*eptr;
-    return (value > 0.0 ? absvalue : -absvalue);
-}
-
-f64 _ldexpf(f64 in, s32 ex)
-{
-    s32 exp;
-    
-    if ( ex ) {
-	exp = 1 << ex;
-	in *= (f64)exp;
-    }
-
-    return ( in );
-}
 
 
 /*
