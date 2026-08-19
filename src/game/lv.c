@@ -242,10 +242,12 @@ s32 sub_GAME_7F0BD8F0(void)
     return D_800483C0;
 }
 
+
 void sub_GAME_7F0BD8FC(s32 arg0)
 {
     D_800483C0 = arg0;
 }
+
 
 void lvInit(void)
 {
@@ -258,20 +260,13 @@ void lvInit(void)
     romCopy(ptr_font_DL, &_fontdlSegmentRomStart, size);
 }
 
-/**
- * Unreferenced.
- */
-void lvlPlayRandomMusicTrack1(void)
-{
-    musictrack1_playing = randomGetNext() % 0x3dU + M_INTRO;
-    musicTrack1Play(musictrack1_playing);
-}
 
 void lvlPlayMusicTrack1(MUSIC_TRACKS track)
 {
     musictrack1_playing = track;
     musicTrack1Play(musictrack1_playing);
 }
+
 
 void lvlMusicAppendPlaySoloDeathShort(void)
 {
@@ -285,6 +280,7 @@ void lvlMusicAppendPlaySoloDeathShort(void)
     musicTrack1Play(musictrack1_playing);
 }
 
+
 void lvlMusicAppendPlayEndTheme(void)
 {
     musictrack1_playing = (musictrack1_playing + M_END_SOMETHING) % NUM_MUSIC_TRACKS;
@@ -297,23 +293,12 @@ void lvlMusicAppendPlayEndTheme(void)
     musicTrack1Play(musictrack1_playing);
 }
 
-/**
- * Unreferenced.
- */
-void lvlMusicPlayStageTrackOrRandom(void)
-{
-    lvlPlayMusicTrack1(getmusictrack_or_randomtrack(g_CurrentStageToLoad));
-}
 
 /**
  * Stage load method.
  * Title screen is handled as a special case.
  * First half of method resets stage and player values (including mutliplayer values) to defaults.
  * Second part loads stage data (init guards, init guard heads, etc).
- *
- * NTSC Address: 0x7F0BDAB0.
- * NTSC-J Address: 7F0BE660.
- * PAL Address: 7F0BCE60.
  **/
 void lvlStageLoad(s32 stage)
 {
@@ -1513,6 +1498,7 @@ void lvlSetSelectedDifficulty(DIFFICULTY arg0)
     g_SelectedDifficulty = arg0;
 }
 
+
 void lvlSetMpTime(s32 arg0)
 {
     g_MpTime = arg0;
@@ -1535,23 +1521,3 @@ f32 lvlGetCurrentMultiPlayerMin(void)
 {
     return g_CurrentMultiPlayerMin;
 }
-
-
-/**
- * Unreferenced.
- */
-f32 lvlGetStageTimeSec(void)
-{
-    return g_StageTimeSec;
-}
-
-
-/**
- * Unreferenced.
- */
-f32 lvlGetPowerOnTimeSec(void)
-{
-    return g_PowerOnTimeSec;
-}
-
-

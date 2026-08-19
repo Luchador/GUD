@@ -137,19 +137,24 @@
  */
 #define MIPS_JR_RA MIPS_INSTR_JR(MIPS_REG_SOURCE_BITS_RA)
 
-// bss - TLB section
-
 OSThread g_tlbThread;
-u8 g_CrashMessage[0x500]; // unused/unreferenced (waste of space)
-char g_tlbStack[0x2300];
+
+/**
+ * Stack for the fault/TLB-pager thread (g_tlbThread / crashMain).
+ *
+ * Sized from measurement of worst-case call depth from
+ * crashMain() is 0x158 bytes (crashMain -> tlbmanage
+ * TranslateLoadRomFromTlbAddress -> romCopy -> doRomCopy -> osPiStartDma ->
+ * osSendMesg -> osStartThread; no indirect calls anywhere in the reachable
+ * subgraph). The crash-screen renderer (crashRender/crashRenderFrame) runs
+ * on the scheduler thread, not on this stack. Retail shipped with an
+ * effective allowance of 0x4F0, so 0x800 is ~6x the measured bound 
+ * and 1.6x the retail-proven allowance. Resized down from original 0x2300.
+ */
+char g_tlbThreadStack[0x800];
 OSMesgQueue g_faultMesgQ;
 OSMesg *g_faultMesgBuf;
 
-/**
- * EU .data, offset from start of data_seg : 0x2540
-*/
-
-// Padding
 u32 g_CrashEnabled = FALSE;
 
 //The following regDesc's are similar to PR/Tools/Gload/Server.c 
@@ -306,33 +311,23 @@ u32 g_DebugOutputBitmaps[] = {
 u16 *g_DebugOutputVideoBuffer1 = NULL;
 u16 *g_DebugOutputVideoBuffer2 = NULL;
 
-// Padding
-u32 D_80024184[4] = {0};
-
 // forward declarations
 
 void crashMain(void* arg0);
-
 void crashPrintDescription(u32 mask, char *label, struct regDesc_t *description);
+
 // end forward declarations
 
-/**
- * 5AE0    70004EE0
- */
 void crashInit(void)
 {
     crashInitBuffers();
     osCreateMesgQueue(&g_faultMesgQ, (OSMesg *)&g_faultMesgBuf, TLB_MESSAGE_QUEUE_SIZE);
-    osCreateThread(&g_tlbThread, TLB_THREAD_ID, &crashMain, NULL, &g_tlbStack, TLB_THREAD_PRIORITY);
+    osCreateThread(&g_tlbThread, TLB_THREAD_ID, &crashMain, NULL, &g_tlbThreadStack[sizeof(g_tlbThreadStack)], TLB_THREAD_PRIORITY);
     osStartThread(&g_tlbThread);
 }
 
-/**
- * 5B54    70004F54
- * 
- * @param arg0 Unused.
- */
 extern OSThread *__osRunQueue;
+
 void crashMain(void* arg0)
 {
     OSMesg msg = 0;
