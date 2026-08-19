@@ -74,7 +74,7 @@ extern s32 camera_80036438;
 extern s32 credits_state;
 extern CreditsEntry *credits_pointer;
 extern s32 g_SurroundBondWithExplosionsFlag;
-extern s32 g_PlayerIsInTank;
+extern bool g_PlayerIsInTank;
 extern struct PropRecord *g_WorldTankProp;
 extern struct PropRecord *g_PlayerTankProp;
 extern f32 g_PlayerTankYOffset;

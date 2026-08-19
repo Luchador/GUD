@@ -133,7 +133,7 @@ void bondviewLoadSetupIntroSection(void)
     g_ForceBondMoveOffset.f[2] = FLOAT_INIT;
     g_SurroundBondWithExplosionsFlag = 0;
     startpadcount = 0;
-    g_PlayerIsInTank = 0;
+    g_PlayerIsInTank = FALSE;
     g_WorldTankProp = 0;
     g_PlayerTankProp = NULL;
     g_PlayerTankYOffset = FLOAT_INIT;

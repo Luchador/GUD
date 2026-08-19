@@ -202,8 +202,7 @@ CreditsEntry *credits_pointer = NULL;
 //D:80036444
 s32 g_SurroundBondWithExplosionsFlag = 0;
 
-//D:80036448
-s32 g_PlayerIsInTank = 0;
+bool g_PlayerIsInTank = FALSE;
 
 //D:8003644C
 struct PropRecord *g_WorldTankProp = NULL;
