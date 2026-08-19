@@ -1,14 +1,15 @@
 #include <ultra64.h>
+#include <bondtypes.h>
+#include <bondconstants.h>
+#include "bondinv.h"
 #include "bondview.h"
 #include "chr.h"
+#include "gun.h"
+#include "language.h"
+#include "lv.h"
 #include "player.h"
 #include "textrelated.h"
-#include <bondconstants.h>
-#include "language.h"
-#include "bondinv.h"
-#include "gun.h"
-#include "lv.h"
-#include <bondtypes.h>
+
 
 void bondinvReinitInv(void)
 {
@@ -23,6 +24,7 @@ void bondinvReinitInv(void)
     g_CurrentPlayer->textoverrides                = NULL;
     g_CurrentPlayer->equipcuritem                 = ITEM_UNARMED;
 }
+
 
 /**
  * Sorts subject into its correct position in the inventory list.
@@ -77,8 +79,7 @@ void bondinvSortInv(InvItem *subject)
 
         // If the candidate should sort ahead of subject
         // then subject is in the desired position.
-        if (candweapon1 >= subjweapon1 &&
-            (subjweapon1 != candweapon1 || subjweapon2 <= candweapon2))
+        if (candweapon1 >= subjweapon1 && (subjweapon1 != candweapon1 || subjweapon2 <= candweapon2))
         {
             return;
         }
@@ -110,6 +111,7 @@ void bondinvSortInv(InvItem *subject)
     }
 }
 
+
 void bondinvInsertItem(InvItem *item)
 {
     if (g_CurrentPlayer->ptr_inventory_first_in_cycle)
@@ -128,6 +130,7 @@ void bondinvInsertItem(InvItem *item)
 
     g_CurrentPlayer->ptr_inventory_first_in_cycle = item;
     bondinvSortInv(item);
+
     return;
 }
 

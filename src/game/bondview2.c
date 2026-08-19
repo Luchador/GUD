@@ -2438,11 +2438,6 @@ s32 bondviewTryEndHopPlayerCollision(struct coord3d *prior_next_pos, struct coor
 }
 
 
-struct dummy_struct {
-    s32 unk00;
-    s32 unk04;
-};
-
 /**
  * Sets Bond bondprevpos, attempts to move by `offset`.
  *
@@ -2625,7 +2620,7 @@ void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot)
                     {
                         // note: no `>> 4`
                         // maybe: stan = &(standTileStart)[stan->points[i+1].link];
-                        stan = (struct StandTile*)&((struct dummy_struct*)standTileStart)[( ((struct StandTilePoint*)stan)[i+1].link)];
+                        stan = &standTileStart[((struct StandTilePoint*)stan)[i+1].link];
                         break;
                     }
 
