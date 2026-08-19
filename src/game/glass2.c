@@ -455,29 +455,6 @@ Gfx *sub_GAME_7F0A3B40(Gfx *gdl, s32 *arg1)
 }
 
 
-// unreferenced
-void unused_7F0A3B70(s32 arg0, struct rgba_u8 *arg1)
-{
-    arg1->r = g_BulletSparkColors[arg0].r;
-    arg1->g = g_BulletSparkColors[arg0].g;
-    arg1->b = g_BulletSparkColors[arg0].b;
-    arg1->a = g_BulletSparkColors[arg0].a;
-}
-
-
-// unreferenced
-void unused_7F0A3BA4(s32 arg0, struct rgba_u8 *arg1)
-{
-    g_BulletSparkColors[arg0].r = arg1->r;
-    g_BulletSparkColors[arg0].g = arg1->g;
-    g_BulletSparkColors[arg0].b = arg1->b;
-    g_BulletSparkColors[arg0].a = arg1->a;
-}
-
-
-/**
- * Address: 7F0A3BD8
- */
 void bullet_sparks_reset(void)
 {
     s32 i;

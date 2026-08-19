@@ -1787,19 +1787,6 @@ earlyreturn:
 }
 
 
-void sub_GAME_7F0634D8(s32 arg0, s32 arg1, s32 arg2, s32 arg3)
-{
-    set_enviro_fog_for_items_in_solo_watch_menu(arg0, arg1, arg2, arg3, -256);
-}
-
-
-// Unreferenced
-void sub_GAME_7F0634FC(s32 arg0, s32 arg1, s32 arg2)
-{
-    sub_GAME_7F0634D8(arg0, arg1, arg2, 0xFF);
-}
-
-
 void sub_GAME_7F06351C(struct coord3d* arg0, Mtxf* arg1, Mtxf* arg2, Mtxf* arg3, struct coord3d* arg4, Mtxf* arg5, Mtxf* arg6)
 {
     Mtxf sp20;

@@ -563,48 +563,12 @@ u32 get_cartridges_eject(void)
 }
 
 
-// Unreferenced debPrintKeyframe
-// Address: ~ 7F05C538
-void nullsub_73(void)
-{
-#ifdef DEBUG
-    osSyncPrintf("\t{");
-    osSyncPrintf("0");
-    osSyncPrintf(",{%ff,%ff,%ff}", DEB_KEYFRAMES[g_gunDebKeyframeIndex].pos.x, DEB_KEYFRAMES[g_gunDebKeyframeIndex].pos.y, DEB_KEYFRAMES[g_gunDebKeyframeIndex].pos.z);
-    osSyncPrintf(",{%ff,%ff,%ff}", DEB_KEYFRAMES[g_gunDebKeyframeIndex].rot.x, DEB_KEYFRAMES[g_gunDebKeyframeIndex].rot.y, DEB_KEYFRAMES[g_gunDebKeyframeIndex].rot.z);
-    osSyncPrintf(",0.5f,20.0f");
-    osSyncPrintf("},\n");
-#endif
-    return;
-}
-
-
-// Unreferenced - force keyframe to position
-// Address: 7F05C540
-void sub_GAME_7F05C540(coord3d* pos)
-{
-    Weapon1PTransformKeyframe* temp_v0;
-
-    temp_v0 = &DEB_KEYFRAMES[g_gunDebKeyframeIndex];
-    temp_v0->pos.x += pos->x;
-    temp_v0->pos.y += pos->y;
-    temp_v0->pos.z += pos->z;
-}
-
-
-// Unreferenced
-void sub_GAME_7F05C594(Mtxf* mtxf)
-{
-    Mtxf sp18;
-    matrix_4x4_set_rotation_around_xyz(&DEB_KEYFRAMES[g_gunDebKeyframeIndex].rot, &sp18);
-    matrix_4x4_multiply_in_place(mtxf, &sp18);
-    matrix_4x4_get_rotation_around_xyz(&sp18, &DEB_KEYFRAMES[g_gunDebKeyframeIndex].rot);
-}
-
-
 void sub_GAME_7F05C614(void)
 {
-    if (!cartridges_eject) { return; }
+    if (!cartridges_eject) 
+    { 
+        return; 
+    }
 
     g_CurrentPlayer->hands[0].field_92C = 1;
     matrix_4x4_set_rotation_around_xyz(&DEB_KEYFRAMES[g_gunDebKeyframeIndex].rot, (Mtxf *)&g_CurrentPlayer->hands[0].field_8EC);
@@ -613,21 +577,7 @@ void sub_GAME_7F05C614(void)
 }
 
 
-// Unreferenced increment keyframe index, loop back to start if final keyframe is reached
-// Address: 7F05C6B8
-void gunDebAdvanceKeyframe(void)
-{
-    g_gunDebKeyframeIndex++;
-    if (DEB_KEYFRAMES[g_gunDebKeyframeIndex].isFinalKey & 1)
-    {
-        g_gunDebKeyframeIndex = 0;
-    }
-}
-
-
 /**
- * Address: 7F05C6FC
- *
  * Sample a first person weapon transform keyframe animation at `time` and
  * write the interpolated transform into `matrix`
  *

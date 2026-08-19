@@ -209,16 +209,12 @@ s_impacttype g_ImpactTypes[] = {
     {12.0f, 12.0f, 1, 2, 1},
 };
 
-// unused / unreferenced (padding)
-u32 D_800408FC = 0;
 
 Vtx g_ExplosionRenderPartDefaultVertex = {0, 0, 0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff };
 Vtx g_SmokeRenderPartDefaultVertex = {0, 0, 0, 0, 0, 0, 0x0, 0x0, 0x0, 0x0 };
 Vtx g_ScorchDefaultVertex = {0, 0, 0, 0, 0, 0, 0x0, 0x0, 0x0, 0xDC };
 Vtx g_BulletImpactDefaultVertex = {0, 0, 0, 0, 0, 0, 0x0, 0x0, 0x0, 0xDC };
 
-
-// rodata
 
 /*** prototypes */
 
@@ -234,7 +230,6 @@ Gfx *explosionRenderPart(struct ExplosionPart *arg0, Gfx *gdl, struct coord3d *c
 
 /**
  * Named same as Perfect Dark.
- * NTSC 0x7F09C250
 */
 #if defined(VERSION_JP) || defined(VERSION_EU)
 s32

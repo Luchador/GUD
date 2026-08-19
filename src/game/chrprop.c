@@ -48,8 +48,6 @@ s16 * ptr_list_object_lookup_indices;
 u32 num_obj_position_data_entries;
 
 /**
- * Address 0x80069C38.
- * 
  * This 600 length prop pool provides storage for every PropRecord in the game.
  * Props are never allocated anywhere else. init_load_objpos_table threads
  * all 600 slots onto the free list, and chrpropAllocate/chrpropFree pop and push to that list.
@@ -57,122 +55,46 @@ u32 num_obj_position_data_entries;
  * This is g_Vars.props in PD.
 */
 PropRecord g_Props[MAX_PROPS];
-
-//CODE.bss:80071618
 s16 *RoomPropListBlockIndices;
-
-//CODE.bss:8007161C
 struct roomproplistblock *RoomPropListBlocks;
 
 /**
  * Array of pointers, containing onscreen props.
- *
- * Address 0x80071620.
 */
 PropRecord *g_OnScreenPropList[ONSCREEN_PROP_LIST_LEN];
 
 /**
  * Pointer to last onscreen prop.
- * Address 0x80071DF0.
 */
 PropRecord **g_LastOnScreenProp;
 
 /**
  * Count of onscreen props.
- * Address 0x80071DF4.
  * canonically propznum
 */
 s32 g_OnScreenPropCount;
-
-//CODE.bss:80071DF8
 PropRecord *g_InteractProp;
-//CODE.bss:80071DFC
 u32 dword_CODE_bss_80071DFC;
-//CODE.bss:80071E00
 WeaponObjRecord* proxy_mine_table[30];
-
-//CODE.bss:80071E78
 f32 gasTimeToFullOpacity;
-//CODE.bss:80071E7C
 u32 gasDoesDamageFlag;
-
-/**
- * Address 0x80071E80.
-*/
 WeaponObjRecord g_WeaponSlots[MAX_WEAPON_SLOTS];
-
-/**
- * Address 0x80072E70.
-*/
 HatRecord g_HatSlots[MAX_HAT_SLOTS];
-
-/**
- * Address 0x80073370.
-*/
 AmmoCrateRecord g_AmmoCrates[MAX_AMMO_CRATES];
-
-/**
- * Address 0x80073DC0.
-*/
 Projectile g_Projectiles[PROJECTILES_ARR_MAX];
-
-/**
- * Address 0x80075030.
-*/
 Embedment g_Embedments[EMBEDMENT_ARR_MAX];
-
-//CODE.bss:80075B70
 struct Model *g_CurrentProjectileModel;
-//CODE.bss:80075B74
 struct ModelNode * dword_CODE_bss_80075B74;
-//CODE.bss:80075B78
 coord3d flt_CODE_bss_80075B78;
-//CODE.bss:80075B84
 f32 flt_CODE_bss_80075B84;
-//CODE.bss:80075B88
 coord3d flt_CODE_bss_80075B88;
-//CODE.bss:80075B94
 f32 flt_CODE_bss_80075B94;
-
-/**
- * Address 0x80075B98.
-*/
 MonitorRecord g_MonitorAnimController;
-
-/**
- * Unused / unreferenced (from padding / align?)
- * Address 0x80075C0C.
-*/
-s32 bss_80075C0C;
-
-/**
- * Address 0x80075C10.
-*/
 struct object_animation_controller g_UnknownAnimController;
-
-/**
- * Unused / unreferenced (from padding / align?)
- * Address 0x80075C84.
-*/
-s32 bss_80075C84;
-
-/**
- * Unused / unreferenced (from padding / align?)
- * Address 0x80075C88.
-*/
 struct object_animation_controller g_TaserAnimController;
 
-/**
- * Address 0x80075CFC.
-*/
-s32 bss_80075CFC;
-
-
-
-//CODE.bss:80075D00 - 80075D24
 stagesetup g_CurrentSetup; //Public Working Setup
 
-//CODE.bss:80075D28
 stagesetup                        *g_ptrStageSetupFile;
 
 PropRecord *g_ActivePropsTail = 0;
@@ -195,8 +117,6 @@ void modelGetAxisExtents(Model* model, f32* max, f32* min, s32 axis);
 
 /**
  * Counts onscreen props.
- *
- * Address 0x7F03A240.
 */
 void chraiUpdateOnscreenPropCount(void)
 {
@@ -601,40 +521,6 @@ s32 chrpropRayIntersectsRoomBbox(s32 room, coord3d* start, coord3d* dir)
 
 
 /**
- * Address: 7F03AA44
- *
- * Unreferenced
- *
- * This takes a list of rooms and flags the ones that do *not* intersect a ray.
- */
-void chrpropFlagRoomsFromRayTest(s32 arg0, coord3d *from, coord3d *to, u8 *rooms)
-{
-    coord3d start;
-    coord3d dir;
-    f32 scale;
-    s32 i;
-
-    scale = get_room_data_float1() * bgGetLevelVisibilityScale();
-
-    dir.x = to->x - from->x;
-    dir.y = to->y - from->y;
-    dir.z = to->z - from->z;
-
-    start.x = from->x * scale;
-    start.y = from->y * scale;
-    start.z = from->z * scale;
-
-    for (i = 1; i < getMaxNumRooms(); i++) {
-        if (!rooms[i] && chrpropRayIntersectsRoomBbox(i, &start, &dir) == 0) {
-            rooms[i] = 1;
-        }
-    }
-}
-
-
-/**
- * Address: 7F03AB58
- *
  * Refines an existing background bullet hit by checking currently visible rooms
  * that have not already been tested.
  *
@@ -3428,43 +3314,6 @@ f32 chrpropSumMatrixNegZ(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *arg1)
 }
 
 
-
-
-/**
- * Unreferenced.
- * 0x7F03EC3C.
-*/
-void sub_GAME_7F03EC3C(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *arg1, struct coord3d *arg2)
-{
-    if (arg1->m[0][2] <= 0.0f)
-    {
-        arg2->f[0] = bbox->Bounds.xmin;
-    }
-    else
-    {
-        arg2->f[0] = bbox->Bounds.xmax;
-    }
-
-    if (arg1->m[1][2] <= 0.0f)
-    {
-        arg2->f[1] = bbox->Bounds.ymin;
-    }
-    else
-    {
-        arg2->f[1] = bbox->Bounds.ymax;
-    }
-
-    if (arg1->m[2][2] <= 0.0f)
-    {
-        arg2->f[2] = bbox->Bounds.zmin;
-    }
-    else
-    {
-        arg2->f[2] = bbox->Bounds.zmax;
-    }
-}
-
-
 void sub_GAME_7F03ECC0(f32 x1, f32 x2, f32 y1, f32 y2, f32 z1, f32 z2, Mtxf *m, struct rect4f *poly, struct collision_data *collision)
 {
     f64 pts[8][2];
@@ -3489,6 +3338,7 @@ void sub_GAME_7F03ECC0(f32 x1, f32 x2, f32 y1, f32 y2, f32 z1, f32 z2, Mtxf *m, 
     f64 m12 = m->m[1][2];
     f64 m20 = m->m[2][0];
     f64 m22 = m->m[2][2];
+
     minzi = 0;
     pts[0][0] = ((m00 * x1d) + (m10 * y1d)) + (m20 * z1d);
     pts[0][1] = ((m02 * x1d) + (m12 * y1d)) + (m22 * z1d);
