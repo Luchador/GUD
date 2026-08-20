@@ -62,7 +62,7 @@ u32 game_options_index = 0;
 //D:800409A0
 s32 mission_brief_index = BRIEF_INDEX_OBJECTIVES;
 //D:800409A4
-s32 D_800409A4 = 0;
+bool g_WatchAbortIsConfirmSelected = FALSE;
 //D:800409A8
 s32 watch_item_is_actively_selected = 0;
 //D:800409AC
@@ -293,7 +293,7 @@ void optionsWatchInit()
     controller_options_index = CONTROLLER_OPTIONS_INDEX_STYLE;
     game_options_index = GAME_OPTIONS_INDEX_MUSIC;
     mission_brief_index = BRIEF_INDEX_OBJECTIVES;
-    D_800409A4 = 0;
+    g_WatchAbortIsConfirmSelected = FALSE;
     watch_item_is_actively_selected = 0;
     D_800409AC = 0;
     watch_inventory_text_y = 0;
@@ -646,9 +646,9 @@ void watch_screen0_navigation(void)
             return;
         }
     }
-    else if ((D_800409A4) && (joyGetButtonsPressedThisFrame(PLAYER_1, Z_TRIG|A_BUTTON)))
+    else if ((g_WatchAbortIsConfirmSelected) && (joyGetButtonsPressedThisFrame(PLAYER_1, Z_TRIG|A_BUTTON)))
     {
-        D_800409A4 = 0;
+        g_WatchAbortIsConfirmSelected = FALSE;
         set_missionstate(MISSION_STATE_0);
         bossRunTitleStage();
         g_MissionFailedOrAborted = TRUE;
@@ -693,7 +693,7 @@ void watch_screen1_navigation(void)
         if (goto_watch_screen_index_0)
         {
             watch_screen_index = WATCH_INDEX_MISSION_STATUS;
-            zero_D_800409A4();
+            optionsSetAbortIsConfirmSelectedFalse();
             sub_GAME_7F0A5210();
             trigger_watch_zoom(WATCHZOOM2, 15.0f);
 
@@ -779,7 +779,7 @@ void watch_screen4_navigation(void) {
         if (watch_item_is_actively_selected == 0)
         {
             watch_screen_index = WATCH_INDEX_MISSION_STATUS;
-            zero_D_800409A4();
+            optionsSetAbortIsConfirmSelectedFalse();
             sub_GAME_7F0A5210();
             trigger_watch_zoom(WATCHZOOM2, 15.0f);
         }
@@ -1735,20 +1735,20 @@ Gfx *draw_abort_cancel_confirm(Gfx *gdl)
 
     if (watch_item_is_actively_selected != 0)
     {
-        if (D_800409A4 == 0)
+        if (g_WatchAbortIsConfirmSelected == FALSE)
         {
             if ((joyGetStickX(PLAYER_1) >= 0x2E) || (joyGetButtons(PLAYER_1, 0x111) != 0))
             {
-                D_800409A4 = 1;
+                g_WatchAbortIsConfirmSelected = TRUE;
             }
         }
         else
         {
-            if (D_800409A4 != 0)
+            if (g_WatchAbortIsConfirmSelected != FALSE)
             {
                 if ((joyGetStickX(PLAYER_1) < -0x2D) || (joyGetButtons(PLAYER_1, 0x222) != 0))
                 {
-                    D_800409A4 = 0;
+                    g_WatchAbortIsConfirmSelected = FALSE;
                 }
             }
         }
@@ -1760,14 +1760,14 @@ Gfx *draw_abort_cancel_confirm(Gfx *gdl)
 
         gdl = textRender(gdl, &sp7C, &sp70, sp54, pFontChars, pFontFile, 0xA0FFA0F0, sp64, sp60, 0, 0);
 
-        if (D_800409A4 != 0)
+        if (g_WatchAbortIsConfirmSelected != FALSE)
         {
             gdl = textRenderOutlined(gdl, &sp78, &sp6C, sp50, pFontChars, pFontFile, -1, 0x7000A0, viGetX(), viGetY(), 0, 0);
             gdl = textRender(gdl, &sp74, &sp68, sp4C, pFontChars, pFontFile, 0xFF00B0, viGetX(), viGetY(), 0, 0);
         }
         else
         {
-            if (D_800409A4 == 0)
+            if (g_WatchAbortIsConfirmSelected == FALSE)
             {
                 gdl = textRender(gdl, &sp78, &sp6C, sp50, pFontChars, pFontFile, 0xFF00B0, viGetX(), viGetY(), 0, 0);
                 gdl = textRenderOutlined(gdl, &sp74, &sp68, sp4C, pFontChars, pFontFile, -1, 0x7000A0, viGetX(), viGetY(), 0, 0);
@@ -3227,13 +3227,15 @@ void reset_controller_options_index(void) {
 }
 
 
-void reset_game_options_index(void) {
+void reset_game_options_index(void)
+{
     game_options_index = 0;
 }
 
 
-void zero_D_800409A4(void) {
-    D_800409A4 = 0;
+void optionsSetAbortIsConfirmSelectedFalse(void)
+{
+    g_WatchAbortIsConfirmSelected = FALSE;
 }
 
 
