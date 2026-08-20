@@ -18,6 +18,7 @@
     #define CART_64DRIVE   1
     #define CART_EVERDRIVE 2
     #define CART_SC64      3
+    #define CART_ISVIEWER  4  // emulator debug channel (ares etc.), text-only
     
     // Data types defintions
     #define DATATYPE_TEXT       0x01

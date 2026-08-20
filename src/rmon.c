@@ -55,6 +55,11 @@ void rmonInit(void) {
 
     osCreateMesgQueue(&rmonMessageQueue, &rmonMesg, RMON_MESSAGE_QUEUE_SIZE);
     osCreateMesgQueue(&rmonSleepMq, &rmonSleepMesg, 1);
+
+    {
+        static char banner[] = "GUD: USB debug link active (cart type %d)\n";
+        osSyncPrintf(banner, usb_getcart());
+    }
 }
 #endif
 /************************************************************************

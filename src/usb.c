@@ -227,6 +227,16 @@ static void usb_sc64_write(int datatype, const void* data, int size);
 static u32  usb_sc64_poll(void);
 static void usb_sc64_read(void);
 
+// ISViewer (emulator debug channel: ares, Project64, etc. Text only, no host input.)
+#define ISV_BASE_REG   0x13FF0000
+#define ISV_LEN_REG    0x13FF0014
+#define ISV_DATA_REG   0x13FF0020
+#define ISV_MAGIC      0x49533634  /* 'IS64' */
+#define ISV_MAX_CHUNK  512
+static void usb_isviewer_write(int datatype, const void* data, int size);
+static u32  usb_isviewer_poll(void);
+static void usb_isviewer_read(void);
+
 
 /*********************************
              Globals
@@ -441,6 +451,13 @@ char usb_initialize(void)
     
     // Find the flashcart
     usb_findcart();
+
+    if (usb_cart == CART_ISVIEWER)
+    {
+        funcPointer_write = usb_isviewer_write;
+        funcPointer_poll  = usb_isviewer_poll;
+        funcPointer_read  = usb_isviewer_read;
+    }
     
     // Set the function pointers based on the flashcart
     switch (usb_cart)
@@ -541,6 +558,17 @@ static void usb_findcart(void)
         usb_cart = CART_SC64;
         return;
     }
+
+    // No physical debug cart found. As a last resort, probe for an emulator's
+    // ISViewer debug channel (ares, Project64, ...): its buffer is RAM-backed,
+    // so a magic value written there reads back; on real carts this address is
+    // ROM/open-bus and the readback fails.
+    usb_io_write(ISV_BASE_REG, ISV_MAGIC);
+    if (usb_io_read(ISV_BASE_REG) == ISV_MAGIC)
+    {
+        usb_cart = CART_ISVIEWER;
+        return;
+    }
 }
 
 
@@ -549,6 +577,43 @@ static void usb_findcart(void)
     Returns which flashcart is currently connected
     @return The CART macro that corresponds to the identified flashcart
 ==============================*/
+
+/*==============================
+    usb_isviewer_write
+    Text-only output to the emulator's ISViewer buffer.
+    Non-text datatypes are dropped (no host on the other end).
+==============================*/
+static void usb_isviewer_write(int datatype, const void* data, int size)
+{
+    const u8* src = (const u8*)data;
+    if (datatype != DATATYPE_TEXT)
+        return;
+    while (size > 0)
+    {
+        int chunk = (size > ISV_MAX_CHUNK) ? ISV_MAX_CHUNK : size;
+        int i;
+        for (i = 0; i < chunk; i += 4)
+        {
+            u32 word = 0;
+            int j;
+            for (j = 0; j < 4; j++)
+                word = (word << 8) | ((i + j < chunk) ? src[i + j] : 0);
+            usb_io_write(ISV_DATA_REG + i, word);
+        }
+        usb_io_write(ISV_LEN_REG, (u32)chunk);
+        src  += chunk;
+        size -= chunk;
+    }
+}
+
+static u32 usb_isviewer_poll(void)
+{
+    return 0;
+}
+
+static void usb_isviewer_read(void)
+{
+}
 
 char usb_getcart(void)
 {

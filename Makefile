@@ -234,7 +234,7 @@ OBJCOPY := $(TOOLCHAIN)objcopy
 .NOTPARALLEL: print_info create_directories $(APPROM)
 
 # Phony Recipes - These targets are not files, Get Make to do something
-.PHONY: print_info create_directories build_tools prerequisites all_p1 all default commonclean setupclean stanclean dataclean libultraclean codeclean clean nuke help cmdbuidler context extractassets forceextractassets textures convert_props convert_chrs convert_guns extract_u extract_e extract_j force_extract_u force_extract_e force_extract_j extract_rsp
+.PHONY: print_info create_directories build_tools prerequisites all_p1 all default commonclean setupclean stanclean dataclean libultraclean codeclean clean nuke help cmdbuidler context extractassets forceextractassets textures convert_props convert_chrs convert_guns extract_u extract_e extract_j force_extract_u force_extract_e force_extract_j extract_rsp extract_usb extract_d
 
 
 # this file references variables defined above: BUILD_DIR, CFLAGWARNING, INCLUDE, LCDEFS
@@ -426,6 +426,25 @@ endif
 extractassets: extract_u extract_e extract_j convert_props convert_chrs convert_guns
 
 forceextractassets: force_extract_u force_extract_e force_extract_j convert_props convert_chrs convert_guns
+
+# The DEBUG/USB builds share the US baserom's extracted assets (they are US
+# content). Seed their build dirs from a completed US asset stage.
+extract_usb:
+	@if [ ! -f build/u/ge007.u.z64 ]; then $(MAKE) VERSION=US; fi
+	@mkdir -p build/usb/assets
+	@cp -rn build/u/assets/. build/usb/assets/ 2>/dev/null || true
+
+extract_d:
+	@if [ ! -f build/u/ge007.u.z64 ]; then $(MAKE) VERSION=US; fi
+	@mkdir -p build/d/assets
+	@cp -rn build/u/assets/. build/d/assets/ 2>/dev/null || true
+
+ifeq ($(VERSION), USB)
+extractassets: extract_usb
+endif
+ifeq ($(VERSION), DEBUG)
+extractassets: extract_d
+endif
 
 extract_u:
 	@if [ ! -f assets/obseg/ob__ob_end.seg ]; then \
