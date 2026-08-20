@@ -38,11 +38,6 @@ s16 word_CODE_bss_8007A0F0;
 //CODE.bss:8007A0F2
 s16 word_CODE_bss_8007A0F2;
 
-void null_init_main_1(void)
-{
-    return;
-}
-
 
 void sub_GAME_7F09B7A8(void)
 {

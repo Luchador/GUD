@@ -6,7 +6,6 @@
       build/OUTCODE/src/game/initanitable.o (.data);
       build/OUTCODE/src/game/initplayergaitobject.o (.data);
       build/OUTCODE/src/game/setguscale.o (.data);
-      build/OUTCODE/src/game/initnull_000BC0.o (.data);
       build/OUTCODE/src/game/initimages.o (.data);
       build/OUTCODE/src/game/initintromatrices.o (.data);
       build/OUTCODE/src/game/initmenus.o (.data);

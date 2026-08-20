@@ -210,12 +210,9 @@ void bossInitMainthreadData(void)
     mempResetBank(MEMPOOL_PERMANENT);
     langInit();
     lvInit();
-    bossInit();
     default_player_perspective_and_height();
     store_osgetcount();
-    null_init_main_1();
     set_gu_scale();
-    null_init_main_2();
     casingsInit();
     alloc_load_expand_ani_table();
     init_weapon_animation_groups_maybe();
@@ -227,12 +224,6 @@ void bossInitMainthreadData(void)
     clear_ramrom_block_buffer_heading_ptrs();
 }
 
-/**
- * 6BF4    70005FF4
- *     1 ->"show mem use" debug memory display [800241B4]; fry AT,T6
- */
-void bossEnableShowMemUseFlag(void) {
-}
 
 /**
  * 6C04    70006004
@@ -603,13 +594,4 @@ void bossReturnTitleStage(void) {
  */
 s32 bossGetDebugParseFlag(void) {
     return g_BossIsDebugMenuOpen;
-}
-
-
-/**
- * 75C0    700069C0
- *     V0= p->debug.notice.list entry for boss_c_debug using data at 800241A0
- */
-void bossInit(void) {
-
 }
