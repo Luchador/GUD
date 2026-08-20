@@ -7,7 +7,6 @@
 #include "fr.h"
 #include "joy.h"
 #include "music.h"
-#include "speed_graph.h"
 #include "thread_config.h"
 
 /**

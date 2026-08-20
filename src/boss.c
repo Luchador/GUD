@@ -23,7 +23,6 @@
 #include "random.h"
 #include "rmon.h" /*<PR/rmon.h>*/
 #include "sched.h"
-#include "speed_graph.h"
 #include "token.h"
 #include "tlb_manage.h"
 #include "fr.h"
@@ -424,7 +423,6 @@ void bossMainloop(void)
         viInitBuffers();
         debmenuRefresh();
         waitForNextFrame();
-        speedgraphMarkerCommit();
 
         while (g_MainStageNum < 0 || pendingGfx != 0)
         {
@@ -453,7 +451,6 @@ void bossMainloop(void)
                                 waitForNextFrame();
                             }
 
-                            speedgraphMarkerCommit();
                             joyConsumeSamplesWrapper();
                             permit_stderr(0);
 

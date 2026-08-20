@@ -1,5 +1,4 @@
 #include <ultra64.h>
-#include "speed_graph.h"
 #include "frametiming.h"
 #include "speedgraphrenderer.h"
 #include "debugmenu.h"
@@ -73,10 +72,6 @@ s32 g_speedGraphMaxSeenCount = 0;
 
 #endif
 
-// forward declarations
-void speedgraphMarkerCommit(void);
-/////
-
 
 /**
  * @brief Initializes the speed graph display lists and marker indices.
@@ -96,7 +91,6 @@ void speedgraphInit(void)
         gSpeedGraphMarkerHeadIndices[i] = 1;
     }
 
-    speedgraphMarkerCommit();
     #endif
 }
 
@@ -113,23 +107,6 @@ void speedgraphMarkerUpdate(void) {
     for (i = 0; i < 3; i++)
     {        
         gSpeedGraphMarkerNextIndices[i] = ((gSpeedGraphMarkerHeadIndices[i] + 31) % 32);
-    }
-    #endif
-}
-
-
-/**
- * @brief Commits the current speed graph marker states.
- */
-void speedgraphMarkerCommit(void) {
-    #if defined(LEFTOVERDEBUG)
-    s32 i;
-
-    g_speedGraphLastOsCount = g_speedGraphCurrentOsCount;
-
-    for (i = 0; i < 3; i++)
-    {
-        gSpeedGraphMarkerIndices[i] = gSpeedGraphMarkerNextIndices[i];
     }
     #endif
 }
