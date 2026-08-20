@@ -1,7 +1,6 @@
       build/OUTCODE/src/game/initgamedata.o (.data);
       build/OUTCODE/src/game/initweaponanigroups.o (.data);
       build/OUTCODE/src/game/initactorpropstuff.o (.data);
-      build/OUTCODE/src/game/initnull_0009D0.o (.data);
       build/OUTCODE/src/game/initunk_0009E0.o (.data);
       build/OUTCODE/src/game/initanitable.o (.data);
       build/OUTCODE/src/game/initplayergaitobject.o (.data);

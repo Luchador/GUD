@@ -217,7 +217,6 @@ void bossInitMainthreadData(void)
     alloc_load_expand_ani_table();
     init_weapon_animation_groups_maybe();
     reset_counter_rand_body_head();
-    null_init_main_3();
     init_player_gait_object();
     initGameData();
     fileResetRamRomSave();
