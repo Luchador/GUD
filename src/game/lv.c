@@ -741,7 +741,6 @@ void lvlSetMultipliersForDifficulty(void)
  * Advances the clock variables the game runs on: g_ClockTimer, g_GlobalTimerDelta, g_GlobalTimer, and g_GlobalTickCount.
  * Updates characters, sky, bullet casings, bullet sparks, explosion debris.
  * Handles multiplayer states (timers, end of match warning alarm, and concluding the match)
- * Also a fair amount of leftover debug code.
  */
 void lvlTick(void)
 {
@@ -954,12 +953,6 @@ void lvlTick(void)
                 mpwatchSetStopPlayFlag();
             }
         } // end YOLT
-
-        if (0)
-        {
-            char debug_buf[268];
-            sprintf(debug_buf, "setdetail %d %d %d %d %d %d %d %d %d", 0, 0, 0, 0, 0, 0, 0, 0, 0);
-        }
     }
 
     g_StageElapsedTicks = g_StageElapsedTicks + g_ClockTimer;

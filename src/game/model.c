@@ -598,20 +598,10 @@ f32 getsubroty(Model *objinst)
     ModelNode *root;
 
     #if defined(LEFTOVERDEBUG)
-    if(0)
-    {
-        // removed
-    }
-
     if (objinst == NULL)
     {
         osSyncPrintf("getsubroty: no objinst!");
         return_null();
-    }
-
-    if(0)
-    {
-        // removed
     }
 
     if (objinst->obj == NULL)
@@ -620,20 +610,10 @@ f32 getsubroty(Model *objinst)
         return_null();
     }
 
-    if(0)
-    {
-        // removed
-    }
-
     if (objinst->obj->RootNode == NULL)
     {
         osSyncPrintf("getsubroty: objinst has no root part!");
         return_null();
-    }
-
-    if(0)
-    {
-        // removed
     }
     #endif
 

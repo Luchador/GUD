@@ -329,8 +329,6 @@ s32 ramrom_replay_handler(struct contsample *arg0, s32 arg1)
 }
 
 
-
-// Address 0x7F0C0268 NTSC.
 void iterate_ramrom_entries_handle_camera_out(void)
 {
     s32 temp_v1;
@@ -339,6 +337,7 @@ void iterate_ramrom_entries_handle_camera_out(void)
     ramrom_blkbuf_2 = romCopyAligned(ramrom_data_target + 0x1F8, address_demo_loaded, sizeof(struct ramrom_seed));
 
     var_a3 = ramrom_blkbuf_2->count;
+
     if (var_a3 > 0)
     {
         ramrom_blkbuf_3 = romCopyAligned(
@@ -348,6 +347,7 @@ void iterate_ramrom_entries_handle_camera_out(void)
     }
 
     var_a3 = ramrom_blkbuf_2->count;
+
     if (var_a3 == 0 && ramrom_blkbuf_2->speedframes == 0)
     {
         ramromFadeToTitle();
@@ -362,12 +362,13 @@ void iterate_ramrom_entries_handle_camera_out(void)
 
     // BUG? Does this need to be adjusted for PAL?
     temp_v1 = ptr_active_demofile->totaltime_ms - 0x3C;
-    if(0);
+
     if ((g_GlobalTimer >= temp_v1) && ((g_GlobalTimer - g_ClockTimer) < temp_v1))
     {
         ramromFadeToTitle();
     }
 }
+
 
 void copy_current_ingame_registers_before_ramrom_playback(ramromfilestructure *state)
 {

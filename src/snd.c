@@ -828,8 +828,6 @@ ALSoundState *sndPlaySfx(struct ALBankAlt_s *soundBank, s16 soundIndex, ALSoundS
     eventSoundIndex = 0;
     deltaTotal = 0;
 
-    if(0); // debug?
-
     if (g_sndBootswitchSound)
     {
         return NULL;
