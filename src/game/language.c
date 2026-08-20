@@ -4,23 +4,15 @@
 #include "language.h"
 #include "ob.h"
 
-// bss
-//CODE.bss:8008C640
 s32 g_LangBanks[45];
 
-
-//CODE.bss:8008C6F4
 struct jpncharpixels* g_JpnCharCachePixels;
-//CODE.bss:8008C6F8 canonically  jloaddata
 struct  jpncacheitem *g_JpnCacheCacheItems;
 
 
 #ifdef LANG_JP
 s32 j_text_trigger = 1;
 #else
-/**
- * EU .data 80041150
-*/
 s32 j_text_trigger = 0;
 #endif
 
@@ -227,21 +219,27 @@ LEVELID langGetLangBankIndexFromStagenum(LEVELID level)
 }
 
 
-void langInit(void) {
+void langInit(void)
+{
     s32 i;
 
-    if (j_text_trigger) {
+    if (j_text_trigger)
+    {
         g_JpnCharCachePixels = mempAllocBytesInBank(0x2E80, MEMPOOL_PERMANENT);
         g_JpnCacheCacheItems = mempAllocBytesInBank(0x100, MEMPOOL_PERMANENT);
-        for(i = 0;i != 124;i++) {
+
+        for(i = 0;i != 124;i++)
+        {
             g_JpnCacheCacheItems[i].ttl =0;
             g_JpnCacheCacheItems[i].codepoint =-1;
         }
     }
 
-	for (i = 0; i < 45; i++) {
+	for (i = 0; i < 45; i++)
+    {
 		g_LangBanks[i] = 0;
 	}
+
     g_LangBanks[LGUN] = _fileNameLoadToBank(LnameX_lookuptable[LGUN][j_text_trigger], FILELOADMETHOD_DEFAULT, 0x100, MEMPOOL_PERMANENT);
     g_LangBanks[LTITLE] = _fileNameLoadToBank(LnameX_lookuptable[LTITLE][j_text_trigger], FILELOADMETHOD_DEFAULT, 0x100, MEMPOOL_PERMANENT);
     g_LangBanks[LMPMENU] = _fileNameLoadToBank(LnameX_lookuptable[LMPMENU][j_text_trigger], FILELOADMETHOD_DEFAULT, 0x100, MEMPOOL_PERMANENT);

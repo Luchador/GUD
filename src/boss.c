@@ -162,7 +162,6 @@ void bossInitMainthreadData(void)
     image_entries_load();
     mempInit();
     memaInit();
-    bgInit();
     viInit();
     viInitVideoSettings();
     indycommInit();

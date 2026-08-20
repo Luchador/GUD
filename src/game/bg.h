@@ -190,7 +190,6 @@ extern Gfx *ptrDynamic_CC_RM_LUT[];
 extern Gfx DL_LUT_PRIMARY_ADDFOG[];
 
 
-void bgInit(void);
 bool bgRoomsSharePortal(s32 roomA, s32 roomB);
 s32 bgCopyVisibleRoomsToList(s32 *rooms, s32 max);
 u32 bgDecompress(u8* source, u8 *target);

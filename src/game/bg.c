@@ -258,36 +258,6 @@ void bgOrderPortal(s32 portalnum);
 // end forward declarations
 
 
-void bgInit(void) 
-{
-    if (0)
-    {
-        g_BgPortals = NULL;
-        ptr_bgdata_offsets = 0;
-        dword_CODE_bss_8007FF88 = 0;
-        ptr_bgdata_room_fileposition_list = NULL;
-        dword_CODE_bss_8007FF90 = NULL;
-        dword_CODE_bss_8007FF94 = NULL;
-#ifdef VERSION_EU
-        dword_CODE_bss_8007FFA0[0].roomid = 0;
-        missingeubytes[0] = 0;
-        dword_CODE_bss_800815f0 = 0;
-        dword_CODE_bss_800815f4 = 0;
-        dword_CODE_bss_800815f8 = 0;
-        eu_bss_8007BFA0 = 0;
-        eu_bss_8007BFA4 = 0;
-#else
-        dword_CODE_bss_8007FF98 = 0;
-        dword_CODE_bss_8007FF9C = 0;
-        dword_CODE_bss_8007FFA0[0].roomid = 0;
-        dword_CODE_bss_800815f0 = 0;
-        dword_CODE_bss_800815f4 = 0;
-        dword_CODE_bss_800815f8 = 0;
-#endif
-    }
-}
-
-
 void sub_GAME_7F0B37EC(void)
 {
     u8 *ptr;
@@ -331,10 +301,10 @@ void sub_GAME_7F0B37EC(void)
 }
 
 
-s32 sub_GAME_7F0B39BC(int curroom,int unk1, bbox2d * screensize, s32 next)
+s32 sub_GAME_7F0B39BC(s32 curroom, s32 unk1, bbox2d * screensize, s32 next)
 {
-    int i;
-    int temp;
+    s32 i;
+    s32 temp;
 
     g_BgRoomInfo[curroom].room_rendered = '\x01';
 
@@ -345,8 +315,10 @@ s32 sub_GAME_7F0B39BC(int curroom,int unk1, bbox2d * screensize, s32 next)
     // Need g_BgNumberOfRoomsDrawn in a3
     for (i = 0; i < g_BgNumberOfRoomsDrawn; i++)
     {
-        if (curroom == dword_CODE_bss_8007FFA0[i].roomid) {
-            if (dword_CODE_bss_8007FFA0[i].unk1 < unk1) {
+        if (curroom == dword_CODE_bss_8007FFA0[i].roomid)
+        {
+            if (dword_CODE_bss_8007FFA0[i].unk1 < unk1)
+            {
                 dword_CODE_bss_8007FFA0[i].unk1 = unk1;
             }
             bgRectOutersect(screensize,&dword_CODE_bss_8007FFA0[i].bbox);
@@ -399,18 +371,19 @@ s32 sub_GAME_7F0B39BC(int curroom,int unk1, bbox2d * screensize, s32 next)
 
 void bgResetPortalVisitCounts(void)
 {
-  s32 i;
+    s32 i;
 
-  g_BgNumberOfRoomsDrawn = 0;
+    g_BgNumberOfRoomsDrawn = 0;
 #ifdef VERSION_EU
-  eu_cdata_0x1f0d0 = 0;
+    eu_cdata_0x1f0d0 = 0;
 #endif
-  i = 0;
-  while (i != MAXROOMCOUNT)
-  {
-    g_BgRoomInfo[i].portal_visit_count = 0;
-    i++;
-  }
+    i = 0;
+
+    while (i != MAXROOMCOUNT)
+    {
+        g_BgRoomInfo[i].portal_visit_count = 0;
+        i++;
+    }
 }
 
 
