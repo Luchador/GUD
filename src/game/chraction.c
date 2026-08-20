@@ -2603,14 +2603,11 @@ bool handles_shot_actors(ChrRecord *self, s32 hitpart, coord3d *vector, s32 weap
         else
         {
             self->chrflags |= CHRFLAG_WAS_DAMAGED;
-#    ifdef XBLA
-            if (!cheatIsActive(76))
-#    endif
-                self->damage += damageToCause;
+            self->damage += damageToCause;
 
             if (self->damage < 0.0f)
             {
-                f32 endframe = -1.0f; //sp34
+                f32 endframe = -1.0f;
                 if (!chrlvAttackAnimationRelated7F026F30(self, &endframe))
                 {
                     chrSetHiddenToRandom(self);
@@ -2622,7 +2619,7 @@ bool handles_shot_actors(ChrRecord *self, s32 hitpart, coord3d *vector, s32 weap
         if (hitpart != HIT_HAT)
         {
             // Cancel current animation and prepare for argh
-            f32 endframe2 = -1.0f; //sp30
+            f32 endframe2 = -1.0f;
             play_sound_for_shot_actor(self);
 
             if (chrlvAttackAnimationRelated7F026F30(self, &endframe2)) //chrIsAnimPreventingArgh

@@ -13929,14 +13929,9 @@ TICKOP propdoorInteract(PropRecord* doorprop)
 #endif
             }
         }
+
         door->runtime_bitflags |= RUNTIMEBITFLAG_ACTIVATED;
         door->flags2 |= PROPFLAG2_00000008;
-        #ifdef XBLA
-        //part of showing key marker
-            if ((door->keyflags) && (get_current_difficulty() == DIFFICULTY_AGENT)) {
-                Function_822881F8(door->keyflags);
-            }
-        #endif
     }
 
     return TICKOP_NONE;
@@ -13945,33 +13940,37 @@ TICKOP propdoorInteract(PropRecord* doorprop)
 
 void alarmActivate(void)
 {
-    if (alarm_timer < 1) {
+    if (alarm_timer < 1)
+    {
         alarm_timer = 1;
     }
+
     return;
 }
 
 
 void deactivate_alarm_sound_effect(void)
 {
-    if ((ptr_alarm_sfx != 0) && (sndGetPlayingState(ptr_alarm_sfx) != AL_STOPPED)) {
+    if ((ptr_alarm_sfx != 0) && (sndGetPlayingState(ptr_alarm_sfx) != AL_STOPPED))
+    {
         sndDeactivate(ptr_alarm_sfx);
     }
+
     return;
 }
 
 
 void alarmDeactivate(void)
 {
-  alarm_timer = 0;
-  deactivate_alarm_sound_effect();
-  return;
+    alarm_timer = 0;
+    deactivate_alarm_sound_effect();
+    return;
 }
 
 
 bool alarmIsActive(void)
 {
-  return (0 < alarm_timer);
+    return (0 < alarm_timer);
 }
 
 
@@ -14165,7 +14164,7 @@ Gfx *countdownTimerRender(Gfx *DL)
         DL = gunDrawHudInteger(DL, (ms % 100) / 10, 0xB6, HUDHALIGN_MIDDLE, (viGetViewTop() + viGetViewHeight()) - valign_offset, HUDVALIGN_MIDDLE, 1);
         DL = gunDrawHudInteger(DL, ms % 10, 0xBE, HUDHALIGN_MIDDLE, (viGetViewTop() + viGetViewHeight()) - valign_offset, HUDVALIGN_MIDDLE, 1);
 
-        DL = combiner_bayer_lod_perspective(DL);
+        DL = gfxRestore3DRenderMode(DL);
     }
 
     return DL;

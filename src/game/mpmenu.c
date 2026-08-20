@@ -1674,7 +1674,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
                 gdl = textRender(gdl, &x, &y, text, ptrFontBankGothicChars, ptrFontBankGothic, 0x00ff00b0, viewleft, h1, 0, 0);
             }
         }
-        gdl = combiner_bayer_lod_perspective(gdl);
+        gdl = gfxRestore3DRenderMode(gdl);
     }
     else if (((((g_CurrentPlayer->bonddead) && (g_CurrentPlayer->deathanimfinished)) && (g_CurrentPlayer->redbloodfinished)) && (!g_stopPlayFlag)) && (!g_gameOverFlag))
     {
@@ -1701,7 +1701,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
             viewleft = viGetX(); 
             h1 = viGetY();
             gdl = textRender(gdl, &x3, &y3, text3, ptrFontBankGothicChars, ptrFontBankGothic, 0x00ff00b0, viewleft, h1, 0, 0);
-            gdl = combiner_bayer_lod_perspective(gdl);
+            gdl = gfxRestore3DRenderMode(gdl);
         }
     }
  

@@ -193,7 +193,7 @@ Gfx *display_red_blue_on_radar(Gfx *DL)
         }
     }
 
-    return combiner_bayer_lod_perspective(DL);
+    return gfxRestore3DRenderMode(DL);
 
     #undef RADAR_TOP_OFFSET
     #undef RADAR_RECT1_OFFSET

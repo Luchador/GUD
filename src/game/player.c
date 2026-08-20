@@ -517,40 +517,34 @@ s32 getPlayerPointerIndex(PropRecord* prop)
 }
 
 
-void set_cur_player_screen_size(u32 width, u32 height) {
-    #ifdef XBLADEBUG
-       assert(currentplayer);
-    #endif
+void set_cur_player_screen_size(u32 width, u32 height)
+{
   g_CurrentPlayer->viewx = width;
   g_CurrentPlayer->viewy = height;
 }
 
-void set_cur_player_viewport_size(u32 ulx, u32 uly) {
-        #ifdef XBLADEBUG
-       assert(currentplayer);
-    #endif
+
+void set_cur_player_viewport_size(u32 ulx, u32 uly)
+{
   g_CurrentPlayer->viewleft = ulx;
   g_CurrentPlayer->viewtop = uly;
 }
 
-void set_cur_player_fovy(f32 fovy) {
-    #ifdef XBLADEBUG
-       assert(currentplayer);
-    #endif
+
+void set_cur_player_fovy(f32 fovy)
+{
     g_CurrentPlayer->fovy = fovy;
 }
 
-void set_cur_player_aspect(f32 aspect) {
-    #ifdef XBLADEBUG
-       assert(currentplayer);
-    #endif
+
+void set_cur_player_aspect(f32 aspect)
+{
     g_CurrentPlayer->aspect = aspect;
 }
 
-f32 get_cur_player_fovy(void) {
-    #ifdef XBLADEBUG
-       assert(currentplayer);
-    #endif
+
+f32 get_cur_player_fovy(void)
+{
     return g_CurrentPlayer->fovy;
 }
 

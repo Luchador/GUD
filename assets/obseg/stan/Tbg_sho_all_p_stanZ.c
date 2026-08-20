@@ -1,4 +1,4 @@
-//Converted from xbla
+// Converted from XBLA
 
 #include <ultra64.h>
 #include <game/stan.h>

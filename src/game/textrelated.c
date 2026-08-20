@@ -4,6 +4,7 @@
 #include "bondtypes.h"
 #include "game/language.h"
 
+
 #define SPACE_WIDTH 5
 
 #define M_COLOR_R(x) (u8)(x >> 0x18)
@@ -11,8 +12,6 @@
 #define M_COLOR_B(x) (u8)(x >> 0x08)
 #define M_COLOR_A(x) (u8)(x >> 0x00)
 
-// data
-s32 D_80040E80 = 0; // Unused
 s32 text_spacing = 0;
 s32 text_orientation = 0;
 s32 text_wordwrap = 0;
@@ -42,6 +41,13 @@ u16 g_JpnTextPalette1[16] = {
     0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF
 };
 
+extern u8 _fontbankgothicSegmentEnd;
+extern u8 _fontbankgothicSegmentRomStart;
+extern u8 _fontzurichboldSegmentEnd;
+extern u8 _fontzurichboldSegmentRomStart;
+extern u8 _fontzurichboldSegmentStart;
+extern u8 _fontbankgothicSegmentStart;
+
 // D_80040EFC
 struct fontchar g_JpnGlyphDefaults = {0, 0, 12, 11};
 
@@ -50,26 +56,11 @@ struct fontchar g_JpnGlyphDefaultsOutlined = {0, 0, 12, 11};
 
 // forward declarations
 
-Gfx *textRenderGlyph(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, struct fontchar *prevchar,
-		struct font *font, s32 clipX, s32 clipY, s32 clipWidth, s32 clipHeight, s32 yOffset);
-Gfx *textRenderGlyphOutlined(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, 
-                struct fontchar *prevchar, struct font *font, s32 clipX, s32 clipY, 
-                u32 textColour, u32 outlineColour, s32 clipWidth, s32 clipHeight, 
-                s32 yOffset);
+Gfx *textRenderGlyph(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, struct fontchar *prevchar, struct font *font, s32 clipX, s32 clipY, s32 clipWidth, s32 clipHeight, s32 yOffset);
+Gfx *textRenderGlyphOutlined(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, struct fontchar *prevchar, struct font *font, s32 clipX, s32 clipY, u32 textColour, u32 outlineColour, s32 clipWidth, s32 clipHeight, s32 yOffset);
 Gfx *textDrawGlyphQuad(Gfx *gdl, s32 x, s32 y, struct fontchar *curchar, s32 clipX, s32 clipY, s32 clipWidth, s32 clipHeight);
 
-// -------------------------------------------------------------------------------------------------
-
-void textInit(void /*, char* asset */)
-{
-    #ifdef DEBUG
-    if (asset == 0)
-    {
-        osSyncPrintf("\n--- ASSERTION FAULT - %s - %s, line %d\n\n", "textInitText: NULL void* asset", ".\\text.cpp", 0x38 );
-    }
-    #endif
-}
-
+// end forward declarations
 
 void setTextSpacingInverted(s32 spacing)
 {
@@ -94,13 +85,6 @@ void setTextOverlapCorrection(s32 flag)
     overlap_correction = flag;
 }
 
-extern u8 _fontbankgothicSegmentEnd;
-extern u8 _fontbankgothicSegmentRomStart;
-extern u8 _fontzurichboldSegmentEnd;
-extern u8 _fontzurichboldSegmentRomStart;
-extern u8 _fontzurichboldSegmentStart;
-extern u8 _fontbankgothicSegmentStart;
-
 
 void load_font_tables(void)
 {
@@ -124,7 +108,8 @@ void load_font_tables(void)
 	romCopy(ptrFontBankGothic, (void *) &_fontbankgothicSegmentRomStart, len);
 
     // Convert pointers
-	for (i = 0; i < 94; i++) {
+	for (i = 0; i < 94; i++)
+    {
 		ptrFontBankGothicChars[i].pixeldata += (uintptr_t)ptrFontBankGothic;
 	}
 
@@ -135,7 +120,8 @@ void load_font_tables(void)
 	romCopy(ptrFontZurichBold, (void *) &_fontzurichboldSegmentRomStart, len);
 
     // Convert pointers
-	for (i = 0; i < 94; i++) {
+	for (i = 0; i < 94; i++)
+    {
 		ptrFontZurichBoldChars[i].pixeldata += (uintptr_t)ptrFontZurichBold;
 	}
 }
@@ -147,18 +133,19 @@ Gfx *gfxSetup2DTextureMode(Gfx *gdl)
 	gDPSetCycleType(gdl++, G_CYC_1CYCLE);
 	gDPSetColorDither(gdl++, G_CD_DISABLE);
 	gDPSetRenderMode(gdl++, G_RM_AA_XLU_SURF, G_RM_AA_XLU_SURF2);
-	gDPSetCombineLERP(gdl++,
-			0, 0, 0, PRIMITIVE, TEXEL0, 0, PRIMITIVE, 0,
-			0, 0, 0, PRIMITIVE, TEXEL0, 0, PRIMITIVE, 0);
+	gDPSetCombineLERP(gdl++, 0, 0, 0, PRIMITIVE, TEXEL0, 0, PRIMITIVE, 0, 0, 0, 0, PRIMITIVE, TEXEL0, 0, PRIMITIVE, 0);
 	gDPSetTexturePersp(gdl++, G_TP_NONE);
 	gDPSetAlphaCompare(gdl++, G_AC_NONE);
 	gDPSetTextureLOD(gdl++, G_TL_TILE);
 	gDPSetTextureConvert(gdl++, G_TC_FILT);
 	gDPSetTextureLUT(gdl++, G_TT_NONE);
 
-	if (text_bilevel_filter) {
+	if (text_bilevel_filter)
+    {
 		gDPSetTextureFilter(gdl++, G_TF_AVERAGE);
-	} else {
+	} 
+    else
+    {
 		gDPSetTextureFilter(gdl++, G_TF_BILERP);
 	}
 
@@ -166,7 +153,7 @@ Gfx *gfxSetup2DTextureMode(Gfx *gdl)
 }
 
 
-Gfx *combiner_bayer_lod_perspective(Gfx *gdl)
+Gfx *gfxRestore3DRenderMode(Gfx *gdl)
 {
 	gDPPipeSync(gdl++);
 	gDPSetColorDither(gdl++, G_CD_BAYER);
@@ -175,6 +162,7 @@ Gfx *combiner_bayer_lod_perspective(Gfx *gdl)
 
 	return gdl;
 }
+
 
 Gfx* draw_blackbox_to_screen(Gfx *glist, s32 *ulx, s32 *uly, s32 *lrx, s32 *lry)
 {
@@ -209,8 +197,7 @@ Gfx *gfxDrawTranslucentRect(Gfx *gdl, s32 ulx, s32 uly, s32 lrx, s32 lry, u32 co
 /**
  * Render a single character with no outline.
  */
-Gfx *textRenderGlyph(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, struct fontchar *prevchar,
-		struct font *font, s32 clipX, s32 clipY, s32 clipWidth, s32 clipHeight, s32 yOffset)
+Gfx *textRenderGlyph(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, struct fontchar *prevchar, struct font *font, s32 clipX, s32 clipY, s32 clipWidth, s32 clipHeight, s32 yOffset)
 {
     s32 stack;
     s32 stack2;
@@ -231,16 +218,6 @@ Gfx *textRenderGlyph(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, struct 
             if (curchar->index < 0x80)
             {
                 gDPSetTextureLUT(gdl++, G_TT_NONE);
-
-                /*
-                gDPSetTextureImage(gdl++, G_IM_FMT_I, G_IM_SIZ_16b, 1, curchar->pixeldata);
-                gDPSetTile(gdl++, G_IM_FMT_I, G_IM_SIZ_16b, 0, 0x0000, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-                gDPLoadSync(gdl++);
-                gDPLoadBlock(gdl++, G_TX_LOADTILE, 0, 0, (curchar->unkc * curchar->height), 0);
-                gDPPipeSync(gdl++);                
-                gDPSetTile(gdl++,G_IM_FMT_I,G_IM_SIZ_8b,0,0,G_TX_RENDERTILE,0,G_TX_NOMIRROR | G_TX_WRAP,G_TX_NOMASK,G_TX_NOLOD,G_TX_NOMIRROR | G_TX_WRAP,G_TX_NOMASK,G_TX_NOLOD);
-                gDPSetTileSize(gdl++, G_TX_RENDERTILE, 0, 0, (curchar->unkc - 1) << 2, (curchar->height - 1) << 2);
-                */
                 gDPLoadTextureBlock(gdl++, curchar->pixeldata, G_IM_FMT_I, G_IM_SIZ_8b, ((curchar->width + 7) & 0xF8), curchar->height, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, 0, 0);
             }
             else
@@ -252,27 +229,10 @@ Gfx *textRenderGlyph(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, struct 
                 {
                     g_JpnTextTlutNeedsLoad = 0;
                     
-                    // FD100000 --------: gDPSetTextureImage(gdl++, G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, osVirtualToPhysical(D_80040EBC));
-                    // E8000000 00000000: gDPTileSync(gdl++);
-                    // F5000100 07000000: gDPSetTile(gdl++, G_IM_FMT_RGBA, G_IM_SIZ_4b, 0, 0x0100, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-                    // E6000000 00000000: gDPLoadSync(gdl++);
-                    // F0000000 0703C000: gDPLoadTLUTCmd(gdl++, G_TX_LOADTILE, 15);
-                    // E7000000 00000000: gDPPipeSync(gdl++);
                     gDPLoadTLUT_pal16(gdl++, 0, osVirtualToPhysical(g_JpnTextPalette0));
-
                     gDPLoadTLUT_pal16(gdl++, 1, osVirtualToPhysical(&g_JpnTextPalette1));
                 }
 
-                // FD500000 00000000: gDPSetTextureImage(gdl++, G_IM_FMT_CI, G_IM_SIZ_16b, 1, 0x00000000);
-                // F5500000 07000000: gDPSetTile(gdl++, G_IM_FMT_CI, G_IM_SIZ_16b, 0, 0x0000, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-                // E6000000 00000000: gDPLoadSync(gdl++);
-                // F3000000 07000000: gDPLoadBlock(gdl++, G_TX_LOADTILE, 0, 0, 0, 0);
-                // E7000000 00000000: gDPPipeSync(gdl++);
-                // F5400200 00080000: gDPSetTile(gdl++, G_IM_FMT_CI, G_IM_SIZ_4b, 1, 0x0000, G_TX_RENDERTILE, 0, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-                // F2000000 0003C000: gDPSetTileSize(gdl++, G_TX_RENDERTILE, 0, 0, qu102(15), 0);
-                //
-                // is this a call to gDPLoadTextureBlock ???
-                
                 gDPSetTextureImage(gdl++, G_IM_FMT_CI, G_IM_SIZ_16b, 1,  osVirtualToPhysical((void *) curchar->pixeldata));
                 gDPSetTile(gdl++, G_IM_FMT_CI, G_IM_SIZ_16b, 0, 0x0000, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
                 gDPLoadSync(gdl++);
@@ -290,9 +250,6 @@ Gfx *textRenderGlyph(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, struct 
                     {
                         if (text_orientation)
                         {
-                            // E5000000 --------:
-                            // B4000000 --------:
-                            // B3000000 0400FC00:
                             gSPTextureRectangleFlip(gdl++,
                                 /* xl */ (((drawY - curchar->baseline) - curchar->height) * 4) + text_y,
                                 /* yl */ ((*x * 4) + text_x),
@@ -306,9 +263,6 @@ Gfx *textRenderGlyph(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, struct 
                         }
                         else
                         {
-                            // E4000000 --------:
-                            // B4000000 --------:
-                            // B3000000 04000400:
                             gSPTextureRectangle(gdl++,
                                 /* xl */ ((*x * 4) + text_x),
                                 /* yl */ ((drawY + curchar->baseline) * 4) + text_y,
@@ -324,9 +278,6 @@ Gfx *textRenderGlyph(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, struct 
                     }
                     else if (curchar->baseline + drawY <= clipY + clipHeight)
                     {
-                        // E4000000 --------:
-                        // B4000000 --------:
-                        // B3000000 04000400:
                         gSPTextureRectangle(gdl++,
                             /* xl */ ((*x * 4) + text_x),
                             /* yl */ ((drawY + curchar->baseline) * 4) + text_y,
@@ -343,9 +294,6 @@ Gfx *textRenderGlyph(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, struct 
                 {
                     if (curchar->baseline + drawY + curchar->height >= clipY)
                     {
-                        // E4000000 --------:
-                        // B4000000 --------:
-                        // B3000000 04000400:
                         gSPTextureRectangle(gdl++,
                             /* xl */ ((*x * 4) + text_x),
                             /* yl */ (clipY * 4) + text_y,
@@ -366,21 +314,15 @@ Gfx *textRenderGlyph(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, struct 
     return gdl;
 }
 
+
 /**
  * Render plain text with no outline e.g. briefings and watch menu text.
  */
-Gfx *textRender(Gfx *gdl, s32 *x, s32 *y, char *text,
-                struct fontchar *chars, struct font *font, u32 colour,
-                s32 width, s32 height, u32 yOffset, s32 lineheight)
+Gfx *textRender(Gfx *gdl, s32 *x, s32 *y, char *text, struct fontchar *chars, struct font *font, u32 colour, s32 width, s32 height, u32 yOffset, s32 lineheight)
 {
     s32 savedx;
 	s32 savedy;
     s32 prevchar;
-    s32 stack = 1;
-    s32 stack2;
-    s32 stack3;
-    s32 stack4;
-    //s32 stack5;
     
     g_JpnTextTlutNeedsLoad = 1;
 
@@ -388,24 +330,28 @@ Gfx *textRender(Gfx *gdl, s32 *x, s32 *y, char *text,
 	savedy = *y;
     prevchar = 'H';
 
-	if (lineheight == 0) {
+	if (lineheight == 0) 
+    {
 		lineheight = chars['['].height + chars['['].baseline;
 	}
 
-	if (j_text_trigger != 0 && lineheight < 14) {
+	if (j_text_trigger != 0 && lineheight < 14)
+    {
 		lineheight = 14;
 	}
 
-    stack = colour; // ????????????
     gDPSetPrimColor(gdl++, 0, 0, M_COLOR_R(colour), M_COLOR_G(colour), M_COLOR_B(colour), M_COLOR_A(colour));
     
     while (*text != '\0')
     {
-		if (*text == ' ') {
+		if (*text == ' ')
+        {
 			*x += 5;
 			prevchar = 'H';
 			text++;
-		} else if (*text == '\n') {
+		} 
+        else if (*text == '\n')
+        {
 			prevchar = 'H';
 
             if ((overlap_correction >= 0) && (savedx == *x))
@@ -419,20 +365,24 @@ Gfx *textRender(Gfx *gdl, s32 *x, s32 *y, char *text,
             
 			text++;
 			*x = savedx;
-		} else if (*text < 0x80) {
-			gdl = textRenderGlyph(gdl, x, y, &chars[*text - 0x21], &chars[prevchar - 0x21], font, savedx, savedy, width, height, yOffset);
+		} 
+        else if (*text < 128) 
+        {
+			gdl = textRenderGlyph(gdl, x, y, &chars[*text - 33], &chars[prevchar - 33], font, savedx, savedy, width, height, yOffset);
 			prevchar = *text;
 			text++;
-		} else {
+		} 
+        else 
+        {
 			u16 codepoint = ((*text & 0x7f) << 7) | (text[1] & 0x7f);
 			struct fontchar sp74 = g_JpnGlyphDefaults;
 
-			if (codepoint & 0x2000) {
+			if (codepoint & 0x2000)
+            {
 				sp74.width = 15;
 				sp74.height = 16;
 			}
 
-            // perfect dark: 0x3c8
 #if defined(VERSION_EU) || defined(VERSION_JP)
             if ((codepoint & 0x1fff) >= 0x3c8)
 #else
@@ -450,16 +400,15 @@ Gfx *textRender(Gfx *gdl, s32 *x, s32 *y, char *text,
 			text += 2;
 		}
 	}
+
     return gdl;
 }
+
 
 /**
  * Draw individual characters with an outline.
  */
-Gfx *textRenderGlyphOutlined(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, 
-                       /*sp70*/ struct fontchar *prevchar, struct font *font, s32 clipX, s32 clipY, 
-                       /*sp80*/u32 textColour, u32 outlineColour, s32 clipWidth, s32 clipHeight, 
-                       /*sp90*/ s32 yOffset)
+Gfx *textRenderGlyphOutlined(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, struct fontchar *prevchar, struct font *font, s32 clipX, s32 clipY, u32 textColour, u32 outlineColour, s32 clipWidth, s32 clipHeight, s32 yOffset)
 {
     s32 offsetX;
     s32 offsetY;
@@ -481,14 +430,18 @@ Gfx *textRenderGlyphOutlined(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar,
             && drawY + curchar->baseline <= clipY + clipHeight
             && *x >= clipX
             && drawY + curchar->baseline + curchar->height >= clipY) {
-        if (curchar->index < 0x80) {
+        if (curchar->index < 0x80) 
+        {
             gDPSetTextureLUT(gdl++, G_TT_NONE);
             gDPLoadTextureBlock(gdl++, curchar->pixeldata, G_IM_FMT_I, G_IM_SIZ_8b, ((curchar->width + 7) & 0xF8), curchar->height, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, 0, 0);
-        } else {
+        } 
+        else 
+        {
             gDPPipeSync(gdl++);
             gDPSetTextureLUT(gdl++, G_TT_IA16);
 
-            if (g_JpnTextTlutNeedsLoad) {
+            if (g_JpnTextTlutNeedsLoad) 
+            {
                 g_JpnTextTlutNeedsLoad = 0;
 
                 gDPLoadTLUT_pal16(gdl++, 0, osVirtualToPhysical(&g_JpnTextPalette0));
@@ -512,12 +465,16 @@ Gfx *textRenderGlyphOutlined(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar,
         rgba = outlineColour;
         gDPSetPrimColor(gdl++, 0, 0, M_COLOR_R(rgba), M_COLOR_G(rgba), M_COLOR_B(rgba), M_COLOR_A(rgba));
 
-        for (offsetX = -1; offsetX < 2; offsetX++) {
-            for (offsetY = -1; offsetY < 2; offsetY++) {
+        for (offsetX = -1; offsetX < 2; offsetX++)
+        {
+            for (offsetY = -1; offsetY < 2; offsetY++)
+            {
                 tmpx = *x + offsetX;
                 tmpy = drawY + offsetY;
 
-                if (offsetX != 0 || offsetY != 0) { // Skip the center since that will be covered by the main character anyway.
+                // Skip the center since that will be covered by the main character anyway.
+                if (offsetX != 0 || offsetY != 0)
+                { 
                     gdl = textDrawGlyphQuad(gdl, tmpx, tmpy, curchar, clipX, clipY, clipWidth, clipHeight);
                 }
             }
@@ -527,6 +484,7 @@ Gfx *textRenderGlyphOutlined(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar,
         tmpx = *x;
         tmpy = drawY;
         rgba = textColour;
+
         gDPSetPrimColor(gdl++, 0, 0, M_COLOR_R(rgba), M_COLOR_G(rgba), M_COLOR_B(rgba), M_COLOR_A(rgba));
         gdl = textDrawGlyphQuad(gdl, tmpx, tmpy, curchar, clipX, clipY, clipWidth, clipHeight);
     }
@@ -536,18 +494,23 @@ Gfx *textRenderGlyphOutlined(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar,
     return gdl;
 }
 
+
 /**
  * Draw a quad for the current glyph, clipping it inside the region defined by clipX, clipY, clipWidth, and clipHeight.
  */
 Gfx *textDrawGlyphQuad(Gfx *gdl, s32 x, s32 y, struct fontchar *curchar, s32 clipX, s32 clipY, s32 clipWidth, s32 clipHeight)
 {
-    if (clipX + clipWidth >= curchar->width + x) // Check if the glyph's right edge is inside or touching the clipping rect's right edge.
+    // Check if the glyph's right edge is inside or touching the clipping rect's right edge.
+    if (clipX + clipWidth >= curchar->width + x)
     {
-        if (curchar->baseline + y >= clipY) // Check if the glyph's top is below the clip top.
+        // Check if the glyph's top is below the clip top.
+        if (curchar->baseline + y >= clipY)
         {
-            if (clipY + clipHeight >= curchar->baseline + y + curchar->height) // Check if the glyph's bottom is above the clip bottom.
+            // Check if the glyph's bottom is above the clip bottom.
+            if (clipY + clipHeight >= curchar->baseline + y + curchar->height)
             {
-                if (text_orientation) // Check if vertical text. Not sure if ever used for outlined text?
+                // Check if vertical text. Not sure if ever used for outlined text?
+                if (text_orientation)
                 {
                     gSPTextureRectangleFlip(gdl++, 
                         /* xl */ ((y - curchar->baseline) - curchar->height) << 2, 
@@ -574,7 +537,8 @@ Gfx *textDrawGlyphQuad(Gfx *gdl, s32 x, s32 y, struct fontchar *curchar, s32 cli
                         /* dsdy */ 0x400);
                 }
             }
-            else if (clipY + clipHeight >= curchar->baseline + y) // Glyph bottom is below the clipping rectangle.
+            // Glyph bottom is below the clipping rectangle.
+            else if (clipY + clipHeight >= curchar->baseline + y)
             {
                 // Bottom coordinates clipped to savedy + height.
                 gSPTextureRectangle(gdl++, 
@@ -589,7 +553,8 @@ Gfx *textDrawGlyphQuad(Gfx *gdl, s32 x, s32 y, struct fontchar *curchar, s32 cli
                     /* dsdy */ 0x400); 
             }
         }
-        else if (curchar->baseline + y + curchar->height >= clipY) // Glyph top is above the clipping rectangle.
+        // Glyph top is above the clipping rectangle.
+        else if (curchar->baseline + y + curchar->height >= clipY) 
         {
             gSPTextureRectangle(gdl++, // Top clipped to fit.
                 /* xl */ x << 2, 
@@ -607,15 +572,13 @@ Gfx *textDrawGlyphQuad(Gfx *gdl, s32 x, s32 y, struct fontchar *curchar, s32 cli
     return gdl;
 }
 
+
 /**
  * Draw strings of text with an outline.
  * Used for ammo counter, bottom left HUD messages, countdown timers.
  * Also used for rendering outlines on folder menu text in JP version.
  */
-Gfx *textRenderOutlined(Gfx *gdl, s32 *x, s32 *y, 
-                    char *text, struct fontchar *chars, struct font *font, 
-                    u32 colour, u32 colour2, s32 width, s32 height, 
-                    s32 yOffset, s32 lineheight)
+Gfx *textRenderOutlined(Gfx *gdl, s32 *x, s32 *y, char *text, struct fontchar *chars, struct font *font, u32 colour, u32 colour2, s32 width, s32 height, s32 yOffset, s32 lineheight)
 {
     u16 codepoint;
 	s32 savedy;
@@ -639,25 +602,34 @@ Gfx *textRenderOutlined(Gfx *gdl, s32 *x, s32 *y,
     
     while (*text != '\0')
     {
-		if (*text == ' ') {
+		if (*text == ' ')
+        {
 			*x += SPACE_WIDTH;
 			prevchar = 'H';
 			text++;
-		} else if (*text == '\n') {
+		} 
+        else if (*text == '\n')
+        {
 			prevchar = 'H';
 			*x = savedx;
             *y += lineheight;
 			text++;
-		} else if (*text < 0x80) {
+		}
+        else if (*text < 0x80)
+        {
             // Render individual characters with outline.
             gdl = textRenderGlyphOutlined(gdl, x, y, &chars[*text - 0x21], &chars[prevchar - 0x21], font, savedx, savedy, colour, colour2, width, height, yOffset);
+
 			prevchar = *text;
 			text++;
-		} else {
+		} 
+        else
+        {
             codepoint = ((*text & 0x7f) << 7) | (text[1] & 0x7f);
             sp74 = g_JpnGlyphDefaultsOutlined;
 
-			if (codepoint & 0x2000) {
+			if (codepoint & 0x2000)
+            {
 				sp74.width = 15;
 				sp74.height = 16;
 			}
@@ -683,6 +655,7 @@ Gfx *textRenderOutlined(Gfx *gdl, s32 *x, s32 *y,
 
     return gdl;
 }
+
 
 void textMeasure(s32 *textheight, s32 *textwidth, char *text, struct fontchar *font1, struct font *font2, s32 lineheight)
 {
@@ -711,7 +684,8 @@ void textMeasure(s32 *textheight, s32 *textwidth, char *text, struct fontchar *f
         if (*text == ' ')
         {
             // Space
-            if (text[1] != '\n') {
+            if (text[1] != '\n')
+            {
                 *textwidth += SPACE_WIDTH;
             }
 
@@ -721,7 +695,8 @@ void textMeasure(s32 *textheight, s32 *textwidth, char *text, struct fontchar *f
         else if (*text == '\n')
         {
             // Line break
-            if (*textwidth > longest) {
+            if (*textwidth > longest)
+            {
                 longest = *textwidth;
             }
 
@@ -760,6 +735,7 @@ void textMeasure(s32 *textheight, s32 *textwidth, char *text, struct fontchar *f
     }
 }
 
+
 void textWrap(s32 wrapwidth, char *src, char *dst, struct fontchar *chars, struct font *font)
 {
 	s32 curlinewidth = 0;
@@ -773,7 +749,8 @@ void textWrap(s32 wrapwidth, char *src, char *dst, struct fontchar *chars, struc
 	u32 stack;
 	char curword[32];
 
-    while (more == 1) {
+    while (more == 1)
+    {
 		// Load the next word
 		wordwidth = 0;
 		wordlen = 0;
@@ -804,20 +781,25 @@ void textWrap(s32 wrapwidth, char *src, char *dst, struct fontchar *chars, struc
         // Track the current line's pixel length
         curlinewidth += wordwidth;
 
-        if (curlinewidth <= wrapwidth) {
+        if (curlinewidth <= wrapwidth)
+        {
             itfits = 1;
-        } else {
+        } 
+        else
+        {
             itfits = 0;
         }
 
         if (*src == '\n')
         {
             // Write a new line and indent
-			if (!itfits) {
+			if (!itfits)
+            {
 				*dst = '\n';
 				dst++;
 
-				for (i = 0; i < text_wordwrap; i++) {
+				for (i = 0; i < text_wordwrap; i++)
+                {
 					*dst = ' ';
 					dst++;
 				}
@@ -826,7 +808,8 @@ void textWrap(s32 wrapwidth, char *src, char *dst, struct fontchar *chars, struc
 			curlinewidth = 0;
 
 			// Write the current word
-			for (i = 0; i < wordlen; i++) {
+			for (i = 0; i < wordlen; i++)
+            {
 				*dst = curword[i];
 				dst++;
 			}
@@ -855,7 +838,8 @@ void textWrap(s32 wrapwidth, char *src, char *dst, struct fontchar *chars, struc
 			curlinewidth += SPACE_WIDTH;
 
 			// Write the current word
-			for (i = 0; i < wordlen; i++) {
+			for (i = 0; i < wordlen; i++)
+            {
 				*dst = curword[i];
 				dst++;
 			}
@@ -868,19 +852,22 @@ void textWrap(s32 wrapwidth, char *src, char *dst, struct fontchar *chars, struc
         {
             more = 0;
 
-			if (!itfits) {
+			if (!itfits)
+            {
 				// Write a new line and indent
 				*dst = '\n';
 				dst++;
 
-				for (i = 0; i < text_wordwrap; i++) {
+				for (i = 0; i < text_wordwrap; i++)
+                {
 					*dst = ' ';
 					dst++;
 				}
 			}
 
 			// Write the current word
-			for (i = 0; i < wordlen; i++) {
+			for (i = 0; i < wordlen; i++)
+            {
 				*dst = curword[i];
 				dst++;
 			}

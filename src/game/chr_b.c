@@ -62,10 +62,6 @@ struct Model *makeonebody(s32 body, s32 head, struct ModelFileHeader *bodyHeader
             if (headHeader->RootNode == 0)
             {
                 fileLoad(headHeader, c_item_entries[head].filename);
-#ifdef XBLADEBUG
-    #error fix XBLADEBUG
-      //osSyncPrintf("makeonebody: no head attachment for body number %d!\n",lVar3);
-#endif
             }
 
             modelCalculateRwDataLen(headHeader);
@@ -78,19 +74,6 @@ struct Model *makeonebody(s32 body, s32 head, struct ModelFileHeader *bodyHeader
     {
         model = modelmgrInstantiateModelWithAnim(bodyHeader);
     }
-    #ifdef DEBUG
-    assert(chrsub->inst.savesize>=bodyobj->savesize); //bodyHeader = chrsub, model = bodyobj
-    #endif
-#ifdef XBLADEBUG
-    #error fix XBLADEBUG
-  //
-  //        assertPrint_8291E690
-  //                  (".\\ported\\chrlv.cpp",0xc4,
-  //                   "Assertion failed: chrsub->inst.savesize>=bodyobj->savesize");
-  //        }
-  //
-  //
-#endif
 
     if (model != 0)
     {
@@ -116,7 +99,7 @@ struct Model *makeonebody(s32 body, s32 head, struct ModelFileHeader *bodyHeader
     return model;
 }
 
-//sub_GAME_7F0234A8
+
 Model *setup_chr_instance(int body,int head,ModelFileHeader *body_header, ModelFileHeader *head_header,int sunglasses)
 {
   return makeonebody(body,head,body_header,head_header,sunglasses,0x0);

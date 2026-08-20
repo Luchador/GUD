@@ -3586,21 +3586,20 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 case AI_TRYCloningChr:
                 {
                     AiTRYCloningChrRecord *ai       = AiListp + Offset;
-                    // int zero                        = 0; //on stack in xbla, but matches without
                     u16                    ailistid = ntohs(ai->AI_LIST_ID);
                     u8                    *ailist   = ailistFindById((u16)ailistid);
                     ChrRecord             *chr      = chrFindById(ChrEntityp, ai->CHR_NUM);
-                    bool                   pass     = FALSE; // 564
+                    bool                   pass     = FALSE;
                     int                    chrnum;
                     PropRecord            *srcweaponLprop   = NULL;
                     PropRecord            *srcweaponRprop   = NULL;
                     PropRecord            *cloneweaponRprop = NULL;
                     PropRecord            *cloneweaponLprop = NULL;
                     PropRecord            *cloneprop        = NULL;
-                    ChrRecord             *clone            = NULL; // 536
+                    ChrRecord             *clone            = NULL;
                     WeaponObjRecord       *srcweaponL       = NULL;
-                    WeaponObjRecord       *cloneweaponL     = NULL; // 528
-                    WeaponObjRecord       *cloneweaponR     = NULL; // 524
+                    WeaponObjRecord       *cloneweaponL     = NULL;
+                    WeaponObjRecord       *cloneweaponR     = NULL;
                     WeaponObjRecord       *srcweaponR       = NULL;
                     PropRecord            *hatprop;
                     ObjectRecord          *hatobj;
@@ -4328,13 +4327,12 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 }
                 case AI_BondHideWeapons:
                 {
-                    /*"remove guntype %d\n" */
                     remove_item_in_hand(GUNRIGHT);
                     remove_item_in_hand(GUNLEFT);
                     Offset += sizeof(AiBondHideWeaponsRecord);
                     break;
                 }
-                case AI_CameraOrbitPad: // sp order from xbla
+                case AI_CameraOrbitPad:
                 {
                     AiCameraOrbitPadRecord *ai = AiListp + Offset;
                     s32                     padnum;

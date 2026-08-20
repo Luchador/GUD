@@ -559,13 +559,6 @@ struct mp_stage_setup multi_stage_setups[] = {
     {getStringID(LTITLE, TITLE_STR_170_WATERCAVERNS), getStringID(LTITLE, TITLE_STR_171_CAVERNS), IMG_MP_CAVERNS, LEVELID_CAVERNS, SP_LEVEL_CAVERNS, 1, 3},
     {getStringID(LTITLE, TITLE_STR_172_EGYPTIANTEMPLEMP), getStringID(LTITLE, TITLE_STR_173_EGYPTIANMP), IMG_MP_EGYPT, LEVELID_EGYPT, SP_LEVEL_EGYPT, 1, 2}
   //{getStringID(LTITLE, TITLE_STR_174_CITADEL), getStringID(LTITLE, TITLE_STR_175_CITADEL2), IMG_MP_RANDOM, LEVELID_CITADEL, -1, 1, 4}, //Citadel (old format setup)
-  //{getStringID(LTITLE, TITLE_STR_176_DEST), getStringID(LTITLE, TITLE_STR_177_DEST2), IMG_MP_FRIGATE, LEVELID_FRIGATE, SP_LEVEL_FRIGATE, 1, 4}, //dest (has xbla setup)
-  //{getStringID(LTITLE, TITLE_STR_178_STAT), getStringID(LTITLE, TITLE_STR_179_STAT2), IMG_MP_STATUE, LEVELID_STATUE, SP_LEVEL_STATUE, 1, 2}, //stat (works)
-  //{getStringID(LTITLE, TITLE_STR_180_CRAD), getStringID(LTITLE, TITLE_STR_181_CRADLE2), IMG_MP_CRADLE, LEVELID_CRADLE, SP_LEVEL_CRADLE, 1, 2}, //crad (works)
-  //{getStringID(LTITLE, TITLE_STR_182_AZT), getStringID(LTITLE, TITLE_STR_183_AZT2), IMG_MP_AZTEC, LEVELID_AZTEC, SP_LEVEL_AZTEC, 1, 4}, //azt (needs setup)
-  //{getStringID(LTITLE, TITLE_STR_123_RUN), getStringID(LTITLE, TITLE_STR_123_RUN), IMG_MP_RUNWAY, LEVELID_RUNWAY, SP_LEVEL_RUN, 1, 4}, //runway (xbla setup)
-  //{getStringID(LTITLE, TITLE_STR_121_DAM), getStringID(LTITLE, TITLE_STR_121_DAM), IMG_MP_DAM, LEVELID_DAM, SP_LEVEL_DAM, 1, 4}, //dam (xbla setup)
-  //{getStringID(LTITLE, TITLE_STR_138_DEPOT), getStringID(LTITLE, TITLE_STR_138_DEPOT), IMG_MP_DEPOT, LEVELID_DEPOT, SP_LEVEL_DEPOT, 1, 4}, //depot (xbla setup)
 };
 
 s32 num_chars_selectable_mp = 8;
@@ -5276,7 +5269,7 @@ Gfx *constructor_menu0F_mpcharsel(Gfx *DL)
         }
     }
 
-    DL = combiner_bayer_lod_perspective(DL);
+    DL = gfxRestore3DRenderMode(DL);
 
     return DL;
 }
@@ -5470,7 +5463,7 @@ Gfx * constructor_menu10_mphandicap(Gfx *DL)
         }
     }
 
-    DL = combiner_bayer_lod_perspective(DL);
+    DL = gfxRestore3DRenderMode(DL);
 
     return DL;
 }
@@ -5728,7 +5721,7 @@ Gfx * constructor_menu11_mpcontrol(Gfx *DL)
         }
     }
 
-    DL = combiner_bayer_lod_perspective(DL);
+    DL = gfxRestore3DRenderMode(DL);
 
     return DL;
 }
@@ -5886,7 +5879,7 @@ Gfx * constructor_menu12_mpstage(Gfx *DL)
         DL = gfxDrawTranslucentRect(DL, 0x25, 0x6c + (i_1 * 0x46), 0x185, 0xa0 + (i_1 * 0x46), 0x101010FF);
     }
 
-    DL = combiner_bayer_lod_perspective(DL);
+    DL = gfxRestore3DRenderMode(DL);
 
     gDPSetTextureFilter(DL++, G_TF_POINT);
 
@@ -6464,7 +6457,7 @@ Gfx *constructor_menu14_mpteams(Gfx *DL)
         }
     }
 
-    DL = combiner_bayer_lod_perspective(DL);
+    DL = gfxRestore3DRenderMode(DL);
 
     return DL;
 }

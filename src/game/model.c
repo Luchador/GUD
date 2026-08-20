@@ -2647,35 +2647,32 @@ void modelSetAnimLooping(Model *model, f32 loopframe, f32 loopmerge)
 }
 
 
-void modelSetAnimEndFrame(Model *model, f32 endframe) {
+void modelSetAnimEndFrame(Model *model, f32 endframe)
+{
     ModelAnimation *modelAnimation = model->anim;
 
-    if ((modelAnimation != NULL) && (endframe < (modelAnimation->unk04 - 1))) {
+    if ((modelAnimation != NULL) && (endframe < (modelAnimation->unk04 - 1)))
+    {
         model->endframe = endframe;
-    } else {
+    } 
+    else 
+    {
         model->endframe = -1.0f;
     }
-#ifdef DEBUG
-    // not too sure why debug wants to call this - must have some significance when most debug has been stripped from this file in XBLA
-    modelSetAnimFrame(model, (int)model->animframe1);
-#endif
 }
 
-void modelSetAnimFlipFunction(Model *model, void *callback) {
+
+void modelSetAnimFlipFunction(Model *model, void *callback)
+{
     model->animflipfunc = callback;
 }
 
 
-/**
- * Unused Function
-*/
-void sub_GAME_7F06FE44(Model *model, s32 arg1) {
-    model->unk9c = arg1;
-}
+void modelSetAnimSpeed(Model *model, f32 anim_speed, f32 startframe)
+{
 
-void modelSetAnimSpeed(Model *model, f32 anim_speed, f32 startframe) {
-
-    if (startframe > 0.0f) {
+    if (startframe > 0.0f)
+    {
         model->timespeed = startframe;
         model->newspeed = anim_speed;
         model->elapsespeed = 0.0f;
@@ -2687,13 +2684,7 @@ void modelSetAnimSpeed(Model *model, f32 anim_speed, f32 startframe) {
     model->timespeed = 0.0f;
 }
 
-/**
- * @param arg0:
- * @param arg1:
- * @param arg2: must be non-zero.
- *
- * Address 0x7F06FE90.
-*/
+
 void sub_GAME_7F06FE90(Model *model, f32 arg1, f32 arg2)
 {
     f32 temp_f0;
@@ -2715,7 +2706,9 @@ void sub_GAME_7F06FE90(Model *model, f32 arg1, f32 arg2)
     modelSetAnimSpeed(model, t, arg2);
 }
 
-void modelSetAnimPlaySpeed(Model *model, f32 animation_rate, f32 startframe) {
+
+void modelSetAnimPlaySpeed(Model *model, f32 animation_rate, f32 startframe)
+{
     if (startframe > 0.0f) {
         model->unkb0 = startframe;
         model->animrate = animation_rate;
@@ -2728,7 +2721,8 @@ void modelSetAnimPlaySpeed(Model *model, f32 animation_rate, f32 startframe) {
 }
 
 
-void sub_GAME_7F06FF5C(Model *model, s32 arg1) {
+void sub_GAME_7F06FF5C(Model *model, s32 arg1)
+{
     model->unka0 = arg1;
 }
 
@@ -2806,9 +2800,6 @@ void modelSetAnimFrame2(Model* model, f32 frame1, f32 frame2)
 }
 
 
-/**
- * Address 0x7F0701D4.
-*/
 void modelSetAnimMergingEnabled(s32 arg0)
 {
     g_ModelAnimMergingEnabled = arg0;

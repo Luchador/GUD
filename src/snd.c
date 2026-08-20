@@ -3,22 +3,11 @@
 #include <os_extension.h>
 #include "music.h"
 #include "snd.h"
-//likely named gslibaudio.c from xbla
-/**
- * EU .data, offset from start of data_seg : 0x3620
-*/
 
-/**
- * @file snd.c
- * This file contains code to deal with snd.
- */
 
 #define DEFAULT_SETUP_PITCH_SHIFT (-0x1770)
 
-/**
- * Based on \n64devkit\ultra\usr\src\pr\libsrc\libultra\audio\sndp.h
- * ALSndpEvent
- */
+
 typedef union ALSndpEvent_u {
 
     struct {

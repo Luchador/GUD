@@ -1047,7 +1047,7 @@ struct player
 
   s32 resetshadecol; // canonical name
 
-  // unused. Name comes from XBLA debug.
+  // unused.
   s32 aimtype;
 
   /**

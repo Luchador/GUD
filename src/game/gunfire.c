@@ -5955,7 +5955,7 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
 #endif
                     }
 
-                    gdl = combiner_bayer_lod_perspective(gdl);
+                    gdl = gfxRestore3DRenderMode(gdl);
                 }
             }
 
@@ -6021,7 +6021,7 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
 #endif
                     }
 
-                    gdl = combiner_bayer_lod_perspective(gdl);
+                    gdl = gfxRestore3DRenderMode(gdl);
                 }
             }
         }
@@ -6114,7 +6114,7 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
 #endif
             }
 
-            gdl = combiner_bayer_lod_perspective(gdl);
+            gdl = gfxRestore3DRenderMode(gdl);
         }
     }
 

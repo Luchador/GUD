@@ -218,7 +218,6 @@ void bossInitMainthreadData(void)
     langInit();
     lvInit();
     bossInit();
-    textInit();
     debmenuInit();
     default_player_perspective_and_height();
     store_osgetcount();
