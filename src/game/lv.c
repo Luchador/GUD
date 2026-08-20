@@ -777,10 +777,6 @@ void lvlSetMultipliersForDifficulty(void)
 
 
 /**
- * Address: 0x7F0BEB88 (NTSC).
- * Address: 0x7F0BF7AC (NTSC-J).
- * Address: 0x7F0BDFAC (PAL).
- * 
  * Per-frame game tick called once per frame from the main loop in boss.c 
  * Advances the clock variables the game runs on: g_ClockTimer, g_GlobalTimerDelta, g_GlobalTimer, and g_GlobalTickCount.
  * Updates characters, sky, bullet casings, bullet sparks, explosion debris.
