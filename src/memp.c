@@ -30,9 +30,6 @@ struct s_mempMVALS sdefaultmvals = {
     0,                 0   // MEMPOOL_END
 };
 
-void mempInit(void)
-{
-}
 
 const char *tokenFind(s32 arg0, const char *arg1);
 long int strtol(const char *str, char **endptr, int base);

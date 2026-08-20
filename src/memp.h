@@ -45,7 +45,6 @@ typedef enum MEMP_ADD_ENTRY_RESULT
     MEMP_ADD_ENTRY_NOT_LAST_ALLOCATION = 2
 } MEMP_ADD_ENTRY_RESULT;
 
-void mempInit(void);
 void mempCheckMemflagTokens(int bstart,int bsize);
 void mempSetBankStarts(s32 banks[8]);
 void *mempAllocBytesInBank(u32 bytes,u8 bank);

@@ -160,7 +160,6 @@ void bossInitMainthreadData(void)
     romCreateMesgQueue();
     tlbmanageEstablishManagementTable();
     image_entries_load();
-    mempInit();
     viInit();
     viInitVideoSettings();
     indycommInit();
