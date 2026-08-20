@@ -77,44 +77,7 @@ s32 g_DebugMenuCurrentColorIndex = 0;
 #define ANSI_COLOR_CODE_BG_CYAN    "\x1B[46m"
 #define ANSI_COLOR_CODE_BG_WHITE   "\x1B[47m"
 
-const char *g_DebugMenuUnusedStrings[] = {
-    ANSI_COLOR_CODE_FG_RED     ANSI_COLOR_CODE_BG_BLACK,
-    ANSI_COLOR_CODE_FG_WHITE   ANSI_COLOR_CODE_BG_BLACK,
-    ANSI_COLOR_CODE_FG_GREEN   ANSI_COLOR_CODE_BG_BLACK,
-    ANSI_COLOR_CODE_FG_YELLOW  ANSI_COLOR_CODE_BG_BLACK,
-    ANSI_COLOR_CODE_FG_BLUE    ANSI_COLOR_CODE_BG_BLACK,
-    ANSI_COLOR_CODE_FG_MAGENTA ANSI_COLOR_CODE_BG_BLACK,
-    ANSI_COLOR_CODE_FG_CYAN    ANSI_COLOR_CODE_BG_BLACK,
 
-    ANSI_COLOR_CODE_FG_WHITE   ANSI_COLOR_CODE_BG_BLUE,
-    ANSI_COLOR_CODE_FG_RED     ANSI_COLOR_CODE_BG_BLUE,
-    ANSI_COLOR_CODE_FG_GREEN   ANSI_COLOR_CODE_BG_BLUE,
-    ANSI_COLOR_CODE_FG_YELLOW  ANSI_COLOR_CODE_BG_BLUE,
-    ANSI_COLOR_CODE_FG_BLACK   ANSI_COLOR_CODE_BG_BLUE,
-    ANSI_COLOR_CODE_FG_MAGENTA ANSI_COLOR_CODE_BG_BLUE,
-    ANSI_COLOR_CODE_FG_CYAN    ANSI_COLOR_CODE_BG_BLUE,
-
-    ANSI_COLOR_CODE_FG_WHITE   ANSI_COLOR_CODE_BG_RED,
-    ANSI_COLOR_CODE_FG_BLACK   ANSI_COLOR_CODE_BG_RED,
-    ANSI_COLOR_CODE_FG_GREEN   ANSI_COLOR_CODE_BG_RED,
-    ANSI_COLOR_CODE_FG_YELLOW  ANSI_COLOR_CODE_BG_RED,
-    ANSI_COLOR_CODE_FG_BLUE    ANSI_COLOR_CODE_BG_RED,
-    ANSI_COLOR_CODE_FG_MAGENTA ANSI_COLOR_CODE_BG_RED,
-    ANSI_COLOR_CODE_FG_CYAN    ANSI_COLOR_CODE_BG_RED,
-
-    ANSI_COLOR_CODE_FG_WHITE   ANSI_COLOR_CODE_BG_MAGENTA,
-    ANSI_COLOR_CODE_FG_RED     ANSI_COLOR_CODE_BG_MAGENTA,
-    ANSI_COLOR_CODE_FG_GREEN   ANSI_COLOR_CODE_BG_MAGENTA,
-    ANSI_COLOR_CODE_FG_YELLOW  ANSI_COLOR_CODE_BG_MAGENTA,
-    ANSI_COLOR_CODE_FG_BLUE    ANSI_COLOR_CODE_BG_MAGENTA,
-    ANSI_COLOR_CODE_FG_BLACK   ANSI_COLOR_CODE_BG_MAGENTA,
-    ANSI_COLOR_CODE_FG_CYAN    ANSI_COLOR_CODE_BG_MAGENTA,
-
-    ANSI_COLOR_CODE_FG_WHITE   ANSI_COLOR_CODE_BG_GREEN,
-    ANSI_COLOR_CODE_FG_RED     ANSI_COLOR_CODE_BG_GREEN,
-    ANSI_COLOR_CODE_FG_BLACK   ANSI_COLOR_CODE_BG_GREEN,
-    ANSI_COLOR_CODE_FG_YELLOW  ANSI_COLOR_CODE_BG_GREEN
-};
 Gfx g_DebugMenuEndDisplayList = gsSPEndDisplayList();
 Gfx g_DebugMenuNoOp = gsDPNoOp();
 Gfx g_DebugMenuPrimitiveColor = gsDPSetPrimColor(0, 0, 255, 255, 255, 0);
@@ -122,47 +85,6 @@ Gfx g_DebugMenuEnvironmentColor = gsDPSetEnvColor(0, 0, 0, 0);
 u32 g_DebugMenuPercentage = 0xFF; // Static?
 #endif
 
-/**
- * Removed
- */
-#ifdef LEFTOVERDEBUG
-u32 debmenu7000AD80(s32 arg0, s32 arg1) {
-    // Removed
-    return 0;
-}
-#endif
-
-/**
- * Removed
- */
-#ifdef LEFTOVERDEBUG
-u32 debmenu7000AD90(s32 arg0, s32 arg1) {
-    // Removed
-    return 0;
-}
-#endif
-
-/**
- * Removed
- */
-#ifdef LEFTOVERDEBUG
-void debmenu7000ADA0(void) {
-    // Removed
-}
-#endif
-
-/**
- * Address: 0x7000ADA8
- */
-void debmenuInit(void) {
-    // Removed or just blank?
-}
-
-void debmenuRefresh(void) {
-    #ifdef LEFTOVERDEBUG
-    debmenuResetBuffer();
-    #endif
-}
 
 #ifdef LEFTOVERDEBUG
 void debmenuWriteCharAtPos(s32 x, s32 y, unsigned char c) {
@@ -187,21 +109,6 @@ void debmenuResetPosition(void) {
     #ifdef LEFTOVERDEBUG
     g_DebugMenuTextCurrentX = g_DebugMenuTextStartX;
     g_DebugMenuTextCurrentY = g_DebugMenuTextStartY;
-    #endif
-}
-
-void debmenuResetBuffer(void) {
-    #ifdef LEFTOVERDEBUG
-    s32 x;
-    s32 y;
-    for (y = 0; y < 35; y++) {
-        for (x = 0; x < 80; x++) {
-            debmenuWriteCharAtPos(x, y, '\0');
-        }
-    }
-    debmenuResetPosition();
-    debmenu7000ADA0();
-    g_DebugMenuCurrentColorIndex = 0;
     #endif
 }
 

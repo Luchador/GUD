@@ -212,7 +212,6 @@ void bossInitMainthreadData(void)
     langInit();
     lvInit();
     bossInit();
-    debmenuInit();
     default_player_perspective_and_height();
     store_osgetcount();
     null_init_main_1();
@@ -415,7 +414,6 @@ void bossMainloop(void)
         joyCheckStatusThreadSafe();
         lvlStageLoad(g_StageNum);
         viInitBuffers();
-        debmenuRefresh();
         waitForNextFrame();
 
         while (g_MainStageNum < 0 || pendingGfx != 0)
