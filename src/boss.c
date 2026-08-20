@@ -430,17 +430,6 @@ void bossMainloop(void)
         waitForNextFrame();
         speedgraphMarkerCommit();
 
-        if(1); // regalloc
-        if(1);
-
-        while (osRecvMesg(&gfxFrameMsgQ, (OSMesg *)&localGfxFrameMsg, OS_MESG_NOBLOCK) == 0)
-        {
-           // empty
-        }
-
-        if(1); // regalloc
-        if(1);
-
         while (g_MainStageNum < 0 || pendingGfx != 0)
         {
             osRecvMesg(&gfxFrameMsgQ, (OSMesg *)&localGfxFrameMsg, OS_MESG_BLOCK);
@@ -449,14 +438,8 @@ void bossMainloop(void)
             {
                 case (OS_SC_RETRACE_MSG):
                 {
-#ifdef DEBUG
-    /* debug logging from simple.c, I think this requires #include <ultralog.h>
-    * //    if (logging)
-    * //        osLogEvent(log, LOG_RETRACE, 1, pendingGfx);
-    */
-#endif
-
                     mainTickElapsed = (u32) (osGetCount() - copy_of_osgetcount_value_1);
+
                     if (mainTickElapsed < MAIN_LOOP_TICK_INTERVAL)
                     {
                         // nothing to do.
