@@ -19,10 +19,6 @@
 #include "assets/obseg/text/LmiscE.h"
 #include "model.h"
 
-//#include "chraicommands.h" /* needed for ai list commands, remove when moving global ai lists to chraicommands/chrai */
-// bss
-
-
 u8 g_CheatPlayerTextRelated[CHEAT_INVALID + 1];
 
 #pragma region ButtonCodes
@@ -687,9 +683,6 @@ u16 mBtnCheatShowRoomPosDisplay[] = {
 
 #pragma endregion
 
-/**
- * Address 0x8003F80C.
- */
 CheatInfo g_CheatInfo[] = {
     {          CHEAT_EXTRA_MP_CHARS,  0xA, 0, 0, mBtnCheatExtraMPChars,                                                        0, 0,  /* 0x31 */                     CHEAT_MASK_GLOBAL | CHEAT_MASK_SHOW_TEXT | CHEAT_MASK_MENUS},
     {           CHEAT_INVINCIBILITY,  0xA, 0, 0, mBtnCheatInvincibility,       getStringID(LMISC, MISC_STR_00_INVINCIBLE       ), 0,  /* 0x06 */                                                         CHEAT_MASK_MPGAME | CHEAT_MASK_SPGAME},
@@ -771,11 +764,7 @@ CheatInfo g_CheatInfo[] = {
 };
 
 
-
-// rodata
-
 // forward declarations
-// Private Functions?
 
 s32 cheatButtonCountBitsSet(u16 bits);
 void cheatTryActivateFromInputBuffer(void);
@@ -787,11 +776,6 @@ void cheatButtonSetDkMode(CHEAT_ID cheat_id);
 // end forward declarations
 
 
-
-
-/**
- * Address 0x7F091740.
- */
 s32 cheatButtonCountBitsSet(u16 bits)
 {
     s32 count;
@@ -808,12 +792,6 @@ s32 cheatButtonCountBitsSet(u16 bits)
 }
 
 
-
-
-
-/**
- * Address 0x7F09177C.
- */
 void cheatTryActivateFromInputBuffer(void)
 {
     CheatInfo *cheatInfo = &g_CheatInfo[0];
@@ -876,9 +854,6 @@ void cheatTryActivateFromInputBuffer(void)
 }
 
 
-/**
- * Address 0x7F09193C.
- */
 void cheatButtonSampleInput(void)
 {
     u16 currentButtons;
@@ -919,29 +894,22 @@ void cheatButtonSampleInput(void)
 }
 
 
-
 /**
- * true if param is CHEAT_ENEMY_ROCKETS
- *
- * Address 7F091A5C.
+ * True if param is CHEAT_ENEMY_ROCKETS.
  */
 bool cheatIsEnemyRockets(CHEAT_ID id)
 {
-    if (id == CHEAT_ENEMY_ROCKETS) {
+    if (id == CHEAT_ENEMY_ROCKETS) 
+    {
         return TRUE;
     }
+
     return FALSE;
 }
 
 
-
-
-
-
 /**
- * true if param is MP cheat
- *
- * Address 0x7F091A78.
+ * True if param is MP cheat.
  */
 bool cheatCheckIfMPCheat(CHEAT_ID cheat_id)
 {
@@ -954,11 +922,6 @@ bool cheatCheckIfMPCheat(CHEAT_ID cheat_id)
 }
 
 
-
-
-/**
- * Address 0x7F091AAC.
- */
 void cheatButtonTurnOnCheatForPlayers(CHEAT_ID cheatindex)
 {
     u32 cheat_mask;
@@ -999,12 +962,6 @@ void cheatButtonTurnOnCheatForPlayers(CHEAT_ID cheatindex)
 }
 
 
-
-/**
- * Address 0x7F091B64 (VERSION_US)
- * Address 0x7F092644 (VERSION_JP)
- * Address 0x7F090FE4 (VERSION_EU)
- */
 void cheatButtonHandleCheatsTurnedOn(CHEAT_ID cheat_id)
 {
     s32 mask;
@@ -1106,12 +1063,6 @@ void cheatButtonHandleCheatsTurnedOn(CHEAT_ID cheat_id)
             if ((g_CurrentPlayer->actual_armor == 1.0f) || (g_CurrentPlayer->bondarmour < 1.0f))
             {
                 HUDMESSAGEBOTTOM((char *)langGet(getStringID(LMISC, MISC_STR_13_SUPER2XARMOUR_LF)));
-#if defined(BUGFIX_R1)
-                if(TRUE)
-                {
-                    // removed
-                }
-#endif
                 g_CurrentPlayer->bondarmour = 1.0f;
                 g_CurrentPlayer->actual_armor = 2.0f;
             }
@@ -1183,12 +1134,6 @@ void cheatButtonHandleCheatsTurnedOn(CHEAT_ID cheat_id)
             if ((g_CurrentPlayer->actual_health == 1.0f) || (g_CurrentPlayer->bondhealth < 1.0f))
             {
                 HUDMESSAGEBOTTOM((char *)langGet(getStringID(LMISC, MISC_STR_1B_SUPER10XHEALTH_LF)));
-#if defined(BUGFIX_R1)
-                if(TRUE)
-                {
-                    // removed
-                }
-#endif
                 g_CurrentPlayer->bondhealth = 1.0f;
                 g_CurrentPlayer->actual_health = 10.0f;
                 return;
@@ -1438,18 +1383,11 @@ void cheatButtonHandleCheatsTurnedOn(CHEAT_ID cheat_id)
             return;
 
         default:
-            #ifdef DEBUG
-            osSyncPrintf("Dodgy Cheat Number\n");
-            #endif
             return;
     }
 }
 
 
-
-/**
- * Address 0x7F092438 (all versions)
- */
 void cheatButtonHandleCheatsTurnedOff(CHEAT_ID cheat_id)
 {
     s32 mask;
@@ -1551,7 +1489,6 @@ void cheatButtonHandleCheatsTurnedOff(CHEAT_ID cheat_id)
             }
             return;
 
-
         case CHEAT_EXTRA_MP_CHARS:
         case CHEAT_MAXAMMO:
         case CHEAT_DEBUG_UNK5:
@@ -1617,21 +1554,12 @@ void cheatButtonHandleCheatsTurnedOff(CHEAT_ID cheat_id)
         case CHEAT_UNLOCK_EGYPT:
 
         default:
-#ifdef DEBUG
-            osSyncPrintf("Dodgy Cheat Number\n");
-#endif
-
         break;
     }
 
 }
 
 
-
-
-/**
- * Address 0x7F0926C0.
- */
 void cheatDisableAllCheats(void)
 {
     s32 numplayers;
@@ -1659,12 +1587,6 @@ void cheatDisableAllCheats(void)
 }
 
 
-
-
-
-/**
- * Address 0x7F092774.
- */
 char *cheatGetMenuTextPointer(CHEAT_ID cheat_id)
 {
     u16 strID;
@@ -1680,21 +1602,12 @@ char *cheatGetMenuTextPointer(CHEAT_ID cheat_id)
 }
 
 
-
-/**
- * Address 0x7F0927BC.
- */
 bool cheatIsActive(CHEAT_ID cheat)
 {
     return ((bool) (u8) g_CheatPlayerTextRelated[cheat] >> get_cur_playernum()) & 1;
 }
 
 
-
-
-/**
- * Address 0x7F0927F4.
- */
 void cheatButtonSetDkMode(CHEAT_ID cheat_id)
 {
     s32 numslots;
@@ -1732,19 +1645,3 @@ void cheatButtonSetDkMode(CHEAT_ID cheat_id)
 #endif
     }
 }
-#ifdef DEBUG
-void cheatResetText()
-{
-    int i;
-    for (i = 0; i < CHEAT_MAX; i++)
-    {
-        g_CheatPlayerTextRelated[i] = 0;
-    }
-}
-
-void cheatResetPlayerDisplay()
-{
-    g_CurrentPlayer->count_of_something     = 0;
-    g_CurrentPlayer->can_display_cheat_text = 0;
-}
-#endif
