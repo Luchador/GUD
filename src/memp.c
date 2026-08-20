@@ -159,8 +159,6 @@ void *mempAllocBytesInBank(u32 bytes, u8 poolnum)
 
     if (pool->pos > pool->end)
     {
-        nulled_mempLoopAllMemBanks();
-
         while (1);
     }
 
@@ -183,8 +181,6 @@ void *mempAllocBytesInBank(u32 bytes, u8 poolnum)
 
             return mempAllocBytesInBank(bytes, MEMPOOL_PERMANENT);
         }
-
-        nulled_mempLoopAllMemBanks();
 
         while (1);
     }
@@ -236,13 +232,11 @@ MEMP_ADD_ENTRY_RESULT mempAddEntryOfSizeToBank(void *allocation, s32 newsize, u8
 
     if (pool->pos > pool->end)
     {
-        nulled_mempLoopAllMemBanks();
         while (TRUE);
     }
 
     if (pool->pos + growsize > pool->end)
     {
-        nulled_mempLoopAllMemBanks();
         while (TRUE);
     }
 
@@ -250,14 +244,9 @@ MEMP_ADD_ENTRY_RESULT mempAddEntryOfSizeToBank(void *allocation, s32 newsize, u8
     return MEMP_ADD_ENTRY_SUCCESS;
 }
 
-void nulled_mempLoopAllMemBanks(void) {
-    u8 bank;
-    for (bank = MEMPOOL_MF; bank < MEMPOOL_COUNT; bank++)
-    {
-    }
-}
 
-s32 mempGetBankSizeLeft(u8 bank) {
+s32 mempGetBankSizeLeft(u8 bank)
+{
     if (needmemallocation) {
         bank = MEMPOOL_PERMANENT;
     }
@@ -280,9 +269,10 @@ void mempResetBank(u8 bank) {
     g_mempPools[bank].pos = g_mempPools[bank].start;
 }
 
-void mempNullNextEntryInBank(u8 bank) {
-    nulled_mempLoopAllMemBanks();
-    if (g_mempPools[bank].pos != 0) {
+void mempNullNextEntryInBank(u8 bank)
+{
+    if (g_mempPools[bank].pos != 0)
+    {
         g_mempPools[bank].pos = 0;
     }
 }

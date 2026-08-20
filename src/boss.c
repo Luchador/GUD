@@ -560,7 +560,6 @@ void bossMainloop(void)
 
                             if (g_ShowMemUseFlag)
                             {
-                                nulled_mempLoopAllMemBanks();
                                 memaDumpPrePostMerge();
                                 dynRemovedFunc(gdl);
                                 nullsub_41(0);
