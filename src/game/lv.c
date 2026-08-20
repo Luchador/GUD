@@ -529,19 +529,14 @@ Gfx* lvlRender(Gfx* DL)
 
             if (get_debug_stan_problems_flag())
             {
-                DL = sub_GAME_7F0B303C(DL);
             }
 
             if (get_debug_stanhit_flag())
             {
-                DL = sub_GAME_7F0B3034(DL);
-                DL = write_stan_tiles_in_yellow(DL);
             }
 
             if (get_debug_stanregion_flag())
             {
-                DL = sub_GAME_7F0B3034(DL);
-                DL = sub_GAME_7F0B312C(DL, -0x7FC0);
             }
 
             if (tokenFind(1, "-stanshow_"))
@@ -549,8 +544,6 @@ Gfx* lvlRender(Gfx* DL)
                 StandTilePoint *tile1 = stanMatchTileName(tokenFind(1, "-stanshow_"));
                 if (tile1)
                 {
-                    DL = sub_GAME_7F0B3034(DL);
-                    DL = sub_GAME_7F0B3024(DL, tile1, 0xFF0000FF);
                 }
             }
 
@@ -559,18 +552,15 @@ Gfx* lvlRender(Gfx* DL)
                 StandTilePoint *tile2 = stanMatchTileName(tokenFind(2, "-stanshow_"));
                 if (tile2)
                 {
-                    DL = sub_GAME_7F0B3034(DL);
-                    DL = sub_GAME_7F0B3024(DL, tile2, 0xFF00FF);
                 }
             }
 
             if (tokenFind(3, "-stanshow_"))
             {
                 StandTilePoint *tile3 = stanMatchTileName(tokenFind(3, "-stanshow_"));
+
                 if (tile3)
                 {
-                    DL = sub_GAME_7F0B3034(DL);
-                    DL = sub_GAME_7F0B3024(DL, tile3, 0xFFFF);
                 }
             }
 
@@ -1003,12 +993,10 @@ void lvlTick(void)
             {
                 if (joyGetButtonsPressedThisFrame(PLAYER_1, L_CBUTTONS))
                 {
-                    sub_GAME_7F0AF630(-1);
                 }
 
                 if (joyGetButtonsPressedThisFrame(PLAYER_1, R_CBUTTONS))
                 {
-                    sub_GAME_7F0AF630(1);
                 }
             }
             break;

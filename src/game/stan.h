@@ -68,12 +68,7 @@ void noteTileRoomIfDifferentToPrev( StandTile *tile,  StandTile *unused,  struct
 
 void stanInit(void);
 void setLevelScale(f32 ls);
-void sub_GAME_7F0AF630(s32 arg0);
 void stanResetHits(void);
-Gfx * sub_GAME_7F0B303C(Gfx *arg0);
-Gfx * sub_GAME_7F0B3034(Gfx *arg0);
-Gfx * sub_GAME_7F0B312C(Gfx *arg0, s32 arg1);
-Gfx * sub_GAME_7F0B3024(Gfx *ptrdl, StandTilePoint *tile_point, u32 RGBAColor);
 s32 walkTilesBetweenPoints_NoCallback(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_x, f32 dest_z);
 s32 stanTestPointWithinTileBoundsMaybe(StandTile *tile, f32 p_x, f32 p_z);
 f32 stanGetPositionYValue(StandTile* tile, f32 p_x, f32 p_z);

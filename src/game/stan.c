@@ -417,36 +417,6 @@ void stanLoadFile(struct StanPrefixRecord *file)
 }
 
 
-//stanRegion()
-void sub_GAME_7F0AF630(s32 arg0)
-{
-#ifdef DEBUG
-    StandTile **rooms;
-
-    rooms = &stan_prefix->ptr_firstroom;
-
-    if (arg0 < 0)
-    {
-        if (rooms[m_stanRegion - 1] != NULL)
-        {
-            m_stanRegion--;
-        }
-    }
-    else if (arg0 == 0)
-    {
-        m_stanRegion = 1;
-    }
-    else if (rooms[m_stanRegion] != NULL)
-    {
-        m_stanRegion++;
-    }
-
-    osSyncPrintf("stanRegion():  region=%d", m_stanRegion);
-#endif
-    return;
-}
-
-
 /**
  * Returns true if x/z coords from the three point indices out of tile->tail.half are colinear i.e. the triangle has zero horizontal area.
  */
@@ -2720,28 +2690,4 @@ void stanDetermineEOF(struct StanPrefixRecord *file /* canonically r */, s32 ori
 s32 getTileRoom(StandTile *tile)
 {
     return tile->room;
-}
-
-
-Gfx * sub_GAME_7F0B3024(Gfx *ptrdl, StandTilePoint *tile_point, u32 RGBAColor)
-{
-    return ptrdl;
-}
-
-
-Gfx * sub_GAME_7F0B3034(Gfx *arg0)
-{
-    return arg0;
-}
-
-
-Gfx * sub_GAME_7F0B303C(Gfx * arg0)
-{
-    return arg0;
-}
-
-
-Gfx * sub_GAME_7F0B312C(Gfx *arg0, s32 arg1)
-{
-    return arg0;
 }

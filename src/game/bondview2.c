@@ -9013,28 +9013,6 @@ Gfx *maybe_mp_interface(Gfx *gdl)
 }
 
 
-
-
-
-/**
- * Address 0x7F0896C0.
- */
-Gfx *write_stan_tiles_in_yellow(Gfx *gdl)
-{
-    if (dword_CODE_bss_80079DA0 != NULL)
-    {
-        gdl = sub_GAME_7F0B3024(gdl, dword_CODE_bss_80079DA0, 0xFF00FF80U);
-    }
-
-    if (dword_CODE_bss_80079DA4 != NULL)
-    {
-        gdl = sub_GAME_7F0B3024(gdl, dword_CODE_bss_80079DA4, 0xFF00FF80U);
-    }
-
-    return gdl;
-}
-
-
 void sub_GAME_7F089718(f32 arg0)
 {
     f32 scalar;
