@@ -1,14 +1,12 @@
 #include <ultra64.h>
 #include <PR/os.h>
+#include <bondconstants.h>
 #include "sched.h"
 #include "audi.h"
 #include "thread_config.h"
 #include "bondgame.h"
 #include "speed_graph.h"
 
-/**
- * EU .data, offset from start of data_seg : 0x23A0
-*/
 
 /**
  * @file audi.c
@@ -17,16 +15,6 @@
 
 // 0x5622 = 22050
 #define OUTPUT_RATE                    0x5622
-
-#ifdef REFRESH_PAL
-/* PAL */
-#define MAYBE_FRAME_RATE                   50
-#else
-/* NTSC */
-#define MAYBE_FRAME_RATE                   60
-#endif
-
-
 #define FRAMES_PER_FIELD_AS_POW2            1
 #define AUDIO_FRAME_MESSAGE_QUEUE_SIZE      8
 #define AUDIO_REPLY_MESSAGE_QUEUE_SIZE      8
@@ -339,7 +327,7 @@ void amCreateAudioManager(ALSynConfig* alconf)
     alconf->dmaproc = &amDmaNew;
     alconf->outputRate = osAiSetFrequency(OUTPUT_RATE);
 
-    fsize = (f32) ((alconf->outputRate << FRAMES_PER_FIELD_AS_POW2) / (f32)MAYBE_FRAME_RATE);
+    fsize = (f32) ((alconf->outputRate << FRAMES_PER_FIELD_AS_POW2) / (f32)VI_REFRESH_RATE);
 
     g_FrameSize = (u32) fsize;
 

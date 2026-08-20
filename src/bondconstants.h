@@ -4596,6 +4596,8 @@ typedef enum PROJECTILES
 #define PAD_PRESET1          9000 /* stored as chr->padpreset1 */
 
 #define GAME_TICKRATE            60
+#define VI_REFRESH_RATE          60
+#define VI_REFRESH_RATE_F        60.0f
 #define OBJECTIVES_MAX           10
 #define MAX_CHRWAYPOINTS         6
 #define MAX_WAYMODE              ((s32)WAYMODE_MAGIC)

@@ -2725,7 +2725,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 {
                     AiIFMissionTimeLessThanRecord *ai     = AiListp + Offset;
                     f32                            target = ntohs(ai->SECONDS);
-                    if (target > lvlGetCurrentMultiPlayerSec())
+                    if (target > lvlGetStageElapsedSeconds())
                     {
                         Offset = chraiGoToLabel(AiListp, Offset, ai->GOTOLABEL);
                     }
@@ -2739,7 +2739,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 {
                     AiIFMissionTimeGreaterThanRecord *ai     = AiListp + Offset;
                     f32                               target = ntohs(ai->SECONDS);
-                    if (target < lvlGetCurrentMultiPlayerSec())
+                    if (target < lvlGetStageElapsedSeconds())
                     {
                         Offset = chraiGoToLabel(AiListp, Offset, ai->GOTOLABEL);
                     }
@@ -2753,7 +2753,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 {
                     AiIFSystemPowerTimeLessThanRecord *ai     = AiListp + Offset;
                     f32                                target = ntohs(ai->MINUTES) * CHRAI_TICKRATE_F;
-                    if (target > lvlGetCurrentMultiPlayerMin())
+                    if (target > lvlGetSystemPowerTimeSeconds())
                     {
                         Offset = chraiGoToLabel(AiListp, Offset, ai->GOTOLABEL);
                     }
@@ -2767,7 +2767,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 {
                     AiIFSystemPowerTimeGreaterThanRecord *ai     = AiListp + Offset;
                     f32                                   target = ntohs(ai->MINUTES) * CHRAI_TICKRATE_F;
-                    if (target < lvlGetCurrentMultiPlayerMin())
+                    if (target < lvlGetSystemPowerTimeSeconds())
                     {
                         Offset = chraiGoToLabel(AiListp, Offset, ai->GOTOLABEL);
                     }

@@ -81,7 +81,7 @@ void updateFrameCounters(s32 deltaFrames)
  * Waits until the appropriate time has passed before updating the frame counters.
  * This function effectively controls the frame rate by waiting for the next tick.
  */
-void waitForNextFrame(void) //maybe WaitForTick
+void waitForNextFrame(void)
 {
   u32 nextFrameTime; //next frame time?
   

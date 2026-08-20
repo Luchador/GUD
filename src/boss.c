@@ -544,6 +544,8 @@ void bossMainloop(void)
                                 gdl = debugmenuRender(gdl);
                             }
 
+                            gdl = lvlDrawFrameRateDisplay(gdl);
+                            
                             gDPFullSync(gdl++);
                             gSPEndDisplayList(gdl++);
 

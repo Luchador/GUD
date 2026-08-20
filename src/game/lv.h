@@ -58,21 +58,21 @@ extern f32 g_JP_GlobalTimerDelta;
 
 void lvInit(void);
 Gfx * lvlRender(Gfx *);
-void lvlSetSelectedDifficulty(DIFFICULTY arg0);
+void lvlSetSelectedDifficulty(DIFFICULTY diff);
 void lvlTick(void);
 void lvlViewMoveTick(void);
 void lvlUnloadStageTextData(void);
 DIFFICULTY lvlGetSelectedDifficulty(void);
 void lvlStageLoad(s32 stage);
-
 void lvlSetMpTime(s32 arg0);
 void lvlSetMpPoint(s32 arg0);
 void lvlSetControlsLockedFlag(s32 arg0);
 s32 lvlGetControlsLockedFlag(void);
 void lvlSetMultipliersForDifficulty(void);
 s32 lvlGetCurrentStageToLoad(void);
-s32        sub_GAME_7F0BD8F0(void);
-f32        lvlGetCurrentMultiPlayerSec(void);
-f32        lvlGetCurrentMultiPlayerMin(void);
+s32 sub_GAME_7F0BD8F0(void);
+f32 lvlGetStageElapsedSeconds(void);
+f32 lvlGetSystemPowerTimeSeconds(void);
+Gfx *lvlDrawFrameRateDisplay(Gfx *gdl);
 
 #endif

@@ -74,27 +74,19 @@ s32 g_ClockTimer = 0;
 
 
 #if defined (BUGFIX_R1)
-// addresses updated, per build\ge007.j.map
-// 800483a8
 f32 g_JP_GlobalTimerDelta = 0;
-// 800483ac
 s32 g_GlobalTimer = 0;
-// 800483b0
 s32 g_GlobalTickCount = 0;
-// 800483b4
 f32 g_GlobalTimerDelta = 0;
 #else
-//D:80048378
 f32 g_GlobalTimerDelta = 0;
 
-//D:8004837C
 /**
  * Accumulated video field periods since stage load i.e. 60/s on NTSC and 50/s on PAL. This remains true no
  * matter how badly the frame rate dips. Freezes while the game is paused or controls are locked.
  */
 s32 g_GlobalTimer = 0;
 
-//D:80048380
 /**
  * Set to 0 on stage load, increments by one tick per rendered *frame*. This means the rate it increases depends on the frame rate.
  */
@@ -104,69 +96,41 @@ s32 g_GlobalTickCount = 0;
 #endif
 /*
 * Selected difficulty mode.
-* 0x80048384
 */
 s32 g_SelectedDifficulty = DIFFICULTY_AGENT;
 
-//D:80048388
-s32 D_80048388 = 0;
-//D:8004838C
-s32 D_8004838C = 0;
-//D:80048390
-s32 D_80048390 = 0;
-//D:80048394
-s32 D_80048394 = 0;
 
 /**
- * Address 0x80048398.
+ * Elapsed stage time in VI-rate ticks (60/s)
+ * Resets on stage load; accumulates g_ClockTimer once per frame in lvTick.
+ * Used for determining end of timed MP matches.
  */
+s32 g_StageElapsedTicks = 0;
+
 s32 g_MpTime = 0x8CA0;
-
-/**
- * Address 0x8004839C.
- */
 s32 g_MpPoint = 0xA;
-
-/**
- * Address 0x800483A0.
- */
 ALSoundState * g_MpSoundStateRelated = NULL;
 
 /**
- * Address 0x800483A4.
+ * Elapsed stage time in seconds (ticks / VI refresh rate). Reset on stage load.
+ * Read by Action Block commands AI_IFMissionTimeLess/GreaterThan
  */
-f32 g_CurrentMultiPlayerSec = 0.0;
-
-//D:800483A8
-s32 D_800483A8 = 0;
+f32 g_StageElapsedSeconds = 0.0;
 
 /**
- * Address 0x800483AC.
+ * VI-rate ticks since boot. Unlike the stage clock this is never reset between stage loads.
  */
-f32 g_CurrentMultiPlayerMin = 0.0;
-
-//D:800483B0
-s32 D_800483B0 = 0;
+s32 g_SystemPowerTimeTicks = 0;
 
 /**
- * Address 0x800483B4.
+ * Number of seconds since the system has powered up.
  */
-f32 g_StageTimeSec = 0;
+f32 g_SystemPowerTimeSeconds = 0.0;
 
-//D:800483B8
-s32 D_800483B8 = 0;
-
-/**
- * Power on time in seconds.
- * Address 0x800483BC.
- */
-f32 g_PowerOnTimeSec = 0;
 
 /**
  * Debug variable, seems to track whether user input has changed since
  * the last time the method was entered.
- *
- * Addres 0x800483C0.
  */
 s32 D_800483C0 = 1;
 
@@ -307,13 +271,8 @@ void lvlStageLoad(s32 stage)
     g_GlobalTimerDelta = 1.20000004768f;
 #endif
 
-    D_80048388 = 0;
-    D_8004838C = 0;
-    D_80048390 = 0;
-    D_80048394 = 0;
-    g_CurrentMultiPlayerSec = 0.0f;
-    D_800483B0 = 0;
-    g_StageTimeSec = 0.0f;
+    g_StageElapsedTicks = 0;
+    g_StageElapsedSeconds = 0.0f;
     g_MpSoundStateRelated = 0;
 
     sndSetScalerApplyVolumeAllSfxSlot(1.0f);
@@ -349,7 +308,7 @@ void lvlStageLoad(s32 stage)
     {
         g_NewCheatUnlocked = 0;
 
-        if ((g_CurrentStageToLoad != LEVELID_TITLE) && (D_80048394 == 0) && (g_ClockTimer > 0))
+        if ((g_CurrentStageToLoad != LEVELID_TITLE) && (g_StageElapsedTicks == 0) && (g_ClockTimer > 0))
         {
             if (g_AppendCheatSinglePlayer != 0)
             {
@@ -570,6 +529,7 @@ Gfx* lvlRender(Gfx* DL)
             }
 
             propsTickPlayer();
+
             DL = bgLevelRender(DL);
 
             if (get_debug_stan_problems_flag())
@@ -813,7 +773,9 @@ void lvlTick(void)
 #endif
     g_GlobalTimer += g_ClockTimer;
 
-    if ((g_CurrentStageToLoad != LEVELID_TITLE) && (D_80048394 == 0) && (g_ClockTimer > 0))
+    osSyncPrintf("value: %d \n", g_StageElapsedTicks);
+
+    if ((g_CurrentStageToLoad != LEVELID_TITLE) && (g_StageElapsedTicks == 0) && (g_ClockTimer > 0))
     {
         if (g_AppendCheatSinglePlayer != 0)
         {
@@ -862,32 +824,20 @@ void lvlTick(void)
             s32 current_time;
             s32 sp180;
             s32 i;
-            current_time = D_80048394;
-            sp180 = g_ClockTimer + D_80048394;
+            current_time = g_StageElapsedTicks;
+            sp180 = g_ClockTimer + g_StageElapsedTicks;
 
-#ifdef VERSION_EU
-            if ((D_80048394 < (g_MpTime - 0xBB8)) && (sp180 >= (g_MpTime - 0xBB8)))
-#else
-            if ((D_80048394 < (g_MpTime - 0xE10)) && (sp180 >= (g_MpTime - 0xE10)))
-#endif
+            if ((g_StageElapsedTicks < (g_MpTime - 3600)) && (sp180 >= (g_MpTime - 3600)))
             {
                 for (i = 0; i < getPlayerCount(); i++)
                 {
                     set_cur_player(i);
-#ifdef VERSION_US
                     HUDMESSAGEBOTTOM("One minute left");
-#else
-                    HUDMESSAGEBOTTOM(langGet(0xB044));
-#endif
                 }
             }
 
             // sound alarm when game is about to end (10 seconds before end)
-#ifdef VERSION_EU
-            if ((sp180 >= (g_MpTime - 0x1F4)) && (g_MpSoundStateRelated == 0) && (lvlGetControlsLockedFlag() == 0))
-#else
-            if ((sp180 >= (g_MpTime - 0x258)) && (g_MpSoundStateRelated == 0) && (lvlGetControlsLockedFlag() == 0))
-#endif
+            if ((sp180 >= (g_MpTime - 600)) && (g_MpSoundStateRelated == 0) && (lvlGetControlsLockedFlag() == 0))
             {
                 sndPlaySfx(g_musicSfxBufferPtr, ALARM1_SFX, &g_MpSoundStateRelated);
             }
@@ -1014,57 +964,10 @@ void lvlTick(void)
         }
     }
 
-    D_80048394 = D_80048394 + g_ClockTimer;
-#ifdef VERSION_EU
-    g_CurrentMultiPlayerSec = (f32) (D_80048394) / 50.0f;
-#else
-    g_CurrentMultiPlayerSec = (f32) (D_80048394) / 60.0f;
-#endif
-    D_800483A8 = D_800483A8 + g_ClockTimer;
-#ifdef VERSION_EU
-    g_CurrentMultiPlayerMin = (f32) (D_800483A8) / 50.0f;
-#else
-    g_CurrentMultiPlayerMin = (f32) (D_800483A8) / 60.0f;
-#endif
-
-    if (joyGetButtonsPressedThisFrame(PLAYER_1, ANY_BUTTON))
-    {
-        D_80048388 = 0;
-        D_80048390 = 0;
-    }
-    else
-    {
-        D_80048390 = D_80048390 + g_ClockTimer;
-
-#ifdef VERSION_EU
-        if (D_80048390 >= 0x5DC)
-#else
-        if (D_80048390 >= 0x708)
-#endif
-        {
-            D_80048388 = 1;
-        }
-    }
-
-    if (D_80048388 != 0)
-    {
-        D_8004838C += g_ClockTimer;
-    }
-    else
-    {
-        D_800483B0 = D_800483B0 + g_ClockTimer;
-#ifdef VERSION_EU
-        g_StageTimeSec = (f32) (D_800483B0) / 50.0f;
-#else
-        g_StageTimeSec = (f32) (D_800483B0) / 60.0f;
-#endif
-        D_800483B8 = D_800483B8 + g_ClockTimer;
-#ifdef VERSION_EU
-        g_PowerOnTimeSec = (f32) (D_800483B8) / 50.0f;
-#else
-        g_PowerOnTimeSec = (f32) (D_800483B8) / 60.0f;
-#endif
-    }
+    g_StageElapsedTicks = g_StageElapsedTicks + g_ClockTimer;
+    g_StageElapsedSeconds = (f32) (g_StageElapsedTicks) / VI_REFRESH_RATE_F;
+    g_SystemPowerTimeTicks = g_SystemPowerTimeTicks + g_ClockTimer;
+    g_SystemPowerTimeSeconds = (f32) (g_SystemPowerTimeTicks) / VI_REFRESH_RATE_F;
 
     viSetUseZBuf(1);
 
@@ -1278,17 +1181,13 @@ void lvlTick(void)
 }
 
 
-
 /**
  * Assumes a debug mode is present, and handles debug edit intro, debug stan edit, debug bond "view."
  * By default, the DEB_BOND_VIEW path is chosen without debug info.
  * This updates the player viewport(s), and handles player movement.
  *
  * Multiplayer:
- * Updates distance_traveled and possibly (depending on scenario) have_token_or_goldengun.
- *
- * US Address 0x7F0BF800.
- * EU address 7F0BEC44.
+ * Updates distance_traveled and, depending on scenario, have_token_or_goldengun.
  */
 void lvlViewMoveTick(void)
 {
@@ -1392,9 +1291,6 @@ void lvlViewMoveTick(void)
 }
 
 
-
-
-
 void lvlUnloadStageTextData(void)
 {
     if (g_MpSoundStateRelated != NULL)
@@ -1452,9 +1348,9 @@ DIFFICULTY lvlGetSelectedDifficulty(void)
 }
 
 
-void lvlSetSelectedDifficulty(DIFFICULTY arg0)
+void lvlSetSelectedDifficulty(DIFFICULTY diff)
 {
-    g_SelectedDifficulty = arg0;
+    g_SelectedDifficulty = diff;
 }
 
 
@@ -1470,13 +1366,28 @@ void lvlSetMpPoint(s32 arg0)
 }
 
 
-f32 lvlGetCurrentMultiPlayerSec(void)
+f32 lvlGetStageElapsedSeconds(void)
 {
-    return g_CurrentMultiPlayerSec;
+    return g_StageElapsedSeconds;
 }
 
 
-f32 lvlGetCurrentMultiPlayerMin(void)
+f32 lvlGetSystemPowerTimeSeconds(void)
 {
-    return g_CurrentMultiPlayerMin;
+    return g_SystemPowerTimeSeconds;
+}
+
+Gfx *lvlDrawFrameRateDisplay(Gfx *gdl)
+{
+    gDPSetTextureFilter(gdl++, G_TF_POINT);
+    gDPSetColorDither(gdl++, G_CD_DISABLE);
+    gSPClearGeometryMode(gdl++, G_ZBUFFER );
+    gDPPipeSync(gdl++);
+    gDPSetTexturePersp(gdl++, G_TP_NONE);
+    gDPSetCycleType(gdl++, G_CYC_FILL);
+    gDPSetRenderMode(gdl++, G_RM_PASS, G_RM_OPA_SURF2);
+    gDPPipelineMode(gdl++, G_PM_1PRIMITIVE);
+
+    
+    return gdl;
 }
