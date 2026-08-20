@@ -1744,7 +1744,7 @@ Gfx *draw_abort_cancel_confirm(Gfx *gdl)
         }
         else
         {
-            if (g_WatchAbortIsConfirmSelected != FALSE)
+            if (g_WatchAbortIsConfirmSelected)
             {
                 if ((joyGetStickX(PLAYER_1) < -0x2D) || (joyGetButtons(PLAYER_1, 0x222) != 0))
                 {
@@ -1760,7 +1760,7 @@ Gfx *draw_abort_cancel_confirm(Gfx *gdl)
 
         gdl = textRender(gdl, &sp7C, &sp70, sp54, pFontChars, pFontFile, 0xA0FFA0F0, sp64, sp60, 0, 0);
 
-        if (g_WatchAbortIsConfirmSelected != FALSE)
+        if (g_WatchAbortIsConfirmSelected)
         {
             gdl = textRenderOutlined(gdl, &sp78, &sp6C, sp50, pFontChars, pFontFile, -1, 0x7000A0, viGetX(), viGetY(), 0, 0);
             gdl = textRender(gdl, &sp74, &sp68, sp4C, pFontChars, pFontFile, 0xFF00B0, viGetX(), viGetY(), 0, 0);

@@ -286,16 +286,6 @@ void lvlStageLoad(s32 stage)
     struct player_data *player_data;
 
     g_CurrentStageToLoad = stage;
-
-    // this if block pushes where g_CurrentStageToLoad gets loaded to the
-    // top of the method. Maybe a debug log about which level is loaded.
-    if(0)
-    {
-        #ifdef DEBUG
-        // removed
-        #endif
-    }
-
     D_800483C0 = 1;
     g_ControlsLockedFlag = 0;
     g_ClockTimer = 1;
