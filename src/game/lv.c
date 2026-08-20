@@ -1377,17 +1377,37 @@ f32 lvlGetSystemPowerTimeSeconds(void)
     return g_SystemPowerTimeSeconds;
 }
 
+
 Gfx *lvlDrawFrameRateDisplay(Gfx *gdl)
 {
-    gDPSetTextureFilter(gdl++, G_TF_POINT);
-    gDPSetColorDither(gdl++, G_CD_DISABLE);
-    gSPClearGeometryMode(gdl++, G_ZBUFFER );
-    gDPPipeSync(gdl++);
-    gDPSetTexturePersp(gdl++, G_TP_NONE);
-    gDPSetCycleType(gdl++, G_CYC_FILL);
-    gDPSetRenderMode(gdl++, G_RM_PASS, G_RM_OPA_SURF2);
-    gDPPipelineMode(gdl++, G_PM_1PRIMITIVE);
-
+    static u32 fpsWindowStart = 0;
+    static u32 fpsFrameCount = 0;
+    static char fpsText[8] = "--";
     
+    u32 now = osGetCount();
+    s32 x;
+    s32 y;
+    s32 screenwidth;
+
+    fpsFrameCount++;
+
+    if (fpsWindowStart == 0)
+    {
+        fpsFrameCount = now;
+    }
+    else if ((u32)(now - fpsWindowStart) >= (u32)OS_USEC_TO_CYCLES(1000000))
+    {
+        sprintf(fpsText, "%d", fpsFrameCount);
+        fpsFrameCount = 0;
+        fpsWindowStart = now;
+    }
+
+    x = viGetViewLeft() + 4;
+    y = viGetViewTop() + 4;
+    screenwidth = (s32) viGetX();
+
+    gdl = microcode_constructor(gdl);
+    gdl = textRender(gdl, &x, &y, fpsText, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
+
     return gdl;
 }
