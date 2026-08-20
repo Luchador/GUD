@@ -112,21 +112,13 @@ struct game_options {
 };
 
 extern struct game_options game_options_entries[];
-
 void reset_controller_options_index(void);
-
 void reset_game_options_index(void);
-
 void zero_D_800409A4(void);
-
 f32 watchWrapAroundPI(f32 arg0);
-
 f32 sub_GAME_7F0A95C4(f32 param_1, f32 param_2, f32 param_3);
-
 SCREEN_RATIO_OPTION get_screen_ratio(void);
-
 void set_screen_ratio(SCREEN_RATIO_OPTION ratio_option);
-
 s32 cur_player_get_autoaim(void);
 u32 cur_player_get_lookahead(void);
 void cur_player_set_autoaim(u32 param_1);
@@ -140,13 +132,8 @@ u32 get_cur_player_look_vertical_inverted(void);
 u16 get_mTrack2Vol(void);
 void set_mTrack2Vol(u16 param_1);
 void sub_GAME_7F0A91A0(u16 arg0);
-void cur_player_set_control_type(int type);
-
-// Do not declare a public prototype for this method. lvlStageLoad is expecting
-// this to be defined with no arguments, but the actual method is defined with
-// one argument.
-//void init_watch_at_start_of_stage(int a);
-
+void cur_player_set_control_type(s32 type);
+void optionsWatchInit();
 Gfx *draw_watch_current_page(Gfx *gdl, Mtx *arg1, s32 watch_transitioning);
 void sub_GAME_7F0A69A8(void);
 

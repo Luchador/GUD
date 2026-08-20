@@ -48,13 +48,9 @@ extern s32 g_GlobalTimer;
 extern f32 g_GlobalTimerDelta;
 extern s32 g_GlobalTickCount;
 extern u32 *ptr_font_DL;
-extern s32 dword_CODE_bss_8008C264;
-extern s32 dword_CODE_bss_8008C268;
-extern s32 dword_CODE_bss_8008C26C;
 extern char ramrom_data_target[0x380];
 extern s32 record_slot_num;
 extern u8 * address_demo_loaded;
-extern s32 dword_CODE_bss_8008C5F8;
 
 #if defined(BUGFIX_R1)
 extern f32 g_JP_GlobalTimerDelta;

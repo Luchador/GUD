@@ -16,7 +16,7 @@ void initGameData(void) {
     screen_size = SCREEN_SIZE_320x240;
     folder_selection_screen_option_icon = 0;
     selected_folder_num = FOLDER1;
-    mission_failed_or_aborted = FALSE;
+    g_MissionFailedOrAborted = FALSE;
     is_first_time_on_legal_screen = TRUE;
     is_first_time_on_main_menu = TRUE;
     prev_keypresses = FALSE;

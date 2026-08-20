@@ -427,13 +427,12 @@ void copy_recorded_ramrom_registers_to_proper_place_ingame(ramromfilestructure *
     set_players_team_or_scenario_item_flag(3, state->mp_flags[3]);
 }
 
-// Address 0x7F0C0640 NTSC
+
 void test_if_recording_demos_this_stage_load(enum LEVELID arg0, enum DIFFICULTY arg1)
 {
     if (g_ramromRecordFlag != 0)
     {
         ptr_active_demofile = (ramromfilestructure *) ALIGN16_a((s32)ramrom_data_target);
-        dword_CODE_bss_8008C5F8 = 0;
         ptr_active_demofile->stagenum = arg0;
         ptr_active_demofile->difficulty = arg1;
         ptr_active_demofile->size_cmds = joyGetControllerCount();
@@ -453,7 +452,6 @@ void test_if_recording_demos_this_stage_load(enum LEVELID arg0, enum DIFFICULTY 
     
     if (g_ramromPlayBackFlag != 0)
     {
-        dword_CODE_bss_8008C5F8 = 0;
         set_selected_difficulty(ptr_active_demofile->difficulty);
         set_solo_and_ptr_briefing(ptr_active_demofile->stagenum);
         set_selected_foldernum_and_copy_demo_eeprom(&ptr_active_demofile->savefile);

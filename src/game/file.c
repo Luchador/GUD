@@ -58,13 +58,8 @@ void end_of_mission_briefing(void)
     }
 }
 
-void fileLoadSaveSettingsForSelectedFolder(int stage)
+void fileLoadSaveSettingsForSelectedFolder()
 {
-    if(stage){
-        #ifdef DEBUG
-
-        #endif
-    }
     fileLoadSettingsForFolder(selected_folder_num);
 }
 

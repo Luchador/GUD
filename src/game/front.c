@@ -292,7 +292,7 @@ s32 folder_selection_screen_option_icon = 0;
 s32 folder_selected_for_deletion = FOLDER_INVALID;
 s32 folder_selected_for_deletion_choice = FOLDER2;
 
-s32 mission_failed_or_aborted = FALSE;
+bool g_MissionFailedOrAborted = FALSE;
 s32 g_isBondKIA = FALSE;
 
 s32 is_first_time_on_legal_screen = TRUE;
@@ -6914,16 +6914,11 @@ void interface_menu0C_missionfailed(void)
 }
 
 
-
-
-
-
-
 s32 frontCompleteAllObjectivesAliveSuccess(void)
 {
     s32 i;
 
-    if (mission_failed_or_aborted || g_isBondKIA)
+    if (g_MissionFailedOrAborted || g_isBondKIA)
     {
         return 0;
     }
@@ -6983,7 +6978,7 @@ Gfx * constructor_menu0C_missionfailed(Gfx *DL)
         text = langGet(getStringID(LTITLE, TITLE_STR_100_KIA)); // KILLED IN ACTION*
         phi_v1 = 0x78000000 | 0xFF;
     }
-    else if (mission_failed_or_aborted)
+    else if (g_MissionFailedOrAborted)
     {
         text = langGet(getStringID(LTITLE, TITLE_STR_101_ABORTED)); // ABORTED*
         phi_v1 = 0x78000000 | 0xFF;

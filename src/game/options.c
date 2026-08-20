@@ -287,7 +287,7 @@ Gfx *sub_GAME_7F0A9AB8(Gfx *gdl);
 // end forward declarations
 
 
-void init_watch_at_start_of_stage(int stage)
+void optionsWatchInit()
 {
     watch_screen_index = WATCH_INDEX_MISSION_STATUS;
     controller_options_index = CONTROLLER_OPTIONS_INDEX_STYLE;
@@ -306,10 +306,6 @@ void init_watch_at_start_of_stage(int stage)
     D_800409CC = 0.0f;
     D_800409D0 = -1;
     D_800409D4 = 0.0f;
-
-    if (j_text_trigger ? 1 : 0 && 1)
-    {
-    }
 
     g_CurrentPlayer->neg_vspacing_for_control_type_entry = 0;
     g_CurrentPlayer->cur_player_control_type_1 = CONTROLLER_CONFIG_HONEY;
@@ -349,8 +345,8 @@ void init_watch_at_start_of_stage(int stage)
     D_80040B4C = 0x32;
     D_80040B50 = 0x32;
     D_80040B54 = 0x32;
-    fileLoadSaveSettingsForSelectedFolder(stage);
-    mission_failed_or_aborted = FALSE;
+    fileLoadSaveSettingsForSelectedFolder();
+    g_MissionFailedOrAborted = FALSE;
 }
 
 
@@ -655,7 +651,7 @@ void watch_screen0_navigation(void)
         D_800409A4 = 0;
         set_missionstate(MISSION_STATE_0);
         bossRunTitleStage();
-        mission_failed_or_aborted = TRUE;
+        g_MissionFailedOrAborted = TRUE;
         deleteCurrentSelectedFolder();
     }
 }

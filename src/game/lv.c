@@ -61,35 +61,15 @@
 #include "frametiming.h"
 #include "chr.h"
 
-// bss
-//CODE.bss:8008C260
+
 u32 *ptr_font_DL;
-//CODE.bss:8008C264
-s32 dword_CODE_bss_8008C264;
-s32 dword_CODE_bss_8008C268;
-s32 dword_CODE_bss_8008C26C;
-//CODE.bss:8008C270
 char ramrom_data_target[0x380];
-//CODE.bss:8008C5F0
 s32 record_slot_num;
-//CODE.bss:8008C5F4
 u8 * address_demo_loaded;
-//CODE.bss:8008C5F8
-s32 dword_CODE_bss_8008C5F8;
-
-
-// data
-//D:80048360
 s32 lvl_c_debug_notice_list = 0;
-//D:80048364
 s32 g_CurrentStageToLoad = 0;
-//D:80048368
-f32 D_80048368 = 1.0;
-//D:8004836C
 s32 musictrack1_playing = 0;
-//D:80048370
 s32 g_ControlsLockedFlag = 0;
-//D:80048374
 s32 g_ClockTimer = 0;
 
 
@@ -404,9 +384,7 @@ void lvlStageLoad(s32 stage)
         load_bg_file(g_CurrentStageToLoad);
         skySetStageNum(g_CurrentStageToLoad);
 
-        // HACK: This method call is wrong. The function takes one argument, but the asm calls it without
-        // any arguments here.
-        init_watch_at_start_of_stage();
+        optionsWatchInit();
 
         sub_GAME_7F0C11FC(stage);
 
@@ -491,14 +469,14 @@ void lvlStageLoad(s32 stage)
     }
     else
     {
-        s32 s0;
+        s32 player;
 
         init_path_table_links();
         init_ejected_cartridges();
 
-        for (s0 = 0; s0 < getPlayerCount(); s0++)
+        for (player = 0; player < getPlayerCount(); player++)
         {
-            set_cur_player(s0);
+            set_cur_player(player);
             reinit_gunheld_totaltime();
             init_player_BONDdata_stats();
             init_player_BONDdata();
@@ -519,7 +497,6 @@ void lvlStageLoad(s32 stage)
 
     zbufDeallocate();
     viSetVideoMode(MD_NORMAL);
-    D_80048368 = 1.0f;
     lvlSetControlsLockedFlag(0);
 }
 
