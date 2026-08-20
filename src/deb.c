@@ -69,15 +69,7 @@ u8 *debAllocate(s32 size) {
 }
 
 
-void debInit(void) {
+void debInit(void)
+{
     crashInit();
-}
-
-
-void debLoopEntries(void) {
-    struct deblistentry *entry = g_DebList;
-    while (entry != NULL) {
-        // Removed
-        entry = entry->next; 
-    }
 }
