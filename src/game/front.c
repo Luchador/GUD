@@ -1128,88 +1128,108 @@ s32 frontCheckIfCheatIsUnlocked(s32 cheat)
 }
 
 
-int frontGetPlayersFavoriteWeaponInHand(int player,int hand) {
+s32 frontGetPlayersFavoriteWeaponInHand(s32 player, GUNHAND hand)
+{
     return get_ptr_long_watch_text_for_item(array_favweapon[player][hand]);
 }
 
 
-
-
-void frontUpdateControlStickPosition(void) {
+void frontUpdateControlStickPosition(void)
+{
     s8 stickx = joyGetStickX(PLAYER_1);
     s8 sticky = -joyGetStickY(PLAYER_1);
 
-
-    if (stickx < -5) {
+    if (stickx < -5)
+    {
         stickx = (stickx + 5);
     }
-    else  if (stickx >= 6) {
+    else  if (stickx >= 6)
+    {
         stickx = (stickx - 5);
     }
-    else {
+    else
+    {
         stickx = 0;
     }
 
-    if (stickx >= 71) {
+    if (stickx >= 71) 
+    {
         stickx = 70;
     }
-    else {
-        if (stickx < -70) {
+    else 
+    {
+        if (stickx < -70) 
+        {
             stickx = -70;
         }
     }
 
-    if (sticky < -5) {
+    if (sticky < -5) 
+    {
         sticky = (sticky + 5);
     }
-    else  if (sticky >= 6) {
+    else if (sticky >= 6) 
+    {
         sticky = (sticky - 5);
     }
-    else {
+    else 
+    {
         sticky = 0;
     }
 
-    if (sticky >= 71) {
+    if (sticky >= 71) 
+    {
         sticky = 70;
     }
-    else {
-        if (sticky < -70) {
+    else 
+    {
+        if (sticky < -70) 
+        {
             sticky = -70;
         }
     }
 
-    if (stickx > 0) {
+    if (stickx > 0)
+    {
         cursor_h_pos += (f32)(( (f32)stickx * 0.075f + 0.5f) * g_GlobalTimerDelta);
     }
-    else if (stickx < 0) {
+    else if (stickx < 0)
+    {
         cursor_h_pos += (f32)(( (f32)stickx * 0.075f - 0.5f) * g_GlobalTimerDelta);
     }
 
-    if ((getPlayer_c_screenleft() + getPlayer_c_screenwidth() - 20.0f) < cursor_h_pos) {
+    if ((getPlayer_c_screenleft() + getPlayer_c_screenwidth() - 20.0f) < cursor_h_pos)
+    {
         cursor_h_pos = (getPlayer_c_screenleft() + getPlayer_c_screenwidth() - 20.0f);
     }
-    else {
-        if (cursor_h_pos < getPlayer_c_screenleft() + 20.0f) {
+    else
+    {
+        if (cursor_h_pos < getPlayer_c_screenleft() + 20.0f)
+        {
             cursor_h_pos = getPlayer_c_screenleft() + 20.0f;
         }
     }
 
-    if (sticky > 0) {
+    if (sticky > 0)
+    {
         cursor_v_pos += (f32)(( (f32)sticky * 0.075f + 0.5f) * g_GlobalTimerDelta);
     }
-    else if (sticky < 0) {
+    else if (sticky < 0)
+    {
         cursor_v_pos += (f32)(( (f32)sticky * 0.075f - 0.5f) * g_GlobalTimerDelta);
     }
 
-    if ((getPlayer_c_screentop() + getPlayer_c_screenheight() - 20.0f) < cursor_v_pos) {
+    if ((getPlayer_c_screentop() + getPlayer_c_screenheight() - 20.0f) < cursor_v_pos)
+    {
         cursor_v_pos = (getPlayer_c_screentop() + getPlayer_c_screenheight() - 20.0f);
         return;
     }
-    if (cursor_v_pos < (getPlayer_c_screentop() + 20.0f)) {
+
+    if (cursor_v_pos < (getPlayer_c_screentop() + 20.0f))
+    {
         cursor_v_pos = (getPlayer_c_screentop() + 20.0f);
     }
 }
-
 
 
 Gfx *frontDrawCursor(Gfx *DL)
@@ -1397,7 +1417,6 @@ u32 frontCheckCursorOnNextTab(void)
 //********************************************************************************************************
 void init_menu00_legalscreen(void)
 {
-    s32 padding;
     struct coord3d pos;
 
     musicTrack1Stop();
@@ -1436,7 +1455,7 @@ void interface_menu00_legalscreen(void)
     viSetAspect(ASPECT_RATIO_SD);
     viSetZRange(100.0f, 10000.0f);
     viSetUseZBuf(0);
-#if defined(ISGOLDFINGER) || defined(USEEXPANSION)
+#if defined(USEEXPANSION)
     if (osGetMemSize != 0x00800000)
     {
         frontChangeMenu(MENU_NO_CONTROLLERS, TRUE); //double up as No expansion pak window
@@ -7276,7 +7295,7 @@ Gfx *constructor_menu0D_missioncomplete(Gfx *DL)
     x = 0x37;
     y = 0xDC;
     DL = frontPrintText(DL, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
-    strcpy(stagename, frontGetPlayersFavoriteWeaponInHand(0, 0));
+    strcpy(stagename, frontGetPlayersFavoriteWeaponInHand(0, GUNRIGHT));
     if ((array_favweapon[0][0] > 0) && (array_favweapon[0][1] == array_favweapon[0][0]))
     {
         temp = strlen(stagename)-1;

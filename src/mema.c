@@ -471,11 +471,10 @@ s32 memaGetLongestFree(void)
 	return 0;
 }
 
+
 /**
  * Resize an existing memaspace. Either by shrinking the old one, or
  * by registering a new memaspace containing the remaining bytes.
- * 
- * US address 7000A3DC.
 */
 s32 memaRealloc(s32 addr, u32 oldsize, u32 newsize)
 {
@@ -490,24 +489,6 @@ s32 memaRealloc(s32 addr, u32 oldsize, u32 newsize)
             return 1;
         }
 	}
-
-    /**
-     * Hack: the following few `if` statements are probably not what was originally
-     * here, but it shifts the temp registers enough to generate a match.
-     * https://decomp.me/scratch/RoPAF 99.62%
-    */
-
-    if (addr + 1) {}
-    else if (addr + 2) {}
-    else if (addr + 3) {}
-
-    if (oldsize + 1) {}
-    else if (oldsize + 2) {}
-    else if (oldsize + 3) {}
-
-    if (newsize + 1) {}
-    else if (newsize + 2) {}
-    else if (newsize + 3) {}
 
     if ((oldsize > newsize))
     {

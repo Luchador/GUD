@@ -14,20 +14,21 @@
 void reset_counter_rand_body_head(void)
 {
     num_bodies = 0;
+
     while (list_of_bodies[num_bodies] >= 0)
     {
         num_bodies++;
     }
-#ifdef ISGOLDFINGER
-    return; //return early as we have a new function for heads
-#endif
+
     num_male_heads = 0;
+
     while (random_male_heads[num_male_heads] >= 0)
     {
         num_male_heads++;
     }
 
     num_female_heads = 0;
+
     while (random_female_heads[num_female_heads] >= 0)
     {
         num_female_heads++;
@@ -141,9 +142,6 @@ s32 initResolveAnimGroupTable(struct weapon_firing_animation_table *animconfig)
 
 
 //pd is raceInitAnimGroups
-/**
- * Address: 7F00046C
- */
 void initResolveAnimGroups(struct anim_group_info **groups)
 {
     s32 i;
@@ -260,9 +258,6 @@ void initWeaponAnimGroups(void)
 #undef ANIM_FRAC_MUL_FIRST
 
 
-/**
- * Address: 7F000980
- */
 void casingsInit(void) 
 {
     initCasingPool();
@@ -270,8 +265,6 @@ void casingsInit(void)
 
 
 /**
- * Address: 7F0009A0
- * 
  * Sets the header field of every g_Casings entry to NULL.
  */
 void initCasingPool(void) 

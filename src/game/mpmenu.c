@@ -1593,7 +1593,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
             y = (viGetViewTop() - (fav_textheight >> 1)) + (37 + MPMENU_YOFF);
             viewleft = viGetX(); h1 = viGetY();
             gdl = textRender(gdl, &x, &y, text, ptrFontBankGothicChars, ptrFontBankGothic, 0x00ff00b0, viewleft, h1, 0, 0);
-            text = frontGetPlayersFavoriteWeaponInHand(curplayernum, 0);
+            text = frontGetPlayersFavoriteWeaponInHand(curplayernum, GUNRIGHT);
             textMeasure(&fav_textheight, &fav_textwidth, text, ptrFontBankGothicChars, ptrFontBankGothic, 0);
             x = ((viGetViewLeft() + fav_x_offset) - (fav_textwidth >> 1)) + 80;
             x2 = viGetViewTop();
