@@ -12,7 +12,6 @@
       build/OUTCODE/src/tlb_resolve.o (.rodata);
       build/OUTCODE/src/tlb_hardwire.o (.rodata);
       build/OUTCODE/src/audi.o (.rodata);
-      build/OUTCODE/src/speed_graph.o (.rodata);
       build/OUTCODE/src/fr.o (.rodata);
       build/OUTCODE/src/deb.o (.rodata);
       build/OUTCODE/src/crash.o (.rodata);

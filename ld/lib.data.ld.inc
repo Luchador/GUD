@@ -11,7 +11,6 @@
       build/OUTCODE/src/tlb_resolve.o (.data);
       build/OUTCODE/src/tlb_hardwire.o (.data);
       build/OUTCODE/src/audi.o (.data);
-      build/OUTCODE/src/speed_graph.o (.data);
       build/OUTCODE/src/fr.o (.data);
       build/OUTCODE/src/deb.o (.data);
       build/OUTCODE/src/crash.o (.data);

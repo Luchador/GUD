@@ -147,12 +147,6 @@ OSScMsg g_bossGfxDoneMsg = { OS_SC_DONE_MSG };
 // extern declarations
 extern struct player *g_CurrentPlayer;
 
-/**
- * 6930    70005D30
- *     ??? - uses "-level_", "-m" strings
- */
-
-
 void bossInitMainthreadData(void)
 {
     OSMesg bossmsg;
@@ -212,6 +206,7 @@ void bossInitMainthreadData(void)
     }
 
     start = (PHYS_TO_K0(osVirtualToPhysical(&_bssSegmentEnd)));
+
     mempCheckMemflagTokens(start, ((u32)tlbmanageGetTlbAllocatedBlock() - (u32)start));
     mempResetBank(MEMPOOL_PERMANENT);
     langInit();
@@ -221,7 +216,6 @@ void bossInitMainthreadData(void)
     default_player_perspective_and_height();
     store_osgetcount();
     null_init_main_1();
-    speedgraphInit();
     set_gu_scale();
     null_init_main_2();
     casingsInit();

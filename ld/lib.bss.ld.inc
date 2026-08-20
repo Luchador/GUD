@@ -10,7 +10,6 @@
       build/OUTCODE/src/tlb_random.o (.bss);
       build/OUTCODE/src/tlb_resolve.o (.bss);
       build/OUTCODE/src/audi.o (.bss);
-      build/OUTCODE/src/speed_graph.o (.bss);
       build/OUTCODE/src/fr.o (.bss);
       build/OUTCODE/src/deb.o (.bss);
       build/OUTCODE/src/crash.o (.bss);

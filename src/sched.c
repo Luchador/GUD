@@ -308,29 +308,39 @@ void __scMain(void *arg)
     }
 }
 
-void __scHandleRetrace(OSSched *sc) {
+void __scHandleRetrace(OSSched *sc)
+{
     OSScTask    *rspTask = 0;    
     OSScClient  *client;
     s32         state;
     OSScTask    *sp = 0;
     OSScTask    *dp = 0;
-    speedgraphMarkerUpdate();
+
     sc->frameCount++;
     viVsyncRelated();
     joyPoll();
     musicFadeTick();
-    while (osRecvMesg(&sc->cmdQ, (OSMesg*)&rspTask, OS_MESG_NOBLOCK) != -1) {
+
+    while (osRecvMesg(&sc->cmdQ, (OSMesg*)&rspTask, OS_MESG_NOBLOCK) != -1)
+    {
         __scAppendList(sc, rspTask);
     }
-    if (sc->doAudio && sc->curRSPTask) {
+
+    if (sc->doAudio && sc->curRSPTask)
+    {
         __scYield(sc);
-    } else {
+    } 
+    else
+    {
         state = ((sc->curRSPTask == 0) << 1) | (sc->curRDPTask == 0);
         if ( __scSchedule (sc, &sp, &dp, state) != state)
             __scExec(sc, sp, dp);
     }
-    for (client = sc->clientList; client != 0; client = client->next) {
-        if ((*((s32*)client + 2) == 0) || ((sc->frameCount & 1) == 0)) {
+
+    for (client = sc->clientList; client != 0; client = client->next)
+    {
+        if ((*((s32*)client + 2) == 0) || ((sc->frameCount & 1) == 0))
+        {
             osSendMesg(client->msgQ, (OSMesg) &sc->retraceMsg, OS_MESG_NOBLOCK);
         }
     }
