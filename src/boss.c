@@ -296,15 +296,12 @@ void bossEntry(void) {
  */
 void bossMainloop(void)
 {
-    // declarations
-
     s32 done;
     const unsigned char *tokenFindLevel;
-    GFXMsg *localGfxFrameMsg; // sp 468
-    OSScMsg localGfxDoneMsg; // sp 436
+    GFXMsg *localGfxFrameMsg;
+    OSScMsg localGfxDoneMsg;
     s32 stringIndex;
-    s32 toggleFlag; // sp 428
-    Gfx *gdl; // sp424
+    Gfx *gdl;
     Gfx *firstGdl;
     u32 nowCount;
     s32 i;
@@ -318,10 +315,7 @@ void bossMainloop(void)
     s32 freeGfx;
     s32 mainTickElapsed;
     s32 rspReplyMsg;
-
     u32 unused_stackpadding_[56];
-
-    // end declarations
 
     done = 0;
     reset_mem_bank_5();
@@ -358,7 +352,6 @@ void bossMainloop(void)
     {
         localGfxFrameMsg = NULL;
         localGfxDoneMsg = g_bossGfxDoneMsg;
-        toggleFlag = 0;
         pendingGfx = 0;
 
         test_if_recording_demos_this_stage_load(g_StageNum, lvlGetSelectedDifficulty());
@@ -558,40 +551,13 @@ void bossMainloop(void)
                             dynSwapBuffers();
                             video_related_8();
 
-                            if ((get_debug_taskgrab_val())
-                                && (joyGetButtonsPressedThisFrame(0, (A_BUTTON | B_BUTTON)))
-                                && (joyGetButtons(0, (A_BUTTON | B_BUTTON)) == (A_BUTTON | B_BUTTON)))
-                            {
-                                static s32 taskgrab_ramdump_num = 1;
-                                u8 taskGrabBuffer[28];
-                                s32 taskGrabFileSize;
-
-                                while (1)
-                                {
-                                    s32 unusedSprintf = sprintf(taskGrabBuffer, "u64.taskgrab.%d.core", taskgrab_ramdump_num);
-
-                                    if (indycommHostCheckFileExists(taskGrabBuffer, &taskGrabFileSize) != NULL)
-                                    {
-                                        taskgrab_ramdump_num++;
-                                        continue;
-                                    }
-
-                                    break;
-                                }
-
-                                indycommHostSendDump(taskGrabBuffer, (u8*)0x80000000, 0x400000);
-                            }
-
                             rspReplyMsg = (s32)(&localGfxDoneMsg);
                             rspGfxTaskStart(firstGdl, gdl, 0, (s32*)rspReplyMsg);
 
                             pendingGfx++;
                             memaSingleDefragPass();
 
-                            toggleFlag ^= 1;
-
                             speedgraphMarkerHandler(0x10000);
-                            if(1);
                         }
                     }
                 }
