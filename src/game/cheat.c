@@ -672,7 +672,7 @@ u16 mBtnCheatUnlockAllGuns[] = {
                       D_CBUTTONS
 };
 
-u16 mBtnCheatShowRoomPosDiplay[] = {
+u16 mBtnCheatShowRoomPosDisplay[] = {
     L_TRIG |          U_CBUTTONS,
     L_TRIG |          R_CBUTTONS,
     L_TRIG |          D_CBUTTONS,
@@ -684,6 +684,7 @@ u16 mBtnCheatShowRoomPosDiplay[] = {
     L_TRIG |          D_CBUTTONS,
     L_TRIG |          D_CBUTTONS
 };
+
 #pragma endregion
 
 /**
@@ -714,7 +715,7 @@ CheatInfo g_CheatInfo[] = {
     {               CHEAT_BONDPHASE,  0xA, 0, 0, mBtnCheatBondPhase,                                                           0, 0,  /* 0x12 */                                                         CHEAT_MASK_MPGAME},
     {             CHEAT_NO_RADAR_MP,    0, 0, 0,                0,             getStringID(LMISC, MISC_STR_43_NORADAR          ), 0,  /* 0x64 */ CHEAT_MASK_TOGGLE | CHEAT_MASK_GLOBAL |                 CHEAT_MASK_MPGAME},
     {              CHEAT_TURBO_MODE,    0, 0, 0,                0,             getStringID(LMISC, MISC_STR_40_TURBOMODE        ), 0,  /* 0x66 */ CHEAT_MASK_TOGGLE | CHEAT_MASK_GLOBAL |                 CHEAT_MASK_MPGAME | CHEAT_MASK_SPGAME},
-    {               CHEAT_DEBUG_POS,    0, 0, 0, mBtnCheatShowRoomPosDiplay,                                                   0, 0,  /* 0x20 */                     CHEAT_MASK_GLOBAL},
+    {               CHEAT_DEBUG_POS,  0xA, 0, 0, mBtnCheatShowRoomPosDisplay,                                                   0, 0,  /* 0x20 */                     CHEAT_MASK_GLOBAL | CHEAT_MASK_MPGAME | CHEAT_MASK_SPGAME},
     {          CHEAT_FAST_ANIMATION,    0, 0, 0,                0,             getStringID(LMISC, MISC_STR_41_FASTANIMATION    ), 0,  /* 0x72 */ CHEAT_MASK_TOGGLE | CHEAT_MASK_GLOBAL | CHEAT_MASK_SHOW_TEXT |                     CHEAT_MASK_SPGAME},
     {          CHEAT_SLOW_ANIMATION,    0, 0, 0,                0,             getStringID(LMISC, MISC_STR_42_SLOWANIMATION    ), 0,  /* 0x72 */ CHEAT_MASK_TOGGLE | CHEAT_MASK_GLOBAL | CHEAT_MASK_SHOW_TEXT |                     CHEAT_MASK_SPGAME},
     {           CHEAT_ENEMY_ROCKETS,    0, 0, 0,                0,             getStringID(LMISC, MISC_STR_39_ENEMYROCKETS     ), 0,  /* 0x01 */ CHEAT_MASK_MENUS},

@@ -260,9 +260,9 @@ s32 debug_gunwatchpos_flags = 0;
 s32 debug_profile_flag = 0;
 //D:80036FC4
 s32 debug_enable_taskgrab_flag = 0;
-//D:80036FC8
-s32 g_DebugManPos = 0;
 #endif
+
+s32 g_DebugManPos = 0;
 
 //D:80036FCC
 s32 debug_fast_bond_flag = 0;
@@ -1005,18 +1005,14 @@ s32 get_debug_man_pos_flag(void) {
 #endif
 }
 
-s32 get_debug_testingmanpos_flag(void) {
-#if defined(LEFTOVERDEBUG)
+s32 get_debug_testingmanpos_flag(void)
+{
     return g_DebugManPos;
-#else
-    return 0;
-#endif
 }
 
-void set_debug_testingmanpos_flag(s32 flag) {
-#if defined(LEFTOVERDEBUG)
+void set_debug_testingmanpos_flag(s32 flag)
+{
     g_DebugManPos = flag;
-#endif
 }
 
 s32 get_debug_joy2skyedit_flag(void) {
