@@ -571,6 +571,7 @@ Gfx* lvlRender(Gfx* DL)
 
             propsTickPlayer();
             DL = bgLevelRender(DL);
+            DL = bondviewRenderRoomPosDisplay(DL);
 
             if (get_debug_portal_flag())
             {

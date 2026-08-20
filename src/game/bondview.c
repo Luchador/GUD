@@ -588,7 +588,7 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
 void bondviewCalcIntroSwirlCamera(s32, f32, struct coord3d *, struct coord3d *);
 s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, coord3d *collision_pos, StandTile *tile, f32 camera_dist);
 Gfx* hudmsgBottomRender(Gfx* arg0);
-Gfx *sub_GAME_7F08AAE8(Gfx *gdl);
+Gfx *bondviewRenderUpperText(Gfx *gdl);
 Gfx *bondviewRenderCredits(Gfx *gdl);
 Gfx *bondviewRenderWatch(Gfx *gdl);
 Gfx *bondviewRenderGaugeBars(Gfx *gdl);

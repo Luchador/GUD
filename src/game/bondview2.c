@@ -8864,7 +8864,7 @@ Gfx *maybe_mp_interface(Gfx *gdl)
         bondviewIntroCameraTextTick();
         gdl = hudmsgBottomRender(gdl);
         bondviewUpperTextWindowTimerTick();
-        gdl = sub_GAME_7F08AAE8(gdl);
+        gdl = bondviewRenderUpperText(gdl);
         gdl = countdownTimerRender(gdl);
         gdl = currentPlayerDrawFade(gdl);
         return bondviewRenderCredits(gdl);
@@ -9003,7 +9003,7 @@ Gfx *maybe_mp_interface(Gfx *gdl)
     bondviewIntroCameraTextTick();
     gdl = hudmsgBottomRender(gdl);
     bondviewUpperTextWindowTimerTick();
-    gdl = sub_GAME_7F08AAE8(gdl);
+    gdl = bondviewRenderUpperText(gdl);
     gunDrawSight(&gdl);
     gdl = generate_ammo_total_microcode(gdl);
     gdl = countdownTimerRender(gdl);
@@ -9861,24 +9861,10 @@ void bondviewUpperTextWindowTimerTick(void)
 }
 
 
-Gfx *sub_GAME_7F08AAE8(Gfx *gdl)
+Gfx *bondviewRenderUpperText(Gfx *gdl)
 {
     TopMessageLocals msg;
-    DebugTextBuffers debugtext;
-    s32 debug_x;
-    s32 debug_y;
-    f32 theta_x;
-    s32 debug_boxbottom;
-    s32 pad;
-    s32 *roomid;
-    s32 debug_angle;
-    DirectionLabels directions;
-
-    struct
-    {
-        s16 screenwidth;
-        s16 pad;
-    } sw;
+    s32 screenwidth;
 
     if (g_UpperTextDisplayFlag == 0)
     {
@@ -9922,25 +9908,25 @@ Gfx *sub_GAME_7F08AAE8(Gfx *gdl)
                     msg.bottom = msg.y + msg.textheight;
                     gdl = microcode_constructor_related_to_menus(gdl, 0, msg.y - 2, viGetX(), msg.bottom, 0x64);
 #ifdef VERSION_US
-                    sw.screenwidth = viGetX();
-                    gdl = textRender(gdl, &msg.x, &msg.y, stringbuffer_top[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, -1, sw.screenwidth, viGetY(), 0, 0);
+                    screenwidth = (s32)viGetX();
+                    gdl = textRender(gdl, &msg.x, &msg.y, stringbuffer_top[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, -1, screenwidth, viGetY(), 0, 0);
 #else
                     if (j_text_trigger != 0)
                     {
-                        sw.screenwidth = viGetX();
+                        screenwidth = (s32)viGetX();
 #if defined(LEFTOVERDEBUG)
-                        gdl = textRenderOutlined(gdl, &msg.x, &msg.y, stringbuffer_top[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, -1, 0x646464FF, sw.screenwidth, viGetY(), 0, 0);
+                        gdl = textRenderOutlined(gdl, &msg.x, &msg.y, stringbuffer_top[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, -1, 0x646464FF, screenwidth, viGetY(), 0, 0);
 #else
-                        gdl = textRenderOutlined(gdl, &msg.x, &msg.y, dword_CODE_bss_80079DC8[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, -1, 0x646464FF, sw.screenwidth, viGetY(), 0, 0);
+                        gdl = textRenderOutlined(gdl, &msg.x, &msg.y, dword_CODE_bss_80079DC8[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, -1, 0x646464FF, screenwidth, viGetY(), 0, 0);
 #endif
                     }
                     else
                     {
-                        sw.screenwidth = viGetX();
+                        screenwidth = (s32)viGetX();
 #if defined(LEFTOVERDEBUG)
-                        gdl = textRender(gdl, &msg.x, &msg.y, stringbuffer_top[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, -1, sw.screenwidth, viGetY(), 0, 0);
+                        gdl = textRender(gdl, &msg.x, &msg.y, stringbuffer_top[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, -1, screenwidth, viGetY(), 0, 0);
 #else
-                        gdl = textRender(gdl, &msg.x, &msg.y, dword_CODE_bss_80079DC8[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, -1, sw.screenwidth, viGetY(), 0, 0);
+                        gdl = textRender(gdl, &msg.x, &msg.y, dword_CODE_bss_80079DC8[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, -1, screenwidth, viGetY(), 0, 0);
 #endif
                     }
 #endif
@@ -9951,49 +9937,11 @@ Gfx *sub_GAME_7F08AAE8(Gfx *gdl)
         }
     }
 
-    if (get_debug_testingmanpos_flag())
-    {
-        theta_x = g_CurrentPlayer->field_488.theta_transform.x;
-        debug_angle = (s32) ((atan2f(-theta_x, g_CurrentPlayer->field_488.theta_transform.z) * 180.0f) / M_PI_F);
-        directions = g_DebugCompassLabels;
-        roomid = bgDebPrintROOMID(g_CurrentPlayer->field_488.current_tile_ptr->room);
-
-        sprintf(debugtext.room, a8s, roomid);
-        sprintf(debugtext.x, aX4_0f, g_CurrentPlayer->field_488.collision_position.x);
-        sprintf(debugtext.y, aY4_0f, g_CurrentPlayer->field_488.collision_position.y);
-        sprintf(debugtext.z, aZ4_0f, g_CurrentPlayer->field_488.collision_position.z);
-        sprintf(debugtext.angle, aS3d, ((char *) (&directions)) + (((debug_angle + 0x16) / 0x2d) * 3), debug_angle);
-
-        debug_x = viGetViewLeft() + 0x11;
-        debug_y = viGetViewTop() + 0x11;
-        debug_boxbottom = debug_y + 0xa;
-        gdl = microcode_constructor(gdl);
-        gdl = microcode_constructor_related_to_menus(gdl, 0, debug_y, viGetX(), debug_boxbottom + 1, 0x64);
-        sw.screenwidth = viGetX();
-        gdl = textRender(gdl, &debug_x, &debug_y, debugtext.room, ptrFontBankGothicChars, ptrFontBankGothic, -1, sw.screenwidth, viGetY(), 0, 0);
-        debug_x = viGetViewLeft() + 0x57;
-        sw.screenwidth = viGetX();
-        gdl = textRender(gdl, &debug_x, &debug_y, debugtext.x, ptrFontBankGothicChars, ptrFontBankGothic, -1, sw.screenwidth, viGetY(), 0, 0);
-        debug_x = viGetViewLeft() + 0x8d;
-        sw.screenwidth = viGetX();
-        gdl = textRender(gdl, &debug_x, &debug_y, debugtext.y, ptrFontBankGothicChars, ptrFontBankGothic, -1, sw.screenwidth, viGetY(), 0, 0);
-        debug_x = viGetViewLeft() + 0xc3;
-        sw.screenwidth = viGetX();
-        gdl = textRender(gdl, &debug_x, &debug_y, debugtext.z, ptrFontBankGothicChars, ptrFontBankGothic, -1, sw.screenwidth, viGetY(), 0, 0);
-        debug_x = viGetViewLeft() + 0xf9;
-        sw.screenwidth = viGetX();
-        gdl = textRender(gdl, &debug_x, &debug_y, debugtext.angle, ptrFontBankGothicChars, ptrFontBankGothic, -1, sw.screenwidth, viGetY(), 0, 0);
-        gdl = combiner_bayer_lod_perspective(gdl);
-    }
-
     end:
     return gdl;
 }
 
 
-/**
- * Address: 0x7F08B0F0
- */
 s32 playerTick(PropRecord *prop)
 {
     s32 index;
@@ -10555,4 +10503,56 @@ void SurroundWithExplosions(int delay)
     g_SurroundBondWithExplosionsFlag = 1;
     g_SurroundBondWithExplosionsTicks = delay + g_GlobalTimer;
     g_PlayerTickExplodeCreatePosition = 0;
+}
+
+
+Gfx *bondviewRenderRoomPosDisplay(Gfx *gdl)
+{
+    DebugTextBuffers debugtext;
+    s32 debug_x;
+    s32 debug_y;
+    f32 theta_x;
+    s32 debug_boxbottom;
+    s32 pad;
+    s32 *roomid;
+    s32 debug_angle;
+    s32 screenwidth;
+    DirectionLabels directions;
+
+    if (get_debug_testingmanpos_flag())
+    {
+        theta_x = g_CurrentPlayer->field_488.theta_transform.x;
+        debug_angle = (s32) ((atan2f(-theta_x, g_CurrentPlayer->field_488.theta_transform.z) * 180.0f) / M_PI_F);
+        directions = g_DebugCompassLabels;
+        roomid = bgDebPrintROOMID(g_CurrentPlayer->field_488.current_tile_ptr->room);
+
+        sprintf(debugtext.room, a8s, roomid);
+        sprintf(debugtext.x, aX4_0f, g_CurrentPlayer->field_488.collision_position.x);
+        sprintf(debugtext.y, aY4_0f, g_CurrentPlayer->field_488.collision_position.y);
+        sprintf(debugtext.z, aZ4_0f, g_CurrentPlayer->field_488.collision_position.z);
+        sprintf(debugtext.angle, aS3d, ((char *) (&directions)) + (((debug_angle + 0x16) / 0x2d) * 3), debug_angle);
+
+        debug_x = viGetViewLeft() + 0x11;
+        debug_y = viGetViewTop() + 0x11;
+        debug_boxbottom = debug_y + 0xa;
+        gdl = microcode_constructor(gdl);
+        gdl = microcode_constructor_related_to_menus(gdl, 0, debug_y, viGetX(), debug_boxbottom + 1, 0x64);
+        screenwidth = (s32)viGetX();
+        gdl = textRender(gdl, &debug_x, &debug_y, debugtext.room, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
+        debug_x = viGetViewLeft() + 0x57;
+        screenwidth = (s32)viGetX();
+        gdl = textRender(gdl, &debug_x, &debug_y, debugtext.x, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
+        debug_x = viGetViewLeft() + 0x8d;
+        screenwidth = (s32)viGetX();
+        gdl = textRender(gdl, &debug_x, &debug_y, debugtext.y, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
+        debug_x = viGetViewLeft() + 0xc3;
+        screenwidth = (s32)viGetX();
+        gdl = textRender(gdl, &debug_x, &debug_y, debugtext.z, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
+        debug_x = viGetViewLeft() + 0xf9;
+        screenwidth = (s32)viGetX();
+        gdl = textRender(gdl, &debug_x, &debug_y, debugtext.angle, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
+        gdl = combiner_bayer_lod_perspective(gdl);
+    }
+
+    return gdl;
 }
