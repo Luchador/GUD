@@ -63,7 +63,8 @@ struct image_entry
 	u32 flag6 : 4;
 };
 
-struct texcacheitem {
+struct texcacheitem
+{
     s16 texturenum;
     u8 widths[7];
     u8 heights[7];
@@ -74,8 +75,6 @@ extern struct texpool *ptr_texture_alloc_start;
 extern struct image_entry g_Textures[];
 extern s32 g_TexCacheCount;
 extern u32 bytes;
-
-void nullsub_41(s32 arg0);
 
 void texInflateHuffman(u8 *dst, s32 numiterations, s32 chansize);
 void texInflateRle(u8 *dst, s32 blockstotal);

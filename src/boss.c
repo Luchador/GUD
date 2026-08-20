@@ -95,8 +95,6 @@ s32 g_DebugAndUpdateStageFlag = FALSE;
 s32 g_StageNum = LEVELID_TITLE;
 u32 g_CurentMMallocValue = 0x234800;
 u32 g_CurentMaMallocValue = 0x4B000;
-s32 g_ShowMemUseFlag = FALSE;
-s32 g_ShowMemBarsFlag = FALSE;
 
 struct memallocstring memallocstringtable[] = {
 { LEVELID_DAM,          "-ml0 -me0 -mgfx70  -mvtx50 -mt625 -ma275"},
@@ -244,7 +242,6 @@ void bossInitMainthreadData(void)
  *     1 ->"show mem use" debug memory display [800241B4]; fry AT,T6
  */
 void bossEnableShowMemUseFlag(void) {
-    g_ShowMemUseFlag=TRUE;
 }
 
 /**
@@ -252,7 +249,6 @@ void bossEnableShowMemUseFlag(void) {
  *     toggle "show mem bars" [800241B8]; fries V0,T6,T7
  */
 void bossMemBarsFlagToggle(void) {
-    g_ShowMemBarsFlag = g_ShowMemBarsFlag ^ 1;
 }
 
 /**
@@ -558,19 +554,6 @@ void bossMainloop(void)
                             gDPFullSync(gdl++);
                             gSPEndDisplayList(gdl++);
 
-                            if (g_ShowMemUseFlag)
-                            {
-                                memaDumpPrePostMerge();
-                                dynRemovedFunc(gdl);
-                                nullsub_41(0);
-                                g_ShowMemUseFlag = 0;
-                            }
-
-                            if (g_ShowMemBarsFlag)
-                            {
-                                dynDrawMembars(gdl);
-                            }
-
                             freeGfx = dynGetFreeGfx2(gdl);
                             dynSwapBuffers();
                             video_related_8();
@@ -604,9 +587,7 @@ void bossMainloop(void)
 
                             pendingGfx++;
                             memaSingleDefragPass();
-#ifdef VERSION_EU
-                            eu_sub_7f0c00a4();
-#endif
+
                             toggleFlag ^= 1;
 
                             speedgraphMarkerHandler(0x10000);

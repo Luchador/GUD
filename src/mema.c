@@ -447,22 +447,6 @@ void memaDump(void)
     }
 }
 
-// Dump a list of allocations before and after a full
-// merge pass.
-void memaDumpPrePostMerge(void)
-{
-    s32 i;    
-
-    memaDump();
-
-    for (i = 0; i < (ALLOCATIONS_LENGTH-1); i++)
-    {
-        memaDefragPass(&g_MemoryAllocations);
-    }
-
-    memaDump();
-}
-
 
 /**
  * Find and return the largest amount of contiguous free space in the pool.

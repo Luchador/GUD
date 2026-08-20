@@ -89,19 +89,9 @@ void waitForNextFrame(void) //maybe WaitForTick
 }
 
 
-void setFrameDelay(s32 arg0) {
+void setFrameDelay(s32 arg0)
+{
     #ifdef LEFTOVERDEBUG
     frameDelay = arg0;
     #endif
 }
-
-#ifdef VERSION_EU
-void eu_sub_7f0c00a4(void)
-{
-  
-}
-#endif
-
-
-
-

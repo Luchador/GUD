@@ -110,11 +110,6 @@ struct image_entry g_Textures[] = {
 #undef IMAGE
 
 
-void nullsub_41(s32 arg0) {
-    if (arg0);
-}
-
-
 /**
  * Inflate images (levels of detail) from a zlib-compressed texture.
  *

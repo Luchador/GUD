@@ -116,8 +116,6 @@ void dynSwapBuffers(void) {
     g_GfxMemPos = g_VtxBuffers[g_GfxActiveBufferIndex];
 }
 
-void dynRemovedFunc(Gfx *gdl) {
-}
 
 s32 dynGetFreeGfx(Gfx *gdl) {
     return (Gfx*)g_GfxBuffers[g_GfxActiveBufferIndex + 1] - gdl;
@@ -125,30 +123,4 @@ s32 dynGetFreeGfx(Gfx *gdl) {
 
 s32 dynGetFreeVtx(void) {
 	return g_VtxBuffers[g_GfxActiveBufferIndex + 1] - g_GfxMemPos;
-}
-
-// Address 0x7F0BD7CC NTSC
-void dynCalculateMembarLength(const char* arg0, f32 arg1, f32 arg2)
-{
-    s32 len;
-    f32 zero = 0;
-    
-    len = strlen(arg0);
-    
-    arg1 /= arg2;
-    
-    if(zero);
-    
-    if (arg1 < zero && len > 1)
-    {
-        if (len > 1)
-        {
-            
-        }
-    }
-}
-
-void dynDrawMembars(Gfx *gdl) {
-    dynCalculateMembarLength(membars_string2, ((Gfx*)g_GfxBuffers[g_GfxActiveBufferIndex + 1] - gdl), ((Gfx*)g_GfxBuffers[g_GfxActiveBufferIndex + 1] - (Gfx*)g_GfxBuffers[g_GfxActiveBufferIndex]));
-    dynCalculateMembarLength(membars_string2, (g_VtxBuffers[g_GfxActiveBufferIndex + 1] - g_GfxMemPos), (g_VtxBuffers[g_GfxActiveBufferIndex + 1] - g_VtxBuffers[g_GfxActiveBufferIndex]));
 }
