@@ -232,17 +232,6 @@ s32 debug_joy2detailedit_flag = 0;
 s32 debug_explosioninfo_flag = 0;
 #endif
 
-#if !defined(LEFTOVERDEBUG)
-/**
- * The .data debug_VisCVG_flag needs to be at address 0x800320b4, which means
- * there needs to be another .data word. Probably one of the above values,
- * but not sure which one. Declaring new word here until this is resolved.
-*/
-s32 eu_D_800320b0 = 0;
-#endif
-
-//D:80036FA8
-s32 debug_VisCVG_flag = 0;
 
 #if defined(LEFTOVERDEBUG)
 //D:80036FAC
@@ -780,8 +769,7 @@ s32 debug_menu_processor(s8 stick_h, s8 stick_v, u16 button_held, u16 button_pre
                 debug_chrnum_flag ^= 1;
                 break;
 
-            case DEB_VISCVG: // vis cvg
-                debug_VisCVG_flag ^= 1;
+            case DEB_VISCVG:
                 break;
 
             case DEB_JOY2SKYEDIT: // joy2 sky edit
@@ -1053,16 +1041,6 @@ s32 debugIsRoomStateDebugEnabled(void) {
 #else
     return 0;
 #endif
-}
-
-// Get Current Status of VisCVG (True/False)
-s32 get_debug_VisCVG_flag(void) {
-    return debug_VisCVG_flag;
-}
-
-// Set VisCVG (True/False)
-void set_debug_VisCVG_flag(s32 flag) {
-    debug_VisCVG_flag = flag;
 }
 
 

@@ -1047,7 +1047,6 @@ void cheatButtonHandleCheatsTurnedOn(CHEAT_ID cheat_id)
             return;
 
         case CHEAT_LINEMODE:
-            set_debug_VisCVG_flag(TRUE);
             return;
 
         case CHEAT_2X_HEALTH:
@@ -1431,7 +1430,6 @@ void cheatButtonHandleCheatsTurnedOff(CHEAT_ID cheat_id)
             return;
 
         case CHEAT_LINEMODE:
-            set_debug_VisCVG_flag(FALSE);
             return;
 
         case CHEAT_INVISIBILITY:

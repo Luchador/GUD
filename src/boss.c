@@ -540,19 +540,6 @@ void bossMainloop(void)
                             // Primary game rendering function.
                             gdl = lvlRender(gdl);
 
-                            // Lets Visualise the Coverage Value used for Silhouette Anti-Aliasing (edges)
-                            // (done on the VI), also produces a cool looking linemode - providing AA is working.
-                            if (get_debug_VisCVG_flag())
-                            {
-                                gDPPipeSync(gdl++); // 0xe7000000, 0x00000000
-                                gDPSetCycleType(gdl++, G_CYC_1CYCLE); // 0xba001402, 0x00000000
-                                gDPSetBlendColor(gdl++, 0xff, 0xff, 0xff, 0xff); // 0xf9000000, 0xffffffff
-                                gDPSetPrimDepth(gdl++, 0xffff, 0xffff); // 0xee000000, 0xffffffff
-                                gDPSetDepthSource(gdl++, G_ZS_PRIM); // 0xb9000201, 0x00000004
-                                gDPSetRenderMode(gdl++, G_RM_VISCVG, G_RM_VISCVG2); // 0xb900031d, 0x0fa54040
-                                gDPFillRectangle(gdl++, 0, 0, viGetX() - 1, viGetY() - 1);
-                            }
-
                             gdl = debmenuDraw(gdl);
 
                             if (get_memusage_display_flag())
@@ -560,14 +547,16 @@ void bossMainloop(void)
                                 gdl = speedgraphDisplayMetrics(gdl);
                             }
 
+                            gdl = bondviewRenderRoomPosDisplay(gdl);
+
                             if (g_BossIsDebugMenuOpen)
                             {
                                 debugmenuUpdate();
                                 gdl = debugmenuRender(gdl);
                             }
 
-                            gDPFullSync(gdl++); // 0xe9000000, 0x00000000
-                            gSPEndDisplayList(gdl++); // 0xb8000000, 0x00000000
+                            gDPFullSync(gdl++);
+                            gSPEndDisplayList(gdl++);
 
                             if (g_ShowMemUseFlag)
                             {

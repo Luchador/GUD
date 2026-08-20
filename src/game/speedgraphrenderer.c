@@ -19,11 +19,6 @@ f32 gCurrentGraphPosition = 0.0f;
 f32 gNextGraphPosition = 0.0f;
 
 
-
-
-
-
-
 /**
  * @brief Initializes the display list for rendering the speed graph.
  *
@@ -150,8 +145,10 @@ Gfx *DrawGraphBar(Gfx *gdl, f32 offset, s32 r, s32 g, s32 b, s32 width, s32 heig
  *
  * @param delta The amount to increment the graph position by.
  */
-void UpdateGraphPosition(f32 delta) {
-    if (0.0f < delta) {
+void UpdateGraphPosition(f32 delta) 
+{
+    if (0.0f < delta) 
+    {
         gNextGraphPosition = (f32) (gNextGraphPosition + delta);
         return;
     }
@@ -213,7 +210,3 @@ void AlignGraphPosition(void)
     gNextGraphPosition = t;
     gCurrentGraphPosition = gNextGraphPosition;
 }
-
-
-
-
