@@ -32,7 +32,6 @@ struct s_mempMVALS sdefaultmvals = {
 
 void mempInit(void)
 {
-    debTryAdd(&ptr_memp_c_debug_debug_notice_list, "memp_c_debug");
 }
 
 const char *tokenFind(s32 arg0, const char *arg1);

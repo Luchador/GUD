@@ -35,11 +35,6 @@ void viDebugRemoved(void) {
 
 void viInit(void)
 {
-#if defined(VERSION_EU)
-    debTryAdd(&eu_D_80022330, "vi_c_debug");
-#else
-    debTryAdd(&viDebugNoticeList, "vi_c_debug");
-#endif
     osCreateMesgQueue(&vi_c_debug_MQ, &vi_c_debug_MSG, 8);
 }
 

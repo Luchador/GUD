@@ -210,7 +210,6 @@ void _memaFree(s32 addr, s32 size)
 // Initialize the (removed) debug features.
 void memaInit(void)
 {
-    debTryAdd(&g_MemoryAllocationDebugData, "mema_c_debug");
 }
 
 void memaReset(void *heapaddr, u32 heapsize)

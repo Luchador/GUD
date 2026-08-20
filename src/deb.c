@@ -79,14 +79,7 @@ void debAdd(const char *name, void *data) {
 }
 
 void debInit(void) {
-    debTryAdd(&g_DebDebugData, "deb_c_debug");
     crashInit();
-}
-
-void debTryAdd(void* data, const char *name) {
-    if (debFind(name) == NULL) {
-        debAdd(name, data);
-    }
 }
 
 

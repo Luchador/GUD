@@ -151,7 +151,6 @@ bool stanLocusEdgeIsAboveY(StandTile *tile, s32 edgeIndex, f32 edgeDist, f32 dis
 
 void stanInit(void) 
 {
-    debTryAdd(&stan_c_debug_notice_list_entry, &aStan_c_debug); //"stan_c_debug");
 }
 
 

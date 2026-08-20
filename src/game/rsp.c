@@ -210,7 +210,6 @@ extern long long int gsp3DDataStart[];
 
 void rspInit(void)
 {
-    debTryAdd(&g_gfxDebugEntryData, "rsp_c_debug");
 }
 
 void rspAllocateBuffers(void)

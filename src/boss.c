@@ -612,5 +612,5 @@ s32 bossGetDebugParseFlag(void) {
  *     V0= p->debug.notice.list entry for boss_c_debug using data at 800241A0
  */
 void bossInit(void) {
-    debTryAdd(&g_BossDebugNoticeEntry, "boss_c_debug");
+
 }

@@ -4,6 +4,5 @@
 #include <ultra64.h>
 
 void debInit(void);
-void debTryAdd(void *data, const char *name);
 
 #endif

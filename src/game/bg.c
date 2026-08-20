@@ -285,8 +285,6 @@ void bgInit(void)
         dword_CODE_bss_800815f8 = 0;
 #endif
     }
-
-    debTryAdd(&ptr_bg_c_debug_debug_notice_list, "bg_c_debug");
 }
 
 

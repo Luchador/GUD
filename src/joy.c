@@ -122,8 +122,6 @@ void joyInit(void)
     s32 i;
     s32 j;
 
-    debTryAdd(&g_ContDebugData, "joy_c_debug");
-
     osCreateMesgQueue(&g_ContDisablePollSendMessageQueue, g_ContDisablePollSendMessageBuffer, CONT_DISABLE_POLL_SEND_BUFFER_LEN);
     osCreateMesgQueue(&g_ContDisablePollReceiveMessageQueue, g_ContDisablePollReceiveMessageBuffer, CONT_DISABLE_POLL_RECEIVE_BUFFER_LEN);
     osCreateMesgQueue(&g_ContEnablePollSendMessageQueue, g_ContEnablePollSendMessageBuffer, CONT_ENABLE_POLL_SEND_BUFFER_LEN);

@@ -114,8 +114,6 @@ void obInit(void)
 {
     s32 size;
     s32 i;
-
-    debTryAdd(&ob_c_debug_notice_list_entry, "ob_c_debug");
     
     for (i = 1; i < file_entry_max - 1; i++)
     {

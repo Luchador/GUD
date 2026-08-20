@@ -1359,23 +1359,7 @@ void proplvreset2(enum LEVELID stageId)
                 pad->pos.f[1] *= roompos_1;
                 pad->pos.f[2] *= roompos_1;
         
-#ifdef DEBUG
-                {
-                    s32 sret = init_pathtable_something(pad, pad->plink, &pad->stan);
-                    if (sret == 0)
-                    {
-                        osSyncPrintf("pad number %d has no stan! (%s)\n", (s32)(pad - g_CurrentSetup.pads), pad->plink);
-                    }
-                    else if (sret == 2)
-                    {
-                        osSyncPrintf("pad number %d changed stan from %s to %s\n", (s32)(pad - g_CurrentSetup.pads), pad->plink, GetStanName(pad->stan));
-                    }
-                }
-#else
                 init_pathtable_something(pad, pad->plink, &pad->stan);
-#endif
-
-                if (1);
             }
         }
 
@@ -1404,23 +1388,7 @@ void proplvreset2(enum LEVELID stageId)
                 vol->bbox.zmin *= roompos_2;
                 vol->bbox.zmax *= roompos_2;
 
-#ifdef DEBUG
-                {
-                    s32 sret = init_pathtable_something((struct PadRecord *) vol, vol->plink, &vol->stan);
-                    if (sret == 0)
-                    {
-                        osSyncPrintf("vol number %d has no stan! (%s)\n", (s32)(vol - g_CurrentSetup.boundpads), vol->plink);
-                    }
-                    else if (sret == 2)
-                    {
-                        osSyncPrintf("vol number %d changed stan from %s to %s\n", (s32)(vol - g_CurrentSetup.boundpads), vol->plink, GetStanName(vol->stan));
-                    }
-                }
-#else
                 init_pathtable_something((struct PadRecord *) vol, vol->plink, &vol->stan);
-#endif
-
-                if (1);
             }
         }
 
@@ -1434,16 +1402,11 @@ void proplvreset2(enum LEVELID stageId)
 
         if (g_CurrentSetup.boundpadnames)
         {
-            // Required for matching.
-            if (g_CurrentSetup.ailists && g_CurrentSetup.ailists);
-
             for (i1 = 0; g_CurrentSetup.boundpadnames[i1].p; i1++)
             {
                 g_CurrentSetup.boundpadnames[i1].p = (void *) (((u32) g_CurrentSetup.boundpadnames[i1].p) + ((u32) local_stage));
             }
         }
-
-        // PD rejoins here
 
         if (withchrs)
         {

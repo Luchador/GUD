@@ -42,7 +42,6 @@ char membars_string2[] = "=========================";
 char membars_string3[] = "-------------------------";
 
 void dynInit(void) {
-    debTryAdd(&D_800482E0, "dyn_c_debug");
 }
 
 void dynInitMemory(void) {
