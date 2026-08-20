@@ -773,8 +773,6 @@ void lvlTick(void)
 #endif
     g_GlobalTimer += g_ClockTimer;
 
-    osSyncPrintf("value: %d \n", g_StageElapsedTicks);
-
     if ((g_CurrentStageToLoad != LEVELID_TITLE) && (g_StageElapsedTicks == 0) && (g_ClockTimer > 0))
     {
         if (g_AppendCheatSinglePlayer != 0)
