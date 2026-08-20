@@ -338,23 +338,30 @@ void __scHandleRetrace(OSSched *sc) {
     CheckDisplayErrorBufferEvery16Frames(sc->frameCount);
 }
 
-void __scHandleRSP(OSSched *sc) {
+void __scHandleRSP(OSSched *sc)
+{
     OSScTask *t, *sp = 0, *dp = 0;
     s32 state;
     t = sc->curRSPTask;
     sc->curRSPTask = 0;
 
-    speedgraphMarkerHandler(0x10001);
-    if ((t->state & OS_SC_YIELD) && osSpTaskYielded(&t->list)) {
+    if ((t->state & OS_SC_YIELD) && osSpTaskYielded(&t->list))
+    {
         t->state |= OS_SC_YIELDED;
-        if ((t->flags & OS_SC_TYPE_MASK) == OS_SC_XBUS) {
+
+        if ((t->flags & OS_SC_TYPE_MASK) == OS_SC_XBUS)
+        {
             t->next = sc->gfxListHead;
             sc->gfxListHead = t;
-            if (sc->gfxListTail == 0) {
+
+            if (sc->gfxListTail == 0)
+            {
                 sc->gfxListTail = t;
             }
         }
-    } else {
+    } 
+    else 
+    {
         t->state &= ~OS_SC_NEEDS_RSP;
         __scTaskComplete(sc, t);
     }
@@ -364,30 +371,35 @@ void __scHandleRSP(OSSched *sc) {
     }
 }
 
+
 u32 *get_counters(void)
 {
     return g_DisplayPerformanceCounters;
 }
 
+
 void __scHandleRDP(OSSched *sc)
 {
     OSScTask *t, *sp = NULL, *dp = NULL; 
     s32 state;
-    if (sc->curRDPTask != NULL) {
-        speedgraphMarkerHandler(0x10002);
+    if (sc->curRDPTask != NULL)
+    {
         osDpGetCounters(g_DisplayPerformanceCounters);
         t = sc->curRDPTask;
         sc->curRDPTask = NULL;
         t->state &= ~OS_SC_NEEDS_RDP;
         __scTaskComplete(sc, t);
         state = ((sc->curRSPTask == 0) << 1) | (sc->curRDPTask == 0);
-        if (__scSchedule(sc, &sp, &dp, state) != state) {
+
+        if (__scSchedule(sc, &sp, &dp, state) != state)
+        {
             __scExec(sc, sp, dp);
         }
     }
 }
 
-OSScTask *__scTaskReady(OSScTask *t) 
+
+OSScTask *__scTaskReady(OSScTask *t)
 {
     void *a;
     void *b;    
@@ -402,6 +414,7 @@ OSScTask *__scTaskReady(OSScTask *t)
 
     return 0;
 }
+
 
 s32 __scTaskComplete(OSSched *sc, OSScTask *t)
 {
@@ -471,20 +484,12 @@ void __scExec(OSSched *sc, OSScTask *sp, OSScTask *dp)
         {
             osDpSetStatus(0x3c0);
         }
-        
-        if (sp->list.t.type == 2)
-        {
-            speedgraphMarkerHandler(0x30001);
-        }
-        else
-        {
-            speedgraphMarkerHandler(0x40001);
-            speedgraphMarkerHandler(0x20002);
-        }
+
         sp->state &= ~(OS_SC_YIELD | OS_SC_YIELDED); 
         osSpTaskLoad(&sp->list);
         osSpTaskStartGo(&sp->list);
         sc->curRSPTask = sp;
+
         if (sp == dp)
         {
             sc->curRDPTask = dp;

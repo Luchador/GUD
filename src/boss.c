@@ -454,7 +454,6 @@ void bossMainloop(void)
                             }
 
                             speedgraphMarkerCommit();
-                            speedgraphMarkerHandler(0x20000);
                             joyConsumeSamplesWrapper();
                             permit_stderr(0);
 
@@ -508,11 +507,6 @@ void bossMainloop(void)
 
                             gdl = debmenuDraw(gdl);
 
-                            if (get_memusage_display_flag())
-                            {
-                                gdl = speedgraphDisplayMetrics(gdl);
-                            }
-
                             gdl = bondviewRenderRoomPosDisplay(gdl);
 
                             if (g_BossIsDebugMenuOpen)
@@ -535,8 +529,6 @@ void bossMainloop(void)
 
                             pendingGfx++;
                             memaSingleDefragPass();
-
-                            speedgraphMarkerHandler(0x10000);
                         }
                     }
                 }
