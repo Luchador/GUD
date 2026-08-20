@@ -504,11 +504,6 @@ Gfx* lvlRender(Gfx* DL)
                 DL = sub_GAME_7F091580(DL);
             }
 
-            if (get_debug_render_raster() == DEB_STAN_VIEW)
-            {
-                DL = stanRenderDebugStanView(DL);
-            }
-
             if (get_debug_render_raster() == DEB_BOND_VIEW)
             {
                 DL = bondviewRenderDebugBondView(DL);
@@ -1009,13 +1004,11 @@ void lvlTick(void)
                 if (joyGetButtonsPressedThisFrame(PLAYER_1, L_CBUTTONS))
                 {
                     sub_GAME_7F0AF630(-1);
-                    debugStanView(0, 0, 0);
                 }
 
                 if (joyGetButtonsPressedThisFrame(PLAYER_1, R_CBUTTONS))
                 {
                     sub_GAME_7F0AF630(1);
-                    debugStanView(0, 0, 0);
                 }
             }
             break;
@@ -1206,16 +1199,6 @@ void lvlViewMoveTick(void)
         break;
 
         case 1:
-        {
-            if (getDebugMode() == DEB_STAN_VIEW)
-            {
-                debugStanView(joyGetStickX(local_player_number), joyGetStickY(local_player_number), joyGetButtons(local_player_number, ANY_BUTTON));
-            }
-            else
-            {
-                debugStanView(joyGetStickX(local_player_number), joyGetStickY(local_player_number), 0);
-            }
-        }
         break;
 
         case 2:

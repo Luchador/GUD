@@ -8092,9 +8092,6 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
 }
 
 
-/**
- * Address: 7F087A08
- */
 Gfx *bondviewRenderDebugBondView(Gfx *gdl)
 {
     coord3d cam_pos;
@@ -8134,8 +8131,8 @@ Gfx *bondviewRenderDebugBondView(Gfx *gdl)
         }
     }
 #endif
-
-    if (g_CurrentPlayer->cameramode == 1) {
+    if (g_CurrentPlayer->cameramode == 1) 
+    {
         cam_pos.x = g_CurrentPlayer->pos.x;
         cam_pos.y = g_CurrentPlayer->pos.y;
         cam_pos.z = g_CurrentPlayer->pos.z;
@@ -8147,18 +8144,21 @@ Gfx *bondviewRenderDebugBondView(Gfx *gdl)
         cam_up.x = g_CurrentPlayer->offset.x;
         cam_up.y = g_CurrentPlayer->offset.y;
         cam_up.z = g_CurrentPlayer->offset.z;
-    } else {
+
+        
+    } 
+    else 
+    {
         collision = &g_CurrentPlayer->field_488;
 
         shake = ZeroCoordShake;
 
-        if (!g_CurrentPlayer->bonddead) {
-            explosionScreenShake(
-                &collision->pos,
-                &collision->applied_view,
-                &shake
-            );
-        } else {
+        if (!g_CurrentPlayer->bonddead)
+        {
+            explosionScreenShake(&collision->pos, &collision->applied_view, &shake);
+        } 
+        else 
+        {
             viShake(0.0f);
         }
 
@@ -8187,6 +8187,7 @@ Gfx *bondviewRenderDebugBondView(Gfx *gdl)
     if (ft4 >= M_PI_F) {
         ft4 -= M_TAU_F;
     }
+
     g_CurrentPlayer->field_2A08 = ft4;
 
     angle = atan2f(-vec.x, -vec.z);

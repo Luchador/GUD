@@ -2532,19 +2532,6 @@ void copy_tile_RGB_as_24bit(StandTile *tile, f32 p_x, f32 p_z, u8 *rtn)
 }
 
 
-void debugStanView(s8 joyX, s8 joyY, u16 joyBtns) {
-    return;
-}
-
-
-/**
- * Address: 7F0B2D48
- */
-Gfx * stanRenderDebugStanView(Gfx *arg0) {
-    return arg0;
-}
-
-
  /**
  * Get 24bit id stanIdHi from id string
  * @param stanIdHi: 1bit Type, 15bit Integer ID.
