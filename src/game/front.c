@@ -1275,7 +1275,7 @@ Gfx* frontAddStartTabText(Gfx* DL)
 
     if (tab_start_highlight)
     {
-        DL = microcode_constructor_related_to_menus(DL, (h - textWidth) + 1, STARTTAB_TEXT_TOP, h, STARTTAB_TEXT_BOTTOM, 50);
+        DL = gfxDrawTranslucentRect(DL, (h - textWidth) + 1, STARTTAB_TEXT_TOP, h, STARTTAB_TEXT_BOTTOM, 50);
     }
 
     setTextOrientation(ROT_90CW);
@@ -1318,7 +1318,7 @@ Gfx* frontAddPreviousTabText(Gfx* DL)
 
     if (tab_prev_highlight != 0)
     {
-        DL = microcode_constructor_related_to_menus(DL, (h - textWidth) + 1, PREVTAB_TEXT_TOP, h, PREVTAB_TEXT_BOTTOM, 50);
+        DL = gfxDrawTranslucentRect(DL, (h - textWidth) + 1, PREVTAB_TEXT_TOP, h, PREVTAB_TEXT_BOTTOM, 50);
     }
 
     setTextOrientation(ROT_90CW);
@@ -1370,7 +1370,7 @@ Gfx* frontAddNextTabText(Gfx* DL)
 
     if (tab_next_highlight != 0)
     {
-        DL = microcode_constructor_related_to_menus(DL, (h - textWidth) + 1, NEXTTAB_TEXT_TOP, h, NEXTTAB_TEXT_BOTTOM, 50);
+        DL = gfxDrawTranslucentRect(DL, (h - textWidth) + 1, NEXTTAB_TEXT_TOP, h, NEXTTAB_TEXT_BOTTOM, 50);
     }
 
     setTextOrientation(ROT_90CW);
@@ -1537,7 +1537,7 @@ Gfx *constructor_menu00_legalscreen(Gfx *DL)
         matrix_4x4_f32_to_s32(&tmpmtx, &((Mtxf *) logoinst->render_pos)[i]);
     }
     
-    DL = microcode_constructor(DL);
+    DL = gfxSetup2DTextureMode(DL);
     
     legal_text_ptr = legalpage_text_array;
     legal_text_end = (struct legal_screen_text *)&legalscreen_MRD;
@@ -2507,7 +2507,7 @@ Gfx *constructor_menu05_fileselect(Gfx *DL)
         }
     }
 
-    DL = microcode_constructor(DL);
+    DL = gfxSetup2DTextureMode(DL);
     setTextSpacingInverted(0);
 
     for (foldernum = FOLDER1; foldernum < MAX_FOLDER_COUNT; foldernum++)
@@ -2526,7 +2526,7 @@ Gfx *constructor_menu05_fileselect(Gfx *DL)
             textpos.p[1] = (s32) floorFloat(folderpos2d.f[0]) - 0x31;
             textpos.p[0] = (s32) floorFloat(folderpos2d.f[1]) + 0x19;
 
-            DL = microcode_constructor_related_to_menus(DL, textpos.p[1], textpos.p[0], textpos.p[1] + 0x63, textpos.p[0] + 0x2A, 0x32);
+            DL = gfxDrawTranslucentRect(DL, textpos.p[1], textpos.p[0], textpos.p[1] + 0x63, textpos.p[0] + 0x2A, 0x32);
 
             langp = langGet(getStringID(LTITLE, TITLE_STR_23_ERASEFILE)); /* Erase file? */
             textpos.p[1] = (s32) floorFloat(folderpos2d.f[0]) - 0x2F;
@@ -2543,7 +2543,7 @@ Gfx *constructor_menu05_fileselect(Gfx *DL)
                 textsize.p[0] = 0;
                 textsize.p[1] = 0;
                 textMeasure(&textsize.p[1], &textsize.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
-                DL = microcode_constructor_related_to_menus(DL, textpos.p[1] - 1, textpos.p[0] - 1, textsize.p[0] + textpos.p[1] + 3, textsize.p[1] + textpos.p[0], 0x32);
+                DL = gfxDrawTranslucentRect(DL, textpos.p[1] - 1, textpos.p[0] - 1, textsize.p[0] + textpos.p[1] + 3, textsize.p[1] + textpos.p[0], 0x32);
                 DL = textRender(DL, &textpos.p[1], &textpos.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
             }
             else
@@ -2566,7 +2566,7 @@ Gfx *constructor_menu05_fileselect(Gfx *DL)
                 textsize.p[0] = 0;
                 textsize.p[1] = 0;
                 textMeasure(&textsize.p[1], &textsize.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
-                DL = microcode_constructor_related_to_menus(DL, textpos.p[1] - 1, textpos.p[0] - 1, textsize.p[0] + textpos.p[1] + 3, textsize.p[1] + textpos.p[0], 0x32);
+                DL = gfxDrawTranslucentRect(DL, textpos.p[1] - 1, textpos.p[0] - 1, textsize.p[0] + textpos.p[1] + 3, textsize.p[1] + textpos.p[0], 0x32);
                 DL = textRender(DL, &textpos.p[1], &textpos.p[0], langp, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
             }
 
@@ -2908,7 +2908,7 @@ Gfx* constructor_menu06_modesel(Gfx* DL)
     DL = viFillScreen(DL);
     #endif
     DL = frontSetupMenuBackground(DL);
-    DL = microcode_constructor(DL);
+    DL = gfxSetup2DTextureMode(DL);
 
     x = 0x96;
     y = 0xdc;
@@ -2922,7 +2922,7 @@ Gfx* constructor_menu06_modesel(Gfx* DL)
     y = 0xdc;
     if (mission_difficulty_highlighted == 0)
     {
-        DL = microcode_constructor_related_to_menus(DL, 0x94, 0xDA, y2 + 0xAF, 0xEA, 0x32);
+        DL = gfxDrawTranslucentRect(DL, 0x94, 0xDA, y2 + 0xAF, 0xEA, 0x32);
     }
 
     DL = frontPrintText(DL, &x, &y, textstring, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
@@ -2947,7 +2947,7 @@ Gfx* constructor_menu06_modesel(Gfx* DL)
     y = 0xFC;
     if (mission_difficulty_highlighted == 1)
     {
-        DL = microcode_constructor_related_to_menus(DL, 0x94, 0xFA, y2 + 0xAF, 0x10A, 0x32);
+        DL = gfxDrawTranslucentRect(DL, 0x94, 0xFA, y2 + 0xAF, 0x10A, 0x32);
     }
     DL = frontPrintText(DL, &x, &y, textstring, ptrFontZurichBoldChars, ptrFontZurichBold, text_color, viGetX(), viGetY(), 0, 0);
 
@@ -2964,7 +2964,7 @@ Gfx* constructor_menu06_modesel(Gfx* DL)
         y = 0x11C;
         if (mission_difficulty_highlighted == 2)
         {
-            DL = microcode_constructor_related_to_menus(DL, 0x94, 0x11A, y2 + 0xAF, 0x12A, 0x32);
+            DL = gfxDrawTranslucentRect(DL, 0x94, 0x11A, y2 + 0xAF, 0x12A, 0x32);
         }
         DL = frontPrintText(DL, &x, &y, textstring, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
     }
@@ -3284,7 +3284,7 @@ Gfx *constructor_menu07_missionsel(Gfx *DL)
     DL = viFillScreen(DL);
     gDPSetFogColor(DL++, 0xFF, 0xFF, 0xFF, 0xFF);
     DL = frontSetupMenuBackground(DL);
-    DL = microcode_constructor(DL);
+    DL = gfxSetup2DTextureMode(DL);
 
     for (spD8 = 0; spD8 < 5; spD8++)
     {
@@ -3334,7 +3334,7 @@ Gfx *constructor_menu07_missionsel(Gfx *DL)
                 sp8C = cursor_xpos_table_mission_select[spD8] - 0x1F;
                 sp88 = (cursor_ypos_table_mission_select[i] - spC8) + 0x1D;
 
-                DL = microcode_constructor_related_to_menus(DL, sp8C, sp88, sp8C + spC4, sp88 + spC8, 0);
+                DL = gfxDrawTranslucentRect(DL, sp8C, sp88, sp8C + spC4, sp88 + spC8, 0);
                 DL = textRender(DL, &sp8C, &sp88, sp90, ptrFontBankGothicChars, ptrFontBankGothic, var_s5 | 0xFF, viGetX(), viGetY(), 0, 0);
 
                 sp8C = cursor_xpos_table_mission_select[spD8] - 0x1F;
@@ -3567,7 +3567,7 @@ Gfx *constructor_menu08_difficulty(Gfx *DL)
     stagename_struct = asc_D_8004F4B4;
 #endif
 
-    DL = microcode_constructor(DL);
+    DL = gfxSetup2DTextureMode(DL);
     DL = print_current_solo_briefing_stage_name(DL, &stagename_struct);
 
     //  "DIFFICULTY:\n"
@@ -3578,7 +3578,7 @@ Gfx *constructor_menu08_difficulty(Gfx *DL)
 
     if (mission_difficulty_highlighted >= 0)
     {
-        DL = microcode_constructor_related_to_menus(
+        DL = gfxDrawTranslucentRect(
             DL,
             0x7E - (j_text_trigger ? 0x32 : 0),
             (mission_difficulty_highlighted * 0x1E) + 0xB2,
@@ -3875,7 +3875,7 @@ Gfx *constructor_menu09_007options(Gfx *DL)
     textbuffer = asc_D_80050074;
 #endif
 
-    DL = microcode_constructor(DL);
+    DL = gfxSetup2DTextureMode(DL);
     DL = print_current_solo_briefing_stage_name(DL, (char*)&textbuffer);
 
     labeltext = langGet(getStringID(LTITLE, TITLE_STR_40_SPECOPS)); /* SPECIAL OPTIONS */
@@ -3895,17 +3895,17 @@ Gfx *constructor_menu09_007options(Gfx *DL)
     texty = 164;
 
     // Render the bar background with a black color and an opacity of 50/255.
-    DL = microcode_constructor_related_to_menus(DL, 55, 181, 355, 192, 0x00000032);
+    DL = gfxDrawTranslucentRect(DL, 55, 181, 355, 192, 0x00000032);
 
     barwidth = (sqrtf(slider_007_mode_health / 10.0f)) * 300.0f;
 
     // Render the filled portion of the bar with a black color and an opacity of 100/255.
-    DL = microcode_constructor_related_to_menus(DL, 55, texty + 17, barwidth + 55, texty + 28, 0x00000064);
+    DL = gfxDrawTranslucentRect(DL, 55, texty + 17, barwidth + 55, texty + 28, 0x00000064);
 
     if (highlight_enemy_health != 0)
     {
         // Render a black rectangle over the "Enemy health" text to indicate it's highlighted.
-        DL = microcode_constructor_related_to_menus(DL, 55, texty - 1, 199, texty + 14, 0x00000032);
+        DL = gfxDrawTranslucentRect(DL, 55, texty - 1, 199, texty + 14, 0x00000032);
     }
 
     // Render "Enemy health" text.
@@ -3933,13 +3933,13 @@ Gfx *constructor_menu09_007options(Gfx *DL)
     textx = 57;
     texty = 197;
 
-    DL = microcode_constructor_related_to_menus(DL, 55, 214, 355, 225, 0x00000032);
+    DL = gfxDrawTranslucentRect(DL, 55, 214, 355, 225, 0x00000032);
     barwidth = (sqrtf(slider_007_mode_damage / 10.0f)) * 300.0f;
-    DL = microcode_constructor_related_to_menus(DL, 55, texty + 17, barwidth + 55, texty + 28, 0x00000064);
+    DL = gfxDrawTranslucentRect(DL, 55, texty + 17, barwidth + 55, texty + 28, 0x00000064);
 
     if (highlight_enemy_damage != 0)
     {
-        DL = microcode_constructor_related_to_menus(DL, 55, texty - 1, 199, texty + 14, 0x00000032);
+        DL = gfxDrawTranslucentRect(DL, 55, texty - 1, 199, texty + 14, 0x00000032);
     }
 
     DL = frontPrintText(DL, &textx, &texty, (s8*)labeltext, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
@@ -3966,13 +3966,13 @@ Gfx *constructor_menu09_007options(Gfx *DL)
     textx = 57;
     texty = 230;
 
-    DL = microcode_constructor_related_to_menus(DL, 55, 247, 355, 258, 0x00000032);
+    DL = gfxDrawTranslucentRect(DL, 55, 247, 355, 258, 0x00000032);
     barwidth = (sqrtf(slider_007_mode_accuracy / 10.0f)) * 300.0f;
-    DL = microcode_constructor_related_to_menus(DL, 55, texty + 17, barwidth + 55, texty + 28, 0x00000064);
+    DL = gfxDrawTranslucentRect(DL, 55, texty + 17, barwidth + 55, texty + 28, 0x00000064);
 
     if (highlight_enemy_accuracy != 0)
     {
-        DL = microcode_constructor_related_to_menus(DL, 55, texty - 1, 199, texty + 14, 0x00000032);
+        DL = gfxDrawTranslucentRect(DL, 55, texty - 1, 199, texty + 14, 0x00000032);
     }
 
     DL = frontPrintText(DL, &textx, &texty, (s8*)labeltext, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
@@ -3999,12 +3999,12 @@ Gfx *constructor_menu09_007options(Gfx *DL)
     textx = 57;
     texty = 263;
 
-    DL = microcode_constructor_related_to_menus(DL, 55, 280, 355, 291, 0x00000032);
-    DL = microcode_constructor_related_to_menus(DL, 55, texty + 17, (s32) (slider_007_mode_reaction * 300.0f * 1) + 55, texty + 28, 0x00000064);
+    DL = gfxDrawTranslucentRect(DL, 55, 280, 355, 291, 0x00000032);
+    DL = gfxDrawTranslucentRect(DL, 55, texty + 17, (s32) (slider_007_mode_reaction * 300.0f * 1) + 55, texty + 28, 0x00000064);
 
     if (highlight_enemy_reaction != 0)
     {
-        DL = microcode_constructor_related_to_menus(DL, 55, texty - 1, 199, texty + 14, 0x00000032);
+        DL = gfxDrawTranslucentRect(DL, 55, texty - 1, 199, texty + 14, 0x00000032);
     }
 
     DL = frontPrintText(DL, &textx, &texty, (s8*)labeltext, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
@@ -4589,7 +4589,7 @@ Gfx * constructor_menu0E_mpoptions(Gfx *DL)
   DL = viFillScreen(DL);
   #endif
   DL = frontSetupMenuBackground(DL);
-  DL = microcode_constructor(DL);
+  DL = gfxSetup2DTextureMode(DL);
   text = langGet(getStringID(LTITLE, TITLE_STR_76_MPOPTIONS));
   x = 0x37;
   y = 0x5f;
@@ -4600,7 +4600,7 @@ Gfx * constructor_menu0E_mpoptions(Gfx *DL)
   x = 0x39;
   y = 0x79;
   if (highlight_players) {
-    DL = microcode_constructor_related_to_menus(DL,0x37,0x78,iStack28 + 0x3c,0x87,0x32);
+    DL = gfxDrawTranslucentRect(DL,0x37,0x78,iStack28 + 0x3c,0x87,0x32);
   }
   DL = frontPrintText(DL,&x,&y,text,ptrFontZurichBoldChars,ptrFontZurichBold,0xff,viGetX(),viGetY(),0,0);
 
@@ -4609,7 +4609,7 @@ Gfx * constructor_menu0E_mpoptions(Gfx *DL)
   x = 0x39;
   y = 0x8d;
   if (highlight_scenario) {
-    DL = microcode_constructor_related_to_menus(DL,0x37,0x8c,iStack28 + 0x3c,0x9b,0x32);
+    DL = gfxDrawTranslucentRect(DL,0x37,0x8c,iStack28 + 0x3c,0x9b,0x32);
   }
   DL = frontPrintText(DL,&x,&y,text,ptrFontZurichBoldChars,ptrFontZurichBold,0xff,viGetX(),viGetY(),0,0);
 
@@ -4618,7 +4618,7 @@ Gfx * constructor_menu0E_mpoptions(Gfx *DL)
   x = 0x39;
   y = 0xa1;
   if (highlight_gameselect) {
-    DL = microcode_constructor_related_to_menus(DL,0x37,0xa0,iStack28 + 0x3c,0xaf,0x32);
+    DL = gfxDrawTranslucentRect(DL,0x37,0xa0,iStack28 + 0x3c,0xaf,0x32);
   }
   if (unlock_stage_select) {
     entry = 0xFF;
@@ -4633,7 +4633,7 @@ Gfx * constructor_menu0E_mpoptions(Gfx *DL)
   x = 0x39;
   y = 0xb5;
   if (highlight_gamelength) {
-    DL = microcode_constructor_related_to_menus(DL,0x37,0xb4,iStack28 + 0x3c,0xc3,0x32);
+    DL = gfxDrawTranslucentRect(DL,0x37,0xb4,iStack28 + 0x3c,0xc3,0x32);
   }
   if (unlock_game_length) {
     entry = 0xFF;
@@ -4648,7 +4648,7 @@ Gfx * constructor_menu0E_mpoptions(Gfx *DL)
   x = 0x39;
   y = 0xc9;
   if (highlight_weaponselect) {
-    DL = microcode_constructor_related_to_menus(DL,0x37,200,iStack28 + 0x3c,0xd7,0x32);
+    DL = gfxDrawTranslucentRect(DL,0x37,200,iStack28 + 0x3c,0xd7,0x32);
   }
   if (unlock_weapon_select) {
     entry = 0xFF;
@@ -4663,7 +4663,7 @@ Gfx * constructor_menu0E_mpoptions(Gfx *DL)
   x = 0x39;
   y = 0xdd;
   if (highlight_character) {
-    DL = microcode_constructor_related_to_menus(DL,0x37,0xdc,iStack28 + 0x3c,0xeb,0x32);
+    DL = gfxDrawTranslucentRect(DL,0x37,0xdc,iStack28 + 0x3c,0xeb,0x32);
   }
   if (unlock_chars) {
     entry = 0xFF;
@@ -4678,7 +4678,7 @@ Gfx * constructor_menu0E_mpoptions(Gfx *DL)
   x = 0x39;
   y = 0xf1;
   if (highlight_health) {
-    DL = microcode_constructor_related_to_menus(DL,0x37,0xf0,iStack28 + 0x3c,0xff,0x32);
+    DL = gfxDrawTranslucentRect(DL,0x37,0xf0,iStack28 + 0x3c,0xff,0x32);
   }
   if (unlock_handicap) {
     entry = 0xFF;
@@ -4693,7 +4693,7 @@ Gfx * constructor_menu0E_mpoptions(Gfx *DL)
   x = 0x39;
   y = 0x105;
   if (highlight_controlstyle) {
-    DL = microcode_constructor_related_to_menus(DL,0x37,0x104,iStack28 + 0x3c,0x113,0x32);
+    DL = gfxDrawTranslucentRect(DL,0x37,0x104,iStack28 + 0x3c,0x113,0x32);
   }
   if (unlock_control_style) {
     entry = 0xFF;
@@ -4708,7 +4708,7 @@ Gfx * constructor_menu0E_mpoptions(Gfx *DL)
   x = 0x39;
   y = 0x119;
   if (highlight_aimadjustment) {
-    DL = microcode_constructor_related_to_menus(DL,0x37,0x118,iStack28 + 0x3c,0x127,0x32);
+    DL = gfxDrawTranslucentRect(DL,0x37,0x118,iStack28 + 0x3c,0x127,0x32);
   }
   if (unlock_aim_sight) {
     entry = 0xFF;
@@ -5064,7 +5064,7 @@ Gfx *frontRenderCharacterPortrait(Gfx *DL, s32 arg1, s32 arg2, s32 arg3, s32 arg
     spD4 = dynAllocateMatrix();
     spD0 = dynAllocateMatrix();
     spCC = dynAllocateVertices(16);
-    DL = microcode_constructor(DL);
+    DL = gfxSetup2DTextureMode(DL);
 
     guOrtho(spD4, 0.0f, 440.0f, 0.0f, 330.0f, 1.0f, 10.0f, 1.0f);
     guRotate(spD0, 3.1415927f, 1.0f, 0.0f, 0.0f);
@@ -5191,12 +5191,12 @@ Gfx *constructor_menu0F_mpcharsel(Gfx *DL)
     DL = viSetFillColor(DL, 0, 0, 0);
     DL = viFillScreen(DL);
     DL = frontSetupMenuBackground(DL);
-    DL = microcode_constructor(DL);
-    DL = microcode_constructor_related_to_menus(DL, 0x26, 0xA9, 0x184, 0xAB, 0x90);
+    DL = gfxSetup2DTextureMode(DL);
+    DL = gfxDrawTranslucentRect(DL, 0x26, 0xA9, 0x184, 0xAB, 0x90);
 
     if (numplayers >= 3)
     {
-        DL = microcode_constructor_related_to_menus(DL, 0xD4, 0x1E, 0xD6, 0x136, 0x80);
+        DL = gfxDrawTranslucentRect(DL, 0xD4, 0x1E, 0xD6, 0x136, 0x80);
     }
 
     for (playernum = 0; playernum < numplayers; playernum++)
@@ -5229,7 +5229,7 @@ Gfx *constructor_menu0F_mpcharsel(Gfx *DL)
             textMeasure(&select_char_height, &select_char_width, text, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
             select_char_x = panel_center_x - (select_char_width >> 1);
             select_char_y = panel_top + 5;
-            DL = microcode_constructor(DL);
+            DL = gfxSetup2DTextureMode(DL);
             DL = frontPrintText(DL, &select_char_x, &select_char_y, (s8 *) text, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
         }
         
@@ -5238,7 +5238,7 @@ Gfx *constructor_menu0F_mpcharsel(Gfx *DL)
         portrait_y_base = panel_top;
         name_x = panel_center_x - (name_width >> 1);
         name_y = (portrait_y_base + 0x46) + 0x32;
-        DL = microcode_constructor(DL);
+        DL = gfxSetup2DTextureMode(DL);
         DL = frontPrintText(DL, &name_x, &name_y, (s8 *) text, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
         DL = frontRenderCharacterPortrait(DL, panel_left + 0xD, (panel_left + panel_width) - 0xE, panel_center_x - mp_char_select_scroll_offset[playernum], portrait_y_base + 0x46, mp_char_prev_select_player[playernum], size_mp_select_image_player[playernum]);
 
@@ -5411,12 +5411,12 @@ Gfx * constructor_menu10_mphandicap(Gfx *DL)
     DL = viSetFillColor(DL, 0, 0, 0);
     DL = viFillScreen(DL);
     DL = frontSetupMenuBackground(DL);
-    DL = microcode_constructor(DL);
-    DL = microcode_constructor_related_to_menus(DL, 0x26, 0xA9, 0x184, 0xAB, 0x90);
+    DL = gfxSetup2DTextureMode(DL);
+    DL = gfxDrawTranslucentRect(DL, 0x26, 0xA9, 0x184, 0xAB, 0x90);
 
     if (spCC >= 3)
     {
-        DL = microcode_constructor_related_to_menus(DL, 0xD4, 0x1E, 0xD6, 0x136, 0x80);
+        DL = gfxDrawTranslucentRect(DL, 0xD4, 0x1E, 0xD6, 0x136, 0x80);
     }
 
     for (i = 0; i < spCC; i++)
@@ -5455,7 +5455,7 @@ Gfx * constructor_menu10_mphandicap(Gfx *DL)
             sp9C = padding2 - (spA0 >> 1);
             sp98 = padding5 - (spA4 >> 1) - 0xf;
 
-            DL = microcode_constructor(DL);
+            DL = gfxSetup2DTextureMode(DL);
             DL = frontPrintText(DL, &sp9C, &sp98, (s8*)text, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
         }
 
@@ -5465,7 +5465,7 @@ Gfx * constructor_menu10_mphandicap(Gfx *DL)
             sp88 = padding2 - (sp8C >> 1);
             sp84 = padding5 - (sp90 >> 1) + 0xf;
 
-            DL = microcode_constructor(DL);
+            DL = gfxSetup2DTextureMode(DL);
             DL = frontPrintText(DL, &sp88, &sp84, (s8*)text2, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
         }
     }
@@ -5669,12 +5669,12 @@ Gfx * constructor_menu11_mpcontrol(Gfx *DL)
     DL = viSetFillColor(DL, 0, 0, 0);
     DL = viFillScreen(DL);
     DL = frontSetupMenuBackground(DL);
-    DL = microcode_constructor(DL);
-    DL = microcode_constructor_related_to_menus(DL, 0x26, 0xA9, 0x184, 0xAB, 0x90);
+    DL = gfxSetup2DTextureMode(DL);
+    DL = gfxDrawTranslucentRect(DL, 0x26, 0xA9, 0x184, 0xAB, 0x90);
 
     if (spCC >= 3)
     {
-        DL = microcode_constructor_related_to_menus(DL, 0xD4, 0x1E, 0xD6, 0x136, 0x80);
+        DL = gfxDrawTranslucentRect(DL, 0xD4, 0x1E, 0xD6, 0x136, 0x80);
     }
 
     for (i = 0; i < spCC; i++)
@@ -5713,7 +5713,7 @@ Gfx * constructor_menu11_mpcontrol(Gfx *DL)
             sp9C = padding2 - (spA0 >> 1);
             sp98 = padding5 - (spA4 >> 1) - 0xf;
 
-            DL = microcode_constructor(DL);
+            DL = gfxSetup2DTextureMode(DL);
             DL = frontPrintText(DL, &sp9C, &sp98, (s8*)text, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
         }
 
@@ -5723,7 +5723,7 @@ Gfx * constructor_menu11_mpcontrol(Gfx *DL)
             sp88 = padding2 - (sp8C >> 1);
             sp84 = padding5 - (sp90 >> 1) + 0xf;
 
-            DL = microcode_constructor(DL);
+            DL = gfxSetup2DTextureMode(DL);
             DL = frontPrintText(DL, &sp88, &sp84, (s8*)text2, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
         }
     }
@@ -5879,11 +5879,11 @@ Gfx * constructor_menu12_mpstage(Gfx *DL)
     DL = viSetFillColor(DL, 0, 0, 0);
     DL = viFillScreen(DL);
     DL = frontSetupMenuBackground(DL);
-    DL = microcode_constructor(DL);
+    DL = gfxSetup2DTextureMode(DL);
 
     for (i_1 = 0; i_1 != 3; i_1++)
     {
-        DL = microcode_constructor_related_to_menus(DL, 0x25, 0x6c + (i_1 * 0x46), 0x185, 0xa0 + (i_1 * 0x46), 0x101010FF);
+        DL = gfxDrawTranslucentRect(DL, 0x25, 0x6c + (i_1 * 0x46), 0x185, 0xa0 + (i_1 * 0x46), 0x101010FF);
     }
 
     DL = combiner_bayer_lod_perspective(DL);
@@ -5950,7 +5950,7 @@ Gfx * constructor_menu12_mpstage(Gfx *DL)
         spD8.f[1] += 70.0f;
     }
 
-    DL = microcode_constructor(DL);
+    DL = gfxSetup2DTextureMode(DL);
 
     count_2 = 0;
 
@@ -5986,7 +5986,7 @@ Gfx * constructor_menu12_mpstage(Gfx *DL)
                     sp130 = var_s6 - 0x1F;
                     sp12C = sp90 - sp128;
 
-                    DL = microcode_constructor_related_to_menus(DL, sp130, sp12C, sp130 + sp124, sp12C + sp128, 0);
+                    DL = gfxDrawTranslucentRect(DL, sp130, sp12C, sp130 + sp124, sp12C + sp128, 0);
 
                     DL = textRender(DL, &sp130, &sp12C, langGet(multi_stage_setups[count_2].select_screen_text_preset), ptrFontBankGothicChars, ptrFontBankGothic, var_s2_2 | 0xFF, viGetX(), viGetY(), 0, 0);
 
@@ -6004,7 +6004,7 @@ Gfx * constructor_menu12_mpstage(Gfx *DL)
         }
     }
 
-    DL = microcode_constructor(DL);
+    DL = gfxSetup2DTextureMode(DL);
     DL = frontAddPreviousTabText(DL);
     DL = frontDrawCursor(DL);
 
@@ -6156,7 +6156,7 @@ Gfx * constructor_menu13_mpscenario(Gfx *DL)
     DL = viFillScreen(DL);
 #endif
     DL = frontSetupMenuBackground(DL);
-    DL = microcode_constructor(DL);
+    DL = gfxSetup2DTextureMode(DL);
 
     text = langGet(getStringID(LTITLE, TITLE_STR_87_SCENARIO2));
 
@@ -6181,7 +6181,7 @@ Gfx * constructor_menu13_mpscenario(Gfx *DL)
         y = 0x83 + (i * 0x16);
         if ((i + 1) == dword_CODE_bss_80069780)
         {
-            DL = microcode_constructor_related_to_menus(DL, 0x37, y - 1, sp78 + 0x3C, y + 0xE, 0x32);
+            DL = gfxDrawTranslucentRect(DL, 0x37, y - 1, sp78 + 0x3C, y + 0xE, 0x32);
         }
 
         DL = frontPrintText(DL, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, var_s3, viGetX(), viGetY(), 0, 0);
@@ -6395,12 +6395,12 @@ Gfx *constructor_menu14_mpteams(Gfx *DL)
     DL = viSetFillColor(DL, 0, 0, 0);
     DL = viFillScreen(DL);
     DL = frontSetupMenuBackground(DL);
-    DL = microcode_constructor(DL);
-    DL = microcode_constructor_related_to_menus(DL, 0x26, 0xA9, 0x184, 0xAB, 0x90);
+    DL = gfxSetup2DTextureMode(DL);
+    DL = gfxDrawTranslucentRect(DL, 0x26, 0xA9, 0x184, 0xAB, 0x90);
 
     if (numPlayers >= 3)
     {
-        DL = microcode_constructor_related_to_menus(DL, 0xD4, 0x1E, 0xD6, 0x136, 0x80);
+        DL = gfxDrawTranslucentRect(DL, 0xD4, 0x1E, 0xD6, 0x136, 0x80);
     }
 
     for (playerIndex = 0; playerIndex < numPlayers; playerIndex++)
@@ -6736,7 +6736,7 @@ Gfx *constructor_menu0A_briefing(Gfx *DL)
     sp4C = asc_D_80050C54;
 #endif
 
-    DL = microcode_constructor(DL);
+    DL = gfxSetup2DTextureMode(DL);
     DL = print_current_solo_briefing_stage_name(DL, (char*)&sp4C);
 
     switch (current_menu_briefing_page)
@@ -6957,7 +6957,7 @@ Gfx * constructor_menu0C_missionfailed(Gfx *DL)
     DL = viFillScreen(DL);
     #endif
     DL = frontSetupMenuBackground(DL);
-    DL = microcode_constructor(DL);
+    DL = gfxSetup2DTextureMode(DL);
     DL = print_current_solo_briefing_stage_name(DL, &stagename);
 
     text = langGet(getStringID(LTITLE, TITLE_STR_98_REPORT)); //REPORT:*
@@ -7166,7 +7166,7 @@ Gfx *constructor_menu0D_missioncomplete(Gfx *DL)
     DL = viSetFillColor(DL, 0,0,0);
     DL = viFillScreen(DL);
     DL = frontSetupMenuBackground(DL);
-    DL = microcode_constructor(DL);
+    DL = gfxSetup2DTextureMode(DL);
 
     missiontimer = getMissiontimer();
     killcount = get_curplay_killcount();
@@ -7532,7 +7532,7 @@ Gfx * constructor_menu15_cheat(Gfx *DL)
     DL = viFillScreen(DL);
 #endif
     DL = frontSetupMenuBackground(DL);
-    DL = microcode_constructor(DL);
+    DL = gfxSetup2DTextureMode(DL);
 
     for (var_fp = 0; var_fp < ((totalunlockedcheats >= 0xD) ? 0xC : totalunlockedcheats); var_fp++)
     {
@@ -7543,7 +7543,7 @@ Gfx * constructor_menu15_cheat(Gfx *DL)
         sp84 = (var_fp * 0x14) + 0x35;
         if ((var_fp == cheathighlighted) && (frontCheckCursorOnPreviousTab() == 0))
         {
-            DL = microcode_constructor_related_to_menus(DL, sp88 - 2, sp84 - 1, sp88 + sp7C + 5, sp84 + 0xE, 0x32);
+            DL = gfxDrawTranslucentRect(DL, sp88 - 2, sp84 - 1, sp88 + sp7C + 5, sp84 + 0xE, 0x32);
         }
 
         DL = frontPrintText(DL, &sp88, &sp84, temp_v0, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
@@ -7569,7 +7569,7 @@ Gfx * constructor_menu15_cheat(Gfx *DL)
             sp84 = (var_fp * 0x14) + 0x35;
             if ((var_fp + 0xc == cheathighlighted) && (frontCheckCursorOnPreviousTab() == 0))
             {
-                DL = microcode_constructor_related_to_menus(DL, sp88 - 2, sp84 - 1, sp88 + sp7C + 5, sp84 + 0xE, 0x32);
+                DL = gfxDrawTranslucentRect(DL, sp88 - 2, sp84 - 1, sp88 + sp7C + 5, sp84 + 0xE, 0x32);
             }
 
             DL = frontPrintText(DL, &sp88, &sp84, temp_v0, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
@@ -7631,7 +7631,7 @@ Gfx *constructor_menu16_nocontrollers(Gfx *DL)
     if ((conConnected & 2)) {
         numContCon++;
     }
-    DL = microcode_constructor(clear_framebuffer_black(DL));
+    DL = gfxSetup2DTextureMode(clear_framebuffer_black(DL));
 
 
     if ((numContCon == 0) || (numContCon == 1) || (numContCon == 2) || (numContCon == 3)) {
@@ -8240,7 +8240,7 @@ Gfx *constructor_menu18_displaycast(Gfx *DL)
     gDPSetTexturePersp(DL++, G_TP_PERSP);
     gDPSetTextureLOD(DL++, G_TL_LOD);
  
-    DL = microcode_constructor(DL);
+    DL = gfxSetup2DTextureMode(DL);
  
     if (full_actor_intro == FALSE)
     {
@@ -8251,7 +8251,7 @@ Gfx *constructor_menu18_displaycast(Gfx *DL)
         x = 315 - textwidth / 2;
         y = 108;
  
-        DL = microcode_constructor_related_to_menus(DL, x, 108, x + textwidth + 1, textheight + 109, 0);
+        DL = gfxDrawTranslucentRect(DL, x, 108, x + textwidth + 1, textheight + 109, 0);
  
         DL = textRender(DL, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, (u32)(255.0f * fade) | 0xFFFFFF00, viGetX(), viGetY(), 0, 0);
     }
@@ -8263,7 +8263,7 @@ Gfx *constructor_menu18_displaycast(Gfx *DL)
     x = 315 - textwidth / 2;
     y = 152;
  
-    DL = microcode_constructor_related_to_menus(DL, x, 152, x + textwidth + 1, textheight + 153, 0);
+    DL = gfxDrawTranslucentRect(DL, x, 152, x + textwidth + 1, textheight + 153, 0);
  
     DL = textRender(DL, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, (u32)(255.0f * fade) | 0xFFFFFF00, viGetX(), viGetY(), 0, 0);
  
@@ -8274,7 +8274,7 @@ Gfx *constructor_menu18_displaycast(Gfx *DL)
     x = 315 - textwidth / 2;
     y = 174;
  
-    DL = microcode_constructor_related_to_menus(DL, x, 174, x + textwidth + 1, textheight + 175, 0);
+    DL = gfxDrawTranslucentRect(DL, x, 174, x + textwidth + 1, textheight + 175, 0);
  
     return textRender(DL, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, (u32)(255.0f * fade) | 0xFFFFFF00, viGetX(), viGetY(), 0, 0);
 }

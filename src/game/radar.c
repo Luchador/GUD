@@ -78,7 +78,7 @@ Gfx *display_red_blue_on_radar(Gfx *DL)
     
     texSelect(&DL, mpradarimages, 2, 0, 2);
 
-    DL = microcode_constructor(DL);
+    DL = gfxSetup2DTextureMode(DL);
 
     gDPSetCombineLERP(DL++, 0, 0, 0, PRIMITIVE, PRIMITIVE, 0, TEXEL0, 0, 0, 0, 0, PRIMITIVE, PRIMITIVE, 0, TEXEL0, 0);
     gDPSetPrimColor(DL++, 0, 0, 0x00, 0x00, 0x00, 0xA0);
@@ -95,7 +95,7 @@ Gfx *display_red_blue_on_radar(Gfx *DL)
         0x400,
         RADAR_RECT1_D);
     
-    DL = microcode_constructor_related_to_menus(DL, start_left - 2, start_top - 2, start_left + 2, start_top + 2, 0x40);
+    DL = gfxDrawTranslucentRect(DL, start_left - 2, start_top - 2, start_left + 2, start_top + 2, 0x40);
     
     if ((current_scenario == SCENARIO_2v2)
         || (current_scenario == SCENARIO_3v1)
@@ -112,11 +112,11 @@ Gfx *display_red_blue_on_radar(Gfx *DL)
             dl_color_1 = 0x8888FFFF;
         }
         
-        DL = microcode_constructor_related_to_menus(DL, start_left - 1, start_top - 1, start_left + 1, start_top + 1, dl_color_1);
+        DL = gfxDrawTranslucentRect(DL, start_left - 1, start_top - 1, start_left + 1, start_top + 1, dl_color_1);
     }
     else
     {
-        DL = microcode_constructor_related_to_menus(DL, start_left - 1, start_top - 1, start_left + 1, start_top + 1, -0x60);
+        DL = gfxDrawTranslucentRect(DL, start_left - 1, start_top - 1, start_left + 1, start_top + 1, -0x60);
     }
 
     for (i = 0; i < player_count; i++)
@@ -187,8 +187,8 @@ Gfx *display_red_blue_on_radar(Gfx *DL)
                 loop_start_left = (s32) (sinf(temp_f28 * 0.017453292f) * temp_f2) + start_left;
                 loop_start_top = (s32) (cosf(temp_f28 * 0.017453292f) * temp_f2 * RADAR_VERT_SCALE) + start_top;
                 
-                DL = microcode_constructor_related_to_menus(DL, loop_start_left - 2, loop_start_top - 2, loop_start_left + 2, loop_start_top + 2, 0x40);
-                DL = microcode_constructor_related_to_menus(DL, loop_start_left - 1, loop_start_top - 1, loop_start_left + 1, loop_start_top + 1, dl_color_2);
+                DL = gfxDrawTranslucentRect(DL, loop_start_left - 2, loop_start_top - 2, loop_start_left + 2, loop_start_top + 2, 0x40);
+                DL = gfxDrawTranslucentRect(DL, loop_start_left - 1, loop_start_top - 1, loop_start_left + 1, loop_start_top + 1, dl_color_2);
             }
         }
     }

@@ -5918,7 +5918,7 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
                         textwidth_r = ((u8 *)imageoffset_r)[4];
                     }
 
-                    gdl = microcode_constructor(gdl);
+                    gdl = gfxSetup2DTextureMode(gdl);
 
                     if (bondwalkItemCheckBitflags(weapon_right, WEAPONSTATBITFLAG_NO_CLIP_RELOADS))
                     {
@@ -5984,7 +5984,7 @@ Gfx *generate_ammo_total_microcode(Gfx *gdl)
                         textwidth_l = ((u8 *)imageoffset_l)[4];
                     }
 
-                    gdl = microcode_constructor(gdl);
+                    gdl = gfxSetup2DTextureMode(gdl);
 
                     if (bondwalkItemCheckBitflags(weapon_left, WEAPONSTATBITFLAG_NO_CLIP_RELOADS))
                     {
@@ -6076,7 +6076,7 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
                 textwidth = ((u8 *)imageoffset)[4];
             }
 
-            gdl = microcode_constructor(gdl);
+            gdl = gfxSetup2DTextureMode(gdl);
 
             if (bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_NO_CLIP_RELOADS))
             {

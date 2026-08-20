@@ -14139,7 +14139,7 @@ Gfx *countdownTimerRender(Gfx *DL)
         secs = (s32) floorFloat(time / 60.0f) - (mins * 60);
         ms = ((s32) floorFloat((time * 100.0f) / 60.0f) - (mins * 6000)) - (secs * 100);
 
-        DL = microcode_constructor(DL);
+        DL = gfxSetup2DTextureMode(DL);
 
         #if defined(VERSION_US) || defined(VERSION_JP)
             valign_offset = 18;

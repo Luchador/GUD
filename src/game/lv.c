@@ -1383,6 +1383,7 @@ Gfx *lvlDrawFrameRateDisplay(Gfx *gdl)
     static u32 fpsWindowStart = 0;
     static u32 fpsFrameCount = 0;
     static char fpsText[8] = "--";
+    static u32 color = 0xFFFFFFFF;
     
     u32 now = osGetCount();
     s32 x;
@@ -1393,21 +1394,35 @@ Gfx *lvlDrawFrameRateDisplay(Gfx *gdl)
 
     if (fpsWindowStart == 0)
     {
-        fpsFrameCount = now;
+        fpsWindowStart = now;
     }
     else if ((u32)(now - fpsWindowStart) >= (u32)OS_USEC_TO_CYCLES(1000000))
     {
+        /* Color code the readout: green ~60, yellow ~30..59, red below. */
+        if(fpsFrameCount > 50)
+        {
+            color = 0x22FF22FF;
+        }
+        else if(fpsFrameCount > 25)
+        {
+            color = 0xFFFF22FF;
+        }
+        else
+        {
+            color = 0xFF0000FF;
+        }
+
         sprintf(fpsText, "%d", fpsFrameCount);
         fpsFrameCount = 0;
         fpsWindowStart = now;
     }
 
-    x = viGetViewLeft() + 4;
-    y = viGetViewTop() + 4;
+    x = viGetViewLeft() + 6;
+    y = viGetViewTop() + 2;
     screenwidth = (s32) viGetX();
 
-    gdl = microcode_constructor(gdl);
-    gdl = textRender(gdl, &x, &y, fpsText, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
+    gdl = gfxSetup2DTextureMode(gdl);
+    gdl = textRender(gdl, &x, &y, fpsText, ptrFontBankGothicChars, ptrFontBankGothic, color, screenwidth, viGetY(), 0, 0);
 
     return gdl;
 }

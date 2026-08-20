@@ -1096,7 +1096,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
  
     if (g_CurrentPlayer->mpmenuon)
     {
-        gdl = microcode_constructor(gdl);
+        gdl = gfxSetup2DTextureMode(gdl);
     
         if (player_count == 2)
         {
@@ -1688,7 +1688,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
         if ((get_scenario() != SCENARIO_YOLT) || (total_kills_against_current < 2))
         {
             gdl = bgScissorCurrentPlayerViewDefault(gdl);
-            gdl = microcode_constructor(gdl);
+            gdl = gfxSetup2DTextureMode(gdl);
             text3 = (char *) langGet(getStringID(LMPMENU, MPMENU_STR_22_PRESSSTART_LF)); /* press start */
             textMeasure(&textheight3, &textwidth3, text3, ptrFontBankGothicChars, ptrFontBankGothic, 0);
             x2 = viGetViewLeft();
@@ -1696,7 +1696,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
             x2 = viGetViewTop();
             y3 = (x2 + (viGetViewHeight() >> 1)) - (textheight3 >> 1);
 #ifndef VERSION_US
-            gdl = microcode_constructor_related_to_menus(gdl, x3 - 1, y3 - 1, x3 + textwidth3 + 1, y3 + textheight3 + 1, 0);
+            gdl = gfxDrawTranslucentRect(gdl, x3 - 1, y3 - 1, x3 + textwidth3 + 1, y3 + textheight3 + 1, 0);
 #endif
             viewleft = viGetX(); 
             h1 = viGetY();

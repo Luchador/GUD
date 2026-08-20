@@ -8701,7 +8701,7 @@ Gfx *bondviewRenderCredits(Gfx *gdl)
         align2 = CREDITS_ALIGN_RIGHT;
         camera_80036438++;
         frame = camera_80036438;
-        gdl = microcode_constructor(gdl);
+        gdl = gfxSetup2DTextureMode(gdl);
         start = (frame - viGetViewHeight()) / 16;
         end = (frame / 16) + 1;
 
@@ -8789,7 +8789,7 @@ Gfx *bondviewRenderCredits(Gfx *gdl)
                     x2 = xpos1 + textwidth;
                 }
 
-                gdl = microcode_constructor_related_to_menus(gdl, x, y - 1, x2 + 1, entrysize + 1, 0);
+                gdl = gfxDrawTranslucentRect(gdl, x, y - 1, x2 + 1, entrysize + 1, 0);
 
                 gdl = textRender(gdl, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
             }
@@ -8833,7 +8833,7 @@ Gfx *bondviewRenderCredits(Gfx *gdl)
                     x2 = xpos2 + textwidth;
                 }
 
-                gdl = microcode_constructor_related_to_menus(gdl, x, y - 1, x2 + 1, entrysize + 1, 0);
+                gdl = gfxDrawTranslucentRect(gdl, x, y - 1, x2 + 1, entrysize + 1, 0);
 
                 gdl = textRender(gdl, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
             }
@@ -8881,8 +8881,8 @@ Gfx *maybe_mp_interface(Gfx *gdl)
         uly = viGetViewTop();
         lrx = viGetViewLeft() + viGetViewWidth();
         lry = viGetViewTop() + viGetViewHeight();
-        gdl = microcode_constructor(gdl);
-        gdl = microcode_constructor_related_to_menus(gdl, ulx, uly, lrx, lry, 160);
+        gdl = gfxSetup2DTextureMode(gdl);
+        gdl = gfxDrawTranslucentRect(gdl, ulx, uly, lrx, lry, 160);
     }
 
     if (bondviewGetIfCurrentPlayerHealthShowTime() &&
@@ -9723,7 +9723,7 @@ Gfx* hudmsgBottomRender(Gfx* arg0)
 
         if (var_v1 != 0)
         {
-            arg0 = microcode_constructor(arg0);
+            arg0 = gfxSetup2DTextureMode(arg0);
             view_left_offset = 0;
             view_top_offset = 0;
             textMeasure(&view_top_offset, &view_left_offset ,(u8* ) stringbuffer_lowerleft[status_bar_text_buffer_index], BONDVIEW_2ND_FONTTABLE(status_bar_text_buffer_index), BONDVIEW_1ST_FONTTABLE(status_bar_text_buffer_index), 0);
@@ -9878,7 +9878,7 @@ Gfx *bondviewRenderUpperText(Gfx *gdl)
             {
                 if (g_CurrentPlayer->mpmenuon == 0)
                 {
-                    gdl = microcode_constructor(gdl);
+                    gdl = gfxSetup2DTextureMode(gdl);
                     msg.textwidth = 0;
                     msg.textheight = 0;
 #if defined(LEFTOVERDEBUG)
@@ -9906,7 +9906,7 @@ Gfx *bondviewRenderUpperText(Gfx *gdl)
                     }
 
                     msg.bottom = msg.y + msg.textheight;
-                    gdl = microcode_constructor_related_to_menus(gdl, 0, msg.y - 2, viGetX(), msg.bottom, 0x64);
+                    gdl = gfxDrawTranslucentRect(gdl, 0, msg.y - 2, viGetX(), msg.bottom, 0x64);
 #ifdef VERSION_US
                     screenwidth = (s32)viGetX();
                     gdl = textRender(gdl, &msg.x, &msg.y, stringbuffer_top[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, -1, screenwidth, viGetY(), 0, 0);
@@ -10535,8 +10535,8 @@ Gfx *bondviewRenderRoomPosDisplay(Gfx *gdl)
         debug_x = viGetViewLeft() + 0x11;
         debug_y = viGetViewTop() + 0x11;
         debug_boxbottom = debug_y + 0xa;
-        gdl = microcode_constructor(gdl);
-        gdl = microcode_constructor_related_to_menus(gdl, 0, debug_y, viGetX(), debug_boxbottom + 1, 0x64);
+        gdl = gfxSetup2DTextureMode(gdl);
+        gdl = gfxDrawTranslucentRect(gdl, 0, debug_y, viGetX(), debug_boxbottom + 1, 0x64);
         screenwidth = (s32)viGetX();
         gdl = textRender(gdl, &debug_x, &debug_y, debugtext.room, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
         debug_x = viGetViewLeft() + 0x57;

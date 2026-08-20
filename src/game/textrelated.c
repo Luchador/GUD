@@ -70,19 +70,27 @@ void textInit(void /*, char* asset */)
     #endif
 }
 
-void setTextSpacingInverted(s32 spacing) {
+
+void setTextSpacingInverted(s32 spacing)
+{
     text_spacing = -spacing;
 }
 
-void setTextOrientation(s32 orientation) {
+
+void setTextOrientation(s32 orientation)
+{
     text_orientation = orientation;
 }
 
-void setTextWordWrap(s32 flag) {
+
+void setTextWordWrap(s32 flag)
+{
     text_wordwrap = flag;
 }
 
-void setTextOverlapCorrection(s32 flag) {
+
+void setTextOverlapCorrection(s32 flag)
+{
     overlap_correction = flag;
 }
 
@@ -92,6 +100,7 @@ extern u8 _fontzurichboldSegmentEnd;
 extern u8 _fontzurichboldSegmentRomStart;
 extern u8 _fontzurichboldSegmentStart;
 extern u8 _fontbankgothicSegmentStart;
+
 
 void load_font_tables(void)
 {
@@ -131,7 +140,8 @@ void load_font_tables(void)
 	}
 }
 
-Gfx *microcode_constructor(Gfx *gdl) //fontGfxSetup
+
+Gfx *gfxSetup2DTextureMode(Gfx *gdl)
 {
 	gDPPipeSync(gdl++);
 	gDPSetCycleType(gdl++, G_CYC_1CYCLE);
@@ -155,6 +165,7 @@ Gfx *microcode_constructor(Gfx *gdl) //fontGfxSetup
 	return gdl;
 }
 
+
 Gfx *combiner_bayer_lod_perspective(Gfx *gdl)
 {
 	gDPPipeSync(gdl++);
@@ -177,19 +188,23 @@ Gfx* draw_blackbox_to_screen(Gfx *glist, s32 *ulx, s32 *uly, s32 *lrx, s32 *lry)
     return glist;
 }
 
-Gfx * microcode_constructor_related_to_menus(Gfx *gdl, s32 ulx, s32 uly, s32 lrx, s32 lry, u32 color)
+
+Gfx *gfxDrawTranslucentRect(Gfx *gdl, s32 ulx, s32 uly, s32 lrx, s32 lry, u32 color)
 {
     u32 r = (u8)(color >> 0x18);
     u32 g = (u8)(color >> 0x10);
     u32 b = (u8)(color >> 0x8);
     u32 a = (u8)(color >> 0);
+
     gDPSetRenderMode(gdl++, G_RM_XLU_SURF, G_RM_XLU_SURF2);
     gDPSetCombineMode(gdl++, G_CC_PRIMITIVE, G_CC_PRIMITIVE);
     gDPSetPrimColor(gdl++, 0, 0, r, g, b, a);
     gDPFillRectangle(gdl++, ulx, uly, lrx, lry);
     gDPSetCombineLERP(gdl++, 0, 0, 0, PRIMITIVE, TEXEL0, 0, PRIMITIVE, 0, 0, 0, 0, PRIMITIVE, TEXEL0, 0, PRIMITIVE, 0);
+
     return gdl;
 }
+
 
 /**
  * Render a single character with no outline.

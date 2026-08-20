@@ -1814,7 +1814,7 @@ Gfx *draw_text_mission_status(Gfx *gdl)
         txtptr_2 = langGet(getStringID(LOPTIONS, OPTION_STR_29_INCOMPLETE_LF)); //incomplete
     }
 
-    gdl = microcode_constructor(gdl);
+    gdl = gfxSetup2DTextureMode(gdl);
     textMeasure(&sp5C, &sp58, txtptr_1, pFontChars, pFontFile, 0);
     sp64 = 0x51;
     sp60 = YOFFSET_MISSIONSTATUS;
@@ -1871,7 +1871,7 @@ Gfx *draw_text_q_watch_v201_beta(Gfx *gdl)
     sp44 = 0;
     pFontFile = ptrFontBankGothic;
     pFontChars = ptrFontBankGothicChars;
-    gdl = microcode_constructor(gdl);
+    gdl = gfxSetup2DTextureMode(gdl);
     textMeasure(&sp48, &sp44, txtptr, pFontChars, pFontFile, 0);
     gdl = textRender(gdl, &sp50, &sp4C, txtptr, pFontChars, pFontFile, 0xFF00B0, sp44, sp48, 0, 0);
     return gdl;
@@ -2000,7 +2000,7 @@ Gfx* draw_current_hand_item_and_ammo(Gfx* gdl) {
         gdl = set_enviro_fog_for_items_in_solo_watch_menu(gdl, sp70, &matrix2, 0xFF, 0x64DC6428);
     }
 
-    gdl = microcode_constructor(gunDrawWatchAmmoDisplay(gdl));
+    gdl = gfxSetup2DTextureMode(gunDrawWatchAmmoDisplay(gdl));
 
     sp8C = 0x60;
 #if defined(LEFTOVERDEBUG)
@@ -2245,15 +2245,15 @@ Gfx *draw_watch_inventory_page(Gfx *gdl, Mtx *param_2)
             temp_s0_3 = 1;
             temp_s0_3 = (LINEHEIGHT() * 2) + WATCH_INV_BASE_Y() + temp_s0_3;
 
-            gdl = microcode_constructor(gdl);
+            gdl = gfxSetup2DTextureMode(gdl);
 
             textMeasure(&textheight, &textwidth, string_builder_allocation, pFontChars2, pFontFile2, LINEHEIGHT());
 
-            gdl = microcode_constructor_related_to_menus(gdl, 0x4E, WATCH_INV_BASE_Y(), textwidth + 0x4E, (LINEHEIGHT() * 5) + WATCH_INV_BASE_Y(), 0);
+            gdl = gfxDrawTranslucentRect(gdl, 0x4E, WATCH_INV_BASE_Y(), textwidth + 0x4E, (LINEHEIGHT() * 5) + WATCH_INV_BASE_Y(), 0);
 
             gdl = textRender(gdl, &x1, &y1, string_builder_allocation, pFontChars2, pFontFile2, 0xAA00B0, textwidth + 1, LINEHEIGHT() * 5, watch_inventory_text_y, LINEHEIGHT());
 
-            gdl = microcode_constructor_related_to_menus(gdl, 0x4B, temp_s0_3, textwidth + 0x52, (LINEHEIGHT() + temp_s0_3) - 2, 0x800050);
+            gdl = gfxDrawTranslucentRect(gdl, 0x4B, temp_s0_3, textwidth + 0x52, (LINEHEIGHT() + temp_s0_3) - 2, 0x800050);
 
             {
 #if !defined(VERSION_JP) && !defined(VERSION_EU)
@@ -2271,7 +2271,7 @@ Gfx *draw_watch_inventory_page(Gfx *gdl, Mtx *param_2)
 
                 sprintf(formattedString, "%d, %d\n%d %f\n", watch_inventory_text_y, watch_inventory_text_target_y, g_curWatchItemIndex, (f64) watch_inventory_cursor_pos);
 
-                gdl = microcode_constructor(gdl);
+                gdl = gfxSetup2DTextureMode(gdl);
 
                 textMeasure(&y2, &x2, formattedString, pFontChars, pFontFile, 0);
 
@@ -2588,7 +2588,7 @@ Gfx *draw_options_labels(Gfx *gdl, s32 x, s32 y, char *text, u32 colour, s32 out
 
     if (drawbg)
     {
-        gdl = microcode_constructor_related_to_menus(gdl, textx - 1, (y + outlined) + 1, textright + 1, textbottom + 1, bgcolour);
+        gdl = gfxDrawTranslucentRect(gdl, textx - 1, (y + outlined) + 1, textright + 1, textbottom + 1, bgcolour);
     }
 
     gDPSetRenderMode(gdl++, G_RM_AA_XLU_SURF, G_RM_AA_XLU_SURF2);
@@ -2779,7 +2779,7 @@ Gfx *sub_GAME_7F0A9AB8(Gfx *gdl)
         u8 pad[8];
  
         showmovesight = 0;
-        gdl = microcode_constructor(gdl);
+        gdl = gfxSetup2DTextureMode(gdl);
  
         if (joyGetButtons(PLAYER_1, L_TRIG))
         {
@@ -2963,7 +2963,7 @@ Gfx *display_text_buttons_dual_control(Gfx *gdl)
 {
     s32 textptr_aux;
 
-    gdl = microcode_constructor(gdl);
+    gdl = gfxSetup2DTextureMode(gdl);
 
     if (joyGetButtons(PLAYER_1, A_BUTTON))
     {
@@ -3257,7 +3257,7 @@ Gfx *draw_watch_control_options_page(Gfx *gdl, Mtx *param_2) {
         pFontFile = ptrFontBankGothic;
         pFontChars = ptrFontBankGothicChars;
 
-        gdl = microcode_constructor(gdl);
+        gdl = gfxSetup2DTextureMode(gdl);
         textptr = langGet(getStringID(LOPTIONS, OPTION_STR_32_CONTROLSTYLE_LF)); //control style
 
         sp5C = XOFFSET_1;
@@ -3511,7 +3511,7 @@ Gfx *draw_toggle_options(Gfx *gdl)
     s32 y_offset;
     s32 i;
 
-    gdl = microcode_constructor(gdl);
+    gdl = gfxSetup2DTextureMode(gdl);
 
     for (i = 0, y_offset = YOFFSET_1; i < 8; i = i + 1, y_offset = y_offset + YINC) {
 
@@ -3559,7 +3559,7 @@ Gfx *draw_watch_game_options_page(Gfx *gdl, Mtx *param_2) {
         gdl = draw_fx_volume_slider(gdl);
         pFontFile = ptrFontBankGothic;
         pFontChars = ptrFontBankGothicChars;
-        gdl = microcode_constructor(gdl);
+        gdl = gfxSetup2DTextureMode(gdl);
 
         textptr = langGet(getStringID(LOPTIONS, OPTION_STR_35_MUSIC_LF)); //music
 
@@ -3728,7 +3728,7 @@ Gfx *draw_watch_mission_briefing_page(Gfx *gdl, Mtx *param_2)
         strcpy(wrappedText, D_800577C0);
 #endif
 
-        gdl = microcode_constructor(gdl);
+        gdl = gfxSetup2DTextureMode(gdl);
         textMeasure(&textHeight, &textWidth, titleText, chars, font, 0);
 
         boxLeft = ((0xaa - textWidth) / 2) + 0x4b;
