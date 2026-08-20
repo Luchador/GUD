@@ -22,16 +22,11 @@ u32 viDebugNoticeList[] =
 
 
 #ifndef VERSION_EU
-//80024518
 Gfx viDLEnd[] = {
 	gsSPEndDisplayList()
 };
 #endif
 
-
-void viDebugRemoved(void) {
-    return;
-}
 
 void viInit(void)
 {

@@ -68,15 +68,6 @@ u8 *debAllocate(s32 size) {
 #endif
 }
 
-void debAdd(const char *name, void *data) {
-#ifdef LEFTOVERDEBUG
-    struct deblistentry *entry = debAllocate(sizeof(struct deblistentry));
-    entry->next = g_DebList;
-    entry->data = data;
-    entry->name = name;
-    g_DebList = entry;
-#endif
-}
 
 void debInit(void) {
     crashInit();
@@ -89,18 +80,4 @@ void debLoopEntries(void) {
         // Removed
         entry = entry->next; 
     }
-}
-
-/**
- * Removed
- */
-void deb70004EBC(void) {
-    // Removed
-}
-
-/**
- * Removed
- */
-void deb70004EC4(s32 arg0, s32 arg1, s32 arg2) {
-    // Removed
 }

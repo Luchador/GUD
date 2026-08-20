@@ -207,10 +207,6 @@ void _memaFree(s32 addr, s32 size)
     curr->size = size;
 }
 
-// Initialize the (removed) debug features.
-void memaInit(void)
-{
-}
 
 void memaReset(void *heapaddr, u32 heapsize)
 {

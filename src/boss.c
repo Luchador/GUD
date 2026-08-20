@@ -161,7 +161,6 @@ void bossInitMainthreadData(void)
     tlbmanageEstablishManagementTable();
     image_entries_load();
     mempInit();
-    memaInit();
     viInit();
     viInitVideoSettings();
     indycommInit();

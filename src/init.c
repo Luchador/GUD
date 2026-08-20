@@ -256,7 +256,6 @@ void schedulerInitThread(void)
 void mainproc(void *args)
 {
     idleCreateThread();
-    viDebugRemoved();
     piCreateManager();
 #ifdef ENABLE_USB
     // make debug print output available as soon as possible.
@@ -282,6 +281,7 @@ void mainproc(void *args)
 #endif
     bossEntry();
 }
+
 
 /**
  * 1508	70000908

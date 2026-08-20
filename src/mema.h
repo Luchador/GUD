@@ -3,7 +3,6 @@
 
 #include <ultra64.h>
 
-void memaInit(void);
 void memaReset(void *heapaddr, u32 heapsize);
 void memaSingleDefragPass(void);
 void *memaAlloc(u32 size);
