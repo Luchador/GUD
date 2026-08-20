@@ -5,13 +5,12 @@
 
 struct memallocstring
 {
-  s32 id;
-  void *string;
+    s32 id;
+    void *string;
 };
 
 LEVELID bossGetStageNum(void);
 void bossSetLoadedStage(LEVELID stage);
-void bossMemBarsFlagToggle(void);
 void bossRunTitleStage(void);
 void bossReturnTitleStage(void);
 

@@ -222,13 +222,6 @@ void bossInitMainthreadData(void)
 
 
 /**
- * 6C04    70006004
- *     toggle "show mem bars" [800241B8]; fries V0,T6,T7
- */
-void bossMemBarsFlagToggle(void) {
-}
-
-/**
  * 6C1C    7000601C
  *     loads primary resources and starts main program loop
  *     this is infinite.  Loops unconditionally: JAL 70006060
