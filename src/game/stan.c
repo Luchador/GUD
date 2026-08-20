@@ -149,14 +149,6 @@ bool stanLocusEdgeIsAboveY(StandTile *tile, s32 edgeIndex, f32 edgeDist, f32 dis
 // end forward declarations
 
 
-void stanInit(void) 
-{
-}
-
-
-/**
- * Address: 7F0AF038
- */
 void stanBuildRoomData(void)
 {
     StandTile *tile;

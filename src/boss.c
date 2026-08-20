@@ -192,7 +192,6 @@ void bossInitMainthreadData(void)
         g_DebugAndUpdateStageFlag = 1;
     }
 
-    stanInit();
     gameInit();
 
     if (g_DebugAndUpdateStageFlag != 0)

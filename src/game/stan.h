@@ -66,7 +66,6 @@ extern s32 dword_CODE_bss_8007B9DC;
 // Necessary forward declaration
 void noteTileRoomIfDifferentToPrev( StandTile *tile,  StandTile *unused,  struct StandTileWalkCallbackRecord *data);
 
-void stanInit(void);
 void setLevelScale(f32 ls);
 void stanResetHits(void);
 s32 walkTilesBetweenPoints_NoCallback(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_x, f32 dest_z);
