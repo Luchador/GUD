@@ -314,7 +314,6 @@ void bossMainloop(void)
     s32 freeGfx;
     s32 mainTickElapsed;
     s32 rspReplyMsg;
-    u32 unused_stackpadding_[56];
 
     done = 0;
     reset_mem_bank_5();
@@ -378,11 +377,6 @@ void bossMainloop(void)
                 }
             }
 
-            if (stringIndex)
-            {
-                // empty
-            }
-
             if (stringIndex < 0)
             {
                 stringIndex = 0;
@@ -403,6 +397,7 @@ void bossMainloop(void)
 
         mempResetBank(MEMPOOL_STAGE);
         obBlankResourcesLoadedInBank(MEMPOOL_STAGE);
+
         if (tokenFind(1, "-ma"))
         {
             g_CurentMaMallocValue = (s32) (strtol(tokenFind(1, "-ma"), NULL, 0) * 1024);
@@ -412,6 +407,7 @@ void bossMainloop(void)
         reset_play_data_ptrs();
 
         localSelectedNumPlayers = 0;
+
         if (g_StageNum != LEVELID_TITLE)
         {
             localSelectedNumPlayers = 1;
@@ -457,7 +453,6 @@ void bossMainloop(void)
                                 waitForNextFrame();
                             }
 
-                            speedgraphRenderGraph();
                             speedgraphMarkerCommit();
                             speedgraphMarkerHandler(0x20000);
                             joyConsumeSamplesWrapper();

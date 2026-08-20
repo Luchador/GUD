@@ -6,6 +6,5 @@
 void speedgraphMarkerCommit(void);
 void speedgraphMarkerHandler(s32 arg0);
 Gfx *speedgraphDisplayMetrics(Gfx *gdl);
-void speedgraphRenderGraph(void);
 
 #endif
