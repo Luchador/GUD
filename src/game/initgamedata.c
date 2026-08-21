@@ -1,10 +1,8 @@
 #include <ultra64.h>
 #include "front.h"
 #include <bondconstants.h>
- /**
-  * initGameData
-  *
-  **/
+
+
 void initGameData(void) {
     current_menu = MENU_INVALID;
     menu_update = MENU_LEGAL_SCREEN;
@@ -31,12 +29,6 @@ void initGameData(void) {
     cast_model = NULL;
     cast_model_weapon = NULL;
     full_actor_intro = FALSE;
-#ifdef DEBUG
-    load_body_head_if_not_loaded(BODY_Brosnan_Tuxedo, "char");
-    load_body_head_if_not_loaded(BODY_Male_Pierce_Bond_Tuxedo, "head");
-    LoadItemModel(PROP_GOLDENEYELOGO);
-    LoadItemModel(PROP_LEGALPAGE);
-#endif
 }
 
 

@@ -7,10 +7,7 @@
 #include "stan.h"
 #include "model.h"
 
-/**
- * Address 0x7F056850.
- * @brief getposstan
-*/
+
 s32 getposstan(struct coord3d *pos, StandTile *stan, f32 radius, struct coord3d *posReturn, StandTile **stanReturn)
 {
     posReturn->f[0] = pos->f[0];
@@ -21,17 +18,12 @@ s32 getposstan(struct coord3d *pos, StandTile *stan, f32 radius, struct coord3d 
 
     if (stan == 0)
     {
-#ifdef DEBUG
-        osSyncPrintf("getposstan: no stan!\n");
-#endif
         return 0;
     }
 
+    // Circle is not valid
     if ((radius > 0.0f) && (stanTestVolume(stanReturn, posReturn->f[0], posReturn->f[2], radius, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER, 0.0f, 1.0f) >= 0))
     {
-#ifdef DEBUG
-        osSyncPrintf("getposstan: circle not legal!\n");
-#endif
         return 0;
     }
 
