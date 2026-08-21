@@ -49,23 +49,11 @@
 // #define	OS_CLOCK_RATE		62500000LL
 // #define OS_CPU_COUNTER       (OS_CLOCK_RATE * 3 / 4)
 
-#ifdef REFRESH_PAL
+#define CYCLES_PER_FRAME    ((u32) OS_CPU_COUNTER / 60U) // 781,250
+#define INTERVAL_INTER_MATH    (CYCLES_PER_FRAME / 2U) // 390,625
 
-    #define CYCLES_PER_FRAME    ((u32) OS_CPU_COUNTER / 50U) // 937,500
-    #define INTERVAL_INTER_MATH    (CYCLES_PER_FRAME / 2U) // 468,750
-
-    // this is: frameDelay * 931050 - 465525
-    #define MAIN_LOOP_TICK_INTERVAL frameDelay * (CYCLES_PER_FRAME - 6450U) - (INTERVAL_INTER_MATH - 3225U)
-
-#else
-
-    #define CYCLES_PER_FRAME    ((u32) OS_CPU_COUNTER / 60U) // 781,250
-    #define INTERVAL_INTER_MATH    (CYCLES_PER_FRAME / 2U) // 390,625
-
-    // note: 3225U * 5/6 = 2687.5
-    #define MAIN_LOOP_TICK_INTERVAL (INTERVAL_INTER_MATH - 2688U) // 387,937
-
-#endif
+// note: 3225U * 5/6 = 2687.5
+#define MAIN_LOOP_TICK_INTERVAL (INTERVAL_INTER_MATH - 2688U) // 387,937
 
 /**
  * Copied from n64devkit\ultra\usr\src\pr\demos_old\simple\gfx.h

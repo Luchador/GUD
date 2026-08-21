@@ -202,13 +202,14 @@ void modelSetDistanceDisabled(s32 param_1) {
 }
 
 
-// PD: modelSetDistanceScale
-void modelSetDistanceScale(f32 param_1) {
-  g_ModelDistanceScale = param_1;
+void modelSetDistanceScale(f32 param_1)
+{
+    g_ModelDistanceScale = param_1;
 }
 
 
-void sub_GAME_7F06C418(Vew4s32 *src, Vew4s32 *dst) {
+void sub_GAME_7F06C418(Vew4s32 *src, Vew4s32 *dst)
+{
     s32 i, j;
     for (i = 0; i < 4; i++) {
         for (j = 0; j < 4; j++) {
@@ -218,25 +219,12 @@ void sub_GAME_7F06C418(Vew4s32 *src, Vew4s32 *dst) {
 }
 
 
-void set_vtxallocator(s32 param_1) {
-  vtxallocator = param_1;
-}
-
-
-#if defined(LEFTOVERDEBUG)
-// called after a debug print during failed model operation possible "exit()" function in debug
-void return_null(void)
+void set_vtxallocator(s32 param_1)
 {
-    // dump something 8 bytes long?
-
-    return;
+    vtxallocator = param_1;
 }
-#endif
 
 
-/**
- * Address: 7F06C474
- */
 void modelCalculateScaledRootToOriginDir(Model* model, coord3d* coord)
 {
     Mtxf* mtx;
@@ -314,10 +302,12 @@ s32 modelFindNodeMtxIndex(ModelNode *node, s32 arg1)
 }
 
 
-Mtxf *modelFindNodeMtx(struct Model *model, struct ModelNode *node, s32 arg2) {
+Mtxf *modelFindNodeMtx(struct Model *model, struct ModelNode *node, s32 arg2)
+{
     s32 index = modelFindNodeMtxIndex(node, arg2);
 
-    if (index >= 0) {
+    if (index >= 0)
+    {
         return &model->render_pos[index].pos;
     }
 
@@ -327,18 +317,6 @@ Mtxf *modelFindNodeMtx(struct Model *model, struct ModelNode *node, s32 arg2) {
 
 Mtxf *getsubmatrix(Model *objinst)
 {
-    #if defined(LEFTOVERDEBUG)
-    if (!objinst)
-    {
-        osSyncPrintf("getsubmatrix: no objinst!\n");
-        return_null();
-    }
-    if (!objinst->obj)
-    {
-        osSyncPrintf("getsubmatrix: objinst has no object!\n");
-        return_null();
-    }
-    #endif
     return modelFindNodeMtx(objinst, objinst->obj->RootNode, 0);
 }
 
@@ -426,18 +404,6 @@ union ModelRwData* modelGetNodeRwData(Model *Objinst, ModelNode *root)
 
 void getpartoffset(Model *objinst, ModelNode *part, coord3d *offset) //#MATCH - however OPCODE 3 needs defining
 {
-    #if defined(LEFTOVERDEBUG)
-    if (!objinst)
-    {
-        osSyncPrintf("getpartoffset: no objinst!");
-        return_null();
-    }
-    if (!part)
-    {
-        osSyncPrintf("getpartoffset: no partdesc!");
-        return_null();
-    }
-    #endif
     switch (part->Opcode & 0xFF)
     {
         case MODELNODE_OPCODE_HEADER:
@@ -485,21 +451,6 @@ void getpartoffset(Model *objinst, ModelNode *part, coord3d *offset) //#MATCH - 
 
 void setpartoffset(Model *model, ModelNode *node, coord3d *pos)
 {
-#if defined(LEFTOVERDEBUG)
-    if (!model) {
-        osSyncPrintf("setpartoffset: no objinst!");
-        return_null();
-    }
-
-    if (!node) {
-        osSyncPrintf("setpartoffset: no partdesc!");
-        return_null();
-    }
-    else
-    {
-        // huh?
-    }
-#endif
     switch (node->Opcode & 0xff)
     {
         case MODELNODE_OPCODE_HEADER:
@@ -548,76 +499,24 @@ void setpartoffset(Model *model, ModelNode *node, coord3d *pos)
 }
 
 
-void getsuboffset(Model *objinst, coord3d *offset) //#MATCH
+void getsuboffset(Model *objinst, coord3d *offset)
 {
-    #if defined(LEFTOVERDEBUG )
-    if (!objinst)
-    {
-        osSyncPrintf("getsuboffset: no objinst!");
-        return_null();
-    }
-
-    if (!objinst->obj)
-    {
-        osSyncPrintf("getsuboffset: objinst has no object!");
-        return_null();
-    }
-    #endif
     getpartoffset(objinst, objinst->obj->RootNode, offset);
 }
 
 
-
-
-void setsuboffset(Model *objinst, coord3d *offset) //#MATCH
+void setsuboffset(Model *objinst, coord3d *offset)
 {
-    #if defined(LEFTOVERDEBUG )
-    if (!objinst)
-    {
-        osSyncPrintf("setsuboffset: no objinst!");
-        return_null();
-    }
-    if (!objinst->obj)
-    {
-        osSyncPrintf("setsuboffset: objinst has no object!");
-        return_null();
-    }
-    #endif
     setpartoffset(objinst, objinst->obj->RootNode, offset);
 }
 
 
-
-
-
-/**
- * Address 0x7F06CC80.
- */
 f32 getsubroty(Model *objinst)
 {
     ModelNode *root;
 
-    #if defined(LEFTOVERDEBUG)
-    if (objinst == NULL)
-    {
-        osSyncPrintf("getsubroty: no objinst!");
-        return_null();
-    }
-
-    if (objinst->obj == NULL)
-    {
-        osSyncPrintf("getsubroty: objinst has no object!");
-        return_null();
-    }
-
-    if (objinst->obj->RootNode == NULL)
-    {
-        osSyncPrintf("getsubroty: objinst has no root part!");
-        return_null();
-    }
-    #endif
-
     root = objinst->obj->RootNode;
+
     if ((root->Opcode & 0xFF) == MODELNODE_OPCODE_HEADER)
     {
         return ((struct modeldata_root *)modelGetNodeRwData(objinst, root))->subroty;
@@ -630,26 +529,9 @@ f32 getsubroty(Model *objinst)
 void setsubroty(Model *model, f32 angle)
 {
     ModelNode* node;
-#if defined(LEFTOVERDEBUG)
-    if (!model)
-    {
-        osSyncPrintf("setsubroty: no objinst!");
-        return_null();
-    }
 
-    if (!model->obj) //< needs to be v1 not a1
-    {
-        osSyncPrintf("setsubroty: objinst has no object!");
-        return_null();
-    }
-
-    if (!model->obj->RootNode)
-    {
-        osSyncPrintf("setsubroty: objinst has no root part!");
-        return_null();
-    }
-#endif
     node = model->obj->RootNode;
+
     if ((node->Opcode & 0xff) == MODELNODE_OPCODE_HEADER)
     {
         ModelRwData_HeaderRecord *rwdata = modelGetNodeRwData(model, node);
@@ -695,14 +577,6 @@ f32 getjointsize(Model *model, ModelNode *node)
     Model     *temp_a2;
     ModelNode *temp_a1;
     s32        temp_t7;
-
-#if defined(LEFTOVERDEBUG)
-    if (!model)
-    {
-        osSyncPrintf("getjointsize: no objinst!\n");
-        return_null();
-    }
-#endif
 
     if (node)
     {
@@ -770,42 +644,22 @@ f32 getjointsize(Model *model, ModelNode *node)
 }
 
 
-/**
- * Address 0x7F06D00C.
- * PD: model0001af80
-*/
 f32 getinstsize(Model *arg0)
 {
-    #if defined(LEFTOVERDEBUG)
-    if (arg0 == NULL)
-    {
-        osSyncPrintf("getinstsize: no objinst!\n");
-        return_null();
-    }
-
-    if (arg0->obj == NULL)
-    {
-        osSyncPrintf("getinstsize: no objdesc!\n");
-        return_null();
-    }
-    #endif
-
     return arg0->obj->BoundingVolumeRadius * arg0->scale;
 }
 
 
-
-// PD: model0001af98
 void interpolate3dVectors(vec3d *v, vec3d *w, float frac)
 {
     v->x += (w->x - v->x) * frac;
     v->y += (w->y - v->y) * frac;
     v->z += (w->z - v->z) * frac;
-  return;
+
+    return;
 }
 
 
-// PD: model0001afe8
 f32 sub_GAME_7F06D0CC(f32 arg0, f32 angle, f32 mult)
 {
     f32 value = angle - arg0;
@@ -1061,21 +915,8 @@ void subcalcpos(Model *arg0)
 {
     struct ModelNode *root;
 
-#if defined(LEFTOVERDEBUG)
-    if (arg0 == NULL)
-    {
-        osSyncPrintf("subcalcpos: no objanim!\n");
-        return_null();
-    }
-
-    if (arg0->obj == 0)
-    {
-        osSyncPrintf("subcalcpos: no objdesc!\n");
-        return_null();
-    }
-#endif
-
     root = arg0->obj->RootNode;
+
     if ((root != NULL) && ((root->Opcode & 0xFF) == 1))
     {
         sub_GAME_7F06D490(arg0, root);
@@ -2184,119 +2025,17 @@ void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
 
 void instcalcmatrices(ModelRenderData* arg0, Model* arg1)
 {
-#if defined(LEFTOVERDEBUG)
-    if (arg1 == NULL)
-    {
-        osSyncPrintf("instcalcmatrices: no objinst!\n");
-        return_null();
-    }
-
-    if (arg0->basemtx == NULL)
-    {
-        osSyncPrintf("instcalcmatrices: no basemtx!\n");
-        return_null();
-    }
-
-    if (arg0->mtxlist == NULL)
-    {
-        osSyncPrintf("instcalcmatrices: no mtxlist!\n");
-        return_null();
-    }
-#endif
     arg1->render_pos = (RenderPosView* ) arg0->mtxlist;
     arg0->mtxlist += arg1->obj->numMatrices;
+
     modelUpdateMatrices((ModelRenderData* ) arg0, arg1);
 }
 
 
-/**
- * Address 0x7F06F2F8 (VERSION_US, VERSION_JP)
- * Address 0x7F06F670 (VERSION_EU)
-*/
 void subcalcmatrices(ModelRenderData *arg0, struct Model *arg1)
 {
-#if defined(LEFTOVERDEBUG)
-    if (arg1 == NULL)
-    {
-        osSyncPrintf("subcalcmatrices: no objanim!\n");
-        return_null();
-    }
-
-    if (arg0->basemtx == NULL)
-    {
-        osSyncPrintf("subcalcmatrices: no basemtx!\n");
-        return_null();
-    }
-
-    if (arg0->mtxlist == NULL)
-    {
-        osSyncPrintf("subcalcmatrices: no mtxlist!\n");
-        return_null();
-    }
-#endif
-
     if (arg1->anim != NULL)
     {
-#if defined(LEFTOVERDEBUG)
-        if ((arg1->attachedto != NULL) && (arg1->attachedto_objinst == NULL))
-        {
-            osSyncPrintf("subcalcmatrices: no attach for objinst!\n");
-            return_null();
-        }
-
-        if (((s32) arg1->framea < 0) || ((s32) arg1->framea >= (s32) arg1->anim->unk04))
-        {
-            osSyncPrintf("subcalcmatrices: framea out of range!\n");
-            return_null();
-        }
-
-        if (((s32) arg1->frameb < 0) || ((s32) arg1->frameb >= (s32) arg1->anim->unk04))
-        {
-            osSyncPrintf("subcalcmatrices: frameb out of range!\n");
-            return_null();
-        }
-
-        if ((arg1->unk84 == 0) || ((arg1->unk84 != 0) && (arg1->anim2 != NULL)))
-        {
-            //
-        }
-        else
-        {
-            osSyncPrintf("subcalcmatrices: no anim2!\n");
-            return_null();
-        }
-
-        if (
-            (arg1->anim2 != NULL)
-            && (
-                (arg1->anim2 == NULL)
-                || (arg1->frame2a < 0)
-                || ((s32) arg1->frame2a >= (s32) arg1->anim2->unk04)
-                )
-            )
-        {
-            osSyncPrintf("subcalcmatrices: frame2a out of range!\n");
-            return_null();
-        }
-
-        if (
-            (arg1->anim2 == NULL)
-            || (
-                (arg1->anim2 != NULL)
-                 && (arg1->frame2b >= 0)
-                 && ((s32) arg1->frame2b < (s32) arg1->anim2->unk04)
-                )
-            )
-        {
-            //
-        }
-        else
-        {
-            osSyncPrintf("subcalcmatrices: frame2b out of range!\n");
-            return_null();
-        }
-#endif
-
         arg1->unk34 = loadAnimationFrame(arg1->anim, arg1->framea, arg1->obj->Skeleton);
 
         if (arg1->unk2c != 0.0f)
@@ -2320,12 +2059,12 @@ void subcalcmatrices(ModelRenderData *arg0, struct Model *arg1)
     instcalcmatrices(arg0, arg1);
 }
 
-/**
- * Address 0x7F06F5AC.
-*/
-struct ModelAnimation * objecthandlerGetModelAnim(struct Model* model) {
+
+struct ModelAnimation * objecthandlerGetModelAnim(struct Model* model)
+{
     return model->anim;
 }
+
 
 s8 objecthandlerGetModelGunhand(Model *model)
 {
@@ -2333,9 +2072,6 @@ s8 objecthandlerGetModelGunhand(Model *model)
 }
 
 
-/**
- * Address 0x7F06F5BC.
-*/
 f32 modelGetAnimFrame(Model *model)
 {
     return model->animframe1;
@@ -4258,7 +3994,6 @@ void dorottex(ModelRenderData *renderdata, ModelNode *node)
 {
     if (renderdata->unk18 == 0 && (renderdata->flags & 2))
     {
-
         ModelRoData_DisplayListPrimaryRecord *rodata = &node->Data->DisplayListPrimary;
         s32 i;
 
@@ -4268,17 +4003,6 @@ void dorottex(ModelRenderData *renderdata, ModelNode *node)
             Vertex *dst;
 
             src = (Vertex *) rodata->Vertices;
-
-#ifndef VERSION_EU
-            if (vtxallocator != NULL)
-            {
-            }
-            else
-            {
-                osSyncPrintf("dorottex: no vtx allocator!\n");
-                return_null();
-            }
-#endif
             dst = vtxallocator(rodata->numVertices * 4);
 
             gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_VTX, osVirtualToPhysical(dst));
@@ -4464,13 +4188,7 @@ void dotube(ModelRenderData* renderdata, Model* model, ModelNode* node)
                 case MODELNODE_CHILD_VTX:
                     {
                         struct ModelRoData_Child_Vtx* child_vtx = ((struct ModelRoData_Child_Vtx*)entry_04);
-#if defined(LEFTOVERDEBUG)
-                        if (vtxallocator == NULL)
-                        {
-                            osSyncPrintf("dotube: no vtx allocator!\n");
-                            return_null();
-                        }
-#endif
+
                         vtx1 = vtxallocator(2);
                         vtx2 = &vtx1[1];
 
@@ -4712,13 +4430,6 @@ void dogfnegx(ModelRenderData *renderdata, Model *model, ModelNode *node)
         sp90.f[1] = rodata->Offset.f[1];
         sp90.f[2] = rodata->Offset.f[2];
 
-#if defined (LEFTOVERDEBUG)
-        if (vtxallocator == NULL) {
-            osSyncPrintf("dogfnegx: no vtx allocator!\n");
-            return_null();
-        }
-#endif
-
         vertices = vtxallocator(4);
 
         vertices[0] = vtxtemplate;
@@ -4856,15 +4567,6 @@ void doshadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
         sizey *= (300.0f - height) / 200.0f;
     }
 
-#ifdef LEFTOVERDEBUG
-    if (vtxallocator == NULL)
-    {
-        if (1);
-        osSyncPrintf("doshadow: no vtx allocator!\n");
-        return_null();
-    }
-#endif
-
     vtx = (Vtx *) vtxallocator(4);
 
     vtx[0] = vtxtemplate;
@@ -5000,23 +4702,7 @@ void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node) {
 void subdraw(ModelRenderData *mrData, Model *mdl)
 {
     ModelNode *root = mdl->obj->RootNode;
-    #if defined(LEFTOVERDEBUG)
 
-    if (mrData->gdl == NULL)
-    {
-        osSyncPrintf("subdraw: no gfxlist!\n");
-        return_null();
-    }
-
-    if (mdl->obj->isLoaded)
-    {
-    }
-    else
-    {
-        osSyncPrintf("subdraw: object not initialised! (0x%X)\n", (u32)mdl->obj);
-        return_null();
-    }
-    #endif
     gSPSegment(mrData->gdl++, 3, osVirtualToPhysical(mdl->render_pos));
 
     while (root != NULL)

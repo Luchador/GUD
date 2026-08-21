@@ -3023,11 +3023,6 @@ void sub_GAME_7F07E7CC(void) {
 
     itemheader = get_ptr_itemheader_in_hand(1);
     modelCalculateRwDataLen(itemheader);
-#ifndef VERSION_EU
-    if (0x32 < itemheader->numRecords) {
-        return_null();
-    }
-#endif
     animInit((Model *)((u8 *)g_CurrentPlayer + 0x230), itemheader, (u32 *)((u8 *)g_CurrentPlayer + 0x2ec));
     modelSetScale((Model *)((u8 *)g_CurrentPlayer + 0x230), c_item_entries[41].scale * 0.10000001f);
     modelSetAnimation((Model *)((u8 *)g_CurrentPlayer + 0x230), (ModelAnimation *)&ptr_animation_table->data[(s32)&ANIM_DATA_bond_watch], 0, 0.0f, 0.5f * watch_transition_time, 0.0f);
@@ -6216,30 +6211,6 @@ void bondviewPlayerTickExplode(void)
 }
 
 
-/**
- * NTSC Address 0x7F084648.
- * NTSC-J address 0x7F084CF8.
- *
- * Met by Saint Jon The Archangel in the writhing pits of hell, the beast was
- * pinned, prone on the floor. He had taken many forms throughout the ages.
- * From the creator of man to the far reaches of the universe, his perpetual
- * reincarnations reigned throughout space and time... until now. His form was
- * weak, the opposition strong. The time for atonement had finally come.
- *
- * Battered, torn, exposed, the beast slacked his gaping maw.
- *
- * "I'm sorry, Jon" he whispered.
- *
- * The archangel raised his flaming blade.
- *
- * "You are forgiven, Garfield"
- *
- * And the beast exhaled his last.
- *
- * 10 months of off and on work to match.
- * Thanks Trevor.
- * - Bethany Burns
- */
 void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 {
     struct coord3d move_offset;
@@ -6257,14 +6228,10 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
     maxspeed = 0.0f;
     sp390 = 0.0f;
 
-    #if defined(VERSION_US) || defined(VERSION_JP)
-    if (stick_x >= 100 || stick_x <= -100) return_null(); // __LINE__ __FILE__ (#6414 bondview.c) "joystick x has value %d!\n"
-    if (stick_y >= 100 || stick_y <= -100) return_null(); // __LINE__ __FILE__ (#6415 bondview.c) "joystick y has value %d!\n"
-    #endif
-
     if (g_bondviewForceDisarm > 0)
     {
         g_bondviewForceDisarm++;
+
         if (g_bondviewForceDisarm >= 4)
         {
             g_bondviewForceDisarm = 0;
@@ -6972,17 +6939,6 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             f32 calc_x;
             f32 calc_z;
             f32 calc_speedforwards;
-
-#if defined(VERSION_EU)
-            // Divide by zero check.
-            if (g_GlobalTimerDelta == 0)
-            {
-                #if DEBUG
-                    // unknown what went here.
-                    return_null();
-                #endif
-            }
-#endif
 
             calc_x = (g_CurrentPlayer->field_488.collision_position.f[0] - g_CurrentPlayer->bondprevpos.f[0]) / g_GlobalTimerDelta;
             calc_z = (g_CurrentPlayer->field_488.collision_position.f[2] - g_CurrentPlayer->bondprevpos.f[2]) / g_GlobalTimerDelta;

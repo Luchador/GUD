@@ -185,23 +185,13 @@ Gfx *sub_GAME_7F007E70(Gfx *gdl, u32 alpha)
 }
 
 
-/**
- * Address: 7F007F30
- */
 Gfx *sub_GAME_7F007F30(Gfx *gdl, s32 count, Mtxf *matrix)
 {
-#if defined(REFRESH_PAL)
-    #define BOND_EYE_ANIM_START 114
-    #define BOND_EYE_ANIM_SPEEDUP 176
-    #define BOND_EYE_FIRE_SHOT 191
-#else
     #define BOND_EYE_ANIM_START 137
     #define BOND_EYE_ANIM_SPEEDUP 212
     #define BOND_EYE_FIRE_SHOT 230
-#endif
-    u32 pad;
+
     ModelRenderData renderData;
-    u32 pad2[2];
     ModelHitEntry *entry;
     bool playedShot;
     s32 i;
@@ -294,7 +284,8 @@ Gfx *sub_GAME_7F007F30(Gfx *gdl, s32 count, Mtxf *matrix)
 }
 
 
-Gfx *insert_bond_eye_intro(Gfx *gdl) {
+Gfx *insert_bond_eye_intro(Gfx *gdl)
+{
     Mtxf matrix;
     u16 perspNorm;
     guTranslate(&matrixBufferIntroBackdrop[D_8002A7D0], 0.0f, 0.0f, 0.0f);
@@ -307,11 +298,7 @@ Gfx *insert_bond_eye_intro(Gfx *gdl) {
     
     matrix_4x4_set_lookat_target(&matrix, gunbarrelPosition1[0], gunbarrelPosition1[1], gunbarrelPosition1[2], (gunbarrelPosition1[0] + gunbarrelPosition2[0]), (gunbarrelPosition1[1] + gunbarrelPosition2[1]), (gunbarrelPosition1[2] + gunbarrelPosition2[2]), gunbarrelPosition3[0], gunbarrelPosition3[1], gunbarrelPosition3[2]);
 
-#if defined REFRESH_PAL
-    return sub_GAME_7F007F30(gdl, 1, &matrix);
-#else
     return sub_GAME_7F007F30(gdl, 2, &matrix);
-#endif
 }
 
 
@@ -336,11 +323,7 @@ Gfx *load_display_rare_logo(Gfx *gdl, s32 arg1, s32 arg2, s32 arg3, s32 arg4) {
     guLookAt(&matrixBufferRareLogo1[D_8002A7D0], cameraPosition1[0], cameraPosition1[1], cameraPosition1[2], (cameraPosition1[0] + cameraPosition2[0]), (cameraPosition1[1] + cameraPosition2[1]), (cameraPosition1[2] + cameraPosition2[2]), cameraPosition3[0], cameraPosition3[1], cameraPosition3[2]);
     gSPMatrix(gdl++,  osVirtualToPhysical(&matrixBufferRareLogo1[D_8002A7D0]), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW));
     guRotate(&matrixBufferRareLogo2[D_8002A7D0], D_8002A89C, 0.0f, 1.0f, 0.0f);
-#if defined(REFRESH_PAL)
-    D_8002A89C += 2.4f;
-#else
     D_8002A89C += 2.0f;
-#endif
     gSPMatrix(gdl++, osVirtualToPhysical(&matrixBufferRareLogo2[D_8002A7D0]), (G_MTX_NOPUSH | G_MTX_MUL | G_MTX_MODELVIEW));
     gSPSetLights1(gdl++, gunbarrelLights);
     gunbarrelLights.a.l.col[0] = gunbarrelLights.a.l.col[1] = gunbarrelLights.a.l.col[2] = gunbarrelLights.a.l.colc[0] = gunbarrelLights.a.l.colc[1] = gunbarrelLights.a.l.colc[2] = arg4;
@@ -383,21 +366,16 @@ void setupRarewareLogoData(s32 address, s32 size) {
 
 Gfx *retrieve_display_rareware_logo(Gfx *gdl)
 {
-#if defined(REFRESH_PAL)
-#define RAREWARE_LOGO_DEN 58
-#define RAREWARE_LOGO_SUB 33915
-#define RAREWARE_LOGO_EYE_COUNT1 216
-#define RAREWARE_LOGO_EYE_COUNT2 241
-#else
-#define RAREWARE_LOGO_DEN 70
-#define RAREWARE_LOGO_SUB 40800
-#define RAREWARE_LOGO_EYE_COUNT1 260
-#define RAREWARE_LOGO_EYE_COUNT2 290
-#endif
+    #define RAREWARE_LOGO_DEN 70
+    #define RAREWARE_LOGO_SUB 40800
+    #define RAREWARE_LOGO_EYE_COUNT1 260
+    #define RAREWARE_LOGO_EYE_COUNT2 290
 
     D_8002A7D0 = (1 - D_8002A7D0);
     gSPSegment(gdl++, SPSEGMENT_GETITLE, osVirtualToPhysical(virtualaddress));
-    if ((gunbarrel_mode == 0) || (gunbarrel_mode == 1)) {
+
+    if ((gunbarrel_mode == 0) || (gunbarrel_mode == 1))
+    {
         s32 var1;
         s32 var2;
         var1 = (intro_eye_counter * 255) / RAREWARE_LOGO_DEN;
@@ -551,25 +529,14 @@ void clearChrGunModelInstances(void)
     }
 }
 
-#ifndef REFRESH_PAL
-    #define XINC 6.0f
-    #define XDEC 12.0f
-    #define XDEC2 6
-    #define XDEC3 5.8183274f
-    #define INCVAL 0x38E
-    #define INTRO_EYE_COUNTER_CASE_4 108
-    #define INTRO_EYE_COUNTER_CASE_5_ADD 8
-    #define INTRO_EYE_COUNTER_CASE_6 0x1e
-#else
-    #define XINC 7.0f
-    #define XDEC 14.0f
-    #define XDEC2 6
-    #define XDEC3 3.63643622398f
-    #define INCVAL 0x444
-    #define INTRO_EYE_COUNTER_CASE_4 90
-    #define INTRO_EYE_COUNTER_CASE_5_ADD 9
-    #define INTRO_EYE_COUNTER_CASE_6 0x19
-#endif
+#define XINC 6.0f
+#define XDEC 12.0f
+#define XDEC2 6
+#define XDEC3 5.8183274f
+#define INCVAL 0x38E
+#define INTRO_EYE_COUNTER_CASE_4 108
+#define INTRO_EYE_COUNTER_CASE_5_ADD 8
+#define INTRO_EYE_COUNTER_CASE_6 0x1e
 
 
 /*

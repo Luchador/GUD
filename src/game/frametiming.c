@@ -63,11 +63,7 @@ void updateFrameCounters(s32 deltaFrames)
 
     #ifdef BUGFIX_R1
     jpD_800484CC = (f32) deltaFrames;
-    #ifdef REFRESH_PAL
-    jpD_800484D0 = (jpD_800484CC * 60.0f) / 50.0f;
-    #else
     jpD_800484D0 = (f32) jpD_800484CC;
-    #endif
     #endif
 
     previousFrameCounter = (s32) halfFrameCounter;
@@ -85,13 +81,11 @@ void waitForNextFrame(void)
 {
   u32 nextFrameTime; //next frame time?
   
-  do {
-    #ifdef REFRESH_PAL
-    nextFrameTime = ((osGetCount() - copy_of_osgetcount_value_1) + 465525) / 931050; 
-    #else
+  do 
+  {
     nextFrameTime = ((osGetCount() - copy_of_osgetcount_value_1) + 387937) / 775875; //current time + 1/5
-    #endif
-  } while (nextFrameTime < frameDelay);
+  } 
+  while (nextFrameTime < frameDelay);
 
   frameDelay = 1;
   updateFrameCounters(nextFrameTime);

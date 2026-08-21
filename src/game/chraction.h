@@ -4,26 +4,9 @@
 #include <bondgame.h>
 #include "chrobjdata.h"
 
+
 // Value is 3, it just needs to be less than MAX_CHRWAYPOINTS
 #define PATH_FINDING_WP_LIMIT (MAX_CHRWAYPOINTS - 3)
-
-#ifdef REFRESH_PAL
-#define CHRLV_RECENT_TIME_CHECK 151
-#define CHRLV_TICK_DEAD_CHECK 75
-#define CHRLV_SEEN_RECENT_CHECK 100
-#define CHRLV_LASTMOVEOK60_CHECK 50
-#define CHRLV_ATTACKWALK_CLOCK_TIMER30_MIN 0x11
-#define CHRLV_ATTACKWALK_CLOCK_TIMER30_MAX 0x1a
-#define CHRLV_ATTACKWALK_TIMER40_A 0x4b
-#define CHRLV_ATTACKWALK_TIMER40_B 0x10
-#define CHRLV_ATTACKWALK_TIMER40_C 0x96
-#define CHRLV_ATTACKWALK_TIMER40_D 0x21
-
-#define CHRLV_DEFAULT_TIMER 0x96
-#define CHRLV_10_SEC_TIMER 0x1f4 /* 500 */
-#define CHRLV_FRAMERATE_F 50.0f
-
-#else
 
 #define CHRLV_RECENT_TIME_CHECK 181
 #define CHRLV_TICK_DEAD_CHECK 90
@@ -35,13 +18,9 @@
 #define CHRLV_ATTACKWALK_TIMER40_B 0x14
 #define CHRLV_ATTACKWALK_TIMER40_C 0xb4
 #define CHRLV_ATTACKWALK_TIMER40_D 0x28
-
 #define CHRLV_DEFAULT_TIMER 0xb4
 #define CHRLV_10_SEC_TIMER 0x258 /* 600 */
 #define CHRLV_FRAMERATE_F 60.0f
-#endif
-
-
 
 Model * retrieve_header_for_body_and_head(s32 body, s32 head, u32 bitflags);
 

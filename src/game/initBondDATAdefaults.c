@@ -70,17 +70,9 @@ void sub_GAME_7F0062C0(void *anim, s32 arg1, s32 arg2, s32 *arg3)
 }
 
 
-
-#ifdef REFRESH_PAL
-#define ANIMRATE 1.2f
-#define DAMPVAL 0.9166f
-#define HEADSUM 11.990406f
-#else
 #define ANIMRATE 1.0f
 #define DAMPVAL 0.93f
 #define HEADSUM 14.285716f
-#endif
-
 
 void sets_a_bunch_of_BONDdata_values_to_default(void)
 {
@@ -88,13 +80,6 @@ void sets_a_bunch_of_BONDdata_values_to_default(void)
     s32 spD0[3];
     ModelRenderData renderData;
     Mtxf identityMatrix;
-
-#ifdef LEFTOVERDEBUG
-    if ((s32) player_gait_object_header.numRecords >= 0x1F)
-    {
-        return_null();
-    }
-#endif
 
     animInit(&g_CurrentPlayer->model, &player_gait_object_header, &g_CurrentPlayer->field_654);
     modelSetScale(&g_CurrentPlayer->model, IDO_POINT_ONE);

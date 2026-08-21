@@ -8,11 +8,7 @@
 #include "player.h"
 
 
-#ifdef REFRESH_PAL
-#define VALUENAME 16.750415802f
-#else
 #define VALUENAME 19.999996
-#endif
 
 struct hand hand_data_dummy = {
     0, // ITEM_IDS weaponnum;

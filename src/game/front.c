@@ -48,21 +48,12 @@
 
 
 /**
- * Each character showing in the display cast screen lasts 3 seconds with a half second cross-fade
- * and the camera velocity is tuned per refresh rate so its decay per second is the
- * same on PAL (0.95 ^ (60/50) = 0.9403). 
+ * Each character showing in the display cast screen lasts 3 seconds with a half second cross-fade.
  */
-#ifdef REFRESH_PAL
-#define CAST_INTRO_LEN          (50 * 3)
-#define CAST_INTRO_FADE         (50 / 2)
-#define CAST_DAMP               0.940299988f
-#define CAST_DAMP_COMP          0.0597000122f
-#else
 #define CAST_INTRO_LEN          (60 * 3)
 #define CAST_INTRO_FADE         (60 / 2)
 #define CAST_DAMP               0.94999999f
 #define CAST_DAMP_COMP          0.050000012f
-#endif
 #define CAST_INTRO_FADEOUT      (CAST_INTRO_LEN - CAST_INTRO_FADE + 1)
 #define CAST_INTRO_LEN_F        ((f32)CAST_INTRO_LEN)
 #define CAST_INTRO_FADE_F       ((f32)CAST_INTRO_FADE)
@@ -1445,11 +1436,7 @@ void update_menu00_legalscreen(void)
 
 void interface_menu00_legalscreen(void)
 {
-#ifdef REFRESH_PAL
-#define MENU_LEGALSCREEN_MENU_TIMER_MAX (50*4+1)
-#else
 #define MENU_LEGALSCREEN_MENU_TIMER_MAX (60*4+1)
-#endif
 
     viSetFovY(FOV_Y_F);
     viSetAspect(ASPECT_RATIO_SD);
@@ -1637,13 +1624,7 @@ void update_menu01_nintendo(void)
 
 void interface_menu01_nintendo(void)
 {
-#ifdef REFRESH_PAL
-/*~= 8.32 * 50 + 1*/
-#define NINTENDO_TIMER_MAX 417
-#else
-/*~= 8.32 * 60 + 1*/
 #define NINTENDO_TIMER_MAX 501
-#endif
 
     viSetFovY(FOV_Y_F);
     viSetAspect(ASPECT_RATIO_SD);
@@ -1906,13 +1887,8 @@ void update_menu04_goldeneye(void) {
 
 void interface_menu04_goldeneyelogo(void)
 {
-#ifdef REFRESH_PAL
-#define GOLDENEYELOGO_TIMER_1 50*3
-#define GOLDENEYELOGO_TIMER_2 (50/2)*3
-#else
-#define GOLDENEYELOGO_TIMER_1 60*3
-#define GOLDENEYELOGO_TIMER_2 (60/2)*3
-#endif
+    #define GOLDENEYELOGO_TIMER_1 60*3
+    #define GOLDENEYELOGO_TIMER_2 (60/2)*3
 
     viSetFovY(FOV_Y_F);
     viSetAspect(ASPECT_RATIO_SD);
@@ -7924,15 +7900,11 @@ void interface_menu18_displaycast(void)
 
     g_MenuTimer += g_ClockTimer;
 
-#if defined(REFRESH_PAL)
-#define INTERFACE_MENU18_TIMER 151
-#else
-#define INTERFACE_MENU18_TIMER 181
-#endif
+    #define INTERFACE_MENU18_TIMER 181
 
     if (g_MenuTimer >= INTERFACE_MENU18_TIMER)
     {
-#undef INTERFACE_MENU18_TIMER
+    #undef INTERFACE_MENU18_TIMER
         intro_character_index++;
 
         while (1)

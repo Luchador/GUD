@@ -46,31 +46,16 @@ ALSoundState* g_ImpactSfxStates[NUM_IMPACT_SFX_STATES];
 CasingRecord g_Casings[20];
 s32 dword_CODE_bss_80076A48; // Unused
 
-#ifdef REFRESH_PAL
-    /* PAL */
-    #define THROWN_ITEM_REFRESH_RATE                   50
-    #define THROWN_ITEM_TIMER_SOLO                     250
-    #define THROWN_ITEM_TIMER_MULTI                    150
-    #define THROWN_ITEM_TIMER_DEFAULT                  200
-    #define GLGRENADE_TIMER                            1000
-    #define DUAL_WIELD_TRIGGER_SWAP_TICKS              24
-    #define DUAL_WIELD_SINGLE_TRIGGER_SWAP_TICKS       36
-    #define WATCH_SOUND_DURATION_TICKS                 250
-    #define GUN_SPRING_DAMP                            0.9402999877929688f
-    #define GUN_SPRING_SCALE                           0.05970001220703125f
-#else
-    /* NTSC */
-    #define THROWN_ITEM_REFRESH_RATE                   60
-    #define THROWN_ITEM_TIMER_SOLO                     300
-    #define THROWN_ITEM_TIMER_MULTI                    180
-    #define THROWN_ITEM_TIMER_DEFAULT                  240
-    #define GLGRENADE_TIMER                            1200
-    #define DUAL_WIELD_TRIGGER_SWAP_TICKS              20
-    #define DUAL_WIELD_SINGLE_TRIGGER_SWAP_TICKS       30
-    #define WATCH_SOUND_DURATION_TICKS                 300
-    #define GUN_SPRING_DAMP                            0.95f
-    #define GUN_SPRING_SCALE                           0.050000012f
-#endif
+#define THROWN_ITEM_REFRESH_RATE                   60
+#define THROWN_ITEM_TIMER_SOLO                     300
+#define THROWN_ITEM_TIMER_MULTI                    180
+#define THROWN_ITEM_TIMER_DEFAULT                  240
+#define GLGRENADE_TIMER                            1200
+#define DUAL_WIELD_TRIGGER_SWAP_TICKS              20
+#define DUAL_WIELD_SINGLE_TRIGGER_SWAP_TICKS       30
+#define WATCH_SOUND_DURATION_TICKS                 300
+#define GUN_SPRING_DAMP                            0.95f
+#define GUN_SPRING_SCALE                           0.050000012f
 
 extern f32 g_GLGrenadeLaunchUnk8C;
 extern f32 g_GLGrenadeLaunchUnk94;

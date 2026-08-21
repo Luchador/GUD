@@ -91,8 +91,6 @@ extern f32 g_ModelDistanceScale;
 extern u32 g_ModelAnimMergingEnabled;
 extern s32 D_80036410;
 extern struct bondstruct_unk_animation_related* D_80036414;
-extern s32 D_80036418;
-extern s32 D_8003641C;
 extern u32 D_800363F0;
 
 extern coord3d D_80036094;

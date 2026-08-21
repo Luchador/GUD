@@ -1774,10 +1774,6 @@ void chrpropCleanupForRemoval(PropRecord *prop)
 }
 
 
-/**
- * Address 0x7F020540 (VERSION_US, VERSION_JP).
- * Address 0x7F0203B4 (VERSION_EU).
- */
 void setAnimationRate(f32 arg0)
 {
     s32 i;
@@ -1788,12 +1784,7 @@ void setAnimationRate(f32 arg0)
     {
         if (g_ChrSlots[i].model != NULL)
         {
-#if defined(REFRESH_PAL)
-/* should reference D_80047E4C (1.2f) */
-            modelSetAnimPlaySpeed(g_ChrSlots[i].model, animation_rate * 1.2f, 600.0f);
-#else
             modelSetAnimPlaySpeed(g_ChrSlots[i].model, animation_rate, 600.0f);
-#endif
         }
     }
 }
@@ -1801,7 +1792,7 @@ void setAnimationRate(f32 arg0)
 
 f32 getAnimationRate(void)
 {
-  return animation_rate;
+    return animation_rate;
 }
 
 

@@ -122,7 +122,6 @@ void chrlvInitActAttackWalk                   (ChrRecord *chr, s32);
 void sub_GAME_7F024CF8                        (ChrRecord *self, coord3d *arg1);
 void chrlvTickThrowGrenade                    (ChrRecord *self);
 void chrlvTickBondIntro                       (ChrRecord *self);
-void chrlvTickBondDieRemoved                  (ChrRecord *self);
 s32 chrlvApplySpeed                           (ChrRecord *self, coord3d *arg1, s32 arg2, f32 *speedPtr);
 void chrlvTickAttackWalk                      (ChrRecord *self);
 void chrlvTickRunPos                          (ChrRecord *self);
@@ -240,12 +239,12 @@ void expand_09_characters(s32 stageid, GuardRecord *arg1, s32 arg2)
 {
     struct PadRecord *pad;
     struct ChrRecord *temp_v0_5;
-    struct StandTile *sp54; // 84
-    struct coord3d sp48; // 72
+    struct StandTile *sp54;
+    struct coord3d sp48;
     struct PropRecord *temp_v0_4;
     struct ChrModelFileRecord *cmfr;
-    f32 sp3C; // 60
-    struct Model *sp38; //56
+    f32 sp3C;
+    struct Model *sp38;
     s32 bodyid;
     s32 headid;
 
@@ -254,16 +253,13 @@ void expand_09_characters(s32 stageid, GuardRecord *arg1, s32 arg2)
     if (getposstan(&pad->pos, pad->stan, 20.0f, &sp48, &sp54) != 0)
     {
         headid = -1;
-        bodyid = (arg1->BodyID == 0xFFFF)
-            ? get_current_random_body()
-            : arg1->BodyID;
+        bodyid = (arg1->BodyID == 0xFFFF) ? get_current_random_body() : arg1->BodyID;
 
         cmfr = &c_item_entries[bodyid];
+
         if (cmfr->hasHead == 0)
         {
-            headid = (arg1->HeadID >= 0)
-                ? arg1->HeadID
-                : bodyChooseHead(bodyid);
+            headid = (arg1->HeadID >= 0) ? arg1->HeadID : bodyChooseHead(bodyid);
         }
 
         sp38 = retrieve_header_for_body_and_head(bodyid, headid, (u32) arg1->bitflags);
@@ -301,12 +297,6 @@ void expand_09_characters(s32 stageid, GuardRecord *arg1, s32 arg2)
             }
         }
     }
-    #ifdef DEBUG
-    else
-    {
-    osSyncPrintf("chr not reset! (prop num=%d chr num=%d stan=%s) ",arg2 + 1, arg1->chrnum, GetStanName(pad->stan));
-    }
-    #endif
 }
 
 /*
@@ -331,9 +321,6 @@ u32 weaponIsOneHanded(PropRecord *arg0)
 }
 
 
-/**
- * Address 0x7F023948.
- */
 void chrlvIdleAnimationRelated(ChrRecord *self, f32 duration)
 {
     PropRecord *left;
@@ -363,16 +350,6 @@ void chrlvIdleAnimationRelated(ChrRecord *self, f32 duration)
 
 
 /**
- * Address 0x7F023A94 (VERSION_US).
- * Address 0x7F023D94 (other)
- */
-#ifdef REFRESH_PAL
-#define RATE 1.2f
-#else
-#define RATE 1.0f
-#endif
-
-/**
  * At the end of a character's kneeling animation smoothly merge into their standing animation.
  */
 void chrlvMergeKneelToStand(ChrRecord *self, f32 mergetime)
@@ -394,13 +371,9 @@ void chrlvMergeKneelToStand(ChrRecord *self, f32 mergetime)
 
     fsleep = mergetime;
 
-    if (self->model->playspeed != RATE)
+    if (self->model->playspeed != 1.0f)
     {
-#if defined(BUGFIX_R1)
-        fsleep *= (RATE / self->model->playspeed);
-#else
-        fsleep = mergetime / self->model->playspeed;
-#endif
+        fsleep *= (1.0f / self->model->playspeed);
     }
 
     if (fsleep > 127.0f)
@@ -409,6 +382,7 @@ void chrlvMergeKneelToStand(ChrRecord *self, f32 mergetime)
     }
 
     self->sleep = (s8) (s32) fsleep;
+
     chrlvIdleAnimationRelated(self, mergetime);
 }
 
@@ -1610,11 +1584,7 @@ void chrlvInitActAttackWalk(ChrRecord *chr, s32 arg1)
 
     chr->actiontype = ACT_ATTACKWALK;
     chr->act_attackwalk.clock_timer30 = 0;
-    #if defined(REFRESH_PAL)
-    chr->act_attackwalk.clock_timer34 = ((u32) randomGetNext() % (u32) (s32) (333.333343506f * g_AiReactionSpeed)) + CHRLV_SEEN_RECENT_CHECK;
-    #else
     chr->act_attackwalk.clock_timer34 = ((u32) randomGetNext() % (u32) (s32) (400.0f * g_AiReactionSpeed)) + CHRLV_SEEN_RECENT_CHECK;
-    #endif
     chr->act_attackwalk.unk038 = 0;
     chr->act_attackwalk.animfloats = panim_float;
     chr->act_attackwalk.timer40 = 0;
@@ -3068,9 +3038,7 @@ s32 chrlvMovementTargetRelated(ChrRecord *self)
 }
 
 
-
 /**
- * Address 0x7F0281F4.
  * PD: chrGoPosClearRestartTtl
 */
 void sub_GAME_7F0281F4(ChrRecord *self)
@@ -3080,8 +3048,6 @@ void sub_GAME_7F0281F4(ChrRecord *self)
 
 
 /**
- * Address 0x7F0281FC (US,JP)
- * Address 0x7F028214 (VERSION_EU)
  * PD: chrGoPosConsiderRestart
 */
 void chrlvPlotCourseRelated(ChrRecord *self)
@@ -3096,11 +3062,7 @@ void chrlvPlotCourseRelated(ChrRecord *self)
 
         if (temp_v0 == 0)
         {
-#ifndef REFRESH_PAL
             temp_a1 = (chrlvMovementTargetRelated(self) * 2) + 300;
-#else
-            temp_a1 = ((chrlvMovementTargetRelated(self) * 100) + 15000) / 60;
-#endif
 
             if (temp_a1 >= 0x10000)
             {
@@ -6654,11 +6616,7 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                                 {
                                     sp128->projectile->unk8C = 0.3f;
                                     sp128->projectile->unk94 = 0.13333333f;
-#ifdef REFRESH_PAL
-                                    sp128->projectile->refreshrate = 50;
-#else
                                     sp128->projectile->refreshrate = 60;
-#endif
                                 }
                             }
                         }
@@ -6894,35 +6852,24 @@ void chrlvAttackrollAnimationRelated7F02E3B8(ChrRecord *self)
 }
 
 
-/**
- * Address 0x7F02E4C0.
- * Address 0x7F02E4F4 (VERSION_EU).
-*/
 void chrlvTickAttackCommon(ChrRecord *self)
 {
     s32 i;
     Model *self_model;
     f32 df;
     f32 temp_f0_6;
-    f32 fp1; // 92
+    f32 fp1;
     f32 phi_f20;
     f32 fp2;
-    f32 fn40; // 80
-    f32 fanon1; // 76
+    f32 fn40;
+    f32 fanon1;
 
     self_model = self->model;
     phi_f20 = modelGetAnimFrame(self_model);
 
-    if (
-#ifdef REFRESH_PAL
-        (self->act_attack.attack_time < (self->act_attack.unk44 - 25))
-#else
-        (self->act_attack.attack_time < (self->act_attack.unk44 - 30))
-#endif
-        && (self_model->anim2 == NULL))
+    if ((self->act_attack.attack_time < (self->act_attack.unk44 - 30)) && (self_model->anim2 == NULL))
     {
-        if (((self->act_attack.animfloats->shoot_start_frame + 10.0f) < phi_f20)
-            && (phi_f20 < self->act_attack.animfloats->shoot_end_frame))
+        if (((self->act_attack.animfloats->shoot_start_frame + 10.0f) < phi_f20) && (phi_f20 < self->act_attack.animfloats->shoot_end_frame))
         {
             if (((self->act_attack.animfloats->recoil_end_frame < 0.0f)) || (phi_f20 < self->act_attack.animfloats->recoil_end_frame))
             {
@@ -7086,19 +7033,11 @@ void chrlvTickAttackCommon(ChrRecord *self)
 
                     if (self->actiontype == ACT_ATTACKROLL)
                     {
-#ifdef REFRESH_PAL
-                        df = ((self->act_attack.animfloats->shoot_end_frame - self->act_attack.animfloats->shoot_start_frame) * 50.0f) / 60.0f;
-#else
                         df = self->act_attack.animfloats->shoot_end_frame - self->act_attack.animfloats->shoot_start_frame;
-#endif
 
                         if (df < 30.0f)
                         {
-#ifdef REFRESH_PAL
-                            if ((s32) self->act_attack.unk40 >= (50 - ((s32) df * 2)))
-#else
                             if ((s32) self->act_attack.unk40 >= (60 - ((s32) df * 2)))
-#endif
                             {
                                 modelSetAnimSpeed(self_model, 0.5f, 0.0f);
                             }
@@ -7546,17 +7485,6 @@ void chrlvTickBondIntro(ChrRecord *self)
 }
 
 
-/**
- * Address 0x7F02F688.
-*/
-void chrlvTickBondDieRemoved(ChrRecord *self)
-{
-    // removed.
-}
-
-
-#if defined(REFRESH_NTSC)
-/* NTSC */
 #define MAX_SPEED_A 0.2991993f
 #define ACCEL_A 0.014959966f
 
@@ -7569,23 +7497,6 @@ void chrlvTickBondDieRemoved(ChrRecord *self)
 #define MAX_SPEED_C2 0.049087387f
 #define MAX_SPEED_C3 0.12566371f
 #define ACCEL_C 0.009817477f
-#endif
-
-#if defined(REFRESH_PAL)
-/* PAL */
-#define MAX_SPEED_A 0.359039157629013f
-#define ACCEL_A 0.0179519578814507f
-
-#define MAX_SPEED_B1 0.0235619451850653f
-#define MAX_SPEED_B2 0.117809727787972f
-#define MAX_SPEED_B3 0.235619455575943f
-#define ACCEL_B 0.0179519578814507f
-
-#define MAX_SPEED_C1 0.0117809725925326f
-#define MAX_SPEED_C2 0.0589048638939858f
-#define MAX_SPEED_C3 0.150796458125114f
-#define ACCEL_C 0.0117809725925326f
-#endif
 
 /**
  * Address 0x7F02F690.
@@ -9298,7 +9209,6 @@ void chrlvActionTick(ChrRecord *self)
                     chrlvTickBondIntro(self);
                     break;
                 case ACT_BONDDIE:
-                    chrlvTickBondDieRemoved(self);
                     break;
             }
 

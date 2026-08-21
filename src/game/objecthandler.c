@@ -255,16 +255,7 @@ Vtx D_800363F8 = {
 coord3d D_80036408 = { 1.0f, 0.0f, 0.0f };
 //D:80036414
 struct bondstruct_unk_animation_related* D_80036414 =  0;
-//D:80036418
-s32 D_80036418 =  0;
-//D:8003641C
-s32 D_8003641C =  0;
 
-
-
-
-/*
-*/
 
 ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context) {
     ModelHitEntry* freeListCursor;
@@ -877,28 +868,10 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
     Gfx *gdl;
     s32 opcode;
 
-    if (data->gdl == NULL)
-    {
-        osSyncPrintf("drawjointlist: no gfxlist!\n");
-        return_null();
-    }
-
     while (entry != NULL)
     {
         root = entry->rootnode;
         node = root;
-
-        if (entry->model->obj == NULL)
-        {
-            osSyncPrintf("drawjointlist: no object! (0x%X)\n", entry->model);
-            return_null();
-        }
-
-        if (!entry->model->obj->isLoaded)
-        {
-            osSyncPrintf("drawjointlist: object not initialised! (0x%X)\n", entry->model->obj);
-            return_null();
-        }
 
         if (data->unk18 != 0)
         {

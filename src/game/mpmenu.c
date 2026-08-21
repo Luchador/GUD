@@ -18,11 +18,7 @@
 #include "file.h"
 #include "assets/obseg/text/LmpmenuE.h"
 
-#ifdef REFRESH_PAL
-#define MPMENU_YOFF 8   /* PAL: every text row sits 8 pixels lower */
-#else
 #define MPMENU_YOFF 0
-#endif
 
 // bss
 s32 g_stopPlayFlag;
