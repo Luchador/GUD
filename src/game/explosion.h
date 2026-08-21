@@ -144,7 +144,6 @@ struct FlyingParticles {
 };
 
 extern f32 g_SpExplosionDamageMult;
-extern Mtx dword_CODE_bss_8007A100;
 extern struct Smoke *g_SmokeBuffer;
 extern struct Explosion *g_ExplosionBuffer;
 extern s32 max_particles;
@@ -158,7 +157,7 @@ extern s32 g_NumScorchEntries;
 extern s32 g_NumImpactEntries;
 
 
-
+void explosionInitScaleMtx(void);
 s32 explosionSmokeTick(PropRecord *arg0);
 void sub_GAME_7F09FD3C(void);
 Gfx * explosionRenderFlyingParticles(Gfx *arg0);
@@ -183,6 +182,7 @@ s32 sub_GAME_7F09C250(s32 arg0, struct coord3d *pos, struct StandTile *stan, s16
 #else
 void explosionCreate(PropRecord *arg0, struct coord3d *target_pos, StandTile *target_stan, s16 /* enum EXPLOSION_DEF */ explosion_type, s32 arg4, s32 player, u8 *rooms, s32 arg7);
 void sub_GAME_7F09C250(s32 arg0, struct coord3d *pos, struct StandTile *stan, s16 arg3, s32 flag4, s32 playernum, u8 *rooms, s32 flag7);
+
 #endif
 
 #endif

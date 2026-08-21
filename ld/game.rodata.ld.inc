@@ -4,7 +4,6 @@
       build/OUTCODE/src/game/initunk_0009E0.o (.rodata);
       build/OUTCODE/src/game/initanitable.o (.rodata);
       build/OUTCODE/src/game/initplayergaitobject.o (.rodata);
-      build/OUTCODE/src/game/setguscale.o (.rodata);
       build/OUTCODE/src/game/initimages.o (.rodata);
       build/OUTCODE/src/game/initintromatrices.o (.rodata);
       build/OUTCODE/src/game/initmenus.o (.rodata);

@@ -18,9 +18,6 @@ MemoryPool g_mempPools[MEMPOOL_COUNT];
 //data
 void *ptr_memp_c_debug_debug_notice_list = 0;
 s32 needmemallocation = 0;
-s32 D_80024408 = 0;
-s32 D_8002440C = 0;
-s32 D_80024410 = 0;
 
 //overloaded
 struct s_mempMVALS sdefaultmvals = {
@@ -134,19 +131,8 @@ void mempSetBankStarts(s32 poolSizes[MEMPOOL_COUNT+1])
 
 void *mempAllocBytesInBank(u32 bytes, u8 poolnum)
 {
-    /*
-     * Retain this address expression. Using
-     * &g_mempPools[poolnum] changes regalloc.
-     */
-    MemoryPool *pool = (MemoryPool *)(((u8 **)g_mempPools) + ((poolnum * 2) << 1));
+    MemoryPool *pool = &g_mempPools[poolnum];
     u8 *allocation = pool->pos;
-
-#ifdef DEBUG
-    if ((poolnum < 0) || (4 < poolnum))
-    {
-        osSyncPrintf("mempAllocBytesInBank from invalid heap %d!", poolnum);
-    }
-#endif
 
     if (pool->pos == NULL)
     {
@@ -162,17 +148,6 @@ void *mempAllocBytesInBank(u32 bytes, u8 poolnum)
     {
         if (g_mempPools[MEMPOOL_PERMANENT].pos + bytes <= g_mempPools[MEMPOOL_PERMANENT].end)
         {
-            /*
-             * There was probably debug code in the original that got mostly
-             * stripped, but it still perturbs register allocation. These
-             * statements fill t1/t3/t4 so the registers match.
-             */
-            if (needmemallocation);
-            if (&D_8002440C == &D_80024408);
-            if (needmemallocation);
-            if (&D_80024410 == &D_80024408);
-            if (!needmemallocation);
-
             needmemallocation = TRUE;
 
             return mempAllocBytesInBank(bytes, MEMPOOL_PERMANENT);
@@ -183,8 +158,6 @@ void *mempAllocBytesInBank(u32 bytes, u8 poolnum)
 
     pool->pos += bytes;
     pool->prevpos = allocation;
-
-    if (needmemallocation);
 
     return allocation;
 }
@@ -243,7 +216,8 @@ MEMP_ADD_ENTRY_RESULT mempAddEntryOfSizeToBank(void *allocation, s32 newsize, u8
 
 s32 mempGetBankSizeLeft(u8 bank)
 {
-    if (needmemallocation) {
+    if (needmemallocation)
+    {
         bank = MEMPOOL_PERMANENT;
     }
 
@@ -255,15 +229,20 @@ s32 mempGetBankSizeLeft(u8 bank)
     return g_mempPools[bank].end - g_mempPools[bank].pos;
 }
 
+
 // Last three bits contains the bank, the rest contains the size.
-u32 mempAllocPackedBytesInBank(u32 sizeandbank) {
+u32 mempAllocPackedBytesInBank(u32 sizeandbank)
+{
     return mempAllocBytesInBank((sizeandbank >> 3), (sizeandbank & 7));
 }
 
-void mempResetBank(u8 bank) {
+
+void mempResetBank(u8 bank)
+{
     g_mempPools[bank].prevpos = 0;
     g_mempPools[bank].pos = g_mempPools[bank].start;
 }
+
 
 void mempNullNextEntryInBank(u8 bank)
 {

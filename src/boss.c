@@ -5,6 +5,7 @@
 #include <bondgame.h>
 #include "boss.h"
 #include "deb.h"
+#include "explosion.h"
 #include "game/dyn.h"
 #include "game/game_debug.h"
 #include "game/file.h"
@@ -39,15 +40,9 @@
 #include "PR/R4300.h"
 
 /**
- * @file boss.c
  * @brief Main game loop and initialization functions.
- * 
- * This file contains the core functions that drive the game loop, manage stages, and handle debug operations.
  */
 
-
-// #define	OS_CLOCK_RATE		62500000LL
-// #define OS_CPU_COUNTER       (OS_CLOCK_RATE * 3 / 4)
 
 #define CYCLES_PER_FRAME    ((u32) OS_CPU_COUNTER / 60U) // 781,250
 #define INTERVAL_INTER_MATH    (CYCLES_PER_FRAME / 2U) // 390,625
@@ -55,9 +50,6 @@
 // note: 3225U * 5/6 = 2687.5
 #define MAIN_LOOP_TICK_INTERVAL (INTERVAL_INTER_MATH - 2688U) // 387,937
 
-/**
- * Copied from n64devkit\ultra\usr\src\pr\demos_old\simple\gfx.h
- */
 typedef union {
 
     struct {
@@ -72,10 +64,12 @@ typedef union {
 
 } GFXMsg;
 
-// forward declarations
+// Begin forward declarations
+
 void bossMainloop(void);
 
-/* data */
+// End forward declarations
+
 u32 g_BossDebugNoticeEntry = 0;
 s32 g_DebugAndUpdateStageFlag = FALSE;
 s32 g_StageNum = LEVELID_TITLE;
@@ -192,7 +186,7 @@ void bossInitMainthreadData(void)
     lvInit();
     default_player_perspective_and_height();
     store_osgetcount();
-    set_gu_scale();
+    explosionInitScaleMtx();
     casingsInit();
     alloc_load_expand_ani_table();
     init_weapon_animation_groups_maybe();
@@ -221,32 +215,6 @@ void bossEntry(void)
 
 /**
  * Main program loop.
- *
- * 6C60    70006060
- *
- * Seems to have been based on devkit example at one point,
- * n64devkit\ultra\usr\src\pr\demos_old\simple\simple.c
- *
- * loop:
- *         70006090 tests memstring for "-level_##"
- *         700060DC if not title, tests memstring for "-hard#"
- *         70006160 follows...
- *         700061FC test if debug console unconnected [800241A4]
- *         700062EC follows...
- *         700062FC tests memstring for "-ma"
- *         7000633C allocates "-ma" bytes to mem bank 4
- *         7000635C reset player data pointers
- *         70006364 offsets stage number based on number of players unless main menu
- *         700063A0 parses and sets memory allocation, loads stage, etc.
- *         ...
- *         70006708 displays memory usage when active
- *         70006724 displays in-game debugger when active
- *         7000674C writes a full sync, end display list combo
- *         7000676C display mem use when active    [800241B4]
- *         700067A8 display mem bars when active    [800241B8]
- *         700067C0 follows...
- *         700067D8 tests if "u64.taskgrab.#.core" activated and dumps memory
- *         70006854 follows... (700068BC - stop demos)
  */
 void bossMainloop(void)
 {
@@ -298,7 +266,7 @@ void bossMainloop(void)
     nowCount = osGetCount();
     randomSetSeed(nowCount);
 
-    // 'done' value never changes, and control never breaks -- infinite loop
+    // Infinite game loop.
     while (1)
     {
         localGfxFrameMsg = NULL;

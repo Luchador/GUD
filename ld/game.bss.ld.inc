@@ -4,7 +4,6 @@
       build/OUTCODE/src/game/initunk_0009E0.o (.bss);
       build/OUTCODE/src/game/initanitable.o (.bss);
       build/OUTCODE/src/game/initplayergaitobject.o (.bss);
-      build/OUTCODE/src/game/setguscale.o (.bss);
       build/OUTCODE/src/game/initimages.o (.bss);
       build/OUTCODE/src/game/initintromatrices.o (.bss);
       build/OUTCODE/src/game/initmenus.o (.bss);

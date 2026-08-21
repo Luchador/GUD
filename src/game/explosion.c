@@ -26,72 +26,20 @@
 #include "bgroomtrans.h"
 #include <assets/oddtextures.h>
 
-// bss
-//CODE.bss:8007A100
-// possibly   printf("Allocating %d bytes for glass data (%d bits)\n",DAT_83bd5fb0 * 0x88 + 0xf & 0xfffffff0,         DAT_83bd5fb0);
-Mtx dword_CODE_bss_8007A100;
 
-/**
- * g_SmokeBuffer = mempAllocBytesInBank(0x1FE0, MEMPOOL_STAGE);
- * printf("Allocating %d bytes for smoke data\n",0x9f60);
- * Address 0x8007A140.
-*/
 struct Smoke *g_SmokeBuffer;
-
-/**
- * g_ExplosionBuffer = mempAllocBytesInBank(0x1740, MEMPOOL_STAGE);
- * printf("Allocating %d bytes for explosion data\n",0x2e80);
- * Address 0x8007A144.
-*/
 struct Explosion *g_ExplosionBuffer;
-
-//CODE.bss:8007A148
-s32 max_particles;
-//CODE.bss:8007A14C
-// printf("Allocating %d bytes for debris data (%d bits)\n", DAT_83bd2af0 * 0xa4, DAT_83bd2af0);
 struct FlyingParticles *g_FlyingParticlesBuffer;
-
-/**
- * g_ScorchBuffer = mempAllocBytesInBank(0x6E0, MEMPOOL_STAGE);
- * printf("Allocating %d bytes for scorch data\n",0xa50);
- * sizeof each entry == 0x58
- * Address 0x8007A150.
-*/
 struct Scorch *g_ScorchBuffer;
-
-/**
- * g_BulletImpactBuffer = mempAllocBytesInBank(0x1F40, MEMPOOL_STAGE);
- * printf("Allocating %d bytes for wallhit data\n",0x3070);
- * Address 0x8007A154.
- * cannonically wallhitlist
-*/
 struct BulletImpact *g_BulletImpactBuffer;
 
-// data
-//D:80040170
 s32 g_NumExplosionEntries = 0;
-//D:80040174
 s32 g_NumSmokeEntries = 0;
-//D:80040178
 f32 g_SpExplosionDamageMult = 1.0;
+s32 max_particles;
 
-#if defined(VERSION_EU)
-s_smoketype g_SmokeTypes[] = {
-   // dur, appr, dis, size, bgrate,    r,  g,    b, fgrate, propclouds
-    {   1,   50,  99,    0,   0.0f, 128, 128, 128,   0.3f,     150 },
-    { 400,   50,  37,   60,  0.02f,  80,  80,  96,   0.3f,     150 },
-    { 400,   50,  42,   20,  0.01f, 128, 128, 128,   0.3f,     150 },
-    { 525,   50, 100,  100,  0.01f, 192, 192, 192,   0.3f,     150 },
-    { 525,   50,  50,   80,  0.02f,  64,  64,  64,   0.3f,     150 },
-    { 640,   50,  42,  190,  0.15f,  64,  64,  64,   0.3f,     150 },
-    { 750,   50,  58,  300,  0.01f,  64,  64,  64,   0.3f,     150 },
-    {  50,   50,   7,   15,  0.03f, 255, 255, 255,   0.3f,     150 },
-    {  17,    1,   5,   30,  0.03f, 255, 255, 255,   2.0f,      25 },
-    {  21,    1,   6,   16,  0.03f, 224, 224, 224,   3.0f,      25 },
-    { 750,   50,  58,  900,  0.01f,  64,  64,  64,   0.3f,     150 }
-};
-#else
-//D:8004017C
+static Mtx g_ExplosionScaleMtx;
+
 s_smoketype g_SmokeTypes[] = {
    // dur, appr, dis,size, bgrate,   r,  g,    b, fgrate, propclouds
     {   1,   60,  99,   0,   0.0f, 128, 128, 128,   0.3f,     180},
@@ -106,36 +54,7 @@ s_smoketype g_SmokeTypes[] = {
     {  25,    1,   7,  16,  0.03f, 224, 224, 224,   3.0f,      30},
     { 900,   60,  70, 900,  0.01f,  64,  64,  64,   0.3f,     180}
 };
-#endif
 
-#if defined(VERSION_EU)
-s_explosiontype g_ExplosionTypes[] = {
-   //hrange, vrange,    hchg,               vchg,           expsize, exprang, dmgrang,   dur, proprate, flarespd, nbits,  bitsize, bitdist, bithvel, bitvvel, smoketype,             sndid, damage
-    {  0.1f,   0.1f,    0.0f,               0.0f,                   0.1f,    0.0f,    0.0f,     1,        1,     1.0f,     0,     0.1f,    0.0f,    0.0f,    0.0f,         0,              0x00,   0.0f},
-    {  1.0f,   1.0f,    0.0f,               0.0f,                   1.0f,    0.0f,    0.0f,    25,        1,     1.0f,    10,     5.0f,    0.0f,    2.0f,    6.0f,         7,              0x00,   0.0f},
-    { 20.0f,  20.0f,    0.0f,               0.0f,                  30.0f,   50.0f,   50.0f,    67,        1,     3.0f,    40,     6.0f,    5.0f,    0.7f,    6.0f,         2,  EXPLOSION_1B_SFX, 0.125f},
-    { 50.0f,  50.0f,    0.0f,               0.0f,                  50.0f,  100.0f,  100.0f,    75,        1,     4.0f,    50,     6.0f,   10.0f,    1.0f,    6.0f,         2,  EXPLOSION_1C_SFX,   0.5f},
-    { 60.0f,  80.0f,    1.20000004768f,     0.360000014305f,      100.0f,  150.0f,  280.0f,   100,        2,     5.0f,    80,     8.0f,   30.0f,    2.0f,    6.0f,         1,  EXPLOSION_4A_SFX,   1.0f},
-    { 60.0f, 120.0f,    1.20000004768f,     0.360000014305f,      150.0f,  200.0f,  310.0f,   100,        2,     5.0f,    80,     8.0f,   30.0f,    2.0f,    6.0f,         1,  EXPLOSION_4A_SFX,   2.0f},
-    { 20.0f,  20.0f,    0.0f,               0.0f,                  22.0f,   40.0f,   40.0f,    67,        1,     3.0f,    40,     6.0f,    5.0f,    0.7f,    6.0f,         2,  EXPLOSION_1B_SFX,   0.5f},
-    { 35.0f,  40.0f,    0.0f,               0.0f,                  35.0f,   70.0f,   70.0f,    75,        1,     4.0f,    50,     6.0f,   10.0f,    1.0f,    6.0f,         2,  EXPLOSION_1C_SFX,   1.0f},
-    { 50.0f,  80.0f,    1.20000004768f,     0.360000014305f,       50.0f,  100.0f,  220.0f,   100,        2,     5.0f,    80,     8.0f,   30.0f,    2.0f,    6.0f,         1,  EXPLOSION_4A_SFX,   2.0f},
-    { 60.0f, 120.0f,    1.20000004768f,     0.360000014305f,       50.0f,  130.0f,  230.0f,   100,        2,     5.0f,    80,     8.0f,   30.0f,    2.0f,    6.0f,         1,  EXPLOSION_4A_SFX,   2.0f},
-    { 40.0f,  40.0f,    0.5f,               0.239999994635582f,    70.0f,  100.0f,  180.0f,   162,        4,     5.0f,   120,     6.0f,   30.0f,    2.5f,    6.0f,         4,  EXPLOSION_5A_SFX,   1.0f},
-    { 50.0f,  50.0f,    0.699999988079071f, 0.5f,                 100.0f,  150.0f,  260.0f,   150,        1,     4.0f,   150,     6.0f,   30.0f,    3.0f,    6.0f,         4,  EXPLOSION_4A_SFX,   2.0f},
-    { 70.0f,  60.0f,    1.20000004768372f,  0.699999988079071f,   150.0f,  225.0f,  320.0f,   150,        2,     5.0f,   150,     6.0f,   30.0f,    4.0f,   12.0f,         5,  EXPLOSION_4A_SFX,   4.0f},
-    /* standard explosion for grenades and mines */
-    { 80.0f,  60.0f,    2.40000009536743f,  0.899999976158142f,   200.0f,  300.0f,  480.0f,   150,        2,     5.0f,   200,     6.0f,   30.0f,    6.0f,   15.0f,         6,  EXPLOSION_4B_SFX,   4.0f},
-    { 50.0f,  50.0f,    0.0f,               0.0f,                 120.0f,  200.0f,  400.0f,   125,        4,     4.0f,   150,     6.0f,   30.0f,    3.0f,    6.0f,         4,  EXPLOSION_4B_SFX,   4.0f},
-    {  1.0f,   1.0f,    0.0f,               0.0f,                   1.0f,    0.0f,    0.0f,     1,        1,     1.0f,   150,     6.0f,   30.0f,    2.5f,    6.0f,         7,  EXPLOSION_2B_SFX,   0.0f},
-    {  1.0f,   1.0f,    0.0f,               0.0f,                   1.0f,    0.0f,    0.0f,     1,        1,     1.0f,   100,     6.0f,   30.0f,    2.5f,    6.0f,         7,  EXPLOSION_2B_SFX,   0.0f},
-    { 80.0f,  60.0f,   18.0f,               6.0f,                1500.0f, 2200.0f, 3600.0f,   250,        1,     2.0f,     0,     0.0f,    0.0f,    0.0f,    0.0f,         0,  EXPLOSION_4B_SFX,   4.0f},
-    { 80.0f,  60.0f,    3.59999990463257f,  1.20000004768372f,    300.0f,  450.0f,  640.0f,    50,        1,     2.0f,     0,     0.0f,    0.0f,    0.0f,    0.0f,         0,  EXPLOSION_4B_SFX,   4.0f},
-    /* facility remote mine */
-    { 90.0f,  75.0f,    3.0f,               1.0f,                 250.0f,  375.0f,  600.0f,   150,        2,     5.0f,   200,     6.0f,   30.0f,    6.0f,   15.0f,         6,  EXPLOSION_4B_SFX,   4.0f},
-    {160.0f, 120.0f,    7.19999980926514f,  2.40000009536743f,    600.0f,  450.0f,  640.0f,    50,        1,     2.0f,     0,     0.0f,    0.0f,    0.0f,    0.0f,         0,  EXPLOSION_4B_SFX,   4.0f},
-};
-#else
 s_explosiontype g_ExplosionTypes[] = {
    //hrange, vrange,    hchg,  vchg,  expsize, exprang, dmgrang,   dur, proprate, flarespd, nbits,  bitsize, bitdist, bithvel, bitvvel, smoketype,             sndid, damage
     {  0.1f,   0.1f,    0.0f,  0.0f,     0.1f,    0.0f,    0.0f,     1,        1,     1.0f,     0,     0.1f,    0.0f,    0.0f,    0.0f,         0,       NOTHING_SFX,   0.0f},
@@ -160,7 +79,6 @@ s_explosiontype g_ExplosionTypes[] = {
     { 90.0f,  75.0f,    2.5f, 0.87f,   250.0f,  375.0f,  600.0f,   180,        2,     5.0f,   200,     6.0f,   30.0f,    6.0f,   15.0f,         6,  EXPLOSION_4B_SFX,   4.0f},
     {160.0f, 120.0f,    6.0f,  2.0f,   600.0f,  450.0f,  640.0f,    60,        1,     2.0f,     0,     0.0f,    0.0f,    0.0f,    0.0f,         0,  EXPLOSION_4B_SFX,   4.0f},
 };
-#endif
 
 Gfx * g_ExplosionDisplayLists[] = {
     &globalDL_0x078,
@@ -182,10 +100,8 @@ Gfx * g_ExplosionDisplayLists[] = {
 
 s32 g_NumParticleEntries = 0;
 s32 g_NumScorchEntries = 0;
-// canonically nextwallhit
 s32 g_NumImpactEntries = 0;
 
-//D:8004080C
 s_impacttype g_ImpactTypes[] = {
     {10.0f, 10.0f, 1, 2, 8},
     { 6.0f,  6.0f, 1, 2, 8},
@@ -216,7 +132,7 @@ Vtx g_ScorchDefaultVertex = {0, 0, 0, 0, 0, 0, 0x0, 0x0, 0x0, 0xDC };
 Vtx g_BulletImpactDefaultVertex = {0, 0, 0, 0, 0, 0, 0x0, 0x0, 0x0, 0xDC };
 
 
-/*** prototypes */
+// Start forward declarations
 
 void explosionInitFlyingParticles(coord3d *spawnpos, f32 spawn_rand_scale, f32 spawn_horiz_drift_scale, f32 spawn_vert_drift_scale, f32 spawn_tex_scale);
 s32 explosionRoundFloat(f32 arg0);
@@ -226,11 +142,15 @@ void explosionInflictDamage(struct PropRecord *arg0, f32 arg1, f32 arg2);
 void explosionScorchTick(struct coord3d *pos, f32 explosion_size, s16 room);
 Gfx *explosionRenderPart(struct ExplosionPart *arg0, Gfx *gdl, struct coord3d *coord);
 
-/*** *************************************************************************************************************/
+// End forward declarations
 
-/**
- * Named same as Perfect Dark.
-*/
+
+void explosionInitScaleMtx(void)
+{
+    guScale((Mtx *)&g_ExplosionScaleMtx, 0.1f, 0.1f, 0.1f);
+}
+
+
 #if defined(VERSION_JP) || defined(VERSION_EU)
 s32
 #else
@@ -436,6 +356,7 @@ void explosionScreenShake(coord3d* source_pos, coord3d* source_mag, coord3d* res
     }
 
     g_NumExplosionEntries--;
+
     if (g_NumExplosionEntries & 2)
     {
         result->y = explosion_mag;
@@ -452,10 +373,7 @@ void explosionScreenShake(coord3d* source_pos, coord3d* source_mag, coord3d* res
     viShake((f32) g_NumExplosionEntries * explosion_mag);
 }
 
-/***
- * see Perfect Dark void explosionInflictDamage(struct prop *expprop)
- * Address 0x7F09C9D8 (NTSC)
-*/
+
 void explosionInflictDamage(PropRecord *arg0, f32 horiz_range, f32 vert_range)
 {
     s32 spE0[8];
@@ -652,33 +570,21 @@ void explosionInflictDamage(PropRecord *arg0, f32 horiz_range, f32 vert_range)
 }
 
 
-
-
-
-/***
- * see Perfect Dark u32 explosionTick(struct prop *prop)
- *
- * NTSC address 0x7F09CEE8.
-*/
 s32 explosionTick(PropRecord* arg0)
 {
     s32 var_s4;
     s32 j;
     s32 k;
-
     f32 hrange;
     f32 vrange;
     f32 temp_f20;
     f32 temp_f12;
-
     struct Explosion *exp;
     s_explosiontype *explosiontype;
-
     f32 lvupdate;
     s32 sp9C;
     struct coord3d sp90;
     struct coord3d sp84;
-
 
     exp = arg0->explosion;
     explosiontype = &g_ExplosionTypes[exp->explosion_type];
@@ -716,6 +622,7 @@ s32 explosionTick(PropRecord* arg0)
         }
 
         sp9C = (s32) (((f32)explosiontype->propagationrate * (f32)exp->age) / (f32)explosiontype->duration) + 1;
+
         for (var_s4 = 0; var_s4 < sp9C; var_s4++)
         {
             for (j=0; j<EXPLOSION_PARTS_LEN; j++)
@@ -810,9 +717,6 @@ s32 explosionTick(PropRecord* arg0)
 }
 
 
-/*
-* Address: 0x7F09D4EC
-*/
 u8 explosionChrpropExplosionTick(PropRecord* prop)
 {
     Mtxf* player_matrix;
@@ -1493,7 +1397,7 @@ Gfx *explosionRenderPropSmoke(PropRecord *arg0, Gfx *gdl, s32 withalpha)
 
     gdl = applyRoomMatrixToDisplayList(gdl, temp_s1);
 
-    gSPMatrix(gdl++, osVirtualToPhysical((void*)&dword_CODE_bss_8007A100), G_MTX_NOPUSH | G_MTX_MUL | G_MTX_MODELVIEW);
+    gSPMatrix(gdl++, osVirtualToPhysical((void*)&g_ExplosionScaleMtx), G_MTX_NOPUSH | G_MTX_MUL | G_MTX_MODELVIEW);
 
     gSPSegment(gdl++, SPSEGMENT_GETITLE, osVirtualToPhysical((void*)pGlobalimagetable));
 
