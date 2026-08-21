@@ -2738,10 +2738,9 @@ void hudmsgBottomShow(char *string);
 void setFontTables(s32 arg0, s32 arg1);
 #endif
 
-Gfx * bondviewRenderDebugBondView(Gfx *arg0);
+Gfx *bondviewRenderDebugBondView(Gfx *arg0);
 s32 bond_pressed_reload_activate(void);
-Gfx * maybe_mp_interface(Gfx *arg0);
-Gfx * bondviewRemoved7F08BCB8(Gfx *arg0);
+Gfx *maybe_mp_interface(Gfx *arg0);
 bool camIsPosInScreen(coord3d *vec_scale, f32 norm_scale);
 bool camIsPosInScreenBox(coord3d *, f32, struct bbox2d *);
 s32 getMissiontimer(void);

@@ -292,12 +292,6 @@ coord3d player_pos_x = {0};
 #endif
 
 
-s32 get_debug_render_raster(void) 
-{
-    return 2;
-}
-
-
 s32 get_debug_freeze_processing(void) {
 #if defined(LEFTOVERDEBUG)
     return debug_freeze_processing;

@@ -12,7 +12,6 @@ extern s32 g_DebugHighlightedOption;
 
 extern s32 show_debug_menu_flag;
 
-s32 get_debug_render_raster(void);
 s32 get_debug_freeze_processing(void);
 s32 getDebugMode(void);
 s32 get_debug_do_draw_bg(void);

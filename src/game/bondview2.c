@@ -9910,7 +9910,7 @@ s32 playerTick(PropRecord *prop)
  
     if (chr != NULL)
     {
-        if ((g_playerPointers[index]->bodyModel != NULL) && (!(get_debug_render_raster() && (g_playerPointers[index]->cameramode != 1))))
+        if ((g_playerPointers[index]->bodyModel != NULL) && (!(g_playerPointers[index]->cameramode != 1)))
         {
             g_playerPointers[index]->field_AC = 0;
             ret = chrTick(prop);
@@ -10337,22 +10337,6 @@ clear_and_return:
 }
 
 
-/**
- * Address 0x7F08BCB8.
- */
-Gfx * bondviewRemoved7F08BCB8(Gfx *arg0)
-{
-    #ifdef DEBUG
-    // removed
-    #endif
-
-    return arg0;
-}
-
-
-/**
- * Address 0x7F08BCC0.
- */
 Gfx *bondviewRenderProp(PropRecord *arg0, Gfx *arg1, s32 arg2)
 {
     if (arg0->chr != NULL)

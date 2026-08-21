@@ -495,12 +495,6 @@ Gfx* lvlRender(Gfx* DL)
 
             DL = viClearZBufCurrentPlayer(DL);
             DL = viSetupCurrentPlayerView(DL);
-
-            if (get_debug_render_raster() == DEB_MOVE_VIEW)
-            {
-            }
-
-
             DL = bondviewRenderDebugBondView(DL);
             DL = viSetupScreensForNumPlayers(DL);
             DL = skyRender(DL);
@@ -573,15 +567,7 @@ Gfx* lvlRender(Gfx* DL)
                 set_max_ammo_for_cur_player();
             }
 
-            if (get_debug_render_raster() == DEB_BOND_VIEW)
-            {
-                DL = maybe_mp_interface(DL);
-            }
-            else
-            {
-                DL = bondviewRemoved7F08BCB8(DL);
-            }
-
+            DL = maybe_mp_interface(DL);
             DL = mp_watch_menu_display(DL);
         }
     }
