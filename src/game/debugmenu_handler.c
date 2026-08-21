@@ -204,14 +204,10 @@ s32 debug_freeze_processing = DEB_BOND_VIEW;
 s32 g_DebugMode = DEB_BOND_VIEW;
 //D:80036F70
 s32 g_DebugHighlightedOption = DEB_BOND_VIEW;
-//D:80036F74
-s32 memusage_display_flag = FALSE;
 //D:80036F78
 s32 debug_do_draw_bg = TRUE;
 //D:80036F7C
 s32 debug_do_draw_obj = TRUE;
-//D:80036F80
-s32 debug_unknown2 = 1;
 //D:80036F84
 s32 debug_stanhit_flag = FALSE;
 //D:80036F88
@@ -296,79 +292,11 @@ coord3d player_pos_x = {0};
 #endif
 
 
-/*
-* Address: 0x7f090490
-*/
-void debugmenuUpdate(void)
+s32 get_debug_render_raster(void) 
 {
-    #if defined(LEFTOVERDEBUG)
-    debmenuSetMenu(&mcm_strings, &g_DebugMenuPositions, &g_DebugMenuOffsets);
-    #endif
-}
-
-#if defined(LEFTOVERDEBUG)
-/*
-* Address: 0x7f0904c4
-*/
-void debmenuHandleMoveView(void)
-{
-    resetDebugCameraToPlayerPosition();
-    g_DebugHighlightedOption = get_highlighted_debug_option();
-    debug_render_raster = debug_freeze_processing = g_DebugHighlightedOption;
-}
-#endif
-
-#if defined(LEFTOVERDEBUG)
-/*
-* Address: 0x7f090508
-*/
-void debmenuHandleStanView(void)
-{
-    bondviewRemovePlayerBody();
-    g_DebugHighlightedOption = get_highlighted_debug_option();
-    debug_render_raster = debug_freeze_processing = g_DebugHighlightedOption;
-}
-#endif
-
-#if defined(LEFTOVERDEBUG)
-/*
-* Address: 0x7f09054c
-*/
-void debmenuHandleBondView(void)
-{
-    bondviewRemovePlayerBody();
-    g_DebugHighlightedOption = get_highlighted_debug_option();
-    debug_render_raster = debug_freeze_processing = g_DebugHighlightedOption;
-}
-#endif
-
-
-#if defined(LEFTOVERDEBUG)
-/*
-* Address: 0x7f090590
-*/
-void removed_do_debug_profile_flag_false(void) {
-    return;
-}
-#endif
-
-#if defined(LEFTOVERDEBUG)
-/*
-* Address: 0x7f090598
-*/
-void removed_do_debug_profile_flag_true(void) {
-    return;
-}
-#endif
-
-
-s32 get_debug_render_raster(void) {
-#if defined(LEFTOVERDEBUG)
-    return debug_render_raster;
-#else
     return 2;
-#endif
 }
+
 
 s32 get_debug_freeze_processing(void) {
 #if defined(LEFTOVERDEBUG)
@@ -378,7 +306,8 @@ s32 get_debug_freeze_processing(void) {
 #endif
 }
 
-s32 getDebugMode(void) {
+s32 getDebugMode(void) 
+{
 #if defined(LEFTOVERDEBUG)
     return g_DebugMode;
 #else
@@ -386,19 +315,6 @@ s32 getDebugMode(void) {
 #endif
 }
 
-void setDebugMode(void) {
-#if defined(LEFTOVERDEBUG)
-    g_DebugMode = g_DebugHighlightedOption;
-#endif
-}
-
-s32 get_memusage_display_flag(void) {
-#if defined(LEFTOVERDEBUG)
-    return memusage_display_flag;
-#else
-    return 0;
-#endif
-}
 
 s32 get_debug_do_draw_bg(void) {
 #if defined(LEFTOVERDEBUG)

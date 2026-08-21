@@ -54,7 +54,6 @@
 #include "viewport.h"
 #include "stan.h"
 #include "gun.h"
-#include "debug_camera.h"
 #include "mp_music.h"
 #include "bgroomtrans.h"
 #include "unk_092E50.h"
@@ -92,7 +91,6 @@ s32 g_GlobalTimer = 0;
  */
 s32 g_GlobalTickCount = 0;
 
-//D:80048384
 #endif
 /*
 * Selected difficulty mode.
@@ -107,8 +105,8 @@ s32 g_SelectedDifficulty = DIFFICULTY_AGENT;
  */
 s32 g_StageElapsedTicks = 0;
 
-s32 g_MpTime = 0x8CA0;
-s32 g_MpPoint = 0xA;
+s32 g_MpTime = 36000;
+s32 g_MpPoint = 10;
 ALSoundState * g_MpSoundStateRelated = NULL;
 
 /**
@@ -500,16 +498,13 @@ Gfx* lvlRender(Gfx* DL)
 
             if (get_debug_render_raster() == DEB_MOVE_VIEW)
             {
-                DL = sub_GAME_7F091580(DL);
             }
 
-            if (get_debug_render_raster() == DEB_BOND_VIEW)
-            {
-                DL = bondviewRenderDebugBondView(DL);
-            }
 
+            DL = bondviewRenderDebugBondView(DL);
             DL = viSetupScreensForNumPlayers(DL);
             DL = skyRender(DL);
+
             bgRoomVisibilityRelated();
             propsTick();
             chraiUpdateOnscreenPropCount();
@@ -1119,8 +1114,6 @@ void lvlViewMoveTick(void)
             if (getCurrentPlayerWeaponId(GUNRIGHT) != ITEM_TOKEN)
             {
                 currentPlayerEquipWeaponWrapper(GUNRIGHT, ITEM_TOKEN);
-
-                if(1);
 
                 if (g_CurrentPlayer->hands[GUNRIGHT].weapon_action_state == GUN_ANIM_STATE_FIRE)
                 {

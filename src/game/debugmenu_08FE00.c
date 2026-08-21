@@ -32,63 +32,6 @@ D:80036B9C                     .word 0
 #endif
 
 
-/*
-* Address: 0x7f08fe08
-*/
-void debmenuSetScaleIndex(s32 param_1) {
-#if defined(LEFTOVERDEBUG)
-    g_DMenuScaleIndex = param_1;
-#endif
-}
-
-
-/*
-* Address: 0x7f08fe14
-*/
-void debmenuSetMenu(char **labels, s32 (*positions)[2], s32 *offsets)
-{
-    #if defined(LEFTOVERDEBUG)
-	s32 numgroups;
-
-	g_DMenuCurLabels = labels;
-	g_DMenuCurPositions = positions;
-	g_DMenuCurOffsets = offsets;
-
-	for (numgroups = 0; offsets[numgroups] >= 0; numgroups++);
-
-	g_DMenuNumOptions = offsets[numgroups - 1];
-	g_DMenuNumGroups = numgroups;
-    #endif
-}
-
-/*
-* Address: 0x7f08fe74
-*/
-Gfx *debugmenuRender(Gfx *gdl)
-{
-    #if defined (LEFTOVERDEBUG)
-	s32 i;
-	s32 xscale = g_DMenuXScales[g_DMenuScaleIndex];
-	s32 yscale = g_DMenuYScales[g_DMenuScaleIndex];
-
-
-	for (i = 0; i < g_DMenuNumOptions; i++) {
-		if (i == g_DMenuSelectedOption) {
-			debmenuSetFgColour(0xc0, 0x00, 0x00, 0xc0);
-        }else{
-            debmenuSetFgColour(0xc0, 0xC0, 0xC0, 0xc0);
-        }
-		debmenuSetPos((g_DMenuCurPositions[i][0] * xscale - 20) / 4, (g_DMenuCurPositions[i][1] * yscale - 8) / 7);
-		debmenuPrintString(g_DMenuCurLabels[i]);
-	}
-    #endif
-	return gdl;
-}
-
-
-/*
-* Address: 0x7f0901b0
-*/
 s32 get_highlighted_debug_option(void) {
 #if defined(LEFTOVERDEBUG)
     return g_DMenuSelectedOption;

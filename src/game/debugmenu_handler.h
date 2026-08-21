@@ -17,8 +17,6 @@ extern s32 show_debug_menu_flag;
 s32 get_debug_render_raster(void);
 s32 get_debug_freeze_processing(void);
 s32 getDebugMode(void);
-void setDebugMode(void);
-s32 get_memusage_display_flag(void);
 s32 get_debug_do_draw_bg(void);
 s32 get_debug_do_draw_obj(void);
 s32 get_debug_stanhit_flag(void);
@@ -43,7 +41,5 @@ s32 get_debug_chrnum_flag(void);
 s32 get_debug_gunwatchpos_flag(void);
 s32  get_debug_profile_flag(void);
 s32 get_debug_taskgrab_val(void);
-Gfx *debugmenuRender(Gfx *);
-void debugmenuUpdate(void);
 
 #endif

@@ -9,7 +9,6 @@
 #include "bg.h"
 #include "bondview.h"
 #include "chr.h"
-#include "debug_camera.h"
 #include "debugmenu_handler.h"
 #include "decompress.h"
 #include "bgfog.h"
@@ -642,7 +641,6 @@ void load_bg_file(LEVEL_INDEX levelid)
  
     sub_GAME_7F0B4810(levelinfotable[levelentry_index].levelscale);
     setLevelScale(levelinfotable[levelentry_index].levelscale);
-    setDebugCameraScale(levelinfotable[levelentry_index].levelscale);
  
     mCurrentLevelVisibilityScale = levelinfotable[levelentry_index].visibility;
  
