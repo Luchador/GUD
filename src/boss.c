@@ -165,7 +165,6 @@ void bossInitMainthreadData(void)
     indycommInit();
     g_DebugAndUpdateStageFlag = rmonGetToken();
     obInit();
-    rspInit();
     dynInit();
     joyInit();
     osCreateMesgQueue(&bossmq, &bossmsg, 1);
@@ -222,15 +221,16 @@ void bossInitMainthreadData(void)
 
 
 /**
- * 6C1C    7000601C
- *     loads primary resources and starts main program loop
- *     this is infinite.  Loops unconditionally: JAL 70006060
+ * Begin infinite main program loop.
  */
-void bossEntry(void) {
+void bossEntry(void)
+{
     bossInitMainthreadData();
     rspAllocateBuffers();
     musicSeqPlayerInit();
-    while(1){
+
+    while(1)
+    {
        bossMainloop();
     }
 }
@@ -266,7 +266,6 @@ void bossEntry(void) {
  */
 void bossMainloop(void)
 {
-    s32 done;
     const unsigned char *tokenFindLevel;
     GFXMsg *localGfxFrameMsg;
     OSScMsg localGfxDoneMsg;
@@ -286,7 +285,6 @@ void bossMainloop(void)
     s32 mainTickElapsed;
     s32 rspReplyMsg;
 
-    done = 0;
     reset_mem_bank_5();
 
     if (tokenFind(1, "-level_") != NULL)
@@ -317,7 +315,7 @@ void bossMainloop(void)
     randomSetSeed(nowCount);
 
     // 'done' value never changes, and control never breaks -- infinite loop
-    while (!done)
+    while (1)
     {
         localGfxFrameMsg = NULL;
         localGfxDoneMsg = g_bossGfxDoneMsg;

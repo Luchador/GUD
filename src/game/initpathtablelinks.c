@@ -4,20 +4,6 @@
 #include "padhalllv.h"
 
 
-/**
- * NTSC address 0x7F006890.
- * 
- * Ryan spent a few minutes looking at this and left some notes about what this function does:
- *
- * var_s6 is an "error" variable. If set anywhere, the function goes into an infinite loop at the end.
- * The first outer loop appears to be verifying that the waypoints don't list themselves as their own neighbour.
- * The second outer loop appears to do the same but for waygroups. It also calls sub_GAME_7F08F438, which is a more simple version of PD's waypointFindSegmentIntoGroup, so it's likely verifying that there is a waypoint path between this group and each neighbour.
- * The third outer loop is iterating waygroups, then iterating each group's waypoints, and assigning each waypoint's groupNum if it's less than 0. If a value is stored and it's wrong, the error variable is set.
- * The fourth outer loop is checking that all waypoints have a groupNum assigned.
- * The fifth outer loop I'm not sure about without actually decompiling it and naming stuff. It appears to be using the waypoint->dist property temporary so it can validate something. If it doesn't like it then the error variable is set.
- * The final outer loop is the infinite loop which occurs if the error variable is true.
- */
-
 void init_path_table_links(void)
 {
     stagesetup *setup;
@@ -31,10 +17,6 @@ void init_path_table_links(void)
     setup = &g_CurrentSetup;
     waypoints = setup->pathwaypoints;
     groups = setup->waypointgroups;
-
-    if (groups);
-    if (groups);
-    if (groups);
 
     if (waypoints != NULL)
     {
@@ -52,19 +34,6 @@ void init_path_table_links(void)
             {
                 if (neighbourNum == waypointIndex)
                 {
-                    if (g_CurrentSetup.padnames != NULL)
-                    {
-#ifdef DEBUG
-                        osSyncPrintf("loc '%s' has a link to itself!\n",
-                            g_CurrentSetup.padnames[((waypoint *) currentWaypoint)->padID].p);
-#endif
-                    }
-                    else if (1)
-                    {
-#ifdef DEBUG
-                            osSyncPrintf("loc number %d has a link to itself!\n", waypointIndex);
-#endif
-                    }
                     hasError = 1;
                 }
                 else
@@ -82,19 +51,6 @@ void init_path_table_links(void)
  
                     if (waypointIndex != linkedWaypoint->neighbours[reverseIndex])
                     {
-#ifdef DEBUG
-                        if (g_CurrentSetup.padnames == NULL)
-                        {
-                            osSyncPrintf("loc number %d has link to number %d but not back again!\n",
-                                waypointIndex, neighbourNum);
-                        }
-                        else
-                        {
-                            osSyncPrintf("loc '%s' has link to '%s' but not back again!\n",
-                                g_CurrentSetup.padnames[((waypoint *) currentWaypoint)->padID].p,
-                                g_CurrentSetup.padnames[linkedWaypoint->padID].p);
-                        }
-#endif
                         hasError = 1;
                     }
                 }
@@ -152,18 +108,6 @@ void init_path_table_links(void)
                     {
                         if (waypointNum == validationGroupIndex)
                         {
-                            if (g_CurrentSetup.boundpadnames != NULL)
-                            {
-#ifdef DEBUG
-                                osSyncPrintf("hall '%s' has a link to itself!\n", g_CurrentSetup.boundpadnames[validationGroupIndex].p);
-#endif
-                            }
-                            else
-                            {
-#ifdef DEBUG
-                                osSyncPrintf("hall number %d has a link to itself!\n", validationGroupIndex);
-#endif
-                            }
                             hasError = 1;
                         }
                         else
@@ -174,32 +118,10 @@ void init_path_table_links(void)
                             while ((linkedGroup->neighbours[reverseIndex] >= 0) && (validationGroupIndex != linkedGroup->neighbours[reverseIndex]))
                             {
                                 reverseIndex++;
-
-                                if ((!(&g_CurrentSetup)) && (validationGroupIndex + (linkedGroup != 0)))
-                                {
-                                }
-                                if ((!(&g_CurrentSetup)) && (validationGroupIndex + (groupNeighbourIndex != 0)))
-                                {
-                                }
                             }
  
                             if (validationGroupIndex != linkedGroup->neighbours[reverseIndex])
                             {
-                                if (g_CurrentSetup.boundpadnames != NULL)
-                                {
-#ifdef DEBUG
-                                    osSyncPrintf("hall '%s' has link to '%s' but not connected locs!\n",
-                                        g_CurrentSetup.boundpadnames[validationGroupIndex].p,
-                                        g_CurrentSetup.boundpadnames[waypointNum].p);
-#endif
-                                }
-                                else
-                                {
-#ifdef DEBUG
-                                    osSyncPrintf("hall number %d has link to number %d but not connected locs! \n",
-                                        validationGroupIndex, waypointNum);
-#endif
-                                }
                                 hasError = 1;
                             }
                             else
@@ -207,21 +129,9 @@ void init_path_table_links(void)
                                 {
                                     sub_GAME_7F08F438(validationGroup, linkedGroup, &connectionWaypoint1, &connectionWaypoint2);
 
+                                    // Room has a link to another room, but not back again.
                                     if ((connectionWaypoint1 == NULL) || (connectionWaypoint2 == NULL))
                                     {
-#ifdef DEBUG
-                                        if (g_CurrentSetup.boundpadnames == NULL)
-                                        {
-                                            osSyncPrintf("hall number %d has link to number %d but not back again!\n",
-                                                validationGroupIndex, waypointNum);
-                                        }
-                                        else
-                                        {
-                                            osSyncPrintf("hall '%s' has link to '%s' but not back again!\n",
-                                                g_CurrentSetup.boundpadnames[validationGroupIndex].p,
-                                                g_CurrentSetup.boundpadnames[waypointNum].p);
-                                        }
-#endif
                                         hasError = 1;
                                     }
                                 }
@@ -239,63 +149,46 @@ void init_path_table_links(void)
         }
         if ((waypoints != NULL) && (groups != NULL))
         {
+            assignmentGroupIndex = 0;
+            floodGroup = groups;
+            validationWaypoint = waypoints + hasError * 0;
+
+            if (floodGroup->neighbours != NULL)
             {
-                assignmentGroupIndex = 0;
-                floodGroup = groups;
-                validationWaypoint = waypoints + hasError * 0;
+                currentWaypoint = groups;
+                assignmentGroupCursor = floodGroup;
 
-                if (floodGroup->neighbours != NULL)
+                do
                 {
-                    currentWaypoint = groups;
-                    assignmentGroupCursor = floodGroup;
+                    waypointIndex = 0;
 
-                    do
+                    if (assignmentGroupCursor);
+                    if (assignmentGroupCursor);
+
+                    member = floodGroup->waypoints;
+
+                    while ((*member) >= 0)
                     {
-                        waypointIndex = 0;
+                        assignmentWaypoint = &waypoints[*member];
 
-                        if (assignmentGroupCursor);
-                        if (assignmentGroupCursor);
-
-                        member = floodGroup->waypoints;
-
-                        while ((*member) >= 0)
+                        if (assignmentWaypoint->groupNum < 0)
                         {
-                            assignmentWaypoint = &waypoints[*member];
-
-                            if (assignmentWaypoint->groupNum < 0)
-                            {
-                                assignmentWaypoint->groupNum = assignmentGroupIndex;
-                            }
-                            else if (assignmentWaypoint->groupNum != assignmentGroupIndex)
-                            {
-#ifdef DEBUG
-                                    if ((g_CurrentSetup.boundpadnames == NULL) || (g_CurrentSetup.padnames == NULL))
-                                    {
-                                        osSyncPrintf("hall number %d contains loc number %d which thinks it is in hall number %d!\n",
-                                            assignmentGroupIndex, *member, assignmentWaypoint->groupNum);
-                                    }
-                                    else
-                                    {
-                                        osSyncPrintf("hall '%s' contains loc '%s' which thinks it is in hall '%s'! \n",
-                                            g_CurrentSetup.boundpadnames[assignmentGroupIndex].p,
-                                            g_CurrentSetup.padnames[assignmentWaypoint->padID].p,
-                                            g_CurrentSetup.boundpadnames[assignmentWaypoint->groupNum].p);
-                                    }
-#endif
-                                    hasError = 1;
-                            }
-
-                            waypointIndex += 4;
-                            member = (s32 *) (((char *) floodGroup->waypoints) + waypointIndex);
+                            assignmentWaypoint->groupNum = assignmentGroupIndex;
                         }
- 
-                        currentWaypoint++;
-                        floodGroup = currentWaypoint;
-                        assignmentGroupIndex++;
+                        else if (assignmentWaypoint->groupNum != assignmentGroupIndex)
+                        {
+                                hasError = 1;
+                        }
+
+                        waypointIndex += 4;
+                        member = (s32 *) (((char *) floodGroup->waypoints) + waypointIndex);
                     }
-                    while (currentWaypoint->neighbours != NULL);
+
+                    currentWaypoint++;
+                    floodGroup = currentWaypoint;
+                    assignmentGroupIndex++;
                 }
- 
+                while (currentWaypoint->neighbours != NULL);
             }
 
             floodGroup = groups;
@@ -310,17 +203,6 @@ void init_path_table_links(void)
                 {
                     if (validationWaypointCursor->groupNum < 0)
                     {
-#ifdef DEBUG
-                        if (g_CurrentSetup.padnames != NULL)
-                        {
-                            osSyncPrintf("loc '%s' is not in a hall!\n",
-                                g_CurrentSetup.padnames[validationWaypointCursor->padID].p);
-                        }
-                        else
-                        {
-                            osSyncPrintf("loc number %d is not in a hall!\n", assignmentGroupIndex);
-                        }
-#endif
                         hasError = 1;
                     }
 
@@ -414,26 +296,9 @@ void init_path_table_links(void)
  
                         if ((!changed) || (!disconnected))
                         {
-                            if (((!validationWaypoint) && (!validationWaypoint)) && (!validationWaypoint))
-                            {
-                            }
-
+                            // Not all locs in room are connected
                             if (disconnected)
                             {
-                                if (g_CurrentSetup.boundpadnames != NULL)
-                                {
-#ifdef DEBUG
-                                    osSyncPrintf("not all locs in hall '%s' are connected!\n",
-                                        g_CurrentSetup.boundpadnames[floodGroup - groups].p);
-#endif
-                                }
-                                else
-                                {
-#ifdef DEBUG
-                                    osSyncPrintf("not all locs in hall number %d are connected!\n",
-                                        (s32) (floodGroup - groups));
-#endif
-                                }
                                 hasError = 1;
                             }
                             break;
@@ -450,9 +315,6 @@ void init_path_table_links(void)
 
     if (hasError)
     {
-#ifdef DEBUG
-        osSyncPrintf("PLEASE FIX THE ABOVE LOC ERRORS NOW! ");
-#endif
         while (1)
         {
             // Intentional crash/freeze

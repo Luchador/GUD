@@ -208,9 +208,6 @@ extern long long int rspbootTextEnd[];
 extern long long int gsp3DTextStart[];
 extern long long int gsp3DDataStart[];
 
-void rspInit(void)
-{
-}
 
 void rspAllocateBuffers(void)
 {
