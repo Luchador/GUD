@@ -12,8 +12,6 @@ void init_guards(void)
     animation_rate = 1.0f;
     D_8002C904 = 0;
     g_AnimationTablePointerCountRelated = 0;
-    D_8002C90C = 0;
-    D_8002C910 = 0;
     D_8002CC58 = 0;
     show_patrols_flag = FALSE;
     player1_guardID = 0x1388;

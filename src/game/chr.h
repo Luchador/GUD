@@ -205,8 +205,6 @@ extern struct anim_group_info *ptr_crouched_doubles_firing_animation_groups[];
 extern f32 animation_rate;
 extern s32 D_8002C904;
 extern s32 g_AnimationTablePointerCountRelated;
-extern s32 D_8002C90C;
-extern s32 D_8002C910;
 
 extern s32 D_8002CC58;
 extern s32 show_patrols_flag;
@@ -260,7 +258,6 @@ extern s16 metal_ricochet_SFX[3];
 extern struct explosion_anim_group_info explosion_animation_table[];
 extern struct explosion_death_animation D_8002E648[];
 
-void        sub_GAME_7F022EE0(s32 param_1);
 void        chrpropCleanupForRemoval(PropRecord* prop);
 void        chrDetectRooms(ChrRecord *);
 void        chrSetMoving(ChrRecord *guard,s32 param_2);

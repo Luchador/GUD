@@ -167,12 +167,8 @@ extern s32 g_DebugPortalsInputBufferSource4;
 /**
  * Something debug related in the MP manage method.
  * Index to play sound effect.
- * Address 0x800483E4.
  */
 s16 g_DebugMpGameSoundFxIndex = 0;
-
-// unused address padding
-s16 D_800483E6 = 0;
 
 
 extern u8* _fontdlSegmentRomStart;
@@ -513,7 +509,7 @@ Gfx* lvlRender(Gfx* DL)
 
             propsTickPlayer();
 
-            DL = bgLevelRender(DL);
+            DL = bgSetupAndRender(DL);
 
             if (tokenFind(1, "-stanshow_"))
             {

@@ -229,8 +229,8 @@ s32 D_8004485C = 1;
 // forward declarations
 
 void unload_rooms(void);
-Gfx *sub_GAME_7F0B8D78(Gfx *arg0);
-Gfx *sub_GAME_7F0B3C8C(Gfx *arg0);
+Gfx *bgRenderWrapper(Gfx *gdl);
+Gfx *bgRender(Gfx *arg0);
 s32 bgCheckIfRoomModelNeedsLoad(s32 roomID);
 void bgLoadRoomModelData(s32 room);
 void bgBuildRoomVtxBounds(s32 roomID);
@@ -421,7 +421,7 @@ s32 bgGet2dBboxByRoomId(s32 room_id, struct bbox2d *result)
 }
 
 
-Gfx *sub_GAME_7F0B3C8C(Gfx *gdl)
+Gfx *bgRender(Gfx *gdl)
 {
 #ifdef VERSION_EU
     s16 i;
@@ -1023,24 +1023,24 @@ void bgFindRoomsAlongSegment(coord3d *fromPos, coord3d *toPos, u8 *fromRooms, u8
 }
 
 
-Gfx *bgLevelRender(Gfx *arg0)
+Gfx *bgSetupAndRender(Gfx *gdl)
 {
-    gSPSetLights1(arg0++, GlobalLight);
-    gSPLookAt(arg0++, sub_GAME_7F078474());
-    gSPSegment(arg0++, SPSEGMENT_BG_DL, ptr_bg_data);
+    gSPSetLights1(gdl++, GlobalLight);
+    gSPLookAt(gdl++, sub_GAME_7F078474());
+    gSPSegment(gdl++, SPSEGMENT_BG_DL, ptr_bg_data);
 
     if (dword_CODE_bss_8007FF88 == 1)
     {
-        gSPDisplayList(arg0++, dword_CODE_bss_8007BF98);
+        gSPDisplayList(gdl++, dword_CODE_bss_8007BF98);
     }
     else
     {
-        arg0 = fogRenderClearFogMode(bgScissorCurrentPlayerViewDefault(sub_GAME_7F0B8D78(fogSetRenderFogColor(arg0, 0))));
+        gdl = fogRenderClearFogMode(bgScissorCurrentPlayerViewDefault(bgRenderWrapper(fogSetRenderFogColor(gdl, 0))));
     }
 
-    gSPMatrix(arg0++, g_viProjectionMatrix, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
+    gSPMatrix(gdl++, g_viProjectionMatrix, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
 
-    return bondviewGfxPlayerField5cMatrix(arg0++);
+    return bondviewGfxPlayerField5cMatrix(gdl++);
 }
 
 
@@ -3992,9 +3992,10 @@ void bgDetermineVisibleRooms(void)
 }
 
 
-Gfx *sub_GAME_7F0B8D78(Gfx *arg0)
+Gfx *bgRenderWrapper(Gfx *gdl)
 {
     s32 i;
+
     if (levelentry_index == LEVEL_INDEX_DAM)
     {
         for (i=0; i<g_BgNumberOfRoomsDrawn; i++)
@@ -4010,7 +4011,7 @@ Gfx *sub_GAME_7F0B8D78(Gfx *arg0)
         }
     }
 
-    return bgScissorCurrentPlayerViewDefault(sub_GAME_7F0B3C8C(arg0));
+    return bgScissorCurrentPlayerViewDefault(bgRender(gdl));
 }
 
 

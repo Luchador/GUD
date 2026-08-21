@@ -50,16 +50,9 @@ f32  get_007_health_mod(void);
 
 // end forward declarations
 
-// data
 f32 animation_rate = 0;
 s32 D_8002C904 = 0;
-
-/**
- * Address 0x8002C908.
- */
 s32 g_AnimationTablePointerCountRelated = 0;
-s32 D_8002C90C = 0;
-s32 D_8002C910 = 0;
 
 /*
  * D:8002C914
@@ -2276,11 +2269,6 @@ void chrUpdateAnim(ChrRecord *chr, s32 tickamount)
 
 
 /**
- * Address:
- * US: 0x7F020EF0
- * JP: 0x7F021188
- * EU: 0x7F020E68
- *
  *   This function does the following:
  * - Drive character animations
  * - Remove characters if needed
@@ -2325,19 +2313,6 @@ s32 chrTick(PropRecord *prop)
             {
                 return TICKOP_FREE;
             }
-        }
-
-        if (D_8002C90C)
-        {
-            tickamount = 0;
-
-            if (D_8002C910)
-            {
-                tickamount = 1;
-            }
-#ifdef DEBUG
-            osSyncPrintf("anim=%d frame=%f backy=%f\n", g_AnimationTablePointerCountRelated, chr->model->animframe1, (chr->aimendlshoulder * 360.0) / 6.283185);
-#endif
         }
     }
 
@@ -3471,12 +3446,6 @@ void chrIncrementAnimationTablePointerCount(void)
     {
         g_AnimationTablePointerCountRelated = 0;
     }
-}
-
-
-void sub_GAME_7F022EE0(s32 param_1)
-{
-  D_8002C910 = param_1;
 }
 
 

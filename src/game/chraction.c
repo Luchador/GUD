@@ -1602,28 +1602,24 @@ void chrlvInitActAttackWalk(ChrRecord *chr, s32 arg1)
 }
 
 
-/**
- * chrRollToSide
- * Address 0x7F025C40.
-*/
 void chrlvInitActAttackRoll(ChrRecord *chr, GUNHAND side)
 {
-    Model *self_model; // 140
-    struct weapon_firing_animation_table *panim_float; // 136
-    PropRecord *left; // any
-    PropRecord *left_2; // any
-    s32 sp7C; // 124
-    s32 sp78; // 120
-    ChrRecord *sp70; // any
-    ChrRecord *temp_v1_2; // 112
-    PropRecord *right; // any
-    point2d sp64; // 100
-    PropRecord *right_2; // any
-    s32 sp5C; // 92
-    point2d sp54; // 84
-    point2d sp4C; // 76
-    s8 phi_s3; // 72
-    s32 i; // 68
+    Model *self_model;
+    struct weapon_firing_animation_table *panim_float;
+    PropRecord *left;
+    PropRecord *left_2;
+    s32 sp7C;
+    s32 sp78;
+    ChrRecord *sp70;
+    ChrRecord *temp_v1_2;
+    PropRecord *right;
+    point2d sp64;
+    PropRecord *right_2;
+    s32 sp5C;
+    point2d sp54;
+    point2d sp4C;
+    s8 phi_s3;
+    s32 i;
 
     self_model = chr->model;
     left = chrGetEquippedWeaponProp(chr, GUNLEFT);
@@ -5077,10 +5073,6 @@ void chrlvTickAnim(ChrRecord *self)
 }
 
 
-
-/**
- * Address 0x7F02B638.
-*/
 void chrlvTickSurrender(ChrRecord *self)
 {
     Model *model;
@@ -5110,10 +5102,6 @@ void chrlvTickSurrender(ChrRecord *self)
 }
 
 
-
-/**
- * Address 0x7F02B774.
-*/
 void chrlvTickDead(ChrRecord *self)
 {
     if (self->act_init.padding[0] >= 0)
@@ -5136,13 +5124,9 @@ void chrlvTickDead(ChrRecord *self)
 }
 
 
-
-
 /**
  * @param self:
  * @param flag: shot/die flag. 0 == shot, else die.
- *
- * Address 0x7F02B800.
 */
 void chrlvIterateGuardSeeShotDie(ChrRecord *self, s32 flag)
 {
@@ -5212,12 +5196,6 @@ void chrlvIterateGuardSeeShotDie(ChrRecord *self, s32 flag)
 }
 
 
-
-
-/**
- * Address 0x7F02B9A4.
- * PD: void chrTickDie(struct chrdata *chr).
-*/
 void chrlvTickDie(ChrRecord *self)
 {
     Model *model = self->model;
@@ -5235,6 +5213,7 @@ void chrlvTickDie(ChrRecord *self)
         chrobjSndCreatePostEventDefault(p, &self->prop->pos);
 
         thud_index++;
+
         if (thud_index >= 0xB)
         {
             thud_index = 0;
@@ -5282,11 +5261,6 @@ void chrlvTickDie(ChrRecord *self)
 }
 
 
-
-
-/**
- * Address 0x7F02BC80.
-*/
 void chrlvTickArgh(ChrRecord *self)
 {
     Model *model = self->model;
@@ -5309,10 +5283,6 @@ void chrlvTickArgh(ChrRecord *self)
 }
 
 
-
-/**
- * Address 0x7F02BD20.
-*/
 void chrlvTickPreArgh(ChrRecord *self)
 {
     Model *model;
@@ -5330,15 +5300,6 @@ void chrlvTickPreArgh(ChrRecord *self)
 }
 
 
-
-
-/**
- * @see chrlvTickJumpout
- * @see chrlvTickTest
- * @see chrlvTickStartAlarm
- *
- * Address 0x7F02BDA4.
-*/
 void chrlvTickSidestep(ChrRecord *self)
 {
     Model *model = self->model;
@@ -5351,13 +5312,6 @@ void chrlvTickSidestep(ChrRecord *self)
 }
 
 
-/**
- * @see chrlvTickSidestep
- * @see chrlvTickTest
- * @see chrlvTickStartAlarm
- *
- * Address 0x7F02BE00.
-*/
 void chrlvTickJumpout(ChrRecord *self)
 {
     Model *model = self->model;
@@ -5370,15 +5324,6 @@ void chrlvTickJumpout(ChrRecord *self)
 }
 
 
-
-
-/**
- * @see chrlvTickSidestep
- * @see chrlvTickJumpout
- * @see chrlvTickStartAlarm
- *
- * Address 0x7F02BE58.
-*/
 void chrlvTickTest(ChrRecord *self)
 {
     Model *model = self->model;
@@ -5516,9 +5461,6 @@ void sub_GAME_7F02BFE4(ChrRecord *self, s32 arg1, s32 arg2)
 }
 
 
-/**
- * Address 0x7F02C190.
-*/
 f32 chrlvGetSubrotySideback(ChrRecord *self)
 {
     Model *model;
@@ -5569,11 +5511,6 @@ f32 chrlvGetSubrotySideback(ChrRecord *self)
 }
 
 
-
-
-/**
- * Address 0x7F02C27C.
-*/
 f32 sub_GAME_7F02C27C(ChrRecord *self)
 {
     f32 temp_f2;
@@ -5588,10 +5525,6 @@ f32 sub_GAME_7F02C27C(ChrRecord *self)
 }
 
 
-
-/**
- * Address 0x7F02C2B0.
-*/
 s32 chrlvSetSubroty(ChrRecord *self, s32 arg1, f32 arg2, f32 arg3, f32 arg4)
 {
     Model *model;
@@ -5607,11 +5540,7 @@ s32 chrlvSetSubroty(ChrRecord *self, s32 arg1, f32 arg2, f32 arg3, f32 arg4)
         sp28 = modelGetAnimFrame(model);
         roty = getsubroty(model);
 
-#if defined(BUGFIX_R1)
-        temp_f14 = 0.06283186f * arg3 * g_JP_GlobalTimerDelta * model->playspeed;
-#else /* VERSION_US */
         temp_f14 = 0.06283186f * arg3 * g_GlobalTimerDelta * model->playspeed;
-#endif
 
         if (self->actiontype == ACT_ATTACK)
         {
@@ -5678,39 +5607,26 @@ s32 chrlvSetSubroty(ChrRecord *self, s32 arg1, f32 arg2, f32 arg3, f32 arg4)
 }
 
 
-
-
-/**
- * @param self:
- * @param arg1:
- * @param arg2:
- * @param arg3:
- * @param arg4:
- *
- * Address 0x7F02C4C0.
-*/
 s32 chrlvUpdateAimendsideback(ChrRecord *self, struct weapon_firing_animation_table *arg1, s32 arg2, s32 arg3, f32 arg4)
 {
-    f32 sp164; // sp356
-    f32 calc_aimendsideback; // sp352
-    u32 attack_type; // sp348
-    s32 entity_id; // sp344
-    s32 ret; // sp340
-    f32 dx; // sp336
-    f32 dy; // sp332
-    f32 dz; // sp328
-    f32 dxdydz_square; // sp324
+    f32 sp164;
+    f32 calc_aimendsideback;
+    u32 attack_type;
+    s32 entity_id;
+    s32 ret;
+    f32 dx;
+    f32 dy;
+    f32 dz;
+    f32 dxdydz_square;
     Model *self_model;
-    PropRecord *self_prop; // sp316
-    s32 seen_bond_flag; // sp312
-    coord3d *current_player_pos; //sp308
-    f32 ducking_height; // sp304
-    StandTile *pstan; // sp300
-    coord3d sp120; // sp288
+    PropRecord *self_prop;
+    s32 seen_bond_flag;
+    coord3d *current_player_pos;
+    f32 ducking_height;
+    StandTile *pstan;
+    coord3d sp120;
     PropRecord *player_prop;
-    f32 subroty; // sp280
-
-    /////////////////////
+    f32 subroty;
 
     ret = 1;
     sp164 = 0.0f;
@@ -6013,8 +5929,6 @@ s32 chrlvUpdateAimendsideback(ChrRecord *self, struct weapon_firing_animation_ta
  *     and aimendlshoulder will get the rshoulder value. If both @param swap and
  *     @param same is set they will both be set to lshoulder value.
  * @param next: Starting aimendlshoulder value.
- *
- * Address 0x7F02D048.
 */
 void chrlvUpdateAimendbackShoulders(ChrRecord *self, void *arg1, s32 same, s32 swap, f32 next)
 {
@@ -6073,12 +5987,6 @@ void chrlvUpdateAimendbackShoulders(ChrRecord *self, void *arg1, s32 same, s32 s
 }
 
 
-
-
-
-/**
- * Address 0x7F02D0F8.
-*/
 void chrlvResetAimend(ChrRecord *self)
 {
     self->aimendcount = 0xA;
@@ -6089,11 +5997,6 @@ void chrlvResetAimend(ChrRecord *self)
 }
 
 
-
-/**
- * Address 0x7F02D118.
- * PD: chrSetFiring
-*/
 void chrSetFiring(ChrRecord *self, s32 hand, s32 firing)
 {
     PropRecord *prop;
@@ -6107,10 +6010,6 @@ void chrSetFiring(ChrRecord *self, s32 hand, s32 firing)
 }
 
 
-/**
- * Address 0x7F02D184.
- * PD: chrStopFiring
-*/
 void chrStopFiring(ChrRecord *self)
 {
     chrSetFiring(self, GUNRIGHT, FALSE);
