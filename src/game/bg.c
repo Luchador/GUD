@@ -467,7 +467,7 @@ Gfx *bgRender(Gfx *gdl)
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)currentPlayerGetProjectionMatrix()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
                 gdl = fogRenderClearFogMode(gdl);
  
-                if (sub_GAME_7F0BD8F0())
+                if (lvGetBgRenderEnabled())
                 {
                     gdl = chrpropsRenderPass(gdl, dword_CODE_bss_8007FFA0[j].roomid, 0);
                 }
@@ -475,7 +475,7 @@ Gfx *bgRender(Gfx *gdl)
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)get_BONDdata_field_10E0()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
                 gdl = fogSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl++, dword_CODE_bss_8007FFA0[j].bbox.min.x, dword_CODE_bss_8007FFA0[j].bbox.min.y, dword_CODE_bss_8007FFA0[j].bbox.max.x, dword_CODE_bss_8007FFA0[j].bbox.max.y), 0);
  
-                if (sub_GAME_7F0BD8F0())
+                if (lvGetBgRenderEnabled())
                 {
                     gdl = bgRenderRoomPrimary(gdl, dword_CODE_bss_8007FFA0[j].roomid);
                 }
@@ -483,7 +483,7 @@ Gfx *bgRender(Gfx *gdl)
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)currentPlayerGetProjectionMatrix()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
                 gdl = fogRenderClearFogMode(gdl);
  
-                if (sub_GAME_7F0BD8F0())
+                if (lvGetBgRenderEnabled())
                 {
                     gdl = chrpropsRenderPass(gdl, dword_CODE_bss_8007FFA0[j].roomid, 2);
                 }
@@ -494,7 +494,7 @@ Gfx *bgRender(Gfx *gdl)
     gdl = bgScissorCurrentPlayerViewDefault(fogRenderClearFogMode(gdl));
     gSPMatrix(gdl++, osVirtualToPhysical((void*)get_BONDdata_field_10E0()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
  
-    if (sub_GAME_7F0BD8F0())
+    if (lvGetBgRenderEnabled())
     {
         gdl = explosionRenderScorchBuffer(gdl);
         gdl = explosionCallRenderBulletImpactOnProp(gdl);
@@ -517,7 +517,7 @@ Gfx *bgRender(Gfx *gdl)
                         dword_CODE_bss_8007FFA0[j].bbox.max.y),
                     1);
  
-                if (sub_GAME_7F0BD8F0())
+                if (lvGetBgRenderEnabled())
                 {
                     gdl = bgRenderRoomSecondary(gdl, dword_CODE_bss_8007FFA0[j].roomid);
                 }
@@ -525,7 +525,7 @@ Gfx *bgRender(Gfx *gdl)
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)currentPlayerGetProjectionMatrix()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
                 gdl = fogRenderClearFogMode(gdl);
  
-                if (sub_GAME_7F0BD8F0())
+                if (lvGetBgRenderEnabled())
                 {
                     gdl = chrpropsRenderPass(gdl, dword_CODE_bss_8007FFA0[j].roomid, 1);
                 }

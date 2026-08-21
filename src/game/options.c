@@ -3916,17 +3916,14 @@ const char D_80058450[] = " \n";
 const char D_80058454[] = " \n\n";
 
 
-/**
- * Address: 7F0ACA28
- */
-Gfx *draw_watch_current_page(Gfx *gdl, Mtx *arg1, s32 watch_transitioning)
+Gfx *optionsDrawCurrentWatchPage(Gfx *gdl, Mtx *arg1, s32 watch_transitioning)
 {
     set_page_rectangle_colors(watch_screen_index, (struct WatchVertex *)g_CurrentPlayer->buffer_for_watch_greenbackdrop_vertices);
 
     if (watch_transitioning == TRUE)
     {
         set_BONDdata_outside_watch_menu_flag(FALSE);
-        sub_GAME_7F0BD8FC(0);
+        lvSetBgRenderEnabled(FALSE);
 
         // Handle A or Z button click when in any page but inventory page
         if ((watch_screen_index != WATCH_INDEX_INVENTORY) && (joyGetButtonsPressedThisFrame(PLAYER_1, Z_TRIG|A_BUTTON)))
@@ -3954,7 +3951,7 @@ Gfx *draw_watch_current_page(Gfx *gdl, Mtx *arg1, s32 watch_transitioning)
     }
     else if (watch_transitioning == FALSE)
     {
-        sub_GAME_7F0BD8FC(1);
+        lvSetBgRenderEnabled(TRUE);
         set_BONDdata_outside_watch_menu_flag(TRUE);
         gdl = draw_background_health_and_armor_transitioning(gdl, arg1);
     }

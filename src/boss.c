@@ -411,7 +411,7 @@ void bossMainloop(void)
                             gdl = firstGdl = dynGetMasterDisplayList();
 
                             // Primary game tick function.
-                            lvlTick();
+                            lvTick();
 
                             shuffle_player_ids();
 

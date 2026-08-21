@@ -125,12 +125,11 @@ s32 g_SystemPowerTimeTicks = 0;
  */
 f32 g_SystemPowerTimeSeconds = 0.0;
 
-
 /**
  * Debug variable, seems to track whether user input has changed since
  * the last time the method was entered.
  */
-s32 D_800483C0 = 1;
+bool g_BgRenderEnabled = TRUE;
 
 //D:800483C4
 s32 D_800483C4 = 0xFFFFFFFF;
@@ -175,15 +174,15 @@ extern u8* _fontdlSegmentRomStart;
 extern u8* _fontdlSegmentRomEnd;
 
 
-s32 sub_GAME_7F0BD8F0(void)
+bool lvGetBgRenderEnabled(void)
 {
-    return D_800483C0;
+    return g_BgRenderEnabled;
 }
 
 
-void sub_GAME_7F0BD8FC(s32 arg0)
+void lvSetBgRenderEnabled(bool enabled)
 {
-    D_800483C0 = arg0;
+    g_BgRenderEnabled = enabled;
 }
 
 
@@ -243,7 +242,7 @@ void lvlStageLoad(s32 stage)
     struct player_data *player_data;
 
     g_CurrentStageToLoad = stage;
-    D_800483C0 = 1;
+    g_BgRenderEnabled = TRUE;
     g_ControlsLockedFlag = 0;
     g_ClockTimer = 1;
 
@@ -452,10 +451,7 @@ s32 lvlGetCurrentStageToLoad(void)
 /**
  * Graphics render method.
  * Also sets player max ammo if infinite ammo cheat is enabled.
- *
- * Address 0x7F0BE30C (VERSION_US).
  */
-
 Gfx* lvlRender(Gfx* DL)
 {
     gSPSegment(DL++, SPSEGMENT_PHYSICAL, NULL);
@@ -627,7 +623,7 @@ void lvlSetMultipliersForDifficulty(void)
  * Updates characters, sky, bullet casings, bullet sparks, explosion debris.
  * Handles multiplayer states (timers, end of match warning alarm, and concluding the match)
  */
-void lvlTick(void)
+void lvTick(void)
 {
     tlbmanageResetCurrentEntriesCount();
 

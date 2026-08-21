@@ -8350,7 +8350,7 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
         matrix_4x4_7F058C64();
         matrix_4x4_f32_to_s32(&handmtx, finalmtx);
         matrix_4x4_7F058C88();
-        gdl = draw_watch_current_page(gdl, finalmtx, (g_CurrentPlayer->watch_animation_state == 5) || (g_CurrentPlayer->watch_animation_state == 12));
+        gdl = optionsDrawCurrentWatchPage(gdl, finalmtx, (g_CurrentPlayer->watch_animation_state == 5) || (g_CurrentPlayer->watch_animation_state == 12));
         matrix_4x4_7F058C64();
         bondviewTransformManyPosToViewMatrix(g_CurrentPlayer->field_23C, objheader->numMatrices);
         matrix_4x4_7F058C88();
