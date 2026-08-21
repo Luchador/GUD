@@ -29,12 +29,11 @@ typedef struct ramromfilestructure {
     u32 mp_contstyle[4];
     u32 aim_option;
     u32 mp_flags[4];
-
 } ramromfilestructure;
-void test_if_recording_demos_this_stage_load(enum LEVELID arg0, enum DIFFICULTY arg1);
+
+void ramromInitDemo(enum LEVELID arg0, enum DIFFICULTY arg1);
 void iterate_ramrom_entries_handle_camera_out(void);
-void stop_demo_playback(void);
-s32 get_is_reamrom_flag(void);
+void ramromStopDemoPlayback(void);
 u32 check_ramrom_flags(void);
 
 #endif

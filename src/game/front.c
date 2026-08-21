@@ -7974,7 +7974,7 @@ void interface_menu18_displaycast(void)
         }
         else
         {
-            ramromSelectDemo();
+            ramromSelectDemoAndPlay();
         }
     }
 

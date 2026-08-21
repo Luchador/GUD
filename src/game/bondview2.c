@@ -772,7 +772,7 @@ void bondviewSetCameraMode(s32 arg0)
 
     if (g_CameraMode == CAMERAMODE_INTRO)
     {
-        if ((ptr_random06cam_entry != NULL) && (get_recording_ramrom_flag() == 0) && (get_is_ramrom_flag() == 0))
+        if ((ptr_random06cam_entry != NULL) && (ramromGetIsDemoPlaying() == FALSE))
         {
             camera_transition_timer = 0.0f;
             currentPlayerSetFadeColour(0, 0, 0, 1.0f);
@@ -811,7 +811,7 @@ void bondviewSetCameraMode(s32 arg0)
         currentPlayerSetFadeFrac(60.0f, 0.0f);
         fogLoadLevelEnvironment(bossGetStageNum(), 0);
 
-        if ((g_IntroSwirl != 0) && (get_recording_ramrom_flag() == 0) && (get_is_ramrom_flag() == 0))
+        if ((g_IntroSwirl != 0) && (ramromGetIsDemoPlaying() == FALSE))
         {
             camera_transition_timer = 0.0f;
             intro_camera_index = CAMERAMODE_INTRO;
