@@ -510,32 +510,6 @@ Gfx* lvlRender(Gfx* DL)
             propsTickPlayer();
 
             DL = bgSetupAndRender(DL);
-
-            if (tokenFind(1, "-stanshow_"))
-            {
-                StandTilePoint *tile1 = stanMatchTileName(tokenFind(1, "-stanshow_"));
-                if (tile1)
-                {
-                }
-            }
-
-            if (tokenFind(2, "-stanshow_"))
-            {
-                StandTilePoint *tile2 = stanMatchTileName(tokenFind(2, "-stanshow_"));
-                if (tile2)
-                {
-                }
-            }
-
-            if (tokenFind(3, "-stanshow_"))
-            {
-                StandTilePoint *tile3 = stanMatchTileName(tokenFind(3, "-stanshow_"));
-
-                if (tile3)
-                {
-                }
-            }
-
             DL = weaponRenderTracers(DL);
 
 #if defined(VERSION_EU)

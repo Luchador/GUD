@@ -6,7 +6,7 @@
 /**
  * NTSC address 0x7F0067C0.
 */
-s32 init_pathtable_something(struct PadRecord *pad, char *tilename, struct StandTile **tile_stack)
+s32 padAssignStanTile(struct PadRecord *pad, char *tilename, struct StandTile **tile_stack)
 {
     struct coord3d coord;
    

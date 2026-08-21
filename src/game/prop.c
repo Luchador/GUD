@@ -1335,12 +1335,6 @@ void proplvreset2(enum LEVELID stageId)
             for (i3 = 0; g_CurrentSetup.patrolpaths[i3].waypoints != NULL; i3++)
             {
                 g_CurrentSetup.patrolpaths[i3].waypoints = (void *) (((u32) g_CurrentSetup.patrolpaths[i3].waypoints) + ((u32) local_stage));
-
-                for (i5 = 0; g_CurrentSetup.patrolpaths[i3].waypoints[i5] >= 0; i5++)
-                {
-                    // Empty
-                }
-
                 g_CurrentSetup.patrolpaths[i3].len = i5;
             }
         }
@@ -1359,7 +1353,7 @@ void proplvreset2(enum LEVELID stageId)
                 pad->pos.f[1] *= roompos_1;
                 pad->pos.f[2] *= roompos_1;
         
-                init_pathtable_something(pad, pad->plink, &pad->stan);
+                padAssignStanTile(pad, pad->plink, &pad->stan);
             }
         }
 
@@ -1388,7 +1382,7 @@ void proplvreset2(enum LEVELID stageId)
                 vol->bbox.zmin *= roompos_2;
                 vol->bbox.zmax *= roompos_2;
 
-                init_pathtable_something((struct PadRecord *) vol, vol->plink, &vol->stan);
+                padAssignStanTile((struct PadRecord *) vol, vol->plink, &vol->stan);
             }
         }
 
