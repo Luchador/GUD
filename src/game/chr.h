@@ -271,7 +271,6 @@ PropRecord *chrAllocate(struct Model * arg0, coord3d * arg1, f32 arg2, StandTile
 void        chrSetHiddenToRandom(ChrRecord *arg0);
 void        chrDecrementAnimationTablePointerCount(void);
 void        chrIncrementAnimationTablePointerCount(void);
-void        chrToggleD_8002C90C(void);
 void        chrCheckGuardsHeardSound(f32 arg0);
 ChrRecord  *chrFindByLiteralId(s32 index);
 PropRecord *chrGetEquippedWeaponProp(ChrRecord *arg0, GUNHAND arg1);

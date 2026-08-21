@@ -7536,24 +7536,9 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
     bondviewUpdatePlayerY(use_stanHeight, sp390);
     bondviewUpdatePlayerCollisionPositionFields();
     bondviewUpdatePlayerCollisionBounds();
-
-    if (get_debug_man_pos_flag() != 0)
-    {
-        f32 sp5C_out_unused;
-
-        copy_tile_RGB_as_24bit(
-            g_CurrentPlayer->field_488.current_tile_ptr,
-            g_CurrentPlayer->field_488.collision_position.f[0],
-            g_CurrentPlayer->field_488.collision_position.f[2],
-            &sp5C_out_unused);
-    }
 }
 
 
-/**
- * US address 7F086990.
- * EU address 7F086AB0.
-*/
 void bondviewFrozenMoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 {
     struct coord3d property_pos;
@@ -10429,40 +10414,37 @@ Gfx *bondviewRenderRoomPosDisplay(Gfx *gdl)
     s32 screenwidth;
     DirectionLabels directions;
 
-    if (get_debug_testingmanpos_flag())
-    {
-        theta_x = g_CurrentPlayer->field_488.theta_transform.x;
-        debug_angle = (s32) ((atan2f(-theta_x, g_CurrentPlayer->field_488.theta_transform.z) * 180.0f) / M_PI_F);
-        directions = g_DebugCompassLabels;
-        roomid = bgDebPrintROOMID(g_CurrentPlayer->field_488.current_tile_ptr->room);
+    theta_x = g_CurrentPlayer->field_488.theta_transform.x;
+    debug_angle = (s32) ((atan2f(-theta_x, g_CurrentPlayer->field_488.theta_transform.z) * 180.0f) / M_PI_F);
+    directions = g_DebugCompassLabels;
+    roomid = bgDebPrintROOMID(g_CurrentPlayer->field_488.current_tile_ptr->room);
 
-        sprintf(debugtext.room, a8s, roomid);
-        sprintf(debugtext.x, aX4_0f, g_CurrentPlayer->field_488.collision_position.x);
-        sprintf(debugtext.y, aY4_0f, g_CurrentPlayer->field_488.collision_position.y);
-        sprintf(debugtext.z, aZ4_0f, g_CurrentPlayer->field_488.collision_position.z);
-        sprintf(debugtext.angle, aS3d, ((char *) (&directions)) + (((debug_angle + 0x16) / 0x2d) * 3), debug_angle);
+    sprintf(debugtext.room, a8s, roomid);
+    sprintf(debugtext.x, aX4_0f, g_CurrentPlayer->field_488.collision_position.x);
+    sprintf(debugtext.y, aY4_0f, g_CurrentPlayer->field_488.collision_position.y);
+    sprintf(debugtext.z, aZ4_0f, g_CurrentPlayer->field_488.collision_position.z);
+    sprintf(debugtext.angle, aS3d, ((char *) (&directions)) + (((debug_angle + 0x16) / 0x2d) * 3), debug_angle);
 
-        debug_x = viGetViewLeft() + 0x11;
-        debug_y = viGetViewTop() + 0x11;
-        debug_boxbottom = debug_y + 0xa;
-        gdl = gfxSetup2DTextureMode(gdl);
-        gdl = gfxDrawTranslucentRect(gdl, 0, debug_y, viGetX(), debug_boxbottom + 1, 0x64);
-        screenwidth = (s32)viGetX();
-        gdl = textRender(gdl, &debug_x, &debug_y, debugtext.room, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
-        debug_x = viGetViewLeft() + 0x57;
-        screenwidth = (s32)viGetX();
-        gdl = textRender(gdl, &debug_x, &debug_y, debugtext.x, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
-        debug_x = viGetViewLeft() + 0x8d;
-        screenwidth = (s32)viGetX();
-        gdl = textRender(gdl, &debug_x, &debug_y, debugtext.y, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
-        debug_x = viGetViewLeft() + 0xc3;
-        screenwidth = (s32)viGetX();
-        gdl = textRender(gdl, &debug_x, &debug_y, debugtext.z, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
-        debug_x = viGetViewLeft() + 0xf9;
-        screenwidth = (s32)viGetX();
-        gdl = textRender(gdl, &debug_x, &debug_y, debugtext.angle, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
+    debug_x = viGetViewLeft() + 0x11;
+    debug_y = viGetViewTop() + 0x11;
+    debug_boxbottom = debug_y + 0xa;
+    gdl = gfxSetup2DTextureMode(gdl);
+    gdl = gfxDrawTranslucentRect(gdl, 0, debug_y, viGetX(), debug_boxbottom + 1, 0x64);
+    screenwidth = (s32)viGetX();
+    gdl = textRender(gdl, &debug_x, &debug_y, debugtext.room, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
+    debug_x = viGetViewLeft() + 0x57;
+    screenwidth = (s32)viGetX();
+    gdl = textRender(gdl, &debug_x, &debug_y, debugtext.x, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
+    debug_x = viGetViewLeft() + 0x8d;
+    screenwidth = (s32)viGetX();
+    gdl = textRender(gdl, &debug_x, &debug_y, debugtext.y, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
+    debug_x = viGetViewLeft() + 0xc3;
+    screenwidth = (s32)viGetX();
+    gdl = textRender(gdl, &debug_x, &debug_y, debugtext.z, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
+    debug_x = viGetViewLeft() + 0xf9;
+    screenwidth = (s32)viGetX();
+    gdl = textRender(gdl, &debug_x, &debug_y, debugtext.angle, ptrFontBankGothicChars, ptrFontBankGothic, -1, screenwidth, viGetY(), 0, 0);
         gdl = gfxRestore3DRenderMode(gdl);
-    }
 
     return gdl;
 }

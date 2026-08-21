@@ -1195,18 +1195,6 @@ void cheatButtonHandleCheatsTurnedOn(CHEAT_ID cheat_id)
                 return;
             }
             return;
-        /* easter egg leftover, original usage of string mentioned in an interview
-        case CHEAT_NO_RADAR_MP:
-            HUDMESSAGEBOTTOM((char *)langGet(getStringID(LMISC, MISC_STR_1C_HAPPYNOWKARL_LF)));
-            return;
-        //*/
-        case CHEAT_DEBUG_POS:
-            if (!get_debug_testingmanpos_flag())
-            {
-                set_debug_testingmanpos_flag(TRUE);
-                return;
-            }
-            return;
 
         case CHEAT_FAST_ANIMATION:
             if (getAnimationRate() < 4.0f)
@@ -1477,13 +1465,6 @@ void cheatButtonHandleCheatsTurnedOff(CHEAT_ID cheat_id)
                 HUDMESSAGEBOTTOM((char *)langGet(getStringID(LMISC, MISC_STR_27_FASTMODEOFF_LF)));
                 set_debug_fast_bond_flag(FALSE);
                 return;
-            }
-            return;
-
-        case CHEAT_DEBUG_POS:
-            if (get_debug_testingmanpos_flag())
-            {
-                set_debug_testingmanpos_flag(FALSE);
             }
             return;
 

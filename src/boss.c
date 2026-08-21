@@ -446,7 +446,7 @@ void bossMainloop(void)
                             // Primary game rendering function.
                             gdl = lvlRender(gdl);
 
-                            gdl = bondviewRenderRoomPosDisplay(gdl);
+                            //gdl = bondviewRenderRoomPosDisplay(gdl);
 
                             gdl = lvlDrawFrameRateDisplay(gdl);
                             

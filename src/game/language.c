@@ -250,7 +250,6 @@ void langInit(void)
 }
 
 
-//assert here reveals this file is language.c
 void langTick(void)
 {
     s32 i;
@@ -263,9 +262,6 @@ void langTick(void)
             {
 			    g_JpnCacheCacheItems[i].ttl--;
 		    }
-            #ifdef DEBUG
-            assert(jloaddata[i].timeleft<=3);
-            #endif
 		}
     }
 }

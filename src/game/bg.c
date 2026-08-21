@@ -467,34 +467,25 @@ Gfx *sub_GAME_7F0B3C8C(Gfx *gdl)
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)currentPlayerGetProjectionMatrix()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
                 gdl = fogRenderClearFogMode(gdl);
  
-                if (get_debug_do_draw_obj())
+                if (sub_GAME_7F0BD8F0())
                 {
-                    if (sub_GAME_7F0BD8F0())
-                    {
-                        gdl = chrpropsRenderPass(gdl, dword_CODE_bss_8007FFA0[j].roomid, 0);
-                    }
+                    gdl = chrpropsRenderPass(gdl, dword_CODE_bss_8007FFA0[j].roomid, 0);
                 }
  
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)get_BONDdata_field_10E0()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
                 gdl = fogSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl++, dword_CODE_bss_8007FFA0[j].bbox.min.x, dword_CODE_bss_8007FFA0[j].bbox.min.y, dword_CODE_bss_8007FFA0[j].bbox.max.x, dword_CODE_bss_8007FFA0[j].bbox.max.y), 0);
  
-                if (get_debug_do_draw_bg())
+                if (sub_GAME_7F0BD8F0())
                 {
-                    if (sub_GAME_7F0BD8F0())
-                    {
-                        gdl = bgRenderRoomPrimary(gdl, dword_CODE_bss_8007FFA0[j].roomid);
-                    }
+                    gdl = bgRenderRoomPrimary(gdl, dword_CODE_bss_8007FFA0[j].roomid);
                 }
  
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)currentPlayerGetProjectionMatrix()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
                 gdl = fogRenderClearFogMode(gdl);
  
-                if (get_debug_do_draw_obj())
+                if (sub_GAME_7F0BD8F0())
                 {
-                    if (sub_GAME_7F0BD8F0())
-                    {
-                        gdl = chrpropsRenderPass(gdl, dword_CODE_bss_8007FFA0[j].roomid, 2);
-                    }
+                    gdl = chrpropsRenderPass(gdl, dword_CODE_bss_8007FFA0[j].roomid, 2);
                 }
             }
         }
@@ -526,23 +517,17 @@ Gfx *sub_GAME_7F0B3C8C(Gfx *gdl)
                         dword_CODE_bss_8007FFA0[j].bbox.max.y),
                     1);
  
-                if (get_debug_do_draw_bg())
+                if (sub_GAME_7F0BD8F0())
                 {
-                    if (sub_GAME_7F0BD8F0())
-                    {
-                        gdl = bgRenderRoomSecondary(gdl, dword_CODE_bss_8007FFA0[j].roomid);
-                    }
+                    gdl = bgRenderRoomSecondary(gdl, dword_CODE_bss_8007FFA0[j].roomid);
                 }
- 
+
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)currentPlayerGetProjectionMatrix()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
                 gdl = fogRenderClearFogMode(gdl);
  
-                if (get_debug_do_draw_obj())
+                if (sub_GAME_7F0BD8F0())
                 {
-                    if (sub_GAME_7F0BD8F0())
-                    {
-                        gdl = chrpropsRenderPass(gdl, dword_CODE_bss_8007FFA0[j].roomid, 1);
-                    }
+                    gdl = chrpropsRenderPass(gdl, dword_CODE_bss_8007FFA0[j].roomid, 1);
                 }
             }
         }
@@ -1856,40 +1841,15 @@ s32 getIndexOfPORTALID(s32 portalID)
             return i;
         }
     }
-    #ifdef DEBUG
-    osSyncPrintf("bg: bgPortalIndexFromPtr(): No portal found for %08x ",portalID);
-    #endif
+
     return 0;
-}
-
-
-void roomsHandleStateDebugging(void)
-{
-    char roomstates[MAXROOMCOUNT + 1];
-    s32 roomnum;
-
-    if (debugIsRoomStateDebugEnabled())
-    {
-        for (roomnum = 1; roomnum < g_MaxNumRooms; roomnum++)
-        {
-            if (g_BgRoomInfo[roomnum].model_bin_loaded)
-            {
-                roomstates[roomnum] = (roomnum % 10) + '0';
-            }
-            else
-            {
-                roomstates[roomnum] = '.';
-            }
-        }
-
-        roomstates[roomnum] = '\0';
-    }
 }
 
 
 u32 bgDecompress(u8* source, u8 *target)
 {
     u8 buffer[0x2100];
+
     return decompressdata(source, target, buffer);
 }
 
@@ -1907,7 +1867,9 @@ s32 bgLoadRoomVtxData(s32 roomnum, u8 *dst, s32 len)
 
     room = &g_BgRoomInfo[roomnum];
     alignedsize = (room->csize_point_index_binary + 0xf) & ~0xf;
-    if (len < alignedsize + 0x20) {
+
+    if (len < alignedsize + 0x20)
+    {
         return -1;
     }
 
@@ -2205,7 +2167,6 @@ void bgLoadRoomModelData(s32 roomID)
     }
 
     bgBuildRoomVtxBounds(roomID);
-    roomsHandleStateDebugging();
 
 end:;
 
@@ -2251,7 +2212,6 @@ void delete_room_data(s32 roomID)
     }
 
     room->model_bin_loaded = 0;
-    roomsHandleStateDebugging();
 }
 
 

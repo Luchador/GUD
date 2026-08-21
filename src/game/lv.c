@@ -515,18 +515,6 @@ Gfx* lvlRender(Gfx* DL)
 
             DL = bgLevelRender(DL);
 
-            if (get_debug_stan_problems_flag())
-            {
-            }
-
-            if (get_debug_stanhit_flag())
-            {
-            }
-
-            if (get_debug_stanregion_flag())
-            {
-            }
-
             if (tokenFind(1, "-stanshow_"))
             {
                 StandTilePoint *tile1 = stanMatchTileName(tokenFind(1, "-stanshow_"));
@@ -930,131 +918,6 @@ void lvlTick(void)
                 }
             }
         }
-
-        switch (getDebugMode())
-        {
-            case 8:
-            {
-                if (joyGetButtonsPressedThisFrame(PLAYER_1, L_CBUTTONS))
-                {
-                    chrDecrementAnimationTablePointerCount();
-                }
-
-                if (joyGetButtonsPressedThisFrame(PLAYER_1, R_CBUTTONS))
-                {
-                    chrIncrementAnimationTablePointerCount();
-                }
-
-                if (joyGetButtonsPressedThisFrame(PLAYER_1, L_TRIG))
-                {
-                    chrToggleD_8002C90C();
-                }
-
-                sub_GAME_7F022EE0(joyGetButtons(PLAYER_1, R_TRIG) != 0);
-            }
-            break;
-        }
-
-    }
-    {
-        struct ALBank * sfx;
-        s16 sound_index;
-        s16 *sound_index_ptr;
-
-        switch (getDebugMode())
-        {
-            case 0xc:
-            {
-                if (joyGetButtonsPressedThisFrame(PLAYER_1, (L_JPAD | L_CBUTTONS)))
-                {
-                    lvlMusicAppendPlayEndTheme();
-                }
-
-                if (joyGetButtonsPressedThisFrame(PLAYER_1, (R_JPAD | R_CBUTTONS)))
-                {
-                    lvlMusicAppendPlaySoloDeathShort();
-                }
-
-                if (joyGetButtonsPressedThisFrame(PLAYER_1, D_JPAD))
-                {
-                    musicTrack1Stop();
-                }
-
-                if (joyGetButtonsPressedThisFrame(PLAYER_1, B_BUTTON))
-                {
-                    musicTrack1SaveCurrentVolumeAsTrackDefault();
-                }
-            }
-            break;
-            case 0xd:
-            {
-#ifdef VERSION_US
-                sound_index_ptr = &g_DebugMpGameSoundFxIndex;
-
-                if (joyGetButtonsPressedThisFrame(PLAYER_1, (D_JPAD | L_JPAD | L_TRIG | L_CBUTTONS)))
-                {
-                    sound_index = g_DebugMpGameSoundFxIndex - 1;\
-                    sfx = g_musicSfxBufferPtr;\
-                    *sound_index_ptr = sound_index;
-                    sndPlaySfx(sfx, sound_index, NULL);
-                }
-
-                if (joyGetButtonsPressedThisFrame(PLAYER_1, (U_JPAD | R_JPAD | R_TRIG | R_CBUTTONS)))
-                {
-                    sound_index = g_DebugMpGameSoundFxIndex + 1;\
-                    sfx = g_musicSfxBufferPtr;\
-                    *sound_index_ptr = sound_index;
-                    sndPlaySfx(sfx, sound_index, NULL);
-                }
-
-                if (joyGetButtonsPressedThisFrame(PLAYER_1, D_CBUTTONS))
-                {
-                    sndDeactivateAllSfxByFlag_1();
-                }
-
-                if (joyGetButtonsPressedThisFrame(PLAYER_1, U_CBUTTONS))
-                {
-                    sound_index = g_DebugMpGameSoundFxIndex;\
-                    sfx = g_musicSfxBufferPtr;
-                    sndPlaySfx(sfx, sound_index, NULL);
-                }
-#else
-                sound_index_ptr = &g_DebugMpGameSoundFxIndex;
-
-                if (joyGetButtonsPressedThisFrame(PLAYER_1, (D_JPAD | L_JPAD | L_TRIG | L_CBUTTONS)))
-                {
-                    sound_index = g_DebugMpGameSoundFxIndex - 1;\
-                    sfx = g_musicSfxBufferPtr;\
-                    *sound_index_ptr = sound_index;
-                    sndPlaySfx(sfx, sound_index, NULL);
-                }
-
-                if (joyGetButtonsPressedThisFrame(PLAYER_1, (U_JPAD | R_JPAD | R_TRIG | R_CBUTTONS)))
-                {
-                    sound_index = g_DebugMpGameSoundFxIndex + 1;\
-                    sfx = g_musicSfxBufferPtr;\
-                    *sound_index_ptr = sound_index;
-                    sndPlaySfx(sfx, sound_index, NULL);
-                }
-
-                if (joyGetButtonsPressedThisFrame(PLAYER_1, D_CBUTTONS))
-                {
-                    sndDeactivateAllSfxByFlag_1();
-                }
-
-                if (joyGetButtonsPressedThisFrame(PLAYER_1, U_CBUTTONS))
-                {
-                    sound_index = g_DebugMpGameSoundFxIndex;\
-                    sfx = g_musicSfxBufferPtr;
-                    sndPlaySfx(sfx, sound_index, NULL);
-                }
-#endif
-            }
-            break;
-
-            default:
-            break;
-        }
     }
 }
 
@@ -1076,15 +939,7 @@ void lvlViewMoveTick(void)
     local_player_number = get_cur_playernum();
     cheatButtonSampleInput();
 
-
-    if (getDebugMode() == DEB_BOND_VIEW)
-    {
-        bondviewMovePlayerUpdateViewport(joyGetStickX(local_player_number), joyGetStickY(local_player_number), joyGetButtons(local_player_number, ANY_BUTTON));
-    }
-    else
-    {
-        bondviewMovePlayerUpdateViewport(joyGetStickX(local_player_number), joyGetStickY(local_player_number), 0);
-    }
+    bondviewMovePlayerUpdateViewport(joyGetStickX(local_player_number), joyGetStickY(local_player_number), joyGetButtons(local_player_number, ANY_BUTTON));
 
     mpwatchMenuTick();
 

@@ -3485,12 +3485,6 @@ void chrIncrementAnimationTablePointerCount(void)
 }
 
 
-void chrToggleD_8002C90C(void)
-{
-    D_8002C90C = !D_8002C90C;
-}
-
-
 void sub_GAME_7F022EE0(s32 param_1)
 {
   D_8002C910 = param_1;
