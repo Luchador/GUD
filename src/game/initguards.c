@@ -1,9 +1,9 @@
 #include <ultra64.h>
-#include "deb_loadallmodels.h"
 #include <memp.h>
 #include <random.h>
 #include "chr.h"
 #include "chrobjdata.h"
+#include "chrsetup.h"
 #include "initguards.h"
 
 

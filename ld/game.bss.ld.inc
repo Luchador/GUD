@@ -9,7 +9,7 @@
       build/OUTCODE/src/game/initintromatrices.o (.bss);
       build/OUTCODE/src/game/initmenus.o (.bss);
       build/OUTCODE/src/game/initguards.o (.bss);
-      build/OUTCODE/src/game/deb_loadallmodels.o (.bss);
+      build/OUTCODE/src/game/chrsetup.o (.bss);
       build/OUTCODE/src/game/initobjects.o (.bss);
       build/OUTCODE/src/game/prop.o (.bss);
       build/OUTCODE/src/game/objective.o (.bss);
@@ -80,7 +80,6 @@
       build/OUTCODE/src/game/bondhead.o (.bss);
       build/OUTCODE/src/game/padhalllv.o (.bss);
       build/OUTCODE/src/game/debugmenu_handler.o (.bss);
-      build/OUTCODE/src/game/debug_camera.o (.bss);
       build/OUTCODE/src/game/chraidata.o (.bss);
       build/OUTCODE/src/game/pobjdata.o (.bss);
       build/OUTCODE/src/game/gobjdata.o (.bss);

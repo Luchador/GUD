@@ -1032,6 +1032,7 @@ s32 bondinvGetTextbyInvIndex(s32 index)
     return 0;
 }
 
+
 u16 *bondinvGetNameByIndex(s32 index)
 {
     InvItem      *item      = bondinvGetItemByIndex(index);

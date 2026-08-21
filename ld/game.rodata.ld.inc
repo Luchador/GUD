@@ -9,7 +9,7 @@
       build/OUTCODE/src/game/initintromatrices.o (.rodata);
       build/OUTCODE/src/game/initmenus.o (.rodata);
       build/OUTCODE/src/game/initguards.o (.rodata);
-      build/OUTCODE/src/game/deb_loadallmodels.o (.rodata);
+      build/OUTCODE/src/game/chrsetup.o (.rodata);
       build/OUTCODE/src/game/initobjects.o (.rodata);
       build/OUTCODE/src/game/prop.o (.rodata);
       build/OUTCODE/src/game/objective.o (.rodata);
@@ -81,7 +81,6 @@
       build/OUTCODE/src/game/bondhead.o (.rodata);
       build/OUTCODE/src/game/padhalllv.o (.rodata);
       build/OUTCODE/src/game/debugmenu_handler.o (.rodata);
-      build/OUTCODE/src/game/debug_camera.o (.rodata);
       build/OUTCODE/src/game/chraidata.o (.rodata);
       build/OUTCODE/src/game/pobjdata.o (.rodata);
       build/OUTCODE/src/game/gobjdata.o (.rodata);

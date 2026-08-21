@@ -901,23 +901,6 @@ void lvlTick(void)
         chrpropTick();
         reset_all_music_slots();
         langTick();
-
-        if ((get_debug_joy2detailedit_flag() != 0) && (D_800483C8 == 0))
-        {
-            s32 i;
-
-            D_800483C8 = (struct LvlMpUnknown *)mempAllocBytesInBank(0x3000, MEMPOOL_STAGE);
-
-            if (D_800483C8 != 0)
-            {
-                for (i=0; i<3000; i++)
-                {
-                    D_800483C8[i].unk_0 = 0xff;
-                    D_800483C8[i].unk_1 = (D_800483C8[i].unk_1 & 0xFF1F) | 0x20;
-                    D_800483C8[i].unk_1 = (D_800483C8[i].unk_1 & 0xFFE3) | 4;
-                }
-            }
-        }
     }
 }
 

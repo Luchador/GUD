@@ -2207,11 +2207,6 @@ void recall_joy2_hits_edit_detail_edit_flag(enum ITEM_IDS item, PropRecord* prop
 
     D_800483C4 = texture_index;
 
-    if (get_debug_joy2hitsedit_flag() == 0)
-    {
-        get_debug_joy2detailedit_flag();
-    }
-
     if ((item == ITEM_REMOTEMINE)
         || (item == ITEM_PROXIMITYMINE)
         || (item == ITEM_TIMEDMINE)
@@ -2336,7 +2331,6 @@ void recall_joy2_hits_edit_flag(enum ITEM_IDS item, coord3d* arg1, s32 texture_i
     rnd2 = randomGetNext();
 
     D_800483C4 = texture_index;
-    get_debug_joy2hitsedit_flag();
 
 #ifdef BUGFIX_R1
     if (g_ClockTimer <= 0) { return; }

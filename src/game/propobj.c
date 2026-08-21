@@ -7634,15 +7634,9 @@ void objDeform(ObjectRecord *obj, E_EXPLOSIONTYPE explosiontype)
     }
 #endif
     
-    if (get_debug_explosioninfo_flag() || (deformseed == 0))
+    if (deformseed == 0)
     {
-        get_debug_explosioninfo_flag();
         deformseed = randomGetNext();
-        
-        if (get_debug_explosioninfo_flag())
-        {
-            deformseed &= 0xffff;
-        }
     }
     
     explosionClearBulletImpactRoom(obj->prop);

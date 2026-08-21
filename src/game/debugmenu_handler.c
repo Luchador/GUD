@@ -42,9 +42,6 @@ s32 debug_007_unlock_flag = 0;
 s32 debug_enable_agent_levels_flag = 0;
 //D:80036FB4
 s32 debug_enable_all_levels_flag = 0;
-//D:80036FB8
-s32 debug_chrnum_flag = 0;
-
 //D:80036FBC
 s32 debug_gunwatchpos_flags = 0;
 //D:80036FC0
@@ -95,37 +92,6 @@ coord3d player_pos_x = {0};
 #endif
 
 
-void set_debug_testingmanpos_flag(s32 flag)
-{
-    g_DebugManPos = flag;
-}
-
-
-s32 get_debug_joy2hitsedit_flag(void) {
-#if defined(LEFTOVERDEBUG)
-    return debug_joy2hitsedit_flag;
-#else
-    return 0;
-#endif
-}
-
-s32 get_debug_joy2detailedit_flag(void) {
-#if defined(LEFTOVERDEBUG)
-    return debug_joy2detailedit_flag;
-#else
-    return 0;
-#endif
-}
-
-s32 get_debug_explosioninfo_flag(void) {
-#if defined(LEFTOVERDEBUG)
-    return debug_explosioninfo_flag;
-#else
-    return 0;
-#endif
-}
-
-
 s32 get_debug_007_unlock_flag(void) {
 #if defined(LEFTOVERDEBUG)
     return debug_007_unlock_flag;
@@ -152,9 +118,7 @@ s32 get_debug_enable_all_levels_flag(void) {
 
 
 #if !defined(LEFTOVERDEBUG)
-s32 get_debug_chrnum_flag(void) {
-    return 0;
-}
+
 s32 get_debug_gunwatchpos_flag(void) {
     return 0;
 }
@@ -163,6 +127,8 @@ s32 get_debug_gunwatchpos_flag(void) {
 s32 get_debug_fast_bond_flag(void) {
     return debug_fast_bond_flag;
 }
+
+
 void set_debug_fast_bond_flag(s32 flag) {
     debug_fast_bond_flag = flag;
 }
@@ -203,11 +169,6 @@ s32 get_debug_portal_flag(void) {
 }
 #endif
 
-#if defined(LEFTOVERDEBUG)
-s32 get_debug_chrnum_flag(void) {
-    return debug_chrnum_flag;
-}
-#endif
 
 #if defined(LEFTOVERDEBUG)
 s32 get_debug_gunwatchpos_flag(void) {

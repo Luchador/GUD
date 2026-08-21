@@ -2058,18 +2058,9 @@ void bgLoadRoomModelData(s32 roomID)
     // Get the cached file size. Is zero when the size is not yet known.
     allocsize = g_BgRoomInfo[roomID].cur_room_totalsize;
 
-    if (allocsize > 0)
-    {
-        // Unknown debug code
-        if (get_debug_joy2detailedit_flag())
-        {
-            allocsize += 0x400;
-        }
-    }
-    else
-    {
-        // On a first allocation, we'll allocate the largest memory block available.
-        allocsize = memaGetLongestFree();
+    if (allocsize <= 0) 
+    { 
+        allocsize = memaGetLongestFree(); 
     }
 
     /**

@@ -2488,8 +2488,6 @@ after_position_update:
 
     if (headSwitchVisible)
     {
-        if (get_debug_chrnum_flag()) {}
-
         prop->flags |= PROPFLAG_ONSCREEN;
         chr->chrflags |= CHRFLAG_HAS_BEEN_ON_SCREEN;
 

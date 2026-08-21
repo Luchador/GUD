@@ -10340,10 +10340,6 @@ Gfx* bondviewGfxPlayerField5cMatrix(Gfx* gdl)
 }
 
 
-/**
- * Notes: Similar to sub_GAME_7F08BE2C.
- *
- */
 void bondviewTransformManyPosToViewMatrix(RenderPosView * arg0, s32 arg1)
 {
     Mtxf mtx;
@@ -10351,17 +10347,22 @@ void bondviewTransformManyPosToViewMatrix(RenderPosView * arg0, s32 arg1)
     s32 i;
 
     i = 0;
-    if (arg1 <= 0) { return; }
+    if (arg1 <= 0) 
+    { 
+        return; 
+    }
 
     // Couldn't find a better matching loop
     rpv_entry = arg0;
+
     do
     {
         matrix_4x4_copy(&rpv_entry->pos, &mtx);
         matrix_4x4_f32_to_s32(&mtx, &arg0[i].pos);
         i++;
         rpv_entry++;
-    } while (i != arg1);
+    } 
+    while (i != arg1);
 }
 
 
@@ -10384,12 +10385,9 @@ void sub_GAME_7F08BEEC(Mtxf *matrices, s32 count)
 }
 
 
-s32 getMissiontimer(void) {
-#ifdef VERSION_EU
-    return (mission_timer * 60) / 50;
-#else
+s32 getMissiontimer(void)
+{
     return mission_timer;
-#endif
 }
 
 

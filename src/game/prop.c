@@ -1992,5 +1992,5 @@ void proplvreset2(enum LEVELID stageId)
         modelmgrAllocateAnimModelSlots(0);
     }
 
-    alloc_false_GUARDdata_to_exec_global_action();
+    allocBackgroundAiChrs();
 }
