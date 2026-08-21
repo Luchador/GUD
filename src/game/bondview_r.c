@@ -179,7 +179,7 @@ void bondviewLoadSetupIntroSection(void)
                 case INTROTYPE_SPAWN:
                 {
                     if (g_CurrentSetup.pads != NULL
-                        && (check_ramrom_flags() == ((struct SetupIntroSpawn*)intro_record)->is_demo_playback))
+                        && (ramromGetActiveDemoSlot() == ((struct SetupIntroSpawn*)intro_record)->is_demo_playback))
                     {
                         g_Startpad[startpadcount] = &g_CurrentSetup.pads[((struct SetupIntroSpawn*)intro_record)->index];
                         startpadcount++;
@@ -193,7 +193,7 @@ void bondviewLoadSetupIntroSection(void)
                 {
                     intro_item = (struct SetupIntroItem*)intro_record;
 
-                    if (check_ramrom_flags() == intro_item->is_demo_playback)
+                    if (ramromGetActiveDemoSlot() == intro_item->is_demo_playback)
                     {
                         weaponLoadProjectileModels(intro_item->item_right);
 
@@ -228,7 +228,7 @@ void bondviewLoadSetupIntroSection(void)
 
                 case INTROTYPE_AMMO:
                 {
-                    if (check_ramrom_flags() == ((struct SetupIntroAmmo*)intro_record)->is_demo_playback)
+                    if (ramromGetActiveDemoSlot() == ((struct SetupIntroAmmo*)intro_record)->is_demo_playback)
                     {
                         give_cur_player_ammo(((struct SetupIntroAmmo*)intro_record)->ammo_type, ((struct SetupIntroAmmo*)intro_record)->ammo_amount);
                     }

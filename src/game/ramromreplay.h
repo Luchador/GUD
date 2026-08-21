@@ -31,10 +31,25 @@ typedef struct ramromfilestructure {
     u32 mp_flags[4];
 } ramromfilestructure;
 
+extern u32* ramrom_Dam_1;
+extern u32* ramrom_Dam_2;
+extern u32* ramrom_Facility_1;
+extern u32* ramrom_Facility_2;
+extern u32* ramrom_Facility_3;
+extern u32* ramrom_Runway_1;
+extern u32* ramrom_Runway_2;
+extern u32* ramrom_BunkerI_1;
+extern u32* ramrom_BunkerI_2;
+extern u32* ramrom_Silo_1;
+extern u32* ramrom_Silo_2;
+extern u32* ramrom_Frigate_1;
+extern u32* ramrom_Frigate_2;
+extern u32* ramrom_Train;
+
 void ramromInitDemo(enum LEVELID arg0, enum DIFFICULTY arg1);
-void iterate_ramrom_entries_handle_camera_out(void);
+void ramromAdvanceDemoStream(void);
 void ramromStopDemoPlayback(void);
-u32 check_ramrom_flags(void);
+u32 ramromGetActiveDemoSlot(void);
 
 #endif
 

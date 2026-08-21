@@ -8540,7 +8540,7 @@ void menu_init(void)
         case MENU_DISPLAY_CAST:           interface_menu18_displaycast();           break;
         case MENU_SPECTRUM_EMU:           interface_menu19_spectrum();              break;
         case MENU_RUN_STAGE:
-            if (interface_menu0B_runstage())
+            if (ramromIsDemoLaunchPending())
             {
                 frontChangeMenu(MENU_LEGAL_SCREEN, 1);
             }

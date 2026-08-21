@@ -200,7 +200,7 @@ void bossInitMainthreadData(void)
     init_player_gait_object();
     initGameData();
     fileResetRamRomSave();
-    clear_ramrom_block_buffer_heading_ptrs();
+    ramromClearPlaybackPointers();
 }
 
 
@@ -399,7 +399,7 @@ void bossMainloop(void)
                         {
                             if (ramromGetIsDemoPlaying())
                             {
-                                iterate_ramrom_entries_handle_camera_out();
+                                ramromAdvanceDemoStream();
                             }
                             else
                             {
