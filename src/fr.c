@@ -121,55 +121,42 @@ Mtx *g_viProjectionMatrix;
 u16 g_viPerspNorm;
 
 /**
- * Address 80060828.
  * Original vi mode.
  * (name following n64devkit\ultra\usr\src\pr\demos\threadmonkey\block.c)
  */
 OSViMode g_viOriginalVideoMode;
 
 /**
- * Address 80060878.
  * cfb_16 index for g_ViFrontData.
  */
 u8 g_ViFrontIndex;
 
 /**
- * Address 80060879.
  * cfb_16 index for g_ViBackData and g_CurrentPlayer->viewports.
  */
 u8 g_ViBackIndex;
 
 /**
  * Current vi mode pointer.
- * EU .bss 0x80053E4C
  */
 OSViMode *viMode;
 
 /**
- * Address 80060880.
  * Original viMode->comRegs.hStart.
- * EU .bss 0x80053E50
  */
 u32 g_viOriginalHstart;
 
 /**
- * Address 80060884.
  * Original viMode->fldRegs[0].vStart.
- * EU .bss 0x80053E54
  */
 u32 g_viOriginalVstart0;
 
 /**
- * Address 80060888.
  * Original viMode->fldRegs[1].vStart.
- * EU .bss 0x80053E58
  */
 u32 g_viOriginalVstart1;
 
-s32 g_unused8006088C;
-
 /**
- * Address 80028480.
  * Const runtime supported screen widths.
  */
 const s16 g_viRuntimeScreenWidths[] = {SCREEN_WIDTH_MIN, SCREEN_WIDTH, SCREEN_WIDTH_MAX};
@@ -184,9 +171,7 @@ const s16 g_viRuntimeScreenHeights[] = {SCREEN_HEIGHT_MIN, SCREEN_HEIGHT, SCREEN
 const s16 g_viRuntimeScreenHeights[] = {SCREEN_HEIGHT_272, SCREEN_HEIGHT_272, SCREEN_HEIGHT_MAX_EU};
 #endif
 
-/**
- * 3C60	70003060
- */
+
 void viInitVideoSettings(void)
 {
     g_ViFrontIndex = 0;
@@ -221,14 +206,15 @@ void viInitBuffers(void)
     }
 }
 
+
 void frBlack(u32 black)
 {
     black += 2;
     g_ViUnblackTimer = black;
 }
 
+
 /**
- * 3DA0	700031A0
  * Calls osViSetMode with current viMode.
  * Also calls osViBlack.
  * Applies verticalOffset to vstart.
@@ -282,7 +268,6 @@ void viVsyncRelated(void)
 }
 
 
-#ifndef VERSION_EU
 void video_related_8(void)
 {
     u32 packedStart;
@@ -301,8 +286,6 @@ void video_related_8(void)
         {
             case MD_BLACK:
             {
-                if (D_800232C0);
-
                 osViSetYScale(1.0f);
                 osViBlack(TRUE);
                 break;
@@ -366,18 +349,13 @@ void video_related_8(void)
     calculatedXScale = (f32)g_ViBackData->x / (f32)g_ViBackData->bufx;
     calculatedYScale = (f32)g_ViBackData->y / (f32)g_ViBackData->bufy;
 
-    /* Keep these statements on the same logical source line for IDO scheduling. */
-    if (g_ViBackData->mode == MD_BLACK) \
-    { \
-        calculatedYScale = 1.0f; \
-    } nextMode = D_800232C0;
+    if (g_ViBackData->mode == MD_BLACK)
+    {
+        calculatedYScale = 1.0f;
+    } 
 
+    nextMode = D_800232C0;
     yScaleMax = YSCALE_MAX;
-
-    if (1);
-    if (1);
-    if (1);
-    if (1);
 
     g_ViXScales[nextMode] = calculatedXScale;
     g_ViYScales[nextMode] = calculatedYScale;
@@ -411,12 +389,8 @@ void video_related_8(void)
 
         g_ViModes[nextMode].comRegs.width = g_ViBackData->bufx;
         g_ViModes[nextMode].comRegs.xScale = (g_ViBackData->bufx * XSCALE_MAX) / SCREEN_WIDTH_MAX;
-
-        if (1)
-        {
-            g_ViModes[nextMode].fldRegs[0].yScale = (g_ViBackData->bufy * yScaleMax) / SCREEN_HEIGHT_MAX;
-        }
-
+        g_ViModes[nextMode].fldRegs[0].yScale = (g_ViBackData->bufy * yScaleMax) / SCREEN_HEIGHT_MAX;
+        
         packedStart = g_ViModes[nextMode].comRegs.hStart;
 
         g_ViModes[nextMode].fldRegs[1].yScale = (g_ViBackData->bufy * yScaleMax) / SCREEN_HEIGHT_MAX;
@@ -474,151 +448,6 @@ void video_related_8(void)
 
     g_ViBackData->framebuf = cfb_16[g_ViBackIndex];
 }
-#endif
-#ifdef VERSION_EU
-void video_related_8(void)
-{
-    s32 new_var2;
-    s32 registerValue;
-    f32 calculatedYScale;
-    s32 new_var;
-    f32 calculatedXScale;
-    VideoSettings *settings;
-    s32 modeIndex;
-    s32 upperAdjust;
-
-    if (g_ViFrontData->mode != g_ViBackData->mode)
-    {
-        registerValue = g_ViBackData->mode;
-
-        switch (registerValue)
-        {
-            case 0:
-                osViSetYScale(1.0f);
-                osViBlack(1);
-                break;
-
-            case 1:
-                if (g_viColorOutputMode != 0)
-                {
-                    g_viOriginalVideoMode = osViModeTable[16];
-                }
-                else
-                {
-                    g_viOriginalVideoMode = osViModeTable[20];
-                }
-
-                viMode = &g_viOriginalVideoMode;
-                g_viOriginalHstart = viMode->comRegs.hStart;
-                g_viOriginalVstart0 = viMode->fldRegs[0].vStart;
-                g_viOriginalVstart1 = viMode->fldRegs[1].vStart;
-
-                frBlack(0);
-                break;
-
-            case 2:
-                viMode = &osViModeTable[25];
-                g_viOriginalHstart = viMode->comRegs.hStart;
-                g_viOriginalVstart0 = viMode->fldRegs[0].vStart;
-                g_viOriginalVstart1 = viMode->fldRegs[1].vStart;
-
-                osViBlack(0);
-                break;
-        }
-        osViSetSpecialFeatures(0x0040 | 0x0002);
-    }
-
-    calculatedXScale = ((f32)g_ViBackData->x) / ((f32)g_ViBackData->bufx);
-    calculatedYScale = ((f32)g_ViBackData->y) / ((f32)g_ViBackData->bufy);
-
-    if (g_ViBackData->mode == 0) { calculatedYScale = 1.0f; } modeIndex = D_800232C0;
-    if (1);
-    if (1);
-    if (1);
-    if (1);
-    new_var = 0xffff;
-
-    g_ViXScales[modeIndex] = calculatedXScale;
-    g_ViYScales[modeIndex] = calculatedYScale;
-
-    if (g_ViBackData);
-    if (g_ViBackData->mode == 1)
-    {
-        g_ViModePtrs[modeIndex] = &g_viOriginalVideoMode;
-
-        if (g_viColorOutputMode != 0)
-        {
-            g_ViModes[modeIndex] = osViModeTable[16];
-        }
-        else
-        {
-            g_ViModes[modeIndex] = osViModeTable[20];
-        }
-
-        g_ViModes[modeIndex].comRegs.width = g_ViBackData->bufx;
-        g_ViModes[modeIndex].comRegs.xScale = (g_ViBackData->bufx * 0x400) / 640;
-        registerValue = (g_ViBackData->bufy == 330) ? (28) : (0);
-        upperAdjust = 0;
-        g_ViModes[modeIndex].fldRegs[0].yScale = (g_ViBackData->bufy * 0x800) / (registerValue + 0x220);
-        registerValue = (g_ViBackData->bufy == 330) ? (28) : (0);
-        g_ViModes[modeIndex].fldRegs[1].yScale = (g_ViBackData->bufy * 0x800) / (registerValue + 0x220);
-        g_ViModes[modeIndex].fldRegs[0].origin = g_ViBackData->bufx * 2;
-        g_ViModes[modeIndex].fldRegs[1].origin = g_ViBackData->bufx * 2;
-
-        new_var2 = g_ViModes[modeIndex].comRegs.hStart;
-        registerValue = (((((new_var2 >> 16) & 0xffff) + g_viHorizontalOffset) % 0xffff) << 16) |
-                        ((((u16)new_var2) + g_viHorizontalOffset) % 0xffff);
-        g_ViModes[modeIndex].comRegs.hStart = registerValue;
-        g_viOriginalHstart = registerValue;
-
-        new_var2 = g_ViModes[modeIndex].fldRegs[0].vStart;
-        upperAdjust = (g_ViBackData->bufy == 330) ? (-14) : (0);
-        registerValue =
-            ((((((g_ViBackData->bufy == 330) ? (14) : (0)) + ((u16)new_var2)) + D_800232A0) + 0x40) % new_var) |
-            ((((((new_var2 >> 16) & 0xffff) + D_800232A0) + upperAdjust) % new_var) << 16);
-        g_ViModes[modeIndex].fldRegs[0].vStart = registerValue;
-        g_viOriginalVstart0 = registerValue;
-
-        new_var2 = g_ViModes[modeIndex].fldRegs[1].vStart;
-        upperAdjust = (g_ViBackData->bufy == 330) ? (-14) : (0);
-        registerValue =
-            ((((((g_ViBackData->bufy == 330) ? (14) : (0)) + ((u16)new_var2)) + D_800232A0) + 0x40) % new_var) |
-            ((((((new_var2 >> 16) & 0xffff) + D_800232A0) + upperAdjust) % new_var) << 16);
-        g_ViModes[modeIndex].fldRegs[1].vStart = registerValue;
-        g_viOriginalVstart1 = registerValue;
-
-        g_ViChangeVideoModes[modeIndex] = 1;
-    }
-    else
-    {
-        g_ViChangeVideoModes[modeIndex] = 0;
-    }
-
-    modeIndex = (modeIndex + 1) % 2;
-    D_800232C0 = modeIndex;
-
-    if (g_viColorOutputMode != (g_viColorOutputMode * 0))
-    {
-        ((struct GfxInfo_s *)g_gfxTaskSettingsList)->cfb = g_ViBackData->framebuf;
-    }
-    else
-    {
-        ((struct GfxInfo_s *)g_gfxTaskSettingsList)->cfb = cfb_16[0];
-    }
-
-    settings = g_ViBackData;
-
-    g_ViFrontIndex = (g_ViFrontIndex + 1) % 2;
-    g_ViBackIndex = (g_ViBackIndex + 1) % 2;
-
-    g_ViFrontData = g_ViDataArray + g_ViFrontIndex;
-    g_ViBackData = g_ViDataArray + g_ViBackIndex;
-
-    bcopy(settings, g_ViBackData, sizeof(VideoSettings));
-
-    g_ViBackData->framebuf = cfb_16[g_ViBackIndex];
-}
-#endif
 
 
 void viShake(f32 intensity)

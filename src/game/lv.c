@@ -563,7 +563,6 @@ Gfx* lvlRender(Gfx* DL)
                 }
             }
 
-            setanimationdebugflag(getDebugMode() == DEB_SELANIM);
             DL = weaponRenderTracers(DL);
 
 #if defined(VERSION_EU)
@@ -574,18 +573,7 @@ Gfx* lvlRender(Gfx* DL)
             DL = glassRenderShards(DL);
             DL = explosionRenderFlyingParticles(DL);
 
-            if (
-
-#if defined(BUGFIX_R1)
-                cheatIsActive(CHEAT_INFINITE_AMMO) != 0
-                && (
-                    (getCurrentPlayerWeaponId(GUNRIGHT) != ITEM_WATCHLASER)
-                    || (g_CurrentPlayer->trigger_down == 0)
-                )
-#else /* VERSION_US */
-                cheatIsActive(CHEAT_INFINITE_AMMO) != 0
-#endif
-                )
+            if (cheatIsActive(CHEAT_INFINITE_AMMO))
             {
                 set_max_ammo_for_cur_player();
             }
@@ -612,8 +600,6 @@ Gfx* lvlRender(Gfx* DL)
 /**
  * Sets the modifier values for the level being loaded.
  * This covers the enemy accuracy, reaction speed, and similar values.
- *
- * address 0x7F0BE8D0
  */
 void lvlSetMultipliersForDifficulty(void)
 {
@@ -656,19 +642,7 @@ void lvlSetMultipliersForDifficulty(void)
         g_AiHealthModifier = 1.0f;
         g_SpExplosionDamageMult = 0.75f;
 
-#if defined(BUGFIX_R1)
-        if (j_text_trigger)
-        {
-            difficulty = 1.1f;
-        }
-        else
-        {
-            difficulty = 0.75f;
-        }
-#else
-        // VERSION_US
         difficulty = 0.75f;
-#endif
 
         g_SoloAmmoMultiplier = DEFAULT_SECRET_AGENT_SOLO_AMMO_MULTIPLIER;
         g_AiReactionSpeed = DEFAULT_SECRET_AGENT_AI_REACTION_SPEED;
@@ -685,19 +659,7 @@ void lvlSetMultipliersForDifficulty(void)
         g_AiHealthModifier = 1.0f;
         g_SpExplosionDamageMult = 1.0f;
 
-#if defined(BUGFIX_R1)
-        if (j_text_trigger)
-        {
-            difficulty = 0.75f;
-        }
-        else
-        {
-            difficulty = 0.2f;
-        }
-#else
-        // VERSION_US
         difficulty = 0.2f;
-#endif
 
         g_SoloAmmoMultiplier = DEFAULT_00_AGENT_SOLO_AMMO_MULTIPLIER;
         g_AiReactionSpeed = DEFAULT_00_AGENT_AI_REACTION_SPEED;
@@ -782,7 +744,7 @@ void lvlTick(void)
             mp_alive_count = 0;
             mp_player_field424_count = 0;
 
-            for (i=0; i<getPlayerCount(); i++)
+            for (i = 0; i < getPlayerCount(); i++)
             {
                 if (g_playerPointers[i]->bonddead != FALSE)
                 {
@@ -974,7 +936,9 @@ void lvlTick(void)
         if ((get_debug_joy2detailedit_flag() != 0) && (D_800483C8 == 0))
         {
             s32 i;
+
             D_800483C8 = (struct LvlMpUnknown *)mempAllocBytesInBank(0x3000, MEMPOOL_STAGE);
+
             if (D_800483C8 != 0)
             {
                 for (i=0; i<3000; i++)
@@ -988,18 +952,6 @@ void lvlTick(void)
 
         switch (getDebugMode())
         {
-            case 4:
-            {
-                if (joyGetButtonsPressedThisFrame(PLAYER_1, L_CBUTTONS))
-                {
-                }
-
-                if (joyGetButtonsPressedThisFrame(PLAYER_1, R_CBUTTONS))
-                {
-                }
-            }
-            break;
-
             case 8:
             {
                 if (joyGetButtonsPressedThisFrame(PLAYER_1, L_CBUTTONS))
@@ -1027,35 +979,9 @@ void lvlTick(void)
         struct ALBank * sfx;
         s16 sound_index;
         s16 *sound_index_ptr;
+
         switch (getDebugMode())
         {
-            case 0x38:
-            {
-                s32 sp30;
-                s32 sp2C;
-                sp30 = viGetHorizontalOffset();
-                sp2C = viGet800232A0();
-                if (joyGetButtons(PLAYER_1, D_CBUTTONS))
-                {
-                    sp2C += 1;
-                }
-                if (joyGetButtons(PLAYER_1, U_CBUTTONS))
-                {
-                    sp2C += -1;
-                }
-                if (joyGetButtons(PLAYER_1, R_CBUTTONS))
-                {
-                    sp30 += 1;
-                }
-                if (joyGetButtons(PLAYER_1, L_CBUTTONS))
-                {
-                    sp30 += -1;
-                }
-                viSetHorizontalOffset(sp30);
-                viSet800232A0(sp2C);
-            }
-            break;
-
             case 0xc:
             {
                 if (joyGetButtonsPressedThisFrame(PLAYER_1, (L_JPAD | L_CBUTTONS)))
@@ -1163,46 +1089,23 @@ void lvlTick(void)
 void lvlViewMoveTick(void)
 {
     s8 local_player_number;
-    s32 padding;
     f32 temp_f0;
     f32 temp_f2;
 
     local_player_number = get_cur_playernum();
     cheatButtonSampleInput();
 
-    switch (get_debug_freeze_processing())
+
+    if (getDebugMode() == DEB_BOND_VIEW)
     {
-        case 0:
-        {
-            if ((getDebugMode() == DEB_MOVE_VIEW) || ((getDebugMode() == DEB_INTRO_EDIT) && (D_80036ABC < 0)))
-            {
-                debugFreeCamera(joyGetStickX(local_player_number), joyGetStickY(local_player_number), joyGetButtons(local_player_number, ANY_BUTTON));
-            }
-            else
-            {
-                debugFreeCamera(joyGetStickX(local_player_number), joyGetStickY(local_player_number), 0);
-            }
-        }
-        break;
-
-        case 1:
-        break;
-
-        case 2:
-        {
-            if (getDebugMode() == DEB_BOND_VIEW)
-            {
-                bondviewMovePlayerUpdateViewport(joyGetStickX(local_player_number), joyGetStickY(local_player_number), joyGetButtons(local_player_number, ANY_BUTTON));
-            }
-            else
-            {
-                bondviewMovePlayerUpdateViewport(joyGetStickX(local_player_number), joyGetStickY(local_player_number), 0);
-            }
-
-            mpwatchMenuTick();
-        }
-        break;
+        bondviewMovePlayerUpdateViewport(joyGetStickX(local_player_number), joyGetStickY(local_player_number), joyGetButtons(local_player_number, ANY_BUTTON));
     }
+    else
+    {
+        bondviewMovePlayerUpdateViewport(joyGetStickX(local_player_number), joyGetStickY(local_player_number), 0);
+    }
+
+    mpwatchMenuTick();
 
     temp_f0 = g_CurrentPlayer->prop->pos.x - g_CurrentPlayer->bondprevpos.x;
     temp_f2 = g_CurrentPlayer->prop->pos.z - g_CurrentPlayer->bondprevpos.z;

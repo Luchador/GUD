@@ -139,7 +139,6 @@ struct memallocstring memallocstringtable[] = {
 };
 
 s32 g_MainStageNum = LEVELID_NONE;
-s32 g_BossIsDebugMenuOpen = FALSE;
 
 OSScMsg g_bossGfxDoneMsg = { OS_SC_DONE_MSG };
 
@@ -425,28 +424,6 @@ void bossMainloop(void)
 
                             gdl = firstGdl = dynGetMasterDisplayList();
 
-#ifdef DEBUGMENU
-                            //ported from pd beta, official way to open debug menu
-			                // If menu is open (?) or player has pressed C down + C up
-			                if (g_BossIsDebugMenuOpen || joyGetButtons(0, U_CBUTTONS | D_CBUTTONS) == (U_CBUTTONS | D_CBUTTONS)) {
-			                	joyStickXPos = joyGetStickX(0);
-			                	joyStickYPos = joyGetStickY(0);
-			                	joyButtons = joyGetButtons(0, ANY_BUTTON);
-			                	g_BossIsDebugMenuOpen = debug_menu_processor(joyStickXPos, joyStickYPos, joyButtons, joyGetButtonsPressedThisFrame(0, ANY_BUTTON));
-			                } else if (joyGetButtons(0, START_BUTTON) == 0) {
-                                g_DebugMode = g_DebugHighlightedOption;
-			                } else
-#endif
-#ifndef DEBUGMENU
-                            if (g_BossIsDebugMenuOpen)
-#endif
-                            {
-			                	joyStickXPos = joyGetStickX(0);
-			                	joyStickYPos = joyGetStickY(0);
-			                	joyButtons = joyGetButtons(0, ANY_BUTTON);
-			                	g_BossIsDebugMenuOpen = debug_menu_processor(joyStickXPos, joyStickYPos, joyButtons, joyGetButtonsPressedThisFrame(0, ANY_BUTTON));
-			                }
-
                             // Primary game tick function.
                             lvlTick();
 
@@ -474,12 +451,6 @@ void bossMainloop(void)
                             gdl = debmenuDraw(gdl);
 
                             gdl = bondviewRenderRoomPosDisplay(gdl);
-
-                            if (g_BossIsDebugMenuOpen)
-                            {
-                                debugmenuUpdate();
-                                gdl = debugmenuRender(gdl);
-                            }
 
                             gdl = lvlDrawFrameRateDisplay(gdl);
                             
@@ -573,12 +544,4 @@ void bossReturnTitleStage(void) {
         end_of_mission_briefing();
     }
     bossRunTitleStage();
-}
-
-/**
- * 75B4    700069B4
- *     V0=state of debug menu (1:on; 0:off) [80024300]
- */
-s32 bossGetDebugParseFlag(void) {
-    return g_BossIsDebugMenuOpen;
 }

@@ -7659,11 +7659,6 @@ s16 get_curplayer_viewport_ulx(void)
 }
 
 
-
-
-/**
- * Address 0x7F086D24.
- */
 s16 bondviewGetCurrentPlayerViewportHeight(void)
 {
     f32 t;
@@ -7706,10 +7701,6 @@ s16 bondviewGetCurrentPlayerViewportHeight(void)
 }
 
 
-
-/**
- * Address 0x7F086E38.
- */
 s16 bondviewGetCurrentPlayerViewportUly(void)
 {
     f32 t;
@@ -7784,17 +7775,9 @@ s16 bondviewGetCurrentPlayerViewportUly(void)
  * Arguments are passed into MoveBond or bondviewFrozenMoveBond.
  * Checks if necessary to call bossReturnTitleStage.
  * Set player->buttons_pressed to arg2.
- *
- * Address 0x7F086F9C (VERSION_US).
- * Address 0x7F0870BC (VERSION_EU).
- * Address 0x7F087668 (VERSION_JP).
  */
 void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
 {
-#ifdef VERSION_EU
-    f32 faspect;
-#endif
-
     set_cur_player_fovy(FOV_Y_F);
 
     // This call doesn't do anything, the call viSetFovY(g_CurrentPlayer->fovy); in lvlRender
@@ -7836,26 +7819,6 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
         viSetFrameBuf2((u8 *) resolution);
     }
 
-#ifdef VERSION_EU
-    if (get_screen_ratio() == SCREEN_RATIO_16_9)
-    {
-        faspect = ((f32) bondviewGetCurrentPlayerViewportWidth() / (f32) bondviewGetCurrentPlayerViewportHeight()) * 0.75f * WIDESCREEN_ASPECT;
-    }
-    else
-    {
-        faspect = (f32) bondviewGetCurrentPlayerViewportWidth() / (f32) bondviewGetCurrentPlayerViewportHeight();
-    }
-
-    if (cameraBufferToggle == 0)
-    {
-        faspect *= EU_CAMERA_8003642C_ASPECT;
-    }
-
-    set_cur_player_aspect(faspect);
-    viSetAspect(faspect);
-
-#else
-
     if (get_screen_ratio() == SCREEN_RATIO_16_9)
     {
         set_cur_player_aspect(((f32) bondviewGetCurrentPlayerViewportWidth() / (f32) bondviewGetCurrentPlayerViewportHeight()) * 0.75f * WIDESCREEN_ASPECT);
@@ -7866,7 +7829,6 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
         set_cur_player_aspect((f32) bondviewGetCurrentPlayerViewportWidth() / (f32) bondviewGetCurrentPlayerViewportHeight());
         viSetAspect((f32) bondviewGetCurrentPlayerViewportWidth() / (f32) bondviewGetCurrentPlayerViewportHeight());
     }
-#endif
 
     set_cur_player_screen_size( bondviewGetCurrentPlayerViewportWidth(), bondviewGetCurrentPlayerViewportHeight());
     set_cur_player_viewport_size( get_curplayer_viewport_ulx(), bondviewGetCurrentPlayerViewportUly());
@@ -7886,10 +7848,6 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
         (getPlayerCount() == 1 && cur_player_get_sight_onscreen_control())
             || (getPlayerCount() >= 2 && g_playerPerm->sight)
     );
-
-#if defined(VERSION_EU)
-    if (1);
-#endif
 
     if ((g_CameraMode == CAMERAMODE_NONE) || ((g_CameraMode == CAMERAMODE_FP) && (is_timer_active != 0)) || (g_CameraMode == CAMERAMODE_FADE_TO_TITLE))
     {
@@ -7952,11 +7910,6 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
         {
             currentPlayerEquipWeaponWrapper(GUNLEFT, 0);
             currentPlayerEquipWeaponWrapper(GUNRIGHT, 0);
-
-            if (0)
-            {
-                // removed?
-            };
         }
 
         if (g_CurrentPlayer->redbloodfinished && g_CurrentPlayer->deathanimfinished && (camera_mode >= CAMERAMODE_SWIRL))
@@ -7974,9 +7927,6 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
 }
 
 
-/**
- * Address 0x7F0875E4.
- */
 void bondviewUpdateCurrentRoomPosition(s32 arg0)
 {
     getRoomPositionScaledByIndex(arg0, &g_CurrentPlayer->current_model_pos);
@@ -7995,9 +7945,6 @@ void store_BONDdata_curpos_to_previous(void) {
 }
 
 
-/**
- * Address: 7F0876C4
- */
 void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord3d* cam_up)
 {
     Mtx sp108;

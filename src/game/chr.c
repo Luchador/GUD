@@ -3532,24 +3532,6 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
 
 
 /**
- * Removed.
- *
- * Address 0x7F022E1C.
- */
-void chrRemoved7F022E1C(f32 arg0)
-{
-    // removed
-}
-
-
-void setanimationdebugflag(s32 param_1)
-{
-  D_8002C904 = param_1;
-  return;
-}
-
-
-/**
  * Decrements g_AnimationTablePointerCountRelated.
  * If less than zero, the variable will then be set to the
  * number of non-zero entries in animation_table_ptrs1.
@@ -3591,16 +3573,14 @@ void chrIncrementAnimationTablePointerCount(void)
 }
 
 
-/**
- * Address 0x7F022EC8.
- */
 void chrToggleD_8002C90C(void)
 {
     D_8002C90C = !D_8002C90C;
 }
 
 
-void sub_GAME_7F022EE0(s32 param_1){
+void sub_GAME_7F022EE0(s32 param_1)
+{
   D_8002C910 = param_1;
 }
 
@@ -3609,8 +3589,6 @@ void sub_GAME_7F022EE0(s32 param_1){
  * Iterates all guards and checks if the noise is within the hearing scale distance.
  *
  * @param noise: noise amount to check.
- *
- * Address 0x7F022EEC.
  */
 void chrCheckGuardsHeardSound(f32 noise)
 {

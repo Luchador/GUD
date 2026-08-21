@@ -398,6 +398,7 @@ void bgResetPortalVisitCounts(void)
 s32 bgGet2dBboxByRoomId(s32 room_id, struct bbox2d *result)
 {
     s32 i;
+
     for (i=0; i<g_BgNumberOfRoomsDrawn; i++)
     {
         if (room_id == dword_CODE_bss_8007FFA0[i].roomid)
@@ -460,9 +461,6 @@ Gfx *sub_GAME_7F0B3C8C(Gfx *gdl)
  
     for (i = b_min; i <= b_max; i++)
     {
-    #ifdef DEBUG
-        notdone = g_BgNumberOfRoomsDrawn;
-    #endif
         for (j = 0; j < g_BgNumberOfRoomsDrawn; j++)
         {
             if (i == dword_CODE_bss_8007FFA0[j].unk1)
@@ -479,14 +477,7 @@ Gfx *sub_GAME_7F0B3C8C(Gfx *gdl)
                 }
  
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)get_BONDdata_field_10E0()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
-                gdl = fogSetRenderFogColor(
-                    bgScissorCurrentPlayerViewF(
-                        gdl++,
-                        dword_CODE_bss_8007FFA0[j].bbox.min.x,
-                        dword_CODE_bss_8007FFA0[j].bbox.min.y,
-                        dword_CODE_bss_8007FFA0[j].bbox.max.x,
-                        dword_CODE_bss_8007FFA0[j].bbox.max.y),
-                    0);
+                gdl = fogSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl++, dword_CODE_bss_8007FFA0[j].bbox.min.x, dword_CODE_bss_8007FFA0[j].bbox.min.y, dword_CODE_bss_8007FFA0[j].bbox.max.x, dword_CODE_bss_8007FFA0[j].bbox.max.y), 0);
  
                 if (get_debug_do_draw_bg())
                 {
@@ -506,17 +497,9 @@ Gfx *sub_GAME_7F0B3C8C(Gfx *gdl)
                         gdl = chrpropsRenderPass(gdl, dword_CODE_bss_8007FFA0[j].roomid, 2);
                     }
                 }
- 
-                if (1);
             }
-    #ifdef DEBUG
-            notdone--;
-    #endif
         }
     }
-    #ifdef DEBUG
-    assert(notdone == 0);
-    #endif
  
     gdl = bgScissorCurrentPlayerViewDefault(fogRenderClearFogMode(gdl));
     gSPMatrix(gdl++, osVirtualToPhysical((void*)get_BONDdata_field_10E0()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
@@ -527,15 +510,9 @@ Gfx *sub_GAME_7F0B3C8C(Gfx *gdl)
         gdl = explosionCallRenderBulletImpactOnProp(gdl);
     }
  
-    if (g_BgNumberOfRoomsDrawn);
-    if (dword_CODE_bss_8007FFA0);
- 
     for (i = b_max; i >= b_min; i--)
     {
-    #ifdef DEBUG
-        notdone = g_BgNumberOfRoomsDrawn;
-    #endif
- 
+
         for (j = 0; j < g_BgNumberOfRoomsDrawn; j++)
         {
             if (i == dword_CODE_bss_8007FFA0[j].unk1)
@@ -568,17 +545,9 @@ Gfx *sub_GAME_7F0B3C8C(Gfx *gdl)
                         gdl = chrpropsRenderPass(gdl, dword_CODE_bss_8007FFA0[j].roomid, 1);
                     }
                 }
- 
-                if (1);
             }
-    #ifdef DEBUG
-            notdone--;
-    #endif
         }
     }
-    #ifdef DEBUG
-    assert(notdone == 0);
-    #endif
  
     return gdl;
 }
@@ -630,6 +599,7 @@ void load_bg_file(LEVEL_INDEX levelid)
         u8 pad[3];
         s32 data;
     } bg_envdata_entry_local;
+
     s32 i;
     s32 size;
     s32 header[0x10];
@@ -673,7 +643,6 @@ void load_bg_file(LEVEL_INDEX levelid)
     sub_GAME_7F0B4810(levelinfotable[levelentry_index].levelscale);
     setLevelScale(levelinfotable[levelentry_index].levelscale);
     setDebugCameraScale(levelinfotable[levelentry_index].levelscale);
-    chrRemoved7F022E1C(levelinfotable[levelentry_index].levelscale);
  
     mCurrentLevelVisibilityScale = levelinfotable[levelentry_index].visibility;
  

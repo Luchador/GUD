@@ -6,7 +6,9 @@
 #include "chrobjdata.h"
 #include "initguards.h"
 
-void init_guards(void) {
+
+void init_guards(void) 
+{
     animation_rate = 1.0f;
     D_8002C904 = 0;
     g_AnimationTablePointerCountRelated = 0;
@@ -35,7 +37,6 @@ void alloc_init_GUARDdata_entries(s32 count)
         g_ChrSlots[i].model = 0;
     }
 }
-
 
 
 void bodiesReset(u32 stagenum)
