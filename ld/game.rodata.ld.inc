@@ -80,7 +80,6 @@
       build/OUTCODE/src/game/bondinv.o (.rodata);
       build/OUTCODE/src/game/bondhead.o (.rodata);
       build/OUTCODE/src/game/padhalllv.o (.rodata);
-      build/OUTCODE/src/game/debugmenu_08FE00.o (.rodata);
       build/OUTCODE/src/game/debugmenu_handler.o (.rodata);
       build/OUTCODE/src/game/debug_camera.o (.rodata);
       build/OUTCODE/src/game/chraidata.o (.rodata);

@@ -79,7 +79,6 @@
       build/OUTCODE/src/game/bondinv.o (.bss);
       build/OUTCODE/src/game/bondhead.o (.bss);
       build/OUTCODE/src/game/padhalllv.o (.bss);
-      build/OUTCODE/src/game/debugmenu_08FE00.o (.bss);
       build/OUTCODE/src/game/debugmenu_handler.o (.bss);
       build/OUTCODE/src/game/debug_camera.o (.bss);
       build/OUTCODE/src/game/chraidata.o (.bss);

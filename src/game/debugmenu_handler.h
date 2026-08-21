@@ -7,8 +7,6 @@ struct mcm_layout {
     int ypos;
 };
 
-
-
 extern s32 g_DebugMode;
 extern s32 g_DebugHighlightedOption;
 

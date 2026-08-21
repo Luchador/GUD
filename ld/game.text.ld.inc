@@ -79,7 +79,6 @@
       build/OUTCODE/src/game/bondinv.o (.text);
       build/OUTCODE/src/game/bondhead.o (.text);
       build/OUTCODE/src/game/padhalllv.o (.text);
-      build/OUTCODE/src/game/debugmenu_08FE00.o (.text);
       build/OUTCODE/src/game/debugmenu_handler.o (.text);
       build/OUTCODE/src/game/debug_camera.o (.text);
       build/OUTCODE/src/game/chraidata.o (.text);
