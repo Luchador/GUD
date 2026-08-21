@@ -30,7 +30,6 @@
       build/OUTCODE/src/sprintf.o (.rodata);
       build/OUTCODE/src/pi.o (.rodata);
       build/OUTCODE/src/vi.o (.rodata);
-      build/OUTCODE/src/debugmenu.o (.rodata);
       build/OUTCODE/src/joy.o (.rodata);
       build/OUTCODE/src/motor.o (.rodata);
 #ifdef VERSION_EU

@@ -29,7 +29,6 @@
       build/OUTCODE/src/sprintf.o (.data);
       build/OUTCODE/src/pi.o (.data);
       build/OUTCODE/src/vi.o (.data);
-      build/OUTCODE/src/debugmenu.o (.data);
       build/OUTCODE/src/joy.o (.data);
       build/OUTCODE/src/motor.o (.data);
 #ifdef VERSION_EU

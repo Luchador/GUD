@@ -5,7 +5,6 @@
 #include <bondgame.h>
 #include "boss.h"
 #include "deb.h"
-#include "debugmenu.h"
 #include "game/dyn.h"
 #include "game/game_debug.h"
 #include "game/file.h"
@@ -446,8 +445,6 @@ void bossMainloop(void)
 
                             // Primary game rendering function.
                             gdl = lvlRender(gdl);
-
-                            gdl = debmenuDraw(gdl);
 
                             gdl = bondviewRenderRoomPosDisplay(gdl);
 
