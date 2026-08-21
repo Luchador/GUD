@@ -3,7 +3,6 @@
 
 #include <ultra64.h>
 
-void dynInit(void);
 void dynInitMemory(void);
 Gfx *dynGetMasterDisplayList(void);
 s32 dynGetFreeGfx2(Gfx *gdl);

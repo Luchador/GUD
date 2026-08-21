@@ -145,7 +145,6 @@ void bossInitMainthreadData(void)
     indycommInit();
     g_DebugAndUpdateStageFlag = rmonGetToken();
     obInit();
-    dynInit();
     joyInit();
     osCreateMesgQueue(&bossmq, &bossmsg, 1);
 

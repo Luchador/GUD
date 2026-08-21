@@ -37,18 +37,16 @@ s32 D_800482E0 = 0;
 s32 g_GfxSizesByPlayerCount[] = {0x10000, 0x18000, 0x20000, 0x28000};
 s32 g_VtxSizesByPlayerCount[] = {0x10000, 0x18000, 0x20000, 0x28000};
 
-char membars_string1[] = ">>>>>>>>>>>>>>>>>>>>>>>>>";
-char membars_string2[] = "=========================";
-char membars_string3[] = "-------------------------";
 
-void dynInit(void) {
-}
-
-void dynInitMemory(void) {
-    if (tokenFind(1, "-mgfx")) {
+void dynInitMemory(void)
+{
+    if (tokenFind(1, "-mgfx"))
+    {
         g_GfxSizesByPlayerCount[getPlayerCount() - 1] = strtol(tokenFind(1, "-mgfx"), NULL, 0) * 1024;
     }
-    if (tokenFind(1, "-mvtx")) {
+
+    if (tokenFind(1, "-mvtx"))
+    {
         g_VtxSizesByPlayerCount[getPlayerCount() - 1] = strtol(tokenFind(1, "-mvtx"), NULL, 0) * 1024;
     }
 

@@ -3,19 +3,8 @@
 #include "memp.h"
 #include "game/language.h"
 
-/**
- * EU .data, offset from start of data_seg : 0x3640
-*/
 
-/**
- * @file memp.c
- * This file contains code for memp.
- */
-
-//bss
 MemoryPool g_mempPools[MEMPOOL_COUNT];
-
-//data
 void *ptr_memp_c_debug_debug_notice_list = 0;
 s32 needmemallocation = 0;
 
@@ -27,9 +16,10 @@ struct s_mempMVALS sdefaultmvals = {
     0,                 0   // MEMPOOL_END
 };
 
-
 const char *tokenFind(s32 arg0, const char *arg1);
 long int strtol(const char *str, char **endptr, int base);
+
+
 void mempCheckMemflagTokens(s32 poolAreaStart, s32 poolAreaSize)
 {
     s_mempMVALS poolSizes;
@@ -62,6 +52,7 @@ void mempCheckMemflagTokens(s32 poolAreaStart, s32 poolAreaSize)
 
     mempSetBankStarts((s32*)&poolSizes);
 }
+
 
 void mempSetBankStarts(s32 poolSizes[MEMPOOL_COUNT+1])
 {
