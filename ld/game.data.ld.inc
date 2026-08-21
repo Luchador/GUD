@@ -36,7 +36,6 @@
       build/OUTCODE/src/game/playerstats_007770.o (.data);
       build/OUTCODE/src/game/cleanexplosions.o (.data);
       build/OUTCODE/src/game/cleanwindowpieces.o (.data);
-      build/OUTCODE/src/game/null_007970.o (.data);
       build/OUTCODE/src/game/cleanplayersound.o (.data);
       build/OUTCODE/src/game/title.o (.data);
       build/OUTCODE/src/game/front.o (.data);

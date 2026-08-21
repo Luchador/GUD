@@ -36,7 +36,6 @@
       build/OUTCODE/src/game/playerstats_007770.o (.bss);
       build/OUTCODE/src/game/cleanexplosions.o (.bss);
       build/OUTCODE/src/game/cleanwindowpieces.o (.bss);
-      build/OUTCODE/src/game/null_007970.o (.bss);
       build/OUTCODE/src/game/cleanplayersound.o (.bss);
       build/OUTCODE/src/game/title.o (.bss);
       build/OUTCODE/src/game/front.o (.bss);

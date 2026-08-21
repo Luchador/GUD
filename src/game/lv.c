@@ -1176,7 +1176,6 @@ void lvlUnloadStageTextData(void)
     cleanupObjectSounds();
     cleanupExplosions();
     cleanup_window_pieces();
-    cleanup_REMOVED_();
     cleanupAlarms();
     cleanupObjects(g_CurrentStageToLoad);
     cleanupObjectives();

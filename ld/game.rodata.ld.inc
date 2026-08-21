@@ -36,7 +36,6 @@
       build/OUTCODE/src/game/playerstats_007770.o (.rodata);
       build/OUTCODE/src/game/cleanexplosions.o (.rodata);
       build/OUTCODE/src/game/cleanwindowpieces.o (.rodata);
-      build/OUTCODE/src/game/null_007970.o (.rodata);
       build/OUTCODE/src/game/cleanplayersound.o (.rodata);
       build/OUTCODE/src/game/title.o (.rodata);
       build/OUTCODE/src/game/front.o (.rodata);

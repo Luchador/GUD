@@ -187,8 +187,6 @@ void bossInitMainthreadData(void)
         g_DebugAndUpdateStageFlag = 1;
     }
 
-    gameInit();
-
     if (g_DebugAndUpdateStageFlag != 0)
     {
         tokenSetString("          -ml0 -me0 -mgfx100 -mvtx50 -mt700 -ma400");
@@ -379,6 +377,7 @@ void bossMainloop(void)
         if (g_StageNum != LEVELID_TITLE)
         {
             localSelectedNumPlayers = 1;
+
             if (get_selected_num_players() >= 2)
             {
                 localSelectedNumPlayers = get_selected_num_players();
@@ -486,18 +485,9 @@ void bossMainloop(void)
         mempNullNextEntryInBank(MEMPOOL_STAGE);
         obBlankResourcesLoadedInBank(MEMPOOL_STAGE);
 
-#if defined(VERSION_EU)
-        if(1);
-#endif
-
         g_StageNum = g_MainStageNum;
         g_MainStageNum = LEVELID_NONE;
     }
-
-    // if(gdl) also works here.
-    if (!gdl)
-        // removed ... or ido?
-    ;
 
     sub_GAME_7F0D1A7C();
 }
