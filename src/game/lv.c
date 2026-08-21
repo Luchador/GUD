@@ -3,6 +3,7 @@
 #include <os_extension.h>
 #include <PR/libaudio.h>
 #include <assets/font_dl.h>
+#include <bondconstants.h>
 #include <deb.h>
 #include <memp.h>
 #include <music.h>
@@ -13,52 +14,51 @@
 #include <random.h>
 #include <joy.h>
 #include <token.h>
-#include "debugmenu_handler.h"
-#include "lv.h"
-#include "language.h"
-#include "initcheattext.h"
-#include "front.h"
-#include "bondinv.h"
-#include "player.h"
-#include "propobj.h"
-#include "cleanup_objects.h"
-#include "explosion.h"
-#include "chrai.h"
-#include "mp_music.h"
-#include "initunk_005520.h"
-#include "initmttex.h"
-#include "glass.h"
-#include "image_bank.h"
-#include "textrelated.h"
-#include "initmenus.h"
-#include "cheat.h"
-#include "bg.h"
-#include "objective.h"
-#include "mpmenu.h"
-#include "vtxstore.h"
-#include "initunk_005450.h"
-#include "initobjects.h"
-#include "initguards.h"
-#include "prop.h"
-#include "initexplosioncasing.h"
 #include "alloc_window_pieces.h"
-#include "initunk_007290.h"
-#include "initcheattext.h"
-#include "initpathtablelinks.h"
-#include "ejectedcartridges.h"
-#include "inititemslots.h"
-#include "initBondDATA.h"
+#include "bg.h"
+#include "bgroomtrans.h"
+#include "bondinv.h"
+#include "bondtypes.h"
 #include "bondview.h"
 #include "bondview_r.h"
-#include "initBondDATAdefaults.h"
-#include "viewport.h"
-#include "stan.h"
-#include "gun.h"
-#include "mp_music.h"
-#include "bgroomtrans.h"
-#include "unk_092E50.h"
-#include "frametiming.h"
+#include "cheat.h"
 #include "chr.h"
+#include "chrai.h"
+#include "cleanup_objects.h"
+#include "debugmenu_handler.h"
+#include "ejectedcartridges.h"
+#include "explosion.h"
+#include "frametiming.h"
+#include "front.h"
+#include "glass.h"
+#include "gun.h"
+#include "image_bank.h"
+#include "initBondDATA.h"
+#include "initBondDATAdefaults.h"
+#include "initcheattext.h"
+#include "initexplosioncasing.h"
+#include "initguards.h"
+#include "inititemslots.h"
+#include "initmenus.h"
+#include "initmttex.h"
+#include "initobjects.h"
+#include "initpathtablelinks.h"
+#include "initunk_005450.h"
+#include "initunk_005520.h"
+#include "initunk_007290.h"
+#include "language.h"
+#include "lv.h"
+#include "mp_music.h"
+#include "mpmenu.h"
+#include "objective.h"
+#include "player.h"
+#include "prop.h"
+#include "propobj.h"
+#include "stan.h"
+#include "textrelated.h"
+#include "unk_092E50.h"
+#include "viewport.h"
+#include "vtxstore.h"
 
 
 u32 *ptr_font_DL;
@@ -126,8 +126,7 @@ s32 g_SystemPowerTimeTicks = 0;
 f32 g_SystemPowerTimeSeconds = 0.0;
 
 /**
- * Debug variable, seems to track whether user input has changed since
- * the last time the method was entered.
+ * Stops rendering the 3D world once the pause watch fills the screen.
  */
 bool g_BgRenderEnabled = TRUE;
 

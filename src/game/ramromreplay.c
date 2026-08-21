@@ -529,23 +529,24 @@ void stop_demo_playback(void)
 }
 
 
-
-// Address 0x7F0C0970 NTSC.
-void select_ramrom_to_play(void)
+void ramromSelectDemo(void)
 {
-    s32 i;
-    s32 temp_v0;
+    s32 numUnlockedDemos;
+    s32 highestUnlockedStage;
 
-    temp_v0 = fileGetHighestStageUnlockedAnyFolder();
+    numUnlockedDemos = 0;
+    highestUnlockedStage = fileGetHighestStageUnlockedAnyFolder();
 
-    for (i = 0; ramrom_table[i].fdata != NULL && temp_v0 >= ramrom_table[i].locked; i++)
-    {}
+    /**
+     * Prevent demo spoilers by only playing demos that take place in unlocked stages.
+     */
+    while(ramrom_table[numUnlockedDemos].fdata != NULL && highestUnlockedStage >= ramrom_table[numUnlockedDemos].locked)
+    {
+        numUnlockedDemos++;
+    }
 
-    replay_recorded_ramrom_at_address(ramrom_table[randomGetNext() % i].fdata);
+    replay_recorded_ramrom_at_address(ramrom_table[randomGetNext() % numUnlockedDemos].fdata);
 }
-
-
-
 
 
 u32 check_ramrom_flags(void)
@@ -557,6 +558,3 @@ u32 check_ramrom_flags(void)
     }
     return 0;
 }
-
-
-
