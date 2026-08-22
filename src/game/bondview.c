@@ -736,27 +736,27 @@ Mtx *currentPlayerGetMatrix10C8(void)
 }
 
 
-void currentPlayerSetProjectionMatrix(Mtx *matrix)
+void setPlayerProjMtx(Mtx *matrix)
 {
     g_CurrentPlayer->projmatrix = matrix;
 }
 
 
-Mtx *currentPlayerGetProjectionMatrix(void)
+Mtx *getPlayerProjMtx(void)
 {
     return g_CurrentPlayer->projmatrix;
 }
 
 
-void set_BONDdata_field_10E0(s32 arg0)
+void setPlayerProjViewMtx(Mtx *mtx)
 {
-    g_CurrentPlayer->field_10E0 = arg0;
+    g_CurrentPlayer->projViewMtx = mtx;
 }
 
 
-s32 get_BONDdata_field_10E0(void)
+Mtx *getPlayerProjViewMtx(void)
 {
-    return g_CurrentPlayer->field_10E0;
+    return g_CurrentPlayer->projViewMtx;
 }
 
 

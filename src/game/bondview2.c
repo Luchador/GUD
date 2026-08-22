@@ -7895,7 +7895,7 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
     coord3d scaledpos;
     f32 scale;
     Mtx *temp_s0;
-    Mtxf *projmtx;
+    Mtxf *projViewMtx;
     Mtxf sp60;
     s32 j;
     s32 i;
@@ -7942,8 +7942,8 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
 
     temp_s0 = dynAllocateMatrix();
 
-    projmtx = currentPlayerGetProjectionMatrixF();
-    matrix_4x4_multiply(projmtx, &spC4, &sp60);
+    projViewMtx = currentPlayerGetProjectionMatrixF();
+    matrix_4x4_multiply(projViewMtx, &spC4, &sp60);
 
 	for (i = 0; i < 4; i++)
     {
@@ -7961,7 +7961,7 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
 	}
 
     guMtxF2L((f32 (*)[4]) &sp60, temp_s0);
-    set_BONDdata_field_10E0((s32) temp_s0);
+    setPlayerProjViewMtx(temp_s0);
 
     scale = bgGetLevelVisibilityScale();
 
@@ -8411,7 +8411,7 @@ Gfx *bondviewRenderGaugeBars(Gfx *gdl)
     gSPDisplayList(gdl++, OS_PHYSICAL_TO_K0(&g_CurrentPlayer->watch_body_armor_bar_gdl));
     gSPDisplayList(gdl++, OS_PHYSICAL_TO_K0(&g_CurrentPlayer->watch_health_bar_gdl));
 
-    gSPMatrix(gdl++, osVirtualToPhysical(currentPlayerGetProjectionMatrix()), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
+    gSPMatrix(gdl++, osVirtualToPhysical(getPlayerProjMtx()), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
 
     return gdl;
 }

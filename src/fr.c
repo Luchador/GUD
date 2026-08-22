@@ -473,7 +473,7 @@ Gfx *viSetupCurrentPlayerView(Gfx *gdl)
     gSPPerspNormalize(gdl++, g_viPerspNorm);
 
     // Store the float and non-float projection matrices so we can recall them later instead of having to rebuild them.
-    currentPlayerSetProjectionMatrix(g_viProjectionMatrix);
+    setPlayerProjMtx(g_viProjectionMatrix);
     currentPlayerSetProjectionMatrixF(g_viProjectionMatrixF);
 
     // Normal rendering mode is a 16-bit RGBA image.

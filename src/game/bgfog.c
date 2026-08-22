@@ -523,32 +523,15 @@ void fogSwitchToSolosky2(f32 arg0)
 }
 
 
-/**
- * @param gdl:
- * @param arg1: not used?
- *
- * Address 0x7F0BB070.
-*/
-Gfx *fogSetRenderFogColor(Gfx *gdl, s32 arg1)
+Gfx *fogSetRenderFogColor(Gfx *gdl)
 {
-    if (g_FogSkyIsEnabled == 0)
+    if (!g_FogSkyIsEnabled)
     {
         return gdl;
     }
 
-    // note: both branches are exactly the same.
-    // maybe one has debug code?
-    if (arg1)
-    {
-        gDPSetFogColor(gdl++, g_CurrentEnvironment.Red, g_CurrentEnvironment.Green, g_CurrentEnvironment.Blue, 0xff);
-        gSPFogPosition(gdl++, g_CurrentEnvironment.DifferenceFromFarIntensity, g_CurrentEnvironment.FarIntensity);
-    }
-    else
-    {
-        gDPSetFogColor(gdl++, g_CurrentEnvironment.Red, g_CurrentEnvironment.Green, g_CurrentEnvironment.Blue, 0xff);
-        gSPFogPosition(gdl++, g_CurrentEnvironment.DifferenceFromFarIntensity, g_CurrentEnvironment.FarIntensity);
-    }
-
+    gDPSetFogColor(gdl++, g_CurrentEnvironment.Red, g_CurrentEnvironment.Green, g_CurrentEnvironment.Blue, 0xff);
+    gSPFogPosition(gdl++, g_CurrentEnvironment.DifferenceFromFarIntensity, g_CurrentEnvironment.FarIntensity);
     gSPSetGeometryMode(gdl++, G_FOG);
     gDPSetAlphaDither(gdl++, G_AD_NOISE);
 
@@ -556,12 +539,9 @@ Gfx *fogSetRenderFogColor(Gfx *gdl, s32 arg1)
 }
 
 
-/**
- * Address 0x7F0BB298.
-*/
 Gfx *fogRenderClearFogMode(Gfx *gdl)
 {
-    if (g_FogSkyIsEnabled == 0)
+    if (!g_FogSkyIsEnabled)
     {
         return gdl;
     }
@@ -572,9 +552,6 @@ Gfx *fogRenderClearFogMode(Gfx *gdl)
 }
 
 
-/**
- * Address 0x7F0BB2C8.
-*/
 s32 fogPositionIsVisibleThroughFog(coord3d *pos, f32 range)
 {
     coord3d sp24;
@@ -611,9 +588,6 @@ NearFogRecord *fogGetNearFogValuesP(void)
 }
 
 
-/**
- * Address 0x7F0BB3A4.
-*/
 s32 fogGetPropDistColor(PropRecord *prop, rgba_f32 *color)
 {
     if (g_FogSkyIsEnabled == 0)

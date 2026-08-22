@@ -7158,7 +7158,7 @@ void sub_GAME_7F04AC20(PropRecord *prop, ModelRenderData *mrData, s32 arg2)
 
         if (destroyed)
         {
-            destroyed = get_BONDdata_field_10E0();
+            destroyed = getPlayerProjViewMtx();
             destroyed = destroyed != 0;
         }
 
@@ -7306,7 +7306,7 @@ void sub_GAME_7F04AC20(PropRecord *prop, ModelRenderData *mrData, s32 arg2)
         if (destroyed)
         {
             // Keep on one line for matching.
-            g3 = gdl++; gSPMatrix(g3, get_BONDdata_field_10E0(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
+            g3 = gdl++; gSPMatrix(g3, getPlayerProjViewMtx(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
         }
 
         mrData->gdl = gdl;
@@ -7326,7 +7326,7 @@ void sub_GAME_7F04AC20(PropRecord *prop, ModelRenderData *mrData, s32 arg2)
         if (destroyed)
         {
             // Keep on one line for matching.
-            g2 = gdl++; gSPMatrix(g2, currentPlayerGetProjectionMatrix(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
+            g2 = gdl++; gSPMatrix(g2, getPlayerProjMtx(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
         }
 
         mrData->gdl = gdl;

@@ -278,7 +278,7 @@ Gfx *glassRenderShards(Gfx *gdl)
     gSPClearGeometryMode(gdl++, G_CULL_BOTH);
     gDPSetTextureFilter(gdl++, G_TF_BILERP);
     gSPSetGeometryMode(gdl++, G_LIGHTING | G_TEXTURE_GEN);
-    gSPMatrix(gdl++, osVirtualToPhysical(get_BONDdata_field_10E0()), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
+    gSPMatrix(gdl++, osVirtualToPhysical(getPlayerProjViewMtx()), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
 
     #define WINDOW_PIECE(_i) ((s_shattered_window_piece*)((u8*)ptr_shattered_window_pieces + ((_i) * sizeof(s_shattered_window_piece))))
 
@@ -302,7 +302,7 @@ Gfx *glassRenderShards(Gfx *gdl)
     #undef WINDOW_PIECE
 
     gSPClearGeometryMode(gdl++, G_LIGHTING | G_TEXTURE_GEN);
-    gSPMatrix(gdl++, (u32)currentPlayerGetProjectionMatrix(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
+    gSPMatrix(gdl++, (u32)getPlayerProjMtx(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
     gSPMatrix(gdl++, (u32)currentPlayerGetMatrix10C8(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
 
     return gdl;

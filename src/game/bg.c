@@ -424,7 +424,7 @@ Gfx *bgRender(Gfx *gdl)
         {
             if (i == dword_CODE_bss_8007FFA0[j].unk1)
             {
-                gSPMatrix(gdl++, osVirtualToPhysical((void*)currentPlayerGetProjectionMatrix()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
+                gSPMatrix(gdl++, osVirtualToPhysical((void*)getPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
                 gdl = fogRenderClearFogMode(gdl);
  
                 if (lvGetBgRenderEnabled())
@@ -432,15 +432,15 @@ Gfx *bgRender(Gfx *gdl)
                     gdl = chrpropsRenderPass(gdl, dword_CODE_bss_8007FFA0[j].roomid, 0);
                 }
  
-                gSPMatrix(gdl++, osVirtualToPhysical((void*)get_BONDdata_field_10E0()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
-                gdl = fogSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl++, dword_CODE_bss_8007FFA0[j].bbox.min.x, dword_CODE_bss_8007FFA0[j].bbox.min.y, dword_CODE_bss_8007FFA0[j].bbox.max.x, dword_CODE_bss_8007FFA0[j].bbox.max.y), 0);
+                gSPMatrix(gdl++, osVirtualToPhysical(getPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
+                gdl = fogSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl++, dword_CODE_bss_8007FFA0[j].bbox.min.x, dword_CODE_bss_8007FFA0[j].bbox.min.y, dword_CODE_bss_8007FFA0[j].bbox.max.x, dword_CODE_bss_8007FFA0[j].bbox.max.y));
  
                 if (lvGetBgRenderEnabled())
                 {
                     gdl = bgRenderRoomPrimary(gdl, dword_CODE_bss_8007FFA0[j].roomid);
                 }
  
-                gSPMatrix(gdl++, osVirtualToPhysical((void*)currentPlayerGetProjectionMatrix()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
+                gSPMatrix(gdl++, osVirtualToPhysical((void*)getPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
                 gdl = fogRenderClearFogMode(gdl);
  
                 if (lvGetBgRenderEnabled())
@@ -452,7 +452,7 @@ Gfx *bgRender(Gfx *gdl)
     }
 
     gdl = bgScissorCurrentPlayerViewDefault(fogRenderClearFogMode(gdl));
-    gSPMatrix(gdl++, osVirtualToPhysical((void*)get_BONDdata_field_10E0()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
+    gSPMatrix(gdl++, osVirtualToPhysical(getPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
  
     if (lvGetBgRenderEnabled())
     {
@@ -466,22 +466,15 @@ Gfx *bgRender(Gfx *gdl)
         {
             if (i == dword_CODE_bss_8007FFA0[j].unk1)
             {
-                gSPMatrix(gdl++, osVirtualToPhysical((void*)get_BONDdata_field_10E0()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
-                gdl = fogSetRenderFogColor(
-                    bgScissorCurrentPlayerViewF(
-                        gdl++,
-                        dword_CODE_bss_8007FFA0[j].bbox.min.x,
-                        dword_CODE_bss_8007FFA0[j].bbox.min.y,
-                        dword_CODE_bss_8007FFA0[j].bbox.max.x,
-                        dword_CODE_bss_8007FFA0[j].bbox.max.y),
-                    1);
+                gSPMatrix(gdl++, osVirtualToPhysical(getPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
+                gdl = fogSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl++, dword_CODE_bss_8007FFA0[j].bbox.min.x, dword_CODE_bss_8007FFA0[j].bbox.min.y, dword_CODE_bss_8007FFA0[j].bbox.max.x, dword_CODE_bss_8007FFA0[j].bbox.max.y));
  
                 if (lvGetBgRenderEnabled())
                 {
                     gdl = bgRenderRoomSecondary(gdl, dword_CODE_bss_8007FFA0[j].roomid);
                 }
 
-                gSPMatrix(gdl++, osVirtualToPhysical((void*)currentPlayerGetProjectionMatrix()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
+                gSPMatrix(gdl++, osVirtualToPhysical((void*)getPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
                 gdl = fogRenderClearFogMode(gdl);
  
                 if (lvGetBgRenderEnabled())
@@ -998,7 +991,7 @@ Gfx *bgSetupAndRender(Gfx *gdl)
     }
     else
     {
-        gdl = fogRenderClearFogMode(bgScissorCurrentPlayerViewDefault(bgRenderWrapper(fogSetRenderFogColor(gdl, 0))));
+        gdl = fogRenderClearFogMode(bgScissorCurrentPlayerViewDefault(bgRenderWrapper(fogSetRenderFogColor(gdl))));
     }
 
     gSPMatrix(gdl++, g_viProjectionMatrix, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
@@ -1040,13 +1033,13 @@ Gfx* bgScissorCurrentPlayerViewF(Gfx* arg0, f32 arg1, f32 arg2, f32 arg3, f32 ar
  * Specifies the drawing area (the scissoring box).
  * View is bound to current player view properties, but parameters can clip to smaller area.
  *
- * @param arg0: Display list pointer
+ * @param gdl: Display list pointer
  * @param left: Screen's left edge coordinates. Must be >= g_CurrentPlayer->viewleft otherwise ignored.
  * @param top: Screen's top edge coordinates. Must be >= g_CurrentPlayer->viewtop otherwise ignored.
  * @param width: Screen's right edge coordinates. Must be <= g_CurrentPlayer->viewleft+viewx otherwise ignored.
  * @param height: Screen's left bottom coordinates. Must be <= g_CurrentPlayer->viewtop+viewy otherwise ignored.
  */
-Gfx *bgScissorCurrentPlayerView(Gfx *arg0, s32 left, s32 top, s32 width, s32 height)
+Gfx *bgScissorCurrentPlayerView(Gfx *gdl, s32 left, s32 top, s32 width, s32 height)
 {
     struct player *temp_v0;
 
@@ -1072,20 +1065,9 @@ Gfx *bgScissorCurrentPlayerView(Gfx *arg0, s32 left, s32 top, s32 width, s32 hei
         height = temp_v0->viewtop + temp_v0->viewy;
     }
 
-    gDPSetScissor(arg0++, G_SC_NON_INTERLACE, left, top, width, height);
+    gDPSetScissor(gdl++, G_SC_NON_INTERLACE, left, top, width, height);
 
-    return arg0;
-}
-
-
-void sub_GAME_7F0B5168(void) 
-{
-    s32 i;
-
-    for (i = 0; i < PORTMAX; i++) 
-    {
-        table_for_portals[i].unk0 = -1;
-    }
+    return gdl;
 }
 
 
@@ -1255,14 +1237,16 @@ s32 sub_GAME_7F0B5528(s32 portalnum, f32 arg1, coord3d *arg2)
     viGetZRange(zrange);
     zrange[1] /= mCurrentLevelVisibilityScale;
 
-    for (i = 0; i < g_BgPortals[portalnum].offset_portal->numPoints; i++) {
+    for (i = 0; i < g_BgPortals[portalnum].offset_portal->numPoints; i++) 
+    {
         point = &arg2[i];
 
         point->x = (&g_BgPortals[portalnum].offset_portal->point)[i].x;
         point->y = (&g_BgPortals[portalnum].offset_portal->point)[i].y;
         point->z = (&g_BgPortals[portalnum].offset_portal->point)[i].z;
 
-        if (arg1 != 0.0f) {
+        if (arg1 != 0.0f) 
+        {
             sub_GAME_7F0B96CC(portalnum, (f32 *) &metric);
 
             point->x += metric.normal.x * arg1;
@@ -3811,7 +3795,12 @@ void bgDetermineVisibleRooms(void)
     D_80044898 = 0;
 
     bgResetPortalQueue();
-    sub_GAME_7F0B5168();
+
+    for (i = 0; i < PORTMAX; i++) 
+    {
+        table_for_portals[i].unk0 = -1;
+    }
+
     sub_GAME_7F0B8A24(dword_CODE_bss_8007FF90);
 
     /**

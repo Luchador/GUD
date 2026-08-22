@@ -1154,7 +1154,7 @@ struct player
   Mtxf* viewtoworldmtxf;
   Mtx* projmatrix;
   Mtxf* projmatrixf;
-  s32 field_10E0; // ptr
+  Mtx* projViewMtx;
   s32 field_10E4; // ptr
   Mtxf* field_10E8;
   Mtxf* field_10EC;
@@ -2781,8 +2781,8 @@ Mtxf *camGetWorldToScreenMtxf(void);
 void transformAndNormalizeByLength2Dto3D(struct coord2d *in, coord3d *out, f32 value);
 void bondviewTransformManyPosToViewMatrix(RenderPosView *arg0, s32 arg1);
 s32 sub_GAME_7F078474(void);
-s32 get_BONDdata_field_10E0(void);
-Mtx *currentPlayerGetProjectionMatrix(void);
+Mtx *getPlayerProjMtx(void);
+Mtx *getPlayerProjViewMtx(void);
 Gfx *bondviewRenderProp(PropRecord *arg0, Gfx *arg1, s32 arg2);
 f32 getPlayer_c_lodscalez(void);
 f32 bondviewGetBondBreathing(void);
