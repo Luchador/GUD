@@ -58,7 +58,7 @@
 // main size: 5000
 // watch size: 1000
 // xtrack size: 3000
-#define TRACK_1_DATA_SEQ_SIZE_BYTES   6344
+#define TRACK_1_DATA_SEQ_SIZE_BYTES   6600  /* originally 6344. Add 256 for extra safety margin because of the Silo X track loop fix. */
 #define TRACK_2_DATA_SEQ_SIZE_BYTES   2000
 #define TRACK_3_DATA_SEQ_SIZE_BYTES   4000
 
@@ -819,7 +819,11 @@ void musicTrack1Play(s32 track)
         return;
     }
 
-    t3 = ALIGN16_a(g_musicTrackLength[g_musicXTrack1CurrentTrackNum]) + ALIGN16_a(NUM_MUSIC_TRACKS);
+    /**
+     * Add 256 bytes over original. The shipped game's margin (~ALIGN16 slack) assumes retail US
+     * compression profiles. Edited or appended sequence data like the Silo X
+     * loop repair needs headroom against the writer overtaking the reader. */
+    t3 = ALIGN16_a(g_musicTrackLength[g_musicXTrack1CurrentTrackNum]) + ALIGN16_a(NUM_MUSIC_TRACKS) + 256;
     trackSizeBytes = ALIGN16_a(g_musicTrackCompressedLength[g_musicXTrack1CurrentTrackNum]);
     thing.seqData = g_musicXTrack1SeqData;
     temp_a0 = (u8*)((t3 + (s32)thing.seqData) - trackSizeBytes);
