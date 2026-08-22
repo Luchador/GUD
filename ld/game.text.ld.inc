@@ -123,4 +123,4 @@
       build/OUTCODE/src/game/compiletime.o (.text);
       build/OUTCODE/src/game/speedgraphrenderer.o (.text);
       build/OUTCODE/src/game/viewport.o (.text);
-      build/OUTCODE/src/game/music_0D2720.o (.text);
+      build/OUTCODE/src/game/musicselect.o (.text);

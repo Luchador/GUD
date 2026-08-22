@@ -1,5 +1,5 @@
-#ifndef _MUSIC_0D2720_H_
-#define _MUSIC_0D2720_H_
+#ifndef _MUSICSELECT_H_
+#define _MUSICSELECT_H_
 
 #include <ultra64.h>
 

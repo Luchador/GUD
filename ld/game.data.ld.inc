@@ -122,4 +122,4 @@
       build/OUTCODE/src/game/compiletime.o (.data);
       build/OUTCODE/src/game/speedgraphrenderer.o (.data);
       build/OUTCODE/src/game/viewport.o (.data);
-      build/OUTCODE/src/game/music_0D2720.o (.data);
+      build/OUTCODE/src/game/musicselect.o (.data);

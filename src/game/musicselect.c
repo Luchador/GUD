@@ -1,4 +1,5 @@
 #include <ultra64.h>
+#include "musicselect.h"
 #include "bondconstants.h"
 #include "random.h"
 

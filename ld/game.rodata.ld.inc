@@ -124,4 +124,4 @@
       build/OUTCODE/src/game/compiletime.o (.rodata);
       build/OUTCODE/src/game/speedgraphrenderer.o (.rodata);
       build/OUTCODE/src/game/viewport.o (.rodata);
-      build/OUTCODE/src/game/music_0D2720.o (.rodata);
+      build/OUTCODE/src/game/musicselect.o (.rodata);

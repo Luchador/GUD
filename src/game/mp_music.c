@@ -1,6 +1,6 @@
 #include <ultra64.h>
 #include <music.h>
-#include "music_0D2720.h"
+#include "musicselect.h"
 #include "options.h"
 #include "mp_music.h"
 #include "lv.h"
