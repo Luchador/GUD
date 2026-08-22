@@ -124,6 +124,3 @@
       build/OUTCODE/src/game/speedgraphrenderer.o (.data);
       build/OUTCODE/src/game/viewport.o (.data);
       build/OUTCODE/src/game/music_0D2720.o (.data);
-#ifndef VERSION_EU
-      build/OUTCODE/src/game/spectrum.o (.data);
-#endif

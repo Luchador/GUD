@@ -26,7 +26,6 @@
             "LANG_US",
             "REFRESH_NTSC",
             "LEFTOVERDEBUG",
-            "LEFTOVERSPECTRUM",
             "BYTEMATCH"
             /* IDO 5.3 Defs below */,
             "_MIPS_FPSET=16",
@@ -85,7 +84,6 @@
             "LANG_US",
             "REFRESH_NTSC",
             "LEFTOVERDEBUG",
-            "LEFTOVERSPECTRUM",
             "BYTEMATCH"
             /* IDO 5.3 Defs below */,
             "_MIPS_FPSET=16",

@@ -1,50 +1,49 @@
-#include <os_extension.h>
-#include <assets/oddtextures.h>
-#include "assets/image_externs.h"
 #include <ultra64.h>
+#include <assets/font_dl.h>
+#include <assets/oddtextures.h>
 #include <bondgame.h>
 #include <bondconstants.h>
 #include <boss.h>
+#include "game/othermodemicrocode.h"
+#include "game/bondwalk2.h"
+#include "game/file2.h"
 #include <fr.h>
-#include "language.h"
 #include <joy.h>
+#include <macro.h>
 #include <music.h>
 #include <random.h>
+#include <os_extension.h>
 #include <snd.h>
-#include <macro.h>  
+#include "assets/image_externs.h"
+#include "assets/obseg/text/LtitleE.h"
+#include "bg.h"
+#include "blood_animation.h"
 #include "bondview.h"
 #include "chr.h"
 #include "chr_b.h"
 #include "chraction.h"
+#include "chrai.h"
 #include "cheat.h"
 #include "chrobjdata.h"
+#include "dyn.h"
 #include "file2.h"
 #include "front.h"
+#include "gbi_extension.h"
 #include "image_bank.h"
-#include "lv.h"
+#include "image.h"
 #include "initanitable.h"
+#include "language.h"
+#include "lv.h"
+#include "model.h"
 #include "mp_weapon.h"
 #include "math_floor.h"
+#include "matrixmath.h"
+#include "ob.h"
+#include "objecthandler.h"
 #include "objective_status.h"
 #include "player.h"
-#include "spectrum.h"
 #include "textrelated.h"
-#include "blood_animation.h"
-#include "game/othermodemicrocode.h"
-#include "game/bondwalk2.h"
-#include "game/file2.h"
-#include "objecthandler.h"
-#include "dyn.h"
-#include "assets/obseg/text/LtitleE.h"
-#include "matrixmath.h"
-#include "bg.h"
-#include "chrai.h"
 #include "title.h"
-#include <assets/font_dl.h>
-#include "image.h"
-#include "ob.h"
-#include "gbi_extension.h"
-#include "model.h"
 
 
 /**
@@ -70,183 +69,58 @@ struct BriefingData
     struct BriefingDataSomething objective[OBJECTIVES_MAX];
 };
 
-// bss
-//CODE.bss:800695A0
 f32 cast_camera_dist;
-//CODE.bss:800695A4
 f32 cast_camera_dist_start;
-//CODE.bss:800695A8
 f32 cast_camera_dist_end;
-//CODE.bss:800695AC
 f32 cast_camera_angle;
-//CODE.bss:800695B0
 f32 cast_camera_angle_start;
-//CODE.bss:800695B4
 f32 cast_camera_angle_end;
-//CODE.bss:800695B8
 f32 cast_camera_height;
-//CODE.bss:800695BC
 f32 cast_camera_height_start;
-//CODE.bss:800695C0
 f32 cast_camera_height_end;
-//CODE.bss:800695C4
-f32 flt_CODE_bss_800695C4; // unused
-//CODE.bss:800695C8
 struct coord3d cast_target_smoothed;
-//CODE.bss:800695D4
-f32 flt_CODE_bss_800695D4; // unused
-//CODE.bss:800695D8
 struct coord3d cast_target_accumulator;
-
-//CODE.bss:800695E4
 bool cast_camera_reset;
-
-//CODE.bss:800695E8
 struct coord3d cast_rootpos_smoothed;
-
-//CODE.bss:800695F4
-f32 flt_CODE_bss_800695F4;
-//CODE.bss:800695F8
 struct coord3d cast_rootvel_smoothed;
-//CODE.bss:80069604
-f32 flt_CODE_bss_80069604;
-
-//CODE.bss:80069608
 struct coord3d cast_rootvel_accumulator;
-
-
-//CODE.bss:80069614
 f32 ninLogoRotRate;
-
-/**
- * Address 80069618
- * EU .bss 80068558
-*/
 f32 ninLogoScale;
-
-//CODE.bss:8006961C
-f32 flt_CODE_bss_8006961C;
-//CODE.bss:80069620
 coord3d folderpositions_camspace[MAX_FOLDER_COUNT];
-
-//CODE.bss:80069650
 u8 cheat_available[CHEAT_MAX];
-
-//CODE.bss:800696A0
 u8 g_CheatActivated[CHEAT_MAX];
-
-#ifdef VERSION_EU
-
-/**
- * EU .bss 80068630
-*/
-s32 mp_char_cur_select_player[MAX_PLAYER_COUNT];
-
-/**
- * EU .bss 80068680
-*/
-s32 mp_char_prev_select_player[MAX_PLAYER_COUNT];
-
-/**
- * EU .bss 80068650
-*/
 s32 array_favweapon[MAX_PLAYER_COUNT][GUNHANDS];
-
-#else
-
-/**
- * Address 800696F0
-*/
-s32 array_favweapon[MAX_PLAYER_COUNT][GUNHANDS];
-
-/**
- * Address 80069710
-*/
 s32 mp_char_cur_select_player[MAX_PLAYER_COUNT];
-
-/**
- * Address 80069720
-*/
 s32 mp_char_prev_select_player[MAX_PLAYER_COUNT];
-
-#endif
-
-
-/**
- * Address 80069730
- * EU .bss 80068690
-*/
 s32 mp_char_select_scroll_offset[MAX_PLAYER_COUNT];
-
-//CODE.bss:80069740
 bool player_has_selected_char[MAX_PLAYER_COUNT];
-
-//CODE.bss:80069750
 s32 size_mp_select_image_player[MAX_PLAYER_COUNT];
-//CODE.bss:80069760
 s32 dword_CODE_bss_80069760[MAX_PLAYER_COUNT];
-//CODE.bss:80069770
 char* g_textPtrTAB1;
-//CODE.bss:80069774
 char* g_textPtrTAB2;
-//CODE.bss:80069778
 char* g_textPtrTAB3;
-//CODE.bss:8006977C
 s32 current_mp_stage_highlighted;
-//CODE.bss:80069780
 s32 dword_CODE_bss_80069780;
-//CODE.bss:80069784
 s32 mission_difficulty_highlighted;
-//CODE.bss:80069788
 s32 teamsize;
-//CODE.bss:8006978C
 struct BriefingData *ptrbriefingdata;
-//CODE.bss:80069790
 s32 g_NewCheatUnlocked;
-//CODE.bss:80069794
 s32 highlight_enemy_reaction;
-//CODE.bss:80069798
 s32 highlight_enemy_health;
-//CODE.bss:8006979C
 s32 highlight_enemy_damage;
-//CODE.bss:800697A0
 s32 highlight_enemy_accuracy;
-
-//CODE.bss:800697A4
-s32 dword_CODE_bss_800697A4;
-
-//CODE.bss:800697A8
 s32 player_handicap[MAX_PLAYER_COUNT];
-
-//CODE.bss:800697B8
 s32 controlstyle_player[MAX_PLAYER_COUNT];
-
-//CODE.bss:800697C8
 s32 highlight_players;
-//CODE.bss:800697CC
 s32 highlight_scenario;
-//CODE.bss:800697D0
 s32 highlight_gameselect;
-//CODE.bss:800697D4
 s32 highlight_gamelength;
-//CODE.bss:800697D8
 s32 highlight_character;
-//CODE.bss:800697DC
 s32 highlight_weaponselect;
-//CODE.bss:800697E0
 s32 highlight_health;
-//CODE.bss:800697E4
 s32 highlight_controlstyle;
-//CODE.bss:800697E8
 s32 highlight_aimadjustment;
-//CODE.bss:800697EC                     .align 4
-
-/**
- * Address 0x800697F0
- * EU .bss 0x80058730
-*/
 u32 arrayUnlockedCheats[CHEAT_INVALID];
-
 
 MENU current_menu = MENU_INVALID;
 MENU menu_update = MENU_INVALID;
@@ -317,16 +191,15 @@ Lights1 ninlogolight = gdSPDefLights1(
     0, 0, 0
 );
 
-
 f32 slider_007_mode_reaction = 0.0f;
 f32 slider_007_mode_health = 1.0f;
 f32 slider_007_mode_damage = 1.0f;
 f32 slider_007_mode_accuracy = 1.0f;
 
-/* 0x8002A9B0 */ rgba_u8 textglowR = { 160, 0, 0, 0 };
-/* 0x8002A9B4 */ rgba_u8 textglowG = { 150, 0, 0, 0 };
-/* 0x8002A9B8 */ rgba_u8 textglowB = { 40, 0, 0, 0 };
-/* 0x8002A9BC */ rgba_u8 textglowA = { 140, 0, 0, 0 };
+rgba_u8 textglowR = { 160, 0, 0, 0 };
+rgba_u8 textglowG = { 150, 0, 0, 0 };
+rgba_u8 textglowB = { 40, 0, 0, 0 };
+rgba_u8 textglowA = { 140, 0, 0, 0 };
 
 struct coord3d legalpage_pos = {0.0f, 0.0f, 0.0f};
 
@@ -345,30 +218,30 @@ struct legal_screen_text legalpage_text_array[] = {
     { 80, 280, LEFT_ALIGN, CENTER_ALIGN, getStringID(LTITLE, TITLE_STR_18_EMI), 0}  //"Used by permission of EMI Unart Catalog Inc.\n"
 };
 
-/* 0x8002AABC */ ModelRenderData legalscreen_MRD = {NULL,
-                                    TRUE,
-                                    0x00000003,
-                                    NULL,
+ModelRenderData legalscreen_MRD = {NULL,
+                                TRUE,
+                                0x00000003,
+                                NULL,
 
-                                    NULL,
-                                    0,
-                                    0,
-                                    0,
+                                NULL,
+                                0,
+                                0,
+                                0,
 
-                                    0,
-                                    0,
-                                    0,
-                                    0,
+                                0,
+                                0,
+                                0,
+                                0,
 
-                                    0,
-                                    {0, 0, 0, 0},
-                                    {0, 0, 0, 0},
-                                    CULLMODE_BOTH};
+                                0,
+                                {0, 0, 0, 0},
+                                {0, 0, 0, 0},
+                                CULLMODE_BOTH};
 
 
 struct coord3d nintendologo_pos = {0};
 
-ModelRenderData       nintendologo_MRD = {NULL,
+ModelRenderData nintendologo_MRD = {NULL,
                                     TRUE,
                                     0x00000003,
                                     NULL,
@@ -391,7 +264,7 @@ ModelRenderData       nintendologo_MRD = {NULL,
 
 struct coord3d goldeneyelogo_pos = { 0 };
 
-ModelRenderData       goldeneyelogo_MRD = {NULL,
+ModelRenderData goldeneyelogo_MRD = {NULL,
                                     TRUE,
                                     0x00000003,
                                     NULL,
@@ -410,7 +283,6 @@ ModelRenderData       goldeneyelogo_MRD = {NULL,
                                     {0, 0, 0, 0},
                                     {0, 0, 0, 0},
                                     CULLMODE_BOTH};
-
 
 struct coord3d folderpositions[] = {
     {-900.0f, 800.0f, 0.0f},
@@ -459,7 +331,6 @@ struct mission_folder_setup mission_folder_setup_entries[] = {
 struct FolderSelectColour unknown_folderselect_constructor = { 0x14, 0x14, 0x14 };
 struct FolderSelectColour unknown_folderselect_constructor_0 = { 0x32, 0x32, 0x32 };
 
-
 ModelRenderData     unknown_folderselect = {NULL,
                                             TRUE,
                                             0x00000003,
@@ -500,17 +371,11 @@ ModelRenderData       D_8002AF84           = {NULL,
                                               {0, 0, 0, 0},
                                               CULLMODE_BOTH};
 
-
 f32 D_8002AFC4 = 0;
 f32 D_8002AFC8 = 190.0;
 f32 D_8002AFCC = -3300.0;
 s32 cursor_xpos_table_mission_select[] = {73, 142, 212, 282, 352};
-
-#if defined(VERSION_EU)
-s32 cursor_ypos_table_mission_select[] = {62, 130, 201, 270};
-#else
 s32 cursor_ypos_table_mission_select[] = {62, 131, 201, 270};
-#endif
 
 struct MP_game_length_settings multi_game_lengths[] = {
     {getStringID(LTITLE, TITLE_STR_45_UNLIMITED), 0, 0, 0},                    /* unlimited */
@@ -554,7 +419,6 @@ struct mp_stage_setup multi_stage_setups[] = {
 
 s32 num_chars_selectable_mp = 8;
 
-#ifdef VERSION_US
 struct MP_selectable_chars mp_chr_setup[] = {
     {getStringID(LTITLE, TITLE_STR_184_BOND), MALE,   IMG_MPC_BROSNAN, BODY_Brosnan_Tuxedo,                   HEAD_Male_Brosnan_Tuxedo, 1.0},
     {getStringID(LTITLE, TITLE_STR_191_NATALYA), FEMALE, IMG_MPC_NATALYA, BODY_Natalya_Skirt,            HEAD_Male_Brosnan_Tuxedo, 0.96609998},
@@ -621,112 +485,43 @@ struct MP_selectable_chars mp_chr_setup[] = {
     {getStringID(LTITLE, TITLE_STR_225_MANDY), FEMALE, IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Female_Mandy, 1.0446},
     {getStringID(LTITLE, TITLE_STR_226_VIVIEN), FEMALE, IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Female_Vivien, 1.0446}
 };
-#else
-struct MP_selectable_chars mp_chr_setup[] = {
-    {getStringID(LTITLE, TITLE_STR_184_BOND), MALE,   IMG_MPC_BROSNAN, BODY_Brosnan_Tuxedo,                   HEAD_Male_Brosnan_Tuxedo, 1.0},
-    {getStringID(LTITLE, TITLE_STR_191_NATALYA), FEMALE, IMG_MPC_NATALYA, BODY_Natalya_Skirt,            HEAD_Male_Brosnan_Tuxedo, 0.96609998},
-    {getStringID(LTITLE, TITLE_STR_188_TREVELYAN), MALE,   IMG_MPC_TREVELYAN, BODY_Trevelyan_Janus,          HEAD_Male_Brosnan_Tuxedo, 1.0},
-    {getStringID(LTITLE, TITLE_STR_190_XENIA), FEMALE, IMG_MPC_XENIA, BODY_Xenia,                    HEAD_Male_Brosnan_Tuxedo, 1.0},
-    {getStringID(LTITLE, TITLE_STR_187_OURUMOV), MALE,   IMG_MPC_OURUMOV, BODY_Ourumov,                  HEAD_Male_Brosnan_Tuxedo, 1.0778},
-    {getStringID(LTITLE, TITLE_STR_186_BORIS), MALE,   IMG_MPC_BORIS, BODY_Boris,                    HEAD_Male_Brosnan_Tuxedo, 0.9702},
-    {getStringID(LTITLE, TITLE_STR_189_VALENTIN), MALE,   IMG_MPC_VALENTIN, BODY_Valentin_,                HEAD_Male_Brosnan_Tuxedo, 0.93239999},
-    {getStringID(LTITLE, TITLE_STR_185_MISHKIN), MALE,   IMG_MPC_MISHKIN, BODY_Siberian_Guard_1_Mishkin, HEAD_Male_Mishkin, 1.0},
-    {getStringID(LTITLE, TITLE_STR_194_MAYDAY), FEMALE, IMG_MPC_MAYDAY, BODY_Mayday,                   HEAD_Male_Brosnan_Tuxedo, 1.0},
-    {getStringID(LTITLE, TITLE_STR_193_JAWS), MALE,   IMG_MPC_JAWS, BODY_Jaws,                     HEAD_Male_Brosnan_Tuxedo, 1.199},
-    {getStringID(LTITLE, TITLE_STR_195_ODDJOB), MALE,   IMG_MPC_ODDJOB, BODY_Oddjob,                   HEAD_Male_Brosnan_Tuxedo,0.78780001},
-    {getStringID(LTITLE, TITLE_STR_192_BARONSAMEDI), MALE,   IMG_MPC_BARON, BODY_Baron_Samedi,             HEAD_Male_Brosnan_Tuxedo, 1.0},
-    {getStringID(LTITLE, TITLE_STR_287_RUSSIANSOLDIER), MALE,   IMG_MPC_RANDOM, BODY_Russian_Soldier,          HEAD_Male_Mark, 1.0},
-    {getStringID(LTITLE, TITLE_STR_288_RUSSIANINFANTRY), MALE,   IMG_MPC_RANDOM, BODY_Russian_Infantry,         HEAD_Male_Karl, 1.0},
-    {getStringID(LTITLE, TITLE_STR_289_SCIENTIST), MALE,   IMG_MPC_RANDOM, BODY_Scientist_1_Male,         HEAD_Male_Dave_Dr_Doak, 1.0},
-    {getStringID(LTITLE, TITLE_STR_289_SCIENTIST), FEMALE, IMG_MPC_RANDOM, BODY_Scientist_2_Female,       HEAD_Female_Sally, 1.0},
-    {getStringID(LTITLE, TITLE_STR_290_RUSSIANCOMMANDANT), MALE,   IMG_MPC_RANDOM, BODY_Russian_Commandant,       HEAD_Male_Martin, 1.0},
-    {getStringID(LTITLE, TITLE_STR_291_JANUSMARINE), MALE,   IMG_MPC_RANDOM, BODY_Janus_Marine,             HEAD_Male_Steve_Ellis, 1.0},
-    {getStringID(LTITLE, TITLE_STR_292_NAVALOFFICER), MALE,   IMG_MPC_RANDOM, BODY_Naval_Officer,            HEAD_Male_Duncan, 1.0},
-    {getStringID(LTITLE, TITLE_STR_293_HELICOPTERPILOT), MALE,   IMG_MPC_RANDOM, BODY_Helicopter_Pilot,         HEAD_Male_Pete, 1.0},
-    {getStringID(LTITLE, TITLE_STR_294_STPETERSBURGARD), MALE,   IMG_MPC_RANDOM, BODY_St_Petersburg_Guard,      HEAD_Male_Ken, 1.0},
-    {getStringID(LTITLE, TITLE_STR_295_CIVILIAN), FEMALE, IMG_MPC_RANDOM, BODY_Civilian_1_Female,        HEAD_Female_Marion_Rosika, 1.0},
-    {getStringID(LTITLE, TITLE_STR_295_CIVILIAN), MALE,   IMG_MPC_RANDOM, BODY_Civilian_2,               HEAD_Male_Graeme, 1.0},
-    {getStringID(LTITLE, TITLE_STR_295_CIVILIAN), MALE,   IMG_MPC_RANDOM, BODY_Civilian_3,               HEAD_Male_Grant, 1.0},
-    {getStringID(LTITLE, TITLE_STR_295_CIVILIAN), MALE,   IMG_MPC_RANDOM, BODY_Civilian_4,               HEAD_Male_Dwayne, 1.0},
-    {getStringID(LTITLE, TITLE_STR_296_SIBERIANGUARD), MALE,   IMG_MPC_RANDOM, BODY_Siberian_Guard_1_Mishkin, HEAD_Male_Lee, 1.0},
-    {getStringID(LTITLE, TITLE_STR_297_ARCTICCOMMANDO), MALE,   IMG_MPC_RANDOM, BODY_Arctic_Commando,          HEAD_Male_Chris, 1.0},
-    {getStringID(LTITLE, TITLE_STR_296_SIBERIANGUARD), MALE,   IMG_MPC_RANDOM, BODY_Siberian_Guard_2,         HEAD_Male_Scott, 1.0},
-    {getStringID(LTITLE, TITLE_STR_298_SIBERIANSPECIALFORCES), MALE,   IMG_MPC_RANDOM, BODY_Siberian_Special_Forces,  HEAD_Male_Alan, 1.0},
-    {getStringID(LTITLE, TITLE_STR_299_JUNGLECOMMANDO), MALE,   IMG_MPC_RANDOM, BODY_Jungle_Commando,          HEAD_Male_Joel, 1.0},
-    {getStringID(LTITLE, TITLE_STR_300_JANUSSPECIALFORCES), MALE,   IMG_MPC_RANDOM, BODY_Janus_Special_Forces,     HEAD_Male_B, 1.0},
-    {getStringID(LTITLE, TITLE_STR_301_MOONRAKERELITE), MALE,   IMG_MPC_RANDOM, BODY_Moonraker_Elite_1_Male,   HEAD_Male_Neil, 1.0},
-    {getStringID(LTITLE, TITLE_STR_301_MOONRAKERELITE), FEMALE, IMG_MPC_RANDOM, BODY_Moonraker_Elite_2_Female, HEAD_Female_Vivien, 1.0},
-    {getStringID(LTITLE, TITLE_STR_196_ROSIKA), FEMALE, IMG_MPC_RANDOM, BODY_Rosika,                   HEAD_Female_Marion_Rosika, 0.88529998},
-    {getStringID(LTITLE, TITLE_STR_197_KARL), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Karl, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_198_MARTIN), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Martin, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_199_MARK), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Mark, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_200_DAVE), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Dave_Dr_Doak, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_201_DUNCAN), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Duncan, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_202_B), FEMALE, IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_B, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_203_STEVEE), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Steve_Ellis, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_204_GRANT), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Grant, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_205_GRAEME), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Graeme, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_206_KEN), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Ken, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_207_ALAN), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Alan, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_208_PETE), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Pete, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_209_SHAUN), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Shaun, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_210_DWAYNE), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Dwayne, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_211_DES), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Des, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_212_CHRIS), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Chris, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_213_LEE), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Lee, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_214_NEIL), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Neil, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_215_JIM), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Jim, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_216_ROBIN), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Robin, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_217_STEVEH), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Steve_H, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_218_TERRORIST), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Terrorist, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_219_BIKER), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Biker, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_220_JOEL), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Joel, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_221_SCOTT), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Scott, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_222_JOE), MALE,   IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Male_Joe, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_223_SALLY), FEMALE, IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Female_Sally, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_224_MARION), FEMALE, IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Female_Marion_Rosika, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_225_MANDY), FEMALE, IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Female_Mandy, 1.0446},
-    {getStringID(LTITLE, TITLE_STR_226_VIVIEN), FEMALE, IMG_MPC_RANDOM, BODY_Brosnan_Tuxedo,                   HEAD_Female_Vivien, 1.0446}
-};
-#endif
-
 
 struct MP_handicap_menu MP_handicap_table[] = {
-    {getStringID(LTITLE, TITLE_STR_61_HERO), 0, 10.0},       // "Health -10\n(Hero)"
-    {getStringID(LTITLE, TITLE_STR_62_VET4), 0, 2.8560996},  // "Health -4\n(Veteran)"
-    {getStringID(LTITLE, TITLE_STR_63_VET3), 0, 2.1969998},  // "Health -3\n(Veteran)"
-    {getStringID(LTITLE, TITLE_STR_64_VET2), 0, 1.6899998},  // "Health -2\n(Veteran)"
-    {getStringID(LTITLE, TITLE_STR_65_VET1), 0, 1.3},        // "Health -1\n(Veteran)"
-    {getStringID(LTITLE, TITLE_STR_66_HEALTH_NORMAL), 0, 1.0},        // "Health +0\n(Normal)"
+    {getStringID(LTITLE, TITLE_STR_61_HERO), 0, 10.0},          // "Health -10\n(Hero)"
+    {getStringID(LTITLE, TITLE_STR_62_VET4), 0, 2.8560996},     // "Health -4\n(Veteran)"
+    {getStringID(LTITLE, TITLE_STR_63_VET3), 0, 2.1969998},     // "Health -3\n(Veteran)"
+    {getStringID(LTITLE, TITLE_STR_64_VET2), 0, 1.6899998},     // "Health -2\n(Veteran)"
+    {getStringID(LTITLE, TITLE_STR_65_VET1), 0, 1.3},           // "Health -1\n(Veteran)"
+    {getStringID(LTITLE, TITLE_STR_66_HEALTH_NORMAL), 0, 1.0},  // "Health +0\n(Normal)"
     {getStringID(LTITLE, TITLE_STR_67_NOVICE1), 0, 0.76923078}, // "Health +1\n(Novice)"
     {getStringID(LTITLE, TITLE_STR_68_NOVICE2), 0, 0.59171599}, // "Health +2\n(Novice)"
     {getStringID(LTITLE, TITLE_STR_69_NOVICE3), 0, 0.45516616}, // "Health +3\n(Novice)"
     {getStringID(LTITLE, TITLE_STR_70_NOVICE4), 0, 0.35012782}, // "Health +4\n(Novice)"
-    {getStringID(LTITLE, TITLE_STR_71_ROOKIE), 0, 0.1}         // "Health +10\n(Rookie)"
+    {getStringID(LTITLE, TITLE_STR_71_ROOKIE), 0, 0.1}          // "Health +10\n(Rookie)"
 };
 
 struct MP_controller_configuration_menu MP_controller_configuration_table[] = {
-    {getStringID(LTITLE, TITLE_STR_277_11HONEY), 0, 1}, //1.1 Honey*
+    {getStringID(LTITLE, TITLE_STR_277_11HONEY), 0, 1},     //1.1 Honey*
     {getStringID(LTITLE, TITLE_STR_278_12SOLITAIRE), 1, 1}, //1.2 Solitaire*
-    {getStringID(LTITLE, TITLE_STR_279_13KISSY), 2, 1}, //1.3 Kissy*
+    {getStringID(LTITLE, TITLE_STR_279_13KISSY), 2, 1},     //1.3 Kissy*
     {getStringID(LTITLE, TITLE_STR_280_14GOODNIGHT), 3, 1}, //1.4 Goodnight*
-    {getStringID(LTITLE, TITLE_STR_281_21PLENTY), 4, 2}, //2.1 Plenty*
-    {getStringID(LTITLE, TITLE_STR_282_22GALORE), 5, 2}, //2.2 Galore*
-    {getStringID(LTITLE, TITLE_STR_283_23DOMINO), 6, 2}, //2.3 Domino*
-    {getStringID(LTITLE, TITLE_STR_284_24GOODHEAD), 7, 2}  //2.4 Goodhead*
+    {getStringID(LTITLE, TITLE_STR_281_21PLENTY), 4, 2},    //2.1 Plenty*
+    {getStringID(LTITLE, TITLE_STR_282_22GALORE), 5, 2},    //2.2 Galore*
+    {getStringID(LTITLE, TITLE_STR_283_23DOMINO), 6, 2},    //2.3 Domino*
+    {getStringID(LTITLE, TITLE_STR_284_24GOODHEAD), 7, 2}   //2.4 Goodhead*
 };
 
 struct MP_sight_aim_settings mp_sight_adjust_table[] = {
-    {getStringID(LTITLE, TITLE_STR_72_SOFFAOFF), 0, 0}, // "Sight OFF, Auto Aim OFF"
-    {getStringID(LTITLE, TITLE_STR_73_SONAOFF), 1, 0}, // "Sight ON, Auto Aim OFF"
-    {getStringID(LTITLE, TITLE_STR_74_SOFFAON), 0, 1}, // "Sight OFF, Auto Aim ON"
-    {getStringID(LTITLE, TITLE_STR_75_SONAON), 1, 1}  // "Sight ON, Auto Aim ON"
+    {getStringID(LTITLE, TITLE_STR_72_SOFFAOFF), 0, 0},  // "Sight OFF, Auto Aim OFF"
+    {getStringID(LTITLE, TITLE_STR_73_SONAOFF), 1, 0},   // "Sight ON, Auto Aim OFF"
+    {getStringID(LTITLE, TITLE_STR_74_SOFFAON), 0, 1},   // "Sight OFF, Auto Aim ON"
+    {getStringID(LTITLE, TITLE_STR_75_SONAON), 1, 1}     // "Sight ON, Auto Aim ON"
 };
 
 s32 selected_num_players = 0;
 s32 player_char[MAX_PLAYER_COUNT] = { -1, -1, -1, -1 };
 s32 MP_stage_selected = MP_STAGE_TEMPLE;
-s32 game_length = LEN_10MIN; //10minutes
+s32 game_length = LEN_10MIN;
 s32 aim_sight_adjustment = 3; //"Sight ON, Auto Aim ON"
 s32 scenario = SCENARIO_NORMAL;
 
@@ -764,9 +559,7 @@ s16 solo_target_time_array[20][3] = {
 };
 
 s32 totalunlockedcheats = 0;
-s32 cheathighlighted = 0; // 0x8002B5E0
-
-
+s32 cheathighlighted = 0;
 u32 MP_menu_selected_option = 0;
 s32 intro_character_index = 0;
 u32 randomly_selected_intro_animation = ANIM_idle;
@@ -902,13 +695,9 @@ ModelRenderData cast_renderdata_default = { NULL,
 
 struct coord3d cast_camera_offset = { 0.0f, 40.0f, 25.0f }; // vec in constructor_menu18_displaycast is initialized to this, but then gets overwritten before it's read, so these values don't have any effect.
 
-u32 D_8002BAE8 = 0; // unused
-u32 D_8002BAEC = 1; // unused
-
 u16 color_palette_entries_50_percent[] = {1, 0x1F, 0x3C1, 0x3DF, 0x7801, 0x781F, 0x7BC1, 0x7BDF};
 
-
-// forward declarations
+// Begin forward declarations.
 
 Gfx* frontAddPreviousTabText(Gfx* DL);
 s32 check_if_stage_completed_on_difficulty(int stage, DIFFICULTY difficulty);
@@ -937,7 +726,6 @@ Gfx *constructor_menu15_cheat(Gfx *DL);
 Gfx *constructor_menu16_nocontrollers(Gfx *DL);
 Gfx *constructor_menu17_switchscreens(Gfx *DL);
 Gfx *constructor_menu18_displaycast(Gfx *DL);
-Gfx *constructor_menu19_spectrum(Gfx *DL);
 void disable_all_switches(Model *arg0);
 void set_item_visibility_in_objinstance(Model* objinstance, s32 item, s32 mode);
 void set_cursor_to_stage_solo(LEVEL_SOLO_SEQUENCE level);
@@ -945,7 +733,7 @@ Gfx *display_aligned_white_text_to_screen(Gfx *dl, s32 arg1, s32 arg2, s32 halig
 void setCursorPOSforMode(int mode);
 void set_cursor_pos_difficulty(int difficulty);
 
-// end forward declarations.
+// End forward declarations.
 
 
 Gfx *frontPrintText(Gfx *gdl, s32 *x, s32 *y, s8 *text, s32 second_font_table, s32 first_font_table, s32 arg6, s32 view_x, s32 view_y, s32 arg9, s32 arga)
@@ -1556,16 +1344,11 @@ void reset_menutimer(void) {
     g_MenuTimer = 0;
 }
 
-void dummy7F00AAF8(void) {
-    // (function likely stub)
-}
-
-
-
 
 //********************************************************************************************************
 //SWITCH SCREEN
 //********************************************************************************************************
+
 void interface_menu17_switchscreens(void)
 {
     viSetFovY(FOV_Y_F);
@@ -1574,6 +1357,7 @@ void interface_menu17_switchscreens(void)
     viSetUseZBuf(0);
 
     g_MenuTimer++;
+
     if ((g_MenuTimer >= 4) && (!spectrum_related_flag) && (!is_emulating_spectrum))
     {
         maybe_prev_menu = menu_update;
@@ -1588,12 +1372,10 @@ Gfx * constructor_menu17_switchscreens(Gfx * DL)
 }
 
 
-
-
-
 //********************************************************************************************************
 //NINTENDO LOGO
 //********************************************************************************************************
+
 void init_menu01_nintendo(void)
 {
     struct coord3d pos;
@@ -8264,105 +8046,9 @@ Gfx *constructor_menu18_displaycast(Gfx *DL)
 }
 
 
-//********************************************************************************************************
-//SPECTRUM EMULATOR
-//********************************************************************************************************
-void init_menu19_spectrum(void)
-{
-    #if defined(LEFTOVERSPECTRUM)
-    SPECTRUMROMS rom = ROM_SABRE;
-
-    if (!joyGetButtons(2, L_CBUTTONS))
-    {
-        if (joyGetButtons(2, R_CBUTTONS))
-        {
-            rom = ROM_ATIC;
-        }
-        else if (joyGetButtons(2, U_CBUTTONS))
-        {
-            rom = ROM_JETPAC;
-        }
-        else if (joyGetButtons(2, D_CBUTTONS))
-        {
-            rom = ROM_JETMAN;
-        }
-        else if (joyGetButtons(2, L_JPAD))
-        {
-            rom = ROM_ALIEN8;
-        }
-        else if (joyGetButtons(2, R_JPAD))
-        {
-            rom = ROM_GUNFRIGHT;
-        }
-        else if (joyGetButtons(2, U_JPAD))
-        {
-            rom = ROM_UNDER;
-        }
-        else
-        {
-            rom = ROM_SABRE;
-            if (joyGetButtons(2, D_JPAD))
-            {
-                rom = ROM_KNIGHTLORE;
-            }
-        }
-    }
-    init_spectrum_game(rom);
-    #endif
-}
-
-
-void update_menu19_spectrum(void) 
-{
-    return;
-}
-
-
-void interface_menu19_spectrum(void)
-{
-    #if defined(LEFTOVERSPECTRUM)
-    viSetFovY(FOV_Y_F);
-    viSetAspect(ASPECT_RATIO_SD);
-    viSetZRange(100.0f, 10000.0f);
-    viSetUseZBuf(0);
-    run_spectrum_game();
-    #endif
-}
-
-
-#if !defined(LEFTOVERSPECTRUM)
-Gfx* constructor_menu19_spectrum(Gfx* DL)
-{
-    return DL;
-}
-#else
-// Address 0x7F01A4E0 NTSC
-Gfx * constructor_menu19_spectrum(Gfx * DL)
-{
-    DL = clear_framebuffer_black(DL);
-
-    gDPSetCycleType(DL++, G_CYC_1CYCLE);
-    gDPSetRenderMode(DL++, G_RM_AA_OPA_SURF, G_RM_AA_OPA_SURF2);
-    gSPClearGeometryMode(DL++, G_SHADE | G_SHADING_SMOOTH);
-    gDPSetCombineMode(DL++, G_CC_DECALRGB, G_CC_DECALRGB);
-    gDPSetTextureFilter(DL++, G_TF_POINT);
-    gDPSetTextureImage(DL++, G_IM_FMT_CI, G_IM_SIZ_16b, 1, color_palette_entries_50_percent);
-    gDPSetTile(DL++, G_IM_FMT_RGBA, G_IM_SIZ_4b, 1, 0x100, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-    gDPLoadSync(DL++);
-    gDPLoadTLUTCmd2(DL++, G_TX_LOADTILE, 7);
-    gDPPipeSync(DL++);
-    gDPSetTextureLUT(DL++, G_TT_RGBA16);
-
-    DL = spectrum_draw_screen(DL);
-
-    return DL;
-}
-#endif
-
-
 void frontChangeMenu(MENU menu, s32 reload)
 {
-    if ((menu == MENU_RUN_STAGE) || (menu == MENU_SPECTRUM_EMU))
+    if (menu == MENU_RUN_STAGE)
     {
         is_emulating_spectrum = TRUE;
     }
@@ -8464,7 +8150,6 @@ void menu_init(void)
             case MENU_CHEAT:                  update_menu15_cheat();                break;
             case MENU_NO_CONTROLLERS:         update_menu16_nocontrollers();        break;
             case MENU_DISPLAY_CAST:           update_menu18_displaycast();          break;
-            case MENU_SPECTRUM_EMU:           update_menu19_spectrum();             break;
         }
 
         if (menu_update > MENU_INVALID)
@@ -8504,7 +8189,6 @@ void menu_init(void)
             case MENU_CHEAT:                  init_menu15_cheat();                  break;
             case MENU_NO_CONTROLLERS:         init_menu16_nocontroller();           break;
             case MENU_DISPLAY_CAST:           init_menu18_displaycast();            break;
-            case MENU_SPECTRUM_EMU:           init_menu19_spectrum();               break;
         }
     }
 
@@ -8533,7 +8217,6 @@ void menu_init(void)
         case MENU_CHEAT:                  interface_menu15_cheat();                 break;
         case MENU_NO_CONTROLLERS:         interface_menu16_nocontrollers();         break;
         case MENU_DISPLAY_CAST:           interface_menu18_displaycast();           break;
-        case MENU_SPECTRUM_EMU:           interface_menu19_spectrum();              break;
         case MENU_RUN_STAGE:
             if (ramromIsDemoLaunchPending())
             {
@@ -8635,8 +8318,6 @@ Gfx * menu_jump_constructor_handler(Gfx *DL)
         case MENU_DISPLAY_CAST:
             DL = constructor_menu18_displaycast(DL);
             break;
-        case MENU_SPECTRUM_EMU:
-            DL = constructor_menu19_spectrum(DL);
     }
 
     return DL;

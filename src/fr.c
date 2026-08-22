@@ -108,13 +108,6 @@ u32 g_ViUnblackTimer = 3;
  */
 s32 D_800232C0 = 0;
 
-#if defined(LEFTOVERDEBUG)
-s32 g_indyJpg16BitGrabnum = 1;
-s32 g_indyJpg32BitGrabnum = 1;
-s32 g_indyRgb16BitGrabnum = 1;
-s32 g_indyRgb32BitGrabnum = 1;
-#endif
-
 f32 g_viProjectionMatrixF[4][4];
 Mtx *g_viProjectionMatrix;
 u16 g_viPerspNorm;
