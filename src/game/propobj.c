@@ -13142,10 +13142,9 @@ bool doorIsClosed(DoorRecord *door)
 }
 
 /*
-* Address: 7F054A64
-* Description: Computes the 2D bounding box for every room the prop is in
-*              so it can be used for scissors. Returns true when the prop
-*              has at least one room bounding box.
+* Computes the 2D bounding box for every room the prop is in
+* so it can be used for scissors. Returns true when the prop
+* has at least one room bounding box.
 */
 s32 getPropCombinedRoomsBBox2D(PropRecord *prop, bbox2d *bbox)
 {

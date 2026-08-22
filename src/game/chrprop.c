@@ -2538,26 +2538,19 @@ s32 chrpropInsertPropnum(s16 propnum, s32 block)
 
 
 /*
-* Address: 0x7F03DCB8
-* canonical name newblockforroom
-* Description: Find an emtpy chunk that can be assigned to a room
-* PD: room_allocate_prop_list_chunk
-* room: canonical name
-* prevblock: canonical name
+* Find an emtpy chunk that can be assigned to a room.
 */
 s32 chrpropInitializeNewChunkForRoom(s32 room, s32 prevblock)
 {
     s32 i;
-#ifdef DEBUG
-    assert(room < g_MaxNumRooms); // roomnumber
-    assert(prevblock<MAXBLOCKS);
-#endif
+
     for (i = 0; i < MAXBLOCKS; i++)
     {
         if (RoomPropListBlocks[i].propnums[0] == -2)
         {
             // This chunk is allowed to be erased
             s32 j;
+
             for (j = 0; j < 16; j++)
             {
                 RoomPropListBlocks[i].propnums[j] = -1;
@@ -2575,26 +2568,19 @@ s32 chrpropInitializeNewChunkForRoom(s32 room, s32 prevblock)
             return i;
         }
     }
-#ifdef DEBUG
-    osSyncPrintf("newblockforroom: no free blocks!\n");
-#endif
+
     return -1;
 }
 
 
-
-
 /*
-* Address: 0x7F03DD9C
 * PD: prop_register_room
 * PD adds an upper bound check to make sure room is not above the max number of rooms
 */
 void chrpropRegisterRoom(PropRecord *prop, s16 room)
 {
    	s32 prevchunk = -1;
-#ifdef DEBUG
-    assert(room < g_MaxNumRooms); // roomnumber
-#endif
+
     if (room < 0)
     {
         return;
@@ -2604,9 +2590,6 @@ void chrpropRegisterRoom(PropRecord *prop, s16 room)
         // Find which chunk to start at
         s32 block = RoomPropListBlockIndices[room];
         s16 propnum = (prop - g_Props);
-#ifdef DEBUG
-        assert(block<MAXBLOCKS);
-#endif
 
         while (block >= 0)
         {
@@ -2617,9 +2600,6 @@ void chrpropRegisterRoom(PropRecord *prop, s16 room)
 
             prevchunk = block;
             block     = RoomPropListBlocks[block].propnums[0xF];
-#ifdef DEBUG
-            assert(block<MAXBLOCKS);
-#endif
         }
 
         // Allocate a new chunk
@@ -2633,27 +2613,18 @@ void chrpropRegisterRoom(PropRecord *prop, s16 room)
 }
 
 
-
-
 /*
-* Address: 0x7F03DE94
-* PD: prop_deregister_room
 * PD adds an upper bound check to make sure room is not above the max number of rooms
 */
-void chrpropDeregisterRoom(PropRecord* prop, s16 room) {
+void chrpropDeregisterRoom(PropRecord* prop, s16 room)
+{
     bool removed = 0;
     s32 prev = -1;
-#ifdef DEBUG
-        assert(room < g_MaxNumRooms); // roomnumber
-#endif
 
     if (room >= 0)
     {
         s16 block = RoomPropListBlockIndices[room];
         s16 propIndex = (prop - g_Props);
-#ifdef DEBUG
-        assert(block<MAXBLOCKS);
-#endif
 
         while (block >= 0)
         {
@@ -2699,14 +2670,9 @@ void chrpropDeregisterRoom(PropRecord* prop, s16 room) {
             }
 
             block = RoomPropListBlocks[block].propnums[0xF];
-#ifdef DEBUG
-            assert(block<MAXBLOCKS);
-#endif
-
         }
     }
 }
-
 
 
 void sub_GAME_7F03E134(PropRecord* p)
@@ -2714,12 +2680,12 @@ void sub_GAME_7F03E134(PropRecord* p)
     if (p->type == PROP_TYPE_CHR)
     {
         chrDetectRooms(p->chr);
-    } else if ((p->type == PROP_TYPE_OBJ) || (p->type == PROP_TYPE_WEAPON))
+    } 
+    else if ((p->type == PROP_TYPE_OBJ) || (p->type == PROP_TYPE_WEAPON))
     {
         setupUpdateObjectRoomPosition((ObjectRecord* ) p->obj);
     }
 }
-
 
 
 // Duplicate of the below function with a small extension.
