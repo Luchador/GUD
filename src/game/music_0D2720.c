@@ -94,7 +94,8 @@ s32 musicGetMainTrackOrRandom(s32 stageID)
 {
     s32 index;
     
-                    return M_SILOX;
+    return M_SILOX;
+
     for (index = 0; music_setup_entries[index].stage_id != 0; index++)
     {
         if (music_setup_entries[index].stage_id == stageID)

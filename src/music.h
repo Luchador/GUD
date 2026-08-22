@@ -70,7 +70,6 @@ typedef enum MUSIC_FADESTATE_e {
 } MUSIC_FADESTATE;
 
 void musicSeqPlayerInit(void);
-
 void musicTrack1Play(s32 track);
 void musicTrack1Stop(void);
 u16 musicTrack1GetVolume(void);
@@ -78,7 +77,6 @@ void musicTrack1ApplySeqpVol(u16 volume);
 void musicTrack1SaveCurrentVolumeAsTrackDefault(void);
 void musicTrack1FadeOut(f32 fadeTime);
 void musicTrack1FadeIn(f32 fadeTime, u16 volume);
-
 void musicTrack2Play(s32 track);
 void musicTrack2Stop(void);
 u16 musicTrack2GetVolume(void);
@@ -90,8 +88,10 @@ u16 musicTrack3GetVolume(void);
 void musicTrack3ApplySeqpVol(u16 volume);
 void musicTrack3FadeOut(f32 fadeTime);
 void musicTrack3FadeIn(f32 fadeTime, u16 volume);
-
 void musicFadeTick(void);
+void musicTrack1LoopWatchdog(void);
+
+extern s32 g_musicXTrack1CurrentTrackNum;
 
 extern s32 g_musicXTrack1Fade;
 extern s32 g_musicXTrack2Fade;
@@ -102,5 +102,9 @@ extern ALBank *g_musicSfxBufferPtr;
 extern ALSndPlayer g_sndPlayer;
 extern s16 *g_sndSfxSlotVolume;
 extern u16 *g_sndSfxSlotNaturalVolume;
+
+extern ALCSPlayer *g_musicXTrack1SeqPlayer;
+extern ALCSPlayer *g_musicXTrack2SeqPlayer;
+extern ALCSPlayer *g_musicXTrack3SeqPlayer;
 
 #endif

@@ -1,4 +1,6 @@
 #include <ultra64.h>
+#include <bondconstants.h>
+#include <music.h>
 #include "frametiming.h"
 
 // data
@@ -70,6 +72,8 @@ void updateFrameCounters(s32 deltaFrames)
     halfFrameCounter = (s32) (currentFrameCounter / 2);
     isFrameCounterOdd = (s32) (currentFrameCounter & 1);
     halfMinusPreviousCounter = (s32) (halfFrameCounter - previousFrameCounter);
+
+    musicTrack1LoopWatchdog();
 }
 
 
@@ -97,4 +101,16 @@ void setFrameDelay(s32 arg0)
     #ifdef LEFTOVERDEBUG
     frameDelay = arg0;
     #endif
+}
+
+
+/**
+ * Fix the Silo X track not looping.
+ */
+void musicTrack1LoopWatchdog(void)
+{
+    if (g_musicXTrack1CurrentTrackNum == M_SILOX && alCSPGetState(g_musicXTrack1SeqPlayer) == AL_STOPPED)
+    {
+        musicTrack1Play(M_SILOX);
+    }
 }

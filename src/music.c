@@ -474,9 +474,6 @@ ALBank *g_musicSfxBufferPtr;
  */
 ALBank *g_musicInstrumentBufferPtr;
 
-ALCSPlayer *g_musicXTrack1SeqPlayer;
-ALCSPlayer *g_musicXTrack2SeqPlayer;
-ALCSPlayer *g_musicXTrack3SeqPlayer;
 
 RareALSeqBankFile *g_musicDataTable;
 
@@ -596,8 +593,12 @@ extern u32 _instrumentstblSegmentRomStart;
 extern u32 _instrumentsctlSegmentRomStart;
 extern u32 _musicsampletblSegmentRomStart;
 
+ALCSPlayer *g_musicXTrack1SeqPlayer;
+ALCSPlayer *g_musicXTrack2SeqPlayer;
+ALCSPlayer *g_musicXTrack3SeqPlayer;
+
+
 /**
- * 75F0	700069F0
  * Patch the file so that offsets are pointers.
  * This is a copy of alSeqFileNew from n64devkit\ultra\usr\src\pr\libsrc\libultra\audio\bnkf.c
  */
