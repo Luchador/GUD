@@ -10,8 +10,6 @@
 
 #define TEX_ALPHA_WEIGHT 961
 
-// bss
-//8008C720
 struct texpool *ptr_texture_alloc_start;
 //8008C724
 s32 ptr_texture_alloc_end;
@@ -152,7 +150,7 @@ s32 texInflateZlib(u8 *src, u8 *dst, s32 arg2, s32 forcenumimages, struct texpoo
     s32 j;
     s32 unused;
     u8 scratch2[0x800];
-    u8 scratch[0x2100];
+    u8 scratch[INFLATE_SCRATCH_BYTES];
     u16 palette[0x100];
 
     totalbytesout = 0;

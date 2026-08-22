@@ -1783,7 +1783,7 @@ s32 getIndexOfPORTALID(s32 portalID)
 
 u32 bgDecompress(u8* source, u8 *target)
 {
-    u8 buffer[0x2100];
+    u8 buffer[INFLATE_SCRATCH_BYTES];
 
     return decompressdata(source, target, buffer);
 }

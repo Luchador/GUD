@@ -10,3 +10,4 @@
 ### Removed
 - ZX Spectrum Emulator
 - Indy workstation communications remnants
+- Lots of useless debug code

@@ -12,10 +12,6 @@
 #include <macro.h>
 
 /**
- * EU .data, offset from start of data_seg : 0x3570
-*/
-
-/**
  * @file music.c
  * This file contains code to init/load music from
  * ROM; play/stop specific tracks; and to fade in/out.
@@ -52,81 +48,49 @@
 #define MUSIC_SFX_SEQ_CONFIG_MAX_EVENTS             0x40
 #define MUSIC_SFX_SEQ_MAYBE_MAX_SOUNDS                 8
 
-// 
-// carnivorous shared default midi allocations from editor:
-// main address: 80710800
-// main size: 5000
-// watch size: 1000
-// xtrack size: 3000
-#define TRACK_1_DATA_SEQ_SIZE_BYTES   6600  /* originally 6344. Add 256 for extra safety margin because of the Silo X track loop fix. */
+#define TRACK_1_DATA_SEQ_SIZE_BYTES   6600  /* originally 6344. Add 256 for extra safety margin. */
 #define TRACK_2_DATA_SEQ_SIZE_BYTES   2000
 #define TRACK_3_DATA_SEQ_SIZE_BYTES   4000
 
 #define MUSIC_CONFIG_USE_SFX_BANK         1
 #define MUSIC_CONFIG_USE_INSTRUMENT_BANK  1
 
-// TODO: what is this?
-// This is only used when playing a file (loading from ROM),
-// but the only thing used is the seqData pointer, the large array
-// seems unused.
-struct music_struct_b {
-    u8 data[8438];
-    u8 *seqData;
-};
-
-s32 g_musicUnused = 0;
-
 /**
  * Current playing track. Sometimes compared to zero to check
  * if there is any currently playing music.
- * Address 0x80024334.
  */
 s32 g_musicXTrack1CurrentTrackNum = 0;
 
-/**
- * Address 0x80024338.
- */
 u16 g_musicXTrack1Volume = VOLUME_MAX;
 
 /**
  * Current playing track. Sometimes compared to zero to check
  * if there is any currently playing music.
- * Address 0x8002433C.
  */
 s32 g_musicXTrack2CurrentTrackNum = 0;
 
-/**
- * Address 0x80024340.
- */
 u16 g_musicXTrack2Volume = VOLUME_MAX;
 
 /**
  * Current playing track. Sometimes compared to zero to check
  * if there is any currently playing music.
- * Address 0x80024344.
  */
 s32 g_musicXTrack3CurrentTrackNum = 0;
 
-/**
- * Address 0x80024348.
- */
 u16 g_musicXTrack3Volume = VOLUME_MAX;
 
 /**
  * Current fade in/out state.
- * Address 0x8002434c.
  */
 s32 g_musicXTrack1Fade = MUSIC_FADESTATE_UNSET;
 
 /**
  * Current fade in/out state.
- * Address 0x80024350.
  */
 s32 g_musicXTrack2Fade = MUSIC_FADESTATE_UNSET;
 
 /**
  * Current fade in/out state.
- * Address 0x80024354.
  */
 s32 g_musicXTrack3Fade = MUSIC_FADESTATE_UNSET;
 
@@ -488,8 +452,6 @@ u16 g_musicTrackLength[NUM_MUSIC_TRACKS + 1];
 u16 g_musicTrackCompressedLength[NUM_MUSIC_TRACKS];
 
 
-s16 g_musicUnused80063836;
-
 /**
 * Compact sequence data pointer, track 1.
 */
@@ -550,8 +512,6 @@ s32 g_musicXTrack2FadeRemainingFrames;
  */
 s32 g_musicXTrack3FadeRemainingFrames;
 
-s32 g_musicUnused8006385C;
-
 /**
  *  compact sequence, track 1
  */
@@ -566,9 +526,6 @@ ALCSeq g_musicXTrack2Seq;
  *  compact sequence, track 3
  */
 ALCSeq g_musicXTrack3Seq;
-
-s32 g_musicUnused80063B58;
-s32 g_musicUnused80063B54;
 
 ALSndPlayer g_sndPlayer;
 
@@ -616,31 +573,27 @@ void musicSeqFileNew(RareALSeqBankFile *file, u8 *base)
 }
 
 /**
- * 7630	70006A30
- *     loads sound and music banks into memory segment 6
- * 
  * Seems to be roughly based on auSeqPlayerInit in n64devkit\ultra\usr\src\pr\demos_old\nnsample2\audio.c
  */
 void musicSeqPlayerInit(void)
 {
-    // guess at struct.
-    ALSeqpSfxConfig sfxSeqpConfig; // sp 216-228
-    ALBankFile *sfxBank; // sp 212
+    ALSeqpSfxConfig sfxSeqpConfig;
+    ALBankFile *sfxBank;
     u32 ui;
-    ALBankFile *instrumentBank; // sp 204
+    ALBankFile *instrumentBank;
 
     // This type/cast is not correct, but this is how it matches.
     s32 tblSegmentRomStartAddress = (s32)&_musicsampletblSegmentRomStart; // ??
 
-    ALSynConfig synconfig; // sp 164-192
-    ALSeqpConfig track1SeqpConfig; // sp 136-160
-    ALSeqpConfig track2SeqpConfig; // sp 108-132
-    ALSeqpConfig track3SeqpConfig; // sp 80-104
+    ALSynConfig synconfig;
+    ALSeqpConfig track1SeqpConfig;
+    ALSeqpConfig track2SeqpConfig;
+    ALSeqpConfig track3SeqpConfig;
     u8 *mempAddress;
     u8 *p;
     u16 d;
-    u32 tblSegmentSize; // sp 64
-    u32 size; // sp56;
+    u32 tblSegmentSize;
+    u32 size;
     
     if (g_sndBootswitchSound)
     {
@@ -650,10 +603,12 @@ void musicSeqPlayerInit(void)
     p = (u8 *)mempAllocBytesInBank(MUSIC_ALLOCATION_BYTES, MEMPOOL_PERMANENT);
 
     mempAddress = p;
+
     do
     {
         *p++ = 0;
-    } while (p < mempAddress + MUSIC_ALLOCATION_BYTES);
+    } 
+    while (p < mempAddress + MUSIC_ALLOCATION_BYTES);
 
     alHeapInit(&g_musicHeap, mempAddress, MUSIC_ALLOCATION_BYTES);
 
@@ -775,7 +730,6 @@ void musicSeqPlayerInit(void)
 }
 
 /**
- * 7A7C	70006E7C
  * If sound boot flag is set, nothing happens.
  * If current track number is set, will call the stop playing method.
  * Does not change g_musicXTrack1Fade, but will update current track number.
@@ -789,11 +743,11 @@ void musicSeqPlayerInit(void)
 void musicTrack1Play(s32 track)
 {
     u32 trackSizeBytes;
-    struct music_struct_b thing;
     u8 *temp_a0;
     void *romAddress;
     u32 t3;
-    struct huft hlist;
+    u8 inflateScatch[INFLATE_SCRATCH_BYTES];
+    u8 *seqData;
 
     if (g_sndBootswitchSound)
     {
@@ -807,8 +761,7 @@ void musicTrack1Play(s32 track)
 
     g_musicXTrack1CurrentTrackNum = track;
 
-    while (alCSPGetState(g_musicXTrack1SeqPlayer))
-        ;
+    while (alCSPGetState(g_musicXTrack1SeqPlayer));
 
     romAddress = g_musicDataTable->seqArray[g_musicXTrack1CurrentTrackNum].address;
 
@@ -826,11 +779,11 @@ void musicTrack1Play(s32 track)
      * loop repair needs headroom against the writer overtaking the reader. */
     t3 = ALIGN16_a(g_musicTrackLength[g_musicXTrack1CurrentTrackNum]) + ALIGN16_a(NUM_MUSIC_TRACKS) + 256;
     trackSizeBytes = ALIGN16_a(g_musicTrackCompressedLength[g_musicXTrack1CurrentTrackNum]);
-    thing.seqData = g_musicXTrack1SeqData;
-    temp_a0 = (u8*)((t3 + (s32)thing.seqData) - trackSizeBytes);
+    seqData = g_musicXTrack1SeqData;
+    temp_a0 = seqData + t3 - trackSizeBytes;
 
     romCopy(temp_a0, romAddress, trackSizeBytes);
-    decompressdata(temp_a0, thing.seqData, &hlist);
+    decompressdata(temp_a0, seqData, (struct huft *)inflateScatch);
 
     alCSeqNew(&g_musicXTrack1Seq, g_musicXTrack1SeqData);
     alCSPSetSeq(g_musicXTrack1SeqPlayer, &g_musicXTrack1Seq);
@@ -867,17 +820,14 @@ void musicTrack1Stop(void)
     g_musicXTrack1CurrentTrackNum = 0;
 }
 
-/**
- * 7C30	70007030
- *     V0= [80024338]
- */
+
 u16 musicTrack1GetVolume(void)
 {
     return g_musicXTrack1Volume;
 }
 
+
 /**
- * 7C3C	7000703C
  * Sets the global variable storing the current volume.
  * This is scaled by the default volume for the specific song (e.g., M_INTRO)
  * and the cseq player volume is set to that value.
@@ -898,8 +848,8 @@ void musicTrack1ApplySeqpVol(u16 volume)
     alCSPSetVol(g_musicXTrack1SeqPlayer, t1);
 }
 
+
 /**
- * 7CA0	700070A0
  * g_musicDefaultTrackVolume is updated so that the currently playing
  * track's default volume is now the current volume.
  */
@@ -915,8 +865,8 @@ void musicTrack1SaveCurrentVolumeAsTrackDefault(void)
     }
 }
 
+
 /**
- * 7CF8	700070F8
  * Updates internal variables to fadeout state, if not already fading out.
  * Starting/stopping output of audio is not directly managed here.
  * Sets g_musicXTrack1Fade to MUSIC_FADESTATE_UNSET.
@@ -935,8 +885,8 @@ void musicTrack1FadeOut(f32 fadeTime)
     }
 }
 
+
 /**
- * 7D68	70007168
  * Updates internal variables to fadein state, if not already fading in.
  * Calls alCSPPlay on cseq player. 
  * Sets g_musicXTrack1Fade to MUSIC_FADESTATE_FADE_IN.
@@ -967,8 +917,8 @@ void musicTrack1FadeIn(f32 fadeTime, u16 volume)
     }
 }
 
+
 /**
- * 7E04	70007204
  * If sound boot flag is is set, nothing happens.
  * If current track number is set, will call the stop playing method.
  * Does not change g_musicXTrack2Fade, but will update current track number.
@@ -982,11 +932,11 @@ void musicTrack1FadeIn(f32 fadeTime, u16 volume)
 void musicTrack2Play(s32 track)
 {
     u32 trackSizeBytes;
-    struct music_struct_b thing;
     u8 *temp_a0;
     void *romAddress;
     u32 t3;
-    struct huft hlist;
+    u8 inflateScatch[INFLATE_SCRATCH_BYTES];
+    u8 *seqData;
 
     if (g_sndBootswitchSound)
     {
@@ -1000,14 +950,13 @@ void musicTrack2Play(s32 track)
 
     g_musicXTrack2CurrentTrackNum = track;
 
-    while (alCSPGetState(g_musicXTrack2SeqPlayer))
-        ;
+    while (alCSPGetState(g_musicXTrack2SeqPlayer));
 
     romAddress = g_musicDataTable->seqArray[g_musicXTrack2CurrentTrackNum].address;
 
     if (romAddress < (void*)ROM_MUSIC_START_OFFSET)
     {
-        // Note: recursive call
+        // Recursive call.
         musicTrack2Play(M_SHORT_SOLO_DEATH);
 
         return;
@@ -1015,11 +964,11 @@ void musicTrack2Play(s32 track)
 
     t3 = ALIGN16_a(g_musicTrackLength[g_musicXTrack2CurrentTrackNum]) + ALIGN16_a(NUM_MUSIC_TRACKS);
     trackSizeBytes = ALIGN16_a(g_musicTrackCompressedLength[g_musicXTrack2CurrentTrackNum]);
-    thing.seqData = g_musicXTrack2SeqData;
-    temp_a0 = (u8*)((t3 + (s32)thing.seqData) - trackSizeBytes);
+    seqData = g_musicXTrack2SeqData;
+    temp_a0 = seqData + t3 - trackSizeBytes;
 
     romCopy(temp_a0, romAddress, trackSizeBytes);
-    decompressdata(temp_a0, thing.seqData, &hlist);
+    decompressdata(temp_a0, seqData, (struct huft *)inflateScatch);
 
     alCSeqNew(&g_musicXTrack2Seq, g_musicXTrack2SeqData);
     alCSPSetSeq(g_musicXTrack2SeqPlayer, &g_musicXTrack2Seq);
@@ -1028,7 +977,6 @@ void musicTrack2Play(s32 track)
 }
 
 /**
- * 7F58	70007358
  * If sound boot flag is is set, nothing happens.
  * Updates internal variables to stopped state, regardless of current state.
  * If there's a current track set, and the cseq player is "doing something", 
@@ -1056,18 +1004,14 @@ void musicTrack2Stop(void)
     g_musicXTrack2CurrentTrackNum = 0;
 }
 
-/**
- * 7FB8	700073B8
- *     V0= [80024340]
- */
+
 u16 musicTrack2GetVolume(void)
 {
     return g_musicXTrack2Volume;
 }
 
+
 /**
- * 7FC4	700073C4
- * 
  * Sets the global variable storing the current volume.
  * This is scaled by the default volume for the specific song (e.g., M_INTRO)
  * and the cseq player volume is set to that value.
@@ -1089,7 +1033,6 @@ void musicTrack2ApplySeqpVol(u16 volume)
 
 
 /**
- * 8080	70007480
  * Updates internal variables to fadeout state, if not already fading out.
  * Starting/stopping output of audio is not directly managed here.
  * Sets g_musicXTrack1Fade to MUSIC_FADESTATE_UNSET.
@@ -1110,7 +1053,6 @@ void musicTrack2FadeOut(f32 fadeTime)
 
 
 /**
- * 818C	7000758C
  * If sound boot flag is is set, nothing happens.
  * If current track number is set, will call the stop playing method.
  * Does not change g_musicXTrack3Fade, but will update current track number.
@@ -1124,11 +1066,11 @@ void musicTrack2FadeOut(f32 fadeTime)
 void musicTrack3Play(s32 track)
 {
     u32 trackSizeBytes;
-    struct music_struct_b thing;
     u8 *temp_a0;
     void *romAddress;
     u32 t3;
-    struct huft hlist;
+    u8 inflateScatch[INFLATE_SCRATCH_BYTES];
+    u8 *seqData;
 
     if (g_sndBootswitchSound)
     {
@@ -1142,8 +1084,7 @@ void musicTrack3Play(s32 track)
 
     g_musicXTrack3CurrentTrackNum = track;
 
-    while (alCSPGetState(g_musicXTrack3SeqPlayer))
-        ;
+    while (alCSPGetState(g_musicXTrack3SeqPlayer));
 
     romAddress = g_musicDataTable->seqArray[g_musicXTrack3CurrentTrackNum].address;
 
@@ -1157,11 +1098,11 @@ void musicTrack3Play(s32 track)
 
     t3 = ALIGN16_a(g_musicTrackLength[g_musicXTrack3CurrentTrackNum]) + ALIGN16_a(NUM_MUSIC_TRACKS);
     trackSizeBytes = ALIGN16_a(g_musicTrackCompressedLength[g_musicXTrack3CurrentTrackNum]);
-    thing.seqData = g_musicXTrack3SeqData;
-    temp_a0 = (u8*)((t3 + (s32)thing.seqData) - trackSizeBytes);
+    seqData = g_musicXTrack2SeqData;
+    temp_a0 = seqData + t3 - trackSizeBytes;
 
     romCopy(temp_a0, romAddress, trackSizeBytes);
-    decompressdata(temp_a0, thing.seqData, &hlist);
+    decompressdata(temp_a0, seqData, (struct huft *)inflateScatch);
 
     alCSeqNew(&g_musicXTrack3Seq, g_musicXTrack3SeqData);
     alCSPSetSeq(g_musicXTrack3SeqPlayer, &g_musicXTrack3Seq);
@@ -1198,18 +1139,14 @@ void musicTrack3Stop(void)
     g_musicXTrack3CurrentTrackNum = 0;
 }
 
-/**
- * 8340	70007740
- *     V0= 7FFF [80024348]
- */
+
 u16 musicTrack3GetVolume(void)
 {
     return g_musicXTrack3Volume;
 }
 
+
 /**
- * 834C	7000774C
- * 
  * Sets the global variable storing the current volume.
  * This is scaled by the default volume for the specific song (e.g., M_INTRO)
  * and the cseq player volume is set to that value.
@@ -1231,7 +1168,6 @@ void musicTrack3ApplySeqpVol(u16 volume)
 
 
 /**
- * 8408	70007808
  * Updates internal variables to fadeout state, if not already fading out.
  * Starting/stopping output of audio is not directly managed here.
  * Sets g_musicXTrack1Fade to MUSIC_FADESTATE_UNSET.
@@ -1250,8 +1186,8 @@ void musicTrack3FadeOut(f32 fadeTime)
     }
 }
 
+
 /**
- * 8478	70007878
  * Updates internal variables to fadein state, if not already fading in.
  * Calls alCSPPlay on cseq player. 
  * Sets g_musicXTrack1Fade to MUSIC_FADESTATE_FADE_IN.
@@ -1282,8 +1218,8 @@ void musicTrack3FadeIn(f32 fadeTime, u16 volume)
     }
 }
 
+
 /**
- * 8514	70007914
  * Called by the scheduler to fade between music sources (e.g., level music -> watch pause music).
  */
 void musicFadeTick(void)

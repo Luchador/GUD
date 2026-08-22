@@ -6,34 +6,18 @@
 #include <assets/obseg/obseg.h>
 #include "decompress.h"
 #include "assets/obseg/file_resource_id_enums.h"
-
-//bss
-//800888b0
-
- resource_lookup_data_entry resource_lookup_data_array[OBJ_INDEX_MAX];
-
-
-// data
-//D:80046050
-s32 ob_c_debug_notice_list_entry = 0;
-
-
 #include <assets/obseg/file_resource_table.inc.c>
-/* struct fileentry file_resource_table[] =
-   {
-       blah;
-    };
- */
 
 
-//D:800482D4
+resource_lookup_data_entry resource_lookup_data_array[OBJ_INDEX_MAX];
+s32 ob_c_debug_notice_list_entry = 0;
 s32 file_entry_max = OBJ_INDEX_END;
 
 
 void load_resource(u8 *ptrdata, s32 bytes,  fileentry *srcfile,  resource_lookup_data_entry *lookupdata)
 {
     u8 *source;
-    u8  buffer[0x2100];
+    u8  buffer[INFLATE_SCRATCH_BYTES];
 
     if (bytes == 0)
     {
