@@ -91,10 +91,7 @@ void bondviewLoadSetupIntroSection(void)
     struct SetupIntroWatch *intro_watch;
     struct SetupIntroCredits *intro_credits;
 
-    // done with declarations
-
     start_pos = default_start_position;
-
     intro_record = (struct SetupIntroEmpty *)g_CurrentSetup.intro;
     g_isBondKIA = 0;
     g_bondviewForceDisarm = 0;
@@ -139,7 +136,7 @@ void bondviewLoadSetupIntroSection(void)
     g_ExplodeTankOnDeathFlag = 0;
     is_timer_active = 1;
     g_PlayerInvincible = FALSE;
-    g_CameraMode = 0;
+    g_CameraMode = CAMERAMODE_NONE;
     g_CameraAfterCinema = 0;
     camera_fade_active = 0;
     stop_time_flag = 0;

@@ -970,7 +970,6 @@ s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, co
 }
 
 
-// Address 0x7F07A9B8 NTSC.
 void bondviewSetCameraMode(s32 arg0)
 {
     s32 padding;
@@ -6402,7 +6401,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         }
     }
 
-    currentPlayerSetCameraMode(0);
+    camSetPlayerFrozenCam(FALSE);
     bondviewPlayerTickDamageAndHealth();
     bondviewPlayerTickExplode();
     bondviewProcessInput(stick_x, stick_y, buttons, oldbuttons);
@@ -7671,12 +7670,12 @@ void bondviewFrozenMoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
     if ((g_CameraMode == CAMERAMODE_FP_NOINPUT) || (g_CameraMode == CAMERAMODE_FP) || (g_CameraMode == CAMERAMODE_FADE_TO_TITLE))
     {
-        currentPlayerSetCameraMode(0);
+        camSetPlayerFrozenCam(FALSE);
         return;
     }
 
     bondviewFrozenCameraTick(buttons, oldbuttons, &property_pos, &property_pos2, &property_offset, &room_pointer_tile, &stan_walk_start);
-    currentPlayerSetCameraMode(1);
+    camSetPlayerFrozenCam(TRUE);
     bondviewSetCurrentPlayerPosition(&property_pos, &property_pos2, &property_offset, room_pointer_tile, &stan_walk_start);
 }
 
@@ -8291,7 +8290,7 @@ Gfx *bondviewRenderDebugBondView(Gfx *gdl)
         }
     }
 #endif
-    if (g_CurrentPlayer->cameramode == 1) 
+    if (g_CurrentPlayer->frozencam == 1) 
     {
         cam_pos.x = g_CurrentPlayer->pos.x;
         cam_pos.y = g_CurrentPlayer->pos.y;
@@ -9063,7 +9062,7 @@ Gfx *bondviewRenderPlayerView(Gfx *gdl)
     s32 i;
     s32 total;
 
-    if (g_CurrentPlayer->cameramode == 1)
+    if (g_CurrentPlayer->frozencam == 1)
     {
         bondviewIntroCameraTextTick();
         gdl = hudmsgBottomRender(gdl);
@@ -9564,7 +9563,7 @@ s32 get_obj_collision_flag(void)
 
 u8 bondviewGetPlayerRoom(void)
 {
-    if ((g_CurrentPlayer->cameramode == 1) && (g_CurrentPlayer->cameratile != 0))
+    if ((g_CurrentPlayer->frozencam == 1) && (g_CurrentPlayer->cameratile != 0))
     {
         return g_CurrentPlayer->cameratile->room;
     }
@@ -9575,7 +9574,7 @@ u8 bondviewGetPlayerRoom(void)
 
 coord3d *bondviewGetPlayerPosition(void)
 {
-    if (g_CurrentPlayer->cameramode == 1)
+    if (g_CurrentPlayer->frozencam == 1)
     {
         return &g_CurrentPlayer->pos;
     }
@@ -9587,7 +9586,7 @@ coord3d *bondviewGetPlayerPosition(void)
 coord3d * bondviewGetCurrentPlayersPosition3(void)
 {
 
-    if (g_CurrentPlayer->cameramode == 1)
+    if (g_CurrentPlayer->frozencam == 1)
     {
         return &g_CurrentPlayer->pos3;
     }
@@ -9636,7 +9635,7 @@ void bondviewGetPropHeightRelatedValues(PropRecord *arg0, struct rect4f **field_
         // What is this doing and why is it 1 player only?
         if (getPlayerCount() == 1 || g_playerPointers[temp_v0]->bondstate == FALSE)
         {
-            if (g_playerPointers[temp_v0]->cameramode != 1)
+            if (g_playerPointers[temp_v0]->frozencam != 1)
             {
                 *arg2 = 4;
                 *field_B0 = &g_playerPointers[temp_v0]->collision_bounds;
@@ -10153,7 +10152,7 @@ s32 playerTick(PropRecord *prop)
  
     if (chr != NULL)
     {
-        if ((g_playerPointers[index]->bodyModel != NULL) && (!(g_playerPointers[index]->cameramode != 1)))
+        if ((g_playerPointers[index]->bodyModel != NULL) && (!(g_playerPointers[index]->frozencam != 1)))
         {
             g_playerPointers[index]->field_AC = 0;
             ret = chrTick(prop);

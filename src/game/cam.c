@@ -562,7 +562,7 @@ bool camIsPosInScreenBox(coord3d *pos, f32 margin, bbox2d *box)
 }
 
 
-void currentPlayerSetCameraMode(s32 mode)
+void camSetPlayerFrozenCam(bool isFrozen)
 {
-    g_CurrentPlayer->cameramode = mode;
+    g_CurrentPlayer->frozencam = isFrozen;
 }

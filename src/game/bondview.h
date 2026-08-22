@@ -287,7 +287,7 @@ typedef struct gunheld {
 
 struct player
 {
-  s32 cameramode; // canonical name
+  s32 frozencam; // canonical name
 
   /**
    * Offset 0x0004.

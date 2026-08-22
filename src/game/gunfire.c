@@ -3453,7 +3453,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
             g_CurrentPlayer->trigger_released = 0;
 
             if ((g_ClockTimer > 0)
-                && (g_CurrentPlayer->cameramode != CAMERAMODE_INTRO)
+                && (g_CurrentPlayer->frozencam != CAMERAMODE_INTRO)
                 && (Gun_hand_without_item(hand) != 0)
                 && (g_PlayerInvincible == FALSE)
                 && (g_CurrentPlayer->bondstate == BONDSTATE_ALIVE)
@@ -3574,7 +3574,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
 #if defined(VERSION_JP) || defined(VERSION_EU)
             && (g_ClockTimer > 0)
 #endif
-            && (g_CurrentPlayer->cameramode != CAMERAMODE_INTRO)
+            && (g_CurrentPlayer->frozencam != CAMERAMODE_INTRO)
             && (Gun_hand_without_item(hand) != 0)
             && (g_PlayerInvincible == FALSE)
             && (g_CurrentPlayer->bondstate == BONDSTATE_ALIVE)

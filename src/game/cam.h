@@ -15,5 +15,6 @@ Mtx *camGetPlayerProjViewMtx(void);
 void camUpdateFrustumPlanes(void);
 bool camIsPosInScreen(coord3d *pos, f32 margin);
 bool camIsPosInScreenBox(coord3d *pos, f32 margin, bbox2d *box);
+void camSetPlayerFrozenCam(bool isFrozen);
 
 #endif

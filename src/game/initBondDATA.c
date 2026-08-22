@@ -247,7 +247,7 @@ void init_player_BONDdata(void)
     g_CurrentPlayer->current_room_pos.f[0] = 0.0f;
     g_CurrentPlayer->current_room_pos.f[1] = 0.0f;
     g_CurrentPlayer->current_room_pos.f[2] = 0.0f;
-    g_CurrentPlayer->cameramode = 0;
+    g_CurrentPlayer->frozencam = 0;
     g_CurrentPlayer->pos.f[0] = 0.0f;
     g_CurrentPlayer->pos.f[1] = 0.0f;
     g_CurrentPlayer->pos.f[2] = 0.0f;
