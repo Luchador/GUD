@@ -1,6 +1,7 @@
 #include <ultra64.h>
 #include <limits.h>
 #include <music.h>
+#include "cam.h"
 #include "glass.h"
 #include "image_bank.h"
 #include "lv.h"
@@ -10,48 +11,17 @@
 #include "random.h"
 
 
-#ifndef VERSION_EU
 #define SHARD_HORIZ_VEL_SCALE 1.5f
 #define SHARD_VERT_VEL_SCALE 3.0f
 #define SHARD_ANGVEL_SCALE 0.1f
-#else
-#define SHARD_HORIZ_VEL_SCALE 1.8f
-#define SHARD_VERT_VEL_SCALE 3.6f
-#define SHARD_ANGVEL_SCALE 0.12f
-#endif
 
 #define BULLET_SPARKS_MAX 20
 
-// bss
-//CODE.bss:8007A160
 s32 SHATTERED_WINDOW_PIECES_BUFFER_LEN;
-//CODE.bss:8007A164
 s_shattered_window_piece* ptr_shattered_window_pieces;
-//CODE.bss:8007A168
-u32 dword_CODE_bss_8007A168;
-//CODE.bss:8007A16C
-u32 dword_CODE_bss_8007A16C;
-
-
-
-// data
-//D:80040940
 s32 g_NextShardNum = 0;
-u32 D_80040944 = 0;
-u32 D_80040948 = 0;
-u32 D_8004094C = 0;
-u32 D_80040950 = 0;
-u32 D_80040954 = 0;
-u32 D_80040958 = 0;
-u32 D_8004095C = 0;
 
 
-
-
-
-
-
-// rodata
 void sub_GAME_7F0A1DA0(coord3d *pos, coord3d *xaxis, coord3d *yaxis, coord3d *zaxis, f32 xmin, f32 xmax, f32 ymin, f32 ymax, f32 arg8, f32 arg9)
 {
     f32      len;
@@ -131,6 +101,7 @@ void sub_GAME_7F0A1DA0(coord3d *pos, coord3d *xaxis, coord3d *yaxis, coord3d *za
         } while (y < ycount);
     }
 }
+
 
 /**
  * Creates a triangular shard of glass.
@@ -213,13 +184,16 @@ void glassCreateShard(coord3d* pos, f32 rotX, f32 shard_size)
     ptr_shattered_window_pieces[g_NextShardNum].angvel.z = (randomGetNext() * (1.0f / (f32)UINT_MAX)) * SHARD_ANGVEL_SCALE;
 
     g_NextShardNum++;
-    if (g_NextShardNum >= SHATTERED_WINDOW_PIECES_BUFFER_LEN) {
+
+    if (g_NextShardNum >= SHATTERED_WINDOW_PIECES_BUFFER_LEN)
+    {
         g_NextShardNum = 0;
     }
 }
 
 
-void update_broken_windows(void) {
+void update_broken_windows(void)
+{
     f32 var_f0;
     s32 i;
     s32 j;
@@ -261,9 +235,6 @@ void update_broken_windows(void) {
 }
 
 
-/**
- * Address: 7F0A2C44
- */
 Gfx *glassRenderShards(Gfx *gdl)
 {
     Mtxf mtxf;
@@ -278,7 +249,7 @@ Gfx *glassRenderShards(Gfx *gdl)
     gSPClearGeometryMode(gdl++, G_CULL_BOTH);
     gDPSetTextureFilter(gdl++, G_TF_BILERP);
     gSPSetGeometryMode(gdl++, G_LIGHTING | G_TEXTURE_GEN);
-    gSPMatrix(gdl++, osVirtualToPhysical(getPlayerProjViewMtx()), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
+    gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
 
     #define WINDOW_PIECE(_i) ((s_shattered_window_piece*)((u8*)ptr_shattered_window_pieces + ((_i) * sizeof(s_shattered_window_piece))))
 
@@ -302,7 +273,7 @@ Gfx *glassRenderShards(Gfx *gdl)
     #undef WINDOW_PIECE
 
     gSPClearGeometryMode(gdl++, G_LIGHTING | G_TEXTURE_GEN);
-    gSPMatrix(gdl++, (u32)getPlayerProjMtx(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
+    gSPMatrix(gdl++, (u32)camGetPlayerProjMtx(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
     gSPMatrix(gdl++, (u32)currentPlayerGetMatrix10C8(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
 
     return gdl;

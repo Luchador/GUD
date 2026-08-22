@@ -15,11 +15,12 @@
 #include "game/ramromreplay.h"
 #include "game/stan.h"
 
+#define FLOAT_INIT 0
+#define FIELD_6C_FACTOR 0.170000016689f
+#define FIELD_3B8_FACTOR 0.100000023842f
 
-/**
- * Address 0x8002A780.
-*/
 struct coord3d default_start_position = { 0 };
+
 
 u32 weaponLoadProjectileModels(ITEM_IDS modelid)
 {
@@ -72,22 +73,9 @@ u32 weaponLoadProjectileModels(ITEM_IDS modelid)
     return 0;
 }
 
+
 void bondviewLoadSetupIntroSection(void)
 {
-
-#define FLOAT_INIT 0
-
-
-#if defined(VERSION_EU)
-#define FIELD_6C_FACTOR 0.20039999485f
-#define FIELD_3B8_FACTOR 0.118799984455f
-#else
-#define FIELD_6C_FACTOR 0.170000016689f
-#define FIELD_3B8_FACTOR 0.100000023842f
-#endif
-
-    // declarations
-
     struct coord3d start_pos;
     f32 start_look_angle;
     StandTile *start_stan;
@@ -351,6 +339,7 @@ void bondviewLoadSetupIntroSection(void)
     {
         ptr_random06cam_entry = g_CurrentSetupIntroCamera;
         rand_camera_index = (s32)(randomGetNext() % (u32) g_SetupIntroCameraCount);
+
         while (rand_camera_index > 0)
         {
             rand_camera_index--;
@@ -379,10 +368,6 @@ void bondviewLoadSetupIntroSection(void)
         {
             rand_pad_index = 0;
         }
-
-#ifdef DEBUG
-        assert(g_Startpad[rand_pad_index]->stan); //              (".\\ported\\bondview_r.cpp",0x171,"Assertion failed: g_Startpad[sp]->stan");
-#endif
 
         start_pos.f[0] = g_Startpad[rand_pad_index]->pos.f[0];
         start_pos.f[2] = g_Startpad[rand_pad_index]->pos.f[2];

@@ -24,6 +24,7 @@
 #include "bondaicommands.h"
 #include "bondinv.h"
 #include "bondview.h"
+#include "cam.h"
 #include "chr.h"
 #include "chrai.h"
 #include "chraction.h"
@@ -7158,7 +7159,7 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, s32 arg2)
 
         obj = prop->obj;
         model = obj->model;
-        destroyed = (obj->flags & PROPFLAG_00000200) && getPlayerProjViewMtx() != NULL;
+        destroyed = (obj->flags & PROPFLAG_00000200) && camGetPlayerProjViewMtx() != NULL;
 
         gdl = mrData->gdl;
 
@@ -7304,7 +7305,7 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, s32 arg2)
         if (destroyed)
         {
             // Keep on one line for matching.
-            g3 = gdl++; gSPMatrix(g3, getPlayerProjViewMtx(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
+            g3 = gdl++; gSPMatrix(g3, camGetPlayerProjViewMtx(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
         }
 
         mrData->gdl = gdl;
@@ -7324,7 +7325,7 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, s32 arg2)
         if (destroyed)
         {
             // Keep on one line for matching.
-            g2 = gdl++; gSPMatrix(g2, getPlayerProjMtx(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
+            g2 = gdl++; gSPMatrix(g2, camGetPlayerProjMtx(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
         }
 
         mrData->gdl = gdl;

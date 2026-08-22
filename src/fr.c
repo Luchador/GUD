@@ -3,7 +3,8 @@
 #include "fr.h"
 #include <bondgame.h>
 #include <bondconstants.h>
-#include "player.h" // g_CurrentPlayer
+#include "cam.h"
+#include "player.h"
 #include "sched.h"
 #include "rsp.h"
 #include <PR/os.h>
@@ -14,14 +15,6 @@
 #include "usb.h"
 #endif
 
-/**
- * EU .data, offset from start of data_seg : 0x2484
-*/
-
-/**
- * @file video.c
- * This file contains video handling code.
- */
 
 // same codegen as (x & 0xffff)
 #define TO_U16_A(x) ((u16)(x))
@@ -473,7 +466,7 @@ Gfx *viSetupCurrentPlayerView(Gfx *gdl)
     gSPPerspNormalize(gdl++, g_viPerspNorm);
 
     // Store the float and non-float projection matrices so we can recall them later instead of having to rebuild them.
-    setPlayerProjMtx(g_viProjectionMatrix);
+    camSetPlayerProjMtx(g_viProjectionMatrix);
     currentPlayerSetProjectionMatrixF(g_viProjectionMatrixF);
 
     // Normal rendering mode is a 16-bit RGBA image.
@@ -608,8 +601,8 @@ void viSetViewSize(s16 x, s16 y)
 {
     g_ViBackData->viewx = x;
     g_ViBackData->viewy = y;
-    currentPlayerSetScreenSize(g_ViBackData->viewx, g_ViBackData->viewy);
-    currentPlayerSetCameraScale();
+    camSetPlayerScreenSize(g_ViBackData->viewx, g_ViBackData->viewy);
+    camSetPlayerCameraScale();
 }
 
 
@@ -629,7 +622,7 @@ void viSetViewPosition(s16 left, s16 top)
 {
     g_ViBackData->viewleft = left;
     g_ViBackData->viewtop = top;
-    currentPlayerSetScreenPosition(g_ViBackData->viewleft, g_ViBackData->viewtop);
+    camSetPlayerScreenPosition(g_ViBackData->viewleft, g_ViBackData->viewtop);
 }
 
 
@@ -654,16 +647,16 @@ void viSetUseZBuf(s32 usezbuf)
 void viSetFovY(f32 fovy)
 {
     g_ViBackData->fovy = fovy;
-    currentPlayerSetPerspective(g_ViBackData->znear, g_ViBackData->fovy, g_ViBackData->aspect);
-    currentPlayerSetCameraScale();
+    camSetPlayerPerspective(g_ViBackData->znear, g_ViBackData->fovy, g_ViBackData->aspect);
+    camSetPlayerCameraScale();
 }
 
 
 void viSetAspect(f32 aspect)
 {
     g_ViBackData->aspect = aspect;
-    currentPlayerSetPerspective(g_ViBackData->znear, g_ViBackData->fovy, g_ViBackData->aspect);
-    currentPlayerSetCameraScale();
+    camSetPlayerPerspective(g_ViBackData->znear, g_ViBackData->fovy, g_ViBackData->aspect);
+    camSetPlayerCameraScale();
 }
 
 
@@ -677,8 +670,8 @@ void viSetZRange(f32 near, f32 far)
 {
     g_ViBackData->znear = near;
     g_ViBackData->zfar = far;
-    currentPlayerSetPerspective(g_ViBackData->znear, g_ViBackData->fovy, g_ViBackData->aspect);
-    currentPlayerSetCameraScale();
+    camSetPlayerPerspective(g_ViBackData->znear, g_ViBackData->fovy, g_ViBackData->aspect);
+    camSetPlayerCameraScale();
 }
 
 

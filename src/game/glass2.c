@@ -3,6 +3,7 @@
 #include "bg.h"
 #include "bgroomtrans.h"
 #include "bondview.h"
+#include "cam.h"
 #include "dyn.h"
 #include "math_atan2f.h"
 #include "gbi_extension.h"
@@ -546,12 +547,12 @@ void bullet_spark_render(s_bullet_spark *thing, Gfx *gdlarg, s32 zbufferMode)
     vertices[3].v.tc[1] = ((struct sImageTableEntry *) (((u8 *) thing->unk0C) + (frame * 12)))->height << 5;
     
     gSPSetGeometryMode(gdl++, G_CULL_BACK);
-    gSPMatrix(gdl++, osVirtualToPhysical((void *) getPlayerProjViewMtx()), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
+    gSPMatrix(gdl++, osVirtualToPhysical((void *) camGetPlayerProjViewMtx()), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
     gdl = applyRoomMatrixToDisplayList(gdl, room);
     texSelect(&gdl, (struct sImageTableEntry *) (((u8 *) thing->unk0C) + (frame * 12)), 4, zbufferMode, 2);
     gSPVertex(gdl++, osVirtualToPhysical(vertices), 4, 0);
     gSP2Triangles(gdl++, 0, 1, 2, 0, 0, 2, 3, 0);
-    gSPMatrix(gdl++, osVirtualToPhysical(getPlayerProjMtx()), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
+    gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjMtx()), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
     *((Gfx **) gdlarg) = gdl;
 }
 

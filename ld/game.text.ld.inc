@@ -72,8 +72,8 @@
       build/OUTCODE/src/game/model.o (.text);
       build/OUTCODE/src/game/objecthandler_2.o (.text);
       build/OUTCODE/src/game/othermodemicrocode.o (.text);
+      build/OUTCODE/src/game/cam.o (.text);
       build/OUTCODE/src/game/bondview.o (.text);
-      build/OUTCODE/src/game/bondview2.o (.text);
       build/OUTCODE/src/game/bondinv.o (.text);
       build/OUTCODE/src/game/bondhead.o (.text);
       build/OUTCODE/src/game/padhalllv.o (.text);

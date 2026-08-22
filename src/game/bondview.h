@@ -8,6 +8,13 @@
 #include "options.h"
 #include "image.h"
 
+/*cannonically these are both*/
+#define BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH 0x97
+#define BONDVIEW_HUD_MSG_BOTTOM_BUFFER_LENGTH 0x65
+/*these*/
+#define MAXTALKMESSLEN 150
+#define MAXMESSAGELEN 100
+
 typedef struct invitem_weap
 {
 	s32 weapon;
@@ -25,9 +32,6 @@ typedef struct invitem_dual
 } invitem_dual;
 
 /**
- * We know this is a struct from the compiler auto-generated
- * code to copy structs in bondview.c bondviewKillCurrentPlayer.
- *
  * sizeof == 84 (0x54)
  */
 struct collision434 {
@@ -90,11 +94,6 @@ struct collision434 {
     StandTile *current_tile_ptr_for_portals;
 };
 
-typedef struct
-{
-  u8 labels[9][3];
-} DirectionLabels;
-
 typedef struct TopMessageLocals
 {
   s32 textwidth;
@@ -103,15 +102,6 @@ typedef struct TopMessageLocals
   s32 y;
   s32 x;
 } TopMessageLocals;
-
-typedef struct DebugTextBuffers
-{
-  char angle[0x10];
-  char z[0x10];
-  char y[0x10];
-  char x[0x10];
-  char room[0x10];
-} DebugTextBuffers;
 
 /**
  * first hand: 0x800c6fd0
@@ -2381,7 +2371,7 @@ typedef struct Weapon1PTransformKeyframe {
     u32 isFinalKey;
     coord3d pos; // local space (+right/-left, +up/-down, +backward/-forward)
     coord3d rot;
-    f32 interpParam; // Not sure, maybe some kind of interpolation between frames.
+    f32 interpParam;
     f32 duration;
 } Weapon1PTransformKeyframe;
 
@@ -2424,74 +2414,41 @@ extern f32 camera_transition_timer;
 extern s32 intro_camera_index;
 extern struct SetupIntroSwirl *g_IntroSwirl;
 extern s32 is_timer_active;
+
 /**
  * Used to make the player invincible upon level completion.
  * This is separate from the invincibility cheat, stored in cheatBondInvincible.
  */
 extern bool g_PlayerInvincible;
-//D:800364B8
 extern struct SetupIntroCamera* g_CurrentSetupIntroCamera;
-//D:800364BC
 extern s32 g_SetupIntroCameraCount;
-//D:800364C0
 extern struct SetupIntroCamera *ptr_random06cam_entry;
-//D:800364C4
 extern s32 g_VisibleToGuardsFlag;
-//D:800364C8
 extern s32 obj_collision_flag;
-//D:800364CC
 extern f32 D_800364CC;
-//D:800364D0
 extern f32 D_800364D0;
-//D:800364D4
 extern f32 D_800364D4;
-//D:800364D8
 extern s32 g_bondviewBondDeathAnimations[];
-
-//D:8003650C
 extern s32 g_bondviewBondDeathAnimationsCount;
-//D:80036510
 extern enum CAMERAMODE camera_mode;
-//D:80036514
 extern s32 g_IntroAnimationIndex;
-extern u32 D_80036630;
 extern struct DamageType g_DamageTypes[];
 extern struct coord3d g_DefaultFrozenPlayerPos;
 extern struct coord3d g_DefaultFrozenPlayerPos2;
 extern struct coord3d g_DefaultFrozenPlayerOffset;
 extern struct coord3d g_DefaultFrozenMoveOffset;
-
-//D:80036830
 extern coord3d ZeroCoord;
-//D:8003683C
 extern ModelRenderData D_8003683C;
-//D:8003687C
 extern coord3d ZeroCoordWatchPos;
-//D:8003688C
 extern coord3d ZeroCoordSpawnPos;
-//D:80036898
 extern s32 status_bar_text_buffer_index;
-//D:8003689C
 extern s32 display_statusbar;
-//D:800368A0
 extern s32 copy_1stfonttable;
-//D:800368A4
 extern s32 copy_2ndfonttable;
-//D:800368A8
 extern s32 upper_text_buffer_index;
-//D:800368AC
 extern s32 display_upper_text_window;
-//D:800368B0
 extern s32 upper_text_window_timer;
 extern s32 g_UpperTextDisplayFlag;
-extern s32 D_80036AB8;
-//D:80036ABC
-extern s32 D_80036ABC;
-//D:80036AC0
-extern f32 D_80036AC0;
-//D:80036AC4
-extern f32 D_80036AC4;
-
 extern s32 startpadcount;
 extern vec3d g_ForceBondMoveOffset;
 extern s32 mission_timer;
@@ -2503,7 +2460,6 @@ extern s32 watch_time_0;
 #endif
 
 extern f32 watch_transition_time;
-// ITEM_IDS
 extern ITEM_IDS starting_weapon[2];
 extern PadRecord *g_Startpad[];
 extern s32 startpadcount;
@@ -2513,17 +2469,19 @@ extern StandTilePoint *dword_CODE_bss_80079DA4;
 #define BSS_80079DA8_LENGTH 8
 extern s32 dword_CODE_bss_80079DA8[];
 
+extern struct coord3d g_DefaultMoveBondOffset;
+extern struct coord3d g_DefaultFrozenPlayerPos;
+extern struct coord3d g_DefaultFrozenPlayerPos2;
+extern struct coord3d g_DefaultFrozenPlayerOffset;
+extern struct coord3d g_DefaultFrozenMoveOffset;
+extern struct coord3d ZeroCoordShake;
+
 PropRecord* getCurrentPlayerProp(void);
 
 f32 currentPlayerGetHealth(void);
 f32 currentPlayerGetArmor(void);
 
 bool currentPlayerGetIsAiming(void);
-
-void currentPlayerSetScreenSize(f32 width, f32 height);
-void currentPlayerSetCameraScale(void);
-void currentPlayerSetScreenPosition(f32 left, f32 top);
-void currentPlayerSetPerspective(f32 near, f32 fovy, f32 aspect);
 
 f32 getPlayer_c_screenwidth(void);
 f32 getPlayer_c_screenheight(void);
@@ -2607,8 +2565,7 @@ Mtxf *camGetWorldToScreenMtxf(void);
 void transformAndNormalizeByLength2Dto3D(struct coord2d *in, coord3d *out, f32 value);
 void bondviewTransformManyPosToViewMatrix(RenderPosView *arg0, s32 arg1);
 s32 sub_GAME_7F078474(void);
-Mtx *getPlayerProjMtx(void);
-Mtx *getPlayerProjViewMtx(void);
+Mtx *camGetPlayerProjViewMtx(void);
 Gfx *bondviewRenderProp(PropRecord *arg0, Gfx *arg1, s32 arg2);
 f32 getPlayer_c_lodscalez(void);
 f32 bondviewGetBondBreathing(void);

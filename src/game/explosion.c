@@ -7,6 +7,7 @@
 #include <limits.h>
 #include "bg.h"
 #include "bondview.h"
+#include "cam.h"
 #include "cheat.h"
 #include "chrai.h"
 #include "chraction.h"
@@ -780,7 +781,7 @@ Gfx *explosionRenderPropExplosion(PropRecord *prop, Gfx *gdl, s32 withalpha)
         }
 
         gSPClearGeometryMode(gdl++, G_CULL_BOTH | G_FOG);
-        gSPMatrix(gdl++, osVirtualToPhysical(getPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
+        gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
 
         gdl = applyRoomMatrixToDisplayList(gdl, temp_s1);
 
@@ -802,7 +803,7 @@ Gfx *explosionRenderPropExplosion(PropRecord *prop, Gfx *gdl, s32 withalpha)
             }
         }
 
-        gSPMatrix(gdl++, osVirtualToPhysical((void*)getPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
+        gSPMatrix(gdl++, osVirtualToPhysical((void*)camGetPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
 
         temp_f10 = (s32) (g_ExplosionTypes[temp_s5->explosion_type].flareanimspeed * 15.0f);
 
@@ -1393,7 +1394,7 @@ Gfx *explosionRenderPropSmoke(PropRecord *arg0, Gfx *gdl, s32 withalpha)
 
     gSPClearGeometryMode(gdl++, G_CULL_BOTH | G_FOG);
 
-    gSPMatrix(gdl++, osVirtualToPhysical(getPlayerProjViewMtx()), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
+    gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
 
     gdl = applyRoomMatrixToDisplayList(gdl, temp_s1);
 
@@ -1419,7 +1420,7 @@ Gfx *explosionRenderPropSmoke(PropRecord *arg0, Gfx *gdl, s32 withalpha)
 
     gDPSetColorDither(gdl++, G_CD_BAYER);
 
-    gSPMatrix(gdl++, osVirtualToPhysical((void*)getPlayerProjMtx()), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
+    gSPMatrix(gdl++, osVirtualToPhysical((void*)camGetPlayerProjMtx()), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
 
     return gdl;
 }

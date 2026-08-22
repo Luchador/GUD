@@ -224,6 +224,155 @@ struct hand hand_data_dummy = {
 };
 
 
+/**
+ * Resets the current player's per-life state to defaults. Position,
+ * health/armour, movement speed, etc...
+ * 
+ * Called when a stage is loaded, then called again for each time a player respawns in MP.
+ */
+void init_player_BONDdata(void)
+{
+    if (getPlayerCount() >= 2)
+    {
+        g_CurrentPlayer->controldef = get_player_control_style(get_cur_playernum());
+        cur_player_set_control_type(get_player_control_style(get_cur_playernum()));
+    }
+
+    g_CurrentPlayer->current_model_pos.f[0] = 0.0f;
+    g_CurrentPlayer->current_model_pos.f[1] = 0.0f;
+    g_CurrentPlayer->current_model_pos.f[2] = 0.0f;
+    g_CurrentPlayer->previous_model_pos.f[0] = 0.0f;
+    g_CurrentPlayer->previous_model_pos.f[1] = 0.0f;
+    g_CurrentPlayer->previous_model_pos.f[2] = 0.0f;
+    g_CurrentPlayer->current_room_pos.f[0] = 0.0f;
+    g_CurrentPlayer->current_room_pos.f[1] = 0.0f;
+    g_CurrentPlayer->current_room_pos.f[2] = 0.0f;
+    g_CurrentPlayer->cameramode = 0;
+    g_CurrentPlayer->pos.f[0] = 0.0f;
+    g_CurrentPlayer->pos.f[1] = 0.0f;
+    g_CurrentPlayer->pos.f[2] = 0.0f;
+    g_CurrentPlayer->pos2.f[0] = 0.0f;
+    g_CurrentPlayer->pos2.f[1] = 0.0f;
+    g_CurrentPlayer->pos2.f[2] = 1.0f;
+    g_CurrentPlayer->offset.f[0] = 0.0f;
+    g_CurrentPlayer->offset.f[1] = 1.0f;
+    g_CurrentPlayer->offset.f[2] = 0.0f;
+    g_CurrentPlayer->pos3.f[0] = 0.0f;
+    g_CurrentPlayer->pos3.f[1] = 0.0f;
+    g_CurrentPlayer->pos3.f[2] = 0.0f;
+    g_CurrentPlayer->cameratile = 0;
+    g_CurrentPlayer->field_3C4 = 0.0f;
+    g_CurrentPlayer->field_3C8 = 0.0f;
+    g_CurrentPlayer->field_3CC = 1.0f;
+    g_CurrentPlayer->field_84 = 0.0f;
+    g_CurrentPlayer->field_88 = 0.0f;
+    g_CurrentPlayer->field_8C = 0;
+    g_CurrentPlayer->vertical_bounce_adjust = 0.0f;
+    g_CurrentPlayer->field_94 = 0;
+    g_CurrentPlayer->field_98 = 0.0f;
+    g_CurrentPlayer->swaytarget = 0.0f;
+    g_CurrentPlayer->swayoffset0 = 0.0f;
+    g_CurrentPlayer->swayoffset2 = 0.0f;
+    g_CurrentPlayer->crouchpos = CROUCH_STAND;
+    g_CurrentPlayer->autocrouchpos = CROUCH_STAND;
+    g_CurrentPlayer->ducking_height_offset = 0.0f;
+    g_CurrentPlayer->field_A4 = 0.0f;
+    g_CurrentPlayer->field_AC = 1;
+    g_CurrentPlayer->field_D0 = 0;
+    g_CurrentPlayer->bondstate = BONDSTATE_ALIVE;
+    g_CurrentPlayer->bondhealth = 1.0f;
+    g_CurrentPlayer->bondarmour = 0.0f;
+    g_CurrentPlayer->oldhealth = 1.0f;
+    g_CurrentPlayer->oldarmour = 0.0f;
+    g_CurrentPlayer->apparenthealth = 1.0f;
+    g_CurrentPlayer->apparentarmour = 0.0f;
+    g_CurrentPlayer->damageshowtime = -1;
+    g_CurrentPlayer->healthshowtime = -1;
+    g_CurrentPlayer->watch_pause_time = 0;
+    g_CurrentPlayer->timer_1C4 = 0;
+    g_CurrentPlayer->watch_animation_state = WATCH_ANIMATION_0x0;
+    g_CurrentPlayer->outside_watch_menu = TRUE;
+    g_CurrentPlayer->open_close_solo_watch_menu = FALSE;
+    g_CurrentPlayer->field_1A0 = 0;
+    g_CurrentPlayer->bondbreathing = 0.0f;
+    g_CurrentPlayer->speedtheta = 0.0f;
+    g_CurrentPlayer->vv_costheta = 1.0f;
+    g_CurrentPlayer->vv_sintheta = 0.0f;
+    g_CurrentPlayer->vv_verta = -4.0f;
+    g_CurrentPlayer->vv_verta360 = (f32) g_CurrentPlayer->vv_verta;
+    if (g_CurrentPlayer->vv_verta360 < 0.0f)
+    {
+        g_CurrentPlayer->vv_verta360 = (f32) (g_CurrentPlayer->vv_verta360 + 360.0f);
+    }
+    g_CurrentPlayer->speedverta = 0.0f;
+    g_CurrentPlayer->vv_cosverta = 1.0f;
+    g_CurrentPlayer->vv_sinverta = 0.0f;
+    g_CurrentPlayer->speedsideways = 0.0f;
+    g_CurrentPlayer->speedstrafe = 0.0f;
+    g_CurrentPlayer->speedforwards = 0.0f;
+    g_CurrentPlayer->speedgo = 0.0f;
+    g_CurrentPlayer->speedboost = 1.0f;
+    g_CurrentPlayer->speedmaxtime60 = 0;
+    g_CurrentPlayer->bondshotspeed.x = 0.0f;
+    g_CurrentPlayer->bondshotspeed.y = 0.0f;
+    g_CurrentPlayer->bondshotspeed.z = 0.0f;
+    g_CurrentPlayer->docentreupdown = FALSE;
+    g_CurrentPlayer->lastupdown60 = 0;
+    g_CurrentPlayer->prevupdown = FALSE;
+    g_CurrentPlayer->movecentrerelease = FALSE;
+    g_CurrentPlayer->lookaheadcentreenabled = TRUE;
+    g_CurrentPlayer->automovecentreenabled = TRUE;
+    g_CurrentPlayer->fastmovecentreenabled = FALSE;
+    g_CurrentPlayer->automovecentre = TRUE;
+    g_CurrentPlayer->insightaimmode = FALSE;
+    g_CurrentPlayer->autoyaimenabled = TRUE;
+    g_CurrentPlayer->autoaimy = 0.0f;
+    g_CurrentPlayer->autoaim_target_y = NULL;
+    g_CurrentPlayer->autoyaimtime60 = -1;
+    g_CurrentPlayer->autoxaimenabled = TRUE;
+    g_CurrentPlayer->autoaimx = 0.0f;
+    g_CurrentPlayer->autoaim_target_x = NULL;
+    g_CurrentPlayer->autoxaimtime60 = -1;
+    g_CurrentPlayer->colourscreenred = 0xff;
+    g_CurrentPlayer->colourscreengreen = 0xff;
+    g_CurrentPlayer->colourscreenblue = 0xff;
+    g_CurrentPlayer->colourscreenfrac = 0.0f;
+    g_CurrentPlayer->colourfadetime60 = -1.0f;
+    g_CurrentPlayer->colourfadetimemax60 = -1.0f;
+    g_CurrentPlayer->colourfaderedold = 0xff;
+    g_CurrentPlayer->colourfaderednew = 0xff;
+    g_CurrentPlayer->colourfadegreenold = 0xff;
+    g_CurrentPlayer->colourfadegreennew = 0xff;
+    g_CurrentPlayer->colourfadeblueold = 0xff;
+    g_CurrentPlayer->colourfadebluenew = 0xff;
+    g_CurrentPlayer->colourfadefracold = 0.0f;
+    g_CurrentPlayer->colourfadefracnew = 0.0f;
+    g_CurrentPlayer->bondfadetime60 = -1.0f;
+    g_CurrentPlayer->bondfadetimemax60 = -1.0f;
+    g_CurrentPlayer->bondfadefracold = 0.0f;
+    g_CurrentPlayer->bondfadefracnew = 0.0f;
+    g_CurrentPlayer->field_42c = 2;
+    g_CurrentPlayer->controldef = CONTROLLER_CONFIG_HONEY;
+    g_CurrentPlayer->pause_starting_angle = 0.0f;
+    g_CurrentPlayer->pause_saved_verta = 0.0f;
+    g_CurrentPlayer->pause_target_verta = 0.0f;
+    g_CurrentPlayer->pause_transition_time = 0.0f;
+    g_CurrentPlayer->pause_transition_duration = 0.0f;
+    g_CurrentPlayer->pause_state = 0;
+    g_CurrentPlayer->step_in_view_watch_animation = 0;
+    g_CurrentPlayer->pause_animation_counter = 0.0f;
+    g_CurrentPlayer->pausing_flag = FALSE;
+    g_CurrentPlayer->buttons_pressed = (u16)0;
+    g_CurrentPlayer->prev_buttons_pressed = (u16)0;
+    g_CurrentPlayer->field_29C0 = 15.0f;
+    g_CurrentPlayer->registeredroom = -1;
+    g_CurrentPlayer->field_2A08 = 0.0f;
+    g_CurrentPlayer->field_2A0C = 0.0f;
+    g_CurrentPlayer->field_2A6C = 0;
+    g_CurrentPlayer->field_2A70 = 0;
+}
+
+
 void init_player_BONDdata_stats(void)
 {
     s32 i;

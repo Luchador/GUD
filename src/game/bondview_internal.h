@@ -21,7 +21,6 @@ extern f32 g_TankEnteringSitHeightRemain;
 extern f32 g_TankEnterBondHorizAngleDeg;
 extern f32 g_TankEnterBondVertAngleDeg;
 extern struct coord3d g_EnterTankCoord;
-extern ITEM_IDS starting_weapon[2];
 extern struct coord3d flt_CODE_bss_800799E8;
 extern struct PropRecord *dword_CODE_bss_800799F4;
 extern PadRecord *g_CameraLookAtBondPad;
@@ -47,7 +46,6 @@ extern s32 dword_CODE_bss_jp80079CEC[5];
 #endif
 extern PadRecord *g_Startpad[16];
 extern s32 startpadcount;
-extern s32 dword_CODE_bss_80079C6C;
 #if defined(LEFTOVERDEBUG)
 extern char stringbuffer_top[2][BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH];
 #endif
@@ -116,12 +114,6 @@ extern f32 watch_transition_time;
 extern WeaponObjRecord dummy_08_pp7_obj[];
 extern struct DamageType g_DamageTypes[];
 extern struct HealthDisplayDuration g_HealthDisplayDurations[8];
-extern struct coord3d g_DefaultMoveBondOffset;
-extern struct coord3d g_DefaultFrozenPlayerPos;
-extern struct coord3d g_DefaultFrozenPlayerPos2;
-extern struct coord3d g_DefaultFrozenPlayerOffset;
-extern struct coord3d g_DefaultFrozenMoveOffset;
-extern struct coord3d ZeroCoordShake;
 extern ModelRenderData D_8003683C;
 extern coord3d ZeroCoordWatchPos;
 extern coord3d ZeroCoordSpawnPos;
@@ -133,13 +125,9 @@ extern s32 upper_text_buffer_index;
 extern s32 display_upper_text_window;
 extern s32 upper_text_window_timer;
 extern s32 g_UpperTextDisplayFlag;
-extern DirectionLabels g_DebugCompassLabels;
 extern s32 g_PlayerTickCount;
 extern struct firing_anim_struct firing_animation_groups[][6];
-extern s32 D_80036AB8;
-extern s32 D_80036ABC;
-extern f32 D_80036AC0;
-extern f32 D_80036AC4;
+
 void bondviewUpdatePlayerRoom(struct player *player);
 s32 chrTick(PropRecord *prop);
 void bondviewDeregisterPlayerRoom(struct player *player);
