@@ -503,7 +503,7 @@ Gfx* lvlRender(Gfx* DL)
                 set_max_ammo_for_cur_player();
             }
 
-            DL = maybe_mp_interface(DL);
+            DL = bondviewRenderPlayerView(DL);
             DL = mp_watch_menu_display(DL);
         }
     }

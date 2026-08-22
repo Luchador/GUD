@@ -11334,7 +11334,7 @@ _AI_CMD(
 
 _AI_CMD(
     {
-        credits_state = TRUE;
+        credits_state = CREDIT_STATE_START;
         Offset += CAT(CAT(AI_, CMDNAME), _LENGTH);
         break;
     })
@@ -11367,7 +11367,7 @@ _AI_CMD(
 _AI_CMD(
     {
         AIRecord *ai = AiListp + Offset;
-        if (credits_state == 2)
+        if (credits_state == CREDITS_STATE_COMPLETED)
         {
             Offset = chraiGoToLabel(AiListp, Offset, ai->val[0]);
         }

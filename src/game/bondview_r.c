@@ -102,7 +102,6 @@ void bondviewLoadSetupIntroSection(void)
     struct SetupIntroSwirl *intro_swirl;
     struct SetupIntroWatch *intro_watch;
     struct SetupIntroCredits *intro_credits;
-    s32 padding[5];
 
     // done with declarations
 
@@ -125,8 +124,8 @@ void bondviewLoadSetupIntroSection(void)
         cameraFrameCounter1 = 1;
     }
 
-    camera_80036438 = 0;
-    credits_state = 0;
+    g_CreditsRollTimer = 0;
+    g_CreditsState = CREDIT_STATE_START;
     credits_pointer = NULL;
     g_ForceBondMoveOffset.f[0] = FLOAT_INIT;
     g_ForceBondMoveOffset.f[1] = FLOAT_INIT;
@@ -338,11 +337,9 @@ void bondviewLoadSetupIntroSection(void)
                 }
                 break;
 
+                // Invalid intro type.
                 default:
                 {
-                    #ifdef DEBUG
-                        ossyncprintf("unknown bondstart type %d!\n",intro_record->type);
-                    #endif
                     intro_record = (struct SetupIntroEmpty*)((s32)intro_record + sizeof(struct SetupIntroEmpty));
                 }
                 break;

@@ -4361,14 +4361,14 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 }
                 case AI_CreditsRoll:
                 {
-                    credits_state = TRUE;
+                    g_CreditsState = CREDITS_STATE_ROLLING;
                     Offset += sizeof(AiCreditsRollRecord);
                     break;
                 }
                 case AI_IFCreditsHasCompleted:
                 {
                     AiIFCreditsHasCompletedRecord *ai = AiListp + Offset;
-                    if (credits_state == 2)
+                    if (g_CreditsState == CREDITS_STATE_COMPLETED)
                     {
                         Offset = chraiGoToLabel(AiListp, Offset, ai->GOTOLABEL);
                     }

@@ -2402,9 +2402,9 @@ extern s32 cameraFrameCounter1;
 //D:80036434
 extern s32 cameraFrameCounter2;
 //D:80036438
-extern s32 camera_80036438;
+extern s32 g_CreditsRollTimer;
 //D:8003643C
-extern s32 credits_state;
+extern enum CREDITS_STATE g_CreditsState;
 //D:80036440
 extern CreditsEntry *credits_pointer;
 //D:80036444
@@ -2740,7 +2740,7 @@ void setFontTables(s32 arg0, s32 arg1);
 
 Gfx *bondviewRenderDebugBondView(Gfx *arg0);
 s32 bond_pressed_reload_activate(void);
-Gfx *maybe_mp_interface(Gfx *arg0);
+Gfx *bondviewRenderPlayerView(Gfx *gdl);
 bool camIsPosInScreen(coord3d *vec_scale, f32 norm_scale);
 bool camIsPosInScreenBox(coord3d *, f32, struct bbox2d *);
 s32 getMissiontimer(void);

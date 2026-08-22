@@ -194,9 +194,9 @@ s32 cameraFrameCounter1 = 0;
 //D:80036434
 s32 cameraFrameCounter2 = 0;
 //D:80036438
-s32 camera_80036438 = 0;
+s32 g_CreditsRollTimer = 0;
 //D:8003643C
-s32 credits_state = 0;
+CREDITS_STATE g_CreditsState = CREDIT_STATE_START;
 //D:80036440
 CreditsEntry *credits_pointer = NULL;
 //D:80036444

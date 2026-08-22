@@ -1355,9 +1355,6 @@ void process_02_position(ModelRenderData *arg0, Model *model, ModelNode *node)
 }
 
 
-/**
- * Address: 7F06E2B8
- */
 void sub_GAME_7F06E2B8(ModelRenderData *renderData, Model *model, ModelNode *node, f32 angle)
 {
     s32 opcode;
@@ -1567,9 +1564,7 @@ void process_15_subposition(ModelRenderData* arg0, Model *model, ModelNode *node
     }
 }
 
-/*
-* Address: 0x7F06E858
-*/
+
 void modelUpdateDistanceRelations(Model* model, ModelNode* node)
 {
     union ModelRoData *rodata = node->Data;
@@ -1605,9 +1600,7 @@ void modelUpdateDistanceRelations(Model* model, ModelNode* node)
     node->Child = NULL;
 }
 
-/*
-* Address: 0x7F06E970
-*/
+
 void modelApplyDistanceRelations(Model* model, ModelNode* node)
 {
     ModelRoData_LODRecord *rodata = &node->Data->LOD;

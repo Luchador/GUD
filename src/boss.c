@@ -20,7 +20,7 @@
 #include "game/ob.h"
 #include "ramrom.h"
 #include "random.h"
-#include "rmon.h" /*<PR/rmon.h>*/
+#include "rmon.h"
 #include "sched.h"
 #include "token.h"
 #include "tlb_manage.h"

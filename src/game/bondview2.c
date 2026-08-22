@@ -8560,12 +8560,9 @@ void mp_respawn_handler(void)
 }
 
 
-/**
- * Address: 7F088CD8
- */
 Gfx *bondviewRenderCredits(Gfx *gdl)
 {
-    s32 frame;
+    s32 rollFramesElapsed;
     s32 start;
     s32 x;
     s32 y;
@@ -8582,17 +8579,17 @@ Gfx *bondviewRenderCredits(Gfx *gdl)
     s16 viewheight;
     char *text;
 
-    if (bossGetStageNum() == LEVELID_CUBA && credits_state == 1 && credits_pointer != NULL)
+    if (bossGetStageNum() == LEVELID_CUBA && g_CreditsState == CREDITS_STATE_ROLLING && credits_pointer != NULL)
     {
-        xpos1 = 0xdc;
-        xpos2 = 0xdc;
+        xpos1 = 220;
+        xpos2 = 220;
         align1 = CREDITS_ALIGN_RIGHT;
         align2 = CREDITS_ALIGN_RIGHT;
-        camera_80036438++;
-        frame = camera_80036438;
+        g_CreditsRollTimer++;
+        rollFramesElapsed = g_CreditsRollTimer;
         gdl = gfxSetup2DTextureMode(gdl);
-        start = (frame - viGetViewHeight()) / 16;
-        end = (frame / 16) + 1;
+        start = (rollFramesElapsed - viGetViewHeight()) / 16;
+        end = (rollFramesElapsed / 16) + 1;
 
         if (start < 0)
         {
@@ -8605,7 +8602,7 @@ Gfx *bondviewRenderCredits(Gfx *gdl)
             {
                 end = i;
                 start = i;
-                credits_state = 2;
+                g_CreditsState = CREDITS_STATE_COMPLETED;
                 break;
             }
 
@@ -8654,7 +8651,7 @@ Gfx *bondviewRenderCredits(Gfx *gdl)
                 }
 
                 viewheight = viGetViewHeight();
-                y = ((viGetViewTop() + (i * 16)) - frame) + viewheight;
+                y = ((viGetViewTop() + (i * 16)) - rollFramesElapsed) + viewheight;
                 textheight = 0;
                 textwidth = 0;
 
@@ -8698,7 +8695,7 @@ Gfx *bondviewRenderCredits(Gfx *gdl)
                 }
 
                 viewheight = viGetViewHeight();
-                y = ((viGetViewTop() + (i * 16)) - frame) + viewheight;
+                y = ((viGetViewTop() + (i * 16)) - rollFramesElapsed) + viewheight;
                 textheight = 0;
                 textwidth = 0;
 
@@ -8735,7 +8732,10 @@ Gfx *bondviewRenderCredits(Gfx *gdl)
 }
 
 
-Gfx *maybe_mp_interface(Gfx *gdl)
+/**
+ * Render first person weapon, casings, watch, health/armor gauge, objective text, death graphics.
+ */
+Gfx *bondviewRenderPlayerView(Gfx *gdl)
 {
     s32 ulx;
     s32 uly;
@@ -8756,6 +8756,7 @@ Gfx *maybe_mp_interface(Gfx *gdl)
         gdl = bondviewRenderUpperText(gdl);
         gdl = countdownTimerRender(gdl);
         gdl = currentPlayerDrawFade(gdl);
+
         return bondviewRenderCredits(gdl);
     }
 
@@ -8774,18 +8775,19 @@ Gfx *maybe_mp_interface(Gfx *gdl)
         gdl = gfxDrawTranslucentRect(gdl, ulx, uly, lrx, lry, 160);
     }
 
-    if (bondviewGetIfCurrentPlayerHealthShowTime() &&
-        (g_CurrentPlayer->watch_animation_state == 0))
+    if (bondviewGetIfCurrentPlayerHealthShowTime() && (g_CurrentPlayer->watch_animation_state == 0))
     {
         gdl = bondviewRenderGaugeBars(gdl);
     }
     else if (mpwatchShouldDisplayGauges())
     {
         gdl = bondviewRenderGaugeBars(gdl);
+
         if (g_CurrentPlayer->healthdisplaytime > 0)
         {
             g_CurrentPlayer->healthdisplaytime -= g_ClockTimer;
         }
+
         if (g_CurrentPlayer->healthdisplaytime < 0)
         {
             g_CurrentPlayer->healthdisplaytime = 0;
@@ -8797,19 +8799,22 @@ Gfx *maybe_mp_interface(Gfx *gdl)
         display_objective_status_text_on_status_change();
     }
 
-    if (g_CurrentPlayer->bonddead != 0)
+    if (g_CurrentPlayer->bonddead)
     {
-        if (g_CurrentPlayer->deathanimfinished == 0)
+        if (!g_CurrentPlayer->deathanimfinished)
         {
             doblood = 0;
+
             if (g_CurrentPlayer->bonddead == 1)
             {
-                doblood                   = 1;
+                doblood = 1;
                 g_CurrentPlayer->bonddead = 2;
             }
+
             if (doblood)
             {
                 die_blood_image_routine(0);
+
                 if (getPlayerCount() == 1)
                 {
                     // This unusual comma-expression syntax is required for a byte match.
@@ -8841,16 +8846,18 @@ Gfx *maybe_mp_interface(Gfx *gdl)
                     {
                         doblood = 2;
                     }
+
                     if (die_blood_image_routine(doblood))
                     {
                         g_CurrentPlayer->redbloodfinished = TRUE;
                     }
+
                     gdl = gameplayBloodOverlayDL(gdl);
                 }
             }
         }
-        if (modelGetAnimFrame(&g_CurrentPlayer->model) >=
-            modelGetAnimEndFrame(&g_CurrentPlayer->model))
+
+        if (modelGetAnimFrame(&g_CurrentPlayer->model) >= modelGetAnimEndFrame(&g_CurrentPlayer->model))
         {
             if (g_CurrentPlayer->redbloodfinished)
             {
@@ -8860,6 +8867,7 @@ Gfx *maybe_mp_interface(Gfx *gdl)
                     currentPlayerAdjustFade(60.0f, 0, 0, 0, 1.0f);
                     currentPlayerStartChrFade(120.0f, 0.0f);
                 }
+
                 if (currentPlayerIsFadeComplete())
                 {
                     if (getPlayerCount() == 1)
@@ -8894,9 +8902,10 @@ Gfx *maybe_mp_interface(Gfx *gdl)
     bondviewUpperTextWindowTimerTick();
     gdl = bondviewRenderUpperText(gdl);
     gunDrawSight(&gdl);
-    gdl = generate_ammo_total_microcode(gdl);
+    gdl = gunRenderAmmoDisplay(gdl);
     gdl = countdownTimerRender(gdl);
     gdl = display_red_blue_on_radar(gdl);
+
     return currentPlayerDrawFade(gdl);
 }
 

@@ -5771,9 +5771,6 @@ Gfx *set_rgba_redirect_generate_microcode(Gfx *gdl, sImageTableEntry *tconfig, f
 }
 
 
-/**
- * Address: TODO
- */
 Gfx *gunDrawHudString(Gfx *gdl, s8 *text, s32 x, s32 halign, s32 y, s32 valign, bool outline)
 {
     s32 x1;
@@ -5826,9 +5823,6 @@ Gfx *gunDrawHudString(Gfx *gdl, s8 *text, s32 x, s32 halign, s32 y, s32 valign, 
 }
 
 
-/**
- * Address: TODO
- */
 Gfx *gunDrawHudInteger(Gfx *gdl, s32 value, s32 x, s32 halign, s32 y, s32 valign, bool outline)
 {
     char buffer[12];
@@ -5841,7 +5835,7 @@ Gfx *gunDrawHudInteger(Gfx *gdl, s32 value, s32 x, s32 halign, s32 y, s32 valign
  * Draw magazine ammo number, ammo type icon, and total ammo number at the bottom right of the viewport.
  * Render an additional ammo counter at the bottom left of the viewport when dual wielding.
  */
-Gfx *generate_ammo_total_microcode(Gfx *gdl)
+Gfx *gunRenderAmmoDisplay(Gfx *gdl)
 {
     ITEM_IDS weapon_left;
     ITEM_IDS weapon_right;

@@ -391,6 +391,6 @@ Gfx *watchRenderControllerOpaque(Gfx *gdl, Mtxf *basemtx, bool animatebuttons, W
 Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf *mtx, s32 arg3, s32 arg4);
 void gunRenderCasings(Gfx **gdl);
 void gunRenderFirstPersonGunModels(Gfx **gdl);
-Gfx *generate_ammo_total_microcode(Gfx *gdl);
+Gfx *gunRenderAmmoDisplay(Gfx *gdl);
 
 #endif
