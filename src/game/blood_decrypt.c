@@ -160,8 +160,6 @@ void sub_GAME_7F01D02C(u8 *arg0, s32 arg1, u8 *arg2)
 
 
 /**
- * Address: 7F01D16C
- * 
  * Converts the decoded blood frame from column-major to row-major order.
  */
 void bloodImgTranspose(u8 *src, s32 srcwidth, s32 srcheight, u8 *dst)
@@ -195,8 +193,3 @@ void bloodImgTranspose(u8 *src, s32 srcwidth, s32 srcheight, u8 *dst)
         
     } while ((u32) var_v1 < (u32) t1);
 }
-
-
-u8 *sub_GAME_7F01D1C0(u8 *arg0, s32 arg1, s32 arg2, u8 *arg3);
-
-
