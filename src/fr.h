@@ -182,8 +182,6 @@ Gfx *viSetFillColor(Gfx *gdl, s32 r, s32 g, s32 b);
 Gfx *viFillScreen(Gfx *gdl);
 Gfx *viSetupScreensForNumPlayers(Gfx *gdl);
 void viSetVideoMode(s32 m);
-s32 viGet800232A0(void);
-void viSet800232A0(s32 arg0);
 Gfx *viClearZBufCurrentPlayer(Gfx *gdl);
 Gfx *viSetupCurrentPlayerView(Gfx *gdl);
 void viGetZRange(f32 *zrange);

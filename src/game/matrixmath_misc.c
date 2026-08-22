@@ -15,8 +15,6 @@ void vec3Lerp(vec3d *x, vec3d *y, f32 scaler, vec3d *result)
 
 
 /**
- * Address: 7F05AEFC
- * 
  * Catmull-Rom cubic interpolation for 3D points.
  * The result travels from p1 to p2 depending on the value of fraction. p0 and p3 shape the curve.
  * Fraction range is [0.0, 1.0], outside of that is cubic extrapolation.
@@ -47,8 +45,6 @@ void coord3dCatmullRomInterp(coord3d *p0, coord3d *p1, coord3d *p2, coord3d *p3,
 
 
 /**
- * Address: 7F05B024
- * 
  * Interpolation from 'start' to 'end' using a cubic Hermite spline segment. 'fraction' is the position along the segment with
  * 0.0 being at the start and 1.0 being at the end. 
  * 

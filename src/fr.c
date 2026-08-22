@@ -42,51 +42,27 @@
 
 #define ADD_LOW_AND_HI_16_MOD(x32, add16) ((TO_U16_M(TO_U16_B((x32) >> 16) + (add16)) << 16) | TO_U16_M(TO_U16_A(x32) + (add16)))
 
-/**
- * Address 80023240.
- */
-u32 g_unused80023240 = 0;
-
-#if defined(VERSION_EU)
-struct VideoSettings_s g_ViDataArray[NUM_VIDEO_SETTINGS] =
-{
-    {0, 0, 0, 0, 320, 272, 60.0f, 1.17647063732f, 30.0f, 10000.0f, SCREEN_WIDTH, SCREEN_HEIGHT, 320, 272, 0, 0, TRUE, NULL},
-    {0, 0, 0, 0, 320, 272, 60.0f, 1.17647063732f, 30.0f, 10000.0f, SCREEN_WIDTH, SCREEN_HEIGHT, 320, 272, 0, 0, TRUE, NULL}
-};
-#else
 struct VideoSettings_s g_ViDataArray[NUM_VIDEO_SETTINGS] =
 {
     {MD_BLACK, 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FOV_Y_F, ASPECT_RATIO, 30.0f, 10000.0f, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, TRUE, NULL},
     {MD_BLACK, 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FOV_Y_F, ASPECT_RATIO, 30.0f, 10000.0f, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, TRUE, NULL}};
-#endif
 
 /**
- * Address 8002329C.
  * vimode hStart horizontal offset in video_related_8.
  */
 s32 g_viHorizontalOffset = 0;
-
-/**
- * Address 800232A0.
- * vimode vStart vertical offset in video_related_8.
- * (see g_ViShakeIntensity before changing the name)
- */
-s32 D_800232A0 = 0;
 
 VideoSettings *g_ViFrontData = &g_ViDataArray[0];
 VideoSettings *g_ViBackData = &g_ViDataArray[0];
 s32 g_viColorOutputMode = COLORMODE_16BIT;
 
 /**
- * Address 800232B0.
  * g_ViShakeIntensity multiplier sign. This is only ever 1 or -1.
  */
 s32 g_viVstartSign = 1;
 
 /**
- * Address 800232B4.
  * vimode vStart vertical offset in viVsyncRelated.
- * (see D_800232A0 before changing the name)
  */
 s32 g_ViShakeIntensity = 0;
 
@@ -154,14 +130,9 @@ u32 g_viOriginalVstart1;
 const s16 g_viRuntimeScreenWidths[] = {SCREEN_WIDTH_MIN, SCREEN_WIDTH, SCREEN_WIDTH_MAX};
 
 /**
- * Address 80028488.
  * Const runtime supported screen heights.
  */
-#ifndef VERSION_EU
 const s16 g_viRuntimeScreenHeights[] = {SCREEN_HEIGHT_MIN, SCREEN_HEIGHT, SCREEN_HEIGHT_MAX};
-#else
-const s16 g_viRuntimeScreenHeights[] = {SCREEN_HEIGHT_272, SCREEN_HEIGHT_272, SCREEN_HEIGHT_MAX_EU};
-#endif
 
 
 void viInitVideoSettings(void)
@@ -176,12 +147,8 @@ void viInitVideoSettings(void)
     g_ViBackData->framebuf = cfb_16[g_ViBackIndex];
 
     g_viHorizontalOffset = 0;
-    #ifndef VERSION_EU
-    D_800232A0 = 0;
-    #else
-    D_800232A0 = 0xffffffe0;
-    #endif
 }
+
 
 void viInitBuffers(void)
 {
@@ -316,23 +283,6 @@ void video_related_8(void)
                 frBlack(0);
                 break;
             }
-
-            case MD_MAXIMUM:
-                if (osTvType == TV_TYPE_MPAL)
-                {
-                    viMode = &osViModeTable[OS_VI_MPAL_HAF1];
-                }
-                else
-                {
-                    viMode = &osViModeTable[OS_VI_NTSC_HAF1];
-                }
-
-                g_viOriginalHstart = viMode->comRegs.hStart;
-                g_viOriginalVstart0 = viMode->fldRegs[0].vStart;
-                g_viOriginalVstart1 = viMode->fldRegs[1].vStart;
-
-                osViBlack(FALSE);
-                break;
         }
 
         osViSetSpecialFeatures(OS_VI_DITHER_FILTER_ON | OS_VI_GAMMA_OFF);
@@ -352,7 +302,7 @@ void video_related_8(void)
     g_ViXScales[nextMode] = calculatedXScale;
     g_ViYScales[nextMode] = calculatedYScale;
 
-    if (g_ViBackData->mode == VIDEOMODE_320x240)
+    if (g_ViBackData->mode == MD_NORMAL)
     {
         g_ViModePtrs[nextMode] = &g_viOriginalVideoMode;
 
@@ -397,14 +347,14 @@ void video_related_8(void)
 
         packedStart = g_ViModes[nextMode].fldRegs[0].vStart;
         registerValue = packedStart;
-        registerValue = ADD_LOW_AND_HI_16_MOD(registerValue, D_800232A0);
+        registerValue = ADD_LOW_AND_HI_16_MOD(registerValue, 0);
 
         g_ViModes[nextMode].fldRegs[0].vStart = registerValue;
         g_viOriginalVstart0 = registerValue;
 
         packedStart = g_ViModes[nextMode].fldRegs[1].vStart;
         registerValue = packedStart;
-        registerValue = ADD_LOW_AND_HI_16_MOD(registerValue, D_800232A0);
+        registerValue = ADD_LOW_AND_HI_16_MOD(registerValue, 0);
 
         g_ViModes[nextMode].fldRegs[1].vStart = registerValue;
         g_viOriginalVstart1 = registerValue;
@@ -613,18 +563,6 @@ Gfx *viSetupScreensForNumPlayers(Gfx *gdl)
     }
 
     return gdl;
-}
-
-
-void viSet800232A0(s32 arg0)
-{
-    D_800232A0 = arg0;
-}
-
-
-s32 viGet800232A0(void)
-{
-    return D_800232A0;
 }
 
 

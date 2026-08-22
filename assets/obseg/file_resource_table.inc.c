@@ -650,224 +650,92 @@ struct fileentry file_resource_table[] = {
 
     {AMEE, "LameE", &LameE},
     {AMEJ, "LameJ", &LameJ},
-#ifdef VERSION_EU
-    {AMEP, "LameP", &LameP},
-#endif
     {ARCHE, "LarchE", &LarchE},
     {ARCHJ, "LarchJ", &LarchJ},
-#ifdef VERSION_EU
-    {ARCHP, "LarchP", &LarchP},
-#endif
     {ARECE, "LarecE", &LarecE},
     {ARECJ, "LarecJ", &LarecJ},
-#ifdef VERSION_EU
-    {ARECP, "LarecP", &LarecP},
-#endif
     {ARKE, "LarkE", &LarkE},
     {ARKJ, "LarkJ", &LarkJ},
-#ifdef VERSION_EU
-    {ARKP, "LarkP", &LarkP},
-#endif
     {ASHE, "LashE", &LashE},
     {ASHJ, "LashJ", &LashJ},
-#ifdef VERSION_EU
-    {ASHP, "LashP", &LashP},
-#endif
     {AZTE, "LaztE", &LaztE},
     {AZTJ, "LaztJ", &LaztJ},
-#ifdef VERSION_EU
-    {AZTP, "LaztP", &LaztP},
-#endif
     {CATE, "LcatE", &LcatE},
     {CATJ, "LcatJ", &LcatJ},
-#ifdef VERSION_EU
-    {CATP, "LcatP", &LcatP},
-#endif
     {CAVEE, "LcaveE", &LcaveE},
     {CAVEJ, "LcaveJ", &LcaveJ},
-#ifdef VERSION_EU
-    {CAVEP, "LcaveP", &LcaveP},
-#endif
     {CRADE, "LcradE", &LcradE},
     {CRADJ, "LcradJ", &LcradJ},
-#ifdef VERSION_EU
-    {CRADP, "LcradP", &LcradP},
-#endif
     {CRYPE, "LcrypE", &LcrypE},
     {CRYPJ, "LcrypJ", &LcrypJ},
-#ifdef VERSION_EU
-    {CRYPP, "LcrypP", &LcrypP},
-#endif
     {DAME, "LdamE", &LdamE},
     {DAMJ, "LdamJ", &LdamJ},
-#ifdef VERSION_EU
-    {DAMP, "LdamP", &LdamP},
-#endif
     {DEPOE, "LdepoE", &LdepoE},
     {DEPOJ, "LdepoJ", &LdepoJ},
-#ifdef VERSION_EU
-    {DEPOP, "LdepoP", &LdepoP},
-#endif
     {DESTE, "LdestE", &LdestE},
     {DESTJ, "LdestJ", &LdestJ},
-#ifdef VERSION_EU
-    {DESTP, "LdestP", &LdestP},
-#endif
     {DISHE, "LdishE", &LdishE},
     {DISHJ, "LdishJ", &LdishJ},
-#ifdef VERSION_EU
-    {DISHP, "LdishP", &LdishP},
-#endif
     {EARE, "LearE", &LearE},
     {EARJ, "LearJ", &LearJ},
-#ifdef VERSION_EU
-    {EARP, "LearP", &LearP},
-#endif
     {ELDE, "LeldE", &LeldE},
     {ELDJ, "LeldJ", &LeldJ},
-#ifdef VERSION_EU
-    {ELDP, "LeldP", &LeldP},
-#endif
     {GUNE, "LgunE", &LgunE},
     {GUNJ, "LgunJ", &LgunJ},
-#ifdef VERSION_EU
-    {GUNP, "LgunP", &LgunP},
-#endif
     {IMPE, "LimpE", &LimpE},
     {IMPJ, "LimpJ", &LimpJ},
-#ifdef VERSION_EU
-    {IMPP, "LimpP", &LimpP},
-#endif
     {JUNE, "LjunE", &LjunE},
     {JUNJ, "LjunJ", &LjunJ},
-#ifdef VERSION_EU
-    {JUNP, "LjunP", &LjunP},
-#endif
     {LEEE, "LleeE", &LleeE},
     {LEEJ, "LleeJ", &LleeJ},
-#ifdef VERSION_EU
-    {LEEP, "LleeP", &LleeP},
-#endif
     {LENE, "LlenE", &LlenE},
     {LENJ, "LlenJ", &LlenJ},
-#ifdef VERSION_EU
-    {LENP, "LlenP", &LlenP},
-#endif
     {LIPE, "LlipE", &LlipE},
     {LIPJ, "LlipJ", &LlipJ},
-#ifdef VERSION_EU
-    {LIPP, "LlipP", &LlipP},
-#endif
     {LUEE, "LlueE", &LlueE},
     {LUEJ, "LlueJ", &LlueJ},
-#ifdef VERSION_EU
-    {LUEP, "LlueP", &LlueP},
-#endif
     {MISCE, "LmiscE", &LmiscE},
     {MISCJ, "LmiscJ", &LmiscJ},
-#ifdef VERSION_EU
-    {MISCP, "LmiscP", &LmiscP},
-#endif
     {MPMENUE, "LmpmenuE", &LmpmenuE},
     {MPMENUJ, "LmpmenuJ", &LmpmenuJ},
-#ifdef VERSION_EU
-    {MPMENUP, "LmpmenuP", &LmpmenuP},
-#endif
     {MPWEAPONSE, "LmpweaponsE", &LmpweaponsE},
     {MPWEAPONSJ, "LmpweaponsJ", &LmpweaponsJ},
-#ifdef VERSION_EU
-    {MPWEAPONSP, "LmpweaponsP", &LmpweaponsP},
-#endif
     {OATE, "LoatE", &LoatE},
     {OATJ, "LoatJ", &LoatJ},
-#ifdef VERSION_EU
-    {OATP, "LoatP", &LoatP},
-#endif
     {OPTIONSE, "LoptionsE", &LoptionsE},
     {OPTIONSJ, "LoptionsJ", &LoptionsJ},
-#ifdef VERSION_EU
-    {OPTIONSP, "LoptionsP", &LoptionsP},
-#endif
     {PAME, "LpamE", &LpamE},
     {PAMJ, "LpamJ", &LpamJ},
-#ifdef VERSION_EU
-    {PAMP, "LpamP", &LpamP},
-#endif
     {PETEE, "LpeteE", &LpeteE},
     {PETEJ, "LpeteJ", &LpeteJ},
-#ifdef VERSION_EU
-    {PETEP, "LpeteP", &LpeteP},
-#endif
     {PROPOBJE, "LpropobjE", &LpropobjE},
     {PROPOBJJ, "LpropobjJ", &LpropobjJ},
-#ifdef VERSION_EU
-    {PROPOBJP, "LpropobjP", &LpropobjP},
-#endif
     {REFE, "LrefE", &LrefE},
     {REFJ, "LrefJ", &LrefJ},
-#ifdef VERSION_EU
-    {REFP, "LrefP", &LrefP},
-#endif
     {RITE, "LritE", &LritE},
     {RITJ, "LritJ", &LritJ},
-#ifdef VERSION_EU
-    {RITP, "LritP", &LritP},
-#endif
     {RUNE, "LrunE", &LrunE},
     {RUNJ, "LrunJ", &LrunJ},
-#ifdef VERSION_EU
-    {RUNP, "LrunP", &LrunP},
-#endif
     {SEVE, "LsevE", &LsevE},
     {SEVJ, "LsevJ", &LsevJ},
-#ifdef VERSION_EU
-    {SEVP, "LsevP", &LsevP},
-#endif
     {SEVBE, "LsevbE", &LsevbE},
     {SEVBJ, "LsevbJ", &LsevbJ},
-#ifdef VERSION_EU
-    {SEVBP, "LsevbP", &LsevbP},
-#endif
     {SEVXE, "LsevxE", &LsevxE},
     {SEVXJ, "LsevxJ", &LsevxJ},
-#ifdef VERSION_EU
-    {SEVXP, "LsevxP", &LsevxP},
-#endif
     {SEVXBE, "LsevxbE", &LsevxbE},
     {SEVXBJ, "LsevxbJ", &LsevxbJ},
-#ifdef VERSION_EU
-    {SEVXBP, "LsevxbP", &LsevxbP},
-#endif
     {SHOE, "LshoE", &LshoE},
     {SHOJ, "LshoJ", &LshoJ},
-#ifdef VERSION_EU
-    {SHOP, "LshoP", &LshoP},
-#endif
     {SILOE, "LsiloE", &LsiloE},
     {SILOJ, "LsiloJ", &LsiloJ},
-#ifdef VERSION_EU
-    {SILOP, "LsiloP", &LsiloP},
-#endif
     {STATE, "LstatE", &LstatE},
     {STATJ, "LstatJ", &LstatJ},
-#ifdef VERSION_EU
-    {STATP, "LstatP", &LstatP},
-#endif
     {TITLEE, "LtitleE", &LtitleE},
     {TITLEJ, "LtitleJ", &LtitleJ},
-#ifdef VERSION_EU
-    {TITLEP, "LtitleP", &LtitleP},
-#endif
     {TRAE, "LtraE", &LtraE},
     {TRAJ, "LtraJ", &LtraJ},
-#ifdef VERSION_EU
-    {TRAP, "LtraP", &LtraP},
-#endif
     {WAXE, "LwaxE", &LwaxE},
     {WAXJ, "LwaxJ", &LwaxJ},
-#ifdef VERSION_EU
-    {WAXP, "LwaxP", &LwaxP},
-#endif
     
     {OBENDSEG, "ob/ob_end.seg", &ob__ob_end_seg},
     {0},
@@ -880,5 +748,3 @@ struct fileentry file_resource_table[] = {
     {0},
     {0}
 };
-
-

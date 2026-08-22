@@ -312,7 +312,9 @@ s32 sub_GAME_7F0B39BC(s32 curroom, s32 unk1, bbox2d * screensize, s32 next)
             {
                 dword_CODE_bss_8007FFA0[i].unk1 = unk1;
             }
+
             bgRectOutersect(screensize,&dword_CODE_bss_8007FFA0[i].bbox);
+
             temp = dword_CODE_bss_8007FFA0[i].next;
             dword_CODE_bss_8007FFA0[i].bbox.min.x = screensize->min.x;
             dword_CODE_bss_8007FFA0[i].bbox.min.y = screensize->min.y;
@@ -1543,21 +1545,6 @@ s32 eu_cdata_0x1f1c4 = 0;
                             (       -  )*     +  ,  (       -  )*     +
     G_CC_MODULATERGBA2	    COMBINED, 0, SHADE, 0, COMBINED, 0, SHADE, 0
 */
-#if 0
-//New Defines to be added to gbi.h
-/*custom combiner for triangle alpha*/
-#define	ModulateRGB_EnvA 	TEXEL0, 0, SHADE, 0, 0, 0, 0, ENVIRONMENT
-/*custom combiner for triangle alpha*/
-#define	ModulateRGB_EnvA2 	COMBINED, 0, SHADE, 0, 0, 0, 0, ENVIRONMENT
-/*custom combiner for Texture*triangle alpha*/
-#define	ModulateRGBA_EnvA 	TEXEL0, 0, SHADE, 0, TEXEL0, 0, ENVIRONMENT, 0
-/*custom combiner for texture*triangle alpha*/
-#define	ModulateRGBA_EnvA2 	COMBINED, 0, SHADE, 0, COMBINED, 0, ENVIRONMENT, 0
-/*custom combiner for triangle alpha*/
-#define	SHADE_EnvA 		    0, 0, SHADE, 0, 0, 0, 0, ENVIRONMENT
-/*Tri-linear filter colour, flat tile alpha (for cutouts)*/
-#define TLRGB_ATile1        TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0, 1, 0, TEXEL1, 0
-#endif
 
 Gfx DL_LUT_UNKNOWN[] = 
 {
@@ -3789,11 +3776,7 @@ void *sub_GAME_7F0B8A24(s32 *pc)
 void bgDetermineVisibleRooms(void) 
 {
     f32 screenbounds[4];
-    s32 var_s0;
     s32 temp_a0;
-#if defined(LEFTOVERDEBUG)
-    s32 sp44;
-#endif
     s32 temp_v1;
     s32 i;
 
@@ -3831,8 +3814,6 @@ void bgDetermineVisibleRooms(void)
     sub_GAME_7F0B5168();
     sub_GAME_7F0B8A24(dword_CODE_bss_8007FF90);
 
-    if (1);
-
     /**
      * If the level is Cradle, or has no portals, skip the portal occlusion culling algorithm. Just add every room in the player's
      * screen bounds to the list of rooms to draw.
@@ -3844,57 +3825,40 @@ void bgDetermineVisibleRooms(void)
             sub_GAME_7F0B39BC(9, 0, &g_CurrentPlayer->screensize, 1);
         }
 
-        for (var_s0 = 1; var_s0 < g_MaxNumRooms; var_s0++) 
+        for (i = 1; i < g_MaxNumRooms; i++) 
         {
-            if (bgIsRoomOnScreen(var_s0, &g_CurrentPlayer->screensize) != 0) 
+            if (bgIsRoomOnScreen(i, &g_CurrentPlayer->screensize) != 0) 
             {
-                sub_GAME_7F0B39BC(var_s0, 0, &g_CurrentPlayer->screensize, 1);
+                sub_GAME_7F0B39BC(i, 0, &g_CurrentPlayer->screensize, 1);
             }
         }
     } 
     else 
     {
-        // This can never execute since the above branch is taken if the level is Cradle.
-        if (levelentry_index == LEVEL_INDEX_CRAD) 
-        {
-            sub_GAME_7F0B39BC(9, 0, &g_CurrentPlayer->screensize, 1);
-        }
-
         sub_GAME_7F0B39BC(g_BgCurrentRoom, 0, &g_CurrentPlayer->screensize, 1);
 
-        for (var_s0 = 0; g_BgPortals[var_s0].offset_portal != NULL; var_s0++) 
+        for (i = 0; g_BgPortals[i].offset_portal != NULL; i++) 
         {
-            if ((g_BgCurrentRoom == g_BgPortals[var_s0].connectedRoom1) || (g_BgCurrentRoom == g_BgPortals[var_s0].connectedRoom2)) 
+            if ((g_BgCurrentRoom == g_BgPortals[i].connectedRoom1) || (g_BgCurrentRoom == g_BgPortals[i].connectedRoom2)) 
             {
 #if defined(LEFTOVERDEBUG)
-                bgQueuePortalTraversal(0, g_BgCurrentRoom, var_s0, 1, screenbounds);
+                bgQueuePortalTraversal(0, g_BgCurrentRoom, i, 1, screenbounds);
 #else
-                bgQueuePortalTraversal(g_BgCurrentRoom, var_s0, 1, screenbounds);
+                bgQueuePortalTraversal(g_BgCurrentRoom, i, 1, screenbounds);
 #endif
             }
         }
 
-#if defined(LEFTOVERDEBUG)
-        sp44 = 0;
-
-        while (bgProcessNextQueuedPortal(&sp44) != 0) 
+        while (bgProcessNextQueuedPortal())
         {
             // empty
         }
-
-        if (1);
-#else
-        while (bgProcessNextQueuedPortal() != 0) 
-        {
-            // empty
-        }
-#endif
     }
 
-    for (var_s0 = 0; g_BgPortals[var_s0].offset_portal != NULL; var_s0++) 
+    for (i = 0; g_BgPortals[i].offset_portal != NULL; i++) 
     {
-        temp_v1 = g_BgPortals[var_s0].connectedRoom1;
-        temp_a0 = g_BgPortals[var_s0].connectedRoom2;
+        temp_v1 = g_BgPortals[i].connectedRoom1;
+        temp_a0 = g_BgPortals[i].connectedRoom2;
 
         if ((g_BgRoomInfo[temp_v1].room_rendered != 0) && (g_BgRoomInfo[temp_a0].room_rendered == 0)) 
         {

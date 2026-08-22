@@ -4534,17 +4534,10 @@ typedef enum PROJECTILES
         SCREEN_RATIO_16_9
     } SCREEN_RATIO_OPTION;
 
-    //canonically MD
     typedef enum VIDEOMODE
     {
         MD_BLACK,
-        MD_NORMAL,
-        MD_MAXIMUM,
-
-        //just in case someone commits with old name
-        VIDEOMODE_DISABLE_320x240 = MD_BLACK,
-        VIDEOMODE_320x240 = MD_NORMAL,
-        VIDEOMODE_640x480 = MD_MAXIMUM
+        MD_NORMAL
     } VIDEOMODE;
 
     typedef enum ZBUFMODE
@@ -4556,12 +4549,7 @@ typedef enum PROJECTILES
 
 #pragma endregion
 
-#if !defined(VERSION_EU)
-#define MAXROOMCOUNT    150
-#else
 #define MAXROOMCOUNT    139
-#endif
-
 
 /* special chr num IDs */
 #define CHR_BOND_CINEMA -8 /* only works when bond has a third person model (intro/exit cutscene) */
@@ -4602,23 +4590,17 @@ typedef enum PROJECTILES
 #define PROPRECORD_STAN_ROOM_LEN 4
 #define NUMBER_SHOTGUN_BULLETS   5
 
-#ifdef VERSION_EU
-    #define NTSC 0
-    #define PAL 1
-    #define TICKS_PER_SECOND 50
-    #define FRAMES_PER_SECOND 25
-#else
-    #define NTSC 1
-    #define PAL 0
-    #define TICKS_PER_SECOND 60
-    #define FRAMES_PER_SECOND 30
-#endif
+#define NTSC 1
+#define PAL 0
+#define TICKS_PER_SECOND 60
+#define FRAMES_PER_SECOND 30
 
 #pragma endregion
 
 #define S32_MAX  2147483647
 #define U32_MAX  4294967295
 #define M_SQRT2_F 1.41412f
+
 #pragma region Inline Macro Functions
 #ifndef _MATH_EXT_H_
     #define M_TAU_F               6.2831855f
@@ -4801,14 +4783,9 @@ typedef enum PROJECTILES
     )                                                                                                                                        \
     };
 
-#if defined(VERSION_EU)
-#define MODELFILEHEADER(NAME, ROOTNODE, SKELETON, SWITCHES, NUMSWITCHES, NUMMATRICES, BOUNDINGRADIUS, NUMRECORDS, NUMTEXTURES) struct ModelFileHeader NAME ## _header = {ROOTNODE, SKELETON, SWITCHES, NUMSWITCHES, NUMMATRICES, BOUNDINGRADIUS, NUMRECORDS, NUMTEXTURES, 0};
-#else
 #define MODELFILEHEADER(NAME, ROOTNODE, SKELETON, SWITCHES, NUMSWITCHES, NUMMATRICES, BOUNDINGRADIUS, NUMRECORDS, NUMTEXTURES) struct ModelFileHeader NAME ## _header = {ROOTNODE, SKELETON, SWITCHES, NUMSWITCHES, NUMMATRICES, BOUNDINGRADIUS, NUMRECORDS, NUMTEXTURES, 0, 0};
-#endif
 
-#define CHRFILERECORD(NAME, SCALE, OFFSET, HASHEAD, ISMALE) \
-    {&##NAME##_header, STR(C##NAME##Z), SCALE, OFFSET, HASHEAD, ISMALE},
+#define CHRFILERECORD(NAME, SCALE, OFFSET, HASHEAD, ISMALE) {&##NAME##_header, STR(C##NAME##Z), SCALE, OFFSET, HASHEAD, ISMALE}
 
 #define GUNSTATS(NAME) & ## NAME ## _stats
 #define GUNFILERECORD(NAME, NOMODEL, STATS, UPPERTEXTID, LOWERTEXTID, POSX, POSY, POSZ, XROT, YROT, WOCTEXT, EQUIPTEXT, EQUIPX, EQUIPY, EQUIPZ) \

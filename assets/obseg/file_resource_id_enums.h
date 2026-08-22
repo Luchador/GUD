@@ -650,224 +650,92 @@ typedef enum FILEINDEXID
 
     AMEE,
     AMEJ,
-#ifdef VERSION_EU
-    AMEP,
-#endif
     ARCHE,
     ARCHJ,
-#ifdef VERSION_EU
-    ARCHP,
-#endif
     ARECE,
     ARECJ,
-#ifdef VERSION_EU
-    ARECP,
-#endif
     ARKE,
     ARKJ,
-#ifdef VERSION_EU
-    ARKP,
-#endif
     ASHE,
     ASHJ,
-#ifdef VERSION_EU
-    ASHP,
-#endif
     AZTE,
     AZTJ,
-#ifdef VERSION_EU
-    AZTP,
-#endif
     CATE,
     CATJ,
-#ifdef VERSION_EU
-    CATP,
-#endif
     CAVEE,
     CAVEJ,
-#ifdef VERSION_EU
-    CAVEP,
-#endif
     CRADE,
     CRADJ,
-#ifdef VERSION_EU
-    CRADP,
-#endif
     CRYPE,
     CRYPJ,
-#ifdef VERSION_EU
-    CRYPP,
-#endif
     DAME,
     DAMJ,
-#ifdef VERSION_EU
-    DAMP,
-#endif
     DEPOE,
     DEPOJ,
-#ifdef VERSION_EU
-    DEPOP,
-#endif
     DESTE,
     DESTJ,
-#ifdef VERSION_EU
-    DESTP,
-#endif
     DISHE,
     DISHJ,
-#ifdef VERSION_EU
-    DISHP,
-#endif
     EARE,
     EARJ,
-#ifdef VERSION_EU
-    EARP,
-#endif
     ELDE,
     ELDJ,
-#ifdef VERSION_EU
-    ELDP,
-#endif
     GUNE,
     GUNJ,
-#ifdef VERSION_EU
-    GUNP,
-#endif
     IMPE,
     IMPJ,
-#ifdef VERSION_EU
-    IMPP,
-#endif
     JUNE,
     JUNJ,
-#ifdef VERSION_EU
-    JUNP,
-#endif
     LEEE,
     LEEJ,
-#ifdef VERSION_EU
-    LEEP,
-#endif
     LENE,
     LENJ,
-#ifdef VERSION_EU
-    LENP,
-#endif
     LIPE,
     LIPJ,
-#ifdef VERSION_EU
-    LIPP,
-#endif
     LUEE,
     LUEJ,
-#ifdef VERSION_EU
-    LUEP,
-#endif
     MISCE,
     MISCJ,
-#ifdef VERSION_EU
-    MISCP,
-#endif
     MPMENUE,
     MPMENUJ,
-#ifdef VERSION_EU
-    MPMENUP,
-#endif
     MPWEAPONSE,
     MPWEAPONSJ,
-#ifdef VERSION_EU
-    MPWEAPONSP,
-#endif
     OATE,
     OATJ,
-#ifdef VERSION_EU
-    OATP,
-#endif
     OPTIONSE,
     OPTIONSJ,
-#ifdef VERSION_EU
-    OPTIONSP,
-#endif
     PAME,
     PAMJ,
-#ifdef VERSION_EU
-    PAMP,
-#endif
     PETEE,
     PETEJ,
-#ifdef VERSION_EU
-    PETEP,
-#endif
     PROPOBJE,
     PROPOBJJ,
-#ifdef VERSION_EU
-    PROPOBJP,
-#endif
     REFE,
     REFJ,
-#ifdef VERSION_EU
-    REFP,
-#endif
     RITE,
     RITJ,
-#ifdef VERSION_EU
-    RITP,
-#endif
     RUNE,
     RUNJ,
-#ifdef VERSION_EU
-    RUNP,
-#endif
     SEVE,
     SEVJ,
-#ifdef VERSION_EU
-    SEVP,
-#endif
     SEVBE,
     SEVBJ,
-#ifdef VERSION_EU
-    SEVBP,
-#endif
     SEVXE,
     SEVXJ,
-#ifdef VERSION_EU
-    SEVXP,
-#endif
     SEVXBE,
     SEVXBJ,
-#ifdef VERSION_EU
-    SEVXBP,
-#endif
     SHOE,
     SHOJ,
-#ifdef VERSION_EU
-    SHOP,
-#endif
     SILOE,
     SILOJ,
-#ifdef VERSION_EU
-    SILOP,
-#endif
     STATE,
     STATJ,
-#ifdef VERSION_EU
-    STATP,
-#endif
     TITLEE,
     TITLEJ,
-#ifdef VERSION_EU
-    TITLEP,
-#endif
     TRAE,
     TRAJ,
-#ifdef VERSION_EU
-    TRAP,
-#endif
     WAXE,
     WAXJ,
-#ifdef VERSION_EU
-    WAXP,
-#endif
     OBENDSEG
 } FILEINDEXID;
 

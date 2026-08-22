@@ -1370,9 +1370,6 @@ typedef union
             ModelJoint *Joints;
             short       SkeletonSize;
             short       pad2;
-#ifdef DEBUG
-            char      **JointNames;
-#endif
         } ModelSkeleton;
 
         typedef struct ModelFileHeader
@@ -1387,9 +1384,6 @@ typedef union
             s16                numRecords;           // 14 used in runtime for number of records
             s16                numtextures;          // 16 Number of textures in table
             ModelFileTextures *Textures;             // 18 offset to texture table
-#ifdef DEBUG
-            char             **SwitchNames;
-#endif
 #if defined(VERSION_EU)
 #else
             s32                isLoaded;
@@ -1401,9 +1395,6 @@ typedef union
             ModelFileHeader *header;
             char            *filename;
             float            scale;
-#ifdef DEBUG
-            bool             isLoaded;
-#endif
         } ItemModelFileRecord;
 
         typedef struct ChrModelFileRecord
@@ -1416,32 +1407,8 @@ typedef union
             u8               hasHead;
             u8               pad1;
             u8               pad2;
-#ifdef DEBUG
-            char           **SwitchNames;
-#endif
         } ChrModelFileRecord;
-        /*
-        typedef struct GunModelFileRecord
-        {
-            ModelFileHeader     *Header;
-            char                *Filename;
-            s32                  HasNoModel;
-            struct weapon_stats *Stats;
-            u16                  WatchUpperTextID;
-            u16                  WatchLowerTextID;
-            coord3d              WatchPos;
-            coord2d              WatchRot;
-            u16                  WeaponOfChoiceTextID;
-            u16                  WatchEquipmentTextID;
-            coord3d              WatchRotationOrigin;
-        } GunModelFileRecord;
 
-        struct CartrigeModelFileRecord
-        {
-            ModelFileHeader *Header;
-            char            *FileName;
-        };
-        */
         /*
          * Model Root Runtime Data (pos, heading, height etc)
          */
@@ -1569,16 +1536,6 @@ typedef union
             f32               anim_translation_scale; // used by ACT_ANIM in chrlv
         } Model;
 
-        /*
-        typedef struct headHat
-        {
-            float xoffset;
-            float yoffset;
-            float zoffset;
-            float xsize;
-            float ysize;
-            float zsize;
-        } headHat;*/
     #pragma endregion Data Structures
 
 #pragma endregion ModelTypes

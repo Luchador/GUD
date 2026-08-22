@@ -5485,81 +5485,72 @@ s32 modelCalculateRwDataIndexes(ModelNode *basenode)
         switch (type)
         {
             case MODELNODE_OPCODE_HEADER:
-                if (1)
-                {
-                    ModelRoData_HeaderRecord *rodata = &node->Data->Header;
-                    rodata->RwDataIndex = len;
-                    len += sizeof(struct ModelRwData_HeaderRecord) / 4;
-                    break;
-                }
+            {
+                ModelRoData_HeaderRecord *rodata = &node->Data->Header;
+                rodata->RwDataIndex = len;
+                len += sizeof(struct ModelRwData_HeaderRecord) / 4;
+                break;
+            }
             case MODELNODE_OPCODE_OP07:
-                if (1)
-                {
-                    ModelRoData_Op07Record *rodata = &node->Data->Op07;
-                    rodata->RwDataIndex = len;
-                    len += sizeof(struct ModelRwData_Op07Record) / 4;
-                    break;
-                }
+            {
+                ModelRoData_Op07Record *rodata = &node->Data->Op07;
+                rodata->RwDataIndex = len;
+                len += sizeof(struct ModelRwData_Op07Record) / 4;
+                break;
+            }
             case MODELNODE_OPCODE_LOD:
-                if (1)
-                {
-                    ModelRoData_LODRecord *rodata = &node->Data->LOD;
-                    rodata->RwDataIndex = len;
-                    len += sizeof(struct ModelRwData_LODRecord) / 4;
-                    node->Child = rodata->Affects;
-                    break;
-                }
+            {
+                ModelRoData_LODRecord *rodata = &node->Data->LOD;
+                rodata->RwDataIndex = len;
+                len += sizeof(struct ModelRwData_LODRecord) / 4;
+                node->Child = rodata->Affects;
+                break;
+            }
             case MODELNODE_OPCODE_SWITCH:
-                if (1)
-                {
-                    ModelRoData_SwitchRecord *rodata = &node->Data->Switch;
-                    rodata->RwDataIndex = len;
-                    len += sizeof(struct ModelRwData_SwitchRecord) / 4;
-                    node->Child = rodata->Controls;
-                    break;
-                }
+            {
+                ModelRoData_SwitchRecord *rodata = &node->Data->Switch;
+                rodata->RwDataIndex = len;
+                len += sizeof(struct ModelRwData_SwitchRecord) / 4;
+                node->Child = rodata->Controls;
+                break;
+            }
             case MODELNODE_OPCODE_HEAD:
-                if (1)
-                {
-                    ModelRoData_HeadPlaceholderRecord *rodata = &node->Data->HeadPlaceholder;
-                    rodata->RwDataIndex = len;
-                    len += sizeof(struct ModelRwData_HeadPlaceholderRecord) / 4;
-                    node->Child = NULL;
-                    break;
-                }
+            {
+                ModelRoData_HeadPlaceholderRecord *rodata = &node->Data->HeadPlaceholder;
+                rodata->RwDataIndex = len;
+                len += sizeof(struct ModelRwData_HeadPlaceholderRecord) / 4;
+                node->Child = NULL;
+                break;
+            }
             case MODELNODE_OPCODE_BSP:
-                if (1)
-                {
-                    ModelRoData_BSPRecord *rodata = &node->Data->BSP;
-                    rodata->RwDataIndex = len;
-                    len += sizeof(struct ModelRwData_BSPRecord) / 4;
-                    modelApplyReorderRelationsByArg(node, FALSE);
-                    break;
-                }
+            {
+                ModelRoData_BSPRecord *rodata = &node->Data->BSP;
+                rodata->RwDataIndex = len;
+                len += sizeof(struct ModelRwData_BSPRecord) / 4;
+                modelApplyReorderRelationsByArg(node, FALSE);
+                break;
+            }
             case MODELNODE_OPCODE_OP11:
-                if (1)
-                {
-                    ModelRoData_Op11Record *rodata = &node->Data->Op11;
-                    rodata->RwDataIndex = len;
-                    len += sizeof(struct ModelRwData_Op11Record) / 4;
-                    break;
-                }
+            {
+                ModelRoData_Op11Record *rodata = &node->Data->Op11;
+                rodata->RwDataIndex = len;
+                len += sizeof(struct ModelRwData_Op11Record) / 4;
+                break;
+            }
             case MODELNODE_OPCODE_GUNFIRE:
-                if (1)
-                {
-                    ModelRoData_GunfireRecord *rodata = &node->Data->Gunfire;
-                    rodata->RwDataIndex = len;
-                    len += sizeof(struct ModelRwData_GunfireRecord) / 4;
-                    break;
-                }
+            {
+                ModelRoData_GunfireRecord *rodata = &node->Data->Gunfire;
+                rodata->RwDataIndex = len;
+                len += sizeof(struct ModelRwData_GunfireRecord) / 4;
+                break;
+            }
             case MODELNODE_OPCODE_DLCOLLISION:
-                if (1)
-                {
-                    ModelRoData_DisplayList_CollisionRecord *rodata = &node->Data->DisplayListCollisions;
-                    rodata->RwDataIndex = len;
-                    len += sizeof(struct ModelRwData_DisplayList_CollisionRecord) / 4;
-                    break;
-                }
+            {
+                ModelRoData_DisplayList_CollisionRecord *rodata = &node->Data->DisplayListCollisions;
+                rodata->RwDataIndex = len;
+                len += sizeof(struct ModelRwData_DisplayList_CollisionRecord) / 4;
+                break;
+            }
             default:
                 break;
         }
@@ -5753,20 +5744,21 @@ void modelInitRwData(Model *model, ModelNode *startnode)
 
 void modelInit(struct Model *objinst, struct ModelFileHeader *header, u32 *data)
 {
-  objinst->obj = header;
-  objinst->datas = data;
-  objinst->rwdatalen = -1;
-  objinst->attachedto = NULL;
-  objinst->attachedto_objinst = NULL;
-  objinst->scale = 1.0;
-  modelInitRwData(objinst, header->RootNode);
+    objinst->obj = header;
+    objinst->datas = data;
+    objinst->rwdatalen = -1;
+    objinst->attachedto = NULL;
+    objinst->attachedto_objinst = NULL;
+    objinst->scale = 1.0;
+
+    modelInitRwData(objinst, header->RootNode);
 }
 
 
-// PD: animInit
 void animInit(struct Model *objinst, struct ModelFileHeader *header, u32 *data)
 {
     modelInit(objinst, header, data);
+
     objinst->anim = NULL;
     objinst->anim2 = NULL;
     objinst->animlooping = 0;
@@ -5789,7 +5781,6 @@ void animInit(struct Model *objinst, struct ModelFileHeader *header, u32 *data)
 }
 
 
-// PD: model00023108
 void modelAttachPart(Model *pmodel, ModelFileHeader *pmodeldef, ModelNode *pnode, ModelFileHeader *cmodeldef)
 {
     ModelRwData_HeadPlaceholderRecord *rwdata = modelGetNodeRwData(pmodel, pnode);
