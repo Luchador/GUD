@@ -200,7 +200,7 @@ struct tvcmd {
 
 s32 updateDoorDisplacement(DoorRecord* door);
 s32 objGetShotsTaken(ObjectRecord *);
-void sub_GAME_7F04AC20(PropRecord *prop, ModelRenderData *, s32 arg2);
+void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, s32 arg2);
 bool chrobjSeparatingAxisTheorem(rect4f* rect1, s32 numvertices0, rect4f* rect2, s32 numvertices1);
 void chrobjSndCreatePostEvent(ALSoundState *state, coord3d *pos, f32 low, f32 high);
 void remove_obj_from_temp_proxmine_table(WeaponObjRecord* proxy);
@@ -7129,7 +7129,11 @@ Gfx *process_monitor_animation_microcode(Model *model, ModelNode *node, MonitorR
 }
 
 
-void sub_GAME_7F04AC20(PropRecord *prop, ModelRenderData *mrData, s32 arg2)
+/**
+ * Renders the object's model and recurses over its attached children. Expects model render data
+ * prepared by chrobjRenderProp.
+ */
+void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, s32 arg2)
 {
     if (prop->flags & PROPFLAG_ONSCREEN)
     {
@@ -7154,13 +7158,7 @@ void sub_GAME_7F04AC20(PropRecord *prop, ModelRenderData *mrData, s32 arg2)
 
         obj = prop->obj;
         model = obj->model;
-        destroyed = (obj->flags & PROPFLAG_00000200) != FALSE;
-
-        if (destroyed)
-        {
-            destroyed = getPlayerProjViewMtx();
-            destroyed = destroyed != 0;
-        }
+        destroyed = (obj->flags & PROPFLAG_00000200) && getPlayerProjViewMtx() != NULL;
 
         gdl = mrData->gdl;
 
@@ -7333,7 +7331,7 @@ void sub_GAME_7F04AC20(PropRecord *prop, ModelRenderData *mrData, s32 arg2)
 
         for (child = prop->child; child != NULL; child = child->prev)
         {
-            sub_GAME_7F04AC20(child, mrData, arg2);
+            objRenderPropModel(child, mrData, arg2);
         }
 
         if (arg2)
@@ -7473,7 +7471,7 @@ Gfx *chrobjRenderProp(PropRecord *prop, Gfx *gdl, s32 arg2)
 
     mrData.fogcolour.word = (sp48.rgba[0] << 0x18) | (sp48.rgba[1] << 0x10) | (sp48.rgba[2] << 0x08) | (sp48.rgba[3] << 0x00);
 
-    sub_GAME_7F04AC20(prop, &mrData, arg2);
+    objRenderPropModel(prop, &mrData, arg2);
 
     return mrData.gdl;
 }
