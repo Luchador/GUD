@@ -871,7 +871,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
     }
     else if (EntityType == PROP_TYPE_OBJ)
     {
-        if (Entityp->type == PROPDEF_VEHICHLE)
+        if (Entityp->type == PROPDEF_VEHICLE)
         {
             VehichleEntityp = Entityp;
         }

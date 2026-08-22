@@ -49,87 +49,87 @@ s32 sizepropdef(PropDefHeaderRecord *pdef)
         case PROPDEF_PROP:
             return sizeof(ObjectRecord) / 4;
         case PROPDEF_GLASS:
-            return sizeof(ObjectRecord) / 4; // Rare typo?
+            return sizeof(ObjectRecord) / 4;
         case PROPDEF_TINTED_GLASS:
             return sizeof(TintedGlassRecord) / 4;
         case PROPDEF_SAFE:
-            return sizeof(ObjectRecord) / 4; // wrong
+            return sizeof(ObjectRecord) / 4;
         case PROPDEF_GAS_RELEASING:
-            return sizeof(ObjectRecord) / 4; // also wrong, gas is only 2 words
+            return sizeof(ObjectRecord) / 4;
         case PROPDEF_KEY:
             return sizeof(KeyRecord) / 4;
         case PROPDEF_ALARM:
             return sizeof(ObjectRecord) / 4;
         case PROPDEF_CCTV:
-            return 0x3b;//return sizeof(GlassRecord) / 4;
+            return 0x3b;
         case PROPDEF_MAGAZINE:
-            return 0x21;//return sizeof(GlassRecord) / 4;
+            return 0x21;
         case PROPDEF_COLLECTABLE:
-            return 0x22;//return sizeof(GlassRecord) / 4;
+            return 0x22;
         case PROPDEF_MONITOR:
-            return 0x40;//return sizeof(GlassRecord) / 4;
+            return 0x40;
         case PROPDEF_MULTI_MONITOR:
-            return 0x95;//return sizeof(GlassRecord) / 4;
+            return 0x95;
         case PROPDEF_RACK:
             return sizeof(ObjectRecord) / 4;
         case PROPDEF_AUTOGUN:
-            return 0x36;//return sizeof(GlassRecord) / 4;
+            return 0x36;
         case PROPDEF_LINK:
-            return 3;//return sizeof(GlassRecord) / 4;
+            return 3;
         case PROPDEF_HAT:
             return sizeof(ObjectRecord) / 4;
         case PROPDEF_GUARD_ATTRIBUTE:
-            return 3;//return sizeof(GlassRecord) / 4;
+            return 3;
         case PROPDEF_SWITCH:
-            return 4;//return sizeof(GlassRecord) / 4;
+            return 4;
         case PROPDEF_SAFE_ITEM:
-            return 5;//return sizeof(GlassRecord) / 4;
+            return 5;
         case PROPDEF_AMMO:
-            return 0x2d;//return sizeof(GlassRecord) / 4;
+            return 0x2d;
         case PROPDEF_ARMOUR:
-            return 0x22;//return sizeof(GlassRecord) / 4;
+            return 0x22;
         case PROPDEF_TAG:
-            return 4;//return sizeof(GlassRecord) / 4;
+            return 4;
         case PROPDEF_RENAME:
-            return 10;//return sizeof(GlassRecord) / 4;
+            return 10;
         case PROPDEF_OBJECTIVE_START:
-            return 4;//return sizeof(GlassRecord) / 4;
+            return 4;
         case PROPDEF_OBJECTIVE_END:
-            return 1;//return sizeof(GlassRecord) / 4;
+            return 1;
         case PROPDEF_OBJECTIVE_DESTROY_OBJECT:
-            return 2;//return sizeof(GlassRecord) / 4;
+            return 2;
         case PROPDEF_OBJECTIVE_COMPLETE_CONDITION:
-            return 2;//return sizeof(GlassRecord) / 4;
+            return 2;
         case PROPDEF_OBJECTIVE_FAIL_CONDITION:
-            return 2;//return sizeof(GlassRecord) / 4;
+            return 2;
         case PROPDEF_OBJECTIVE_COLLECT_OBJECT:
-            return 2;//return sizeof(GlassRecord) / 4;
+            return 2;
         case PROPDEF_OBJECTIVE_DEPOSIT_OBJECT:
-            return 2;//return sizeof(GlassRecord) / 4;
+            return 2;
         case PROPDEF_OBJECTIVE_PHOTOGRAPH:
-            return 4;//return sizeof(GlassRecord) / 4;
+            return 4;
         case PROPDEF_OBJECTIVE_NULL:
-            return 1;//return sizeof(GlassRecord) / 4;
+            return 1;
         case PROPDEF_OBJECTIVE_ENTER_ROOM:
-            return 4;//return sizeof(GlassRecord) / 4;
+            return 4;
         case PROPDEF_OBJECTIVE_DEPOSIT_OBJECT_IN_ROOM:
-            return 5;//return sizeof(GlassRecord) / 4;
+            return 5;
         case PROPDEF_OBJECTIVE_COPY_ITEM:
-            return 1;//return sizeof(GlassRecord) / 4;
+            return 1;
         case PROPDEF_WATCH_MENU_OBJECTIVE_TEXT:
-            return 4;//return sizeof(GlassRecord) / 4;
+            return 4;
         case PROPDEF_LOCK_DOOR:
-            return 4;//return sizeof(GlassRecord) / 4;
-        case PROPDEF_VEHICHLE:
-            return 0x2c;//return sizeof(GlassRecord) / 4;
+            return 4;
+        case PROPDEF_VEHICLE:
+            return 0x2c;
         case PROPDEF_AIRCRAFT:
-            return 0x2d;//return sizeof(GlassRecord) / 4;
+            return 0x2d;
         case PROPDEF_TANK:
-            return 0x38;//return sizeof(GlassRecord) / 4;
+            return 0x38;
         case PROPDEF_CAMERAPOS:
-            return 7;//return sizeof(GlassRecord) / 4;
+            return 7;
         default:
-            return sizeof(PropDefHeaderRecord) / 4;;
+            return sizeof(PropDefHeaderRecord) / 4;
     }
 }
 
@@ -329,7 +329,7 @@ void setupUpdateObjectRoomPosition(ObjectRecord *obj)
             case PROPDEF_AMMO: //20:
             case PROPDEF_ARMOUR: //21:
             case PROPDEF_GAS_RELEASING: //36:
-            case PROPDEF_VEHICHLE: //39:
+            case PROPDEF_VEHICLE: //39:
             case PROPDEF_AIRCRAFT: //40:
             case PROPDEF_UNK41: //41:
             case PROPDEF_GLASS: //42:

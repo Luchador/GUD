@@ -960,7 +960,7 @@ void objFree(ObjectRecord* obj, s32 freeprop, s32 canregen)
             sndDeactivate(record->Sound);
         }
     }
-    else if (obj->type == PROPDEF_VEHICHLE)
+    else if (obj->type == PROPDEF_VEHICLE)
     {
         VehichleRecord* record = (VehichleRecord*) obj;
         if ((record->Sound != NULL) && (sndGetPlayingState(record->Sound) != 0))
@@ -5471,7 +5471,7 @@ s32 objTick(struct PropRecord *prop)
 				}
 			}
 		}
-		else if (obj->type == PROPDEF_VEHICHLE)
+		else if (obj->type == PROPDEF_VEHICLE)
 		{
 			poTruck = (struct VehichleRecord *) obj;
 			targetYaw = poTruck->roty;
@@ -6034,7 +6034,7 @@ s32 objTick(struct PropRecord *prop)
 				matrix_4x4_set_identity_and_position(model->obj->Switches[3]->Data, &mtxs[4]);
 				matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[4]);
 			}
-			else if (obj->type == PROPDEF_VEHICHLE)
+			else if (obj->type == PROPDEF_VEHICLE)
 			{
 				struct VehichleRecord *vehicle_render = (struct VehichleRecord *) obj;
 
@@ -10654,7 +10654,7 @@ TICKOP propPickupByPlayer(PropRecord *prop, bool showstring)
         //case PROPDEF_GAS_RELEASING:
         //case PROPDEF_RENAME:
         //case PROPDEF_LOCK_DOOR:
-        //case PROPDEF_VEHICHLE:
+        //case PROPDEF_VEHICLE:
         //case PROPDEF_AIRCRAFT:
         //case PROPDEF_UNK41:
         //case PROPDEF_GLASS:

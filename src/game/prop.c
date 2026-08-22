@@ -1434,7 +1434,7 @@ void proplvreset2(enum LEVELID stageId)
             numObjects += load_proptype(PROPDEF_ALARM);
             numObjects += load_proptype(PROPDEF_MAGAZINE);
             numObjects += load_proptype(PROPDEF_AMMO);
-            numObjects += load_proptype(PROPDEF_VEHICHLE);
+            numObjects += load_proptype(PROPDEF_VEHICLE);
             numObjects += load_proptype(PROPDEF_TANK);
             numAnimatedObjects += load_proptype(PROPDEF_AIRCRAFT);
         }
@@ -1674,7 +1674,7 @@ void proplvreset2(enum LEVELID stageId)
 #endif
                         }
                         break;
-                    case PROPDEF_VEHICHLE:
+                    case PROPDEF_VEHICLE:
                         if (withobjs && (!(((struct VehichleRecord *) phead)->flags2 & flags)))
                         {
                             struct VehichleRecord *pdef_veh = (struct VehichleRecord *) phead;

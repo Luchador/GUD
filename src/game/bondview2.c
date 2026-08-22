@@ -3178,7 +3178,7 @@ void bondviewPlayerStopAudioForPause(void)
         {
             obj = prop->obj;
 
-            if (obj->type == PROPDEF_VEHICHLE)
+            if (obj->type == PROPDEF_VEHICLE)
             {
                 VehichleRecord *vehicle = (VehichleRecord *)prop->obj;
                 if (vehicle->Sound && sndGetPlayingState(vehicle->Sound) != AL_STOPPED) {

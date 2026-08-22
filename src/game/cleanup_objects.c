@@ -32,7 +32,7 @@ void cleanupObjects(s32 stage)
                 case PROPDEF_AMMO:
                 case PROPDEF_ARMOUR:
                 case PROPDEF_GAS_RELEASING:
-                case PROPDEF_VEHICHLE:
+                case PROPDEF_VEHICLE:
                 case PROPDEF_AIRCRAFT:
                 case PROPDEF_UNK41:
                 case PROPDEF_GLASS:
