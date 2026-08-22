@@ -7349,10 +7349,6 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, s32 arg2)
 }
 
 
-/**
- * Address 0x7F04B150.
-*/
-
 Gfx *chrobjRenderProp(PropRecord *prop, Gfx *gdl, s32 arg2)
 {
     struct rgba_f32 spB0;

@@ -5,32 +5,19 @@
 #include "mp_music.h"
 #include "lv.h"
 
+
 #ifdef VERSION_EU
 #define MP_MUSIC_FRAMERATE 50
 #else
 #define MP_MUSIC_FRAMERATE 60
 #endif
 
-// bss
-//CODE.bss:8008C600
 s32 stageMusicID;
-//CODE.bss:8008C604
 s32 dword_CODE_bss_8008C604;
-
-//CODE.bss:8008C608
 s32 music_slot_active_0[4];
-
-//CODE.bss:8008C618
 s32 music_slot_minutes_0[4];
-
-//CODE.bss:8008C628
 s32 music_slot_seconds_0[4];
-
-
-// data
-//D:800484C0
 s32 mission_state = MISSION_STATE_0;
-
 
 
 u16 sub_GAME_7F0C0BF0(void)
@@ -68,7 +55,7 @@ void set_missionstate(MISSION_STATE_ID arg0)
             case MISSION_STATE_1:
                 musicTrack1ApplySeqpVol(sub_GAME_7F0C0BF0());
                 g_musicXTrack1Fade = 0;
-                musicTrack1Play(getmusictrack_or_randomtrack(stageMusicID));
+                musicTrack1Play(musicGetMainTrackOrRandom(stageMusicID));
                 return;
             case MISSION_STATE_2:
                 break;
@@ -77,10 +64,10 @@ void set_missionstate(MISSION_STATE_ID arg0)
             case MISSION_STATE_4: // switch 2
                 musicTrack1ApplySeqpVol(sub_GAME_7F0C0BF0());
                 g_musicXTrack1Fade = 0;
-                musicTrack1Play(getmusictrack_or_randomtrack(stageMusicID));
+                musicTrack1Play(musicGetMainTrackOrRandom(stageMusicID));
                 musicTrack3ApplySeqpVol(sub_GAME_7F0C0C10());
                 g_musicXTrack3Fade = 0;
-                musicTrack3Play(musicGetBgTrackForStage(stageMusicID));
+                musicTrack3Play(musicGetAmbientTrackForStage(stageMusicID));
                 return;
             case MISSION_STATE_5:
                 break;
@@ -97,7 +84,7 @@ void set_missionstate(MISSION_STATE_ID arg0)
             case MISSION_STATE_1: // switch 2
                 musicTrack1ApplySeqpVol(sub_GAME_7F0C0BF0());
                 g_musicXTrack1Fade = 0;
-                musicTrack1Play(getmusictrack_or_randomtrack(stageMusicID));
+                musicTrack1Play(musicGetMainTrackOrRandom(stageMusicID));
                 return;
             case MISSION_STATE_2:
                 break;
@@ -106,10 +93,10 @@ void set_missionstate(MISSION_STATE_ID arg0)
             case MISSION_STATE_4:
                 musicTrack1ApplySeqpVol(sub_GAME_7F0C0BF0());
                 g_musicXTrack1Fade = 0;
-                musicTrack1Play(getmusictrack_or_randomtrack(stageMusicID));
+                musicTrack1Play(musicGetMainTrackOrRandom(stageMusicID));
                 musicTrack3ApplySeqpVol(sub_GAME_7F0C0C10());
                 g_musicXTrack3Fade = 0;
-                musicTrack3Play(musicGetBgTrackForStage(stageMusicID));
+                musicTrack3Play(musicGetAmbientTrackForStage(stageMusicID));
                 return;
                 break;
             case MISSION_STATE_5:
@@ -321,7 +308,7 @@ void sub_GAME_7F0C11FC(s32 stagenum)
     mission_state = MISSION_STATE_0;
     stageMusicID = stagenum;
 
-    if (musicGetBgTrackForStage(stageMusicID) < 0)
+    if (musicGetAmbientTrackForStage(stageMusicID) < 0)
     {
         set_missionstate(MISSION_STATE_1);
     }
@@ -340,7 +327,7 @@ void set_missionstate_zero(void)
 
 void sub_GAME_7F0C1288(void)
 {
-    if (musicGetBgTrackForStage(stageMusicID) < 0)
+    if (musicGetAmbientTrackForStage(stageMusicID) < 0)
     {
         set_missionstate(MISSION_STATE_2);
     }
@@ -352,7 +339,7 @@ void sub_GAME_7F0C1288(void)
 
 void sub_GAME_7F0C12CC(void)
 {
-    if (musicGetBgTrackForStage(stageMusicID) < 0)
+    if (musicGetAmbientTrackForStage(stageMusicID) < 0)
     {
         set_missionstate(MISSION_STATE_1);
     }
