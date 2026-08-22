@@ -8404,13 +8404,8 @@ void menu_init(void)
         }
     }
 
-#if defined(VERSION_EU)
-#define MENU_INIT_ASPECT_440 ASPECT_RATIO_EU_400_330
-#define MENU_INIT_ASPECT_320 ASPECT_RATIO_EU_320_272
-#else
 #define MENU_INIT_ASPECT_440 ASPECT_RATIO
 #define MENU_INIT_ASPECT_320 ASPECT_RATIO
-#endif
 
     if (screen_size != SCREEN_SIZE_320x240)
     {

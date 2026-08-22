@@ -86,32 +86,9 @@
 #define Z_BUFFER_4_3_HEIGHT 330
 #define Z_BUFFER_4_3_WIDTH  440
 
-
 // 4:3
 #define ASPECT_RATIO_SD    (1.3333334f)
-#define ASPECT_RATIO_PAL    (1.1764706f)
 
-#define ASPECT_RATIO_EU_400_330    (1.5873016119f)
-#define ASPECT_RATIO_EU_320_272    (1.40056025982f)
-
-#if defined(VERSION_EU)
-/* PAL */
-#define	SCREEN_HEIGHT                      SCREEN_HEIGHT_272
-#define	VIEWPORT_HEIGHT_4P                 VIEWPORT_HEIGHT_4P_135
-#define WIDESCREEN_SCALE_FACTOR            WIDESCREEN_SCALE_FACTOR_PAL
-#define CINEMA_SCALE_FACTOR                CINEMA_SCALE_FACTOR_PAL
-#define VIEWPORT_OFFSET_HEIGHT_WIDESCREEN  VIEWPORT_OFFSET_HEIGHT_WIDESCREEN_PAL
-#define VIEWPORT_HEIGHT_DEFAULT            VIEWPORT_HEIGHT_DEFAULT_PAL
-#define VIEWPORT_OFFSET_HEIGHT_CINEMA      VIEWPORT_OFFSET_HEIGHT_CINEMA_PAL
-#define VIEWPORT_ULY_2P_PLAYER_2           VIEWPORT_ULY_2P_PLAYER_2_PAL
-#define WIDESCREEN_ULY_SCALE_FACTOR        WIDESCREEN_ULY_SCALE_FACTOR_PAL
-#define CINEMA_ULY_SCALE_FACTOR            CINEMA_ULY_SCALE_FACTOR_PAL
-#define VIEWPORT_ULY_4P_PLAYER_34          VIEWPORT_ULY_4P_PLAYER_34_PAL
-#define VIEWPORT_ULY_WIDESCREEN_OFFSET     VIEWPORT_ULY_WIDESCREEN_OFFSET_PAL
-#define Z_BUFFER_HEIGHT                    Z_BUFFER_HEIGHT_PAL
-#define ASPECT_RATIO                       ASPECT_RATIO_PAL
-#else
-/* NTSC */
 #define	SCREEN_HEIGHT                      SCREEN_HEIGHT_240
 #define	VIEWPORT_HEIGHT_4P                 VIEWPORT_HEIGHT_4P_109
 #define WIDESCREEN_SCALE_FACTOR            WIDESCREEN_SCALE_FACTOR_NTSC
@@ -126,7 +103,6 @@
 #define VIEWPORT_ULY_WIDESCREEN_OFFSET     VIEWPORT_ULY_WIDESCREEN_OFFSET_NTSC
 #define Z_BUFFER_HEIGHT                    Z_BUFFER_HEIGHT_NTSC
 #define ASPECT_RATIO                       ASPECT_RATIO_SD
-#endif
 
 
 #define SCREEN_WIDTH      SCREEN_WIDTH_320
@@ -205,14 +181,9 @@ void viSetXY(s16 x, s16 y);
 Gfx *viSetFillColor(Gfx *gdl, s32 r, s32 g, s32 b);
 Gfx *viFillScreen(Gfx *gdl);
 Gfx *viSetupScreensForNumPlayers(Gfx *gdl);
-
-void indyGrabJpg32bit(void);
-void indyGrabRgb32bit(void);
-
 void viSetVideoMode(s32 m);
 s32 viGet800232A0(void);
 void viSet800232A0(s32 arg0);
-
 Gfx *viClearZBufCurrentPlayer(Gfx *gdl);
 Gfx *viSetupCurrentPlayerView(Gfx *gdl);
 void viGetZRange(f32 *zrange);

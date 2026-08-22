@@ -121,8 +121,6 @@
       build/OUTCODE/src/game/decompress.o (.rodata);
       build/OUTCODE/src/game/zlib.o (.rodata);
       build/OUTCODE/src/game/rsp.o (.rodata);
-      build/OUTCODE/src/game/indy_comms.o (.rodata);
-      build/OUTCODE/src/game/indy_commands.o (.rodata);
       build/OUTCODE/src/game/game_debug.o (.rodata);
       build/OUTCODE/src/game/compiletime.o (.rodata);
       build/OUTCODE/src/game/speedgraphrenderer.o (.rodata);

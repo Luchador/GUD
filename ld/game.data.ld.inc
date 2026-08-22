@@ -119,8 +119,6 @@
       build/OUTCODE/src/game/decompress.o (.data);
       build/OUTCODE/src/game/zlib.o (.data);
       build/OUTCODE/src/game/rsp.o (.data);
-      build/OUTCODE/src/game/indy_comms.o (.data);
-      build/OUTCODE/src/game/indy_commands.o (.data);
       build/OUTCODE/src/game/game_debug.o (.data);
       build/OUTCODE/src/game/compiletime.o (.data);
       build/OUTCODE/src/game/speedgraphrenderer.o (.data);

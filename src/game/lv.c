@@ -65,7 +65,6 @@ u32 *ptr_font_DL;
 char ramrom_data_target[0x380];
 s32 record_slot_num;
 u8 * address_demo_loaded;
-s32 lvl_c_debug_notice_list = 0;
 s32 g_CurrentStageToLoad = 0;
 s32 musictrack1_playing = 0;
 s32 g_ControlsLockedFlag = 0;
@@ -190,7 +189,6 @@ void lvInit(void)
     s32 size;
 
     size = (s32)&_fontdlSegmentRomEnd - (s32)&_fontdlSegmentRomStart;
-    lvl_c_debug_notice_list = 1;
     ptr_font_DL = mempAllocBytesInBank(size, MEMPOOL_PERMANENT);
     romCopy(ptr_font_DL, &_fontdlSegmentRomStart, size);
 }
@@ -290,9 +288,6 @@ void lvlStageLoad(s32 stage)
     */
     if (stage == LEVELID_TITLE)
     {
-#ifdef DEBUG
-        fogLoadLevelEnvironment(bossGetStageNum(), 0);
-#endif
         init_menus_or_reset();
     }
     else
@@ -311,12 +306,6 @@ void lvlStageLoad(s32 stage)
                     {
                         cheatButtonTurnOnCheatForPlayers(s0);
                     }
-#ifdef DEBUG
-                    else
-                    {
-                        cheatButtonHandleCheatsTurnedOff(s0);
-                    }
-#endif
                 }
             }
         }
@@ -335,7 +324,6 @@ void lvlStageLoad(s32 stage)
 
             if (getPlayerCount() == 1)
             {
-                // s4 variable
                 player_data->autoaim = 0;
                 player_data->sight = 0;
                 player_data->handicap = 1.0f;
@@ -365,7 +353,6 @@ void lvlStageLoad(s32 stage)
                 copy_aim_settings_to_playerdata();
             }
 
-            // g_playerPlayerData s4 variable
             player_data->time_other_players_on_screen = 0;
             player_data->damage_to_backside = 0;
             player_data->min_time_between_kills = S32_MAX;
@@ -376,10 +363,9 @@ void lvlStageLoad(s32 stage)
             player_data->shortest_inning = S32_MAX;
             player_data->order_out_in_yolt = 0;
             player_data->flag_counter = 0;
-            player_data->distance_traveled = 0.0f; // one kind of float zero
-            player_data->body_armor_pickups = 0.f; // a different kind of float zero
+            player_data->distance_traveled = 0.0f;
+            player_data->body_armor_pickups = 0.0f;
 
-            // g_playerPlayerData s2, different than above
             for (s3 = 0; s3 < 4; s3++)
             {
                 player_data->kill_counts[s3] = 0;
@@ -507,11 +493,8 @@ Gfx* lvlRender(Gfx* DL)
             DL = bgSetupAndRender(DL);
             DL = weaponRenderTracers(DL);
 
-#if defined(VERSION_EU)
-            bullet_moving_sparks_update(&DL, ZBUF_SURFACE);
-#else /* VERSION_US, VERSION_JP, unspecified */
             bullet_sparks_render_all(&DL, ZBUF_SURFACE);
-#endif
+
             DL = glassRenderShards(DL);
             DL = explosionRenderFlyingParticles(DL);
 

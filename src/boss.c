@@ -10,7 +10,6 @@
 #include "game/game_debug.h"
 #include "game/file.h"
 #include "game/file2.h"
-#include "game/indy_comms.h"
 #include "init.h"
 #include "joy.h"
 #include "game/lv.h"
@@ -133,7 +132,6 @@ void bossInitMainthreadData(void)
     OSTimer bosstimer;
     OSMesgQueue bossmq;
     u32 start;
-    u32 unused;
     s32 i;
 
     debInit();
@@ -142,7 +140,6 @@ void bossInitMainthreadData(void)
     image_entries_load();
     viInit();
     viInitVideoSettings();
-    indycommInit();
     g_DebugAndUpdateStageFlag = rmonGetToken();
     obInit();
     joyInit();
@@ -152,6 +149,7 @@ void bossInitMainthreadData(void)
     {
         osSetTimer(&bosstimer, OS_USEC_TO_CYCLES(100000), 0, &bossmq, &bossmsg);
         osRecvMesg(&bossmq, &bossmsg, OS_MESG_BLOCK);
+
         if (i == 1)
         {
             joyCheckStatusThreadSafe();

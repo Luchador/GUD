@@ -120,8 +120,6 @@
       build/OUTCODE/src/game/decompress.o (.text);
       build/OUTCODE/src/game/zlib.o (.text);
       build/OUTCODE/src/game/rsp.o (.text);
-      build/OUTCODE/src/game/indy_comms.o (.text);
-      build/OUTCODE/src/game/indy_commands.o (.text);
       build/OUTCODE/src/game/game_debug.o (.text);
       build/OUTCODE/src/game/compiletime.o (.text);
       build/OUTCODE/src/game/speedgraphrenderer.o (.text);

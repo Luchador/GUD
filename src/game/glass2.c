@@ -16,7 +16,7 @@
 #define BULLET_MOVING_SPARKS_MAX 50
 #define GAUGE_BAR_VERTEX_PAIR_STRIDE (2 * sizeof(struct WatchVertex))
 
-//D:80040960
+
 struct rgba_u8 g_BulletSparkColors[8] = {
     { 0xFF, 0xFF, 0xFF, 0xFF },
     { 0xFF, 0xFF, 0xC8, 0xFF },
@@ -27,6 +27,7 @@ struct rgba_u8 g_BulletSparkColors[8] = {
     { 0 },
     { 0 }
 };
+
 u32 D_80040980 = 0;
 
 
@@ -43,7 +44,6 @@ s_moving_bullet_spark g_MovingBulletSparkArray[BULLET_MOVING_SPARKS_MAX];
 #endif
 
 
-#if defined(LEFTOVERDEBUG)
 /*
   Render Health Bars
   AI Comment: This function populates a radial array of HUD elements (HealthSegments) with position and color data
@@ -53,7 +53,6 @@ s_moving_bullet_spark g_MovingBulletSparkArray[BULLET_MOVING_SPARKS_MAX];
   @isArmour : Armour/Health if positive/negative
   @numsegments : Not Used
   @HealthValue : amount of health/armour 0-10
-  @Address: 7F0A2F30
 */
 void hudMakeDamageSegments(struct damage_display_val *HealthSegments, s32 numSegments, s32 isArmour, f32 HealthValue)
 {
@@ -136,100 +135,9 @@ void hudMakeDamageSegments(struct damage_display_val *HealthSegments, s32 numSeg
         }
     }
 }
-#endif
-
-#if !defined(LEFTOVERDEBUG)
-void hudMakeDamageSegments(struct damage_display_val *HealthSegments, s32 numSegments, s32 isArmour, f32 HealthValue)
-{
-	s32 new_var2;
-	f32 new_var;
-	s32 pairIndex;
-	s32 i;
-	s16 temp_s1;
-	s32 sp80;
-	f32 temp_f18;
-	f32 temp_f4;
-	f32 sp74;
-	f32 angleRadians;
-	HealthValue *= 8.0f;
-	sp80 = 0;
-
-	for (i = 0; i < 23; i++)
-	{
-		temp_f18 = (f32) ((s32) (142.5 - ((f64) sp80)));
-		angleRadians = ((temp_f18 * M_PI_F) * ((f32) 2)) / 360.0f;
-		for (pairIndex = 0; pairIndex < 2; pairIndex++)
-		{
-	        sp74 = (f32) isArmour;
-			temp_s1 = (s16) ((s32) (((((sinf(angleRadians) * 4.0f) * 130.0f) * ((f32) (6 - pairIndex))) / 5.0f) * sp74));
-			temp_f4 = cosf(angleRadians) * 4.0f;
-			HealthSegments->pos.x = temp_s1 + 1;
-			HealthSegments->pos.y = 0;
-			HealthSegments->normal.x = 0;
-			HealthSegments->normal.y = 0;
-			new_var = HealthValue - 5.0f;
-			HealthSegments->normal.z = 0;
-			HealthSegments->colour.r = 0xFF;
-			HealthSegments->colour.g = 0xFF;
-			temp_s1 = ((temp_f4 * 130.0f) * ((f32) (6 - pairIndex))) / 5;
-			HealthSegments->colour.b = 0xFF;
-			HealthSegments->pos.z = (s16) (-((s32) temp_s1));
-			if (isArmour > 0)
-			{
-				HealthSegments->colour.r = (s8) ((s32) (96.0f - (cosf(angleRadians) * 96.0f)));
-				HealthSegments->colour.g = (s8) ((s32) (127.0f - (cosf(angleRadians) * 127.0f)));
-				HealthSegments->colour.b = 0xFF;
-			}
-			else if (isArmour < 0)
-			{
-				HealthSegments->colour.g = (s8) ((s32) (127.0f - (cosf(angleRadians) * 127.0f)));
-				HealthSegments->colour.b = (s8) ((s32) (32.0f - (cosf(angleRadians) * 32.0f)));
-			}
-			if (i < 10)
-			{
-				if (((((s32) HealthValue) * 2) - 1) >= i)
-				{
-					HealthSegments->colour.a = 0xFF;
-				}
-				else if ((i < ((s32) (2.0f * HealthValue))) && (((((s32) HealthValue) * 2) - 1) < i))
-				{
-					HealthSegments->colour.a = (s8) (((s32) ((HealthValue - ((f32) ((s32) HealthValue))) * 207.0f)) + 0x30);
-				}
-				else
-				{
-					HealthSegments->colour.a = 0x30;
-				}
-			}
-			else if (i >= 10)
-			{
-				if (((f32) i) <= (9.0f + ((HealthValue - 5.0f) * 4.0f)))
-				{
-					HealthSegments->colour.a = 0xFF;
-				}
-				else
-				{
-					new_var2 = i;
-					if (((((s32) ((new_var * 4.0f) + 0.5f)) + 9) >= new_var2) && (((((s32) (HealthValue - 5.0f)) * 2) + 8) < new_var2))
-					{
-						HealthSegments->colour.a = (s8) (((s32) ((HealthValue - ((f32) ((s32) HealthValue))) * 207.0f)) + 0x30);
-					}
-					else
-					{
-						HealthSegments->colour.a = 0x30;
-					}
-				}
-			}
-			HealthSegments += 1;
-		}
-		sp80 += 5;
-	}
-}
-#endif
 
 
 /**
- * Address: 7F0A3330
- *
  * Creates the display list for HUD and watch health and armor bars.
  */
 Gfx *buildGaugeBarDL(Gfx *gdl, uintptr_t vtxaddr, s32 numvertices)
@@ -264,9 +172,6 @@ Gfx *buildGaugeBarDL(Gfx *gdl, uintptr_t vtxaddr, s32 numvertices)
 }
 
 
-/**
- * Address: 7F0A33F8
- */
 void sub_GAME_7F0A33F8(struct WatchVertex *vtx, s32 numverts, f32 scale, s32 arg3)
 {
     f32 angle;
@@ -333,9 +238,6 @@ void sub_GAME_7F0A33F8(struct WatchVertex *vtx, s32 numverts, f32 scale, s32 arg
 }
 
 
-/**
- * Address: 7F0A3978
- */
 Gfx *draw_watch_background(Gfx *gdl, struct WatchVertex *watch_verts, s32 unused_arg2, s32 drawFan)
 {
     s8 i;
@@ -403,19 +305,8 @@ struct WatchVertex *setup_watch_rectangles(struct WatchVertex *vtx, s32 startx, 
     j = 0;
     xval = startx + horizontal_offset;
 
-    if (i);
-    if (j);
-    if (vtx);
-    if (width);
-    if (height);
-
     for (i = 0; i < 2; i++, xval += width)
     {
-        startz ^= 0;
-    
-        if (vertical_offset);
-        if (height);
-
         for (j = 0, zval = startz + vertical_offset; j < 2; j++, zval += height)
         {
             vtx->coord1.AsArray[0] = xval;
@@ -460,9 +351,9 @@ void bullet_sparks_reset(void)
     s32 i;
     s32 start_index;
 
-    if (1) { start_index = 0; }
+    start_index = 0;
 
-    for (i = start_index; (i < BULLET_SPARKS_MAX) ^ 0; i++)
+    for (i = start_index; (i < BULLET_SPARKS_MAX); i++)
     {
         g_BulletSparkArray[i].unk0C = 0;
         g_BulletSparkArray[i].lifetime = 0;
@@ -471,9 +362,6 @@ void bullet_sparks_reset(void)
 }
 
 
-/**
- * Address: 7F0A3C08
- */
 void bullet_sparks_init(s_bullet_spark *spark, coord3d *arg1, s32 arg2, f32 arg3, s16 arg4)
 {
     f32 angle;
@@ -534,9 +422,6 @@ void bullet_sparks_init(s_bullet_spark *spark, coord3d *arg1, s32 arg2, f32 arg3
 }
 
 
-/**
- * Address: 7F0A3E1C
- */
 s_bullet_spark *bullet_spark_create(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3)
 {
     s_bullet_spark *ptr;
@@ -554,9 +439,6 @@ s_bullet_spark *bullet_spark_create(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3)
 }
 
 
-/**
- * Address: 7F0A3EA0
- */
 void bullet_sparks_update(void)
 {
     s_bullet_spark *thing = &g_BulletSparkArray[0]; \
@@ -577,9 +459,6 @@ void bullet_sparks_update(void)
 }
 
 
-/**
- * Address: 7F0A3F04
- */
 void bullet_spark_render(s_bullet_spark *thing, Gfx *gdlarg, s32 zbufferMode)
 {
     Vtx vtx;
@@ -648,10 +527,6 @@ void bullet_spark_render(s_bullet_spark *thing, Gfx *gdlarg, s32 zbufferMode)
     vertices[0].v.ob[0] = (((x - s0[0]) - s3[0]) * get_room_data_float1()) - roompos->f[0];
     vertices[0].v.ob[1] = (((y - s0[1]) - s3[1]) * get_room_data_float1()) - roompos->f[1];
     vertices[0].v.ob[2] = (((z - s0[2]) - s3[2]) * get_room_data_float1()) - roompos->f[2];
-
-    // Matching hack.
-    if ((roompos->f && roompos->f));
-
     vertices[0].v.tc[0] = ((struct sImageTableEntry *) (((u8 *) thing->unk0C) + (frame * 12)))->width << 5;
     vertices[0].v.tc[1] = 0;
     vertices[1].v.ob[0] = (((x + s1[0]) - s2[0]) * get_room_data_float1()) - roompos->f[0];
@@ -681,9 +556,6 @@ void bullet_spark_render(s_bullet_spark *thing, Gfx *gdlarg, s32 zbufferMode)
 }
 
 
-/**
- * Address: 7F0A4528
- */
 void bullet_sparks_render(Gfx *gdl, s32 zbufferMode)
 {
 
@@ -697,9 +569,6 @@ void bullet_sparks_render(Gfx *gdl, s32 zbufferMode)
 }
 
 
-/**
- * Address: 7F0A4594
- */
 f32 bullet_spark_get_depth(s_bullet_spark* spark)
 {
     coord3d tempVec;
@@ -714,10 +583,6 @@ f32 bullet_spark_get_depth(s_bullet_spark* spark)
 }
 
 
-/**
- * Address: 7F0A45D8
- */
-#ifndef VERSION_EU
 void bullet_moving_sparks_reset(void)
 {
     s_moving_bullet_spark *ptr;
@@ -729,18 +594,8 @@ void bullet_moving_sparks_reset(void)
         ptr->unk00.lifetime = 0;
     }
 }
-#else
-void bullet_moving_sparks_reset(void)
-{
-    bullet_sparks_reset();
-}
-#endif
 
 
-/**
- * Address: 7F0A4600
- */
-#ifndef VERSION_EU
 s_moving_bullet_spark *bullet_moving_spark_create(coord3d *arg0, coord3d *velocity, s32 arg2, f32 arg3, f32 arg4, s16 arg5)
 {
     s_moving_bullet_spark *ptr;
@@ -762,18 +617,8 @@ s_moving_bullet_spark *bullet_moving_spark_create(coord3d *arg0, coord3d *veloci
 
     return NULL;
 }
-#else
-void bullet_moving_spark_create(void)
-{
-    bullet_sparks_update();
-}
-#endif
 
 
-/**
- * Address: 7F0A46A0
- */
-#ifndef VERSION_EU
 void bullet_moving_sparks_update(void)
 {
     s_moving_bullet_spark *ptr;
@@ -805,18 +650,7 @@ void bullet_moving_sparks_update(void)
         ptr++;
     }
 }
-#else
-void bullet_moving_sparks_update(Gfx *arg0, s32 zbufferMode)
-{
-    bullet_sparks_render(arg0, zbufferMode);
-}
-#endif
 
-
-/**
- * Address: 7F0A4768
- */
-#ifndef VERSION_EU
 
 void bullet_moving_sparks_render_all(Gfx *arg0, s32 zbufferMode)
 {
@@ -833,9 +667,6 @@ void bullet_moving_sparks_render_all(Gfx *arg0, s32 zbufferMode)
 }
 
 
-/**
- * Address: 7F0A47D4
- */
 void bullet_sparks_reset_all(void)
 {
     bullet_sparks_reset();
@@ -853,14 +684,8 @@ void bullet_sparks_update_all(void)
 }
 
 
-/**
- * Address: 7F0A4824
- */
 void bullet_sparks_render_all(Gfx *arg0, s32 zbufferMode)
 {
     bullet_sparks_render(arg0, zbufferMode);
     bullet_moving_sparks_render_all(arg0, zbufferMode);
 }
-
-
-#endif
