@@ -11,8 +11,8 @@ void init_menus_or_reset(void)
     current_menu = ~MENU_LEGAL_SCREEN;
     maybe_prev_menu = ~MENU_LEGAL_SCREEN;
     screen_size = SCREEN_SIZE_320x240;
-    spectrum_related_flag = TRUE;
-    is_emulating_spectrum = FALSE;
+    g_HiResSwitchPending = TRUE;
+    g_LoResSwitchPending = FALSE;
     folder_selection_screen_option_icon = 0;
     folder_selected_for_deletion = -1;
     folder_selected_for_deletion_choice = 1;

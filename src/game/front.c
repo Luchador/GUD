@@ -169,8 +169,8 @@ s32 ge_logo_bool = FALSE;
 s32 maybe_is_in_menu = TRUE;
 s32 screen_size = SCREEN_SIZE_320x240;
 
-s32 spectrum_related_flag = 0;
-s32 is_emulating_spectrum = FALSE;
+bool g_HiResSwitchPending = FALSE;
+bool g_LoResSwitchPending = FALSE;
 
 s32 is_cheat_menu_available = FALSE;
 
@@ -1358,7 +1358,7 @@ void interface_menu17_switchscreens(void)
 
     g_MenuTimer++;
 
-    if ((g_MenuTimer >= 4) && (!spectrum_related_flag) && (!is_emulating_spectrum))
+    if ((g_MenuTimer >= 4) && (!g_HiResSwitchPending) && (!g_LoResSwitchPending))
     {
         maybe_prev_menu = menu_update;
         menu_update = MENU_INVALID;
@@ -8050,7 +8050,7 @@ void frontChangeMenu(MENU menu, s32 reload)
 {
     if (menu == MENU_RUN_STAGE)
     {
-        is_emulating_spectrum = TRUE;
+        g_LoResSwitchPending = TRUE;
     }
 
     if (reload)
@@ -8071,22 +8071,20 @@ MENU get_currentmenu(void)
 
 void menu_init(void)
 {
-    s32 var_v0;
-
     if (current_menu == MENU_SWITCH_SCREENS)
     {
-        if (spectrum_related_flag != 0)
+        if (g_HiResSwitchPending)
         {
             if (viGetFrameBuf2() == (cfb_16[1]))
             {
                 screen_size = SCREEN_SIZE_440x330;
-                spectrum_related_flag = 0;
+                g_HiResSwitchPending = FALSE;
             }
         }
-        else if ((is_emulating_spectrum != 0) && (viGetFrameBuf2() == cfb_16[0]))
+        else if ((g_LoResSwitchPending) && (viGetFrameBuf2() == cfb_16[0]))
         {
             screen_size = SCREEN_SIZE_320x240;
-            is_emulating_spectrum = 0;
+            g_LoResSwitchPending = FALSE;
         }
     }
 
