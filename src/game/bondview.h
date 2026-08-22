@@ -2385,90 +2385,45 @@ typedef struct Weapon1PTransformKeyframe {
     f32 duration;
 } Weapon1PTransformKeyframe;
 
-// placeholder while matching
 struct move_bond_temp_struct {
     s32 unk00;
     s32 unk04;
 };
 
-//D:80036424
 extern s32 g_bondviewForceDisarm;
-//D:80036428
 extern s32 resolution;
-//D:8003642C
 extern s32 cameraBufferToggle;
-//D:80036430
 extern s32 cameraFrameCounter1;
-//D:80036434
 extern s32 cameraFrameCounter2;
-//D:80036438
 extern s32 g_CreditsRollTimer;
-//D:8003643C
 extern enum CREDITS_STATE g_CreditsState;
-//D:80036440
 extern CreditsEntry *credits_pointer;
-//D:80036444
 extern s32 g_SurroundBondWithExplosionsFlag;
-//D:80036448
 extern s32 g_PlayerIsInTank;
-//D:8003644C
 extern struct PropRecord *g_WorldTankProp;
-
-//D:80036450
 extern struct PropRecord *g_PlayerTankProp;
-
-/**
- * Related to g_PlayerTankProp.
- * Address 0x80036454.
- */
 extern f32 g_PlayerTankYOffset;
-
-//D:80036458
 extern ALSoundState * g_TankSfxState[2];
-
-//D:80036460
 extern f32 g_TankTurnSpeed;
-//D:80036464
 extern f32 g_TankOrientationAngle;
-//D:80036468
-extern f32 tank_turret_unused_angle;
-//D:8003646C
 extern f32 g_TankTurretVerticalAngle;
-//D:80036470
 extern f32 g_TankTurretVerticalAngleRelated;
-//D:80036474
 extern f32 g_TankTurretOrientationAngleRad;
-//D:80036478
 extern f32 g_TankTurretOrientationAngleDeg;
-//D:8003647C
 extern f32 tank_turret_turn_speed;
-//D:80036480
 extern s32 g_BondCanEnterTank;
-//D:80036484
 extern f32 g_TankTurretAngle;
-//D:80036488
 extern f32 g_TankTurretTurn;
-//D:8003648C
 extern s32 g_ExplodeTankOnDeathFlag;
-//D:80036490
 extern s32 g_TankDamagePenaltyTicks;
-//D:80036494
 extern enum CAMERAMODE g_CameraMode;
-//D:80036498
 extern enum CAMERAMODE g_CameraAfterCinema;
-//D:8003649C
 extern s32 camera_fade_active;
-//D:800364A0
 extern s32 stop_time_flag;
-//D:800364A4
 extern f32 camera_transition_timer;
-//D:800364A8
 extern s32 intro_camera_index;
-//D:800364AC
 extern struct SetupIntroSwirl *g_IntroSwirl;
-//D:800364B0
 extern s32 is_timer_active;
-//D:800364B4
 /**
  * Used to make the player invincible upon level completion.
  * This is separate from the invincibility cheat, stored in cheatBondInvincible.
@@ -2499,106 +2454,8 @@ extern s32 g_bondviewBondDeathAnimationsCount;
 extern enum CAMERAMODE camera_mode;
 //D:80036514
 extern s32 g_IntroAnimationIndex;
-/*
-D:80036518     stage_intro_anim_table:struct_4 <0x5744, 95.0, -1.0, 0.02>
-D:80036528                     struct_4 <0x6254, 7.0, 40.0, 0.5>
-D:80036538                     struct_4 <0x78C8, 0.0, -1.0, 0.5>
-D:80036548                     struct_4 <0x7AA8, 0.0, -1.0, 0.5>
-D:80036558                     struct_4 <0x7C4C, 0.0, -1.0, 0.5>
-D:80036568                     struct_4 <0x7D04, 0.0, -1.0, 0.5>
-D:80036578                     struct_4 <0x7F0C, 0.0, -1.0, 0.5>
-D:80036588                     struct_4 <0x7FB4, 0.0, -1.0, 0.5>
-D:80036598                     struct_4 <0xD89C, 0.0, -1.0, 0.5>
-D:800365A8     flt_watch_transition_time: .float 0.90909088
-D:800365AC     dummy_08_pp7_obj:.word 0x1000008
-D:800365B0                     .word 0xBF4000
-D:800365B4                     .word 0, 0, 0, 0
-D:800365C4                     .byte 0x3F
-D:800365C5                     .byte 0x80, 0, 0
-D:800365C8                     .word 0, 0, 0, 0
-D:800365D8                     .byte 0x3F
-D:800365D9                     .byte 0x80, 0, 0
-D:800365DC                     .word 0, 0, 0, 0
-D:800365EC                     .byte 0x3F
-D:800365ED                     .byte 0x80, 0, 0
-D:800365F0                     .align 5
-D:80036600                     .byte 0x3F
-D:80036601                     .byte 0x80, 0, 0
-D:80036604                     .align 5
-D:80036620                     .byte 0x44
-D:80036621                     .byte 0x7A, 0, 0
-D:80036624                     .word 0xFFFFFF00, 0xFFFFFF00, 0x4FFFFFF
-*/
-//D:80036630
 extern u32 D_80036630;
-//D:80036634
 extern struct DamageType g_DamageTypes[];
-/*
-D:80036638                     .byte 0
-D:80036639                     .byte 0, 0, 0xA
-D:8003663C                     .word 0x3C, 0x3F19999A, 0
-D:80036648                     .byte 0
-D:80036649                     .byte 0, 0, 5
-D:8003664C                     .word 0x28, 0x3F800000, 0xFF, 0xFF, 0xFF, 0
-D:80036664                     .byte 0
-D:80036665                     .byte 0, 0, 0xA
-D:80036668                     .word 0x3C, 0x3F19999A, 0
-D:80036674                     .byte 0
-D:80036675                     .byte 0, 0, 5
-D:80036678                     .word 0x28, 0x3F800000, 0xFF, 0xFF, 0xFF, 0
-D:80036690                     .byte 0
-D:80036691                     .byte 0, 0, 0xA
-D:80036694                     .word 0x32, 0x3F19999A, 0
-D:800366A0                     .word 5, 0x1E, 0x3F4CCCCD, 0xFF, 0xFF, 0xFF, 0
-D:800366BC                     .byte 0
-D:800366BD                     .byte 0, 0, 0xA
-D:800366C0                     .word 0x28, 0x3F19999A, 0
-D:800366CC                     .byte 0
-D:800366CD                     .byte 0, 0, 5
-D:800366D0                     .word 0x19, 0x3F19999A, 0xFF, 0xFF, 0xFF, 0
-D:800366E8                     .byte 0
-D:800366E9                     .byte 0, 0, 0xA
-D:800366EC                     .word 0x23, 0x3F19999A, 0
-D:800366F8                     .byte 0
-D:800366F9                     .byte 0, 0, 5
-D:800366FC                     .word 0x16, 0x3F0CCCCD, 0xFF, 0xFF, 0xFF, 0
-D:80036714                     .byte 0
-D:80036715                     .byte 0, 0, 0xA
-D:80036718                     .word 0x1E, 0x3F19999A, 0
-D:80036724                     .word 5, 0x13, 0x3F000000, 0xFF, 0xFF, 0xFF, 0
-D:80036740                     .byte 0
-D:80036741                     .byte 0, 0, 0xA
-D:80036744                     .word 0x1E, 0x3F19999A, 0
-D:80036750                     .word 5, 0x11, 0x3EE66666, 0xFF, 0xFF, 0xFF, 0
-D:8003676C                     .byte 0
-D:8003676D                     .byte 0, 0, 0xA
-D:80036770                     .word 0x1E, 0x3F19999A, 0
-D:8003677C                     .word 5, 0xF, 0x3ECCCCCD, 0xFF, 0xFF, 0xFF
-D:80036794     g_HealthDisplayDurations:.word 0
-D:80036798                     .byte 0
-D:80036799                     .byte 0, 0, 0x28
-D:8003679C                     .word 0x64, 0
-D:800367A4                     .byte 0
-D:800367A5                     .byte 0, 0, 0x1E
-D:800367A8                     .word 0x50, 0
-D:800367B0                     .byte 0
-D:800367B1                     .byte 0, 0, 0x14
-D:800367B4                     .word 0x3C, 0
-D:800367BC                     .byte 0
-D:800367BD                     .byte 0, 0, 0x14
-D:800367C0                     .word 0x3C, 0
-D:800367C8                     .byte 0
-D:800367C9                     .byte 0, 0, 0x14
-D:800367CC                     .word 0x3C, 0
-D:800367D4                     .byte 0
-D:800367D5                     .byte 0, 0, 0x14
-D:800367D8                     .word 0x32, 0
-D:800367E0                     .word 0x14, 0x32, 0
-D:800367EC                     .byte 0
-D:800367ED                     .byte 0, 0, 0x14
-D:800367F0                     .word 0x32
-*/
-
 extern struct coord3d g_DefaultFrozenPlayerPos;
 extern struct coord3d g_DefaultFrozenPlayerPos2;
 extern struct coord3d g_DefaultFrozenPlayerOffset;
@@ -2627,34 +2484,6 @@ extern s32 display_upper_text_window;
 //D:800368B0
 extern s32 upper_text_window_timer;
 extern s32 g_UpperTextDisplayFlag;
-/*
-D:800368D8     firing_animation_groups:firing_anim_struct <pistol_firing_animation_group1, 0, 0.1, 79.0, 87.0>
-D:800368D8                                              # DATA XREF: sub_CODE_7F08B0F0+720o
-D:800368EC                     firing_anim_struct <stru_D_800306F0, 0, 0.5, 0.0, -1.0>
-D:80036900                     firing_anim_struct <stru_D_80030738, 0, 0.5, 0.0, -1.0>
-D:80036914                     firing_anim_struct <stru_D_800308A0, 0, 0.5, 0.0, -1.0>
-D:80036928                     firing_anim_struct <stru_D_800308E8, 0, 0.5, 0.0, -1.0>
-D:8003693C                     firing_anim_struct <crouched_pistol_firing_animation_group1, 0, 0.1, 56.0, 68.0>
-D:80036950                     firing_anim_struct <rifle_firing_animation_group1, 0, 0.050000001, 35.0, 40.0>
-D:80036964                     firing_anim_struct <stru_D_80030660, 0, 0.5, 0.0, -1.0>
-D:80036978                     firing_anim_struct <stru_D_800306A8, 0, 0.5, 0.0, -1.0>
-D:8003698C                     firing_anim_struct <stru_D_800308A0, 0, 0.5, 0.0, -1.0>
-D:800369A0                     firing_anim_struct <stru_D_800308E8, 0, 0.5, 0.0, -1.0>
-D:800369B4                     firing_anim_struct <stru_D_8002F7A8, 0, 0.1, 45.0, 55.0>
-D:800369C8                     firing_anim_struct <0, 0x8194, 0.25, 0.0, -1.0>
-D:800369DC                     firing_anim_struct <0, 0x8204, 0.5, 0.0, -1.0>
-D:800369F0                     firing_anim_struct <0, 0x777C, 0.5, 0.0, -1.0>
-D:80036A04                     firing_anim_struct <stru_D_800308A0, 0, 0.5, 0.0, -1.0>
-D:80036A18                     firing_anim_struct <stru_D_800308E8, 0, 0.5, 0.0, -1.0>
-D:80036A2C                     firing_anim_struct <0, 0x6C18, 0.050000001, 28.0, 29.0>
-D:80036A40                     firing_anim_struct <doubles_firing_animation_group1, 0, 0.1, 32.0, 42.0>
-D:80036A54                     firing_anim_struct <stru_D_80030780, 0, 0.5, 0.0, -1.0>
-D:80036A68                     firing_anim_struct <stru_D_800307C8, 0, 0.5, 0.0, -1.0>
-D:80036A7C                     firing_anim_struct <stru_D_800308A0, 0, 0.5, 0.0, -1.0>
-D:80036A90                     firing_anim_struct <stru_D_800308A0, 0, 0.5, 0.0, -1.0>
-D:80036AA4                     firing_anim_struct <crouched_doubles_firing_animation_group1, 0, 0.1, 37.0, 47.0>
-*/
-//D:80036AB8
 extern s32 D_80036AB8;
 //D:80036ABC
 extern s32 D_80036ABC;
@@ -2683,9 +2512,6 @@ extern StandTilePoint *dword_CODE_bss_80079DA4;
 
 #define BSS_80079DA8_LENGTH 8
 extern s32 dword_CODE_bss_80079DA8[];
-
-
-
 
 PropRecord* getCurrentPlayerProp(void);
 
@@ -2759,8 +2585,8 @@ void record_damage_kills(f32, f32, f32, s32, s32);
 void bondviewCallRecordDamageKills(f32 arg0, f32 rad, s32 arg2, s32 arg3);
 int bondviewGetIfCurrentPlayerDamageShowTime(void);
 int bondviewGetIfCurrentPlayerHealthShowTime(void);
-u8 bondviewGetCurrentPlayersRoom(void);
-coord3d *bondviewGetCurrentPlayersPosition(void);
+u8 bondviewGetPlayerRoom(void);
+coord3d *bondviewGetPlayerPosition(void);
 void bondviewUpdateGuardTankFlagsRelated(PropRecord *prop, s32 flag);
 void bondviewGetPropHeightRelatedValues(PropRecord *arg0, struct rect4f **field_B0, s32 *arg2, f32 *height_related, f32 *collision);
 void bondviewAddCurrentPlayerArmor(f32 arg0);
@@ -2786,13 +2612,12 @@ Mtx *getPlayerProjViewMtx(void);
 Gfx *bondviewRenderProp(PropRecord *arg0, Gfx *arg1, s32 arg2);
 f32 getPlayer_c_lodscalez(void);
 f32 bondviewGetBondBreathing(void);
-void     bondviewClearUpperTextDisplayFlag(int param_1);
-
-void     bondviewSetUpperTextDisplayFlag(PLAYERFLAG flag);
-void     bondviewSetCameraMode(s32 arg0);
-bool     isBondInTank(void);
-void     hudmsgTopShow(char* string);
-void     SurroundWithExplosions(int delay);
+void bondviewClearUpperTextDisplayFlag(int param_1);
+void bondviewSetUpperTextDisplayFlag(PLAYERFLAG flag);
+void bondviewSetCameraMode(s32 arg0);
+bool isBondInTank(void);
+void hudmsgTopShow(char* string);
+void SurroundWithExplosions(int delay);
 s32 check_watch_page_transistion_running(void);
 f32 bondviewWatchAnimationRelated(void);
 struct coord3d *getCurrentPlayerPrevPos(void);

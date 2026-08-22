@@ -844,7 +844,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
     if (walkTilesBetweenPoints_NoCallback(&fromtile, playerprop->pos.x, playerprop->pos.z, shotdata.gunpos.x, shotdata.gunpos.z))
     {
         distscale = get_room_data_float1() * bgGetLevelVisibilityScale();
-        playerpos = bondviewGetCurrentPlayersPosition();
+        playerpos = bondviewGetPlayerPosition();
 
         new_var++;
         new_var--;

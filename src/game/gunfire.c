@@ -1193,7 +1193,7 @@ Gfx *sub_GAME_7F061E18(Gfx *gdl, BeamRecord *flash, s32 arg2)
     if (flash->unk00 >= 0)
     {
         templatevtx = D_80035C98;
-        playerpos = bondviewGetCurrentPlayersPosition();
+        playerpos = bondviewGetPlayerPosition();
         startoffset = flash->unk28;
         dist = flash->unk24;
         flareoffset = D_80035CA8;

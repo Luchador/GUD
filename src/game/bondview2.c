@@ -7811,10 +7811,12 @@ void bondviewUpdateCurrentRoomPosition(s32 arg0)
 }
 
 
-void store_BONDdata_curpos_to_previous(void) {
+void bondviewUpdatePrevModelPos(void) 
+{
     g_CurrentPlayer->previous_model_pos.f[0] = g_CurrentPlayer->current_model_pos.f[0];
     g_CurrentPlayer->previous_model_pos.f[1] = g_CurrentPlayer->current_model_pos.f[1];
     g_CurrentPlayer->previous_model_pos.f[2] = g_CurrentPlayer->current_model_pos.f[2];
+
     mtx4RotateVecInPlace(camGetWorldToScreenMtxf(), &g_CurrentPlayer->previous_model_pos);
 }
 
@@ -7833,7 +7835,7 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
     s32 j;
     s32 i;
 
-    i = bondviewGetCurrentPlayersRoom();
+    i = bondviewGetPlayerRoom();
     bondviewUpdateCurrentRoomPosition(i);
 
     g_CurrentPlayer->field_5C = dynAllocateMatrix();
@@ -7909,7 +7911,7 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
 
     sub_GAME_7F078464((s32) lookat);
     bondviewUpdateFrustumPlanes();
-    store_BONDdata_curpos_to_previous();
+    bondviewUpdatePrevModelPos();
 }
 
 
@@ -9174,19 +9176,13 @@ void set_obj_collision_flag(s32 flag) {
   obj_collision_flag = flag;
 }
 
-s32 get_obj_collision_flag(void) {
+s32 get_obj_collision_flag(void)
+{
     return obj_collision_flag;
 }
 
 
-
-
-
-
-/**
- * Address 0x7F089F98.
- */
-u8 bondviewGetCurrentPlayersRoom(void)
+u8 bondviewGetPlayerRoom(void)
 {
     if ((g_CurrentPlayer->cameramode == 1) && (g_CurrentPlayer->cameratile != 0))
     {
@@ -9197,12 +9193,7 @@ u8 bondviewGetCurrentPlayersRoom(void)
 }
 
 
-
-
-/**
- * Address 0x7F089FD4.
- */
-coord3d *bondviewGetCurrentPlayersPosition(void)
+coord3d *bondviewGetPlayerPosition(void)
 {
     if (g_CurrentPlayer->cameramode == 1)
     {
@@ -9211,7 +9202,6 @@ coord3d *bondviewGetCurrentPlayersPosition(void)
 
     return &g_CurrentPlayer->field_488.pos;
 }
-
 
 
 coord3d * bondviewGetCurrentPlayersPosition3(void)
@@ -9224,6 +9214,7 @@ coord3d * bondviewGetCurrentPlayersPosition3(void)
 
     return &g_CurrentPlayer->field_488.pos3;
 }
+
 
 struct coord3d *getCurrentPlayerPrevPos(void)
 {

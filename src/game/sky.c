@@ -43,7 +43,7 @@ void skyGetWorldPosFromScreenPos(f32 offset_x, f32 offset_y, coord3d* out) {
 */
 bool skyIsScreenCornerInSky(coord3d *corner3dpos, coord3d *dstpos, f32 *dstfrac)
 {
-    coord3d *eye = bondviewGetCurrentPlayersPosition();
+    coord3d *eye = bondviewGetPlayerPosition();
     f32 f12 = 2.0f * corner3dpos->y / sqrtf(corner3dpos->f[0] * corner3dpos->f[0] + corner3dpos->f[2] * corner3dpos->f[2] + 0.0001f);
     f32 sp2c;
     f32 f12_2;
@@ -95,7 +95,7 @@ bool skyIsScreenCornerInSky(coord3d *corner3dpos, coord3d *dstpos, f32 *dstfrac)
 */
 bool skyIsCornerInWater(coord3d *corner3dpos, coord3d *dstpos, f32 *dstfrac)
 {
-    coord3d *eye = bondviewGetCurrentPlayersPosition();
+    coord3d *eye = bondviewGetPlayerPosition();
     f32 f12 = -2.0f * corner3dpos->y / sqrtf(corner3dpos->f[0] * corner3dpos->f[0] + corner3dpos->f[2] * corner3dpos->f[2] + 0.0001f);
     f32 sp2c;
     f32 f12_2;

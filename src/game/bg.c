@@ -811,10 +811,10 @@ void bgRoomVisibilityRelated(void)
             break;
     }
 
-    room = bondviewGetCurrentPlayersRoom();
+    room = bondviewGetPlayerRoom();
     g_BgCurrentRoom = room;
 
-    pos = bondviewGetCurrentPlayersPosition();
+    pos = bondviewGetPlayerPosition();
     pos3 = bondviewGetCurrentPlayersPosition3();
 
     for (depth = 0, maxdepth = 11; depth != maxdepth; depth++)
@@ -3184,7 +3184,7 @@ void sub_GAME_7F0B7F84(s32 roomnum, s32 portalnum /*canonically p*/, s32 depth, 
 
     if (i);
  
-    playerpos = bondviewGetCurrentPlayersPosition();
+    playerpos = bondviewGetPlayerPosition();
     sub_GAME_7F0B96CC(portalnum, &metric);
     playermetric = ((metric.normal.z * playerpos->z) + ((metric.normal.x * playerpos->x) + (metric.normal.y * playerpos->y))) * room_data_float1;
     portalmetric = sub_GAME_7F0B9990(portalnum);
@@ -3298,7 +3298,7 @@ void sub_GAME_7F0B7F84(s32 value, s32 roomnum, s32 portalnum, s32 depth, bbox2d 
  
     i = (s32) &D_800442FC[portalnum];
  
-    playerpos = bondviewGetCurrentPlayersPosition();
+    playerpos = bondviewGetPlayerPosition();
     sub_GAME_7F0B96CC(portalnum, &metric);
     playermetric = ((metric.normal.z * playerpos->z) + ((metric.normal.x * playerpos->x) + (metric.normal.y * playerpos->y))) * room_data_float1;
     portalmetric = sub_GAME_7F0B9990(portalnum);

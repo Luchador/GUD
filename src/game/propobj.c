@@ -13235,7 +13235,7 @@ bool sub_GAME_7F054C58(coord3d *coord, f32 arg1)
 
     if (ptr != NULL)
     {
-        coord3d *campos = bondviewGetCurrentPlayersPosition();
+        coord3d *campos = bondviewGetPlayerPosition();
         Mtxf *mtx = camGetWorldToScreenMtxf();
 
         tmp.x = coord->x - campos->x;
@@ -13293,7 +13293,7 @@ bool posIsOnScreen(PropRecord *prop, coord3d *pos, f32 arg2, bool arg3)
 
                 if (result)
                 {
-                    coord3d *campos = bondviewGetCurrentPlayersPosition();
+                    coord3d *campos = bondviewGetPlayerPosition();
                     f32 xdiff = pos->x - campos->x;
                     f32 ydiff = pos->y - campos->y;
                     f32 zdiff = pos->z - campos->z;

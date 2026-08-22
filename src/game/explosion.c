@@ -857,7 +857,7 @@ Gfx *explosionRenderPart(struct ExplosionPart *arg0, Gfx *gdl, struct coord3d *c
     spA0 = g_ExplosionRenderPartDefaultVertex;
 
     sp9C = currentPlayerGetViewToWorldMtxf();
-    sp98 = bondviewGetCurrentPlayersPosition();
+    sp98 = bondviewGetPlayerPosition();
 
     sp64 = arg0->pos.f[0] - sp98->f[0];
     sp60 = arg0->pos.f[1] - sp98->f[1];
@@ -977,7 +977,7 @@ Gfx *explosionSmokeRenderPart(struct Smoke *smoke, struct SmokePart *smoke_part,
     spC0 = g_SmokeRenderPartDefaultVertex;
 
     mtx = currentPlayerGetViewToWorldMtxf();
-    sp70 = bondviewGetCurrentPlayersPosition();
+    sp70 = bondviewGetPlayerPosition();
 
     if (g_SmokeTypes[smoke->smoke_type].rateappear >= smoke_part->count)
     {

@@ -159,7 +159,6 @@
 #include "bondview_internal.h"
 
 
-// bss
 coord3d g_CamFrustumTopNormal;
 f32 g_CamFrustumTopOffset;
 coord3d g_CamFrustumBottomNormal;
@@ -170,36 +169,18 @@ coord3d g_CamFrustumRightNormal;
 f32 g_CamFrustumRightOffset;
 f32 g_CamFrustumNearOffset;
 
-f32 flt_CODE_bss_80079984; // unused
-f32 flt_CODE_bss_80079988; // unused
-f32 flt_CODE_bss_8007998C; // unused
-
-// data
-//D:80036420
-s32 D_80036420 = 0;
-
 /**
  * When set, will increment each tick until reaching a threshold value (4).
  * Then current items will be unequipped from left and run hands.
- * Address 0x80036424.
 */
 s32 g_bondviewForceDisarm = 0;
-
-//D:80036428
 s32 resolution = 0;
-//D:8003642C
 s32 cameraBufferToggle = 0;
-//D:80036430
 s32 cameraFrameCounter1 = 0;
-//D:80036434
 s32 cameraFrameCounter2 = 0;
-//D:80036438
 s32 g_CreditsRollTimer = 0;
-//D:8003643C
 CREDITS_STATE g_CreditsState = CREDIT_STATE_START;
-//D:80036440
 CreditsEntry *credits_pointer = NULL;
-//D:80036444
 s32 g_SurroundBondWithExplosionsFlag = 0;
 
 bool g_PlayerIsInTank = FALSE;
@@ -231,99 +212,44 @@ f32 g_TankTurnSpeed = 0;
  * Address 0x80036464.
 */
 f32 g_TankOrientationAngle = 0;
-
-//D:80036468
-f32 tank_turret_unused_angle = 0.0f;
-
-/**
- * Argument to sinf,cosf.
- *
- * Address 0x8003646C.
- */
 f32 g_TankTurretVerticalAngle = 0;
-
-/**
- * Address 0x80036470.
-*/
 f32 g_TankTurretVerticalAngleRelated = 0;
-
-/**
- * Address 0x80036474.
-*/
 f32 g_TankTurretOrientationAngleRad = 0;
-
-//D:80036478
 f32 g_TankTurretOrientationAngleDeg = 0;
-
-//D:8003647C
 f32 tank_turret_turn_speed = 0;
 
 /**
  * Can enter tank, remains set once Bond is in tank.
- * Address 0x80036480.80036480
 */
 s32 g_BondCanEnterTank = 0;
-
-/**
- * Address 0x80036484.
-*/
 f32 g_TankTurretAngle = 0;
-
-/**
- * Address 0x80036488.
-*/
 f32 g_TankTurretTurn = 0;
-
-//D:8003648C
 s32 g_ExplodeTankOnDeathFlag = 0;
-//D:80036490
 s32 g_TankDamagePenaltyTicks = 0;
-//D:80036494
 enum CAMERAMODE g_CameraMode = CAMERAMODE_NONE;
-//D:80036498
 enum CAMERAMODE g_CameraAfterCinema = CAMERAMODE_NONE;
-//D:8003649C
 s32 camera_fade_active = 0;
-//D:800364A0
 s32 stop_time_flag = 0;
-//D:800364A4
 f32 camera_transition_timer = 0;
-//D:800364A8
 s32 intro_camera_index = 1;
-//D:800364AC
 struct SetupIntroSwirl *g_IntroSwirl = NULL;
-//D:800364B0
 s32 is_timer_active = 1;
-//D:800364B4
 bool g_PlayerInvincible = FALSE;
-//D:800364B8
 struct SetupIntroCamera* g_CurrentSetupIntroCamera = NULL;
-//D:800364BC
 s32 g_SetupIntroCameraCount = 0;
-//D:800364C0
 struct SetupIntroCamera *ptr_random06cam_entry = NULL;
 
 /**
  * Flag to toggle invisibility cheat.
  * 1 = visible to guards
  * 0 = not visible to guards
- *
- * Address 0x800364C4.
  */
 s32 g_VisibleToGuardsFlag = TRUE;
-
-//D:800364C8
 s32 obj_collision_flag = TRUE;
-//D:800364CC
 f32 D_800364CC = 1.0;
-//D:800364D0
 f32 D_800364D0 = 1.0;
-//D:800364D4
 f32 D_800364D4 = 1.0;
 
-/**
- * Address 0x800364D8.
-*/
 s32 g_bondviewBondDeathAnimations[] = {
     PTR_ANIM_death_forward_face_down,
     PTR_ANIM_death_forward_spin_face_up,
@@ -566,12 +492,10 @@ s32 bondviewCallTankCollisionStatus(struct coord3d *arg0, struct StandTile *arg1
 s32 sub_GAME_7F07CDD4(struct coord3d *arg0, f32 arg1, struct StandTile **arg2);
 s32 bondviewTryMoveToStan(struct coord3d *arg0, struct StandTile **stan);
 s32 bondviewTestLineUnobstructed(StandTile **pTile, f32 p_x, f32 p_z, f32 dest_x, f32 dest_z, s32 cdtypes, struct coord3d *coord_p, struct coord3d *coord_dest);
-
 s32 bondviewTryFractionMovePlayerCollision(struct coord3d *next_pos, struct coord3d *collision1_pt0, struct coord3d *collision1_pt1, struct coord3d *collision2_pt0, struct coord3d *collision2_pt1);
 s32 bondviewTryEdgeMovePlayerCollision(struct coord3d *prior_next_pos, struct coord3d *collision_pt0, struct coord3d *collision_pt1);
 s32 bondviewTryEndHopPlayerCollision(struct coord3d *prior_next_pos, struct coord3d *collision_pt0, struct coord3d *collision_pt1);
 void bondviewApplyVertaTheta(void);
-
 f32 bheadGetBreathingValue(void);
 void bondviewMoveAnimationTick(f32 speed, f32 speedforwards, f32 speedsideways);
 void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot);
@@ -661,8 +585,6 @@ void currentPlayerSetCameraScale(void)
 
 
 /**
- * Address: 7F077EEC.
- * 
  * Transforms a 2D screen coordinate to a 3D world coordinate
  *
  * 'out' looks to be a vector which probably has the length 'length'
@@ -853,8 +775,6 @@ f32 getPlayer_c_perspaspect(void)
 
 
 /**
- * Address: 7F0785DC
- *
  * Update the world space frustum planes used for object visibility tests.
  */
 void bondviewUpdateFrustumPlanes()
@@ -925,8 +845,6 @@ void bondviewUpdateFrustumPlanes()
  *
  * @param margin: Value added to g_CamFrustumNearOffset to compare g_CurrentPlayer->viewtoworldmtxf,
  * and the four values starting at g_CamFrustumLeftOffset.
- *
- * Address 0x7F078A58.
  */
 bool camIsPosInScreen(coord3d *pos, f32 margin)
 {
@@ -1064,7 +982,6 @@ bool camIsPosInScreenBox(coord3d *pos, f32 margin, bbox2d *box)
 }
 
 
-//split here makes sense to have the pd split make sense
 s32 bondviewGetRandomSpawnPadIndex(void)
 {
     PadRecord *pad;
@@ -1420,8 +1337,6 @@ void currentPlayerSetCameraMode(s32 mode)
  * Compares current player position to parameters. If different, sets current
  * player position values to parameter values.
  * Also updates related room pointer.
- *
- * Address 0x7F079A60.
  */
 void bondviewSetCurrentPlayerPosition(coord3d *pos, coord3d *pos2, coord3d *offset, StandTile *tile, coord3d *stan_walk_start)
 {
