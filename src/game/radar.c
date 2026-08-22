@@ -58,7 +58,7 @@ Gfx *display_red_blue_on_radar(Gfx *DL)
         return DL;
     }
     
-    if ((g_CurrentPlayer->mpmenuon != FALSE) || (g_CurrentPlayer->bonddead != FALSE))
+    if ((g_CurrentPlayer->mpmenuon != FALSE) || (g_CurrentPlayer->bondstate == BONDSTATE_JUST_DIED || g_CurrentPlayer->bondstate == BONDSTATE_DEAD))
     {
         return DL;
     }
@@ -123,7 +123,7 @@ Gfx *display_red_blue_on_radar(Gfx *DL)
     {
         if (i != cur_playernum)
         {
-            if (g_playerPointers[i]->bonddead == FALSE)
+            if (g_playerPointers[i]->bondstate == BONDSTATE_ALIVE)
             {
                 f32 tt1;
                 other_player_prop = g_playerPointers[i]->prop;

@@ -436,7 +436,7 @@ struct player
    */
   /* 0x00d4 */ struct Model *bodyModel; //canonically bondsub
   
-  /* 0x00d8 */ s32 bonddead; // canonical name
+  /* 0x00d8 */ enum BONDSTATE bondstate;
   /* 0x00dc */ f32 bondhealth; // canonical name
   /* 0x00e0 */ f32 bondarmour;
   /* 0x00e4 */ f32 oldhealth; // canonical name

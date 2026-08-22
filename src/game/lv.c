@@ -663,7 +663,7 @@ void lvTick(void)
 
             for (i = 0; i < getPlayerCount(); i++)
             {
-                if (g_playerPointers[i]->bonddead != FALSE)
+                if (g_playerPointers[i]->bondstate == BONDSTATE_JUST_DIED || g_playerPointers[i]->bondstate == BONDSTATE_DEAD)
                 {
                     mp_alive_count++;
                     if (g_playerPointers[i]->redbloodfinished)
@@ -731,7 +731,7 @@ void lvTick(void)
 
             for (i = 0; i < var_player_count1; i++)
             {
-                if (g_playerPointers[i]->bonddead != FALSE &&
+                if ((g_playerPointers[i]->bondstate == BONDSTATE_JUST_DIED || g_playerPointers[i]->bondstate == BONDSTATE_DEAD) &&
                     (g_playerPointers[i]->redbloodfinished == FALSE || g_playerPointers[i]->deathanimfinished == FALSE || g_playerPointers[i]->colourfadetimemax60 >= 0.0f))
                 {
                     mp_player_currently_in_dying_animation++;
@@ -782,7 +782,7 @@ void lvTick(void)
 
                 for (j = 0; j < player_count; j++)
                 {
-                    if (g_playerPointers[j]->bonddead == 0)
+                    if (g_playerPointers[j]->bondstate == BONDSTATE_ALIVE)
                     {
                         not_dead_count++;
                     }

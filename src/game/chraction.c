@@ -2334,7 +2334,7 @@ void play_sound_for_shot_actor(ChrRecord *self)
 
     if (prop->type == PROP_TYPE_VIEWER)
     {
-        if (g_playerPointers[getPlayerPointerIndex(prop)]->bonddead != FALSE)
+        if (g_playerPointers[getPlayerPointerIndex(prop)]->bondstate == BONDSTATE_JUST_DIED || g_playerPointers[getPlayerPointerIndex(prop)]->bondstate == BONDSTATE_DEAD)
         {
             return;
         }
@@ -2408,13 +2408,11 @@ void play_sound_for_shot_actor(ChrRecord *self)
 s16 metal_ricochet_SFX[3] = {HIT_BULLET_METAL_A3_SFX, HIT_BULLET_METAL_A_SFX, HIT_BULLET_METAL_B_SFX};
 coord3d D_80030A44 = {0, 0, 0};
 
-/**
- * Address 0x7F02727C.
-*/
+
 bool handles_shot_actors(ChrRecord *self, s32 hitpart, coord3d *vector, s32 weaponid, bool isPlayer)
 {
-    s32 hattype;                     //sp78
-    PropRecord *myprop = self->prop; //sp60
+    s32 hattype;
+    PropRecord *myprop = self->prop;
     s32 padd;
 
     // Handle hat shots.

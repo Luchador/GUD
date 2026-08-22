@@ -1134,6 +1134,12 @@ char *AIRCRAFT_ANIMATION_ToString[] = {
     "AIRCRAFT_ANIMATION_helicopter_takeoff"};
 #endif
 
+typedef enum BONDSTATE {
+    BONDSTATE_ALIVE,
+    BONDSTATE_JUST_DIED,  /* death effects occurring */
+    BONDSTATE_DEAD        /* death effects finished */
+} BONDSTATE;
+
 /*
 values need to be verified against cheat.c : void cheatButtonHandleCheatsTurnedOn(CHEAT_ID cheat)
 */

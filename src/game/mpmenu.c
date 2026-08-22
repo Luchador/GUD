@@ -593,10 +593,11 @@ void mpwatchMenuTick(void)
     if (player_count != 1)
     {
         // If a player has their pause menu up when they die and the game isn't over, turn their menu off. 
-        if ((g_CurrentPlayer->bonddead) && (!g_gameOverFlag))
+        if ((g_CurrentPlayer->bondstate == BONDSTATE_JUST_DIED || g_CurrentPlayer->bondstate == BONDSTATE_DEAD) && (!g_gameOverFlag))
         {
             g_CurrentPlayer->mpmenuon = FALSE;
             g_CurrentPlayer->healthdisplaytime = 0;
+
             return;
         }
 
@@ -1672,7 +1673,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
         }
         gdl = gfxRestore3DRenderMode(gdl);
     }
-    else if (((((g_CurrentPlayer->bonddead) && (g_CurrentPlayer->deathanimfinished)) && (g_CurrentPlayer->redbloodfinished)) && (!g_stopPlayFlag)) && (!g_gameOverFlag))
+    else if (((((g_CurrentPlayer->bondstate == BONDSTATE_JUST_DIED || g_CurrentPlayer->bondstate == BONDSTATE_DEAD) && (g_CurrentPlayer->deathanimfinished)) && (g_CurrentPlayer->redbloodfinished)) && (!g_stopPlayFlag)) && (!g_gameOverFlag))
     {
         total_kills_against_current = 0;
  

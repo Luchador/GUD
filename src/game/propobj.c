@@ -10385,10 +10385,6 @@ void display_text_for_weapon_in_lower_left_corner(ITEM_IDS weaponid)
 }
 
 
-
-
-
-// Perfect Dark propobj.c: s32 propPickupByPlayer(struct prop *prop, bool showhudmsg)
 TICKOP propPickupByPlayer(PropRecord *prop, bool showstring)
 {
     ObjectRecord *obj;
@@ -10397,7 +10393,7 @@ TICKOP propPickupByPlayer(PropRecord *prop, bool showstring)
     op = TICKOP_NONE;
     obj = prop->obj;
 
-    if (g_CurrentPlayer->bonddead || g_ClockTimer == 0)
+    if (g_CurrentPlayer->bondstate == BONDSTATE_JUST_DIED || g_CurrentPlayer->bondstate == BONDSTATE_DEAD || g_ClockTimer == 0)
     {
         return TICKOP_NONE;
     }

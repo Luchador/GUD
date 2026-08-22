@@ -4309,7 +4309,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 case AI_IFBondIsDead:
                 {
                     AiIFBondIsDeadRecord *ai = AiListp + Offset;
-                    if (g_CurrentPlayer->bonddead)
+                    if (g_CurrentPlayer->bondstate == BONDSTATE_JUST_DIED || g_CurrentPlayer->bondstate == BONDSTATE_DEAD)
                     {
                         Offset = chraiGoToLabel(AiListp, Offset, ai->GOTOLABEL);
                     }

@@ -1,5 +1,6 @@
 #include <ultra64.h>
 #include <math.h>
+#include <bondconstants.h>
 #include <bondtypes.h>
 #include <boss.h>
 #include <fr.h>
@@ -1444,7 +1445,7 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
             }
 
             if ((buttons & ~oldbuttons & (CONT_A | B_BUTTON | Z_TRIG | START_BUTTON))
-                && (g_CurrentPlayer->bonddead)
+                && (g_CurrentPlayer->bondstate == BONDSTATE_JUST_DIED || g_CurrentPlayer->bondstate == BONDSTATE_DEAD)
                 && (g_CurrentPlayer->redbloodfinished)
                 && (g_CurrentPlayer->deathanimfinished))
             {
@@ -1462,7 +1463,7 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
             }
 
             if ((buttons & ~oldbuttons & (CONT_A | B_BUTTON | Z_TRIG | START_BUTTON))
-                && (g_CurrentPlayer->bonddead)
+                && (g_CurrentPlayer->bondstate == BONDSTATE_JUST_DIED || g_CurrentPlayer->bondstate == BONDSTATE_DEAD)
                 && (g_CurrentPlayer->redbloodfinished)
                 && (g_CurrentPlayer->deathanimfinished))
             {
@@ -4170,11 +4171,11 @@ void currentPlayerTickChrFade(void)
     }
 }
 
+
 /**
  * Will apply a move animation update. The pass through call to bheadUpdate is
  * what allows Bond to move. This will also trigger the death animation once
  * Bond dies. This chooses a random death animation from g_bondviewBondDeathAnimations.
- * Address 0x7F080B34.
 */
 void bondviewMoveAnimationTick(f32 speed, f32 speedforwards, f32 speedsideways)
 {
@@ -4184,17 +4185,13 @@ void bondviewMoveAnimationTick(f32 speed, f32 speedforwards, f32 speedsideways)
 
     percent_speed = 0.0f;
 
-    if (g_CurrentPlayer->bonddead == 0)
+    if (g_CurrentPlayer->bondstate == BONDSTATE_ALIVE)
     {
         bheadAdjustAnimation(speed);
 
         if (speed != 0.0f)
         {
             percent_speed = speedforwards / speed;
-        }
-        else if (speedforwards == 0.0f)
-        {
-            //
         }
     }
     else
@@ -4227,13 +4224,9 @@ void bondviewMoveAnimationTick(f32 speed, f32 speedforwards, f32 speedsideways)
     g_CurrentPlayer->field_488.applied_view2.f[0] = sp8C.m[1][0];
     g_CurrentPlayer->field_488.applied_view2.f[1] = sp8C.m[1][1];
     g_CurrentPlayer->field_488.applied_view2.f[2] = sp8C.m[1][2];
-
 }
 
 
-/**
- * Address 0x7F080D60.
- */
 f32 bondviewYPositionRelated(StandTile *arg0, f32 arg1, f32 arg2)
 {
     f32 ret;
@@ -4495,7 +4488,7 @@ void bondviewUpdatePlayerCollisionPositionFields(void)
         g_CurrentPlayer->field_488.pos.f[2] = g_CurrentPlayer->field_488.collision_position.f[2];
     }
 
-    if (g_CurrentPlayer->bonddead != FALSE)
+    if (g_CurrentPlayer->bondstate != BONDSTATE_ALIVE)
     {
         if (g_CurrentPlayer->field_29C0 > 0.0f)
         {
@@ -4702,19 +4695,29 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
     moveData.invertPitch = get_cur_player_look_vertical_inverted() == 0;
     moveData.disableLookAhead = 0;
 
-    if (stick_x < -5) {
+    if (stick_x < -5)
+    {
 		moveData.controlStickXSafe = stick_x + 5;
-	} else if (stick_x > 5) {
+	} 
+    else if (stick_x > 5)
+    {
 		moveData.controlStickXSafe = stick_x - 5;
-	} else {
+	} 
+    else 
+    {
 		moveData.controlStickXSafe = 0;
 	}
 
-	if (stick_y < -5) {
+	if (stick_y < -5)
+    {
 		moveData.controlStickYSafe = stick_y + 5;
-	} else if (stick_y > 5) {
+	} 
+    else if (stick_y > 5)
+    {
 		moveData.controlStickYSafe = stick_y - 5;
-	} else {
+	} 
+    else
+    {
 		moveData.controlStickYSafe = 0;
 	}
 
@@ -4726,28 +4729,13 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
     moveData.analogStrafe = moveData.controlStickXSafe;
     moveData.analogWalk = moveData.controlStickYSafe;
 
-    if (g_CurrentPlayer->bonddead == FALSE
-        && g_bondviewForceDisarm <= 0
-        && (
-            (g_CurrentPlayer->watch_animation_state != WATCH_ANIMATION_0x5
-                && ((buttons & ~oldbuttons) & START_BUTTON)
-            )
-            ||
-            (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x5
-                && g_CurrentPlayer->open_close_solo_watch_menu)
-        )
-        && (getPlayerCount() == 1))
+    if (g_CurrentPlayer->bondstate == BONDSTATE_ALIVE && g_bondviewForceDisarm <= 0 && ((g_CurrentPlayer->watch_animation_state != WATCH_ANIMATION_0x5 && ((buttons & ~oldbuttons) & START_BUTTON))
+            || (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x5 && g_CurrentPlayer->open_close_solo_watch_menu)) && (getPlayerCount() == 1))
     {
         trigger_solo_watch_menu(0);
     }
 
-    if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x0
-        && g_CurrentPlayer->bonddead == FALSE
-        && (
-            getPlayerCount() == 1
-            || (
-                g_stopPlayFlag == 0
-                && g_gameOverFlag == 0)))
+    if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x0 && g_CurrentPlayer->bondstate == BONDSTATE_ALIVE && (getPlayerCount() == 1 || (g_stopPlayFlag == 0 && g_gameOverFlag == 0)))
     {
         if (cur_player_get_control_type() == CONTROLLER_CONFIG_DOMINO /* 2.3 */
             || cur_player_get_control_type() == CONTROLLER_CONFIG_GOODHEAD /* 2.4 */
@@ -6032,56 +6020,33 @@ void bondviewPlayerTickDamageAndHealth(void)
 #endif
         }
 
-#ifdef VERSION_US
-        if (
-            (g_DamageTypes[g_CurrentPlayer->damagetype].field_0x8 >= g_CurrentPlayer->damageshowtime)
-            || (g_DamageTypes[g_CurrentPlayer->damagetype].flashEndFrame >= g_CurrentPlayer->damageshowtime))
+        if ((g_DamageTypes[g_CurrentPlayer->damagetype].field_0x8 >= g_CurrentPlayer->damageshowtime) || (g_DamageTypes[g_CurrentPlayer->damagetype].flashEndFrame >= g_CurrentPlayer->damageshowtime))
         {
-            if (!g_CurrentPlayer->bonddead)
+            if (g_CurrentPlayer->bondstate == BONDSTATE_ALIVE)
             {
-#else
-        if (!g_CurrentPlayer->bonddead
-            && (
-                (g_DamageTypes[g_CurrentPlayer->damagetype].field_0x8 >= g_CurrentPlayer->damageshowtime)
-                || (g_DamageTypes[g_CurrentPlayer->damagetype].flashEndFrame >= g_CurrentPlayer->damageshowtime)))
-        {
-#endif
-            if (g_CurrentPlayer->damageshowtime >= g_DamageTypes[g_CurrentPlayer->damagetype].flashStartFrame
-                && g_CurrentPlayer->damageshowtime <= g_DamageTypes[g_CurrentPlayer->damagetype].flashEndFrame)
-            {
-                f32 frac;
-#ifdef VERSION_US
-                s32 flashdoneframes;
-                s32 totalframes;
-                s32 flashfullframe;
-#else
-                f32 flashdoneframes;
-                f32 totalframes;
-                f32 flashfullframe;
-#endif
-
-                flashdoneframes = g_CurrentPlayer->damageshowtime - g_DamageTypes[g_CurrentPlayer->damagetype].flashStartFrame;
-                flashfullframe = g_DamageTypes[g_CurrentPlayer->damagetype].flashFullFrame;
-                totalframes = g_DamageTypes[g_CurrentPlayer->damagetype].flashEndFrame - g_DamageTypes[g_CurrentPlayer->damagetype].flashStartFrame;
-
-                if (flashdoneframes < flashfullframe)
+                if (g_CurrentPlayer->damageshowtime >= g_DamageTypes[g_CurrentPlayer->damagetype].flashStartFrame && g_CurrentPlayer->damageshowtime <= g_DamageTypes[g_CurrentPlayer->damagetype].flashEndFrame)
                 {
-                    frac = (g_DamageTypes[g_CurrentPlayer->damagetype].maxAlpha * (f32)flashdoneframes) / (f32)flashfullframe;
-                }
-                else
-                {
-                    frac = (g_DamageTypes[g_CurrentPlayer->damagetype].maxAlpha * (f32)(totalframes - flashdoneframes)) / (f32)(totalframes - flashfullframe);
-                }
+                    f32 frac;
+                    s32 flashdoneframes;
+                    s32 totalframes;
+                    s32 flashfullframe;
 
-                currentPlayerSetFadeColour(
-                    g_DamageTypes[g_CurrentPlayer->damagetype].red,
-                    g_DamageTypes[g_CurrentPlayer->damagetype].green,
-                    g_DamageTypes[g_CurrentPlayer->damagetype].blue,
-                    frac);
+                    flashdoneframes = g_CurrentPlayer->damageshowtime - g_DamageTypes[g_CurrentPlayer->damagetype].flashStartFrame;
+                    flashfullframe = g_DamageTypes[g_CurrentPlayer->damagetype].flashFullFrame;
+                    totalframes = g_DamageTypes[g_CurrentPlayer->damagetype].flashEndFrame - g_DamageTypes[g_CurrentPlayer->damagetype].flashStartFrame;
+
+                    if (flashdoneframes < flashfullframe)
+                    {
+                        frac = (g_DamageTypes[g_CurrentPlayer->damagetype].maxAlpha * (f32)flashdoneframes) / (f32)flashfullframe;
+                    }
+                    else
+                    {
+                        frac = (g_DamageTypes[g_CurrentPlayer->damagetype].maxAlpha * (f32)(totalframes - flashdoneframes)) / (f32)(totalframes - flashfullframe);
+                    }
+
+                    currentPlayerSetFadeColour(g_DamageTypes[g_CurrentPlayer->damagetype].red, g_DamageTypes[g_CurrentPlayer->damagetype].green, g_DamageTypes[g_CurrentPlayer->damagetype].blue, frac);
+                }
             }
-#ifdef VERSION_US
-            }
-#endif
 
             if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x0)
             {
@@ -6105,7 +6070,7 @@ void bondviewPlayerTickDamageAndHealth(void)
             g_CurrentPlayer->damageshowtime = -1;
             currentPlayerSetFadeColour(0xFF, 0xFF, 0xFF, 0);
 
-            if (!g_CurrentPlayer->bonddead)
+            if (g_CurrentPlayer->bondstate == BONDSTATE_ALIVE)
             {
                 gunSetGunAmmoVisible(GUNAMMOREASON_DAMAGE, TRUE);
                 gunSetSightVisible(GUNSIGHTREASON_DAMAGE, TRUE);
@@ -6116,7 +6081,7 @@ void bondviewPlayerTickDamageAndHealth(void)
         }
     }
 
-    // update health showtime
+    // Update health showtime.
     if (g_CurrentPlayer->healthshowtime >= 0)
     {
         // 0: This is the first frame of damage
@@ -6129,37 +6094,27 @@ void bondviewPlayerTickDamageAndHealth(void)
                 g_CurrentPlayer->healthdamagetype = 7;
             }
 
-#if defined(VERSION_EU) || defined(VERSION_JP)
             if (g_CurrentPlayer->healthdamagetype < 0)
             {
                 g_CurrentPlayer->healthdamagetype = 0;
             }
-#endif
         }
 
-        if (!g_CurrentPlayer->bonddead)
+        if (g_CurrentPlayer->bondstate == BONDSTATE_ALIVE)
         {
             if ((g_CurrentPlayer->healthshowtime >= g_HealthDisplayDurations[g_CurrentPlayer->healthdamagetype].validStartFrame)
                 && (g_HealthDisplayDurations[g_CurrentPlayer->healthdamagetype].updateToRealHealthFrame >= g_CurrentPlayer->healthshowtime))
             {
                 g_CurrentPlayer->apparenthealth = g_CurrentPlayer->oldhealth;
                 g_CurrentPlayer->apparentarmour = g_CurrentPlayer->oldarmour;
-#if defined(VERSION_US)
                 g_CurrentPlayer->healthshowtime += g_ClockTimer;
-#else
-                g_CurrentPlayer->healthshowtime += g_GlobalTimerDelta;
-#endif
             }
             else if ((g_CurrentPlayer->healthshowtime >= g_HealthDisplayDurations[g_CurrentPlayer->healthdamagetype].validStartFrame)
                 && (g_HealthDisplayDurations[g_CurrentPlayer->healthdamagetype].hideHealthFrame >= g_CurrentPlayer->healthshowtime))
             {
                 g_CurrentPlayer->apparenthealth = g_CurrentPlayer->bondhealth;
                 g_CurrentPlayer->apparentarmour = g_CurrentPlayer->bondarmour;
-#if defined(VERSION_US)
                 g_CurrentPlayer->healthshowtime += g_ClockTimer;
-#else
-                g_CurrentPlayer->healthshowtime += g_GlobalTimerDelta;
-#endif
             }
             else
             {
@@ -6173,20 +6128,17 @@ void bondviewPlayerTickDamageAndHealth(void)
     }
 }
 
+
 /**
  * If global flag g_SurroundBondWithExplosionsFlag is set then explosions
  * will be randomly created around Bond.
  * Perfect Dark method playerTickExplode.
- * NTSC address 7F084360.
- * EU address 7F0844A4.
 */
 void bondviewPlayerTickExplode(void)
 {
     g_PlayerTickExplodeCreatePosition++;
 
-    if (g_SurroundBondWithExplosionsFlag
-        && (g_PlayerInvincible == FALSE)
-        && g_SurroundBondWithExplosionsTicks < g_GlobalTimer)
+    if (g_SurroundBondWithExplosionsFlag && (g_PlayerInvincible == FALSE) && g_SurroundBondWithExplosionsTicks < g_GlobalTimer)
     {
         struct coord3d pos;
 
@@ -6274,12 +6226,11 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         if ((g_CurrentPlayer->bondshotspeed.f[0] != 0.0f) || (g_CurrentPlayer->bondshotspeed.f[2] != 0.0f))
         {
             // boost forwards
-            f32 shotboost_forward; // sp38C
+            f32 shotboost_forward;
             // boost sideways
-            f32 shotboost_sideways; // sp388
-            f32 shotboost_norm; // sp384
+            f32 shotboost_sideways;
+            f32 shotboost_norm;
 
-            // Assigning these two variables is done in Perfect Dark bmove0f0cba88.
             shotboost_forward =
                 (-g_CurrentPlayer->bondshotspeed.f[0] * g_CurrentPlayer->vv_sintheta)
                 + (g_CurrentPlayer->bondshotspeed.f[2] * g_CurrentPlayer->vv_costheta);
@@ -6367,21 +6318,21 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         }
         else
         {
-            f32 sp1E4; //x
-            s32 stack_padding_1; //x
-            f32 sp1FC; //x
+            f32 sp1E4;
+            s32 stack_padding_1;
+            f32 sp1FC;
             f32 sp324;
             f32 sp320;
             f32 sp31C;
-            f32 sp20C; //x
-            f32 tank_collision_norm; //x
-            f32 sp210; //x
+            f32 sp20C;
+            f32 tank_collision_norm;
+            f32 sp210;
             f32 sp30C;
             f32 sp308;
             f32 sp304;
 
-            sp31C = -1; //sp31C: scope within this block, used throughout
-            sp304 = -1; //sp304: scope within this block, used throughout
+            sp31C = -1;
+            sp304 = -1;
 
             getCollisionEdge_maybe(&tank_collision_pt1, &tank_collision_pt2);
 
@@ -6389,15 +6340,11 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             tank_collision_dz = (tank_collision_pt2.f[2] - tank_collision_pt1.f[2]);
 
             tank_collision_norm = 1.0f / sqrtf((tank_collision_dx * tank_collision_dx) + (tank_collision_dz * tank_collision_dz));
-
-            // sp320: scoped within this block, used throughout
-            // sp324: scoped within this block, used throughout
             tank_collision_dx *= tank_collision_norm;
             tank_collision_dz *= tank_collision_norm;
             sp324 = tank_collision_dz;
             sp320 = -tank_collision_dx;
 
-            // sp210: short lived variable
             sp210 =
                 ((g_CurrentPlayer->field_488.collision_position.f[0] - check_collision_p2.f[0]) * sp324) +
                 ((g_CurrentPlayer->field_488.collision_position.f[2] - check_collision_p2.f[2]) * sp320);
@@ -6409,7 +6356,6 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                 sp320 = -sp320;
             }
 
-            // sp20C: very short lived variable
             sp20C =
                 ((g_CurrentPlayer->field_488.collision_position.f[0] - tank_collision_pt1.f[0]) * sp324) +
                 ((g_CurrentPlayer->field_488.collision_position.f[2] - tank_collision_pt1.f[2]) * sp320);
@@ -6424,14 +6370,11 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
             tank_collision_norm = 1.0f / sqrtf((tank_collision_dx * tank_collision_dx) + (tank_collision_dz * tank_collision_dz));
 
-            // sp308: scoped within this block, used throughout
-            // sp30C: scoped within this block, used throughout
             tank_collision_dx *= tank_collision_norm;
             tank_collision_dz *= tank_collision_norm;
             sp30C = tank_collision_dz;
             sp308 = -tank_collision_dx;
 
-            // sp1F8 -> sp210: short lived variable
             sp210 =
                 ((g_CurrentPlayer->field_488.collision_position.f[0] - check_collision_p2.f[0]) * sp30C) +
                 ((g_CurrentPlayer->field_488.collision_position.f[2] - check_collision_p2.f[2]) * sp308);
@@ -6443,8 +6386,6 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                 sp308 = -sp308;
             }
 
-            // sp1FC: very short lived variable
-            // sp1E4: very short lived variable
             sp1FC =
                 ((g_CurrentPlayer->field_488.collision_position.f[0] - tank_collision_pt1.f[0]) * sp30C) +
                 ((g_CurrentPlayer->field_488.collision_position.f[2] - tank_collision_pt1.f[2]) * sp308);
@@ -6501,6 +6442,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
         sp354 = g_TankTurretOrientationAngleRad;
         g_TankTurretAngle += g_TankTurretTurn;
+
         if (g_TankTurretAngle >= M_TAU_F)
         {
             g_TankTurretAngle -= M_TAU_F;
@@ -6563,7 +6505,6 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
         if (g_PlayerTankProp != NULL)
         {
-            // sp 0x300
             struct TankRecord *temp_tank;
             struct coord3d tank_move_offset;
             Mtxf sp2B4;
@@ -6578,8 +6519,6 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             matrix_4x4_set_rotation_around_y(tankChangeInAngle, &sp2B4);
             mtx4RotateVecInPlace(&sp2B4, &tank_move_offset);
             bondviewTankModelRotationRelated();
-
-            if (0) { }
 
             tank_move_offset.f[1] = 0.0f;
             tank_move_offset.f[0] = g_TankModelPositionOffset.f[0] - tank_move_offset.f[0];
@@ -6651,7 +6590,6 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         }
         else
         {
-            // removed?
             currentPlayerGetCrouchPos();
         }
 
@@ -6977,12 +6915,12 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         f32 stack_padding_3;
         f32 stack_padding_111;
         f32 ftemp_26;
-        f32 nd; // canonical name
+        f32 nd;
         f32 ftemp_7;
         f32 sp240;
         struct move_bond_temp_struct curLocus;
         struct move_bond_collision bondCollision;
-        f32 shorten; // canonical name
+        f32 shorten;
         f32 headpos_x;
         f32 headpos_z;
         struct StandTile *sp174;
@@ -7018,10 +6956,6 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
         ftemp_7 = (g_BondMoveAnimationSetup[1].speedMultiplier * 0.5f  * g_GlobalTimerDelta);
         sp3A0  = g_CurrentPlayer->speedsideways * ftemp_7;
-
-        /*
-            The following is similar to a block of Perfect Dark bwalk0f0c69b8.
-        */
 
         ftemp_26 = -g_CurrentPlayer->swaytarget * g_CurrentPlayer->field_488.theta_transform.f[2];
         ftemp_11 = g_CurrentPlayer->swaytarget * g_CurrentPlayer->field_488.theta_transform.f[0];
@@ -7092,7 +7026,6 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             g_CurrentPlayer->bondbreathing = 1.0f;
         }
 
-        // perfect dark call: bmove0f0cc654
         bondviewMoveAnimationTick(maxspeed, g_CurrentPlayer->speedforwards, sp3A0);
 
         headpos_x = g_CurrentPlayer->headpos.f[0];
@@ -7845,7 +7778,7 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
         bondviewAdvanceCameraMode();
     }
 
-    if (g_CurrentPlayer->bonddead)
+    if (g_CurrentPlayer->bondstate == BONDSTATE_JUST_DIED || g_CurrentPlayer->bondstate == BONDSTATE_DEAD)
     {
         if (g_CurrentPlayer->redbloodfinished == FALSE)
         {
@@ -8041,7 +7974,7 @@ Gfx *bondviewRenderDebugBondView(Gfx *gdl)
 
         shake = ZeroCoordShake;
 
-        if (!g_CurrentPlayer->bonddead)
+        if (g_CurrentPlayer->bondstate == BONDSTATE_ALIVE)
         {
             explosionScreenShake(&collision->pos, &collision->applied_view, &shake);
         } 
@@ -8434,7 +8367,7 @@ void mp_respawn_handler(void)
     init_player_BONDdata();
     bondviewPlayerBeginLife();
 
-    g_CurrentPlayer->bonddead = 0;
+    g_CurrentPlayer->bondstate = BONDSTATE_ALIVE;
     g_CurrentPlayer->deathanimfinished = 0;
     g_CurrentPlayer->redbloodfinished = 0;
     g_CurrentPlayer->startnewbonddie = 1;
@@ -8799,16 +8732,16 @@ Gfx *bondviewRenderPlayerView(Gfx *gdl)
         display_objective_status_text_on_status_change();
     }
 
-    if (g_CurrentPlayer->bonddead)
+    if (g_CurrentPlayer->bondstate == BONDSTATE_JUST_DIED || g_CurrentPlayer->bondstate == BONDSTATE_DEAD)
     {
         if (!g_CurrentPlayer->deathanimfinished)
         {
             doblood = 0;
 
-            if (g_CurrentPlayer->bonddead == 1)
+            if (g_CurrentPlayer->bondstate == BONDSTATE_JUST_DIED)
             {
                 doblood = 1;
-                g_CurrentPlayer->bonddead = 2;
+                g_CurrentPlayer->bondstate = BONDSTATE_DEAD;
             }
 
             if (doblood)
@@ -8932,35 +8865,27 @@ void sub_GAME_7F08976C(f32 param_1)
 }
 
 
-/**
- * Address 0x7F089778.
- */
 f32 bondviewGetPlayerStanHeight(struct player *player)
 {
     return player->stanHeight;
 }
 
 
-/**
- * Address 0x7F089780.
- */
 f32 bondviewGetPlayerDuckingHeightRelated(struct player *player)
 {
     return player->eyeheight + player->field_88 + player->ducking_height_offset;
 }
 
 
-PropRecord* getCurrentPlayerProp(void) {
+PropRecord* getCurrentPlayerProp(void)
+{
     return g_CurrentPlayer->prop;
 }
 
 
-/**
- * Address 0x7F0897A8.
- */
 void bondviewKillCurrentPlayer(void)
 {
-    if ((g_CurrentPlayer->cheatBondInvincible == 0) && (g_CurrentPlayer->bonddead == FALSE))
+    if ((g_CurrentPlayer->cheatBondInvincible == 0) && (g_CurrentPlayer->bondstate == BONDSTATE_ALIVE))
     {
         if (g_CurrentPlayer->watch_animation_state != WATCH_ANIMATION_0x0)
         {
@@ -8968,7 +8893,7 @@ void bondviewKillCurrentPlayer(void)
         }
 
         g_isBondKIA = 1;
-        g_CurrentPlayer->bonddead = 1;
+        g_CurrentPlayer->bondstate = BONDSTATE_JUST_DIED;
 
         g_CurrentPlayer->previous_collision_info = g_CurrentPlayer->field_488;
 
@@ -8999,12 +8924,9 @@ void bondviewKillCurrentPlayer(void)
  * @param vectorz: damage source y coordinate
  * @param playerid: player index of player causing the damage
  * @param arg4: boolean, does the damage apply to body armor (e.g. false when gas)
- *
- * Address US 7F08991C.
- * Address EU 7F089A84.
- * Address JP 7F089FF0.
  */
-void record_damage_kills(f32 damage_amount, f32 vectorx, f32 vectorz, s32 playerid, s32 affects_armor) {
+void record_damage_kills(f32 damage_amount, f32 vectorx, f32 vectorz, s32 playerid, s32 affects_armor)
+{
     f32 damage_dealt = g_playerPerm->handicap * damage_amount;
     s32 cur_player_num;
     f32 angle;
@@ -9025,7 +8947,7 @@ void record_damage_kills(f32 damage_amount, f32 vectorx, f32 vectorz, s32 player
             damage_dealt *= 0.25f;
         }
 
-        if (g_CurrentPlayer->bonddead == FALSE && g_CurrentPlayer->cheatBondInvincible == FALSE)
+        if (g_CurrentPlayer->bondstate == FALSE && g_CurrentPlayer->cheatBondInvincible == FALSE)
         {
             joyRumblePakStart(get_cur_playernum(), 0.25);
             if (cur_player_get_control_type() >= 4)
@@ -9042,7 +8964,7 @@ void record_damage_kills(f32 damage_amount, f32 vectorx, f32 vectorz, s32 player
             damage_dealt = (g_CurrentPlayer->bondhealth * g_CurrentPlayer->actual_health) + (g_CurrentPlayer->bondarmour * g_CurrentPlayer->actual_armor);
         }
 
-        if (g_CurrentPlayer->cheatBondInvincible == FALSE && g_CurrentPlayer->bonddead == FALSE && g_PlayerInvincible == FALSE &&
+        if (g_CurrentPlayer->cheatBondInvincible == FALSE && g_CurrentPlayer->bondstate == FALSE && g_PlayerInvincible == FALSE &&
             (g_CurrentPlayer->damageshowtime < 0 || (getPlayerCount() >= 2 && g_CurrentPlayer->damageshowtime == 0)))
         {
             if (g_CurrentPlayer->watch_animation_state != WATCH_ANIMATION_0x5 && g_CurrentPlayer->watch_animation_state != WATCH_ANIMATION_0xc)
@@ -9341,7 +9263,7 @@ void bondviewGetPropHeightRelatedValues(PropRecord *arg0, struct rect4f **field_
     if (g_playerPointers[temp_v0]->field_AC != 0)
     {
         // What is this doing and why is it 1 player only?
-        if (getPlayerCount() == 1 || g_playerPointers[temp_v0]->bonddead == FALSE)
+        if (getPlayerCount() == 1 || g_playerPointers[temp_v0]->bondstate == FALSE)
         {
             if (g_playerPointers[temp_v0]->cameramode != 1)
             {
@@ -9944,7 +9866,7 @@ s32 playerTick(PropRecord *prop)
         local8c = ((0, ppointers[index]))->field_2A08;
         local88 = ppointers[index]->field_2A0C;
  
-        if (ppointers[index]->bonddead != FALSE)
+        if (ppointers[index]->bondstate == BONDSTATE_JUST_DIED || ppointers[index]->bondstate == BONDSTATE_DEAD)
         {
             found = 0;
  

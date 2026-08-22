@@ -790,7 +790,7 @@ bool bondinvHasGEKey(void)
  */
 bool bondinvIsAliveWithFlag(void)
 {
-    if (!g_CurrentPlayer->bonddead)
+    if (g_CurrentPlayer->bondstate == BONDSTATE_ALIVE)
     {
         return bondinvHasInvItem(ITEM_TOKEN);
     }
