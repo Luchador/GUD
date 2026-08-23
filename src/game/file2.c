@@ -360,13 +360,7 @@ void fileCheckSaveStageDifficultyTime(save_data *folder, LEVEL_SOLO_SEQUENCE lev
     }
 }
 
-/**
- * Check if cheat is unlocked
- *
- * @param save
- * @param cheat
- * @return bool
- */
+
 bool fileGetIsCheatUnlocked(save_data *save, s32 cheat)
 {
     s32 bits;
@@ -380,12 +374,7 @@ bool fileGetIsCheatUnlocked(save_data *save, s32 cheat)
     return FALSE;
 }
 
-/**
- *
- *
- * @param save
- * @param cheat
- */
+
 void fileSetSaveCheatUnlocked(save_data *save, s32 cheat)
 {
     u32 i;
@@ -410,14 +399,13 @@ void fileSetSaveCheatUnlocked(save_data *save, s32 cheat)
  * @param foldernum
  * @return save_data*
  */
-save_data * fileGetSaveForFoldernum(u32 folder)
+save_data *fileGetSaveForFoldernum(u32 folder)
 {
-    int i;
+    s32 i;
 
     for (i = SAVESLOT1; i < SAVESLOTRAMROM; i++)
     {
-        if ( fileGetSaveFlagDoReset(&saves[i]) == FALSE &&
-                fileGetSaveFolder(&saves[i]) == folder)
+        if ( fileGetSaveFlagDoReset(&saves[i]) == FALSE && fileGetSaveFolder(&saves[i]) == folder)
         {
             return &saves[i];
         }
@@ -430,6 +418,7 @@ save_data * fileGetSaveForFoldernum(u32 folder)
 
     return NULL;
 }
+
 
 /**
  * See if any save has 0x80 flag
@@ -451,13 +440,13 @@ s32 fileGetSaveFlagDoReset_any_folder(void)
     return -1;
 }
 
+
 /**
- * Resets save with 0x80 flag
- * Maybe clearing for copy or wear level
- *
- * @param folder
+ * Create a completely blank save file such as on new cart where no saves exist,
+ * or in the event a save file becomes corrupted and unrecoverable. The player erasing
+ * an existing save and starting a new one is handled in fileDeleteSaveForFolder.
  */
-void fileBuildWriteNewSave(u32 folder)
+void fileCreateBlankSaveForFolder(u32 folder)
 {
     s32 folder_with_flag;
 
@@ -474,6 +463,7 @@ void fileBuildWriteNewSave(u32 folder)
         fileWriteSave(&saves[folder_with_flag]);
     }
 }
+
 
 void fileValidateSaves(void)
 {
@@ -577,7 +567,7 @@ void fileValidateSaves(void)
             // SAVEFLAG_DORESET was not set
             if (jif < SAVESLOT1)
             {
-                fileBuildWriteNewSave(i);
+                fileCreateBlankSaveForFolder(i);
             }
         }
 

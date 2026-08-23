@@ -1954,42 +1954,21 @@ void chraiGetCollisionBoundsWithoutY(PropRecord *prop, struct rect4f **polygon, 
 }
 
 
-
-
-
 /**
  * @param point: 3d point to test if inside polygon. Only uses (x,z).
  * @param polygon: Convex polygon. Iterates edges and checks that
  * point is oriented correctly inside all of them.
  * @param edges: Number of edges to iterate in polygon.
- * Address 0x7F03CCD8.
-*/
+ * Tests whether point (x,z) lies inside a convex polygon.
+ *
+ * Original function used expensive modulo operations. This refactor replaces them with more
+ * instruction friendly if statement.
+ */
 s32 chrpropTestPointInPolygon(coord3d *point, struct rect4f *polygon, s32 edges)
 {
-    /**
-     * Stack overflow:
-     *
-     * In any case, for any convex polygon (including rectangle) the test is
-     * very simple: check each edge of the polygon, assuming each edge is
-     * oriented in counterclockwise direction, and test whether the point lies
-     * to the left of the edge (in the left-hand half-plane). If all edges pass
-     * the test - the point is inside. If at least one fails - the point is outside.
-     *
-     * In order to test whether the point (xp, yp) lies on the left-hand
-     * side of the edge (x1, y1) - (x2, y2), you just need to calculate
-     *
-     * D = (x2 - x1) * (yp - y1) - (xp - x1) * (y2 - y1)
-     *
-     * https://stackoverflow.com/a/2752753/1462295
-    */
-
-    /**
-     * Assuming the above is correct, I think that means rectangles (polygons)
-     * are clockwise oriented.
-    */
-
     f32 diff;
     s32 i;
+    s32 next;
     s32 ret = -1;
 
     if (edges <= 0)
@@ -1997,15 +1976,22 @@ s32 chrpropTestPointInPolygon(coord3d *point, struct rect4f *polygon, s32 edges)
         return 0;
     }
 
-    for (i=0; i<edges; i++)
+    for (i = 0; i < edges; i++)
     {
-        // curse you compiler loop unroller
-        diff = (    (polygon->points[(i+1) % edges].f[1] - polygon->points[i].f[1]) * (point->f[0] - polygon->points[i].f[0]))
-                 - ((polygon->points[(i+1) % edges].f[0] - polygon->points[i].f[0]) * (point->f[2] - polygon->points[i].f[1]));
+        
+        next = i + 1;
+
+        if (next == edges)
+        {
+            next = 0;
+        }
+
+        diff = ((polygon->points[next].f[1] - polygon->points[i].f[1]) * (point->f[0] - polygon->points[i].f[0]))
+             - ((polygon->points[next].f[0] - polygon->points[i].f[0]) * (point->f[2] - polygon->points[i].f[1]));
 
         if (diff != 0.0f)
         {
-            if (i == 0 || ret < 0)
+            if (ret < 0)
             {
                 ret = (diff > 0.0f);
 
