@@ -172,7 +172,7 @@ struct tvcmd {
 
 s32 updateDoorDisplacement(DoorRecord* door);
 s32 objGetShotsTaken(ObjectRecord *);
-void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, s32 arg2);
+void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, bool withalpha);
 bool chrobjSeparatingAxisTheorem(rect4f* rect1, s32 numvertices0, rect4f* rect2, s32 numvertices1);
 void chrobjSndCreatePostEvent(ALSoundState *state, coord3d *pos, f32 low, f32 high);
 void remove_obj_from_temp_proxmine_table(WeaponObjRecord* proxy);
@@ -7017,9 +7017,9 @@ Gfx *process_monitor_animation_microcode(Model *model, ModelNode *node, MonitorR
 
 /**
  * Renders the object's model and recurses over its attached children. Expects model render data
- * prepared by chrobjRenderProp.
+ * prepared by objRenderProp.
  */
-void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, s32 arg2)
+void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, bool withalpha)
 {
     if (prop->flags & PROPFLAG_ONSCREEN)
     {
@@ -7202,9 +7202,9 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, s32 arg2)
             gSPClearGeometryMode(gdl++, G_CULL_BOTH);
         }
 
-        if (obj->state & (1 << arg2))
+        if (obj->state & (1 << withalpha))
         {
-            gdl = explosionRenderBulletImpactOnProp(gdl, prop, arg2);
+            gdl = explosionRenderBulletImpactOnProp(gdl, prop, withalpha);
         }
 
         if (destroyed)
@@ -7217,25 +7217,25 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, s32 arg2)
 
         for (child = prop->child; child != NULL; child = child->prev)
         {
-            objRenderPropModel(child, mrData, arg2);
+            objRenderPropModel(child, mrData, withalpha);
         }
 
-        if (arg2)
+        if (withalpha)
         {
             if (destroyed != FALSE)
             {
-                sub_GAME_7F08BEEC((Mtxf *)model->render_pos, model->obj->numMatrices);
+                bviewTransformManyPosToWorldMatrix((Mtxf *)model->render_pos, model->obj->numMatrices);
             }
             else
             {
-                bondviewTransformManyPosToViewMatrix(model->render_pos, model->obj->numMatrices);
+                bviewTransformManyPosToViewMatrix(model->render_pos, model->obj->numMatrices);
             }
         }
     }
 }
 
 
-Gfx *chrobjRenderProp(PropRecord *prop, Gfx *gdl, s32 arg2)
+Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
 {
     struct rgba_f32 spB0;
     s32 spAC;
@@ -7281,7 +7281,7 @@ Gfx *chrobjRenderProp(PropRecord *prop, Gfx *gdl, s32 arg2)
 
     if ((objAlpha < 0xFF) || (obj->flags2 & 0x10000))
     {
-        if (arg2 == 0)
+        if (withalpha == 0)
         {
             return gdl;
         }
@@ -7291,7 +7291,7 @@ Gfx *chrobjRenderProp(PropRecord *prop, Gfx *gdl, s32 arg2)
     else
     {
 
-        sp44 = (arg2 == 0) ? 1 : 2;
+        sp44 = (withalpha == 0) ? 1 : 2;
     }
 
     if ((getPropCombinedRoomsBBox2D(prop, &sp58) > 0) && (((s32)obj->flags2 << 5) >= 0))
@@ -7353,7 +7353,7 @@ Gfx *chrobjRenderProp(PropRecord *prop, Gfx *gdl, s32 arg2)
 
     mrData.fogcolour.word = (sp48.rgba[0] << 0x18) | (sp48.rgba[1] << 0x10) | (sp48.rgba[2] << 0x08) | (sp48.rgba[3] << 0x00);
 
-    objRenderPropModel(prop, &mrData, arg2);
+    objRenderPropModel(prop, &mrData, withalpha);
 
     return mrData.gdl;
 }
@@ -7436,8 +7436,6 @@ typedef struct Word4 { u32 w0; u32 w1; u32 w2; u32 w3; } Word4;
 
 /*
 *   objDeform - Deform an object due to it being destroyed.
-*   PD has a very similar function of the same name
-*   Address: 7F04B610
 */
 void objDeform(ObjectRecord *obj, E_EXPLOSIONTYPE explosiontype)
 {

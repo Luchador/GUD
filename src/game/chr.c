@@ -2671,7 +2671,7 @@ void chrDropItems(ChrRecord *self)
 }
 
 
-Gfx *chrRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
+Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
 {
     ChrRecord *chr;
     Model *chrmodel;
@@ -2823,21 +2823,21 @@ Gfx *chrRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
 
             if (withalpha != 0)
             {
-                bondviewTransformManyPosToViewMatrix(chr->model->render_pos, chr->model->obj->numMatrices);
+                bviewTransformManyPosToViewMatrix(chr->model->render_pos, chr->model->obj->numMatrices);
 
                 if ((held_right_obj != NULL) && ((held_right_obj->runtime_bitflags & 0x800) == 0))
                 {
-                    bondviewTransformManyPosToViewMatrix(held_right_obj->model->render_pos, held_right_obj->model->obj->numMatrices);
+                    bviewTransformManyPosToViewMatrix(held_right_obj->model->render_pos, held_right_obj->model->obj->numMatrices);
                 }
 
                 if ((held_left_obj != NULL) && ((held_left_obj->runtime_bitflags & 0x800) == 0))
                 {
-                    bondviewTransformManyPosToViewMatrix(held_left_obj->model->render_pos, held_left_obj->model->obj->numMatrices);
+                    bviewTransformManyPosToViewMatrix(held_left_obj->model->render_pos, held_left_obj->model->obj->numMatrices);
                 }
 
                 if (held_hat_obj != NULL)
                 {
-                    bondviewTransformManyPosToViewMatrix(held_hat_obj->model->render_pos, held_hat_obj->model->obj->numMatrices);
+                    bviewTransformManyPosToViewMatrix(held_hat_obj->model->render_pos, held_hat_obj->model->obj->numMatrices);
                 }
             }
         }

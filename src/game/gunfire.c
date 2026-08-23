@@ -1546,7 +1546,7 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
             model = handptr->rocket->model;
  
             subdraw(&renderdata, model);
-            bondviewTransformManyPosToViewMatrix(model->render_pos, model->obj->numMatrices);
+            bviewTransformManyPosToViewMatrix(model->render_pos, model->obj->numMatrices);
  
             if (handptr->firedrocket != 0) 
             {
@@ -1576,7 +1576,7 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
             gSPClearGeometryMode(gdl++, G_CULL_BOTH);
         }
  
-        bondviewTransformManyPosToViewMatrix((*(Model *)&handptr->field_B68).render_pos, (*(Model *)&handptr->field_B68).obj->numMatrices);
+        bviewTransformManyPosToViewMatrix((*(Model *)&handptr->field_B68).render_pos, (*(Model *)&handptr->field_B68).obj->numMatrices);
         matrix_4x4_7F058C88();
  
         gSPPerspNormalize(gdl++, viGetPerspNorm());
@@ -5540,7 +5540,7 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
 
         *gdl = render_data.gdl;
 
-        bondviewTransformManyPosToViewMatrix(model_matrices, model_header->numMatrices);
+        bviewTransformManyPosToViewMatrix(model_matrices, model_header->numMatrices);
     }
 }
 

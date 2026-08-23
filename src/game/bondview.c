@@ -8574,7 +8574,7 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
         matrix_4x4_7F058C88();
         gdl = optionsDrawCurrentWatchPage(gdl, finalmtx, (g_CurrentPlayer->watch_animation_state == 5) || (g_CurrentPlayer->watch_animation_state == 12));
         matrix_4x4_7F058C64();
-        bondviewTransformManyPosToViewMatrix(g_CurrentPlayer->field_23C, objheader->numMatrices);
+        bviewTransformManyPosToViewMatrix(g_CurrentPlayer->field_23C, objheader->numMatrices);
         matrix_4x4_7F058C88();
     }
  
@@ -10472,7 +10472,7 @@ Gfx *bondviewRenderProp(PropRecord *arg0, Gfx *arg1, s32 arg2)
 {
     if (arg0->chr != NULL)
     {
-        arg1 = chrRenderProp(arg0, arg1, arg2);
+        arg1 = chrRenderChr(arg0, arg1, arg2);
     }
 
     return arg1;
@@ -10486,7 +10486,7 @@ Gfx* bondviewGfxPlayerField5cMatrix(Gfx* gdl)
 }
 
 
-void bondviewTransformManyPosToViewMatrix(RenderPosView * arg0, s32 arg1)
+void bviewTransformManyPosToViewMatrix(RenderPosView * arg0, s32 arg1)
 {
     Mtxf mtx;
     RenderPosView* rpv_entry;
@@ -10512,7 +10512,7 @@ void bondviewTransformManyPosToViewMatrix(RenderPosView * arg0, s32 arg1)
 }
 
 
-void sub_GAME_7F08BEEC(Mtxf *matrices, s32 count)
+void bviewTransformManyPosToWorldMatrix(Mtxf *matrices, s32 count)
 {
     Mtxf sp40;
     s32 i;

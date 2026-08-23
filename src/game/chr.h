@@ -277,7 +277,7 @@ void        chrGetChrWidthHeight(PropRecord *arg0, f32 *width, f32 *height, f32 
 f32         chrGetChrGround(PropRecord *arg0);
 void        chrDropItems(struct ChrRecord *arg0);
 s32         get_numguards(void);
-Gfx        *chrRenderProp(PropRecord *arg0, Gfx *arg1, s32 arg2);
+Gfx        *chrRenderChr(PropRecord *arg0, Gfx *arg1, s32 arg2);
 
 void        chrAddHealth(ChrRecord *chr, f32 health);
 void        chrSetMaxDamage(ChrRecord *chr, f32 maxdamage);

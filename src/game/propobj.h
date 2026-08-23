@@ -85,7 +85,7 @@ void                 sub_GAME_7F04F244(PropRecord *arg0, struct rect4f **arg1, s
 void                 doorActivate(DoorRecord *door, DOORSTATE State);
 bool                 posIsInFrontOfDoor(PropRecord *prop, DoorRecord *door);
 void                 doorsChooseSwingDirection(PropRecord *arg0, DoorRecord *arg1);
-Gfx                 *chrobjRenderProp(PropRecord *arg0, Gfx *arg1, s32 arg2);
+Gfx                 *objRenderProp(PropRecord *arg0, Gfx *arg1, s32 arg2);
 f32                  chrobjFogVisRangeRelated(PropRecord *prop, f32 size);
 s32                  getPropCombinedRoomsBBox2D(PropRecord *prop, bbox2d *bbox);
 void                 trigger_remote_mine_detonation(void);

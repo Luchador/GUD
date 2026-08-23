@@ -341,9 +341,6 @@ void chrpropDetach(PropRecord* prop) {
 }
 
 
-/**
- * Address: 7F03A62C
-*/
 Gfx *chrpropRender(Gfx * gdl, PropRecord *prop, s32 withalpha)
 {
     u8 type;
@@ -352,11 +349,11 @@ Gfx *chrpropRender(Gfx * gdl, PropRecord *prop, s32 withalpha)
 
     if (type == PROP_TYPE_CHR)
     {
-        gdl = chrRenderProp(prop, gdl, withalpha);
+        gdl = chrRenderChr(prop, gdl, withalpha);
     }
     else if ((type == PROP_TYPE_OBJ) || (type == PROP_TYPE_WEAPON) || (type == PROP_TYPE_DOOR))
     {
-        gdl = chrobjRenderProp(prop, gdl, withalpha);
+        gdl = objRenderProp(prop, gdl, withalpha);
     }
     else if (type == PROP_TYPE_EXPLOSION)
     {
@@ -375,9 +372,6 @@ Gfx *chrpropRender(Gfx * gdl, PropRecord *prop, s32 withalpha)
 }
 
 
-/**
- * Address: 7F03A6F4
-*/
 Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
 {
     s32 flag;
@@ -441,7 +435,7 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
 
                     if (flag)
                     {
-                        gdl = chrpropRender(gdl, prop, 0);
+                        gdl = chrpropRender(gdl, prop, FALSE);
                     }
                 }
             }
@@ -475,10 +469,10 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
                 {
                     if (prop->flags & PROPFLAG_00000020)
                     {
-                        gdl = chrpropRender(gdl, prop, 0);
+                        gdl = chrpropRender(gdl, prop, FALSE);
                     }
 
-                    gdl = chrpropRender(gdl, prop, 1);
+                    gdl = chrpropRender(gdl, prop, TRUE);
                 }
             }
         }
