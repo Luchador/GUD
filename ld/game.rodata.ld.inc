@@ -54,7 +54,7 @@
       build/OUTCODE/src/game/loadobjectmodel.o (.rodata);
       build/OUTCODE/src/game/objective_status.o (.rodata);
       build/OUTCODE/src/game/objective_status2.o (.rodata);
-      build/OUTCODE/src/game/gmath.o (.bss);
+      build/OUTCODE/src/game/gmath.o (.rodata);
       build/OUTCODE/src/game/math_sincos.o (.rodata);
       build/OUTCODE/src/game/matrixmath.o (.rodata);
       build/OUTCODE/src/game/math_unk_05A9E0.o (.rodata);
