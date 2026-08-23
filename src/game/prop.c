@@ -49,7 +49,7 @@ void setupHangingMonitors(s32 arg0, ObjectRecord* rack, s32 cmdindex);
 void setupSingleMonitor(s32 stageID, MonitorObjRecord *monitor, s32 cmdindex);
 void setupMultiMonitor(s32 stageID, MultiMonitorObjRecord* monitor, s32 cmdindex);
 void setupGetDoorAdjacentRooms(struct BoundPadRecord *pad, s32 *frontRoom, s32 *backRoom, struct coord3d *frontProbePos, struct coord3d *backProbePos);
-void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2);
+void setupDoor(struct DoorRecord *door, s32 cmdindex);
 
 // End forward declarations.
 
@@ -905,38 +905,48 @@ void setupGetDoorAdjacentRooms(struct BoundPadRecord *pad, s32 *frontRoom, s32 *
 }
 
 
-void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
+/**
+ * Creates a door object from its setup definition. It resolves the door's
+ * bound pad and discovers the pair of rooms the door connects along with their
+ * portal, for CULL_BEHIND_DOOR / NO_PORTAL_CLOSE doors. Then it applies the stage's
+ * g_DoorScale to the pad volume, builds the door's transform from the pad frame
+ * scaled to fit the pad bounds, computes the open-travel displacement along look
+ * for vertical/fallaway doors, along up otherwise. It also converts the setup
+ * file's 16.16 fixed point motion fields to floats then initialises, registers,
+ * and activates the door prop in its rooms.
+ * 
+ * PD equivalent: setupCreateDoor.
+ */
+void setupDoor(struct DoorRecord *door, s32 cmdindex)
 {
-    s32 padding;
     s32 modelnum;
     struct BoundPadRecord *pad;
-    StandTile *sp1C8_stan;
+    StandTile *groundedStan;
     PropRecord *prop;
-    struct coord3d sp1B8;
+    struct coord3d groundedPos;
     s32 portalnum;
     s32 frontRoom;
     s32 backRoom;
     struct coord3d frontProbePos;
     struct coord3d backProbePos;
-    struct PortalMetric sp180;
-    struct ModelRoData_BoundingBoxRecord *temp_v0;
-    struct coord3d sp170;
-    StandTile *sp16C;
-    Mtxf sp12C;
-    f32 temp_f2;
-    ModelFileHeader *sp124;
-    struct coord3d sp118;
-    StandTile *sp114_stan;
-    Mtxf spD4;
-    struct coord3d spC8;
-    Mtxf sp88;
-    struct coord3d sp7C;
-    struct bbox bb2;
+    struct PortalMetric portalMetric;
+    struct ModelRoData_BoundingBoxRecord *modelBBox;
+    struct coord3d scaledPadPos;
+    StandTile *walkStan;
+    Mtxf lookUpMtx;
+    f32 planeDist;
+    ModelFileHeader *modelHeader;
+    struct coord3d doorPos;
+    StandTile *centerWalkStan;
+    Mtxf doorTransform;
+    struct coord3d doorCenter;
+    Mtxf rotZMtx;
+    struct coord3d openDisplacement;
+    struct bbox localBBox;
     f32 xscale;
     f32 yscale;
     f32 zscale;
     f32 scale;
-    u8 *padding2;
 
     modelnum = door->obj;
 
@@ -962,42 +972,39 @@ void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
     {
         if (portalnum >= 0)
         {
-            sub_GAME_7F0B96CC(portalnum, &sp180);
-            sp180.min *= get_room_data_float2();
+            sub_GAME_7F0B96CC(portalnum, &portalMetric);
+            portalMetric.min *= get_room_data_float2();
 
-            temp_f2 = (pad->pos.f[0] * sp180.normal.f[0]) + (pad->pos.f[1] * sp180.normal.f[1]) + (pad->pos.f[2] * sp180.normal.f[2]);
+            planeDist = (pad->pos.f[0] * portalMetric.normal.f[0]) + (pad->pos.f[1] * portalMetric.normal.f[1]) + (pad->pos.f[2] * portalMetric.normal.f[2]);
 
             if (g_DoorScale < 1.0f)
             {
-                temp_f2 = (temp_f2 - sp180.min) * (1.0f - g_DoorScale);
-                sp170.f[0] = pad->pos.f[0] - (sp180.normal.f[0] * temp_f2);
-                sp170.f[1] = pad->pos.f[1] - (sp180.normal.f[1] * temp_f2);
-                sp170.f[2] = pad->pos.f[2] - (sp180.normal.f[2] * temp_f2);
+                planeDist = (planeDist - portalMetric.min) * (1.0f - g_DoorScale);
+                scaledPadPos.f[0] = pad->pos.f[0] - (portalMetric.normal.f[0] * planeDist);
+                scaledPadPos.f[1] = pad->pos.f[1] - (portalMetric.normal.f[1] * planeDist);
+                scaledPadPos.f[2] = pad->pos.f[2] - (portalMetric.normal.f[2] * planeDist);
             }
             else
             {
-                temp_f2 = (temp_f2 - sp180.min) * (g_DoorScale - 1.0f);
-                sp170.f[0] = pad->pos.f[0] + (sp180.normal.f[0] * temp_f2);
-                sp170.f[1] = pad->pos.f[1] + (sp180.normal.f[1] * temp_f2);
-                sp170.f[2] = pad->pos.f[2] + (sp180.normal.f[2] * temp_f2);
+                planeDist = (planeDist - portalMetric.min) * (g_DoorScale - 1.0f);
+                scaledPadPos.f[0] = pad->pos.f[0] + (portalMetric.normal.f[0] * planeDist);
+                scaledPadPos.f[1] = pad->pos.f[1] + (portalMetric.normal.f[1] * planeDist);
+                scaledPadPos.f[2] = pad->pos.f[2] + (portalMetric.normal.f[2] * planeDist);
             }
 
-            sp16C = pad->stan;
-            if (walkTilesBetweenPoints_NoCallback(&sp16C, pad->pos.f[0], pad->pos.f[2], sp170.f[0], sp170.f[2]) != 0)
+            walkStan = pad->stan;
+
+            if (walkTilesBetweenPoints_NoCallback(&walkStan, pad->pos.f[0], pad->pos.f[2], scaledPadPos.f[0], scaledPadPos.f[2]) != 0)
             {
-                pad->stan = sp16C;
-                pad->pos.f[0] = sp170.f[0];
-                pad->pos.f[1] = sp170.f[1];
-                pad->pos.f[2] = sp170.f[2];
+                pad->stan = walkStan;
+                pad->pos.f[0] = scaledPadPos.f[0];
+                pad->pos.f[1] = scaledPadPos.f[1];
+                pad->pos.f[2] = scaledPadPos.f[2];
                 pad->bbox.xmin *= g_DoorScale;
                 pad->bbox.xmax *= g_DoorScale;
             }
- #ifdef DEBUG
-            else
-            {
-                osSyncPrintf("volume for door object number %d did not have depth changed!\n",arg2 + 1);
-            }
-            #endif
+            // else: pad position unreachable - the door volume keeps its
+            // original depth.
         }
         else
         {
@@ -1006,105 +1013,90 @@ void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
         }
     }
 
-    if (getposstan(&pad->pos, pad->stan, 0.0f, &sp1B8, &sp1C8_stan) != 0)
+    if (getposstan(&pad->pos, pad->stan, 0.0f, &groundedPos, &groundedStan) != 0)
     {
-        matrix_4x4_set_basis_and_position_target(&sp12C, 0, 0, 0, -pad->look.f[0], -pad->look.f[1], -pad->look.f[2], pad->up.f[0], pad->up.f[1], pad->up.f[2]);
-        sp124 = PitemZ_entries[modelnum].header;
-        sp114_stan = sp1C8_stan;
+        matrix_4x4_set_basis_and_position_target(&lookUpMtx, 0, 0, 0, -pad->look.f[0], -pad->look.f[1], -pad->look.f[2], pad->up.f[0], pad->up.f[1], pad->up.f[2]);
+        modelHeader = PitemZ_entries[modelnum].header;
+        centerWalkStan = groundedStan;
 
-        bb2.zmax = pad->bbox.xmin;
-        bb2.zmin = pad->bbox.xmax; //78
-        bb2.ymax = pad->bbox.ymin; //74
-        bb2.ymin = pad->bbox.ymax; //70
-        bb2.xmax = pad->bbox.zmin; //6c
-        bb2.xmin = pad->bbox.zmax; //68
+        localBBox.zmax = pad->bbox.xmin;
+        localBBox.zmin = pad->bbox.xmax;
+        localBBox.ymax = pad->bbox.ymin;
+        localBBox.ymin = pad->bbox.ymax;
+        localBBox.xmax = pad->bbox.zmin;
+        localBBox.xmin = pad->bbox.zmax;
 
-        matrix_4x4_set_rotation_around_x(M_HALF_PI, &spD4);
-        matrix_4x4_set_rotation_around_z(M_HALF_PI, &sp88);
-        matrix_4x4_multiply_in_place(&sp88, &spD4);
-        matrix_4x4_multiply_in_place(&sp12C, &spD4);
-        padGetCenter(pad, &sp118);
+        matrix_4x4_set_rotation_around_x(M_HALF_PI, &doorTransform);
+        matrix_4x4_set_rotation_around_z(M_HALF_PI, &rotZMtx);
+        matrix_4x4_multiply_in_place(&rotZMtx, &doorTransform);
+        matrix_4x4_multiply_in_place(&lookUpMtx, &doorTransform);
+        padGetCenter(pad, &doorPos);
 
-        temp_v0 = (struct ModelRoData_BoundingBoxRecord *)sp124->RootNode->Child->Data;
+        modelBBox = (struct ModelRoData_BoundingBoxRecord *)modelHeader->RootNode->Child->Data;
 
-        xscale = (bb2.ymin - bb2.ymax) / (temp_v0->Bounds.xmax - temp_v0->Bounds.xmin);
-        yscale = (bb2.xmin - bb2.xmax) / (temp_v0->Bounds.ymax - temp_v0->Bounds.ymin);
-        zscale = (bb2.zmin - bb2.zmax) / (temp_v0->Bounds.zmax - temp_v0->Bounds.zmin);
+        xscale = (localBBox.ymin - localBBox.ymax) / (modelBBox->Bounds.xmax - modelBBox->Bounds.xmin);
+        yscale = (localBBox.xmin - localBBox.xmax) / (modelBBox->Bounds.ymax - modelBBox->Bounds.ymin);
+        zscale = (localBBox.zmin - localBBox.zmax) / (modelBBox->Bounds.zmax - modelBBox->Bounds.zmin);
 
         if ((xscale <= 0.000001f) || (yscale <= 0.000001f) || (zscale <= 0.000001f))
         {
-            #ifdef DEBUG
-            osSyncPrintf("Scale warning: door object number %d has a small scale: %f,%f,%f\n",arg2 +1, xscale,yscale,zscale);
-            #endif
-            xscale =
-                yscale =
-                zscale = 1.0f;
+            // Degenerate pad bounds - fall back to unscaled model.
+            xscale = yscale = zscale = 1.0f;
         }
 
-        matrix_column_1_scalar_multiply(xscale, spD4.m[0]);
-        matrix_column_2_scalar_multiply(yscale, spD4.m[0]);
-        matrix_column_3_scalar_multiply_2(zscale, spD4.m[0]);
+        matrix_column_1_scalar_multiply(xscale, doorTransform.m[0]);
+        matrix_column_2_scalar_multiply(yscale, doorTransform.m[0]);
+        matrix_column_3_scalar_multiply_2(zscale, doorTransform.m[0]);
 
-        spC8.f[0] = sp118.f[0];
-        spC8.f[1] = sp118.f[1];
-        spC8.f[2] = sp118.f[2];
+        doorCenter.f[0] = doorPos.f[0];
+        doorCenter.f[1] = doorPos.f[1];
+        doorCenter.f[2] = doorPos.f[2];
 
         if (!(door->flags2 & 1))
         {
-            if (walkTilesBetweenPoints_NoCallback(&sp114_stan, sp1B8.f[0], sp1B8.f[2], sp118.f[0], sp118.f[2]) != 0)
+            if (walkTilesBetweenPoints_NoCallback(&centerWalkStan, groundedPos.f[0], groundedPos.f[2], doorPos.f[0], doorPos.f[2]) != 0)
             {
-                sp1C8_stan = sp114_stan;
+                groundedStan = centerWalkStan;
             }
             else
             {
-                sp118.f[0] = sp1B8.f[0];
-                sp118.f[2] = sp1B8.f[2];
-
-                if (!(door->flags & 0x1000)) // prop flag PROPFLAG_00001000 "Absolute Position"
-                {
-                    #ifdef DEBUG
-                    osSyncPrintf("door object number %d not positioned correctly!\n",arg2 +1);
-                    #endif
-
-                }
+                doorPos.f[0] = groundedPos.f[0];
+                doorPos.f[2] = groundedPos.f[2];
             }
         }
         else
         {
-            sp118.f[0] = sp1B8.f[0];
-            sp118.f[1] = sp1B8.f[1];
-            sp118.f[2] = sp1B8.f[2];
+            doorPos.f[0] = groundedPos.f[0];
+            doorPos.f[1] = groundedPos.f[1];
+            doorPos.f[2] = groundedPos.f[2];
         }
 
         if ((door->doorType == DOORTYPE_VERTICAL) || (door->doorType == DOORTYPE_FALLAWAY))
         {
-            sp7C.f[0] = pad->look.f[0] * (bb2.xmin - bb2.xmax);
-            sp7C.f[1] = pad->look.f[1] * (bb2.xmin - bb2.xmax);
-            sp7C.f[2] = pad->look.f[2] * (bb2.xmin - bb2.xmax);
+            openDisplacement.f[0] = pad->look.f[0] * (localBBox.xmin - localBBox.xmax);
+            openDisplacement.f[1] = pad->look.f[1] * (localBBox.xmin - localBBox.xmax);
+            openDisplacement.f[2] = pad->look.f[2] * (localBBox.xmin - localBBox.xmax);
         }
         else
         {
-            sp7C.f[0] = pad->up.f[0] * (bb2.ymax - bb2.ymin);
-            sp7C.f[1] = pad->up.f[1] * (bb2.ymax - bb2.ymin);
-            sp7C.f[2] = pad->up.f[2] * (bb2.ymax - bb2.ymin);
+            openDisplacement.f[0] = pad->up.f[0] * (localBBox.ymax - localBBox.ymin);
+            openDisplacement.f[1] = pad->up.f[1] * (localBBox.ymax - localBBox.ymin);
+            openDisplacement.f[2] = pad->up.f[2] * (localBBox.ymax - localBBox.ymin);
         }
 
-        // These values are stored in the setup files as integers, but at
-		// runtime they are floats. Hence reading a "float" as an integer,
-		// converting it to a float and writing it back to the same property.
-		door->maxFrac = *(s32 *) &door->maxFrac / 65536.0f;
-		door->perimFrac = *(s32 *) &door->perimFrac / 65536.0f;
-#if defined(VERSION_EU)
-        door->accel = (*(s32 *) &door->accel) * 1.2f / 65536.0f;
-		door->decel = (*(s32 *) &door->decel) * 1.2f / 65536.0f;
-		door->maxSpeed = (*(s32 *) &door->maxSpeed) * 1.2f / 65536.0f;
-#else
-		door->accel = (*(s32 *) &door->accel) / 65536.0f;
-		door->decel = (*(s32 *) &door->decel) / 65536.0f;
-		door->maxSpeed = (*(s32 *) &door->maxSpeed) / 65536.0f;
-#endif
+        /**
+         * These values are stored in the setup files as integers, but at
+         * runtime they are floats. Hence reading a float as an integer,
+         * converting it to a float and writing it back to the same property.
+         */
+        door->maxFrac = *(s32 *) &door->maxFrac / 65536.0f;
+        door->perimFrac = *(s32 *) &door->perimFrac / 65536.0f;
+        door->accel = (*(s32 *) &door->accel) / 65536.0f;
+        door->decel = (*(s32 *) &door->decel) / 65536.0f;
+        door->maxSpeed = (*(s32 *) &door->maxSpeed) / 65536.0f;
 
-        prop = doorInit(door, &sp118, &spD4, sp1C8_stan, &sp7C, &spC8);
+        prop = doorInit(door, &doorPos, &doorTransform, groundedStan, &openDisplacement, &doorCenter);
+
         if (door->flags & PROPFLAG_CULL_BEHIND_DOOR)
         {
             door->portalNumber = portalnum;
@@ -1112,12 +1104,7 @@ void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
             {
                 doorDeactivatePortal(door);
             }
-            #ifdef DEBUG
-            else
-            {
-                osSyncPrintf("No portal for door object number %d ",arg2 + 1);
-            }
-            #endif
+            // else: no portal found between the door's rooms
         }
 
         prop->rooms[0] = prop->stan->room;
@@ -1140,23 +1127,6 @@ void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
                 prop->rooms[1] = backRoom;
                 chrpropRegisterRoom(prop, backRoom);
             }
-
-            if (prop->rooms[1] != 0xff && 1)
-            {
-                if (!prop->stan->room)
-                {
-                    #ifdef DEBUG
-                        osSyncPrintf("3 rooms for door object number %d\n",arg2 + 1);
-                    #endif
-                }
-
-            }
-            #ifdef DEBUG
-            else
-            {
-                osSyncPrintf("No 2nd room for door object number %d\n",arg2 + 1);
-            }
-            #endif
         }
 
         if (door->model != NULL)
@@ -1181,15 +1151,13 @@ void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
 
         if (door->linkedDoorOffset != 0)
         {
-            door->linkedDoor = (struct DoorRecord *)setupGetPtrToCommandByIndex(door->linkedDoorOffset + arg2);
+            door->linkedDoor = (struct DoorRecord *)setupGetPtrToCommandByIndex(door->linkedDoorOffset + cmdindex);
         }
     }
     else
     {
+        // Pad has no floor beneath it. The door cannot be created.
         door->prop = NULL;
-        #ifdef DEBUG
-            osSyncPrintf("proplvreset: prop door object number %d not reset!\n",arg2 + 1);
-        #endif
     }
 
 }
@@ -1487,7 +1455,7 @@ void proplvreset2(enum LEVELID stageId)
                     case PROPDEF_DOOR:
                         if (withobjs && (!(((struct DoorRecord *) phead)->flags2 & flags)))
                         {
-                            setupDoor(stageId, (struct DoorRecord *) phead, pdefIndex);
+                            setupDoor((struct DoorRecord *) phead, pdefIndex);
                         }
                         break;
                     case PROPDEF_DOOR_SCALE:
