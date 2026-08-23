@@ -628,6 +628,9 @@ STAGESTATUS fileIsStageUnlockedAtDifficulty(s32 foldernum, LEVEL_SOLO_SEQUENCE l
     save_data* save;
     s32 i;
 
+    // TEMP: unlock all stages
+    return 1;
+
     if (( fileIsFolderValid(foldernum)) &&
         (levelid >= SP_LEVEL_DAM && levelid < SP_LEVEL_MAX) &&
         (difficulty >= DIFFICULTY_AGENT && difficulty < DIFFICULTY_MAX))
