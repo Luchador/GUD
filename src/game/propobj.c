@@ -37,7 +37,7 @@
 #include "lv.h"
 #include "language.h"
 #include "math_floor.h"
-#include "math_asinfacosf.h"
+#include "gmath.h"
 #include "math_atan2f.h"
 #include "matrixmath.h"
 #include "model.h"

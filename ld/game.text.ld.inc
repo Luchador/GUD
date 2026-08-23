@@ -59,7 +59,6 @@
       build/OUTCODE/src/game/math_unk_05A9E0.o (.text);
       build/OUTCODE/src/game/math_atan2f.o (.text);
       build/OUTCODE/src/game/math_asinacos.o (.text);
-      build/OUTCODE/src/game/math_asinfacosf.o (.text);
       build/OUTCODE/src/game/matrixmath_misc.o (.text);
       build/OUTCODE/src/game/quaternion.o (.text);
       build/OUTCODE/src/game/math_floor.o (.text);

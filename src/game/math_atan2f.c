@@ -5,7 +5,7 @@
 
 #include <ultra64.h>
 #include <math.h>
-#include "math_asinfacosf.h"
+#include "gmath.h"
 #include "math_atan2f.h"
 
 f32 atan2f(f32 y, f32 x)

@@ -18,7 +18,7 @@
 #include "player.h"
 #include "lv.h"
 #include "random.h"
-#include "math_asinfacosf.h"
+#include "gmath.h"
 #include "loadobjectmodel.h"
 #include "objecthandler.h"
 #include "image.h"

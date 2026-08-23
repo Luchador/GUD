@@ -7,7 +7,7 @@
 #include "chrobjdata.h"
 #include "gbi_extension.h"
 #include "initunk_005520.h"
-#include "math_asinfacosf.h"
+#include "gmath.h"
 #include "math_floor.h"
 #include "math_ceil.h"
 #include "math_unk_05A9E0.h"

@@ -1,5 +1,5 @@
-#ifndef _MATH_ASINFACOSF_H_
-#define _MATH_ASINFACOSF_H_
+#ifndef GMATH_H
+#define GMATH_H
 
 #include <ultra64.h>
 
