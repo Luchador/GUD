@@ -54,11 +54,11 @@
       build/OUTCODE/src/game/loadobjectmodel.o (.bss);
       build/OUTCODE/src/game/objective_status.o (.bss);
       build/OUTCODE/src/game/objective_status2.o (.bss);
+      build/OUTCODE/src/game/gmath.o (.bss);
       build/OUTCODE/src/game/math_sincos.o (.bss);
       build/OUTCODE/src/game/matrixmath.o (.bss);
       build/OUTCODE/src/game/math_unk_05A9E0.o (.bss);
       build/OUTCODE/src/game/math_atan2f.o (.bss);
-      build/OUTCODE/src/game/math_asinacos.o (.bss);
       build/OUTCODE/src/game/matrixmath_misc.o (.bss);
       build/OUTCODE/src/game/quaternion.o (.bss);
       build/OUTCODE/src/game/math_floor.o (.bss);
