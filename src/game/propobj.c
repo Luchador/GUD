@@ -3036,7 +3036,7 @@ u32 monAnim34[] = {
      MONLOOP()
 };
 
-//[80031F44	35	Taser	Not Included in Normal List!]
+
 u32 monAnim35Taser[] = {
      MONUSEIMAGE(IMGBOND),
      MONHORZSCROLL(0x400, 20), MONHOLDTIME(20),
@@ -3046,10 +3046,13 @@ u32 monAnim35Taser[] = {
      MONLOOP()
 };
 
+
 /**
- * Address 0x80031FD0.
-*/
-ModelRenderData D_80031FD0 = {  NULL,
+ * Default ModelRenderData used to initialize each prop's per-draw render
+ * state. It's copied at the top of the prop render function then
+ * customised per prop with fog color, alpha, cull mode, matrices.
+ */
+ModelRenderData g_DefaultPropRenderData = {  NULL,
                                 TRUE,
                                 0x00000003,
                                 NULL,
@@ -3069,7 +3072,8 @@ ModelRenderData D_80031FD0 = {  NULL,
                                 {0,0,0,0},
                                 CULLMODE_BOTH};
 
-void sub_GAME_7F043838(coord3d *arg0, Mtxf *arg1)
+
+void objBuildMtxFromSurfaceNormal(coord3d *normal, Mtxf *mtx)
 {
     f32 sp124;
     f32 sp120;
@@ -3090,11 +3094,11 @@ void sub_GAME_7F043838(coord3d *arg0, Mtxf *arg1)
     Mtxf sp30;
     coord3d sp24;
 
-    f0 = sqrtf(arg0->f[0] * arg0->f[0] + arg0->f[1] * arg0->f[1] + arg0->f[2] * arg0->f[2]);
+    f0 = sqrtf(normal->f[0] * normal->f[0] + normal->f[1] * normal->f[1] + normal->f[2] * normal->f[2]);
 
-    sp10c = arg0->x / f0;
-    sp108 = arg0->y / f0;
-    sp104 = arg0->z / f0;
+    sp10c = normal->x / f0;
+    sp108 = normal->y / f0;
+    sp104 = normal->z / f0;
 
     if (sp10c == 0.0f && sp104 == 0.0f)
     {
@@ -3132,23 +3136,29 @@ void sub_GAME_7F043838(coord3d *arg0, Mtxf *arg1)
     matrix_4x4_set_rotation_around_y(-1.5707964f + spf4, &sp70);
     matrix_4x4_set_rotation_around_x(-1.5707964f - spf0, &sp30);
 
-    matrix_4x4_multiply(&sp70, &sp30, arg1);
+    matrix_4x4_multiply(&sp70, &sp30, mtx);
 }
 
-void sub_GAME_7F0439B8(ObjectRecord* obj, coord3d* pos, StandTile* stan, coord3d* arg3)
+
+/**
+ * Settles a landed projectile flush with the surface it hit. Orients it to the surface normal,
+ * updates the shading, and offsets along its new local Y axis by the model's bbox depth so
+ * it doesn't get half buried in the surface.
+ */
+void objStickToSurface(ObjectRecord* obj, coord3d* pos, StandTile* stan, coord3d* normal)
 {
     Mtxf matrix;
-    f32 temp_f0;
+    f32 localYOffset;
 
-    sub_GAME_7F043838(arg3, &matrix);
+    objBuildMtxFromSurfaceNormal(normal, &matrix);
     matrix_scalar_multiply(obj->model->scale, matrix.m[0]);
     objChangeShading(obj, pos, &matrix, stan);
 
-    temp_f0 = chrpropBBOXGetYmin(chrobjGetBboxFromObjFile(obj->model->obj));
+    localYOffset = chrpropBBOXGetYmin(chrobjGetBboxFromObjFile(obj->model->obj));
 
-    obj->runtime_pos.f[0] -= temp_f0 * obj->mtx.m[1][0];
-    obj->runtime_pos.f[1] -= temp_f0 * obj->mtx.m[1][1];
-    obj->runtime_pos.f[2] -= temp_f0 * obj->mtx.m[1][2];
+    obj->runtime_pos.f[0] -= localYOffset * obj->mtx.m[1][0];
+    obj->runtime_pos.f[1] -= localYOffset * obj->mtx.m[1][1];
+    obj->runtime_pos.f[2] -= localYOffset * obj->mtx.m[1][2];
 
     objUpdateCollisionVolume(obj);
 }
@@ -4511,7 +4521,7 @@ s32 objTick(struct PropRecord *prop)
 
 						chrobjSndCreatePostEventDefault(sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, ATTACH_MINE_SFX, NULL), &prop->pos);
 						objectivestatusCheckDeposit(((struct WeaponObjRecord *) obj)->weaponnum, prop->stan->room);
-						sub_GAME_7F0439B8(obj, &collisionPoint, prop->stan, &collisionNormal);
+						objStickToSurface(obj, &collisionPoint, prop->stan, &collisionNormal);
 						if (D_80030B0C != NULL)
 						{
 							temp_s2 = prop->stan;
@@ -7240,7 +7250,7 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
     struct rgba_f32 spB0;
     s32 spAC;
     s32 spA8;
-    ModelRenderData mrData;
+    ModelRenderData modrendata;
     struct view4f sp58;
     struct rgba_s32 sp48;
     s32 sp44;
@@ -7252,7 +7262,7 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
 
     obj = prop->obj;
 
-    mrData = D_80031FD0;
+    modrendata = g_DefaultPropRenderData;
 
     objAlpha = 0xFF;
     spAC = fogGetPropDistColor(prop, &spB0);
@@ -7303,31 +7313,31 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
         gdl = bgScissorCurrentPlayerViewDefault(gdl);
     }
 
-    mrData.flags = sp44;
-    mrData.zbufferenabled = (obj->flags2 & 0x10000) == 0;
+    modrendata.flags = sp44;
+    modrendata.zbufferenabled = (obj->flags2 & 0x10000) == 0;
 
-    mrData.gdl = gdl;
+    modrendata.gdl = gdl;
 
     if (objAlpha < 0xFF)
     {
-        mrData.PropType = 5;
-        mrData.envcolour.word = objAlpha;
+        modrendata.PropType = 5;
+        modrendata.envcolour.word = objAlpha;
     }
     else
     {
-        mrData.PropType = 9;
+        modrendata.PropType = 9;
 
         if (obj->type == PROPDEF_TINTED_GLASS)
         {
-            mrData.envcolour.word = ((struct TintedGlassRecord*)obj)->calculatedopacity << 8;
+            modrendata.envcolour.word = ((struct TintedGlassRecord*)obj)->calculatedopacity << 8;
         }
         else if ((obj->type == PROPDEF_DOOR) && (((struct DoorRecord*)obj)->doorFlags & DOORFLAG_WINDOWED))
         {
-            mrData.envcolour.word = ((struct DoorRecord*)obj)->calculatedopacity << 8;
+            modrendata.envcolour.word = ((struct DoorRecord*)obj)->calculatedopacity << 8;
         }
         else
         {
-            mrData.envcolour.word = 0;
+            modrendata.envcolour.word = 0;
         }
     }
 
@@ -7351,11 +7361,11 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
 
     lerp_rgba_s32_with_rgba_f32(&sp48, spAC, &spB0);
 
-    mrData.fogcolour.word = (sp48.rgba[0] << 0x18) | (sp48.rgba[1] << 0x10) | (sp48.rgba[2] << 0x08) | (sp48.rgba[3] << 0x00);
+    modrendata.fogcolour.word = (sp48.rgba[0] << 0x18) | (sp48.rgba[1] << 0x10) | (sp48.rgba[2] << 0x08) | (sp48.rgba[3] << 0x00);
 
-    objRenderPropModel(prop, &mrData, withalpha);
+    objRenderPropModel(prop, &modrendata, withalpha);
 
-    return mrData.gdl;
+    return modrendata.gdl;
 }
 
 

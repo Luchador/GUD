@@ -2519,13 +2519,14 @@ typedef union
         coord3d position;         // 0x58
     } AttachedObj;
 
+
     /**
      * Object (Prop Definition) Record holds common data such as pad and health.
      */
     typedef struct ObjectRecord
     {
         inherits    PropDefHeaderRecord;
-        s16         obj; //canonical name, use with PROP_ enum eg PROP_ALARM1
+        s16         obj;
         /* ID 0x6
             0000+ or 2710+ (10,000+) to use standard presets.
             -1 to -256 to set this object
@@ -2713,6 +2714,7 @@ typedef union
         rgba_u8         shadecol; // 0x78
         rgba_u8         nextcol; // 0x7C
     } ObjectRecord;
+
     #define New_ObjectRecord(pad)                                                       \
         {                                                                               \
             New_PropDefHeaderRecord(3), 0, pad + 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
