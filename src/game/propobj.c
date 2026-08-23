@@ -3509,31 +3509,41 @@ void sub_GAME_7F0442DC(PropRecord* prop)
  * Description: Separating Axis Theorem
  *
  * Return true if both blocks are not intersecting on the X/Z plane.
+ * 
+ * The function originally had diff1, diff2, sum1, sum2, sum3 as f64. The rewrite here simplifies all math to f32 operations
+ * and removes the expensive modulo operations in favor of simpler if statements.
  */
 bool chrobjSeparatingAxisTheorem(rect4f* rect1, s32 numvertices0, rect4f* rect2, s32 numvertices1)
 {
-    f64 diff2;
-    f64 diff1;
+    f32 diff2;
+    f32 diff1;
     s32 j;
     s32 k;
     s32 next;
     s32 i;
-    f64 sum3;
-    f64 sum2;
-    f64 sum1;
+    f32 sum3;
+    f32 sum2;
+    f32 sum1;
     coord3d tmp;
 
     for (i = 0; i < numvertices0; i++)
     {
-        next = (i + 1) % numvertices0;
-        diff1 = rect1->points[next].y - (f64)rect1->points[i].y;
-        diff2 = rect1->points[i].x - (f64)rect1->points[next].x;
+        next = i + 1;
+
+        if (next == numvertices0)
+        { 
+            next = 0; 
+        }
+
+        diff1 = rect1->points[next].y - rect1->points[i].y;
+        diff2 = rect1->points[i].x - rect1->points[next].x;
 
         if (diff1 == 0.0f && diff2 == 0.0f)
         {
             tmp.x = rect1->points[i].x;
             tmp.y = 0.0f;
             tmp.z = rect1->points[i].y;
+
             if (chrpropTestPointInPolygon(&tmp, rect2, numvertices1))
             {
                 return FALSE;
@@ -3542,15 +3552,31 @@ bool chrobjSeparatingAxisTheorem(rect4f* rect1, s32 numvertices0, rect4f* rect2,
         else
         {
             sum1 = rect1->points[i].x * diff1 + rect1->points[i].y * diff2;
-            j = (next + 1) % numvertices0;
+
+            sum2 = sum1;
+
+            j = next + 1;
+
+            if (j == numvertices0)
+            { 
+                j = 0; 
+            }
 
             while (j != i)
             {
                 sum2 = rect1->points[j].x * diff1 + rect1->points[j].y * diff2;
 
-                if (sum2 != sum1) { break; }
+                if (sum2 != sum1)
+                { 
+                    break; 
+                }
 
-                j = (j + 1) % numvertices0;
+                j = j + 1;
+
+                if (j == numvertices0) 
+                { 
+                    j = 0; 
+                }
             }
 
             for (k = 0; k < numvertices1; k++)
@@ -3562,8 +3588,15 @@ bool chrobjSeparatingAxisTheorem(rect4f* rect1, s32 numvertices0, rect4f* rect2,
                     sum2 = sum1 - sum3 + sum1;
                 }
 
-                if (sum3 < sum1 && sum2 < sum1) { break; }
-                if (sum3 > sum1 && sum2 > sum1) { break; }
+                if (sum3 < sum1 && sum2 < sum1) 
+                { 
+                    break; 
+                }
+
+                if (sum3 > sum1 && sum2 > sum1) 
+                { 
+                    break; 
+                }
             }
 
             if (k == numvertices1)
