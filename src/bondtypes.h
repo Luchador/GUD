@@ -2703,7 +2703,7 @@ typedef union
             */
             u32 runtime_bitflags;
         };
-        collision_data *ptr_allocated_collisiondata_block;
+        collision_data *collisionBlock;
 
         union {
             struct Projectile *projectile; // 0x6c

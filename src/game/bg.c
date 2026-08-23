@@ -3693,7 +3693,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
 
                 if (execute)
                 {
-                    execute                       = FALSE;
+                    execute = FALSE;
                     dword_CODE_bss_80081600.unk10 = TRUE;
                 }
                 else
@@ -3736,23 +3736,19 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
 struct unk_portalstruct table_for_portals[PORTMAX];
 #endif
 
-#define RS_STOP 0
-
 
 // Something about portals. Void* are structs.
 void *sub_GAME_7F0B8A24(s32 *pc) 
 {
 
     current_visibility = 0;
+
     if (!pc)
     {
         return pc;
     }
 
     bgStackGetNthValueFromEnd(0);
-    #ifdef DEBUG
-    assert( pc->type==RS_STOP)
-    #endif
 
     return parse_global_vis_command_list(pc, 1);
 }
@@ -3890,7 +3886,8 @@ s32 bgCopyVisibleRoomsToList(s32 *rooms, s32 max)
 {
     s32 i;
 
-    for (i = 0; (i < num_visible_rooms_in_cur_global_vis_packet) && (i < max); i++) {
+    for (i = 0; (i < num_visible_rooms_in_cur_global_vis_packet) && (i < max); i++)
+    {
         rooms[i] = list_visible_rooms_in_cur_global_vis_packet[i];
     }
 
@@ -3913,18 +3910,23 @@ s32 bgGetConnectedRooms(s32 roomIndex, s32* list, s32 max)
     s32 connectedRoom1;
     s32 connectedRoom2;
 
-    for (p = 0; g_BgPortals[p].offset_portal != NULL; p++) {
+    for (p = 0; g_BgPortals[p].offset_portal != NULL; p++)
+    {
         connectedRoom1 = g_BgPortals[p].connectedRoom1;
         connectedRoom2 = g_BgPortals[p].connectedRoom2;
 
-        if (connectedRoom1 == roomIndex) {
+        if (connectedRoom1 == roomIndex)
+        {
             connectedRoom1 = connectedRoom2;
             connectedRoom2 = roomIndex;
         }
 
-        if (connectedRoom2 == roomIndex) {
-            for (i = 0; i < len; i++) {
-                if (list[i] == connectedRoom1) {
+        if (connectedRoom2 == roomIndex)
+        {
+            for (i = 0; i < len; i++)
+            {
+                if (list[i] == connectedRoom1)
+                {
                     goto end;
                 }
             }
@@ -3932,7 +3934,8 @@ s32 bgGetConnectedRooms(s32 roomIndex, s32* list, s32 max)
             list[len] = connectedRoom1;
             len++;
 
-            if (len >= max) {
+            if (len >= max)
+            {
                 return len;
             }
 end:
@@ -4038,7 +4041,8 @@ void bgGetRoomCenter(s32 roomnum, coord3d *dst)
     s32 i;
     s_room_info *room = &g_BgRoomInfo[roomnum];
 
-    for (i = 0; i < 3; i++) {
+    for (i = 0; i < 3; i++)
+    {
         dst->f[i] = (room->minbounds.f[i] + room->maxbounds.f[i]) * 0.5f;
     }
 }
@@ -4054,8 +4058,10 @@ void bgRoomCalcBB(s32 room)
 
     roomdata = (bg_room_data *) ((s32) ptr_bgdata_room_fileposition_list + room * 24);
 
+    // Does the room have gfx data?
     if (roomdata->pPointTableBin == NULL)
     {
+        // Does the room have stan data?
         if ((room < dword_CODE_bss_8007B9DC) && ((s32) firststaninroom[room] != ((StanRoomBounds *) vertices)->min[j] % 1))
         {
             for (j = 0; j < 3; j++)
@@ -4067,12 +4073,6 @@ void bgRoomCalcBB(s32 room)
                 ptr_bgdata_room_fileposition_list[room].pos.f[j] = (g_StanRoomBounds[room].min[j] + g_StanRoomBounds[room].max[j]) / 2;
             }
         }
-#ifdef DEBUG
-        else
-        {
-            osSyncPrintf("bg: bgRoomCalcBB: ROOM%d has no gfx, and no stans! Can\'t make bb & roomoffset ", room);
-        }
-#endif
 
         return;
     }

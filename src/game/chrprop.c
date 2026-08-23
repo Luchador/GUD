@@ -3265,7 +3265,13 @@ f32 chrpropSumMatrixNegZ(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *arg1)
 }
 
 
-void sub_GAME_7F03ECC0(f32 x1, f32 x2, f32 y1, f32 y2, f32 z1, f32 z2, Mtxf *m, struct rect4f *poly, struct collision_data *collision)
+/**
+ * Computes the 2D collision footprint of a box at an arbitrary rotation. Transforms all 8 corners of the box into world x/z through m,
+ * then builds the convex hull of the projection. The hull is the four cardinal extremes plus at most one bulge between each adjacent pair.
+ * It writes 3-8 vertices into the poly counter-clockwise and the vertex count into collision->edges, then translates the result to world position.
+ * These are the polygons and edge counts consumed by overlap tets.
+ */
+void collisionCalcFootprintFromExtents(f32 x1, f32 x2, f32 y1, f32 y2, f32 z1, f32 z2, Mtxf *m, struct rect4f *poly, struct collision_data *collision)
 {
     f64 pts[8][2];
     f64 pad[1];
@@ -3437,15 +3443,13 @@ filterloop:
 }
 
 
-void sub_GAME_7F03F540(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf* arg1, struct rect4f* arg2, struct collision_data* arg3)
+void collisionCalcFootprintFromBBox(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf* mtx, struct rect4f* poly, struct collision_data* collisiondata)
 {
-    sub_GAME_7F03ECC0(bbox->Bounds.xmin, bbox->Bounds.xmax, bbox->Bounds.ymin, bbox->Bounds.ymax, bbox->Bounds.zmin, bbox->Bounds.zmax, arg1, arg2, arg3);
+    collisionCalcFootprintFromExtents(bbox->Bounds.xmin, bbox->Bounds.xmax, bbox->Bounds.ymin, bbox->Bounds.ymax, bbox->Bounds.zmin, bbox->Bounds.zmax, mtx, poly, collisiondata);
 }
 
 
 /**
- * Address: 7F03F598
- *
  * Tests whether a world-space point is inside a bound pad's local bbox plus
  * a padding on all axes defined by the radius parameter.
  */

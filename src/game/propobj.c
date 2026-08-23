@@ -540,24 +540,24 @@ void update_color_shading(rgba_u8 *dest, rgba_u8 *src)
 }
 
 
-void chrobjCollisionRelated(ObjectRecord *obj)
+void objUpdateCollisionVolume(ObjectRecord *obj)
 {
     struct ModelRoData_BoundingBoxRecord *bbox;
-    Mtxf sp24;
+    Mtxf mtx;
 
-    if (obj->ptr_allocated_collisiondata_block != NULL)
+    if (obj->collisionBlock != NULL)
     {
         bbox = chrobjGetBboxFromObjectRecord(obj);
-        matrix_4x4_copy(&obj->mtx, &sp24);
-        matrix_4x4_set_position(&obj->runtime_pos, &sp24);
-        sub_GAME_7F03F540(bbox, &sp24, &obj->ptr_allocated_collisiondata_block->polygon, obj->ptr_allocated_collisiondata_block);
+        matrix_4x4_copy(&obj->mtx, &mtx);
+        matrix_4x4_set_position(&obj->runtime_pos, &mtx);
+        collisionCalcFootprintFromBBox(bbox, &mtx, &obj->collisionBlock->polygon, obj->collisionBlock);
 
-        obj->ptr_allocated_collisiondata_block->bottom = obj->runtime_pos.f[1] + chrpropSumMatrixPosY(bbox, &sp24);
-        obj->ptr_allocated_collisiondata_block->top = obj->runtime_pos.f[1] + chrpropSumMatrixNegY(bbox, &sp24);
+        obj->collisionBlock->bottom = obj->runtime_pos.f[1] + chrpropSumMatrixPosY(bbox, &mtx);
+        obj->collisionBlock->top = obj->runtime_pos.f[1] + chrpropSumMatrixNegY(bbox, &mtx);
 
         if (obj->type == PROPDEF_AIRCRAFT)
         {
-            obj->ptr_allocated_collisiondata_block->bottom -= 200.0f;
+            obj->collisionBlock->bottom -= 200.0f;
         }
     }
 }
@@ -585,11 +585,11 @@ PropRecord* objInit(ObjectRecord* obj, ModelFileHeader* model_header, PropRecord
     if ((prop != NULL) && (model != NULL))
     {
         obj->model = model;
-        obj->ptr_allocated_collisiondata_block = NULL;
+        obj->collisionBlock = NULL;
 
         if (obj->flags & 0x100)
         {
-            obj->ptr_allocated_collisiondata_block = mempAllocBytesInBank(0x50U, MEMPOOL_STAGE);
+            obj->collisionBlock = mempAllocBytesInBank(0x50U, MEMPOOL_STAGE);
             obj->state = (u8) (obj->state | PROPSTATE_EXT_COLISION_BLOCK);
         }
         else
@@ -772,7 +772,7 @@ void sub_GAME_7F04088C(ObjectRecord *baseobj, struct coord3d *pos, Mtxf *matrix,
         #endif
     }
 
-    chrobjCollisionRelated(baseobj);
+    objUpdateCollisionVolume(baseobj);
 }
 
 
@@ -814,7 +814,7 @@ void sub_GAME_7F040BA0(ObjectRecord *obj, coord3d *pos, Mtxf *arg2, StandTile *s
         obj->runtime_pos.z = posdiff.z;
     }
 
-    chrobjCollisionRelated(obj);
+    objUpdateCollisionVolume(obj);
 }
 
 
@@ -3158,7 +3158,7 @@ void sub_GAME_7F0439B8(ObjectRecord* obj, coord3d* pos, StandTile* stan, coord3d
     obj->runtime_pos.f[1] -= temp_f0 * obj->mtx.m[1][1];
     obj->runtime_pos.f[2] -= temp_f0 * obj->mtx.m[1][2];
 
-    chrobjCollisionRelated(obj);
+    objUpdateCollisionVolume(obj);
 }
 
 
@@ -4898,7 +4898,7 @@ s32 objTick(struct PropRecord *prop)
 		{
 			objectMatrix = (Mtxf *) (&obj->runtime_pos);
 
-			chrobjCollisionRelated(obj);
+			objUpdateCollisionVolume(obj);
 			setupUpdateObjectRoomPosition(obj);
 #if defined(VERSION_EU)
 			sub_GAME_7F0402B4(obj->prop, &obj->nextcol);
@@ -5497,7 +5497,7 @@ s32 objTick(struct PropRecord *prop)
 					prop->stan = currentTile;
 					poTruck->runtime_pos.f[0] = (prop->pos.f[0] = RocketCurrent.f[0]);
 					poTruck->runtime_pos.f[2] = (prop->pos.f[2] = RocketCurrent.f[2]);
-					chrobjCollisionRelated(obj);
+					objUpdateCollisionVolume(obj);
 					setupUpdateObjectRoomPosition(obj);
 					var_s2_5 = sub_GAME_7F0448A8(prop);
 					if (var_s2_5 != 0)
@@ -5549,7 +5549,7 @@ s32 objTick(struct PropRecord *prop)
 						obj->runtime_pos.f[0] = (prop->pos.f[0] = sp450.f[0]);
 						obj->runtime_pos.f[1] = (prop->pos.f[1] = sp450.f[1]);
 						obj->runtime_pos.f[2] = (prop->pos.f[2] = sp450.f[2]);
-						chrobjCollisionRelated(obj);
+						objUpdateCollisionVolume(obj);
 						setupUpdateObjectRoomPosition(obj);
 					}
 				}
@@ -6109,7 +6109,7 @@ s32 objTick(struct PropRecord *prop)
 				matrix_4x4_set_identity_and_position(sp15C, &mtxs[2]);
 				matrix_4x4_multiply_homogeneous_in_place(&mtxs[1], &mtxs[2]);
 				matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), &mtxs[1], &sp16C);
-				sub_GAME_7F03F540(sp158, &sp16C, &tank_render->rect, (struct collision_data *) (&tank_render->collision));
+				collisionCalcFootprintFromBBox(sp158, &sp16C, &tank_render->rect, (struct collision_data *) (&tank_render->collision));
 
 				if (model->obj->Switches[7] != NULL)
 				{
@@ -8900,7 +8900,7 @@ ObjectRecord blank_07_object = {
     }, //mtx
     {0.0, 0.0, 0.0},//runtime_pos
     {0x00000000}, //runtime_bitflags
-    NULL, //ptr_allocated_collisiondata_block
+    NULL, //collisionBlock
     NULL, //projectile/embedment
     0.0f, //maxdamage
     1000.0f, //damage
@@ -9636,12 +9636,12 @@ void sub_GAME_7F04F244(PropRecord* prop, rect4f** polygon, s32* edges, f32* top,
     ObjectRecord* obj;
     obj = prop->obj;
 
-    if ((obj->ptr_allocated_collisiondata_block != NULL) && (obj->flags & PROPFLAG_00000100) && !(obj->state & PROPSTATE_20))
+    if ((obj->collisionBlock != NULL) && (obj->flags & PROPFLAG_00000100) && !(obj->state & PROPSTATE_20))
     {
-        *edges = obj->ptr_allocated_collisiondata_block->edges;
-        *polygon = &obj->ptr_allocated_collisiondata_block->polygon;
-        *bottom = obj->ptr_allocated_collisiondata_block->bottom;
-        *top = obj->ptr_allocated_collisiondata_block->top;
+        *edges = obj->collisionBlock->edges;
+        *polygon = &obj->collisionBlock->polygon;
+        *bottom = obj->collisionBlock->bottom;
+        *top = obj->collisionBlock->top;
         return;
     }
 
@@ -11048,7 +11048,7 @@ PropRecord *hatCreateForChr(ChrRecord *chr, s32 modelnum, u32 flags)
             { 0.0f, 0.0f, 0.0f }, // runtime_pos
 
             { 0x00000000 }, // runtime_bitflags
-            NULL, // ptr_allocated_collisiondata_block
+            NULL, // collisionBlock
             NULL, // projectile/embedment
             0.0f, // maxdamage
             1000.0f, // damage
@@ -11636,7 +11636,7 @@ WeaponObjRecord blank_08_object_preset_1 = {
     }, //mtx
     { 0.0, 0.0, 0.0 }, //runtime_pos
     {0x00000000 }, //runtime_bitflags
-    NULL, //ptr_allocated_collisiondata_block
+    NULL, //collisionBlock
     NULL, //projectile/embedment
     0.0f, //maxdamage
     1000.0f,//damage
@@ -11741,7 +11741,7 @@ WeaponObjRecord blank_08_object_preset_4001 = {
     }, //mtx
     {0.0, 0.0, 0.0},//runtime_pos
     {0x00000000}, //runtime_bitflags
-    NULL, //ptr_allocated_collisiondata_block
+    NULL, //collisionBlock
     NULL, //projectile/embedment
     0.0f, //maxdamage
     1000.0f, //damage
@@ -12128,29 +12128,29 @@ void doorUpdateBbox(DoorRecord *door)
 
     if (door->perimFrac <= door->openPosition)
     {
-        door->ptr_allocated_collisiondata_block->edges = 0;
+        door->collisionBlock->edges = 0;
 
         return;
     }
 
     door7F0526EC(door, &sp2C);
-    sub_GAME_7F03F540(&door->bbox, &sp2C, &door->ptr_allocated_collisiondata_block->polygon, door->ptr_allocated_collisiondata_block);
+    collisionCalcFootprintFromBBox(&door->bbox, &sp2C, &door->collisionBlock->polygon, door->collisionBlock);
 
     if (door->doorType == DOORTYPE_VERTICAL)
     {
-        door->ptr_allocated_collisiondata_block->bottom = door->runtime_pos.f[1] + chrpropSumMatrixPosY(&door->bbox, &sp2C);
+        door->collisionBlock->bottom = door->runtime_pos.f[1] + chrpropSumMatrixPosY(&door->bbox, &sp2C);
     }
     else if (door->doorType == DOORTYPE_FALLAWAY)
     {
-        door->ptr_allocated_collisiondata_block->bottom = door->runtime_pos.f[1] - 10000.0f;
+        door->collisionBlock->bottom = door->runtime_pos.f[1] - 10000.0f;
     }
     else
     {
-        door->ptr_allocated_collisiondata_block->bottom = sp2C.m[3][1] + chrpropSumMatrixPosY(&door->bbox, &sp2C);
+        door->collisionBlock->bottom = sp2C.m[3][1] + chrpropSumMatrixPosY(&door->bbox, &sp2C);
 
         if (door->doorFlags & DOORFLAG_EXTENDEDY)
         {
-            door->ptr_allocated_collisiondata_block->bottom -= 1000.0f;
+            door->collisionBlock->bottom -= 1000.0f;
         }
     }
 
@@ -12159,19 +12159,19 @@ void doorUpdateBbox(DoorRecord *door)
         )
     {
 
-        door->ptr_allocated_collisiondata_block->top = door->ptr_allocated_collisiondata_block->bottom + 50.0f;
+        door->collisionBlock->top = door->collisionBlock->bottom + 50.0f;
     }
     else if (door->doorType == DOORTYPE_FALLAWAY)
     {
-        door->ptr_allocated_collisiondata_block->top = door->runtime_pos.f[1] + 1000.0f;
+        door->collisionBlock->top = door->runtime_pos.f[1] + 1000.0f;
     }
     else
     {
-        door->ptr_allocated_collisiondata_block->top = sp2C.m[3][1] + chrpropSumMatrixNegY(&door->bbox, &sp2C);
+        door->collisionBlock->top = sp2C.m[3][1] + chrpropSumMatrixNegY(&door->bbox, &sp2C);
 
         if (door->doorFlags & DOORFLAG_EXTENDEDY)
         {
-            door->ptr_allocated_collisiondata_block->top += 1000.0f;
+            door->collisionBlock->top += 1000.0f;
         }
     }
 
@@ -12333,7 +12333,7 @@ PropRecord* doorInit(DoorRecord* door, coord3d* pos, Mtxf* mtx, StandTile* stan,
 
     prop = objInitWithAutoModel((ObjectRecord* ) door);
     scale = PitemZ_entries[door->obj].scale;
-    door->ptr_allocated_collisiondata_block = mempAllocBytesInBank(0x50U, MEMPOOL_STAGE);
+    door->collisionBlock = mempAllocBytesInBank(0x50U, MEMPOOL_STAGE);
 
     matrix_4x4_copy(mtx, &door->mtx);
     matrix_scalar_multiply(scale, door->mtx.m[0]);
@@ -12908,7 +12908,7 @@ void doorStartOpen(DoorRecord *door)
 
     if (door->doorType == DOORTYPE_FALLAWAY)
     {
-        struct collision_data *col = door->ptr_allocated_collisiondata_block;
+        struct collision_data *col = door->collisionBlock;
         door->flags |= PROPFLAG_CANNOT_ACTIVATE;
         door->perimFrac = 0;
 

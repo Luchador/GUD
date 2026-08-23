@@ -7546,7 +7546,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         sp138_tank_as_ObjectRecord->runtime_pos.f[2] = sp138_tank_as_ObjectRecord->prop->pos.f[2] = spE4.f[2];
 
         setupUpdateObjectRoomPosition(sp138_tank_as_ObjectRecord);
-        chrobjCollisionRelated(sp138_tank_as_ObjectRecord);
+        objUpdateCollisionVolume(sp138_tank_as_ObjectRecord);
         bondviewGetTankCollisionBounds(&spB4_tank_collision_bounds, &g_CurrentPlayer->field_488.collision_position, g_TankOrientationAngle);
         chraiGetPropRoomIds(sp138_tank_as_ObjectRecord->prop, &sp94);
 

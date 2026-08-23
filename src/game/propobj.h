@@ -78,7 +78,7 @@ void                 objApplyDamage(ObjectRecord *obj, f32 damage, coord3d *pos,
 void                 chrobjMaybeDetonateObjectIfFlags(ObjectRecord *arg0, f32 arg1, coord3d *arg2, ITEM_IDS item, s32 arg4);
 void                 sub_GAME_7F03FDA8(PropRecord *);
 void                 projectileSetSticky(PropRecord *);
-void                 chrobjCollisionRelated(ObjectRecord *);
+void                 objUpdateCollisionVolume(ObjectRecord *);
 void                 objChangeShading(ObjectRecord *, coord3d *, Mtxf *, StandTile *);
 s32                  projectileTestPropBoundingSphere(coord3d *arg0, coord3d *arg1, coord3d *arg2, f32 arg3);
 void                 sub_GAME_7F04F244(PropRecord *arg0, struct rect4f **arg1, s32 *arg2, f32 *arg3, f32 *arg4);

@@ -1486,7 +1486,7 @@ void gunInitProjectileObject(ObjectRecord *obj, coord3d *pos, StandTile *stan, M
         // loadobjectmodel.c
         setupUpdateObjectRoomPosition(obj);
 
-        chrobjCollisionRelated(obj);
+        objUpdateCollisionVolume(obj);
         sub_GAME_7F03FDA8(temp_s1);
 
         if (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
@@ -2071,7 +2071,7 @@ void gunUpdateAttachedRocket(s32 handIndex)
     matrix_scalar_multiply(attachedRocket->model->scale, (f32 *)&worldMtx);
 
     objChangeShading(attachedRocket, &entry->field_B58, &worldMtx, prop->stan);
-    chrobjCollisionRelated(attachedRocket);
+    objUpdateCollisionVolume(attachedRocket);
 
     rocketModel->render_pos = dynAllocate((s32)rocketModel->obj->numMatrices << 6);
 
