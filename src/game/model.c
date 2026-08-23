@@ -5580,9 +5580,6 @@ s32 modelCalculateRwDataIndexes(ModelNode *basenode)
 
 void modelCalculateRwDataLen(struct ModelFileHeader *objheader)
 {
-  #if defined(LEFTOVERDEBUG)
-    objheader->isLoaded = 1;
-  #endif
     objheader->numRecords = modelCalculateRwDataIndexes(objheader->RootNode);
 }
 
