@@ -1,16 +1,13 @@
 #include <ultra64.h>
 #include <memp.h>
 #include "model.h"
-#include "../rmon.h" /*<PR/rmon.h>*/
+#include "../rmon.h"
 #include "bondview.h"
 #include "chr.h"
 #include "chrobjdata.h"
 #include "gbi_extension.h"
-#include "initunk_005520.h"
 #include "gmath.h"
-#include "math_floor.h"
-#include "math_ceil.h"
-#include "math_unk_05A9E0.h"
+#include "initunk_005520.h"
 #include "objecthandler.h"
 #include "quaternion.h"
 #include "random.h"
@@ -36,9 +33,13 @@ bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef)
 }
 
 
+f32 modelGetBendStretchScale(f32 halfangle) 
+{
+    return sqrtf(((sinf(halfangle) / cosf(halfangle)) + 1.0f));
+}
+
+
 /**
- * Address: 7F06C094
- *
  * Allocates 0x20 bytes for a new model without animations.
  * Models that need animations use modelmgrInstantiateModelWithAnim.
  */

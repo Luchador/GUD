@@ -55,20 +55,14 @@ extern f32 g_SoloAmmoMultiplier;
 extern struct Model *g_CurrentProjectileModel;
 extern struct ModelNode *dword_CODE_bss_80075B74;
 
-#if defined(VERSION_EU)
-extern ExplosionDetailsRecordEuList object_explosion_details;
-#else
 extern ExplosionDetailsRecord object_explosion_details[];
-#endif
 
 /**
  * @param arg0: Prop for tank
  * @param arg1: maybe flags
  */
 void                 sub_GAME_7F04F218(struct PropRecord *arg0, s32 arg1);
-
 void                 objFreePermanently(struct ObjectRecord *obj, bool freeprop);
-
 void                 chrobjApplySpeed(f32 *openPosition, f32 maxFrac, f32 *speedPtr, f32 accel, f32 decel, f32 maxSpeed);
 void                 chrobjCallsApplySpeed(f32 *openPosition, f32 maxFrac, f32 *speedPtr, f32 accel, f32 decel, f32 maxSpeed);
 Gfx                 *weaponRenderTracers(Gfx *gdl);
@@ -92,13 +86,9 @@ void                 doorActivate(DoorRecord *door, DOORSTATE State);
 bool                 posIsInFrontOfDoor(PropRecord *prop, DoorRecord *door);
 void                 doorsChooseSwingDirection(PropRecord *arg0, DoorRecord *arg1);
 Gfx                 *chrobjRenderProp(PropRecord *arg0, Gfx *arg1, s32 arg2);
-
 f32                  chrobjFogVisRangeRelated(PropRecord *prop, f32 size);
 s32                  getPropCombinedRoomsBBox2D(PropRecord *prop, bbox2d *bbox);
-
-// note: rgba to rgb
 void                 trigger_remote_mine_detonation(void);
-
 void                 objDetach(PropRecord *prop);
 void                 objFreeEmbedmentOrProjectile(PropRecord *);
 void                 objBounce(ObjectRecord *obj, coord3d *arg1);

@@ -2,9 +2,9 @@
 #include "initactorpropstuff.h"
 #include "initanitable.h"
 #include "chr.h"
+#include "gmath.h"
 #include "gun.h"
 #include "math.h"
-#include "math_floor.h"
 
 
 /**

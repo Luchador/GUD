@@ -151,6 +151,124 @@ f32 asinf(f32 sinef)
 }
 
 
+/**
+ * Math.Ceiling function for floating point value; rounds towards
+ * positive infinitiy.
+ * 
+ * @param arg0 Value to ceiling.
+ * @return Returns float. If negative or zero, truncates to integral value. If
+ * positive integer, returns that value. Otherwise returns the next largest integral value.
+ */
+f32 ceilFloat(f32 arg0)
+{
+    f32 temp_f2;
+
+    if (arg0 <= 0.0f)
+    {
+        return (f32) (s32) arg0;
+    }
+
+    temp_f2 = (f32) (s32) arg0;
+    if (arg0 == temp_f2)
+    {
+        return temp_f2;
+    }
+
+    return temp_f2 + 1.0f;
+}
+
+
+/**
+ * Math.Ceiling function for floating point value; rounds towards
+ * positive infinitiy.
+ * 
+ * @param arg0 Value to ceiling.
+ * @return Returns signed int. If negative or zero, truncates to integer. If
+ * positive integer, returns that value. Otherwise returns the next largest integer.
+ */
+s32 ceilFloatToInt(f32 arg0)
+{
+    s32 temp_f8;
+
+    if (arg0 <= 0.0f)
+    {
+        return (s32) arg0;
+    }
+
+    temp_f8 = (s32) arg0;
+    if (arg0 == (f32) temp_f8)
+    {
+        return temp_f8;
+    }
+
+    return temp_f8 + 1;
+}
+
+
+/**
+ * Math.Floor function for floating point value; rounds towards
+ * negative infinitiy.
+ * 
+ * @param arg0 Value to floor.
+ * @return Returns float. If non-negative, returns closest integral value toward zero. If
+ * negative integer, returns that value. Otherwise returns the next lowest integral value.
+ */
+f32 floorFloat(f32 arg0)
+{
+    f32 temp_f2;
+
+    // Truncate if greater than zero
+    if (arg0 >= 0.0f)
+    {
+        return (f32) (s32) arg0;
+    }
+
+    // Negative value. If exact integer, return this value.
+    temp_f2 = (f32) (s32) arg0;
+    if (arg0 == temp_f2)
+    {
+        return temp_f2;
+    }
+
+    // Truncating above rounds towards a larger integer closest
+    // to zero, so this is the Math.Floor part which rounds
+    // towards negative infinitiy.
+    return temp_f2 - 1.0f;
+}
+
+
+/**
+ * Math.Floor function for floating point value; rounds towards
+ * negative infinitiy.
+ * 
+ * @param arg0 Value to floor.
+ * @return Returns signed int. If non-negative, returns closest integer value toward zero. If
+ * negative integer, returns that value. Otherwise returns the next lowest integer value.
+ */
+s32 floorFloatToInt(f32 arg0)
+{
+    s32 temp_f8;
+
+    // Truncate if greater than zero
+    if (arg0 >= 0.0f)
+    {
+        return (s32) arg0;
+    }
+
+    // Negative value. If exact integer, return this value.
+    temp_f8 = (s32) arg0;
+    if (arg0 == (f32) temp_f8)
+    {
+        return temp_f8;
+    }
+
+    // Truncating above rounds towards a larger integer closest
+    // to zero, so this is the Math.Floor part which rounds
+    // towards negative infinitiy.
+    return temp_f8 - 1;
+}
+
+
 void lerp_rgba_s32_with_rgba_f32(rgba_s32* dest, s32 enable, rgba_f32* src)
 {
     if (enable == 1)

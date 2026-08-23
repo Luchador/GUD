@@ -1090,7 +1090,7 @@ void musicTrack3Play(s32 track)
 
     if (romAddress < (void*)ROM_MUSIC_START_OFFSET)
     {
-        // Note: recursive call
+        // Recursive call.
         musicTrack3Play(M_SHORT_SOLO_DEATH);
 
         return;
@@ -1111,8 +1111,7 @@ void musicTrack3Play(s32 track)
 }
 
 /**
- * 82E0	700076E0
-* If sound boot flag is is set, nothing happens.
+ * If sound boot flag is is set, nothing happens.
  * Updates internal variables to stopped state, regardless of current state.
  * If there's a current track set, and the cseq player is "doing something", 
  * calls alCSPStop on sequence player. 

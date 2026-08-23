@@ -1543,22 +1543,17 @@ typedef union
 
 #pragma region Explosion Stuff
 
-        typedef struct ExplosionDetailsRecord
-        {
-            s16 TypeID;
-            s16 Seed[6];
-        } ExplosionDetailsRecord;
+    typedef struct ExplosionDetailsRecord
+    {
+        s16 TypeID;
+        s16 Seed[6];
+    } ExplosionDetailsRecord;
 
-        struct ExplosionDetailsRecordSeed
-        {
-            s16 seed[6];
-        };
+    struct ExplosionDetailsRecordSeed
+    {
+        s16 seed[6];
+    };
 
-        typedef struct ExplosionDetailsRecordEuList
-        {
-            u8                                typeids[344];
-            struct ExplosionDetailsRecordSeed seeds[105];
-        } ExplosionDetailsRecordEuList;
 #pragma endregion Explosion Stuff
 
 #pragma region Hit Structures

@@ -2,9 +2,6 @@
 #include "chrobjdata.h"
 #include "image.h"
 #include "gmath.h"
-#include "math_ceil.h"
-#include "math_floor.h"
-#include "math_unk_05A9E0.h"
 #include "model.h"
 #include "ob.h"
 #include "objecthandler.h"
@@ -12,12 +9,6 @@
 #include "tex.h"
 
 
-/***
- * Perfect Dark:
- * void modeldef0f1a7560(struct modeldef *modeldef, u16 filenum, u32 arg2, struct modeldef *modeldef2, struct texpool *texpool, bool arg5)
- * 
- * NTSC address 0x7F0762E0.
-*/
 void sub_GAME_7F0762E0(ModelFileHeader *objheader, u8 *name, u8 *dst, struct texpool *buffer)
 {
     ModelNode *node;

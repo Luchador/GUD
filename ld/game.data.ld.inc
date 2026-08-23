@@ -57,12 +57,9 @@
       build/OUTCODE/src/game/gmath.o (.data);
       build/OUTCODE/src/game/math_sincos.o (.data);
       build/OUTCODE/src/game/matrixmath.o (.data);
-      build/OUTCODE/src/game/math_unk_05A9E0.o (.data);
       build/OUTCODE/src/game/math_atan2f.o (.data);
       build/OUTCODE/src/game/matrixmath_misc.o (.data);
       build/OUTCODE/src/game/quaternion.o (.data);
-      build/OUTCODE/src/game/math_floor.o (.data);
-      build/OUTCODE/src/game/math_ceil.o (.data);
       build/OUTCODE/src/game/gun.o (.data);
       build/OUTCODE/src/game/gun_rodata.o (.data);
       build/OUTCODE/src/game/bondwalk2.o (.data);

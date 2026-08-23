@@ -1,3 +1,13 @@
+#include <ultra64.h>
+#include <assert.h>
+#include <bondaicommands.h>
+#include <bondgame.h>
+#include <bondtypes.h>
+#include <boss.h>
+#include <limits.h>
+#include <music.h>
+#include <random.h>
+#include <snd.h>
 #include "chrai.h"
 #include "bg.h"
 #include "bgfog.h"
@@ -8,14 +18,13 @@
 #include "chraction.h"
 #include "chraidata.h"
 #include "file.h"
+#include "gmath.h"
 #include "gun.h"
 #include "initanitable.h"
 #include "language.h"
 #include "loadobjectmodel.h"
 #include "lv.h"
 #include "math_atan2f.h"
-#include "math_ceil.h"
-#include "math_floor.h"
 #include "model.h"
 #include "mp_music.h"
 #include "objecthandler.h"
@@ -23,16 +32,7 @@
 #include "player.h"
 #include "propobj.h"
 #include "stan.h"
-#include <assert.h>
-#include <bondaicommands.h>
-#include <bondgame.h>
-#include <bondtypes.h>
-#include <boss.h>
-#include <limits.h>
-#include <music.h>
-#include <random.h>
-#include <snd.h>
-#include <ultra64.h>
+
 
 // hack? used to match as called with 2 args, but decompiled code takes 1
 extern s32 objectiveGetStatus_WEAK(s32 objectiveNum, s32);

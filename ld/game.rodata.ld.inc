@@ -57,12 +57,9 @@
       build/OUTCODE/src/game/gmath.o (.rodata);
       build/OUTCODE/src/game/math_sincos.o (.rodata);
       build/OUTCODE/src/game/matrixmath.o (.rodata);
-      build/OUTCODE/src/game/math_unk_05A9E0.o (.rodata);
       build/OUTCODE/src/game/math_atan2f.o (.rodata);
       build/OUTCODE/src/game/matrixmath_misc.o (.rodata);
       build/OUTCODE/src/game/quaternion.o (.rodata);
-      build/OUTCODE/src/game/math_floor.o (.rodata);
-      build/OUTCODE/src/game/math_ceil.o (.rodata);
       build/OUTCODE/src/game/gun.o (.rodata);
       build/OUTCODE/src/game/gun_rodata.o (.rodata);
       build/OUTCODE/src/game/gunfire.o (.rodata);
