@@ -8014,7 +8014,7 @@ void bondviewUpdateCurrentRoomPosition(s32 arg0)
     g_CurrentPlayer->current_room_pos.f[0] = g_CurrentPlayer->current_model_pos.f[0] * get_room_data_float1();
     g_CurrentPlayer->current_room_pos.f[1] = g_CurrentPlayer->current_model_pos.f[1] * get_room_data_float1();
     g_CurrentPlayer->current_room_pos.f[2] = g_CurrentPlayer->current_model_pos.f[2] * get_room_data_float1();
-    setPlayerRoomField(arg0);
+    setPlayerRoom(arg0);
 }
 
 

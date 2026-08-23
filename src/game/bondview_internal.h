@@ -34,7 +34,7 @@ extern s32 dword_CODE_bss_80079A14;
 extern enum CAMERAMODE dword_CODE_bss_80079A18;
 extern s32 dword_CODE_bss_80079A1C;
 extern s32 mission_timer;
-#if defined(VERSION_JP) || defined(VERSION_EU)
+#if defined(VERSION_JP)
 extern f32 watch_time_0;
 #else
 extern s32 watch_time_0;
