@@ -149,3 +149,19 @@ f32 asinf(f32 sinef)
 
     return (asin(sines) * M_PI_F) / 65535.0f;
 }
+
+
+void lerp_rgba_s32_with_rgba_f32(rgba_s32* dest, s32 enable, rgba_f32* src)
+{
+    if (enable == 1)
+    {
+        src->r *= 255.0f;
+        src->g *= 255.0f;
+        src->b *= 255.0f;
+
+        if (1) { dest->r = (s32)((src->a * (src->r - dest->r)) + dest->r); }
+        if (1) { dest->g = (s32)((src->a * (src->g - dest->g)) + dest->g); }
+        if (1) { dest->b = (s32)((src->a * (src->b - dest->b)) + dest->b); }
+        dest->a = (s32)((src->a * (255.0f - dest->a)) + dest->a);
+    }
+}

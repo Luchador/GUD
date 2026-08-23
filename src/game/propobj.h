@@ -97,7 +97,6 @@ f32                  chrobjFogVisRangeRelated(PropRecord *prop, f32 size);
 s32                  getPropCombinedRoomsBBox2D(PropRecord *prop, bbox2d *bbox);
 
 // note: rgba to rgb
-void                 lerp_rgba_s32_with_rgba_f32(rgba_s32 *arg0, s32 arg1, rgba_f32 *arg2);
 void                 trigger_remote_mine_detonation(void);
 
 void                 objDetach(PropRecord *prop);

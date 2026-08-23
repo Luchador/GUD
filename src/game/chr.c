@@ -16,6 +16,7 @@
 #include "debugmenu_handler.h"
 #include "dyn.h"
 #include "glass.h"
+#include "gmath.h"
 #include "file2.h"
 #include "propobj.h"
 #include "explosion.h"
