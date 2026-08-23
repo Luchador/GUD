@@ -189,20 +189,6 @@ char* chrobj_SwitchNames[] = {
     "SW_FLASH" };
 #endif
 #include <assets/obseg/prop/chrkalash/ModelFileHeader.inc.c>
-/*
-// ROOTNODE SKELETON           SWITCHES NUMSW   NUMJOINTS BOUNDRAD  NUMREC NUMTEX TEXTURES  SWITCHNAMES                 ISLOADED
-
-//D:80038CD0
-struct ModelFileHeader PchrkalashZeader = {
-    NULL,    &chrobjPchrSkeleton,    NULL,    3,    1,    403.53766,    0,    8,    NULL
-                                                                                        #ifdef DEBUG
-                                                                                            ,chrobj_SwitchNames
-                                                                                        #endif
-                                                                                                                            #if !defined(VERSION_EU)
-                                                                                                                                ,FALSE
-                                                                                                                            #endif
-    };
-*/
 #include <assets/obseg/prop/chrgrenadelaunch/ModelFileHeader.inc.c>
 #include <assets/obseg/prop/chrknife/ModelFileHeader.inc.c>
 #include <assets/obseg/prop/chrlaser/ModelFileHeader.inc.c>

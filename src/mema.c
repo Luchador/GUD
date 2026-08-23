@@ -29,11 +29,7 @@
  * pointers throughout the game code which mema cannot do.
  */
 
-#if defined(VERSION_EU)
-#define ALLOCATIONS_LENGTH 125
-#else
 #define ALLOCATIONS_LENGTH 509
-#endif
 
 typedef struct memaspace {
     s32 addr;

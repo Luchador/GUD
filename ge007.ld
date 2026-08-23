@@ -223,11 +223,7 @@ SECTIONS
    _bssSegmentSize = SIZEOF(.bss);
 
    _stacksSegmentStart = ADDR(.stacks);
-#if defined(VERSION_EU)
-   .stacks 0x803A1AB0 : 
-#else
    .stacks 0x803AB400 :
-#endif
    {
       build/OUTCODE/src/stacks.o (.bss);
    }

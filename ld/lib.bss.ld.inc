@@ -2,10 +2,6 @@
       build/OUTCODE/src/init.o (.bss);
       build/OUTCODE/src/sched.o (.bss);
       build/OUTCODE/src/osMapTLB.o (.bss);
-#ifdef VERSION_EU
-      build/OUTCODE/src/libultrare/io/vimgr.o (.bss);
-      build/OUTCODE/src/libultrare/io/pimgr.o (.bss);
-#endif
       build/OUTCODE/src/tlb_manage.o (.bss);
       build/OUTCODE/src/tlb_random.o (.bss);
       build/OUTCODE/src/tlb_resolve.o (.bss);
@@ -30,9 +26,6 @@
       build/OUTCODE/src/vi.o (.bss);
       build/OUTCODE/src/joy.o (.bss);
       build/OUTCODE/src/motor.o (.bss);
-#ifdef VERSION_EU
-      build/OUTCODE/src/libultrare/io/leointerrupt.o (.bss);
-#endif
       build/OUTCODE/src/rmon.o (.bss);
 #ifdef ENABLE_USB
       build/OUTCODE/src/usb.o (.bss);
@@ -53,9 +46,7 @@
       build/OUTCODE/src/libultra/os/stopthread.o (.bss);
       build/OUTCODE/src/libultra/os/setthreadpri.o (.bss);
       build/OUTCODE/src/libultra/os/getcount.o (.bss);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultrare/io/vimgr.o (.bss);
-#endif
       build/OUTCODE/src/libultrare/io/vitbl.o (.bss); /*edited*/
       build/OUTCODE/src/libultra/os/seteventmesg.o (.bss);
       build/OUTCODE/src/libultra/io/visetevent.o (.bss);
@@ -76,17 +67,6 @@
       build/OUTCODE/src/libultrare/io/sptask.o (.bss);
       build/OUTCODE/src/libultra/io/dpsetnextbuf.o (.bss);
       build/OUTCODE/src/libultra/io/sptaskyield.o (.bss);
-#ifdef VERSION_EU
-      build/OUTCODE/src/libultra/os/timerintr.o (.bss);
-      build/OUTCODE/src/libultra/os/getthreadpri.o (.bss);
-      build/OUTCODE/src/libultra/os/interrupt.o (.bss);
-      build/OUTCODE/src/libultrare/io/vi.o (.bss);
-      build/OUTCODE/src/libultra/io/vigetcurrcontext.o (.bss);
-      build/OUTCODE/src/libultra/io/viswapcontext.o (.bss);
-      build/OUTCODE/src/libultra/io/piacs.o (.bss);
-      build/OUTCODE/src/libultrare/io/epirawdma.o (.bss);
-      build/OUTCODE/src/libultrare/io/devmgr.o (.bss);
-#endif
       build/OUTCODE/src/libultra/os/gettlbhi.o (.bss);
       build/OUTCODE/src/libultra/os/virtualtophysical.o (.bss);
       build/OUTCODE/src/libultra/io/aisetfreq.o (.bss);
@@ -136,9 +116,7 @@
 #endif
       build/OUTCODE/src/libultra/libc/string.o (.bss);
       build/OUTCODE/src/libultrare/libc/xprintf.o (.bss);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultrare/io/pimgr.o (.bss);
-#endif
       build/OUTCODE/src/libultrare/io/pfsinit.o (.bss);
       build/OUTCODE/src/libultrare/io/controller.o (.bss);
       build/OUTCODE/src/libultra/io/contquery.o (.bss);
@@ -175,29 +153,20 @@
 #endif
       build/OUTCODE/src/libultra/libc/bzero.o (.bss);
       build/OUTCODE/src/libultra/os/sethwinterrupt.o (.bss);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultrare/io/leointerrupt.o (.bss);
       build/OUTCODE/src/libultra/os/interrupt.o (.bss);
       build/OUTCODE/src/libultra/os/timerintr.o (.bss);
-#endif
       build/OUTCODE/src/libultra/os/kdebugserver.o (.bss);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultra/os/getthreadpri.o (.bss);
       build/OUTCODE/src/libultrare/io/vi.o (.bss); /*edited*/
       build/OUTCODE/src/libultra/io/vigetcurrcontext.o (.bss);
       build/OUTCODE/src/libultra/io/viswapcontext.o (.bss);
-#endif
       build/OUTCODE/src/libultra/io/spgetstat.o (.bss);
       build/OUTCODE/src/libultra/io/spsetstat.o (.bss);
       build/OUTCODE/src/libultra/io/spsetpc.o (.bss);
       build/OUTCODE/src/libultra/io/sprawdma.o (.bss);
       build/OUTCODE/src/libultra/io/sp.o (.bss);
-      build/OUTCODE/src/libultra/io/dp.o (.bss);
-#ifdef VERSION_EU
-      build/OUTCODE/src/libultra/os/setcompare.o (.bss);
-      build/OUTCODE/src/libultra/os/resetglobalintmask.o (.bss);
-      build/OUTCODE/src/libultrare/io/epirawwrite.o (.bss);
-#endif      
+      build/OUTCODE/src/libultra/io/dp.o (.bss);  
       build/OUTCODE/src/libultra/os/probetlb.o (.bss);
       build/OUTCODE/src/libultra/audio/syndelete.o (.bss);
       build/OUTCODE/src/libultra/io/ai.o (.bss);
@@ -217,33 +186,25 @@
       build/OUTCODE/src/libultra/audio/seqplayer.o (.bss);
       build/OUTCODE/src/libultra/audio/synstartvoiceparam.o (.bss);
       build/OUTCODE/src/libultra/audio/copy.o (.bss);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultra/io/piacs.o (.bss);
-#endif
       build/OUTCODE/src/libultra/libc/xlitob.o (.bss);
       build/OUTCODE/src/libultra/libc/xldtob.o (.bss);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultrare/io/epirawdma.o (.bss);
       build/OUTCODE/src/libultrare/io/devmgr.o (.bss);
-#endif
       build/OUTCODE/src/libultra/io/contpfs.o (.bss);
       build/OUTCODE/src/libultra/io/si.o (.bss);
       build/OUTCODE/src/libultra/gu/normalize.o (.bss);
       build/OUTCODE/src/libultra/gu/sqrtf.o (.bss);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultrare/io/leodiskinit.o (.bss);
       build/OUTCODE/src/libultra/os/setcompare.o (.bss);
-#endif
       build/OUTCODE/src/libultra/audio/filter.o (.bss);
       build/OUTCODE/src/libultrare/audio/reverb.o (.bss); /*edited*/
       build/OUTCODE/src/libultra/gu/libm_vals.o (.bss); /*edited*/
       build/OUTCODE/src/libultra/audio/seq.o (.bss);
       build/OUTCODE/src/libultra/audio/synsetpriority.o (.bss);
       build/OUTCODE/src/libultra/libc/ldiv.o (.bss);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultra/os/resetglobalintmask.o (.bss);
       build/OUTCODE/src/libultrare/io/epirawwrite.o (.bss);
-#endif
       build/OUTCODE/src/libultra/io/vimodentsclan1.o (.bss);
       build/OUTCODE/src/libultrare/io/vimodepallan1.o (.bss);
       build/OUTCODE/src/libultrare/io/ultra80069080.o (.bss); /*edited*/

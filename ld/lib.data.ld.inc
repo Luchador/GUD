@@ -2,10 +2,6 @@
       build/OUTCODE/src/init.o (.data);
       build/OUTCODE/src/sched.o (.data);
       build/OUTCODE/src/osMapTLB.o (.data);
-#ifdef VERSION_EU
-      build/OUTCODE/src/libultrare/io/vimgr.o (.data);
-      build/OUTCODE/src/libultrare/io/pimgr.o (.data);
-#endif
       build/OUTCODE/src/tlb_manage.o (.data);
       build/OUTCODE/src/tlb_random.o (.data);
       build/OUTCODE/src/tlb_resolve.o (.data);
@@ -31,9 +27,6 @@
       build/OUTCODE/src/vi.o (.data);
       build/OUTCODE/src/joy.o (.data);
       build/OUTCODE/src/motor.o (.data);
-#ifdef VERSION_EU
-      build/OUTCODE/src/libultrare/io/leointerrupt.o (.data);
-#endif
       build/OUTCODE/src/rmon.o (.data);
 #ifdef ENABLE_USB
       build/OUTCODE/src/usb.o (.data);
@@ -53,9 +46,7 @@
       build/OUTCODE/src/libultra/os/stopthread.o (.data);
       build/OUTCODE/src/libultra/os/setthreadpri.o (.data);
       build/OUTCODE/src/libultra/os/getcount.o (.data);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultrare/io/vimgr.o (.data);
-#endif
       build/OUTCODE/src/libultrare/io/vitbl.o (.data); /*edited*/
       build/OUTCODE/src/libultra/os/seteventmesg.o (.data);
       build/OUTCODE/src/libultra/io/visetevent.o (.data);
@@ -76,17 +67,6 @@
       build/OUTCODE/src/libultrare/io/sptask.o (.data);
       build/OUTCODE/src/libultra/io/dpsetnextbuf.o (.data);
       build/OUTCODE/src/libultra/io/sptaskyield.o (.data);
-#ifdef VERSION_EU
-      build/OUTCODE/src/libultra/os/timerintr.o (.data);
-      build/OUTCODE/src/libultra/os/getthreadpri.o (.data);
-      build/OUTCODE/src/libultra/os/interrupt.o (.data);
-      build/OUTCODE/src/libultrare/io/vi.o (.data);
-      build/OUTCODE/src/libultra/io/vigetcurrcontext.o (.data);
-      build/OUTCODE/src/libultra/io/viswapcontext.o (.data);
-      build/OUTCODE/src/libultra/io/piacs.o (.data);
-      build/OUTCODE/src/libultrare/io/epirawdma.o (.data);
-      build/OUTCODE/src/libultrare/io/devmgr.o (.data);
-#endif
       build/OUTCODE/src/libultra/os/gettlbhi.o (.data);
       build/OUTCODE/src/libultra/os/virtualtophysical.o (.data);
       build/OUTCODE/src/libultra/io/aisetfreq.o (.data);
@@ -136,9 +116,7 @@
 #endif
       build/OUTCODE/src/libultra/libc/string.o (.data);
       build/OUTCODE/src/libultrare/libc/xprintf.o (.data);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultrare/io/pimgr.o (.data);
-#endif
       build/OUTCODE/src/libultrare/io/pfsinit.o (.data);
       build/OUTCODE/src/libultrare/io/controller.o (.data);
       build/OUTCODE/src/libultra/io/contquery.o (.data);
@@ -158,10 +136,6 @@
       build/OUTCODE/src/libultra/gu/ortho.o (.data);
       build/OUTCODE/src/libultra/gu/coss.o (.data);
       build/OUTCODE/src/libultra/gu/sins.o (.data);
-#ifdef VERSION_EU
-      build/OUTCODE/src/libultra/io/vimodentsclan1.o (.data);
-      build/OUTCODE/src/libultrare/io/vimodepallan1.o (.data);
-#endif
       build/OUTCODE/src/libultra/gu/translate.o (.data);
       build/OUTCODE/src/libultra/libc/bcmp.o (.data);
       build/OUTCODE/src/libultra/gu/scale.o (.data);
@@ -179,29 +153,20 @@
 #endif
       build/OUTCODE/src/libultra/libc/bzero.o (.data);
       build/OUTCODE/src/libultra/os/sethwinterrupt.o (.data);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultrare/io/leointerrupt.o (.data);
       build/OUTCODE/src/libultra/os/interrupt.o (.data);
       build/OUTCODE/src/libultra/os/timerintr.o (.data);
-#endif
       build/OUTCODE/src/libultra/os/kdebugserver.o (.data);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultra/os/getthreadpri.o (.data);
       build/OUTCODE/src/libultrare/io/vi.o (.data); /*edited*/
       build/OUTCODE/src/libultra/io/vigetcurrcontext.o (.data);
       build/OUTCODE/src/libultra/io/viswapcontext.o (.data);
-#endif
       build/OUTCODE/src/libultra/io/spgetstat.o (.data);
       build/OUTCODE/src/libultra/io/spsetstat.o (.data);
       build/OUTCODE/src/libultra/io/spsetpc.o (.data);
       build/OUTCODE/src/libultra/io/sprawdma.o (.data);
       build/OUTCODE/src/libultra/io/sp.o (.data);
       build/OUTCODE/src/libultra/io/dp.o (.data);
-#ifdef VERSION_EU
-      build/OUTCODE/src/libultra/os/setcompare.o (.data);
-      build/OUTCODE/src/libultra/os/resetglobalintmask.o (.data);
-      build/OUTCODE/src/libultrare/io/epirawwrite.o (.data);
-#endif
       build/OUTCODE/src/libultra/os/probetlb.o (.data);
       build/OUTCODE/src/libultra/audio/syndelete.o (.data);
       build/OUTCODE/src/libultra/io/ai.o (.data);
@@ -221,34 +186,26 @@
       build/OUTCODE/src/libultra/audio/seqplayer.o (.data);
       build/OUTCODE/src/libultra/audio/synstartvoiceparam.o (.data);
       build/OUTCODE/src/libultra/audio/copy.o (.data);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultra/io/piacs.o (.data);
-#endif
       build/OUTCODE/src/libultra/libc/xlitob.o (.data);
       build/OUTCODE/src/libultra/libc/xldtob.o (.data);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultrare/io/epirawdma.o (.data);
       build/OUTCODE/src/libultrare/io/devmgr.o (.data);
-#endif
       build/OUTCODE/src/libultra/io/contpfs.o (.data);
       build/OUTCODE/src/libultra/io/si.o (.data);
       build/OUTCODE/src/libultra/gu/normalize.o (.data);
       build/OUTCODE/src/libultra/gu/sqrtf.o (.data);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultrare/io/leodiskinit.o (.data);
       build/OUTCODE/src/libultra/os/setcompare.o (.data);
-#endif
       build/OUTCODE/src/libultra/audio/filter.o (.data);
       build/OUTCODE/src/libultrare/audio/reverb.o (.data); /*edited*/
       build/OUTCODE/src/libultra/gu/libm_vals.o (.data); /*edited*/
       build/OUTCODE/src/libultra/audio/seq.o (.data);
       build/OUTCODE/src/libultra/audio/synsetpriority.o (.data);
       build/OUTCODE/src/libultra/libc/ldiv.o (.data);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultra/os/resetglobalintmask.o (.data);
       build/OUTCODE/src/libultrare/io/epirawwrite.o (.data);
       build/OUTCODE/src/libultra/io/vimodentsclan1.o (.data);
       build/OUTCODE/src/libultrare/io/vimodepallan1.o (.data);
-#endif
       build/OUTCODE/src/libultrare/io/ultra80069080.o (.data); /*edited*/
       /*build/OUTCODE/src/libultra/libultra.a:libultra.o (.data);*/

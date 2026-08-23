@@ -42,11 +42,7 @@
 /**
  * Number of entries in the mapping table.
  */
-#ifndef VERSION_EU
 #define MAPPING_TABLE_COUNT 90
-#else
-#define MAPPING_TABLE_COUNT 93
-#endif
 
 #define TLB_SEGMENT_COUNT MAPPING_TABLE_COUNT
 

@@ -3,10 +3,6 @@
       build/OUTCODE/src/init.o (.rodata);
       build/OUTCODE/src/sched.o (.rodata);
       build/OUTCODE/src/osMapTLB.o (.rodata);
-#ifdef VERSION_EU
-      build/OUTCODE/src/libultrare/io/vimgr.o (.rodata);
-      build/OUTCODE/src/libultrare/io/pimgr.o (.rodata);
-#endif
       build/OUTCODE/src/tlb_manage.o (.rodata);
       build/OUTCODE/src/tlb_random.o (.rodata);
       build/OUTCODE/src/tlb_resolve.o (.rodata);
@@ -32,9 +28,6 @@
       build/OUTCODE/src/vi.o (.rodata);
       build/OUTCODE/src/joy.o (.rodata);
       build/OUTCODE/src/motor.o (.rodata);
-#ifdef VERSION_EU
-      build/OUTCODE/src/libultrare/io/leointerrupt.o (.rodata);
-#endif
       build/OUTCODE/src/rmon.o (.rodata);
 #ifdef ENABLE_USB
       build/OUTCODE/src/usb.o (.rodata);
@@ -55,9 +48,7 @@
       build/OUTCODE/src/libultra/os/stopthread.o (.rodata);
       build/OUTCODE/src/libultra/os/setthreadpri.o (.rodata);
       build/OUTCODE/src/libultra/os/getcount.o (.rodata);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultrare/io/vimgr.o (.rodata);
-#endif
       build/OUTCODE/src/libultrare/io/vitbl.o (.rodata); /*edited*/
       build/OUTCODE/src/libultra/os/seteventmesg.o (.rodata);
       build/OUTCODE/src/libultra/io/visetevent.o (.rodata);
@@ -78,17 +69,6 @@
       build/OUTCODE/src/libultrare/io/sptask.o (.rodata);
       build/OUTCODE/src/libultra/io/dpsetnextbuf.o (.rodata);
       build/OUTCODE/src/libultra/io/sptaskyield.o (.rodata);
-#ifdef VERSION_EU
-      build/OUTCODE/src/libultra/os/timerintr.o (.rodata);
-      build/OUTCODE/src/libultra/os/getthreadpri.o (.rodata);
-      build/OUTCODE/src/libultra/os/interrupt.o (.rodata);
-      build/OUTCODE/src/libultrare/io/vi.o (.rodata);
-      build/OUTCODE/src/libultra/io/vigetcurrcontext.o (.rodata);
-      build/OUTCODE/src/libultra/io/viswapcontext.o (.rodata);
-      build/OUTCODE/src/libultra/io/piacs.o (.rodata);
-      build/OUTCODE/src/libultrare/io/epirawdma.o (.rodata);
-      build/OUTCODE/src/libultrare/io/devmgr.o (.rodata);
-#endif
       build/OUTCODE/src/libultra/os/gettlbhi.o (.rodata);
       build/OUTCODE/src/libultra/os/virtualtophysical.o (.rodata);
       build/OUTCODE/src/libultra/io/aisetfreq.o (.rodata);
@@ -138,9 +118,7 @@
 #endif
       build/OUTCODE/src/libultra/libc/string.o (.rodata);
       build/OUTCODE/src/libultrare/libc/xprintf.o (.rodata);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultrare/io/pimgr.o (.rodata);
-#endif
       build/OUTCODE/src/libultrare/io/pfsinit.o (.rodata);
       build/OUTCODE/src/libultrare/io/controller.o (.rodata);
       build/OUTCODE/src/libultra/io/contquery.o (.rodata);
@@ -177,29 +155,20 @@
 #endif
       build/OUTCODE/src/libultra/libc/bzero.o (.rodata);
       build/OUTCODE/src/libultra/os/sethwinterrupt.o (.rodata);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultrare/io/leointerrupt.o (.rodata);
       build/OUTCODE/src/libultra/os/interrupt.o (.rodata);
       build/OUTCODE/src/libultra/os/timerintr.o (.rodata);
-#endif
       build/OUTCODE/src/libultra/os/kdebugserver.o (.rodata);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultra/os/getthreadpri.o (.rodata);
       build/OUTCODE/src/libultrare/io/vi.o (.rodata); /*edited*/
       build/OUTCODE/src/libultra/io/vigetcurrcontext.o (.rodata);
       build/OUTCODE/src/libultra/io/viswapcontext.o (.rodata);
-#endif
       build/OUTCODE/src/libultra/io/spgetstat.o (.rodata);
       build/OUTCODE/src/libultra/io/spsetstat.o (.rodata);
       build/OUTCODE/src/libultra/io/spsetpc.o (.rodata);
       build/OUTCODE/src/libultra/io/sprawdma.o (.rodata);
       build/OUTCODE/src/libultra/io/sp.o (.rodata);
       build/OUTCODE/src/libultra/io/dp.o (.rodata);
-#ifdef VERSION_EU
-      build/OUTCODE/src/libultra/os/setcompare.o (.rodata);
-      build/OUTCODE/src/libultra/os/resetglobalintmask.o (.rodata);
-      build/OUTCODE/src/libultrare/io/epirawwrite.o (.rodata);
-#endif
       build/OUTCODE/src/libultra/os/probetlb.o (.rodata);
       build/OUTCODE/src/libultra/audio/syndelete.o (.rodata);
       build/OUTCODE/src/libultra/io/ai.o (.rodata);
@@ -219,33 +188,25 @@
       build/OUTCODE/src/libultra/audio/seqplayer.o (.rodata);
       build/OUTCODE/src/libultra/audio/synstartvoiceparam.o (.rodata);
       build/OUTCODE/src/libultra/audio/copy.o (.rodata);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultra/io/piacs.o (.rodata);
-#endif
       build/OUTCODE/src/libultra/libc/xlitob.o (.rodata);
       build/OUTCODE/src/libultra/libc/xldtob.o (.rodata);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultrare/io/epirawdma.o (.rodata);
       build/OUTCODE/src/libultrare/io/devmgr.o (.rodata);
-#endif
       build/OUTCODE/src/libultra/io/contpfs.o (.rodata);
       build/OUTCODE/src/libultra/io/si.o (.rodata);
       build/OUTCODE/src/libultra/gu/normalize.o (.rodata);
       build/OUTCODE/src/libultra/gu/sqrtf.o (.rodata);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultrare/io/leodiskinit.o (.rodata);
       build/OUTCODE/src/libultra/os/setcompare.o (.rodata);
-#endif
       build/OUTCODE/src/libultra/audio/filter.o (.rodata);
       build/OUTCODE/src/libultrare/audio/reverb.o (.rodata); /*edited*/
       build/OUTCODE/src/libultra/gu/libm_vals.o (.rodata); /*edited*/
       build/OUTCODE/src/libultra/audio/seq.o (.rodata);
       build/OUTCODE/src/libultra/audio/synsetpriority.o (.rodata);
       build/OUTCODE/src/libultra/libc/ldiv.o (.rodata);
-#ifndef VERSION_EU
       build/OUTCODE/src/libultra/os/resetglobalintmask.o (.rodata);
       build/OUTCODE/src/libultrare/io/epirawwrite.o (.rodata);
-#endif
       build/OUTCODE/src/libultra/io/vimodentsclan1.o (.rodata);
       build/OUTCODE/src/libultrare/io/vimodepallan1.o (.rodata);
       build/OUTCODE/src/libultrare/io/ultra80069080.o (.rodata); /*edited*/
