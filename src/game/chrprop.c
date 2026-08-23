@@ -3273,8 +3273,7 @@ f32 chrpropSumMatrixNegZ(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *arg1)
  */
 void collisionCalcFootprintFromExtents(f32 x1, f32 x2, f32 y1, f32 y2, f32 z1, f32 z2, Mtxf *m, struct rect4f *poly, struct collision_data *collision)
 {
-    f64 pts[8][2];
-    f64 pad[1];
+    f32 pts[8][2];
     s32 i;
     s32 lim;
     s32 minxi = 0;
@@ -3283,18 +3282,18 @@ void collisionCalcFootprintFromExtents(f32 x1, f32 x2, f32 y1, f32 y2, f32 z1, f
     s32 maxzi = 0;
     s32 rem[4];
     s32 cnt;
-    f64 x1d = x1;
-    f64 x2d = x2;
-    f64 y1d = y1;
-    f64 y2d = y2;
-    f64 z1d = z1;
-    f64 z2d = z2;
-    f64 m00 = m->m[0][0];
-    f64 m02 = m->m[0][2];
-    f64 m10 = m->m[1][0];
-    f64 m12 = m->m[1][2];
-    f64 m20 = m->m[2][0];
-    f64 m22 = m->m[2][2];
+    f32 x1d = x1;
+    f32 x2d = x2;
+    f32 y1d = y1;
+    f32 y2d = y2;
+    f32 z1d = z1;
+    f32 z2d = z2;
+    f32 m00 = m->m[0][0];
+    f32 m02 = m->m[0][2];
+    f32 m10 = m->m[1][0];
+    f32 m12 = m->m[1][2];
+    f32 m20 = m->m[2][0];
+    f32 m22 = m->m[2][2];
 
     minzi = 0;
     pts[0][0] = ((m00 * x1d) + (m10 * y1d)) + (m20 * z1d);
