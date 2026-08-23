@@ -101,9 +101,6 @@ _musicsampletblSegmentRomEnd:
   .ifdef VERSION_JP
     .incbin "build\/j\/assets\/music\/\name\.rz"
   .endif
-  .ifdef VERSION_EU
-    .incbin "build\/e\/assets\/music\/\name\.rz"
-  .endif
   .ifdef VERSION_DEBUG
     .incbin "build\/d\/assets\/music\/\name\.rz"
   .endif
