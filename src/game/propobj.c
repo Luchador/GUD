@@ -53,7 +53,7 @@
 #include "vtxstore.h"
 
 
-#if defined(VERSION_JP) || defined(VERSION_EU)
+#if defined(VERSION_JP)
 #define MONITOR_TIMER_DELTA g_JP_GlobalTimerDelta
 #else
 #define MONITOR_TIMER_DELTA g_GlobalTimerDelta
@@ -82,34 +82,6 @@
 
 //Horizontal friction applied when projectile is sliding.
 #define PROJECTILE_FRICTION_FACTOR      0.9f
-
-#if defined(VERSION_EU)
-
-#define AUTOGUN_YAW_MAX_SPEED          0.0008377581f
-
-#define AUTOGUN_YAW_ACCEL_PER_FRAME    0.0000139626345f
-
-#define AUTOGUN_PITCH_ACCEL_PER_FRAME  0.0000069813173f
-
-#define AUTOGUN_PITCH_MAX_SPEED        0.00041887906f
-
-#define AUTOGUN_ALERT_ACCEL_PER_FRAME  0.0010471976f
-
-#define AUTOGUN_TRACKING_FRAMES 100
-
-#define TRUCK_TURN_ACCEL_PER_FRAME     0.0001308997f
-
-#define TRUCK_TURN_DECEL_PER_FRAME     0.0002617994f
-
-#define TRUCK_TURN_MAX_SPEED           0.007853982f
-
-#define PROJECTILE_LIFETIME_FRAMES 2000
-
-#define GRENADE_SMOKE_FRAMES 0xFB
-
-#define CCTV_ALARM_FRAMES 250.0f
-
-#else
 
 // 2.4 deg/s (2.4/60/(180/M_PI_F}))
 #define AUTOGUN_YAW_MAX_SPEED          0.00069813174f
@@ -144,7 +116,6 @@
 
 #define CCTV_ALARM_FRAMES 300.0f
 
-#endif
 
 
 /* From the decomp.me ctx -- not present in any repo header. Without the macro,
@@ -3233,20 +3204,10 @@ bool objEmbed(PropRecord *prop, PropRecord *parent, Model *model, ModelNode *nod
 }
 
 
-/**
- * Named same as Perfect Dark.
-*/
-#if defined(VERSION_JP) || defined(VERSION_EU)
-s32 propExplode(PropRecord *prop, s32 /* enum EXPLOSION_DEF */ explosionType)
-#else
 void propExplode(PropRecord *prop, s32 /* enum EXPLOSION_DEF */ explosionType)
-#endif
 {
     ObjectRecord *prop_obj; // sp92
     s32 playernum; // sp88
-#if defined(VERSION_JP) || defined(VERSION_EU)
-    s32 ret;
-#endif
     struct PropRecord *parent;
     struct StandTile *stan; // sp80
     struct coord3d pos;
@@ -3286,62 +3247,26 @@ void propExplode(PropRecord *prop, s32 /* enum EXPLOSION_DEF */ explosionType)
         if ((parent->flags & PROPFLAG_00000008) == 0
             && walkTilesBetweenPoints_NoCallback(&stan, parent->pos.f[0], parent->pos.f[2], pos.x, pos.z))
         {
-#if defined(VERSION_JP) || defined(VERSION_EU)
-    ret =
-#endif
             explosionCreate(0, &pos, stan, (s16) explosionType, (prop_obj->flags & 0xE) == 0, playernum, parent->rooms, 0);
         }
         else
         {
-#if defined(VERSION_JP) || defined(VERSION_EU)
-    ret =
-#endif
             explosionCreate(0, &pos, stan, (s16) explosionType, 0, playernum, parent->rooms, 1);
         }
     }
     else
     {
-#if defined(VERSION_JP) || defined(VERSION_EU)
-    ret =
-#endif
-        explosionCreate(
-            0,
-            &prop_obj->runtime_pos,
-            prop->stan,
-            (s16) explosionType,
-            (prop_obj->flags & 0xE) == 0 && (prop->flags & PROPFLAG_00000008) == 0,
-            playernum,
-            prop->rooms,
-            (prop->flags & PROPFLAG_00000008) != 0);
+        explosionCreate(0, &prop_obj->runtime_pos, prop->stan, (s16) explosionType, (prop_obj->flags & 0xE) == 0 && (prop->flags & PROPFLAG_00000008) == 0, playernum, prop->rooms, (prop->flags & PROPFLAG_00000008) != 0);
     }
-
-#if defined(VERSION_JP) || defined(VERSION_EU)
-    return ret;
-#endif
 }
 
 
-
-/**
- * US address 7F043D70.
- * JP address 7F044074.
- * EU address 7F043E34.
- *
- * Seems to be a subset of Perfect Dark weaponTick.
-*/
 void chrobjWeaponTick(struct PropRecord* prop)
 {
     struct ObjectRecord* obj;
     struct WeaponObjRecord *weapon;
-#if defined(VERSION_US)
     u32 owner_player_number;
     u32 owner_player_as_bitflag;
-#else
-    s32 exp_result;
-    u32 owner_player_number;
-    s32 p1;
-    u32 owner_player_as_bitflag;
-#endif
     struct PropRecord* player_prop;
     f32 diff_x;
     f32 diff_z;
@@ -3354,7 +3279,7 @@ void chrobjWeaponTick(struct PropRecord* prop)
         return;
     }
 
-    if (obj->type == PROP_TYPE_EXPLOSION) // 7
+    if (obj->type == PROP_TYPE_EXPLOSION)
     {
         if (obj->flags & PROPFLAG_IS_DRONE_GUN)
         {
@@ -3365,7 +3290,7 @@ void chrobjWeaponTick(struct PropRecord* prop)
         return;
     }
 
-    if (obj->type == PROP_TYPE_SMOKE) // 8
+    if (obj->type == PROP_TYPE_SMOKE)
     {
         weapon = prop->weapon;
 
@@ -3403,15 +3328,7 @@ void chrobjWeaponTick(struct PropRecord* prop)
 
             if (weapon->timer < 0)
             {
-#if defined(VERSION_US)
                 propExplode(prop, (obj->flags2 & PROPFLAG2_DOOR_ALTCOORDSYSTEM) ? EXPLOSION_DEF_MASSIVE : EXPLOSION_DEF_STANDARD);
-#else
-                exp_result = propExplode(prop, (obj->flags2 & PROPFLAG2_DOOR_ALTCOORDSYSTEM) ? EXPLOSION_DEF_MASSIVE : EXPLOSION_DEF_STANDARD);
-                if (exp_result == 0)
-                {
-                    return;
-                }
-#endif
                 weapon->timer = -1;
                 obj->runtime_bitflags |= RUNTIMEBITFLAG_REMOVE;
 
@@ -3440,7 +3357,6 @@ void chrobjWeaponTick(struct PropRecord* prop)
             }
             else if (weapon->timer == 0)
             {
-#if defined(VERSION_US)
                 if (obj->flags2 & PROPFLAG2_DOOR_ALTCOORDSYSTEM)
                 {
                     propExplode(prop, EXPLOSION_DEF_MASSIVE);
@@ -3453,27 +3369,6 @@ void chrobjWeaponTick(struct PropRecord* prop)
                 {
                     propExplode(prop, EXPLOSION_DEF_STANDARD);
                 }
-#else
-                if (obj->flags2 & PROPFLAG2_DOOR_ALTCOORDSYSTEM)
-                {
-                    p1 = EXPLOSION_DEF_MASSIVE;
-                }
-                else
-                {
-                    p1 = EXPLOSION_DEF_STANDARD;
-
-                    if (bossGetStageNum() == LEVELID_FACILITY)
-                    {
-                        p1 = EXPLOSION_DEF_FACILITY_REMOTE;
-                    }
-                }
-
-                exp_result = propExplode(prop, p1);
-                if (exp_result == 0)
-                {
-                    return;
-                }
-#endif
                 weapon->timer = -1;
                 obj->runtime_bitflags |= RUNTIMEBITFLAG_REMOVE;
             }
@@ -3507,16 +3402,7 @@ void chrobjWeaponTick(struct PropRecord* prop)
 
             if (weapon->timer == 0)
             {
-#if defined(VERSION_US)
                 propExplode(prop, (obj->flags2 & PROPFLAG2_DOOR_ALTCOORDSYSTEM) ? EXPLOSION_DEF_MASSIVE : EXPLOSION_DEF_STANDARD);
-#else
-                exp_result = propExplode(prop, (obj->flags2 & PROPFLAG2_DOOR_ALTCOORDSYSTEM) ? EXPLOSION_DEF_MASSIVE : EXPLOSION_DEF_STANDARD);
-                if (exp_result == 0)
-                {
-                    return;
-                }
-#endif
-
                 weapon->timer = -1;
                 obj->runtime_bitflags |= RUNTIMEBITFLAG_REMOVE;
                 remove_obj_from_temp_proxmine_table(weapon);
@@ -3548,6 +3434,7 @@ void sub_GAME_7F04424C(PropRecord* prop)
     PropRecord* child;
 
     obj = prop->obj;
+
     if (obj->runtime_bitflags & RUNTIMEBITFLAG_REMOVE)
     {
         objFree(obj, 1, obj->state & PROPSTATE_RESPAWN);
@@ -3619,11 +3506,9 @@ void sub_GAME_7F0442DC(PropRecord* prop)
 
 
 /**
- * Address: 7F044414
  * Description: Separating Axis Theorem
  *
  * Return true if both blocks are not intersecting on the X/Z plane.
- * PD: cdBlockExcludesBlockLaterally
  */
 bool chrobjSeparatingAxisTheorem(rect4f* rect1, s32 numvertices0, rect4f* rect2, s32 numvertices1)
 {
@@ -3693,9 +3578,6 @@ bool chrobjSeparatingAxisTheorem(rect4f* rect1, s32 numvertices0, rect4f* rect2,
 
 
 /**
- * Address 0x7F0446B8 (NTSC)
- * Address 0x7F0449A0 (NTSC-J)
- *
  * Description: Does a 2D collision check between two (convex?) polygons.
  *
  * Note: The NTSC version is 7 to 8 times faster than the others.

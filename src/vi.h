@@ -5,8 +5,6 @@
 extern OSMesg vi_c_debug_MSG[0x8];
 extern OSMesgQueue vi_c_debug_MQ;
 
-extern u32 viDLEnd[];
-
 void viInit(void);
 
 #endif

@@ -573,11 +573,7 @@ void weaponAssignToHome(s32 arg0, WeaponObjRecord* weapon, s32 cmdindex)
 
                     weapon->weaponnum = weapon_set[temp_a0].itemID;
                     weapon->obj = weapon_set[temp_a0].propID;
-#if defined(VERSION_EU)
-                    weapon->extrascale = (weapon_set[temp_a0].size16);
-#else
                     weapon->extrascale = (weapon_set[temp_a0].size * 256.0f);
-#endif
 
                     giveweapon = weapon_set[temp_a0].allowpickup;
 
