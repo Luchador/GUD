@@ -2366,7 +2366,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                     Offset += sizeof(AiChrEquipObjectRecord);
                     break;
                 }
-                case AI_MoveObject: // canonicly aiMoveObj
+                case AI_MoveObject:
                 {
                     AiMoveObjectRecord *ai  = AiListp + Offset;
                     ObjectRecord       *obj = objFindByTagId(ai->OBJECT_TAG);
@@ -2393,7 +2393,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                         {
                             matrix_scalar_multiply(obj->model->scale, &matrix);
                         }
-                        sub_GAME_7F04088C(obj, &pad->pos, &matrix, pad->stan, &pad->pos);
+                        objPlaceAtPad(obj, &pad->pos, &matrix, pad->stan, &pad->pos);
                         setupUpdateObjectRoomPosition(obj);
                     }
                     Offset += sizeof(AiMoveObjectRecord);

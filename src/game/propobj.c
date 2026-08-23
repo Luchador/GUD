@@ -683,36 +683,34 @@ void objChangeShading(ObjectRecord* obj, coord3d* pos, Mtxf* matrix, StandTile* 
 }
 
 
-//moveToPad
-void sub_GAME_7F04088C(ObjectRecord *baseobj, struct coord3d *pos, Mtxf *matrix, StandTile *stan, struct coord3d *pos2)
+void objPlaceAtPad(ObjectRecord *baseobj, struct coord3d *pos, Mtxf *matrix, StandTile *stan, struct coord3d *pos2)
 {
-    int padd[1];
     ModelRoData_BoundingBoxRecord *modelBoundingBox;
-    f32 xmax;
-    f32 ymin;
+    f32 bboxYmin;
+    f32 bboxYmax;
     coord3d newPos;
     StandTile *mStan;
     Mtxf mtxcopy;
 
     modelBoundingBox = chrobjGetBboxFromObjFile(baseobj->model->obj);
-    xmax = chrpropBBOXGetYmin(modelBoundingBox);
-    ymin = chrpropBBOXGetYmax(modelBoundingBox);
+    bboxYmin = chrpropBBOXGetYmin(modelBoundingBox);
+    bboxYmax = chrpropBBOXGetYmax(modelBoundingBox);
     mStan = stan;
 
-    if (baseobj->flags & 4)
+    if (baseobj->flags & PROPFLAG_UPSIDEDOWN)
     {
         matrix_4x4_set_rotation_around_z(M_PI, &mtxcopy);
         matrix_4x4_multiply_in_place(matrix, &mtxcopy);
-        newPos.x = pos2->f[0] - (mtxcopy.m[1][0] * ymin);
-        newPos.y = pos2->f[1] - (mtxcopy.m[1][1] * ymin);
-        newPos.z = pos2->f[2] - (mtxcopy.m[1][2] * ymin);
+        newPos.x = pos2->f[0] - (mtxcopy.m[1][0] * bboxYmax);
+        newPos.y = pos2->f[1] - (mtxcopy.m[1][1] * bboxYmax);
+        newPos.z = pos2->f[2] - (mtxcopy.m[1][2] * bboxYmax);
     }
-    else if (baseobj->flags & 8)
+    else if (baseobj->flags & PROPFLAG_INAIR)
     {
         matrix_4x4_copy(matrix, &mtxcopy);
-        newPos.x = pos2->f[0] - (mtxcopy.m[1][0] * xmax);
-        newPos.y = pos2->f[1] - (mtxcopy.m[1][1] * xmax);
-        newPos.z = pos2->f[2] - (mtxcopy.m[1][2] * xmax);
+        newPos.x = pos2->f[0] - (mtxcopy.m[1][0] * bboxYmin);
+        newPos.y = pos2->f[1] - (mtxcopy.m[1][1] * bboxYmin);
+        newPos.z = pos2->f[2] - (mtxcopy.m[1][2] * bboxYmin);
     }
     else
     {
@@ -726,8 +724,8 @@ void sub_GAME_7F04088C(ObjectRecord *baseobj, struct coord3d *pos, Mtxf *matrix,
         distfromTileCenter = stanGetPositionYValue(mStan, pos->f[0], pos->f[2]);
 
         matrix_4x4_copy(matrix, &mtxcopy);
-        newPos.x = pos2->f[0] - (mtxcopy.m[1][0] * xmax);
-        newPos.z = pos2->f[2] - (mtxcopy.m[1][2] * xmax);
+        newPos.x = pos2->f[0] - (mtxcopy.m[1][0] * bboxYmin);
+        newPos.z = pos2->f[2] - (mtxcopy.m[1][2] * bboxYmin);
         roomObj  = sub_GAME_7F03FAB0(pos, stan->room);
 
         if (roomObj)
@@ -735,41 +733,35 @@ void sub_GAME_7F04088C(ObjectRecord *baseobj, struct coord3d *pos, Mtxf *matrix,
             PropRecord *roomObjProp = roomObj->prop;
             chraiGetCollisionBounds(roomObjProp, &byrefA, &byrefB, &byrefC, &byrefD);
 
-            if ((distfromTileCenter < byrefC) && (byrefD < ((mtxcopy.m[1][1] * (ymin - xmax)) + distfromTileCenter + 4.0f)))
+            if ((distfromTileCenter < byrefC) && (byrefD < ((mtxcopy.m[1][1] * (bboxYmax - bboxYmin)) + distfromTileCenter + 4.0f)))
             {
-                newPos.y = byrefC - (mtxcopy.m[1][1] * xmax);
+                newPos.y = byrefC - (mtxcopy.m[1][1] * bboxYmin);
                 baseobj->runtime_bitflags |= RUNTIMEBITFLAG_00008000;
             }
             else
             {
-                newPos.y = (distfromTileCenter - (mtxcopy.m[1][1] * xmax)) + 4.0f;
+                newPos.y = (distfromTileCenter - (mtxcopy.m[1][1] * bboxYmin)) + 4.0f;
             }
         }
         else
         {
-            newPos.y = (distfromTileCenter - (mtxcopy.m[1][1] * xmax)) + 4.0f;
+            newPos.y = (distfromTileCenter - (mtxcopy.m[1][1] * bboxYmin)) + 4.0f;
         }
     }
 
-    if (!(baseobj->flags2 & 1) && walkTilesBetweenPoints_NoCallback(&mStan, pos->f[0], pos->f[2], newPos.x, newPos.z))
+    if (!(baseobj->flags2 & PROPFLAG2_DRONEGUN) && walkTilesBetweenPoints_NoCallback(&mStan, pos->f[0], pos->f[2], newPos.x, newPos.z))
     {
         objChangeShading(baseobj, &newPos, &mtxcopy, mStan);
     }
     else
     {
         objChangeShading(baseobj, pos, &mtxcopy, stan);
-        if ((baseobj->flags2 & 1) || (baseobj->flags & 0x1000))
+        if ((baseobj->flags2 & PROPFLAG2_DRONEGUN) || (baseobj->flags & PROPFLAG_ABSOLUTEPOSITION))
         {
             baseobj->runtime_pos.x = newPos.x;
             baseobj->runtime_pos.y = newPos.y;
             baseobj->runtime_pos.z = newPos.z;
         }
-        #ifdef DEBUG
-        else
-        {
-            osSyncPrintf("prop not positioned correctly!\n");
-        }
-        #endif
     }
 
     objUpdateCollisionVolume(baseobj);

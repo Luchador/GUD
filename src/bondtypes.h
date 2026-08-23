@@ -1594,27 +1594,28 @@ typedef union
     } ShotData;
 
     typedef struct ModelHitEntry {
-        struct Model *model;                  /* 0x00 */
-        struct ModelNode *rootnode;           /* 0x04 */
-        f32 sortvalue;                        /* 0x08 */
-        struct ModelHitEntry *next;           /* 0x0c */
-        struct ModelHitEntry *prev;           /* 0x10 */
+        struct Model *model;            /* 0x00 */
+        struct ModelNode *rootnode;     /* 0x04 */
+        f32 sortvalue;                  /* 0x08 */
+        struct ModelHitEntry *next;     /* 0x0c */
+        struct ModelHitEntry *prev;     /* 0x10 */
     } ModelHitEntry;
 
 #pragma endregion Hit Structures
 
 #pragma region PadAndPaths
+
     /**
      * Pads hold a location in space and are tied to a specified Stand Tile.
      * Other attributes include its rotation and normal.
      */
     typedef struct PadRecord /*0x2c (44) long confirmed*/
     {
-        coord3d    pos;   /*0x00*/
-        coord3d    up;    /*0x0c*/
-        coord3d    look;  /*0x18*/
-        char      *plink; /*0x24 canonical name */
-        StandTile *stan;  /*0x28 canonical name */
+        coord3d    pos;    /* 0x00 */
+        coord3d    up;     /* 0x0c */
+        coord3d    look;   /* 0x18 */
+        char      *plink;  /* 0x24 */
+        StandTile *stan;   /* 0x28 */
     } PadRecord;
 
     /**
@@ -1623,16 +1624,13 @@ typedef union
      */
     typedef struct BoundPadRecord /*0x44 (68) long confirmed*/
     {
-        //inherits PadRecord; /*0x00 confirmed*/
-        coord3d    pos;       /*0x00*/
-        coord3d    up;        /*0x0c*/
-        coord3d    look;      /*0x18*/
-        char *     plink;     /*0x24 canonical name */
-        StandTile *stan;      /*0x28 canonical name */
-        //temporary fix for no inheritance support by glibtools
-        bbox     bbox;      /*0x2c - 0x40 confirmed*/
+        coord3d    pos;     /* 0x00 */
+        coord3d    up;      /* 0x0c */
+        coord3d    look;    /* 0x18 */
+        char *     plink;   /* 0x24 */
+        StandTile *stan;    /* 0x28 */
+        bbox       bbox;    /* 0x2c */
     } BoundPadRecord;
-
 
     /**
      //##Paths

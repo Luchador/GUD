@@ -27,18 +27,18 @@
 #include "model.h"
 #include "token.h"
 
-/**
- * EU .bss 0x80068480
-*/
+
 ITEM_IDS lastmpweaponnum;
+
+extern f32 g_DoorScale;
 
 // redeclare with the element count so ARRAYCOUNT works in proplvreset2
 extern ItemModelFileRecord PitemZ_entries[341];
 
-// forward declarations
+// Begin forward declarations.
 
 s32 load_proptype(PROPDEF_TYPE type);
-void sub_GAME_7F001BD4(struct BoundPadRecord *pad, struct coord3d *arg1);
+void padGetCenter(struct BoundPadRecord *pad, struct coord3d *centerPoint);
 void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex);
 void weaponAssignToHome(s32 arg0, WeaponObjRecord* weapon, s32 cmdindex);
 void setupHat(s32 arg0, ObjectRecord* hat, s32 cmdindex);
@@ -48,8 +48,10 @@ void setupAutogun(s32 stageID, AutogunRecord *autogun, s32 cmdindex);
 void setupHangingMonitors(s32 arg0, ObjectRecord* rack, s32 cmdindex);
 void setupSingleMonitor(s32 stageID, MonitorObjRecord *monitor, s32 cmdindex);
 void setupMultiMonitor(s32 stageID, MultiMonitorObjRecord* monitor, s32 cmdindex);
-void sub_GAME_7F00324C(struct BoundPadRecord *arg0, s32 *arg1, s32 *arg2, struct coord3d *arg3, struct coord3d *arg4);
+void setupGetDoorAdjacentRooms(struct BoundPadRecord *pad, s32 *frontRoom, s32 *backRoom, struct coord3d *frontProbePos, struct coord3d *backProbePos);
 void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2);
+
+// End forward declarations.
 
 
 s32 load_proptype(PROPDEF_TYPE type)
@@ -72,12 +74,7 @@ s32 load_proptype(PROPDEF_TYPE type)
 }
 
 
-/**
- * perfect dark padGetCentre (pad.c)
- *
- * NTSC address 0x7F001BD4.
-*/
-void sub_GAME_7F001BD4(struct BoundPadRecord *pad, struct coord3d *arg1)
+void padGetCenter(struct BoundPadRecord *pad, struct coord3d *centerPoint)
 {
     struct coord3d normal;
     f32 scale;
@@ -102,26 +99,24 @@ void sub_GAME_7F001BD4(struct BoundPadRecord *pad, struct coord3d *arg1)
     normal.f[1] *= scale;
     normal.f[2] *= scale;
 
-    arg1->f[0] = pad->pos.f[0] + (
+    centerPoint->f[0] = pad->pos.f[0] + (
 			(bb.zmax + bb.zmin) * normal.f[0] +
 			(bb.ymax + bb.ymin) * pad->up.f[0] +
 			(bb.xmax + bb.xmin) * pad->look.f[0]) * 0.5f;
 
-	arg1->f[1] = pad->pos.f[1] + (
+	centerPoint->f[1] = pad->pos.f[1] + (
 			(bb.zmax + bb.zmin) * normal.f[1] +
 			(bb.ymax + bb.ymin) * pad->up.f[1] +
 			(bb.xmax + bb.xmin) * pad->look.f[1]) * 0.5f;
 
-	arg1->f[2] = pad->pos.f[2] + (
+	centerPoint->f[2] = pad->pos.f[2] + (
 			(bb.zmax + bb.zmin) * normal.f[2] +
 			(bb.ymax + bb.ymin) * pad->up.f[2] +
 			(bb.xmax + bb.xmin) * pad->look.f[2]) * 0.5f;
 
 }
 
-/**
- * NTSC address 0x7F001D9C.
-*/
+
 void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
 {
     s32 padding;
@@ -249,9 +244,9 @@ void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
 
             matrix_4x4_set_basis_and_position_target(&sp8C, 0.0f, 0.0f, 0.0f, -var_s0->look.f[0], -var_s0->look.f[1], -var_s0->look.f[2], var_s0->up.f[0], var_s0->up.f[1], var_s0->up.f[2]);
 
-            if (!(arg1->flags2 & PROPFLAG2_00000001))
+            if (!(arg1->flags2 & PROPFLAG2_DRONEGUN))
             {
-                sub_GAME_7F001BD4(var_s0, &spD0);
+                padGetCenter(var_s0, &spD0);
 
                 sp80.f[0] = spD0.f[0] + (var_s0->up.f[0] * ((var_s0->bbox.ymin - var_s0->bbox.ymax) * 0.5f));
                 sp80.f[1] = spD0.f[1] + (var_s0->up.f[1] * ((var_s0->bbox.ymin - var_s0->bbox.ymax) * 0.5f));
@@ -284,7 +279,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
 
                 spCC = var_s0->stan;
 
-                sub_GAME_7F001BD4(var_s0, &sp80);
+                padGetCenter(var_s0, &sp80);
 
                 sp80.f[0] += (var_s0->bbox.ymin - var_s0->bbox.ymax) * 0.5f * var_s0->up.f[0];
                 sp80.f[1] += (var_s0->bbox.ymin - var_s0->bbox.ymax) * 0.5f * var_s0->up.f[1];
@@ -466,7 +461,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
             }
             else
             {
-                sub_GAME_7F04088C(arg1, &spE0, &sp8C, spDC, &sp80);
+                objPlaceAtPad(arg1, &spE0, &sp8C, spDC, &sp80);
             }
 
             setupUpdateObjectRoomPosition(arg1);
@@ -851,94 +846,86 @@ void setupMultiMonitor(s32 stageID, MultiMonitorObjRecord* monitor, s32 cmdindex
     domakedefaultobj(stageID, monitor, cmdindex);
 }
 
-void sub_GAME_7F00324C(struct BoundPadRecord *arg0, s32 *arg1, s32 *arg2, struct coord3d *arg3, struct coord3d *arg4)
+
+/**
+ * Determines which rooms lie on either side of a bound pad by probing 50 units along the pad's normal (up × look) from its center.
+ * Used by setupDoor to discover the pair of rooms a door connects, for its portal. If both probes reach the same room *backRoom is set to -1.
+ */
+void setupGetDoorAdjacentRooms(struct BoundPadRecord *pad, s32 *frontRoom, s32 *backRoom, struct coord3d *frontProbePos, struct coord3d *backProbePos)
 {
-    StandTile *sp4C;
+    StandTile *walkStan;
     struct coord3d normal;
-    s32 padding;
     struct coord3d center;
-    StandTile *sp2C;
+    StandTile *centerStan;
     f32 scale;
 
-    sub_GAME_7F001BD4(arg0, &center);
-    sp2C = (StandTile *)arg0->stan;
+    padGetCenter(pad, &center);
+    centerStan = (StandTile *)pad->stan;
 
-    if (walkTilesBetweenPoints_NoCallback(&sp2C, arg0->pos.f[0], arg0->pos.f[2], center.f[0], center.f[2]) == 0)
+    if (walkTilesBetweenPoints_NoCallback(&centerStan, pad->pos.f[0], pad->pos.f[2], center.f[0], center.f[2]) == 0)
     {
-        sp2C = (StandTile *)arg0->stan;
-        center.f[0] = arg0->pos.f[0];
-        center.f[1] = arg0->pos.f[1];
-        center.f[2] = arg0->pos.f[2];
+        centerStan = (StandTile *)pad->stan;
+        center.f[0] = pad->pos.f[0];
+        center.f[1] = pad->pos.f[1];
+        center.f[2] = pad->pos.f[2];
     }
 
-    normal.f[0] = (arg0->up.f[1] * arg0->look.f[2]) - (arg0->up.f[2] * arg0->look.f[1]);
-    normal.f[1] = (arg0->up.f[2] * arg0->look.f[0]) - (arg0->up.f[0] * arg0->look.f[2]);
-    normal.f[2] = (arg0->up.f[0] * arg0->look.f[1]) - (arg0->up.f[1] * arg0->look.f[0]);
+    normal.f[0] = (pad->up.f[1] * pad->look.f[2]) - (pad->up.f[2] * pad->look.f[1]);
+    normal.f[1] = (pad->up.f[2] * pad->look.f[0]) - (pad->up.f[0] * pad->look.f[2]);
+    normal.f[2] = (pad->up.f[0] * pad->look.f[1]) - (pad->up.f[1] * pad->look.f[0]);
 
     scale = 1.0f / sqrtf(((normal.f[0] * normal.f[0]) + (normal.f[1] * normal.f[1])) + (normal.f[2] * normal.f[2]));
-    sp4C = sp2C;
+    walkStan = centerStan;
 
     normal.f[0] *= scale;
     normal.f[1] *= scale;
     normal.f[2] *= scale;
 
-    arg3->f[0] = center.f[0] + (normal.f[0] * 50.0f);
-    arg3->f[1] = center.f[1];
-    arg3->f[2] = center.f[2] + (normal.f[2] * 50.0f);
+    frontProbePos->f[0] = center.f[0] + (normal.f[0] * 50.0f);
+    frontProbePos->f[1] = center.f[1];
+    frontProbePos->f[2] = center.f[2] + (normal.f[2] * 50.0f);
 
+    walkTilesBetweenPoints_NoCallback(&walkStan, center.f[0], center.f[2], frontProbePos->f[0], frontProbePos->f[2]);
 
-    walkTilesBetweenPoints_NoCallback(&sp4C, center.f[0], center.f[2], arg3->f[0], arg3->f[2]);
+    *frontRoom = (s32) walkStan->room;
+    walkStan = centerStan;
 
-    if (1);
+    backProbePos->f[0] = center.f[0] - (normal.f[0] * 50.0f);
+    backProbePos->f[1] = center.f[1];
+    backProbePos->f[2] = center.f[2] - (normal.f[2] * 50.0f);
 
-    *arg1 = (s32) sp4C->room;
-    sp4C = sp2C;
+    walkTilesBetweenPoints_NoCallback(&walkStan, center.f[0], center.f[2], backProbePos->f[0], backProbePos->f[2]);
 
-    arg4->f[0] = center.f[0] - (normal.f[0] * 50.0f);
-    arg4->f[1] = center.f[1];
-    arg4->f[2] = center.f[2] - (normal.f[2] * 50.0f);
+    *backRoom = (s32) walkStan->room;
 
-    walkTilesBetweenPoints_NoCallback(&sp4C, center.f[0], center.f[2], arg4->f[0], arg4->f[2]);
-
-    if (1);
-
-    *arg2 = (s32) sp4C->room;
-
-    if (*arg2 == *arg1)
+    if (*backRoom == *frontRoom)
     {
-        *arg2 = -1;
+        *backRoom = -1;
     }
 }
 
 
-extern f32 g_DoorScale;
-/**
- *
- * NTSC ADDRESS: 7F003480
- * PAL ADDRESS: 7F0033F0
- * Perfect Dark: void setupCreateDoor(struct doorobj *door, s32 cmdindex)
-*/
 void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
 {
-    s32 padding; // no sp
+    s32 padding;
     s32 modelnum;
     struct BoundPadRecord *pad;
     StandTile *sp1C8_stan;
     PropRecord *prop;
     struct coord3d sp1B8;
-    s32 portalnum; //sp1b4
-    s32 sp1B0;
-    s32 sp1AC;
-    struct coord3d sp1A0;
-    struct coord3d sp194;
+    s32 portalnum;
+    s32 frontRoom;
+    s32 backRoom;
+    struct coord3d frontProbePos;
+    struct coord3d backProbePos;
     struct PortalMetric sp180;
     struct ModelRoData_BoundingBoxRecord *temp_v0;
     struct coord3d sp170;
     StandTile *sp16C;
     Mtxf sp12C;
-    f32 temp_f2; // no sp
+    f32 temp_f2;
     ModelFileHeader *sp124;
-    struct coord3d sp118;                           /* compiler-managed */
+    struct coord3d sp118;
     StandTile *sp114_stan;
     Mtxf spD4;
     struct coord3d spC8;
@@ -949,14 +936,13 @@ void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
     f32 yscale;
     f32 zscale;
     f32 scale;
-    //StandTile *stan;
     u8 *padding2;
 
     modelnum = door->obj;
 
     portalnum = -1;
-    sp1B0 = -1;
-    sp1AC = -1;
+    frontRoom = -1;
+    backRoom = -1;
 
     modelLoad(modelnum);
 
@@ -964,11 +950,11 @@ void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
 
     if ((door->flags & PROPFLAG_CULL_BEHIND_DOOR) || (door->flags & PROPFLAG_NO_PORTAL_CLOSE))
     {
-        sub_GAME_7F00324C(pad, &sp1B0, &sp1AC, &sp1A0, &sp194);
+        setupGetDoorAdjacentRooms(pad, &frontRoom, &backRoom, &frontProbePos, &backProbePos);
 
-        if ((door->flags & PROPFLAG_CULL_BEHIND_DOOR) && (sp1B0 >= 0) && (sp1AC >= 0))
+        if ((door->flags & PROPFLAG_CULL_BEHIND_DOOR) && (frontRoom >= 0) && (backRoom >= 0))
         {
-            portalnum = bgGetPortalBetweenRooms(sp1B0, sp1AC, &sp1A0, &sp194);
+            portalnum = bgGetPortalBetweenRooms(frontRoom, backRoom, &frontProbePos, &backProbePos);
         }
     }
 
@@ -1037,7 +1023,7 @@ void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
         matrix_4x4_set_rotation_around_z(M_HALF_PI, &sp88);
         matrix_4x4_multiply_in_place(&sp88, &spD4);
         matrix_4x4_multiply_in_place(&sp12C, &spD4);
-        sub_GAME_7F001BD4(pad, &sp118);
+        padGetCenter(pad, &sp118);
 
         temp_v0 = (struct ModelRoData_BoundingBoxRecord *)sp124->RootNode->Child->Data;
 
@@ -1141,18 +1127,18 @@ void setupDoor(s32 arg0, struct DoorRecord *door, s32 arg2)
 
         if ((door->flags & PROPFLAG_CULL_BEHIND_DOOR) || (door->flags & PROPFLAG_NO_PORTAL_CLOSE))
         {
-            if (sp1B0 != prop->stan->room)
+            if (frontRoom != prop->stan->room)
             {
-                if (sp1B0 >= 0)
+                if (frontRoom >= 0)
                 {
-                    prop->rooms[1] = sp1B0;
-                    chrpropRegisterRoom(prop, sp1B0);
+                    prop->rooms[1] = frontRoom;
+                    chrpropRegisterRoom(prop, frontRoom);
                 }
             }
-            else if (sp1AC >= 0)
+            else if (backRoom >= 0)
             {
-                prop->rooms[1] = sp1AC;
-                chrpropRegisterRoom(prop, sp1AC);
+                prop->rooms[1] = backRoom;
+                chrpropRegisterRoom(prop, backRoom);
             }
 
             if (prop->rooms[1] != 0xff && 1)
@@ -1583,7 +1569,7 @@ void proplvreset2(enum LEVELID stageId)
                                     BoundPadRecord *pad3d;
 
                                     pad3d = &g_CurrentSetup.boundpads[((struct TintedGlassRecord *) phead)->pad - 10000];
-                                    sub_GAME_7F001BD4(pad3d, &up);
+                                    padGetCenter(pad3d, &up);
                                     up2.x = (10.0f * pad3d->up.x) + up.x;
                                     up2.y = (10.0f * pad3d->up.y) + up.y;
                                     up2.z = (10.0f * pad3d->up.z) + up.z;

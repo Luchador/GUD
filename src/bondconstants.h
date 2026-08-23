@@ -296,7 +296,9 @@ typedef enum PROPFLAG
     PROPFLAG_RENDERPOSTBG                = 0x00000001, // Fall to Ground
     PROPFLAG_ONSCREEN                    = 0x00000002, // In Air Rotated 90 Deg Upside-Down
     PROPFLAG_ENABLED                     = 0x00000004, // In Air Upside-Down
+    PROPFLAG_UPSIDEDOWN                  = 0x00000004,
     PROPFLAG_00000008                    = 0x00000008, // In Air
+    PROPFLAG_INAIR                       = 0x00000008,
     PROPFLAG_00000010                    = 0x00000010, // Scale to Pad Bounds
     PROPFLAG_00000020                    = 0x00000020, // Scale X to Pad Bounds
     PROPFLAG_00000040                    = 0x00000040, // Scale Y to Pad Bounds
@@ -306,6 +308,7 @@ typedef enum PROPFLAG
     PROPFLAG_ILLUMINATED                 = 0x00000400, // ignore Stan Colour?
     PROPFLAG_00000800                    = 0x00000800, // Free Standing Glass
     PROPFLAG_00001000                    = 0x00001000, // Absolute Position
+    PROPFLAG_ABSOLUTEPOSITION            = 0x00001000,
     PROPFLAG_AIUNDROPPABLE               = 0x00002000, // Item Not Droppedz
     PROPFLAG_ASSIGNEDTOCHR               = 0x00004000, // Assigned to Actor
     PROPFLAG_INSIDEANOTHEROBJ            = 0x00008000, // Embedded Object
@@ -342,7 +345,7 @@ typedef enum PROPFLAG
 // prop definition flags
 typedef enum PROPFLAG2
 {
-    PROPFLAG2_00000001            = 0x00000001, // Activate Drone Gun
+    PROPFLAG2_DRONEGUN            = 0x00000001, // Activate Drone Gun
     PROPFLAG2_00000002            = 0x00000002, // lightweight (move when shot)
     PROPFLAG2_00000004            = 0x00000004, // Interaction Text Not Shown for Doors
     PROPFLAG2_00000008            = 0x00000008, // Don't Load in Multiplayer
