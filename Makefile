@@ -234,7 +234,7 @@ OBJCOPY := $(TOOLCHAIN)objcopy
 .NOTPARALLEL: print_info create_directories $(APPROM)
 
 # Phony Recipes - These targets are not files, Get Make to do something
-.PHONY: print_info create_directories build_tools prerequisites all_p1 all default commonclean setupclean stanclean dataclean libultraclean codeclean clean nuke help cmdbuidler context extractassets forceextractassets textures convert_props convert_chrs convert_guns extract_u extract_e extract_j force_extract_u force_extract_e force_extract_j extract_rsp extract_usb extract_d
+.PHONY: print_info create_directories build_tools prerequisites all_p1 all default commonclean setupclean stanclean dataclean libultraclean codeclean clean nuke help cmdbuidler context extractassets forceextractassets textures extract_u extract_e extract_j force_extract_u force_extract_e force_extract_j extract_rsp extract_usb extract_d
 
 
 # this file references variables defined above: BUILD_DIR, CFLAGWARNING, INCLUDE, LCDEFS
@@ -423,9 +423,9 @@ endif
 	@rm build/ctx.c build/ctx2.h || exit 0
 	@echo You can find it in Build [build/ctx.h].
 
-extractassets: extract_u extract_e extract_j convert_props convert_chrs convert_guns
+extractassets: extract_u extract_e extract_j
 
-forceextractassets: force_extract_u force_extract_e force_extract_j convert_props convert_chrs convert_guns
+forceextractassets: force_extract_u force_extract_e force_extract_j
 
 # The DEBUG/USB builds share the US baserom's extracted assets (they are US
 # content). Seed their build dirs from a completed US asset stage.
@@ -516,51 +516,6 @@ extract_rsp:
 		fi \
 	else \
 		echo "RSP assets for already extracted."; \
-	fi
-
-convert_props:
-	@echo "Converting prop binaries to Model.c..."
-	@bin_count=$$(ls assets/obseg/prop/P*Z.bin 2>/dev/null | wc -l); \
-	if [ $$bin_count -gt 0 ]; then \
-		echo "Found $$bin_count prop binaries to convert..."; \
-		python3 scripts/generate_prop_model_c.py --force --cleanup || true; \
-	else \
-		c_count=$$(find assets/obseg/prop -maxdepth 2 -name "Model.c" 2>/dev/null | wc -l); \
-		if [ $$c_count -gt 0 ]; then \
-			echo "Props already converted ($$c_count Model.c files found)."; \
-		else \
-			echo "No prop binaries found to convert."; \
-		fi \
-	fi
-
-convert_chrs:
-	@echo "Converting chr binaries to Model.c..."
-	@bin_count=$$(ls assets/obseg/chr/C*Z.bin 2>/dev/null | wc -l); \
-	if [ $$bin_count -gt 0 ]; then \
-		echo "Found $$bin_count chr binaries to convert..."; \
-		python3 scripts/generate_chr_c.py --force --cleanup || true; \
-	else \
-		c_count=$$(find assets/obseg/chr -maxdepth 2 -name "Model.c" 2>/dev/null | wc -l); \
-		if [ $$c_count -gt 0 ]; then \
-			echo "Chrs already converted ($$c_count Model.c files found)."; \
-		else \
-			echo "No chr binaries found to convert."; \
-		fi \
-	fi
-
-convert_guns:
-	@echo "Converting gun binaries to Model.c..."
-	@bin_count=$$(ls assets/obseg/gun/G*Z.bin 2>/dev/null | wc -l); \
-	if [ $$bin_count -gt 0 ]; then \
-		echo "Found $$bin_count gun binaries to convert..."; \
-		python3 scripts/generate_gun_c.py --force --cleanup || true; \
-	else \
-		c_count=$$(find assets/obseg/gun -maxdepth 2 -name "Model.c" 2>/dev/null | wc -l); \
-		if [ $$c_count -gt 0 ]; then \
-			echo "Guns already converted ($$c_count Model.c files found)."; \
-		else \
-			echo "No gun binaries found to convert."; \
-		fi \
 	fi
 
 textures: tools/mktex/build/tex2png
