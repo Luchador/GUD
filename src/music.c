@@ -1098,7 +1098,7 @@ void musicTrack3Play(s32 track)
 
     t3 = ALIGN16_a(g_musicTrackLength[g_musicXTrack3CurrentTrackNum]) + ALIGN16_a(NUM_MUSIC_TRACKS);
     trackSizeBytes = ALIGN16_a(g_musicTrackCompressedLength[g_musicXTrack3CurrentTrackNum]);
-    seqData = g_musicXTrack2SeqData;
+    seqData = g_musicXTrack3SeqData;
     temp_a0 = seqData + t3 - trackSizeBytes;
 
     romCopy(temp_a0, romAddress, trackSizeBytes);
