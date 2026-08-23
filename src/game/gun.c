@@ -1675,7 +1675,7 @@ void generate_player_thrown_grenade(s32 hand)
 
             if (sfx_state != NULL)
             {
-                chrobjSndCreatePostEventDefault(sfx_state, (struct coord3d *) &wor->runtime_pos);
+                chrobjSndCreatePostEventDefault(sfx_state, (struct coord3d *) &wor->position);
             }
         }
     }
@@ -1959,7 +1959,7 @@ void generate_player_thrown_object(s32 hand)
 
             if (sfx_state != NULL)
             {
-                chrobjSndCreatePostEventDefault(sfx_state, (struct coord3d *) &wor->runtime_pos);
+                chrobjSndCreatePostEventDefault(sfx_state, (struct coord3d *) &wor->position);
             }
         }
     }
@@ -2268,7 +2268,7 @@ void gunFireTankShell(s32 handnum)
         if (weaponid != ITEM_TANKSHELLS)
         {
             obj->projectile->flags |= PROJECTILEFLAG_00000020;
-            obj->projectile->unkB0 = obj->runtime_pos.y;
+            obj->projectile->unkB0 = obj->position.y;
             obj->projectile->unkB4 = obj->projectile->speed.y;
             obj->projectile->unk10.x = unscaledvelocity.x;
             obj->projectile->unk10.y = unscaledvelocity.y;

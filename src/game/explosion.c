@@ -405,9 +405,9 @@ void explosionInflictDamage(PropRecord *arg0, f32 horiz_range, f32 vert_range)
                     f32 zdist;
 
                     spCC = temp_s0->obj;
-                    xdist = spCC->runtime_pos.f[0] - arg0->pos.f[0];
-                    ydist = spCC->runtime_pos.f[1] - arg0->pos.f[1];
-                    zdist = spCC->runtime_pos.f[2] - arg0->pos.f[2];
+                    xdist = spCC->position.f[0] - arg0->pos.f[0];
+                    ydist = spCC->position.f[1] - arg0->pos.f[1];
+                    zdist = spCC->position.f[2] - arg0->pos.f[2];
 
                     if ((xdist <= horiz_range)
                         && (-horiz_range <= xdist)
@@ -463,7 +463,7 @@ void explosionInflictDamage(PropRecord *arg0, f32 horiz_range, f32 vert_range)
                             maybe_detonate_object_and_its_children(
                                 temp_s0,
                                 ((RANDOMFRAC() * 0.5f) + 1.0f) * minfrac,
-                                &spCC->runtime_pos,
+                                &spCC->position,
                                 0x1D,
                                 (s32) temp_s2->player);
                         }
@@ -688,7 +688,7 @@ s32 explosionTick(PropRecord* arg0)
                 if (exp->source->type == PROP_TYPE_OBJ)
                 {
                     struct ObjectRecord *obj = exp->source->obj;
-                    explosionCreateSmoke(&obj->runtime_pos, exp->source->stan, (s16) explosiontype->smoketype, exp->source->rooms, (arg0->flags & 8) != 0);
+                    explosionCreateSmoke(&obj->position, exp->source->stan, (s16) explosiontype->smoketype, exp->source->rooms, (arg0->flags & 8) != 0);
                 }
                 else
                 {

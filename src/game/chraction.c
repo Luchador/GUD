@@ -6467,7 +6467,7 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                                     sp208->timer = -1;
                                     sp208->projectile->flags |= 0x20;
 
-                                    sp208->projectile->unkB0 = sp208->runtime_pos.y;
+                                    sp208->projectile->unkB0 = sp208->position.y;
                                     sp208->projectile->unkB4 = sp208->projectile->speed.f[1];
 
                                   /*  sp208->projectile->unk10.x = sp1AC.f[0];

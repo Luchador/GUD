@@ -2520,209 +2520,69 @@ typedef union
     } AttachedObj;
 
 
-    /**
+    /*****
+     * 
      * Object (Prop Definition) Record holds common data such as pad and health.
-     */
+     * 
+     *****/
     typedef struct ObjectRecord
     {
         inherits    PropDefHeaderRecord;
+
+        /**
+         * Prop model file number - index into the prop model table PitemZ_entries.
+         */
         s16         obj;
-        /* ID 0x6
-            0000+ or 2710+ (10,000+) to use standard presets.
-            -1 to -256 to set this object
-                inside the previous object.(solo only)
-            if control nibble 4x is set at 0xB,
-            then this number matches the ID of a guard
-        */
+
+        /**
+         * Pad a.k.a. preset the object is placed at. Values encode different meanings:
+         *     0...9999 - index into g_CurrentSetup.pads
+         *     10000+   - bounded pad
+         *   negative   - no world pad, object is embedded in another object.
+         */
         s16         pad;
-        /*0x8
-            8x    indicates right-handed gun assignment
-            4x    08 weapon does not provide ammunition when collected
-            2x    indicates object in motion or special function is activated
-            1x    indicates left-handed normal pickup or opposite alignment
-            0x    indicates no control features set
-            x8
-            x4    (unknown) Jungle bushes
-            x2    (unknown) pete grenade
-            x1    indicates embedded crate or other object, creating a chain of boxes, for
-            example      x0    indicates normal preset, or beginning/end of chain
-            Doors:
-            8x    open by default
-            4x    area behind door is always visible (no blackouts for gates, lab doors, etc)
-            2x    open backwards
-            1x    same as 0 as far as I can tell
-            x8    always open away from the player regardless what side you're on
-            x4
-            x2    player can't activate door (spawn block or 16 type activation)
-            x1
-            0x9:
-            8x
-            4x    immobile
-            2x    (unknown) Silo DAT tape
-            1x    uncollectable
-            x8
-            x4    allows object pickup (chr_name objects only)
-            x2    invincibility
-            x1
-            0xA:
-            8x    indicates contained within another object (forward or back # objects = preset value)
-            4x    indicates object does not use normal presets but is assigned to guard #preset
-            2x    (unknown) part of forced collectable objects
-            1x    think this sets object to absolute position.  (similar to 2xxx type)
-            x8    something to do with free-standing glass (glass walls)
-            x4    (unknown) streets buildings/roadblocks
-            x2    seems to align image to preset values for glass
-            x1    force collisions (2xxx presets, mostly)
-            0xB:
-                0xxx presets:
-                00    default, on ground
-                x1    forced to ground
-                x2    room upper limit, rotated y 90 degrees.  top faces direction, front faces up
-                x4    room upper limit, upside-down
-                x8    room upper limit, right side up
-            2xxx presets:
-                x1    normal placement
-                x2    rotated y 90 degrees.  top faces direction, front faces up. (use on obj 68-6B)
-                x4    upside-down
-                x8    in-air
-                1x    scale object to fit completely within preset bounds
-                2x    x set to preset bounds
-                4x    y set to preset bounds
-                8x    z set to preset bounds
-        */
+
+        /**
+         * Setup flags word 1. Flag documentation lives at the PROPFLAG enum in bondconstants.h.
+         * Note that several bits depend on the type of object.
+         */
         u32         flags;
-        /*0xC:
-            8x    force maximum explosion radius/disable detecting
-                    player
-            4x    autoturrets: reset to default, not preset position
-            2x    no AI interaction
-            1x    1-way lock (back)
-            x8    1-way lock (front)
-            x4
-            x2    Objects (rockets, mines, etc) do not collide with object
-            x1    don't load 4 player
-            0xD:
-            8x    don't load 3 player
-            4x    don't load 2 player
-            2x    immune to explosions (only gunfire damages object)
-            1x    bulletproof
-            x8    invisible! can't shoot, but can hit with rockets, bugs, etc.  not counted as a hit
-            x4
-            x2    (unknown) streets buildings
-            x1
-            0xE:
-            8x    Can fire through object
-            4x    immune to gunfire (Only explosives damage object)
-            2x    Remove from game when destroyed (anything on top doesn't fall off!  Just Poof! gone)
-            1x
-            x8    only activate at close range
-            x4
-            x2    explode on contact with tank?
-            x1    (unknown) jungle bush
-            0xF:
-            8x    don't load on 007
-            4x    don't load on 00 agent
-            2x    don't load on secret agent
-            1x    don't load on agent
-            x8    don't load multiplayer (difficulty = -1)
-            x4    disable activation text
-            x2    lightweight (previous: 2xxx drops to ground when destroyed)
-            x1    used on stuff in egyptian, sevx
-        */
+
+        /**
+         * Setup flags word 2. See PROPFLAG2 enum in bondconstants.h.
+         */
         u32         flags2;
-        PropRecord *prop;  /*0x10*/
-        Model      *model; /*0x14*/
-                           // mtx realrot;
-#if 0
-        void *runtime_MATRIX0; /*0x18*/
-        void *runtime_MATRIX1; /*0x1c*/
-        void *runtime_MATRIX2; /*0x20*/
-        void *runtime_MATRIX3; /*0x14*/
-        void *runtime_MATRIX4; /*0x28*/
-        void *runtime_MATRIX5; /*0x2c*/
-        void *runtime_MATRIX6; /*0x30*/
-        void *runtime_MATRIX7; /*0x34*/
-        void *runtime_MATRIX8; /*0x38*/
-        void *runtime_MATRIX9; /*0x3c*/
-        void *runtime_MATRIXA; /*0x40*/
-        void *runtime_MATRIXB; /*0x44*/
-        void *runtime_MATRIXC; /*0x48*/
-        void *runtime_MATRIXD; /*0x4c*/
-        void *runtime_MATRIXE; /*0x50*/
-        void *runtime_MATRIXF; /*0x54*/
-#endif
-        Mtxf    mtx;         /* Hopefully this is 16 words long*/
-        coord3d runtime_pos; /*0x58 - 0x60*/
-        union
-        {
-            #if 0
-            /*This union is a test but is less efficient than doing binary compare by hand eg runtimebitflags && REMOVED*/
-            struct
-            {
-                bool _80000000     : 1;
-                bool _40000000     : 1;
-                bool _20000000     : 1;
-                bool _10000000     : 1;
-                bool _08000000     : 1;
-                bool _04000000     : 1;
-                bool _02000000     : 1;
-                bool _01000000     : 1;
-                bool _00800000     : 1;
-                bool _00400000     : 1;
-                bool _00200000     : 1;
-                bool _00100000     : 1;
-                bool _00080000     : 1;
-                s32  owner         : 2; /*Owner 2bit (0-3)*/
-                bool _00010000     : 1;
-                bool _00008000     : 1;
-                bool isActivated   : 1; /* activated*/
-                bool _00002000     : 1;
-                bool _00001000     : 1;
-                bool _00000800     : 1;
-                bool _00000400     : 1;
-                bool isDestroyed   : 1; /* only set with disabled or destroyed doors    */
-                bool hasBeenOpened : 1;
-                bool isDeposited   : 1; /* depositted (thrown)  */
-                bool _00000040     : 1;
-                bool _00000020     : 1;
-                bool _00000010     : 1;
-                bool _00000008     : 1;
-                bool remove        : 1; /* removes object when set   */
-                bool _00000002     : 1;
-                bool _00000001     : 1;
-            } runtime_bitflag;
-            #endif
-            /*0x64*
-                10000000
-                00060000    owner (0-3); used to attribute kills to players
-                00004000    activated
-                00000200    only set with disabled or destroyed doors
-                00000080    depositted (thrown)
-                00000004    removes object when set
-            */
-            u32 runtime_bitflags;
-        };
+
+        PropRecord *prop;
+
+        Model      *model;
+
+        /**
+         * Object orientation with scale baked into the columns. This does *not*
+         * hold the object's authoritative position. That's held by the pos field.
+         */
+        Mtxf    mtx;
+
+        coord3d position;
+
+        u32 runtime_bitflags;
+
         collision_data *collisionBlock;
 
         union {
-            struct Projectile *projectile; // 0x6c
-            struct Embedment *embedment; // 0x6c
+            struct Projectile *projectile;
+            struct Embedment *embedment;
         };
 
-        f32             maxdamage; // 0x70
-        f32             damage; // 0x74
-        rgba_u8         shadecol; // 0x78
-        rgba_u8         nextcol; // 0x7C
+        f32             maxdamage;
+        f32             damage;
+        rgba_u8         shadecol;
+        rgba_u8         nextcol;
     } ObjectRecord;
 
-    #define New_ObjectRecord(pad)                                                       \
-        {                                                                               \
-            New_PropDefHeaderRecord(3), 0, pad + 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xbadbee6c, 0, 1000, 0, 0,       \
-                0, 0, 0, 0, 0, 0, 0                                                     \
-        }
-
-    // PROPDEF_DOOR (1)
+    /*****
+     * PROPDEF_DOOR(1)
+     *****/
     typedef struct DoorRecord
     {
         inherits           ObjectRecord;
@@ -2808,14 +2668,11 @@ typedef union
          *  0000 0005	special (swinging) defined here
          *  0000 0006	special (eye) defined here in block
          *  0000 0007	special (iris) defined here
-         *
-         * Offset 0x98.
          */
         u16                doorFlags;
 
         /**
          * See doorFlags.
-         * Offset 0x9a.
          */
         u16                doorType;
 
@@ -2890,22 +2747,11 @@ typedef union
          * copied into this property. Once autoCloseFrames have elapsed
          * (once the difference between the timer and this value has exceeded autoCloseFrames)
          * the door will start closing.
-         * Offset 0xec.
          */
         u32                openedTime;
 
-        /**
-         * Portal number.
-         * Offset 0xf0.
-         */
         s32                portalNumber;
 
-        /**
-         * Unknown. Changes at runtime. Appears to be set to a pointer
-         * while the door is moving, then cleared when the door is stationary.
-         * If you reset this to 0 (NULL pointer), then the door opening
-         * sound never stops playing.
-         */
         ALSoundState *openSoundState;
 
         ALSoundState *closeSoundState;
@@ -2924,12 +2770,6 @@ typedef union
             f32 lastcalc60f;
         };
     } DoorRecord;
-
-    #define New_DoorRecord(pad)                               \
-        {                                                     \
-            New_PropDefHeaderRecord(1), New_ObjectRecord(pad) \
-        }
-
 
     /** PROPDEF_GLOBAL_DOOR_SCALE (2)
      * The value is used for door calculations.  Changing it will shrink/enlarge doors.

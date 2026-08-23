@@ -288,13 +288,13 @@ void setupUpdateObjectRoomPosition(ObjectRecord *obj)
                 phi_f20 = sp34.f[2];
             }
 
-            sp40.f[0] += obj->runtime_pos.f[0];
-            sp40.f[1] += obj->runtime_pos.f[1];
-            sp40.f[2] += obj->runtime_pos.f[2];
+            sp40.f[0] += obj->position.f[0];
+            sp40.f[1] += obj->position.f[1];
+            sp40.f[2] += obj->position.f[2];
 
-            sp34.f[0] += obj->runtime_pos.f[0];
-            sp34.f[1] += obj->runtime_pos.f[1];
-            sp34.f[2] += obj->runtime_pos.f[2];
+            sp34.f[0] += obj->position.f[0];
+            sp34.f[1] += obj->position.f[1];
+            sp34.f[2] += obj->position.f[2];
 
             chrpropUpdateRoomList(temp_s1, &sp40, &sp34, phi_f20);
         }

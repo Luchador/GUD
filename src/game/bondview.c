@@ -6792,9 +6792,9 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                 sp25C.f[2] = g_TankModelPositionOffset.f[2];
                 mtx4RotateVecInPlace(&sp268, (f32*)&sp25C);
 
-                sp25C.f[0] += tank_obj->runtime_pos.f[0];
-                sp25C.f[1] += tank_obj->runtime_pos.f[1];
-                sp25C.f[2] += tank_obj->runtime_pos.f[2];
+                sp25C.f[0] += tank_obj->position.f[0];
+                sp25C.f[1] += tank_obj->position.f[1];
+                sp25C.f[2] += tank_obj->position.f[2];
 
                 sp258 = ((g_TankOrientationAngle + g_TankTurretOrientationAngleRad) * 360.0f) / M_TAU_F;
                 sp254 = g_CurrentPlayer->vv_verta;
@@ -7467,9 +7467,9 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
         matrix_4x4_copy(&spF0,  &sp138_tank_as_ObjectRecord->mtx);
 
-        sp138_tank_as_ObjectRecord->runtime_pos.f[0] = sp138_tank_as_ObjectRecord->prop->pos.f[0] = spE4.f[0];
-        sp138_tank_as_ObjectRecord->runtime_pos.f[1] = sp138_tank_as_ObjectRecord->prop->pos.f[1] = spE4.f[1];
-        sp138_tank_as_ObjectRecord->runtime_pos.f[2] = sp138_tank_as_ObjectRecord->prop->pos.f[2] = spE4.f[2];
+        sp138_tank_as_ObjectRecord->position.f[0] = sp138_tank_as_ObjectRecord->prop->pos.f[0] = spE4.f[0];
+        sp138_tank_as_ObjectRecord->position.f[1] = sp138_tank_as_ObjectRecord->prop->pos.f[1] = spE4.f[1];
+        sp138_tank_as_ObjectRecord->position.f[2] = sp138_tank_as_ObjectRecord->prop->pos.f[2] = spE4.f[2];
 
         setupUpdateObjectRoomPosition(sp138_tank_as_ObjectRecord);
         objUpdateCollisionVolume(sp138_tank_as_ObjectRecord);
@@ -7526,9 +7526,9 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                     if (sp7C == 0)
                     {
-                        sp70.f[0] = sp138_tank_as_ObjectRecord->runtime_pos.f[0];
+                        sp70.f[0] = sp138_tank_as_ObjectRecord->position.f[0];
                         sp70.f[1] = prop->pos.f[1];
-                        sp70.f[2] = sp138_tank_as_ObjectRecord->runtime_pos.f[2];
+                        sp70.f[2] = sp138_tank_as_ObjectRecord->position.f[2];
 
                         chrlvExplosionDamage(prop->chr, &sp70, 3.0f, 1);
                     }
@@ -7542,7 +7542,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                     if ((edges > 0) && chrobjTestPolygonsTouchingOrOverlap2D(polygon, edges, &spB4_tank_collision_bounds, 4))
                     {
                         // Explode destroyable props when the tank touches them
-                        maybe_detonate_object_and_its_children(prop, 10000.0f, &prop->obj->runtime_pos, 0x20, get_cur_playernum());
+                        maybe_detonate_object_and_its_children(prop, 10000.0f, &prop->obj->position, 0x20, get_cur_playernum());
                         g_TankDamagePenaltyTicks = TANK_DAMAGE_PENTALTY_TICKS;
                     }
                 }

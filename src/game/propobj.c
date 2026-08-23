@@ -549,11 +549,11 @@ void objUpdateCollisionVolume(ObjectRecord *obj)
     {
         bbox = chrobjGetBboxFromObjectRecord(obj);
         matrix_4x4_copy(&obj->mtx, &mtx);
-        matrix_4x4_set_position(&obj->runtime_pos, &mtx);
+        matrix_4x4_set_position(&obj->position, &mtx);
         collisionCalcFootprintFromBBox(bbox, &mtx, &obj->collisionBlock->polygon, obj->collisionBlock);
 
-        obj->collisionBlock->bottom = obj->runtime_pos.f[1] + chrpropSumMatrixPosY(bbox, &mtx);
-        obj->collisionBlock->top = obj->runtime_pos.f[1] + chrpropSumMatrixNegY(bbox, &mtx);
+        obj->collisionBlock->bottom = obj->position.f[1] + chrpropSumMatrixPosY(bbox, &mtx);
+        obj->collisionBlock->top = obj->position.f[1] + chrpropSumMatrixNegY(bbox, &mtx);
 
         if (obj->type == PROPDEF_AIRCRAFT)
         {
@@ -617,11 +617,11 @@ PropRecord* objInit(ObjectRecord* obj, ModelFileHeader* model_header, PropRecord
         prop->type = 1;
         prop->obj = obj;
         prop->pos.x = 0.0f;
-        obj->runtime_pos.x = 0.0f;
+        obj->position.x = 0.0f;
         prop->pos.y = 0.0f;
-        obj->runtime_pos.y = 0.0f;
+        obj->position.y = 0.0f;
         prop->pos.z = 0.0f;
-        obj->runtime_pos.z = 0.0f;
+        obj->position.z = 0.0f;
         prop->stan = NULL;
     }
     else
@@ -668,9 +668,9 @@ void objChangeShading(ObjectRecord* obj, coord3d* pos, Mtxf* matrix, StandTile* 
 
     matrix_4x4_copy(matrix, &obj->mtx);
 
-    obj->runtime_pos.x = prop->pos.x = pos->x;
-    obj->runtime_pos.y = prop->pos.y = pos->y;
-    obj->runtime_pos.z = prop->pos.z = pos->z;
+    obj->position.x = prop->pos.x = pos->x;
+    obj->position.y = prop->pos.y = pos->y;
+    obj->position.z = prop->pos.z = pos->z;
 
     prop->stan = stan;
 
@@ -758,9 +758,9 @@ void objPlaceAtPad(ObjectRecord *baseobj, struct coord3d *pos, Mtxf *matrix, Sta
         objChangeShading(baseobj, pos, &mtxcopy, stan);
         if ((baseobj->flags2 & PROPFLAG2_DRONEGUN) || (baseobj->flags & PROPFLAG_ABSOLUTEPOSITION))
         {
-            baseobj->runtime_pos.x = newPos.x;
-            baseobj->runtime_pos.y = newPos.y;
-            baseobj->runtime_pos.z = newPos.z;
+            baseobj->position.x = newPos.x;
+            baseobj->position.y = newPos.y;
+            baseobj->position.z = newPos.z;
         }
     }
 
@@ -801,9 +801,9 @@ void sub_GAME_7F040BA0(ObjectRecord *obj, coord3d *pos, Mtxf *arg2, StandTile *s
     else
     {
         objChangeShading(obj, pos, &matrix, stan2);
-        obj->runtime_pos.x = posdiff.x;
-        obj->runtime_pos.y = posdiff.y;
-        obj->runtime_pos.z = posdiff.z;
+        obj->position.x = posdiff.x;
+        obj->position.y = posdiff.y;
+        obj->position.z = posdiff.z;
     }
 
     objUpdateCollisionVolume(obj);
@@ -1215,9 +1215,9 @@ bool projectileTestObjectCollision(ObjectRecord *obj, coord3d *worldRayOrigin, c
     value = 0.0f;
 
     if (prop->parent == NULL) {
-        dx = obj->runtime_pos.x - worldRayOrigin->x;
-        dy = obj->runtime_pos.y - worldRayOrigin->y;
-        dz = obj->runtime_pos.z - worldRayOrigin->z;
+        dx = obj->position.x - worldRayOrigin->x;
+        dy = obj->position.y - worldRayOrigin->y;
+        dz = obj->position.z - worldRayOrigin->z;
         value = (dz * worldRayDir->z) + ((dx * worldRayDir->x) + (dy * worldRayDir->y));
     }
 
@@ -1243,7 +1243,7 @@ bool projectileTestObjectCollision(ObjectRecord *obj, coord3d *worldRayOrigin, c
                 prop = obj->prop;
                 instsize = getinstsize(modelstack[0]);
 
-                if (projectileTestPropBoundingSphere(worldRayOrigin, worldRayDir, &obj->runtime_pos, instsize)) {
+                if (projectileTestPropBoundingSphere(worldRayOrigin, worldRayDir, &obj->position, instsize)) {
                     *hitDist = maxDist;
 
                     if (sub_GAME_7F041400(prop, worldRayOrigin, worldRayEnd, worldRayDir, hitPos, hitNormal, hitDist))
@@ -1560,7 +1560,7 @@ s32 handles_projectile_motion(struct ObjectRecord *arg0, coord3d *arg1, coord3d 
     obj = arg0;
     hitpos = arg2;
 
-    if (((obj->runtime_pos.x == arg1->x) && (obj->runtime_pos.y == arg1->y)) && (obj->runtime_pos.z == arg1->z))
+    if (((obj->position.x == arg1->x) && (obj->position.y == arg1->y)) && (obj->position.z == arg1->z))
     {
         goto end;
     }
@@ -1575,7 +1575,7 @@ s32 handles_projectile_motion(struct ObjectRecord *arg0, coord3d *arg1, coord3d 
     }
 
     roomCount = 0;
-    bgFindRoomsAlongSegment(&obj->runtime_pos, &endpos, obj->projectile->unkCC, roomSet, roomNums, &roomCount, 20);
+    bgFindRoomsAlongSegment(&obj->position, &endpos, obj->projectile->unkCC, roomSet, roomNums, &roomCount, 20);
 
     if (roomCount > 20)
     {
@@ -1594,7 +1594,7 @@ s32 handles_projectile_motion(struct ObjectRecord *arg0, coord3d *arg1, coord3d 
     roomPtr = roomNums;
 
 bg_loop:
-    if (bgTestBulletHitBackground(&arg0->runtime_pos, &endpos, *roomPtr, &hit))
+    if (bgTestBulletHitBackground(&arg0->position, &endpos, *roomPtr, &hit))
     {
         scale = get_room_data_float2();
 
@@ -1605,14 +1605,14 @@ bg_loop:
         hit.hitpos.y *= scale;
         hit.hitpos.z *= scale;
 
-        if ((((((arg0->runtime_pos.x <= endpos.x) && (hit.hitpos.x <= endpos.x)) && (arg0->runtime_pos.x <= hit.hitpos.x))
-           || (((endpos.x <= obj->runtime_pos.x) && (endpos.x <= hit.hitpos.x)) && (hit.hitpos.x <= obj->runtime_pos.x)))
-           && ((((obj->runtime_pos.y <= endpos.y) && (hit.hitpos.y <= endpos.y)) && (arg0->runtime_pos.y <= hit.hitpos.y))
-           || (((endpos.y <= obj->runtime_pos.y) && (endpos.y <= hit.hitpos.y)) && (arg0->runtime_pos.y >= hit.hitpos.y))))
-           && ((((obj->runtime_pos.z <= endpos.z) && (hit.hitpos.z <= endpos.z)) && (arg0->runtime_pos.z <= hit.hitpos.z))
-           || (((endpos.z <= arg0->runtime_pos.z) && (endpos.z <= hit.hitpos.z)) && (hit.hitpos.z <= obj->runtime_pos.z))))
+        if ((((((arg0->position.x <= endpos.x) && (hit.hitpos.x <= endpos.x)) && (arg0->position.x <= hit.hitpos.x))
+           || (((endpos.x <= obj->position.x) && (endpos.x <= hit.hitpos.x)) && (hit.hitpos.x <= obj->position.x)))
+           && ((((obj->position.y <= endpos.y) && (hit.hitpos.y <= endpos.y)) && (arg0->position.y <= hit.hitpos.y))
+           || (((endpos.y <= obj->position.y) && (endpos.y <= hit.hitpos.y)) && (arg0->position.y >= hit.hitpos.y))))
+           && ((((obj->position.z <= endpos.z) && (hit.hitpos.z <= endpos.z)) && (arg0->position.z <= hit.hitpos.z))
+           || (((endpos.z <= arg0->position.z) && (endpos.z <= hit.hitpos.z)) && (hit.hitpos.z <= obj->position.z))))
         {
-            if (!(((arg0->runtime_pos.x == ((0, hit.hitpos)).x)  && (obj->runtime_pos.y == ((0, hit.hitpos)).y)) && (arg0->runtime_pos.z == ((0, hit.hitpos)).z)))
+            if (!(((arg0->position.x == ((0, hit.hitpos)).x)  && (obj->position.y == ((0, hit.hitpos)).y)) && (arg0->position.z == ((0, hit.hitpos)).z)))
             {
                 result = 0;
 
@@ -1646,9 +1646,9 @@ bg_loop:
 after_bg_loop:
     if (result == 0)
     {
-        diff.x = arg1->x - arg0->runtime_pos.x;
-        diff.y = arg1->y - arg0->runtime_pos.y;
-        diff.z = arg1->z - arg0->runtime_pos.z;
+        diff.x = arg1->x - arg0->position.x;
+        diff.y = arg1->y - arg0->position.y;
+        diff.z = arg1->z - arg0->position.z;
 
         dist = sqrtf((diff.z * diff.z) + ((diff.x * diff.x) + (diff.y * diff.y)));
 
@@ -1673,7 +1673,7 @@ after_bg_loop:
         endpos.z = hitpos->z;
     }
 
-    if (!projectileFindCollidingProp(prop, &obj->runtime_pos, &endpos, CDTYPE_ALL & ~CDTYPE_BG, hitpos, arg3, roomNums))
+    if (!projectileFindCollidingProp(prop, &obj->position, &endpos, CDTYPE_ALL & ~CDTYPE_BG, hitpos, arg3, roomNums))
     {
         if ((result == 0) && (arg4 != 0))
         {
@@ -1681,20 +1681,20 @@ after_bg_loop:
 
             if (arg5 == 0)
             {
-                bgFindRoomsAlongSegment(&arg0->runtime_pos, hitpos, obj->projectile->unkCC, roomSet, roomNums, &roomCount, 20);
+                bgFindRoomsAlongSegment(&arg0->position, hitpos, obj->projectile->unkCC, roomSet, roomNums, &roomCount, 20);
             }
         }
         else if ((result == 1) || (arg5 == 0))
         {
             if (result != 1)
             {
-                bgFindRoomsAlongSegment(&arg0->runtime_pos, &endpos, obj->projectile->unkCC, roomSet, roomNums, &roomCount, 20);
+                bgFindRoomsAlongSegment(&arg0->position, &endpos, obj->projectile->unkCC, roomSet, roomNums, &roomCount, 20);
             }
 
-            obj->runtime_pos.x = endpos.x;
-            obj->runtime_pos.z = endpos.z;
+            obj->position.x = endpos.x;
+            obj->position.z = endpos.z;
             prop->pos.y = (dist = ((0, endpos)).y);
-            arg0->runtime_pos.y = dist;
+            arg0->position.y = dist;
         }
     }
     else if (arg5 == 0)
@@ -1702,16 +1702,16 @@ after_bg_loop:
         // Keep if (1) for matching.
         if (1)
         {
-            endpos.x = obj->runtime_pos.x;
-            endpos.z = arg0->runtime_pos.z;
+            endpos.x = obj->position.x;
+            endpos.z = arg0->position.z;
 
-            bgFindRoomsAlongSegment(&arg0->runtime_pos, &endpos, obj->projectile->unkCC, roomSet, roomNums, &roomCount, 20);
+            bgFindRoomsAlongSegment(&arg0->position, &endpos, obj->projectile->unkCC, roomSet, roomNums, &roomCount, 20);
 
             dist = endpos.y;
         }
 
         prop->pos.y = dist;
-        obj->runtime_pos.y = dist;
+        obj->position.y = dist;
 
         if (arg4)
         {
@@ -1734,11 +1734,11 @@ after_bg_loop:
     {
         tile = prop->stan;
 
-        if ((walkTilesBetweenPoints_NoCallback(&tile, prop->pos.x, prop->pos.z, obj->runtime_pos.x, arg0->runtime_pos.z) == TRUE) && (tile != NULL))
+        if ((walkTilesBetweenPoints_NoCallback(&tile, prop->pos.x, prop->pos.z, obj->position.x, arg0->position.z) == TRUE) && (tile != NULL))
         {
             prop->stan = tile;
-            prop->pos.x = arg0->runtime_pos.x;
-            prop->pos.z = obj->runtime_pos.z;
+            prop->pos.x = arg0->position.x;
+            prop->pos.z = obj->position.z;
         }
         else
         {
@@ -1749,13 +1749,13 @@ after_bg_loop:
 
     if (obj->projectile->flags & PROPFLAG_00000008)
     {
-        tile = stanFindTileBelowPos(&obj->runtime_pos, roomSet, NULL);
+        tile = stanFindTileBelowPos(&obj->position, roomSet, NULL);
 
         if (tile != NULL)
         {
             prop->stan = tile;
-            prop->pos.x = obj->runtime_pos.x;
-            prop->pos.z = obj->runtime_pos.z;
+            prop->pos.x = obj->position.x;
+            prop->pos.z = obj->position.z;
             obj->projectile->flags &= ~PROPFLAG_00000008;
             prop->flags &= ~PROPFLAG_00000008;
         }
@@ -1847,14 +1847,14 @@ s32 objTryMovePropWithCollision(ObjectRecord *obj, coord3d *targetpos, coord3d *
     {
         if (stanTestVolume(&stan, target.f[0], target.f[2], width, 0x1f, ymax, ymin) < 0)
         {
-            obj->runtime_pos.x = target.f[0];
-            obj->runtime_pos.z = target.f[2];
+            obj->position.x = target.f[0];
+            obj->position.z = target.f[2];
             prop->stan = stan;
             prop->pos.x = target.f[0];
             prop->pos.z = target.f[2];
             tmp = target.f[1];
             prop->pos.y = tmp;
-            obj->runtime_pos.y = tmp;
+            obj->position.y = tmp;
             goto done;
         }
     }
@@ -1916,8 +1916,8 @@ normaldone:
         {
             if (stanTestVolume(&stan, partialpos.x, partialpos.z, width, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER, ymax, ymin) < 0)
             {
-                obj->runtime_pos.x = partialpos.x;
-                obj->runtime_pos.z = partialpos.z;
+                obj->position.x = partialpos.x;
+                obj->position.z = partialpos.z;
                 prop->stan = stan;
                 prop->pos.x = partialpos.x;
                 prop->pos.z = partialpos.z;
@@ -1933,7 +1933,7 @@ normaldone:
 
     tmp = partialpos.y;
     prop->pos.y = tmp;
-    obj->runtime_pos.y = tmp;
+    obj->position.y = tmp;
     result = 0;
 
 done:
@@ -3156,9 +3156,9 @@ void objStickToSurface(ObjectRecord* obj, coord3d* pos, StandTile* stan, coord3d
 
     localYOffset = chrpropBBOXGetYmin(chrobjGetBboxFromObjFile(obj->model->obj));
 
-    obj->runtime_pos.f[0] -= localYOffset * obj->mtx.m[1][0];
-    obj->runtime_pos.f[1] -= localYOffset * obj->mtx.m[1][1];
-    obj->runtime_pos.f[2] -= localYOffset * obj->mtx.m[1][2];
+    obj->position.f[0] -= localYOffset * obj->mtx.m[1][0];
+    obj->position.f[1] -= localYOffset * obj->mtx.m[1][1];
+    obj->position.f[2] -= localYOffset * obj->mtx.m[1][2];
 
     objUpdateCollisionVolume(obj);
 }
@@ -3193,7 +3193,7 @@ bool objEmbed(PropRecord *prop, PropRecord *parent, Model *model, ModelNode *nod
             chrpropReparent(prop, parent);
 
             matrix_4x4_copy(&obj->mtx, &mtx1);
-            matrix_4x4_set_position(&obj->runtime_pos, &mtx1);
+            matrix_4x4_set_position(&obj->position, &mtx1);
             matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), nodemtx, &mtx2);
             matrix_4x4_invert_affine((f32 (*)[4]) &mtx2.m, (f32 (*)[4]) &mtx3.m);
             matrix_4x4_multiply_homogeneous((Mtxf* ) &mtx3.m, &mtx1, &obj->embedment->matrix);
@@ -3258,7 +3258,7 @@ void propExplode(PropRecord *prop, s32 /* enum EXPLOSION_DEF */ explosionType)
     }
     else
     {
-        explosionCreate(0, &prop_obj->runtime_pos, prop->stan, (s16) explosionType, (prop_obj->flags & 0xE) == 0 && (prop->flags & PROPFLAG_00000008) == 0, playernum, prop->rooms, (prop->flags & PROPFLAG_00000008) != 0);
+        explosionCreate(0, &prop_obj->position, prop->stan, (s16) explosionType, (prop_obj->flags & 0xE) == 0 && (prop->flags & PROPFLAG_00000008) == 0, playernum, prop->rooms, (prop->flags & PROPFLAG_00000008) != 0);
     }
 }
 
@@ -3873,7 +3873,7 @@ s32 sub_GAME_7F044B38(ObjectRecord *obj)
 
     matrix_4x4_set_rotation_around_y(((VehichleRecord *)obj)->roty, &mtx);
     matrix_scalar_multiply(model->scale, (f32 *) (&mtx));
-    matrix_4x4_set_position(&obj->runtime_pos, &mtx);
+    matrix_4x4_set_position(&obj->position, &mtx);
 
     matrix_4x4_transform_vector(&mtx, modelpoint0, &point0);
     matrix_4x4_transform_vector(&mtx, modelpoint1, &point1);
@@ -4026,7 +4026,7 @@ s32 sub_GAME_7F044B38(ObjectRecord *obj)
 
         ypos = (point0.y - (chrpropBBOXGetYmin(bbox) * model->scale)) - point1.y;
         prop->pos.y = ypos;
-        obj->runtime_pos.y = ypos;
+        obj->position.y = ypos;
     }
     else
     {
@@ -4036,7 +4036,7 @@ s32 sub_GAME_7F044B38(ObjectRecord *obj)
         ypos = stanGetPositionYValue(prop->stan, prop->pos.x, prop->pos.z) - ((chrpropBBOXGetYmin(bbox) + modelpoint0->f[1]) * model->scale);
 
         prop->pos.y = ypos;
-        obj->runtime_pos.y = ypos;
+        obj->position.y = ypos;
     }
 
     return result;
@@ -4400,9 +4400,9 @@ s32 objTick(struct PropRecord *prop)
 				Rocket->flags &= ~PROJECTILEFLAG_00000100;
 			}
 
-			RocketCurrent.f[0] = obj->runtime_pos.f[0];
-			RocketCurrent.f[1] = obj->runtime_pos.f[1];
-			RocketCurrent.f[2] = obj->runtime_pos.f[2];
+			RocketCurrent.f[0] = obj->position.f[0];
+			RocketCurrent.f[1] = obj->position.f[1];
+			RocketCurrent.f[2] = obj->position.f[2];
 
 			if (Rocket->refreshrate > 0)
 			{
@@ -4417,7 +4417,7 @@ s32 objTick(struct PropRecord *prop)
 				bounceCondition = 0;
 				projectileStopped = 0;
 				bboxBottomOffset = 1.0f;
-				temp_f20 = obj->runtime_pos.f[1];
+				temp_f20 = obj->position.f[1];
 				canEmbed = FALSE;
 				Rocket->unkA8 += g_ClockTimer;
 				previousXAxis.f[0] = obj->mtx.m[0][0];
@@ -4603,12 +4603,12 @@ s32 objTick(struct PropRecord *prop)
 							projectileStopped = 1;
 							if (var_v0_3 == 3)
 							{
-								chrlvExplosionDamage((ChrRecord *) playerProp2->chr, &obj->runtime_pos, 2.0f, 1);
+								chrlvExplosionDamage((ChrRecord *) playerProp2->chr, &obj->position, 2.0f, 1);
 							}
 							else if ((var_v0_3 == 1) || (var_v0_3 == 4))
 							{
 								var_a0 = obj->runtime_bitflags;
-								objApplyDamage(playerProp2->obj, 100.0f, &obj->runtime_pos, ITEM_ROCKETROUND, (s32) (((u32) (var_a0 & RUNTIMEBITFLAG_OWNER)) >> RUNTIMEBITSHIFT_OWNER));
+								objApplyDamage(playerProp2->obj, 100.0f, &obj->position, ITEM_ROCKETROUND, (s32) (((u32) (var_a0 & RUNTIMEBITFLAG_OWNER)) >> RUNTIMEBITSHIFT_OWNER));
 							}
 
 							((struct WeaponObjRecord *) obj)->timer = 0;
@@ -4629,7 +4629,7 @@ s32 objTick(struct PropRecord *prop)
 							Rocket->speed.f[1] += temp_f14_3 * collisionNormal.f[1];
 							Rocket->speed.f[2] += temp_f14_3 * collisionNormal.f[2];
 
-							if ((previousVerticalSpeed <= 0.0f) && ((Rocket->speed.f[1] >= 0.0f) || (temp_f20 <= obj->runtime_pos.f[1])))
+							if ((previousVerticalSpeed <= 0.0f) && ((Rocket->speed.f[1] >= 0.0f) || (temp_f20 <= obj->position.f[1])))
 							{
 								bounceCondition = 1;
 							}
@@ -4673,12 +4673,12 @@ s32 objTick(struct PropRecord *prop)
 						if (hitGround)
 						{
                             // The projectile has hit the ground so raise it 4 units above the ground.
-							obj->runtime_pos.f[1] = (prop->pos.f[1] = (temp_f20 - bboxBottomOffset) + 4.0f);
+							obj->position.f[1] = (prop->pos.f[1] = (temp_f20 - bboxBottomOffset) + 4.0f);
 						}
 						else
 						{
 							var_f2 = (collisionPoint.f[1] - bboxBottomOffset) + 4.0f;
-							obj->runtime_pos.f[1] = (prop->pos.f[1] = var_f2);
+							obj->position.f[1] = (prop->pos.f[1] = var_f2);
 						}
 
 						if (!(obj->runtime_bitflags & RUNTIMEBITFLAG_00010000))
@@ -4738,7 +4738,7 @@ s32 objTick(struct PropRecord *prop)
 								}
 								else
 								{
-									explosionCreateSmoke(&airborneWeapon->runtime_pos, prop->stan, 8, prop->rooms, (prop->flags & PROPFLAG_00000008) != 0);
+									explosionCreateSmoke(&airborneWeapon->position, prop->stan, 8, prop->rooms, (prop->flags & PROPFLAG_00000008) != 0);
 								}
 							}
 						}
@@ -4750,7 +4750,7 @@ s32 objTick(struct PropRecord *prop)
 							}
 							else
 							{
-								explosionCreateSmoke(&obj->runtime_pos, prop->stan, 9, prop->rooms, (prop->flags & PROPFLAG_00000008) != 0);
+								explosionCreateSmoke(&obj->position, prop->stan, 9, prop->rooms, (prop->flags & PROPFLAG_00000008) != 0);
 							}
 						}
 
@@ -4777,9 +4777,9 @@ s32 objTick(struct PropRecord *prop)
 
 				if (((airborneWeapon->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE) && (Rocket->flags & PROJECTILEFLAG_FALLING)) && (!(g_GlobalTickCount & 7)))
 				{
-					sp564.f[0] = airborneWeapon->runtime_pos.f[0] + 400.0f;
-					sp564.f[1] = airborneWeapon->runtime_pos.f[1] - 1800.0f;
-					sp564.f[2] = airborneWeapon->runtime_pos.f[2];
+					sp564.f[0] = airborneWeapon->position.f[0] + 400.0f;
+					sp564.f[1] = airborneWeapon->position.f[1] - 1800.0f;
+					sp564.f[2] = airborneWeapon->position.f[2];
 
 					if (!(g_GlobalTickCount & 0xF))
 					{
@@ -4865,7 +4865,7 @@ s32 objTick(struct PropRecord *prop)
 					temp_f20 = stanGetPositionYValue(prop->stan, prop->pos.f[0], prop->pos.f[2]);
 					angleDelta = (temp_f20 - chrpropSumMatrixPosY(objectBBox, objectMatrix)) + 4.0f;
 					prop->pos.f[1] = angleDelta;
-					obj->runtime_pos.f[1] = angleDelta;
+					obj->position.f[1] = angleDelta;
 					if ((Rocket->speed.f[0] < 0.1f) && (Rocket->speed.f[0] > (-0.1f)))
 					{
 						if ((Rocket->speed.f[2] < 0.1f) && (Rocket->speed.f[2] > (-0.1f)))
@@ -4898,7 +4898,7 @@ s32 objTick(struct PropRecord *prop)
 
 		if (objMovedThisFrame != 0)
 		{
-			objectMatrix = (Mtxf *) (&obj->runtime_pos);
+			objectMatrix = (Mtxf *) (&obj->position);
 
 			objUpdateCollisionVolume(obj);
 			setupUpdateObjectRoomPosition(obj);
@@ -4970,10 +4970,10 @@ s32 objTick(struct PropRecord *prop)
 			}
 
 			playerProp = getCurrentPlayerProp();
-			xdiff = playerProp->pos.f[0] - obj->runtime_pos.f[0];
+			xdiff = playerProp->pos.f[0] - obj->position.f[0];
 			temp_f0_13 = bottom_pad->unkE8;
-			ydiff = playerProp->pos.f[1] - obj->runtime_pos.f[1];
-			temp_f14_3 = playerProp->pos.f[2] - obj->runtime_pos.f[2];
+			ydiff = playerProp->pos.f[1] - obj->position.f[1];
+			temp_f14_3 = playerProp->pos.f[2] - obj->position.f[2];
 			cctvSeesPlayer = 1;
 
 			if ((temp_f0_13 > 0.0f) && ((temp_f0_13 * temp_f0_13) < (((xdiff * xdiff) + (ydiff * ydiff)) + (temp_f14_3 * temp_f14_3))))
@@ -5139,9 +5139,9 @@ s32 objTick(struct PropRecord *prop)
 			}
 			else
 			{
-				var_f0_2 = playerProp2->pos.f[0] - obj->runtime_pos.f[0];
-				playerDirVec.f[1] = (playerProp2->pos.f[1] - obj->runtime_pos.f[1]) - 20.0f;//Aim 20 units below player’s head
-				temp_f2_23 = playerProp2->pos.f[2] - obj->runtime_pos.f[2];
+				var_f0_2 = playerProp2->pos.f[0] - obj->position.f[0];
+				playerDirVec.f[1] = (playerProp2->pos.f[1] - obj->position.f[1]) - 20.0f;//Aim 20 units below player’s head
+				temp_f2_23 = playerProp2->pos.f[2] - obj->position.f[2];
 				horizontalDistSq = (var_f0_2 * var_f0_2) + (temp_f2_23 * temp_f2_23);
 				playerDirVec.f[2] = var_f0_2;
 				playerDirVec.f[0] = temp_f2_23;
@@ -5393,7 +5393,7 @@ s32 objTick(struct PropRecord *prop)
 
 			if (((!(obj->flags2 & PROPFLAG2_00080000)) && (objIsHealthy(obj) != 0)) && ((poTruck->speed > 0.0f) || (poTruck->speedaim > 0.0f)))
 			{
-				truckShouldPlayEngineSound = sub_GAME_7F053894(&poTruck->runtime_pos, 2000.0f, 3000.0f);
+				truckShouldPlayEngineSound = sub_GAME_7F053894(&poTruck->position, 2000.0f, 3000.0f);
 			}
 
 			if (truckShouldPlayEngineSound > 0)
@@ -5418,7 +5418,7 @@ s32 objTick(struct PropRecord *prop)
 				temp_a1_6 = &poTruck->path->waypoints[poTruck->nextstep];
 				currentWaypoint = &g_CurrentSetup.pathwaypoints[*temp_a1_6];
 				waypointPosition = &g_CurrentSetup.pads[currentWaypoint->padID].pos;
-				targetYaw = atan2f(waypointPosition->f[0] - poTruck->runtime_pos.f[0], waypointPosition->f[2] - poTruck->runtime_pos.f[2]);
+				targetYaw = atan2f(waypointPosition->f[0] - poTruck->position.f[0], waypointPosition->f[2] - poTruck->position.f[2]);
 				if (poTruck->flags & PROPFLAG_INMOTION)
 				{
 					poTruck->roty = targetYaw;
@@ -5445,7 +5445,7 @@ s32 objTick(struct PropRecord *prop)
 					forwardDir.f[0] = sinf(poTruck->roty);
 					forwardDir.f[1] = 0.0f;
 					forwardDir.f[2] = cosf(poTruck->roty);
-					if (chrlvGeometryRelated7F02FC34(&poTruck->runtime_pos, &forwardDir, waypointPosition, 10.0f) != 0)
+					if (chrlvGeometryRelated7F02FC34(&poTruck->position, &forwardDir, waypointPosition, 10.0f) != 0)
 					{
 						targetYaw = poTruck->roty;
 					}
@@ -5487,9 +5487,9 @@ s32 objTick(struct PropRecord *prop)
 				forwardDir.f[0] = sinf(poTruck->roty);
 				forwardDir.f[1] = 0.0f;
 				forwardDir.f[2] = cosf(poTruck->roty);
-				RocketCurrent.f[0] = (poTruck->runtime_pos.f[0] + ((poTruck->speed * g_GlobalTimerDelta) * forwardDir.f[0])) - (forwardDir.f[2] * sp460);
-				RocketCurrent.f[1] = poTruck->runtime_pos.f[1];
-				RocketCurrent.f[2] = (poTruck->runtime_pos.f[2] + ((poTruck->speed * g_GlobalTimerDelta) * forwardDir.f[2])) + (forwardDir.f[0] * sp460);
+				RocketCurrent.f[0] = (poTruck->position.f[0] + ((poTruck->speed * g_GlobalTimerDelta) * forwardDir.f[0])) - (forwardDir.f[2] * sp460);
+				RocketCurrent.f[1] = poTruck->position.f[1];
+				RocketCurrent.f[2] = (poTruck->position.f[2] + ((poTruck->speed * g_GlobalTimerDelta) * forwardDir.f[2])) + (forwardDir.f[0] * sp460);
 				if ((stanTestLineUnobstructed(&currentTile, prop->pos.f[0], prop->pos.f[2], RocketCurrent.f[0], RocketCurrent.f[2], 0x1F, 0.0f, 1.0f, 0.0f, 1.0f) != 0) && (stanTestVolume(&currentTile, RocketCurrent.f[0], RocketCurrent.f[2], 10.0f, 0x1F, 0.0f, 1.0f) < 0))
 				{
 					nextTile = prop->stan;
@@ -5497,8 +5497,8 @@ s32 objTick(struct PropRecord *prop)
 					sp450.f[1] = prop->pos.f[1];
 					sp450.f[2] = prop->pos.f[2];
 					prop->stan = currentTile;
-					poTruck->runtime_pos.f[0] = (prop->pos.f[0] = RocketCurrent.f[0]);
-					poTruck->runtime_pos.f[2] = (prop->pos.f[2] = RocketCurrent.f[2]);
+					poTruck->position.f[0] = (prop->pos.f[0] = RocketCurrent.f[0]);
+					poTruck->position.f[2] = (prop->pos.f[2] = RocketCurrent.f[2]);
 					objUpdateCollisionVolume(obj);
 					setupUpdateObjectRoomPosition(obj);
 					var_s2_5 = sub_GAME_7F0448A8(prop);
@@ -5524,7 +5524,7 @@ s32 objTick(struct PropRecord *prop)
 					{
 						sub_GAME_7F044B38(poTruck);
 						sub_GAME_7F0402B4(prop, &poTruck->nextcol);
-						detonate_proxmine_In_range(&poTruck->runtime_pos);
+						detonate_proxmine_In_range(&poTruck->position);
 						if ((waypointPosition != NULL) && (chrlvIsArrivingLaterallyAtPos(&sp450, &RocketCurrent, waypointPosition, 100.0f) != 0))
 						{
 							poTruck->nextstep++;
@@ -5548,9 +5548,9 @@ s32 objTick(struct PropRecord *prop)
 						poTruck->roty = previousYaw;
 						poTruck->turnrot60 = sp434;
 						prop->stan = nextTile;
-						obj->runtime_pos.f[0] = (prop->pos.f[0] = sp450.f[0]);
-						obj->runtime_pos.f[1] = (prop->pos.f[1] = sp450.f[1]);
-						obj->runtime_pos.f[2] = (prop->pos.f[2] = sp450.f[2]);
+						obj->position.f[0] = (prop->pos.f[0] = sp450.f[0]);
+						obj->position.f[1] = (prop->pos.f[1] = sp450.f[1]);
+						obj->position.f[2] = (prop->pos.f[2] = sp450.f[2]);
 						objUpdateCollisionVolume(obj);
 						setupUpdateObjectRoomPosition(obj);
 					}
@@ -5585,7 +5585,7 @@ s32 objTick(struct PropRecord *prop)
 
 			if (temp_s0_6->anim != NULL)
 			{
-				setsuboffset(temp_s0_6, &render_pad2F4->runtime_pos);
+				setsuboffset(temp_s0_6, &render_pad2F4->position);
 #if defined(VERSION_EU)
 				modelSetAnimPlaySpeed(render_pad2F4->model, 1.2f, 0.0f);
 #endif
@@ -5614,9 +5614,9 @@ s32 objTick(struct PropRecord *prop)
 
 				modelTickAnim(render_pad2F4->model, g_ClockTimer, 1);
 				subcalcpos(render_pad2F4->model);
-				getsuboffset(render_pad2F4->model, &render_pad2F4->runtime_pos);
-				prop->pos.f[0] = render_pad2F4->runtime_pos.f[0];
-				prop->pos.f[2] = render_pad2F4->runtime_pos.f[2];
+				getsuboffset(render_pad2F4->model, &render_pad2F4->position);
+				prop->pos.f[0] = render_pad2F4->position.f[0];
+				prop->pos.f[2] = render_pad2F4->position.f[2];
 				if (render_pad2F4->pad < 10000)
 				{
 					var_v1_4 = &g_CurrentSetup.pads[render_pad2F4->pad];
@@ -5626,9 +5626,9 @@ s32 objTick(struct PropRecord *prop)
 					var_v1_4 = (PadRecord *) (&g_CurrentSetup.boundpads[render_pad2F4->pad - 10000]);
 				}
 
-				prop->pos.f[1] = var_v1_4->pos.f[1] + render_pad2F4->runtime_pos.f[1];
-				render_pad2F4->runtime_pos.f[1] = prop->pos.f[1];
-				setsuboffset(render_pad2F4->model, &render_pad2F4->runtime_pos);
+				prop->pos.f[1] = var_v1_4->pos.f[1] + render_pad2F4->position.f[1];
+				render_pad2F4->position.f[1] = prop->pos.f[1];
+				setsuboffset(render_pad2F4->model, &render_pad2F4->position);
 			}
 
 			angleDelta = render_pad2F4->speedtime60;
@@ -5665,7 +5665,7 @@ s32 objTick(struct PropRecord *prop)
 			truckShouldPlayEngineSound = 0;
 			if ((((!(render_pad2F4->flags2 & PROPFLAG2_00080000)) && (objIsHealthy(obj) != 0)) && (render_pad2F4->rotaryspeed != 0.0f)) && (!(render_pad2F4->flags & PROPFLAG_INMOTION)))
 			{
-				truckShouldPlayEngineSound = sub_GAME_7F053894(&render_pad2F4->runtime_pos, 5000.0f, 6000.0f);
+				truckShouldPlayEngineSound = sub_GAME_7F053894(&render_pad2F4->position, 5000.0f, 6000.0f);
 			}
 
 			if (truckShouldPlayEngineSound > 0)
@@ -5690,7 +5690,7 @@ s32 objTick(struct PropRecord *prop)
 	if (obj->type == PROPDEF_TINTED_GLASS)
 	{
 		pad268 = (struct TintedGlassRecord *) prop->obj;
-		pad268->calculatedopacity = glassCalculateOpacity(&obj->runtime_pos, pad268->TintDist, pad268->CullDist, pad268->unk90);
+		pad268->calculatedopacity = glassCalculateOpacity(&obj->position, pad268->TintDist, pad268->CullDist, pad268->unk90);
 		if ((pad268->portalnum >= 0) && (playerCount == 1))
 		{
 			if (pad268->calculatedopacity == 0xFF)
@@ -5709,7 +5709,7 @@ s32 objTick(struct PropRecord *prop)
 	{
 		pad36C = (struct DoorRecord *) prop->obj;
 		var_s2_6 = 1;
-		pad36C->calculatedopacity = glassCalculateOpacity(&obj->runtime_pos, pad36C->TintDist, *((s32 *) (((u8 *) pad36C) + 0xC4)), 0.0f);
+		pad36C->calculatedopacity = glassCalculateOpacity(&obj->position, pad36C->TintDist, *((s32 *) (((u8 *) pad36C) + 0xC4)), 0.0f);
 		if (playerCount == 1)
 		{
 			if ((pad36C->calculatedopacity != 0xFF) || (pad36C->openPosition > 0.0f))
@@ -5744,7 +5744,7 @@ s32 objTick(struct PropRecord *prop)
 	}
 	else
 	{
-		var_v1_5 = ((!(obj->runtime_bitflags & RUNTIMEBITFLAG_00000800)) && (!(obj->flags2 & PROPFLAG2_00080000))) ? (posIsOnScreen(prop, &obj->runtime_pos, getinstsize(model), applyFogCull)) : (0);
+		var_v1_5 = ((!(obj->runtime_bitflags & RUNTIMEBITFLAG_00000800)) && (!(obj->flags2 & PROPFLAG2_00080000))) ? (posIsOnScreen(prop, &obj->position, getinstsize(model), applyFogCull)) : (0);
 	}
 
 	if (var_v1_5 != 0)
@@ -5824,7 +5824,7 @@ s32 objTick(struct PropRecord *prop)
 		else
 		{
 			matrix_4x4_copy(&obj->mtx, &tempMatrix2);
-			matrix_4x4_set_position(&obj->runtime_pos, &tempMatrix2);
+			matrix_4x4_set_position(&obj->position, &tempMatrix2);
 			matrix_4x4_multiply_homogeneous(camGetWorldToScreenMtxf(), &tempMatrix2, mtxs);
 
 			if (obj->type == PROPDEF_CCTV)
@@ -7584,7 +7584,7 @@ void objDeform(ObjectRecord *obj, E_EXPLOSIONTYPE explosiontype)
         modelscale = obj->model->scale;
         node = (ModelNode *) chrobjGetBboxFromObjFile((ModelFileHeader *) node);
         obj->prop->pos.y += (modelscale * chrpropBBOXGetYmin((ModelRoData_BoundingBoxRecord *) node)) * 0.15000001f;
-        obj->runtime_pos.y += (modelscale * chrpropBBOXGetYmin((ModelRoData_BoundingBoxRecord *) node)) * 0.15000001f;
+        obj->position.y += (modelscale * chrpropBBOXGetYmin((ModelRoData_BoundingBoxRecord *) node)) * 0.15000001f;
         return;
     }
     
@@ -8024,9 +8024,9 @@ s32 objDrop(PropRecord *prop)
         chrpropActivate(prop);
         chrpropEnable(prop);
 
-        obj->runtime_pos.x = prop->pos.x = spB8.m[3][0];
-        obj->runtime_pos.y = prop->pos.y = spB8.m[3][1];
-        obj->runtime_pos.z = prop->pos.z = spB8.m[3][2];
+        obj->position.x = prop->pos.x = spB8.m[3][0];
+        obj->position.y = prop->pos.y = spB8.m[3][1];
+        obj->position.z = prop->pos.z = spB8.m[3][2];
 
         spB8.m[3][0] = 0.0f;
         spB8.m[3][1] = 0.0f;
@@ -8133,9 +8133,9 @@ void objDestroySupportedObjects(PropRecord* tableprop, s32 playernum)
             if (((prop->type == PROP_TYPE_OBJ) || (prop->type == PROP_TYPE_WEAPON)) && (prop->stan->room == room))
             {
                 obj = prop->obj;
-                if ((tableobj->runtime_pos.y < obj->runtime_pos.y)
+                if ((tableobj->position.y < obj->position.y)
                         && ((s32) obj->runtime_bitflags & RUNTIMEBITFLAG_00008000)
-                        && (chrpropTestPointInPolygon(&obj->runtime_pos, rect, edges) != 0))
+                        && (chrpropTestPointInPolygon(&obj->position, rect, edges) != 0))
                 {
                     objFall(obj, playernum);
                 }
@@ -8734,7 +8734,7 @@ void sub_GAME_7F04DCB4(ObjectRecord* obj)
     explosionClearBulletImpactRoomByFlag(prop, FALSE);
     explosionClearBulletImpactRoomByFlag(prop, TRUE);
 
-    sub_GAME_7F0A1DA0(&obj->runtime_pos.f[0],
+    sub_GAME_7F0A1DA0(&obj->position.f[0],
         &obj->mtx.m[0][0], &obj->mtx.m[1][0], &obj->mtx.m[2][0],
         bbox->Bounds.xmin, bbox->Bounds.xmax,
         bbox->Bounds.ymin, bbox->Bounds.ymax,
@@ -8898,7 +8898,7 @@ ObjectRecord blank_07_object = {
        0.0f, 0.0f, 1.0f, 0.0f,
        0.0f, 0.0f, 0.0f, 1.0f
     }, //mtx
-    {0.0, 0.0, 0.0},//runtime_pos
+    {0.0, 0.0, 0.0},//position
     {0x00000000}, //runtime_bitflags
     NULL, //collisionBlock
     NULL, //projectile/embedment
@@ -9149,7 +9149,7 @@ apply_damage:
     {
         if (objGetDestroyedLevel(obj) == 1)
         {
-            init_trigger_toxic_gas_effect(&obj->runtime_pos);
+            init_trigger_toxic_gas_effect(&obj->position);
         }
     }
     // Damage done to an armor gets subtracted from the amount of armor it provides when picked up.
@@ -9531,9 +9531,9 @@ bool objTestForInteract(PropRecord* prop)
 
             player = getCurrentPlayerProp();
 
-            xdiff = obj->runtime_pos.x - player->pos.x;
-            ydiff = obj->runtime_pos.y - player->pos.y;
-            zdiff = obj->runtime_pos.z - player->pos.z;
+            xdiff = obj->position.x - player->pos.x;
+            ydiff = obj->position.y - player->pos.y;
+            zdiff = obj->position.z - player->pos.z;
 
             stan = player->stan;
 
@@ -10839,9 +10839,9 @@ TICKOP objTickPlayer(struct PropRecord* prop)
 
         temp_v0_5 = getCurrentPlayerProp();
 
-        temp_f0 = obj->runtime_pos.x - temp_v0_5->pos.x;
-        temp_f12 = obj->runtime_pos.y - temp_v0_5->pos.y;
-        temp_f2 = obj->runtime_pos.z - temp_v0_5->pos.z;
+        temp_f0 = obj->position.x - temp_v0_5->pos.x;
+        temp_f12 = obj->position.y - temp_v0_5->pos.y;
+        temp_f2 = obj->position.z - temp_v0_5->pos.z;
 
         if (g_CurrentPlayer->magnetattracttime >= 0x3C) 
         {
@@ -11045,7 +11045,7 @@ PropRecord *hatCreateForChr(ChrRecord *chr, s32 modelnum, u32 flags)
               0.0f, 0.0f, 0.0f, 1.0f
             }, // mtx
 
-            { 0.0f, 0.0f, 0.0f }, // runtime_pos
+            { 0.0f, 0.0f, 0.0f }, // position
 
             { 0x00000000 }, // runtime_bitflags
             NULL, // collisionBlock
@@ -11460,9 +11460,9 @@ void detonate_proxmine_In_range(coord3d* pos)
             f32 diff_z;
             f32 diff_y;
             f32 dist_sqr;
-            diff_x = pos->x - obj->runtime_pos.x;
-            diff_y = pos->y - obj->runtime_pos.y;
-            diff_z = pos->z - obj->runtime_pos.z;
+            diff_x = pos->x - obj->position.x;
+            diff_y = pos->y - obj->position.y;
+            diff_z = pos->z - obj->position.z;
             dist_sqr = (diff_x * diff_x) + (diff_y * diff_y) + (diff_z * diff_z);
 
             if (dist_sqr < PROXIMITY_MINE_TRIGGER_DISTANCE)
@@ -11634,7 +11634,7 @@ WeaponObjRecord blank_08_object_preset_1 = {
         0.0f, 0.0f, 1.0f, 0.0f,
         0.0f, 0.0f, 0.0f, 1.0f
     }, //mtx
-    { 0.0, 0.0, 0.0 }, //runtime_pos
+    { 0.0, 0.0, 0.0 }, //position
     {0x00000000 }, //runtime_bitflags
     NULL, //collisionBlock
     NULL, //projectile/embedment
@@ -11739,7 +11739,7 @@ WeaponObjRecord blank_08_object_preset_4001 = {
        0.0f, 0.0f, 1.0f, 0.0f,
        0.0f, 0.0f, 0.0f, 1.0f
     }, //mtx
-    {0.0, 0.0, 0.0},//runtime_pos
+    {0.0, 0.0, 0.0},//position
     {0x00000000}, //runtime_bitflags
     NULL, //collisionBlock
     NULL, //projectile/embedment
@@ -12045,9 +12045,9 @@ void door7F0526EC(DoorRecord *door, Mtxf *rhs)
             sp54.f[2] += sp38.f[2] * temp_v0_2->bbox.xmin;
         }
 
-        sp48.f[0] = door->runtime_pos.f[0] - sp54.f[0];
-        sp48.f[1] = door->runtime_pos.f[1] - sp54.f[1];
-        sp48.f[2] = door->runtime_pos.f[2] - sp54.f[2];
+        sp48.f[0] = door->position.f[0] - sp54.f[0];
+        sp48.f[1] = door->position.f[1] - sp54.f[1];
+        sp48.f[2] = door->position.f[2] - sp54.f[2];
 
         matrix_4x4_copy(&door->mtx, rhs);
         matrix_4x4_set_identity_and_position(&sp48, &lhs);
@@ -12080,13 +12080,13 @@ void door7F0526EC(DoorRecord *door, Mtxf *rhs)
     else if ((door->doorType == DOORTYPE_EYE) || (door->doorType == DOORTYPE_IRIS))
     {
         matrix_4x4_copy(&door->mtx, rhs);
-        matrix_4x4_set_position(&door->runtime_pos, rhs);
+        matrix_4x4_set_position(&door->position, rhs);
     }
     else
     {
-        sp2C.f[0] = (door->frac * door->openPosition) + door->runtime_pos.x;
-        sp2C.f[1] = (door->unkac * door->openPosition) + door->runtime_pos.y;
-        sp2C.f[2] = (door->unkb0 * door->openPosition) + door->runtime_pos.z;
+        sp2C.f[0] = (door->frac * door->openPosition) + door->position.x;
+        sp2C.f[1] = (door->unkac * door->openPosition) + door->position.y;
+        sp2C.f[2] = (door->unkb0 * door->openPosition) + door->position.z;
 
         matrix_4x4_copy(&door->mtx, rhs);
         matrix_4x4_set_position(&sp2C, rhs);
@@ -12138,11 +12138,11 @@ void doorUpdateBbox(DoorRecord *door)
 
     if (door->doorType == DOORTYPE_VERTICAL)
     {
-        door->collisionBlock->bottom = door->runtime_pos.f[1] + chrpropSumMatrixPosY(&door->bbox, &sp2C);
+        door->collisionBlock->bottom = door->position.f[1] + chrpropSumMatrixPosY(&door->bbox, &sp2C);
     }
     else if (door->doorType == DOORTYPE_FALLAWAY)
     {
-        door->collisionBlock->bottom = door->runtime_pos.f[1] - 10000.0f;
+        door->collisionBlock->bottom = door->position.f[1] - 10000.0f;
     }
     else
     {
@@ -12163,7 +12163,7 @@ void doorUpdateBbox(DoorRecord *door)
     }
     else if (door->doorType == DOORTYPE_FALLAWAY)
     {
-        door->collisionBlock->top = door->runtime_pos.f[1] + 1000.0f;
+        door->collisionBlock->top = door->position.f[1] + 1000.0f;
     }
     else
     {
@@ -12371,9 +12371,9 @@ PropRecord* doorInit(DoorRecord* door, coord3d* pos, Mtxf* mtx, StandTile* stan,
     prop->pos.z = pos->z;
     prop->stan = stan;
 
-    door->runtime_pos.x = centre->x;
-    door->runtime_pos.y = centre->y;
-    door->runtime_pos.z = centre->z;
+    door->position.x = centre->x;
+    door->position.y = centre->y;
+    door->position.z = centre->z;
     door->flags |= PROPFLAG_00000100;
 
     doorUpdateBbox(door);
@@ -13598,9 +13598,9 @@ bool doorTestForInteract(PropRecord *prop)
 		maybe = FALSE;
 		playerprop = getCurrentPlayerProp();
 
-		xdiff = door->runtime_pos.x - playerprop->pos.x;
-		ydiff = door->runtime_pos.y - playerprop->pos.y;
-		zdiff = door->runtime_pos.z - playerprop->pos.z;
+		xdiff = door->position.x - playerprop->pos.x;
+		ydiff = door->position.y - playerprop->pos.y;
+		zdiff = door->position.z - playerprop->pos.z;
 
 		if (xdiff * xdiff + zdiff * zdiff < 40000.0f && ydiff < 200.0f && ydiff > -200.0f)
         {

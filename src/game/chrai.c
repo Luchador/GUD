@@ -63,7 +63,7 @@ void       audioPlayFromProp2(s32 slot)
         {
             if (sfx->Obj && sfx->Obj->prop)
             {
-                sfx->Volume = sub_GAME_7F0539E4(&sfx->Obj->runtime_pos);
+                sfx->Volume = sub_GAME_7F0539E4(&sfx->Obj->position);
             }
         }
 
@@ -2279,7 +2279,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                             osSyncPrintf("ai_destroyobj 3 : adddamageobj\n");
     #endif
 
-                            objApplyDamage(obj, damage, &obj->runtime_pos, 0x1D, -1);
+                            objApplyDamage(obj, damage, &obj->position, 0x1D, -1);
                         }
                     }
                     Offset += sizeof(AiDestroyObjectRecord);
