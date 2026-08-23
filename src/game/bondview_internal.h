@@ -46,18 +46,11 @@ extern s32 dword_CODE_bss_jp80079CEC[5];
 #endif
 extern PadRecord *g_Startpad[16];
 extern s32 startpadcount;
-#if defined(LEFTOVERDEBUG)
 extern char stringbuffer_top[2][BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH];
-#endif
 extern StandTilePoint *dword_CODE_bss_80079DA0;
 extern StandTilePoint *dword_CODE_bss_80079DA4;
 extern s32 dword_CODE_bss_80079DA8[BSS_80079DA8_LENGTH];
-#ifndef VERSION_EU
 extern char dword_CODE_bss_80079DC8[0x3c];
-#else
-extern char dword_CODE_bss_80079DC8[2][BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH];
-extern char dword_CODE_bss_80079EF6[0x3c];
-#endif
 extern f32 g_MpSwirlRotateSpeed;
 extern f32 g_MpSwirlAngleDegrees;
 extern f32 g_MpSwirlForwardSpeed;

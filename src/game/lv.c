@@ -472,7 +472,7 @@ Gfx* lvlRender(Gfx* DL)
 
             DL = viClearZBufCurrentPlayer(DL);
             DL = viSetupCurrentPlayerView(DL);
-            DL = bondviewRenderDebugBondView(DL);
+            DL = bviewRenderCameraView(DL);
             DL = viSetupScreensForNumPlayers(DL);
             DL = skyRender(DL);
 

@@ -63,7 +63,7 @@
 #if defined(VERSION_US)
     #define BONDVIEW_2ND_FONTTABLE(_param) copy_2ndfonttable
     #define BONDVIEW_1ST_FONTTABLE(_param) copy_1stfonttable
-#elif defined(VERSION_JP) || defined(VERSION_EU)
+#elif defined(VERSION_JP)
     #define BONDVIEW_2ND_FONTTABLE(_param) dword_CODE_bss_jp80079CEC[_param]
     #define BONDVIEW_1ST_FONTTABLE(_param) dword_CODE_bss_jp80079Cd8[_param]
 #endif
@@ -138,7 +138,7 @@ enum CAMERAMODE dword_CODE_bss_80079A18;
 s32 dword_CODE_bss_80079A1C;
 s32 mission_timer;
 
-#if defined(VERSION_JP) || defined(VERSION_EU)
+#if defined(VERSION_JP)
 f32 watch_time_0;
 #else
 s32 watch_time_0;
@@ -1414,23 +1414,15 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
         {
             if ((camera_transition_timer < 120.0f) && ((camera_transition_timer + g_GlobalTimerDelta) >= 120.0f))
             {
-#if defined(VERSION_US)
                 setFontTables(ptrFontZurichBoldChars, ptrFontZurichBold);
                 hudmsgBottomShow(ptr_random06cam_entry->lang1c.lang_ptr);
-#else
-                hudmsgBottomShow(ptr_random06cam_entry->lang1c.lang_ptr, ptrFontZurichBoldChars, ptrFontZurichBold);
-#endif
             }
 
             if (ptr_random06cam_entry->lang20.lang_ptr != NULL)
             {
                 if ((camera_transition_timer < 300.0f) && ((camera_transition_timer + g_GlobalTimerDelta) >= 300.0f))
                 {
-#if defined(VERSION_US)
                     hudmsgBottomShow(ptr_random06cam_entry->lang20.lang_ptr);
-#else
-                    hudmsgBottomShow(ptr_random06cam_entry->lang20.lang_ptr, ptrFontZurichBoldChars, ptrFontZurichBold);
-#endif
                 }
 
                 if (camera_transition_timer > 480.0f)
@@ -1495,11 +1487,7 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
 
                     g_MpSwirlAngleDegrees += g_MpSwirlRotateSpeed;
                 }
-#if defined(VERSION_EU)
-                if (g_MpSwirlAngleDegrees >= 179.5f)
-#else
                 else
-#endif
                 {
                     g_MpSwirlAngleDegrees = 180.0f;
                 }
@@ -1541,17 +1529,18 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
         arg6->f[1] = g_CurrentPlayer->field_488.pos.f[1] + (g_MpSwirlDistance * 0.08f);
         arg6->f[2] = g_CurrentPlayer->field_488.pos.f[2];
 
-#if defined(VERSION_EU)
+        // Adopting EU behavior here, at least for now.
+//#if defined(VERSION_EU)
         if (((get_player_position_in_shuffled(get_cur_playernum()) + 1) == getPlayerCount()) && (g_MpSwirlDistance < 5.0f))
         {
             g_CameraAfterCinema = CAMERAMODE_INTRO;
         }
-#else
+/*#else
         if (g_MpSwirlDistance < 5.0f)
         {
             g_CameraAfterCinema = CAMERAMODE_INTRO;
         }
-#endif
+#endif*/
     }
     else if (g_CameraMode == CAMERAMODE_SWIRL)
     {
@@ -3082,8 +3071,6 @@ void bondviewTriggerWatchZoom(f32 zoominfovy)
 
 /**
  * Trigger watch zoom with default angle.
- *
- * Address 0x7F07E504.
  */
 void bondviewTriggerWatchZoomDefault(void)
 {
@@ -3091,46 +3078,27 @@ void bondviewTriggerWatchZoomDefault(void)
 }
 
 
-/**
- * Address 0x7F07E52C.
- */
 void bondviewZoomToWatchOnOpen(void)
 {
     f32 f;
 
-#if defined(VERSION_EU)
-    f = ((6.09999990463f - g_CurrentPlayer->zoominfovy) * 45.0f) / -53.9000015259f;
-#else
     f = ((5.9f - g_CurrentPlayer->zoominfovy) * 45.0f) / -54.1f;
-#endif
 
     if (f < 0.0f)
     {
         f = -f;
     }
 
-#if defined(VERSION_EU)
-    trigger_watch_zoom(6.09999990463f, f);
-#else
     trigger_watch_zoom(5.9f, f);
-#endif
 
 }
 
 
-
-/**
- * Address 0x7F07E594.
- */
 void bondviewZoomFromWatchOnExit(void)
 {
     f32 f;
 
-#if defined(VERSION_EU)
-    f = ((60.0f - g_CurrentPlayer->zoominfovy) * 45.0f) / -53.9000015259f;
-#else
     f = ((60.0f - g_CurrentPlayer->zoominfovy) * 45.0f) / -54.1f;
-#endif
 
     if (f < 0.0f)
     {
@@ -3141,16 +3109,12 @@ void bondviewZoomFromWatchOnExit(void)
 }
 
 
-
 s32 check_watch_page_transistion_running(void)
 {
     return (g_CurrentPlayer->zoomintime < g_CurrentPlayer->zoomintimemax);
 }
 
 
-/**
- * Address 0x7F07E62C.
- */
 void bondviewUpdateWatchZoomIn(void)
 {
     if (g_CurrentPlayer->zoomintime < g_CurrentPlayer->zoomintimemax)
@@ -3407,23 +3371,10 @@ void bondviewPlayerStopAudioForPause(void)
 }
 
 
-
-
-
-/**
- * US address 7F07EC54.
- * JP address 7F07F260.
- * EU address 7F07ECF4.
-*/
 void bondviewWatchAnimationTick(void)
 {
-#if defined(VERSION_EU)
-    #define WATCH_VAR_LOWER 14
-    #define WATCH_VAR_UPPER 29
-#else
     #define WATCH_VAR_LOWER 17
     #define WATCH_VAR_UPPER 35
-#endif
 
     s32 sp3c;
     s32 sp38;
@@ -3439,16 +3390,12 @@ void bondviewWatchAnimationTick(void)
         sp34 = getCurrentPlayerWeaponId(GUNRIGHT) == ITEM_TRIGGER || getCurrentPlayerWeaponId(GUNRIGHT) == ITEM_WATCHLASER;
         sp3c = sp34;
 
-#if defined (VERSION_US)
         sp38 = WATCH_VAR_LOWER;
 
         if (sp34)
         {
             sp38 = WATCH_VAR_UPPER;
         }
-#else
-        sp38 = (sp34) ? WATCH_VAR_UPPER : WATCH_VAR_LOWER;
-#endif
 
         g_CurrentPlayer->timer_1C4 += g_ClockTimer;
         g_CurrentPlayer->watch_pause_time += 1;
@@ -4742,11 +4689,8 @@ void bondviewUpdatePlayerCollisionPositionFields(void)
     g_CurrentPlayer->prop->pos.f[1] = g_CurrentPlayer->field_488.collision_position.f[1];
     g_CurrentPlayer->prop->pos.f[2] = g_CurrentPlayer->field_488.collision_position.f[2];
 
-#if defined(VERSION_EU)
-#define S7F081478_FACTOR_1 0.881200015545f
-#else
 #define S7F081478_FACTOR_1 0.9f
-#endif
+
     for (i=0; i<g_ClockTimer; i++)
     {
         g_CurrentPlayer->field_3B8.f[0] = (S7F081478_FACTOR_1 * g_CurrentPlayer->field_3B8.f[0]) + g_CurrentPlayer->field_488.pos.f[0];
@@ -4754,11 +4698,8 @@ void bondviewUpdatePlayerCollisionPositionFields(void)
         g_CurrentPlayer->field_3B8.f[2] = (S7F081478_FACTOR_1 * g_CurrentPlayer->field_3B8.f[2]) + g_CurrentPlayer->field_488.pos.f[2];
     }
 
-#if defined(VERSION_EU)
-#define S7F081478_FACTOR_2 0.118799984455f
-#else
 #define S7F081478_FACTOR_2 0.100000024f
-#endif
+
     g_CurrentPlayer->field_3C4 = g_CurrentPlayer->field_3B8.f[0] * S7F081478_FACTOR_2;
     g_CurrentPlayer->field_3C8 = g_CurrentPlayer->field_3B8.f[1] * S7F081478_FACTOR_2;
     g_CurrentPlayer->field_3CC = g_CurrentPlayer->field_3B8.f[2] * S7F081478_FACTOR_2;
@@ -6191,18 +6132,14 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
 
 /**
- * Perfect Dark playerTickDamageAndHealth
- *
- * NTSC address 7F083FC8.
- * NTSC-J address 7F0845D8.
- * EU address 7F08406C.
+ * Perfect Dark: playerTickDamageAndHealth
 */
 void bondviewPlayerTickDamageAndHealth(void)
 {
-    // update damage showtime
+    // Update damage showtime.
     if (g_CurrentPlayer->damageshowtime >= 0)
     {
-        // 0: This is the first frame of damage
+        // This is the first frame of damage.
         if (g_CurrentPlayer->damageshowtime == 0)
         {
             gunSetGunAmmoVisible(GUNAMMOREASON_DAMAGE, FALSE);
@@ -6218,13 +6155,14 @@ void bondviewPlayerTickDamageAndHealth(void)
                 g_CurrentPlayer->damagetype = 7;
             }
 
-// Ensure we don't read out of bounds of the g_DamageTypes array.
-#if defined(VERSION_EU) || defined(VERSION_JP)
+            /** 
+             * Ensure we don't read out of bounds of the g_DamageTypes array.
+             * EU/JP fix adopted into GUD.
+             */
             if (g_CurrentPlayer->damagetype < 0)
             {
                 g_CurrentPlayer->damagetype = 0;
             }
-#endif
         }
 
         if ((g_DamageTypes[g_CurrentPlayer->damagetype].field_0x8 >= g_CurrentPlayer->damageshowtime) || (g_DamageTypes[g_CurrentPlayer->damagetype].flashEndFrame >= g_CurrentPlayer->damageshowtime))
@@ -7137,13 +7075,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
         if ((g_TankSfxState[0] != NULL) && (sndGetPlayingState(g_TankSfxState[0]) != 0))
         {
-            #if defined(VERSION_US)
             g_TankEngineSfxVolume -= (g_ClockTimer * 1000);
-            #endif
-
-            #if defined(VERSION_JP) || defined(VERSION_EU)
-            g_TankEngineSfxVolume -= (s32)(1000.0f * g_GlobalTimerDelta);
-            #endif
 
             if (g_TankEngineSfxVolume > 0)
             {
@@ -7197,14 +7129,11 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
         maxspeed = speedforwards;
 
-#if defined(VERSION_EU)
-        if (maxspeed < speedsideways && 1)
-#else
         if (maxspeed < speedsideways)
-#endif
         {
             maxspeed = speedsideways;
         }
+
         if (maxspeed < speedtheta)
         {
             maxspeed = speedtheta;
@@ -7523,9 +7452,6 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             g_CurrentPlayer->field_488.collision_position.f[2],
             spE4.f[0],
             spE4.f[2]);
-        #ifdef DEBUG
-        assert(stanlineret); // #7362
-        #endif
 
         sp140_tank_as_TankRecord->stan_y = stanGetPositionYValue(sp138_tank_as_ObjectRecord->prop->stan, spE4.f[0], spE4.f[2]);
 
@@ -7578,12 +7504,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                         if (sp6C->actiontype == ACT_DIE)
                         {
-#if defined(VERSION_US)
-                            if ((sp6C->chrflags << 7) >= 0)
-#endif
-#if defined(VERSION_JP) || defined(VERSION_EU)
-                            if ((sp6C->chrflags << 7) >= 0 && lvlGetControlsLockedFlag() == 0)
-#endif
+                            if (!(sp6C->chrflags & CHRFLAG_01000000) && lvlGetControlsLockedFlag() == 0)
                             {
                                 sp6C->chrflags |= CHRFLAG_01000000;
                                 if ((g_GlobalTickCount % 3) < 2)
@@ -7790,11 +7711,7 @@ s16 bondviewGetCurrentPlayerViewportUly(void)
     {
         if (get_cur_playernum() == 0)
         {
-#ifdef VERSION_EU
-            return 0;
-#else
             return VIEWPORT_ULY_2P_PLAYER_1;
-#endif
         }
 
         return VIEWPORT_ULY_2P_PLAYER_2;
@@ -7804,11 +7721,7 @@ s16 bondviewGetCurrentPlayerViewportUly(void)
     {
         if (get_cur_playernum() < 2)
         {
-#ifdef VERSION_EU
-            return 0;
-#else
             return VIEWPORT_ULY_4P_PLAYER_12;
-#endif
         }
 
         return VIEWPORT_ULY_4P_PLAYER_34;
@@ -7842,11 +7755,7 @@ s16 bondviewGetCurrentPlayerViewportUly(void)
     }
     else
     {
-#ifdef VERSION_EU
-            return 0;
-#else
             return VIEWPORT_ULY_DEFAULT;
-#endif
     }
 }
 
@@ -8251,7 +8160,7 @@ s32 bondviewGetRandomSpawnPadIndex(void)
 }
 
 
-Gfx *bondviewRenderDebugBondView(Gfx *gdl)
+Gfx *bviewRenderCameraView(Gfx *gdl)
 {
     coord3d cam_pos;
     coord3d cam_look;
@@ -8267,29 +8176,6 @@ Gfx *bondviewRenderDebugBondView(Gfx *gdl)
     f32 vertical_rot;
     f32 ft4;
 
-#if defined(VERSION_EU)
-    if (bossGetStageNum() == LEVELID_CUBA)
-    {
-        if (cur_player_get_screen_setting() == SCREEN_SIZE_CINEMA)
-        {
-            gdl = clear_framebuffer_black(gdl);
-            gdl = clear_framebuffer_black(gdl);
-            gdl = clear_framebuffer_black(gdl);
-            gdl = clear_framebuffer_black(gdl);
-        }
-        else if (cur_player_get_screen_setting() == SCREEN_SIZE_WIDESCREEN)
-        {
-            gdl = clear_framebuffer_black(gdl);
-            gdl = clear_framebuffer_black(gdl);
-            gdl = clear_framebuffer_black(gdl);
-        }
-        else
-        {
-            gdl = clear_framebuffer_black(gdl);
-            gdl = clear_framebuffer_black(gdl);
-        }
-    }
-#endif
     if (g_CurrentPlayer->frozencam == 1) 
     {
         cam_pos.x = g_CurrentPlayer->pos.x;
@@ -8337,7 +8223,6 @@ Gfx *bondviewRenderDebugBondView(Gfx *gdl)
     bondviewUpdateCameraMatrices(&cam_pos, &cam_look, &cam_up);
     sub_GAME_7F068190(&zeropos, &vec);
 
-
     vec_y = vec.y;
     horizontal_len = sqrtf((vec.z * vec.z) + (vec.x * vec.x));
     vertical_rot = bondviewGetPlayerPitchRadians();
@@ -8350,9 +8235,11 @@ Gfx *bondviewRenderDebugBondView(Gfx *gdl)
     g_CurrentPlayer->field_2A08 = ft4;
 
     angle = atan2f(-vec.x, -vec.z);
+
     if (angle >= M_PI_F) {
         angle -= M_TAU_F;
     }
+
     g_CurrentPlayer->field_2A0C = angle;
 
     return gdl;

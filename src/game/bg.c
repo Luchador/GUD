@@ -71,37 +71,19 @@ extern s32 dword_CODE_bss_8007FF88;
 extern s32 *dword_CODE_bss_8007FF90;
 extern f32 *dword_CODE_bss_8007FF94;
 extern s_bound_info dword_CODE_bss_8007FFA0[];
-#ifndef VERSION_EU
 extern s32 dword_CODE_bss_8007FF98;
 extern s32 dword_CODE_bss_8007FF9C;
-#else
-extern u32 missingeubytes[4];
-extern s32 eu_bss_8007BFA0;
-extern s32 eu_bss_8007BFA4;
-#endif
 extern s32 dword_CODE_bss_800815f0;
 extern s32 dword_CODE_bss_800815f4;
 extern s32 dword_CODE_bss_800815f8;
 
-#ifdef VERSION_EU
-#define BG_PORTAL_QUEUE_LEN 250
-#else
 #define BG_PORTAL_QUEUE_LEN 500
-#endif
 
 s32 ptr_bg_data;
 s32 gptr_stan;
 s32 dword_CODE_bss_8007BF98;
 
-#ifdef VERSION_EU
-s32 eu_bss_80079EEC;
-#endif
-
-#ifdef VERSION_EU
-char list_visible_rooms_in_cur_global_vis_packet[0x8c];
-#else
 char list_visible_rooms_in_cur_global_vis_packet[0x98];
-#endif
 
 s32 num_visible_rooms_in_cur_global_vis_packet;
 
@@ -389,22 +371,14 @@ s32 bgGet2dBboxByRoomId(s32 room_id, struct bbox2d *result)
 
 Gfx *bgRender(Gfx *gdl)
 {
-#ifdef VERSION_EU
-    s16 i;
-#else
     s32 i;
-#endif
     s32 j;
     s32 b_max;
     s32 b_min;
     s32 notdone;
-#ifdef VERSION_EU
-    b_max = 0;
-    b_min = 32767;
-#else
+
     b_min = 99999999;
     b_max = 0;
-#endif
  
     for (j = 0; j < g_BgNumberOfRoomsDrawn; j++)
     {
@@ -731,7 +705,6 @@ void load_bg_file(LEVEL_INDEX levelid)
         sub_GAME_7F0B37EC();
     }
  
-    fogRemoved7F0BAA5C(levelid);
     g_RoomLoadBudget = 200;
 }
 
@@ -1456,35 +1429,24 @@ void bbox2dCopy(struct bbox2d *a, struct bbox2d *b)
 
 
 bg_queued_portal_entry g_BgPortalQueue[BG_PORTAL_QUEUE_LEN];
-
 bg_portal_data_entry *g_BgPortals;
 s32 ptr_bgdata_offsets;
 s32 dword_CODE_bss_8007FF88;
 bg_room_data *ptr_bgdata_room_fileposition_list;
 s32 *dword_CODE_bss_8007FF90;
 f32 *dword_CODE_bss_8007FF94;
-
-#ifdef VERSION_EU
-s_bound_info dword_CODE_bss_8007FFA0[124];
-u32 missingeubytes[4];
-s32 dword_CODE_bss_800815f0;
-s32 dword_CODE_bss_800815f4;
-s32 dword_CODE_bss_800815f8;
-s32 eu_bss_8007BFA0;
-s32 eu_bss_8007BFA4;
-#else
 s32 dword_CODE_bss_8007FF98;
 s32 dword_CODE_bss_8007FF9C;
 s_bound_info dword_CODE_bss_8007FFA0[204];
 s32 dword_CODE_bss_800815f0;
 s32 dword_CODE_bss_800815f4;
 s32 dword_CODE_bss_800815f8;
-#endif
 
 BoundVec D_80044868 = {0x7FFF, 0x7FFF, 0x7FFF};
 BoundVec D_80044874 = {-0x8000, -0x8000, -0x8000};
 BoundVec D_80044880 = {0x7FFF, 0x7FFF, 0x7FFF};
 BoundVec D_8004488C = {-0x8000, -0x8000, -0x8000};
+
 s32 D_80044898 = 0;
 s32 D_8004489C = 0xF;
 s32 g_BgPortalQueueWriteIndex = 0;
@@ -1510,11 +1472,6 @@ s32 D_80044918 = 0xFF7FFFFF;
 u32 D_8004491C = 0;
 u32 D_80044920 = 0;
 u32 D_80044924 = 0;
-
-#if defined(VERSION_EU)
-s32 eu_cdata_0x1f1c0 = 0;
-s32 eu_cdata_0x1f1c4 = 0;
-#endif
 
 /*
     //###RenderMode / Combiner Look - Up - Tables
@@ -3049,36 +3006,6 @@ u8 bgIncrementRoomPortalVisitCount(s32 roomnum)
 }
 
 
-#ifdef VERSION_EU
-void bgQueuePortalTraversal(s32 arg0, s32 arg1, s32 portalnum, f32 *arg4)
-{
-    bg_queued_portal_entry *entry;
-    entry = &g_BgPortalQueue[g_BgPortalQueueWriteIndex];
-    if (portalnum >= 2)
-    {
-        if (bgIncrementRoomPortalVisitCount((g_BgPortals[arg1].connectedRoom2 ^ g_BgPortals[arg1].connectedRoom1) ^ arg0) >= 9)
-        {
-            return;
-        }
-    }
-    entry->arg0 = arg0;
-    entry->roomnum = arg1;
-    entry->portalnum = portalnum;
-    entry->sp4[0] = arg4[0];
-    entry->sp4[1] = arg4[1];
-    entry->sp4[2] = arg4[2];
-    entry->sp4[3] = arg4[3];
-    g_BgPortalQueueWriteIndex++;
-    if (g_BgPortalQueueWriteIndex == BG_PORTAL_QUEUE_LEN)
-    {
-        g_BgPortalQueueWriteIndex = 0;
-    }
-    if (g_BgPortalQueueWriteIndex == g_BgPortalQueueReadIndex)
-    {
-        g_BgPortalQueueWriteIndex--;
-    }
-}
-#else
 void bgQueuePortalTraversal(s32 arg0, s32 arg1, s32 portalnum, s32 depth, f32 *arg4)
 {
     bg_queued_portal_entry *entry;
@@ -3111,7 +3038,6 @@ void bgQueuePortalTraversal(s32 arg0, s32 arg1, s32 portalnum, s32 depth, f32 *a
         g_BgPortalQueueWriteIndex--;
     }
 }
-#endif
 
 
 bool bgProcessNextQueuedPortal()
@@ -3138,148 +3064,6 @@ bool bgProcessNextQueuedPortal()
 }
 
 
-/**
- * EU version drops the value parameter and is type void unlike US/JP which returns s32.
- * 
- * bgPortalDescend
- */
-#if defined(VERSION_EU)
-void sub_GAME_7F0B7F84(s32 roomnum, s32 portalnum /*canonically p*/, s32 depth, bbox2d *parentbox)
-{
-    bbox2d screenbox;
-    coord3d *playerpos;
-    s32 otherroom;
-    struct PortalMetric metric;
-    f32 playermetric;
-    f32 portalmetric;
-    s32 i;
- 
-    D_80044898++;
- 
-    if (depth >= 101)
-    {
-#ifdef DEBUG
-        osSyncPrintf("bg: << Deep\n");
-#endif
-        return;
-    }
- 
-    if (D_8004489C < depth)
-    {
-        return;
-    }
- 
-    if (depth >= 16)
-    {
-        return;
-    }
- 
-    if (depth);
-
-    if (g_BgPortals[portalnum].controlbytes1 & PORTALFLAG_DISABLED)
-    {
-        return;
-    }
- 
-    i = (s32) &D_800442FC[portalnum];
-
-    if (i);
- 
-    playerpos = bondviewGetPlayerPosition();
-    sub_GAME_7F0B96CC(portalnum, &metric);
-    playermetric = ((metric.normal.z * playerpos->z) + ((metric.normal.x * playerpos->x) + (metric.normal.y * playerpos->y))) * room_data_float1;
-    portalmetric = sub_GAME_7F0B9990(portalnum);
- 
-    if (roomnum == g_BgPortals[portalnum].connectedRoom1)
-    {
-        otherroom = g_BgPortals[portalnum].connectedRoom2;
- 
-        if (metric.max <= (playermetric - portalmetric))
-        {
-            return;
-        }
-    }
-    else
-    {
-        otherroom = g_BgPortals[portalnum].connectedRoom1;
- 
-        if ((playermetric + portalmetric) <= metric.min)
-        {
-            return;
-        }
-    }
- 
-    if (((metric.min - portalmetric) < playermetric) && (playermetric < (metric.max + portalmetric)))
-    {
-        screenbox.f[0][0] = g_CurrentPlayer->screensize.f[0][0];
-        screenbox.f[0][1] = g_CurrentPlayer->screensize.f[0][1];
-        screenbox.f[1][0] = g_CurrentPlayer->screensize.f[1][0];
-        screenbox.f[1][1] = g_CurrentPlayer->screensize.f[1][1];
-    }
-    else
-    {
-        if (g_BgPortals[portalnum].controlbytes1 & PORTALFLAG_SPECIAL)
-        {
-            if (!sub_GAME_7F0B5864(portalnum, &screenbox))
-            {
-                return;
-            }
- 
-            otherroom = (g_BgPortals[portalnum].connectedRoom1 ^ g_BgPortals[portalnum].connectedRoom2) ^ roomnum;
- 
-            if (!bgIsRoomOnScreen(otherroom, (struct rectbbox *) &screenbox))
-            {
-                return;
-            }
- 
-            screenbox.f[0][0] = g_CurrentPlayer->screensize.f[0][0];
-            screenbox.f[0][1] = g_CurrentPlayer->screensize.f[0][1];
-            screenbox.f[1][0] = g_CurrentPlayer->screensize.f[1][0];
-            screenbox.f[1][1] = g_CurrentPlayer->screensize.f[1][1];
-        }
-        else
-        {
-            if (!sub_GAME_7F0B5864(portalnum, &screenbox))
-            {
-                return;
-            }
- 
-            bgRectIntersect(&screenbox, parentbox);
-            bgRectIntersect(&screenbox, &g_CurrentPlayer->screensize);
-        }
- 
-        if ((screenbox.max.x <= screenbox.min.x) || (screenbox.max.y <= screenbox.min.y))
-        {
-            return;
-        }
-    }
- 
-    *((u8 *) i) = depth;
- 
-    if ((screenbox.min.x < screenbox.max.x) && (screenbox.min.y < screenbox.max.y))
-    {
-        if (sub_GAME_7F0B39BC(otherroom, depth, &screenbox, g_BgPortals[portalnum].controlbytes1 & PORTALFLAG_SPECIAL))
-        {
-            return;
-        }
-    }
-    else
-    {
-        return;
-    }
- 
-    for (i = 0; g_BgPortals[i].offset_portal != NULL; i++)
-    {
-        if (i != portalnum)
-        {
-            if ((otherroom == g_BgPortals[i].connectedRoom1) || (otherroom == g_BgPortals[i].connectedRoom2))
-            {
-                bgQueuePortalTraversal(otherroom, i, depth + 1, &screenbox);
-            }
-        }
-    }
-}
-#else
 void sub_GAME_7F0B7F84(s32 value, s32 roomnum, s32 portalnum, s32 depth, bbox2d *parentbox)
 {
     bbox2d screenbox;
@@ -3395,7 +3179,6 @@ void sub_GAME_7F0B7F84(s32 value, s32 roomnum, s32 portalnum, s32 depth, bbox2d 
  
     return;
 }
-#endif
 
 
 /**
@@ -3732,9 +3515,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
     }
 }
 
-#ifndef VERSION_EU
 struct unk_portalstruct table_for_portals[PORTMAX];
-#endif
 
 
 // Something about portals. Void* are structs.

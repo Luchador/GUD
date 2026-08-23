@@ -69,11 +69,7 @@ void bheadUpdateIdleRoll()
 
 void bheadUpdatePos(coord3d *vel)
 {
-#if defined(VERSION_EU)
-#define CURRENTPLAYERUPDATEHEADPOS_SCALE 0.916599988937f
-#else
 #define CURRENTPLAYERUPDATEHEADPOS_SCALE 0.93f
-#endif
     s32 i;
 
     if (g_CurrentPlayer->resetheadpos)
@@ -301,16 +297,6 @@ void bheadUpdate(f32 percent_speed, f32 speedsideways)
 
             g_CurrentPlayer->headwalkingtime60 += g_ClockTimer;
 
-#if defined(VERSION_EU)
-            if (g_CurrentPlayer->headwalkingtime60 > TICKS_PER_SECOND)
-            {
-                bheadSetdamp(0.916599988937f);
-            }
-            else
-            {
-                bheadSetdamp(0.987999975681f);
-            }
-#else
             if (g_CurrentPlayer->headwalkingtime60 > TICKS_PER_SECOND)
             {
                 bheadSetdamp(0.93f);
@@ -319,7 +305,6 @@ void bheadUpdate(f32 percent_speed, f32 speedsideways)
             {
                 bheadSetdamp(0.99f);
             }
-#endif
         }
         else
         {
@@ -345,11 +330,7 @@ void bheadUpdate(f32 percent_speed, f32 speedsideways)
         headpos.f[2] = 0.0f;
 
         g_CurrentPlayer->headwalkingtime60 = 0;
-#if defined(VERSION_EU)
-        bheadSetdamp(0.987999975681f);
-#else
         bheadSetdamp(0.99f);
-#endif
         g_CurrentPlayer->standfrac += (0.008333334f + (0.025000002f * bondviewGetBondBreathing())) * g_GlobalTimerDelta;
 
         if (g_CurrentPlayer->standfrac >= 1.0f)
