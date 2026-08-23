@@ -2291,8 +2291,8 @@ struct player
    * Offset 0x2a04.
    */
   s16 registeredroom;
-  f32 field_2A08;
-  f32 field_2A0C;
+  f32 viewPitchRadians;
+  f32 viewYawRadians;
   s32 ptr_text_first_mp_award;
   s32 ptr_text_second_mp_award;
   coord3d field_2A18[2];

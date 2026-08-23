@@ -6974,7 +6974,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                 if (getCurrentPlayerWeaponId(GUNRIGHT) == ITEM_TANKSHELLS)
                 {
-                    tank_vertical_angle = g_CurrentPlayer->field_2A08;
+                    tank_vertical_angle = g_CurrentPlayer->viewPitchRadians;
                     tank_vertical_angle += 0.17453294f; /* should be DegToRad1Fact(10), but that yields 0.17453293f */
                 }
                 else
@@ -8228,19 +8228,21 @@ Gfx *bviewRenderCameraView(Gfx *gdl)
     vertical_rot = bondviewGetPlayerPitchRadians();
     ft4 = atan2f(vec_y, horizontal_len) + vertical_rot;
 
-    if (ft4 >= M_PI_F) {
+    if (ft4 >= M_PI_F)
+    {
         ft4 -= M_TAU_F;
     }
 
-    g_CurrentPlayer->field_2A08 = ft4;
+    g_CurrentPlayer->viewPitchRadians = ft4;
 
     angle = atan2f(-vec.x, -vec.z);
 
-    if (angle >= M_PI_F) {
+    if (angle >= M_PI_F)
+    {
         angle -= M_TAU_F;
     }
 
-    g_CurrentPlayer->field_2A0C = angle;
+    g_CurrentPlayer->viewYawRadians = angle;
 
     return gdl;
 }
@@ -10011,8 +10013,8 @@ s32 playerTick(PropRecord *prop)
     f32 angle;
     f32 frame;
     f32 local90;
-    f32 local8c;
-    f32 local88;
+    f32 playerViewPitch;
+    f32 playerViewYaw;
     f32 fwd;
     f32 startframe;
     struct weapon_firing_animation_table *firingtable;
@@ -10115,13 +10117,13 @@ s32 playerTick(PropRecord *prop)
      * If the player count is 1 we jump to the bottom of the function with goto clear_and_return, so this block only applies to MP.
      * g_PlayerTickCount advances once for each remote player's prop ticked during the pass of the viewport whose player is first in the shuffle order.
      * That means g_PlayerTickCount reaches 2 after one frame of a 2 player game, and part way through the first frame of a 3 or 4 player game.
-     * Nothing *ever* resets g_PlayerTickCount, so we're skipping this whole block only once per boot. The reason for doing this though
-     * isn't quite clear so do chime in if you have any theories.
+     * Nothing *ever* resets g_PlayerTickCount, so we're skipping this whole block only once per boot. The reason for doing this may
+     * be to ensure that viewPitchRadians and viewYawRadians are properly populated before being read.
      */
     if (g_PlayerTickCount >= 2)
     {
-        local8c = ((0, ppointers[index]))->field_2A08;
-        local88 = ppointers[index]->field_2A0C;
+        playerViewPitch = ((ppointers[index]))->viewPitchRadians;
+        playerViewYaw = ppointers[index]->viewYawRadians;
  
         if (ppointers[index]->bondstate == BONDSTATE_JUST_DIED || ppointers[index]->bondstate == BONDSTATE_DEAD)
         {
@@ -10149,8 +10151,8 @@ s32 playerTick(PropRecord *prop)
             }
  
             cur = ppointers[index]->players_cur_animation;
-            local8c = 0.0f;
-            local88 = 0.0f;
+            playerViewPitch = 0.0f;
+            playerViewYaw = 0.0f;
             goto join_768;
         }
  
@@ -10401,18 +10403,18 @@ join_768:
             if (firingtable != NULL)
             {
                 chr->hidden &= ~CHRHIDDEN_0400;
-                chrlvUpdateAimendbackShoulders(chr, firingtable, 0, 1, local8c);
+                chrlvUpdateAimendbackShoulders(chr, firingtable, 0, 1, playerViewPitch);
             }
             else
             {
                 chr->aimendrshoulder = 0.0f;
                 chr->aimendlshoulder = 0.0f;
                 chr->hidden |= CHRHIDDEN_0400;
-                chr->aimendback = local8c;
+                chr->aimendback = playerViewPitch;
             }
         }
  
-        chr->aimendsideback = local88;
+        chr->aimendsideback = playerViewYaw;
         chr->aimendcount = 10;
     }
  

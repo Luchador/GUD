@@ -366,8 +366,8 @@ void init_player_BONDdata(void)
     g_CurrentPlayer->prev_buttons_pressed = (u16)0;
     g_CurrentPlayer->field_29C0 = 15.0f;
     g_CurrentPlayer->registeredroom = -1;
-    g_CurrentPlayer->field_2A08 = 0.0f;
-    g_CurrentPlayer->field_2A0C = 0.0f;
+    g_CurrentPlayer->viewPitchRadians = 0.0f;
+    g_CurrentPlayer->viewYawRadians = 0.0f;
     g_CurrentPlayer->field_2A6C = 0;
     g_CurrentPlayer->field_2A70 = 0;
 }
