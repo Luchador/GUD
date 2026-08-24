@@ -39,7 +39,7 @@ void initializeRoomData(void)
       roomOwners[i] = -1;
     }
 
-    for (i = 0; i < getMaxNumRooms(); ++i)
+    for (i = 0; i < bgGetMaxNumRooms(); ++i)
     {
         g_BgRoomInfo[i].mtxid = -1;
     }
@@ -166,14 +166,14 @@ s32 setupRoomTransformationMatrix(s32 room)
     matrix_4x4_set_identity(&roomTransformMatrix);
 
     // set room size according to level scaling
-    roomTransformMatrix.m[0][0] = room_data_float2;
-    roomTransformMatrix.m[1][1] = room_data_float2;
-    roomTransformMatrix.m[2][2] = room_data_float2;
+    roomTransformMatrix.m[0][0] = g_LevelInverseScale;
+    roomTransformMatrix.m[1][1] = g_LevelInverseScale;
+    roomTransformMatrix.m[2][2] = g_LevelInverseScale;
 
     // room translation to position it relative to the player
-    roomTransformMatrix.m[3][0] = (ptr_bgdata_room_fileposition_list[room].pos.f[0] * room_data_float2) - g_CurrentPlayer->current_model_pos.f[0];
-    roomTransformMatrix.m[3][1] = (ptr_bgdata_room_fileposition_list[room].pos.f[1] * room_data_float2) - g_CurrentPlayer->current_model_pos.f[1];
-    roomTransformMatrix.m[3][2] = (ptr_bgdata_room_fileposition_list[room].pos.f[2] * room_data_float2) - g_CurrentPlayer->current_model_pos.f[2];
+    roomTransformMatrix.m[3][0] = (ptr_bgdata_room_fileposition_list[room].pos.f[0] * g_LevelInverseScale) - g_CurrentPlayer->current_model_pos.f[0];
+    roomTransformMatrix.m[3][1] = (ptr_bgdata_room_fileposition_list[room].pos.f[1] * g_LevelInverseScale) - g_CurrentPlayer->current_model_pos.f[1];
+    roomTransformMatrix.m[3][2] = (ptr_bgdata_room_fileposition_list[room].pos.f[2] * g_LevelInverseScale) - g_CurrentPlayer->current_model_pos.f[2];
 
     matrix_4x4_f32_to_s32(&roomTransformMatrix, &roomMatrices[mtx]);
 
@@ -209,7 +209,7 @@ struct coord3d* getRoomPositionByIndex(s32 roomID)
  */
 void getRoomPositionScaledByIndex(s32 roomID, coord3d *scaledPos)
 {
-    scaledPos->x = ptr_bgdata_room_fileposition_list[roomID].pos.x * room_data_float2;
-    scaledPos->y = ptr_bgdata_room_fileposition_list[roomID].pos.y * room_data_float2;
-    scaledPos->z = ptr_bgdata_room_fileposition_list[roomID].pos.z * room_data_float2;
+    scaledPos->x = ptr_bgdata_room_fileposition_list[roomID].pos.x * g_LevelInverseScale;
+    scaledPos->y = ptr_bgdata_room_fileposition_list[roomID].pos.y * g_LevelInverseScale;
+    scaledPos->z = ptr_bgdata_room_fileposition_list[roomID].pos.z * g_LevelInverseScale;
 }

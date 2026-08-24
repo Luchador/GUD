@@ -313,7 +313,7 @@ Gfx *skyRender(Gfx *gdl)
     bool sp430;
     struct CurrentEnvironmentRecord *env;
 
-    scale = get_room_data_float1() / 30.0f;
+    scale = bgGetRoomScale() / 30.0f;
     sp430 = FALSE;
     env = fogGetCurrentEnvironmentp();
 

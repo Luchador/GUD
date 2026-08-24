@@ -384,7 +384,7 @@ s32 lightIsCoordNearDarkenedVertex(coord16 * coord, s32 room_index)
             if (dy < 0) { dy = -dy; }
             if (dz < 0) { dz = -dz; }
 
-            if ((dx + dy + dz) < (s32) (get_room_data_float1() * 100.0f))
+            if ((dx + dy + dz) < (s32) (bgGetRoomScale() * 100.0f))
             {
                 return 1;
             }
@@ -474,7 +474,7 @@ void lightFixtureBreak(Gfx * hit_gfx, u32 tri_type, s32 room_index)
         /**
          * Measure the hit tri's three edges and turn each into a step size for the shard loops below.
          *
-         * edge_length is in room units; get_room_data_float2() is 1 / level scale, so multiplying gives 
+         * edge_length is in room units; bgGetRoomInverseScale() is 1 / level scale, so multiplying gives 
          * the edge length in world units, and 10.0f / that is the fraction of the edge 
          * spanning 10 world units. The loops add it to edge_frac from 0 to 1, so shards land every 10
          * world units and a longer edge sheds proportionally more. The per-axis diffs are kept because 
@@ -495,13 +495,13 @@ void lightFixtureBreak(Gfx * hit_gfx, u32 tri_type, s32 room_index)
 		diff_z_23 = hit_vtx2.AsArray[2] - hit_vtx3.AsArray[2];
  
         edge_length = sqrtf((diff_x_12 * diff_x_12) + (diff_y_12 * diff_y_12) + (diff_z_12 * diff_z_12));
-        shard_step_12 = 10.0f / (get_room_data_float2() * edge_length);
+        shard_step_12 = 10.0f / (bgGetRoomInverseScale() * edge_length);
  
         edge_length = sqrtf((diff_x_13 * diff_x_13) + (diff_y_13 * diff_y_13) + (diff_z_13 * diff_z_13));
-        shard_step_13 = 10.0f / (get_room_data_float2() * edge_length);
+        shard_step_13 = 10.0f / (bgGetRoomInverseScale() * edge_length);
  
         edge_length = sqrtf((diff_x_23 * diff_x_23) + (diff_y_23 * diff_y_23) + (diff_z_23 * diff_z_23));
-        shard_step_23 = 10.0f / (get_room_data_float2() * edge_length);
+        shard_step_23 = 10.0f / (bgGetRoomInverseScale() * edge_length);
  
         getRoomPositionScaledByIndex(light_fixture_table[i].room_index, &room_origin);
  
@@ -512,25 +512,25 @@ void lightFixtureBreak(Gfx * hit_gfx, u32 tri_type, s32 room_index)
          */
         for (edge_frac = 0.0f; edge_frac < 1.0f; edge_frac += shard_step_12)
         {
-            shard_pos.x = ((hit_vtx2.AsArray[0] + (diff_x_12 * edge_frac)) * get_room_data_float2()) + room_origin.f[0];
-            shard_pos.y = ((hit_vtx2.AsArray[1] + (diff_y_12 * edge_frac)) * get_room_data_float2()) + room_origin.f[1];
-            shard_pos.z = ((hit_vtx2.AsArray[2] + (diff_z_12 * edge_frac)) * get_room_data_float2()) + room_origin.f[2];
+            shard_pos.x = ((hit_vtx2.AsArray[0] + (diff_x_12 * edge_frac)) * bgGetRoomInverseScale()) + room_origin.f[0];
+            shard_pos.y = ((hit_vtx2.AsArray[1] + (diff_y_12 * edge_frac)) * bgGetRoomInverseScale()) + room_origin.f[1];
+            shard_pos.z = ((hit_vtx2.AsArray[2] + (diff_z_12 * edge_frac)) * bgGetRoomInverseScale()) + room_origin.f[2];
             glassCreateShard(&shard_pos, 0.0f, 10.0f);
         }
  
         for (edge_frac = 0.0f; edge_frac < 1.0f; edge_frac += shard_step_13)
         {
-            shard_pos.x = ((hit_vtx3.AsArray[0] + (diff_x_13 * edge_frac)) * get_room_data_float2()) + room_origin.f[0];
-            shard_pos.y = ((hit_vtx3.AsArray[1] + (diff_y_13 * edge_frac)) * get_room_data_float2()) + room_origin.f[1];
-            shard_pos.z = ((hit_vtx3.AsArray[2] + (diff_z_13 * edge_frac)) * get_room_data_float2()) + room_origin.f[2];
+            shard_pos.x = ((hit_vtx3.AsArray[0] + (diff_x_13 * edge_frac)) * bgGetRoomInverseScale()) + room_origin.f[0];
+            shard_pos.y = ((hit_vtx3.AsArray[1] + (diff_y_13 * edge_frac)) * bgGetRoomInverseScale()) + room_origin.f[1];
+            shard_pos.z = ((hit_vtx3.AsArray[2] + (diff_z_13 * edge_frac)) * bgGetRoomInverseScale()) + room_origin.f[2];
             glassCreateShard(&shard_pos, 0.0f, 10.0f);
         }
  
         for (edge_frac = 0.0f; edge_frac < 1.0f; edge_frac += shard_step_23)
         {
-            shard_pos.x = ((hit_vtx3.AsArray[0] + (diff_x_23 * edge_frac)) * get_room_data_float2()) + room_origin.f[0];
-            shard_pos.y = ((hit_vtx3.AsArray[1] + (diff_y_23 * edge_frac)) * get_room_data_float2()) + room_origin.f[1];
-            shard_pos.z = ((hit_vtx3.AsArray[2] + (diff_z_23 * edge_frac)) * get_room_data_float2()) + room_origin.f[2];
+            shard_pos.x = ((hit_vtx3.AsArray[0] + (diff_x_23 * edge_frac)) * bgGetRoomInverseScale()) + room_origin.f[0];
+            shard_pos.y = ((hit_vtx3.AsArray[1] + (diff_y_23 * edge_frac)) * bgGetRoomInverseScale()) + room_origin.f[1];
+            shard_pos.z = ((hit_vtx3.AsArray[2] + (diff_z_23 * edge_frac)) * bgGetRoomInverseScale()) + room_origin.f[2];
             glassCreateShard(&shard_pos, 0.0f, 10.0f);
         }
  

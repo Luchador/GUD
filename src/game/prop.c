@@ -973,7 +973,7 @@ void setupDoor(struct DoorRecord *door, s32 cmdindex)
         if (portalnum >= 0)
         {
             bgCalcPortalPlane(portalnum, &portalMetric);
-            portalMetric.min *= get_room_data_float2();
+            portalMetric.min *= bgGetRoomInverseScale();
 
             planeDist = (pad->pos.f[0] * portalMetric.normal.f[0]) + (pad->pos.f[1] * portalMetric.normal.f[1]) + (pad->pos.f[2] * portalMetric.normal.f[2]);
 
@@ -1293,7 +1293,7 @@ void proplvreset2(enum LEVELID stageId)
         {
             struct PadRecord *pad;
     
-            roompos_1 = get_room_data_float2();
+            roompos_1 = bgGetRoomInverseScale();
             pad = g_CurrentSetup.pads;
 
             for (; pad->plink != NULL; pad++)
@@ -1311,7 +1311,7 @@ void proplvreset2(enum LEVELID stageId)
         {
             struct BoundPadRecord *vol;
 
-            roompos_2 = get_room_data_float2();
+            roompos_2 = bgGetRoomInverseScale();
             vol = g_CurrentSetup.boundpads;
             
             for (; vol->plink != NULL; vol++)

@@ -422,7 +422,7 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
 
                     for (rp = sp48; *rp >= 0; rp++)
                     {
-                        if (getROOMID_isRendered(*rp))
+                        if (bgIsRoomRendered(*rp))
                         {
                             if (roomid == *rp)
                             {
@@ -454,7 +454,7 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
 
                 for (rp = sp48; *rp >= 0; rp++)
                 {
-                    if (getROOMID_isRendered(*rp))
+                    if (bgIsRoomRendered(*rp))
                     {
                         if (roomid == *rp)
                         {
@@ -492,7 +492,7 @@ s32 chrpropRayIntersectsRoomBbox(s32 room, coord3d* start, coord3d* dir)
 {
     s32 max[3];
     s32 min[3];
-    s_room_info* roominfo;
+    RoomInfo* roominfo;
 
     roominfo = &g_BgRoomInfo[room];
 
@@ -536,7 +536,7 @@ s32 chrpropFindCloserBgHitInVisibleRooms(coord3d *from, coord3d *to, coord3d *di
     f32 scale;
     s32 room;
 
-    scale = get_room_data_float2();
+    scale = bgGetRoomInverseScale();
 
     // Get up to 100 currently visible rooms.
     numrooms = bgCopyVisibleRoomsToList(&rooms[0], 100);
@@ -695,11 +695,11 @@ s32 chrpropFindClosestBgHitRoom(s32 unused, coord3d *from, coord3d *to, coord3d 
     bestdist = M_U32_MAX_VALUE_F;
     bestroom = 0;
 
-    scale = get_room_data_float2();
+    scale = bgGetRoomInverseScale();
 
     room = 1;
 
-    if (getMaxNumRooms() >= 2)
+    if (bgGetMaxNumRooms() >= 2)
     {
         do
         {
@@ -749,7 +749,7 @@ s32 chrpropFindClosestBgHitRoom(s32 unused, coord3d *from, coord3d *to, coord3d 
 
             room++;
         }
-        while (room < getMaxNumRooms());
+        while (room < bgGetMaxNumRooms());
     }
 
     return bestroom;
@@ -836,7 +836,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
 
     if (walkTilesBetweenPoints_NoCallback(&fromtile, playerprop->pos.x, playerprop->pos.z, shotdata.gunpos.x, shotdata.gunpos.z))
     {
-        distscale = get_room_data_float1() * bgGetLevelVisibilityScale();
+        distscale = bgGetRoomScale() * bgGetLevelVisibilityScale();
         playerpos = bondviewGetPlayerPosition();
 
         new_var++;
@@ -881,7 +881,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
 
         if (bestroom <= 0)
         {
-            if (g_BgPortals[0].offset_portal != 0)
+            if (g_BgPortals[0].portal != 0)
             {
                 bestroom = chrpropFindFirstBgHitInConnectedRooms(getTileRoom(getCurrentPlayerProp()->stan), playerpos, &stanhit, &hitdir, &scaleddir, visited, &bghit);
             }
@@ -893,7 +893,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
 
         if (bestroom > 0)
         {
-            distscale = get_room_data_float2();
+            distscale = bgGetRoomInverseScale();
             bghit.hitpos.x *= distscale;
             bghit.hitpos.y *= distscale;
             bghit.hitpos.z *= distscale;

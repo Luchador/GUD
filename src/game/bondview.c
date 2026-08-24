@@ -7920,9 +7920,9 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
 void bondviewUpdateCurrentRoomPosition(s32 arg0)
 {
     getRoomPositionScaledByIndex(arg0, &g_CurrentPlayer->current_model_pos);
-    g_CurrentPlayer->current_room_pos.f[0] = g_CurrentPlayer->current_model_pos.f[0] * get_room_data_float1();
-    g_CurrentPlayer->current_room_pos.f[1] = g_CurrentPlayer->current_model_pos.f[1] * get_room_data_float1();
-    g_CurrentPlayer->current_room_pos.f[2] = g_CurrentPlayer->current_model_pos.f[2] * get_room_data_float1();
+    g_CurrentPlayer->current_room_pos.f[0] = g_CurrentPlayer->current_model_pos.f[0] * bgGetRoomScale();
+    g_CurrentPlayer->current_room_pos.f[1] = g_CurrentPlayer->current_model_pos.f[1] * bgGetRoomScale();
+    g_CurrentPlayer->current_room_pos.f[2] = g_CurrentPlayer->current_model_pos.f[2] * bgGetRoomScale();
     setPlayerRoom(arg0);
 }
 

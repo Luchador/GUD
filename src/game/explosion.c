@@ -911,27 +911,27 @@ Gfx *explosionRenderPart(struct ExplosionPart *arg0, Gfx *gdl, struct coord3d *c
     sp68.f[1] = sp9C->m[1][1] * sp50;
     sp68.f[2] = sp9C->m[1][2] * sp50;
 
-    vertices[0].v.ob[0] = (sp4c - sp8C.f[0] - sp68.f[0]) * get_room_data_float1() - coord->f[0];
-	vertices[0].v.ob[1] = (sp48 - sp8C.f[1] - sp68.f[1]) * get_room_data_float1() - coord->f[1];
-	vertices[0].v.ob[2] = (sp44 - sp8C.f[2] - sp68.f[2]) * get_room_data_float1() - coord->f[2];
+    vertices[0].v.ob[0] = (sp4c - sp8C.f[0] - sp68.f[0]) * bgGetRoomScale() - coord->f[0];
+	vertices[0].v.ob[1] = (sp48 - sp8C.f[1] - sp68.f[1]) * bgGetRoomScale() - coord->f[1];
+	vertices[0].v.ob[2] = (sp44 - sp8C.f[2] - sp68.f[2]) * bgGetRoomScale() - coord->f[2];
 	vertices[0].v.tc[0] = 1760;
 	vertices[0].v.tc[1] = 0;
 
-	vertices[1].v.ob[0] = (sp4c + sp80.f[0] - sp74.f[0]) * get_room_data_float1() - coord->f[0];
-	vertices[1].v.ob[1] = (sp48 + sp80.f[1] - sp74.f[1]) * get_room_data_float1() - coord->f[1];
-	vertices[1].v.ob[2] = (sp44 + sp80.f[2] - sp74.f[2]) * get_room_data_float1() - coord->f[2];
+	vertices[1].v.ob[0] = (sp4c + sp80.f[0] - sp74.f[0]) * bgGetRoomScale() - coord->f[0];
+	vertices[1].v.ob[1] = (sp48 + sp80.f[1] - sp74.f[1]) * bgGetRoomScale() - coord->f[1];
+	vertices[1].v.ob[2] = (sp44 + sp80.f[2] - sp74.f[2]) * bgGetRoomScale() - coord->f[2];
 	vertices[1].v.tc[0] = 0;
 	vertices[1].v.tc[1] = 0;
 
-	vertices[2].v.ob[0] = (sp4c + sp8C.f[0] + sp68.f[0]) * get_room_data_float1() - coord->f[0];
-	vertices[2].v.ob[1] = (sp48 + sp8C.f[1] + sp68.f[1]) * get_room_data_float1() - coord->f[1];
-	vertices[2].v.ob[2] = (sp44 + sp8C.f[2] + sp68.f[2]) * get_room_data_float1() - coord->f[2];
+	vertices[2].v.ob[0] = (sp4c + sp8C.f[0] + sp68.f[0]) * bgGetRoomScale() - coord->f[0];
+	vertices[2].v.ob[1] = (sp48 + sp8C.f[1] + sp68.f[1]) * bgGetRoomScale() - coord->f[1];
+	vertices[2].v.ob[2] = (sp44 + sp8C.f[2] + sp68.f[2]) * bgGetRoomScale() - coord->f[2];
 	vertices[2].v.tc[0] = 0;
 	vertices[2].v.tc[1] = 1760;
 
-	vertices[3].v.ob[0] = (sp4c - sp80.f[0] + sp74.f[0]) * get_room_data_float1() - coord->f[0];
-	vertices[3].v.ob[1] = (sp48 - sp80.f[1] + sp74.f[1]) * get_room_data_float1() - coord->f[1];
-	vertices[3].v.ob[2] = (sp44 - sp80.f[2] + sp74.f[2]) * get_room_data_float1() - coord->f[2];
+	vertices[3].v.ob[0] = (sp4c - sp80.f[0] + sp74.f[0]) * bgGetRoomScale() - coord->f[0];
+	vertices[3].v.ob[1] = (sp48 - sp80.f[1] + sp74.f[1]) * bgGetRoomScale() - coord->f[1];
+	vertices[3].v.ob[2] = (sp44 - sp80.f[2] + sp74.f[2]) * bgGetRoomScale() - coord->f[2];
 	vertices[3].v.tc[0] = 1760;
 	vertices[3].v.tc[1] = 1760;
 
@@ -1046,9 +1046,9 @@ Gfx *explosionSmokeRenderPart(struct Smoke *smoke, struct SmokePart *smoke_part,
 	sp8C.f[1] = mtx->m[1][1] * sp84;
 	sp8C.f[2] = mtx->m[1][2] * sp84;
 
-    sp54 = ((sp80 - spB0.f[0] - sp8C.f[0]) * get_room_data_float1() - arg3->f[0]) * 10.0f;
-	sp50 = ((sp7C - spB0.f[1] - sp8C.f[1]) * get_room_data_float1() - arg3->f[1]) * 10.0f;
-	sp4C = ((sp78 - spB0.f[2] - sp8C.f[2]) * get_room_data_float1() - arg3->f[2]) * 10.0f;
+    sp54 = ((sp80 - spB0.f[0] - sp8C.f[0]) * bgGetRoomScale() - arg3->f[0]) * 10.0f;
+	sp50 = ((sp7C - spB0.f[1] - sp8C.f[1]) * bgGetRoomScale() - arg3->f[1]) * 10.0f;
+	sp4C = ((sp78 - spB0.f[2] - sp8C.f[2]) * bgGetRoomScale() - arg3->f[2]) * 10.0f;
 
     if (sp54 > 30000.0f
         || sp54 < -30000.0f
@@ -1070,9 +1070,9 @@ Gfx *explosionSmokeRenderPart(struct Smoke *smoke, struct SmokePart *smoke_part,
     vertices[0].v.cn[2] = g_SmokeTypes[smoke->smoke_type].b;
     vertices[0].v.cn[3] = sp77;
 
-    vertices[1].v.ob[0] = ((((sp80 + spA4.f[0]) - sp98.f[0]) * get_room_data_float1()) - arg3->f[0]) * 10.0f;
-    vertices[1].v.ob[1] = ((((sp7C + spA4.f[1]) - sp98.f[1]) * get_room_data_float1()) - arg3->f[1]) * 10.0f;
-    vertices[1].v.ob[2] = ((((sp78 + spA4.f[2]) - sp98.f[2]) * get_room_data_float1()) - arg3->f[2]) * 10.0f;
+    vertices[1].v.ob[0] = ((((sp80 + spA4.f[0]) - sp98.f[0]) * bgGetRoomScale()) - arg3->f[0]) * 10.0f;
+    vertices[1].v.ob[1] = ((((sp7C + spA4.f[1]) - sp98.f[1]) * bgGetRoomScale()) - arg3->f[1]) * 10.0f;
+    vertices[1].v.ob[2] = ((((sp78 + spA4.f[2]) - sp98.f[2]) * bgGetRoomScale()) - arg3->f[2]) * 10.0f;
     vertices[1].v.tc[0] = 0;
     vertices[1].v.tc[1] = 0;
     vertices[1].v.cn[0] = g_SmokeTypes[smoke->smoke_type].r;
@@ -1080,9 +1080,9 @@ Gfx *explosionSmokeRenderPart(struct Smoke *smoke, struct SmokePart *smoke_part,
     vertices[1].v.cn[2] = g_SmokeTypes[smoke->smoke_type].b;
     vertices[1].v.cn[3] = sp77;
 
-    vertices[2].v.ob[0] = (((sp80 + spB0.f[0] + sp8C.f[0]) * get_room_data_float1()) - arg3->f[0]) * 10.0f;
-    vertices[2].v.ob[1] = (((sp7C + spB0.f[1] + sp8C.f[1]) * get_room_data_float1()) - arg3->f[1]) * 10.0f;
-    vertices[2].v.ob[2] = (((sp78 + spB0.f[2] + sp8C.f[2]) * get_room_data_float1()) - arg3->f[2]) * 10.0f;
+    vertices[2].v.ob[0] = (((sp80 + spB0.f[0] + sp8C.f[0]) * bgGetRoomScale()) - arg3->f[0]) * 10.0f;
+    vertices[2].v.ob[1] = (((sp7C + spB0.f[1] + sp8C.f[1]) * bgGetRoomScale()) - arg3->f[1]) * 10.0f;
+    vertices[2].v.ob[2] = (((sp78 + spB0.f[2] + sp8C.f[2]) * bgGetRoomScale()) - arg3->f[2]) * 10.0f;
     vertices[2].v.tc[0] = 0;
     vertices[2].v.tc[1] = 1760;
     vertices[2].v.cn[0] = g_SmokeTypes[smoke->smoke_type].r;
@@ -1090,9 +1090,9 @@ Gfx *explosionSmokeRenderPart(struct Smoke *smoke, struct SmokePart *smoke_part,
     vertices[2].v.cn[2] = g_SmokeTypes[smoke->smoke_type].b;
     vertices[2].v.cn[3] = sp77;
 
-    vertices[3].v.ob[0] = ((((sp80 - spA4.f[0]) + sp98.f[0]) * get_room_data_float1()) - arg3->f[0]) * 10.0f;
-    vertices[3].v.ob[1] = ((((sp7C - spA4.f[1]) + sp98.f[1]) * get_room_data_float1()) - arg3->f[1]) * 10.0f;
-    vertices[3].v.ob[2] = ((((sp78 - spA4.f[2]) + sp98.f[2]) * get_room_data_float1()) - arg3->f[2]) * 10.0f;
+    vertices[3].v.ob[0] = ((((sp80 - spA4.f[0]) + sp98.f[0]) * bgGetRoomScale()) - arg3->f[0]) * 10.0f;
+    vertices[3].v.ob[1] = ((((sp7C - spA4.f[1]) + sp98.f[1]) * bgGetRoomScale()) - arg3->f[1]) * 10.0f;
+    vertices[3].v.ob[2] = ((((sp78 - spA4.f[2]) + sp98.f[2]) * bgGetRoomScale()) - arg3->f[2]) * 10.0f;
     vertices[3].v.tc[0] = 1760;
     vertices[3].v.tc[1] = 1760;
     vertices[3].v.cn[0] = g_SmokeTypes[smoke->smoke_type].r;
@@ -1682,11 +1682,11 @@ void explosionScorchTick(struct coord3d *pos, f32 explosion_size, s16 room)
 
         explosion_size *= (0.8f + (0.2f * RANDOMFRAC()));
 
-        pos->f[0] = (pos->f[0] * get_room_data_float1()) - temp_s0->f[0];
-        pos->f[1] = (pos->f[1] * get_room_data_float1()) - temp_s0->f[1];
-        pos->f[2] = (pos->f[2] * get_room_data_float1()) - temp_s0->f[2];
+        pos->f[0] = (pos->f[0] * bgGetRoomScale()) - temp_s0->f[0];
+        pos->f[1] = (pos->f[1] * bgGetRoomScale()) - temp_s0->f[1];
+        pos->f[2] = (pos->f[2] * bgGetRoomScale()) - temp_s0->f[2];
 
-        explosion_size *= get_room_data_float1();
+        explosion_size *= bgGetRoomScale();
 
         sp50 = cosf(sp54) * explosion_size;
         sp4C = sinf(sp54) * explosion_size;
@@ -1780,7 +1780,7 @@ Gfx *explosionRenderScorchBuffer(Gfx *arg0)
 
         for (i=0; i<20; i++)
         {
-            if (g_ScorchBuffer[i].roomid >= 0 && getROOMID_isRendered(g_ScorchBuffer[i].roomid))
+            if (g_ScorchBuffer[i].roomid >= 0 && bgIsRoomRendered(g_ScorchBuffer[i].roomid))
             {
                 if (phi_s3 != g_ScorchBuffer[i].roomid)
                 {
@@ -1986,11 +1986,11 @@ void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16 
     else
     {
         temp_s0_2 = getRoomPositionByIndex((s32) room);
-        spA0.f[0] = (spA0.f[0] * get_room_data_float1()) - temp_s0_2->f[0];
-        spA0.f[1] = (spA0.f[1] * get_room_data_float1()) - temp_s0_2->f[1];
-        spA0.f[2] = (spA0.f[2] * get_room_data_float1()) - temp_s0_2->f[2];
-        sp9C *= get_room_data_float1();
-        sp98 *= get_room_data_float1();
+        spA0.f[0] = (spA0.f[0] * bgGetRoomScale()) - temp_s0_2->f[0];
+        spA0.f[1] = (spA0.f[1] * bgGetRoomScale()) - temp_s0_2->f[1];
+        spA0.f[2] = (spA0.f[2] * bgGetRoomScale()) - temp_s0_2->f[2];
+        sp9C *= bgGetRoomScale();
+        sp98 *= bgGetRoomScale();
     }
 
     g_BulletImpactBuffer[g_NumImpactEntries].prop = prop;
@@ -2133,7 +2133,7 @@ Gfx *explosionRenderBulletImpactOnProp(Gfx *gdl, PropRecord *arg1, s32 arg2)
         {
             if (g_BulletImpactBuffer[i].room >= 0)
             {
-                if (arg1 || getROOMID_isRendered(g_BulletImpactBuffer[i].room))
+                if (arg1 || bgIsRoomRendered(g_BulletImpactBuffer[i].room))
                 {
                     impact_type = g_BulletImpactBuffer[i].impact_type;
 

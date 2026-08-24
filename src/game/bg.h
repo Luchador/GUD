@@ -47,7 +47,7 @@ typedef struct BoundVec {
     s32 x, y, z; 
 } BoundVec;
 
-typedef struct s_room_info {
+typedef struct RoomInfo {
     // is room being rendered? boolean
     u8 room_rendered;                       // 0x00
 
@@ -61,7 +61,7 @@ typedef struct s_room_info {
      * 2-3 = loaded but aging towards unload
      * 4 = unload on tick
      */
-    u8 loadedState;                         // 0x02
+    u8 unloadAge;                          // 0x02
 
     /**
      * Counts how often this room has been reached during the current portal
@@ -70,16 +70,16 @@ typedef struct s_room_info {
     u8 portal_visit_count;                  // 0x03
 
     Vtx *vertices;                          // 0x04
-    void *ptr_expanded_mapping_info;        // 0x08
-    void *ptr_secondary_expanded_mapping_info; // 0x0c
+    void *primaryGdl;                       // 0x08
+    void *secondaryGdl;                     // 0x0c
 
-    s32 csize_point_index_binary;           // 0x10
-    s32 csize_primary_DL_binary;            // 0x14
-    s32 csize_secondary_DL_binary;          // 0x18
+    s32 verticesCompressedSize;             // 0x10
+    s32 primaryGdlCompressedSize;           // 0x14
+    s32 secondaryGdlCompressedSize;         // 0x18
 
-    s32 usize_point_index_binary;           // 0x1c
-    s32 usize_primary_DL_binary;            // 0x20
-    s32 usize_secondary_DL_binary;          // 0x24
+    s32 verticesSize;                       // 0x1c
+    s32 primaryGdlSize;                     // 0x20
+    s32 secondaryGdlSize;                   // 0x24
 
     s32 cur_room_totalsize;                 // 0x28
     RoomVtxBatchBounds *vtx_batch_bounds;   // 0x2c
@@ -88,37 +88,37 @@ typedef struct s_room_info {
     s16 field_32;                           // 0x32
 
     u8 room_loaded_mask;                    // 0x34
-    u8 field_35;                            // 0x35
+    u8 keepLoaded;                          // 0x35
     s16 mtxid;                              // 0x36
 
     coord3d minbounds;                      // 0x38
     coord3d maxbounds;                      // 0x44
-} s_room_info; 
+} RoomInfo; 
 
-typedef struct s_bound_info
+typedef struct RoomBoundInfo
 {
     s32 roomid;
     // could be draw order?
     s32 unk1;
     struct bbox2d bbox;
     void* next;
-} s_bound_info;
+} RoomBoundInfo;
 
-typedef struct bg_portal_entry
+typedef struct Portal
 {
     u8 numPoints;
     u8 padding[3];
     coord3d point;
-} bg_portal_entry;
+} Portal;
 
-typedef struct bg_portal_data_entry
+typedef struct PortalData
 {
-    bg_portal_entry *offset_portal;
+    Portal *portal;
     u8 connectedRoom1;
     u8 connectedRoom2;
     u8 controlbytes1;
     u8 controlbytes2;
-} bg_portal_data_entry;
+} PortalData;
 
 typedef struct BgRoomData
 {
@@ -147,13 +147,13 @@ typedef struct BgQueuedPortal {
     f32 sp10[4];       // 0x10
 } BgQueuedPortal;
 
-extern bg_portal_data_entry *g_BgPortals;
+extern PortalData *g_BgPortals;
 extern struct PortalCache g_PortalCameraCache[PORTMAX];
 extern s32 g_MaxNumRooms;
-extern f32 room_data_float2;
+extern f32 g_LevelInverseScale;
 
 extern BgRoomData * ptr_bgdata_room_fileposition_list;
-extern s_room_info g_BgRoomInfo[];
+extern RoomInfo g_BgRoomInfo[];
 extern Gfx *ptrDynamic_CC_RM_LUT[];
 extern Gfx DL_LUT_PRIMARY_ADDFOG[];
 
@@ -171,12 +171,12 @@ Gfx* bgSetupAndRender(Gfx *arg0);
 Gfx *bgScissorCurrentPlayerView(Gfx *arg0, s32 left, s32 top, s32 width, s32 height);
 Gfx* bgScissorCurrentPlayerViewDefault(Gfx* arg0);
 Gfx* bgScissorCurrentPlayerViewF(Gfx* arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4);
-f32 get_room_data_float1(void);
-u8 getROOMID_isRendered(int roomID);
+f32 bgGetRoomScale(void);
+u8 bgIsRoomRendered(s32 roomID);
 s32 bgGet2dBboxByRoomId(s32 room_id, struct bbox2d *result);
 f32 bgGetLevelVisibilityScale(void);
 void bgRectOutersect(struct bbox2d *a, struct bbox2d *b);
-f32 get_room_data_float2(void);
+f32 bgGetRoomInverseScale(void);
 s32 bgGetPortalBetweenRooms(s32 arg0, s32 arg1, struct coord3d *arg2, struct coord3d *arg3);
 void bgCalcPortalPlane(s32 portalnum, f32 *out);
 void bgApplyDynamicCCRMLUT(Gfx *arg0, Gfx *arg1, enum CCRMLUT arg2);

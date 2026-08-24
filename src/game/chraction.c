@@ -2840,11 +2840,6 @@ waypoint *chrlvStanPathRelated(coord3d *arg0, StandTile *arg1)
 }
 
 
-
-
-/**
- * Address 0x7F027DB0.
-*/
 s32 chrlvStanRoomRelated(ChrRecord *self, coord3d *arg1, StandTile *tile)
 {
 
@@ -2862,7 +2857,7 @@ s32 chrlvStanRoomRelated(ChrRecord *self, coord3d *arg1, StandTile *tile)
     {
         for (i=0; i<tile_something; i++)
         {
-            if (getROOMID_isRendered(sp48[i]) != 0)
+            if (bgIsRoomRendered(sp48[i]) != 0)
             {
                 return 0;
             }
@@ -9360,7 +9355,7 @@ bool check_if_room_for_preset_loaded(ChrRecord *self, s32 padnum)
 
     if (padstan)
     {
-        return getROOMID_isRendered(getTileRoom(padstan));
+        return bgIsRoomRendered(getTileRoom(padstan));
     }
 
     return FALSE;
@@ -10253,7 +10248,7 @@ s32 chrIsPosOffScreen(coord3d *arg0, StandTile *tile)
 
     offscreen = TRUE;
 
-    if (getROOMID_isRendered(getTileRoom(tile)) && fogPositionIsVisibleThroughFog(arg0, 0.0f))
+    if (bgIsRoomRendered(getTileRoom(tile)) && fogPositionIsVisibleThroughFog(arg0, 0.0f))
     {
         if (bgGet2dBboxByRoomId(getTileRoom(tile), &box))
         {
