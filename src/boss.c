@@ -407,7 +407,7 @@ void bossMainloop(void)
                             { /* TEMP profiler */
                                 u32 prof_t = osGetCount();
                                 gdl = lvlRender(gdl);
-                                g_ProfRenderCycles = osGetCount() - prof_t;
+                                g_ProfLvlRenderCycles = osGetCount() - prof_t;
                             }
 
                             gdl = lvlDrawFrameRateDisplay(gdl);

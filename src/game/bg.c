@@ -140,7 +140,7 @@ struct PortalMetric g_PortalPlanes[PORTMAX];
 
 /* --- TEMP visibility profiler (read via framebuffer bars) --- */
 u32 g_ProfLvlTickCycles;     /* osGetCount delta across lvTick (game logic)    */
-u32 g_ProfRenderCycles;   /* osGetCount delta across lvlRender (DL build)   */
+u32 g_ProfLvlRenderCycles;   /* osGetCount delta across lvlRender (DL build)   */
 u32 g_ProfBgCycles;       /* osGetCount delta across bgSetupAndRender       */
 u32 g_ProfChrTickCycles;      /* accumulated cycles in bgApplyDynamicCCRMLUT    */
 u32 g_ProfChrActionCycles;
@@ -989,16 +989,16 @@ Gfx *bgSetupAndRender(Gfx *gdl)
     gSPMatrix(gdl++, g_viProjectionMatrix, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
 
     /* TEMP profiler bars (1px = 16384cy unless noted):  
-       magenta= lvTick             blue   = lvlRender
+       blue= lvTick             red   = lvlRender
        orange = bgSetupAndRender   violet = chrTick total (accum)
        green = chrlvActionTick (accum)*/
     gDPPipeSync(gdl++);
     gDPSetCycleType(gdl++, G_CYC_FILL);
     gDPSetRenderMode(gdl++, G_RM_NOOP, G_RM_NOOP2);
-    gDPSetFillColor(gdl++, (GPACK_RGBA5551(255,0,255,1) << 16) | GPACK_RGBA5551(255,0,255,1));
+    gDPSetFillColor(gdl++, (GPACK_RGBA5551(0,0,255,1) << 16) | GPACK_RGBA5551(0,0,255,1));
     gDPFillRectangle(gdl++, 8, 28, 8 + (g_ProfLvlTickCycles >> 14 > 280 ? 280 : g_ProfLvlTickCycles >> 14), 30);
-    gDPSetFillColor(gdl++, (GPACK_RGBA5551(64,64,255,1) << 16) | GPACK_RGBA5551(64,64,255,1));
-    gDPFillRectangle(gdl++, 8, 32, 8 + (g_ProfRenderCycles >> 14 > 280 ? 280 : g_ProfRenderCycles >> 14), 34);
+    gDPSetFillColor(gdl++, (GPACK_RGBA5551(255,0,0,1) << 16) | GPACK_RGBA5551(255,0,0,1));
+    gDPFillRectangle(gdl++, 8, 32, 8 + (g_ProfLvlRenderCycles >> 14 > 280 ? 280 : g_ProfLvlRenderCycles >> 14), 34);
     gDPSetFillColor(gdl++, (GPACK_RGBA5551(255,140,0,1) << 16) | GPACK_RGBA5551(255,140,0,1));
     gDPFillRectangle(gdl++, 8, 36, 8 + (g_ProfBgCycles >> 14 > 280 ? 280 : g_ProfBgCycles >> 14), 38);
     gDPSetFillColor(gdl++, (GPACK_RGBA5551(180,60,255,1) << 16) | GPACK_RGBA5551(180,60,255,1));
