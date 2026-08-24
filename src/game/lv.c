@@ -188,6 +188,9 @@ void lvInit(void)
 {
     s32 size;
 
+    // TEMP
+    g_ProfChrCount = 0;
+
     size = (s32)&_fontdlSegmentRomEnd - (s32)&_fontdlSegmentRomStart;
     ptr_font_DL = mempAllocBytesInBank(size, MEMPOOL_PERMANENT);
     romCopy(ptr_font_DL, &_fontdlSegmentRomStart, size);
@@ -478,22 +481,18 @@ Gfx* lvlRender(Gfx* DL)
 
             bgRoomVisibilityRelated();
 
+            propsTick();
+            chraiUpdateOnscreenPropCount();
+            chrpropUpdateAutoaimTarget();
+            chraiCheckUseHeldItems();
+
+            if (bond_pressed_reload_activate() && bond_interact_object())
             {
-                u32 prof_t = osGetCount();
-                propsTick();
-                chraiUpdateOnscreenPropCount();
-                chrpropUpdateAutoaimTarget();
-                chraiCheckUseHeldItems();
-
-                if (bond_pressed_reload_activate() && bond_interact_object())
-                {
-                    attempt_reload_item_in_hand(GUNRIGHT);
-                    attempt_reload_item_in_hand(GUNLEFT);
-                }
-
-                propsTickPlayer();
-                g_ProfPropViewCycles = osGetCount() - prof_t;
+                attempt_reload_item_in_hand(GUNRIGHT);
+                attempt_reload_item_in_hand(GUNLEFT);
             }
+
+            propsTickPlayer();
 
             { /* TEMP profiler */
                 u32 prof_t = osGetCount();

@@ -2308,7 +2308,12 @@ s32 chrTick(PropRecord *prop)
         }
         else
         {
-            chrlvActionTick(chr);
+            {
+                u32 prof_t = osGetCount();
+                chrlvActionTick(chr);
+                g_ProfChrActionCycles += osGetCount() - prof_t;
+            }
+            
 
             if (chr->model == NULL)
             {

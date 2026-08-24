@@ -153,7 +153,9 @@ extern struct PortalCache g_PortalCameraCache[PORTMAX];
 extern u32 g_ProfTickCycles;
 extern u32 g_ProfRenderCycles;
 extern u32 g_ProfBgCycles;
-extern u32 g_ProfPropViewCycles;
+extern u32 g_ProfChrTickCycles;
+extern u32 g_ProfChrCount;
+extern u32 g_ProfChrActionCycles;
 
 extern s32 g_MaxNumRooms;
 extern f32 g_LevelInverseScale;
