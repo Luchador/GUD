@@ -4341,7 +4341,7 @@ typedef enum PROJECTILES
         PROPDEF_SAFE,
         PROPDEF_SAFE_ITEM,
         PROPDEF_TANK,
-        PROPDEF_CAMERAPOS, //canonical name
+        PROPDEF_CAMERAPOS,
         PROPDEF_TINTED_GLASS,
         PROPDEF_END,
         PROPDEF_MAX
@@ -4394,7 +4394,7 @@ typedef enum PROJECTILES
         "PROPDEF_SAFE",
         "PROPDEF_SAFE_ITEM",
         "PROPDEF_TANK",
-        "PROPDEF_CAMERAPOS", // canonical name
+        "PROPDEF_CAMERAPOS",
         "PROPDEF_TINTED_GLASS",
         "PROPDEF_END",
     };
@@ -4405,11 +4405,6 @@ typedef enum PROJECTILES
 
 #pragma region Setup
 
-    /**
-     * enums were listed in a particular order, it appears the first few are associated with the start/intro
-     * of a level:
-     *     if (g_CurrentPlayer->redbloodfinished && g_CurrentPlayer->deathanimfinished && (camera_mode >= CAMERAMODE_SWIRL))
-    */
    typedef enum CAMERAMODE
     {
         CAMERAMODE_NONE,
@@ -4497,9 +4492,7 @@ typedef enum PROJECTILES
         "MISSION_STATE_4",
         "MISSION_STATE_5",
         "MISSION_STATE_6"};
-
 #endif
-
 
     typedef enum OBJECTIVESTATUS
     {

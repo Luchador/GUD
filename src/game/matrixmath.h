@@ -12,7 +12,7 @@ void matrix_4x4_set_position(struct coord3d *position, Mtxf *matrix);
 void matrix_4x4_set_lookat(Mtxf *arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, f32 arg5, f32 arg6, f32 arg7, f32 arg8, f32 arg9);
 u32 matrix_4x4_calc_depth_scale(f32 arg0, f32 arg1);
 
-void matrix_4x4_7F058C4C(f32 arg0);
+void matrixSetConversionScale(f32 arg0);
 void matrix_4x4_copy(Mtxf *src, Mtxf *dst);
 void matrix_4x4_multiply_homogeneous(Mtxf *lhs, Mtxf *rhs, Mtxf *result);
 
@@ -46,7 +46,7 @@ void matrix_4x4_transform_vector(Mtxf *matrix, struct coord3d *vector, struct co
 void matrix_row_3_scalar_multiply(f32 scalar, f32 *matrix);
 
 // tenative guess
-void sub_GAME_7F058E78(Mtxf *arg0, Mtxf *arg1);
+void matrix_4x4_s32_to_f32(Mtxf *arg0, Mtxf *arg1);
 void matrix_7f05842c_eu(f32 src[][4], f32 dst[3][3]);
 void matrix_4x4_multiply_homogeneous_in_place_eu(f32 src[3][3], f32 dst[3][3]);
 void matrix_4x4_multiply_homogeneous_eu(f32 lhs[3][3], f32 rhs[3][3], f32 result[3][3]);

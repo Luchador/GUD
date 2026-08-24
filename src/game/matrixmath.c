@@ -6,99 +6,10 @@
 /* Avoid Gimble Lock? */
 #define EPSILON FLT_EPSILON * 16
 
-// bss
-//CODE.bss:80075DA0
-f32 flt_CODE_bss_80075DA0;
+f32 g_SavedMtxConversionScale;
 
+f32 g_MtxConversionScale[2] = {M_U16_MAX_VALUE_F, M_U16_MAX_VALUE_F};
 
-// data
-//D:80032310
-f32 D_80032310[2] = {M_U16_MAX_VALUE_F, M_U16_MAX_VALUE_F};
-
-
-
-//#ifdef VERSION_EU
-
-#ifdef VERSION_EU
-void matrix_4x4_copy_homogeneous_eu(f32 src[3][3], f32 dst[3][3])
-{
-    s32 i, j;
-    for (i = 0; i < 3; i++)
-    {
-        for (j = 0; j < 3; j++)
-        {
-            dst[i][j] = src[i][j];
-        }
-    }
-}
-#endif
-
-
-#ifdef VERSION_EU
-void matrix_4x4_multiply_homogeneous_in_place_eu (f32 lhs[3][3], f32 rhs[3][3])
-{
-    f32 result[3][3];
-    matrix_4x4_multiply_homogeneous_eu(lhs, rhs, &result);
-    matrix_4x4_copy_homogeneous_eu(&result, rhs);
-}
-#endif
-
-
-#ifdef VERSION_EU
-void matrix_4x4_multiply_homogeneous_eu(f32 lhs[3][3], f32 rhs[3][3], f32 result[3][3])
-{
-    s32 i, j;
-    for (i = 0; i < 3; i++)
-    {
-        for (j = 0; j < 3; j++)
-        {
-            result[j][i] = (lhs[0][i] * rhs[j][0]) + (lhs[1][i] * rhs[j][1]) + (lhs[2][i] * rhs[j][2]);
-        }
-    }
-}
-#endif
-
-
-#ifdef VERSION_EU
-void matrix_4x4_copy_eu(f32 src[][3], f32 dst[4][4])
-{
-    s32 i, j;
-    for (i = 0; i < 3; i++)
-    {
-        for (j = 0; j < 3; j++)
-        {
-            dst[i][j] = src[i][j];
-        }
-    }
-
-    dst[0][3] = 0.0;
-    dst[1][3] = 0.0;
-    dst[2][3] = 0.0;
-    dst[3][0] = 0.0;
-    dst[3][1] = 0.0;
-    dst[3][2] = 0.0;
-    dst[3][3] = 1.0;
-}
-#endif
-
-#ifdef VERSION_EU
-void matrix_7f05842c_eu(f32 src[][4], f32 dst[3][3])
-{
-    s32 i, j;
-    for (i = 0; i < 3; i++)
-    {
-        for (j = 0; j < 3; j++)
-        {
-            dst[i][j] = src[i][j];
-        }
-    }
-}
-#endif
-
-
-//nexthere
-
-//#endif
 
 void matrix_4x4_set_identity(Mtxf *matrix)
 {
@@ -120,6 +31,7 @@ void matrix_4x4_set_identity(Mtxf *matrix)
     matrix->m[3][3] = 1.0f;
 }
 
+
 void matrix_4x4_copy(Mtxf *src, Mtxf *dst)
 {
     s32 i, j;
@@ -132,12 +44,14 @@ void matrix_4x4_copy(Mtxf *src, Mtxf *dst)
     }
 }
 
+
 void matrix_4x4_multiply_in_place(Mtxf *lhs, Mtxf *rhs)
 {
     Mtxf result;
     matrix_4x4_multiply(lhs, rhs, &result);
     matrix_4x4_copy(&result, rhs);
 }
+
 
 void matrix_4x4_multiply_homogeneous_in_place(Mtxf *lhs, Mtxf *rhs)
 {
@@ -146,9 +60,11 @@ void matrix_4x4_multiply_homogeneous_in_place(Mtxf *lhs, Mtxf *rhs)
     matrix_4x4_copy(&result, rhs);
 }
 
+
 void matrix_4x4_multiply(Mtxf *lhs, Mtxf *rhs, Mtxf *result)
 {
     s32 i, j;
+
     for (i = 0; i < 4; i++)
     {
         for (j = 0; j < 4; j++)
@@ -202,6 +118,7 @@ void mtx4RotateVecInPlace(Mtxf *matrix, struct coord3d *vector)
     vector->f[2] = result.f[2];
 }
 
+
 void matrix_4x4_transform_vector(Mtxf *matrix, struct coord3d *vector, struct coord3d *result)
 {
     matrix_4x4_rotate_vector(matrix, vector, result);
@@ -210,6 +127,7 @@ void matrix_4x4_transform_vector(Mtxf *matrix, struct coord3d *vector, struct co
     result->f[2] += matrix->m[3][2];
 }
 
+
 void mtx4TransformVecInPlace(Mtxf *matrix, struct coord3d *vector)
 {
     mtx4RotateVecInPlace(matrix, vector);
@@ -217,6 +135,7 @@ void mtx4TransformVecInPlace(Mtxf *matrix, struct coord3d *vector)
     vector->f[1] += matrix->m[3][1];
     vector->f[2] += matrix->m[3][2];
 }
+
 
 void matrix_4x4_set_position_and_rotation_around_y(f32 *position, f32 angle, Mtxf *matrix)
 {
@@ -240,6 +159,7 @@ void matrix_4x4_set_position_and_rotation_around_y(f32 *position, f32 angle, Mtx
     matrix->m[3][3] = 1.0f;
 }
 
+
 void matrix_4x4_set_rotation_around_x(f32 angle, Mtxf *matrix)
 {
     f32 cosine      = cosf(angle);
@@ -261,6 +181,7 @@ void matrix_4x4_set_rotation_around_x(f32 angle, Mtxf *matrix)
     matrix->m[3][2] = 0.0f;
     matrix->m[3][3] = 1.0f;
 }
+
 
 void matrix_4x4_set_rotation_around_y(f32 angle, Mtxf *matrix)
 {
@@ -284,6 +205,7 @@ void matrix_4x4_set_rotation_around_y(f32 angle, Mtxf *matrix)
     matrix->m[3][3] = 1.0f;
 }
 
+
 void matrix_4x4_set_rotation_around_z(f32 angle, Mtxf *matrix)
 {
     f32 cosine      = cosf(angle);
@@ -305,6 +227,7 @@ void matrix_4x4_set_rotation_around_z(f32 angle, Mtxf *matrix)
     matrix->m[3][2] = 0.0f;
     matrix->m[3][3] = 1.0f;
 }
+
 
 void matrix_4x4_set_rotation_around_xyz(struct coord3d *angles, Mtxf *matrix)
 {
@@ -336,7 +259,7 @@ void matrix_4x4_set_rotation_around_xyz(struct coord3d *angles, Mtxf *matrix)
     matrix->m[3][3] = 1.0f;
 }
 
-// https://stackoverflow.com/a/15029416
+
 void matrix_4x4_get_rotation_around_xyz(Mtxf *matrix, struct coord3d *angles)
 {
     f32 norm;
@@ -357,17 +280,20 @@ void matrix_4x4_get_rotation_around_xyz(Mtxf *matrix, struct coord3d *angles)
     }
 }
 
+
 void matrix_4x4_set_position_and_rotation_around_xyz(struct coord3d *position, struct coord3d * rotation, Mtxf *matrix)
 {
     matrix_4x4_set_rotation_around_xyz(rotation, matrix);
     matrix_4x4_set_position(position, matrix);
 }
 
+
 void matrix_4x4_set_identity_and_position(struct coord3d * position, Mtxf *matrix)
 {
     matrix_4x4_set_identity(matrix);
     matrix_4x4_set_position(position, matrix);
 }
+
 
 void matrix_4x4_set_position(struct coord3d *position, Mtxf *matrix)
 {
@@ -376,6 +302,7 @@ void matrix_4x4_set_position(struct coord3d *position, Mtxf *matrix)
     matrix->m[3][2] = position->f[2];
 }
 
+
 void matrix_column_1_scalar_multiply(f32 scalar, f32 *matrix)
 {
     matrix[0] *= scalar;
@@ -383,12 +310,14 @@ void matrix_column_1_scalar_multiply(f32 scalar, f32 *matrix)
     matrix[2] *= scalar;
 }
 
+
 void matrix_column_2_scalar_multiply(f32 scalar, f32 *matrix)
 {
     matrix[4] *= scalar;
     matrix[5] *= scalar;
     matrix[6] *= scalar;
 }
+
 
 void matrix_column_3_scalar_multiply(f32 scalar, f32 *matrix)
 {
@@ -398,12 +327,14 @@ void matrix_column_3_scalar_multiply(f32 scalar, f32 *matrix)
     matrix[11] *= scalar;
 }
 
+
 void matrix_column_3_scalar_multiply_2(f32 scalar, f32 *matrix)
 {
     matrix[8] *= scalar;
     matrix[9] *= scalar;
     matrix[10] *= scalar;
 }
+
 
 void matrix_scalar_multiply(f32 scalar, f32 *matrix)
 {
@@ -421,6 +352,7 @@ void matrix_scalar_multiply(f32 scalar, f32 *matrix)
     matrix[11] *= scalar;
 }
 
+
 void matrix_scalar_multiply_2(f32 scalar, f32 *matrix)
 {
     matrix[0] *= scalar;
@@ -434,6 +366,7 @@ void matrix_scalar_multiply_2(f32 scalar, f32 *matrix)
     matrix[10] *= scalar;
 }
 
+
 void matrix_row_3_scalar_multiply(f32 scalar, f32 *matrix)
 {
     matrix[2] *= scalar;
@@ -441,6 +374,7 @@ void matrix_row_3_scalar_multiply(f32 scalar, f32 *matrix)
     matrix[10] *= scalar;
     matrix[14] *= scalar;
 }
+
 
 void matrix_scalar_multiply_3(f32 scalar, f32 *matrix)
 {
@@ -458,25 +392,26 @@ void matrix_scalar_multiply_3(f32 scalar, f32 *matrix)
     matrix[14] *= scalar;
 }
 
-void matrix_4x4_7F058C4C(f32 arg0)
+
+void matrixSetConversionScale(f32 scale)
 {
-    D_80032310[0] = (M_U16_MAX_VALUE_F * arg0);
+    g_MtxConversionScale[0] = (M_U16_MAX_VALUE_F * scale);
 }
 
-void matrix_4x4_7F058C64(void)
+
+void matrixSuspendConversionScale(void)
 {
-    flt_CODE_bss_80075DA0 = D_80032310[0];
-    D_80032310[0]         = M_U16_MAX_VALUE_F;
+    g_SavedMtxConversionScale = g_MtxConversionScale[0];
+    g_MtxConversionScale[0] = M_U16_MAX_VALUE_F;
 }
 
-void matrix_4x4_7F058C88(void)
+
+void matrixRestoreConversionScale(void)
 {
-    D_80032310[0] = flt_CODE_bss_80075DA0;
+    g_MtxConversionScale[0] = g_SavedMtxConversionScale;
 }
 
-/*
- * Address: 0x7F058C9C
-*/
+
 void matrix_4x4_f32_to_s32(f32 mf[4][4], s32 ms[4][4])
 {
     f32 *src = (f32 *)mf;
@@ -487,32 +422,44 @@ void matrix_4x4_f32_to_s32(f32 mf[4][4], s32 ms[4][4])
     {
         s32 e1, e2;
 
-        e1 = (s32)(src[((i + 0) << 1) + 0] * D_80032310[0]);
-        e2 = (s32)(src[((i + 0) << 1) + 1] * D_80032310[(i + 0) & 1]);
+        e1 = (s32)(src[((i + 0) << 1) + 0] * g_MtxConversionScale[0]);
+        e2 = (s32)(src[((i + 0) << 1) + 1] * g_MtxConversionScale[(i + 0) & 1]);
         dst[(i + 0) + 0] = (e1 & 0xffff0000) | (((u32)e2) >> 16);
         dst[(i + 0) + 8] = (e1 << 16) | (e2 & 0xffff);
     }
 }
 
-/*
- * Reads packed s32 words from src, writes floats to dst (inverse of matrix_4x4_f32_to_s32).
-*/
-void sub_GAME_7F058E78(Mtxf *src, Mtxf *dst) {
+
+/**
+ * Converts a packed RSP fixed-point matrix back to floats. Inverse of matrix_4x4_f32_to_s32.
+ * The Mtx format stores the sixteen 16.16 values split. Words 0-7 hold the integer halves
+ * (two per word), words 8-15 the fractional halves. Each value is reassembled and divided back to f32.
+ */
+void matrix_4x4_s32_to_f32(Mtxf *src, Mtxf *dst)
+{
     u32 *srcwords = (u32 *) src;
     f32 *dstfloats = (f32 *) dst;
     s32 i;
 
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 8; i++)
+    {
         u32 word1 = srcwords[i + 0];
         u32 word2 = srcwords[i + 8];
 
-        dstfloats[(i << 1) + 0] = (s32) ((word1 & 0xffff0000) | (word2 >> 16)) / D_80032310[0];
-        dstfloats[(i << 1) + 1] = (s32) ((word1 << 16) | (word2 & 0xffff)) / D_80032310[i & 1];
+        dstfloats[(i << 1) + 0] = (s32) ((word1 & 0xffff0000) | (word2 >> 16)) / g_MtxConversionScale[0];
+        dstfloats[(i << 1) + 1] = (s32) ((word1 << 16) | (word2 & 0xffff)) / g_MtxConversionScale[i & 1];
     }
 }
 
 
-void sub_GAME_7F059334(Mtx *src, Mtx *dst)
+/**
+ * Re-interleaves a packed RSP matrix (integer halves in words 0-7,
+ * fractional halves in 8-15) into element order - one complete 16.16
+ * fixed-point value per word. No float conversion and no conversion
+ * scale applied; use this when fixed-point elements need to be
+ * addressable individually, which the packed layout doesn't allow.
+ */
+void matrix_4x4_s32_unpack(Mtx *src, Mtx *dst)
 {
     u32 *srcwords = (u32 *) src;
     u32 *dstwords = (u32 *) dst;
@@ -675,11 +622,14 @@ void matrix_4x4_set_rotation_axis_angle(Mtxf *matrix, f32 angle, f32 x, f32 y, f
     f32 sin_x;
     f32 cos_z;
     f32 sin_z;
+
     guNormalize(&x, &y, &z);
     sine = sinf(angle);
     cosine = cosf(angle);
     norm = sqrtf((x * x) + (z * z));
-    if (norm != 0.0f) {
+
+    if (norm != 0.0f)
+    {
         cos_x = x * cosine;
         sin_x = x * sine;
         cos_z = z * cosine;
@@ -703,6 +653,7 @@ void matrix_4x4_set_rotation_axis_angle(Mtxf *matrix, f32 angle, f32 x, f32 y, f
         matrix->m[3][3] = 1.0f;
         return;
     }
+
     matrix_4x4_set_identity(matrix);
 }
 
@@ -762,9 +713,6 @@ void matrix_4x4_set_inverse_rotation_and_translation(Mtxf *matrix, Mtxf *result)
 }
 
 
-/*
- * Address: 0x7F059FB8
-*/
 void matrix_4x4_invert_affine(Mtxf *matrix, Mtxf *result)
 {
     f32 f0 = 0.0f;

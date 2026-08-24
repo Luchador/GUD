@@ -8018,7 +8018,7 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
 
     matrix_scalar_multiply(scale, spC4.m[0]);
     guMtxF2L((f32 (*)[4]) &spC4, (Mtx* ) g_CurrentPlayer->field_5C);
-    sub_GAME_7F059334((s32* ) g_CurrentPlayer->field_5C, (s32* ) g_CurrentPlayer->field_60);
+    matrix_4x4_s32_unpack((s32* ) g_CurrentPlayer->field_5C, (s32* ) g_CurrentPlayer->field_60);
 
     currentPlayerSetMatrix10C8((Mtx* ) g_CurrentPlayer->field_5C);
     currentPlayerSetMatrix10C4((Mtx* ) g_CurrentPlayer->field_60);
@@ -8569,13 +8569,13 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
         finalmtx = dynAllocateMatrix();
         matrix_4x4_set_identity_and_position((coord3d *) nodepos2, &handmtx);
         matrix_4x4_multiply_in_place(matrices, &handmtx);
-        matrix_4x4_7F058C64();
+        matrixSuspendConversionScale();
         matrix_4x4_f32_to_s32(&handmtx, finalmtx);
-        matrix_4x4_7F058C88();
+        matrixRestoreConversionScale();
         gdl = optionsDrawCurrentWatchPage(gdl, finalmtx, (g_CurrentPlayer->watch_animation_state == 5) || (g_CurrentPlayer->watch_animation_state == 12));
-        matrix_4x4_7F058C64();
+        matrixSuspendConversionScale();
         bviewTransformManyPosToViewMatrix(g_CurrentPlayer->field_23C, objheader->numMatrices);
-        matrix_4x4_7F058C88();
+        matrixRestoreConversionScale();
     }
  
     end:

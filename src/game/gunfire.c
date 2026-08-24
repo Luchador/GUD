@@ -1539,7 +1539,7 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
                                   | ((u32)g_CurrentPlayer->tileColor.b << 8);
         renderdata.zbufferenabled = 0;
  
-        matrix_4x4_7F058C64();
+        matrixSuspendConversionScale();
  
         if (item == ITEM_ROCKETLAUNCH && handptr->rocket != NULL) 
         {
@@ -1577,7 +1577,7 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
         }
  
         bviewTransformManyPosToViewMatrix((*(Model *)&handptr->field_B68).render_pos, (*(Model *)&handptr->field_B68).obj->numMatrices);
-        matrix_4x4_7F058C88();
+        matrixRestoreConversionScale();
  
         gSPPerspNormalize(gdl++, viGetPerspNorm());
  
@@ -1755,7 +1755,7 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
     renderdata.zbufferenabled = FALSE;
     subdraw(&renderdata, (Model *) &model);
     gdl = renderdata.gdl;
-    matrix_4x4_7F058C64();
+    matrixSuspendConversionScale();
     j = 0;
 
     if (bodymodel->numMatrices > 0)
@@ -1770,7 +1770,7 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
         while (i < bodymodel->numMatrices);
     }
 
-    matrix_4x4_7F058C88();
+    matrixRestoreConversionScale();
 
 earlyreturn:
     return gdl;
@@ -1902,7 +1902,7 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
     renderdata.zbufferenabled = TRUE;
     subdraw(&renderdata, &modelstack);
     gdl = renderdata.gdl;
-    matrix_4x4_7F058C64();
+    matrixSuspendConversionScale();
 
     for (i = 0; i < objheader->numMatrices; i++)
     {
@@ -1910,7 +1910,7 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
         matrix_4x4_f32_to_s32(&sp41c, &modelstack.render_pos[i]);
     }
 
-    matrix_4x4_7F058C88();
+    matrixRestoreConversionScale();
 
     if (animatebuttons)
     {
@@ -2137,7 +2137,7 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
         renderdata.gdl = gdl;
         subdraw(&renderdata, &modelstack);
         gdl = renderdata.gdl;
-        matrix_4x4_7F058C64();
+        matrixSuspendConversionScale();
 
         for (i = 0; i < objheader->numMatrices; i++)
         {
@@ -2145,7 +2145,7 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
             matrix_4x4_f32_to_s32(&sp41c, &modelstack.render_pos[i]);
         }
 
-        matrix_4x4_7F058C88();
+        matrixRestoreConversionScale();
     }
 
     return gdl;
