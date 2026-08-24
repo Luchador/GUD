@@ -145,6 +145,7 @@ u32 g_ProfLvlRenderCycles;   /* osGetCount delta across lvRender (DL build)   */
 u32 g_ProfBgCycles;       /* osGetCount delta across bgSetupAndRender       */
 u32 g_ProfChrTickCycles;      /* accumulated cycles in bgApplyDynamicCCRMLUT    */
 u32 g_ProfChrActionCycles;
+u32 g_ProfObjTickCycles;
 /* --- end profiler state --- */
 
 struct levelentry levelinfotable[] = {

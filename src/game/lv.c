@@ -434,6 +434,91 @@ s32 lvlGetCurrentStageToLoad(void)
 
 
 /**
+ * Sets the modifier values for the level being loaded.
+ * This covers the enemy accuracy, reaction speed, and similar values.
+ */
+void lvlSetMultipliersForDifficulty(void)
+{
+    if (g_SelectedDifficulty == DIFFICULTY_AGENT)
+    {
+        f32 armorDiff = currentPlayerGetHealth() + currentPlayerGetArmor();
+        f32 damageMultiplier = 1.0f;
+
+        if (armorDiff <= 0.125f)
+        {
+            damageMultiplier = 0.5f;
+        }
+        else if (armorDiff <= 0.6f)
+        {
+            damageMultiplier = (((armorDiff - 0.125f) * 0.5f) / 0.47500002f) + 0.5f;
+        }
+
+        F_80030B14 = 2.0f;
+        F_80030B18 = 2.0f;
+        g_AutogunPendingDamageTick = (0.5f * damageMultiplier);
+        g_AutogunDamageScalar = (0.5f * damageMultiplier);
+        F_80030B24 = 2.0f;
+        g_AiAccuracyModifier = DEFAULT_AGENT_AI_ACCURACY_MODIFIER;
+        g_AiDamageModifier = (DEFAULT_AGENT_AI_DAMAGE_MODIFIER * damageMultiplier);
+        g_AiHealthModifier = 2.0f;
+        g_SpExplosionDamageMult = (f32) (0.25f * damageMultiplier);
+        difficulty = 1.5f;
+        g_SoloAmmoMultiplier = DEFAULT_AGENT_SOLO_AMMO_MULTIPLIER;
+        g_AiReactionSpeed = DEFAULT_AGENT_AI_REACTION_SPEED;
+    }
+    else if (g_SelectedDifficulty == DIFFICULTY_SECRET)
+    {
+        F_80030B14 = 1.0f;
+        F_80030B18 = 1.0f;
+        g_AutogunPendingDamageTick = 0.75f;
+        g_AutogunDamageScalar = 0.75f;
+        F_80030B24 = 1.0f;
+        g_AiAccuracyModifier = DEFAULT_SECRET_AGENT_AI_ACCURACY_MODIFIER;
+        g_AiDamageModifier = DEFAULT_SECRET_AGENT_AI_DAMAGE_MODIFIER;
+        g_AiHealthModifier = 1.0f;
+        g_SpExplosionDamageMult = 0.75f;
+
+        difficulty = 0.75f;
+
+        g_SoloAmmoMultiplier = DEFAULT_SECRET_AGENT_SOLO_AMMO_MULTIPLIER;
+        g_AiReactionSpeed = DEFAULT_SECRET_AGENT_AI_REACTION_SPEED;
+    }
+    else if (g_SelectedDifficulty == DIFFICULTY_00)
+    {
+        F_80030B14 = 1.0f;
+        F_80030B18 = 1.0f;
+        g_AutogunPendingDamageTick = 1.0f;
+        g_AutogunDamageScalar = 1.0f;
+        F_80030B24 = 1.0f;
+        g_AiAccuracyModifier = DEFAULT_00_AGENT_AI_ACCURACY_MODIFIER;
+        g_AiDamageModifier = DEFAULT_00_AGENT_AI_DAMAGE_MODIFIER;
+        g_AiHealthModifier = 1.0f;
+        g_SpExplosionDamageMult = 1.0f;
+
+        difficulty = 0.2f;
+
+        g_SoloAmmoMultiplier = DEFAULT_00_AGENT_SOLO_AMMO_MULTIPLIER;
+        g_AiReactionSpeed = DEFAULT_00_AGENT_AI_REACTION_SPEED;
+    }
+    else if (g_SelectedDifficulty == DIFFICULTY_007)
+    {
+        F_80030B14 = 1.0f;
+        F_80030B18 = 1.0f;
+        g_AutogunPendingDamageTick = 1.0f;
+        g_AutogunDamageScalar = 1.0f;
+        F_80030B24 = 1.0f;
+        g_AiAccuracyModifier = DEFAULT_007_AI_ACCURACY_MODIFIER;
+        g_AiDamageModifier = DEFAULT_007_AI_DAMAGE_MODIFIER;
+        g_AiHealthModifier = 1.0f;
+        g_SpExplosionDamageMult = 1.0f;
+        difficulty = 1.0f;
+        g_SoloAmmoMultiplier = DEFAULT_007_SOLO_AMMO_MULTIPLIER;
+        g_AiReactionSpeed = DEFAULT_007_AI_REACTION_SPEED;
+    }
+}
+
+
+/**
  * Graphics render method.
  * Also sets player max ammo if infinite ammo cheat is enabled.
  */
@@ -522,91 +607,6 @@ Gfx* lvRender(Gfx* DL)
     gDPSetScissor(DL++, G_SC_NON_INTERLACE, 0, 0, viGetX(), viGetY());
 
     return DL;
-}
-
-
-/**
- * Sets the modifier values for the level being loaded.
- * This covers the enemy accuracy, reaction speed, and similar values.
- */
-void lvlSetMultipliersForDifficulty(void)
-{
-    if (g_SelectedDifficulty == DIFFICULTY_AGENT)
-    {
-        f32 armorDiff = currentPlayerGetHealth() + currentPlayerGetArmor();
-        f32 damageMultiplier = 1.0f;
-
-        if (armorDiff <= 0.125f)
-        {
-            damageMultiplier = 0.5f;
-        }
-        else if (armorDiff <= 0.6f)
-        {
-            damageMultiplier = (((armorDiff - 0.125f) * 0.5f) / 0.47500002f) + 0.5f;
-        }
-
-        F_80030B14 = 2.0f;
-        F_80030B18 = 2.0f;
-        g_AutogunPendingDamageTick = (0.5f * damageMultiplier);
-        g_AutogunDamageScalar = (0.5f * damageMultiplier);
-        F_80030B24 = 2.0f;
-        g_AiAccuracyModifier = DEFAULT_AGENT_AI_ACCURACY_MODIFIER;
-        g_AiDamageModifier = (DEFAULT_AGENT_AI_DAMAGE_MODIFIER * damageMultiplier);
-        g_AiHealthModifier = 2.0f;
-        g_SpExplosionDamageMult = (f32) (0.25f * damageMultiplier);
-        difficulty = 1.5f;
-        g_SoloAmmoMultiplier = DEFAULT_AGENT_SOLO_AMMO_MULTIPLIER;
-        g_AiReactionSpeed = DEFAULT_AGENT_AI_REACTION_SPEED;
-    }
-    else if (g_SelectedDifficulty == DIFFICULTY_SECRET)
-    {
-        F_80030B14 = 1.0f;
-        F_80030B18 = 1.0f;
-        g_AutogunPendingDamageTick = 0.75f;
-        g_AutogunDamageScalar = 0.75f;
-        F_80030B24 = 1.0f;
-        g_AiAccuracyModifier = DEFAULT_SECRET_AGENT_AI_ACCURACY_MODIFIER;
-        g_AiDamageModifier = DEFAULT_SECRET_AGENT_AI_DAMAGE_MODIFIER;
-        g_AiHealthModifier = 1.0f;
-        g_SpExplosionDamageMult = 0.75f;
-
-        difficulty = 0.75f;
-
-        g_SoloAmmoMultiplier = DEFAULT_SECRET_AGENT_SOLO_AMMO_MULTIPLIER;
-        g_AiReactionSpeed = DEFAULT_SECRET_AGENT_AI_REACTION_SPEED;
-    }
-    else if (g_SelectedDifficulty == DIFFICULTY_00)
-    {
-        F_80030B14 = 1.0f;
-        F_80030B18 = 1.0f;
-        g_AutogunPendingDamageTick = 1.0f;
-        g_AutogunDamageScalar = 1.0f;
-        F_80030B24 = 1.0f;
-        g_AiAccuracyModifier = DEFAULT_00_AGENT_AI_ACCURACY_MODIFIER;
-        g_AiDamageModifier = DEFAULT_00_AGENT_AI_DAMAGE_MODIFIER;
-        g_AiHealthModifier = 1.0f;
-        g_SpExplosionDamageMult = 1.0f;
-
-        difficulty = 0.2f;
-
-        g_SoloAmmoMultiplier = DEFAULT_00_AGENT_SOLO_AMMO_MULTIPLIER;
-        g_AiReactionSpeed = DEFAULT_00_AGENT_AI_REACTION_SPEED;
-    }
-    else if (g_SelectedDifficulty == DIFFICULTY_007)
-    {
-        F_80030B14 = 1.0f;
-        F_80030B18 = 1.0f;
-        g_AutogunPendingDamageTick = 1.0f;
-        g_AutogunDamageScalar = 1.0f;
-        F_80030B24 = 1.0f;
-        g_AiAccuracyModifier = DEFAULT_007_AI_ACCURACY_MODIFIER;
-        g_AiDamageModifier = DEFAULT_007_AI_DAMAGE_MODIFIER;
-        g_AiHealthModifier = 1.0f;
-        g_SpExplosionDamageMult = 1.0f;
-        difficulty = 1.0f;
-        g_SoloAmmoMultiplier = DEFAULT_007_SOLO_AMMO_MULTIPLIER;
-        g_AiReactionSpeed = DEFAULT_007_AI_REACTION_SPEED;
-    }
 }
 
 
@@ -1018,6 +1018,11 @@ f32 lvGetSystemPowerTimeSeconds(void)
 
 Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
 {
+    s32 i;
+    u32 chrOther;
+    u32 lvlOther;
+    u32 sub;
+
     static u32 fpsWindowStart = 0;
     static u32 fpsFrameCount = 0;
     static char fpsText[8] = "--";
@@ -1063,19 +1068,22 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     gdl = textRender(gdl, &x, &y, fpsText, ptrFontBankGothicChars, ptrFontBankGothic, color, screenwidth, viGetY(), 0, 0);
 
     { /* TEMP profiler readouts: name + raw osGetCount cycles per frame */
-        static char profText[6][28];
-        static const u32 profColor[6] = {
+        static char profText[7][28];
+        static const u32 profColor[7] = {
             0x00FFFFFF,  /* bgTick   - cyan      */
             0x4040FFFF,  /* lvTick   - blue      */
             0xFF3030FF,  /* lvRender- red       */
             0xFF8C00FF,  /* bg       - orange    */
             0xB43CFFFF,  /* chrTick  - violet    */
             0x30FF30FF,  /* chrAction- green     */
+            0xFFFF30FF,  /* objTick- yellow     */
         };
         s32 i;
 
-        g_ProfChrTickCycles = g_ProfChrTickCycles - g_ProfChrActionCycles;
-        g_ProfLvlRenderCycles = g_ProfLvlRenderCycles - g_ProfBgTickCycles - g_ProfBgCycles - g_ProfChrTickCycles;
+        chrOther = g_ProfChrTickCycles - g_ProfChrActionCycles;
+
+        sub = g_ProfBgTickCycles + g_ProfBgCycles + g_ProfChrTickCycles + g_ProfObjTickCycles;  /* full chrTick */
+        lvlOther = (g_ProfLvlRenderCycles > sub) ? (g_ProfLvlRenderCycles - sub) : 0;
 
         sprintf(profText[0], "BGTICK:%4uK",      (g_ProfBgTickCycles + 500) / 1000);
         sprintf(profText[1], "LVTICK:%4uK",      (g_ProfLvlTickCycles   + 500) / 1000);
@@ -1083,11 +1091,13 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         sprintf(profText[3], "BGRENDER:%4uK",     (g_ProfBgCycles        + 500) / 1000);
         sprintf(profText[4], "CHRTICK:%4uK",      (g_ProfChrTickCycles   + 500) / 1000);
         sprintf(profText[5], "CHRACT:%4uK",       (g_ProfChrActionCycles + 500) / 1000);
+        sprintf(profText[6], "OBJTICK:%4uK",       (g_ProfObjTickCycles + 500) / 1000);
 
         g_ProfChrTickCycles = 0;
         g_ProfChrActionCycles = 0;
+        g_ProfObjTickCycles = 0;
 
-        for (i = 0; i < 6; i++)
+        for (i = 0; i < 7; i++)
         {
             x = viGetViewLeft() + 14;
             y = viGetViewTop() + 44 + (i * 10);

@@ -60,6 +60,7 @@ extern u32 g_ProfLvlRenderCycles;
 extern u32 g_ProfBgCycles;
 extern u32 g_ProfChrTickCycles;
 extern u32 g_ProfChrActionCycles;
+extern u32 g_ProfObjTickCycles;
 
 
 #if defined(BUGFIX_R1)

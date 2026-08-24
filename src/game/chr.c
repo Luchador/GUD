@@ -44,8 +44,8 @@
 
 // forward declarations
 
-void chrUpdateAimProperties( ChrRecord *arg0);
-void chrUpdateAnim( ChrRecord *chr, s32 tickamount);
+void chrUpdateAimProperties(ChrRecord *arg0);
+void chrUpdateAnim(ChrRecord *chr, s32 tickamount);
 void sub_GAME_7F057D44(f32 *arg0, f32 *arg1, f32 arg2);
 f32  get_007_health_mod(void);
 
@@ -2209,8 +2209,6 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 
 
 /**
- * Address 0x7F020D94.
- *
  * For visibility, player collision, tank collision, bullet collision, and explosion damage
  * tests the game needs to know which room(s) a character is in. This allows the game to perform
  * tests on only characters in loaded rooms, not the entire stage.
@@ -2241,9 +2239,6 @@ void chrDetectRooms(ChrRecord *self)
 }
 
 
-/**
- * Address 0x7F020E40.
- */
 void chrUpdateAnim(ChrRecord *chr, s32 tickamount)
 {
     Model *model;

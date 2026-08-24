@@ -1805,7 +1805,12 @@ void propsTick(void)
         }
         else if ((prop->type == PROP_TYPE_OBJ) || (prop->type == PROP_TYPE_WEAPON) || (prop->type == PROP_TYPE_DOOR))
         {
-            tickop = objTick(prop);
+            // TEMP
+            {
+                u32 prof_t = osGetCount();
+                tickop = objTick(prop);
+                g_ProfObjTickCycles += osGetCount() - prof_t;
+            }
         }
         else if (prop->type == PROP_TYPE_EXPLOSION)
         {
