@@ -42,20 +42,14 @@
 #define FALLSPEED_DECAY      0.9f         /* 0x3F666666 */
 #endif
 
-#define CHRANIMLOD_SLOTS  256
-#define CHRANIMLOD_PERIOD 4
-
-static u8 g_ChrAnimTickDebt[CHRANIMLOD_SLOTS];
-
-// Begin forward declarations.
+// forward declarations
 
 void chrUpdateAimProperties( ChrRecord *arg0);
 void chrUpdateAnim( ChrRecord *chr, s32 tickamount);
 void sub_GAME_7F057D44(f32 *arg0, f32 *arg1, f32 arg2);
 f32  get_007_health_mod(void);
-static s32 chrAnimLodEligible(ChrRecord *chr, PropRecord *prop);
 
-// End forward declarations.
+// end forward declarations
 
 f32 animation_rate = 0;
 s32 D_8002C904 = 0;
@@ -2294,33 +2288,11 @@ s32 chrTick(PropRecord *prop)
     s32 headVisible;
     s32 tickamount;
 
-    chr = prop->chr;
-    tickamount = g_ClockTimer;
-
-    if (chrAnimLodEligible(chr, prop))
-    {
-        s32 lodslot = chr - g_ChrSlots;
-
-        if ((lodslot >= 0) && (lodslot < CHRANIMLOD_SLOTS))
-        {
-            if (((g_GlobalTimer + lodslot) % CHRANIMLOD_PERIOD) != 0)
-            {
-                if (g_ChrAnimTickDebt[lodslot] < 200)
-                {
-                    g_ChrAnimTickDebt[lodslot] += tickamount;
-                }
-
-                return TICKOP_NONE;
-            }
-
-            tickamount += g_ChrAnimTickDebt[lodslot];
-            g_ChrAnimTickDebt[lodslot] = 0;
-        }
-    }
-
     renderdata = D_8002CC6C;
+    chr = prop->chr;
     model = chr->model;
     headVisible = 1;
+    tickamount = g_ClockTimer;
 
     if ((!(chr->chrflags & CHRFLAG_HIDDEN)) || (chr->chrflags & CHRFLAG_00040000))
     {
@@ -3655,41 +3627,4 @@ s32 chrGetOnscreenRenderBounds(PropRecord *arg0, struct coord3d *arg1, struct co
     }
 
     return 0;
-}
-
-
-static s32 chrAnimLodEligible(ChrRecord *chr, PropRecord *prop)
-{
-    s32 i;
-
-    if (prop->type == PROP_TYPE_VIEWER)
-    {
-        return 0;
-    }
-
-    if (chr->chrflags & CHRFLAG_HIDDEN)
-    {
-        return 0;
-    }
-
-    switch (chr->actiontype)
-    {
-        case ACT_STAND:
-        case ACT_KNEEL:
-        case ACT_PATROL:
-        case ACT_GOPOS:
-            break;
-        default:
-            return 0;
-    }
-
-    for (i = 0; i < PROPRECORD_STAN_ROOM_LEN && prop->rooms[i] != 0xFF; i++)
-    {
-        if (bgIsRoomRendered(prop->rooms[i]))
-        {
-            return 0;
-        }
-    }
-
-    return 1;
 }

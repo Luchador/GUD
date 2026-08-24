@@ -381,7 +381,7 @@ void bossMainloop(void)
                             { /* TEMP profiler */
                                 u32 prof_t = osGetCount();
                                 lvTick();
-                                g_ProfTickCycles = osGetCount() - prof_t;
+                                g_ProfLvlTickCycles = osGetCount() - prof_t;
                             }
 
                             shuffle_player_ids();

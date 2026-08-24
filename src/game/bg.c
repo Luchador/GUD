@@ -139,17 +139,10 @@ u8 g_PortalIsVertical[PORTMAX] = {
 struct PortalMetric g_PortalPlanes[PORTMAX];
 
 /* --- TEMP visibility profiler (read via framebuffer bars) --- */
-u32 g_ProfVisCycles;      /* osGetCount delta across bgDetermineVisibleRooms */
-u32 g_ProfFrameCycles;    /* osGetCount delta between consecutive frames    */
-u32 g_ProfLastFrame;
-u32 g_ProfVisits;         /* bgProcessPortalTraversal entries this frame    */
-u32 g_ProfProjections;    /* bgProjectPortalPoints calls this frame         */
-u32 g_ProfRoomsDrawn;     /* bgSetRoomOnScreen registrations this frame     */
-u32 g_ProfTickCycles;     /* osGetCount delta across lvTick (game logic)    */
+u32 g_ProfLvlTickCycles;     /* osGetCount delta across lvTick (game logic)    */
 u32 g_ProfRenderCycles;   /* osGetCount delta across lvlRender (DL build)   */
 u32 g_ProfBgCycles;       /* osGetCount delta across bgSetupAndRender       */
 u32 g_ProfChrTickCycles;      /* accumulated cycles in bgApplyDynamicCCRMLUT    */
-u32 g_ProfChrCount;
 u32 g_ProfChrActionCycles;
 /* --- end profiler state --- */
 
@@ -296,8 +289,6 @@ s32 bgSetRoomOnScreen(s32 curroom, s32 unk1, bbox2d * screensize, s32 next)
 {
     s32 i;
     s32 temp;
-
-    g_ProfRoomsDrawn++;
 
     g_BgRoomInfo[curroom].room_rendered = '\x01';
 
@@ -997,38 +988,23 @@ Gfx *bgSetupAndRender(Gfx *gdl)
 
     gSPMatrix(gdl++, g_viProjectionMatrix, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
 
-    /* TEMP profiler bars (1px = 16384cy unless noted):
-       cyan   = visibility pass (1px = 2048cy)
-       red    = whole frame        green  = portal visits
-       yellow = projections        white  = rooms x2
+    /* TEMP profiler bars (1px = 16384cy unless noted):  
        magenta= lvTick             blue   = lvlRender
        orange = bgSetupAndRender   violet = chrTick total (accum)
-       dkorange = chrlvActionTick (accum)  gray = chr count x4 */
+       green = chrlvActionTick (accum)*/
     gDPPipeSync(gdl++);
     gDPSetCycleType(gdl++, G_CYC_FILL);
     gDPSetRenderMode(gdl++, G_RM_NOOP, G_RM_NOOP2);
-    gDPSetFillColor(gdl++, (GPACK_RGBA5551(0,255,255,1) << 16) | GPACK_RGBA5551(0,255,255,1));
-    gDPFillRectangle(gdl++, 8, 8,  8 + (g_ProfVisCycles >> 11 > 280 ? 280 : g_ProfVisCycles >> 11), 10);
-    gDPSetFillColor(gdl++, (GPACK_RGBA5551(255,0,0,1) << 16) | GPACK_RGBA5551(255,0,0,1));
-    gDPFillRectangle(gdl++, 8, 12, 8 + (g_ProfFrameCycles >> 14 > 280 ? 280 : g_ProfFrameCycles >> 14), 14);
-    gDPSetFillColor(gdl++, (GPACK_RGBA5551(0,255,0,1) << 16) | GPACK_RGBA5551(0,255,0,1));
-    gDPFillRectangle(gdl++, 8, 16, 8 + (g_ProfVisits > 280 ? 280 : g_ProfVisits), 18);
-    gDPSetFillColor(gdl++, (GPACK_RGBA5551(255,255,0,1) << 16) | GPACK_RGBA5551(255,255,0,1));
-    gDPFillRectangle(gdl++, 8, 20, 8 + (g_ProfProjections > 280 ? 280 : g_ProfProjections), 22);
-    gDPSetFillColor(gdl++, (GPACK_RGBA5551(255,255,255,1) << 16) | GPACK_RGBA5551(255,255,255,1));
-    gDPFillRectangle(gdl++, 8, 24, 8 + ((g_ProfRoomsDrawn * 2) > 280 ? 280 : g_ProfRoomsDrawn * 2), 26);
     gDPSetFillColor(gdl++, (GPACK_RGBA5551(255,0,255,1) << 16) | GPACK_RGBA5551(255,0,255,1));
-    gDPFillRectangle(gdl++, 8, 28, 8 + (g_ProfTickCycles >> 14 > 280 ? 280 : g_ProfTickCycles >> 14), 30);
+    gDPFillRectangle(gdl++, 8, 28, 8 + (g_ProfLvlTickCycles >> 14 > 280 ? 280 : g_ProfLvlTickCycles >> 14), 30);
     gDPSetFillColor(gdl++, (GPACK_RGBA5551(64,64,255,1) << 16) | GPACK_RGBA5551(64,64,255,1));
     gDPFillRectangle(gdl++, 8, 32, 8 + (g_ProfRenderCycles >> 14 > 280 ? 280 : g_ProfRenderCycles >> 14), 34);
     gDPSetFillColor(gdl++, (GPACK_RGBA5551(255,140,0,1) << 16) | GPACK_RGBA5551(255,140,0,1));
     gDPFillRectangle(gdl++, 8, 36, 8 + (g_ProfBgCycles >> 14 > 280 ? 280 : g_ProfBgCycles >> 14), 38);
     gDPSetFillColor(gdl++, (GPACK_RGBA5551(180,60,255,1) << 16) | GPACK_RGBA5551(180,60,255,1));
     gDPFillRectangle(gdl++, 8, 40, 8 + (g_ProfChrTickCycles >> 14 > 280 ? 280 : g_ProfChrTickCycles >> 14), 42);
-    gDPSetFillColor(gdl++, (GPACK_RGBA5551(200,100,0,1) << 16) | GPACK_RGBA5551(200,100,0,1));
+    gDPSetFillColor(gdl++, (GPACK_RGBA5551(0,255,0,1) << 16) | GPACK_RGBA5551(0,255,0,1));
     gDPFillRectangle(gdl++, 8, 44, 8 + (g_ProfChrActionCycles >> 14 > 280 ? 280 : g_ProfChrActionCycles >> 14), 46);
-    gDPSetFillColor(gdl++, (GPACK_RGBA5551(160,160,160,1) << 16) | GPACK_RGBA5551(160,160,160,1));
-    gDPFillRectangle(gdl++, 8, 48, 8 + ((g_ProfChrCount * 4) > 280 ? 280 : g_ProfChrCount * 4), 50);
     gDPPipeSync(gdl++);
     
     return bondviewGfxPlayerField5cMatrix(gdl++);
@@ -1266,8 +1242,6 @@ s32 bgProjectPortalPoints(s32 portalnum, f32 scale, coord3d *points)
     s32 allbehind;
     struct PortalMetric metric;
     s32 len;
-
-    g_ProfProjections++;
 
     matrix = camGetWorldToScreenMtxf();
     allbehind = 1;
@@ -3148,8 +3122,6 @@ void bgProcessPortalTraversal(s32 value, s32 roomnum, s32 portalnum, s32 depth, 
     {
         return;
     }
- 
-    g_ProfVisits++;
 
     i = (s32) &g_PortalTraversalDepths[portalnum];
  
@@ -3609,19 +3581,10 @@ void bgDetermineVisibleRooms(void)
     s32 temp_a0;
     s32 temp_v1;
     s32 i;
+    u32 prof_t0 = 0;
 
-    u32 prof_t0; // TEMP
-
-    prof_t0 = osGetCount();
-    g_ProfFrameCycles = prof_t0 - g_ProfLastFrame;
-    g_ProfLastFrame = prof_t0;
-    g_ProfVisits = 0;
-    g_ProfProjections = 0;
-    g_ProfRoomsDrawn = 0;
     g_ProfChrTickCycles = 0;
     g_ProfChrActionCycles = 0;
-    g_ProfChrCount = 0;
-
 
     bgUpdateCurrentPlayerScreenMinMax();
 
@@ -3706,8 +3669,6 @@ void bgDetermineVisibleRooms(void)
             g_BgRoomInfo[temp_v1].room_neighbor_to_rendered = 1;
         }
     }
-
-    g_ProfVisCycles = osGetCount() - prof_t0;
 }
 
 
