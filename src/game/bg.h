@@ -120,13 +120,13 @@ typedef struct bg_portal_data_entry
     u8 controlbytes2;
 } bg_portal_data_entry;
 
-typedef struct bg_room_data
+typedef struct BgRoomData
 {
     void* pPointTableBin;
-    void* pPriMappingBin;
-    void* pSecMappingBin;
+    void* primaryGdl;
+    void* secondaryGdl;
     coord3d pos;
-} bg_room_data;
+} BgRoomData;
 
 typedef struct s_specialportal
 {
@@ -134,34 +134,25 @@ typedef struct s_specialportal
     u8 portallist[];
 } s_specialportal;
 
-typedef struct unk_portalstruct
-{
-    s32 unk0;
-    s32 unk4;
-    s32 unk8;
-    s32 unkC;
-    s32 unk10;
-} unk_portalstruct;
-
 typedef struct PortalCache {
     s32 count;
     bbox2d bbox;
 } PortalCache;
 
-typedef struct bg_queued_portal_entry {
+typedef struct BgQueuedPortal {
     s32 arg0;          // 0x00
     s32 roomnum;       // 0x04
     s32 portalnum;     // 0x08
     s32 arg3;          // 0x0c
     f32 sp10[4];       // 0x10
-} bg_queued_portal_entry;
+} BgQueuedPortal;
 
 extern bg_portal_data_entry *g_BgPortals;
-extern struct unk_portalstruct table_for_portals[PORTMAX];
+extern struct PortalCache g_PortalCameraCache[PORTMAX];
 extern s32 g_MaxNumRooms;
 extern f32 room_data_float2;
 
-extern bg_room_data * ptr_bgdata_room_fileposition_list;
+extern BgRoomData * ptr_bgdata_room_fileposition_list;
 extern s_room_info g_BgRoomInfo[];
 extern Gfx *ptrDynamic_CC_RM_LUT[];
 extern Gfx DL_LUT_PRIMARY_ADDFOG[];

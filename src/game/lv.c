@@ -947,7 +947,7 @@ void lvlUnloadStageTextData(void)
     cleanupSFXRelated();
     cleanupplayersoundrelated();
     set_missionstate_zero();
-    cleanup_rooms();
+    bgCleanupRooms();
 }
 
 
