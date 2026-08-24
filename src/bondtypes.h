@@ -1384,6 +1384,7 @@ typedef union
             s16                numRecords;           // 14 used in runtime for number of records
             s16                numtextures;          // 16 Number of textures in table
             ModelFileTextures *Textures;             // 18 offset to texture table
+            u8 sizeExperimentPad[4];
         } ModelFileHeader;
 
         typedef struct ItemModelFileRecord
