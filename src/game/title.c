@@ -262,7 +262,7 @@ Gfx *sub_GAME_7F007F30(Gfx *gdl, s32 count, Mtxf *matrix)
     drawjointlist(&renderData, entry);
 
     modelSetDistanceDisabled(0);
-    sub_GAME_7F06B248(entry);
+    modelHitFreeChain(entry);
 
     for (i = 0; i < chrModelInstance->obj->numMatrices; i++)
     {

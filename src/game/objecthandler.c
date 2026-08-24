@@ -334,21 +334,33 @@ ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context) {
 }
 
 
-void sub_GAME_7F06B248(ModelHitEntry *entry)
+/**
+ * Returns a chain of ModelHitEntry records to the free pool. Walks to
+ * the chain's tail, splices the old free-list head after it (fixing the
+ * head's prev backlink), and installs the chain as the new head. NULL
+ * is a no-op. Cost is O(chain length) for the tail walk.
+ */
+void modelHitFreeChain(ModelHitEntry *entry)
 {
     ModelHitEntry *oldhead;
     ModelHitEntry *tail;
     
-    if (entry != NULL) {
+    if (entry != NULL)
+    {
         oldhead = g_ModelHitFreeList;
-        if (oldhead != NULL) {
+
+        if (oldhead != NULL)
+        {
             tail = entry;
-            while (tail->next != NULL) {
+            while (tail->next != NULL)
+            {
                 tail = tail->next;
             }
+
             tail->next = oldhead;
             g_ModelHitFreeList->prev = tail;
         }
+
         g_ModelHitFreeList = entry;
     }
 }

@@ -10,10 +10,7 @@
 void init_guards(void) 
 {
     animation_rate = 1.0f;
-    D_8002C904 = 0;
     g_AnimationTablePointerCountRelated = 0;
-    D_8002CC58 = 0;
-    show_patrols_flag = FALSE;
     player1_guardID = 0x1388;
     g_ChrSlots = 0;
     g_NumChrSlots = 0;
@@ -30,6 +27,7 @@ void alloc_init_GUARDdata_entries(s32 count)
     g_NumChrSlots = count + 10; //special guards?
 
     g_ChrSlots = mempAllocBytesInBank(align_addr_zero(g_NumChrSlots * sizeof(ChrRecord)), MEMPOOL_STAGE);
+
     for(i = 0; g_NumChrSlots > i; i++)
     {
         g_ChrSlots[i].model = 0;
@@ -41,7 +39,7 @@ void bodiesReset(u32 stagenum)
 {
     s32 i;
   
-    for (i=0; c_item_entries[i].header!=0; i++)
+    for (i = 0; c_item_entries[i].header!=0; i++)
     {
         c_item_entries[i].header->RootNode = (ModelNode*)0;
     }

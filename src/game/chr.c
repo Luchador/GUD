@@ -34,25 +34,20 @@
 #include "model.h"
 #include "tex.h"
 
-#ifdef VERSION_EU
-#define GROUND_SMOOTH_FACTOR 0.118799984f /* 0x3DF34D68 (PAL-scaled 0.1) */
-#define FALLSPEED_DECAY      0.8812f      /* 0x3F619653 (PAL-scaled 0.9) */
-#else
 #define GROUND_SMOOTH_FACTOR 0.100000024f /* 0x3DCCCCD0 */
 #define FALLSPEED_DECAY      0.9f         /* 0x3F666666 */
-#endif
 
-// forward declarations
+
+// Begin forward declarations.
 
 void chrUpdateAimProperties(ChrRecord *arg0);
 void chrUpdateAnim(ChrRecord *chr, s32 tickamount);
 void sub_GAME_7F057D44(f32 *arg0, f32 *arg1, f32 arg2);
 f32  get_007_health_mod(void);
 
-// end forward declarations
+// End forward declarations.
 
 f32 animation_rate = 0;
-s32 D_8002C904 = 0;
 s32 g_AnimationTablePointerCountRelated = 0;
 
 /*
@@ -84,8 +79,6 @@ struct ChrHitReaction g_HitReactionTable[] = {
 /* terminator         */ {0xFFFFFFFF               , 0,   0,   0.0,   0,  0,    0.0,  NULL,                 0,  NULL,                  0},
 };
 
-s32 D_8002CC58 = 0; // Set to 0 but otherwise never used.
-s32 show_patrols_flag = FALSE;
 s32 player1_guardID = 5000;
 ChrRecord *g_ChrSlots = 0;
 s32 g_NumChrSlots = 0;
@@ -1174,18 +1167,6 @@ void get_ptr_allocated_block_for_vertices(int param_1)
 }
 
 
-void set_show_patrols_flag(s32 flag)
-{
-  show_patrols_flag = flag;
-}
-
-
-s32 get_show_patrols_flag(void)
-{
-  return show_patrols_flag;
-}
-
-
 void chrSetMoving(ChrRecord *self, bool unset)
 {
     if (unset)
@@ -1608,7 +1589,7 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
     var_s0->bodynum = 0;
     var_s0->prop = arg0;
     var_s0->model = arg1;
-    var_s0->field_20 = NULL;
+    var_s0->hitChain = NULL;
     var_s0->numarghs = 0;
     var_s0->lastwalk60 = 0;
     var_s0->invalidmove = 0;
@@ -1762,8 +1743,8 @@ void chrpropCleanupForRemoval(PropRecord *prop)
     chr->model = NULL;
     chr->chrnum = -1;
 
-    if (chr->field_20 != NULL) {
-        sub_GAME_7F06B248(chr->field_20);
+    if (chr->hitChain != NULL) {
+        modelHitFreeChain(chr->hitChain);
     }
 }
 
@@ -2291,30 +2272,16 @@ s32 chrTick(PropRecord *prop)
 
     if ((!(chr->chrflags & CHRFLAG_HIDDEN)) || (chr->chrflags & CHRFLAG_00040000))
     {
-        if (D_8002C904)
+        // TEMP
         {
-            if (((ModelAnimation *)animation_table_ptrs1[g_AnimationTablePointerCountRelated]) != ((ModelAnimation *)1))
-            {
-                if (objecthandlerGetModelAnim(model) != ((ModelAnimation *)animation_table_ptrs1[g_AnimationTablePointerCountRelated]))
-                {
-                    modelSetAnimation(model, (ModelAnimation *)animation_table_ptrs1[g_AnimationTablePointerCountRelated], 0, 0.0f, 0.5f, 0.0f);
-                }
-            }
+            u32 prof_t = osGetCount();
+            chrlvActionTick(chr);
+            g_ProfChrActionCycles += osGetCount() - prof_t;
         }
-        else
+        
+        if (chr->model == NULL)
         {
-            // TEMP
-            {
-                u32 prof_t = osGetCount();
-                chrlvActionTick(chr);
-                g_ProfChrActionCycles += osGetCount() - prof_t;
-            }
-            
-
-            if (chr->model == NULL)
-            {
-                return TICKOP_FREE;
-            }
+            return TICKOP_FREE;
         }
     }
 
@@ -2445,10 +2412,10 @@ after_position_update:
 
     chrUpdateAimProperties(chr);
 
-    if (chr->field_20 != NULL)
+    if (chr->hitChain != NULL)
     {
-        sub_GAME_7F06B248(chr->field_20);
-        chr->field_20 = NULL;
+        modelHitFreeChain(chr->hitChain);
+        chr->hitChain = NULL;
     }
 
     if (headSwitchVisible)
@@ -2463,6 +2430,7 @@ after_position_update:
 
         g_ModelJointPositionedFunc = chrHandleJointPositioned;
         g_CurModelChr = chr;
+
 
         renderdata.basemtx = camGetWorldToScreenMtxf();
         renderdata.mtxlist = dynAllocate(model->obj->numMatrices * (sizeof(Mtxf)));
@@ -2486,10 +2454,10 @@ after_position_update:
 
         prop->zDepth = sub_GAME_7F06C768(model);
 
-        chr->field_20 = sub_GAME_7F06B120(NULL, model);
+        chr->hitChain = sub_GAME_7F06B120(NULL, model);
 
-        chrRenderHeldWeapon(prop, GUNRIGHT, (Gfx **)(&chr->field_20));
-        chrRenderHeldWeapon(prop, GUNLEFT, (Gfx **)(&chr->field_20));
+        chrRenderHeldWeapon(prop, GUNRIGHT, (Gfx **)(&chr->hitChain));
+        chrRenderHeldWeapon(prop, GUNLEFT, (Gfx **)(&chr->hitChain));
 
         if (chr->handle_positiondata_hat != NULL)
         {
@@ -2552,7 +2520,7 @@ after_position_update:
 
             if ((!(chr->hidden & CHRHIDDEN_DROP_HELD_ITEMS)) || (!(hatobj->runtime_bitflags & RUNTIMEBITFLAG_00000080)))
             {
-                chr->field_20 = sub_GAME_7F06B120(chr->field_20, hatmodel);
+                chr->hitChain = sub_GAME_7F06B120(chr->hitChain, hatmodel);
             }
         }
 
@@ -2570,8 +2538,8 @@ after_position_update:
             }
         }
 
-        sub_GAME_7F06B29C(chr->field_20);
-        chr->field_20 = sub_GAME_7F06BB28(chr->field_20);
+        sub_GAME_7F06B29C(chr->hitChain);
+        chr->hitChain = sub_GAME_7F06BB28(chr->hitChain);
     }
     else
     {
@@ -2680,7 +2648,7 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
     {
         if (withalpha == 0)
         {
-            // nothing to do
+            // Nothing to do.
             return gdl;
         }
         else
@@ -2707,8 +2675,7 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
         {
             mrData = D_8002CCBC;
 
-
-            sp4C = 0x50;
+            sp4C = 80;
 
             prop_held_right = chr->weapons_held[GUNRIGHT];
             prop_held_left = chr->weapons_held[GUNLEFT];
@@ -2777,7 +2744,7 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
             }
 
             g_playerPerm->time_other_players_on_screen += 1;
-            drawjointlist(&mrData, chr->field_20);
+            drawjointlist(&mrData, chr->hitChain);
 
             gdl = mrData.gdl;
 
@@ -2820,8 +2787,8 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
 
     if (withalpha != 0)
     {
-        sub_GAME_7F06B248(chr->field_20);
-        chr->field_20 = NULL;
+        modelHitFreeChain(chr->hitChain);
+        chr->hitChain = NULL;
     }
 
     return gdl;
@@ -3200,7 +3167,7 @@ void chrTestHit(PropRecord *prop, ShotData *shotdata)
 
     if (hitpart != HIT_NULL_PART)
     {
-        entry = chr->field_20;
+        entry = chr->hitChain;
         hitpart = sub_GAME_7F06C010(&entry, &shotdata->viewOrigin, &shotdata->viewDir, &hitmodel, &hitnode);
 
         while ((hitpart == HIT_GUN) || (hitpart == HIT_HAT))

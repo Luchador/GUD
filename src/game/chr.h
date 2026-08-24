@@ -203,11 +203,8 @@ extern struct anim_group_info *ptr_crouched_pistol_firing_animation_groups[];
 extern struct anim_group_info *ptr_crouched_doubles_firing_animation_groups[];
 
 extern f32 animation_rate;
-extern s32 D_8002C904;
 extern s32 g_AnimationTablePointerCountRelated;
 
-extern s32 D_8002CC58;
-extern s32 show_patrols_flag;
 extern s32 player1_guardID;
 extern ChrRecord *g_ChrSlots;
 extern s32 g_NumChrSlots;

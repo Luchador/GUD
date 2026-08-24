@@ -113,9 +113,9 @@ void load_object_into_memory_unused_maybe(ModelFileHeader *header,int *recallstr
 // tentative signature
 PropRecord *chrGiveWeapon(ChrRecord *self, s32 PropID, ITEM_IDS ItemID, s32 flags);
 
-// called with struct ChrRecord->field_20
+// called with struct ChrRecord->hitChain
 ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context);
-void sub_GAME_7F06B248(ModelHitEntry *entry);
+void modelHitFreeChain(ModelHitEntry *entry);
 void drawjointlist(ModelRenderData *arg0, ModelHitEntry *entry);
 void sub_GAME_7F06B29C(ModelHitEntry *arg0);
 ModelHitEntry *sub_GAME_7F06BB28(ModelHitEntry *modelhit);

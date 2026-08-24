@@ -11,7 +11,7 @@ struct BONDdata_item_control_blocks {
     int field_14;
     int field_18;
     int field_1C;
-    int field_20;
+    int hitChain;
     int field_24;
     int field_28;
     int field_2C;
