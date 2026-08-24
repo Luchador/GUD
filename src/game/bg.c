@@ -121,8 +121,8 @@ s32 g_MaxNumRooms = MAXROOMCOUNT;
  */
 s32 g_RoomLoadBudget = 0;
 
-u8 D_800442FC[PORTMAX] = {0};
-u8 D_800443C4[PORTMAX] = {
+u8 g_PortalTraversalDepths[PORTMAX] = {0};
+u8 g_PortalIsVertical[PORTMAX] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -219,12 +219,12 @@ void bgUpdateCurrentPlayerScreenMinMax(void);
 void *sub_GAME_7F0B8A24(s32 *pc);
 void bgDetermineVisibleRooms(void);
 s32 sub_GAME_7F0B5864(s32 portalnum, bbox2d *screenbox);
-f32 sub_GAME_7F0B9990(s32 portalnum);
+f32 bgGetPortalMargin(s32 portalnum);
 void sub_GAME_7F0B95D8(s32 roomID);
 void sub_GAME_7F0B4810(f32 arg0);
 s32 sub_GAME_7F0B5528(s32 portalnum, f32 scale, coord3d *points);
 void bgOrderPortal(s32 portalnum);
-void sub_GAME_7F0B7F84(s32 value, s32 roomnum, s32 portalnum, s32 depth, bbox2d *parentbox);
+void bgProcessPortalTraversal(s32 value, s32 roomnum, s32 portalnum, s32 depth, bbox2d *parentbox);
 
 // End forward declarations.
 
@@ -685,7 +685,7 @@ void load_bg_file(LEVEL_INDEX levelid)
  
         for (i = 0; g_BgPortals[i].offset_portal != (NULL); i++)
         {
-            D_800443C4[i] = sub_GAME_7F0B993C(i);
+            g_PortalIsVertical[i] = sub_GAME_7F0B993C(i);
         }
  
         for (i = 0; g_BgPortals[i].offset_portal != (NULL); i++)
@@ -797,7 +797,7 @@ void bgRoomVisibilityRelated(void)
         for (portalnum = 0; g_BgPortals[portalnum].offset_portal != NULL; portalnum++)
         {
 
-            if (D_800443C4[portalnum] != 0)
+            if (g_PortalIsVertical[portalnum] != 0)
             {
                 continue;
             }
@@ -1222,7 +1222,7 @@ s32 sub_GAME_7F0B5528(s32 portalnum, f32 arg1, coord3d *arg2)
 
         if (arg1 != 0.0f) 
         {
-            sub_GAME_7F0B96CC(portalnum, (f32 *) &metric);
+            bgCalcPortalPlane(portalnum, (f32 *) &metric);
 
             point->x += metric.normal.x * arg1;
             point->y += metric.normal.y * arg1;
@@ -1290,7 +1290,7 @@ s32 sub_GAME_7F0B5864(s32 portalnum, bbox2d *bbox)
         return cache->count;
     }
 
-    scale = sub_GAME_7F0B9990(portalnum);
+    scale = bgGetPortalMargin(portalnum);
     pointcount = sub_GAME_7F0B5528(portalnum, scale, points);
 
     if (scale > 0.0f)
@@ -3060,7 +3060,7 @@ bool bgProcessNextQueuedPortal()
 
     entry = &g_BgPortalQueue[g_BgPortalQueueReadIndex];
 
-    sub_GAME_7F0B7F84(entry->arg0, entry->roomnum, entry->portalnum, entry->arg3, entry->sp10);
+    bgProcessPortalTraversal(entry->arg0, entry->roomnum, entry->portalnum, entry->arg3, entry->sp10);
 
     g_BgPortalQueueReadIndex++;
 
@@ -3073,7 +3073,7 @@ bool bgProcessNextQueuedPortal()
 }
 
 
-void sub_GAME_7F0B7F84(s32 value, s32 roomnum, s32 portalnum, s32 depth, bbox2d *parentbox)
+void bgProcessPortalTraversal(s32 value, s32 roomnum, s32 portalnum, s32 depth, bbox2d *parentbox)
 {
     bbox2d screenbox;
     coord3d *playerpos;
@@ -3088,12 +3088,12 @@ void sub_GAME_7F0B7F84(s32 value, s32 roomnum, s32 portalnum, s32 depth, bbox2d 
         return;
     }
  
-    i = (s32) &D_800442FC[portalnum];
+    i = (s32) &g_PortalTraversalDepths[portalnum];
  
     playerpos = bondviewGetPlayerPosition();
-    sub_GAME_7F0B96CC(portalnum, &metric);
+    bgCalcPortalPlane(portalnum, &metric);
     playermetric = ((metric.normal.z * playerpos->z) + ((metric.normal.x * playerpos->x) + (metric.normal.y * playerpos->y))) * room_data_float1;
-    portalmetric = sub_GAME_7F0B9990(portalnum);
+    portalmetric = bgGetPortalMargin(portalnum);
  
     if (roomnum == g_BgPortals[portalnum].connectedRoom1)
     {
@@ -3567,7 +3567,7 @@ void bgDetermineVisibleRooms(void)
 
     for (i = 0; i < PORTMAX; i++) 
     {
-        D_800442FC[i] = 0;
+        g_PortalTraversalDepths[i] = 0;
     }
 
     dword_CODE_bss_8007FF98 = 0;
@@ -3934,12 +3934,10 @@ void sub_GAME_7F0B95D8(s32 roomID)
             }
         }
     }
-
-    if (numupdated);
 }
 
 
-void sub_GAME_7F0B96CC(s32 portalnum, f32 *out)
+void bgCalcPortalPlane(s32 portalnum, f32 *out)
 {
     f32 sp6c[3];
     f32 sp60[3];
@@ -3993,14 +3991,14 @@ void sub_GAME_7F0B96CC(s32 portalnum, f32 *out)
 
 
 /**
- * Unknown, makes use of sub_GAME_7F0B96CC.
+ * Unknown, makes use of bgCalcPortalPlane.
  */
 s32 sub_GAME_7F0B993C(s32 arg0)
 {
     struct PortalMetric metric;
     s32 padding;
 
-    sub_GAME_7F0B96CC(arg0, &metric);
+    bgCalcPortalPlane(arg0, &metric);
 
     if (((metric.normal.f[0] * metric.normal.f[0]) + (metric.normal.f[2] * metric.normal.f[2])) < 0.999f)
     {
@@ -4011,7 +4009,7 @@ s32 sub_GAME_7F0B993C(s32 arg0)
 }
 
 
-f32 sub_GAME_7F0B9990(s32 portalnum)
+f32 bgGetPortalMargin(s32 portalnum)
 {
     s32 value;
     s32 shift;
@@ -4063,7 +4061,7 @@ void bgOrderPortal(s32 portalnum)
     bgGetRoomCenter(roomnum1, &room1centre);
     bgGetRoomCenter(roomnum2, &room2centre);
 
-    sub_GAME_7F0B96CC(portalnum, &metric);
+    bgCalcPortalPlane(portalnum, &metric);
 
     tmp2 = metric.normal.f[2];
     tmp1 = metric.normal.f[0] * room1centre.f[0] + metric.normal.f[1] * room1centre.f[1] + tmp2 * room1centre.f[2];
@@ -4193,7 +4191,7 @@ s32 sub_GAME_7F0B9F14(s32 portalnum, coord3d *pos1, coord3d *pos2)
     seenA = 0;
     seenB = 0;
 
-    sub_GAME_7F0B96CC(portalnum, &metric);
+    bgCalcPortalPlane(portalnum, &metric);
 
     diff.f[0] = pos2->f[0] - pos1->f[0];
     diff.f[1] = pos2->f[1] - pos1->f[1];

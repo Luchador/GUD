@@ -972,7 +972,7 @@ void setupDoor(struct DoorRecord *door, s32 cmdindex)
     {
         if (portalnum >= 0)
         {
-            sub_GAME_7F0B96CC(portalnum, &portalMetric);
+            bgCalcPortalPlane(portalnum, &portalMetric);
             portalMetric.min *= get_room_data_float2();
 
             planeDist = (pad->pos.f[0] * portalMetric.normal.f[0]) + (pad->pos.f[1] * portalMetric.normal.f[1]) + (pad->pos.f[2] * portalMetric.normal.f[2]);
