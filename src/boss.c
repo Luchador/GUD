@@ -256,7 +256,7 @@ void bossMainloop(void)
         {
             // convert ASCII difficulty value to int in set difficulty calls eg '1' = 49, 49-48 = 1
             set_selected_difficulty(*(const unsigned char*)tokenFind(1, "-hard") - '0');
-            lvlSetSelectedDifficulty(*(const unsigned char*)tokenFind(1, "-hard") - '0');
+            lvSetSelectedDifficulty(*(const unsigned char*)tokenFind(1, "-hard") - '0');
         }
     }
 
@@ -270,7 +270,7 @@ void bossMainloop(void)
         localGfxDoneMsg = g_bossGfxDoneMsg;
         pendingGfx = 0;
 
-        ramromInitDemo(g_StageNum, lvlGetSelectedDifficulty());
+        ramromInitDemo(g_StageNum, lvGetSelectedDifficulty());
 
         if (g_DebugAndUpdateStageFlag)
         {
@@ -406,11 +406,11 @@ void bossMainloop(void)
                             
                             { /* TEMP profiler */
                                 u32 prof_t = osGetCount();
-                                gdl = lvlRender(gdl);
+                                gdl = lvRender(gdl);
                                 g_ProfLvlRenderCycles = osGetCount() - prof_t;
                             }
 
-                            gdl = lvlDrawFrameRateDisplay(gdl);
+                            gdl = lvDrawFrameRateDisplay(gdl);
                             
                             gDPFullSync(gdl++);
                             gSPEndDisplayList(gdl++);

@@ -139,8 +139,9 @@ u8 g_PortalIsVertical[PORTMAX] = {
 struct PortalMetric g_PortalPlanes[PORTMAX];
 
 /* --- TEMP visibility profiler (read via framebuffer bars) --- */
+u32 g_ProfBgTickCycles;
 u32 g_ProfLvlTickCycles;     /* osGetCount delta across lvTick (game logic)    */
-u32 g_ProfLvlRenderCycles;   /* osGetCount delta across lvlRender (DL build)   */
+u32 g_ProfLvlRenderCycles;   /* osGetCount delta across lvRender (DL build)   */
 u32 g_ProfBgCycles;       /* osGetCount delta across bgSetupAndRender       */
 u32 g_ProfChrTickCycles;      /* accumulated cycles in bgApplyDynamicCCRMLUT    */
 u32 g_ProfChrActionCycles;
@@ -759,7 +760,7 @@ f32 bgGetLevelVisibilityScale(void)
 }
 
 
-void bgRoomVisibilityRelated(void)
+void bgTick(void)
 {
     PortalData *portal;
     Portal *next;
@@ -987,25 +988,6 @@ Gfx *bgSetupAndRender(Gfx *gdl)
     }
 
     gSPMatrix(gdl++, g_viProjectionMatrix, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
-
-    /* TEMP profiler bars (1px = 16384cy unless noted):  
-       blue= lvTick             red   = lvlRender
-       orange = bgSetupAndRender   violet = chrTick total (accum)
-       green = chrlvActionTick (accum)*/
-    gDPPipeSync(gdl++);
-    gDPSetCycleType(gdl++, G_CYC_FILL);
-    gDPSetRenderMode(gdl++, G_RM_NOOP, G_RM_NOOP2);
-    gDPSetFillColor(gdl++, (GPACK_RGBA5551(0,0,255,1) << 16) | GPACK_RGBA5551(0,0,255,1));
-    gDPFillRectangle(gdl++, 8, 28, 8 + (g_ProfLvlTickCycles >> 14 > 280 ? 280 : g_ProfLvlTickCycles >> 14), 30);
-    gDPSetFillColor(gdl++, (GPACK_RGBA5551(255,0,0,1) << 16) | GPACK_RGBA5551(255,0,0,1));
-    gDPFillRectangle(gdl++, 8, 32, 8 + (g_ProfLvlRenderCycles >> 14 > 280 ? 280 : g_ProfLvlRenderCycles >> 14), 34);
-    gDPSetFillColor(gdl++, (GPACK_RGBA5551(255,140,0,1) << 16) | GPACK_RGBA5551(255,140,0,1));
-    gDPFillRectangle(gdl++, 8, 36, 8 + (g_ProfBgCycles >> 14 > 280 ? 280 : g_ProfBgCycles >> 14), 38);
-    gDPSetFillColor(gdl++, (GPACK_RGBA5551(180,60,255,1) << 16) | GPACK_RGBA5551(180,60,255,1));
-    gDPFillRectangle(gdl++, 8, 40, 8 + (g_ProfChrTickCycles >> 14 > 280 ? 280 : g_ProfChrTickCycles >> 14), 42);
-    gDPSetFillColor(gdl++, (GPACK_RGBA5551(0,255,0,1) << 16) | GPACK_RGBA5551(0,255,0,1));
-    gDPFillRectangle(gdl++, 8, 44, 8 + (g_ProfChrActionCycles >> 14 > 280 ? 280 : g_ProfChrActionCycles >> 14), 46);
-    gDPPipeSync(gdl++);
     
     return bondviewGfxPlayerField5cMatrix(gdl++);
 }
@@ -3582,9 +3564,6 @@ void bgDetermineVisibleRooms(void)
     s32 temp_v1;
     s32 i;
     u32 prof_t0 = 0;
-
-    g_ProfChrTickCycles = 0;
-    g_ProfChrActionCycles = 0;
 
     bgUpdateCurrentPlayerScreenMinMax();
 

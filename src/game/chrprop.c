@@ -1796,7 +1796,12 @@ void propsTick(void)
 
         if (prop->type == PROP_TYPE_CHR)
         {
-            tickop = chrTick(prop);
+            // TEMP
+            {
+                u32 prof_t = osGetCount();
+                tickop = chrTick(prop);
+                g_ProfChrTickCycles += osGetCount() - prof_t;
+            }
         }
         else if ((prop->type == PROP_TYPE_OBJ) || (prop->type == PROP_TYPE_WEAPON) || (prop->type == PROP_TYPE_DOOR))
         {

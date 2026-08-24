@@ -348,8 +348,8 @@ void lvlStageLoad(s32 stage)
                     g_playerPlayerData[s3].player_perspective_height = get_player_mp_char_height(s3);
                 }
 
-                lvlSetMpTime(get_mp_timelimit());
-                lvlSetMpPoint(get_mp_pointlimit());
+                lvSetMpTime(get_mp_timelimit());
+                lvSetMpPoint(get_mp_pointlimit());
                 copy_aim_settings_to_playerdata();
             }
 
@@ -423,7 +423,7 @@ void lvlStageLoad(s32 stage)
 
     zbufDeallocate();
     viSetVideoMode(MD_NORMAL);
-    lvlSetControlsLockedFlag(FALSE);
+    lvSetControlsLockedFlag(FALSE);
 }
 
 
@@ -437,7 +437,7 @@ s32 lvlGetCurrentStageToLoad(void)
  * Graphics render method.
  * Also sets player max ammo if infinite ammo cheat is enabled.
  */
-Gfx* lvlRender(Gfx* DL)
+Gfx* lvRender(Gfx* DL)
 {
     gSPSegment(DL++, SPSEGMENT_PHYSICAL, NULL);
     gSPSegment(DL++, SPSEGMENT_UNKNOWN, osVirtualToPhysical(ptr_font_DL));
@@ -476,7 +476,12 @@ Gfx* lvlRender(Gfx* DL)
             DL = viSetupScreensForNumPlayers(DL);
             DL = skyRender(DL);
 
-            bgRoomVisibilityRelated();
+            
+            { /* TEMP profiler */
+                u32 prof_t = osGetCount();
+                bgTick();
+                g_ProfBgTickCycles = osGetCount() - prof_t;
+            }
 
             propsTick();
             chraiUpdateOnscreenPropCount();
@@ -703,13 +708,13 @@ void lvTick(void)
             }
 
             // sound alarm when game is about to end (10 seconds before end)
-            if ((sp180 >= (g_MpTime - 600)) && (g_MpSoundStateRelated == 0) && (lvlGetControlsLockedFlag() == 0))
+            if ((sp180 >= (g_MpTime - 600)) && (g_MpSoundStateRelated == 0) && (lvGetControlsLockedFlag() == 0))
             {
                 sndPlaySfx(g_musicSfxBufferPtr, ALARM1_SFX, &g_MpSoundStateRelated);
             }
 
             // stop alarm
-            if (lvlGetControlsLockedFlag())
+            if (lvGetControlsLockedFlag())
             {
                 if ((g_MpSoundStateRelated != NULL) && (sndGetPlayingState(g_MpSoundStateRelated) != 0))
                 {
@@ -957,7 +962,7 @@ void lvlUnloadStageTextData(void)
 }
 
 
-void lvlSetControlsLockedFlag(bool locked)
+void lvSetControlsLockedFlag(bool locked)
 {
     // Integrate R1 fix for Rumble Pak.
     if ((locked) && (g_ControlsLockedFlag == FALSE))
@@ -969,49 +974,49 @@ void lvlSetControlsLockedFlag(bool locked)
 }
 
 
-s32 lvlGetControlsLockedFlag(void)
+s32 lvGetControlsLockedFlag(void)
 {
     return g_ControlsLockedFlag;
 }
 
 
-DIFFICULTY lvlGetSelectedDifficulty(void)
+DIFFICULTY lvGetSelectedDifficulty(void)
 {
     return g_SelectedDifficulty;
 }
 
 
-void lvlSetSelectedDifficulty(DIFFICULTY diff)
+void lvSetSelectedDifficulty(DIFFICULTY diff)
 {
     g_SelectedDifficulty = diff;
 }
 
 
-void lvlSetMpTime(s32 timelimit)
+void lvSetMpTime(s32 timelimit)
 {
     g_MpTime = timelimit;
 }
 
 
-void lvlSetMpPoint(s32 pointlimit)
+void lvSetMpPoint(s32 pointlimit)
 {
     g_MpPoint = pointlimit;
 }
 
 
-f32 lvlGetStageElapsedSeconds(void)
+f32 lvGetStageElapsedSeconds(void)
 {
     return g_StageElapsedSeconds;
 }
 
 
-f32 lvlGetSystemPowerTimeSeconds(void)
+f32 lvGetSystemPowerTimeSeconds(void)
 {
     return g_SystemPowerTimeSeconds;
 }
 
 
-Gfx *lvlDrawFrameRateDisplay(Gfx *gdl)
+Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
 {
     static u32 fpsWindowStart = 0;
     static u32 fpsFrameCount = 0;
@@ -1051,11 +1056,44 @@ Gfx *lvlDrawFrameRateDisplay(Gfx *gdl)
     }
 
     x = viGetViewLeft() + 14;
-    y = viGetViewTop() + 32;
+    y = viGetViewTop() + 18;
     screenwidth = (s32) viGetX();
 
     gdl = gfxSetup2DTextureMode(gdl);
     gdl = textRender(gdl, &x, &y, fpsText, ptrFontBankGothicChars, ptrFontBankGothic, color, screenwidth, viGetY(), 0, 0);
+
+    { /* TEMP profiler readouts: name + raw osGetCount cycles per frame */
+        static char profText[6][28];
+        static const u32 profColor[6] = {
+            0x00FFFFFF,  /* bgTick   - cyan      */
+            0x4040FFFF,  /* lvTick   - blue      */
+            0xFF3030FF,  /* lvRender- red       */
+            0xFF8C00FF,  /* bg       - orange    */
+            0xB43CFFFF,  /* chrTick  - violet    */
+            0x30FF30FF,  /* chrAction- green     */
+        };
+        s32 i;
+
+        g_ProfChrTickCycles = g_ProfChrTickCycles - g_ProfChrActionCycles;
+        g_ProfLvlRenderCycles = g_ProfLvlRenderCycles - g_ProfBgTickCycles - g_ProfBgCycles - g_ProfChrTickCycles - g_ProfChrActionCycles;
+
+        sprintf(profText[0], "BGTICK:%4uK",      (g_ProfBgTickCycles + 500) / 1000);
+        sprintf(profText[1], "LVTICK:%4uK",      (g_ProfLvlTickCycles   + 500) / 1000);
+        sprintf(profText[2], "LVRENDER:%4uK",    (g_ProfLvlRenderCycles + 500) / 1000);
+        sprintf(profText[3], "BGRENDER:%4uK",     (g_ProfBgCycles        + 500) / 1000);
+        sprintf(profText[4], "CHRTICK:%4uK",      (g_ProfChrTickCycles   + 500) / 1000);
+        sprintf(profText[5], "CHRACT:%4uK",       (g_ProfChrActionCycles + 500) / 1000);
+
+        g_ProfChrTickCycles = 0;
+        g_ProfChrActionCycles = 0;
+
+        for (i = 0; i < 6; i++)
+        {
+            x = viGetViewLeft() + 14;
+            y = viGetViewTop() + 44 + (i * 10);
+            gdl = textRender(gdl, &x, &y, profText[i], ptrFontBankGothicChars, ptrFontBankGothic, profColor[i], screenwidth, viGetY(), 0, 0);
+        }
+    }
 
     return gdl;
 }

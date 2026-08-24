@@ -3791,7 +3791,7 @@ Gfx *draw_watch_mission_briefing_page(Gfx *gdl, Mtx *param_2)
 
                 for (i = 0; i < objectiveGetCount(); i++)
                 {
-                    if (get_difficulty_for_objective(i) <= lvlGetSelectedDifficulty())
+                    if (get_difficulty_for_objective(i) <= lvGetSelectedDifficulty())
                     {
                         objectiveText = get_text_for_objective(i);
                         objectiveBuffer[0] = '\0';

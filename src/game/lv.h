@@ -53,28 +53,37 @@ extern char ramrom_data_target[0x380];
 extern s32 record_slot_num;
 extern u8 * address_demo_loaded;
 
+// TEMP
+extern u32 g_ProfBgTickCycles;
+extern u32 g_ProfLvlTickCycles;
+extern u32 g_ProfLvlRenderCycles;
+extern u32 g_ProfBgCycles;
+extern u32 g_ProfChrTickCycles;
+extern u32 g_ProfChrActionCycles;
+
+
 #if defined(BUGFIX_R1)
 extern f32 g_JP_GlobalTimerDelta;
 #endif
 
 void lvInit(void);
-Gfx * lvlRender(Gfx *);
-void lvlSetSelectedDifficulty(DIFFICULTY diff);
+Gfx * lvRender(Gfx *);
+void lvSetSelectedDifficulty(DIFFICULTY diff);
 void lvTick(void);
 void lvlViewMoveTick(void);
 void lvlUnloadStageTextData(void);
-DIFFICULTY lvlGetSelectedDifficulty(void);
+DIFFICULTY lvGetSelectedDifficulty(void);
 void lvlStageLoad(s32 stage);
-void lvlSetMpTime(s32 timelimit);
-void lvlSetMpPoint(s32 pointlimit);
-void lvlSetControlsLockedFlag(bool locked);
-s32 lvlGetControlsLockedFlag(void);
+void lvSetMpTime(s32 timelimit);
+void lvSetMpPoint(s32 pointlimit);
+void lvSetControlsLockedFlag(bool locked);
+s32 lvGetControlsLockedFlag(void);
 void lvlSetMultipliersForDifficulty(void);
 s32 lvlGetCurrentStageToLoad(void);
 bool lvGetBgRenderEnabled(void);
 void lvSetBgRenderEnabled(bool enabled);
-f32 lvlGetStageElapsedSeconds(void);
-f32 lvlGetSystemPowerTimeSeconds(void);
-Gfx *lvlDrawFrameRateDisplay(Gfx *gdl);
+f32 lvGetStageElapsedSeconds(void);
+f32 lvGetSystemPowerTimeSeconds(void);
+Gfx *lvDrawFrameRateDisplay(Gfx *gdl);
 
 #endif

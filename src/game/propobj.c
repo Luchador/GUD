@@ -2277,7 +2277,7 @@ void objUpdateThrowKnifeSound(ObjectRecord *obj)
             return;
         }
 
-        if (!lvlGetControlsLockedFlag()) 
+        if (!lvGetControlsLockedFlag()) 
         {
             sndPlaySfx(g_musicSfxBufferPtr, Throwing_knife_SFX[sfxindex], &obj->projectile->sounds[slot]);
 
@@ -5398,7 +5398,7 @@ s32 objTick(struct PropRecord *prop)
 
 			if (truckShouldPlayEngineSound > 0)
 			{
-				if (((poTruck->Sound == NULL) || (sndGetPlayingState(poTruck->Sound) == 0)) && (lvlGetControlsLockedFlag() == 0))
+				if (((poTruck->Sound == NULL) || (sndGetPlayingState(poTruck->Sound) == 0)) && (lvGetControlsLockedFlag() == 0))
 				{
 					sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, TRUCK_RUN_SFX, &poTruck->Sound);
 				}
@@ -5670,7 +5670,7 @@ s32 objTick(struct PropRecord *prop)
 
 			if (truckShouldPlayEngineSound > 0)
 			{
-				if (((render_pad2F4->Sound == NULL) || (sndGetPlayingState(render_pad2F4->Sound) == 0)) && (lvlGetControlsLockedFlag() == 0))
+				if (((render_pad2F4->Sound == NULL) || (sndGetPlayingState(render_pad2F4->Sound) == 0)) && (lvGetControlsLockedFlag() == 0))
 				{
 					sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, HELI_RUN_SFX, &render_pad2F4->Sound);
 				}
@@ -6170,7 +6170,7 @@ s32 objTick(struct PropRecord *prop)
 		{
 			sub_GAME_7F053A3C((struct DoorRecord *) prop->obj);
 		}
-		else if ((obj->type == PROPDEF_AUTOGUN) && (lvlGetControlsLockedFlag() == 0))
+		else if ((obj->type == PROPDEF_AUTOGUN) && (lvGetControlsLockedFlag() == 0))
 		{
 			struct AutogunRecord *autogun = (struct AutogunRecord *) prop->obj;
 			f32 beam_xdiff;
@@ -12483,7 +12483,7 @@ void sub_GAME_7F053A3C(DoorRecord* arg0)
 
         sp1C = sub_GAME_7F0539E4(&arg0->prop->pos);
 
-        if (lvlGetControlsLockedFlag() != 0)
+        if (lvGetControlsLockedFlag() != 0)
         {
             sp1C = 0;
         }
@@ -13922,7 +13922,7 @@ void handle_gas_damage(void)
         if (gasLeakTimer < gasTimeToFullOpacity)
         {
             gasLeakTimer = gasLeakTimer + g_GlobalTimerDelta;
-            if ((ptr_gas_sound == NULL) && (lvlGetControlsLockedFlag() == 0))
+            if ((ptr_gas_sound == NULL) && (lvGetControlsLockedFlag() == 0))
             {
                 sndPlaySfx((struct ALBankAlt_s* ) g_musicSfxBufferPtr, GAS_HISS_SFX, (ALSoundState* ) &ptr_gas_sound);
             }
@@ -14052,7 +14052,7 @@ void handle_alarm_gas_timer_calldamage(void)
 {
     if (alarmIsActive() != 0)
     {
-        if ((ptr_alarm_sfx == 0) && (lvlGetControlsLockedFlag() == 0))
+        if ((ptr_alarm_sfx == 0) && (lvGetControlsLockedFlag() == 0))
         {
             sndPlaySfx(g_musicSfxBufferPtr, ALARM3_SFX, &ptr_alarm_sfx);
         }

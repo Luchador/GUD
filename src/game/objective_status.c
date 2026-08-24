@@ -319,7 +319,7 @@ bool objectiveIsAllComplete(void)
     for (objective = 0; objective < objectiveGetCount(); objective++)
     {
         objdiff = get_difficulty_for_objective(objective);
-        curdiff = lvlGetSelectedDifficulty();
+        curdiff = lvGetSelectedDifficulty();
         if ((objdiff <= curdiff) && (get_status_of_objective(objective) != OBJECTIVESTATUS_COMPLETE))
         {
             return FALSE;
@@ -353,7 +353,7 @@ void display_objective_status_text_on_status_change(void)
         status = get_status_of_objective(i);
         if (objectiveStatuses[i] != status) {
             objectiveStatuses[i] = status;
-            if (get_difficulty_for_objective(i) <= lvlGetSelectedDifficulty()) {
+            if (get_difficulty_for_objective(i) <= lvGetSelectedDifficulty()) {
                 if (j_text_trigger != 0)
                 {
                     sprintf(&buffer, "%s \x80%c ", langGet(getStringID(LMISC, MISC_STR_2C_OBJECTIVE)), availableindex + 0x1A);
@@ -381,7 +381,7 @@ void display_objective_status_text_on_status_change(void)
 #endif
             }
         }
-        if (get_difficulty_for_objective(i) <= lvlGetSelectedDifficulty()) {
+        if (get_difficulty_for_objective(i) <= lvGetSelectedDifficulty()) {
             availableindex++;
         }
     }

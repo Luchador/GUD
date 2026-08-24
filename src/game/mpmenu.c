@@ -296,7 +296,7 @@ s32 mpFindMinFloat(s32 numplayers, f32 value0, f32 value1, f32 value2, f32 value
 
 void pauseAndLockControls(void) 
 {
-    lvlSetControlsLockedFlag(TRUE);
+    lvSetControlsLockedFlag(TRUE);
     g_pausedFlag = TRUE;
 }
 
@@ -662,12 +662,12 @@ void mpwatchMenuTick(void)
                     {
                         g_pausedFlag = 1;
                         who_paused = get_cur_playernum();
-                        lvlSetControlsLockedFlag(TRUE);
+                        lvSetControlsLockedFlag(TRUE);
                     }
                     else if (get_cur_playernum() == who_paused)
                     {
                         g_pausedFlag = 0;
-                        lvlSetControlsLockedFlag(FALSE);
+                        lvSetControlsLockedFlag(FALSE);
                     }
                 }
                 else if (g_CurrentPlayer->mpmenumode == MENU_FINISHED)
@@ -709,7 +709,7 @@ void mpwatchMenuTick(void)
                         if (get_cur_playernum() == who_paused)
                         {
                             g_pausedFlag = 0;
-                            lvlSetControlsLockedFlag(FALSE);
+                            lvSetControlsLockedFlag(FALSE);
                         }
                     }
                 }

@@ -150,12 +150,6 @@ typedef struct BgQueuedPortal {
 extern PortalData *g_BgPortals;
 extern struct PortalCache g_PortalCameraCache[PORTMAX];
 
-extern u32 g_ProfLvlTickCycles;
-extern u32 g_ProfLvlRenderCycles;
-extern u32 g_ProfBgCycles;
-extern u32 g_ProfChrTickCycles;
-extern u32 g_ProfChrActionCycles;
-
 extern s32 g_MaxNumRooms;
 extern f32 g_LevelInverseScale;
 
@@ -173,7 +167,7 @@ void bgFreeRoomData(s32 roomID);
 void bgLoadFile(LEVEL_INDEX stagenum);
 s8 bgSwapConnectedRooms(s32 index);
 void bgToggleDataPortalsContrlBytes1Bit1(s32 index, s32 toggle);
-void bgRoomVisibilityRelated(void);
+void bgTick(void);
 Gfx* bgSetupAndRender(Gfx *arg0);
 Gfx *bgScissorCurrentPlayerView(Gfx *arg0, s32 left, s32 top, s32 width, s32 height);
 Gfx* bgScissorCurrentPlayerViewDefault(Gfx* arg0);

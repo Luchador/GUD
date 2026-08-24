@@ -2308,6 +2308,7 @@ s32 chrTick(PropRecord *prop)
         }
         else
         {
+            // TEMP
             {
                 u32 prof_t = osGetCount();
                 chrlvActionTick(chr);

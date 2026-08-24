@@ -1437,7 +1437,7 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
 
             camera_transition_timer += g_GlobalTimerDelta;
 
-            if ((lvlGetControlsLockedFlag() == 0)
+            if ((lvGetControlsLockedFlag() == 0)
                 && (buttons & ~oldbuttons & (CONT_A | B_BUTTON | Z_TRIG | START_BUTTON | CONT_R | CONT_L)))
             {
                 g_CameraAfterCinema = CAMERAMODE_INTRO;
@@ -1584,7 +1584,7 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
 
         if ((sp30 > 60.0f) && (camera_fade_active == 0))
         {
-            if ((lvlGetControlsLockedFlag() == 0)
+            if ((lvGetControlsLockedFlag() == 0)
                 && (buttons & ~oldbuttons & (A_BUTTON | B_BUTTON | Z_TRIG | START_BUTTON | L_TRIG | R_TRIG)))
             {
                 camera_fade_active = 1;
@@ -3761,16 +3761,16 @@ void bondviewWatchAnimationTick(void)
 
     if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x5)
     {
-        lvlSetControlsLockedFlag(TRUE);
+        lvSetControlsLockedFlag(TRUE);
         sub_GAME_7F0A6A80();
     }
     else if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0xc)
     {
-        lvlSetControlsLockedFlag(TRUE);
+        lvSetControlsLockedFlag(TRUE);
     }
     else
     {
-        lvlSetControlsLockedFlag(FALSE);
+        lvSetControlsLockedFlag(FALSE);
     }
 
 #undef WATCH_VAR_LOWER
@@ -4959,7 +4959,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                 sp108 = ((player_joyGetButtons & ~copy_prev_buttons_pressed) & Z_TRIG) != 0;
             }
 
-            if (lvlGetControlsLockedFlag() == 0 && disablePlayerActionsWhenPausedOrInMpMenu())
+            if (lvGetControlsLockedFlag() == 0 && disablePlayerActionsWhenPausedOrInMpMenu())
             {
                 if (cur_player_get_aim_control() == 0)
                 {
@@ -5158,7 +5158,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                 invButtons = A_BUTTON;
             }
 
-            if (lvlGetControlsLockedFlag() == 0)
+            if (lvGetControlsLockedFlag() == 0)
             {
                 if (disablePlayerActionsWhenPausedOrInMpMenu())
                 {
@@ -6344,7 +6344,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
     bondviewPlayerTickExplode();
     bondviewProcessInput(stick_x, stick_y, buttons, oldbuttons);
 
-    if (lvlGetControlsLockedFlag())
+    if (lvGetControlsLockedFlag())
     {
         bondviewPlayerStopAudioForPause();
     }
@@ -6873,7 +6873,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             if (g_EnterTankAudioState == TANK_RUN_STATE_STARTING)
             {
                 g_EnterTankAudioState = TANK_RUN_STATE_RUNNING;
-                if ((g_TankSfxState[0] == NULL) && (lvlGetControlsLockedFlag() == 0))
+                if ((g_TankSfxState[0] == NULL) && (lvGetControlsLockedFlag() == 0))
                 {
                     sndPlaySfx(g_musicSfxBufferPtr, TRUCK_START_SFX, &g_TankSfxState[0]);
                 }
@@ -6919,7 +6919,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                     if (g_TankSfxState[1] == NULL)
                     {
-                        if (lvlGetControlsLockedFlag() == 0)
+                        if (lvGetControlsLockedFlag() == 0)
                         {
                             sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, TANK_SFX, &g_TankSfxState[1]);
                         }
@@ -6955,7 +6955,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                 if (g_TankSfxState[0] == NULL)
                 {
-                    if (lvlGetControlsLockedFlag() == 0)
+                    if (lvGetControlsLockedFlag() == 0)
                     {
                         sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, TRUCK_RUN_SFX, &g_TankSfxState[0]);
                     }
@@ -7504,7 +7504,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                         if (sp6C->actiontype == ACT_DIE)
                         {
-                            if (!(sp6C->chrflags & CHRFLAG_01000000) && lvlGetControlsLockedFlag() == 0)
+                            if (!(sp6C->chrflags & CHRFLAG_01000000) && lvGetControlsLockedFlag() == 0)
                             {
                                 sp6C->chrflags |= CHRFLAG_01000000;
                                 if ((g_GlobalTickCount % 3) < 2)
@@ -7770,7 +7770,7 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
 {
     set_cur_player_fovy(FOV_Y_F);
 
-    // This call doesn't do anything, the call viSetFovY(g_CurrentPlayer->fovy); in lvlRender
+    // This call doesn't do anything, the call viSetFovY(g_CurrentPlayer->fovy); in lvRender
     // will actually change the field of view.
     // The call above should set g_CurrentPlayer->fovy, but it doesn't seem to affect
     // the fov....
@@ -7862,7 +7862,7 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
 
     if (stop_time_flag != 0)
     {
-        if ((lvlGetControlsLockedFlag() == 0) && ((buttons & ~(g_CurrentPlayer->buttons_pressed) & (CONT_A | B_BUTTON | Z_TRIG | START_BUTTON | CONT_R | CONT_L))))
+        if ((lvGetControlsLockedFlag() == 0) && ((buttons & ~(g_CurrentPlayer->buttons_pressed) & (CONT_A | B_BUTTON | Z_TRIG | START_BUTTON | CONT_R | CONT_L))))
         {
             stop_time_flag = 2;
 
@@ -9342,7 +9342,7 @@ void record_damage_kills(f32 damage_amount, f32 vectorx, f32 vectorz, s32 player
 #undef ZERO_7F08991C
 
 #if defined(VERSION_EU) || defined(VERSION_JP)
-                if (!lvlGetControlsLockedFlag())
+                if (!lvGetControlsLockedFlag())
                 {
                     sndPlaySfx(g_musicSfxBufferPtr, BOND_GET_HIT1_SFX, 0);
                 }

@@ -1079,7 +1079,7 @@ void cheatButtonHandleCheatsTurnedOn(CHEAT_ID cheat_id)
         case CHEAT_INFINITE_AMMO:
             HUDMESSAGEBOTTOM((char *)langGet(getStringID(LMISC, MISC_STR_16_INFINITEAMMOON_LF)));
             /**
-            * Note: the lvlRender in lvl.c checks if infinite ammo is on then calls set_max_ammo_for_cur_player
+            * Note: the lvRender in lvl.c checks if infinite ammo is on then calls set_max_ammo_for_cur_player
             */
             return;
 
