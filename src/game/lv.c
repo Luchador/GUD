@@ -1075,7 +1075,7 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         s32 i;
 
         g_ProfChrTickCycles = g_ProfChrTickCycles - g_ProfChrActionCycles;
-        g_ProfLvlRenderCycles = g_ProfLvlRenderCycles - g_ProfBgTickCycles - g_ProfBgCycles - g_ProfChrTickCycles - g_ProfChrActionCycles;
+        g_ProfLvlRenderCycles = g_ProfLvlRenderCycles - g_ProfBgTickCycles - g_ProfBgCycles - g_ProfChrTickCycles;
 
         sprintf(profText[0], "BGTICK:%4uK",      (g_ProfBgTickCycles + 500) / 1000);
         sprintf(profText[1], "LVTICK:%4uK",      (g_ProfLvlTickCycles   + 500) / 1000);
