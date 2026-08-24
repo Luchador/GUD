@@ -2260,7 +2260,13 @@ s32 chrTick(PropRecord *prop)
     ModelRenderData renderdata;
     ChrRecord *chr;
     Model *model;
-    s32 headSwitchVisible;
+
+    /**
+     * Result of this frame's posIsOnScreen() test.
+     * Gates render preparation, joint callback, and dynamic matrix allocation.
+     */
+    s32 isOnScreen;
+
     s32 headVisible;
     s32 tickamount;
 
@@ -2309,13 +2315,13 @@ s32 chrTick(PropRecord *prop)
 
     if (chr->chrflags & CHRFLAG_HIDDEN)
     {
-        headSwitchVisible = 0;
+        isOnScreen = 0;
     }
     else
     {
         if (((prop->type == PROP_TYPE_VIEWER) && (g_playerPointers[getPlayerPointerIndex(prop)]->frozencam == 1)) || (chr->chrflags & CHRFLAG_CULL_USING_HITBOX))
         {
-            headSwitchVisible = 1;
+            isOnScreen = 1;
 
             if (((chr->actiontype == ACT_ANIM) && (chr->act_anim.unk02c == 0)) && (chr->act_anim.noTranslate != 0))
             {
@@ -2333,10 +2339,10 @@ s32 chrTick(PropRecord *prop)
         {
             if (((chr->actiontype == ACT_PATROL) && (chr->act_patrol.waydata.mode == WAYMODE_MAGIC)) || ((chr->actiontype == ACT_GOPOS) && (chr->act_gopos.waydata.mode == WAYMODE_MAGIC)))
             {
-                headSwitchVisible = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
+                isOnScreen = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
 
                 // Former debug comment here: "VISIBLE MAGIC MODE!!!!"
-                if (headSwitchVisible)
+                if (isOnScreen)
                 {
                     getsuboffset(model, &chr->prevpos);
                     subcalcpos(model);
@@ -2348,9 +2354,9 @@ s32 chrTick(PropRecord *prop)
             else
             {
                 chrUpdateAnim(chr, tickamount);
-                headSwitchVisible = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
+                isOnScreen = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
 
-                if (headSwitchVisible)
+                if (isOnScreen)
                 {
                     if (chr->actiontype == ACT_PATROL)
                     {
@@ -2365,9 +2371,9 @@ s32 chrTick(PropRecord *prop)
         }
         else if ((chr->actiontype == ACT_ANIM) && (chr->act_anim.unk02c == 0))
         {
-            headSwitchVisible = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
+            isOnScreen = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
 
-            if (headSwitchVisible && (chr->act_anim.noTranslate == 0))
+            if (isOnScreen && (chr->act_anim.noTranslate == 0))
             {
                 chrUpdateAnim(chr, tickamount);
             }
@@ -2378,9 +2384,9 @@ s32 chrTick(PropRecord *prop)
         }
         else if (chr->actiontype == ACT_STAND)
         {
-            headSwitchVisible = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
+            isOnScreen = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
 
-            if (headSwitchVisible || (chr->chrflags & CHRFLAG_INIT))
+            if (isOnScreen || (chr->chrflags & CHRFLAG_INIT))
             {
                 chrUpdateAnim(chr, tickamount);
             }
@@ -2400,7 +2406,7 @@ s32 chrTick(PropRecord *prop)
                 chrUpdateAnim(chr, tickamount);
             }
 
-            headSwitchVisible = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
+            isOnScreen = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
         }
     }
 
@@ -2418,7 +2424,7 @@ after_position_update:
         chr->hitChain = NULL;
     }
 
-    if (headSwitchVisible)
+    if (isOnScreen)
     {
         prop->flags |= PROPFLAG_ONSCREEN;
         chr->chrflags |= CHRFLAG_HAS_BEEN_ON_SCREEN;

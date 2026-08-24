@@ -325,10 +325,12 @@ Mtxf *getsubmatrix(Model *objinst)
 f32 sub_GAME_7F06C768(Model *objinst)
 {
     Mtxf *mtx = getsubmatrix(objinst);
+    
     if (mtx != 0)
     {
         return -mtx->m[3][2];
     }
+
     return 0.0f;
 }
 
