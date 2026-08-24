@@ -3724,55 +3724,52 @@ void modelRenderNodeGundl(ModelRenderData* renderdata, ModelNode* arg1)
 {
     ModelRoData_DisplayListRecord* rodata = &arg1->Data->DisplayList;
 
-    if (renderdata->unk18 == 0)
+    if ((renderdata->flags & 1) && rodata->Primary)
     {
-        if ((renderdata->flags & 1) && rodata->Primary)
+        gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_COL1, osVirtualToPhysical(rodata->BaseAddr));
+
+        if (renderdata->cullmode)
         {
-            gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_COL1, osVirtualToPhysical(rodata->BaseAddr));
-
-            if (renderdata->cullmode)
-            {
-                modelApplyCullMode(renderdata);
-            }
-
-            if (rodata->ModelType == 1)
-            {
-                modelApplyRenderModeType1(renderdata);
-            }
-            else if (rodata->ModelType == 3)
-            {
-                modelApplyRenderModeType3(renderdata, 1);
-            }
-            else if (rodata->ModelType == 4)
-            {
-                modelApplyRenderModeType4(renderdata, 1);
-            }
-            else if (rodata->ModelType == 2)
-            {
-                modelApplyRenderModeType2(renderdata);
-            }
-
-            gSPDisplayList(renderdata->gdl++, rodata->Primary);
-
-            if ((rodata->ModelType == 3) && rodata->Secondary)
-            {
-                modelApplyRenderModeType3(renderdata, 0);
-                gSPDisplayList(renderdata->gdl++, rodata->Secondary);
-            }
+            modelApplyCullMode(renderdata);
         }
 
-        if ((renderdata->flags & 2) && rodata->Primary && (rodata->ModelType == 4) && rodata->Secondary)
+        if (rodata->ModelType == 1)
         {
-            gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_COL1, osVirtualToPhysical(rodata->BaseAddr));
+            modelApplyRenderModeType1(renderdata);
+        }
+        else if (rodata->ModelType == 3)
+        {
+            modelApplyRenderModeType3(renderdata, 1);
+        }
+        else if (rodata->ModelType == 4)
+        {
+            modelApplyRenderModeType4(renderdata, 1);
+        }
+        else if (rodata->ModelType == 2)
+        {
+            modelApplyRenderModeType2(renderdata);
+        }
 
-            if (renderdata->cullmode)
-            {
-                modelApplyCullMode(renderdata);
-            }
+        gSPDisplayList(renderdata->gdl++, rodata->Primary);
 
-            modelApplyRenderModeType4(renderdata, 0);
+        if ((rodata->ModelType == 3) && rodata->Secondary)
+        {
+            modelApplyRenderModeType3(renderdata, 0);
             gSPDisplayList(renderdata->gdl++, rodata->Secondary);
         }
+    }
+
+    if ((renderdata->flags & 2) && rodata->Primary && (rodata->ModelType == 4) && rodata->Secondary)
+    {
+        gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_COL1, osVirtualToPhysical(rodata->BaseAddr));
+
+        if (renderdata->cullmode)
+        {
+            modelApplyCullMode(renderdata);
+        }
+
+        modelApplyRenderModeType4(renderdata, 0);
+        gSPDisplayList(renderdata->gdl++, rodata->Secondary);
     }
 }
 
@@ -3904,69 +3901,66 @@ void modelRenderNodeDl(ModelRenderData *renderdata, Model *model, ModelNode *nod
 {
     union ModelRoData *rodata = node->Data;
 
-    if (!renderdata->unk18)
+    if (renderdata->flags & 1)
     {
-        if (renderdata->flags & 1)
+        union ModelRwData *rwdata = modelGetNodeRwData(model, node);
+
+        if (rwdata->DisplayListCollisions.gdl)
         {
-            union ModelRwData *rwdata = modelGetNodeRwData(model, node);
+            gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_COL1, osVirtualToPhysical(rodata->DisplayListCollisions.BaseAddr));
 
-            if (rwdata->DisplayListCollisions.gdl)
+            if (renderdata->cullmode)
             {
-                gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_COL1, osVirtualToPhysical(rodata->DisplayListCollisions.BaseAddr));
-
-                if (renderdata->cullmode)
-                {
-                    modelApplyCullMode(renderdata);
-                }
-
-                if (rodata->DisplayListCollisions.ModelType == 1)
-                {
-                    modelApplyRenderModeType1(renderdata);
-                }
-                else if (rodata->DisplayListCollisions.ModelType == 3)
-                {
-                    modelApplyRenderModeType3(renderdata, TRUE);
-                }
-                else if (rodata->DisplayListCollisions.ModelType == 4)
-                {
-                    modelApplyRenderModeType4(renderdata, TRUE);
-                }
-                else if (rodata->DisplayListCollisions.ModelType == 2)
-                {
-                    modelApplyRenderModeType2(renderdata);
-                }
-
-                gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_VTX, osVirtualToPhysical(rwdata->DisplayListCollisions.Vertices));
-
-                gSPDisplayList(renderdata->gdl++, rwdata->DisplayListCollisions.gdl);
-
-                if (rodata->DisplayListCollisions.ModelType == 3 && rodata->DisplayListCollisions.Secondary)
-                {
-                    modelApplyRenderModeType3(renderdata, FALSE);
-                    gSPDisplayList(renderdata->gdl++, rodata->DisplayListCollisions.Secondary);
-                }
+                modelApplyCullMode(renderdata);
             }
-        }
 
-        if (renderdata->flags & 2)
-        {
-            union ModelRwData *rwdata = modelGetNodeRwData(model, node);
-
-            if (rwdata->DisplayListCollisions.gdl && rodata->DisplayListCollisions.ModelType == 4 && rodata->DisplayListCollisions.Secondary)
+            if (rodata->DisplayListCollisions.ModelType == 1)
             {
-                gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_COL1, osVirtualToPhysical(rodata->DisplayListCollisions.BaseAddr));
+                modelApplyRenderModeType1(renderdata);
+            }
+            else if (rodata->DisplayListCollisions.ModelType == 3)
+            {
+                modelApplyRenderModeType3(renderdata, TRUE);
+            }
+            else if (rodata->DisplayListCollisions.ModelType == 4)
+            {
+                modelApplyRenderModeType4(renderdata, TRUE);
+            }
+            else if (rodata->DisplayListCollisions.ModelType == 2)
+            {
+                modelApplyRenderModeType2(renderdata);
+            }
 
-                if (renderdata->cullmode)
-                {
-                    modelApplyCullMode(renderdata);
-                }
+            gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_VTX, osVirtualToPhysical(rwdata->DisplayListCollisions.Vertices));
 
-                gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_VTX, osVirtualToPhysical(rwdata->DisplayListCollisions.Vertices));
+            gSPDisplayList(renderdata->gdl++, rwdata->DisplayListCollisions.gdl);
 
-                modelApplyRenderModeType4(renderdata, FALSE);
-
+            if (rodata->DisplayListCollisions.ModelType == 3 && rodata->DisplayListCollisions.Secondary)
+            {
+                modelApplyRenderModeType3(renderdata, FALSE);
                 gSPDisplayList(renderdata->gdl++, rodata->DisplayListCollisions.Secondary);
             }
+        }
+    }
+
+    if (renderdata->flags & 2)
+    {
+        union ModelRwData *rwdata = modelGetNodeRwData(model, node);
+
+        if (rwdata->DisplayListCollisions.gdl && rodata->DisplayListCollisions.ModelType == 4 && rodata->DisplayListCollisions.Secondary)
+        {
+            gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_COL1, osVirtualToPhysical(rodata->DisplayListCollisions.BaseAddr));
+
+            if (renderdata->cullmode)
+            {
+                modelApplyCullMode(renderdata);
+            }
+
+            gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_VTX, osVirtualToPhysical(rwdata->DisplayListCollisions.Vertices));
+
+            modelApplyRenderModeType4(renderdata, FALSE);
+
+            gSPDisplayList(renderdata->gdl++, rodata->DisplayListCollisions.Secondary);
         }
     }
 }
@@ -3988,7 +3982,7 @@ void sub_GAME_7F072C10(ModelRenderData *param_1, struct Model *param_2, struct M
  */
 void dorottex(ModelRenderData *renderdata, ModelNode *node)
 {
-    if (renderdata->unk18 == 0 && (renderdata->flags & 2))
+    if (renderdata->flags & 2)
     {
         ModelRoData_DisplayListPrimaryRecord *rodata = &node->Data->DisplayListPrimary;
         s32 i;

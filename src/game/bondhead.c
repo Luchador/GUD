@@ -174,13 +174,6 @@ ModelRenderData headModelRenderData = {NULL,
                               NULL,
                               NULL,
                               0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
                               {0, 0, 0, 0},
                               {0, 0, 0, 0},
                               CULLMODE_BOTH};
@@ -475,4 +468,3 @@ f32 bheadGetBreathingValue(void)
 
 	return 0;
 }
-

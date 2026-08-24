@@ -84,7 +84,7 @@ struct FolderSelectColour g_FolderGradientWhite = { 0xFF, 0xFF, 0xFF };
 Model *chrModelInstance = NULL;
 Model *gunModelInstance = NULL;
 
-ModelRenderData gunbarrelRenderData = { NULL, TRUE, 3, NULL, NULL, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0}, {0, 0, 0, 0}, CULLMODE_BOTH };
+ModelRenderData gunbarrelRenderData = { NULL, TRUE, 3, NULL, NULL, 0, {0, 0, 0, 0}, {0, 0, 0, 0}, CULLMODE_BOTH };
 
 f32 gunbarrelPosition1[3] = {1758.2957f, 220.0f, 684.28143f};
 f32 gunbarrelPosition2[3] = {-0.97f, 0.0f, 0.24f};

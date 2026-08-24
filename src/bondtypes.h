@@ -651,21 +651,11 @@ typedef union
         bool    zbufferenabled; /*0x04*/
         u32     flags;          /*0x08*/
         Gfx    *gdl;            /*0x0c*/
-
         Mtxf   *mtxlist;        /*0x10*/ // Canonical name. See instcalcmatrices in model.c.
-        u32     unk14;          /*0x14*/
-        u32     unk18;          /*0x18*/
-        u32     unk1c;          /*0x1c*/
-
-        u32     unk20;          /*0x20*/
-        u32     unk24;          /*0x24*/
-        u32     unk28;          /*0x28*/
-        u32     unk2c;          /*0x2c*/
-
-        s32     PropType;       /*0x30*/
-        rgba_u8 envcolour;      /*0x34*/
-        rgba_u8 fogcolour;      /*0x38*/
-        u32     cullmode;       /*0x3c*/
+        s32     PropType;       /*0x14*/
+        rgba_u8 envcolour;      /*0x18*/
+        rgba_u8 fogcolour;      /*0x1c*/
+        u32     cullmode;       /*0x20*/
     } ModelRenderData;
 
     /**

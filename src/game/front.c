@@ -222,17 +222,7 @@ ModelRenderData legalscreen_MRD = {NULL,
                                 TRUE,
                                 0x00000003,
                                 NULL,
-
                                 NULL,
-                                0,
-                                0,
-                                0,
-
-                                0,
-                                0,
-                                0,
-                                0,
-
                                 0,
                                 {0, 0, 0, 0},
                                 {0, 0, 0, 0},
@@ -245,17 +235,7 @@ ModelRenderData nintendologo_MRD = {NULL,
                                     TRUE,
                                     0x00000003,
                                     NULL,
-
                                     NULL,
-                                    0,
-                                    0,
-                                    0,
-
-                                    0,
-                                    0,
-                                    0,
-                                    0,
-
                                     0,
                                     {0, 0, 0, 0},
                                     {0, 0, 0, 0},
@@ -268,17 +248,7 @@ ModelRenderData goldeneyelogo_MRD = {NULL,
                                     TRUE,
                                     0x00000003,
                                     NULL,
-
                                     NULL,
-                                    0,
-                                    0,
-                                    0,
-
-                                    0,
-                                    0,
-                                    0,
-                                    0,
-
                                     0,
                                     {0, 0, 0, 0},
                                     {0, 0, 0, 0},
@@ -335,17 +305,7 @@ ModelRenderData     unknown_folderselect = {NULL,
                                             TRUE,
                                             0x00000003,
                                             NULL,
-
                                             NULL,
-                                            0,
-                                            0,
-                                            0,
-
-                                            0,
-                                            0,
-                                            0,
-                                            0,
-
                                             0,
                                             {0, 0, 0, 0},
                                             {0, 0, 0, 0},
@@ -355,17 +315,7 @@ ModelRenderData       D_8002AF84           = {NULL,
                                               TRUE,
                                               0x00000003,
                                               NULL,
-
                                               NULL,
-                                              0,
-                                              0,
-                                              0,
-
-                                              0,
-                                              0,
-                                              0,
-                                              0,
-
                                               0,
                                               {0, 0, 0, 0},
                                               {0, 0, 0, 0},
@@ -676,17 +626,7 @@ ModelRenderData cast_renderdata_default = { NULL,
                                             TRUE,
                                             0x00000003,
                                             NULL,
-
                                             NULL,
-                                            0,
-                                            0,
-                                            0,
-
-                                            0,
-                                            0,
-                                            0,
-                                            0,
-
                                             0,
                                            {0, 0, 0, 0},
                                            {0, 0, 0, 0},
@@ -8320,5 +8260,3 @@ Gfx * menu_jump_constructor_handler(Gfx *DL)
 
     return DL;
 }
-
-

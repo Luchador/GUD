@@ -349,34 +349,19 @@ Vtx D_80035C98 = {0, 0, 0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff };
 coord3d D_80035CA8 = { 0.0f, 0.0f, 0.0f };
 //D:80035CB4
 coord3d D_80035CB4 = { 0.0f, 0.0f, 0.0f };
-//D:80035CC0
-u32 D_80035CC0 = 0;
 
+ModelRenderData g_DefaultGunModelRenderData = {
+    NULL,
+    TRUE,
+    0x00000003,
+    NULL,
+    NULL,
+    0,
+    {0, 0, 0, 0},
+    {0, 0, 0, 0},
+    CULLMODE_BOTH
+};
 
-
-//D:80035CC4
-u32 D_80035CC4[] =                      { 1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,           0,  0};
-/* ModelRenderData D_8002CCBC = {NULL,
-                                TRUE,
-                                0x00000003,
-                                NULL,
-                                NULL,
-                                0,
-                                0,
-                                0,
-                                0,
-                                0,
-                                0,
-                                0,
-                                0,
-                                {0, 0, 0, 0},
-                                {0, 0, 0, 0},
-                                CULLMODE_BOTH};
-*/
-//D:80035D00
-u32 D_80035D00 = 0;
-//D:80035D04
-u32 D_80035D04[] = {1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //D:80035D44
 u32 watchControllerButtonBases[] = {
 	1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -445,10 +430,6 @@ u32 D_80035EA4 = 0;
 u32 D_80035EA8 = 0;
 //D:80035EAC
 u32 D_80035EAC = 0;
-//D:80035EB0
-u32 g_DefaultCasingModelRenderData[] = {0, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-//D:80035EEC
-u32 dword_D_80035EEC = 0; // Unused
 
 //D:80035EF0
 #define AMMO_RELATED_MAX 30
@@ -2292,4 +2273,3 @@ const char g_GunHudIntegerFormat[] = "%d\n";
 const char aSD[] = "%s: %d\n";
 const char g_GunDeathCountFormat[] = "%s %d %s\n";
 const char aSD_0[] = "%s: %d\n";
-

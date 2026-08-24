@@ -885,18 +885,8 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
         root = entry->rootnode;
         node = root;
 
-        if (data->unk18 != 0)
-        {
-            if (entry->sortvalue < getjointsize(entry->model, root))
-            {
-                node = NULL;
-            }
-        }
-        else
-        {
-            gdl = data->gdl++;
-            gSPSegment(gdl, SPSEGMENT_MODEL_MTX, osVirtualToPhysical(entry->model->render_pos));
-        }
+        gdl = data->gdl++;
+        gSPSegment(gdl, SPSEGMENT_MODEL_MTX, osVirtualToPhysical(entry->model->render_pos));
 
         if (node != NULL)
         {
@@ -994,18 +984,8 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
         root = entry->rootnode;
         node = root;
 
-        if (data->unk18 != 0)
-        {
-            if (entry->sortvalue < getjointsize(entry->model, root))
-            {
-                node = NULL;
-            }
-        }
-        else
-        {
-            gdl = data->gdl++;
-            gSPSegment(gdl, SPSEGMENT_MODEL_MTX, osVirtualToPhysical(entry->model->render_pos));
-        }
+        gdl = data->gdl++;
+        gSPSegment(gdl, SPSEGMENT_MODEL_MTX, osVirtualToPhysical(entry->model->render_pos));
 
         if (node != NULL)
         {
@@ -1255,4 +1235,3 @@ s32 sub_GAME_7F06C010(ModelHitEntry **entryptr, coord3d *modelRayStart, coord3d 
 
     return probably_damage_detail_blood_effect_related( entryptr, modelRayStart, modelRayDir, outModel, outNode);
 }
-

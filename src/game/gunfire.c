@@ -57,9 +57,7 @@ extern coord3d D_80035C88;
 extern Vtx D_80035C98;
 extern coord3d D_80035CA8;
 extern coord3d D_80035CB4;
-extern u32 D_80035CC0;
-extern u32 D_80035D00;
-extern u32 D_80035D04[];
+extern ModelRenderData g_DefaultGunModelRenderData;
 extern u32 D_80035EA4;
 extern u32 watchControllerButtonBases[];
 extern GunModelFileRecord gitem_structs[];
@@ -1484,7 +1482,7 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
     s32 handnum;
     Model *model;
  
-    renderdata = *(ModelRenderData *)&D_80035CC0;
+    renderdata = g_DefaultGunModelRenderData;
  
     for (handnum = 0; handnum != 2; handnum++) 
     {
@@ -1593,7 +1591,7 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
 
 Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf *mtx, s32 arg3, s32 arg4)
 {
-    ModelRenderData renderdata = *((ModelRenderData *) (&D_80035D00));
+    ModelRenderData renderdata = g_DefaultGunModelRenderData;
     ModelHeader model;
     u8 spb8[0x80];
     s32 padb4;
@@ -1844,7 +1842,7 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
     struct coord3d coord_node12_pos;
     struct coord3d coord_node12_base;
 
-    renderdata = *(ModelRenderData *)((u8 *)D_80035D04 + 0x3c);
+    renderdata = g_DefaultGunModelRenderData;
 
     sub_GAME_7F05DA8C(GUNRIGHT, 0x55);
 
@@ -5076,7 +5074,6 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
 extern const f32 g_GunSightAspectRatio;
 #endif
 extern ALSoundState *g_CasingSfxState;
-extern u32 g_DefaultCasingModelRenderData[];
 
 #define AMMO_RELATED_MAX 30
 extern AmmoStats ammo_related[AMMO_RELATED_MAX];
@@ -5472,7 +5469,7 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
     ModelFileHeader *model_header = casing->header;
     RenderPosView   *model_matrices = dynAllocate(model_header->numMatrices * sizeof(RenderPosView));
     ModelHead        model;
-    ModelRenderData  render_data = *(ModelRenderData *)g_DefaultCasingModelRenderData;
+    ModelRenderData  render_data = g_DefaultGunModelRenderData;
     Mtxf             casing_model_mtx;
     s32              axis_offset;
     s32              matrix_translation_in_range = TRUE;
