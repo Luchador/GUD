@@ -472,29 +472,28 @@ Gfx* lvlRender(Gfx* DL)
 
             DL = viClearZBufCurrentPlayer(DL);
             DL = viSetupCurrentPlayerView(DL);
-
-            {
-                u32 prof_t = osGetCount();
-                DL = bviewRenderCameraView(DL);
-                g_ProfCamViewCycles = osGetCount() - prof_t;
-            }
-            
+            DL = bviewRenderCameraView(DL);
             DL = viSetupScreensForNumPlayers(DL);
             DL = skyRender(DL);
 
             bgRoomVisibilityRelated();
-            propsTick();
-            chraiUpdateOnscreenPropCount();
-            chrpropUpdateAutoaimTarget();
-            chraiCheckUseHeldItems();
 
-            if (bond_pressed_reload_activate() && bond_interact_object())
             {
-                attempt_reload_item_in_hand(GUNRIGHT);
-                attempt_reload_item_in_hand(GUNLEFT);
-            }
+                u32 prof_t = osGetCount();
+                propsTick();
+                chraiUpdateOnscreenPropCount();
+                chrpropUpdateAutoaimTarget();
+                chraiCheckUseHeldItems();
 
-            propsTickPlayer();
+                if (bond_pressed_reload_activate() && bond_interact_object())
+                {
+                    attempt_reload_item_in_hand(GUNRIGHT);
+                    attempt_reload_item_in_hand(GUNLEFT);
+                }
+
+                propsTickPlayer();
+                g_ProfPropViewCycles = osGetCount() - prof_t;
+            }
 
             { /* TEMP profiler */
                 u32 prof_t = osGetCount();

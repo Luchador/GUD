@@ -148,7 +148,7 @@ u32 g_ProfRoomsDrawn;     /* bgSetRoomOnScreen registrations this frame     */
 u32 g_ProfTickCycles;     /* osGetCount delta across lvTick (game logic)    */
 u32 g_ProfRenderCycles;   /* osGetCount delta across lvlRender (DL build)   */
 u32 g_ProfBgCycles;       /* osGetCount delta across bgSetupAndRender       */
-u32 g_ProfCamViewCycles;      /* accumulated cycles in bgApplyDynamicCCRMLUT    */
+u32 g_ProfPropViewCycles;      /* accumulated cycles in bgApplyDynamicCCRMLUT    */
 /* --- end profiler state --- */
 
 struct levelentry levelinfotable[] = {
@@ -1017,7 +1017,7 @@ Gfx *bgSetupAndRender(Gfx *gdl)
     gDPSetFillColor(gdl++, (GPACK_RGBA5551(255,140,0,1) << 16) | GPACK_RGBA5551(255,140,0,1));
     gDPFillRectangle(gdl++, 8, 36, 8 + (g_ProfBgCycles >> 14 > 280 ? 280 : g_ProfBgCycles >> 14), 38);
     gDPSetFillColor(gdl++, (GPACK_RGBA5551(180,60,255,1) << 16) | GPACK_RGBA5551(180,60,255,1));
-    gDPFillRectangle(gdl++, 8, 40, 8 + (g_ProfCamViewCycles >> 14 > 280 ? 280 : g_ProfCamViewCycles >> 14), 42);
+    gDPFillRectangle(gdl++, 8, 40, 8 + (g_ProfPropViewCycles >> 14 > 280 ? 280 : g_ProfPropViewCycles >> 14), 42);
     gDPPipeSync(gdl++);
     
     return bondviewGfxPlayerField5cMatrix(gdl++);
