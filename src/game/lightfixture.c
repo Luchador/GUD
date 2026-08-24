@@ -34,7 +34,7 @@
  *               and closes it with lightFixtureEntryEnd(). So the
  *               fixture directory is a by-product of texture processing.
  * 
- * Room unload   Nothing! delete_room_data() frees ptr_expanded_mapping_info,
+ * Room unload   Nothing! bgFreeRoomData() frees ptr_expanded_mapping_info,
  *               the display list these entries point into, but never
  *               touches light_fixture_table. Thus a level could in theory have
  *               enough lights to fill the light_fixture_table and after that

@@ -310,7 +310,7 @@ void lvlStageLoad(s32 stage)
             }
         }
 
-        load_bg_file(g_CurrentStageToLoad);
+        bgLoadFile(g_CurrentStageToLoad);
         skySetStageNum(g_CurrentStageToLoad);
 
         optionsWatchInit();

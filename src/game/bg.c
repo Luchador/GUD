@@ -466,7 +466,7 @@ s32 bgGetPrimaryGdlCountForRoom(s32 room)
 {
     s32 i = room;
 
-    while (ptr_bgdata_room_fileposition_list[i].primaryGdl == 0)
+    while (ptr_bgdata_room_fileposition_list[i].primaryGraphics == 0)
     {
         i++;
     }
@@ -479,7 +479,7 @@ s32 bgGetSecondaryGdlCountForRoom(s32 room)
 {
     s32 i = room;
 
-    while (ptr_bgdata_room_fileposition_list[i].secondaryGdl == 0)
+    while (ptr_bgdata_room_fileposition_list[i].secondaryGraphics == 0)
     {
         i++;
     }
@@ -501,7 +501,7 @@ s32 getPointTableBinCount(s32 room)
 }
 
 
-void load_bg_file(LEVEL_INDEX levelid)
+void bgLoadFile(LEVEL_INDEX levelid)
 {
     typedef struct bg_envdata_entry_local {
         u8 type;
@@ -573,7 +573,7 @@ void load_bg_file(LEVEL_INDEX levelid)
         ptr_bgdata_room_fileposition_list = (BgRoomData *) BG_SEG_TO_PTR(data, ((s32 *)ptr_bgdata_offsets)[1]);
         g_MaxNumRooms = 0;
 
-        for (i = 1; ptr_bgdata_room_fileposition_list[i].primaryGdl != NULL; i++) 
+        for (i = 1; ptr_bgdata_room_fileposition_list[i].primaryGraphics != NULL; i++) 
         {
             g_MaxNumRooms++;  
         }
@@ -619,7 +619,7 @@ void load_bg_file(LEVEL_INDEX levelid)
             g_BgRoomInfo[i].unloadAge = 0;
             g_BgRoomInfo[i].keepLoaded = 0;
  
-            if (ptr_bgdata_room_fileposition_list[i].primaryGdl != (NULL))
+            if (ptr_bgdata_room_fileposition_list[i].primaryGraphics != (NULL))
             {
                 s32 primaryindex;
                 s32 secondaryindex;
@@ -628,11 +628,11 @@ void load_bg_file(LEVEL_INDEX levelid)
  
                 if (primaryindex <= secondaryindex)
                 {
-                    g_BgRoomInfo[i].primaryGdlCompressedSize = ((s32) ptr_bgdata_room_fileposition_list[primaryindex].primaryGdl) - ((s32) ptr_bgdata_room_fileposition_list[i].primaryGdl);
+                    g_BgRoomInfo[i].primaryGdlCompressedSize = ((s32) ptr_bgdata_room_fileposition_list[primaryindex].primaryGraphics) - ((s32) ptr_bgdata_room_fileposition_list[i].primaryGraphics);
                 }
                 else
                 {
-                    g_BgRoomInfo[i].primaryGdlCompressedSize = ((s32) ptr_bgdata_room_fileposition_list[secondaryindex].secondaryGdl) - ((s32) ptr_bgdata_room_fileposition_list[i].primaryGdl);
+                    g_BgRoomInfo[i].primaryGdlCompressedSize = ((s32) ptr_bgdata_room_fileposition_list[secondaryindex].secondaryGraphics) - ((s32) ptr_bgdata_room_fileposition_list[i].primaryGraphics);
                 }
             }
             else
@@ -640,7 +640,7 @@ void load_bg_file(LEVEL_INDEX levelid)
                 g_BgRoomInfo[i].primaryGdlCompressedSize = 0;
             }
  
-            if (ptr_bgdata_room_fileposition_list[i].secondaryGdl != (NULL))
+            if (ptr_bgdata_room_fileposition_list[i].secondaryGraphics != (NULL))
             {
                 s32 primaryindex;
                 s32 secondaryindex;
@@ -650,11 +650,11 @@ void load_bg_file(LEVEL_INDEX levelid)
  
                 if (primaryindex <= secondaryindex)
                 {
-                    g_BgRoomInfo[i].secondaryGdlCompressedSize = ((s32) ptr_bgdata_room_fileposition_list[primaryindex].primaryGdl) - ((s32) ptr_bgdata_room_fileposition_list[i].secondaryGdl);
+                    g_BgRoomInfo[i].secondaryGdlCompressedSize = ((s32) ptr_bgdata_room_fileposition_list[primaryindex].primaryGraphics) - ((s32) ptr_bgdata_room_fileposition_list[i].secondaryGraphics);
                 }
                 else
                 {
-                    g_BgRoomInfo[i].secondaryGdlCompressedSize = ((s32) ptr_bgdata_room_fileposition_list[secondaryindex].secondaryGdl) - ((s32) ptr_bgdata_room_fileposition_list[i].secondaryGdl);
+                    g_BgRoomInfo[i].secondaryGdlCompressedSize = ((s32) ptr_bgdata_room_fileposition_list[secondaryindex].secondaryGraphics) - ((s32) ptr_bgdata_room_fileposition_list[i].secondaryGraphics);
                 }
             }
             else
@@ -1813,7 +1813,7 @@ s32 bgLoadRoomPrimaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
     // Load the compressed data into the end of the buffer, starting at dst.
     scratch = dst + (allocsize - size);
 
-    fileoffset = (s32)ptr_bgdata_room_fileposition_list[roomnum].primaryGdl;
+    fileoffset = (s32)ptr_bgdata_room_fileposition_list[roomnum].primaryGraphics;
     fileoffset += 0xf1000000;
 
     obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, scratch, fileoffset, size);
@@ -1839,7 +1839,7 @@ s32 bgLoadRoomPrimaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
         expanded_size = size;
     }
 
-    roominfo->primaryGdl = dst;
+    roominfo->primaryGdl = (Gfx*)dst;
     roominfo->primaryGdlSize = expanded_size;
 
     // Return the uncompressed data size.
@@ -1878,7 +1878,7 @@ s32 bgLoadRoomSecondaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
     // Load the compressed data into the end of the buffer, starting at dst.
     scratch = dst + (allocsize - size);
 
-    fileoffset = (s32)ptr_bgdata_room_fileposition_list[roomnum].secondaryGdl;
+    fileoffset = (s32)ptr_bgdata_room_fileposition_list[roomnum].secondaryGraphics;
     fileoffset += 0xf1000000;
 
     obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, scratch, fileoffset, size);
@@ -2067,22 +2067,22 @@ end:;
 /**
  * Given a room, frees all dynamically allocated data for that room and marks the room as unloaded.
  */
-void delete_room_data(s32 roomID)
+void bgFreeRoomData(s32 roomID)
 {
     RoomInfo *room = &g_BgRoomInfo[roomID];
     s32 size;
     s32 size2;
     Vtx *pointindex;
 
-    if (room->vtx_batch_bounds != NULL) {
-        memaFree(
-            room->vtx_batch_bounds,
-            ((room->num_vtx_batch_bounds * sizeof(RoomVtxBatchBounds)) + 0xf) & ~0xf);
+    if (room->vtx_batch_bounds != NULL)
+    {
+        memaFree(room->vtx_batch_bounds, ((room->num_vtx_batch_bounds * sizeof(RoomVtxBatchBounds)) + 0xf) & ~0xf);
 
         room->vtx_batch_bounds = NULL;
     }
 
-    if (room->cur_room_totalsize > 0) {
+    if (room->cur_room_totalsize > 0)
+    {
         size = room->cur_room_totalsize;
         pointindex = room->vertices;
 
@@ -2118,7 +2118,7 @@ void bgUnloadRooms(void)
     {
         if (g_BgRoomInfo[i].unloadAge)
         {
-            delete_room_data(i);
+            bgFreeRoomData(i);
         }
     }
 }
@@ -2138,7 +2138,7 @@ void bgRoomsTickUnload(void)
         {
             if (g_BgRoomInfo[i].unloadAge == 4)
             {
-                delete_room_data(i);
+                bgFreeRoomData(i);
             }
             else if (g_BgRoomInfo[i].unloadAge != 0)
             {
@@ -2557,14 +2557,9 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
     s32 score;
     BoundVec bboxMin2;
     BoundVec bboxMax2;
+    RoomInfo *roominfo;
 
-    struct {
-        s32 unused;
-        RoomInfo *roominfo;
-        s32 padding[6];
-    } local;
-
-    gdl = (Gfx *) g_BgRoomInfo[roomnum].primaryGdl;
+    gdl = g_BgRoomInfo[roomnum].primaryGdl;
     gdl = &gdl[point->gdlindex];
     vtxoff = ((u8 *) gdl)[1] & 0xf;
     temp.vertices = (Vertex *)g_BgRoomInfo[roomnum].vertices;
@@ -2577,7 +2572,7 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
 
     if ((op != G_VTX) && (op != ((s8) G_ENDDL)))
     {
-        local.roominfo = temp.roominfo;
+        roominfo = temp.roominfo;
 
         do
         {
@@ -2646,7 +2641,7 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                         score = dist;
                         found = 1;
 
-                        if (((*((u8 *) gdl)) != G_SETTIMG) && (dist || vtxbase || 1) && (((Gfx *) local.roominfo->primaryGdl) < gdl))
+                        if (((*((u8 *) gdl)) != G_SETTIMG) && (dist || vtxbase || 1) && (roominfo->primaryGdl < gdl))
                         {
                             do
                             {
@@ -2656,10 +2651,10 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                                     break;
                                 }
                             }
-                            while (((Gfx *) local.roominfo->primaryGdl) < tcmd);
+                            while (roominfo->primaryGdl < tcmd);
                         }
 
-                        if (tcmd == ((Gfx *) local.roominfo->primaryGdl))
+                        if (tcmd == roominfo->primaryGdl)
                         {
                             texnum = -1;
                         }
@@ -2784,7 +2779,7 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                                 score = dist;
                                 found = 1;
 
-                                if (((*((u8 *) gdl)) != G_SETTIMG) && (dist || vtxbase || 1) && (((Gfx *) local.roominfo->primaryGdl) < gdl))
+                                if (((*((u8 *) gdl)) != G_SETTIMG) && (dist || vtxbase || 1) && (roominfo->primaryGdl < gdl))
                                 {
                                     do
                                     {
@@ -2794,10 +2789,10 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                                             break;
                                         }
                                     }
-                                    while (((Gfx *) local.roominfo->primaryGdl) < tcmd);
+                                    while (roominfo->primaryGdl < tcmd);
                                 }
                                 
-                                if (tcmd == ((Gfx *) local.roominfo->primaryGdl))
+                                if (tcmd == roominfo->primaryGdl)
                                 {
                                     texnum = -1;
                                 }
@@ -2955,7 +2950,7 @@ bool bgTestBulletHitBackground(coord3d *from, coord3d *to, s32 roomnum, struct H
 
         if (((u8 *)((Gfx*)point))[0] != G_SETTILE) 
         {
-            while ((Gfx *)g_BgRoomInfo[roomnum].primaryGdl < ((Gfx*)point)) 
+            while (g_BgRoomInfo[roomnum].primaryGdl < ((Gfx*)point)) 
             {
                 point = (RoomVtxBatchBounds *)((Gfx *)point - 1);
                 if (((u8 *)((Gfx*)point))[0] == G_SETTILE) 
@@ -3894,7 +3889,7 @@ void bgRoomCalcBB(s32 room)
 
     if (wasloaded == 0)
     {
-        delete_room_data(room);
+        bgFreeRoomData(room);
     }
 }
 

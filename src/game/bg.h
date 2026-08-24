@@ -70,7 +70,7 @@ typedef struct RoomInfo {
     u8 portal_visit_count;                  // 0x03
 
     Vtx *vertices;                          // 0x04
-    void *primaryGdl;                       // 0x08
+    Gfx *primaryGdl;                        // 0x08
     void *secondaryGdl;                     // 0x0c
 
     s32 verticesCompressedSize;             // 0x10
@@ -123,8 +123,8 @@ typedef struct PortalData
 typedef struct BgRoomData
 {
     void* pPointTableBin;
-    void* primaryGdl;
-    void* secondaryGdl;
+    void* primaryGraphics;
+    void* secondaryGraphics;
     coord3d pos;
 } BgRoomData;
 
@@ -162,8 +162,8 @@ bool bgRoomsSharePortal(s32 roomA, s32 roomB);
 s32 bgCopyVisibleRoomsToList(s32 *rooms, s32 max);
 u32 bgDecompress(u8* source, u8 *target);
 bool bgTestBulletHitBackground(coord3d *from, coord3d *to, s32 roomnum, struct HitThing *hit);
-void delete_room_data(s32 roomID);
-void load_bg_file(LEVEL_INDEX stagenum);
+void bgFreeRoomData(s32 roomID);
+void bgLoadFile(LEVEL_INDEX stagenum);
 s8 bgSwapConnectedRooms(s32 index);
 void bgToggleDataPortalsContrlBytes1Bit1(s32 index, s32 toggle);
 void bgRoomVisibilityRelated(void);
