@@ -997,8 +997,13 @@ Gfx *bgSetupAndRender(Gfx *gdl)
 
     gSPMatrix(gdl++, g_viProjectionMatrix, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
 
-        /* TEMP profiler bars: cyan=vis cycles (1px=2048cy), red=frame cycles
-       (1px=16384cy), green=visits, yellow=projections, white=rooms x2 */
+    /* TEMP profiler bars (1px = 16384cy unless noted):
+       cyan   = visibility pass (1px = 2048cy)
+       red    = whole frame        green  = portal visits
+       yellow = projections        white  = rooms x2
+       magenta= lvTick             blue   = lvlRender
+       orange = bgSetupAndRender   violet = chrTick total (accum)
+       dkorange = chrlvActionTick (accum)  gray = chr count x4 */
     gDPPipeSync(gdl++);
     gDPSetCycleType(gdl++, G_CYC_FILL);
     gDPSetRenderMode(gdl++, G_RM_NOOP, G_RM_NOOP2);
@@ -1020,6 +1025,10 @@ Gfx *bgSetupAndRender(Gfx *gdl)
     gDPFillRectangle(gdl++, 8, 36, 8 + (g_ProfBgCycles >> 14 > 280 ? 280 : g_ProfBgCycles >> 14), 38);
     gDPSetFillColor(gdl++, (GPACK_RGBA5551(180,60,255,1) << 16) | GPACK_RGBA5551(180,60,255,1));
     gDPFillRectangle(gdl++, 8, 40, 8 + (g_ProfChrTickCycles >> 14 > 280 ? 280 : g_ProfChrTickCycles >> 14), 42);
+    gDPSetFillColor(gdl++, (GPACK_RGBA5551(200,100,0,1) << 16) | GPACK_RGBA5551(200,100,0,1));
+    gDPFillRectangle(gdl++, 8, 44, 8 + (g_ProfChrActionCycles >> 14 > 280 ? 280 : g_ProfChrActionCycles >> 14), 46);
+    gDPSetFillColor(gdl++, (GPACK_RGBA5551(160,160,160,1) << 16) | GPACK_RGBA5551(160,160,160,1));
+    gDPFillRectangle(gdl++, 8, 48, 8 + ((g_ProfChrCount * 4) > 280 ? 280 : g_ProfChrCount * 4), 50);
     gDPPipeSync(gdl++);
     
     return bondviewGfxPlayerField5cMatrix(gdl++);
@@ -3609,6 +3618,10 @@ void bgDetermineVisibleRooms(void)
     g_ProfVisits = 0;
     g_ProfProjections = 0;
     g_ProfRoomsDrawn = 0;
+    g_ProfChrTickCycles = 0;
+    g_ProfChrActionCycles = 0;
+    g_ProfChrCount = 0;
+
 
     bgUpdateCurrentPlayerScreenMinMax();
 

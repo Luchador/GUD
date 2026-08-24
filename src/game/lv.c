@@ -188,9 +188,6 @@ void lvInit(void)
 {
     s32 size;
 
-    // TEMP
-    g_ProfChrCount = 0;
-
     size = (s32)&_fontdlSegmentRomEnd - (s32)&_fontdlSegmentRomStart;
     ptr_font_DL = mempAllocBytesInBank(size, MEMPOOL_PERMANENT);
     romCopy(ptr_font_DL, &_fontdlSegmentRomStart, size);
