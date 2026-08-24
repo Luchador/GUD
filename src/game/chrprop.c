@@ -37,13 +37,7 @@
 #include "tex.h"
 
 
-// bss
-
-
-//CODE.bss:80069C30
 s16 * ptr_list_object_lookup_indices;
-
-//CODE.bss:80069C34 canonically roompropsnum
 u32 num_obj_position_data_entries;
 
 /**
@@ -54,6 +48,7 @@ u32 num_obj_position_data_entries;
  * This is g_Vars.props in PD.
 */
 PropRecord g_Props[MAX_PROPS];
+
 s16 *RoomPropListBlockIndices;
 struct roomproplistblock *RoomPropListBlocks;
 
@@ -103,7 +98,7 @@ PropRecord *g_FreeProps = 0;
 f32 difficulty = 1.0;
 struct coord2d g_DefaultAutoAimCoord = { 0 };
 
-// forward declarations
+// Begin forward declarations.
 
 Gfx *chrpropRender(Gfx *arg0, PropRecord *arg1, s32 withalpha);
 void chraiCheckUseHeldItem(s32 hand);
@@ -111,7 +106,7 @@ void chraiDefaultWeaponFireHandler(s32);
 void chraiFistAttackHandler(s32 hand, s32 item_id);
 void modelGetAxisExtents(Model* model, f32* max, f32* min, s32 axis);
 
-// end forward declarations
+// End forward declarations.
 
 
 /**
@@ -141,15 +136,6 @@ void chraiUpdateOnscreenPropCount(void)
 
     g_OnScreenPropCount = count;
     g_OnScreenPropList[count] = NULL;
-
-    if(1)
-    {
-        // removed
-        #ifdef DEBUG
-        assert(propznum<MAXPROPSVISIBLE); //800 props
-        #endif
-    }
-
     g_LastOnScreenProp = (PropRecord *)&g_OnScreenPropList[count];
 
     for (i=0; i<count; i++)
@@ -236,6 +222,7 @@ void chrpropActivate(PropRecord* prop)
     PropRecord* cur;
 
     cur = g_ActivePropsTail;
+
     if (cur != NULL)
     {
         cur->next = prop;
@@ -249,21 +236,27 @@ void chrpropActivate(PropRecord* prop)
 
     prop->prev = NULL;
     prop->next = NULL;
+
     g_ActivePropsTail = g_ActivePropsHead = prop;
 }
 
 
-void chrpropActivateThisFrame(PropRecord* prop) {
+void chrpropActivateThisFrame(PropRecord* prop)
+{
     PropRecord* first;
 
     first = g_ActivePropsHead;
-    if (first != NULL) {
+
+    if (first != NULL)
+    {
         first->prev = prop;
         prop->next = g_ActivePropsHead;
         prop->prev = NULL;
         g_ActivePropsHead = prop;
+
         return;
     }
+
     prop->prev = NULL;
     prop->next = NULL;
     g_ActivePropsHead = prop;
@@ -280,20 +273,26 @@ void chrpropDelist(PropRecord *prop)
     {
         g_ActivePropsTail = prop->prev;
     }
+
     if (prop == g_ActivePropsHead)
     {
         g_ActivePropsHead = prop->next;
     }
+
     temp_v0 = prop->prev;
+
     if (temp_v0 != 0)
     {
         temp_v0->next = prop->next;
     }
+
     temp_v0_2 = prop->next;
+
     if (temp_v0_2 != 0)
     {
         temp_v0_2->prev = prop->prev;
     }
+
     prop->prev = NULL;
     prop->next = NULL;
 }
@@ -308,6 +307,7 @@ void chrpropReparent(PropRecord *newChild, PropRecord *host)
     {
         host->child->next = newChild;
     }
+
     newChild->prev = host->child;
     newChild->next = NULL;
     newChild->stan = NULL;
@@ -316,24 +316,35 @@ void chrpropReparent(PropRecord *newChild, PropRecord *host)
 }
 
 
-void chrpropDetach(PropRecord* prop) {
+void chrpropDetach(PropRecord* prop)
+{
     PropRecord* parent;
     PropRecord* prev;
     PropRecord* next;
 
     parent = prop->parent;
-    if (parent) {
-        if (prop == parent->child) {
+
+    if (parent)
+    {
+        if (prop == parent->child)
+        {
             parent->child = prop->prev;
         }
+
         prev = prop->prev;
-        if (prev) {
+
+        if (prev)
+        {
             prev->next = prop->next;
         }
+
         next = prop->next;
-        if (next) {
+
+        if (next)
+        {
             next->prev = prop->prev;
         }
+
         prop->parent = NULL;
         prop->prev = NULL;
         prop->next = NULL;
@@ -483,8 +494,6 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
 
 
 /**
- * Address: 7F03A97C
- *
  * Tests if a ray intersects the bounding box of the given room.
  * @return TRUE if the ray intersects, otherwise FALSE.
 */
@@ -505,10 +514,13 @@ s32 chrpropRayIntersectsRoomBbox(s32 room, coord3d* start, coord3d* dir)
         max[0] = roominfo->maxbounds.f[0];
         max[1] = roominfo->maxbounds.f[1];
         max[2] = roominfo->maxbounds.f[2];
-        if (bgTestRayIntersectsBbox(start, dir, min, max)) {
+
+        if (bgTestRayIntersectsBbox(start, dir, min, max))
+        {
             return TRUE;
         }
     }
+
     return FALSE;
 }
 
@@ -605,8 +617,6 @@ s32 chrpropFindCloserBgHitInVisibleRooms(coord3d *from, coord3d *to, coord3d *di
 
 
 /**
- * Address: 7F03ADF4
- *
  * Beginning at startroom, walk connected rooms looking for a background
  * bullet hit.
  *
@@ -672,8 +682,6 @@ s32 chrpropFindFirstBgHitInConnectedRooms(s32 startroom, coord3d *from, coord3d 
 
 
 /**
- * Address: 7F03AF5C
- *
  * Finds the closest bg bullet collision among rooms not already visited by the shot traversal.
  * It first does a cheap bounding box test, then a precise test for rooms whose bounding boxes are intersected.
  * This seems to be a brute force/fallback version of the function above, chrpropFindFirstBgHitInConnectedRooms.
@@ -1772,10 +1780,6 @@ void chrpropTick(void)
 }
 
 
-/*
-* Address: 0x7F03CA30
-* PD: propsTick (src/game/proptick.c)
-*/
 void propsTick(void)
 {
     TICKOP tickop;
@@ -1853,8 +1857,6 @@ void propsTick(void)
  *
  * @param self: prop
  * @param roomids: out parameter. Must contain enough space to store room ids.
- *
- * Address 0x7F03CB8C.
 */
 void chraiGetPropRoomIds(PropRecord *self, s32 *roomids)
 {
@@ -1890,8 +1892,6 @@ void chraiGetPropRoomIds(PropRecord *self, s32 *roomids)
  * @param arg2: out parameter.
  * @param arg3: out parameter. Maybe ymin. (ground)
  * @param arg4: out parameter. Maybe ymax. (ground + chr/object height)
- *
- * Address 0x7F03CC20.
 */
 void chraiGetCollisionBounds(PropRecord *prop, struct rect4f **polygon, s32 *edges, f32 *top, f32 *bottom)
 {
@@ -1927,17 +1927,12 @@ void chraiGetCollisionBounds(PropRecord *prop, struct rect4f **polygon, s32 *edg
 }
 
 
-
-
-
 /**
  * Same as @see chraiGetCollisionBounds, but throws away arg3 and arg4.
  *
  * @param arg0:
  * @param arg1: out parameter. Bounding coords (x,z) by (x,z).
  * @param arg2: out parameter.
- *
- * Address 0x7F03CCB0.
 */
 void chraiGetCollisionBoundsWithoutY(PropRecord *prop, struct rect4f **polygon, s32 *edges)
 {
@@ -1946,7 +1941,6 @@ void chraiGetCollisionBoundsWithoutY(PropRecord *prop, struct rect4f **polygon, 
 
     chraiGetCollisionBounds(prop, polygon, edges, &sp24, &sp20);
 }
-
 
 /**
  * @param point: 3d point to test if inside polygon. Only uses (x,z).
@@ -2016,8 +2010,6 @@ s32 chrpropTestPointInPolygon(coord3d *point, struct rect4f *polygon, s32 edges)
  * @param collision_radius: out parameter, will be set to character width or player collision radius.
  * @param height: out parameter, will be set to height
  * @param always_20: out parameter, will be set to either 20 or 30.
- *
- * Address 0x7F03CF88.
 */
 void chrpropGetCollisionBounds(PropRecord *arg0, f32 *collision_radius, f32 *height, f32 *arg3)
 {
@@ -2037,11 +2029,6 @@ void chrpropGetCollisionBounds(PropRecord *arg0, f32 *collision_radius, f32 *hei
 }
 
 
-
-
-/**
- * Address 0x7F03CFE8.
-*/
 f32 sub_GAME_7F03CFE8(PropRecord *arg0)
 {
     if (arg0->type == PROP_TYPE_CHR)
@@ -2058,11 +2045,7 @@ f32 sub_GAME_7F03CFE8(PropRecord *arg0)
 }
 
 
-
-
-
-
-void sub_GAME_7F03D058(PropRecord *prop, bool unset) //#MATCH
+void sub_GAME_7F03D058(PropRecord *prop, bool unset)
 {
     if (prop->type == PROP_TYPE_CHR)
     {
@@ -2079,10 +2062,6 @@ void sub_GAME_7F03D058(PropRecord *prop, bool unset) //#MATCH
 }
 
 
-
-/**
- * NTSC address: 0x7F03D0D4.
-*/
 void propsTickPlayer(void)
 {
     PropRecord *prop;
@@ -2126,8 +2105,6 @@ void propsTickPlayer(void)
 
 
 /**
- * Address: 7F03D188
- *
  * Calculates an auto-aim score for a given prop based roughly on how close it is to the center of the screen.
  * Higher scores are better, with 1.0 being the best possible score.
  */
@@ -2281,8 +2258,6 @@ f32 chrpropScoreAutoAimTarget(PropRecord *targetprop, coord3d *aimpos, f32 *worl
 
 /**
  * Iterates on screen props to find autoaim target.
- *
- * US address 7F03D78C.
 */
 void chrpropUpdateAutoaimTarget(void)
 {
@@ -2376,9 +2351,6 @@ void chrpropUpdateAutoaimTarget(void)
 }
 
 
-/*
-* Address: 7F03D9EC
-*/
 s32 propDoorGetCdTypes(PropRecord* prop)
 {
     s32 var_v1;
@@ -2403,60 +2375,75 @@ s32 propDoorGetCdTypes(PropRecord* prop)
 }
 
 
-/*
-* Address: 7F03DA50
-* PD: prop_is_of_cd_type
-*/
-s32 propIsOfCdType(PropRecord* prop, s32 cdtypes) {
+s32 propIsOfCdType(PropRecord* prop, s32 cdtypes)
+{
     s32 ret;
     ObjectRecord *obj;
     ret = 1;
 
-    if (prop->type == PROP_TYPE_DOOR) {
-        if ((cdtypes & CDTYPE_AIOPAQUE)) {
+    if (prop->type == PROP_TYPE_DOOR)
+    {
+        if ((cdtypes & CDTYPE_AIOPAQUE))
+        {
             obj = prop->obj;
 
-            if (obj->flags & PROPFLAG_04000000) {
+            if (obj->flags & PROPFLAG_04000000)
+            {
                 ret = 0;
             }
         }
 
-        if (!(cdtypes & CDTYPE_DOORS)) {
-            if (!(propDoorGetCdTypes(prop) & cdtypes)) {
+        if (!(cdtypes & CDTYPE_DOORS))
+        {
+            if (!(propDoorGetCdTypes(prop) & cdtypes))
+            {
                 ret = 0;
             }
         }
-    } else if (prop->type == PROP_TYPE_VIEWER) {
-        if (!(cdtypes & CDTYPE_PLAYERS)) {
+    } 
+    else if (prop->type == PROP_TYPE_VIEWER)
+    {
+        if (!(cdtypes & CDTYPE_PLAYERS))
+        {
             ret = 0;
         }
-    } else if (prop->type == PROP_TYPE_CHR) {
-        if (!(cdtypes & CDTYPE_CHRS)) {
+    } 
+    else if (prop->type == PROP_TYPE_CHR)
+    {
+        if (!(cdtypes & CDTYPE_CHRS))
+        {
             ret = 0;
         }
-    } else {
+    } 
+    else
+    {
         obj = prop->obj;
 
-        if ((cdtypes & CDTYPE_AIOPAQUE) && (obj->flags & PROPFLAG_04000000)) {
+        if ((cdtypes & CDTYPE_AIOPAQUE) && (obj->flags & PROPFLAG_04000000))
+        {
             ret = 0;
         }
 
-        if ((cdtypes & CDTYPE_OBJSIMMUNETOEXPLOSIONS) && !(obj->flags & PROPFLAG_INVINCIBLE)) {
+        if ((cdtypes & CDTYPE_OBJSIMMUNETOEXPLOSIONS) && !(obj->flags & PROPFLAG_INVINCIBLE))
+        {
             ret = 0;
         }
 
-        if (obj->flags & PROPFLAG_00000800) {
-            if (!(cdtypes & CDTYPE_PATHBLOCKER)) {
+        if (obj->flags & PROPFLAG_00000800)
+        {
+            if (!(cdtypes & CDTYPE_PATHBLOCKER))
+            {
                 ret = 0;
             }
-        } else if (!(cdtypes & CDTYPE_OBJS)) {
+        } 
+        else if (!(cdtypes & CDTYPE_OBJS))
+        {
             ret = 0;
         }
     }
 
     return ret;
 }
-
 
 
 /* I think the arguments are lists of roomids but I'm not certain. This function checks if any item in the two lists match */
@@ -2469,13 +2456,18 @@ s32 sub_GAME_7F03DB70(s32* roomids1, s32* roomids2)
 
     itr1 = roomids1;
     itr1_val = *itr1;
+
     while (itr1_val >= 0)
     {
         itr2 = roomids2;
         itr2_val = *itr2;
         while(itr2_val >= 0)
         {
-            if (itr1_val == itr2_val) { return 1; }
+            if (itr1_val == itr2_val) 
+            { 
+                return 1; 
+            }
+
             itr2++;
             itr2_val = *itr2;
         }
@@ -2497,9 +2489,7 @@ s32 sub_GAME_7F03DB70(s32* roomids1, s32* roomids2)
 s32 chrpropInsertPropnum(s16 propnum, s32 block)
 {
     s32 i;
-    #ifdef DEBUG
-    assert(block<MAXBLOCKS); //prop.c line 2136
-    #endif
+
     // Note: The size of the propnums array is 16, but we're only iterating over the first 15 elements.
     //       Is this because the last element is always -1? Seems like a waste.
     for (i = 0; i < 15; i++)
@@ -2513,7 +2503,6 @@ s32 chrpropInsertPropnum(s16 propnum, s32 block)
 
     return 0;
 }
-
 
 
 /*
@@ -2689,8 +2678,6 @@ void chrpropDeregisterRooms(PropRecord *prop)
 }
 
 
-
-
 void chrpropRegisterRooms(PropRecord *prop)
 {
     u8  room;
@@ -2709,8 +2696,6 @@ void chrpropRegisterRooms(PropRecord *prop)
 
 
 /*
-* Address: 0x7F03E27C
-*
 * Recalculate the prop's room list with rooms it is found to be overlapping.
 */
 void chrpropUpdateRoomList(PropRecord *prop, coord3d *bbmin, coord3d *bbmax, f32 radius)
@@ -2725,36 +2710,43 @@ void chrpropUpdateRoomList(PropRecord *prop, coord3d *bbmin, coord3d *bbmax, f32
     count = 0;
     obj = NULL;
 
-    if (prop->flags & PROPFLAG_00000008) {
+    if (prop->flags & PROPFLAG_00000008)
+    {
         // Seed from the prop's existing room list.
         if (prop->type == PROP_TYPE_OBJ || prop->type == PROP_TYPE_WEAPON || prop->type == PROP_TYPE_DOOR) {
             obj = prop->obj;
         }
 
-        if (obj != NULL
-            && obj->runtime_bitflags & 0x80
-            && obj->projectile->flags & PROJECTILEFLAG_00000008) {
+        if (obj != NULL && obj->runtime_bitflags & 0x80 && obj->projectile->flags & PROJECTILEFLAG_00000008)
+        {
             src = obj->projectile->unkCC;
-        } else {
+        } 
+        else 
+        {
             src = prop->rooms;
         }
 
-        for (i = 0; src[i] != 0xff; i++) {
+        for (i = 0; src[i] != 0xff; i++)
+        {
             rooms[i] = src[i];
         }
 
         count = i;
-    } else {
+    } 
+    else 
+    {
         // Seed from the stan tile locus around the prop's X/Z position.
         tile = prop->stan;
         count = 0;
+
         sub_GAME_7F0B21B0(&tile, prop->pos.x, prop->pos.z, radius, rooms, &count, 7);
     }
 
     // Update the room list with neighboring rooms reachable through portals and overlapped by the bounding box.
     bgGetRoomsIntersectingBbox(bbmin, bbmax, rooms, &count, 7);
 
-    for (i = 0; i < count; i++) {
+    for (i = 0; i < count; i++)
+    {
         prop->rooms[i] = rooms[i];
     }
 
@@ -2766,7 +2758,6 @@ void chrpropUpdateRoomList(PropRecord *prop, coord3d *bbmin, coord3d *bbmax, f32
 /**
  * Given a list of rooms (terminated by -1), populate the propnums
  * list based on which props are in any of those rooms.
- * PD: roomGetProps
  */
 void roomGetProps(s32 *rooms)
 {
@@ -2899,15 +2890,6 @@ void propsDefragRoomProps(void)
 }
 
 
-void removed_debug_roomblocks_feature(void)
-{
-
-}
-//end of prop.c, now chrprop.c
-
-/**
- * NTSC address 0x7F03E6A0.
-*/
 void sub_GAME_7F03E6A0(PropRecord *prop)
 {
     struct LinkRecord *link;
@@ -2929,7 +2911,6 @@ void sub_GAME_7F03E6A0(PropRecord *prop)
         }
     }
 }
-
 
 
 bool doorIsPadlockFree(DoorRecord* door)
@@ -2987,34 +2968,31 @@ void sub_GAME_7F03E830(ObjectRecord* arg0)
     stanGetPositionYValue(prop->stan, prop->pos.x, prop->pos.z);
 }
 
+
 f32 chrpropBBOXGetXmin(ModelRoData_BoundingBoxRecord *modelBoundingBox)
 {
     return modelBoundingBox->Bounds.xmin;
 }
+
 
 f32 chrpropBBOXGetYmin(ModelRoData_BoundingBoxRecord *modelBoundingBox)
 {
     return modelBoundingBox->Bounds.ymin;
 }
 
+
 f32 chrpropBBOXGetYmax(ModelRoData_BoundingBoxRecord *modelBoundingBox)
 {
     return modelBoundingBox->Bounds.ymax;
 }
+
+
 f32 chrpropBBOXGetZmin(ModelRoData_BoundingBoxRecord *modelBoundingBox)
 {
     return modelBoundingBox->Bounds.zmin;
 }
 
 
-
-
-
-
-
-/**
- * Address 0x7F03E87C.
-*/
 f32 chrpropSumMatrixPosX(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *arg1)
 {
     f32 phi_f2;
@@ -3052,11 +3030,6 @@ f32 chrpropSumMatrixPosX(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *arg1)
 }
 
 
-
-
-/**
- * Address 0x7F03E91C.
-*/
 f32 chrpropSumMatrixNegX(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *arg1)
 {
     f32 phi_f2;
@@ -3094,11 +3067,6 @@ f32 chrpropSumMatrixNegX(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *arg1)
 }
 
 
-
-
-/**
- * Address 0x7F03E9BC.
-*/
 f32 chrpropSumMatrixPosY(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *arg1)
 {
     f32 phi_f2;
@@ -3136,10 +3104,6 @@ f32 chrpropSumMatrixPosY(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *arg1)
 }
 
 
-
-/**
- * Address 0x7F03EA5C.
-*/
 f32 chrpropSumMatrixNegY(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *arg1)
 {
     f32 phi_f2;
@@ -3177,10 +3141,6 @@ f32 chrpropSumMatrixNegY(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *arg1)
 }
 
 
-
-/**
- * Address 0x7F03EAFC.
-*/
 f32 chrpropSumMatrixPosZ(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *arg1)
 {
     f32 phi_f2;
@@ -3218,10 +3178,6 @@ f32 chrpropSumMatrixPosZ(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *arg1)
 }
 
 
-
-/**
- * Address 0x7F03EB9C.
-*/
 f32 chrpropSumMatrixNegZ(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *arg1)
 {
     f32 phi_f2;
@@ -3484,9 +3440,6 @@ bool chrpropTestPointInPaddedBoundPad(coord3d *pos, f32 radius, BoundPadRecord *
 }
 
 
-/*
-* Address: 7F03F748
-*/
 void modelGetAxisExtents(Model* model, f32* max, f32* min, s32 axis)
 {
     ModelNode *node = model->obj->RootNode;
@@ -3565,7 +3518,6 @@ void modelGetXYExtents(Model *model, f32 *arg1, f32 *arg2, f32 *arg3, f32 *arg4)
 
 
 /**
- * NTSC address 0x7F03F948.
  * Project rectangle corners to screen
 */
 void projectRectCornersTo2D(struct coord3d *center, struct coord2d *arg1, struct coord2d *arg2, struct coord2d *arg3, struct coord2d *arg4)
@@ -3599,12 +3551,8 @@ void projectRectCornersTo2D(struct coord3d *center, struct coord2d *arg1, struct
 }
 
 
-
-
-/*
-* Address: 0x7F03FA44
-*/
-ObjectRecord *scan_position_data_table_for_normal_object_at_preset(s32 PadId) {
+ObjectRecord *scan_position_data_table_for_normal_object_at_preset(s32 PadId)
+{
     PropRecord *prop;
     s16 tempPadId = PadId;
 
@@ -3626,8 +3574,6 @@ ObjectRecord *scan_position_data_table_for_normal_object_at_preset(s32 PadId) {
 }
 
 
-
-
 ObjectRecord * sub_GAME_7F03FAB0(struct coord3d *pos, s32 RoomID)
 {
     s32 unused;
@@ -3641,14 +3587,15 @@ ObjectRecord * sub_GAME_7F03FAB0(struct coord3d *pos, s32 RoomID)
         if ((prop->type == PROP_TYPE_OBJ) && (RoomID == prop->stan->room))
         {
             chraiGetCollisionBoundsWithoutY(prop, &polygon, &edges);
+        
             if (chrpropTestPointInPolygon(pos, polygon, edges) != 0)
             {
                 return (ObjectRecord *) prop->chr;
             }
         }
+
         prop = prop->prev;
     }
 
     return NULL;
 }
-

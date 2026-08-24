@@ -2367,12 +2367,9 @@ s32 chrTick(PropRecord *prop)
             {
                 headSwitchVisible = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
 
+                // Former debug comment here: "VISIBLE MAGIC MODE!!!!"
                 if (headSwitchVisible)
                 {
-#ifdef DEBUG
-                    osSyncPrintf("\nVISIBLE MAGIC MODE!!!!\n\n");
-#endif
-
                     getsuboffset(model, &chr->prevpos);
                     subcalcpos(model);
                     set_color_shading_from_tile(prop, &chr->nextcol);
@@ -2458,26 +2455,10 @@ after_position_update:
         prop->flags |= PROPFLAG_ONSCREEN;
         chr->chrflags |= CHRFLAG_HAS_BEEN_ON_SCREEN;
 
-#ifdef BUGFIX_R1
-    if (cheatIsActive(12))
-    {
-        if (chrCanUseDKModeScaling(chr->bodynum, chr->headnum))
-        {
-            modelSetDistanceScale(0.3125f);
-
-            if (chr->chrflags & CHRFLAG_10000000)
-            {
-                chr->chrflags &= ~CHRFLAG_10000000;
-                modelSetScale(chr->model, chr->model->scale / 0.8f);
-            }
-        }
-    }
-#else
         if (cheatIsActive(CHEAT_DK_MODE))
         {
             modelSetDistanceScale(0.3125f);
         }
-#endif
 
         g_ModelJointPositionedFunc = chrHandleJointPositioned;
         g_CurModelChr = chr;
@@ -2489,11 +2470,7 @@ after_position_update:
         {
             g_CurModelChr->flinchcnt += g_ClockTimer;
 
-#ifdef VERSION_EU
-               if (g_CurModelChr->flinchcnt >= 24)
-#else
-               if (g_CurModelChr->flinchcnt >= 30)
-#endif
+            if (g_CurModelChr->flinchcnt >= 30)
             {
                 g_CurModelChr->flinchcnt = -1;
             }
@@ -2646,9 +2623,6 @@ after_position_update:
 }
 
 
-/**
- * Address 0x7F021B20.
- */
 void chrDropItems(ChrRecord *self)
 {
     PropRecord *childprop = self->prop->child;
