@@ -1537,7 +1537,7 @@ void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *ar
     }
 
     playerprop = getCurrentPlayerProp();
-    stanheight = bondviewGetPlayerStanHeight(g_CurrentPlayer);
+    stanheight = bviewGetPlayerStanHeight(g_CurrentPlayer);
 
     usedfallback = 0;
 

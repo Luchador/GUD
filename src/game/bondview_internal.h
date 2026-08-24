@@ -95,7 +95,7 @@ extern s32 g_SetupIntroCameraCount;
 extern struct SetupIntroCamera *ptr_random06cam_entry;
 extern s32 g_VisibleToGuardsFlag;
 extern s32 obj_collision_flag;
-extern f32 D_800364CC;
+extern f32 g_ViewConversionScale;
 extern f32 D_800364D0;
 extern f32 D_800364D4;
 extern s32 g_bondviewBondDeathAnimations[];

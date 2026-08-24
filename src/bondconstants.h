@@ -146,19 +146,13 @@ typedef enum ATTACKTYPE
     ATTACKTYPE_AIMONLY   = 1 << 5, // aim only - do not shoot
     ATTACKTYPE_DONTTURN  = 1 << 6, // dont do a shooting animation that would change the chrs direction
     ATTACKTYPE_TARGET    = 1 << 7  // aim/shoot at whatever is in the chrs `target` field
-}ATTACKTYPE;
-#if 0
-BITFLAG(ATTACKTYPE,
-        BOND,      /* aim/shoot at Bond                                                */
-        FORWARD,   /* aim/shoot in front of self                                       */
-        CHR,       /* aim/shoot at chr (ID should be given in entity_id)               */
-        PAD,       /* aim/shoot at pad (ID should be given in entity_id)               */
-        DIRECTION, /* aim/shoot in compass direction (0000, 4000, 8000, c000)          */
-        AIMONLY,   /* aim only - do not shoot                                          */
-        DONTTURN,  /* dont do a shooting animation that would change the chrs direction*/
-        TARGET     /* aim/shoot at whatever is in the chrs `target` field              */
-)
-#endif
+} ATTACKTYPE;
+
+typedef enum BGLOADTYPE
+{
+    BGLOADTYPE_SINGLE_DL = 1,
+    BGLOADTYPE_ROOMS     = 2
+} BGLOADTYPE;
 
 // character flags
 typedef enum CHRHIDDEN

@@ -2425,7 +2425,7 @@ extern s32 g_SetupIntroCameraCount;
 extern struct SetupIntroCamera *ptr_random06cam_entry;
 extern s32 g_VisibleToGuardsFlag;
 extern s32 obj_collision_flag;
-extern f32 D_800364CC;
+extern f32 g_ViewConversionScale;
 extern f32 D_800364D0;
 extern f32 D_800364D4;
 extern s32 g_bondviewBondDeathAnimations[];
@@ -2538,7 +2538,7 @@ void bondviewGetCollisionRadius(PropRecord* arg0, f32 *collision_radius, f32 *he
 void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset);
 void currentPlayerSetFadeColour(s32 r, s32 g, s32 b, f32 frac);
 void currentPlayerSetFadeFrac(f32 maxfadetime, f32 frac);
-f32 bondviewGetPlayerStanHeight(struct player *player);
+f32 bviewGetPlayerStanHeight(struct player *player);
 void record_damage_kills(f32, f32, f32, s32, s32);
 void bondviewCallRecordDamageKills(f32 arg0, f32 rad, s32 arg2, s32 arg3);
 int bondviewGetIfCurrentPlayerDamageShowTime(void);
@@ -2588,6 +2588,6 @@ void transform3Dto2DCoords(coord3d *in, coord2d *out);
 void bondviewRemovePlayerBody(void);
 void currentPlayerAdjustFade(f32 maxfadetime, s32 r, s32 g, s32 b, f32 frac);
 void bondviewSelectCuff(Model *model, ModelFileHeader *header, s32 switchindex);
-void sub_GAME_7F08976C(f32 param_1);
+void bviewSetConversionScale(f32 scale);
 
 #endif

@@ -2051,7 +2051,7 @@ f32 sub_GAME_7F03CFE8(PropRecord *arg0)
 
     if (arg0->type == PROP_TYPE_VIEWER)
     {
-        return bondviewGetPlayerStanHeight(g_playerPointers[getPlayerPointerIndex(arg0)]);
+        return bviewGetPlayerStanHeight(g_playerPointers[getPlayerPointerIndex(arg0)]);
     }
 
     return 0.0f;

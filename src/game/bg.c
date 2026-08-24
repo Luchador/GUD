@@ -67,7 +67,7 @@ enum GlobalVisOpcode {
 
 extern struct unk_portalstruct table_for_portals[PORTMAX];
 extern s32 ptr_bgdata_offsets;
-extern s32 dword_CODE_bss_8007FF88;
+extern s32 g_BgRenderMode;
 extern s32 *dword_CODE_bss_8007FF90;
 extern f32 *dword_CODE_bss_8007FF94;
 extern s_bound_info dword_CODE_bss_8007FFA0[];
@@ -79,9 +79,9 @@ extern s32 dword_CODE_bss_800815f8;
 
 #define BG_PORTAL_QUEUE_LEN 500
 
-s32 ptr_bg_data;
-s32 gptr_stan;
-s32 dword_CODE_bss_8007BF98;
+u8* g_BgData;
+s32 g_StanData;
+s32 g_BgSingleDisplayList;
 
 char list_visible_rooms_in_cur_global_vis_packet[0x98];
 
@@ -531,39 +531,44 @@ void load_bg_file(LEVEL_INDEX levelid)
  
     lightFixtureInitTables();
  
-    ptr_bg_data = (s32)header;
-    obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, (u8 *) ptr_bg_data, 0, 0x40);
+    g_BgData = (u8 *)header;
+    obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, g_BgData, 0, 0x40);
 
-    if (((levelid && ptr_bg_data) && levelentry_index));
-
-    ptr_bgdata_offsets = ptr_bg_data;
-    ptr_bgdata_room_fileposition_list = (bg_room_data *) BG_SEG_TO_PTR(ptr_bg_data, ((s32 *)ptr_bg_data)[1]);
+    ptr_bgdata_offsets = g_BgData;
+    ptr_bgdata_room_fileposition_list = (bg_room_data *) BG_SEG_TO_PTR(g_BgData, ((s32 *)g_BgData)[1]);
  
     size = (((((u32) ptr_bgdata_room_fileposition_list[1].pPointTableBin) & 0x00ffffff) - 1) | 0xf) + 1;
  
-    ptr_bg_data = (s32) mempAllocBytesInBank(size, 4);
-    obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, (u8 *) ptr_bg_data, 0, size);
+    g_BgData = mempAllocBytesInBank(size, 4);
+    obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, g_BgData, 0, size);
  
-    gptr_stan = (s32) _fileNameLoadToBank(levelinfotable[levelentry_index].bg_stan_filename, 2, 0, 4);
+    g_StanData = (s32) _fileNameLoadToBank(levelinfotable[levelentry_index].bg_stan_filename, 2, 0, 4);
  
-    stanDetermineEOF((struct StanPrefixRecord *) gptr_stan, 0, (u8 *) gptr_stan);
-    stanLoadFile((struct StanPrefixRecord *) gptr_stan);
+    stanDetermineEOF((struct StanPrefixRecord *) g_StanData, 0, (u8 *) g_StanData);
+    stanLoadFile((struct StanPrefixRecord *) g_StanData);
  
     sub_GAME_7F0B4810(levelinfotable[levelentry_index].levelscale);
     setLevelScale(levelinfotable[levelentry_index].levelscale);
  
     mCurrentLevelVisibilityScale = levelinfotable[levelentry_index].visibility;
  
-    sub_GAME_7F08976C(mCurrentLevelVisibilityScale);
+    bviewSetConversionScale(mCurrentLevelVisibilityScale);
     matrixSetConversionScale(mCurrentLevelVisibilityScale);
  
-    data = (s32 *)ptr_bg_data;
-    dword_CODE_bss_8007BF98 = *data;
-    dword_CODE_bss_8007FF88 = 1;
+    data = (s32 *)g_BgData;
+
+    /**
+     * If the first word of the BG file's data is 0, it means we're doing a standard stage load with rooms and portals.
+     * If it's not 0, then it's pointing to a display list address. The entire background is one static display list with
+     * no visiblity system.
+     */
+    g_BgSingleDisplayList = *data;
+    g_BgRenderMode = BGLOADTYPE_SINGLE_DL;
  
-    if (dword_CODE_bss_8007BF98 == 0)
+    // Setup standard visibility and room loading.
+    if (g_BgSingleDisplayList == 0)
     {
-        dword_CODE_bss_8007FF88 = 2;
+        g_BgRenderMode = BGLOADTYPE_ROOMS;
         ptr_bgdata_offsets = (s32)data;
         ptr_bgdata_room_fileposition_list = (bg_room_data *) BG_SEG_TO_PTR(data, ((s32 *)ptr_bgdata_offsets)[1]);
         g_MaxNumRooms = 0;
@@ -574,8 +579,6 @@ void load_bg_file(LEVEL_INDEX levelid)
         }
  
         g_BgPortals = (bg_portal_data_entry *) BG_SEG_TO_PTR(data, ((s32 *)ptr_bgdata_offsets)[2]);
-
-        if (1);
 
         if (((s32 *)ptr_bgdata_offsets)[3] == 0)
         {
@@ -597,7 +600,7 @@ void load_bg_file(LEVEL_INDEX levelid)
  
         for (i = 0; g_BgPortals[i].offset_portal != (NULL); i++)
         {
-            g_BgPortals[i].offset_portal = (bg_portal_entry *) BG_SEG_TO_PTR(ptr_bg_data, g_BgPortals[i].offset_portal);
+            g_BgPortals[i].offset_portal = (bg_portal_entry *) BG_SEG_TO_PTR(g_BgData, g_BgPortals[i].offset_portal);
         }
  
         if (dword_CODE_bss_8007FF90 != NULL)
@@ -606,7 +609,7 @@ void load_bg_file(LEVEL_INDEX levelid)
             {
                 if (((bg_envdata_entry_local *)dword_CODE_bss_8007FF90)[i].type == ENVIRONMENTDATA_ALT)
                 {
-                    ((bg_envdata_entry_local *)dword_CODE_bss_8007FF90)[i].data = getIndexOfPORTALID((s32) BG_SEG_TO_PTR(ptr_bg_data, ((bg_envdata_entry_local *)dword_CODE_bss_8007FF90)[i].data));
+                    ((bg_envdata_entry_local *)dword_CODE_bss_8007FF90)[i].data = getIndexOfPORTALID((s32) BG_SEG_TO_PTR(g_BgData, ((bg_envdata_entry_local *)dword_CODE_bss_8007FF90)[i].data));
                 }
             }
         }
@@ -955,11 +958,11 @@ Gfx *bgSetupAndRender(Gfx *gdl)
 {
     gSPSetLights1(gdl++, GlobalLight);
     gSPLookAt(gdl++, sub_GAME_7F078474());
-    gSPSegment(gdl++, SPSEGMENT_BG_DL, ptr_bg_data);
+    gSPSegment(gdl++, SPSEGMENT_BG_DL, g_BgData);
 
-    if (dword_CODE_bss_8007FF88 == 1)
+    if (g_BgRenderMode == BGLOADTYPE_SINGLE_DL)
     {
-        gSPDisplayList(gdl++, dword_CODE_bss_8007BF98);
+        gSPDisplayList(gdl++, g_BgSingleDisplayList);
     }
     else
     {
@@ -1429,7 +1432,7 @@ void bbox2dCopy(struct bbox2d *a, struct bbox2d *b)
 bg_queued_portal_entry g_BgPortalQueue[BG_PORTAL_QUEUE_LEN];
 bg_portal_data_entry *g_BgPortals;
 s32 ptr_bgdata_offsets;
-s32 dword_CODE_bss_8007FF88;
+s32 g_BgRenderMode;
 bg_room_data *ptr_bgdata_room_fileposition_list;
 s32 *dword_CODE_bss_8007FF90;
 f32 *dword_CODE_bss_8007FF94;
@@ -1752,7 +1755,7 @@ s32 bgLoadRoomVtxData(s32 roomnum, u8 *dst, s32 len)
 {
     s_room_info *room;
     s32 alignedsize;
-    s32 offset;
+    s32 fileoffset;
     s32 result;
 
     room = &g_BgRoomInfo[roomnum];
@@ -1765,11 +1768,11 @@ s32 bgLoadRoomVtxData(s32 roomnum, u8 *dst, s32 len)
 
     /**
     * pPointTableBin is stored as a segment-0x0f bgdata address.
-    * The seemingly unncessary " + ptr_bg_data - ptr_bg_data" likely comes from paired bgdata pointer/offset macros.
     * Adding 0xf1000000 strips the 0x0f000000 segment tag, yielding a file offset.
     */
-    offset = (((u8 *)ptr_bgdata_room_fileposition_list[roomnum].pPointTableBin + ptr_bg_data) - ptr_bg_data) + 0xf1000000;
-    obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, dst + (len - alignedsize), offset, alignedsize);
+    fileoffset = (u32)ptr_bgdata_room_fileposition_list[roomnum].pPointTableBin;
+    fileoffset += 0xF1000000;
+    obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, dst + (len - alignedsize), fileoffset, alignedsize);
     result = bgDecompress(dst + (len - alignedsize), dst);
 
     room->vertices = (Vtx *)dst;
@@ -1802,14 +1805,15 @@ s32 bgLoadRoomPrimaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
      * Check if there is enough room to temporarily place the compressed data
      * at the end of the available buffer. Return -1 if there's not.
      */
-    if (allocsize < size + 0x20) {
+    if (allocsize < size + 0x20)
+    {
         return -1;
     }
 
     // Load the compressed data into the end of the buffer, starting at dst.
     scratch = dst + (allocsize - size);
 
-    fileoffset = (s32)((u8 *)ptr_bgdata_room_fileposition_list[roomnum].pPriMappingBin + ptr_bg_data) - ptr_bg_data;
+    fileoffset = (s32)ptr_bgdata_room_fileposition_list[roomnum].pPriMappingBin;
     fileoffset += 0xf1000000;
 
     obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, scratch, fileoffset, size);
@@ -1830,7 +1834,8 @@ s32 bgLoadRoomPrimaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
 
     size = texLoadFromGdl((Gfx *)scratch, expanded_size, (Gfx *)dst, NULL);
 
-    if (expanded_size < size) {
+    if (expanded_size < size)
+    {
         expanded_size = size;
     }
 
@@ -1865,14 +1870,15 @@ s32 bgLoadRoomSecondaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
      * Check if there is enough room to temporarily place the compressed data
      * at the end of the available buffer. Return -1 if there's not.
      */
-    if (allocsize < size + 0x20) {
+    if (allocsize < size + 0x20)
+    {
         return -1;
     }
 
     // Load the compressed data into the end of the buffer, starting at dst.
     scratch = dst + (allocsize - size);
 
-    fileoffset = (s32)((u8 *)ptr_bgdata_room_fileposition_list[roomnum].pSecMappingBin + ptr_bg_data)  - ptr_bg_data;
+    fileoffset = (s32)ptr_bgdata_room_fileposition_list[roomnum].pSecMappingBin;
     fileoffset += 0xf1000000;
 
     obLoadBGFileBytesAtOffset(levelinfotable[levelentry_index].bg_seg_filename, scratch, fileoffset, size);
@@ -1891,7 +1897,8 @@ s32 bgLoadRoomSecondaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
 
     size = texLoadFromGdl((Gfx *)scratch, (Gfx *)expanded_size, (Gfx *)dst, NULL);
 
-    if (expanded_size < size) {
+    if (expanded_size < size)
+    {
         expanded_size = size;
     }
 
@@ -1906,11 +1913,14 @@ s32 bgLoadRoomSecondaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
 s32 bgCheckIfRoomModelNeedsLoad(s32 roomID)
 {
     g_BgRoomInfo[roomID].field_35 = 1;
+
     if (g_BgRoomInfo[roomID].loadedState == 0)
     {
         bgLoadRoomModelData(roomID);
+
         return 1;
     }
+
     return 0;
 }
 

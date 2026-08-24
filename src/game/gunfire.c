@@ -925,7 +925,7 @@ void gunUpdateAndFire(GUNHAND handnum)
 
     if (hand->weapon_firing_status != 0)
     {
-        sub_GAME_7F068508(handnum, bondviewGetPlayerStanHeight(g_CurrentPlayer));
+        sub_GAME_7F068508(handnum, bviewGetPlayerStanHeight(g_CurrentPlayer));
 
         if (item == ITEM_GRENADELAUNCH)
         {

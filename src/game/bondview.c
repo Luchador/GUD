@@ -332,7 +332,7 @@ coord3d ZeroCoordSpawnPos = {0};
  */
 s32 g_VisibleToGuardsFlag = TRUE;
 s32 obj_collision_flag = TRUE;
-f32 D_800364CC = 1.0;
+f32 g_ViewConversionScale = 1.0;
 f32 D_800364D0 = 1.0;
 f32 D_800364D4 = 1.0;
 
@@ -7961,7 +7961,7 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
 
     lookat = dynAllocateLights(2);
 
-    scale = D_800364CC;
+    scale = g_ViewConversionScale;
 
     scaledpos.x = (cam_pos->x - g_CurrentPlayer->current_model_pos.x) * scale;
     scaledpos.y = (cam_pos->y - g_CurrentPlayer->current_model_pos.y) * scale;
@@ -8605,7 +8605,7 @@ Gfx *bondviewRenderGaugeBars(Gfx *gdl)
     lookatmtx = dynAllocateMatrix();
     orthomtx = dynAllocateMatrix();
 
-    guOrtho(orthomtx, -800.0f * D_800364CC, 800.0f * D_800364CC, -600.0f * D_800364CC, 600.0f * D_800364CC, -100.0f, 1000.0f, 1.0f);
+    guOrtho(orthomtx, -800.0f * g_ViewConversionScale, 800.0f * g_ViewConversionScale, -600.0f * g_ViewConversionScale, 600.0f * g_ViewConversionScale, -100.0f, 1000.0f, 1.0f);
 
     gSPMatrix(gdl++, osVirtualToPhysical(orthomtx), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
 
@@ -9129,13 +9129,13 @@ void sub_GAME_7F089718(f32 arg0)
 }
 
 
-void sub_GAME_7F08976C(f32 param_1)
+void bviewSetConversionScale(f32 scale)
 {
-  D_800364CC = param_1;
+    g_ViewConversionScale = scale;
 }
 
 
-f32 bondviewGetPlayerStanHeight(struct player *player)
+f32 bviewGetPlayerStanHeight(struct player *player)
 {
     return player->stanHeight;
 }
