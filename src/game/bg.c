@@ -138,16 +138,6 @@ u8 g_PortalIsVertical[PORTMAX] = {
  */
 struct PortalMetric g_PortalPlanes[PORTMAX];
 
-/* --- TEMP visibility profiler (read via framebuffer bars) --- */
-u32 g_ProfBgTickCycles;
-u32 g_ProfLvlTickCycles;     /* osGetCount delta across lvTick (game logic)    */
-u32 g_ProfLvlRenderCycles;   /* osGetCount delta across lvRender (DL build)   */
-u32 g_ProfBgCycles;       /* osGetCount delta across bgSetupAndRender       */
-u32 g_ProfChrTickCycles;      /* accumulated cycles in bgApplyDynamicCCRMLUT    */
-u32 g_ProfChrActionCycles;
-u32 g_ProfObjTickCycles;
-/* --- end profiler state --- */
-
 struct levelentry levelinfotable[] = {
 /*  levelID;            bg_seg_filename;        bg_stan_filename;      levelscale;  visibility; unknownfloat;*/
     {LEVELID_BUNKER1,  "bg/bg_sev_all_p.seg",  "Tbg_sev_all_p_stanZ",  0.53931433,  1.0,        23.148148},

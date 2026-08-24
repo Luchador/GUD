@@ -171,6 +171,16 @@ s16 g_DebugMpGameSoundFxIndex = 0;
 extern u8* _fontdlSegmentRomStart;
 extern u8* _fontdlSegmentRomEnd;
 
+/* --- TEMP visibility profiler (read via framebuffer bars) --- */
+u32 g_ProfBgTickCycles;
+u32 g_ProfLvlTickCycles;     /* osGetCount delta across lvTick (game logic)    */
+u32 g_ProfLvlRenderCycles;   /* osGetCount delta across lvRender (DL build)   */
+u32 g_ProfBgCycles;       /* osGetCount delta across bgSetupAndRender       */
+u32 g_ProfChrTickCycles;      /* accumulated cycles in bgApplyDynamicCCRMLUT    */
+u32 g_ProfChrActionCycles;
+u32 g_ProfObjTickCycles;
+u32 g_ProfChrOccluded;
+/* --- end profiler state --- */
 
 bool lvGetBgRenderEnabled(void)
 {
@@ -1068,8 +1078,8 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     gdl = textRender(gdl, &x, &y, fpsText, ptrFontBankGothicChars, ptrFontBankGothic, color, screenwidth, viGetY(), 0, 0);
 
     { /* TEMP profiler readouts: name + raw osGetCount cycles per frame */
-        static char profText[7][28];
-        static const u32 profColor[7] = {
+        static char profText[8][28];
+        static const u32 profColor[8] = {
             0x00FFFFFF,  /* bgTick   - cyan      */
             0x4040FFFF,  /* lvTick   - blue      */
             0xFF3030FF,  /* lvRender- red       */
@@ -1077,6 +1087,7 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             0xB43CFFFF,  /* chrTick  - violet    */
             0x30FF30FF,  /* chrAction- green     */
             0xFFFF30FF,  /* objTick- yellow     */
+            0xFFFFffFF,  /* occluded chars - white     */
         };
         s32 i;
 
@@ -1092,12 +1103,14 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         sprintf(profText[4], "CHRTICK:%4uK",      (g_ProfChrTickCycles   + 500) / 1000);
         sprintf(profText[5], "CHRACT:%4uK",       (g_ProfChrActionCycles + 500) / 1000);
         sprintf(profText[6], "OBJTICK:%4uK",       (g_ProfObjTickCycles + 500) / 1000);
+        sprintf(profText[7], "OCCL:%u",       g_ProfChrOccluded);
 
         g_ProfChrTickCycles = 0;
         g_ProfChrActionCycles = 0;
         g_ProfObjTickCycles = 0;
+        g_ProfChrOccluded = 0;
 
-        for (i = 0; i < 7; i++)
+        for (i = 0; i < 8; i++)
         {
             x = viGetViewLeft() + 14;
             y = viGetViewTop() + 44 + (i * 10);

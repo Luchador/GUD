@@ -2270,7 +2270,6 @@ s32 chrTick(PropRecord *prop)
     s32 headVisible;
     s32 tickamount;
 
-    renderdata = D_8002CC6C;
     chr = prop->chr;
     model = chr->model;
     headVisible = 1;
@@ -2426,7 +2425,17 @@ after_position_update:
 
     if (isOnScreen)
     {
+        {
+            s32 ri;
+            for (ri = 0; ri < PROPRECORD_STAN_ROOM_LEN && prop->rooms[ri] != 0xFF; ri++)
+                if (bgIsRoomRendered(prop->rooms[ri])) break;
+            if (ri == PROPRECORD_STAN_ROOM_LEN || prop->rooms[ri] == 0xFF)
+                g_ProfChrOccluded++;   /* frustum-visible but no room rendered */
+        }
+
+        renderdata = D_8002CC6C;
         prop->flags |= PROPFLAG_ONSCREEN;
+
         chr->chrflags |= CHRFLAG_HAS_BEEN_ON_SCREEN;
 
         if (cheatIsActive(CHEAT_DK_MODE))
