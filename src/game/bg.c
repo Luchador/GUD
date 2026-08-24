@@ -1196,7 +1196,7 @@ bool bgProjectRoomCoordToScreen(coord3d* src, coord3d* dst)
 }
 
 
-s32 bgProjectPortalPoints(s32 portalnum, f32 arg1, coord3d *arg2)
+s32 bgProjectPortalPoints(s32 portalnum, f32 scale, coord3d *points)
 {
     Mtxf *matrix;
     coord3d *point;
@@ -1212,52 +1212,56 @@ s32 bgProjectPortalPoints(s32 portalnum, f32 arg1, coord3d *arg2)
     viGetZRange(zrange);
     zrange[1] /= mCurrentLevelVisibilityScale;
 
+    bgCalcPortalPlane(portalnum, &metric);
+
     for (i = 0; i < g_BgPortals[portalnum].portal->numPoints; i++) 
     {
-        point = &arg2[i];
+        point = &points[i];
 
         point->x = (&g_BgPortals[portalnum].portal->point)[i].x;
         point->y = (&g_BgPortals[portalnum].portal->point)[i].y;
         point->z = (&g_BgPortals[portalnum].portal->point)[i].z;
 
-        if (arg1 != 0.0f) 
+        if (scale != 0.0f) 
         {
-            bgCalcPortalPlane(portalnum, (f32 *) &metric);
-
-            point->x += metric.normal.x * arg1;
-            point->y += metric.normal.y * arg1;
-            point->z += metric.normal.z * arg1;
+            point->x += metric.normal.x * scale;
+            point->y += metric.normal.y * scale;
+            point->z += metric.normal.z * scale;
         }
 
-        point = &arg2[i];
+        point = &points[i];
         point->x *= g_LevelInverseScale;
         point->y *= g_LevelInverseScale;
         point->z *= g_LevelInverseScale;
 
         mtx4TransformVecInPlace(matrix, point);
 
-        if (-zrange[1] * 0.9f < point->z) {
+        if (-zrange[1] * 0.9f < point->z)
+        {
             allbehind = 0;
         }
     }
 
-    if (allbehind) {
+    if (allbehind)
+    {
         return 0;
     }
 
     len = g_BgPortals[portalnum].portal->numPoints;
 
-    for (i = 0; i < g_BgPortals[portalnum].portal->numPoints; i++) {
-        point = &arg2[i];
+    for (i = 0; i < g_BgPortals[portalnum].portal->numPoints; i++)
+    {
+        point = &points[i];
         next = (i + 1) % g_BgPortals[portalnum].portal->numPoints;
 
-        if ((point->z > 0.0f && arg2[next].z <= 0.0f) || (point->z <= 0.0f && arg2[next].z > 0.0f)) {
-            f32 scale = -point->z / (arg2[next].z - point->z);
+        if ((point->z > 0.0f && points[next].z <= 0.0f) || (point->z <= 0.0f && points[next].z > 0.0f))
+        {
+            f32 scale = -point->z / (points[next].z - point->z);
 
-            arg2[len].x = point->x + ((arg2[next].x - point->x) * scale);
-            arg2[len].y = point->y + ((arg2[next].y - point->y) * scale);
-            point = &arg2[i];
-            arg2[len].z = 0.0f;
+            points[len].x = point->x + ((points[next].x - point->x) * scale);
+            points[len].y = point->y + ((points[next].y - point->y) * scale);
+            point = &points[i];
+            points[len].z = 0.0f;
             len++;
         }
     }
@@ -3930,40 +3934,41 @@ void bgExpandRoomToPortals(s32 roomID)
 }
 
 
-void bgCalcPortalPlane(s32 portalnum, f32 *out)
+void bgCalcPortalPlane(s32 portalnum, struct PortalMetric *metric)
 {
-    f32 sp6c[3];
-    f32 sp60[3];
+    f32 edge1[3];
+    f32 edge2[3];
     Portal *portal;
     f32 min;
     f32 max;
-    f32 dot;
+    f32 scale;
+    f32 dist;
     s32 i;
 
     for (i = 0; i < 3; i++)
     {
-        sp6c[i] = (&g_BgPortals[portalnum].portal->point)[0].f[i] - (&g_BgPortals[portalnum].portal->point)[1].f[i];
+        edge1[i] = (&g_BgPortals[portalnum].portal->point)[0].f[i] - (&g_BgPortals[portalnum].portal->point)[1].f[i];
     }
 
     for (i = 0; i < 3; i++)
     {
-        sp60[i] = (&g_BgPortals[portalnum].portal->point)[2].f[i] - (&g_BgPortals[portalnum].portal->point)[1].f[i];
+        edge2[i] = (&g_BgPortals[portalnum].portal->point)[2].f[i] - (&g_BgPortals[portalnum].portal->point)[1].f[i];
     }
 
-    out[0] = (sp6c[1] * sp60[2]) - (sp6c[2] * sp60[1]);
-    out[1] = (sp6c[2] * sp60[0]) - (sp6c[0] * sp60[2]);
-    out[2] = (sp6c[0] * sp60[1]) - (sp6c[1] * sp60[0]);
+    metric->normal.f[0] = (edge1[1] * edge2[2]) - (edge1[2] * edge2[1]);
+    metric->normal.f[1] = (edge1[2] * edge2[0]) - (edge1[0] * edge2[2]);
+    metric->normal.f[2] = (edge1[0] * edge2[1]) - (edge1[1] * edge2[0]);
 
-    dot = sqrtf(((out[0] * out[0]) + (out[1] * out[1])) + (out[2] * out[2]));
+    scale = sqrtf(((metric->normal.f[0] * metric->normal.f[0]) + (metric->normal.f[1] * metric->normal.f[1])) + (metric->normal.f[2] * metric->normal.f[2]));
 
-    if (dot != 0.0f)
+    if (scale != 0.0f)
     {
-        dot = 1.0f / dot;
+        scale = 1.0f / scale;
     }
 
-    out[0] *= dot;
-    out[1] *= dot;
-    out[2] *= dot;
+    metric->normal.f[0] *= scale;
+    metric->normal.f[1] *= scale;
+    metric->normal.f[2] *= scale;
 
     portal = g_BgPortals[portalnum].portal;
 
@@ -3972,14 +3977,21 @@ void bgCalcPortalPlane(s32 portalnum, f32 *out)
 
     for (i = 0; i < portal->numPoints; i++)
     {
-        min = (((((&portal->point)[i].f[0] * out[0]) + ((&portal->point)[i].f[1] * out[1])) + ((&portal->point)[i].f[2] * out[2])) < min) ? ((((&portal->point)[i].f[0] * out[0]) + ((&portal->point)[i].f[1] * out[1])) + ((&portal->point)[i].f[2] * out[2])) : (min);
-        max = (((((&portal->point)[i].f[0] * out[0]) + ((&portal->point)[i].f[1] * out[1])) + ((&portal->point)[i].f[2] * out[2])) > max) ? ((((&portal->point)[i].f[0] * out[0]) + ((&portal->point)[i].f[1] * out[1])) + ((&portal->point)[i].f[2] * out[2])) : (max);
+        dist = (((&portal->point)[i].f[0] * metric->normal.f[0]) + ((&portal->point)[i].f[1] * metric->normal.f[1])) + ((&portal->point)[i].f[2] * metric->normal.f[2]);
+
+        if (dist < min)
+        {
+            min = dist;
+        }
+
+        if (dist > max)
+        {
+            max = dist;
+        }
     }
 
-    out[3] = min;
-    out[4] = max;
-
-    if (dot);
+    metric->min = min;
+    metric->max = max;
 }
 
 
