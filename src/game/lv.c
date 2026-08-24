@@ -474,7 +474,12 @@ Gfx* lvlRender(Gfx* DL)
             DL = viSetupCurrentPlayerView(DL);
             DL = bviewRenderCameraView(DL);
             DL = viSetupScreensForNumPlayers(DL);
-            DL = skyRender(DL);
+
+            { /* TEMP profiler */
+                u32 prof_t = osGetCount();
+                DL = skyRender(DL);
+                g_ProfSkyCycles = osGetCount() - prof_t;
+            }
 
             bgRoomVisibilityRelated();
             propsTick();
@@ -508,7 +513,14 @@ Gfx* lvlRender(Gfx* DL)
                 set_max_ammo_for_cur_player();
             }
 
-            DL = bondviewRenderPlayerView(DL);
+            { /* TEMP profiler */
+                u32 prof_t = osGetCount();
+                DL = bondviewRenderPlayerView(DL);
+                g_ProfPViewCycles = osGetCount() - prof_t;
+            }
+            
+
+
             DL = mp_watch_menu_display(DL);
         }
     }
