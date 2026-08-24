@@ -145,6 +145,11 @@ u32 g_ProfLastFrame;
 u32 g_ProfVisits;         /* bgProcessPortalTraversal entries this frame    */
 u32 g_ProfProjections;    /* bgProjectPortalPoints calls this frame         */
 u32 g_ProfRoomsDrawn;     /* bgSetRoomOnScreen registrations this frame     */
+u32 g_ProfTickCycles;     /* osGetCount delta across lvTick (game logic)    */
+u32 g_ProfRenderCycles;   /* osGetCount delta across lvlRender (DL build)   */
+u32 g_ProfBgCycles;       /* osGetCount delta across bgSetupAndRender       */
+u32 g_ProfLutCycles;      /* accumulated cycles in bgApplyDynamicCCRMLUT    */
+u32 g_ProfLutCmds;        /* Gfx commands walked by the LUT patcher / frame */
 /* --- end profiler state --- */
 
 struct levelentry levelinfotable[] = {
@@ -1006,6 +1011,16 @@ Gfx *bgSetupAndRender(Gfx *gdl)
     gDPFillRectangle(gdl++, 8, 20, 8 + (g_ProfProjections > 280 ? 280 : g_ProfProjections), 22);
     gDPSetFillColor(gdl++, (GPACK_RGBA5551(255,255,255,1) << 16) | GPACK_RGBA5551(255,255,255,1));
     gDPFillRectangle(gdl++, 8, 24, 8 + ((g_ProfRoomsDrawn * 2) > 280 ? 280 : g_ProfRoomsDrawn * 2), 26);
+    gDPSetFillColor(gdl++, (GPACK_RGBA5551(255,0,255,1) << 16) | GPACK_RGBA5551(255,0,255,1));
+    gDPFillRectangle(gdl++, 8, 28, 8 + (g_ProfTickCycles >> 14 > 280 ? 280 : g_ProfTickCycles >> 14), 30);
+    gDPSetFillColor(gdl++, (GPACK_RGBA5551(64,64,255,1) << 16) | GPACK_RGBA5551(64,64,255,1));
+    gDPFillRectangle(gdl++, 8, 32, 8 + (g_ProfRenderCycles >> 14 > 280 ? 280 : g_ProfRenderCycles >> 14), 34);
+    gDPSetFillColor(gdl++, (GPACK_RGBA5551(255,140,0,1) << 16) | GPACK_RGBA5551(255,140,0,1));
+    gDPFillRectangle(gdl++, 8, 36, 8 + (g_ProfBgCycles >> 14 > 280 ? 280 : g_ProfBgCycles >> 14), 38);
+    gDPSetFillColor(gdl++, (GPACK_RGBA5551(180,60,255,1) << 16) | GPACK_RGBA5551(180,60,255,1));
+    gDPFillRectangle(gdl++, 8, 40, 8 + (g_ProfLutCycles >> 14 > 280 ? 280 : g_ProfLutCycles >> 14), 42);
+    gDPSetFillColor(gdl++, (GPACK_RGBA5551(170,170,170,1) << 16) | GPACK_RGBA5551(170,170,170,1));
+    gDPFillRectangle(gdl++, 8, 44, 8 + (g_ProfLutCmds >> 6 > 280 ? 280 : g_ProfLutCmds >> 6), 46);
     gDPPipeSync(gdl++);
     
     return bondviewGfxPlayerField5cMatrix(gdl++);
@@ -3595,6 +3610,9 @@ void bgDetermineVisibleRooms(void)
     g_ProfVisits = 0;
     g_ProfProjections = 0;
     g_ProfRoomsDrawn = 0;
+    g_ProfBgCycles = 0;
+    g_ProfLutCycles = 0;
+    g_ProfLutCmds = 0;
 
     bgUpdateCurrentPlayerScreenMinMax();
 

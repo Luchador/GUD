@@ -80,6 +80,7 @@ void bgApplyDynamicCCRMLUT(Gfx *start, Gfx *end, enum CCRMLUT lutIndex)
     Gfx *lutPair;
 
     static s32 s_bg_lut_replacement_count = 0;
+    u32 prof_t = osGetCount();
 
     curGfx = start;
 
@@ -95,6 +96,9 @@ void bgApplyDynamicCCRMLUT(Gfx *start, Gfx *end, enum CCRMLUT lutIndex)
             }
         }
 
+        g_ProfLutCmds++;
         curGfx++;
     }
+    
+    g_ProfLutCycles += osGetCount() - prof_t;
 }

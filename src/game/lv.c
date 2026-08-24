@@ -490,7 +490,12 @@ Gfx* lvlRender(Gfx* DL)
 
             propsTickPlayer();
 
-            DL = bgSetupAndRender(DL);
+            { /* TEMP profiler */
+                u32 prof_t = osGetCount();
+                 DL = bgSetupAndRender(DL);
+                g_ProfBgCycles = osGetCount() - prof_t;
+            }
+            
             DL = weaponRenderTracers(DL);
 
             bullet_sparks_render_all(&DL, ZBUF_SURFACE);

@@ -377,7 +377,12 @@ void bossMainloop(void)
                             gdl = firstGdl = dynGetMasterDisplayList();
 
                             // Primary game tick function.
-                            lvTick();
+
+                            { /* TEMP profiler */
+                                u32 prof_t = osGetCount();
+                                lvTick();
+                                g_ProfTickCycles = osGetCount() - prof_t;
+                            }
 
                             shuffle_player_ids();
 
@@ -398,7 +403,12 @@ void bossMainloop(void)
                             }
 
                             // Primary game rendering function.
-                            gdl = lvlRender(gdl);
+                            
+                            { /* TEMP profiler */
+                                u32 prof_t = osGetCount();
+                                gdl = lvlRender(gdl);
+                                g_ProfRenderCycles = osGetCount() - prof_t;
+                            }
 
                             gdl = lvlDrawFrameRateDisplay(gdl);
                             
