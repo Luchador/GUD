@@ -703,7 +703,7 @@ void lvTick(void)
             }
 
             // stop alarm
-            if (lvlGetControlsLockedFlag() != 0)
+            if (lvlGetControlsLockedFlag())
             {
                 if ((g_MpSoundStateRelated != NULL) && (sndGetPlayingState(g_MpSoundStateRelated) != 0))
                 {
@@ -953,7 +953,7 @@ void lvlUnloadStageTextData(void)
 
 void lvlSetControlsLockedFlag(bool locked)
 {
-    // Integrate R1 fix.
+    // Integrate R1 fix for Rumble Pak.
     if ((locked) && (g_ControlsLockedFlag == FALSE))
     {
         joyRumblePakStop();
@@ -1045,7 +1045,7 @@ Gfx *lvlDrawFrameRateDisplay(Gfx *gdl)
     }
 
     x = viGetViewLeft() + 14;
-    y = viGetViewTop() + 6;
+    y = viGetViewTop() + 32;
     screenwidth = (s32) viGetX();
 
     gdl = gfxSetup2DTextureMode(gdl);
