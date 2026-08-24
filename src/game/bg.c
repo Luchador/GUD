@@ -203,7 +203,7 @@ Lights1 GlobalLight = gdSPDefLights1(
 
 // Begin forward declarations.
 
-void unload_rooms(void);
+void bgUnloadRooms(void);
 Gfx *bgRenderWrapper(Gfx *gdl);
 Gfx *bgRender(Gfx *arg0);
 s32 bgCheckIfRoomModelNeedsLoad(s32 roomID);
@@ -214,22 +214,22 @@ Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index);
 extern void bgRoomsTickUnload(void);
 Gfx *bgScissorCurrentPlayerView(Gfx *arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4);
 bool bgIsRoomOnScreen(s32 roomID, struct rectbbox *screenbox);
-s32 sub_GAME_7F0B39BC(s32 curroom, s32 unk1, bbox2d *screensize, s32 next);
+s32 bgSetRoomOnScreen(s32 curroom, s32 unk1, bbox2d *screensize, s32 next);
 void bgUpdateCurrentPlayerScreenMinMax(void);
-void *sub_GAME_7F0B8A24(s32 *pc);
+void *bgApplyGlobalVisCommands(s32 *pc);
 void bgDetermineVisibleRooms(void);
-s32 sub_GAME_7F0B5864(s32 portalnum, bbox2d *screenbox);
+s32 bgGetPortalScreenBbox(s32 portalnum, bbox2d *screenbox);
 f32 bgGetPortalMargin(s32 portalnum);
-void sub_GAME_7F0B95D8(s32 roomID);
-void sub_GAME_7F0B4810(f32 arg0);
-s32 sub_GAME_7F0B5528(s32 portalnum, f32 scale, coord3d *points);
+void bgExpandRoomToPortals(s32 roomID);
+void bgSetLevelScale(f32 arg0);
+s32 bgProjectPortalPoints(s32 portalnum, f32 scale, coord3d *points);
 void bgOrderPortal(s32 portalnum);
 void bgProcessPortalTraversal(s32 value, s32 roomnum, s32 portalnum, s32 depth, bbox2d *parentbox);
 
 // End forward declarations.
 
 
-void sub_GAME_7F0B37EC(void)
+void bgMarkSpecialPortals(void)
 {
     u8 *ptr;
     u8 *end;
@@ -273,7 +273,7 @@ void sub_GAME_7F0B37EC(void)
 }
 
 
-s32 sub_GAME_7F0B39BC(s32 curroom, s32 unk1, bbox2d * screensize, s32 next)
+s32 bgSetRoomOnScreen(s32 curroom, s32 unk1, bbox2d * screensize, s32 next)
 {
     s32 i;
     s32 temp;
@@ -547,7 +547,7 @@ void load_bg_file(LEVEL_INDEX levelid)
     stanDetermineEOF((struct StanPrefixRecord *) g_StanData, 0, (u8 *) g_StanData);
     stanLoadFile((struct StanPrefixRecord *) g_StanData);
  
-    sub_GAME_7F0B4810(levelinfotable[levelentry_index].levelscale);
+    bgSetLevelScale(levelinfotable[levelentry_index].levelscale);
     setLevelScale(levelinfotable[levelentry_index].levelscale);
  
     mCurrentLevelVisibilityScale = levelinfotable[levelentry_index].visibility;
@@ -695,7 +695,7 @@ void load_bg_file(LEVEL_INDEX levelid)
  
         for (i = 0; i < g_MaxNumRooms; i++)
         {
-            sub_GAME_7F0B95D8(i);
+            bgExpandRoomToPortals(i);
         }
  
         for (i = 0; g_BgPortals[i].offset_portal != (NULL); i++)
@@ -703,7 +703,7 @@ void load_bg_file(LEVEL_INDEX levelid)
             g_BgPortals[i].controlbytes1 &= 0xfe;
         }
  
-        sub_GAME_7F0B37EC();
+        bgMarkSpecialPortals();
     }
  
     g_RoomLoadBudget = 200;
@@ -712,12 +712,12 @@ void load_bg_file(LEVEL_INDEX levelid)
 
 void bgCleanupRooms(void)
 {
-    unload_rooms();
+    bgUnloadRooms();
     matrixSetConversionScale(1.0);
 }
 
 
-void sub_GAME_7F0B4810(f32 arg0)
+void bgSetLevelScale(f32 arg0)
 {
     room_data_float1 = arg0;
     room_data_float2 = (f32) (1.0f / arg0);
@@ -807,7 +807,7 @@ void bgRoomVisibilityRelated(void)
                 continue;
             }
 
-            if (((room == g_BgPortals[portalnum].connectedRoom1 || room == g_BgPortals[portalnum].connectedRoom2) && sub_GAME_7F0B9F14(portalnum, pos, pos3)))
+            if (((room == g_BgPortals[portalnum].connectedRoom1 || room == g_BgPortals[portalnum].connectedRoom2) && bgTestLineIntersectsPortal(portalnum, pos, pos3)))
             {
                 lastportal = portalnum;
 
@@ -865,7 +865,7 @@ void bgFindRoomsAlongSegment(coord3d *fromPos, coord3d *toPos, u8 *fromRooms, u8
 
     for (portalnum = 0; g_BgPortals[portalnum].offset_portal != 0; portalnum++)
     {
-        portalStatuses[portalnum] = sub_GAME_7F0B9F14(portalnum, fromPos, toPos);
+        portalStatuses[portalnum] = bgTestLineIntersectsPortal(portalnum, fromPos, toPos);
     }
 
     for (count = 0; count < 8; count++)
@@ -1196,7 +1196,7 @@ bool bgProjectRoomCoordToScreen(coord3d* src, coord3d* dst)
 }
 
 
-s32 sub_GAME_7F0B5528(s32 portalnum, f32 arg1, coord3d *arg2)
+s32 bgProjectPortalPoints(s32 portalnum, f32 arg1, coord3d *arg2)
 {
     Mtxf *matrix;
     coord3d *point;
@@ -1266,7 +1266,7 @@ s32 sub_GAME_7F0B5528(s32 portalnum, f32 arg1, coord3d *arg2)
 }
 
 
-s32 sub_GAME_7F0B5864(s32 portalnum, bbox2d *bbox)
+s32 bgGetPortalScreenBbox(s32 portalnum, bbox2d *bbox)
 {
     f32 scale;
     PortalCache *cache;
@@ -1291,11 +1291,11 @@ s32 sub_GAME_7F0B5864(s32 portalnum, bbox2d *bbox)
     }
 
     scale = bgGetPortalMargin(portalnum);
-    pointcount = sub_GAME_7F0B5528(portalnum, scale, points);
+    pointcount = bgProjectPortalPoints(portalnum, scale, points);
 
     if (scale > 0.0f)
     {
-        pointcount += sub_GAME_7F0B5528(portalnum, -scale, &points[pointcount]);
+        pointcount += bgProjectPortalPoints(portalnum, -scale, &points[pointcount]);
     }
 
     onscreencount = 0;
@@ -1462,7 +1462,7 @@ s32 g_BgStack[BG_STACK_SIZE] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
  */
 s32 g_BgStackCount = 0;
 s32 current_visibility = 0;
-f32 D_80044900 = 0;
+f32 g_PortalLineCrossDist = 0;
 s32 D_80044904 = 0x7F7FFFFF;
 s32 D_80044908 = 0x7F7FFFFF;
 s32 D_8004490C = 0x7F7FFFFF;
@@ -2110,7 +2110,7 @@ void delete_room_data(s32 roomID)
  * Immediately unload all loaded rooms.
  * Used for stage cleanup.
  */
-void unload_rooms(void)
+void bgUnloadRooms(void)
 {
     s32 i;
 
@@ -3125,7 +3125,7 @@ void bgProcessPortalTraversal(s32 value, s32 roomnum, s32 portalnum, s32 depth, 
     {
         if (g_BgPortals[portalnum].controlbytes1 & PORTALFLAG_SPECIAL)
         {
-            if (!sub_GAME_7F0B5864(portalnum, &screenbox))
+            if (!bgGetPortalScreenBbox(portalnum, &screenbox))
             {
                 return;
             }
@@ -3144,7 +3144,7 @@ void bgProcessPortalTraversal(s32 value, s32 roomnum, s32 portalnum, s32 depth, 
         }
         else
         {
-            if (!sub_GAME_7F0B5864(portalnum, &screenbox))
+            if (!bgGetPortalScreenBbox(portalnum, &screenbox))
             {
                 return;
             }
@@ -3163,7 +3163,7 @@ void bgProcessPortalTraversal(s32 value, s32 roomnum, s32 portalnum, s32 depth, 
  
     if ((screenbox.min.x < screenbox.max.x) && (screenbox.min.y < screenbox.max.y))
     {
-        if (sub_GAME_7F0B39BC(otherroom, depth, &screenbox, g_BgPortals[portalnum].controlbytes1 & PORTALFLAG_SPECIAL))
+        if (bgSetRoomOnScreen(otherroom, depth, &screenbox, g_BgPortals[portalnum].controlbytes1 & PORTALFLAG_SPECIAL))
         {
             return;
         }
@@ -3329,7 +3329,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
             case VISOP_MATCH_PORTAL_VIS:
                 if (execute)
                 {
-                    if (sub_GAME_7F0B5864(cmd[1].arg, &dword_CODE_bss_80081600.unk0) == 0)
+                    if (bgGetPortalScreenBbox(cmd[1].arg, &dword_CODE_bss_80081600.unk0) == 0)
                     {
                         current_visibility = TRUE;
                     }
@@ -3349,7 +3349,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
             case VISOP_VISIBLE_IF_SEEN_THROUGH_PORTAL:
                 if (execute)
                 {
-                    if (sub_GAME_7F0B5864(cmd[1].arg, &sp68) && bgRectIntersect(&sp68, &g_CurrentPlayer->screensize))
+                    if (bgGetPortalScreenBbox(cmd[1].arg, &sp68) && bgRectIntersect(&sp68, &g_CurrentPlayer->screensize))
                     {
                         if (current_visibility)
                         {
@@ -3369,7 +3369,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
             case VISOP_NOT_VISIBLE_IF_SEEN_THROUGH_PORTAL:
                 if (execute && !current_visibility)
                 {
-                    if (!sub_GAME_7F0B5864(cmd[1].arg, &sp58))
+                    if (!bgGetPortalScreenBbox(cmd[1].arg, &sp58))
                     {
                         current_visibility = TRUE;
                     }
@@ -3391,7 +3391,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
                 {
                     if (bgIsRoomOnScreen(cmd[1].arg, (struct rectbbox *)&dword_CODE_bss_80081600.unk0))
                     {
-                        sub_GAME_7F0B39BC(cmd[1].arg, 0, &dword_CODE_bss_80081600.unk0, 0);
+                        bgSetRoomOnScreen(cmd[1].arg, 0, &dword_CODE_bss_80081600.unk0, 0);
 
                         list_visible_rooms_in_cur_global_vis_packet[num_visible_rooms_in_cur_global_vis_packet] = cmd[1].arg;
 
@@ -3524,7 +3524,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
 
 
 // Something about portals. Void* are structs.
-void *sub_GAME_7F0B8A24(s32 *pc) 
+void *bgApplyGlobalVisCommands(s32 *pc) 
 {
 
     current_visibility = 0;
@@ -3577,7 +3577,7 @@ void bgDetermineVisibleRooms(void)
         g_PortalCameraCache[i].count = -1;
     }
 
-    sub_GAME_7F0B8A24(dword_CODE_bss_8007FF90);
+    bgApplyGlobalVisCommands(dword_CODE_bss_8007FF90);
 
     /**
      * If the level is Cradle, or has no portals, skip the portal occlusion culling algorithm. Just add every room in the player's
@@ -3587,20 +3587,20 @@ void bgDetermineVisibleRooms(void)
     {
         if (levelentry_index == LEVEL_INDEX_CRAD) 
         {
-            sub_GAME_7F0B39BC(9, 0, &g_CurrentPlayer->screensize, 1);
+            bgSetRoomOnScreen(9, 0, &g_CurrentPlayer->screensize, 1);
         }
 
         for (i = 1; i < g_MaxNumRooms; i++) 
         {
             if (bgIsRoomOnScreen(i, &g_CurrentPlayer->screensize) != 0) 
             {
-                sub_GAME_7F0B39BC(i, 0, &g_CurrentPlayer->screensize, 1);
+                bgSetRoomOnScreen(i, 0, &g_CurrentPlayer->screensize, 1);
             }
         }
     } 
     else 
     {
-        sub_GAME_7F0B39BC(g_BgCurrentRoom, 0, &g_CurrentPlayer->screensize, 1);
+        bgSetRoomOnScreen(g_BgCurrentRoom, 0, &g_CurrentPlayer->screensize, 1);
 
         for (i = 0; g_BgPortals[i].offset_portal != NULL; i++) 
         {
@@ -3899,7 +3899,7 @@ void bgRoomCalcBB(s32 room)
 }
 
 
-void sub_GAME_7F0B95D8(s32 roomID)
+void bgExpandRoomToPortals(s32 roomID)
 {
     s32 numupdated = 0;
     s32 i;
@@ -3988,15 +3988,11 @@ void bgCalcPortalPlane(s32 portalnum, f32 *out)
 }
 
 
-/**
- * Unknown, makes use of bgCalcPortalPlane.
- */
-s32 bgIsPortalVertical(s32 arg0)
+s32 bgIsPortalVertical(s32 portalnum)
 {
     struct PortalMetric metric;
-    s32 padding;
 
-    bgCalcPortalPlane(arg0, &metric);
+    bgCalcPortalPlane(portalnum, &metric);
 
     if (((metric.normal.f[0] * metric.normal.f[0]) + (metric.normal.f[2] * metric.normal.f[2])) < 0.999f)
     {
@@ -4106,7 +4102,7 @@ s32 bgGetPortalBetweenRooms(s32 room1, s32 room2, coord3d *arg2, coord3d *arg3)
         {
             bFoundPortal = TRUE;
 
-            if (sub_GAME_7F0B9F14(i, arg2, arg3) != 0)
+            if (bgTestLineIntersectsPortal(i, arg2, arg3) != 0)
             {
                 portalIndex = i;
             }
@@ -4132,8 +4128,7 @@ void bgToggleDataPortalsContrlBytes1Bit1(s32 portal, s32 toggle)
 }
 
 
-//bg_consider_window82397B18
-s32 sub_GAME_7F0B9E04(coord3d *arg0, coord3d *arg1)
+s32 bgFindPortalCrossedByLine(coord3d *arg0, coord3d *arg1)
 {
     s32 bestportalnum = -1;
     s32 count = 0;
@@ -4143,9 +4138,9 @@ s32 sub_GAME_7F0B9E04(coord3d *arg0, coord3d *arg1)
 
     for (i = 0; g_BgPortals[i].offset_portal; i++)
     {
-        if (sub_GAME_7F0B9F14(i, arg0, arg1) != 0)
+        if (bgTestLineIntersectsPortal(i, arg0, arg1) != 0)
         {
-            thisthing = D_80044900;
+            thisthing = g_PortalLineCrossDist;
 
             if (thisthing < 0)
             {
@@ -4154,11 +4149,6 @@ s32 sub_GAME_7F0B9E04(coord3d *arg0, coord3d *arg1)
 
             if (thisthing < bestthing)
             {
-                if (count)
-                {
-                }
-
-                if (i);
                 bestportalnum = i;
                 bestthing = thisthing;
                 count++;
@@ -4170,7 +4160,7 @@ s32 sub_GAME_7F0B9E04(coord3d *arg0, coord3d *arg1)
 }
 
 
-s32 sub_GAME_7F0B9F14(s32 portalnum, coord3d *pos1, coord3d *pos2)
+s32 bgTestLineIntersectsPortal(s32 portalnum, coord3d *pos1, coord3d *pos2)
 {
     f32 value1;
     f32 value2;
@@ -4204,7 +4194,7 @@ s32 sub_GAME_7F0B9F14(s32 portalnum, coord3d *pos1, coord3d *pos2)
         return 0;
     }
 
-    D_80044900 = (value1 + value2) * 0.5f - metric.min;
+    g_PortalLineCrossDist = (value1 + value2) * 0.5f - metric.min;
 
     for (i = 0; i < g_BgPortals[portalnum].offset_portal->numPoints; i++)
     {
@@ -4271,7 +4261,7 @@ bool bgIsBboxOverlapping(coord3d *portalbbmin, coord3d *portalbbmax, coord3d *pr
 }
 
 
-void sub_GAME_7F0BA2D4(coord3d *bbmin, coord3d *bbmax, s32 *room_list, s32 *count, s32 max_count)
+void bgGetRoomsIntersectingBbox(coord3d *bbmin, coord3d *bbmax, s32 *room_list, s32 *count, s32 max_count)
 {
     bg_portal_entry *portal_pts;
     f32 v;

@@ -2752,7 +2752,7 @@ void chrpropUpdateRoomList(PropRecord *prop, coord3d *bbmin, coord3d *bbmax, f32
     }
 
     // Update the room list with neighboring rooms reachable through portals and overlapped by the bounding box.
-    sub_GAME_7F0BA2D4(bbmin, bbmax, rooms, &count, 7);
+    bgGetRoomsIntersectingBbox(bbmin, bbmax, rooms, &count, 7);
 
     for (i = 0; i < count; i++) {
         prop->rooms[i] = rooms[i];

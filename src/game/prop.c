@@ -1545,7 +1545,7 @@ void proplvreset2(enum LEVELID stageId)
                                     up.y -= 10.0f * pad3d->up.y;
                                     up.z -= 10.0f * pad3d->up.z;
 
-                                    ((struct TintedGlassRecord *) phead)->portalnum = sub_GAME_7F0B9E04(&up, &up2);
+                                    ((struct TintedGlassRecord *) phead)->portalnum = bgFindPortalCrossedByLine(&up, &up2);
                                     ((struct TintedGlassRecord *) phead)->unk90 = (*((s32 *) (&((struct TintedGlassRecord *) phead)->unk90))) / M_U16_MAX_VALUE_F;
                                 }
                             }
