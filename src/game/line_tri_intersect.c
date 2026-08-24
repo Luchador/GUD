@@ -3,7 +3,7 @@
 
 /**
  * Tests whether an infinite line intersects a triangle, writing the hit position and unnormalized
- * face normal into *hit on success. All the math is done as f64/double.
+ * face normal into *hit on success.
  *
  * @param vertex0 First triangle vertex in local coordinates.
  * @param vertex1 Second triangle vertex in local coordinates.

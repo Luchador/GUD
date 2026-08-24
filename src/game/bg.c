@@ -133,6 +133,10 @@ u8 g_PortalIsVertical[PORTMAX] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
+/**
+ * New addition for GUD. Store the PortalMetrics once at bg load instead of calculating them every frame.
+ */
+struct PortalMetric g_PortalPlanes[PORTMAX];
 
 struct levelentry levelinfotable[] = {
 /*  levelID;            bg_seg_filename;        bg_stan_filename;      levelscale;  visibility; unknownfloat;*/
@@ -685,6 +689,11 @@ void bgLoadFile(LEVEL_INDEX levelid)
  
         for (i = 0; g_BgPortals[i].portal != (NULL); i++)
         {
+            bgCalcPortalPlane(i, &g_PortalPlanes[i]);
+        }
+
+        for (i = 0; g_BgPortals[i].portal != (NULL); i++)
+        {
             g_PortalIsVertical[i] = bgIsPortalVertical(i);
         }
  
@@ -1212,7 +1221,7 @@ s32 bgProjectPortalPoints(s32 portalnum, f32 scale, coord3d *points)
     viGetZRange(zrange);
     zrange[1] /= mCurrentLevelVisibilityScale;
 
-    bgCalcPortalPlane(portalnum, &metric);
+    metric = g_PortalPlanes[portalnum];
 
     for (i = 0; i < g_BgPortals[portalnum].portal->numPoints; i++) 
     {
@@ -3090,7 +3099,7 @@ void bgProcessPortalTraversal(s32 value, s32 roomnum, s32 portalnum, s32 depth, 
     i = (s32) &g_PortalTraversalDepths[portalnum];
  
     playerpos = bondviewGetPlayerPosition();
-    bgCalcPortalPlane(portalnum, &metric);
+    metric = g_PortalPlanes[portalnum];
     playermetric = ((metric.normal.z * playerpos->z) + ((metric.normal.x * playerpos->x) + (metric.normal.y * playerpos->y))) * g_LevelScale;
     portalmetric = bgGetPortalMargin(portalnum);
  

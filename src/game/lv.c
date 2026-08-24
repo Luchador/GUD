@@ -423,7 +423,7 @@ void lvlStageLoad(s32 stage)
 
     zbufDeallocate();
     viSetVideoMode(MD_NORMAL);
-    lvlSetControlsLockedFlag(0);
+    lvlSetControlsLockedFlag(FALSE);
 }
 
 
@@ -951,16 +951,15 @@ void lvlUnloadStageTextData(void)
 }
 
 
-void lvlSetControlsLockedFlag(s32 arg0)
+void lvlSetControlsLockedFlag(bool locked)
 {
-    #if defined(BUGFIX_R1)
-    if ((arg0 != 0) && (g_ControlsLockedFlag == 0))
+    // Integrate R1 fix.
+    if ((locked) && (g_ControlsLockedFlag == FALSE))
     {
         joyRumblePakStop();
     }
-    #endif
 
-    g_ControlsLockedFlag = arg0;
+    g_ControlsLockedFlag = locked;
 }
 
 
@@ -982,15 +981,15 @@ void lvlSetSelectedDifficulty(DIFFICULTY diff)
 }
 
 
-void lvlSetMpTime(s32 arg0)
+void lvlSetMpTime(s32 timelimit)
 {
-    g_MpTime = arg0;
+    g_MpTime = timelimit;
 }
 
 
-void lvlSetMpPoint(s32 arg0)
+void lvlSetMpPoint(s32 pointlimit)
 {
-    g_MpPoint = arg0;
+    g_MpPoint = pointlimit;
 }
 
 
@@ -1045,8 +1044,8 @@ Gfx *lvlDrawFrameRateDisplay(Gfx *gdl)
         fpsWindowStart = now;
     }
 
-    x = viGetViewLeft() + 6;
-    y = viGetViewTop() + 2;
+    x = viGetViewLeft() + 14;
+    y = viGetViewTop() + 6;
     screenwidth = (s32) viGetX();
 
     gdl = gfxSetup2DTextureMode(gdl);
