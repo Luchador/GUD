@@ -201,9 +201,6 @@ Lights1 GlobalLight = gdSPDefLights1(
     77,77,46    /* white light from the upper west-south-west (42 up, 244') */ //D:80044848
 );
 
-s32 D_80044858 = 0;
-s32 D_8004485C = 1;
-
 // Begin forward declarations.
 
 void unload_rooms(void);
@@ -250,6 +247,7 @@ void sub_GAME_7F0B37EC(void)
             do
             {
                 portal = ptr[0];
+
                 while (ptr[1] >= portal)
                 {
                     ((u8 *)g_BgPortals)[(portal << 3) + 6] |= 2;
@@ -615,7 +613,7 @@ void load_bg_file(LEVEL_INDEX levelid)
  
         for (i = 1; i < g_MaxNumRooms; i++)
         {
-            g_BgRoomInfo[i].model_bin_loaded = 0;
+            g_BgRoomInfo[i].loadedState = 0;
             g_BgRoomInfo[i].field_35 = 0;
  
             if (ptr_bgdata_room_fileposition_list[i].pPriMappingBin != (NULL))
@@ -1447,7 +1445,6 @@ BoundVec D_80044874 = {-0x8000, -0x8000, -0x8000};
 BoundVec D_80044880 = {0x7FFF, 0x7FFF, 0x7FFF};
 BoundVec D_8004488C = {-0x8000, -0x8000, -0x8000};
 
-s32 D_80044898 = 0;
 s32 D_8004489C = 0xF;
 s32 g_BgPortalQueueWriteIndex = 0;
 s32 g_BgPortalQueueReadIndex = 0;
@@ -1909,7 +1906,7 @@ s32 bgLoadRoomSecondaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
 s32 bgCheckIfRoomModelNeedsLoad(s32 roomID)
 {
     g_BgRoomInfo[roomID].field_35 = 1;
-    if (g_BgRoomInfo[roomID].model_bin_loaded == 0)
+    if (g_BgRoomInfo[roomID].loadedState == 0)
     {
         bgLoadRoomModelData(roomID);
         return 1;
@@ -1946,7 +1943,7 @@ void bgLoadRoomModelData(s32 roomID)
     if (roomID >= g_MaxNumRooms) goto end;
 
     // Room is already loaded?
-    if (g_BgRoomInfo[roomID].model_bin_loaded) goto end;
+    if (g_BgRoomInfo[roomID].loadedState) goto end;
 
     // Get the cached file size. Is zero when the size is not yet known.
     allocsize = g_BgRoomInfo[roomID].cur_room_totalsize;
@@ -2010,7 +2007,7 @@ void bgLoadRoomModelData(s32 roomID)
     }
 
     g_BgRoomInfo[roomID].cur_room_totalsize = ((used + 0x20) & ~0xf);
-    g_BgRoomInfo[roomID].model_bin_loaded = 1;
+    g_BgRoomInfo[roomID].loadedState = 1;
 
     // If wasted space is detected, shrink allocated memory block.
     if (allocsize != ((used + 0x20) & ~0xf))
@@ -2095,7 +2092,7 @@ void delete_room_data(s32 roomID)
         room->ptr_secondary_expanded_mapping_info = NULL;
     }
 
-    room->model_bin_loaded = 0;
+    room->loadedState = 0;
 }
 
 
@@ -2109,7 +2106,7 @@ void unload_rooms(void)
 
     for(i = 1; i < g_MaxNumRooms; i++)
     {
-        if (g_BgRoomInfo[i].model_bin_loaded)
+        if (g_BgRoomInfo[i].loadedState)
         {
             delete_room_data(i);
         }
@@ -2129,13 +2126,13 @@ void bgRoomsTickUnload(void)
     {
         if (g_BgRoomInfo[i].field_35 == 0)
         {
-            if (g_BgRoomInfo[i].model_bin_loaded == 4)
+            if (g_BgRoomInfo[i].loadedState == 4)
             {
                 delete_room_data(i);
             }
-            else if (g_BgRoomInfo[i].model_bin_loaded != 0)
+            else if (g_BgRoomInfo[i].loadedState != 0)
             {
-                g_BgRoomInfo[i].model_bin_loaded = g_BgRoomInfo[i].model_bin_loaded + 1;
+                g_BgRoomInfo[i].loadedState = g_BgRoomInfo[i].loadedState + 1;
             }
         }
     }
@@ -2154,31 +2151,28 @@ Gfx *bgRenderRoomPrimary(Gfx *gdl, s32 room_index)
         return gdl;
     }
 
-    if ((D_8004485C != 0) || (D_80044858 == (room_index % 10)))
+    if (g_BgRoomInfo[room_index].loadedState == 0)
     {
-        if (g_BgRoomInfo[room_index].model_bin_loaded == 0)
+        if (g_RoomLoadBudget > 0)
         {
-            if (g_RoomLoadBudget > 0)
-            {
-                g_RoomLoadBudget--;
-                bgLoadRoomModelData(room_index);
-            }
+            g_RoomLoadBudget--;
+            bgLoadRoomModelData(room_index);
         }
+    }
 
-        if (g_BgRoomInfo[room_index].model_bin_loaded == 0)
-        {
-            return gdl;
-        }
-        else
-        {
-            gdl = applyRoomMatrixToDisplayList(gdl, room_index);
+    if (g_BgRoomInfo[room_index].loadedState == 0)
+    {
+        return gdl;
+    }
+    else
+    {
+        gdl = applyRoomMatrixToDisplayList(gdl, room_index);
 
-            gSPSegment(gdl++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].vertices));
-            gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].ptr_expanded_mapping_info));
+        gSPSegment(gdl++, SPSEGMENT_BG_VTX, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].vertices));
+        gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].ptr_expanded_mapping_info));
 
-            // Set the room's state to "loaded"
-            g_BgRoomInfo[room_index].model_bin_loaded = 1;
-        }
+        // Set the room's state to "loaded"
+        g_BgRoomInfo[room_index].loadedState = 1;
     }
 
     return gdl;
@@ -2200,9 +2194,9 @@ Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
     {
         return gdl;
     }
-    else if ((D_8004485C != 0) || (D_80044858 == (room_index % 10)))
+    else
     {
-        if (g_BgRoomInfo[room_index].model_bin_loaded != 0)
+        if (g_BgRoomInfo[room_index].loadedState != 0)
         {
             gdl = applyRoomMatrixToDisplayList(gdl, room_index);
 
@@ -2210,7 +2204,7 @@ Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index)
             gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(g_BgRoomInfo[room_index].ptr_secondary_expanded_mapping_info));
 
             // Set the room's state to "loaded"
-            g_BgRoomInfo[room_index].model_bin_loaded = 1;
+            g_BgRoomInfo[room_index].loadedState = 1;
         }
         else
         {
@@ -3010,6 +3004,7 @@ void bgQueuePortalTraversal(s32 arg0, s32 arg1, s32 portalnum, s32 depth, f32 *a
 {
     bg_queued_portal_entry *entry;
     entry = &g_BgPortalQueue[g_BgPortalQueueWriteIndex];
+
     if (depth >= 2)
     {
         if (bgIncrementRoomPortalVisitCount((g_BgPortals[portalnum].connectedRoom2 ^ g_BgPortals[portalnum].connectedRoom1) ^ arg1) >= 9)
@@ -3017,6 +3012,7 @@ void bgQueuePortalTraversal(s32 arg0, s32 arg1, s32 portalnum, s32 depth, f32 *a
             return;
         }
     }
+
     entry->arg0 = arg0;
     entry->roomnum = arg1;
     entry->portalnum = portalnum;
@@ -3025,16 +3021,19 @@ void bgQueuePortalTraversal(s32 arg0, s32 arg1, s32 portalnum, s32 depth, f32 *a
     entry->sp10[1] = arg4[1];
     entry->sp10[2] = arg4[2];
     entry->sp10[3] = arg4[3];
+
     g_BgPortalQueueWriteIndex++;
+
     if (g_BgPortalQueueWriteIndex == BG_PORTAL_QUEUE_LEN)
     {
         g_BgPortalQueueWriteIndex = 0;
     }
+
+    /**
+     * Former debug comment: "bg: pstackat: Overflow "
+     */
     if (g_BgPortalQueueWriteIndex == g_BgPortalQueueReadIndex)
     {
-            #ifdef DEBUG
-            osSyncPrintf("bg: pstackat: Overflow ");
-            #endif
         g_BgPortalQueueWriteIndex--;
     }
 }
@@ -3046,7 +3045,7 @@ bool bgProcessNextQueuedPortal()
 
     if (g_BgPortalQueueReadIndex == g_BgPortalQueueWriteIndex)
     {
-        return 0;
+        return FALSE;
     }
 
     entry = &g_BgPortalQueue[g_BgPortalQueueReadIndex];
@@ -3060,7 +3059,7 @@ bool bgProcessNextQueuedPortal()
         g_BgPortalQueueReadIndex = 0;
     }
 
-    return 1;
+    return TRUE;
 }
 
 
@@ -3073,8 +3072,6 @@ void sub_GAME_7F0B7F84(s32 value, s32 roomnum, s32 portalnum, s32 depth, bbox2d 
     f32 playermetric;
     f32 portalmetric;
     s32 i;
- 
-    D_80044898++;
 
     if (g_BgPortals[portalnum].controlbytes1 & PORTALFLAG_DISABLED)
     {
@@ -3562,15 +3559,8 @@ void bgDetermineVisibleRooms(void)
     {
         D_800442FC[i] = 0;
     }
-    
-    D_80044858 = (s32) (D_80044858 + 1) % 10;
 
-#if defined(LEFTOVERDEBUG)
     dword_CODE_bss_8007FF98 = 0;
-#else
-    *(s32 *) &dword_CODE_bss_8007FFA0[120] = 0;
-#endif
-    D_80044898 = 0;
 
     bgResetPortalQueue();
 
@@ -3608,11 +3598,7 @@ void bgDetermineVisibleRooms(void)
         {
             if ((g_BgCurrentRoom == g_BgPortals[i].connectedRoom1) || (g_BgCurrentRoom == g_BgPortals[i].connectedRoom2)) 
             {
-#if defined(LEFTOVERDEBUG)
                 bgQueuePortalTraversal(0, g_BgCurrentRoom, i, 1, screenbounds);
-#else
-                bgQueuePortalTraversal(g_BgCurrentRoom, i, 1, screenbounds);
-#endif
             }
         }
 
@@ -3858,7 +3844,7 @@ void bgRoomCalcBB(s32 room)
         return;
     }
 
-    wasloaded = g_BgRoomInfo[room].model_bin_loaded;
+    wasloaded = g_BgRoomInfo[room].loadedState;
 
     if (!wasloaded)
     {
@@ -4049,7 +4035,7 @@ s8 bgSwapConnectedRooms(s32 index)
 }
 
 
-void bgOrderPortal(s32 portalnum) // canonical name
+void bgOrderPortal(s32 portalnum)
 {
     coord3d room1centre;
     coord3d room2centre;
@@ -4069,15 +4055,13 @@ void bgOrderPortal(s32 portalnum) // canonical name
 
     sub_GAME_7F0B96CC(portalnum, &metric);
 
-    if (metric.max - metric.min < 0.1f) {
-    }
-
     tmp2 = metric.normal.f[2];
     tmp1 = metric.normal.f[0] * room1centre.f[0] + metric.normal.f[1] * room1centre.f[1] + tmp2 * room1centre.f[2];
 
     swapped = 0;
 
-    if (tmp1 > metric.max) {
+    if (tmp1 > metric.max)
+    {
         swapped = 1;
 
         bgSwapConnectedRooms(portalnum);
@@ -4093,13 +4077,13 @@ void bgOrderPortal(s32 portalnum) // canonical name
 
 	tmp2 = metric.normal.f[0] * room2centre.f[0] + metric.normal.f[1] * room2centre.f[1] + metric.normal.f[2] * room2centre.f[2];
 
-	if (tmp2 <= metric.min) {
-        if (swapped) {
+	if (tmp2 <= metric.min)
+    {
+        if (swapped)
+        {
             bgSwapConnectedRooms(portalnum);
         }
     }
-
-    if (swapped);
 }
 
 

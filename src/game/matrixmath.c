@@ -35,6 +35,7 @@ void matrix_4x4_set_identity(Mtxf *matrix)
 void matrix_4x4_copy(Mtxf *src, Mtxf *dst)
 {
     s32 i, j;
+
     for (i = 0; i < 4; i++)
     {
         for (j = 0; j < 4; j++)
@@ -48,6 +49,7 @@ void matrix_4x4_copy(Mtxf *src, Mtxf *dst)
 void matrix_4x4_multiply_in_place(Mtxf *lhs, Mtxf *rhs)
 {
     Mtxf result;
+
     matrix_4x4_multiply(lhs, rhs, &result);
     matrix_4x4_copy(&result, rhs);
 }
@@ -56,6 +58,7 @@ void matrix_4x4_multiply_in_place(Mtxf *lhs, Mtxf *rhs)
 void matrix_4x4_multiply_homogeneous_in_place(Mtxf *lhs, Mtxf *rhs)
 {
     Mtxf result;
+
     matrix_4x4_multiply_homogeneous(lhs, rhs, &result);
     matrix_4x4_copy(&result, rhs);
 }
@@ -84,6 +87,7 @@ void matrix_4x4_multiply_homogeneous(Mtxf *lhs, Mtxf *rhs, Mtxf *result)
         for (j = 0; j < 4; j++)
         {
             result->m[j][i] = (lhs->m[0][i] * rhs->m[j][0]) + (lhs->m[1][i] * rhs->m[j][1]) + (lhs->m[2][i] * rhs->m[j][2]);
+
             if (j == 3)
             {
                 result->m[j][i] += lhs->m[3][i];

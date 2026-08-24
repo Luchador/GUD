@@ -61,7 +61,7 @@ typedef struct s_room_info {
      * 2-3 = loaded but aging towards unload
      * 4 = unload on tick
      */
-    u8 model_bin_loaded;                    // 0x02
+    u8 loadedState;                         // 0x02
 
     /**
      * Counts how often this room has been reached during the current portal
@@ -89,7 +89,7 @@ typedef struct s_room_info {
 
     u8 room_loaded_mask;                    // 0x34
     u8 field_35;                            // 0x35
-    s16 mtxid;                           // 0x36
+    s16 mtxid;                              // 0x36
 
     coord3d minbounds;                      // 0x38
     coord3d maxbounds;                      // 0x44
