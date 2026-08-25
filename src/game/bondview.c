@@ -3012,7 +3012,7 @@ f32 bondViewGetPauseTransitionFrac(void) {
     return 0.0f;
 }
 
-void trigger_watch_zoom(f32 final,f32 time)
+void watchChangeFOV(f32 final,f32 time)
 {
   g_CurrentPlayer->zoomintime = 0.00000000;
   g_CurrentPlayer->zoomintimemax = time;
@@ -3044,12 +3044,12 @@ void bondviewTriggerWatchZoom(f32 zoominfovy)
     {
         if (zoominfovy < g_CurrentPlayer->zoominfovy)
         {
-            trigger_watch_zoom(zoominfovy, ((g_CurrentPlayer->zoominfovy - zoominfovy) * 15.0f) / 30.0f);
+            watchChangeFOV(zoominfovy, ((g_CurrentPlayer->zoominfovy - zoominfovy) * 15.0f) / 30.0f);
 
             return;
         }
 
-        trigger_watch_zoom(zoominfovy, ((zoominfovy - g_CurrentPlayer->zoominfovy) * 15.0f) / 30.0f);
+        watchChangeFOV(zoominfovy, ((zoominfovy - g_CurrentPlayer->zoominfovy) * 15.0f) / 30.0f);
     }
 }
 
@@ -3074,7 +3074,7 @@ void bondviewZoomToWatchOnOpen(void)
         f = -f;
     }
 
-    trigger_watch_zoom(5.9f, f);
+    watchChangeFOV(5.9f, f);
 
 }
 
@@ -3090,7 +3090,7 @@ void bondviewZoomFromWatchOnExit(void)
         f = -f;
     }
 
-    trigger_watch_zoom(60.0f, f);
+    watchChangeFOV(60.0f, f);
 }
 
 
@@ -3106,19 +3106,11 @@ void bondviewUpdateWatchZoomIn(void)
     {
         if ((g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x5) || (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0xc))
         {
-#if defined(BUGFIX_R1)
-            g_CurrentPlayer->zoomintime = g_CurrentPlayer->zoomintime + (f32) jpD_800484D0;
-#else
             g_CurrentPlayer->zoomintime = g_CurrentPlayer->zoomintime + (f32) speedgraphframes;
-#endif
         }
         else
         {
-#if defined(BUGFIX_R1)
-            g_CurrentPlayer->zoomintime = g_CurrentPlayer->zoomintime + (jpD_800484D0 * watch_transition_time);
-#else
             g_CurrentPlayer->zoomintime = g_CurrentPlayer->zoomintime + (speedgraphframes * watch_transition_time);
-#endif
         }
 
         if (g_CurrentPlayer->zoomintimemax < g_CurrentPlayer->zoomintime)
@@ -3146,11 +3138,6 @@ void bondviewUpdateWatchZoomIn(void)
 }
 
 
-
-
-/**
- * Address 0x7F07E740.
- */
 f32 bondviewWatchAnimationRelated(void)
 {
     if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x4)
@@ -3172,9 +3159,6 @@ f32 bondviewWatchAnimationRelated(void)
 }
 
 
-
-
-
 void sub_GAME_7F07E7CC(void) {
     ModelFileHeader *itemheader;
 
@@ -3187,12 +3171,6 @@ void sub_GAME_7F07E7CC(void) {
 }
 
 
-
-
-
-/**
- * Address 0x7F07E8B0.
- */
 void bondviewSetPauseWatchRelated(f32 arg0)
 {
     if (g_CurrentPlayer->step_in_view_watch_animation == 0)
@@ -3266,13 +3244,6 @@ void bondviewStepWatchAnimation(void)
 }
 
 
-
-
-
-
-/**
- * Address 0x7F07EA78.
- */
 f32 bondviewGetPauseAnimationPercent(void)
 {
     if ((g_CurrentPlayer->step_in_view_watch_animation == 1) || (g_CurrentPlayer->step_in_view_watch_animation == 2))
@@ -3289,18 +3260,16 @@ f32 bondviewGetPauseAnimationPercent(void)
 }
 
 
-
-
-void set_BONDdata_outside_watch_menu_flag(s32 arg0) {
+void set_BONDdata_outside_watch_menu_flag(s32 arg0)
+{
     g_CurrentPlayer->outside_watch_menu = arg0;
 }
 
-s32 get_BONDdata_outside_watch_menu_flag(void) {
+
+s32 get_BONDdata_outside_watch_menu_flag(void)
+{
     return g_CurrentPlayer->outside_watch_menu;
 }
-
-
-
 
 
 void bondviewPlayerStopAudioForPause(void)
@@ -3747,7 +3716,7 @@ void bondviewWatchAnimationTick(void)
     if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x5)
     {
         lvSetControlsLockedFlag(TRUE);
-        sub_GAME_7F0A6A80();
+        watchNavigate();
     }
     else if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0xc)
     {
@@ -3817,7 +3786,7 @@ void trigger_solo_watch_menu(s32 arg0)
             hudMakeDamageSegments(&g_CurrentPlayer->health_display_values, 23*2, -1, currentPlayerGetHealth());
             buildGaugeBarDL(g_CurrentPlayer->watch_health_bar_gdl, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->health_display_values), 0x2E);
 
-            sub_GAME_7F0A69A8();
+            watchReset();
 
             /**
              * This section is for rendering the selected screen rectangles.
@@ -3901,7 +3870,7 @@ void trigger_solo_watch_menu(s32 arg0)
             g_CurrentPlayer->watch_animation_state = WATCH_ANIMATION_0x4;
             g_CurrentPlayer->watch_pause_time = 0;
             g_CurrentPlayer->timer_1C4 = 0;
-            sub_GAME_7F0A69A8();
+            watchReset();
         }
     }
     else if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x7)
@@ -3911,7 +3880,7 @@ void trigger_solo_watch_menu(s32 arg0)
             g_CurrentPlayer->watch_animation_state = WATCH_ANIMATION_0x3;
             g_CurrentPlayer->watch_pause_time = 0;
             g_CurrentPlayer->timer_1C4 = 0;
-            sub_GAME_7F0A69A8();
+            watchReset();
         }
     }
     else if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x8)
@@ -3921,7 +3890,7 @@ void trigger_solo_watch_menu(s32 arg0)
             g_CurrentPlayer->watch_animation_state = WATCH_ANIMATION_0xb;
             g_CurrentPlayer->watch_pause_time = 0;
             g_CurrentPlayer->timer_1C4 = 0;
-            sub_GAME_7F0A69A8();
+            watchReset();
         }
     }
     else if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x9)
@@ -6129,19 +6098,11 @@ void bondviewPlayerTickDamageAndHealth(void)
 
             if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x0)
             {
-#if defined(VERSION_US)
                 g_CurrentPlayer->damageshowtime += g_ClockTimer;
-#else
-                g_CurrentPlayer->damageshowtime += g_GlobalTimerDelta;
-#endif
             }
             else
             {
-#if defined(VERSION_US)
                 g_CurrentPlayer->damageshowtime += speedgraphframes;
-#else
-                g_CurrentPlayer->damageshowtime += jpD_800484D0;
-#endif
             }
         }
         else /* (damage showtime is over) */

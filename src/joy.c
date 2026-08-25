@@ -528,11 +528,6 @@ void joyPoll(void)
 
 s8 joyGetStickX(s8 contpadnum)
 {
-    //this assert is on ALL stick functions below
-#ifdef DEBUG
-    assert(contpadnum > 0); //j
-#endif
-
     if ((g_ContDataPtr->playbackcontcount < 0) && ((g_ConnectedControllers >> contpadnum & 1) == 0))
     {
         g_ContBadReadsStickX[contpadnum]++;
@@ -541,8 +536,12 @@ s8 joyGetStickX(s8 contpadnum)
 
     return g_ContDataPtr->samples[g_ContDataPtr->curlast].pads[contpadnum].stick_x;
 }
-//duplicate?
-s8 joy7000C174(s8 contpadnum)
+
+
+/**
+ * Stick X from the oldest sample in the window, paired with joyGetStickX for flick detection.
+ */
+s8 joyGetPrevStickX(s8 contpadnum)
 {
     if ((g_ContDataPtr->playbackcontcount < 0) && ((g_ConnectedControllers >> contpadnum & 1) == 0))
     {
@@ -566,7 +565,10 @@ s8 joyGetStickY(s8 contpadnum)
 }
 
 
-s8 joy7000C284(s8 contpadnum)
+/**
+ * Stick Y from the oldest sample in the window, paired with joyGetStickY for flick detection.
+ */
+s8 joyGetPrevStickY(s8 contpadnum)
 {
     if ((g_ContDataPtr->playbackcontcount < 0) && ((g_ConnectedControllers >> contpadnum & 1) == 0))
     {

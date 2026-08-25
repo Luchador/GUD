@@ -5,12 +5,6 @@
 extern s32 lastFrameCounter;
 extern s32 currentFrameCounter;
 extern s32 speedgraphframes;
-
-#if defined (BUGFIX_R1)
-extern f32 jpD_800484CC;
-extern f32 jpD_800484D0;
-#endif
-
 extern s32 previousFrameCounter;
 extern s32 halfFrameCounter;
 extern s32 isFrameCounterOdd;

@@ -111,11 +111,11 @@ struct game_options {
     u32 current_value;
 };
 
-extern struct game_options game_options_entries[];
-void reset_controller_options_index(void);
-void reset_game_options_index(void);
-void optionsSetAbortIsConfirmSelectedFalse(void);
-f32 watchWrapAroundPI(f32 arg0);
+extern struct game_options g_GameOptionEntries[];
+void watchResetControllerOptionsIndex(void);
+void watchResetGameOptionsIndex(void);
+void watchSetAbortIsConfirmSelectedFalse(void);
+f32 watchWrapAroundPI(f32 radians);
 f32 sub_GAME_7F0A95C4(f32 param_1, f32 param_2, f32 param_3);
 SCREEN_RATIO_OPTION get_screen_ratio(void);
 void set_screen_ratio(SCREEN_RATIO_OPTION ratio_option);
@@ -135,7 +135,8 @@ void sub_GAME_7F0A91A0(u16 arg0);
 void cur_player_set_control_type(s32 type);
 void optionsWatchInit();
 Gfx *optionsDrawCurrentWatchPage(Gfx *gdl, Mtx *arg1, s32 watch_transitioning);
-void sub_GAME_7F0A69A8(void);
+void watchReset(void);
+s32 sub_GAME_7F0AC0E8(u8 *arg);
 
 #endif
 

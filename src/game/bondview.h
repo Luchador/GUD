@@ -1313,7 +1313,7 @@ u32 bondviewGetCameraMode(void);
 
 void bondviewTriggerWatchZoom(f32 zoominfovy);
 
-void trigger_watch_zoom(f32 final, f32 time);
+void watchChangeFOV(f32 final, f32 time);
 
 void set_open_close_solo_watch_menu_to1(void);
 

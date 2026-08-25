@@ -3226,9 +3226,7 @@ struct MatchHack_front_rodata_3000 { u8 data[0xbb8]; };
  * See notes below. Assume this is not in original codebase.
  * (the struct isn't, but the 3000 character newline string is)
 */
-#ifndef VERSION_EU
 const struct MatchHack_front_rodata_3000 asc_D_8004F4B4 = { "\n" };
-#endif
 
 Gfx *constructor_menu08_difficulty(Gfx *DL)
 {
@@ -6422,10 +6420,8 @@ Gfx *print_objectives_and_status_to_menu(Gfx *DL, s32 arg1, u8 *arg2, s32 arg3)
 }
 
 
-// Address 0x7F015D74 NTSC
-#ifndef VERSION_EU
+
 const struct MatchHack_front_rodata_3000 asc_D_80050C54 = { "\n" };
-#endif
 
 Gfx *constructor_menu0A_briefing(Gfx *DL)
 {
@@ -6436,15 +6432,9 @@ Gfx *constructor_menu0A_briefing(Gfx *DL)
 
     DL = viSetFillColor(DL,0,0,0);
     DL = viFillScreen(DL);
-#ifdef VERSION_EU
-    DL = viFillScreen(DL);
-    DL = viFillScreen(DL);
-#endif
     DL = frontSetupMenuBackground(DL);
 
-#if !defined(VERSION_EU)
     sp4C = asc_D_80050C54;
-#endif
 
     DL = gfxSetup2DTextureMode(DL);
     DL = print_current_solo_briefing_stage_name(DL, (char*)&sp4C);
@@ -6474,6 +6464,7 @@ Gfx *constructor_menu0A_briefing(Gfx *DL)
 
     spC08 = 0x37;
     spC04 = 0x8F;
+
     DL = frontPrintText(DL, &spC08, &spC04, (s8*)spC0C, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
 
     if (current_menu_briefing_page == BRIEFING_TITLE)

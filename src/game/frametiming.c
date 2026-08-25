@@ -3,7 +3,7 @@
 #include <music.h>
 #include "frametiming.h"
 
-// data
+
 s32 lastFrameCounter = -1;
 s32 currentFrameCounter = 0;
 
@@ -11,14 +11,6 @@ s32 currentFrameCounter = 0;
  * Appears to be rendered framerate, or some kind of counter since the last frame update.
  */
 s32 speedgraphframes = 1;
-
-#if defined(BUGFIX_R1)
-// EU address D_8004111C
-f32 jpD_800484CC = 1.0f;
-
-// EU address D_80041120
-f32 jpD_800484D0 = 1.0f;
-#endif
 
 s32 previousFrameCounter = -1;
 s32 halfFrameCounter = 0; // half of currentFrameCounter
@@ -61,11 +53,6 @@ void updateFrameCounters(s32 deltaFrames)
         /*u32 frameUs = OS_CYCLES_TO_USEC(copy_of_osgetcount_value_1 - copy_of_osgetcount_value_0);
         osSyncPrintf("frame: %d.%03d ms (%d vsync)\n", frameUs / 1000, frameUs % 1000, deltaFrames);*/
     }
-    #endif
-
-    #ifdef BUGFIX_R1
-    jpD_800484CC = (f32) deltaFrames;
-    jpD_800484D0 = (f32) jpD_800484CC;
     #endif
 
     previousFrameCounter = (s32) halfFrameCounter;

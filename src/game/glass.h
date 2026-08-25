@@ -86,7 +86,6 @@ extern u32 D_8004098C;
 extern u32 D_80040990;
 extern u32 watch_screen_index;
 extern u32 controller_options_index;
-extern u32 game_options_index;
 
 void sub_GAME_7F0A47FC(void);
 void update_broken_windows(void);
