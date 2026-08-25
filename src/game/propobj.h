@@ -54,14 +54,9 @@ extern f32 g_AutogunDamageScalar;
 extern f32 g_SoloAmmoMultiplier;
 extern struct Model *g_CurrentProjectileModel;
 extern struct ModelNode *dword_CODE_bss_80075B74;
-
 extern ExplosionDetailsRecord object_explosion_details[];
 
-/**
- * @param arg0: Prop for tank
- * @param arg1: maybe flags
- */
-void                 sub_GAME_7F04F218(struct PropRecord *arg0, s32 arg1);
+void                 objSetCollisionEnabled(PropRecord* prop, s32 enabled);
 void                 objFreePermanently(struct ObjectRecord *obj, bool freeprop);
 void                 chrobjApplySpeed(f32 *openPosition, f32 maxFrac, f32 *speedPtr, f32 accel, f32 decel, f32 maxSpeed);
 void                 chrobjCallsApplySpeed(f32 *openPosition, f32 maxFrac, f32 *speedPtr, f32 accel, f32 decel, f32 maxSpeed);

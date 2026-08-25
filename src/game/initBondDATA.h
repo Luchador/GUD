@@ -46,7 +46,7 @@ struct BONDdata_item_control_blocks {
     int field_A0;
     float field_A4;
     int field_A8;
-    int field_AC;
+    int collisionEnabled;
     int field_B0;
     int field_B4;
     float field_B8;

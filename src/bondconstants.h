@@ -174,7 +174,7 @@ typedef enum CHRHIDDEN
     CHRHIDDEN_REMOVE                = 0x0020, // remove character
     CHRHIDDEN_TIMER_ACTIVE          = 0x0040, // chr timer is active
     CHRHIDDEN_FIRE_TRACER           = 0x0080, // spawn a tracer
-    CHRHIDDEN_MOVING                = 0x0100, // moving
+    CHRHIDDEN_NONSOLID                = 0x0100, // moving
     CHRHIDDEN_BACKGROUND_AI         = 0x0200, // chr has an AI script currently running
     CHRHIDDEN_0400                  = 0x0400, // unknown
     CHRHIDDEN_FREEZE                = 0x0800, // freeze current animation state
@@ -481,7 +481,7 @@ typedef enum PROPSTATE {
     PROPSTATE_RESPAWN = 0x04,
     PROPSTATE_EXT_COLISION_BLOCK = 0x08,
     PROPSTATE_10 = 0x10,
-    PROPSTATE_20 = 0x20,
+    PROPSTATE_NONSOLID = 0x20,
     PROPSTATE_ACTIVATED = 0x40,
     PROPSTATE_DESTROYED = 0x80
 } PROPSTATE;

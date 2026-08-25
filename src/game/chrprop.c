@@ -2059,15 +2059,15 @@ void sub_GAME_7F03D058(PropRecord *prop, bool unset)
 {
     if (prop->type == PROP_TYPE_CHR)
     {
-        chrSetMoving(prop->chr, unset);
+        chrSetCollidable(prop->chr, unset);
     }
     else if (prop->type == PROP_TYPE_VIEWER)
     {
-        bondviewUpdateGuardTankFlagsRelated(prop, unset);
+        bviewSetPlayerSolid(prop, unset);
     }
     else if ((prop->type == PROP_TYPE_OBJ) || (prop->type == PROP_TYPE_DOOR) || (prop->type == PROP_TYPE_WEAPON))
     {
-        sub_GAME_7F04F218(prop, unset);
+        objSetCollisionEnabled(prop, unset);
     }
 }
 
@@ -2202,7 +2202,7 @@ f32 chrpropScoreAutoAimTarget(PropRecord *targetprop, coord3d *aimpos, f32 *worl
             playerprop = getCurrentPlayerProp();
             line_stan = playerprop->stan;
             player_los_height = bondviewGetPlayerDuckingHeightRelated(g_CurrentPlayer);
-            bondviewUpdateGuardTankFlagsRelated(playerprop, FALSE);
+            bviewSetPlayerSolid(playerprop, FALSE);
 
             // Can auto-aim see the target?
             if ((stanTestLineUnobstructed(&line_stan, playerprop->pos.f[0], playerprop->pos.f[2], targetprop->pos.f[0], targetprop->pos.f[2], CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PATHBLOCKER, player_los_height, player_los_height, 0.0f, 1.0f) != 0))
@@ -2258,7 +2258,7 @@ f32 chrpropScoreAutoAimTarget(PropRecord *targetprop, coord3d *aimpos, f32 *worl
                 }
             }
 
-            bondviewUpdateGuardTankFlagsRelated(playerprop, TRUE);
+            bviewSetPlayerSolid(playerprop, TRUE);
         }
     }
 

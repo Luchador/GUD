@@ -9348,27 +9348,22 @@ struct coord3d *getCurrentPlayerPrevPos(void)
 }
 
 
-/**
- * Address 0x7F08A03C.
- */
-void bondviewUpdateGuardTankFlagsRelated(PropRecord *prop, s32 flag)
+void bviewSetPlayerSolid(PropRecord *prop, s32 flag)
 {
-    s32 playerIndex;
-
-    playerIndex = getPlayerPointerIndex(prop);
+    s32 playerIndex = getPlayerPointerIndex(prop);
 
     if (prop->chr != NULL)
     {
-        chrSetMoving(prop->chr, flag);
+        chrSetCollidable(prop->chr, flag);
     }
 
     if (g_PlayerTankProp != NULL)
     {
-        // When commented out tank shells fired from the tank detonate immediately.
-        sub_GAME_7F04F218(g_PlayerTankProp, flag);
+        // Prevent fired tank shells from colliding with the tank body.
+        objSetCollisionEnabled(g_PlayerTankProp, flag);
     }
 
-    g_playerPointers[playerIndex]->field_AC = flag;
+    g_playerPointers[playerIndex]->collisionEnabled = flag;
 }
 
 
@@ -9377,7 +9372,7 @@ void bondviewGetPropHeightRelatedValues(PropRecord *arg0, struct rect4f **field_
     s32 temp_v0;
 
     temp_v0 = getPlayerPointerIndex(arg0);
-    if (g_playerPointers[temp_v0]->field_AC != 0)
+    if (g_playerPointers[temp_v0]->collisionEnabled != 0)
     {
         // What is this doing and why is it 1 player only?
         if (getPlayerCount() == 1 || g_playerPointers[temp_v0]->bondstate == FALSE)
@@ -9901,9 +9896,9 @@ s32 playerTick(PropRecord *prop)
     {
         if ((g_playerPointers[index]->bodyModel != NULL) && (!(g_playerPointers[index]->frozencam != 1)))
         {
-            g_playerPointers[index]->field_AC = 0;
+            g_playerPointers[index]->collisionEnabled = 0;
             ret = chrTick(prop);
-            g_playerPointers[index]->field_AC = 1;
+            g_playerPointers[index]->collisionEnabled = 1;
  
             g_playerPointers[index]->field_488.collision_position.x = g_playerPointers[index]->prop->pos.x;
             g_playerPointers[index]->field_488.collision_position.y = g_playerPointers[index]->prop->pos.y;

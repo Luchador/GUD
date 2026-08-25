@@ -277,7 +277,7 @@ void init_player_BONDdata(void)
     g_CurrentPlayer->autocrouchpos = CROUCH_STAND;
     g_CurrentPlayer->crouchoffset = 0.0f;
     g_CurrentPlayer->field_A4 = 0.0f;
-    g_CurrentPlayer->field_AC = 1;
+    g_CurrentPlayer->collisionEnabled = 1;
     g_CurrentPlayer->field_D0 = 0;
     g_CurrentPlayer->bondstate = BONDSTATE_ALIVE;
     g_CurrentPlayer->bondhealth = 1.0f;

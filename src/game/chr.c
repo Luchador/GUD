@@ -1153,17 +1153,16 @@ void get_ptr_allocated_block_for_vertices(int param_1)
 }
 
 
-void chrSetMoving(ChrRecord *self, bool unset)
+void chrSetCollidable(ChrRecord *self, bool solid)
 {
-    if (unset)
+    if (solid)
     {
-        self->hidden &= ~CHRHIDDEN_MOVING;
+        self->hidden &= ~CHRHIDDEN_NONSOLID;
     }
     else
     {
-        self->hidden |= CHRHIDDEN_MOVING;
+        self->hidden |= CHRHIDDEN_NONSOLID;
     }
-    return;
 }
 
 
@@ -1186,7 +1185,7 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
     tile = stan;
 
     chrGetChrWidthHeight(guard->prop, &width, &height, &always_20);
-    chrSetMoving(guard, 0);
+    chrSetCollidable(guard, FALSE);
     stanResetHits();
 
     if (stanTestLineUnobstructed(&tile, src->x, src->z, dst->x, dst->z, 0x1f, height, always_20, 0.0f, 1.0f))
@@ -1330,7 +1329,7 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
     }
 
 done:
-    chrSetMoving(guard, 1);
+    chrSetCollidable(guard, TRUE);
 
     if (ret == NULL)
     {
@@ -3419,7 +3418,7 @@ void chrUpdateCollisionBounds(PropRecord *prop, rect4f **polygon, s32 *edges, f3
         (chr->actiontype != ACT_DIE) &&
         (chr->actiontype != ACT_DEAD) &&
         ((chr->chrflags & (CHRFLAG_00010000 | CHRFLAG_HIDDEN)) == 0) &&
-        ((chr->hidden & CHRHIDDEN_MOVING) == 0)
+        ((chr->hidden & CHRHIDDEN_NONSOLID) == 0)
         )
     {
         *edges = 4;

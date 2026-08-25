@@ -1471,7 +1471,7 @@ bool projectileFindCollidingProp(PropRecord *ignoreProp, coord3d *worldRayStart,
                             }
                         }
 
-                        if ((iterprop != playerstank) || !(obj->state & PROPSTATE_20))
+                        if ((iterprop != playerstank) || !(obj->state & PROPSTATE_NONSOLID))
                         {
                             if (projectileTestObjectCollisionRecursive(obj, worldRayStart, worldRayEnd, &sp98, dist, &sp88, &sp7c, outHitPos, outHitNormal, &spa8))
                             {
@@ -1486,14 +1486,14 @@ bool projectileFindCollidingProp(PropRecord *ignoreProp, coord3d *worldRayStart,
 
                     if (iterprop->type == PROP_TYPE_VIEWER)
                     {
-                        if (!g_playerPointers[getPlayerPointerIndex(iterprop)]->field_AC || (cdtypes & CDTYPE_PLAYERS) == 0)
+                        if (!g_playerPointers[getPlayerPointerIndex(iterprop)]->collisionEnabled || (cdtypes & CDTYPE_PLAYERS) == 0)
                         {
                             continue;
                         }
                     }
                     else if (iterprop->type == PROP_TYPE_CHR)
                     {
-                        if ((chr->hidden & CHRHIDDEN_MOVING) || (cdtypes & CDTYPE_CHRS) == 0)
+                        if ((chr->hidden & CHRHIDDEN_NONSOLID) || (cdtypes & CDTYPE_CHRS) == 0)
                         {
                             continue;
                         }
@@ -1504,7 +1504,7 @@ bool projectileFindCollidingProp(PropRecord *ignoreProp, coord3d *worldRayStart,
                         found_collision = TRUE;
                     }
                 }
-                else if (iterprop->type == PROP_TYPE_VIEWER && g_playerPointers[getPlayerPointerIndex(iterprop)]->field_AC)
+                else if (iterprop->type == PROP_TYPE_VIEWER && g_playerPointers[getPlayerPointerIndex(iterprop)]->collisionEnabled)
                 {
                     if (sub_GAME_7F041400(iterprop, worldRayStart, worldRayEnd, &sp98, outHitPos, outHitNormal, &spa8))
                     {
@@ -4059,7 +4059,7 @@ s32 objTick(struct PropRecord *prop)
 {
 	Mtxf *mtxs;
 	f32 temp_f14_3;
-	struct coord3d RocketCurrent;
+	struct coord3d ProjPos;
 	s32 objMovedThisFrame;
 	f32 temp_f20;
 	f32 nextVerticalSpeed;
@@ -4149,7 +4149,7 @@ s32 objTick(struct PropRecord *prop)
 	s32 var_a0_6;
 	struct WeaponObjRecord * temp_v1_10;
 	Mtxf *temp_s2_7;
-	struct Projectile * Rocket;
+	struct Projectile * Proj;
 	f32 sp4D8;
 	f32 targetPitch;
 	struct coord3d *temp_v1_11;
@@ -4310,26 +4310,21 @@ s32 objTick(struct PropRecord *prop)
 		}
 	}
 
-    /**
-     * sp100 is a PropRecord* but is used to store a color here. It should really be two
-     * separate variables, and probably was, but got merged during decompilation.
-     */
-#if !defined(VERSION_EU)
 	col = obj->nextcol;
-#endif
+
 	if (isSimOwner)
 	{
 		if (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
 		{
-			Rocket = obj->projectile;
-			Rocket->age += g_ClockTimer;
+			Proj = obj->projectile;
+			Proj->age += g_ClockTimer;
 
-			if (((s32) Rocket->age) > PROJECTILE_LIFETIME_FRAMES)
+			if (((s32) Proj->age) > PROJECTILE_LIFETIME_FRAMES)
 			{
 				obj->runtime_bitflags |= RUNTIMEBITFLAG_REMOVE;
 			}
 
-			if (Rocket->flags & PROJECTILEFLAG_00000100)
+			if (Proj->flags & PROJECTILEFLAG_00000100)
 			{
 				moveOnlyIfPathClear = TRUE;
 
@@ -4343,16 +4338,16 @@ s32 objTick(struct PropRecord *prop)
 					}
 				}
 
-				if (Rocket->ownerprop != NULL)
+				if (Proj->ownerprop != NULL)
 				{
-					sub_GAME_7F03D058(Rocket->ownerprop, 0);
+					sub_GAME_7F03D058(Proj->ownerprop, 0);
 				}
 
-				moveResult = sub_GAME_7F042EB4(obj, &Rocket->unkd4, &sp64C, &sp658, 0, moveOnlyIfPathClear);
+				moveResult = sub_GAME_7F042EB4(obj, &Proj->unkd4, &sp64C, &sp658, 0, moveOnlyIfPathClear);
 
-				if (Rocket->ownerprop != NULL)
+				if (Proj->ownerprop != NULL)
 				{
-					sub_GAME_7F03D058(Rocket->ownerprop, 1);
+					sub_GAME_7F03D058(Proj->ownerprop, 1);
 				}
 
                 /*
@@ -4367,16 +4362,16 @@ s32 objTick(struct PropRecord *prop)
 					weaponObj->timer = 0;
 				}
 
-				Rocket->flags &= ~PROJECTILEFLAG_00000100;
+				Proj->flags &= ~PROJECTILEFLAG_00000100;
 			}
 
-			RocketCurrent.f[0] = obj->position.f[0];
-			RocketCurrent.f[1] = obj->position.f[1];
-			RocketCurrent.f[2] = obj->position.f[2];
+			ProjPos.f[0] = obj->position.f[0];
+			ProjPos.f[1] = obj->position.f[1];
+			ProjPos.f[2] = obj->position.f[2];
 
-			if (Rocket->refreshrate > 0)
+			if (Proj->refreshrate > 0)
 			{
-				Rocket->refreshrate -= g_ClockTimer;
+				Proj->refreshrate -= g_ClockTimer;
 			}
 
 			if (obj->projectile->flags & PROJECTILEFLAG_AIRBORNE)
@@ -4389,66 +4384,66 @@ s32 objTick(struct PropRecord *prop)
 				bboxBottomOffset = 1.0f;
 				temp_f20 = obj->position.f[1];
 				canEmbed = FALSE;
-				Rocket->unkA8 += g_ClockTimer;
+				Proj->unkA8 += g_ClockTimer;
 				previousXAxis.f[0] = obj->mtx.m[0][0];
 				previousXAxis.f[1] = obj->mtx.m[0][1];
 				previousXAxis.f[2] = obj->mtx.m[0][2];
 
-				if (Rocket->flags & PROJECTILEFLAG_00000020)
+				if (Proj->flags & PROJECTILEFLAG_00000020)
 				{
 					m_RocketGravity = ROCKET_INITIAL_GRAVITY_MODIFIER;
-					if (Rocket->unk1C < m_RocketGravity)
+					if (Proj->unk1C < m_RocketGravity)
 					{
-						Rocket->unkB4 += Rocket->unk10.f[1] * g_GlobalTimerDelta;
-						Rocket->unkB0 += Rocket->unkB4 * g_GlobalTimerDelta;
+						Proj->unkB4 += Proj->unk10.f[1] * g_GlobalTimerDelta;
+						Proj->unkB0 += Proj->unkB4 * g_GlobalTimerDelta;
                         // Gravity modifier increases at 1/90 per frame until reaching ROCKET_INITIAL_GRAVITY_MODIFIER
                         // I would have thought this is somehow related to turning 9.8m/s/s into per frame accel? 
-						Rocket->unk1C += (1.0f / 90.0f) * g_GlobalTimerDelta;
-						if (Rocket->unk1C > m_RocketGravity)
+						Proj->unk1C += (1.0f / 90.0f) * g_GlobalTimerDelta;
+						if (Proj->unk1C > m_RocketGravity)
 						{
-							Rocket->unk1C = m_RocketGravity;
+							Proj->unk1C = m_RocketGravity;
 						}
 					}
-					else if (RocketCurrent.f[1] < Rocket->unkB0)
+					else if (ProjPos.f[1] < Proj->unkB0)
 					{
-						Rocket->unkB4 += Rocket->unk10.f[1] * g_GlobalTimerDelta;
-						Rocket->unkB0 += Rocket->unkB4 * g_GlobalTimerDelta;
+						Proj->unkB4 += Proj->unk10.f[1] * g_GlobalTimerDelta;
+						Proj->unkB0 += Proj->unkB4 * g_GlobalTimerDelta;
                         //Smooth vertical interpolation when rocket is rising toward its ballistic apex.
-						RocketCurrent.f[1] += (0.07f * (Rocket->unkB0 - RocketCurrent.f[1])) * g_GlobalTimerDelta;
+						ProjPos.f[1] += (0.07f * (Proj->unkB0 - ProjPos.f[1])) * g_GlobalTimerDelta;
 					}
 					else
 					{
-						RocketCurrent.f[1] = Rocket->unkB0;
-						Rocket->flags &= ~PROJECTILEFLAG_00000020;
-						Rocket->unk1C = 0.0f;
-						Rocket->flags |= PROJECTILEFLAG_POWERED;
-						Rocket->speed.f[1] = Rocket->unkB4;
+						ProjPos.f[1] = Proj->unkB0;
+						Proj->flags &= ~PROJECTILEFLAG_00000020;
+						Proj->unk1C = 0.0f;
+						Proj->flags |= PROJECTILEFLAG_POWERED;
+						Proj->speed.f[1] = Proj->unkB4;
 					}
 				}
 
 				m_PropGravity = PROP_PROJECTILE_GRAVITY_MODIFIER;
 
-				if (!(Rocket->flags & PROJECTILEFLAG_POWERED))
+				if (!(Proj->flags & PROJECTILEFLAG_POWERED))
 				{
-					Rocket->speed.f[1] += (Rocket->unk10.f[1] + Rocket->unk1C) * g_GlobalTimerDelta;
-					temp_f12 = Rocket->speed.f[1];
+					Proj->speed.f[1] += (Proj->unk10.f[1] + Proj->unk1C) * g_GlobalTimerDelta;
+					temp_f12 = Proj->speed.f[1];
 					nextVerticalSpeed = temp_f12 - (m_PropGravity * g_GlobalTimerDelta);
                     //apparently Standard trapezoidal integrator. (y += (dt * (v + v_next)) * 0.5f)
-					RocketCurrent.f[1] += (g_GlobalTimerDelta * (temp_f12 + nextVerticalSpeed)) * 0.5f;
-					Rocket->speed.f[1] = nextVerticalSpeed;
+					ProjPos.f[1] += (g_GlobalTimerDelta * (temp_f12 + nextVerticalSpeed)) * 0.5f;
+					Proj->speed.f[1] = nextVerticalSpeed;
 				}
 				else
 				{
-					Rocket->speed.f[1] += (Rocket->unk10.f[1] + Rocket->unk1C) * g_GlobalTimerDelta;
-					RocketCurrent.f[1] += Rocket->speed.f[1] * g_GlobalTimerDelta;
+					Proj->speed.f[1] += (Proj->unk10.f[1] + Proj->unk1C) * g_GlobalTimerDelta;
+					ProjPos.f[1] += Proj->speed.f[1] * g_GlobalTimerDelta;
 				}
 
 				objectMatrix = &obj->mtx;
-				projectileMatrix = &Rocket->mtx;
-				Rocket->speed.f[0] += Rocket->unk10.f[0] * g_GlobalTimerDelta;
-				Rocket->speed.f[2] += Rocket->unk10.f[2] * g_GlobalTimerDelta;
-				RocketCurrent.f[0] += Rocket->speed.f[0] * g_GlobalTimerDelta;
-				RocketCurrent.f[2] += Rocket->speed.f[2] * g_GlobalTimerDelta;
+				projectileMatrix = &Proj->mtx;
+				Proj->speed.f[0] += Proj->unk10.f[0] * g_GlobalTimerDelta;
+				Proj->speed.f[2] += Proj->unk10.f[2] * g_GlobalTimerDelta;
+				ProjPos.f[0] += Proj->speed.f[0] * g_GlobalTimerDelta;
+				ProjPos.f[2] += Proj->speed.f[2] * g_GlobalTimerDelta;
 				sub_GAME_7F057DF8(objectMatrix, projectileMatrix, g_ClockTimer);
 
                 // Determine which projectiles can stick to surfaces.
@@ -4457,16 +4452,16 @@ s32 objTick(struct PropRecord *prop)
 					canEmbed = TRUE;
 				}
 
-				if (Rocket->ownerprop != NULL)
+				if (Proj->ownerprop != NULL)
 				{
-					sub_GAME_7F03D058(Rocket->ownerprop, 0);
+					sub_GAME_7F03D058(Proj->ownerprop, 0);
 				}
 
-				moveResult = sub_GAME_7F042EB4(obj, &RocketCurrent.f[0], &collisionPoint, &collisionNormal, canEmbed, 0);
+				moveResult = sub_GAME_7F042EB4(obj, &ProjPos.f[0], &collisionPoint, &collisionNormal, canEmbed, 0);
 
-				if (Rocket->ownerprop != NULL)
+				if (Proj->ownerprop != NULL)
 				{
-					sub_GAME_7F03D058(Rocket->ownerprop, 1);
+					sub_GAME_7F03D058(Proj->ownerprop, 1);
 				}
 
 				objMovedThisFrame = 1;
@@ -4481,7 +4476,7 @@ s32 objTick(struct PropRecord *prop)
 
 					if (sp548 == 0)
 					{
-						projectileFree(Rocket);
+						projectileFree(Proj);
 						obj->projectile = NULL;
 						obj->runtime_bitflags &= ~RUNTIMEBITFLAG_HASPROJECTILE;
 						if (prop->flags & PROPFLAG_00000008)
@@ -4525,21 +4520,21 @@ s32 objTick(struct PropRecord *prop)
 								{
 									projectileStopped = 1;
 
-									if (Rocket->unk8C > 0.0f)
+									if (Proj->unk8C > 0.0f)
 									{
-										temp_f14_3 = ((Rocket->speed.f[0] * collisionNormal.f[0]) + (Rocket->speed.f[1] * collisionNormal.f[1])) + (Rocket->speed.f[2] * collisionNormal.f[2]);
-										temp_f14_3 *= -(Rocket->unk8C + 1.0f);
-										Rocket->speed.f[0] += temp_f14_3 * collisionNormal.f[0];
-										Rocket->speed.f[1] += temp_f14_3 * collisionNormal.f[1];
-										Rocket->speed.f[2] += temp_f14_3 * collisionNormal.f[2];
+										temp_f14_3 = ((Proj->speed.f[0] * collisionNormal.f[0]) + (Proj->speed.f[1] * collisionNormal.f[1])) + (Proj->speed.f[2] * collisionNormal.f[2]);
+										temp_f14_3 *= -(Proj->unk8C + 1.0f);
+										Proj->speed.f[0] += temp_f14_3 * collisionNormal.f[0];
+										Proj->speed.f[1] += temp_f14_3 * collisionNormal.f[1];
+										Proj->speed.f[2] += temp_f14_3 * collisionNormal.f[2];
 									}
 
-									if (!(Rocket->flags & PROJECTILEFLAG_00000200))
+									if (!(Proj->flags & PROJECTILEFLAG_00000200))
 									{
 										mtxLoadRandomRotation(projectileMatrix);
 									}
 
-									Rocket->unk90 += 1;
+									Proj->unk90 += 1;
 									recall_joy2_hits_edit_detail_edit_flag(((struct WeaponObjRecord *) obj)->weaponnum, D_80030B0C, -1);
 
 									if (((D_80030B0C->flags & PROPFLAG_ONSCREEN) && (bodypartshot != HIT_GUN)) && (bodypartshot != HIT_HAT))
@@ -4590,16 +4585,16 @@ s32 objTick(struct PropRecord *prop)
 				{
 					if (moveResult == 0)
 					{
-						if (Rocket->unk8C > 0.0f)
+						if (Proj->unk8C > 0.0f)
 						{
-							previousVerticalSpeed = Rocket->speed.f[1];
-							temp_f14_3 = ((Rocket->speed.f[0] * collisionNormal.f[0]) + (Rocket->speed.f[1] * collisionNormal.f[1])) + (Rocket->speed.f[2] * collisionNormal.f[2]);
-							temp_f14_3 *= -(Rocket->unk8C + 1.0f);
-							Rocket->speed.f[0] += temp_f14_3 * collisionNormal.f[0];
-							Rocket->speed.f[1] += temp_f14_3 * collisionNormal.f[1];
-							Rocket->speed.f[2] += temp_f14_3 * collisionNormal.f[2];
+							previousVerticalSpeed = Proj->speed.f[1];
+							temp_f14_3 = ((Proj->speed.f[0] * collisionNormal.f[0]) + (Proj->speed.f[1] * collisionNormal.f[1])) + (Proj->speed.f[2] * collisionNormal.f[2]);
+							temp_f14_3 *= -(Proj->unk8C + 1.0f);
+							Proj->speed.f[0] += temp_f14_3 * collisionNormal.f[0];
+							Proj->speed.f[1] += temp_f14_3 * collisionNormal.f[1];
+							Proj->speed.f[2] += temp_f14_3 * collisionNormal.f[2];
 
-							if ((previousVerticalSpeed <= 0.0f) && ((Rocket->speed.f[1] >= 0.0f) || (temp_f20 <= obj->position.f[1])))
+							if ((previousVerticalSpeed <= 0.0f) && ((Proj->speed.f[1] >= 0.0f) || (temp_f20 <= obj->position.f[1])))
 							{
 								bounceCondition = 1;
 							}
@@ -4617,7 +4612,7 @@ s32 objTick(struct PropRecord *prop)
                      */
 					temp_f20 = sp63C;
 
-					if (!(Rocket->flags & PROJECTILEFLAG_00000008))
+					if (!(Proj->flags & PROJECTILEFLAG_00000008))
 					{
 						temp_f20 = stanGetPositionYValue(prop->stan, prop->pos.f[0], prop->pos.f[2]);
 						bboxBottomOffset = chrpropSumMatrixPosY(projectileBBox, &objectMatrix[0]);
@@ -4625,17 +4620,17 @@ s32 objTick(struct PropRecord *prop)
 					}
 					else
 					{
-						if (Rocket && Rocket && Rocket);
+						if (Proj && Proj && Proj);
 					}
 
 					if ((hitGround) || (moveResult == 0))
 					{
-						if (!(Rocket->flags & PROJECTILEFLAG_00000200))
+						if (!(Proj->flags & PROJECTILEFLAG_00000200))
 						{
 							mtxLoadRandomRotation(projectileMatrix);
 						}
 
-						Rocket->unk90 += 1;
+						Proj->unk90 += 1;
 					}
 
 					if ((hitGround) || (bounceCondition))
@@ -4656,15 +4651,15 @@ s32 objTick(struct PropRecord *prop)
 							obj->runtime_bitflags |= RUNTIMEBITFLAG_00000100;
 						}
 
-						if (Rocket->unk8C > 0.0f)
+						if (Proj->unk8C > 0.0f)
 						{
-							Rocket->speed.f[1] *= -Rocket->unk8C;
+							Proj->speed.f[1] *= -Proj->unk8C;
 
-							if (Rocket->speed.f[1] < 2.2222223f)
+							if (Proj->speed.f[1] < 2.2222223f)
 							{
-								if ((Rocket->flags & PROJECTILEFLAG_00000002) && (Rocket->unk90 == 1))
+								if ((Proj->flags & PROJECTILEFLAG_00000002) && (Proj->unk90 == 1))
 								{
-									Rocket->speed.f[1] = 2.2222223f;
+									Proj->speed.f[1] = 2.2222223f;
 								}
 								else
 								{
@@ -4692,19 +4687,19 @@ s32 objTick(struct PropRecord *prop)
 							}
 							else
 							{
-								nextVerticalSpeed = ((Rocket->speed.f[0] * Rocket->speed.f[0]) + (Rocket->speed.f[1] * Rocket->speed.f[1])) + (Rocket->speed.f[2] * Rocket->speed.f[2]);
+								nextVerticalSpeed = ((Proj->speed.f[0] * Proj->speed.f[0]) + (Proj->speed.f[1] * Proj->speed.f[1])) + (Proj->speed.f[2] * Proj->speed.f[2]);
 
 								if (nextVerticalSpeed > ROCKET_SPEED_BREAK_THRESHOLD)
 								{
-									Rocket->unk10.f[0] = 0.0f;
-									Rocket->unk10.f[1] = 0.0f;
-									Rocket->unk10.f[2] = 0.0f;
+									Proj->unk10.f[0] = 0.0f;
+									Proj->unk10.f[1] = 0.0f;
+									Proj->unk10.f[2] = 0.0f;
 								}
 
-								if (((s32) Rocket->unkA8) >= GRENADE_SMOKE_FRAMES)
+								if (((s32) Proj->unkA8) >= GRENADE_SMOKE_FRAMES)
 								{
-									Rocket->unk1C = 0.0f;
-									Rocket->flags &= ~(PROJECTILEFLAG_POWERED | PROJECTILEFLAG_00000020);
+									Proj->unk1C = 0.0f;
+									Proj->flags &= ~(PROJECTILEFLAG_POWERED | PROJECTILEFLAG_00000020);
 								}
 								else
 								{
@@ -4726,7 +4721,7 @@ s32 objTick(struct PropRecord *prop)
 
 						if ((moveResult == 0) || (hitGround != 0))
 						{
-							if (((s32) Rocket->unkAC) < (((s32) g_GlobalTickCount) - 2))
+							if (((s32) Proj->unkAC) < (((s32) g_GlobalTickCount) - 2))
 							{
 								if ((airborneWeapon->weaponnum == ITEM_THROWKNIFE) || (airborneWeapon->weaponnum == ITEM_KNIFE))
 								{
@@ -4740,12 +4735,12 @@ s32 objTick(struct PropRecord *prop)
 								chrobjSndCreatePostEventDefault(sfx_state, &prop->pos);
 							}
 
-							Rocket->unkAC = g_GlobalTickCount;
+							Proj->unkAC = g_GlobalTickCount;
 						}
 					}
 				}
 
-				if (((airborneWeapon->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE) && (Rocket->flags & PROJECTILEFLAG_FALLING)) && (!(g_GlobalTickCount & 7)))
+				if (((airborneWeapon->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE) && (Proj->flags & PROJECTILEFLAG_FALLING)) && (!(g_GlobalTickCount & 7)))
 				{
 					sp564.f[0] = airborneWeapon->position.f[0] + 400.0f;
 					sp564.f[1] = airborneWeapon->position.f[1] - 1800.0f;
@@ -4772,31 +4767,31 @@ s32 objTick(struct PropRecord *prop)
 			{
 				projectileAlive = 1;
 
-				if (Rocket->unk60 < 1.0f)
+				if (Proj->unk60 < 1.0f)
 				{
-					Rocket->unk60 += Rocket->unk64 * g_GlobalTimerDelta;
+					Proj->unk60 += Proj->unk64 * g_GlobalTimerDelta;
 
 					if (g_ClockTimer > 0)
 					{
-						Rocket->unk64 *= 1.1f;
+						Proj->unk64 *= 1.1f;
 					}
 
-					if ((Rocket->unk60 > 1.0f) || (Rocket->flags & PROJECTILEFLAG_00000008))
+					if ((Proj->unk60 > 1.0f) || (Proj->flags & PROJECTILEFLAG_00000008))
 					{
-						Rocket->unk60 = 1.0f;
+						Proj->unk60 = 1.0f;
 					}
 
-					quaternion_slerp((f32 *) (&Rocket->unk68), (f32 *) (&Rocket->unk78), Rocket->unk60, (f32 *) (&sp550));
+					quaternion_slerp((f32 *) (&Proj->unk68), (f32 *) (&Proj->unk78), Proj->unk60, (f32 *) (&sp550));
 					objectMatrix = &obj->mtx;
 					quaternion_to_matrix((f32 *) (&sp550), (f32 *) (&obj->mtx));
-					matrix_column_1_scalar_multiply(Rocket->unkC0, (f32 *) objectMatrix);
-					matrix_column_2_scalar_multiply(Rocket->unkC4, (f32 *) objectMatrix);
-					matrix_column_3_scalar_multiply_2(Rocket->unkC8, (f32 *) objectMatrix);
+					matrix_column_1_scalar_multiply(Proj->unkC0, (f32 *) objectMatrix);
+					matrix_column_2_scalar_multiply(Proj->unkC4, (f32 *) objectMatrix);
+					matrix_column_3_scalar_multiply_2(Proj->unkC8, (f32 *) objectMatrix);
 					projectileAlive = 0;
 				}
 
                 // Apply horizontal slide and friction to a projectile that has landed.
-				if ((((Rocket->speed.f[0] != 0.0f) || (Rocket->speed.f[2] != 0.0f)) || (Rocket->unk60 < 1.0f)) && (!(Rocket->flags & PROJECTILEFLAG_00000008)))
+				if ((((Proj->speed.f[0] != 0.0f) || (Proj->speed.f[2] != 0.0f)) || (Proj->unk60 < 1.0f)) && (!(Proj->flags & PROJECTILEFLAG_00000008)))
 				{
 					objectMatrix = &obj->mtx;
 					objectBBox = chrobjGetBboxFromObjectRecord(obj);
@@ -4804,51 +4799,51 @@ s32 objTick(struct PropRecord *prop)
 
 					for (sp548 = 0; sp548 < g_ClockTimer; sp548++)
 					{
-						RocketCurrent.f[0] += Rocket->speed.f[0];
-						RocketCurrent.f[2] += Rocket->speed.f[2];
-						if (Rocket->unk60 >= 1.0f)
+						ProjPos.f[0] += Proj->speed.f[0];
+						ProjPos.f[2] += Proj->speed.f[2];
+						if (Proj->unk60 >= 1.0f)
 						{
-							if (Rocket->unk94 > 0.0f)
+							if (Proj->unk94 > 0.0f)
 							{
-								temp_f12_5 = (Rocket->unk94 * g_GlobalTimerDelta) / sqrtf((Rocket->speed.f[0] * Rocket->speed.f[0]) + (Rocket->speed.f[2] * Rocket->speed.f[2]));
+								temp_f12_5 = (Proj->unk94 * g_GlobalTimerDelta) / sqrtf((Proj->speed.f[0] * Proj->speed.f[0]) + (Proj->speed.f[2] * Proj->speed.f[2]));
 								if (temp_f12_5 >= 1.0f)
 								{
-									Rocket->speed.f[0] = 0.0f;
-									Rocket->speed.f[2] = 0.0f;
+									Proj->speed.f[0] = 0.0f;
+									Proj->speed.f[2] = 0.0f;
 								}
 								else
 								{
-									Rocket->speed.f[0] -= Rocket->speed.f[0] * temp_f12_5;
-									Rocket->speed.f[2] -= Rocket->speed.f[2] * temp_f12_5;
+									Proj->speed.f[0] -= Proj->speed.f[0] * temp_f12_5;
+									Proj->speed.f[2] -= Proj->speed.f[2] * temp_f12_5;
 								}
 							}
 							else
 							{
-								Rocket->speed.f[0] *= PROJECTILE_FRICTION_FACTOR;
-								Rocket->speed.f[2] *= PROJECTILE_FRICTION_FACTOR;
+								Proj->speed.f[0] *= PROJECTILE_FRICTION_FACTOR;
+								Proj->speed.f[2] *= PROJECTILE_FRICTION_FACTOR;
 							}
 						}
 					}
 
-					sub_GAME_7F042EB4(obj, &RocketCurrent.f[0], &sp530, &sp53C, 0, 0);
+					sub_GAME_7F042EB4(obj, &ProjPos.f[0], &sp530, &sp53C, 0, 0);
 					objMovedThisFrame = 1;
 					temp_f20 = stanGetPositionYValue(prop->stan, prop->pos.f[0], prop->pos.f[2]);
 					angleDelta = (temp_f20 - chrpropSumMatrixPosY(objectBBox, objectMatrix)) + 4.0f;
 					prop->pos.f[1] = angleDelta;
 					obj->position.f[1] = angleDelta;
-					if ((Rocket->speed.f[0] < 0.1f) && (Rocket->speed.f[0] > (-0.1f)))
+					if ((Proj->speed.f[0] < 0.1f) && (Proj->speed.f[0] > (-0.1f)))
 					{
-						if ((Rocket->speed.f[2] < 0.1f) && (Rocket->speed.f[2] > (-0.1f)))
+						if ((Proj->speed.f[2] < 0.1f) && (Proj->speed.f[2] > (-0.1f)))
 						{
-							Rocket->speed.f[2] = 0.0f;
-							Rocket->speed.f[0] = 0.0f;
+							Proj->speed.f[2] = 0.0f;
+							Proj->speed.f[0] = 0.0f;
 						}
 					}
 				}
 
-				if ((projectileAlive != 0) || (Rocket->flags & PROJECTILEFLAG_00000008))
+				if ((projectileAlive != 0) || (Proj->flags & PROJECTILEFLAG_00000008))
 				{
-					projectileFree(Rocket);
+					projectileFree(Proj);
 					obj->projectile = NULL;
 					obj->runtime_bitflags &= ~RUNTIMEBITFLAG_HASPROJECTILE;
 
@@ -4995,7 +4990,7 @@ s32 objTick(struct PropRecord *prop)
 			if (cctvSeesPlayer != 0)
 			{
 				sp4F0 = prop->stan;
-				bondviewUpdateGuardTankFlagsRelated(playerProp, 0);
+				bviewSetPlayerSolid(playerProp, 0);
 				if (stanTestLineUnobstructed(&sp4F0, prop->pos.f[0], prop->pos.f[2], playerProp->pos.f[0], playerProp->pos.f[2], 0x1B, 100.0f, 100.0f, 0.0f, 1.0f) != 0)
 				{
 					bottom_pad->timer += g_ClockTimer;
@@ -5006,7 +5001,7 @@ s32 objTick(struct PropRecord *prop)
 					}
 				}
 
-				bondviewUpdateGuardTankFlagsRelated(playerProp, 1);
+				bviewSetPlayerSolid(playerProp, 1);
 			}
 
 			if (bottom_pad->unkC8 < m_RocketGravity)
@@ -5166,7 +5161,7 @@ s32 objTick(struct PropRecord *prop)
 							sp494 -= M_TAU_F;
 						}
 
-						bondviewUpdateGuardTankFlagsRelated(playerProp2, 0);
+						bviewSetPlayerSolid(playerProp2, 0);
 						if ((((sp494 <= poAGun->unk88) && (poAGun->unk8C <= sp494)) && (stanTestLineUnobstructed(&collisionTile, prop->pos.f[0], prop->pos.f[2], playerProp2->pos.f[0], playerProp2->pos.f[2], 0x1B, prop->pos.f[1], prop->pos.f[1], playerProp2->pos.f[1], playerProp2->pos.f[1]) != 0)) && ((collisionTile) == playerProp2->stan))
 						{
 							obj->flags |= PROPFLAG_INMOTION;
@@ -5184,7 +5179,7 @@ s32 objTick(struct PropRecord *prop)
 							AutogunSeesPlayer = 0;
 						}
 
-						bondviewUpdateGuardTankFlagsRelated(playerProp2, 1);
+						bviewSetPlayerSolid(playerProp2, 1);
 					}
 				}
 
@@ -5447,18 +5442,18 @@ s32 objTick(struct PropRecord *prop)
 				forwardDir.f[0] = sinf(poTruck->roty);
 				forwardDir.f[1] = 0.0f;
 				forwardDir.f[2] = cosf(poTruck->roty);
-				RocketCurrent.f[0] = (poTruck->position.f[0] + ((poTruck->speed * g_GlobalTimerDelta) * forwardDir.f[0])) - (forwardDir.f[2] * sp460);
-				RocketCurrent.f[1] = poTruck->position.f[1];
-				RocketCurrent.f[2] = (poTruck->position.f[2] + ((poTruck->speed * g_GlobalTimerDelta) * forwardDir.f[2])) + (forwardDir.f[0] * sp460);
-				if ((stanTestLineUnobstructed(&currentTile, prop->pos.f[0], prop->pos.f[2], RocketCurrent.f[0], RocketCurrent.f[2], 0x1F, 0.0f, 1.0f, 0.0f, 1.0f) != 0) && (stanTestVolume(&currentTile, RocketCurrent.f[0], RocketCurrent.f[2], 10.0f, 0x1F, 0.0f, 1.0f) < 0))
+				ProjPos.f[0] = (poTruck->position.f[0] + ((poTruck->speed * g_GlobalTimerDelta) * forwardDir.f[0])) - (forwardDir.f[2] * sp460);
+				ProjPos.f[1] = poTruck->position.f[1];
+				ProjPos.f[2] = (poTruck->position.f[2] + ((poTruck->speed * g_GlobalTimerDelta) * forwardDir.f[2])) + (forwardDir.f[0] * sp460);
+				if ((stanTestLineUnobstructed(&currentTile, prop->pos.f[0], prop->pos.f[2], ProjPos.f[0], ProjPos.f[2], 0x1F, 0.0f, 1.0f, 0.0f, 1.0f) != 0) && (stanTestVolume(&currentTile, ProjPos.f[0], ProjPos.f[2], 10.0f, 0x1F, 0.0f, 1.0f) < 0))
 				{
 					nextTile = prop->stan;
 					sp450.f[0] = prop->pos.f[0];
 					sp450.f[1] = prop->pos.f[1];
 					sp450.f[2] = prop->pos.f[2];
 					prop->stan = currentTile;
-					poTruck->position.f[0] = (prop->pos.f[0] = RocketCurrent.f[0]);
-					poTruck->position.f[2] = (prop->pos.f[2] = RocketCurrent.f[2]);
+					poTruck->position.f[0] = (prop->pos.f[0] = ProjPos.f[0]);
+					poTruck->position.f[2] = (prop->pos.f[2] = ProjPos.f[2]);
 					objUpdateCollisionVolume(obj);
 					setupUpdateObjectRoomPosition(obj);
 					var_s2_5 = sub_GAME_7F0448A8(prop);
@@ -5485,7 +5480,7 @@ s32 objTick(struct PropRecord *prop)
 						sub_GAME_7F044B38(poTruck);
 						objSetShading(prop, &poTruck->nextcol);
 						detonate_proxmine_In_range(&poTruck->position);
-						if ((waypointPosition != NULL) && (chrlvIsArrivingLaterallyAtPos(&sp450, &RocketCurrent, waypointPosition, 100.0f) != 0))
+						if ((waypointPosition != NULL) && (chrlvIsArrivingLaterallyAtPos(&sp450, &ProjPos, waypointPosition, 100.0f) != 0))
 						{
 							poTruck->nextstep++;
 							if (poTruck->path->waypoints[poTruck->nextstep] < 0)
@@ -9575,17 +9570,17 @@ TICKOP propobjInteract(PropRecord *prop)
 }
 
 
-void sub_GAME_7F04F218(PropRecord* prop, s32 arg1) {
-    ChrRecord* chr;
-    chr = prop->chr;
+void objSetCollisionEnabled(PropRecord* prop, s32 enabled)
+{
+    ObjectRecord *obj = prop->obj;
 
-    if (arg1 != 0)
+    if (enabled)
     {
-        chr->accuracyrating = (u8) chr->accuracyrating & ~0x20;
+        obj->state &= ~PROPSTATE_NONSOLID;
     }
     else
     {
-        chr->accuracyrating = (u8) chr->accuracyrating | 0x20;
+        obj->state |= PROPSTATE_NONSOLID;
     }
 }
 
@@ -9595,7 +9590,7 @@ void sub_GAME_7F04F244(PropRecord* prop, rect4f** polygon, s32* edges, f32* top,
     ObjectRecord* obj;
     obj = prop->obj;
 
-    if ((obj->collisionBlock != NULL) && (obj->flags & PROPFLAG_00000100) && !(obj->state & PROPSTATE_20))
+    if ((obj->collisionBlock != NULL) && (obj->flags & PROPFLAG_00000100) && !(obj->state & PROPSTATE_NONSOLID))
     {
         *edges = obj->collisionBlock->edges;
         *polygon = &obj->collisionBlock->polygon;
@@ -9616,9 +9611,6 @@ void append_text_picked_up(u8 *buffer,u8 * param2,u8 * param3)
   strcat(buffer,str);
   return;
 }
-
-
-
 
 
 void append_text_ammo_amount_word(u8 *buffer, AMMOTYPE ammotype,u32 amount)

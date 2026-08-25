@@ -409,7 +409,7 @@ struct player
   */
   /* 0x00a4 */ f32 field_A4;
   /* 0x00a8 */ PropRecord* prop;
-  /* 0x00ac */ s32 field_AC;
+  /* 0x00ac */ s32 collisionEnabled;
 
   /**
    * Offset 0x00b0.
@@ -1357,7 +1357,7 @@ int bondviewGetIfCurrentPlayerDamageShowTime(void);
 int bondviewGetIfCurrentPlayerHealthShowTime(void);
 u8 bondviewGetPlayerRoom(void);
 coord3d *bondviewGetPlayerPosition(void);
-void bondviewUpdateGuardTankFlagsRelated(PropRecord *prop, s32 flag);
+void bviewSetPlayerSolid(PropRecord *prop, s32 flag);
 void bondviewGetPropHeightRelatedValues(PropRecord *arg0, struct rect4f **field_B0, s32 *arg2, f32 *height_related, f32 *collision);
 void bondviewAddCurrentPlayerArmor(f32 arg0);
 void bondviewResetIntroCameraMessageDialogs(void);

@@ -1943,7 +1943,7 @@ f32 chrlvPathingCollisionRelated(PropRecord *arg0, f32 arg1, f32 arg2, s32 cdtyp
     dest_x = arg0->pos.f[0] + (sp5C.f[0] * arg2);
     dest_z = arg0->pos.f[2] + (sp5C.f[2] * arg2);
 
-    chrSetMoving(chr, 0);
+    chrSetCollidable(chr, 0);
     stanResetHits();
 
     if (stanTestLineUnobstructed(&stan, arg0->pos.f[0], arg0->pos.f[2], dest_x, dest_z, cdtypes, unkHeight, unkA, 0.0f, 1.0f) != 0)
@@ -1958,7 +1958,7 @@ f32 chrlvPathingCollisionRelated(PropRecord *arg0, f32 arg1, f32 arg2, s32 cdtyp
         ret = sqrtf((dest_x * dest_x) + (dest_z * dest_z));
     }
 
-    chrSetMoving(chr, 1);
+    chrSetCollidable(chr, 1);
 
     return ret;
 }
@@ -3322,7 +3322,7 @@ void chrlvTravelTickMagic(ChrRecord *self, struct waydata *arg1, f32 arg2, coord
 
     if (arg1->segdisttotal <= arg1->segdistdone)
     {
-        chrSetMoving(self, 0);
+        chrSetCollidable(self, 0);
 
         if (
             (stanTestVolume(&arg4, arg3->f[0], arg3->f[2], self->chrwidth, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER, 0.0f, 1.0f) < 0)
@@ -3386,7 +3386,7 @@ void chrlvTravelTickMagic(ChrRecord *self, struct waydata *arg1, f32 arg2, coord
             }
         }
 
-        chrSetMoving(self, 1);
+        chrSetCollidable(self, 1);
     }
 }
 
@@ -3801,11 +3801,11 @@ s32 chrlvAttackRelated7F0292A8(ChrRecord *self, coord3d *arg1, StandTile *arg2)
     {
         stan = arg2;
         sp3C = chrlvGetChrOrPresetLocation(self, flags, self->act_attack.entityid, &sp40);
-        chrSetMoving(self, 0);
+        chrSetCollidable(self, 0);
 
         if ((flags & 1) != 0)
         {
-            bondviewUpdateGuardTankFlagsRelated(g_CurrentPlayer->prop, 0);
+            bviewSetPlayerSolid(g_CurrentPlayer->prop, 0);
 
             if (bondviewGetVisibleToGuardsFlag() != 0)
             {
@@ -3816,7 +3816,7 @@ s32 chrlvAttackRelated7F0292A8(ChrRecord *self, coord3d *arg1, StandTile *arg2)
                 }
             }
 
-            bondviewUpdateGuardTankFlagsRelated(g_CurrentPlayer->prop, 1);
+            bviewSetPlayerSolid(g_CurrentPlayer->prop, 1);
         }
         else if ((flags & 4) != 0)
         {
@@ -3833,7 +3833,7 @@ s32 chrlvAttackRelated7F0292A8(ChrRecord *self, coord3d *arg1, StandTile *arg2)
             }
         }
 
-        chrSetMoving(self, 1);
+        chrSetCollidable(self, 1);
     }
 
     return ret;
@@ -3859,8 +3859,8 @@ bool chrCanSeeBond(ChrRecord *self)
         bondprop = getCurrentPlayerProp();
         myheight = self->chrheight - 20.0f;
 
-        chrSetMoving(self, FALSE);
-        bondviewUpdateGuardTankFlagsRelated(g_CurrentPlayer->prop, 0);
+        chrSetCollidable(self, FALSE);
+        bviewSetPlayerSolid(g_CurrentPlayer->prop, 0);
 
         mystan = myprop->stan;
 
@@ -3870,8 +3870,8 @@ bool chrCanSeeBond(ChrRecord *self)
             pass = TRUE;
         }
 
-        chrSetMoving(self, TRUE);
-        bondviewUpdateGuardTankFlagsRelated(g_CurrentPlayer->prop, 1);
+        chrSetCollidable(self, TRUE);
+        bviewSetPlayerSolid(g_CurrentPlayer->prop, 1);
     }
 
     return pass;
@@ -3890,7 +3890,7 @@ bool check_if_position_in_same_room(ChrRecord *self, coord3d *pos, StandTile *st
     f32         myheight = self->chrheight - 20.0f;
     bool        pass     = FALSE;
 
-    chrSetMoving(self, 0);
+    chrSetCollidable(self, 0);
 
     propstan = myprop->stan;
 
@@ -3899,7 +3899,7 @@ bool check_if_position_in_same_room(ChrRecord *self, coord3d *pos, StandTile *st
         pass = TRUE;
     }
 
-    chrSetMoving(self, 1);
+    chrSetCollidable(self, 1);
 
     return pass;
 }
@@ -3949,7 +3949,7 @@ s32 chrlvCurrentPlayerCall7F0B0E24(ChrRecord *self)
     bond_prop = getCurrentPlayerProp();
     ret = 0;
 
-    bondviewUpdateGuardTankFlagsRelated(g_CurrentPlayer->prop, 0);
+    bviewSetPlayerSolid(g_CurrentPlayer->prop, 0);
 
     bond_stan = bond_prop->stan;
 
@@ -3969,7 +3969,7 @@ s32 chrlvCurrentPlayerCall7F0B0E24(ChrRecord *self)
         ret = 1;
     }
 
-    bondviewUpdateGuardTankFlagsRelated(g_CurrentPlayer->prop, 1);
+    bviewSetPlayerSolid(g_CurrentPlayer->prop, 1);
 
     return ret;
 }
@@ -4001,7 +4001,7 @@ s32 chrlvCall7F0B0E24WithChrWidthHeight(PropRecord *arg0, coord3d *arg1, coord3d
     ret = 0;
 
     chrGetChrWidthHeight(arg0, &sp50, &sp58, &sp54);
-    chrSetMoving(sp7C, 0);
+    chrSetCollidable(sp7C, 0);
 
     sp78 = arg0->pos.f[0] + chrz;
     sp74 = arg0->pos.f[2] - chrx;
@@ -4032,7 +4032,7 @@ s32 chrlvCall7F0B0E24WithChrWidthHeight(PropRecord *arg0, coord3d *arg1, coord3d
         }
     }
 
-    chrSetMoving(sp7C, 1);
+    chrSetCollidable(sp7C, 1);
 
     return ret;
 }
@@ -6407,7 +6407,7 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                     sp258.f[1] = sp240.f[1] + (sp220.f[1] * M_U16_MAX_VALUE_F);
                     sp258.f[2] = sp240.f[2] + (sp220.f[2] * M_U16_MAX_VALUE_F);
 
-                    chrSetMoving(self, 0);
+                    chrSetCollidable(self, 0);
                     stanResetHits();
                     self_stan = sp238;
 
@@ -6420,7 +6420,7 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                         sp258.f[2] -= 26.0f * sp220.f[2];
                     }
 
-                    chrSetMoving(self, 1);
+                    chrSetCollidable(self, 1);
 
                     dx = sp258.f[0] - sp240.f[0];
                     dy = sp258.f[1] - sp240.f[1];
@@ -7791,7 +7791,7 @@ s32 sub_GAME_7F030128(ChrRecord *self, coord3d *point, StandTile *arg2, coord3d 
 
     chrGetChrWidthHeight(self->prop, &sp34, &sp3C, &sp38);
 
-    chrSetMoving(self, 0);
+    chrSetCollidable(self, 0);
 
     if (
         stanTestLineUnobstructed(&sp44, point->f[0], point->f[2], dest->f[0], dest->f[2], cdtypes, sp3C, sp38, 0.0f, 1.0f)
@@ -7800,7 +7800,7 @@ s32 sub_GAME_7F030128(ChrRecord *self, coord3d *point, StandTile *arg2, coord3d 
         sp40 = 1;
     }
 
-    chrSetMoving(self, 1);
+    chrSetCollidable(self, 1);
 
     return sp40;
 }
@@ -7844,7 +7844,7 @@ s32 sub_GAME_7F0301FC(ChrRecord *self, coord3d *point, StandTile *arg2, coord3d 
         temp_f20 = arg4 * dd.f[0];
         temp_f22 = arg4 * dd.f[2];
 
-        chrSetMoving(self, 0);
+        chrSetCollidable(self, 0);
 
         pstan = arg2;
 
@@ -7860,7 +7860,7 @@ s32 sub_GAME_7F0301FC(ChrRecord *self, coord3d *point, StandTile *arg2, coord3d 
             }
         }
 
-        chrSetMoving(self, 1);
+        chrSetCollidable(self, 1);
     }
 
     return ret;
@@ -7880,7 +7880,7 @@ s32 sub_GAME_7F0304AC(ChrRecord *self, coord3d *mypos, StandTile *mystan, coord3
     pass = FALSE;
 
     chrGetChrWidthHeight(self->prop, &sp34, &sp3C, &sp38);
-    chrSetMoving(self, 0);
+    chrSetCollidable(self, 0);
 
     if (stanTestLineUnobstructed(&sp44, mypos->x, mypos->z, arg3->x, arg3->z, cdtypes, sp3C, sp38, 0.0f, 1.0f))
     {
@@ -7893,7 +7893,7 @@ s32 sub_GAME_7F0304AC(ChrRecord *self, coord3d *mypos, StandTile *mystan, coord3
         }
     }
 
-    chrSetMoving(self, 1);
+    chrSetCollidable(self, 1);
 
     return pass;
 }
@@ -7984,7 +7984,7 @@ s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     sp94 = 1.2f * (arg7 * spA0.f[0]);
     sp90 = 1.2f * (arg7 * spA0.f[2]);
 
-    chrSetMoving(self, 0);
+    chrSetCollidable(self, 0);
     stanResetHits();
 
     spAC = arg2;
@@ -8098,7 +8098,7 @@ s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
         }
     }
 
-    chrSetMoving(self, 1);
+    chrSetCollidable(self, 1);
 
     return sp50;
 }
@@ -8158,7 +8158,7 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     sp94 = 1.2f * (arg7 * spA0.f[0]);
     sp90 = 1.2f * (arg7 * spA0.f[2]);
 
-    chrSetMoving(self, 0);
+    chrSetCollidable(self, 0);
     stanResetHits();
 
     spAC = arg2;
@@ -8286,7 +8286,7 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
         }
     }
 
-    chrSetMoving(self, 1);
+    chrSetCollidable(self, 1);
 
     return sp50;
 }

@@ -1533,7 +1533,7 @@ void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *ar
     }
 
     tile = playerprop->stan;
-    bondviewUpdateGuardTankFlagsRelated(playerprop, 0);
+    bviewSetPlayerSolid(playerprop, 0);
 
     // If there is no obstruction, spawn the projectile at the target position.
     if (stanTestLineUnobstructed(&tile, playerprop->pos.x, playerprop->pos.z, targetpos->x, targetpos->z, 0x1f, yhi, ylo, 0.0f, 1.0f))
@@ -1552,7 +1552,7 @@ void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *ar
         usedfallback = 1;
     }
 
-    bondviewUpdateGuardTankFlagsRelated(playerprop, 1);
+    bviewSetPlayerSolid(playerprop, 1);
 
     gunInitProjectileObject(obj, &pos, tile, arg2, velocity, arg4, playerprop);
 

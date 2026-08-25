@@ -257,7 +257,7 @@ extern struct explosion_death_animation D_8002E648[];
 
 void        chrpropCleanupForRemoval(PropRecord* prop);
 void        chrDetectRooms(ChrRecord *);
-void        chrSetMoving(ChrRecord *guard,s32 param_2);
+void        chrSetCollidable(ChrRecord *self, bool solid);
 f32         getAnimationRate(void);
 void        setAnimationRate(f32);
 PropRecord *init_GUARDdata_with_set_values(PropRecord *, Model *, coord3d *, f32 arg2, StandTile * arg3, struct AIListRecord *arg4);

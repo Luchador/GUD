@@ -905,9 +905,8 @@ bool doSegmentsIntersect(f32 start1X, f32 start1Z, f32 end1X, f32 end1Z, f32 sta
 }
 
 
-#if defined(LEFTOVERDEBUG)
-s32 sub_GAME_7F0B07BC(f32 arg0, f32 arg1, f32 arg2, f32 arg3,
-                      f32 arg4, f32 arg5, f32 arg6, f32 arg7, s32 arg8) {
+s32 doSegmentsIntersectWithTolerance(f32 arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, f32 arg5, f32 arg6, f32 arg7, s32 arg8)
+{
     f32 a_x;
     f32 a_z;
     f32 b_x;
@@ -951,48 +950,6 @@ s32 sub_GAME_7F0B07BC(f32 arg0, f32 arg1, f32 arg2, f32 arg3,
 
     return rc;
 }
-#else
-s32 sub_GAME_7F0B07BC(f32 arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, f32 arg5, f32 arg6, f32 arg7, s32 arg8) {
-    f32 a_z;
-    f32 a_x;
-    f32 b_z;
-    f32 b_x;
-    f32 c_x;
-
-    s32 val2;
-    s32 val1;
-	f32 c_z;
-    s32 rc;
-
-    rc = 1;
-
-    b_x = -(arg0 - arg4);
-    b_z = -(arg1 - arg5);
-	a_x = (arg2 - arg0);
-    a_z = (arg3 - arg1);
-    c_x = arg6 - arg0;
-    c_z = arg7 - arg1;
-    val1 = getRotationalDirectionBetween(a_x, a_z, b_x, b_z) * getRotationalDirectionBetween(a_x, a_z, c_x, c_z);
-
-	a_x = (arg6 - arg4);
-    a_z = (arg7 - arg5);
-    b_x = (arg0 - arg4);
-    b_z = (arg1 - arg5);
-    c_x = arg2 - arg4;
-    c_z = arg3 - arg5;
-
-    val2 = getRotationalDirectionBetween(a_x, a_z, b_x, b_z) * getRotationalDirectionBetween(a_x, a_z, c_x, c_z);
-
-    if (val1 >= arg8) {
-        rc = 0;
-    }
-
-    if (val2 >= arg8) {
-        rc = 0;
-    }
-    return rc;
-}
-#endif
 
 
 bool sub_GAME_7F0B0914(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_x, f32 dest_z, standTileWalkCallback_t callback, struct StandTileWalkCallbackRecord *callbackData)
@@ -1052,7 +1009,7 @@ bool sub_GAME_7F0B0914(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest
             {
                 hasLink = curPoint[1].link >> 4 != 0;
 
-                if (sub_GAME_7F0B07BC(start_x, start_z, dest_x, dest_z, curPoint[1].x, curPoint[1].z, nextPoint[1].x, nextPoint[1].z, hasLink))
+                if (doSegmentsIntersectWithTolerance(start_x, start_z, dest_x, dest_z, curPoint[1].x, curPoint[1].z, nextPoint[1].x, nextPoint[1].z, hasLink))
                 {
                     linkedTile = &standTileStart[curPoint[1].link];
                     crossings++;
