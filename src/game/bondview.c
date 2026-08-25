@@ -3812,10 +3812,10 @@ void trigger_solo_watch_menu(s32 arg0)
             bondviewTriggerWatchZoomDefault();
 
             hudMakeDamageSegments(&g_CurrentPlayer->armor_display_values, 23*2, 1, currentPlayerGetArmor());
-            buildGaugeBarDL(&g_CurrentPlayer->watch_body_armor_bar_gdl, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->armor_display_values), 0x2E);
+            buildGaugeBarDL(g_CurrentPlayer->watch_body_armor_bar_gdl, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->armor_display_values), 0x2E);
 
             hudMakeDamageSegments(&g_CurrentPlayer->health_display_values, 23*2, -1, currentPlayerGetHealth());
-            buildGaugeBarDL(&g_CurrentPlayer->watch_health_bar_gdl, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->health_display_values), 0x2E);
+            buildGaugeBarDL(g_CurrentPlayer->watch_health_bar_gdl, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->health_display_values), 0x2E);
 
             sub_GAME_7F0A69A8();
 
@@ -8495,11 +8495,11 @@ Gfx *bondviewRenderGaugeBars(Gfx *gdl)
 
     //Set up armor bars.
     hudMakeDamageSegments(&g_CurrentPlayer->armor_display_values[0].items[0], 0x2e, 1, g_CurrentPlayer->apparentarmour);
-    buildGaugeBarDL((Gfx *)&g_CurrentPlayer->watch_body_armor_bar_gdl, OS_PHYSICAL_TO_K0(&g_CurrentPlayer->armor_display_values[0].items[0]), 0x2e);
+    buildGaugeBarDL(g_CurrentPlayer->watch_body_armor_bar_gdl, OS_PHYSICAL_TO_K0(&g_CurrentPlayer->armor_display_values[0].items[0]), 0x2e);
 
     // Set up health bars.
     hudMakeDamageSegments(&g_CurrentPlayer->health_display_values[0].items[0], 0x2e, -1, g_CurrentPlayer->apparenthealth);
-    buildGaugeBarDL((Gfx *)&g_CurrentPlayer->watch_health_bar_gdl, OS_PHYSICAL_TO_K0(&g_CurrentPlayer->health_display_values[0].items[0]), 0x2e);
+    buildGaugeBarDL(g_CurrentPlayer->watch_health_bar_gdl, OS_PHYSICAL_TO_K0(&g_CurrentPlayer->health_display_values[0].items[0]), 0x2e);
 
     // Create an orthographic render state for the gauge.
     lookatmtx = dynAllocateMatrix();
@@ -8528,8 +8528,8 @@ Gfx *bondviewRenderGaugeBars(Gfx *gdl)
     gDPSetPrimColor(gdl++, 0, 0, 0xe6, 0xe6, 0xe6, 0x00);
     gSPClearGeometryMode(gdl++, G_CULL_BOTH);
 
-    gSPDisplayList(gdl++, OS_PHYSICAL_TO_K0(&g_CurrentPlayer->watch_body_armor_bar_gdl));
-    gSPDisplayList(gdl++, OS_PHYSICAL_TO_K0(&g_CurrentPlayer->watch_health_bar_gdl));
+    gSPDisplayList(gdl++, OS_PHYSICAL_TO_K0(g_CurrentPlayer->watch_body_armor_bar_gdl));
+    gSPDisplayList(gdl++, OS_PHYSICAL_TO_K0(g_CurrentPlayer->watch_health_bar_gdl));
 
     gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjMtx()), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
 
