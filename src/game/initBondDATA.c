@@ -368,8 +368,6 @@ void init_player_BONDdata(void)
     g_CurrentPlayer->registeredroom = -1;
     g_CurrentPlayer->viewPitchRadians = 0.0f;
     g_CurrentPlayer->viewYawRadians = 0.0f;
-    g_CurrentPlayer->field_2A6C = 0;
-    g_CurrentPlayer->field_2A70 = 0;
 }
 
 

@@ -277,22 +277,20 @@ typedef struct textoverride {
 	/*0x24*/ struct ObjectRecord *obj;
 } textoverride;
 
-
 typedef struct gunheld {
 	s32 weapon1;
 	s32 weapon2;
 	s32 totaltime;
 } gunheld;
 
-
 struct player
 {
-  s32 frozencam; // canonical name
+  s32 frozencam;
 
   /**
    * Offset 0x0004.
    */
-  coord3d pos; // canonical "memcampos" ?
+  coord3d pos;
 
   /**
    * Offset 0x0010.
@@ -434,18 +432,16 @@ struct player
   /* 0x00ec */ f32 apparenthealth;
   /* 0x00f0 */ f32 apparentarmour;
 
-#if defined(VERSION_JP) || defined (VERSION_EU)
-
-    /*
-    * When a non-negative integer:
-    * - hide ammo and aim sight
-    * - hide any active speech text
-    * - disable shoot and B press interact
-    * Otherwise,
-    * - undo the above.
-    * 0x00f4
-    **/
-    f32 damageshowtime;
+    /**
+     * When a non-negative integer:
+     * - hide ammo and aim sight
+     * - hide any active speech text
+     * - disable shoot and B press interact
+     * Otherwise,
+     * - undo the above.
+     * 0x00f4
+     */
+    s32 damageshowtime;
 
     /**
      * When a non-negative integer:
@@ -453,15 +449,10 @@ struct player
      * Otherwise,
      * - undo the above.
      * 0x00f8
-     **/
-    f32 healthshowtime;
-#else
-  /* See comments above. 0x00f4 */ s32 damageshowtime; // canonical name
-  /* See comments above. 0x00f8 */ s32 healthshowtime; // canonical name
-#endif
+     */
+    s32 healthshowtime;
 
-
-  /* 0x00fc */ s32 healthshowmode; // canonical name
+  /* 0x00fc */ s32 healthshowmode;
   /* 0x0100 */ s32 field_100; // unused
 
   /**
@@ -473,7 +464,6 @@ struct player
 
   /**
    * Assigned to 0 but never read.
-   * Probably "lastupdown60" based on this list: https://gist.github.com/kholdfuzion/ec713f2c0a36fbfbd4f71568073f47bc
    * 0x0108
    */
   s32 lastupdown60;
@@ -2281,7 +2271,7 @@ struct player
    */
   s32 lifestarttime60; // canonical name
 
-  s32 kills_this_life;    // 29F8 canonically "killsthislife"
+  s32 kills_this_life;
   s32 autocrouchpos;
   s32 healthdisplaytime; // canonically "healthdisplaytime60"
 
@@ -2309,22 +2299,6 @@ struct player
   f32 cur_player_control_type_2;             //0x2a60
   s32 neg_vspacing_for_control_type_entry;   //0x2a64
   u32 has_set_control_type_data;             //0x2a68
-  /**
-   * Collision / clipping related.
-   * Related to 0ffset 0x2a70.
-   * Offset 0x2a6c.
-   */
-  s32 field_2A6C;
-
-  /**
-   * Collision / clipping related.
-   * Offset 0x2a70
-   */
-  struct StandTile *field_2A70;
-
-  s32 field_2A74;
-  s32 field_2A78;
-  s32 field_2A7C;
 };
 
 struct firing_anim_struct {

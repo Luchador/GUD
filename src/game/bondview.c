@@ -4381,14 +4381,7 @@ f32 bondviewYPositionRelated(StandTile *arg0, f32 arg1, f32 arg2)
     }
     else
     {
-        if (g_CurrentPlayer->field_2A6C)
-        {
-            ret = stanGetPositionYValue(g_CurrentPlayer->field_2A70, arg1, arg2);
-        }
-        else
-        {
-            ret = stanGetPositionYValue(arg0, arg1, arg2);
-        }
+        ret = stanGetPositionYValue(arg0, arg1, arg2);
     }
 
     return ret;
@@ -4398,7 +4391,6 @@ f32 bondviewYPositionRelated(StandTile *arg0, f32 arg1, f32 arg2)
 void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
 {
     s32 i;
-    f32 unused;
     f32 sp64;
     StandTile *stan;
     f32 collision_radius;
@@ -4409,8 +4401,6 @@ void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
     f32 new_field_7c;
     f32 ftemp2;
     f32 sp40;
-
-    if (1);
 
     if (g_PlayerIsInTank)
     {
@@ -4472,13 +4462,6 @@ void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
             g_CurrentPlayer->stanHeight = sp64;
         }
 
-        if ((g_CurrentPlayer->field_2A6C != 0) && (g_CurrentPlayer->field_70 < g_CurrentPlayer->stanHeight))
-        {
-            g_CurrentPlayer->field_2A6C = 0;
-            g_CurrentPlayer->field_488.current_tile_ptr = g_CurrentPlayer->field_2A70;
-            g_CurrentPlayer->field_2A70 = NULL;
-        }
-
         if ((g_CurrentPlayer->field_7C >= 0.0f) || (g_CurrentPlayer->field_70 < g_CurrentPlayer->stanHeight))
         {
             g_CurrentPlayer->field_6C = g_CurrentPlayer->field_70 / (1.0f - TANK_UNKD0_SCALE);
@@ -4516,14 +4499,6 @@ void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
             {
                 new_field_70 = g_CurrentPlayer->stanHeight;
                 new_field_7c = -sqrtf((g_CurrentPlayer->field_7C * g_CurrentPlayer->field_7C) + (((2.0f * (g_CurrentPlayer->field_70 - g_CurrentPlayer->stanHeight) * 0.27777779f) / 60.0f) * 60.0f));
-
-
-                if (g_CurrentPlayer->field_2A6C != 0)
-                {
-                    g_CurrentPlayer->field_2A6C = 0;
-                    g_CurrentPlayer->field_488.current_tile_ptr = g_CurrentPlayer->field_2A70;
-                    g_CurrentPlayer->field_2A70 = NULL;
-                }
             }
 
             g_CurrentPlayer->field_70 = new_field_70;
@@ -4544,20 +4519,6 @@ void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
             }
 
             g_CurrentPlayer->field_7C = 0.0f;
-        }
-
-        if (g_CurrentPlayer->field_2A6C != 0)
-        {
-            if (g_CurrentPlayer->field_70 + bondviewGetPlayerDuckingHeightRelated(g_CurrentPlayer)
-                < stanGetPositionYValue(
-                    g_CurrentPlayer->field_488.current_tile_ptr,
-                    g_CurrentPlayer->field_488.collision_position.f[0],
-                    g_CurrentPlayer->field_488.collision_position.f[2]))
-            {
-                g_CurrentPlayer->field_2A6C = 0;
-                g_CurrentPlayer->field_488.current_tile_ptr = g_CurrentPlayer->field_2A70;
-                g_CurrentPlayer->field_2A70 = NULL;
-            }
         }
     }
 
@@ -4588,13 +4549,6 @@ void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
 }
 
 
-
-
-
-/**
- * Address 0x7F081478 (NTSC).
- * Address 0x7F08151C (PAL).
-*/
 void bondviewUpdatePlayerCollisionPositionFields(void)
 {
     f32 phi_f0;

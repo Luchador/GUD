@@ -259,7 +259,13 @@ void playerInitData(s32 player_num)
 
     default_hand = g_DefaultHandTemplate;
 
-    g_playerPointers[player_num] = mempAllocBytesInBank(0x2A80U, MEMPOOL_STAGE);
+/** 
+ * The original decomp had a literal value for memory allocation here.
+ * This is refactored so size derives from the struct, rounded to 16 because mempAlloc
+ * does no alignment of its own (pos += bytes, raw) - the rounding 
+ * keeps the next stage-pool allocation aligned. 
+ */
+    g_playerPointers[player_num] = mempAllocBytesInBank((sizeof(struct player) + 0xF) & ~0xF, MEMPOOL_STAGE);
     g_playerPointers[player_num]->frozencam = 0;
     g_playerPointers[player_num]->pos.x = 0.0f;
     g_playerPointers[player_num]->pos.y = 0.0f;
@@ -601,8 +607,6 @@ void playerInitData(s32 player_num)
     g_playerPointers[player_num]->cur_player_control_type_2 = 0.0f; //CONTROLLER_CONFIG_HONEY
     g_playerPointers[player_num]->neg_vspacing_for_control_type_entry = 0;
     g_playerPointers[player_num]->has_set_control_type_data = 1;
-    g_playerPointers[player_num]->field_2A6C = 0;
-    g_playerPointers[player_num]->field_2A70 = NULL;
 
     g_VisibleToGuardsFlag = TRUE;
     obj_collision_flag = TRUE;

@@ -5,6 +5,7 @@
 #include "math_atan2f.h"
 #include "bondview_r.h"
 #include "bondview.h"
+#include "fr.h"
 #include "random.h"
 #include "game/bondinv.h"
 #include "game/chrai.h"
@@ -104,7 +105,8 @@ void bondviewLoadSetupIntroSection(void)
 
     if (bossGetStageNum() == LEVELID_CUBA)
     {
-        g_HiResFrameBuffer = (u8 *)(((u32)mempAllocBytesInBank(0x46EA0, MEMPOOL_STAGE) + 0x3f) & ~0x3F);
+        /* +0x40: headroom consumed by the 64-byte alignment below */
+        g_HiResFrameBuffer = (u8 *)(((u32)mempAllocBytesInBank((SCREEN_WIDTH_440 * SCREEN_HEIGHT_330 * sizeof(u16)) + 0x40, MEMPOOL_STAGE) + 0x3f) & ~0x3F);
         g_HiResEnterDelay = 1;
     }
 
