@@ -398,12 +398,12 @@ struct player
   /**
    * Flag: 0, 1, 2
   */
-  /* 0x009c */ s32 crouchpos; // canonical name
+  /* 0x009c */ s32 crouchpos;
 
   /**
    * Varies from 0.0f to -100.0f
    * /
-  /* 0x00a0 */ f32 ducking_height_offset; // canonical "crouchoffset" ?
+  /* 0x00a0 */ f32 crouchoffset;
 
   /**
    * Crouch related, only used while moving up or down into or
@@ -424,15 +424,15 @@ struct player
    * bodyModel is the third person model - it's seen by the other players in MP, and
    * during intro/outros/death scenes in SP.
    */
-  /* 0x00d4 */ struct Model *bodyModel; //canonically bondsub
+  /* 0x00d4 */ struct Model *bodyModel;
   
   /* 0x00d8 */ enum BONDSTATE bondstate;
-  /* 0x00dc */ f32 bondhealth; // canonical name
+  /* 0x00dc */ f32 bondhealth;
   /* 0x00e0 */ f32 bondarmour;
-  /* 0x00e4 */ f32 oldhealth; // canonical name
-  /* 0x00e8 */ f32 oldarmour; // canonical name
-  /* 0x00ec */ f32 apparenthealth; // canonical name
-  /* 0x00f0 */ f32 apparentarmour; // canonical name
+  /* 0x00e4 */ f32 oldhealth;
+  /* 0x00e8 */ f32 oldarmour;
+  /* 0x00ec */ f32 apparenthealth;
+  /* 0x00f0 */ f32 apparentarmour;
 
 #if defined(VERSION_JP) || defined (VERSION_EU)
 

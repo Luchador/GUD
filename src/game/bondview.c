@@ -1385,11 +1385,6 @@ void bondviewCalcIntroSwirlCamera(s32 index, f32 time, coord3d *pos, coord3d *lo
 }
 
 
-/**
- * US address 7F07B56C.
- * JP address 7F07BB8C.
- * EU address 7F07B604.
-*/
 void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, struct coord3d *pos2, struct coord3d *offset, StandTile **stan, struct coord3d *arg6)
 {
     s32 i;
@@ -1464,7 +1459,7 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
         */
         if (get_player_position_in_shuffled(get_cur_playernum()) == 0)
         {
-            for (i2=0; i2<g_ClockTimer; i2++)
+            for (i2 = 0; i2 < g_ClockTimer; i2++)
             {
                 if (g_MpSwirlAngleDegrees < 179.5f)
                 {
@@ -1522,18 +1517,10 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
         arg6->f[1] = g_CurrentPlayer->field_488.pos.f[1] + (g_MpSwirlDistance * 0.08f);
         arg6->f[2] = g_CurrentPlayer->field_488.pos.f[2];
 
-        // Adopting EU behavior here, at least for now.
-//#if defined(VERSION_EU)
         if (((get_player_position_in_shuffled(get_cur_playernum()) + 1) == getPlayerCount()) && (g_MpSwirlDistance < 5.0f))
         {
             g_CameraAfterCinema = CAMERAMODE_INTRO;
         }
-/*#else
-        if (g_MpSwirlDistance < 5.0f)
-        {
-            g_CameraAfterCinema = CAMERAMODE_INTRO;
-        }
-#endif*/
     }
     else if (g_CameraMode == CAMERAMODE_SWIRL)
     {
@@ -1779,8 +1766,6 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
     }
 }
 
-
-//begin bondmove.c per pd
 
 void sub_GAME_7F07C540(s32 arg0)
 {
@@ -2291,7 +2276,7 @@ s32 bondviewTryMoveToStan(struct coord3d *arg0, StandTile **stan)
                 1.0f) != 0)
             && stanTestVolume(&sp90, arg0->f[0], arg0->f[2], collision_radius, cdtypes, height, always_30) < 0)
         {
-            if (g_CurrentPlayer->ducking_height_offset == FULL_CROUCH_OFFSET || sp7C < 0)
+            if (g_CurrentPlayer->crouchoffset == FULL_CROUCH_OFFSET || sp7C < 0)
             {
                 if (stanGetLocusCount(&sp3C) == 0 && stanTestLocusEdgeAboveY(&sp90, arg0->f[0], arg0->f[2], collision_radius, g_CurrentPlayer->field_488.collision_position.f[1] + 175.0f) >= 0)
                 {
@@ -2980,22 +2965,28 @@ void bondviewUpdatePauseTransition(void) {
      * scale it by g_GlobalTimerDelta,
      * clamp it to [-0.7, 0.7] so the pitch change is never too fast.
      */
-    if (g_ClockTimer > 0) {
+    if (g_ClockTimer > 0)
+    {
         g_CurrentPlayer->speedverta = g_CurrentPlayer->vv_verta - prevverta;
 
-        if (g_CurrentPlayer->speedverta < 0.0f) {
+        if (g_CurrentPlayer->speedverta < 0.0f)
+        {
             g_CurrentPlayer->speedverta += 360.0f;
         }
 
-        if (g_CurrentPlayer->speedverta > 180.0f) {
+        if (g_CurrentPlayer->speedverta > 180.0f)
+        {
             g_CurrentPlayer->speedverta -= 360.0f;
         }
 
         g_CurrentPlayer->speedverta /= g_GlobalTimerDelta + g_GlobalTimerDelta;
 
-        if (g_CurrentPlayer->speedverta < -0.7f) {
+        if (g_CurrentPlayer->speedverta < -0.7f)
+        {
             g_CurrentPlayer->speedverta = -0.7f;
-        } else if (g_CurrentPlayer->speedverta > 0.7f) {
+        } 
+        else if (g_CurrentPlayer->speedverta > 0.7f)
+        {
             g_CurrentPlayer->speedverta = 0.7f;
         }
     }
@@ -4403,11 +4394,6 @@ f32 bondviewYPositionRelated(StandTile *arg0, f32 arg1, f32 arg2)
 }
 
 
-
-/**
- * US Address 0x7F080DF8.
- * EU Address 0x7F080E9C.
- */
 void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
 {
     s32 i;
@@ -4434,7 +4420,7 @@ void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
 
         g_CurrentPlayer->field_6C = g_CurrentPlayer->field_70 / (1.0f - TANK_UNKD0_SCALE);
 
-        for (i=0; i<g_ClockTimer; i++)
+        for (i = 0; i < g_ClockTimer; i++)
         {
             g_CurrentPlayer->field_6C = (g_CurrentPlayer->field_6C * TANK_UNKD0_SCALE) + g_CurrentPlayer->stanHeight;
         }
@@ -4618,7 +4604,7 @@ void bondviewUpdatePlayerCollisionPositionFields(void)
     g_CurrentPlayer->eyeheight = (g_CurrentPlayer->headpos.f[1] * g_playerPerm->player_perspective_height) + 7.0f;
 
     phi_f0 = g_CurrentPlayer->eyeheight +
-        ((g_CurrentPlayer->field_88 + g_CurrentPlayer->ducking_height_offset) * g_playerPerm->player_perspective_height);
+        ((g_CurrentPlayer->field_88 + g_CurrentPlayer->crouchoffset) * g_playerPerm->player_perspective_height);
 
     if (phi_f0 < 30.0f)
     {
@@ -6731,10 +6717,10 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             currentPlayerGetCrouchPos();
         }
 
-        if (sp2AC != g_CurrentPlayer->ducking_height_offset)
+        if (sp2AC != g_CurrentPlayer->crouchoffset)
         {
             chrobjApplySpeed(
-                &g_CurrentPlayer->ducking_height_offset,
+                &g_CurrentPlayer->crouchoffset,
                 sp2AC,
                 &g_CurrentPlayer->field_A4,
                 CHR_OBJ_ACCEL_SPEED_FACTOR,
@@ -6742,7 +6728,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                 CHR_OBJ_MAXSPEED);
         }
 
-        if (sp2AC == g_CurrentPlayer->ducking_height_offset)
+        if (sp2AC == g_CurrentPlayer->crouchoffset)
         {
             g_CurrentPlayer->field_A4 = 0.0f;
         }
@@ -8444,11 +8430,8 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
     nodepos = (f32 *) objheader->Switches[3];
     rwdata = modelGetNodeRwData((Model *) (&g_CurrentPlayer->something_with_watch_object_instance), (ModelNode *) nodepos);
     perspmtx = dynAllocateMatrix();
-#if defined(VERSION_EU)
-    guPerspective(perspmtx, &perspNorm, g_CurrentPlayer->zoominfovy, 1.4005603f, 10.0f, 300.0f, 1.0f);
-#else
+
     guPerspective(perspmtx, &perspNorm, g_CurrentPlayer->zoominfovy, 1.4545455f, 10.0f, 300.0f, 1.0f);
-#endif
  
     gSPMatrix(gdl++, OS_PHYSICAL_TO_K0((u32) perspmtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
     gSPPerspNormalize(gdl++, perspNorm);
@@ -9136,7 +9119,7 @@ f32 bviewGetPlayerStanHeight(struct player *player)
 
 f32 bondviewGetPlayerDuckingHeightRelated(struct player *player)
 {
-    return player->eyeheight + player->field_88 + player->ducking_height_offset;
+    return player->eyeheight + player->field_88 + player->crouchoffset;
 }
 
 

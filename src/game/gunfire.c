@@ -462,8 +462,8 @@ void gunUpdateAndFire(GUNHAND handnum)
 
     if (((item == ITEM_ROCKETLAUNCH) || (item == ITEM_TRIGGER)) || (item == ITEM_WATCHLASER))
     {
-        gunofs.y += g_CurrentPlayer->ducking_height_offset / (-100.0f);
-        gunofs.z += (3.0f * g_CurrentPlayer->ducking_height_offset) / (-100.0f);
+        gunofs.y += g_CurrentPlayer->crouchoffset / (-100.0f);
+        gunofs.z += (3.0f * g_CurrentPlayer->crouchoffset) / (-100.0f);
 
         if ((item == ITEM_ROCKETLAUNCH) && (((cur_player_get_screen_setting() == SCREEN_SIZE_WIDESCREEN) || (cur_player_get_screen_setting() == SCREEN_SIZE_CINEMA)) || (get_screen_ratio() == SCREEN_RATIO_16_9)))
         {
@@ -472,13 +472,13 @@ void gunUpdateAndFire(GUNHAND handnum)
     }
     else if (item == ITEM_TASER)
     {
-        gunofs.y += (2.5f * g_CurrentPlayer->ducking_height_offset) / (-100.0f);
-        gunofs.z += (7.5f * g_CurrentPlayer->ducking_height_offset) / (-100.0f);
+        gunofs.y += (2.5f * g_CurrentPlayer->crouchoffset) / (-100.0f);
+        gunofs.z += (7.5f * g_CurrentPlayer->crouchoffset) / (-100.0f);
     }
     else
     {
-        gunofs.y += (5.0f * g_CurrentPlayer->ducking_height_offset) / (-100.0f);
-        gunofs.z += (15.0f * g_CurrentPlayer->ducking_height_offset) / (-100.0f);
+        gunofs.y += (5.0f * g_CurrentPlayer->crouchoffset) / (-100.0f);
+        gunofs.z += (15.0f * g_CurrentPlayer->crouchoffset) / (-100.0f);
     }
 
     if ((hand->weapon_firing_status != 0) && (bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_00000020) != 0))

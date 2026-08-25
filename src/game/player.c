@@ -173,7 +173,7 @@ void initBONDdataforPlayer(s32 player_num)
     g_playerPointers[player_num]->swayoffset2 = 0.0f;
     g_playerPointers[player_num]->crouchpos = CROUCH_STAND;
     g_playerPointers[player_num]->autocrouchpos = CROUCH_STAND;
-    g_playerPointers[player_num]->ducking_height_offset = 0.0f;
+    g_playerPointers[player_num]->crouchoffset = 0.0f;
     g_playerPointers[player_num]->field_A4 = 0.0f;
     g_playerPointers[player_num]->prop = NULL;
     g_playerPointers[player_num]->field_AC = 1;

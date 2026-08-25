@@ -4030,10 +4030,7 @@ f32 bgGetPortalMargin(s32 portalnum)
     shift = (value >> 4) & 0xf;
     result = (value & 0xf) * 0.25f;
 
-    while (shift != 0) {
-        result += result;
-        shift--;
-    }
+    result *= (f32)(1 << shift); 
 
     return result;
 }

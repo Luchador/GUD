@@ -1880,49 +1880,10 @@ f32 chrGetFlinchAmount(ChrRecord *chr)
 }
 
 
-#ifdef BUGFIX_R1
-bool chrCanUseDKModeScaling(s32 bodynum, s32 headnum)
-{
-    if (j_text_trigger == FALSE)
-    {
-        return TRUE;
-    }
-
-    if ((bodynum != BODY_Boris) &&
-        (bodynum != BODY_Ourumov) &&
-        (bodynum != BODY_Trevelyan_Janus) &&
-        (bodynum != BODY_Trevelyan_006) &&
-        (bodynum != BODY_Valentin_) &&
-        (bodynum != BODY_Xenia) &&
-        (bodynum != BODY_Baron_Samedi) &&
-        (bodynum != BODY_Jaws) &&
-        (bodynum != BODY_Mayday) &&
-        (bodynum != BODY_Oddjob) &&
-        (bodynum != BODY_Natalya_Skirt) &&
-        (bodynum != BODY_Natalya_Jungle_Fatigues) &&
-
-        (headnum != BODY_Male_Pierce_Bond_1) &&
-        (headnum != BODY_Male_Pierce_Bond_2) &&
-        (headnum != BODY_Male_Pierce_Bond_3) &&
-        (headnum != BODY_Male_Pierce_Bond_Parka) &&
-        (headnum != BODY_Male_Pierce_Bond_Tuxedo) &&
-        (headnum != BODY_Male_Mishkin))
-    {
-        return TRUE;
-    }
-
-    return FALSE;
-}
-#endif
-
-
 #define PI_OVER_3 1.0471976f
 #define FIVEPI_OVER_18 0.87266463f
 
 
-/**
- * Address: 7F02083C
- */
 void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 {
     f32 scale;
@@ -1943,10 +1904,6 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 
     if (cheatIsActive(CHEAT_DK_MODE))
     {
-#ifdef BUGFIX_R1
-        chr = g_CurModelChr;
-        if (chrCanUseDKModeScaling(chr->bodynum, chr->headnum))
-#endif
         {
             if (bodypart == CHR_RENDERPART_HEAD)
             {
@@ -1954,12 +1911,7 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
             }
             else if ((bodypart == CHR_RENDERPART_LEFT_ARM) || (bodypart == CHR_RENDERPART_RIGHT_ARM))
             {
-#ifdef BUGFIX_R1
-                if (!(g_CurModelChr->chrflags & CHRFLAG_08000000))
-#endif
-                {
-                    scale = 2.5f;
-                }
+                scale = 2.5f;
             }
         }
     }
@@ -1971,11 +1923,6 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 
     zrot = (yrot = (xrot = 0.0f));
 
-#ifdef BUGFIX_R1
-    //Use local chr earlier - although its just a pointer so...makes no difference?
-    chr = g_CurModelChr;
-    #define g_CurModelChr chr
-#endif
     if (bodypart == CHR_RENDERPART_RIGHT_ARM)
     {
         xrot = g_CurModelChr->aimuprshoulder;
@@ -1986,12 +1933,9 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
     }
     else if (bodypart == CHR_RENDERPART_TORSO)
     {
-#ifdef BUGFIX_R1
-    #undef g_CurModelChr
-#else
         chr = g_CurModelChr;
-#endif
         xrot = chr->aimupback;
+
         if (chr->hidden & CHRHIDDEN_0400)
         {
             if (PI_OVER_3 < xrot)
@@ -2013,9 +1957,8 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
     }
     else if (bodypart == CHR_RENDERPART_HEAD)
     {
-#ifndef BUGFIX_R1
         chr = g_CurModelChr;
-#endif
+
         if (chr->hidden & CHRHIDDEN_0400)
         {
             xrot = chr->aimupback;
@@ -2046,8 +1989,6 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 
     if (chr->flinchcnt >= 0)
     {
-        if (0);
-
         if ((bodypart == CHR_RENDERPART_RIGHT_ARM) || (bodypart == CHR_RENDERPART_LEFT_ARM))
         {
             amount = chrGetFlinchAmount(chr) * M_TAU_F * 15.0f / 360.0f;
@@ -2411,14 +2352,6 @@ after_position_update:
 
     if (isOnScreen)
     {
-        {
-            s32 ri;
-            for (ri = 0; ri < PROPRECORD_STAN_ROOM_LEN && prop->rooms[ri] != 0xFF; ri++)
-                if (bgIsRoomRendered(prop->rooms[ri])) break;
-            if (ri == PROPRECORD_STAN_ROOM_LEN || prop->rooms[ri] == 0xFF)
-                g_ProfChrOccluded++;   /* frustum-visible but no room rendered */
-        }
-
         renderdata = D_8002CC6C;
         prop->flags |= PROPFLAG_ONSCREEN;
 
@@ -2431,7 +2364,6 @@ after_position_update:
 
         g_ModelJointPositionedFunc = chrHandleJointPositioned;
         g_CurModelChr = chr;
-
 
         renderdata.basemtx = camGetWorldToScreenMtxf();
         renderdata.mtxlist = dynAllocate(model->obj->numMatrices * (sizeof(Mtxf)));

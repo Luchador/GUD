@@ -275,7 +275,7 @@ void init_player_BONDdata(void)
     g_CurrentPlayer->swayoffset2 = 0.0f;
     g_CurrentPlayer->crouchpos = CROUCH_STAND;
     g_CurrentPlayer->autocrouchpos = CROUCH_STAND;
-    g_CurrentPlayer->ducking_height_offset = 0.0f;
+    g_CurrentPlayer->crouchoffset = 0.0f;
     g_CurrentPlayer->field_A4 = 0.0f;
     g_CurrentPlayer->field_AC = 1;
     g_CurrentPlayer->field_D0 = 0;
