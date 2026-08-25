@@ -193,8 +193,8 @@ struct hand
   BeamRecord weapon_beam;
   f32 noise;
   f32 triggerFingerRot;
-  f32 field_A88;
-  s32 field_A8C;
+  f32 slideRecoilOffset;
+  s32 slideRecoiling;
   AttachedObj* rocket;
   s32 firedrocket;
   Mtxf gunmtx_camspace;

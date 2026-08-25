@@ -815,7 +815,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
     playerprop = getCurrentPlayerProp();
     fromtile = playerprop->stan;
     numhits = 0;
-    bullet_path_from_screen_center(&shotdata.viewOrigin, &shotdata.viewDir, hand);
+    gunCalcBulletPath(&shotdata.viewOrigin, &shotdata.viewDir, hand);
     shotdata.weapon = getCurrentPlayerWeaponId(hand);
     shotdata.maxdist = M_U32_MAX_VALUE_F;
 
@@ -1307,7 +1307,7 @@ void chraiFistAttackHandler(s32 hand, s32 item_id)
 
         if (g_musicSfxBufferPtr && g_musicSfxBufferPtr);
 
-        bullet_path_from_screen_center(&from, &vector, hand);
+        gunCalcBulletPath(&from, &vector, hand);
         mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), &vector);
 
         if (handles_shot_actors(chr, hitpart, &vector, item_id, 1))

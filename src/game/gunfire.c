@@ -102,18 +102,17 @@ typedef struct ModelHeader {
 } ModelHeader;
 
 void gunCreateBeamForHand(enum GUNHAND hand);
-void bullet_path_from_screen_center(coord3d *arg0, coord3d *arg1, enum GUNHAND arg2);
+void gunCalcBulletPath(coord3d *arg0, coord3d *arg1, enum GUNHAND arg2);
 void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *arg2, coord3d *velocity, Mtxf *arg4);
 s32 gunSample1PTransform(Weapon1PTransformKeyframe *keyframes, f32 time, Mtxf *matrix, GUNHAND hand);
 void analyzeGEKey(void);
 void give_weapon_case_items(void);
 struct ModelFileHeader *get_ptr_weapon_model_header_line(ITEM_IDS weapon);
 s32 get_ammo_in_hands_weapon(enum GUNHAND hand);
-s32 get_ammo_type_for_weapon(ITEM_IDS weapon);
+s32 gunGetAmmoType(ITEM_IDS weapon);
 f32 gunSetHorizontalOffset(GUNHAND hand);
 f32 gunGetTriggerFingerRotAmount(GUNHAND hand);
 void sub_GAME_7F05DA8C(GUNHAND hand, ITEM_IDS weaponnum_watchmenu);
-void sub_GAME_7F05E808(GUNHAND hand);
 void sub_GAME_7F05EA94(Model *model, s32 val);
 void sub_GAME_7F0649D8(enum GUNHAND hand);
 void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos);
@@ -121,7 +120,7 @@ Vtx *dynAllocateVertices(s32 count);
 Mtx *dynAllocateMatrix(void);
 void divide3DCoordinates(coord3d *in, f32 divisor, coord3d *out);
 
-#if !defined(VERSION_EU)
+
 void sub_GAME_7F05FB00(enum GUNHAND hand)
 {
     struct hand* hand_ptr;
@@ -140,9 +139,7 @@ void sub_GAME_7F05FB00(enum GUNHAND hand)
 
 extern f32 D_80053DDC;
 
-/*
-* Address: 0x7F05FB64
-*/
+
 void gunFireTankShell(s32 handnum)
 {
     WeaponObjRecord *obj;
@@ -216,7 +213,7 @@ void gunFireTankShell(s32 handnum)
     } 
     else 
     {
-        bullet_path_from_screen_center(&screenpos, &aimdir, handnum);
+        gunCalcBulletPath(&screenpos, &aimdir, handnum);
         mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), &aimdir);
 
         spawnpos.x = hand->field_B58.x;
@@ -295,11 +292,48 @@ void gunFireTankShell(s32 handnum)
 }
 
 
-/**
- * D_80053DDC belongs to gunFireTankShell, but must sit here
- * immediately ahead of this function's pool for that function to match.
- */
-#endif
+void gunSetSlideRecoiling(GUNHAND hand)
+{
+	g_CurrentPlayer->hands[hand].slideRecoiling = TRUE;
+}
+
+
+void gunRecoilSlide(GUNHAND hand)
+{
+    f32 recoil_back;
+
+    recoil_back = get_ptr_item_statistics(get_item_in_hand_or_watch_menu(hand))->BoltRecoilBack;
+
+    /* Move the slide back. */
+    if (g_CurrentPlayer->hands[hand].slideRecoiling)
+    {
+        if (g_CurrentPlayer->hands[hand].slideRecoilOffset < recoil_back)
+        {
+            g_CurrentPlayer->hands[hand].slideRecoilOffset = (g_CurrentPlayer->hands[hand].slideRecoilOffset + (recoil_back * 0.25f * g_GlobalTimerDelta));
+
+        }
+
+        if (recoil_back <= g_CurrentPlayer->hands[hand].slideRecoilOffset)
+        {
+            g_CurrentPlayer->hands[hand].slideRecoilOffset = recoil_back;
+            g_CurrentPlayer->hands[hand].slideRecoiling = FALSE;
+        }
+    }
+    /* Return the slide forward if there's still ammo in the magazine. */
+    else if (g_CurrentPlayer->hands[hand].weapon_ammo_in_magazine > 0)
+    {
+        if (g_CurrentPlayer->hands[hand].slideRecoilOffset > 0.0f)
+        {
+            g_CurrentPlayer->hands[hand].slideRecoilOffset = (g_CurrentPlayer->hands[hand].slideRecoilOffset - (recoil_back * 0.16666667f * g_GlobalTimerDelta));
+
+        }
+        if (g_CurrentPlayer->hands[hand].slideRecoilOffset < 0.0f)
+        {
+            g_CurrentPlayer->hands[hand].slideRecoilOffset = 0.0f;
+        }
+    }
+}
+
 
 void gunUpdateAndFire(GUNHAND handnum)
 {
@@ -842,7 +876,7 @@ void gunUpdateAndFire(GUNHAND handnum)
             sw7mtxidx = modelFindNodeMtxIndex(node, 0);
             gunRecoilSlide(handnum);
             matrix_4x4_set_identity_and_position((coord3d *) sw7data, &tmpmtx);
-            tmpmtx.m[3][2] -= hand->field_A88;
+            tmpmtx.m[3][2] -= hand->slideRecoilOffset;
             matrix_4x4_multiply(&gunmtx, &tmpmtx, &rwmtx[sw7mtxidx]);
         }
 
@@ -2637,7 +2671,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
 
     handptr = &g_CurrentPlayer->hands[hand];
     var_s1 = get_item_in_hand_or_watch_menu(hand);
-    sp1C4 = get_ammo_type_for_weapon(var_s1);
+    sp1C4 = gunGetAmmoType(var_s1);
 
     handptr->field_884 = handptr->weapon_hold_time;
     handptr->weapon_hold_time = triggerOn;
@@ -2725,7 +2759,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
                             && (
                                 (temp_v0_3 == ITEM_UNARMED)
                                 || ((sp1BC->weapon_ammo_in_magazine == 0)
-                                    && ((get_ammo_type_for_weapon(temp_v0_3) != 0))
+                                    && ((gunGetAmmoType(temp_v0_3) != 0))
                                     && ((get_ammo_in_hands_weapon(1 - hand) <= 0)))))
                         {
                             autoadvance_on_deplete_all_ammo();
@@ -2908,7 +2942,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
 
     if (handptr->weapon_action_state == GUN_ANIM_STATE_FIRE)
     {
-        if ((get_ammo_type_for_weapon(var_s1) == 0) || (handptr->weapon_ammo_in_magazine > 0))
+        if ((gunGetAmmoType(var_s1) == 0) || (handptr->weapon_ammo_in_magazine > 0))
         {
             switch (var_s1)
             {
@@ -2952,7 +2986,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
 
                     handptr->weapon_firing_status = (lvGetControlsLockedFlag() == 0) && (g_CurrentPlayer->mpmenuon == 0);
 
-                    sub_GAME_7F05E808(hand);
+                    gunSetSlideRecoiling(hand);
                 }
                 else
                 {
@@ -3311,7 +3345,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
     {
         if (handptr->field_88C == 0)
         {
-            sub_GAME_7F05E808(hand);
+            gunSetSlideRecoiling(hand);
         }
 
         if ((handptr->field_888 != 0) || ((handptr->field_888 == 0) && (handptr->field_890 >= WHEN_D_FLD890)))
@@ -3344,7 +3378,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
 
         if (handptr->field_890 >= sp188)
         {
-            g_CurrentPlayer->ammoheldarr[get_ammo_type_for_weapon(var_s1)] += handptr->weapon_ammo_in_magazine;
+            g_CurrentPlayer->ammoheldarr[gunGetAmmoType(var_s1)] += handptr->weapon_ammo_in_magazine;
             handptr->weapon_ammo_in_magazine = 0;
 
             if (getPlayerCount() >= 2)
@@ -4366,7 +4400,7 @@ void gunTickNoise(void)
  */
 s32 gunCanUseWeapon(enum GUNHAND hand)
 {
-    return (get_ammo_type_for_weapon(getCurrentPlayerWeaponId(hand)) == 0)
+    return (gunGetAmmoType(getCurrentPlayerWeaponId(hand)) == 0)
         || (g_CurrentPlayer->hands[hand].weapon_ammo_in_magazine > 0);
 }
 
@@ -4737,121 +4771,10 @@ void get_bullet_angle(f32* horizontal_angle, f32* vertical_angle) {
 
 extern const f32 g_GunScreenAspectRatio;
 
-
-/**
- * Address 0x7F068190.
-*/
-#if !defined(VERSION_US)
-void sub_GAME_7F068190(coord3d *zeropos, coord3d *vec)
-{
-    zeropos->x = 0.0f;
-    zeropos->y = 0.0f;
-    zeropos->z = 0.0f;
-
-    transformAndNormalizeByLength2Dto3D(&g_CurrentPlayer->crosshair_angle, vec, 1.0f);
-}
-
-
-/*
-* Address: 0x7f0681cc
-* This function computes the angle the player's bullets are fired at
-*/
-void bullet_path_from_screen_center(coord3d* arg0, coord3d* result, enum GUNHAND arg2)
-{
-    coord2d crosspos;
-    s32 unused;
-    f32 inaccuracy;
-    f32 scaledspread;
-    f32 randfactor;
-
-    inaccuracy = get_ptr_item_statistics(getCurrentPlayerWeaponId(arg2))->Inaccuracy;
-    if ((bondwalkItemCheckBitflags(get_item_in_hand_or_watch_menu(arg2), WEAPONSTATBITFLAG_FIRST_SHOT_ACCURACY) != 0) && (g_CurrentPlayer->hands[arg2].volley == 1))
-    {
-        // Single shots are four times more accurate
-        inaccuracy *= 0.25f;
-    }
-
-    scaledspread = (120.0f * inaccuracy) / viGetFovY();
-
-    randfactor = (RANDOMFRAC() - 0.5f) * RANDOMFRAC();
-    crosspos.x = g_CurrentPlayer->crosshair_angle.f[0] + randfactor * scaledspread * getPlayer_c_screenwidth() * g_GunScreenAspectRatio
-        / (getPlayer_c_perspaspect() * 320.0f);
-
-    randfactor = (RANDOMFRAC() - 0.5f) * RANDOMFRAC();
-    crosspos.y =  g_CurrentPlayer->crosshair_angle.f[1] + randfactor * scaledspread * getPlayer_c_screenheight()
-        / (PAL ? (f32)(SCREEN_HEIGHT_272) : (f32)(SCREEN_HEIGHT_240));
-
-    arg0->x = 0.0f;
-    arg0->y = 0.0f;
-    arg0->z = 0.0f;
-
-    // Result is a normalized vector describing the path the bullet will follow
-    // Can be used to compute x,y,z displacement off the center of the screen if done for a projectile
-    transformAndNormalizeByLength2Dto3D(&crosspos, result, 1.0f);
-}
-
-
-/*
-* Address: 0x7f068420
-*/
-CasingRecord* casingCreate(ModelFileHeader* header, Mtxf* mtx)
-{
-    CasingRecord* entry = g_Casings;
-    CasingRecord* end = g_Casings + ARRAYCOUNT(g_Casings);
-
-    while (entry < end && entry->header != NULL)
-    {
-        entry++;
-    }
-
-    if (entry < end)
-    {
-        entry->header = header;
-
-        entry->pos.x = mtx->m[3][0];
-        entry->pos.y = mtx->m[3][1];
-        entry->pos.z = mtx->m[3][2];
-#if VERSION_EU
-        matrix_7f05842c_eu(mtx, entry->rot_mtx);
-#else
-        entry->rot_mtx.m[0][0] = mtx->m[0][0];
-        entry->rot_mtx.m[0][1] = mtx->m[0][1];
-        entry->rot_mtx.m[0][2] = mtx->m[0][2];
-        entry->rot_mtx.m[0][3] = 0.0f;
-
-        entry->rot_mtx.m[1][0] = mtx->m[1][0];
-        entry->rot_mtx.m[1][1] = mtx->m[1][1];
-        entry->rot_mtx.m[1][2] = mtx->m[1][2];
-        entry->rot_mtx.m[1][3] = 0.0f;
-
-        entry->rot_mtx.m[2][0] = mtx->m[2][0];
-        entry->rot_mtx.m[2][1] = mtx->m[2][1];
-        entry->rot_mtx.m[2][2] = mtx->m[2][2];
-        entry->rot_mtx.m[2][3] = 0.0f;
-
-        entry->rot_mtx.m[3][0] = 0.0f;
-        entry->rot_mtx.m[3][1] = 0.0f;
-        entry->rot_mtx.m[3][2] = 0.0f;
-        entry->rot_mtx.m[3][3] = 1.0f;
-#endif
-        return entry;
-    }
-
-    return NULL;
-}
-#endif
-
-
-#if VERSION_EU
-#define THROWMTX_OFFSET      0xAD0
-#define THROWPOS_OFFSET      0xB00
-#define THROWPOS_PREV_OFFSET 0xB40
-#else
 #define THROWMTX_OFFSET      0xAD8
 #define THROWPOS_OFFSET      0xB08
 #define THROWPOS_PREV_OFFSET 0xB48
-#endif
- 
+
 #define THROWMTX     ((Mtxf *) ((u8 *) g_CurrentPlayer + handoffset + THROWMTX_OFFSET))
 #define THROWPOS(k)  (((f32 *) ((u8 *) g_CurrentPlayer + handoffset + THROWPOS_OFFSET))[k])
 #define THROWPREV(k) (((f32 *) ((u8 *) g_CurrentPlayer + handoffset + THROWPOS_PREV_OFFSET))[k])
@@ -4877,202 +4800,6 @@ extern const f32 g_RifleCasingRotationOffsetZ;
 extern const f32 g_RifleCasingRandomDivisor;
 extern const f32 g_RifleCasingGravity;
  
- 
-/**
- * Address: 7F068508
- * 
- * Ejects a spent cartridge casing from the gun in the given hand.
- */
-#if defined(VERSION_EU)
-void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
-{
-    CasingRecord *casing;
-    Mtxf mtx;
-    ITEM_IDS weaponid;
-    coord3d *switchdata;
-    ModelFileHeader *cartridge_header;
-    coord3d switchpos;
-    ModelNode *switch0;
-    coord3d rot;
-#if VERSION_EU
-    Mtxf rotmtx;
-#endif
-    f32 rand;
-    s32 new_var; /* dead but declared on EU — still reserves its frame slot */
-    f32 frac;
-#if VERSION_EU
-    s32 randlimit;
-#endif
-    f32 oldvely;
-    f32 newvely;
-#ifndef VERSION_EU
-    s32 randlimit;
-#endif
-    s32 handoffset;
-    u32 randval;
-#if VERSION_EU
-    s32 pad[2];
-#endif
- 
-    weaponid = getCurrentPlayerWeaponId(handnum);
-    cartridge_header = get_ptr_item_statistics(weaponid)->ptr_cartridge_struct;
- 
-    // Do not create ejected casings in multiplayer.
-    if ((cartridge_header == NULL) || (getPlayerCount() >= 2))
-    {
-        return;
-    }
- 
-    handoffset = handnum * sizeof(struct hand);
-    switch0 = g_CurrentPlayer->copy_of_body_obj_header[handnum].Switches[0];
- 
-    if (switch0 != NULL)
-    {
-        switchdata = (coord3d *) switch0->Data;
- 
-        switchpos.x = switchdata->x * g_CasingSwitchScale;
-        switchpos.y = switchdata->y * g_CasingSwitchScale;
-        switchpos.z = switchdata->z * g_CasingSwitchScale;
- 
-        matrix_4x4_set_identity_and_position(&switchpos, &mtx);
-        matrix_4x4_multiply_in_place(THROWMTX, &mtx);
-    }
-    else
-    {
-        matrix_4x4_copy(THROWMTX, &mtx);
-    }
- 
-    casing = casingCreate(cartridge_header, &mtx);
- 
-    if (casing == NULL)
-    {
-        return;
-    }
- 
-    rot = *((coord3d *) (&D_80035EA4));
-    casing->floor_y_pos = floor_y_pos;
- 
-    if (((((weaponid == ITEM_WPPK) || (weaponid == ITEM_WPPKSIL)) || (weaponid == ITEM_TT33)) || (weaponid == ITEM_SILVERWPPK)) || (weaponid == ITEM_GOLDWPPK))
-    {
-        rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        newvely = 0.0625f;
-        casing->vel.x = -(((rand * g_PistolCasingHorizontalSpeed) * newvely) + g_PistolCasingHorizontalSpeed);
- 
-        rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        casing->vel.y = ((rand * 2.5f) * 0.0625f) + 2.5f;
-        casing->vel.z = frac * 0.0f;
- 
-        mtx4RotateVecInPlace(THROWMTX, &casing->vel);
- 
-        rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.x = (((rand + rand) * g_PistolCasingRotationScaleX) * newvely) - g_PistolCasingRotationOffsetX;
- 
-        rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.y = (((rand + rand) * g_PistolCasingRotationScaleY) * newvely) - g_PistolCasingRotationOffsetY;
- 
-        rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.z = (((rand + rand) * g_PistolCasingRotationScaleZ) * newvely) - g_PistolCasingRotationOffsetZ;
- 
-#if VERSION_EU
-        matrix_4x4_set_rotation_around_xyz(&rot, &rotmtx);
-        matrix_7f05842c_eu(&rotmtx, casing->rot_velocity_mtx);
-        if (handoffset);
-#else
-        matrix_4x4_set_rotation_around_xyz(&rot, &casing->rot_velocity_mtx);
-#endif
- 
-#if VERSION_EU
-        randlimit = ((s32) ((randomGetNext() >> 24) * 0x158679)) >> 10;
-        randlimit = randlimit + 0x158679;
-        randval = randomGetNext();
-        oldvely = casing->vel.y;
-        frac = ((f32) ((u32) (randval % randlimit))) / g_PistolCasingRandomDivisor;
-#else
-        randlimit = (((s32) ((randomGetNext() >> 24) * 0x158679)) >> 10) + 0x158679;
-        new_var = randlimit;
-        randval = randomGetNext();
-        oldvely = casing->vel.y;
-        frac = ((f32) ((u32) (randval % new_var))) / g_PistolCasingRandomDivisor;
-#endif
-        newvely = oldvely - (frac * g_PistolCasingGravity);
- 
-        casing->vel.y = newvely;
-        casing->pos.y += (frac * (oldvely + newvely)) * 0.5f;
-        casing->pos.x += frac * casing->vel.x;
-        casing->pos.z += frac * casing->vel.z;
- 
-        // Keep the 0 + 1 for matching.
-        if (g_ClockTimer >= (0 + 1))
-        {
-            casing->vel.x += (THROWPOS(0) - THROWPREV(0)) / g_GlobalTimerDelta;
-            casing->vel.y += (THROWPOS(1) - THROWPREV(1)) / g_GlobalTimerDelta;
-            casing->vel.z += (THROWPOS(2) - THROWPREV(2)) / g_GlobalTimerDelta;
-        }
-    }
-    else
-    {
-        rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        casing->vel.x = -(((rand * g_RifleCasingHorizontalSpeed) * 0.125f) + g_RifleCasingHorizontalSpeed);
- 
-        rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        casing->vel.y = ((rand * g_RifleCasingVerticalSpeed) * 0.125f) + g_RifleCasingVerticalSpeed;
-        casing->vel.z = 0.0f;
- 
-        mtx4RotateVecInPlace(THROWMTX, &casing->vel);
- 
-        rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.x = (((rand + rand) * g_RifleCasingRotationScaleX) * 0.0625f) - g_RifleCasingRotationOffsetX;
- 
-        rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.y = (((rand + rand) * g_RifleCasingRotationScaleY) * 0.0625f) - g_RifleCasingRotationOffsetY;
- 
-        rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
-        rot.z = (((rand + rand) * g_RifleCasingRotationScaleZ) * 0.0625f) - g_RifleCasingRotationOffsetZ;
- 
-#if VERSION_EU
-        matrix_4x4_set_rotation_around_xyz(&rot, &rotmtx);
-        matrix_7f05842c_eu(&rotmtx, casing->rot_velocity_mtx);
-        if (handoffset);
-#else
-        matrix_4x4_set_rotation_around_xyz(&rot, &casing->rot_velocity_mtx);
-#endif
-        randval = ((s32) ((randomGetNext() >> 24) * 0x158679)) >> 10;
-#if VERSION_EU
-        randval = randval + 0x158679;
-        randlimit = randomGetNext();
-        oldvely = (&casing->vel)->y;
-        frac = ((f32) ((u32) (randlimit % randval))) / g_RifleCasingRandomDivisor;
-#else
-        randlimit = randval + 0x158679;
-        randval = randomGetNext();
-        oldvely = (&casing->vel)->y;
-        frac = ((f32) ((u32) (randval % randlimit))) / g_RifleCasingRandomDivisor;
-#endif
-        newvely = (casing->vel.y = oldvely - (frac * g_RifleCasingGravity));
- 
-        casing->pos.y += (frac * (oldvely + newvely)) * 0.5f;
-        casing->pos.x += frac * casing->vel.x;
-        casing->pos.z += frac * casing->vel.z;
- 
-        if (g_ClockTimer > 0)
-        {
-            casing->vel.x += (THROWPOS(0) - THROWPREV(0)) / g_GlobalTimerDelta;
-            casing->vel.y += (THROWPOS(1) - THROWPREV(1)) / g_GlobalTimerDelta;
-            casing->vel.z += (THROWPOS(2) - THROWPREV(2)) / g_GlobalTimerDelta;
-        }
-    }
- 
-    if (handoffset);
-}
-#endif
-
-
-
-/* ===== merged from gun2.c ===== */
-
-#if VERSION_EU
-extern const f32 g_GunSightAspectRatio;
-#endif
 extern ALSoundState *g_CasingSfxState;
 
 #define AMMO_RELATED_MAX 30
@@ -5083,10 +4810,6 @@ extern const char g_GunDeathCountFormat[];
 extern const char aSD_0[];
 
 
-#if defined(VERSION_US)
-/**
- * Address 0x7F068190.
-*/
 void sub_GAME_7F068190(coord3d *zeropos, coord3d *vec)
 {
     zeropos->x = 0.0f;
@@ -5098,10 +4821,9 @@ void sub_GAME_7F068190(coord3d *zeropos, coord3d *vec)
 
 
 /*
-* Address: 0x7f0681cc
 * This function computes the angle the player's bullets are fired at
 */
-void bullet_path_from_screen_center(coord3d* arg0, coord3d* result, enum GUNHAND arg2)
+void gunCalcBulletPath(coord3d* arg0, coord3d* result, enum GUNHAND arg2)
 {
     coord2d crosspos;
     s32 unused;
@@ -5110,6 +4832,7 @@ void bullet_path_from_screen_center(coord3d* arg0, coord3d* result, enum GUNHAND
     f32 randfactor;
 
     inaccuracy = get_ptr_item_statistics(getCurrentPlayerWeaponId(arg2))->Inaccuracy;
+
     if ((bondwalkItemCheckBitflags(get_item_in_hand_or_watch_menu(arg2), WEAPONSTATBITFLAG_FIRST_SHOT_ACCURACY) != 0) && (g_CurrentPlayer->hands[arg2].volley == 1))
     {
         // Single shots are four times more accurate
@@ -5119,12 +4842,10 @@ void bullet_path_from_screen_center(coord3d* arg0, coord3d* result, enum GUNHAND
     scaledspread = (120.0f * inaccuracy) / viGetFovY();
 
     randfactor = (RANDOMFRAC() - 0.5f) * RANDOMFRAC();
-    crosspos.x = g_CurrentPlayer->crosshair_angle.f[0] + randfactor * scaledspread * getPlayer_c_screenwidth() * g_GunScreenAspectRatio
-        / (getPlayer_c_perspaspect() * 320.0f);
+    crosspos.x = g_CurrentPlayer->crosshair_angle.f[0] + randfactor * scaledspread * getPlayer_c_screenwidth() * g_GunScreenAspectRatio / (getPlayer_c_perspaspect() * 320.0f);
 
     randfactor = (RANDOMFRAC() - 0.5f) * RANDOMFRAC();
-    crosspos.y =  g_CurrentPlayer->crosshair_angle.f[1] + randfactor * scaledspread * getPlayer_c_screenheight()
-        / (PAL ? (f32)(SCREEN_HEIGHT_272) : (f32)(SCREEN_HEIGHT_240));
+    crosspos.y =  g_CurrentPlayer->crosshair_angle.f[1] + randfactor * scaledspread * getPlayer_c_screenheight() / (f32)(SCREEN_HEIGHT_240);
 
     arg0->x = 0.0f;
     arg0->y = 0.0f;
@@ -5136,9 +4857,6 @@ void bullet_path_from_screen_center(coord3d* arg0, coord3d* result, enum GUNHAND
 }
 
 
-/*
-* Address: 0x7f068420
-*/
 CasingRecord* casingCreate(ModelFileHeader* header, Mtxf* mtx)
 {
     CasingRecord* entry = g_Casings;
@@ -5156,9 +4874,7 @@ CasingRecord* casingCreate(ModelFileHeader* header, Mtxf* mtx)
         entry->pos.x = mtx->m[3][0];
         entry->pos.y = mtx->m[3][1];
         entry->pos.z = mtx->m[3][2];
-#if VERSION_EU
-        matrix_7f05842c_eu(mtx, entry->rot_mtx);
-#else
+
         entry->rot_mtx.m[0][0] = mtx->m[0][0];
         entry->rot_mtx.m[0][1] = mtx->m[0][1];
         entry->rot_mtx.m[0][2] = mtx->m[0][2];
@@ -5178,28 +4894,17 @@ CasingRecord* casingCreate(ModelFileHeader* header, Mtxf* mtx)
         entry->rot_mtx.m[3][1] = 0.0f;
         entry->rot_mtx.m[3][2] = 0.0f;
         entry->rot_mtx.m[3][3] = 1.0f;
-#endif
+
         return entry;
     }
 
     return NULL;
 }
-#endif
 
-
-#if VERSION_EU
-#else
-#endif
- 
- 
- 
  
 /**
- * Address: 7F068508
- * 
  * Ejects a spent cartridge casing from the gun in the given hand.
  */
-#if !defined(VERSION_EU)
 void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
 {
     CasingRecord *casing;
@@ -5210,25 +4915,14 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
     coord3d switchpos;
     ModelNode *switch0;
     coord3d rot;
-#if VERSION_EU
-    Mtxf rotmtx;
-#endif
     f32 rand;
     s32 new_var; /* dead but declared on EU — still reserves its frame slot */
     f32 frac;
-#if VERSION_EU
-    s32 randlimit;
-#endif
     f32 oldvely;
     f32 newvely;
-#ifndef VERSION_EU
     s32 randlimit;
-#endif
     s32 handoffset;
     u32 randval;
-#if VERSION_EU
-    s32 pad[2];
-#endif
  
     weaponid = getCurrentPlayerWeaponId(handnum);
     cartridge_header = get_ptr_item_statistics(weaponid)->ptr_cartridge_struct;
@@ -5289,27 +4983,14 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
         rot.z = (((rand + rand) * g_PistolCasingRotationScaleZ) * newvely) - g_PistolCasingRotationOffsetZ;
  
-#if VERSION_EU
-        matrix_4x4_set_rotation_around_xyz(&rot, &rotmtx);
-        matrix_7f05842c_eu(&rotmtx, casing->rot_velocity_mtx);
-        if (handoffset);
-#else
         matrix_4x4_set_rotation_around_xyz(&rot, &casing->rot_velocity_mtx);
-#endif
- 
-#if VERSION_EU
-        randlimit = ((s32) ((randomGetNext() >> 24) * 0x158679)) >> 10;
-        randlimit = randlimit + 0x158679;
-        randval = randomGetNext();
-        oldvely = casing->vel.y;
-        frac = ((f32) ((u32) (randval % randlimit))) / g_PistolCasingRandomDivisor;
-#else
+
         randlimit = (((s32) ((randomGetNext() >> 24) * 0x158679)) >> 10) + 0x158679;
         new_var = randlimit;
         randval = randomGetNext();
         oldvely = casing->vel.y;
         frac = ((f32) ((u32) (randval % new_var))) / g_PistolCasingRandomDivisor;
-#endif
+
         newvely = oldvely - (frac * g_PistolCasingGravity);
  
         casing->vel.y = newvely;
@@ -5345,25 +5026,14 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
         rot.z = (((rand + rand) * g_RifleCasingRotationScaleZ) * 0.0625f) - g_RifleCasingRotationOffsetZ;
  
-#if VERSION_EU
-        matrix_4x4_set_rotation_around_xyz(&rot, &rotmtx);
-        matrix_7f05842c_eu(&rotmtx, casing->rot_velocity_mtx);
-        if (handoffset);
-#else
         matrix_4x4_set_rotation_around_xyz(&rot, &casing->rot_velocity_mtx);
-#endif
+
         randval = ((s32) ((randomGetNext() >> 24) * 0x158679)) >> 10;
-#if VERSION_EU
-        randval = randval + 0x158679;
-        randlimit = randomGetNext();
-        oldvely = (&casing->vel)->y;
-        frac = ((f32) ((u32) (randlimit % randval))) / g_RifleCasingRandomDivisor;
-#else
         randlimit = randval + 0x158679;
         randval = randomGetNext();
         oldvely = (&casing->vel)->y;
         frac = ((f32) ((u32) (randval % randlimit))) / g_RifleCasingRandomDivisor;
-#endif
+
         newvely = (casing->vel.y = oldvely - (frac * g_RifleCasingGravity));
  
         casing->pos.y += (frac * (oldvely + newvely)) * 0.5f;
@@ -5377,10 +5047,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
             casing->vel.z += (THROWPOS(2) - THROWPREV(2)) / g_GlobalTimerDelta;
         }
     }
- 
-    if (handoffset);
 }
-#endif
 
 
 extern const f32 g_CasingGravity;
@@ -5402,11 +5069,7 @@ void update_bullet_casing(CasingRecord* casing)
 
     if (casing->pos.y < casing->floor_y_pos)
     {
-#if defined(BUGFIX_R1)
-        if (g_CasingSfxState == 0 && (g_ClockTimer > 0))
-#else
         if (g_CasingSfxState == 0)
-#endif
         {
             if ((g_CurrentPlayer->hands[0].weapon_action_state != GUN_ANIM_STATE_FIRE) && (g_CurrentPlayer->hands[1].weapon_action_state != GUN_ANIM_STATE_FIRE))
             {
@@ -5426,11 +5089,7 @@ void update_bullet_casing(CasingRecord* casing)
 
     for (i = 0; i < g_ClockTimer; i++)
     {
-#if defined(VERSION_US) || defined(VERSION_JP)
         matrix_4x4_multiply_homogeneous_in_place(&casing->rot_velocity_mtx, &casing->rot_mtx);
-#else
-        matrix_4x4_multiply_homogeneous_in_place_eu(casing->rot_velocity_mtx, casing->rot_mtx);
-#endif
     }
 }
 
@@ -5450,6 +5109,7 @@ void update_bullet_casings(void)
         entry++;
     }
 }
+
 
 typedef struct ModelHead {
     s16 unk00;
@@ -5482,11 +5142,8 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
 
     model.render_pos = model_matrices;
 
-#if defined(VERSION_EU)
-    matrix_4x4_copy_eu(casing->rot_mtx, casing_model_mtx.m);
-#else
     matrix_4x4_copy(&casing->rot_mtx, &casing_model_mtx);
-#endif
+
 
     model_scale_or_min_translation = g_CasingModelScale;
     matrix_scalar_multiply(model_scale_or_min_translation, &casing_model_mtx);
@@ -5542,7 +5199,6 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
 }
 
 
-// Address: 0x7F06908C
 void gunRenderCasings(Gfx **gdl)
 {
     CasingRecord* end = g_Casings + ARRAYCOUNT(g_Casings);
@@ -5572,24 +5228,29 @@ void gunSetGunAmmoVisible(s32 reason, bool enable) {
 }
 
 
-
-void give_cur_player_ammo(s32 ammo_type, s32 ammo_amount) {
+void give_cur_player_ammo(s32 ammo_type, s32 ammo_amount)
+{
     enum ITEM_IDS weapon_id;
     s32 max_ammo;
 
     weapon_id = getCurrentPlayerWeaponId(GUNRIGHT);
-    if ((get_ammo_type_for_weapon(weapon_id) == ammo_type) && (bondwalkItemCheckBitflags(weapon_id, WEAPONSTATBITFLAG_AMMO_CLIP_LIMIT) != 0))
+
+    if ((gunGetAmmoType(weapon_id) == ammo_type) && (bondwalkItemCheckBitflags(weapon_id, WEAPONSTATBITFLAG_AMMO_CLIP_LIMIT) != 0))
     {
         g_CurrentPlayer->hands[0].weapon_ammo_in_magazine += ammo_amount;
+
         if (get_ptr_item_statistics(weapon_id)->MagSize < g_CurrentPlayer->hands[0].weapon_ammo_in_magazine)
         {
             g_CurrentPlayer->hands[0].weapon_ammo_in_magazine = (s32) get_ptr_item_statistics(weapon_id)->MagSize;
         }
+
         g_CurrentPlayer->ammoheldarr[ammo_type] = 0;
+
         return;
     }
 
     max_ammo = ammo_related[ammo_type].MaxAmmo;
+
     if (max_ammo < ammo_amount)
     {
         g_CurrentPlayer->ammoheldarr[ammo_type] = max_ammo;
@@ -5610,11 +5271,11 @@ s32 currentPlayerGetAmmoCount(AMMOTYPE ammotype) {
 
     s32 total_ammo = check_cur_player_ammo_amount_in_inventory(ammotype);
 
-    if (get_ammo_type_for_weapon(getCurrentPlayerWeaponId(GUNRIGHT)) == ammotype) {
+    if (gunGetAmmoType(getCurrentPlayerWeaponId(GUNRIGHT)) == ammotype) {
         total_ammo += get_ammo_in_hands_magazine(GUNRIGHT);
     }
 
-    if (get_ammo_type_for_weapon(getCurrentPlayerWeaponId(GUNLEFT)) == ammotype) {
+    if (gunGetAmmoType(getCurrentPlayerWeaponId(GUNLEFT)) == ammotype) {
         total_ammo += get_ammo_in_hands_magazine(GUNLEFT);
     }
 
@@ -5676,7 +5337,7 @@ s32 get_ammo_in_hands_weapon(enum GUNHAND hand)
 
 
 
-s32 get_ammo_type_for_weapon(ITEM_IDS weapon) {
+s32 gunGetAmmoType(ITEM_IDS weapon) {
     return get_ptr_item_statistics(weapon)->AmmoType;
 }
 
@@ -5867,7 +5528,7 @@ Gfx *gunRenderAmmoDisplay(Gfx *gdl)
 
             if (weapon_right != ITEM_UNARMED)
             {
-                ammotype = get_ammo_type_for_weapon(weapon_right);
+                ammotype = gunGetAmmoType(weapon_right);
 
                 if (ammotype != 0
                     && g_CurrentPlayer->hands[0].weapon_action_state != GUN_ANIM_STATE_SWITCH_SWAP
@@ -5933,7 +5594,7 @@ Gfx *gunRenderAmmoDisplay(Gfx *gdl)
 
             if (weapon_left != ITEM_UNARMED)
             {
-                ammotype = get_ammo_type_for_weapon(weapon_left);
+                ammotype = gunGetAmmoType(weapon_left);
 
                 if (ammotype != 0
                     && g_CurrentPlayer->hands[1].weapon_action_state != GUN_ANIM_STATE_SWITCH_SWAP
@@ -6022,7 +5683,7 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
 
     if (item != ITEM_UNARMED)
     {
-        ammotype = get_ammo_type_for_weapon(item);
+        ammotype = gunGetAmmoType(item);
 
         if (ammotype != 0
             && g_CurrentPlayer->hands[GUNRIGHT].weapon_action_state != GUN_ANIM_STATE_SWITCH_SWAP

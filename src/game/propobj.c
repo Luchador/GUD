@@ -10018,12 +10018,13 @@ s32 get_ammo_in_magazine(AmmoCrateRecord *crate)
     return qty;
 }
 
-s32 ammo_collected_from_weapon(WeaponObjRecord *weapon)
+
+s32 objGetCollectedAmmoFromWeapon(WeaponObjRecord *weapon)
 {
     s32 ammotype;
     s32 qty;
 
-    ammotype = get_ammo_type_for_weapon(weapon->weaponnum);
+    ammotype = gunGetAmmoType(weapon->weaponnum);
     qty = 1;
 
     if (weapon->flags & PROPFLAG_NO_AMMO)
@@ -10090,7 +10091,7 @@ void generate_language_specific_text_for_weapon(u8 *finalstring, ITEM_IDS itemty
         case ITEM_ROCKETROUND:
         case ITEM_GRENADEROUND :
         case ITEM_TOKEN:
-            prepare_ammo_type_collection_text(finalstring,get_ammo_type_for_weapon(itemtype),1);
+            prepare_ammo_type_collection_text(finalstring,gunGetAmmoType(itemtype),1);
             return;
         case ITEM_KNIFE:
             //a hunting knife.
@@ -10258,11 +10259,7 @@ TICKOP propPickupByPlayer(PropRecord *prop, bool showstring)
                     text = langGet(getStringID(LPROPOBJ, PROPOBJ_STR_3C_PICKEDUPAKEY)); // "Picked up a key.\n",
                 }
 
-#if defined(VERSION_JP) || defined(VERSION_EU)
-                jp_hudmsgBottomShow(text);
-#else
                 hudmsgBottomShow(text);
-#endif
             }
 
             op = INV_ITEM_PICKUP;
@@ -10353,11 +10350,7 @@ TICKOP propPickupByPlayer(PropRecord *prop, bool showstring)
 
                     if (text)
                     {
-#if defined(VERSION_JP) || defined(VERSION_EU)
-                        jp_hudmsgBottomShow(text);
-#else
                         hudmsgBottomShow(text);
-#endif
                     }
                     else
                     {
@@ -10384,11 +10377,7 @@ TICKOP propPickupByPlayer(PropRecord *prop, bool showstring)
                     {
                         collected = 1;
 
-#if defined(VERSION_JP) || defined(VERSION_EU)
-                        jp_hudmsgBottomShow(text);
-#else
                         hudmsgBottomShow(text);
-#endif
                     }
                     else if (collected)
                     {
@@ -10399,11 +10388,11 @@ TICKOP propPickupByPlayer(PropRecord *prop, bool showstring)
                 op = TICKOP_FREE;
             }
 
-            ammo_type = get_ammo_type_for_weapon(wep->weaponnum);
+            ammo_type = gunGetAmmoType(wep->weaponnum);
 
             if (ammo_type)
             {
-                s32 pickupqty = ammo_collected_from_weapon(wep);
+                s32 pickupqty = objGetCollectedAmmoFromWeapon(wep);
 
                 if (pickupqty > 0)
                 {
@@ -10446,11 +10435,7 @@ TICKOP propPickupByPlayer(PropRecord *prop, bool showstring)
 
                 }
 
-#if defined(VERSION_JP) || defined(VERSION_EU)
-                jp_hudmsgBottomShow(text);
-#else
                 hudmsgBottomShow(text);
-#endif
             }
 
             op = TICKOP_FREE;
@@ -10510,11 +10495,7 @@ TICKOP propPickupByPlayer(PropRecord *prop, bool showstring)
                     text = langGet(getStringID(LPROPOBJ, PROPOBJ_STR_3F_PICKEDUPSOMETHING)); // "Picked up something.\n",
                 }
 
-#if defined(VERSION_JP) || defined(VERSION_EU)
-                jp_hudmsgBottomShow(text);
-#else
                 hudmsgBottomShow(text);
-#endif
             }
 
             op = TICKOP_GIVETOPLAYER;
@@ -10547,7 +10528,7 @@ TICKOP propPickupByPlayer(PropRecord *prop, bool showstring)
 
 extern bool objCanPickupFromSafe(ObjectRecord *obj);
 extern s32 bondinvHasInvItem(ITEM_IDS weapon);
-extern s32 get_ammo_type_for_weapon(ITEM_IDS weapon);
+extern s32 gunGetAmmoType(ITEM_IDS weapon);
 extern s32 get_max_ammo_for_weapon(ITEM_IDS weapon);
 extern s32 get_ammo_count_for_weapon(ITEM_IDS weapon);
 extern bool bondinvHasDualWeapon(ITEM_IDS right, ITEM_IDS left);
@@ -10625,7 +10606,7 @@ TICKOP objTickPlayer(struct PropRecord* prop)
 
         if (bondinvHasInvItem(weaponObj->weaponnum) != 0) 
         {
-            if (get_ammo_type_for_weapon(weaponObj->weaponnum) != 0) 
+            if (gunGetAmmoType(weaponObj->weaponnum) != 0) 
             {
                 if (get_ammo_count_for_weapon(weaponObj->weaponnum) >= get_max_ammo_for_weapon(weaponObj->weaponnum)) 
                 {
@@ -10670,23 +10651,9 @@ TICKOP objTickPlayer(struct PropRecord* prop)
 
         ammoCrateObj = (AmmoCrateRecord*)prop->obj;
 
-#if defined(VERSION_JP) || defined(VERSION_EU)
-        if (check_cur_player_ammo_amount_in_inventory(ammoCrateObj->ammoType) >= get_max_ammo_for_type(ammoCrateObj->ammoType)
-            && !(
-                ((ammoCrateObj->ammoType == AMMO_GRENADE) && (!bondinvHasInvItem(ITEM_GRENADE)))
-                || ((ammoCrateObj->ammoType == AMMO_REMOTEMINE) && (!bondinvHasInvItem(ITEM_REMOTEMINE)))
-                || ((ammoCrateObj->ammoType == AMMO_PROXMINE) && (!bondinvHasInvItem(ITEM_PROXIMITYMINE)))
-                || ((ammoCrateObj->ammoType == AMMO_TIMEDMINE) && (!bondinvHasInvItem(ITEM_TIMEDMINE)))
-                || ((ammoCrateObj->ammoType == AMMO_KNIFE) && (!bondinvHasInvItem(ITEM_THROWKNIFE)))
-            )
-        ) {
-            return TICKOP_NONE;
-        }
-#else
         if (check_cur_player_ammo_amount_in_inventory(ammoCrateObj->ammoType) >= get_max_ammo_for_type(ammoCrateObj->ammoType)) {
             return TICKOP_NONE;
         }
-#endif
     } 
     else if (obj->type == PROPDEF_AMMO) 
     {
@@ -10712,23 +10679,13 @@ TICKOP objTickPlayer(struct PropRecord* prop)
                 sp64 = 1;
             }
 
-            if (multiAmmoCrateObj->slots[i].quantity > 0) {
-                if (check_cur_player_ammo_amount_in_inventory(sp64) < get_max_ammo_for_type(sp64)) {
-                    sp6C = 0;
-                    break;
-                }
-
-#if defined(VERSION_JP) || defined(VERSION_EU)
-                if (((sp64 == AMMO_GRENADE) && (!bondinvHasInvItem(ITEM_GRENADE)))
-                    || ((sp64 == AMMO_REMOTEMINE) && (!bondinvHasInvItem(ITEM_REMOTEMINE)))
-                    || ((sp64 == AMMO_PROXMINE) && (!bondinvHasInvItem(ITEM_PROXIMITYMINE)))
-                    || ((sp64 == AMMO_TIMEDMINE) && (!bondinvHasInvItem(ITEM_TIMEDMINE)))
-                    || ((sp64 == AMMO_KNIFE) && (!bondinvHasInvItem(ITEM_THROWKNIFE))))
+            if (multiAmmoCrateObj->slots[i].quantity > 0) 
+            {
+                if (check_cur_player_ammo_amount_in_inventory(sp64) < get_max_ammo_for_type(sp64)) 
                 {
                     sp6C = 0;
                     break;
                 }
-#endif
             }
         }
 
@@ -10779,13 +10736,8 @@ TICKOP objTickPlayer(struct PropRecord* prop)
         f32 temp_f0;
         f32 temp_f12;
         f32 temp_f2;
-#if defined(VERSION_US)
         s32 var_v0;
-#endif
         struct PropRecord* temp_v0_5;
-#if defined(VERSION_JP) || defined(VERSION_EU)
-        s32 pad;
-#endif
         s32 pickup;
 
         temp_v0_5 = getCurrentPlayerProp();
@@ -11033,7 +10985,6 @@ PropRecord *hatCreateForChr(ChrRecord *chr, s32 modelnum, u32 flags)
 }
 
 
-// PD: weaponCreate
 WeaponObjRecord* weaponCreate(bool musthaveprop, bool musthavemodel, ModelFileHeader *modeldef)
 {
     s32 i;
@@ -11328,8 +11279,6 @@ KeyRecord *check_if_entry_is_collectable(s32 ID, PropRecord *prop) //#MATCH
 }
 
 
-
-
 /**
  * Get Key if has been "dropped"
  * @param KeyID: ID of Key to Find
@@ -11352,6 +11301,7 @@ KeyRecord *weaponFindThrown(s32 KeyID) //MATCH
 
     return NULL;
 }
+
 
 void add_obj_to_temp_proxmine_table(WeaponObjRecord* proxy)
 {
@@ -11395,9 +11345,7 @@ void remove_obj_from_temp_proxmine_table(WeaponObjRecord* proxy)
     }
 }
 
-/*
-* Address: 0x7f051bcc
-*/
+
 void detonate_proxmine_In_range(coord3d* pos)
 {
     s32 i;
@@ -11523,9 +11471,6 @@ bool chrEquipWeapon(WeaponObjRecord *wep, ChrRecord *chr)
             }
             else
             {
-                 #ifdef DEBUG
-                    osSyncPrintf("attempted multiple attach!!!\n");
-                #endif
                 return FALSE;
             }
         }
@@ -11601,8 +11546,6 @@ WeaponObjRecord blank_08_object_preset_1 = {
 
 
 /**
- * Address: 7F05206C
- *
  * @param modelnum: index into PitemZ_entries, which is enum PROP
  * @param weaponid: object_weapon.gun_pickup value
  */
@@ -11795,7 +11738,6 @@ ModelRenderData D_800322A4 = {
 
 /**
  * Render the weapon(s) characters are holding including the muzzle flash.
- * Address: 0x7f0523f8
  */
 void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
 {
@@ -11805,7 +11747,6 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
     Model *heldModel;
     ModelRenderData renderData;
     Model *chrModel;
-    u32 pad; // stack alignment for matching
     Mtxf rotationMtx;
 
     chr = ((ChrRenderContext *)renderContext)->chr;
@@ -11854,35 +11795,32 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
 }
 
 
-/*
-* Address: 0x7f052554
-*/
 TICKOP weaponTickPlayer(struct PropRecord* arg0)
 {
     return objTickPlayer(arg0);
 }
 
 
-
-
-/*
-* Address: 0x7f052574
-*/
 void weaponSetGunfireVisible(PropRecord *prop, s32 firing)
 {
     ObjectRecord *obj = prop->obj;
     Model *model = obj->model;
     ModelNode *node;
 
-    if (model && model->obj->Skeleton == &skeleton_prop_weapon) {
+    if (model && model->obj->Skeleton == &skeleton_prop_weapon)
+    {
         node = model->obj->Switches[0];
-        if (node) {
+
+        if (node)
+        {
             struct ModelRwData_GunfireRecord *rwdata = modelGetNodeRwData(model, node);
             rwdata->visible = firing;
         }
 
         node = model->obj->Switches[2];
-        if (node) {
+
+        if (node)
+        {
             struct ModelRwData_BSPRecord *rwdata = modelGetNodeRwData(model, node);
             rwdata->visible = firing;
         }
@@ -11892,7 +11830,6 @@ void weaponSetGunfireVisible(PropRecord *prop, s32 firing)
 
 /*
 * Alternative name: getHatType
-* Address: 0x7f052684
 */
 HATTYPE get_hat_model(PropRecord *prop) //#MATCH
 {
@@ -11943,12 +11880,6 @@ HATTYPE get_hat_model(PropRecord *prop) //#MATCH
 }
 
 
-
-
-
-/**
- * US address 7F0526EC.
-*/
 void door7F0526EC(DoorRecord *door, Mtxf *rhs)
 {
     Mtxf lhs;
@@ -12043,10 +11974,6 @@ void door7F0526EC(DoorRecord *door, Mtxf *rhs)
 }
 
 
-
-/**
- * NTSC address 0x7F052B00.
-*/
 void doorUpdateBbox(DoorRecord *door)
 {
     struct ModelRoData_BoundingBoxRecord *door_bb;
@@ -12123,8 +12050,6 @@ void doorUpdateBbox(DoorRecord *door)
 
 
 /**
- * Address: 7F052D8C
- * 
  * This function physically resizes sliding doors with DOORFLAG_CLIP_TO_BBOX as they move.
  * When the door is opening, it shrinks. When the door is closing, it expands.
  * This prevents z-fighting if the door's face is parallel with the suface it's sliding into.
@@ -12263,7 +12188,8 @@ void doorActivatePortal(DoorRecord *door)
  * Toggles (Open/Closed) the portal linked with door
  * @param door: Door to toggle portal on
  */
-void doorDeactivatePortal(DoorRecord *door) {
+void doorDeactivatePortal(DoorRecord *door)
+{
     if (door->portalNumber >= 0)
     {
         bgToggleDataPortalsContrlBytes1Bit1(door->portalNumber, FALSE);
@@ -12271,7 +12197,8 @@ void doorDeactivatePortal(DoorRecord *door) {
 }
 
 
-PropRecord* doorInit(DoorRecord* door, coord3d* pos, Mtxf* mtx, StandTile* stan, coord3d* coord, coord3d* centre) {
+PropRecord* doorInit(DoorRecord* door, coord3d* pos, Mtxf* mtx, StandTile* stan, coord3d* coord, coord3d* centre)
+{
     PropRecord* prop;
     f32 scale;
 
@@ -12286,9 +12213,12 @@ PropRecord* doorInit(DoorRecord* door, coord3d* pos, Mtxf* mtx, StandTile* stan,
     door->unkac = (f32) coord->y;
     door->unkb0 = (f32) coord->z;
 
-    if (door->flags & PROPFLAG_80000000) {
+    if (door->flags & PROPFLAG_80000000)
+    {
         door->openPosition = door->maxFrac;
-    } else {
+    } 
+    else
+    {
         door->openPosition = 0.0f;
     }
 
@@ -12297,10 +12227,13 @@ PropRecord* doorInit(DoorRecord* door, coord3d* pos, Mtxf* mtx, StandTile* stan,
     door->unkbd = 0;
     door->linkedDoor = NULL;
 
-    if (door->doorFlags & DOORFLAG_CLIP_TO_BBOX) {
+    if (door->doorFlags & DOORFLAG_CLIP_TO_BBOX)
+    {
         union ModelRoData *rodata = door->model->obj->RootNode->Child->Child->Data;
         door->unkcc = mempAllocBytesInBank(rodata->DisplayListCollisions.numVertices * sizeof(Vertex), MEMPOOL_STAGE);
-    } else {
+    } 
+    else
+    {
         door->unkcc = NULL;
     }
 
@@ -12451,7 +12384,7 @@ void sub_GAME_7F053A3C(DoorRecord* arg0)
 }
 
 
-void door7F053B10(DoorRecord *door) //#MATCH
+void door7F053B10(DoorRecord *door)
 {
     if (door->openSoundState && sndGetPlayingState(door->openSoundState))
     {
@@ -12465,9 +12398,8 @@ void door7F053B10(DoorRecord *door) //#MATCH
 }
 
 
-
-
-void doorPlayOpenSound0(DoorRecord *door) {
+void doorPlayOpenSound0(DoorRecord *door)
+{
     ALSoundState *soundState = NULL;
     ALSoundState *pendingState = NULL;
 
@@ -12484,103 +12416,103 @@ void doorPlayOpenSound0(DoorRecord *door) {
 
     switch (door->doorOpenSound)
     {
-    case DOOR_OPEN_SOUND_01:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_SLIDE1_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_02:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_METAL:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_OPEN_SFX, NULL);
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_LOOP_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_04:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SLIDE_OPEN_SFX, NULL);
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SINGLE_LOOP_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_WOOD:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_WOOD_OPEN_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_06:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_WOOD_2:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_CATCH_SFX, NULL);
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, DOOR_WOOD_SLIDE_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_WOOD_3:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_WOOD_OPEN_SFX, NULL);
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_09:
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, DOOR_SHUTTER_OPEN_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_METAL_2:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_METAL_OPEN_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_11:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_METAL_3:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_METAL_OPEN3_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_13:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_HYDROLIC:
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, DOOR_HYDRAL_CLOSE_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_STONE:
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, DOOR_SLIDE_STONE_OPEN_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_16:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SLIDE_OPEN_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_METAL_4:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
-        if (soundState != NULL)
-        {
-            chrobjSndCreatePostEventDefault(soundState, &door->prop->pos);
-        }
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_OPEN_SFX, NULL);
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_LOOP_SFX, pendingState);
-        }
-        break;
+        case DOOR_OPEN_SOUND_01:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_SLIDE1_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_02:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_METAL:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_OPEN_SFX, NULL);
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_LOOP_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_04:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SLIDE_OPEN_SFX, NULL);
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SINGLE_LOOP_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_WOOD:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_WOOD_OPEN_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_06:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_WOOD_2:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_CATCH_SFX, NULL);
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, DOOR_WOOD_SLIDE_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_WOOD_3:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_WOOD_OPEN_SFX, NULL);
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_09:
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, DOOR_SHUTTER_OPEN_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_METAL_2:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_METAL_OPEN_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_11:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_METAL_3:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_METAL_OPEN3_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_13:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_HYDROLIC:
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, DOOR_HYDRAL_CLOSE_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_STONE:
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, DOOR_SLIDE_STONE_OPEN_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_16:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SLIDE_OPEN_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_METAL_4:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
+            if (soundState != NULL)
+            {
+                chrobjSndCreatePostEventDefault(soundState, &door->prop->pos);
+            }
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_OPEN_SFX, NULL);
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_LOOP_SFX, pendingState);
+            }
+            break;
     }
 
     if (soundState != NULL)
@@ -12592,11 +12524,8 @@ void doorPlayOpenSound0(DoorRecord *door) {
 }
 
 
-
-
-
-
-void doorPlayOpenSound1(DoorRecord *door) {
+void doorPlayOpenSound1(DoorRecord *door)
+{
     ALSoundState *soundState = NULL;
     ALSoundState *pendingState = NULL;
 
@@ -12613,88 +12542,88 @@ void doorPlayOpenSound1(DoorRecord *door) {
 
     switch (door->doorOpenSound)
     {
-    case DOOR_OPEN_SOUND_01:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_SLIDE1_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_02:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_METAL:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_OPEN_SFX, NULL);
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_LOOP_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_04:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SLIDE_OPEN_SFX, NULL);
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SINGLE_LOOP_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_WOOD_2:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_CATCH_SFX, NULL);
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, DOOR_WOOD_SLIDE_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_WOOD_3:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_WOOD_OPEN_SFX, NULL);
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_09:
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, DOOR_SHUTTER_OPEN_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_13:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_HYDROLIC:
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, DOOR_HYDRAL_CLOSE_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_STONE:
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, DOOR_SLIDE_STONE_OPEN_SFX, pendingState);
-        }
-        break;
-    case DOOR_OPEN_SOUND_16:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SLIDE_OPEN_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_METAL_4:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
-        if (soundState != NULL)
-        {
-            chrobjSndCreatePostEventDefault(soundState, &door->prop->pos);
-        }
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_OPEN_SFX, NULL);
-        if (pendingState != NULL)
-        {
-            sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_LOOP_SFX, pendingState);
-        }
-        break;
+        case DOOR_OPEN_SOUND_01:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_SLIDE1_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_02:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_METAL:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_OPEN_SFX, NULL);
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_LOOP_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_04:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SLIDE_OPEN_SFX, NULL);
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SINGLE_LOOP_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_WOOD_2:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_CATCH_SFX, NULL);
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, DOOR_WOOD_SLIDE_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_WOOD_3:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_WOOD_OPEN_SFX, NULL);
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_09:
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, DOOR_SHUTTER_OPEN_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_13:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_HYDROLIC:
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, DOOR_HYDRAL_CLOSE_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_STONE:
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, DOOR_SLIDE_STONE_OPEN_SFX, pendingState);
+            }
+            break;
+        case DOOR_OPEN_SOUND_16:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SLIDE_OPEN_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_METAL_4:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
+            if (soundState != NULL)
+            {
+                chrobjSndCreatePostEventDefault(soundState, &door->prop->pos);
+            }
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_OPEN_SFX, NULL);
+            if (pendingState != NULL)
+            {
+                sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_LOOP_SFX, pendingState);
+            }
+            break;
     }
 
     if (soundState != NULL)
@@ -12706,55 +12635,51 @@ void doorPlayOpenSound1(DoorRecord *door) {
 }
 
 
-
-
-
-void doorPlayCloseSound0(DoorRecord *door) {
+void doorPlayCloseSound0(DoorRecord *door)
+{
     ALSoundState *soundState = NULL;
 
     door7F053B10(door);
 
     switch (door->doorOpenSound)
     {
-    case DOOR_OPEN_SOUND_01:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_02:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_METAL:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_CLOSE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_04:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SLIDE_CLOSE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_WOOD_2:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_WOOD_3:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_WOOD_CLOSE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_09:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SHUTTER_CLOSE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_13:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_HYDROLIC:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_HYDRAL_OPEN_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_STONE:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SLIDE_STONE_CLOSE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_16:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SLIDE_CLOSE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_METAL_4:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_CLOSE_SFX, NULL);
-        break;
+        case DOOR_OPEN_SOUND_01:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_02:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_METAL:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_CLOSE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_04:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SLIDE_CLOSE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_WOOD_2:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_WOOD_3:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_WOOD_CLOSE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_09:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SHUTTER_CLOSE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_13:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_HYDROLIC:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_HYDRAL_OPEN_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_STONE:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SLIDE_STONE_CLOSE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_16:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SLIDE_CLOSE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_METAL_4:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_CLOSE_SFX, NULL);
+            break;
     }
-
-    if (door); // Fix for recomp not matching
 
     if (soundState != NULL)
     {
@@ -12763,9 +12688,6 @@ void doorPlayCloseSound0(DoorRecord *door) {
 
     sub_GAME_7F053A3C(door);
 }
-
-
-
 
 
 void doorPlayCloseSound1(DoorRecord *door)
@@ -12776,62 +12698,61 @@ void doorPlayCloseSound1(DoorRecord *door)
 
     switch (door->doorOpenSound)
     {
-    case DOOR_OPEN_SOUND_01:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_02:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_METAL:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_CLOSE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_04:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SLIDE_CLOSE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_WOOD:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_WOOD_CLOSE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_06:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_WOOD_2:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_WOOD_3:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_WOOD_CLOSE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_09:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SHUTTER_CLOSE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_METAL_2:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_METAL_CLOSE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_11:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_METAL_CLOSE2_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_METAL_3:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_METAL_CLOSE3_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_13:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_HYDROLIC:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_HYDRAL_OPEN_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_STONE:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SLIDE_STONE_CLOSE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_16:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SLIDE_CLOSE_SFX, NULL);
-        break;
-    case DOOR_OPEN_SOUND_METAL_4:
-        soundState = sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_CLOSE_SFX, NULL);
-        break;
+        case DOOR_OPEN_SOUND_01:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_02:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_METAL:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_CLOSE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_04:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SLIDE_CLOSE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_WOOD:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_WOOD_CLOSE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_06:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_WOOD_2:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SMART_CATCH1_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_WOOD_3:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_WOOD_CLOSE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_09:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SHUTTER_CLOSE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_METAL_2:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_METAL_CLOSE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_11:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_METAL_CLOSE2_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_METAL_3:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_METAL_CLOSE3_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_13:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, TRAIN_SLIDE_DOOR_SLIDE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_HYDROLIC:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_HYDRAL_OPEN_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_STONE:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, DOOR_SLIDE_STONE_CLOSE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_16:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, HEAVY_SLIDE_CLOSE_SFX, NULL);
+            break;
+        case DOOR_OPEN_SOUND_METAL_4:
+            soundState = sndPlaySfx(g_musicSfxBufferPtr, METAL_SLIDE_CLOSE_SFX, NULL);
+            break;
     }
 
-    if (door); // Fix for recomp not matching
-
-    if (soundState != NULL) {
+    if (soundState != NULL)
+    {
         chrobjSndCreatePostEventDefault(soundState, &door->prop->pos);
     }
 
@@ -13026,17 +12947,11 @@ s32 getPropCombinedRoomsBBox2D(PropRecord *prop, bbox2d *bbox)
 }
 
 
-/**
- * Address 0x7F054B80.
-*/
 f32 chrobjFogVisRangeRelated(PropRecord *prop, f32 size)
 {
     f32 ret;
-#if defined(LEFTOVERDEBUG)
     struct NearFogRecord *nfd;
-#else
-    struct NearFogRecordF *nfd;
-#endif
+
     f32 temp_f12;
 
     ret = 1.0f;
@@ -13098,9 +13013,6 @@ bool sub_GAME_7F054C58(coord3d *coord, f32 arg1)
 }
 
 
-/**
- * Address: 7F054D6C
- */
 bool posIsOnScreen(PropRecord *prop, coord3d *pos, f32 arg2, bool arg3)
 {
     s32 room_ids[8];
@@ -13136,6 +13048,9 @@ bool posIsOnScreen(PropRecord *prop, coord3d *pos, f32 arg2, bool arg3)
                     f32 ydiff = pos->y - campos->y;
                     f32 zdiff = pos->z - campos->z;
 
+                    /**
+                     * If farther than 32000 units, consider it off screen.
+                     */
                     if (xdiff * xdiff + ydiff * ydiff + zdiff * zdiff > 32000 * 32000)
                     {
                         result = FALSE;

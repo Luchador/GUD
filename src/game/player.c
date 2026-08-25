@@ -108,8 +108,8 @@ struct hand g_DefaultHandTemplate = {
     { -1, 0, 0, 0, {{0,0,0}}, {{0,0,0}}, 0.0f, 0.0f, 0.0f, 0.0f }, /* weapon_beam */
     0, /* noise */
     0, /* triggerFingerRot */
-    0, /* field_A88 */
-    0, /* field_A8C */
+    0, /* slideRecoilOffset */
+    0, /* slideRecoiling */
     0, /* rocket */
     0, /* firedrocket */
     0, /* gunmtx_camspace.m[0][0] */

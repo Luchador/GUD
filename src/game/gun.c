@@ -491,18 +491,15 @@ typedef struct ModelHeader {
 
 // forward declarations
 
-void bullet_path_from_screen_center(coord3d* arg0, coord3d* arg1, enum GUNHAND arg2);
 void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *arg2, coord3d *velocity, Mtxf *arg4);
 s32 gunSample1PTransform(Weapon1PTransformKeyframe *keyframes, f32 time, Mtxf *matrix, GUNHAND hand);
 void analyzeGEKey(void);
 void give_weapon_case_items(void);
 struct ModelFileHeader * get_ptr_weapon_model_header_line(ITEM_IDS weapon);
 s32 get_ammo_in_hands_weapon(enum GUNHAND hand);
-s32 get_ammo_type_for_weapon(ITEM_IDS weapon);
 f32 gunSetHorizontalOffset(GUNHAND hand);
 void give_weapon_case_items(void);
 void sub_GAME_7F05DA8C(GUNHAND hand, ITEM_IDS weaponnum_watchmenu);
-void sub_GAME_7F05E808(GUNHAND hand);
 void sub_GAME_7F0649D8(enum GUNHAND hand);
 void gunCreateBeamForHand(enum GUNHAND hand);
 CasingRecord* casingCreate(ModelFileHeader* header, Mtxf* mtx);
@@ -972,7 +969,7 @@ s32 currentPlayerEquipWeaponWrapper(GUNHAND hand, s32 next_weapon) {
 }
 
 void attempt_reload_item_in_hand(GUNHAND hand) {
-    s32 ammo_type = get_ammo_type_for_weapon(getCurrentPlayerWeaponId(hand));
+    s32 ammo_type = gunGetAmmoType(getCurrentPlayerWeaponId(hand));
     if (ammo_type != 0) {
         if (g_CurrentPlayer->hands[hand].weapon_current_animation == 0) {
             g_CurrentPlayer->hands[hand].weapon_current_animation = 9;
@@ -1016,7 +1013,7 @@ void currentPlayerUnEquipWeaponWrapper(enum GUNHAND hand, enum ITEM_IDS weapid)
     s32 ammo_type;
 
     weapon_num = g_CurrentPlayer->hands[hand].weaponnum;
-    ammo_type = get_ammo_type_for_weapon(weapon_num);
+    ammo_type = gunGetAmmoType(weapon_num);
 
     if (g_CurrentPlayer->hands[hand].weaponnum_watchmenu < 0)
     {
@@ -1162,7 +1159,7 @@ s32 bondwalkItemHasAmmo(ITEM_IDS item)
 {
     if (bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_HAS_AMMO) != 0)
     {
-        if ((get_ammo_type_for_weapon(item) == 0) || (get_ammo_count_for_weapon(item) > 0))
+        if ((gunGetAmmoType(item) == 0) || (get_ammo_count_for_weapon(item) > 0))
         {
             return 1;
         }
@@ -1341,47 +1338,6 @@ void gunRotateTriggerFingerJoint(enum GUNHAND hand, s32 heldtime)
         if (g_CurrentPlayer->hands[hand].triggerFingerRot < 0.0f)
         {
             g_CurrentPlayer->hands[hand].triggerFingerRot = 0.0f;
-        }
-    }
-}
-
-
-void sub_GAME_7F05E808(GUNHAND hand)
-{
-	g_CurrentPlayer->hands[hand].field_A8C = 1;
-}
-
-
-void gunRecoilSlide(GUNHAND hand)
-{
-    f32 recoil_back;
-
-    recoil_back = get_ptr_item_statistics(get_item_in_hand_or_watch_menu(hand))->BoltRecoilBack;
-
-    if (g_CurrentPlayer->hands[hand].field_A8C != 0)
-    {
-        if (g_CurrentPlayer->hands[hand].field_A88 < recoil_back)
-        {
-            g_CurrentPlayer->hands[hand].field_A88 = (g_CurrentPlayer->hands[hand].field_A88 + (recoil_back * 0.25f * g_GlobalTimerDelta));
-
-        }
-
-        if (recoil_back <= g_CurrentPlayer->hands[hand].field_A88)
-        {
-            g_CurrentPlayer->hands[hand].field_A88 = recoil_back;
-            g_CurrentPlayer->hands[hand].field_A8C = 0;
-        }
-    }
-    else if (g_CurrentPlayer->hands[hand].weapon_ammo_in_magazine > 0)
-    {
-        if (g_CurrentPlayer->hands[hand].field_A88 > 0.0f)
-        {
-            g_CurrentPlayer->hands[hand].field_A88 = (g_CurrentPlayer->hands[hand].field_A88 - (recoil_back * 0.16666667f * g_GlobalTimerDelta));
-
-        }
-        if (g_CurrentPlayer->hands[hand].field_A88 < 0.0f)
-        {
-            g_CurrentPlayer->hands[hand].field_A88 = 0.0f;
         }
     }
 }
@@ -1601,7 +1557,7 @@ void gunThrowGrenade(s32 hand)
     current_weapon = getCurrentPlayerWeaponId(hand);
 
     sub_GAME_7F057C14(&throw_speed_vec, &spFC);
-    bullet_path_from_screen_center(&sp94, &base_speed_vec, hand);
+    gunCalcBulletPath(&sp94, &base_speed_vec, hand);
     mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), (f32*)&base_speed_vec);
 
     throw_speed_vec.f[0] = (base_speed_vec.f[0] * base_velocity);
@@ -1686,7 +1642,7 @@ void gunThrowKnife(s32 hand)
     bondprevpos = getCurrentPlayerPrevPos();
 
     sub_GAME_7F057C14(&throw_speed_vec, &spFC);
-    bullet_path_from_screen_center(&sp94, &base_speed_vec, hand);
+    gunCalcBulletPath(&sp94, &base_speed_vec, hand);
     mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), (f32*)&base_speed_vec);
 
     throw_speed_vec.f[0] = (base_speed_vec.f[0] * base_velocity);
@@ -1772,7 +1728,7 @@ void gunThrowObject(s32 hand)
     }
 
     sub_GAME_7F057C14(&throw_speed_vec, &unk_mtxf);
-    bullet_path_from_screen_center(&sp94, &base_speed_vec, hand);
+    gunCalcBulletPath(&sp94, &base_speed_vec, hand);
     mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), (f32*)&base_speed_vec);
 
     throw_speed_vec.f[0] = (base_speed_vec.f[0] * base_velocity);
@@ -1944,7 +1900,7 @@ void gunSpawnGLGrenade(s32 handnum)
     prevplayerpos = getCurrentPlayerPrevPos();
 
     matrix_4x4_set_identity(&identitymtx);
-    bullet_path_from_screen_center(&aimpos, &aimdir, handnum);
+    gunCalcBulletPath(&aimpos, &aimdir, handnum);
     mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), &aimdir);
 
     launchvel.x = aimdir.x * 33.333332f;

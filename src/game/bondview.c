@@ -9655,7 +9655,7 @@ Gfx* hudmsgBottomRender(Gfx* arg0)
 
             if (getPlayerCount() < 3)
             {
-                if ((get_ammo_type_for_weapon(getCurrentPlayerWeaponId(GUNLEFT)) == 0) && (is_clock_drawn_onscreen() == 0))
+                if ((gunGetAmmoType(getCurrentPlayerWeaponId(GUNLEFT)) == 0) && (is_clock_drawn_onscreen() == 0))
                 {
                     view_top = (viGetViewTop() + viGetViewHeight()) - BONDVIEW_VIEW_TOP_OFFSET_1;
                 }
