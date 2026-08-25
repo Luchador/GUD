@@ -4537,12 +4537,12 @@ void gunTickGameplay(s32 triggerOn)
 
     if (g_CurrentPlayer->resetshadecol)
     {
-        set_color_shading_from_tile(getCurrentPlayerProp(), (struct rgba_u8 *) &g_CurrentPlayer->tileColor);
+        objSetColorFromTile(getCurrentPlayerProp(), (struct rgba_u8 *) &g_CurrentPlayer->tileColor);
         g_CurrentPlayer->resetshadecol = FALSE;
     }
     else
     {
-        set_color_shading_from_tile(getCurrentPlayerProp(), &weapon_color);
+        objSetColorFromTile(getCurrentPlayerProp(), &weapon_color);
         update_color_shading(&g_CurrentPlayer->tileColor, &weapon_color);
     }
 

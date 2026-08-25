@@ -167,10 +167,6 @@ s32 g_UpperTextMsgQueued = 0;
 s32 g_UpperTextTimer = 0xFFFFFFFF;
 s32 g_UpperTextSuppressFlags = 0;
 s32 g_PlayerTickCount = 0;
-
-StandTilePoint *dword_CODE_bss_80079DA0;
-StandTilePoint *dword_CODE_bss_80079DA4;
-s32 dword_CODE_bss_80079DA8[BSS_80079DA8_LENGTH];
 char dword_CODE_bss_80079DC8[0x3C];
 f32 g_MpSwirlRotateSpeed;
 f32 g_MpSwirlAngleDegrees;
@@ -327,7 +323,6 @@ s32 g_VisibleToGuardsFlag = TRUE;
 s32 obj_collision_flag = TRUE;
 f32 g_ViewConversionScale = 1.0;
 f32 D_800364D0 = 1.0;
-f32 D_800364D4 = 1.0;
 
 /**
  * When set, will increment each tick until reaching a threshold value (4).
@@ -9101,7 +9096,6 @@ void sub_GAME_7F089718(f32 arg0)
     col->collision_position.z *= scalar;
 
     D_800364D0 = arg0;
-    D_800364D4 = 1.0f / arg0;
 }
 
 

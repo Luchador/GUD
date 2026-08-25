@@ -393,14 +393,6 @@ void bondviewLoadSetupIntroSection(void)
     g_CurrentPlayer->field_488.theta_transform.f[1] = FLOAT_INIT;
     g_CurrentPlayer->field_488.theta_transform.f[2] = cosf(start_look_angle);
     sub_GAME_7F089718(D_800364D0);
-    dword_CODE_bss_80079DA0 = 0;
-
-
-    for (i=0; i<BSS_80079DA8_LENGTH; i++)
-    {
-        dword_CODE_bss_80079DA4 = 0;
-        dword_CODE_bss_80079DA8[i] = 0;
-    }
 
     bondviewResetIntroCameraMessageDialogs();
     bondviewResetUpperTextDisplay();

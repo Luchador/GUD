@@ -1594,7 +1594,7 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
     var_s0->hearingscale = 1.0f;
 
     var_s0->maxdamage = get_007_health_mod() * 4.0f;
-    set_color_shading_from_tile(arg0, &var_s0->nextcol);
+    objSetColorFromTile(arg0, &var_s0->nextcol);
 
     var_s0->shadecol.rgba[0] = var_s0->nextcol.rgba[0];
     var_s0->shadecol.rgba[1] = var_s0->nextcol.rgba[1];
@@ -2160,7 +2160,7 @@ void chrUpdateAnim(ChrRecord *chr, s32 tickamount)
         getsuboffset(model, &chr->prevpos);
         modelTickAnim(model, tickamount, 1);
         subcalcpos(model);
-        set_color_shading_from_tile(prop, &chr->nextcol);
+        objSetColorFromTile(prop, &chr->nextcol);
         getsuboffset(model, &prop->pos);
         chrDetectRooms(chr);
 
@@ -2272,7 +2272,7 @@ s32 chrTick(PropRecord *prop)
                 {
                     getsuboffset(model, &chr->prevpos);
                     subcalcpos(model);
-                    set_color_shading_from_tile(prop, &chr->nextcol);
+                    objSetColorFromTile(prop, &chr->nextcol);
                     getsuboffset(model, &prop->pos);
                     chrDetectRooms(chr);
                 }

@@ -2427,7 +2427,6 @@ extern s32 g_VisibleToGuardsFlag;
 extern s32 obj_collision_flag;
 extern f32 g_ViewConversionScale;
 extern f32 D_800364D0;
-extern f32 D_800364D4;
 extern s32 g_bondviewBondDeathAnimations[];
 extern s32 g_bondviewBondDeathAnimationsCount;
 extern enum CAMERAMODE camera_mode;
@@ -2463,11 +2462,6 @@ extern f32 watch_transition_time;
 extern ITEM_IDS starting_weapon[2];
 extern PadRecord *g_Startpad[];
 extern s32 startpadcount;
-extern StandTilePoint *dword_CODE_bss_80079DA0;
-extern StandTilePoint *dword_CODE_bss_80079DA4;
-
-#define BSS_80079DA8_LENGTH 8
-extern s32 dword_CODE_bss_80079DA8[];
 
 extern struct coord3d g_DefaultMoveBondOffset;
 extern struct coord3d g_DefaultFrozenPlayerPos;

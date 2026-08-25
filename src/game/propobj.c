@@ -462,7 +462,7 @@ struct ModelRoData_BoundingBoxRecord* chrobjGetBboxFromObjectRecord(ObjectRecord
 }
 
 
-void set_color_shading_from_tile(PropRecord *prop, u8 col[4])
+void objSetColorFromTile(PropRecord *prop, u8 col[4])
 {
     s32 tmp;
     s32 min;
@@ -510,15 +510,17 @@ void set_color_shading_from_tile(PropRecord *prop, u8 col[4])
 }
 
 
-/*
- * Address: 0x7F0402B4
-*/
-void sub_GAME_7F0402B4(PropRecord *prop, rgba_u8 *color)
+void objSetShading(PropRecord *prop, rgba_u8 *color)
 {
     struct DoorRecord *door = prop->door;
-    if (door->flags & 0x400 ){ return; }
 
-    set_color_shading_from_tile(prop, color);
+    if (door->flags & PROPFLAG_ILLUMINATED)
+    { 
+        return; 
+    }
+
+    objSetColorFromTile(prop, color);
+
     color->r >>= 1;
     color->g >>= 1;
     color->b >>= 1;
@@ -674,7 +676,7 @@ void objChangeShading(ObjectRecord* obj, coord3d* pos, Mtxf* matrix, StandTile* 
 
     prop->stan = stan;
 
-    sub_GAME_7F0402B4(obj->prop, &obj->nextcol);
+    objSetShading(obj->prop, &obj->nextcol);
 
     obj->shadecol.r = obj->nextcol.r;
     obj->shadecol.g = obj->nextcol.g;
@@ -4864,6 +4866,7 @@ s32 objTick(struct PropRecord *prop)
 					projectileFree(Rocket);
 					obj->projectile = NULL;
 					obj->runtime_bitflags &= ~RUNTIMEBITFLAG_HASPROJECTILE;
+
 					if (prop->flags & PROPFLAG_00000008)
 					{
 						prop->flags |= PROPFLAG_00000010;
@@ -4886,9 +4889,9 @@ s32 objTick(struct PropRecord *prop)
 			objUpdateCollisionVolume(obj);
 			setupUpdateObjectRoomPosition(obj);
 #if defined(VERSION_EU)
-			sub_GAME_7F0402B4(obj->prop, &obj->nextcol);
+			objSetShading(obj->prop, &obj->nextcol);
 #else
-			sub_GAME_7F0402B4(obj->prop, (rgba_u8 *) sp100);
+			objSetShading(obj->prop, (rgba_u8 *) sp100);
 #endif
 			detonate_proxmine_In_range((struct coord3d *) objectMatrix);
 		}
@@ -4897,13 +4900,8 @@ s32 objTick(struct PropRecord *prop)
 		{
 			door = (struct DoorRecord *) prop->obj;
 			previousOpenPosition = door->openPosition;
-#if defined(VERSION_EU)
-			if ((((((s32) door->openedTime) > 0) && (door->openstate == DOORSTATE_STATIONARY)) && (!(door->flags & PROPFLAG_DOOR_KEEPOPEN))) && (((s32) door->openedTime) < (((s32) g_GlobalTimer) - ((((s32) door->autoCloseFrames) * 50) / 60))))
-#elif defined(VERSION_JP)
-			if ((((((s32) door->openedTime) > 0) && (door->openstate == DOORSTATE_STATIONARY)) && (!(door->flags & PROPFLAG_DOOR_KEEPOPEN))) && (((s32) door->openedTime) < (((s32) g_GlobalTimer) - ((s32) door->autoCloseFrames))))
-#else
+
 			if ((((((s32) door->openedTime) > 0) && (((s32) door->openedTime) < (((s32) g_GlobalTimer) - ((s32) door->autoCloseFrames)))) && (door->openstate == DOORSTATE_STATIONARY)) && (!(door->flags & PROPFLAG_DOOR_KEEPOPEN)))
-#endif
 			{
 				doorActivate(door, DOORSTATE_CLOSING);
 			}
@@ -5506,7 +5504,7 @@ s32 objTick(struct PropRecord *prop)
 					if (var_s2_5 != 0)
 					{
 						sub_GAME_7F044B38(poTruck);
-						sub_GAME_7F0402B4(prop, &poTruck->nextcol);
+						objSetShading(prop, &poTruck->nextcol);
 						detonate_proxmine_In_range(&poTruck->position);
 						if ((waypointPosition != NULL) && (chrlvIsArrivingLaterallyAtPos(&sp450, &RocketCurrent, waypointPosition, 100.0f) != 0))
 						{
@@ -8017,7 +8015,7 @@ s32 objDrop(PropRecord *prop)
 
         matrix_4x4_copy(&spB8, &obj->mtx);
 
-        sub_GAME_7F0402B4(obj->prop, &obj->nextcol);
+        objSetShading(obj->prop, &obj->nextcol);
 
         obj->shadecol.r = obj->nextcol.r;
         obj->shadecol.g = obj->nextcol.g;
@@ -12354,7 +12352,7 @@ PropRecord* doorInit(DoorRecord* door, coord3d* pos, Mtxf* mtx, StandTile* stan,
 
     doorUpdateBbox(door);
     doorBuildClippedVertices(door);
-    sub_GAME_7F0402B4(door->prop, &door->nextcol);
+    objSetShading(door->prop, &door->nextcol);
 
     door->shadecol.r = door->nextcol.r;
     door->shadecol.g = door->nextcol.g;
@@ -13320,7 +13318,7 @@ void door7F054FB4(DoorRecord *door)
                     doorFinishClose(var_s1);
                 }
 
-                sub_GAME_7F0402B4(var_s1->prop, &var_s1->nextcol);
+                objSetShading(var_s1->prop, &var_s1->nextcol);
             }
             else
             {
