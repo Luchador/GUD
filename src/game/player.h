@@ -83,7 +83,7 @@ extern s32 random_byte;
 extern PLAYER_ID array_PLAYER_IDs[4];
 
 PROP getPropForHeldItem(ITEM_IDS itemnum);
-void reset_play_data_ptrs(void);
+void playerResetPointers(void);
 void init_player_data_ptrs_construct_viewports(int playercount);
 void shuffle_player_ids(void);
 s32 get_nth_player_from_shuffled(PLAYER_ID id);

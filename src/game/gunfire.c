@@ -111,7 +111,7 @@ struct ModelFileHeader *get_ptr_weapon_model_header_line(ITEM_IDS weapon);
 s32 get_ammo_in_hands_weapon(enum GUNHAND hand);
 s32 get_ammo_type_for_weapon(ITEM_IDS weapon);
 f32 gunSetHorizontalOffset(GUNHAND hand);
-f32 get_value_if_watch_is_on_hand_or_not(GUNHAND hand);
+f32 gunGetTriggerFingerRotAmount(GUNHAND hand);
 void sub_GAME_7F05DA8C(GUNHAND hand, ITEM_IDS weaponnum_watchmenu);
 void sub_GAME_7F05E808(GUNHAND hand);
 void sub_GAME_7F05EA94(Model *model, s32 val);
@@ -813,17 +813,17 @@ void gunUpdateAndFire(GUNHAND handnum)
         {
             swdata = (f32 *) node->Data;
             sw6mtxidx = modelFindNodeMtxIndex(node, 0);
-            sub_GAME_7F05E6B4(handnum, hand->weapon_hold_time);
+            gunRotateTriggerFingerJoint(handnum, hand->weapon_hold_time);
 
             if ((mdlhdr->numSwitches >= 0x1D) && (mdlhdr->Switches[28] != NULL))
             {
                 hingedata = (f32 *) mdlhdr->Switches[28]->Data;
-                guRotateF(tmpmtx.m, (((hand->field_A84 + M_TAU_F) - get_value_if_watch_is_on_hand_or_not(handnum)) * 360.0f) / M_TAU_F, hingedata[0] - hingedata[3], hingedata[1] - hingedata[4], hingedata[2] - hingedata[5]);
+                guRotateF(tmpmtx.m, (((hand->triggerFingerRot + M_TAU_F) - gunGetTriggerFingerRotAmount(handnum)) * 360.0f) / M_TAU_F, hingedata[0] - hingedata[3], hingedata[1] - hingedata[4], hingedata[2] - hingedata[5]);
                 matrix_4x4_set_position((coord3d *) swdata, &tmpmtx);
             }
             else
             {
-                matrix_4x4_set_position_and_rotation_around_y(swdata, hand->field_A84, &tmpmtx);
+                matrix_4x4_set_position_and_rotation_around_y(swdata, hand->triggerFingerRot, &tmpmtx);
             }
 
             matrix_4x4_multiply_homogeneous(&gunmtx, &tmpmtx, &rwmtx[sw6mtxidx]);
@@ -840,7 +840,7 @@ void gunUpdateAndFire(GUNHAND handnum)
         {
             sw7data = (f32 *) node->Data;
             sw7mtxidx = modelFindNodeMtxIndex(node, 0);
-            sub_GAME_7F05E83C(handnum);
+            gunRecoilSlide(handnum);
             matrix_4x4_set_identity_and_position((coord3d *) sw7data, &tmpmtx);
             tmpmtx.m[3][2] -= hand->field_A88;
             matrix_4x4_multiply(&gunmtx, &tmpmtx, &rwmtx[sw7mtxidx]);
@@ -933,7 +933,7 @@ void gunUpdateAndFire(GUNHAND handnum)
 
         if (item == ITEM_GRENADE)
         {
-            generate_player_thrown_grenade(handnum);
+            gunThrowGrenade(handnum);
             return;
         }
 
@@ -945,13 +945,13 @@ void gunUpdateAndFire(GUNHAND handnum)
 
         if (item == ITEM_THROWKNIFE)
         {
-            generate_player_thrown_knife(handnum);
+            gunThrowKnife(handnum);
             return;
         }
 
         if ((((((((item == ITEM_REMOTEMINE) || (item == ITEM_PROXIMITYMINE)) || (item == ITEM_TIMEDMINE)) || (item == ITEM_BOMBCASE)) || (item == ITEM_BUG)) || (item == ITEM_MICROCAMERA)) || (item == ITEM_GOLDENEYEKEY)) || (item == ITEM_PLASTIQUE))
         {
-            generate_player_thrown_object(handnum);
+            gunThrowObject(handnum);
             return;
         }
 

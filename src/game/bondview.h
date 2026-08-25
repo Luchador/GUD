@@ -192,7 +192,7 @@ struct hand
   s32 field_A50;
   BeamRecord weapon_beam;
   f32 noise;
-  f32 field_A84;
+  f32 triggerFingerRot;
   f32 field_A88;
   s32 field_A8C;
   AttachedObj* rocket;

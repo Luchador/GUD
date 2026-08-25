@@ -107,7 +107,7 @@ struct hand g_DefaultHandTemplate = {
     0, /* field_A50 */
     { -1, 0, 0, 0, {{0,0,0}}, {{0,0,0}}, 0.0f, 0.0f, 0.0f, 0.0f }, /* weapon_beam */
     0, /* noise */
-    0, /* field_A84 */
+    0, /* triggerFingerRot */
     0, /* field_A88 */
     0, /* field_A8C */
     0, /* rocket */
@@ -192,7 +192,7 @@ void playerSetDefaultPerspectiveAndHeight(void)
 }
 
 
-void reset_play_data_ptrs(void)
+void playerResetPointers(void)
 {
     g_playerPointers[PLAYER_1] = NULL;
     g_playerPointers[PLAYER_2] = NULL;

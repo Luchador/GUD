@@ -69,8 +69,7 @@ void bossMainloop(void);
 
 // End forward declarations
 
-u32 g_BossDebugNoticeEntry = 0;
-s32 g_DebugAndUpdateStageFlag = FALSE;
+s32 g_UseBuiltInMemTokens = FALSE;
 s32 g_StageNum = LEVELID_TITLE;
 u32 g_CurentMMallocValue = 0x234800;
 u32 g_CurentMaMallocValue = 0x4B000;
@@ -140,7 +139,7 @@ void bossInitMainthreadData(void)
     image_entries_load();
     viInit();
     viInitVideoSettings();
-    g_DebugAndUpdateStageFlag = rmonGetToken();
+    g_UseBuiltInMemTokens = rmonGetToken();
     obInit();
     joyInit();
     osCreateMesgQueue(&bossmq, &bossmsg, 1);
@@ -162,10 +161,10 @@ void bossInitMainthreadData(void)
 
     if (tokenFind(1, "-level_") == 0)
     {
-        g_DebugAndUpdateStageFlag = 1;
+        g_UseBuiltInMemTokens = 1;
     }
 
-    if (g_DebugAndUpdateStageFlag != 0)
+    if (g_UseBuiltInMemTokens != 0)
     {
         tokenSetString("          -ml0 -me0 -mgfx100 -mvtx50 -mt700 -ma400");
     }
@@ -272,7 +271,7 @@ void bossMainloop(void)
 
         ramromInitDemo(g_StageNum, lvGetSelectedDifficulty());
 
-        if (g_DebugAndUpdateStageFlag)
+        if (g_UseBuiltInMemTokens)
         {
             stringIndex = -1;
 
@@ -323,7 +322,7 @@ void bossMainloop(void)
         }
 
         memaReset(mempAllocBytesInBank(g_CurentMaMallocValue, MEMPOOL_STAGE), g_CurentMaMallocValue);
-        reset_play_data_ptrs();
+        playerResetPointers();
 
         localSelectedNumPlayers = 0;
 
@@ -452,45 +451,30 @@ void bossMainloop(void)
 }
 
 
-/**
- * 7530    70006930
- *     run title [0x5A->loaded stage#]; fry AT
- *     redirect to 70006950: A0=0x5A
- */
-void bossRunTitleStage(void) {
+void bossRunTitleStage(void)
+{
     bossSetLoadedStage(LEVELID_TITLE);
 }
 
-/**
- * 7550    70006950
- *     A0->loaded stage# [800242FC]; fry AT
- *     0x5A jumps to folder select
- *     0x5B
- *     0x63
- */
-void bossSetLoadedStage(LEVELID stage){
+
+void bossSetLoadedStage(LEVELID stage)
+{
     g_MainStageNum = stage;
 }
 
-/**
- * 755C    7000695C
- *     V0= stage# [800241A8]
- */
-LEVELID bossGetStageNum() {
+
+LEVELID bossGetStageNum()
+{
     return g_StageNum;
 }
 
-/**
- * 7568    70006968
- *     return to title screen from stage
- */
-void bossReturnTitleStage(void) {
-#ifdef BUGFIX_R1
-    display_objective_status_text_on_status_change();
-    objectivestatusDisableStatusDisplay();
-#endif
-    if ((bossGetStageNum() != LEVELID_CUBA) && (objectiveIsAllComplete() != 0x0)) {
+
+void bossReturnTitleStage(void)
+{
+    if ((bossGetStageNum() != LEVELID_CUBA) && (objectiveIsAllComplete()))
+    {
         end_of_mission_briefing();
     }
+
     bossRunTitleStage();
 }

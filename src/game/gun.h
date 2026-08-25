@@ -303,24 +303,16 @@ typedef struct WatchContButtonPositions {
     struct coord3d z;
 } WatchContButtonPositions;
 
+void gunRotateTriggerFingerJoint(enum GUNHAND hand, s32 heldtime);
 f32 bondwalkItemGetForceOfImpact(ITEM_IDS item);
-
 u32 bondwalkItemCheckBitflags(ITEM_IDS item, u32 mask);
-
 void gunUpdateAndFireBothHands(void);
-
 f32 sub_GAME_7F0649AC(s32 param_1);
-
 f32 sub_GAME_7F05DCB8(GUNHAND hand);
-
 u16 *get_ptr_short_watch_text_for_item(ITEM_IDS item);
-
 s32 bondwalkItemHasAmmo(ITEM_IDS item);
-
 void gunDrawSight(s32 *gdl);
-
 WeaponStats *get_ptr_item_statistics(ITEM_IDS item);
-
 ITEM_IDS getCurrentPlayerWeaponId(GUNHAND hand);
 s32 currentPlayerEquipWeaponWrapper(GUNHAND hand, s32 next_weapon);
 void update_bullet_casings(void);

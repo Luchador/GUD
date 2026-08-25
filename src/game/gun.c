@@ -1304,51 +1304,55 @@ void gunSetOffsetRelated(f32 param_1)
 }
 
 
-f32 get_value_if_watch_is_on_hand_or_not(GUNHAND hand)
+f32 gunGetTriggerFingerRotAmount(GUNHAND hand)
 {
-  if ((getCurrentPlayerWeaponId(hand) == ITEM_TRIGGER) || (getCurrentPlayerWeaponId(hand) == ITEM_WATCHLASER))
-  {
-    return 0.08726647f;
-  }
-  else
-  {
-    return 0.17453294f;
-  }
+    if ((getCurrentPlayerWeaponId(hand) == ITEM_TRIGGER) || (getCurrentPlayerWeaponId(hand) == ITEM_WATCHLASER))
+    {
+        return 0.08726647f;
+    }
+    else
+    {
+        return 0.17453294f;
+    }
 }
 
 
-void sub_GAME_7F05E6B4(enum GUNHAND hand, s32 arg1)
+void gunRotateTriggerFingerJoint(enum GUNHAND hand, s32 heldtime)
 {
-    if (arg1 != 0)
+    if (heldtime != 0)
     {
-        if (g_CurrentPlayer->hands[hand].field_A84 < get_value_if_watch_is_on_hand_or_not(hand))
+        if (g_CurrentPlayer->hands[hand].triggerFingerRot < gunGetTriggerFingerRotAmount(hand))
         {
-            g_CurrentPlayer->hands[hand].field_A84 += (0.029088823f * g_GlobalTimerDelta);
+            g_CurrentPlayer->hands[hand].triggerFingerRot += (0.029088823f * g_GlobalTimerDelta);
         }
-        if (g_CurrentPlayer->hands[hand].field_A84 > get_value_if_watch_is_on_hand_or_not(hand)) {
-            g_CurrentPlayer->hands[hand].field_A84 = get_value_if_watch_is_on_hand_or_not(hand);
+    
+        if (g_CurrentPlayer->hands[hand].triggerFingerRot > gunGetTriggerFingerRotAmount(hand)) 
+        {
+            g_CurrentPlayer->hands[hand].triggerFingerRot = gunGetTriggerFingerRotAmount(hand);
         }
     }
     else
     {
-        if (g_CurrentPlayer->hands[hand].field_A84 > 0.0f)
+        if (g_CurrentPlayer->hands[hand].triggerFingerRot > 0.0f)
         {
-            g_CurrentPlayer->hands[hand].field_A84 -= (0.017453294f * g_GlobalTimerDelta);
+            g_CurrentPlayer->hands[hand].triggerFingerRot -= (0.017453294f * g_GlobalTimerDelta);
         }
-        if (g_CurrentPlayer->hands[hand].field_A84 < 0.0f)
+
+        if (g_CurrentPlayer->hands[hand].triggerFingerRot < 0.0f)
         {
-            g_CurrentPlayer->hands[hand].field_A84 = 0.0f;
+            g_CurrentPlayer->hands[hand].triggerFingerRot = 0.0f;
         }
     }
 }
 
 
-void sub_GAME_7F05E808(GUNHAND hand) {
+void sub_GAME_7F05E808(GUNHAND hand)
+{
 	g_CurrentPlayer->hands[hand].field_A8C = 1;
 }
 
 
-void sub_GAME_7F05E83C(GUNHAND hand)
+void gunRecoilSlide(GUNHAND hand)
 {
     f32 recoil_back;
 
@@ -1361,7 +1365,9 @@ void sub_GAME_7F05E83C(GUNHAND hand)
             g_CurrentPlayer->hands[hand].field_A88 = (g_CurrentPlayer->hands[hand].field_A88 + (recoil_back * 0.25f * g_GlobalTimerDelta));
 
         }
-        if (recoil_back <= g_CurrentPlayer->hands[hand].field_A88) {
+
+        if (recoil_back <= g_CurrentPlayer->hands[hand].field_A88)
+        {
             g_CurrentPlayer->hands[hand].field_A88 = recoil_back;
             g_CurrentPlayer->hands[hand].field_A8C = 0;
         }
@@ -1428,28 +1434,25 @@ void sub_GAME_7F05EA94(Model* model, s32 val)
     ModelNode* switch_14;
     ModelNode* switch_15;
 
-    if (model->obj->numSwitches >= 0x10)
+    if (model->obj->numSwitches >= 16)
     {
         switch_14 = model->obj->Switches[14];
+
         if (switch_14 != NULL)
         {
-            // Guessing DisplayList here
             modelGetNodeRwData(model, switch_14)->DisplayList.unk00 = val;
         }
 
         switch_15 = model->obj->Switches[15];
+
         if (switch_15 != NULL)
         {
-            // Guessing DisplayList here
             modelGetNodeRwData(model, switch_15)->DisplayList.unk00 = val;
         }
     }
 }
 
 
-/**
- * Address 0x7F05EB0C.
-*/
 void gunInitProjectileObject(ObjectRecord *obj, coord3d *pos, StandTile *stan, Mtxf *matrix, coord3d *velocity, Mtxf *arg5, PropRecord *owner)
 {
     PropRecord *temp_s1;
@@ -1464,7 +1467,6 @@ void gunInitProjectileObject(ObjectRecord *obj, coord3d *pos, StandTile *stan, M
         matrix_scalar_multiply(obj->model->scale, matrix);
         objChangeShading(obj, pos, matrix, stan);
 
-        // loadobjectmodel.c
         setupUpdateObjectRoomPosition(obj);
 
         objUpdateCollisionVolume(obj);
@@ -1488,8 +1490,6 @@ void gunInitProjectileObject(ObjectRecord *obj, coord3d *pos, StandTile *stan, M
 
 
 /**
- * Address: 7F05EC1C
- *
  * Determines where the projectile may safely enter the world. Ideally that is the targetpos position, but if targetpos
  * is obstructed the player's position used as a fallback. This prevents the player from launching
  * projectiles through nearby surfaces.
@@ -1556,9 +1556,12 @@ void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *ar
 
     gunInitProjectileObject(obj, &pos, tile, arg2, velocity, arg4, playerprop);
 
-    if (obj->runtime_bitflags & 0x80) {
-        if (usedfallback) {
+    if (obj->runtime_bitflags & 0x80)
+    {
+        if (usedfallback)
+        {
             obj->projectile->flags |= PROJECTILEFLAG_00000100;
+
             ((coord3d *)&obj->projectile->unkd4)->x = targetpos->x;
             ((coord3d *)&obj->projectile->unkd4)->y = targetpos->y;
             ((coord3d *)&obj->projectile->unkd4)->z = targetpos->z;
@@ -1572,13 +1575,8 @@ void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *ar
 }
 
 
-/**
- * Address 0x7F05EE24 (NTSC)
- * Address 0x7F05F2DC (PAL)
-*/
-void generate_player_thrown_grenade(s32 hand)
+void gunThrowGrenade(s32 hand)
 {
-    s32 padding;
     Mtxf spFC;
     struct coord3d throw_speed_vec;
     f32 base_velocity;
@@ -1623,9 +1621,11 @@ void generate_player_thrown_grenade(s32 hand)
 
     matrix_4x4_set_identity(&spA0_a);
     matrix_4x4_copy(&g_CurrentPlayer->hands[hand].throw_item_pos_related, &sp40_f);
+
     sp40_f.m[3][0] = 0.0f;
     sp40_f.m[3][1] = 0.0f;
     sp40_f.m[3][2] = 0.0f;
+
     matrix_4x4_multiply_in_place(&sp40_f, &spA0_a);
 
     wor = create_new_item_instance_of_model(PROP_CHRGRENADE, current_weapon);
@@ -1663,11 +1663,7 @@ void generate_player_thrown_grenade(s32 hand)
 }
 
 
-/**
- * Address 0x7F05F09C (NTSC)
- * Address 0x7F05F554 (PAL)
-*/
-void generate_player_thrown_knife(s32 hand)
+void gunThrowKnife(s32 hand)
 {
     struct WeaponObjRecord *wor;
     Mtxf spFC;
@@ -1744,21 +1740,8 @@ void generate_player_thrown_knife(s32 hand)
 }
 
 
-
-
-
-/**
- * Address 0x7F05F358 (NTSC)
- * Address 0x7F05F810 (PAL)
-*/
-void generate_player_thrown_object(s32 hand)
+void gunThrowObject(s32 hand)
 {
-/*
-    else {
-        assertPrint_8291E690(".\\ported\\gun.cpp",0x8df,"throwmineremote - Not a mine!");
-    }
-*/
-
     s32 padding;
     Mtxf unk_mtxf;
     struct coord3d throw_speed_vec;
@@ -1767,10 +1750,10 @@ void generate_player_thrown_object(s32 hand)
     Mtxf spA0_a;
     struct WeaponObjRecord *wor;
     s32 new_prop_type;
-    s32 sp94; // sp148
-    struct coord3d base_speed_vec; // sp136
-    struct PropRecord* player_prop; // sp132
-    struct coord3d *bondprevpos;  // sp128
+    s32 sp94;
+    struct coord3d base_speed_vec;
+    struct PropRecord* player_prop;
+    struct coord3d *bondprevpos;
     Mtxf sp40_f;
     ALSoundState *sfx_state;
     s32 current_weapon;
@@ -1854,11 +1837,6 @@ void generate_player_thrown_object(s32 hand)
         case ITEM_PLASTIQUE:
             new_prop_type = PROP_CHRPLASTIQUE;
             break;
-#ifdef DEBUG
-        default:
-            assertmsg2(current_weapon = PROP_CHRREMOTEMINE, "throwmineremote - Not a mine!");
-#endif
-
         }
 
         wor = create_new_item_instance_of_model(new_prop_type, current_weapon);
@@ -1947,11 +1925,6 @@ void generate_player_thrown_object(s32 hand)
 }
 
 
-/**
- * Address: 7F05F73C
- *
- * Spawns Grenade Launcher rounds and makes them inherit the player's momentum.
- */
 void gunSpawnGLGrenade(s32 handnum)
 {
     WeaponObjRecord *grenadeobj;

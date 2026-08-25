@@ -138,7 +138,7 @@ struct hand hand_data_dummy = {
     // // }
  
     0, // f32 noise;
-    0, // f32 field_A84;
+    0, // f32 triggerFingerRot;
     0, // f32 field_A88;
     0, // s32 field_A8C;
     NULL, // ObjectRecord* rocket;
