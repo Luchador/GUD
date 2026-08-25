@@ -114,10 +114,10 @@ extern s32 status_bar_text_buffer_index;
 extern s32 display_statusbar;
 extern s32 copy_1stfonttable;
 extern s32 copy_2ndfonttable;
-extern s32 upper_text_buffer_index;
-extern s32 display_upper_text_window;
-extern s32 upper_text_window_timer;
-extern s32 g_UpperTextDisplayFlag;
+extern s32 g_UpperTextTopSlot;
+extern s32 g_UpperTextMsgQueued;
+extern s32 g_UpperTextTimer;
+extern s32 g_UpperTextSuppressFlags;
 extern s32 g_PlayerTickCount;
 extern struct firing_anim_struct firing_animation_groups[][6];
 

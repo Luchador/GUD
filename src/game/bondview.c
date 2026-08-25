@@ -162,10 +162,10 @@ s32 status_bar_text_buffer_index = 0;
 s32 display_statusbar = 0;
 s32 copy_1stfonttable = 0;
 s32 copy_2ndfonttable = 0;
-s32 upper_text_buffer_index = 0;
-s32 display_upper_text_window = 0;
-s32 upper_text_window_timer = 0xFFFFFFFF;
-s32 g_UpperTextDisplayFlag = 0;
+s32 g_UpperTextTopSlot = 0;
+s32 g_UpperTextMsgQueued = 0;
+s32 g_UpperTextTimer = 0xFFFFFFFF;
+s32 g_UpperTextSuppressFlags = 0;
 s32 g_PlayerTickCount = 0;
 
 StandTilePoint *dword_CODE_bss_80079DA0;
@@ -9814,10 +9814,10 @@ Gfx* hudmsgBottomRender(Gfx* arg0)
 
 void bondviewResetUpperTextDisplay(void)
 {
-    upper_text_window_timer = -1;
-    display_upper_text_window = 0;
-    upper_text_buffer_index = 0;
-    g_UpperTextDisplayFlag = 0;
+    g_UpperTextTimer = -1;
+    g_UpperTextMsgQueued = 0;
+    g_UpperTextTopSlot = 0;
+    g_UpperTextSuppressFlags = 0;
 }
 
 
@@ -9825,13 +9825,13 @@ void bondviewClearUpperTextDisplayFlag(int param_1)
 {
   int new_var;
   new_var = ~param_1;
-  g_UpperTextDisplayFlag = g_UpperTextDisplayFlag & new_var;
+  g_UpperTextSuppressFlags = g_UpperTextSuppressFlags & new_var;
 }
 
 
 void bondviewSetUpperTextDisplayFlag(PLAYERFLAG flag)
 {
-    g_UpperTextDisplayFlag |= flag;
+    g_UpperTextSuppressFlags |= flag;
 }
 
 
@@ -9841,16 +9841,16 @@ void hudmsgTopShow(char* mess)
     #ifdef DEBUG
         assert(strlen(mess)<=MAXTALKMESSLEN);
     #endif
-    if (display_upper_text_window >= 2) { return; }
+    if (g_UpperTextMsgQueued >= 2) { return; }
 
-    index = (upper_text_buffer_index + display_upper_text_window) % 2;
+    index = (g_UpperTextTopSlot + g_UpperTextMsgQueued) % 2;
 #if defined(LEFTOVERDEBUG)
     strncpy(stringbuffer_top[index], mess, (BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH-1));
-    display_upper_text_window += 1;
+    g_UpperTextMsgQueued += 1;
     stringbuffer_top[index][(BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH-1)] = 0;
 #else
     strncpy(dword_CODE_bss_80079DC8[index], mess, (BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH-1));
-    display_upper_text_window += 1;
+    g_UpperTextMsgQueued += 1;
     dword_CODE_bss_80079DC8[index][(BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH-1)] = 0;
 #endif
 }
@@ -9861,32 +9861,32 @@ void hudmsgTopShow(char* mess)
  */
 void bondviewUpperTextWindowTimerTick(void)
 {
-    if ((g_UpperTextDisplayFlag == FALSE) && (g_CurrentPlayer->mpmenuon == FALSE))
+    if ((g_UpperTextSuppressFlags == FALSE) && (g_CurrentPlayer->mpmenuon == FALSE))
     {
-        if (upper_text_window_timer >= 0)
+        if (g_UpperTextTimer >= 0)
         {
-            upper_text_window_timer -= g_ClockTimer;
+            g_UpperTextTimer -= g_ClockTimer;
 
-            if (upper_text_window_timer < 0)
+            if (g_UpperTextTimer < 0)
             {
-                upper_text_buffer_index = (s32) (upper_text_buffer_index + 1) % 2;
-                display_upper_text_window += -1;
+                g_UpperTextTopSlot = (s32) (g_UpperTextTopSlot + 1) % 2;
+                g_UpperTextMsgQueued += -1;
             }
-            else if ((display_upper_text_window >= 2) && (upper_text_window_timer >= BONDVIEW_UPPER_TEXT_TIMER_A))
+            else if ((g_UpperTextMsgQueued >= 2) && (g_UpperTextTimer >= BONDVIEW_UPPER_TEXT_TIMER_A))
             {
-                upper_text_window_timer = BONDVIEW_UPPER_TEXT_TIMER_B;
+                g_UpperTextTimer = BONDVIEW_UPPER_TEXT_TIMER_B;
             }
         }
 
-        if ((upper_text_window_timer < 0) && (display_upper_text_window > 0))
+        if ((g_UpperTextTimer < 0) && (g_UpperTextMsgQueued > 0))
         {
-            if (display_upper_text_window >= 2)
+            if (g_UpperTextMsgQueued >= 2)
             {
-                upper_text_window_timer = BONDVIEW_UPPER_TEXT_TIMER_B;
+                g_UpperTextTimer = BONDVIEW_UPPER_TEXT_TIMER_B;
             }
             else
             {
-                upper_text_window_timer = BONDVIEW_UPPER_TEXT_TIMER_C;
+                g_UpperTextTimer = BONDVIEW_UPPER_TEXT_TIMER_C;
             }
         }
     }
@@ -9899,14 +9899,14 @@ Gfx *bondviewRenderUpperText(Gfx *gdl)
     TopMessageLocals msg;
     s32 screenwidth;
 
-    if (g_UpperTextDisplayFlag == 0)
+    if (g_UpperTextSuppressFlags == 0)
     {
-        if (upper_text_window_timer >= 0)
+        if (g_UpperTextTimer >= 0)
         {
 #if defined(LEFTOVERDEBUG)
-            if (stringbuffer_top[upper_text_buffer_index][0] != '\0')
+            if (stringbuffer_top[g_UpperTextTopSlot][0] != '\0')
 #else
-            if (dword_CODE_bss_80079DC8[upper_text_buffer_index][0] != '\0')
+            if (dword_CODE_bss_80079DC8[g_UpperTextTopSlot][0] != '\0')
 #endif
             {
                 if (g_CurrentPlayer->mpmenuon == 0)
@@ -9915,9 +9915,9 @@ Gfx *bondviewRenderUpperText(Gfx *gdl)
                     msg.textwidth = 0;
                     msg.textheight = 0;
 #if defined(LEFTOVERDEBUG)
-                    textMeasure(&msg.textheight, &msg.textwidth, stringbuffer_top[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, 0);
+                    textMeasure(&msg.textheight, &msg.textwidth, stringbuffer_top[g_UpperTextTopSlot], ptrFontZurichBoldChars, ptrFontZurichBold, 0);
 #else
-                    textMeasure(&msg.textheight, &msg.textwidth, dword_CODE_bss_80079DC8[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, 0);
+                    textMeasure(&msg.textheight, &msg.textwidth, dword_CODE_bss_80079DC8[g_UpperTextTopSlot], ptrFontZurichBoldChars, ptrFontZurichBold, 0);
 #endif
                     if (cameraBufferToggle != 0)
                     {
@@ -9942,24 +9942,24 @@ Gfx *bondviewRenderUpperText(Gfx *gdl)
                     gdl = gfxDrawTranslucentRect(gdl, 0, msg.y - 2, viGetX(), msg.bottom, 0x64);
 #ifdef VERSION_US
                     screenwidth = (s32)viGetX();
-                    gdl = textRender(gdl, &msg.x, &msg.y, stringbuffer_top[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, -1, screenwidth, viGetY(), 0, 0);
+                    gdl = textRender(gdl, &msg.x, &msg.y, stringbuffer_top[g_UpperTextTopSlot], ptrFontZurichBoldChars, ptrFontZurichBold, -1, screenwidth, viGetY(), 0, 0);
 #else
                     if (j_text_trigger != 0)
                     {
                         screenwidth = (s32)viGetX();
 #if defined(LEFTOVERDEBUG)
-                        gdl = textRenderOutlined(gdl, &msg.x, &msg.y, stringbuffer_top[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, -1, 0x646464FF, screenwidth, viGetY(), 0, 0);
+                        gdl = textRenderOutlined(gdl, &msg.x, &msg.y, stringbuffer_top[g_UpperTextTopSlot], ptrFontZurichBoldChars, ptrFontZurichBold, -1, 0x646464FF, screenwidth, viGetY(), 0, 0);
 #else
-                        gdl = textRenderOutlined(gdl, &msg.x, &msg.y, dword_CODE_bss_80079DC8[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, -1, 0x646464FF, screenwidth, viGetY(), 0, 0);
+                        gdl = textRenderOutlined(gdl, &msg.x, &msg.y, dword_CODE_bss_80079DC8[g_UpperTextTopSlot], ptrFontZurichBoldChars, ptrFontZurichBold, -1, 0x646464FF, screenwidth, viGetY(), 0, 0);
 #endif
                     }
                     else
                     {
                         screenwidth = (s32)viGetX();
 #if defined(LEFTOVERDEBUG)
-                        gdl = textRender(gdl, &msg.x, &msg.y, stringbuffer_top[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, -1, screenwidth, viGetY(), 0, 0);
+                        gdl = textRender(gdl, &msg.x, &msg.y, stringbuffer_top[g_UpperTextTopSlot], ptrFontZurichBoldChars, ptrFontZurichBold, -1, screenwidth, viGetY(), 0, 0);
 #else
-                        gdl = textRender(gdl, &msg.x, &msg.y, dword_CODE_bss_80079DC8[upper_text_buffer_index], ptrFontZurichBoldChars, ptrFontZurichBold, -1, screenwidth, viGetY(), 0, 0);
+                        gdl = textRender(gdl, &msg.x, &msg.y, dword_CODE_bss_80079DC8[g_UpperTextTopSlot], ptrFontZurichBoldChars, ptrFontZurichBold, -1, screenwidth, viGetY(), 0, 0);
 #endif
                     }
 #endif
