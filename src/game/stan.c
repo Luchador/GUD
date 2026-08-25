@@ -780,62 +780,57 @@ s32 isPointInsideTriStandTileUnscaled_Maybe(StandTile *tile, f32 p_x, f32 p_z)
 }
 
 
-/*
-* Address: 0x7F0B0400
-*/
-f32 sub_GAME_7F0B0400(StandTile *tile, s32 start3index, f32 p_x, f32 p_z)
+/**
+ * Returns the signed perpendicular distance from point px, pz to one edge of the tile's triangle.
+ * Positve return value = inside the tile.
+ */
+f32 stanGetSignedDistToTileEdge(StandTile *tile, s32 edgenum, f32 px, f32 pz)
 {
-    f32 temp_f0;
-    f32 temp_f2;
-    f32 temp_f14;
-    s32 var_a0;
-    s32 padding;
+    f32 edgeX;
+    f32 edgeZ;
+    f32 edgeLen;
+    s32 nextnum;
+    s32 corner;
+    s32 nextcorner;
+    f32 cross;
 
-    f32 tempf;
-    s32 extra_padding[2];
+    nextnum = (edgenum != 2) ? edgenum + 1 : 0;
 
-    #ifdef DEBUG
-    assert(ei<getsides(sf));
-    #endif
+    corner     = (tile->tail.half >> (8 - (edgenum << 2))) & 0xF;
+    nextcorner = (tile->tail.half >> (8 - (nextnum << 2))) & 0xF;
 
-    var_a0 = (start3index != 2) ? start3index + 1 : 0;
+    edgeX = (f32)(tile->points[nextcorner].x - tile->points[corner].x);
+    edgeZ = (f32)(tile->points[nextcorner].z - tile->points[corner].z);
 
-    start3index = (tile->tail.half >> (8 - (start3index << 2))) & 0xF;
-    var_a0 = (tile->tail.half >> (8 - (var_a0 << 2))) & 0xF;
+    edgeLen = sqrtf((edgeX * edgeX) + (edgeZ * edgeZ));
 
-    temp_f2 = (f32)(tile->points[var_a0].x - tile->points[start3index].x);
-    temp_f14 = (f32)(tile->points[var_a0].z - tile->points[start3index].z);
-
-    temp_f0 = sqrtf((temp_f2 * temp_f2) + (temp_f14 * temp_f14));
-
-    if (temp_f0 == 0.0f) {
+    if (edgeLen == 0.0f)
+    {
         return 0.0f;
     }
 
-    #ifdef DEBUG
-    assert(d>0.0f);
-    #endif
-
-    tempf = (temp_f14 * (p_x - tile->points[start3index].x)) + ((p_z - tile->points[start3index].z) * -temp_f2);
-    return tempf / temp_f0;
+    cross = (edgeZ * (px - tile->points[corner].x)) + ((pz - tile->points[corner].z) * -edgeX);
+    return cross / edgeLen;
 }
 
 
-
-
-bool stanTestPointWithinTileBoundsMaybe(StandTile *tile, f32 p_x, f32 p_z)
+/**
+ * Tests if point is inside or very close to being inside a tile. It gives a margin of 2 units
+ * for a point to still be considered acceptable.
+ */
+bool stanIsPointNearTile(StandTile *tile, f32 px, f32 pz)
 {
-    f32 unk;
+    f32 margin;
     s32 i;
 
-    p_x *= level_scale;
-    p_z *= level_scale;
+    px *= level_scale;
+    pz *= level_scale;
 
     for (i = 0; i != 3; i++)
     {
-        unk = sub_GAME_7F0B0400(tile, i, p_x, p_z);
+        margin = stanGetSignedDistToTileEdge(tile, i, px, pz);
 
-        if (unk < -2)
+        if (margin < -2.0f)
         {
             return FALSE;
         }
@@ -843,7 +838,6 @@ bool stanTestPointWithinTileBoundsMaybe(StandTile *tile, f32 p_x, f32 p_z)
 
     return TRUE;
 }
-
 
 
 // A->B ACWS returns 1, CWS (including opposite) returns -1.

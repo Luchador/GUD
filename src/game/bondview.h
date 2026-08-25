@@ -1340,7 +1340,7 @@ Gfx *bondviewRenderPlayerView(Gfx *gdl);
 bool camIsPosInScreen(coord3d *vec_scale, f32 norm_scale);
 bool camIsPosInScreenBox(coord3d *, f32, struct bbox2d *);
 s32 getMissiontimer(void);
-void solo_char_load(void);
+void bviewLoadPlayerChr(void);
 void bondviewUpdateYAutoAimTime(struct PropRecord *autoaim_target, f32 auto_aim_y);
 void bondviewUpdateXAutoAimTime(struct PropRecord *autoaim_target, f32 auto_aim_x);
 void bondviewSet3dCoord7F07CEB0(coord3d *arg0);

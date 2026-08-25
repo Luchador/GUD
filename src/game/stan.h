@@ -69,7 +69,7 @@ void noteTileRoomIfDifferentToPrev( StandTile *tile,  StandTile *unused,  struct
 void setLevelScale(f32 ls);
 void stanResetHits(void);
 s32 walkTilesBetweenPoints_NoCallback(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_x, f32 dest_z);
-s32 stanTestPointWithinTileBoundsMaybe(StandTile *tile, f32 p_x, f32 p_z);
+bool stanIsPointNearTile(StandTile *tile, f32 px, f32 pz);
 f32 stanGetPositionYValue(StandTile* tile, f32 p_x, f32 p_z);
 s32 getCollisionEdge_maybe(coord3d *pntA, coord3d *pntB);
 s32 stanTestLocusEdgeAboveY(StandTile **tile, f32 target_x, f32 target_z, f32 radius, f32 yThreshold);

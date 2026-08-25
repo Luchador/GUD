@@ -804,3 +804,25 @@ s32 get_nth_player_from_shuffled(PLAYER_ID id)
 
     return 0;
 }
+
+
+void set_favorite_weapon_for_every_player(void)
+{
+    s32 right_hand;
+    s32 left_hand;
+    s32 player_count;
+    s32 current_player;
+    s32 player;
+
+    player_count = getPlayerCount();
+    current_player = get_cur_playernum();
+
+    for (player = 0; player < player_count; player++)
+    {
+        set_cur_player(player);
+        bondinvGetWeaponOfChoice(&right_hand, &left_hand);
+        store_favorite_weapon_current_player(right_hand, left_hand);
+    }
+
+    set_cur_player(current_player);
+}

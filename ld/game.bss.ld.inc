@@ -32,7 +32,6 @@
       build/OUTCODE/src/game/cleanup_objects.o (.bss);
       build/OUTCODE/src/game/cleanup_objectives.o (.bss);
       build/OUTCODE/src/game/cleanupSFXRelated.o (.bss);
-      build/OUTCODE/src/game/playerstats_007770.o (.bss);
       build/OUTCODE/src/game/cleanexplosions.o (.bss);
       build/OUTCODE/src/game/cleanwindowpieces.o (.bss);
       build/OUTCODE/src/game/cleanplayersound.o (.bss);

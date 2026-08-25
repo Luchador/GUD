@@ -57,7 +57,7 @@ extern u8 * address_demo_loaded;
 extern u32 g_ProfBgTickCycles;
 extern u32 g_ProfLvlTickCycles;
 extern u32 g_ProfLvlRenderCycles;
-extern u32 g_ProfBgCycles;
+extern u32 g_ProfBgRenderCycles;
 extern u32 g_ProfChrTickCycles;
 extern u32 g_ProfChrActionCycles;
 extern u32 g_ProfObjTickCycles;

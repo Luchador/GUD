@@ -32,7 +32,6 @@
       build/OUTCODE/src/game/cleanup_objects.o (.data);
       build/OUTCODE/src/game/cleanup_objectives.o (.data);
       build/OUTCODE/src/game/cleanupSFXRelated.o (.data);
-      build/OUTCODE/src/game/playerstats_007770.o (.data);
       build/OUTCODE/src/game/cleanexplosions.o (.data);
       build/OUTCODE/src/game/cleanwindowpieces.o (.data);
       build/OUTCODE/src/game/cleanplayersound.o (.data);

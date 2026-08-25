@@ -175,7 +175,7 @@ extern u8* _fontdlSegmentRomEnd;
 u32 g_ProfBgTickCycles;
 u32 g_ProfLvlTickCycles;     /* osGetCount delta across lvTick (game logic)    */
 u32 g_ProfLvlRenderCycles;   /* osGetCount delta across lvRender (DL build)   */
-u32 g_ProfBgCycles;       /* osGetCount delta across bgSetupAndRender       */
+u32 g_ProfBgRenderCycles;       /* osGetCount delta across bgSetupAndRender       */
 u32 g_ProfChrTickCycles;      /* accumulated cycles in bgApplyDynamicCCRMLUT    */
 u32 g_ProfChrActionCycles;
 u32 g_ProfObjTickCycles;
@@ -578,6 +578,7 @@ Gfx* lvRender(Gfx* DL)
             }
 
             propsTick();
+
             chraiUpdateOnscreenPropCount();
             chrpropUpdateAutoaimTarget();
             chraiCheckUseHeldItems();
@@ -593,7 +594,7 @@ Gfx* lvRender(Gfx* DL)
             { /* TEMP profiler */
                 u32 prof_t = osGetCount();
                  DL = bgSetupAndRender(DL);
-                g_ProfBgCycles = osGetCount() - prof_t;
+                g_ProfBgRenderCycles = osGetCount() - prof_t;
             }
             
             DL = weaponRenderTracers(DL);
@@ -1091,13 +1092,13 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
 
         chrOther = g_ProfChrTickCycles - g_ProfChrActionCycles;
 
-        sub = g_ProfBgTickCycles + g_ProfBgCycles + g_ProfChrTickCycles + g_ProfObjTickCycles;  /* full chrTick */
+        sub = g_ProfBgTickCycles + g_ProfBgRenderCycles + g_ProfChrTickCycles + g_ProfObjTickCycles;  /* full chrTick */
         lvlOther = (g_ProfLvlRenderCycles > sub) ? (g_ProfLvlRenderCycles - sub) : 0;
 
         sprintf(profText[0], "BGTICK:%4uK",      (g_ProfBgTickCycles + 500) / 1000);
         sprintf(profText[1], "LVTICK:%4uK",      (g_ProfLvlTickCycles   + 500) / 1000);
-        sprintf(profText[2], "LVRENDER:%4uK",    (g_ProfLvlRenderCycles + 500) / 1000);
-        sprintf(profText[3], "BGRENDER:%4uK",     (g_ProfBgCycles        + 500) / 1000);
+        sprintf(profText[2], "LVRENDER:%4uK",    (lvlOther + 500) / 1000);
+        sprintf(profText[3], "BGRENDER:%4uK",     (g_ProfBgRenderCycles        + 500) / 1000);
         sprintf(profText[4], "CHRTICK:%4uK",      (g_ProfChrTickCycles   + 500) / 1000);
         sprintf(profText[5], "CHRACT:%4uK",       (g_ProfChrActionCycles + 500) / 1000);
         sprintf(profText[6], "OBJTICK:%4uK",       (g_ProfObjTickCycles + 500) / 1000);

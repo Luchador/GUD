@@ -131,7 +131,7 @@ void bondviewLoadSetupIntroSection(void)
     g_TankTurretOrientationAngleRad = FLOAT_INIT;
     g_TankTurretOrientationAngleDeg = FLOAT_INIT;
     tank_turret_turn_speed = FLOAT_INIT;
-    g_BondCanEnterTank = 0;
+    g_BondCanEnterTank = FALSE;
     g_TankTurretAngle = FLOAT_INIT;
     g_TankTurretTurn = FLOAT_INIT;
     g_ExplodeTankOnDeathFlag = 0;

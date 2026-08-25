@@ -362,7 +362,8 @@ f32 tank_turret_turn_speed = 0;
 /**
  * Can enter tank, remains set once Bond is in tank.
 */
-s32 g_BondCanEnterTank = 0;
+bool g_BondCanEnterTank = FALSE;
+
 f32 g_TankTurretAngle = 0;
 f32 g_TankTurretTurn = 0;
 s32 g_ExplodeTankOnDeathFlag = 0;
@@ -383,7 +384,7 @@ struct SetupIntroCamera *ptr_random06cam_entry = NULL;
 #define ALIGN64_V3(val) (((val) | 0x3f) ^ 0x3f)
 
 
-// forward declarations
+// Begin forward declaration.
 
 void bondviewUpdatePlayerRoom(struct player *player);
 s32 chrTick(PropRecord *prop);
@@ -450,7 +451,7 @@ Gfx *bondviewRenderCredits(Gfx *gdl);
 Gfx *bondviewRenderWatch(Gfx *gdl);
 Gfx *bondviewRenderGaugeBars(Gfx *gdl);
 
-// end forward declarations
+// End forward declarations.
 
 
 /**
@@ -458,7 +459,7 @@ Gfx *bondviewRenderGaugeBars(Gfx *gdl);
  * player position values to parameter values.
  * Also updates related room pointer.
  */
-void bondviewSetCurrentPlayerPosition(coord3d *pos, coord3d *pos2, coord3d *offset, StandTile *tile, coord3d *stan_walk_start)
+void bviewSetCurrentPlayerPosition(coord3d *pos, coord3d *pos2, coord3d *offset, StandTile *tile, coord3d *stan_walk_start)
 {
     StandTile *tilefromstart;
     StandTile *tilefromprev;
@@ -479,9 +480,11 @@ void bondviewSetCurrentPlayerPosition(coord3d *pos, coord3d *pos2, coord3d *offs
 
         if (walkTilesBetweenPoints_NoCallback(&tilefromstart, stan_walk_start->f[0], stan_walk_start->f[2], pos->f[0], pos->f[2]))
         {
-            // @bug ...? This is either a bug or removed code, this function has no side effects.
-            // Return value should used to check if point is safe for stan.
-            stanTestPointWithinTileBoundsMaybe(tilefromstart, pos->f[0], pos->f[2]);
+            /**
+             * The original game called this function, but it was never needed. At this point the tile walk as already been successful
+             * so a call to stanIsPointNearTile isn't necessary. Plus nothing was done with the return value. Just a waste of instructions.
+             */
+            //stanIsPointNearTile(tilefromstart, pos->f[0], pos->f[2]);
             g_CurrentPlayer->cameratile = tilefromstart;
         }
         else
@@ -520,7 +523,12 @@ void bondviewSetCurrentPlayerPosition(coord3d *pos, coord3d *pos2, coord3d *offs
 }
 
 
-void solo_char_load(void)
+/**
+ * Creates the player's body and head models. For single player picks the outfit for that stage, for multiplayer
+ * picks the chosen character. Created per hand weapon buffers and loads their models, then instantiates
+ * the chr on the player's prop.
+ */
+void bviewLoadPlayerChr(void)
 {
     f32                         yaw;
     ChrRecord                  *self;
@@ -544,6 +552,7 @@ void solo_char_load(void)
     Model                      *model;
 
     yaw = bondviewGetPlayerYawRadians();
+
     if (g_CurrentPlayer->prop->chr == NULL)
     {
         weaponbuf0 = getPlayerWeaponBufferForHand(GUNRIGHT);
@@ -802,9 +811,6 @@ void solo_char_load(void)
 }
 
 
-/**
- * Address 0x7F07A4A0.
- */
 void bondviewRemovePlayerBody(void)
 {
     if ((g_CurrentPlayer->prop->chr) && (getPlayerCount() == 1))
@@ -1017,7 +1023,7 @@ void bondviewSetCameraMode(s32 arg0)
             camera_transition_timer = 0.0f;
             intro_camera_index = CAMERAMODE_INTRO;
             currentPlayerStartChrFade(0.0f, 1.0f);
-            solo_char_load();
+            bviewLoadPlayerChr();
 
             // HACK: ptr_animation_table->data regalloc is backwards
             sp38 = (struct ModelAnimation *)((s32)stage_intro_anim_table[g_IntroAnimationIndex].anonymous_0 + (s32)&ptr_animation_table->data);
@@ -1112,7 +1118,7 @@ void bondviewSetCameraMode(s32 arg0)
             bondviewMoveAnimationTick(0, 0, 0);
             bondviewUpdatePlayerCollisionPositionFields();
             currentPlayerStartChrFade(0.0f, 1.0f);
-            solo_char_load();
+            bviewLoadPlayerChr();
 
             modelSetAnimation(
                 g_CurrentPlayer->bodyModel,
@@ -1190,7 +1196,7 @@ void bondviewSetCameraMode(s32 arg0)
     }
     else if (g_CameraMode == CAMERAMODE_POSEND)
     {
-        solo_char_load();
+        bviewLoadPlayerChr();
         g_CurrentPlayer->cameratile = NULL;
     }
     else if (g_CameraMode == CAMERAMODE_FP_NOINPUT)
@@ -2639,7 +2645,7 @@ void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot)
     next_pos.f[0] = g_CurrentPlayer->field_488.collision_position.f[0] + offset->f[0];
     next_pos.f[2] = g_CurrentPlayer->field_488.collision_position.f[2] + offset->f[2];
 
-    g_BondCanEnterTank = 0;
+    g_BondCanEnterTank = FALSE;
 
     g_CurrentPlayer->autocrouchpos = CROUCH_STAND;
 
@@ -2663,7 +2669,7 @@ void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot)
             if (g_PlayerIsInTank || (chrpropTestPointInPolygon(&g_CurrentPlayer->field_488.collision_position, &tank_objrecord->rect, (s32)tank_objrecord->collision) != 0))
             {
                 temp_f2 += (farr6[4] - farr6[3]) * obj->model->scale;
-                g_BondCanEnterTank = 1;
+                g_BondCanEnterTank = TRUE;
             }
 
             if ((!g_PlayerIsInTank) && (g_PlayerTankYOffset < temp_f2))
@@ -2741,7 +2747,7 @@ void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot)
      * This block seems to be some error checking code, this will only occur when Bond
      * goes out of bounds.
     */
-    if (stanTestPointWithinTileBoundsMaybe(g_CurrentPlayer->field_488.current_tile_ptr, g_CurrentPlayer->field_488.collision_position.f[0], g_CurrentPlayer->field_488.collision_position.f[2]) == 0)
+    if (stanIsPointNearTile(g_CurrentPlayer->field_488.current_tile_ptr, g_CurrentPlayer->field_488.collision_position.f[0], g_CurrentPlayer->field_488.collision_position.f[2]) == 0)
     {
         stan = g_CurrentPlayer->field_488.current_tile_ptr;
 
@@ -2771,10 +2777,7 @@ void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot)
                 }
             }
 
-            if (stanTestPointWithinTileBoundsMaybe(
-                stan,
-                g_CurrentPlayer->field_488.collision_position.f[0],
-                g_CurrentPlayer->field_488.collision_position.f[2]))
+            if (stanIsPointNearTile(stan, g_CurrentPlayer->field_488.collision_position.f[0], g_CurrentPlayer->field_488.collision_position.f[2]))
             {
                 g_CurrentPlayer->field_488.current_tile_ptr = stan;
                 break;
@@ -7487,7 +7490,7 @@ void bondviewFrozenMoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
     bondviewFrozenCameraTick(buttons, oldbuttons, &property_pos, &property_pos2, &property_offset, &room_pointer_tile, &stan_walk_start);
     camSetPlayerFrozenCam(TRUE);
-    bondviewSetCurrentPlayerPosition(&property_pos, &property_pos2, &property_offset, room_pointer_tile, &stan_walk_start);
+    bviewSetCurrentPlayerPosition(&property_pos, &property_pos2, &property_offset, room_pointer_tile, &stan_walk_start);
 }
 
 
@@ -8234,7 +8237,7 @@ void bviewPlayerBeginLife(void)
 
         if (g_CurrentPlayer->bodyModel == NULL)
         {
-            solo_char_load();
+            bviewLoadPlayerChr();
         }
     }
 }
