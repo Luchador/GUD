@@ -10339,15 +10339,15 @@ join_768:
  
     for (i = 0; i != 2; i++)
     {
-        if (sub_GAME_7F02D630(chr, i, &ppointers[index]->field_2A18[i]) != 0)
+        if (chrGetGunMuzzlePos(chr, i, &ppointers[index]->handMuzzlePos[i]) != 0)
         {
-            (&ppointers[index]->field_2A30)[i] = g_GlobalTickCount;
+            ppointers[index]->handMuzzleSampleTick[i] = g_GlobalTickCount;
         }
-        else if ((&ppointers[index]->field_2A30)[i] < (g_GlobalTickCount - 1))
+        else if (ppointers[index]->handMuzzleSampleTick[i] < (g_GlobalTickCount - 1))
         {
-            ppointers[index]->field_2A18[i].x = ppointers[index]->hands[i].field_B58.x;
-            ppointers[index]->field_2A18[i].y = ppointers[index]->hands[i].field_B58.y;
-            ppointers[index]->field_2A18[i].z = ppointers[index]->hands[i].field_B58.z;
+            ppointers[index]->handMuzzlePos[i].x = ppointers[index]->hands[i].field_B58.x;
+            ppointers[index]->handMuzzlePos[i].y = ppointers[index]->hands[i].field_B58.y;
+            ppointers[index]->handMuzzlePos[i].z = ppointers[index]->hands[i].field_B58.z;
         }
     }
  

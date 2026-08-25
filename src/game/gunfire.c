@@ -1100,7 +1100,7 @@ void CapBeamLengthAndDecideIfRendered(struct BeamRecord *arg0, ITEM_IDS item, co
 
 void gunCreateBeamForHand(enum GUNHAND hand)
 {
-    coord3d *field_2A18;
+    coord3d *handMuzzlePos;
     Mtxf *player_matrix;
     struct hand *hand_ptr;
     f32 val;
@@ -1134,9 +1134,9 @@ void gunCreateBeamForHand(enum GUNHAND hand)
 
     chr = g_CurrentPlayer->prop->chr;
 
-    diff1_x = hand_ptr->item_related.x - g_CurrentPlayer->field_2A18[hand].x;
-    diff1_y = hand_ptr->item_related.y - g_CurrentPlayer->field_2A18[hand].y;
-    diff1_z = hand_ptr->item_related.z - g_CurrentPlayer->field_2A18[hand].z;
+    diff1_x = hand_ptr->item_related.x - g_CurrentPlayer->handMuzzlePos[hand].x;
+    diff1_y = hand_ptr->item_related.y - g_CurrentPlayer->handMuzzlePos[hand].y;
+    diff1_z = hand_ptr->item_related.z - g_CurrentPlayer->handMuzzlePos[hand].z;
     guNormalize(&diff1_x, &diff1_y, &diff1_z);
 
     diff2_x = hand_ptr->item_related.x - hand_ptr->field_B58.x;
@@ -1154,7 +1154,7 @@ void gunCreateBeamForHand(enum GUNHAND hand)
         return; 
     }
 
-    CapBeamLengthAndDecideIfRendered(&chr->beams[hand], getCurrentPlayerWeaponId(hand), &g_CurrentPlayer->field_2A18[hand], &hand_ptr->item_related);
+    CapBeamLengthAndDecideIfRendered(&chr->beams[hand], getCurrentPlayerWeaponId(hand), &g_CurrentPlayer->handMuzzlePos[hand], &hand_ptr->item_related);
 }
 
 

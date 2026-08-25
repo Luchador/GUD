@@ -597,8 +597,8 @@ void playerInitData(s32 player_num)
     g_playerPointers[player_num]->last_kill_time[2] = -1;
     g_playerPointers[player_num]->last_kill_time[3] = -1;
     g_playerPointers[player_num]->healthdisplaytime = 0;
-    g_playerPointers[player_num]->field_2A30 = 0;
-    g_playerPointers[player_num]->field_2A34 = 0;
+    g_playerPointers[player_num]->handMuzzleSampleTick[0] = 0;
+    g_playerPointers[player_num]->handMuzzleSampleTick[1] = 0;
     g_playerPointers[player_num]->cur_item_weapon_getname = ITEM_FIST;
     g_playerPointers[player_num]->actual_health = 1.0f;
     g_playerPointers[player_num]->actual_armor = 1.0f;

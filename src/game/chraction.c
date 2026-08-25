@@ -5770,7 +5770,7 @@ s32 chrlvUpdateAimendsideback(ChrRecord *self, struct weapon_firing_animation_ta
                 weapon_prop = chrGetEquippedWeaponProp(self, GUNLEFT);
             }
 
-            // This if block is a slight modification of @see sub_GAME_7F02D630.
+            // This if block is a slight modification of @see chrGetGunMuzzlePos.
             if ((weapon_prop != NULL) && (weapon_prop->flags & 2) && (dxdydz_square < 1000000.0f))
             {
                 obj = weapon_prop->obj;
@@ -6209,20 +6209,18 @@ void chrlvUpdateShotbondsum(ChrRecord *self, s32 *arg1, s32 *arg2, ITEM_IDS item
 
 /**
  * Slight modification of a part of @see chrlvUpdateAimendsideback.
- *
- * Address 0x7F02D630.
 */
-s32 sub_GAME_7F02D630(ChrRecord *self, GUNHAND hand, coord3d *arg2)
+s32 chrGetGunMuzzlePos(ChrRecord *self, GUNHAND hand, coord3d *arg2)
 {
     struct ObjectRecord *obj;
     PropRecord *weapon_prop;
-    Model *weapon_prop_model; // sp188
+    Model *weapon_prop_model;
     s32 ret;
-    Mtxf *temp_a0; // sp180
+    Mtxf *temp_a0;
     Mtxf sp74;
     f32 *spB8;
-    Mtxf *temp_a0_2; // sp108
-    Mtxf sp68; // sp44
+    Mtxf *temp_a0_2;
+    Mtxf sp68;
 
     weapon_prop = chrGetEquippedWeaponProp(self, hand);
     ret = 0;
@@ -6232,7 +6230,7 @@ s32 sub_GAME_7F02D630(ChrRecord *self, GUNHAND hand, coord3d *arg2)
         obj = weapon_prop->obj;
         weapon_prop_model = obj->model;
 
-        if ((weapon_prop->flags & 2))
+        if ((weapon_prop->flags & PROPFLAG_ONSCREEN))
         {
             if (weapon_prop_model->obj->Switches[0])
             {
@@ -6266,10 +6264,6 @@ s32 sub_GAME_7F02D630(ChrRecord *self, GUNHAND hand, coord3d *arg2)
 }
 
 
-
-/**
- * Address 0x7F02D734.
-*/
 void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
 {
     PropRecord *self_prop; // 644
@@ -6369,7 +6363,7 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                 self_stan = self_prop->stan;
                 sp27C = 1;
 
-                if (sub_GAME_7F02D630(self, hand, (coord3d *) &sp240) == 0)
+                if (chrGetGunMuzzlePos(self, hand, (coord3d *) &sp240) == 0)
                 {
                     sp240.f[0] = self_prop->pos.f[0];
                     sp240.f[1] = self_prop->pos.f[1] + 30.0f;

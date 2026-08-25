@@ -2285,20 +2285,19 @@ struct player
   f32 viewYawRadians;
   s32 ptr_text_first_mp_award;
   s32 ptr_text_second_mp_award;
-  coord3d field_2A18[2];
-  s32 field_2A30;
-  s32 field_2A34;
+  coord3d handMuzzlePos[2];
+  s32 handMuzzleSampleTick[2];
   s32 cur_item_weapon_getname;
-  /* 0x2a3c */ f32 actual_health;
-  /* 0x2a40 */ f32 actual_armor;
+  f32 actual_health;
+  f32 actual_armor;
   ITEM_IDS field_2A44[2];
   f32 speedgo;
   s32 lock_hand_model[2];
   s32 cur_player_control_type_0;
-  s32 cur_player_control_type_1;             //0x2a5c
-  f32 cur_player_control_type_2;             //0x2a60
-  s32 neg_vspacing_for_control_type_entry;   //0x2a64
-  u32 has_set_control_type_data;             //0x2a68
+  s32 cur_player_control_type_1;
+  f32 cur_player_control_type_2;
+  s32 neg_vspacing_for_control_type_entry;
+  u32 has_set_control_type_data;
 };
 
 struct firing_anim_struct {
