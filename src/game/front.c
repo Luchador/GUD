@@ -7480,18 +7480,18 @@ void init_menu18_displaycast(void)
 
     bufferRemaining -= allocSize;
     bufferPtr += allocSize;
-    bodyHeader = c_item_entries[body].header;
+    bodyHeader = CitemZ_entries[body].header;
 
-    load_object_fill_header(c_item_entries[body].header, c_item_entries[body].filename, bufferPtr, bufferRemaining, &texPool);
-    allocSize = ALIGN64_V2(get_pc_buffer_remaining_value(c_item_entries[body].filename));
+    load_object_fill_header(CitemZ_entries[body].header, CitemZ_entries[body].filename, bufferPtr, bufferRemaining, &texPool);
+    allocSize = ALIGN64_V2(get_pc_buffer_remaining_value(CitemZ_entries[body].filename));
     bufferRemaining -= allocSize;
     bufferPtr += allocSize;
 
     if (head >= 0)
     {
-        headHeader = c_item_entries[head].header;
-        load_object_fill_header(c_item_entries[head].header, c_item_entries[head].filename, bufferPtr, bufferRemaining, &texPool);
-        allocSize = ALIGN64_V2(get_pc_buffer_remaining_value(c_item_entries[head].filename));
+        headHeader = CitemZ_entries[head].header;
+        load_object_fill_header(CitemZ_entries[head].header, CitemZ_entries[head].filename, bufferPtr, bufferRemaining, &texPool);
+        allocSize = ALIGN64_V2(get_pc_buffer_remaining_value(CitemZ_entries[head].filename));
         bufferRemaining -= allocSize;
         bufferPtr += allocSize;
     }

@@ -1,4 +1,4 @@
-struct ChrModelFileRecord c_item_entries[] = {
+struct ChrModelFileRecord CitemZ_entries[] = {
     #include <assets/obseg/chr/camguard/chrModelFileRecord.inc.c>
     #include <assets/obseg/chr/greyguard/chrModelFileRecord.inc.c>
     #include <assets/obseg/chr/oliveguard/chrModelFileRecord.inc.c>

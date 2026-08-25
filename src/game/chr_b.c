@@ -9,9 +9,9 @@
 
 s32 load_body_head_if_not_loaded(s32 model)
 {
-    if (c_item_entries[model].header->RootNode == 0)
+    if (CitemZ_entries[model].header->RootNode == 0)
     {
-        fileLoad(c_item_entries[model].header, c_item_entries[model].filename);
+        fileLoad(CitemZ_entries[model].header, CitemZ_entries[model].filename);
         return 1;
     }
     return 0;
@@ -32,9 +32,9 @@ struct Model *makeonebody(s32 body, s32 head, struct ModelFileHeader *bodyHeader
     s32 opcode;
     ModelRwData_SwitchRecord *rwdata;
 
-    scale = c_item_entries[body].scale * 0.10000001f;
+    scale = CitemZ_entries[body].scale * 0.10000001f;
     opcode = 0;
-    pov = c_item_entries[body].pov;
+    pov = CitemZ_entries[body].pov;
 
     if (
 #ifdef BUGFIX_R1
@@ -49,19 +49,19 @@ struct Model *makeonebody(s32 body, s32 head, struct ModelFileHeader *bodyHeader
 
     if (bodyHeader->RootNode == 0)
     {
-        fileLoad(bodyHeader, c_item_entries[body].filename);
+        fileLoad(bodyHeader, CitemZ_entries[body].filename);
     }
 
     modelCalculateRwDataLen(bodyHeader);
 
-    if ((c_item_entries[body].hasHead == 0) && (head >= 0))
+    if ((CitemZ_entries[body].hasHead == 0) && (head >= 0))
     {
         opcode = &bodyHeader->Switches[4]->Opcode;
         if (opcode != 0)
         {
             if (headHeader->RootNode == 0)
             {
-                fileLoad(headHeader, c_item_entries[head].filename);
+                fileLoad(headHeader, CitemZ_entries[head].filename);
             }
 
             modelCalculateRwDataLen(headHeader);
@@ -80,7 +80,7 @@ struct Model *makeonebody(s32 body, s32 head, struct ModelFileHeader *bodyHeader
         modelSetScale(model, scale);
         modelSetAnimTranslationScale(model, pov);
 
-        if ((headHeader != 0) && (c_item_entries[body].hasHead == 0))
+        if ((headHeader != 0) && (CitemZ_entries[body].hasHead == 0))
         {
             bodyHeader->numRecords -= headHeader->numRecords;
             modelAttachHead(model, opcode, headHeader);

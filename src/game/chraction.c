@@ -168,7 +168,7 @@ Model * retrieve_header_for_body_and_head(s32 body, s32 head, u32 bitflags)
     ModelFileHeader *head_header;
     s32 sunglasses;
 
-    body_header = c_item_entries[body].header;
+    body_header = CitemZ_entries[body].header;
     head_header = NULL;
 
     sunglasses = 0;
@@ -182,9 +182,9 @@ Model * retrieve_header_for_body_and_head(s32 body, s32 head, u32 bitflags)
         sunglasses = (randomGetNext() & 1) == 0;
     }
 
-    if ((head >= 0) && (c_item_entries[body].hasHead == 0))
+    if ((head >= 0) && (CitemZ_entries[body].hasHead == 0))
     {
-        head_header = c_item_entries[head].header;
+        head_header = CitemZ_entries[head].header;
     }
 
     return setup_chr_instance(body, head, body_header, head_header, sunglasses);
@@ -207,7 +207,7 @@ s32 bodyChooseHead(s32 id)
 {
     s32 ret;
 
-    if (c_item_entries[id].isMale)
+    if (CitemZ_entries[id].isMale)
     {
         ret = randomGetNext() & 3;
         ret = ((s32)current_random_male_head + ret) % (s32)num_male_heads;
@@ -229,7 +229,7 @@ s32 bodyChooseHead(s32 id)
 */
 s32 get_random_head(s32 id)
 {
-    return (c_item_entries[id].isMale ? random_male_heads[randomGetNext() % num_male_heads] : random_female_heads[randomGetNext() % num_female_heads]);
+    return (CitemZ_entries[id].isMale ? random_male_heads[randomGetNext() % num_male_heads] : random_female_heads[randomGetNext() % num_female_heads]);
 }
 
 
@@ -256,7 +256,7 @@ void expand_09_characters(s32 stageid, GuardRecord *arg1, s32 arg2)
         headid = -1;
         bodyid = (arg1->BodyID == 0xFFFF) ? get_current_random_body() : arg1->BodyID;
 
-        cmfr = &c_item_entries[bodyid];
+        cmfr = &CitemZ_entries[bodyid];
 
         if (cmfr->hasHead == 0)
         {
@@ -2345,7 +2345,7 @@ void play_sound_for_shot_actor(ChrRecord *self)
     {
         if (getPlayerCount() == 1)
         {
-            if (c_item_entries[self->bodynum].isMale != FALSE)
+            if (CitemZ_entries[self->bodynum].isMale != FALSE)
             {
                 male = TRUE;
             }
@@ -2360,7 +2360,7 @@ void play_sound_for_shot_actor(ChrRecord *self)
     }
     else
     {
-        if (c_item_entries[self->bodynum].isMale != FALSE)
+        if (CitemZ_entries[self->bodynum].isMale != FALSE)
         {
             male = TRUE;
         }
@@ -3559,7 +3559,7 @@ void get_sound_at_range(ChrRecord *self, s32 arg1, s32 arg2)
 */
 void play_hit_soundeffect_and_proper_volume( ChrRecord *self)
 {
-    get_sound_at_range(self, self->act_ubytes.padding[45], c_item_entries[self->bodynum].isMale);
+    get_sound_at_range(self, self->act_ubytes.padding[45], CitemZ_entries[self->bodynum].isMale);
 }
 
 

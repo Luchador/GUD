@@ -4266,6 +4266,7 @@ s32 objTick(struct PropRecord *prop)
 	struct beam *beam;
 	s32 var_s2_5;
 	Mtxf spB8;
+    rgba_u8 col;
     
 	obj = prop->obj;
 	model = obj->model;
@@ -4273,16 +4274,6 @@ s32 objTick(struct PropRecord *prop)
 	objMovedThisFrame = 0;
 	tickop = TICKOP_NONE;
     
-    /**
-     * Since objMovedThisFrame and tickop are both set to 0 right above here,
-     * this condition can never be true. previousOpenPosition is unitialized so even if this did execute
-     * it would subtract from garbage. But that wouldn't matter since previousOpenPosition is set 0.0f right after this anyway.
-     */
-	if (objMovedThisFrame > tickop)
-	{
-		previousOpenPosition -= (getjointsize(g_CurrentProjectileModel, dword_CODE_bss_80075B74) * 0.5f) * flt_CODE_bss_80075B88.f[0];
-	}
-
 	previousOpenPosition = 0.0f;
 	playerCount = getPlayerCount();
 	applyFogCull = TRUE;
@@ -4314,13 +4305,6 @@ s32 objTick(struct PropRecord *prop)
 		if (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
 		{
 			projectile = obj->projectile;
-
-			if (projectile->ownerprop != NULL
-#if defined(VERSION_JP) || defined(VERSION_EU)
-				&& getPlayerPointerIndex(projectile->ownerprop) >= 0
-#endif
-			)
-			
             isSimOwner = projectile->ownerprop == g_CurrentPlayer->prop;
 			
 		}
@@ -4331,7 +4315,7 @@ s32 objTick(struct PropRecord *prop)
      * separate variables, and probably was, but got merged during decompilation.
      */
 #if !defined(VERSION_EU)
-	sp100 = (struct PropRecord *) &obj->nextcol;
+	col = obj->nextcol;
 #endif
 	if (isSimOwner)
 	{
@@ -4873,27 +4857,21 @@ s32 objTick(struct PropRecord *prop)
 						prop->flags |= PROPFLAG_00000010;
 					}
 
-#if defined(VERSION_JP) || defined(VERSION_EU)
 					if (obj->type == PROPDEF_COLLECTABLE)
 					{
 						objectivestatusCheckDeposit(((struct WeaponObjRecord *) obj)->weaponnum, prop->stan->room);
 					}
-#endif
 				}
 			}
 		}
 
-		if (objMovedThisFrame != 0)
+		if (objMovedThisFrame)
 		{
 			objectMatrix = (Mtxf *) (&obj->position);
 
 			objUpdateCollisionVolume(obj);
 			setupUpdateObjectRoomPosition(obj);
-#if defined(VERSION_EU)
 			objSetShading(obj->prop, &obj->nextcol);
-#else
-			objSetShading(obj->prop, (rgba_u8 *) sp100);
-#endif
 			detonate_proxmine_In_range((struct coord3d *) objectMatrix);
 		}
 
@@ -5568,9 +5546,6 @@ s32 objTick(struct PropRecord *prop)
 			if (temp_s0_6->anim != NULL)
 			{
 				setsuboffset(temp_s0_6, &render_pad2F4->position);
-#if defined(VERSION_EU)
-				modelSetAnimPlaySpeed(render_pad2F4->model, 1.2f, 0.0f);
-#endif
 				temp_s0_6 = render_pad2F4->model;
 
 				if (temp_s0_6->anim == animation_table_ptrs2[1])
@@ -5599,6 +5574,7 @@ s32 objTick(struct PropRecord *prop)
 				getsuboffset(render_pad2F4->model, &render_pad2F4->position);
 				prop->pos.f[0] = render_pad2F4->position.f[0];
 				prop->pos.f[2] = render_pad2F4->position.f[2];
+
 				if (render_pad2F4->pad < 10000)
 				{
 					var_v1_4 = &g_CurrentSetup.pads[render_pad2F4->pad];
@@ -5614,6 +5590,7 @@ s32 objTick(struct PropRecord *prop)
 			}
 
 			angleDelta = render_pad2F4->speedtime60;
+
 			if (angleDelta >= 0.0f)
 			{
 				if (angleDelta <= g_GlobalTimerDelta)
@@ -6112,9 +6089,9 @@ s32 objTick(struct PropRecord *prop)
 		prop->zDepth = -((Mtxf *) model->render_pos)[0].m[3][2];
 
 		chrobjWeaponTick(prop);
-
 		{
 			struct PropRecord *current = prop->child;
+
 			while (current != NULL)
 			{
 				sp684 = current->prev;

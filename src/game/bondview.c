@@ -697,21 +697,21 @@ void bviewLoadPlayerChr(void)
             remove_item_in_hand(GUNRIGHT);
             texInitPool(&pool, weaponbuf1, size1);
             bodyheader  = get_ptr_itemheader_in_hand(GUNRIGHT);
-            *bodyheader = *c_item_entries[body].header;
-            load_object_fill_header(bodyheader, (u8 *)c_item_entries[body].filename, weaponbuf0, size0, &pool);
-            cursor = get_pc_buffer_remaining_value((u8 *)c_item_entries[body].filename);
+            *bodyheader = *CitemZ_entries[body].header;
+            load_object_fill_header(bodyheader, (u8 *)CitemZ_entries[body].filename, weaponbuf0, size0, &pool);
+            cursor = get_pc_buffer_remaining_value((u8 *)CitemZ_entries[body].filename);
 
             do
             {
                 cursor      = ALIGN64_V3(cursor + 0x3f);
                 headheader  = (ModelFileHeader *)(weaponbuf0 + cursor);
                 cursor      = ALIGN64_V3(cursor + sizeof(ModelFileHeader) + 0x3f);
-                *headheader = *c_item_entries[head].header;
+                *headheader = *CitemZ_entries[head].header;
 
                 if(1);
 
-                load_object_fill_header(headheader, (u8 *)c_item_entries[head].filename, weaponbuf0 + cursor, size0 - cursor, &pool);
-                cursor = ALIGN64_V3(get_pc_buffer_remaining_value((u8 *)c_item_entries[head].filename) + cursor + 0x3f);
+                load_object_fill_header(headheader, (u8 *)CitemZ_entries[head].filename, weaponbuf0 + cursor, size0 - cursor, &pool);
+                cursor = ALIGN64_V3(get_pc_buffer_remaining_value((u8 *)CitemZ_entries[head].filename) + cursor + 0x3f);
                 model  = (Model *)(weaponbuf0 + cursor);
                 cursor = ALIGN64_V3(cursor + 0xfb);
                 modelCalculateRwDataLen(bodyheader);
@@ -731,14 +731,14 @@ void bviewLoadPlayerChr(void)
         }
         else
         {
-            bodyheader = c_item_entries[body].header;
+            bodyheader = CitemZ_entries[body].header;
 
             if (bodyheader->RootNode == NULL)
             {
-                fileLoad(bodyheader, c_item_entries[body].filename);
+                fileLoad(bodyheader, CitemZ_entries[body].filename);
             }
 #ifndef VERSION_US
-            if (c_item_entries[body].hasHead)
+            if (CitemZ_entries[body].hasHead)
             {
                 head       = -1;
                 headheader = NULL;
@@ -746,11 +746,11 @@ void bviewLoadPlayerChr(void)
             else
 #endif
             {
-                headheader = c_item_entries[head].header;
+                headheader = CitemZ_entries[head].header;
 
                 if (headheader->RootNode == NULL)
                 {
-                    fileLoad(headheader, c_item_entries[head].filename);
+                    fileLoad(headheader, CitemZ_entries[head].filename);
                 }
             }
         }
@@ -3167,7 +3167,7 @@ void sub_GAME_7F07E7CC(void) {
     itemheader = get_ptr_itemheader_in_hand(1);
     modelCalculateRwDataLen(itemheader);
     animInit((Model *)((u8 *)g_CurrentPlayer + 0x230), itemheader, (u32 *)((u8 *)g_CurrentPlayer + 0x2ec));
-    modelSetScale((Model *)((u8 *)g_CurrentPlayer + 0x230), c_item_entries[41].scale * 0.10000001f);
+    modelSetScale((Model *)((u8 *)g_CurrentPlayer + 0x230), CitemZ_entries[41].scale * 0.10000001f);
     modelSetAnimation((Model *)((u8 *)g_CurrentPlayer + 0x230), (ModelAnimation *)&ptr_animation_table->data[(s32)&ANIM_DATA_bond_watch], 0, 0.0f, 0.5f * watch_transition_time, 0.0f);
     *(s32 *)((u8 *)g_CurrentPlayer + 0x220) = 0;
 }

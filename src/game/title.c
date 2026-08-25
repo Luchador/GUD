@@ -464,19 +464,19 @@ void initializeGunBarrelIntro(u8 *gfxBuffer, s32 bufferSize)
     gfxBuffer += temp_t9;
     bufferSize -= temp_t9;
     
-    load_object_fill_header(c_item_entries[BODY_Brosnan_Tuxedo].header, c_item_entries[BODY_Brosnan_Tuxedo].filename, gfxBuffer, bufferSize, &texturePool);
+    load_object_fill_header(CitemZ_entries[BODY_Brosnan_Tuxedo].header, CitemZ_entries[BODY_Brosnan_Tuxedo].filename, gfxBuffer, bufferSize, &texturePool);
     
-    temp_t9 = ((get_pc_buffer_remaining_value(c_item_entries[BODY_Brosnan_Tuxedo].filename) + 0x3F) | 0x3F) ^ 0x3F;
+    temp_t9 = ((get_pc_buffer_remaining_value(CitemZ_entries[BODY_Brosnan_Tuxedo].filename) + 0x3F) | 0x3F) ^ 0x3F;
     bufferSize -= temp_t9;
     gfxBuffer += temp_t9;
     
-    load_object_fill_header(c_item_entries[BODY_Male_Pierce_Bond_Tuxedo].header, c_item_entries[BODY_Male_Pierce_Bond_Tuxedo].filename, gfxBuffer, bufferSize, &texturePool);
+    load_object_fill_header(CitemZ_entries[BODY_Male_Pierce_Bond_Tuxedo].header, CitemZ_entries[BODY_Male_Pierce_Bond_Tuxedo].filename, gfxBuffer, bufferSize, &texturePool);
     
-    temp_t9 = ((get_pc_buffer_remaining_value(c_item_entries[BODY_Male_Pierce_Bond_Tuxedo].filename) + 0x3F) | 0x3F) ^ 0x3F;
+    temp_t9 = ((get_pc_buffer_remaining_value(CitemZ_entries[BODY_Male_Pierce_Bond_Tuxedo].filename) + 0x3F) | 0x3F) ^ 0x3F;
     bufferSize -= temp_t9;
     gfxBuffer += temp_t9;
     
-    chrModelInstance = setup_chr_instance(BODY_Brosnan_Tuxedo, BODY_Male_Pierce_Bond_Tuxedo, c_item_entries[BODY_Brosnan_Tuxedo].header, c_item_entries[BODY_Male_Pierce_Bond_Tuxedo].header, 0);
+    chrModelInstance = setup_chr_instance(BODY_Brosnan_Tuxedo, BODY_Male_Pierce_Bond_Tuxedo, CitemZ_entries[BODY_Brosnan_Tuxedo].header, CitemZ_entries[BODY_Male_Pierce_Bond_Tuxedo].header, 0);
 
     modelSetScale(chrModelInstance, 0.18779343f);
     modelSetAnimTranslationScale(chrModelInstance, 1.0f);

@@ -39,9 +39,9 @@ void bodiesReset(u32 stagenum)
 {
     s32 i;
   
-    for (i = 0; c_item_entries[i].header!=0; i++)
+    for (i = 0; CitemZ_entries[i].header!=0; i++)
     {
-        c_item_entries[i].header->RootNode = (ModelNode*)0;
+        CitemZ_entries[i].header->RootNode = (ModelNode*)0;
     }
 
     current_random_male_head = randomGetNext() % num_male_heads;
