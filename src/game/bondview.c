@@ -329,10 +329,16 @@ f32 D_800364D0 = 1.0;
  * Then current items will be unequipped from left and run hands.
 */
 s32 g_bondviewForceDisarm = 0;
-s32 resolution = 0;
-s32 cameraBufferToggle = 0;
-s32 cameraFrameCounter1 = 0;
-s32 cameraFrameCounter2 = 0;
+
+/**
+ * Pointer to the 440x330 16-bit hi-res framebuffer. It's allocated from the stage pool only for the credits level,
+ * Cuba. NULL on other stages.
+ */
+u8* g_HiResFrameBuffer = NULL;
+
+s32 g_HiResModeActive = 0;
+s32 g_HiResEnterDelay = 0;
+s32 g_HiResExitDelay = 0;
 s32 g_CreditsRollTimer = 0;
 CREDITS_STATE g_CreditsState = CREDIT_STATE_START;
 CreditsEntry *credits_pointer = NULL;
@@ -432,7 +438,7 @@ void bondviewStartPauseTransition(f32 duration);
 void bondviewStartUnpauseTransition(f32 duration);
 bool bondViewIsPauseTransitioning(void);
 f32 sub_GAME_7F080228(f32 arg0);
-void currentPlayerSetSwayTarget(s32 value);
+void bviewSetLeanTarget(s32 value);
 void currentPlayerAdjustCrouchPos(s32 value);
 void bondviewUpdateSpeedSideways(s32 arg0);
 void bondviewUpdateSpeedForwards(s32 arg0);
@@ -4181,7 +4187,7 @@ Gfx *currentPlayerDrawFade(Gfx *gdl)
     s32 r = g_CurrentPlayer->colourscreenred;
     s32 g = g_CurrentPlayer->colourscreengreen;
     s32 b = g_CurrentPlayer->colourscreenblue;
-    if ((cameraFrameCounter1 != 0) || (cameraFrameCounter2 != 0)) {
+    if ((g_HiResEnterDelay != 0) || (g_HiResExitDelay != 0)) {
         frac = 1.0f;
         b = 0;
         g = 0;
@@ -5699,15 +5705,15 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
         if (moveData.rLeanLeft)
         {
-            currentPlayerSetSwayTarget(-1);
+            bviewSetLeanTarget(-1);
         }
         else if (moveData.rLeanRight)
         {
-            currentPlayerSetSwayTarget(1);
+            bviewSetLeanTarget(1);
         }
         else
         {
-            currentPlayerSetSwayTarget(0);
+            bviewSetLeanTarget(0);
         }
 
         if (moveData.crouchDown)
@@ -7577,7 +7583,7 @@ void bondviewFrozenMoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
 s16 getWidth320or440(void)
 {
-    if (cameraBufferToggle != 0)
+    if (g_HiResModeActive != 0)
     {
         return SCREEN_WIDTH_440;
     }
@@ -7588,7 +7594,7 @@ s16 getWidth320or440(void)
 
 s16 getHeight330or240(void)
 {
-    if (cameraBufferToggle != 0)
+    if (g_HiResModeActive != 0)
     {
         return SCREEN_HEIGHT_330;
     }
@@ -7603,7 +7609,7 @@ s16 bondviewGetCurrentPlayerViewportWidth(void)
         return VIEWPORT_WIDTH_4P;
     }
 
-    if (cameraBufferToggle != 0)
+    if (g_HiResModeActive != 0)
     {
         return SCREEN_WIDTH_440;
     }
@@ -7644,7 +7650,7 @@ s16 bondviewGetCurrentPlayerViewportHeight(void)
         return VIEWPORT_HEIGHT_4P;
     }
 
-    if (cameraBufferToggle != 0)
+    if (g_HiResModeActive != 0)
     {
         if (cur_player_get_screen_setting() == SCREEN_SIZE_WIDESCREEN)
         {
@@ -7701,7 +7707,7 @@ s16 bondviewGetCurrentPlayerViewportUly(void)
         return VIEWPORT_ULY_4P_PLAYER_34;
     }
 
-    if (cameraBufferToggle != 0)
+    if (g_HiResModeActive != 0)
     {
         if (cur_player_get_screen_setting() == SCREEN_SIZE_WIDESCREEN)
         {
@@ -7750,37 +7756,41 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
     // the fov....
     viSetFovY(FOV_Y_F);
 
-    if (cameraFrameCounter1 != 0)
+    /**
+     * Resolution switches are postponed until the VI swap chain are at a known phase. That's why g_HiResEnterDelay and
+     * g_HiResExitDelay wait until they are 4 or above. Switching mid-scan would display a frame at the wrong stride.
+     */
+    if (g_HiResEnterDelay)
     {
-        if ((cameraFrameCounter1 >= 4) && (resolution != 0) && (viGetFrameBuf2() == (u8*)(cfb_16[1])))
+        if ((g_HiResEnterDelay >= 4) && (g_HiResFrameBuffer != NULL) && (viGetFrameBuf2() == (u8*)(cfb_16[1])))
         {
-            cameraBufferToggle = 1;
-            cameraFrameCounter1 = 0;
+            g_HiResModeActive = 1;
+            g_HiResEnterDelay = 0;
         }
         else
         {
-            cameraFrameCounter1 += 1;
+            g_HiResEnterDelay += 1;
         }
     }
     else
     {
-        if (cameraFrameCounter2 != 0)
+        if (g_HiResExitDelay)
         {
-            if ((cameraFrameCounter2 >= 4) && (viGetFrameBuf2() == (u8*)(cfb_16[0])))
+            if ((g_HiResExitDelay >= 4) && (viGetFrameBuf2() == (u8*)(cfb_16[0])))
             {
-                cameraBufferToggle = 0;
-                cameraFrameCounter2 = 0;
+                g_HiResModeActive = 0;
+                g_HiResExitDelay = 0;
             }
             else
             {
-                cameraFrameCounter2 += 1;
+                g_HiResExitDelay += 1;
             }
         }
     }
 
-    if ((cameraBufferToggle != 0) && (viGetFrameBuf2() == (u8*)(cfb_16[1])))
+    if ((g_HiResModeActive) && (viGetFrameBuf2() == (u8*)(cfb_16[1])))
     {
-        viSetFrameBuf2((u8 *) resolution);
+        viSetFrameBuf2(g_HiResFrameBuffer);
     }
 
     if (get_screen_ratio() == SCREEN_RATIO_16_9)
@@ -7807,10 +7817,7 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
     currentPlayerSetLookAheadSetting(cur_player_get_lookahead());
     gunSetGunAmmoVisible(GUNAMMOREASON_OPTION, cur_player_get_ammo_onscreen_setting());
 
-    gunSetSightVisible(
-        GUNSIGHTREASON_1,
-        (getPlayerCount() == 1 && cur_player_get_sight_onscreen_control())
-            || (getPlayerCount() >= 2 && g_playerPerm->sight)
+    gunSetSightVisible(GUNSIGHTREASON_1, (getPlayerCount() == 1 && cur_player_get_sight_onscreen_control()) || (getPlayerCount() >= 2 && g_playerPerm->sight)
     );
 
     if ((g_CameraMode == CAMERAMODE_NONE) || ((g_CameraMode == CAMERAMODE_FP) && (is_timer_active != 0)) || (g_CameraMode == CAMERAMODE_FADE_TO_TITLE))
@@ -7827,12 +7834,7 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
         bondviewFrozenMoveBond(stick_x, stick_y, buttons, (u16) g_CurrentPlayer->buttons_pressed);
     }
 
-#if defined(BUGFIX_R1)
-    watch_time_0 += jpD_800484D0;
-#else
-    // VERSION_US
     watch_time_0 += speedgraphframes;
-#endif
 
     if (stop_time_flag != 0)
     {
@@ -8005,7 +8007,7 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
 }
 
 
-s32 bondviewGetRandomSpawnPadIndex(void)
+s32 bviewGetRandomSpawnPadIndex(void)
 {
     PadRecord *pad;
     PropRecord *player_prop;
@@ -8019,85 +8021,69 @@ s32 bondviewGetRandomSpawnPadIndex(void)
     f32 dist;
     f32 diff_z;
 
-    // set up initial values
     player_num = get_cur_playernum();
     player_count = getPlayerCount();
     enemy_nearby = TRUE;
-#ifdef DEBUG
-    osSyncPrintf("choosing a start pad for player %d\n", player_num);
-#endif
 
-    // loop pads until no enemy is within 1000 units
+    // Loop pads until no enemy is within 1000 units.
     for (attempt_num = 0; enemy_nearby && (attempt_num < startpadcount);)
     {
         attempt_num++;
         enemy_nearby = FALSE;
         g_CurrentPlayer->field_29E0++;
         pad_index = ( g_CurrentPlayer->field_29E0) % (startpadcount);
-#ifdef DEBUG
-        osSyncPrintf("testing pad %d\n", pad_index);
-#endif
 
         for (player_index = 0; player_index < player_count; player_index++)
         {
-            // don't consider yourself as an enemy
-            if (player_index == player_num) { continue; }
+            // Don't consider yourself as an enemy.
+            if (player_index == player_num) 
+            { 
+                continue; 
+            }
 
-            // make sure the player prop is valid
+            // Make sure the player prop is valid.
             player_prop = g_playerPointers[player_index]->prop;
+
             if (player_prop == 0)
             {
-#ifdef DEBUG
-                osSyncPrintf("Player %d has no prop\n", player_index);
-#endif
                 continue;
             }
 
-            // find distance between enemy and this pad
+            // Find distance between enemy and this pad.
             pad = g_Startpad[pad_index];
             diff_x = player_prop->pos.x - pad->pos.x;
             diff_z = player_prop->pos.z - pad->pos.z;
             dist = sqrtf((diff_x * diff_x) + (diff_z * diff_z));
-#ifdef DEBUG
-            osSyncPrintf("Distance from player %d (%f, %f)->(%f, %f)= %f\n", player_index, pad->pos.x, pad->pos.z, player_prop->pos.x, player_prop->pos.z, dist);
-#endif
 
-            // if pad is within 1000, don't pick it
+            // If pad is within 1000 units don't pick it.
             if (dist < 1000)
             {
-#ifdef DEBUG
-                osSyncPrintf("Too close to player %d (closer than 10m)\n", player_index);
-#endif
                 enemy_nearby = TRUE;
             }
         }
     }
 
-    do {} while (0); // leftover debug code? - Probably catch Player has no Prop
-
-    // loop pads until no enemy is within 100 units
+    // Loop pads until no enemy is within 100 units.
     for (; enemy_nearby && (attempt_num < startpadcount);)
     {
         attempt_num++;
         enemy_nearby = FALSE;
         g_CurrentPlayer->field_29E0++;
         pad_index = ((s32) g_CurrentPlayer->field_29E0) % ((s32) startpadcount);
-#ifdef DEBUG
-        osSyncPrintf("testing pad %d (second try)\n", pad_index);
-#endif
 
         for (player_index = 0; player_index < player_count; player_index++)
         {
-            // don't consider yourself as an enemy
-            if (player_index == player_num) { continue; }
+            // Don't consider yourself as an enemy.
+            if (player_index == player_num) 
+            { 
+                continue; 
+            }
 
-            // make sure the player prop is valid
+            // Make sure the player prop is valid.
             player_prop = g_playerPointers[player_index]->prop;
+
             if (player_prop == 0)
             {
-#ifdef DEBUG
-                osSyncPrintf("Player %d has no prop\n", player_index);
-#endif
                 continue;
             }
 
@@ -8107,26 +8093,17 @@ s32 bondviewGetRandomSpawnPadIndex(void)
             diff_z = player_prop->pos.z - pad->pos.z;
             dist = sqrtf((diff_x * diff_x) + (diff_z * diff_z));
 
-#ifdef DEBUG
-            osSyncPrintf("Distance from player %d (%f, %f)->(%f, %f)= %f\n", player_index, pad->pos.x, pad->pos.z, player_prop->pos.x, player_prop->pos.z, dist);
-#endif
-            // if pad is within 100, don't pick it
+            // If pad is within 100 don't pick it.
             if (dist < 100.f)
             {
-#ifdef DEBUG
-                osSyncPrintf("Too close to player %d (closer than 1m)\n", player_index);
-#endif
                 enemy_nearby = TRUE;
             }
         }
     }
 
-    // if we searched through all pads and failed to find a safe one, just pick one at random
+    // If we searched through all pads and failed to find a safe one just pick one at random.
     if (enemy_nearby)
     {
-#ifdef DEBUG
-        osSyncPrintf("**** No decent start pad found for player %d - picking a random one ****\n", player_index);
-#endif
         pad_index = (randomGetNext() % (startpadcount));
     }
 
@@ -8239,8 +8216,6 @@ void bondviewSelectCuff(Model *model, ModelFileHeader *header, s32 switchindex)
     switches = header->Switches;
     offset = switchindex << 2;
 
-    if (1);
-
     // byte-indexed on purpose: offset = switchindex * 4. &switches[i] won't match.
     base = (ModelNode **) (((u8 *) switches) + offset);
 
@@ -8311,7 +8286,7 @@ void bondviewSelectCuff(Model *model, ModelFileHeader *header, s32 switchindex)
         base = (ModelNode **) (((u8 *) switches) + offset);
     }
 
-    index = (switchindex + 4) ^ (((switchindex + 4) ^ 0) * 0);
+    index = switchindex + 4;
 
     if (base[4])
     {
@@ -8331,9 +8306,9 @@ void bondviewSelectCuff(Model *model, ModelFileHeader *header, s32 switchindex)
 }
 
 
-void bondviewPlayerBeginLife(void)
+void bviewPlayerBeginLife(void)
 {
-    g_CurrentPlayer->eyeheight = ((g_playerPerm->player_perspective_height * 185.0f * (s32)1) - 10.0f);
+    g_CurrentPlayer->eyeheight = (g_playerPerm->player_perspective_height * 185.0f - 10.0f);
 
     // Reset per-life counters
     g_CurrentPlayer->kills_this_life = 0;
@@ -8361,7 +8336,7 @@ void bondviewPlayerBeginLife(void)
  *  0 for no lean
  *  1 to lean right
  */
-void currentPlayerSetSwayTarget(s32 value)
+void bviewSetLeanTarget(s32 value)
 {
     g_CurrentPlayer->swaytarget = (value * 75.0f);
 }
@@ -8623,7 +8598,7 @@ void mp_respawn_handler(void)
     intro_record = g_CurrentSetup.intro;
 
     init_player_BONDdata();
-    bondviewPlayerBeginLife();
+    bviewPlayerBeginLife();
 
     g_CurrentPlayer->bondstate = BONDSTATE_ALIVE;
     g_CurrentPlayer->deathanimfinished = 0;
@@ -8640,7 +8615,7 @@ void mp_respawn_handler(void)
 
     if ((getPlayerCount() >= 2) && (startpadcount > 0))
     {
-        var_v1 = bondviewGetRandomSpawnPadIndex();
+        var_v1 = bviewGetRandomSpawnPadIndex();
     }
     else
     {
@@ -9913,7 +9888,7 @@ Gfx *bondviewRenderUpperText(Gfx *gdl)
 #else
                     textMeasure(&msg.textheight, &msg.textwidth, dword_CODE_bss_80079DC8[g_UpperTextTopSlot], ptrFontZurichBoldChars, ptrFontZurichBold, 0);
 #endif
-                    if (cameraBufferToggle != 0)
+                    if (g_HiResModeActive != 0)
                     {
                         msg.x = viGetViewLeft() + 0x46;
                         msg.y = viGetViewTop() + 0x10;

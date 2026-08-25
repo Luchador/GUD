@@ -95,18 +95,17 @@ void bondviewLoadSetupIntroSection(void)
     intro_record = (struct SetupIntroEmpty *)g_CurrentSetup.intro;
     g_isBondKIA = 0;
     g_bondviewForceDisarm = 0;
-    resolution = 0;
-    cameraBufferToggle = 0;
-    cameraFrameCounter1 = 0;
+    g_HiResFrameBuffer = NULL;
+    g_HiResModeActive = 0;
+    g_HiResEnterDelay = 0;
     set_starting_weapon = 0;
-    cameraFrameCounter2 = 0;
+    g_HiResExitDelay = 0;
     start_look_angle = FLOAT_INIT;
 
     if (bossGetStageNum() == LEVELID_CUBA)
     {
-        resolution = (s32)mempAllocBytesInBank(0x46EA0, MEMPOOL_STAGE);
-        resolution = (resolution + 0x3f) & ~0x3F;
-        cameraFrameCounter1 = 1;
+        g_HiResFrameBuffer = (u8 *)(((u32)mempAllocBytesInBank(0x46EA0, MEMPOOL_STAGE) + 0x3f) & ~0x3F);
+        g_HiResEnterDelay = 1;
     }
 
     g_CreditsRollTimer = 0;
@@ -359,7 +358,7 @@ void bondviewLoadSetupIntroSection(void)
     {
         if ((getPlayerCount() >= 2) && (startpadcount > 0))
         {
-            rand_pad_index = bondviewGetRandomSpawnPadIndex();
+            rand_pad_index = bviewGetRandomSpawnPadIndex();
         }
         else
         {

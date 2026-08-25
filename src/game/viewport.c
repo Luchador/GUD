@@ -22,12 +22,9 @@ void zbufDeallocate(void) {
 }
 
 
-/*
- * Address: 0x7f0d287c
-*/
 void zbufAllocate(void)
 {
-    if (resolution != 0)
+    if (g_HiResFrameBuffer != NULL)
     {
         z_buffer_width = Z_BUFFER_4_3_WIDTH;
         z_buffer_height = Z_BUFFER_4_3_HEIGHT;

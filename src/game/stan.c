@@ -2482,17 +2482,6 @@ f32 stanGetPositionYValue(StandTile *tile, f32 p_x, f32 p_z)
 }
 
 
-void copy_tile_RGB_as_24bit(StandTile *tile, f32 p_x, f32 p_z, u8 *rtn)
-{
-    u8 B = (tile->mid.half >> 0x8) & 0xF;
-    u8 C = (tile->mid.half >> 0x4) & 0xF;
-    u8 D = (tile->mid.half >> 0x0) & 0xF;
-    rtn[0] = (B << 0x4) | B;
-    rtn[1] = (C << 0x4) | C;
-    rtn[2] = (D << 0x4) | D;
-}
-
-
  /**
  * Get 24bit id stanIdHi from id string
  * @param stanIdHi: 1bit Type, 15bit Integer ID.

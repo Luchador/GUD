@@ -416,7 +416,7 @@ void lvlStageLoad(s32 stage)
             init_player_BONDdata_stats();
             init_player_BONDdata();
             bondviewLoadSetupIntroSection();
-            bondviewPlayerBeginLife();
+            bviewPlayerBeginLife();
             sets_a_bunch_of_BONDdata_values_to_default();
             disableOnscreenCheatText();
         }

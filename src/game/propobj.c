@@ -462,51 +462,52 @@ struct ModelRoData_BoundingBoxRecord* chrobjGetBboxFromObjectRecord(ObjectRecord
 }
 
 
+/**
+ * Rewritten function to drop the call to copy_tile_RGB_as_24bit and simplify the calculations.
+ */
 void objSetColorFromTile(PropRecord *prop, u8 col[4])
 {
-    s32 tmp;
+    s32 brightness;
     s32 min;
-    s32 med;
-    s32 max;
-    s32 tmp2;
-    s32 range;
+    u16 tileColor = prop->stan->mid.half;
+    s32 red = (tileColor >> 8) & 0xf;
+    s32 green = (tileColor >> 4) & 0xf;
+    s32 blue = tileColor & 0xf;
 
-    copy_tile_RGB_as_24bit(prop->stan, prop->pos.x, prop->pos.z, col);
+    /*
+     * Expand each four-bit tile component to eight bits.
+     * For example, 0xa becomes 0xaa.
+     */
+    red |= red << 4;
+    green |= green << 4;
+    blue |= blue << 4;
 
-    tmp = (col[0] * 79 + col[1] * 156 + col[2] * 21) >> 8;
-    col[3] = (255 - tmp) * 0.75f;
+    /*
+     * Cheap approximation of the original 79:156:21 weighting.
+     * These weights are equivalent to 80:160:16.
+     */
+    brightness = (red * 5 + green * 10 + blue) >> 4;
+    col[3] = ((255 - brightness) * 3) >> 2;
 
-    max = 0;
-    min = 0;
-	med = 0;
+    min = red;
 
-	if (col[1] > col[0]) {
-		max = 1;
-	} else {
-		min = 1;
-	}
+    if (green < min)
+    {
+        min = green;
+    }
 
-	if (col[2] > col[max]) {
-		med = max;
-		max = 2;
-	} else if (col[2] > col[min]) {
-		med = 2;
-	} else {
-		med = min;
-		min = 2;
-	}
+    if (blue < min)
+    {
+        min = blue;
+    }
 
-	if (col[max] > 0) {
-		tmp2 = col[med] * (col[max] - col[min]) / col[max];
-		range = col[max] - col[min];
-		col[min] = 0;
-		col[med] = tmp2;
-		col[max] = range;
-	}
-
-    col[0] >>= 1;
-    col[1] >>= 1;
-    col[2] >>= 1;
+    /*
+     * Remove the common brightness component, leaving the tile's tint,
+     * and retain the original half-strength output range.
+     */
+    col[0] = (red - min) >> 1;
+    col[1] = (green - min) >> 1;
+    col[2] = (blue - min) >> 1;
 }
 
 

@@ -2381,10 +2381,10 @@ struct move_bond_temp_struct {
 };
 
 extern s32 g_bondviewForceDisarm;
-extern s32 resolution;
-extern s32 cameraBufferToggle;
-extern s32 cameraFrameCounter1;
-extern s32 cameraFrameCounter2;
+extern u8* g_HiResFrameBuffer;
+extern s32 g_HiResModeActive;
+extern s32 g_HiResEnterDelay;
+extern s32 g_HiResExitDelay;
 extern s32 g_CreditsRollTimer;
 extern enum CREDITS_STATE g_CreditsState;
 extern CreditsEntry *credits_pointer;
@@ -2500,7 +2500,7 @@ void trigger_watch_zoom(f32 final, f32 time);
 void set_open_close_solo_watch_menu_to1(void);
 
 void init_player_BONDdata(void);
-void bondviewPlayerBeginLife(void);
+void bviewPlayerBeginLife(void);
 
 
 void bondviewMovePlayerUpdateViewport(s8 arg0, s8 arg1, u16 arg2);
@@ -2573,7 +2573,7 @@ s32 check_watch_page_transistion_running(void);
 f32 bondviewWatchAnimationRelated(void);
 struct coord3d *getCurrentPlayerPrevPos(void);
 struct PropRecord *get_ptr_for_players_tank(void);
-s32 bondviewGetRandomSpawnPadIndex(void);
+s32 bviewGetRandomSpawnPadIndex(void);
 void change_player_pos_to_target(struct collision434* arg0, struct coord3d *arg1, struct StandTile *arg2);
 void sub_GAME_7F089718(f32);
 void bondviewResetUpperTextDisplay(void);

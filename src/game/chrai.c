@@ -3946,11 +3946,11 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 case AI_EndLevel: // canonical name
                 {
                     /*"aiEndLevel" */
-                    if (cameraBufferToggle)
+                    if (g_HiResModeActive)
                     {
-                        if (cameraFrameCounter2 == FALSE)
+                        if (g_HiResExitDelay == FALSE)
                         {
-                            cameraFrameCounter2 = TRUE;
+                            g_HiResExitDelay = TRUE;
                         }
                     }
                     else

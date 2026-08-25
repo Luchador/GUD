@@ -48,7 +48,7 @@ PLAYER_ID array_PLAYER_IDs[4];
 
 void default_player_perspective_and_height(void)
 {
-  float value  = 1.0f;
+  f32 value  = 1.0f;
 
   if (0) { }
 
