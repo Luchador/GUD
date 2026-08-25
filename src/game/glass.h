@@ -93,7 +93,6 @@ void update_broken_windows(void);
 Gfx * glassRenderShards(Gfx *arg0);
 void sub_GAME_7F0A33F8(struct WatchVertex *vtx, s32 numverts, f32 scale, s32 arg3);
 Gfx *draw_watch_background(Gfx *gdl, struct WatchVertex *watch_verts, s32 unused_arg2, s32 drawFan);
-Gfx *sub_GAME_7F0A3B40(Gfx *gdl, s32 *arg1);
 Gfx *buildGaugeBarDL(Gfx *gdl, uintptr_t vtxaddr, s32 numvertices);
 void hudMakeDamageSegments(struct damage_display_val *arg0, s32 arg1, s32 arg2, f32 arg3);
 struct WatchVertex *setup_watch_rectangles(struct WatchVertex *vtx, s32 startx, s32 startz, s32 width, s32 height, s32 horizontal_offset, s32 vertical_offset);

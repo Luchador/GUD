@@ -331,22 +331,6 @@ struct WatchVertex *setup_watch_rectangles(struct WatchVertex *vtx, s32 startx, 
 }
 
 
-Gfx *sub_GAME_7F0A3B40(Gfx *gdl, s32 *arg1)
-{
-    gSPVertex(gdl++, arg1, 4, 0);
-
-    // gfxdis can't parse this, but maybe?: gSPModifyVertex(gdl++, 16, 0, 0x2110);
-    // manual specification:
-    {								\
-        Gfx *_g = (Gfx *)(gdl++);		\
-        _g->words.w0 = 0xB1000032;	\
-        _g->words.w1 = 0x2110;		\
-    }
-
-    return gdl;
-}
-
-
 void bullet_sparks_reset(void)
 {
     s32 i;

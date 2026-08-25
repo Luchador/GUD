@@ -408,7 +408,6 @@ s16 get_curplayer_viewport_ulx(void);
 void bondviewFrozenMoveBond(s8, s8, u16, u16);
 void bondviewMovePlayerUpdateViewport(s8 arg0, s8 arg1, u16 arg2);
 void bondviewUpdateCurrentRoomPosition(s32 arg0);
-void trigger_solo_watch_menu(s32 arg0);
 void bondviewUpdatePlayerCollisionBounds(void);
 void bondviewGetTankCollisionBounds(struct rect4f *, coord3d *, f32);
 void bondviewIntroCameraTextTick(void);
@@ -3318,8 +3317,6 @@ void bondviewPlayerStopAudioForPause(void)
                     sndDeactivate(aircraft->Sound);
                 }
             }
-
-            if(1);
         }
     }
 }
@@ -3738,10 +3735,6 @@ void set_open_close_solo_watch_menu_to1(void)
 }
 
 
-/**
- * US address 7F07F874.
- * EU address 7F07F918.
-*/
 void trigger_solo_watch_menu(s32 arg0)
 {
     struct WatchVertex *ptr_a;
@@ -3801,10 +3794,11 @@ void trigger_solo_watch_menu(s32 arg0)
                 // Note: colors are set here but overwritten in watch.c set_page_rectangle_colors
                 ptr_copy = ptr_a;
                 ptr_a = setup_watch_rectangles(ptr_a, i, 0, 0x64, 0x14, -0x12B, 0x136);
-                ptr_b = sub_GAME_7F0A3B40(ptr_b, OS_K0_TO_PHYSICAL(ptr_copy));
+                ptr_b = watchDrawQuad4Vtx(ptr_b, OS_K0_TO_PHYSICAL(ptr_copy));
             }
 
             gSPEndDisplayList(ptr_b);
+
             /**
              * End watch screen select rectangles.
             */
@@ -3818,9 +3812,10 @@ void trigger_solo_watch_menu(s32 arg0)
 
             ptr_copy = &g_CurrentPlayer->buffer_for_watch_static_vertices->vtx[0];
             next = setup_watch_rectangles(ptr_a, 0, 0, 0x398, 0x14, -0x1CC, 0);
-            ptr_b = sub_GAME_7F0A3B40(ptr_b, OS_K0_TO_PHYSICAL(ptr_copy));
+            ptr_b = watchDrawQuad4Vtx(ptr_b, OS_K0_TO_PHYSICAL(ptr_copy));
 
             gSPEndDisplayList(ptr_b);
+    
             /**
              * End watch static section.
             */

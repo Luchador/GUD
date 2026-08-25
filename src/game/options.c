@@ -11,6 +11,7 @@
 #include "dyn.h"
 #include "file.h"
 #include "front.h"
+#include "gbi_extension.h"
 #include "language.h"
 #include "player.h"
 #include "textrelated.h"
@@ -258,7 +259,7 @@ Gfx *draw_background_health_and_armor_transitioning(Gfx *gdl, Mtx *param_2);
 Gfx *draw_background_health_and_armor(Gfx *gdl, Mtx *arg1, s32 zoom_squish);
 void watchSelectGameOption(u32 *param_1, u32 param_2);
 void watch_adjust_volume_slider(u16* arg0);
-Gfx *sub_GAME_7F0A3B40(Gfx *gdl, s32 *arg1);
+Gfx *watchDrawQuad4Vtx(Gfx *gdl, uintptr_t vtxPhysAddr);
 void update_volume_slider_verts(struct WatchVertex *verts, f32 fill_amount, s32 transition_width);
 void sub_GAME_7F0A9684(s8 contpadnum, s32 *counter, f32 *value, f32 *step);
 Gfx *display_text_buttons_dual_control(Gfx *gdl);
@@ -2418,10 +2419,7 @@ void watch_adjust_volume_slider(u16* outVolume) {
 }
 
 
-/**
- * Address: 7F0A8FEC
- */
-Gfx *draw_fx_volume_slider(Gfx *gdl)
+Gfx *watchDrawFXVolumeSlider(Gfx *gdl)
 {
     u16 volume;
     f32 fvolume;
@@ -2442,18 +2440,16 @@ Gfx *draw_fx_volume_slider(Gfx *gdl)
 
     sndApplyVolumeAllSfxSlot(volume);
 
-    if (1);
-
     cmd = gdl++;
     gDPSetRenderMode(cmd, G_RM_XLU_SURF, G_RM_XLU_SURF2);
 
-    gdl = sub_GAME_7F0A3B40(gdl, OS_K0_TO_PHYSICAL(vtx1));
+    gdl = watchDrawQuad4Vtx(gdl, OS_K0_TO_PHYSICAL(vtx1));
     vtx = setup_watch_rectangles(vtx1, 0, 0, 600, 20, -299, -205);
 
-    gdl = sub_GAME_7F0A3B40(gdl, OS_K0_TO_PHYSICAL(vtx));
+    gdl = watchDrawQuad4Vtx(gdl, OS_K0_TO_PHYSICAL(vtx));
     vtx = setup_watch_rectangles(vtx, 0, 0, 600, 20, -299, -205);
 
-    gdl = sub_GAME_7F0A3B40(gdl, OS_K0_TO_PHYSICAL(vtx));
+    gdl = watchDrawQuad4Vtx(gdl, OS_K0_TO_PHYSICAL(vtx));
     setup_watch_rectangles(vtx, 0, 0, 600, 20, -299, -205);
 
     update_volume_slider_verts(vtx1, fvolume, 30);
@@ -2462,20 +2458,19 @@ Gfx *draw_fx_volume_slider(Gfx *gdl)
 }
 
 
-u16 call_sndGetSfxSlotFirstNaturalVolume(void) {
+u16 call_sndGetSfxSlotFirstNaturalVolume(void)
+{
     return sndGetSfxSlotFirstNaturalVolume();
 }
 
 
-void sub_GAME_7F0A91A0(u16 arg0) {
+void sub_GAME_7F0A91A0(u16 arg0)
+{
     sndApplyVolumeAllSfxSlot(arg0);
 }
 
 
-/**
- * Address: 7F0A91C8
- */
-Gfx *draw_music_volume_slider(Gfx *gdl)
+Gfx *watchDrawMusicVolumeSlider(Gfx *gdl)
 {
     u16 volume;
     f32 fvolume;
@@ -2486,26 +2481,25 @@ Gfx *draw_music_volume_slider(Gfx *gdl)
     vtx1 = (struct WatchVertex *)dynAllocateVertices(12);
     volume = get_mTrack2Vol();
 
-    if (watch_item_is_actively_selected && g_WatchGameOptionsIndex == 0) {
+    if (watch_item_is_actively_selected && g_WatchGameOptionsIndex == 0)
+    {
         watch_adjust_volume_slider(&volume);
     }
 
     fvolume = (f32)(u32)volume / 32767.0f;
     set_mTrack2Vol(volume);
 
-    if(1);
-
     cmd = gdl++;
     gDPSetRenderMode(cmd, G_RM_XLU_SURF, G_RM_XLU_SURF2);
 
-    gdl = sub_GAME_7F0A3B40(gdl, OS_K0_TO_PHYSICAL(vtx1));
+    gdl = watchDrawQuad4Vtx(gdl, OS_K0_TO_PHYSICAL(vtx1));
     vtx = setup_watch_rectangles(vtx1, 0, 0, 600, 20, -299, -275);
 
 
-    gdl = sub_GAME_7F0A3B40(gdl, OS_K0_TO_PHYSICAL(vtx));
+    gdl = watchDrawQuad4Vtx(gdl, OS_K0_TO_PHYSICAL(vtx));
     vtx = setup_watch_rectangles(vtx, 0, 0, 600, 20, -299, -275);
 
-    gdl = sub_GAME_7F0A3B40(gdl, OS_K0_TO_PHYSICAL(vtx));
+    gdl = watchDrawQuad4Vtx(gdl, OS_K0_TO_PHYSICAL(vtx));
     setup_watch_rectangles(vtx, 0, 0, 600, 20, -299, -275);
 
     update_volume_slider_verts(vtx1, fvolume, 30);
@@ -3554,8 +3548,8 @@ Gfx *watchDrawGameOptionsScreen(Gfx *gdl, Mtx *param_2)
 
     if (check_watch_page_transistion_running() != 1)
     {
-        gdl = draw_music_volume_slider(gdl);
-        gdl = draw_fx_volume_slider(gdl);
+        gdl = watchDrawMusicVolumeSlider(gdl);
+        gdl = watchDrawFXVolumeSlider(gdl);
         pFontFile = ptrFontBankGothic;
         pFontChars = ptrFontBankGothicChars;
         gdl = gfxSetup2DTextureMode(gdl);
@@ -3948,6 +3942,15 @@ Gfx *optionsDrawCurrentWatchPage(Gfx *gdl, Mtx *arg1, s32 watch_transitioning)
         set_BONDdata_outside_watch_menu_flag(TRUE);
         gdl = draw_background_health_and_armor_transitioning(gdl, arg1);
     }
+
+    return gdl;
+}
+
+
+Gfx *watchDrawQuad4Vtx(Gfx *gdl, uintptr_t vtxPhysAddr)
+{
+    gSPVertex(gdl++, vtxPhysAddr, 4, 0);
+    gSP4Triangles(gdl++, 0,1,2,  1,2,3,  0,0,0,  0,0,0);   /* quad over the 4 verts */
 
     return gdl;
 }

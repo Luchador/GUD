@@ -137,6 +137,7 @@ void optionsWatchInit();
 Gfx *optionsDrawCurrentWatchPage(Gfx *gdl, Mtx *arg1, s32 watch_transitioning);
 void watchReset(void);
 s32 sub_GAME_7F0AC0E8(u8 *arg);
+Gfx *watchDrawQuad4Vtx(Gfx *gdl, uintptr_t vtxPhysAddr);
 
 #endif
 
