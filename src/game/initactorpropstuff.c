@@ -41,7 +41,7 @@ u32 sub_GAME_7F0001F0(void *ani, int aniid, int param_3) {
     u16 result = 0;
 
     while (aniid < param_3) {
-        result += sub_GAME_7F06D2E4(0, 0, &skeleton_guard, ani, aniid, asStack8);
+        result += modelAnimReadFrameRootMotion(0, 0, &skeleton_guard, ani, aniid, asStack8);
         aniid++;
     }
     return result;
@@ -59,7 +59,7 @@ s32 sub_GAME_7F000290(ModelAnimation *anim, s32 startframe, s32 endframe)
     {
         do
         {
-            sub_GAME_7F06D2E4(0, 0, &skeleton_guard, anim, startframe, out);
+            modelAnimReadFrameRootMotion(0, 0, &skeleton_guard, anim, startframe, out);
 
             startframe++;
             sum += out[2];

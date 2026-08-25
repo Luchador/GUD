@@ -11,7 +11,6 @@
 #include "model.h"
 
 
-//data
 ModelRenderData D_8002A790 = {
     NULL,
     TRUE,
@@ -22,15 +21,6 @@ ModelRenderData D_8002A790 = {
     {0,0,0,0},
     {0,0,0,0},
     CULLMODE_BOTH};
-
-// forward declarations
-
-void sub_GAME_7F0062C0(void *anim, s32 arg1, s32 arg2, s32 *arg3);
-
-// end forward declarations
-
-
-
 
 
 /**
@@ -43,7 +33,7 @@ void sub_GAME_7F0062C0(void *anim, s32 arg1, s32 arg2, s32 *arg3);
 */
 void sub_GAME_7F0062C0(void *anim, s32 arg1, s32 arg2, s32 *arg3)
 {
-    // todo: is this a struct? see: sub_GAME_7F06D2E4
+    // todo: is this a struct? see: modelAnimReadFrameRootMotion
     s16 sp40[6];
 
     arg3[0] = 0;
@@ -52,7 +42,7 @@ void sub_GAME_7F0062C0(void *anim, s32 arg1, s32 arg2, s32 *arg3)
 
     for (; arg1<arg2; arg1++)
     {
-        sub_GAME_7F06D2E4(0, 0, &skeleton_guard, anim, arg1, &sp40[2]);
+        modelAnimReadFrameRootMotion(0, 0, &skeleton_guard, anim, arg1, &sp40[2]);
         arg3[0] += sp40[2];
         arg3[1] += sp40[3];
         arg3[2] += sp40[4];

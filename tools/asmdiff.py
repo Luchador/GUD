@@ -6,6 +6,7 @@ Workflow:
     <edit the C source>
     tools/asmdiff.py cmp  <func>     rebuild the one .o, diff against baseline
     tools/asmdiff.py cmp  <func> -s  re-snapshot after comparing (accept new baseline)
+    tools/asmdiff.py show <func>     rebuild and print the function's current assembly
 
 Only the single translation unit containing the function is rebuilt
 (via its make target), so an iteration is a couple of seconds, not a
@@ -45,12 +46,18 @@ def find_object(func):
     sys.exit(f"symbol '{func}' not found in any build/u object - build once first")
 
 def rebuild(obj):
+    """Force-rebuild the object. The .o is deleted first so the result
+    can never be stale - this sidesteps every make-dependency gap
+    (header edits with no depfiles, timestamp skew from Windows-side
+    editors, orphan objects from renamed files)."""
     rel = os.path.relpath(obj, ROOT)
+    if os.path.exists(obj):
+        os.remove(obj)
     r = subprocess.run(["make", "VERSION=US", rel], cwd=ROOT,
                        capture_output=True, text=True)
-    if r.returncode != 0:
+    if r.returncode != 0 or not os.path.exists(obj):
         print(r.stdout[-2000:]); print(r.stderr[-2000:])
-        sys.exit("rebuild failed")
+        sys.exit(f"rebuild failed for {rel} (source moved/renamed? stale orphan object?)")
 
 def extract(obj, func):
     out = subprocess.run([OBJDUMP, "-d", obj], capture_output=True, text=True).stdout
@@ -111,7 +118,7 @@ def report(old, new):
                     return
 
 def main():
-    if len(sys.argv) < 3 or sys.argv[1] not in ("snap", "cmp"):
+    if len(sys.argv) < 3 or sys.argv[1] not in ("snap", "cmp", "show"):
         print(__doc__); sys.exit(1)
     cmd, func = sys.argv[1], sys.argv[2]
     os.makedirs(SNAPDIR, exist_ok=True)
@@ -120,6 +127,13 @@ def main():
     obj = find_object(func)
     rebuild(obj)
     cur = extract(obj, func)
+
+    if cmd == "show":
+        print(f"[asmdiff] {func}  ({os.path.relpath(obj, ROOT)})  "
+              f"{len(cur)} insns, ~{cost(cur)} cy/pass")
+        for l in cur:
+            print("  " + l)
+        return
 
     if cmd == "snap":
         open(snap, "w").write("\n".join(cur))

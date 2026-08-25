@@ -579,7 +579,7 @@ typedef union
         u8 unk06;
         u8 unk07; // bit 0 is a loop flag: 0 means freeze anim at end, 1 means loop anim
         ModelAnimBitField *bitDescriptors; // 0x08
-        u16 unk0C;
+        u16 valuesPerFrame;
         u16 unk0E;
         u8  *bitStream; // 0x10
         s32 unk14;
@@ -1345,8 +1345,8 @@ typedef union
         typedef struct ModelJoint
         {
             u16 NodeType;
-            u16 mtxA;
-            u16 mtxB;
+            u16 channelBase;
+            u16 channelMirrored;
         } ModelJoint;
 
         /*
@@ -1454,7 +1454,7 @@ typedef union
             s8                unk27;
 
             f32               animframe1; /*0x28*/
-            f32               unk2c;
+            f32               animFrameFrac;
 
             /**
              * Animation framea (per debug message)
@@ -1518,7 +1518,7 @@ typedef union
             s32               animflipfunc; /*0x98*/
             s32               unk9c;
             // 0xa0
-            s32               unka0; // This is likely a function pointer, see sub_GAME_7F06D490()
+            s32               posValidateFunc; // This is likely a function pointer, see modelCalcHeadingNodePosition()
             f32               playspeed; // used by ACT_STAND in chrlv
             f32               animrate;
             f32               unkac;
@@ -2028,7 +2028,7 @@ typedef union
         s32                 unk94;
         s32                 unk98;
         s32                 unk9c;
-        s32                 unka0;
+        s32                 posValidateFunc;
     };
 
     struct act_gopos

@@ -772,24 +772,29 @@ u16 modelAnimReadRootMotionValue(ModelAnimation *anim, s32 fieldIndex, s32 extra
 
 
 /**
- * Address: 7F06D2E4
+ * Reads a joint's root motion sample (x,y,z translation + u16 yaw) at
+ * an animation frame. Joints carry two channel offset sets; `flip`
+ * selects the mirrored one and applies the mirror transform (negated x,
+ * reflected yaw)
+ * 'out' holds the translation.
+ * @returns the decoded animation's yaw.
  */
-u16 sub_GAME_7F06D2E4(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnimation *anim, s32 frame, coord16 *out)
+u16 modelAnimReadFrameRootMotion(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnimation *anim, s32 frame, coord16 *out)
 {
     u32 scaled;
     s32 base;
     u32 angle_raw;
     u16 angle_ret;
 
-    scaled = ((u32) anim->unk0C) * ((u32) frame);
+    scaled = ((u32) anim->valuesPerFrame) * ((u32) frame);
 
     if (flip)
     {
-        base = skeleton->Joints[jointnum].mtxB;
+        base = skeleton->Joints[jointnum].channelMirrored;
     }
     else
     {
-        base = skeleton->Joints[jointnum].mtxA;
+        base = skeleton->Joints[jointnum].channelBase;
     }
 
     out->x = modelAnimReadRootMotionValue(anim, base, scaled);
@@ -812,12 +817,12 @@ u16 sub_GAME_7F06D2E4(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnim
 }
 
 
-f32 sub_GAME_7F06D3F4(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnimation *anim, s32 frame, coord3d *pos)
+f32 modelAnimReadFrameRootMotionF(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnimation *anim, s32 frame, coord3d *pos)
 {
     s16 tmp[3];
     u16 angle;
 
-    angle = sub_GAME_7F06D2E4(jointnum, flip, skeleton, anim, frame, tmp);
+    angle = modelAnimReadFrameRootMotion(jointnum, flip, skeleton, anim, frame, tmp);
 
     pos->x = (f32)tmp[0];
     pos->y = (f32)tmp[1];
@@ -828,9 +833,13 @@ f32 sub_GAME_7F06D3F4(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnim
 
 
 /**
- * Address: 7F06D490
+ * Ticks the root node's position. Interpolates the ached frame samples by the model's fractional frame.
+ * Then offers the proposed position to the movement-validation callback (model->posValidateFunc - vetoes or clamps to walkable
+ * ground, returning ground height), then applies it with ground following and re-bases all cached samples 
+ * by any horizontal correction so future frames integrate from the clamped position.
+ * Body of subcalcpos.
  */
-void sub_GAME_7F06D490(Model *model, ModelNode *modelNode)
+void modelCalcHeadingNodePosition(Model *model, ModelNode *modelNode)
 {
     union ModelRwData *rw;
     coord3d sp38;
@@ -849,18 +858,12 @@ void sub_GAME_7F06D490(Model *model, ModelNode *modelNode)
     sp38.z = rw->Header.unk34.z;
     rw->Header.unk14 = rw->Header.unk30;
 
-    if (model->unk2c != 0.0f)
+    if (model->animFrameFrac != 0.0f)
     {
         if (rw->Header.unk01 != 0)
         {
-            interpolate3dVectors(&sp38, &rw->Header.unk24, model->unk2c);
-
-            // Weird do while loop but needed for matching.
-            do
-            {
-                rw->Header.unk14 = sub_GAME_7F06D0CC(rw->Header.unk30, rw->Header.unk20, model->unk2c);
-            }
-            while (model->unka0 * 0);
+            interpolate3dVectors(&sp38, &rw->Header.unk24, model->animFrameFrac);
+            rw->Header.unk14 = sub_GAME_7F06D0CC(rw->Header.unk30, rw->Header.unk20, model->animFrameFrac);
         }
     }
 
@@ -883,7 +886,7 @@ void sub_GAME_7F06D490(Model *model, ModelNode *modelNode)
     sp2c.y = sp38.y;
     sp2c.z = sp38.z;
 
-    if (model->unka0 && !((s32 (*)(Model *, coord3d *, coord3d *, f32 *)) model->unka0)(model, &rw->Header.pos, &sp2c, &rw->Header.ground))
+    if (model->posValidateFunc && !((s32 (*)(Model *, coord3d *, coord3d *, f32 *)) model->posValidateFunc)(model, &rw->Header.pos, &sp2c, &rw->Header.ground))
     {
         return;
     }
@@ -922,7 +925,7 @@ void subcalcpos(Model *arg0)
 
     if ((root != NULL) && ((root->Opcode & 0xFF) == 1))
     {
-        sub_GAME_7F06D490(arg0, root);
+        modelCalcHeadingNodePosition(arg0, root);
     }
 }
 
@@ -983,9 +986,6 @@ void process_01_group_heading(ModelRenderData* renderdata, Model* model, ModelNo
 }
 
 
-/**
- * Address: 7F06D8B0
- */
 void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildArg *mgm, coord3d *rot)
 {
     u32 flags;
@@ -1253,11 +1253,11 @@ void sub_GAME_7F06DEC0(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAni
     // Mirrored joint rotation?
     if (flip)
     {
-        bitoffset = skeleton->Joints[jointnum].mtxB * width;
+        bitoffset = skeleton->Joints[jointnum].channelMirrored * width;
     }
     else
     {
-        bitoffset = skeleton->Joints[jointnum].mtxA * width;
+        bitoffset = skeleton->Joints[jointnum].channelBase * width;
     }
 
     width = anim->unk06;
@@ -1326,11 +1326,11 @@ void process_02_position(ModelRenderData *arg0, Model *model, ModelNode *node)
 
     sub_GAME_7F06DEC0(jointnum.v, model->gunhand, skeleton, model->anim, model->unk34, &rot1);
 
-    if (model->unk2c != 0.0f)
+    if (model->animFrameFrac != 0.0f)
     {
         rot2 = D_800360A0;
         sub_GAME_7F06DEC0(jointnum.v, model->gunhand, skeleton, model->anim, model->unk38, &rot2);
-        sub_GAME_7F06D160(&rot1, &rot2, model->unk2c);
+        sub_GAME_7F06D160(&rot1, &rot2, model->animFrameFrac);
     }
 
     if (model->unk84 != 0.0f)
@@ -1473,7 +1473,7 @@ void sub_GAME_7F06E2B8(ModelRenderData *renderData, Model *model, ModelNode *nod
 }
 
 
-// Decodes a packed joint angle from the animation bitstream using either mtxA or mtxB.
+// Decodes a packed joint angle from the animation bitstream using either channelBase or channelMirrored.
 f32 sub_GAME_7F06E540(s32 jointIndex, s32 useMtxB, ModelSkeleton *skeleton, ModelAnimation *anim, u8 *bitstream)
 {
     u32 bitOffset;
@@ -1485,9 +1485,9 @@ f32 sub_GAME_7F06E540(s32 jointIndex, s32 useMtxB, ModelSkeleton *skeleton, Mode
     width = anim->unk06;
 
     if (useMtxB != 0) {
-        bitOffset = skeleton->Joints[jointIndex].mtxB * width;
+        bitOffset = skeleton->Joints[jointIndex].channelMirrored * width;
     } else {
-        bitOffset = skeleton->Joints[jointIndex].mtxA * width;
+        bitOffset = skeleton->Joints[jointIndex].channelBase * width;
     }
 
     raw = modelAnimReadBitsAsU16Angle(bitstream, width, bitOffset);
@@ -1519,9 +1519,9 @@ void process_03_unknown(ModelRenderData *renderData, Model *model, ModelNode *no
 
     angle = sub_GAME_7F06E540(jointIndex, model->gunhand, skeleton, model->anim, (u8 *)model->unk34);
 
-    if (model->unk2c != 0.0f) {
+    if (model->animFrameFrac != 0.0f) {
         tmp = sub_GAME_7F06E540(jointIndex, model->gunhand, skeleton, model->anim, (u8 *)model->unk38);
-        angle = sub_GAME_7F06D0CC(angle, tmp, model->unk2c);
+        angle = sub_GAME_7F06D0CC(angle, tmp, model->animFrameFrac);
     }
 
     if (model->unk84 != 0.0f) {
@@ -2034,7 +2034,7 @@ void subcalcmatrices(ModelRenderData *arg0, struct Model *arg1)
     {
         arg1->unk34 = loadAnimationFrame(arg1->anim, arg1->framea, arg1->obj->Skeleton);
 
-        if (arg1->unk2c != 0.0f)
+        if (arg1->animFrameFrac != 0.0f)
         {
             arg1->unk38 = loadAnimationFrame(arg1->anim, arg1->frameb, arg1->obj->Skeleton);
         }
@@ -2174,7 +2174,7 @@ void modelCopyAnimForMerge(Model *model, f32 timemerge)
 
             model->anim2 = anim;
             model->animframe2 = model->animframe1;
-            model->unk5c = model->unk2c;
+            model->unk5c = model->animFrameFrac;
             model->unk25 = model->gunhand;
             model->frame2a = model->framea;
             model->frame2b = model->frameb;
@@ -2249,7 +2249,7 @@ void modelSetAnimation2(Model *model, ModelAnimation *anim, s32 flip, f32 frame,
         scale = model->scale * model->anim_translation_scale;
         pos = D_80036244;
 
-        angleDelta = sub_GAME_7F06D3F4(animPart, model->gunhand, skeleton, model->anim, model->frameb, &pos
+        angleDelta = modelAnimReadFrameRootMotionF(animPart, model->gunhand, skeleton, model->anim, model->frameb, &pos
         );
 
         if (scale != 1.0f) {
@@ -2260,9 +2260,9 @@ void modelSetAnimation2(Model *model, ModelAnimation *anim, s32 flip, f32 frame,
 
         cosAngle = cosf(rwdata->unk14);
         sinAngle = sinf(rwdata->unk14);
-        scale = model->unk2c;
+        scale = model->animFrameFrac;
 
-        if (model->unk2c == 0.0f) {
+        if (model->animFrameFrac == 0.0f) {
             rwdata->unk34.x = rwdata->pos.f[0];
             rwdata->unk34.y = rwdata->pos.f[1] - rwdata->ground;
             rwdata->unk34.z = rwdata->pos.f[2];
@@ -2295,16 +2295,16 @@ void modelSetAnimation2(Model *model, ModelAnimation *anim, s32 flip, f32 frame,
             y = pos.f[1];
             z = -pos.f[0] * sinAngle + pos.f[2] * cosAngle;
 
-            tmppos[0].x = rwdata->pos.f[0] + x * (1.0f - model->unk2c);
+            tmppos[0].x = rwdata->pos.f[0] + x * (1.0f - model->animFrameFrac);
             tmppos[0].y = y;
-            tmppos[0].z = rwdata->pos.f[2] + z * (1.0f - model->unk2c);
+            tmppos[0].z = rwdata->pos.f[2] + z * (1.0f - model->animFrameFrac);
 
             rwdata->unk24.x = tmppos[0].x;
             rwdata->unk24.y = tmppos[0].y;
             rwdata->unk24.z = tmppos[0].z;
 
             rwdata->unk34.f[0] = rwdata->unk24.f[0] - x;
-            rwdata->unk34.f[1] = (rwdata->pos.f[1] - rwdata->ground) - (y - (rwdata->pos.f[1] - rwdata->ground)) * model->unk2c / (1.0f - model->unk2c);
+            rwdata->unk34.f[1] = (rwdata->pos.f[1] - rwdata->ground) - (y - (rwdata->pos.f[1] - rwdata->ground)) * model->animFrameFrac / (1.0f - model->animFrameFrac);
             rwdata->unk34.f[2] = rwdata->unk24.f[2] - z;
 
             temp_f14 = rwdata->unk14 - angleDelta;
@@ -2313,7 +2313,7 @@ void modelSetAnimation2(Model *model, ModelAnimation *anim, s32 flip, f32 frame,
                 temp_f14 += M_TAU_F;
             }
 
-            rwdata->unk30 = sub_GAME_7F06D0CC(rwdata->unk14, temp_f14, model->unk2c);
+            rwdata->unk30 = sub_GAME_7F06D0CC(rwdata->unk14, temp_f14, model->animFrameFrac);
 
             if (rwdata->unk18 == 0.0f) {
                 rwdata->unk20 = rwdata->unk30 + angleDelta;
@@ -2435,7 +2435,7 @@ void modelSetAnimPlaySpeed(Model *model, f32 animation_rate, f32 startframe)
 
 void sub_GAME_7F06FF5C(Model *model, s32 arg1)
 {
-    model->unka0 = arg1;
+    model->posValidateFunc = arg1;
 }
 
 
@@ -2455,19 +2455,19 @@ void modelSetAnimFrame(Model* model, f32 frame)
 
     if (model->framea == model->frameb)
     {
-        model->unk2c = 0.0f;
+        model->animFrameFrac = 0.0f;
         model->animframe1 = model->framea;
     }
     else if (forwards)
     {
         f32 tmp = frame - framea;
-        model->unk2c = tmp;
+        model->animFrameFrac = tmp;
         model->animframe1 = model->framea + tmp;
     }
     else
     {
         f32 tmp = 1.0f - (frame - (f32) frameb);
-        model->unk2c = tmp;
+        model->animFrameFrac = tmp;
         model->animframe1 = model->frameb + (1.0f - tmp);
     }
 }
@@ -2648,7 +2648,7 @@ void modelSetAnimFrame2WithChrStuff(Model *model, f32 framea, f32 frameb, f32 fr
                 }
                 else
                 {
-                    angledelta = sub_GAME_7F06D3F4(jointnum, modelptr->gunhand, skeleton, modelptr->anim, framenum, &pos);
+                    angledelta = modelAnimReadFrameRootMotionF(jointnum, modelptr->gunhand, skeleton, modelptr->anim, framenum, &pos);
 
                     if (scale != 1.0f)
                     {
@@ -2700,7 +2700,7 @@ void modelSetAnimFrame2WithChrStuff(Model *model, f32 framea, f32 frameb, f32 fr
 
                 if (modelptr->frameb != modelptr->framea)
                 {
-                    angledelta = sub_GAME_7F06D3F4(jointnum, modelptr->gunhand, skeleton, modelptr->anim, framenum, &pos);
+                    angledelta = modelAnimReadFrameRootMotionF(jointnum, modelptr->gunhand, skeleton, modelptr->anim, framenum, &pos);
                     flag = 1;
 
                     if (scale != 1.0f)
@@ -2818,18 +2818,18 @@ void modelSetAnimFrame2WithChrStuff(Model *model, f32 framea, f32 frameb, f32 fr
 
             if (vb == va)
             {
-                modelptr->unk2c = 0.0f;
+                modelptr->animFrameFrac = 0.0f;
                 modelptr->animframe1 = va;
             }
             else if (forward)
             {
-                modelptr->unk2c = frameb - (f32)endframe;
-                modelptr->animframe1 = (f32)va + modelptr->unk2c;
+                modelptr->animFrameFrac = frameb - (f32)endframe;
+                modelptr->animframe1 = (f32)va + modelptr->animFrameFrac;
             }
             else
             {
-                modelptr->unk2c = (f32)endframe - frameb;
-                modelptr->animframe1 = (f32)vb + (1.0f - modelptr->unk2c);
+                modelptr->animFrameFrac = (f32)endframe - frameb;
+                modelptr->animframe1 = (f32)vb + (1.0f - modelptr->animFrameFrac);
             }
 
             if (modelptr->anim2 != NULL)
@@ -2852,7 +2852,7 @@ void modelSetAnimFrame2WithChrStuff(Model *model, f32 framea, f32 frameb, f32 fr
                     framenum = modelConstrainOrWrapAnimFrame(end2 + 1, modelptr->anim2, modelptr->unk6c);
                     modelptr->frame2b = framenum;
 
-                    sub_GAME_7F06D3F4(jointnum, modelptr->unk25, skeleton, modelptr->anim2, framenum, &pos);
+                    modelAnimReadFrameRootMotionF(jointnum, modelptr->unk25, skeleton, modelptr->anim2, framenum, &pos);
 
                     if (scale != 1.0f)
                     {
@@ -5751,8 +5751,8 @@ void animInit(struct Model *objinst, struct ModelFileHeader *header, u32 *data)
     objinst->animlooping = 0;
     objinst->animflipfunc = 0;
     objinst->unk9c = 0;
-    objinst->unka0 = 0;
-    objinst->unk2c = 0.0f;
+    objinst->posValidateFunc = 0;
+    objinst->animFrameFrac = 0.0f;
     objinst->timespeed = 0.0f;
     objinst->unk5c = 0.0f;
     objinst->unk7c = 0.0f;

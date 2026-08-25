@@ -257,7 +257,8 @@ coord3d D_80036408 = { 1.0f, 0.0f, 0.0f };
 struct bondstruct_unk_animation_related* D_80036414 =  0;
 
 
-ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context) {
+ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context)
+{
     ModelHitEntry* freeListCursor;
     ModelNode* sceneCursor;
     ModelNode* childPtr;
@@ -266,62 +267,77 @@ ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context) {
     sceneCursor = context->obj->RootNode;
     freeListCursor = g_ModelHitFreeList;
 
-    while ((sceneCursor != NULL) && (freeListCursor != NULL)) {
+    while ((sceneCursor != NULL) && (freeListCursor != NULL)) 
+    {
         nodeType = sceneCursor->Opcode & 0xFF;
 
-        switch (nodeType) {
-        case 1:
-        case 2:
-        case 3:
-        case 0xb:
-        case 0xc:
-        case 0xd:
-        case 0xe:
-        case 0xf:
-        case 0x10:
-        case 0x15:
-            freeListCursor->model = context;
-            freeListCursor->rootnode = sceneCursor;
-            freeListCursor = freeListCursor->next;
-            break;
-
-        default:
-            break;
+        switch (nodeType) 
+        {
+            case 1:
+            case 2:
+            case 3:
+            case 0xb:
+            case 0xc:
+            case 0xd:
+            case 0xe:
+            case 0xf:
+            case 0x10:
+            case 0x15:
+                freeListCursor->model = context;
+                freeListCursor->rootnode = sceneCursor;
+                freeListCursor = freeListCursor->next;
+                break;
+            default:
+                break;
         }
 
         childPtr = sceneCursor->Child;
-        if (childPtr != NULL) {
+
+        if (childPtr != NULL)
+        {
             sceneCursor = childPtr;
             continue;
         }
 
-        while (sceneCursor != NULL) {
+        while (sceneCursor != NULL)
+        {
             childPtr = sceneCursor->Next;
-            if (childPtr != NULL) {
+
+            if (childPtr != NULL)
+            {
                 sceneCursor = childPtr;
                 break;
             }
+
             sceneCursor = sceneCursor->Parent;
         }
     }
 
-    if (freeListCursor != g_ModelHitFreeList) {
-        if (head != NULL) {
+    if (freeListCursor != g_ModelHitFreeList)
+    {
+        if (head != NULL)
+        {
             ModelHitEntry *tail = head;
 
-            while (tail->next != NULL) {
+            while (tail->next != NULL)
+            {
                 tail = tail->next;
             }
 
             tail->next = g_ModelHitFreeList;
             g_ModelHitFreeList->prev = tail;
-        } else {
+        } 
+        else 
+        {
             head = g_ModelHitFreeList;
         }
 
-        if (freeListCursor != NULL) {
+        if (freeListCursor != NULL)
+        {
             ModelHitEntry* prevNode = freeListCursor->prev;
-            if (prevNode != NULL) {
+
+            if (prevNode != NULL)
+            {
                 prevNode->next = NULL;
                 freeListCursor->prev = NULL;
             }

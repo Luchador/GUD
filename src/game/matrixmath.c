@@ -134,10 +134,16 @@ void matrix_4x4_transform_vector(Mtxf *matrix, struct coord3d *vector, struct co
 
 void mtx4TransformVecInPlace(Mtxf *matrix, struct coord3d *vector)
 {
-    mtx4RotateVecInPlace(matrix, vector);
-    vector->f[0] += matrix->m[3][0];
-    vector->f[1] += matrix->m[3][1];
-    vector->f[2] += matrix->m[3][2];
+    f32 x = vector->f[0];
+    f32 y = vector->f[1];
+    f32 z = vector->f[2];
+    f32 transformed_x = matrix->m[0][0] * x + matrix->m[1][0] * y + matrix->m[2][0] * z;
+    f32 transformed_y = matrix->m[0][1] * x + matrix->m[1][1] * y + matrix->m[2][1] * z;
+    f32 transformed_z = matrix->m[0][2] * x + matrix->m[1][2] * y + matrix->m[2][2] * z;
+
+    vector->f[0] = transformed_x + matrix->m[3][0];
+    vector->f[1] = transformed_y + matrix->m[3][1];
+    vector->f[2] = transformed_z + matrix->m[3][2];
 }
 
 
@@ -420,16 +426,23 @@ void matrix_4x4_f32_to_s32(f32 mf[4][4], s32 ms[4][4])
 {
     f32 *src = (f32 *)mf;
     s32 *dst = (s32 *)ms;
+    f32 scale0 = g_MtxConversionScale[0];
+    f32 scale1 = g_MtxConversionScale[1];
     s32 i;
 
-    for (i = 0; i < 8; i += 1)
+    for (i = 0; i < 8; i += 2)
     {
         s32 e1, e2;
 
-        e1 = (s32)(src[((i + 0) << 1) + 0] * g_MtxConversionScale[0]);
-        e2 = (s32)(src[((i + 0) << 1) + 1] * g_MtxConversionScale[(i + 0) & 1]);
-        dst[(i + 0) + 0] = (e1 & 0xffff0000) | (((u32)e2) >> 16);
-        dst[(i + 0) + 8] = (e1 << 16) | (e2 & 0xffff);
+        e1 = (s32)(src[(i << 1) + 0] * scale0);
+        e2 = (s32)(src[(i << 1) + 1] * scale0);
+        dst[i + 0] = (e1 & 0xffff0000) | (((u32)e2) >> 16);
+        dst[i + 8] = (e1 << 16) | (e2 & 0xffff);
+
+        e1 = (s32)(src[(i << 1) + 2] * scale0);
+        e2 = (s32)(src[(i << 1) + 3] * scale1);
+        dst[i + 1] = (e1 & 0xffff0000) | (((u32)e2) >> 16);
+        dst[i + 9] = (e1 << 16) | (e2 & 0xffff);
     }
 }
 
