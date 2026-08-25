@@ -5,8 +5,9 @@
 #include <bondtypes.h>
 #include "bondview.h"
 
+extern struct hand g_DefaultHandTemplate;
+
 struct player_data {
-    /* 0x0 */
     s32 shot_count[7];
 
     /* 0x1c */
@@ -74,21 +75,14 @@ struct player_data {
 };
 
 extern struct player *g_playerPointers[4];
-
-// extern struct player_data player1_player_data;
-// extern struct player_data player2_player_data;
-// extern struct player_data player3_player_data;
-// extern struct player_data player4_player_data;
-
 extern struct player_data g_playerPlayerData[4];
-
 extern struct player *g_CurrentPlayer;
 extern struct player_data *g_playerPerm;
 extern s32 player_num;
 extern s32 random_byte;
 extern PLAYER_ID array_PLAYER_IDs[4];
 
-
+PROP getPropForHeldItem(ITEM_IDS itemnum);
 void reset_play_data_ptrs(void);
 void init_player_data_ptrs_construct_viewports(int playercount);
 void shuffle_player_ids(void);
@@ -97,13 +91,11 @@ void set_cur_player(s32 playernum);
 s32 getPlayerCount(void);
 void set_cur_player_screen_size(u32 width, u32 height);
 void set_cur_player_viewport_size(u32 ulx, u32 uly);
-
-
 s32 get_cur_playernum(void);
 void set_cur_player_fovy(f32 fovy);
 s32 getPlayerPointerIndex( PropRecord* prop);
 void set_cur_player_aspect(f32 aspect);
-void initBONDdataforPlayer(s32 player_num);
+void playerInitData(s32 player_num);
 s32 get_player_position_in_shuffled(s32 current_player_num);
 void sub_GAME_7F09B368(enum GUNHAND hand);
 void sub_GAME_7F09B398(enum GUNHAND hand);

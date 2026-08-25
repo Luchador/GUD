@@ -181,7 +181,7 @@ void bossInitMainthreadData(void)
     mempResetBank(MEMPOOL_PERMANENT);
     langInit();
     lvInit();
-    default_player_perspective_and_height();
+    playerSetDefaultPerspectiveAndHeight();
     store_osgetcount();
     explosionInitScaleMtx();
     casingsInit();

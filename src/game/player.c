@@ -7,33 +7,7 @@
 #include "bondview.h"
 #include "lv.h"
 
-struct player *g_playerPointers[4];
-struct player_data g_playerPlayerData[4];
 
-/**
- * Address 0x8007a0b0.
- */
-struct player *g_CurrentPlayer;
-struct player_data *g_playerPerm;
-
-s32 player_num;
-s32 random_byte;
-PLAYER_ID array_PLAYER_IDs[4];
-//s32 dword_CODE_bss_8007A0C4;
-//s32 dword_CODE_bss_8007A0C8;
-//s32 dword_CODE_bss_8007A0CC;
-
-/* Define default values that are different between EU and the rest for initBONDdataforPlayer */
-#ifdef VERSION_EU
-#define DEFAULT_FIELD_3B8_Z     8.417509f
-#define DEFAULT_HEADDAMP        0.9166f
-#define DEFAULT_HEADLOOKSUM_VAL 11.990406f
-#define DEFAULT_VIEWPORT_V_VAL  0x220
-#define DEFAULT_C_SCREENHEIGHT  (f32)SCREEN_HEIGHT
-#define DEFAULT_C_HALFHEIGHT    136.0f
-#define DEFAULT_SCREENYMAXF     (f32)SCREEN_HEIGHT
-#define DEFAULT_ASPECT          ASPECT_RATIO
-#elif defined(VERSION_US) || defined(VERSION_JP)
 #define DEFAULT_FIELD_3B8_Z     9.999998f
 #define DEFAULT_HEADDAMP        0.93f
 #define DEFAULT_HEADLOOKSUM_VAL 14.285716f
@@ -42,15 +16,170 @@ PLAYER_ID array_PLAYER_IDs[4];
 #define DEFAULT_C_HALFHEIGHT    120.0f
 #define DEFAULT_SCREENYMAXF     (f32)SCREEN_HEIGHT
 #define DEFAULT_ASPECT          ASPECT_RATIO
-#endif
 
-//newfile per EU
+struct player *g_playerPointers[4];
+struct player_data g_playerPlayerData[4];
+struct player *g_CurrentPlayer;
+struct player_data *g_playerPerm;
 
-void default_player_perspective_and_height(void)
+s32 player_num;
+s32 random_byte;
+PLAYER_ID array_PLAYER_IDs[4];
+
+struct hand g_DefaultHandTemplate = {
+    0, /* weaponnum */
+    -1, /* weaponnum_watchmenu */
+    0, /* previous_weapon */
+    0, /* weapon_firing_status */
+    0, /* field_87D */
+    1, /* field_87E */
+    0, /* field_87F */
+    0, /* weapon_hold_time */
+    0, /* field_884 */
+    0, /* field_888 */
+    0, /* field_88C */
+    0, /* field_890 */
+    0, /* weapon_action_state */
+    0, /* weapon_current_animation */
+    0, /* weapon_ammo_in_magazine */
+    0, /* field_8A0 */
+    0, /* numvisibleshells */
+    0, /* field_8A8 */
+    0, /* weapon_next_weapon */
+    0, /* field_8B0 */
+    0, /* weapon_animation_trigger */
+    0, /* field_8B8 */
+    0, /* field_8BC */
+    0, /* field_8C0 */
+    0, /* field_8C4 */
+    0, /* field_8C8 */
+    0, /* field_8CC */
+    0, /* field_8D0 */
+    0, /* field_8D4 */
+    0, /* field_8D8 */
+    0, /* field_8DC */
+    0, /* field_8E0 */
+    0, /* field_8E4 */
+    0, /* field_8E8 */
+    { { {1.0f,0.0f,0.0f,0.0f}, {0.0f,1.0f,0.0f,0.0f}, {0.0f,0.0f,1.0f,0.0f}, {0.0f,0.0f,0.0f,1.0f} } }, /* field_8EC (identity) */
+    0, /* field_92C */
+    0, /* sway_pos_x */
+    0, /* sway_pos_y */
+    0, /* sway_pos_z */
+    0, /* sway_look_x */
+    0, /* sway_look_y */
+    -1.0f, /* sway_look_z */
+    0, /* sway_up_x */
+    1.0f, /* sway_up_y */
+    0, /* sway_up_z */
+    0, /* spring_pos_x */
+    0, /* spring_pos_y */
+    0, /* spring_pos_z */
+    0, /* spring_look_x */
+    0, /* spring_look_y */
+    /* spring_look_z = 1 / GUN_SPRING_SCALE, so the derived sway vector starts unit-length */
+    -19.999996f,
+    0, /* spring_up_x */
+    /* spring_up_y = 1 / GUN_SPRING_SCALE */
+    19.999996f,
+    0, /* spring_up_z */
+    { {{0,0,0}}, {{0,0,0}}, {{0,0,0}}, {{0,0,0}} }, /* blendpos[4] */
+    { {{0,0,-1.0f}}, {{0,0,-1.0f}}, {{0,0,-1.0f}}, {{0,0,-1.0f}} }, /* blendlook[4] */
+    { {{0,1.0f,0}}, {{0,1.0f,0}}, {{0,1.0f,0}}, {{0,1.0f,0}} }, /* blendup[4] */
+    0, /* curblendpos */
+    0, /* dampt */
+    1.0f, /* blendscale */
+    1.0f, /* blendscale1 */
+    0, /* sideflag */
+    0, /* weapon_theta_displacement */
+    0, /* weapon_verta_displacement */
+    0, /* field_A24 */
+    0, /* gunofs2_x */
+    0, /* gunofs2_y */
+    0, /* gunofs2_z */
+    0, /* field_A34 */
+    0, /* field_A38 */
+    0, /* field_A3C */
+    1000.0f, /* field_A40 */
+    0, /* audioHandle */
+    0, /* field_A48 */
+    0, /* field_A4C */
+    0, /* field_A50 */
+    { -1, 0, 0, 0, {{0,0,0}}, {{0,0,0}}, 0.0f, 0.0f, 0.0f, 0.0f }, /* weapon_beam */
+    0, /* noise */
+    0, /* field_A84 */
+    0, /* field_A88 */
+    0, /* field_A8C */
+    0, /* rocket */
+    0, /* firedrocket */
+    0, /* gunmtx_camspace.m[0][0] */
+    0, /* gunmtx_camspace.m[0][1] */
+    0, /* gunmtx_camspace.m[0][2] */
+    0, /* gunmtx_camspace.m[0][3] */
+    0, /* gunmtx_camspace.m[1][0] */
+    0, /* gunmtx_camspace.m[1][1] */
+    0, /* gunmtx_camspace.m[1][2] */
+    0, /* gunmtx_camspace.m[1][3] */
+    0, /* gunmtx_camspace.m[2][0] */
+    0, /* gunmtx_camspace.m[2][1] */
+    0, /* gunmtx_camspace.m[2][2] */
+    0, /* gunmtx_camspace.m[2][3] */
+    0, /* gunmtx_camspace.m[3][0] */
+    0, /* gunmtx_camspace.m[3][1] */
+    0, /* gunmtx_camspace.m[3][2] */
+    0, /* gunmtx_camspace.m[3][3] */
+    { { {0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0} } }, /* throw_item_pos_related */
+    { { {0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0} } }, /* throw_item_pos_related_prev */
+    { {0,0,0} }, /* field_B58 */
+    0, /* field_B64 */
+    0, /* field_B68 */
+    0, /* field_B6C */
+    0, /* field_B70 */
+    0, /* mtxlist */
+    0, /* field_B78 */
+    0, /* field_B7C */
+    0, /* field_B80 */
+    0, /* field_B84 */
+    0, /* modeldatas */
+    0, /* field_B8C */
+    0, /* field_B90 */
+    0, /* field_B94 */
+    0, /* field_B98 */
+    0, /* field_B9C */
+    0, /* field_BA0 */
+    0, /* field_BA4 */
+    0, /* field_BA8 */
+    0, /* field_BAC */
+    0, /* field_BB0 */
+    0, /* field_BB4 */
+    0, /* field_BB8 */
+    0, /* field_BBC */
+    0, /* field_BC0 */
+    0, /* field_BC4 */
+    0, /* field_BC8 */
+    0, /* field_BCC */
+    0, /* field_BD0 */
+    0, /* field_BD4 */
+    0, /* field_BD8 */
+    0, /* field_BDC */
+    0, /* field_BE0 */
+    0, /* field_BE4 */
+    0, /* field_BE8 */
+    0, /* field_BEC */
+    0, /* field_BF0 */
+    0, /* field_BF4 */
+    0, /* field_BF8 */
+    0, /* field_BFC */
+    0, /* field_C00 */
+    0, /* field_C04 */
+    0, /* volley */
+    { {0,0,0} }, /* item_related */
+};
+
+
+void playerSetDefaultPerspectiveAndHeight(void)
 {
   f32 value  = 1.0f;
-
-  if (0) { }
 
   g_playerPlayerData[PLAYER_1].player_perspective_height = value;
   g_playerPlayerData[PLAYER_1].handicap = value;
@@ -61,6 +190,7 @@ void default_player_perspective_and_height(void)
   g_playerPlayerData[PLAYER_4].player_perspective_height = value;
   g_playerPlayerData[PLAYER_4].handicap = value;
 }
+
 
 void reset_play_data_ptrs(void)
 {
@@ -78,6 +208,7 @@ void reset_play_data_ptrs(void)
     array_PLAYER_IDs[PLAYER_4] = 3;
 }
 
+
 void init_player_data_ptrs_construct_viewports(s32 playercount)
 {
     s32 i;
@@ -87,52 +218,48 @@ void init_player_data_ptrs_construct_viewports(s32 playercount)
     g_playerPointers[PLAYER_3] = NULL;
     g_playerPointers[PLAYER_4] = NULL;
     random_byte = (s32) (randomGetNext() & 0xFF);
+
     if (playercount > 0)
     {
         for (i = 0; i < playercount; i++)
         {
-            initBONDdataforPlayer(i);
+            playerInitData(i);
         }
         set_cur_player(PLAYER_1);
         return;
     }
-    initBONDdataforPlayer(PLAYER_1);
+
+    playerInitData(PLAYER_1);
     set_cur_player(PLAYER_1);
     set_cur_player_screen_size(viGetViewWidth(), viGetViewHeight());
     set_cur_player_viewport_size(viGetViewLeft(), viGetViewTop());
 }
 
+
 s32 getPlayerCount(void)
 {
     s32 count = 0;
     s32 i;
-    for (i = 0; i < 4; i++) {
-        if (g_playerPointers[i] != NULL) {
+
+    for (i = 0; i < 4; i++)
+    {
+        if (g_playerPointers[i] != NULL)
+        {
             count++;
         }
     }
     return count;
 }
 
-void initBONDdataforPlayer(s32 player_num)
+
+void playerInitData(s32 player_num)
 {
     s32 i;
     struct hand default_hand;
-    s32 one;
-#ifdef DEBUG
-    assert(players[num]==NULL); //according to assert, this file name is "player.c"
-#endif
-    default_hand = D_8003FDA0;
-#if defined(VERSION_US) || defined(VERSION_JP)
+
+    default_hand = g_DefaultHandTemplate;
+
     g_playerPointers[player_num] = mempAllocBytesInBank(0x2A80U, MEMPOOL_STAGE);
-#elif defined(VERSION_EU)
-    g_playerPointers[player_num] = mempAllocBytesInBank(0x2A70U, MEMPOOL_STAGE);
-#endif
-
-#ifdef DEBUG
-    assert(players[num]!=NULL);
-#endif
-
     g_playerPointers[player_num]->frozencam = 0;
     g_playerPointers[player_num]->pos.x = 0.0f;
     g_playerPointers[player_num]->pos.y = 0.0f;
@@ -357,10 +484,8 @@ void initBONDdataforPlayer(s32 player_num)
     g_playerPointers[player_num]->lock_hand_model[GUNLEFT] = FALSE;
     g_playerPointers[player_num]->ptr_hand_weapon_buffer[GUNRIGHT] = NULL;
     g_playerPointers[player_num]->ptr_hand_weapon_buffer[GUNLEFT] = NULL;
-
     g_playerPointers[player_num]->hands[GUNRIGHT] = default_hand;
     g_playerPointers[player_num]->hands[GUNLEFT] = default_hand;
-
     g_playerPointers[player_num]->gunposamplitude = 1.0f;
     g_playerPointers[player_num]->gunxamplitude = 1.0f;
     g_playerPointers[player_num]->trigger_released = 0;
@@ -448,7 +573,6 @@ void initBONDdataforPlayer(s32 player_num)
     g_playerPointers[player_num]->p_itemcur = NULL;
     g_playerPointers[player_num]->equipmaxitems = FALSE;
     g_playerPointers[player_num]->equipallguns = FALSE;
-    one = 1;
     g_playerPointers[player_num]->equipcuritem = ITEM_UNARMED;
     g_playerPointers[player_num]->textoverrides = NULL;
     g_playerPointers[player_num]->field_1280 = 0.0f;
@@ -476,7 +600,7 @@ void initBONDdataforPlayer(s32 player_num)
     g_playerPointers[player_num]->cur_player_control_type_1 = CONTROLLER_CONFIG_HONEY;
     g_playerPointers[player_num]->cur_player_control_type_2 = 0.0f; //CONTROLLER_CONFIG_HONEY
     g_playerPointers[player_num]->neg_vspacing_for_control_type_entry = 0;
-    g_playerPointers[player_num]->has_set_control_type_data = one;
+    g_playerPointers[player_num]->has_set_control_type_data = 1;
     g_playerPointers[player_num]->field_2A6C = 0;
     g_playerPointers[player_num]->field_2A70 = NULL;
 
@@ -487,28 +611,26 @@ void initBONDdataforPlayer(s32 player_num)
 
 void set_cur_player(s32 playernum)
 {
-#ifdef DEBUG
-    assert(num>=0);
-    assert(num<4);
-    assert(players[num]!=NULL); //player.c
-#endif
-
     player_num = playernum;
     g_CurrentPlayer = g_playerPointers[playernum];
     g_playerPerm = &g_playerPlayerData[playernum];
 }
 
 
-s32 get_cur_playernum(void) {
+s32 get_cur_playernum(void)
+{
     return player_num;
 }
+
 
 s32 getPlayerPointerIndex(PropRecord* prop)
 {
     s32 i;
 
-    for(i = 0; i < getPlayerCount(); i++) {
-        if (g_playerPointers[i]->prop == prop) {
+    for(i = 0; i < getPlayerCount(); i++)
+    {
+        if (g_playerPointers[i]->prop == prop)
+        {
            return i;
         }
     }
@@ -549,10 +671,11 @@ f32 get_cur_player_fovy(void)
 }
 
 
-PROP getPropForHeldItem(ITEM_IDS arg0)
+PROP getPropForHeldItem(ITEM_IDS itemnum)
 {
     PROP ret = -1;
-    switch (arg0)
+
+    switch (itemnum)
     {
         case ITEM_KNIFE:         ret = PROP_CHRKNIFE;         break; /* weapon_multi_hunting_knife */
         case ITEM_WPPK:          ret = PROP_CHRWPPK;          break; /* weapon_multi_pp7 */
@@ -607,26 +730,28 @@ void sub_GAME_7F09B398(enum GUNHAND hand)
     {
         wepid = getCurrentPlayerWeaponId(hand);
         prop = getPropForHeldItem(wepid);
+
         if (prop >= 0)
         {
-            flags = ((hand * 4) == 0)
-                  ? 0
-                  : PROPFLAG_WEAPON_LEFTHANDED;
+            flags = ((hand * 4) == 0) ? 0 : PROPFLAG_WEAPON_LEFTHANDED;
             something_with_generating_object(chr, prop, wepid, flags, NULL, NULL);
         }
     }
 }
 
-void shuffle_player_ids(void) {
+void shuffle_player_ids(void)
+{
     s32 i;
     u32 random;
     PLAYER_ID temp;
 
-    for (i = 0; i < 4; i ++) {
+    for (i = 0; i < 4; i ++)
+    {
         array_PLAYER_IDs[i] = i;
     }
 
-    for (i = 0; i < 3; i ++) {
+    for (i = 0; i < 3; i ++)
+    {
         random = randomGetNext();
         temp = array_PLAYER_IDs[i];
         array_PLAYER_IDs[i] = array_PLAYER_IDs[i + random % (4 - i)];
@@ -634,11 +759,13 @@ void shuffle_player_ids(void) {
     }
 }
 
-s32 get_player_position_in_shuffled(s32 current_player_num) {
+s32 get_player_position_in_shuffled(s32 current_player_num)
+{
     s32 i;
     s32 position = 0;
 
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < 4; i++)
+    {
         if (current_player_num != array_PLAYER_IDs[i])
         {
             if (g_playerPointers[array_PLAYER_IDs[i]] != NULL)
@@ -659,9 +786,12 @@ s32 get_nth_player_from_shuffled(PLAYER_ID id)
 {
     s32 i;
 
-    for (i = 0; i < 4; i++) {
-        if (g_playerPointers[array_PLAYER_IDs[i]] != NULL) {
-            if (id == 0) {
+    for (i = 0; i < 4; i++)
+    {
+        if (g_playerPointers[array_PLAYER_IDs[i]] != NULL)
+        {
+            if (id == 0)
+            {
                return array_PLAYER_IDs[i];
             }
             id--;
