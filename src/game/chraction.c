@@ -2851,7 +2851,7 @@ s32 chrlvStanRoomRelated(ChrRecord *self, coord3d *arg1, StandTile *tile)
     s32 i;
 
     prop = self->prop;
-    tile_something = sub_GAME_7F0B0D0C(prop->stan, prop->pos.x, prop->pos.f[2], &tile, arg1->f[0], arg1->f[2], &sp48[0], BUFFER_SIZE_7F027DB0);
+    tile_something = stanGetRoomsBetweenPoints(prop->stan, prop->pos.x, prop->pos.f[2], &tile, arg1->f[0], arg1->f[2], &sp48[0], BUFFER_SIZE_7F027DB0);
 
     if (tile_something > 0 && tile_something < BUFFER_SIZE_7F027DB0)
     {

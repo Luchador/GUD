@@ -821,50 +821,61 @@ bool doSegmentsIntersect(f32 start1X, f32 start1Z, f32 end1X, f32 end1Z, f32 sta
 }
 
 
-s32 doSegmentsIntersectWithTolerance(f32 arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, f32 arg5, f32 arg6, f32 arg7, s32 arg8)
+/**
+ * Tests whether two X/Z line segments cross.
+ *
+ * When includeTouching is false, the segments must cross strictly. When it is
+ * true, a zero-valued side test is accepted so touching an endpoint or a
+ * collinear segment can also count as an intersection.
+ */
+bool doSegmentsIntersectWithTolerance(f32 start1X, f32 start1Z, f32 end1X, f32 end1Z, f32 start2X, f32 start2Z, f32 end2X, f32 end2Z, s32 includeTouching)
 {
-    f32 a_x;
-    f32 a_z;
-    f32 b_x;
-    f32 b_z;
-    f32 c_x;
-    f32 c_z;
+    f32 segment1Dx;
+    f32 segment1Dz;
+    f32 segment2Dx;
+    f32 segment2Dz;
+    f32 start1FromStart2X;
+    f32 start1FromStart2Z;
+    s32 start2SideOfSegment1;
+    s32 end2SideOfSegment1;
+    s32 segment2EndpointSideProduct;
+    s32 start1SideOfSegment2;
+    s32 end1SideOfSegment2;
+    s32 segment1EndpointSideProduct;
+    bool intersects;
 
-    s32 val1;
-    s32 unused4;
-    s32 rc;
-    s32 unused5;
-    s32 unused6;
-    s32 val2;
-    s32 unused7;
-    s32 unused8;
-    s32 tmp;
+    segment1Dx = end1X - start1X;
+    segment1Dz = end1Z - start1Z;
+    segment2Dx = end2X - start2X;
+    segment2Dz = end2Z - start2Z;
+    start1FromStart2X = start1X - start2X;
+    start1FromStart2Z = start1Z - start2Z;
 
-    rc = 1;
+    start2SideOfSegment1 = getRotationalDirectionBetween(segment1Dx, segment1Dz, -start1FromStart2X, -start1FromStart2Z);
 
-    b_x = arg0 - arg4;
-    b_z = arg1 - arg5;
-    a_x = arg2 - arg0;
-    a_z = arg3 - arg1;
+    end2SideOfSegment1 = getRotationalDirectionBetween(segment1Dx, segment1Dz, end2X - start1X, end2Z - start1Z);
 
-    tmp = getRotationalDirectionBetween(a_x, a_z, -b_x, -b_z);
-    val1 = tmp * getRotationalDirectionBetween(a_x, a_z, arg6 - arg0, arg7 - arg1);
+    segment2EndpointSideProduct = start2SideOfSegment1 * end2SideOfSegment1;
 
-    c_x = arg6 - arg4;
-    c_z = arg7 - arg5;
+    start1SideOfSegment2 = getRotationalDirectionBetween(segment2Dx, segment2Dz, start1FromStart2X, start1FromStart2Z);
 
-    tmp = getRotationalDirectionBetween(c_x, c_z, b_x, b_z);
-    val2 = tmp * getRotationalDirectionBetween(c_x, c_z, arg2 - arg4, arg3 - arg5);
+    end1SideOfSegment2 = getRotationalDirectionBetween(segment2Dx, segment2Dz, end1X - start2X, end1Z - start2Z);
 
-    if (val1 >= arg8) {
-        rc = 0;
+    segment1EndpointSideProduct = start1SideOfSegment2 * end1SideOfSegment2;
+
+    intersects = TRUE;
+
+    if (segment2EndpointSideProduct >= includeTouching)
+    {
+        intersects = FALSE;
     }
 
-    if (val2 >= arg8) {
-        rc = 0;
+    if (segment1EndpointSideProduct >= includeTouching)
+    {
+        intersects = FALSE;
     }
 
-    return rc;
+    return intersects;
 }
 
 
@@ -901,7 +912,8 @@ bool stanWalkTilesBetweenPointsWithCallback(StandTile **tileStack, f32 start_x, 
     iterationCount = 0;
     lineDx = dest_x - start_x;
 
-    savedPointIndex = uninitialized;\
+    savedPointIndex = uninitialized;
+
     while (1)
     {
         crossings = 0;
@@ -909,9 +921,6 @@ bool stanWalkTilesBetweenPointsWithCallback(StandTile **tileStack, f32 start_x, 
         if (callback)
         {
             callback(tile, previousTile, callbackData);
-#ifdef DEBUG
-            ossyncPrintf("{\"%s\",0x%08x,0x%08x,0x%08x,0x%08x},\t/* %8.3f %8.3f  %8.3f %8.3f */\n", GetStanRoomID(*tilestack), start_x, start_z, dest_x, dest_z, start_x, start_z);
-#endif
         }
 
         curPoint = (StandTilePoint *) tile;
@@ -935,11 +944,6 @@ bool stanWalkTilesBetweenPointsWithCallback(StandTile **tileStack, f32 start_x, 
                         savedPointIndex = edgeIndex;
                         nextTile = curPoint[1].link >> 4 != 0 ? linkedTile : NULL;
                     }
-
-                    // Optimized away but required to allocate edgeIndex to the target register.
-                    if (edgeIndex && edgeIndex && edgeIndex)
-                    {
-                    }
                 }
             }
         }
@@ -959,7 +963,7 @@ bool stanWalkTilesBetweenPointsWithCallback(StandTile **tileStack, f32 start_x, 
             return TRUE;
         }
 
-        if (iterationCount++ >= 0x1f5 || nextTile == NULL || crossings == 0)
+        if (iterationCount++ > 500 || nextTile == NULL || crossings == 0)
         {
             g_StanLastCollisionTile = previousTile;
             g_StanLastCollisionEdgeIndex = savedPointIndex;
@@ -971,25 +975,16 @@ bool stanWalkTilesBetweenPointsWithCallback(StandTile **tileStack, f32 start_x, 
 }
 
 
-/**
- * Name: walkTilesBetweenPoints_NoCallback
- * Address 0x7F0B0BE4.
-*/
 s32 walkTilesBetweenPoints_NoCallback(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_x, f32 dest_z)
 {
-    return stanWalkTilesBetweenPointsWithCallback(tileStack, start_x, start_z, dest_x, dest_z, 0, 0);
+    return stanWalkTilesBetweenPointsWithCallback(tileStack, start_x, start_z, dest_x, dest_z, NULL, NULL);
 }
 
 
-/**
- * Name: walkTilesBetweenPoints_NotingRooms
- * Address 0x7F0B0BE4.
-*/
-s32 sub_GAME_7F0B0C24(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_x, f32 dest_z, s32 *roomBuffer, s32 *rtnCountSize, s32 maxBufSize)
+s32 stanWalkTilesBetweenPointsAndCollectRooms(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_x, f32 dest_z, s32 *roomBuffer, s32 *rtnCountSize, s32 maxBufSize)
 {
     struct StandTileWalkCallbackRecord callbackData;
     s32 rtn;
-
 
     callbackData.roomBuf = roomBuffer;
     callbackData.count = 0;
@@ -1003,9 +998,6 @@ s32 sub_GAME_7F0B0C24(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_
 }
 
 
-/*
-* Address: 0x0x7f0b0c98
-*/
 void noteTileRoomIfDifferentToPrev(StandTile *tile, StandTile *unused, struct StandTileWalkCallbackRecord *data)
 {
     s32 newRoom;
@@ -1027,7 +1019,7 @@ void noteTileRoomIfDifferentToPrev(StandTile *tile, StandTile *unused, struct St
  * Builds a list of room IDs between a start position and a destination position.
  * Only used for objects on set paths e.g. patrolling guards.
  */
-s32 sub_GAME_7F0B0D0C(StandTile *tile, f32 start_x, f32 start_z, StandTile **destTile, f32 dest_x, f32 dest_z, s32 *roomBuffer, s32 maxBufSize)
+s32 stanGetRoomsBetweenPoints(StandTile *tile, f32 start_x, f32 start_z, StandTile **destTile, f32 dest_x, f32 dest_z, s32 *roomBuffer, s32 maxBufSize)
 {
     StandTile *savedTile;
     s32 count;
@@ -1060,23 +1052,23 @@ s32 sub_GAME_7F0B0D0C(StandTile *tile, f32 start_x, f32 start_z, StandTile **des
      * Full path check needed. Find the rooms between the points, store them in roomBuffer, and save the number of rooms in count.
      * If the path check fails, return 0.
      */
-    if (!sub_GAME_7F0B0C24(&savedTile, start_x, start_z, dest_x, dest_z, roomBuffer, &count, maxBufSize)) {
+    if (!stanWalkTilesBetweenPointsAndCollectRooms(&savedTile, start_x, start_z, dest_x, dest_z, roomBuffer, &count, maxBufSize))
+    {
         return 0;
     }
 
-    if (maxBufSize < count) {
+    if (maxBufSize < count)
+    {
         count = maxBufSize;
     }
 
-    if (*destTile == NULL) {
+    if (*destTile == NULL)
+    {
         *destTile = savedTile;
     }
 
-    if (savedTile != *destTile) {
-        #ifdef DEBUG
-        osSyncPrintf("stan %s(%d) != %s(%d) from=%s\n", GetStanRoomID(savedTile),
-        /*funcForTileNumber(savedTile)*/, GetStanRoomID(tile), /*funcForTileNumber(tile)*/, GetStanRoomID(roomBuffer));
-        #endif
+    if (savedTile != *destTile)
+    {
         return 0;
     }
 
@@ -1084,208 +1076,180 @@ s32 sub_GAME_7F0B0D0C(StandTile *tile, f32 start_x, f32 start_z, StandTile **des
 }
 
 
-/**
- * Can change global variables:
- *
- * - g_StanLastCollisionEdgePointsValid
- * - g_StanLastCollisionEdgePointA
- * - g_StanLastCollisionEdgePointB
- * - g_StanLastCollisionTile
- * - g_StanLastCollisionEdgeIndex
- * - g_StanLastCollisionProp
- *
- * US address 7F0B0E24.
- *
- * 'testLineUnobstructed'
-*/
-s32 stanTestLineUnobstructed(StandTile **pTile, f32 p_x, f32 p_z, f32 dest_x, f32 dest_z, s32 cdtypes, f32 unkHeight, f32 unkA, f32 unkB, f32 unkC)
+s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX, f32 endZ, s32 collisionTypes, f32 startTop, f32 startBottom, f32 endTop, f32 endBottom)
 {
-    struct PropRecord *prop;
-    s32 retval; // sp158
-    StandTile *sp154; // sp154
-    struct coord2d sp14C;
-    struct coord2d sp144;
-    f32 sp140;
-    s32 point_index;
-    struct coord2d sp134;
-    struct coord2d sp12C;
-    s32 loop_flag;
-    s32 sp124; // sp124
-    s32 padding;
-    s32 spD0[0x14]; //spD0
-    s32 spCC; // spCC
-    s32 next;
-    f32 spC4;
-    f32 spC0;
-    f32 temp_f0_2;
-    s16 *spB8;
-    struct rect4f *polygon; // spB4
-    s32 numvertices0; // spB0
-    //f32 unused2;
-    s32 i;
-    f32 temp_f0;
-    f32 spA4;
-    f32 spA0; // spA0
-    f32 temp_f2;
-    s32 already_set;
+    PropRecord *prop;
+    StandTile *reachedTile;
+    coord2d lineStart;
+    coord2d lineEnd;
+    f32 nearestCollisionFraction;
+    f32 topSlope;
+    f32 bottomSlope;
+    f32 startFloorY;
+    f32 floorSlope;
+    f32 floorEndX;
+    f32 floorEndZ;
+    f32 intersectionFraction;
+    f32 propTop;
+    f32 propBottom;
+    s32 unobstructed;
+    s32 nextEdgePointIndex;
+    s32 roomCount;
+    s32 roomBuffer[21];
+    s32 checkVerticalOverlap;
+    s32 verticalExtentsPrepared;
+    s32 edgeIndex;
+    s32 edgeCount;
+    s32 blocksLine;
+    s16 *propIndex;
+    coord2d *edgeStart;
+    coord2d *edgeEnd;
+    struct rect4f *polygon;
 
-    sp140 = 1.0f;
-    sp124 = 0;
-    spCC = (unkA <= unkHeight);
-    already_set = 0;
+    nearestCollisionFraction = 1.0f;
+    roomCount = 0;
+    checkVerticalOverlap = startBottom <= startTop;
+    verticalExtentsPrepared = 0;
+    reachedTile = *tile;
 
-    sp154 = *pTile;
-    sp14C.f[0] = p_x;
-    sp14C.f[1] = p_z;
-    sp144.f[0] = dest_x;
-    sp144.f[1] = dest_z;
+    lineStart.f[0] = startX;
+    lineStart.f[1] = startZ;
+    lineEnd.f[0] = endX;
+    lineEnd.f[1] = endZ;
 
-    retval = sub_GAME_7F0B0C24(&sp154, p_x, p_z, dest_x, dest_z, &spD0[0], &sp124, 0x14);
+    /* The extra room slot is reserved for roomGetProps's -1 terminator. */
+    unobstructed = stanWalkTilesBetweenPointsAndCollectRooms(&reachedTile, startX, startZ, endX, endZ, roomBuffer, &roomCount, 20);
 
-
-    if (sp124 > 20)
+    if (!unobstructed)
     {
-        #ifdef DEBUG
-            osSyncPrintf("stanLineObjType: %d rooms is more than %d\n", retval, 20);
-#endif
+        nextEdgePointIndex = g_StanLastCollisionEdgeIndex + 1;
 
-        sp124 = 20;
-    }
+        if (nextEdgePointIndex == ((g_StanLastCollisionTile->tail.half >> 12) & 0xf))
+        {
+            nextEdgePointIndex = 0;
+        }
 
-    if (retval == 0)
-    {
-        s32 padding[2];
-
-        point_index = (g_StanLastCollisionEdgeIndex + 1) % (s32)((g_StanLastCollisionTile->tail.half >> 0xC) & 0xF);
         g_StanLastCollisionEdgePointsValid = 1;
+        g_StanLastCollisionEdgePointA.f[0] = (f32)g_StanLastCollisionTile->points[g_StanLastCollisionEdgeIndex].x * inv_level_scale;
+        g_StanLastCollisionEdgePointA.f[1] = (f32)g_StanLastCollisionTile->points[g_StanLastCollisionEdgeIndex].z * inv_level_scale;
+        g_StanLastCollisionEdgePointB.f[0] = (f32)g_StanLastCollisionTile->points[nextEdgePointIndex].x * inv_level_scale;
+        g_StanLastCollisionEdgePointB.f[1] = (f32)g_StanLastCollisionTile->points[nextEdgePointIndex].z * inv_level_scale;
 
-        g_StanLastCollisionEdgePointA.f[0] = (f32) g_StanLastCollisionTile->points[g_StanLastCollisionEdgeIndex].x * inv_level_scale;
-        g_StanLastCollisionEdgePointA.f[1] = (f32) g_StanLastCollisionTile->points[g_StanLastCollisionEdgeIndex].z * inv_level_scale;
-
-        g_StanLastCollisionEdgePointB.f[0] = (f32) g_StanLastCollisionTile->points[point_index].x * inv_level_scale;
-        g_StanLastCollisionEdgePointB.f[1] = (f32) g_StanLastCollisionTile->points[point_index].z * inv_level_scale;
-
-        sp140 = calculateSegmentIntersectionFraction(&sp14C, &sp144, &g_StanLastCollisionEdgePointA, &g_StanLastCollisionEdgePointB);
-    }
-    else
-    {
-        //
+        nearestCollisionFraction = calculateSegmentIntersectionFraction(&lineStart, &lineEnd, &g_StanLastCollisionEdgePointA, &g_StanLastCollisionEdgePointB);
     }
 
     g_StanLastCollisionProp = NULL;
 
-    if (cdtypes != 0)
+    if (collisionTypes != 0)
     {
-        spD0[sp124] = -1;
-        roomGetProps((s32 *)&spD0);
+        roomBuffer[roomCount] = -1;
+        roomGetProps(roomBuffer);
 
-        for (spB8 = ptr_list_object_lookup_indices; *spB8 >= 0; spB8++)
+        for (propIndex = ptr_list_object_lookup_indices; *propIndex >= 0; propIndex++)
         {
-            prop = &g_Props[*spB8];
+            prop = &g_Props[*propIndex];
 
-            if (propIsOfCdType(prop, cdtypes) != 0)
+            if (!propIsOfCdType(prop, collisionTypes))
             {
-                chraiGetCollisionBounds(prop, &polygon, &numvertices0, &spA4, &spA0);
+                continue;
+            }
 
-                if (numvertices0 > 0)
+            chraiGetCollisionBounds(prop, &polygon, &edgeCount, &propTop, &propBottom);
+            edgeStart = &polygon->points[0];
+            edgeEnd = &polygon->points[1];
+
+            for (edgeIndex = 0; edgeIndex < edgeCount; edgeIndex++, edgeStart++, edgeEnd++)
+            {
+                if (edgeIndex + 1 == edgeCount)
                 {
-                    for (i = 0; i < numvertices0; i++)
+                    edgeEnd = &polygon->points[0];
+                }
+
+                if (!doSegmentsIntersect(startX, startZ, endX, endZ,
+                        edgeStart->f[0], edgeStart->f[1], edgeEnd->f[0], edgeEnd->f[1]))
+                {
+                    continue;
+                }
+
+                intersectionFraction = calculateSegmentIntersectionFraction(&lineStart, &lineEnd,
+                        edgeStart, edgeEnd);
+
+                if (intersectionFraction >= nearestCollisionFraction)
+                {
+                    continue;
+                }
+
+                blocksLine = 1;
+
+                if (checkVerticalOverlap)
+                {
+                    if (!verticalExtentsPrepared)
                     {
-                        next = (i + 1) % numvertices0;
+                        verticalExtentsPrepared = 1;
 
-                        if (doSegmentsIntersect(p_x, p_z, dest_x, dest_z, polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1]) != 0)
+                        if (endBottom <= endTop)
                         {
-                            sp134.f[0] = polygon->points[i].f[0];
-                            sp134.f[1] = polygon->points[i].f[1];
-                            sp12C.f[0] = polygon->points[next].f[0];
-                            sp12C.f[1] = polygon->points[next].f[1];
+                            topSlope = endTop - startTop;
+                            bottomSlope = endBottom - startBottom;
+                        }
+                        else
+                        {
+                            floorEndX = endX;
+                            floorEndZ = endZ;
 
-                            temp_f0 = calculateSegmentIntersectionFraction(&sp14C, &sp144, &sp134, &sp12C);
-
-                            if (temp_f0 < sp140)
+                            if (nearestCollisionFraction < 1.0f)
                             {
-                                loop_flag = 1;
-
-                                if (spCC != 0)
-                                {
-                                    if (already_set == 0)
-                                    {
-                                        already_set = 1;
-
-                                        if (unkC <= unkB)
-                                        {
-                                            spC4 = unkB - unkHeight;
-                                            spC0 = unkC - unkA;
-                                        }
-                                        else
-                                        {
-                                            if (sp140 < 1.0f)
-                                            {
-                                                dest_x -= p_x;
-                                                dest_x *= sp140;
-                                                dest_x = p_x + dest_x;
-
-                                                dest_z -= p_z;
-                                                dest_z *= sp140;
-                                                dest_z = p_z + dest_z;
-                                            }
-
-                                            temp_f0_2 = stanGetPositionYValue(*pTile, p_x, p_z);
-                                            unkHeight += temp_f0_2;
-                                            unkA += temp_f0_2;
-                                            temp_f2 = (stanGetPositionYValue(sp154, dest_x, dest_z) - temp_f0_2) / sp140;
-                                            spC0 = temp_f2;
-                                            spC4 = temp_f2;
-                                        }
-                                    }
-
-                                    if ((spA4 <= ((spC0 * temp_f0) + unkA)) || (((spC4 * temp_f0) + unkHeight) <= spA0))
-                                    {
-                                        loop_flag = 0;
-                                    }
-                                }
-
-                                if (loop_flag != 0)
-                                {
-                                    retval = 0;
-                                    sp140 = temp_f0;
-                                    g_StanLastCollisionEdgePointsValid = 1;
-                                    g_StanLastCollisionEdgePointA = sp134;
-                                    g_StanLastCollisionEdgePointB = sp12C;
-                                    g_StanLastCollisionTile = NULL;
-                                    g_StanLastCollisionEdgeIndex = 0;
-                                    g_StanLastCollisionProp = prop;
-                                    sp154 = NULL;
-                                }
+                                floorEndX = startX + (endX - startX) * nearestCollisionFraction;
+                                floorEndZ = startZ + (endZ - startZ) * nearestCollisionFraction;
                             }
+
+                            startFloorY = stanGetPositionYValue(*tile, startX, startZ);
+                            startTop += startFloorY;
+                            startBottom += startFloorY;
+                            floorSlope = (stanGetPositionYValue(reachedTile, floorEndX, floorEndZ)
+                                    - startFloorY) / nearestCollisionFraction;
+                            topSlope = floorSlope;
+                            bottomSlope = floorSlope;
                         }
                     }
+
+                    if (propTop <= startBottom + bottomSlope * intersectionFraction
+                            || startTop + topSlope * intersectionFraction <= propBottom)
+                    {
+                        blocksLine = 0;
+                    }
+                }
+
+                if (blocksLine)
+                {
+                    unobstructed = 0;
+                    nearestCollisionFraction = intersectionFraction;
+                    g_StanLastCollisionEdgePointsValid = 1;
+                    g_StanLastCollisionEdgePointA = *edgeStart;
+                    g_StanLastCollisionEdgePointB = *edgeEnd;
+                    g_StanLastCollisionTile = NULL;
+                    g_StanLastCollisionEdgeIndex = 0;
+                    g_StanLastCollisionProp = prop;
+
+                    /* Recover the STAN tile at the prop collision point below. */
+                    reachedTile = NULL;
                 }
             }
         }
     }
 
-    if (sp154 == NULL)
+    if (reachedTile == NULL)
     {
-        sp154 = *pTile;
-
-        dest_x -= p_x;
-        dest_x *= sp140;
-        dest_x = p_x + dest_x;
-
-        dest_z -= p_z;
-        dest_z *= sp140;
-        dest_z = p_z + dest_z;
-        /*stanlineret = */ walkTilesBetweenPoints_NoCallback(&sp154, p_x, p_z, dest_x, dest_z);
-        #ifdef DEBUG
-        assert(stanlineret==1)
-        #endif
+        reachedTile = *tile;
+        endX = startX + (endX - startX) * nearestCollisionFraction;
+        endZ = startZ + (endZ - startZ) * nearestCollisionFraction;
+        walkTilesBetweenPoints_NoCallback(&reachedTile, startX, startZ, endX, endZ);
     }
 
-    *pTile = sp154;
-    g_StanLastLineCollisionFraction = sp140;
+    *tile = reachedTile;
+    g_StanLastLineCollisionFraction = nearestCollisionFraction;
 
-    return retval;
+    return unobstructed;
 }
 
 
@@ -1316,7 +1280,7 @@ PropRecord *sub_GAME_7F0B1410(StandTile *t, f32 start_x, f32 start_z, f32 end_x,
     tile = t;
     roomCount = 0;
 
-    sub_GAME_7F0B0C24(&tile, start_x, start_z, end_x, end_z, roomBuffer, &roomCount, 20);
+    stanWalkTilesBetweenPointsAndCollectRooms(&tile, start_x, start_z, end_x, end_z, roomBuffer, &roomCount, 20);
 
     if (roomCount >= 21)
     {
@@ -1392,8 +1356,6 @@ PropRecord *sub_GAME_7F0B1410(StandTile *t, f32 start_x, f32 start_z, f32 end_x,
 
 
 /**
- * Address: 7F0B16C4
- * 
  * Computes the signed perpendicular distance from point P to the infinite
  * line that goes through point A and point B.
  * The sign indicates which side of the line the point is on.
@@ -1401,7 +1363,7 @@ PropRecord *sub_GAME_7F0B1410(StandTile *t, f32 start_x, f32 start_z, f32 end_x,
 f32 stanGetSignedPointLineDistance(f32 a_x, f32 a_z, f32 b_x, f32 b_z, f32 p_x, f32 p_z)
 {
     u32 stack[8];
-    f32 result; //d
+    f32 result;
 
     result = sqrtf((b_x - a_x) * (b_x - a_x) + (b_z - a_z) * (b_z - a_z));
 
@@ -1420,13 +1382,12 @@ f32 distBetweenPoints2d(f32 o_x,f32 o_z,f32 p_x,f32 p_z)
 {
     p_x -= o_x;
     p_z -= o_z;
+
     return sqrtf(p_x * p_x + p_z * p_z);
 }
 
 
 /**
- * Address: 7F0B17E4
- * 
  * Tests whether a point P's perpendicular projection onto the infinite line
  * going through points A and B falls inside the finite edge segment.
  */
@@ -1450,18 +1411,6 @@ bool stanPointProjectsOntoEdge(f32 a_x, f32 a_z, f32 b_x, f32 b_z, f32 p_x, f32 
 }
 
 
-/**
- * Can change global variables
- * - g_StanLastCollisionEdgePointsValid
- * - g_StanLastCollisionEdgePointA
- * - g_StanLastCollisionEdgePointB
- * - g_StanLastCollisionTile
- * - g_StanLastCollisionEdgeIndex
- * - g_StanLastCollisionProp
- *
- * US address 7F0B18B8.
- * Perfect Dark cdTestVolume (from context)
-*/
 s32 stanTestVolume(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, f32 arg5, f32 arg6)
 {
     s32 i; // stack ??
@@ -1872,9 +1821,6 @@ s32 stanCheckLinkedSpecialTile(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3
 }
 
 
-/**
- * Address 0x7F0B2314.
-*/
 s32 stanTileDistanceRelated(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, struct StandTileLocusCallbackRecord *arg4)
 {
     s32 i;
@@ -1917,9 +1863,6 @@ s32 stanGetLocusCount(struct StandTileLocusCallbackRecord *arg0)
 }
 
 
-/**
- * Address: 7F0B23AC
- */
 void stanGetTileOrderedPointWorldPos(StandTile *tile, s32 pointnum, coord3d *out)
 {
     StandTilePoint *point;
@@ -2262,29 +2205,17 @@ bool getCollisionEdge_maybe(coord3d *pntA, coord3d *pntB)
 }
 
 
-
 void setLevelScale(f32 ls)
 {
     level_scale = ls;
     inv_level_scale = (1.0f / ls);
-    #ifdef DEBUG
-    if (level_scale != 1.0)
-    {
-        osSyncPrintf("%5.2fm squared total area\n", /*lots of math*/ 1* inv_level_scale * inv_level_scale * 0.01 * 0.01);
-        //...
-        osSyncPrintf("%5.2fm squared BB extent\n\n",/*more maths*/ 1 * inv_level_scale * inv_level_scale * 0.01 * 0.01);
-    }
-    #endif
+
     return;
 }
 
 
-
-
 /**
  * Calculates y value on a tile, according to (x,z) position.
- *
- * Address 0x7F0B2970.
  */
 f32 stanGetPositionYValue(StandTile *tile, f32 p_x, f32 p_z)
 {
@@ -2335,7 +2266,6 @@ f32 stanGetPositionYValue(StandTile *tile, f32 p_x, f32 p_z)
  * Get 24bit id stanIdHi from id string
  * @param stanIdHi: 1bit Type, 15bit Integer ID.
  * @param stanIdLo: 5bit stanIdLo File (a-z) and 3bit subtri 0-7
- * canonically Named
  */
 void stanPackId(char *id, u16 *stanIdHi, u8 *stanIdLo)
 {
