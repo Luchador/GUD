@@ -1180,6 +1180,7 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
     f32 tmp;
     s32 hasprojection;
     coord3d newpos;
+    s32 lineUnobstructed;
 
     ret = NULL;
     tile = stan;
@@ -1188,13 +1189,36 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
     chrSetCollidable(guard, FALSE);
     stanResetHits();
 
-    if (stanTestLineUnobstructed(&tile, src->x, src->z, dst->x, dst->z, 0x1f, height, always_20, 0.0f, 1.0f))
+    lineUnobstructed = TRUE;
+
+    if (src->x != dst->x || src->z != dst->z)
     {
-        if (stanTestVolume(&tile, dst->x, dst->z, width, 0x1f, height, always_20) < 0)
+        lineUnobstructed = stanTestLineUnobstructed(
+            &tile,
+            src->x,
+            src->z,
+            dst->x,
+            dst->z,
+            0x1f,
+            height,
+            always_20,
+            0.0f,
+            1.0f);
+    }
+
+    if (lineUnobstructed)
+    {
+        if (stanTestVolume(
+                &tile,
+                dst->x,
+                dst->z,
+                width,
+                0x1f,
+                height,
+                always_20) < 0)
         {
             if (updateLastMoveOk)
             {
-                if (&newpos);
                 guard->invalidmove = 0;
                 guard->lastmoveok60 = g_GlobalTimer;
             }

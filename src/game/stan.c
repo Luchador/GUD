@@ -1105,14 +1105,6 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
     coord2d *edgeStart;
     coord2d *edgeEnd;
     struct rect4f *polygon;
-    f32 dist;
-
-    dist = ((endX - startX) + (endZ - startZ));
-    
-    if(dist == 0.0f)
-    {
-        return 1;
-    }
 
     nearestCollisionFraction = 1.0f;
     roomCount = 0;
