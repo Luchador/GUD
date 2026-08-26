@@ -3773,10 +3773,6 @@ void setSeenBondTimeToNow(ChrRecord *self)
 }
 
 
-
-/**
- * Address 0x7F0292A8.
-*/
 s32 chrlvAttackRelated7F0292A8(ChrRecord *self, coord3d *arg1, StandTile *arg2)
 {
     s32 ret;
@@ -5384,18 +5380,18 @@ void chrlvTickSurprised(ChrRecord *self)
 void sub_GAME_7F02BFE4(ChrRecord *self, s32 arg1, s32 arg2)
 {
     PropRecord *prop;
-    ChrRecord *temp_v1;
+    ChrRecord *chr;
     s32 phi_a1;
     u8 sp33;
     s16 sp30;
     ALSoundState **phi_a2;
 
     prop = chrGetEquippedWeaponProp(self, arg1);
-    temp_v1 = prop->chr;
+    chr = prop->chr;
     phi_a1 = 0;
 
-    sp33 = bondwalkItemGetSoundTriggerRate((s32) temp_v1->act_attack.attack_item);
-    sp30 = bondwalkItemGetSound((s32) temp_v1->act_attack.attack_item);
+    sp33 = bondwalkItemGetSoundTriggerRate((s32) chr->act_attack.attack_item);
+    sp30 = bondwalkItemGetSound((s32) chr->act_attack.attack_item);
 
     if (arg2 != 0)
     {
@@ -6266,9 +6262,9 @@ s32 chrGetGunMuzzlePos(ChrRecord *self, GUNHAND hand, coord3d *arg2)
 
 void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
 {
-    PropRecord *self_prop; // 644
-    s32 phi_a2; // ?
-    s32 sp27C; // stack 636
+    PropRecord *self_prop;
+    s32 phi_a2;
+    s32 sp27C;
     s32 sp278;
     ChrRecord *prop_selfchr; // 628
     PropRecord *player_prop; // 624
@@ -6291,14 +6287,14 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
     f32 dz;
     f32 dx;
     f32 sp20C; // 524
-    struct WeaponObjRecord *sp208;
+    struct WeaponObjRecord *rocket;
     Mtxf sp1C8;
     coord3d sp1BC;  // 444
     PropRecord *weapon_prop;
     coord3d sp1AC; // 428
     Mtxf sp16C;
     Mtxf sp12C;
-    struct WeaponObjRecord *sp128; // 296
+    struct WeaponObjRecord *grenadeRound;
     Mtxf spE8;
     coord3d spDC; // 220
     Mtxf sp9C;
@@ -6325,10 +6321,7 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
 
         sp44 = phi_v1 & 1;
 
-        if (
-            (sp44 == 0)
-            || (self->seen_bond_time >= (g_GlobalTimer - CHRLV_SEEN_RECENT_CHECK))
-            || (bondwalkItemGetAutomaticFiringRate(prop_selfchr->act_attack.attack_item) < 0))
+        if ((sp44 == 0) || (self->seen_bond_time >= (g_GlobalTimer - CHRLV_SEEN_RECENT_CHECK)) || (bondwalkItemGetAutomaticFiringRate(prop_selfchr->act_attack.attack_item) < 0))
         {
             sp268 = 0;
             sp264 = 0;
@@ -6344,8 +6337,7 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
             {
                 sp268 = 1;
 
-                if ((((s32) self->firecount[hand] % (s32) (bondwalkItemGetAutomaticFiringRate(prop_selfchr->act_attack.attack_item) * 2)) == 0)
-                    || (prop_selfchr->act_attack.attack_item == ITEM_LASER))
+                if ((((s32) self->firecount[hand] % (s32) (bondwalkItemGetAutomaticFiringRate(prop_selfchr->act_attack.attack_item) * 2)) == 0) || (prop_selfchr->act_attack.attack_item == ITEM_LASER))
                 {
                     sp264 = 1;
                 }
@@ -6432,8 +6424,9 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                     {
                         if (((dx * dx) + (dy * dy) + (dz * dz)) > 160000.0f)
                         {
-                            sp208 = (struct WeaponObjRecord *)create_new_item_instance_of_model(PROP_CHRROCKET, 0x56);
-                            if (sp208 != NULL)
+                            rocket = (struct WeaponObjRecord *)create_new_item_instance_of_model(PROP_CHRROCKET, ITEM_ROCKETROUND);
+                            
+                            if (rocket != NULL)
                             {
                                 matrix_4x4_set_identity(&sp1C8);
                                 matrix_4x4_set_rotation_around_x(sp24C, &sp16C);
@@ -6448,31 +6441,28 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                                 sp1BC.f[1] = sp1AC.f[1] * g_GlobalTimerDelta;
                                 sp1BC.f[2] = sp1AC.f[2] * g_GlobalTimerDelta;
 
-                                gunInitProjectileObject((ObjectRecord *)sp208, &sp240, sp238, &sp16C, &sp1BC, &sp1C8, self_prop);
+                                gunInitProjectileObject((ObjectRecord *)rocket, &sp240, sp238, &sp16C, &sp1BC, &sp1C8, self_prop);
 
-                                if (sp208->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
+                                if (rocket->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
                                 {
-                                    sp208->projectile->flags |= 0x80;
-                                    sp208->timer = -1;
-                                    sp208->projectile->flags |= 0x20;
+                                    rocket->projectile->flags |= PROJECTILEFLAG_LAUNCHING;
+                                    rocket->timer = -1;
+                                    rocket->projectile->flags |= PROJECTILEFLAG_00000020;
 
-                                    sp208->projectile->unkB0 = sp208->position.y;
-                                    sp208->projectile->unkB4 = sp208->projectile->speed.f[1];
+                                    rocket->projectile->unkB0 = rocket->position.y;
+                                    rocket->projectile->unkB4 = rocket->projectile->speed.f[1];
 
-                                  /*  sp208->projectile->unk10.x = sp1AC.f[0];
-                                    sp208->projectile->unk10.y = sp1AC.f[1];
-                                    sp208->projectile->unk10.z = sp1AC.f[2];*/
-                                    sp208->projectile->unk10.x = sp1AC.f[0];
-                                    sp208->projectile->unk10.y = sp1AC.f[1];
-                                    sp208->projectile->unk10.z = sp1AC.f[2];
+                                    rocket->projectile->unk10.x = sp1AC.f[0];
+                                    rocket->projectile->unk10.y = sp1AC.f[1];
+                                    rocket->projectile->unk10.z = sp1AC.f[2];
 
-                                    if (sp208->projectile->sounds[0] == NULL)
+                                    if (rocket->projectile->sounds[0] == NULL)
                                     {
-                                        sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, ROCKET_LAUNCH_SFX, (ALSoundState *)&sp208->projectile->sounds[0]);
+                                        sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, ROCKET_LAUNCH_SFX, (ALSoundState *)&rocket->projectile->sounds[0]);
                                     }
-                                    else if (sp208->projectile->sounds[1] == NULL)
+                                    else if (rocket->projectile->sounds[1] == NULL)
                                     {
-                                        sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, ROCKET_LAUNCH_SFX, (ALSoundState *)&sp208->projectile->sounds[1]);
+                                        sndPlaySfx((struct ALBankAlt_s *)g_musicSfxBufferPtr, ROCKET_LAUNCH_SFX, (ALSoundState *)&rocket->projectile->sounds[1]);
                                     }
                                 }
                             }
@@ -6486,8 +6476,9 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                     {
                         if (((dx * dx) + (dy * dy) + (dz * dz)) > 160000.0f)
                         {
-                            sp128 = (struct WeaponObjRecord *)create_new_item_instance_of_model(PROP_CHRGRENADEROUND, 0x57);
-                            if (sp128 != NULL)
+                            grenadeRound = (struct WeaponObjRecord *)create_new_item_instance_of_model(PROP_CHRGRENADEROUND, ITEM_GRENADEROUND);
+
+                            if (grenadeRound != NULL)
                             {
                                 matrix_4x4_set_identity(&spE8);
                                 spDC.f[0] = sp220.f[0] * 33.333332f;
@@ -6496,14 +6487,14 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                                 matrix_4x4_set_rotation_around_x(sp24C, &sp9C);
                                 matrix_4x4_set_rotation_around_y(subroty, &sp5C);
                                 matrix_4x4_multiply_homogeneous_in_place(&sp5C, &sp9C);
-                                sp128->timer = CHRLV_DEFAULT_TIMER;
-                                gunInitProjectileObject((ObjectRecord *) sp128, &sp240, sp238, &sp9C, &spDC, &spE8, self_prop);
+                                grenadeRound->timer = CHRLV_DEFAULT_TIMER;
+                                gunInitProjectileObject((ObjectRecord *)grenadeRound, &sp240, sp238, &sp9C, &spDC, &spE8, self_prop);
 
-                                if (sp128->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
+                                if (grenadeRound->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
                                 {
-                                    sp128->projectile->unk8C = 0.3f;
-                                    sp128->projectile->unk94 = 0.13333333f;
-                                    sp128->projectile->refreshrate = 60;
+                                    grenadeRound->projectile->unk8C = 0.3f;
+                                    grenadeRound->projectile->unk94 = 0.13333333f;
+                                    grenadeRound->projectile->refreshrate = 60;
                                 }
                             }
                         }
@@ -6545,15 +6536,11 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                             sp258.f[1] = player_prop->pos.f[1];
                             sp258.f[2] = player_prop->pos.f[2];
                             sp254 = player_prop->stan;
-                            recall_joy2_hits_edit_detail_edit_flag(prop_selfchr->act_attack.attack_item, &player_prop->type, -1);
+                            gunfirePlaySfxBulletImpact(prop_selfchr->act_attack.attack_item, &player_prop->type, -1);
                         }
                         else
                         {
-                            if ((
-                                    (g_StanLastCollisionProp == NULL)
-                                    || ((g_StanLastCollisionProp->type != PROP_TYPE_CHR) && (g_StanLastCollisionProp->type != PROP_TYPE_VIEWER))
-                                )
-                                && (sp20C < 10000.0f))
+                            if (((g_StanLastCollisionProp == NULL) || ((g_StanLastCollisionProp->type != PROP_TYPE_CHR) && (g_StanLastCollisionProp->type != PROP_TYPE_VIEWER))) && (sp20C < 10000.0f))
                             {
                                 sp22C = 0;
                             }
@@ -6568,7 +6555,7 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
 
                             if (g_StanLastCollisionProp != NULL)
                             {
-                                recall_joy2_hits_edit_detail_edit_flag(prop_selfchr->act_attack.attack_item, &g_StanLastCollisionProp->type, -1);
+                                gunfirePlaySfxBulletImpact(prop_selfchr->act_attack.attack_item, &g_StanLastCollisionProp->type, -1);
 
                                 if (g_StanLastCollisionProp->type == PROP_TYPE_CHR)
                                 {
@@ -6589,7 +6576,7 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                             }
                             else
                             {
-                                recall_joy2_hits_edit_flag(prop_selfchr->act_attack.attack_item, &sp258, -1);
+                                gunfirePlaySfxRicochetSounds(prop_selfchr->act_attack.attack_item, &sp258, -1);
                             }
                         }
 

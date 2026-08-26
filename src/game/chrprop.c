@@ -1036,7 +1036,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
         {
             if (createSpark)
             {
-                recall_joy2_hits_edit_flag(shotdata.weapon, finalpos, besttexture);
+                gunfirePlaySfxRicochetSounds(shotdata.weapon, finalpos, besttexture);
 
                 if (((0xf & ((u8 *) g_Textures)[besttexture * 8]) != 5) && ((((u8 *) g_Textures)[besttexture * 8] & 0xf) != 6))
                 {
@@ -1312,7 +1312,7 @@ void chraiFistAttackHandler(s32 hand, s32 item_id)
 
         if (handles_shot_actors(chr, hitpart, &vector, item_id, 1))
         {
-            recall_joy2_hits_edit_detail_edit_flag(item_id, prop, -1);
+            gunfirePlaySfxBulletImpact(item_id, prop, -1);
             hit = 1;
         }
     }

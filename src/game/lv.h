@@ -41,7 +41,7 @@ struct LvlMpUnknown {
     };
 };
 
-extern s32 D_800483C4;
+extern s32 g_LastImpactTexNum;
 extern struct LvlMpUnknown *D_800483C8;
 
 extern s32 g_ClockTimer;

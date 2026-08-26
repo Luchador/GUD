@@ -2184,18 +2184,12 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
 }
 
 
-/**
- * Address: 7F064364
- */
 Gfx *watchRenderControllerOpaque(Gfx *gdl, Mtxf *basemtx, bool animatebuttons, WatchContButtonPositions *buttonpositions, s8 *contpadnum)
 {
     return watchRenderController(gdl, basemtx, 0xff, animatebuttons, buttonpositions, contpadnum);
 }
 
 
-/**
- * Address: 7F0643A0
- */
 ALSoundState* gunGetFreeSfxState(void)
 {
     s32 i;
@@ -2212,7 +2206,7 @@ ALSoundState* gunGetFreeSfxState(void)
 }
 
 
-void recall_joy2_hits_edit_detail_edit_flag(enum ITEM_IDS item, PropRecord* prop, s32 texture_index)
+void gunfirePlaySfxBulletImpact(enum ITEM_IDS item, PropRecord* prop, s32 texture_index)
 {
     s32 sp6C;
     u32 rnd1;
@@ -2228,7 +2222,7 @@ void recall_joy2_hits_edit_detail_edit_flag(enum ITEM_IDS item, PropRecord* prop
     rnd1 = randomGetNext();
     rnd2 = randomGetNext();
 
-    D_800483C4 = texture_index;
+    g_LastImpactTexNum = texture_index;
 
     if ((item == ITEM_REMOTEMINE)
         || (item == ITEM_PROXIMITYMINE)
@@ -2243,11 +2237,13 @@ void recall_joy2_hits_edit_detail_edit_flag(enum ITEM_IDS item, PropRecord* prop
         return;
     }
 
-#ifdef BUGFIX_R1
-    if (g_ClockTimer <= 0) { return; }
-#endif
+    if (g_ClockTimer <= 0) 
+    { 
+        return; 
+    }
 
     sound_state = gunGetFreeSfxState();
+
     if (sound_state != NULL)
     {
         if ((prop->type != PROP_TYPE_CHR) && (prop->type != PROP_TYPE_VIEWER))
@@ -2291,6 +2287,7 @@ void recall_joy2_hits_edit_detail_edit_flag(enum ITEM_IDS item, PropRecord* prop
     }
 
     sound_state = gunGetFreeSfxState();
+
     if ((sound_state != NULL) && (texture_index >= 0))
     {
         if (g_HitTypeSounds[g_Textures[texture_index].hitSound] != NULL)
@@ -2307,23 +2304,18 @@ void recall_joy2_hits_edit_detail_edit_flag(enum ITEM_IDS item, PropRecord* prop
             }
         }
     }
-#ifdef DEBUG
-    osSyncPrintf("Shot prop: hittype %d\n", g_Textures[texture_index].hitSound);
-#endif
-#ifdef ENABLE_LOG
-    osSyncPrintf("Shot prop:  %S\n", HIT_TYPE_ToString[g_Textures[texture_index].hitSound]);
-#endif
 }
 
 
-void sub_GAME_7F064720(coord3d* pos)
+void gunfirePlaySfxBulletThroughGlass(coord3d* pos)
 {
     ALSoundState* sound;
     ALLink* link;
 
-#ifdef BUGFIX_R1
-    if (g_ClockTimer <= 0) { return; }
-#endif
+    if (g_ClockTimer <= 0) 
+    { 
+        return; 
+    }
 
     sound = gunGetFreeSfxState();
 
@@ -2332,6 +2324,7 @@ void sub_GAME_7F064720(coord3d* pos)
         sndPlaySfx((struct ALBankAlt_s* ) g_musicSfxBufferPtr, HIT_BULLET_GLASS_SFX, sound);
 
         link = sound->link.next;
+
         if (link != NULL)
         {
             chrobjSndCreatePostEventDefault((ALSoundState* ) link, pos);
@@ -2340,7 +2333,7 @@ void sub_GAME_7F064720(coord3d* pos)
 }
 
 
-void recall_joy2_hits_edit_flag(enum ITEM_IDS item, coord3d* arg1, s32 texture_index)
+void gunfirePlaySfxRicochetSounds(enum ITEM_IDS item, coord3d* arg1, s32 texture_index)
 {
     ALSoundState *sound_state;
     u32 rnd1;
@@ -2353,11 +2346,12 @@ void recall_joy2_hits_edit_flag(enum ITEM_IDS item, coord3d* arg1, s32 texture_i
     rnd1 = randomGetNext();
     rnd2 = randomGetNext();
 
-    D_800483C4 = texture_index;
+    g_LastImpactTexNum = texture_index;
 
-#ifdef BUGFIX_R1
-    if (g_ClockTimer <= 0) { return; }
-#endif
+    if (g_ClockTimer <= 0)
+    { 
+        return; 
+    }
 
     sound_state = gunGetFreeSfxState();
     if (sound_state != NULL)
@@ -2383,9 +2377,11 @@ void recall_joy2_hits_edit_flag(enum ITEM_IDS item, coord3d* arg1, s32 texture_i
     }
 
     sound_state = gunGetFreeSfxState();
+
     if ((sound_state != NULL) && (texture_index >= 0))
     {
         img_sound = g_HitTypeSounds[g_Textures[texture_index].hitSound];
+    
         if (img_sound->sfx_len > 0)
         {
             if (img_sound != NULL)
@@ -2405,13 +2401,16 @@ void recall_joy2_hits_edit_flag(enum ITEM_IDS item, coord3d* arg1, s32 texture_i
 
 f32 sub_GAME_7F0649AC(s32 param_1)
 {
-  f32 fVar1;
+    f32 fVar1;
 
-  fVar1 = -60.0f;
-  if (param_1 == 0x19) {
-    fVar1 -= 20.0f;
-  }
-  return fVar1;
+    fVar1 = -60.0f;
+
+    if (param_1 == 25)
+    {
+        fVar1 -= 20.0f;
+    }
+
+    return fVar1;
 }
 
 
@@ -2459,54 +2458,28 @@ void sub_GAME_7F0649D8(enum GUNHAND hand)
     }
 }
 
-#if defined(VERSION_US) || defined(VERSION_JP)
-    #define WEAPON_1P_ANIM_TIME(x) ((f32)(x))
-    #define WHEN_1_CASE_GRENADELAUNCH_FLD890 6
-    #define WHEN_1_CASE_GRENADE_FLD890 0xf0
-    #define WHEN_D_FLD890 0x14
-    #define WHEN_5_SP188_INIT 0x10
-    #define WHEN_5_SP188_MULTI 0xc
-    #define WHEN_5_FLD8B0_SP 0x11
-    #define WHEN_5_FLD8B0_MULTI 0xd
-    #define WHEN_8_SP178_INIT 0x17
-    #define WHEN_8_SP178_MULTI 0xc
-    #define WHEN_A_FLD890 0x10
-    #define WHEN_A_FLD8B0 0x11
-    #define WHEN_C_FLD890 0x17
-    #define WHEN_E_FLD890 0x10
-    #define WHEN_10_FLD890 0x17
-    #define WHEN_11_FLD890_1 0x10
-    #define WHEN_11_FLD890_2 0x18
-    #define WHEN_1E_FLD890 0x1e
-#endif
-#if defined(VERSION_EU)
-    #define WEAPON_1P_ANIM_TIME(x) ((f32)(x)) * 60.0f / 50.0f
-    #define WHEN_1_CASE_GRENADELAUNCH_FLD890 5
-    #define WHEN_1_CASE_GRENADE_FLD890 0xc8
-    #define WHEN_D_FLD890 0x10
-    #define WHEN_5_SP188_INIT 0xd
-    #define WHEN_5_SP188_MULTI 0xa
-    #define WHEN_5_FLD8B0_SP 0xe
-    #define WHEN_5_FLD8B0_MULTI 0xa
-    #define WHEN_8_SP178_INIT 0x13
-    #define WHEN_8_SP178_MULTI 0xa
-    #define WHEN_A_FLD890 0xd
-    #define WHEN_A_FLD8B0 0xe
-    #define WHEN_C_FLD890 0x13
-    #define WHEN_E_FLD890 0xd
-    #define WHEN_10_FLD890 0x13
-    #define WHEN_11_FLD890_1 0xd
-    #define WHEN_11_FLD890_2 0x14
-    #define WHEN_1E_FLD890 0x19
-#endif
+#define WEAPON_1P_ANIM_TIME(x) ((f32)(x))
+#define WHEN_1_CASE_GRENADELAUNCH_FLD890 6
+#define WHEN_1_CASE_GRENADE_FLD890 0xf0
+#define WHEN_D_FLD890 0x14
+#define WHEN_5_SP188_INIT 0x10
+#define WHEN_5_SP188_MULTI 0xc
+#define WHEN_5_FLD8B0_SP 0x11
+#define WHEN_5_FLD8B0_MULTI 0xd
+#define WHEN_8_SP178_INIT 0x17
+#define WHEN_8_SP178_MULTI 0xc
+#define WHEN_A_FLD890 0x10
+#define WHEN_A_FLD8B0 0x11
+#define WHEN_C_FLD890 0x17
+#define WHEN_E_FLD890 0x10
+#define WHEN_10_FLD890 0x17
+#define WHEN_11_FLD890_1 0x10
+#define WHEN_11_FLD890_2 0x18
+#define WHEN_1E_FLD890 0x1e
 
 
-/**
- * Address: 7F064B28
- */
 void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
 {
-#if defined(VERSION_US)
     s32 stack1;
     s32 stack2;
     s32 sp1C4;
@@ -2555,119 +2528,6 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
     f32 un_f32_num = 0.0f;
     f32 un_f32_div_1 = 16.0f;
     f32 un_f32_div_2 = 23.0f;
-    s32 stack14;
-    s32 stack15;
-#endif
-#if defined(VERSION_JP)
-    s32 stack1;
-    s32 stack2;
-    s32 sp1C4;
-    s32 stack3;
-    struct hand *sp1BC;
-    s32 stack4;
-    s32 sp1B4;
-    struct sfx2 sp1B0;
-    s32 stack5;
-    struct WeaponStats *weapon_stats;
-    s32 sp1A4;
-    s32 sp1A0;
-    f32 sp19C;
-    s32 stat_2;
-    s32 stat_3;
-    s32 stat_4;
-    f32 sp198;
-    s32 stack14;
-    f32 sp190;
-    f32 sp18C;
-    s32 sp188;
-    f32 sp184;
-    s32 stack7;
-    s32 stack8;
-    s32 sp178;
-    f32 sp174;
-    s32 stack9;
-    s32 stack10;
-    Mtxf sp12C;
-    f32 sp128;
-    s32 stack11;
-    Mtxf spE4;
-    s32 stack12;
-    f32 tempf;
-    Mtxf sp9C;
-    f32 sp98;
-    f32 sp94;
-    struct hand *handptr;
-    f32 sp8C;
-    f32 sp88;
-    enum ITEM_IDS temp_v0_3;
-    struct sfx3 sp7C;
-    enum ITEM_IDS var_s1;
-    Weapon1PTransformKeyframe *sp74;
-    struct PropRecord *temp_v0_8;
-    f32 temp_f0_2;
-    u32 var_a0_2;
-    f32 temp_v1_9;
-    struct hand *temp_v1_5;
-    f32 un_f32_num = 0.0f;
-    f32 un_f32_div_1 = 16.0f;
-    f32 un_f32_div_2 = 23.0f;
-    s32 stack15;
-#endif
-#if defined(VERSION_EU)
-    s32 stack1;
-    s32 stack2;
-    s32 sp1C4;
-    s32 stack3;
-    struct hand *sp1BC;
-    s32 stack4;
-    s32 sp1B4;
-    struct sfx2 sp1B0;
-    s32 stack5;
-    struct WeaponStats *weapon_stats;
-    s32 sp1A4;
-    s32 sp1A0;
-    f32 sp19C;
-    s32 stat_2;
-    s32 stat_3;
-    s32 stat_4;
-    f32 sp198;
-    s32 stack14;
-    f32 sp190;
-    f32 sp18C;
-    s32 sp188;
-    f32 sp184;
-    s32 stack7;
-    s32 stack8;
-    s32 sp178;
-    f32 sp174;
-    s32 stack9;
-    s32 stack10;
-    Mtxf sp12C;
-    f32 sp128;
-    s32 stack11;
-    Mtxf spE4;
-    s32 stack12;
-    f32 tempf;
-    Mtxf sp9C;
-    f32 sp98;
-    f32 sp94;
-    struct hand *handptr;
-    f32 sp8C;
-    f32 sp88;
-    enum ITEM_IDS temp_v0_3;
-    struct sfx3 sp7C;
-    enum ITEM_IDS var_s1;
-    Weapon1PTransformKeyframe *sp74;
-    struct PropRecord *temp_v0_8;
-    f32 temp_f0_2;
-    u32 var_a0_2;
-    f32 temp_v1_9;
-    struct hand *temp_v1_5;
-    f32 un_f32_num = 0.0f;
-    f32 un_f32_div_1 = 13.0f;
-    f32 un_f32_div_2 = 19.0f;
-    s32 stack15;
-#endif
 
     handptr = &g_CurrentPlayer->hands[hand];
     var_s1 = get_item_in_hand_or_watch_menu(hand);
@@ -3148,13 +3008,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
             handptr->field_890 = 0;
             handptr->field_88C = 0;
 
-            if ((getPlayerCount() == 1)
-#if defined(VERSION_JP) || defined(VERSION_EU)
-                || ((checkGamePaused() == 0) && (g_CurrentPlayer->mpmenuon == 0))
-#else
-                || (checkGamePaused() == 0)
-#endif
-               )
+            if ((getPlayerCount() == 1) || ((checkGamePaused() == 0) && (g_CurrentPlayer->mpmenuon == 0)))
             {
                 sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, EMPTY_GUN_FIRE_SFX, NULL);
             }
@@ -3166,6 +3020,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
         if (var_s1 == ITEM_TASER)
         {
             tempf = WEAPON_1P_ANIM_TIME(handptr->field_890);
+
             if (gunSample1PTransform(taserRaiseKeyframes, tempf, &handptr->field_8EC, hand) != 0)
             {
                 handptr->field_92C = 1;

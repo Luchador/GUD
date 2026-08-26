@@ -825,7 +825,7 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
 
                 texnum = in->words.w1 & 0xfff;
 
-                if ((texnum == D_800483C4) && (D_800483C8 != NULL))
+                if ((texnum == g_LastImpactTexNum) && (D_800483C8 != NULL))
                 {
                     if (D_800483C8[texnum].unk_0_0 < 0xffU)
                     {

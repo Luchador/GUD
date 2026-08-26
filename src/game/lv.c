@@ -130,7 +130,7 @@ f32 g_SystemPowerTimeSeconds = 0.0;
 bool g_BgRenderEnabled = TRUE;
 
 //D:800483C4
-s32 D_800483C4 = 0xFFFFFFFF;
+s32 g_LastImpactTexNum = 0xFFFFFFFF;
 
 //D:800483C8
 struct LvlMpUnknown *D_800483C8 = NULL;

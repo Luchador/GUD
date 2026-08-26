@@ -3177,7 +3177,7 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
     gunSetTracerTarget(&nearhitpos);
 
     // Make a fleshy impact sound.
-    recall_joy2_hits_edit_detail_edit_flag(shot->weapon, bhit->prop, -1);
+    gunfirePlaySfxBulletImpact(shot->weapon, bhit->prop, -1);
 
     chrCreateHitPuffs(bhit->prop, bhit->hitpart, &hitpos, &nearhitpos);
 

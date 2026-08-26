@@ -4037,7 +4037,7 @@ f32 objTickDoor(PropRecord *prop)
     if ((((s32) door->openedTime > 0)
             && ((s32) door->openedTime < (s32) g_GlobalTimer - (s32) door->autoCloseFrames)
             && door->openstate == DOORSTATE_STATIONARY)
-            && !(door->flags & PROPFLAG_DOOR_KEEPOPEN))
+            && !(door->flags & PROPFLAG_STARTOPEN))
     {
         doorActivate(door, DOORSTATE_CLOSING);
     }
@@ -5687,7 +5687,7 @@ TICKOP objTickProjectile(PropRecord *prop)
                                 }
 
                                 Proj->unk90 += 1;
-                                recall_joy2_hits_edit_detail_edit_flag(((struct WeaponObjRecord *) obj)->weaponnum, D_80030B0C, -1);
+                                gunfirePlaySfxBulletImpact(((struct WeaponObjRecord *) obj)->weaponnum, D_80030B0C, -1);
 
                                 if (((D_80030B0C->flags & PROPFLAG_ONSCREEN) && (bodypartshot != HIT_GUN)) && (bodypartshot != HIT_HAT))
                                 {
@@ -6173,14 +6173,14 @@ void objTickAutogunFire(PropRecord *prop)
                     bullet_spark_create(&sp110, 1, 26.0f, (s16) sp10C->room);
                 }
 
-                recall_joy2_hits_edit_flag(14, &sp110, -1);
+                gunfirePlaySfxRicochetSounds(14, &sp110, -1);
             }
             else
             {
                 sp110.f[0] = sp100->pos.f[0];
                 sp110.f[1] = sp100->pos.f[1];
                 sp110.f[2] = sp100->pos.f[2];
-                recall_joy2_hits_edit_detail_edit_flag(14, sp100, -1);
+                gunfirePlaySfxBulletImpact(14, sp100, -1);
             }
 
             if (sp104 != 0)
@@ -8094,14 +8094,10 @@ void objFall(ObjectRecord *obj, s32 playernum)
     obj->runtime_bitflags &= ~(RUNTIMEBITFLAG_OWNER);
     obj->runtime_bitflags |= (playernum << RUNTIMEBITSHIFT_OWNER);
 
-    if ((obj->flags2 & PROPFLAG2_NOFALL) == 0
-            && (obj->flags & PROPFLAG_RENDERPOSTBG)
-            && (obj->runtime_bitflags & (RUNTIMEBITFLAG_EMBEDDED | RUNTIMEBITFLAG_HASPROJECTILE)) == 0)
+    if ((obj->flags2 & PROPFLAG2_NOFALL) == 0 && (obj->flags & PROPFLAG_RENDERPOSTBG) && (obj->runtime_bitflags & (RUNTIMEBITFLAG_EMBEDDED | RUNTIMEBITFLAG_HASPROJECTILE)) == 0)
     {
-
         coord3d rot = {0, 0, 0};
         Projectile *projectile = NULL;
-        s32 unused;
 
         sub_GAME_7F03FDA8(obj->prop);
 
@@ -8118,15 +8114,9 @@ void objFall(ObjectRecord *obj, s32 playernum)
 
             if ((obj->flags2 & PROPFLAG2_FALLWITHOUTROTATION) == 0)
             {
-#ifdef VERSION_EU
-                rot.x = ((RANDOMFRAC() * 7.5398226f) / 320.0f) - 0.011780973f;
-                rot.y = ((RANDOMFRAC() * 7.5398226f) / 320.0f) - 0.011780973f;
-                rot.z = ((RANDOMFRAC() * 7.5398226f) / 320.0f) - 0.011780973f;
-#else
                 rot.x = ((RANDOMFRAC() * M_TAU_F) / 320.0f) - 0.009817477f;
                 rot.y = ((RANDOMFRAC() * M_TAU_F) / 320.0f) - 0.009817477f;
                 rot.z = ((RANDOMFRAC() * M_TAU_F) / 320.0f) - 0.009817477f;
-#endif
             }
 
             matrix_4x4_set_rotation_around_xyz(rot.f, &projectile->mtx);
@@ -8198,11 +8188,7 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
     }
 
     prop = obj->prop;
-#if defined(VERSION_EU)
-    explosion_type = ((s8 *) object_explosion_details.typeids)[obj->obj];
-#else
     explosion_type = object_explosion_details[obj->obj].TypeID;
-#endif
     tailprop = prop;
 
     if (tailprop->parent != (NULL))
@@ -8254,12 +8240,12 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
             {
                 return;
             }
-            if (tailprop && tailprop);
-            if(1);
         }
 
         obj->runtime_bitflags |= RUNTIMEBITFLAG_00010000;
+
         objFall(obj, playernum);
+
         return;
     }
 
@@ -8292,17 +8278,13 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
         {
             ((PropDefHeaderRecord *)obj)->state &= ~PROPSTATE_10;
         }
-#if defined(VERSION_EU)
-        prop->timetoregen = 1000;
-#else
+
         prop->timetoregen = 1200;
-#endif
     }
 
     if (shots >= 12)
     {
         obj->runtime_bitflags |= RUNTIMEBITFLAG_00001000;
-        if(1);
         obj->flags &= ~RUNTIMEBITFLAG_00000100;
     }
 }
@@ -8609,7 +8591,6 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
 }
 
 
-// PD: obj_find_hitthing_by_gfx_tris
 bool propobjFindHit(Model *model, ModelNode *startNode, coord3d *rayPos, coord3d *rayDir, struct HitThing *hitthing, s32 *dstmtxindex, ModelNode **dstnode)
 {
     coord3d spec;
@@ -8759,10 +8740,12 @@ bool propobjFindHit(Model *model, ModelNode *startNode, coord3d *rayPos, coord3d
 }
 
 
-void sub_GAME_7F04DCB4(ObjectRecord* obj)
+void objBreakGlassPane(ObjectRecord* obj)
 {
     PropRecord* prop;
     struct ModelRoData_BoundingBoxRecord *bbox;
+
+    return;
 
     prop = obj->prop;
     bbox = chrobjGetBboxFromObjectRecord(obj);
@@ -8781,7 +8764,7 @@ void sub_GAME_7F04DCB4(ObjectRecord* obj)
 }
 
 
-void sub_GAME_7F04DD68(DoorRecord *door)
+void objBreakDoorGlass(DoorRecord *door)
 {
     PropRecord *prop;
     Model *model;
@@ -9076,7 +9059,7 @@ apply_damage:
     {
         if (obj->damage <= obj->maxdamage)
         {
-            sub_GAME_7F04DCB4(obj);
+            objBreakGlassPane(obj);
         }
     }
     else
@@ -9390,11 +9373,11 @@ void objHit(ShotData *shotdata, BulletHit *hit)
 
     if (hit->countsAsPenetration == 0)
     {
-        sub_GAME_7F064720(&hit->prop->pos);
+        gunfirePlaySfxBulletThroughGlass(&hit->prop->pos);
     }
     else
     {
-        recall_joy2_hits_edit_detail_edit_flag(shotdata->weapon, hit->prop, hit->hit.texturenum);
+        gunfirePlaySfxBulletImpact(shotdata->weapon, hit->prop, hit->hit.texturenum);
     }
 
     if (shotdata->weapon != ITEM_WATCHLASER)
@@ -9481,7 +9464,7 @@ void objHit(ShotData *shotdata, BulletHit *hit)
 
         if (((DoorRecord *)obj)->unkbd >= 3)
         {
-            sub_GAME_7F04DD68(obj);
+            objBreakDoorGlass(obj);
         }
     }
 
@@ -9494,7 +9477,7 @@ void objHit(ShotData *shotdata, BulletHit *hit)
 
         if (objIsCollectable(obj))
         {
-            if (!(obj->flags & PROPFLAG_00400000))
+            if (!(obj->flags & PROPFLAG_BOUNCE))
             {
                 do_bounce = TRUE;
             }
@@ -9525,7 +9508,7 @@ void objHit(ShotData *shotdata, BulletHit *hit)
 }
 
 
-bool objIsHealthy(ObjectRecord *self) //#MATCH
+bool objIsHealthy(ObjectRecord *self)
 {
     return objGetDestroyedLevel(self) == 0;
 }
@@ -9549,9 +9532,7 @@ bool objTestForInteract(PropRecord* prop)
 
     obj = prop->obj;
 
-    if (((obj->type == PROP_TYPE_PLAYER)
-            || (obj->flags & PROPFLAG_00080000)
-            || (obj->runtime_bitflags & (RUNTIMEBITFLAG_00000001 | RUNTIMEBITFLAG_00000002 | RUNTIMEBITFLAG_TAGGED))))
+    if (((obj->type == PROP_TYPE_PLAYER) || (obj->flags & PROPFLAG_00080000) || (obj->runtime_bitflags & (RUNTIMEBITFLAG_00000001 | RUNTIMEBITFLAG_00000002 | RUNTIMEBITFLAG_TAGGED))))
     {
         if ((prop->flags & PROPFLAG_ONSCREEN)
                 && (objIsHealthy(obj) != 0)
@@ -12288,7 +12269,7 @@ PropRecord* doorInit(DoorRecord* door, coord3d* pos, Mtxf* mtx, StandTile* stan,
     door->unkac = (f32) coord->y;
     door->unkb0 = (f32) coord->z;
 
-    if (door->flags & PROPFLAG_80000000)
+    if (door->flags & PROPFLAG_STARTOPEN)
     {
         door->openPosition = door->maxFrac;
     } 
@@ -12393,6 +12374,7 @@ s32 sub_GAME_7F053894(coord3d *pos, f32 low, f32 high)
             shortest_distance = distance;
         }
     }
+
     return sub_GAME_7F0537B8(shortest_distance, low, high);
 }
 
@@ -12840,7 +12822,7 @@ void doorPlayCloseSound1(DoorRecord *door)
  */
 void doorStartOpen(DoorRecord *door)
 {
-    door->flags &= ~PROPFLAG_DOOR_KEEPOPEN;
+    door->flags &= ~PROPFLAG_STARTOPEN;
     door->runtime_bitflags |= RUNTIMEBITFLAG_BEENOPENED;
 
     doorPlayOpenSound0(door);
@@ -12863,7 +12845,7 @@ void doorStartOpen(DoorRecord *door)
  */
 void doorStartClose(DoorRecord *door)
 {
-    door->flags &= ~PROPFLAG_DOOR_KEEPOPEN;
+    door->flags &= ~PROPFLAG_STARTOPEN;
     doorPlayOpenSound1(door);
 }
 

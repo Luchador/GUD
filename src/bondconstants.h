@@ -311,8 +311,8 @@ typedef enum PROPFLAG
     PROPFLAG_00040000                    = 0x00040000, // Allow Pickup (chr_type)
     PROPFLAG_00080000                    = 0x00080000, // Collect Object by Interaction Button Only
     PROPFLAG_UNCOLLECTABLE               = 0x00100000, // Item Not Collectable
-    PROPFLAG_00200000                    = 0x00200000, // Bounce and Destroy If Shot
-    PROPFLAG_00400000                    = 0x00400000, // unknown
+    PROPFLAG_00200000                    = 0x00200000, // Bounce and destroy if Shot
+    PROPFLAG_BOUNCE                      = 0x00400000, // Bounce if shot
     PROPFLAG_00800000                    = 0x00800000, // unknown
     PROPFLAG_01000000                    = 0x01000000, // Embedded Object
     PROPFLAG_CANNOT_ACTIVATE             = 0x02000000, // Cannot Activate Door/Object
@@ -331,9 +331,8 @@ typedef enum PROPFLAG
     PROPFLAG_MONITOR_RENDERPOSTBG        = 0x40000000,
     PROPFLAG_NO_PORTAL_CLOSE             = 0x40000000, // Area Behind Door Visible
     PROPFLAG_NO_AMMO                     = 0x40000000, // No Ammo on pickup
-    PROPFLAG_80000000                    = 0x80000000, // Open By Default/Weapon Paired for Player
-    PROPFLAG_IS_DOUBLE                   = 0x80000000,
-    PROPFLAG_DOOR_KEEPOPEN               = 0x80000000
+    PROPFLAG_STARTOPEN                   = 0x80000000, // Door open By Default
+    PROPFLAG_IS_DOUBLE                   = 0x80000000 // Weapon paired for player
 }PROPFLAG;
 
 // prop definition flags
@@ -4188,7 +4187,7 @@ typedef enum PROJECTILES
         ITEM_SUIT_LF_HAND,
         ITEM_JOYPAD,
         ITEM_ROCKETROUND,
-        ITEM_GRENADEROUND ,
+        ITEM_GRENADEROUND,
         ITEM_TOKEN,
         ITEM_IDS_MAX
     } ITEM_IDS;

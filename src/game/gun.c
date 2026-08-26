@@ -1409,32 +1409,32 @@ void sub_GAME_7F05EA94(Model* model, s32 val)
 }
 
 
-void gunInitProjectileObject(ObjectRecord *obj, coord3d *pos, StandTile *stan, Mtxf *matrix, coord3d *velocity, Mtxf *arg5, PropRecord *owner)
+void gunInitProjectileObject(ObjectRecord *obj, coord3d *pos, StandTile *stan, Mtxf *matrix, coord3d *velocity, Mtxf *spinMtx, PropRecord *owner)
 {
-    PropRecord *temp_s1;
-    Projectile *temp_v0;
+    PropRecord *prop;
+    Projectile *proj;
 
-    temp_s1 = obj->prop;
+    prop = obj->prop;
 
-    if (temp_s1 != NULL)
+    if (prop != NULL)
     {
-        chrpropActivate(temp_s1);
-        chrpropEnable(temp_s1);
+        chrpropActivate(prop);
+        chrpropEnable(prop);
         matrix_scalar_multiply(obj->model->scale, matrix);
         objChangeShading(obj, pos, matrix, stan);
 
         setupUpdateObjectRoomPosition(obj);
 
         objUpdateCollisionVolume(obj);
-        sub_GAME_7F03FDA8(temp_s1);
+        sub_GAME_7F03FDA8(prop);
 
         if (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
         {
-            temp_v0 = obj->projectile;
-            temp_v0->flags |= 0x41;
+            proj = obj->projectile;
+            proj->flags |= (PROJECTILEFLAG_AIRBORNE | PROJECTILEFLAG_00000040);
             obj->projectile->ownerprop = owner;
-            projectileSetSticky(temp_s1);
-            matrix_4x4_copy(arg5, &obj->projectile->mtx);
+            projectileSetSticky(prop);
+            matrix_4x4_copy(spinMtx, &obj->projectile->mtx);
             obj->projectile->speed.f[0] = velocity->f[0];
             obj->projectile->speed.f[1] = velocity->f[1];
             obj->projectile->speed.f[2] = velocity->f[2];

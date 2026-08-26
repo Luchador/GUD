@@ -135,7 +135,7 @@ void                 sub_GAME_7F056690(void);
 f32                  bondviewGetPlayerPitchRadians(void);
 TICKOP               objTickPlayer(struct PropRecord* arg0);
 TICKOP               weaponTickPlayer(struct PropRecord* arg0);
-void                 sub_GAME_7F04DD68(DoorRecord *door);
+void                 objBreakDoorGlass(DoorRecord *door);
 bool                 posIsOnScreen(PropRecord *prop, coord3d *pos, f32 arg2, bool arg3);
 void                 update_color_shading(rgba_u8 *dest, rgba_u8 *src);
 void                 chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl);
