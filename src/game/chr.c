@@ -1360,21 +1360,13 @@ s32 sub_GAME_7F01FC10(Model *model, coord3d *src, coord3d *dst, f32 *ground_y)
     {
         if ((chr->actiontype == ACT_DIE) && (chr->act_die.timeextra > ground))
         {
-#ifdef BUGFIX_R1
-            tmp = ((model->playspeed * g_JP_GlobalTimerDelta) * (chr->act_die.timeextra - chr->act_die.elapseextra)) / chr->act_die.timeextra;
-#else
             tmp = ((model->playspeed * g_GlobalTimerDelta) * (chr->act_die.timeextra - chr->act_die.elapseextra)) / chr->act_die.timeextra;
-#endif
 
             dst->x += chr->act_die.extraspeed.x * tmp;
             dst->y += chr->act_die.extraspeed.y * tmp;
             dst->z += chr->act_die.extraspeed.z * tmp;
 
-#ifdef BUGFIX_R1
-            chr->act_die.elapseextra += g_JP_GlobalTimerDelta * model->playspeed;
-#else
             chr->act_die.elapseextra += g_GlobalTimerDelta * model->playspeed;
-#endif
 
             if (chr->act_die.timeextra < chr->act_die.elapseextra)
             {
@@ -1532,23 +1524,23 @@ f32 chrGetArmor(ChrRecord *chr)
 
 PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct coord3d *arg2, f32 arg3, StandTile *arg4, struct AIListRecord *arg5)
 {
-    ChrRecord *var_s0;
+    ChrRecord *chr;
     s32 var_v0;
 
-    var_s0 = NULL;
+    chr = NULL;
     var_v0 = 0;
 
     for (var_v0 = 0; var_v0 < g_NumChrSlots; var_v0++)
     {
         if (g_ChrSlots[var_v0].model == NULL)
         {
-            var_s0 = &g_ChrSlots[var_v0];
+            chr = &g_ChrSlots[var_v0];
             break;
         }
     }
 
     arg0->type = PROP_TYPE_CHR;
-    arg0->chr = var_s0;
+    arg0->chr = chr;
     arg0->pos.f[0] = arg2->f[0];
     arg0->pos.f[1] = arg2->f[1];
     arg0->pos.f[2] = arg2->f[2];
@@ -1557,114 +1549,107 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
     sub_GAME_7F06FF5C(arg1, (s32) sub_GAME_7F01FC10);
 
     arg1->unk00 = 0xA;
-    arg1->chr = var_s0;
+    arg1->chr = chr;
 
     setsuboffset(arg1, arg2);
     setsubroty(arg1, arg3);
 
-    #if defined(VERSION_EU)
-    modelSetAnimPlaySpeed(arg1, animation_rate * 1.2f, 0.0f);
-    #else
     modelSetAnimPlaySpeed(arg1, animation_rate, 0.0f);
-    #endif
 
-    var_s0->chrnum = (s16) player1_guardID;
+    chr->chrnum = (s16) player1_guardID;
     player1_guardID += 1;
-    var_s0->headnum = 0;
-    var_s0->bodynum = 0;
-    var_s0->prop = arg0;
-    var_s0->model = arg1;
-    var_s0->hitChain = NULL;
-    var_s0->numarghs = 0;
-    var_s0->lastwalk60 = 0;
-    var_s0->invalidmove = 0;
-    var_s0->lastmoveok60 = g_GlobalTimer;
-    var_s0->lastseetarget60 = 0;
-    var_s0->lastknowntargetpos.f[0] = 0.0f;
-    var_s0->lastknowntargetpos.f[1] = 0.0f;
-    var_s0->lastknowntargetpos.f[2] = 0.0f;
-    var_s0->targetTile = NULL;
-    var_s0->seen_bond_time = 0;
-    var_s0->lastheartarget60 = 0;
-    var_s0->numclosearghs = 0;
-    var_s0->shotbondsum = 0.0f;
-    var_s0->damage = 0.0f;
-    var_s0->visionrange = 250.0f;
-    var_s0->hearingscale = 1.0f;
+    chr->headnum = 0;
+    chr->bodynum = 0;
+    chr->prop = arg0;
+    chr->model = arg1;
+    chr->hitChain = NULL;
+    chr->numarghs = 0;
+    chr->lastwalk60 = 0;
+    chr->invalidmove = 0;
+    chr->lastmoveok60 = g_GlobalTimer;
+    chr->lastseetarget60 = 0;
+    chr->lastknowntargetpos.f[0] = 0.0f;
+    chr->lastknowntargetpos.f[1] = 0.0f;
+    chr->lastknowntargetpos.f[2] = 0.0f;
+    chr->targetTile = NULL;
+    chr->seen_bond_time = 0;
+    chr->lastheartarget60 = 0;
+    chr->numclosearghs = 0;
+    chr->shotbondsum = 0.0f;
+    chr->damage = 0.0f;
+    chr->visionrange = 250.0f;
+    chr->hearingscale = 1.0f;
 
-    var_s0->maxdamage = get_007_health_mod() * 4.0f;
-    objSetColorFromTile(arg0, &var_s0->nextcol);
+    chr->maxdamage = get_007_health_mod() * 4.0f;
+    objSetColorFromTile(arg0, &chr->nextcol);
 
-    var_s0->shadecol.rgba[0] = var_s0->nextcol.rgba[0];
-    var_s0->shadecol.rgba[1] = var_s0->nextcol.rgba[1];
-    var_s0->shadecol.rgba[2] = var_s0->nextcol.rgba[2];
-    var_s0->shadecol.rgba[3] = var_s0->nextcol.rgba[3];
-    var_s0->fadealpha = 0xFF;
-    var_s0->field_160[0].ptr_SEbuffer1 = NULL;
-    var_s0->field_160[0].ptr_SEbuffer2 = NULL;
-    var_s0->field_160[1].ptr_SEbuffer1 = NULL;
-    var_s0->field_160[1].ptr_SEbuffer2 = NULL;
-    var_s0->field_178[0] = 0;
-    var_s0->field_178[1] = 0;
-    var_s0->chrflags = CHRFLAG_INIT;
-    var_s0->hidden = CHRHIDDEN_NONE;
-    var_s0->sumground = 0.0f;
-    var_s0->manground = 0.0f;
-    var_s0->ground = 0.0f;
-    var_s0->fallspeed.f[0] = 0.0f;
-    var_s0->fallspeed.f[1] = 0.0f;
-    var_s0->fallspeed.f[2] = 0.0f;
-    var_s0->prevpos.f[0] = arg2->f[0];
-    var_s0->prevpos.f[1] = arg2->f[1];
-    var_s0->prevpos.f[2] = arg2->f[2];
-    var_s0->actiontype = 0;
-    var_s0->sleep = 0;
-    var_s0->ailist = (AIRecord *) arg5;
-    var_s0->aioffset = 0;
-    var_s0->aireturnlist = -1;
-    var_s0->morale = 0;
-    var_s0->alertness = 0;
-    var_s0->flags2 = 0;
-    var_s0->random = 0;
-    var_s0->timer60 = 0;
-    var_s0->padpreset1 = -1;
-    var_s0->chrseeshot = -1;
-    var_s0->chrseedie = -1;
-    var_s0->chrpreset1 = -1;
-    var_s0->beams[0].unk00 = -1;
-    var_s0->beams[1].unk00 = -1;
-    var_s0->firecount[0] = 0;
-    var_s0->firecount[1] = 0;
-    var_s0->grenadeprob = 0;
-    var_s0->accuracyrating = 0;
-    var_s0->speedrating = 0;
-    var_s0->arghrating = 0;
-    var_s0->flinchcnt = -1;
-    var_s0->aimuplshoulder = 0.0f;
-    var_s0->aimuprshoulder = 0.0f;
-    var_s0->aimupback = 0.0f;
-    var_s0->aimsideback = 0.0f;
-    var_s0->aimendlshoulder = 0.0f;
-    var_s0->aimendrshoulder = 0.0f;
-    var_s0->aimendback = 0.0f;
-    var_s0->aimendsideback = 0.0f;
-    var_s0->aimendcount = 0;
-    var_s0->weapons_held[0] = NULL;
-    var_s0->weapons_held[1] = NULL;
-    var_s0->handle_positiondata_hat = NULL;
-    var_s0->chrwidth = 20.0f;
-    var_s0->chrheight = 185.0f;
+    chr->shadecol.rgba[0] = chr->nextcol.rgba[0];
+    chr->shadecol.rgba[1] = chr->nextcol.rgba[1];
+    chr->shadecol.rgba[2] = chr->nextcol.rgba[2];
+    chr->shadecol.rgba[3] = chr->nextcol.rgba[3];
+    chr->fadealpha = 0xFF;
+    chr->field_160[0].ptr_SEbuffer1 = NULL;
+    chr->field_160[0].ptr_SEbuffer2 = NULL;
+    chr->field_160[1].ptr_SEbuffer1 = NULL;
+    chr->field_160[1].ptr_SEbuffer2 = NULL;
+    chr->field_178[0] = 0;
+    chr->field_178[1] = 0;
+    chr->chrflags = CHRFLAG_INIT;
+    chr->hidden = CHRHIDDEN_NONE;
+    chr->sumground = 0.0f;
+    chr->manground = 0.0f;
+    chr->ground = 0.0f;
+    chr->fallspeed.f[0] = 0.0f;
+    chr->fallspeed.f[1] = 0.0f;
+    chr->fallspeed.f[2] = 0.0f;
+    chr->prevpos.f[0] = arg2->f[0];
+    chr->prevpos.f[1] = arg2->f[1];
+    chr->prevpos.f[2] = arg2->f[2];
+    chr->actiontype = 0;
+    chr->sleep = 0;
+    chr->ailist = (AIRecord *) arg5;
+    chr->aioffset = 0;
+    chr->aireturnlist = -1;
+    chr->morale = 0;
+    chr->alertness = 0;
+    chr->flags2 = 0;
+    chr->random = 0;
+    chr->timer60 = 0;
+    chr->padpreset1 = -1;
+    chr->chrseeshot = -1;
+    chr->chrseedie = -1;
+    chr->chrpreset1 = -1;
+    chr->beams[0].unk00 = -1;
+    chr->beams[1].unk00 = -1;
+    chr->firecount[0] = 0;
+    chr->firecount[1] = 0;
+    chr->grenadeprob = 0;
+    chr->accuracyrating = 0;
+    chr->speedrating = 0;
+    chr->arghrating = 0;
+    chr->flinchcnt = -1;
+    chr->aimuplshoulder = 0.0f;
+    chr->aimuprshoulder = 0.0f;
+    chr->aimupback = 0.0f;
+    chr->aimsideback = 0.0f;
+    chr->aimendlshoulder = 0.0f;
+    chr->aimendrshoulder = 0.0f;
+    chr->aimendback = 0.0f;
+    chr->aimendsideback = 0.0f;
+    chr->aimendcount = 0;
+    chr->weapons_held[0] = NULL;
+    chr->weapons_held[1] = NULL;
+    chr->handle_positiondata_hat = NULL;
+    chr->chrwidth = 20.0f;
+    chr->chrheight = 185.0f;
 
-    sub_GAME_7F01FC10(arg1, &arg0->pos, &arg0->pos, &var_s0->ground);
-    chrDetectRooms(var_s0);
+    sub_GAME_7F01FC10(arg1, &arg0->pos, &arg0->pos, &chr->ground);
+    chrDetectRooms(chr);
 
     return arg0;
 }
 
 
-/**
- * Address 0x7F0203B8.
- */
 PropRecord * chrAllocate( Model * arg0, coord3d * arg1, f32 arg2,  StandTile * arg3, s32 arg4)
 {
     PropRecord * ret;
@@ -1681,9 +1666,6 @@ PropRecord * chrAllocate( Model * arg0, coord3d * arg1, f32 arg2,  StandTile * a
 }
 
 
-/**
- * Address: 7F020414.
- */
 void chrpropCleanupForRemoval(PropRecord *prop)
 {
     ChrRecord *chr;

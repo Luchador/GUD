@@ -9145,14 +9145,9 @@ void record_damage_kills(f32 damage_amount, f32 vectorx, f32 vectorz, s32 player
                                 sp28 = 1;
                             }
 
-#if defined(VERSION_EU) || defined(VERSION_JP)
-                            drop_inventory();
-#endif
                             if (sp2C != playerid)
                             {
-#if defined(VERSION_US)
                                 drop_inventory();
-#endif
                                 increment_num_deaths();
                             }
 
@@ -9808,11 +9803,7 @@ Gfx *bondviewRenderUpperText(Gfx *gdl)
                     else
                     {
                         msg.x = viGetViewLeft() + 0x1e;
-#ifdef VERSION_EU
-                        msg.y = viGetViewTop() + 0x10;
-#else
                         msg.y = viGetViewTop() + 0xd;
-#endif
                     }
 
                     msg.bottom = msg.y + msg.textheight;

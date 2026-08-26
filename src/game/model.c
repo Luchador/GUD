@@ -2523,9 +2523,6 @@ void modelSetAnimMergingEnabled(s32 arg0)
 }
 
 
-/**
- * Address 0x7F0701E0.
-*/
 u32 modelIsAnimMergingEnabled(void)
 {
     return g_ModelAnimMergingEnabled;
@@ -5099,9 +5096,6 @@ s32 sub_GAME_7F074CAC(Model *model, ModelNode *node, coord3d *raypos, coord3d *r
 }
 
 
-/**
- * Address: 7F0752FC
- */
 u32 modelFindNextProjectileHitCandidate(Model *model, coord3d *arg1, coord3d *arg2, ModelNode **nodeptr)
 {
     ModelNode *node;
@@ -5237,9 +5231,6 @@ s32 loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
 }
 
 
-/**
- * Address 7F0755B0.
-*/
 void modelResetAnimationsScratchBuffer(void)
 {
     if (D_80036414 != NULL) // should never be NULL after initAnimationsBuffer is called

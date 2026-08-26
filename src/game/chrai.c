@@ -3722,11 +3722,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                     u16                          sfxID = ntohs(ai->sfxID);
                     if (ai->slotID >= 0 && ai->slotID < 8)
                     {
-    #ifdef VERSION_EU
-                        sfx_related[ai->slotID].sfxID = (sfxID * 50) / 60;
-    #else
                         sfx_related[ai->slotID].sfxID = sfxID;
-    #endif
                         sfx_related[ai->slotID].Volume = vol;
                         sfx_related[ai->slotID].pos    = NULL;
                         sfx_related[ai->slotID].Obj    = NULL;
@@ -3751,11 +3747,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                      */
                     if (ai->slotID >= 0 && ai->slotID < 8)
                     {
-    #ifdef VERSION_EU
-                        sfx_related[ai->slotID].sfxID = (sfxID * 50) / 60;
-    #else
                         sfx_related[ai->slotID].sfxID = sfxID;
-    #endif
                         sfx_related[ai->slotID].Volume = sub_GAME_7F0539B8(vol);
                         sfx_related[ai->slotID].pos    = NULL;
                         sfx_related[ai->slotID].Obj    = NULL;
@@ -3774,11 +3766,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                     u16                        sfxID = ntohs(ai->sfxID);
                     if (ai->slotID >= 0 && ai->slotID < 8 && obj)
                     {
-    #ifdef VERSION_EU
-                        sfx_related[ai->slotID].sfxID = (sfxID * 50) / 60;
-    #else
                         sfx_related[ai->slotID].sfxID = sfxID;
-    #endif
                         sfx_related[ai->slotID].pos = NULL;
                         sfx_related[ai->slotID].Obj = obj;
                         if (sfxID == 0)
@@ -3805,11 +3793,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                     }
                     if (ai->slotID >= 0 && ai->slotID < 8 && pad)
                     {
-    #ifdef VERSION_EU
-                        sfx_related[ai->slotID].sfxID = (sfxID * 50) / 60;
-    #else
                         sfx_related[ai->slotID].sfxID = sfxID;
-    #endif
                         sfx_related[ai->slotID].pos = pad;
                         sfx_related[ai->slotID].Obj = NULL;
                         if (sfxID == 0)

@@ -133,7 +133,7 @@ Vtx g_ScorchDefaultVertex = {0, 0, 0, 0, 0, 0, 0x0, 0x0, 0x0, 0xDC };
 Vtx g_BulletImpactDefaultVertex = {0, 0, 0, 0, 0, 0, 0x0, 0x0, 0x0, 0xDC };
 
 
-// Start forward declarations
+// Begin forward declarations.
 
 void explosionInitFlyingParticles(coord3d *spawnpos, f32 spawn_rand_scale, f32 spawn_horiz_drift_scale, f32 spawn_vert_drift_scale, f32 spawn_tex_scale);
 s32 explosionRoundFloat(f32 arg0);
@@ -143,7 +143,7 @@ void explosionInflictDamage(struct PropRecord *arg0, f32 arg1, f32 arg2);
 void explosionScorchTick(struct coord3d *pos, f32 explosion_size, s16 room);
 Gfx *explosionRenderPart(struct ExplosionPart *arg0, Gfx *gdl, struct coord3d *coord);
 
-// End forward declarations
+// End forward declarations.
 
 
 void explosionInitScaleMtx(void)
@@ -152,12 +152,7 @@ void explosionInitScaleMtx(void)
 }
 
 
-#if defined(VERSION_JP) || defined(VERSION_EU)
-s32
-#else
-void
-#endif
-explosionCreate(PropRecord *arg0, struct coord3d *target_pos, StandTile *target_stan, s16 explosion_type, s32 arg4, s32 player, u8 *rooms, s32 arg7)
+void explosionCreate(PropRecord *arg0, struct coord3d *target_pos, StandTile *target_stan, s16 explosion_type, s32 arg4, s32 player, u8 *rooms, s32 arg7)
 {
     s_explosiontype *sp44;
     struct Explosion *sp40;
@@ -169,12 +164,10 @@ explosionCreate(PropRecord *arg0, struct coord3d *target_pos, StandTile *target_
     sp44 = &g_ExplosionTypes[explosion_type];
     sp40 = NULL;
 
-#if defined(VERSION_US)
     if ((explosion_type != 0x10) && (explosion_type != 1))
     {
         g_NumExplosionEntries = 6;
     }
-#endif
 
     for (var_v0 = 0; var_v0 < EXPLOSION_BUFFER_LEN; var_v0++)
     {
@@ -188,13 +181,6 @@ explosionCreate(PropRecord *arg0, struct coord3d *target_pos, StandTile *target_
     if (sp40 != NULL)
     {
         sp30 = chrpropAllocate();
-
-#if defined(VERSION_JP) || defined(VERSION_EU)
-        if ((explosion_type != 0x10) && (explosion_type != 1))
-        {
-            g_NumExplosionEntries = 6;
-        }
-#endif
 
         if ((s32) sp44->sndID > 0)
         {
@@ -290,10 +276,6 @@ explosionCreate(PropRecord *arg0, struct coord3d *target_pos, StandTile *target_
             }
         }
     }
-
-#if defined(VERSION_JP) || defined(VERSION_EU)
-    return sp40 != 0;
-#endif
 }
 
 
