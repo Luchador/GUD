@@ -152,11 +152,11 @@ void reinit_between_menus(void)
     g_LevelLoadPropSafeItem = NULL;
     D_80030B0C = NULL;
     bodypartshot = -1;
-    F_80030B14 = 1.0f;
-    F_80030B18 = 1.0f;
+    g_CctvAlarmDelayMult = 1.0f;
+    g_CctvTakenDamageMult = 1.0f;
     g_AutogunPendingDamageTick = 1.0f;
     g_AutogunDamageScalar = 1.0f;
-    F_80030B24 = 1.0f;
+    g_AutogunTakenDamageMult = 1.0f;
     g_SoloAmmoMultiplier = 1.0f;
 }
 

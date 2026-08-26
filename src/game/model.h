@@ -53,7 +53,7 @@ void modelApplyHeadRelations(Model* model, ModelNode* bodynode);
 void modelApplyReorderRelationsByArg(ModelNode *basenode, bool visible);
 void modelApplyReorderRelations(Model* model, ModelNode* node);
 void modelUpdateReorderRelations(Model *model, ModelNode *node);
-void process_07_unknown(Model *model, ModelNode *node);
+//void process_07_unknown(Model *model, ModelNode *node);
 void modelUpdateRelationsQuick(Model *model, ModelNode *parent);
 void modelUpdateNodeRelations(Model *model);
 void modelUpdateMatrices(ModelRenderData *arg0, Model *model);
@@ -92,7 +92,7 @@ void modelRenderNodeDl(ModelRenderData *renderdata, Model *model, ModelNode *nod
 void dorottex(ModelRenderData *renderdata, ModelNode *node);
 void sub_GAME_7F073038(ModelRenderData *renderdata, struct sImageTableEntry *tconfig, s32 arg2);
 void sub_GAME_7F07306C(s32 param_1,struct Model *param_2,struct ModelNode *param_3);
-void dotube(ModelRenderData* renderdata, Model* model, ModelNode* node);
+//void dotube(ModelRenderData* renderdata, Model* model, ModelNode* node);
 void sub_GAME_7F0737EC(s32 param_1,struct Model *param_2, struct ModelNode *param_3);
 void sub_GAME_7F0737FC(s32 param_1,struct Model *param_2,struct ModelNode *param_3);
 void dogfnegx(ModelRenderData *renderdata, Model *model, ModelNode *node);

@@ -22,83 +22,87 @@ s_shattered_window_piece* ptr_shattered_window_pieces;
 s32 g_NextShardNum = 0;
 
 
-void sub_GAME_7F0A1DA0(coord3d *pos, coord3d *xaxis, coord3d *yaxis, coord3d *zaxis, f32 xmin, f32 xmax, f32 ymin, f32 ymax, f32 arg8, f32 arg9)
+void glassShatterPane(coord3d *pos, coord3d *xaxis, coord3d *yaxis, coord3d *zaxis, f32 xmin, f32 xmax, f32 ymin, f32 ymax)
 {
-    f32      len;
-    f32      angle;
-    f32      rand_range;
-    s32      step;
-    s32      xcount;
-    coord3d  shardpos;
-    s32      ycount;
-    s32      xlimit;
-    s32      x;
-    f32      shard_size;
-    s32      y;
-    s32      new_var;
-    coord3d  basepos;
-    coord3d  xnorm;
-    coord3d  ynorm;
-    coord3d *new_var3;
-    xnorm.x = xaxis->x;
-    xnorm.y = xaxis->y;
-    xnorm.z = xaxis->z;
-    len     = xnorm.x * xnorm.x;
-    len     = sqrtf((xnorm.z * xnorm.z) + (len + (xnorm.y * xnorm.y)));
-    xnorm.x *= 1.0f / len;
-    xnorm.y *= 1.0f / len;
-    xnorm.z *= 1.0f / len;
-    xmin *= len;
-    xmax *= len;
-    ynorm.x = yaxis->x;
-    ynorm.y = yaxis->y;
-    ynorm.z = yaxis->z;
-    len     = ynorm.x * ynorm.x;
-    len     = sqrtf((ynorm.z * ynorm.z) + (len + (ynorm.y * ynorm.y)));
-    ynorm.x *= 1.0f / len;
-    ynorm.y *= 1.0f / len;
-    ynorm.z *= 1.0f / len;
-    ymin *= len;
-    ymax *= len;
-    if (&ymax) {}
-    if (&xnorm) {}
-    angle    = atan2f(zaxis->x, zaxis->z);
-    arg8     = xmax - xmin;
-    arg9     = ymax - ymin;
-    new_var3 = &ynorm;
-    if (xmin) {}
-    shard_size = sqrtf((0, (arg8 * arg9) / (SHATTERED_WINDOW_PIECES_BUFFER_LEN / 2)));
-    step       = (s32)shard_size;
-    new_var    = step;
-    basepos.x  = (pos->x + ((xmin + ((f32)(new_var >> 1))) * xnorm.x)) + ((*new_var3).x * (ymin + ((f32)(new_var >> 1))));
-    basepos.y  = (pos->y + ((xmin + ((f32)(new_var >> 1))) * xnorm.y)) + ((*new_var3).y * (ymin + ((f32)(new_var >> 1))));
-    basepos.z  = (pos->z + ((xmin + ((f32)(new_var >> 1))) * xnorm.z)) + ((*new_var3).z * (ymin + ((f32)(new_var >> 1))));
-    chrobjSndCreatePostEventDefault(sndPlaySfx(g_musicSfxBufferPtr, 0x47, 0), pos);
-    y      = 0;
-    xlimit = (xcount = (s32)(arg8 / ((f32)step)));
-    ycount = (s32)(arg9 / ((f32)new_var));
-    if (ycount > 0)
+    coord3d xnormal;
+    coord3d ynormal;
+    coord3d basepos;
+    coord3d shardpos;
+    f32 xlength;
+    f32 ylength;
+    f32 inverseLength;
+    f32 width;
+    f32 height;
+    f32 shardSize;
+    f32 minimumShardSize;
+    f32 randomShardScale;
+    f32 stepSize;
+    f32 halfStep;
+    f32 angle;
+    s32 step;
+    s32 columns;
+    s32 rows;
+    s32 column;
+    s32 row;
+
+    xlength = sqrtf((xaxis->z * xaxis->z) + ((xaxis->x * xaxis->x) + (xaxis->y * xaxis->y)));
+    inverseLength = 1.0f / xlength;
+    xnormal.x = xaxis->x * inverseLength;
+    xnormal.y = xaxis->y * inverseLength;
+    xnormal.z = xaxis->z * inverseLength;
+    xmin *= xlength;
+    xmax *= xlength;
+
+    ylength = sqrtf((yaxis->z * yaxis->z) + ((yaxis->x * yaxis->x) + (yaxis->y * yaxis->y)));
+    inverseLength = 1.0f / ylength;
+    ynormal.x = yaxis->x * inverseLength;
+    ynormal.y = yaxis->y * inverseLength;
+    ynormal.z = yaxis->z * inverseLength;
+    ymin *= ylength;
+    ymax *= ylength;
+
+    width = xmax - xmin;
+    height = ymax - ymin;
+    shardSize = sqrtf((width * height) / (SHATTERED_WINDOW_PIECES_BUFFER_LEN / 2));
+    minimumShardSize = shardSize * 0.1f;
+    randomShardScale = shardSize * (0.7f * 2.3283064e-10f);
+    step = (s32) shardSize;
+    stepSize = step;
+    halfStep = step >> 1;
+
+    basepos.x = pos->x + (xnormal.x * (xmin + halfStep)) + (ynormal.x * (ymin + halfStep));
+    basepos.y = pos->y + (xnormal.y * (xmin + halfStep)) + (ynormal.y * (ymin + halfStep));
+    basepos.z = pos->z + (xnormal.z * (xmin + halfStep)) + (ynormal.z * (ymin + halfStep));
+
+    xnormal.x *= stepSize;
+    xnormal.y *= stepSize;
+    xnormal.z *= stepSize;
+    ynormal.x *= stepSize;
+    ynormal.y *= stepSize;
+    ynormal.z *= stepSize;
+
+    angle = atan2f(zaxis->x, zaxis->z);
+    columns = (s32) (width / stepSize);
+    rows = (s32) (height / stepSize);
+
+    chrobjSndCreatePostEventDefault(sndPlaySfx(g_musicSfxBufferPtr, HIT_GLASS_SMASH_SFX, NULL), pos);
+
+    for (row = 0; row < rows; row++)
     {
-        f32 rand_min;
-        do
+        shardpos = basepos;
+
+        for (column = 0; column < columns; column++)
         {
-            if (TRUE)
-            {
-                x = 0;
-            }
-            if (xcount > 0)
-            {
-                do
-                {
-                    shardpos.x = (basepos.x + ((x * ((f32)step)) * xnorm.x)) + ((*new_var3).x * (((f32)y) * ((f32)new_var)));
-                    shardpos.y = (basepos.y + ((x * ((f32)step)) * xnorm.y)) + ((*new_var3).y * (y * ((f32)new_var)));
-                    shardpos.z = (basepos.z + ((x * ((f32)step)) * xnorm.z)) + ((*new_var3).z * (((f32)y) * ((f32)new_var)));
-                    glassCreateShard(&shardpos, angle, (((randomGetNext() * 2.3283064e-10f) * 0.7f) + 0.1f) * shard_size);
-                    x++;
-                } while (x != xlimit);
-            }
-            y++;
-        } while (y < ycount);
+            glassCreateShard(&shardpos, angle, (randomGetNext() * randomShardScale) + minimumShardSize);
+
+            shardpos.x += xnormal.x;
+            shardpos.y += xnormal.y;
+            shardpos.z += xnormal.z;
+        }
+
+        basepos.x += ynormal.x;
+        basepos.y += ynormal.y;
+        basepos.z += ynormal.z;
     }
 }
 

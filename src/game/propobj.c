@@ -149,11 +149,11 @@
 /* 0x80030B08 */ ObjectRecord *g_LevelLoadPropSafeItem = NULL;
 /* 0x80030B0C */ struct PropRecord * D_80030B0C = NULL;
 /* 0x80030B10 */ s32 bodypartshot = 0xFFFFFFFF;
-/* 0x80030B14 */ f32 F_80030B14 = 1.0;
-/* 0x80030B18 */ f32 F_80030B18 = 1.0;
+/* 0x80030B14 */ f32 g_CctvAlarmDelayMult = 1.0;
+/* 0x80030B18 */ f32 g_CctvTakenDamageMult = 1.0;
 /* 0x80030B1C */ f32 g_AutogunPendingDamageTick = 1.0;
 /* 0x80030B20 */ f32 g_AutogunDamageScalar = 1.0;
-/* 0x80030B24 */ f32 F_80030B24 = 1.0;
+/* 0x80030B24 */ f32 g_AutogunTakenDamageMult = 1.0;
 
 /*
 * Set on level load.
@@ -4156,13 +4156,11 @@ void objTickCctv(PropRecord *prop)
         tile = prop->stan;
         bviewSetPlayerSolid(player, FALSE);
 
-        if (stanTestLineUnobstructed(&tile, prop->pos.x, prop->pos.z,
-                player->pos.x, player->pos.z, 0x1b,
-                100.0f, 100.0f, 0.0f, 1.0f))
+        if (stanTestLineUnobstructed(&tile, prop->pos.x, prop->pos.z, player->pos.x, player->pos.z, 0x1b, 100.0f, 100.0f, 0.0f, 1.0f))
         {
             cctv->timer += g_ClockTimer;
 
-            if (cctv->timer >= (s32) (CCTV_ALARM_FRAMES * F_80030B14))
+            if (cctv->timer >= (s32) (CCTV_ALARM_FRAMES * g_CctvAlarmDelayMult))
             {
                 alarmActivate();
                 cctv->timer = 0;
@@ -8771,7 +8769,7 @@ void sub_GAME_7F04DCB4(ObjectRecord* obj)
     explosionClearBulletImpactRoomByFlag(prop, FALSE);
     explosionClearBulletImpactRoomByFlag(prop, TRUE);
 
-    sub_GAME_7F0A1DA0(&obj->position.f[0],
+    glassShatterPane(&obj->position.f[0],
         &obj->mtx.m[0][0], &obj->mtx.m[1][0], &obj->mtx.m[2][0],
         bbox->Bounds.xmin, bbox->Bounds.xmax,
         bbox->Bounds.ymin, bbox->Bounds.ymax,
@@ -8783,9 +8781,6 @@ void sub_GAME_7F04DCB4(ObjectRecord* obj)
 }
 
 
-/**
- * Address: 7F04DD68
- */
 void sub_GAME_7F04DD68(DoorRecord *door)
 {
     PropRecord *prop;
@@ -8799,7 +8794,7 @@ void sub_GAME_7F04DD68(DoorRecord *door)
     bbox = (struct ModelRoData_BoundingBoxRecord *) model->obj->Switches[2]->Data;
 
     door7F0526EC(door, &mtx);
-    sub_GAME_7F0A1DA0(&mtx.m[3][0], &mtx.m[0][0], &mtx.m[1][0], &mtx.m[2][0], bbox->Bounds.xmin, bbox->Bounds.xmax, bbox->Bounds.ymin, bbox->Bounds.ymax, bbox->Bounds.zmin, bbox->Bounds.zmax);
+    glassShatterPane(&mtx.m[3][0], &mtx.m[0][0], &mtx.m[1][0], &mtx.m[2][0], bbox->Bounds.xmin, bbox->Bounds.xmax, bbox->Bounds.ymin, bbox->Bounds.ymax, bbox->Bounds.zmin, bbox->Bounds.zmax);
 
     explosionClearBulletImpactRoomByFlag(prop, 1);
 
@@ -8808,9 +8803,6 @@ void sub_GAME_7F04DD68(DoorRecord *door)
 }
 
 
-/**
- * Address: 7F04DE18
- */
 void objBreakCCTVGlass(ObjectRecord *obj)
 {
     PropRecord *prop;
@@ -8831,7 +8823,7 @@ void objBreakCCTVGlass(ObjectRecord *obj)
 
         matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), node_mtx, &glassNodeWorldMtx);
 
-        sub_GAME_7F0A1DA0(glassNodeWorldMtx.m[3], glassNodeWorldMtx.m[0], glassNodeWorldMtx.m[1], glassNodeWorldMtx.m[2], ((f32 *)rodata)[1], ((f32 *)rodata)[2], ((f32 *)rodata)[3], ((f32 *)rodata)[4], ((f32 *)rodata)[5], ((f32 *)rodata)[6]);
+        glassShatterPane(glassNodeWorldMtx.m[3], glassNodeWorldMtx.m[0], glassNodeWorldMtx.m[1], glassNodeWorldMtx.m[2], ((f32 *)rodata)[1], ((f32 *)rodata)[2], ((f32 *)rodata)[3], ((f32 *)rodata)[4], ((f32 *)rodata)[5], ((f32 *)rodata)[6]);
     }
 
     explosionClearBulletImpactRoomByFlag(prop, 1);
@@ -9463,7 +9455,7 @@ void objHit(ShotData *shotdata, BulletHit *hit)
         // On Agent player shots to drone guns do 2x normal damage.
         if (obj->type == PROPDEF_AUTOGUN)
         {
-            damage *= F_80030B24;
+            damage *= g_AutogunTakenDamageMult;
         }
         // Shots to CCTV camera glass do 100x normal damage.
         else if (obj->type == PROPDEF_CCTV)
@@ -9477,7 +9469,7 @@ void objHit(ShotData *shotdata, BulletHit *hit)
                 }
             }
 
-            damage *= F_80030B18;
+            damage *= g_CctvTakenDamageMult;
         }
 
         chrobjMaybeDetonateObjectIfFlags(obj, damage, &pos, shotdata->weapon, get_cur_playernum());

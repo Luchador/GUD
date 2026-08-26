@@ -23,11 +23,11 @@
 
 #endif
 
-extern f32 F_80030B14;
-extern f32 F_80030B18;
+extern f32 g_CctvAlarmDelayMult;
+extern f32 g_CctvTakenDamageMult;
 extern f32 g_AutogunPendingDamageTick;
 extern f32 g_AutogunDamageScalar;
-extern f32 F_80030B24;
+extern f32 g_AutogunTakenDamageMult;
 extern f32 g_SoloAmmoMultiplier;
 
 extern s32 alarm_timer;
@@ -125,7 +125,7 @@ void                 maybe_detonate_object_and_its_children(PropRecord *arg0, f3
 struct ModelRoData_BoundingBoxRecord* chrobjGetBboxFromObjectRecord(ObjectRecord *arg0);
 void                 deactivate_alarm_sound_effect(void);
 bool                 chrpropTestPointInPaddedBoundPad(coord3d* pos, f32 arg1, BoundPadRecord *boundpads);
-void                 sub_GAME_7F0A1DA0(f32*, f32*, f32*, f32*, f32, f32, f32, f32, f32, f32);
+void                 glassShatterPane(f32*, f32*, f32*, f32*, f32, f32, f32, f32, f32, f32);
 void                 modelGetXYExtents(Model *model, f32 *arg1, f32 *arg2, f32 *arg3, f32 *arg4);
 s32                  sub_GAME_7F0448A8(struct PropRecord *arg0);
 PropRecord*          sub_GAME_7F051DD8(struct ObjectRecord* arg0, ModelFileHeader* arg1);

@@ -1783,7 +1783,12 @@ void modelUpdateReorderRelations(Model *model, ModelNode *node)
 }
 
 
-void process_07_unknown(Model *model, ModelNode *node)
+/**
+ * It's possible this was meant to create a 3D gun barrel for the intro along with the dotube() function. Martin Hollis talked about having such an effect for the
+ * Bond walk, but it had to be dropped due to technical constraints. No asset in the finished game uses this, even though the model node
+ * walks still check for MODELNODE_OPCODE_OP07.
+ */
+/*void process_07_unknown(Model *model, ModelNode *node)
 {
     union ModelRoData *rodata = node->Data;
     union ModelRwData *rwdata = modelGetNodeRwData(model, node);
@@ -1816,7 +1821,7 @@ void process_07_unknown(Model *model, ModelNode *node)
     index3 = index2 + D_800360C4[index1].unk00;
 
     rwdata->Op07.index = rodata->Op07.Data[index3];
-}
+}*/
 
 
 void modelUpdateRelationsQuick(Model *model, ModelNode *parent)
@@ -1850,7 +1855,7 @@ void modelUpdateRelationsQuick(Model *model, ModelNode *parent)
                 modelUpdateReorderRelations(model, node);
                 break;
             case MODELNODE_OPCODE_OP07:
-                process_07_unknown(model, node);
+                //process_07_unknown(model, node);
                 break;
             case MODELNODE_OPCODE_HEAD:
                 modelApplyHeadRelations(model, node);
@@ -1909,7 +1914,7 @@ void modelUpdateNodeRelations(Model *model)
                 break;
 
             case MODELNODE_OPCODE_OP07:
-                process_07_unknown(model, node);
+                //process_07_unknown(model, node);
                 break;
 
             case MODELNODE_OPCODE_SWITCH:
@@ -1982,7 +1987,7 @@ void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
                 break;
 
             case MODELNODE_OPCODE_OP07:
-                process_07_unknown(model, node);
+                //process_07_unknown(model, node);
                 break;
 
             case MODELNODE_OPCODE_SWITCH:
@@ -4062,7 +4067,7 @@ void sub_GAME_7F07306C(s32 param_1,struct Model *param_2,struct ModelNode *param
 }
 
 
-void dotube(ModelRenderData* renderdata, Model* model, ModelNode* node)
+/*void dotube(ModelRenderData* renderdata, Model* model, ModelNode* node)
 {
     s32 rw_index_sel;
     s32 rw_index_sel2;
@@ -4313,7 +4318,7 @@ void dotube(ModelRenderData* renderdata, Model* model, ModelNode* node)
             }
         }
     }
-}
+}*/
 
 
 void sub_GAME_7F0737EC(s32 param_1,struct Model *param_2, struct ModelNode *param_3)
@@ -4672,7 +4677,7 @@ void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node) {
         sub_GAME_7F07306C(data, model, node);
         return;
     case MODELNODE_OPCODE_OP07:
-        dotube(data, model, node);
+        //dotube(data, model, node);
         return;
     case MODELNODE_OPCODE_OP06:
         sub_GAME_7F0737EC(data,model,node);

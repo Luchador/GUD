@@ -462,11 +462,11 @@ void lvlSetMultipliersForDifficulty(void)
             damageMultiplier = (((armorDiff - 0.125f) * 0.5f) / 0.47500002f) + 0.5f;
         }
 
-        F_80030B14 = 2.0f;
-        F_80030B18 = 2.0f;
+        g_CctvAlarmDelayMult = 2.0f;
+        g_CctvTakenDamageMult = 2.0f;
         g_AutogunPendingDamageTick = (0.5f * damageMultiplier);
         g_AutogunDamageScalar = (0.5f * damageMultiplier);
-        F_80030B24 = 2.0f;
+        g_AutogunTakenDamageMult = 2.0f;
         g_AiAccuracyModifier = DEFAULT_AGENT_AI_ACCURACY_MODIFIER;
         g_AiDamageModifier = (DEFAULT_AGENT_AI_DAMAGE_MODIFIER * damageMultiplier);
         g_AiHealthModifier = 2.0f;
@@ -477,11 +477,11 @@ void lvlSetMultipliersForDifficulty(void)
     }
     else if (g_SelectedDifficulty == DIFFICULTY_SECRET)
     {
-        F_80030B14 = 1.0f;
-        F_80030B18 = 1.0f;
+        g_CctvAlarmDelayMult = 1.0f;
+        g_CctvTakenDamageMult = 1.0f;
         g_AutogunPendingDamageTick = 0.75f;
         g_AutogunDamageScalar = 0.75f;
-        F_80030B24 = 1.0f;
+        g_AutogunTakenDamageMult = 1.0f;
         g_AiAccuracyModifier = DEFAULT_SECRET_AGENT_AI_ACCURACY_MODIFIER;
         g_AiDamageModifier = DEFAULT_SECRET_AGENT_AI_DAMAGE_MODIFIER;
         g_AiHealthModifier = 1.0f;
@@ -494,11 +494,11 @@ void lvlSetMultipliersForDifficulty(void)
     }
     else if (g_SelectedDifficulty == DIFFICULTY_00)
     {
-        F_80030B14 = 1.0f;
-        F_80030B18 = 1.0f;
+        g_CctvAlarmDelayMult = 1.0f;
+        g_CctvTakenDamageMult = 1.0f;
         g_AutogunPendingDamageTick = 1.0f;
         g_AutogunDamageScalar = 1.0f;
-        F_80030B24 = 1.0f;
+        g_AutogunTakenDamageMult = 1.0f;
         g_AiAccuracyModifier = DEFAULT_00_AGENT_AI_ACCURACY_MODIFIER;
         g_AiDamageModifier = DEFAULT_00_AGENT_AI_DAMAGE_MODIFIER;
         g_AiHealthModifier = 1.0f;
@@ -511,11 +511,11 @@ void lvlSetMultipliersForDifficulty(void)
     }
     else if (g_SelectedDifficulty == DIFFICULTY_007)
     {
-        F_80030B14 = 1.0f;
-        F_80030B18 = 1.0f;
+        g_CctvAlarmDelayMult = 1.0f;
+        g_CctvTakenDamageMult = 1.0f;
         g_AutogunPendingDamageTick = 1.0f;
         g_AutogunDamageScalar = 1.0f;
-        F_80030B24 = 1.0f;
+        g_AutogunTakenDamageMult = 1.0f;
         g_AiAccuracyModifier = DEFAULT_007_AI_ACCURACY_MODIFIER;
         g_AiDamageModifier = DEFAULT_007_AI_DAMAGE_MODIFIER;
         g_AiHealthModifier = 1.0f;
