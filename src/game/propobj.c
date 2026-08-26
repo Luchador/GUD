@@ -4527,7 +4527,6 @@ void objTickAutogun(PropRecord *prop)
 }
 
 
-
 void objTickVehicle(PropRecord *prop)
 {
     ObjectRecord *obj = prop->obj;
@@ -4763,7 +4762,6 @@ void objTickVehicle(PropRecord *prop)
 }
 
 
-
 void objTickAircraft(PropRecord *prop)
 {
     ObjectRecord *obj = prop->obj;
@@ -4789,12 +4787,12 @@ void objTickAircraft(PropRecord *prop)
             modelSetAnimTranslationScale(temp_s0_6, 10.438f);
             setsubroty(render_pad2F4->model, M_PI_F);
         }
-        else if (bossGetStageNum() == 22)
+        else if (bossGetStageNum() == LEVELID_STATUE)
         {
             modelSetAnimTranslationScale(render_pad2F4->model, 1.0438f);
             setsubroty(render_pad2F4->model, 2.3561945f);
         }
-        else if (bossGetStageNum() == 26)
+        else if (bossGetStageNum() == LEVELID_FRIGATE)
         {
             modelSetAnimTranslationScale(render_pad2F4->model, 1.0438f);
             setsubroty(render_pad2F4->model, 3.9269907f);

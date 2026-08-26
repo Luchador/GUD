@@ -34,15 +34,25 @@ void matrix_4x4_set_identity(Mtxf *matrix)
 
 void matrix_4x4_copy(Mtxf *src, Mtxf *dst)
 {
-    s32 i, j;
+    u32 *srcwords = (u32 *) src;
+    u32 *dstwords = (u32 *) dst;
 
-    for (i = 0; i < 4; i++)
-    {
-        for (j = 0; j < 4; j++)
-        {
-            dst->m[i][j] = src->m[i][j];
-        }
-    }
+    dstwords[0] = srcwords[0];
+    dstwords[1] = srcwords[1];
+    dstwords[2] = srcwords[2];
+    dstwords[3] = srcwords[3];
+    dstwords[4] = srcwords[4];
+    dstwords[5] = srcwords[5];
+    dstwords[6] = srcwords[6];
+    dstwords[7] = srcwords[7];
+    dstwords[8] = srcwords[8];
+    dstwords[9] = srcwords[9];
+    dstwords[10] = srcwords[10];
+    dstwords[11] = srcwords[11];
+    dstwords[12] = srcwords[12];
+    dstwords[13] = srcwords[13];
+    dstwords[14] = srcwords[14];
+    dstwords[15] = srcwords[15];
 }
 
 
@@ -66,33 +76,37 @@ void matrix_4x4_multiply_homogeneous_in_place(Mtxf *lhs, Mtxf *rhs)
 
 void matrix_4x4_multiply(Mtxf *lhs, Mtxf *rhs, Mtxf *result)
 {
-    s32 i, j;
+    s32 i;
 
     for (i = 0; i < 4; i++)
     {
-        for (j = 0; j < 4; j++)
-        {
-            result->m[j][i] = lhs->m[0][i] * rhs->m[j][0] + lhs->m[1][i] * rhs->m[j][1] + lhs->m[2][i] * rhs->m[j][2] + lhs->m[3][i] * rhs->m[j][3];
-        }
+        f32 lhs0 = lhs->m[0][i];
+        f32 lhs1 = lhs->m[1][i];
+        f32 lhs2 = lhs->m[2][i];
+        f32 lhs3 = lhs->m[3][i];
+
+        result->m[0][i] = lhs0 * rhs->m[0][0] + lhs1 * rhs->m[0][1] + lhs2 * rhs->m[0][2] + lhs3 * rhs->m[0][3];
+        result->m[1][i] = lhs0 * rhs->m[1][0] + lhs1 * rhs->m[1][1] + lhs2 * rhs->m[1][2] + lhs3 * rhs->m[1][3];
+        result->m[2][i] = lhs0 * rhs->m[2][0] + lhs1 * rhs->m[2][1] + lhs2 * rhs->m[2][2] + lhs3 * rhs->m[2][3];
+        result->m[3][i] = lhs0 * rhs->m[3][0] + lhs1 * rhs->m[3][1] + lhs2 * rhs->m[3][2] + lhs3 * rhs->m[3][3];
     }
 }
 
 
 void matrix_4x4_multiply_homogeneous(Mtxf *lhs, Mtxf *rhs, Mtxf *result)
 {
-    s32 i, j;
+    s32 i;
 
     for (i = 0; i < 3; i++)
     {
-        for (j = 0; j < 4; j++)
-        {
-            result->m[j][i] = (lhs->m[0][i] * rhs->m[j][0]) + (lhs->m[1][i] * rhs->m[j][1]) + (lhs->m[2][i] * rhs->m[j][2]);
+        f32 lhs0 = lhs->m[0][i];
+        f32 lhs1 = lhs->m[1][i];
+        f32 lhs2 = lhs->m[2][i];
 
-            if (j == 3)
-            {
-                result->m[j][i] += lhs->m[3][i];
-            }
-        }
+        result->m[0][i] = lhs0 * rhs->m[0][0] + lhs1 * rhs->m[0][1] + lhs2 * rhs->m[0][2];
+        result->m[1][i] = lhs0 * rhs->m[1][0] + lhs1 * rhs->m[1][1] + lhs2 * rhs->m[1][2];
+        result->m[2][i] = lhs0 * rhs->m[2][0] + lhs1 * rhs->m[2][1] + lhs2 * rhs->m[2][2];
+        result->m[3][i] = lhs0 * rhs->m[3][0] + lhs1 * rhs->m[3][1] + lhs2 * rhs->m[3][2] + lhs->m[3][i];
     }
 
     result->m[0][3] = 0.0f;
@@ -104,31 +118,40 @@ void matrix_4x4_multiply_homogeneous(Mtxf *lhs, Mtxf *rhs, Mtxf *result)
 
 void matrix_4x4_rotate_vector(Mtxf *matrix, struct coord3d *vector, struct coord3d *result)
 {
-    s32 i;
+    f32 x = vector->f[0];
+    f32 y = vector->f[1];
+    f32 z = vector->f[2];
 
-    for (i = 0; i < 3; i++)
-    {
-        result->f[i] = matrix->m[0][i] * vector->f[0] + matrix->m[1][i] * vector->f[1] + matrix->m[2][i] * vector->f[2];
-    }
+    result->f[0] = matrix->m[0][0] * x + matrix->m[1][0] * y + matrix->m[2][0] * z;
+    result->f[1] = matrix->m[0][1] * x + matrix->m[1][1] * y + matrix->m[2][1] * z;
+    result->f[2] = matrix->m[0][2] * x + matrix->m[1][2] * y + matrix->m[2][2] * z;
 }
 
 
 void mtx4RotateVecInPlace(Mtxf *matrix, struct coord3d *vector)
 {
-    struct coord3d result;
-    matrix_4x4_rotate_vector(matrix, vector, &result);
-    vector->f[0] = result.f[0];
-    vector->f[1] = result.f[1];
-    vector->f[2] = result.f[2];
+    f32 x = vector->f[0];
+    f32 y = vector->f[1];
+    f32 z = vector->f[2];
+    f32 rotated_x = matrix->m[0][0] * x + matrix->m[1][0] * y + matrix->m[2][0] * z;
+    f32 rotated_y = matrix->m[0][1] * x + matrix->m[1][1] * y + matrix->m[2][1] * z;
+    f32 rotated_z = matrix->m[0][2] * x + matrix->m[1][2] * y + matrix->m[2][2] * z;
+
+    vector->f[0] = rotated_x;
+    vector->f[1] = rotated_y;
+    vector->f[2] = rotated_z;
 }
 
 
 void matrix_4x4_transform_vector(Mtxf *matrix, struct coord3d *vector, struct coord3d *result)
 {
-    matrix_4x4_rotate_vector(matrix, vector, result);
-    result->f[0] += matrix->m[3][0];
-    result->f[1] += matrix->m[3][1];
-    result->f[2] += matrix->m[3][2];
+    f32 x = vector->f[0];
+    f32 y = vector->f[1];
+    f32 z = vector->f[2];
+
+    result->f[0] = matrix->m[0][0] * x + matrix->m[1][0] * y + matrix->m[2][0] * z + matrix->m[3][0];
+    result->f[1] = matrix->m[0][1] * x + matrix->m[1][1] * y + matrix->m[2][1] * z + matrix->m[3][1];
+    result->f[2] = matrix->m[0][2] * x + matrix->m[1][2] * y + matrix->m[2][2] * z + matrix->m[3][2];
 }
 
 
@@ -298,10 +321,24 @@ void matrix_4x4_set_position_and_rotation_around_xyz(struct coord3d *position, s
 }
 
 
-void matrix_4x4_set_identity_and_position(struct coord3d * position, Mtxf *matrix)
+void matrix_4x4_set_identity_and_position(struct coord3d *position, Mtxf *matrix)
 {
-    matrix_4x4_set_identity(matrix);
-    matrix_4x4_set_position(position, matrix);
+    matrix->m[0][0] = 1.0f;
+    matrix->m[0][1] = 0.0f;
+    matrix->m[0][2] = 0.0f;
+    matrix->m[0][3] = 0.0f;
+    matrix->m[1][0] = 0.0f;
+    matrix->m[1][1] = 1.0f;
+    matrix->m[1][2] = 0.0f;
+    matrix->m[1][3] = 0.0f;
+    matrix->m[2][0] = 0.0f;
+    matrix->m[2][1] = 0.0f;
+    matrix->m[2][2] = 1.0f;
+    matrix->m[2][3] = 0.0f;
+    matrix->m[3][0] = position->f[0];
+    matrix->m[3][1] = position->f[1];
+    matrix->m[3][2] = position->f[2];
+    matrix->m[3][3] = 1.0f;
 }
 
 
@@ -456,15 +493,23 @@ void matrix_4x4_s32_to_f32(Mtxf *src, Mtxf *dst)
 {
     u32 *srcwords = (u32 *) src;
     f32 *dstfloats = (f32 *) dst;
+    f32 inverseScale0 = 1.0f / g_MtxConversionScale[0];
+    f32 inverseScale1 = 1.0f / g_MtxConversionScale[1];
     s32 i;
 
-    for (i = 0; i < 8; i++)
+    for (i = 0; i < 8; i += 2)
     {
         u32 word1 = srcwords[i + 0];
         u32 word2 = srcwords[i + 8];
 
-        dstfloats[(i << 1) + 0] = (s32) ((word1 & 0xffff0000) | (word2 >> 16)) / g_MtxConversionScale[0];
-        dstfloats[(i << 1) + 1] = (s32) ((word1 << 16) | (word2 & 0xffff)) / g_MtxConversionScale[i & 1];
+        dstfloats[(i << 1) + 0] = (s32) ((word1 & 0xffff0000) | (word2 >> 16)) * inverseScale0;
+        dstfloats[(i << 1) + 1] = (s32) ((word1 << 16) | (word2 & 0xffff)) * inverseScale0;
+
+        word1 = srcwords[i + 1];
+        word2 = srcwords[i + 9];
+
+        dstfloats[(i << 1) + 2] = (s32) ((word1 & 0xffff0000) | (word2 >> 16)) * inverseScale0;
+        dstfloats[(i << 1) + 3] = (s32) ((word1 << 16) | (word2 & 0xffff)) * inverseScale1;
     }
 }
 
