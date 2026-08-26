@@ -2749,7 +2749,7 @@ void chrpropUpdateRoomList(PropRecord *prop, coord3d *bbmin, coord3d *bbmax, f32
         tile = prop->stan;
         count = 0;
 
-        sub_GAME_7F0B21B0(&tile, prop->pos.x, prop->pos.z, radius, rooms, &count, 7);
+        stanTestCircleAndCollectRooms(&tile, prop->pos.x, prop->pos.z, radius, rooms, &count, 7);
     }
 
     // Update the room list with neighboring rooms reachable through portals and overlapped by the bounding box.

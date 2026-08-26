@@ -101,7 +101,6 @@ s32 g_StanLastCollisionEdgePointsValid =  0;
 void stanGetTileMidPoint(StandTile *tile, coord3d *out);
 s32 stanIsSpecialBit1Set(StandTile *arg0, struct StandTileLocusCallbackRecord* arg1);
 s32 stanCheckLinkedSpecialTile(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3, s32 arg4, s32 *outFlags);
-s32 sub_GAME_7F0B21B0(StandTile **tileStack, f32 target_x, f32 target_z, f32 radius, s32 *rooms, s32 *count_rtn, s32 bufMax);
 f32 getShortest2dDispToInfTripleEdge(StandTile *tile, s32 start3index, f32 p_x, f32 p_z);
 StanCollisionResult sub_GAME_7F0B1DDC(struct StandTile**, f32, f32, f32, standTileLocusCallback_A_t, standTileLocusCallback_B_t, standTileLocusCallback_C_t, struct StandTileLocusCallbackRecord*);
 s32 stanLocusAddTileRoomIfNew(StandTile *tile, struct StandTileLocusCallbackRecord *rec);
@@ -432,7 +431,7 @@ f32 sub_GAME_7F0AFB1C(coord3d *p,coord3d *q)
 }
 
 
-StandTile *sub_GAME_7F0AFB78(f32 *x, f32 *y, f32 *z, f32 arg3)
+StandTile *stanFindNearestWalkablePosition(f32 *x, f32 *y, f32 *z, f32 clearanceRadius)
 {
     StandTile *tile;
     s32 tileTail;
@@ -451,8 +450,6 @@ StandTile *sub_GAME_7F0AFB78(f32 *x, f32 *y, f32 *z, f32 arg3)
     original.z = *z;
     midpointIndex = 3;
     bestDist = M_U32_MAX_VALUE_F;
-
-    if (&original);
 
     tile = stan_prefix->ptr_firstroom;
 
@@ -477,12 +474,8 @@ StandTile *sub_GAME_7F0AFB78(f32 *x, f32 *y, f32 *z, f32 arg3)
 
                         stack[0] = tile;
 
-                        if (sub_GAME_7F0B20D0(stack, candidate.x, candidate.z, arg3) < 0)
+                        if (sub_GAME_7F0B20D0(stack, candidate.x, candidate.z, clearanceRadius) < 0)
                         {
-                            if (x);
-                            if (y);
-                            if (z);
-
                             dist = sub_GAME_7F0AFB1C(&candidate, &original);
 
                             if (dist < bestDist)
@@ -1501,7 +1494,7 @@ s32 stanTestVolume(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, 
 
     spFC = 0;
 
-    temp_v0 = sub_GAME_7F0B21B0(arg0, arg1, arg2, arg3, &spA8[0], &spFC, 20);
+    temp_v0 = stanTestCircleAndCollectRooms(arg0, arg1, arg2, arg3, &spA8[0], &spFC, 20);
     if (temp_v0 >= 0)
     {
         return temp_v0;
@@ -1754,16 +1747,13 @@ StanCollisionResult sub_GAME_7F0B1DDC(StandTile **startTile, f32 x, f32 z, f32 r
 }
 
 
-
-
-s32 sub_GAME_7F0B20D0(StandTile **tileStack, f32 target_x, f32 target_z, f32 unknown) {
+s32 sub_GAME_7F0B20D0(StandTile **tileStack, f32 target_x, f32 target_z, f32 unknown)
+{
     return sub_GAME_7F0B1DDC(tileStack, target_x, target_z, unknown, NULL, NULL, NULL, NULL);
 }
 
 
 /**
- * Address: 7F0B2110
- * 
  * Callback for stan locus traversal.
  * 
  * Adds the current tile's room ID to the caller-provided room list if it
@@ -1815,16 +1805,14 @@ s32 stanLocusAddTileRoomIfNew(StandTile *tile, struct StandTileLocusCallbackReco
 }
 
 
-s32 incrNearEdgeCount(StandTile **tileStack, s32 stackHeight, struct StandTileLocusCallbackRecord* data) {
-    data->nearEdgeCount += 1;
+s32 stanLocusCountBoundaryEdge(StandTile **tileStack, s32 stackHeight, struct StandTileLocusCallbackRecord* data)
+{
+    data->boundaryEdgeCount += 1;
     return 1;
 }
 
 
-/**
- * Address: 7F0B21B0
- */
-s32 sub_GAME_7F0B21B0(StandTile **tileStack, f32 target_x, f32 target_z, f32 radius, s32 *rooms, s32 *count_rtn, s32 bufMax)
+StanCollisionResult stanTestCircleAndCollectRooms(StandTile **tileStack, f32 target_x, f32 target_z, f32 radius, s32 *rooms, s32 *count_rtn, s32 bufMax)
 {
     struct StandTileLocusCallbackRecord data;
     s32 rtn;
@@ -1832,15 +1820,14 @@ s32 sub_GAME_7F0B21B0(StandTile **tileStack, f32 target_x, f32 target_z, f32 rad
     data.rooms = rooms;
     data.count = 0;
     data.bufMax = bufMax;
-    data.nearEdgeCount = 0;
+    data.boundaryEdgeCount = 0;
 
-    rtn = sub_GAME_7F0B1DDC(tileStack, target_x, target_z, radius,
-        stanLocusAddTileRoomIfNew, NULL, incrNearEdgeCount, &data
-    );
+    rtn = sub_GAME_7F0B1DDC(tileStack, target_x, target_z, radius, stanLocusAddTileRoomIfNew, NULL, stanLocusCountBoundaryEdge, &data);
 
     *count_rtn = data.count;
 
-    if (1 < data.nearEdgeCount) {
+    if (1 < data.boundaryEdgeCount)
+    {
         return 2;
     }
 
@@ -1848,9 +1835,6 @@ s32 sub_GAME_7F0B21B0(StandTile **tileStack, f32 target_x, f32 target_z, f32 rad
 }
 
 
-/**
- * Address 0x7F0B2244.
-*/
 s32 stanIsSpecialBit1Set(StandTile *arg0, struct StandTileLocusCallbackRecord *arg1)
 {
     s32 val = arg0->mid.half >> 0xC;
@@ -1863,9 +1847,6 @@ s32 stanIsSpecialBit1Set(StandTile *arg0, struct StandTileLocusCallbackRecord *a
 }
 
 
-/**
- * Address: 7F0B2274
- */
 s32 stanCheckLinkedSpecialTile(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3, s32 arg4, s32 *outFlags)
 {
     u16 link;
@@ -1922,7 +1903,7 @@ s32 stanTileDistanceRelated(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, stru
         arg4[i].unk00 = 0;
         arg4[i].count = 0;
         arg4[i].bufMax = 0;
-        arg4[i].nearEdgeCount = 0;
+        arg4[i].boundaryEdgeCount = 0;
     }
     */
 

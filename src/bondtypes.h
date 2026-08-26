@@ -503,7 +503,7 @@ typedef union
         s32 *rooms;         /* 0x00 */
         s32 count;          /* 0x04 */
         s32 bufMax;         /* 0x08 */
-        s32 nearEdgeCount;  /* 0x0c */
+        s32 boundaryEdgeCount;  /* 0x0c */
     };
 
     typedef struct StandFileFooter

@@ -380,7 +380,7 @@ void bondviewLoadSetupIntroSection(void)
     }
     else
     {
-        start_stan = sub_GAME_7F0AFB78(&start_pos.f[0], &start_pos.f[1], &start_pos.f[2], 30.0f);
+        start_stan = stanFindNearestWalkablePosition(&start_pos.f[0], &start_pos.f[1], &start_pos.f[2], 30.0f);
         stan_height = bondviewYPositionRelated(start_stan, start_pos.f[0], start_pos.f[2]);
         start_pos.f[1] = g_CurrentPlayer->eyeheight + stan_height;
         g_CurrentPlayer->field_70 = stan_height;
