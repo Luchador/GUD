@@ -3816,9 +3816,6 @@ s32 sub_GAME_7F0448A8(struct PropRecord *argProp)
 }
 
 
-/**
- * Address: 7F044B38
- */
 s32 sub_GAME_7F044B38(ObjectRecord *obj)
 {
     Model *model;
@@ -3867,6 +3864,7 @@ s32 sub_GAME_7F044B38(ObjectRecord *obj)
     matrix_4x4_transform_vector(&mtx, modelpoint3, &point3);
 
     tile = prop->stan;
+
     if (walkTilesBetweenPoints_NoCallback(&tile, prop->pos.x, prop->pos.z, point0.x, point0.z))
     {
         point0.y = stanGetPositionYValue(tile, point0.x, point0.z);
@@ -3968,36 +3966,9 @@ s32 sub_GAME_7F044B38(ObjectRecord *obj)
 
         matrix_4x4_set_identity(&obj->mtx);
 
-        if (obj->mtx.m[0][0])
-        {
-            // empty
-        }
-
-        if (obj->mtx.m[1][1])
-        {
-            // empty
-        }
-
         obj->mtx.m[1][0] = normal.x;
-
-        if (obj->mtx.m[1][0])
-        {
-            // empty
-        }
-
         obj->mtx.m[1][1] = normal.y;
-
-        if ((&yawvec) && (&yawvec))
-        {
-            // empty
-        }
-
         obj->mtx.m[1][2] = ((f32*)&normal)[2];
-
-        if (normal.x)
-        {
-            // empty
-        }
 
         obj->mtx.m[0][0] = (obj->mtx.m[1][1] * yawvec.f[2]) - (obj->mtx.m[1][2] * yawvec.f[1]);
         obj->mtx.m[0][1] = (obj->mtx.m[1][2] * yawvec.f[0]) - (obj->mtx.m[1][0] * yawvec.f[2]);
@@ -4042,7 +4013,8 @@ s32 glassCalculateOpacity(coord3d *pos, f32 xludist, f32 opadist, f32 arg3)
     if (distance > opadist)
     {
         opacity = 255;
-    } else if (distance < xludist)
+    } 
+    else if (distance < xludist)
     {
         opacity = arg3 * 255;
     }
@@ -4055,233 +4027,2286 @@ s32 glassCalculateOpacity(coord3d *pos, f32 xludist, f32 opadist, f32 arg3)
 }
 
 
+f32 objTickDoor(PropRecord *prop)
+{
+    DoorRecord *door = (DoorRecord *) prop->obj;
+    DoorRecord *linkedDoor;
+    f32 previousOpenPosition = door->openPosition;
+    bool linkedDoorsClosed;
+
+    if ((((s32) door->openedTime > 0)
+            && ((s32) door->openedTime < (s32) g_GlobalTimer - (s32) door->autoCloseFrames)
+            && door->openstate == DOORSTATE_STATIONARY)
+            && !(door->flags & PROPFLAG_DOOR_KEEPOPEN))
+    {
+        doorActivate(door, DOORSTATE_CLOSING);
+    }
+
+    if (door->openstate == DOORSTATE_WAITING)
+    {
+        linkedDoor = door->linkedDoor;
+        linkedDoorsClosed = TRUE;
+
+        while (linkedDoor != NULL && linkedDoor != door)
+        {
+            if (linkedDoor->openstate != DOORSTATE_STATIONARY || linkedDoor->openPosition > 0.0f)
+            {
+                linkedDoorsClosed = FALSE;
+            }
+
+            linkedDoor = linkedDoor->linkedDoor;
+        }
+
+        if (linkedDoorsClosed)
+        {
+            doorSetOpenState(door, DOORSTATE_OPENING);
+        }
+    }
+
+    if (door->doorType == DOORTYPE_FALLAWAY && doorIsClosed(door) && doorIsPadlockFree(door))
+    {
+        doorActivateWrapper(prop);
+    }
+
+    if (door->lastcalc60i < g_GlobalTimer || g_ClockTimer == 0)
+    {
+        door7F054FB4(door);
+    }
+
+    return previousOpenPosition;
+}
+
+
+void objTickCctv(PropRecord *prop)
+{
+    ObjectRecord *obj = prop->obj;
+    CCTVRecord *cctv = (CCTVRecord *) obj;
+    PropRecord *player = getCurrentPlayerProp();
+    StandTile *tile;
+    f32 targetYaw = cctv->unkD4 ? cctv->unkCC : cctv->unkD0;
+    f32 xdiff = player->pos.x - obj->position.x;
+    f32 ydiff = player->pos.y - obj->position.y;
+    f32 zdiff = player->pos.z - obj->position.z;
+    f32 playerYaw;
+    f32 currentYaw;
+    f32 angleDelta;
+    f32 brakingDistance;
+    f32 nextSpeed;
+    bool seesPlayer = TRUE;
+
+    if (cctv->unkE8 > 0.0f
+            && cctv->unkE8 * cctv->unkE8 < xdiff * xdiff + ydiff * ydiff + zdiff * zdiff)
+    {
+        seesPlayer = FALSE;
+    }
+
+    if (obj->flags & PROPFLAG_INMOTION)
+    {
+        seesPlayer = FALSE;
+    }
+
+    if (seesPlayer)
+    {
+        playerYaw = atan2f(xdiff, zdiff);
+        currentYaw = cctv->unkC8;
+
+        if (currentYaw < 0.0f)
+        {
+            currentYaw += M_TAU_F;
+        }
+        else if (currentYaw >= M_TAU_F)
+        {
+            currentYaw -= M_TAU_F;
+        }
+
+        currentYaw += cctv->unkC4;
+
+        if (currentYaw >= M_TAU_F)
+        {
+            currentYaw -= M_TAU_F;
+        }
+
+        angleDelta = playerYaw - currentYaw;
+
+        if (playerYaw < currentYaw)
+        {
+            angleDelta += M_TAU_F;
+        }
+
+        angleDelta -= M_PI_F;
+
+        if (angleDelta < 0.0f)
+        {
+            angleDelta += M_TAU_F;
+        }
+
+        if (angleDelta > M_PI_F)
+        {
+            angleDelta -= M_TAU_F;
+        }
+
+        if (angleDelta > DegToRad(45) || angleDelta < DegToRad(-45))
+        {
+            seesPlayer = FALSE;
+        }
+    }
+
+    if (seesPlayer)
+    {
+        tile = prop->stan;
+        bviewSetPlayerSolid(player, FALSE);
+
+        if (stanTestLineUnobstructed(&tile, prop->pos.x, prop->pos.z,
+                player->pos.x, player->pos.z, 0x1b,
+                100.0f, 100.0f, 0.0f, 1.0f))
+        {
+            cctv->timer += g_ClockTimer;
+
+            if (cctv->timer >= (s32) (CCTV_ALARM_FRAMES * F_80030B14))
+            {
+                alarmActivate();
+                cctv->timer = 0;
+            }
+        }
+
+        bviewSetPlayerSolid(player, TRUE);
+    }
+
+    brakingDistance = cctv->unkD8 * cctv->unkD8 * 0.5f / CAM_ACCEL;
+
+    if (cctv->unkC8 < targetYaw)
+    {
+        if (targetYaw - brakingDistance <= cctv->unkC8)
+        {
+            cctv->unkD8 -= CAM_ACCEL * g_GlobalTimerDelta;
+
+            if (cctv->unkD8 < CAM_ACCEL)
+            {
+                cctv->unkD8 = CAM_ACCEL;
+            }
+        }
+        else if (cctv->unkD8 < cctv->unkDC)
+        {
+            nextSpeed = cctv->unkD8 + CAM_ACCEL * g_GlobalTimerDelta;
+
+            if (cctv->unkDC < nextSpeed)
+            {
+                nextSpeed = cctv->unkDC;
+            }
+
+            if (cctv->unkC8 < targetYaw - nextSpeed * nextSpeed * 0.5f / CAM_ACCEL)
+            {
+                cctv->unkD8 = nextSpeed;
+            }
+        }
+
+        cctv->unkC8 += cctv->unkD8 * g_GlobalTimerDelta;
+
+        if (targetYaw <= cctv->unkC8)
+        {
+            cctv->unkC8 = targetYaw;
+            cctv->unkD8 = 0.0f;
+            cctv->unkD4 = FALSE;
+        }
+    }
+    else
+    {
+        if (cctv->unkC8 <= targetYaw + brakingDistance)
+        {
+            cctv->unkD8 -= CAM_ACCEL * g_GlobalTimerDelta;
+
+            if (cctv->unkD8 < CAM_ACCEL)
+            {
+                cctv->unkD8 = CAM_ACCEL;
+            }
+        }
+        else if (cctv->unkD8 < cctv->unkDC)
+        {
+            nextSpeed = cctv->unkD8 + CAM_ACCEL * g_GlobalTimerDelta;
+
+            if (cctv->unkDC < nextSpeed)
+            {
+                nextSpeed = cctv->unkDC;
+            }
+
+            if (cctv->unkC8 > targetYaw + nextSpeed * nextSpeed * 0.5f / CAM_ACCEL)
+            {
+                cctv->unkD8 = nextSpeed;
+            }
+        }
+
+        cctv->unkC8 -= cctv->unkD8 * g_GlobalTimerDelta;
+
+        if (cctv->unkC8 <= targetYaw)
+        {
+            cctv->unkC8 = targetYaw;
+            cctv->unkD8 = 0.0f;
+            cctv->unkD4 = TRUE;
+        }
+    }
+}
+
+
+void objTickAutogun(PropRecord *prop)
+{
+    ObjectRecord *obj = prop->obj;
+    AutogunRecord *poAGun;
+    PropRecord *playerProp2;
+    StandTile *collisionTile;
+    coord3d playerDirVec;
+    f32 var_f0_2;
+    f32 temp_f2_23;
+    f32 horizontalDistSq;
+    f32 horizontalDist;
+    f32 distanceToPlayer;
+    f32 sp4A0;
+    f32 sp4D8;
+    f32 targetPitch;
+    f32 playerYaw;
+    f32 playerPitch;
+    f32 yawError;
+    f32 var_f2_6;
+    f32 sp494;
+    f32 temp_f12_5;
+    f32 angleDelta_6;
+    s32 AutogunSeesPlayer;
+    s32 isTracking;
+    s32 hasLineOfSight;
+    s32 var_v0_3;
+
+    poAGun = (struct AutogunRecord *) prop->obj;
+    playerProp2 = getCurrentPlayerProp();
+    AutogunSeesPlayer = 0;
+    isTracking = 0;
+    hasLineOfSight = 0;
+    if (obj->flags2 & PROPFLAG_IS_DOUBLE)
+    {
+        if (obj->flags2 & PROPFLAG2_40000000)
+        {
+            poAGun->unk98 = poAGun->unk9C;
+            poAGun->rot_related = poAGun->unk90;
+        }
+        else if ((poAGun->unk90 == poAGun->rot_related) && (poAGun->unk9C == poAGun->unk98))
+        {
+            poAGun->unk98 = (((U32_TO_F32(randomGetNext()) * 39.0f) + 1.0f) * M_TAU_F) / 360.0f; //degtorad
+            poAGun->rot_related = U32_TO_F32(randomGetNext()) * M_TAU_F;
+        }
+
+        chrobjCallsApplySpeed(&poAGun->unk90, poAGun->rot_related, &poAGun->unk94, AUTOGUN_YAW_ACCEL_PER_FRAME, AUTOGUN_YAW_ACCEL_PER_FRAME, AUTOGUN_YAW_MAX_SPEED);
+        chrobjCallsApplySpeed(&poAGun->unk9C, poAGun->unk98, &poAGun->unkA0, AUTOGUN_PITCH_ACCEL_PER_FRAME, AUTOGUN_PITCH_ACCEL_PER_FRAME, AUTOGUN_PITCH_MAX_SPEED);
+    }
+    else
+    {
+        var_f0_2 = playerProp2->pos.f[0] - obj->position.f[0];
+        playerDirVec.f[1] = (playerProp2->pos.f[1] - obj->position.f[1]) - 20.0f;//Aim 20 units below player’s head
+        temp_f2_23 = playerProp2->pos.f[2] - obj->position.f[2];
+        horizontalDistSq = (var_f0_2 * var_f0_2) + (temp_f2_23 * temp_f2_23);
+        playerDirVec.f[2] = var_f0_2;
+        playerDirVec.f[0] = temp_f2_23;
+        horizontalDist = sqrtf(horizontalDistSq);
+        distanceToPlayer = horizontalDist;
+        if (obj->flags & PROPFLAG_DOOR_TWOWAY)
+        {
+            horizontalDistSq += playerDirVec.f[1] * playerDirVec.f[1];
+            distanceToPlayer = sqrtf(horizontalDistSq);
+        }
+
+        sp4A0 = chrlvGetAimLimitAngle(horizontalDistSq);
+        sp4D8 = poAGun->rot_related;
+        targetPitch = poAGun->unk98;
+        if (distanceToPlayer <= poAGun->aimdist)
+        {
+            if (sp4A0);
+            playerYaw = atan2f(playerDirVec.f[2], playerDirVec.f[0]);
+            playerPitch = atan2f(playerDirVec.f[1], horizontalDist);
+            if ((obj->flags & PROPFLAG_NO_AMMO) || (obj->flags & PROPFLAG_INMOTION))
+            {
+                AutogunSeesPlayer = 1;
+            }
+            else
+            {
+                yawError = playerYaw - poAGun->unk90;
+                if (yawError < 0.0f)
+                {
+                    yawError += M_TAU_F;
+                }
+
+                if (yawError > M_PI_F)
+                {
+                    yawError -= M_TAU_F;
+                }
+
+                var_f2_6 = playerPitch - poAGun->unk9C;
+                if (var_f2_6 < 0.0f)
+                {
+                    if (horizontalDist)
+                    {
+                        horizontalDist = (horizontalDist) ? (horizontalDist) : (horizontalDist);
+                    }
+                }
+
+                if ((yawError < DegToRad(70)) && (yawError > DegToRad(-70)))
+                {
+                    AutogunSeesPlayer = 1;
+                }
+            }
+
+            if (AutogunSeesPlayer != 0)
+            {
+                sp494 = playerYaw - poAGun->rot_related;
+                collisionTile = prop->stan;
+                if (sp494 < (-M_PI_F))
+                {
+                    sp494 += M_TAU_F;
+                }
+                else if (sp494 >= M_PI_F)
+                {
+                    sp494 -= M_TAU_F;
+                }
+
+                bviewSetPlayerSolid(playerProp2, 0);
+                if ((((sp494 <= poAGun->unk88) && (poAGun->unk8C <= sp494)) && (stanTestLineUnobstructed(&collisionTile, prop->pos.f[0], prop->pos.f[2], playerProp2->pos.f[0], playerProp2->pos.f[2], 0x1B, prop->pos.f[1], prop->pos.f[1], playerProp2->pos.f[1], playerProp2->pos.f[1]) != 0)) && ((collisionTile) == playerProp2->stan))
+                {
+                    obj->flags |= PROPFLAG_INMOTION;
+                    hasLineOfSight = 1;
+                    sp4D8 = playerYaw;
+                    targetPitch = playerPitch;
+                }
+                else if ((poAGun->unkB8 >= 0) && ((g_GlobalTimer - AUTOGUN_TRACKING_FRAMES) < poAGun->unkB8)) //cooldown 2 seconds
+                {
+                    sp4D8 = poAGun->unk90;
+                    targetPitch = poAGun->unk9C;
+                }
+                else
+                {
+                    AutogunSeesPlayer = 0;
+                }
+
+                bviewSetPlayerSolid(playerProp2, 1);
+            }
+        }
+
+        if (AutogunSeesPlayer != 0)
+        {
+            sp4A0 = chrlvGetAimLimitAngle(horizontalDistSq);
+        }
+
+        if (poAGun->is_active != 0)
+        {
+            //Sway once every 2 seconds while firing
+            sp4D8 += (sp4A0 * 0.8f) * sinf((((f32) (((s32) g_GlobalTimer) % AUTOGUN_TRACKING_FRAMES)) * M_TAU_F) / (f32) AUTOGUN_TRACKING_FRAMES);
+            if (sp4D8 < 0.0f)
+            {
+                sp4D8 += M_TAU_F;
+            }
+
+            if (sp4D8 >= M_TAU_F)
+            {
+                sp4D8 -= M_TAU_F;
+            }
+        }
+
+        var_f0_2 = sp4D8 - poAGun->rot_related;
+        if (var_f0_2 < (-M_PI_F))
+        {
+            var_f0_2 += M_TAU_F;
+        }
+        else if (var_f0_2 >= M_PI_F)
+        {
+            var_f0_2 -= M_TAU_F;
+        }
+
+        if (poAGun->unk88 < var_f0_2)
+        {
+            sp4D8 = poAGun->rot_related + poAGun->unk88;
+        }
+        else if (var_f0_2 < poAGun->unk8C)
+        {
+            sp4D8 = poAGun->rot_related + poAGun->unk8C;
+        }
+
+        if (sp4D8 < 0.0f)
+        {
+            sp4D8 += M_TAU_F;
+        }
+
+        if (sp4D8 >= M_TAU_F)
+        {
+            sp4D8 -= M_TAU_F;
+        }
+
+        chrobjCallsApplySpeed(&poAGun->unk90, sp4D8, &poAGun->unk94, AUTOGUN_ALERT_ACCEL_PER_FRAME  , AUTOGUN_ALERT_ACCEL_PER_FRAME  , poAGun->speed);
+        chrobjCallsApplySpeed(&poAGun->unk9C, targetPitch, &poAGun->unkA0, AUTOGUN_ALERT_ACCEL_PER_FRAME  , AUTOGUN_ALERT_ACCEL_PER_FRAME  , poAGun->speed);
+        temp_f12_5 = sp4D8 - poAGun->unk90;
+        if (temp_f12_5 < 0.0f)
+        {
+            temp_f12_5 += M_TAU_F;
+        }
+
+        if (temp_f12_5 > M_PI_F)
+        {
+            temp_f12_5 -= M_TAU_F;
+        }
+
+        var_f2_6 = targetPitch - poAGun->unk9C; yawError = targetPitch;
+        if (var_f2_6 < 0.0f)
+        {
+            var_f2_6 += M_TAU_F;
+        }
+
+        if (var_f2_6 > M_PI_F)
+        {
+            var_f2_6 -= M_TAU_F;
+        }
+
+        poAGun->is_active = 0;
+        if (AutogunSeesPlayer != 0)
+        {
+            if ((((temp_f12_5 < sp4A0) && ((-sp4A0) < temp_f12_5)) && (var_f2_6 < sp4A0)) && ((-sp4A0) < var_f2_6))
+            {
+                poAGun->is_active = 1;
+                isTracking = 1;
+                if (hasLineOfSight != 0)
+                {
+                    poAGun->unkB8 = (s32) g_GlobalTimer;
+                    poAGun->unkBC = (s32) g_GlobalTimer;
+                }
+            }
+            else
+            {
+                angleDelta_6 = 2.0f * sp4A0;
+                if ((((temp_f12_5 < angleDelta_6) && ((-angleDelta_6) < temp_f12_5)) && (var_f2_6 < angleDelta_6)) && ((-angleDelta_6) < var_f2_6))
+                {
+                    poAGun->is_active = 1;
+                    isTracking = 1;
+                    if (hasLineOfSight != 0)
+                    {
+                        poAGun->unkB8 = (s32) g_GlobalTimer;
+                    }
+                }
+                else if ((poAGun->unkB8 >= 0) && ((g_GlobalTimer - AUTOGUN_TRACKING_FRAMES) < poAGun->unkB8))
+                {
+                    poAGun->is_active = 1;
+                    isTracking = 1;
+                }
+            }
+        }
+
+        if (isTracking != 0) //firing
+        {
+            poAGun->unkB0 += AUTOGUN_SPIN_ACCEL_PER_FRAME * g_GlobalTimerDelta;
+            if (poAGun->unkB0 > AUTOGUN_SPIN_MAX_SPEED)
+            {
+                poAGun->unkB0 = AUTOGUN_SPIN_MAX_SPEED;
+            }
+        }
+        else if (poAGun->unkB0 > 0.0f)
+        {
+            for (var_v0_3 = 0; var_v0_3 < g_ClockTimer; var_v0_3++)
+            {
+                poAGun->unkB0 *= 0.99f; //barrel loses 45% of its spin per second when idle
+            }
+
+
+            if (poAGun->unkB0 <= 0.0001f)
+            {
+                poAGun->unkB0 = 0.0f;
+            }
+        }
+
+        if (poAGun->unkB0 > 0.0f)
+        {
+            poAGun->unkB4 += poAGun->unkB0 * g_GlobalTimerDelta;
+            while (poAGun->unkB4 >= M_TAU_F)
+            {
+                poAGun->unkB4 -= M_TAU_F;
+            }
+
+        }
+    }
+}
+
+
+
+void objTickVehicle(PropRecord *prop)
+{
+    ObjectRecord *obj = prop->obj;
+    Model *model = obj->model;
+    VehichleRecord *poTruck;
+    waypoint *currentWaypoint;
+    s32 *temp_a1_6;
+    coord3d *waypointPosition;
+    StandTile *currentTile;
+    StandTile *nextTile;
+    f32 *temp_s0_5;
+    f32 *temp_v0_25;
+    coord3d ProjPos;
+    coord3d forwardDir;
+    coord3d sp450;
+    coord3d vec424;
+    coord3d vec418;
+    coord3d vec40C;
+    coord3d vec400;
+    f32 targetYaw;
+    f32 truckAngularVelocity;
+    f32 previousYaw;
+    f32 sp434;
+    f32 sp460;
+    s32 truckShouldPlayEngineSound;
+    s32 var_s2_5;
+
+    poTruck = (struct VehichleRecord *) obj;
+    targetYaw = poTruck->roty;
+    waypointPosition = NULL;
+
+    ai((PropDefHeaderRecord *) poTruck, 1);
+
+    if (poTruck->speedtime60 >= 0.0f)
+    {
+        if (poTruck->speedtime60 <= g_GlobalTimerDelta)
+        {
+            poTruck->speed = poTruck->speedaim;
+        }
+        else
+        {
+            poTruck->speed += ((poTruck->speedaim - poTruck->speed) * g_GlobalTimerDelta) / poTruck->speedtime60;
+        }
+
+        poTruck->speedtime60 -= g_GlobalTimerDelta;
+    }
+
+    truckShouldPlayEngineSound = 0;
+
+    if (((!(obj->flags2 & PROPFLAG2_00080000)) && (objIsHealthy(obj) != 0)) && ((poTruck->speed > 0.0f) || (poTruck->speedaim > 0.0f)))
+    {
+        truckShouldPlayEngineSound = sub_GAME_7F053894(&poTruck->position, 2000.0f, 3000.0f);
+    }
+
+    if (truckShouldPlayEngineSound > 0)
+    {
+        if (((poTruck->Sound == NULL) || (sndGetPlayingState(poTruck->Sound) == 0)) && (lvGetControlsLockedFlag() == 0))
+        {
+            sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, TRUCK_RUN_SFX, &poTruck->Sound);
+        }
+
+        if (poTruck->Sound != NULL)
+        {
+            sndCreatePostEvent(poTruck->Sound, 8, truckShouldPlayEngineSound);
+        }
+    }
+    else if ((poTruck->Sound != NULL) && (sndGetPlayingState(poTruck->Sound) != 0))
+    {
+        sndDeactivate(poTruck->Sound);
+    }
+
+    if (poTruck->path != NULL)
+    {
+        temp_a1_6 = &poTruck->path->waypoints[poTruck->nextstep];
+        currentWaypoint = &g_CurrentSetup.pathwaypoints[*temp_a1_6];
+        waypointPosition = &g_CurrentSetup.pads[currentWaypoint->padID].pos;
+        targetYaw = atan2f(waypointPosition->f[0] - poTruck->position.f[0], waypointPosition->f[2] - poTruck->position.f[2]);
+        if (poTruck->flags & PROPFLAG_INMOTION)
+        {
+            poTruck->roty = targetYaw;
+            obj->flags &= ~PROPFLAG_INMOTION;
+            sub_GAME_7F044B38(poTruck);
+        }
+    }
+    else if (poTruck->flags & PROPFLAG_INMOTION)
+    {
+        poTruck->roty = atan2f(poTruck->mtx.m[2][0], poTruck->mtx.m[2][2]);
+        poTruck->flags &= ~PROPFLAG_INMOTION;
+        sub_GAME_7F044B38(poTruck);
+    }
+
+    if (poTruck->speed > 0.0f)
+    {
+        truckAngularVelocity = 0.0f;
+        currentTile = prop->stan;
+        previousYaw = poTruck->roty;
+        sp434 = poTruck->turnrot60;
+        if (waypointPosition != NULL)
+        {
+            truckAngularVelocity = 0.0f;
+            forwardDir.f[0] = sinf(poTruck->roty);
+            forwardDir.f[1] = 0.0f;
+            forwardDir.f[2] = cosf(poTruck->roty);
+            if (chrlvGeometryRelated7F02FC34(&poTruck->position, &forwardDir, waypointPosition, 10.0f) != 0)
+            {
+                targetYaw = poTruck->roty;
+            }
+        }
+
+        chrobjCallsApplySpeed(&poTruck->roty, targetYaw, &poTruck->turnrot60, TRUCK_TURN_ACCEL_PER_FRAME, TRUCK_TURN_DECEL_PER_FRAME, TRUCK_TURN_MAX_SPEED);
+        while (poTruck->roty >= M_TAU_F)
+        {
+            poTruck->roty -= M_TAU_F;
+        }
+
+
+        while (poTruck->roty < 0.0f)
+        {
+            poTruck->roty += M_TAU_F;
+        }
+
+
+        if (targetYaw == poTruck->roty)
+        {
+            if ((poTruck->turnrot60 <= TRUCK_TURN_DECEL_PER_FRAME) && (poTruck->turnrot60 >= (-TRUCK_TURN_DECEL_PER_FRAME)))
+            {
+                poTruck->turnrot60 = 0.0f;
+            }
+        }
+
+        temp_s0_5 = (f32 *) model->obj->Switches[3]->Data;
+        if (g_GlobalTimerDelta > 0.0f)
+        {
+            truckAngularVelocity = (poTruck->roty - previousYaw) / g_GlobalTimerDelta;
+        }
+
+        if (truckAngularVelocity < 0.0f)
+        {
+            truckAngularVelocity += M_TAU_F;
+        }
+
+        sp460 = ((temp_s0_5[2] * model->scale) * sinf(truckAngularVelocity)) * g_GlobalTimerDelta;
+        forwardDir.f[0] = sinf(poTruck->roty);
+        forwardDir.f[1] = 0.0f;
+        forwardDir.f[2] = cosf(poTruck->roty);
+        ProjPos.f[0] = (poTruck->position.f[0] + ((poTruck->speed * g_GlobalTimerDelta) * forwardDir.f[0])) - (forwardDir.f[2] * sp460);
+        ProjPos.f[1] = poTruck->position.f[1];
+        ProjPos.f[2] = (poTruck->position.f[2] + ((poTruck->speed * g_GlobalTimerDelta) * forwardDir.f[2])) + (forwardDir.f[0] * sp460);
+        if ((stanTestLineUnobstructed(&currentTile, prop->pos.f[0], prop->pos.f[2], ProjPos.f[0], ProjPos.f[2], 0x1F, 0.0f, 1.0f, 0.0f, 1.0f) != 0) && (stanTestVolume(&currentTile, ProjPos.f[0], ProjPos.f[2], 10.0f, 0x1F, 0.0f, 1.0f) < 0))
+        {
+            nextTile = prop->stan;
+            sp450.f[0] = prop->pos.f[0];
+            sp450.f[1] = prop->pos.f[1];
+            sp450.f[2] = prop->pos.f[2];
+            prop->stan = currentTile;
+            poTruck->position.f[0] = (prop->pos.f[0] = ProjPos.f[0]);
+            poTruck->position.f[2] = (prop->pos.f[2] = ProjPos.f[2]);
+            objUpdateCollisionVolume(obj);
+            setupUpdateObjectRoomPosition(obj);
+            var_s2_5 = sub_GAME_7F0448A8(prop);
+            if (var_s2_5 != 0)
+            {
+                temp_v0_25 = (f32 *) model->obj->Switches[10]->Data;
+                vec424.f[0] = temp_v0_25[1] * poTruck->mtx.m[0][0];
+                vec424.f[2] = temp_v0_25[1] * poTruck->mtx.m[0][2];
+                vec418.f[0] = temp_v0_25[2] * poTruck->mtx.m[0][0];
+                vec418.f[2] = temp_v0_25[2] * poTruck->mtx.m[0][2];
+                vec40C.f[0] = temp_v0_25[5] * poTruck->mtx.m[2][0];
+                vec40C.f[2] = temp_v0_25[5] * poTruck->mtx.m[2][2];
+                vec400.f[0] = temp_v0_25[6] * poTruck->mtx.m[2][0];
+                vec400.f[2] = temp_v0_25[6] * poTruck->mtx.m[2][2];
+                currentTile = prop->stan;
+                if (((((walkTilesBetweenPoints_NoCallback(&currentTile, prop->pos.f[0], prop->pos.f[2], (prop->pos.f[0] + vec424.f[0]) + vec40C.f[0], (prop->pos.f[2] + vec424.f[2]) + vec40C.f[2]) == 0) || (walkTilesBetweenPoints_NoCallback(&currentTile, (prop->pos.f[0] + vec424.f[0]) + vec40C.f[0], (prop->pos.f[2] + vec424.f[2]) + vec40C.f[2], (prop->pos.f[0] + vec418.f[0]) + vec40C.f[0], (prop->pos.f[2] + vec418.f[2]) + vec40C.f[2]) == 0)) || (walkTilesBetweenPoints_NoCallback(&currentTile, (prop->pos.f[0] + vec418.f[0]) + vec40C.f[0], (prop->pos.f[2] + vec418.f[2]) + vec40C.f[2], (prop->pos.f[0] + vec418.f[0]) + vec400.f[0], (prop->pos.f[2] + vec418.f[2]) + vec400.f[2]) == 0)) || (walkTilesBetweenPoints_NoCallback(&currentTile, (prop->pos.f[0] + vec418.f[0]) + vec400.f[0], (prop->pos.f[2] + vec418.f[2]) + vec400.f[2], (prop->pos.f[0] + vec424.f[0]) + vec400.f[0], (prop->pos.f[2] + vec424.f[2]) + vec400.f[2]) == 0)) || (walkTilesBetweenPoints_NoCallback(&currentTile, (prop->pos.f[0] + vec424.f[0]) + vec400.f[0], (prop->pos.f[2] + vec424.f[2]) + vec400.f[2], (prop->pos.f[0] + vec424.f[0]) + vec40C.f[0], (prop->pos.f[2] + vec424.f[2]) + vec40C.f[2]) == 0))
+                {
+                    var_s2_5 = 0;
+                }
+            }
+
+            if (var_s2_5 != 0)
+            {
+                sub_GAME_7F044B38(poTruck);
+                objSetShading(prop, &poTruck->nextcol);
+                detonate_proxmine_In_range(&poTruck->position);
+                if ((waypointPosition != NULL) && (chrlvIsArrivingLaterallyAtPos(&sp450, &ProjPos, waypointPosition, 100.0f) != 0))
+                {
+                    poTruck->nextstep++;
+                    if (poTruck->path->waypoints[poTruck->nextstep] < 0)
+                    {
+                        poTruck->path = NULL;
+                        poTruck->speedaim = 0.0f;
+                        poTruck->speedtime60 = 60.0f;
+                    }
+                }
+            }
+            else
+            {
+                if (poTruck->speedtime60 < 0.0f)
+                {
+                    poTruck->speedaim = (f32) poTruck->speed;
+                    poTruck->speedtime60 = 60.0f;
+                }
+
+                poTruck->speed = 0.0f;
+                poTruck->roty = previousYaw;
+                poTruck->turnrot60 = sp434;
+                prop->stan = nextTile;
+                obj->position.f[0] = (prop->pos.f[0] = sp450.f[0]);
+                obj->position.f[1] = (prop->pos.f[1] = sp450.f[1]);
+                obj->position.f[2] = (prop->pos.f[2] = sp450.f[2]);
+                objUpdateCollisionVolume(obj);
+                setupUpdateObjectRoomPosition(obj);
+            }
+        }
+        else
+        {
+            if (poTruck->speedtime60 < 0.0f)
+            {
+                poTruck->speedaim = (f32) poTruck->speed;
+                poTruck->speedtime60 = 60.0f;
+            }
+
+            poTruck->speed = 0.0f;
+            poTruck->roty = previousYaw;
+            poTruck->turnrot60 = sp434;
+        }
+    }
+    else if (poTruck->flags & PROPFLAG_INMOTION)
+    {
+        poTruck->roty = atan2f(poTruck->mtx.m[2][0], poTruck->mtx.m[2][2]);
+        poTruck->flags &= ~PROPFLAG_INMOTION;
+        sub_GAME_7F044B38(poTruck);
+    }
+}
+
+
+
+void objTickAircraft(PropRecord *prop)
+{
+    ObjectRecord *obj = prop->obj;
+    AircraftRecord *render_pad2F4;
+    Model *temp_s0_6;
+    PadRecord *var_v1_4;
+    f32 angleDelta;
+    s32 truckShouldPlayEngineSound;
+
+    render_pad2F4 = (struct AircraftRecord *) obj;
+
+    ai((PropDefHeaderRecord *) render_pad2F4, 1);
+
+    temp_s0_6 = render_pad2F4->model;
+
+    if (temp_s0_6->anim != NULL)
+    {
+        setsuboffset(temp_s0_6, &render_pad2F4->position);
+        temp_s0_6 = render_pad2F4->model;
+
+        if (temp_s0_6->anim == animation_table_ptrs2[1])
+        {
+            modelSetAnimTranslationScale(temp_s0_6, 10.438f);
+            setsubroty(render_pad2F4->model, M_PI_F);
+        }
+        else if (bossGetStageNum() == 22)
+        {
+            modelSetAnimTranslationScale(render_pad2F4->model, 1.0438f);
+            setsubroty(render_pad2F4->model, 2.3561945f);
+        }
+        else if (bossGetStageNum() == 26)
+        {
+            modelSetAnimTranslationScale(render_pad2F4->model, 1.0438f);
+            setsubroty(render_pad2F4->model, 3.9269907f);
+        }
+        else
+        {
+            modelSetAnimTranslationScale(render_pad2F4->model, 1.0438f);
+            setsubroty(render_pad2F4->model, 0.0f);
+        }
+
+        modelTickAnim(render_pad2F4->model, g_ClockTimer, 1);
+        subcalcpos(render_pad2F4->model);
+        getsuboffset(render_pad2F4->model, &render_pad2F4->position);
+        prop->pos.f[0] = render_pad2F4->position.f[0];
+        prop->pos.f[2] = render_pad2F4->position.f[2];
+
+        if (render_pad2F4->pad < 10000)
+        {
+            var_v1_4 = &g_CurrentSetup.pads[render_pad2F4->pad];
+        }
+        else
+        {
+            var_v1_4 = (PadRecord *) (&g_CurrentSetup.boundpads[render_pad2F4->pad - 10000]);
+        }
+
+        prop->pos.f[1] = var_v1_4->pos.f[1] + render_pad2F4->position.f[1];
+        render_pad2F4->position.f[1] = prop->pos.f[1];
+        setsuboffset(render_pad2F4->model, &render_pad2F4->position);
+    }
+
+    angleDelta = render_pad2F4->speedtime60;
+
+    if (angleDelta >= 0.0f)
+    {
+        if (angleDelta <= g_GlobalTimerDelta)
+        {
+            render_pad2F4->speed = (f32) render_pad2F4->speedaim;
+            angleDelta = *((volatile f32 *) (&render_pad2F4->speedtime60));
+        }
+        else
+        {
+            render_pad2F4->speed += ((render_pad2F4->speedaim - render_pad2F4->speed) * g_GlobalTimerDelta) / angleDelta;
+        }
+
+        render_pad2F4->speedtime60 = (f32) (angleDelta - g_GlobalTimerDelta);
+    }
+
+    if (render_pad2F4->rotaryspeedtime >= 0.0f)
+    {
+        if (render_pad2F4->rotaryspeedtime <= g_GlobalTimerDelta)
+        {
+            render_pad2F4->rotaryspeed = (f32) render_pad2F4->rotaryspeedaim;
+        }
+        else
+        {
+            angleDelta = render_pad2F4->rotaryspeed;
+            render_pad2F4->rotaryspeed += ((render_pad2F4->rotaryspeedaim - render_pad2F4->rotaryspeed) * g_GlobalTimerDelta) / render_pad2F4->rotaryspeedtime;
+        }
+
+        render_pad2F4->rotaryspeedtime -= g_GlobalTimerDelta;
+    }
+
+    truckShouldPlayEngineSound = 0;
+    if ((((!(render_pad2F4->flags2 & PROPFLAG2_00080000)) && (objIsHealthy(obj) != 0)) && (render_pad2F4->rotaryspeed != 0.0f)) && (!(render_pad2F4->flags & PROPFLAG_INMOTION)))
+    {
+        truckShouldPlayEngineSound = sub_GAME_7F053894(&render_pad2F4->position, 5000.0f, 6000.0f);
+    }
+
+    if (truckShouldPlayEngineSound > 0)
+    {
+        if (((render_pad2F4->Sound == NULL) || (sndGetPlayingState(render_pad2F4->Sound) == 0)) && (lvGetControlsLockedFlag() == 0))
+        {
+            sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, HELI_RUN_SFX, &render_pad2F4->Sound);
+        }
+
+        if (render_pad2F4->Sound != NULL)
+        {
+            sndCreatePostEvent(render_pad2F4->Sound, 8, truckShouldPlayEngineSound);
+        }
+    }
+    else if ((render_pad2F4->Sound != NULL) && (sndGetPlayingState(render_pad2F4->Sound) != 0))
+    {
+        sndDeactivate(render_pad2F4->Sound);
+    }
+}
+
+
+bool objTickUpdateOpacityAndPortal(PropRecord *prop, s32 playerCount)
+{
+    ObjectRecord *obj = prop->obj;
+
+    if (obj->type == PROPDEF_TINTED_GLASS)
+    {
+        TintedGlassRecord *glass = (TintedGlassRecord *) obj;
+
+        glass->calculatedopacity = glassCalculateOpacity(
+            &obj->position, glass->TintDist, glass->CullDist, glass->unk90);
+
+        if (glass->portalnum >= 0 && playerCount == 1)
+        {
+            bgToggleDataPortalsContrlBytes1Bit1(
+                glass->portalnum, glass->calculatedopacity == 0xff ? 0 : 1);
+        }
+
+        return FALSE;
+    }
+
+    if (obj->type == PROPDEF_DOOR && ((DoorRecord *) obj)->doorFlags & DOORFLAG_WINDOWED)
+    {
+        DoorRecord *door = (DoorRecord *) obj;
+
+        door->calculatedopacity = glassCalculateOpacity( &obj->position, door->TintDist, *((s32 *) (((u8 *) door) + 0xc4)), 0.0f);
+
+        if (playerCount == 1)
+        {
+            bool closePortal = door->calculatedopacity == 0xff && door->openPosition <= 0.0f;
+            ModelFileHeader *modelFile = obj->model->obj;
+
+            if (modelFile->Skeleton == &skeleton_door
+                    && !modelGetNodeRwData(obj->model, modelFile->Switches[1])->Switch.visible)
+            {
+                closePortal = FALSE;
+            }
+
+            if (closePortal)
+            {
+                doorDeactivatePortal(door);
+            }
+            else
+            {
+                doorActivatePortal(door);
+            }
+        }
+    }
+
+    return TRUE;
+}
+
+
+
+void objTickBuildDoorMatrices(PropRecord *prop, Mtxf *mtxs, f32 previousOpenPosition, bool isSimOwner)
+{
+    DoorRecord *sp39C;
+    Mtxf *render_pad388;
+    Mtxf *temp_s0_10;
+    Mtxf *sp390;
+    f32 sp394;
+    f32 sp384;
+    f32 sp380;
+    f32 temp_f0_31;
+    s32 sp38C;
+    s32 temp_v0_32;
+    s32 var_v1_5;
+    Model *model = prop->obj->model;
+
+    sp39C = (struct DoorRecord *) prop->obj;
+    door7F0526EC(sp39C, mtxs);
+    matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), mtxs);
+
+    if (model->obj->Skeleton == (&skeleton_eyelid_door))
+    {
+        sp394 = M_TAU_F - ((sp39C->openPosition * M_TAU_F) / 360.0f);
+        render_pad388 = &mtxs[1];
+        temp_s0_10 = (Mtxf *) model->obj->Switches[1]->Data;
+        matrix_4x4_set_rotation_around_x(sp394, render_pad388);
+        matrix_4x4_set_position((struct coord3d *) temp_s0_10, render_pad388);
+        matrix_4x4_multiply_in_place(mtxs, render_pad388);
+        render_pad388 = &mtxs[2];
+        temp_s0_10 = (Mtxf *) model->obj->Switches[2]->Data;
+        matrix_4x4_set_rotation_around_x(M_TAU_F - sp394, render_pad388);
+        matrix_4x4_set_position((struct coord3d *) temp_s0_10, render_pad388);
+        matrix_4x4_multiply_in_place(mtxs, render_pad388);
+    }
+    else if (model->obj->Skeleton == (&skeleton_iris_door))
+    {
+        sp380 = 0.0f;
+        sp384 = (sp39C->openPosition * M_TAU_F) / 360.0f;
+        temp_f0_31 = sp39C->maxFrac * 0.3f;
+        if (temp_f0_31 < sp39C->openPosition)
+        {
+            sp380 = (((sp39C->maxFrac * (sp39C->openPosition - temp_f0_31)) / (sp39C->maxFrac - temp_f0_31)) * M_TAU_F) / 360.0f;
+            if (isSimOwner)
+            {
+                if (previousOpenPosition <= temp_f0_31)
+                {
+                    chrobjSndCreatePostEventDefault(sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, METAL_SLIDE_OPEN_SFX, NULL), &prop->pos);
+                }
+            }
+        }
+        else if (isSimOwner)
+        {
+            if (temp_f0_31 < previousOpenPosition)
+            {
+                chrobjSndCreatePostEventDefault(sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, METAL_SLIDE_CLOSE_SFX, NULL), &prop->pos);
+            }
+        }
+
+        sp38C = 0;
+
+        do
+        {
+            temp_v0_32 = sp38C << 1;
+            var_v1_5 = temp_v0_32 + 2;
+            sp390 = (Mtxf *) model->obj->Switches[temp_v0_32 + 1]->Data;
+            matrix_4x4_set_rotation_around_z(sp380, (Mtxf *) ((((u8 *) mtxs) + (temp_v0_32 * (sizeof(Mtxf)))) + (sizeof(Mtxf))));
+            matrix_4x4_set_position((struct coord3d *) sp390, (Mtxf *) ((((u8 *) mtxs) + (temp_v0_32 * (sizeof(Mtxf)))) + (sizeof(Mtxf))));
+            matrix_4x4_multiply_in_place(mtxs, (Mtxf *) ((((u8 *) mtxs) + (temp_v0_32 * (sizeof(Mtxf)))) + (sizeof(Mtxf))));
+            sp390 = (Mtxf *) model->obj->Switches[var_v1_5]->Data;
+            matrix_4x4_set_rotation_around_z(sp384, (Mtxf *) (((u8 *) mtxs) + (var_v1_5 << 6)));
+            matrix_4x4_set_position((struct coord3d *) sp390, &mtxs[var_v1_5]);
+            matrix_4x4_multiply_in_place((Mtxf *) ((((u8 *) mtxs) + (temp_v0_32 * (sizeof(Mtxf)))) + (sizeof(Mtxf))), &mtxs[var_v1_5]);
+            sp38C++;
+        }
+        while (sp38C != 6);
+    }
+}
+
+
+void objTickBuildCctvMatrices(PropRecord *prop, Mtxf *mtxs, Mtxf *tempMatrix2)
+{
+    ObjectRecord *obj = prop->obj;
+    Model *model = obj->model;
+    CCTVRecord *sp370;
+    coord3d *temp_s0_13;
+    coord3d sp360;
+    Mtxf tempMatrix;
+    f32 angleDelta_7;
+
+    sp370 = (struct CCTVRecord *) prop->obj;
+    angleDelta_7 = sp370->unkC8;
+    temp_s0_13 = (struct coord3d *) model->obj->Switches[0]->Data;
+
+    if (angleDelta_7 < 0.0f)
+    {
+        angleDelta_7 += M_TAU_F;
+    }
+    else if (angleDelta_7 >= M_TAU_F)
+    {
+        angleDelta_7 -= M_TAU_F;
+    }
+
+    matrix_4x4_set_rotation_around_y(angleDelta_7, &tempMatrix);
+    matrix_4x4_multiply(&tempMatrix, &sp370->unk84, &mtxs[1]);
+    sp360.f[0] = temp_s0_13->f[0];
+    sp360.f[1] = temp_s0_13->f[1];
+    sp360.f[2] = temp_s0_13->f[2];
+    mtx4TransformVecInPlace(tempMatrix2, &sp360);
+    matrix_4x4_set_position(&sp360, &mtxs[1]);
+    matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), &mtxs[1]);
+}
+
+
+void objTickBuildAutogunMatrices(PropRecord *prop, Mtxf *mtxs, Mtxf *tempMatrix2)
+{
+    ObjectRecord *obj = prop->obj;
+    Model *model = obj->model;
+    AutogunRecord *sp318;
+    coord3d *temp_s0_13;
+    coord3d sp308;
+    Mtxf *sp2FC;
+    f32 sp304;
+    f32 sp300;
+
+    sp318 = (struct AutogunRecord *) prop->obj;
+    sp304 = sp318->unk90 + M_PI_2F;
+    sp300 = -sp318->unk9C;
+
+    if (sp304 >= M_TAU_F)
+    {
+        sp304 -= M_TAU_F;
+    }
+
+    temp_s0_13 = model->obj->Switches[1]->Data;
+    sp308.f[0] = temp_s0_13->f[0];
+    sp308.f[1] = temp_s0_13->f[1];
+    sp308.f[2] = temp_s0_13->f[2];
+
+    mtx4TransformVecInPlace(tempMatrix2, &sp308);
+    matrix_4x4_set_rotation_around_y(sp304, &mtxs[1]);
+    matrix_4x4_set_position(&sp308, &mtxs[1]);
+    matrix_scalar_multiply(sp318->model->scale, mtxs[1].m[0]);
+    matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), &mtxs[1]);
+    temp_s0_13 = (struct coord3d *) model->obj->Switches[2]->Data;
+    matrix_4x4_set_rotation_around_z(sp300, &mtxs[2]);
+    matrix_4x4_set_position(temp_s0_13, &mtxs[2]);
+    matrix_4x4_multiply_homogeneous_in_place(&mtxs[1], &mtxs[2]);
+
+    if (model->obj->Switches[3] != NULL)
+    {
+        sp2FC = modelFindNodeMtx(model, model->obj->Switches[3], 0);
+        temp_s0_13 = (struct coord3d *) model->obj->Switches[3]->Data;
+        matrix_4x4_set_rotation_around_x(sp318->unkB4, sp2FC);
+        matrix_4x4_set_position(temp_s0_13, sp2FC);
+        matrix_4x4_multiply_homogeneous_in_place(&mtxs[2], sp2FC);
+    }
+
+    if (model->obj->Switches[4] != NULL)
+    {
+        sp2FC = modelFindNodeMtx(model, model->obj->Switches[4], 0);
+        temp_s0_13 = (struct coord3d *) model->obj->Switches[4]->Data;
+        matrix_4x4_set_identity_and_position(temp_s0_13, sp2FC);
+        matrix_4x4_multiply_homogeneous_in_place(&mtxs[2], sp2FC);
+    }
+
+    if (model->obj->Switches[6] != NULL)
+    {
+        sp2FC = modelFindNodeMtx(model, model->obj->Switches[6], 0);
+        temp_s0_13 = (struct coord3d *) model->obj->Switches[6]->Data;
+        matrix_4x4_set_rotation_around_x(sp318->unkB4, sp2FC);
+        matrix_4x4_set_position(temp_s0_13, sp2FC);
+        matrix_4x4_multiply_homogeneous_in_place(&mtxs[2], sp2FC);
+    }
+}
+
+
+void objTickBuildCollectableMatrices(Model *model, Mtxf *mtxs)
+{
+    s32 sp2F8;
+
+    sp2F8 = 1;
+
+    if (sp2F8 < model->obj->numMatrices)
+    {
+        do
+        {
+            matrix_4x4_set_identity((Mtxf *) (((u8 *) mtxs) + (sp2F8 * 64)));
+            sp2F8++;
+        }
+
+        while (sp2F8 < model->obj->numMatrices);
+    }
+}
+
+
+void objTickBuildRackMatrices(Model *model, Mtxf *mtxs)
+{
+    matrix_4x4_set_identity_and_position(model->obj->Switches[0]->Data, &mtxs[1]);
+    matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[1]);
+    matrix_4x4_set_identity_and_position(model->obj->Switches[1]->Data, &mtxs[2]);
+    matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[2]);
+    matrix_4x4_set_identity_and_position(model->obj->Switches[2]->Data, &mtxs[3]);
+    matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[3]);
+    matrix_4x4_set_identity_and_position(model->obj->Switches[3]->Data, &mtxs[4]);
+    matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[4]);
+}
+
+
+void objTickBuildVehicleMatrices(ObjectRecord *obj, Mtxf *mtxs, bool isSimOwner)
+{
+    Model *model = obj->model;
+    ModelNode **temp_v1_7;
+    coord3d *sp260;
+    coord3d *sp25C;
+    coord3d *sp258;
+    coord3d *sp254;
+    f32 *temp_v0_25;
+    Mtxf sp2AC;
+    Mtxf sp26C;
+    f32 var_f0_3;
+    f32 sp250;
+    f32 sp24C;
+    f32 sp248;
+    struct VehichleRecord *vehicle_render = (struct VehichleRecord *) obj;
+
+    var_f0_3 = 0.0f;
+    temp_v1_7 = model->obj->Switches;
+    sp260 = temp_v1_7[1]->Data;
+    sp25C = temp_v1_7[2]->Data;
+    sp258 = temp_v1_7[3]->Data;
+    sp254 = temp_v1_7[4]->Data;
+    temp_v0_25 = temp_v1_7[6]->Data;
+    sp250 = (temp_v0_25[4] - temp_v0_25[3]) * model->scale;
+
+    if (isSimOwner)
+    {
+        var_f0_3 = ((vehicle_render->speed * g_GlobalTimerDelta) * M_TAU_F) / ((sp250 * M_TAU_F) * 0.5f);
+        vehicle_render->wheelxrot += var_f0_3;
+        while (vehicle_render->wheelxrot >= M_TAU_F)
+        {
+            vehicle_render->wheelxrot -= M_TAU_F;
+        }
+
+
+        while (vehicle_render->wheelxrot < 0.0f)
+        {
+            vehicle_render->wheelxrot += M_TAU_F;
+        }
+
+    }
+
+    vehicle_render->wheelxrot += var_f0_3;
+    while (vehicle_render->wheelxrot >= M_TAU_F)
+    {
+        vehicle_render->wheelxrot -= M_TAU_F;
+    }
+
+
+    while (vehicle_render->wheelxrot < 0.0f)
+    {
+        vehicle_render->wheelxrot += M_TAU_F;
+    }
+
+
+    matrix_4x4_set_rotation_around_x(vehicle_render->wheelxrot, &sp2AC);
+    if (vehicle_render->speed > 0.0f)
+    {
+        sp24C = vehicle_render->turnrot60;
+        sp250 = (sp258->f[2] - sp260->f[2]) * model->scale;
+        if (sp24C < 0.0f)
+        {
+            sp24C = -sp24C;
+        }
+
+        sp248 = sinf(sp24C) * sp250;
+        vehicle_render->wheelyrot = atan2f(sp248, (cosf(sp24C) * sp250) - (sp250 - vehicle_render->speed));
+        if (vehicle_render->wheelyrot < sp24C)
+        {
+            vehicle_render->wheelyrot = sp24C;
+        }
+
+        if (vehicle_render->turnrot60 > 0.0f)
+        {
+            vehicle_render->wheelyrot = M_TAU_F - vehicle_render->wheelyrot;
+        }
+    }
+
+    matrix_4x4_set_rotation_around_y(vehicle_render->wheelyrot, &sp26C);
+    matrix_4x4_copy(&sp2AC, &mtxs[3]);
+    matrix_4x4_set_position(sp258, &mtxs[3]);
+    matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[3]);
+    matrix_4x4_copy(&sp2AC, &mtxs[4]);
+    matrix_4x4_set_position(sp254, &mtxs[4]);
+    matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[4]);
+    matrix_4x4_multiply_homogeneous_in_place(&sp26C, &sp2AC);
+    matrix_4x4_copy(&sp2AC, &mtxs[1]);
+    matrix_4x4_set_position(sp260, &mtxs[1]);
+    matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[1]);
+    matrix_4x4_copy(&sp2AC, &mtxs[2]);
+    matrix_4x4_set_position(sp25C, &mtxs[2]);
+    matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[2]);
+}
+
+
+void objTickBuildAircraftMatrices(ObjectRecord *obj, Mtxf *mtxs, bool isSimOwner)
+{
+    Model *model = obj->model;
+    coord3d *sp1FC;
+    coord3d *temp_s0_14;
+    Mtxf *temp_s0_21;
+    Mtxf sp200;
+    ModelRenderData sp1B0;
+
+    struct AircraftRecord *aircraft_render = (struct AircraftRecord *) obj;
+
+    sp1FC = model->obj->Switches[2]->Data;
+
+    if ((g_ClockTimer > 0) && (isSimOwner))
+    {
+        aircraft_render->rotoryrot += aircraft_render->rotaryspeed;
+
+        while (aircraft_render->rotoryrot >= M_TAU_F)
+        {
+            aircraft_render->rotoryrot -= M_TAU_F;
+        }
+
+        while (aircraft_render->rotoryrot < 0.0f)
+        {
+            aircraft_render->rotoryrot += M_TAU_F;
+        }
+    }
+
+    if (aircraft_render->model->anim != NULL)
+    {
+        sp1B0 = D_80030B34;
+        sp1B0.basemtx = camGetWorldToScreenMtxf();
+        sp1B0.mtxlist = &mtxs[0];
+        subcalcmatrices(&sp1B0, aircraft_render->model);
+    }
+    else
+    {
+        matrix_4x4_copy(&mtxs[0], &mtxs[1]);
+    }
+
+    if (aircraft_render->flags & PROPFLAG_INMOTION)
+    {
+        matrix_4x4_set_rotation_around_z(aircraft_render->rotoryrot, &sp200);
+    }
+    else
+    {
+        matrix_4x4_set_rotation_around_y(aircraft_render->rotoryrot, &sp200);
+    }
+
+    matrix_4x4_copy(&sp200, &mtxs[2]);
+    matrix_4x4_set_position(sp1FC, &mtxs[2]);
+    matrix_4x4_multiply_homogeneous_in_place(&mtxs[1], &mtxs[2]);
+
+    if (model->obj->Switches[3] != NULL)
+    {
+        temp_s0_14 = (struct coord3d *) model->obj->Switches[3]->Data;
+        temp_s0_21 = modelFindNodeMtx(model, model->obj->Switches[3], 0);
+        matrix_4x4_set_rotation_around_x(aircraft_render->rotoryrot, &sp200);
+        matrix_4x4_copy(&sp200, temp_s0_21);
+        matrix_4x4_set_position(temp_s0_14, temp_s0_21);
+        matrix_4x4_multiply_homogeneous_in_place(&mtxs[1], temp_s0_21);
+    }
+
+    if (model->obj->Switches[4] != NULL)
+    {
+        temp_s0_14 = (struct coord3d *) model->obj->Switches[4]->Data;
+        temp_s0_21 = modelFindNodeMtx(model, model->obj->Switches[4], 0);
+        matrix_4x4_set_identity_and_position(temp_s0_14, temp_s0_21);
+        matrix_4x4_multiply_homogeneous_in_place(&mtxs[1], temp_s0_21);
+    }
+}
+
+
+void objTickBuildTankMatrices(ObjectRecord *obj, Mtxf *mtxs)
+{
+    Model *model = obj->model;
+    ModelNode **temp_v1_7;
+    ModelRoData_BoundingBoxRecord *sp158;
+    coord3d *sp168;
+    coord3d *sp164;
+    coord3d *sp160;
+    coord3d *sp15C;
+    Mtxf sp16C;
+    f32 sp154;
+    f32 angleDelta_9;
+
+    struct TankRecord *tank_render = (struct TankRecord *) obj;
+
+    temp_v1_7 = model->obj->Switches;
+    sp168 = temp_v1_7[1]->Data;
+    sp164 = temp_v1_7[3]->Data;
+    sp160 = temp_v1_7[4]->Data;
+    sp15C = temp_v1_7[2]->Data;
+    sp158 = temp_v1_7[6]->Data;
+    sp154 = -tank_render->turret_vertical_angle;
+
+    if (sp154 < 0.0f)
+    {
+        sp154 += M_TAU_F;
+    }
+
+    angleDelta_9 = -tank_render->turret_orientation_angle;
+
+    if (angleDelta_9 < 0.0f)
+    {
+        angleDelta_9 += M_TAU_F;
+    }
+
+    matrix_4x4_set_rotation_around_y(angleDelta_9, &mtxs[1]);
+    matrix_4x4_set_position(sp168, &mtxs[1]);
+    matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[1]);
+    matrix_4x4_set_rotation_around_x(sp154, &mtxs[3]);
+    matrix_4x4_set_position(sp164, &mtxs[3]);
+    matrix_4x4_multiply_homogeneous_in_place(&mtxs[1], &mtxs[3]);
+    matrix_4x4_set_rotation_around_y(M_PI_2F, &mtxs[4]);
+    matrix_4x4_set_position(sp160, &mtxs[4]);
+    matrix_4x4_multiply_homogeneous_in_place(&mtxs[3], &mtxs[4]);
+    matrix_4x4_set_identity_and_position(sp15C, &mtxs[2]);
+    matrix_4x4_multiply_homogeneous_in_place(&mtxs[1], &mtxs[2]);
+    matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), &mtxs[1], &sp16C);
+    collisionCalcFootprintFromBBox(sp158, &sp16C, &tank_render->rect, (struct collision_data *) (&tank_render->collision));
+
+    if (model->obj->Switches[7] != NULL)
+    {
+        modelGetNodeRwData(model, model->obj->Switches[7])->Gunfire.visible = (s16) tank_render->is_firing_tank;
+    }
+
+    if (model->obj->Switches[8] != NULL)
+    {
+        modelGetNodeRwData(model, model->obj->Switches[8])->Switch.visible = 0;
+    }
+}
+
+
+void objTickBuildMatrices(PropRecord *prop, Mtxf *mtxs, f32 previousOpenPosition, bool isSimOwner)
+{
+    ObjectRecord *obj = prop->obj;
+    Model *model = obj->model;
+    Mtxf tempMatrix2;
+
+    if (obj->type == PROPDEF_DOOR)
+    {
+        objTickBuildDoorMatrices(prop, mtxs, previousOpenPosition, isSimOwner);
+        return;
+    }
+
+    matrix_4x4_copy(&obj->mtx, &tempMatrix2);
+    matrix_4x4_set_position(&obj->position, &tempMatrix2);
+    matrix_4x4_multiply_homogeneous(camGetWorldToScreenMtxf(), &tempMatrix2, mtxs);
+
+    switch (obj->type)
+    {
+        case PROPDEF_CCTV:
+            objTickBuildCctvMatrices(prop, mtxs, &tempMatrix2);
+            break;
+        case PROPDEF_AUTOGUN:
+            objTickBuildAutogunMatrices(prop, mtxs, &tempMatrix2);
+            break;
+        case PROPDEF_COLLECTABLE:
+            objTickBuildCollectableMatrices(model, mtxs);
+            break;
+        case PROPDEF_RACK:
+            objTickBuildRackMatrices(model, mtxs);
+            break;
+        case PROPDEF_VEHICLE:
+            objTickBuildVehicleMatrices(obj, mtxs, isSimOwner);
+            break;
+        case PROPDEF_AIRCRAFT:
+            objTickBuildAircraftMatrices(obj, mtxs, isSimOwner);
+            break;
+        case PROPDEF_TANK:
+            objTickBuildTankMatrices(obj, mtxs);
+            break;
+    }
+}
+
+
+TICKOP objTickProjectile(PropRecord *prop)
+{
+    ObjectRecord *obj = prop->obj;
+    TICKOP tickop = TICKOP_NONE;
+    ALSoundState *sfx_state;
+    WeaponObjRecord *weaponObj = NULL;
+    WeaponObjRecord *airborneWeapon;
+    WeaponObjRecord *temp_v1_10;
+    ModelRoData_BoundingBoxRecord *projectileBBox;
+    ModelRoData_BoundingBoxRecord *objectBBox;
+    Projectile *Proj;
+    Projectile *temp_v0_40;
+    PropRecord *playerProp2;
+    ObjectRecord *temp_v0_31;
+    StandTile *temp_s2;
+    coord3d *temp_v1_11;
+    coord3d *temp_s0_13;
+    Mtxf *objectMatrix;
+    Mtxf *projectileMatrix;
+    Mtxf *temp_s2_7;
+    Mtxf inverseNodeMatrix;
+    coord3d ProjPos;
+    coord3d sp658;
+    coord3d sp64C;
+    coord3d previousXAxis;
+    coord3d collisionNormal;
+    coord3d collisionPoint;
+    coord3d bloodStainPos;
+    coord3d sp564;
+    coord3d sp53C;
+    coord3d sp530;
+    f32 sp550[4];
+    f32 temp_f14_3;
+    f32 temp_f20;
+    f32 nextVerticalSpeed;
+    f32 temp_f12_5;
+    f32 bboxBottomOffset;
+    f32 var_f2;
+    f32 previousVerticalSpeed;
+    f32 m_PropGravity;
+    f32 m_RocketGravity;
+    f32 temp_f12;
+    f32 angleDelta;
+    s32 objMovedThisFrame = FALSE;
+    s32 projectileAlive;
+    s32 moveResult;
+    s32 hitGround;
+    s32 bounceCondition;
+    s32 projectileStopped;
+    s32 sp548;
+    s32 var_v0_3;
+    s32 var_a0;
+    bool canEmbed;
+    bool moveOnlyIfPathClear;
+
+    if (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
+    {
+        Proj = obj->projectile;
+        Proj->age += g_ClockTimer;
+
+        if (((s32) Proj->age) > PROJECTILE_LIFETIME_FRAMES)
+        {
+            obj->runtime_bitflags |= RUNTIMEBITFLAG_REMOVE;
+        }
+
+        if (Proj->flags & PROJECTILEFLAG_00000100)
+        {
+            moveOnlyIfPathClear = TRUE;
+
+            if (obj->type == PROPDEF_COLLECTABLE)
+            {
+                weaponObj = (struct WeaponObjRecord *) obj;
+
+                if (weaponObj->weaponnum == ITEM_ROCKETROUND)
+                {
+                    moveOnlyIfPathClear = FALSE;
+                }
+            }
+
+            if (Proj->ownerprop != NULL)
+            {
+                sub_GAME_7F03D058(Proj->ownerprop, 0);
+            }
+
+            moveResult = sub_GAME_7F042EB4(obj, &Proj->unkd4, &sp64C, &sp658, 0, moveOnlyIfPathClear);
+
+            if (Proj->ownerprop != NULL)
+            {
+                sub_GAME_7F03D058(Proj->ownerprop, 1);
+            }
+
+            /*
+            * Fragile code: PROJECTILEFLAG_00000100 is only set by gunInitProjectileFromPlayer()
+            * whose callers always pass a PROPDEF_COLLECTABLE WeaponObjRecord.
+            * Therefore weaponObj is initialized above on every valid path reaching this point.
+            * But if this flag is ever used with another object type, the NULL check
+            * below would read an uninitialized pointer.
+            */
+            if (((moveResult != 1) && (weaponObj != NULL)) && (weaponObj->weaponnum == ITEM_ROCKETROUND))
+            {
+                weaponObj->timer = 0;
+            }
+
+            Proj->flags &= ~PROJECTILEFLAG_00000100;
+        }
+
+        ProjPos.f[0] = obj->position.f[0];
+        ProjPos.f[1] = obj->position.f[1];
+        ProjPos.f[2] = obj->position.f[2];
+
+        if (Proj->refreshrate > 0)
+        {
+            Proj->refreshrate -= g_ClockTimer;
+        }
+
+        if (obj->projectile->flags & PROJECTILEFLAG_AIRBORNE)
+        {
+            airborneWeapon = (struct WeaponObjRecord *) obj;
+            projectileBBox = chrobjGetBboxFromObjectRecord(obj);
+            hitGround = 0;
+            bounceCondition = 0;
+            projectileStopped = 0;
+            bboxBottomOffset = 1.0f;
+            temp_f20 = obj->position.f[1];
+            canEmbed = FALSE;
+            Proj->unkA8 += g_ClockTimer;
+            previousXAxis.f[0] = obj->mtx.m[0][0];
+            previousXAxis.f[1] = obj->mtx.m[0][1];
+            previousXAxis.f[2] = obj->mtx.m[0][2];
+
+            if (Proj->flags & PROJECTILEFLAG_00000020)
+            {
+                m_RocketGravity = ROCKET_INITIAL_GRAVITY_MODIFIER;
+                if (Proj->unk1C < m_RocketGravity)
+                {
+                    Proj->unkB4 += Proj->unk10.f[1] * g_GlobalTimerDelta;
+                    Proj->unkB0 += Proj->unkB4 * g_GlobalTimerDelta;
+                    // Gravity modifier increases at 1/90 per frame until reaching ROCKET_INITIAL_GRAVITY_MODIFIER
+                    // I would have thought this is somehow related to turning 9.8m/s/s into per frame accel?
+                    Proj->unk1C += (1.0f / 90.0f) * g_GlobalTimerDelta;
+                    if (Proj->unk1C > m_RocketGravity)
+                    {
+                        Proj->unk1C = m_RocketGravity;
+                    }
+                }
+                else if (ProjPos.f[1] < Proj->unkB0)
+                {
+                    Proj->unkB4 += Proj->unk10.f[1] * g_GlobalTimerDelta;
+                    Proj->unkB0 += Proj->unkB4 * g_GlobalTimerDelta;
+                    //Smooth vertical interpolation when rocket is rising toward its ballistic apex.
+                    ProjPos.f[1] += (0.07f * (Proj->unkB0 - ProjPos.f[1])) * g_GlobalTimerDelta;
+                }
+                else
+                {
+                    ProjPos.f[1] = Proj->unkB0;
+                    Proj->flags &= ~PROJECTILEFLAG_00000020;
+                    Proj->unk1C = 0.0f;
+                    Proj->flags |= PROJECTILEFLAG_POWERED;
+                    Proj->speed.f[1] = Proj->unkB4;
+                }
+            }
+
+            m_PropGravity = PROP_PROJECTILE_GRAVITY_MODIFIER;
+
+            if (!(Proj->flags & PROJECTILEFLAG_POWERED))
+            {
+                Proj->speed.f[1] += (Proj->unk10.f[1] + Proj->unk1C) * g_GlobalTimerDelta;
+                temp_f12 = Proj->speed.f[1];
+                nextVerticalSpeed = temp_f12 - (m_PropGravity * g_GlobalTimerDelta);
+                //apparently Standard trapezoidal integrator. (y += (dt * (v + v_next)) * 0.5f)
+                ProjPos.f[1] += (g_GlobalTimerDelta * (temp_f12 + nextVerticalSpeed)) * 0.5f;
+                Proj->speed.f[1] = nextVerticalSpeed;
+            }
+            else
+            {
+                Proj->speed.f[1] += (Proj->unk10.f[1] + Proj->unk1C) * g_GlobalTimerDelta;
+                ProjPos.f[1] += Proj->speed.f[1] * g_GlobalTimerDelta;
+            }
+
+            objectMatrix = &obj->mtx;
+            projectileMatrix = &Proj->mtx;
+            Proj->speed.f[0] += Proj->unk10.f[0] * g_GlobalTimerDelta;
+            Proj->speed.f[2] += Proj->unk10.f[2] * g_GlobalTimerDelta;
+            ProjPos.f[0] += Proj->speed.f[0] * g_GlobalTimerDelta;
+            ProjPos.f[2] += Proj->speed.f[2] * g_GlobalTimerDelta;
+            sub_GAME_7F057DF8(objectMatrix, projectileMatrix, g_ClockTimer);
+
+            // Determine which projectiles can stick to surfaces.
+            if ((obj->type == PROPDEF_COLLECTABLE) && (((((((airborneWeapon->weaponnum == ITEM_REMOTEMINE) || (airborneWeapon->weaponnum == ITEM_TIMEDMINE)) || (airborneWeapon->weaponnum == ITEM_PROXIMITYMINE)) || (airborneWeapon->weaponnum == ITEM_BOMBCASE)) || (airborneWeapon->weaponnum == ITEM_BUG)) || (airborneWeapon->weaponnum == ITEM_MICROCAMERA)) || (airborneWeapon->weaponnum == ITEM_PLASTIQUE)))
+            {
+                canEmbed = TRUE;
+            }
+
+            if (Proj->ownerprop != NULL)
+            {
+                sub_GAME_7F03D058(Proj->ownerprop, 0);
+            }
+
+            moveResult = sub_GAME_7F042EB4(obj, &ProjPos.f[0], &collisionPoint, &collisionNormal, canEmbed, 0);
+
+            if (Proj->ownerprop != NULL)
+            {
+                sub_GAME_7F03D058(Proj->ownerprop, 1);
+            }
+
+            objMovedThisFrame = 1;
+
+            if ((moveResult == 2) && (((temp_v1_11 = (struct coord3d *) D_80030B0C) == NULL) || ((((struct PropRecord *) temp_v1_11)->type != PROP_TYPE_CHR) && (((struct PropRecord *) temp_v1_11)->type != PROP_TYPE_VIEWER))))
+            {
+                sp548 = 0;
+                if ((temp_v1_11 != NULL) && ((temp_v0_31 = ((struct PropRecord *) temp_v1_11)->obj)->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE))
+                {
+                    sp548 = 1;
+                }
+
+                if (sp548 == 0)
+                {
+                    projectileFree(Proj);
+                    obj->projectile = NULL;
+                    obj->runtime_bitflags &= ~RUNTIMEBITFLAG_HASPROJECTILE;
+                    if (prop->flags & PROPFLAG_00000008)
+                    {
+                        prop->flags |= PROPFLAG_00000010;
+                    }
+
+                    chrobjSndCreatePostEventDefault(sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, ATTACH_MINE_SFX, NULL), &prop->pos);
+                    objectivestatusCheckDeposit(((struct WeaponObjRecord *) obj)->weaponnum, prop->stan->room);
+                    objStickToSurface(obj, &collisionPoint, prop->stan, &collisionNormal);
+                    if (D_80030B0C != NULL)
+                    {
+                        temp_s2 = prop->stan;
+                        if (objEmbed(prop, D_80030B0C, g_CurrentProjectileModel, dword_CODE_bss_80075B74) != 0)
+                        {
+                            prop->stan = temp_s2;
+                            tickop = TICKOP_CHANGEDLIST;
+                            projectileStopped = 1;
+                        }
+                    }
+                }
+            }
+
+            if (projectileStopped == 0)
+            {
+                playerProp2 = D_80030B0C;
+
+                if ((playerProp2 != NULL) && (obj->type == PROPDEF_COLLECTABLE))
+                {
+                    temp_v1_10 = (struct WeaponObjRecord *) obj;
+
+                    if (temp_v1_10->weaponnum == ITEM_THROWKNIFE)
+                    {
+                        if ((playerProp2->type == PROP_TYPE_CHR) || (((playerProp2->type == PROP_TYPE_VIEWER) && (playerProp2->obj != NULL)) && (getPlayerPointerIndex(playerProp2) != get_cur_playernum())))
+                        {
+                            playerProp2 = D_80030B0C;
+                            temp_v0_40 = obj->projectile;
+                            temp_s0_13 = (struct coord3d *) playerProp2->chr;
+
+                            if ((((temp_v0_40->flags & PROJECTILEFLAG_AIRBORNE) && (((s32) temp_v0_40->unk90) <= 0)) && (obj->runtime_bitflags & RUNTIMEBITFLAG_THROWING_KNIFE_RELATED)) && (handles_shot_actors((struct ChrRecord *) temp_s0_13, bodypartshot, &flt_CODE_bss_80075B78, ((struct WeaponObjRecord *) obj)->weaponnum, 1) != 0))
+                            {
+                                projectileStopped = 1;
+
+                                if (Proj->unk8C > 0.0f)
+                                {
+                                    temp_f14_3 = ((Proj->speed.f[0] * collisionNormal.f[0]) + (Proj->speed.f[1] * collisionNormal.f[1])) + (Proj->speed.f[2] * collisionNormal.f[2]);
+                                    temp_f14_3 *= -(Proj->unk8C + 1.0f);
+                                    Proj->speed.f[0] += temp_f14_3 * collisionNormal.f[0];
+                                    Proj->speed.f[1] += temp_f14_3 * collisionNormal.f[1];
+                                    Proj->speed.f[2] += temp_f14_3 * collisionNormal.f[2];
+                                }
+
+                                if (!(Proj->flags & PROJECTILEFLAG_00000200))
+                                {
+                                    mtxLoadRandomRotation(projectileMatrix);
+                                }
+
+                                Proj->unk90 += 1;
+                                recall_joy2_hits_edit_detail_edit_flag(((struct WeaponObjRecord *) obj)->weaponnum, D_80030B0C, -1);
+
+                                if (((D_80030B0C->flags & PROPFLAG_ONSCREEN) && (bodypartshot != HIT_GUN)) && (bodypartshot != HIT_HAT))
+                                {
+                                    playerProp2 = (struct PropRecord *) modelFindNodeMtx(g_CurrentProjectileModel, dword_CODE_bss_80075B74, 0);
+
+                                    bloodStainPos.f[0] = collisionPoint.f[0];
+                                    bloodStainPos.f[1] = collisionPoint.f[1];
+                                    bloodStainPos.f[2] = collisionPoint.f[2];
+
+                                    mtx4TransformVecInPlace(camGetWorldToScreenMtxf(), &bloodStainPos);
+
+                                    bloodStainPos.f[0] += (bloodStainPos.f[0] - ((Mtxf *) playerProp2)->m[3][0]) * 0.5f;
+                                    bloodStainPos.f[1] += (bloodStainPos.f[1] - ((Mtxf *) playerProp2)->m[3][1]) * 0.5f;
+                                    bloodStainPos.f[2] += (bloodStainPos.f[2] - ((Mtxf *) playerProp2)->m[3][2]) * 0.5f;
+
+                                    bloodStainPos.f[0] -= (getjointsize(g_CurrentProjectileModel, dword_CODE_bss_80075B74) * 0.5f) * flt_CODE_bss_80075B88.f[0];
+                                    bloodStainPos.f[1] -= (getjointsize(g_CurrentProjectileModel, dword_CODE_bss_80075B74) * 0.5f) * flt_CODE_bss_80075B88.f[1];
+                                    bloodStainPos.f[2] -= (getjointsize(g_CurrentProjectileModel, dword_CODE_bss_80075B74) * 0.5f) * flt_CODE_bss_80075B88.f[2];
+
+                                    matrix_4x4_set_inverse_rotation_and_translation((Mtxf *) playerProp2, &inverseNodeMatrix);
+                                    mtx4TransformVecInPlace(&inverseNodeMatrix, &bloodStainPos);
+                                    chrCreateBloodStain(g_CurrentProjectileModel, bodypartshot, dword_CODE_bss_80075B74, &bloodStainPos);
+                                }
+                            }
+                        }
+                    }
+                    else if (temp_v1_10->weaponnum == ITEM_ROCKETROUND)
+                    {
+                        var_v0_3 = playerProp2->type;
+                        projectileStopped = 1;
+                        if (var_v0_3 == 3)
+                        {
+                            chrlvExplosionDamage((ChrRecord *) playerProp2->chr, &obj->position, 2.0f, 1);
+                        }
+                        else if ((var_v0_3 == 1) || (var_v0_3 == 4))
+                        {
+                            var_a0 = obj->runtime_bitflags;
+                            objApplyDamage(playerProp2->obj, 100.0f, &obj->position, ITEM_ROCKETROUND, (s32) (((u32) (var_a0 & RUNTIMEBITFLAG_OWNER)) >> RUNTIMEBITSHIFT_OWNER));
+                        }
+
+                        ((struct WeaponObjRecord *) obj)->timer = 0;
+                    }
+                }
+            }
+
+            if (projectileStopped == 0)
+            {
+                if (moveResult == 0)
+                {
+                    if (Proj->unk8C > 0.0f)
+                    {
+                        previousVerticalSpeed = Proj->speed.f[1];
+                        temp_f14_3 = ((Proj->speed.f[0] * collisionNormal.f[0]) + (Proj->speed.f[1] * collisionNormal.f[1])) + (Proj->speed.f[2] * collisionNormal.f[2]);
+                        temp_f14_3 *= -(Proj->unk8C + 1.0f);
+                        Proj->speed.f[0] += temp_f14_3 * collisionNormal.f[0];
+                        Proj->speed.f[1] += temp_f14_3 * collisionNormal.f[1];
+                        Proj->speed.f[2] += temp_f14_3 * collisionNormal.f[2];
+
+                        if ((previousVerticalSpeed <= 0.0f) && ((Proj->speed.f[1] >= 0.0f) || (temp_f20 <= obj->position.f[1])))
+                        {
+                            bounceCondition = 1;
+                        }
+                    }
+                }
+
+                if (!(Proj->flags & PROJECTILEFLAG_00000008))
+                {
+                    temp_f20 = stanGetPositionYValue(prop->stan, prop->pos.f[0], prop->pos.f[2]);
+                    bboxBottomOffset = chrpropSumMatrixPosY(projectileBBox, &objectMatrix[0]);
+                    hitGround = (prop->pos.f[1] < (temp_f20 - bboxBottomOffset));
+                }
+
+                if ((hitGround) || (moveResult == 0))
+                {
+                    if (!(Proj->flags & PROJECTILEFLAG_00000200))
+                    {
+                        mtxLoadRandomRotation(projectileMatrix);
+                    }
+
+                    Proj->unk90 += 1;
+                }
+
+                if ((hitGround) || (bounceCondition))
+                {
+                    if (hitGround)
+                    {
+                        // The projectile has hit the ground so raise it 4 units above the ground.
+                        obj->position.f[1] = (prop->pos.f[1] = (temp_f20 - bboxBottomOffset) + 4.0f);
+                    }
+                    else
+                    {
+                        var_f2 = (collisionPoint.f[1] - bboxBottomOffset) + 4.0f;
+                        obj->position.f[1] = (prop->pos.f[1] = var_f2);
+                    }
+
+                    if (!(obj->runtime_bitflags & RUNTIMEBITFLAG_00010000))
+                    {
+                        obj->runtime_bitflags |= RUNTIMEBITFLAG_00000100;
+                    }
+
+                    if (Proj->unk8C > 0.0f)
+                    {
+                        Proj->speed.f[1] *= -Proj->unk8C;
+
+                        if (Proj->speed.f[1] < 2.2222223f)
+                        {
+                            if ((Proj->flags & PROJECTILEFLAG_00000002) && (Proj->unk90 == 1))
+                            {
+                                Proj->speed.f[1] = 2.2222223f;
+                            }
+                            else
+                            {
+                                objSettle(obj, &previousXAxis);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        objSettle(obj, &previousXAxis);
+                    }
+                }
+
+                if (obj->type == PROPDEF_COLLECTABLE)
+                {
+                    if (airborneWeapon->weaponnum == ITEM_THROWKNIFE)
+                    {
+                        objUpdateThrowKnifeSound(airborneWeapon);
+                    }
+                    else if (airborneWeapon->weaponnum == ITEM_ROCKETROUND)
+                    {
+                        if ((moveResult == 0) || (hitGround))
+                        {
+                            airborneWeapon->timer = 0;
+                        }
+                        else
+                        {
+                            nextVerticalSpeed = ((Proj->speed.f[0] * Proj->speed.f[0]) + (Proj->speed.f[1] * Proj->speed.f[1])) + (Proj->speed.f[2] * Proj->speed.f[2]);
+
+                            if (nextVerticalSpeed > ROCKET_SPEED_BREAK_THRESHOLD)
+                            {
+                                Proj->unk10.f[0] = 0.0f;
+                                Proj->unk10.f[1] = 0.0f;
+                                Proj->unk10.f[2] = 0.0f;
+                            }
+
+                            if (((s32) Proj->unkA8) >= GRENADE_SMOKE_FRAMES)
+                            {
+                                Proj->unk1C = 0.0f;
+                                Proj->flags &= ~(PROJECTILEFLAG_POWERED | PROJECTILEFLAG_00000020);
+                            }
+                            else
+                            {
+                                explosionCreateSmoke(&airborneWeapon->position, prop->stan, 8, prop->rooms, (prop->flags & PROPFLAG_00000008) != 0);
+                            }
+                        }
+                    }
+                    else if (airborneWeapon->weaponnum == ITEM_GRENADEROUND)
+                    {
+                        if ((hitGround != 0) || (bounceCondition != 0))
+                        {
+                            airborneWeapon->timer = 0;
+                        }
+                        else
+                        {
+                            explosionCreateSmoke(&obj->position, prop->stan, 9, prop->rooms, (prop->flags & PROPFLAG_00000008) != 0);
+                        }
+                    }
+
+                    if ((moveResult == 0) || (hitGround != 0))
+                    {
+                        if (((s32) Proj->unkAC) < (((s32) g_GlobalTickCount) - 2))
+                        {
+                            if ((airborneWeapon->weaponnum == ITEM_THROWKNIFE) || (airborneWeapon->weaponnum == ITEM_KNIFE))
+                            {
+                                sfx_state = sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, KNIFE_HIT_WALL_SFX, NULL);
+                            }
+                            else
+                            {
+                                sfx_state = sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, DROP_GUN_SFX, NULL);
+                            }
+
+                            chrobjSndCreatePostEventDefault(sfx_state, &prop->pos);
+                        }
+
+                        Proj->unkAC = g_GlobalTickCount;
+                    }
+                }
+            }
+
+            if (((airborneWeapon->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE) && (Proj->flags & PROJECTILEFLAG_FALLING)) && (!(g_GlobalTickCount & 7)))
+            {
+                sp564.f[0] = airborneWeapon->position.f[0] + 400.0f;
+                sp564.f[1] = airborneWeapon->position.f[1] - 1800.0f;
+                sp564.f[2] = airborneWeapon->position.f[2];
+
+                if (!(g_GlobalTickCount & 0xF))
+                {
+                    sp564.f[2] += 400.0f;
+                }
+                else
+                {
+                    sp564.f[2] -= 400.0f;
+                }
+
+                explosionCreate(NULL, &sp564, airborneWeapon->prop->stan, 0x14, 0, 0, airborneWeapon->prop->rooms, 0);
+                //Spawn smoke every 40 frames
+                if ((((s32) g_GlobalTickCount) % 40) == 0)
+                {
+                    explosionCreateSmoke(&sp564, airborneWeapon->prop->stan, 0xA, airborneWeapon->prop->rooms, 1);
+                }
+            }
+        }
+        else
+        {
+            projectileAlive = 1;
+
+            if (Proj->unk60 < 1.0f)
+            {
+                Proj->unk60 += Proj->unk64 * g_GlobalTimerDelta;
+
+                if (g_ClockTimer > 0)
+                {
+                    Proj->unk64 *= 1.1f;
+                }
+
+                if ((Proj->unk60 > 1.0f) || (Proj->flags & PROJECTILEFLAG_00000008))
+                {
+                    Proj->unk60 = 1.0f;
+                }
+
+                quaternion_slerp((f32 *) (&Proj->unk68), (f32 *) (&Proj->unk78), Proj->unk60, (f32 *) (&sp550));
+                objectMatrix = &obj->mtx;
+                quaternion_to_matrix((f32 *) (&sp550), (f32 *) (&obj->mtx));
+                matrix_column_1_scalar_multiply(Proj->unkC0, (f32 *) objectMatrix);
+                matrix_column_2_scalar_multiply(Proj->unkC4, (f32 *) objectMatrix);
+                matrix_column_3_scalar_multiply_2(Proj->unkC8, (f32 *) objectMatrix);
+                projectileAlive = 0;
+            }
+
+            // Apply horizontal slide and friction to a projectile that has landed.
+            if ((((Proj->speed.f[0] != 0.0f) || (Proj->speed.f[2] != 0.0f)) || (Proj->unk60 < 1.0f)) && (!(Proj->flags & PROJECTILEFLAG_00000008)))
+            {
+                objectMatrix = &obj->mtx;
+                objectBBox = chrobjGetBboxFromObjectRecord(obj);
+                projectileAlive = 0;
+
+                for (sp548 = 0; sp548 < g_ClockTimer; sp548++)
+                {
+                    ProjPos.f[0] += Proj->speed.f[0];
+                    ProjPos.f[2] += Proj->speed.f[2];
+                    if (Proj->unk60 >= 1.0f)
+                    {
+                        if (Proj->unk94 > 0.0f)
+                        {
+                            temp_f12_5 = (Proj->unk94 * g_GlobalTimerDelta) / sqrtf((Proj->speed.f[0] * Proj->speed.f[0]) + (Proj->speed.f[2] * Proj->speed.f[2]));
+                            if (temp_f12_5 >= 1.0f)
+                            {
+                                Proj->speed.f[0] = 0.0f;
+                                Proj->speed.f[2] = 0.0f;
+                            }
+                            else
+                            {
+                                Proj->speed.f[0] -= Proj->speed.f[0] * temp_f12_5;
+                                Proj->speed.f[2] -= Proj->speed.f[2] * temp_f12_5;
+                            }
+                        }
+                        else
+                        {
+                            Proj->speed.f[0] *= PROJECTILE_FRICTION_FACTOR;
+                            Proj->speed.f[2] *= PROJECTILE_FRICTION_FACTOR;
+                        }
+                    }
+                }
+
+                sub_GAME_7F042EB4(obj, &ProjPos.f[0], &sp530, &sp53C, 0, 0);
+                objMovedThisFrame = 1;
+                temp_f20 = stanGetPositionYValue(prop->stan, prop->pos.f[0], prop->pos.f[2]);
+                angleDelta = (temp_f20 - chrpropSumMatrixPosY(objectBBox, objectMatrix)) + 4.0f;
+                prop->pos.f[1] = angleDelta;
+                obj->position.f[1] = angleDelta;
+                if ((Proj->speed.f[0] < 0.1f) && (Proj->speed.f[0] > (-0.1f)))
+                {
+                    if ((Proj->speed.f[2] < 0.1f) && (Proj->speed.f[2] > (-0.1f)))
+                    {
+                        Proj->speed.f[2] = 0.0f;
+                        Proj->speed.f[0] = 0.0f;
+                    }
+                }
+            }
+
+            if ((projectileAlive != 0) || (Proj->flags & PROJECTILEFLAG_00000008))
+            {
+                projectileFree(Proj);
+                obj->projectile = NULL;
+                obj->runtime_bitflags &= ~RUNTIMEBITFLAG_HASPROJECTILE;
+
+                if (prop->flags & PROPFLAG_00000008)
+                {
+                    prop->flags |= PROPFLAG_00000010;
+                }
+
+                if (obj->type == PROPDEF_COLLECTABLE)
+                {
+                    objectivestatusCheckDeposit(((struct WeaponObjRecord *) obj)->weaponnum, prop->stan->room);
+                }
+            }
+        }
+    }
+
+    if (objMovedThisFrame)
+    {
+        objectMatrix = (Mtxf *) (&obj->position);
+
+        objUpdateCollisionVolume(obj);
+        setupUpdateObjectRoomPosition(obj);
+        objSetShading(obj->prop, &obj->nextcol);
+        detonate_proxmine_In_range((struct coord3d *) objectMatrix);
+    }
+
+    return tickop;
+}
+
+
+void objTickAutogunFire(PropRecord *prop)
+{
+    ObjectRecord *obj = prop->obj;
+    Model *model = obj->model;
+    Mtxf *temp_s2_7;
+    coord3d *temp_v1_11;
+    StandTile *sp10C;
+    StandTile *sp108;
+    PropRecord *sp100;
+    coord3d sp12C;
+    coord3d sp120;
+    coord3d sp110;
+    Mtxf spB8;
+    f32 temp_f20_4;
+    f32 temp_f0_35;
+    f32 var_f2_7;
+    f32 temp_f2_23;
+    s32 sp13C;
+    s32 sp138;
+    s32 sp11C;
+    s32 sp104;
+    s32 var_a0_6;
+    struct AutogunRecord *autogun = (struct AutogunRecord *) prop->obj;
+    f32 beam_xdiff;
+    f32 dist_local;
+    struct beam *beam_local;
+    f32 beam_ydiff;
+    f32 beam_collisionTile;
+
+    sp13C = 0;
+    sp138 = 0;
+
+    if ((autogun->is_active != 0) && (!(obj->flags & PROPFLAG_IS_DRONE_GUN)))
+    {
+        autogun->unkAC = autogun->unkAC + 1;
+        sp13C = (autogun->unkAC & 1) == 0;
+
+        if (model->obj->Switches[5] != 0)
+        {
+            sp138 = (autogun->unkAC & 1) == 1;
+        }
+
+        if (autogun->unkC0 < g_GlobalTimer)
+        {
+            if ((autogun->unkC4 != NULL) && (sndGetPlayingState(autogun->unkC4) != 0))
+            {
+                sndDeactivate(autogun->unkC4);
+            }
+
+            if ((autogun->unkC8 != NULL) && (sndGetPlayingState(autogun->unkC8) != 0))
+            {
+                sndDeactivate(autogun->unkC8);
+            }
+
+            if (autogun->unkC4 == NULL)
+            {
+                sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, GUN_B9_CANNON_SHORT_SFX, &autogun->unkC4);
+                chrobjSndCreatePostEventDefault(autogun->unkC4, &prop->pos);
+            }
+            else if (autogun->unkC8 == NULL)
+            {
+                sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, GUN_B9_CANNON_SHORT_SFX, &autogun->unkC8);
+                chrobjSndCreatePostEventDefault(autogun->unkC8, &prop->pos);
+            }
+
+            autogun->unkC0 = (s32) (g_GlobalTimer + 2);
+        }
+
+        if ((sp13C != 0) || (sp138 != 0))
+        {
+            sp11C = 1;
+            sp10C = NULL;
+            sp108 = prop->stan;
+            sp104 = (autogun->unkAC & 3) == 0;
+            sp100 = getCurrentPlayerProp();
+            var_a0_6 = 5;
+
+            if ((model->obj->Switches[7] != 0) && (!(autogun->unkAC & 7)))
+            {
+                var_a0_6 = 7;
+            }
+
+            if ((prop->flags & PROPFLAG_ONSCREEN) && (model->obj->Switches[var_a0_6] != NULL))
+            {
+                temp_s2_7 = modelFindNodeMtx(model, model->obj->Switches[var_a0_6], 0);
+                temp_v1_11 = model->obj->Switches[var_a0_6]->Data;
+                sp12C.f[0] = temp_v1_11->f[0];
+                sp12C.f[1] = temp_v1_11->f[1];
+                sp12C.f[2] = temp_v1_11->f[2];
+                matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), temp_s2_7, &spB8);
+                mtx4TransformVecInPlace(&spB8, &sp12C);
+                if (walkTilesBetweenPoints_NoCallback(&sp108, prop->pos.f[0], prop->pos.f[2], sp12C.f[0], sp12C.f[2]) == 0)
+                {
+                    sp12C.f[0] = prop->pos.f[0];
+                    sp12C.f[1] = prop->pos.f[1];
+                    sp12C.f[2] = prop->pos.f[2];
+                }
+            }
+            else
+            {
+                sp12C.f[0] = prop->pos.f[0];
+                sp12C.f[1] = prop->pos.f[1];
+                sp12C.f[2] = prop->pos.f[2];
+            }
+
+            sp120.f[0] = cosf(autogun->unk9C) * sinf(autogun->unk90);
+            sp120.f[1] = sinf(autogun->unk9C);
+            sp120.f[2] = cosf(autogun->unk9C) * cosf(autogun->unk90);
+            sp110.f[0] = sp12C.f[0] + (sp120.f[0] * 65536.0f);
+            sp110.f[1] = sp12C.f[1] + (sp120.f[1] * 65536.0f);
+            sp110.f[2] = sp12C.f[2] + (sp120.f[2] * 65536.0f);
+
+            stanResetHits();
+
+            if (stanTestLineUnobstructed(&sp108, sp12C.f[0], sp12C.f[2], sp110.f[0], sp110.f[2], 2, 100.0f, 100.0f, 0.0f, 1.0f) == 0)
+            {
+                chrlvStanLineDirIntersection(&sp12C, &sp120, &sp110);
+                sp10C = sp108;
+                sp110.f[0] -= 26.0f * sp120.f[0];
+                sp110.f[1] -= 26.0f * sp120.f[1];
+                sp110.f[2] -= 26.0f * sp120.f[2];
+            }
+
+            if (g_GlobalTimer == ((s32) autogun->unkBC))
+            {
+                beam_xdiff = sp100->pos.f[0] - sp12C.f[0];
+                beam_ydiff = sp100->pos.f[1] - sp12C.f[1];
+                beam_collisionTile = sp100->pos.f[2] - sp12C.f[2];
+                temp_f20_4 = ((beam_xdiff * beam_xdiff) + (beam_ydiff * beam_ydiff)) + (beam_collisionTile * beam_collisionTile);
+                beam_xdiff = sp110.f[0] - sp12C.f[0];
+                beam_ydiff = sp110.f[1] - sp12C.f[1];
+                beam_collisionTile = sp110.f[2] - sp12C.f[2];
+
+                if ((temp_f20_4 <= (((beam_xdiff * beam_xdiff) + (beam_ydiff * beam_ydiff)) + (beam_collisionTile * beam_collisionTile))) && (bondviewGetIfCurrentPlayerDamageShowTime() == 0))
+                {
+                    temp_f0_35 = sqrtf(temp_f20_4);
+                    var_f2_7 = (0.16f * OBJECT_INTERACTION_TIMER_DELTA) * g_AutogunPendingDamageTick;
+                    if (temp_f0_35 > 200.0f)
+                    {
+                        var_f2_7 *= 200.0f / temp_f0_35;
+                    }
+
+                    autogun->unkD4 += var_f2_7;
+                    if (autogun->unkD4 >= 1.0f)
+                    {
+                        bondviewCallRecordDamageKills((gunItemGetDestructionAmount(14) * 0.125f) * g_AutogunDamageScalar, autogun->unk90, -1, 1);
+                        autogun->unkD4 = 0.0f;
+                        if (bondviewGetIfCurrentPlayerDamageShowTime() != 0)
+                        {
+                            sp11C = 0;
+                        }
+                    }
+                }
+            }
+
+            if (sp11C != 0)
+            {
+                if (sp10C != NULL)
+                {
+                    bullet_spark_create(&sp110, 1, 26.0f, (s16) sp10C->room);
+                }
+
+                recall_joy2_hits_edit_flag(14, &sp110, -1);
+            }
+            else
+            {
+                sp110.f[0] = sp100->pos.f[0];
+                sp110.f[1] = sp100->pos.f[1];
+                sp110.f[2] = sp100->pos.f[2];
+                recall_joy2_hits_edit_detail_edit_flag(14, sp100, -1);
+            }
+
+            if (sp104 != 0)
+            {
+                beam_local = autogun->beam;
+                beam_local->from.f[0] = sp12C.f[0];
+                beam_local->from.f[1] = sp12C.f[1];
+                beam_local->from.f[2] = sp12C.f[2];
+                beam_local->dir.f[0] = sp110.f[0] - beam_local->from.f[0];
+                beam_local->dir.f[1] = sp110.f[1] - beam_local->from.f[1];
+                beam_local->dir.f[2] = sp110.f[2] - beam_local->from.f[2];
+                dist_local = sqrtf(((beam_local->dir.f[0] * beam_local->dir.f[0]) + (beam_local->dir.f[1] * beam_local->dir.f[1])) + (beam_local->dir.f[2] * beam_local->dir.f[2]));
+                temp_f2_23 = 1.0f / dist_local;
+                beam_local->dir.f[0] = (f32) (beam_local->dir.f[0] * temp_f2_23);
+                beam_local->dir.f[1] = (f32) (beam_local->dir.f[1] * temp_f2_23);
+                beam_local->dir.f[2] = (f32) (beam_local->dir.f[2] * temp_f2_23);
+
+                if (dist_local > 10000.0f)
+                {
+                    dist_local = 10000.0f;
+                }
+
+                beam_local->age = 0;
+                beam_local->weaponnum = ITEM_FNP90;
+                beam_local->maxdist = dist_local;
+
+                if (dist_local < 500.0f)
+                {
+                    dist_local = 500.0f;
+                }
+
+                if (beam_local->weaponnum == ITEM_LASER)
+                {
+                    beam_local->speed = 0.25f * dist_local;
+                    beam_local->mindist = 0.6f * dist_local;
+
+                    if (beam_local->mindist > 3000.0f)
+                    {
+                        beam_local->mindist = 3000.0f;
+                    }
+
+                    beam_local->dist = ((-0.1f) - (U32_TO_F32(randomGetNext()) * 0.3f)) * dist_local;
+                }
+                else
+                {
+                    beam_local->speed = 0.2f * dist_local;
+                    beam_local->mindist = 0.2f * dist_local;
+
+                    if (beam_local->mindist > 3000.0f)
+                    {
+                        beam_local->mindist = 3000.0f;
+                    }
+
+                    beam_local->dist = ((2.0f * U32_TO_F32(randomGetNext())) - 1.0f) * beam_local->speed;
+                }
+            }
+        }
+    }
+
+    if (model->obj->Switches[5] != NULL)
+    {
+        modelGetNodeRwData(model, model->obj->Switches[5])->Gunfire.visible = (s16) sp13C;
+    }
+
+    if (model->obj->Switches[7] != NULL)
+    {
+        modelGetNodeRwData(model, model->obj->Switches[7])->Gunfire.visible = (s16) sp138;
+    }
+}
+
+
+
+void objTickUpdateChildren(PropRecord *prop, bool isOnScreen)
+{
+    PropRecord *child = prop->child;
+
+    while (child != NULL)
+    {
+        PropRecord *previous = child->prev;
+
+        if (isOnScreen)
+        {
+            sub_GAME_7F0442DC(child);
+        }
+        else
+        {
+            sub_GAME_7F04424C(child);
+        }
+
+        child = previous;
+    }
+}
+
+
 s32 objTick(struct PropRecord *prop)
 {
-	Mtxf *mtxs;
-	f32 temp_f14_3;
-	struct coord3d ProjPos;
-	s32 objMovedThisFrame;
-	f32 temp_f20;
-	f32 nextVerticalSpeed;
-	struct PropRecord *sp684;
-	TICKOP tickop;
-	f32 previousOpenPosition; // Start-of-tick snapshot for how open a door is.
-
-    /** 
-     * Relevant only for MP. TRUE on the one pass per frame that advances this object's
-	 * shared state (projectile physics, door sounds) -- things you want to calculate
-     * only once per frame, not for every player per frame. Normally applies to
-	 * first player in the shuffled order determined by get_player_position_in_shuffled().
-     * But for an in-flight projectile it applies to the player who fired it.
-	 * Code outside this guard is per-viewport render setup and runs every pass. 
-     */
-	bool isSimOwner;
-
-	s32 playerCount;
-	bool applyFogCull;
-	struct ALSoundState *sfx_state;
-	s32 projectileAlive;
+    ObjectRecord *obj;
+    Model *model;
+    Mtxf *mtxs;
+    TICKOP tickop;
+    f32 previousOpenPosition;
 
     /**
-     * 0 - the move was blocked by geometry
-     * 1 - the move completed unobstructed
-     * 2 - the move was blocked and the caller asked for embedding
+     * In multiplayer, TRUE only for the viewport pass that advances shared
+     * simulation state. Projectile simulation instead belongs to its owner.
      */
-	s32 moveResult;
+    bool isSimOwner;
+    bool applyFogCull;
+    bool isOnScreen;
+    s32 playerCount;
 
-	struct coord3d sp658;
-	struct coord3d sp64C;
-	struct WeaponObjRecord *weaponObj;
-	f32 temp_f12_5;
-	struct ModelRoData_BoundingBoxRecord *projectileBBox;
-	f32 sp63C;
-	f32 bboxBottomOffset;
-	struct coord3d previousXAxis; // snapshot of the object's local X axis before this tick's rotation
-	struct coord3d collisionNormal;
-	struct coord3d collisionPoint;
-	s32 hitGround;
-	s32 bounceCondition;
-	struct Projectile *projectile;
-	s32 projectileStopped;
-	struct coord3d pad5F8;
-	struct coord3d pad5EC;
-	f32 temp_f0_13;
-	s32 cctvSeesPlayer;
-	f32 var_f2;
-	f32 temp_f0_14;
-	f32 angleDelta;
-	struct coord3d bloodStainPos;
-	Mtxf inverseNodeMatrix;
-	Mtxf *temp_s0_10;
-	f32 previousVerticalSpeed;
-	struct PropRecord *playerProp2;
-	f32 yawError;
-	s32 var_v0_3;
-	f32 var_f0_2;
-	f32 m_PropGravity;
-	struct coord3d sp564;
-	f32 temp_f0_31;
-	f32 sp550[4];
-	struct ModelRoData_BoundingBoxRecord *objectBBox;
-	s32 sp548;
-	struct coord3d sp53C;
-	struct coord3d sp530;
-#if defined(VERSION_JP) || defined(VERSION_EU)
-	u32 jp_stack_pad[1];
-#endif
-	s32 temp_v0_32;
-	s32 *temp_a1_6;
-	f32 angleDelta_7;
-	struct coord3d *temp_s0_13;
-	struct coord3d *temp_s0_14;
-	f32 m_RocketGravity;
-	struct PropRecord *playerProp;
-	f32 xdiff;
-	f32 ydiff;
-	struct ModelNode **temp_v1_7;
-	f32 var_f0_3;
-	struct Projectile *temp_v0_40;
-	waypoint *currentWaypoint;
-	Mtxf *temp_s0_21;
-	struct WeaponObjRecord *airborneWeapon;
-	struct StandTile *sp4F0;
-	f32 angleDelta_9;
-	s32 var_a0_6;
-	struct WeaponObjRecord * temp_v1_10;
-	Mtxf *temp_s2_7;
-	struct Projectile * Proj;
-	f32 sp4D8;
-	f32 targetPitch;
-	struct coord3d *temp_v1_11;
-	f32 temp_f20_4;
-	f32 temp_f0_35;
-	struct coord3d playerDirVec;
-	f32 horizontalDistSq;
-	f32 distanceToPlayer;
-	f32 horizontalDist;
-	s32 AutogunSeesPlayer;
-	s32 isTracking;
-	s32 hasLineOfSight;
-	f32 sp4A0;
-	f32 playerYaw;
-	f32 playerPitch;
-	f32 sp494;
-	struct StandTile *collisionTile;
-	f32 angleDelta_6;
-	f32 var_f2_7;
-	f32 temp_f2_23;
-	struct ObjectRecord *obj;
-	f32 targetYaw;
-	struct coord3d *waypointPosition;
-	struct Model *model;
-	f32 temp_f12;
-	bool canEmbed;
-	struct StandTile *currentTile;
-	s32 var_a0;
-	f32 sp460;
-	struct StandTile *temp_s2;
-	struct coord3d sp450;
-	struct StandTile *nextTile;
-	f32 temp_f14_2;
-	struct coord3d forwardDir;
-	f32 previousYaw;
-	f32 sp434;
-	f32 truckAngularVelocity;
-	struct coord3d vec424;
-	struct coord3d vec418;
-	struct coord3d vec40C;
-	struct coord3d vec400;
-	struct ObjectRecord *temp_v0_31;
-	struct CCTVRecord * bottom_pad;
-	Mtxf *objectMatrix;
-	Mtxf *projectileMatrix;
-	u32 pad3E4[3];
-	Mtxf tempMatrix2;
-	u32 pad3A0;
-	struct DoorRecord *sp39C;
-	u32 render_pad398;
-	f32 sp394;
-	Mtxf *sp390;
-	s32 sp38C;
-	Mtxf * render_pad388;
-	f32 sp384;
-	f32 sp380;
-	u32 tempMatrix_head[3];
-	struct CCTVRecord *sp370;
-	struct DoorRecord * pad36C;
-	struct coord3d sp360;
-	Mtxf tempMatrix;
-	struct AutogunRecord * poAGun;
-	struct AutogunRecord *sp318;
-	struct VehichleRecord * poTruck;
-	struct coord3d sp308;
-	f32 sp304;
-	f32 sp300;
-	Mtxf *sp2FC;
-	s32 sp2F8;
-	struct AircraftRecord * render_pad2F4;
-	u32 pad2EC[2];
-	Mtxf sp2AC;
-	Mtxf sp26C;
-	struct TintedGlassRecord * pad268;
-	f32 var_f2_6;
-	struct coord3d *sp260;
-	struct coord3d *sp25C;
-	struct coord3d *sp258;
-	struct coord3d *sp254;
-	f32 sp250;
-	f32 sp24C;
-	f32 sp248;
-	s32 var_v1_5;
-	s32 truckShouldPlayEngineSound;
-	Mtxf sp200;
-	struct coord3d *sp1FC;
-	struct PadRecord *var_v1_4;
-	struct ModelFileHeader *temp_v0_29;
-	s32 var_s2_6;
-	ModelRenderData sp1B0;
-	struct DoorRecord * pad1AC;
-	Mtxf sp16C;
-	struct DoorRecord * door;
-	struct coord3d *sp164;
-	struct coord3d *sp160;
-	struct coord3d *sp15C;
-	struct ModelRoData_BoundingBoxRecord *sp158;
-	f32 sp154;
-	bool moveOnlyIfPathClear;
-	struct Model *temp_s0_6;
-	f32 *temp_v0_25;
-	struct coord3d *sp168;
-	f32 *temp_s0_5;
-	s32 sp13C;
-	s32 sp138;
-	struct coord3d sp12C;
-	struct coord3d sp120;
-	s32 sp11C;
-	struct coord3d sp110;
-	struct StandTile *sp10C;
-	struct StandTile *sp108;
-	s32 sp104;
-	struct PropRecord *sp100;
-	struct beam *beam;
-	s32 var_s2_5;
-	Mtxf spB8;
-    rgba_u8 col;
-    
 	obj = prop->obj;
 	model = obj->model;
 
-	objMovedThisFrame = 0;
 	tickop = TICKOP_NONE;
-    
 	previousOpenPosition = 0.0f;
 	playerCount = getPlayerCount();
-	applyFogCull = TRUE;
 
 	if (obj->runtime_bitflags & RUNTIMEBITFLAG_REMOVE)
 	{
 		objFree(obj, 0, obj->state & PROPSTATE_RESPAWN);
-		return 1;
+		return TICKOP_FREE;
 	}
 	else if (obj->runtime_bitflags & RUNTIMEBITFLAG_ISRETICK)
 	{
@@ -4291,7 +6316,7 @@ s32 objTick(struct PropRecord *prop)
 	{
 		prop->flags &= 0xFFFD;
 		obj->runtime_bitflags |= RUNTIMEBITFLAG_ISRETICK;
-		return 3;
+		return TICKOP_RETICK;
 	}
 
 	if (playerCount == 1)
@@ -4304,1404 +6329,61 @@ s32 objTick(struct PropRecord *prop)
 
 		if (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
 		{
-			projectile = obj->projectile;
-            isSimOwner = projectile->ownerprop == g_CurrentPlayer->prop;
-			
+			isSimOwner = obj->projectile->ownerprop == g_CurrentPlayer->prop;
 		}
 	}
-
-	col = obj->nextcol;
 
 	if (isSimOwner)
 	{
 		if (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
 		{
-			Proj = obj->projectile;
-			Proj->age += g_ClockTimer;
-
-			if (((s32) Proj->age) > PROJECTILE_LIFETIME_FRAMES)
-			{
-				obj->runtime_bitflags |= RUNTIMEBITFLAG_REMOVE;
-			}
-
-			if (Proj->flags & PROJECTILEFLAG_00000100)
-			{
-				moveOnlyIfPathClear = TRUE;
-
-				if (obj->type == PROPDEF_COLLECTABLE)
-				{
-					weaponObj = (struct WeaponObjRecord *) obj;
-                    
-					if (weaponObj->weaponnum == ITEM_ROCKETROUND)
-					{
-						moveOnlyIfPathClear = FALSE;
-					}
-				}
-
-				if (Proj->ownerprop != NULL)
-				{
-					sub_GAME_7F03D058(Proj->ownerprop, 0);
-				}
-
-				moveResult = sub_GAME_7F042EB4(obj, &Proj->unkd4, &sp64C, &sp658, 0, moveOnlyIfPathClear);
-
-				if (Proj->ownerprop != NULL)
-				{
-					sub_GAME_7F03D058(Proj->ownerprop, 1);
-				}
-
-                /*
-                * Fragile code: PROJECTILEFLAG_00000100 is only set by gunInitProjectileFromPlayer()
-                * whose callers always pass a PROPDEF_COLLECTABLE WeaponObjRecord.
-                * Therefore weaponObj is initialized above on every valid path reaching this point.
-                * But if this flag is ever used with another object type, the NULL check
-                * below would read an uninitialized pointer.
-                */
-				if (((moveResult != 1) && (weaponObj != NULL)) && (weaponObj->weaponnum == ITEM_ROCKETROUND))
-				{
-					weaponObj->timer = 0;
-				}
-
-				Proj->flags &= ~PROJECTILEFLAG_00000100;
-			}
-
-			ProjPos.f[0] = obj->position.f[0];
-			ProjPos.f[1] = obj->position.f[1];
-			ProjPos.f[2] = obj->position.f[2];
-
-			if (Proj->refreshrate > 0)
-			{
-				Proj->refreshrate -= g_ClockTimer;
-			}
-
-			if (obj->projectile->flags & PROJECTILEFLAG_AIRBORNE)
-			{
-				airborneWeapon = (struct WeaponObjRecord *) obj;
-				projectileBBox = chrobjGetBboxFromObjectRecord(obj);
-				hitGround = 0;
-				bounceCondition = 0;
-				projectileStopped = 0;
-				bboxBottomOffset = 1.0f;
-				temp_f20 = obj->position.f[1];
-				canEmbed = FALSE;
-				Proj->unkA8 += g_ClockTimer;
-				previousXAxis.f[0] = obj->mtx.m[0][0];
-				previousXAxis.f[1] = obj->mtx.m[0][1];
-				previousXAxis.f[2] = obj->mtx.m[0][2];
-
-				if (Proj->flags & PROJECTILEFLAG_00000020)
-				{
-					m_RocketGravity = ROCKET_INITIAL_GRAVITY_MODIFIER;
-					if (Proj->unk1C < m_RocketGravity)
-					{
-						Proj->unkB4 += Proj->unk10.f[1] * g_GlobalTimerDelta;
-						Proj->unkB0 += Proj->unkB4 * g_GlobalTimerDelta;
-                        // Gravity modifier increases at 1/90 per frame until reaching ROCKET_INITIAL_GRAVITY_MODIFIER
-                        // I would have thought this is somehow related to turning 9.8m/s/s into per frame accel? 
-						Proj->unk1C += (1.0f / 90.0f) * g_GlobalTimerDelta;
-						if (Proj->unk1C > m_RocketGravity)
-						{
-							Proj->unk1C = m_RocketGravity;
-						}
-					}
-					else if (ProjPos.f[1] < Proj->unkB0)
-					{
-						Proj->unkB4 += Proj->unk10.f[1] * g_GlobalTimerDelta;
-						Proj->unkB0 += Proj->unkB4 * g_GlobalTimerDelta;
-                        //Smooth vertical interpolation when rocket is rising toward its ballistic apex.
-						ProjPos.f[1] += (0.07f * (Proj->unkB0 - ProjPos.f[1])) * g_GlobalTimerDelta;
-					}
-					else
-					{
-						ProjPos.f[1] = Proj->unkB0;
-						Proj->flags &= ~PROJECTILEFLAG_00000020;
-						Proj->unk1C = 0.0f;
-						Proj->flags |= PROJECTILEFLAG_POWERED;
-						Proj->speed.f[1] = Proj->unkB4;
-					}
-				}
-
-				m_PropGravity = PROP_PROJECTILE_GRAVITY_MODIFIER;
-
-				if (!(Proj->flags & PROJECTILEFLAG_POWERED))
-				{
-					Proj->speed.f[1] += (Proj->unk10.f[1] + Proj->unk1C) * g_GlobalTimerDelta;
-					temp_f12 = Proj->speed.f[1];
-					nextVerticalSpeed = temp_f12 - (m_PropGravity * g_GlobalTimerDelta);
-                    //apparently Standard trapezoidal integrator. (y += (dt * (v + v_next)) * 0.5f)
-					ProjPos.f[1] += (g_GlobalTimerDelta * (temp_f12 + nextVerticalSpeed)) * 0.5f;
-					Proj->speed.f[1] = nextVerticalSpeed;
-				}
-				else
-				{
-					Proj->speed.f[1] += (Proj->unk10.f[1] + Proj->unk1C) * g_GlobalTimerDelta;
-					ProjPos.f[1] += Proj->speed.f[1] * g_GlobalTimerDelta;
-				}
-
-				objectMatrix = &obj->mtx;
-				projectileMatrix = &Proj->mtx;
-				Proj->speed.f[0] += Proj->unk10.f[0] * g_GlobalTimerDelta;
-				Proj->speed.f[2] += Proj->unk10.f[2] * g_GlobalTimerDelta;
-				ProjPos.f[0] += Proj->speed.f[0] * g_GlobalTimerDelta;
-				ProjPos.f[2] += Proj->speed.f[2] * g_GlobalTimerDelta;
-				sub_GAME_7F057DF8(objectMatrix, projectileMatrix, g_ClockTimer);
-
-                // Determine which projectiles can stick to surfaces.
-				if ((obj->type == PROPDEF_COLLECTABLE) && (((((((airborneWeapon->weaponnum == ITEM_REMOTEMINE) || (airborneWeapon->weaponnum == ITEM_TIMEDMINE)) || (airborneWeapon->weaponnum == ITEM_PROXIMITYMINE)) || (airborneWeapon->weaponnum == ITEM_BOMBCASE)) || (airborneWeapon->weaponnum == ITEM_BUG)) || (airborneWeapon->weaponnum == ITEM_MICROCAMERA)) || (airborneWeapon->weaponnum == ITEM_PLASTIQUE)))
-				{
-					canEmbed = TRUE;
-				}
-
-				if (Proj->ownerprop != NULL)
-				{
-					sub_GAME_7F03D058(Proj->ownerprop, 0);
-				}
-
-				moveResult = sub_GAME_7F042EB4(obj, &ProjPos.f[0], &collisionPoint, &collisionNormal, canEmbed, 0);
-
-				if (Proj->ownerprop != NULL)
-				{
-					sub_GAME_7F03D058(Proj->ownerprop, 1);
-				}
-
-				objMovedThisFrame = 1;
-
-				if ((moveResult == 2) && (((temp_v1_11 = (struct coord3d *) D_80030B0C) == NULL) || ((((struct PropRecord *) temp_v1_11)->type != PROP_TYPE_CHR) && (((struct PropRecord *) temp_v1_11)->type != PROP_TYPE_VIEWER))))
-				{
-					sp548 = 0;
-					if ((temp_v1_11 != NULL) && ((temp_v0_31 = ((struct PropRecord *) temp_v1_11)->obj)->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE))
-					{
-						sp548 = 1;
-					}
-
-					if (sp548 == 0)
-					{
-						projectileFree(Proj);
-						obj->projectile = NULL;
-						obj->runtime_bitflags &= ~RUNTIMEBITFLAG_HASPROJECTILE;
-						if (prop->flags & PROPFLAG_00000008)
-						{
-							prop->flags |= PROPFLAG_00000010;
-						}
-
-						chrobjSndCreatePostEventDefault(sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, ATTACH_MINE_SFX, NULL), &prop->pos);
-						objectivestatusCheckDeposit(((struct WeaponObjRecord *) obj)->weaponnum, prop->stan->room);
-						objStickToSurface(obj, &collisionPoint, prop->stan, &collisionNormal);
-						if (D_80030B0C != NULL)
-						{
-							temp_s2 = prop->stan;
-							if (objEmbed(prop, D_80030B0C, g_CurrentProjectileModel, dword_CODE_bss_80075B74) != 0)
-							{
-								prop->stan = temp_s2;
-								tickop = TICKOP_CHANGEDLIST;
-								projectileStopped = 1;
-							}
-						}
-					}
-				}
-
-				if (projectileStopped == 0)
-				{
-					playerProp2 = D_80030B0C;
-
-					if ((playerProp2 != NULL) && (obj->type == PROPDEF_COLLECTABLE))
-					{
-						temp_v1_10 = (struct WeaponObjRecord *) obj;
-
-						if (temp_v1_10->weaponnum == ITEM_THROWKNIFE)
-						{
-							if ((playerProp2->type == PROP_TYPE_CHR) || (((playerProp2->type == PROP_TYPE_VIEWER) && (playerProp2->obj != NULL)) && (getPlayerPointerIndex(playerProp2) != get_cur_playernum())))
-							{
-								playerProp2 = D_80030B0C;
-								temp_v0_40 = obj->projectile;
-								temp_s0_13 = (struct coord3d *) playerProp2->chr;
-
-								if ((((temp_v0_40->flags & PROJECTILEFLAG_AIRBORNE) && (((s32) temp_v0_40->unk90) <= 0)) && (obj->runtime_bitflags & RUNTIMEBITFLAG_THROWING_KNIFE_RELATED)) && (handles_shot_actors((struct ChrRecord *) temp_s0_13, bodypartshot, &flt_CODE_bss_80075B78, ((struct WeaponObjRecord *) obj)->weaponnum, 1) != 0))
-								{
-									projectileStopped = 1;
-
-									if (Proj->unk8C > 0.0f)
-									{
-										temp_f14_3 = ((Proj->speed.f[0] * collisionNormal.f[0]) + (Proj->speed.f[1] * collisionNormal.f[1])) + (Proj->speed.f[2] * collisionNormal.f[2]);
-										temp_f14_3 *= -(Proj->unk8C + 1.0f);
-										Proj->speed.f[0] += temp_f14_3 * collisionNormal.f[0];
-										Proj->speed.f[1] += temp_f14_3 * collisionNormal.f[1];
-										Proj->speed.f[2] += temp_f14_3 * collisionNormal.f[2];
-									}
-
-									if (!(Proj->flags & PROJECTILEFLAG_00000200))
-									{
-										mtxLoadRandomRotation(projectileMatrix);
-									}
-
-									Proj->unk90 += 1;
-									recall_joy2_hits_edit_detail_edit_flag(((struct WeaponObjRecord *) obj)->weaponnum, D_80030B0C, -1);
-
-									if (((D_80030B0C->flags & PROPFLAG_ONSCREEN) && (bodypartshot != HIT_GUN)) && (bodypartshot != HIT_HAT))
-									{
-										playerProp2 = (struct PropRecord *) modelFindNodeMtx(g_CurrentProjectileModel, dword_CODE_bss_80075B74, 0);
-
-										bloodStainPos.f[0] = collisionPoint.f[0];
-										bloodStainPos.f[1] = collisionPoint.f[1];
-										bloodStainPos.f[2] = collisionPoint.f[2];
-
-										mtx4TransformVecInPlace(camGetWorldToScreenMtxf(), &bloodStainPos);
-
-										bloodStainPos.f[0] += (bloodStainPos.f[0] - ((Mtxf *) playerProp2)->m[3][0]) * 0.5f;
-										bloodStainPos.f[1] += (bloodStainPos.f[1] - ((Mtxf *) playerProp2)->m[3][1]) * 0.5f;
-										bloodStainPos.f[2] += (bloodStainPos.f[2] - ((Mtxf *) playerProp2)->m[3][2]) * 0.5f;
-
-										bloodStainPos.f[0] -= (getjointsize(g_CurrentProjectileModel, dword_CODE_bss_80075B74) * 0.5f) * flt_CODE_bss_80075B88.f[0];
-										bloodStainPos.f[1] -= (getjointsize(g_CurrentProjectileModel, dword_CODE_bss_80075B74) * 0.5f) * flt_CODE_bss_80075B88.f[1];
-										bloodStainPos.f[2] -= (getjointsize(g_CurrentProjectileModel, dword_CODE_bss_80075B74) * 0.5f) * flt_CODE_bss_80075B88.f[2];
-    
-										matrix_4x4_set_inverse_rotation_and_translation((Mtxf *) playerProp2, &inverseNodeMatrix);
-										mtx4TransformVecInPlace(&inverseNodeMatrix, &bloodStainPos);
-										chrCreateBloodStain(g_CurrentProjectileModel, bodypartshot, dword_CODE_bss_80075B74, &bloodStainPos);
-									}
-								}
-							}
-						}
-						else if (temp_v1_10->weaponnum == ITEM_ROCKETROUND)
-						{
-							var_v0_3 = playerProp2->type;
-							projectileStopped = 1;
-							if (var_v0_3 == 3)
-							{
-								chrlvExplosionDamage((ChrRecord *) playerProp2->chr, &obj->position, 2.0f, 1);
-							}
-							else if ((var_v0_3 == 1) || (var_v0_3 == 4))
-							{
-								var_a0 = obj->runtime_bitflags;
-								objApplyDamage(playerProp2->obj, 100.0f, &obj->position, ITEM_ROCKETROUND, (s32) (((u32) (var_a0 & RUNTIMEBITFLAG_OWNER)) >> RUNTIMEBITSHIFT_OWNER));
-							}
-
-							((struct WeaponObjRecord *) obj)->timer = 0;
-						}
-					}
-				}
-
-				if (projectileStopped == 0)
-				{
-					if (moveResult == 0)
-					{
-						if (Proj->unk8C > 0.0f)
-						{
-							previousVerticalSpeed = Proj->speed.f[1];
-							temp_f14_3 = ((Proj->speed.f[0] * collisionNormal.f[0]) + (Proj->speed.f[1] * collisionNormal.f[1])) + (Proj->speed.f[2] * collisionNormal.f[2]);
-							temp_f14_3 *= -(Proj->unk8C + 1.0f);
-							Proj->speed.f[0] += temp_f14_3 * collisionNormal.f[0];
-							Proj->speed.f[1] += temp_f14_3 * collisionNormal.f[1];
-							Proj->speed.f[2] += temp_f14_3 * collisionNormal.f[2];
-
-							if ((previousVerticalSpeed <= 0.0f) && ((Proj->speed.f[1] >= 0.0f) || (temp_f20 <= obj->position.f[1])))
-							{
-								bounceCondition = 1;
-							}
-						}
-					}
-
-                    /** 
-                     * sp63C is never written anywhere in this function, so this loads an uninitialised stack
-					 * word albeit harmlessly. Either the block below overwrites temp_f20 with the stan floor
-					 * height, or it does not run and hitGround stays 0, leaving temp_f20 unread. Likely the
-					 * original had a separate uninitialised local for the floor height and the compiler
-					 * materialised its home here.
-					 * Note temp_f20 changes meaning at this point: above it is the Y at the start of the
-					 * tick (used by the bounce test), below it's the stan floor height.
-                     */
-					temp_f20 = sp63C;
-
-					if (!(Proj->flags & PROJECTILEFLAG_00000008))
-					{
-						temp_f20 = stanGetPositionYValue(prop->stan, prop->pos.f[0], prop->pos.f[2]);
-						bboxBottomOffset = chrpropSumMatrixPosY(projectileBBox, &objectMatrix[0]);
-						hitGround = (prop->pos.f[1] < (temp_f20 - bboxBottomOffset));
-					}
-					else
-					{
-						if (Proj && Proj && Proj);
-					}
-
-					if ((hitGround) || (moveResult == 0))
-					{
-						if (!(Proj->flags & PROJECTILEFLAG_00000200))
-						{
-							mtxLoadRandomRotation(projectileMatrix);
-						}
-
-						Proj->unk90 += 1;
-					}
-
-					if ((hitGround) || (bounceCondition))
-					{
-						if (hitGround)
-						{
-                            // The projectile has hit the ground so raise it 4 units above the ground.
-							obj->position.f[1] = (prop->pos.f[1] = (temp_f20 - bboxBottomOffset) + 4.0f);
-						}
-						else
-						{
-							var_f2 = (collisionPoint.f[1] - bboxBottomOffset) + 4.0f;
-							obj->position.f[1] = (prop->pos.f[1] = var_f2);
-						}
-
-						if (!(obj->runtime_bitflags & RUNTIMEBITFLAG_00010000))
-						{
-							obj->runtime_bitflags |= RUNTIMEBITFLAG_00000100;
-						}
-
-						if (Proj->unk8C > 0.0f)
-						{
-							Proj->speed.f[1] *= -Proj->unk8C;
-
-							if (Proj->speed.f[1] < 2.2222223f)
-							{
-								if ((Proj->flags & PROJECTILEFLAG_00000002) && (Proj->unk90 == 1))
-								{
-									Proj->speed.f[1] = 2.2222223f;
-								}
-								else
-								{
-									objSettle(obj, &previousXAxis);
-								}
-							}
-						}
-						else
-						{
-							objSettle(obj, &previousXAxis);
-						}
-					}
-
-					if (obj->type == PROPDEF_COLLECTABLE)
-					{
-						if (airborneWeapon->weaponnum == ITEM_THROWKNIFE)
-						{
-							objUpdateThrowKnifeSound(airborneWeapon);
-						}
-						else if (airborneWeapon->weaponnum == ITEM_ROCKETROUND)
-						{
-							if ((moveResult == 0) || (hitGround))
-							{
-								airborneWeapon->timer = 0;
-							}
-							else
-							{
-								nextVerticalSpeed = ((Proj->speed.f[0] * Proj->speed.f[0]) + (Proj->speed.f[1] * Proj->speed.f[1])) + (Proj->speed.f[2] * Proj->speed.f[2]);
-
-								if (nextVerticalSpeed > ROCKET_SPEED_BREAK_THRESHOLD)
-								{
-									Proj->unk10.f[0] = 0.0f;
-									Proj->unk10.f[1] = 0.0f;
-									Proj->unk10.f[2] = 0.0f;
-								}
-
-								if (((s32) Proj->unkA8) >= GRENADE_SMOKE_FRAMES)
-								{
-									Proj->unk1C = 0.0f;
-									Proj->flags &= ~(PROJECTILEFLAG_POWERED | PROJECTILEFLAG_00000020);
-								}
-								else
-								{
-									explosionCreateSmoke(&airborneWeapon->position, prop->stan, 8, prop->rooms, (prop->flags & PROPFLAG_00000008) != 0);
-								}
-							}
-						}
-						else if (airborneWeapon->weaponnum == ITEM_GRENADEROUND)
-						{
-							if ((hitGround != 0) || (bounceCondition != 0))
-							{
-								airborneWeapon->timer = 0;
-							}
-							else
-							{
-								explosionCreateSmoke(&obj->position, prop->stan, 9, prop->rooms, (prop->flags & PROPFLAG_00000008) != 0);
-							}
-						}
-
-						if ((moveResult == 0) || (hitGround != 0))
-						{
-							if (((s32) Proj->unkAC) < (((s32) g_GlobalTickCount) - 2))
-							{
-								if ((airborneWeapon->weaponnum == ITEM_THROWKNIFE) || (airborneWeapon->weaponnum == ITEM_KNIFE))
-								{
-									sfx_state = sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, KNIFE_HIT_WALL_SFX, NULL);
-								}
-								else
-								{
-									sfx_state = sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, DROP_GUN_SFX, NULL);
-								}
-
-								chrobjSndCreatePostEventDefault(sfx_state, &prop->pos);
-							}
-
-							Proj->unkAC = g_GlobalTickCount;
-						}
-					}
-				}
-
-				if (((airborneWeapon->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE) && (Proj->flags & PROJECTILEFLAG_FALLING)) && (!(g_GlobalTickCount & 7)))
-				{
-					sp564.f[0] = airborneWeapon->position.f[0] + 400.0f;
-					sp564.f[1] = airborneWeapon->position.f[1] - 1800.0f;
-					sp564.f[2] = airborneWeapon->position.f[2];
-
-					if (!(g_GlobalTickCount & 0xF))
-					{
-						sp564.f[2] += 400.0f;
-					}
-					else
-					{
-						sp564.f[2] -= 400.0f;
-					}
-
-					explosionCreate(NULL, &sp564, airborneWeapon->prop->stan, 0x14, 0, 0, airborneWeapon->prop->rooms, 0);
-                    //Spawn smoke every 40 frames
-					if ((((s32) g_GlobalTickCount) % 40) == 0)
-					{
-						explosionCreateSmoke(&sp564, airborneWeapon->prop->stan, 0xA, airborneWeapon->prop->rooms, 1);
-					}
-				}
-			}
-			else
-			{
-				projectileAlive = 1;
-
-				if (Proj->unk60 < 1.0f)
-				{
-					Proj->unk60 += Proj->unk64 * g_GlobalTimerDelta;
-
-					if (g_ClockTimer > 0)
-					{
-						Proj->unk64 *= 1.1f;
-					}
-
-					if ((Proj->unk60 > 1.0f) || (Proj->flags & PROJECTILEFLAG_00000008))
-					{
-						Proj->unk60 = 1.0f;
-					}
-
-					quaternion_slerp((f32 *) (&Proj->unk68), (f32 *) (&Proj->unk78), Proj->unk60, (f32 *) (&sp550));
-					objectMatrix = &obj->mtx;
-					quaternion_to_matrix((f32 *) (&sp550), (f32 *) (&obj->mtx));
-					matrix_column_1_scalar_multiply(Proj->unkC0, (f32 *) objectMatrix);
-					matrix_column_2_scalar_multiply(Proj->unkC4, (f32 *) objectMatrix);
-					matrix_column_3_scalar_multiply_2(Proj->unkC8, (f32 *) objectMatrix);
-					projectileAlive = 0;
-				}
-
-                // Apply horizontal slide and friction to a projectile that has landed.
-				if ((((Proj->speed.f[0] != 0.0f) || (Proj->speed.f[2] != 0.0f)) || (Proj->unk60 < 1.0f)) && (!(Proj->flags & PROJECTILEFLAG_00000008)))
-				{
-					objectMatrix = &obj->mtx;
-					objectBBox = chrobjGetBboxFromObjectRecord(obj);
-					projectileAlive = 0;
-
-					for (sp548 = 0; sp548 < g_ClockTimer; sp548++)
-					{
-						ProjPos.f[0] += Proj->speed.f[0];
-						ProjPos.f[2] += Proj->speed.f[2];
-						if (Proj->unk60 >= 1.0f)
-						{
-							if (Proj->unk94 > 0.0f)
-							{
-								temp_f12_5 = (Proj->unk94 * g_GlobalTimerDelta) / sqrtf((Proj->speed.f[0] * Proj->speed.f[0]) + (Proj->speed.f[2] * Proj->speed.f[2]));
-								if (temp_f12_5 >= 1.0f)
-								{
-									Proj->speed.f[0] = 0.0f;
-									Proj->speed.f[2] = 0.0f;
-								}
-								else
-								{
-									Proj->speed.f[0] -= Proj->speed.f[0] * temp_f12_5;
-									Proj->speed.f[2] -= Proj->speed.f[2] * temp_f12_5;
-								}
-							}
-							else
-							{
-								Proj->speed.f[0] *= PROJECTILE_FRICTION_FACTOR;
-								Proj->speed.f[2] *= PROJECTILE_FRICTION_FACTOR;
-							}
-						}
-					}
-
-					sub_GAME_7F042EB4(obj, &ProjPos.f[0], &sp530, &sp53C, 0, 0);
-					objMovedThisFrame = 1;
-					temp_f20 = stanGetPositionYValue(prop->stan, prop->pos.f[0], prop->pos.f[2]);
-					angleDelta = (temp_f20 - chrpropSumMatrixPosY(objectBBox, objectMatrix)) + 4.0f;
-					prop->pos.f[1] = angleDelta;
-					obj->position.f[1] = angleDelta;
-					if ((Proj->speed.f[0] < 0.1f) && (Proj->speed.f[0] > (-0.1f)))
-					{
-						if ((Proj->speed.f[2] < 0.1f) && (Proj->speed.f[2] > (-0.1f)))
-						{
-							Proj->speed.f[2] = 0.0f;
-							Proj->speed.f[0] = 0.0f;
-						}
-					}
-				}
-
-				if ((projectileAlive != 0) || (Proj->flags & PROJECTILEFLAG_00000008))
-				{
-					projectileFree(Proj);
-					obj->projectile = NULL;
-					obj->runtime_bitflags &= ~RUNTIMEBITFLAG_HASPROJECTILE;
-
-					if (prop->flags & PROPFLAG_00000008)
-					{
-						prop->flags |= PROPFLAG_00000010;
-					}
-
-					if (obj->type == PROPDEF_COLLECTABLE)
-					{
-						objectivestatusCheckDeposit(((struct WeaponObjRecord *) obj)->weaponnum, prop->stan->room);
-					}
-				}
-			}
+			tickop = objTickProjectile(prop);
 		}
 
-		if (objMovedThisFrame)
+		switch (obj->type)
 		{
-			objectMatrix = (Mtxf *) (&obj->position);
-
-			objUpdateCollisionVolume(obj);
-			setupUpdateObjectRoomPosition(obj);
-			objSetShading(obj->prop, &obj->nextcol);
-			detonate_proxmine_In_range((struct coord3d *) objectMatrix);
-		}
-
-		if (obj->type == PROPDEF_DOOR)
-		{
-			door = (struct DoorRecord *) prop->obj;
-			previousOpenPosition = door->openPosition;
-
-			if ((((((s32) door->openedTime) > 0) && (((s32) door->openedTime) < (((s32) g_GlobalTimer) - ((s32) door->autoCloseFrames)))) && (door->openstate == DOORSTATE_STATIONARY)) && (!(door->flags & PROPFLAG_DOOR_KEEPOPEN)))
-			{
-				doorActivate(door, DOORSTATE_CLOSING);
-			}
-
-			if (door->openstate == DOORSTATE_WAITING)
-			{
-				pad1AC = door->linkedDoor;
-				var_v1_5 = 1;
-				while ((pad1AC != NULL) && (pad1AC != door))
+			case PROPDEF_DOOR:
+				previousOpenPosition = objTickDoor(prop);
+				break;
+			case PROPDEF_CCTV:
+				if (!(obj->flags & PROPFLAG_IS_DRONE_GUN))
 				{
-					if ((pad1AC->openstate != DOORSTATE_STATIONARY) || (pad1AC->openPosition > 0.0f))
-					{
-						var_v1_5 = 0;
-					}
-
-					pad1AC = pad1AC->linkedDoor;
+					objTickCctv(prop);
 				}
-
-
-				if (var_v1_5 != 0)
+				break;
+			case PROPDEF_AUTOGUN:
+				if (!(obj->flags & PROPFLAG_IS_DRONE_GUN))
 				{
-					doorSetOpenState(door, 1);
+					objTickAutogun(prop);
 				}
-			}
-
-			if (((door->doorType == DOORTYPE_FALLAWAY) && (doorIsClosed(door) != 0)) && (doorIsPadlockFree(door) != 0))
-			{
-				doorActivateWrapper(prop);
-			}
-
-			if ((door->lastcalc60i < g_GlobalTimer) || (g_ClockTimer == 0))
-			{
-				door7F054FB4(door);
-			}
-		}
-		else if ((obj->type == PROPDEF_CCTV) && (!(obj->flags & PROPFLAG_IS_DRONE_GUN)))
-		{
-			bottom_pad = (struct CCTVRecord *) prop->obj;
-
-			if (bottom_pad->unkD4 != 0)
-			{
-				m_RocketGravity = bottom_pad->unkCC;
-			}
-			else
-			{
-				m_RocketGravity = bottom_pad->unkD0;
-			}
-
-			playerProp = getCurrentPlayerProp();
-			xdiff = playerProp->pos.f[0] - obj->position.f[0];
-			temp_f0_13 = bottom_pad->unkE8;
-			ydiff = playerProp->pos.f[1] - obj->position.f[1];
-			temp_f14_3 = playerProp->pos.f[2] - obj->position.f[2];
-			cctvSeesPlayer = 1;
-
-			if ((temp_f0_13 > 0.0f) && ((temp_f0_13 * temp_f0_13) < (((xdiff * xdiff) + (ydiff * ydiff)) + (temp_f14_3 * temp_f14_3))))
-			{
-				cctvSeesPlayer = 0;
-			}
-
-			if (obj->flags & PROPFLAG_INMOTION)
-			{
-				cctvSeesPlayer = 0;
-			}
-
-			if (cctvSeesPlayer != 0)
-			{
-				temp_f0_14 = atan2f(xdiff, temp_f14_3);
-				var_f2 = bottom_pad->unkC8;
-
-				if (var_f2 < 0.0f)
-				{
-					var_f2 += M_TAU_F;
-				}
-				else if (var_f2 >= M_TAU_F)
-				{
-					var_f2 -= M_TAU_F;
-				}
-
-				var_f2 += bottom_pad->unkC4;
-
-				if (var_f2 >= M_TAU_F)
-				{
-					var_f2 -= M_TAU_F;
-				}
-
-				angleDelta = temp_f0_14 - var_f2;
-
-				if (temp_f0_14 < var_f2)
-				{
-					angleDelta += M_TAU_F;
-				}
-
-				angleDelta -= M_PI_F;
-
-				if (angleDelta < 0.0f)
-				{
-					angleDelta += M_TAU_F;
-				}
-
-				if (angleDelta > M_PI_F)
-				{
-					angleDelta -= M_TAU_F;
-				}
-
-				if ((angleDelta > DegToRad(45)) || (angleDelta < DegToRad(-45)))
-				{
-					cctvSeesPlayer = 0;
-				}
-			}
-
-			if (cctvSeesPlayer != 0)
-			{
-				sp4F0 = prop->stan;
-				bviewSetPlayerSolid(playerProp, 0);
-				if (stanTestLineUnobstructed(&sp4F0, prop->pos.f[0], prop->pos.f[2], playerProp->pos.f[0], playerProp->pos.f[2], 0x1B, 100.0f, 100.0f, 0.0f, 1.0f) != 0)
-				{
-					bottom_pad->timer += g_ClockTimer;
-					if (bottom_pad->timer >= ((s32) (CCTV_ALARM_FRAMES * F_80030B14)))
-					{
-						alarmActivate();
-						bottom_pad->timer = 0;
-					}
-				}
-
-				bviewSetPlayerSolid(playerProp, 1);
-			}
-
-			if (bottom_pad->unkC8 < m_RocketGravity)
-			{
-				var_f2_6 = ((bottom_pad->unkD8 * bottom_pad->unkD8) * 0.5f) / CAM_ACCEL; if ((m_RocketGravity - var_f2_6) <= bottom_pad->unkC8)
-				{
-					bottom_pad->unkD8 = (f32) (bottom_pad->unkD8 - (CAM_ACCEL * g_GlobalTimerDelta));
-					if (bottom_pad->unkD8 < CAM_ACCEL)
-					{
-						bottom_pad->unkD8 = CAM_ACCEL;
-					}
-				}
-				else if (bottom_pad->unkD8 < bottom_pad->unkDC)
-				{
-					var_f2_6 = bottom_pad->unkD8 + (CAM_ACCEL * g_GlobalTimerDelta);
-					if (bottom_pad->unkDC < var_f2_6)
-					{
-						var_f2_6 = bottom_pad->unkDC;
-					}
-
-					if (bottom_pad->unkC8 < (m_RocketGravity - (((var_f2_6 * var_f2_6) * 0.5f) / CAM_ACCEL)))
-					{
-						bottom_pad->unkD8 = var_f2_6;
-					}
-				}
-
-				bottom_pad->unkC8 += bottom_pad->unkD8 * g_GlobalTimerDelta;
-				if (m_RocketGravity <= bottom_pad->unkC8)
-				{
-					bottom_pad->unkC8 = m_RocketGravity;
-					bottom_pad->unkD8 = 0.0f;
-					bottom_pad->unkD4 = 0;
-				}
-			}
-			else
-			{
-				var_f2_6 = ((bottom_pad->unkD8 * bottom_pad->unkD8) * 0.5f) / CAM_ACCEL; if (bottom_pad->unkC8 <= (m_RocketGravity + var_f2_6))
-				{
-					bottom_pad->unkD8 = (f32) (bottom_pad->unkD8 - (CAM_ACCEL * g_GlobalTimerDelta));
-					if (bottom_pad->unkD8 < CAM_ACCEL)
-					{
-						bottom_pad->unkD8 = CAM_ACCEL;
-					}
-				}
-				else if (bottom_pad->unkD8 < bottom_pad->unkDC)
-				{
-					var_f2_6 = bottom_pad->unkD8 + (CAM_ACCEL * g_GlobalTimerDelta);
-					if (bottom_pad->unkDC < var_f2_6)
-					{
-						var_f2_6 = bottom_pad->unkDC;
-					}
-
-					if (bottom_pad->unkC8 > (m_RocketGravity + (((var_f2_6 * var_f2_6) * 0.5f) / CAM_ACCEL)))
-					{
-						bottom_pad->unkD8 = var_f2_6;
-					}
-				}
-
-				bottom_pad->unkC8 -= bottom_pad->unkD8 * g_GlobalTimerDelta;
-				if (bottom_pad->unkC8 <= m_RocketGravity)
-				{
-					bottom_pad->unkC8 = m_RocketGravity;
-					bottom_pad->unkD8 = 0.0f;
-					bottom_pad->unkD4 = 1;
-				}
-			}
-		}
-		else if ((obj->type == PROPDEF_AUTOGUN) && (!(obj->flags & PROPFLAG_IS_DRONE_GUN)))
-		{
-			poAGun = (struct AutogunRecord *) prop->obj;
-			playerProp2 = getCurrentPlayerProp();
-			AutogunSeesPlayer = 0;
-			isTracking = 0;
-			hasLineOfSight = 0;
-			if (obj->flags2 & PROPFLAG_IS_DOUBLE)
-			{
-				if (obj->flags2 & PROPFLAG2_40000000)
-				{
-					poAGun->unk98 = poAGun->unk9C;
-					poAGun->rot_related = poAGun->unk90;
-				}
-				else if ((poAGun->unk90 == poAGun->rot_related) && (poAGun->unk9C == poAGun->unk98))
-				{
-					poAGun->unk98 = (((U32_TO_F32(randomGetNext()) * 39.0f) + 1.0f) * M_TAU_F) / 360.0f; //degtorad 
-					poAGun->rot_related = U32_TO_F32(randomGetNext()) * M_TAU_F;
-				}
-
-				chrobjCallsApplySpeed(&poAGun->unk90, poAGun->rot_related, &poAGun->unk94, AUTOGUN_YAW_ACCEL_PER_FRAME, AUTOGUN_YAW_ACCEL_PER_FRAME, AUTOGUN_YAW_MAX_SPEED);
-				chrobjCallsApplySpeed(&poAGun->unk9C, poAGun->unk98, &poAGun->unkA0, AUTOGUN_PITCH_ACCEL_PER_FRAME, AUTOGUN_PITCH_ACCEL_PER_FRAME, AUTOGUN_PITCH_MAX_SPEED);
-			}
-			else
-			{
-				var_f0_2 = playerProp2->pos.f[0] - obj->position.f[0];
-				playerDirVec.f[1] = (playerProp2->pos.f[1] - obj->position.f[1]) - 20.0f;//Aim 20 units below player’s head
-				temp_f2_23 = playerProp2->pos.f[2] - obj->position.f[2];
-				horizontalDistSq = (var_f0_2 * var_f0_2) + (temp_f2_23 * temp_f2_23);
-				playerDirVec.f[2] = var_f0_2;
-				playerDirVec.f[0] = temp_f2_23;
-				horizontalDist = sqrtf(horizontalDistSq);
-				distanceToPlayer = horizontalDist;
-				if (obj->flags & PROPFLAG_DOOR_TWOWAY)
-				{
-					horizontalDistSq += playerDirVec.f[1] * playerDirVec.f[1];
-					distanceToPlayer = sqrtf(horizontalDistSq);
-				}
-
-				sp4A0 = chrlvGetAimLimitAngle(horizontalDistSq);
-				sp4D8 = poAGun->rot_related;
-				targetPitch = poAGun->unk98;
-				if (distanceToPlayer <= poAGun->aimdist)
-				{
-					if (sp4A0);
-					playerYaw = atan2f(playerDirVec.f[2], playerDirVec.f[0]);
-					playerPitch = atan2f(playerDirVec.f[1], horizontalDist);
-					if ((obj->flags & PROPFLAG_NO_AMMO) || (obj->flags & PROPFLAG_INMOTION))
-					{
-						AutogunSeesPlayer = 1;
-					}
-					else
-					{
-						yawError = playerYaw - poAGun->unk90;
-						if (yawError < 0.0f)
-						{
-							yawError += M_TAU_F;
-						}
-
-						if (yawError > M_PI_F)
-						{
-							yawError -= M_TAU_F;
-						}
-
-						var_f2_6 = playerPitch - poAGun->unk9C;
-						if (var_f2_6 < 0.0f)
-						{
-							if (horizontalDist)
-							{
-								horizontalDist = (horizontalDist) ? (horizontalDist) : (horizontalDist);
-							}
-						}
-
-						if ((yawError < DegToRad(70)) && (yawError > DegToRad(-70)))
-						{
-							AutogunSeesPlayer = 1;
-						}
-					}
-
-					if (AutogunSeesPlayer != 0)
-					{
-						sp494 = playerYaw - poAGun->rot_related;
-						collisionTile = prop->stan;
-						if (sp494 < (-M_PI_F))
-						{
-							sp494 += M_TAU_F;
-						}
-						else if (sp494 >= M_PI_F)
-						{
-							sp494 -= M_TAU_F;
-						}
-
-						bviewSetPlayerSolid(playerProp2, 0);
-						if ((((sp494 <= poAGun->unk88) && (poAGun->unk8C <= sp494)) && (stanTestLineUnobstructed(&collisionTile, prop->pos.f[0], prop->pos.f[2], playerProp2->pos.f[0], playerProp2->pos.f[2], 0x1B, prop->pos.f[1], prop->pos.f[1], playerProp2->pos.f[1], playerProp2->pos.f[1]) != 0)) && ((collisionTile) == playerProp2->stan))
-						{
-							obj->flags |= PROPFLAG_INMOTION;
-							hasLineOfSight = 1;
-							sp4D8 = playerYaw;
-							targetPitch = playerPitch;
-						}
-						else if ((poAGun->unkB8 >= 0) && ((g_GlobalTimer - AUTOGUN_TRACKING_FRAMES) < poAGun->unkB8)) //cooldown 2 seconds
-						{
-							sp4D8 = poAGun->unk90;
-							targetPitch = poAGun->unk9C;
-						}
-						else
-						{
-							AutogunSeesPlayer = 0;
-						}
-
-						bviewSetPlayerSolid(playerProp2, 1);
-					}
-				}
-
-				if (AutogunSeesPlayer != 0)
-				{
-					sp4A0 = chrlvGetAimLimitAngle(horizontalDistSq);
-				}
-
-				if (poAGun->is_active != 0)
-				{
-                    //Sway once every 2 seconds while firing
-					sp4D8 += (sp4A0 * 0.8f) * sinf((((f32) (((s32) g_GlobalTimer) % AUTOGUN_TRACKING_FRAMES)) * M_TAU_F) / (f32) AUTOGUN_TRACKING_FRAMES);
-					if (sp4D8 < 0.0f)
-					{
-						sp4D8 += M_TAU_F;
-					}
-
-					if (sp4D8 >= M_TAU_F)
-					{
-						sp4D8 -= M_TAU_F;
-					}
-				}
-
-				var_f0_2 = sp4D8 - poAGun->rot_related;
-				if (var_f0_2 < (-M_PI_F))
-				{
-					var_f0_2 += M_TAU_F;
-				}
-				else if (var_f0_2 >= M_PI_F)
-				{
-					var_f0_2 -= M_TAU_F;
-				}
-
-				if (poAGun->unk88 < var_f0_2)
-				{
-					sp4D8 = poAGun->rot_related + poAGun->unk88;
-				}
-				else if (var_f0_2 < poAGun->unk8C)
-				{
-					sp4D8 = poAGun->rot_related + poAGun->unk8C;
-				}
-
-				if (sp4D8 < 0.0f)
-				{
-					sp4D8 += M_TAU_F;
-				}
-
-				if (sp4D8 >= M_TAU_F)
-				{
-					sp4D8 -= M_TAU_F;
-				}
-
-				chrobjCallsApplySpeed(&poAGun->unk90, sp4D8, &poAGun->unk94, AUTOGUN_ALERT_ACCEL_PER_FRAME  , AUTOGUN_ALERT_ACCEL_PER_FRAME  , poAGun->speed);
-				chrobjCallsApplySpeed(&poAGun->unk9C, targetPitch, &poAGun->unkA0, AUTOGUN_ALERT_ACCEL_PER_FRAME  , AUTOGUN_ALERT_ACCEL_PER_FRAME  , poAGun->speed);
-				temp_f12_5 = sp4D8 - poAGun->unk90;
-				if (temp_f12_5 < 0.0f)
-				{
-					temp_f12_5 += M_TAU_F;
-				}
-
-				if (temp_f12_5 > M_PI_F)
-				{
-					temp_f12_5 -= M_TAU_F;
-				}
-
-				var_f2_6 = targetPitch - poAGun->unk9C; yawError = targetPitch;
-				if (var_f2_6 < 0.0f)
-				{
-					var_f2_6 += M_TAU_F;
-				}
-
-				if (var_f2_6 > M_PI_F)
-				{
-					var_f2_6 -= M_TAU_F;
-				}
-
-				poAGun->is_active = 0;
-				if (AutogunSeesPlayer != 0)
-				{
-					if ((((temp_f12_5 < sp4A0) && ((-sp4A0) < temp_f12_5)) && (var_f2_6 < sp4A0)) && ((-sp4A0) < var_f2_6))
-					{
-						poAGun->is_active = 1;
-						isTracking = 1;
-						if (hasLineOfSight != 0)
-						{
-							poAGun->unkB8 = (s32) g_GlobalTimer;
-							poAGun->unkBC = (s32) g_GlobalTimer;
-						}
-					}
-					else
-					{
-						angleDelta_6 = 2.0f * sp4A0;
-						if ((((temp_f12_5 < angleDelta_6) && ((-angleDelta_6) < temp_f12_5)) && (var_f2_6 < angleDelta_6)) && ((-angleDelta_6) < var_f2_6))
-						{
-							poAGun->is_active = 1;
-							isTracking = 1;
-							if (hasLineOfSight != 0)
-							{
-								poAGun->unkB8 = (s32) g_GlobalTimer;
-							}
-						}
-						else if ((poAGun->unkB8 >= 0) && ((g_GlobalTimer - AUTOGUN_TRACKING_FRAMES) < poAGun->unkB8))
-						{
-							poAGun->is_active = 1;
-							isTracking = 1;
-						}
-					}
-				}
-
-				if (isTracking != 0) //firing
-				{
-					poAGun->unkB0 += AUTOGUN_SPIN_ACCEL_PER_FRAME * g_GlobalTimerDelta;
-					if (poAGun->unkB0 > AUTOGUN_SPIN_MAX_SPEED)
-					{
-						poAGun->unkB0 = AUTOGUN_SPIN_MAX_SPEED;
-					}
-				}
-				else if (poAGun->unkB0 > 0.0f)
-				{
-					for (var_v0_3 = 0; var_v0_3 < g_ClockTimer; var_v0_3++)
-					{
-						poAGun->unkB0 *= 0.99f; //barrel loses 45% of its spin per second when idle
-					}
-
-
-					if (poAGun->unkB0 <= 0.0001f)
-					{
-						poAGun->unkB0 = 0.0f;
-					}
-				}
-
-				if (poAGun->unkB0 > 0.0f)
-				{
-					poAGun->unkB4 += poAGun->unkB0 * g_GlobalTimerDelta;
-					while (poAGun->unkB4 >= M_TAU_F)
-					{
-						poAGun->unkB4 -= M_TAU_F;
-					}
-
-				}
-			}
-		}
-		else if (obj->type == PROPDEF_VEHICLE)
-		{
-			poTruck = (struct VehichleRecord *) obj;
-			targetYaw = poTruck->roty;
-			waypointPosition = NULL;
-
-			ai((PropDefHeaderRecord *) poTruck, 1);
-
-			if (poTruck->speedtime60 >= 0.0f)
-			{
-				if (poTruck->speedtime60 <= g_GlobalTimerDelta)
-				{
-					poTruck->speed = poTruck->speedaim;
-				}
-				else
-				{
-					poTruck->speed += ((poTruck->speedaim - poTruck->speed) * g_GlobalTimerDelta) / poTruck->speedtime60;
-				}
-
-				poTruck->speedtime60 -= g_GlobalTimerDelta;
-			}
-
-			truckShouldPlayEngineSound = 0;
-
-			if (((!(obj->flags2 & PROPFLAG2_00080000)) && (objIsHealthy(obj) != 0)) && ((poTruck->speed > 0.0f) || (poTruck->speedaim > 0.0f)))
-			{
-				truckShouldPlayEngineSound = sub_GAME_7F053894(&poTruck->position, 2000.0f, 3000.0f);
-			}
-
-			if (truckShouldPlayEngineSound > 0)
-			{
-				if (((poTruck->Sound == NULL) || (sndGetPlayingState(poTruck->Sound) == 0)) && (lvGetControlsLockedFlag() == 0))
-				{
-					sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, TRUCK_RUN_SFX, &poTruck->Sound);
-				}
-
-				if (poTruck->Sound != NULL)
-				{
-					sndCreatePostEvent(poTruck->Sound, 8, truckShouldPlayEngineSound);
-				}
-			}
-			else if ((poTruck->Sound != NULL) && (sndGetPlayingState(poTruck->Sound) != 0))
-			{
-				sndDeactivate(poTruck->Sound);
-			}
-
-			if (poTruck->path != NULL)
-			{
-				temp_a1_6 = &poTruck->path->waypoints[poTruck->nextstep];
-				currentWaypoint = &g_CurrentSetup.pathwaypoints[*temp_a1_6];
-				waypointPosition = &g_CurrentSetup.pads[currentWaypoint->padID].pos;
-				targetYaw = atan2f(waypointPosition->f[0] - poTruck->position.f[0], waypointPosition->f[2] - poTruck->position.f[2]);
-				if (poTruck->flags & PROPFLAG_INMOTION)
-				{
-					poTruck->roty = targetYaw;
-					obj->flags &= ~PROPFLAG_INMOTION;
-					sub_GAME_7F044B38(poTruck);
-				}
-			}
-			else if (poTruck->flags & PROPFLAG_INMOTION) 
-			{
-				poTruck->roty = atan2f(poTruck->mtx.m[2][0], poTruck->mtx.m[2][2]);
-				poTruck->flags &= ~PROPFLAG_INMOTION;
-				sub_GAME_7F044B38(poTruck);
-			}
-
-			if (poTruck->speed > 0.0f)
-			{
-				truckAngularVelocity = 0.0f;
-				currentTile = prop->stan;
-				previousYaw = poTruck->roty;
-				sp434 = poTruck->turnrot60;
-				if (waypointPosition != NULL)
-				{
-					truckAngularVelocity = 0.0f;
-					forwardDir.f[0] = sinf(poTruck->roty);
-					forwardDir.f[1] = 0.0f;
-					forwardDir.f[2] = cosf(poTruck->roty);
-					if (chrlvGeometryRelated7F02FC34(&poTruck->position, &forwardDir, waypointPosition, 10.0f) != 0)
-					{
-						targetYaw = poTruck->roty;
-					}
-				}
-
-				chrobjCallsApplySpeed(&poTruck->roty, targetYaw, &poTruck->turnrot60, TRUCK_TURN_ACCEL_PER_FRAME, TRUCK_TURN_DECEL_PER_FRAME, TRUCK_TURN_MAX_SPEED);
-				while (poTruck->roty >= M_TAU_F)
-				{
-					poTruck->roty -= M_TAU_F;
-				}
-
-
-				while (poTruck->roty < 0.0f)
-				{
-					poTruck->roty += M_TAU_F;
-				}
-
-
-				if (targetYaw == poTruck->roty)
-				{
-					if ((poTruck->turnrot60 <= TRUCK_TURN_DECEL_PER_FRAME) && (poTruck->turnrot60 >= (-TRUCK_TURN_DECEL_PER_FRAME)))
-					{
-						poTruck->turnrot60 = 0.0f;
-					}
-				}
-
-				temp_s0_5 = (f32 *) model->obj->Switches[3]->Data;
-				if (g_GlobalTimerDelta > 0.0f)
-				{
-					truckAngularVelocity = (poTruck->roty - previousYaw) / g_GlobalTimerDelta;
-				}
-
-				if (truckAngularVelocity < 0.0f)
-				{
-					truckAngularVelocity += M_TAU_F;
-				}
-
-				sp460 = ((temp_s0_5[2] * model->scale) * sinf(truckAngularVelocity)) * g_GlobalTimerDelta;
-				forwardDir.f[0] = sinf(poTruck->roty);
-				forwardDir.f[1] = 0.0f;
-				forwardDir.f[2] = cosf(poTruck->roty);
-				ProjPos.f[0] = (poTruck->position.f[0] + ((poTruck->speed * g_GlobalTimerDelta) * forwardDir.f[0])) - (forwardDir.f[2] * sp460);
-				ProjPos.f[1] = poTruck->position.f[1];
-				ProjPos.f[2] = (poTruck->position.f[2] + ((poTruck->speed * g_GlobalTimerDelta) * forwardDir.f[2])) + (forwardDir.f[0] * sp460);
-				if ((stanTestLineUnobstructed(&currentTile, prop->pos.f[0], prop->pos.f[2], ProjPos.f[0], ProjPos.f[2], 0x1F, 0.0f, 1.0f, 0.0f, 1.0f) != 0) && (stanTestVolume(&currentTile, ProjPos.f[0], ProjPos.f[2], 10.0f, 0x1F, 0.0f, 1.0f) < 0))
-				{
-					nextTile = prop->stan;
-					sp450.f[0] = prop->pos.f[0];
-					sp450.f[1] = prop->pos.f[1];
-					sp450.f[2] = prop->pos.f[2];
-					prop->stan = currentTile;
-					poTruck->position.f[0] = (prop->pos.f[0] = ProjPos.f[0]);
-					poTruck->position.f[2] = (prop->pos.f[2] = ProjPos.f[2]);
-					objUpdateCollisionVolume(obj);
-					setupUpdateObjectRoomPosition(obj);
-					var_s2_5 = sub_GAME_7F0448A8(prop);
-					if (var_s2_5 != 0)
-					{
-						temp_v0_25 = (f32 *) model->obj->Switches[10]->Data;
-						vec424.f[0] = temp_v0_25[1] * poTruck->mtx.m[0][0];
-						vec424.f[2] = temp_v0_25[1] * poTruck->mtx.m[0][2];
-						vec418.f[0] = temp_v0_25[2] * poTruck->mtx.m[0][0];
-						vec418.f[2] = temp_v0_25[2] * poTruck->mtx.m[0][2];
-						vec40C.f[0] = temp_v0_25[5] * poTruck->mtx.m[2][0];
-						vec40C.f[2] = temp_v0_25[5] * poTruck->mtx.m[2][2];
-						vec400.f[0] = temp_v0_25[6] * poTruck->mtx.m[2][0];
-						vec400.f[2] = temp_v0_25[6] * poTruck->mtx.m[2][2];
-						currentTile = prop->stan;
-						if (((((walkTilesBetweenPoints_NoCallback(&currentTile, prop->pos.f[0], prop->pos.f[2], (prop->pos.f[0] + vec424.f[0]) + vec40C.f[0], (prop->pos.f[2] + vec424.f[2]) + vec40C.f[2]) == 0) || (walkTilesBetweenPoints_NoCallback(&currentTile, (prop->pos.f[0] + vec424.f[0]) + vec40C.f[0], (prop->pos.f[2] + vec424.f[2]) + vec40C.f[2], (prop->pos.f[0] + vec418.f[0]) + vec40C.f[0], (prop->pos.f[2] + vec418.f[2]) + vec40C.f[2]) == 0)) || (walkTilesBetweenPoints_NoCallback(&currentTile, (prop->pos.f[0] + vec418.f[0]) + vec40C.f[0], (prop->pos.f[2] + vec418.f[2]) + vec40C.f[2], (prop->pos.f[0] + vec418.f[0]) + vec400.f[0], (prop->pos.f[2] + vec418.f[2]) + vec400.f[2]) == 0)) || (walkTilesBetweenPoints_NoCallback(&currentTile, (prop->pos.f[0] + vec418.f[0]) + vec400.f[0], (prop->pos.f[2] + vec418.f[2]) + vec400.f[2], (prop->pos.f[0] + vec424.f[0]) + vec400.f[0], (prop->pos.f[2] + vec424.f[2]) + vec400.f[2]) == 0)) || (walkTilesBetweenPoints_NoCallback(&currentTile, (prop->pos.f[0] + vec424.f[0]) + vec400.f[0], (prop->pos.f[2] + vec424.f[2]) + vec400.f[2], (prop->pos.f[0] + vec424.f[0]) + vec40C.f[0], (prop->pos.f[2] + vec424.f[2]) + vec40C.f[2]) == 0))
-						{
-							var_s2_5 = 0;
-						}
-					}
-
-					if (var_s2_5 != 0)
-					{
-						sub_GAME_7F044B38(poTruck);
-						objSetShading(prop, &poTruck->nextcol);
-						detonate_proxmine_In_range(&poTruck->position);
-						if ((waypointPosition != NULL) && (chrlvIsArrivingLaterallyAtPos(&sp450, &ProjPos, waypointPosition, 100.0f) != 0))
-						{
-							poTruck->nextstep++;
-							if (poTruck->path->waypoints[poTruck->nextstep] < 0)
-							{
-								poTruck->path = NULL;
-								poTruck->speedaim = 0.0f;
-								poTruck->speedtime60 = 60.0f;
-							}
-						}
-					}
-					else
-					{
-						if (poTruck->speedtime60 < 0.0f)
-						{
-							poTruck->speedaim = (f32) poTruck->speed;
-							poTruck->speedtime60 = 60.0f;
-						}
-
-						poTruck->speed = 0.0f;
-						poTruck->roty = previousYaw;
-						poTruck->turnrot60 = sp434;
-						prop->stan = nextTile;
-						obj->position.f[0] = (prop->pos.f[0] = sp450.f[0]);
-						obj->position.f[1] = (prop->pos.f[1] = sp450.f[1]);
-						obj->position.f[2] = (prop->pos.f[2] = sp450.f[2]);
-						objUpdateCollisionVolume(obj);
-						setupUpdateObjectRoomPosition(obj);
-					}
-				}
-				else
-				{
-					if (poTruck->speedtime60 < 0.0f)
-					{
-						poTruck->speedaim = (f32) poTruck->speed;
-						poTruck->speedtime60 = 60.0f;
-					}
-
-					poTruck->speed = 0.0f;
-					poTruck->roty = previousYaw;
-					poTruck->turnrot60 = sp434;
-				}
-			}
-			else if (poTruck->flags & PROPFLAG_INMOTION)
-			{
-				poTruck->roty = atan2f(poTruck->mtx.m[2][0], poTruck->mtx.m[2][2]);
-				poTruck->flags &= ~PROPFLAG_INMOTION;
-				sub_GAME_7F044B38(poTruck);
-			}
-		}
-		else if (obj->type == PROPDEF_AIRCRAFT)
-		{
-			render_pad2F4 = (struct AircraftRecord *) obj;
-
-			ai((PropDefHeaderRecord *) render_pad2F4, 1);
-
-			temp_s0_6 = render_pad2F4->model;
-
-			if (temp_s0_6->anim != NULL)
-			{
-				setsuboffset(temp_s0_6, &render_pad2F4->position);
-				temp_s0_6 = render_pad2F4->model;
-
-				if (temp_s0_6->anim == animation_table_ptrs2[1])
-				{
-					modelSetAnimTranslationScale(temp_s0_6, 10.438f);
-					setsubroty(render_pad2F4->model, M_PI_F);
-				}
-				else if (bossGetStageNum() == 22)
-				{
-					modelSetAnimTranslationScale(render_pad2F4->model, 1.0438f);
-					setsubroty(render_pad2F4->model, 2.3561945f);
-				}
-				else if (bossGetStageNum() == 26)
-				{
-					modelSetAnimTranslationScale(render_pad2F4->model, 1.0438f);
-					setsubroty(render_pad2F4->model, 3.9269907f);
-				}
-				else
-				{
-					modelSetAnimTranslationScale(render_pad2F4->model, 1.0438f);
-					setsubroty(render_pad2F4->model, 0.0f);
-				}
-
-				modelTickAnim(render_pad2F4->model, g_ClockTimer, 1);
-				subcalcpos(render_pad2F4->model);
-				getsuboffset(render_pad2F4->model, &render_pad2F4->position);
-				prop->pos.f[0] = render_pad2F4->position.f[0];
-				prop->pos.f[2] = render_pad2F4->position.f[2];
-
-				if (render_pad2F4->pad < 10000)
-				{
-					var_v1_4 = &g_CurrentSetup.pads[render_pad2F4->pad];
-				}
-				else
-				{
-					var_v1_4 = (PadRecord *) (&g_CurrentSetup.boundpads[render_pad2F4->pad - 10000]);
-				}
-
-				prop->pos.f[1] = var_v1_4->pos.f[1] + render_pad2F4->position.f[1];
-				render_pad2F4->position.f[1] = prop->pos.f[1];
-				setsuboffset(render_pad2F4->model, &render_pad2F4->position);
-			}
-
-			angleDelta = render_pad2F4->speedtime60;
-
-			if (angleDelta >= 0.0f)
-			{
-				if (angleDelta <= g_GlobalTimerDelta)
-				{
-					render_pad2F4->speed = (f32) render_pad2F4->speedaim;
-					angleDelta = *((volatile f32 *) (&render_pad2F4->speedtime60));
-				}
-				else
-				{
-					render_pad2F4->speed += ((render_pad2F4->speedaim - render_pad2F4->speed) * g_GlobalTimerDelta) / angleDelta;
-				}
-
-				render_pad2F4->speedtime60 = (f32) (angleDelta - g_GlobalTimerDelta);
-			}
-
-			if (render_pad2F4->rotaryspeedtime >= 0.0f)
-			{
-				if (render_pad2F4->rotaryspeedtime <= g_GlobalTimerDelta)
-				{
-					render_pad2F4->rotaryspeed = (f32) render_pad2F4->rotaryspeedaim;
-				}
-				else
-				{
-					angleDelta = render_pad2F4->rotaryspeed;
-					render_pad2F4->rotaryspeed += ((render_pad2F4->rotaryspeedaim - render_pad2F4->rotaryspeed) * g_GlobalTimerDelta) / render_pad2F4->rotaryspeedtime;
-				}
-
-				render_pad2F4->rotaryspeedtime -= g_GlobalTimerDelta;
-			}
-
-			truckShouldPlayEngineSound = 0;
-			if ((((!(render_pad2F4->flags2 & PROPFLAG2_00080000)) && (objIsHealthy(obj) != 0)) && (render_pad2F4->rotaryspeed != 0.0f)) && (!(render_pad2F4->flags & PROPFLAG_INMOTION)))
-			{
-				truckShouldPlayEngineSound = sub_GAME_7F053894(&render_pad2F4->position, 5000.0f, 6000.0f);
-			}
-
-			if (truckShouldPlayEngineSound > 0)
-			{
-				if (((render_pad2F4->Sound == NULL) || (sndGetPlayingState(render_pad2F4->Sound) == 0)) && (lvGetControlsLockedFlag() == 0))
-				{
-					sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, HELI_RUN_SFX, &render_pad2F4->Sound);
-				}
-
-				if (render_pad2F4->Sound != NULL)
-				{
-					sndCreatePostEvent(render_pad2F4->Sound, 8, truckShouldPlayEngineSound);
-				}
-			}
-			else if ((render_pad2F4->Sound != NULL) && (sndGetPlayingState(render_pad2F4->Sound) != 0))
-			{
-				sndDeactivate(render_pad2F4->Sound);
-			}
+				break;
+			case PROPDEF_VEHICLE:
+				objTickVehicle(prop);
+				break;
+			case PROPDEF_AIRCRAFT:
+				objTickAircraft(prop);
+				break;
 		}
 	}
 
-	if (obj->type == PROPDEF_TINTED_GLASS)
-	{
-		pad268 = (struct TintedGlassRecord *) prop->obj;
-		pad268->calculatedopacity = glassCalculateOpacity(&obj->position, pad268->TintDist, pad268->CullDist, pad268->unk90);
-		if ((pad268->portalnum >= 0) && (playerCount == 1))
-		{
-			if (pad268->calculatedopacity == 0xFF)
-			{
-				bgToggleDataPortalsContrlBytes1Bit1(pad268->portalnum, 0);
-			}
-			else
-			{
-				bgToggleDataPortalsContrlBytes1Bit1(pad268->portalnum, 1);
-			}
-		}
-
-		applyFogCull = FALSE;
-	}
-	else if ((obj->type == PROPDEF_DOOR) && (((struct DoorRecord *) obj)->doorFlags & DOORFLAG_WINDOWED))
-	{
-		pad36C = (struct DoorRecord *) prop->obj;
-		var_s2_6 = 1;
-		pad36C->calculatedopacity = glassCalculateOpacity(&obj->position, pad36C->TintDist, *((s32 *) (((u8 *) pad36C) + 0xC4)), 0.0f);
-		if (playerCount == 1)
-		{
-			if ((pad36C->calculatedopacity != 0xFF) || (pad36C->openPosition > 0.0f))
-			{
-				var_s2_6 = 0;
-			}
-
-			temp_v0_29 = model->obj;
-			if ((temp_v0_29->Skeleton == (&skeleton_door)) && (modelGetNodeRwData(model, temp_v0_29->Switches[1])->Switch.visible == 0))
-			{
-				var_s2_6 = 0;
-			}
-
-			if (var_s2_6 != 0)
-			{
-				doorDeactivatePortal(pad36C);
-			}
-			else
-			{
-				doorActivatePortal(pad36C);
-			}
-		}
-	}
+	applyFogCull = objTickUpdateOpacityAndPortal(prop, playerCount);
 
 	if ((obj->type == PROPDEF_TANK) && (get_ptr_for_players_tank() == prop))
 	{
-		var_v1_5 = 1;
+		isOnScreen = TRUE;
 	}
 	else if (obj->flags2 & PROPFLAG2_04000000)
 	{
-		var_v1_5 = 1;
+		isOnScreen = TRUE;
 	}
 	else
 	{
-		var_v1_5 = ((!(obj->runtime_bitflags & RUNTIMEBITFLAG_00000800)) && (!(obj->flags2 & PROPFLAG2_00080000))) ? (posIsOnScreen(prop, &obj->position, getinstsize(model), applyFogCull)) : (0);
+		isOnScreen = !(obj->runtime_bitflags & RUNTIMEBITFLAG_00000800)
+			&& !(obj->flags2 & PROPFLAG2_00080000)
+			&& posIsOnScreen(prop, &obj->position, getinstsize(model), applyFogCull);
 	}
 
-	if (var_v1_5 != 0)
+	if (isOnScreen)
 	{
 		if (isSimOwner)
 		{
@@ -5712,405 +6394,19 @@ s32 objTick(struct PropRecord *prop)
 		mtxs = dynAllocate(model->obj->numMatrices << 6);
 		model->render_pos = (RenderPosView *) mtxs;
 
-		if (obj->type == PROPDEF_DOOR)
-		{
-			sp39C = (struct DoorRecord *) prop->obj;
-			door7F0526EC(sp39C, mtxs);
-			matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), mtxs);
-
-			if (model->obj->Skeleton == (&skeleton_eyelid_door))
-			{
-				sp394 = M_TAU_F - ((sp39C->openPosition * M_TAU_F) / 360.0f);
-				render_pad388 = &mtxs[1];
-				temp_s0_10 = (Mtxf *) model->obj->Switches[1]->Data;
-				matrix_4x4_set_rotation_around_x(sp394, render_pad388);
-				matrix_4x4_set_position((struct coord3d *) temp_s0_10, render_pad388);
-				matrix_4x4_multiply_in_place(mtxs, render_pad388);
-				render_pad388 = &mtxs[2];
-				temp_s0_10 = (Mtxf *) model->obj->Switches[2]->Data;
-				matrix_4x4_set_rotation_around_x(M_TAU_F - sp394, render_pad388);
-				matrix_4x4_set_position((struct coord3d *) temp_s0_10, render_pad388);
-				matrix_4x4_multiply_in_place(mtxs, render_pad388);
-			}
-			else if (model->obj->Skeleton == (&skeleton_iris_door))
-			{
-				sp380 = 0.0f;
-				sp384 = (sp39C->openPosition * M_TAU_F) / 360.0f;
-				temp_f0_31 = sp39C->maxFrac * 0.3f;
-				if (temp_f0_31 < sp39C->openPosition)
-				{
-					sp380 = (((sp39C->maxFrac * (sp39C->openPosition - temp_f0_31)) / (sp39C->maxFrac - temp_f0_31)) * M_TAU_F) / 360.0f;
-					if (isSimOwner)
-					{
-						if (previousOpenPosition <= temp_f0_31)
-						{
-							chrobjSndCreatePostEventDefault(sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, METAL_SLIDE_OPEN_SFX, NULL), &prop->pos);
-						}
-					}
-				}
-				else if (isSimOwner)
-				{
-					if (temp_f0_31 < previousOpenPosition)
-					{
-						chrobjSndCreatePostEventDefault(sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, METAL_SLIDE_CLOSE_SFX, NULL), &prop->pos);
-					}
-				}
-
-				sp38C = 0;
-				do
-				{
-					temp_v0_32 = sp38C << 1;
-					var_v1_5 = temp_v0_32 + 2;
-					sp390 = (Mtxf *) model->obj->Switches[temp_v0_32 + 1]->Data;
-					matrix_4x4_set_rotation_around_z(sp380, (Mtxf *) ((((u8 *) mtxs) + (temp_v0_32 * (sizeof(Mtxf)))) + (sizeof(Mtxf))));
-					matrix_4x4_set_position((struct coord3d *) sp390, (Mtxf *) ((((u8 *) mtxs) + (temp_v0_32 * (sizeof(Mtxf)))) + (sizeof(Mtxf))));
-					matrix_4x4_multiply_in_place(mtxs, (Mtxf *) ((((u8 *) mtxs) + (temp_v0_32 * (sizeof(Mtxf)))) + (sizeof(Mtxf))));
-					sp390 = (Mtxf *) model->obj->Switches[var_v1_5]->Data;
-					matrix_4x4_set_rotation_around_z(sp384, (Mtxf *) (((u8 *) mtxs) + (var_v1_5 << 6)));
-					matrix_4x4_set_position((struct coord3d *) sp390, &mtxs[var_v1_5]);
-					matrix_4x4_multiply_in_place((Mtxf *) ((((u8 *) mtxs) + (temp_v0_32 * (sizeof(Mtxf)))) + (sizeof(Mtxf))), &mtxs[var_v1_5]);
-					sp38C++;
-				}
-
-				while (sp38C != 6);
-			}
-		}
-		else
-		{
-			matrix_4x4_copy(&obj->mtx, &tempMatrix2);
-			matrix_4x4_set_position(&obj->position, &tempMatrix2);
-			matrix_4x4_multiply_homogeneous(camGetWorldToScreenMtxf(), &tempMatrix2, mtxs);
-
-			if (obj->type == PROPDEF_CCTV)
-			{
-				sp370 = (struct CCTVRecord *) prop->obj;
-				angleDelta_7 = sp370->unkC8;
-				temp_s0_13 = (struct coord3d *) model->obj->Switches[0]->Data;
-
-				if (angleDelta_7 < 0.0f)
-				{
-					angleDelta_7 += M_TAU_F;
-				}
-				else if (angleDelta_7 >= M_TAU_F)
-				{
-					angleDelta_7 -= M_TAU_F;
-				}
-
-				matrix_4x4_set_rotation_around_y(angleDelta_7, &tempMatrix);
-				matrix_4x4_multiply(&tempMatrix, &sp370->unk84, &mtxs[1]);
-				sp360.f[0] = temp_s0_13->f[0];
-				sp360.f[1] = temp_s0_13->f[1];
-				sp360.f[2] = temp_s0_13->f[2];
-				mtx4TransformVecInPlace(&tempMatrix2, &sp360);
-				matrix_4x4_set_position(&sp360, &mtxs[1]);
-				matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), &mtxs[1]);
-			}
-			else if (obj->type == PROPDEF_AUTOGUN)
-			{
-				sp318 = (struct AutogunRecord *) prop->obj;
-				sp304 = sp318->unk90 + M_PI_2F;
-				sp300 = -sp318->unk9C;
-
-				if (sp304 >= M_TAU_F)
-				{
-					sp304 -= M_TAU_F;
-				}
-
-				temp_s0_13 = model->obj->Switches[1]->Data;
-				sp308.f[0] = temp_s0_13->f[0];
-				sp308.f[1] = temp_s0_13->f[1];
-				sp308.f[2] = temp_s0_13->f[2];
-
-				mtx4TransformVecInPlace(&tempMatrix2, &sp308);
-				matrix_4x4_set_rotation_around_y(sp304, &mtxs[1]);
-				matrix_4x4_set_position(&sp308, &mtxs[1]);
-				matrix_scalar_multiply(sp318->model->scale, mtxs[1].m[0]);
-				matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), &mtxs[1]);
-				temp_s0_13 = (struct coord3d *) model->obj->Switches[2]->Data;
-				matrix_4x4_set_rotation_around_z(sp300, &mtxs[2]);
-				matrix_4x4_set_position(temp_s0_13, &mtxs[2]);
-				matrix_4x4_multiply_homogeneous_in_place(&mtxs[1], &mtxs[2]);
-
-				if (model->obj->Switches[3] != NULL)
-				{
-					sp2FC = modelFindNodeMtx(model, model->obj->Switches[3], 0);
-					temp_s0_13 = (struct coord3d *) model->obj->Switches[3]->Data;
-					matrix_4x4_set_rotation_around_x(sp318->unkB4, sp2FC);
-					matrix_4x4_set_position(temp_s0_13, sp2FC);
-					matrix_4x4_multiply_homogeneous_in_place(&mtxs[2], sp2FC);
-				}
-
-				if (model->obj->Switches[4] != NULL)
-				{
-					sp2FC = modelFindNodeMtx(model, model->obj->Switches[4], 0);
-					temp_s0_13 = (struct coord3d *) model->obj->Switches[4]->Data;
-					matrix_4x4_set_identity_and_position(temp_s0_13, sp2FC);
-					matrix_4x4_multiply_homogeneous_in_place(&mtxs[2], sp2FC);
-				}
-
-				if (model->obj->Switches[6] != NULL)
-				{
-					sp2FC = modelFindNodeMtx(model, model->obj->Switches[6], 0);
-					temp_s0_13 = (struct coord3d *) model->obj->Switches[6]->Data;
-					matrix_4x4_set_rotation_around_x(sp318->unkB4, sp2FC);
-					matrix_4x4_set_position(temp_s0_13, sp2FC);
-					matrix_4x4_multiply_homogeneous_in_place(&mtxs[2], sp2FC);
-				}
-			}
-			else if (obj->type == PROPDEF_COLLECTABLE)
-			{
-				Mtxf *temp_a1_4;
-				sp2F8 = 1;
-
-				if (sp2F8 < model->obj->numMatrices)
-				{
-					do
-					{
-						matrix_4x4_set_identity((Mtxf *) (((u8 *) mtxs) + (sp2F8 * 64)));
-						sp2F8++;
-					}
-
-					while (sp2F8 < model->obj->numMatrices);
-				}
-			}
-			else if (obj->type == PROPDEF_RACK)
-			{
-				matrix_4x4_set_identity_and_position(model->obj->Switches[0]->Data, &mtxs[1]);
-				matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[1]);
-				matrix_4x4_set_identity_and_position(model->obj->Switches[1]->Data, &mtxs[2]);
-				matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[2]);
-				matrix_4x4_set_identity_and_position(model->obj->Switches[2]->Data, &mtxs[3]);
-				matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[3]);
-				matrix_4x4_set_identity_and_position(model->obj->Switches[3]->Data, &mtxs[4]);
-				matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[4]);
-			}
-			else if (obj->type == PROPDEF_VEHICLE)
-			{
-				struct VehichleRecord *vehicle_render = (struct VehichleRecord *) obj;
-
-				var_f0_3 = 0.0f;
-				temp_v1_7 = model->obj->Switches;
-				sp260 = temp_v1_7[1]->Data;
-				sp25C = temp_v1_7[2]->Data;
-				sp258 = temp_v1_7[3]->Data;
-				sp254 = temp_v1_7[4]->Data;
-				temp_v0_25 = temp_v1_7[6]->Data;
-				sp250 = (temp_v0_25[4] - temp_v0_25[3]) * model->scale;
-
-				if (isSimOwner)
-				{
-					var_f0_3 = ((vehicle_render->speed * g_GlobalTimerDelta) * M_TAU_F) / ((sp250 * M_TAU_F) * 0.5f);
-					vehicle_render->wheelxrot += var_f0_3;
-					while (vehicle_render->wheelxrot >= M_TAU_F)
-					{
-						vehicle_render->wheelxrot -= M_TAU_F;
-					}
-
-
-					while (vehicle_render->wheelxrot < 0.0f)
-					{
-						vehicle_render->wheelxrot += M_TAU_F;
-					}
-
-				}
-
-				vehicle_render->wheelxrot += var_f0_3;
-				while (vehicle_render->wheelxrot >= M_TAU_F)
-				{
-					vehicle_render->wheelxrot -= M_TAU_F;
-				}
-
-
-				while (vehicle_render->wheelxrot < 0.0f)
-				{
-					vehicle_render->wheelxrot += M_TAU_F;
-				}
-
-
-				matrix_4x4_set_rotation_around_x(vehicle_render->wheelxrot, &sp2AC);
-				if (vehicle_render->speed > 0.0f)
-				{
-					sp24C = vehicle_render->turnrot60;
-					sp250 = (sp258->f[2] - sp260->f[2]) * model->scale;
-					if (sp24C < 0.0f)
-					{
-						sp24C = -sp24C;
-					}
-
-					sp248 = sinf(sp24C) * sp250;
-					vehicle_render->wheelyrot = atan2f(sp248, (cosf(sp24C) * sp250) - (sp250 - vehicle_render->speed));
-					if (vehicle_render->wheelyrot < sp24C)
-					{
-						vehicle_render->wheelyrot = sp24C;
-					}
-
-					if (vehicle_render->turnrot60 > 0.0f)
-					{
-						vehicle_render->wheelyrot = M_TAU_F - vehicle_render->wheelyrot;
-					}
-				}
-
-				matrix_4x4_set_rotation_around_y(vehicle_render->wheelyrot, &sp26C);
-				matrix_4x4_copy(&sp2AC, &mtxs[3]);
-				matrix_4x4_set_position(sp258, &mtxs[3]);
-				matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[3]);
-				matrix_4x4_copy(&sp2AC, &mtxs[4]);
-				matrix_4x4_set_position(sp254, &mtxs[4]);
-				matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[4]);
-				matrix_4x4_multiply_homogeneous_in_place(&sp26C, &sp2AC);
-				matrix_4x4_copy(&sp2AC, &mtxs[1]);
-				matrix_4x4_set_position(sp260, &mtxs[1]);
-				matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[1]);
-				matrix_4x4_copy(&sp2AC, &mtxs[2]);
-				matrix_4x4_set_position(sp25C, &mtxs[2]);
-				matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[2]);
-			}
-			else if (obj->type == PROPDEF_AIRCRAFT)
-			{
-				struct AircraftRecord *aircraft_render = (struct AircraftRecord *) obj;
-
-				sp1FC = model->obj->Switches[2]->Data;
-
-				if ((g_ClockTimer > 0) && (isSimOwner))
-				{
-					aircraft_render->rotoryrot += aircraft_render->rotaryspeed;
-
-					while (aircraft_render->rotoryrot >= M_TAU_F)
-					{
-						aircraft_render->rotoryrot -= M_TAU_F;
-					}
-
-					while (aircraft_render->rotoryrot < 0.0f)
-					{
-						aircraft_render->rotoryrot += M_TAU_F;
-					}
-				}
-
-				if (aircraft_render->model->anim != NULL)
-				{
-					sp1B0 = D_80030B34;
-					sp1B0.basemtx = camGetWorldToScreenMtxf();
-					sp1B0.mtxlist = &mtxs[0];
-					subcalcmatrices(&sp1B0, aircraft_render->model);
-				}
-				else
-				{
-					matrix_4x4_copy(&mtxs[0], &mtxs[1]);
-				}
-
-				if (aircraft_render->flags & PROPFLAG_INMOTION)
-				{
-					matrix_4x4_set_rotation_around_z(aircraft_render->rotoryrot, &sp200);
-				}
-				else
-				{
-					matrix_4x4_set_rotation_around_y(aircraft_render->rotoryrot, &sp200);
-				}
-
-				matrix_4x4_copy(&sp200, &mtxs[2]);
-				matrix_4x4_set_position(sp1FC, &mtxs[2]);
-				matrix_4x4_multiply_homogeneous_in_place(&mtxs[1], &mtxs[2]);
-
-				if (model->obj->Switches[3] != NULL)
-				{
-					temp_s0_14 = (struct coord3d *) model->obj->Switches[3]->Data;
-					temp_s0_21 = modelFindNodeMtx(model, model->obj->Switches[3], 0);
-					matrix_4x4_set_rotation_around_x(aircraft_render->rotoryrot, &sp200);
-					matrix_4x4_copy(&sp200, temp_s0_21);
-					matrix_4x4_set_position(temp_s0_14, temp_s0_21);
-					matrix_4x4_multiply_homogeneous_in_place(&mtxs[1], temp_s0_21);
-				}
-
-				if (model->obj->Switches[4] != NULL)
-				{
-					temp_s0_14 = (struct coord3d *) model->obj->Switches[4]->Data;
-					temp_s0_21 = modelFindNodeMtx(model, model->obj->Switches[4], 0);
-					matrix_4x4_set_identity_and_position(temp_s0_14, temp_s0_21);
-					matrix_4x4_multiply_homogeneous_in_place(&mtxs[1], temp_s0_21);
-				}
-			}
-			else if (obj->type == PROPDEF_TANK)
-			{
-				struct TankRecord *tank_render = (struct TankRecord *) obj;
-
-				temp_v1_7 = model->obj->Switches;
-				sp168 = temp_v1_7[1]->Data;
-				sp164 = temp_v1_7[3]->Data;
-				sp160 = temp_v1_7[4]->Data;
-				sp15C = temp_v1_7[2]->Data;
-				sp158 = temp_v1_7[6]->Data;
-				sp154 = -tank_render->turret_vertical_angle;
-
-				if (sp154 < 0.0f)
-				{
-					sp154 += M_TAU_F;
-				}
-
-				angleDelta_9 = -tank_render->turret_orientation_angle;
-
-				if (angleDelta_9 < 0.0f)
-				{
-					angleDelta_9 += M_TAU_F;
-				}
-
-				matrix_4x4_set_rotation_around_y(angleDelta_9, &mtxs[1]);
-				matrix_4x4_set_position(sp168, &mtxs[1]);
-				matrix_4x4_multiply_homogeneous_in_place(&mtxs[0], &mtxs[1]);
-				matrix_4x4_set_rotation_around_x(sp154, &mtxs[3]);
-				matrix_4x4_set_position(sp164, &mtxs[3]);
-				matrix_4x4_multiply_homogeneous_in_place(&mtxs[1], &mtxs[3]);
-				matrix_4x4_set_rotation_around_y(M_PI_2F, &mtxs[4]);
-				matrix_4x4_set_position(sp160, &mtxs[4]);
-				matrix_4x4_multiply_homogeneous_in_place(&mtxs[3], &mtxs[4]);
-				matrix_4x4_set_identity_and_position(sp15C, &mtxs[2]);
-				matrix_4x4_multiply_homogeneous_in_place(&mtxs[1], &mtxs[2]);
-				matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), &mtxs[1], &sp16C);
-				collisionCalcFootprintFromBBox(sp158, &sp16C, &tank_render->rect, (struct collision_data *) (&tank_render->collision));
-
-				if (model->obj->Switches[7] != NULL)
-				{
-					modelGetNodeRwData(model, model->obj->Switches[7])->Gunfire.visible = (s16) tank_render->is_firing_tank;
-				}
-
-				if (model->obj->Switches[8] != NULL)
-				{
-					modelGetNodeRwData(model, model->obj->Switches[8])->Switch.visible = 0;
-				}
-			}
-		}
+		objTickBuildMatrices(prop, mtxs, previousOpenPosition, isSimOwner);
 
 		modelUpdateRelationsQuick(model, model->obj->RootNode);
 
 		prop->zDepth = -((Mtxf *) model->render_pos)[0].m[3][2];
-
-		chrobjWeaponTick(prop);
-		{
-			struct PropRecord *current = prop->child;
-
-			while (current != NULL)
-			{
-				sp684 = current->prev;
-				sub_GAME_7F0442DC(current);
-				current = sp684;
-			}
-
-		}
 	}
 	else
 	{
 		prop->flags &= ~PROPFLAG_ONSCREEN;
-		chrobjWeaponTick(prop);
-		{
-			struct PropRecord *current = prop->child;
-			while (current != NULL)
-			{
-				sp684 = current->prev;
-				sub_GAME_7F04424C(current);
-				current = sp684;
-			}
-
-		}
 	}
+
+	chrobjWeaponTick(prop);
+	objTickUpdateChildren(prop, isOnScreen);
 
 	if (obj->runtime_bitflags & RUNTIMEBITFLAG_00000100)
 	{
@@ -6120,228 +6416,17 @@ s32 objTick(struct PropRecord *prop)
 
 	if (isSimOwner)
 	{
-		if (obj->type == PROPDEF_DOOR)
+		switch (obj->type)
 		{
-			sub_GAME_7F053A3C((struct DoorRecord *) prop->obj);
-		}
-		else if ((obj->type == PROPDEF_AUTOGUN) && (lvGetControlsLockedFlag() == 0))
-		{
-			struct AutogunRecord *autogun = (struct AutogunRecord *) prop->obj;
-			f32 beam_xdiff;
-			f32 dist_local;
-			struct beam *beam_local;
-			f32 beam_ydiff;
-			f32 beam_collisionTile;
-			u32 beam_pad[2];
-
-			sp13C = 0;
-			sp138 = 0;
-
-			if ((autogun->is_active != 0) && (!(obj->flags & PROPFLAG_IS_DRONE_GUN)))
-			{
-				autogun->unkAC = autogun->unkAC + 1;
-				sp13C = (autogun->unkAC & 1) == 0;
-
-				if (model->obj->Switches[5] != 0)
+			case PROPDEF_DOOR:
+				sub_GAME_7F053A3C((DoorRecord *) obj);
+				break;
+			case PROPDEF_AUTOGUN:
+				if (lvGetControlsLockedFlag() == 0)
 				{
-					sp138 = (autogun->unkAC & 1) == 1;
+					objTickAutogunFire(prop);
 				}
-
-				if (autogun->unkC0 < g_GlobalTimer)
-				{
-					if ((autogun->unkC4 != NULL) && (sndGetPlayingState(autogun->unkC4) != 0))
-					{
-						sndDeactivate(autogun->unkC4);
-					}
-
-					if ((autogun->unkC8 != NULL) && (sndGetPlayingState(autogun->unkC8) != 0))
-					{
-						sndDeactivate(autogun->unkC8);
-					}
-
-					if (autogun->unkC4 == NULL)
-					{
-						sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, GUN_B9_CANNON_SHORT_SFX, &autogun->unkC4);
-						chrobjSndCreatePostEventDefault(autogun->unkC4, &prop->pos);
-					}
-					else if (autogun->unkC8 == NULL)
-					{
-						sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, GUN_B9_CANNON_SHORT_SFX, &autogun->unkC8);
-						chrobjSndCreatePostEventDefault(autogun->unkC8, &prop->pos);
-					}
-
-					autogun->unkC0 = (s32) (g_GlobalTimer + 2);
-				}
-
-				if ((sp13C != 0) || (sp138 != 0))
-				{
-					sp11C = 1;
-					sp10C = NULL;
-					sp108 = prop->stan;
-					sp104 = (autogun->unkAC & 3) == 0;
-					sp100 = getCurrentPlayerProp();
-					var_a0_6 = 5;
-
-					if ((model->obj->Switches[7] != 0) && (!(autogun->unkAC & 7)))
-					{
-						var_a0_6 = 7;
-					}
-
-					if ((prop->flags & PROPFLAG_ONSCREEN) && (model->obj->Switches[var_a0_6] != NULL))
-					{
-						temp_s2_7 = modelFindNodeMtx(model, model->obj->Switches[var_a0_6], 0);
-						temp_v1_11 = model->obj->Switches[var_a0_6]->Data;
-						sp12C.f[0] = temp_v1_11->f[0];
-						sp12C.f[1] = temp_v1_11->f[1];
-						sp12C.f[2] = temp_v1_11->f[2];
-						matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), temp_s2_7, &spB8);
-						mtx4TransformVecInPlace(&spB8, &sp12C);
-						if (walkTilesBetweenPoints_NoCallback(&sp108, prop->pos.f[0], prop->pos.f[2], sp12C.f[0], sp12C.f[2]) == 0)
-						{
-							sp12C.f[0] = prop->pos.f[0];
-							sp12C.f[1] = prop->pos.f[1];
-							sp12C.f[2] = prop->pos.f[2];
-						}
-					}
-					else
-					{
-						sp12C.f[0] = prop->pos.f[0];
-						sp12C.f[1] = prop->pos.f[1];
-						sp12C.f[2] = prop->pos.f[2];
-					}
-
-					sp120.f[0] = cosf(autogun->unk9C) * sinf(autogun->unk90);
-					sp120.f[1] = sinf(autogun->unk9C);
-					sp120.f[2] = cosf(autogun->unk9C) * cosf(autogun->unk90);
-					sp110.f[0] = sp12C.f[0] + (sp120.f[0] * 65536.0f);
-					sp110.f[1] = sp12C.f[1] + (sp120.f[1] * 65536.0f);
-					sp110.f[2] = sp12C.f[2] + (sp120.f[2] * 65536.0f);
-
-					stanResetHits();
-
-					if (stanTestLineUnobstructed(&sp108, sp12C.f[0], sp12C.f[2], sp110.f[0], sp110.f[2], 2, 100.0f, 100.0f, 0.0f, 1.0f) == 0)
-					{
-						chrlvStanLineDirIntersection(&sp12C, &sp120, &sp110);
-						sp10C = sp108;
-						sp110.f[0] -= 26.0f * sp120.f[0];
-						sp110.f[1] -= 26.0f * sp120.f[1];
-						sp110.f[2] -= 26.0f * sp120.f[2];
-					}
-
-					if (g_GlobalTimer == ((s32) autogun->unkBC))
-					{
-						beam_xdiff = sp100->pos.f[0] - sp12C.f[0];
-						beam_ydiff = sp100->pos.f[1] - sp12C.f[1];
-						beam_collisionTile = sp100->pos.f[2] - sp12C.f[2];
-						temp_f20_4 = ((beam_xdiff * beam_xdiff) + (beam_ydiff * beam_ydiff)) + (beam_collisionTile * beam_collisionTile);
-						beam_xdiff = sp110.f[0] - sp12C.f[0];
-						beam_ydiff = sp110.f[1] - sp12C.f[1];
-						beam_collisionTile = sp110.f[2] - sp12C.f[2];
-						if ((temp_f20_4 <= (((beam_xdiff * beam_xdiff) + (beam_ydiff * beam_ydiff)) + (beam_collisionTile * beam_collisionTile))) && (bondviewGetIfCurrentPlayerDamageShowTime() == 0))
-						{
-							temp_f0_35 = sqrtf(temp_f20_4);
-							var_f2_7 = (0.16f * OBJECT_INTERACTION_TIMER_DELTA) * g_AutogunPendingDamageTick;
-							if (temp_f0_35 > 200.0f)
-							{
-								var_f2_7 *= 200.0f / temp_f0_35;
-							}
-
-							autogun->unkD4 += var_f2_7;
-							if (autogun->unkD4 >= 1.0f)
-							{
-								bondviewCallRecordDamageKills((gunItemGetDestructionAmount(14) * 0.125f) * g_AutogunDamageScalar, autogun->unk90, -1, 1);
-								autogun->unkD4 = 0.0f;
-								if (bondviewGetIfCurrentPlayerDamageShowTime() != 0)
-								{
-									sp11C = 0;
-								}
-							}
-						}
-					}
-
-					if (sp11C != 0)
-					{
-						if (sp10C != NULL)
-						{
-							bullet_spark_create(&sp110, 1, 26.0f, (s16) sp10C->room);
-						}
-
-						recall_joy2_hits_edit_flag(14, &sp110, -1);
-					}
-					else
-					{
-						sp110.f[0] = sp100->pos.f[0];
-						sp110.f[1] = sp100->pos.f[1];
-						sp110.f[2] = sp100->pos.f[2];
-						recall_joy2_hits_edit_detail_edit_flag(14, sp100, -1);
-					}
-
-					if (sp104 != 0)
-					{
-						beam_local = autogun->beam;
-						beam_local->from.f[0] = sp12C.f[0];
-						beam_local->from.f[1] = sp12C.f[1];
-						beam_local->from.f[2] = sp12C.f[2];
-						beam_local->dir.f[0] = sp110.f[0] - beam_local->from.f[0];
-						beam_local->dir.f[1] = sp110.f[1] - beam_local->from.f[1];
-						beam_local->dir.f[2] = sp110.f[2] - beam_local->from.f[2];
-						dist_local = sqrtf(((beam_local->dir.f[0] * beam_local->dir.f[0]) + (beam_local->dir.f[1] * beam_local->dir.f[1])) + (beam_local->dir.f[2] * beam_local->dir.f[2]));
-						temp_f2_23 = 1.0f / dist_local;
-						beam_local->dir.f[0] = (f32) (beam_local->dir.f[0] * temp_f2_23);
-						beam_local->dir.f[1] = (f32) (beam_local->dir.f[1] * temp_f2_23);
-						beam_local->dir.f[2] = (f32) (beam_local->dir.f[2] * temp_f2_23);
-
-						if (dist_local > 10000.0f)
-						{
-							dist_local = 10000.0f;
-						}
-
-						beam_local->age = 0;
-						beam_local->weaponnum = ITEM_FNP90;
-						beam_local->maxdist = dist_local;
-
-						if (dist_local < 500.0f)
-						{
-							dist_local = 500.0f;
-						}
-
-						if (beam_local->weaponnum == ITEM_LASER)
-						{
-							beam_local->speed = 0.25f * dist_local;
-							beam_local->mindist = 0.6f * dist_local;
-
-							if (beam_local->mindist > 3000.0f)
-							{
-								beam_local->mindist = 3000.0f;
-							}
-
-							beam_local->dist = ((-0.1f) - (U32_TO_F32(randomGetNext()) * 0.3f)) * dist_local;
-						}
-						else
-						{
-							beam_local->speed = 0.2f * dist_local;
-							beam_local->mindist = 0.2f * dist_local;
-
-							if (beam_local->mindist > 3000.0f)
-							{
-								beam_local->mindist = 3000.0f;
-							}
-
-							beam_local->dist = ((2.0f * U32_TO_F32(randomGetNext())) - 1.0f) * beam_local->speed;
-						}
-					}
-				}
-			}
-
-			if (model->obj->Switches[5] != NULL)
-			{
-				modelGetNodeRwData(model, model->obj->Switches[5])->Gunfire.visible = (s16) sp13C;
-			}
-
-			if (model->obj->Switches[7] != NULL)
-			{
-				modelGetNodeRwData(model, model->obj->Switches[7])->Gunfire.visible = (s16) sp138;
-			}
+				break;
 		}
 
 		objDropRecursively(prop);
