@@ -102,7 +102,6 @@ void stanGetTileMidPoint(StandTile *tile, coord3d *out);
 s32 stanIsSpecialBit1Set(StandTile *arg0, struct StandTileLocusCallbackRecord* arg1);
 s32 stanCheckLinkedSpecialTile(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3, s32 arg4, s32 *outFlags);
 f32 getShortest2dDispToInfTripleEdge(StandTile *tile, s32 start3index, f32 p_x, f32 p_z);
-StanCollisionResult sub_GAME_7F0B1DDC(struct StandTile**, f32, f32, f32, standTileLocusCallback_A_t, standTileLocusCallback_B_t, standTileLocusCallback_C_t, struct StandTileLocusCallbackRecord*);
 s32 stanLocusAddTileRoomIfNew(StandTile *tile, struct StandTileLocusCallbackRecord *rec);
 s32 stanGetLocusField0(struct StandTileLocusCallbackRecord *arg0);
 s32 stanGetLocusCount(struct StandTileLocusCallbackRecord *arg0);
@@ -414,20 +413,17 @@ void getPointJustInsideOfTileTriple(StandTile *tile, s32 tripleIndex /*canonical
 }
 
 
-/*
-* Address: 0x7F0AFB1C
- */
-f32 sub_GAME_7F0AFB1C(coord3d *p,coord3d *q)
+f32 distanceSquaredBetweenPoints3d(coord3d *a,coord3d *b)
 {
-    // Should be a coord3d or vec3d, but they used an array which
-    // causes lots of data reads and writes to the stack.
-    f32 components[3];
+    f32 dx;
+    f32 dy;
+    f32 dz;
 
-    components[0] = q->x - p->x;
-    components[1] = q->y - p->y;
-    components[2] = q->z - p->z;
+    dx = b->x - a->x;
+    dy = b->y - a->y;
+    dz = b->z - a->z;
 
-    return components[0]*components[0] + components[1]*components[1] + components[2]*components[2];
+    return dx * dx + dy * dy + dz * dz;
 }
 
 
@@ -474,9 +470,9 @@ StandTile *stanFindNearestWalkablePosition(f32 *x, f32 *y, f32 *z, f32 clearance
 
                         stack[0] = tile;
 
-                        if (sub_GAME_7F0B20D0(stack, candidate.x, candidate.z, clearanceRadius) < 0)
+                        if (stanTestCircleCollisionNoCallbacks(stack, candidate.x, candidate.z, clearanceRadius) < 0)
                         {
-                            dist = sub_GAME_7F0AFB1C(&candidate, &original);
+                            dist = distanceSquaredBetweenPoints3d(&candidate, &original);
 
                             if (dist < bestDist)
                             {
@@ -1635,121 +1631,119 @@ void getTileEdgePoints(StandTile *tile, s32 pointI, coord3d *currPntRtn, coord3d
  * STAN_COLLISION_TRAVERSAL_LIMIT when the tile stack limit is reached, or
  * STAN_COLLISION_NONE when traversal completes without a collision.
  */
-StanCollisionResult sub_GAME_7F0B1DDC(StandTile **startTile, f32 x, f32 z, f32 radius, standTileLocusCallback_A_t callbackA, standTileLocusCallback_B_t callbackB, standTileLocusCallback_C_t callbackC, struct StandTileLocusCallbackRecord *record)
+StanCollisionResult stanTestCircleCollisionWithCallbacks(StandTile **startTile, f32 x, f32 z, f32 radius, standTileLocusCallback_A_t onVisitTile, standTileLocusCallback_B_t shouldBlockEdge, standTileLocusCallback_C_t onBoundaryOrComplete, struct StandTileLocusCallbackRecord *record)
 {
+    enum { STAN_CIRCLE_TRAVERSAL_LIMIT = 41 };
     s32 i;
-    StandTile *tileStack[39];
+    StandTile *visitedTiles[STAN_CIRCLE_TRAVERSAL_LIMIT];
     StandTile *tile;
     StandTile *linkedTile;
     s32 visitedCount;
-    s32 cat;
-    s32 pointI;
-    s32 pointINext;
-    s32 nextPointI;
+    s32 tileCount;
+    s32 pointCount;
+    s32 edgeIndex;
+    s32 nextEdgeIndex;
     f32 edgeDist;
     f32 pointDistA;
     f32 pointDistB;
+    f32 firstPointDist;
 
     x *= level_scale;
     z *= level_scale;
     radius *= level_scale;
     visitedCount = 0;
-    cat = 1;
-    tileStack[0] = *startTile;
+    tileCount = 1;
+    visitedTiles[0] = *startTile;
 
-    do
+    while (visitedCount < tileCount)
     {
-        tile = tileStack[visitedCount++];
-        pointI = 0;
+        tile = visitedTiles[visitedCount++];
 
-        if (callbackA != NULL)
+        if (onVisitTile != NULL)
         {
-            callbackA(tile, record);
+            onVisitTile(tile, record);
         }
 
-        if (((tile->tail.half >> 12) & 0xf) > 0)
+        pointCount = (tile->tail.half >> 12) & 0xf;
+
+        if (pointCount > 0)
         {
-            do
+            firstPointDist = distToTilePnt2D(tile, 0, x, z);
+            pointDistA = firstPointDist;
+
+            for (edgeIndex = 0; edgeIndex < pointCount; edgeIndex++)
             {
-                pointINext = pointI;
-                do
+                nextEdgeIndex = edgeIndex + 1;
+                edgeDist = getShortest2dDispToInfTileEdge(tile, edgeIndex, x, z);
+
+                if (nextEdgeIndex == pointCount)
                 {
-                    i = cat;
-                    pointINext = pointINext + 1;
-                    if (i);
-
-                    nextPointI = pointINext;
-                    nextPointI %= (tile->tail.half >> 12) & 0xf;
-                    edgeDist = getShortest2dDispToInfTileEdge(tile, pointI, x, z);
-                    pointDistA = distToTilePnt2D(tile, pointI, x, z);
-                    pointDistB = distToTilePnt2D(tile, nextPointI, x, z);
-
-                    if (edgeDist < radius && (pointDistA < radius || pointDistB < radius || stanPointProjectsOntoTileEdge(tile, pointI, x, z)))
-                    {
-                        if ((callbackB == NULL || !callbackB(tile, pointI, edgeDist, pointDistA, pointDistB, record)) && (tile->points[pointI].link >> 4))
-                        {
-                            linkedTile = ((u32) standTileStart) + (tile->points[pointI].link << 3);
-                            for (i = cat - 1; i >= 0; i--)
-                            {
-                                if (linkedTile == tileStack[i])
-                                {
-                                    goto next_point;
-                                }
-                            }
-                            tileStack[cat] = linkedTile;
-                            cat++;
-                            goto next_point;
-                        }
-
-                        g_StanLastCollisionTile = tile;
-                        g_StanLastCollisionEdgeIndex = pointI;
-                        if (callbackC != NULL && callbackC(tileStack, cat, record) == 1)
-                        {
-                            goto next_point;
-                        }
-                        return STAN_COLLISION_FOUND;
-                    }
-                    next_point:
-                    pointI = pointINext;
+                    nextEdgeIndex = 0;
+                    pointDistB = firstPointDist;
                 }
-                while (FALSE);
+                else
+                {
+                    pointDistB = distToTilePnt2D(tile, nextEdgeIndex, x, z);
+                }
+
+                if (edgeDist < radius && (pointDistA < radius || pointDistB < radius || stanPointProjectsOntoTileEdge(tile, edgeIndex, x, z)))
+                {
+                    if ((shouldBlockEdge == NULL || !shouldBlockEdge(tile, edgeIndex, edgeDist, pointDistA, pointDistB, record)) && (tile->points[edgeIndex].link >> 4))
+                    {
+                        linkedTile = (StandTile *)((u32)standTileStart + (tile->points[edgeIndex].link << 3));
+
+                        for (i = tileCount - 1; i >= 0; i--)
+                        {
+                            if (linkedTile == visitedTiles[i])
+                            {
+                                break;
+                            }
+                        }
+
+                        if (i < 0)
+                        {
+                            if (tileCount >= STAN_CIRCLE_TRAVERSAL_LIMIT)
+                            {
+                                return STAN_COLLISION_TRAVERSAL_LIMIT;
+                            }
+
+                            visitedTiles[tileCount++] = linkedTile;
+                        }
+                    }
+                    else
+                    {
+                        g_StanLastCollisionTile = tile;
+                        g_StanLastCollisionEdgeIndex = edgeIndex;
+
+                        if (onBoundaryOrComplete == NULL || onBoundaryOrComplete(visitedTiles, tileCount, record) != 1)
+                        {
+                            return STAN_COLLISION_FOUND;
+                        }
+                    }
+                }
+
+                pointDistA = pointDistB;
             }
-            while (pointINext < (((*tile).tail.half >> 12) & 0xf));
         }
 
-#ifdef DEBUG
-        if (cat>= 0x190)
-        {
-            osSyncPrintf("cat=%d !!!!!!!!!!!!!!!!!!!! NEED TO INCREASE ARRAY SIZE\n",cat);
-        }
-#endif
-        // if (cat >= 0x320)
-        // {
-        //     return 5; //error value?
-        // }
-
-        if (((u32) cat) >= 41)
+        if ((u32)tileCount >= STAN_CIRCLE_TRAVERSAL_LIMIT)
         {
             return STAN_COLLISION_TRAVERSAL_LIMIT;
         }
     }
-    while (visitedCount < cat);
 
-    visitedCount = radius;
-
-    if (callbackC != NULL)
+    if (onBoundaryOrComplete != NULL)
     {
-        if (visitedCount);
-        callbackC(tileStack, cat, record);
+        onBoundaryOrComplete(visitedTiles, tileCount, record);
     }
 
     return STAN_COLLISION_NONE;
 }
 
 
-s32 sub_GAME_7F0B20D0(StandTile **tileStack, f32 target_x, f32 target_z, f32 unknown)
+s32 stanTestCircleCollisionNoCallbacks(StandTile **tileStack, f32 target_x, f32 target_z, f32 radius)
 {
-    return sub_GAME_7F0B1DDC(tileStack, target_x, target_z, unknown, NULL, NULL, NULL, NULL);
+    return stanTestCircleCollisionWithCallbacks(tileStack, target_x, target_z, radius, NULL, NULL, NULL, NULL);
 }
 
 
@@ -1822,7 +1816,7 @@ StanCollisionResult stanTestCircleAndCollectRooms(StandTile **tileStack, f32 tar
     data.bufMax = bufMax;
     data.boundaryEdgeCount = 0;
 
-    rtn = sub_GAME_7F0B1DDC(tileStack, target_x, target_z, radius, stanLocusAddTileRoomIfNew, NULL, stanLocusCountBoundaryEdge, &data);
+    rtn = stanTestCircleCollisionWithCallbacks(tileStack, target_x, target_z, radius, stanLocusAddTileRoomIfNew, NULL, stanLocusCountBoundaryEdge, &data);
 
     *count_rtn = data.count;
 
@@ -1907,7 +1901,7 @@ s32 stanTileDistanceRelated(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, stru
     }
     */
 
-    return sub_GAME_7F0B1DDC(arg0, arg1, arg2, arg3, stanIsSpecialBit1Set, stanCheckLinkedSpecialTile, NULL, arg4);
+    return stanTestCircleCollisionWithCallbacks(arg0, arg1, arg2, arg3, stanIsSpecialBit1Set, stanCheckLinkedSpecialTile, NULL, arg4);
 }
 
 
@@ -2041,8 +2035,6 @@ void stanGetMoveBondCollisionTiles(StandTile **tile1, StandTile **tile2, coord3d
 
 
 /**
- * Address: 7F0B260C
- * 
  * Callback function.
  * 
  * For a given edge, return true if the edge is vertically above yThreshold.
@@ -2079,9 +2071,6 @@ bool stanLocusEdgeIsAboveY(StandTile *tile, s32 edgeIndex, f32 edgeDist, f32 dis
 }
 
 
-/**
- * US address 7F0B26B8.
-*/
 s32 stanTestLocusEdgeAboveY(StandTile **tile, f32 target_x, f32 target_z, f32 radius, f32 yThreshold)
 {
     f32 data;
@@ -2090,7 +2079,7 @@ s32 stanTestLocusEdgeAboveY(StandTile **tile, f32 target_x, f32 target_z, f32 ra
 
     /// TODO: Why is this cast wrong?
 
-    return sub_GAME_7F0B1DDC(tile, target_x, target_z, radius, NULL, stanLocusEdgeIsAboveY, NULL, (struct StandTileLocusCallbackRecord*)&data);
+    return stanTestCircleCollisionWithCallbacks(tile, target_x, target_z, radius, NULL, stanLocusEdgeIsAboveY, NULL, (struct StandTileLocusCallbackRecord*)&data);
 }
 
 
