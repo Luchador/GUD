@@ -8,37 +8,22 @@
 #include "stanintersection.h"
 #include "assert.h"
 
-void getTileMidPoint(StandTile *tile, coord3d *out);
 
-// bss
 struct StanPrefixRecord {
-    //CODE.bss:8007B120
     s32 stanfile;
-    //CODE.bss:8007B124
     StandTile *ptr_firstroom;    // read as offset 4, hence the struct
 };
 
 struct StanPrefixRecord *stan_prefix;
-s32 dword_CODE_bss_8007B124;
-
-//CODE.bss:8007B128
 StandTile *firststaninroom[139];
-//CODE.bss:8007B354
-s32 dword_CODE_bss_8007B354;
 //CODE.bss:8007B358 //stan list array
 StanRoomBounds g_StanRoomBounds[139];
-//CODE.bss:8007B9DC
-s32 dword_CODE_bss_8007B9DC; //region?
-//CODE.bss:8007B9E0
-s32 dword_CODE_bss_8007B9E0;
+s32 dword_CODE_bss_8007B9DC;
 
-// All relating to a saved collision, but not one struct
 //CODE.bss:8007B9E4
 StandTile *stanSavedColl_tile;
 //CODE.bss:8007B9E8
 s32 stanSavedColl_pointI;
-//CODE.bss:8007B9EC
-s32 stanSavedColl_unknown;
 //CODE.bss:8007B9F0
 struct coord2d stanSavedColl_pntA;
 //CODE.bss:8007B9F8
@@ -48,18 +33,11 @@ f32 stanSavedColl_someMin;
 
 //CODE.bss:8007BA04
 PropRecord * stanSavedColl_posData;
-
-//CODE.bss:8007BA08
-s32 dword_CODE_bss_8007BA08;
 //CODE.bss:8007BA0C
 StandTile * dword_CODE_bss_8007BA0C;
 //CODE.bss:8007BA10
 StandTile *bfsTileStack[352];
 
-
-// data
-
-//D:80040F30
 // Indexed by StandTile.mid.headerMid.special.
 u8 g_StanTileSpecialFlags[] = {
     0x8D, 0x86, 0x04, 0xC5,
@@ -90,52 +68,12 @@ struct StandTile* stanTileEnd = NULL;
 s32 D_80040F64[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //D:80040FAC
 s32 D_80040FAC = 0;
-//D:80040FB0
-s32 m_stanRegion = 0;
-//D:80040FB4
-s32 stanlinelog_flag = 0;
-
-#if defined(LEFTOVERDEBUG)
-
-s32 D_80040FB8[] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0
-};
-#endif
 //D:800413BC
 s32 D_800413BC =  0;
-//D:800413C0
-f32 D_800413C0 =  0.0;
-//D:800413C4
-f32 D_800413C4 =  0.0;
-//D:800413C8
-s32 D_800413C8 =  1;
-//D:800413CC
-s32 D_800413CC =  1;
-//D:800413D0
-s32 D_800413D0[] =  {0, 0, 0, 0, 0, 0, 0, 0};
 
+// Begin forward declarations.
 
-// rodata
-//D:800585A0
-const char aCDCC[] = "%c%d%c%c";
-//D:800585AC
-const char aStan_c_debug[] = "stan_c_debug";
-//D:800585BC
-const char aStanlinelog[] = "-stanlinelog";
-
-// forward declarations
-
+void stanGetTileMidPoint(StandTile *tile, coord3d *out);
 s32 stanIsSpecialBit1Set(StandTile *arg0, struct StandTileLocusCallbackRecord* arg1);
 s32 stanCheckLinkedSpecialTile(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3, s32 arg4, s32 *outFlags);
 s32 sub_GAME_7F0B21B0(StandTile **tileStack, f32 target_x, f32 target_z, f32 radius, s32 *rooms, s32 *count_rtn, s32 bufMax);
@@ -146,7 +84,7 @@ s32 stanGetLocusField0(struct StandTileLocusCallbackRecord *arg0);
 s32 stanGetLocusCount(struct StandTileLocusCallbackRecord *arg0);
 bool stanLocusEdgeIsAboveY(StandTile *tile, s32 edgeIndex, f32 edgeDist, f32 distToPointA, f32 distToPointB, f32 *yThreshold);
 
-// end forward declarations
+// End forward declarations.
 
 
 void stanBuildRoomData(void)
@@ -331,7 +269,7 @@ found_room:
                     
                     if (nearEdge)
                     {
-                        getTileMidPoint(tile, midPointPtr);
+                        stanGetTileMidPoint(tile, midPointPtr);
                         tileStack = tile;
                         
                         if (!walkTilesBetweenPoints_NoCallback(&tileStack, midPointPtr->x, midPointPtr->z, pos->x, pos->z)) 
@@ -382,26 +320,10 @@ next_room:
 void stanLoadFile(struct StanPrefixRecord *file)
 {
     struct StanPrefixRecord *prefix = &stan_prefix;
-    s32 tokenIndexMask;
 
-    m_stanRegion = 1;
-    tokenIndexMask = !file->ptr_firstroom;
     prefix->stanfile = file;
-    tokenIndexMask = 1;
-
-    /*
-     * Matching artifacts.
-     */
-    if (prefix);
-    if (prefix);
-    if (prefix);
 
     standTileStart = (StandTile *)(((u8 *)file->ptr_firstroom) - 0x80);
-
-    if (tokenFind(tokenIndexMask, aStanlinelog))
-    {
-        stanlinelog_flag = 1;
-    }
 
     stanBuildRoomData();
     setLevelScale(1.0f);
@@ -435,7 +357,7 @@ bool stanTileHasZeroArea(StandTile *tile)
 }
 
 
-void getTileMidPoint(StandTile *tile, coord3d *out)
+void stanGetTileMidPoint(StandTile *tile, coord3d *out)
 {
     u16 tail;
     u8 indexA;
@@ -479,7 +401,7 @@ void getPointJustInsideOfTileTriple(StandTile *tile, s32 tripleIndex /*canonical
     out->y = ((f32) tile->points[pntIndex].y) * inv_level_scale;
     out->z = ((f32) tile->points[pntIndex].z) * inv_level_scale;
     
-    getTileMidPoint(tile, &midPoint);
+    stanGetTileMidPoint(tile, &midPoint);
     
     // 10% of the way from the actual tile point towards the tile's centre.
     out->x = (midPoint.x * 0.1f) + (0.9f * out->x);
@@ -541,7 +463,7 @@ StandTile *sub_GAME_7F0AFB78(f32 *x, f32 *y, f32 *z, f32 arg3)
                     {
                         if (i == midpointIndex)
                         {
-                            getTileMidPoint(tile, &candidate);
+                            stanGetTileMidPoint(tile, &candidate);
                         }
                         else
                         {

@@ -4521,7 +4521,6 @@ void bondviewUpdatePlayerCollisionPositionFields(void)
     f32 phi_f0;
     s32 i;
     StandTile *sp2C;
-    s32 sp28;
 
     g_CurrentPlayer->eyeheight = (g_CurrentPlayer->headpos.f[1] * g_playerPerm->player_perspective_height) + 7.0f;
 
@@ -4562,8 +4561,6 @@ void bondviewUpdatePlayerCollisionPositionFields(void)
     }
 
     sp2C = g_CurrentPlayer->field_488.current_tile_ptr;
-    sp28 = stanlinelog_flag;
-    stanlinelog_flag = 0;
 
     walkTilesBetweenPoints_NoCallback(
         &sp2C,
@@ -4571,8 +4568,6 @@ void bondviewUpdatePlayerCollisionPositionFields(void)
         g_CurrentPlayer->field_488.collision_position.f[2],
         g_CurrentPlayer->field_488.pos.f[0],
         g_CurrentPlayer->field_488.pos.f[2]);
-
-    stanlinelog_flag = sp28;
 
     g_CurrentPlayer->field_488.current_tile_ptr_for_portals = sp2C;
 
