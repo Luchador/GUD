@@ -1,5 +1,4 @@
 #include <ultra64.h>
-//#include <bondtypes.h>
 #include <deb.h>
 #include "stan.h"
 #include "bg.h"
@@ -15,27 +14,56 @@ struct StanPrefixRecord {
 };
 
 struct StanPrefixRecord *stan_prefix;
-StandTile *firststaninroom[139];
-//CODE.bss:8007B358 //stan list array
+
+/**
+ * Each entry contains a pointer to the first stan tile belonging to that room. stanBuildRoomData() initializes entries to NULL and
+ * when it encounters the first tile of a new room, it stores that tile's address in the corresponding array entry.
+ * Stan files group tiles contiguously by room so code can begin at an entry and advance through until the tile->room changes.
+ */
+StandTile *g_StanFirstTileByRoom[139];
+
 StanRoomBounds g_StanRoomBounds[139];
-s32 dword_CODE_bss_8007B9DC;
 
-//CODE.bss:8007B9E4
-StandTile *stanSavedColl_tile;
-//CODE.bss:8007B9E8
-s32 stanSavedColl_pointI;
-//CODE.bss:8007B9F0
-struct coord2d stanSavedColl_pntA;
-//CODE.bss:8007B9F8
-struct coord2d stanSavedColl_pntB;
-//CODE.bss:8007BA00
-f32 stanSavedColl_someMin;
+/**
+ * Stores one more than the highest room ID represented in the loaded stan data.
+ * Used as the exclusive upper bound when indexing rooms that have stans.
+ */ 
+s32 g_StanRoomIndexLimit;
 
-//CODE.bss:8007BA04
-PropRecord * stanSavedColl_posData;
-//CODE.bss:8007BA0C
-StandTile * dword_CODE_bss_8007BA0C;
-//CODE.bss:8007BA10
+/**
+ * Tile containing the stan edge that most recently blocked a collision. Used with g_StanLastCollisionEdgeIndex.
+ * This is NULL when the saved edge belongs to a prop rather than a stan.
+ */
+StandTile *g_StanLastCollisionTile;
+s32 g_StanLastCollisionEdgeIndex;
+
+/**
+ * Cached world space X/Z end points of a collision edge. These are needed when
+ * the colliding edge belongs to a prop and thus cannot be reconstructed from a stan tile and its edge.
+ * They may also store the endpoints of a stan edge encountered during line traversal.
+ */
+struct coord2d g_StanLastCollisionEdgePointA;
+struct coord2d g_StanLastCollisionEdgePointB;
+
+/**
+ * Position of the nearest collision along the most recently tested line segment, normalized between 0.0 - 1.0.
+ * A value of 1.0 indicates an unobstructed line.
+ */
+f32 g_StanLastLineCollisionFraction;
+
+/**
+ * Prop responsible for the most recently detected collision.
+ * Set to NULL when no prop collision detected.
+ */
+PropRecord * g_StanLastCollisionProp;
+
+/**
+ * Ladder tile detected by the most recent special tile locus search.
+ * Set when the tested circle touches an edge linked to the ladder tile,
+ * then consumed by stanGetMoveBondCollisionTiles.
+ */
+StandTile *g_StanDetectedLadderTile;
+
 StandTile *bfsTileStack[352];
 
 // Indexed by StandTile.mid.headerMid.special.
@@ -46,30 +74,27 @@ u8 g_StanTileSpecialFlags[] = {
     0x00, 0x00, 0x00, 0x00
 };
 
-s32 stan_c_debug_notice_list_entry = 0;
-
-//D:80040F44
 f32 level_scale = 1.0;
-//D:80040F48
 f32 inv_level_scale = 1.0;
-//D:80040F4C
-u8 list_of_tilesizes[] = {
+
+/**
+ * Total byte size for variable length StandTile records,
+ * indexed by point count. Valid stans have between 3 and 10 points.
+ */
+u8 g_StanTileSizeByPointCount[] = {
     0x20,0x20,0x20,0x20,
     0x28,0x30,0x38,0x40,
     0x48,0x50,0x58,0x00
 };
-//D:80040F58
-struct StandTile * standTileStart = NULL;
-//D:80040F5C
-s32 ptr_firstroom_0 = 0;
-//D:80040F60
+
+struct StandTile *standTileStart = NULL;
 struct StandTile* stanTileEnd = NULL;
-//D:80040F64
-s32 D_80040F64[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-//D:80040FAC
-s32 D_80040FAC = 0;
-//D:800413BC
-s32 D_800413BC =  0;
+
+/**
+ * Nonzero when g_StanLastCollisionEdgePointA and g_StanLastCollisionEdgePointB contain a valid explicitly cached edge.
+ * Required for prop collisions because its edges can't be reconstructed from a stan tile and its edge index.
+ */
+s32 g_StanLastCollisionEdgePointsValid =  0;
 
 // Begin forward declarations.
 
@@ -96,10 +121,12 @@ void stanBuildRoomData(void)
     s32 k;
 
     lastRoom = 0xff;
-    dword_CODE_bss_8007B9DC = 0;
+    g_StanRoomIndexLimit = 0;
 
-    // Must remain on one line for matching.
-    for (k = 0; k < 139; k++) firststaninroom[k] = NULL;
+    for (k = 0; k < 139; k++) 
+    {
+        g_StanFirstTileByRoom[k] = NULL;
+    }
 
     tile = stan_prefix->ptr_firstroom;
 
@@ -109,12 +136,12 @@ void stanBuildRoomData(void)
         {
             lastRoom = tile->room;
 
-            if (dword_CODE_bss_8007B9DC <= lastRoom)
+            if (g_StanRoomIndexLimit <= lastRoom)
             {
-                dword_CODE_bss_8007B9DC = lastRoom + 1;
+                g_StanRoomIndexLimit = lastRoom + 1;
             }
 
-            firststaninroom[lastRoom] = tile;
+            g_StanFirstTileByRoom[lastRoom] = tile;
 
             g_StanRoomBounds[lastRoom].min[0] = g_StanRoomBounds[lastRoom].min[1] = g_StanRoomBounds[lastRoom].min[2] = 0x7fff;
             g_StanRoomBounds[lastRoom].max[0] = g_StanRoomBounds[lastRoom].max[1] = g_StanRoomBounds[lastRoom].max[2] = -0x8000;
@@ -136,183 +163,161 @@ void stanBuildRoomData(void)
             }
         }
 
-        tile = (StandTile *)(((u8 *)tile) + list_of_tilesizes[tile->tail.hdrTail.pointCount & 0xf]);
+        tile = (StandTile *)(((u8 *)tile) + g_StanTileSizeByPointCount[tile->tail.hdrTail.pointCount & 0xf]);
     }
 }
 
 
 /**
- * Address: 7F0AF20C
- * 
  * Finds the highest stan file beneath pos. If a tile is found, yRtn is set to the tile
  * height beneath pos.
  * @returns NULL if no suitable tile is found.
  */
 StandTile *stanFindTileBelowPos(coord3d *pos, u8 *rooms, f32 *yRtn)
 {
-    StandTile *firstTile;
-    f32 scaled[3];
     StandTile *tile;
-    s16 scaledShort[3];
-    coord3d *midPointPtr;
-    u8 *tileSizes;
-    StandTile *tileStack;
+    StandTile *walkTile;
     StandTile *bestTile;
-    f32 maxY;
+    StanRoomBounds *roomBounds;
+    coord3d midPoint;
+    f32 scaledX;
+    f32 scaledY;
+    f32 scaledZ;
     f32 bestY;
     f32 edgeDist;
     f32 tileY;
-    s32 nearEdge;
-    coord3d midPoint;
+    s16 queryX;
+    s16 queryY;
+    s16 queryZ;
     s32 tailhalf;
     s32 room;
-    StandTile **roomFirstTiles;
     s32 i;
+    bool roomAllowed;
+    bool tileContainsPoint;
+    bool nearEdge;
 
-    maxY = 32767.0f;
     bestY = -3.4028235e38f;
     bestTile = NULL;
 
-    scaled[0] = pos->x * level_scale;
-    scaled[1] = pos->y * level_scale;
-    scaled[2] = pos->z * level_scale;
+    scaledX = pos->x * level_scale;
+    scaledY = pos->y * level_scale;
+    scaledZ = pos->z * level_scale;
 
-    if (maxY < scaled[1]) 
+    if (scaledY > 32767.0f)
     {
-        scaled[1] = maxY;
+        scaledY = 32767.0f;
+    }
+    else if (scaledY < -32767.0f)
+    {
+        scaledY = -32767.0f;
     }
 
-    if (scaled[1] < -32767.0f) 
+    queryX = scaledX;
+    queryY = scaledY;
+    queryZ = scaledZ;
+
+    for (room = 0; room < g_StanRoomIndexLimit; room++)
     {
-        scaled[1] = -32767.0f;
-    }
+        tile = g_StanFirstTileByRoom[room];
 
-    scaledShort[0] = scaled[0];
-    scaledShort[1] = scaled[1];
-    scaledShort[2] = scaled[2];
-
-    tileSizes = list_of_tilesizes;
-    midPointPtr = &midPoint;
-    room = 0; \
-    if (dword_CODE_bss_8007B9DC > 0) \
-    { \
-        roomFirstTiles = (StandTile **) &firststaninroom; \
-        do 
+        if (tile == NULL)
         {
-            firstTile = *roomFirstTiles;
-            
-            if (firstTile != NULL)
+            continue;
+        }
+
+        roomBounds = &g_StanRoomBounds[room];
+
+        /* Reject the room before walking any of its variable-length tiles. */
+        if (queryX < roomBounds->minX
+                || queryX > roomBounds->maxX
+                || queryZ < roomBounds->minZ
+                || queryZ > roomBounds->maxZ
+                || queryY < roomBounds->minY)
+        {
+            continue;
+        }
+
+        roomAllowed = rooms == NULL;
+
+        if (!roomAllowed)
+        {
+            /* Room lists contain at most four entries and may end with 0xff. */
+            for (i = 0; i < 4 && rooms[i] != 0xff; i++)
             {
-                if (scaledShort[0] < (&((StanRoomBounds *) g_StanRoomBounds)[room])->minX)
+                if (room == rooms[i])
                 {
-                    goto next_room;
+                    roomAllowed = TRUE;
+                    break;
+                }
+            }
+        }
+
+        if (!roomAllowed)
+        {
+            continue;
+        }
+
+        while (*((u32 *) tile) != 0 && tile->room == room)
+        {
+            tileContainsPoint = TRUE;
+            nearEdge = FALSE;
+
+            /* The first three points form the representative triangle. */
+            for (i = 0; i < 3; i++)
+            {
+                edgeDist = getShortest2dDispToInfTripleEdge(tile, i, scaledX, scaledZ);
+
+                if (edgeDist < -2.0f)
+                {
+                    tileContainsPoint = FALSE;
+                    break;
                 }
 
-                if ((&((StanRoomBounds *) g_StanRoomBounds)[room])->maxX < scaledShort[0])
+                if (edgeDist < 2.0f)
                 {
-                    goto next_room;
+                    nearEdge = TRUE;
                 }
+            }
 
-                if (scaledShort[2] < (&((StanRoomBounds *) g_StanRoomBounds)[room])->minZ)
+            if (tileContainsPoint && !stanTileHasZeroArea(tile))
+            {
+                /*
+                 * Close to an edge, the representative triangle is ambiguous.
+                 * Walk from the tile midpoint to confirm pos belongs to this tile.
+                 */
+                if (nearEdge)
                 {
-                    goto next_room;
-                }
+                    stanGetTileMidPoint(tile, &midPoint);
+                    walkTile = tile;
 
-                if ((&((StanRoomBounds *) g_StanRoomBounds)[room])->maxZ < scaledShort[2])
-                {
-                    goto next_room;
-                }
-
-                if (scaledShort[1] < (&((StanRoomBounds *) g_StanRoomBounds)[room])->minY)
-                {
-                    goto next_room;
-                }
-
-                if (rooms != NULL)
-                {
-                    for (i = 0; (rooms[i] != 0xff) && (i != 4); i++)
+                    if (!walkTilesBetweenPoints_NoCallback(&walkTile, midPoint.x, midPoint.z, pos->x, pos->z) || walkTile != tile)
                     {
-                        if (room == rooms[i])
-                        {
-                            goto found_room;
-                        }
+                        tileContainsPoint = FALSE;
                     }
-                    goto next_room;
-found_room:
-                    ;
                 }
 
-                tile = firstTile;
-                firstTile = *roomFirstTiles;
-
-                while (((*((u32 *) tile)) != 0) && (tile->room == room))
+                if (tileContainsPoint)
                 {
-                    for (i = 0; i < 3; i++)
-                    {
-                        edgeDist = getShortest2dDispToInfTripleEdge(tile, i, scaled[0], scaled[2]);
-
-                        if (edgeDist < -2.0f)
-                        {
-                            goto nexttile;
-                        }
-                        
-                        if (edgeDist < 2.0f)
-                        {
-                            nearEdge = 1;
-                        }
-                    }
-                    
-                    if (stanTileHasZeroArea(tile))
-                    {
-                        goto nexttile;
-                    }
-                    
-                    if (nearEdge)
-                    {
-                        stanGetTileMidPoint(tile, midPointPtr);
-                        tileStack = tile;
-                        
-                        if (!walkTilesBetweenPoints_NoCallback(&tileStack, midPointPtr->x, midPointPtr->z, pos->x, pos->z)) 
-                        {
-                            goto nexttile;
-                        }
-                        
-                        if (tileStack != tile) 
-                        {
-                            goto nexttile;
-                        }
-                    }
-                    
                     tileY = stanGetPositionYValue(tile, pos->x, pos->z);
-                    
-                    if (pos->y < tileY)
-                    {
-                        goto nexttile;
-                    }
-                    
-                    if (bestY < tileY)
+
+                    if (tileY <= pos->y && tileY > bestY)
                     {
                         bestTile = tile;
                         bestY = tileY;
                     }
-nexttile:
-                    tailhalf = tile->tail.half;
-                    tile = (StandTile *) (((u8 *) tile) + list_of_tilesizes[(tailhalf >> 12) & 0xf]); \
-                } \
-next_room:
-                ;
+                }
             }
-            
-            room++;
-            roomFirstTiles++;
-        } while (room < dword_CODE_bss_8007B9DC);
+
+            tailhalf = tile->tail.half;
+            tile = (StandTile *) (((u8 *) tile) + g_StanTileSizeByPointCount[(tailhalf >> 12) & 0xf]);
+        }
     }
-    
+
     if ((bestTile != NULL) && (yRtn != NULL))
     {
         *yRtn = bestY;
     }
-        
+
     return bestTile;
 }
 
@@ -494,7 +499,7 @@ StandTile *sub_GAME_7F0AFB78(f32 *x, f32 *y, f32 *z, f32 arg3)
             }
 
             tileTail = tile->tail.half;
-            tile = (StandTile *) (((u8 *) tile) + list_of_tilesizes[(tileTail >> 12) & 0xf]);
+            tile = (StandTile *) (((u8 *) tile) + g_StanTileSizeByPointCount[(tileTail >> 12) & 0xf]);
             
         } while (*((u32 *) tile));
     }
@@ -967,8 +972,8 @@ bool sub_GAME_7F0B0914(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest
 
         if (iterationCount++ >= 0x1f5 || nextTile == NULL || crossings == 0)
         {
-            stanSavedColl_tile = previousTile;
-            stanSavedColl_pointI = savedPointIndex;
+            g_StanLastCollisionTile = previousTile;
+            g_StanLastCollisionEdgeIndex = savedPointIndex;
             return FALSE;
         }
 
@@ -1093,12 +1098,12 @@ s32 sub_GAME_7F0B0D0C(StandTile *tile, f32 start_x, f32 start_z, StandTile **des
 /**
  * Can change global variables:
  *
- * - D_800413BC
- * - stanSavedColl_pntA
- * - stanSavedColl_pntB
- * - stanSavedColl_tile
- * - stanSavedColl_pointI
- * - stanSavedColl_posData
+ * - g_StanLastCollisionEdgePointsValid
+ * - g_StanLastCollisionEdgePointA
+ * - g_StanLastCollisionEdgePointB
+ * - g_StanLastCollisionTile
+ * - g_StanLastCollisionEdgeIndex
+ * - g_StanLastCollisionProp
  *
  * US address 7F0B0E24.
  *
@@ -1162,23 +1167,23 @@ s32 stanTestLineUnobstructed(StandTile **pTile, f32 p_x, f32 p_z, f32 dest_x, f3
     {
         s32 padding[2];
 
-        point_index = (stanSavedColl_pointI + 1) % (s32)((stanSavedColl_tile->tail.half >> 0xC) & 0xF);
-        D_800413BC = 1;
+        point_index = (g_StanLastCollisionEdgeIndex + 1) % (s32)((g_StanLastCollisionTile->tail.half >> 0xC) & 0xF);
+        g_StanLastCollisionEdgePointsValid = 1;
 
-        stanSavedColl_pntA.f[0] = (f32) stanSavedColl_tile->points[stanSavedColl_pointI].x * inv_level_scale;
-        stanSavedColl_pntA.f[1] = (f32) stanSavedColl_tile->points[stanSavedColl_pointI].z * inv_level_scale;
+        g_StanLastCollisionEdgePointA.f[0] = (f32) g_StanLastCollisionTile->points[g_StanLastCollisionEdgeIndex].x * inv_level_scale;
+        g_StanLastCollisionEdgePointA.f[1] = (f32) g_StanLastCollisionTile->points[g_StanLastCollisionEdgeIndex].z * inv_level_scale;
 
-        stanSavedColl_pntB.f[0] = (f32) stanSavedColl_tile->points[point_index].x * inv_level_scale;
-        stanSavedColl_pntB.f[1] = (f32) stanSavedColl_tile->points[point_index].z * inv_level_scale;
+        g_StanLastCollisionEdgePointB.f[0] = (f32) g_StanLastCollisionTile->points[point_index].x * inv_level_scale;
+        g_StanLastCollisionEdgePointB.f[1] = (f32) g_StanLastCollisionTile->points[point_index].z * inv_level_scale;
 
-        sp140 = calculateSegmentIntersectionFraction(&sp14C, &sp144, &stanSavedColl_pntA, &stanSavedColl_pntB);
+        sp140 = calculateSegmentIntersectionFraction(&sp14C, &sp144, &g_StanLastCollisionEdgePointA, &g_StanLastCollisionEdgePointB);
     }
     else
     {
         //
     }
 
-    stanSavedColl_posData = NULL;
+    g_StanLastCollisionProp = NULL;
 
     if (cdtypes != 0)
     {
@@ -1255,12 +1260,12 @@ s32 stanTestLineUnobstructed(StandTile **pTile, f32 p_x, f32 p_z, f32 dest_x, f3
                                 {
                                     retval = 0;
                                     sp140 = temp_f0;
-                                    D_800413BC = 1;
-                                    stanSavedColl_pntA = sp134;
-                                    stanSavedColl_pntB = sp12C;
-                                    stanSavedColl_tile = NULL;
-                                    stanSavedColl_pointI = 0;
-                                    stanSavedColl_posData = prop;
+                                    g_StanLastCollisionEdgePointsValid = 1;
+                                    g_StanLastCollisionEdgePointA = sp134;
+                                    g_StanLastCollisionEdgePointB = sp12C;
+                                    g_StanLastCollisionTile = NULL;
+                                    g_StanLastCollisionEdgeIndex = 0;
+                                    g_StanLastCollisionProp = prop;
                                     sp154 = NULL;
                                 }
                             }
@@ -1289,7 +1294,7 @@ s32 stanTestLineUnobstructed(StandTile **pTile, f32 p_x, f32 p_z, f32 dest_x, f3
     }
 
     *pTile = sp154;
-    stanSavedColl_someMin = sp140;
+    g_StanLastLineCollisionFraction = sp140;
 
     return retval;
 }
@@ -1458,12 +1463,12 @@ bool stanPointProjectsOntoEdge(f32 a_x, f32 a_z, f32 b_x, f32 b_z, f32 p_x, f32 
 
 /**
  * Can change global variables
- * - D_800413BC
- * - stanSavedColl_pntA
- * - stanSavedColl_pntB
- * - stanSavedColl_tile
- * - stanSavedColl_pointI
- * - stanSavedColl_posData
+ * - g_StanLastCollisionEdgePointsValid
+ * - g_StanLastCollisionEdgePointA
+ * - g_StanLastCollisionEdgePointB
+ * - g_StanLastCollisionTile
+ * - g_StanLastCollisionEdgeIndex
+ * - g_StanLastCollisionProp
  *
  * US address 7F0B18B8.
  * Perfect Dark cdTestVolume (from context)
@@ -1511,7 +1516,7 @@ s32 stanTestVolume(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, 
         spFC = 20;
     }
 
-    stanSavedColl_posData = NULL;
+    g_StanLastCollisionProp = NULL;
 
     if (cdtypes)
     {
@@ -1559,16 +1564,16 @@ s32 stanTestVolume(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, 
                                     || (temp_f0_3 < arg3)
                                     || (stanPointProjectsOntoEdge(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], arg1, arg2) != 0)))
                             {
-                                D_800413BC = 1;
+                                g_StanLastCollisionEdgePointsValid = 1;
                                 var_f24 = var_f20;
 
-                                stanSavedColl_pntA.f[0] = polygon->points[i].f[0];
-                                stanSavedColl_pntA.f[1] = polygon->points[i].f[1];
-                                stanSavedColl_pntB.f[0] = polygon->points[next].f[0];
-                                stanSavedColl_pntB.f[1] = polygon->points[next].f[1];
-                                stanSavedColl_tile = NULL;
-                                stanSavedColl_pointI = 0;
-                                stanSavedColl_posData = prop;
+                                g_StanLastCollisionEdgePointA.f[0] = polygon->points[i].f[0];
+                                g_StanLastCollisionEdgePointA.f[1] = polygon->points[i].f[1];
+                                g_StanLastCollisionEdgePointB.f[0] = polygon->points[next].f[0];
+                                g_StanLastCollisionEdgePointB.f[1] = polygon->points[next].f[1];
+                                g_StanLastCollisionTile = NULL;
+                                g_StanLastCollisionEdgeIndex = 0;
+                                g_StanLastCollisionProp = prop;
                             }
                         }
 
@@ -1595,9 +1600,10 @@ s32 stanTestVolume(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, 
 
 void stanResetHits(void)
 {
-    stanSavedColl_tile = 0;
-    stanSavedColl_pointI = 0;
-    D_800413BC = 0;
+    g_StanLastCollisionProp = NULL;
+    g_StanLastCollisionTile = 0;
+    g_StanLastCollisionEdgeIndex = 0;
+    g_StanLastCollisionEdgePointsValid = 0;
 }
 
 
@@ -1702,8 +1708,8 @@ StanCollisionResult sub_GAME_7F0B1DDC(StandTile **startTile, f32 x, f32 z, f32 r
                             goto next_point;
                         }
 
-                        stanSavedColl_tile = tile;
-                        stanSavedColl_pointI = pointI;
+                        g_StanLastCollisionTile = tile;
+                        g_StanLastCollisionEdgeIndex = pointI;
                         if (callbackC != NULL && callbackC(tileStack, cat, record) == 1)
                         {
                             goto next_point;
@@ -1881,7 +1887,7 @@ s32 stanCheckLinkedSpecialTile(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3
         mid = target->mid.half;
 
         if (g_StanTileSpecialFlags[mid >> 0xc] & STANTILEFLAG_LADDER) {
-            dword_CODE_bss_8007BA0C = target;
+            g_StanDetectedLadderTile = target;
             outFlags[1] = 1;
             return 0;
         }
@@ -1967,7 +1973,7 @@ void stanGetMoveBondCollisionTiles(StandTile **tile1, StandTile **tile2, coord3d
     s32 k;
     s32 target;
 
-    baseTile = dword_CODE_bss_8007BA0C;
+    baseTile = g_StanDetectedLadderTile;
 
     target = baseTile->tail.hdrTail.pointCount & 0xf;
 
@@ -2253,28 +2259,28 @@ nextpoint:
 
 
 /**
- * @param pntA: out parameter, will contain stanSavedColl_pntA (x,z)
- * @param pntB: out parameter, will contain stanSavedColl_pntB (x,z)
+ * @param pntA: out parameter, will contain g_StanLastCollisionEdgePointA (x,z)
+ * @param pntB: out parameter, will contain g_StanLastCollisionEdgePointB (x,z)
  */
 bool getCollisionEdge_maybe(coord3d *pntA, coord3d *pntB)
 {
-    if (stanSavedColl_tile)
+    if (g_StanLastCollisionTile)
     {
-        getTileEdgePoints(stanSavedColl_tile, stanSavedColl_pointI, pntA, pntB);
+        getTileEdgePoints(g_StanLastCollisionTile, g_StanLastCollisionEdgeIndex, pntA, pntB);
 
         return TRUE;
     }
     else
     {
-        if (D_800413BC)
+        if (g_StanLastCollisionEdgePointsValid)
         {
-            pntA->x = stanSavedColl_pntA.f[0];
+            pntA->x = g_StanLastCollisionEdgePointA.f[0];
             pntA->y = 0;
-            pntA->z = stanSavedColl_pntA.f[1];
+            pntA->z = g_StanLastCollisionEdgePointA.f[1];
 
-            pntB->x = stanSavedColl_pntB.f[0];
+            pntB->x = g_StanLastCollisionEdgePointB.f[0];
             pntB->y = 0;
-            pntB->z = stanSavedColl_pntB.f[1];
+            pntB->z = g_StanLastCollisionEdgePointB.f[1];
 
             return TRUE;
         }
@@ -2476,7 +2482,7 @@ struct StandTilePoint *stanMatchTileName(char *id)
 
         tmp = tile->link;
         tile = (StandTilePoint *)((u8 *)tile +
-            list_of_tilesizes[(tmp >> 12) & 0xf]);
+            g_StanTileSizeByPointCount[(tmp >> 12) & 0xf]);
     }
 
     return NULL;
@@ -2492,15 +2498,10 @@ void stanDetermineEOF(struct StanPrefixRecord *file /* canonically r */, s32 ori
     
     delta = ((s32) newBase) - origBase;
     stan_prefix = file;
-    
-    #ifdef DEBUG
-    assert(*r==0);
-    #endif
   
     standTileStart = (StandTile *)(((s32)file->ptr_firstroom + delta) - 0x80);
-    ptr_firstroom_0 = (s32)file->ptr_firstroom + delta;
     
-    newBase = list_of_tilesizes;
+    newBase = g_StanTileSizeByPointCount;
     roomPtr = (void **)&file->ptr_firstroom;
     
     if (file->ptr_firstroom != NULL)

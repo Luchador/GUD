@@ -52,12 +52,12 @@ typedef struct StanRoomBounds {
 /////////////////
 // extern
 
-extern f32 stanSavedColl_someMin;
-extern PropRecord *stanSavedColl_posData;
+extern f32 g_StanLastLineCollisionFraction;
+extern PropRecord *g_StanLastCollisionProp;
 extern struct StandTile *standTileStart;
-extern StandTile *firststaninroom[139];
+extern StandTile *g_StanFirstTileByRoom[139];
 extern StanRoomBounds g_StanRoomBounds[139];
-extern s32 dword_CODE_bss_8007B9DC;
+extern s32 g_StanRoomIndexLimit;
 
 /////////////////
 // prototypes

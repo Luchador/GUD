@@ -6550,8 +6550,8 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                         else
                         {
                             if ((
-                                    (stanSavedColl_posData == NULL)
-                                    || ((stanSavedColl_posData->type != PROP_TYPE_CHR) && (stanSavedColl_posData->type != PROP_TYPE_VIEWER))
+                                    (g_StanLastCollisionProp == NULL)
+                                    || ((g_StanLastCollisionProp->type != PROP_TYPE_CHR) && (g_StanLastCollisionProp->type != PROP_TYPE_VIEWER))
                                 )
                                 && (sp20C < 10000.0f))
                             {
@@ -6566,21 +6566,21 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                                 bullet_spark_create(&sp258, 1, 26.0f, (s16) sp254->room);
                             }
 
-                            if (stanSavedColl_posData != NULL)
+                            if (g_StanLastCollisionProp != NULL)
                             {
-                                recall_joy2_hits_edit_detail_edit_flag(prop_selfchr->act_attack.attack_item, &stanSavedColl_posData->type, -1);
+                                recall_joy2_hits_edit_detail_edit_flag(prop_selfchr->act_attack.attack_item, &g_StanLastCollisionProp->type, -1);
 
-                                if (stanSavedColl_posData->type == PROP_TYPE_CHR)
+                                if (g_StanLastCollisionProp->type == PROP_TYPE_CHR)
                                 {
                                     if ((self->chrflags & CHRFLAG_CAN_SHOOT_CHRS) != 0)
                                     {
-                                        handles_shot_actors(stanSavedColl_posData->chr, 0xF, &sp220, prop_selfchr->act_attack.attack_item, 0);
+                                        handles_shot_actors(g_StanLastCollisionProp->chr, 0xF, &sp220, prop_selfchr->act_attack.attack_item, 0);
                                     }
                                 }
-                                else if ((stanSavedColl_posData->type == PROP_TYPE_OBJ) || (stanSavedColl_posData->type == PROP_TYPE_WEAPON))
+                                else if ((g_StanLastCollisionProp->type == PROP_TYPE_OBJ) || (g_StanLastCollisionProp->type == PROP_TYPE_WEAPON))
                                 {
                                     chrobjMaybeDetonateObjectIfFlags(
-                                        stanSavedColl_posData->obj,
+                                        g_StanLastCollisionProp->obj,
                                         gunItemGetDestructionAmount(prop_selfchr->act_attack.attack_item),
                                         &sp258,
                                         prop_selfchr->act_attack.attack_item,
@@ -8191,7 +8191,7 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
         getCollisionEdge_maybe(&sp78, &sp6C);
         chrlvSwapIfDiffArg2Determinate(&sp78, &sp6C, &spA0);
 
-        stanval1 = stanSavedColl_someMin;
+        stanval1 = g_StanLastLineCollisionFraction;
     }
 
     spAC = arg2;
@@ -8224,7 +8224,7 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
         getCollisionEdge_maybe(&sp60, &sp54);
         chrlvSwapIfDiffArg2Determinate(&sp60, &sp54, &spA0);
 
-        stanval2 = stanSavedColl_someMin;
+        stanval2 = g_StanLastLineCollisionFraction;
     }
 
     if ((sp88 != 0) && (sp84 != 0))

@@ -2304,13 +2304,13 @@ s32 bondviewTryMoveToStan(struct coord3d *arg0, StandTile **stan)
 block_20:
             /* I'm sorry, this is the only way I could make it match. */
             if (g_PlayerTankProp == NULL
-                && (stanSavedColl_posData != NULL)
-                && (stanSavedColl_posData->type == PROP_TYPE_OBJ))
+                && (g_StanLastCollisionProp != NULL)
+                && (g_StanLastCollisionProp->type == PROP_TYPE_OBJ))
             {
-                tank = (struct TankRecord *)stanSavedColl_posData->obj;
+                tank = (struct TankRecord *)g_StanLastCollisionProp->obj;
                 if (tank->type == PROPDEF_TANK)
                 {
-                    g_WorldTankProp = stanSavedColl_posData;
+                    g_WorldTankProp = g_StanLastCollisionProp;
                 }
             }
         }

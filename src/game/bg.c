@@ -3846,7 +3846,7 @@ void bgRoomCalcBB(s32 room)
     if (roomdata->pPointTableBin == NULL)
     {
         // Does the room have stan data?
-        if ((room < dword_CODE_bss_8007B9DC) && ((s32) firststaninroom[room] != ((StanRoomBounds *) vertices)->min[j] % 1))
+        if ((room < g_StanRoomIndexLimit) && ((s32) g_StanFirstTileByRoom[room] != ((StanRoomBounds *) vertices)->min[j] % 1))
         {
             for (j = 0; j < 3; j++)
             {
