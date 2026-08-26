@@ -868,7 +868,7 @@ s32 doSegmentsIntersectWithTolerance(f32 arg0, f32 arg1, f32 arg2, f32 arg3, f32
 }
 
 
-bool sub_GAME_7F0B0914(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_x, f32 dest_z, standTileWalkCallback_t callback, struct StandTileWalkCallbackRecord *callbackData)
+bool stanWalkTilesBetweenPointsWithCallback(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_x, f32 dest_z, standTileWalkCallback_t callback, struct StandTileWalkCallbackRecord *callbackData)
 {
     StandTile *tile;
     StandTile *previousTile;
@@ -977,7 +977,7 @@ bool sub_GAME_7F0B0914(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest
 */
 s32 walkTilesBetweenPoints_NoCallback(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_x, f32 dest_z)
 {
-    return sub_GAME_7F0B0914(tileStack, start_x, start_z, dest_x, dest_z, 0, 0);
+    return stanWalkTilesBetweenPointsWithCallback(tileStack, start_x, start_z, dest_x, dest_z, 0, 0);
 }
 
 
@@ -996,7 +996,7 @@ s32 sub_GAME_7F0B0C24(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_
     callbackData.bufMax = maxBufSize;
     callbackData.lastRoom = -1;
 
-    rtn = sub_GAME_7F0B0914(tileStack, start_x, start_z, dest_x, dest_z, noteTileRoomIfDifferentToPrev, &callbackData);
+    rtn = stanWalkTilesBetweenPointsWithCallback(tileStack, start_x, start_z, dest_x, dest_z, noteTileRoomIfDifferentToPrev, &callbackData);
 
     *rtnCountSize = callbackData.count;
     return rtn;
