@@ -45,7 +45,6 @@
 #include "initpathtablelinks.h"
 #include "initunk_005450.h"
 #include "initunk_005520.h"
-#include "initunk_007290.h"
 #include "language.h"
 #include "lv.h"
 #include "mp_music.h"
@@ -395,7 +394,11 @@ void lvlStageLoad(s32 stage)
     proplvreset2(stage);
     alloc_explosion_smoke_casing_scorch_impact_buffers();
     alloc_shattered_window_pieces();
-    sub_GAME_7F007290();
+    
+    flt_CODE_bss_80079E80 = 0.0f;
+    flt_CODE_bss_80079E84 = 0.0f;
+    flt_CODE_bss_80079E88 = 0.0f;
+
     initCheatTextBuffer();
 
     if (g_CurrentStageToLoad == LEVELID_TITLE)

@@ -11,31 +11,52 @@
 f32 atan2f(f32 y, f32 x)
 {
     f32 angle;
-    if (y == 0.0f) {
-        if (0.0f <= x) {
+
+    if (y == 0.0f)
+    {
+        if (0.0f <= x)
+        {
             angle = 0.0f;
-        } else {
+        } 
+        else
+        {
             angle = M_PI_F;
         }
-    } else if (x == 0.0f) {
-        if (0.0f < y) {
+    } 
+    else if (x == 0.0f)
+    {
+        if (0.0f < y)
+        {
             angle = M_HALF_PI;
-        } else {
+        } 
+        else
+        {
             angle = M_THREE_HALF_PI;
         }
-    } else {
+    } 
+    else
+    {
         angle = sqrtf((y * y) + (x * x));
-        if (x < y) {
+
+        if (x < y)
+        {
             angle = acosf(x / angle);
-            if (y < 0.0f) {
+            if (y < 0.0f)
+            {
                 angle = M_TAU_F - angle;
             }
-        } else {
+        } 
+        else
+        {
             angle = M_HALF_PI - acosf(y / angle);
-            if (x < 0.0f) {
+
+            if (x < 0.0f)
+            {
                 angle = M_PI_F - angle;
             }
-            if (angle < 0.0f) {
+
+            if (angle < 0.0f)
+            {
                 angle += M_TAU_F;
             }
         }
@@ -43,4 +64,3 @@ f32 atan2f(f32 y, f32 x)
 
     return angle;
 }
-

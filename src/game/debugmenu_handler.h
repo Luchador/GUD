@@ -2,8 +2,6 @@
 #define _debugmenu_handler_H_
 #include <ultra64.h>
 
-
-s32 get_debug_007_unlock_flag(void);
 s32 get_debug_enable_agent_levels_flag(void);
 s32 get_debug_enable_all_levels_flag(void);
 s32 get_debug_fast_bond_flag(void);

@@ -2726,7 +2726,8 @@ s32 get_highest_unlocked_difficulty_for_level(s32 arg0)
     if (mission_folder_setup_entries[pull_and_display_text_for_folder_a0(arg0)].stage_id >= 0)
     {
         num = DIFFICULTY_00;
-        if (fileIs007ModeUnlocked(selected_folder_num) || get_debug_007_unlock_flag())
+
+        if (fileIs007ModeUnlocked(selected_folder_num))
         {
             num = DIFFICULTY_007;
         }

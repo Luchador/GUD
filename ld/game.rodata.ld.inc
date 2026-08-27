@@ -23,7 +23,6 @@
       build/OUTCODE/src/game/initpathtablelinks.o (.rodata);
       build/OUTCODE/src/game/initexplosioncasing.o (.rodata);
       build/OUTCODE/src/game/alloc_window_pieces.o (.rodata);
-      build/OUTCODE/src/game/initunk_007290.o (.rodata);
       build/OUTCODE/src/game/initcheattext.o (.rodata);
       build/OUTCODE/src/game/initmttex.o (.rodata);
       build/OUTCODE/src/game/cleanup_guard_data.o (.rodata);
