@@ -503,51 +503,46 @@ BITFLAG(PLAYERFLAG,
         NOCONTROL,
         NOTIMER
 )
-//PropDef bitflag canonically PROPHID_
-BITFLAG(RUNTIMEBITFLAG,
-        00000001,
-        00000002,
-        REMOVE, /* removes object when set                                         */
-        ISRETICK,
-        TAGGED,
-        THROWING_KNIFE_RELATED,
-        EMBEDDED,
-        HASPROJECTILE, /* this object owns a live Projectile record in obj->projectile   */
-        00000100,
-        BEENOPENED,
-        DESTROYED, /* only set with disabled or destroyed doors                    */
-        00000800,
-        00001000,
-        PADLOCKEDDOOR,
-        ACTIVATED, /* activated                                                    */
-        00008000,
-        00010000,
-        00020000, /* owner 2bit (0-3) used to                                      */
-        00040000, /* attribute kills to players                                    */
-        HASOWNER,
-        00100000,
-        00200000,
-        00400000,
-        00800000,
-        01000000,
-        02000000,
-        04000000,
-        08000000,
-        10000000,
-        20000000,
-        40000000,
-        80000000
-)
 
-#define RUNTIMEBITFLAG_OWNER          0x60000
+/*
+ * Runtime bitflags on ObjectRecord/DoorRecord (obj->runtime_bitflags).
+ *
+ * Bits 17-18 form the 2-bit OWNER field (player 0-3) used to attribute kills; 
+ * use RUNTIMEBITFLAG_OWNER to mask it and RUNTIMEBITSHIFT_OWNER to shift it, not the individual bits.
+ */
+typedef enum RUNTIMEBITFLAG
+{
+    RUNTIMEBITFLAG_NONE                   = 0x00000000,
+    RUNTIMEBITFLAG_00000001               = 0x00000001,
+    RUNTIMEBITFLAG_00000002               = 0x00000002,
+    RUNTIMEBITFLAG_REMOVE                 = 0x00000004, /* removes object when set                       */
+    RUNTIMEBITFLAG_ISRETICK               = 0x00000008,
+    RUNTIMEBITFLAG_TAGGED                 = 0x00000010,
+    RUNTIMEBITFLAG_THROWING_KNIFE_RELATED = 0x00000020,
+    RUNTIMEBITFLAG_EMBEDDED               = 0x00000040,
+    RUNTIMEBITFLAG_HASPROJECTILE          = 0x00000080, /* owns a live Projectile in obj->projectile     */
+    RUNTIMEBITFLAG_00000100               = 0x00000100,
+    RUNTIMEBITFLAG_BEENOPENED             = 0x00000200,
+    RUNTIMEBITFLAG_DESTROYED              = 0x00000400, /* only set with disabled or destroyed doors     */
+    RUNTIMEBITFLAG_00000800               = 0x00000800,
+    RUNTIMEBITFLAG_00001000               = 0x00001000,
+    RUNTIMEBITFLAG_PADLOCKEDDOOR          = 0x00002000,
+    RUNTIMEBITFLAG_ACTIVATED              = 0x00004000,
+    RUNTIMEBITFLAG_00008000               = 0x00008000,
+    RUNTIMEBITFLAG_00010000               = 0x00010000,
+    RUNTIMEBITFLAG_00020000               = 0x00020000, /* OWNER field, low bit  - see RUNTIMEBITFLAG_OWNER */
+    RUNTIMEBITFLAG_00040000               = 0x00040000, /* OWNER field, high bit - see RUNTIMEBITFLAG_OWNER */
+    RUNTIMEBITFLAG_HASOWNER               = 0x00080000
+    /* ... bits 20-31 numeric, unchanged ... */
+} RUNTIMEBITFLAG;
+
+/* 2-bit owner field spanning bits 17-18 (player index 0-3). */
+#define RUNTIMEBITFLAG_OWNER          0x00060000
 #define RUNTIMEBITSHIFT_OWNER         0x11
-#define RUNTIMEBITFLAG_00000001       0x1
+
+/* Numeric alias for bit 7, kept from the original header: a few sites
+   spell it this way rather than RUNTIMEBITFLAG_HASPROJECTILE. */
 #define RUNTIMEBITFLAG_00000080       0x00000080
-#define RUNTIMEBITFLAG_00000100       0x00000100
-#define RUNTIMEBITFLAG_00001000       0x00001000
-#define RUNTIMEBITFLAG_00000800       0X00000800
-#define RUNTIMEBITFLAG_PADLOCKEDDOOR  0X00002000
-#define RUNTIMEBITFLAG_HASOWNER       0X00080000
 
 #define WEAPONSTATBITFLAG_00000001 0x1
 /* skip from fire to reload animation; item "disappears" after use, redrawn from off-screen like knives" */
@@ -1897,7 +1892,7 @@ typedef enum MODELNODE_OPCODE
     MODELNODE_OPCODE_OP14,
     MODELNODE_OPCODE_INTERLINK,
     MODELNODE_OPCODE_OP16,
-    MODELNODE_OPCODE_OP17,
+    MODELNODE_OPCODE_OP17, // Not used by any asset, kept here to retain expected model node enum values
     MODELNODE_OPCODE_SWITCH,
     MODELNODE_OPCODE_OP19,
     MODELNODE_OPCODE_OP20,

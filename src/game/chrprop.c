@@ -953,7 +953,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
             }
             else if (((prop->type == PROP_TYPE_OBJ) || (prop->type == PROP_TYPE_WEAPON)) || (prop->type == PROP_TYPE_DOOR))
             {
-                sub_GAME_7F04E9BC(prop, &shotdata);
+                objTestHit(prop, &shotdata);
             }
         }
     }
@@ -2900,7 +2900,11 @@ void propsDefragRoomProps(void)
 }
 
 
-void sub_GAME_7F03E6A0(PropRecord *prop)
+/**
+ * Activates every door linked to this prop. Setup data registers PROPDEF_SWITCH LinkRecords (trigger prop -> door) into
+ * g_LevelLoadPropSwitch at level load. This walks the list and fires doorActivateWrapper for each match.
+ */
+void propActivateLinkedDoors(PropRecord *prop)
 {
     struct LinkRecord *link;
     struct ObjectRecord *obj;

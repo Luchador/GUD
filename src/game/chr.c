@@ -1364,7 +1364,7 @@ done:
 }
 
 
-s32 sub_GAME_7F01FC10(Model *model, coord3d *src, coord3d *dst, f32 *ground_y)
+s32 chrUpdatePosition(Model *model, coord3d *src, coord3d *dst, f32 *ground_y)
 {
     ChrRecord *chr;
     s32 moved;
@@ -1570,7 +1570,7 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
     arg0->pos.f[2] = arg2->f[2];
     arg0->stan = arg4;
 
-    sub_GAME_7F06FF5C(arg1, (s32) sub_GAME_7F01FC10);
+    sub_GAME_7F06FF5C(arg1, (s32) chrUpdatePosition);
 
     arg1->unk00 = 0xA;
     arg1->chr = chr;
@@ -1667,7 +1667,7 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
     chr->chrwidth = 20.0f;
     chr->chrheight = 185.0f;
 
-    sub_GAME_7F01FC10(arg1, &arg0->pos, &arg0->pos, &chr->ground);
+    chrUpdatePosition(arg1, &arg0->pos, &arg0->pos, &chr->ground);
     chrDetectRooms(chr);
 
     return arg0;
@@ -2456,7 +2456,7 @@ after_position_update:
                 }
             }
 
-            if ((!(chr->hidden & CHRHIDDEN_DROP_HELD_ITEMS)) || (!(hatobj->runtime_bitflags & RUNTIMEBITFLAG_00000080)))
+            if ((!(chr->hidden & CHRHIDDEN_DROP_HELD_ITEMS)) || (!(hatobj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)))
             {
                 chr->hitChain = sub_GAME_7F06B120(chr->hitChain, hatmodel);
             }
@@ -2888,7 +2888,7 @@ apply_head:
         modelApplyHeadRelations(model, node);
 
 after_opcode:
-        if ((node->Child != NULL) && ((node == root) || ((opcode != MODELNODE_OPCODE_BBOX) && (opcode != MODELNODE_OPCODE_OP17))))
+        if ((node->Child != NULL) && ((node == root) || (opcode != MODELNODE_OPCODE_BBOX)))
         {
             node = node->Child;
         }

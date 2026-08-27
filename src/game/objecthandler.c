@@ -276,13 +276,13 @@ ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context)
             case 1:
             case 2:
             case 3:
-            case 0xb:
-            case 0xc:
-            case 0xd:
-            case 0xe:
-            case 0xf:
-            case 0x10:
-            case 0x15:
+            case 11:
+            case 12:
+            case 13:
+            case 14:
+            case 15:
+            case 16:
+            case 21:
                 freeListCursor->model = context;
                 freeListCursor->rootnode = sceneCursor;
                 freeListCursor = freeListCursor->next;
@@ -887,7 +887,6 @@ ModelHitEntry *sub_GAME_7F06BB28(ModelHitEntry *modelhit)
 }
 
 
-#if defined(VERSION_US) || defined(VERSION_JP)
 void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
 {
     ModelNode *root;
@@ -932,7 +931,6 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
                         descend = 0;
                     }
                     break;
-
                 case MODELNODE_OPCODE_DL:
                 case MODELNODE_OPCODE_OP05:
                 case MODELNODE_OPCODE_OP06:
@@ -940,7 +938,6 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
                 case MODELNODE_OPCODE_LOD:
                 case MODELNODE_OPCODE_BSP:
                 case MODELNODE_OPCODE_BBOX:
-                case MODELNODE_OPCODE_OP17:
                 case MODELNODE_OPCODE_SWITCH:
                 case MODELNODE_OPCODE_OP19:
                 case MODELNODE_OPCODE_OP20:
@@ -983,106 +980,6 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
         entry = entry->next;
     }
 }
-#endif
-
-
-#if defined(VERSION_EU)
-void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
-{
-    ModelNode *root;
-    ModelNode *node;
-    s32 descend;
-    Gfx *gdl;
-    s32 opcode;
-
-    while (entry != NULL)
-    {
-        root = entry->rootnode;
-        node = root;
-
-        gdl = data->gdl++;
-        gSPSegment(gdl, SPSEGMENT_MODEL_MTX, osVirtualToPhysical(entry->model->render_pos));
-
-        if (node != NULL)
-        {
-            do
-            {
-                descend = 1;
-                opcode = node->Opcode & 0xff;
-
-                switch (opcode)
-                {
-                case MODELNODE_OPCODE_HEADER:
-                case MODELNODE_OPCODE_GROUP:
-                case MODELNODE_OPCODE_OP03:
-                case MODELNODE_OPCODE_OP11:
-                case MODELNODE_OPCODE_GUNFIRE:
-                case MODELNODE_OPCODE_SHADOW:
-                case MODELNODE_OPCODE_OP14:
-                case MODELNODE_OPCODE_INTERLINK:
-                case MODELNODE_OPCODE_OP16:
-                case MODELNODE_OPCODE_GROUPSIMPLE:
-                    if (node == root)
-                    {
-                        sub_GAME_7F074534(data, entry->model, node);
-                    }
-                    else
-                    {
-                        descend = 0;
-                    }
-                    break;
-
-                case MODELNODE_OPCODE_DL:
-                case MODELNODE_OPCODE_OP05:
-                case MODELNODE_OPCODE_OP06:
-                case MODELNODE_OPCODE_OP07:
-                case MODELNODE_OPCODE_LOD:
-                case MODELNODE_OPCODE_BSP:
-                case MODELNODE_OPCODE_BBOX:
-                case MODELNODE_OPCODE_OP17:
-                case MODELNODE_OPCODE_SWITCH:
-                case MODELNODE_OPCODE_OP19:
-                case MODELNODE_OPCODE_OP20:
-                case MODELNODE_OPCODE_DLPRIMARY:
-                case MODELNODE_OPCODE_HEAD:
-                case MODELNODE_OPCODE_DLCOLLISION:
-                default:
-                    sub_GAME_7F074534(data, entry->model, node);
-                    break;
-                }
-
-                if (descend && node->Child != NULL)
-                {
-                    node = node->Child;
-                }
-                else if (node != NULL)
-                {
-                    do
-                    {
-                        if (node == root)
-                        {
-                            node = NULL;
-                            break;
-                        }
-
-                        if (node->Next != NULL)
-                        {
-                            node = node->Next;
-                            break;
-                        }
-
-                        node = node->Parent;
-                    }
-                    while (node != NULL);
-                }
-            }
-            while (node != NULL);
-        }
-
-        entry = entry->next;
-    }
-}
-#endif
 
 
 s32 probably_damage_detail_blood_effect_related(ModelHitEntry **entryptr, coord3d *raypos, coord3d *raydir, Model **outModel, ModelNode **inoutNode)
@@ -1093,33 +990,48 @@ s32 probably_damage_detail_blood_effect_related(ModelHitEntry **entryptr, coord3
     ModelNode *root;
     ModelNode *next;
 
-    while (entry != NULL) {
+    while (entry != NULL) 
+    {
         ModelNode *resume = *inoutNode;
 
         root = entry->rootnode;
         descend = TRUE;
 
-        if (resume != NULL) {
+        if (resume != NULL)
+        {
             node = resume;
             *inoutNode = NULL;
-        } else {
+        } 
+        else 
+        {
             node = root;
         }
 
-        while (node != NULL) {
-            if (descend && node->Child != NULL) {
+        while (node != NULL) 
+        {
+            if (descend && node->Child != NULL) 
+            {
                 node = node->Child;
-            } else {
-                if (node != NULL) {
+            } 
+            else 
+            {
+                if (node != NULL) 
+                {
 walk_node:
-                    if (node == root) {
+                    if (node == root) 
+                    {
                         node = NULL;
-                    } else {
+                    } 
+                    else 
+                    {
                         next = node->Next;
 
-                        if (next != NULL) {
+                        if (next != NULL) 
+                        {
                             node = next;
-                        } else {
+                        } 
+                        else 
+                        {
                             node = node->Parent;
 
                             if (node != NULL) {
@@ -1129,7 +1041,8 @@ walk_node:
                     }
                 }
 
-                if (node == NULL) {
+                if (node == NULL) 
+                {
                     break;
                 }
             }
@@ -1141,63 +1054,49 @@ walk_node:
             
                 descend = TRUE;
             
-                switch (opcode & 0xff) {
-                case MODELNODE_OPCODE_HEADER:
-                case MODELNODE_OPCODE_GROUP:
-                case MODELNODE_OPCODE_OP03:
-                case MODELNODE_OPCODE_GROUPSIMPLE:
-                    descend = FALSE;
-                    break;
+                switch (opcode & 0xff) 
+                {
+                    case MODELNODE_OPCODE_HEADER:
+                    case MODELNODE_OPCODE_GROUP:
+                    case MODELNODE_OPCODE_OP03:
+                    case MODELNODE_OPCODE_GROUPSIMPLE:
+                        descend = FALSE;
+                        break;
+                    case MODELNODE_OPCODE_OP11:
+                    case MODELNODE_OPCODE_GUNFIRE:
+                    case MODELNODE_OPCODE_SHADOW:
+                    case MODELNODE_OPCODE_OP14:
+                    case MODELNODE_OPCODE_INTERLINK:
+                    case MODELNODE_OPCODE_OP16:
+                        descend = FALSE;
+                        break;
+                    case MODELNODE_OPCODE_BBOX:
+                        if (modelTestRayIntersectsNodeBBox(entry->model, node, raypos, raydir)) {
+                            *outModel = entry->model;
+                            *inoutNode = node;
+                            *entryptr = entry;
+                
+                            return *(s32 *)node->Data;
+                        }
             
-                case MODELNODE_OPCODE_OP11:
-                case MODELNODE_OPCODE_GUNFIRE:
-                case MODELNODE_OPCODE_SHADOW:
-                case MODELNODE_OPCODE_OP14:
-                case MODELNODE_OPCODE_INTERLINK:
-                case MODELNODE_OPCODE_OP16:
-                    descend = FALSE;
-                    break;
-            
-                case MODELNODE_OPCODE_BBOX:
-                    if (modelTestRayIntersectsNodeBBox(entry->model, node, raypos, raydir)) {
-                        *outModel = entry->model;
-                        *inoutNode = node;
-                        *entryptr = entry;
-            
-                        return *(s32 *)node->Data;
+                        descend = FALSE;
+                        break;
+                    case MODELNODE_OPCODE_LOD:
+                        modelApplyDistanceRelations(entry->model, node);
+                        break;
+                
+                    case MODELNODE_OPCODE_SWITCH:
+                        modelApplyToggleRelations(entry->model, node);
+                        break;
+                
+                    case MODELNODE_OPCODE_HEAD:
+                        modelApplyHeadRelations(entry->model, node);
+                        break;
+                
+                    case MODELNODE_OPCODE_DLCOLLISION:
+                    default:
+                        break;
                     }
-            
-                    descend = FALSE;
-                    break;
-            
-                case MODELNODE_OPCODE_OP17:
-                    if (sub_GAME_7F074CAC(entry->model, node, raypos, raydir)) {
-                        *outModel = entry->model;
-                        *inoutNode = node;
-                        *entryptr = entry;
-            
-                        return *(s32 *)node->Data;
-                    }
-            
-                    descend = FALSE;
-                    break;
-            
-                case MODELNODE_OPCODE_LOD:
-                    modelApplyDistanceRelations(entry->model, node);
-                    break;
-            
-                case MODELNODE_OPCODE_SWITCH:
-                    modelApplyToggleRelations(entry->model, node);
-                    break;
-            
-                case MODELNODE_OPCODE_HEAD:
-                    modelApplyHeadRelations(entry->model, node);
-                    break;
-            
-                case MODELNODE_OPCODE_DLCOLLISION:
-                default:
-                    break;
-                }
             }
         }
 
@@ -1207,27 +1106,6 @@ walk_node:
     *entryptr = NULL;
     return 0;
 }
-
-
-/**
- * Address: 0x7F06C010
-* https://decomp.me/scratch/IDiXU
- * #MATCH! Unlikley match, not sure why we are setting the root node to the last node.
- 
-f32 sub_GAME_7F06C010(ModelFileHeader *head, s32 unused, s32 unused2, s32 *arg3, s32 *arg4)
-{
-    ModelNode *lastnode = head->RootNode;
-
-    while (lastnode->Next != NULL)
-    {
-        lastnode = lastnode->Next;
-    }
-
-    head->RootNode = lastnode;
-    *arg3          = 0;
-    *arg4          = 0;
-    return probably_damage_detail_blood_effect_related(head, unused, unused2, arg3, arg4);
-}*/
 
 
 /**

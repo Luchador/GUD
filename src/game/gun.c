@@ -1930,7 +1930,7 @@ void gunSpawnGLGrenade(s32 handnum)
 
         gunInitProjectileFromPlayer(grenadeobj, &hand->field_B58, &launchmtx, &launchvel, (s32 *)&identitymtx);
 
-        if (grenadeobj->runtime_bitflags & RUNTIMEBITFLAG_00000080)
+        if (grenadeobj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
         {
             grenadeobj->projectile->unk8C = g_GLGrenadeLaunchUnk8C;
             grenadeobj->projectile->unk94 = g_GLGrenadeLaunchUnk94;
@@ -1996,10 +1996,7 @@ void gunUpdateAttachedRocket(s32 handIndex)
 }
 
 
-/*
-* Address: 0x7f05fa7c
-*/
-void currentPlayerCreateRocket(GUNHAND hand)
+void gunCreateRocket(GUNHAND hand)
 {
     struct hand * hand_ptr;
     struct WeaponObjRecord * rocket;
@@ -2019,184 +2016,6 @@ void currentPlayerCreateRocket(GUNHAND hand)
     }
 }
 
-
-/*
-* Address: 0x7F05FB00
-* This function frees some sort of ObjectRecord from the given hand
-*/
-#if defined(VERSION_EU)
-void sub_GAME_7F05FB00(enum GUNHAND hand)
-{
-    struct hand* hand_ptr;
-    ObjectRecord* hand_obj_record;
-
-    hand_ptr = &g_CurrentPlayer->hands[hand];
-    hand_obj_record = hand_ptr->rocket;
-
-    if (hand_obj_record != NULL)
-    {
-        objFreePermanently(hand_obj_record, 1);
-        hand_ptr->rocket = NULL;
-    }
-}
-
-
-extern f32 D_80053DDC;
-
-/*
-* Address: 0x7F05FB64
-*/
-void gunFireTankShell(s32 handnum)
-{
-    WeaponObjRecord *obj;
-    struct hand *hand;
-    Mtxf identitymtx;
-    coord3d velocity;
-    ObjectRecord *tankobj;
-    coord3d unscaledvelocity;
-    Mtxf shellmtx;
-    coord3d screenpos;
-    coord3d aimdir;
-    PropRecord *playerprop;
-    coord3d *prevplayerpos;
-    ITEM_IDS weaponid;
-    coord3d spawnpos;
-    PropRecord *tankprop;
-
-    hand = &g_CurrentPlayer->hands[handnum];
-
-    playerprop = getCurrentPlayerProp();
-    prevplayerpos = getCurrentPlayerPrevPos();
-    weaponid = getCurrentPlayerWeaponId(handnum);
-
-    matrix_4x4_set_identity(&identitymtx);
-
-    if (weaponid == ITEM_TANKSHELLS)
-    {
-        tankprop = get_ptr_for_players_tank();
-
-        if (1);
-
-        if ((tankprop != NULL) && (tankprop->flags & TANK_RUN_STATE_RUNNING))
-        {
-            bondviewSet3dCoord7F07CEB0(&aimdir);
-        }
-        else
-        {
-            sub_GAME_7F068190(&screenpos, &aimdir);
-            mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), &aimdir);
-        }
-
-        velocity.x = aimdir.x * g_TankShellSpeed;
-        velocity.y = aimdir.y * g_TankShellSpeed;
-        velocity.z = aimdir.z * g_TankShellSpeed;
-
-        if (g_ClockTimer > 0) {
-            velocity.x += (playerprop->pos.x - prevplayerpos->x) / g_GlobalTimerDelta;
-            velocity.y += (playerprop->pos.y - prevplayerpos->y) / g_GlobalTimerDelta;
-            velocity.z += (playerprop->pos.z - prevplayerpos->z) / g_GlobalTimerDelta;
-        }
-
-        if ((tankprop != NULL) && (tankprop->flags & TANK_RUN_STATE_RUNNING))
-        {
-            tankobj = tankprop->obj;
-            spawnpos.x = tankobj->model->render_pos[4].pos.m[3][0];
-            spawnpos.y = tankobj->model->render_pos[4].pos.m[3][1];
-            spawnpos.z = tankobj->model->render_pos[4].pos.m[3][2];
-
-            mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), &spawnpos);
-        }
-        else
-        {
-            spawnpos.x = playerprop->pos.x;
-            spawnpos.y = playerprop->pos.y;
-            spawnpos.z = playerprop->pos.z;
-        }
-
-        if ((g_CurrentPlayer && g_CurrentPlayer));
-
-        setSixExplosionAndSmokeEntries();
-    }
-    else
-    {
-        bullet_path_from_screen_center(&screenpos, &aimdir, handnum);
-        mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), &aimdir);
-
-        spawnpos.x = hand->field_B58.x;
-        spawnpos.y = hand->field_B58.y;
-        spawnpos.z = hand->field_B58.z;
-
-        if (1);
-
-        unscaledvelocity.x = aimdir.x * D_80053DDC;
-        unscaledvelocity.y = aimdir.y * D_80053DDC;
-        unscaledvelocity.z = aimdir.z * D_80053DDC;
-
-        velocity.x = unscaledvelocity.x * g_GlobalTimerDelta;
-        velocity.y = unscaledvelocity.y * g_GlobalTimerDelta;
-        velocity.z = unscaledvelocity.z * g_GlobalTimerDelta;
-
-        if (g_ClockTimer > 0)
-        {
-            velocity.x += (playerprop->pos.x - prevplayerpos->x) / g_GlobalTimerDelta;
-            velocity.y += (playerprop->pos.y - prevplayerpos->y) / g_GlobalTimerDelta;
-            velocity.z += (playerprop->pos.z - prevplayerpos->z) / g_GlobalTimerDelta;
-        }
-    }
-
-    matrix_4x4_copy(&g_CurrentPlayer->hands[handnum].throw_item_pos_related, &shellmtx);
-
-    shellmtx.m[3][0] = 0.0f;
-    shellmtx.m[3][1] = 0.0f;
-    shellmtx.m[3][2] = 0.0f;
-
-    if (hand->rocket != NULL)
-    {
-        obj = (WeaponObjRecord *) hand->rocket;
-        hand->firedrocket = 1;
-    }
-    else
-    {
-        obj = (WeaponObjRecord *) create_new_item_instance_of_model(PROP_CHRROCKET, ITEM_ROCKETROUND);
-    }
-
-    if (obj == NULL)
-    {
-        return;
-    }
-
-    obj->timer = -1;
-    obj->runtime_bitflags &= ~RUNTIMEBITFLAG_OWNER;
-    obj->runtime_bitflags |= get_cur_playernum() << RUNTIMEBITSHIFT_OWNER;
-
-    gunInitProjectileFromPlayer(obj, &spawnpos, &shellmtx, &velocity, (s32 *) &identitymtx);
-
-    if (obj->runtime_bitflags & RUNTIMEBITFLAG_00000080)
-    {
-        obj->projectile->flags |= PROJECTILEFLAG_LAUNCHING;
-
-        if (weaponid != ITEM_TANKSHELLS)
-        {
-            obj->projectile->flags |= PROJECTILEFLAG_00000020;
-            obj->projectile->unkB0 = obj->position.y;
-            obj->projectile->unkB4 = obj->projectile->speed.y;
-            obj->projectile->unk10.x = unscaledvelocity.x;
-            obj->projectile->unk10.y = unscaledvelocity.y;
-            obj->projectile->unk10.z = unscaledvelocity.z;
-            obj->projectile->refreshrate = THROWN_ITEM_REFRESH_RATE;
-
-            if (obj->projectile->sounds[0] == NULL)
-            {
-                sndPlaySfx(g_musicSfxBufferPtr, 1, &obj->projectile->sounds[0]);
-            }
-            else if (obj->projectile->sounds[1] == NULL)
-            {
-                sndPlaySfx(g_musicSfxBufferPtr, 1, &obj->projectile->sounds[1]);
-            }
-        }
-    }
-}
-#endif
 
 const char g_GunHudIntegerFormat[] = "%d\n";
 const char aSD[] = "%s: %d\n";

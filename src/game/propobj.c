@@ -1572,7 +1572,7 @@ s32 handles_projectile_motion(struct ObjectRecord *arg0, coord3d *arg1, coord3d 
     endpos.y = arg1->y;
     endpos.z = arg1->z;
 
-    if ((!(obj->runtime_bitflags & RUNTIMEBITFLAG_00000080)) || (!(obj->projectile->flags & PROPFLAG_ENABLED)))
+    if ((!(obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)) || (!(obj->projectile->flags & PROPFLAG_ENABLED)))
     {
         goto end;
     }
@@ -1821,7 +1821,7 @@ s32 objTryMovePropWithCollision(ObjectRecord *obj, coord3d *targetpos, coord3d *
     target.f[1] = targetpos->f[1];
     target.f[2] = targetpos->f[2];
 
-    if ((obj->runtime_bitflags & RUNTIMEBITFLAG_00000080) == 0)
+    if ((obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE) == 0)
     {
         goto done;
     }
@@ -8745,8 +8745,6 @@ void objBreakGlassPane(ObjectRecord* obj)
     PropRecord* prop;
     struct ModelRoData_BoundingBoxRecord *bbox;
 
-    return;
-
     prop = obj->prop;
     bbox = chrobjGetBboxFromObjectRecord(obj);
     explosionClearBulletImpactRoomByFlag(prop, FALSE);
@@ -8815,9 +8813,6 @@ void objBreakCCTVGlass(ObjectRecord *obj)
 }
 
 
-/**
- * Address 0x7F04DEFC.
-*/
 void maybe_detonate_object_and_its_children(PropRecord *prop, f32 damage, struct coord3d *pos, s32 arg3, s32 owner)
 {
     PropRecord *node;
@@ -8882,9 +8877,6 @@ bool objIsMortal(ObjectRecord* obj)
 }
 
 
-/**
- * Address 0x7F04E0CC.
-*/
 void chrobjMaybeDetonateObjectIfFlags(ObjectRecord *obj, f32 damage, coord3d *pos, ITEM_IDS item, s32 owner)
 {
     if ((obj->flags2 & 0x4000) == 0)
@@ -8921,7 +8913,6 @@ ObjectRecord blank_07_object = {
 };
 
 
-// Formerly maybe_detonate_object
 void objApplyDamage(ObjectRecord *obj, f32 damage, coord3d *pos, ITEM_IDS itemnum, s32 playernum)
 {
     s32 flags;
@@ -9195,20 +9186,10 @@ apply_damage:
 
 
 /**
- * This is the former non-matching block for sub_GAME_7F04E720. These asserts belong somewhere in sub_GAME_7F04E720
- *
- *   void sub_GAME_7F04E720(PropRecord* prop, struct ShotData* hitinfo) {
- *      mtx4TransformVecInPlace(?, hitinfo.hitpos);
- *  assert(!IsBadVec3d( (vec3d*)hitinfo.hitpos  );
- *  mtx4TransformVecInPlace(?, hitinfo.normal);
- *         assert(!IsBadVec3d( (vec3d*)hitinfo.normal  );
- * }
+ * Test a bullet hitscan against the prop's model and registers any hit.
+ * Recurses into child props first.
  */
-
-/**
- * Address: 7F04E720
- */
-void sub_GAME_7F04E720(PropRecord *prop, struct ShotData *hitinfo)
+void objTestAndAddShotHit(PropRecord *prop, struct ShotData *hitinfo)
 {
     ObjectRecord *obj = prop->obj;
     Model *model;
@@ -9222,20 +9203,14 @@ void sub_GAME_7F04E720(PropRecord *prop, struct ShotData *hitinfo)
     s8 g[4];
     ModelNode *hitnode;
 
-    if (hit.hitpos.z);
-
     if (((obj->runtime_bitflags & RUNTIMEBITFLAG_00001000) == FALSE) && (prop->flags & PROPFLAG_ONSCREEN))
     {
-        // Dummy goto is needed for matching.
-        goto dummy_label_995911;
-
-dummy_label_995911:
         child = prop->child;
 
         while (child != NULL)
         {
             next = child->prev;
-            sub_GAME_7F04E720(child, hitinfo);
+            objTestAndAddShotHit(child, hitinfo);
             child = next;
         }
 
@@ -9307,8 +9282,7 @@ dummy_label_995911:
 }
 
 
-// PD: obj_test_hit
-void sub_GAME_7F04E9BC(PropRecord* prop, struct ShotData* shotdata)
+void objTestHit(PropRecord* prop, struct ShotData* shotdata)
 {
     ObjectRecord *obj;
     f32 tmp;
@@ -9319,21 +9293,18 @@ void sub_GAME_7F04E9BC(PropRecord* prop, struct ShotData* shotdata)
     model = obj->model;
     bbox = chrobjGetBboxFromObjectRecord(obj);
 
-    if ((prop->flags & PROPFLAG_ONSCREEN)
-            && (obj->runtime_bitflags & RUNTIMEBITFLAG_00001000) == 0
-            && (obj->flags2 & PROPFLAG2_SHOOTTHROUGH) == 0) {
+    if ((prop->flags & PROPFLAG_ONSCREEN) && (obj->runtime_bitflags & RUNTIMEBITFLAG_00001000) == 0 && (obj->flags2 & PROPFLAG2_SHOOTTHROUGH) == 0)
+    {
         tmp = -(model->render_pos->pos.m[3][2] + chrpropSumMatrixNegZ(bbox, (Mtxf*)model->render_pos));
 
-        if (tmp <= shotdata->maxdist) {
-            sub_GAME_7F04E720(prop, (void*)shotdata);
+        if (tmp <= shotdata->maxdist)
+        {
+            objTestAndAddShotHit(prop, (void*)shotdata);
         }
     }
 }
 
 
-/**
- * Address: 7F04EA68
- */
 void objHit(ShotData *shotdata, BulletHit *hit)
 {
     ObjectRecord *obj;
@@ -9620,7 +9591,7 @@ TICKOP propobjInteract(PropRecord *prop)
     }
 
     obj->runtime_bitflags |= RUNTIMEBITFLAG_ACTIVATED;
-    sub_GAME_7F03E6A0(prop);
+    propActivateLinkedDoors(prop);
 
     return op;
 }
@@ -11826,7 +11797,7 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
 
                 if (hand == GUNLEFT) 
                 {
-                    matrix_4x4_set_rotation_around_z(3.1415927f, &rotationMtx);
+                    matrix_4x4_set_rotation_around_z(M_PI_F, &rotationMtx);
                     matrix_4x4_multiply_in_place(renderData.basemtx, &rotationMtx);
                     renderData.basemtx = &rotationMtx;
                 }
@@ -11836,7 +11807,7 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
 
                 if (gdl != NULL) 
                 {
-                    if (!(weaponObj->runtime_bitflags & RUNTIMEBITFLAG_00000080)) 
+                    if (!(weaponObj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)) 
                     {
                         *gdl = sub_GAME_7F06B120(*gdl, heldModel);
                     }
@@ -13576,7 +13547,7 @@ void doorActivateWrapper(PropRecord *prop) //#MATCH
     }
     door->runtime_bitflags |= RUNTIMEBITFLAG_ACTIVATED;
     door->flags2 &= ~8;
-    sub_GAME_7F03E6A0(prop);
+    propActivateLinkedDoors(prop);
 }
 
 

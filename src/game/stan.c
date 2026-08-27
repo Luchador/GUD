@@ -1411,24 +1411,24 @@ bool stanPointProjectsOntoEdge(f32 a_x, f32 a_z, f32 b_x, f32 b_z, f32 p_x, f32 
 }
 
 
-s32 stanTestVolume(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, f32 arg5, f32 arg6)
+s32 stanTestVolumeImpl(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, f32 arg5, f32 arg6)
 {
-    s32 i; // stack ??
-    f32 var_f20; // stack ??
-    f32 var_f24; // stack ??
-    s32 temp_v0; // stack ??
-    s32 next; // stack ??
+    s32 i;
+    f32 var_f20;
+    f32 var_f24;
+    s32 temp_v0;
+    s32 next;
 
     s32 sp108;
-    f32 temp_f0;  // stack ??
+    f32 temp_f0;
     s16 *sp100;
     s32 spFC;
-    struct PropRecord *prop; // no stack
+    struct PropRecord *prop;
     s32 spA8[0x14];
     struct rect4f *polygon;
-    s32 numvertices0;  // spa0
-    f32 temp_f0_3; // stack ??
-    f32 temp_f0_2; // stack ??
+    s32 numvertices0;
+    f32 temp_f0_3;
+    f32 temp_f0_2;
     f32 sp94;
     f32 sp90;
 
@@ -1448,9 +1448,7 @@ s32 stanTestVolume(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, 
 
     if (spFC > 20)
     {
-        #ifdef DEBUG
-            osSyncPrintf("stanCircleLegalXFObjTypeY: %d rooms is more than %d\n",spFC,20);
-        #endif
+        //osSyncPrintf("stanCircleLegalXFObjTypeY: %d rooms is more than %d\n",spFC,20);
         spFC = 20;
     }
 
@@ -1496,11 +1494,7 @@ s32 stanTestVolume(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, 
                             temp_f0_2 = distBetweenPoints2d(polygon->points[i].f[0], polygon->points[i].f[1], arg1, arg2);
                             temp_f0_3 = distBetweenPoints2d(polygon->points[next].f[0], polygon->points[next].f[1], arg1, arg2);
 
-                            if ((var_f20 < arg3)
-                                && (
-                                    (temp_f0_2 < arg3)
-                                    || (temp_f0_3 < arg3)
-                                    || (stanPointProjectsOntoEdge(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], arg1, arg2) != 0)))
+                            if ((var_f20 < arg3) && ((temp_f0_2 < arg3) || (temp_f0_3 < arg3) || (stanPointProjectsOntoEdge(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], arg1, arg2) != 0)))
                             {
                                 g_StanLastCollisionEdgePointsValid = 1;
                                 var_f24 = var_f20;
@@ -1533,6 +1527,24 @@ s32 stanTestVolume(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, 
     }
 
     return -2;
+}
+
+/* TEMP profiler: accumulated cost and call count of stanTestVolume,
+ * captured and zeroed each frame by lvlDrawFrameRateDisplay. */
+u32 g_ProfStanVolCycles;
+u32 g_ProfStanVolCalls;
+
+s32 stanTestVolume(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, f32 arg5, f32 arg6)
+{
+    u32 proftime;
+    s32 rc;
+
+    proftime = osGetCount();
+    rc = stanTestVolumeImpl(arg0, arg1, arg2, arg3, cdtypes, arg5, arg6);
+    g_ProfStanVolCycles += osGetCount() - proftime;
+    g_ProfStanVolCalls += 1;
+
+    return rc;
 }
 
 
@@ -1798,19 +1810,22 @@ s32 stanCheckLinkedSpecialTile(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3
 
     link = tile->points[pointIdx].link;
 
-    if ((link >> 4) != 0) {
+    if ((link >> 4) != 0)
+    {
         target = (StandTile *)(link + (StandTile *)standTileStart);
 
         mid = target->mid.half;
 
-        if (g_StanTileSpecialFlags[mid >> 0xc] & STANTILEFLAG_FORCECROUCH) {
+        if (g_StanTileSpecialFlags[mid >> 0xc] & STANTILEFLAG_FORCECROUCH)
+        {
             outFlags[0] = 1;
             return 1;
         }
 
         mid = target->mid.half;
 
-        if (g_StanTileSpecialFlags[mid >> 0xc] & STANTILEFLAG_LADDER) {
+        if (g_StanTileSpecialFlags[mid >> 0xc] & STANTILEFLAG_LADDER)
+        {
             g_StanDetectedLadderTile = target;
             outFlags[1] = 1;
             return 0;
@@ -2019,8 +2034,6 @@ s32 stanTestLocusEdgeAboveY(StandTile **tile, f32 target_x, f32 target_z, f32 ra
     f32 data;
 
     data = yThreshold * level_scale;
-
-    /// TODO: Why is this cast wrong?
 
     return stanTestCircleCollisionWithCallbacks(tile, target_x, target_z, radius, NULL, stanLocusEdgeIsAboveY, NULL, (struct StandTileLocusCallbackRecord*)&data);
 }

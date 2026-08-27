@@ -265,7 +265,7 @@ void gunFireTankShell(s32 handnum)
 
     gunInitProjectileFromPlayer(obj, &spawnpos, &shellmtx, &velocity, (s32 *) &identitymtx);
 
-    if (obj->runtime_bitflags & RUNTIMEBITFLAG_00000080)
+    if (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
     {
         obj->projectile->flags |= PROJECTILEFLAG_LAUNCHING;
 
@@ -2442,7 +2442,7 @@ void sub_GAME_7F0649D8(enum GUNHAND hand)
 
     if (item_id == ITEM_ROCKETLAUNCH)
     {
-        currentPlayerCreateRocket(hand);
+        gunCreateRocket(hand);
         return;
     }
 

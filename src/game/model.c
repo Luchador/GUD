@@ -3894,10 +3894,9 @@ Model Type 4: Normal Fog/Lighting object
 */
 
 /**
-* 7F072A0C
 * DisplayList Setups Depend on Object Type, Prop Guard or Gun.
-These are applied to each part of an object at runtime and can be overridden. loading the next part will use these values once more.
-GeometryMode is not in setup and is persistent accross parts.
+* These are applied to each part of an object at runtime and can be overridden. loading the next part will use these values once more.
+* GeometryMode is not in setup and is persistent accross parts.
 */
 void modelRenderNodeDl(ModelRenderData *renderdata, Model *model, ModelNode *node)
 {
@@ -3965,12 +3964,6 @@ void modelRenderNodeDl(ModelRenderData *renderdata, Model *model, ModelNode *nod
             gSPDisplayList(renderdata->gdl++, rodata->DisplayListCollisions.Secondary);
         }
     }
-}
-
-
-void sub_GAME_7F072C10(ModelRenderData *param_1, struct Model *param_2, struct ModelNode *param_3)
-{
-    return;
 }
 
 
@@ -4055,12 +4048,6 @@ void dorottex(ModelRenderData *renderdata, ModelNode *node)
 void sub_GAME_7F073038(ModelRenderData *renderdata, struct sImageTableEntry *tconfig, s32 arg2)
 {
     texSelect(&renderdata->gdl, tconfig, arg2, renderdata->zbufferenabled, 2);
-}
-
-
-void sub_GAME_7F07306C(s32 param_1,struct Model *param_2,struct ModelNode *param_3)
-{
-    return;
 }
 
 
@@ -4318,18 +4305,6 @@ void sub_GAME_7F07306C(s32 param_1,struct Model *param_2,struct ModelNode *param
 }*/
 
 
-void sub_GAME_7F0737EC(s32 param_1,struct Model *param_2, struct ModelNode *param_3)
-{
-    return;
-}
-
-
-void sub_GAME_7F0737FC(s32 param_1,struct Model *param_2,struct ModelNode *param_3)
-{
-    return;
-}
-
-
 // PD: modelRenderNodeChrGunfire
 void dogfnegx(ModelRenderData *renderdata, Model *model, ModelNode *node)
 {
@@ -4478,7 +4453,6 @@ void dogfnegx(ModelRenderData *renderdata, Model *model, ModelNode *node)
         gSPSetGeometryMode(renderdata->gdl++, G_CULL_BACK);
         gSPMatrix(renderdata->gdl++, osVirtualToPhysical(mtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
         gSPVertex(renderdata->gdl++, osVirtualToPhysical(vertices), 4, 0);
-        if (1);
         gSP2Triangles(renderdata->gdl++, 0, 1, 2, 0, 2, 3, 0, 0);
     }
 }
@@ -4628,65 +4602,60 @@ void sub_GAME_7F074524(Gfx *param_1,struct Model *param_2, struct ModelNode *par
 }
 
 
-void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node) {
+void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node) 
+{
     u32 id = node->Opcode & 0xFF;
-    switch (id) {
-    case MODELNODE_OPCODE_LOD:
-        modelApplyDistanceRelations(model, node);
-        return;
-    case MODELNODE_OPCODE_SWITCH:
-        modelApplyToggleRelations(model, node);
-        return;
-    case MODELNODE_OPCODE_HEAD:
-        modelApplyHeadRelations(model, node);
-        return;
-    case MODELNODE_OPCODE_BSP:
-        modelApplyReorderRelations(model, node);
-        return;
-    case MODELNODE_OPCODE_OP11:
-        sub_GAME_7F0737FC(data, model, node);
-        return;
-    case MODELNODE_OPCODE_GUNFIRE:
-        dogfnegx(data, model, node);
-        return;
-    case MODELNODE_OPCODE_SHADOW:
-        doshadow(data, model, node);
-        return;
-    case MODELNODE_OPCODE_BBOX:
-        sub_GAME_7F074514(data, model, node);
-        return;
-    case MODELNODE_OPCODE_OP17:
-        sub_GAME_7F074524(data, model, node);
-        return;
-    case MODELNODE_OPCODE_DL:
-        modelRenderNodeGundl(data, node);
-        return;
-    case MODELNODE_OPCODE_DLCOLLISION:
-        modelRenderNodeDl(data, model, node);
-        return;
-    case MODELNODE_OPCODE_OP20:
-        sub_GAME_7F072C10(data, model, node);
-        return;
-    case MODELNODE_OPCODE_DLPRIMARY:
-        dorottex(data, node);
-        return;
-    case MODELNODE_OPCODE_OP05:
-        sub_GAME_7F07306C(data, model, node);
-        return;
-    case MODELNODE_OPCODE_OP07:
-        //dotube(data, model, node);
-        return;
-    case MODELNODE_OPCODE_OP06:
-        sub_GAME_7F0737EC(data,model,node);
-        return;
-    case MODELNODE_OPCODE_HEADER:
-    case MODELNODE_OPCODE_GROUP:
-    case MODELNODE_OPCODE_OP03:
-    case MODELNODE_OPCODE_OP14:
-    case MODELNODE_OPCODE_INTERLINK:
-    case MODELNODE_OPCODE_OP16:
-    default:
-        return;
+
+    switch (id) 
+    {
+        case MODELNODE_OPCODE_LOD:
+            modelApplyDistanceRelations(model, node);
+            return;
+        case MODELNODE_OPCODE_SWITCH:
+            modelApplyToggleRelations(model, node);
+            return;
+        case MODELNODE_OPCODE_HEAD:
+            modelApplyHeadRelations(model, node);
+            return;
+        case MODELNODE_OPCODE_BSP:
+            modelApplyReorderRelations(model, node);
+            return;
+        case MODELNODE_OPCODE_OP11:
+            return;
+        case MODELNODE_OPCODE_GUNFIRE:
+            dogfnegx(data, model, node);
+            return;
+        case MODELNODE_OPCODE_SHADOW:
+            doshadow(data, model, node);
+            return;
+        case MODELNODE_OPCODE_BBOX:
+            sub_GAME_7F074514(data, model, node);
+            return;
+        case MODELNODE_OPCODE_DL:
+            modelRenderNodeGundl(data, node);
+            return;
+        case MODELNODE_OPCODE_DLCOLLISION:
+            modelRenderNodeDl(data, model, node);
+            return;
+        case MODELNODE_OPCODE_OP20:
+            return;
+        case MODELNODE_OPCODE_DLPRIMARY:
+            dorottex(data, node);
+            return;
+        case MODELNODE_OPCODE_OP05:
+            return;
+        case MODELNODE_OPCODE_OP07:
+            //dotube(data, model, node);
+            return;
+        case MODELNODE_OPCODE_OP06:
+        case MODELNODE_OPCODE_HEADER:
+        case MODELNODE_OPCODE_GROUP:
+        case MODELNODE_OPCODE_OP03:
+        case MODELNODE_OPCODE_OP14:
+        case MODELNODE_OPCODE_INTERLINK:
+        case MODELNODE_OPCODE_OP16:
+        default:
+            return;
     }
 }
 
@@ -4934,165 +4903,11 @@ bool modelTestRayIntersectsTransformedBBox(ModelRoData_BoundingBoxRecord *bbox, 
 }
 
 
-/**
- * Address: 7F074C68
- */
 bool modelTestRayIntersectsNodeBBox(Model *model, ModelNode *node, coord3d *pos, coord3d *dir)
 {
     ModelRoData_BoundingBoxRecord *bbox = &node->Data->BoundingBox;
 
     return modelTestRayIntersectsTransformedBBox(bbox, modelFindNodeMtx(model, node, 0), pos, dir);
-}
-
-
-/**
- * Address: 7F074CAC
- */
-s32 sub_GAME_7F074CAC(Model *model, ModelNode *node, coord3d *raypos, coord3d *raydir)
-{
-    ModelRoData_Op17Record *hitData;
-    Mtxf *nodeMtx;
-    ModelOp17MainStack rayData[1];
-    f32 centerProjection;
-    Mtxf *otherNodeMtx;
-    ModelOp17AxisStack axisData[1];
-    f32 scaledProjection;
-    f32 projectionScalar;
-    f32 secondAxisScale;
-    f32 centerDistanceSq;
-    u32 nodeFlags;
-    f32 directionDotProduct;
-
-    hitData = (ModelRoData_Op17Record *) node->Data;
-    nodeMtx = modelFindNodeMtx(model, node, 0);
-    rayData->data.rel = D_80036408;
-    rayData->data.radiusSq = hitData->radiusSq;
-    rayData->data.dir.f[0] = raydir->x;
-    rayData->data.dir.f[1] = raydir->y;
-    rayData->data.dir.f[2] = raydir->z;
-    nodeFlags = node->Opcode;
-
-    if (nodeFlags & 0x100)
-    {
-        rayData->data.pos.f[0] = hitData->pos.f[0];
-        rayData->data.pos.f[1] = hitData->pos.f[1];
-        rayData->data.pos.f[2] = hitData->pos.f[2];
-        rayData->data.rel.f[0] = (((rayData->data.pos.f[0] * nodeMtx->m[0][0]) + (rayData->data.pos.f[1] * nodeMtx->m[1][0])) + (rayData->data.pos.f[2] * nodeMtx->m[2][0])) + (nodeMtx->m[3][0] - raypos->x);
-        rayData->data.rel.f[1] = (((rayData->data.pos.f[0] * nodeMtx->m[0][1]) + (rayData->data.pos.f[1] * nodeMtx->m[1][1])) + (rayData->data.pos.f[2] * nodeMtx->m[2][1])) + (nodeMtx->m[3][1] - raypos->y);
-        rayData->data.rel.f[2] = (((rayData->data.pos.f[0] * nodeMtx->m[0][2]) + (rayData->data.pos.f[1] * nodeMtx->m[1][2])) + (rayData->data.pos.f[2] * nodeMtx->m[2][2])) + (nodeMtx->m[3][2] - raypos->z);
-    }
-    else if (nodeFlags & 0x200)
-    {
-        if (hitData->othernode != NULL)
-        {
-            otherNodeMtx = modelFindNodeMtx(model, hitData->othernode, 0);
-            rayData->data.rel.f[0] = ((nodeMtx->m[3][0] + otherNodeMtx->m[3][0]) * 0.5f) - (*raypos).f[0];
-            rayData->data.rel.f[1] = ((nodeMtx->m[3][1] + otherNodeMtx->m[3][1]) * 0.5f) - (*raypos).f[1];
-            rayData->data.rel.f[2] = ((nodeMtx->m[3][2] + otherNodeMtx->m[3][2]) * 0.5f) - (*raypos).f[2];
-        }
-        else
-        {
-            rayData->data.rel.f[0] = nodeMtx->m[3][0] - raypos->x;
-            rayData->data.rel.f[1] = nodeMtx->m[3][1] - raypos->y;
-            rayData->data.rel.f[2] = nodeMtx->m[3][2] - raypos->z;
-        }
-    }
-    else
-    {
-        rayData->data.rel.f[0] = nodeMtx->m[3][0] - raypos->x;
-        rayData->data.rel.f[1] = nodeMtx->m[3][1] - raypos->y;
-        rayData->data.rel.f[2] = nodeMtx->m[3][2] - raypos->z;
-    }
-
-    nodeFlags = node->Opcode;
-
-    if (nodeFlags & 0x400)
-    {
-        projectionScalar = hitData->scale1;
-        secondAxisScale = hitData->scale2;
-        scaledProjection = (((rayData->data.dir.f[0] * nodeMtx->m[0][0]) + (rayData->data.dir.f[1] * nodeMtx->m[0][1])) + (rayData->data.dir.f[2] * nodeMtx->m[0][2])) * projectionScalar;
-        directionDotProduct = scaledProjection;
-        rayData->data.dir.f[0] = rayData->data.dir.f[0] + (nodeMtx->m[0][0] * directionDotProduct);
-        rayData->data.dir.f[1] = rayData->data.dir.f[1] + (nodeMtx->m[0][1] * directionDotProduct);
-        rayData->data.dir.f[2] = rayData->data.dir.f[2] + (nodeMtx->m[0][2] * directionDotProduct);
-        centerProjection = (((rayData->data.rel.f[0] * nodeMtx->m[0][0]) + (rayData->data.rel.f[1] * nodeMtx->m[0][1])) + (rayData->data.rel.f[2] * nodeMtx->m[0][2])) * projectionScalar;
-        rayData->data.rel.f[0] = rayData->data.rel.f[0] + (nodeMtx->m[0][0] * centerProjection);
-        rayData->data.rel.f[1] = rayData->data.rel.f[1] + (nodeMtx->m[0][1] * centerProjection);
-        rayData->data.rel.f[2] = rayData->data.rel.f[2] + (nodeMtx->m[0][2] * centerProjection);
-        scaledProjection = (((rayData->data.dir.f[0] * nodeMtx->m[1][0]) + (rayData->data.dir.f[1] * nodeMtx->m[1][1])) + (rayData->data.dir.f[2] * nodeMtx->m[1][2])) * secondAxisScale;
-        directionDotProduct = scaledProjection;
-        rayData->data.dir.f[0] = rayData->data.dir.f[0] + (nodeMtx->m[1][0] * directionDotProduct);
-        rayData->data.dir.f[1] = rayData->data.dir.f[1] + (nodeMtx->m[1][1] * directionDotProduct);
-        rayData->data.dir.f[2] = rayData->data.dir.f[2] + (nodeMtx->m[1][2] * directionDotProduct);
-        projectionScalar = (((rayData->data.rel.f[0] * nodeMtx->m[1][0]) + (rayData->data.rel.f[1] * nodeMtx->m[1][1])) + (rayData->data.rel.f[2] * nodeMtx->m[1][2])) * secondAxisScale;
-        rayData->data.rel.f[0] = rayData->data.rel.f[0] + (nodeMtx->m[1][0] * projectionScalar);
-        rayData->data.rel.f[1] = rayData->data.rel.f[1] + (nodeMtx->m[1][1] * projectionScalar);
-        rayData->data.rel.f[2] = rayData->data.rel.f[2] + (nodeMtx->m[1][2] * projectionScalar);
-    }
-    else if (((nodeFlags & 0x800) || (nodeFlags & 0x1000)) || (nodeFlags & 0x2000))
-    {
-        axisData->axisAdjustment.scale = hitData->scale1;
-        if ((nodeFlags & 0x800))
-        {
-            axisData->axisAdjustment.axis.f[0] = nodeMtx->m[0][0];
-            axisData->axisAdjustment.axis.f[1] = nodeMtx->m[0][1];
-            axisData->axisAdjustment.axis.f[2] = nodeMtx->m[0][2];
-        }
-        else if (nodeFlags & 0x1000)
-        {
-            axisData->axisAdjustment.axis.f[0] = nodeMtx->m[1][0];
-            axisData->axisAdjustment.axis.f[1] = nodeMtx->m[1][1];
-            axisData->axisAdjustment.axis.f[2] = nodeMtx->m[1][2];
-        }
-        else if (nodeFlags & 0x2000)
-        {
-            axisData->axisAdjustment.axis.f[0] = nodeMtx->m[2][0];
-            axisData->axisAdjustment.axis.f[1] = nodeMtx->m[2][1];
-            axisData->axisAdjustment.axis.f[2] = nodeMtx->m[2][2];
-        }
-
-        directionDotProduct = axisData->axisAdjustment.scale * (
-        (rayData->data.dir.f[0] * axisData->axisAdjustment.axis.f[0]) +
-        (rayData->data.dir.f[1] * axisData->axisAdjustment.axis.f[1]) +
-        (rayData->data.dir.f[2] * axisData->axisAdjustment.axis.f[2])
-        );
-
-        rayData->data.dir.f[0] = rayData->data.dir.f[0] + (axisData->axisAdjustment.axis.f[0] * directionDotProduct);
-        rayData->data.dir.f[1] = rayData->data.dir.f[1] + (axisData->axisAdjustment.axis.f[1] * directionDotProduct);
-        rayData->data.dir.f[2] = rayData->data.dir.f[2] + (axisData->axisAdjustment.axis.f[2] * directionDotProduct);
-
-        scaledProjection = axisData->axisAdjustment.scale * (
-        (rayData->data.rel.f[0] * axisData->axisAdjustment.axis.f[0]) +
-        (rayData->data.rel.f[1] * axisData->axisAdjustment.axis.f[1]) +
-        (rayData->data.rel.f[2] * axisData->axisAdjustment.axis.f[2])
-        );
-
-        rayData->data.rel.f[0] = rayData->data.rel.f[0] + (axisData->axisAdjustment.axis.f[0] * scaledProjection);
-        rayData->data.rel.f[1] = rayData->data.rel.f[1] + (axisData->axisAdjustment.axis.f[1] * scaledProjection);
-        rayData->data.rel.f[2] = rayData->data.rel.f[2] + (axisData->axisAdjustment.axis.f[2] * scaledProjection);
-    }
-
-    projectionScalar =
-    (rayData->data.dir.f[0] * rayData->data.rel.f[0]) +
-    (rayData->data.dir.f[1] * rayData->data.rel.f[1]) +
-    (rayData->data.dir.f[2] * rayData->data.rel.f[2]);
-
-    if (0.0f < projectionScalar)
-    {
-        directionDotProduct = (rayData->data.dir.f[0] * rayData->data.dir.f[0]) + (rayData->data.dir.f[1] * rayData->data.dir.f[1]) + (rayData->data.dir.f[2] * rayData->data.dir.f[2]);
-        centerDistanceSq = (rayData->data.rel.f[0] * rayData->data.rel.f[0]) + (rayData->data.rel.f[1] * rayData->data.rel.f[1]) + (0, rayData->data.rel.f[2] * rayData->data.rel.f[2]);
-
-        if (((centerDistanceSq - rayData->data.radiusSq) * directionDotProduct) <= (projectionScalar * projectionScalar))
-        {
-            return 1;
-        }
-        else
-        {
-            return 0;
-        }
-    }
-
-    return 0;
 }
 
 
@@ -5104,10 +4919,13 @@ u32 modelFindNextProjectileHitCandidate(Model *model, coord3d *arg1, coord3d *ar
 
     descend = TRUE;
 
-    if (*nodeptr != NULL) {
+    if (*nodeptr != NULL)
+    {
         node = *nodeptr;
         *nodeptr = NULL;
-    } else {
+    } 
+    else
+    {
         node = model->obj->RootNode;
     }
 
@@ -5140,38 +4958,30 @@ u32 modelFindNextProjectileHitCandidate(Model *model, coord3d *arg1, coord3d *ar
             * The real opcodes run from HEADER=1 through DLCOLLISION=24, so the compiler
             * normalizes them to a zero-based table index by subtracting 1.
             */
-            switch (opcode - 1) {
-            case MODELNODE_OPCODE_BBOX - 1:
-                if (modelTestRayIntersectsNodeBBox(model, node, arg1, arg2) != 0) {
-                    *nodeptr = node;
-                    return *(u32 *)node->Data;
-                }
-                descend = FALSE;
-                break;
+            switch (opcode - 1) 
+            {
+                case MODELNODE_OPCODE_BBOX - 1:
+                    if (modelTestRayIntersectsNodeBBox(model, node, arg1, arg2) != 0) {
+                        *nodeptr = node;
+                        return *(u32 *)node->Data;
+                    }
+                    descend = FALSE;
+                    break;
+                case MODELNODE_OPCODE_LOD - 1:
+                    modelApplyDistanceRelations(model, node);
+                    break;
 
-            case MODELNODE_OPCODE_OP17 - 1:
-                if (sub_GAME_7F074CAC(model, node, arg1, arg2) != 0) {
-                    *nodeptr = node;
-                    return *(u32 *)node->Data;
-                }
-                descend = FALSE;
-                break;
+                case MODELNODE_OPCODE_SWITCH - 1:
+                    modelApplyToggleRelations(model, node);
+                    break;
 
-            case MODELNODE_OPCODE_LOD - 1:
-                modelApplyDistanceRelations(model, node);
-                break;
-
-            case MODELNODE_OPCODE_SWITCH - 1:
-                modelApplyToggleRelations(model, node);
-                break;
-
-            case MODELNODE_OPCODE_HEAD - 1:
-                modelApplyHeadRelations(model, node);
-                break;
-            case MODELNODE_OPCODE_HEADER - 1:
-            case MODELNODE_OPCODE_DLCOLLISION - 1:
-            default:
-                break;
+                case MODELNODE_OPCODE_HEAD - 1:
+                    modelApplyHeadRelations(model, node);
+                    break;
+                case MODELNODE_OPCODE_HEADER - 1:
+                case MODELNODE_OPCODE_DLCOLLISION - 1:
+                default:
+                    break;
             }
         } while (node != NULL);
     }
@@ -5376,13 +5186,6 @@ void modelPromoteNodeOffsetsToPointers(ModelNode *node, u32 vma, u32 fileramaddr
                     ModelRoData_BSPRecord* rodata = &node->Data->BSP;
                     PROMOTE(rodata->leftChild);
                     PROMOTE(rodata->rightChild);
-                    break;
-                }
-
-            case MODELNODE_OPCODE_OP17:
-                {
-                    ModelRoData_GroupRecord* rodata = &node->Data->Group;
-                    PROMOTE(rodata->ChildGroup);
                     break;
                 }
 

@@ -301,6 +301,6 @@ f32                chrpropSumMatrixPosZ(struct ModelRoData_BoundingBoxRecord *bb
 f32                chrpropSumMatrixNegZ(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *arg1);
 void               collisionCalcFootprintFromBBox(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *mtx, struct rect4f* poly, struct collision_data *collisiondata);
 void               projectRectCornersTo2D(struct coord3d *arg0, struct coord2d *arg1, struct coord2d *arg2, struct coord2d *arg3, struct coord2d *arg4);
-void               sub_GAME_7F03E6A0(PropRecord *prop);
+void               propActivateLinkedDoors(PropRecord *prop);
 struct PropRecord *propFindForInteract(void);
 #endif

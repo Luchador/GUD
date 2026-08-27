@@ -284,7 +284,7 @@ void        chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit);
 void        propExecuteTickOperation(PropRecord *prop, TICKOP op);
 
 //tentative signature
-s32         sub_GAME_7F01FC10(Model *, coord3d *, coord3d *, f32 *);
+s32         chrUpdatePosition(Model *, coord3d *, coord3d *, f32 *);
 void        chrCreateBloodStain(Model *arg0, s32 arg1, ModelNode *arg2, struct coord3d *arg3);
 void        chrpropAddBulletHit(struct ShotData *shotdata, PropRecord *prop, f32 dist, s32 hitpart, ModelNode *node, struct HitThing *hitthing, s32 room, s32 unk44, Model *model, bool countsAsPenetration, s32 blocksFurtherHits);
 void        chrTestHit(PropRecord *prop, ShotData *shotdata);
