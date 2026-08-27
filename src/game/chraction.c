@@ -67,9 +67,8 @@ s32 chrlvStanRoomRelated                      (ChrRecord *self, coord3d *arg1, S
 f32 chrlvModelScaleAnimationRelated           (ChrRecord *self);
 void chrlvActGoposRelated                     (ChrRecord *self, coord3d *arg1, StandTile **arg2);
 s32 chrlvMovementTargetRelated                (ChrRecord *self);
-waypoint *get_ptrpreset_in_table_matching_tile           (StandTile* tile);
+waypoint *navGetFirstWaypointForTile           (StandTile* tile);
 s32 check_if_any_path_preset_lies_on_tile     (StandTile* tile);
-f32 chrlvPadPresetRelated                     (coord3d *arg0, waypoint *arg1);
 waypoint *chrlvStanPathRelated                (coord3d *arg0, StandTile *arg1);
 s32 chrlvStanRoomRelatedPad                   (ChrRecord *self, PadRecord *arg1);
 void sub_GAME_7F025560                        (ChrRecord *self, s32 attack_type, s32 arg2);
@@ -1874,7 +1873,7 @@ void chrlvLineLineIntersection(coord3d *line1_p1, coord3d *line1_p2, coord3d *li
 
 /**
  * Line-line intersection.
- * The first two points are retrieved from getCollisionEdge_maybe.
+ * The first two points are retrieved from stanGetLastCollisionEdge.
  * The arguments to the method supply the other line, described by a point and direction.
  *
  * 3d coord/vector are passed as arguments, but only the 2d (x,z) values are used to find the intersection.
@@ -1890,7 +1889,7 @@ void chrlvStanLineDirIntersection(coord3d *line2_p3, coord3d *dir, coord3d *resu
     coord3d sp2C;
     coord3d sp20;
 
-    getCollisionEdge_maybe(&sp2C, &sp20);
+    stanGetLastCollisionEdge(&sp2C, &sp20);
     chrlvLineLineIntersection(&sp2C, &sp20, line2_p3, dir, result);
 }
 
@@ -1908,7 +1907,7 @@ void chrlvStanPointPointIntersection(coord3d *arg0, coord3d *arg1, coord3d *resu
     coord3d sp20;
     f32 v;
 
-    getCollisionEdge_maybe(&sp2C, &sp20);
+    stanGetLastCollisionEdge(&sp2C, &sp20);
 
     // see comments in chrlvLineLineIntersection
 
@@ -2751,24 +2750,28 @@ s32 chrlvExplosionDamage(ChrRecord *self, coord3d *arg1, f32 damage, s32 arg3)
 
 
 /**
- * Address 0x7F027BF4.
- * 
  * Given a stan tile, find the first waypoint on that tile.
  */
-waypoint *get_ptrpreset_in_table_matching_tile(StandTile *tile)
+waypoint *navGetFirstWaypointForTile(StandTile *tile)
 {
     waypoint *head;
     waypoint *wp;
 
     head = g_CurrentSetup.pathwaypoints;
 
-    if (head != NULL) {
+    if (head != NULL)
+    {
         wp = head;
-        while (wp->padID >= 0) {
-            PadRecord* var_v0 = &g_CurrentSetup.pads[wp->padID];
-            if (tile == var_v0->stan) {
+
+        while (wp->padID >= 0)
+        {
+            PadRecord* pad = &g_CurrentSetup.pads[wp->padID];
+
+            if (tile == pad->stan)
+            {
                 return wp;
             }
+
             wp++;
         }
     }
@@ -2777,36 +2780,26 @@ waypoint *get_ptrpreset_in_table_matching_tile(StandTile *tile)
 }
 
 
-/**
- * Address 0x7F027C60.
-*/
 s32 check_if_any_path_preset_lies_on_tile(StandTile* tile)
 {
-    return get_ptrpreset_in_table_matching_tile(tile) != NULL;
+    return navGetFirstWaypointForTile(tile) != NULL;
 }
 
 
-/**
- * 100% match, unsure of argument types.
- * Addresss 0x7F027C84.
-*/
-f32 chrlvPadPresetRelated(coord3d *arg0, waypoint *arg1)
+f32 chrlvPadPresetRelated(coord3d *pos, waypoint *wp)
 {
-    f32 temp_f12;
-    f32 temp_f2;
-    PadRecord *temp_v0;
+    f32 distz;
+    f32 distx;
+    PadRecord *pad;
 
-    temp_v0 = &g_CurrentSetup.pads[arg1->padID];
-    temp_f2 = temp_v0->pos.f[0] - arg0->f[0];
-    temp_f12 = temp_v0->pos.f[2] - arg0->f[2];
-    return (temp_f2 * temp_f2) + (temp_f12 * temp_f12);
+    pad = &g_CurrentSetup.pads[wp->padID];
+    distx = pad->pos.x - pos->x;
+    distz = pad->pos.z - pos->z;
+
+    return (distx * distx) + (distz * distz);
 }
 
 
-
-/**
- * Address 0x7F027CD4.
-*/
 waypoint *chrlvStanPathRelated(coord3d *arg0, StandTile *arg1)
 {
     StandTile *tile = NULL;
@@ -2816,9 +2809,10 @@ waypoint *chrlvStanPathRelated(coord3d *arg0, StandTile *arg1)
     s32 *n = NULL;
 
     tile = stanFillSearch(arg1, check_if_any_path_preset_lies_on_tile);
+
     if (tile != NULL)
     {
-        ret = get_ptrpreset_in_table_matching_tile(tile);
+        ret = navGetFirstWaypointForTile(tile);
 
         if (ret != NULL)
         {
@@ -8001,7 +7995,7 @@ s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     {
         sp88 = 1;
 
-        getCollisionEdge_maybe(&sp78, &sp6C);
+        stanGetLastCollisionEdge(&sp78, &sp6C);
         chrlvSwapIfDiffArg2Determinate(&sp78, &sp6C, &spA0);
     }
 
@@ -8032,7 +8026,7 @@ s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     {
         sp84 = 1;
 
-        getCollisionEdge_maybe(&sp60, &sp54);
+        stanGetLastCollisionEdge(&sp60, &sp54);
         chrlvSwapIfDiffArg2Determinate(&sp60, &sp54, &spA0);
     }
 
@@ -8080,7 +8074,7 @@ s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
         }
         else
         {
-            getCollisionEdge_maybe(arg4, arg5);
+            stanGetLastCollisionEdge(arg4, arg5);
             chrlvSwapIfDiffArg2Determinate(arg4, arg5, &spA0);
         }
     }
@@ -8175,7 +8169,7 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     {
         sp88 = 1;
 
-        getCollisionEdge_maybe(&sp78, &sp6C);
+        stanGetLastCollisionEdge(&sp78, &sp6C);
         chrlvSwapIfDiffArg2Determinate(&sp78, &sp6C, &spA0);
 
         stanval1 = g_StanLastLineCollisionFraction;
@@ -8208,7 +8202,7 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     {
         sp84 = 1;
 
-        getCollisionEdge_maybe(&sp60, &sp54);
+        stanGetLastCollisionEdge(&sp60, &sp54);
         chrlvSwapIfDiffArg2Determinate(&sp60, &sp54, &spA0);
 
         stanval2 = g_StanLastLineCollisionFraction;
@@ -8268,7 +8262,7 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
         }
         else
         {
-            getCollisionEdge_maybe(arg4, arg5);
+            stanGetLastCollisionEdge(arg4, arg5);
             chrlvSwapIfDiffArg2Determinate(arg4, arg5, &spA0);
         }
     }
@@ -10204,7 +10198,7 @@ s32 chrIsTargetNearlyInSight(ChrRecord *self)
     }
     else
     {
-        getCollisionEdge_maybe(&sp48, &sp3C); //extreme edges of stan tile
+        stanGetLastCollisionEdge(&sp48, &sp3C); //extreme edges of stan tile
 
         if (
             sub_GAME_7F0304AC(self, &self_prop->pos, self_prop->stan, &sp48, &player_prop->pos, player_prop->stan, 0)

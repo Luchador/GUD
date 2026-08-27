@@ -2355,7 +2355,7 @@ s32 bondviewTrySimpleMovePlayerCollision(coord3d *next_pos, coord3d *collision_p
         return 1;
     }
 
-    getCollisionEdge_maybe(collision_pt0, collision_pt1);
+    stanGetLastCollisionEdge(collision_pt0, collision_pt1);
 
     return 0;
 }
@@ -2428,7 +2428,7 @@ s32 bondviewTryFractionMovePlayerCollision(
         return 1;
     }
 
-    getCollisionEdge_maybe(collision2_pt0, collision2_pt1);
+    stanGetLastCollisionEdge(collision2_pt0, collision2_pt1);
 
     if (collision2_pt0->f[0] != collision1_pt0->f[0]
         || collision2_pt0->f[1] != collision1_pt0->f[1]
@@ -6367,7 +6367,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             sp31C = -1;
             sp304 = -1;
 
-            getCollisionEdge_maybe(&tank_collision_pt1, &tank_collision_pt2);
+            stanGetLastCollisionEdge(&tank_collision_pt1, &tank_collision_pt2);
 
             tank_collision_dx = (tank_collision_pt2.f[0] - tank_collision_pt1.f[0]);
             tank_collision_dz = (tank_collision_pt2.f[2] - tank_collision_pt1.f[2]);

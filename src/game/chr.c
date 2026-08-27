@@ -1230,7 +1230,7 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
 
     hasprojection = 0;
 
-    if (getCollisionEdge_maybe(&edgeA, &edgeB))
+    if (stanGetLastCollisionEdge(&edgeA, &edgeB))
     {
         delta.x = dst->x - src->x;
         delta.z = dst->z - src->z;

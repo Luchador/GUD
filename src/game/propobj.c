@@ -1862,7 +1862,7 @@ s32 objTryMovePropWithCollision(ObjectRecord *obj, coord3d *targetpos, coord3d *
         }
     }
 
-    getCollisionEdge_maybe(&edgeA, &edgeB);
+    stanGetLastCollisionEdge(&edgeA, &edgeB);
 
     arg3->x = edgeB.z - edgeA.z;
     arg3->y = 0.0f;

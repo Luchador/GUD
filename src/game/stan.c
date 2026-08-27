@@ -2065,7 +2065,7 @@ typedef struct BfsSearchLocals {
 //    because it's static and never changes at run-time
 // 4. This function is called at one single location and the second arg
 //    is always the same. It could return the result from tilePred already.
-StandTile *stanFillSearch(StandTile *starttile, tilePredicate_t predicate) // stanFillSearch is the canonical name for this function
+StandTile *stanFillSearch(StandTile *starttile, tilePredicate_t predicate)
 {
     StandTile **stackbase;
     BfsSearchLocals loc;
@@ -2167,8 +2167,6 @@ nextpoint:
             while (stackindex < loc.lastnumtiles);
         }
 
-        if (predicate || tileStartAddr);
-
         // We only continue if we made progress with this iteration
         if (seenCount != loc.lastnumtiles)
         {
@@ -2188,7 +2186,7 @@ nextpoint:
  * @param pntA: out parameter, will contain g_StanLastCollisionEdgePointA (x,z)
  * @param pntB: out parameter, will contain g_StanLastCollisionEdgePointB (x,z)
  */
-bool getCollisionEdge_maybe(coord3d *pntA, coord3d *pntB)
+bool stanGetLastCollisionEdge(coord3d *pntA, coord3d *pntB)
 {
     if (g_StanLastCollisionTile)
     {

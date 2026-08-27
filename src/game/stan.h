@@ -62,7 +62,7 @@ void stanResetHits(void);
 s32 walkTilesBetweenPoints_NoCallback(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_x, f32 dest_z);
 bool stanIsPointNearTile(StandTile *tile, f32 px, f32 pz);
 f32 stanGetPositionYValue(StandTile* tile, f32 p_x, f32 p_z);
-s32 getCollisionEdge_maybe(coord3d *pntA, coord3d *pntB);
+s32 stanGetLastCollisionEdge(coord3d *pntA, coord3d *pntB);
 s32 stanTestLocusEdgeAboveY(StandTile **tile, f32 target_x, f32 target_z, f32 radius, f32 yThreshold);
 s32 stanTestCircleCollisionNoCallbacks(StandTile **tileStack, f32 target_x, f32 target_z, f32 radius);
 s32 stanTestLineUnobstructed(StandTile **pTile, f32 p_x, f32 p_z, f32 dest_x, f32 dest_z, int cdtypes, f32 unkHeight, f32 unkA, f32 unkB, f32 unkC);
