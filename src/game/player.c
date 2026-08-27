@@ -35,7 +35,6 @@ struct hand g_DefaultHandTemplate = {
     1, /* weaponVisible */
     0, /* handVisible */
     0, /* weapon_hold_time */
-    0, /* field_884 */
     0, /* field_888 */
     0, /* field_88C */
     0, /* field_890 */
@@ -88,12 +87,10 @@ struct hand g_DefaultHandTemplate = {
     { {{0,1.0f,0}}, {{0,1.0f,0}}, {{0,1.0f,0}}, {{0,1.0f,0}} }, /* blendup[4] */
     0, /* curblendpos */
     0, /* dampt */
-    1.0f, /* blendscale */
     1.0f, /* blendscale1 */
     0, /* sideflag */
     0, /* weapon_theta_displacement */
     0, /* weapon_verta_displacement */
-    0, /* field_A24 */
     0, /* gunofs2_x */
     0, /* gunofs2_y */
     0, /* gunofs2_z */
@@ -132,46 +129,8 @@ struct hand g_DefaultHandTemplate = {
     { { {0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0} } }, /* throw_item_pos_related_prev */
     { {0,0,0} }, /* field_B58 */
     0, /* field_B64 */
-    0, /* field_B68 */
-    0, /* field_B6C */
-    0, /* field_B70 */
-    0, /* mtxlist */
-    0, /* field_B78 */
-    0, /* field_B7C */
-    0, /* field_B80 */
-    0, /* field_B84 */
-    0, /* modeldatas */
-    0, /* field_B8C */
-    0, /* field_B90 */
-    0, /* field_B94 */
-    0, /* field_B98 */
-    0, /* field_B9C */
-    0, /* field_BA0 */
-    0, /* field_BA4 */
-    0, /* field_BA8 */
-    0, /* field_BAC */
-    0, /* field_BB0 */
-    0, /* field_BB4 */
-    0, /* field_BB8 */
-    0, /* field_BBC */
-    0, /* field_BC0 */
-    0, /* field_BC4 */
-    0, /* field_BC8 */
-    0, /* field_BCC */
-    0, /* field_BD0 */
-    0, /* field_BD4 */
-    0, /* field_BD8 */
-    0, /* field_BDC */
-    0, /* field_BE0 */
-    0, /* field_BE4 */
-    0, /* field_BE8 */
-    0, /* field_BEC */
-    0, /* field_BF0 */
-    0, /* field_BF4 */
-    0, /* field_BF8 */
-    0, /* field_BFC */
-    0, /* field_C00 */
-    0, /* field_C04 */
+    {0}, /* gunmodel */
+    {0}, /* modeldatas[32] */
     0, /* volley */
     { {0,0,0} }, /* item_related */
 };

@@ -60,7 +60,6 @@
       build/OUTCODE/src/game/matrixmath_misc.o (.data);
       build/OUTCODE/src/game/quaternion.o (.data);
       build/OUTCODE/src/game/gun.o (.data);
-      build/OUTCODE/src/game/gun_rodata.o (.data);
       build/OUTCODE/src/game/bondwalk2.o (.data);
       build/OUTCODE/src/game/objecthandler.o (.data);
       build/OUTCODE/src/game/model.o (.data);

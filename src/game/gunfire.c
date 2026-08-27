@@ -140,9 +140,6 @@ void sub_GAME_7F05FB00(enum GUNHAND hand)
 }
 
 
-extern f32 D_80053DDC;
-
-
 void gunFireTankShell(s32 handnum)
 {
     WeaponObjRecord *obj;
@@ -219,9 +216,9 @@ void gunFireTankShell(s32 handnum)
         spawnpos.y = hand->field_B58.y;
         spawnpos.z = hand->field_B58.z;
 
-        unscaledvelocity.x = aimdir.x * D_80053DDC;
-        unscaledvelocity.y = aimdir.y * D_80053DDC;
-        unscaledvelocity.z = aimdir.z * D_80053DDC;
+        unscaledvelocity.x = aimdir.x * 1.111111f;
+        unscaledvelocity.y = aimdir.y * 1.111111f;
+        unscaledvelocity.z = aimdir.z * 1.111111f;
 
         velocity.x = unscaledvelocity.x * g_GlobalTimerDelta;
         velocity.y = unscaledvelocity.y * g_GlobalTimerDelta;
@@ -624,11 +621,11 @@ void gunUpdateAndFire(GUNHAND handnum)
 
         modelCalculateRwDataLen(mdlhdr);
 
-        model = (Model *) (&hand->field_B68);
+        model = &hand->gunmodel;
 
         if (mdlhdr->Switches);
 
-        modelInit(model, mdlhdr, (s32 *) (&hand->modeldatas));
+        modelInit(model, mdlhdr, hand->modeldatas);
         sub_GAME_7F05E978(model, 1);
         sub_GAME_7F05EA94(model, hand->weaponVisible);
         node = mdlhdr->Switches[1];
@@ -637,7 +634,7 @@ void gunUpdateAndFire(GUNHAND handnum)
         {
             if (&node->Data->Switch);
 
-            flashvisptr = ((s32 *) (&hand->modeldatas)) + node->Data->Switch.RwDataIndex;
+            flashvisptr = (s32 *) &hand->modeldatas[node->Data->Switch.RwDataIndex];
         }
 
         if (mdlhdr->Switches[3] != NULL)
@@ -645,7 +642,7 @@ void gunUpdateAndFire(GUNHAND handnum)
             flashdata = (f32 *) mdlhdr->Switches[3]->Data;
         }
 
-        hand->mtxlist = rwmtx;
+        hand->gunmodel.render_pos = (RenderPosView *) rwmtx;
 
         if ((bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_MIRROR_DUAL) != 0) && (handnum == GUNLEFT))
         {
@@ -1530,11 +1527,11 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
  
         gSPPerspNormalize(gdl++, matrix_4x4_calc_depth_scale(0.0f, 300.0f));
  
-        if ((*(Model *)&handptr->field_B68).obj->numSwitches >= 0x11 && (*(Model *)&handptr->field_B68).obj->Switches[16] != NULL)
+        if (handptr->gunmodel.obj->numSwitches >= 0x11 && handptr->gunmodel.obj->Switches[16] != NULL)
         {
             union ModelRwData *rwdata;
-            model = (Model *)&handptr->field_B68;
-            rwdata = modelGetNodeRwData(model, (*(Model *)&handptr->field_B68).obj->Switches[17]);
+            model = &handptr->gunmodel;
+            rwdata = modelGetNodeRwData(model, handptr->gunmodel.obj->Switches[17]);
  
             if (rwdata != NULL) 
             {
@@ -1544,11 +1541,11 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
             if (item == ITEM_ROCKETLAUNCH) 
             {
                 save_img_index_to_obj_ani_slot(&g_UnknownAnimController, crosshairimage);
-                gdl = process_monitor_animation_microcode(model, (*(Model *)&handptr->field_B68).obj->Switches[16], &g_UnknownAnimController, gdl, 0, 4);
+                gdl = process_monitor_animation_microcode(model, handptr->gunmodel.obj->Switches[16], &g_UnknownAnimController, gdl, 0, 4);
             } 
             else 
             {
-                gdl = process_monitor_animation_microcode(model, (*(Model *)&handptr->field_B68).obj->Switches[16], &g_TaserAnimController, gdl, 0, 1);
+                gdl = process_monitor_animation_microcode(model, handptr->gunmodel.obj->Switches[16], &g_TaserAnimController, gdl, 0, 1);
             }
         }
  
@@ -1589,7 +1586,7 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
             }
         }
  
-        subdraw(&renderdata, (Model *)&handptr->field_B68);
+        subdraw(&renderdata, &handptr->gunmodel);
         gdl = renderdata.gdl;
  
         if (bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_MIRROR_DUAL) != 0) 
@@ -1597,7 +1594,7 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
             gSPClearGeometryMode(gdl++, G_CULL_BOTH);
         }
  
-        bviewTransformManyPosToViewMatrix((*(Model *)&handptr->field_B68).render_pos, (*(Model *)&handptr->field_B68).obj->numMatrices);
+        bviewTransformManyPosToViewMatrix(handptr->gunmodel.render_pos, handptr->gunmodel.obj->numMatrices);
         matrixRestoreConversionScale();
  
         gSPPerspNormalize(gdl++, viGetPerspNorm());
@@ -2522,7 +2519,6 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
     var_s1 = get_item_in_hand_or_watch_menu(hand);
     sp1C4 = gunGetAmmoType(var_s1);
 
-    handptr->field_884 = handptr->weapon_hold_time;
     handptr->weapon_hold_time = triggerOn;
 
     if (triggerOn == 0)
@@ -4609,14 +4605,6 @@ void get_bullet_angle(f32* horizontal_angle, f32* vertical_angle) {
 
 extern const f32 g_GunScreenAspectRatio;
 
-#define THROWMTX_OFFSET      0xAD8
-#define THROWPOS_OFFSET      0xB08
-#define THROWPOS_PREV_OFFSET 0xB48
-
-#define THROWMTX     ((Mtxf *) ((u8 *) g_CurrentPlayer + handoffset + THROWMTX_OFFSET))
-#define THROWPOS(k)  (((f32 *) ((u8 *) g_CurrentPlayer + handoffset + THROWPOS_OFFSET))[k])
-#define THROWPREV(k) (((f32 *) ((u8 *) g_CurrentPlayer + handoffset + THROWPOS_PREV_OFFSET))[k])
- 
 extern const f32 g_CasingSwitchScale;
 extern const f32 g_PistolCasingHorizontalSpeed;
 extern const f32 g_PistolCasingRotationScaleX;
@@ -4741,6 +4729,7 @@ CasingRecord* casingCreate(ModelFileHeader* header, Mtxf* mtx)
  */
 void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
 {
+    struct hand *hand;
     CasingRecord *casing;
     Mtxf mtx;
     ITEM_IDS weaponid;
@@ -4755,9 +4744,9 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
     f32 oldvely;
     f32 newvely;
     s32 randlimit;
-    s32 handoffset;
     u32 randval;
- 
+
+    hand = &g_CurrentPlayer->hands[handnum];
     weaponid = getCurrentPlayerWeaponId(handnum);
     cartridge_header = get_ptr_item_statistics(weaponid)->ptr_cartridge_struct;
  
@@ -4767,7 +4756,6 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
         return;
     }
  
-    handoffset = handnum * sizeof(struct hand);
     switch0 = g_CurrentPlayer->copy_of_body_obj_header[handnum].Switches[0];
  
     if (switch0 != NULL)
@@ -4779,11 +4767,11 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
         switchpos.z = switchdata->z * g_CasingSwitchScale;
  
         matrix_4x4_set_identity_and_position(&switchpos, &mtx);
-        matrix_4x4_multiply_in_place(THROWMTX, &mtx);
+        matrix_4x4_multiply_in_place(&hand->throw_item_pos_related, &mtx);
     }
     else
     {
-        matrix_4x4_copy(THROWMTX, &mtx);
+        matrix_4x4_copy(&hand->throw_item_pos_related, &mtx);
     }
  
     casing = casingCreate(cartridge_header, &mtx);
@@ -4806,7 +4794,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
         casing->vel.y = ((rand * 2.5f) * 0.0625f) + 2.5f;
         casing->vel.z = frac * 0.0f;
  
-        mtx4RotateVecInPlace(THROWMTX, &casing->vel);
+        mtx4RotateVecInPlace(&hand->throw_item_pos_related, &casing->vel);
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
         rot.x = (((rand + rand) * g_PistolCasingRotationScaleX) * newvely) - g_PistolCasingRotationOffsetX;
@@ -4835,9 +4823,9 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
         // Keep the 0 + 1 for matching.
         if (g_ClockTimer >= (0 + 1))
         {
-            casing->vel.x += (THROWPOS(0) - THROWPREV(0)) / g_GlobalTimerDelta;
-            casing->vel.y += (THROWPOS(1) - THROWPREV(1)) / g_GlobalTimerDelta;
-            casing->vel.z += (THROWPOS(2) - THROWPREV(2)) / g_GlobalTimerDelta;
+            casing->vel.x += (hand->throw_item_pos_related.m[3][0] - hand->throw_item_pos_related_prev.m[3][0]) / g_GlobalTimerDelta;
+            casing->vel.y += (hand->throw_item_pos_related.m[3][1] - hand->throw_item_pos_related_prev.m[3][1]) / g_GlobalTimerDelta;
+            casing->vel.z += (hand->throw_item_pos_related.m[3][2] - hand->throw_item_pos_related_prev.m[3][2]) / g_GlobalTimerDelta;
         }
     }
     else
@@ -4849,7 +4837,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
         casing->vel.y = ((rand * g_RifleCasingVerticalSpeed) * 0.125f) + g_RifleCasingVerticalSpeed;
         casing->vel.z = 0.0f;
  
-        mtx4RotateVecInPlace(THROWMTX, &casing->vel);
+        mtx4RotateVecInPlace(&hand->throw_item_pos_related, &casing->vel);
  
         rand = ((f32) ((u32) randomGetNext())) * 2.3283064e-10f;
         rot.x = (((rand + rand) * g_RifleCasingRotationScaleX) * 0.0625f) - g_RifleCasingRotationOffsetX;
@@ -4876,9 +4864,9 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
  
         if (g_ClockTimer > 0)
         {
-            casing->vel.x += (THROWPOS(0) - THROWPREV(0)) / g_GlobalTimerDelta;
-            casing->vel.y += (THROWPOS(1) - THROWPREV(1)) / g_GlobalTimerDelta;
-            casing->vel.z += (THROWPOS(2) - THROWPREV(2)) / g_GlobalTimerDelta;
+            casing->vel.x += (hand->throw_item_pos_related.m[3][0] - hand->throw_item_pos_related_prev.m[3][0]) / g_GlobalTimerDelta;
+            casing->vel.y += (hand->throw_item_pos_related.m[3][1] - hand->throw_item_pos_related_prev.m[3][1]) / g_GlobalTimerDelta;
+            casing->vel.z += (hand->throw_item_pos_related.m[3][2] - hand->throw_item_pos_related_prev.m[3][2]) / g_GlobalTimerDelta;
         }
     }
 }

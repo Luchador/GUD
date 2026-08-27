@@ -22,7 +22,6 @@ struct hand hand_data_dummy = {
     0, // s8 handVisible;
  
     0, // s32 weapon_hold_time;
-    0, // s32 field_884;
     0, // s32 field_888;
     0, // s32 field_88C;
     0, // s32 field_890;
@@ -95,12 +94,10 @@ struct hand hand_data_dummy = {
  
     0, // s32 curblendpos;
     0, // f32 dampt;
-    1.0f, // f32 blendscale;
     1.0f, // f32 blendscale1;
     0, // s32 sideflag;
     0, // f32 weapon_theta_displacement;
     0, // f32 weapon_verta_displacement;
-    0, // s32 field_A24;
     0, // f32 gunofs2_x;
     0, // f32 gunofs2_y;
     0, // f32 gunofs2_z;
@@ -160,14 +157,12 @@ struct hand hand_data_dummy = {
     0, // gunmtx_camspace.m[3][2];
     0, // gunmtx_camspace.m[3][3];
  
-    // offset 0xad8
     // Mtxf throw_item_pos_related;
     0,0,0,0,
     0,0,0,0,
     0,0,0,0,
     0,0,0,0,
  
-    // offset 0xb18
     // Mtxf throw_item_pos_related_prev;
     0,0,0,0,
     0,0,0,0,
@@ -178,46 +173,8 @@ struct hand hand_data_dummy = {
     0,0,0,
  
     0, // f32 field_B64;
-    0, // s32 field_B68;
-    0, // s32 field_B6C;
-    0, // s32 field_B70;
-    0, // Mtxf * mtxlist;
-    0, // s32 field_B78;
-    0, // s32 field_B7C;
-    0, // s32 field_B80;
-    0, // s32 field_B84;
-    0, // s32 modeldatas;
-    0, // s32 field_B8C;
-    0, // s32 field_B90;
-    0, // s32 field_B94;
-    0, // s32 field_B98;
-    0, // s32 field_B9C;
-    0, // s32 field_BA0;
-    0, // s32 field_BA4;
-    0, // s32 field_BA8;
-    0, // s32 field_BAC;
-    0, // s32 field_BB0;
-    0, // s32 field_BB4;
-    0, // s32 field_BB8;
-    0, // s32 field_BBC;
-    0, // s32 field_BC0;
-    0, // s32 field_BC4;
-    0, // s32 field_BC8;
-    0, // s32 field_BCC;
-    0, // s32 field_BD0;
-    0, // s32 field_BD4;
-    0, // s32 field_BD8;
-    0, // s32 field_BDC;
-    0, // s32 field_BE0;
-    0, // s32 field_BE4;
-    0, // s32 field_BE8;
-    0, // s32 field_BEC;
-    0, // s32 field_BF0;
-    0, // s32 field_BF4;
-    0, // s32 field_BF8;
-    0, // s32 field_BFC;
-    0, // s32 field_C00;
-    0, // s32 field_C04;
+    {0}, // Model gunmodel;
+    {0}, // u32 modeldatas[32];
     0, // s32 volley;  // Number of bullets discharged in a row. For pistols, it's always 1 even if the fire button is held.
     // coord3d item_related;
     0,0,0

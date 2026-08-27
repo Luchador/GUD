@@ -121,8 +121,6 @@ struct hand
    * Time holding weapon
   */
   s32 weapon_hold_time;
-  
-  s32 field_884;
   s32 field_888;
   s32 field_88C;
   s32 field_890;
@@ -173,12 +171,10 @@ struct hand
   coord3d blendup[4];
   s32 curblendpos;
   f32 dampt;
-  f32 blendscale;
   f32 blendscale1;
   s32 sideflag;
   f32 weapon_theta_displacement;
   f32 weapon_verta_displacement;
-  s32 field_A24;
   f32 gunofs2_x;
   f32 gunofs2_y;
   f32 gunofs2_z;
@@ -198,52 +194,12 @@ struct hand
   AttachedObj* rocket;
   s32 firedrocket;
   Mtxf gunmtx_camspace;
-  // offset 0xad8
   Mtxf throw_item_pos_related;
-  // offset 0xb18
   Mtxf throw_item_pos_related_prev;
   coord3d field_B58;
   f32 field_B64;
-  s32 field_B68;
-  s32 field_B6C;
-  s32 field_B70;
-  Mtxf *mtxlist;
-  s32 field_B78;
-  s32 field_B7C;
-  s32 field_B80;
-  s32 field_B84;
-  s32 modeldatas;
-  s32 field_B8C;
-  s32 field_B90;
-  s32 field_B94;
-  s32 field_B98;
-  s32 field_B9C;
-  s32 field_BA0;
-  s32 field_BA4;
-  s32 field_BA8;
-  s32 field_BAC;
-  s32 field_BB0;
-  s32 field_BB4;
-  s32 field_BB8;
-  s32 field_BBC;
-  s32 field_BC0;
-  s32 field_BC4;
-  s32 field_BC8;
-  s32 field_BCC;
-  s32 field_BD0;
-  s32 field_BD4;
-  s32 field_BD8;
-  s32 field_BDC;
-  s32 field_BE0;
-  s32 field_BE4;
-  s32 field_BE8;
-  s32 field_BEC;
-  s32 field_BF0;
-  s32 field_BF4;
-  s32 field_BF8;
-  s32 field_BFC;
-  s32 field_C00;
-  s32 field_C04;
+  Model gunmodel;
+  u32 modeldatas[32];
   s32 volley;  // Number of bullets discharged in a row. For pistols, it's always 1 even if the fire button is held.
   coord3d item_related;
 };
