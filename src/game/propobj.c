@@ -172,7 +172,7 @@ struct tvcmd {
 
 s32 updateDoorDisplacement(DoorRecord* door);
 s32 objGetShotsTaken(ObjectRecord *);
-void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, bool withalpha);
+void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool translucentPass);
 bool chrobjSeparatingAxisTheorem(rect4f* rect1, s32 numvertices0, rect4f* rect2, s32 numvertices1);
 void chrobjSndCreatePostEvent(ALSoundState *state, coord3d *pos, f32 low, f32 high);
 void remove_obj_from_temp_proxmine_table(WeaponObjRecord* proxy);
@@ -7064,216 +7064,189 @@ Gfx *process_monitor_animation_microcode(Model *model, ModelNode *node, MonitorR
  * Renders the object's model and recurses over its attached children. Expects model render data
  * prepared by objRenderProp.
  */
-void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, bool withalpha)
+void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool translucentPass)
 {
-    if (prop->flags & PROPFLAG_ONSCREEN)
+    enum
     {
-        ObjectRecord *obj;
-        Model *model;
-        s32 alpha;
-        PropRecord *child;
-        Gfx *gdl;
-        s32 mN;
-        s32 m0;
-        ObjectRecord *o;
-        DoorRecord *door;
-        s32 recolor;
-        s32 v;
-        ModelNode *node;
-        Gfx *g3;
-        Gfx *g;
-        Gfx *g2;
-        bool orthogonal;
-        union ModelRwData **rwdataSlot;
+        MONITOR_ZBUFFER_DISABLED = 0,
+        MONITOR_ZBUFFER_SURFACE = 1,
+        MONITOR_ZBUFFER_DECAL = 8 // Render as an overlay on an existing surface to prevent Z-fighting.
+    };
 
-        obj = prop->obj;
-        model = obj->model;
-        orthogonal = (obj->flags & PROPFLAG_ORTHOGONAL) && camGetPlayerProjViewMtx() != NULL;
+    ObjectRecord *obj;
+    Model *model;
+    Gfx *gdl;
+    Mtx *orthogonalProjection;
+    PropRecord *child;
+    s32 monitorZBufferMode;
 
-        gdl = mrData->gdl;
+    if (!(prop->flags & PROPFLAG_ONSCREEN))
+    {
+        return;
+    }
+
+    obj = prop->obj;
+    model = obj->model;
+    gdl = renderData->gdl;
+    orthogonalProjection = NULL;
+
+    if (obj->flags & PROPFLAG_ORTHOGONAL)
+    {
+        orthogonalProjection = camGetPlayerProjViewMtx();
+    }
+
+    if ((obj->type == PROPDEF_MONITOR || obj->type == PROPDEF_MULTI_MONITOR) && (renderData->flags & 1))
+    {
+        if (obj->flags2 & PROPFLAG2_00010000)
+        {
+            monitorZBufferMode = MONITOR_ZBUFFER_DISABLED;
+        }
+        else if (obj->flags & PROPFLAG_FIXED_MONITOR)
+        {
+            monitorZBufferMode = MONITOR_ZBUFFER_DECAL;
+        }
+        else
+        {
+            monitorZBufferMode = MONITOR_ZBUFFER_SURFACE;
+        }
 
         if (obj->type == PROPDEF_MONITOR)
         {
-            if (mrData->flags & 1)
-            {
-                if (obj->flags2 & PROPFLAG2_00010000)
-                {
-                    mN = 0;
-                }
-                else if (obj->flags & PROPFLAG_FIXED_MONITOR)
-                {
-                    mN = 8;
-                }
-                else
-                {
-                    mN = 1;
-                }
+            MonitorObjRecord *monitor = (MonitorObjRecord *)obj;
 
-                gdl = process_monitor_animation_microcode(model, model->obj->Switches[0], &((MonitorObjRecord *)prop->obj)->Monitor, gdl, mN, 1);
-            }
+            gdl = process_monitor_animation_microcode(model, model->obj->Switches[0],
+                    &monitor->Monitor, gdl, monitorZBufferMode, 1);
         }
-        else if (obj->type == PROPDEF_MULTI_MONITOR)
+        else
         {
-            if (mrData->flags & 1)
+            MultiMonitorObjRecord *multiMonitor = (MultiMonitorObjRecord *)obj;
+
+            gdl = process_monitor_animation_microcode(model, model->obj->Switches[0], &multiMonitor->Monitor[0], gdl, monitorZBufferMode, 1);
+
+            if (monitorZBufferMode != MONITOR_ZBUFFER_DISABLED && (obj->flags & PROPFLAG_SPECIAL_FUNC))
             {
-                o = prop->obj;
-
-                if (obj->flags2 & PROPFLAG2_00010000)
-                {
-                    mN = 0;
-                }
-                else if (obj->flags & PROPFLAG_FIXED_MONITOR)
-                {
-                    mN = 8;
-                }
-                else
-                {
-                    mN = 1;
-                }
-
-                gdl = process_monitor_animation_microcode(model, model->obj->Switches[0], &((MultiMonitorObjRecord *)o)->Monitor[0], gdl, mN, 1);
-
-                if (obj->flags2 & PROPFLAG2_00010000)
-                {
-                    mN = 0;
-                }
-                else if (obj->flags & (PROPFLAG_FIXED_MONITOR | PROPFLAG_SPECIAL_FUNC))
-                {
-                    mN = 8;
-                }
-                else
-                {
-                    mN = 1;
-                }
-
-                gdl = process_monitor_animation_microcode(model, model->obj->Switches[1], &((MultiMonitorObjRecord *)o)->Monitor[1], gdl, mN, 1);
-
-                gdl = process_monitor_animation_microcode(model, model->obj->Switches[2], &((MultiMonitorObjRecord *)o)->Monitor[2], gdl, mN, 1);
-
-                gdl = process_monitor_animation_microcode(model, model->obj->Switches[3], &((MultiMonitorObjRecord *)o)->Monitor[3], gdl, mN, 1);
+                monitorZBufferMode = MONITOR_ZBUFFER_DECAL;
             }
+
+            gdl = process_monitor_animation_microcode(model, model->obj->Switches[1], &multiMonitor->Monitor[1], gdl, monitorZBufferMode, 1);
+            gdl = process_monitor_animation_microcode(model, model->obj->Switches[2], &multiMonitor->Monitor[2], gdl, monitorZBufferMode, 1);
+            gdl = process_monitor_animation_microcode(model, model->obj->Switches[3], &multiMonitor->Monitor[3], gdl, monitorZBufferMode, 1);
+        }
+    }
+
+    if (obj->type == PROPDEF_DOOR)
+    {
+        DoorRecord *door = prop->door;
+
+        gSPClearGeometryMode(gdl++, G_CULL_BOTH);
+
+        if (door->doorFlags & DOORFLAG_FLIP)
+        {
+            renderData->cullmode = CULLMODE_FRONT;
+        }
+        else
+        {
+            renderData->cullmode = CULLMODE_BACK;
         }
 
-        if (obj->type == PROPDEF_DOOR)
+        if (renderData->PropType == PROP_TYPE_MAX)
         {
-            door = prop->door;
+            renderData->envcolour.word &= 0xffffff00;
+        }
+    }
+    else
+    {
+        ModelNode *collisionNode = sub_GAME_7F04B478(obj);
+        bool hasDeformedVertices = FALSE;
+        s32 destroyedLevel;
 
-            gSPClearGeometryMode(gdl++, G_CULL_BOTH);
+        if (collisionNode != NULL)
+        {
+            union ModelRoData *collisionData = collisionNode->Data;
 
-            if (door->doorFlags & DOORFLAG_FLIP)
+            if (collisionData != NULL)
             {
-                mrData->cullmode = CULLMODE_FRONT;
+                s32 rwdataIndex = collisionData->DisplayListCollisions.RwDataIndex;
+
+                hasDeformedVertices = collisionData->DisplayListCollisions.Vertices
+                        != (Vertex *)model->datas[rwdataIndex];
+            }
+        }
+
+        destroyedLevel = objGetDestroyedLevel(obj);
+
+        if (destroyedLevel > 0 && hasDeformedVertices)
+        {
+            renderData->cullmode = CULLMODE_NONE;
+
+            if (renderData->PropType == PROP_TYPE_MAX)
+            {
+                s32 deformedAlpha = destroyedLevel * 50 + 100;
+
+                if (deformedAlpha > 255)
+                {
+                    deformedAlpha = 255;
+                }
+
+                renderData->envcolour.word &= 0xffffff00;
+                renderData->envcolour.word |= deformedAlpha;
             }
             else
             {
-                mrData->cullmode = CULLMODE_BACK;
-            }
-
-            if (mrData->PropType == PROP_TYPE_MAX)
-            {
-                mrData->envcolour.word &= 0xffffff00;
+                renderData->envcolour.word |= 0xff00;
             }
         }
         else
         {
-            node = sub_GAME_7F04B478(obj);
-            recolor = 0;
+            renderData->cullmode = CULLMODE_BACK;
 
-            if (node != NULL)
+            if (renderData->PropType == PROP_TYPE_MAX)
             {
-                union ModelRoData *nodedata;
-
-                nodedata = node->Data;
-
-                if (nodedata != NULL)
-                {
-                    rwdataSlot = &obj->model->datas[nodedata->DisplayListCollisions.RwDataIndex];
-
-                    if (nodedata->DisplayListCollisions.Vertices != (Vertex *)*rwdataSlot)
-                    {
-                        recolor = 1;
-                    }
-                }
-            }
-
-            v = objGetDestroyedLevel(obj);
-
-            if ((v == 0) || !recolor)
-            {
-                mrData->cullmode = CULLMODE_BACK;
-
-                if (mrData->PropType == PROP_TYPE_MAX)
-                {
-                    mrData->envcolour.word &= 0xffffff00;
-                }
-            }
-            else
-            {
-                v = objGetDestroyedLevel(obj);
-                mrData->cullmode = CULLMODE_NONE;
-
-                if (mrData->PropType == PROP_TYPE_MAX)
-                {
-                    alpha = v * 50 + 100;
-
-                    if (alpha >= 256)
-                    {
-                        alpha = 255;
-                    }
-
-                    mrData->envcolour.word &= 0xffffff00;
-                    mrData->envcolour.word |= alpha;
-                }
-                else if (v > 0)
-                {
-                    mrData->envcolour.word |= 0xff00;
-                }
+                renderData->envcolour.word &= 0xffffff00;
             }
         }
+    }
 
-        if (orthogonal)
+    if (orthogonalProjection != NULL)
+    {
+        gSPMatrix(gdl++, orthogonalProjection, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
+    }
+
+    renderData->gdl = gdl;
+    subdraw(renderData, model);
+    gdl = renderData->gdl;
+
+    if (obj->type == PROPDEF_DOOR)
+    {
+        gSPClearGeometryMode(gdl++, G_CULL_BOTH);
+    }
+
+    if (obj->state & (1 << translucentPass))
+    {
+        gdl = explosionRenderBulletImpactOnProp(gdl, prop, translucentPass);
+    }
+
+    if (orthogonalProjection != NULL)
+    {
+        gSPMatrix(gdl++, camGetPlayerProjMtx(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
+    }
+
+    renderData->gdl = gdl;
+
+    for (child = prop->child; child != NULL; child = child->prev)
+    {
+        objRenderPropModel(child, renderData, translucentPass);
+    }
+
+    if (translucentPass)
+    {
+        if (orthogonalProjection != NULL)
         {
-            // Keep on one line for matching.
-            g3 = gdl++; gSPMatrix(g3, camGetPlayerProjViewMtx(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
+            bviewTransformManyPosToWorldMatrix((Mtxf *)model->render_pos, model->obj->numMatrices);
         }
-
-        mrData->gdl = gdl;
-        subdraw(mrData, model);
-        gdl = mrData->gdl;
-
-        if (obj->type == PROPDEF_DOOR)
+        else
         {
-            gSPClearGeometryMode(gdl++, G_CULL_BOTH);
-        }
-
-        if (obj->state & (1 << withalpha))
-        {
-            gdl = explosionRenderBulletImpactOnProp(gdl, prop, withalpha);
-        }
-
-        if (orthogonal)
-        {
-            // Keep on one line for matching.
-            g2 = gdl++; gSPMatrix(g2, camGetPlayerProjMtx(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
-        }
-
-        mrData->gdl = gdl;
-
-        for (child = prop->child; child != NULL; child = child->prev)
-        {
-            objRenderPropModel(child, mrData, withalpha);
-        }
-
-        if (withalpha)
-        {
-            if (orthogonal != FALSE)
-            {
-                bviewTransformManyPosToWorldMatrix((Mtxf *)model->render_pos, model->obj->numMatrices);
-            }
-            else
-            {
-                bviewTransformManyPosToViewMatrix(model->render_pos, model->obj->numMatrices);
-            }
+            bviewTransformManyPosToViewMatrix(model->render_pos, model->obj->numMatrices);
         }
     }
 }
