@@ -37,7 +37,7 @@
 #include "tex.h"
 
 
-s16 * ptr_list_object_lookup_indices;
+s16 * g_RoomPropQueryIndices;
 u32 num_obj_position_data_entries;
 
 /**
@@ -2015,19 +2015,20 @@ s32 chrpropTestPointInPolygon(coord3d *point, struct rect4f *polygon, s32 edges)
  * @param arg0: prop
  * @param collision_radius: out parameter, will be set to character width or player collision radius.
  * @param height: out parameter, will be set to height
- * @param always_20: out parameter, will be set to either 20 or 30.
+ * @param bottom_offset: out parameter, will be set to the bottom collision offset.
 */
-void chrpropGetCollisionBounds(PropRecord *arg0, f32 *collision_radius, f32 *height, f32 *arg3)
+void chrpropGetCollisionBounds(PropRecord *arg0, f32 *collision_radius, f32 *height, f32 *bottom_offset)
 {
     if (arg0->type == PROP_TYPE_CHR)
     {
-        chrGetChrWidthHeight(arg0, collision_radius, height, arg3);
+        chrGetChrWidthHeight(arg0, collision_radius, height);
+        *bottom_offset = CHR_COLLISION_BOTTOM_OFFSET;
         return;
     }
 
     if (arg0->type == PROP_TYPE_VIEWER)
     {
-        bondviewGetCollisionRadius(arg0, collision_radius, height, arg3);
+        bondviewGetCollisionRadius(arg0, collision_radius, height, bottom_offset);
         return;
     }
 
@@ -2039,7 +2040,7 @@ f32 sub_GAME_7F03CFE8(PropRecord *arg0)
 {
     if (arg0->type == PROP_TYPE_CHR)
     {
-        return chrGetChrGround(arg0);
+        return arg0->chr->ground;
     }
 
     if (arg0->type == PROP_TYPE_VIEWER)
@@ -2767,7 +2768,7 @@ void chrpropUpdateRoomList(PropRecord *prop, coord3d *bbmin, coord3d *bbmax, f32
  */
 void roomGetProps(s32 *rooms)
 {
-    s16 *writeptr = ptr_list_object_lookup_indices;
+    s16 *writeptr = g_RoomPropQueryIndices;
     s32 room;
     s32 i;
     s32 j;
@@ -2791,7 +2792,7 @@ void roomGetProps(s32 *rooms)
                 if (propnum >= 0)
                 {
                     // Check if it's in the list already
-                    s16 *ptr = ptr_list_object_lookup_indices;
+                    s16 *ptr = g_RoomPropQueryIndices;
 
                     while (ptr < writeptr)
                     {
@@ -2817,7 +2818,7 @@ void roomGetProps(s32 *rooms)
 
     *writeptr = -1;
     writeptr++;
-    num_obj_position_data_entries = writeptr - ptr_list_object_lookup_indices;
+    num_obj_position_data_entries = writeptr - g_RoomPropQueryIndices;
     #ifdef DEBUG
     assert(roomspropnum<ROOMLISTMAX-1); //num_obj_position_data_entries
     #endif

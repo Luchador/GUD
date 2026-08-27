@@ -1443,7 +1443,7 @@ bool projectileFindCollidingProp(PropRecord *ignoreProp, coord3d *worldRayStart,
     {
         roomGetProps(rooms);
 
-        for (propnumptr = ptr_list_object_lookup_indices; *propnumptr >= 0; propnumptr++)
+        for (propnumptr = g_RoomPropQueryIndices; *propnumptr >= 0; propnumptr++)
         {
             iterprop = &g_Props[*propnumptr];
 
@@ -3746,7 +3746,7 @@ s32 sub_GAME_7F0448A8(struct PropRecord *argProp)
 
     propss = (PropRecord *)&g_Props;
 
-    for (temp_s0 = ptr_list_object_lookup_indices; *temp_s0 >= 0; temp_s0++)
+    for (temp_s0 = g_RoomPropQueryIndices; *temp_s0 >= 0; temp_s0++)
     {
         PropRecord *prop = &propss[*temp_s0];
 

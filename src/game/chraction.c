@@ -87,7 +87,6 @@ void chrlvTickSurrender                       (ChrRecord *self);
 void chrlvWalkingAnimationRelated             (ChrRecord *self);
 void setSeenBondTimeToNow                     (ChrRecord *guardData);
 s32 chrlvAttackRelated7F0292A8                (ChrRecord *self, coord3d *arg1, StandTile *arg2);
-s32 chrlvMaybeSameRoom                        (ChrRecord *self, coord3d *arg1, StandTile *arg2);
 s32 chrlvCurrentPlayerCall7F0B0E24            (ChrRecord *self);
 s32 chrlvCall7F0B0E24WithChrWidthHeight       (PropRecord *arg0, coord3d *arg1, coord3d *arg2);
 void chrlvSetTargetToPlayer                   (ChrRecord *self);
@@ -127,8 +126,7 @@ void chrlvTickRunPos                          (ChrRecord *self);
 s32 sub_GAME_7F030128                         (ChrRecord *self, coord3d *point, StandTile *arg2, coord3d *dest, StandTile * arg4, s32 cdtypes);
 s32 sub_GAME_7F0301FC                         (ChrRecord *self, coord3d *point, StandTile *arg2, coord3d *dest, f32 arg4, s32 cdtypes);
 s32 sub_GAME_7F0304AC                         (ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *arg3, coord3d *arg4, StandTile *arg5, s32 cdtypes);
-void chrlvSwapIfDiffArg2Determinate           (coord3d *arg0, coord3d *arg1, coord3d *arg2);
-s32 sub_GAME_7F03081C                         (ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *arg3, coord3d *arg4, coord3d *arg5, f32 arg6, f32 arg7, s32 cdtypes);
+void chrlvOrientCollisionEdge                 (coord3d *arg0, coord3d *arg1, coord3d *arg2);
 s32 sub_GAME_7F030D70                         (ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *arg3, coord3d *arg4, coord3d *arg5, f32 arg6, f32 arg7, s32 cdtypes);
 void chrlvTravelTickMagic                     (ChrRecord *self, struct waydata *arg1, f32 arg2, coord3d *arg3, StandTile *arg4);
 void chrlvTravelTick                          (ChrRecord *, coord3d *, StandTile *, struct waydata *);
@@ -1968,11 +1966,12 @@ f32 chrlvPathingCollisionRelated(PropRecord *arg0, f32 arg1, f32 arg2, s32 cdtyp
 f32 chrlvPathingCollisionRelated7F0264B0(PropRecord *arg0, f32 arg1, f32 arg2)
 {
     f32 sp2C;
-    f32 sp28;
     f32 sp24;
+    f32 bottomOffset;
 
-    chrGetChrWidthHeight(arg0, &sp24, &sp2C, &sp28);
-    return chrlvPathingCollisionRelated(arg0, arg1, arg2, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER, sp2C, sp28);
+    bottomOffset = CHR_COLLISION_BOTTOM_OFFSET;
+    chrGetChrWidthHeight(arg0, &sp24, &sp2C);
+    return chrlvPathingCollisionRelated(arg0, arg1, arg2, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER, sp2C, bottomOffset);
 }
 
 
@@ -3216,18 +3215,12 @@ PadRecord *chrlvGetPatrolStepPad(ChrRecord *self, s32 numsteps)
 }
 
 
-/**
- * Address 0x7F028474.
-*/
 PadRecord * chrlvGetNextPatrolStepPad(ChrRecord *self)
 {
     return chrlvGetPatrolStepPad(self, 0);
 }
 
 
-/**
- * Address 0x7F028494.
-*/
 void chrlvSetNextActPatrolStepPadPos(ChrRecord *self)
 {
     PadRecord *temp_v0;
@@ -3242,9 +3235,6 @@ void chrlvSetNextActPatrolStepPadPos(ChrRecord *self)
 }
 
 
-/**
- * Address 0x7F0284DC.
-*/
 void chrlvAdvancePatrolStep(ChrRecord *self)
 {
     self->act_patrol.nextstep = chrlvPatrolCalculateStep(self, &self->act_patrol.forward, 1);
@@ -3253,8 +3243,6 @@ void chrlvAdvancePatrolStep(ChrRecord *self)
 
 
 /**
- * Address 0x7F028510.
- * 
  * Returns true if pos is not inside the 2D collision footprint of
  * any normal object (PROP_TYPE_OBJ) in the stan's room.
 */
@@ -3271,7 +3259,7 @@ bool chrlvIsPosClearOfObjectBounds(coord3d *pos, StandTile *stan)
 
     roomGetProps(roomids);
 
-    for (propnum = ptr_list_object_lookup_indices; *propnum >= 0; propnum++)
+    for (propnum = g_RoomPropQueryIndices; *propnum >= 0; propnum++)
     {
         PropRecord *prop = &props[*propnum];
 
@@ -3292,7 +3280,6 @@ bool chrlvIsPosClearOfObjectBounds(coord3d *pos, StandTile *stan)
 
 /**
  * contrast with @see chrlvTravelTick
- * Address 0x7F028600.
 */
 void chrlvTravelTickMagic(ChrRecord *self, struct waydata *arg1, f32 arg2, coord3d *arg3, StandTile *arg4)
 {
@@ -3300,9 +3287,6 @@ void chrlvTravelTickMagic(ChrRecord *self, struct waydata *arg1, f32 arg2, coord
      * Three unused stack variables.
     */
     PropRecord *self_prop;
-    s32 unused1;
-    s32 unused2;
-    s32 unused3;
     u8 curindex;
     waypoint *pta;
     PadRecord *pad;
@@ -3348,9 +3332,7 @@ void chrlvTravelTickMagic(ChrRecord *self, struct waydata *arg1, f32 arg2, coord
                         pta = self->act_gopos.waypoints[curindex - 1];
                         pad = &g_CurrentSetup.pads[pta->padID];
 
-                        setsubroty(
-                            self->model,
-                            atan2f(self_prop->pos.f[0] - pad->pos.f[0], self_prop->pos.f[2] - pad->pos.f[2]));
+                        setsubroty(self->model, atan2f(self_prop->pos.f[0] - pad->pos.f[0], self_prop->pos.f[2] - pad->pos.f[2]));
                     }
 
                     chrlvKneelingAnimationRelated7F023E48(self);
@@ -3393,14 +3375,13 @@ void chrlvTravelTickMagic(ChrRecord *self, struct waydata *arg1, f32 arg2, coord
  * @param self:
  * @param arg1: Out parameter. Contains result.
  *
- * Address 0x7F028894.
  * PD: chrCalculatePosition.
 */
 void chrlvGetPatrolPercentOrPosition(ChrRecord *self, coord3d *arg1)
 {
     PadRecord *pad;
     f32 percent;
-    coord3d sp2C; // 44
+    coord3d sp2C;
     StandTile *stan;
 
     if ((self->actiontype == ACT_PATROL) && (self->act_patrol.waydata.mode == WAYMODE_MAGIC))
@@ -3458,8 +3439,6 @@ void chrlvGetPatrolPercentOrPosition(ChrRecord *self, coord3d *arg1)
  * @param self:
  * @param arg1: sprinting animation when 2, running animation when 1, otherwise walking animation
  * @param arg2:
- *
- * Address 0x7F028A5C.
 */
 void get_sound_at_range(ChrRecord *self, s32 arg1, s32 arg2)
 {
@@ -3546,26 +3525,17 @@ void get_sound_at_range(ChrRecord *self, s32 arg1, s32 arg2)
 }
 
 
-
-/**
- * Address 0x7F028DA0.
-*/
-void play_hit_soundeffect_and_proper_volume( ChrRecord *self)
+void play_hit_soundeffect_and_proper_volume(ChrRecord *self)
 {
     get_sound_at_range(self, self->act_ubytes.padding[45], CitemZ_entries[self->bodynum].isMale);
 }
 
 
-
-
-/**
- * Address 0x7F028DDC.
-*/
 s32 plot_course_for_actor(ChrRecord *self, coord3d *arg1, StandTile *stan, SPEED speed)
 {
-    PropRecord *prop; //sp 100
-    waypoint *prop_waypoint; // sp96
-    waypoint *target_waypoint; // sp92
+    PropRecord *prop;
+    waypoint *prop_waypoint;
+    waypoint *target_waypoint;
     waypoint *sp44[MAX_CHRWAYPOINTS];
     s32 i;
     coord3d sp34;
@@ -3627,11 +3597,6 @@ s32 plot_course_for_actor(ChrRecord *self, coord3d *arg1, StandTile *stan, SPEED
 }
 
 
-
-
-/**
- * Address 0x7F028FAC.
-*/
 void chrlvWalkingAnimationRelated(ChrRecord *self)
 {
     PropRecord *left;
@@ -3650,6 +3615,7 @@ void chrlvWalkingAnimationRelated(ChrRecord *self)
     else
     {
         s32 t;
+
         if (weaponIsOneHanded(left) || weaponIsOneHanded(right))
         {
             t = 0;
@@ -3678,9 +3644,6 @@ void chrlvWalkingAnimationRelated(ChrRecord *self)
 }
 
 
-/**
- * Address: 7F0290F8
- */
 void set_actor_on_path(ChrRecord *self, struct patrol_path *path)
 {
     PadRecord *pad;
@@ -3829,11 +3792,6 @@ s32 chrlvAttackRelated7F0292A8(ChrRecord *self, coord3d *arg1, StandTile *arg2)
 }
 
 
-
-
-/**
- * Address 0x7F0294BC.
-*/
 bool chrCanSeeBond(ChrRecord *self)
 {
     bool pass = FALSE;
@@ -3867,17 +3825,12 @@ bool chrCanSeeBond(ChrRecord *self)
 }
 
 
-
-
-/**
- * Address 0x7F0295D0.
-*/
-bool check_if_position_in_same_room(ChrRecord *self, coord3d *pos, StandTile *stan)
+bool chractCheckIfPosInSameRoom(ChrRecord *self, coord3d *pos, StandTile *stan)
 {
     PropRecord *myprop   = self->prop;
     StandTile  *propstan;
-    f32         myheight = self->chrheight - 20.0f;
-    bool        pass     = FALSE;
+    f32 myheight = self->chrheight - 20.0f;
+    bool pass = FALSE;
 
     chrSetCollidable(self, 0);
 
@@ -3894,18 +3847,14 @@ bool check_if_position_in_same_room(ChrRecord *self, coord3d *pos, StandTile *st
 }
 
 
-
-/**
- * Address 0x7F02969C.
-*/
-s32 chrlvMaybeSameRoom(ChrRecord *self, coord3d *arg1, StandTile *arg2)
+s32 chrlvMaybeSameRoom(ChrRecord *self, coord3d *pos, StandTile *tile)
 {
     f32 atan;
     f32 roty;
     f32 df;
 
     roty = getsubroty(self->model);
-    atan = atan2f(arg1->f[0] - self->prop->pos.f[0], arg1->f[2] - self->prop->pos.f[2]);
+    atan = atan2f(pos->x - self->prop->pos.x, pos->z - self->prop->pos.z);
     df = atan - roty;
 
     if (atan < roty)
@@ -3915,18 +3864,13 @@ s32 chrlvMaybeSameRoom(ChrRecord *self, coord3d *arg1, StandTile *arg2)
     // if NOT in rear left quadrant?
     if ((df < DegToRad(100)) || (df > DegToRad(260)))
     {
-        return check_if_position_in_same_room(self, arg1, arg2);
+        return chractCheckIfPosInSameRoom(self, pos, tile);
     }
 
     return 0;
 }
 
 
-
-
-/**
- * Address 0x7F029760.
-*/
 s32 chrlvCurrentPlayerCall7F0B0E24(ChrRecord *self)
 {
     PropRecord *sp3C;
@@ -3981,15 +3925,16 @@ s32 chrlvCall7F0B0E24WithChrWidthHeight(PropRecord *arg0, coord3d *arg1, coord3d
     f32 chrz;
     s32 ret; // sp92
     f32 sp58; // sp88
-    f32 sp54; // sp84
     f32 sp50; // sp80
+    f32 bottomOffset;
 
     sp7C = arg0->chr;
     chrx = arg2->f[0] * sp7C->chrwidth * 1.2f;
     chrz = arg2->f[2] * sp7C->chrwidth * 1.2f;
     ret = 0;
+    bottomOffset = CHR_COLLISION_BOTTOM_OFFSET;
 
-    chrGetChrWidthHeight(arg0, &sp50, &sp58, &sp54);
+    chrGetChrWidthHeight(arg0, &sp50, &sp58);
     chrSetCollidable(sp7C, 0);
 
     sp78 = arg0->pos.f[0] + chrz;
@@ -4000,8 +3945,8 @@ s32 chrlvCall7F0B0E24WithChrWidthHeight(PropRecord *arg0, coord3d *arg1, coord3d
     stan = arg0->stan;
 
     if (
-        (stanTestLineUnobstructed(&stan, arg0->pos.f[0], arg0->pos.f[2], sp78, sp74, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER , sp58, sp54, 0.0f, 1.0f) != 0)
-        && (stanTestLineUnobstructed(&stan, sp78, sp74, sp70, sp6C, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER , sp58, sp54, 0.0f, 1.0f) != 0)
+        (stanTestLineUnobstructed(&stan, arg0->pos.f[0], arg0->pos.f[2], sp78, sp74, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER , sp58, bottomOffset, 0.0f, 1.0f) != 0)
+        && (stanTestLineUnobstructed(&stan, sp78, sp74, sp70, sp6C, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER , sp58, bottomOffset, 0.0f, 1.0f) != 0)
         )
     {
         sp78 = arg0->pos.f[0] - chrz;
@@ -4013,8 +3958,8 @@ s32 chrlvCall7F0B0E24WithChrWidthHeight(PropRecord *arg0, coord3d *arg1, coord3d
         stan = arg0->stan;
 
         if (
-            (stanTestLineUnobstructed(&stan, arg0->pos.f[0], arg0->pos.f[2], sp78, sp74, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER , sp58, sp54, 0.0f, 1.0f) != 0)
-            && (stanTestLineUnobstructed(&stan, sp78, sp74, sp70, sp6C, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER , sp58, sp54, 0.0f, 1.0f) != 0)
+            (stanTestLineUnobstructed(&stan, arg0->pos.f[0], arg0->pos.f[2], sp78, sp74, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER , sp58, bottomOffset, 0.0f, 1.0f) != 0)
+            && (stanTestLineUnobstructed(&stan, sp78, sp74, sp70, sp6C, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER , sp58, bottomOffset, 0.0f, 1.0f) != 0)
             )
         {
             ret = 1;
@@ -7763,18 +7708,19 @@ s32 sub_GAME_7F030128(ChrRecord *self, coord3d *point, StandTile *arg2, coord3d 
     StandTile *sp44;
     s32 sp40;
     f32 sp3C;
-    f32 sp38;
     f32 sp34;
+    f32 bottomOffset;
 
     sp44 = arg2;
     sp40 = 0;
+    bottomOffset = CHR_COLLISION_BOTTOM_OFFSET;
 
-    chrGetChrWidthHeight(self->prop, &sp34, &sp3C, &sp38);
+    chrGetChrWidthHeight(self->prop, &sp34, &sp3C);
 
     chrSetCollidable(self, 0);
 
     if (
-        stanTestLineUnobstructed(&sp44, point->f[0], point->f[2], dest->f[0], dest->f[2], cdtypes, sp3C, sp38, 0.0f, 1.0f)
+        stanTestLineUnobstructed(&sp44, point->f[0], point->f[2], dest->f[0], dest->f[2], cdtypes, sp3C, bottomOffset, 0.0f, 1.0f)
         && ((arg4 == NULL) || (sp44 == arg4)))
     {
         sp40 = 1;
@@ -7798,12 +7744,13 @@ s32 sub_GAME_7F0301FC(ChrRecord *self, coord3d *point, StandTile *arg2, coord3d 
     f32 norm;
     s32 ret; // 104
     f32 sp64;
-    f32 sp60;
     f32 sp5C;
+    f32 bottomOffset;
 
     ret = 0;
+    bottomOffset = CHR_COLLISION_BOTTOM_OFFSET;
 
-    chrGetChrWidthHeight(self->prop, &sp5C, &sp64, &sp60);
+    chrGetChrWidthHeight(self->prop, &sp5C, &sp64);
 
     dd.f[0] = dest->f[0] - point->f[0];
     dd.f[1] = 0.0f;
@@ -7828,13 +7775,13 @@ s32 sub_GAME_7F0301FC(ChrRecord *self, coord3d *point, StandTile *arg2, coord3d 
 
         pstan = arg2;
 
-        if (stanTestLineUnobstructed(&pstan, point->f[0], point->f[2], point->f[0] + temp_f22, point->f[2] - temp_f20, cdtypes, sp64, sp60, 0.0f, 1.0f)
-            && stanTestLineUnobstructed(&pstan, point->f[0] + temp_f22, point->f[2] - temp_f20, dest->f[0] + temp_f22, dest->f[2] - temp_f20, cdtypes, sp64, sp60, 0.0f, 1.0f))
+        if (stanTestLineUnobstructed(&pstan, point->f[0], point->f[2], point->f[0] + temp_f22, point->f[2] - temp_f20, cdtypes, sp64, bottomOffset, 0.0f, 1.0f)
+            && stanTestLineUnobstructed(&pstan, point->f[0] + temp_f22, point->f[2] - temp_f20, dest->f[0] + temp_f22, dest->f[2] - temp_f20, cdtypes, sp64, bottomOffset, 0.0f, 1.0f))
         {
             pstan = arg2;
 
-            if (stanTestLineUnobstructed(&pstan, point->f[0], point->f[2], point->f[0] - temp_f22, point->f[2] + temp_f20, cdtypes, sp64, sp60, 0.0f, 1.0f)
-                && stanTestLineUnobstructed(&pstan, point->f[0] - temp_f22, point->f[2] + temp_f20, dest->f[0] - temp_f22, dest->f[2] + temp_f20, cdtypes, sp64, sp60, 0.0f, 1.0f))
+            if (stanTestLineUnobstructed(&pstan, point->f[0], point->f[2], point->f[0] - temp_f22, point->f[2] + temp_f20, cdtypes, sp64, bottomOffset, 0.0f, 1.0f)
+                && stanTestLineUnobstructed(&pstan, point->f[0] - temp_f22, point->f[2] + temp_f20, dest->f[0] - temp_f22, dest->f[2] + temp_f20, cdtypes, sp64, bottomOffset, 0.0f, 1.0f))
             {
                 ret = 1;
             }
@@ -7852,21 +7799,22 @@ s32 sub_GAME_7F0304AC(ChrRecord *self, coord3d *mypos, StandTile *mystan, coord3
     StandTile *sp44;
     bool pass;
     f32 sp3C;
-    f32 sp38;
     f32 sp34;
     StandTile *sp30;
+    f32 bottomOffset;
 
     sp44 = mystan; // duplicate var? needed?
     pass = FALSE;
+    bottomOffset = CHR_COLLISION_BOTTOM_OFFSET;
 
-    chrGetChrWidthHeight(self->prop, &sp34, &sp3C, &sp38);
+    chrGetChrWidthHeight(self->prop, &sp34, &sp3C);
     chrSetCollidable(self, 0);
 
-    if (stanTestLineUnobstructed(&sp44, mypos->x, mypos->z, arg3->x, arg3->z, cdtypes, sp3C, sp38, 0.0f, 1.0f))
+    if (stanTestLineUnobstructed(&sp44, mypos->x, mypos->z, arg3->x, arg3->z, cdtypes, sp3C, bottomOffset, 0.0f, 1.0f))
     {
         sp30 = sp44; // duplicate var? needed?
 
-        if (stanTestLineUnobstructed(&sp30, arg3->x, arg3->z, bondpos->x, bondpos->z, cdtypes, sp3C, sp38, 0.0f, 1.0f)
+        if (stanTestLineUnobstructed(&sp30, arg3->x, arg3->z, bondpos->x, bondpos->z, cdtypes, sp3C, bottomOffset, 0.0f, 1.0f)
             && ((bondstan == NULL) || (sp30 == bondstan)))
         {
             pass = TRUE;
@@ -7880,10 +7828,37 @@ s32 sub_GAME_7F0304AC(ChrRecord *self, coord3d *mypos, StandTile *mystan, coord3
 
 
 /**
- * Subtract arg0 from arg1. Take the determinate of the result and arg2.
- * If determinate is not greater than zero, then swap arg0 and arg1.
-*/
-void chrlvSwapIfDiffArg2Determinate(coord3d *arg0, coord3d *arg1, coord3d *arg2)
+ * Orders a collision edge's endpoints relative to the movement direction.
+ *
+ * Viewed from above in the XZ plane:
+ *
+ *     Before ordering                 After ordering
+ *     determinant <= 0                determinant > 0
+ *
+ *              +Z                              +Z
+ *               ^                               ^
+ *               |                               |
+ *        start  o                        end    o
+ *               |                               ^
+ *               | edge                          | edge
+ *               v                               |
+ *        end    o                        start  o
+ *               |                               |
+ *               +------------> +X               +------------> +X
+ *                 movementDir                      movementDir
+ *
+ * The determinant is the 2D cross product of the movement direction
+ * and the vector from start to end:
+ *
+ *     edge = end - start
+ *
+ *     determinant = movementDir.x * edge.z
+ *                 - movementDir.z * edge.x
+ *
+ * If the determinant is not positive, start and end are swapped. This
+ * gives collision edges a consistent orientation relative to movement.
+ */
+void chrlvOrientCollisionEdge(coord3d *arg0, coord3d *arg1, coord3d *arg2)
 {
     coord3d spock;
     coord3d kirk;
@@ -7913,35 +7888,32 @@ void chrlvSwapIfDiffArg2Determinate(coord3d *arg0, coord3d *arg1, coord3d *arg2)
 }
 
 
-/**
- * Very similar to @see sub_GAME_7F030D70 .
- * Address 0x7F03081C.
-*/
-s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *arg3, coord3d *arg4, coord3d *arg5, f32 arg6, f32 arg7, s32 cdtypes)
+s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *arg3, coord3d *arg4, coord3d *arg5, f32 arg6, f32 arg7, CDTYPE cdtypes)
 {
     StandTile *spAC;
     coord3d spA0;
-    f32 sp9C; // 156
-    f32 sp98; // 152
-    f32 sp94; // 148
-    f32 sp90; // 144
+    f32 sp9C;
+    f32 sp98;
+    f32 sp94;
+    f32 sp90;
     f32 norm;
-    s32 sp88; // 136
-    s32 sp84; // 132
+    s32 sp88;
+    s32 sp84;
     coord3d sp78;
     coord3d sp6C;
     coord3d sp60;
     coord3d sp54;
     s32 sp50;
     f32 sp4C;
-    f32 sp48;
     f32 sp44;
+    f32 bottomOffset;
 
     sp88 = 0;
     sp84 = 0;
     sp50 = 0;
+    bottomOffset = CHR_COLLISION_BOTTOM_OFFSET;
 
-    chrGetChrWidthHeight(self->prop, &sp44, &sp4C, &sp48);
+    chrGetChrWidthHeight(self->prop, &sp44, &sp4C);
 
     spA0.f[0] = arg3->f[0] - arg1->f[0];
     spA0.f[1] = 0.0f;
@@ -7969,70 +7941,30 @@ s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
 
     spAC = arg2;
 
-    if ((stanTestLineUnobstructed(
-        &spAC,
-        arg1->f[0],
-        arg1->f[2],
-        arg1->f[0] + sp98,
-        arg1->f[2] - sp9C,
-        cdtypes,
-        sp4C,
-        sp48,
-        0.0f,
-        1.0f) == 0)
-        || (stanTestLineUnobstructed(
-            &spAC,
-            arg1->f[0] + sp98,
-            arg1->f[2] - sp9C,
-            (arg3->f[0] + sp90) + (spA0.f[0] * arg6),
-            (arg3->f[2] - sp94) + (spA0.f[2] * arg6),
-            cdtypes,
-            sp4C,
-            sp48,
-            0.0f,
-            1.0f) == 0))
+    if ((stanTestLineUnobstructed(&spAC, arg1->f[0], arg1->f[2], arg1->f[0] + sp98, arg1->f[2] - sp9C, cdtypes, sp4C, bottomOffset, 0.0f, 1.0f) == 0) 
+       || (stanTestLineUnobstructed( &spAC, arg1->f[0] + sp98, arg1->f[2] - sp9C, (arg3->f[0] + sp90) + (spA0.f[0] * arg6), (arg3->f[2] - sp94) + (spA0.f[2] * arg6), cdtypes, sp4C, bottomOffset, 0.0f, 1.0f) == 0))
     {
         sp88 = 1;
 
         stanGetLastCollisionEdge(&sp78, &sp6C);
-        chrlvSwapIfDiffArg2Determinate(&sp78, &sp6C, &spA0);
+        chrlvOrientCollisionEdge(&sp78, &sp6C, &spA0);
     }
 
     spAC = arg2;
 
-    if ((stanTestLineUnobstructed(
-        &spAC,
-        arg1->f[0],
-        arg1->f[2],
-        arg1->f[0] - sp98,
-        arg1->f[2] + sp9C,
-        cdtypes,
-        sp4C,
-        sp48,
-        0.0f,
-        1.0f) == 0)
-        || (stanTestLineUnobstructed(
-            &spAC,
-            arg1->f[0] - sp98,
-            arg1->f[2] + sp9C,
-            (arg3->f[0] - sp90) + (spA0.f[0] * arg6),
-            (arg3->f[2] + sp94) + (spA0.f[2] * arg6),
-            cdtypes,
-            sp4C,
-            sp48,
-            0.0f,
-            1.0f) == 0))
+    if ((stanTestLineUnobstructed(&spAC, arg1->f[0], arg1->f[2], arg1->f[0] - sp98, arg1->f[2] + sp9C, cdtypes, sp4C, bottomOffset, 0.0f, 1.0f) == 0)
+        || (stanTestLineUnobstructed(&spAC, arg1->f[0] - sp98, arg1->f[2] + sp9C, (arg3->f[0] - sp90) + (spA0.f[0] * arg6), (arg3->f[2] + sp94) + (spA0.f[2] * arg6), cdtypes, sp4C, bottomOffset, 0.0f, 1.0f) == 0))
     {
         sp84 = 1;
 
         stanGetLastCollisionEdge(&sp60, &sp54);
-        chrlvSwapIfDiffArg2Determinate(&sp60, &sp54, &spA0);
+        chrlvOrientCollisionEdge(&sp60, &sp54, &spA0);
     }
 
     if ((sp88 != 0) && (sp84 != 0))
     {
-        chrlvSwapIfDiffArg2Determinate(&sp78, &sp60, &spA0);
-        chrlvSwapIfDiffArg2Determinate(&sp6C, &sp54, &spA0);
+        chrlvOrientCollisionEdge(&sp78, &sp60, &spA0);
+        chrlvOrientCollisionEdge(&sp6C, &sp54, &spA0);
 
         arg4->f[0] = sp78.f[0];
         arg4->f[1] = sp78.f[1];
@@ -8066,14 +7998,14 @@ s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     {
         spAC = arg2;
 
-        if (stanTestLineUnobstructed(&spAC, arg1->f[0], arg1->f[2], arg3->f[0], arg3->f[2], cdtypes, sp4C, sp48, 0.0f, 1.0f) && stanTestVolume(&spAC, arg3->f[0], arg3->f[2], arg7, cdtypes, sp4C, sp48) < 0)
+        if (stanTestLineUnobstructed(&spAC, arg1->f[0], arg1->f[2], arg3->f[0], arg3->f[2], cdtypes, sp4C, bottomOffset, 0.0f, 1.0f) && stanTestVolume(&spAC, arg3->f[0], arg3->f[2], arg7, cdtypes, sp4C, bottomOffset) < 0)
         {
             sp50 = 1;
         }
         else
         {
             stanGetLastCollisionEdge(arg4, arg5);
-            chrlvSwapIfDiffArg2Determinate(arg4, arg5, &spA0);
+            chrlvOrientCollisionEdge(arg4, arg5, &spA0);
         }
     }
 
@@ -8085,21 +8017,19 @@ s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
 
 /**
  * Very similar to @see sub_GAME_7F03081C .
- *
- * Address 0x7F030D70.
 */
 s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *arg3, coord3d *arg4, coord3d *arg5, f32 arg6, f32 arg7, s32 cdtypes)
 {
     StandTile *spAC;
     coord3d spA0;
-    f32 sp9C; // 164
-    f32 sp98; // 160
-    f32 sp94; // 156
-    f32 sp90; // 152
+    f32 sp9C;
+    f32 sp98;
+    f32 sp94;
+    f32 sp90;
     f32 norm;
-    s32 sp88; // 144
-    s32 sp84; // 140
-    coord3d sp78; // x
+    s32 sp88;
+    s32 sp84;
+    coord3d sp78;
     coord3d sp6C;
     coord3d sp60;
     coord3d sp54;
@@ -8107,14 +8037,15 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     f32 stanval1;
     f32 stanval2;
     f32 sp4C;
-    f32 sp48;
     f32 sp44;
+    f32 bottomOffset;
 
     sp88 = 0;
     sp84 = 0;
     sp50 = 0;
+    bottomOffset = CHR_COLLISION_BOTTOM_OFFSET;
 
-    chrGetChrWidthHeight(self->prop, &sp44, &sp4C, &sp48);
+    chrGetChrWidthHeight(self->prop, &sp44, &sp4C);
 
     spA0.f[0] = arg3->f[0] - arg1->f[0];
     spA0.f[1] = 0.0f;
@@ -8142,66 +8073,26 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
 
     spAC = arg2;
 
-    if ((stanTestLineUnobstructed(
-        &spAC,
-        arg1->f[0],
-        arg1->f[2],
-        arg1->f[0] + sp98,
-        arg1->f[2] - sp9C,
-        cdtypes,
-        sp4C,
-        sp48,
-        0.0f,
-        1.0f) == 0)
-        || (stanTestLineUnobstructed(
-            &spAC,
-            arg1->f[0] + sp98,
-            arg1->f[2] - sp9C,
-            (arg3->f[0] + sp90) + (spA0.f[0] * arg6),
-            (arg3->f[2] - sp94) + (spA0.f[2] * arg6),
-            cdtypes,
-            sp4C,
-            sp48,
-            0.0f,
-            1.0f) == 0))
+    if ((stanTestLineUnobstructed(&spAC, arg1->f[0], arg1->f[2], arg1->f[0] + sp98, arg1->f[2] - sp9C, cdtypes, sp4C, bottomOffset, 0.0f, 1.0f) == 0)
+        || (stanTestLineUnobstructed(&spAC, arg1->f[0] + sp98, arg1->f[2] - sp9C, (arg3->f[0] + sp90) + (spA0.f[0] * arg6), (arg3->f[2] - sp94) + (spA0.f[2] * arg6), cdtypes, sp4C, bottomOffset, 0.0f, 1.0f) == 0))
     {
         sp88 = 1;
 
         stanGetLastCollisionEdge(&sp78, &sp6C);
-        chrlvSwapIfDiffArg2Determinate(&sp78, &sp6C, &spA0);
+        chrlvOrientCollisionEdge(&sp78, &sp6C, &spA0);
 
         stanval1 = g_StanLastLineCollisionFraction;
     }
 
     spAC = arg2;
 
-    if ((stanTestLineUnobstructed(
-        &spAC,
-        arg1->f[0],
-        arg1->f[2],
-        arg1->f[0] - sp98,
-        arg1->f[2] + sp9C,
-        cdtypes,
-        sp4C,
-        sp48,
-        0.0f,
-        1.0f) == 0)
-        || (stanTestLineUnobstructed(
-            &spAC,
-            arg1->f[0] - sp98,
-            arg1->f[2] + sp9C,
-            (arg3->f[0] - sp90) + (spA0.f[0] * arg6),
-            (arg3->f[2] + sp94) + (spA0.f[2] * arg6),
-            cdtypes,
-            sp4C,
-            sp48,
-            0.0f,
-            1.0f) == 0))
+    if ((stanTestLineUnobstructed(&spAC, arg1->f[0], arg1->f[2], arg1->f[0] - sp98, arg1->f[2] + sp9C, cdtypes, sp4C, bottomOffset, 0.0f, 1.0f) == 0)
+        || (stanTestLineUnobstructed( &spAC, arg1->f[0] - sp98, arg1->f[2] + sp9C, (arg3->f[0] - sp90) + (spA0.f[0] * arg6), (arg3->f[2] + sp94) + (spA0.f[2] * arg6), cdtypes, sp4C, bottomOffset, 0.0f, 1.0f) == 0))
     {
         sp84 = 1;
 
         stanGetLastCollisionEdge(&sp60, &sp54);
-        chrlvSwapIfDiffArg2Determinate(&sp60, &sp54, &spA0);
+        chrlvOrientCollisionEdge(&sp60, &sp54, &spA0);
 
         stanval2 = g_StanLastLineCollisionFraction;
     }
@@ -8253,15 +8144,15 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     {
         spAC = arg2;
 
-        if (stanTestLineUnobstructed(&spAC, arg1->f[0], arg1->f[2], arg3->f[0], arg3->f[2], cdtypes, sp4C, sp48, 0.0f, 1.0f)
-            && stanTestVolume(&spAC, arg3->f[0], arg3->f[2], arg7, cdtypes, sp4C, sp48) < 0)
+        if (stanTestLineUnobstructed(&spAC, arg1->f[0], arg1->f[2], arg3->f[0], arg3->f[2], cdtypes, sp4C, bottomOffset, 0.0f, 1.0f)
+            && stanTestVolume(&spAC, arg3->f[0], arg3->f[2], arg7, cdtypes, sp4C, bottomOffset) < 0)
         {
             sp50 = 1;
         }
         else
         {
             stanGetLastCollisionEdge(arg4, arg5);
-            chrlvSwapIfDiffArg2Determinate(arg4, arg5, &spA0);
+            chrlvOrientCollisionEdge(arg4, arg5, &spA0);
         }
     }
 
@@ -8271,21 +8162,7 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
 }
 
 
-/**
- * Address 0x7F03130C.
-*/
-s32 sub_GAME_7F03130C(
-    ChrRecord *self,
-    coord3d *arg1,
-    s32 arg2,
-    coord3d *arg3,
-    f32 arg4,
-    s32 arg5,
-    coord3d *arg6,
-    struct waydata *arg7,
-    f32 arg8,
-    s32 cdtypes,
-    s32 set_copy)
+s32 sub_GAME_7F03130C(ChrRecord *self, coord3d *arg1, s32 arg2, coord3d *arg3, f32 arg4, s32 arg5, coord3d *arg6, struct waydata *arg7, f32 arg8, s32 cdtypes, s32 set_copy)
 {
     PropRecord *self_prop; // -- 124
     coord3d dd; // -- 112

@@ -203,7 +203,6 @@ extern u32 monRandEffectChanceEARTHTEXT[];
 extern u32 monRandEffectChanceTARGETEARTH[];
 extern u32 monRandEffectChanceGALAXY3[];
 extern u32 monRandChanceScrollOrZoomRandRGBN[];
-extern u32 D_80031B10[];
 extern u32 monRandChanceScrollOrZoomRed[];
 extern u32 monRandChanceScrollOrZoomGreen[];
 extern u32 monRandChanceScrollOrZoomBlue[];
@@ -223,25 +222,32 @@ extern f32 gasTimeToFullOpacity;
 extern u32 gasDoesDamageFlag;
 extern f32 difficulty ;
 extern stagesetup g_CurrentSetup;
-extern s16 * ptr_list_object_lookup_indices;
+
+/**
+ * Scratch buffer containing the indices of props found in the requested set of rooms.
+ * It's populated by roomGetProps which terminates the list with -1. Then callers can iterate
+ * through this subset of props instead of all 600 entries in g_Props.
+ */
+extern s16 *g_RoomPropQueryIndices;
+
 extern PropRecord g_Props[];
 
 extern PropRecord *g_ActivePropsTail;
 extern PropRecord *g_ActivePropsHead;
 extern PropRecord *g_FreeProps;
 
-extern s32                                g_OnScreenPropCount;
-extern PropRecord **                      g_LastOnScreenProp;
-extern PropRecord *                       g_OnScreenPropList[];
-extern PropRecord *                       g_InteractProp;
-extern s16 *                              RoomPropListBlockIndices;
-extern struct roomproplistblock *         RoomPropListBlocks;
-extern sfxRecord                          sfx_related[];
-extern struct WeaponObjRecord             g_WeaponSlots[];
-extern struct HatRecord                   g_HatSlots[];
-extern struct AmmoCrateRecord             g_AmmoCrates[];
-extern struct Projectile                  g_Projectiles[];
-extern struct Embedment                   g_Embedments[];
+extern s32 g_OnScreenPropCount;
+extern PropRecord **g_LastOnScreenProp;
+extern PropRecord *g_OnScreenPropList[];
+extern PropRecord *g_InteractProp;
+extern s16 *RoomPropListBlockIndices;
+extern struct roomproplistblock *RoomPropListBlocks;
+extern sfxRecord sfx_related[];
+extern struct WeaponObjRecord g_WeaponSlots[];
+extern struct HatRecord g_HatSlots[];
+extern struct AmmoCrateRecord g_AmmoCrates[];
+extern struct Projectile g_Projectiles[];
+extern struct Embedment g_Embedments[];
 extern struct coord3d                     flt_CODE_bss_80075B78;
 extern struct coord3d                     flt_CODE_bss_80075B88;
 

@@ -373,7 +373,7 @@ void explosionInflictDamage(PropRecord *arg0, f32 horiz_range, f32 vert_range)
         chraiGetPropRoomIds(arg0, &spE0[0]);
         roomGetProps(&spE0[0]);
 
-        for (var_s3 = ptr_list_object_lookup_indices; *var_s3 >= 0; var_s3++)
+        for (var_s3 = g_RoomPropQueryIndices; *var_s3 >= 0; var_s3++)
         {
             temp_s0 = &g_Props[*var_s3];
 

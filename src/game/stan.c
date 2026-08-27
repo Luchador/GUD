@@ -1078,7 +1078,7 @@ s32 stanGetRoomsBetweenPoints(StandTile *tile, f32 start_x, f32 start_z, StandTi
 }
 
 
-s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX, f32 endZ, s32 collisionTypes, f32 startTop, f32 startBottom, f32 endTop, f32 endBottom)
+s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX, f32 endZ, CDTYPE collisionTypes, f32 startTop, f32 startBottom, f32 endTop, f32 endBottom)
 {
     PropRecord *prop;
     StandTile *reachedTile;
@@ -1147,7 +1147,7 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
         roomBuffer[roomCount] = -1;
         roomGetProps(roomBuffer);
 
-        for (propIndex = ptr_list_object_lookup_indices; *propIndex >= 0; propIndex++)
+        for (propIndex = g_RoomPropQueryIndices; *propIndex >= 0; propIndex++)
         {
             prop = &g_Props[*propIndex];
 
@@ -1167,14 +1167,12 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
                     edgeEnd = &polygon->points[0];
                 }
 
-                if (!doSegmentsIntersect(startX, startZ, endX, endZ,
-                        edgeStart->f[0], edgeStart->f[1], edgeEnd->f[0], edgeEnd->f[1]))
+                if (!doSegmentsIntersect(startX, startZ, endX, endZ, edgeStart->f[0], edgeStart->f[1], edgeEnd->f[0], edgeEnd->f[1]))
                 {
                     continue;
                 }
 
-                intersectionFraction = calculateSegmentIntersectionFraction(&lineStart, &lineEnd,
-                        edgeStart, edgeEnd);
+                intersectionFraction = calculateSegmentIntersectionFraction(&lineStart, &lineEnd, edgeStart, edgeEnd);
 
                 if (intersectionFraction >= nearestCollisionFraction)
                 {
@@ -1255,7 +1253,7 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
 }
 
 
-PropRecord *sub_GAME_7F0B1410(StandTile *t, f32 start_x, f32 start_z, f32 end_x, f32 end_z, s32 cdtypes)
+PropRecord *sub_GAME_7F0B1410(StandTile *t, f32 start_x, f32 start_z, f32 end_x, f32 end_z, CDTYPE cdtypes)
 {
     f32 frac;
     PropRecord *prop;
@@ -1284,10 +1282,8 @@ PropRecord *sub_GAME_7F0B1410(StandTile *t, f32 start_x, f32 start_z, f32 end_x,
 
     stanWalkTilesBetweenPointsAndCollectRooms(&tile, start_x, start_z, end_x, end_z, roomBuffer, &roomCount, 20);
 
-    if (roomCount >= 21)
+    if (roomCount > 20)
     {
-        // The comment below was in the unmatched function. I have left it where I think it was most likely meant to go.
-        //osSyncPrintf("stanLineDoor: %d rooms is more than %d\n");
         roomCount = 20;
     }
 
@@ -1296,15 +1292,12 @@ PropRecord *sub_GAME_7F0B1410(StandTile *t, f32 start_x, f32 start_z, f32 end_x,
     lineEnd.f[0] = end_x;
     lineEnd.f[1] = end_z;
 
-    if (cdtypes != 0)
+    if (cdtypes)
     {
         roomBuffer[roomCount] = -1;
         roomGetProps(roomBuffer);
 
-        propIndexPtr = ptr_list_object_lookup_indices;
-
-        // Fake but needed for matching.
-        if (polygon);
+        propIndexPtr = g_RoomPropQueryIndices;
 
         if (*propIndexPtr >= 0)
         {
@@ -1359,12 +1352,35 @@ PropRecord *sub_GAME_7F0B1410(StandTile *t, f32 start_x, f32 start_z, f32 end_x,
 
 /**
  * Computes the signed perpendicular distance from point P to the infinite
- * line that goes through point A and point B.
- * The sign indicates which side of the line the point is on.
+ * directed line from A to B.
+ *
+ * Viewed in the XZ plane with A -> B pointing toward +X:
+ *
+ *                             +Z
+ *                              ^
+ *                              |
+ *                    P         |   Negative distance
+ *                    o         |   Left of A -> B
+ *                              |
+ *          A o------------------------>o B
+ *                              |
+ *                    o         |   Positive distance
+ *                    P         |   Right of A -> B
+ *                              |
+ *
+ * Return value:
+ *
+ *     < 0: P is on the left side of the directed line A -> B.
+ *     > 0: P is on the right side of the directed line A -> B.
+ *     = 0: P lies on the infinite line.
+ *
+ * Reversing A and B reverses the sign.
+ *
+ * If A and B are the same point, the line has no direction. In that case,
+ * the function returns the unsigned distance from P to B.
  */
 f32 stanGetSignedPointLineDistance(f32 a_x, f32 a_z, f32 b_x, f32 b_z, f32 p_x, f32 p_z)
 {
-    u32 stack[8];
     f32 result;
 
     result = sqrtf((b_x - a_x) * (b_x - a_x) + (b_z - a_z) * (b_z - a_z));
@@ -1373,9 +1389,7 @@ f32 stanGetSignedPointLineDistance(f32 a_x, f32 a_z, f32 b_x, f32 b_z, f32 p_x, 
     {
         return sqrtf((p_x - b_x) * (p_x - b_x) + (p_z - b_z) * (p_z - b_z));
     }
-    #ifdef DEBUG
-    assert(d>0.0F);
-    #endif
+
     return ((b_z - a_z) * (p_x - a_x) + -(b_x - a_x) * (p_z - a_z)) / result;
 }
 
@@ -1413,14 +1427,14 @@ bool stanPointProjectsOntoEdge(f32 a_x, f32 a_z, f32 b_x, f32 b_z, f32 p_x, f32 
 }
 
 
-StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, f32 radius, CDTYPE cdtypes, f32 height, f32 width)
+StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, f32 radius, CDTYPE cdtypes, f32 topOffset, f32 bottomOffset)
 {
     s32 i;
     f32 var_f20;
     f32 var_f24;
     s32 temp_v0;
     s32 next;
-    s32 sp108;
+    bool useVerticalBounds;
     f32 temp_f0;
     s16 *sp100;
     s32 roomCount;
@@ -1434,7 +1448,7 @@ StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, 
     f32 sp90;
 
 
-    sp108 = (width <= height);
+    useVerticalBounds = (topOffset <= topOffset);
 
     roomCount = 0;
 
@@ -1455,17 +1469,17 @@ StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, 
 
     if (cdtypes)
     {
-        if (sp108)
+        if (useVerticalBounds)
         {
             temp_f0 = stanGetPositionYValue(*tileStack, p_x, p_z);
-            height += temp_f0;
-            width += temp_f0;
+            topOffset += temp_f0;
+            topOffset += temp_f0;
         }
 
         roomList[roomCount] = -1;
         roomGetProps(&roomList[0]);
 
-        for (sp100 = ptr_list_object_lookup_indices; *sp100 >= 0; sp100++)
+        for (sp100 = g_RoomPropQueryIndices; *sp100 >= 0; sp100++)
         {
             prop = &g_Props[*sp100];
 
@@ -1473,7 +1487,7 @@ StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, 
             {
                 chraiGetCollisionBounds(prop, &polygon, &numvertices0, &sp94, &sp90);
 
-                if ((numvertices0 > 0) && ((sp108 == 0) || ((sp90 <= height) && (width <= sp94))))
+                if ((numvertices0 > 0) && ((useVerticalBounds == 0) || ((sp90 <= topOffset) && (topOffset <= sp94))))
                 {
                     var_f24 = -1.0f;
 
@@ -1768,32 +1782,50 @@ s32 stanLocusCountBoundaryEdge(StandTile **tileStack, s32 stackHeight, struct St
 }
 
 
+/**
+ * Traverses the connected stan tiles overlapped by a circle in the XZ plane,
+ * starting from *tileStack. It only checks stan tiles, not props.
+ *
+ * Each unique room ID encountered during traversal is appended to *rooms up to
+ * bufMax entries. The number of room IDs actually written is returned through
+ * count_rtn. The room list is not terminated with -1.
+ *
+ * Linked stan edges allow traversal into adjacent tiles. If the circle overlaps
+ * an edge without a traversable link, that edge is treated as a collision
+ * boundary.
+ *
+ * @return STAN_COLLISION_NONE if traversal completes without touching a collision boundary.
+ * @return STAN_COLLISION_FOUND if the circle touches a collision boundary.
+ * @return STAN_COLLISION_TRAVERSAL_LIMIT if the internal stan tile traversal
+ *         limit is reached before the search completes.
+ */
 StanCollisionResult stanTestCircleAndCollectRooms(StandTile **tileStack, f32 target_x, f32 target_z, f32 radius, s32 *rooms, s32 *count_rtn, s32 bufMax)
 {
     struct StandTileLocusCallbackRecord data;
-    s32 rtn;
+    StanCollisionResult result;
 
     data.rooms = rooms;
     data.count = 0;
     data.bufMax = bufMax;
     data.boundaryEdgeCount = 0;
 
-    rtn = stanTestCircleCollisionWithCallbacks(tileStack, target_x, target_z, radius, stanLocusAddTileRoomIfNew, NULL, stanLocusCountBoundaryEdge, &data);
+    result = stanTestCircleCollisionWithCallbacks(tileStack, target_x, target_z, radius, stanLocusAddTileRoomIfNew, NULL, stanLocusCountBoundaryEdge, &data);
 
     *count_rtn = data.count;
 
-    if (1 < data.boundaryEdgeCount)
+    if (data.boundaryEdgeCount > 1)
     {
-        return 2;
+        return STAN_COLLISION_FOUND;
     }
 
-    return rtn;
+    return result;
 }
 
 
 s32 stanIsSpecialBit1Set(StandTile *arg0, struct StandTileLocusCallbackRecord *arg1)
 {
     s32 val = arg0->mid.half >> 0xC;
+
     if (g_StanTileSpecialFlags[val] & STANTILEFLAG_FORCECROUCH)
     {
         arg1->rooms = 1;

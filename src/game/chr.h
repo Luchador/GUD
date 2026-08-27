@@ -5,6 +5,7 @@
 #include <bondtypes.h>
 #include "chrai.h"
 
+#define CHR_COLLISION_BOTTOM_OFFSET 20.0f
 #define EXPLOSION_ANIMATION_TABLE_LEN 8
 
 struct StruckAnim;
@@ -270,8 +271,7 @@ ChrRecord  *chrFindByLiteralId(s32 index);
 PropRecord *chrGetEquippedWeaponProp(ChrRecord *arg0, GUNHAND arg1);
 PropRecord *chrGetEquippedWeaponPropWithCheck(ChrRecord *ChrRecord, GUNHAND arg1);
 void        chrUpdateCollisionBounds(PropRecord *arg0, struct rect4f **arg1, s32 *arg2, f32 *y_out, f32 *ground);
-void        chrGetChrWidthHeight(PropRecord *arg0, f32 *width, f32 *height, f32 *always_20);
-f32         chrGetChrGround(PropRecord *arg0);
+void        chrGetChrWidthHeight(PropRecord *prop, f32 *width, f32 *height);
 void        chrDropItems(struct ChrRecord *arg0);
 s32         get_numguards(void);
 Gfx        *chrRenderChr(PropRecord *arg0, Gfx *arg1, s32 arg2);

@@ -21,7 +21,7 @@ s32 getposstan(struct coord3d *pos, StandTile *stan, f32 radius, struct coord3d 
         return 0;
     }
 
-    // Circle is not valid
+    // Circle is not valid.
     if ((radius > 0.0f) && (stanTestVolume(stanReturn, posReturn->f[0], posReturn->f[2], radius, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER, 0.0f, 1.0f) >= 0))
     {
         return 0;
@@ -160,11 +160,6 @@ ObjectRecord *setupGetPtrToCommandByIndex(s32 index) //#MATCH
 }
 
 
-
-
-/**
- * Address 0x7F056B1C.
-*/
 s32 tagGetCommandIndex(struct ObjectRecord *tag)
 {
     PropDefHeaderRecord *object;
@@ -189,10 +184,6 @@ s32 tagGetCommandIndex(struct ObjectRecord *tag)
 }
 
 
-
-/**
- * Address 0x7F056BA8.
-*/
 s32 setupGetCommandIndexByProp(struct PropRecord *prop)
 {
     PropDefHeaderRecord *object;
@@ -217,15 +208,15 @@ s32 setupGetCommandIndexByProp(struct PropRecord *prop)
 }
 
 
-
 s32 modelLoad(s32 modelid)
 {
     if (PitemZ_entries[modelid].header->RootNode == NULL)
     {
-        fileLoad(PitemZ_entries[modelid].header,PitemZ_entries[modelid].filename/*, "prop"*/);
+        fileLoad(PitemZ_entries[modelid].header,PitemZ_entries[modelid].filename);
         modelCalculateRwDataLen(PitemZ_entries[modelid].header);
         return TRUE;
     }
+
     return FALSE;
 }
 
@@ -305,9 +296,9 @@ void setupUpdateObjectRoomPosition(ObjectRecord *obj)
 }
 
 
- ObjectRecord *setupCommandGetObject(s32 stageID, s32 index)
+ObjectRecord *setupCommandGetObject(s32 stageID, s32 index)
 {
-     PropDefHeaderRecord *obj;
+    PropDefHeaderRecord *obj;
 
     obj = setupGetPtrToCommandByIndex(index);
 
@@ -315,38 +306,38 @@ void setupUpdateObjectRoomPosition(ObjectRecord *obj)
     {
         switch (obj->type)
         {
-            case PROPDEF_DOOR:    //1
-            case PROPDEF_PROP: //3:
-            case PROPDEF_KEY:  //4:
-            case PROPDEF_ALARM: // 5:
-            case PROPDEF_CCTV: //6:
-            case PROPDEF_MAGAZINE: //7:
-            case PROPDEF_COLLECTABLE: // 8:
-            case PROPDEF_MONITOR: //10:
-            case PROPDEF_MULTI_MONITOR:// 11:
-            case PROPDEF_RACK: //12:
-            case PROPDEF_AUTOGUN: //13:
-            case PROPDEF_HAT: //17:
-            case PROPDEF_AMMO: //20:
-            case PROPDEF_ARMOUR: //21:
-            case PROPDEF_GAS_RELEASING: //36:
-            case PROPDEF_VEHICLE: //39:
-            case PROPDEF_AIRCRAFT: //40:
-            case PROPDEF_UNK41: //41:
-            case PROPDEF_GLASS: //42:
-            case PROPDEF_SAFE: //43:
-            case PROPDEF_TANK: //45:
-            case PROPDEF_TINTED_GLASS:                 //47:
+            case PROPDEF_DOOR:
+            case PROPDEF_PROP:
+            case PROPDEF_KEY:
+            case PROPDEF_ALARM:
+            case PROPDEF_CCTV:
+            case PROPDEF_MAGAZINE:
+            case PROPDEF_COLLECTABLE:
+            case PROPDEF_MONITOR:
+            case PROPDEF_MULTI_MONITOR:
+            case PROPDEF_RACK:
+            case PROPDEF_AUTOGUN:
+            case PROPDEF_HAT:
+            case PROPDEF_AMMO:
+            case PROPDEF_ARMOUR:
+            case PROPDEF_GAS_RELEASING:
+            case PROPDEF_VEHICLE:
+            case PROPDEF_AIRCRAFT:
+            case PROPDEF_UNK41:
+            case PROPDEF_GLASS:
+            case PROPDEF_SAFE:
+            case PROPDEF_TANK:
+            case PROPDEF_TINTED_GLASS:
                 return obj;
             break;
 
-            case PROPDEF_DOOR_SCALE: //2
-            case PROPDEF_GUARD:           //9 :
-            case PROPDEF_LINK:            //14:
-            case PROPDEF_GUARD_ATTRIBUTE: //18:
-            case PROPDEF_SWITCH:          //19:
-            case PROPDEF_TAG:             //22:
-            case PROPDEF_OBJECTIVE_START: //23
+            case PROPDEF_DOOR_SCALE:
+            case PROPDEF_GUARD:
+            case PROPDEF_LINK:
+            case PROPDEF_GUARD_ATTRIBUTE:
+            case PROPDEF_SWITCH:
+            case PROPDEF_TAG:
+            case PROPDEF_OBJECTIVE_START:
             case PROPDEF_OBJECTIVE_END:
             case PROPDEF_OBJECTIVE_DESTROY_OBJECT:
             case PROPDEF_OBJECTIVE_COMPLETE_CONDITION:
@@ -358,11 +349,11 @@ void setupUpdateObjectRoomPosition(ObjectRecord *obj)
             case PROPDEF_OBJECTIVE_ENTER_ROOM:
             case PROPDEF_OBJECTIVE_DEPOSIT_OBJECT_IN_ROOM:
             case PROPDEF_OBJECTIVE_COPY_ITEM:
-            case PROPDEF_WATCH_MENU_OBJECTIVE_TEXT: //35
-            case PROPDEF_RENAME:                    //37:
-            case PROPDEF_LOCK_DOOR:                 //38:
-            case PROPDEF_SAFE_ITEM:                 //44:
-            case PROPDEF_CAMERAPOS:                 //46:
+            case PROPDEF_WATCH_MENU_OBJECTIVE_TEXT:
+            case PROPDEF_RENAME:
+            case PROPDEF_LOCK_DOOR:
+            case PROPDEF_SAFE_ITEM:
+            case PROPDEF_CAMERAPOS:
                 return NULL;
             break;
 
@@ -372,6 +363,7 @@ void setupUpdateObjectRoomPosition(ObjectRecord *obj)
             // return ???
         }
     }
+
     return obj;
 }
 

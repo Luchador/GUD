@@ -1797,7 +1797,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 {
                     AiIFImInRoomWithChrRecord *ai  = AiListp + Offset;
                     ChrRecord                 *chr = chrFindById(ChrEntityp, ai->CHR_NUM);
-                    if (chr && chr->prop && check_if_position_in_same_room(ChrEntityp, &chr->prop->pos, chr->prop->stan))
+                    if (chr && chr->prop && chractCheckIfPosInSameRoom(ChrEntityp, &chr->prop->pos, chr->prop->stan))
                     {
                         Offset = chraiGoToLabel(AiListp, Offset, ai->GOTOLABEL);
                     }

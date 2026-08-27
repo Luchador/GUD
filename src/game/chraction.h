@@ -42,7 +42,7 @@ void chrlvStanLineDirIntersection(coord3d *arg0, coord3d *arg1, coord3d *result)
 void chrlvStanPointPointIntersection(coord3d *arg0, coord3d *arg1, coord3d *result);
 bool handles_shot_actors(ChrRecord *self, s32 hitpart, coord3d *vector, s32 weaponid, bool isPlayer);
 bool chrCanSeeBond(ChrRecord *self);
-bool check_if_position_in_same_room(ChrRecord *self, coord3d *pos, StandTile *stan);
+bool chractCheckIfPosInSameRoom(ChrRecord *self, coord3d *pos, StandTile *stan);
 s32 chrSawTargetRecently(ChrRecord *);
 s32 chrIsDead(ChrRecord *chr);
 bool actor_steps_sideways(ChrRecord *self);

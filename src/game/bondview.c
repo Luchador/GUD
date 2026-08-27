@@ -7277,7 +7277,6 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         gunSetOffsetRelated(DegToRad1Fact(g_CurrentPlayer->vv_verta360));
     }
 
-    // end perfect dark `void bwalk0f0c69b8(void)`
 
     /**
      * The following section updates the TankRecord fields, and handles prop collision detection
@@ -7361,7 +7360,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         // update num_obj_position_data_entries
         roomGetProps(&sp94);
 
-        for (lookup_index=ptr_list_object_lookup_indices; *lookup_index>=0; lookup_index++)
+        for (lookup_index = g_RoomPropQueryIndices; *lookup_index>=0; lookup_index++)
         {
             prop = &g_Props[*lookup_index];
             if (prop != sp138_tank_as_ObjectRecord->prop)

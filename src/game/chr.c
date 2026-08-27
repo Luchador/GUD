@@ -1171,7 +1171,7 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
     StandTile *ret;
     StandTile *tile;
     f32 height;
-    f32 always_20;
+    f32 bottomOffset;
     f32 width;
     coord3d edgeA;
     coord3d edgeB;
@@ -1184,8 +1184,9 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
 
     ret = NULL;
     tile = stan;
+    bottomOffset = CHR_COLLISION_BOTTOM_OFFSET;
 
-    chrGetChrWidthHeight(guard->prop, &width, &height, &always_20);
+    chrGetChrWidthHeight(guard->prop, &width, &height);
     chrSetCollidable(guard, FALSE);
     stanResetHits();
 
@@ -1193,12 +1194,12 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
 
     if (src->x != dst->x || src->z != dst->z)
     {
-        lineUnobstructed = stanTestLineUnobstructed(&tile, src->x, src->z, dst->x, dst->z, CDTYPE_ALL_NO_BG, height, always_20, 0.0f, 1.0f);
+        lineUnobstructed = stanTestLineUnobstructed(&tile, src->x, src->z, dst->x, dst->z, CDTYPE_ALL_NO_BG, height, bottomOffset, 0.0f, 1.0f);
     }
 
     if (lineUnobstructed)
     {
-        if (stanTestVolume(&tile, dst->x, dst->z, width, CDTYPE_ALL_NO_BG, height, always_20) < 0)
+        if (stanTestVolume(&tile, dst->x, dst->z, width, CDTYPE_ALL_NO_BG, height, bottomOffset) < 0)
         {
             if (updateLastMoveOk)
             {
@@ -1242,9 +1243,9 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
 
         if (hasprojection)
         {
-            if (stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, CDTYPE_ALL_NO_BG, height, always_20, 0.0f, 1.0f))
+            if (stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, CDTYPE_ALL_NO_BG, height, bottomOffset, 0.0f, 1.0f))
             {
-                if (stanTestVolume(&tile, newpos.x, newpos.z, width, CDTYPE_ALL_NO_BG, height, always_20) < 0)
+                if (stanTestVolume(&tile, newpos.x, newpos.z, width, CDTYPE_ALL_NO_BG, height, bottomOffset) < 0)
                 {
                     dst->x = newpos.x;
                     dst->z = newpos.z;
@@ -1282,9 +1283,9 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
 
             tile = stan;
 
-            if (stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, CDTYPE_ALL_NO_BG, height, always_20, 0.0f, 1.0f))
+            if (stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, CDTYPE_ALL_NO_BG, height, bottomOffset, 0.0f, 1.0f))
             {
-                if (stanTestVolume(&tile, newpos.x, newpos.z, width, CDTYPE_ALL_NO_BG, height, always_20) < 0)
+                if (stanTestVolume(&tile, newpos.x, newpos.z, width, CDTYPE_ALL_NO_BG, height, bottomOffset) < 0)
                 {
                     dst->x = newpos.x;
                     dst->z = newpos.z;
@@ -1321,9 +1322,9 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
 
                 tile = stan;
 
-                if (stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, CDTYPE_ALL_NO_BG, height, always_20, 0.0f, 1.0f))
+                if (stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, CDTYPE_ALL_NO_BG, height, bottomOffset, 0.0f, 1.0f))
                 {
-                    if (stanTestVolume(&tile, newpos.x, newpos.z, width, CDTYPE_ALL_NO_BG, height, always_20) < 0)
+                    if (stanTestVolume(&tile, newpos.x, newpos.z, width, CDTYPE_ALL_NO_BG, height, bottomOffset) < 0)
                     {
                         dst->x = newpos.x;
                         dst->z = newpos.z;
@@ -3415,39 +3416,21 @@ void chrUpdateCollisionBounds(PropRecord *prop, rect4f **polygon, s32 *edges, f3
 
 
 /**
- * @param arg0: prop
+ * @param prop: character prop
  * @param width: out parameter, will be set to character width
- * @param height: out parameter, will be set to character height - 20
- * @param always_20: out parameter, will be set to 20
- *
- * Address 0x7F023160.
+ * @param height: out parameter, will be set to character height minus the collision bottom offset
  */
-void chrGetChrWidthHeight(PropRecord *arg0, f32 *width, f32 *height, f32 *always_20)
+void chrGetChrWidthHeight(PropRecord *prop, f32 *width, f32 *height)
 {
-    void *temp_v0;
+    ChrRecord *chr = prop->chr;
 
-    ChrRecord *c = arg0->chr;
-
-    *width = c->chrwidth;
-    *height = c->chrheight - 20.0f;
-    *always_20 = 20.0f;
-}
-
-
-/**
- * Address 0x7F023188.
- */
-f32 chrGetChrGround(PropRecord *arg0)
-{
-    ChrRecord *c = arg0->chr;
-    return c->ground;
+    *width = chr->chrwidth;
+    *height = chr->chrheight - CHR_COLLISION_BOTTOM_OFFSET;
 }
 
 
 /**
  * Calculate auto aim position coordinates.
- *
- * US address 7F023194.
 */
 s32 chrGetOnscreenRenderBounds(PropRecord *arg0, struct coord3d *arg1, struct coord2d *arg2, struct coord2d *arg3)
 {
