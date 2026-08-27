@@ -68,7 +68,7 @@ f32 chrlvModelScaleAnimationRelated           (ChrRecord *self);
 void chrlvActGoposRelated                     (ChrRecord *self, coord3d *arg1, StandTile **arg2);
 s32 chrlvMovementTargetRelated                (ChrRecord *self);
 waypoint *navGetFirstWaypointForTile           (StandTile* tile);
-s32 check_if_any_path_preset_lies_on_tile     (StandTile* tile);
+s32 navCheckIfAnyWaypointOnTile     (StandTile* tile);
 waypoint *chrlvStanPathRelated                (coord3d *arg0, StandTile *arg1);
 s32 chrlvStanRoomRelatedPad                   (ChrRecord *self, PadRecord *arg1);
 void sub_GAME_7F025560                        (ChrRecord *self, s32 attack_type, s32 arg2);
@@ -2780,7 +2780,7 @@ waypoint *navGetFirstWaypointForTile(StandTile *tile)
 }
 
 
-s32 check_if_any_path_preset_lies_on_tile(StandTile* tile)
+s32 navCheckIfAnyWaypointOnTile(StandTile* tile)
 {
     return navGetFirstWaypointForTile(tile) != NULL;
 }
@@ -2808,7 +2808,7 @@ waypoint *chrlvStanPathRelated(coord3d *arg0, StandTile *arg1)
     waypoint *wayp = NULL;
     s32 *n = NULL;
 
-    tile = stanFillSearch(arg1, check_if_any_path_preset_lies_on_tile);
+    tile = stanFillSearch(arg1, navCheckIfAnyWaypointOnTile);
 
     if (tile != NULL)
     {
