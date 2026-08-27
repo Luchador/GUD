@@ -64,7 +64,9 @@ PropRecord * g_StanLastCollisionProp;
  */
 StandTile *g_StanDetectedLadderTile;
 
-StandTile *bfsTileStack[352];
+#define STAN_FILL_SEARCH_LIMIT 351
+
+StandTile *bfsTileStack[STAN_FILL_SEARCH_LIMIT + 1];
 
 // Indexed by StandTile.mid.headerMid.special.
 u8 g_StanTileSpecialFlags[] = {
@@ -2039,146 +2041,83 @@ s32 stanTestLocusEdgeAboveY(StandTile **tile, f32 target_x, f32 target_z, f32 ra
 }
 
 
-typedef struct BfsSearchLocals {
-    StandTile **stackptr;
-    s32 pad48;
-    s32 pad4c;
-    s32 pad50;
-    s32 pad54;
-    s32 lastnumtiles;
-} BfsSearchLocals;
-
-
-// Horrifc BFS on tiles
-//
-// Four things look like they could be improved
-// 1. The outer loop always restarts at bfsTileStack[0].
-//    The next 'wave' will process tiles it already scanned in the second wave
-//    Neighbors are checked again needlessly
-//    This has a high cost if the waypoint the game is trying to find
-//    is far away on the stans
-//    Should reset to the previous value of loc.lastnumtiles
-// 2. 'seenCount' can become really big because it's all the stans discovered so far
-//    Neighbor checks thus become exponentially expensive
-//    There could be a faster way to check that a stan was already visited
-// 3. The closest pad to a tile is something that could be precomputed
-//    because it's static and never changes at run-time
-// 4. This function is called at one single location and the second arg
-//    is always the same. It could return the result from tilePred already.
-StandTile *stanFillSearch(StandTile *starttile, tilePredicate_t predicate)
+/**
+ * Searches outward from startTile in breadth-first order and returns the first
+ * tile accepted by predicate.
+ */
+StandTile *stanFillSearch(StandTile *startTile, tilePredicate_t predicate)
 {
-    StandTile **stackbase;
-    BfsSearchLocals loc;
-    StandTile **tileStartAddr;
+    StandTile *tile;
     StandTilePoint *point;
-    StandTile *linkedtile;
-    s32 seenCount;
-    s32 pointindex;
-    s32 pointcount;
+    StandTile *linkedTile;
+    s32 discoveredCount;
+    s32 readIndex;
+    s32 pointCount;
     s32 link;
     s32 i;
-    s32 stackindex;
-    StandTile **tileStack;
 
-    if (predicate(starttile))
+    if (predicate(startTile))
     {
-        return starttile;
+        return startTile;
     }
 
-    tileStartAddr = &standTileStart;
+    bfsTileStack[0] = startTile;
+    discoveredCount = 1;
+    readIndex = 0;
 
-    // Add the starting tile to the discovered tile stack.
-    bfsTileStack[0] = starttile;
-    seenCount = 1;
-
-    // Process the discovered tiles in waves. loc.lastnumtiles is the number of tiles that existed at the beginning of the current wave.
-    for (loc.lastnumtiles = 1, tileStack = bfsTileStack, stackbase = tileStack;; loc.lastnumtiles = seenCount)
+    while (readIndex < discoveredCount)
     {
-        stackindex = 0;
+        tile = bfsTileStack[readIndex];
+        readIndex++;
+        point = tile->points;
+        pointCount = (tile->tail.half >> 12) & 0xf;
 
-        if (seenCount > 0)
+        while (pointCount > 0)
         {
-            // This restarts at the beginning of the stack for every wave rather than beginning at the new frontier.
-            loc.stackptr = tileStack;
+            link = point->link;
+            point++;
+            pointCount--;
 
-            do
+            if ((link >> 4) == 0)
             {
-                pointindex = 0;
-                starttile = *loc.stackptr;
-                point = (StandTilePoint *)starttile;
-                pointcount = (starttile->tail.half >> 12) & 0xf;
-
-                // Loop over the tile's linked points.
-                if (pointcount > 0)
-                {
-                    do
-                    {
-                        link = point[1].link;
-
-                        // This assignment is logically redundant but needed for matching.
-                        tileStartAddr = &standTileStart;
-
-                        // Keep this expression as written. Simplifying it to "link << 3" changes register usage.
-                        linkedtile = (StandTile *)(((u8 *)(*tileStartAddr)) + (link << ((0, 3))));
-
-                        // A zero high portion indicates that there is no valid linked tile to visit.
-                        if ((link >> 4) != 0)
-                        {
-                            // Loop to see if this is a new tile (disgusting)
-                            for (i = 0; i < seenCount; i++)
-                            {
-                                if (linkedtile == tileStack[i])
-                                {
-                                    goto nextpoint;
-                                }
-                            }
-
-                            // Return as soon as a matching tile is found.
-                            if (predicate(linkedtile))
-                            {
-                                return linkedtile;
-                            }
-
-                            // Add the newly discovered tile to the stack.
-                            stackbase[seenCount] = linkedtile;
-                            seenCount++;
-
-                            if ((u32)seenCount >= 351)
-                            {
-                                #ifdef DEBUG
-                                    osSyncPrintf("Out of confs[] in stanFillSearch()\n");
-                                #endif
-                                return 0;
-                            }
-
-                            pointcount = (starttile->tail.half >> 12) & 0xf;
-                        }
-
-nextpoint:
-                        pointindex++;
-                        point++;
-                    }
-                    while (pointindex < pointcount);
-                }
-
-                stackindex++;
-                loc.stackptr++;
+                continue;
             }
-            while (stackindex < loc.lastnumtiles);
+
+            linkedTile = (StandTile *)((u8 *)standTileStart + (link << 3));
+
+            // Linked edges usually lead back to recently discovered tiles.
+            for (i = discoveredCount - 1; i >= 0; i--)
+            {
+                if (linkedTile == bfsTileStack[i])
+                {
+                    break;
+                }
+            }
+
+            if (i >= 0)
+            {
+                continue;
+            }
+
+            if (predicate(linkedTile))
+            {
+                return linkedTile;
+            }
+
+            bfsTileStack[discoveredCount] = linkedTile;
+            discoveredCount++;
+
+            if ((u32)discoveredCount >= STAN_FILL_SEARCH_LIMIT)
+            {
+                #ifdef DEBUG
+                    osSyncPrintf("Out of confs[] in stanFillSearch()\n");
+                #endif
+                return NULL;
+            }
         }
-
-        // We only continue if we made progress with this iteration
-        if (seenCount != loc.lastnumtiles)
-        {
-            // This is logically redundant because both pointers refer to bfsTileStack, but it's still needed for matching.
-            stackbase = tileStack;
-
-            continue;
-        }
-
-        // No new tiles were discovered so the search is exhausted.
-        return 0;
     }
+
+    return NULL;
 }
 
 

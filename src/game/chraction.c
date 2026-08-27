@@ -67,9 +67,8 @@ s32 chrlvStanRoomRelated                      (ChrRecord *self, coord3d *arg1, S
 f32 chrlvModelScaleAnimationRelated           (ChrRecord *self);
 void chrlvActGoposRelated                     (ChrRecord *self, coord3d *arg1, StandTile **arg2);
 s32 chrlvMovementTargetRelated                (ChrRecord *self);
-waypoint *navGetFirstWaypointForTile           (StandTile* tile);
-s32 navCheckIfAnyWaypointOnTile     (StandTile* tile);
-waypoint *chrlvStanPathRelated                (coord3d *arg0, StandTile *arg1);
+waypoint *navGetFirstWaypointForTile          (StandTile* tile);
+s32 navCheckIfAnyWaypointOnTile               (StandTile* tile);
 s32 chrlvStanRoomRelatedPad                   (ChrRecord *self, PadRecord *arg1);
 void sub_GAME_7F025560                        (ChrRecord *self, s32 attack_type, s32 arg2);
 coord3d *chrlvGetChrOrPresetLocation          (ChrRecord *self, s32 flags, s32 lookup_id, StandTile **stan);
@@ -2800,29 +2799,29 @@ f32 chrlvPadPresetRelated(coord3d *pos, waypoint *wp)
 }
 
 
-waypoint *chrlvStanPathRelated(coord3d *arg0, StandTile *arg1)
+waypoint *navFindClosestWaypointToPos(coord3d *pos, StandTile *tile)
 {
-    StandTile *tile = NULL;
+    StandTile *localtile = NULL;
     f32 temp_f20;
     waypoint *ret = NULL;
     waypoint *wayp = NULL;
     s32 *n = NULL;
 
-    tile = stanFillSearch(arg1, navCheckIfAnyWaypointOnTile);
+    localtile = stanFillSearch(tile, navCheckIfAnyWaypointOnTile);
 
-    if (tile != NULL)
+    if (localtile != NULL)
     {
-        ret = navGetFirstWaypointForTile(tile);
+        ret = navGetFirstWaypointForTile(localtile);
 
         if (ret != NULL)
         {
-            temp_f20 = chrlvPadPresetRelated(arg0, ret);
+            temp_f20 = chrlvPadPresetRelated(pos, ret);
 
             for (n = ret->neighbours; *n >= 0; n++)
             {
                 wayp = &g_CurrentSetup.pathwaypoints[*n];
 
-                if (chrlvPadPresetRelated(arg0, wayp) < temp_f20)
+                if (chrlvPadPresetRelated(pos, wayp) < temp_f20)
                 {
                     ret = wayp;
                 }
@@ -3577,8 +3576,8 @@ s32 plot_course_for_actor(ChrRecord *self, coord3d *arg1, StandTile *stan, SPEED
 
     phi_v0 = (self->actiontype == ACT_GOPOS) && (self->act_gopos.unk59 == (u8)speed);
 
-    prop_waypoint = chrlvStanPathRelated(&prop->pos, prop->stan);
-    target_waypoint = chrlvStanPathRelated(arg1, stan);
+    prop_waypoint = navFindClosestWaypointToPos(&prop->pos, prop->stan);
+    target_waypoint = navFindClosestWaypointToPos(arg1, stan);
 
     if ((prop_waypoint != NULL)
         && (target_waypoint != NULL)
@@ -9938,7 +9937,7 @@ s32 chrlvFindPathNeighborRelated(coord3d *bondpos, StandTile *stan, f32 rot, u8 
     s32 path_id;
     s32 neighbor_index;
 
-    waypoint = chrlvStanPathRelated(bondpos, stan);
+    waypoint = navFindClosestWaypointToPos(bondpos, stan);
 
     if (waypoint)
     {
@@ -10004,8 +10003,8 @@ bool check_2328_preset_set_with_method(ChrRecord *self, u8 quadrant)
     {
         myprop               = self->prop;
         bondprop             = getCurrentPlayerProp();
-        myclosestwaypoint    = chrlvStanPathRelated(&myprop->pos, myprop->stan);
-        bondsclosestwaypoint = chrlvStanPathRelated(&bondprop->pos, bondprop->stan);
+        myclosestwaypoint    = navFindClosestWaypointToPos(&myprop->pos, myprop->stan);
+        bondsclosestwaypoint = navFindClosestWaypointToPos(&bondprop->pos, bondprop->stan);
 
         if (myclosestwaypoint != NULL && bondsclosestwaypoint != NULL)
         {
