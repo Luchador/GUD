@@ -9,11 +9,6 @@
 #endif
 #if defined(LEFTOVERDEBUG)
 
-
-//D:80036F64
-s32 debug_render_raster = DEB_BOND_VIEW;
-//D:80036F68
-s32 debug_freeze_processing = DEB_BOND_VIEW;
 //D:80036F78
 s32 debug_do_draw_bg = TRUE;
 //D:80036F7C

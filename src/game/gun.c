@@ -1462,7 +1462,7 @@ void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *ar
     bviewSetPlayerSolid(playerprop, 0);
 
     // If there is no obstruction, spawn the projectile at the target position.
-    if (stanTestLineUnobstructed(&tile, playerprop->pos.x, playerprop->pos.z, targetpos->x, targetpos->z, 0x1f, yhi, ylo, 0.0f, 1.0f))
+    if (stanTestLineUnobstructed(&tile, playerprop->pos.x, playerprop->pos.z, targetpos->x, targetpos->z, CDTYPE_ALL_NO_BG, yhi, ylo, 0.0f, 1.0f))
     {
         pos.x = targetpos->x;
         pos.y = targetpos->y;

@@ -1193,29 +1193,12 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
 
     if (src->x != dst->x || src->z != dst->z)
     {
-        lineUnobstructed = stanTestLineUnobstructed(
-            &tile,
-            src->x,
-            src->z,
-            dst->x,
-            dst->z,
-            0x1f,
-            height,
-            always_20,
-            0.0f,
-            1.0f);
+        lineUnobstructed = stanTestLineUnobstructed(&tile, src->x, src->z, dst->x, dst->z, CDTYPE_ALL_NO_BG, height, always_20, 0.0f, 1.0f);
     }
 
     if (lineUnobstructed)
     {
-        if (stanTestVolume(
-                &tile,
-                dst->x,
-                dst->z,
-                width,
-                0x1f,
-                height,
-                always_20) < 0)
+        if (stanTestVolume(&tile, dst->x, dst->z, width, CDTYPE_ALL_NO_BG, height, always_20) < 0)
         {
             if (updateLastMoveOk)
             {
@@ -1259,9 +1242,9 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
 
         if (hasprojection)
         {
-            if (stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, 0x1f, height, always_20, 0.0f, 1.0f))
+            if (stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, CDTYPE_ALL_NO_BG, height, always_20, 0.0f, 1.0f))
             {
-                if (stanTestVolume(&tile, newpos.x, newpos.z, width, 0x1f, height, always_20) < 0)
+                if (stanTestVolume(&tile, newpos.x, newpos.z, width, CDTYPE_ALL_NO_BG, height, always_20) < 0)
                 {
                     dst->x = newpos.x;
                     dst->z = newpos.z;
@@ -1299,9 +1282,9 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
 
             tile = stan;
 
-            if (stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, 0x1f, height, always_20, 0.0f, 1.0f))
+            if (stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, CDTYPE_ALL_NO_BG, height, always_20, 0.0f, 1.0f))
             {
-                if (stanTestVolume(&tile, newpos.x, newpos.z, width, 0x1f, height, always_20) < 0)
+                if (stanTestVolume(&tile, newpos.x, newpos.z, width, CDTYPE_ALL_NO_BG, height, always_20) < 0)
                 {
                     dst->x = newpos.x;
                     dst->z = newpos.z;
@@ -1338,9 +1321,9 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
 
                 tile = stan;
 
-                if (stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, 0x1f, height, always_20, 0.0f, 1.0f))
+                if (stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, CDTYPE_ALL_NO_BG, height, always_20, 0.0f, 1.0f))
                 {
-                    if (stanTestVolume(&tile, newpos.x, newpos.z, width, 0x1f, height, always_20) < 0)
+                    if (stanTestVolume(&tile, newpos.x, newpos.z, width, CDTYPE_ALL_NO_BG, height, always_20) < 0)
                     {
                         dst->x = newpos.x;
                         dst->z = newpos.z;
@@ -1771,11 +1754,7 @@ void chrUpdateAimProperties( ChrRecord *self)
 
     if (self->aimendcount >= 2)
     {
-#if defined(BUGFIX_R1)
-        mult = g_JP_GlobalTimerDelta / (f32) self->aimendcount;
-#else
         mult = g_GlobalTimerDelta / (f32) self->aimendcount;
-#endif
 
         if (mult > 1.0f)
         {
@@ -1847,8 +1826,6 @@ void chrSetHiddenToRandom(ChrRecord *self)
 
 
 /**
- * Address: 7F020794
- *
  * Flinch animation envelope. Maps a character's flinchcnt timer to a normalized
  * intensity that goes 0->1 then falls 1->0, used to drive the flinch animation.
  *

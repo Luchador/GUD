@@ -934,7 +934,7 @@ s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, co
 
                     if (lineok)
                     {
-                        lineok = stanTestVolume(&spC8, flt_CODE_bss_800799E8.x, flt_CODE_bss_800799E8.z, camclearance, 0x1f, 0.0f, 1.0f);
+                        lineok = stanTestVolume(&spC8, flt_CODE_bss_800799E8.x, flt_CODE_bss_800799E8.z, camclearance, CDTYPE_ALL_NO_BG, 0.0f, 1.0f);
 
                         if (lineok < 0)
                         {
@@ -952,8 +952,6 @@ s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, co
                     }
 
                     frac -= 0.25f;
-
-                    if (pos);
                 }
             }
 
@@ -1169,10 +1167,6 @@ void bondviewSetCameraMode(s32 arg0)
         {
             if (camera_mode == 0)
             {
-#ifdef DEBUG
-                osSyncPrintf("mute\n");
-#endif
-
                 musicTrack1Play(M_INTROSWOOSH);
                 sndSetScalerApplyVolumeAllSfxSlot(0.5f);
             }

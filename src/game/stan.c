@@ -1413,20 +1413,19 @@ bool stanPointProjectsOntoEdge(f32 a_x, f32 a_z, f32 b_x, f32 b_z, f32 p_x, f32 
 }
 
 
-s32 stanTestVolumeImpl(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, f32 arg5, f32 arg6)
+StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, f32 radius, CDTYPE cdtypes, f32 height, f32 width)
 {
     s32 i;
     f32 var_f20;
     f32 var_f24;
     s32 temp_v0;
     s32 next;
-
     s32 sp108;
     f32 temp_f0;
     s16 *sp100;
-    s32 spFC;
+    s32 roomCount;
     struct PropRecord *prop;
-    s32 spA8[0x14];
+    s32 roomList[20];
     struct rect4f *polygon;
     s32 numvertices0;
     f32 temp_f0_3;
@@ -1434,24 +1433,22 @@ s32 stanTestVolumeImpl(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtyp
     f32 sp94;
     f32 sp90;
 
-    s32 padding1;
-    s32 padding2;
 
-    sp108 = (arg6 <= arg5);
+    sp108 = (width <= height);
 
-    spFC = 0;
+    roomCount = 0;
 
-    temp_v0 = stanTestCircleAndCollectRooms(arg0, arg1, arg2, arg3, &spA8[0], &spFC, 20);
+    temp_v0 = stanTestCircleAndCollectRooms(tileStack, p_x, p_z, radius, &roomList[0], &roomCount, 20);
+
     if (temp_v0 >= 0)
     {
         return temp_v0;
     }
 
-
-    if (spFC > 20)
+    if (roomCount > 20)
     {
-        //osSyncPrintf("stanCircleLegalXFObjTypeY: %d rooms is more than %d\n",spFC,20);
-        spFC = 20;
+        //osSyncPrintf("stanCircleLegalXFObjTypeY: %d rooms is more than %d\n",roomCount,20);
+        roomCount = 20;
     }
 
     g_StanLastCollisionProp = NULL;
@@ -1460,13 +1457,13 @@ s32 stanTestVolumeImpl(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtyp
     {
         if (sp108)
         {
-            temp_f0 = stanGetPositionYValue(*arg0, arg1, arg2);
-            arg5 += temp_f0;
-            arg6 += temp_f0;
+            temp_f0 = stanGetPositionYValue(*tileStack, p_x, p_z);
+            height += temp_f0;
+            width += temp_f0;
         }
 
-        spA8[spFC] = -1;
-        roomGetProps(&spA8[0]);
+        roomList[roomCount] = -1;
+        roomGetProps(&roomList[0]);
 
         for (sp100 = ptr_list_object_lookup_indices; *sp100 >= 0; sp100++)
         {
@@ -1475,7 +1472,8 @@ s32 stanTestVolumeImpl(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtyp
             if (propIsOfCdType(prop, cdtypes) != 0)
             {
                 chraiGetCollisionBounds(prop, &polygon, &numvertices0, &sp94, &sp90);
-                if ((numvertices0 > 0) && ((sp108 == 0) || ((sp90 <= arg5) && (arg6 <= sp94))))
+
+                if ((numvertices0 > 0) && ((sp108 == 0) || ((sp90 <= height) && (width <= sp94))))
                 {
                     var_f24 = -1.0f;
 
@@ -1484,7 +1482,7 @@ s32 stanTestVolumeImpl(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtyp
                     {
                         next = (i + 1) % numvertices0;
 
-                        var_f20 = stanGetSignedPointLineDistance(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], arg1, arg2);
+                        var_f20 = stanGetSignedPointLineDistance(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], p_x, p_z);
 
                         if (var_f20 < 0.0f)
                         {
@@ -1493,10 +1491,10 @@ s32 stanTestVolumeImpl(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtyp
 
                         if (var_f24 < var_f20)
                         {
-                            temp_f0_2 = distBetweenPoints2d(polygon->points[i].f[0], polygon->points[i].f[1], arg1, arg2);
-                            temp_f0_3 = distBetweenPoints2d(polygon->points[next].f[0], polygon->points[next].f[1], arg1, arg2);
+                            temp_f0_2 = distBetweenPoints2d(polygon->points[i].f[0], polygon->points[i].f[1], p_x, p_z);
+                            temp_f0_3 = distBetweenPoints2d(polygon->points[next].f[0], polygon->points[next].f[1], p_x, p_z);
 
-                            if ((var_f20 < arg3) && ((temp_f0_2 < arg3) || (temp_f0_3 < arg3) || (stanPointProjectsOntoEdge(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], arg1, arg2) != 0)))
+                            if ((var_f20 < radius) && ((temp_f0_2 < radius) || (temp_f0_3 < radius) || (stanPointProjectsOntoEdge(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], p_x, p_z) != 0)))
                             {
                                 g_StanLastCollisionEdgePointsValid = 1;
                                 var_f24 = var_f20;
@@ -1521,28 +1519,29 @@ s32 stanTestVolumeImpl(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtyp
 
                     if (var_f24 > -1.0f)
                     {
-                        return 2;
+                        return STAN_COLLISION_FOUND;
                     }
                 }
             }
         }
     }
 
-    return -2;
+    return STAN_COLLISION_NONE;
 }
+
 
 /* TEMP profiler: accumulated cost and call count of stanTestVolume,
  * captured and zeroed each frame by lvlDrawFrameRateDisplay. */
 u32 g_ProfStanVolCycles;
 u32 g_ProfStanVolCalls;
 
-s32 stanTestVolume(StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, s32 cdtypes, f32 arg5, f32 arg6)
+StanCollisionResult stanTestVolume(StandTile **tileStack, f32 arg1, f32 arg2, f32 arg3, CDTYPE cdtypes, f32 height, f32 width)
 {
     u32 proftime;
-    s32 rc;
+    StanCollisionResult rc;
 
     proftime = osGetCount();
-    rc = stanTestVolumeImpl(arg0, arg1, arg2, arg3, cdtypes, arg5, arg6);
+    rc = stanTestVolumeImpl(tileStack, arg1, arg2, arg3, cdtypes, height, width);
     g_ProfStanVolCycles += osGetCount() - proftime;
     g_ProfStanVolCalls += 1;
 

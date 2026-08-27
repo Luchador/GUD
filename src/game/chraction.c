@@ -8066,8 +8066,7 @@ s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     {
         spAC = arg2;
 
-        if (stanTestLineUnobstructed(&spAC, arg1->f[0], arg1->f[2], arg3->f[0], arg3->f[2], cdtypes, sp4C, sp48, 0.0f, 1.0f)
-            && stanTestVolume(&spAC, arg3->f[0], arg3->f[2], arg7, cdtypes, sp4C, sp48) < 0)
+        if (stanTestLineUnobstructed(&spAC, arg1->f[0], arg1->f[2], arg3->f[0], arg3->f[2], cdtypes, sp4C, sp48, 0.0f, 1.0f) && stanTestVolume(&spAC, arg3->f[0], arg3->f[2], arg7, cdtypes, sp4C, sp48) < 0)
         {
             sp50 = 1;
         }

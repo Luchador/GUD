@@ -1846,7 +1846,7 @@ s32 objTryMovePropWithCollision(ObjectRecord *obj, coord3d *targetpos, coord3d *
 
     stanResetHits();
 
-    if ((stanTestLineUnobstructed(&stan, prop->pos.x, prop->pos.z, target.f[0], target.f[2], CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER, ymax, ymin, 0.0f, 1.0f) != 0) && (stan != NULL))
+    if ((stanTestLineUnobstructed(&stan, prop->pos.x, prop->pos.z, target.f[0], target.f[2], CDTYPE_ALL_NO_BG, ymax, ymin, 0.0f, 1.0f) != 0) && (stan != NULL))
     {
         if (stanTestVolume(&stan, target.f[0], target.f[2], width, 0x1f, ymax, ymin) < 0)
         {
@@ -4673,7 +4673,7 @@ void objTickVehicle(PropRecord *prop)
         ProjPos.f[0] = (poTruck->position.f[0] + ((poTruck->speed * g_GlobalTimerDelta) * forwardDir.f[0])) - (forwardDir.f[2] * sp460);
         ProjPos.f[1] = poTruck->position.f[1];
         ProjPos.f[2] = (poTruck->position.f[2] + ((poTruck->speed * g_GlobalTimerDelta) * forwardDir.f[2])) + (forwardDir.f[0] * sp460);
-        if ((stanTestLineUnobstructed(&currentTile, prop->pos.f[0], prop->pos.f[2], ProjPos.f[0], ProjPos.f[2], 0x1F, 0.0f, 1.0f, 0.0f, 1.0f) != 0) && (stanTestVolume(&currentTile, ProjPos.f[0], ProjPos.f[2], 10.0f, 0x1F, 0.0f, 1.0f) < 0))
+        if ((stanTestLineUnobstructed(&currentTile, prop->pos.f[0], prop->pos.f[2], ProjPos.f[0], ProjPos.f[2], CDTYPE_ALL_NO_BG, 0.0f, 1.0f, 0.0f, 1.0f) != 0) && (stanTestVolume(&currentTile, ProjPos.f[0], ProjPos.f[2], 10.0f, CDTYPE_ALL_NO_BG, 0.0f, 1.0f) < 0))
         {
             nextTile = prop->stan;
             sp450.f[0] = prop->pos.f[0];

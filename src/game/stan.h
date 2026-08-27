@@ -69,7 +69,7 @@ s32 stanTestLineUnobstructed(StandTile **pTile, f32 p_x, f32 p_z, f32 dest_x, f3
 StandTile* stanFillSearch(StandTile* srcTile, tilePredicate_t tilePred);
 s32 stanGetRoomsBetweenPoints(StandTile *tile, f32 start_x, f32 start_z, StandTile **destTile, f32 dest_x, f32 dest_z, s32 *roomBuffer, s32 maxBufSize);
 s32 stanWalkTilesBetweenPointsAndCollectRooms(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_x, f32 dest_z, s32 *roomBuffer, s32 *rtnCountSize, s32 maxBufSize);
-s32 stanTestVolume(StandTile **, f32 posX, f32 posY, f32 radius, s32 cdtypes, f32 float1, f32 float2);
+StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 radius, CDTYPE cdtypes, f32 height, f32 width);
 s32 getTileRoom(StandTile* tile);
 PropRecord *sub_GAME_7F0B1410(StandTile *arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, s32 arg5);
 s32 stanTileDistanceRelated(struct StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, struct StandTileLocusCallbackRecord *arg4);
