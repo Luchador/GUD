@@ -1742,15 +1742,15 @@ typedef union
 
     struct act_stand
     {
-        s32 prestand;          /*0x2c*/
-        s32 face_entitytype; /*0x30*/
-        s32 face_entityid;   /*0x34*/
-        s32 reaim;          /*0x38*/
-        s32 turning;          /*0x3c*/
-        u32 checkfacingwall;          /*0x40*/
-        s32 wallcount;          /*0x44*/
-        f32 mergetime;          /*0x48*/
-        s8  face_target;     /*0x4c*/
+        s32 prestand;
+        s32 face_entitytype;
+        s32 face_entityid;
+        s32 reaim;
+        s32 turning;
+        u32 checkfacingwall;
+        s32 wallcount;
+        f32 mergetime;
+        s8  face_target;
     };
 
     struct act_kneel

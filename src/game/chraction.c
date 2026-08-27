@@ -3825,7 +3825,7 @@ bool chrCanSeeBond(ChrRecord *self)
 }
 
 
-bool chractCheckIfPosInSameRoom(ChrRecord *self, coord3d *pos, StandTile *stan)
+bool chractHasLOStoPosition(ChrRecord *self, coord3d *pos, StandTile *stan)
 {
     PropRecord *myprop   = self->prop;
     StandTile  *propstan;
@@ -3847,7 +3847,24 @@ bool chractCheckIfPosInSameRoom(ChrRecord *self, coord3d *pos, StandTile *stan)
 }
 
 
-s32 chrlvMaybeSameRoom(ChrRecord *self, coord3d *pos, StandTile *tile)
+/**
+ * AI visibility test, checking the target's bearing to the character's facing angle. The target
+ * must be within 100 degrees of either side of the facing direction.
+ * 
+ *                    FRONT
+ *                      ^
+ *                  visible area
+ *               \             /
+ *                \           /
+ *                 \         /
+ *                  [ GUARD ]
+ *                   \     /
+ *                    \   /
+ *                 rear blind area
+ *                     160°
+ * 
+ */
+bool chractCanSeePosition(ChrRecord *self, coord3d *pos, StandTile *tile)
 {
     f32 atan;
     f32 roty;
@@ -3861,13 +3878,13 @@ s32 chrlvMaybeSameRoom(ChrRecord *self, coord3d *pos, StandTile *tile)
     {
         df += M_TAU_F;
     }
-    // if NOT in rear left quadrant?
+
     if ((df < DegToRad(100)) || (df > DegToRad(260)))
     {
-        return chractCheckIfPosInSameRoom(self, pos, tile);
+        return chractHasLOStoPosition(self, pos, tile);
     }
 
-    return 0;
+    return FALSE;
 }
 
 
@@ -3886,18 +3903,7 @@ s32 chrlvCurrentPlayerCall7F0B0E24(ChrRecord *self)
 
     bond_stan = bond_prop->stan;
 
-    if ((stanTestLineUnobstructed(
-            &bond_stan,
-            bond_prop->pos.f[0],
-            bond_prop->pos.f[2],
-            sp3C->pos.f[0],
-            sp3C->pos.f[2],
-            0x13,
-            bond_prop->pos.f[1],
-            bond_prop->pos.f[1],
-            0.0f,
-            1.0f) != 0)
-        && (bond_stan == sp3C->stan))
+    if ((stanTestLineUnobstructed(&bond_stan, bond_prop->pos.f[0], bond_prop->pos.f[2], sp3C->pos.f[0], sp3C->pos.f[2], CDTYPE_PATHBLOCKER | CDTYPE_DOORS | CDTYPE_OBJS, bond_prop->pos.f[1], bond_prop->pos.f[1], 0.0f, 1.0f) != 0) && (bond_stan == sp3C->stan))
     {
         ret = 1;
     }
@@ -3908,11 +3914,6 @@ s32 chrlvCurrentPlayerCall7F0B0E24(ChrRecord *self)
 }
 
 
-
-
-/**
- * Address 0x7F02982C.
-*/
 s32 chrlvCall7F0B0E24WithChrWidthHeight(PropRecord *arg0, coord3d *arg1, coord3d *arg2)
 {
     ChrRecord *sp7C;
@@ -3923,9 +3924,9 @@ s32 chrlvCall7F0B0E24WithChrWidthHeight(PropRecord *arg0, coord3d *arg1, coord3d
     StandTile *stan;
     f32 chrx;
     f32 chrz;
-    s32 ret; // sp92
-    f32 sp58; // sp88
-    f32 sp50; // sp80
+    s32 ret;
+    f32 sp58;
+    f32 sp50;
     f32 bottomOffset;
 
     sp7C = arg0->chr;
@@ -3986,8 +3987,6 @@ s32 chrlvCall7F02982C(PropRecord *arg0, coord3d *arg1, f32 arg2)
 
 /**
  * Same as chrlvAlertGuardToPlayerPosition, except without setting `hidden` flag 0x2.
- *
- * Address 0x7F029BB0.
 */
 void chrlvSetTargetToPlayer(ChrRecord *self)
 {
@@ -4002,12 +4001,8 @@ void chrlvSetTargetToPlayer(ChrRecord *self)
 }
 
 
-
-
 /**
  * See also chrlvSetTargetToPlayer.
- *
- * Address 0x7F029C00.
  */
 void chrlvAlertGuardToPlayerPosition(ChrRecord *self)
 {
@@ -4023,10 +4018,7 @@ void chrlvAlertGuardToPlayerPosition(ChrRecord *self)
 }
 
 
-/**
- * Address 0x7F029C5C.
-*/
-bool chrHasStoppedOrPatroling(ChrRecord *self) //chrHasStoppedOrPatroling
+bool chrHasStoppedOrPatroling(ChrRecord *self)
 {
     if ((self->actiontype == ACT_STAND) && !self->act_stand.prestand && !self->act_stand.reaim)
     {
@@ -4051,11 +4043,6 @@ bool chrHasStoppedOrPatroling(ChrRecord *self) //chrHasStoppedOrPatroling
 }
 
 
-
-
-/**
- * Address 0x7F029D70.
-*/
 bool chrCheckTargetInSight(ChrRecord *self)
 {
     PropRecord *myprop;
@@ -5098,7 +5085,7 @@ void chrlvIterateGuardSeeShotDie(ChrRecord *self, s32 flag)
             {
                 alert_count++;
 
-                if (chrlvMaybeSameRoom(guard, &self_prop->pos, self_prop->stan))
+                if (chractCanSeePosition(guard, &self_prop->pos, self_prop->stan))
                 {
                     if (flag == 0)
                     {
