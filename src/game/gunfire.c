@@ -101,6 +101,11 @@ typedef struct ModelHeader {
     ModelNode *attachedto_objinst;
 } ModelHeader;
 
+const char g_GunHudIntegerFormat[] = "%d\n";
+const char aSD[] = "%s: %d\n";
+const char g_GunDeathCountFormat[] = "%s %d %s\n";
+const char aSD_0[] = "%s: %d\n";
+
 void gunCreateBeamForHand(enum GUNHAND hand);
 void gunCalcBulletPath(coord3d *arg0, coord3d *arg1, enum GUNHAND arg2);
 void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *arg2, coord3d *velocity, Mtxf *arg4);
@@ -4659,10 +4664,6 @@ extern ALSoundState *g_CasingSfxState;
 
 #define AMMO_RELATED_MAX 30
 extern AmmoStats ammo_related[AMMO_RELATED_MAX];
-extern const char g_GunHudIntegerFormat[];
-extern const char aSD[];
-extern const char g_GunDeathCountFormat[];
-extern const char aSD_0[];
 
 
 void sub_GAME_7F068190(coord3d *zeropos, coord3d *vec)

@@ -1455,21 +1455,16 @@ void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *ar
     PropRecord *playerprop;
     coord3d pos;
     StandTile *tile;
-    u32 pad_c[2];
     f32 yhi;
     f32 ylo;
     s32 usedfallback;
     f32 stanheight;
     u8 rooms[2];
-    s32 pad_rooms;
-    u8 pad_a[0x4c];
     s32 sp54;
     s32 sp50;
-    s32 pad_sp;
 
-    // fake
-    if (obj->prop);
-    if (obj->prop == NULL) {
+    if (obj->prop == NULL)
+    {
         return;
     }
 
@@ -1478,7 +1473,8 @@ void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *ar
 
     usedfallback = 0;
 
-    if (targetpos->y < playerprop->pos.y) {
+    if (targetpos->y < playerprop->pos.y)
+    {
         yhi = playerprop->pos.y - stanheight;
         ylo = targetpos->y - stanheight;
     }
@@ -1539,15 +1535,13 @@ void gunThrowGrenade(s32 hand)
     struct coord3d spE0;
     Mtxf spA0_a;
     struct WeaponObjRecord *wor;
-    s32 new_prop_type;
-    s32 sp94; // sp148
-    struct coord3d base_speed_vec; // sp136
-    struct PropRecord* player_prop; // sp132
-    struct coord3d *bondprevpos;  // sp128
+    s32 sp94;
+    struct coord3d base_speed_vec;
+    struct PropRecord* player_prop;
+    struct coord3d *bondprevpos;
     Mtxf sp40_f;
     ALSoundState *sfx_state;
     s32 current_weapon;
-    s32 unused;
 
     wor = NULL;
     base_velocity = 16.666666f;
@@ -1941,7 +1935,6 @@ void gunSpawnGLGrenade(s32 handnum)
 
 
 /**
- * Address: 0x7F05F928
  * This function is responsible for attaching a rocket to the end of the Rocket Launcher and updating its matrices.
  */
 void gunUpdateAttachedRocket(s32 handIndex)
@@ -2015,9 +2008,3 @@ void gunCreateRocket(GUNHAND hand)
         }
     }
 }
-
-
-const char g_GunHudIntegerFormat[] = "%d\n";
-const char aSD[] = "%s: %d\n";
-const char g_GunDeathCountFormat[] = "%s %d %s\n";
-const char aSD_0[] = "%s: %d\n";

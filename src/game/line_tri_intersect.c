@@ -17,35 +17,19 @@
  */
 bool intersectRayTriangle(Vertex *vertex0, Vertex *vertex1, Vertex *vertex2, coord3d *vertexOffset, coord3d *rayStart, coord3d *linePoint, coord3d *rayDirection, HitThing *hit)
 {
-    f64 edge01[3];
-    f64 edge12[3];
-    f64 edge02[3];
-    f64 normalX;
-    f64 normalY;
-    f64 normalZ;
-    f64 planeConstant;
-    f64 denominator;
-    f64 baryU;
-    f64 hitPosition[3];
-    f64 relativePosition[3];
-    f64 baryV;
-    f64 vertexOffset64[3];
-    f64 rayDirection64[3];
-    f64 linePoint64[3];
-    f64 lineParameter;
- 
-    // Widen the 32-bit coord3d components to f64.
-    vertexOffset64[0] = vertexOffset->x;
-    vertexOffset64[1] = vertexOffset->y;
-    vertexOffset64[2] = vertexOffset->z;
- 
-    rayDirection64[0] = rayDirection->x;
-    rayDirection64[1] = rayDirection->y;
-    rayDirection64[2] = rayDirection->z;
- 
-    linePoint64[0] = linePoint->x;
-    linePoint64[1] = linePoint->y;
-    linePoint64[2] = linePoint->z;
+    f32 edge01[3];
+    f32 edge12[3];
+    f32 edge02[3];
+    f32 normalX;
+    f32 normalY;
+    f32 normalZ;
+    f32 planeConstant;
+    f32 denominator;
+    f32 baryU;
+    f32 hitPosition[3];
+    f32 relativePosition[3];
+    f32 baryV;
+    f32 lineParameter;
  
     /**
      * Build two adjacent edges of the triangle. The shared vertex offset cancels when
@@ -72,42 +56,42 @@ bool intersectRayTriangle(Vertex *vertex0, Vertex *vertex1, Vertex *vertex2, coo
      * Place the triangle's plane in the line's coordinate space by translating vertex0.
      * The resulting plane equation is normal's dot product with point vertex0 = planeConstant.
      */
-    planeConstant = ((normalX * (vertex0->coord.x + vertexOffset64[0])) + (normalY * (vertex0->coord.y + vertexOffset64[1]))) + (normalZ * (vertex0->coord.z + vertexOffset64[2]));
+    planeConstant = ((normalX * (vertex0->coord.x + vertexOffset->x)) + (normalY * (vertex0->coord.y + vertexOffset->y))) + (normalZ * (vertex0->coord.z + vertexOffset->z));
  
     /**
     * Measure how directly the line points through the plane. A zero dot product means
     * the line runs parallel to the plane and therefore does not intersect.
     */
-    denominator = ((normalX * rayDirection64[0]) + (normalY * rayDirection64[1])) + (normalZ * rayDirection64[2]);
+    denominator = ((normalX * rayDirection->x) + (normalY * rayDirection->y)) + (normalZ * rayDirection->z);
  
-    if (denominator == 0.0)
+    if (denominator == 0.0f)
     {
         // Line is parallel to the tri's plane, return false for no hit.
         return FALSE;
     }
  
     // Solve the plane equation for the parameter along the infinite line.
-    lineParameter = (((planeConstant - (normalX * linePoint64[0])) - (normalY * linePoint64[1])) - (normalZ * linePoint64[2])) / denominator;
+    lineParameter = (((planeConstant - (normalX * linePoint->x)) - (normalY * linePoint->y)) - (normalZ * linePoint->z)) / denominator;
  
     /**
      * Evaluate linePoint + rayDirection * lineParameter to get the plane intersection.
      */
-    hitPosition[0] = linePoint64[0] + (rayDirection64[0] * lineParameter);
-    hitPosition[1] = linePoint64[1] + (rayDirection64[1] * lineParameter);
-    hitPosition[2] = linePoint64[2] + (rayDirection64[2] * lineParameter);
+    hitPosition[0] = linePoint->x + (rayDirection->x * lineParameter);
+    hitPosition[1] = linePoint->y + (rayDirection->y * lineParameter);
+    hitPosition[2] = linePoint->z + (rayDirection->z * lineParameter);
  
     /**
      * Express the intersection relative to translated vertex0. This lets the following 
      * calculations determine where the point lies within the triangle.
      */
-    relativePosition[0] = hitPosition[0] - (vertex0->coord.x + vertexOffset64[0]);
-    relativePosition[1] = hitPosition[1] - (vertex0->coord.y + vertexOffset64[1]);
-    relativePosition[2] = hitPosition[2] - (vertex0->coord.z + vertexOffset64[2]);
+    relativePosition[0] = hitPosition[0] - (vertex0->coord.x + vertexOffset->x);
+    relativePosition[1] = hitPosition[1] - (vertex0->coord.y + vertexOffset->y);
+    relativePosition[2] = hitPosition[2] - (vertex0->coord.z + vertexOffset->z);
  
     // Solve the first barycentric weight using the triangle's XY projection.
     denominator = (edge01[1] * edge12[0]) - (edge01[0] * edge12[1]);
  
-    if (denominator != 0.0)
+    if (denominator != 0.0f)
     {
         baryU = ((relativePosition[0] * edge01[1]) - (relativePosition[1] * edge01[0])) / denominator;
     }
@@ -116,7 +100,7 @@ bool intersectRayTriangle(Vertex *vertex0, Vertex *vertex1, Vertex *vertex2, coo
         // The XY projection is degenerate, so try the YZ projection instead.
         denominator = (edge01[2] * edge12[1]) - (edge01[1] * edge12[2]);
  
-        if (denominator != 0.0)
+        if (denominator != 0.0f)
         {
             baryU = ((relativePosition[1] * edge01[2]) - (relativePosition[2] * edge01[1])) / denominator;
         }
@@ -129,11 +113,11 @@ bool intersectRayTriangle(Vertex *vertex0, Vertex *vertex1, Vertex *vertex2, coo
     }
  
     // Solve the second barycentric weight using a nonzero component of edge01.
-    if (edge01[0] != 0.0)
+    if (edge01[0] != 0.0f)
     {
         baryV = (relativePosition[0] - (baryU * edge02[0])) / edge01[0];
     }
-    else if (edge01[1] != 0.0)
+    else if (edge01[1] != 0.0f)
     {
         baryV = (relativePosition[1] - (baryU * edge02[1])) / edge01[1];
     }
@@ -146,13 +130,13 @@ bool intersectRayTriangle(Vertex *vertex0, Vertex *vertex1, Vertex *vertex2, coo
      * Both weights must be nonnegative and their sum must not exceed one. This is the
      * barycentric test for whether the plane intersection is inside or on the triangle.
      */
-    if (((baryV >= 0.0) && (baryU >= 0.0)) && ((baryV + baryU) <= 1.0))
+    if (((baryV >= 0.0f) && (baryU >= 0.0f)) && ((baryV + baryU) <= 1.0f))
     {
         /** 
          * The plane calculation used an infinite line. This dot product verifies that the
          * intersection lies at or in front of rayStart rather than behind the ray.
          */
-        if ((((rayDirection64[0] * (hitPosition[0] - rayStart->x)) + (rayDirection64[1] * (hitPosition[1] - rayStart->y))) + (rayDirection64[2] * (hitPosition[2] - rayStart->z))) >= 0.0)
+        if ((((rayDirection->x * (hitPosition[0] - rayStart->x)) + (rayDirection->y * (hitPosition[1] - rayStart->y))) + (rayDirection->z * (hitPosition[2] - rayStart->z))) >= 0.0f)
         {
             hit->hitpos.x = hitPosition[0];
             hit->hitpos.y = hitPosition[1];

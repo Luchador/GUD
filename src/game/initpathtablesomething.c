@@ -3,9 +3,6 @@
 #include "stan.h"
 
 
-/**
- * NTSC address 0x7F0067C0.
-*/
 s32 padAssignStanTile(struct PadRecord *pad, char *tilename, struct StandTile **tile_stack)
 {
     struct coord3d coord;
@@ -32,4 +29,3 @@ s32 padAssignStanTile(struct PadRecord *pad, char *tilename, struct StandTile **
     
     return 1;
 }
- 

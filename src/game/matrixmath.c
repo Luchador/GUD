@@ -56,6 +56,9 @@ void matrix_4x4_copy(Mtxf *src, Mtxf *dst)
 }
 
 
+/**
+ * Multiply lhs by rhs and store the result back into rhs.
+ */
 void matrix_4x4_multiply_in_place(Mtxf *lhs, Mtxf *rhs)
 {
     Mtxf result;

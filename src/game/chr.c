@@ -3115,11 +3115,7 @@ void chrTestHit(PropRecord *prop, ShotData *shotdata)
                 break;
             }
 
-            // Leave if (1) for matching.
-            if (1)
-            {
-                hitpart = probably_damage_detail_blood_effect_related(&entry, &shotdata->viewOrigin, &shotdata->viewDir, &hitmodel, &hitnode);
-            }
+            hitpart = probably_damage_detail_blood_effect_related(&entry, &shotdata->viewOrigin, &shotdata->viewDir, &hitmodel, &hitnode);
         }
     }
 
@@ -3132,9 +3128,6 @@ void chrTestHit(PropRecord *prop, ShotData *shotdata)
         submatrix = currentPlayerGetViewToWorldMtxf();
         mtx4RotateVecInPlace(submatrix, &viewdir);
         nodemtx = modelFindNodeMtx(hitmodel, hitnode, 0);
-
-        // Leave for matching
-        if (&diff);
 
         diff.x = nodemtx->m[3][0] - shotdata->viewOrigin.x;
         diff.y = nodemtx->m[3][1] - shotdata->viewOrigin.y;
@@ -3158,8 +3151,6 @@ void chrTestHit(PropRecord *prop, ShotData *shotdata)
 
 
 /**
- * Address: 7F022980
- *
  * Resolves a known hit against a character.
  */
 void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
@@ -3253,10 +3244,14 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
     }
 
     // Create a bullet on hole on a hat or helmet attached to a character's head.
-    if (bhit->hitpart == HIT_HAT) {
-        if (bhit->hit.texturenum < 0) {
+    if (bhit->hitpart == HIT_HAT)
+    {
+        if (bhit->hit.texturenum < 0)
+        {
             sound2 = g_HitTypeSounds[0];
-        } else {
+        } 
+        else
+        {
             sound2 = g_HitTypeSounds[g_Textures[bhit->hit.texturenum].hitTexture];
         }
 
@@ -3292,8 +3287,6 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
  * Decrements g_AnimationTablePointerCountRelated.
  * If less than zero, the variable will then be set to the
  * number of non-zero entries in animation_table_ptrs1.
- *
- * Address 0x7F022E30.
  */
 void chrDecrementAnimationTablePointerCount(void)
 {
@@ -3316,8 +3309,6 @@ void chrDecrementAnimationTablePointerCount(void)
  * Decrements g_AnimationTablePointerCountRelated.
  * If the entry in animation_table_ptrs1 at that index is zero
  * then the global variable will be set to zero.
- *
- * Address 0x7F022E90.
  */
 void chrIncrementAnimationTablePointerCount(void)
 {
@@ -3375,18 +3366,12 @@ ChrRecord* chrFindByLiteralId(s32 index)
 }
 
 
-/**
- * Address 0x7F02302C.
- */
 PropRecord *chrGetEquippedWeaponProp(ChrRecord *self, GUNHAND hand)
 {
-    return self->weapons_held[hand]; //0x160
+    return self->weapons_held[hand];
 }
 
 
-/**
- * Address 0x7F02303C.
- */
 PropRecord *chrGetEquippedWeaponPropWithCheck(ChrRecord *self, GUNHAND hand)
 {
     PropRecord *gunprop = self->weapons_held[hand];
@@ -3411,8 +3396,6 @@ PropRecord *chrGetEquippedWeaponPropWithCheck(ChrRecord *self, GUNHAND hand)
  * @param arg2: out parameter, will contain 0 or 4
  * @param y_out: out parameter, will be character ground + character height
  * @param ground: out parameter, will contain character ground
- *
- * Address 0x7F02308C.
  */
 void chrUpdateCollisionBounds(PropRecord *prop, rect4f **polygon, s32 *edges, f32 *y_out, f32 *ground)
 {
