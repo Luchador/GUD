@@ -85,7 +85,7 @@ void chrlvIterateGuardSeeShotDie              (ChrRecord *, s32);
 s32 chrlvCall7F02982C                         (PropRecord *arg0, coord3d *arg1, f32 arg2);
 void chrlvTickSurrender                       (ChrRecord *self);
 void chrlvWalkingAnimationRelated             (ChrRecord *self);
-void setSeenBondTimeToNow                     (ChrRecord *guardData);
+void chractSetSeenBondTimeToNow                     (ChrRecord *guardData);
 s32 chrlvAttackRelated7F0292A8                (ChrRecord *self, coord3d *arg1, StandTile *arg2);
 s32 chrlvCurrentPlayerCall7F0B0E24            (ChrRecord *self);
 s32 chrlvCall7F0B0E24WithChrWidthHeight       (PropRecord *arg0, coord3d *arg1, coord3d *arg2);
@@ -801,21 +801,16 @@ void chrlvActorThrowWeaponSurrender(ChrRecord *self)
 }
 
 
-
-/**
- * Address 0x7F0247B8.
- */
 void chrlvActorFadeAway(ChrRecord *self)
 {
     if (self->actiontype != ACT_DEAD)
     {
         chrStopFiring(self);
         self->actiontype = ACT_DEAD;
-        self->act_dead.allowfade = -1;
+        self->act_dead.fadeTimer = -1;
         self->sleep = 0;
     }
 }
-
 
 
 /**
@@ -3644,7 +3639,7 @@ void chrlvWalkingAnimationRelated(ChrRecord *self)
 }
 
 
-void set_actor_on_path(ChrRecord *self, struct patrol_path *path)
+void chractSetChrOnPath(ChrRecord *self, struct patrol_path *path)
 {
     PadRecord *pad;
     s32 next_step = -1;
@@ -3701,7 +3696,7 @@ void set_actor_on_path(ChrRecord *self, struct patrol_path *path)
     self->act_patrol.forward = 1;
     self->act_patrol.waydata.age = randomGetNext() % 0x64U;
     self->act_patrol.waydata.unk03 = 0;
-    self->act_init.padding[0x13] = -1;
+    self->act_patrol.lastvisible60 = -1;
     self->act_patrol.speed = 0.0f;
 
     chrlvSetNextActPatrolStepPadPos(self);
@@ -3722,7 +3717,7 @@ void set_actor_on_path(ChrRecord *self, struct patrol_path *path)
 }
 
 
-void setSeenBondTimeToNow(ChrRecord *self)
+void chractSetSeenBondTimeToNow(ChrRecord *self)
 {
   self->seen_bond_time = g_GlobalTimer;
   return;
@@ -3763,7 +3758,7 @@ s32 chrlvAttackRelated7F0292A8(ChrRecord *self, coord3d *arg1, StandTile *arg2)
             {
                 if ((stanTestLineUnobstructed(&stan, arg1->x, arg1->f[2], sp3C->x, sp3C->f[2], CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER | CDTYPE_AIOPAQUE, arg1->f[1], arg1->f[1], sp3C->f[1], sp3C->f[1]) != 0) && (stan == sp40))
                 {
-                    setSeenBondTimeToNow(self);
+                    chractSetSeenBondTimeToNow(self);
                     ret = 1;
                 }
             }
@@ -3813,7 +3808,7 @@ bool chrCanSeeBond(ChrRecord *self)
 
         if (stanTestLineUnobstructed(&mystan, myprop->pos.x, myprop->pos.z, bondprop->pos.x, bondprop->pos.z, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER | CDTYPE_AIOPAQUE, myheight, myheight, 0.0f, 1.0f) && (mystan == bondprop->stan))
         {
-            setSeenBondTimeToNow(self);
+            chractSetSeenBondTimeToNow(self);
             pass = TRUE;
         }
 
@@ -4711,7 +4706,7 @@ bool if_actor_able_set_on_path(ChrRecord *self, s32 pathid)
 {
     if (pathid && chrIsNotDeadOrShot(self))
     {
-        set_actor_on_path(self, pathid);
+        chractSetChrOnPath(self, pathid);
         return TRUE;
     }
 
@@ -8523,7 +8518,7 @@ void chrlvTravelTick(ChrRecord *self, coord3d *arg1, StandTile *arg2, struct way
 
     if (((s32) arg3->age % 10) == 0)
     {
-        phi_s3 = sub_GAME_7F0B1410(self_prop->stan, self_prop->pos.f[0], self_prop->pos.f[2], arg3->pos_copy.f[0], arg3->pos_copy.f[2], 0x5000);
+        phi_s3 = stanFindFirstPropIntersectingSegment(self_prop->stan, self_prop->pos.f[0], self_prop->pos.f[2], arg3->pos_copy.f[0], arg3->pos_copy.f[2], CDTYPE_CLOSEDDOORS | CDTYPE_AJARDOORS);
 
         if (phi_s3 != NULL)
         {

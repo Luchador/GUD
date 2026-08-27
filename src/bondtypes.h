@@ -1791,7 +1791,7 @@ typedef union
 
     struct act_dead
     {
-        bool allowfade;      /*0x2c*/
+        bool fadeTimer;      /*0x2c*/
         bool allowreap;      /*0x30*/
         s32  reaptimer;      /*0x34*/
         s32  fadetimer;      /*0x38*/

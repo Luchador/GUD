@@ -71,7 +71,7 @@ s32 stanGetRoomsBetweenPoints(StandTile *tile, f32 start_x, f32 start_z, StandTi
 s32 stanWalkTilesBetweenPointsAndCollectRooms(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_x, f32 dest_z, s32 *roomBuffer, s32 *rtnCountSize, s32 maxBufSize);
 StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 radius, CDTYPE cdtypes, f32 height, f32 width);
 s32 getTileRoom(StandTile* tile);
-PropRecord *sub_GAME_7F0B1410(StandTile *t, f32 start_x, f32 start_z, f32 end_x, f32 end_z, CDTYPE cdtypes);
+PropRecord *stanFindFirstPropIntersectingSegment(StandTile *startTile, f32 start_x, f32 start_z, f32 end_x, f32 end_z, CDTYPE cdtypes);
 s32 stanTileDistanceRelated(struct StandTile **arg0, f32 arg1, f32 arg2, f32 arg3, struct StandTileLocusCallbackRecord *arg4);
 s32 stanGetLocusField0(struct StandTileLocusCallbackRecord *arg0);
 s32 stanGetLocusCount(struct StandTileLocusCallbackRecord *arg0);

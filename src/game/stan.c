@@ -1253,7 +1253,23 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
 }
 
 
-PropRecord *sub_GAME_7F0B1410(StandTile *t, f32 start_x, f32 start_z, f32 end_x, f32 end_z, CDTYPE cdtypes)
+/**
+ * This function collects the rooms crossed by the XZ line segment,
+ * gets the props in those rooms, filters them by CDTYPE,
+ * tests the segment against every edge of props' 2D collision polygons,
+ * returns the prop with smallest intersection fraction i.e. the closest one.
+ * Its only call in the game is used to find a closed or partially open door along
+ * a character's path.
+ * 
+ * 
+ *  start                                         end
+ * o--------------------------------------------o
+ *       | Door A |             | Door B |
+ *             ^
+ *            |
+ *       returned prop
+ */
+PropRecord *stanFindFirstPropIntersectingSegment(StandTile *startTile, f32 start_x, f32 start_z, f32 end_x, f32 end_z, CDTYPE cdtypes)
 {
     f32 frac;
     PropRecord *prop;
@@ -1267,7 +1283,7 @@ PropRecord *sub_GAME_7F0B1410(StandTile *t, f32 start_x, f32 start_z, f32 end_x,
     StandTile *tile;
     s32 roomCount;
     s32 roomBuffer[21];
-    s16 *propIndexPtr;
+    s16 *propIndices;
     struct rect4f *polygon;
     s32 numEdges;
     PropRecord *bestProp;
@@ -1277,7 +1293,7 @@ PropRecord *sub_GAME_7F0B1410(StandTile *t, f32 start_x, f32 start_z, f32 end_x,
     bestProp = NULL;
     bestFrac = 1.0f;
 
-    tile = t;
+    tile = startTile;
     roomCount = 0;
 
     stanWalkTilesBetweenPointsAndCollectRooms(&tile, start_x, start_z, end_x, end_z, roomBuffer, &roomCount, 20);
@@ -1297,13 +1313,13 @@ PropRecord *sub_GAME_7F0B1410(StandTile *t, f32 start_x, f32 start_z, f32 end_x,
         roomBuffer[roomCount] = -1;
         roomGetProps(roomBuffer);
 
-        propIndexPtr = g_RoomPropQueryIndices;
+        propIndices = g_RoomPropQueryIndices;
 
-        if (*propIndexPtr >= 0)
+        if (*propIndices >= 0)
         {
             do
             {
-                prop = &g_Props[*propIndexPtr];
+                prop = &g_Props[*propIndices];
 
                 if (propIsOfCdType(prop, cdtypes))
                 {
@@ -1340,9 +1356,9 @@ PropRecord *sub_GAME_7F0B1410(StandTile *t, f32 start_x, f32 start_z, f32 end_x,
                     }
                 }
 
-                propIndexPtr++;
+                propIndices++;
             }
-            while (*propIndexPtr >= 0);
+            while (*propIndices >= 0);
         }
     }
 
