@@ -6374,9 +6374,7 @@ s32 objTick(struct PropRecord *prop)
 	}
 	else
 	{
-		isOnScreen = !(obj->runtime_bitflags & RUNTIMEBITFLAG_00000800)
-			&& !(obj->flags2 & PROPFLAG2_00080000)
-			&& posIsOnScreen(prop, &obj->position, getinstsize(model), applyFogCull);
+		isOnScreen = !(obj->runtime_bitflags & RUNTIMEBITFLAG_00000800) && !(obj->flags2 & PROPFLAG2_00080000) && posIsOnScreen(prop, &obj->position, getinstsize(model), applyFogCull);
 	}
 
 	if (isOnScreen)
@@ -6401,6 +6399,8 @@ s32 objTick(struct PropRecord *prop)
 		prop->flags &= ~PROPFLAG_ONSCREEN;
 	}
 
+    return 0;
+    
 	chrobjWeaponTick(prop);
 	objTickUpdateChildren(prop, isOnScreen);
 
@@ -7077,19 +7077,18 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, bool withalph
         s32 m0;
         ObjectRecord *o;
         DoorRecord *door;
-        s32 pad[4];
         s32 recolor;
         s32 v;
         ModelNode *node;
         Gfx *g3;
         Gfx *g;
         Gfx *g2;
-        bool destroyed;
+        bool orthogonal;
         union ModelRwData **rwdataSlot;
 
         obj = prop->obj;
         model = obj->model;
-        destroyed = (obj->flags & PROPFLAG_00000200) && camGetPlayerProjViewMtx() != NULL;
+        orthogonal = (obj->flags & PROPFLAG_ORTHOGONAL) && camGetPlayerProjViewMtx() != NULL;
 
         gdl = mrData->gdl;
 
@@ -7232,7 +7231,7 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, bool withalph
             }
         }
 
-        if (destroyed)
+        if (orthogonal)
         {
             // Keep on one line for matching.
             g3 = gdl++; gSPMatrix(g3, camGetPlayerProjViewMtx(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
@@ -7252,7 +7251,7 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, bool withalph
             gdl = explosionRenderBulletImpactOnProp(gdl, prop, withalpha);
         }
 
-        if (destroyed)
+        if (orthogonal)
         {
             // Keep on one line for matching.
             g2 = gdl++; gSPMatrix(g2, camGetPlayerProjMtx(), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
@@ -7267,7 +7266,7 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *mrData, bool withalph
 
         if (withalpha)
         {
-            if (destroyed != FALSE)
+            if (orthogonal != FALSE)
             {
                 bviewTransformManyPosToWorldMatrix((Mtxf *)model->render_pos, model->obj->numMatrices);
             }
@@ -8123,7 +8122,7 @@ void objFall(ObjectRecord *obj, s32 playernum)
 
             projectile->flags |= PROJECTILEFLAG_AIRBORNE;
 
-            obj->flags &= ~PROPFLAG_00000100;
+            obj->flags &= ~PROPFLAG_FORCE_COLLISIONS;
             obj->runtime_bitflags &= ~RUNTIMEBITFLAG_00008000;
         }
     }
@@ -8270,7 +8269,7 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
 
     if ((0 < objGetDestroyedLevel(obj)) && (((PropDefHeaderRecord *)obj)->state & PROPSTATE_RESPAWN))
     {
-        if (obj->runtime_bitflags & RUNTIMEBITFLAG_00001000)
+        if (obj->runtime_bitflags & RUNTIMEBITFLAG_FULLY_DESTROYED)
         {
             ((PropDefHeaderRecord *)obj)->state |= PROPSTATE_10;
         }
@@ -8284,8 +8283,8 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
 
     if (shots >= 12)
     {
-        obj->runtime_bitflags |= RUNTIMEBITFLAG_00001000;
-        obj->flags &= ~RUNTIMEBITFLAG_00000100;
+        obj->runtime_bitflags |= RUNTIMEBITFLAG_FULLY_DESTROYED;
+        obj->flags &= ~PROPFLAG_FORCE_COLLISIONS;
     }
 }
 
@@ -9083,10 +9082,6 @@ apply_damage:
                         tmpobj = blank_07_object;
                         *(ObjectRecord *)crate = tmpobj;
 
-                        // Matching trick.
-                        slotview++;
-                        slotview--;
-
                         crate->obj = modelnum;
                         crate->ammoType = slot + 1;
 
@@ -9200,10 +9195,9 @@ void objTestAndAddShotHit(PropRecord *prop, struct ShotData *hitinfo)
     HitThing hit;
     s32 mtxindex;
     coord3d pos;
-    s8 g[4];
     ModelNode *hitnode;
 
-    if (((obj->runtime_bitflags & RUNTIMEBITFLAG_00001000) == FALSE) && (prop->flags & PROPFLAG_ONSCREEN))
+    if (((obj->runtime_bitflags & RUNTIMEBITFLAG_FULLY_DESTROYED) == FALSE) && (prop->flags & PROPFLAG_ONSCREEN))
     {
         child = prop->child;
 
@@ -9293,7 +9287,7 @@ void objTestHit(PropRecord* prop, struct ShotData* shotdata)
     model = obj->model;
     bbox = chrobjGetBboxFromObjectRecord(obj);
 
-    if ((prop->flags & PROPFLAG_ONSCREEN) && (obj->runtime_bitflags & RUNTIMEBITFLAG_00001000) == 0 && (obj->flags2 & PROPFLAG2_SHOOTTHROUGH) == 0)
+    if ((prop->flags & PROPFLAG_ONSCREEN) && (obj->runtime_bitflags & RUNTIMEBITFLAG_FULLY_DESTROYED) == 0 && (obj->flags2 & PROPFLAG2_SHOOTTHROUGH) == 0)
     {
         tmp = -(model->render_pos->pos.m[3][2] + chrpropSumMatrixNegZ(bbox, (Mtxf*)model->render_pos));
 
@@ -9617,7 +9611,7 @@ void sub_GAME_7F04F244(PropRecord* prop, rect4f** polygon, s32* edges, f32* top,
     ObjectRecord* obj;
     obj = prop->obj;
 
-    if ((obj->collisionBlock != NULL) && (obj->flags & PROPFLAG_00000100) && !(obj->state & PROPSTATE_NONSOLID))
+    if ((obj->collisionBlock != NULL) && (obj->flags & PROPFLAG_FORCE_COLLISIONS) && !(obj->state & PROPSTATE_NONSOLID))
     {
         *edges = obj->collisionBlock->edges;
         *polygon = &obj->collisionBlock->polygon;
@@ -12278,7 +12272,7 @@ PropRecord* doorInit(DoorRecord* door, coord3d* pos, Mtxf* mtx, StandTile* stan,
     door->position.x = centre->x;
     door->position.y = centre->y;
     door->position.z = centre->z;
-    door->flags |= PROPFLAG_00000100;
+    door->flags |= PROPFLAG_FORCE_COLLISIONS;
 
     doorUpdateBbox(door);
     doorBuildClippedVertices(door);
@@ -12806,7 +12800,7 @@ void doorStartOpen(DoorRecord *door)
         door->perimFrac = 0;
 
         if (col) { col->edges = 0; }
-        door->flags &= ~PROPFLAG_00000100;
+        door->flags &= ~PROPFLAG_FORCE_COLLISIONS;
     }
 }
 

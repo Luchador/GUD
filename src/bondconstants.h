@@ -298,8 +298,8 @@ typedef enum PROPFLAG
     PROPFLAG_00000020                    = 0x00000020, // Scale X to Pad Bounds
     PROPFLAG_00000040                    = 0x00000040, // Scale Y to Pad Bounds
     PROPFLAG_00000080                    = 0x00000080, // Scale Z to Pad Bounds
-    PROPFLAG_00000100                    = 0x00000100, // Force Collisions
-    PROPFLAG_00000200                    = 0x00000200, // Glass Env Mapping Style
+    PROPFLAG_FORCE_COLLISIONS            = 0x00000100,
+    PROPFLAG_ORTHOGONAL                  = 0x00000200, // Use world space model matrices with the combined projection-view matrix. Used for environment mapping.
     PROPFLAG_ILLUMINATED                 = 0x00000400, // ignore Stan Colour?
     PROPFLAG_00000800                    = 0x00000800, // Free Standing Glass
     PROPFLAG_00001000                    = 0x00001000, // Absolute Position
@@ -526,7 +526,7 @@ typedef enum RUNTIMEBITFLAG
     RUNTIMEBITFLAG_BEENOPENED             = 0x00000200,
     RUNTIMEBITFLAG_DESTROYED              = 0x00000400, /* only set with disabled or destroyed doors     */
     RUNTIMEBITFLAG_00000800               = 0x00000800,
-    RUNTIMEBITFLAG_00001000               = 0x00001000,
+    RUNTIMEBITFLAG_FULLY_DESTROYED               = 0x00001000,
     RUNTIMEBITFLAG_PADLOCKEDDOOR          = 0x00002000,
     RUNTIMEBITFLAG_ACTIVATED              = 0x00004000,
     RUNTIMEBITFLAG_00008000               = 0x00008000,

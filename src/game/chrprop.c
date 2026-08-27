@@ -1639,11 +1639,11 @@ void chrpropTick(void)
                     prop->timetoregen = 0;
                     if (obj->state & PROPSTATE_10)
                     {
-                        obj->runtime_bitflags |= RUNTIMEBITFLAG_00001000;
+                        obj->runtime_bitflags |= RUNTIMEBITFLAG_FULLY_DESTROYED;
                     }
                     else
                     {
-                        obj->runtime_bitflags &= ~RUNTIMEBITFLAG_00001000;
+                        obj->runtime_bitflags &= ~RUNTIMEBITFLAG_FULLY_DESTROYED;
                     }
                 }
                 else if ((prop->timetoregen < CHROBJ_TIMETOREGEN) && (!is_under_60))
@@ -1684,11 +1684,11 @@ void chrpropTick(void)
                     {
                         if (obj->state & PROPSTATE_EXT_COLISION_BLOCK)
                         {
-                            obj->flags |= PROPFLAG_00000100;
+                            obj->flags |= PROPFLAG_FORCE_COLLISIONS;
                         }
                         else
                         {
-                            obj->flags &= ~PROPFLAG_00000100;
+                            obj->flags &= ~PROPFLAG_FORCE_COLLISIONS;
                         }
 
                         obj->maxdamage = 0.0f;
