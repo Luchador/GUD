@@ -339,7 +339,7 @@ typedef enum PROPFLAG
 typedef enum PROPFLAG2
 {
     PROPFLAG2_DRONEGUN            = 0x00000001, // Activate Drone Gun
-    PROPFLAG2_00000002            = 0x00000002, // lightweight (move when shot)
+    PROPFLAG2_LIGHTWEIGHT         = 0x00000002, // lightweight (move when shot)
     PROPFLAG2_00000004            = 0x00000004, // Interaction Text Not Shown for Doors
     PROPFLAG2_00000008            = 0x00000008, // Don't Load in Multiplayer
     PROPFLAG2_00000010            = 0x00000010, // Don't Load on Agent Mode
@@ -355,7 +355,7 @@ typedef enum PROPFLAG2
     PROPFLAG2_00004000            = 0x00004000, // Immune to Gunfire
     PROPFLAG2_SHOOTTHROUGH        = 0x00008000, // Can Shoot Through Object
     PROPFLAG2_00010000            = 0x00010000, // Always Visible (in front)
-    PROPFLAG2_00020000            = 0x00020000, // unknown
+    PROPFLAG2_USESTANROOM         = 0x00020000, // Register only in the prop's stan room. Skip bounding box room detection. Used for Streets building models.
     PROPFLAG2_00040000            = 0x00040000, // Hide inventory item (for tagged armor/ammo/magazine)
     PROPFLAG2_00080000            = 0x00080000, // Invincible Except to Explosions
     PROPFLAG2_00100000            = 0x00100000, // Bulletproof Glass

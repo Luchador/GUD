@@ -9263,7 +9263,7 @@ void objTestAndAddShotHit(PropRecord *prop, struct ShotData *hitinfo)
             {
                 penetrates = TRUE;
 
-                if ((obj->flags & PROPFLAG2_00020000) == FALSE)
+                if ((obj->flags & PROPFLAG2_USESTANROOM) == FALSE)
                 {
                     if ((obj->type == PROPDEF_GLASS) || (obj->type == PROPDEF_TINTED_GLASS))
                     {
@@ -9458,7 +9458,7 @@ void objHit(ShotData *shotdata, BulletHit *hit)
             do_bounce = TRUE;
         }
 
-        if (obj->flags2 & PROPFLAG2_00000002)
+        if (obj->flags2 & PROPFLAG2_LIGHTWEIGHT)
         {
             if (!objIsHealthy(obj))
             {

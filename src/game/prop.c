@@ -39,7 +39,6 @@ extern ItemModelFileRecord PitemZ_entries[341];
 
 s32 load_proptype(PROPDEF_TYPE type);
 void padGetCenter(struct BoundPadRecord *pad, struct coord3d *centerPoint);
-void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex);
 void weaponAssignToHome(s32 arg0, WeaponObjRecord* weapon, s32 cmdindex);
 void setupHat(s32 arg0, ObjectRecord* hat, s32 cmdindex);
 void setupKey(s32 arg0, ObjectRecord* key, s32 cmdindex);
@@ -117,10 +116,9 @@ void padGetCenter(struct BoundPadRecord *pad, struct coord3d *centerPoint)
 }
 
 
-void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
+void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
 {
-    s32 padding;
-    s32 spF0;
+    s32 modelID;
     f32 var_f0;
     struct coord3d spE0;
     struct StandTile *spDC;
@@ -130,139 +128,137 @@ void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
     struct coord3d sp80;
     struct PropRecord *var_v0;
     f32 sp78;
-    s32 sp74;
-    struct BoundPadRecord *var_s0;
+    s32 enableRespawn;
+    struct BoundPadRecord *boundPadRecord;
     ChrRecord *sp6C;
-    ModelRoData_BoundingBoxRecord *temp_v0_3;
-    struct PadRecord *sp64;
-    struct PropRecord *sp60;
-    s32 padding2;
+    ModelRoData_BoundingBoxRecord *bboxRecord;
+    struct PadRecord *padRecord;
+    struct PropRecord *prop;
     f32 sp58;
     f32 sp54;
     f32 sp50;
-    s32 padding3;
     f32 sp48;
 
-    spF0 = arg1->obj;
-    var_s0 = NULL;
+    modelID = objectRecord->obj;
+    boundPadRecord = NULL;
 
-    modelLoad(spF0);
+    modelLoad(modelID);
 
-    sp78 = arg1->extrascale * 0.00390625f;
+    sp78 = objectRecord->extrascale * 0.00390625f;
 
-    arg1->damage = *(s32*)&arg1->damage / 65536.0f;
+    objectRecord->damage = *(s32*)&objectRecord->damage / 65536.0f;
 
     if (getPlayerCount() >= 2)
     {
-        sp74 = 1;
+        enableRespawn = 1;
 
-        if ((get_scenario() == SCENARIO_TLD) && (arg1->obj == PROP_FLAG))
+        if ((get_scenario() == SCENARIO_TLD) && (objectRecord->obj == PROP_FLAG))
         {
-            sp74 = 0;
+            enableRespawn = 0;
         }
-        else if ((get_scenario() == SCENARIO_MWTGG) && (arg1->obj == PROP_CHRGOLDEN))
+        else if ((get_scenario() == SCENARIO_MWTGG) && (objectRecord->obj == PROP_CHRGOLDEN))
         {
-            sp74 = 0;
+            enableRespawn = 0;
         }
 
-        if (sp74 != 0)
+        if (enableRespawn != 0)
         {
-            arg1->state |= PROPSTATE_RESPAWN; // respawn enabled
+            objectRecord->state |= PROPSTATE_RESPAWN; // Enable respawn.
         }
     }
 
-    if (arg1->flags & PROPFLAG_INSIDEANOTHEROBJ)
+    if (objectRecord->flags & PROPFLAG_INSIDEANOTHEROBJ)
     {
-        if (arg1->type == PROP_TYPE_SMOKE)
+        if (objectRecord->type == PROP_TYPE_SMOKE)
         {
-            sub_GAME_7F051DD8(arg1, PitemZ_entries[spF0].header);
+            sub_GAME_7F051DD8(objectRecord, PitemZ_entries[modelID].header);
         }
         else
         {
-            objInitWithModelDef(arg1, PitemZ_entries[spF0].header);
+            objInitWithModelDef(objectRecord, PitemZ_entries[modelID].header);
         }
 
-        modelSetScale(arg1->model, arg1->model->scale * sp78);
+        modelSetScale(objectRecord->model, objectRecord->model->scale * sp78);
     }
-    else if (arg1->flags & PROPFLAG_ASSIGNEDTOCHR)
+    else if (objectRecord->flags & PROPFLAG_ASSIGNEDTOCHR)
     {
-        sp6C = chrFindByLiteralId(arg1->pad);
+        sp6C = chrFindByLiteralId(objectRecord->pad);
 
         if ((sp6C != NULL) && (sp6C->prop != NULL) && (sp6C->model != NULL))
         {
-            if (arg1->type == 8)
+            if (objectRecord->type == 8)
             {
-                var_v0 = sub_GAME_7F051DD8(arg1, PitemZ_entries[spF0].header);
+                var_v0 = sub_GAME_7F051DD8(objectRecord, PitemZ_entries[modelID].header);
             }
             else
             {
-                var_v0 = objInitWithModelDef(arg1, PitemZ_entries[spF0].header);
+                var_v0 = objInitWithModelDef(objectRecord, PitemZ_entries[modelID].header);
             }
 
-            modelSetScale(arg1->model, arg1->model->scale * sp78);
+            modelSetScale(objectRecord->model, objectRecord->model->scale * sp78);
             chrpropReparent(var_v0, sp6C->prop);
         }
         #ifdef DEBUG
         else
         {
-            osSyncPrintf("domakedefaultobj: no chr number %d for obj number %d!\n",arg1->pad,cmdindex + 1);
+            osSyncPrintf("domakedefaultobj: no chr number %d for obj number %d!\n",objectRecord->pad,cmdindex + 1);
         }
         #endif
     }
     else
     {
-        if (isNotBoundPad(arg1->pad))
+        if (isNotBoundPad(objectRecord->pad))
         {
-            sp64 = &g_CurrentSetup.pads[arg1->pad];
+            padRecord = &g_CurrentSetup.pads[objectRecord->pad];
 
-            matrix_4x4_set_basis_and_position_target(&sp8C, 0.0f, 0.0f, 0.0f, -sp64->look.f[0], -sp64->look.f[1], -sp64->look.f[2], sp64->up.f[0], sp64->up.f[1], sp64->up.f[2]);
+            matrix_4x4_set_basis_and_position_target(&sp8C, 0.0f, 0.0f, 0.0f, -padRecord->look.f[0], -padRecord->look.f[1], -padRecord->look.f[2], padRecord->up.f[0], padRecord->up.f[1], padRecord->up.f[2]);
 
-            spD0.f[0] = sp64->pos.f[0];
-            spD0.f[1] = sp64->pos.f[1];
-            spD0.f[2] = sp64->pos.f[2];
+            spD0.f[0] = padRecord->pos.f[0];
+            spD0.f[1] = padRecord->pos.f[1];
+            spD0.f[2] = padRecord->pos.f[2];
 
-            if (arg1->flags & PROPFLAG_ONSCREEN)
+            if (objectRecord->flags & PROPFLAG_ONSCREEN)
             {
-                sp80.f[0] = sp64->pos.f[0];
-                sp80.f[1] = sp64->pos.f[1];
-                sp80.f[2] = sp64->pos.f[2];
+                sp80.f[0] = padRecord->pos.f[0];
+                sp80.f[1] = padRecord->pos.f[1];
+                sp80.f[2] = padRecord->pos.f[2];
             }
             else
             {
                 // same as above?
 
-                sp80.f[0] = sp64->pos.f[0];
-                sp80.f[1] = sp64->pos.f[1];
-                sp80.f[2] = sp64->pos.f[2];
+                sp80.f[0] = padRecord->pos.f[0];
+                sp80.f[1] = padRecord->pos.f[1];
+                sp80.f[2] = padRecord->pos.f[2];
             }
 
-            spCC = sp64->stan;
+            spCC = padRecord->stan;
         }
         else
         {
-            var_s0 = &g_CurrentSetup.boundpads[getBoundPadNum(arg1->pad)];
+            boundPadRecord = &g_CurrentSetup.boundpads[getBoundPadNum(objectRecord->pad)];
 
-            matrix_4x4_set_basis_and_position_target(&sp8C, 0.0f, 0.0f, 0.0f, -var_s0->look.f[0], -var_s0->look.f[1], -var_s0->look.f[2], var_s0->up.f[0], var_s0->up.f[1], var_s0->up.f[2]);
+            matrix_4x4_set_basis_and_position_target(&sp8C, 0.0f, 0.0f, 0.0f, -boundPadRecord->look.f[0], -boundPadRecord->look.f[1], -boundPadRecord->look.f[2], boundPadRecord->up.f[0], boundPadRecord->up.f[1], boundPadRecord->up.f[2]);
 
-            if (!(arg1->flags2 & PROPFLAG2_DRONEGUN))
+            if (!(objectRecord->flags2 & PROPFLAG2_DRONEGUN))
             {
-                padGetCenter(var_s0, &spD0);
+                padGetCenter(boundPadRecord, &spD0);
 
-                sp80.f[0] = spD0.f[0] + (var_s0->up.f[0] * ((var_s0->bbox.ymin - var_s0->bbox.ymax) * 0.5f));
-                sp80.f[1] = spD0.f[1] + (var_s0->up.f[1] * ((var_s0->bbox.ymin - var_s0->bbox.ymax) * 0.5f));
-                sp80.f[2] = spD0.f[2] + (var_s0->up.f[2] * ((var_s0->bbox.ymin - var_s0->bbox.ymax) * 0.5f));
+                sp80.f[0] = spD0.f[0] + (boundPadRecord->up.f[0] * ((boundPadRecord->bbox.ymin - boundPadRecord->bbox.ymax) * 0.5f));
+                sp80.f[1] = spD0.f[1] + (boundPadRecord->up.f[1] * ((boundPadRecord->bbox.ymin - boundPadRecord->bbox.ymax) * 0.5f));
+                sp80.f[2] = spD0.f[2] + (boundPadRecord->up.f[2] * ((boundPadRecord->bbox.ymin - boundPadRecord->bbox.ymax) * 0.5f));
 
-                spCC = var_s0->stan;
+                spCC = boundPadRecord->stan;
 
-                if (walkTilesBetweenPoints_NoCallback(&spCC, var_s0->pos.f[0], var_s0->pos.f[2], spD0.f[0], spD0.f[2]) == 0)
+                if (walkTilesBetweenPoints_NoCallback(&spCC, boundPadRecord->pos.f[0], boundPadRecord->pos.f[2], spD0.f[0], spD0.f[2]) == 0)
                 {
-                    spD0.f[0] = var_s0->pos.f[0];
-                    spD0.f[1] = var_s0->pos.f[1];
-                    spD0.f[2] = var_s0->pos.f[2];
+                    spD0.f[0] = boundPadRecord->pos.f[0];
+                    spD0.f[1] = boundPadRecord->pos.f[1];
+                    spD0.f[2] = boundPadRecord->pos.f[2];
 
-                    spCC = var_s0->stan;
+                    spCC = boundPadRecord->stan;
 
-                    if (!(arg1->flags & PROPFLAG_ONSCREEN) && !(arg1->flags & PROPFLAG_00001000))
+                    if (!(objectRecord->flags & PROPFLAG_ONSCREEN) && !(objectRecord->flags & PROPFLAG_00001000))
                     {
                         // removed
                         #ifdef DEBUG
@@ -273,81 +269,82 @@ void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
             }
             else
             {
-                spD0.f[0] = var_s0->pos.f[0];
-                spD0.f[1] = var_s0->pos.f[1];
-                spD0.f[2] = var_s0->pos.f[2];
+                spD0.f[0] = boundPadRecord->pos.f[0];
+                spD0.f[1] = boundPadRecord->pos.f[1];
+                spD0.f[2] = boundPadRecord->pos.f[2];
 
-                spCC = var_s0->stan;
+                spCC = boundPadRecord->stan;
 
-                padGetCenter(var_s0, &sp80);
+                padGetCenter(boundPadRecord, &sp80);
 
-                sp80.f[0] += (var_s0->bbox.ymin - var_s0->bbox.ymax) * 0.5f * var_s0->up.f[0];
-                sp80.f[1] += (var_s0->bbox.ymin - var_s0->bbox.ymax) * 0.5f * var_s0->up.f[1];
-                sp80.f[2] += (var_s0->bbox.ymin - var_s0->bbox.ymax) * 0.5f * var_s0->up.f[2];
+                sp80.f[0] += (boundPadRecord->bbox.ymin - boundPadRecord->bbox.ymax) * 0.5f * boundPadRecord->up.f[0];
+                sp80.f[1] += (boundPadRecord->bbox.ymin - boundPadRecord->bbox.ymax) * 0.5f * boundPadRecord->up.f[1];
+                sp80.f[2] += (boundPadRecord->bbox.ymin - boundPadRecord->bbox.ymax) * 0.5f * boundPadRecord->up.f[2];
             }
         }
 
         if (getposstan(&spD0, spCC, 0.0f, &spE0, &spDC) != 0)
         {
-            if (arg1->type == PROP_TYPE_SMOKE)
+            if (objectRecord->type == PROP_TYPE_SMOKE)
             {
-                sp60 = sub_GAME_7F051DD8(arg1, PitemZ_entries[spF0].header);
+                prop = sub_GAME_7F051DD8(objectRecord, PitemZ_entries[modelID].header);
             }
             else
             {
-                sp60 = objInitWithAutoModel(arg1);
+                prop = objInitWithAutoModel(objectRecord);
             }
 
-            if (var_s0 != NULL)
+            if (boundPadRecord != NULL)
             {
-                temp_v0_3 = chrobjGetBboxFromObjectRecord(arg1);
-                if (temp_v0_3 != NULL)
+                bboxRecord = chrobjGetBboxFromObjectRecord(objectRecord);
+
+                if (bboxRecord != NULL)
                 {
                     sp58 = 1.0f;
                     sp54 = 1.0f;
                     sp50 = 1.0f;
 
-                    if (arg1->flags & (PROPFLAG_00000010 | PROPFLAG_00000020))
+                    if (objectRecord->flags & (PROPFLAG_00000010 | PROPFLAG_00000020))
                     {
-                        if (temp_v0_3->Bounds.xmin < temp_v0_3->Bounds.xmax)
+                        if (bboxRecord->Bounds.xmin < bboxRecord->Bounds.xmax)
                         {
-                            if (arg1->flags & PROPFLAG_ONSCREEN)
+                            if (objectRecord->flags & PROPFLAG_ONSCREEN)
                             {
-                                sp58 = (var_s0->bbox.xmax - var_s0->bbox.xmin) / ((temp_v0_3->Bounds.xmax - temp_v0_3->Bounds.xmin) * arg1->model->scale);
+                                sp58 = (boundPadRecord->bbox.xmax - boundPadRecord->bbox.xmin) / ((bboxRecord->Bounds.xmax - bboxRecord->Bounds.xmin) * objectRecord->model->scale);
                             }
                             else
                             {
-                                sp58 = (var_s0->bbox.xmax - var_s0->bbox.xmin) / ((temp_v0_3->Bounds.xmax - temp_v0_3->Bounds.xmin) * arg1->model->scale);
+                                sp58 = (boundPadRecord->bbox.xmax - boundPadRecord->bbox.xmin) / ((bboxRecord->Bounds.xmax - bboxRecord->Bounds.xmin) * objectRecord->model->scale);
                             }
                         }
                     }
 
-                    if (arg1->flags & (PROPFLAG_00000010 | PROPFLAG_00000040))
+                    if (objectRecord->flags & (PROPFLAG_00000010 | PROPFLAG_00000040))
                     {
-                        if (temp_v0_3->Bounds.ymin < temp_v0_3->Bounds.ymax)
+                        if (bboxRecord->Bounds.ymin < bboxRecord->Bounds.ymax)
                         {
-                            if (arg1->flags & PROPFLAG_ONSCREEN)
+                            if (objectRecord->flags & PROPFLAG_ONSCREEN)
                             {
-                                sp50 = (var_s0->bbox.zmax - var_s0->bbox.zmin) / ((temp_v0_3->Bounds.ymax - temp_v0_3->Bounds.ymin) * arg1->model->scale);
+                                sp50 = (boundPadRecord->bbox.zmax - boundPadRecord->bbox.zmin) / ((bboxRecord->Bounds.ymax - bboxRecord->Bounds.ymin) * objectRecord->model->scale);
                             }
                             else
                             {
-                                sp54 = (var_s0->bbox.ymax - var_s0->bbox.ymin) / ((temp_v0_3->Bounds.ymax - temp_v0_3->Bounds.ymin) * arg1->model->scale);
+                                sp54 = (boundPadRecord->bbox.ymax - boundPadRecord->bbox.ymin) / ((bboxRecord->Bounds.ymax - bboxRecord->Bounds.ymin) * objectRecord->model->scale);
                             }
                         }
                     }
 
-                    if (arg1->flags & (PROPFLAG_00000010 | PROPFLAG_00000080))
+                    if (objectRecord->flags & (PROPFLAG_00000010 | PROPFLAG_00000080))
                     {
-                        if (temp_v0_3->Bounds.zmin < temp_v0_3->Bounds.zmax)
+                        if (bboxRecord->Bounds.zmin < bboxRecord->Bounds.zmax)
                         {
-                            if (arg1->flags & PROPFLAG_ONSCREEN)
+                            if (objectRecord->flags & PROPFLAG_ONSCREEN)
                             {
-                                sp54 = (var_s0->bbox.ymax - var_s0->bbox.ymin) / ((temp_v0_3->Bounds.zmax - temp_v0_3->Bounds.zmin) * arg1->model->scale);
+                                sp54 = (boundPadRecord->bbox.ymax - boundPadRecord->bbox.ymin) / ((bboxRecord->Bounds.zmax - bboxRecord->Bounds.zmin) * objectRecord->model->scale);
                             }
                             else
                             {
-                                sp50 = (var_s0->bbox.zmax - var_s0->bbox.zmin) / ((temp_v0_3->Bounds.zmax - temp_v0_3->Bounds.zmin) * arg1->model->scale);
+                                sp50 = (boundPadRecord->bbox.zmax - boundPadRecord->bbox.zmin) / ((bboxRecord->Bounds.zmax - bboxRecord->Bounds.zmin) * objectRecord->model->scale);
                             }
                         }
                     }
@@ -376,7 +373,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
                         sp48 = sp50;
                     }
 
-                    if (arg1->flags & PROPFLAG_00000010)
+                    if (objectRecord->flags & PROPFLAG_00000010)
                     {
                         sp50 = var_f0;
                         sp54 = var_f0;
@@ -384,46 +381,46 @@ void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
                     }
                     else
                     {
-                        if (!(arg1->flags & PROPFLAG_00000020))
+                        if (!(objectRecord->flags & PROPFLAG_00000020))
                         {
-                            if (arg1->flags & PROPFLAG_ONSCREEN)
+                            if (objectRecord->flags & PROPFLAG_ONSCREEN)
                             {
-                                if (temp_v0_3->Bounds.xmax == temp_v0_3->Bounds.xmin)
+                                if (bboxRecord->Bounds.xmax == bboxRecord->Bounds.xmin)
                                 {
                                     sp58 = sp48;
                                 }
                             }
-                            else if (temp_v0_3->Bounds.xmax == temp_v0_3->Bounds.xmin)
+                            else if (bboxRecord->Bounds.xmax == bboxRecord->Bounds.xmin)
                             {
                                 sp58 = sp48;
                             }
                         }
 
-                        if (!(arg1->flags & PROPFLAG_00000040))
+                        if (!(objectRecord->flags & PROPFLAG_00000040))
                         {
-                            if (arg1->flags & PROPFLAG_ONSCREEN)
+                            if (objectRecord->flags & PROPFLAG_ONSCREEN)
                             {
-                                if (temp_v0_3->Bounds.ymax == temp_v0_3->Bounds.ymin)
+                                if (bboxRecord->Bounds.ymax == bboxRecord->Bounds.ymin)
                                 {
                                     sp50 = sp48;
                                 }
                             }
-                            else if (temp_v0_3->Bounds.ymax == temp_v0_3->Bounds.ymin)
+                            else if (bboxRecord->Bounds.ymax == bboxRecord->Bounds.ymin)
                             {
                                 sp54 = sp48;
                             }
                         }
 
-                        if (!(arg1->flags & PROPFLAG_00000080))
+                        if (!(objectRecord->flags & PROPFLAG_00000080))
                         {
-                            if (arg1->flags & PROPFLAG_ONSCREEN)
+                            if (objectRecord->flags & PROPFLAG_ONSCREEN)
                             {
-                                if (temp_v0_3->Bounds.zmax == temp_v0_3->Bounds.zmin)
+                                if (bboxRecord->Bounds.zmax == bboxRecord->Bounds.zmin)
                                 {
                                     sp54 = sp48;
                                 }
                             }
-                            else if (temp_v0_3->Bounds.zmax == temp_v0_3->Bounds.zmin)
+                            else if (bboxRecord->Bounds.zmax == bboxRecord->Bounds.zmin)
                             {
                                 sp50 = sp48;
                             }
@@ -448,25 +445,25 @@ void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
                     matrix_column_2_scalar_multiply(sp54, sp8C.m[0]);
                     matrix_column_3_scalar_multiply_2(sp50, sp8C.m[0]);
 
-                    modelSetScale(arg1->model, arg1->model->scale * sp48);
+                    modelSetScale(objectRecord->model, objectRecord->model->scale * sp48);
                 }
             }
 
-            modelSetScale(arg1->model, arg1->model->scale * sp78);
-            matrix_scalar_multiply(arg1->model->scale, sp8C.m[0]);
+            modelSetScale(objectRecord->model, objectRecord->model->scale * sp78);
+            matrix_scalar_multiply(objectRecord->model->scale, sp8C.m[0]);
 
-            if (arg1->flags & PROPFLAG_ONSCREEN)
+            if (objectRecord->flags & PROPFLAG_ONSCREEN)
             {
-                sub_GAME_7F040BA0(arg1, &spE0, &sp8C, spDC, &sp80);
+                sub_GAME_7F040BA0(objectRecord, &spE0, &sp8C, spDC, &sp80);
             }
             else
             {
-                objPlaceAtPad(arg1, &spE0, &sp8C, spDC, &sp80);
+                objPlaceAtPad(objectRecord, &spE0, &sp8C, spDC, &sp80);
             }
 
-            setupUpdateObjectRoomPosition(arg1);
-            chrpropActivate(sp60);
-            chrpropEnable(sp60);
+            setupUpdateObjectRoomPosition(objectRecord);
+            chrpropActivate(prop);
+            chrpropEnable(prop);
         }
         #ifdef DEBUG
         else
@@ -477,10 +474,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *arg1, s32 cmdindex)
     }
 }
 
-/**
- * NTSC address 0x7F002738.
- * PAL address 0x7F002738.
-*/
+
 void weaponAssignToHome(s32 arg0, WeaponObjRecord* weapon, s32 cmdindex)
 {
     s32 padding;
@@ -684,13 +678,6 @@ void setupAutogun(s32 stageID, AutogunRecord *autogun, s32 cmdindex)
 
     domakedefaultobj(stageID, (ObjectRecord *) autogun, cmdindex);
 
-#ifdef VERSION_EU
-    autogun->speed = ((*((s32 *) (&autogun->speed))) * 7.5398226f) / 65536.0f;
-    autogun->aimdist = ((*((s32 *) (&autogun->aimdist))) * 100.0f) / 65536.0f;
-    autogun->unk88 = ((*((s32 *) (&autogun->unk88))) * M_TAU_F) / 65536.0f;
-    autogun->unk8C = ((*((s32 *) (&autogun->unk8C))) * M_TAU_F) / 65536.0f;
-#endif
-
     autogun->unkAC = 0;
     autogun->unkB8 = -1;
     autogun->unkBC = -1;
@@ -705,15 +692,12 @@ void setupAutogun(s32 stageID, AutogunRecord *autogun, s32 cmdindex)
     autogun->unk98 = 0.0f;
     autogun->unkB0 = 0.0f;
     autogun->unkB4 = 0.0f;
-
-#ifndef VERSION_EU
     autogun->speed = ((*((s32 *) (&autogun->speed))) * M_TAU_F) / 65536.0f;
     autogun->aimdist = ((*((s32 *) (&autogun->aimdist))) * 100.0f) / 65536.0f;
     autogun->unk88 = ((*((s32 *) (&autogun->unk88))) * M_TAU_F) / 65536.0f;
     autogun->unk8C = ((*((s32 *) (&autogun->unk8C))) * M_TAU_F) / 65536.0f;
-#endif
 
-    beam          = mempAllocBytesInBank(0x30U, MEMPOOL_STAGE);
+    beam = mempAllocBytesInBank(0x30U, MEMPOOL_STAGE);
     autogun->beam = beam;
     *beam = -1;
 
@@ -722,7 +706,6 @@ void setupAutogun(s32 stageID, AutogunRecord *autogun, s32 cmdindex)
 
     if (autogun->padID >= 0)
     {
-        s32 stack1;
         f32 xdiff;
         f32 ydiff;
         f32 zdiff;
@@ -731,7 +714,6 @@ void setupAutogun(s32 stageID, AutogunRecord *autogun, s32 cmdindex)
 
         if (autogun->padID < 0x2710)
         {
-            if (1);
             pad = &g_CurrentSetup.pads[autogun->padID];
         }
         else
@@ -761,7 +743,6 @@ void setupHangingMonitors(s32 arg0, ObjectRecord* rack, s32 cmdindex)
 void setupSingleMonitor(s32 stageID, MonitorObjRecord *monitor, s32 cmdindex)
 {
     MonitorRecord *record;
-    s32 unused;
     s32 modelnum;
     ObjectRecord *owner;
     PropRecord *prop;

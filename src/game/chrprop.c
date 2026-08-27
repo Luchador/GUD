@@ -1395,9 +1395,6 @@ void chraiCheckUseHeldItem(s32 hand)
 }
 
 
-/**
- * Address 0x7F03C294.
-*/
 void chraiCheckUseHeldItems(void)
 {
     chraiCheckUseHeldItem(GUNRIGHT);
@@ -1414,19 +1411,18 @@ void propExecuteTickOperation(PropRecord *prop, TICKOP op)
         if ((prop->type == PROP_TYPE_WEAPON) || (prop->type == PROP_TYPE_OBJ))
         {
             propobj = prop->obj;
-            if (prop->obj->state & PROPSTATE_RESPAWN) //matches only if called directly (not propobj)
+
+            if (prop->obj->state & PROPSTATE_RESPAWN)
             {
-                #ifndef VERSION_EU
-                prop->timetoregen = 0x4B0;
-                #else
-                prop->timetoregen = 0x3E8;
-                #endif
+                prop->timetoregen = 1200;
                 propobj->runtime_bitflags |= RUNTIMEBITFLAG_00000800;
                 propobj->runtime_bitflags &= ~RUNTIMEBITFLAG_REMOVE;
                 propobj->state &= ~0x80;
                 propobj->maxdamage = 0.0f;
+
                 chrpropDeregisterRooms(prop);
                 chrpropDisable(prop);
+
                 return;
             }
         }

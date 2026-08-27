@@ -232,75 +232,76 @@ s32 modelLoad(s32 modelid)
 
 void setupUpdateObjectRoomPosition(ObjectRecord *obj)
 {
-    PropRecord *temp_s1;
-    struct coord3d sp40;
-    struct coord3d sp34;
-    struct ModelRoData_BoundingBoxRecord *sp30;
+    PropRecord *prop;
+    struct coord3d bbmin;
+    struct coord3d bbmax;
+    struct ModelRoData_BoundingBoxRecord *bbox;
     f32 phi_f20;
 
-    temp_s1 = obj->prop;
+    prop = obj->prop;
     phi_f20 = 0.0f;
-    chrpropDeregisterRooms(temp_s1);
 
-    if (obj->flags2 & 0x20000)
+    chrpropDeregisterRooms(prop);
+
+    if (obj->flags2 & PROPFLAG2_USESTANROOM)
     {
-        if (temp_s1->stan != NULL)
+        if (prop->stan != NULL)
         {
-            temp_s1->rooms[0] = temp_s1->stan->room;
-            temp_s1->rooms[1] = (u8)-1;
+            prop->rooms[0] = prop->stan->room;
+            prop->rooms[1] = (u8)-1;
         }
         else
         {
-            temp_s1->rooms[0] = (u8)-1;
+            prop->rooms[0] = (u8)-1;
         }
     }
     else
     {
-        sp30 = chrobjGetBboxFromObjectRecord(obj);
+        bbox = chrobjGetBboxFromObjectRecord(obj);
 
-        if (sp30 != NULL)
+        if (bbox != NULL)
         {
-            sp40.f[0] = chrpropSumMatrixPosX(sp30, &obj->mtx) - 30.0f;
-            sp40.f[1] = chrpropSumMatrixPosY(sp30, &obj->mtx);
-            sp40.f[2] = chrpropSumMatrixPosZ(sp30, &obj->mtx) - 30.0f;
+            bbmin.f[0] = chrpropSumMatrixPosX(bbox, &obj->mtx) - 30.0f;
+            bbmin.f[1] = chrpropSumMatrixPosY(bbox, &obj->mtx);
+            bbmin.f[2] = chrpropSumMatrixPosZ(bbox, &obj->mtx) - 30.0f;
 
-            sp34.f[0] = chrpropSumMatrixNegX(sp30, &obj->mtx) + 30.0f;
-            sp34.f[1] = chrpropSumMatrixNegY(sp30, &obj->mtx);
-            sp34.f[2] = chrpropSumMatrixNegZ(sp30, &obj->mtx) + 30.0f;
+            bbmax.f[0] = chrpropSumMatrixNegX(bbox, &obj->mtx) + 30.0f;
+            bbmax.f[1] = chrpropSumMatrixNegY(bbox, &obj->mtx);
+            bbmax.f[2] = chrpropSumMatrixNegZ(bbox, &obj->mtx) + 30.0f;
 
-            if (phi_f20 < -sp40.f[0])
+            if (phi_f20 < -bbmin.f[0])
             {
-                phi_f20 = -sp40.f[0];
+                phi_f20 = -bbmin.f[0];
             }
 
-            if (phi_f20 < -sp40.f[2])
+            if (phi_f20 < -bbmin.f[2])
             {
-                phi_f20 = -sp40.f[2];
+                phi_f20 = -bbmin.f[2];
             }
 
-            if (phi_f20 < sp34.f[0])
+            if (phi_f20 < bbmax.f[0])
             {
-                phi_f20 = sp34.f[0];
+                phi_f20 = bbmax.f[0];
             }
 
-            if (phi_f20 < sp34.f[2])
+            if (phi_f20 < bbmax.f[2])
             {
-                phi_f20 = sp34.f[2];
+                phi_f20 = bbmax.f[2];
             }
 
-            sp40.f[0] += obj->position.f[0];
-            sp40.f[1] += obj->position.f[1];
-            sp40.f[2] += obj->position.f[2];
+            bbmin.f[0] += obj->position.f[0];
+            bbmin.f[1] += obj->position.f[1];
+            bbmin.f[2] += obj->position.f[2];
 
-            sp34.f[0] += obj->position.f[0];
-            sp34.f[1] += obj->position.f[1];
-            sp34.f[2] += obj->position.f[2];
+            bbmax.f[0] += obj->position.f[0];
+            bbmax.f[1] += obj->position.f[1];
+            bbmax.f[2] += obj->position.f[2];
 
-            chrpropUpdateRoomList(temp_s1, &sp40, &sp34, phi_f20);
+            chrpropUpdateRoomList(prop, &bbmin, &bbmax, phi_f20);
         }
     }
 
-    chrpropRegisterRooms(temp_s1);
+    chrpropRegisterRooms(prop);
 }
 
 

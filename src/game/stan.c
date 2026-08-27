@@ -2232,46 +2232,46 @@ void setLevelScale(f32 ls)
  */
 f32 stanGetPositionYValue(StandTile *tile, f32 p_x, f32 p_z)
 {
-    f32 a[3]; // sp 132, vector a
-    f32 b[3]; // sp 120, vector b
-    s64 cp[3]; // sp 96, cross product vector (a x b)
-    s64 rsum;
-    s32 temp_a3;
-    s32 temp_t6;
-    s32 temp_t7;
+    StandTilePoint *pointA;
+    StandTilePoint *pointB;
+    StandTilePoint *pointC;
+    f32 edgeABx;
+    f32 edgeABy;
+    f32 edgeABz;
+    f32 edgeACx;
+    f32 edgeACy;
+    f32 edgeACz;
+    f32 normalX;
+    f32 normalY;
+    f32 normalZ;
 
     p_x *= level_scale;
-    temp_t6 = STAN_TAIL_D(tile);
-    temp_t7 = STAN_TAIL_C(tile);
-    temp_a3 = STAN_TAIL_POINT_COUNT(tile);
     p_z *= level_scale;
 
-    a[0] = (f32) (tile->points[temp_t7].x - tile->points[temp_t6].x);
-    a[1] = (f32) (tile->points[temp_t7].y - tile->points[temp_t6].y);
-    a[2] = (f32) (tile->points[temp_t7].z - tile->points[temp_t6].z);
+    pointA = &tile->points[STAN_TAIL_D(tile)];
+    pointB = &tile->points[STAN_TAIL_C(tile)];
+    pointC = &tile->points[STAN_TAIL_POINT_COUNT(tile)];
 
-    b[0] = (f32) (tile->points[temp_a3].x - tile->points[temp_t6].x);
-    b[1] = (f32) (tile->points[temp_a3].y - tile->points[temp_t6].y);
-    b[2] = (f32) (tile->points[temp_a3].z - tile->points[temp_t6].z);
+    edgeABx = (f32)(pointB->x - pointA->x);
+    edgeABy = (f32)(pointB->y - pointA->y);
+    edgeABz = (f32)(pointB->z - pointA->z);
+    edgeACx = (f32)(pointC->x - pointA->x);
+    edgeACy = (f32)(pointC->y - pointA->y);
+    edgeACz = (f32)(pointC->z - pointA->z);
 
-    // implicit call to __f_to_ll
-    // This is the cross product, a x b
-    cp[0] = (s64)((a[1] * b[2]) - (a[2] * b[1]));
-    cp[1] = (s64)((a[2] * b[0]) - (a[0] * b[2]));
-    cp[2] = (s64)((a[0] * b[1]) - (a[1] * b[0]));
-
-    // implicit call to __ll_mul
-    rsum = ((s64)cp[0] * (s64)tile->points[temp_t6].x)
-        + ((s64)cp[1] * (s64)tile->points[temp_t6].y)
-        + ((s64)cp[2] * (s64)tile->points[temp_t6].z);
+    // Calculate the tile plane normal entirely in single precision.
+    normalX = edgeABy * edgeACz - edgeABz * edgeACy;
+    normalY = edgeABz * edgeACx - edgeABx * edgeACz;
+    normalZ = edgeABx * edgeACy - edgeABy * edgeACx;
 
     // don't divide by zero
-    if (cp[1] == 0)
+    if (normalY == 0.0f)
     {
-        return (f32) tile->points[temp_t6].y * inv_level_scale;
+        return (f32)pointA->y * inv_level_scale;
     }
 
-    return (f32) ((((f64)(rsum) - ((f64) p_x * (f64)cp[0])) - ((f64) p_z * (f64)cp[2])) / (f64)(cp[1])) * inv_level_scale;
+    // Solve relative to pointA to keep the intermediate values small.
+    return ((f32)pointA->y - ((p_x - (f32)pointA->x) * normalX + (p_z - (f32)pointA->z) * normalZ) / normalY) * inv_level_scale;
 }
 
 
