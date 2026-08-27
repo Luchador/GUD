@@ -10272,8 +10272,8 @@ join_768:
     chr->actiontype = ACT_BONDMULTI;
     chr->act_bondmulti.unk2c = (f32 *) firingtable;
  
-    chrSetFiring(chr, GUNRIGHT, ppointers[index]->hands[GUNRIGHT].field_87D);
-    chrSetFiring(chr, GUNLEFT, ppointers[index]->hands[GUNLEFT].field_87D);
+    chrSetFiring(chr, GUNRIGHT, ppointers[index]->hands[GUNRIGHT].flashVisible);
+    chrSetFiring(chr, GUNLEFT, ppointers[index]->hands[GUNLEFT].flashVisible);
  
     tailret = chrTick(prop);
  

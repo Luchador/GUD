@@ -38,13 +38,10 @@
 #include "gbi_extension.h"
 
 
-// bss
 ALSoundState *g_CasingSfxState;
-ALSoundState* g_UnusedSfxState; // Unused, type assumed from surrounding variables.
 ALSoundState* g_ImpactSfxStates[NUM_IMPACT_SFX_STATES];
 
 CasingRecord g_Casings[20];
-s32 dword_CODE_bss_80076A48; // Unused
 
 #define THROWN_ITEM_REFRESH_RATE                   60
 #define THROWN_ITEM_TIMER_SOLO                     300
@@ -57,23 +54,6 @@ s32 dword_CODE_bss_80076A48; // Unused
 #define GUN_SPRING_DAMP                            0.95f
 #define GUN_SPRING_SCALE                           0.050000012f
 
-extern f32 g_GLGrenadeLaunchUnk8C;
-extern f32 g_GLGrenadeLaunchUnk94;
-extern f32 g_TankShellSpeed;
-
-// data
-////D:80032440
-//rgba_u8 D_80032440[] = {
-//	{0x96, 0x96, 0x96, 0},
-//	{0x96, 0x96, 0x96, 0}
-//};
-//
-////D:80032448
-//rgba_u8 D_80032448[] = {
-//	{0xFF, 0xFF, 0xFF, 0},
-//	{0xFF, 0xFF, 0xFF, 0},
-//	{0xB2, 0x4D, 0x2E, 0}
-//};
 /**
  * Controls the lighting on environment mapped weapons such as the Cougar Magnum and Golden Gun.
  */
@@ -81,11 +61,6 @@ Lights1 g_WeaponEnvmapLight = gdSPDefLights1(
     0x96, 0x96, 0x96,   // ambient RGB
     0xff, 0xff, 0xff,   // diffuse RGB
     0xb2, 0x4d, 0x2e);  // direction
-//D:80032454
-//u32 D_80032454 = 0;
-
-//D:80032458
-u32 D_80032458 = 0;
 
 //D:8003245C
 u32 size_item_buffer[] = {0x14820, 0x14820};
@@ -331,8 +306,7 @@ Weapon1PTransformKeyframe taserRaiseKeyframes[6] = {
     {1, { 0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, 0.0f, 0.0f}
 };
 
-coord3d D_80035C40 = {0.0f, 0.0f, 0.0f};
-coord3d D_80035C4C = {0.0f, 0.0f, 0.0f};
+coord3d g_GunZeroCoord = {0.0f, 0.0f, 0.0f};
 coord3d D_80035C58 = {0.0f, 0.0f, -1.0f};
 coord3d D_80035C64 = {0.0f, 1.0f, 0.0f};
 coord3d D_80035C70 = {6.2536321f, 6.2592888f, 0.204238f};
@@ -520,9 +494,9 @@ void sub_GAME_7F05C614(void)
         return; 
     }
 
-    g_CurrentPlayer->hands[0].field_92C = 1;
-    matrix_4x4_set_rotation_around_xyz(&DEB_KEYFRAMES[g_gunDebKeyframeIndex].rot, (Mtxf *)&g_CurrentPlayer->hands[0].field_8EC);
-    matrix_4x4_set_position(&DEB_KEYFRAMES[g_gunDebKeyframeIndex].pos, (Mtxf *)&g_CurrentPlayer->hands[0].field_8EC);
+    g_CurrentPlayer->hands[0].isAnimating = 1;
+    matrix_4x4_set_rotation_around_xyz(&DEB_KEYFRAMES[g_gunDebKeyframeIndex].rot, (Mtxf *)&g_CurrentPlayer->hands[0].animMtx);
+    matrix_4x4_set_position(&DEB_KEYFRAMES[g_gunDebKeyframeIndex].pos, (Mtxf *)&g_CurrentPlayer->hands[0].animMtx);
     cartridges_eject = 0;
 }
 
@@ -1926,8 +1900,8 @@ void gunSpawnGLGrenade(s32 handnum)
 
         if (grenadeobj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
         {
-            grenadeobj->projectile->unk8C = g_GLGrenadeLaunchUnk8C;
-            grenadeobj->projectile->unk94 = g_GLGrenadeLaunchUnk94;
+            grenadeobj->projectile->unk8C = 0.3f;
+            grenadeobj->projectile->unk94 = 0.13333333f;
             grenadeobj->projectile->refreshrate = THROWN_ITEM_REFRESH_RATE;
         }
     }

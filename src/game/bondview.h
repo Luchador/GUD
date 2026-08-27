@@ -113,15 +113,15 @@ struct hand
   ITEM_IDS previous_weapon;
 
   s8 weapon_firing_status;
-
-  s8 field_87D;
-  s8 field_87E;
-  s8 field_87F;
+  s8 flashVisible;
+  s8 weaponVisible;
+  s8 handVisible;
 
   /**
    * Time holding weapon
   */
   s32 weapon_hold_time;
+  
   s32 field_884;
   s32 field_888;
   s32 field_88C;
@@ -148,8 +148,8 @@ struct hand
   f32 field_8E0;
   f32 field_8E4;
   f32 field_8E8;
-  Mtxf field_8EC;
-  s32 field_92C;
+  Mtxf animMtx;
+  s32 isAnimating;
   f32 sway_pos_x;
   f32 sway_pos_y;
   f32 sway_pos_z;

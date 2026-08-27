@@ -17,9 +17,9 @@ struct hand hand_data_dummy = {
  
     0, // s8 weapon_firing_status;
  
-    0, // s8 field_87D;
-    0x1, // s8 field_87E;
-    0, // s8 field_87F;
+    0, // s8 flashVisible;
+    0x1, // s8 weaponVisible;
+    0, // s8 handVisible;
  
     0, // s32 weapon_hold_time;
     0, // s32 field_884;
@@ -49,13 +49,13 @@ struct hand hand_data_dummy = {
     0, // s32 field_8E4;
     0, // s32 field_8E8;
  
-    // Mtxf field_8EC;
+    // Mtxf animMtx;
     1.0f,0,0,0,
     0,1.0f,0,0,
     0,0,1.0f,0,
     0,0,0,1.0f,
  
-    0, // s32 field_92C;
+    0, // s32 isAnimating;
     0, // f32 sway_pos_x;
     0, // f32 sway_pos_y;
     0, // f32 sway_pos_z;

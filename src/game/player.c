@@ -31,9 +31,9 @@ struct hand g_DefaultHandTemplate = {
     -1, /* weaponnum_watchmenu */
     0, /* previous_weapon */
     0, /* weapon_firing_status */
-    0, /* field_87D */
-    1, /* field_87E */
-    0, /* field_87F */
+    0, /* flashVisible */
+    1, /* weaponVisible */
+    0, /* handVisible */
     0, /* weapon_hold_time */
     0, /* field_884 */
     0, /* field_888 */
@@ -61,8 +61,8 @@ struct hand g_DefaultHandTemplate = {
     0, /* field_8E0 */
     0, /* field_8E4 */
     0, /* field_8E8 */
-    { { {1.0f,0.0f,0.0f,0.0f}, {0.0f,1.0f,0.0f,0.0f}, {0.0f,0.0f,1.0f,0.0f}, {0.0f,0.0f,0.0f,1.0f} } }, /* field_8EC (identity) */
-    0, /* field_92C */
+    { { {1.0f,0.0f,0.0f,0.0f}, {0.0f,1.0f,0.0f,0.0f}, {0.0f,0.0f,1.0f,0.0f}, {0.0f,0.0f,0.0f,1.0f} } }, /* animMtx (identity) */
+    0, /* isAnimating */
     0, /* sway_pos_x */
     0, /* sway_pos_y */
     0, /* sway_pos_z */

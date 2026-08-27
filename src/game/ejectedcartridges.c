@@ -5,7 +5,6 @@
 
 // Copied from another file. Might need code reorganization to prevent the use of extra externs.
 extern ALSoundState* g_CasingSfxState;
-extern ALSoundState* g_UnusedSfxState;
 extern ALSoundState* g_ImpactSfxStates[NUM_IMPACT_SFX_STATES];
 
 extern u32 cartridges_eject;
