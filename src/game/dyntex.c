@@ -3,11 +3,11 @@
 #include "lv.h"
 #include "dyntex.h"
 
-f32 flt_CODE_bss_80079E80;
-f32 flt_CODE_bss_80079E84;
-f32 flt_CODE_bss_80079E88;
+f32 g_DyntexWaterScrollS;
+f32 g_DyntexWaterScrollT;
+f32 g_DyntexWaterBlendPhase;
 
-Gfx MipMap2C_Something_Setup[] = {
+Gfx g_DyntexWaterI4SetupGdl[] = {
     gsDPSetTile(G_IM_FMT_I, G_IM_SIZ_4b, 4, 0, 0, 0, G_TX_WRAP, 6, 0, G_TX_WRAP, 6, 0),
     gsDPSetTile(G_IM_FMT_I, G_IM_SIZ_4b, 4, 0, 1, 0, G_TX_WRAP, 6, 0, G_TX_WRAP, 6, 0),
     gsDPSetTileSize(0, 2, 2, 0, 0),
@@ -23,7 +23,7 @@ Gfx MipMap2C_Something_Setup[] = {
     gsSPEndDisplayList()
 };
 
-Gfx MipMap2C_Something2_Setup[] = {
+Gfx g_DyntexWaterCi8SetupGdl[] = {
     gsDPSetTile(G_IM_FMT_CI, G_IM_SIZ_8b, 2, 0, 0, 0, G_TX_WRAP, 5, 0, G_TX_WRAP, 5, 0),
     gsDPSetTile(G_IM_FMT_CI, G_IM_SIZ_8b, 2, 0, 1, 0, G_TX_WRAP, 5, 0, G_TX_WRAP, 5, 0),
     gsDPSetTileSize(0, 2, 2, 0, 0),
@@ -45,70 +45,72 @@ void dyntexWaterController(void)
 {
     f32 delta = g_ClockTimer;
 
-    flt_CODE_bss_80079E80 += delta * 0.25f;
+    g_DyntexWaterScrollS += delta * 0.25f;
 
-    if (flt_CODE_bss_80079E80 >= 256.0f)
+    if (g_DyntexWaterScrollS >= 256.0f)
     {
-        flt_CODE_bss_80079E80 -= 256.0f;
+        g_DyntexWaterScrollS -= 256.0f;
     }
 
-    if (flt_CODE_bss_80079E80 < 0.0f)
+    if (g_DyntexWaterScrollS < 0.0f)
     {
-        flt_CODE_bss_80079E80 += 256.0f;
+        g_DyntexWaterScrollS += 256.0f;
     }
 
-    flt_CODE_bss_80079E84 += delta * 0.1f;
+    g_DyntexWaterScrollT += delta * 0.1f;
 
-    if (flt_CODE_bss_80079E84 >= 256.0f)
+    if (g_DyntexWaterScrollT >= 256.0f)
     {
-        flt_CODE_bss_80079E84 -= 256.0f;
+        g_DyntexWaterScrollT -= 256.0f;
     }
 
-    if (flt_CODE_bss_80079E84 < 0.0f)
+    if (g_DyntexWaterScrollT < 0.0f)
     {
-        flt_CODE_bss_80079E84 += 256.0f;
+        g_DyntexWaterScrollT += 256.0f;
     }
 
-    flt_CODE_bss_80079E88 += delta * 0.04f;
+    g_DyntexWaterBlendPhase += delta * 0.04f;
 
     // 6.2831802f is not quite equal to M_TAU_F. Leave as literal value here.
-    if (flt_CODE_bss_80079E88 >= 6.2831802f)
+    if (g_DyntexWaterBlendPhase >= 6.2831802f)
     {
-        flt_CODE_bss_80079E88 -= 6.2831802f;
+        g_DyntexWaterBlendPhase -= 6.2831802f;
     }
 
-    if (flt_CODE_bss_80079E88 < 0.0f)
+    if (g_DyntexWaterBlendPhase < 0.0f)
     {
-        flt_CODE_bss_80079E88 += 6.2831802f;
+        g_DyntexWaterBlendPhase += 6.2831802f;
     }
     
-    MipMap2C_Something_Setup[2].loadtile.sl = flt_CODE_bss_80079E80;
-    MipMap2C_Something_Setup[2].loadtile.tl = flt_CODE_bss_80079E84;
-    MipMap2C_Something_Setup[3].loadtile.sl = ((s32)flt_CODE_bss_80079E80 + 90) & 0xFF;
-    MipMap2C_Something_Setup[3].loadtile.tl = ((s32)flt_CODE_bss_80079E84 + 150) & 0xFF;
-    ((u32 *) MipMap2C_Something_Setup)[8] = (((u32 *) MipMap2C_Something_Setup)[8] & ~0xFF) | (u32) ((sinf(flt_CODE_bss_80079E88) * 127.0f) + 128.0f);
+    g_DyntexWaterI4SetupGdl[2].loadtile.sl = g_DyntexWaterScrollS;
+    g_DyntexWaterI4SetupGdl[2].loadtile.tl = g_DyntexWaterScrollT;
+    g_DyntexWaterI4SetupGdl[3].loadtile.sl = ((s32)g_DyntexWaterScrollS + 90) & 0xFF;
+    g_DyntexWaterI4SetupGdl[3].loadtile.tl = ((s32)g_DyntexWaterScrollT + 150) & 0xFF;
+    ((u32 *) g_DyntexWaterI4SetupGdl)[8] = (((u32 *) g_DyntexWaterI4SetupGdl)[8] & ~0xFF) | (u32) ((sinf(g_DyntexWaterBlendPhase) * 127.0f) + 128.0f);
 
-    MipMap2C_Something2_Setup[2].loadtile.sl = flt_CODE_bss_80079E80;
-    MipMap2C_Something2_Setup[2].loadtile.tl = flt_CODE_bss_80079E84;
-    MipMap2C_Something2_Setup[3].loadtile.sl = ((s32)flt_CODE_bss_80079E80 + 90) & 0xFF;
-    MipMap2C_Something2_Setup[3].loadtile.tl = ((s32)flt_CODE_bss_80079E84 + 150) & 0xFF;
-    ((u32 *) MipMap2C_Something2_Setup)[8] = (((u32 *) MipMap2C_Something_Setup)[8] & ~0xFF) | (u32) ((sinf(flt_CODE_bss_80079E88) * 127.0f) + 128.0f);
+    g_DyntexWaterCi8SetupGdl[2].loadtile.sl = g_DyntexWaterScrollS;
+    g_DyntexWaterCi8SetupGdl[2].loadtile.tl = g_DyntexWaterScrollT;
+    g_DyntexWaterCi8SetupGdl[3].loadtile.sl = ((s32)g_DyntexWaterScrollS + 90) & 0xFF;
+    g_DyntexWaterCi8SetupGdl[3].loadtile.tl = ((s32)g_DyntexWaterScrollT + 150) & 0xFF;
+    ((u32 *) g_DyntexWaterCi8SetupGdl)[8] = (((u32 *) g_DyntexWaterI4SetupGdl)[8] & ~0xFF) | (u32) ((sinf(g_DyntexWaterBlendPhase) * 127.0f) + 128.0f);
 }
 
 
-Gfx* sub_GAME_7F09343C(Gfx *gdl, s32 arg1)
+Gfx* dyntexConfigureTwoLayerWater(Gfx *gdl, s32 useIntensityTexture)
 {
-    if (arg1 != 0)
+    // Use I4 texture, 64-texel wrapping.
+    if (useIntensityTexture)
     {
-        gSPDisplayList(gdl++, MipMap2C_Something_Setup);
+        gSPDisplayList(gdl++, g_DyntexWaterI4SetupGdl);
     }
+    // Use RGBA 16 texture with fixed tile offsets.
     else
     {
         gDPSetTile(gdl++, G_IM_FMT_RGBA, G_IM_SIZ_16b, 4, 0, 0, 0, 0, 5, 0, 0, 5, 0);
         gDPSetTile(gdl++, G_IM_FMT_RGBA, G_IM_SIZ_16b, 4, 0, 1, 0, 0, 5, 0, 0, 5, 0);
         gDPSetTileSize(gdl++, 0, 0, 0, 0, 0);
         gDPSetTileSize(gdl++, 1, 90, 150, 0, 0);
-        gDPSetPrimColor(gdl++, 0, (sinf(flt_CODE_bss_80079E88) * 127.0f + 128.0f), 0xFF, 0xFF, 0xFF, 0xFF);
+        gDPSetPrimColor(gdl++, 0, (sinf(g_DyntexWaterBlendPhase) * 127.0f + 128.0f), 0xFF, 0xFF, 0xFF, 0xFF);
         gDPSetTextureDetail(gdl++, G_TD_CLAMP);
         gDPSetTextureFilter(gdl++, G_TF_BILERP);
         gDPSetCombineLERP(gdl++, TEXEL1, TEXEL0, PRIM_LOD_FRAC, TEXEL0, TEXEL1, TEXEL0, PRIM_LOD_FRAC, TEXEL0, COMBINED, 0, SHADE, 0, COMBINED, 0, SHADE, 0);
@@ -121,27 +123,10 @@ Gfx* sub_GAME_7F09343C(Gfx *gdl, s32 arg1)
 }
 
 
-Gfx* sub_GAME_7F09365C(Gfx *gdl, s32 arg1)
+// Use CI8 texture, 32-texel wrapping.
+Gfx* dyntexConfigureTwoLayerCiWater(Gfx *gdl)
 {
-    if (arg1 != 0)
-    {
-        gSPDisplayList(gdl++, MipMap2C_Something2_Setup);
-    }
-    else
-    {
-        gDPSetTile(gdl++, G_IM_FMT_CI, G_IM_SIZ_8b, 2, 0, 0, 0, 0, 5, 0, 0, 5, 0);
-        gDPSetTile(gdl++, G_IM_FMT_CI, G_IM_SIZ_8b, 2, 0, 1, 0, 0, 5, 0, 0, 5, 0);
-        gDPSetTileSize(gdl++, 0, 0, 0, 0, 0);
-        gDPSetTileSize(gdl++, 1, 90, 150, 0, 0);
-        gDPSetPrimColor(gdl++, 0, (sinf(flt_CODE_bss_80079E88) * 127.0f + 128.0f), 0xFF, 0xFF, 0xFF, 0xFF);
-        gDPSetTextureDetail(gdl++, G_TD_CLAMP);
-        gDPSetTextureFilter(gdl++, G_TF_BILERP);
-        gDPSetCombineLERP(gdl++, TEXEL1, TEXEL0, PRIM_LOD_FRAC, TEXEL0, TEXEL1, TEXEL0, PRIM_LOD_FRAC, TEXEL0, COMBINED, 0, SHADE, 0, COMBINED, 0, SHADE, 0); /* expands to FC272C04 1F1093FF */
-        gDPSetRenderMode(gdl++, G_RM_PASS, G_RM_AA_ZB_OPA_SURF2);
-        gDPSetTextureLOD(gdl++, G_TL_TILE);
-        gDPSetCycleType(gdl++, G_CYC_2CYCLE);
-        gSPSetGeometryMode(gdl++, G_CULL_BACK);
-    }
+    gSPDisplayList(gdl++, g_DyntexWaterCi8SetupGdl);
 
     return gdl;
 }

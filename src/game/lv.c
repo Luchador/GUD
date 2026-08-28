@@ -394,9 +394,9 @@ void lvlStageLoad(s32 stage)
     alloc_explosion_smoke_casing_scorch_impact_buffers();
     alloc_shattered_window_pieces();
     
-    flt_CODE_bss_80079E80 = 0.0f;
-    flt_CODE_bss_80079E84 = 0.0f;
-    flt_CODE_bss_80079E88 = 0.0f;
+    g_DyntexWaterScrollS = 0.0f;
+    g_DyntexWaterScrollT = 0.0f;
+    g_DyntexWaterBlendPhase = 0.0f;
 
     initCheatTextBuffer();
 

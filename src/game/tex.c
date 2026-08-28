@@ -961,7 +961,7 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
                     // Caverns water
                     if (texnum == 1508)
                     {
-                        out = sub_GAME_7F09343C(out, TRUE);
+                        out = dyntexConfigureTwoLayerWater(out, TRUE);
                         sub_GAME_7F0CC4C8();
                     }
 
@@ -973,7 +973,7 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
                      */
                     if (texnum == 1511)
                     {
-                        out = sub_GAME_7F09365C(out, TRUE);
+                        out = dyntexConfigureTwoLayerCiWater(out);
                         sub_GAME_7F0CC4C8();
                     }
 

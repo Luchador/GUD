@@ -386,7 +386,7 @@ static void skyProjectVertices(SkyRelated18 *vertices, SkyRelated38 *projected, 
 
     for (i = 0; i < vertexCount; i++)
     {
-        sub_GAME_7F097388(&vertices[i], &scaledWorldToClip, 130, 65535.0f, 65535.0f, &projected[i]);
+        skyProjectVertex(&vertices[i], &scaledWorldToClip, 130, 65535.0f, 65535.0f, &projected[i]);
 
         projected[i].unk28 = skyClamp(projected[i].unk28,
                 getPlayer_c_screenleft() * 4.0f,
@@ -440,7 +440,7 @@ static Gfx *skyRenderWaterPolygon(Gfx *gdl, SkyRelated18 *vertices, s32 vertexCo
 
     gDPPipeSync(gdl++);
     texSelect(&gdl, &skywaterimages[env->WaterImageId], 1, 0, 2);
-    gdl = sub_GAME_7F09343C(gdl, 0);
+    gdl = dyntexConfigureTwoLayerWater(gdl, FALSE);
     gDPSetRenderMode(gdl++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
 
     if (vertexCount == 4)
@@ -639,7 +639,7 @@ Gfx *skyRender(Gfx *gdl)
 }
 
 
-void sub_GAME_7F097388(SkyRelated18 *arg0, Mtxf *arg1, u16 arg2, f32 arg3, f32 arg4, SkyRelated38 *arg5)
+void skyProjectVertex(SkyRelated18 *arg0, Mtxf *arg1, u16 arg2, f32 arg3, f32 arg4, SkyRelated38 *arg5)
 {
     f32 sp68[4];
     f32 sp64;
