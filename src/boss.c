@@ -370,7 +370,6 @@ void bossMainloop(void)
                             }
 
                             joyConsumeSamplesWrapper();
-                            permit_stderr(0);
 
                             gdl = firstGdl = dynGetMasterDisplayList();
 

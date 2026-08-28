@@ -5,7 +5,6 @@
 #include <ultra64.h>
 #include <PR/os.h>
 #include "libultra/libc/xstdio.h"
-#include "crash.h"
 #include "rmon.h" /*<PR/rmon.h>*/
 
 #ifdef ENABLE_USB
@@ -242,24 +241,11 @@ void rmonPrintf(void)
 */
 
 
-/**
- * Send text to Remote Debugger, GE redirects to screen (crashAppendChar)
- */
+
 #ifndef ENABLE_USB
 void *proutSyncPrintf(void *str, const char *buf, size_t n)
 {
-    u32 sent = 0;
-
-#ifndef _FINALROM
-    while (sent < n)
-    {
-#    ifdef USERDB
-        sent += __osRdbSend((u8 *)&buf[sent], n - sent, RDB_TYPE_GtoH_PRINT);
-#    endif
-        crashAppendChar(buf[sent++]);
-    }
-#endif
-    return ((void *)1); /* return a fake pointer so that it's not NULL */
+    return (void *)1;
 }
 #endif
 

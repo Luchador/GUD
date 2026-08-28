@@ -48,19 +48,9 @@ void __scHandleRSP(OSSched *sc);
 void __scHandleRDP(OSSched *sc);
 void __scMain(void *arg);
 
-u32 stderr_unused = 0;
-u32 stderr_enabled = 0;
-u32 stderr_active = 0;
-u32 stderr_permitted = 0;
-
-/**
- * EU .data, offset from start of data_seg : 0x2310
-*/
-u32 userCompareValue = 45000000;
-u32 currentcount = 0;
 u32 dp_busy = 0;
 u32 dpCount = 0;
-//800230b0
+
 s32 g_schedViCurrentFrameBuffer = 0;
 f32 g_ViXScales[NUM_VIDEO_FRAME_BUFFERS] = {1.0, 1.0};
 f32 g_ViYScales[NUM_VIDEO_FRAME_BUFFERS] = {1.0, 1.0};
@@ -69,90 +59,9 @@ s32 g_ViChangeVideoModes[NUM_VIDEO_FRAME_BUFFERS] = {0, 0}; // boolean
 OSSched os_scheduler;
 OSScClient gfxClient[3];
 u32 g_DisplayPerformanceCounters[4]; // clock, cmc, pipe, tmem
-
-/**
- * EU .bss 0x80051f00.
-*/
 OSViMode g_ViModes[NUM_VIDEO_FRAME_BUFFERS];
 OSViMode *g_ViModePtrs[NUM_VIDEO_FRAME_BUFFERS];
 
-/**
- * 1570	70000970
- * A0-> stderr.activated	[80023098]; fry AT
- */
-void activate_stderr(u32 flag)
-{
-	stderr_active = flag;
-}
-
-/**
- * 157C	7000097C
- * A0-> stderr.enable		[80023094]; fry AT
- */
-void enable_stderr(u32 flag)
-{
-	stderr_enabled = flag;
-}
-
-/**
- * 1588	70000988
- * A0-> stderr.permitted	[8002309C]; fry AT
- */
-void permit_stderr(u32 flag)
-{
-	stderr_permitted = flag;
-}
-
-/**
- * 1594	70000994
- * A0-> user.Compare		[800230A0]; fry AT
- */
-void setUserCompareValue(u32 value)
-{
-	userCompareValue = value;
-}
-
-/**
- * 15A0	700009A0
- * test to display stderr and update Count
- */
-void CheckDisplayErrorBuffer(u32 *buffer)
-{
-	if ((stderr_permitted && stderr_active) || stderr_enabled )
-    {
-		crashRenderFrame(buffer);
-		currentcount = osGetCount();
-	}
-}
-
-/**
- * Address 0x700009F8.
- * test to display stderr every 16th frame
- */
-void CheckDisplayErrorBufferEvery16Frames(u32 framecount)
-{
-	if (!(framecount & 0xf))
-    {
-		if ((stderr_permitted && stderr_active) || stderr_enabled)
-        {
-			if (userCompareValue < (osGetCount() - currentcount))
-            {
-				crashRenderFrame((u16*)cfb_16[0]);
-				crashRenderFrame((u16*)cfb_16[1]);
-			}
-		}
-	}
-}
-
-/**
- * Not 100% on name, came from osInitialize's call to function
- * 1688	70000A88
- * store current Count to 800230A4
- */
-void osCreateLog(void)
-{
-	currentcount=osGetCount();
-}
 
 void osCreateScheduler (OSSched * sc, void * stack, u8 mode, u32 numFields)
 {
@@ -178,7 +87,6 @@ void osCreateScheduler (OSSched * sc, void * stack, u8 mode, u32 numFields)
     osSetEventMesg(OS_EVENT_DP, &sc->interruptQ, (OSMesg)RDP_DONE_MSG);
     osSetEventMesg(OS_EVENT_PRENMI, &sc->interruptQ, (OSMesg)PRE_NMI_MSG);
     osViSetEvent(&sc->interruptQ, (OSMesg)VIDEO_MSG, numFields);
-    osCreateLog();
     osCreateThread(sc->thread, SCHED_THREAD_ID, &__scMain, sc, setSPToEnd(&sp_shed, sizeof(sp_shed)), SCHED_THREAD_PRIORITY);
     osStartThread(sc->thread);
 }
@@ -344,7 +252,6 @@ void __scHandleRetrace(OSSched *sc)
             osSendMesg(client->msgQ, (OSMesg) &sc->retraceMsg, OS_MESG_NOBLOCK);
         }
     }
-    CheckDisplayErrorBufferEvery16Frames(sc->frameCount);
 }
 
 void __scHandleRSP(OSSched *sc)
@@ -445,7 +352,6 @@ s32 __scTaskComplete(OSSched *sc, OSScTask *t)
                 osViSetXScale(g_ViXScales[g_schedViCurrentFrameBuffer]);
                 osViSetYScale(g_ViYScales[g_schedViCurrentFrameBuffer]);
                 g_schedViCurrentFrameBuffer = ((g_schedViCurrentFrameBuffer + 1) % 2);
-                CheckDisplayErrorBuffer(t->framebuffer);
                 osViSwapBuffer(t->framebuffer);
             }
         }

@@ -72,13 +72,6 @@ extern OSViMode g_ViModes[2];
 extern OSViMode *g_ViModePtrs[2];
 extern s32 dword_CODE_bss_8005DBE8[2];
 
-void activate_stderr(u32 flag);
-void enable_stderr(u32 flag);
-void permit_stderr(u32 flag);
-void setUserCompareValue(u32 value);
-void CheckDisplayErrorBuffer(u32 *buffer);
-void CheckDisplayErrorBufferEvery16Frames(u32 framecount);
-void osCreateLog(void);
 void __scMain(void *arg);
 u32 *get_counters(void);
 void __scYield(OSSched *sc) ;
