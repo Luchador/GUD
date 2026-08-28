@@ -2,7 +2,7 @@
 #include <memp.h>
 #include "sky.h"
 #include "player.h"
-#include "unk_092E50.h"
+#include "dyntex.h"
 #include "bondview.h"
 #include "lv.h"
 #include "environment.h"
@@ -10,20 +10,15 @@
 #include "fr.h"
 #include "image_bank.h"
 
+
 #define SKYABS(val) (val >= 0.0f ? (val) : -(val))
 
-// bss
 s32 g_SkyStageNum;
-
-s32 dword_CODE_bss_80079E94;
+f32 g_SkyCloudOffset = 0;
 Mtxf dword_CODE_bss_80079E98;
 u32 dword_CODE_bss_80079ED8;
 
 
-
-/*
-* Address: 0x7F093880
-*/
 void skyGetWorldPosFromScreenPos(f32 offset_x, f32 offset_y, coord3d* out) {
     Mtxf* player_mtxf;
     coord2d coords;
@@ -37,9 +32,7 @@ void skyGetWorldPosFromScreenPos(f32 offset_x, f32 offset_y, coord3d* out) {
     mtx4RotateVecInPlace(player_mtxf, out->f);
 }
 
-/*
-* Address: 0x7F0938FC
-*/
+
 bool skyIsScreenCornerInSky(coord3d *corner3dpos, coord3d *dstpos, f32 *dstfrac)
 {
     coord3d *eye = bondviewGetPlayerPosition();
@@ -47,10 +40,6 @@ bool skyIsScreenCornerInSky(coord3d *corner3dpos, coord3d *dstpos, f32 *dstfrac)
     f32 sp2c;
     f32 f12_2;
     f32 sp24;
-    u32 stack[2];
-#ifdef DEBUG
-    assert(eye[1] < envGetCurrent()->skyheight); //canonically bgFogGet()
-#endif
 
     if (f12 > 1.0f)
     {
@@ -89,9 +78,6 @@ bool skyIsScreenCornerInSky(coord3d *corner3dpos, coord3d *dstpos, f32 *dstfrac)
 }
 
 
-/*
-* Address: 0x7F093A78
-*/
 bool skyIsCornerInWater(coord3d *corner3dpos, coord3d *dstpos, f32 *dstfrac)
 {
     coord3d *eye = bondviewGetPlayerPosition();
@@ -99,10 +85,6 @@ bool skyIsCornerInWater(coord3d *corner3dpos, coord3d *dstpos, f32 *dstfrac)
     f32 sp2c;
     f32 f12_2;
     f32 sp24;
-    u32 stack[2];
-#ifdef DEBUG
-    assert(eye[1] < envGetCurrent()->seaheight);
-#endif
 
     if (f12 > 1.0f)
     {
@@ -140,9 +122,7 @@ bool skyIsCornerInWater(coord3d *corner3dpos, coord3d *dstpos, f32 *dstfrac)
     return FALSE;
 }
 
-/*
-* Address: 0x7F093BFC
-*/
+
 void skyCalculateEdgeVertex(coord3d *base, coord3d* ref, coord3d* out)
 {
     f32 mult;
@@ -152,6 +132,7 @@ void skyCalculateEdgeVertex(coord3d *base, coord3d* ref, coord3d* out)
     out->y = 0.0f;
     out->z = ((ref->z - base->z) * mult) + base->z;
 }
+
 
 f32 skyClamp(f32 a, f32 b, f32 c)
 {
@@ -189,9 +170,7 @@ void skyChooseCloudVtxColour(SkyRelated18 *arg0, f32 arg1)
     arg0->a = 0xff;
 }
 
-/*
-* Address: 0x7F093FA4
-*/
+
 void skyChooseWaterVtxColour(SkyRelated18 *arg0, f32 arg1)
 {
     f32 r = envGetCurrent()->Red;
@@ -205,8 +184,8 @@ void skyChooseWaterVtxColour(SkyRelated18 *arg0, f32 arg1)
     arg0->a = 0xff;
 }
 
+
 /*
-* Address: 0x7F094298
 * Has to do with converting a float to a 32-bits value that's later read in two 16-bits parts
 * Possibly converting floats to fixed point
 */
@@ -231,26 +210,22 @@ u32 sub_GAME_7F094298(f32 arg0)
 }
 
 
-void skySetStageNum(s32 stagenum) {
+void skySetStageNum(s32 stagenum)
+{
   g_SkyStageNum = stagenum;
 }
 
 
-/*
-* Address: 0x7F094438
-*/
 void skyTick(void)
 {
-    #if defined(VERSION_EU)
-    g_SkyCloudOffset += g_GlobalTimerDelta;
-    #else
     g_SkyCloudOffset += g_ClockTimer;
-    #endif
+
     if ( g_SkyCloudOffset > 4096.0f)
     {
         g_SkyCloudOffset -= 4096.0f;
     }
 }
+
 
 Gfx* sub_GAME_7F09343C(Gfx*, s32);
 

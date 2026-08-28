@@ -77,7 +77,7 @@
       build/OUTCODE/src/game/cobjdata.o (.rodata);
       build/OUTCODE/src/game/cheat.o (.rodata);
       build/OUTCODE/src/game/line_tri_intersect.o (.rodata);
-      build/OUTCODE/src/game/unk_092E50.o (.rodata);
+      build/OUTCODE/src/game/dyntex.o (.rodata);
       build/OUTCODE/src/game/sky.o (.rodata);
       build/OUTCODE/src/game/player.o (.rodata);
       build/OUTCODE/src/game/crc.o (.rodata);

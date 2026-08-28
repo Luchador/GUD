@@ -1,19 +1,12 @@
 #include <ultra64.h>
 #include "bondview.h"
 #include "lv.h"
-#include "unk_092E50.h"
+#include "dyntex.h"
 
-// bss
-//CODE.bss:80079E80
 f32 flt_CODE_bss_80079E80;
-//CODE.bss:80079E84
 f32 flt_CODE_bss_80079E84;
-//CODE.bss:80079E88
 f32 flt_CODE_bss_80079E88;
 
-
-// data
-//D:8003FCC0
 Gfx MipMap2C_Something_Setup[] = {
     gsDPSetTile(G_IM_FMT_I, G_IM_SIZ_4b, 4, 0, 0, 0, G_TX_WRAP, 6, 0, G_TX_WRAP, 6, 0),
     gsDPSetTile(G_IM_FMT_I, G_IM_SIZ_4b, 4, 0, 1, 0, G_TX_WRAP, 6, 0, G_TX_WRAP, 6, 0),
@@ -30,7 +23,6 @@ Gfx MipMap2C_Something_Setup[] = {
     gsSPEndDisplayList()
 };
 
-//D:8003FD28
 Gfx MipMap2C_Something2_Setup[] = {
     gsDPSetTile(G_IM_FMT_CI, G_IM_SIZ_8b, 2, 0, 0, 0, G_TX_WRAP, 5, 0, G_TX_WRAP, 5, 0),
     gsDPSetTile(G_IM_FMT_CI, G_IM_SIZ_8b, 2, 0, 1, 0, G_TX_WRAP, 5, 0, G_TX_WRAP, 5, 0),
@@ -47,19 +39,11 @@ Gfx MipMap2C_Something2_Setup[] = {
     gsSPEndDisplayList()
 };
 
-//End Dl means this gfx list cannot go any further. perhaps below is a vtx array?
-
-f32 g_SkyCloudOffset = 0;
-
 
 // Water animation controller.
-void sub_GAME_7F092E50(void)
+void dyntexWaterController(void)
 {
-#ifdef VERSION_EU
-    f32 delta = g_GlobalTimerDelta;
-#else
     f32 delta = g_ClockTimer;
-#endif
 
     flt_CODE_bss_80079E80 += delta * 0.25f;
 

@@ -10,6 +10,7 @@
 #include "tlb_manage.h"
 #include <PR/R4300.h>
 #include "thread_config.h"
+
 struct deblistentry
 {
     struct deblistentry *next;
@@ -18,9 +19,6 @@ struct deblistentry
     s32                  unused;
 };
 
-/**
- * EU .bss 80053e60
-*/
 #if defined(LEFTOVERDEBUG)
 u8 g_DebBuffer[0x400];
 #else

@@ -54,7 +54,7 @@
 #include "propobj.h"
 #include "stan.h"
 #include "textrelated.h"
-#include "unk_092E50.h"
+#include "dyntex.h"
 #include "viewport.h"
 #include "vtxstore.h"
 
@@ -859,7 +859,7 @@ void lvTick(void)
         sub_GAME_7F09BBBC();
         lvlSetMultipliersForDifficulty();
         updateRoomStatusFlags();
-        sub_GAME_7F092E50();
+        dyntexWaterController();
         skyTick();
 #ifdef VERSION_EU
         bullet_moving_spark_create();

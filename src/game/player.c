@@ -3,7 +3,7 @@
 #include <fr.h>
 #include <random.h>
 #include "player.h"
-#include "unk_092E50.h"
+#include "dyntex.h"
 #include "bondview.h"
 #include "lv.h"
 

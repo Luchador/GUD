@@ -8,6 +8,11 @@
 #include "environment.h"
 
 
+// Fade optimization definitions.
+#define ENVFADE_START_PX 12.5f
+#define ENVFADE_END_PX   10.0f
+#define ENVFADE_DIAMETER 200.0f
+
 s32 g_FogSkyIsEnabled;
 NearFogRecord *g_NearFogValuesP;
 
@@ -138,16 +143,16 @@ void envLoadCurrentEnvironment(EnvironmentRecord *arg0)
     f32 zrange[2];
     f32 pk0;
     f32 pk4;
-    f32 temp_f0;
+    f32 levelScale;
     f32 sp20;
     f32 sp1C;
 
     viSetZRange(arg0->Visibility.BlendMultiplier, arg0->Visibility.FarFog);
     viGetZRange(&zrange);
 
-    temp_f0 = bgGetLevelVisibilityScale();
-    zrange[0] /= temp_f0;
-    zrange[1] /= temp_f0;
+    levelScale = bgGetLevelVisibilityScale();
+    zrange[0] /= levelScale;
+    zrange[1] /= levelScale;
 
     g_DifferenceFromFarFogIntensity = ((f32) arg0->Fog.DifferenceFromFarIntensity / 1000.0f);
     g_FarFogIntensity = ((f32) arg0->Fog.FarIntensity / 1000.0f);
@@ -155,9 +160,9 @@ void envLoadCurrentEnvironment(EnvironmentRecord *arg0)
     g_ScaledFarFogIntensity = ((zrange[1] - zrange[0]) *  g_FarFogIntensity) + zrange[0];
     g_ScaledDifferenceFromFarFogIntensity = ((zrange[1] - zrange[0]) * g_DifferenceFromFarFogIntensity) + zrange[0];
 
-    g_CurFogDetails.g_CurFogDetails = (arg0->Visibility.BlendMultiplier / temp_f0);
+    g_CurFogDetails.g_CurFogDetails = (arg0->Visibility.BlendMultiplier / levelScale);
     pk0 = g_CurFogDetails.g_CurFogDetails;
-    g_CurFogDetails.scaled_far_fog_dist = (arg0->Visibility.FarFog / temp_f0);
+    g_CurFogDetails.scaled_far_fog_dist = (arg0->Visibility.FarFog / levelScale);
     pk4 = g_CurFogDetails.scaled_far_fog_dist;
 
     // numerator is constant 128.0f

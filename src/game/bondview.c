@@ -48,8 +48,6 @@
 #include "stanintersection.h"
 #include "textrelated.h"
 
-#define FLOAT_TEN_A 10.0f
-#define FLOAT_TEN_B 10.00f
 
 #define BONDVIEW_AUTOAIM_TIME 30
 
@@ -85,7 +83,6 @@
 #define TANK_VERT_ANGLE_RAD_FACTOR 0.0799999833107f
 #define MAX_AIMLOCK_SPEED_DEFAULT 0.86f
 
-#define THREE_SECOND_TICKS 180
 #define PLAYER_TICKEXPLODE_FACTOR 15
 
 #define CLIPPING_CLOCK_FACTOR 0.8f
@@ -100,9 +97,6 @@
 #define SPEED_TICK_ADJUST  0.01f
 #define TANK_MAX_SPEED     15.0f
 
-
-#define FLOAT_TEN_A 10.0f
-#define FLOAT_TEN_B 10.00f
 
 #include "bondview_internal.h"
 
@@ -4879,55 +4873,39 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                 if (g_CurrentPlayer->insightaimmode && (stick_y > 60))
                 {
-                    moveData.speedVertaDown = (f32) (stick_y - 60) / FLOAT_TEN_B;
+                    moveData.speedVertaDown = (f32) (stick_y - 60) / 10.0f;
                     if (moveData.speedVertaDown > 1.0f)
                     {
                         moveData.speedVertaDown = 1.0f;
                     }
                 }
-                else
-                {
-                    //moveData.speedVertaDown = 0;
-                }
 
                 if (g_CurrentPlayer->insightaimmode && (stick_y < -60))
                 {
-                    moveData.speedVertaUp = (f32) (-60 - stick_y) / FLOAT_TEN_B;
+                    moveData.speedVertaUp = (f32) (-60 - stick_y) / 10.0f;
                     if (moveData.speedVertaUp > 1.0f)
                     {
                         moveData.speedVertaUp = 1.0f;
                     }
                 }
-                else
-                {
-                    //moveData.speedVertaUp = 0;
-                }
 
 
                 if (g_CurrentPlayer->insightaimmode && (stick_x < -60))
                 {
-                    moveData.aimTurnLeftSpeed = (f32) (-60 - stick_x) / FLOAT_TEN_B;
+                    moveData.aimTurnLeftSpeed = (f32) (-60 - stick_x) / 10.0f;
                     if (moveData.aimTurnLeftSpeed > 1.0f)
                     {
                         moveData.aimTurnLeftSpeed = 1.0f;
                     }
                 }
-                else
-                {
-                    //moveData.aimTurnLeftSpeed = 0;
-                }
 
                 if (g_CurrentPlayer->insightaimmode && (stick_x > 60) )
                 {
-                    moveData.aimTurnRightSpeed = (f32) (stick_x - 60) / FLOAT_TEN_B;
+                    moveData.aimTurnRightSpeed = (f32) (stick_x - 60) / 10.0f;
                     if (moveData.aimTurnRightSpeed > 1.0f)
                     {
                         moveData.aimTurnRightSpeed = 1.0f;
                     }
-                }
-                else
-                {
-                    //moveData.aimTurnRightSpeed = 0;
                 }
 
                 moveData.weaponBackOffset = (
@@ -5171,7 +5149,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                     if ((g_CurrentPlayer->insightaimmode) && (stick_y > 60))
                     {
-                        moveData.speedVertaDown = (f32) (stick_y - 60) / FLOAT_TEN_B;
+                        moveData.speedVertaDown = (f32) (stick_y - 60) / 10.0f;
                         if (moveData.speedVertaDown > 1.0f)
                         {
                             moveData.speedVertaDown = 1.0f;
@@ -5179,7 +5157,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                     }
                     else if ((g_CurrentPlayer->insightaimmode) && (stick_y < -60))
                     {
-                        moveData.speedVertaUp = (f32) (-60 - stick_y) / FLOAT_TEN_B;
+                        moveData.speedVertaUp = (f32) (-60 - stick_y) / 10.0f;
                         if (moveData.speedVertaUp > 1.0f)
                         {
                             moveData.speedVertaUp = 1.0f;
@@ -5188,7 +5166,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                     if ((g_CurrentPlayer->insightaimmode) && (stick_x < -60))
                     {
-                        moveData.aimTurnLeftSpeed = (f32) (-60 - stick_x) / FLOAT_TEN_B;
+                        moveData.aimTurnLeftSpeed = (f32) (-60 - stick_x) / 10.0f;
                         if (moveData.aimTurnLeftSpeed > 1.0f)
                         {
                             moveData.aimTurnLeftSpeed = 1.0f;
@@ -5197,7 +5175,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                     if ((g_CurrentPlayer->insightaimmode) && (stick_x > 60))
                     {
-                        moveData.aimTurnRightSpeed = (f32) (stick_x - 60) / FLOAT_TEN_B;
+                        moveData.aimTurnRightSpeed = (f32) (stick_x - 60) / 10.0f;
                         if (moveData.aimTurnRightSpeed > 1.0f)
                         {
                             moveData.aimTurnRightSpeed = 1.0f;
@@ -5514,7 +5492,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                 {
                     if (g_CurrentPlayer->speedforwards < targetSpeed)
                     {
-                        unadjustedTargetSpeed = ((((((targetSpeed - g_CurrentPlayer->speedforwards) / 4.0f) / TANK_MAX_SPEED) + 0.5f) * ftemp_nostack_spE8 * FLOAT_TEN_A) / 60.0f);
+                        unadjustedTargetSpeed = ((((((targetSpeed - g_CurrentPlayer->speedforwards) / 4.0f) / TANK_MAX_SPEED) + 0.5f) * ftemp_nostack_spE8 * 10.0f) / 60.0f);
 
                         g_CurrentPlayer->speedforwards += (unadjustedTargetSpeed) * g_GlobalTimerDelta;
 
@@ -5525,7 +5503,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                     }
                     else if (targetSpeed < g_CurrentPlayer->speedforwards)
                     {
-                        unadjustedTargetSpeed = ((((((g_CurrentPlayer->speedforwards - targetSpeed) / 4.0f) / TANK_MAX_SPEED) + 0.5f) * ftemp_nostack_spE8 * -FLOAT_TEN_A) / 60.0f);
+                        unadjustedTargetSpeed = ((((((g_CurrentPlayer->speedforwards - targetSpeed) / 4.0f) / TANK_MAX_SPEED) + 0.5f) * ftemp_nostack_spE8 * -10.0f) / 60.0f);
 
                         g_CurrentPlayer->speedforwards += (unadjustedTargetSpeed) * g_GlobalTimerDelta;
 
@@ -5637,7 +5615,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         }
     }
 
-    if (g_CurrentPlayer->speedmaxtime60 >= THREE_SECOND_TICKS)
+    if (g_CurrentPlayer->speedmaxtime60 >= 180) // Three seconds
     {
         if (g_CurrentPlayer->speedboost < SPEED_RUN_MAX)
         {
@@ -5751,7 +5729,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                      * and move centre is allowed, look ahead (docentreupdown) can be activated.
                      */
                     if ((g_CurrentPlayer->automovecentre)
-                        && (( ((targetPitch + 5.0f) < g_CurrentPlayer->vv_verta)) || (g_CurrentPlayer->vv_verta < (targetPitch + -FLOAT_TEN_A)))
+                        && (( ((targetPitch + 5.0f) < g_CurrentPlayer->vv_verta)) || (g_CurrentPlayer->vv_verta < (targetPitch - 10.0f)))
                         && (g_CurrentPlayer->movecentrerelease == FALSE))
                     {
                         g_CurrentPlayer->docentreupdown = TRUE;
@@ -5763,7 +5741,7 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                 else if ((g_CurrentPlayer->fastmovecentreenabled)
                     && (moveData.canLookAhead)
                     && ((moveData.analogWalk > 60) || (moveData.analogWalk < -60))
-                    && (( ((targetPitch + 5.0f) < g_CurrentPlayer->vv_verta)) || (g_CurrentPlayer->vv_verta < (targetPitch + -FLOAT_TEN_A)))
+                    && (( ((targetPitch + 5.0f) < g_CurrentPlayer->vv_verta)) || (g_CurrentPlayer->vv_verta < (targetPitch - 10.0f)))
                     && (g_CurrentPlayer->movecentrerelease == FALSE))
                 {
                     g_CurrentPlayer->docentreupdown = TRUE;

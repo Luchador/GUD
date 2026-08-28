@@ -75,7 +75,7 @@
       build/OUTCODE/src/game/cobjdata.o (.data);
       build/OUTCODE/src/game/cheat.o (.data);
       build/OUTCODE/src/game/line_tri_intersect.o (.data);
-      build/OUTCODE/src/game/unk_092E50.o (.data);
+      build/OUTCODE/src/game/dyntex.o (.data);
       build/OUTCODE/src/game/sky.o (.data);
       build/OUTCODE/src/game/player.o (.data);
       build/OUTCODE/src/game/crc.o (.data);
