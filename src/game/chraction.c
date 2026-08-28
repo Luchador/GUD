@@ -9508,7 +9508,7 @@ bool sub_GAME_7F0333F8(ChrRecord *self)
     if (chrlvCurrentPlayerCall7F0B0E24(self))
     {
         mymodel = self->model;
-        scale   = getinstsize(mymodel) * 0.8f;
+        scale   = modelGetInstSize(mymodel) * 0.8f;
         sub_GAME_7F068190(&zeropos, &pos);
         getsuboffset(mymodel, &vec);
         mtx4TransformVecInPlace(camGetWorldToScreenMtxf(), &vec);

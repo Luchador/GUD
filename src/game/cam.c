@@ -10,6 +10,7 @@
 #include <options.h>
 #include "cam.h"
 #include "bg.h"
+#include "bgfog.h"
 #include "bgroomtrans.h"
 #include "blood_animation.h"
 #include "bondhead.h"
@@ -564,4 +565,95 @@ bool camIsPosInScreenBox(coord3d *pos, f32 margin, bbox2d *box)
 void camSetPlayerFrozenCam(bool isFrozen)
 {
     g_CurrentPlayer->frozencam = isFrozen;
+}
+
+bool camIsPosInObjFadeDistance(coord3d *coord, f32 arg1)
+{
+    bool result = TRUE;
+    NearFogRecord *nearFogRecord = fogGetNearFogValuesP();
+    coord3d diff;
+    f32 distSquared;
+
+    if (nearFogRecord != NULL)
+    {
+        coord3d *campos = bondviewGetPlayerPosition();
+        Mtxf *mtx = camGetWorldToScreenMtxf();
+
+        diff.x = coord->x - campos->x;
+        diff.y = coord->y - campos->y;
+        diff.z = coord->z - campos->z;
+
+        distSquared = diff.f[0] * mtx->m[0][0] + diff.f[1] * mtx->m[0][1] + diff.f[2] * mtx->m[0][2];
+
+        if (distSquared > nearFogRecord->MaxObfuscationRange)
+        {
+            f32 scalez = getPlayer_c_lodscalez();
+
+            distSquared = ((distSquared - nearFogRecord->MaxObfuscationRange) * 100 / arg1 + nearFogRecord->MaxObfuscationRange) * scalez;
+
+            if (distSquared >= nearFogRecord->MaxVisRange)
+            {
+                result = FALSE;
+            }
+        }
+    }
+
+    return result;
+}
+
+
+bool camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSize, bool applyFogCull)
+{
+    s32 room_ids[8];
+    s32 *rooms;
+    s32 roomnum;
+    bool result;
+    bbox2d bbox;
+
+    result = FALSE;
+    chraiGetPropRoomIds(prop, room_ids);
+    rooms = room_ids;
+    roomnum = *rooms;
+
+    while (roomnum >= 0)
+    {
+        if (bgIsRoomRendered(roomnum))
+        {
+            if (fogPositionIsVisibleThroughFog(pos, modelInstSize) && (!applyFogCull || camIsPosInObjFadeDistance(pos, modelInstSize)))
+            {
+                if (getPropCombinedRoomsBBox2D(prop, &bbox) != 0)
+                {
+                    result = camIsPosInScreenBox(pos, modelInstSize, &bbox);
+                }
+                else
+                {
+                    result = camIsPosInScreen(pos, modelInstSize);
+                }
+
+                if (result)
+                {
+                    coord3d *campos = bondviewGetPlayerPosition();
+                    f32 xdiff = pos->x - campos->x;
+                    f32 ydiff = pos->y - campos->y;
+                    f32 zdiff = pos->z - campos->z;
+
+                    /**
+                     * If farther than 32000 units, consider it off screen.
+                     */
+                    if (xdiff * xdiff + ydiff * ydiff + zdiff * zdiff > 32000 * 32000)
+                    {
+                        result = FALSE;
+                    }
+                }
+            }
+
+            break;
+        }
+
+        rooms++;
+        roomnum = *rooms;
+        result = FALSE;
+    }
+
+    return result;
 }

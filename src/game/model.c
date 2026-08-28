@@ -647,9 +647,9 @@ f32 getjointsize(Model *model, ModelNode *node)
 }
 
 
-f32 getinstsize(Model *arg0)
+f32 modelGetInstSize(Model *model)
 {
-    return arg0->obj->BoundingVolumeRadius * arg0->scale;
+    return model->obj->BoundingVolumeRadius * model->scale;
 }
 
 

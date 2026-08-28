@@ -8,6 +8,7 @@
 #include <math.h>
 #include "bondaicommands.h"
 #include "bg.h"
+#include "cam.h"
 #include "cheat.h"
 #include "chr.h"
 #include "chrai.h"
@@ -2171,7 +2172,7 @@ s32 chrTick(PropRecord *prop)
     Model *model;
 
     /**
-     * Result of this frame's posIsOnScreen() test.
+     * Result of this frame's camIsPosOnScreen() test.
      * Gates render preparation, joint callback, and dynamic matrix allocation.
      */
     s32 isOnScreen;
@@ -2247,7 +2248,7 @@ s32 chrTick(PropRecord *prop)
         {
             if (((chr->actiontype == ACT_PATROL) && (chr->act_patrol.waydata.mode == WAYMODE_MAGIC)) || ((chr->actiontype == ACT_GOPOS) && (chr->act_gopos.waydata.mode == WAYMODE_MAGIC)))
             {
-                isOnScreen = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
+                isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
 
                 // Former debug comment here: "VISIBLE MAGIC MODE!!!!"
                 if (isOnScreen)
@@ -2262,7 +2263,7 @@ s32 chrTick(PropRecord *prop)
             else
             {
                 chrUpdateAnim(chr, tickamount);
-                isOnScreen = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
+                isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
 
                 if (isOnScreen)
                 {
@@ -2279,7 +2280,7 @@ s32 chrTick(PropRecord *prop)
         }
         else if ((chr->actiontype == ACT_ANIM) && (chr->act_anim.unk02c == 0))
         {
-            isOnScreen = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
+            isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
 
             if (isOnScreen && (chr->act_anim.noTranslate == 0))
             {
@@ -2292,7 +2293,7 @@ s32 chrTick(PropRecord *prop)
         }
         else if (chr->actiontype == ACT_STAND)
         {
-            isOnScreen = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
+            isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
 
             if (isOnScreen || (chr->chrflags & CHRFLAG_INIT))
             {
@@ -2314,7 +2315,7 @@ s32 chrTick(PropRecord *prop)
                 chrUpdateAnim(chr, tickamount);
             }
 
-            isOnScreen = posIsOnScreen(prop, &prop->pos, getinstsize(model), 1);
+            isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
         }
     }
 
@@ -2555,7 +2556,7 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
 
     if (!(chr->chrflags & CHRFLAG_04000000))
     {
-        f32 f = chrobjFogVisRangeRelated(prop, getinstsize(chrmodel)); //0-1
+        f32 f = chrobjFogVisRangeRelated(prop, modelGetInstSize(chrmodel)); //0-1
         chrfadealpha = (s32) (f * (f32) chrfadealpha);
     }
 
@@ -3026,7 +3027,7 @@ void chrTestHit(PropRecord *prop, ShotData *shotdata)
     }
 
     model = chr->model;
-    modelsize = getinstsize(model);
+    modelsize = modelGetInstSize(model);
 
     if ((prop->flags & PROPFLAG_ONSCREEN) == FALSE)
     {
@@ -3052,7 +3053,7 @@ void chrTestHit(PropRecord *prop, ShotData *shotdata)
         if (chr->weapons_held[i] != NULL)
         {
             weapon = chr->weapons_held[i]->weapon;
-            size = model->scale * getinstsize(weapon->model);
+            size = model->scale * modelGetInstSize(weapon->model);
 
             if (heldmodelsize < size)
             {

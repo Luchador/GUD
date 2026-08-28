@@ -35,7 +35,7 @@ void setsubroty(Model *model, f32 angle);
 void modelSetScale(Model *objinst, f32 scale);
 void modelSetAnimTranslationScale(Model* model, f32 scale);
 f32 getjointsize(Model *model, ModelNode *node);
-f32 getinstsize(Model *arg0);
+f32 modelGetInstSize(Model *model);
 void interpolate3dVectors(vec3d *v, vec3d *w, float frac);
 f32 sub_GAME_7F06D0CC(f32 arg0, f32 angle, f32 mult);
 void sub_GAME_7F06D160(coord3d *arg0, coord3d *arg1, f32 mult);

@@ -1213,7 +1213,7 @@ bool projectileTestObjectCollision(ObjectRecord *obj, coord3d *worldRayOrigin, c
     f32 dz;
     PropRecord *prop;
 
-    instsize = getinstsize(modelstack[0] = obj->model);
+    instsize = modelGetInstSize(modelstack[0] = obj->model);
     prop = obj->prop;
     value = 0.0f;
 
@@ -1244,7 +1244,7 @@ bool projectileTestObjectCollision(ObjectRecord *obj, coord3d *worldRayOrigin, c
             // Cheaper bounds test for off screen props.
             } else {
                 prop = obj->prop;
-                instsize = getinstsize(modelstack[0]);
+                instsize = modelGetInstSize(modelstack[0]);
 
                 if (projectileTestPropBoundingSphere(worldRayOrigin, worldRayDir, &obj->position, instsize)) {
                     *hitDist = maxDist;
@@ -1349,7 +1349,7 @@ bool sub_GAME_7F041BB8(ChrRecord *chr, coord3d *arg1, coord3d *arg2, f32 arg3, c
     PropRecord *prop;
 
     prop = chr->prop;
-    instSize = getinstsize(chr->model);
+    instSize = modelGetInstSize(chr->model);
     dx = prop->pos.x - arg1->x;
     dy = prop->pos.y - arg1->y;
     dz = prop->pos.z - arg1->z;
@@ -6374,7 +6374,7 @@ s32 objTick(struct PropRecord *prop)
 	}
 	else
 	{
-		isOnScreen = !(obj->runtime_bitflags & RUNTIMEBITFLAG_00000800) && !(obj->flags2 & PROPFLAG2_00080000) && posIsOnScreen(prop, &obj->position, getinstsize(model), applyFogCull);
+		isOnScreen = !(obj->runtime_bitflags & RUNTIMEBITFLAG_00000800) && !(obj->flags2 & PROPFLAG2_00080000) && camIsPosOnScreen(prop, &obj->position, modelGetInstSize(model), applyFogCull);
 	}
 
 	if (isOnScreen)
@@ -7279,7 +7279,7 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
 
     if ((u8) obj->type != PROPDEF_TINTED_GLASS)
     {
-        temp_f0 = chrobjFogVisRangeRelated(prop, getinstsize(obj->model));
+        temp_f0 = chrobjFogVisRangeRelated(prop, modelGetInstSize(obj->model));
 
         if (((s32) prop->timetoregen > 0) && ((s32) prop->timetoregen < CHROBJ_TIMETOREGEN))
         {
@@ -12975,103 +12975,9 @@ f32 chrobjFogVisRangeRelated(PropRecord *prop, f32 size)
 }
 
 
-bool sub_GAME_7F054C58(coord3d *coord, f32 arg1)
-{
-    bool result = TRUE;
-    coord3d *ptr = (coord3d*)fogGetNearFogValuesP();
-    coord3d tmp;
-    f32 sp20;
-
-    if (ptr != NULL)
-    {
-        coord3d *campos = bondviewGetPlayerPosition();
-        Mtxf *mtx = camGetWorldToScreenMtxf();
-
-        tmp.x = coord->x - campos->x;
-        tmp.y = coord->y - campos->y;
-        tmp.z = coord->z - campos->z;
-
-        sp20 = tmp.f[0] * mtx->m[0][0] + tmp.f[1] * mtx->m[0][1] + tmp.f[2] * mtx->m[0][2];
-
-        if (sp20 > ptr->z)
-        {
-            f32 scalez = getPlayer_c_lodscalez();
-            sp20 = ((sp20 - ptr->z) * 100 / arg1 + ptr->z) * scalez;
-
-            if (sp20 >= ptr->y)
-            {
-                result = FALSE;
-            }
-        }
-    }
-
-    return result;
-}
-
-
-bool posIsOnScreen(PropRecord *prop, coord3d *pos, f32 arg2, bool arg3)
-{
-    s32 room_ids[8];
-    s32 *rooms;
-    s32 roomnum;
-    bool result;
-    bbox2d bbox;
-
-    result = FALSE;
-    chraiGetPropRoomIds(prop, room_ids);
-    rooms = room_ids;
-    roomnum = *rooms;
-
-    while (roomnum >= 0)
-    {
-        if (bgIsRoomRendered(roomnum) != 0)
-        {
-            if (fogPositionIsVisibleThroughFog(pos, arg2) && (!arg3 || sub_GAME_7F054C58(pos, arg2)))
-            {
-                if (getPropCombinedRoomsBBox2D(prop, &bbox) != 0)
-                {
-                    result = camIsPosInScreenBox(pos, arg2, &bbox);
-                }
-                else
-                {
-                    result = camIsPosInScreen(pos, arg2);
-                }
-
-                if (result)
-                {
-                    coord3d *campos = bondviewGetPlayerPosition();
-                    f32 xdiff = pos->x - campos->x;
-                    f32 ydiff = pos->y - campos->y;
-                    f32 zdiff = pos->z - campos->z;
-
-                    /**
-                     * If farther than 32000 units, consider it off screen.
-                     */
-                    if (xdiff * xdiff + ydiff * ydiff + zdiff * zdiff > 32000 * 32000)
-                    {
-                        result = FALSE;
-                    }
-                }
-            }
-
-            break;
-        }
-
-        rooms++;
-        roomnum = *rooms;
-        result = FALSE;
-    }
-
-    return result;
-}
-
-
-/**
-* Loaded to 7F054EA8.
-*/
 s32 updateDoorDisplacement(DoorRecord* door)
 {
-    int isMoving = 0;
+    s32 isMoving = 0;
 
     if (door->openstate == DOORSTATE_OPENING)
     {
@@ -13114,10 +13020,6 @@ s32 updateDoorDisplacement(DoorRecord* door)
 }
 
 
-
-/**
- * NTSC address 0x7F054FB4.
-*/
 void door7F054FB4(DoorRecord *door)
 {
     Model *temp_a0;

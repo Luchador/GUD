@@ -16,5 +16,6 @@ void camUpdateFrustumPlanes(void);
 bool camIsPosInScreen(coord3d *pos, f32 margin);
 bool camIsPosInScreenBox(coord3d *pos, f32 margin, bbox2d *box);
 void camSetPlayerFrozenCam(bool isFrozen);
+bool camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 arg2, bool arg3);
 
 #endif
