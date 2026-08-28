@@ -23,7 +23,6 @@
 #include "objecthandler.h"
 #include "image.h"
 #include "tex.h"
-#include "debugmenu_handler.h"
 #include "fr.h"
 #include "assets/obseg/text/LgunE.h"
 #include "textrelated.h"

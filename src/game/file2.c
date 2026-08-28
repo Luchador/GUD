@@ -1,6 +1,5 @@
 #include <ultra64.h>
 #include <bondconstants.h>
-#include "debugmenu_handler.h"
 #include "joy.h"
 #include "player.h"
 #include "options.h"
@@ -10,13 +9,6 @@
 #include "cheat.h"
 
 
-// bss
-//CODE.bss:80069920
-//CODE.bss:80069980
-//CODE.bss:800699E0
-//CODE.bss:80069A40
-//CODE.bss:80069AA0
-//CODE.bss:80069B00
 save_data saves[SAVESLOTMAX];
 
 //CODE.bss:80069B60
@@ -1228,7 +1220,7 @@ void fileLoadSettingsForFolder(u32 folder)
     if (save)
     {
         set_mTrack2Vol((save->music_vol << 7) | (save->music_vol >> 1));
-        sub_GAME_7F0A91A0((save->sfx_vol << 7) | (save->sfx_vol >> 1));
+        sndApplyVolumeAllSfxSlot((save->sfx_vol << 7) | (save->sfx_vol >> 1));
 
         options = save->options;
 

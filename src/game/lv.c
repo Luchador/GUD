@@ -25,7 +25,6 @@
 #include "chr.h"
 #include "chrai.h"
 #include "cleanup_objects.h"
-#include "debugmenu_handler.h"
 #include "ejectedcartridges.h"
 #include "explosion.h"
 #include "frametiming.h"

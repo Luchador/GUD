@@ -104,5 +104,7 @@ bool cheatIsActive(CHEAT_ID cheatindex);
 bool cheatCheckIfMPCheat(CHEAT_ID cheatindex);
 void cheatDisableAllCheats(void);
 char *cheatGetMenuTextPointer(CHEAT_ID cheatindex);
+s32 getTurboModeEnabled(void);
+void setTurboModeEnabled(s32 flag);
 
 #endif

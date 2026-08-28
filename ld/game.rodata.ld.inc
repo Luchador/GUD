@@ -71,7 +71,6 @@
       build/OUTCODE/src/game/bondinv.o (.rodata);
       build/OUTCODE/src/game/bondhead.o (.rodata);
       build/OUTCODE/src/game/padhalllv.o (.rodata);
-      build/OUTCODE/src/game/debugmenu_handler.o (.rodata);
       build/OUTCODE/src/game/chraidata.o (.rodata);
       build/OUTCODE/src/game/pobjdata.o (.rodata);
       build/OUTCODE/src/game/gobjdata.o (.rodata);

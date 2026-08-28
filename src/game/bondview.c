@@ -16,11 +16,11 @@
 #include "bondhead.h"
 #include "bondinv.h"
 #include "cam.h"
+#include "cheat.h"
 #include "chr.h"
 #include "chr_b.h"
 #include "chraction.h"
 #include "chrai.h"
-#include "debugmenu_handler.h"
 #include "explosion.h"
 #include "file.h"
 #include "frametiming.h"
@@ -4443,7 +4443,7 @@ void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
             new_field_7c = g_CurrentPlayer->field_7C;
             new_field_70 = g_CurrentPlayer->field_70;
 
-            if ((get_debug_fast_bond_flag() != 0) && (g_ForceBondMoveOffset.f[0] == 0.0f) && (g_ForceBondMoveOffset.f[2] == 0.0f))
+            if ((getTurboModeEnabled() != 0) && (g_ForceBondMoveOffset.f[0] == 0.0f) && (g_ForceBondMoveOffset.f[2] == 0.0f))
             {
                 sp40 = 1.388889f;
             }
@@ -7069,7 +7069,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         start_collision_pos_z = g_CurrentPlayer->field_488.collision_position.f[2];
         sp200 = g_CurrentPlayer->field_488.current_tile_ptr;
 
-        if (get_debug_fast_bond_flag())
+        if (getTurboModeEnabled())
         {
             move_offset.f[0] +=
                 (

@@ -6627,9 +6627,7 @@ s32 frontCompleteAllObjectivesAliveSuccess(void)
 
     for (i=0; i<10; i++)
     {
-        if (ptrbriefingdata->objective[i].textid != 0
-            && lvGetSelectedDifficulty() >= ptrbriefingdata->objective[i].enabled_difficulty
-            && get_status_of_objective(i) != OBJECTIVESTATUS_COMPLETE)
+        if (ptrbriefingdata->objective[i].textid != 0 && lvGetSelectedDifficulty() >= ptrbriefingdata->objective[i].enabled_difficulty && get_status_of_objective(i) != OBJECTIVESTATUS_COMPLETE)
             {
                 return 0;
             }

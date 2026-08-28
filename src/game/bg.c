@@ -10,7 +10,6 @@
 #include "bondview.h"
 #include "cam.h"
 #include "chr.h"
-#include "debugmenu_handler.h"
 #include "decompress.h"
 #include "bgfog.h"
 #include "gmath.h"

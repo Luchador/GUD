@@ -9,7 +9,6 @@
 #include "bondview.h"
 #include "cheat.h"
 #include "chr.h"
-#include "debugmenu_handler.h"
 #include "file2.h"
 #include "front.h"
 #include "gun.h"
@@ -20,6 +19,8 @@
 #include "model.h"
 
 u8 g_CheatPlayerTextRelated[CHEAT_INVALID + 1];
+
+s32 g_TurboModeEnabled = 0;
 
 #pragma region ButtonCodes
 
@@ -962,6 +963,18 @@ void cheatButtonTurnOnCheatForPlayers(CHEAT_ID cheatindex)
 }
 
 
+s32 getTurboModeEnabled(void)
+{
+    return g_TurboModeEnabled;
+}
+
+
+void setTurboModeEnabled(s32 flag) 
+{
+    g_TurboModeEnabled = flag;
+}
+
+
 void cheatButtonHandleCheatsTurnedOn(CHEAT_ID cheat_id)
 {
     s32 mask;
@@ -1188,10 +1201,10 @@ void cheatButtonHandleCheatsTurnedOn(CHEAT_ID cheat_id)
             return;
 
         case CHEAT_TURBO_MODE:
-            if (!get_debug_fast_bond_flag())
+            if (!getTurboModeEnabled())
             {
                 HUDMESSAGEBOTTOM((char *)langGet(getStringID(LMISC, MISC_STR_1D_FASTMODEON_LF)));
-                set_debug_fast_bond_flag(TRUE);
+                setTurboModeEnabled(TRUE);
                 return;
             }
             return;
@@ -1460,10 +1473,10 @@ void cheatButtonHandleCheatsTurnedOff(CHEAT_ID cheat_id)
             return;
 
         case CHEAT_TURBO_MODE:
-            if (get_debug_fast_bond_flag())
+            if (getTurboModeEnabled())
             {
                 HUDMESSAGEBOTTOM((char *)langGet(getStringID(LMISC, MISC_STR_27_FASTMODEOFF_LF)));
-                set_debug_fast_bond_flag(FALSE);
+                setTurboModeEnabled(FALSE);
                 return;
             }
             return;

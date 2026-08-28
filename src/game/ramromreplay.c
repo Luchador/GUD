@@ -1,7 +1,6 @@
 
 #include <ultra64.h>
 #include <os_extension.h>
-#include "debugmenu_handler.h"
 #include "lv.h"
 #include "initcheattext.h"
 #include "front.h"

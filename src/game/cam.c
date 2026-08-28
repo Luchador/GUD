@@ -19,7 +19,6 @@
 #include "chr_b.h"
 #include "chraction.h"
 #include "chrai.h"
-#include "debugmenu_handler.h"
 #include "explosion.h"
 #include "file.h"
 #include "frametiming.h"

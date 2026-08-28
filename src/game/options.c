@@ -2081,38 +2081,14 @@ Gfx *draw_watch_inventory_page(Gfx *gdl, Mtx *param_2)
             s32 pFontChars2;
             char string_builder_allocation[2000];
 
-#if defined(VERSION_JP) || defined(VERSION_EU)
-            s32 pFontFile;
-            s32 base_y;
-            char formattedString[32];
-#endif
-
 #define LINEHEIGHT() (j_text_trigger ? 14 : 12)
-
-#if defined(VERSION_JP) || defined(VERSION_EU)
-#define WATCH_INV_BASE_Y() base_y
-#else
-#define WATCH_INV_BASE_Y() 0x8C
-#endif
+#define WATCH_INV_BASE_Y() 140
 
             textheight = 0;
             textwidth = 0;
-
-#if defined(VERSION_EU)
-            pFontFile2 = ptrFontBankGothic;
-            pFontChars2 = ptrFontBankGothicChars;
-            base_y = (j_text_trigger) ? (0x82) : (0xAA);
-            string_builder_allocation[0] = 0;
-#elif defined(VERSION_JP)
-            pFontFile2 = ptrFontBankGothic;
-            pFontChars2 = ptrFontBankGothicChars;
-            base_y = (j_text_trigger) ? (0x82) : (0x8C);
-            string_builder_allocation[0] = 0;
-#else
             string_builder_allocation[0] = 0;
             pFontFile2 = ptrFontBankGothic;
             pFontChars2 = ptrFontBankGothicChars;
-#endif
 
             for (i = 0; i < bondinvCountTotalItemsInInv(); i++)
             {
@@ -2128,7 +2104,7 @@ Gfx *draw_watch_inventory_page(Gfx *gdl, Mtx *param_2)
 
             game_options_inventory_navigation();
 
-            x1 = 0x4E;
+            x1 = 78;
             y1 = WATCH_INV_BASE_Y();
 
             temp_s0_3 = 1;
@@ -2145,10 +2121,8 @@ Gfx *draw_watch_inventory_page(Gfx *gdl, Mtx *param_2)
             gdl = gfxDrawTranslucentRect(gdl, 0x4B, temp_s0_3, textwidth + 0x52, (LINEHEIGHT() + temp_s0_3) - 2, 0x800050);
 
             {
-#if !defined(VERSION_JP) && !defined(VERSION_EU)
                 char formattedString[32];
                 s32 pFontFile;
-#endif
                 s32 pFontChars;
                 s32 x2;
                 s32 y2;
@@ -2273,10 +2247,6 @@ void update_volume_slider_verts(struct WatchVertex *verts, f32 fill_amount, s32 
 }
 
 
-
-/**
- * Address: 7F0A8ED0
- */
 void watch_adjust_volume_slider(u16* outVolume) {
     s32 joy_x;
     s32 adjusted_volume;
@@ -2284,33 +2254,47 @@ void watch_adjust_volume_slider(u16* outVolume) {
     joy_x = joyGetStickX(PLAYER_1);
     adjusted_volume = *outVolume;
 
-    if (joyGetButtons(PLAYER_1, R_CBUTTONS|R_TRIG|R_JPAD)) {
+    if (joyGetButtons(PLAYER_1, R_CBUTTONS|R_TRIG|R_JPAD))
+    {
         adjusted_volume = adjusted_volume + WATCH_VOL_ADJUST_STEP;
-    } else if (joyGetButtons(PLAYER_1, L_CBUTTONS|L_TRIG|L_JPAD)) {
+    } 
+    else if (joyGetButtons(PLAYER_1, L_CBUTTONS|L_TRIG|L_JPAD))
+    {
         adjusted_volume = adjusted_volume - WATCH_VOL_ADJUST_STEP;
     }
 
     // Clamp stick deflection
-    if (joy_x >= 0x47) {
-        joy_x = 0x46;
-    } else if (joy_x < -0x46) {
-        joy_x = -0x46;
+    if (joy_x >= 71)
+    {
+        joy_x = 70;
+    } 
+    else if (joy_x < -70)
+    {
+        joy_x = -70;
     }
 
     // Increase volume
-    if (joy_x >= 8) {
-        adjusted_volume += (joy_x * 0x800 + -0x3800) / 0x46;
+    if (joy_x >= 8)
+    {
+        adjusted_volume += (joy_x * 0x800 + -0x3800) / 70;
     // Decrease volume
-    } else if (joy_x < -7) {
-        adjusted_volume += (joy_x * 0x800 + 0x3800) / 0x46;
+    } 
+    else if (joy_x < -7)
+    {
+        adjusted_volume += (joy_x * 0x800 + 0x3800) / 70;
     }
 
     // Clamp volume between min and max allowed volume.
-    if (adjusted_volume >= VOLUME_MAX + 1) {
+    if (adjusted_volume >= VOLUME_MAX + 1)
+    {
         *outVolume = VOLUME_MAX;
-    } else if (adjusted_volume < 0) {
+    } 
+    else if (adjusted_volume < 0)
+    {
         *outVolume = 0;
-    } else {
+    } 
+    else 
+    {
         *outVolume = adjusted_volume;
     }
 }
@@ -2358,12 +2342,6 @@ Gfx *watchDrawFXVolumeSlider(Gfx *gdl)
 u16 call_sndGetSfxSlotFirstNaturalVolume(void)
 {
     return sndGetSfxSlotFirstNaturalVolume();
-}
-
-
-void sub_GAME_7F0A91A0(u16 arg0)
-{
-    sndApplyVolumeAllSfxSlot(arg0);
 }
 
 

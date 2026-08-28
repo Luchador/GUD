@@ -155,13 +155,8 @@ s32 get_difficulty_for_objective(s32 objectiveIndex)
 //horrible hack to get ai matching, but it does correctly refrence this func with 2 params
 #pragma weak    objectiveGetStatus_WEAK = get_status_of_objective
 
-/*
- * Return Status of objective.
- * Note: This matches but may not in future depending on the result of var
- * "OBJECTIVESTATUS *objectiveStatuses". 
- * https://decomp.me/scratch/MF31e
- */
-OBJECTIVESTATUS get_status_of_objective(s32 objectiveNum) //#MATCH
+
+OBJECTIVESTATUS get_status_of_objective(s32 objectiveNum)
 {
     MissionObjectiveRecord *objective;
     OBJECTIVESTATUS         currentstatus;
@@ -232,7 +227,7 @@ OBJECTIVESTATUS get_status_of_objective(s32 objectiveNum) //#MATCH
                         case PROPDEF_OBJECTIVE_PHOTOGRAPH:
                         {
                             ObjectRecord *obj = objFindByTagId(objective->ObjRefID);
-                            if (!objective->TextID) //0x8
+                            if (!objective->TextID)
                             {
                                 if (!obj || !obj->prop || !objIsHealthy(obj))
                                 {
@@ -247,7 +242,7 @@ OBJECTIVESTATUS get_status_of_objective(s32 objectiveNum) //#MATCH
                         }
                         case PROPDEF_OBJECTIVE_ENTER_ROOM:
                         {
-                            if (!objective->TextID) //0x8
+                            if (!objective->TextID)
                             {
                                 currentstatus = OBJECTIVESTATUS_INCOMPLETE;
                             }
@@ -255,7 +250,7 @@ OBJECTIVESTATUS get_status_of_objective(s32 objectiveNum) //#MATCH
                         }
                         case PROPDEF_OBJECTIVE_DEPOSIT_OBJECT_IN_ROOM:
                         {
-                            if (!objective->MinDificulty) //0xc
+                            if (!objective->MinDificulty)
                             {
                                 currentstatus = OBJECTIVESTATUS_INCOMPLETE;
                             }
@@ -323,15 +318,6 @@ bool objectiveIsAllComplete(void)
 }
 
 
-#ifdef BUGFIX_R1
-void objectivestatusDisableStatusDisplay(void)
-{
-  objective_status_display_disabled = TRUE;
-  return;
-}
-#endif
-
-
 void display_objective_status_text_on_status_change(void) 
 {
     s32 i;
@@ -339,15 +325,16 @@ void display_objective_status_text_on_status_change(void)
     char buffer[50] = "";
     enum OBJECTIVESTATUS status;
 
-#ifdef BUGFIX_R1
-    if (objective_status_display_disabled) { return; }
-#endif
-
-    for (i = 0; i <= objective_count; i++) {
+    for (i = 0; i <= objective_count; i++)
+    {
         status = get_status_of_objective(i);
-        if (objectiveStatuses[i] != status) {
+
+        if (objectiveStatuses[i] != status)
+        {
             objectiveStatuses[i] = status;
-            if (get_difficulty_for_objective(i) <= lvGetSelectedDifficulty()) {
+    
+            if (get_difficulty_for_objective(i) <= lvGetSelectedDifficulty())
+            {
                 if (j_text_trigger != 0)
                 {
                     sprintf(&buffer, "%s \x80%c ", langGet(getStringID(LMISC, MISC_STR_2C_OBJECTIVE)), availableindex + 0x1A);
@@ -368,14 +355,11 @@ void display_objective_status_text_on_status_change(void)
                 {
                     strcat(&buffer, langGet(getStringID(LMISC, MISC_STR_2F_FAILED_LF)));
                 }
-#ifdef VERSION_US
                 hudmsgBottomShow(&buffer);
-#else
-                jp_hudmsgBottomShow(&buffer);
-#endif
             }
         }
-        if (get_difficulty_for_objective(i) <= lvGetSelectedDifficulty()) {
+        if (get_difficulty_for_objective(i) <= lvGetSelectedDifficulty())
+        {
             availableindex++;
         }
     }
@@ -423,12 +407,6 @@ void objectivestatusCheckRoomEntered(s32 roomid)
 }
 
 
-
-
-
-/**
- * US address 7F0577E8.
-*/
 void objectivestatusCheckDeposit(s32 weaponnum, s32 roomid)
 {
     struct criteria_deposit *dep;
@@ -459,10 +437,6 @@ void objectivestatusCheckDeposit(s32 weaponnum, s32 roomid)
 }
 
 
-
-/**
- * NTSC address 0x7F057898.
-*/
 void objectiveTakePictureHandler(void)
 {
     ObjectRecord *target_object;
@@ -471,10 +445,10 @@ void objectiveTakePictureHandler(void)
     struct coord2d sp7C;
     struct coord2d sp74;
     struct rectbbox sp64;
-    s32 padding2[2];
     struct criteria_picture *criteria;
 
     criteria = ptr_last_photo_obj_in_room_subobject_entry_type1E;
+
     for (; criteria != NULL; criteria = criteria->next)
     {
         if (criteria->flag == 0)
@@ -485,35 +459,19 @@ void objectiveTakePictureHandler(void)
             {
                 target_prop = target_object->prop;
                 
-                if ((target_prop != NULL) 
-                    && (target_prop->flags & PROPFLAG_ONSCREEN)
-                    && (target_prop->zDepth >= 0.0f) // draw/render distance
-                    && (objIsHealthy(target_object) != 0)
-                    && (objGetOnscreenRenderBounds(target_object->prop, &sp84, &sp7C, &sp74) != 0))
+                if ((target_prop != NULL) && (target_prop->flags & PROPFLAG_ONSCREEN) && (target_prop->zDepth >= 0.0f) && (objIsHealthy(target_object)) && (objGetOnscreenRenderBounds(target_object->prop, &sp84, &sp7C, &sp74) != 0))
                 {
-                    projectRectCornersTo2D(&sp84, &sp7C, &sp74, &sp64.right, &sp64.left);
+                    projectRectCornersTo2D(&sp84, &sp7C, &sp74, &sp64.left, &sp64.right);
                     
-                    if (getPlayer_c_screenleft() < sp64.right)
+                    if (getPlayer_c_screenleft() < sp64.left
+                        && sp64.right < getPlayer_c_screenleft() + getPlayer_c_screenwidth()
+                        && getPlayer_c_screentop() < sp64.up
+                        && sp64.down < getPlayer_c_screentop() + getPlayer_c_screenheight())
                     {
-                        if ((sp64.right < (getPlayer_c_screenleft() + getPlayer_c_screenwidth())) && (getPlayer_c_screenleft() < sp64.left))
-                        {
-                            if ((sp64.left < (getPlayer_c_screenleft() + getPlayer_c_screenwidth())) && (getPlayer_c_screentop() < sp64.down))
-                            {
-                                if ((sp64.down < (getPlayer_c_screentop() + getPlayer_c_screenheight())) && (getPlayer_c_screentop() < sp64.up))
-                                {
-                                    if (sp64.up < (getPlayer_c_screentop() + getPlayer_c_screenheight()))
-                                    {
-                                        criteria->flag = 1;
-                                    }
-                                }
-                            }
-                        }
+                        criteria->flag = 1;
                     }
                 }
             }
         }
     }
 }
-
-
-//filebreak

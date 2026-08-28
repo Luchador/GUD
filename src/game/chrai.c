@@ -37,11 +37,8 @@
 // hack? used to match as called with 2 args, but decompiled code takes 1
 extern s32 objectiveGetStatus_WEAK(s32 objectiveNum, s32);
 
-// bss
-/**
- * Address 0x80069B70.
- */
 sfxRecord  sfx_related[SFX_RELATED_LEN];
+
 
 /**
  * Play Audio in slot X from Prop or Pad

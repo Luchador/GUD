@@ -13,7 +13,6 @@
 #include "chrai.h"
 #include "chraction.h"
 #include "chrobjdata.h"
-#include "debugmenu_handler.h"
 #include "dyn.h"
 #include "glass.h"
 #include "gmath.h"
@@ -2986,8 +2985,6 @@ after_opcode:
 
 /**
  *
- * Address: 7F022648
- *
  * Tests a shot's ray against a character.
  *
  * First tests the shot against the chr's bounding sphere expanded by the
@@ -2996,14 +2993,6 @@ after_opcode:
  * a near miss inside max range flags CHRFLAG_NEAR_MISS and bumps numclosearghs.
  *
  * PD: chr_test_hit
- */
-
-/**
- * This assert is from the former NONMATCHING block and belongs somewhere in chrTestHit.
- *
- * #ifdef DEBUG
- * assert(hits && hits->HasHits());
- * #endif
  */
 void chrTestHit(PropRecord *prop, ShotData *shotdata)
 {
@@ -3028,7 +3017,6 @@ void chrTestHit(PropRecord *prop, ShotData *shotdata)
     f32 size;
     s32 i;
     coord3d diff;
-    f64 pad;
 
     chr = prop->chr;
 

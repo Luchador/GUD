@@ -3529,36 +3529,36 @@ void modelGetXYExtents(Model *model, f32 *arg1, f32 *arg2, f32 *arg3, f32 *arg4)
 
 
 /**
- * Project rectangle corners to screen
+ * Project rectangle corners to screen.
+ * 
+ * @param viewXBounds:       x = min X, y = max X
+ * @param viewYBounds:       x = min Y, y = max Y
+ * @param screenTopLeft:     projected left X and top Y
+ * @param screenBottomRight: projected right X and bottom Y
 */
-void projectRectCornersTo2D(struct coord3d *center, struct coord2d *arg1, struct coord2d *arg2, struct coord2d *arg3, struct coord2d *arg4)
+void projectRectCornersTo2D(struct coord3d *center, struct coord2d *viewXBounds, struct coord2d *viewYBounds, struct coord2d *screenTopLeft, struct coord2d *screenBottomRight)
 {
-    struct coord3d sp24;
-    struct coord2d tout;
+    coord3d point;
+    coord2d projected;
 
-    sp24.f[0] = arg1->f[0];
-    sp24.f[1] = center->f[1];
-    sp24.f[2] = center->f[2];
-    transform3Dto2DCoords(&sp24, &tout);
-    arg3->f[0] = tout.f[0];
+    point.x = viewXBounds->x;
+    point.y = center->y;
+    point.z = center->z;
+    transform3Dto2DCoords(&point, &projected);
+    screenTopLeft->x = projected.x;
 
-    sp24.f[0] = arg1->f[1];
-    sp24.f[1] = center->f[1];
-    sp24.f[2] = center->f[2];
-    transform3Dto2DCoords(&sp24, &tout);
-    arg4->f[0] = tout.f[0];
+    point.x = viewXBounds->y;
+    transform3Dto2DCoords(&point, &projected);
+    screenBottomRight->x = projected.x;
 
-    sp24.f[0] = center->f[0];
-    sp24.f[1] = arg2->f[1];
-    sp24.f[2] = center->f[2];
-    transform3Dto2DCoords(&sp24, &tout);
-    arg3->f[1] = tout.f[1];
+    point.x = center->x;
+    point.y = viewYBounds->y;
+    transform3Dto2DCoords(&point, &projected);
+    screenTopLeft->y = projected.y;
 
-    sp24.f[0] = center->f[0];
-    sp24.f[1] = arg2->f[0];
-    sp24.f[2] = center->f[2];
-    transform3Dto2DCoords(&sp24, &tout);
-    arg4->f[1] = tout.f[1];
+    point.y = viewYBounds->x;
+    transform3Dto2DCoords(&point, &projected);
+    screenBottomRight->y = projected.y;
 }
 
 

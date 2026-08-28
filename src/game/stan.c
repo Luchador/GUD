@@ -1446,9 +1446,9 @@ bool stanPointProjectsOntoEdge(f32 a_x, f32 a_z, f32 b_x, f32 b_z, f32 p_x, f32 
 StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, f32 radius, CDTYPE cdtypes, f32 topOffset, f32 bottomOffset)
 {
     s32 i;
-    f32 var_f20;
+    f32 pointDist;
     f32 var_f24;
-    s32 temp_v0;
+    StanCollisionResult stanColResult;
     s32 next;
     bool useVerticalBounds;
     f32 temp_f0;
@@ -1468,11 +1468,11 @@ StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, 
 
     roomCount = 0;
 
-    temp_v0 = stanTestCircleAndCollectRooms(tileStack, p_x, p_z, radius, &roomList[0], &roomCount, 20);
+    stanColResult = stanTestCircleAndCollectRooms(tileStack, p_x, p_z, radius, &roomList[0], &roomCount, 20);
 
-    if (temp_v0 >= 0)
+    if (stanColResult >= 0)
     {
-        return temp_v0;
+        return stanColResult;
     }
 
     if (roomCount > 20)
@@ -1512,22 +1512,22 @@ StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, 
                     {
                         next = (i + 1) % numvertices0;
 
-                        var_f20 = stanGetSignedPointLineDistance(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], p_x, p_z);
+                        pointDist = stanGetSignedPointLineDistance(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], p_x, p_z);
 
-                        if (var_f20 < 0.0f)
+                        if (pointDist < 0.0f)
                         {
-                            var_f20 = -var_f20;
+                            pointDist = -pointDist;
                         }
 
-                        if (var_f24 < var_f20)
+                        if (var_f24 < pointDist)
                         {
                             temp_f0_2 = distBetweenPoints2d(polygon->points[i].f[0], polygon->points[i].f[1], p_x, p_z);
                             temp_f0_3 = distBetweenPoints2d(polygon->points[next].f[0], polygon->points[next].f[1], p_x, p_z);
 
-                            if ((var_f20 < radius) && ((temp_f0_2 < radius) || (temp_f0_3 < radius) || (stanPointProjectsOntoEdge(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], p_x, p_z) != 0)))
+                            if ((pointDist < radius) && ((temp_f0_2 < radius) || (temp_f0_3 < radius) || (stanPointProjectsOntoEdge(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], p_x, p_z) != 0)))
                             {
                                 g_StanLastCollisionEdgePointsValid = 1;
-                                var_f24 = var_f20;
+                                var_f24 = pointDist;
 
                                 g_StanLastCollisionEdgePointA.f[0] = polygon->points[i].f[0];
                                 g_StanLastCollisionEdgePointA.f[1] = polygon->points[i].f[1];

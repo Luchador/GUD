@@ -28,7 +28,6 @@
 #include "game/image.h"
 #include "vi.h"
 #include "game/bg.h"
-#include "game/debugmenu_handler.h"
 #include "game/lv.h"
 #include "game/ramromreplay.h"
 #include "game/rsp.h"

@@ -10771,30 +10771,33 @@ TICKOP objTickPlayer(struct PropRecord* prop)
 }
 
 
-/*
-* Address: 7F050D30
-*/
-bool objGetOnscreenRenderBounds(PropRecord *prop, coord3d *arg1, struct coord2d *arg2, struct coord2d *arg3)
+bool objGetOnscreenRenderBounds(PropRecord *prop, coord3d *viewCenter, struct coord2d *viewXBounds, struct coord2d *viewYBounds)
 {
     if (prop->flags & PROPFLAG_ONSCREEN)
     {
         ObjectRecord *obj = prop->obj;
         Mtxf *matrix = getsubmatrix(obj->model);
 
-        arg1->z = matrix->m[3][2];
+        /**
+         * GE's camera looks towards negative Z, so negative Z is in front of the camera.
+         */
+        viewCenter->z = matrix->m[3][2];
 
-        if (arg1->z < 0)
+        if (viewCenter->z < 0.0f)
         {
-            arg1->x = matrix->m[3][0];
-            arg1->y = matrix->m[3][1];
+            viewCenter->x = matrix->m[3][0];
+            viewCenter->y = matrix->m[3][1];
 
-            arg3->f[0] = 0;
-            arg3->f[1] = 0;
+            viewYBounds->x = 0.0f;
+            viewYBounds->y = 0.0f;
 
-            arg2->f[0] = 0;
-            arg2->f[1] = 0;
+            viewXBounds->x = 0.0f;
+            viewXBounds->y = 0.0f;
 
-            modelGetXYExtents(obj->model, &arg2->f[1], &arg2->f[0], &arg3->f[1], &arg3->f[0]);
+            /**
+             * Scan the model's transformed bounding boxes and calculate the combined camera space X and Y extents.
+             */
+            modelGetXYExtents(obj->model, &viewXBounds->y, &viewXBounds->x, &viewYBounds->y, &viewYBounds->x);
 
             return TRUE;
         }

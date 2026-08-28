@@ -6,7 +6,6 @@
 #include <memp.h>
 #include "bg.h"
 #include "bondview.h"
-#include "debugmenu_handler.h"
 #include "decompress.h"
 #include "bgfog.h"
 #include "gmath.h"
@@ -16,7 +15,6 @@
 #include "explosion.h"
 #include "bgroomtrans.h"
 
-// new file, per EU
 
 /**
  * Scan the Gfx commands in the half-open range [start, end) and replace any

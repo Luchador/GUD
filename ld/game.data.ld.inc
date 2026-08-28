@@ -69,7 +69,6 @@
       build/OUTCODE/src/game/bondinv.o (.data);
       build/OUTCODE/src/game/bondhead.o (.data);
       build/OUTCODE/src/game/padhalllv.o (.data);
-      build/OUTCODE/src/game/debugmenu_handler.o (.data);
       build/OUTCODE/src/game/chraidata.o (.data);
       build/OUTCODE/src/game/pobjdata.o (.data);
       build/OUTCODE/src/game/gobjdata.o (.data);

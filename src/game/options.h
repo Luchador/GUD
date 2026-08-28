@@ -131,7 +131,6 @@ u16 call_sndGetSfxSlotFirstNaturalVolume(void);
 u32 get_cur_player_look_vertical_inverted(void);
 u16 get_mTrack2Vol(void);
 void set_mTrack2Vol(u16 param_1);
-void sub_GAME_7F0A91A0(u16 arg0);
 void cur_player_set_control_type(s32 type);
 void optionsWatchInit();
 Gfx *optionsDrawCurrentWatchPage(Gfx *gdl, Mtx *arg1, s32 watch_transitioning);
