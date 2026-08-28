@@ -79,6 +79,8 @@ tools/armips
 tools/gzipsrc/gzip
 tools/gzipsrc/*.o
 tools/gaudio/*
+tools/geditor/GEditor.exe
+tools/geditor/src/*.o
 bondtypes_AI.h
 audi.u
 acpp_c.c
