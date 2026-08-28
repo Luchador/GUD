@@ -600,18 +600,16 @@ void watchNavMissionStatus(void)
         goto_watch_screen_index_4 = FALSE;
         goto_watch_screen_index_1 = FALSE;
 
-        if (get_debug_gunwatchpos_flag() == 0)
+
+        if (joyGetButtonsPressedThisFrame(PLAYER_1, L_TRIG|L_CBUTTONS))
         {
-            if (joyGetButtonsPressedThisFrame(PLAYER_1, L_TRIG|L_CBUTTONS))
-            {
-                goto_watch_screen_index_4 = TRUE;
-            }
-            if (joyGetButtonsPressedThisFrame(PLAYER_1, R_TRIG|R_CBUTTONS))
-            {
-                goto_watch_screen_index_1 = TRUE;
-            }
+            goto_watch_screen_index_4 = TRUE;
         }
 
+        if (joyGetButtonsPressedThisFrame(PLAYER_1, R_TRIG|R_CBUTTONS))
+        {
+            goto_watch_screen_index_1 = TRUE;
+        }
 
         if ((joyGetButtonsPressedThisFrame(PLAYER_1, L_JPAD)) || (watchShouldNavLeft()))
         {
@@ -659,16 +657,14 @@ void watchNavInventory(void)
         goto_watch_screen_index_0 = FALSE;
         goto_watch_screen_index_2 = FALSE;
 
-        if (get_debug_gunwatchpos_flag() == FALSE)
+        if (joyGetButtonsPressedThisFrame(PLAYER_1, L_TRIG|L_CBUTTONS))
         {
-            if (joyGetButtonsPressedThisFrame(PLAYER_1, L_TRIG|L_CBUTTONS))
-            {
-                goto_watch_screen_index_0 = TRUE;
-            }
-            if (joyGetButtonsPressedThisFrame(PLAYER_1, R_TRIG|R_CBUTTONS))
-            {
-                goto_watch_screen_index_2 = TRUE;
-            }
+            goto_watch_screen_index_0 = TRUE;
+        }
+
+        if (joyGetButtonsPressedThisFrame(PLAYER_1, R_TRIG|R_CBUTTONS))
+        {
+            goto_watch_screen_index_2 = TRUE;
         }
 
         if ((joyGetButtonsPressedThisFrame(PLAYER_1, L_JPAD)) || (watchShouldNavLeft()))
@@ -900,47 +896,33 @@ void game_options_inventory_navigation(void)
 
     count = bondinvCountTotalItemsInInv();
 
-    if (!get_debug_gunwatchpos_flag())
+    if (joyGetButtonsPressedThisFrame(PLAYER_1, U_JPAD | U_CBUTTONS) || joyGetStickY(PLAYER_1) >= 0x47)
     {
-        if (joyGetButtonsPressedThisFrame(PLAYER_1, U_JPAD | U_CBUTTONS) || joyGetStickY(PLAYER_1) >= 0x47)
+        if ((s32)watch_inventory_cursor_pos > 0 && !watch_item_is_actively_selected)
         {
-            if (((s32) watch_inventory_cursor_pos > 0) && !watch_item_is_actively_selected)
-            {
-                watch_inventory_cursor_pos -= 1.0f;
-            }
+            watch_inventory_cursor_pos -= 1.0f;
         }
-        else
+    }
+    else if (joyGetButtonsPressedThisFrame(PLAYER_1, D_JPAD | D_CBUTTONS) || joyGetStickY(PLAYER_1) < -0x46)
+    {
+        if ((s32)watch_inventory_cursor_pos < count - 1 && !watch_item_is_actively_selected)
         {
-            if (joyGetButtonsPressedThisFrame(PLAYER_1, D_JPAD | D_CBUTTONS) || joyGetStickY(PLAYER_1) < -0x46)
-            {
-                goto down_body;
-            }
-
-            goto after_updown;
-
-down_body:
-            if (((s32) watch_inventory_cursor_pos < count - 1) && !watch_item_is_actively_selected)
-            {
-                watch_inventory_cursor_pos += 1.0f;
-            }
-
-after_updown:
-            ;
+            watch_inventory_cursor_pos += 1.0f;
         }
+    }
 
-        if (joyGetButtons(PLAYER_1, U_JPAD | U_CBUTTONS))
+    if (joyGetButtons(PLAYER_1, U_JPAD | U_CBUTTONS))
+    {
+        if (((s32) watch_inventory_cursor_pos > 0) && !watch_item_is_actively_selected)
         {
-            if (((s32) watch_inventory_cursor_pos > 0) && !watch_item_is_actively_selected)
-            {
-                watch_inventory_cursor_pos -= 0.1f;
-            }
+            watch_inventory_cursor_pos -= 0.1f;
         }
-        else if (joyGetButtons(PLAYER_1, D_JPAD | D_CBUTTONS))
+    }
+    else if (joyGetButtons(PLAYER_1, D_JPAD | D_CBUTTONS))
+    {
+        if (((s32) watch_inventory_cursor_pos < count - 1) && !watch_item_is_actively_selected)
         {
-            if (((s32) watch_inventory_cursor_pos < count - 1) && !watch_item_is_actively_selected)
-            {
-                watch_inventory_cursor_pos += 0.1f;
-            }
+            watch_inventory_cursor_pos += 0.1f;
         }
     }
 
@@ -1017,13 +999,11 @@ after_updown:
         watch_inventory_text_is_settled = TRUE;
     }
 
-    if (((f32) g_curWatchItemIndex + 0.55f < watch_inventory_cursor_pos)
-        && !joyGetButtons(PLAYER_1, 0xffff)) // Any button
+    if (((f32) g_curWatchItemIndex + 0.55f < watch_inventory_cursor_pos) && !joyGetButtons(PLAYER_1, 0xffff)) // Any button
     {
         watch_inventory_cursor_pos -= 0.1f;
     }
-    else if (watch_inventory_cursor_pos <= (f32) g_curWatchItemIndex + 0.45f
-        && !joyGetButtons(PLAYER_1, 0xffff)) // Any button
+    else if (watch_inventory_cursor_pos <= (f32) g_curWatchItemIndex + 0.45f && !joyGetButtons(PLAYER_1, 0xffff)) // Any button
     {
         watch_inventory_cursor_pos += 0.1f;
     }
@@ -1032,36 +1012,34 @@ after_updown:
 
 void sub_GAME_7F0A611C(f32 *arg0, s32 *arg1, s32 arg2, s32 *arg3, s32 *arg4, s32 *arg5, s32 arg6, s32 arg7, s32 arg8)
 {
-    if (!get_debug_gunwatchpos_flag())
-    {
-        if (joyGetButtonsPressedThisFrame(PLAYER_1, U_JPAD | U_CBUTTONS) || joyGetStickY(PLAYER_1) >= 0x47)
-        {
-            if ((s32)*arg0 > 0 && arg7)
-            {
-                *arg0 -= 1.0f;
-            }
-        }
-        else if (joyGetButtonsPressedThisFrame(PLAYER_1, D_JPAD | D_CBUTTONS) || joyGetStickY(PLAYER_1) < -0x46)
-        {
-            if ((s32)*arg0 < arg2 - 1 && arg7)
-            {
-                *arg0 += 1.0f;
-            }
-        }
 
-        if (joyGetButtons(PLAYER_1, U_JPAD | U_CBUTTONS))
+    if (joyGetButtonsPressedThisFrame(PLAYER_1, U_JPAD | U_CBUTTONS) || joyGetStickY(PLAYER_1) >= 0x47)
+    {
+        if ((s32)*arg0 > 0 && arg7)
         {
-            if ((s32)*arg0 > 0 && arg7)
-            {
-                *arg0 -= 0.1f;
-            }
+            *arg0 -= 1.0f;
         }
-        else if (joyGetButtons(PLAYER_1, D_JPAD | D_CBUTTONS))
+    }
+    else if (joyGetButtonsPressedThisFrame(PLAYER_1, D_JPAD | D_CBUTTONS) || joyGetStickY(PLAYER_1) < -0x46)
+    {
+        if ((s32)*arg0 < arg2 - 1 && arg7)
         {
-            if ((s32)*arg0 < arg2 - 1 && arg7)
-            {
-                *arg0 += 0.1f;
-            }
+            *arg0 += 1.0f;
+        }
+    }
+
+    if (joyGetButtons(PLAYER_1, U_JPAD | U_CBUTTONS))
+    {
+        if ((s32)*arg0 > 0 && arg7)
+        {
+            *arg0 -= 0.1f;
+        }
+    }
+    else if (joyGetButtons(PLAYER_1, D_JPAD | D_CBUTTONS))
+    {
+        if ((s32)*arg0 < arg2 - 1 && arg7)
+        {
+            *arg0 += 0.1f;
         }
     }
 
@@ -1870,8 +1848,6 @@ Gfx *draw_text_q_watch_v201_beta(Gfx *gdl)
 }
 
 
-
-
 #ifndef _BONDWALK_H_
 #define _BONDWALK_H_
 typedef struct GunModelFileRecord {
@@ -1895,7 +1871,9 @@ extern f32 bondinvGetDepthWatchForIndex(s32 index);
 extern f32 bondinvGetDifferent45AngleForIndex(s32 index);
 extern f32 bondinvGetXrotWatchForIndex(s32 index);
 extern f32 bondinvGetYrotWatchForIndex(s32 index);
-Gfx* draw_current_hand_item_and_ammo(Gfx* gdl) {
+
+Gfx* draw_current_hand_item_and_ammo(Gfx* gdl)
+{
     Mtx* sp114;
     u16 perspNorm;
     Mtxf matrix2;
@@ -1936,46 +1914,8 @@ Gfx* draw_current_hand_item_and_ammo(Gfx* gdl) {
     text = bondinvGetFirstTitlebyIndex(temp_v0);
     text2 = bondinvGetSecondTitlebyIndex(temp_v0);
 
-    if (get_debug_gunwatchpos_flag() != 0) {
-        gitem = &gitem_structs[getCurrentPlayerWeaponId(0)];
 
-        if (joyGetButtons(0, 2) != 0) {
-           gitem->watch_pos_y -= 2.0f;
-        }
-
-        if (joyGetButtons(0, 1) != 0) {
-            gitem->watch_pos_y += 2.0f;
-        }
-
-        if (joyGetButtons(0, 4) != 0) {
-           gitem->watch_pos_x += 2.0f;
-        }
-
-        if (joyGetButtons(0, 8) != 0) {
-            gitem->watch_pos_x -= 2.0f;
-        }
-
-        if (joyGetButtons(0, 0x20) != 0) {
-            gitem->watch_pos_z *= 0.98000002f;
-        }
-
-        if (joyGetButtons(0, 0x10) != 0) {
-             gitem->watch_pos_z *= 1.0204082f;
-        }
-#ifdef DEBUG
-
-            osSyncPrintf("gun watch pos x=%f[CL,CR] y=%f[CD,CU] z=%f[TL,TR] ", gitem->watch_pos_x, gitem->watch_pos_y, gitem->watch_pos_z);
-
-#endif
-    }
-
-
-#if defined(LEFTOVERDEBUG)
     guPerspective(sp114, &perspNorm, sp60, 1.33333337f, 10.0f, 10000.0f, 1.0f);
-#else
-    guPerspective(sp114, &perspNorm, sp60, 1.2838470f, 10.0f, 10000.0f, 1.0f);
-#endif
-
     gSPMatrix(gdl++, osVirtualToPhysical(sp114), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
 
     matrix_4x4_set_rotation_around_y((roty * 6.2831855f) / 360.0f, &matrix2);
@@ -2113,49 +2053,6 @@ Gfx *draw_watch_inventory_page(Gfx *gdl, Mtx *param_2)
         sp884 = bondinvGetTextbyInvIndex(g_curWatchItemIndex);
         sp880 = bondinvGetXrotWatchForIndex(g_curWatchItemIndex);
         sp87C = bondinvGetYrotWatchForIndex(g_curWatchItemIndex);
-
-        if (get_debug_gunwatchpos_flag() != 0)
-        {
-            gitem = &gitem_structs[getCurrentPlayerWeaponId(0)];
-
-            if (joyGetButtons(0, L_CBUTTONS) != 0)
-            {
-                gitem->equip_watch_x -= 2.0f;
-            }
-
-            if (joyGetButtons(0, R_CBUTTONS) != 0)
-            {
-                gitem->equip_watch_x += 2.0f;
-            }
-
-            if (joyGetButtons(0, D_CBUTTONS) != 0)
-            {
-                gitem->equip_watch_y += 2.0f;
-            }
-
-            if (joyGetButtons(0, U_CBUTTONS) != 0)
-            {
-                gitem->equip_watch_y -= 2.0f;
-            }
-
-            if (joyGetButtons(0, L_TRIG) != 0)
-            {
-                gitem->equip_watch_z *= 0.98000002f;
-            }
-
-            if (joyGetButtons(0, R_TRIG) != 0)
-            {
-                gitem->equip_watch_z *= 1.0204082f;
-            }
-
-#if defined(VERSION_US) && defined(DEBUG)
-            osSyncPrintf(
-                "gun list pos x=%f[CL,CR] y=%f[CD,CU] z=%f[TL,TR] ",
-                gitem->equip_watch_x,
-                gitem->equip_watch_y,
-                gitem->equip_watch_z);
-#endif
-        }
 
         guPerspective(sp924, &perspNorm, sp894, WATCH_PERSPECTIVE_ASPECT, 10.0f, 10000.0f, 1.0f);
 

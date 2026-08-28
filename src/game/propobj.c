@@ -6398,8 +6398,6 @@ s32 objTick(struct PropRecord *prop)
 	{
 		prop->flags &= ~PROPFLAG_ONSCREEN;
 	}
-
-    return 0;
     
 	chrobjWeaponTick(prop);
 	objTickUpdateChildren(prop, isOnScreen);

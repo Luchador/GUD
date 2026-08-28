@@ -5,13 +5,6 @@
 #include <fr.h>
 
 
-
-//D:80036FAC
-s32 debug_007_unlock_flag = 0;
-//D:80036FB0
-s32 debug_enable_agent_levels_flag = 0;
-//D:80036FB4
-s32 debug_enable_all_levels_flag = 0;
 //D:80036FBC
 s32 debug_gunwatchpos_flags = 0;
 //D:80036FC0
@@ -61,50 +54,6 @@ coord3d player_pos_x = {0};
 #endif
 
 
-s32 get_debug_enable_agent_levels_flag(void) {
-#if defined(LEFTOVERDEBUG)
-    return debug_enable_agent_levels_flag;
-#else
-    return 0;
-#endif
-}
-
-s32 get_debug_enable_all_levels_flag(void) {
-#if defined(LEFTOVERDEBUG)
-    return debug_enable_all_levels_flag;
-#else
-    return 0;
-#endif
-}
-
-
-#if !defined(LEFTOVERDEBUG)
-
-s32 get_debug_gunwatchpos_flag(void) {
-    return 0;
-}
-
-
-s32 get_debug_fast_bond_flag(void) {
-    return debug_fast_bond_flag;
-}
-
-
-void set_debug_fast_bond_flag(s32 flag) {
-    debug_fast_bond_flag = flag;
-}
-s32 get_debug_all_obj_complete_flag(void) {
-    return 0;
-}
-s32 get_debug_portal_flag(void) {
-    return 0;
-}
-void func_7F0904F8(s32 arg0)
-{
-    // removed
-}
-#endif
-
 
 #if defined(LEFTOVERDEBUG)
 s32 get_debug_fast_bond_flag(void) {
@@ -115,24 +64,5 @@ s32 get_debug_fast_bond_flag(void) {
 #if defined(LEFTOVERDEBUG)
 void set_debug_fast_bond_flag(s32 flag) {
     debug_fast_bond_flag = flag;
-}
-#endif
-
-#if defined(LEFTOVERDEBUG)
-s32 get_debug_all_obj_complete_flag(void) {
-    return debug_all_obj_complete_flag;
-}
-#endif
-
-#if defined(LEFTOVERDEBUG)
-s32 get_debug_portal_flag(void) {
-    return debug_portal_flag;
-}
-#endif
-
-
-#if defined(LEFTOVERDEBUG)
-s32 get_debug_gunwatchpos_flag(void) {
-    return debug_gunwatchpos_flags;
 }
 #endif

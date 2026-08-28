@@ -698,19 +698,8 @@ STAGESTATUS fileIsStageUnlockedAtDifficulty(s32 foldernum, LEVEL_SOLO_SEQUENCE l
         {
             return STAGESTATUS_UNLOCKED;
         }
-
-        // no save, cheat enabled, its unlocked.
-        if (get_debug_enable_agent_levels_flag() && difficulty == DIFFICULTY_AGENT)
-        {
-            return STAGESTATUS_UNLOCKED;
-        }
-
-        // no save, cheat enabled, its unlocked. (basically a repeat of above)
-        if (get_debug_enable_all_levels_flag())
-        {
-            return STAGESTATUS_UNLOCKED;
-        }
     }
+
     // After all that the stage is not unlocked
     return STAGESTATUS_LOCKED;
 }

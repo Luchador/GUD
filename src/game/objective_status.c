@@ -294,17 +294,11 @@ OBJECTIVESTATUS get_status_of_objective(s32 objectiveNum) //#MATCH
                     {
                         status = currentstatus;
                     }
-
-                    //objective  = objheader;
                 }
             }
-        } // if objheader
-    }     //objnum < 10
-
-    if (get_debug_all_obj_complete_flag())
-    {
-        status = OBJECTIVESTATUS_COMPLETE;
+        }
     }
+
     return status;
 }
 
