@@ -1,5 +1,5 @@
-#ifndef _FOG_H_
-#define _FOG_H_
+#ifndef _ENVIRONMENT_H_
+#define _ENVIRONMENT_H_
 
 #include <ultra64.h>
 #include <bondtypes.h>
@@ -125,14 +125,14 @@ typedef struct EnvironmentFoglessRecord
 
 extern s32 g_FogSkyIsEnabled;
 
-struct CurrentEnvironmentRecord *fogGetCurrentEnvironmentp(void);
-f32 fogGetScaledFarFogIntensitySquared(void);
-void fogLoadLevelEnvironment(s32 level_id, s32 arg1);
-s32 fogPositionIsVisibleThroughFog(coord3d *pos, f32 range);
-Gfx *fogSetRenderFogColor(Gfx *gdl);
-Gfx *fogRenderClearFogMode(Gfx *gdl);
-s32 fogGetPropDistColor(PropRecord *prop, struct rgba_f32 *color);
-void fogSwitchToSolosky2(f32 arg0);
-struct NearFogRecord *fogGetNearFogValuesP(void);
+struct CurrentEnvironmentRecord *envGetCurrent(void);
+f32 envGetScaledFarFogIntensitySquared(void);
+void envLoadLevelEnvironment(s32 level_id, s32 arg1);
+s32 envPositionIsVisibleThroughFog(coord3d *pos, f32 range);
+Gfx *envSetRenderFogColor(Gfx *gdl);
+Gfx *envRenderClearFogMode(Gfx *gdl);
+s32 envGetPropDistColor(PropRecord *prop, struct rgba_f32 *color);
+void envSwitchToSoloSky2(f32 transitionTime);
+struct NearFogRecord *envGetNearFogValues(void);
 
 #endif

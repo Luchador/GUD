@@ -7,7 +7,7 @@
 #include "bg.h"
 #include "bondview.h"
 #include "decompress.h"
-#include "bgfog.h"
+#include "environment.h"
 #include "gmath.h"
 #include "lv.h"
 #include "matrixmath.h"

@@ -983,7 +983,7 @@ void bondviewSetCameraMode(s32 arg0)
             camera_transition_timer = 0.0f;
             currentPlayerSetFadeColour(0, 0, 0, 1.0f);
             currentPlayerSetFadeFrac(60.0f, 0.0f);
-            fogLoadLevelEnvironment(bossGetStageNum(), 1);
+            envLoadLevelEnvironment(bossGetStageNum(), 1);
             g_CurrentPlayer->cameratile = NULL;
         }
         else
@@ -1002,7 +1002,7 @@ void bondviewSetCameraMode(s32 arg0)
         g_MpSwirlAngleDegrees = -90.0f;
         g_MpSwirlForwardSpeed = 0.0f;
         g_MpSwirlDistance = 80.0f;
-        fogLoadLevelEnvironment(bossGetStageNum(), 0);
+        envLoadLevelEnvironment(bossGetStageNum(), 0);
     }
     else if (g_CameraMode == CAMERAMODE_SWIRL)
     {
@@ -1015,7 +1015,7 @@ void bondviewSetCameraMode(s32 arg0)
         camera_fade_active = 0;
         currentPlayerSetFadeColour(0, 0, 0, 1.0f);
         currentPlayerSetFadeFrac(60.0f, 0.0f);
-        fogLoadLevelEnvironment(bossGetStageNum(), 0);
+        envLoadLevelEnvironment(bossGetStageNum(), 0);
 
         if ((g_IntroSwirl != 0) && (ramromGetIsDemoPlaying() == FALSE))
         {
@@ -1068,7 +1068,7 @@ void bondviewSetCameraMode(s32 arg0)
 
         if (getPlayerCount() >= 2)
         {
-            fogLoadLevelEnvironment(bossGetStageNum(), 0);
+            envLoadLevelEnvironment(bossGetStageNum(), 0);
         }
 
         if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x0)

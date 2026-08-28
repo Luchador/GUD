@@ -10,7 +10,7 @@
 #include <options.h>
 #include "cam.h"
 #include "bg.h"
-#include "bgfog.h"
+#include "environment.h"
 #include "bgroomtrans.h"
 #include "blood_animation.h"
 #include "bondhead.h"
@@ -570,7 +570,7 @@ void camSetPlayerFrozenCam(bool isFrozen)
 bool camIsPosInObjFadeDistance(coord3d *coord, f32 arg1)
 {
     bool result = TRUE;
-    NearFogRecord *nearFogRecord = fogGetNearFogValuesP();
+    NearFogRecord *nearFogRecord = envGetNearFogValues();
     coord3d diff;
     f32 distSquared;
 
@@ -619,7 +619,7 @@ bool camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSize, bool ap
     {
         if (bgIsRoomRendered(roomnum))
         {
-            if (fogPositionIsVisibleThroughFog(pos, modelInstSize) && (!applyFogCull || camIsPosInObjFadeDistance(pos, modelInstSize)))
+            if (envPositionIsVisibleThroughFog(pos, modelInstSize) && (!applyFogCull || camIsPosInObjFadeDistance(pos, modelInstSize)))
             {
                 if (getPropCombinedRoomsBBox2D(prop, &bbox) != 0)
                 {

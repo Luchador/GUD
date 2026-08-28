@@ -10,7 +10,7 @@
 #include <snd.h>
 #include "chrai.h"
 #include "bg.h"
-#include "bgfog.h"
+#include "environment.h"
 #include "bondinv.h"
 #include "bondview.h"
 #include "cheat.h"
@@ -4274,7 +4274,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 }
                 case AI_SwitchSky:
                 { // SWITCHENVIRONMENT
-                    fogSwitchToSolosky2(1.0);
+                    envSwitchToSoloSky2(1.0);
                     Offset += sizeof(AiSwitchSkyRecord);
                     break;
                 }

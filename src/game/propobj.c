@@ -20,7 +20,7 @@
 #include "propobj.h"
 #include "assets/obseg/text/LpropobjE.h"
 #include "bg.h"
-#include "bgfog.h"
+#include "environment.h"
 #include "bondaicommands.h"
 #include "bondinv.h"
 #include "bondview.h"
@@ -7305,7 +7305,7 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
     modrendata = g_DefaultPropRenderData;
 
     objAlpha = 0xFF;
-    spAC = fogGetPropDistColor(prop, &spB0);
+    spAC = envGetPropDistColor(prop, &spB0);
 
     if (spAC == 0)
     {
@@ -12989,7 +12989,7 @@ f32 chrobjFogVisRangeRelated(PropRecord *prop, f32 size)
     f32 temp_f12;
 
     ret = 1.0f;
-    nfd = fogGetNearFogValuesP();
+    nfd = envGetNearFogValues();
 
     if ((nfd != NULL) && (nfd->MaxObfuscationRange < prop->zDepth))
     {
@@ -13693,7 +13693,7 @@ void handle_gas_damage(void)
 
     if (toxic_gas_sound_timer > 0.0f && g_PlayerInvincible == FALSE)
     {
-        fogSwitchToSolosky2(toxic_gas_sound_timer / gasTimeToFullOpacity);
+        envSwitchToSoloSky2(toxic_gas_sound_timer / gasTimeToFullOpacity);
 
         if (gasDoesDamageFlag == 0) { return; }
 

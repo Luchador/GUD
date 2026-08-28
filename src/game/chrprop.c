@@ -9,7 +9,7 @@
 #include <random.h>
 #include <snd.h>
 #include "bg.h"
-#include "bgfog.h"
+#include "environment.h"
 #include "bondview.h"
 #include "cheat.h"
 #include "chr.h"

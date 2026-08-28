@@ -9,7 +9,7 @@
 #include <music.h>
 #include <random.h>
 #include "bg.h"
-#include "bgfog.h"
+#include "environment.h"
 #include "bondhead.h"
 #include "bondview.h"
 #include "chr.h"
@@ -4093,7 +4093,7 @@ bool chrCheckTargetInSight(ChrRecord *self)
             )
         )
         {
-            if (vec2rd < fogGetScaledFarFogIntensitySquared())
+            if (vec2rd < envGetScaledFarFogIntensitySquared())
             {
                 distance = (s32)((sqrtf(vec2rd) * 30.0f) / 16000.0f);
 
@@ -10080,7 +10080,7 @@ s32 chrIsPosOffScreen(coord3d *arg0, StandTile *tile)
 
     offscreen = TRUE;
 
-    if (bgIsRoomRendered(getTileRoom(tile)) && fogPositionIsVisibleThroughFog(arg0, 0.0f))
+    if (bgIsRoomRendered(getTileRoom(tile)) && envPositionIsVisibleThroughFog(arg0, 0.0f))
     {
         if (bgGet2dBboxByRoomId(getTileRoom(tile), &box))
         {

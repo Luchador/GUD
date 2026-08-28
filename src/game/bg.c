@@ -11,7 +11,7 @@
 #include "cam.h"
 #include "chr.h"
 #include "decompress.h"
-#include "bgfog.h"
+#include "environment.h"
 #include "gmath.h"
 #include "lv.h"
 #include "matrixmath.h"
@@ -401,7 +401,7 @@ Gfx *bgRender(Gfx *gdl)
             if (i == dword_CODE_bss_8007FFA0[j].unk1)
             {
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)camGetPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
-                gdl = fogRenderClearFogMode(gdl);
+                gdl = envRenderClearFogMode(gdl);
  
                 if (lvGetBgRenderEnabled())
                 {
@@ -409,7 +409,7 @@ Gfx *bgRender(Gfx *gdl)
                 }
  
                 gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
-                gdl = fogSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl++, dword_CODE_bss_8007FFA0[j].bbox.min.x, dword_CODE_bss_8007FFA0[j].bbox.min.y, dword_CODE_bss_8007FFA0[j].bbox.max.x, dword_CODE_bss_8007FFA0[j].bbox.max.y));
+                gdl = envSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl++, dword_CODE_bss_8007FFA0[j].bbox.min.x, dword_CODE_bss_8007FFA0[j].bbox.min.y, dword_CODE_bss_8007FFA0[j].bbox.max.x, dword_CODE_bss_8007FFA0[j].bbox.max.y));
  
                 if (lvGetBgRenderEnabled())
                 {
@@ -417,7 +417,7 @@ Gfx *bgRender(Gfx *gdl)
                 }
  
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)camGetPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
-                gdl = fogRenderClearFogMode(gdl);
+                gdl = envRenderClearFogMode(gdl);
  
                 if (lvGetBgRenderEnabled())
                 {
@@ -427,7 +427,7 @@ Gfx *bgRender(Gfx *gdl)
         }
     }
 
-    gdl = bgScissorCurrentPlayerViewDefault(fogRenderClearFogMode(gdl));
+    gdl = bgScissorCurrentPlayerViewDefault(envRenderClearFogMode(gdl));
     gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
  
     if (lvGetBgRenderEnabled())
@@ -443,7 +443,7 @@ Gfx *bgRender(Gfx *gdl)
             if (i == dword_CODE_bss_8007FFA0[j].unk1)
             {
                 gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
-                gdl = fogSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl++, dword_CODE_bss_8007FFA0[j].bbox.min.x, dword_CODE_bss_8007FFA0[j].bbox.min.y, dword_CODE_bss_8007FFA0[j].bbox.max.x, dword_CODE_bss_8007FFA0[j].bbox.max.y));
+                gdl = envSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl++, dword_CODE_bss_8007FFA0[j].bbox.min.x, dword_CODE_bss_8007FFA0[j].bbox.min.y, dword_CODE_bss_8007FFA0[j].bbox.max.x, dword_CODE_bss_8007FFA0[j].bbox.max.y));
  
                 if (lvGetBgRenderEnabled())
                 {
@@ -451,7 +451,7 @@ Gfx *bgRender(Gfx *gdl)
                 }
 
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)camGetPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
-                gdl = fogRenderClearFogMode(gdl);
+                gdl = envRenderClearFogMode(gdl);
  
                 if (lvGetBgRenderEnabled())
                 {
@@ -974,7 +974,7 @@ Gfx *bgSetupAndRender(Gfx *gdl)
     }
     else
     {
-        gdl = fogRenderClearFogMode(bgScissorCurrentPlayerViewDefault(bgRenderWrapper(fogSetRenderFogColor(gdl))));
+        gdl = envRenderClearFogMode(bgScissorCurrentPlayerViewDefault(bgRenderWrapper(envSetRenderFogColor(gdl))));
     }
 
     gSPMatrix(gdl++, g_viProjectionMatrix, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);

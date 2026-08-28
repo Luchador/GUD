@@ -2642,7 +2642,7 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
         }
     }
 
-    spBC = fogGetPropDistColor(prop, &spC0);
+    spBC = envGetPropDistColor(prop, &spC0);
     if (spBC != 0)
     {
         if (chrfadealpha > 0)

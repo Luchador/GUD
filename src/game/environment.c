@@ -1,11 +1,11 @@
 #include <ultra64.h>
 #include <bondtypes.h>
 #include <bondconstants.h>
+#include <limits.h>
 #include <fr.h>
 #include "bg.h"
 #include "bondview.h"
-#include "bgfog.h"
-#include <limits.h>
+#include "environment.h"
 
 
 s32 g_FogSkyIsEnabled;
@@ -54,11 +54,7 @@ CurrentEnvironmentRecord g_CurrentEnvironment = {
         0.0f  // f32 WaterConcavity;
 };
 
-s32 D_80044E08 = 0;
-s32 D_80044E0C = 0;
-
-
-EnvironmentRecord fog_tables[] = {
+EnvironmentRecord g_EnvTable[] = {
      //stageID                              blendmultiplier    farfog    nearfog  mvisrng  mobfnrng  mnvisrng   intensity  dif_ght  far_alight    red     green     blue    clouds   cloudrept skyimid reserved  cloudred   green    blue   iswater  padding[3]  waterrepeat  waterid reserved2   water red,green,blue  waterconcavity
     {LEVELID_STATUE                             ,        15,      3500,    2000,     2500,    2000,        0,      0x3E7,    0x3E4,    0x3E8,       0,       0,       8,        1,      5000,    0,        0,        170,    100,     40,        0,    0,0,0,         -1000,       0,        0,        0,     0,    0,    30.0 },
     {LEVELID_CONTROL                            ,        10,     10000,    2500,     5000,     800,        0,      0x3E7,    0x3E4,    0x3E8,       0,       0,       0,        0,         0,    0,        0,          0,      0,      0,        0,    0,0,0,             0,       0,        0,        0,     0,    0,     0.0 },
@@ -110,8 +106,7 @@ EnvironmentRecord fog_tables[] = {
     {ENVIRONMENTDATA_END},
 };
 
-
-EnvironmentFoglessRecord fog_tables2[] = {
+EnvironmentFoglessRecord g_EnvTable2[] = {
     {LEVELID_NONE   ,    0,       0x10,    0x40,    0,        5000.0,        0,        0,        255.0,        255.0,        255.0,        0,        0,        0,        0,           0.0,        0,        0,          0.0,          0.0,          0.0,        0.0},
     {LEVELID_FRIGATE,    0x10,    0x30,    0x60,    1,        3000.0,        0,        0,        230.0,        230.0,        230.0,        1,        0,        0,        0,        -150.0,        2,        0,        255.0,        255.0,        150.0,        0.0},
     {LEVELID_CUBA   ,    0x30,    0x40,    0x10,    0,        5000.0,        0,        0,        255.0,        255.0,        255.0,        0,        0,        0,        0,           0.0,        0,        0,          0.0,          0.0,          0.0,        0.0},
@@ -120,45 +115,32 @@ EnvironmentFoglessRecord fog_tables2[] = {
 
 // Begin forward declarations.
 
-void fogLoadCurrentEnvironment(EnvironmentRecord *arg0);
-void fogLoadFoglessCurrentEnvironment(EnvironmentFoglessRecord *arg0);
+void envLoadCurrentEnvironment(EnvironmentRecord *arg0);
+void envLoadFoglessCurrentEnvironment(EnvironmentFoglessRecord *arg0);
 
 // End forward declarations.
 
 
-CurrentEnvironmentRecord *fogGetCurrentEnvironmentp(void)
+CurrentEnvironmentRecord *envGetCurrent(void)
 {
     return &g_CurrentEnvironment;
 }
 
 
-f32 fogGetScaledFarFogIntensitySquared(void)
+f32 envGetScaledFarFogIntensitySquared(void)
 {
     return g_ScaledFarFogIntensity * g_ScaledFarFogIntensity;
 }
 
 
-/**
- * Address 0x7F0BA758.
-*/
-void fogLoadCurrentEnvironment(EnvironmentRecord *arg0)
+void envLoadCurrentEnvironment(EnvironmentRecord *arg0)
 {
-    f32 zrange[2]; // 48
+    f32 zrange[2];
     f32 pk0;
     f32 pk4;
     f32 temp_f0;
-    f32 sp20; // 32
-    f32 sp1C; // 28
-#ifdef DEBUG
-    f32 fmin; // hoisted to global
-    f32 fmax; // hoisted to global
-    fmin = arg0->Visibility.Nfd.NearFog / 1000;
-    assert(0.0F <= fmin);
-    assert(fmin <= 1.0F);
-    fmax = arg0->Visibility.Nfd.MaxVisRange / 1000;
-    assert(0.0F <= fmax);
-    assert(fmax <= 1.0F);
-#endif
+    f32 sp20;
+    f32 sp1C;
 
     viSetZRange(arg0->Visibility.BlendMultiplier, arg0->Visibility.FarFog);
     viGetZRange(&zrange);
@@ -204,9 +186,7 @@ void fogLoadCurrentEnvironment(EnvironmentRecord *arg0)
     g_CurrentEnvironment.WaterBlue = arg0->Sky.WaterBlue;
     g_CurrentEnvironment.WaterConcavity = arg0->Sky.WaterConcavity;
 
-    #define FOG_ZERO 0.0f
-
-    if (arg0->Visibility.Nfd.NearFog == FOG_ZERO)
+    if (arg0->Visibility.Nfd.NearFog == 0.0f)
     {
         g_NearFogValuesP = NULL;
     }
@@ -215,37 +195,32 @@ void fogLoadCurrentEnvironment(EnvironmentRecord *arg0)
         g_NearFogValuesP = &arg0->Visibility.Nfd;
     }
 
-#undef FOG_ZERO
-
     g_FogSkyIsEnabled = 1;
 }
 
 
-void fogLoadFoglessCurrentEnvironment(EnvironmentFoglessRecord *arg0)
+void envLoadFoglessCurrentEnvironment(EnvironmentFoglessRecord *foglessRecord)
 {
-    g_CurrentEnvironment.Red = arg0->Red;
-    g_CurrentEnvironment.Green = arg0->Green;
-    g_CurrentEnvironment.Blue = arg0->Blue;
-    g_CurrentEnvironment.Clouds = arg0->Clouds;
-    g_CurrentEnvironment.CloudRepeat = arg0->CloudRepeat;
-    g_CurrentEnvironment.SkyImageId = arg0->SkyImageId;
-    g_CurrentEnvironment.CloudRed = arg0->CloudRed;
-    g_CurrentEnvironment.CloudGreen = arg0->CloudGreen;
-    g_CurrentEnvironment.CloudBlue = arg0->CloudBlue;
-    g_CurrentEnvironment.IsWater = arg0->IsWater;
-    g_CurrentEnvironment.WaterRepeat = arg0->WaterRepeat;
-    g_CurrentEnvironment.WaterImageId = arg0->WaterImageId;
-    g_CurrentEnvironment.WaterRed = arg0->WaterRed;
-    g_CurrentEnvironment.WaterGreen = arg0->WaterGreen;
-    g_CurrentEnvironment.WaterBlue = arg0->WaterBlue;
-    g_CurrentEnvironment.WaterConcavity = arg0->WaterConcavity;
+    g_CurrentEnvironment.Red = foglessRecord->Red;
+    g_CurrentEnvironment.Green = foglessRecord->Green;
+    g_CurrentEnvironment.Blue = foglessRecord->Blue;
+    g_CurrentEnvironment.Clouds = foglessRecord->Clouds;
+    g_CurrentEnvironment.CloudRepeat = foglessRecord->CloudRepeat;
+    g_CurrentEnvironment.SkyImageId = foglessRecord->SkyImageId;
+    g_CurrentEnvironment.CloudRed = foglessRecord->CloudRed;
+    g_CurrentEnvironment.CloudGreen = foglessRecord->CloudGreen;
+    g_CurrentEnvironment.CloudBlue = foglessRecord->CloudBlue;
+    g_CurrentEnvironment.IsWater = foglessRecord->IsWater;
+    g_CurrentEnvironment.WaterRepeat = foglessRecord->WaterRepeat;
+    g_CurrentEnvironment.WaterImageId = foglessRecord->WaterImageId;
+    g_CurrentEnvironment.WaterRed = foglessRecord->WaterRed;
+    g_CurrentEnvironment.WaterGreen = foglessRecord->WaterGreen;
+    g_CurrentEnvironment.WaterBlue = foglessRecord->WaterBlue;
+    g_CurrentEnvironment.WaterConcavity = foglessRecord->WaterConcavity;
 }
 
 
-/**
- * Address 0x7F0BAA64.
-*/
-void fogLoadLevelEnvironment(s32 level_id, s32 arg1)
+void envLoadLevelEnvironment(s32 level_id, s32 arg1)
 {
     EnvironmentRecord *phi_v1;
     EnvironmentFoglessRecord *phi_v2;
@@ -266,7 +241,7 @@ void fogLoadLevelEnvironment(s32 level_id, s32 arg1)
 
     if (arg1)
     {
-        for (phi_v1 = &fog_tables[0]; phi_v1->Id != 0; phi_v1++)
+        for (phi_v1 = &g_EnvTable[0]; phi_v1->Id != 0; phi_v1++)
         {
             if (phi_v1->Id == (level_id + 900))
             {
@@ -274,14 +249,14 @@ void fogLoadLevelEnvironment(s32 level_id, s32 arg1)
                 g_EnvironmentMainp = phi_v1;
                 g_EnvironmentAltp = phi_v1 + 1;
 
-                fogLoadCurrentEnvironment(g_EnvironmentFoundp);
+                envLoadCurrentEnvironment(g_EnvironmentFoundp);
 
                 return;
             }
         }
     }
 
-    for (phi_v1 = &fog_tables[0]; phi_v1->Id != 0; phi_v1++)
+    for (phi_v1 = &g_EnvTable[0]; phi_v1->Id != 0; phi_v1++)
     {
         if (phi_v1->Id == (level_id + (num_players * 100)))
         {
@@ -289,20 +264,15 @@ void fogLoadLevelEnvironment(s32 level_id, s32 arg1)
             g_EnvironmentMainp = phi_v1;
             g_EnvironmentAltp = phi_v1 + 1;
 
-            fogLoadCurrentEnvironment(g_EnvironmentFoundp);
+            envLoadCurrentEnvironment(g_EnvironmentFoundp);
 
             return;
         }
     }
 
-    if (1) // possibly if(level_id != 26) or another blanked printf
-    {
-        // removed
-    }
-
     if (num_players >= 2)
     {
-        for (phi_v1 = &fog_tables[0]; phi_v1->Id != 0; phi_v1++)
+        for (phi_v1 = &g_EnvTable[0]; phi_v1->Id != 0; phi_v1++)
         {
             if (phi_v1->Id == (num_players * 100))
             {
@@ -310,7 +280,7 @@ void fogLoadLevelEnvironment(s32 level_id, s32 arg1)
                 g_EnvironmentMainp = phi_v1;
                 g_EnvironmentAltp = phi_v1 + 1;
 
-                fogLoadCurrentEnvironment(g_EnvironmentFoundp);
+                envLoadCurrentEnvironment(g_EnvironmentFoundp);
 
                 return;
             }
@@ -320,75 +290,69 @@ void fogLoadLevelEnvironment(s32 level_id, s32 arg1)
     viSetZRange(15.0f, 10000.0f);
     g_FogSkyIsEnabled = 0;
 
-    for (phi_v2 = fog_tables2; phi_v2->Id != 0; phi_v2++)
+    for (phi_v2 = g_EnvTable2; phi_v2->Id != 0; phi_v2++)
     {
         if (phi_v2->Id == level_id)
         {
             sp1C = phi_v2;
-
-            if(1)
-            {
-                // removed.
-                // break or return maybe?
-            }
         }
     }
 
     if (sp1C == NULL)
     {
-        sp1C = &fog_tables2[0];
+        sp1C = &g_EnvTable2[0];
     }
 
-    fogLoadFoglessCurrentEnvironment(sp1C);
+    envLoadFoglessCurrentEnvironment(sp1C);
     g_EnvironmentFoundp = NULL;
 }
 
 
 /**
  * Switch to next Environment.
- * @param isTransition: Usually 0 for instant switch or 1 to transition gradually
+ * @param transitionTime: Usually 0 for instant switch or 1 to transition gradually
  */
-void fogSwitchToSolosky2(f32 arg0)
+void envSwitchToSoloSky2(f32 transitionTime)
 {
     static EnvironmentRecord static_envr;
 
     static_envr = *g_EnvironmentMainp;
 
     static_envr.Visibility.BlendMultiplier =
-        g_EnvironmentMainp->Visibility.BlendMultiplier + (arg0 * ((f32)g_EnvironmentAltp->Visibility.BlendMultiplier - (f32)g_EnvironmentMainp->Visibility.BlendMultiplier));
+        g_EnvironmentMainp->Visibility.BlendMultiplier + (transitionTime * ((f32)g_EnvironmentAltp->Visibility.BlendMultiplier - (f32)g_EnvironmentMainp->Visibility.BlendMultiplier));
 
     static_envr.Visibility.FarFog =
-        g_EnvironmentMainp->Visibility.FarFog + (arg0 * ((f32)g_EnvironmentAltp->Visibility.FarFog - (f32)g_EnvironmentMainp->Visibility.FarFog));
+        g_EnvironmentMainp->Visibility.FarFog + (transitionTime * ((f32)g_EnvironmentAltp->Visibility.FarFog - (f32)g_EnvironmentMainp->Visibility.FarFog));
 
     static_envr.Fog.DifferenceFromFarIntensity =
         (f32)g_EnvironmentMainp->Fog.DifferenceFromFarIntensity
-        + (arg0 * ((f32)g_EnvironmentAltp->Fog.DifferenceFromFarIntensity - (f32)g_EnvironmentMainp->Fog.DifferenceFromFarIntensity));
+        + (transitionTime * ((f32)g_EnvironmentAltp->Fog.DifferenceFromFarIntensity - (f32)g_EnvironmentMainp->Fog.DifferenceFromFarIntensity));
 
     static_envr.Fog.FarIntensity =
         (f32)g_EnvironmentMainp->Fog.FarIntensity
-        + (arg0 * ((f32)g_EnvironmentAltp->Fog.FarIntensity - (f32)g_EnvironmentMainp->Fog.FarIntensity));
+        + (transitionTime * ((f32)g_EnvironmentAltp->Fog.FarIntensity - (f32)g_EnvironmentMainp->Fog.FarIntensity));
 
     static_envr.Sky.Red =
         (f32)g_EnvironmentMainp->Sky.Red
-        + (arg0 * ((f32)g_EnvironmentAltp->Sky.Red - (f32)g_EnvironmentMainp->Sky.Red));
+        + (transitionTime * ((f32)g_EnvironmentAltp->Sky.Red - (f32)g_EnvironmentMainp->Sky.Red));
 
     static_envr.Sky.Green =
         (f32)g_EnvironmentMainp->Sky.Green
-        + (arg0 * ((f32)g_EnvironmentAltp->Sky.Green - (f32)g_EnvironmentMainp->Sky.Green));
+        + (transitionTime * ((f32)g_EnvironmentAltp->Sky.Green - (f32)g_EnvironmentMainp->Sky.Green));
 
     static_envr.Sky.Blue =
         (f32)g_EnvironmentMainp->Sky.Blue
-        + (arg0 * ((f32)g_EnvironmentAltp->Sky.Blue - (f32)g_EnvironmentMainp->Sky.Blue));
+        + (transitionTime * ((f32)g_EnvironmentAltp->Sky.Blue - (f32)g_EnvironmentMainp->Sky.Blue));
 
     static_envr.Sky.Red &= 0xf8;
     static_envr.Sky.Green &= 0xf8;
     static_envr.Sky.Blue &= 0xf8;
 
-    fogLoadCurrentEnvironment(&static_envr);
+    envLoadCurrentEnvironment(&static_envr);
 }
 
 
-Gfx *fogSetRenderFogColor(Gfx *gdl)
+Gfx *envSetRenderFogColor(Gfx *gdl)
 {
     if (!g_FogSkyIsEnabled)
     {
@@ -404,7 +368,7 @@ Gfx *fogSetRenderFogColor(Gfx *gdl)
 }
 
 
-Gfx *fogRenderClearFogMode(Gfx *gdl)
+Gfx *envRenderClearFogMode(Gfx *gdl)
 {
     if (!g_FogSkyIsEnabled)
     {
@@ -417,16 +381,16 @@ Gfx *fogRenderClearFogMode(Gfx *gdl)
 }
 
 
-s32 fogPositionIsVisibleThroughFog(coord3d *pos, f32 range)
+s32 envPositionIsVisibleThroughFog(coord3d *pos, f32 range)
 {
     coord3d sp24;
     f32 ff;
     coord3d *player_pos;
     Mtxf *player_mtx;
 
-    if (g_FogSkyIsEnabled == 0)
+    if (!g_FogSkyIsEnabled)
     {
-        return 1;
+        return TRUE;
     }
 
     player_pos = bondviewGetPlayerPosition();
@@ -440,22 +404,22 @@ s32 fogPositionIsVisibleThroughFog(coord3d *pos, f32 range)
 
     if (ff > (g_ScaledFarFogIntensity + range))
     {
-        return 0;
+        return FALSE;
     }
 
-    return 1;
+    return TRUE;
 }
 
 
-NearFogRecord *fogGetNearFogValuesP(void)
+NearFogRecord *envGetNearFogValues(void)
 {
     return g_NearFogValuesP;
 }
 
 
-s32 fogGetPropDistColor(PropRecord *prop, rgba_f32 *color)
+s32 envGetPropDistColor(PropRecord *prop, rgba_f32 *color)
 {
-    if (g_FogSkyIsEnabled == 0)
+    if (!g_FogSkyIsEnabled)
     {
         return 2; // No fog, props cannot be obscured by fog
     }

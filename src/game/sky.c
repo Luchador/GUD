@@ -5,7 +5,7 @@
 #include "unk_092E50.h"
 #include "bondview.h"
 #include "lv.h"
-#include "bgfog.h"
+#include "environment.h"
 #include "bg.h"
 #include "fr.h"
 #include "image_bank.h"
@@ -32,7 +32,7 @@ void skyGetWorldPosFromScreenPos(f32 offset_x, f32 offset_y, coord3d* out) {
     player_mtxf = currentPlayerGetViewToWorldMtxf();
     coords.x = getPlayer_c_screenleft() + offset_x;
     screen_top = getPlayer_c_screentop();
-    coords.y = fogGetCurrentEnvironmentp()->WaterConcavity + (offset_y + screen_top);
+    coords.y = envGetCurrent()->WaterConcavity + (offset_y + screen_top);
     transformAndNormalizeByLength2Dto3D(&coords, out, 100.0f);
     mtx4RotateVecInPlace(player_mtxf, out->f);
 }
@@ -49,7 +49,7 @@ bool skyIsScreenCornerInSky(coord3d *corner3dpos, coord3d *dstpos, f32 *dstfrac)
     f32 sp24;
     u32 stack[2];
 #ifdef DEBUG
-    assert(eye[1] < fogGetCurrentEnvironmentp()->skyheight); //canonically bgFogGet()
+    assert(eye[1] < envGetCurrent()->skyheight); //canonically bgFogGet()
 #endif
 
     if (f12 > 1.0f)
@@ -70,7 +70,7 @@ bool skyIsScreenCornerInSky(coord3d *corner3dpos, coord3d *dstpos, f32 *dstfrac)
 
     if (sp24 > 0.0f)
     {
-        sp2c = (fogGetCurrentEnvironmentp()->CloudRepeat - eye->y) / sp24;
+        sp2c = (envGetCurrent()->CloudRepeat - eye->y) / sp24;
         f12_2 = sqrtf(corner3dpos->f[0] * corner3dpos->f[0] + corner3dpos->f[2] * corner3dpos->f[2]) * sp2c;
 
         if (f12_2 > 300000)
@@ -101,7 +101,7 @@ bool skyIsCornerInWater(coord3d *corner3dpos, coord3d *dstpos, f32 *dstfrac)
     f32 sp24;
     u32 stack[2];
 #ifdef DEBUG
-    assert(eye[1] < fogGetCurrentEnvironmentp()->seaheight);
+    assert(eye[1] < envGetCurrent()->seaheight);
 #endif
 
     if (f12 > 1.0f)
@@ -122,7 +122,7 @@ bool skyIsCornerInWater(coord3d *corner3dpos, coord3d *dstpos, f32 *dstfrac)
 
     if (sp24 < 0.0f)
     {
-        sp2c = (fogGetCurrentEnvironmentp()->WaterRepeat - eye->y) / sp24;
+        sp2c = (envGetCurrent()->WaterRepeat - eye->y) / sp24;
         f12_2 = sqrtf(corner3dpos->f[0] * corner3dpos->f[0] + corner3dpos->f[2] * corner3dpos->f[2]) * sp2c;
 
         if (f12_2 > 300000)
@@ -177,14 +177,14 @@ f32 skyRound(f32 arg0)
 
 void skyChooseCloudVtxColour(SkyRelated18 *arg0, f32 arg1)
 {
-    f32 r = fogGetCurrentEnvironmentp()->Red;
-    f32 g = fogGetCurrentEnvironmentp()->Green;
-    f32 b = fogGetCurrentEnvironmentp()->Blue;
+    f32 r = envGetCurrent()->Red;
+    f32 g = envGetCurrent()->Green;
+    f32 b = envGetCurrent()->Blue;
     u32 unused;
 
-    arg0->r = r + fogGetCurrentEnvironmentp()->CloudRed   * (1.0f - r / 255.0f) * (1.0f - arg1);
-    arg0->g = g + fogGetCurrentEnvironmentp()->CloudGreen * (1.0f - g / 255.0f) * (1.0f - arg1);
-    arg0->b = b + fogGetCurrentEnvironmentp()->CloudBlue  * (1.0f - b / 255.0f) * (1.0f - arg1);
+    arg0->r = r + envGetCurrent()->CloudRed   * (1.0f - r / 255.0f) * (1.0f - arg1);
+    arg0->g = g + envGetCurrent()->CloudGreen * (1.0f - g / 255.0f) * (1.0f - arg1);
+    arg0->b = b + envGetCurrent()->CloudBlue  * (1.0f - b / 255.0f) * (1.0f - arg1);
 
     arg0->a = 0xff;
 }
@@ -194,14 +194,14 @@ void skyChooseCloudVtxColour(SkyRelated18 *arg0, f32 arg1)
 */
 void skyChooseWaterVtxColour(SkyRelated18 *arg0, f32 arg1)
 {
-    f32 r = fogGetCurrentEnvironmentp()->Red;
-    f32 g = fogGetCurrentEnvironmentp()->Green;
-    f32 b = fogGetCurrentEnvironmentp()->Blue;
+    f32 r = envGetCurrent()->Red;
+    f32 g = envGetCurrent()->Green;
+    f32 b = envGetCurrent()->Blue;
     u32 unused;
 
-    arg0->r = r + fogGetCurrentEnvironmentp()->WaterRed   * (1.0f - r / 255.0f) * (1.0f - arg1);
-    arg0->g = g + fogGetCurrentEnvironmentp()->WaterGreen * (1.0f - g / 255.0f) * (1.0f - arg1);
-    arg0->b = b + fogGetCurrentEnvironmentp()->WaterBlue  * (1.0f - b / 255.0f) * (1.0f - arg1);
+    arg0->r = r + envGetCurrent()->WaterRed   * (1.0f - r / 255.0f) * (1.0f - arg1);
+    arg0->g = g + envGetCurrent()->WaterGreen * (1.0f - g / 255.0f) * (1.0f - arg1);
+    arg0->b = b + envGetCurrent()->WaterBlue  * (1.0f - b / 255.0f) * (1.0f - arg1);
     arg0->a = 0xff;
 }
 
@@ -314,9 +314,9 @@ Gfx *skyRender(Gfx *gdl)
 
     scale = bgGetRoomScale() / 30.0f;
     sp430 = FALSE;
-    env = fogGetCurrentEnvironmentp();
+    env = envGetCurrent();
 
-    if (!fogGetCurrentEnvironmentp()->Clouds)
+    if (!envGetCurrent()->Clouds)
     {
         if (getPlayerCount() == 1)
         {
@@ -825,7 +825,7 @@ Gfx *skyRender(Gfx *gdl)
             }
         }
 
-        if (!fogGetCurrentEnvironmentp()->IsWater)
+        if (!envGetCurrent()->IsWater)
         {
             f32 f14 = 1279.0f;
             f32 f2 = 0.0f;
@@ -853,7 +853,7 @@ Gfx *skyRender(Gfx *gdl)
         {
             gDPPipeSync(gdl++);
 
-            texSelect(&gdl, &skywaterimages[fogGetCurrentEnvironmentp()->WaterImageId], 1, 0, 2);
+            texSelect(&gdl, &skywaterimages[envGetCurrent()->WaterImageId], 1, 0, 2);
             gdl = sub_GAME_7F09343C(gdl, 0); // ???
             gDPSetRenderMode(gdl++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
 
@@ -1272,11 +1272,11 @@ Gfx *skyRender(Gfx *gdl)
 
     gDPPipeSync(gdl++);
 
-    texSelect(&gdl, &skywaterimages[fogGetCurrentEnvironmentp()->SkyImageId], 1, 0, 2);
+    texSelect(&gdl, &skywaterimages[envGetCurrent()->SkyImageId], 1, 0, 2);
 
     if (1);
 
-    gDPSetEnvColor(gdl++, fogGetCurrentEnvironmentp()->Red, fogGetCurrentEnvironmentp()->Green, fogGetCurrentEnvironmentp()->Blue, 0xff);
+    gDPSetEnvColor(gdl++, envGetCurrent()->Red, envGetCurrent()->Green, envGetCurrent()->Blue, 0xff);
     gDPSetCombineLERP(gdl++,
             SHADE, ENVIRONMENT, TEXEL0, ENVIRONMENT, 0, 0, 0, SHADE,
             SHADE, ENVIRONMENT, TEXEL0, ENVIRONMENT, 0, 0, 0, SHADE);
@@ -1416,7 +1416,7 @@ void sub_GAME_7F097388(SkyRelated18 *arg0, Mtxf *arg1, u16 arg2, f32 arg3, f32 a
     arg5->unk20 = sp60;
     arg5->unk24 = sp64;
     arg5->unk28 = sp38[0];
-    arg5->unk2c = sp38[1] - fogGetCurrentEnvironmentp()->WaterConcavity * 4.0f;
+    arg5->unk2c = sp38[1] - envGetCurrent()->WaterConcavity * 4.0f;
     arg5->unk30 = sp38[2];
     arg5->unk34 = f22;
 

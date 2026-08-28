@@ -91,7 +91,7 @@
       build/OUTCODE/src/game/stanintersection.o (.bss);
       build/OUTCODE/src/game/bg.o (.bss);
       build/OUTCODE/src/game/bgapply.o (.bss);
-      build/OUTCODE/src/game/bgfog.o (.bss);
+      build/OUTCODE/src/game/environment.o (.bss);
       build/OUTCODE/src/game/lightfixture.o (.bss);
       build/OUTCODE/src/game/bgroomtrans.o (.bss);
       build/OUTCODE/src/game/ob.o (.bss);
