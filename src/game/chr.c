@@ -34,9 +34,13 @@
 #include "model.h"
 #include "tex.h"
 
-#define GROUND_SMOOTH_FACTOR 0.100000024f /* 0x3DCCCCD0 */
-#define FALLSPEED_DECAY      0.9f         /* 0x3F666666 */
+#define GROUND_SMOOTH_FACTOR 0.100000024f
+#define FALLSPEED_DECAY      0.9f
 
+// Fade optimization definitions.
+#define CHRFADE_START_PX 12.5f
+#define CHRFADE_END_PX   10.0f
+#define CHRFADE_DIAMETER 200.0f
 
 // Begin forward declarations.
 
@@ -2156,6 +2160,47 @@ void chrUpdateAnim(ChrRecord *chr, s32 tickamount)
 
 
 /**
+ * Character screen size fade. We pretend a character is a 1 meter radius sphere,
+ * or 200 cm in diamter then calculate approximately how many screen pixels it occupies
+ * using the chr's view dpeth. Under CHRFADE_START_PX the character starts to fade
+ * and by CHRFADE_END_PX it's invisible, skipping matrix building and rendering.
+ *
+ * Under CHRFADE_START_PX the character fades; at or under
+ * CHRFADE_END_PX it is invisible and chrTick skips matrix building
+ * and on-screen registration.
+ */
+static s32 chrCalcScreenFadeAlpha(PropRecord *prop)
+{
+    Mtxf *wts;
+    f32 viewdepth;
+    f32 px;
+
+    wts = camGetWorldToScreenMtxf();
+
+    viewdepth = -((wts->m[0][2] * prop->pos.x) + (wts->m[1][2] * prop->pos.y) + (wts->m[2][2] * prop->pos.z) + wts->m[3][2]);
+
+    if (viewdepth < 10.0f)
+    {
+        return 255; /* at or behind the camera */
+    }
+
+    px = (CHRFADE_DIAMETER * g_CurrentPlayer->c_recipscaley) / viewdepth;
+
+    if (px <= CHRFADE_END_PX)
+    {
+        return 0;
+    }
+
+    if (px >= CHRFADE_START_PX)
+    {
+        return 255;
+    }
+
+    return (s32) (255.0f * ((px - CHRFADE_END_PX) / (CHRFADE_START_PX - CHRFADE_END_PX)));
+}
+
+
+/**
  *   This function does the following:
  * - Drive character animations
  * - Remove characters if needed
@@ -2331,6 +2376,16 @@ after_position_update:
     {
         modelHitFreeChain(chr->hitChain);
         chr->hitChain = NULL;
+    }
+
+    /** 
+     * New feature: screen-size fade. A fully faded character skips matrix
+     * building and on-screen registration and takes the normal
+     * offscreen path. Depth is computed inside the helper.
+     */
+    if (isOnScreen && !(chr->chrflags & CHRFLAG_NOFADE) && (chrCalcScreenFadeAlpha(prop) == 0))
+    {
+        isOnScreen = 0;
     }
 
     if (isOnScreen)
@@ -2554,10 +2609,13 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
     chrmodel = chr->model;
     chrfadealpha = (s32) chr->fadealpha;
 
-    if (!(chr->chrflags & CHRFLAG_04000000))
+    if (!(chr->chrflags & CHRFLAG_NOFADE))
     {
         f32 f = chrobjFogVisRangeRelated(prop, modelGetInstSize(chrmodel)); //0-1
         chrfadealpha = (s32) (f * (f32) chrfadealpha);
+
+        /* GUD screen-size fade (see chrCalcScreenFadeAlpha) */
+        chrfadealpha = (chrfadealpha * chrCalcScreenFadeAlpha(prop)) / 255;
     }
 
     if ((chrfadealpha < 0xFF) || (chr->chrflags & CHRFLAG_00020000))

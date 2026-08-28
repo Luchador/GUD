@@ -215,7 +215,7 @@ typedef enum CHRFLAG
     CHRFLAG_CULL_USING_HITBOX            = 0x00800000 , // cull chr using hitbox instead of tile/clipping (useful with lock y pos flag)
     CHRFLAG_01000000                     = 0x01000000 , // unknown
     CHRFLAG_02000000                     = 0x02000000 , // unknown
-    CHRFLAG_04000000                     = 0x04000000 , // unknown NoFade
+    CHRFLAG_NOFADE                       = 0x04000000 , // Exempt from distance culling.
     CHRFLAG_08000000                     = 0x08000000 , // unknown
     CHRFLAG_10000000                     = 0x10000000 , // unknown
     CHRFLAG_20000000                     = 0x20000000 , // unknown

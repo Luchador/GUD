@@ -53,18 +53,9 @@
 #include "vtxstore.h"
 
 
-#if defined(VERSION_JP)
-#define MONITOR_TIMER_DELTA g_JP_GlobalTimerDelta
-#else
+
 #define MONITOR_TIMER_DELTA g_GlobalTimerDelta
-#endif
-
-#if defined(VERSION_JP)
-#define OBJECT_INTERACTION_TIMER_DELTA g_JP_GlobalTimerDelta
-#else
 #define OBJECT_INTERACTION_TIMER_DELTA g_GlobalTimerDelta
-#endif
-
 #define PROXIMITY_MINE_TRIGGER_DISTANCE 62500.0f
 
 // aprox 135 deg/s/s divided by 60fps
@@ -116,7 +107,10 @@
 
 #define CCTV_ALARM_FRAMES 300.0f
 
-
+// Object fade optimizatino definitions.
+#define OBJFADE_START_PX     12.5f
+#define OBJFADE_END_PX       10.0f
+#define OBJFADE_MIN_DIAMETER 200.0f
 
 /* From the decomp.me ctx -- not present in any repo header. Without the macro,
  * C89 turns U32_TO_F32(...) into an implicit function call (5 sites, ~31 insns
@@ -130,30 +124,30 @@
 #define ROCKET_INITIAL_GRAVITY_MODIFIER  0.27777779f
 #define PROP_PROJECTILE_GRAVITY_MODIFIER 0.27777779f
 
-/* 0x80030AC8 */ s32 alarm_timer = 0;
-/* 0x80030ACC */ s32 *ptr_alarm_sfx = 0;
-/* 0x80030AD0 */ f32 toxic_gas_sound_timer = 0.0;
-/* 0x80030AD4 */ s32 activate_gas_sound_timer = FALSE;
-/* 0x80030AD8 */ coord3d gasLeakSource = { 0.0f, 0.0f, 0.0f };
-/* 0x80030ADC */ s32 D_80030ADC = 0;
-/* 0x80030AE0 */ f32 gasLeakTimer = 0.0f;
-/* 0x80030AE4 */ ALSoundState *ptr_gas_sound = NULL;
-/* 0x80030AE8 */ s32 clock_drawn_flag = 1;
-/* 0x80030AEC */ s32 clock_enable = 0;
-/* 0x80030AF0 */ f32 clock_time = 0;
-/* 0x80030AF4 */ s32 g_RemoteMineOwnerTriggerFlag = 0;
-/* 0x80030AF8 */ s32 g_NextWeaponSlot = 0; // numbers between 0 and 30
-/* 0x80030AFC */ s32 g_NextHatSlot = 0;
-/* 0x80030B00 */ ObjectRecord *g_LevelLoadPropSwitch = NULL;
-/* 0x80030B04 */ LockDoorRecord *g_LevelLoadPropLockDoor = NULL;
-/* 0x80030B08 */ ObjectRecord *g_LevelLoadPropSafeItem = NULL;
-/* 0x80030B0C */ struct PropRecord * D_80030B0C = NULL;
-/* 0x80030B10 */ s32 bodypartshot = 0xFFFFFFFF;
-/* 0x80030B14 */ f32 g_CctvAlarmDelayMult = 1.0;
-/* 0x80030B18 */ f32 g_CctvTakenDamageMult = 1.0;
-/* 0x80030B1C */ f32 g_AutogunPendingDamageTick = 1.0;
-/* 0x80030B20 */ f32 g_AutogunDamageScalar = 1.0;
-/* 0x80030B24 */ f32 g_AutogunTakenDamageMult = 1.0;
+s32 alarm_timer = 0;
+s32 *ptr_alarm_sfx = 0;
+f32 toxic_gas_sound_timer = 0.0;
+s32 activate_gas_sound_timer = FALSE;
+coord3d gasLeakSource = { 0.0f, 0.0f, 0.0f };
+s32 D_80030ADC = 0;
+f32 gasLeakTimer = 0.0f;
+ALSoundState *ptr_gas_sound = NULL;
+s32 clock_drawn_flag = 1;
+s32 clock_enable = 0;
+f32 clock_time = 0;
+s32 g_RemoteMineOwnerTriggerFlag = 0;
+s32 g_NextWeaponSlot = 0; // numbers between 0 and 30
+s32 g_NextHatSlot = 0;
+ObjectRecord *g_LevelLoadPropSwitch = NULL;
+LockDoorRecord *g_LevelLoadPropLockDoor = NULL;
+ObjectRecord *g_LevelLoadPropSafeItem = NULL;
+struct PropRecord * D_80030B0C = NULL;
+s32 bodypartshot = 0xFFFFFFFF;
+f32 g_CctvAlarmDelayMult = 1.0;
+f32 g_CctvTakenDamageMult = 1.0;
+f32 g_AutogunPendingDamageTick = 1.0;
+f32 g_AutogunDamageScalar = 1.0;
+f32 g_AutogunTakenDamageMult = 1.0;
 
 /*
 * Set on level load.
@@ -7250,6 +7244,47 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
 }
 
 
+ /**
+  * Companion to chrCalcScreenFadeAlpha to fade and then stop rendering objects based on how many screen pixels they occupy.
+  * Floored at OBJFADE_MIN_DIAMETER so small objects don't fade away too quickly.
+  */
+static s32 objCalcScreenFadeAlpha(PropRecord *prop, f32 diameter)
+{
+    Mtxf *wts;
+    f32 viewdepth;
+    f32 px;
+
+    if (diameter < OBJFADE_MIN_DIAMETER)
+    {
+        diameter = OBJFADE_MIN_DIAMETER;
+    }
+
+    wts = camGetWorldToScreenMtxf();
+
+    viewdepth = -((wts->m[0][2] * prop->pos.x) + (wts->m[1][2] * prop->pos.y)
+                + (wts->m[2][2] * prop->pos.z) + wts->m[3][2]);
+
+    if (viewdepth < 10.0f)
+    {
+        return 255; /* at or behind the camera */
+    }
+
+    px = (diameter * g_CurrentPlayer->c_recipscaley) / viewdepth;
+
+    if (px <= OBJFADE_END_PX)
+    {
+        return 0;
+    }
+
+    if (px >= OBJFADE_START_PX)
+    {
+        return 255;
+    }
+
+    return (s32) (255.0f * ((px - OBJFADE_END_PX) / (OBJFADE_START_PX - OBJFADE_END_PX)));
+}
+
+
 Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
 {
     struct rgba_f32 spB0;
@@ -7287,6 +7322,9 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
         }
 
         objAlpha = (s32) (temp_f0 * 255.0f);
+
+        /* GUD screen-size fade (see objCalcScreenFadeAlpha above) */
+        objAlpha = (objAlpha * objCalcScreenFadeAlpha(prop, 2.0f * modelGetInstSize(obj->model))) / 255;
 
         if (objAlpha <= 0)
         {
