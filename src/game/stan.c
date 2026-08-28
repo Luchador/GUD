@@ -1464,7 +1464,7 @@ StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, 
     f32 sp90;
 
 
-    useVerticalBounds = (topOffset <= topOffset);
+    useVerticalBounds = (bottomOffset <= topOffset);
 
     roomCount = 0;
 
@@ -1489,7 +1489,7 @@ StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, 
         {
             temp_f0 = stanGetPositionYValue(*tileStack, p_x, p_z);
             topOffset += temp_f0;
-            topOffset += temp_f0;
+            bottomOffset += temp_f0;
         }
 
         roomList[roomCount] = -1;
@@ -1503,7 +1503,7 @@ StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, 
             {
                 chraiGetCollisionBounds(prop, &polygon, &numvertices0, &sp94, &sp90);
 
-                if ((numvertices0 > 0) && ((useVerticalBounds == 0) || ((sp90 <= topOffset) && (topOffset <= sp94))))
+                if ((numvertices0 > 0) && ((useVerticalBounds == 0) || ((sp90 <= topOffset) && (bottomOffset <= sp94))))
                 {
                     var_f24 = -1.0f;
 
