@@ -135,9 +135,7 @@ LIBULTRA_IO_C_FILES := \
     pigetstat \
     pirawdma \
     pirawread \
-    pirawwrite \
     piread \
-    piwrite \
     siacs \
     si \
     sirawdma \

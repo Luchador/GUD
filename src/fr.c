@@ -11,11 +11,6 @@
 #include "game/bondview.h"
 #include "game/viewport.h"
 #include "game/dyn.h"
-#ifdef ENABLE_USB
-#include "usb.h"
-#endif
-
-
 // same codegen as (x & 0xffff)
 #define TO_U16_A(x) ((u16)(x))
 // same codegen as ((u16)(x))

@@ -45,16 +45,6 @@ void updateFrameCounters(s32 deltaFrames)
     currentFrameCounter = (s32) (currentFrameCounter + deltaFrames);
     speedgraphframes = deltaFrames;
 
-    #ifdef ENABLE_USB
-    {
-        // TEMP: per-frame frame-time telemetry over the USB debug link.
-        // Uses the count pair maintained just above; %d.%03d avoids needing
-        // float printf support.
-        /*u32 frameUs = OS_CYCLES_TO_USEC(copy_of_osgetcount_value_1 - copy_of_osgetcount_value_0);
-        osSyncPrintf("frame: %d.%03d ms (%d vsync)\n", frameUs / 1000, frameUs % 1000, deltaFrames);*/
-    }
-    #endif
-
     previousFrameCounter = (s32) halfFrameCounter;
     halfFrameCounter = (s32) (currentFrameCounter / 2);
     isFrameCounterOdd = (s32) (currentFrameCounter & 1);

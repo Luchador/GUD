@@ -94,17 +94,12 @@ ifeq ($(VERSION), DEBUG)
  LDFILEOPTS := -DVERSION_$(LANG) -DOUTCODE=$(OUTCODE)
 endif
 
-ifeq ($(VERSION), USB)
- COUNTRYCODE := u
- OUTCODE := usb
- LANG := US
- LCDEFS := -DVERSION_US -DLANG_US -DREFRESH_NTSC -DLEFTOVERDEBUG -DDEBUGMENU -DENABLE_USB
- ASMDEFS := --defsym VERSION_US=1 --defsym LANG_US=1 --defsym REFRESH_NTSC=1 --defsym LEFTOVERDEBUG=1 --defsym DEBUGMENU=1 --defsym ENABLE_USB=1
- LDFILEOPTS := -DVERSION_$(LANG) -DOUTCODE=$(OUTCODE) -DENABLE_USB
-endif
-
-ALLOWED_VERSIONS := US EU JP DEBUG USB
+ALLOWED_VERSIONS := US EU JP DEBUG
 ALLOWED_COUNTRYCODE := u e j
+
+ifeq ($(filter $(VERSION),$(ALLOWED_VERSIONS)),)
+ $(error Unsupported VERSION '$(VERSION)'. Supported values: $(ALLOWED_VERSIONS))
+endif
 
 BUILD_DIR_BASE := build
 # BUILD_DIR is the location where all build artefacts are placed
@@ -234,7 +229,7 @@ OBJCOPY := $(TOOLCHAIN)objcopy
 .NOTPARALLEL: print_info create_directories $(APPROM)
 
 # Phony Recipes - These targets are not files, Get Make to do something
-.PHONY: print_info create_directories build_tools prerequisites all_p1 all default commonclean setupclean stanclean dataclean libultraclean codeclean clean nuke help cmdbuidler context extractassets forceextractassets textures extract_u extract_e extract_j force_extract_u force_extract_e force_extract_j extract_rsp extract_usb extract_d
+.PHONY: print_info create_directories build_tools prerequisites all_p1 all default commonclean setupclean stanclean dataclean libultraclean codeclean clean nuke help cmdbuidler context extractassets forceextractassets textures extract_u extract_e extract_j force_extract_u force_extract_e force_extract_j extract_rsp extract_d
 
 
 # this file references variables defined above: BUILD_DIR, CFLAGWARNING, INCLUDE, LCDEFS
@@ -427,21 +422,12 @@ extractassets: extract_u extract_e extract_j
 
 forceextractassets: force_extract_u force_extract_e force_extract_j
 
-# The DEBUG/USB builds share the US baserom's extracted assets (they are US
-# content). Seed their build dirs from a completed US asset stage.
-extract_usb:
-	@if [ ! -f build/u/ge007.u.z64 ]; then $(MAKE) VERSION=US; fi
-	@mkdir -p build/usb/assets
-	@cp -rn build/u/assets/. build/usb/assets/ 2>/dev/null || true
-
+# The DEBUG build shares the US baserom's extracted assets.
 extract_d:
 	@if [ ! -f build/u/ge007.u.z64 ]; then $(MAKE) VERSION=US; fi
 	@mkdir -p build/d/assets
 	@cp -rn build/u/assets/. build/d/assets/ 2>/dev/null || true
 
-ifeq ($(VERSION), USB)
-extractassets: extract_usb
-endif
 ifeq ($(VERSION), DEBUG)
 extractassets: extract_d
 endif

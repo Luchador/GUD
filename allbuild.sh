@@ -3,7 +3,7 @@
 declare -A build_times
 
 # Define the builds to run
-build_types=("US" "EU" "JP" "DEBUG" "USB")
+build_types=("US" "EU" "JP" "DEBUG")
 
 for type in "${build_types[@]}"; do
     make clean VERSION=$type
