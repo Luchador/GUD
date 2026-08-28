@@ -42,6 +42,7 @@
 #include "player.h"
 #include "propobj.h"
 #include "quaternion.h"
+#include "radar.h"
 #include "random.h"
 #include "stan.h"
 #include "stanintersection.h"
@@ -8954,7 +8955,11 @@ Gfx *bondviewRenderPlayerView(Gfx *gdl)
     gunDrawSight(&gdl);
     gdl = gunRenderAmmoDisplay(gdl);
     gdl = countdownTimerRender(gdl);
-    gdl = display_red_blue_on_radar(gdl);
+
+    if (getPlayerCount() != 1)
+    {
+        gdl = radarRender(gdl);
+    }
 
     return currentPlayerDrawFade(gdl);
 }

@@ -6,22 +6,10 @@
 #include <bondtypes.h>
 #include <snd.h>   
 
-#ifdef VERSION_EU
-
-#define CHROBJ_TIMETOREGEN   50
-#define CHROBJ_TIMETOREGEN_F 50.0f
-#define CHROBJ_GAS_TIMER 0x5dc /* 1500 */
-
-#define PLASTIQUE_EXPLOSION_DELAY_TICKS 100
-
-#else
-
 #define CHROBJ_TIMETOREGEN   60
 #define CHROBJ_TIMETOREGEN_F 60.0f
-#define CHROBJ_GAS_TIMER 0x708 /* 1800 */
+#define CHROBJ_GAS_TIMER 1800
 #define PLASTIQUE_EXPLOSION_DELAY_TICKS 120
-
-#endif
 
 extern f32 g_CctvAlarmDelayMult;
 extern f32 g_CctvTakenDamageMult;

@@ -7,14 +7,8 @@
 #include "image_bank.h"
 
 
-/**
- * NTSC address 0x7F0C6090.
- * PAL address 0x7F0C55A0.
-*/
-
-Gfx *display_red_blue_on_radar(Gfx *DL)
+Gfx *radarRender(Gfx *gdl)
 {
-    s32 padding[4];
     s32 player_count;
     s32 cur_playernum;
     enum MPSCENARIOS current_scenario;
@@ -36,65 +30,53 @@ Gfx *display_red_blue_on_radar(Gfx *DL)
     s32 loop_start_top;
     f32 temp_f16;
 
-#if defined(VERSION_EU)
-    #define RADAR_TOP_OFFSET 0x1d
-    #define RADAR_RECT1_OFFSET 0x13
-    #define RADAR_RECT1_D 0x355
-    #define RADAR_VERT_SCALE 1.2f
-#else
-    #define RADAR_TOP_OFFSET 0x1a
-    #define RADAR_RECT1_OFFSET 0x10
-    #define RADAR_RECT1_D 0x400
+    #define RADAR_TOP_OFFSET 26
+    #define RADAR_RECT1_OFFSET 16
+    #define RADAR_RECT1_D 1024
     #define RADAR_VERT_SCALE 1.0f
-#endif
     
     current_scenario = get_scenario();
     cur_playernum = get_cur_playernum();
     player_count = getPlayerCount();
     
-    if (player_count == 1)
+    if ((g_CurrentPlayer->mpmenuon) || (g_CurrentPlayer->bondstate == BONDSTATE_JUST_DIED || g_CurrentPlayer->bondstate == BONDSTATE_DEAD))
     {
-        return DL;
+        return gdl;
     }
     
-    if ((g_CurrentPlayer->mpmenuon != FALSE) || (g_CurrentPlayer->bondstate == BONDSTATE_JUST_DIED || g_CurrentPlayer->bondstate == BONDSTATE_DEAD))
+    if (cheatIsActive(CHEAT_NO_RADAR_MP))
     {
-        return DL;
-    }
-    
-    if (cheatIsActive(CHEAT_NO_RADAR_MP) != 0)
-    {
-        return DL;
+        return gdl;
     }
 
-    start_left = (viGetViewLeft() + viGetViewWidth()) - 0x29;
+    start_left = (viGetViewLeft() + viGetViewWidth()) - 41;
     start_top = viGetViewTop() + RADAR_TOP_OFFSET;
     
     if ((player_count >= 3) && !(cur_playernum & 1))
     {
-        start_left += 0xF;
+        start_left += 15;
     }
     
-    texSelect(&DL, mpradarimages, 2, 0, 2);
+    texSelect(&gdl, mpradarimages, 2, 0, 2);
 
-    DL = gfxSetup2DTextureMode(DL);
+    gdl = gfxSetup2DTextureMode(gdl);
 
-    gDPSetCombineLERP(DL++, 0, 0, 0, PRIMITIVE, PRIMITIVE, 0, TEXEL0, 0, 0, 0, 0, PRIMITIVE, PRIMITIVE, 0, TEXEL0, 0);
-    gDPSetPrimColor(DL++, 0, 0, 0x00, 0x00, 0x00, 0xA0);
+    gDPSetCombineLERP(gdl++, 0, 0, 0, PRIMITIVE, PRIMITIVE, 0, TEXEL0, 0, 0, 0, 0, PRIMITIVE, PRIMITIVE, 0, TEXEL0, 0);
+    gDPSetPrimColor(gdl++, 0, 0, 0x00, 0x00, 0x00, 0xA0);
 
     gSPTextureRectangle(
-        DL++,
-        (start_left - 0x10) << 2,
+        gdl++,
+        (start_left - 16) << 2,
         (start_top - RADAR_RECT1_OFFSET) << 2,
-        (start_left + 0x10) << 2,
+        (start_left + 16) << 2,
         (start_top + RADAR_RECT1_OFFSET) << 2,
         G_TX_RENDERTILE,
-        0x10,
-        0x10,
-        0x400,
+        16,
+        16,
+        1024,
         RADAR_RECT1_D);
     
-    DL = gfxDrawTranslucentRect(DL, start_left - 2, start_top - 2, start_left + 2, start_top + 2, 0x40);
+    gdl = gfxDrawTranslucentRect(gdl, start_left - 2, start_top - 2, start_left + 2, start_top + 2, 64);
     
     if ((current_scenario == SCENARIO_2v2)
         || (current_scenario == SCENARIO_3v1)
@@ -102,7 +84,7 @@ Gfx *display_red_blue_on_radar(Gfx *DL)
         || (current_scenario == SCENARIO_TLD)
         || (current_scenario == SCENARIO_MWTGG))
     {
-        if (g_playerPlayerData[cur_playernum].have_token_or_goldengun == 0)
+        if (!g_playerPlayerData[cur_playernum].have_token_or_goldengun)
         {
             dl_color_1 = 0xFF7777FF;
         }
@@ -111,11 +93,11 @@ Gfx *display_red_blue_on_radar(Gfx *DL)
             dl_color_1 = 0x8888FFFF;
         }
         
-        DL = gfxDrawTranslucentRect(DL, start_left - 1, start_top - 1, start_left + 1, start_top + 1, dl_color_1);
+        gdl = gfxDrawTranslucentRect(gdl, start_left - 1, start_top - 1, start_left + 1, start_top + 1, dl_color_1);
     }
     else
     {
-        DL = gfxDrawTranslucentRect(DL, start_left - 1, start_top - 1, start_left + 1, start_top + 1, -0x60);
+        gdl = gfxDrawTranslucentRect(gdl, start_left - 1, start_top - 1, start_left + 1, start_top + 1, -96);
     }
 
     for (i = 0; i < player_count; i++)
@@ -128,8 +110,8 @@ Gfx *display_red_blue_on_radar(Gfx *DL)
                 other_player_prop = g_playerPointers[i]->prop;
                 player_prop = g_CurrentPlayer->prop;
 
-                temp_f20 = other_player_prop->pos.f[0] - player_prop->pos.f[0];
-                temp_f22 = other_player_prop->pos.f[2] - player_prop->pos.f[2];
+                temp_f20 = other_player_prop->pos.x - player_prop->pos.x;
+                temp_f22 = other_player_prop->pos.z - player_prop->pos.z;
                 
                 temp_f28 = ((atan2f(temp_f20, temp_f22) * 180.0f) / M_PI_F) + g_CurrentPlayer->vv_theta + 180.0f;
                 
@@ -147,7 +129,7 @@ Gfx *display_red_blue_on_radar(Gfx *DL)
                 {
                     if (temp_f2 < temp_f24)
                     {
-                        if (g_playerPlayerData[i].have_token_or_goldengun == 0)
+                        if (!g_playerPlayerData[i].have_token_or_goldengun)
                         {
                             dl_color_2 = 0xFF0000A0;
                         }
@@ -159,7 +141,8 @@ Gfx *display_red_blue_on_radar(Gfx *DL)
                     else
                     {
                         temp_f2 = temp_f24;
-                        if (g_playerPlayerData[i].have_token_or_goldengun == 0)
+
+                        if (!g_playerPlayerData[i].have_token_or_goldengun)
                         {
                             dl_color_2 = 0xFF000060;
                         }
@@ -172,6 +155,7 @@ Gfx *display_red_blue_on_radar(Gfx *DL)
                 else
                 {
                     dl_color_2 = 0xFFFF0060;
+    
                     if (temp_f2 < temp_f24)
                     {
                         dl_color_2 = 0xFFFF00A0;
@@ -182,17 +166,16 @@ Gfx *display_red_blue_on_radar(Gfx *DL)
                     }
                 }
 
-                // 0.017453292f = DegToRad(1)
-                loop_start_left = (s32) (sinf(temp_f28 * 0.017453292f) * temp_f2) + start_left;
-                loop_start_top = (s32) (cosf(temp_f28 * 0.017453292f) * temp_f2 * RADAR_VERT_SCALE) + start_top;
+                loop_start_left = (s32) (sinf(temp_f28 * DegToRad(1)) * temp_f2) + start_left;
+                loop_start_top = (s32) (cosf(temp_f28 * DegToRad(1)) * temp_f2 * RADAR_VERT_SCALE) + start_top;
                 
-                DL = gfxDrawTranslucentRect(DL, loop_start_left - 2, loop_start_top - 2, loop_start_left + 2, loop_start_top + 2, 0x40);
-                DL = gfxDrawTranslucentRect(DL, loop_start_left - 1, loop_start_top - 1, loop_start_left + 1, loop_start_top + 1, dl_color_2);
+                gdl = gfxDrawTranslucentRect(gdl, loop_start_left - 2, loop_start_top - 2, loop_start_left + 2, loop_start_top + 2, 64);
+                gdl = gfxDrawTranslucentRect(gdl, loop_start_left - 1, loop_start_top - 1, loop_start_left + 1, loop_start_top + 1, dl_color_2);
             }
         }
     }
 
-    return gfxRestore3DRenderMode(DL);
+    return gfxRestore3DRenderMode(gdl);
 
     #undef RADAR_TOP_OFFSET
     #undef RADAR_RECT1_OFFSET
