@@ -38,6 +38,9 @@
 #define FALLSPEED_DECAY      0.9f
 
 // Fade optimization definitions.
+extern f32 g_PropFadeStartPx;
+extern f32 g_PropFadeEndPx;
+
 #define CHRFADE_START_PX 12.5f
 #define CHRFADE_END_PX   10.0f
 #define CHRFADE_DIAMETER 200.0f
@@ -2171,6 +2174,8 @@ void chrUpdateAnim(ChrRecord *chr, s32 tickamount)
  */
 static s32 chrCalcScreenFadeAlpha(PropRecord *prop)
 {
+    f32 startpx = CHRFADE_START_PX;
+    f32 endpx = CHRFADE_END_PX;
     Mtxf *wts;
     f32 viewdepth;
     f32 px;
@@ -2186,17 +2191,28 @@ static s32 chrCalcScreenFadeAlpha(PropRecord *prop)
 
     px = (CHRFADE_DIAMETER * g_CurrentPlayer->c_recipscaley) / viewdepth;
 
-    if (px <= CHRFADE_END_PX)
+    /* GUD: per-level override from the environment tables */
+    if (g_PropFadeStartPx < 0.0f)
+    {
+        return 255;
+    }
+    if (g_PropFadeStartPx > 0.0f)
+    {
+        startpx = g_PropFadeStartPx;
+        endpx = g_PropFadeEndPx;
+    }
+
+    if (px <= endpx)
     {
         return 0;
     }
 
-    if (px >= CHRFADE_START_PX)
+    if (px >= startpx)
     {
         return 255;
     }
 
-    return (s32) (255.0f * ((px - CHRFADE_END_PX) / (CHRFADE_START_PX - CHRFADE_END_PX)));
+    return (s32) (255.0f * ((px - endpx) / (startpx - endpx)));
 }
 
 

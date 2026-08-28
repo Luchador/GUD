@@ -7250,6 +7250,8 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
   */
 static s32 objCalcScreenFadeAlpha(PropRecord *prop, f32 diameter)
 {
+    f32 startpx = OBJFADE_START_PX;
+    f32 endpx = OBJFADE_END_PX;
     Mtxf *wts;
     f32 viewdepth;
     f32 px;
@@ -7271,17 +7273,28 @@ static s32 objCalcScreenFadeAlpha(PropRecord *prop, f32 diameter)
 
     px = (diameter * g_CurrentPlayer->c_recipscaley) / viewdepth;
 
-    if (px <= OBJFADE_END_PX)
+    /* GUD: per-level override from the environment tables */
+    if (g_PropFadeStartPx < 0.0f)
+    {
+        return 255;
+    }
+    if (g_PropFadeStartPx > 0.0f)
+    {
+        startpx = g_PropFadeStartPx;
+        endpx = g_PropFadeEndPx;
+    }
+
+    if (px <= endpx)
     {
         return 0;
     }
 
-    if (px >= OBJFADE_START_PX)
+    if (px >= startpx)
     {
         return 255;
     }
 
-    return (s32) (255.0f * ((px - OBJFADE_END_PX) / (OBJFADE_START_PX - OBJFADE_END_PX)));
+    return (s32) (255.0f * ((px - endpx) / (startpx - endpx)));
 }
 
 

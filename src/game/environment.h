@@ -93,6 +93,17 @@ typedef struct EnvironmentRecord
     VisibilityRecord Visibility;
     FogRecord Fog;
     SkyBoxRecord Sky;
+
+    /**
+     * GUD: New per-level screen-size prop fade override, applied to characters
+     * and objects alike. See chrCalcScreenFadeAlpha and objCalcScreenFadeAlpha.
+     * 0 = engine defaults. Negative PropFadeStartPx = fade disabled on this
+     * level. When overriding, PropFadeEndPx must be less than PropFadeStartPx.
+     * Rows that end before these fields zero-fill, so untouched levels keep
+     * the defaults.
+     */
+    f32 PropFadeStartPx;
+    f32 PropFadeEndPx;
 } EnvironmentRecord;
 
 // Environment Record, Holds only Skybox
@@ -121,9 +132,15 @@ typedef struct EnvironmentFoglessRecord
     f32 WaterGreen;
     f32 WaterBlue;
     f32 WaterConcavity;
+
+    /** GUD: same per-level prop fade override as EnvironmentRecord. */
+    f32 PropFadeStartPx;
+    f32 PropFadeEndPx;
 } EnvironmentFoglessRecord;
 
 extern s32 g_FogSkyIsEnabled;
+extern f32 g_PropFadeStartPx;
+extern f32 g_PropFadeEndPx;
 
 struct CurrentEnvironmentRecord *envGetCurrent(void);
 f32 envGetScaledFarFogIntensitySquared(void);
