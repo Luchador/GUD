@@ -4,7 +4,6 @@
 #include <bondgame.h>
 #include <bondconstants.h>
 #include <boss.h>
-#include "game/othermodemicrocode.h"
 #include "game/bondwalk2.h"
 #include "game/file2.h"
 #include <fr.h>

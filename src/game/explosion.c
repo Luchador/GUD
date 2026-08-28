@@ -16,7 +16,6 @@
 #include "explosion.h"
 #include "fr.h"
 #include "image_bank.h"
-#include "othermodemicrocode.h"
 #include "lv.h"
 #include "matrixmath.h"
 #include "music.h"

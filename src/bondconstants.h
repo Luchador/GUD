@@ -2014,7 +2014,6 @@ typedef enum RGBA_ENUM
     ALPHA
 } RGBA_ENUM;
 
-
 typedef enum SFX_ID
 {
     NOTHING_SFX,
@@ -2674,6 +2673,13 @@ char *TEXTBANK_LEVEL_INDEX_ToString[] =
 
 #endif
 
+typedef enum TEXTURE_RENDER_STYLE
+{
+    TEX_RENDER_OPAQUE      = 1,
+    TEX_RENDER_TRANSLUCENT = 2,
+    TEX_RENDER_TEX_EDGE    = 3,
+    TEX_RENDER_CLOUD       = 4
+} TEXTURE_RENDER_STYLE;
 
 #define GUNSIGHTREASON_1         0x01
 #define GUNSIGHTREASON_NOTAIMING 0x02

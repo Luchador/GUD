@@ -64,7 +64,6 @@
       build/OUTCODE/src/game/objecthandler.o (.bss);
       build/OUTCODE/src/game/model.o (.bss);
       build/OUTCODE/src/game/objecthandler_2.o (.bss);
-      build/OUTCODE/src/game/othermodemicrocode.o (.bss);
       build/OUTCODE/src/game/cam.o (.bss);
       build/OUTCODE/src/game/bondview.o (.bss);
       build/OUTCODE/src/game/bondinv.o (.bss);

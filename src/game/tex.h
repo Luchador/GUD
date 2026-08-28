@@ -4,6 +4,8 @@
 
 #include "image.h"
 
+#define NUM_TEXTURES  0xBB9U
+
 struct image_sound
 {
     /**
@@ -48,9 +50,9 @@ typedef struct s_bss_8008D2A8
     s32 unk_10;
 } s_bss_8008D2A8;
 
-
 extern struct image_sound *g_HitTypeSounds[];
 
+void texSelect(Gfx **gdlptr, struct sImageTableEntry *tconfig, TEXTURE_RENDER_STYLE renderStyle, s32 arg3, u32 ulst);
 void texCopyGdls(Gfx *arg0, Gfx *arg1, s32 arg2);
 void texGetDepthAndSize(struct tex *tex, s32 *deptharg, s32 *lenarg);
 s32 texGetHeightAtLod(struct tex *tex, s32 lod);

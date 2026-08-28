@@ -7,7 +7,6 @@
 #include "lv.h"
 #include "bgfog.h"
 #include "bg.h"
-#include "othermodemicrocode.h"
 #include "fr.h"
 #include "image_bank.h"
 
