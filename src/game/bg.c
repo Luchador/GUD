@@ -20,9 +20,10 @@
 #include "explosion.h"
 #include "bgroomtrans.h"
 
-
+#define MAXROOMCOUNT 137
 #define BG_CMD_STACK_SIZE 20
 #define STAGES_MAX 38
+#define BG_PORTAL_QUEUE_LEN 500
 
 typedef struct GlobalVisCommand {
     u8 type;
@@ -63,31 +64,23 @@ enum BgVisResult {
     BG_VIS_RESULT_FALSE = 1
 };
 
+BgQueuedPortal g_BgPortalQueue[BG_PORTAL_QUEUE_LEN];
 struct PortalCache g_PortalCameraCache[PORTMAX];
 extern s32 ptr_bgdata_offsets;
 extern s32 g_BgRenderMode;
 extern s32 *dword_CODE_bss_8007FF90;
-extern f32 *dword_CODE_bss_8007FF94;
 
 /**
  * Per-frame render worklist for visible background rooms.
  * bgSetRoomOnScreen adds or updates one slot for every room that may be visible.
  */
-extern BgDrawSlot g_BgDrawSlots[];
-
-extern s32 dword_CODE_bss_8007FF98;
-extern s32 dword_CODE_bss_8007FF9C;
-extern s32 dword_CODE_bss_800815f0;
-extern s32 dword_CODE_bss_800815f4;
-extern s32 dword_CODE_bss_800815f8;
-
-#define BG_PORTAL_QUEUE_LEN 500
+BgDrawSlot g_BgDrawSlots[MAXROOMCOUNT];
 
 u8* g_BgData;
 s32 g_StanData;
 s32 g_BgSingleDisplayList;
 
-char list_visible_rooms_in_cur_global_vis_packet[0x98];
+char list_visible_rooms_in_cur_global_vis_packet[80];
 
 s32 num_visible_rooms_in_cur_global_vis_packet;
 s32 *ptr_bg_c_debug_debug_notice_list = 0;
@@ -114,7 +107,7 @@ s32 bgViewRelated[] = { 1, 1, -1, -1 };
  * This array is also why there's a 150 is room limit
  * Canonical name: roominf
 */
-RoomInfo g_BgRoomInfo[MAXROOMCOUNT] = {0};
+RoomInfo g_BgRoomInfo[MAXROOMCOUNT];
 s32 g_MaxNumRooms = MAXROOMCOUNT;
 
 /**
@@ -122,18 +115,9 @@ s32 g_MaxNumRooms = MAXROOMCOUNT;
  */
 s32 g_RoomLoadBudget = 0;
 
-u8 g_PortalTraversalDepths[PORTMAX] = {0};
+u8 g_PortalTraversalDepths[PORTMAX];
 
-u8 g_PortalIsVertical[PORTMAX] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
+u8 g_PortalIsVertical[PORTMAX];
 
 /**
  * New addition for GUD. Store the PortalMetrics once at bg load instead of calculating them every frame.
@@ -188,6 +172,267 @@ s_specialportal specialportalarray[] = {
         {0x2C,0x2E,0x32, 0x37,0x3E,0x3F,0x4E, 0x56,0x59,0x5D,0x72, 0x76,0x79,0x7A,0xFF}},
     {0x11,
         {0x00,0x3A,0xFF}}
+};
+
+PortalData *g_BgPortals;
+s32 ptr_bgdata_offsets;
+s32 g_BgRenderMode;
+BgRoomData *ptr_bgdata_room_fileposition_list;
+s32 *dword_CODE_bss_8007FF90;
+
+BoundVec D_80044868 = {0x7FFF, 0x7FFF, 0x7FFF};
+BoundVec D_80044874 = {-0x8000, -0x8000, -0x8000};
+BoundVec D_80044880 = {0x7FFF, 0x7FFF, 0x7FFF};
+BoundVec D_8004488C = {-0x8000, -0x8000, -0x8000};
+
+s32 g_BgPortalQueueWriteIndex = 0;
+s32 g_BgPortalQueueReadIndex = 0;
+
+/**
+ * Boolean expression stack used by the background visibility interpreter.
+ */
+static s32 g_BgCmdStack[BG_CMD_STACK_SIZE];
+
+/**
+ * Index of the next free stack entry.
+ */
+static s32 g_BgCmdStackIndex = 0;
+static bbox2d g_BgCmdScreenBox;
+static enum BgVisResult g_BgCmdResult = BG_VIS_RESULT_TRUE;
+static bool g_BgCmdThrowing = FALSE;
+f32 g_PortalLineCrossDist = 0;
+s32 D_80044904 = 0x7F7FFFFF;
+s32 D_80044908 = 0x7F7FFFFF;
+s32 D_8004490C = 0x7F7FFFFF;
+s32 D_80044910 = 0xFF7FFFFF;
+s32 D_80044914 = 0xFF7FFFFF;
+s32 D_80044918 = 0xFF7FFFFF;
+
+/*
+    //###RenderMode / Combiner Look - Up - Tables
+    The reason for this LUT is to dynamicly change the rendermode and combiner to
+    FOG / NoFog or any other setting they might have wanted to test during development
+    as it applies during runtime
+
+//###Reminder:
+    1cycle combiners repeat both cycles
+    gDPSetCombineMode(G_CC_MODULATERGBA, G_CC_MODULATERGBA2)
+
+    combiner macros are a list of parameters that form a mathematical sum.
+                            (       -  )*     +  ,  (       -  )*     +
+    G_CC_MODULATERGBA2	    COMBINED, 0, SHADE, 0, COMBINED, 0, SHADE, 0
+*/
+
+Gfx DL_LUT_UNKNOWN[] = 
+{
+    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
+    gsDPSetCombineLERP(TEXEL1, 0, SCALE, 0,  TEXEL1, 0, PRIM_LOD_FRAC, 0,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
+    0,0
+};
+
+Gfx DL_LUT_PRIMARY_ADDFOG[] = {
+    //Add FOG to all rendermodes
+    //Standard HiQuality Surface to Standard Fogable HiQuality Surface
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_OPA_SURF2),
+    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2),
+    //Terrain to Fogable Terrain
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_OPA_TERR2),
+    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_TERR2),
+    //Standard DECAL to FOG DECAL
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_OPA_DECAL2),
+    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_DECAL2),
+    //Transparent DECAL to  FOG Transparent DECAL
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_XLU_DECAL2),
+    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_XLU_DECAL2),
+    //Transparent Surface to FOG Transparent Surface
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_XLU_SURF2),
+    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_XLU_SURF2),
+    // Billboard Cut-out to FOG Billboard Cut-out - eg, Mario Tree or Depot lamp
+    // See PGDLists\Transparent Textures.htm for more info
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_TEX_EDGE2),
+    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_TEX_EDGE2),
+    //Standard Z-Less OPA to Standard FOG Z-Less OPA
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_OPA_SURF2),
+    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_OPA_SURF2),
+    //Z-Less OPA Terrain to Z-Less Fog OPA Terrain
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_OPA_TERR2),
+    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_OPA_TERR2),
+    0x0, 0x0
+};
+
+Gfx DL_LUT_SECONDARY_ADDFOG[] = {
+    //Add FOG to Rendermodes
+    //Transparent DECAL to  FOG Transparent DECAL
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_XLU_DECAL2),
+    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_XLU_DECAL2),
+    //Transparent Surface to FOG Transparent Surface
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_XLU_SURF2),
+    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_XLU_SURF2),
+
+    // Billboard Cut-out to FOG Billboard Cut-out - eg, Mario Tree or Depot lamp
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_TEX_EDGE2),
+    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_TEX_EDGE2),
+
+    // Swap all refrences to Shade in Alpha to Environment
+    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, ENVIRONMENT, 0),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0),
+    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEI2),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT,  TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, ENVIRONMENT, 0),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0),
+    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEI2),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT,  TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
+    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
+    gsDPSetCombineLERP(0, 0, 0, SHADE, 0, 0, 0, SHADE, 0, 0, 0, SHADE, 0, 0, 0, SHADE),//gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
+    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT,  0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT), //gsDPSetCombineMode(G_CC_SHADE_EnvA, G_CC_SHADE_EnvA),
+    // This one is an oddball... its extra here AND is weird using Tile1 only for Alpha
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, SHADE, 0),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, ENVIRONMENT, 0),
+    0x0,
+    0x0
+};
+
+// Loaded once on first time entering level, only once ever
+// Swap all refrences to Shade in Alpha to Environment
+Gfx DL_LUT_PRIMARY[] = {
+    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, ENVIRONMENT, 0),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0),
+    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEI2),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT,  TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, ENVIRONMENT, 0),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0),
+    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEI2),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT,  TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
+    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
+    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, SHADE),
+    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT,  0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT),
+    0,0
+};
+
+// Loaded once on first time entering level, only once ever
+// Swap all refrences to Shade in Alpha to Environment
+Gfx DL_LUT_SECONDARY[] = {
+    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, ENVIRONMENT, 0),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0),
+    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEI2),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT,  TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, ENVIRONMENT, 0),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0),
+    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEI2),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT,  TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
+    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
+    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, SHADE),
+    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT,  0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT),
+    0,0
+};
+
+Gfx DL_LUT_BILLBOARD[] = {
+    //Transparent 1Cycle to  BillBoard 1Cycle
+    gsDPSetRenderMode(G_RM_AA_ZB_XLU_SURF, G_RM_AA_ZB_XLU_SURF2), gsDPSetRenderMode(G_RM_AA_ZB_TEX_EDGE, G_RM_AA_ZB_TEX_EDGE2),
+    //Transparent Surface to Billboard
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_XLU_SURF2), gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_TEX_EDGE2),
+    0x0,0x0
+};
+
+//water
+Gfx DL_LUT_WATER[] = {
+    0xB900031D, 0x00552078, 0xB900031D, 0x00502078,
+    0xB900031D, 0x0C192078, 0xB900031D, 0x0C182078,
+    /*
+    //1 Cycle Opa to Particle
+    gsDPSetRenderMode(RM_AA_ZB_OPA_SURF, RM_AA_ZB_OPA_SURF2), gDPSetRenderMode(G_RM_AA_ZB_PCL_SURF, G_RM_AA_ZB_PCL_SURF2),
+    //2 cycle Opa to Particle
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_OPA_SURF2), gDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_PCL_SURF2),
+    */
+    0x0, 0
+};
+
+Gfx DL_LUT_CLOUD[] = {
+    //Transparent to Cloud (Saves AA - Stops Jaggies from appearing behind BillBoard)
+    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_XLU_SURF2), gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_CLD_SURF2),
+    0,0
+};
+
+//(Wallet Bond - Main Menu)
+Gfx DL_LUT_WALLETBOND[] = {
+    gsDPSetCycleType(G_CYC_1CYCLE),
+    gsDPSetCycleType(G_CYC_2CYCLE), //1Cycle --> 2Cycle
+    0xB900031D, 0x00502048,
+    0xB900031D, 0x08D02048,
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
+    /*
+    //1 Cycle particle Surface to 2 Cycle colour + 1-a*Fog ???
+    gsDPSetCycleType(G_CYC_2CYCLE),
+    gsDPSetRenderMode(G_RM_AA_PCL_SURF, G_RM_AA_PCL_SURF2), gDPSetRenderMode(AA_EN | IM_RD | CVG_DST_CLAMP | ALPHA_CVG_SEL | ZMODE_OPA | GBL_c1(G_BL_CLR_IN, G_BL_A_SHADE, G_BL_CLR_FOG, G_BL_1MA) | GBL_c2(G_BL_CLR_IN, G_BL_A_IN, G_BL_CLR_MEM, G_BL_1MA)),
+    gsDPSetCombineMode(G_CC_MODULATERGBA, G_CC_PASS2), gDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATERGBA2),
+    */
+    0x0, 0
+};
+
+Gfx DL_LUT_FIXFOGALPHA3[] = {
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
+    gsDPSetCombineLERP(TEXEL0, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT,  TEXEL0, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0),
+    gsDPSetCombineLERP(TEXEL0, 0, SCALE, 0,  TEXEL0, 0, ENVIRONMENT, 0,  TEXEL0, 0, SCALE, 0,  TEXEL0, 0, ENVIRONMENT, 0),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
+    gsDPSetCombineLERP(TEXEL0, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT,  TEXEL0, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0),
+    gsDPSetCombineLERP(TEXEL0, 0, SCALE, 0,  TEXEL0, 0, ENVIRONMENT, 0,  TEXEL0, 0, SCALE, 0,  TEXEL0, 0, ENVIRONMENT, 0),
+    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, SHADE),
+    gsDPSetCombineLERP(CENTER, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT,  CENTER, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEI2),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SCALE, 0,  COMBINED, 0, ENVIRONMENT, 0),
+    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEI2),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SCALE, 0,  COMBINED, 0, ENVIRONMENT, 0),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SHADE, 0,  0, 0, 0, SHADE),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, SHADE, 0),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SCALE, 0,  COMBINED, 0, ENVIRONMENT, 0),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SHADE, 0,  0, 0, 0, SHADE),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, SHADE, 0),
+    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SCALE, 0,  COMBINED, 0, ENVIRONMENT, 0),
+    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
+    gsDPSetCombineLERP(CENTER, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
+    0,0
+};
+
+Gfx *ptrDynamic_CC_RM_LUT[] = 
+{
+    &DL_LUT_UNKNOWN, &DL_LUT_PRIMARY_ADDFOG, &DL_LUT_BILLBOARD, &DL_LUT_WATER, &DL_LUT_CLOUD,
+    &DL_LUT_SECONDARY_ADDFOG, &DL_LUT_PRIMARY, &DL_LUT_SECONDARY, &DL_LUT_WALLETBOND, &DL_LUT_FIXFOGALPHA3
 };
 
 /**
@@ -588,15 +833,6 @@ void bgLoadFile(LEVEL_INDEX levelid)
         else
         {
             dword_CODE_bss_8007FF90 = (s32 *) BG_SEG_TO_PTR(data, ((s32 *)ptr_bgdata_offsets)[3]);
- 
-            if (((s32 *)ptr_bgdata_offsets)[4] == 0)
-            {
-                dword_CODE_bss_8007FF94 = NULL;
-            }
-            else
-            {
-                dword_CODE_bss_8007FF94 = (f32 *) BG_SEG_TO_PTR(data, ((s32 *)ptr_bgdata_offsets)[4]);
-            }
         }
  
         for (i = 0; g_BgPortals[i].portal != (NULL); i++)
@@ -1437,290 +1673,6 @@ void bbox2dCopy(struct bbox2d *a, struct bbox2d *b)
     (a->max).x = (b->max).x;
     (a->max).y = (b->max).y;
 }
-
-
-BgQueuedPortal g_BgPortalQueue[BG_PORTAL_QUEUE_LEN];
-PortalData *g_BgPortals;
-s32 ptr_bgdata_offsets;
-s32 g_BgRenderMode;
-BgRoomData *ptr_bgdata_room_fileposition_list;
-s32 *dword_CODE_bss_8007FF90;
-f32 *dword_CODE_bss_8007FF94;
-s32 dword_CODE_bss_8007FF98;
-s32 dword_CODE_bss_8007FF9C;
-BgDrawSlot g_BgDrawSlots[204];
-s32 dword_CODE_bss_800815f0;
-s32 dword_CODE_bss_800815f4;
-s32 dword_CODE_bss_800815f8;
-
-BoundVec D_80044868 = {0x7FFF, 0x7FFF, 0x7FFF};
-BoundVec D_80044874 = {-0x8000, -0x8000, -0x8000};
-BoundVec D_80044880 = {0x7FFF, 0x7FFF, 0x7FFF};
-BoundVec D_8004488C = {-0x8000, -0x8000, -0x8000};
-
-s32 D_8004489C = 0xF;
-s32 g_BgPortalQueueWriteIndex = 0;
-s32 g_BgPortalQueueReadIndex = 0;
-
-/**
- * Boolean expression stack used by the background visibility interpreter.
- */
-static s32 g_BgCmdStack[BG_CMD_STACK_SIZE];
-
-/**
- * Index of the next free stack entry.
- */
-static s32 g_BgCmdStackIndex = 0;
-static bbox2d g_BgCmdScreenBox;
-static enum BgVisResult g_BgCmdResult = BG_VIS_RESULT_TRUE;
-static bool g_BgCmdThrowing = FALSE;
-f32 g_PortalLineCrossDist = 0;
-s32 D_80044904 = 0x7F7FFFFF;
-s32 D_80044908 = 0x7F7FFFFF;
-s32 D_8004490C = 0x7F7FFFFF;
-s32 D_80044910 = 0xFF7FFFFF;
-s32 D_80044914 = 0xFF7FFFFF;
-s32 D_80044918 = 0xFF7FFFFF;
-u32 D_8004491C = 0;
-u32 D_80044920 = 0;
-u32 D_80044924 = 0;
-
-/*
-    //###RenderMode / Combiner Look - Up - Tables
-    The reason for this LUT is to dynamicly change the rendermode and combiner to
-    FOG / NoFog or any other setting they might have wanted to test during development
-    as it applies during runtime
-
-//###Reminder:
-    1cycle combiners repeat both cycles
-    gDPSetCombineMode(G_CC_MODULATERGBA, G_CC_MODULATERGBA2)
-
-    combiner macros are a list of parameters that form a mathematical sum.
-                            (       -  )*     +  ,  (       -  )*     +
-    G_CC_MODULATERGBA2	    COMBINED, 0, SHADE, 0, COMBINED, 0, SHADE, 0
-*/
-
-Gfx DL_LUT_UNKNOWN[] = 
-{
-    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
-    gsDPSetCombineLERP(TEXEL1, 0, SCALE, 0,  TEXEL1, 0, PRIM_LOD_FRAC, 0,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
-    0,0
-};
-
-
-Gfx DL_LUT_PRIMARY_ADDFOG[] = {
-    //Add FOG to all rendermodes
-    //Standard HiQuality Surface to Standard Fogable HiQuality Surface
-    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_OPA_SURF2),
-    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_SURF2),
-    //Terrain to Fogable Terrain
-    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_OPA_TERR2),
-    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_TERR2),
-    //Standard DECAL to FOG DECAL
-    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_OPA_DECAL2),
-    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_OPA_DECAL2),
-    //Transparent DECAL to  FOG Transparent DECAL
-    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_XLU_DECAL2),
-    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_XLU_DECAL2),
-    //Transparent Surface to FOG Transparent Surface
-    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_XLU_SURF2),
-    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_XLU_SURF2),
-    // Billboard Cut-out to FOG Billboard Cut-out - eg, Mario Tree or Depot lamp
-    // See PGDLists\Transparent Textures.htm for more info
-    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_TEX_EDGE2),
-    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_TEX_EDGE2),
-    //Standard Z-Less OPA to Standard FOG Z-Less OPA
-    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_OPA_SURF2),
-    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_OPA_SURF2),
-    //Z-Less OPA Terrain to Z-Less Fog OPA Terrain
-    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_OPA_TERR2),
-    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_OPA_TERR2),
-    0x0, 0x0
-};
-
-
-Gfx DL_LUT_SECONDARY_ADDFOG[] = {
-    //Add FOG to Rendermodes
-    //Transparent DECAL to  FOG Transparent DECAL
-    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_XLU_DECAL2),
-    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_XLU_DECAL2),
-    //Transparent Surface to FOG Transparent Surface
-    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_XLU_SURF2),
-    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_XLU_SURF2),
-
-    // Billboard Cut-out to FOG Billboard Cut-out - eg, Mario Tree or Depot lamp
-    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_TEX_EDGE2),
-    gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_TEX_EDGE2),
-
-    // Swap all refrences to Shade in Alpha to Environment
-    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, ENVIRONMENT, 0),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0),
-    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEI2),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT,  TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, ENVIRONMENT, 0),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0),
-    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEI2),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT,  TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
-    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
-    gsDPSetCombineLERP(0, 0, 0, SHADE, 0, 0, 0, SHADE, 0, 0, 0, SHADE, 0, 0, 0, SHADE),//gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
-    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT,  0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT), //gsDPSetCombineMode(G_CC_SHADE_EnvA, G_CC_SHADE_EnvA),
-    // This one is an oddball... its extra here AND is weird using Tile1 only for Alpha
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, SHADE, 0),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, ENVIRONMENT, 0),
-    0x0,
-    0x0
-};
-
-
-// Loaded once on first time entering level, only once ever
-// Swap all refrences to Shade in Alpha to Environment
-Gfx DL_LUT_PRIMARY[] = {
-    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, ENVIRONMENT, 0),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0),
-    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEI2),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT,  TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, ENVIRONMENT, 0),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0),
-    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEI2),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT,  TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
-    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
-    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, SHADE),
-    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT,  0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT),
-    0,0
-};
-
-
-// Loaded once on first time entering level, only once ever
-// Swap all refrences to Shade in Alpha to Environment
-Gfx DL_LUT_SECONDARY[] = {
-    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, ENVIRONMENT, 0),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0),
-    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEI2),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT,  TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, ENVIRONMENT, 0),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, ENVIRONMENT, 0),
-    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEI2),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT,  TEXEL0, 0, SHADE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
-    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
-    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, SHADE),
-    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT,  0, 0, 0, SHADE,  0, 0, 0, ENVIRONMENT),
-    0,0
-};
-
-
-Gfx DL_LUT_BILLBOARD[] = {
-    //Transparent 1Cycle to  BillBoard 1Cycle
-    gsDPSetRenderMode(G_RM_AA_ZB_XLU_SURF, G_RM_AA_ZB_XLU_SURF2), gsDPSetRenderMode(G_RM_AA_ZB_TEX_EDGE, G_RM_AA_ZB_TEX_EDGE2),
-    //Transparent Surface to Billboard
-    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_XLU_SURF2), gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_TEX_EDGE2),
-    0x0,0x0
-};
-
-
-//water
-Gfx DL_LUT_WATER[] = {
-    0xB900031D, 0x00552078, 0xB900031D, 0x00502078,
-    0xB900031D, 0x0C192078, 0xB900031D, 0x0C182078,
-    /*
-    //1 Cycle Opa to Particle
-    gsDPSetRenderMode(RM_AA_ZB_OPA_SURF, RM_AA_ZB_OPA_SURF2), gDPSetRenderMode(G_RM_AA_ZB_PCL_SURF, G_RM_AA_ZB_PCL_SURF2),
-    //2 cycle Opa to Particle
-    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_OPA_SURF2), gDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_PCL_SURF2),
-    */
-    0x0, 0
-};
-
-
-Gfx DL_LUT_CLOUD[] = {
-    //Transparent to Cloud (Saves AA - Stops Jaggies from appearing behind BillBoard)
-    gsDPSetRenderMode(G_RM_PASS, G_RM_AA_ZB_XLU_SURF2), gsDPSetRenderMode(G_RM_PASS, G_RM_ZB_CLD_SURF2),
-    0,0
-};
-
-
-//(Wallet Bond - Main Menu)
-Gfx DL_LUT_WALLETBOND[] = {
-    gsDPSetCycleType(G_CYC_1CYCLE),
-    gsDPSetCycleType(G_CYC_2CYCLE), //1Cycle --> 2Cycle
-    0xB900031D, 0x00502048,
-    0xB900031D, 0x08D02048,
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
-    /*
-    //1 Cycle particle Surface to 2 Cycle colour + 1-a*Fog ???
-    gsDPSetCycleType(G_CYC_2CYCLE),
-    gsDPSetRenderMode(G_RM_AA_PCL_SURF, G_RM_AA_PCL_SURF2), gDPSetRenderMode(AA_EN | IM_RD | CVG_DST_CLAMP | ALPHA_CVG_SEL | ZMODE_OPA | GBL_c1(G_BL_CLR_IN, G_BL_A_SHADE, G_BL_CLR_FOG, G_BL_1MA) | GBL_c2(G_BL_CLR_IN, G_BL_A_IN, G_BL_CLR_MEM, G_BL_1MA)),
-    gsDPSetCombineMode(G_CC_MODULATERGBA, G_CC_PASS2), gDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATERGBA2),
-    */
-    0x0, 0
-};
-
-
-Gfx DL_LUT_FIXFOGALPHA3[] = {
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
-    gsDPSetCombineLERP(TEXEL0, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT,  TEXEL0, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0),
-    gsDPSetCombineLERP(TEXEL0, 0, SCALE, 0,  TEXEL0, 0, ENVIRONMENT, 0,  TEXEL0, 0, SCALE, 0,  TEXEL0, 0, ENVIRONMENT, 0),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE,  TEXEL0, 0, SHADE, 0,  0, 0, 0, SHADE),
-    gsDPSetCombineLERP(TEXEL0, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT,  TEXEL0, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineLERP(TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0,  TEXEL0, 0, SHADE, 0),
-    gsDPSetCombineLERP(TEXEL0, 0, SCALE, 0,  TEXEL0, 0, ENVIRONMENT, 0,  TEXEL0, 0, SCALE, 0,  TEXEL0, 0, ENVIRONMENT, 0),
-    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, SHADE),
-    gsDPSetCombineLERP(CENTER, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT,  CENTER, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEI2),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SCALE, 0,  COMBINED, 0, ENVIRONMENT, 0),
-    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEI2),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineMode(G_CC_TRILERP, G_CC_MODULATEIA2),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  COMBINED, 0, SCALE, 0,  COMBINED, 0, ENVIRONMENT, 0),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SHADE, 0,  0, 0, 0, SHADE),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, SHADE, 0),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SCALE, 0,  COMBINED, 0, ENVIRONMENT, 0),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SHADE, 0,  0, 0, 0, SHADE),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SHADE, 0,  COMBINED, 0, SHADE, 0),
-    gsDPSetCombineLERP(TEXEL1, TEXEL0, LOD_FRACTION, TEXEL0,  1, 0, TEXEL1, 0,  COMBINED, 0, SCALE, 0,  COMBINED, 0, ENVIRONMENT, 0),
-    gsDPSetCombineLERP(0, 0, 0, SHADE,  0, 0, 0, SHADE,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
-    gsDPSetCombineLERP(CENTER, 0, SCALE, 0,  0, 0, 0, ENVIRONMENT,  0, 0, 0, COMBINED,  0, 0, 0, COMBINED),
-    0,0
-};
-
-
-Gfx *ptrDynamic_CC_RM_LUT[] = 
-{
-    &DL_LUT_UNKNOWN, &DL_LUT_PRIMARY_ADDFOG, &DL_LUT_BILLBOARD, &DL_LUT_WATER, &DL_LUT_CLOUD,
-    &DL_LUT_SECONDARY_ADDFOG, &DL_LUT_PRIMARY, &DL_LUT_SECONDARY, &DL_LUT_WALLETBOND, &DL_LUT_FIXFOGALPHA3
-};
 
 
 s32 bgGetMaxNumRooms(void) 
@@ -3574,8 +3526,6 @@ void bgDetermineVisibleRooms(void)
     {
         g_PortalTraversalDepths[i] = 0;
     }
-
-    dword_CODE_bss_8007FF98 = 0;
 
     bgResetPortalQueue();
 
