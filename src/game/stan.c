@@ -102,12 +102,12 @@ s32 g_StanLastCollisionEdgePointsValid =  0;
 
 void stanGetTileMidPoint(StandTile *tile, coord3d *out);
 s32 stanIsSpecialBit1Set(StandTile *arg0, struct StandTileLocusCallbackRecord* arg1);
-s32 stanCheckLinkedSpecialTile(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3, s32 arg4, s32 *outFlags);
+s32 stanCheckLinkedSpecialTile(StandTile *tile, s32 pointIdx, struct StandTileLocusCallbackRecord *record);
 f32 getShortest2dDispToInfTripleEdge(StandTile *tile, s32 start3index, f32 p_x, f32 p_z);
 s32 stanLocusAddTileRoomIfNew(StandTile *tile, struct StandTileLocusCallbackRecord *rec);
 s32 stanGetLocusField0(struct StandTileLocusCallbackRecord *arg0);
 s32 stanGetLocusCount(struct StandTileLocusCallbackRecord *arg0);
-bool stanLocusEdgeIsAboveY(StandTile *tile, s32 edgeIndex, f32 edgeDist, f32 distToPointA, f32 distToPointB, f32 *yThreshold);
+bool stanLocusEdgeIsAboveY(StandTile *tile, s32 edgeIndex, struct StandTileLocusCallbackRecord *record);
 
 // End forward declarations.
 
@@ -1458,8 +1458,6 @@ StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, 
     s32 roomList[20];
     struct rect4f *polygon;
     s32 numvertices0;
-    f32 temp_f0_3;
-    f32 temp_f0_2;
     f32 sp94;
     f32 sp90;
 
@@ -1510,7 +1508,12 @@ StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, 
                     i=0;
                     while(1)
                     {
-                        next = (i + 1) % numvertices0;
+                        next = i + 1;
+
+                        if (next == numvertices0)
+                        {
+                            next = 0;
+                        }
 
                         pointDist = stanGetSignedPointLineDistance(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], p_x, p_z);
 
@@ -1519,12 +1522,17 @@ StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, 
                             pointDist = -pointDist;
                         }
 
-                        if (var_f24 < pointDist)
+                        /*
+                         * Reject distant edge lines before calculating either
+                         * endpoint distance. Most edges fail this inexpensive
+                         * test, and a projection onto the segment avoids both
+                         * endpoint square roots for the usual edge hit.
+                         */
+                        if ((var_f24 < pointDist) && (pointDist < radius))
                         {
-                            temp_f0_2 = distBetweenPoints2d(polygon->points[i].f[0], polygon->points[i].f[1], p_x, p_z);
-                            temp_f0_3 = distBetweenPoints2d(polygon->points[next].f[0], polygon->points[next].f[1], p_x, p_z);
-
-                            if ((pointDist < radius) && ((temp_f0_2 < radius) || (temp_f0_3 < radius) || (stanPointProjectsOntoEdge(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], p_x, p_z) != 0)))
+                            if ((stanPointProjectsOntoEdge(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], p_x, p_z) != 0)
+                                || (distBetweenPoints2d(polygon->points[i].f[0], polygon->points[i].f[1], p_x, p_z) < radius)
+                                || (distBetweenPoints2d(polygon->points[next].f[0], polygon->points[next].f[1], p_x, p_z) < radius))
                             {
                                 g_StanLastCollisionEdgePointsValid = 1;
                                 var_f24 = pointDist;
@@ -1636,9 +1644,6 @@ StanCollisionResult stanTestCircleCollisionWithCallbacks(StandTile **startTile, 
     s32 edgeIndex;
     s32 nextEdgeIndex;
     f32 edgeDist;
-    f32 pointDistA;
-    f32 pointDistB;
-    f32 firstPointDist;
 
     x *= level_scale;
     z *= level_scale;
@@ -1660,9 +1665,6 @@ StanCollisionResult stanTestCircleCollisionWithCallbacks(StandTile **startTile, 
 
         if (pointCount > 0)
         {
-            firstPointDist = distToTilePnt2D(tile, 0, x, z);
-            pointDistA = firstPointDist;
-
             for (edgeIndex = 0; edgeIndex < pointCount; edgeIndex++)
             {
                 nextEdgeIndex = edgeIndex + 1;
@@ -1671,16 +1673,19 @@ StanCollisionResult stanTestCircleCollisionWithCallbacks(StandTile **startTile, 
                 if (nextEdgeIndex == pointCount)
                 {
                     nextEdgeIndex = 0;
-                    pointDistB = firstPointDist;
-                }
-                else
-                {
-                    pointDistB = distToTilePnt2D(tile, nextEdgeIndex, x, z);
                 }
 
-                if (edgeDist < radius && (pointDistA < radius || pointDistB < radius || stanPointProjectsOntoTileEdge(tile, edgeIndex, x, z)))
+                /*
+                 * Projection is cheaper than either endpoint distance. Only
+                 * take a square root when the closest point lies beyond an
+                 * endpoint of an edge whose line is already within radius.
+                 */
+                if (edgeDist < radius
+                    && (stanPointProjectsOntoTileEdge(tile, edgeIndex, x, z)
+                        || distToTilePnt2D(tile, edgeIndex, x, z) < radius
+                        || distToTilePnt2D(tile, nextEdgeIndex, x, z) < radius))
                 {
-                    if ((shouldBlockEdge == NULL || !shouldBlockEdge(tile, edgeIndex, edgeDist, pointDistA, pointDistB, record)) && (tile->points[edgeIndex].link >> 4))
+                    if ((shouldBlockEdge == NULL || !shouldBlockEdge(tile, edgeIndex, record)) && (tile->points[edgeIndex].link >> 4))
                     {
                         linkedTile = (StandTile *)((u32)standTileStart + (tile->points[edgeIndex].link << 3));
 
@@ -1714,7 +1719,6 @@ StanCollisionResult stanTestCircleCollisionWithCallbacks(StandTile **startTile, 
                     }
                 }
 
-                pointDistA = pointDistB;
             }
         }
 
@@ -1851,11 +1855,14 @@ s32 stanIsSpecialBit1Set(StandTile *arg0, struct StandTileLocusCallbackRecord *a
 }
 
 
-s32 stanCheckLinkedSpecialTile(StandTile *tile, s32 pointIdx, s32 arg2, s32 arg3, s32 arg4, s32 *outFlags)
+s32 stanCheckLinkedSpecialTile(StandTile *tile, s32 pointIdx, struct StandTileLocusCallbackRecord *record)
 {
     u16 link;
     StandTile *target;
     s32 mid;
+    s32 *outFlags;
+
+    outFlags = (s32 *)record;
 
     link = tile->points[pointIdx].link;
 
@@ -2046,13 +2053,15 @@ void stanGetMoveBondCollisionTiles(StandTile **tile1, StandTile **tile2, coord3d
  * 
  * For a given edge, return true if the edge is vertically above yThreshold.
  */
-bool stanLocusEdgeIsAboveY(StandTile *tile, s32 edgeIndex, f32 edgeDist, f32 distToPointA, f32 distToPointB, f32 *yThreshold)
+bool stanLocusEdgeIsAboveY(StandTile *tile, s32 edgeIndex, struct StandTileLocusCallbackRecord *record)
 {
     s32 nextIndex;
     s32 pointCount;
     f32 *threshold;
     s32 pointCountReload;
+    f32 *yThreshold;
 
+    yThreshold = (f32 *)record;
     threshold = yThreshold;
 
     if (*yThreshold < (f32)tile->points[edgeIndex].y)

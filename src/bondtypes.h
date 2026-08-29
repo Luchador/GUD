@@ -516,7 +516,7 @@ typedef union
     } StandFileFooter;
 
     typedef s32 (*standTileLocusCallback_A_t)(struct StandTile *, struct StandTileLocusCallbackRecord *);
-    typedef s32 (*standTileLocusCallback_B_t)(StandTile *arg0, s32 arg1, f32 arg2, f32 arg3, f32 arg4, struct StandTileLocusCallbackRecord *arg5);
+    typedef s32 (*standTileLocusCallback_B_t)(StandTile *tile, s32 edgeIndex, struct StandTileLocusCallbackRecord *record);
     typedef s32 (*standTileLocusCallback_C_t)(struct StandTile **, s32, struct StandTileLocusCallbackRecord *);
 
     typedef s32 (*tilePredicate_t)(struct StandTile *);
