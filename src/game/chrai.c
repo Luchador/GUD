@@ -1399,7 +1399,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 {
                     AiTRYThrowingGrenadeRecord *ai = AiListp + Offset;
 
-                    if (actor_draws_throws_grenade_at_player_if_possible(ChrEntityp))
+                    if (chractTryThrowGrenade(ChrEntityp))
                     {
                         Offset = chraiGoToLabel(AiListp, Offset, ai->GOTOLABEL);
                     }

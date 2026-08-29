@@ -41,13 +41,12 @@ void chrlvIdleAnimationRelated                (ChrRecord *self, f32 arg1);
 f32 chrlvGetGuard007SpeedRating               (ChrRecord *self, f32 min, f32 max);
 s32 chrlvGetGuard007SpeedRatingInt            (ChrRecord *self, s32 arg1);
 f32 chrlvGetGuard007ArghRating                (ChrRecord *self, f32 min, f32 max);
-void chrlvKneelingAnimationRelated            (ChrRecord *self);
+void chrStand            (ChrRecord *self);
 void chrlvIdleAnimationRelated7F023E14        (ChrRecord *self, f32 arg1);
 void chrlvKneelingAnimationRelated7F023E48    (ChrRecord *self);
 void chrKneelChooseAnimation                  (ChrRecord *self);
 void chrlvPerformAnimationForActor            (ChrRecord *self, s32 arg1, s32 arg2, s32 arg3, u8 arg4, s32 arg5);
 void chrStartAlarmChooseAnimation             (ChrRecord *self);
-void chrlvThrowGrenade                        (ChrRecord *self, PropRecord *prop, GUNHAND hand, s32 startframe);
 void chrlvSpotBondAnimationRelated            (ChrRecord *self, f32 arg1);
 void chrlvActorShuffleFeet                    (ChrRecord *self);
 void chrlvSurrenderAnimationRelated           (ChrRecord *self);
@@ -365,10 +364,9 @@ void chrlvMergeKneelToStand(ChrRecord *self, f32 mergetime)
 
 
 /**
- * @param arg0: guard
+ * @param self: guard
  * @param min: min reaction speed range
  * @param max: max reaction speed range
- * Address 0x7F023B5C.
  */
 f32 chrlvGetGuard007SpeedRating(ChrRecord *self, f32 min, f32 max)
 {
@@ -376,15 +374,14 @@ f32 chrlvGetGuard007SpeedRating(ChrRecord *self, f32 min, f32 max)
 
     ret = (f32) self->speedrating;
     ret = (get_007_reaction_speed() * (100.0f - ret)) + ret;
+
     return ((ret * (max - min)) / 100.0f) + min;
 }
-
 
 
 /**
  * @param self: guard
  * @param scale: scale factor
- * Address 0x7F023BC0.
  */
 s32 chrlvGetGuard007SpeedRatingInt(ChrRecord *self, s32 scale)
 {
@@ -392,17 +389,15 @@ s32 chrlvGetGuard007SpeedRatingInt(ChrRecord *self, s32 scale)
 
     ret = (s32) self->speedrating;
     ret = (s32)(get_007_reaction_speed() * (f32)(100 - ret)) + ret;
+
     return ((100 - ret) * scale) / 100;
 }
-
-
 
 
 /**
  * @param arg0: guard
  * @param min: min argh speed range
  * @param max: max argh speed range
- * Address 0x7F023C54.
  */
 f32 chrlvGetGuard007ArghRating(ChrRecord *self, f32 min, f32 max)
 {
@@ -410,17 +405,12 @@ f32 chrlvGetGuard007ArghRating(ChrRecord *self, f32 min, f32 max)
 
     ret = (f32) self->arghrating;
     ret = (get_007_reaction_speed() * (100.0f - ret)) + ret;
+
     return ((ret * (max - min)) / 100.0f) + min;
 }
 
 
-
-
-/**
- * Address 0x7F023CB8.
- * PD: chrStand
- */
-void chrlvKneelingAnimationRelated(ChrRecord *self)
+void chrStand(ChrRecord *self)
 {
     if (self->actiontype == ACT_KNEEL)
     {
@@ -433,7 +423,6 @@ void chrlvKneelingAnimationRelated(ChrRecord *self)
         self->act_stand.reaim = 0;
         self->act_stand.turning = 2;
         self->act_stand.checkfacingwall = 0;
-        // bug/typo??: this is the only code like this not adjusted for VERSION_EU
         self->act_stand.wallcount = (randomGetNext() % 120) + 180;
         self->sleep = 0;
 
@@ -455,11 +444,6 @@ void chrlvKneelingAnimationRelated(ChrRecord *self)
 }
 
 
-
-/**
- * Address 0x7F023E14.
- * PD: func0f02ed28
- */
 void chrlvIdleAnimationRelated7F023E14(ChrRecord *self, f32 arg1)
 {
     chrlvMergeKneelToStand(self, arg1);
@@ -467,26 +451,13 @@ void chrlvIdleAnimationRelated7F023E14(ChrRecord *self, f32 arg1)
 }
 
 
-
-
-/**
- * Address 0x7F023E48.
- * PD: chrStop
- */
 void chrlvKneelingAnimationRelated7F023E48(ChrRecord *self)
 {
-    chrlvKneelingAnimationRelated(self);
+    chrStand(self);
     self->act_stand.checkfacingwall = 1;
 }
 
 
-
-
-
-/**
- * Address 0x7F023E74.
- * PD: chrKneelChooseAnimation
- */
 void chrKneelChooseAnimation(ChrRecord *self)
 {
     PropRecord *left;
@@ -516,16 +487,13 @@ void chrKneelChooseAnimation(ChrRecord *self)
 }
 
 
-
-/**
- * Address 0x7F023FE4.
- */
 void chrlvPerformAnimationForActor(ChrRecord *self, s32 animID, s32 startframe, s32 endframe, u8 bitfield, s32 interpol_time60)
 {
     f32 startframef = (f32)startframe;
     f32 phi_f0;
 
     phi_f0 = 0.5f;
+
     if ((bitfield & ANIM_REVERSE_LOOPING_ANIMATION) != 0)
     {
         phi_f0 = -0.5f;
@@ -598,14 +566,9 @@ void chrStartAlarmChooseAnimation(ChrRecord *self)
 
 
 /**
- * Address 0x7F024238.
- * 
- * Play the grenade throw animation. Takes a PropRecord* as an argument but
- * does not use it.
- * 
- * PD: chrThrowGrenade
+ * Play the grenade throw animation.
  */
-void chrlvThrowGrenade(ChrRecord *self, PropRecord *prop, GUNHAND hand, s32 startframe)
+void chractThrowGrenade(ChrRecord *self, GUNHAND hand, s32 startframe)
 {
     chrStopFiring(self);
 
@@ -679,7 +642,7 @@ void chrlvActorShuffleFeet(ChrRecord *self)
 
     if (chrHasStoppedOrPatroling(self) == 0)
     {
-        chrlvKneelingAnimationRelated(self);
+        chrStand(self);
     }
 }
 
@@ -4605,7 +4568,7 @@ bool check_set_actor_standing_still(ChrRecord *self, s32 faceentitytype, s32 fac
     {
         if (self->actiontype != ACT_STAND)
         {
-            chrlvKneelingAnimationRelated(self);
+            chrStand(self);
         }
 
         self->act_stand.face_entitytype = faceentitytype;
@@ -4938,7 +4901,7 @@ void chrlvTickAnim(ChrRecord *self)
 
         if (modelGetAnimEndFrame(self->model) <= sp20)
         {
-            chrlvKneelingAnimationRelated(self);
+            chrStand(self);
         }
     }
 
@@ -5220,7 +5183,7 @@ void chrlvTickTest(ChrRecord *self)
 
     if (modelGetAnimFrame(model) >= modelGetAnimEndFrame(model))
     {
-        chrlvKneelingAnimationRelated(self);
+        chrStand(self);
     }
 }
 
@@ -7254,7 +7217,7 @@ void chrlvTickBondIntro(ChrRecord *self)
 
     if (modelGetAnimEndFrame(self_model) <= sp28)
     {
-        chrlvKneelingAnimationRelated(self);
+        chrStand(self);
     }
 }
 
@@ -10309,10 +10272,7 @@ bool chrTryStartAlarm(ChrRecord *self, s32 PadId)
 }
 
 
-/**
- * Address 0x7F03457C.
-*/
-bool actor_draws_throws_grenade_at_player_if_possible(ChrRecord *self)
+bool chractTryThrowGrenade(ChrRecord *self)
 {
     PropRecord *Left;
     PropRecord *Right;
@@ -10323,8 +10283,7 @@ bool actor_draws_throws_grenade_at_player_if_possible(ChrRecord *self)
     WeaponObjRecord *RightWep;
 
     s32 flags;
-    //GUNHAND hand;
-    //"grenade prob: no chr number %d for obj number %d!\n"
+
     if (((u32)randomGetNext() % (u32)0xFF) >= self->grenadeprob)
     {
         return FALSE;
@@ -10342,14 +10301,14 @@ bool actor_draws_throws_grenade_at_player_if_possible(ChrRecord *self)
 
         if (Right && (RightWep = Right->weapon, RightWep->weaponnum == ITEM_GRENADE))
         {
-            chrlvThrowGrenade(self, Right, GUNRIGHT, 0);
+            chractThrowGrenade(self, GUNRIGHT, 0);
 
             return TRUE;
         }
 
         if (Left && (LeftWep = Left->weapon, LeftWep->weaponnum == ITEM_GRENADE))
         {
-            chrlvThrowGrenade(self, Left, GUNLEFT, 0);
+            chractThrowGrenade(self, GUNLEFT, 0);
 
             return TRUE;
         }
@@ -10368,9 +10327,9 @@ bool actor_draws_throws_grenade_at_player_if_possible(ChrRecord *self)
             if (NewGrenadeProp)
             {
                 NewGrenadeObj = NewGrenadeProp->weapon;
-                NewGrenadeObj->runtime_bitflags |= 0x800; //manual bitflags are more effecient
+                NewGrenadeObj->runtime_bitflags |= RUNTIMEBITFLAG_00000800; //manual bitflags are more effecient
 
-                chrlvThrowGrenade(self, NewGrenadeProp, !Right ? GUNRIGHT : GUNLEFT, 1);
+                chractThrowGrenade(self, !Right ? GUNRIGHT : GUNLEFT, 1);
 
                 return TRUE;
             }
@@ -10381,10 +10340,6 @@ bool actor_draws_throws_grenade_at_player_if_possible(ChrRecord *self)
 }
 
 
-/**
- * Address 0x7F0346FC.
- * chrDropItem
-*/
 bool chrDropItem(ChrRecord *self, s32 modelnum, u8 weaponid)
 {
     WeaponObjRecord *NewModel = (WeaponObjRecord *)create_new_item_instance_of_model(modelnum, weaponid);
