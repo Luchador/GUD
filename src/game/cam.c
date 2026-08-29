@@ -97,9 +97,27 @@ coord3d g_CamFrustumRightNormal;
 f32 g_CamFrustumRightOffset;
 f32 g_CamFrustumNearOffset;
 
+typedef struct CamScreenBoxCache
+{
+    bbox2d box;
+    coord3d leftNormal;
+    f32 leftOffset;
+    coord3d rightNormal;
+    f32 rightOffset;
+    coord3d topNormal;
+    f32 topOffset;
+    coord3d bottomNormal;
+    f32 bottomOffset;
+    struct player *player;
+    bool valid;
+} CamScreenBoxCache;
+
+static CamScreenBoxCache g_CamScreenBoxCache;
+
 
 void camSetPlayerScreenSize(f32 width, f32 height)
 {
+    g_CamScreenBoxCache.valid = FALSE;
     g_CurrentPlayer->c_screenwidth = width;
     g_CurrentPlayer->c_screenheight = height;
     g_CurrentPlayer->c_halfwidth = width * 0.5f;
@@ -109,6 +127,7 @@ void camSetPlayerScreenSize(f32 width, f32 height)
 
 void camSetPlayerScreenPosition(f32 left, f32 top)
 {
+    g_CamScreenBoxCache.valid = FALSE;
     g_CurrentPlayer->c_screenleft = left;
     g_CurrentPlayer->c_screentop = top;
 }
@@ -116,6 +135,7 @@ void camSetPlayerScreenPosition(f32 left, f32 top)
 
 void camSetPlayerPerspective(f32 near, f32 fovy, f32 aspect)
 {
+    g_CamScreenBoxCache.valid = FALSE;
     g_CurrentPlayer->c_perspnear = near;
     g_CurrentPlayer->c_perspfovy = fovy;
     g_CurrentPlayer->c_perspaspect = aspect;
@@ -128,6 +148,8 @@ void camSetPlayerCameraScale(void)
 	f32 tmp;
 	f32 fVar5;
 	f32 fVar2;
+
+    g_CamScreenBoxCache.valid = FALSE;
 
 	g_CurrentPlayer->c_scaley = sinf(mDegToHalfRad(g_CurrentPlayer->c_perspfovy)) / (cosf(mDegToHalfRad(g_CurrentPlayer->c_perspfovy)) * g_CurrentPlayer->c_halfheight);
 	g_CurrentPlayer->c_scalex = (g_CurrentPlayer->c_scaley * g_CurrentPlayer->c_perspaspect * g_CurrentPlayer->c_halfheight) / g_CurrentPlayer->c_halfwidth;
@@ -365,6 +387,8 @@ void camUpdateFrustumPlanes()
     f32 nh2_div;
     f32 h2_div;
 
+    g_CamScreenBoxCache.valid = FALSE;
+
     h = g_CurrentPlayer->c_halfheight * g_CurrentPlayer->c_scaley;
     h_div = 1.0f / sqrtf((h * h) + 1.0f);
     h *= h_div;
@@ -456,26 +480,8 @@ bool camIsPosInScreen(coord3d *pos, f32 margin)
 }
 
 
-/**
- * Similar to the above function but checks if the 3D point is within an arbitrary box instead of the whole screen.
- * 
- * @param pos: 3D coordinate in absolute world space.
- * 
- * @param margin: is a slack in world units applied as a sphere around the point. The point is rejected only
- * if it is more than 'margin' outside a box plane.
- * 
- * @param box: screen space rectangle with 'min' being the top-left corner and 'max' the bottom-right corner.
- */
-bool camIsPosInScreenBox(coord3d *pos, f32 margin, bbox2d *box)
+static void camPrepareScreenBoxCache(bbox2d *box)
 {
-    coord3d topnormal;
-    f32 topoffset;
-    coord3d bottomnormal;
-    f32 bottomoffset;
-    coord3d leftnormal;
-    f32 leftoffset;
-    coord3d rightnormal;
-    f32 rightoffset;
     f32 leftinvlen;
     f32 xslope;
     f32 yslope;
@@ -487,72 +493,101 @@ bool camIsPosInScreenBox(coord3d *pos, f32 margin, bbox2d *box)
     f32 topneginvlen;
     f32 bottomneginvlen;
 
-    if (g_CamFrustumNearOffset + margin < g_CurrentPlayer->viewtoworldmtxf->m[2][0] * pos->f[0] + g_CurrentPlayer->viewtoworldmtxf->m[2][1] * pos->f[1] + g_CurrentPlayer->viewtoworldmtxf->m[2][2] * pos->f[2])
-    {
-        return FALSE;
-    }
-
     xslope = (box->min.x - g_CurrentPlayer->c_screenleft - g_CurrentPlayer->c_halfwidth) * g_CurrentPlayer->c_scalex;
 
     leftinvlen = 1.0f / sqrtf(xslope * xslope + 1.0f);
     xslope *= leftinvlen;
     leftneginvlen = -leftinvlen;
 
-    leftnormal.f[0] = leftneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[0][0] - xslope * g_CurrentPlayer->viewtoworldmtxf->m[2][0];
-    leftnormal.f[1] = leftneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[0][1] - xslope * g_CurrentPlayer->viewtoworldmtxf->m[2][1];
-    leftnormal.f[2] = leftneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[0][2] - xslope * g_CurrentPlayer->viewtoworldmtxf->m[2][2];
+    g_CamScreenBoxCache.leftNormal.f[0] = leftneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[0][0] - xslope * g_CurrentPlayer->viewtoworldmtxf->m[2][0];
+    g_CamScreenBoxCache.leftNormal.f[1] = leftneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[0][1] - xslope * g_CurrentPlayer->viewtoworldmtxf->m[2][1];
+    g_CamScreenBoxCache.leftNormal.f[2] = leftneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[0][2] - xslope * g_CurrentPlayer->viewtoworldmtxf->m[2][2];
 
-    leftoffset = leftnormal.f[0] * g_CurrentPlayer->viewtoworldmtxf->m[3][0] + leftnormal.f[1] * g_CurrentPlayer->viewtoworldmtxf->m[3][1] + leftnormal.f[2] * g_CurrentPlayer->viewtoworldmtxf->m[3][2];
-
-    if (leftoffset + margin < leftnormal.f[0] * pos->f[0] + leftnormal.f[1] * pos->f[1] + leftnormal.f[2] * pos->f[2])
-    {
-        return FALSE;
-    }
+    g_CamScreenBoxCache.leftOffset = g_CamScreenBoxCache.leftNormal.f[0] * g_CurrentPlayer->viewtoworldmtxf->m[3][0] + g_CamScreenBoxCache.leftNormal.f[1] * g_CurrentPlayer->viewtoworldmtxf->m[3][1] + g_CamScreenBoxCache.leftNormal.f[2] * g_CurrentPlayer->viewtoworldmtxf->m[3][2];
 
     xslope = -(box->max.x - g_CurrentPlayer->c_screenleft - g_CurrentPlayer->c_halfwidth) * g_CurrentPlayer->c_scalex;
     rightinvlen = 1.0f / sqrtf(xslope * xslope + 1.0f);
     xslope *= rightinvlen;
     rightneginvlen = -rightinvlen;
 
-    rightnormal.f[0] = -rightneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[0][0] - xslope * g_CurrentPlayer->viewtoworldmtxf->m[2][0];
-    rightnormal.f[1] = -rightneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[0][1] - xslope * g_CurrentPlayer->viewtoworldmtxf->m[2][1];
-    rightnormal.f[2] = -rightneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[0][2] - xslope * g_CurrentPlayer->viewtoworldmtxf->m[2][2];
+    g_CamScreenBoxCache.rightNormal.f[0] = -rightneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[0][0] - xslope * g_CurrentPlayer->viewtoworldmtxf->m[2][0];
+    g_CamScreenBoxCache.rightNormal.f[1] = -rightneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[0][1] - xslope * g_CurrentPlayer->viewtoworldmtxf->m[2][1];
+    g_CamScreenBoxCache.rightNormal.f[2] = -rightneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[0][2] - xslope * g_CurrentPlayer->viewtoworldmtxf->m[2][2];
 
-    rightoffset = rightnormal.f[0] * g_CurrentPlayer->viewtoworldmtxf->m[3][0] + rightnormal.f[1] * g_CurrentPlayer->viewtoworldmtxf->m[3][1] + rightnormal.f[2] * g_CurrentPlayer->viewtoworldmtxf->m[3][2];
-
-    if (rightoffset + margin < rightnormal.f[0] * pos->f[0] + rightnormal.f[1] * pos->f[1] + rightnormal.f[2] * pos->f[2])
-    {
-        return FALSE;
-    }
+    g_CamScreenBoxCache.rightOffset = g_CamScreenBoxCache.rightNormal.f[0] * g_CurrentPlayer->viewtoworldmtxf->m[3][0] + g_CamScreenBoxCache.rightNormal.f[1] * g_CurrentPlayer->viewtoworldmtxf->m[3][1] + g_CamScreenBoxCache.rightNormal.f[2] * g_CurrentPlayer->viewtoworldmtxf->m[3][2];
 
     yslope = (g_CurrentPlayer->c_halfheight - (box->min.y - g_CurrentPlayer->c_screentop)) * g_CurrentPlayer->c_scaley;
     topinvlen = 1.0f / sqrtf(yslope * yslope + 1.0f);
     yslope *= topinvlen;
     topneginvlen = -topinvlen;
 
-    topnormal.f[0] = -topneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[1][0] + yslope * g_CurrentPlayer->viewtoworldmtxf->m[2][0];
-    topnormal.f[1] = -topneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[1][1] + yslope * g_CurrentPlayer->viewtoworldmtxf->m[2][1];
-    topnormal.f[2] = -topneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[1][2] + yslope * g_CurrentPlayer->viewtoworldmtxf->m[2][2];
+    g_CamScreenBoxCache.topNormal.f[0] = -topneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[1][0] + yslope * g_CurrentPlayer->viewtoworldmtxf->m[2][0];
+    g_CamScreenBoxCache.topNormal.f[1] = -topneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[1][1] + yslope * g_CurrentPlayer->viewtoworldmtxf->m[2][1];
+    g_CamScreenBoxCache.topNormal.f[2] = -topneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[1][2] + yslope * g_CurrentPlayer->viewtoworldmtxf->m[2][2];
 
-    topoffset = topnormal.f[0] * g_CurrentPlayer->viewtoworldmtxf->m[3][0] + topnormal.f[1] * g_CurrentPlayer->viewtoworldmtxf->m[3][1] + topnormal.f[2] * g_CurrentPlayer->viewtoworldmtxf->m[3][2];
-
-    if (topoffset + margin < topnormal.f[0] * pos->f[0] + topnormal.f[1] * pos->f[1] + topnormal.f[2] * pos->f[2])
-    {
-        return FALSE;
-    }
+    g_CamScreenBoxCache.topOffset = g_CamScreenBoxCache.topNormal.f[0] * g_CurrentPlayer->viewtoworldmtxf->m[3][0] + g_CamScreenBoxCache.topNormal.f[1] * g_CurrentPlayer->viewtoworldmtxf->m[3][1] + g_CamScreenBoxCache.topNormal.f[2] * g_CurrentPlayer->viewtoworldmtxf->m[3][2];
 
     yslope = -(g_CurrentPlayer->c_halfheight - (box->max.y - g_CurrentPlayer->c_screentop)) * g_CurrentPlayer->c_scaley;
     bottominvlen = 1.0f / sqrtf(yslope * yslope + 1.0f);
     yslope *= bottominvlen;
     bottomneginvlen = -bottominvlen;
 
-    bottomnormal.f[0] = bottomneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[1][0] + yslope * g_CurrentPlayer->viewtoworldmtxf->m[2][0];
-    bottomnormal.f[1] = bottomneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[1][1] + yslope * g_CurrentPlayer->viewtoworldmtxf->m[2][1];
-    bottomnormal.f[2] = bottomneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[1][2] + yslope * g_CurrentPlayer->viewtoworldmtxf->m[2][2];
+    g_CamScreenBoxCache.bottomNormal.f[0] = bottomneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[1][0] + yslope * g_CurrentPlayer->viewtoworldmtxf->m[2][0];
+    g_CamScreenBoxCache.bottomNormal.f[1] = bottomneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[1][1] + yslope * g_CurrentPlayer->viewtoworldmtxf->m[2][1];
+    g_CamScreenBoxCache.bottomNormal.f[2] = bottomneginvlen * g_CurrentPlayer->viewtoworldmtxf->m[1][2] + yslope * g_CurrentPlayer->viewtoworldmtxf->m[2][2];
 
-    bottomoffset = bottomnormal.f[0] * g_CurrentPlayer->viewtoworldmtxf->m[3][0] + bottomnormal.f[1] * g_CurrentPlayer->viewtoworldmtxf->m[3][1] + bottomnormal.f[2] * g_CurrentPlayer->viewtoworldmtxf->m[3][2];
+    g_CamScreenBoxCache.bottomOffset = g_CamScreenBoxCache.bottomNormal.f[0] * g_CurrentPlayer->viewtoworldmtxf->m[3][0] + g_CamScreenBoxCache.bottomNormal.f[1] * g_CurrentPlayer->viewtoworldmtxf->m[3][1] + g_CamScreenBoxCache.bottomNormal.f[2] * g_CurrentPlayer->viewtoworldmtxf->m[3][2];
 
-    if (bottomoffset + margin < bottomnormal.f[0] * pos->f[0] + bottomnormal.f[1] * pos->f[1] + bottomnormal.f[2] * pos->f[2])
+    g_CamScreenBoxCache.box = *box;
+    g_CamScreenBoxCache.player = g_CurrentPlayer;
+    g_CamScreenBoxCache.valid = TRUE;
+}
+
+
+/**
+ * Similar to the above function but checks if the 3D point is within an arbitrary box instead of the whole screen.
+ * The box's world-space planes are cached because props in the same room use the same portal scissor box.
+ *
+ * @param pos: 3D coordinate in absolute world space.
+ *
+ * @param margin: is a slack in world units applied as a sphere around the point. The point is rejected only
+ * if it is more than 'margin' outside a box plane.
+ *
+ * @param box: screen space rectangle with 'min' being the top-left corner and 'max' the bottom-right corner.
+ */
+bool camIsPosInScreenBox(coord3d *pos, f32 margin, bbox2d *box)
+{
+    if (g_CamFrustumNearOffset + margin < g_CurrentPlayer->viewtoworldmtxf->m[2][0] * pos->f[0] + g_CurrentPlayer->viewtoworldmtxf->m[2][1] * pos->f[1] + g_CurrentPlayer->viewtoworldmtxf->m[2][2] * pos->f[2])
+    {
+        return FALSE;
+    }
+
+    if (!g_CamScreenBoxCache.valid
+            || g_CamScreenBoxCache.player != g_CurrentPlayer
+            || g_CamScreenBoxCache.box.min.x != box->min.x
+            || g_CamScreenBoxCache.box.min.y != box->min.y
+            || g_CamScreenBoxCache.box.max.x != box->max.x
+            || g_CamScreenBoxCache.box.max.y != box->max.y)
+    {
+        camPrepareScreenBoxCache(box);
+    }
+
+    if (g_CamScreenBoxCache.leftOffset + margin < g_CamScreenBoxCache.leftNormal.f[0] * pos->f[0] + g_CamScreenBoxCache.leftNormal.f[1] * pos->f[1] + g_CamScreenBoxCache.leftNormal.f[2] * pos->f[2])
+    {
+        return FALSE;
+    }
+
+    if (g_CamScreenBoxCache.rightOffset + margin < g_CamScreenBoxCache.rightNormal.f[0] * pos->f[0] + g_CamScreenBoxCache.rightNormal.f[1] * pos->f[1] + g_CamScreenBoxCache.rightNormal.f[2] * pos->f[2])
+    {
+        return FALSE;
+    }
+
+    if (g_CamScreenBoxCache.topOffset + margin < g_CamScreenBoxCache.topNormal.f[0] * pos->f[0] + g_CamScreenBoxCache.topNormal.f[1] * pos->f[1] + g_CamScreenBoxCache.topNormal.f[2] * pos->f[2])
+    {
+        return FALSE;
+    }
+
+    if (g_CamScreenBoxCache.bottomOffset + margin < g_CamScreenBoxCache.bottomNormal.f[0] * pos->f[0] + g_CamScreenBoxCache.bottomNormal.f[1] * pos->f[1] + g_CamScreenBoxCache.bottomNormal.f[2] * pos->f[2])
     {
         return FALSE;
     }
@@ -607,12 +642,31 @@ bool camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSize, bool ap
     s32 *rooms;
     s32 roomnum;
     bool result;
+    bool singleRoom;
     bbox2d bbox;
 
     result = FALSE;
-    chraiGetPropRoomIds(prop, room_ids);
-    rooms = room_ids;
-    roomnum = *rooms;
+
+    /**
+     * GUD: Optimize props in one room. Previously all props had their IDs copied into a temp s32 array, searched those rooms for one being rendered,
+     * called getPropCombinedRoomsBBox2D() which copied the samr room IDs again, then searched for each room's portal-scissor rectangle.
+     * Now a prop with one room uses prop->rooms[0] directly.
+     */
+    singleRoom = prop->stan != NULL
+        && (prop->type != PROP_TYPE_VIEWER || prop->obj != NULL)
+        && prop->rooms[0] != 0xff
+        && prop->rooms[1] == 0xff;
+
+    if (singleRoom)
+    {
+        roomnum = prop->rooms[0];
+    }
+    else
+    {
+        chraiGetPropRoomIds(prop, room_ids);
+        rooms = room_ids;
+        roomnum = *rooms;
+    }
 
     while (roomnum >= 0)
     {
@@ -620,7 +674,7 @@ bool camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSize, bool ap
         {
             if (envPositionIsVisibleThroughFog(pos, modelInstSize) && (!applyFogCull || camIsPosInObjFadeDistance(pos, modelInstSize)))
             {
-                if (getPropCombinedRoomsBBox2D(prop, &bbox) != 0)
+                if ((singleRoom ? bgGet2dBboxByRoomId(roomnum, &bbox) : getPropCombinedRoomsBBox2D(prop, &bbox)) != 0)
                 {
                     result = camIsPosInScreenBox(pos, modelInstSize, &bbox);
                 }
@@ -649,8 +703,15 @@ bool camIsPosOnScreen(PropRecord *prop, coord3d *pos, f32 modelInstSize, bool ap
             break;
         }
 
-        rooms++;
-        roomnum = *rooms;
+        if (singleRoom)
+        {
+            roomnum = -1;
+        }
+        else
+        {
+            rooms++;
+            roomnum = *rooms;
+        }
         result = FALSE;
     }
 

@@ -1782,6 +1782,11 @@ void propsTick(void)
     PropRecord *prop;
     PropRecord *prev;
     PropRecord *propprev;
+    s32 playerCount;
+    bool isSimOwner;
+
+    playerCount = getPlayerCount();
+    isSimOwner = playerCount == 1 || get_player_position_in_shuffled(get_cur_playernum()) == 0;
 
     prop = chrpropGetActiveTail();
 
@@ -1804,7 +1809,7 @@ void propsTick(void)
             // TEMP
             {
                 u32 prof_t = osGetCount();
-                tickop = objTick(prop);
+                tickop = objTick(prop, playerCount, isSimOwner);
                 g_ProfObjTickCycles += osGetCount() - prof_t;
             }
         }

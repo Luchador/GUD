@@ -3257,6 +3257,14 @@ void chrobjWeaponTick(struct PropRecord* prop)
 
     obj = prop->obj;
 
+    /* Most objects cannot contain weapon timers. Reject them before the
+     * multiplayer ownership calls, which is particularly important for the
+     * hundreds of standard vegetation props in Jungle. */
+    if (obj->type != PROP_TYPE_EXPLOSION && obj->type != PROP_TYPE_SMOKE)
+    {
+        return;
+    }
+
     if (get_player_position_in_shuffled(get_cur_playernum()) != 0)
     {
         return;
@@ -6270,7 +6278,7 @@ void objTickUpdateChildren(PropRecord *prop, bool isOnScreen)
 }
 
 
-s32 objTick(struct PropRecord *prop)
+s32 objTick(struct PropRecord *prop, s32 playerCount, bool isSimOwner)
 {
     ObjectRecord *obj;
     Model *model;
@@ -6278,21 +6286,14 @@ s32 objTick(struct PropRecord *prop)
     TICKOP tickop;
     f32 previousOpenPosition;
 
-    /**
-     * In multiplayer, TRUE only for the viewport pass that advances shared
-     * simulation state. Projectile simulation instead belongs to its owner.
-     */
-    bool isSimOwner;
     bool applyFogCull;
     bool isOnScreen;
-    s32 playerCount;
 
 	obj = prop->obj;
 	model = obj->model;
 
 	tickop = TICKOP_NONE;
 	previousOpenPosition = 0.0f;
-	playerCount = getPlayerCount();
 
 	if (obj->runtime_bitflags & RUNTIMEBITFLAG_REMOVE)
 	{
@@ -6310,18 +6311,9 @@ s32 objTick(struct PropRecord *prop)
 		return TICKOP_RETICK;
 	}
 
-	if (playerCount == 1)
+	if (playerCount != 1 && obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
 	{
-		isSimOwner = TRUE;
-	}
-	else
-	{
-		isSimOwner = get_player_position_in_shuffled(get_cur_playernum()) == 0;
-
-		if (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
-		{
-			isSimOwner = obj->projectile->ownerprop == g_CurrentPlayer->prop;
-		}
+		isSimOwner = obj->projectile->ownerprop == g_CurrentPlayer->prop;
 	}
 
 	if (isSimOwner)
@@ -6357,13 +6349,14 @@ s32 objTick(struct PropRecord *prop)
 		}
 	}
 
-	applyFogCull = objTickUpdateOpacityAndPortal(prop, playerCount);
+	applyFogCull = TRUE;
 
-	if ((obj->type == PROPDEF_TANK) && (get_ptr_for_players_tank() == prop))
+	if (obj->type == PROPDEF_TINTED_GLASS || obj->type == PROPDEF_DOOR)
 	{
-		isOnScreen = TRUE;
+		applyFogCull = objTickUpdateOpacityAndPortal(prop, playerCount);
 	}
-	else if (obj->flags2 & PROPFLAG2_04000000)
+
+	if (obj->flags2 & PROPFLAG2_04000000)
 	{
 		isOnScreen = TRUE;
 	}
@@ -6394,8 +6387,18 @@ s32 objTick(struct PropRecord *prop)
 		prop->flags &= ~PROPFLAG_ONSCREEN;
 	}
     
-	chrobjWeaponTick(prop);
-	objTickUpdateChildren(prop, isOnScreen);
+	if (obj->type == PROP_TYPE_EXPLOSION || obj->type == PROP_TYPE_SMOKE)
+	{
+		chrobjWeaponTick(prop);
+	}
+
+    /**
+     * GUD: Optimize by skipping updating children when there are none.
+     */
+	if (prop->child != NULL)
+	{
+		objTickUpdateChildren(prop, isOnScreen);
+	}
 
 	if (obj->runtime_bitflags & RUNTIMEBITFLAG_00000100)
 	{
@@ -6418,7 +6421,10 @@ s32 objTick(struct PropRecord *prop)
 				break;
 		}
 
-		objDropRecursively(prop);
+		if (prop->child != NULL)
+		{
+			objDropRecursively(prop);
+		}
 	}
 
 	if (tickop == TICKOP_CHANGEDLIST)
