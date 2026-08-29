@@ -68,7 +68,11 @@
 #include <gbi_extension.h>
 
 #define LIGHTFIXTURE_TABLE_MAX 0x64
-#define DARKENED_LIGHT_TABLE_MAX 0x200
+
+/**
+ * GUD: Original game was 512, now increased to 1024.
+ */
+#define DARKENED_LIGHT_TABLE_MAX 1024
 
 s_lightfixture light_fixture_table[LIGHTFIXTURE_TABLE_MAX];
 s16 current_light_fixture_slot;

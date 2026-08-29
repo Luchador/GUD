@@ -12,12 +12,10 @@ extern struct ModelHitEntry *g_ModelHitFreeList; // canonically freedist
  * inside that same pool and is kept as a raw char symbol so IDO emits the
  * original relocation.
  */
-extern char g_ModelHitEntries[]; // dword_CODE_bss_80076A50
-extern char g_ModelHitEntriesPenultimate[]; // dword_CODE_bss_80079908
+extern char g_ModelHitEntries[];
+extern char g_ModelHitEntriesPenultimate[];
 
 /**
- * Address: 7F005450
- * 
  * Called by stage load.
  * 
  * Initializes a fixed pool of ModelHitEntry records used while building per-model hit/collision traversal lists.

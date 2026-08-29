@@ -35,9 +35,8 @@
 
 point2d D_800309F0 = {0, 0};
 
-// forward declarations
+// Begin forward declarations.
 
-u32 weaponIsOneHanded            (PropRecord *arg0);
 void chrlvIdleAnimationRelated                (ChrRecord *self, f32 arg1);
 f32 chrlvGetGuard007SpeedRating               (ChrRecord *self, f32 min, f32 max);
 s32 chrlvGetGuard007SpeedRatingInt            (ChrRecord *self, s32 arg1);
@@ -139,7 +138,6 @@ s32 chrResolveId                              (ChrRecord *self, s32 id);
 s32 sub_GAME_7F033780                         (waypoint *arg0, coord3d *arg1, f32 angle);
 s32 chrlvFindPathNeighborRelated              (coord3d *bondpos, StandTile *stan, f32 rot, u8 quadrant);
 s32 chrIsPosOffScreen                         (coord3d *arg0, StandTile *arg1);
-PropRecord *chrSpawnAtCoord(s32 bodynum, s32 headnum, coord3d *pos, StandTile *stan, f32 angle, AIListRecord *ailist, s32 spawnflags);
 void chrlvInitActAttack                       (ChrRecord *self, struct anim_group_info ** arg1, s32 arg2, point2d *arg3, s32 attack_type, s32 arg5, s32 arg6);
 s32 chrlvPatrolCalculateStep                  (ChrRecord *self, bool *forward, s32 numsteps);
 bool chrlvIsPosClearOfObjectBounds            (coord3d *pos, StandTile *stan);
@@ -152,13 +150,10 @@ PadRecord * chrlvGetPatrolStepPad             (ChrRecord *self, s32 numsteps);
 void chrlvUpdateAimendbackShoulders           (ChrRecord *, void *, s32, s32, f32);
 
 
-// end forward declarations
+// End forward declarations.
 
 
-/**
- * Address 0x7F0234D0.
- */
-Model * retrieve_header_for_body_and_head(s32 body, s32 head, u32 bitflags)
+Model *retrieve_header_for_body_and_head(s32 body, s32 head, u32 bitflags)
 {
     ModelFileHeader *body_header;
     ModelFileHeader *head_header;
@@ -167,13 +162,13 @@ Model * retrieve_header_for_body_and_head(s32 body, s32 head, u32 bitflags)
     body_header = CitemZ_entries[body].header;
     head_header = NULL;
 
-    sunglasses = 0;
+    sunglasses = FALSE;
 
-    if ((bitflags & 1))
+    if ((bitflags & SPAWN_SUNGLASSES))
     {
-        sunglasses = 1;
+        sunglasses = TRUE;
     }
-    else if ((bitflags & 2))
+    else if ((bitflags & SPAWN_SUNGLASSES_RANDOM))
     {
         sunglasses = (randomGetNext() & 1) == 0;
     }
@@ -280,12 +275,12 @@ void expand_09_characters(s32 stageid, GuardRecord *arg1, s32 arg2)
                 temp_v0_5->headnum = (s8) headid;
                 temp_v0_5->bodynum = (s8) bodyid;
 
-                if ((arg1->bitflags & 4) != 0)
+                if ((arg1->bitflags & GUARD_SETUP_FLAG_CHR_CLONE))
                 {
                     temp_v0_5->chrflags |= CHRFLAG_CLONE;
                 }
 
-                if ((arg1->bitflags & 8) != 0)
+                if ((arg1->bitflags & GUARD_SETUP_FLAG_CHR_INVINCIBLE))
                 {
                     temp_v0_5->chrflags |= CHRFLAG_INVINCIBLE;
                 }
@@ -296,25 +291,10 @@ void expand_09_characters(s32 stageid, GuardRecord *arg1, s32 arg2)
     }
 }
 
-/*
-* above is chrlv.c
-//#possible file break - rest of file is chraction.c
-*/
 
-/**
- * Address 0x7F023910.
- * dont think this is right, shouldnt it check for gun flags not chr?
- */
-u32 weaponIsOneHanded(PropRecord *arg0)
+bool chractWeaponIsOneHanded(PropRecord *weaponProp)
 {
-    if (arg0 != NULL)
-    {
-        ChrRecord *v = (ChrRecord*)arg0->voidp;
-
-        return bondwalkItemCheckBitflags(v->act_bytes.padding[84], WEAPONSTATBITFLAG_ONLY_1_HANDED);
-    }
-
-    return 0U;
+    return weaponProp != NULL && bondwalkItemCheckBitflags(weaponProp->weapon->weaponnum, WEAPONSTATBITFLAG_ONLY_1_HANDED) != 0;
 }
 
 
@@ -329,8 +309,8 @@ void chrlvIdleAnimationRelated(ChrRecord *self, f32 duration)
     if (
         ((left != NULL) && (right != NULL))
         || ((left == NULL) && (right == NULL))
-        || (weaponIsOneHanded(left) != 0)
-        || (weaponIsOneHanded(right) != 0))
+        || (chractWeaponIsOneHanded(left) != 0)
+        || (chractWeaponIsOneHanded(right) != 0))
     {
         modelSetAnimation(self->model, (void*)&ptr_animation_table->data[(s32)&ANIM_DATA_idle_unarmed], randomGetNext() & 1, 0, 0.25f, duration);
         modelSetAnimLooping(self->model, 0, 16.0f);
@@ -518,8 +498,8 @@ void chrKneelChooseAnimation(ChrRecord *self)
 
     if ((left && right)
         || (!left && !right)
-        || weaponIsOneHanded(left)
-        || weaponIsOneHanded(right))
+        || chractWeaponIsOneHanded(left)
+        || chractWeaponIsOneHanded(right))
     {
         s32 r = randomGetNext() & 1;
         modelSetAnimation(self->model, (struct ModelAnimation*)&ptr_animation_table->data[(s32)&ANIM_DATA_fire_kneel_forward_one_handed_weapon_slow], r, 0.0f, chrlvGetGuard007SpeedRating(self, 0.5f, 0.8f), 16.0f);
@@ -835,9 +815,9 @@ void chrlvSideStepAnimationRelated(ChrRecord *self, GUNHAND side)
         sp2C = randomGetNext() & 1;
         phi_v1 = randomGetNext() & 1;
     }
-    else if (weaponIsOneHanded(left) == 0)
+    else if (chractWeaponIsOneHanded(left) == 0)
     {
-        if ((weaponIsOneHanded(right) == 0) && ((left != NULL) || (right != NULL)))
+        if ((chractWeaponIsOneHanded(right) == 0) && ((left != NULL) || (right != NULL)))
         {
             sp2C = left != 0;
             phi_v1 = randomGetNext() & 1;
@@ -906,8 +886,8 @@ void chrlvFireJumpToSideAnimationRelated(ChrRecord *self, GUNHAND side)
     else if (
         ((left != NULL) && (right != NULL))
         || ((left == NULL) && (right == NULL))
-        || (weaponIsOneHanded(left) != 0)
-        || (weaponIsOneHanded(right) != 0))
+        || (chractWeaponIsOneHanded(left) != 0)
+        || (chractWeaponIsOneHanded(right) != 0))
     {
         side2 = randomGetNext() & 1;
     }
@@ -983,7 +963,7 @@ void sub_GAME_7F024CF8(ChrRecord *self, coord3d *arg1)
     }
     else
     {
-        if ((weaponIsOneHanded(left)) || (weaponIsOneHanded(right)))
+        if ((chractWeaponIsOneHanded(left)) || (chractWeaponIsOneHanded(right)))
         {
             sp2C = 0;
             phi_a2 = left != 0;
@@ -1325,7 +1305,7 @@ void sub_GAME_7F025560(ChrRecord *self, s32 attack_type, s32 arg2)
     }
     else
     {
-        if ((weaponIsOneHanded(left) != 0) || (weaponIsOneHanded(right) != 0))
+        if ((chractWeaponIsOneHanded(left) != 0) || (chractWeaponIsOneHanded(right) != 0))
         {
             last_arg2 = left != 0;
             animation_pointer = (struct anim_group_info **)ptr_pistol_firing_animation_groups;
@@ -1397,7 +1377,7 @@ void sub_GAME_7F0256F0(ChrRecord *self, s32 attack_type, s32 arg2)
     }
     else
     {
-        if ((weaponIsOneHanded(left) != 0) || (weaponIsOneHanded(right) != 0))
+        if ((chractWeaponIsOneHanded(left) != 0) || (chractWeaponIsOneHanded(right) != 0))
         {
             last_arg2 = left != 0;
             animation_pointer = (struct anim_group_info **)ptr_crouched_pistol_firing_animation_groups;
@@ -1511,7 +1491,7 @@ void chrlvInitActAttackWalk(ChrRecord *chr, s32 arg1)
             sp70.p[0] = 1;
         }
     }
-    else if (weaponIsOneHanded(left) || weaponIsOneHanded(right))
+    else if (chractWeaponIsOneHanded(left) || chractWeaponIsOneHanded(right))
     {
         sp78 = (s32)left != 0;
 
@@ -1652,7 +1632,7 @@ void chrlvInitActAttackRoll(ChrRecord *chr, GUNHAND side)
             sp64.p[0] = sp7C == 0;
         }
     }
-    else if (weaponIsOneHanded(left) || weaponIsOneHanded(right))
+    else if (chractWeaponIsOneHanded(left) || chractWeaponIsOneHanded(right))
     {
         sp7C = (s32)left != 0;
         sp78 = 1;
@@ -3453,7 +3433,7 @@ void get_sound_at_range(ChrRecord *self, s32 arg1, s32 arg2)
     else
     {
         s32 t;
-        if (weaponIsOneHanded(left) || weaponIsOneHanded(right))
+        if (chractWeaponIsOneHanded(left) || chractWeaponIsOneHanded(right))
         {
             t = 0;
             flag = t;
@@ -3611,7 +3591,7 @@ void chrlvWalkingAnimationRelated(ChrRecord *self)
     {
         s32 t;
 
-        if (weaponIsOneHanded(left) || weaponIsOneHanded(right))
+        if (chractWeaponIsOneHanded(left) || chractWeaponIsOneHanded(right))
         {
             t = 0;
             flag = t;
@@ -4786,8 +4766,8 @@ void chrlvTickStand(ChrRecord *self)
 
                 if (((left != NULL) && (right != NULL))
                     || ((left == NULL) && (right == NULL))
-                    || weaponIsOneHanded(left)
-                    || weaponIsOneHanded(right))
+                    || chractWeaponIsOneHanded(left)
+                    || chractWeaponIsOneHanded(right))
                 {
                     // required to fix stack above
                     // looks like it doesn't matter which `s32` is used.
@@ -10140,10 +10120,6 @@ bool chrAdjustPosForSpawn(coord3d *pos, StandTile **arg1, f32 facing, bool allow
 }
 
 
-/**
- * Address 0x7F03415C.
- * PD: chrSpawnAtCoord
-*/
 PropRecord *chrSpawnAtCoord(s32 bodynum, s32 headnum, coord3d *pos, StandTile *stan, f32 angle, AIListRecord *ailist, s32 spawnflags)
 {
     PropRecord *chrprop;
@@ -10190,12 +10166,10 @@ PropRecord *chrSpawnAtCoord(s32 bodynum, s32 headnum, coord3d *pos, StandTile *s
 }
 
 
-/**
- * Address 0x7F034258.
-*/
 PropRecord *chrSpawnAtPad(ChrRecord *self, s32 bodynum, s32 headnum, s32 padid, AIListRecord *ailist, s32 flags)
 {
     PadRecord *pad;
+
     padid = chrResolvePadId(self, padid);
 
     if (isNotBoundPad(padid))
@@ -10206,10 +10180,7 @@ PropRecord *chrSpawnAtPad(ChrRecord *self, s32 bodynum, s32 headnum, s32 padid, 
     {
         pad = (PadRecord *)&g_CurrentSetup.boundpads[getBoundPadNum(padid)];
     }
-    //<- not here...
-    #ifdef ENABLE_LOG
-    osSyncPrintf("%s%s new char x = %f, y = %f, z = %f \n", "", "", pad->pos.x, pad->pos.y, pad->pos.z);
-    #endif
+
     return chrSpawnAtCoord(bodynum, headnum, &pad->pos, pad->stan, atan2f(pad->look.f[0], pad->look.f[2]), ailist, flags);
 }
 
