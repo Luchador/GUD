@@ -2008,9 +2008,6 @@ s32 chrpropTestPointInPolygon(coord3d *point, struct rect4f *polygon, s32 edges)
 }
 
 
-
-
-
 /**
  * @param arg0: prop
  * @param collision_radius: out parameter, will be set to character width or player collision radius.
@@ -2052,19 +2049,19 @@ f32 sub_GAME_7F03CFE8(PropRecord *arg0)
 }
 
 
-void sub_GAME_7F03D058(PropRecord *prop, bool unset)
+void propSetCollisionEnabled(PropRecord *prop, bool enabled)
 {
     if (prop->type == PROP_TYPE_CHR)
     {
-        chrSetCollidable(prop->chr, unset);
+        chrSetCollidable(prop->chr, enabled);
     }
     else if (prop->type == PROP_TYPE_VIEWER)
     {
-        bviewSetPlayerSolid(prop, unset);
+        bviewSetPlayerSolid(prop, enabled);
     }
     else if ((prop->type == PROP_TYPE_OBJ) || (prop->type == PROP_TYPE_DOOR) || (prop->type == PROP_TYPE_WEAPON))
     {
-        objSetCollisionEnabled(prop, unset);
+        objSetCollisionEnabled(prop, enabled);
     }
 }
 
@@ -3562,17 +3559,18 @@ void projectRectCornersTo2D(struct coord3d *center, struct coord2d *viewXBounds,
 }
 
 
-ObjectRecord *scan_position_data_table_for_normal_object_at_preset(s32 PadId)
+ObjectRecord *objFindByPadId(s32 PadId)
 {
     PropRecord *prop;
-    s16 tempPadId = PadId;
+    s16 targetPadId = PadId;
 
     prop = chrpropGetActiveTail();
+
     while (prop != NULL)
     {
         if (prop->type == PROP_TYPE_OBJ)
         {
-            if (tempPadId == prop->obj->pad)
+            if (targetPadId == prop->obj->pad)
             {
                 return prop->obj;
             }
@@ -3585,14 +3583,14 @@ ObjectRecord *scan_position_data_table_for_normal_object_at_preset(s32 PadId)
 }
 
 
-ObjectRecord * sub_GAME_7F03FAB0(struct coord3d *pos, s32 RoomID)
+ObjectRecord *chrpropFindObjectContainingPointInRoom(struct coord3d *pos, s32 RoomID)
 {
-    s32 unused;
-    rect4f * polygon;
+    rect4f *polygon;
     s32 edges;
-    PropRecord * prop;
+    PropRecord *prop;
 
     prop = chrpropGetActiveTail();
+
     while (prop != NULL)
     {
         if ((prop->type == PROP_TYPE_OBJ) && (RoomID == prop->stan->room))
@@ -3601,7 +3599,7 @@ ObjectRecord * sub_GAME_7F03FAB0(struct coord3d *pos, s32 RoomID)
         
             if (chrpropTestPointInPolygon(pos, polygon, edges) != 0)
             {
-                return (ObjectRecord *) prop->chr;
+                return prop->obj;
             }
         }
 

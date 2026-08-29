@@ -723,7 +723,7 @@ void objPlaceAtPad(ObjectRecord *baseobj, struct coord3d *pos, Mtxf *matrix, Sta
         matrix_4x4_copy(matrix, &mtxcopy);
         newPos.x = pos2->f[0] - (mtxcopy.m[1][0] * bboxYmin);
         newPos.z = pos2->f[2] - (mtxcopy.m[1][2] * bboxYmin);
-        roomObj  = sub_GAME_7F03FAB0(pos, stan->room);
+        roomObj  = chrpropFindObjectContainingPointInRoom(pos, stan->room);
 
         if (roomObj)
         {
@@ -753,6 +753,7 @@ void objPlaceAtPad(ObjectRecord *baseobj, struct coord3d *pos, Mtxf *matrix, Sta
     else
     {
         objChangeShading(baseobj, pos, &mtxcopy, stan);
+
         if ((baseobj->flags2 & PROPFLAG2_DRONEGUN) || (baseobj->flags & PROPFLAG_ABSOLUTEPOSITION))
         {
             baseobj->position.x = newPos.x;
@@ -5486,14 +5487,14 @@ TICKOP objTickProjectile(PropRecord *prop)
 
             if (Proj->ownerprop != NULL)
             {
-                sub_GAME_7F03D058(Proj->ownerprop, 0);
+                propSetCollisionEnabled(Proj->ownerprop, 0);
             }
 
             moveResult = sub_GAME_7F042EB4(obj, &Proj->unkd4, &sp64C, &sp658, 0, moveOnlyIfPathClear);
 
             if (Proj->ownerprop != NULL)
             {
-                sub_GAME_7F03D058(Proj->ownerprop, 1);
+                propSetCollisionEnabled(Proj->ownerprop, 1);
             }
 
             /*
@@ -5600,14 +5601,14 @@ TICKOP objTickProjectile(PropRecord *prop)
 
             if (Proj->ownerprop != NULL)
             {
-                sub_GAME_7F03D058(Proj->ownerprop, 0);
+                propSetCollisionEnabled(Proj->ownerprop, 0);
             }
 
             moveResult = sub_GAME_7F042EB4(obj, &ProjPos.f[0], &collisionPoint, &collisionNormal, canEmbed, 0);
 
             if (Proj->ownerprop != NULL)
             {
-                sub_GAME_7F03D058(Proj->ownerprop, 1);
+                propSetCollisionEnabled(Proj->ownerprop, 1);
             }
 
             objMovedThisFrame = 1;
@@ -6430,8 +6431,6 @@ s32 objTick(struct PropRecord *prop)
 
 
 /**
- * Address: 7F049B58
- *
  * Draws tracers for characters other than the player, and draws tracers for drone guns as well.
  */
 Gfx *weaponRenderTracers(Gfx *gdl)
@@ -6449,6 +6448,7 @@ Gfx *weaponRenderTracers(Gfx *gdl)
     s32 type_chr;
 
     prop = chrpropGetActiveTail();
+
     if (prop != NULL)
     {
         type_viewer = PROP_TYPE_VIEWER;
@@ -7959,15 +7959,9 @@ s32 objDrop(PropRecord *prop)
             projectile->speed.y = -RANDOMFRAC() * 1.6666666f * 0.5f;
             projectile->speed.z = cosf(angle) *  1.6666666f;
 
-#ifdef VERSION_EU
-            rot.x = (RANDOMFRAC() * 7.53982257843f * 0.0078125f) - 0.029452431947f;
-            rot.y = (RANDOMFRAC() * 7.53982257843f * 0.0078125f) - 0.029452431947f;
-            rot.z = (RANDOMFRAC() * 7.53982257843f * 0.0078125f) - 0.029452431947f;
-#else
             rot.x = (RANDOMFRAC() * M_TAU_F * 0.0078125f) - 0.024543693f;
             rot.y = (RANDOMFRAC() * M_TAU_F * 0.0078125f) - 0.024543693f;
             rot.z = (RANDOMFRAC() * M_TAU_F * 0.0078125f) - 0.024543693f;
-#endif
 
             matrix_4x4_set_rotation_around_xyz(rot.f, &projectile->mtx);
         }
@@ -7982,15 +7976,9 @@ s32 objDrop(PropRecord *prop)
             projectile->speed.y = 6.6666665f;
             projectile->speed.z = cosf(angle) * 13.333333f;
 
-#ifdef VERSION_EU
-            rot.x = (RANDOMFRAC() * 7.53982257843f * 0.0078125f) - 0.029452431947f;
-            rot.y = (RANDOMFRAC() * 7.53982257843f * 0.0078125f) - 0.029452431947f;
-            rot.z = (RANDOMFRAC() * 7.53982257843f * 0.0078125f) - 0.029452431947f;
-#else
             rot.x = (RANDOMFRAC() * M_TAU_F * 0.0078125f) - 0.024543693f;
             rot.y = (RANDOMFRAC() * M_TAU_F * 0.0078125f) - 0.024543693f;
             rot.z = (RANDOMFRAC() * M_TAU_F * 0.0078125f) - 0.024543693f;
-#endif
 
             matrix_4x4_set_rotation_around_xyz(rot.f, &projectile->mtx);
             projectile->flags |= 0x40;
@@ -8008,15 +7996,9 @@ s32 objDrop(PropRecord *prop)
             projectile->speed.y = 2.0f * (RANDOMFRAC() * 1.6666666f);
             projectile->speed.z = ((2.0f * (RANDOMFRAC() * 1.6666666f)) + 3.3333333f) * cosf(angle);
 
-#ifdef VERSION_EU
-            rot.x = (RANDOMFRAC() * 7.53982257843f * 0.03125f) - 0.117809727788f;
-            rot.y = (RANDOMFRAC() * 7.53982257843f * 0.03125f) - 0.117809727788f;
-            rot.z = (RANDOMFRAC() * 7.53982257843f * 0.03125f) - 0.117809727788f;
-#else
             rot.x = (RANDOMFRAC() * M_TAU_F * 0.03125f) - 0.09817477f;
             rot.y = (RANDOMFRAC() * M_TAU_F * 0.03125f) - 0.09817477f;
             rot.z = (RANDOMFRAC() * M_TAU_F * 0.03125f) - 0.09817477f;
-#endif
 
             matrix_4x4_set_rotation_around_xyz(rot.f, &projectile->mtx);
         }
@@ -8047,7 +8029,7 @@ s32 objDrop(PropRecord *prop)
                 cdtypes = CDTYPE_OBJS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER;
             }
 
-            sub_GAME_7F03D058(root, FALSE);
+            propSetCollisionEnabled(root, FALSE);
 
             if ((stanTestLineUnobstructed(&rootstan, root->pos.f[0], root->pos.f[2], spB8.m[3][0], spB8.m[3][2], cdtypes, 0.0f, 1.0f, 0.0f, 1.0f) != 0)
                 && (stanTestVolume(&rootstan, spB8.m[3][0], spB8.m[3][2], objwidth, cdtypes, 0.0f, 1.0f) < 0))
@@ -8062,7 +8044,7 @@ s32 objDrop(PropRecord *prop)
                 spB8.m[3][2] = root->pos.z;
             }
 
-            sub_GAME_7F03D058(root, TRUE);
+            propSetCollisionEnabled(root, TRUE);
             prop->zDepth = -sp58->m[3][2];
 
         }

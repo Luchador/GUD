@@ -879,11 +879,11 @@ s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, co
 
             spC8 = tile;
 
-            sub_GAME_7F03D058(prop2, 0);
+            propSetCollisionEnabled(prop2, 0);
 
             lineok = stanTestLineUnobstructed(&spC8, collision_pos->x, collision_pos->z, spB0.x, spB0.z, 0x13, 0.0f, 1.0f, 0.0f, 1.0f);
 
-            sub_GAME_7F03D058(prop2, 1);
+            propSetCollisionEnabled(prop2, 1);
 
             if (!lineok)
             {
@@ -921,11 +921,11 @@ s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, co
 
                     spC8 = tile;
 
-                    sub_GAME_7F03D058(prop2, 0);
+                    propSetCollisionEnabled(prop2, 0);
 
                     lineok = stanTestLineUnobstructed(&spC8, collision_pos->x, collision_pos->z, flt_CODE_bss_800799E8.x, flt_CODE_bss_800799E8.z, 0x13, 0.0f, 1.0f, 0.0f, 1.0f);
 
-                    sub_GAME_7F03D058(prop2, 1);
+                    propSetCollisionEnabled(prop2, 1);
 
                     if (lineok)
                     {
@@ -2053,7 +2053,7 @@ s32 bondviewTankCollisionStatus(struct coord3d *collision_position, StandTile *a
 
     if (g_PlayerTankProp != NULL)
     {
-        sub_GAME_7F03D058(g_PlayerTankProp, 0);
+        propSetCollisionEnabled(g_PlayerTankProp, 0);
     }
 
     if ((bondviewTestLineUnobstructed(&spBC, collision_position->f[0], collision_position->f[2], tank_collision_bounds.points[0].f[0], tank_collision_bounds.points[0].f[1], CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_PATHBLOCKER | CDTYPE_OBJSIMMUNETOEXPLOSIONS, arg3, arg4) != 0)
@@ -2111,7 +2111,7 @@ s32 bondviewTankCollisionStatus(struct coord3d *collision_position, StandTile *a
 
     if (g_PlayerTankProp != NULL)
     {
-        sub_GAME_7F03D058(g_PlayerTankProp, 1);
+        propSetCollisionEnabled(g_PlayerTankProp, 1);
     }
 
     return sp94;
@@ -2247,10 +2247,10 @@ s32 bondviewTryMoveToStan(struct coord3d *arg0, StandTile **stan)
 
         if (g_WorldTankProp != NULL)
         {
-            sub_GAME_7F03D058(g_WorldTankProp, 0);
+            propSetCollisionEnabled(g_WorldTankProp, 0);
         }
 
-        sub_GAME_7F03D058(g_CurrentPlayer->prop, 0);
+        propSetCollisionEnabled(g_CurrentPlayer->prop, 0);
         sp7C = stanTileDistanceRelated(&sp90, arg0->f[0], arg0->f[2], collision_radius, &sp3C);
 
         if (stanGetLocusField0(&sp3C) != 0)
@@ -2304,11 +2304,11 @@ block_20:
             }
         }
 
-        sub_GAME_7F03D058(g_CurrentPlayer->prop, 1);
+        propSetCollisionEnabled(g_CurrentPlayer->prop, 1);
 
         if (g_WorldTankProp != NULL)
         {
-            sub_GAME_7F03D058(g_WorldTankProp, 1);
+            propSetCollisionEnabled(g_WorldTankProp, 1);
         }
     }
 

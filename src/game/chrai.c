@@ -4066,7 +4066,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                         pos.z           = pad->pos.z;
                         // pos  = pad->pos; <-uses lw instead of lwc1
                         stan            = pad->stan;
-                        sub_GAME_7F03D058(chr->prop, FALSE);
+                        propSetCollisionEnabled(chr->prop, FALSE);
 
                         if (chrAdjustPosForSpawn(&pos, &stan, FacingDirection, TRUE))
                         {
@@ -4092,7 +4092,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                             }
                             pass = TRUE;
                         }
-                        sub_GAME_7F03D058(chr->prop, TRUE);
+                        propSetCollisionEnabled(chr->prop, TRUE);
                     }
                     if (pass)
                     {

@@ -10324,7 +10324,7 @@ bool chrTryStartAlarm(ChrRecord *self, s32 PadId)
 
     if (chrIsNotDeadOrShot(self))
     {
-        objinst = scan_position_data_table_for_normal_object_at_preset(PadId);
+        objinst = objFindByPadId(PadId);
 
         if (objinst && objIsHealthy(objinst))
         {
