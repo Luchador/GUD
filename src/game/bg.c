@@ -69,7 +69,13 @@ extern s32 ptr_bgdata_offsets;
 extern s32 g_BgRenderMode;
 extern s32 *dword_CODE_bss_8007FF90;
 extern f32 *dword_CODE_bss_8007FF94;
-extern RoomBoundInfo dword_CODE_bss_8007FFA0[];
+
+/**
+ * Per-frame render worklist for visible background rooms.
+ * bgSetRoomOnScreen adds or updates one slot for every room that may be visible.
+ */
+extern BgDrawSlot g_BgDrawSlots[];
+
 extern s32 dword_CODE_bss_8007FF98;
 extern s32 dword_CODE_bss_8007FF9C;
 extern s32 dword_CODE_bss_800815f0;
@@ -85,9 +91,6 @@ s32 g_BgSingleDisplayList;
 char list_visible_rooms_in_cur_global_vis_packet[0x98];
 
 s32 num_visible_rooms_in_cur_global_vis_packet;
-
-/* Level gCurrentLevel = {0, 1.0, 1.0, 1.0, 1}; cant check this
-   anymore however will concede seperate vars since below gets match? */
 s32 *ptr_bg_c_debug_debug_notice_list = 0;
 f32 g_LevelScale = 1.0;
 f32 g_LevelInverseScale = 1.0;
@@ -121,6 +124,7 @@ s32 g_MaxNumRooms = MAXROOMCOUNT;
 s32 g_RoomLoadBudget = 0;
 
 u8 g_PortalTraversalDepths[PORTMAX] = {0};
+
 u8 g_PortalIsVertical[PORTMAX] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -179,7 +183,6 @@ struct levelentry levelinfotable[] = {
     {LEVELID_MAX,      "bg/bgx.seg",           "TbgxZ",                0.94285715,  1.0,        1.0}
 };
 
-u32 D_8004481C[] = {0x1000100, 0};
 
 s_specialportal specialportalarray[] = {
     {0x03,
@@ -193,10 +196,7 @@ s_specialportal specialportalarray[] = {
 */
 s32 g_BgCurrentRoom = 1;
 
-/**
- * Total number of rooms drawn for the current frame.
-*/
-s32 g_BgNumberOfRoomsDrawn = 0;
+s32 g_BgRoomsScheduledToBeDrawn = 0;
 
 Lights1 GlobalLight = gdSPDefLights1(
     150,150,150,        /* ambient color grey */
@@ -217,7 +217,6 @@ Gfx *bgRenderRoomSecondary(Gfx *gdl, s32 room_index);
 extern void bgRoomsTickUnload(void);
 Gfx *bgScissorCurrentPlayerView(Gfx *arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4);
 bool bgIsRoomOnScreen(s32 roomID, struct rectbbox *screenbox);
-s32 bgSetRoomOnScreen(s32 curroom, s32 unk1, bbox2d *screensize, s32 next);
 void bgUpdateCurrentPlayerScreenMinMax(void);
 void *bgApplyGlobalVisCommands(s32 *pc);
 void bgDetermineVisibleRooms(void);
@@ -276,7 +275,7 @@ void bgMarkSpecialPortals(void)
 }
 
 
-s32 bgSetRoomOnScreen(s32 curroom, s32 unk1, bbox2d * screensize, s32 next)
+s32 bgSetRoomOnScreen(s32 curroom, s32 draworder, bbox2d *screensize, PORTALFLAGS pflags)
 {
     s32 i;
     s32 temp;
@@ -288,38 +287,38 @@ s32 bgSetRoomOnScreen(s32 curroom, s32 unk1, bbox2d * screensize, s32 next)
         return 0;
     }
 
-    for (i = 0; i < g_BgNumberOfRoomsDrawn; i++)
+    for (i = 0; i < g_BgRoomsScheduledToBeDrawn; i++)
     {
-        if (curroom == dword_CODE_bss_8007FFA0[i].roomid)
+        if (curroom == g_BgDrawSlots[i].roomid)
         {
-            if (dword_CODE_bss_8007FFA0[i].unk1 < unk1)
+            if (g_BgDrawSlots[i].draworder < draworder)
             {
-                dword_CODE_bss_8007FFA0[i].unk1 = unk1;
+                g_BgDrawSlots[i].draworder = draworder;
             }
 
-            bgRectOutersect(screensize,&dword_CODE_bss_8007FFA0[i].bbox);
+            bgRectOutersect(screensize,&g_BgDrawSlots[i].bbox);
 
-            temp = dword_CODE_bss_8007FFA0[i].next;
-            dword_CODE_bss_8007FFA0[i].bbox.min.x = screensize->min.x;
-            dword_CODE_bss_8007FFA0[i].bbox.min.y = screensize->min.y;
-            dword_CODE_bss_8007FFA0[i].bbox.max.x = screensize->max.x;
-            dword_CODE_bss_8007FFA0[i].bbox.max.y = screensize->max.y;
-            dword_CODE_bss_8007FFA0[i].next = temp | next;
+            temp = g_BgDrawSlots[i].specialPortalFlags;
+            g_BgDrawSlots[i].bbox.min.x = screensize->min.x;
+            g_BgDrawSlots[i].bbox.min.y = screensize->min.y;
+            g_BgDrawSlots[i].bbox.max.x = screensize->max.x;
+            g_BgDrawSlots[i].bbox.max.y = screensize->max.y;
+            g_BgDrawSlots[i].specialPortalFlags = temp | pflags;
 
             return temp;
         }
     }
 
-    i = g_BgNumberOfRoomsDrawn;
+    i = g_BgRoomsScheduledToBeDrawn;
 
-    dword_CODE_bss_8007FFA0[i].roomid = curroom;
-    dword_CODE_bss_8007FFA0[i].unk1 = unk1;
-    dword_CODE_bss_8007FFA0[i].bbox.min.x = screensize->min.x;
-    dword_CODE_bss_8007FFA0[i].bbox.min.y = screensize->min.y;
-    dword_CODE_bss_8007FFA0[i].bbox.max.x = screensize->max.x;
-    dword_CODE_bss_8007FFA0[i].bbox.max.y = screensize->max.y;
-    dword_CODE_bss_8007FFA0[i].next = next;
-    g_BgNumberOfRoomsDrawn = i + 1;
+    g_BgDrawSlots[i].roomid = curroom;
+    g_BgDrawSlots[i].draworder = draworder;
+    g_BgDrawSlots[i].bbox.min.x = screensize->min.x;
+    g_BgDrawSlots[i].bbox.min.y = screensize->min.y;
+    g_BgDrawSlots[i].bbox.max.x = screensize->max.x;
+    g_BgDrawSlots[i].bbox.max.y = screensize->max.y;
+    g_BgDrawSlots[i].specialPortalFlags = pflags;
+    g_BgRoomsScheduledToBeDrawn = i + 1;
 
     return 0;
 }
@@ -329,7 +328,7 @@ void bgResetPortalVisitCounts(void)
 {
     s32 i;
 
-    g_BgNumberOfRoomsDrawn = 0;
+    g_BgRoomsScheduledToBeDrawn = 0;
 
     i = 0;
 
@@ -342,7 +341,7 @@ void bgResetPortalVisitCounts(void)
 
 
 /**
- * Searches dword_CODE_bss_8007FFA0 for matching id.
+ * Searches g_BgDrawSlots for matching id.
  * If found, sets result to 2d bbox and returns 1.
  * Otherwise result is set to empty 2d bbox and returns 0.
  *
@@ -353,14 +352,14 @@ s32 bgGet2dBboxByRoomId(s32 room_id, struct bbox2d *result)
 {
     s32 i;
 
-    for (i=0; i<g_BgNumberOfRoomsDrawn; i++)
+    for (i=0; i<g_BgRoomsScheduledToBeDrawn; i++)
     {
-        if (room_id == dword_CODE_bss_8007FFA0[i].roomid)
+        if (room_id == g_BgDrawSlots[i].roomid)
         {
-            result->f[0][0] = dword_CODE_bss_8007FFA0[i].bbox.f[0][0];
-            result->f[0][1] = dword_CODE_bss_8007FFA0[i].bbox.f[0][1];
-            result->f[1][0] = dword_CODE_bss_8007FFA0[i].bbox.f[1][0];
-            result->f[1][1] = dword_CODE_bss_8007FFA0[i].bbox.f[1][1];
+            result->f[0][0] = g_BgDrawSlots[i].bbox.f[0][0];
+            result->f[0][1] = g_BgDrawSlots[i].bbox.f[0][1];
+            result->f[1][0] = g_BgDrawSlots[i].bbox.f[1][0];
+            result->f[1][1] = g_BgDrawSlots[i].bbox.f[1][1];
 
             return 1;
         }
@@ -381,39 +380,39 @@ Gfx *bgRender(Gfx *gdl)
     b_min = 99999999;
     b_max = 0;
  
-    for (j = 0; j < g_BgNumberOfRoomsDrawn; j++)
+    for (j = 0; j < g_BgRoomsScheduledToBeDrawn; j++)
     {
-        if (b_max < dword_CODE_bss_8007FFA0[j].unk1)
+        if (b_max < g_BgDrawSlots[j].draworder)
         {
-            b_max = dword_CODE_bss_8007FFA0[j].unk1;
+            b_max = g_BgDrawSlots[j].draworder;
         }
  
-        if (dword_CODE_bss_8007FFA0[j].unk1 < b_min)
+        if (g_BgDrawSlots[j].draworder < b_min)
         {
-            b_min=dword_CODE_bss_8007FFA0[j].unk1;
+            b_min=g_BgDrawSlots[j].draworder;
         }
     }
  
     for (i = b_min; i <= b_max; i++)
     {
-        for (j = 0; j < g_BgNumberOfRoomsDrawn; j++)
+        for (j = 0; j < g_BgRoomsScheduledToBeDrawn; j++)
         {
-            if (i == dword_CODE_bss_8007FFA0[j].unk1)
+            if (i == g_BgDrawSlots[j].draworder)
             {
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)camGetPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
                 gdl = envRenderClearFogMode(gdl);
  
                 if (lvGetBgRenderEnabled())
                 {
-                    gdl = chrpropsRenderPass(gdl, dword_CODE_bss_8007FFA0[j].roomid, 0);
+                    gdl = chrpropsRenderPass(gdl, g_BgDrawSlots[j].roomid, 0);
                 }
  
                 gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
-                gdl = envSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl++, dword_CODE_bss_8007FFA0[j].bbox.min.x, dword_CODE_bss_8007FFA0[j].bbox.min.y, dword_CODE_bss_8007FFA0[j].bbox.max.x, dword_CODE_bss_8007FFA0[j].bbox.max.y));
+                gdl = envSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl++, g_BgDrawSlots[j].bbox.min.x, g_BgDrawSlots[j].bbox.min.y, g_BgDrawSlots[j].bbox.max.x, g_BgDrawSlots[j].bbox.max.y));
  
                 if (lvGetBgRenderEnabled())
                 {
-                    gdl = bgRenderRoomPrimary(gdl, dword_CODE_bss_8007FFA0[j].roomid);
+                    gdl = bgRenderRoomPrimary(gdl, g_BgDrawSlots[j].roomid);
                 }
  
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)camGetPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
@@ -421,7 +420,7 @@ Gfx *bgRender(Gfx *gdl)
  
                 if (lvGetBgRenderEnabled())
                 {
-                    gdl = chrpropsRenderPass(gdl, dword_CODE_bss_8007FFA0[j].roomid, 2);
+                    gdl = chrpropsRenderPass(gdl, g_BgDrawSlots[j].roomid, 2);
                 }
             }
         }
@@ -438,16 +437,16 @@ Gfx *bgRender(Gfx *gdl)
  
     for (i = b_max; i >= b_min; i--)
     {
-        for (j = 0; j < g_BgNumberOfRoomsDrawn; j++)
+        for (j = 0; j < g_BgRoomsScheduledToBeDrawn; j++)
         {
-            if (i == dword_CODE_bss_8007FFA0[j].unk1)
+            if (i == g_BgDrawSlots[j].draworder)
             {
                 gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
-                gdl = envSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl++, dword_CODE_bss_8007FFA0[j].bbox.min.x, dword_CODE_bss_8007FFA0[j].bbox.min.y, dword_CODE_bss_8007FFA0[j].bbox.max.x, dword_CODE_bss_8007FFA0[j].bbox.max.y));
+                gdl = envSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl++, g_BgDrawSlots[j].bbox.min.x, g_BgDrawSlots[j].bbox.min.y, g_BgDrawSlots[j].bbox.max.x, g_BgDrawSlots[j].bbox.max.y));
  
                 if (lvGetBgRenderEnabled())
                 {
-                    gdl = bgRenderRoomSecondary(gdl, dword_CODE_bss_8007FFA0[j].roomid);
+                    gdl = bgRenderRoomSecondary(gdl, g_BgDrawSlots[j].roomid);
                 }
 
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)camGetPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
@@ -455,7 +454,7 @@ Gfx *bgRender(Gfx *gdl)
  
                 if (lvGetBgRenderEnabled())
                 {
-                    gdl = chrpropsRenderPass(gdl, dword_CODE_bss_8007FFA0[j].roomid, 1);
+                    gdl = chrpropsRenderPass(gdl, g_BgDrawSlots[j].roomid, 1);
                 }
             }
         }
@@ -612,7 +611,7 @@ void bgLoadFile(LEVEL_INDEX levelid)
             {
                 if (((bg_envdata_entry_local *)dword_CODE_bss_8007FF90)[i].type == ENVIRONMENTDATA_ALT)
                 {
-                    ((bg_envdata_entry_local *)dword_CODE_bss_8007FF90)[i].data = getIndexOfPORTALID((s32) BG_SEG_TO_PTR(g_BgData, ((bg_envdata_entry_local *)dword_CODE_bss_8007FF90)[i].data));
+                    ((bg_envdata_entry_local *)dword_CODE_bss_8007FF90)[i].data = bgGetIndexOfPortalID((s32) BG_SEG_TO_PTR(g_BgData, ((bg_envdata_entry_local *)dword_CODE_bss_8007FF90)[i].data));
                 }
             }
         }
@@ -756,7 +755,7 @@ void bgTick(void)
     Portal *next;
     coord3d *pos;
     coord3d *pos3;
-    u8 *portalflags;
+    u8 *specialPortalFlags;
     s32 room;
     s32 portalnum;
     s32 lastportal;
@@ -1450,7 +1449,7 @@ s32 *dword_CODE_bss_8007FF90;
 f32 *dword_CODE_bss_8007FF94;
 s32 dword_CODE_bss_8007FF98;
 s32 dword_CODE_bss_8007FF9C;
-RoomBoundInfo dword_CODE_bss_8007FFA0[204];
+BgDrawSlot g_BgDrawSlots[204];
 s32 dword_CODE_bss_800815f0;
 s32 dword_CODE_bss_800815f4;
 s32 dword_CODE_bss_800815f8;
@@ -1735,7 +1734,7 @@ u8 bgIsRoomRendered(s32 roomID)
 }
 
 
-s32 getIndexOfPORTALID(s32 portalID)
+s32 bgGetIndexOfPortalID(s32 portalID)
 {
     s32 i;
 
@@ -1962,10 +1961,16 @@ void bgLoadRoomModelData(s32 roomID)
     used = 0;
 
     // Room ID is out of range?
-    if (roomID >= g_MaxNumRooms) goto end;
+    if (roomID >= g_MaxNumRooms)
+    {
+        return;
+    }
 
     // Room is already loaded?
-    if (g_BgRoomInfo[roomID].unloadAge) goto end;
+    if (g_BgRoomInfo[roomID].unloadAge)
+    {
+        return;
+    }
 
     // Get the cached file size. Is zero when the size is not yet known.
     allocsize = g_BgRoomInfo[roomID].cur_room_totalsize;
@@ -1980,7 +1985,10 @@ void bgLoadRoomModelData(s32 roomID)
     */
     data = memaAlloc(allocsize);
 
-    if (data == NULL) goto end;
+    if (data == NULL)
+    {
+        return;
+    }
 
     if (g_BgRoomInfo[roomID].verticesCompressedSize)
     {
@@ -2070,9 +2078,6 @@ void bgLoadRoomModelData(s32 roomID)
     }
 
     bgBuildRoomVtxBounds(roomID);
-
-end:;
-
 }
 
 
@@ -3647,14 +3652,14 @@ Gfx *bgRenderWrapper(Gfx *gdl)
 
     if (levelentry_index == LEVEL_INDEX_DAM)
     {
-        for (i=0; i<g_BgNumberOfRoomsDrawn; i++)
+        for (i=0; i<g_BgRoomsScheduledToBeDrawn; i++)
         {
             // The lake in dam is a single giant room, id 0x23
-            if (dword_CODE_bss_8007FFA0[i].roomid == 0x23)
+            if (g_BgDrawSlots[i].roomid == 0x23)
             {
-                // speculation in discord: unk1 is probably draw order or similar,
+                // speculation in discord: draworder is probably draw order or similar,
                 // this is a hack to draw the lake first.
-                dword_CODE_bss_8007FFA0[i].unk1 = 0;
+                g_BgDrawSlots[i].draworder = 0;
                 break;
             }
         }

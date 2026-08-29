@@ -10069,10 +10069,6 @@ s32 chrIsTargetNearlyInSight(ChrRecord *self)
 }
 
 
-/**
- * Address 0x7F033EAC.
- * PD: chrIsPosOffScreen
-*/
 s32 chrIsPosOffScreen(coord3d *arg0, StandTile *tile)
 {
     bool offscreen;
@@ -10096,10 +10092,6 @@ s32 chrIsPosOffScreen(coord3d *arg0, StandTile *tile)
 }
 
 
-/**
- * Address 0x7F033F48.
- * PD: chrAdjustPosForSpawn
-*/
 bool chrAdjustPosForSpawn(coord3d *pos, StandTile **arg1, f32 facing, bool allowonscreen)
 {
     coord3d testpos;

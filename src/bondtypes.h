@@ -482,7 +482,7 @@ typedef union
 
     typedef struct StandFileHeader
     {
-        void *     unk1;
+        void *     draworder;
         StandTile *firstTile;
         u8         unk2[];
     } StandFileHeader;

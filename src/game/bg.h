@@ -95,14 +95,13 @@ typedef struct RoomInfo {
     coord3d maxbounds;                      // 0x44
 } RoomInfo; 
 
-typedef struct RoomBoundInfo
+typedef struct BgDrawSlot
 {
     s32 roomid;
-    // could be draw order?
-    s32 unk1;
+    s32 draworder;
     struct bbox2d bbox;
-    void* next;
-} RoomBoundInfo;
+    PORTALFLAGS specialPortalFlags;
+} BgDrawSlot;
 
 typedef struct Portal
 {
