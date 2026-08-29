@@ -1443,7 +1443,14 @@ bool stanPointProjectsOntoEdge(f32 a_x, f32 a_z, f32 b_x, f32 b_z, f32 p_x, f32 
 }
 
 
-StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, f32 radius, CDTYPE cdtypes, f32 topOffset, f32 bottomOffset)
+StanCollisionResult stanTestVolumeImpl(
+    StandTile **tileStack,
+    f32 p_x,
+    f32 p_z,
+    f32 radius,
+    CDTYPE cdtypes,
+    f32 topOffset,
+    f32 bottomOffset)
 {
     s32 i;
     f32 pointDist;
@@ -1461,12 +1468,18 @@ StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, 
     f32 sp94;
     f32 sp90;
 
-
     useVerticalBounds = (bottomOffset <= topOffset);
 
     roomCount = 0;
 
-    stanColResult = stanTestCircleAndCollectRooms(tileStack, p_x, p_z, radius, &roomList[0], &roomCount, 20);
+    stanColResult = stanTestCircleAndCollectRooms(
+        tileStack,
+        p_x,
+        p_z,
+        radius,
+        &roomList[0],
+        &roomCount,
+        20);
 
     if (stanColResult >= 0)
     {
@@ -1475,7 +1488,7 @@ StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, 
 
     if (roomCount > 20)
     {
-        //osSyncPrintf("stanCircleLegalXFObjTypeY: %d rooms is more than %d\n",roomCount,20);
+        //osSyncPrintf("stanCircleLegalXFObjTypeY: %d rooms is more than %d\n", roomCount, 20);
         roomCount = 20;
     }
 
@@ -1499,14 +1512,22 @@ StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, 
 
             if (propIsOfCdType(prop, cdtypes) != 0)
             {
-                chraiGetCollisionBounds(prop, &polygon, &numvertices0, &sp94, &sp90);
+                chraiGetCollisionBounds(
+                    prop,
+                    &polygon,
+                    &numvertices0,
+                    &sp94,
+                    &sp90);
 
-                if ((numvertices0 > 0) && ((useVerticalBounds == 0) || ((sp90 <= topOffset) && (bottomOffset <= sp94))))
+                if ((numvertices0 > 0)
+                    && ((useVerticalBounds == 0)
+                        || ((sp90 <= topOffset) && (bottomOffset <= sp94))))
                 {
                     var_f24 = -1.0f;
 
-                    i=0;
-                    while(1)
+                    i = 0;
+
+                    while (1)
                     {
                         next = i + 1;
 
@@ -1515,7 +1536,13 @@ StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, 
                             next = 0;
                         }
 
-                        pointDist = stanGetSignedPointLineDistance(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], p_x, p_z);
+                        pointDist = stanGetSignedPointLineDistance(
+                            polygon->points[i].f[0],
+                            polygon->points[i].f[1],
+                            polygon->points[next].f[0],
+                            polygon->points[next].f[1],
+                            p_x,
+                            p_z);
 
                         if (pointDist < 0.0f)
                         {
@@ -1530,17 +1557,36 @@ StanCollisionResult stanTestVolumeImpl(StandTile **tileStack, f32 p_x, f32 p_z, 
                          */
                         if ((var_f24 < pointDist) && (pointDist < radius))
                         {
-                            if ((stanPointProjectsOntoEdge(polygon->points[i].f[0], polygon->points[i].f[1], polygon->points[next].f[0], polygon->points[next].f[1], p_x, p_z) != 0)
-                                || (distBetweenPoints2d(polygon->points[i].f[0], polygon->points[i].f[1], p_x, p_z) < radius)
-                                || (distBetweenPoints2d(polygon->points[next].f[0], polygon->points[next].f[1], p_x, p_z) < radius))
+                            if ((stanPointProjectsOntoEdge(
+                                    polygon->points[i].f[0],
+                                    polygon->points[i].f[1],
+                                    polygon->points[next].f[0],
+                                    polygon->points[next].f[1],
+                                    p_x,
+                                    p_z) != 0)
+                                || (distBetweenPoints2d(
+                                        polygon->points[i].f[0],
+                                        polygon->points[i].f[1],
+                                        p_x,
+                                        p_z) < radius)
+                                || (distBetweenPoints2d(
+                                        polygon->points[next].f[0],
+                                        polygon->points[next].f[1],
+                                        p_x,
+                                        p_z) < radius))
                             {
                                 g_StanLastCollisionEdgePointsValid = 1;
                                 var_f24 = pointDist;
 
-                                g_StanLastCollisionEdgePointA.f[0] = polygon->points[i].f[0];
-                                g_StanLastCollisionEdgePointA.f[1] = polygon->points[i].f[1];
-                                g_StanLastCollisionEdgePointB.f[0] = polygon->points[next].f[0];
-                                g_StanLastCollisionEdgePointB.f[1] = polygon->points[next].f[1];
+                                g_StanLastCollisionEdgePointA.f[0] =
+                                    polygon->points[i].f[0];
+                                g_StanLastCollisionEdgePointA.f[1] =
+                                    polygon->points[i].f[1];
+                                g_StanLastCollisionEdgePointB.f[0] =
+                                    polygon->points[next].f[0];
+                                g_StanLastCollisionEdgePointB.f[1] =
+                                    polygon->points[next].f[1];
+
                                 g_StanLastCollisionTile = NULL;
                                 g_StanLastCollisionEdgeIndex = 0;
                                 g_StanLastCollisionProp = prop;
