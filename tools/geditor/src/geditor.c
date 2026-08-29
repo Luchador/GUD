@@ -13,33 +13,79 @@
 #define GEDITOR_WIDTH  1024
 #define GEDITOR_HEIGHT  720
 
-/*
- * Window procedure: Windows calls this for every message aimed at our
- * window. We handle the ones we care about and hand the rest to
- * DefWindowProc, which supplies the standard behaviour (dragging,
- * resizing, the min/max/close buttons, and so on).
- */
+enum {
+    ID_FILE_NEW_PROJECT = 40001,
+    ID_FILE_OPEN_PROJECT,
+    ID_FILE_EXIT
+};
+
+
+static HMENU GEditorCreateMenuBar(void)
+{
+    HMENU menubar;
+    HMENU filemenu;
+
+    menubar = CreateMenu();
+    filemenu = CreatePopupMenu();
+
+    AppendMenu(filemenu, MF_STRING, ID_FILE_NEW_PROJECT, "&New Project");
+    AppendMenu(filemenu, MF_STRING, ID_FILE_OPEN_PROJECT, "&Open Project");
+    AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
+    AppendMenu(filemenu, MF_STRING, ID_FILE_EXIT, "E&xit");
+    AppendMenu(menubar, MF_POPUP, (UINT_PTR)filemenu, "&File");
+
+    return menubar;
+}
+
+
+/**
+  * Windows calls this for every message aimed at our window.
+  * We handle the ones we care about and hand the rest to
+  * DefWindowProc, which supplies the standard behaviour (dragging,
+  * resizing, the min/max/close buttons, and so on).
+  */
 static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     switch (msg)
     {
+    case WM_COMMAND:
+        /* Menu selections arrive here with the command ID in the low word. */
+        switch (LOWORD(wparam))
+        {
+            case ID_FILE_NEW_PROJECT:
+                MessageBox(hwnd, "New Project: not implemented yet.", GEDITOR_TITLE, MB_OK | MB_ICONINFORMATION);
+                return 0;
+            case ID_FILE_OPEN_PROJECT:
+                MessageBox(hwnd, "Open Project: not implemented yet.", GEDITOR_TITLE, MB_OK | MB_ICONINFORMATION);
+                return 0;
+            case ID_FILE_EXIT:
+                /**
+                 * Send the same message the close button sends, so both
+                 * routes share one shutdown path.
+                 */
+                SendMessage(hwnd, WM_CLOSE, 0, 0);
+                return 0;
+        }
+        break; /* anything else falls through to DefWindowProc */
+ 
     case WM_DESTROY:
-        /* The window is gone; ask the message loop to stop. Without
-           this the process keeps running after the window closes. */
+        // Stop the process.
         PostQuitMessage(0);
         return 0;
     }
-
+ 
     return DefWindowProc(hwnd, msg, wparam, lparam);
 }
+
 
 int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int showcmd)
 {
     WNDCLASS wc;
     HWND hwnd;
     MSG msg;
+    HMENU menubar;
 
-    /* 1. Describe the kind of window we want, and register it. */
+    // Register the Window class.
     ZeroMemory(&wc, sizeof(wc));
     wc.lpfnWndProc   = GEditorWndProc;
     wc.hInstance     = hinstance;
@@ -53,17 +99,21 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
         return 1;
     }
 
-    /* 2. Create one instance of it. WS_OVERLAPPEDWINDOW is the combination
-          that gives a title bar, a resizable frame, and the standard
-          minimise / maximise / close buttons. */
+    menubar = GEditorCreateMenuBar();
+
+    /**
+     * Create one instance. WS_OVERLAPPEDWINDOW is the combination
+     * that gives a title bar, a resizable frame, and the standard
+     * minimize / maximize / close buttons. 
+     */
     hwnd = CreateWindowEx(
         0,
         GEDITOR_CLASS,
         GEDITOR_TITLE,
         WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT,       /* let Windows place it */
+        CW_USEDEFAULT, CW_USEDEFAULT,
         GEDITOR_WIDTH, GEDITOR_HEIGHT,
-        NULL, NULL, hinstance, NULL);
+        NULL, menubar, hinstance, NULL);
 
     if (hwnd == NULL)
     {
@@ -74,8 +124,10 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
     ShowWindow(hwnd, showcmd);
     UpdateWindow(hwnd);
 
-    /* 3. The message loop. GetMessage blocks until something happens,
-          returns 0 when WM_QUIT arrives, and -1 on error. */
+    /**
+     * The message loop. GetMessage blocks until something happens,
+     * returns 0 when WM_QUIT arrives, and -1 on error. 
+     */
     while (GetMessage(&msg, NULL, 0, 0) > 0)
     {
         TranslateMessage(&msg);
