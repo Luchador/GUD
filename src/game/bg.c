@@ -2284,8 +2284,6 @@ void bgBuildRoomVtxBounds(s32 roomID)
 
     points = memaAlloc(ALIGN16(numpoints * sizeof(RoomVtxBatchBounds)));
 
-    if (ALIGN16(numpoints * sizeof(RoomVtxBatchBounds))) {}
-
     if (points == NULL)
     {
         return;
@@ -2389,7 +2387,6 @@ bool bgTestRayIntersectsBbox(coord3d *origin, coord3d *dir, s32 *bbox_min, s32 *
 {
     coord3d bbox_min_f;
     coord3d bbox_max_f;
-    u32 stack[4];
     f32 f0;
     f32 f0_2;
     f32 f2;
@@ -2686,10 +2683,7 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                             score = dist - 4;
                         }
 
-                        if (dist);
-
-                        // Texture 0x4FD is used for the light shafts that come through windows in Archives.
-                        if ((score < bestScore) && (texnum != 0x4FD))
+                        if (score < bestScore)
                         {
                             bestScore = score;
                             hitthing->hitpos.x = hitbuf.hitpos.x;
@@ -2712,8 +2706,9 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
             {
                 if (op == ((s8) G_TRI4))
                 {
-                    // Keep this line as-is for matching.
-                    s2 = 0; do
+                    s2 = 0; 
+
+                    do
                     {
                         bboxMin2 = D_80044880;
                         bboxMax2 = D_8004488C;
@@ -2749,6 +2744,7 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                         {
                             v = vtxbase;
                             v += idx2[i];
+
                             if (v->coord.x < bboxMin2.x)
                             {
                                 bboxMin2.x = v->coord.x;
