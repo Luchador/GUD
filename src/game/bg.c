@@ -21,7 +21,7 @@
 #include "bgroomtrans.h"
 
 
-#define BG_STACK_SIZE 20
+#define BG_CMD_STACK_SIZE 20
 #define STAGES_MAX 38
 
 typedef struct GlobalVisCommand {
@@ -30,12 +30,6 @@ typedef struct GlobalVisCommand {
     u8 padding[2];
     s32 arg;
 } GlobalVisCommand;
-
-typedef struct Unk80081600 {
-    bbox2d unk0;
-    s32 unk10;
-    s32 unk14;
-} Unk80081600;
 
 enum GlobalVisOpcode {
     VISOP_END = 0x00,
@@ -46,22 +40,27 @@ enum GlobalVisOpcode {
     VISOP_NOT = 0x05,
     VISOP_XOR = 0x06,
     VISOP_PUSH_IF_ROOM_IN_RANGE = 0x14,
-    VISOP_FORCE_VISIBLE = 0x1e,
-    VISOP_MATCH_PORTAL_VIS = 0x1f,
-    VISOP_ADD_VISIBLE_ROOM = 0x20,
-    VISOP_REMOVE_VIS = 0x21,
-    VISOP_VISIBLE_IF_SEEN_THROUGH_PORTAL = 0x22,
-    VISOP_NOT_VISIBLE_IF_SEEN_THROUGH_PORTAL = 0x23,
+    VISOP_SET_RESULT_TRUE = 0x1e,
+    VISOP_SET_RESULT_IF_PORTAL_VISIBLE = 0x1f,
+    VISOP_IF_RESULT_ADD_ROOM = 0x20,
+    VISOP_SET_RESULT_FALSE = 0x21,
+    VISOP_SET_RESULT_TRUE_IF_THROUGH_PORTAL = 0x22,
+    VISOP_SET_RESULT_FALSE_IF_NOT_THROUGH_PORTAL = 0x23,
     VISOP_DISABLE_ROOM = 0x24,
     VISOP_DISABLE_ROOM_RANGE = 0x25,
     VISOP_PRELOAD_ROOM = 0x26,
     VISOP_PRELOAD_ROOM_RANGE = 0x27,
-    VISOP_IF_STATEMENT = 0x50,
-    VISOP_DONT_EXEC_COMMANDS_EVEN_ON_RETURN = 0x51,
-    VISOP_ENDIF_CONTINUE_EXEC = 0x52,
-    VISOP_IF_STATEMENT_PULL_FROM_STACK = 0x5a,
-    VISOP_TOGGLE_EXEC_VS_READONLY = 0x5b,
+    VISOP_BRANCH = 0x50,
+    VISOP_THROW = 0x51,
+    VISOP_CATCH = 0x52,
+    VISOP_IF = 0x5a,
+    VISOP_ELSE = 0x5b,
     VISOP_ENDIF = 0x5c
+};
+
+enum BgVisResult {
+    BG_VIS_RESULT_TRUE = 0,
+    BG_VIS_RESULT_FALSE = 1
 };
 
 struct PortalCache g_PortalCameraCache[PORTMAX];
@@ -218,7 +217,7 @@ extern void bgRoomsTickUnload(void);
 Gfx *bgScissorCurrentPlayerView(Gfx *arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4);
 bool bgIsRoomOnScreen(s32 roomID, struct rectbbox *screenbox);
 void bgUpdateCurrentPlayerScreenMinMax(void);
-void *bgApplyGlobalVisCommands(s32 *pc);
+void bgExecuteGlobalVisCommands(GlobalVisCommand *commands);
 void bgDetermineVisibleRooms(void);
 s32 bgGetPortalScreenBbox(s32 portalnum, bbox2d *screenbox);
 f32 bgGetPortalMargin(s32 portalnum);
@@ -1464,15 +1463,17 @@ s32 g_BgPortalQueueWriteIndex = 0;
 s32 g_BgPortalQueueReadIndex = 0;
 
 /**
- * Local stack.
+ * Boolean expression stack used by the background visibility interpreter.
  */
-s32 g_BgStack[BG_STACK_SIZE] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static s32 g_BgCmdStack[BG_CMD_STACK_SIZE];
 
 /**
- * Current top of the stack.
+ * Index of the next free stack entry.
  */
-s32 g_BgStackCount = 0;
-s32 current_visibility = 0;
+static s32 g_BgCmdStackIndex = 0;
+static bbox2d g_BgCmdScreenBox;
+static enum BgVisResult g_BgCmdResult = BG_VIS_RESULT_TRUE;
+static bool g_BgCmdThrowing = FALSE;
 f32 g_PortalLineCrossDist = 0;
 s32 D_80044904 = 0x7F7FFFFF;
 s32 D_80044908 = 0x7F7FFFFF;
@@ -2284,6 +2285,8 @@ void bgBuildRoomVtxBounds(s32 roomID)
 
     points = memaAlloc(ALIGN16(numpoints * sizeof(RoomVtxBatchBounds)));
 
+    if (ALIGN16(numpoints * sizeof(RoomVtxBatchBounds))) {}
+
     if (points == NULL)
     {
         return;
@@ -2387,6 +2390,7 @@ bool bgTestRayIntersectsBbox(coord3d *origin, coord3d *dir, s32 *bbox_min, s32 *
 {
     coord3d bbox_min_f;
     coord3d bbox_max_f;
+    u32 stack[4];
     f32 f0;
     f32 f0_2;
     f32 f2;
@@ -2683,7 +2687,10 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                             score = dist - 4;
                         }
 
-                        if (score < bestScore)
+                        if (dist);
+
+                        // Texture 0x4FD is used for the light shafts that come through windows in Archives.
+                        if ((score < bestScore) && (texnum != 0x4FD))
                         {
                             bestScore = score;
                             hitthing->hitpos.x = hitbuf.hitpos.x;
@@ -2706,9 +2713,8 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
             {
                 if (op == ((s8) G_TRI4))
                 {
-                    s2 = 0; 
-
-                    do
+                    // Keep this line as-is for matching.
+                    s2 = 0; do
                     {
                         bboxMin2 = D_80044880;
                         bboxMax2 = D_8004488C;
@@ -2744,7 +2750,6 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                         {
                             v = vtxbase;
                             v += idx2[i];
-
                             if (v->coord.x < bboxMin2.x)
                             {
                                 bboxMin2.x = v->coord.x;
@@ -3199,44 +3204,49 @@ void bgProcessPortalTraversal(s32 value, s32 roomnum, s32 portalnum, s32 depth, 
 /**
  * Add to stack. Push and then increment position. Will wrap on overflow.
  */
-s32 bgStackPush(s32 arg0)
+static void bgCmdPushValue(s32 value)
 {
-    g_BgStack[g_BgStackCount] = arg0;
-    g_BgStackCount = (s32) (g_BgStackCount + 1) % BG_STACK_SIZE;
-    return arg0;
+    g_BgCmdStack[g_BgCmdStackIndex] = value;
+    g_BgCmdStackIndex++;
+
+    if (g_BgCmdStackIndex == BG_CMD_STACK_SIZE)
+    {
+        g_BgCmdStackIndex = 0;
+    }
 }
 
 
 /**
  * Pop from stack. Decrement position and retrieve from there. Wraps on underflow.
  */
-s32 bgStackPop(void)
+static s32 bgCmdPopValue(void)
 {
-    s32 val;
+    if (g_BgCmdStackIndex == 0)
+    {
+        g_BgCmdStackIndex = BG_CMD_STACK_SIZE;
+    }
 
-    // ok, who thought this was a good idea
-    val = g_BgStack[g_BgStackCount = (g_BgStackCount + (BG_STACK_SIZE-1)) % BG_STACK_SIZE];
-    return val;
+    g_BgCmdStackIndex--;
+
+    return g_BgCmdStack[g_BgCmdStackIndex];
 }
 
 
-s32 bgStackGetNthValueFromEnd(s32 n) 
+/**
+ * Executes one branch of the background visibility command stream.
+ *
+ * Recursive calls process nested branches. The execute flag selects whether
+ * commands take effect or are only scanned to locate their matching control
+ * command.
+ */
+static GlobalVisCommand *bgExecuteVisCommandBranch(GlobalVisCommand *cmd, bool execute)
 {
-    return g_BgStack[((g_BgStackCount - n) + (BG_STACK_SIZE - 1)) % BG_STACK_SIZE];
-}
+    GlobalVisCommand *nextCommand;
+    s32 condition;
+    bbox2d portalScreenBox;
+    bool roomLoadBudgetAvailable = TRUE;
 
-
-GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execute)
-{
-    static Unk80081600 dword_CODE_bss_80081600;
-
-    GlobalVisCommand  *ret;
-    s32                value;
-    bbox2d             sp68;
-    bbox2d             sp58;
-    u8                 preload_ok = TRUE;
-
-    dword_CODE_bss_80081600.unk10 = FALSE;
+    g_BgCmdThrowing = FALSE;
 
     if (cmd == NULL)
     {
@@ -3253,7 +3263,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
             case VISOP_PUSH:
                 if (execute)
                 {
-                    bgStackPush(cmd->arg);
+                    bgCmdPushValue(cmd->arg);
                 }
 
                 cmd += cmd->length;
@@ -3262,7 +3272,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
             case VISOP_POP:
                 if (execute)
                 {
-                    bgStackPop();
+                    bgCmdPopValue();
                 }
 
                 cmd += cmd->length;
@@ -3271,8 +3281,8 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
             case VISOP_AND:
                 if (execute)
                 {
-                    value = bgStackPop();
-                    bgStackPush(bgStackPop() & value);
+                    condition = bgCmdPopValue();
+                    bgCmdPushValue(bgCmdPopValue() & condition);
                 }
 
                 cmd += cmd->length;
@@ -3281,8 +3291,8 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
             case VISOP_OR:
                 if (execute)
                 {
-                    value = bgStackPop();
-                    bgStackPush(bgStackPop() | value);
+                    condition = bgCmdPopValue();
+                    bgCmdPushValue(bgCmdPopValue() | condition);
                 }
 
                 cmd += cmd->length;
@@ -3291,7 +3301,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
             case VISOP_NOT:
                 if (execute)
                 {
-                    bgStackPush(bgStackPop() == 0);
+                    bgCmdPushValue(bgCmdPopValue() == 0);
                 }
 
                 cmd += cmd->length;
@@ -3300,8 +3310,8 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
             case VISOP_XOR:
                 if (execute)
                 {
-                    value = bgStackPop();
-                    bgStackPush(bgStackPop() ^ value);
+                    condition = bgCmdPopValue();
+                    bgCmdPushValue(bgCmdPopValue() ^ condition);
                 }
 
                 cmd += cmd->length;
@@ -3310,63 +3320,61 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
             case VISOP_PUSH_IF_ROOM_IN_RANGE:
                 if (execute)
                 {
-                    s32 curroom;
+                    s32 currentRoom;
 
-                    curroom = g_BgCurrentRoom;
+                    currentRoom = g_BgCurrentRoom;
 
-                    bgStackPush(cmd[1].arg <= curroom && curroom <= cmd[2].arg);
+                    bgCmdPushValue(cmd[1].arg <= currentRoom && currentRoom <= cmd[2].arg);
                 }
 
                 cmd += cmd->length;
                 break;
 
-            case VISOP_FORCE_VISIBLE:
+            case VISOP_SET_RESULT_TRUE:
                 if (execute)
                 {
-                    dword_CODE_bss_80081600.unk0.f[0][0] = g_CurrentPlayer->screensize.f[0][0];
-                    dword_CODE_bss_80081600.unk0.f[0][1] = g_CurrentPlayer->screensize.f[0][1];
-                    dword_CODE_bss_80081600.unk0.f[1][0] = g_CurrentPlayer->screensize.f[1][0];
-                    dword_CODE_bss_80081600.unk0.f[1][1] = g_CurrentPlayer->screensize.f[1][1];
+                    g_BgCmdScreenBox.f[0][0] = g_CurrentPlayer->screensize.f[0][0];
+                    g_BgCmdScreenBox.f[0][1] = g_CurrentPlayer->screensize.f[0][1];
+                    g_BgCmdScreenBox.f[1][0] = g_CurrentPlayer->screensize.f[1][0];
+                    g_BgCmdScreenBox.f[1][1] = g_CurrentPlayer->screensize.f[1][1];
 
-                    current_visibility = FALSE;
+                    g_BgCmdResult = BG_VIS_RESULT_TRUE;
                 }
 
                 cmd += cmd->length;
                 break;
 
-            case VISOP_MATCH_PORTAL_VIS:
+            case VISOP_SET_RESULT_IF_PORTAL_VISIBLE:
                 if (execute)
                 {
-                    if (bgGetPortalScreenBbox(cmd[1].arg, &dword_CODE_bss_80081600.unk0) == 0)
+                    if (!bgGetPortalScreenBbox(cmd[1].arg, &g_BgCmdScreenBox)
+                        || !bgRectIntersect(&g_BgCmdScreenBox, &g_CurrentPlayer->screensize))
                     {
-                        current_visibility = TRUE;
-                    }
-                    else if (bgRectIntersect(&dword_CODE_bss_80081600.unk0, &g_CurrentPlayer->screensize) == 0)
-                    {
-                        current_visibility = TRUE;
+                        g_BgCmdResult = BG_VIS_RESULT_FALSE;
                     }
                     else
                     {
-                        current_visibility = FALSE;
+                        g_BgCmdResult = BG_VIS_RESULT_TRUE;
                     }
                 }
 
                 cmd += cmd->length;
                 break;
 
-            case VISOP_VISIBLE_IF_SEEN_THROUGH_PORTAL:
+            case VISOP_SET_RESULT_TRUE_IF_THROUGH_PORTAL:
                 if (execute)
                 {
-                    if (bgGetPortalScreenBbox(cmd[1].arg, &sp68) && bgRectIntersect(&sp68, &g_CurrentPlayer->screensize))
+                    if (bgGetPortalScreenBbox(cmd[1].arg, &portalScreenBox)
+                        && bgRectIntersect(&portalScreenBox, &g_CurrentPlayer->screensize))
                     {
-                        if (current_visibility)
+                        if (g_BgCmdResult == BG_VIS_RESULT_FALSE)
                         {
-                            bbox2dCopy(&dword_CODE_bss_80081600.unk0, &sp68);
-                            current_visibility = FALSE;
+                            bbox2dCopy(&g_BgCmdScreenBox, &portalScreenBox);
+                            g_BgCmdResult = BG_VIS_RESULT_TRUE;
                         }
                         else
                         {
-                            bgRectOutersect(&dword_CODE_bss_80081600.unk0, &sp68);
+                            bgRectOutersect(&g_BgCmdScreenBox, &portalScreenBox);
                         }
                     }
                 }
@@ -3374,32 +3382,26 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
                 cmd += cmd->length;
                 break;
 
-            case VISOP_NOT_VISIBLE_IF_SEEN_THROUGH_PORTAL:
-                if (execute && !current_visibility)
+            case VISOP_SET_RESULT_FALSE_IF_NOT_THROUGH_PORTAL:
+                if (execute && g_BgCmdResult == BG_VIS_RESULT_TRUE)
                 {
-                    if (!bgGetPortalScreenBbox(cmd[1].arg, &sp58))
+                    if (!bgGetPortalScreenBbox(cmd[1].arg, &portalScreenBox)
+                        || !bgRectIntersect(&portalScreenBox, &g_CurrentPlayer->screensize)
+                        || !bgRectIntersect(&g_BgCmdScreenBox, &portalScreenBox))
                     {
-                        current_visibility = TRUE;
-                    }
-                    else if (!bgRectIntersect(&sp58, &g_CurrentPlayer->screensize))
-                    {
-                        current_visibility = TRUE;
-                    }
-                    else if (!bgRectIntersect(&dword_CODE_bss_80081600.unk0, &sp58))
-                    {
-                        current_visibility = TRUE;
+                        g_BgCmdResult = BG_VIS_RESULT_FALSE;
                     }
                 }
 
                 cmd += cmd->length;
                 break;
 
-            case VISOP_ADD_VISIBLE_ROOM:
-                if (execute && !current_visibility)
+            case VISOP_IF_RESULT_ADD_ROOM:
+                if (execute && g_BgCmdResult == BG_VIS_RESULT_TRUE)
                 {
-                    if (bgIsRoomOnScreen(cmd[1].arg, (struct rectbbox *)&dword_CODE_bss_80081600.unk0))
+                    if (bgIsRoomOnScreen(cmd[1].arg, (struct rectbbox *)&g_BgCmdScreenBox))
                     {
-                        bgSetRoomOnScreen(cmd[1].arg, 0, &dword_CODE_bss_80081600.unk0, 0);
+                        bgSetRoomOnScreen(cmd[1].arg, 0, &g_BgCmdScreenBox, 0);
 
                         list_visible_rooms_in_cur_global_vis_packet[num_visible_rooms_in_cur_global_vis_packet] = cmd[1].arg;
 
@@ -3422,14 +3424,14 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
             case VISOP_DISABLE_ROOM_RANGE:
                 if (execute)
                 {
-                    s32 room;
+                    s32 roomnum;
 
-                    room = cmd[1].arg;
+                    roomnum = cmd[1].arg;
 
-                    while (room <= cmd[2].arg)
+                    while (roomnum <= cmd[2].arg)
                     {
-                        g_BgRoomInfo[room].room_loaded_mask = TRUE;
-                        room++;
+                        g_BgRoomInfo[roomnum].room_loaded_mask = TRUE;
+                        roomnum++;
                     }
                 }
 
@@ -3437,9 +3439,9 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
                 break;
 
             case VISOP_PRELOAD_ROOM:
-                if (execute && preload_ok)
+                if (execute && roomLoadBudgetAvailable)
                 {
-                    preload_ok = !bgCheckIfRoomModelNeedsLoad(cmd[1].arg);
+                    roomLoadBudgetAvailable = !bgCheckIfRoomModelNeedsLoad(cmd[1].arg);
                 }
 
                 cmd += cmd->length;
@@ -3448,66 +3450,63 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
             case VISOP_PRELOAD_ROOM_RANGE:
                 if (execute)
                 {
-                    s32 room;
+                    s32 roomnum;
 
-                    room = cmd[1].arg;
+                    roomnum = cmd[1].arg;
 
-                    while (room <= cmd[2].arg)
+                    while (roomnum <= cmd[2].arg)
                     {
-                        if (preload_ok)
+                        if (roomLoadBudgetAvailable)
                         {
-                            preload_ok = !bgCheckIfRoomModelNeedsLoad(room);
+                            roomLoadBudgetAvailable = !bgCheckIfRoomModelNeedsLoad(roomnum);
                         }
 
-                        room++;
+                        roomnum++;
                     }
                 }
 
                 cmd += cmd->length;
                 break;
 
-            case VISOP_REMOVE_VIS:
+            case VISOP_SET_RESULT_FALSE:
                 if (execute)
                 {
-                    current_visibility = TRUE;
+                    g_BgCmdResult = BG_VIS_RESULT_FALSE;
                 }
 
                 cmd += cmd->length;
                 break;
 
-            case VISOP_IF_STATEMENT:
-                ret = parse_global_vis_command_list(cmd + cmd->length, execute);
-                ret += ret->length;
-                cmd = ret;
+            case VISOP_BRANCH:
+                nextCommand = bgExecuteVisCommandBranch(cmd + cmd->length, execute);
+                nextCommand += nextCommand->length;
+                cmd = nextCommand;
                 break;
 
-            case VISOP_ENDIF_CONTINUE_EXEC:
+            case VISOP_CATCH:
                 cmd += cmd->length;
-                dword_CODE_bss_80081600.unk10 = FALSE;
+                g_BgCmdThrowing = FALSE;
                 return cmd;
 
-            case VISOP_DONT_EXEC_COMMANDS_EVEN_ON_RETURN:
+            case VISOP_THROW:
                 cmd += cmd->length;
 
                 if (execute)
                 {
-                    execute = FALSE;
-                    dword_CODE_bss_80081600.unk10 = TRUE;
+                    g_BgCmdThrowing = TRUE;
                 }
-                else
-                {
-                    execute = FALSE;
-                }
+
+                execute = FALSE;
 
                 break;
 
-            case VISOP_IF_STATEMENT_PULL_FROM_STACK:
-                value = bgStackPop();
+            case VISOP_IF:
+                condition = bgCmdPopValue();
 
-                ret = parse_global_vis_command_list(cmd + cmd->length, value & execute);
-                cmd = ret;
+                nextCommand = bgExecuteVisCommandBranch(cmd + cmd->length, condition & execute);
+                cmd = nextCommand;
 
-                if (!dword_CODE_bss_80081600.unk10)
+                if (!g_BgCmdThrowing)
                 {
                     continue;
                 }
@@ -3515,7 +3514,7 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
                 execute = FALSE;
                 break;
 
-            case VISOP_TOGGLE_EXEC_VS_READONLY:
+            case VISOP_ELSE:
                 execute ^= TRUE;
                 cmd += cmd->length;
                 break;
@@ -3531,20 +3530,19 @@ GlobalVisCommand *parse_global_vis_command_list(GlobalVisCommand *cmd, s32 execu
 }
 
 
-// Something about portals. Void* are structs.
-void *bgApplyGlobalVisCommands(s32 *pc) 
+/**
+ * Executes the current stage's background visibility command stream.
+ */
+void bgExecuteGlobalVisCommands(GlobalVisCommand *commands)
 {
+    g_BgCmdResult = BG_VIS_RESULT_TRUE;
 
-    current_visibility = 0;
-
-    if (!pc)
+    if (commands == NULL)
     {
-        return pc;
+        return;
     }
 
-    bgStackGetNthValueFromEnd(0);
-
-    return parse_global_vis_command_list(pc, 1);
+    bgExecuteVisCommandBranch(commands, TRUE);
 }
 
 
@@ -3586,7 +3584,7 @@ void bgDetermineVisibleRooms(void)
         g_PortalCameraCache[i].count = -1;
     }
 
-    bgApplyGlobalVisCommands(dword_CODE_bss_8007FF90);
+    bgExecuteGlobalVisCommands((GlobalVisCommand *)dword_CODE_bss_8007FF90);
 
     /**
      * If the level is Cradle, or has no portals, skip the portal occlusion culling algorithm. Just add every room in the player's
