@@ -67,14 +67,6 @@ s32 g_CurrentStageToLoad = 0;
 s32 musictrack1_playing = 0;
 s32 g_ControlsLockedFlag = 0;
 s32 g_ClockTimer = 0;
-
-
-#if defined (BUGFIX_R1)
-f32 g_JP_GlobalTimerDelta = 0;
-s32 g_GlobalTimer = 0;
-s32 g_GlobalTickCount = 0;
-f32 g_GlobalTimerDelta = 0;
-#else
 f32 g_GlobalTimerDelta = 0;
 
 /**
@@ -88,12 +80,11 @@ s32 g_GlobalTimer = 0;
  */
 s32 g_GlobalTickCount = 0;
 
-#endif
+
 /*
 * Selected difficulty mode.
 */
 s32 g_SelectedDifficulty = DIFFICULTY_AGENT;
-
 
 /**
  * Elapsed stage time in VI-rate ticks (60/s)
@@ -127,43 +118,9 @@ f32 g_SystemPowerTimeSeconds = 0.0;
  */
 bool g_BgRenderEnabled = TRUE;
 
-//D:800483C4
 s32 g_LastImpactTexNum = 0xFFFFFFFF;
 
-//D:800483C8
 struct LvlMpUnknown *D_800483C8 = NULL;
-
-/**
-* Debug variable, something to do with portals.
-* Address 0x800483CC.
-*/
-s32 g_DebugPortalIndex = 0;
-
-/**
- * Input buffer used in debug portal method.
- * Address 0x800483D0.
- */
-s32 g_DebugPortalsInputBuffer = 0;
-s32 g_DebugPortalsInputBuffer1 = 0;
-s32 g_DebugPortalsInputBuffer2 = 0;
-s32 g_DebugPortalsInputBuffer3 = 0;
-s32 g_DebugPortalsInputBuffer4 = 0;
-
-extern s32 g_DebugPortalsInputBufferSource1;
-extern s32 g_DebugPortalsInputBufferSource2;
-extern s32 g_DebugPortalsInputBufferSource3;
-extern s32 g_DebugPortalsInputBufferSource4;
-
-#pragma weak g_DebugPortalsInputBufferSource1 = g_DebugPortalsInputBuffer1
-#pragma weak g_DebugPortalsInputBufferSource2 = g_DebugPortalsInputBuffer2
-#pragma weak g_DebugPortalsInputBufferSource3 = g_DebugPortalsInputBuffer3
-#pragma weak g_DebugPortalsInputBufferSource4 = g_DebugPortalsInputBuffer4
-
-/**
- * Something debug related in the MP manage method.
- * Index to play sound effect.
- */
-s16 g_DebugMpGameSoundFxIndex = 0;
 
 
 extern u8* _fontdlSegmentRomStart;
@@ -249,24 +206,9 @@ void lvlStageLoad(s32 stage)
     g_BgRenderEnabled = TRUE;
     g_ControlsLockedFlag = 0;
     g_ClockTimer = 1;
-
-#ifdef VERSION_US
     g_GlobalTimerDelta = 1.0f;
-#endif
-#if defined(VERSION_JP) || defined(VERSION_EU)
-    g_JP_GlobalTimerDelta = 1.0f;
-#endif
-
     g_GlobalTickCount = 0;
     g_GlobalTimer = 0;
-
-#if defined(VERSION_JP)
-    g_GlobalTimerDelta = 1.f;
-#endif
-#if defined(VERSION_EU)
-    g_GlobalTimerDelta = 1.20000004768f;
-#endif
-
     g_StageElapsedTicks = 0;
     g_StageElapsedSeconds = 0.0f;
     g_MpSoundStateRelated = 0;
@@ -278,11 +220,7 @@ void lvlStageLoad(s32 stage)
     sub_GAME_7F0C1364();
     modelmgrSetLevelResetting(TRUE);
     set_mt_tex_alloc();
-#ifdef VERSION_EU
-    bullet_moving_sparks_reset();
-#else
     bullet_sparks_reset_all();
-#endif
     texReset();
     load_font_tables();
 
@@ -861,11 +799,7 @@ void lvTick(void)
         updateRoomStatusFlags();
         dyntexWaterController();
         skyTick();
-#ifdef VERSION_EU
-        bullet_moving_spark_create();
-#else
         bullet_sparks_update_all();
-#endif
         update_bullet_casings();
         update_broken_windows();
         explosionUpdateFlyingParticles();

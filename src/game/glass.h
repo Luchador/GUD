@@ -104,8 +104,5 @@ void bullet_sparks_render_all(Gfx *arg0, s32 zbufferMode);
 void bullet_sparks_reset_all(void);
 void bullet_sparks_update(void);
 void bullet_sparks_update_all(void);
-#ifdef VERSION_EU
-void bullet_moving_spark_create(void);
-#endif
 
 #endif

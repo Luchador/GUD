@@ -521,31 +521,6 @@ typedef union
 
     typedef s32 (*tilePredicate_t)(struct StandTile *);
 
-    /* Beta definitions, to allow citadel stan in .c file to build into .bin */
-
-    typedef struct BetaStandFilePoint
-    {
-        inherits coord3d;
-        u32 link;
-    } BetaStandFilePoint;
-
-    typedef struct BetaStandTileHeaderTail
-    {
-        u8 pointCount;
-        u8 headerC;
-        u8 headerD;
-        u8 headerE;
-    } BetaStandTileHeaderTail;
-
-    typedef struct BetaStandTile
-    {
-        const char               *id;
-        StandTileHeaderMid        headerMid;
-        u16                       betaUnknown;
-        BetaStandTileHeaderTail   hdrTail;
-        struct BetaStandFilePoint points[];
-    } BetaStandTile;
-
 #pragma endregion
 
 //Animation controller located in initobjects.h

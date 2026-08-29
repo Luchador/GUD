@@ -581,29 +581,6 @@ void bullet_moving_sparks_reset(void)
 }
 
 
-s_moving_bullet_spark *bullet_moving_spark_create(coord3d *arg0, coord3d *velocity, s32 arg2, f32 arg3, f32 arg4, s16 arg5)
-{
-    s_moving_bullet_spark *ptr;
-
-    for (ptr = &g_MovingBulletSparkArray[0]; ptr < &g_MovingBulletSparkArray[BULLET_MOVING_SPARKS_MAX]; ptr++)
-    {
-        if (ptr->unk00.lifetime == 0)
-        {
-            bullet_sparks_init(&ptr->unk00, arg0, arg2, arg3, arg5);
-
-            ptr->velocity.x = velocity->x;
-            ptr->velocity.y = velocity->y;
-            ptr->velocity.z = velocity->z;
-            ptr->unk38 = arg4;
-
-            return ptr;
-        }
-    }
-
-    return NULL;
-}
-
-
 void bullet_moving_sparks_update(void)
 {
     s_moving_bullet_spark *ptr;
