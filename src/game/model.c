@@ -19,6 +19,18 @@ typedef struct ModelGroupMtxBuildArg {
     ModelNode *parentnode;
 } ModelGroupMtxBuildArg;
 
+#define MODEL_ANIM_FRAME_CACHE_CAPACITY 4
+
+typedef struct ModelAnimFrameCacheEntry {
+    u32 dest;
+    u32 source;
+    u32 size;
+} ModelAnimFrameCacheEntry;
+
+static ModelAnimFrameCacheEntry g_ModelAnimFrameCache[MODEL_ANIM_FRAME_CACHE_CAPACITY];
+static char *g_ModelAnimFrameCacheBuffer;
+static s32 g_ModelAnimFrameCacheNext;
+
 // Begin forward declarations.
 
 void modelSetAnimFrame2WithChrStuff(struct Model *model, f32 framea, f32 frameb, f32 frame2a, f32 frame2b);
@@ -195,9 +207,9 @@ void modelSetDistanceDisabled(s32 param_1)
 }
 
 
-void modelSetDistanceScale(f32 param_1)
+void modelSetDistanceScale(f32 scale)
 {
-    g_ModelDistanceScale = param_1;
+    g_ModelDistanceScale = scale;
 }
 
 
@@ -3918,15 +3930,16 @@ Model Type 4: Normal Fog/Lighting object
 * GeometryMode is not in setup and is persistent accross parts.
 */
 /**
- * Renders a collision display-list node and returns whether the type-3
- * primary pipeline is still active afterwards.
+ * Renders a collision display-list node while carrying safe RSP state from
+ * the preceding character part.
  *
  * Character bodies are composed entirely of type-3 nodes. Their display
  * lists change texture state, but do not change the cycle type, combiner or
  * render mode. The hit-chain renderer can therefore carry this state between
- * consecutive body parts instead of emitting the same setup for every part.
+ * consecutive body parts instead of emitting the same setup and segment
+ * addresses for every part.
  */
-bool modelRenderNodeDlWithPipelineCache(ModelRenderData *renderdata, Model *model, ModelNode *node, bool type3PipelineReady)
+void modelRenderNodeDlWithCache(ModelRenderData *renderdata, Model *model, ModelNode *node, ModelNodeRenderCache *cache)
 {
     union ModelRoData *rodata = node->Data;
     union ModelRwData *rwdata = NULL;
@@ -3943,7 +3956,11 @@ bool modelRenderNodeDlWithPipelineCache(ModelRenderData *renderdata, Model *mode
     {
         if (rwdata->DisplayListCollisions.gdl)
         {
-            gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_COL1, osVirtualToPhysical(rodata->DisplayListCollisions.BaseAddr));
+            if (cache->colorSegmentBase != rodata->DisplayListCollisions.BaseAddr)
+            {
+                cache->colorSegmentBase = rodata->DisplayListCollisions.BaseAddr;
+                gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_COL1, osVirtualToPhysical(cache->colorSegmentBase));
+            }
 
             if (renderdata->cullmode)
             {
@@ -3956,7 +3973,7 @@ bool modelRenderNodeDlWithPipelineCache(ModelRenderData *renderdata, Model *mode
             }
             else if (rodata->DisplayListCollisions.ModelType == 3)
             {
-                if (!type3PipelineReady)
+                if (!cache->type3PipelineReady)
                 {
                     modelApplyRenderModeType3(renderdata, TRUE);
                 }
@@ -3970,7 +3987,11 @@ bool modelRenderNodeDlWithPipelineCache(ModelRenderData *renderdata, Model *mode
                 modelApplyRenderModeType2(renderdata);
             }
 
-            gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_VTX, osVirtualToPhysical(rwdata->DisplayListCollisions.Vertices));
+            if (cache->vertexSegmentBase != rwdata->DisplayListCollisions.Vertices)
+            {
+                cache->vertexSegmentBase = rwdata->DisplayListCollisions.Vertices;
+                gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_VTX, osVirtualToPhysical(cache->vertexSegmentBase));
+            }
 
             gSPDisplayList(renderdata->gdl++, rwdata->DisplayListCollisions.gdl);
 
@@ -3978,11 +3999,19 @@ bool modelRenderNodeDlWithPipelineCache(ModelRenderData *renderdata, Model *mode
             {
                 modelApplyRenderModeType3(renderdata, FALSE);
                 gSPDisplayList(renderdata->gdl++, rodata->DisplayListCollisions.Secondary);
-                type3PipelineReady = FALSE;
+                cache->type3PipelineReady = FALSE;
+                cache->colorSegmentBase = NULL;
+                cache->vertexSegmentBase = NULL;
             }
             else
             {
-                type3PipelineReady = rodata->DisplayListCollisions.ModelType == 3;
+                cache->type3PipelineReady = rodata->DisplayListCollisions.ModelType == 3;
+
+                if (!cache->type3PipelineReady)
+                {
+                    cache->colorSegmentBase = NULL;
+                    cache->vertexSegmentBase = NULL;
+                }
             }
         }
     }
@@ -3993,29 +4022,39 @@ bool modelRenderNodeDlWithPipelineCache(ModelRenderData *renderdata, Model *mode
     {
         if (rwdata->DisplayListCollisions.gdl)
         {
-            gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_COL1, osVirtualToPhysical(rodata->DisplayListCollisions.BaseAddr));
+            if (cache->colorSegmentBase != rodata->DisplayListCollisions.BaseAddr)
+            {
+                cache->colorSegmentBase = rodata->DisplayListCollisions.BaseAddr;
+                gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_COL1, osVirtualToPhysical(cache->colorSegmentBase));
+            }
 
             if (renderdata->cullmode)
             {
                 modelApplyCullMode(renderdata);
             }
 
-            gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_VTX, osVirtualToPhysical(rwdata->DisplayListCollisions.Vertices));
+            if (cache->vertexSegmentBase != rwdata->DisplayListCollisions.Vertices)
+            {
+                cache->vertexSegmentBase = rwdata->DisplayListCollisions.Vertices;
+                gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_VTX, osVirtualToPhysical(cache->vertexSegmentBase));
+            }
 
             modelApplyRenderModeType4(renderdata, FALSE);
 
             gSPDisplayList(renderdata->gdl++, rodata->DisplayListCollisions.Secondary);
-            type3PipelineReady = FALSE;
+            cache->type3PipelineReady = FALSE;
+            cache->colorSegmentBase = NULL;
+            cache->vertexSegmentBase = NULL;
         }
     }
-
-    return type3PipelineReady;
 }
 
 
 void modelRenderNodeDl(ModelRenderData *renderdata, Model *model, ModelNode *node)
 {
-    modelRenderNodeDlWithPipelineCache(renderdata, model, node, FALSE);
+    ModelNodeRenderCache cache = {NULL, NULL, FALSE};
+
+    modelRenderNodeDlWithCache(renderdata, model, node, &cache);
 }
 
 
@@ -5058,6 +5097,9 @@ s32 loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
     s32 ret;
     s32 source;
     s32 frameSize;
+    s32 i;
+    s32 cacheSlot;
+    bool cacheHit;
     u32 dest;
     u32 size;
 
@@ -5087,8 +5129,66 @@ s32 loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
         // Size of frame but 16-bytes aligned. Observed to be 80 bytes. Might differ for non-guards.
         size = ((u32) (frameSize + 15) >> 4) * 16;
 
-        // This copies one animation frame from ROM to the destination in RAM
-        romCopy((void* ) dest, (void* ) source, size);
+        /* The scratch pointer returns to the same address after each model.
+         * When consecutive models need the same frame in the same slot, the
+         * ROM data is already there and the blocking PI DMA can be skipped. */
+        if (g_ModelAnimFrameCacheBuffer != D_80036414->animBufferPtr1)
+        {
+            g_ModelAnimFrameCacheBuffer = D_80036414->animBufferPtr1;
+            g_ModelAnimFrameCacheNext = 0;
+
+            for (i = 0; i < MODEL_ANIM_FRAME_CACHE_CAPACITY; i++)
+            {
+                g_ModelAnimFrameCache[i].size = 0;
+            }
+        }
+
+        cacheHit = FALSE;
+
+        for (i = 0; i < MODEL_ANIM_FRAME_CACHE_CAPACITY; i++)
+        {
+            if (g_ModelAnimFrameCache[i].size == size
+                    && g_ModelAnimFrameCache[i].dest == dest
+                    && g_ModelAnimFrameCache[i].source == (u32)source)
+            {
+                cacheHit = TRUE;
+                break;
+            }
+        }
+
+        if (!cacheHit)
+        {
+            cacheSlot = -1;
+
+            /* A new DMA can invalidate more than one cached range if frame
+             * sizes differ between models. */
+            for (i = 0; i < MODEL_ANIM_FRAME_CACHE_CAPACITY; i++)
+            {
+                if (g_ModelAnimFrameCache[i].size != 0
+                        && dest < g_ModelAnimFrameCache[i].dest + g_ModelAnimFrameCache[i].size
+                        && g_ModelAnimFrameCache[i].dest < dest + size)
+                {
+                    g_ModelAnimFrameCache[i].size = 0;
+                }
+
+                if (cacheSlot < 0 && g_ModelAnimFrameCache[i].size == 0)
+                {
+                    cacheSlot = i;
+                }
+            }
+
+            romCopy((void *)dest, (void *)source, size);
+
+            if (cacheSlot < 0)
+            {
+                cacheSlot = g_ModelAnimFrameCacheNext;
+            }
+
+            g_ModelAnimFrameCache[cacheSlot].dest = dest;
+            g_ModelAnimFrameCache[cacheSlot].source = source;
+            g_ModelAnimFrameCache[cacheSlot].size = size;
+            g_ModelAnimFrameCacheNext = (cacheSlot + 1) % MODEL_ANIM_FRAME_CACHE_CAPACITY;
+        }
 
         // Increment this which serves nothing
         D_80036414->uselessPointer += 1;

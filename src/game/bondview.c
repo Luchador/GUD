@@ -10303,7 +10303,6 @@ Gfx* bondviewGfxPlayerField5cMatrix(Gfx* gdl)
 
 void bviewTransformManyPosToViewMatrix(RenderPosView * arg0, s32 arg1)
 {
-    Mtxf mtx;
     RenderPosView* rpv_entry;
     s32 i;
 
@@ -10318,8 +10317,7 @@ void bviewTransformManyPosToViewMatrix(RenderPosView * arg0, s32 arg1)
 
     do
     {
-        matrix_4x4_copy(&rpv_entry->pos, &mtx);
-        matrix_4x4_f32_to_s32(&mtx, &arg0[i].pos);
+        matrix_4x4_f32_to_s32_in_place(&rpv_entry->pos);
         i++;
         rpv_entry++;
     } 

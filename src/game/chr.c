@@ -2429,11 +2429,15 @@ after_position_update:
             }
         }
 
+        /**
+         * LOD distance is global model state so scope the character-specific adjustment to this character.
+         */
+        modelSetDistanceScale(CHR_LOD_DISTANCE_FACTOR);
         subcalcmatrices(&renderdata, model);
 
-        g_ModelJointPositionedFunc = NULL;
+        modelSetDistanceScale(1.0f);
 
-        modelSetDistanceScale(CHR_LOD_DISTANCE_FACTOR);
+        g_ModelJointPositionedFunc = NULL;
 
         update_color_shading(&chr->shadecol, &chr->nextcol);
 
@@ -2478,7 +2482,7 @@ after_position_update:
                 hat = get_hat_model(chr->handle_positiondata_hat);
 
                 headindex = chr->headnum - HEAD_START;
-                entry = &((struct headHat (*)[6]) headHat_array_8003E464)[headindex][hat];
+                entry = &((struct headHat (*)[6]) g_HeadHatDefs)[headindex][hat];
 
                 pos.x = entry->xoffset * 21.3f;
                 pos.y = entry->yoffset * 21.3f;

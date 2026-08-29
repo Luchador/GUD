@@ -17,6 +17,7 @@ void matrix_4x4_copy(Mtxf *src, Mtxf *dst);
 void matrix_4x4_multiply_homogeneous(Mtxf *lhs, Mtxf *rhs, Mtxf *result);
 
 void matrix_4x4_f32_to_s32(f32 mf[4][4], s32 ms[4][4]);
+void matrix_4x4_f32_to_s32_in_place(Mtxf *matrix);
 void matrix_4x4_multiply_homogeneous_in_place(Mtxf *lhs, Mtxf *rhs);
 void mtx4TransformVecInPlace(Mtxf *matrix, struct coord3d *vector);
 void matrix_4x4_set_identity(Mtxf *matrix);

@@ -488,6 +488,68 @@ void matrix_4x4_f32_to_s32(f32 mf[4][4], s32 ms[4][4])
 
 
 /**
+ * Converts a float matrix to the packed RSP format in the same 64-byte
+ * buffer. The normal converter cannot safely alias its input and output, so
+ * callers previously copied every matrix to a temporary first.
+ *
+ * The conversion order below preserves the few source words which would be
+ * overwritten before they are read. This removes a full 64-byte copy for
+ * every model matrix sent to the RSP.
+ */
+void matrix_4x4_f32_to_s32_in_place(Mtxf *matrix)
+{
+    f32 *src = (f32 *)matrix;
+    s32 *dst = (s32 *)matrix;
+    f32 scale0 = g_MtxConversionScale[0];
+    f32 scale1 = g_MtxConversionScale[1];
+    f32 pair2_0;
+    f32 pair2_1;
+    f32 pair3_0;
+    f32 pair3_1;
+    f32 pair4_0;
+    f32 pair4_1;
+    f32 pair6_0;
+    f32 pair6_1;
+    f32 pair7_0;
+    s32 e1;
+    s32 e2;
+
+#define PACK_MATRIX_PAIR(index, first, second, secondScale) \
+    e1 = (s32)((first) * scale0); \
+    e2 = (s32)((second) * (secondScale)); \
+    dst[(index)] = (e1 & 0xffff0000) | (((u32)e2) >> 16); \
+    dst[(index) + 8] = (e1 << 16) | (e2 & 0xffff)
+
+    pair4_0 = src[8];
+    PACK_MATRIX_PAIR(0, src[0], src[1], scale0);
+
+    pair4_1 = src[9];
+    PACK_MATRIX_PAIR(1, src[2], src[3], scale1);
+
+    pair2_0 = src[4];
+    pair6_0 = src[12];
+    PACK_MATRIX_PAIR(4, pair4_0, pair4_1, scale0);
+
+    pair2_1 = src[5];
+    pair6_1 = src[13];
+    PACK_MATRIX_PAIR(5, src[10], src[11], scale1);
+
+    PACK_MATRIX_PAIR(2, pair2_0, pair2_1, scale0);
+
+    pair3_0 = src[6];
+    pair7_0 = src[14];
+    PACK_MATRIX_PAIR(6, pair6_0, pair6_1, scale0);
+
+    pair3_1 = src[7];
+    PACK_MATRIX_PAIR(7, pair7_0, src[15], scale1);
+
+    PACK_MATRIX_PAIR(3, pair3_0, pair3_1, scale1);
+
+#undef PACK_MATRIX_PAIR
+}
+
+
+/**
  * Converts a packed RSP fixed-point matrix back to floats. Inverse of matrix_4x4_f32_to_s32.
  * The Mtx format stores the sixteen 16.16 values split. Words 0-7 hold the integer halves
  * (two per word), words 8-15 the fractional halves. Each value is reassembled and divided back to f32.

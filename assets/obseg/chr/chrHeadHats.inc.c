@@ -1,5 +1,4 @@
-//D:8003E464
-struct headHat headHat_array_8003E464[] = 
+struct headHat g_HeadHatDefs[] = 
 {
   {
     -0.076300003, 0.77999997, -1.2696, 

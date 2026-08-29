@@ -10,6 +10,12 @@ extern s32 g_MaxModelSlots;
 extern s32 g_MaxAnimModelSlots;
 extern s32 g_ModelIsLvResetting;
 
+typedef struct ModelNodeRenderCache {
+    void *colorSegmentBase;
+    void *vertexSegmentBase;
+    bool type3PipelineReady;
+} ModelNodeRenderCache;
+
 bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef);
 Model* modelmgrInstantiateModel(struct ModelFileHeader* arg0);
 void modelClearObj(Model* model);
@@ -17,7 +23,7 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *);
 void modelAttachHead(Model *, ModelNode*,  ModelFileHeader *);
 void clear_aircraft_model_obj(Model *objinstance);
 void modelSetDistanceDisabled(s32 param_1);
-void modelSetDistanceScale(f32 param_1);
+void modelSetDistanceScale(f32 scale);
 void set_vtxallocator(s32 param_1);
 void modelCalculateScaledRootToOriginDir(Model* model, coord3d* coord);
 void modelGetScaledRootToOriginDir(Model* model, coord3d* coord);
@@ -89,7 +95,7 @@ void modelApplyRenderModeType2(ModelRenderData *renderdata);
 void modelApplyCullMode(ModelRenderData *renderdata);
 void modelRenderNodeGundl(ModelRenderData* renderdata, ModelNode* arg1);
 void modelRenderNodeDl(ModelRenderData *renderdata, Model *model, ModelNode *node);
-bool modelRenderNodeDlWithPipelineCache(ModelRenderData *renderdata, Model *model, ModelNode *node, bool type3PipelineReady);
+void modelRenderNodeDlWithCache(ModelRenderData *renderdata, Model *model, ModelNode *node, ModelNodeRenderCache *cache);
 void dorottex(ModelRenderData *renderdata, ModelNode *node);
 void sub_GAME_7F073038(ModelRenderData *renderdata, struct sImageTableEntry *tconfig, s32 arg2);
 //void dotube(ModelRenderData* renderdata, Model* model, ModelNode* node);

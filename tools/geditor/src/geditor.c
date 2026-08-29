@@ -38,6 +38,29 @@ static HMENU GEditorCreateMenuBar(void)
 }
 
 
+static BOOL GEditorPromptForProject(HWND hwnd, char *pathout, DWORD pathmax)
+{
+    OPENFILENAME ofn;
+
+    pathout[0] = '\0';
+
+    ZeroMemory(&ofn, sizeof(ofn));
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = hwnd;
+    ofn.lpstrFile = pathout;
+    ofn.nMaxFile = pathmax;
+    ofn.lpstrTitle = "Open Project";
+    ofn.lpstrDefExt = "gep"; /* Appended if the user types no extension. */
+
+    ofn.lpstrFilter = "GEditor Projects (*.gep)\0*.gep\0All Files (*.*)\0*.*\0";
+    ofn.nFilterIndex = 1; /* start on the .gep filter */
+
+    ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY | OFN_NOCHANGEDIR;
+
+    return GetOpenFileName(&ofn);
+}
+
+
 /**
   * Windows calls this for every message aimed at our window.
   * We handle the ones we care about and hand the rest to
@@ -56,8 +79,15 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 MessageBox(hwnd, "New Project: not implemented yet.", GEDITOR_TITLE, MB_OK | MB_ICONINFORMATION);
                 return 0;
             case ID_FILE_OPEN_PROJECT:
-                MessageBox(hwnd, "Open Project: not implemented yet.", GEDITOR_TITLE, MB_OK | MB_ICONINFORMATION);
+            {
+                char path[MAX_PATH];
+
+                if(GEditorPromptForProject(hwnd, path, sizeof(path)))
+                {
+                    MessageBox(hwnd, path, GEDITOR_TITLE, MB_OK | MB_ICONINFORMATION);
+                }
                 return 0;
+            }
             case ID_FILE_EXIT:
                 /**
                  * Send the same message the close button sends, so both

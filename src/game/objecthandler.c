@@ -803,85 +803,98 @@ void sub_GAME_7F06B29C(ModelHitEntry *arg0)
 
 /**
  * Address: 7F06BB28
+ *
+ * Stable descending linked-list merge sort. The original selection sort did
+ * roughly n(n+1)/2 depth comparisons each frame; merge sort reduces that to
+ * O(n log n) while preserving the order of entries with equal depth.
  */
 ModelHitEntry *sub_GAME_7F06BB28(ModelHitEntry *modelhit)
 {
-    ModelHitEntry stacknodes[2];
-    ModelHitEntry *last;
-    ModelHitEntry *current;
-    ModelHitEntry *next;
-    ModelHitEntry *scan;
-    ModelHitEntry *best;
-    f32 bestvalue;
+    ModelHitEntry *left;
+    ModelHitEntry *right;
+    ModelHitEntry *node;
+    ModelHitEntry *tail;
+    s32 leftSize;
+    s32 rightSize;
+    s32 runSize;
+    s32 mergeCount;
+    s32 i;
 
-    if (modelhit != NULL)
+    if (modelhit == NULL || modelhit->next == NULL)
     {
-        last = modelhit;
-
-        if (last->next != NULL)
-        {
-            do
-            {
-                last = last->next;
-
-                if (next);
-            }
-            while (last->next != NULL);
-        }
-
-        stacknodes[1].next = modelhit;
-        modelhit->prev = &stacknodes[1];
-
-        stacknodes[0].prev = last;
-        last->next = &stacknodes[0];
-
-        current = &stacknodes[1];
-
-        do
-        {
-            next = current->next;
-            best = NULL;
-            bestvalue = -M_U32_MAX_VALUE_F;
-
-            if (next != &stacknodes[0])
-            {
-                scan = next;
-
-                do
-                {
-                    if (bestvalue < scan->sortvalue)
-                    {
-                        bestvalue = scan->sortvalue;
-                        best = scan;
-                    }
-
-                    scan = scan->next;
-                }
-                while (scan != &stacknodes[0]);
-            }
-
-            if (best != NULL)
-            {
-                best->next->prev = best->prev;
-                best->prev->next = best->next;
-
-                best->prev = current;
-                best->next = current->next;
-
-                current->next->prev = best;
-                current->next = best;
-
-                next = best;
-            }
-
-            current = next;
-        }
-        while (next != &stacknodes[0]);
-
-        modelhit = stacknodes[1].next;
-        stacknodes[1].next->prev = NULL;
-        stacknodes[0].prev->next = NULL;
+        return modelhit;
     }
+
+    runSize = 1;
+
+    do
+    {
+        left = modelhit;
+        modelhit = NULL;
+        tail = NULL;
+        mergeCount = 0;
+
+        while (left != NULL)
+        {
+            mergeCount++;
+            right = left;
+            leftSize = 0;
+
+            for (i = 0; i < runSize && right != NULL; i++)
+            {
+                leftSize++;
+                right = right->next;
+            }
+
+            rightSize = runSize;
+
+            while (leftSize > 0 || (rightSize > 0 && right != NULL))
+            {
+                if (leftSize == 0)
+                {
+                    node = right;
+                    right = right->next;
+                    rightSize--;
+                }
+                else if (rightSize == 0 || right == NULL)
+                {
+                    node = left;
+                    left = left->next;
+                    leftSize--;
+                }
+                else if (left->sortvalue >= right->sortvalue)
+                {
+                    node = left;
+                    left = left->next;
+                    leftSize--;
+                }
+                else
+                {
+                    node = right;
+                    right = right->next;
+                    rightSize--;
+                }
+
+                if (tail != NULL)
+                {
+                    tail->next = node;
+                }
+                else
+                {
+                    modelhit = node;
+                }
+
+                node->prev = tail;
+                tail = node;
+            }
+
+            left = right;
+        }
+
+        tail->next = NULL;
+        runSize *= 2;
+    }
+    while (mergeCount > 1);
 
     return modelhit;
 }
@@ -892,7 +905,7 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
     ModelNode *root;
     ModelNode *node;
     RenderPosView *matrixSegment = NULL;
-    bool type3PipelineReady = FALSE;
+    ModelNodeRenderCache renderCache = {NULL, NULL, FALSE};
     s32 descend;
     s32 opcode;
 
@@ -934,7 +947,9 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
                     {
                         if (data->flags & 2)
                         {
-                            type3PipelineReady = FALSE;
+                            renderCache.colorSegmentBase = NULL;
+                            renderCache.vertexSegmentBase = NULL;
+                            renderCache.type3PipelineReady = FALSE;
                             dogfnegx(data, entry->model, node);
                         }
                     }
@@ -948,7 +963,9 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
                     {
                         if (data->flags & 2)
                         {
-                            type3PipelineReady = FALSE;
+                            renderCache.colorSegmentBase = NULL;
+                            renderCache.vertexSegmentBase = NULL;
+                            renderCache.type3PipelineReady = FALSE;
                             doshadow(data, entry->model, node);
                         }
                     }
@@ -964,7 +981,9 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
                                 && node->Data->DisplayList.ModelType == 4
                                 && node->Data->DisplayList.Secondary))
                     {
-                        type3PipelineReady = FALSE;
+                        renderCache.colorSegmentBase = NULL;
+                        renderCache.vertexSegmentBase = NULL;
+                        renderCache.type3PipelineReady = FALSE;
                         modelRenderNodeGundl(data, node);
                     }
                     break;
@@ -974,13 +993,15 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
                                 && node->Data->DisplayListCollisions.ModelType == 4
                                 && node->Data->DisplayListCollisions.Secondary))
                     {
-                        type3PipelineReady = modelRenderNodeDlWithPipelineCache(data, entry->model, node, type3PipelineReady);
+                        modelRenderNodeDlWithCache(data, entry->model, node, &renderCache);
                     }
                     break;
                 case MODELNODE_OPCODE_DLPRIMARY:
                     if ((data->flags & 2) && node->Data->DisplayListPrimary.Primary)
                     {
-                        type3PipelineReady = FALSE;
+                        renderCache.colorSegmentBase = NULL;
+                        renderCache.vertexSegmentBase = NULL;
+                        renderCache.type3PipelineReady = FALSE;
                         dorottex(data, node);
                     }
                     break;

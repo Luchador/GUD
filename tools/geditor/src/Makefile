@@ -7,7 +7,7 @@
  
 CC      := x86_64-w64-mingw32-gcc
 CFLAGS  := -O2 -Wall -Wextra -Wno-unused-parameter -std=c99
-LDFLAGS := -mwindows -lgdi32
+LDFLAGS := -mwindows -lgdi32 -lcomdlg32
  
 BIN_DIR := ..
 TARGET  := $(BIN_DIR)/GEditor.exe
