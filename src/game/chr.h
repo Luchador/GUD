@@ -209,7 +209,7 @@ extern s32 g_AnimationTablePointerCountRelated;
 extern s32 player1_guardID;
 extern ChrRecord *g_ChrSlots;
 extern s32 g_NumChrSlots;
-extern ModelRenderData D_8002CC6C;
+extern ModelRenderData g_DefaultChrModelRenderData;
 extern coord3d D_8002CCAC;
 extern rgba_u8 gBloodColour;
 

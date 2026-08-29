@@ -891,8 +891,9 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
 {
     ModelNode *root;
     ModelNode *node;
+    RenderPosView *matrixSegment = NULL;
+    bool type3PipelineReady = FALSE;
     s32 descend;
-    Gfx *gdl;
     s32 opcode;
 
     while (entry != NULL)
@@ -900,8 +901,11 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
         root = entry->rootnode;
         node = root;
 
-        gdl = data->gdl++;
-        gSPSegment(gdl, SPSEGMENT_MODEL_MTX, osVirtualToPhysical(entry->model->render_pos));
+        if (matrixSegment != entry->model->render_pos)
+        {
+            matrixSegment = entry->model->render_pos;
+            gSPSegment(data->gdl++, SPSEGMENT_MODEL_MTX, osVirtualToPhysical(matrixSegment));
+        }
 
         if (node != NULL)
         {
@@ -916,15 +920,37 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
                 case MODELNODE_OPCODE_GROUP:
                 case MODELNODE_OPCODE_OP03:
                 case MODELNODE_OPCODE_OP11:
-                case MODELNODE_OPCODE_GUNFIRE:
-                case MODELNODE_OPCODE_SHADOW:
                 case MODELNODE_OPCODE_OP14:
                 case MODELNODE_OPCODE_INTERLINK:
                 case MODELNODE_OPCODE_OP16:
                 case MODELNODE_OPCODE_GROUPSIMPLE:
+                    if (node != root)
+                    {
+                        descend = 0;
+                    }
+                    break;
+                case MODELNODE_OPCODE_GUNFIRE:
                     if (node == root)
                     {
-                        sub_GAME_7F074534(data, entry->model, node);
+                        if (data->flags & 2)
+                        {
+                            type3PipelineReady = FALSE;
+                            dogfnegx(data, entry->model, node);
+                        }
+                    }
+                    else
+                    {
+                        descend = 0;
+                    }
+                    break;
+                case MODELNODE_OPCODE_SHADOW:
+                    if (node == root)
+                    {
+                        if (data->flags & 2)
+                        {
+                            type3PipelineReady = FALSE;
+                            doshadow(data, entry->model, node);
+                        }
                     }
                     else
                     {
@@ -932,20 +958,51 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
                     }
                     break;
                 case MODELNODE_OPCODE_DL:
+                    if (((data->flags & 1) && node->Data->DisplayList.Primary)
+                            || ((data->flags & 2)
+                                && node->Data->DisplayList.Primary
+                                && node->Data->DisplayList.ModelType == 4
+                                && node->Data->DisplayList.Secondary))
+                    {
+                        type3PipelineReady = FALSE;
+                        modelRenderNodeGundl(data, node);
+                    }
+                    break;
+                case MODELNODE_OPCODE_DLCOLLISION:
+                    if ((data->flags & 1)
+                            || ((data->flags & 2)
+                                && node->Data->DisplayListCollisions.ModelType == 4
+                                && node->Data->DisplayListCollisions.Secondary))
+                    {
+                        type3PipelineReady = modelRenderNodeDlWithPipelineCache(data, entry->model, node, type3PipelineReady);
+                    }
+                    break;
+                case MODELNODE_OPCODE_DLPRIMARY:
+                    if ((data->flags & 2) && node->Data->DisplayListPrimary.Primary)
+                    {
+                        type3PipelineReady = FALSE;
+                        dorottex(data, node);
+                    }
+                    break;
+                case MODELNODE_OPCODE_LOD:
+                    modelApplyDistanceRelations(entry->model, node);
+                    break;
+                case MODELNODE_OPCODE_BSP:
+                    modelApplyReorderRelations(entry->model, node);
+                    break;
+                case MODELNODE_OPCODE_SWITCH:
+                    modelApplyToggleRelations(entry->model, node);
+                    break;
+                case MODELNODE_OPCODE_HEAD:
+                    modelApplyHeadRelations(entry->model, node);
+                    break;
                 case MODELNODE_OPCODE_OP05:
                 case MODELNODE_OPCODE_OP06:
                 case MODELNODE_OPCODE_OP07:
-                case MODELNODE_OPCODE_LOD:
-                case MODELNODE_OPCODE_BSP:
                 case MODELNODE_OPCODE_BBOX:
-                case MODELNODE_OPCODE_SWITCH:
                 case MODELNODE_OPCODE_OP19:
                 case MODELNODE_OPCODE_OP20:
-                case MODELNODE_OPCODE_DLPRIMARY:
-                case MODELNODE_OPCODE_HEAD:
-                case MODELNODE_OPCODE_DLCOLLISION:
                 default:
-                    sub_GAME_7F074534(data, entry->model, node);
                     break;
                 }
 

@@ -45,6 +45,8 @@ extern f32 g_PropFadeEndPx;
 #define CHRFADE_END_PX   10.0f
 #define CHRFADE_DIAMETER 200.0f
 
+#define CHR_LOD_DISTANCE_FACTOR 1.5f
+
 // Begin forward declarations.
 
 void chrUpdateAimProperties(ChrRecord *arg0);
@@ -90,15 +92,15 @@ s32 player1_guardID = 5000;
 ChrRecord *g_ChrSlots = 0;
 s32 g_NumChrSlots = 0;
 
-ModelRenderData D_8002CC6C         = {NULL,
-                                      TRUE,
-                                      0x00000003,
-                                      NULL,
-                                      NULL,
-                                      0,
-                                      {0, 0, 0, 0},
-                                      {0, 0, 0, 0},
-                                      CULLMODE_BOTH};
+ModelRenderData g_DefaultChrModelRenderData = {NULL,
+                                               TRUE,
+                                               0x00000003,
+                                               NULL,
+                                               NULL,
+                                               0,
+                                              {0, 0, 0, 0},
+                                              {0, 0, 0, 0},
+                                              CULLMODE_BOTH};
 
 coord3d D_8002CCAC = {0, 0, 0};
 
@@ -2406,15 +2408,10 @@ after_position_update:
 
     if (isOnScreen)
     {
-        renderdata = D_8002CC6C;
+        renderdata = g_DefaultChrModelRenderData;
         prop->flags |= PROPFLAG_ONSCREEN;
 
         chr->chrflags |= CHRFLAG_HAS_BEEN_ON_SCREEN;
-
-        if (cheatIsActive(CHEAT_DK_MODE))
-        {
-            modelSetDistanceScale(0.3125f);
-        }
 
         g_ModelJointPositionedFunc = chrHandleJointPositioned;
         g_CurModelChr = chr;
@@ -2435,11 +2432,12 @@ after_position_update:
         subcalcmatrices(&renderdata, model);
 
         g_ModelJointPositionedFunc = NULL;
-        modelSetDistanceScale(1.0f);
+
+        modelSetDistanceScale(CHR_LOD_DISTANCE_FACTOR);
 
         update_color_shading(&chr->shadecol, &chr->nextcol);
 
-        prop->zDepth = sub_GAME_7F06C768(model);
+        prop->zDepth = modelGetZDepth(model);
 
         chr->hitChain = sub_GAME_7F06B120(NULL, model);
 
@@ -2659,6 +2657,7 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
     }
 
     spBC = envGetPropDistColor(prop, &spC0);
+
     if (spBC != 0)
     {
         if (chrfadealpha > 0)

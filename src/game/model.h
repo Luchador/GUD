@@ -12,7 +12,7 @@ extern s32 g_ModelIsLvResetting;
 
 bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef);
 Model* modelmgrInstantiateModel(struct ModelFileHeader* arg0);
-void clear_model_obj(Model* model);
+void modelClearObj(Model* model);
 Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *);
 void modelAttachHead(Model *, ModelNode*,  ModelFileHeader *);
 void clear_aircraft_model_obj(Model *objinstance);
@@ -24,7 +24,7 @@ void modelGetScaledRootToOriginDir(Model* model, coord3d* coord);
 s32 modelFindNodeMtxIndex(ModelNode *node, s32 arg1);
 Mtxf *modelFindNodeMtx(struct Model *model, struct ModelNode *node, s32 arg2);
 Mtxf *getsubmatrix(Model *objinst);
-f32 sub_GAME_7F06C768(Model *objinst);
+f32 modelGetZDepth(Model *objinst);
 union ModelRwData* modelGetNodeRwData(Model *Objinst, ModelNode *root);
 void getpartoffset(Model *objinst, ModelNode *part, coord3d *offset);
 void setpartoffset(Model *model, ModelNode *node, coord3d *pos);
@@ -89,6 +89,7 @@ void modelApplyRenderModeType2(ModelRenderData *renderdata);
 void modelApplyCullMode(ModelRenderData *renderdata);
 void modelRenderNodeGundl(ModelRenderData* renderdata, ModelNode* arg1);
 void modelRenderNodeDl(ModelRenderData *renderdata, Model *model, ModelNode *node);
+bool modelRenderNodeDlWithPipelineCache(ModelRenderData *renderdata, Model *model, ModelNode *node, bool type3PipelineReady);
 void dorottex(ModelRenderData *renderdata, ModelNode *node);
 void sub_GAME_7F073038(ModelRenderData *renderdata, struct sImageTableEntry *tconfig, s32 arg2);
 //void dotube(ModelRenderData* renderdata, Model* model, ModelNode* node);
@@ -114,4 +115,3 @@ void modelNodeReplaceGdl(u32 arg0, ModelNode *node, Gfx *find, Gfx *replacement)
 bool modelTestRayIntersectsTransformedBBox(ModelRoData_BoundingBoxRecord *bbox, Mtxf *mtx, coord3d *pos, coord3d *dir);
 
 #endif
-

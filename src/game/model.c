@@ -12,7 +12,6 @@
 #include "quaternion.h"
 #include "random.h"
 
-
 typedef struct ModelGroupMtxBuildArg {
     u16 flags;
     u16 pad;
@@ -20,16 +19,16 @@ typedef struct ModelGroupMtxBuildArg {
     ModelNode *parentnode;
 } ModelGroupMtxBuildArg;
 
-// forward declarations
+// Begin forward declarations.
+
 void modelSetAnimFrame2WithChrStuff(struct Model *model, f32 framea, f32 frameb, f32 frame2a, f32 frame2b);
 
+// End forward declarations.
 
 
-//newfile per EU
 bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef)
 {
-    return modeldef->numRecords <= 0
-        || (modelslot->datas != NULL && modelslot->rwdatalen >= modeldef->numRecords);
+    return modeldef->numRecords <= 0 || (modelslot->datas != NULL && modelslot->rwdatalen >= modeldef->numRecords);
 }
 
 
@@ -103,7 +102,7 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
 }
 
 
-void clear_model_obj(Model* model)
+void modelClearObj(Model* model)
 {
     model->obj = NULL;
 }
@@ -143,10 +142,6 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
 
         requiredRwdatalen = modelFileHeader->numRecords;
 
-#ifdef DEBUG
-        if (modelFileHeader->numRecords > 140) osSyncPrintf("WARNING: increase OISAVESIZE to %d!\n", *(modelFileHeader->numRecords));
-#endif
-
         if (requiredRwdatalen > 0)
         {
             i = requiredRwdatalen;
@@ -182,12 +177,8 @@ Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
 
 void modelAttachHead(Model *model, ModelNode *node,  ModelFileHeader *head)
 {
-    modelAttachPart(model,model->obj,node,head);
-#ifdef DEBUG
-    if (model->numRecords > 140 && g_ModelDistanceScale == 0) osSyncPrintf("WARNING: increase OASAVESIZE to %d!\n", *(model + 0x14));
-#endif
-
-    modelInitRwData(model,head->RootNode);
+    modelAttachPart(model, model->obj,node,head);
+    modelInitRwData(model, head->RootNode);
 }
 
 
@@ -198,8 +189,9 @@ void clear_aircraft_model_obj(Model *objinstance)
 }
 
 
-void modelSetDistanceDisabled(s32 param_1) {
-  g_ModelDistanceDisabled = param_1;
+void modelSetDistanceDisabled(s32 param_1)
+{
+    g_ModelDistanceDisabled = param_1;
 }
 
 
@@ -322,11 +314,11 @@ Mtxf *getsubmatrix(Model *objinst)
 }
 
 
-f32 sub_GAME_7F06C768(Model *objinst)
+f32 modelGetZDepth(Model *objinst)
 {
     Mtxf *mtx = getsubmatrix(objinst);
     
-    if (mtx != 0)
+    if (mtx != NULL)
     {
         return -mtx->m[3][2];
     }
@@ -1245,7 +1237,13 @@ u32 modelAnimReadBitsAsU16Angle(u8 *bitstream, u8 width, u32 bitOffset)
 void sub_GAME_7F06DEC0(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnimation *anim, u8 *bitstream, coord3d *rot)
 {
     u32 bitoffset;
+    u32 value;
+    u32 mask;
     u8 width;
+    u8 bitsRemaining;
+    u8 bitsAvailable;
+    u8 *src;
+    s32 i;
     u16 rotation[3];
 
     width = anim->unk06;
@@ -1260,15 +1258,35 @@ void sub_GAME_7F06DEC0(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAni
         bitoffset = skeleton->Joints[jointnum].channelBase * width;
     }
 
-    width = anim->unk06;
+    /* The three rotation channels are adjacent in the packed frame. Keep the
+     * bit-reader position between channels instead of restarting the general
+     * single-channel reader three times. */
+    src = bitstream + bitoffset / 8;
+    bitsAvailable = 8 - (bitoffset % 8);
 
-    rotation[0] = modelAnimReadBitsAsU16Angle(bitstream, width, bitoffset);
-    bitoffset += (unsigned long) width;
+    for (i = 0; i < 3; i++)
+    {
+        value = 0;
+        bitsRemaining = width;
 
-    rotation[1] = modelAnimReadBitsAsU16Angle(bitstream, width, bitoffset);
-    bitoffset += width;
+        while (bitsRemaining >= bitsAvailable)
+        {
+            bitsRemaining -= bitsAvailable;
+            mask = (1 << bitsAvailable) - 1;
+            value |= ((u16)(*src & mask)) << bitsRemaining;
+            src++;
+            bitsAvailable = 8;
+        }
 
-    rotation[2] = modelAnimReadBitsAsU16Angle(bitstream, width, bitoffset);
+        if (bitsRemaining > 0)
+        {
+            bitsAvailable -= bitsRemaining;
+            mask = (1 << bitsRemaining) - 1;
+            value |= (*src >> bitsAvailable) & mask;
+        }
+
+        rotation[i] = (value << (16 - width)) & 0xffff;
+    }
 
     rot->x = (rotation[0] * M_TAU_F) / M_U16_MAX_VALUE_F;
 
@@ -1595,6 +1613,7 @@ void modelUpdateDistanceRelations(Model* model, ModelNode* node)
         {
             rwdata->LOD.visible = TRUE;
             node->Child = rodata->LOD.Affects;
+
             return;
         }
     }
@@ -3898,14 +3917,30 @@ Model Type 4: Normal Fog/Lighting object
 * These are applied to each part of an object at runtime and can be overridden. loading the next part will use these values once more.
 * GeometryMode is not in setup and is persistent accross parts.
 */
-void modelRenderNodeDl(ModelRenderData *renderdata, Model *model, ModelNode *node)
+/**
+ * Renders a collision display-list node and returns whether the type-3
+ * primary pipeline is still active afterwards.
+ *
+ * Character bodies are composed entirely of type-3 nodes. Their display
+ * lists change texture state, but do not change the cycle type, combiner or
+ * render mode. The hit-chain renderer can therefore carry this state between
+ * consecutive body parts instead of emitting the same setup for every part.
+ */
+bool modelRenderNodeDlWithPipelineCache(ModelRenderData *renderdata, Model *model, ModelNode *node, bool type3PipelineReady)
 {
     union ModelRoData *rodata = node->Data;
+    union ModelRwData *rwdata = NULL;
+
+    if ((renderdata->flags & 1)
+            || ((renderdata->flags & 2)
+                && rodata->DisplayListCollisions.ModelType == 4
+                && rodata->DisplayListCollisions.Secondary))
+    {
+        rwdata = modelGetNodeRwData(model, node);
+    }
 
     if (renderdata->flags & 1)
     {
-        union ModelRwData *rwdata = modelGetNodeRwData(model, node);
-
         if (rwdata->DisplayListCollisions.gdl)
         {
             gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_COL1, osVirtualToPhysical(rodata->DisplayListCollisions.BaseAddr));
@@ -3921,7 +3956,10 @@ void modelRenderNodeDl(ModelRenderData *renderdata, Model *model, ModelNode *nod
             }
             else if (rodata->DisplayListCollisions.ModelType == 3)
             {
-                modelApplyRenderModeType3(renderdata, TRUE);
+                if (!type3PipelineReady)
+                {
+                    modelApplyRenderModeType3(renderdata, TRUE);
+                }
             }
             else if (rodata->DisplayListCollisions.ModelType == 4)
             {
@@ -3940,15 +3978,20 @@ void modelRenderNodeDl(ModelRenderData *renderdata, Model *model, ModelNode *nod
             {
                 modelApplyRenderModeType3(renderdata, FALSE);
                 gSPDisplayList(renderdata->gdl++, rodata->DisplayListCollisions.Secondary);
+                type3PipelineReady = FALSE;
+            }
+            else
+            {
+                type3PipelineReady = rodata->DisplayListCollisions.ModelType == 3;
             }
         }
     }
 
-    if (renderdata->flags & 2)
+    if ((renderdata->flags & 2)
+            && rodata->DisplayListCollisions.ModelType == 4
+            && rodata->DisplayListCollisions.Secondary)
     {
-        union ModelRwData *rwdata = modelGetNodeRwData(model, node);
-
-        if (rwdata->DisplayListCollisions.gdl && rodata->DisplayListCollisions.ModelType == 4 && rodata->DisplayListCollisions.Secondary)
+        if (rwdata->DisplayListCollisions.gdl)
         {
             gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_COL1, osVirtualToPhysical(rodata->DisplayListCollisions.BaseAddr));
 
@@ -3962,8 +4005,17 @@ void modelRenderNodeDl(ModelRenderData *renderdata, Model *model, ModelNode *nod
             modelApplyRenderModeType4(renderdata, FALSE);
 
             gSPDisplayList(renderdata->gdl++, rodata->DisplayListCollisions.Secondary);
+            type3PipelineReady = FALSE;
         }
     }
+
+    return type3PipelineReady;
+}
+
+
+void modelRenderNodeDl(ModelRenderData *renderdata, Model *model, ModelNode *node)
+{
+    modelRenderNodeDlWithPipelineCache(renderdata, model, node, FALSE);
 }
 
 
@@ -4310,8 +4362,8 @@ void dogfnegx(ModelRenderData *renderdata, Model *model, ModelNode *node)
 {
     u32 unused[3];
     f32 negspc0;
-    ModelRoData_GunfireRecord *rodata = &node->Data->Gunfire;
-    union ModelRwData *rwdata = modelGetNodeRwData(model, node);
+    ModelRoData_GunfireRecord *rodata;
+    union ModelRwData *rwdata;
     sImageTableEntry *tconfig;
     f32 spf0;
     f32 spec;
@@ -4336,7 +4388,15 @@ void dogfnegx(ModelRenderData *renderdata, Model *model, ModelNode *node)
     Vertex *vertices;
     f32 distance;
 
-    if ((renderdata->flags & 2) && rwdata->Gunfire.visible)
+    if (!(renderdata->flags & 2))
+    {
+        return;
+    }
+
+    rodata = &node->Data->Gunfire;
+    rwdata = modelGetNodeRwData(model, node);
+
+    if (rwdata->Gunfire.visible)
     {
         s32 index = modelFindNodeMtxIndex(node, 0);
         mtx = &model->render_pos[index].pos;
@@ -4484,17 +4544,17 @@ void doshadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
         return;
     }
 
+    if (!(renderdata->flags & 2))
+    {
+        return;
+    }
+
     shadow = &node->Data->Shadow;
     vtxtemplate = D_800363F8;
     rwdata = (ModelRwData_HeaderRecord *) modelGetNodeRwData(model, shadow->HeaderNode);
     height = rwdata->pos.y - rwdata->ground;
     sizex = shadow->size.x;
     sizey = shadow->size.y;
-
-    if (!(renderdata->flags & 2))
-    {
-        return;
-    }
 
     if ((renderdata->PropType == PROP_TYPE_CHR) || (renderdata->PropType == PROP_TYPE_SMOKE))
     {

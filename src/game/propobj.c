@@ -631,7 +631,7 @@ PropRecord* objInit(ObjectRecord* obj, ModelFileHeader* model_header, PropRecord
             }
             else
             {
-                clear_model_obj(model);
+                modelClearObj(model);
             }
         }
 
@@ -944,7 +944,7 @@ void objFree(ObjectRecord* obj, s32 freeprop, s32 canregen)
             }
             else
             {
-                clear_model_obj(obj->model);
+                modelClearObj(obj->model);
             }
 
             if (freeprop != 0)
@@ -11005,7 +11005,7 @@ PropRecord *hatCreateForChr(ChrRecord *chr, s32 modelnum, u32 flags)
     {
         if (model)
         {
-            clear_model_obj(model);
+            modelClearObj(model);
         }
 
         if (prop)
@@ -11627,7 +11627,7 @@ ObjectRecord *create_new_item_instance_of_model(PROP modelnum, s32 weaponid)
 
         if (model != NULL)
         {
-            clear_model_obj(model);
+            modelClearObj(model);
         }
 
         if (prop != NULL)
@@ -11731,7 +11731,7 @@ PropRecord *something_with_generating_object(ChrRecord *self, s32 propid, ITEM_I
     {
         if (objinst)
         {
-            clear_model_obj(objinst);
+            modelClearObj(objinst);
         }
 
         if (lastobjentry)

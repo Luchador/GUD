@@ -525,7 +525,7 @@ void clearChrGunModelInstances(void)
 
     if (gunModelInstance)
     {
-        clear_model_obj(gunModelInstance);
+        modelClearObj(gunModelInstance);
     }
 }
 
