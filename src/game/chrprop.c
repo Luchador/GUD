@@ -1784,6 +1784,9 @@ void propsTick(void)
     PropRecord *propprev;
     s32 playerCount;
     bool isSimOwner;
+    u32 profCycles;
+    s32 profChrnum;
+    s32 profAction;
 
     playerCount = getPlayerCount();
     isSimOwner = playerCount == 1 || get_player_position_in_shuffled(get_cur_playernum()) == 0;
@@ -1800,8 +1803,19 @@ void propsTick(void)
             // TEMP
             {
                 u32 prof_t = osGetCount();
+                profChrnum = prop->chr->chrnum;
+                g_ProfChrTickCalls++;
                 tickop = chrTick(prop);
-                g_ProfChrTickCycles += osGetCount() - prof_t;
+                profAction = g_ProfChrCurrentAction;
+                profCycles = osGetCount() - prof_t;
+                g_ProfChrTickCycles += profCycles;
+
+                if (profCycles > g_ProfChrSlowestCycles)
+                {
+                    g_ProfChrSlowestCycles = profCycles;
+                    g_ProfChrSlowestChrnum = profChrnum;
+                    g_ProfChrSlowestAction = profAction;
+                }
             }
         }
         else if ((prop->type == PROP_TYPE_OBJ) || (prop->type == PROP_TYPE_WEAPON) || (prop->type == PROP_TYPE_DOOR))

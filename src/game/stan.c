@@ -1614,22 +1614,9 @@ StanCollisionResult stanTestVolumeImpl(
 }
 
 
-/* TEMP profiler: accumulated cost and call count of stanTestVolume,
- * captured and zeroed each frame by lvlDrawFrameRateDisplay. */
-u32 g_ProfStanVolCycles;
-u32 g_ProfStanVolCalls;
-
 StanCollisionResult stanTestVolume(StandTile **tileStack, f32 arg1, f32 arg2, f32 arg3, CDTYPE cdtypes, f32 height, f32 width)
 {
-    u32 proftime;
-    StanCollisionResult rc;
-
-    proftime = osGetCount();
-    rc = stanTestVolumeImpl(tileStack, arg1, arg2, arg3, cdtypes, height, width);
-    g_ProfStanVolCycles += osGetCount() - proftime;
-    g_ProfStanVolCalls += 1;
-
-    return rc;
+    return stanTestVolumeImpl(tileStack, arg1, arg2, arg3, cdtypes, height, width);
 }
 
 

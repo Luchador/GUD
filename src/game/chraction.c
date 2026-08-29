@@ -8790,6 +8790,11 @@ void chrlvTickPatrol(ChrRecord *self)
 */
 void chrlvActionTick(ChrRecord *self)
 {
+    u32 profTime;
+    u32 profCycles;
+    s32 profAction;
+    s32 profMagic;
+
     if (g_ClockTimer > 0)
     {
         if (self->actiontype == ACT_INIT)
@@ -8809,9 +8814,46 @@ void chrlvActionTick(ChrRecord *self)
         if (((s32)self->sleep < 0) || (self->chrflags & CHRFLAG_00040000))
         {
             self->sleep = 0;
+
+            if (g_ProfChrActionActive)
+            {
+                profTime = osGetCount();
+                g_ProfChrAiCalls++;
+                g_ProfChrCurrentAiCommandCount = 0;
+            }
+
             ai(self, PROP_TYPE_CHR);
 
-            switch (self->actiontype)
+            if (g_ProfChrActionActive)
+            {
+                profCycles = osGetCount() - profTime;
+                g_ProfChrAiCycles += profCycles;
+
+                if (profCycles > g_ProfChrSlowestAiCycles)
+                {
+                    g_ProfChrSlowestAiCycles = profCycles;
+                    g_ProfChrSlowestAiCommandCount = g_ProfChrCurrentAiCommandCount;
+                    g_ProfChrSlowestAiChrnum = self->chrnum;
+                }
+
+                profTime = osGetCount();
+            }
+
+            profAction = self->actiontype;
+            profMagic = FALSE;
+
+            if (((profAction == ACT_PATROL) && (self->act_patrol.waydata.mode == WAYMODE_MAGIC))
+                || ((profAction == ACT_GOPOS) && (self->act_gopos.waydata.mode == WAYMODE_MAGIC)))
+            {
+                profMagic = TRUE;
+            }
+
+            if (g_ProfChrActionActive)
+            {
+                g_ProfChrCurrentAction = profAction;
+            }
+
+            switch (profAction)
             {
                 case ACT_STAND:
                     chrlvTickStand(self);
@@ -8878,6 +8920,44 @@ void chrlvActionTick(ChrRecord *self)
                     break;
                 case ACT_BONDDIE:
                     break;
+            }
+
+            if (g_ProfChrActionActive)
+            {
+                profCycles = osGetCount() - profTime;
+                g_ProfChrStateCycles += profCycles;
+
+                switch (profAction)
+                {
+                    case ACT_STAND:
+                        g_ProfChrStateStandCycles += profCycles;
+                        break;
+                    case ACT_RUNPOS:
+                        g_ProfChrStateMoveCycles += profCycles;
+                        break;
+                    case ACT_PATROL:
+                    case ACT_GOPOS:
+                        if (profMagic)
+                        {
+                            g_ProfChrStateMagicCycles += profCycles;
+                        }
+                        else
+                        {
+                            g_ProfChrStateMoveCycles += profCycles;
+                        }
+                        break;
+                    case ACT_SIDESTEP:
+                    case ACT_JUMPOUT:
+                    case ACT_ATTACK:
+                    case ACT_ATTACKWALK:
+                    case ACT_ATTACKROLL:
+                    case ACT_THROWGRENADE:
+                        g_ProfChrStateCombatCycles += profCycles;
+                        break;
+                    default:
+                        g_ProfChrStateOtherCycles += profCycles;
+                        break;
+                }
             }
 
             self->chrflags &= ~CHRFLAG_NEAR_MISS;

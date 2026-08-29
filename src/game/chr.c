@@ -2143,6 +2143,7 @@ void chrUpdateAnim(ChrRecord *chr, s32 tickamount)
 {
     Model *model;
     PropRecord* prop;
+    u32 profTime;
 
     model = chr->model;
     prop = chr->prop;
@@ -2150,11 +2151,18 @@ void chrUpdateAnim(ChrRecord *chr, s32 tickamount)
     if (!(chr->hidden & CHRHIDDEN_FREEZE))
     {
         getsuboffset(model, &chr->prevpos);
+
+        profTime = osGetCount();
         modelTickAnim(model, tickamount, 1);
+        g_ProfChrAnimCycles += osGetCount() - profTime;
+
         subcalcpos(model);
         objSetColorFromTile(prop, &chr->nextcol);
         getsuboffset(model, &prop->pos);
+
+        profTime = osGetCount();
         chrDetectRooms(chr);
+        g_ProfChrRoomCycles += osGetCount() - profTime;
 
         return;
     }
@@ -2242,18 +2250,23 @@ s32 chrTick(PropRecord *prop)
 
     s32 headVisible;
     s32 tickamount;
+    u32 profSectionTime;
+    u32 profCallTime;
 
     chr = prop->chr;
     model = chr->model;
     headVisible = 1;
     tickamount = g_ClockTimer;
+    g_ProfChrCurrentAction = chr->actiontype;
 
     if ((!(chr->chrflags & CHRFLAG_HIDDEN)) || (chr->chrflags & CHRFLAG_00040000))
     {
         // TEMP
         {
             u32 prof_t = osGetCount();
+            g_ProfChrActionActive = 1;
             chrlvActionTick(chr);
+            g_ProfChrActionActive = 0;
             g_ProfChrActionCycles += osGetCount() - prof_t;
         }
         
@@ -2261,6 +2274,51 @@ s32 chrTick(PropRecord *prop)
         {
             return TICKOP_FREE;
         }
+
+    }
+
+    switch (chr->actiontype)
+    {
+        case ACT_STAND:
+            g_ProfChrActionStandCount++;
+            break;
+        case ACT_RUNPOS:
+            g_ProfChrActionMoveCount++;
+            break;
+        case ACT_PATROL:
+            if (chr->act_patrol.waydata.mode == WAYMODE_MAGIC)
+            {
+                g_ProfChrMagicCount++;
+            }
+            else
+            {
+                g_ProfChrActionMoveCount++;
+            }
+            break;
+        case ACT_GOPOS:
+            if (chr->act_gopos.waydata.mode == WAYMODE_MAGIC)
+            {
+                g_ProfChrMagicCount++;
+            }
+            else
+            {
+                g_ProfChrActionMoveCount++;
+            }
+            break;
+        case ACT_SIDESTEP:
+        case ACT_JUMPOUT:
+        case ACT_ATTACK:
+        case ACT_ATTACKWALK:
+        case ACT_ATTACKROLL:
+        case ACT_THROWGRENADE:
+            g_ProfChrActionCombatCount++;
+            break;
+        case ACT_ANIM:
+            g_ProfChrActionAnimCount++;
+            break;
+        default:
+            g_ProfChrActionOtherCount++;
+            break;
     }
 
     if (chr->hidden & CHRHIDDEN_REMOVE)
@@ -2285,6 +2343,8 @@ s32 chrTick(PropRecord *prop)
         }
     }
 
+    profSectionTime = osGetCount();
+
     if (chr->chrflags & CHRFLAG_HIDDEN)
     {
         isOnScreen = 0;
@@ -2297,7 +2357,9 @@ s32 chrTick(PropRecord *prop)
 
             if (((chr->actiontype == ACT_ANIM) && (chr->act_anim.unk02c == 0)) && (chr->act_anim.noTranslate != 0))
             {
+                profCallTime = osGetCount();
                 modelTickAnim(model, tickamount, 0);
+                g_ProfChrAnimCycles += osGetCount() - profCallTime;
             }
             else
             {
@@ -2311,7 +2373,9 @@ s32 chrTick(PropRecord *prop)
         {
             if (((chr->actiontype == ACT_PATROL) && (chr->act_patrol.waydata.mode == WAYMODE_MAGIC)) || ((chr->actiontype == ACT_GOPOS) && (chr->act_gopos.waydata.mode == WAYMODE_MAGIC)))
             {
+                profCallTime = osGetCount();
                 isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
+                g_ProfChrVisibilityCycles += osGetCount() - profCallTime;
 
                 // Former debug comment here: "VISIBLE MAGIC MODE!!!!"
                 if (isOnScreen)
@@ -2320,13 +2384,19 @@ s32 chrTick(PropRecord *prop)
                     subcalcpos(model);
                     objSetColorFromTile(prop, &chr->nextcol);
                     getsuboffset(model, &prop->pos);
+
+                    profCallTime = osGetCount();
                     chrDetectRooms(chr);
+                    g_ProfChrRoomCycles += osGetCount() - profCallTime;
                 }
             }
             else
             {
                 chrUpdateAnim(chr, tickamount);
+
+                profCallTime = osGetCount();
                 isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
+                g_ProfChrVisibilityCycles += osGetCount() - profCallTime;
 
                 if (isOnScreen)
                 {
@@ -2343,7 +2413,9 @@ s32 chrTick(PropRecord *prop)
         }
         else if ((chr->actiontype == ACT_ANIM) && (chr->act_anim.unk02c == 0))
         {
+            profCallTime = osGetCount();
             isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
+            g_ProfChrVisibilityCycles += osGetCount() - profCallTime;
 
             if (isOnScreen && (chr->act_anim.noTranslate == 0))
             {
@@ -2351,12 +2423,16 @@ s32 chrTick(PropRecord *prop)
             }
             else
             {
+                profCallTime = osGetCount();
                 modelTickAnim(model, tickamount, 0);
+                g_ProfChrAnimCycles += osGetCount() - profCallTime;
             }
         }
         else if (chr->actiontype == ACT_STAND)
         {
+            profCallTime = osGetCount();
             isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
+            g_ProfChrVisibilityCycles += osGetCount() - profCallTime;
 
             if (isOnScreen || (chr->chrflags & CHRFLAG_INIT))
             {
@@ -2364,25 +2440,33 @@ s32 chrTick(PropRecord *prop)
             }
             else if (model->anim2 != NULL)
             {
+                profCallTime = osGetCount();
                 modelTickAnim(model, tickamount, 0);
+                g_ProfChrAnimCycles += osGetCount() - profCallTime;
             }
         }
         else
         {
             if (chr->chrflags & CHRFLAG_IGNORE_ANIM_TRANSLATION)
             {
+                profCallTime = osGetCount();
                 modelTickAnim(model, tickamount, 0);
+                g_ProfChrAnimCycles += osGetCount() - profCallTime;
             }
             else
             {
                 chrUpdateAnim(chr, tickamount);
             }
 
+            profCallTime = osGetCount();
             isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
+            g_ProfChrVisibilityCycles += osGetCount() - profCallTime;
         }
     }
 
 after_position_update:
+    g_ProfChrAnimPosCycles += osGetCount() - profSectionTime;
+
     if (((chr->actiontype != ACT_STAND) || (model->anim2 != NULL)) || (prop->type == PROP_TYPE_VIEWER))
     {
         chr->hidden |= CHRHIDDEN_BACKGROUND_AI;
@@ -2408,6 +2492,9 @@ after_position_update:
 
     if (isOnScreen)
     {
+        profSectionTime = osGetCount();
+        g_ProfChrOnscreenCount++;
+
         renderdata = g_DefaultChrModelRenderData;
         prop->flags |= PROPFLAG_ONSCREEN;
 
@@ -2529,6 +2616,8 @@ after_position_update:
 
         sub_GAME_7F06B29C(chr->hitChain);
         chr->hitChain = sub_GAME_7F06BB28(chr->hitChain);
+
+        g_ProfChrMatrixCycles += osGetCount() - profSectionTime;
     }
     else
     {
