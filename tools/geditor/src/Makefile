@@ -12,10 +12,16 @@ LDFLAGS := -mwindows -lgdi32 -lcomdlg32
 BIN_DIR := ..
 TARGET  := $(BIN_DIR)/GEditor.exe
 SOURCES := $(wildcard *.c)
+RCFILE  := geditor.rc
+RCOBJ   := geditor_rc.o
  
 $(TARGET): $(SOURCES)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
  
+# Resource script -> linkable object (dialog templates, later icons/version info)
+$(RCOBJ): $(RCFILE) resource.h
+	$(RC) -i $(RCFILE) -o $@
+
 clean:
 	rm -f $(TARGET)
  

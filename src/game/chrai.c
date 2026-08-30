@@ -1778,7 +1778,13 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 case AI_IFICouldSeeBond:
                 {
                     AiIFICouldSeeBondRecord *ai = AiListp + Offset;
-                    if (chrCanSeeBond(ChrEntityp))
+                    s32 couldSeeBond;
+
+                    g_ProfChrLosActive = g_ProfChrActionActive;
+                    couldSeeBond = chrCanSeeBond(ChrEntityp);
+                    g_ProfChrLosActive = FALSE;
+
+                    if (couldSeeBond)
                     {
                         Offset = chraiGoToLabel(AiListp, Offset, ai->GOTOLABEL);
                     }

@@ -3737,6 +3737,15 @@ bool chrCanSeeBond(ChrRecord *self)
     PropRecord *bondprop;
     StandTile *mystan;
     f32 myheight;
+    s32 lineUnobstructed;
+    u32 profTime;
+    u32 profLineTime;
+
+    if (g_ProfChrLosActive)
+    {
+        g_ProfChrLosCalls++;
+        profTime = osGetCount();
+    }
 
     if (bondviewGetVisibleToGuardsFlag())
     {
@@ -3749,14 +3758,44 @@ bool chrCanSeeBond(ChrRecord *self)
 
         mystan = myprop->stan;
 
-        if (stanTestLineUnobstructed(&mystan, myprop->pos.x, myprop->pos.z, bondprop->pos.x, bondprop->pos.z, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER | CDTYPE_AIOPAQUE, myheight, myheight, 0.0f, 1.0f) && (mystan == bondprop->stan))
+        if (g_ProfChrLosActive)
+        {
+            profLineTime = osGetCount();
+        }
+
+        lineUnobstructed = stanTestLineUnobstructed(&mystan, myprop->pos.x, myprop->pos.z, bondprop->pos.x, bondprop->pos.z, CDTYPE_OBJS | CDTYPE_DOORS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER | CDTYPE_AIOPAQUE, myheight, myheight, 0.0f, 1.0f);
+
+        if (g_ProfChrLosActive)
+        {
+            g_ProfChrLosLineCycles += osGetCount() - profLineTime;
+        }
+
+        if (lineUnobstructed && mystan == bondprop->stan)
         {
             chractSetSeenBondTimeToNow(self);
             pass = TRUE;
+
+            if (g_ProfChrLosActive)
+            {
+                g_ProfChrLosPasses++;
+            }
+        }
+        else if (g_ProfChrLosActive && lineUnobstructed)
+        {
+            g_ProfChrLosTileMismatches++;
         }
 
         chrSetCollidable(self, TRUE);
         bviewSetPlayerSolid(g_CurrentPlayer->prop, 1);
+    }
+    else if (g_ProfChrLosActive)
+    {
+        g_ProfChrLosInvisibleCalls++;
+    }
+
+    if (g_ProfChrLosActive)
+    {
+        g_ProfChrLosCycles += osGetCount() - profTime;
     }
 
     return pass;

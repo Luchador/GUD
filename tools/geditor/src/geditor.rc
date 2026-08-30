@@ -1,0 +1,18 @@
+#include <windows.h>
+#include "resource.h"
+
+/*
+ * New Project dialog. Units here are dialog units, not pixels: they
+ * scale with the system font, which is what keeps the layout correct
+ * on high-DPI displays.
+ */
+IDD_NEW_PROJECT DIALOGEX 0, 0, 240, 92
+STYLE DS_MODALFRAME | DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "New Project"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT           "Project name:", -1, 10, 10, 100, 8
+    EDITTEXT        IDC_PROJECT_NAME, 10, 22, 220, 14, ES_AUTOHSCROLL
+    LTEXT           "", IDC_NAME_WARNING, 10, 41, 220, 16
+    DEFPUSHBUTTON   "Create Project", IDC_CREATE_PROJECT, 85, 68, 70, 16
+END

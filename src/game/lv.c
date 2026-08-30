@@ -149,6 +149,24 @@ u32 g_ProfChrAiCommandCount;
 u32 g_ProfChrCurrentAiCommandCount;
 u32 g_ProfChrAiCommandCycles[AI_CMD_COUNT];
 u32 g_ProfChrAiCommandCalls[AI_CMD_COUNT];
+s32 g_ProfChrLosActive;
+u32 g_ProfChrLosCycles;
+u32 g_ProfChrLosLineCycles;
+u32 g_ProfChrLosStanCycles;
+u32 g_ProfChrLosRoomCycles;
+u32 g_ProfChrLosPropCycles;
+u32 g_ProfChrLosRecoveryCycles;
+u32 g_ProfChrLosCalls;
+u32 g_ProfChrLosPasses;
+u32 g_ProfChrLosStanBlocks;
+u32 g_ProfChrLosPropBlocks;
+u32 g_ProfChrLosTileMismatches;
+u32 g_ProfChrLosInvisibleCalls;
+u32 g_ProfChrLosRooms;
+u32 g_ProfChrLosProps;
+u32 g_ProfChrLosCandidates;
+u32 g_ProfChrLosEdges;
+u32 g_ProfChrLosIntersections;
 u32 g_ProfChrSlowestAiCycles;
 u32 g_ProfChrSlowestAiCommandCount;
 s32 g_ProfChrSlowestAiChrnum;
@@ -1020,14 +1038,11 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     u32 topAiCalls1;
     u32 topAiCalls2;
     u32 aiCommandCycles;
-    u32 chrAnimPosProfiled;
-    u32 chrPositionCycles;
-    u32 chrPositionOther;
-    u32 chrRootOther;
-    u32 chrValidateOther;
-    u32 chrValidateProfiled;
     u32 chrOther;
     u32 chrProfiled;
+    u32 losCallerOther;
+    u32 losLineOther;
+    u32 losLineProfiled;
     u32 lvlOther;
     u32 sub;
 
@@ -1092,10 +1107,10 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             0x30FFFFFF,  /* AI calls/commands      */
             0x30FFFFFF,  /* top AI command         */
             0x40FFFFFF,  /* anim/visibility/rooms  */
-            0x40FFFFFF,  /* root/validation        */
-            0x40FFFFFF,  /* collision tests        */
-            0x40FFFFFF,  /* position remainder     */
-            0x40FFFFFF,  /* position call counts   */
+            0x40FFFFFF,  /* LOS primary timing      */
+            0x40FFFFFF,  /* LOS secondary timing    */
+            0x40FFFFFF,  /* LOS outcomes            */
+            0x40FFFFFF,  /* LOS query counts        */
             0x40FFFFFF,  /* matrix/other           */
             0xFF80FFFF,  /* slowest character      */
             0xFF80FFFF,  /* slowest AI character   */
@@ -1131,12 +1146,9 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
 
         chrProfiled = g_ProfChrActionCycles + g_ProfChrAnimPosCycles + g_ProfChrMatrixCycles;
         chrOther = (g_ProfChrTickCycles > chrProfiled) ? (g_ProfChrTickCycles - chrProfiled) : 0;
-        chrAnimPosProfiled = g_ProfChrAnimCycles + g_ProfChrVisibilityCycles + g_ProfChrRoomCycles;
-        chrPositionCycles = (g_ProfChrAnimPosCycles > chrAnimPosProfiled) ? (g_ProfChrAnimPosCycles - chrAnimPosProfiled) : 0;
-        chrValidateProfiled = g_ProfChrCollisionCycles + g_ProfChrGroundCycles + g_ProfChrGroundFollowCycles;
-        chrValidateOther = (g_ProfChrPositionValidateCycles > chrValidateProfiled) ? (g_ProfChrPositionValidateCycles - chrValidateProfiled) : 0;
-        chrRootOther = (g_ProfChrRootPositionCycles > g_ProfChrPositionValidateCycles) ? (g_ProfChrRootPositionCycles - g_ProfChrPositionValidateCycles) : 0;
-        chrPositionOther = (chrPositionCycles > g_ProfChrRootPositionCycles) ? (chrPositionCycles - g_ProfChrRootPositionCycles) : 0;
+        losLineProfiled = g_ProfChrLosStanCycles + g_ProfChrLosRoomCycles + g_ProfChrLosPropCycles + g_ProfChrLosRecoveryCycles;
+        losLineOther = (g_ProfChrLosLineCycles > losLineProfiled) ? (g_ProfChrLosLineCycles - losLineProfiled) : 0;
+        losCallerOther = (g_ProfChrLosCycles > g_ProfChrLosLineCycles) ? (g_ProfChrLosCycles - g_ProfChrLosLineCycles) : 0;
 
         sub = g_ProfBgTickCycles + g_ProfBgRenderCycles + g_ProfChrTickCycles + g_ProfObjTickCycles;  /* full chrTick */
         lvlOther = (g_ProfLvlRenderCycles > sub) ? (g_ProfLvlRenderCycles - sub) : 0;
@@ -1155,10 +1167,10 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         sprintf(profText[11], "AI:%u CMD:%u", g_ProfChrAiCalls, g_ProfChrAiCommandCount);
         sprintf(profText[12], "TOP C%d:%uKx%u C%d:%uKx%u", topAiCommand1, (topAiCycles1 + 500) / 1000, topAiCalls1, topAiCommand2, (topAiCycles2 + 500) / 1000, topAiCalls2);
         sprintf(profText[13], "AN/VI/RM:%u/%u/%uK", (g_ProfChrAnimCycles + 500) / 1000, (g_ProfChrVisibilityCycles + 500) / 1000, (g_ProfChrRoomCycles + 500) / 1000);
-        sprintf(profText[14], "PO/RT/VA:%u/%u/%uK", (chrPositionCycles + 500) / 1000, (g_ProfChrRootPositionCycles + 500) / 1000, (g_ProfChrPositionValidateCycles + 500) / 1000);
-        sprintf(profText[15], "CL/LN/MV:%u/%u/%uK", (g_ProfChrCollisionCycles + 500) / 1000, (g_ProfChrCollisionLineCycles + 500) / 1000, (g_ProfChrCollisionVolumeCycles + 500) / 1000);
-        sprintf(profText[16], "GD/GF/VO/RO/XO:%u/%u/%u/%u/%uK", (g_ProfChrGroundCycles + 500) / 1000, (g_ProfChrGroundFollowCycles + 500) / 1000, (chrValidateOther + 500) / 1000, (chrRootOther + 500) / 1000, (chrPositionOther + 500) / 1000);
-        sprintf(profText[17], "N R/C/L/M/G/F/S:%u/%u/%u/%u/%u/%u/%u", g_ProfChrRootPositionCalls, g_ProfChrCollisionCalls, g_ProfChrCollisionLineCalls, g_ProfChrCollisionVolumeCalls, g_ProfChrGroundCalls, g_ProfChrGroundFollowCalls, g_ProfChrStationaryVolumeSkips);
+        sprintf(profText[14], "LOS T/L/S/R:%u/%u/%u/%uK", (g_ProfChrLosCycles + 500) / 1000, (g_ProfChrLosLineCycles + 500) / 1000, (g_ProfChrLosStanCycles + 500) / 1000, (g_ProfChrLosRoomCycles + 500) / 1000);
+        sprintf(profText[15], "LOS P/RC/LO/CO:%u/%u/%u/%uK", (g_ProfChrLosPropCycles + 500) / 1000, (g_ProfChrLosRecoveryCycles + 500) / 1000, (losLineOther + 500) / 1000, (losCallerOther + 500) / 1000);
+        sprintf(profText[16], "LOS N/OK/SB/PB/TM/NV:%u/%u/%u/%u/%u/%u", g_ProfChrLosCalls, g_ProfChrLosPasses, g_ProfChrLosStanBlocks, g_ProfChrLosPropBlocks, g_ProfChrLosTileMismatches, g_ProfChrLosInvisibleCalls);
+        sprintf(profText[17], "LOS Q R/P/C/E/H:%u/%u/%u/%u/%u", g_ProfChrLosRooms, g_ProfChrLosProps, g_ProfChrLosCandidates, g_ProfChrLosEdges, g_ProfChrLosIntersections);
         sprintf(profText[18], "MTX/OT:%u/%uK", (g_ProfChrMatrixCycles + 500) / 1000, (chrOther + 500) / 1000);
         sprintf(profText[19], "SLOW C%d A%d:%uK", g_ProfChrSlowestChrnum, g_ProfChrSlowestAction, (g_ProfChrSlowestCycles + 500) / 1000);
         sprintf(profText[20], "SLOWAI C%d:%uK x%u", g_ProfChrSlowestAiChrnum, (g_ProfChrSlowestAiCycles + 500) / 1000, g_ProfChrSlowestAiCommandCount);
@@ -1179,6 +1191,24 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         g_ProfChrAiCalls = 0;
         g_ProfChrAiCommandCount = 0;
         g_ProfChrCurrentAiCommandCount = 0;
+        g_ProfChrLosActive = 0;
+        g_ProfChrLosCycles = 0;
+        g_ProfChrLosLineCycles = 0;
+        g_ProfChrLosStanCycles = 0;
+        g_ProfChrLosRoomCycles = 0;
+        g_ProfChrLosPropCycles = 0;
+        g_ProfChrLosRecoveryCycles = 0;
+        g_ProfChrLosCalls = 0;
+        g_ProfChrLosPasses = 0;
+        g_ProfChrLosStanBlocks = 0;
+        g_ProfChrLosPropBlocks = 0;
+        g_ProfChrLosTileMismatches = 0;
+        g_ProfChrLosInvisibleCalls = 0;
+        g_ProfChrLosRooms = 0;
+        g_ProfChrLosProps = 0;
+        g_ProfChrLosCandidates = 0;
+        g_ProfChrLosEdges = 0;
+        g_ProfChrLosIntersections = 0;
         g_ProfChrSlowestAiCycles = 0;
         g_ProfChrSlowestAiCommandCount = 0;
         g_ProfChrSlowestAiChrnum = -1;
