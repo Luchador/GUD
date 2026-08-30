@@ -1398,109 +1398,71 @@ typedef union
             f32     unk5c;
         };
 
+        typedef s32 (*ModelPositionValidationCallback)(
+            struct Model *model,
+            coord3d *currentPos,
+            coord3d *proposedPos,
+            f32 *ground);
+
         /**
          * I beleve that "datas" is actually " struct modeldata_root" and that
          * unk1c is the model node data array
          */
         typedef struct Model
         {
-            s16                unk00;      /*0x00*/   // objInit() indicates that unk00 is a s16...
-            s16                rwdatalen;  /*0x01*/
-
-            struct ChrRecord  *chr;   /*0x04*/
-            ModelFileHeader   *obj;   /*0x08 GE Name confirmed*/
-
-            /**
-             * List of length model->obj->numMatrices dynamically allocated.
-            */
-            RenderPosView     *render_pos; /*0x0c*/
-            union ModelRwData **datas; // array of pointers to modeldata structs /*0x10*/
-
-            f32               scale;              /*0x14*/
-            struct Model     *attachedto;         /*0x18*/
-            ModelNode        *attachedto_objinst; /*0x1c*/
-
-            // need `struct anim` definition from AI branch.
-            ModelAnimation   *anim; /*0x20*/
-
-            s8                gunhand; // used by ACT_STAND
-            s8                unk25;
-            s8                animlooping; /*0x26*/
-            s8                unk27;
-
-            f32               animframe1; /*0x28*/
-            f32               animFrameFrac;
-
-            /**
-             * Animation framea (per debug message)
-             * Offset 0x30.
-            */
-            s16               framea;
-
-            /**
-             * Animation frameb (per debug message)
-             * Offset 0x32.
-            */
-            s16               frameb;
-            s32               unk34;
-            s32               unk38;
-            f32               endframe;
-
-            f32               speed; /*0x40*/
-            f32               newspeed; /*0x44*/
-            f32               oldspeed; /*0x48*/
-            f32               timespeed; /*0x4C*/
-            f32               elapsespeed; /*0x50*/
-
-            ModelAnimation   *anim2;
-
-            f32               animframe2; /* 0x58*/
-            f32               unk5c;
-
-            /**
-             * Animation frame2a (per debug message)
-             * Offset 0x60.
-            */
-            s16               frame2a;
-
-            /**
-             * Animation frame2b (per debug message)
-             * Offset 0x62.
-            */
-            s16               frame2b;
-
-            s32               unk64;
-            s32               unk68;
-            f32               unk6c;
-            // 0x70
-            f32               speed2;
-            f32               unk74;
-            f32               unk78;
-            f32               unk7c;
-            // 0x80
-            f32               unk80;
-
-            /**
-             * Related to "anim2", per debug message.
-            */
-            f32               unk84;
-
-            f32               unk88;
-            f32               unk8c;
-            // 0x90
-            f32               animloopframe; /*0x90*/
-            f32               animloopmerge; /*0x94*/
-            s32               animflipfunc; /*0x98*/
-            s32               unk9c;
-            // 0xa0
-            s32               posValidateFunc; // This is likely a function pointer, see modelCalcHeadingNodePosition()
-            f32               playspeed; // used by ACT_STAND in chrlv
-            f32               animrate;
-            f32               unkac;
-            // 0xb0
-            f32               unkb0;
-            f32               unkb4;
-            f32               anim_translation_scale; // used by ACT_ANIM in chrlv
+            s16                             unk00;
+            s16                             rwdatalen;
+            struct ChrRecord               *chr;
+            ModelFileHeader                *obj;
+            RenderPosView                  *render_pos;
+            union ModelRwData             **datas;
+            f32                             scale;
+            struct Model                   *attachedto;
+            ModelNode                      *attachedto_objinst;
+            ModelAnimation                 *anim;
+            s8                              gunhand;
+            s8                              unk25;
+            s8                              animlooping;
+            s8                              unk27;
+            f32                             animframe1;
+            f32                             animFrameFrac;
+            s16                             framea;
+            s16                             frameb;
+            s32                             unk34;
+            s32                             unk38;
+            f32                             endframe;
+            f32                             speed; /*0x40*/
+            f32                             newspeed; /*0x44*/
+            f32                             oldspeed; /*0x48*/
+            f32                             timespeed; /*0x4C*/
+            f32                             elapsespeed; /*0x50*/
+            ModelAnimation                 *anim2;
+            f32                             animframe2; /* 0x58*/
+            f32                             unk5c;
+            s16                             frame2a;
+            s16                             frame2b;
+            s32                             unk64;
+            s32                             unk68;
+            f32                             unk6c;
+            f32                             speed2;
+            f32                             unk74;
+            f32                             unk78;
+            f32                             unk7c;
+            f32                             unk80;
+            f32                             unk84;
+            f32                             unk88;
+            f32                             unk8c;
+            f32                             animloopframe; /*0x90*/
+            f32                             animloopmerge; /*0x94*/
+            s32                             animflipfunc; /*0x98*/
+            s32                             unk9c;
+            ModelPositionValidationCallback posValidateFunc;
+            f32                             playspeed;
+            f32                             animrate;
+            f32                             unkac;
+            f32                             unkb0;
+            f32                             unkb4;
+            f32                             anim_translation_scale;
         } Model;
 
     #pragma endregion Data Structures

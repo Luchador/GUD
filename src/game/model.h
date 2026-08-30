@@ -82,7 +82,7 @@ void modelSetAnimFlipFunction(Model *model, void *callback);
 void modelSetAnimSpeed(Model *model, f32 anim_speed, f32 startframe);
 void sub_GAME_7F06FE90(Model *model, f32 arg1, f32 arg2);
 void modelSetAnimPlaySpeed(Model *model, f32 animation_rate, f32 startframe);
-void sub_GAME_7F06FF5C(Model *model, s32 arg1);
+void modelSetPositionValidationCallback(Model *model, ModelPositionValidationCallback callback);
 void modelSetAnimFrame(Model* model, f32 frame);
 void modelSetAnimFrame2(Model* model, f32 frame1, f32 frame2);
 void modelSetAnimMergingEnabled(s32 arg0);

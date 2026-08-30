@@ -890,7 +890,7 @@ void modelCalcHeadingNodePosition(Model *model, ModelNode *modelNode)
     sp2c.y = sp38.y;
     sp2c.z = sp38.z;
 
-    if (model->posValidateFunc && !((s32 (*)(Model *, coord3d *, coord3d *, f32 *)) model->posValidateFunc)(model, &rw->Header.pos, &sp2c, &rw->Header.ground))
+    if (model->posValidateFunc && !model->posValidateFunc(model, &rw->Header.pos, &sp2c, &rw->Header.ground))
     {
         return;
     }
@@ -2618,9 +2618,9 @@ void modelSetAnimPlaySpeed(Model *model, f32 animation_rate, f32 startframe)
 }
 
 
-void sub_GAME_7F06FF5C(Model *model, s32 arg1)
+void modelSetPositionValidationCallback(Model *model, ModelPositionValidationCallback callback)
 {
-    model->posValidateFunc = arg1;
+    model->posValidateFunc = callback;
 }
 
 
@@ -5850,29 +5850,29 @@ void modelInit(struct Model *objinst, struct ModelFileHeader *header, u32 *data)
 }
 
 
-void animInit(struct Model *objinst, struct ModelFileHeader *header, u32 *data)
+void animInit(struct Model *model, struct ModelFileHeader *header, u32 *data)
 {
-    modelInit(objinst, header, data);
+    modelInit(model, header, data);
 
-    objinst->anim = NULL;
-    objinst->anim2 = NULL;
-    objinst->animlooping = 0;
-    objinst->animflipfunc = 0;
-    objinst->unk9c = 0;
-    objinst->posValidateFunc = 0;
-    objinst->animFrameFrac = 0.0f;
-    objinst->timespeed = 0.0f;
-    objinst->unk5c = 0.0f;
-    objinst->unk7c = 0.0f;
-    objinst->unk84 = 0.0f;
-    objinst->unk88 = 0.0f;
-    objinst->unkb0 = 0.0f;
-    objinst->speed = 1.0f;
-    objinst->speed2 = 1.0f;
-    objinst->playspeed = 1.0f;
-    objinst->anim_translation_scale = 1.0f;
-    objinst->endframe = -1.0f;
-    objinst->unk6c = -1.0f;
+    model->anim = NULL;
+    model->anim2 = NULL;
+    model->animlooping = 0;
+    model->animflipfunc = 0;
+    model->unk9c = 0;
+    model->posValidateFunc = NULL;
+    model->animFrameFrac = 0.0f;
+    model->timespeed = 0.0f;
+    model->unk5c = 0.0f;
+    model->unk7c = 0.0f;
+    model->unk84 = 0.0f;
+    model->unk88 = 0.0f;
+    model->unkb0 = 0.0f;
+    model->speed = 1.0f;
+    model->speed2 = 1.0f;
+    model->playspeed = 1.0f;
+    model->anim_translation_scale = 1.0f;
+    model->endframe = -1.0f;
+    model->unk6c = -1.0f;
 }
 
 

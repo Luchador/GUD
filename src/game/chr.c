@@ -38,7 +38,7 @@
 #define FALLSPEED_DECAY      0.9f
 
 /* Ignore imperceptible horizontal root motion in otherwise stationary combat
- * actions. This allows sub_GAME_7F01F614 to take its stationary fast path
+ * actions. This allows chrTryMoveWithCollision to take its stationary fast path
  * instead of running line and volume collision tests for animation jitter. */
 #define CHR_MICRO_ROOT_MOTION_MAX_DISTANCE 0.5f
 
@@ -1180,7 +1180,7 @@ void chrSetCollidable(ChrRecord *self, bool solid)
 }
 
 
-StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, coord3d *dst, s32 updateLastMoveOk)
+StandTile *chrTryMoveWithCollision(ChrRecord *guard, StandTile *stan, coord3d *src, coord3d *dst, s32 updateLastMoveOk)
 {
     StandTile *ret;
     StandTile *tile;
@@ -1374,7 +1374,7 @@ done:
 s32 chrUpdatePosition(Model *model, coord3d *src, coord3d *dst, f32 *ground_y)
 {
     ChrRecord *chr;
-    s32 moved;
+    bool moved;
     f32 ground;
     coord3d *groundpos;
     f32 tmp;
@@ -1385,7 +1385,7 @@ s32 chrUpdatePosition(Model *model, coord3d *src, coord3d *dst, f32 *ground_y)
     union ModelRwData *rwdata;
 
     chr = model->chr;
-    moved = 0;
+    moved = FALSE;
     ground = 0.0f;
     groundpos = src;
 
@@ -1422,13 +1422,13 @@ s32 chrUpdatePosition(Model *model, coord3d *src, coord3d *dst, f32 *ground_y)
         dst->x += chr->fallspeed.x * g_GlobalTimerDelta;
         dst->z += chr->fallspeed.z * g_GlobalTimerDelta;
 
-        tile = sub_GAME_7F01F614(chr, chr->prop->stan, src, dst, 1);
+        tile = chrTryMoveWithCollision(chr, chr->prop->stan, src, dst, 1);
 
         if (tile != NULL)
         {
             chr->prop->stan = tile;
             groundpos = dst;
-            moved = 1;
+            moved = TRUE;
         }
 
         if (!(chr->chrflags & CHRFLAG_LOCK_Y_POS))
@@ -1591,7 +1591,7 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
     arg0->pos.f[2] = arg2->f[2];
     arg0->stan = arg4;
 
-    sub_GAME_7F06FF5C(arg1, (s32) chrUpdatePosition);
+    modelSetPositionValidationCallback(arg1, chrUpdatePosition);
 
     arg1->unk00 = 0xA;
     arg1->chr = chr;
