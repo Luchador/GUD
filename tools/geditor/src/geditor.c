@@ -25,7 +25,10 @@
 enum {
     ID_FILE_NEW_PROJECT = 40001,
     ID_FILE_OPEN_PROJECT,
-    ID_FILE_EXIT
+    ID_FILE_EXIT,
+
+    ID_EDIT_UNDO,
+    ID_EDIT_REDO
 };
 
 /*
@@ -37,9 +40,11 @@ static HMENU GEditorCreateMenuBar(void)
 {
     HMENU menubar;
     HMENU filemenu;
+    HMENU editmenu;
 
     menubar = CreateMenu();
     filemenu = CreatePopupMenu();
+    editmenu = CreatePopupMenu();
 
     /* MF_STRING items carry a command ID. '&' marks the Alt mnemonic. */
     AppendMenu(filemenu, MF_STRING, ID_FILE_NEW_PROJECT, "&New Project");
@@ -47,8 +52,11 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_STRING, ID_FILE_EXIT, "E&xit");
 
-    /* MF_POPUP items carry a submenu handle instead - the cast is required. */
+    AppendMenu(editmenu, MF_STRING, ID_EDIT_UNDO, "&Undo");
+    AppendMenu(editmenu, MF_STRING, ID_EDIT_REDO, "&Redo");
+
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)filemenu, "&File");
+    AppendMenu(menubar, MF_POPUP, (UINT_PTR)editmenu, "&Edit");
 
     return menubar;
 }

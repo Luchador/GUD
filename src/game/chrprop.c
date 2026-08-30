@@ -1787,6 +1787,23 @@ void propsTick(void)
     u32 profCycles;
     s32 profChrnum;
     s32 profAction;
+    u32 profActionCycles;
+    u32 profAiCycles;
+    u32 profStateCycles;
+    u32 profAnimPosCycles;
+    u32 profAnimCycles;
+    u32 profVisibilityCycles;
+    u32 profRoomCycles;
+    u32 profRootPositionCycles;
+    u32 profRootPositionCalls;
+    u32 profPositionValidateCycles;
+    u32 profPositionValidateCalls;
+    u32 profCollisionCycles;
+    u32 profCollisionLineCycles;
+    u32 profCollisionVolumeCycles;
+    u32 profGroundCycles;
+    u32 profGroundFollowCycles;
+    u32 profMatrixCycles;
 
     playerCount = getPlayerCount();
     isSimOwner = playerCount == 1 || get_player_position_in_shuffled(get_cur_playernum()) == 0;
@@ -1802,8 +1819,26 @@ void propsTick(void)
         {
             // TEMP
             {
-                u32 prof_t = osGetCount();
+                u32 prof_t;
                 profChrnum = prop->chr->chrnum;
+                profActionCycles = g_ProfChrActionCycles;
+                profAiCycles = g_ProfChrAiCycles;
+                profStateCycles = g_ProfChrStateCycles;
+                profAnimPosCycles = g_ProfChrAnimPosCycles;
+                profAnimCycles = g_ProfChrAnimCycles;
+                profVisibilityCycles = g_ProfChrVisibilityCycles;
+                profRoomCycles = g_ProfChrRoomCycles;
+                profRootPositionCycles = g_ProfChrRootPositionCycles;
+                profRootPositionCalls = g_ProfChrRootPositionCalls;
+                profPositionValidateCycles = g_ProfChrPositionValidateCycles;
+                profPositionValidateCalls = g_ProfChrPositionValidateCalls;
+                profCollisionCycles = g_ProfChrCollisionCycles;
+                profCollisionLineCycles = g_ProfChrCollisionLineCycles;
+                profCollisionVolumeCycles = g_ProfChrCollisionVolumeCycles;
+                profGroundCycles = g_ProfChrGroundCycles;
+                profGroundFollowCycles = g_ProfChrGroundFollowCycles;
+                profMatrixCycles = g_ProfChrMatrixCycles;
+                prof_t = osGetCount();
                 g_ProfChrTickCalls++;
                 tickop = chrTick(prop);
                 profAction = g_ProfChrCurrentAction;
@@ -1815,6 +1850,24 @@ void propsTick(void)
                     g_ProfChrSlowestCycles = profCycles;
                     g_ProfChrSlowestChrnum = profChrnum;
                     g_ProfChrSlowestAction = profAction;
+                    g_ProfChrSlowestActionCycles = g_ProfChrActionCycles - profActionCycles;
+                    g_ProfChrSlowestCharAiCycles = g_ProfChrAiCycles - profAiCycles;
+                    g_ProfChrSlowestStateCycles = g_ProfChrStateCycles - profStateCycles;
+                    g_ProfChrSlowestAnimPosCycles = g_ProfChrAnimPosCycles - profAnimPosCycles;
+                    g_ProfChrSlowestAnimCycles = g_ProfChrAnimCycles - profAnimCycles;
+                    g_ProfChrSlowestVisibilityCycles = g_ProfChrVisibilityCycles - profVisibilityCycles;
+                    g_ProfChrSlowestRoomCycles = g_ProfChrRoomCycles - profRoomCycles;
+                    g_ProfChrSlowestRootPositionCycles = g_ProfChrRootPositionCycles - profRootPositionCycles;
+                    g_ProfChrSlowestRootPositionCalls = g_ProfChrRootPositionCalls - profRootPositionCalls;
+                    g_ProfChrSlowestPositionValidateCycles = g_ProfChrPositionValidateCycles - profPositionValidateCycles;
+                    g_ProfChrSlowestPositionValidateCalls = g_ProfChrPositionValidateCalls - profPositionValidateCalls;
+                    g_ProfChrSlowestCollisionCycles = g_ProfChrCollisionCycles - profCollisionCycles;
+                    g_ProfChrSlowestCollisionLineCycles = g_ProfChrCollisionLineCycles - profCollisionLineCycles;
+                    g_ProfChrSlowestCollisionVolumeCycles = g_ProfChrCollisionVolumeCycles - profCollisionVolumeCycles;
+                    g_ProfChrSlowestGroundCycles = g_ProfChrGroundCycles - profGroundCycles;
+                    g_ProfChrSlowestGroundFollowCycles = g_ProfChrGroundFollowCycles - profGroundFollowCycles;
+                    g_ProfChrSlowestMatrixCycles = g_ProfChrMatrixCycles - profMatrixCycles;
+                    g_ProfChrSlowestOnscreen = (prop->flags & PROPFLAG_ONSCREEN) != 0;
                 }
             }
         }
