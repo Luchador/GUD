@@ -1813,14 +1813,15 @@ void propsTick(void)
     u32 profMatrixBodyBuildCycles;
     u32 profMatrixJointCycles;
     u32 profMatrixJointCalls;
-    u32 profMatrixBodyHeaderCycles;
     u32 profMatrixBodyGroupCycles;
-    u32 profMatrixBodySimpleCycles;
-    u32 profMatrixBodyRelationCycles;
-    u32 profMatrixBodyHeaderCalls;
     u32 profMatrixBodyGroupCalls;
-    u32 profMatrixBodySimpleCalls;
-    u32 profMatrixBodyRelationCalls;
+    u32 profMatrixBodyGroupDecodeCycles;
+    u32 profMatrixBodyGroupFrameInterpCycles;
+    u32 profMatrixBodyGroupAnimBlendCycles;
+    u32 profMatrixBodyGroupMatrixCycles;
+    u32 profMatrixBodyGroupFrameInterpCalls;
+    u32 profMatrixBodyGroupAnimBlendCalls;
+    u32 profMatrixBodyGroupAnimBlendInterpCalls;
 
     playerCount = getPlayerCount();
     isSimOwner = playerCount == 1 || get_player_position_in_shuffled(get_cur_playernum()) == 0;
@@ -1864,14 +1865,15 @@ void propsTick(void)
                 profMatrixBodyBuildCycles = g_ProfChrMatrixBodyBuildCycles;
                 profMatrixJointCycles = g_ProfChrMatrixJointCycles;
                 profMatrixJointCalls = g_ProfChrMatrixJointCalls;
-                profMatrixBodyHeaderCycles = g_ProfChrMatrixBodyHeaderCycles;
                 profMatrixBodyGroupCycles = g_ProfChrMatrixBodyGroupCycles;
-                profMatrixBodySimpleCycles = g_ProfChrMatrixBodySimpleCycles;
-                profMatrixBodyRelationCycles = g_ProfChrMatrixBodyRelationCycles;
-                profMatrixBodyHeaderCalls = g_ProfChrMatrixBodyHeaderCalls;
                 profMatrixBodyGroupCalls = g_ProfChrMatrixBodyGroupCalls;
-                profMatrixBodySimpleCalls = g_ProfChrMatrixBodySimpleCalls;
-                profMatrixBodyRelationCalls = g_ProfChrMatrixBodyRelationCalls;
+                profMatrixBodyGroupDecodeCycles = g_ProfChrMatrixBodyGroupDecodeCycles;
+                profMatrixBodyGroupFrameInterpCycles = g_ProfChrMatrixBodyGroupFrameInterpCycles;
+                profMatrixBodyGroupAnimBlendCycles = g_ProfChrMatrixBodyGroupAnimBlendCycles;
+                profMatrixBodyGroupMatrixCycles = g_ProfChrMatrixBodyGroupMatrixCycles;
+                profMatrixBodyGroupFrameInterpCalls = g_ProfChrMatrixBodyGroupFrameInterpCalls;
+                profMatrixBodyGroupAnimBlendCalls = g_ProfChrMatrixBodyGroupAnimBlendCalls;
+                profMatrixBodyGroupAnimBlendInterpCalls = g_ProfChrMatrixBodyGroupAnimBlendInterpCalls;
                 prof_t = osGetCount();
                 g_ProfChrTickCalls++;
                 tickop = chrTick(prop);
@@ -1910,14 +1912,15 @@ void propsTick(void)
                     g_ProfChrSlowestMatrixBodyBuildCycles = g_ProfChrMatrixBodyBuildCycles - profMatrixBodyBuildCycles;
                     g_ProfChrSlowestMatrixJointCycles = g_ProfChrMatrixJointCycles - profMatrixJointCycles;
                     g_ProfChrSlowestMatrixJointCalls = g_ProfChrMatrixJointCalls - profMatrixJointCalls;
-                    g_ProfChrSlowestMatrixBodyHeaderCycles = g_ProfChrMatrixBodyHeaderCycles - profMatrixBodyHeaderCycles;
                     g_ProfChrSlowestMatrixBodyGroupCycles = g_ProfChrMatrixBodyGroupCycles - profMatrixBodyGroupCycles;
-                    g_ProfChrSlowestMatrixBodySimpleCycles = g_ProfChrMatrixBodySimpleCycles - profMatrixBodySimpleCycles;
-                    g_ProfChrSlowestMatrixBodyRelationCycles = g_ProfChrMatrixBodyRelationCycles - profMatrixBodyRelationCycles;
-                    g_ProfChrSlowestMatrixBodyHeaderCalls = g_ProfChrMatrixBodyHeaderCalls - profMatrixBodyHeaderCalls;
                     g_ProfChrSlowestMatrixBodyGroupCalls = g_ProfChrMatrixBodyGroupCalls - profMatrixBodyGroupCalls;
-                    g_ProfChrSlowestMatrixBodySimpleCalls = g_ProfChrMatrixBodySimpleCalls - profMatrixBodySimpleCalls;
-                    g_ProfChrSlowestMatrixBodyRelationCalls = g_ProfChrMatrixBodyRelationCalls - profMatrixBodyRelationCalls;
+                    g_ProfChrSlowestMatrixBodyGroupDecodeCycles = g_ProfChrMatrixBodyGroupDecodeCycles - profMatrixBodyGroupDecodeCycles;
+                    g_ProfChrSlowestMatrixBodyGroupFrameInterpCycles = g_ProfChrMatrixBodyGroupFrameInterpCycles - profMatrixBodyGroupFrameInterpCycles;
+                    g_ProfChrSlowestMatrixBodyGroupAnimBlendCycles = g_ProfChrMatrixBodyGroupAnimBlendCycles - profMatrixBodyGroupAnimBlendCycles;
+                    g_ProfChrSlowestMatrixBodyGroupMatrixCycles = g_ProfChrMatrixBodyGroupMatrixCycles - profMatrixBodyGroupMatrixCycles;
+                    g_ProfChrSlowestMatrixBodyGroupFrameInterpCalls = g_ProfChrMatrixBodyGroupFrameInterpCalls - profMatrixBodyGroupFrameInterpCalls;
+                    g_ProfChrSlowestMatrixBodyGroupAnimBlendCalls = g_ProfChrMatrixBodyGroupAnimBlendCalls - profMatrixBodyGroupAnimBlendCalls;
+                    g_ProfChrSlowestMatrixBodyGroupAnimBlendInterpCalls = g_ProfChrMatrixBodyGroupAnimBlendInterpCalls - profMatrixBodyGroupAnimBlendInterpCalls;
                     g_ProfChrSlowestOnscreen = (prop->flags & PROPFLAG_ONSCREEN) != 0;
                 }
             }

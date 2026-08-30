@@ -207,14 +207,15 @@ u32 g_ProfChrMatrixBodyFrameCycles;
 u32 g_ProfChrMatrixBodyBuildCycles;
 u32 g_ProfChrMatrixJointCycles;
 u32 g_ProfChrMatrixJointCalls;
-u32 g_ProfChrMatrixBodyHeaderCycles;
 u32 g_ProfChrMatrixBodyGroupCycles;
-u32 g_ProfChrMatrixBodySimpleCycles;
-u32 g_ProfChrMatrixBodyRelationCycles;
-u32 g_ProfChrMatrixBodyHeaderCalls;
 u32 g_ProfChrMatrixBodyGroupCalls;
-u32 g_ProfChrMatrixBodySimpleCalls;
-u32 g_ProfChrMatrixBodyRelationCalls;
+u32 g_ProfChrMatrixBodyGroupDecodeCycles;
+u32 g_ProfChrMatrixBodyGroupFrameInterpCycles;
+u32 g_ProfChrMatrixBodyGroupAnimBlendCycles;
+u32 g_ProfChrMatrixBodyGroupMatrixCycles;
+u32 g_ProfChrMatrixBodyGroupFrameInterpCalls;
+u32 g_ProfChrMatrixBodyGroupAnimBlendCalls;
+u32 g_ProfChrMatrixBodyGroupAnimBlendInterpCalls;
 u32 g_ProfChrSlowestCycles;
 s32 g_ProfChrSlowestChrnum;
 s32 g_ProfChrSlowestAction;
@@ -244,14 +245,15 @@ u32 g_ProfChrSlowestMatrixBodyFrameCycles;
 u32 g_ProfChrSlowestMatrixBodyBuildCycles;
 u32 g_ProfChrSlowestMatrixJointCycles;
 u32 g_ProfChrSlowestMatrixJointCalls;
-u32 g_ProfChrSlowestMatrixBodyHeaderCycles;
 u32 g_ProfChrSlowestMatrixBodyGroupCycles;
-u32 g_ProfChrSlowestMatrixBodySimpleCycles;
-u32 g_ProfChrSlowestMatrixBodyRelationCycles;
-u32 g_ProfChrSlowestMatrixBodyHeaderCalls;
 u32 g_ProfChrSlowestMatrixBodyGroupCalls;
-u32 g_ProfChrSlowestMatrixBodySimpleCalls;
-u32 g_ProfChrSlowestMatrixBodyRelationCalls;
+u32 g_ProfChrSlowestMatrixBodyGroupDecodeCycles;
+u32 g_ProfChrSlowestMatrixBodyGroupFrameInterpCycles;
+u32 g_ProfChrSlowestMatrixBodyGroupAnimBlendCycles;
+u32 g_ProfChrSlowestMatrixBodyGroupMatrixCycles;
+u32 g_ProfChrSlowestMatrixBodyGroupFrameInterpCalls;
+u32 g_ProfChrSlowestMatrixBodyGroupAnimBlendCalls;
+u32 g_ProfChrSlowestMatrixBodyGroupAnimBlendInterpCalls;
 u32 g_ProfChrSlowestOnscreen;
 u32 g_ProfObjTickCycles;
 /* --- end profiler state --- */
@@ -1095,12 +1097,12 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     u32 chrProfiled;
     u32 matrixBodyOther;
     u32 matrixBodyProfiled;
-    u32 matrixBodyTraversalOther;
-    u32 matrixBodyTraversalProfiled;
+    u32 matrixGroupOther;
+    u32 matrixGroupProfiled;
     u32 matrixOther;
     u32 matrixProfiled;
-    u32 slowMatrixBodyTraversalOther;
-    u32 slowMatrixBodyTraversalProfiled;
+    u32 slowMatrixGroupOther;
+    u32 slowMatrixGroupProfiled;
     u32 slowOther;
     u32 slowMatrixOther;
     u32 slowMatrixProfiled;
@@ -1171,9 +1173,9 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             0x40FFFFFF,  /* anim/visibility/rooms  */
             0x40FFFFFF,  /* matrix stage totals      */
             0x40FFFFFF,  /* body matrix stages       */
-            0x40FFFFFF,  /* body traversal stages   */
+            0x40FFFFFF,  /* group-node stages       */
             0x40FFFFFF,  /* slow chr summary         */
-            0x40FFFFFF,  /* slow body traversal      */
+            0x40FFFFFF,  /* slow group-node stages  */
             0x40FFFFFF,  /* slow chr matrix detail   */
             0xFF80FFFF,  /* slowest character      */
         };
@@ -1212,14 +1214,14 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         matrixOther = (g_ProfChrMatrixCycles > matrixProfiled) ? (g_ProfChrMatrixCycles - matrixProfiled) : 0;
         matrixBodyProfiled = g_ProfChrMatrixBodyFrameCycles + g_ProfChrMatrixBodyBuildCycles;
         matrixBodyOther = (g_ProfChrMatrixBodyCycles > matrixBodyProfiled) ? (g_ProfChrMatrixBodyCycles - matrixBodyProfiled) : 0;
-        matrixBodyTraversalProfiled = g_ProfChrMatrixBodyHeaderCycles + g_ProfChrMatrixBodyGroupCycles + g_ProfChrMatrixBodySimpleCycles + g_ProfChrMatrixBodyRelationCycles;
-        matrixBodyTraversalOther = (g_ProfChrMatrixBodyBuildCycles > matrixBodyTraversalProfiled) ? (g_ProfChrMatrixBodyBuildCycles - matrixBodyTraversalProfiled) : 0;
+        matrixGroupProfiled = g_ProfChrMatrixBodyGroupDecodeCycles + g_ProfChrMatrixBodyGroupFrameInterpCycles + g_ProfChrMatrixBodyGroupAnimBlendCycles + g_ProfChrMatrixBodyGroupMatrixCycles;
+        matrixGroupOther = (g_ProfChrMatrixBodyGroupCycles > matrixGroupProfiled) ? (g_ProfChrMatrixBodyGroupCycles - matrixGroupProfiled) : 0;
         slowProfiled = g_ProfChrSlowestActionCycles + g_ProfChrSlowestAnimPosCycles + g_ProfChrSlowestMatrixCycles;
         slowOther = (g_ProfChrSlowestCycles > slowProfiled) ? (g_ProfChrSlowestCycles - slowProfiled) : 0;
         slowMatrixProfiled = g_ProfChrSlowestMatrixBodyCycles + g_ProfChrSlowestMatrixHitChainCycles + g_ProfChrSlowestMatrixWeaponsCycles + g_ProfChrSlowestMatrixHatCycles + g_ProfChrSlowestMatrixFinalizeCycles;
         slowMatrixOther = (g_ProfChrSlowestMatrixCycles > slowMatrixProfiled) ? (g_ProfChrSlowestMatrixCycles - slowMatrixProfiled) : 0;
-        slowMatrixBodyTraversalProfiled = g_ProfChrSlowestMatrixBodyHeaderCycles + g_ProfChrSlowestMatrixBodyGroupCycles + g_ProfChrSlowestMatrixBodySimpleCycles + g_ProfChrSlowestMatrixBodyRelationCycles;
-        slowMatrixBodyTraversalOther = (g_ProfChrSlowestMatrixBodyBuildCycles > slowMatrixBodyTraversalProfiled) ? (g_ProfChrSlowestMatrixBodyBuildCycles - slowMatrixBodyTraversalProfiled) : 0;
+        slowMatrixGroupProfiled = g_ProfChrSlowestMatrixBodyGroupDecodeCycles + g_ProfChrSlowestMatrixBodyGroupFrameInterpCycles + g_ProfChrSlowestMatrixBodyGroupAnimBlendCycles + g_ProfChrSlowestMatrixBodyGroupMatrixCycles;
+        slowMatrixGroupOther = (g_ProfChrSlowestMatrixBodyGroupCycles > slowMatrixGroupProfiled) ? (g_ProfChrSlowestMatrixBodyGroupCycles - slowMatrixGroupProfiled) : 0;
 
         sub = g_ProfBgTickCycles + g_ProfBgRenderCycles + g_ProfChrTickCycles + g_ProfObjTickCycles;  /* full chrTick */
         lvlOther = (g_ProfLvlRenderCycles > sub) ? (g_ProfLvlRenderCycles - sub) : 0;
@@ -1240,10 +1242,10 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         sprintf(profText[13], "AN/VI/RM/MX/OT:%u/%u/%u/%u/%uK", (g_ProfChrAnimCycles + 500) / 1000, (g_ProfChrVisibilityCycles + 500) / 1000, (g_ProfChrRoomCycles + 500) / 1000, (g_ProfChrMatrixCycles + 500) / 1000, (chrOther + 500) / 1000);
         sprintf(profText[14], "MX B/H/W/T/F/O:%u/%u/%u/%u/%u/%uK", (g_ProfChrMatrixBodyCycles + 500) / 1000, (g_ProfChrMatrixHitChainCycles + 500) / 1000, (g_ProfChrMatrixWeaponsCycles + 500) / 1000, (g_ProfChrMatrixHatCycles + 500) / 1000, (g_ProfChrMatrixFinalizeCycles + 500) / 1000, (matrixOther + 500) / 1000);
         sprintf(profText[15], "B F/M/J/O:%u/%u/%u/%uK J:%u", (g_ProfChrMatrixBodyFrameCycles + 500) / 1000, (g_ProfChrMatrixBodyBuildCycles + 500) / 1000, (g_ProfChrMatrixJointCycles + 500) / 1000, (matrixBodyOther + 500) / 1000, g_ProfChrMatrixJointCalls);
-        /* Body model nodes: header/group/simple/relation/residual cycles, followed by H/G/S/R call counts. */
-        sprintf(profText[16], "BM H/G/S/R/O:%u/%u/%u/%u/%uK N:%u/%u/%u/%u", (g_ProfChrMatrixBodyHeaderCycles + 500) / 1000, (g_ProfChrMatrixBodyGroupCycles + 500) / 1000, (g_ProfChrMatrixBodySimpleCycles + 500) / 1000, (g_ProfChrMatrixBodyRelationCycles + 500) / 1000, (matrixBodyTraversalOther + 500) / 1000, g_ProfChrMatrixBodyHeaderCalls, g_ProfChrMatrixBodyGroupCalls, g_ProfChrMatrixBodySimpleCalls, g_ProfChrMatrixBodyRelationCalls);
+        /* Group nodes: base decode/frame interpolation/animation blend/matrix build/residual, then G/I/A/AI calls. */
+        sprintf(profText[16], "GP D/I/A/M/O:%u/%u/%u/%u/%uK N:%u/%u/%u/%u", (g_ProfChrMatrixBodyGroupDecodeCycles + 500) / 1000, (g_ProfChrMatrixBodyGroupFrameInterpCycles + 500) / 1000, (g_ProfChrMatrixBodyGroupAnimBlendCycles + 500) / 1000, (g_ProfChrMatrixBodyGroupMatrixCycles + 500) / 1000, (matrixGroupOther + 500) / 1000, g_ProfChrMatrixBodyGroupCalls, g_ProfChrMatrixBodyGroupFrameInterpCalls, g_ProfChrMatrixBodyGroupAnimBlendCalls, g_ProfChrMatrixBodyGroupAnimBlendInterpCalls);
         sprintf(profText[17], "SC A/AP/MX/OT:%u/%u/%u/%uK", (g_ProfChrSlowestActionCycles + 500) / 1000, (g_ProfChrSlowestAnimPosCycles + 500) / 1000, (g_ProfChrSlowestMatrixCycles + 500) / 1000, (slowOther + 500) / 1000);
-        sprintf(profText[18], "SBM H/G/S/R/O:%u/%u/%u/%u/%uK N:%u/%u/%u/%u", (g_ProfChrSlowestMatrixBodyHeaderCycles + 500) / 1000, (g_ProfChrSlowestMatrixBodyGroupCycles + 500) / 1000, (g_ProfChrSlowestMatrixBodySimpleCycles + 500) / 1000, (g_ProfChrSlowestMatrixBodyRelationCycles + 500) / 1000, (slowMatrixBodyTraversalOther + 500) / 1000, g_ProfChrSlowestMatrixBodyHeaderCalls, g_ProfChrSlowestMatrixBodyGroupCalls, g_ProfChrSlowestMatrixBodySimpleCalls, g_ProfChrSlowestMatrixBodyRelationCalls);
+        sprintf(profText[18], "SGP D/I/A/M/O:%u/%u/%u/%u/%uK N:%u/%u/%u/%u", (g_ProfChrSlowestMatrixBodyGroupDecodeCycles + 500) / 1000, (g_ProfChrSlowestMatrixBodyGroupFrameInterpCycles + 500) / 1000, (g_ProfChrSlowestMatrixBodyGroupAnimBlendCycles + 500) / 1000, (g_ProfChrSlowestMatrixBodyGroupMatrixCycles + 500) / 1000, (slowMatrixGroupOther + 500) / 1000, g_ProfChrSlowestMatrixBodyGroupCalls, g_ProfChrSlowestMatrixBodyGroupFrameInterpCalls, g_ProfChrSlowestMatrixBodyGroupAnimBlendCalls, g_ProfChrSlowestMatrixBodyGroupAnimBlendInterpCalls);
         sprintf(profText[19], "SMX B/H/W/T/F/O:%u/%u/%u/%u/%u/%uK", (g_ProfChrSlowestMatrixBodyCycles + 500) / 1000, (g_ProfChrSlowestMatrixHitChainCycles + 500) / 1000, (g_ProfChrSlowestMatrixWeaponsCycles + 500) / 1000, (g_ProfChrSlowestMatrixHatCycles + 500) / 1000, (g_ProfChrSlowestMatrixFinalizeCycles + 500) / 1000, (slowMatrixOther + 500) / 1000);
         sprintf(profText[20], "SLOW C%d A%d:%uK ON:%u", g_ProfChrSlowestChrnum, g_ProfChrSlowestAction, (g_ProfChrSlowestCycles + 500) / 1000, g_ProfChrSlowestOnscreen);
 
@@ -1321,14 +1323,15 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         g_ProfChrMatrixBodyBuildCycles = 0;
         g_ProfChrMatrixJointCycles = 0;
         g_ProfChrMatrixJointCalls = 0;
-        g_ProfChrMatrixBodyHeaderCycles = 0;
         g_ProfChrMatrixBodyGroupCycles = 0;
-        g_ProfChrMatrixBodySimpleCycles = 0;
-        g_ProfChrMatrixBodyRelationCycles = 0;
-        g_ProfChrMatrixBodyHeaderCalls = 0;
         g_ProfChrMatrixBodyGroupCalls = 0;
-        g_ProfChrMatrixBodySimpleCalls = 0;
-        g_ProfChrMatrixBodyRelationCalls = 0;
+        g_ProfChrMatrixBodyGroupDecodeCycles = 0;
+        g_ProfChrMatrixBodyGroupFrameInterpCycles = 0;
+        g_ProfChrMatrixBodyGroupAnimBlendCycles = 0;
+        g_ProfChrMatrixBodyGroupMatrixCycles = 0;
+        g_ProfChrMatrixBodyGroupFrameInterpCalls = 0;
+        g_ProfChrMatrixBodyGroupAnimBlendCalls = 0;
+        g_ProfChrMatrixBodyGroupAnimBlendInterpCalls = 0;
         g_ProfChrSlowestCycles = 0;
         g_ProfChrSlowestChrnum = -1;
         g_ProfChrSlowestAction = ACT_NULL;
@@ -1358,14 +1361,15 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         g_ProfChrSlowestMatrixBodyBuildCycles = 0;
         g_ProfChrSlowestMatrixJointCycles = 0;
         g_ProfChrSlowestMatrixJointCalls = 0;
-        g_ProfChrSlowestMatrixBodyHeaderCycles = 0;
         g_ProfChrSlowestMatrixBodyGroupCycles = 0;
-        g_ProfChrSlowestMatrixBodySimpleCycles = 0;
-        g_ProfChrSlowestMatrixBodyRelationCycles = 0;
-        g_ProfChrSlowestMatrixBodyHeaderCalls = 0;
         g_ProfChrSlowestMatrixBodyGroupCalls = 0;
-        g_ProfChrSlowestMatrixBodySimpleCalls = 0;
-        g_ProfChrSlowestMatrixBodyRelationCalls = 0;
+        g_ProfChrSlowestMatrixBodyGroupDecodeCycles = 0;
+        g_ProfChrSlowestMatrixBodyGroupFrameInterpCycles = 0;
+        g_ProfChrSlowestMatrixBodyGroupAnimBlendCycles = 0;
+        g_ProfChrSlowestMatrixBodyGroupMatrixCycles = 0;
+        g_ProfChrSlowestMatrixBodyGroupFrameInterpCalls = 0;
+        g_ProfChrSlowestMatrixBodyGroupAnimBlendCalls = 0;
+        g_ProfChrSlowestMatrixBodyGroupAnimBlendInterpCalls = 0;
         g_ProfChrSlowestOnscreen = 0;
         g_ProfObjTickCycles = 0;
 

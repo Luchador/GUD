@@ -1366,29 +1366,57 @@ void process_02_position(ModelRenderData *arg0, Model *model, ModelNode *node)
     quatf result;
     coord3d rot4;
     ModelRoData_GroupRecord *group;
+    s32 profActive;
+    u32 profTime;
 
     group = &node->Data->Group;
     jointnum.v = group->JointID;
     skeleton = model->obj->Skeleton;
+    profActive = g_ProfChrMatrixBodyActive;
 
+    if (profActive)
+    {
+        profTime = osGetCount();
+    }
     rot1 = D_80036094;
-
     sub_GAME_7F06DEC0(jointnum.v, model->gunhand, skeleton, model->anim, model->unk34, &rot1);
+    if (profActive)
+    {
+        g_ProfChrMatrixBodyGroupDecodeCycles += osGetCount() - profTime;
+    }
 
     if (model->animFrameFrac != 0.0f)
     {
+        if (profActive)
+        {
+            g_ProfChrMatrixBodyGroupFrameInterpCalls++;
+            profTime = osGetCount();
+        }
         rot2 = D_800360A0;
         sub_GAME_7F06DEC0(jointnum.v, model->gunhand, skeleton, model->anim, model->unk38, &rot2);
         sub_GAME_7F06D160(&rot1, &rot2, model->animFrameFrac);
+        if (profActive)
+        {
+            g_ProfChrMatrixBodyGroupFrameInterpCycles += osGetCount() - profTime;
+        }
     }
 
     if (model->unk84 != 0.0f)
     {
+        if (profActive)
+        {
+            g_ProfChrMatrixBodyGroupAnimBlendCalls++;
+            profTime = osGetCount();
+        }
         rot3 = D_800360AC;
         sub_GAME_7F06DEC0(jointnum.v, model->unk25, skeleton, model->anim2, model->unk64, &rot3);
 
         if (model->unk5c != 0.0f)
         {
+            if (profActive)
+            {
+                g_ProfChrMatrixBodyGroupAnimBlendInterpCalls++;
+            }
             rot4 = D_800360B8;
             sub_GAME_7F06DEC0(jointnum.v, model->unk25, skeleton, model->anim2, model->unk68, &rot4);
             sub_GAME_7F06D160(&rot3, &rot4, model->unk5c);
@@ -1398,11 +1426,28 @@ void process_02_position(ModelRenderData *arg0, Model *model, ModelNode *node)
         quaternion_set_rotation_around_xyzf(&rot3, q2);
         quaternion_ensure_shortest_path(q1, q2);
         quaternion_slerp(q1, q2, model->unk84, result);
+        if (profActive)
+        {
+            g_ProfChrMatrixBodyGroupAnimBlendCycles += osGetCount() - profTime;
+            profTime = osGetCount();
+        }
         sub_GAME_7F06DB5C(arg0, model, node, result);
+        if (profActive)
+        {
+            g_ProfChrMatrixBodyGroupMatrixCycles += osGetCount() - profTime;
+        }
     }
     else
     {
+        if (profActive)
+        {
+            profTime = osGetCount();
+        }
         modelBuildGroupMatrices(arg0, model, node, &rot1);
+        if (profActive)
+        {
+            g_ProfChrMatrixBodyGroupMatrixCycles += osGetCount() - profTime;
+        }
     }
 }
 
@@ -2015,16 +2060,7 @@ void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
         switch (type)
         {
             case MODELNODE_OPCODE_HEADER:
-                if (profActive)
-                {
-                    g_ProfChrMatrixBodyHeaderCalls++;
-                    profTime = osGetCount();
-                }
                 process_01_group_heading(arg0, model, node);
-                if (profActive)
-                {
-                    g_ProfChrMatrixBodyHeaderCycles += osGetCount() - profTime;
-                }
                 break;
 
             case MODELNODE_OPCODE_GROUP:
@@ -2045,42 +2081,15 @@ void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
                 break;
 
             case MODELNODE_OPCODE_GROUPSIMPLE:
-                if (profActive)
-                {
-                    g_ProfChrMatrixBodySimpleCalls++;
-                    profTime = osGetCount();
-                }
                 process_15_subposition(arg0, model, node);
-                if (profActive)
-                {
-                    g_ProfChrMatrixBodySimpleCycles += osGetCount() - profTime;
-                }
                 break;
 
             case MODELNODE_OPCODE_LOD:
-                if (profActive)
-                {
-                    g_ProfChrMatrixBodyRelationCalls++;
-                    profTime = osGetCount();
-                }
                 modelUpdateDistanceRelations(model, node);
-                if (profActive)
-                {
-                    g_ProfChrMatrixBodyRelationCycles += osGetCount() - profTime;
-                }
                 break;
 
             case MODELNODE_OPCODE_BSP:
-                if (profActive)
-                {
-                    g_ProfChrMatrixBodyRelationCalls++;
-                    profTime = osGetCount();
-                }
                 modelUpdateReorderRelations(model, node);
-                if (profActive)
-                {
-                    g_ProfChrMatrixBodyRelationCycles += osGetCount() - profTime;
-                }
                 break;
 
             case MODELNODE_OPCODE_OP07:
@@ -2088,29 +2097,11 @@ void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
                 break;
 
             case MODELNODE_OPCODE_SWITCH:
-                if (profActive)
-                {
-                    g_ProfChrMatrixBodyRelationCalls++;
-                    profTime = osGetCount();
-                }
                 modelApplyToggleRelations(model, node);
-                if (profActive)
-                {
-                    g_ProfChrMatrixBodyRelationCycles += osGetCount() - profTime;
-                }
                 break;
 
             case MODELNODE_OPCODE_HEAD:
-                if (profActive)
-                {
-                    g_ProfChrMatrixBodyRelationCalls++;
-                    profTime = osGetCount();
-                }
                 modelApplyHeadRelations(model, node);
-                if (profActive)
-                {
-                    g_ProfChrMatrixBodyRelationCycles += osGetCount() - profTime;
-                }
                 break;
 
             case MODELNODE_OPCODE_DLCOLLISION:
