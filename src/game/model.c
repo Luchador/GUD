@@ -8,7 +8,6 @@
 #include "gbi_extension.h"
 #include "gmath.h"
 #include "initunk_005520.h"
-#include "lv.h"
 #include "objecthandler.h"
 #include "quaternion.h"
 #include "random.h"
@@ -850,8 +849,6 @@ void modelCalcHeadingNodePosition(Model *model, ModelNode *modelNode)
     coord3d sp38;
     coord3d sp2c;
     f32 y;
-    s32 positionValid;
-    u32 profTime;
 
     rw = modelGetNodeRwData(model, modelNode);
 
@@ -893,25 +890,9 @@ void modelCalcHeadingNodePosition(Model *model, ModelNode *modelNode)
     sp2c.y = sp38.y;
     sp2c.z = sp38.z;
 
-    if (model->posValidateFunc)
+    if (model->posValidateFunc && !((s32 (*)(Model *, coord3d *, coord3d *, f32 *)) model->posValidateFunc)(model, &rw->Header.pos, &sp2c, &rw->Header.ground))
     {
-        if (g_ProfChrPositionActive)
-        {
-            profTime = osGetCount();
-        }
-
-        positionValid = ((s32 (*)(Model *, coord3d *, coord3d *, f32 *)) model->posValidateFunc)(model, &rw->Header.pos, &sp2c, &rw->Header.ground);
-
-        if (g_ProfChrPositionActive)
-        {
-            g_ProfChrPositionValidateCycles += osGetCount() - profTime;
-            g_ProfChrPositionValidateCalls++;
-        }
-
-        if (!positionValid)
-        {
-            return;
-        }
+        return;
     }
 
     sp38.x = sp2c.x - sp38.x;
@@ -1009,6 +990,44 @@ void process_01_group_heading(ModelRenderData* renderdata, Model* model, ModelNo
 }
 
 
+/**
+ * Finds the shortest-path half rotation between the identity quaternion and q.
+ *
+ * This is the t=0.5 specialization of quaternion_7F05BC68. The half-angle
+ * identity removes the acosf and three sinf calls from the general slerp.
+ */
+static void modelGetHalfRotationQuaternion(quatf q, quatf result)
+{
+    f32 absW = q[0];
+    f32 sign = 1.0f;
+
+    if (absW < 0.0f)
+    {
+        absW = -absW;
+        sign = -1.0f;
+    }
+
+    if (absW <= 0.99998999f)
+    {
+        f32 halfW = sqrtf((1.0f + absW) * 0.5f);
+        f32 scale = 0.5f / halfW;
+
+        result[0] = sign * halfW;
+        result[1] = q[1] * scale;
+        result[2] = q[2] * scale;
+        result[3] = q[3] * scale;
+    }
+    else
+    {
+        /* Match the general slerp's near-identity linear fallback. */
+        result[0] = q[0] * 0.5f + sign * 0.5f;
+        result[1] = q[1] * 0.5f;
+        result[2] = q[2] * 0.5f;
+        result[3] = q[3] * 0.5f;
+    }
+}
+
+
 void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildArg *mgm, coord3d *rot)
 {
     u32 flags;
@@ -1020,103 +1039,78 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
     s32 matrix1;
     s32 matrix2;
     RenderPosView *render_pos;
-    Mtxf *parentNodeMtx;
     f32 *origin;
+    s32 has_matrix1;
     s32 has_matrix2;
     quatf q;
     quatf q2;
     Mtxf *dst;
     f32 angle;
-    Mtxf **parentMtxPtr;
-    s32 profActive;
-    u32 profTime;
-
-    profActive = g_ProfChrMatrixBodyActive;
-
-    if (profActive)
-    {
-        g_ProfChrMatrixBuildCalls++;
-    }
 
     flags = mgm->flags;
     group = mgm->group;
     matrix0 = group->MatrixID0;
     matrix1 = group->MatrixID1;
-    parentMtxPtr = parentMtx;
     origin = group->Origin.f;
     matrix2 = group->MatrixID2;
     render_pos = model->render_pos;
 
-    if (profActive)
+    if (mgm->parentnode != NULL)
     {
-        profTime = osGetCount();
-    }
-
-    if (((Mtxf *) mgm->parentnode) != NULL)
-    {
-        if (profActive)
-        {
-            g_ProfChrMatrixBuildParentLookupCalls++;
-        }
-
-        parentNodeMtx = modelFindNodeMtx(model, (ModelNode *) ((Mtxf *) mgm->parentnode), 0);
-        parent = parentNodeMtx;
+        parent = modelFindNodeMtx(model, mgm->parentnode, 0);
     }
     else
     {
-        parent = parentMtxPtr[0];
+        parent = parentMtx[0];
     }
 
-    if (profActive)
-    {
-        if (parent != NULL)
-        {
-            g_ProfChrMatrixBuildParentPresentCalls++;
-        }
-
-        g_ProfChrMatrixBuildParentCycles += osGetCount() - profTime;
-    }
-
+    has_matrix1 = flags & MODELGROUP_MTX_HAS_MATRIX1;
     has_matrix2 = flags & MODELGROUP_MTX_HAS_MATRIX2;
-    matrix0_mtx = (Mtxf *) mgm->parentnode;
+    matrix0_mtx = &render_pos[matrix0].pos;
 
-    if (profActive)
+    /*
+     * Matrix 1 needs the same full rotation as matrix 0 before halving it.
+     * Build that quaternion once and reuse it for both matrices, avoiding the
+     * second set of six trigonometric evaluations.
+     */
+    if (has_matrix1)
     {
-        profTime = osGetCount();
+        quaternion_set_rotation_around_xyzf(rot->f, q);
     }
 
     if (parent != NULL)
     {
-        matrix_4x4_set_position_and_rotation_around_xyz(&group->Origin, rot, &tmp);
+        if (has_matrix1)
+        {
+            quaternion_to_transform_matrix(origin, q, tmp.m);
+        }
+        else
+        {
+            matrix_4x4_set_position_and_rotation_around_xyz(&group->Origin, rot, &tmp);
+        }
 
-        matrix0_mtx = &render_pos[matrix0].pos;
         matrix_4x4_multiply_homogeneous(parent, &tmp, matrix0_mtx);
+
+        if (g_ModelJointPositionedFunc != NULL)
+        {
+            g_ModelJointPositionedFunc(matrix0, matrix0_mtx);
+        }
     }
     else
     {
-        matrix_4x4_set_position_and_rotation_around_xyz(&group->Origin, rot, &render_pos[matrix0].pos);
-    }
-
-    if (profActive)
-    {
-        g_ProfChrMatrixBuildPrimaryCycles += osGetCount() - profTime;
-    }
-
-    if (parent != NULL && g_ModelJointPositionedFunc != NULL)
-    {
-        g_ModelJointPositionedFunc(matrix0, matrix0_mtx);
-    }
-
-    if (flags & MODELGROUP_MTX_HAS_MATRIX1)
-    {
-        if (profActive)
+        if (has_matrix1)
         {
-            g_ProfChrMatrixBuildMatrix1Calls++;
-            profTime = osGetCount();
+            quaternion_to_transform_matrix(origin, q, matrix0_mtx->m);
         }
+        else
+        {
+            matrix_4x4_set_position_and_rotation_around_xyz(&group->Origin, rot, matrix0_mtx);
+        }
+    }
 
-        quaternion_set_rotation_around_xyzf(rot->f, q);
-        quaternion_7F05BC68(q, 0.5f, q2);
+    if (has_matrix1)
+    {
+        modelGetHalfRotationQuaternion(q, q2);
 
         if (parent != NULL)
         {
@@ -1127,21 +1121,10 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
         {
             quaternion_to_transform_matrix(origin, q2, (render_pos + matrix1)->pos.m);
         }
-
-        if (profActive)
-        {
-            g_ProfChrMatrixBuildMatrix1Cycles += osGetCount() - profTime;
-        }
     }
 
     if (has_matrix2)
     {
-        if (profActive)
-        {
-            g_ProfChrMatrixBuildMatrix2Calls++;
-            profTime = osGetCount();
-        }
-
         if (parent != NULL)
         {
             dst = &tmp;
@@ -1183,11 +1166,6 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
         if (parent != NULL)
         {
             matrix_4x4_multiply_homogeneous(parent, dst, &render_pos[matrix2].pos);
-        }
-
-        if (profActive)
-        {
-            g_ProfChrMatrixBuildMatrix2Cycles += osGetCount() - profTime;
         }
     }
 }
@@ -1427,15 +1405,13 @@ void process_02_position(ModelRenderData *arg0, Model *model, ModelNode *node)
     quatf result;
     coord3d rot4;
     ModelRoData_GroupRecord *group;
-    s32 profActive;
-    u32 profTime;
 
     group = &node->Data->Group;
     jointnum.v = group->JointID;
     skeleton = model->obj->Skeleton;
-    profActive = g_ProfChrMatrixBodyActive;
 
     rot1 = D_80036094;
+
     sub_GAME_7F06DEC0(jointnum.v, model->gunhand, skeleton, model->anim, model->unk34, &rot1);
 
     if (model->animFrameFrac != 0.0f)
@@ -1461,27 +1437,11 @@ void process_02_position(ModelRenderData *arg0, Model *model, ModelNode *node)
         quaternion_set_rotation_around_xyzf(&rot3, q2);
         quaternion_ensure_shortest_path(q1, q2);
         quaternion_slerp(q1, q2, model->unk84, result);
-        if (profActive)
-        {
-            profTime = osGetCount();
-        }
         sub_GAME_7F06DB5C(arg0, model, node, result);
-        if (profActive)
-        {
-            g_ProfChrMatrixBodyGroupMatrixCycles += osGetCount() - profTime;
-        }
     }
     else
     {
-        if (profActive)
-        {
-            profTime = osGetCount();
-        }
         modelBuildGroupMatrices(arg0, model, node, &rot1);
-        if (profActive)
-        {
-            g_ProfChrMatrixBodyGroupMatrixCycles += osGetCount() - profTime;
-        }
     }
 }
 
@@ -2164,15 +2124,8 @@ void instcalcmatrices(ModelRenderData* arg0, Model* arg1)
 
 void subcalcmatrices(ModelRenderData *arg0, struct Model *arg1)
 {
-    u32 profTime;
-
     if (arg1->anim != NULL)
     {
-        if (g_ProfChrMatrixBodyActive)
-        {
-            profTime = osGetCount();
-        }
-
         arg1->unk34 = loadAnimationFrame(arg1->anim, arg1->framea, arg1->obj->Skeleton);
 
         if (arg1->animFrameFrac != 0.0f)
@@ -2191,24 +2144,9 @@ void subcalcmatrices(ModelRenderData *arg0, struct Model *arg1)
         }
 
         modelResetAnimationsScratchBuffer();
-
-        if (g_ProfChrMatrixBodyActive)
-        {
-            g_ProfChrMatrixBodyFrameCycles += osGetCount() - profTime;
-        }
-    }
-
-    if (g_ProfChrMatrixBodyActive)
-    {
-        profTime = osGetCount();
     }
 
     instcalcmatrices(arg0, arg1);
-
-    if (g_ProfChrMatrixBodyActive)
-    {
-        g_ProfChrMatrixBodyBuildCycles += osGetCount() - profTime;
-    }
 }
 
 
@@ -5309,6 +5247,7 @@ s32 loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
             g_ModelAnimFrameCache[cacheSlot].size = size;
             g_ModelAnimFrameCacheNext = (cacheSlot + 1) % MODEL_ANIM_FRAME_CACHE_CAPACITY;
         }
+
         // Increment this which serves nothing
         D_80036414->uselessPointer += 1;
 

@@ -4,7 +4,6 @@
 #include "bg.h"
 #include "chrai.h"
 #include "chr.h"
-#include "lv.h"
 #include "stanintersection.h"
 #include "assert.h"
 
@@ -1104,10 +1103,7 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
     s32 edgeIndex;
     s32 edgeCount;
     s32 blocksLine;
-    s32 profActive;
-    s32 profPropBlocked;
     s16 *propIndex;
-    u32 profTime;
     coord2d *edgeStart;
     coord2d *edgeEnd;
     struct rect4f *polygon;
@@ -1117,8 +1113,6 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
     checkVerticalOverlap = startBottom <= startTop;
     verticalExtentsPrepared = 0;
     reachedTile = *tile;
-    profActive = g_ProfChrLosActive;
-    profPropBlocked = FALSE;
 
     lineStart.f[0] = startX;
     lineStart.f[1] = startZ;
@@ -1126,23 +1120,7 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
     lineEnd.f[1] = endZ;
 
     /* The extra room slot is reserved for roomGetProps's -1 terminator. */
-    if (profActive)
-    {
-        profTime = osGetCount();
-    }
-
     unobstructed = stanWalkTilesBetweenPointsAndCollectRooms(&reachedTile, startX, startZ, endX, endZ, roomBuffer, &roomCount, 20);
-
-    if (profActive)
-    {
-        g_ProfChrLosStanCycles += osGetCount() - profTime;
-        g_ProfChrLosRooms += roomCount;
-
-        if (!unobstructed)
-        {
-            g_ProfChrLosStanBlocks++;
-        }
-    }
 
     if (!unobstructed)
     {
@@ -1167,46 +1145,18 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
     if (collisionTypes != 0)
     {
         roomBuffer[roomCount] = -1;
-
-        if (profActive)
-        {
-            profTime = osGetCount();
-        }
-
         roomGetProps(roomBuffer);
-
-        if (profActive)
-        {
-            g_ProfChrLosRoomCycles += osGetCount() - profTime;
-            profTime = osGetCount();
-        }
 
         for (propIndex = g_RoomPropQueryIndices; *propIndex >= 0; propIndex++)
         {
             prop = &g_Props[*propIndex];
-
-            if (profActive)
-            {
-                g_ProfChrLosProps++;
-            }
 
             if (!propIsOfCdType(prop, collisionTypes))
             {
                 continue;
             }
 
-            if (profActive)
-            {
-                g_ProfChrLosCandidates++;
-            }
-
             chraiGetCollisionBounds(prop, &polygon, &edgeCount, &propTop, &propBottom);
-
-            if (profActive && edgeCount > 0)
-            {
-                g_ProfChrLosEdges += edgeCount;
-            }
-
             edgeStart = &polygon->points[0];
             edgeEnd = &polygon->points[1];
 
@@ -1220,11 +1170,6 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
                 if (!doSegmentsIntersect(startX, startZ, endX, endZ, edgeStart->f[0], edgeStart->f[1], edgeEnd->f[0], edgeEnd->f[1]))
                 {
                     continue;
-                }
-
-                if (profActive)
-                {
-                    g_ProfChrLosIntersections++;
                 }
 
                 intersectionFraction = calculateSegmentIntersectionFraction(&lineStart, &lineEnd, edgeStart, edgeEnd);
@@ -1277,7 +1222,6 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
 
                 if (blocksLine)
                 {
-                    profPropBlocked = TRUE;
                     unobstructed = 0;
                     nearestCollisionFraction = intersectionFraction;
                     g_StanLastCollisionEdgePointsValid = 1;
@@ -1292,34 +1236,14 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
                 }
             }
         }
-
-        if (profActive)
-        {
-            g_ProfChrLosPropCycles += osGetCount() - profTime;
-
-            if (profPropBlocked)
-            {
-                g_ProfChrLosPropBlocks++;
-            }
-        }
     }
 
     if (reachedTile == NULL)
     {
-        if (profActive)
-        {
-            profTime = osGetCount();
-        }
-
         reachedTile = *tile;
         endX = startX + (endX - startX) * nearestCollisionFraction;
         endZ = startZ + (endZ - startZ) * nearestCollisionFraction;
         walkTilesBetweenPoints_NoCallback(&reachedTile, startX, startZ, endX, endZ);
-
-        if (profActive)
-        {
-            g_ProfChrLosRecoveryCycles += osGetCount() - profTime;
-        }
     }
 
     *tile = reachedTile;
@@ -1355,9 +1279,7 @@ s32 stanTestLineOfSight(StandTile **tile, f32 startX, f32 startZ, f32 endX, f32 
     s32 verticalExtentsPrepared;
     s32 edgeIndex;
     s32 edgeCount;
-    s32 profActive;
     s16 *propIndex;
-    u32 profTime;
     coord2d *edgeStart;
     coord2d *edgeEnd;
     struct rect4f *polygon;
@@ -1366,78 +1288,32 @@ s32 stanTestLineOfSight(StandTile **tile, f32 startX, f32 startZ, f32 endX, f32 
     checkVerticalOverlap = startBottom <= startTop;
     verticalExtentsPrepared = FALSE;
     reachedTile = *tile;
-    profActive = g_ProfChrLosActive;
 
     lineStart.f[0] = startX;
     lineStart.f[1] = startZ;
     lineEnd.f[0] = endX;
     lineEnd.f[1] = endZ;
 
-    if (profActive)
-    {
-        profTime = osGetCount();
-    }
-
     if (!stanWalkTilesBetweenPointsAndCollectRooms(&reachedTile, startX, startZ, endX, endZ, roomBuffer, &roomCount, 20))
     {
-        if (profActive)
-        {
-            g_ProfChrLosStanCycles += osGetCount() - profTime;
-            g_ProfChrLosRooms += roomCount;
-            g_ProfChrLosStanBlocks++;
-        }
-
         return FALSE;
-    }
-
-    if (profActive)
-    {
-        g_ProfChrLosStanCycles += osGetCount() - profTime;
-        g_ProfChrLosRooms += roomCount;
     }
 
     if (collisionTypes != 0)
     {
         roomBuffer[roomCount] = -1;
-
-        if (profActive)
-        {
-            profTime = osGetCount();
-        }
-
         roomGetProps(roomBuffer);
-
-        if (profActive)
-        {
-            g_ProfChrLosRoomCycles += osGetCount() - profTime;
-            profTime = osGetCount();
-        }
 
         for (propIndex = g_RoomPropQueryIndices; *propIndex >= 0; propIndex++)
         {
             prop = &g_Props[*propIndex];
-
-            if (profActive)
-            {
-                g_ProfChrLosProps++;
-            }
 
             if (!propIsOfCdType(prop, collisionTypes))
             {
                 continue;
             }
 
-            if (profActive)
-            {
-                g_ProfChrLosCandidates++;
-            }
-
             chraiGetCollisionBounds(prop, &polygon, &edgeCount, &propTop, &propBottom);
-
-            if (profActive && edgeCount > 0)
-            {
-                g_ProfChrLosEdges += edgeCount;
-            }
 
             edgeStart = &polygon->points[0];
             edgeEnd = &polygon->points[1];
@@ -1452,11 +1328,6 @@ s32 stanTestLineOfSight(StandTile **tile, f32 startX, f32 startZ, f32 endX, f32 
                 if (!doSegmentsIntersect(startX, startZ, endX, endZ, edgeStart->f[0], edgeStart->f[1], edgeEnd->f[0], edgeEnd->f[1]))
                 {
                     continue;
-                }
-
-                if (profActive)
-                {
-                    g_ProfChrLosIntersections++;
                 }
 
                 intersectionFraction = calculateSegmentIntersectionFraction(&lineStart, &lineEnd, edgeStart, edgeEnd);
@@ -1494,19 +1365,8 @@ s32 stanTestLineOfSight(StandTile **tile, f32 startX, f32 startZ, f32 endX, f32 
                     }
                 }
 
-                if (profActive)
-                {
-                    g_ProfChrLosPropCycles += osGetCount() - profTime;
-                    g_ProfChrLosPropBlocks++;
-                }
-
                 return FALSE;
             }
-        }
-
-        if (profActive)
-        {
-            g_ProfChrLosPropCycles += osGetCount() - profTime;
         }
     }
 

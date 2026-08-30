@@ -3017,13 +3017,8 @@ _AI_CMD(
 _AI_CMD(
     {
         AIRecord *ai = AiListp + Offset;
-        s32 couldSeeBond;
 
-        g_ProfChrLosActive = g_ProfChrActionActive;
-        couldSeeBond = chrCanSeeBond(ChrEntityp);
-        g_ProfChrLosActive = FALSE;
-
-        if (couldSeeBond)
+        if (chrCanSeeBond(ChrEntityp))
         {
             Offset = chraiGoToLabel(AiListp, Offset, ai->val[0]);
         }

@@ -1190,8 +1190,6 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
     s32 hasprojection;
     coord3d newpos;
     s32 lineUnobstructed;
-    s32 volumeResult;
-    u32 profTime;
 
     ret = NULL;
     tile = stan;
@@ -1200,19 +1198,10 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
     chrSetCollidable(guard, FALSE);
     stanResetHits();
 
-    /*
-     * Experimental stationary-character fast path. Reuse the existing STAN
-     * tile when no XZ movement is proposed, avoiding a volume test whose main
-     * remaining purpose would be detecting a dynamic collider moving into the
-     * character. Ground height and vertical following still run afterward.
-     */
+    /* A stationary character can retain its current tile. Ground following
+     * still runs later in chrUpdatePosition. */
     if (src->x == dst->x && src->z == dst->z)
     {
-        if (g_ProfChrPositionActive)
-        {
-            g_ProfChrStationaryVolumeSkips++;
-        }
-
         if (updateLastMoveOk)
         {
             guard->invalidmove = 0;
@@ -1224,36 +1213,11 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
     }
 
     chrGetChrWidthHeight(guard->prop, &width, &height);
-
-    if (g_ProfChrPositionActive)
-    {
-        profTime = osGetCount();
-    }
-
     lineUnobstructed = stanTestLineUnobstructed(&tile, src->x, src->z, dst->x, dst->z, CDTYPE_ALL_NO_BG, height, bottomOffset, 0.0f, 1.0f);
-
-    if (g_ProfChrPositionActive)
-    {
-        g_ProfChrCollisionLineCycles += osGetCount() - profTime;
-        g_ProfChrCollisionLineCalls++;
-    }
 
     if (lineUnobstructed)
     {
-        if (g_ProfChrPositionActive)
-        {
-            profTime = osGetCount();
-        }
-
-        volumeResult = stanTestVolume(&tile, dst->x, dst->z, width, CDTYPE_ALL_NO_BG, height, bottomOffset);
-
-        if (g_ProfChrPositionActive)
-        {
-            g_ProfChrCollisionVolumeCycles += osGetCount() - profTime;
-            g_ProfChrCollisionVolumeCalls++;
-        }
-
-        if (volumeResult < 0)
+        if (stanTestVolume(&tile, dst->x, dst->z, width, CDTYPE_ALL_NO_BG, height, bottomOffset) < 0)
         {
             if (updateLastMoveOk)
             {
@@ -1297,35 +1261,9 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
 
         if (hasprojection)
         {
-            if (g_ProfChrPositionActive)
+            if (stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, CDTYPE_ALL_NO_BG, height, bottomOffset, 0.0f, 1.0f))
             {
-                profTime = osGetCount();
-            }
-
-            lineUnobstructed = stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, CDTYPE_ALL_NO_BG, height, bottomOffset, 0.0f, 1.0f);
-
-            if (g_ProfChrPositionActive)
-            {
-                g_ProfChrCollisionLineCycles += osGetCount() - profTime;
-                g_ProfChrCollisionLineCalls++;
-            }
-
-            if (lineUnobstructed)
-            {
-                if (g_ProfChrPositionActive)
-                {
-                    profTime = osGetCount();
-                }
-
-                volumeResult = stanTestVolume(&tile, newpos.x, newpos.z, width, CDTYPE_ALL_NO_BG, height, bottomOffset);
-
-                if (g_ProfChrPositionActive)
-                {
-                    g_ProfChrCollisionVolumeCycles += osGetCount() - profTime;
-                    g_ProfChrCollisionVolumeCalls++;
-                }
-
-                if (volumeResult < 0)
+                if (stanTestVolume(&tile, newpos.x, newpos.z, width, CDTYPE_ALL_NO_BG, height, bottomOffset) < 0)
                 {
                     dst->x = newpos.x;
                     dst->z = newpos.z;
@@ -1363,35 +1301,9 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
 
             tile = stan;
 
-            if (g_ProfChrPositionActive)
+            if (stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, CDTYPE_ALL_NO_BG, height, bottomOffset, 0.0f, 1.0f))
             {
-                profTime = osGetCount();
-            }
-
-            lineUnobstructed = stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, CDTYPE_ALL_NO_BG, height, bottomOffset, 0.0f, 1.0f);
-
-            if (g_ProfChrPositionActive)
-            {
-                g_ProfChrCollisionLineCycles += osGetCount() - profTime;
-                g_ProfChrCollisionLineCalls++;
-            }
-
-            if (lineUnobstructed)
-            {
-                if (g_ProfChrPositionActive)
-                {
-                    profTime = osGetCount();
-                }
-
-                volumeResult = stanTestVolume(&tile, newpos.x, newpos.z, width, CDTYPE_ALL_NO_BG, height, bottomOffset);
-
-                if (g_ProfChrPositionActive)
-                {
-                    g_ProfChrCollisionVolumeCycles += osGetCount() - profTime;
-                    g_ProfChrCollisionVolumeCalls++;
-                }
-
-                if (volumeResult < 0)
+                if (stanTestVolume(&tile, newpos.x, newpos.z, width, CDTYPE_ALL_NO_BG, height, bottomOffset) < 0)
                 {
                     dst->x = newpos.x;
                     dst->z = newpos.z;
@@ -1428,35 +1340,9 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
 
                 tile = stan;
 
-                if (g_ProfChrPositionActive)
+                if (stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, CDTYPE_ALL_NO_BG, height, bottomOffset, 0.0f, 1.0f))
                 {
-                    profTime = osGetCount();
-                }
-
-                lineUnobstructed = stanTestLineUnobstructed(&tile, src->x, src->z, newpos.x, newpos.z, CDTYPE_ALL_NO_BG, height, bottomOffset, 0.0f, 1.0f);
-
-                if (g_ProfChrPositionActive)
-                {
-                    g_ProfChrCollisionLineCycles += osGetCount() - profTime;
-                    g_ProfChrCollisionLineCalls++;
-                }
-
-                if (lineUnobstructed)
-                {
-                    if (g_ProfChrPositionActive)
-                    {
-                        profTime = osGetCount();
-                    }
-
-                    volumeResult = stanTestVolume(&tile, newpos.x, newpos.z, width, CDTYPE_ALL_NO_BG, height, bottomOffset);
-
-                    if (g_ProfChrPositionActive)
-                    {
-                        g_ProfChrCollisionVolumeCycles += osGetCount() - profTime;
-                        g_ProfChrCollisionVolumeCalls++;
-                    }
-
-                    if (volumeResult < 0)
+                    if (stanTestVolume(&tile, newpos.x, newpos.z, width, CDTYPE_ALL_NO_BG, height, bottomOffset) < 0)
                     {
                         dst->x = newpos.x;
                         dst->z = newpos.z;
@@ -1490,7 +1376,6 @@ s32 chrUpdatePosition(Model *model, coord3d *src, coord3d *dst, f32 *ground_y)
     s32 i;
     StandTile *tile;
     union ModelRwData *rwdata;
-    u32 profTime;
 
     chr = model->chr;
     moved = 0;
@@ -1518,18 +1403,7 @@ s32 chrUpdatePosition(Model *model, coord3d *src, coord3d *dst, f32 *ground_y)
         dst->x += chr->fallspeed.x * g_GlobalTimerDelta;
         dst->z += chr->fallspeed.z * g_GlobalTimerDelta;
 
-        if (g_ProfChrPositionActive)
-        {
-            profTime = osGetCount();
-        }
-
         tile = sub_GAME_7F01F614(chr, chr->prop->stan, src, dst, 1);
-
-        if (g_ProfChrPositionActive)
-        {
-            g_ProfChrCollisionCycles += osGetCount() - profTime;
-            g_ProfChrCollisionCalls++;
-        }
 
         if (tile != NULL)
         {
@@ -1540,20 +1414,7 @@ s32 chrUpdatePosition(Model *model, coord3d *src, coord3d *dst, f32 *ground_y)
 
         if (!(chr->chrflags & CHRFLAG_LOCK_Y_POS))
         {
-            if (g_ProfChrPositionActive)
-            {
-                profTime = osGetCount();
-            }
-
             ground = stanGetPositionYValue(chr->prop->stan, groundpos->x, groundpos->z);
-
-            if (g_ProfChrPositionActive)
-            {
-                g_ProfChrGroundCycles += osGetCount() - profTime;
-                g_ProfChrGroundCalls++;
-                profTime = osGetCount();
-            }
-
             chr->ground = ground;
 
             if (chr->chrflags & CHRFLAG_INIT)
@@ -1619,12 +1480,6 @@ s32 chrUpdatePosition(Model *model, coord3d *src, coord3d *dst, f32 *ground_y)
             }
 
             dst->y += chr->manground - ground;
-
-            if (g_ProfChrPositionActive)
-            {
-                g_ProfChrGroundFollowCycles += osGetCount() - profTime;
-                g_ProfChrGroundFollowCalls++;
-            }
         }
         else
         {
@@ -2045,13 +1900,6 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
     Mtxf rotmtx;
     u16 hidden;
     ChrRecord *chr;
-    u32 profTime;
-
-    if (g_ProfChrMatrixBodyActive)
-    {
-        profTime = osGetCount();
-        g_ProfChrMatrixJointCalls++;
-    }
 
     scale = 1.0f;
 
@@ -2071,7 +1919,7 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 
     if ((((bodypart != CHR_RENDERPART_LEFT_ARM) && (bodypart != CHR_RENDERPART_RIGHT_ARM)) && (bodypart != CHR_RENDERPART_TORSO)) && (bodypart != CHR_RENDERPART_HEAD))
     {
-        goto profile_done;
+        return;
     }
 
     zrot = (yrot = (xrot = 0.0f));
@@ -2190,7 +2038,7 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 
     if ((((xrot == 0.0f) && (yrot == 0.0f)) && (zrot == 0.0f)) && (scale == 1.0f))
     {
-        goto profile_done;
+        return;
     }
 
     sideback = chrlvGetSubrotySideback(chr);
@@ -2262,12 +2110,6 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
     matrix->m[3][2] = savedposz;
 
     matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), matrix);
-
-profile_done:
-    if (g_ProfChrMatrixBodyActive)
-    {
-        g_ProfChrMatrixJointCycles += osGetCount() - profTime;
-    }
 }
 
 
@@ -2306,24 +2148,10 @@ void chrDetectRooms(ChrRecord *self)
 }
 
 
-static void chrProfileRootPosition(Model *model)
-{
-    u32 profTime;
-
-    g_ProfChrPositionActive = TRUE;
-    profTime = osGetCount();
-    subcalcpos(model);
-    g_ProfChrRootPositionCycles += osGetCount() - profTime;
-    g_ProfChrRootPositionCalls++;
-    g_ProfChrPositionActive = FALSE;
-}
-
-
 void chrUpdateAnim(ChrRecord *chr, s32 tickamount)
 {
     Model *model;
     PropRecord* prop;
-    u32 profTime;
 
     model = chr->model;
     prop = chr->prop;
@@ -2331,23 +2159,16 @@ void chrUpdateAnim(ChrRecord *chr, s32 tickamount)
     if (!(chr->hidden & CHRHIDDEN_FREEZE))
     {
         getsuboffset(model, &chr->prevpos);
-
-        profTime = osGetCount();
         modelTickAnim(model, tickamount, 1);
-        g_ProfChrAnimCycles += osGetCount() - profTime;
-
-        chrProfileRootPosition(model);
+        subcalcpos(model);
         objSetColorFromTile(prop, &chr->nextcol);
         getsuboffset(model, &prop->pos);
-
-        profTime = osGetCount();
         chrDetectRooms(chr);
-        g_ProfChrRoomCycles += osGetCount() - profTime;
 
         return;
     }
 
-    chrProfileRootPosition(model);
+    subcalcpos(model);
     getsuboffset(model, &prop->pos);
 }
 
@@ -2430,23 +2251,18 @@ s32 chrTick(PropRecord *prop)
 
     s32 headVisible;
     s32 tickamount;
-    u32 profSectionTime;
-    u32 profCallTime;
 
     chr = prop->chr;
     model = chr->model;
     headVisible = 1;
     tickamount = g_ClockTimer;
-    g_ProfChrCurrentAction = chr->actiontype;
 
     if ((!(chr->chrflags & CHRFLAG_HIDDEN)) || (chr->chrflags & CHRFLAG_00040000))
     {
         // TEMP
         {
             u32 prof_t = osGetCount();
-            g_ProfChrActionActive = 1;
             chrlvActionTick(chr);
-            g_ProfChrActionActive = 0;
             g_ProfChrActionCycles += osGetCount() - prof_t;
         }
         
@@ -2454,51 +2270,6 @@ s32 chrTick(PropRecord *prop)
         {
             return TICKOP_FREE;
         }
-
-    }
-
-    switch (chr->actiontype)
-    {
-        case ACT_STAND:
-            g_ProfChrActionStandCount++;
-            break;
-        case ACT_RUNPOS:
-            g_ProfChrActionMoveCount++;
-            break;
-        case ACT_PATROL:
-            if (chr->act_patrol.waydata.mode == WAYMODE_MAGIC)
-            {
-                g_ProfChrMagicCount++;
-            }
-            else
-            {
-                g_ProfChrActionMoveCount++;
-            }
-            break;
-        case ACT_GOPOS:
-            if (chr->act_gopos.waydata.mode == WAYMODE_MAGIC)
-            {
-                g_ProfChrMagicCount++;
-            }
-            else
-            {
-                g_ProfChrActionMoveCount++;
-            }
-            break;
-        case ACT_SIDESTEP:
-        case ACT_JUMPOUT:
-        case ACT_ATTACK:
-        case ACT_ATTACKWALK:
-        case ACT_ATTACKROLL:
-        case ACT_THROWGRENADE:
-            g_ProfChrActionCombatCount++;
-            break;
-        case ACT_ANIM:
-            g_ProfChrActionAnimCount++;
-            break;
-        default:
-            g_ProfChrActionOtherCount++;
-            break;
     }
 
     if (chr->hidden & CHRHIDDEN_REMOVE)
@@ -2523,8 +2294,6 @@ s32 chrTick(PropRecord *prop)
         }
     }
 
-    profSectionTime = osGetCount();
-
     if (chr->chrflags & CHRFLAG_HIDDEN)
     {
         isOnScreen = 0;
@@ -2537,9 +2306,7 @@ s32 chrTick(PropRecord *prop)
 
             if (((chr->actiontype == ACT_ANIM) && (chr->act_anim.unk02c == 0)) && (chr->act_anim.noTranslate != 0))
             {
-                profCallTime = osGetCount();
                 modelTickAnim(model, tickamount, 0);
-                g_ProfChrAnimCycles += osGetCount() - profCallTime;
             }
             else
             {
@@ -2553,30 +2320,22 @@ s32 chrTick(PropRecord *prop)
         {
             if (((chr->actiontype == ACT_PATROL) && (chr->act_patrol.waydata.mode == WAYMODE_MAGIC)) || ((chr->actiontype == ACT_GOPOS) && (chr->act_gopos.waydata.mode == WAYMODE_MAGIC)))
             {
-                profCallTime = osGetCount();
                 isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
-                g_ProfChrVisibilityCycles += osGetCount() - profCallTime;
 
                 // Former debug comment here: "VISIBLE MAGIC MODE!!!!"
                 if (isOnScreen)
                 {
                     getsuboffset(model, &chr->prevpos);
-                    chrProfileRootPosition(model);
+                    subcalcpos(model);
                     objSetColorFromTile(prop, &chr->nextcol);
                     getsuboffset(model, &prop->pos);
-
-                    profCallTime = osGetCount();
                     chrDetectRooms(chr);
-                    g_ProfChrRoomCycles += osGetCount() - profCallTime;
                 }
             }
             else
             {
                 chrUpdateAnim(chr, tickamount);
-
-                profCallTime = osGetCount();
                 isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
-                g_ProfChrVisibilityCycles += osGetCount() - profCallTime;
 
                 if (isOnScreen)
                 {
@@ -2593,9 +2352,7 @@ s32 chrTick(PropRecord *prop)
         }
         else if ((chr->actiontype == ACT_ANIM) && (chr->act_anim.unk02c == 0))
         {
-            profCallTime = osGetCount();
             isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
-            g_ProfChrVisibilityCycles += osGetCount() - profCallTime;
 
             if (isOnScreen && (chr->act_anim.noTranslate == 0))
             {
@@ -2603,16 +2360,12 @@ s32 chrTick(PropRecord *prop)
             }
             else
             {
-                profCallTime = osGetCount();
                 modelTickAnim(model, tickamount, 0);
-                g_ProfChrAnimCycles += osGetCount() - profCallTime;
             }
         }
         else if (chr->actiontype == ACT_STAND)
         {
-            profCallTime = osGetCount();
             isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
-            g_ProfChrVisibilityCycles += osGetCount() - profCallTime;
 
             if (isOnScreen || (chr->chrflags & CHRFLAG_INIT))
             {
@@ -2620,33 +2373,25 @@ s32 chrTick(PropRecord *prop)
             }
             else if (model->anim2 != NULL)
             {
-                profCallTime = osGetCount();
                 modelTickAnim(model, tickamount, 0);
-                g_ProfChrAnimCycles += osGetCount() - profCallTime;
             }
         }
         else
         {
             if (chr->chrflags & CHRFLAG_IGNORE_ANIM_TRANSLATION)
             {
-                profCallTime = osGetCount();
                 modelTickAnim(model, tickamount, 0);
-                g_ProfChrAnimCycles += osGetCount() - profCallTime;
             }
             else
             {
                 chrUpdateAnim(chr, tickamount);
             }
 
-            profCallTime = osGetCount();
             isOnScreen = camIsPosOnScreen(prop, &prop->pos, modelGetInstSize(model), 1);
-            g_ProfChrVisibilityCycles += osGetCount() - profCallTime;
         }
     }
 
 after_position_update:
-    g_ProfChrAnimPosCycles += osGetCount() - profSectionTime;
-
     if (((chr->actiontype != ACT_STAND) || (model->anim2 != NULL)) || (prop->type == PROP_TYPE_VIEWER))
     {
         chr->hidden |= CHRHIDDEN_BACKGROUND_AI;
@@ -2672,9 +2417,6 @@ after_position_update:
 
     if (isOnScreen)
     {
-        profSectionTime = osGetCount();
-        g_ProfChrOnscreenCount++;
-
         renderdata = g_DefaultChrModelRenderData;
         prop->flags |= PROPFLAG_ONSCREEN;
 
@@ -2700,11 +2442,7 @@ after_position_update:
          * LOD distance is global model state so scope the character-specific adjustment to this character.
          */
         modelSetDistanceScale(CHR_LOD_DISTANCE_FACTOR);
-        g_ProfChrMatrixBodyActive = TRUE;
-        profCallTime = osGetCount();
         subcalcmatrices(&renderdata, model);
-        g_ProfChrMatrixBodyCycles += osGetCount() - profCallTime;
-        g_ProfChrMatrixBodyActive = FALSE;
 
         modelSetDistanceScale(1.0f);
 
@@ -2714,21 +2452,16 @@ after_position_update:
 
         prop->zDepth = modelGetZDepth(model);
 
-        profCallTime = osGetCount();
         chr->hitChain = sub_GAME_7F06B120(NULL, model);
-        g_ProfChrMatrixHitChainCycles += osGetCount() - profCallTime;
 
-        profCallTime = osGetCount();
         chrRenderHeldWeapon(prop, GUNRIGHT, (Gfx **)(&chr->hitChain));
         chrRenderHeldWeapon(prop, GUNLEFT, (Gfx **)(&chr->hitChain));
-        g_ProfChrMatrixWeaponsCycles += osGetCount() - profCallTime;
 
         if (chr->handle_positiondata_hat != NULL)
         {
             ObjectRecord *hatobj;
             Model *hatmodel;
 
-            profCallTime = osGetCount();
             hatobj = chr->handle_positiondata_hat->obj;
             hatmodel = hatobj->model;
 
@@ -2787,8 +2520,6 @@ after_position_update:
             {
                 chr->hitChain = sub_GAME_7F06B120(chr->hitChain, hatmodel);
             }
-
-            g_ProfChrMatrixHatCycles += osGetCount() - profCallTime;
         }
 
         if (model->obj->Switches[4] != NULL)
@@ -2805,12 +2536,8 @@ after_position_update:
             }
         }
 
-        profCallTime = osGetCount();
         sub_GAME_7F06B29C(chr->hitChain);
         chr->hitChain = sub_GAME_7F06BB28(chr->hitChain);
-        g_ProfChrMatrixFinalizeCycles += osGetCount() - profCallTime;
-
-        g_ProfChrMatrixCycles += osGetCount() - profSectionTime;
     }
     else
     {

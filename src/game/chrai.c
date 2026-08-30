@@ -861,9 +861,6 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
     AircraftRecord *AircraftEntityp = NULL;
     AIRecord       *AiListp         = NULL;
     s32             Offset;
-    u8              profCommand;
-    u32             profTime;
-    u32             profCycles;
 
     if (EntityType == PROP_TYPE_CHR)
     {
@@ -903,18 +900,11 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
         // loop forever (or until broken)
         for (;;)
         {
-            profCommand = (AiListp + Offset)->cmd;
-
-            if (g_ProfChrActionActive)
-            {
-                profTime = osGetCount();
-            }
-
             /*
              * GE uses long Switch/case while PD uses Bool functions and tests
              * for TRUE/FALSE if(funcpointer[ai]) break;
              */
-            switch (profCommand)
+            switch ((AiListp + Offset)->cmd)
             {
                 // unfortunately we cannot use the cmdbuilder in matching rom as the ordering is not sequential
 #ifdef USECMDBUILDER
@@ -967,20 +957,6 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                         AircraftEntityp->ailist   = AiListp;
                         AircraftEntityp->aioffset = Offset;
                     }
-
-                    if (g_ProfChrActionActive)
-                    {
-                        profCycles = osGetCount() - profTime;
-                        g_ProfChrAiCommandCount++;
-                        g_ProfChrCurrentAiCommandCount++;
-
-                        if (profCommand < AI_CMD_COUNT)
-                        {
-                            g_ProfChrAiCommandCycles[profCommand] += profCycles;
-                            g_ProfChrAiCommandCalls[profCommand]++;
-                        }
-                    }
-
                     return;
                 }
                 case AI_EndList:
@@ -1001,19 +977,6 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
     #endif
                     osSyncPrintf("AI error: endlist reached!\n");
     #endif
-
-                    if (g_ProfChrActionActive)
-                    {
-                        profCycles = osGetCount() - profTime;
-                        g_ProfChrAiCommandCount++;
-                        g_ProfChrCurrentAiCommandCount++;
-
-                        if (profCommand < AI_CMD_COUNT)
-                        {
-                            g_ProfChrAiCommandCycles[profCommand] += profCycles;
-                            g_ProfChrAiCommandCalls[profCommand]++;
-                        }
-                    }
 
                     return;
                 }
@@ -1778,13 +1741,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 case AI_IFICouldSeeBond:
                 {
                     AiIFICouldSeeBondRecord *ai = AiListp + Offset;
-                    s32 couldSeeBond;
-
-                    g_ProfChrLosActive = g_ProfChrActionActive;
-                    couldSeeBond = chrCanSeeBond(ChrEntityp);
-                    g_ProfChrLosActive = FALSE;
-
-                    if (couldSeeBond)
+                    if (chrCanSeeBond(ChrEntityp))
                     {
                         Offset = chraiGoToLabel(AiListp, Offset, ai->GOTOLABEL);
                     }
@@ -4556,19 +4513,6 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                         Offset += chraiitemsize(AiListp, Offset);
                     }
             } // switch
-
-            if (g_ProfChrActionActive)
-            {
-                profCycles = osGetCount() - profTime;
-                g_ProfChrAiCommandCount++;
-                g_ProfChrCurrentAiCommandCount++;
-
-                if (profCommand < AI_CMD_COUNT)
-                {
-                    g_ProfChrAiCommandCycles[profCommand] += profCycles;
-                    g_ProfChrAiCommandCalls[profCommand]++;
-                }
-            }
         } // for
     } // Has ailist
 #ifdef ENABLE_LOG

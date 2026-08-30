@@ -126,137 +126,13 @@ struct LvlMpUnknown *D_800483C8 = NULL;
 extern u8* _fontdlSegmentRomStart;
 extern u8* _fontdlSegmentRomEnd;
 
-/* --- TEMP visibility profiler (read via framebuffer bars) --- */
+/* --- TEMP performance profiler --- */
 u32 g_ProfBgTickCycles;
-u32 g_ProfLvlTickCycles;     /* osGetCount delta across lvTick (game logic)    */
-u32 g_ProfLvlRenderCycles;   /* osGetCount delta across lvRender (DL build)   */
-u32 g_ProfBgRenderCycles;       /* osGetCount delta across bgSetupAndRender       */
+u32 g_ProfLvlTickCycles;
+u32 g_ProfLvlRenderCycles;
+u32 g_ProfBgRenderCycles;
 u32 g_ProfChrTickCycles;
 u32 g_ProfChrActionCycles;
-u32 g_ProfChrTickCalls;
-u32 g_ProfChrOnscreenCount;
-u32 g_ProfChrMagicCount;
-u32 g_ProfChrActionStandCount;
-u32 g_ProfChrActionMoveCount;
-u32 g_ProfChrActionCombatCount;
-u32 g_ProfChrActionAnimCount;
-u32 g_ProfChrActionOtherCount;
-s32 g_ProfChrActionActive;
-s32 g_ProfChrCurrentAction;
-u32 g_ProfChrAiCycles;
-u32 g_ProfChrAiCalls;
-u32 g_ProfChrAiCommandCount;
-u32 g_ProfChrCurrentAiCommandCount;
-u32 g_ProfChrAiCommandCycles[AI_CMD_COUNT];
-u32 g_ProfChrAiCommandCalls[AI_CMD_COUNT];
-s32 g_ProfChrLosActive;
-u32 g_ProfChrLosCycles;
-u32 g_ProfChrLosLineCycles;
-u32 g_ProfChrLosStanCycles;
-u32 g_ProfChrLosRoomCycles;
-u32 g_ProfChrLosPropCycles;
-u32 g_ProfChrLosRecoveryCycles;
-u32 g_ProfChrLosCalls;
-u32 g_ProfChrLosPasses;
-u32 g_ProfChrLosStanBlocks;
-u32 g_ProfChrLosPropBlocks;
-u32 g_ProfChrLosTileMismatches;
-u32 g_ProfChrLosInvisibleCalls;
-u32 g_ProfChrLosRooms;
-u32 g_ProfChrLosProps;
-u32 g_ProfChrLosCandidates;
-u32 g_ProfChrLosEdges;
-u32 g_ProfChrLosIntersections;
-u32 g_ProfChrSlowestAiCycles;
-u32 g_ProfChrSlowestAiCommandCount;
-s32 g_ProfChrSlowestAiChrnum;
-u32 g_ProfChrStateCycles;
-u32 g_ProfChrStateStandCycles;
-u32 g_ProfChrStateMoveCycles;
-u32 g_ProfChrStateMagicCycles;
-u32 g_ProfChrStateCombatCycles;
-u32 g_ProfChrStateOtherCycles;
-u32 g_ProfChrAnimPosCycles;
-u32 g_ProfChrAnimCycles;
-u32 g_ProfChrVisibilityCycles;
-u32 g_ProfChrRoomCycles;
-u32 g_ProfChrRootPositionCycles;
-u32 g_ProfChrRootPositionCalls;
-u32 g_ProfChrPositionValidateCycles;
-u32 g_ProfChrPositionValidateCalls;
-u32 g_ProfChrCollisionCycles;
-u32 g_ProfChrCollisionCalls;
-u32 g_ProfChrCollisionLineCycles;
-u32 g_ProfChrCollisionLineCalls;
-u32 g_ProfChrCollisionVolumeCycles;
-u32 g_ProfChrCollisionVolumeCalls;
-u32 g_ProfChrStationaryVolumeSkips;
-u32 g_ProfChrGroundCycles;
-u32 g_ProfChrGroundCalls;
-u32 g_ProfChrGroundFollowCycles;
-u32 g_ProfChrGroundFollowCalls;
-s32 g_ProfChrPositionActive;
-u32 g_ProfChrMatrixCycles;
-u32 g_ProfChrMatrixBodyCycles;
-u32 g_ProfChrMatrixHitChainCycles;
-u32 g_ProfChrMatrixWeaponsCycles;
-u32 g_ProfChrMatrixHatCycles;
-u32 g_ProfChrMatrixFinalizeCycles;
-s32 g_ProfChrMatrixBodyActive;
-u32 g_ProfChrMatrixBodyFrameCycles;
-u32 g_ProfChrMatrixBodyBuildCycles;
-u32 g_ProfChrMatrixJointCycles;
-u32 g_ProfChrMatrixJointCalls;
-u32 g_ProfChrMatrixBodyGroupMatrixCycles;
-u32 g_ProfChrMatrixBuildParentCycles;
-u32 g_ProfChrMatrixBuildPrimaryCycles;
-u32 g_ProfChrMatrixBuildMatrix1Cycles;
-u32 g_ProfChrMatrixBuildMatrix2Cycles;
-u32 g_ProfChrMatrixBuildCalls;
-u32 g_ProfChrMatrixBuildParentLookupCalls;
-u32 g_ProfChrMatrixBuildParentPresentCalls;
-u32 g_ProfChrMatrixBuildMatrix1Calls;
-u32 g_ProfChrMatrixBuildMatrix2Calls;
-u32 g_ProfChrSlowestCycles;
-s32 g_ProfChrSlowestChrnum;
-s32 g_ProfChrSlowestAction;
-u32 g_ProfChrSlowestActionCycles;
-u32 g_ProfChrSlowestCharAiCycles;
-u32 g_ProfChrSlowestStateCycles;
-u32 g_ProfChrSlowestAnimPosCycles;
-u32 g_ProfChrSlowestAnimCycles;
-u32 g_ProfChrSlowestVisibilityCycles;
-u32 g_ProfChrSlowestRoomCycles;
-u32 g_ProfChrSlowestRootPositionCycles;
-u32 g_ProfChrSlowestRootPositionCalls;
-u32 g_ProfChrSlowestPositionValidateCycles;
-u32 g_ProfChrSlowestPositionValidateCalls;
-u32 g_ProfChrSlowestCollisionCycles;
-u32 g_ProfChrSlowestCollisionLineCycles;
-u32 g_ProfChrSlowestCollisionVolumeCycles;
-u32 g_ProfChrSlowestGroundCycles;
-u32 g_ProfChrSlowestGroundFollowCycles;
-u32 g_ProfChrSlowestMatrixCycles;
-u32 g_ProfChrSlowestMatrixBodyCycles;
-u32 g_ProfChrSlowestMatrixHitChainCycles;
-u32 g_ProfChrSlowestMatrixWeaponsCycles;
-u32 g_ProfChrSlowestMatrixHatCycles;
-u32 g_ProfChrSlowestMatrixFinalizeCycles;
-u32 g_ProfChrSlowestMatrixBodyFrameCycles;
-u32 g_ProfChrSlowestMatrixBodyBuildCycles;
-u32 g_ProfChrSlowestMatrixJointCycles;
-u32 g_ProfChrSlowestMatrixJointCalls;
-u32 g_ProfChrSlowestMatrixBodyGroupMatrixCycles;
-u32 g_ProfChrSlowestMatrixBuildParentCycles;
-u32 g_ProfChrSlowestMatrixBuildPrimaryCycles;
-u32 g_ProfChrSlowestMatrixBuildMatrix1Cycles;
-u32 g_ProfChrSlowestMatrixBuildMatrix2Cycles;
-u32 g_ProfChrSlowestMatrixBuildCalls;
-u32 g_ProfChrSlowestMatrixBuildParentLookupCalls;
-u32 g_ProfChrSlowestMatrixBuildParentPresentCalls;
-u32 g_ProfChrSlowestMatrixBuildMatrix1Calls;
-u32 g_ProfChrSlowestMatrixBuildMatrix2Calls;
-u32 g_ProfChrSlowestOnscreen;
 u32 g_ProfObjTickCycles;
 /* --- end profiler state --- */
 
@@ -1087,36 +963,10 @@ f32 lvGetSystemPowerTimeSeconds(void)
 
 Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
 {
-    s32 i;
-    s32 topAiCommand1;
-    s32 topAiCommand2;
-    u32 topAiCycles1;
-    u32 topAiCycles2;
-    u32 topAiCalls1;
-    u32 topAiCalls2;
-    u32 aiCommandCycles;
-    u32 chrOther;
-    u32 chrProfiled;
-    u32 matrixBodyOther;
-    u32 matrixBodyProfiled;
-    u32 matrixBuildOther;
-    u32 matrixBuildProfiled;
-    u32 matrixOther;
-    u32 matrixProfiled;
-    u32 slowMatrixBuildOther;
-    u32 slowMatrixBuildProfiled;
-    u32 slowOther;
-    u32 slowMatrixOther;
-    u32 slowMatrixProfiled;
-    u32 slowProfiled;
-    u32 lvlOther;
-    u32 sub;
-
     static u32 fpsWindowStart = 0;
     static u32 fpsFrameCount = 0;
     static char fpsText[8] = "--";
     static u32 color = 0xFFFFFFFF;
-    
     u32 now = osGetCount();
     s32 x;
     s32 y;
@@ -1131,11 +981,11 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     else if ((u32)(now - fpsWindowStart) >= (u32)OS_USEC_TO_CYCLES(1000000))
     {
         /* Color code the readout: green ~60, yellow ~30..59, red below. */
-        if(fpsFrameCount > 50)
+        if (fpsFrameCount > 50)
         {
             color = 0x22FF22FF;
         }
-        else if(fpsFrameCount > 25)
+        else if (fpsFrameCount > 25)
         {
             color = 0xFFFF22FF;
         }
@@ -1150,243 +1000,46 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     }
 
     x = viGetViewLeft() + 14;
-    y = viGetViewTop() + 2;
+    y = viGetViewTop() + 18;
     screenwidth = (s32) viGetX();
 
     gdl = gfxSetup2DTextureMode(gdl);
     gdl = textRender(gdl, &x, &y, fpsText, ptrFontBankGothicChars, ptrFontBankGothic, color, screenwidth, viGetY(), 0, 0);
 
-    { /* TEMP profiler readouts: name + raw osGetCount cycles per frame */
-        static char profText[21][128];
-        static const u32 profColor[21] = {
-            0x00FFFFFF,  /* bgTick   - cyan      */
-            0x4040FFFF,  /* lvTick   - blue      */
-            0xFF3030FF,  /* lvRender- red       */
-            0xFF8C00FF,  /* bg       - orange    */
-            0xFFFF30FF,  /* objTick  - yellow     */
-            0xB43CFFFF,  /* chrTick  - violet     */
-            0xB43CFFFF,  /* character counts      */
-            0xC060FFFF,  /* action populations    */
-            0x30FF30FF,  /* chrAction - green     */
-            0x30FF30FF,  /* AI/action state       */
-            0x60FF60FF,  /* state categories      */
-            0x30FFFFFF,  /* AI calls/commands      */
-            0x30FFFFFF,  /* top AI command         */
-            0x40FFFFFF,  /* anim/visibility/rooms  */
-            0x40FFFFFF,  /* matrix stage totals      */
-            0x40FFFFFF,  /* body matrix stages       */
-            0x40FFFFFF,  /* group-node stages       */
-            0x40FFFFFF,  /* slow chr summary         */
-            0x40FFFFFF,  /* slow group-node stages  */
-            0x40FFFFFF,  /* slow chr matrix detail   */
-            0xFF80FFFF,  /* slowest character      */
+    { /* TEMP profiler readouts: raw osGetCount cycles per frame */
+        static char profText[7][28];
+        static const u32 profColor[7] = {
+            0x00FFFFFF,  /* bg tick    - cyan    */
+            0x4040FFFF,  /* lv tick    - blue    */
+            0xFF3030FF,  /* lv render  - red     */
+            0xFF8C00FF,  /* bg render  - orange  */
+            0xFFFF30FF,  /* obj tick   - yellow  */
+            0xB43CFFFF,  /* chr tick   - violet  */
+            0x30FF30FF,  /* chr action - green   */
         };
+        u32 sub;
+        u32 lvlOther;
+        s32 i;
 
-        topAiCommand1 = -1;
-        topAiCommand2 = -1;
-        topAiCycles1 = 0;
-        topAiCycles2 = 0;
-        topAiCalls1 = 0;
-        topAiCalls2 = 0;
+        sub = g_ProfBgTickCycles + g_ProfBgRenderCycles + g_ProfChrTickCycles + g_ProfObjTickCycles;
+        lvlOther = g_ProfLvlRenderCycles > sub ? g_ProfLvlRenderCycles - sub : 0;
 
-        for (i = 0; i < AI_CMD_COUNT; i++)
-        {
-            aiCommandCycles = g_ProfChrAiCommandCycles[i];
-
-            if (aiCommandCycles > topAiCycles1)
-            {
-                topAiCommand2 = topAiCommand1;
-                topAiCycles2 = topAiCycles1;
-                topAiCalls2 = topAiCalls1;
-                topAiCommand1 = i;
-                topAiCycles1 = aiCommandCycles;
-                topAiCalls1 = g_ProfChrAiCommandCalls[i];
-            }
-            else if (aiCommandCycles > topAiCycles2)
-            {
-                topAiCommand2 = i;
-                topAiCycles2 = aiCommandCycles;
-                topAiCalls2 = g_ProfChrAiCommandCalls[i];
-            }
-        }
-
-        chrProfiled = g_ProfChrActionCycles + g_ProfChrAnimPosCycles + g_ProfChrMatrixCycles;
-        chrOther = (g_ProfChrTickCycles > chrProfiled) ? (g_ProfChrTickCycles - chrProfiled) : 0;
-        matrixProfiled = g_ProfChrMatrixBodyCycles + g_ProfChrMatrixHitChainCycles + g_ProfChrMatrixWeaponsCycles + g_ProfChrMatrixHatCycles + g_ProfChrMatrixFinalizeCycles;
-        matrixOther = (g_ProfChrMatrixCycles > matrixProfiled) ? (g_ProfChrMatrixCycles - matrixProfiled) : 0;
-        matrixBodyProfiled = g_ProfChrMatrixBodyFrameCycles + g_ProfChrMatrixBodyBuildCycles;
-        matrixBodyOther = (g_ProfChrMatrixBodyCycles > matrixBodyProfiled) ? (g_ProfChrMatrixBodyCycles - matrixBodyProfiled) : 0;
-        matrixBuildProfiled = g_ProfChrMatrixBuildParentCycles + g_ProfChrMatrixBuildPrimaryCycles + g_ProfChrMatrixJointCycles + g_ProfChrMatrixBuildMatrix1Cycles + g_ProfChrMatrixBuildMatrix2Cycles;
-        matrixBuildOther = (g_ProfChrMatrixBodyGroupMatrixCycles > matrixBuildProfiled) ? (g_ProfChrMatrixBodyGroupMatrixCycles - matrixBuildProfiled) : 0;
-        slowProfiled = g_ProfChrSlowestActionCycles + g_ProfChrSlowestAnimPosCycles + g_ProfChrSlowestMatrixCycles;
-        slowOther = (g_ProfChrSlowestCycles > slowProfiled) ? (g_ProfChrSlowestCycles - slowProfiled) : 0;
-        slowMatrixProfiled = g_ProfChrSlowestMatrixBodyCycles + g_ProfChrSlowestMatrixHitChainCycles + g_ProfChrSlowestMatrixWeaponsCycles + g_ProfChrSlowestMatrixHatCycles + g_ProfChrSlowestMatrixFinalizeCycles;
-        slowMatrixOther = (g_ProfChrSlowestMatrixCycles > slowMatrixProfiled) ? (g_ProfChrSlowestMatrixCycles - slowMatrixProfiled) : 0;
-        slowMatrixBuildProfiled = g_ProfChrSlowestMatrixBuildParentCycles + g_ProfChrSlowestMatrixBuildPrimaryCycles + g_ProfChrSlowestMatrixJointCycles + g_ProfChrSlowestMatrixBuildMatrix1Cycles + g_ProfChrSlowestMatrixBuildMatrix2Cycles;
-        slowMatrixBuildOther = (g_ProfChrSlowestMatrixBodyGroupMatrixCycles > slowMatrixBuildProfiled) ? (g_ProfChrSlowestMatrixBodyGroupMatrixCycles - slowMatrixBuildProfiled) : 0;
-
-        sub = g_ProfBgTickCycles + g_ProfBgRenderCycles + g_ProfChrTickCycles + g_ProfObjTickCycles;  /* full chrTick */
-        lvlOther = (g_ProfLvlRenderCycles > sub) ? (g_ProfLvlRenderCycles - sub) : 0;
-
-        sprintf(profText[0], "BGTICK:%4uK",      (g_ProfBgTickCycles + 500) / 1000);
-        sprintf(profText[1], "LVTICK:%4uK",      (g_ProfLvlTickCycles   + 500) / 1000);
-        sprintf(profText[2], "LVRENDER:%4uK",    (lvlOther + 500) / 1000);
-        sprintf(profText[3], "BGRENDER:%4uK",     (g_ProfBgRenderCycles        + 500) / 1000);
-        sprintf(profText[4], "OBJTICK:%4uK",       (g_ProfObjTickCycles + 500) / 1000);
-        sprintf(profText[5], "CHRTICK:%4uK",      (g_ProfChrTickCycles   + 500) / 1000);
-        sprintf(profText[6], "CHR:%u ON:%u", g_ProfChrTickCalls, g_ProfChrOnscreenCount);
-        sprintf(profText[7], "ACT S/M/G/C/A/O:%u/%u/%u/%u/%u/%u", g_ProfChrActionStandCount, g_ProfChrActionMoveCount, g_ProfChrMagicCount, g_ProfChrActionCombatCount, g_ProfChrActionAnimCount, g_ProfChrActionOtherCount);
-        sprintf(profText[8], "CHRACT:%4uK", (g_ProfChrActionCycles + 500) / 1000);
-        sprintf(profText[9], "AI/ST:%3u/%3uK", (g_ProfChrAiCycles + 500) / 1000, (g_ProfChrStateCycles + 500) / 1000);
-        sprintf(profText[10], "S/M/G/C/O:%u/%u/%u/%u/%uK", (g_ProfChrStateStandCycles + 500) / 1000, (g_ProfChrStateMoveCycles + 500) / 1000, (g_ProfChrStateMagicCycles + 500) / 1000, (g_ProfChrStateCombatCycles + 500) / 1000, (g_ProfChrStateOtherCycles + 500) / 1000);
-        sprintf(profText[11], "AI:%u CMD:%u", g_ProfChrAiCalls, g_ProfChrAiCommandCount);
-        sprintf(profText[12], "TOP C%d:%uKx%u C%d:%uKx%u", topAiCommand1, (topAiCycles1 + 500) / 1000, topAiCalls1, topAiCommand2, (topAiCycles2 + 500) / 1000, topAiCalls2);
-        sprintf(profText[13], "AN/VI/RM/MX/OT:%u/%u/%u/%u/%uK", (g_ProfChrAnimCycles + 500) / 1000, (g_ProfChrVisibilityCycles + 500) / 1000, (g_ProfChrRoomCycles + 500) / 1000, (g_ProfChrMatrixCycles + 500) / 1000, (chrOther + 500) / 1000);
-        sprintf(profText[14], "MX B/H/W/T/F/O:%u/%u/%u/%u/%u/%uK", (g_ProfChrMatrixBodyCycles + 500) / 1000, (g_ProfChrMatrixHitChainCycles + 500) / 1000, (g_ProfChrMatrixWeaponsCycles + 500) / 1000, (g_ProfChrMatrixHatCycles + 500) / 1000, (g_ProfChrMatrixFinalizeCycles + 500) / 1000, (matrixOther + 500) / 1000);
-        sprintf(profText[15], "B F/M/J/O:%u/%u/%u/%uK J:%u", (g_ProfChrMatrixBodyFrameCycles + 500) / 1000, (g_ProfChrMatrixBodyBuildCycles + 500) / 1000, (g_ProfChrMatrixJointCycles + 500) / 1000, (matrixBodyOther + 500) / 1000, g_ProfChrMatrixJointCalls);
-        /* Group matrix build: parent lookup/base/joint/matrix1/matrix2/residual; counts are build/lookup/parent/matrix1/matrix2. */
-        sprintf(profText[16], "GB P/B/J/1/2/O:%u/%u/%u/%u/%u/%uK N:%u/%u/%u/%u/%u", (g_ProfChrMatrixBuildParentCycles + 500) / 1000, (g_ProfChrMatrixBuildPrimaryCycles + 500) / 1000, (g_ProfChrMatrixJointCycles + 500) / 1000, (g_ProfChrMatrixBuildMatrix1Cycles + 500) / 1000, (g_ProfChrMatrixBuildMatrix2Cycles + 500) / 1000, (matrixBuildOther + 500) / 1000, g_ProfChrMatrixBuildCalls, g_ProfChrMatrixBuildParentLookupCalls, g_ProfChrMatrixBuildParentPresentCalls, g_ProfChrMatrixBuildMatrix1Calls, g_ProfChrMatrixBuildMatrix2Calls);
-        sprintf(profText[17], "SC A/AP/MX/OT:%u/%u/%u/%uK", (g_ProfChrSlowestActionCycles + 500) / 1000, (g_ProfChrSlowestAnimPosCycles + 500) / 1000, (g_ProfChrSlowestMatrixCycles + 500) / 1000, (slowOther + 500) / 1000);
-        sprintf(profText[18], "SGB P/B/J/1/2/O:%u/%u/%u/%u/%u/%uK N:%u/%u/%u/%u/%u", (g_ProfChrSlowestMatrixBuildParentCycles + 500) / 1000, (g_ProfChrSlowestMatrixBuildPrimaryCycles + 500) / 1000, (g_ProfChrSlowestMatrixJointCycles + 500) / 1000, (g_ProfChrSlowestMatrixBuildMatrix1Cycles + 500) / 1000, (g_ProfChrSlowestMatrixBuildMatrix2Cycles + 500) / 1000, (slowMatrixBuildOther + 500) / 1000, g_ProfChrSlowestMatrixBuildCalls, g_ProfChrSlowestMatrixBuildParentLookupCalls, g_ProfChrSlowestMatrixBuildParentPresentCalls, g_ProfChrSlowestMatrixBuildMatrix1Calls, g_ProfChrSlowestMatrixBuildMatrix2Calls);
-        sprintf(profText[19], "SMX B/H/W/T/F/O:%u/%u/%u/%u/%u/%uK", (g_ProfChrSlowestMatrixBodyCycles + 500) / 1000, (g_ProfChrSlowestMatrixHitChainCycles + 500) / 1000, (g_ProfChrSlowestMatrixWeaponsCycles + 500) / 1000, (g_ProfChrSlowestMatrixHatCycles + 500) / 1000, (g_ProfChrSlowestMatrixFinalizeCycles + 500) / 1000, (slowMatrixOther + 500) / 1000);
-        sprintf(profText[20], "SLOW C%d A%d:%uK ON:%u", g_ProfChrSlowestChrnum, g_ProfChrSlowestAction, (g_ProfChrSlowestCycles + 500) / 1000, g_ProfChrSlowestOnscreen);
+        sprintf(profText[0], "BGTICK:%4uK",   (g_ProfBgTickCycles + 500) / 1000);
+        sprintf(profText[1], "LVTICK:%4uK",   (g_ProfLvlTickCycles + 500) / 1000);
+        sprintf(profText[2], "LVRENDER:%4uK", (lvlOther + 500) / 1000);
+        sprintf(profText[3], "BGRENDER:%4uK", (g_ProfBgRenderCycles + 500) / 1000);
+        sprintf(profText[4], "OBJTICK:%4uK",  (g_ProfObjTickCycles + 500) / 1000);
+        sprintf(profText[5], "CHRTICK:%4uK",  (g_ProfChrTickCycles + 500) / 1000);
+        sprintf(profText[6], "CHRACT:%4uK",   (g_ProfChrActionCycles + 500) / 1000);
 
         g_ProfChrTickCycles = 0;
         g_ProfChrActionCycles = 0;
-        g_ProfChrTickCalls = 0;
-        g_ProfChrOnscreenCount = 0;
-        g_ProfChrMagicCount = 0;
-        g_ProfChrActionStandCount = 0;
-        g_ProfChrActionMoveCount = 0;
-        g_ProfChrActionCombatCount = 0;
-        g_ProfChrActionAnimCount = 0;
-        g_ProfChrActionOtherCount = 0;
-        g_ProfChrActionActive = 0;
-        g_ProfChrCurrentAction = ACT_NULL;
-        g_ProfChrAiCycles = 0;
-        g_ProfChrAiCalls = 0;
-        g_ProfChrAiCommandCount = 0;
-        g_ProfChrCurrentAiCommandCount = 0;
-        g_ProfChrLosActive = 0;
-        g_ProfChrLosCycles = 0;
-        g_ProfChrLosLineCycles = 0;
-        g_ProfChrLosStanCycles = 0;
-        g_ProfChrLosRoomCycles = 0;
-        g_ProfChrLosPropCycles = 0;
-        g_ProfChrLosRecoveryCycles = 0;
-        g_ProfChrLosCalls = 0;
-        g_ProfChrLosPasses = 0;
-        g_ProfChrLosStanBlocks = 0;
-        g_ProfChrLosPropBlocks = 0;
-        g_ProfChrLosTileMismatches = 0;
-        g_ProfChrLosInvisibleCalls = 0;
-        g_ProfChrLosRooms = 0;
-        g_ProfChrLosProps = 0;
-        g_ProfChrLosCandidates = 0;
-        g_ProfChrLosEdges = 0;
-        g_ProfChrLosIntersections = 0;
-        g_ProfChrSlowestAiCycles = 0;
-        g_ProfChrSlowestAiCommandCount = 0;
-        g_ProfChrSlowestAiChrnum = -1;
-        g_ProfChrStateCycles = 0;
-        g_ProfChrStateStandCycles = 0;
-        g_ProfChrStateMoveCycles = 0;
-        g_ProfChrStateMagicCycles = 0;
-        g_ProfChrStateCombatCycles = 0;
-        g_ProfChrStateOtherCycles = 0;
-        g_ProfChrAnimPosCycles = 0;
-        g_ProfChrAnimCycles = 0;
-        g_ProfChrVisibilityCycles = 0;
-        g_ProfChrRoomCycles = 0;
-        g_ProfChrRootPositionCycles = 0;
-        g_ProfChrRootPositionCalls = 0;
-        g_ProfChrPositionValidateCycles = 0;
-        g_ProfChrPositionValidateCalls = 0;
-        g_ProfChrCollisionCycles = 0;
-        g_ProfChrCollisionCalls = 0;
-        g_ProfChrCollisionLineCycles = 0;
-        g_ProfChrCollisionLineCalls = 0;
-        g_ProfChrCollisionVolumeCycles = 0;
-        g_ProfChrCollisionVolumeCalls = 0;
-        g_ProfChrStationaryVolumeSkips = 0;
-        g_ProfChrGroundCycles = 0;
-        g_ProfChrGroundCalls = 0;
-        g_ProfChrGroundFollowCycles = 0;
-        g_ProfChrGroundFollowCalls = 0;
-        g_ProfChrPositionActive = 0;
-        g_ProfChrMatrixCycles = 0;
-        g_ProfChrMatrixBodyCycles = 0;
-        g_ProfChrMatrixHitChainCycles = 0;
-        g_ProfChrMatrixWeaponsCycles = 0;
-        g_ProfChrMatrixHatCycles = 0;
-        g_ProfChrMatrixFinalizeCycles = 0;
-        g_ProfChrMatrixBodyActive = 0;
-        g_ProfChrMatrixBodyFrameCycles = 0;
-        g_ProfChrMatrixBodyBuildCycles = 0;
-        g_ProfChrMatrixJointCycles = 0;
-        g_ProfChrMatrixJointCalls = 0;
-        g_ProfChrMatrixBodyGroupMatrixCycles = 0;
-        g_ProfChrMatrixBuildParentCycles = 0;
-        g_ProfChrMatrixBuildPrimaryCycles = 0;
-        g_ProfChrMatrixBuildMatrix1Cycles = 0;
-        g_ProfChrMatrixBuildMatrix2Cycles = 0;
-        g_ProfChrMatrixBuildCalls = 0;
-        g_ProfChrMatrixBuildParentLookupCalls = 0;
-        g_ProfChrMatrixBuildParentPresentCalls = 0;
-        g_ProfChrMatrixBuildMatrix1Calls = 0;
-        g_ProfChrMatrixBuildMatrix2Calls = 0;
-        g_ProfChrSlowestCycles = 0;
-        g_ProfChrSlowestChrnum = -1;
-        g_ProfChrSlowestAction = ACT_NULL;
-        g_ProfChrSlowestActionCycles = 0;
-        g_ProfChrSlowestCharAiCycles = 0;
-        g_ProfChrSlowestStateCycles = 0;
-        g_ProfChrSlowestAnimPosCycles = 0;
-        g_ProfChrSlowestAnimCycles = 0;
-        g_ProfChrSlowestVisibilityCycles = 0;
-        g_ProfChrSlowestRoomCycles = 0;
-        g_ProfChrSlowestRootPositionCycles = 0;
-        g_ProfChrSlowestRootPositionCalls = 0;
-        g_ProfChrSlowestPositionValidateCycles = 0;
-        g_ProfChrSlowestPositionValidateCalls = 0;
-        g_ProfChrSlowestCollisionCycles = 0;
-        g_ProfChrSlowestCollisionLineCycles = 0;
-        g_ProfChrSlowestCollisionVolumeCycles = 0;
-        g_ProfChrSlowestGroundCycles = 0;
-        g_ProfChrSlowestGroundFollowCycles = 0;
-        g_ProfChrSlowestMatrixCycles = 0;
-        g_ProfChrSlowestMatrixBodyCycles = 0;
-        g_ProfChrSlowestMatrixHitChainCycles = 0;
-        g_ProfChrSlowestMatrixWeaponsCycles = 0;
-        g_ProfChrSlowestMatrixHatCycles = 0;
-        g_ProfChrSlowestMatrixFinalizeCycles = 0;
-        g_ProfChrSlowestMatrixBodyFrameCycles = 0;
-        g_ProfChrSlowestMatrixBodyBuildCycles = 0;
-        g_ProfChrSlowestMatrixJointCycles = 0;
-        g_ProfChrSlowestMatrixJointCalls = 0;
-        g_ProfChrSlowestMatrixBodyGroupMatrixCycles = 0;
-        g_ProfChrSlowestMatrixBuildParentCycles = 0;
-        g_ProfChrSlowestMatrixBuildPrimaryCycles = 0;
-        g_ProfChrSlowestMatrixBuildMatrix1Cycles = 0;
-        g_ProfChrSlowestMatrixBuildMatrix2Cycles = 0;
-        g_ProfChrSlowestMatrixBuildCalls = 0;
-        g_ProfChrSlowestMatrixBuildParentLookupCalls = 0;
-        g_ProfChrSlowestMatrixBuildParentPresentCalls = 0;
-        g_ProfChrSlowestMatrixBuildMatrix1Calls = 0;
-        g_ProfChrSlowestMatrixBuildMatrix2Calls = 0;
-        g_ProfChrSlowestOnscreen = 0;
         g_ProfObjTickCycles = 0;
 
-        for (i = 0; i < AI_CMD_COUNT; i++)
-        {
-            g_ProfChrAiCommandCycles[i] = 0;
-            g_ProfChrAiCommandCalls[i] = 0;
-        }
-
-        for (i = 0; i < 21; i++)
+        for (i = 0; i < 7; i++)
         {
             x = viGetViewLeft() + 14;
-            y = viGetViewTop() + 14 + (i * 9);
+            y = viGetViewTop() + 44 + (i * 10);
             gdl = textRender(gdl, &x, &y, profText[i], ptrFontBankGothicChars, ptrFontBankGothic, profColor[i], screenwidth, viGetY(), 0, 0);
         }
     }
