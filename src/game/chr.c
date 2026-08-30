@@ -2727,11 +2727,8 @@ after_position_update:
         {
             ObjectRecord *hatobj;
             Model *hatmodel;
-            u32 profHatTime;
 
-            g_ProfChrMatrixHatCalls++;
             profCallTime = osGetCount();
-            profHatTime = profCallTime;
             hatobj = chr->handle_positiondata_hat->obj;
             hatmodel = hatobj->model;
 
@@ -2739,13 +2736,9 @@ after_position_update:
 
             renderdata.basemtx = modelFindNodeMtx(model, hatmodel->attachedto_objinst, 0);
             renderdata.mtxlist = dynAllocate(hatmodel->obj->numMatrices * (sizeof(Mtxf)));
-            g_ProfChrMatrixHatSetupCycles += osGetCount() - profHatTime;
 
-            profHatTime = osGetCount();
             instcalcmatrices(&renderdata, hatmodel);
-            g_ProfChrMatrixHatBuildCycles += osGetCount() - profHatTime;
 
-            profHatTime = osGetCount();
             if ((chr->headnum >= HEAD_START) && (chr->headnum < BODY_Female_Sally))
             {
                 coord3d pos;
@@ -2789,15 +2782,11 @@ after_position_update:
                     headVisible = 0;
                 }
             }
-            g_ProfChrMatrixHatTransformCycles += osGetCount() - profHatTime;
 
-            profHatTime = osGetCount();
             if ((!(chr->hidden & CHRHIDDEN_DROP_HELD_ITEMS)) || (!(hatobj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)))
             {
-                g_ProfChrMatrixHatHitChainCalls++;
                 chr->hitChain = sub_GAME_7F06B120(chr->hitChain, hatmodel);
             }
-            g_ProfChrMatrixHatHitChainCycles += osGetCount() - profHatTime;
 
             g_ProfChrMatrixHatCycles += osGetCount() - profCallTime;
         }

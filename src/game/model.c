@@ -2005,6 +2005,8 @@ void modelUpdateNodeRelations(Model *model)
 void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
 {
     ModelNode *node = model->obj->RootNode;
+    s32 profActive = g_ProfChrMatrixBodyActive;
+    u32 profTime;
 
     while (node)
     {
@@ -2013,11 +2015,29 @@ void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
         switch (type)
         {
             case MODELNODE_OPCODE_HEADER:
+                if (profActive)
+                {
+                    g_ProfChrMatrixBodyHeaderCalls++;
+                    profTime = osGetCount();
+                }
                 process_01_group_heading(arg0, model, node);
+                if (profActive)
+                {
+                    g_ProfChrMatrixBodyHeaderCycles += osGetCount() - profTime;
+                }
                 break;
 
             case MODELNODE_OPCODE_GROUP:
+                if (profActive)
+                {
+                    g_ProfChrMatrixBodyGroupCalls++;
+                    profTime = osGetCount();
+                }
                 process_02_position(arg0, model, node);
+                if (profActive)
+                {
+                    g_ProfChrMatrixBodyGroupCycles += osGetCount() - profTime;
+                }
                 break;
 
             case MODELNODE_OPCODE_OP03:
@@ -2025,15 +2045,42 @@ void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
                 break;
 
             case MODELNODE_OPCODE_GROUPSIMPLE:
+                if (profActive)
+                {
+                    g_ProfChrMatrixBodySimpleCalls++;
+                    profTime = osGetCount();
+                }
                 process_15_subposition(arg0, model, node);
+                if (profActive)
+                {
+                    g_ProfChrMatrixBodySimpleCycles += osGetCount() - profTime;
+                }
                 break;
 
             case MODELNODE_OPCODE_LOD:
+                if (profActive)
+                {
+                    g_ProfChrMatrixBodyRelationCalls++;
+                    profTime = osGetCount();
+                }
                 modelUpdateDistanceRelations(model, node);
+                if (profActive)
+                {
+                    g_ProfChrMatrixBodyRelationCycles += osGetCount() - profTime;
+                }
                 break;
 
             case MODELNODE_OPCODE_BSP:
+                if (profActive)
+                {
+                    g_ProfChrMatrixBodyRelationCalls++;
+                    profTime = osGetCount();
+                }
                 modelUpdateReorderRelations(model, node);
+                if (profActive)
+                {
+                    g_ProfChrMatrixBodyRelationCycles += osGetCount() - profTime;
+                }
                 break;
 
             case MODELNODE_OPCODE_OP07:
@@ -2041,11 +2088,29 @@ void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
                 break;
 
             case MODELNODE_OPCODE_SWITCH:
+                if (profActive)
+                {
+                    g_ProfChrMatrixBodyRelationCalls++;
+                    profTime = osGetCount();
+                }
                 modelApplyToggleRelations(model, node);
+                if (profActive)
+                {
+                    g_ProfChrMatrixBodyRelationCycles += osGetCount() - profTime;
+                }
                 break;
 
             case MODELNODE_OPCODE_HEAD:
+                if (profActive)
+                {
+                    g_ProfChrMatrixBodyRelationCalls++;
+                    profTime = osGetCount();
+                }
                 modelApplyHeadRelations(model, node);
+                if (profActive)
+                {
+                    g_ProfChrMatrixBodyRelationCycles += osGetCount() - profTime;
+                }
                 break;
 
             case MODELNODE_OPCODE_DLCOLLISION:
