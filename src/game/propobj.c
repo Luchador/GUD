@@ -167,7 +167,6 @@ struct tvcmd {
 s32 updateDoorDisplacement(DoorRecord* door);
 s32 objGetShotsTaken(ObjectRecord *);
 void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool translucentPass);
-bool chrobjSeparatingAxisTheorem(rect4f* rect1, s32 numvertices0, rect4f* rect2, s32 numvertices1);
 void chrobjSndCreatePostEvent(ALSoundState *state, coord3d *pos, f32 low, f32 high);
 void remove_obj_from_temp_proxmine_table(WeaponObjRecord* proxy);
 void add_obj_to_temp_proxmine_table(WeaponObjRecord* proxy);
@@ -3506,15 +3505,15 @@ void sub_GAME_7F0442DC(PropRecord* prop)
  */
 bool chrobjSeparatingAxisTheorem(rect4f* rect1, s32 numvertices0, rect4f* rect2, s32 numvertices1)
 {
-    f32 diff2;
-    f32 diff1;
+    f64 diff2;
+    f64 diff1;
     s32 j;
     s32 k;
     s32 next;
     s32 i;
-    f32 sum3;
-    f32 sum2;
-    f32 sum1;
+    f64 sum3;
+    f64 sum2;
+    f64 sum1;
     coord3d tmp;
 
     for (i = 0; i < numvertices0; i++)
