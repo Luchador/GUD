@@ -18,7 +18,7 @@ typedef struct SkyBoxRecord
     u8 Green;
     u8 Blue;
     u8 Clouds;
-    f32 CloudRepeat;
+    f32 SkyHeight;
     s16 SkyImageId;
     u16 Reserved;
     f32 CloudRed;
@@ -32,24 +32,21 @@ typedef struct SkyBoxRecord
     f32 WaterRed;
     f32 WaterGreen;
     f32 WaterBlue;
-    f32 WaterConcavity;
+    f32 HorizonYOffset; // Screen Y-offset for where cloud and water planes meet.
 } SkyBoxRecord;
 
 // Fog intensity
 typedef struct FogRecord
 {
-    /**
-     * Inverse NearFog
-    */
-    s32 DifferenceFromFarIntensity;
-    s32 FarIntensity;
+    s32 FogStart;
+    s32 FogEnd;
 } FogRecord;
 
 // Visibility distances and Z-Buffer accuriacy
 typedef struct VisibilityRecord
 {
-    f32 BlendMultiplier;
-    f32 FarFog;
+    f32 NearClipDistance;
+    f32 FarClipDistance;
     NearFogRecord Nfd;
     f32 MinVisrange;
     u32 Intensity;
@@ -60,13 +57,13 @@ typedef struct VisibilityRecord
 // Current Environment for rendering
 typedef struct CurrentEnvironmentRecord
 {
-    s32 DifferenceFromFarIntensity;
-    s32 FarIntensity;
+    s32 FogStart;
+    s32 FogEnd;
     u8 Red;
     u8 Green;
     u8 Blue;
     u8 Clouds;
-    f32 CloudRepeat; // canonically skyheight
+    f32 SkyHeight;
     s16 SkyImageId;
     u16 Reserved;
     f32 CloudRed;
@@ -74,13 +71,13 @@ typedef struct CurrentEnvironmentRecord
     f32 CloudBlue;
     u8 IsWater;
     u8 Padding[3];
-    f32 WaterRepeat; // canonically seaheight
+    f32 WaterRepeat;
     s16 WaterImageId;
     u16 Reserved2;
     f32 WaterRed;
     f32 WaterGreen;
     f32 WaterBlue;
-    f32 WaterConcavity;
+    f32 HorizonYOffset;
 } CurrentEnvironmentRecord;
 
 // Environment Record, Holds Visibility, Fog and Skybox
@@ -117,7 +114,7 @@ typedef struct EnvironmentFoglessRecord
     u8 Green;
     u8 Blue;
     u8 Clouds;
-    f32 CloudRepeat;
+    f32 SkyHeight;
     s16 SkyImageId;
     u16 Reserved;
     f32 CloudRed;
@@ -131,7 +128,7 @@ typedef struct EnvironmentFoglessRecord
     f32 WaterRed;
     f32 WaterGreen;
     f32 WaterBlue;
-    f32 WaterConcavity;
+    f32 HorizonYOffset;
 
     /** GUD: same per-level prop fade override as EnvironmentRecord. */
     f32 PropFadeStartPx;

@@ -45,7 +45,7 @@ extern f32 g_PropFadeEndPx;
 #define CHRFADE_END_PX   10.0f
 #define CHRFADE_DIAMETER 200.0f
 
-#define CHR_LOD_DISTANCE_FACTOR 1.5f
+#define CHR_LOD_DISTANCE_FACTOR 1.2f
 
 // Begin forward declarations.
 

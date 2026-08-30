@@ -26,7 +26,7 @@ void skyGetWorldPosFromScreenPos(f32 offset_x, f32 offset_y, coord3d* out) {
     player_mtxf = currentPlayerGetViewToWorldMtxf();
     coords.x = getPlayer_c_screenleft() + offset_x;
     screen_top = getPlayer_c_screentop();
-    coords.y = envGetCurrent()->WaterConcavity + (offset_y + screen_top);
+    coords.y = envGetCurrent()->HorizonYOffset + (offset_y + screen_top);
     transformAndNormalizeByLength2Dto3D(&coords, out, 100.0f);
     mtx4RotateVecInPlace(player_mtxf, out->f);
 }
@@ -58,7 +58,7 @@ bool skyIsScreenCornerInSky(coord3d *corner3dpos, coord3d *dstpos, f32 *dstfrac)
 
     if (sp24 > 0.0f)
     {
-        sp2c = (envGetCurrent()->CloudRepeat - eye->y) / sp24;
+        sp2c = (envGetCurrent()->SkyHeight - eye->y) / sp24;
         f12_2 = sqrtf(corner3dpos->f[0] * corner3dpos->f[0] + corner3dpos->f[2] * corner3dpos->f[2]) * sp2c;
 
         if (f12_2 > 300000)
@@ -699,7 +699,7 @@ void skyProjectVertex(SkyRelated18 *arg0, Mtxf *arg1, u16 arg2, f32 arg3, f32 ar
     arg5->unk20 = sp60;
     arg5->unk24 = sp64;
     arg5->unk28 = sp38[0];
-    arg5->unk2c = sp38[1] - envGetCurrent()->WaterConcavity * 4.0f;
+    arg5->unk2c = sp38[1] - envGetCurrent()->HorizonYOffset * 4.0f;
     arg5->unk30 = sp38[2];
     arg5->unk34 = f22;
 
