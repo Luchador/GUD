@@ -604,11 +604,11 @@ void camSetPlayerFrozenCam(bool isFrozen)
 bool camIsPosInObjFadeDistance(coord3d *coord, f32 arg1)
 {
     bool result = TRUE;
-    NearFogRecord *nearFogRecord = envGetNearFogValues();
+    NearFogSettings *nearFogSettings = envGetNearFogValues();
     coord3d diff;
     f32 distSquared;
 
-    if (nearFogRecord != NULL)
+    if (nearFogSettings != NULL)
     {
         coord3d *campos = bondviewGetPlayerPosition();
         Mtxf *mtx = camGetWorldToScreenMtxf();
@@ -619,13 +619,14 @@ bool camIsPosInObjFadeDistance(coord3d *coord, f32 arg1)
 
         distSquared = diff.f[0] * mtx->m[0][0] + diff.f[1] * mtx->m[0][1] + diff.f[2] * mtx->m[0][2];
 
-        if (distSquared > nearFogRecord->MaxObfuscationRange)
+        if (distSquared > nearFogSettings->MaxObfuscationRange)
         {
             f32 scalez = getPlayer_c_lodscalez();
 
-            distSquared = ((distSquared - nearFogRecord->MaxObfuscationRange) * 100 / arg1 + nearFogRecord->MaxObfuscationRange) * scalez;
+            distSquared = ((distSquared - nearFogSettings->MaxObfuscationRange) * 100 / arg1
+                    + nearFogSettings->MaxObfuscationRange) * scalez;
 
-            if (distSquared >= nearFogRecord->MaxVisRange)
+            if (distSquared >= nearFogSettings->MaxVisRange)
             {
                 result = FALSE;
             }

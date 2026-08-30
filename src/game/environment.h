@@ -5,14 +5,13 @@
 #include <bondtypes.h>
 
 
-typedef struct NearFogRecord {
+typedef struct NearFogSettings {
     f32 NearFog;
     f32 MaxVisRange;
     f32 MaxObfuscationRange;
-} NearFogRecord;
+} NearFogSettings;
 
-// Skybox and Water Plane
-typedef struct SkyBoxRecord
+typedef struct SkySettings
 {
     u8 Red;
     u8 Green;
@@ -26,120 +25,57 @@ typedef struct SkyBoxRecord
     f32 CloudBlue;
     u8 IsWater;
     u8 Padding[3];
-    f32 WaterRepeat;
+    f32 WaterHeight;
     s16 WaterImageId;
     u16 Reserved2;
     f32 WaterRed;
     f32 WaterGreen;
     f32 WaterBlue;
     f32 HorizonYOffset; // Screen Y-offset for where cloud and water planes meet.
-} SkyBoxRecord;
+} SkySettings;
 
-// Fog intensity
-typedef struct FogRecord
-{
-    s32 FogStart;
-    s32 FogEnd;
-} FogRecord;
-
-// Visibility distances and Z-Buffer accuriacy
-typedef struct VisibilityRecord
+typedef struct EnvironmentVisibilitySettings
 {
     f32 NearClipDistance;
     f32 FarClipDistance;
-    NearFogRecord Nfd;
-    f32 MinVisrange;
+    NearFogSettings NearFog;
+    f32 MinVisRange;
     u32 Intensity;
-} VisibilityRecord;
-
-//Main Records
-
-// Current Environment for rendering
-typedef struct CurrentEnvironmentRecord
-{
     s32 FogStart;
     s32 FogEnd;
-    u8 Red;
-    u8 Green;
-    u8 Blue;
-    u8 Clouds;
-    f32 SkyHeight;
-    s16 SkyImageId;
-    u16 Reserved;
-    f32 CloudRed;
-    f32 CloudGreen;
-    f32 CloudBlue;
-    u8 IsWater;
-    u8 Padding[3];
-    f32 WaterRepeat;
-    s16 WaterImageId;
-    u16 Reserved2;
-    f32 WaterRed;
-    f32 WaterGreen;
-    f32 WaterBlue;
-    f32 HorizonYOffset;
-} CurrentEnvironmentRecord;
+} EnvironmentVisibilitySettings;
 
-// Environment Record, Holds Visibility, Fog and Skybox
+typedef struct PropVisibilitySettings
+{
+    f32 FadeStartPx;
+    f32 FadeEndPx;
+} PropVisibilitySettings;
+
 typedef struct EnvironmentRecord
 {
     /**
      * ID = StageID + Token eg, Bunker Cinema is 9 + 900 = 909
-    */
+     */
     u32 Id;
-    VisibilityRecord Visibility;
-    FogRecord Fog;
-    SkyBoxRecord Sky;
+    bool FogEnabled;
+    EnvironmentVisibilitySettings Visibility;
+    SkySettings Sky;
 
     /**
      * GUD: New per-level screen-size prop fade override, applied to characters
      * and objects alike. See chrCalcScreenFadeAlpha and objCalcScreenFadeAlpha.
-     * 0 = engine defaults. Negative PropFadeStartPx = fade disabled on this
-     * level. When overriding, PropFadeEndPx must be less than PropFadeStartPx.
+     * 0 = engine defaults. Negative FadeStartPx disables fading on this level.
+     * When overriding, FadeEndPx must be less than FadeStartPx.
      * Rows that end before these fields zero-fill, so untouched levels keep
      * the defaults.
      */
-    f32 PropFadeStartPx;
-    f32 PropFadeEndPx;
+    PropVisibilitySettings PropVisibility;
 } EnvironmentRecord;
 
-// Environment Record, Holds only Skybox
-typedef struct EnvironmentFoglessRecord
-{
-    /**
-     * ID = StageID + Token eg, Bunker Cinema is 9 + 900 = 909
-    */
-    u32 Id;
-    u8 Red;
-    u8 Green;
-    u8 Blue;
-    u8 Clouds;
-    f32 SkyHeight;
-    s16 SkyImageId;
-    u16 Reserved;
-    f32 CloudRed;
-    f32 CloudGreen;
-    f32 CloudBlue;
-    u8 IsWater;
-    u8 padding[3]; // This always exists whether declared or not due to compiler byte alignment.
-    f32 WaterRepeat;
-    s16 WaterImageId;
-    u16 Reserved2;
-    f32 WaterRed;
-    f32 WaterGreen;
-    f32 WaterBlue;
-    f32 HorizonYOffset;
-
-    /** GUD: same per-level prop fade override as EnvironmentRecord. */
-    f32 PropFadeStartPx;
-    f32 PropFadeEndPx;
-} EnvironmentFoglessRecord;
-
-extern s32 g_FogSkyIsEnabled;
 extern f32 g_PropFadeStartPx;
 extern f32 g_PropFadeEndPx;
 
-struct CurrentEnvironmentRecord *envGetCurrent(void);
+EnvironmentRecord *envGetCurrent(void);
 f32 envGetScaledFarFogIntensitySquared(void);
 void envLoadLevelEnvironment(s32 level_id, s32 arg1);
 s32 envPositionIsVisibleThroughFog(coord3d *pos, f32 range);
@@ -147,6 +83,6 @@ Gfx *envSetRenderFogColor(Gfx *gdl);
 Gfx *envRenderClearFogMode(Gfx *gdl);
 s32 envGetPropDistColor(PropRecord *prop, struct rgba_f32 *color);
 void envSwitchToSoloSky2(f32 transitionTime);
-struct NearFogRecord *envGetNearFogValues(void);
+NearFogSettings *envGetNearFogValues(void);
 
 #endif

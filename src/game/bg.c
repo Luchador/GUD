@@ -2047,7 +2047,7 @@ void bgLoadRoomModelData(s32 roomID)
     }
 
     // Same branches, only the LUT parameter changes
-    if (g_FogSkyIsEnabled)
+    if (envGetCurrent()->FogEnabled)
     {
         bgApplyDynamicCCRMLUT(
             g_BgRoomInfo[roomID].primaryGdl,

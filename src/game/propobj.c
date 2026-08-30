@@ -12984,7 +12984,7 @@ s32 getPropCombinedRoomsBBox2D(PropRecord *prop, bbox2d *bbox)
 f32 chrobjFogVisRangeRelated(PropRecord *prop, f32 size)
 {
     f32 ret;
-    struct NearFogRecord *nfd;
+    NearFogSettings *nfd;
 
     f32 temp_f12;
 

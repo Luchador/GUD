@@ -8,11 +8,6 @@
 #include "environment.h"
 
 
-// Fade optimization definitions.
-#define ENVFADE_START_PX 12.5f
-#define ENVFADE_END_PX   10.0f
-#define ENVFADE_DIAMETER 200.0f
-
 /** 
  * GUD: per-level screen-size prop fade: 0/0 = engine defaults, negative
  * start = disabled. Cached here at environment load, and on sky/alt fog transitions.
@@ -20,10 +15,9 @@
 f32 g_PropFadeStartPx = 0.0f;
 f32 g_PropFadeEndPx = 0.0f;
 
-s32 g_FogSkyIsEnabled;
-NearFogRecord *g_NearFogValuesP;
+static NearFogSettings *g_NearFogValuesP;
 
-struct FogDetails
+static struct FogDetails
 {
     f32 g_CurFogDetails;
     f32 scaled_far_fog_dist;
@@ -33,112 +27,93 @@ struct FogDetails
     f32 near_fog_dist_scaled;
 } g_CurFogDetails;
 
-f32 g_FarFogIntensity;
-f32 g_DifferenceFromFarFogIntensity;
-EnvironmentRecord *g_EnvironmentFoundp;
-EnvironmentRecord * g_EnvironmentMainp;
-EnvironmentRecord * g_EnvironmentAltp;
+static f32 g_FarFogIntensity;
+static f32 g_DifferenceFromFarFogIntensity;
+static EnvironmentRecord *g_MainEnvironment;
+static EnvironmentRecord *g_AlternateEnvironment;
 
-f32 g_ScaledFarFogIntensity = FLT_MAX;
-f32 g_ScaledDifferenceFromFarFogIntensity = 0.0;
+static f32 g_ScaledFarFogIntensity = FLT_MAX;
+static f32 g_ScaledDifferenceFromFarFogIntensity = 0.0;
 
-CurrentEnvironmentRecord g_CurrentEnvironment = {
-    0x384, // s32 FogStart;
-    0x3e8, // u32 FogEnd;
-        0,     // u8  Red;
-        0,     // u8  Green;
-        0,     // u8  Blue;
-        0,     // u8  Clouds;
-        0.0f,  // f32 SkyHeight;
-        0,     // s16 SkyImageId;
+static EnvironmentRecord g_CurrentEnvironment = {
+    ENVIRONMENTDATA_END,
+    TRUE,
+    {
+        15.0f,
+        10000.0f,
+        {0.0f, 0.0f, 0.0f},
+        0.0f,
         0,
-        0.0f,  // f32 CloudRed;
-        0.0f,  // f32 CloudGreen;
-        0.0f,  // f32 CloudBlue;
-        0,     // u8  IsWater;
-        0,0,0,
-        0.0f,  // f32 WaterRepeat;
-        0,     // s16 WaterImageId;
-        0,
-        0.0f,  // f32 WaterRed;
-        0.0f,  // f32 WaterGreen;
-        0.0f,  // f32 WaterBlue;
-        0.0f  // f32 HorizonYOffset;
+        0x384,
+        0x3e8,
+    },
+    {0},
+    {0.0f, 0.0f},
 };
 
 /**
- * GUD: The last two members define the number of screen pixels where chrs and objects should begin fade-out, and where fade-out should end, stopping the prop from rendering completely.
+ * Fogged and fogless stages use the same record shape. Fogless rows carry the
+ * standard 15/10000 clipping range and skip only the fog calculations.
  */
-EnvironmentRecord g_EnvTable[] = {
-     //stageID                              blendmultiplier    farfog    nearfog  mvisrng  mobfnrng  mnvisrng   intensity  dif_ght  far_alight    red     green     blue    clouds   cloudrept skyimid reserved  cloudred   green    blue   iswater  padding[3]  waterrepeat  waterid reserved2   water red,green,blue    horizonyoffset    propStartFade       propEndFade
-    {LEVELID_STATUE                             ,        15,      3500,    2000,     2500,    2000,        0,      0x3E7,    0x3E4,    0x3E8,       0,       0,       8,        1,      5000,    0,        0,        170,    100,     40,        0,    0,0,0,         -1000,       0,        0,        0,     0,    0,    30.0 ,            20.0f,              15.0f},
-    {LEVELID_CONTROL                            ,        10,     10000,    2500,     5000,     800,        0,      0x3E7,    0x3E4,    0x3E8,       0,       0,       0,        0,         0,    0,        0,          0,      0,      0,        0,    0,0,0,             0,       0,        0,        0,     0,    0,     0.0 ,            16.0f,              13.0f},
-    {LEVELID_ARCHIVES                           ,        10,      3000,    2000,     3000,     500,        0,      0x3E7,    0x3E4,    0x3E8,       0,       0,       0,        1,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -1000,       0,        0,        0,     0,    0,     0.0 ,            26.0f,              23.0f},
-    {LEVELID_TRAIN                              ,        10,      1500,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,       0,       0,       8,        1,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,             0,       1,        0,        0,   255,  255,    25.0 },
-    {LEVELID_TRAIN + ENVIRONMENTDATA_ALT        ,        20,     15000,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,       0,       0,       8,        1,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,             0,       1,        0,        0,   255,  255,    25.0 },
-    {LEVELID_STREETS                            ,        10,      7500,    5000,     6000,    1000,        0,      0x3E7,    0x3E4,    0x3E8,    0x10,    0x18,    0x20,        1,      5000,    0,        0,        225,    175,    100,        0,    0,0,0,         -1000,       0,        0,        0,     0,    0,    25.0 ,            15.0f,              12.0f},
-    {LEVELID_DEPOT                              ,        10,      3000,    1600,     2000,     800,        0,      0x3E7,    0x3E4,    0x3E8,       0,       0,       8,        1,      7500,    0,        0,         70,    199,    186,        0,    0,0,0,         -1000,       1,        0,        0,   255,  255,    25.0 ,            22.0f,              19.0f},
-    {LEVELID_COMPLEX                            ,        10,      5000,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,    0x28,       0,       0,        1,     10000,    0,        0,        220,      0,     20,        0,    0,0,0,             0,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_DAM                                ,         5,     15000,    3333,     4444,     600,        0,      0x3E7,    0x3E3,    0x3E8,    0x10,    0x30,    0x60,        1,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -1000,       0,        0,        0,     0,    0,     0.0 ,            13.0f,              11.0f},
-    {LEVELID_DAM + ENVIRONMENTDATA_CINEMA       ,        30,     15000,    3333,     4444,     600,        0,      0x3E7,    0x3E3,    0x3E8,    0x10,    0x30,    0x60,        1,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -1000,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_FACILITY                           ,        10,      5000,       0,        0,       0,        0,      0x3E7,    0x3DE,    0x3E8,    0x10,    0x20,    0x10,        0,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -1000,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_FACILITY + ENVIRONMENTDATA_ALT     ,        10,      1000,       0,        0,       0,        0,      0x3E7,    0x3DE,    0x3E8,    0x40,    0x80,    0x40,        0,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,             0,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_RUNWAY                             ,        10,     15000,    6000,     8000,     800,        0,      0x3E7,    0x3E4,    0x3E8,    0x10,    0x30,    0x40,        1,      5000,    0,        0,         25,     25,     25,        0,    0,0,0,         -1000,       0,        0,        0,     0,    0,     0.0 ,            11.0f,               9.0f},
-    {LEVELID_SURFACE                            ,         2,      2500,    4444,     5555,     800,        0,      0x3E7,    0x3E4,    0x3E8,    0x60,    0x60,    0x80,        1,     10000,    0,        0,        240,    120,    30,         0,    0,0,0,             0,       1,        0,        0,   255,  255,     7.0 ,            9.0f,                7.0f},
-    {LEVELID_JUNGLE                             ,        10,      2500,    1500,     2500,    1000,        0,      0x3E7,    0x3E4,    0x3E8,    0x18,    0x20,       0,        0,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,             0,       0,        0,        0,     0,    0,     0.0 ,            25.0f,               23.0f},
-    {LEVELID_TEMPLE                             ,        10,      6000,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,    0x18,    0x18,    0x28,        1,     10000,    0,        0,        160,    160,    190,        0,    0,0,0,          -500,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_CAVERNS                            ,        10,      6000,       0,        0,       0,        0,      0x3E7,    0x3E1,    0x3E8,       8,       0,       8,        0,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -3000,       1,        0,        0,   255,  255,     0.0 },
-    {LEVELID_CRADLE                             ,        10,      9500,    3333,     4444,     800,        0,      0x3E7,    0x3E4,    0x3E8,    0x60,    0x80,    0xA0,        1,      5000,    0,        0,        255,    255,      0,        0,    0,0,0,        -10000,       1,        0,        0,   255,  255,     0.0 },
-    {LEVELID_SURFACE2                           ,         2,      2000,    2500,     3055,     750,        0,      0x3E7,    0x3BD,    0x3E8,    0x20,    0x10,    0x10,        1,      5000,    0,        0,         58,     17,      0,        0,    0,0,0,         -1000,       1,        0,        0,   255,  255,    20.0 },
-    {LEVELID_SURFACE2 + ENVIRONMENTDATA_CINEMA  ,         2,      8000,    6000,     8000,     800,        0,      0x3E7,    0x3DF,    0x3E8,    0x20,    0x10,    0x10,        1,      5000,    0,        0,         58,     17,      0,        0,    0,0,0,         -1000,       1,        0,        0,   255,  255,     0.0 },
-    {LEVELID_BUNKER2                            ,        10,     10000,    1000,    15000,     750,        0,      0x3E7,    0x3E4,    0x41A,    0x10,       0,       0,        1,      5000,    0,        0,         58,     17,      0,        0,    0,0,0,         -1000,       1,        0,        0,   255,  255,     0.0 },
-    {LEVELID_BUNKER1 + ENVIRONMENTDATA_PLAYERS_2,        10,      2500,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,    0x80,    0x78,    0x70,        0,         0,    0,        0,        130,    120,    110,        0,    0,0,0,             0,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_BUNKER1 + ENVIRONMENTDATA_PLAYERS_3,        10,      2000,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,    0x80,    0x78,    0x70,        0,         0,    0,        0,        130,    120,    110,        0,    0,0,0,             0,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_BUNKER1 + ENVIRONMENTDATA_PLAYERS_4,        10,      1500,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,    0x80,    0x78,    0x70,        0,         0,    0,        0,        130,    120,    110,        0,    0,0,0,             0,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_CRADLE + ENVIRONMENTDATA_PLAYERS_2 ,        10,      7000,    3333,     4444,     800,        0,      0x3E7,    0x3E4,    0x3E8,    0x60,    0x80,    0xA0,        1,      5000,    0,        0,        255,    255,      0,        0,    0,0,0,        -10000,       1,        0,        0,   255,  255,     0.0 },
-    {LEVELID_CRADLE + ENVIRONMENTDATA_PLAYERS_3 ,        10,      5500,    3333,     4444,     800,        0,      0x3E7,    0x3E4,    0x3E8,    0x60,    0x80,    0xA0,        1,      5000,    0,        0,        255,    255,      0,        0,    0,0,0,        -10000,       1,        0,        0,   255,  255,     0.0 },
-    {LEVELID_CRADLE + ENVIRONMENTDATA_PLAYERS_4 ,        10,      4000,    3333,     4444,     800,        0,      0x3E7,    0x3E4,    0x3E8,    0x60,    0x80,    0xA0,        1,      5000,    0,        0,        255,    255,      0,        0,    0,0,0,        -10000,       1,        0,        0,   255,  255,     0.0 },
-    {LEVELID_TEMPLE + ENVIRONMENTDATA_PLAYERS_2 ,        10,      6000,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,    0x18,    0x18,    0x18,        1,     10000,    0,        0,        120,    120,    120,        0,    0,0,0,          -500,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_TEMPLE + ENVIRONMENTDATA_PLAYERS_3 ,        10,      6000,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,    0x18,    0x18,    0x18,        1,     10000,    0,        0,        120,    120,    120,        0,    0,0,0,          -500,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_TEMPLE + ENVIRONMENTDATA_PLAYERS_4 ,        10,      6000,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,    0x18,    0x18,    0x18,        1,     10000,    0,        0,        120,    120,    120,        0,    0,0,0,          -500,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_CAVERNS + ENVIRONMENTDATA_PLAYERS_2,        10,      7500,       0,        0,       0,        0,      0x3E7,    0x3E1,    0x3E8,       8,       0,       8,        0,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -3000,       1,        0,        0,   255,  255,     0.0 },
-    {LEVELID_CAVERNS + ENVIRONMENTDATA_PLAYERS_3,        10,      6000,       0,        0,       0,        0,      0x3E7,    0x3E1,    0x3E8,       8,       0,       8,        0,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -3000,       1,        0,        0,   255,  255,     0.0 },
-    {LEVELID_CAVERNS + ENVIRONMENTDATA_PLAYERS_4,        10,      5000,       0,        0,       0,        0,      0x3E7,    0x3E1,    0x3E8,       8,       0,       8,        0,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -3000,       1,        0,        0,   255,  255,     0.0 },
-    {LEVELID_DEFAULT + ENVIRONMENTDATA_PLAYERS_2,        10,      7500,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,       0,       0,       0,        0,         0,    0,        0,          0,      0,      0,        0,    0,0,0,             0,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_DEFAULT + ENVIRONMENTDATA_PLAYERS_3,        10,      6000,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,       0,       0,       0,        0,         0,    0,        0,          0,      0,      0,        0,    0,0,0,             0,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_DEFAULT + ENVIRONMENTDATA_PLAYERS_4,        10,      5000,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,       0,       0,       0,        0,         0,    0,        0,          0,      0,      0,        0,    0,0,0,             0,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_CITADEL                            ,        10,     20000,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,    0x18,    0x50,    0x38,        1,      5000,    0,        0,        255,    108,      0,        0,    0,0,0,         -1000,       1,        0,        0,   255,  255,     0.0 },
-    {LEVELID_CITADEL + ENVIRONMENTDATA_PLAYERS_2,        10,     20000,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,    0x18,    0x50,    0x38,        1,      5000,    0,        0,        255,    108,      0,        0,    0,0,0,         -1000,       1,        0,        0,   255,  255,     0.0 },
-    {LEVELID_CITADEL + ENVIRONMENTDATA_PLAYERS_3,        10,     20000,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,    0x18,    0x50,    0x38,        1,      5000,    0,        0,        255,    108,      0,        0,    0,0,0,         -1000,       1,        0,        0,   255,  255,     0.0 },
-    {LEVELID_CITADEL + ENVIRONMENTDATA_PLAYERS_4,        10,     20000,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,    0x18,    0x50,    0x38,        1,      5000,    0,        0,        255,    108,      0,        0,    0,0,0,         -1000,       1,        0,        0,   255,  255,     0.0 },
-    {LEVELID_COMPLEX + ENVIRONMENTDATA_PLAYERS_2,        10,      5000,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,    0x28,       0,       0,        1,     10000,    0,        0,        220,      0,     20,        0,    0,0,0,             0,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_COMPLEX + ENVIRONMENTDATA_PLAYERS_3,        10,      5000,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,    0x28,       0,       0,        1,     10000,    0,        0,        220,      0,     20,        0,    0,0,0,             0,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_COMPLEX + ENVIRONMENTDATA_PLAYERS_4,        10,      5000,       0,        0,       0,        0,      0x3E7,    0x3E4,    0x3E8,    0x28,       0,       0,        1,     10000,    0,        0,        220,      0,     20,        0,    0,0,0,             0,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_AZTEC                              ,        10,     15000,    3000,     4000,     600,        0,      0x3E7,    0x3E4,    0x3E8,       0,       0,       0,        1,      7500,    0,        0,         83,     72,     65,        0,    0,0,0,         -5000,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_AZTEC + ENVIRONMENTDATA_ALT        ,        30,     15000,    3000,     4000,     600,        0,      0x3E7,    0x3E4,    0x3E8,       0,       0,       0,        1,      7500,    0,        0,         83,     72,     65,        0,    0,0,0,         -5000,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_EGYPT                              ,        10,     20000,    3000,     4000,     600,        0,      0x3E7,    0x3E4,    0x3E8,    0x10,    0x30,    0x60,        1,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -5000,       0,        0,        0,     0,    0,     0.0 },
-    {LEVELID_EGYPT + ENVIRONMENTDATA_ALT        ,        10,     10000,    3000,     4000,     600,        0,      0x3E7,    0x3CC,    0x3E8,       0,       0,       0,        1,      7500,    0,        0,         83,     10,     10,        0,    0,0,0,         -5000,       0,        0,        0,     0,    0,     0.0 },
-    {ENVIRONMENTDATA_END},
-};
-
-EnvironmentFoglessRecord g_EnvTable2[] = {
-    // stage ID          Red      Green    Blue     Clouds    Cloudrepeat    SkyImgID  Res.      CloudRed      CloudGreen    CloudBlue     IsWater                                 WaterRepeat    WImgID    Res2.    WRed          WGreen        WBlue         HorizonYOffset      propStartFade     propEndFade
-    {LEVELID_NONE   ,    0,       0x10,    0x40,    0,        5000.0,        0,        0,        255.0,        255.0,        255.0,        0,        0,        0,        0,           0.0,        0,        0,          0.0,          0.0,          0.0,        0.0},
-    {LEVELID_SILO   ,    0,       0x10,    0x60,    1,        5000.0,        0,        0,        231.0,        216.0,        237.0,        0,        0,        0,        0,           0.0,        0,        0,          0.0,          0.0,          0.0,        0.0,                24.0f,           22.0f},
-    {LEVELID_FRIGATE,    0x10,    0x30,    0x60,    1,        3000.0,        0,        0,        230.0,        230.0,        230.0,        1,        0,        0,        0,        -150.0,        2,        0,        255.0,        255.0,        150.0,        0.0},
-    {LEVELID_CUBA   ,    0x30,    0x40,    0x10,    0,        5000.0,        0,        0,        255.0,        255.0,        255.0,        0,        0,        0,        0,           0.0,        0,        0,          0.0,          0.0,          0.0,        0.0},
+static EnvironmentRecord g_EnvTable[] = {
+     //stageID                                           fogEnabled  nearclip  farclip   nearfog  maxvisrng  maxobfnrng  minvisrng  intensity  fogstart  fogend     red     green     blue    clouds   skyheight skyimid reserved  cloudred   green    blue   iswater  padding[3]  waterheight  waterid reserved2   water         red,    green,   blue    horizonyoffset    propStartFade       propEndFade
+    {LEVELID_STATUE                             ,        TRUE,        15,      3500,     2000,     2500,    2000,        0,         0x3E7,    0x3E4,    0x3E8,       0,       0,       8,        1,      5000,    0,        0,        170,    100,     40,        0,    0,0,0,         -1000,       0,        0,        0,        0,      0,     30.0 ,            20.0f,              15.0f},
+    {LEVELID_CONTROL                            ,        TRUE,        10,     10000,     2500,     5000,     800,        0,         0x3E7,    0x3E4,    0x3E8,       0,       0,       0,        0,         0,    0,        0,          0,      0,      0,        0,    0,0,0,             0,       0,        0,        0,        0,      0,      0.0 ,            16.0f,              13.0f},
+    {LEVELID_ARCHIVES                           ,        TRUE,        10,      3000,     2000,     3000,     500,        0,         0x3E7,    0x3E4,    0x3E8,       0,       0,       0,        1,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -1000,       0,        0,        0,        0,      0,      0.0 ,            26.0f,              23.0f},
+    {LEVELID_TRAIN                              ,        TRUE,        10,      1500,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,       0,       0,       8,        1,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,             0,       1,        0,        0,      255,    255,     25.0 },
+    {LEVELID_TRAIN + ENVIRONMENTDATA_ALT        ,        TRUE,        20,     15000,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,       0,       0,       8,        1,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,             0,       1,        0,        0,      255,    255,     25.0 },
+    {LEVELID_STREETS                            ,        TRUE,        10,      7500,     5000,     6000,    1000,        0,         0x3E7,    0x3E4,    0x3E8,    0x10,    0x18,    0x20,        1,      5000,    0,        0,        225,    175,    100,        0,    0,0,0,         -1000,       0,        0,        0,        0,      0,     25.0 ,            15.0f,              12.0f},
+    {LEVELID_DEPOT                              ,        TRUE,        10,      3000,     1600,     2000,     800,        0,         0x3E7,    0x3E4,    0x3E8,       0,       0,       8,        1,      7500,    0,        0,         70,    199,    186,        0,    0,0,0,         -1000,       1,        0,        0,      255,    255,     25.0 ,            22.0f,              19.0f},
+    {LEVELID_COMPLEX                            ,        TRUE,        10,      5000,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,    0x28,       0,       0,        1,     10000,    0,        0,        220,      0,     20,        0,    0,0,0,             0,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_DAM                                ,        TRUE,         5,     15000,     3333,     4444,     600,        0,         0x3E7,    0x3E3,    0x3E8,    0x10,    0x30,    0x60,        1,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -1000,       0,        0,        0,        0,      0,      0.0 ,            13.0f,              11.0f},
+    {LEVELID_DAM + ENVIRONMENTDATA_CINEMA       ,        TRUE,        30,     15000,     3333,     4444,     600,        0,         0x3E7,    0x3E3,    0x3E8,    0x10,    0x30,    0x60,        1,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -1000,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_FACILITY                           ,        TRUE,        10,      5000,        0,        0,       0,        0,         0x3E7,    0x3DE,    0x3E8,    0x10,    0x20,    0x10,        0,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -1000,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_FACILITY + ENVIRONMENTDATA_ALT     ,        TRUE,        10,      1000,        0,        0,       0,        0,         0x3E7,    0x3DE,    0x3E8,    0x40,    0x80,    0x40,        0,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,             0,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_RUNWAY                             ,        TRUE,        10,     15000,     6000,     8000,     800,        0,         0x3E7,    0x3E4,    0x3E8,    0x10,    0x30,    0x40,        1,      5000,    0,        0,         25,     25,     25,        0,    0,0,0,         -1000,       0,        0,        0,        0,      0,      0.0 ,            11.0f,               9.0f},
+    {LEVELID_SURFACE                            ,        TRUE,         2,      2000,     4444,     5555,     800,        0,         0x3E7,    0x3E4,    0x3E8,    0x60,    0x60,    0x80,        1,     10000,    0,        0,        240,    120,    30,         0,    0,0,0,             0,       1,        0,        0,      255,    255,      7.0 ,            9.0f,                7.0f},
+    {LEVELID_JUNGLE                             ,        TRUE,        10,      2500,     1500,     2500,    1000,        0,         0x3E7,    0x3E4,    0x3E8,    0x18,    0x20,       0,        0,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,             0,       0,        0,        0,        0,      0,      0.0 ,            25.0f,               23.0f},
+    {LEVELID_TEMPLE                             ,        TRUE,        10,      6000,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,    0x18,    0x18,    0x28,        1,     10000,    0,        0,        160,    160,    190,        0,    0,0,0,          -500,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_CAVERNS                            ,        TRUE,        10,      6000,        0,        0,       0,        0,         0x3E7,    0x3E1,    0x3E8,       8,       0,       8,        0,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -3000,       1,        0,        0,      255,    255,      0.0 },
+    {LEVELID_CRADLE                             ,        TRUE,        10,      9500,     3333,     4444,     800,        0,         0x3E7,    0x3E4,    0x3E8,    0x60,    0x80,    0xA0,        1,      5000,    0,        0,        255,    255,      0,        0,    0,0,0,        -10000,       1,        0,        0,      255,    255,      0.0 },
+    {LEVELID_SURFACE2                           ,        TRUE,         2,      2000,     2500,     3055,     750,        0,         0x3E7,    0x3BD,    0x3E8,    0x20,    0x10,    0x10,        1,      5000,    0,        0,         58,     17,      0,        0,    0,0,0,         -1000,       1,        0,        0,      255,    255,     20.0 },
+    {LEVELID_SURFACE2 + ENVIRONMENTDATA_CINEMA  ,        TRUE,         2,      8000,     6000,     8000,     800,        0,         0x3E7,    0x3DF,    0x3E8,    0x20,    0x10,    0x10,        1,      5000,    0,        0,         58,     17,      0,        0,    0,0,0,         -1000,       1,        0,        0,      255,    255,      0.0 },
+    {LEVELID_BUNKER2                            ,        TRUE,        10,     10000,     1000,    15000,     750,        0,         0x3E7,    0x3E4,    0x41A,    0x10,       0,       0,        1,      5000,    0,        0,         58,     17,      0,        0,    0,0,0,         -1000,       1,        0,        0,      255,    255,      0.0 },
+    {LEVELID_BUNKER1 + ENVIRONMENTDATA_PLAYERS_2,        TRUE,        10,      2500,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,    0x80,    0x78,    0x70,        0,         0,    0,        0,        130,    120,    110,        0,    0,0,0,             0,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_BUNKER1 + ENVIRONMENTDATA_PLAYERS_3,        TRUE,        10,      2000,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,    0x80,    0x78,    0x70,        0,         0,    0,        0,        130,    120,    110,        0,    0,0,0,             0,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_BUNKER1 + ENVIRONMENTDATA_PLAYERS_4,        TRUE,        10,      1500,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,    0x80,    0x78,    0x70,        0,         0,    0,        0,        130,    120,    110,        0,    0,0,0,             0,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_CRADLE + ENVIRONMENTDATA_PLAYERS_2 ,        TRUE,        10,      7000,     3333,     4444,     800,        0,         0x3E7,    0x3E4,    0x3E8,    0x60,    0x80,    0xA0,        1,      5000,    0,        0,        255,    255,      0,        0,    0,0,0,        -10000,       1,        0,        0,      255,    255,      0.0 },
+    {LEVELID_CRADLE + ENVIRONMENTDATA_PLAYERS_3 ,        TRUE,        10,      5500,     3333,     4444,     800,        0,         0x3E7,    0x3E4,    0x3E8,    0x60,    0x80,    0xA0,        1,      5000,    0,        0,        255,    255,      0,        0,    0,0,0,        -10000,       1,        0,        0,      255,    255,      0.0 },
+    {LEVELID_CRADLE + ENVIRONMENTDATA_PLAYERS_4 ,        TRUE,        10,      4000,     3333,     4444,     800,        0,         0x3E7,    0x3E4,    0x3E8,    0x60,    0x80,    0xA0,        1,      5000,    0,        0,        255,    255,      0,        0,    0,0,0,        -10000,       1,        0,        0,      255,    255,      0.0 },
+    {LEVELID_TEMPLE + ENVIRONMENTDATA_PLAYERS_2 ,        TRUE,        10,      6000,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,    0x18,    0x18,    0x18,        1,     10000,    0,        0,        120,    120,    120,        0,    0,0,0,          -500,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_TEMPLE + ENVIRONMENTDATA_PLAYERS_3 ,        TRUE,        10,      6000,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,    0x18,    0x18,    0x18,        1,     10000,    0,        0,        120,    120,    120,        0,    0,0,0,          -500,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_TEMPLE + ENVIRONMENTDATA_PLAYERS_4 ,        TRUE,        10,      6000,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,    0x18,    0x18,    0x18,        1,     10000,    0,        0,        120,    120,    120,        0,    0,0,0,          -500,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_CAVERNS + ENVIRONMENTDATA_PLAYERS_2,        TRUE,        10,      7500,        0,        0,       0,        0,         0x3E7,    0x3E1,    0x3E8,       8,       0,       8,        0,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -3000,       1,        0,        0,      255,    255,      0.0 },
+    {LEVELID_CAVERNS + ENVIRONMENTDATA_PLAYERS_3,        TRUE,        10,      6000,        0,        0,       0,        0,         0x3E7,    0x3E1,    0x3E8,       8,       0,       8,        0,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -3000,       1,        0,        0,      255,    255,      0.0 },
+    {LEVELID_CAVERNS + ENVIRONMENTDATA_PLAYERS_4,        TRUE,        10,      5000,        0,        0,       0,        0,         0x3E7,    0x3E1,    0x3E8,       8,       0,       8,        0,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -3000,       1,        0,        0,      255,    255,      0.0 },
+    {LEVELID_DEFAULT + ENVIRONMENTDATA_PLAYERS_2,        TRUE,        10,      7500,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,       0,       0,       0,        0,         0,    0,        0,          0,      0,      0,        0,    0,0,0,             0,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_DEFAULT + ENVIRONMENTDATA_PLAYERS_3,        TRUE,        10,      6000,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,       0,       0,       0,        0,         0,    0,        0,          0,      0,      0,        0,    0,0,0,             0,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_DEFAULT + ENVIRONMENTDATA_PLAYERS_4,        TRUE,        10,      5000,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,       0,       0,       0,        0,         0,    0,        0,          0,      0,      0,        0,    0,0,0,             0,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_CITADEL                            ,        TRUE,        10,     20000,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,    0x18,    0x50,    0x38,        1,      5000,    0,        0,        255,    108,      0,        0,    0,0,0,         -1000,       1,        0,        0,      255,    255,      0.0 },
+    {LEVELID_CITADEL + ENVIRONMENTDATA_PLAYERS_2,        TRUE,        10,     20000,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,    0x18,    0x50,    0x38,        1,      5000,    0,        0,        255,    108,      0,        0,    0,0,0,         -1000,       1,        0,        0,      255,    255,      0.0 },
+    {LEVELID_CITADEL + ENVIRONMENTDATA_PLAYERS_3,        TRUE,        10,     20000,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,    0x18,    0x50,    0x38,        1,      5000,    0,        0,        255,    108,      0,        0,    0,0,0,         -1000,       1,        0,        0,      255,    255,      0.0 },
+    {LEVELID_CITADEL + ENVIRONMENTDATA_PLAYERS_4,        TRUE,        10,     20000,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,    0x18,    0x50,    0x38,        1,      5000,    0,        0,        255,    108,      0,        0,    0,0,0,         -1000,       1,        0,        0,      255,    255,      0.0 },
+    {LEVELID_COMPLEX + ENVIRONMENTDATA_PLAYERS_2,        TRUE,        10,      5000,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,    0x28,       0,       0,        1,     10000,    0,        0,        220,      0,     20,        0,    0,0,0,             0,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_COMPLEX + ENVIRONMENTDATA_PLAYERS_3,        TRUE,        10,      5000,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,    0x28,       0,       0,        1,     10000,    0,        0,        220,      0,     20,        0,    0,0,0,             0,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_COMPLEX + ENVIRONMENTDATA_PLAYERS_4,        TRUE,        10,      5000,        0,        0,       0,        0,         0x3E7,    0x3E4,    0x3E8,    0x28,       0,       0,        1,     10000,    0,        0,        220,      0,     20,        0,    0,0,0,             0,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_AZTEC                              ,        TRUE,        10,     15000,     3000,     4000,     600,        0,         0x3E7,    0x3E4,    0x3E8,       0,       0,       0,        1,      7500,    0,        0,         83,     72,     65,        0,    0,0,0,         -5000,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_AZTEC + ENVIRONMENTDATA_ALT        ,        TRUE,        30,     15000,     3000,     4000,     600,        0,         0x3E7,    0x3E4,    0x3E8,       0,       0,       0,        1,      7500,    0,        0,         83,     72,     65,        0,    0,0,0,         -5000,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_EGYPT                              ,        TRUE,        10,     20000,     3000,     4000,     600,        0,         0x3E7,    0x3E4,    0x3E8,    0x10,    0x30,    0x60,        1,      5000,    0,        0,        255,    255,    255,        0,    0,0,0,         -5000,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_EGYPT + ENVIRONMENTDATA_ALT        ,        TRUE,        10,     10000,     3000,     4000,     600,        0,         0x3E7,    0x3CC,    0x3E8,       0,       0,       0,        1,      7500,    0,        0,         83,     10,     10,        0,    0,0,0,         -5000,       0,        0,        0,        0,      0,      0.0 },
+    {LEVELID_NONE                               ,        FALSE,    {15.0f,    10000.0f, {0.0f,     0.0f,     0.0f},      0.0f,          0,        0,        0},     {0,    0x10,    0x40,        0,   5000.0f,    0,        0,     255.0f, 255.0f, 255.0f,        0,   {0, 0, 0},       0.0f,       0,        0,        0.0f,     0.0f,   0.0f,   0.0f},          {0.0f,           0.0f},},
+    {LEVELID_SILO                               ,        FALSE,    {15.0f,    10000.0f, {0.0f,     0.0f,     0.0f},      0.0f,          0,        0,        0},     {0,    0x10,    0x60,        1,   5000.0f,    0,        0,     231.0f, 216.0f, 237.0f,        0,   {0, 0, 0},       0.0f,       0,        0,        0.0f,     0.0f,   0.0f,   0.0f},          {24.0f,          22.0f},},
+    {LEVELID_FRIGATE                            ,        FALSE,    {15.0f,    10000.0f, {0.0f,     0.0f,     0.0f},      0.0f,          0,        0,        0},  {0x10,    0x30,    0x60,        1,   3000.0f,    0,        0,     230.0f, 230.0f, 230.0f,        1,   {0, 0, 0},    -150.0f,       2,        0,        255.0f, 255.0f, 150.0f,   0.0f},          {0.0f,           0.0f},},
+    {LEVELID_CUBA                               ,        FALSE,    {15.0f,    10000.0f, {0.0f,     0.0f,     0.0f},      0.0f,          0,        0,        0},  {0x30,    0x40,    0x10,        0,   5000.0f,    0,        0,     255.0f, 255.0f, 255.0f,        0,   {0, 0, 0},       0.0f,       0,        0,        0.0f,     0.0f,   0.0f,   0.0f},          {0.0f,           0.0f},
+    },
     {ENVIRONMENTDATA_END}
 };
 
-// Begin forward declarations.
 
-void envLoadCurrentEnvironment(EnvironmentRecord *arg0);
-void envLoadFoglessCurrentEnvironment(EnvironmentFoglessRecord *arg0);
-
-// End forward declarations.
-
-
-CurrentEnvironmentRecord *envGetCurrent(void)
+EnvironmentRecord *envGetCurrent(void)
 {
     return &g_CurrentEnvironment;
 }
@@ -150,7 +125,23 @@ f32 envGetScaledFarFogIntensitySquared(void)
 }
 
 
-void envLoadCurrentEnvironment(EnvironmentRecord *arg0)
+static EnvironmentRecord *envFindEnvironment(u32 id)
+{
+    EnvironmentRecord *record;
+
+    for (record = g_EnvTable; record->Id != ENVIRONMENTDATA_END; record++)
+    {
+        if (record->Id == id)
+        {
+            return record;
+        }
+    }
+
+    return NULL;
+}
+
+
+static void envLoadCurrentEnvironment(EnvironmentRecord *record)
 {
     f32 zrange[2];
     f32 pk0;
@@ -159,25 +150,36 @@ void envLoadCurrentEnvironment(EnvironmentRecord *arg0)
     f32 sp20;
     f32 sp1C;
 
-    g_PropFadeStartPx = arg0->PropFadeStartPx;
-    g_PropFadeEndPx = arg0->PropFadeEndPx;
+    g_CurrentEnvironment = *record;
+    g_PropFadeStartPx = record->PropVisibility.FadeStartPx;
+    g_PropFadeEndPx = record->PropVisibility.FadeEndPx;
 
-    viSetZRange(arg0->Visibility.NearClipDistance, arg0->Visibility.FarClipDistance);
+    viSetZRange(record->Visibility.NearClipDistance, record->Visibility.FarClipDistance);
     viGetZRange(&zrange);
+
+    if (!record->FogEnabled)
+    {
+        g_FarFogIntensity = 0.0f;
+        g_DifferenceFromFarFogIntensity = 0.0f;
+        g_ScaledFarFogIntensity = FLT_MAX;
+        g_ScaledDifferenceFromFarFogIntensity = 0.0f;
+        g_NearFogValuesP = NULL;
+        return;
+    }
 
     levelScale = bgGetLevelVisibilityScale();
     zrange[0] /= levelScale;
     zrange[1] /= levelScale;
 
-    g_DifferenceFromFarFogIntensity = ((f32) arg0->Fog.FogStart / 1000.0f);
-    g_FarFogIntensity = ((f32) arg0->Fog.FogEnd / 1000.0f);
+    g_DifferenceFromFarFogIntensity = (f32)record->Visibility.FogStart / 1000.0f;
+    g_FarFogIntensity = (f32)record->Visibility.FogEnd / 1000.0f;
 
     g_ScaledFarFogIntensity = ((zrange[1] - zrange[0]) *  g_FarFogIntensity) + zrange[0];
     g_ScaledDifferenceFromFarFogIntensity = ((zrange[1] - zrange[0]) * g_DifferenceFromFarFogIntensity) + zrange[0];
 
-    g_CurFogDetails.g_CurFogDetails = (arg0->Visibility.NearClipDistance / levelScale);
+    g_CurFogDetails.g_CurFogDetails = record->Visibility.NearClipDistance / levelScale;
     pk0 = g_CurFogDetails.g_CurFogDetails;
-    g_CurFogDetails.scaled_far_fog_dist = (arg0->Visibility.FarClipDistance / levelScale);
+    g_CurFogDetails.scaled_far_fog_dist = record->Visibility.FarClipDistance / levelScale;
     pk4 = g_CurFogDetails.scaled_far_fog_dist;
 
     // numerator is constant 128.0f
@@ -187,70 +189,21 @@ void envLoadCurrentEnvironment(EnvironmentRecord *arg0)
     g_CurFogDetails.far_fog_dist_scaled = ((pk4 * -sp20 * (pk0 + 1.0f)) / (pk4 - pk0)) / 255.0f;
     g_CurFogDetails.near_fog_dist_scaled = ((sp20 * (pk4 + 1.0f) / (pk4 - pk0)) + sp1C) / 255.0f;
 
-    g_CurrentEnvironment.FogStart = (s32) arg0->Fog.FogStart;
-    g_CurrentEnvironment.FogEnd = arg0->Fog.FogEnd;
-    g_CurrentEnvironment.Red = arg0->Sky.Red;
-    g_CurrentEnvironment.Green = arg0->Sky.Green;
-    g_CurrentEnvironment.Blue = arg0->Sky.Blue;
-    g_CurrentEnvironment.Clouds = arg0->Sky.Clouds;
-    g_CurrentEnvironment.SkyHeight = arg0->Sky.SkyHeight;
-    g_CurrentEnvironment.SkyImageId = (s16) arg0->Sky.SkyImageId;
-    g_CurrentEnvironment.CloudRed = arg0->Sky.CloudRed;
-    g_CurrentEnvironment.CloudGreen = arg0->Sky.CloudGreen;
-    g_CurrentEnvironment.CloudBlue = arg0->Sky.CloudBlue;
-    g_CurrentEnvironment.IsWater = arg0->Sky.IsWater;
-    g_CurrentEnvironment.WaterRepeat = arg0->Sky.WaterRepeat;
-    g_CurrentEnvironment.WaterImageId = (s16) arg0->Sky.WaterImageId;
-    g_CurrentEnvironment.WaterRed = arg0->Sky.WaterRed;
-    g_CurrentEnvironment.WaterGreen = arg0->Sky.WaterGreen;
-    g_CurrentEnvironment.WaterBlue = arg0->Sky.WaterBlue;
-    g_CurrentEnvironment.HorizonYOffset = arg0->Sky.HorizonYOffset;
-
-    if (arg0->Visibility.Nfd.NearFog == 0.0f)
+    if (record->Visibility.NearFog.NearFog == 0.0f)
     {
         g_NearFogValuesP = NULL;
     }
     else
     {
-        g_NearFogValuesP = &arg0->Visibility.Nfd;
+        g_NearFogValuesP = &g_CurrentEnvironment.Visibility.NearFog;
     }
-
-    g_FogSkyIsEnabled = 1;
 }
 
 
-void envLoadFoglessCurrentEnvironment(EnvironmentFoglessRecord *foglessRecord)
+void envLoadLevelEnvironment(s32 levelId, s32 useCinemaEnvironment)
 {
-    g_PropFadeStartPx = foglessRecord->PropFadeStartPx;
-    g_PropFadeEndPx = foglessRecord->PropFadeEndPx;
-
-    g_CurrentEnvironment.Red = foglessRecord->Red;
-    g_CurrentEnvironment.Green = foglessRecord->Green;
-    g_CurrentEnvironment.Blue = foglessRecord->Blue;
-    g_CurrentEnvironment.Clouds = foglessRecord->Clouds;
-    g_CurrentEnvironment.SkyHeight = foglessRecord->SkyHeight;
-    g_CurrentEnvironment.SkyImageId = foglessRecord->SkyImageId;
-    g_CurrentEnvironment.CloudRed = foglessRecord->CloudRed;
-    g_CurrentEnvironment.CloudGreen = foglessRecord->CloudGreen;
-    g_CurrentEnvironment.CloudBlue = foglessRecord->CloudBlue;
-    g_CurrentEnvironment.IsWater = foglessRecord->IsWater;
-    g_CurrentEnvironment.WaterRepeat = foglessRecord->WaterRepeat;
-    g_CurrentEnvironment.WaterImageId = foglessRecord->WaterImageId;
-    g_CurrentEnvironment.WaterRed = foglessRecord->WaterRed;
-    g_CurrentEnvironment.WaterGreen = foglessRecord->WaterGreen;
-    g_CurrentEnvironment.WaterBlue = foglessRecord->WaterBlue;
-    g_CurrentEnvironment.HorizonYOffset = foglessRecord->HorizonYOffset;
-}
-
-
-void envLoadLevelEnvironment(s32 level_id, s32 arg1)
-{
-    EnvironmentRecord *envRecord;
-    EnvironmentFoglessRecord *phi_v2;
-    EnvironmentFoglessRecord *sp1C;
+    EnvironmentRecord *record = NULL;
     s32 num_players;
-
-    sp1C = NULL;
 
     num_players = getPlayerCount();
 
@@ -259,75 +212,38 @@ void envLoadLevelEnvironment(s32 level_id, s32 arg1)
         num_players = 0;
     }
 
-    g_ScaledFarFogIntensity = FLT_MAX;
-    g_ScaledDifferenceFromFarFogIntensity = 0.0f;
-
-    if (arg1)
+    if (useCinemaEnvironment)
     {
-        for (envRecord = &g_EnvTable[0]; envRecord->Id != 0; envRecord++)
-        {
-            if (envRecord->Id == (level_id + 900))
-            {
-                g_EnvironmentFoundp = envRecord;
-                g_EnvironmentMainp = envRecord;
-                g_EnvironmentAltp = envRecord + 1;
-
-                envLoadCurrentEnvironment(g_EnvironmentFoundp);
-
-                return;
-            }
-        }
+        record = envFindEnvironment(levelId + ENVIRONMENTDATA_CINEMA);
     }
 
-    for (envRecord = &g_EnvTable[0]; envRecord->Id != 0; envRecord++)
+    if (record == NULL)
     {
-        if (envRecord->Id == (level_id + (num_players * 100)))
-        {
-            g_EnvironmentFoundp = envRecord;
-            g_EnvironmentMainp = envRecord;
-            g_EnvironmentAltp = envRecord + 1;
-
-            envLoadCurrentEnvironment(g_EnvironmentFoundp);
-
-            return;
-        }
+        record = envFindEnvironment(levelId + (num_players * 100));
     }
 
-    if (num_players >= 2)
+    if (record == NULL && num_players >= 2)
     {
-        for (envRecord = &g_EnvTable[0]; envRecord->Id != 0; envRecord++)
-        {
-            if (envRecord->Id == (num_players * 100))
-            {
-                g_EnvironmentFoundp = envRecord;
-                g_EnvironmentMainp = envRecord;
-                g_EnvironmentAltp = envRecord + 1;
-
-                envLoadCurrentEnvironment(g_EnvironmentFoundp);
-
-                return;
-            }
-        }
+        record = envFindEnvironment(num_players * 100);
     }
 
-    viSetZRange(15.0f, 10000.0f);
-    g_FogSkyIsEnabled = 0;
-
-    for (phi_v2 = g_EnvTable2; phi_v2->Id != 0; phi_v2++)
+    if (record == NULL)
     {
-        if (phi_v2->Id == level_id)
-        {
-            sp1C = phi_v2;
-        }
+        record = envFindEnvironment(LEVELID_NONE);
     }
 
-    if (sp1C == NULL)
+    if (record->FogEnabled)
     {
-        sp1C = &g_EnvTable2[0];
+        g_MainEnvironment = record;
+        g_AlternateEnvironment = record + 1;
+    }
+    else
+    {
+        g_MainEnvironment = NULL;
+        g_AlternateEnvironment = NULL;
     }
 
-    envLoadFoglessCurrentEnvironment(sp1C);
-    g_EnvironmentFoundp = NULL;
+    envLoadCurrentEnvironment(record);
 }
 
 
@@ -339,33 +255,42 @@ void envSwitchToSoloSky2(f32 transitionTime)
 {
     static EnvironmentRecord static_envr;
 
-    static_envr = *g_EnvironmentMainp;
+    static_envr = *g_MainEnvironment;
 
     static_envr.Visibility.NearClipDistance =
-        g_EnvironmentMainp->Visibility.NearClipDistance + (transitionTime * ((f32)g_EnvironmentAltp->Visibility.NearClipDistance - (f32)g_EnvironmentMainp->Visibility.NearClipDistance));
+        g_MainEnvironment->Visibility.NearClipDistance
+        + (transitionTime * ((f32)g_AlternateEnvironment->Visibility.NearClipDistance
+        - (f32)g_MainEnvironment->Visibility.NearClipDistance));
 
     static_envr.Visibility.FarClipDistance =
-        g_EnvironmentMainp->Visibility.FarClipDistance + (transitionTime * ((f32)g_EnvironmentAltp->Visibility.FarClipDistance - (f32)g_EnvironmentMainp->Visibility.FarClipDistance));
+        g_MainEnvironment->Visibility.FarClipDistance
+        + (transitionTime * ((f32)g_AlternateEnvironment->Visibility.FarClipDistance
+        - (f32)g_MainEnvironment->Visibility.FarClipDistance));
 
-    static_envr.Fog.FogStart =
-        (f32)g_EnvironmentMainp->Fog.FogStart
-        + (transitionTime * ((f32)g_EnvironmentAltp->Fog.FogStart - (f32)g_EnvironmentMainp->Fog.FogStart));
+    static_envr.Visibility.FogStart =
+        (f32)g_MainEnvironment->Visibility.FogStart
+        + (transitionTime * ((f32)g_AlternateEnvironment->Visibility.FogStart
+        - (f32)g_MainEnvironment->Visibility.FogStart));
 
-    static_envr.Fog.FogEnd =
-        (f32)g_EnvironmentMainp->Fog.FogEnd
-        + (transitionTime * ((f32)g_EnvironmentAltp->Fog.FogEnd - (f32)g_EnvironmentMainp->Fog.FogEnd));
+    static_envr.Visibility.FogEnd =
+        (f32)g_MainEnvironment->Visibility.FogEnd
+        + (transitionTime * ((f32)g_AlternateEnvironment->Visibility.FogEnd
+        - (f32)g_MainEnvironment->Visibility.FogEnd));
 
     static_envr.Sky.Red =
-        (f32)g_EnvironmentMainp->Sky.Red
-        + (transitionTime * ((f32)g_EnvironmentAltp->Sky.Red - (f32)g_EnvironmentMainp->Sky.Red));
+        (f32)g_MainEnvironment->Sky.Red
+        + (transitionTime * ((f32)g_AlternateEnvironment->Sky.Red
+        - (f32)g_MainEnvironment->Sky.Red));
 
     static_envr.Sky.Green =
-        (f32)g_EnvironmentMainp->Sky.Green
-        + (transitionTime * ((f32)g_EnvironmentAltp->Sky.Green - (f32)g_EnvironmentMainp->Sky.Green));
+        (f32)g_MainEnvironment->Sky.Green
+        + (transitionTime * ((f32)g_AlternateEnvironment->Sky.Green
+        - (f32)g_MainEnvironment->Sky.Green));
 
     static_envr.Sky.Blue =
-        (f32)g_EnvironmentMainp->Sky.Blue
-        + (transitionTime * ((f32)g_EnvironmentAltp->Sky.Blue - (f32)g_EnvironmentMainp->Sky.Blue));
+        (f32)g_MainEnvironment->Sky.Blue
+        + (transitionTime * ((f32)g_AlternateEnvironment->Sky.Blue
+        - (f32)g_MainEnvironment->Sky.Blue));
 
     static_envr.Sky.Red &= 0xf8;
     static_envr.Sky.Green &= 0xf8;
@@ -377,13 +302,15 @@ void envSwitchToSoloSky2(f32 transitionTime)
 
 Gfx *envSetRenderFogColor(Gfx *gdl)
 {
-    if (!g_FogSkyIsEnabled)
+    if (!g_CurrentEnvironment.FogEnabled)
     {
         return gdl;
     }
 
-    gDPSetFogColor(gdl++, g_CurrentEnvironment.Red, g_CurrentEnvironment.Green, g_CurrentEnvironment.Blue, 0xff);
-    gSPFogPosition(gdl++, g_CurrentEnvironment.FogStart, g_CurrentEnvironment.FogEnd);
+    gDPSetFogColor(gdl++, g_CurrentEnvironment.Sky.Red, g_CurrentEnvironment.Sky.Green,
+            g_CurrentEnvironment.Sky.Blue, 0xff);
+    gSPFogPosition(gdl++, g_CurrentEnvironment.Visibility.FogStart,
+            g_CurrentEnvironment.Visibility.FogEnd);
     gSPSetGeometryMode(gdl++, G_FOG);
     gDPSetAlphaDither(gdl++, G_AD_NOISE);
 
@@ -393,7 +320,7 @@ Gfx *envSetRenderFogColor(Gfx *gdl)
 
 Gfx *envRenderClearFogMode(Gfx *gdl)
 {
-    if (!g_FogSkyIsEnabled)
+    if (!g_CurrentEnvironment.FogEnabled)
     {
         return gdl;
     }
@@ -411,7 +338,7 @@ s32 envPositionIsVisibleThroughFog(coord3d *pos, f32 range)
     coord3d *player_pos;
     Mtxf *player_mtx;
 
-    if (!g_FogSkyIsEnabled)
+    if (!g_CurrentEnvironment.FogEnabled)
     {
         return TRUE;
     }
@@ -434,7 +361,7 @@ s32 envPositionIsVisibleThroughFog(coord3d *pos, f32 range)
 }
 
 
-NearFogRecord *envGetNearFogValues(void)
+NearFogSettings *envGetNearFogValues(void)
 {
     return g_NearFogValuesP;
 }
@@ -442,7 +369,7 @@ NearFogRecord *envGetNearFogValues(void)
 
 s32 envGetPropDistColor(PropRecord *prop, rgba_f32 *color)
 {
-    if (!g_FogSkyIsEnabled)
+    if (!g_CurrentEnvironment.FogEnabled)
     {
         return 2; // No fog, props cannot be obscured by fog
     }
@@ -452,9 +379,9 @@ s32 envGetPropDistColor(PropRecord *prop, rgba_f32 *color)
         return 2; // Prop is behind the camera
     }
 
-    color->rgba[0] = (f32) g_CurrentEnvironment.Red / 255.0f;
-    color->rgba[1] = (f32) g_CurrentEnvironment.Green / 255.0f;
-    color->rgba[2] = (f32) g_CurrentEnvironment.Blue / 255.0f;
+    color->rgba[0] = (f32)g_CurrentEnvironment.Sky.Red / 255.0f;
+    color->rgba[1] = (f32)g_CurrentEnvironment.Sky.Green / 255.0f;
+    color->rgba[2] = (f32)g_CurrentEnvironment.Sky.Blue / 255.0f;
     color->rgba[3] = (g_CurFogDetails.far_fog_dist_scaled / prop->zDepth) + g_CurFogDetails.near_fog_dist_scaled;
 
     if (color->rgba[3] < 0.0f)

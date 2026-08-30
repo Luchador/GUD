@@ -26,7 +26,7 @@ void skyGetWorldPosFromScreenPos(f32 offset_x, f32 offset_y, coord3d* out) {
     player_mtxf = currentPlayerGetViewToWorldMtxf();
     coords.x = getPlayer_c_screenleft() + offset_x;
     screen_top = getPlayer_c_screentop();
-    coords.y = envGetCurrent()->HorizonYOffset + (offset_y + screen_top);
+    coords.y = envGetCurrent()->Sky.HorizonYOffset + (offset_y + screen_top);
     transformAndNormalizeByLength2Dto3D(&coords, out, 100.0f);
     mtx4RotateVecInPlace(player_mtxf, out->f);
 }
@@ -58,7 +58,7 @@ bool skyIsScreenCornerInSky(coord3d *corner3dpos, coord3d *dstpos, f32 *dstfrac)
 
     if (sp24 > 0.0f)
     {
-        sp2c = (envGetCurrent()->SkyHeight - eye->y) / sp24;
+        sp2c = (envGetCurrent()->Sky.SkyHeight - eye->y) / sp24;
         f12_2 = sqrtf(corner3dpos->f[0] * corner3dpos->f[0] + corner3dpos->f[2] * corner3dpos->f[2]) * sp2c;
 
         if (f12_2 > 300000)
@@ -103,7 +103,7 @@ bool skyIsCornerInWater(coord3d *corner3dpos, coord3d *dstpos, f32 *dstfrac)
 
     if (sp24 < 0.0f)
     {
-        sp2c = (envGetCurrent()->WaterRepeat - eye->y) / sp24;
+        sp2c = (envGetCurrent()->Sky.WaterHeight - eye->y) / sp24;
         f12_2 = sqrtf(corner3dpos->f[0] * corner3dpos->f[0] + corner3dpos->f[2] * corner3dpos->f[2]) * sp2c;
 
         if (f12_2 > 300000)
@@ -157,13 +157,13 @@ f32 skyRound(f32 arg0)
 
 void skyChooseCloudVtxColour(SkyRelated18 *arg0, f32 arg1)
 {
-    f32 r = envGetCurrent()->Red;
-    f32 g = envGetCurrent()->Green;
-    f32 b = envGetCurrent()->Blue;
+    f32 r = envGetCurrent()->Sky.Red;
+    f32 g = envGetCurrent()->Sky.Green;
+    f32 b = envGetCurrent()->Sky.Blue;
 
-    arg0->r = r + envGetCurrent()->CloudRed   * (1.0f - r / 255.0f) * (1.0f - arg1);
-    arg0->g = g + envGetCurrent()->CloudGreen * (1.0f - g / 255.0f) * (1.0f - arg1);
-    arg0->b = b + envGetCurrent()->CloudBlue  * (1.0f - b / 255.0f) * (1.0f - arg1);
+    arg0->r = r + envGetCurrent()->Sky.CloudRed   * (1.0f - r / 255.0f) * (1.0f - arg1);
+    arg0->g = g + envGetCurrent()->Sky.CloudGreen * (1.0f - g / 255.0f) * (1.0f - arg1);
+    arg0->b = b + envGetCurrent()->Sky.CloudBlue  * (1.0f - b / 255.0f) * (1.0f - arg1);
 
     arg0->a = 0xff;
 }
@@ -171,13 +171,13 @@ void skyChooseCloudVtxColour(SkyRelated18 *arg0, f32 arg1)
 
 void skyChooseWaterVtxColour(SkyRelated18 *arg0, f32 arg1)
 {
-    f32 r = envGetCurrent()->Red;
-    f32 g = envGetCurrent()->Green;
-    f32 b = envGetCurrent()->Blue;
+    f32 r = envGetCurrent()->Sky.Red;
+    f32 g = envGetCurrent()->Sky.Green;
+    f32 b = envGetCurrent()->Sky.Blue;
 
-    arg0->r = r + envGetCurrent()->WaterRed   * (1.0f - r / 255.0f) * (1.0f - arg1);
-    arg0->g = g + envGetCurrent()->WaterGreen * (1.0f - g / 255.0f) * (1.0f - arg1);
-    arg0->b = b + envGetCurrent()->WaterBlue  * (1.0f - b / 255.0f) * (1.0f - arg1);
+    arg0->r = r + envGetCurrent()->Sky.WaterRed   * (1.0f - r / 255.0f) * (1.0f - arg1);
+    arg0->g = g + envGetCurrent()->Sky.WaterGreen * (1.0f - g / 255.0f) * (1.0f - arg1);
+    arg0->b = b + envGetCurrent()->Sky.WaterBlue  * (1.0f - b / 255.0f) * (1.0f - arg1);
     arg0->a = 0xff;
 }
 
@@ -349,12 +349,12 @@ static s32 skyBuildCloudPolygon(SkyRelated18 *vertices, SkyPlaneSample *samples,
     return vertexCount;
 }
 
-static Gfx *skyRenderSolidBackground(Gfx *gdl, struct CurrentEnvironmentRecord *env)
+static Gfx *skyRenderSolidBackground(Gfx *gdl, EnvironmentRecord *env)
 {
     if (getPlayerCount() == 1)
     {
         gDPSetCycleType(gdl++, G_CYC_FILL);
-        gdl = viSetFillColor(gdl, env->Red, env->Green, env->Blue);
+        gdl = viSetFillColor(gdl, env->Sky.Red, env->Sky.Green, env->Sky.Blue);
         gDPFillRectangle(gdl++, viGetViewLeft(), viGetViewTop(),
                 viGetViewLeft() + viGetViewWidth() - 1,
                 viGetViewTop() + viGetViewHeight() - 1);
@@ -405,14 +405,14 @@ static void skyProjectVertices(SkyRelated18 *vertices, SkyRelated38 *projected, 
 }
 
 static Gfx *skyRenderWaterPolygon(Gfx *gdl, SkyRelated18 *vertices, s32 vertexCount,
-        f32 roomScale, bool closeHorizonSeam, struct CurrentEnvironmentRecord *env)
+        f32 roomScale, bool closeHorizonSeam, EnvironmentRecord *env)
 {
     SkyRelated38 projected[5];
     s32 i;
 
     skyProjectVertices(vertices, projected, vertexCount, roomScale, TRUE);
 
-    if (!env->IsWater)
+    if (!env->Sky.IsWater)
     {
         f32 minX = 1279.0f;
         f32 maxX = 0.0f;
@@ -439,7 +439,7 @@ static Gfx *skyRenderWaterPolygon(Gfx *gdl, SkyRelated18 *vertices, s32 vertexCo
     }
 
     gDPPipeSync(gdl++);
-    texSelect(&gdl, &skywaterimages[env->WaterImageId], 1, 0, 2);
+    texSelect(&gdl, &skywaterimages[env->Sky.WaterImageId], 1, 0, 2);
     gdl = dyntexConfigureTwoLayerWater(gdl, FALSE);
     gDPSetRenderMode(gdl++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
 
@@ -471,13 +471,13 @@ static Gfx *skyRenderWaterPolygon(Gfx *gdl, SkyRelated18 *vertices, s32 vertexCo
     return gdl;
 }
 
-static Gfx *skyRenderCloudPolygon(Gfx *gdl, SkyRelated18 *vertices, s32 vertexCount, f32 roomScale, s32 horizonMask, f32 leftHorizonY, f32 rightHorizonY, struct CurrentEnvironmentRecord *env)
+static Gfx *skyRenderCloudPolygon(Gfx *gdl, SkyRelated18 *vertices, s32 vertexCount, f32 roomScale, s32 horizonMask, f32 leftHorizonY, f32 rightHorizonY, EnvironmentRecord *env)
 {
     SkyRelated38 projected[5];
 
     gDPPipeSync(gdl++);
-    texSelect(&gdl, &skywaterimages[env->SkyImageId], 1, 0, 2);
-    gDPSetEnvColor(gdl++, env->Red, env->Green, env->Blue, 0xff);
+    texSelect(&gdl, &skywaterimages[env->Sky.SkyImageId], 1, 0, 2);
+    gDPSetEnvColor(gdl++, env->Sky.Red, env->Sky.Green, env->Sky.Blue, 0xff);
     gDPSetCombineLERP(gdl++,
             SHADE, ENVIRONMENT, TEXEL0, ENVIRONMENT, 0, 0, 0, SHADE,
             SHADE, ENVIRONMENT, TEXEL0, ENVIRONMENT, 0, 0, 0, SHADE);
@@ -547,7 +547,7 @@ Gfx *skyRender(Gfx *gdl)
     coord3d horizonRay;
     SkyPlaneSample samples[SKY_SAMPLE_COUNT];
     SkyRelated18 vertices[5];
-    struct CurrentEnvironmentRecord *env;
+    EnvironmentRecord *env;
     f32 roomScale;
     f32 leftHorizonY = 0.0f;
     f32 rightHorizonY = 0.0f;
@@ -559,12 +559,12 @@ Gfx *skyRender(Gfx *gdl)
     roomScale = bgGetRoomScale() / 30.0f;
     env = envGetCurrent();
 
-    if (!env->Clouds)
+    if (!env->Sky.Clouds)
     {
         return skyRenderSolidBackground(gdl, env);
     }
 
-    gdl = viSetFillColor(gdl, env->Red, env->Green, env->Blue);
+    gdl = viSetFillColor(gdl, env->Sky.Red, env->Sky.Green, env->Sky.Blue);
 
     skyGetWorldPosFromScreenPos(0.0f, 0.0f, &viewRays[SKY_SAMPLE_TOP_LEFT]);
     skyGetWorldPosFromScreenPos(getPlayer_c_screenwidth() - 0.1f, 0.0f, &viewRays[SKY_SAMPLE_TOP_RIGHT]);
@@ -699,7 +699,7 @@ void skyProjectVertex(SkyRelated18 *arg0, Mtxf *arg1, u16 arg2, f32 arg3, f32 ar
     arg5->unk20 = sp60;
     arg5->unk24 = sp64;
     arg5->unk28 = sp38[0];
-    arg5->unk2c = sp38[1] - envGetCurrent()->HorizonYOffset * 4.0f;
+    arg5->unk2c = sp38[1] - envGetCurrent()->Sky.HorizonYOffset * 4.0f;
     arg5->unk30 = sp38[2];
     arg5->unk34 = f22;
 
