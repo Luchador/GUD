@@ -1330,6 +1330,192 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
 
 
 /**
+ * Boolean-only line-of-sight test.
+ *
+ * Unlike stanTestLineUnobstructed, this function does not need to identify the
+ * nearest collision or rebuild the STAN tile at the collision point. A blocked
+ * STAN edge therefore returns immediately, and prop testing stops at the first
+ * vertically overlapping blocker.
+ */
+s32 stanTestLineOfSight(StandTile **tile, f32 startX, f32 startZ, f32 endX, f32 endZ, CDTYPE collisionTypes, f32 startTop, f32 startBottom, f32 endTop, f32 endBottom)
+{
+    PropRecord *prop;
+    StandTile *reachedTile;
+    coord2d lineStart;
+    coord2d lineEnd;
+    f32 topSlope;
+    f32 bottomSlope;
+    f32 startFloorY;
+    f32 intersectionFraction;
+    f32 propTop;
+    f32 propBottom;
+    s32 roomCount;
+    s32 roomBuffer[21];
+    s32 checkVerticalOverlap;
+    s32 verticalExtentsPrepared;
+    s32 edgeIndex;
+    s32 edgeCount;
+    s32 profActive;
+    s16 *propIndex;
+    u32 profTime;
+    coord2d *edgeStart;
+    coord2d *edgeEnd;
+    struct rect4f *polygon;
+
+    roomCount = 0;
+    checkVerticalOverlap = startBottom <= startTop;
+    verticalExtentsPrepared = FALSE;
+    reachedTile = *tile;
+    profActive = g_ProfChrLosActive;
+
+    lineStart.f[0] = startX;
+    lineStart.f[1] = startZ;
+    lineEnd.f[0] = endX;
+    lineEnd.f[1] = endZ;
+
+    if (profActive)
+    {
+        profTime = osGetCount();
+    }
+
+    if (!stanWalkTilesBetweenPointsAndCollectRooms(&reachedTile, startX, startZ, endX, endZ, roomBuffer, &roomCount, 20))
+    {
+        if (profActive)
+        {
+            g_ProfChrLosStanCycles += osGetCount() - profTime;
+            g_ProfChrLosRooms += roomCount;
+            g_ProfChrLosStanBlocks++;
+        }
+
+        return FALSE;
+    }
+
+    if (profActive)
+    {
+        g_ProfChrLosStanCycles += osGetCount() - profTime;
+        g_ProfChrLosRooms += roomCount;
+    }
+
+    if (collisionTypes != 0)
+    {
+        roomBuffer[roomCount] = -1;
+
+        if (profActive)
+        {
+            profTime = osGetCount();
+        }
+
+        roomGetProps(roomBuffer);
+
+        if (profActive)
+        {
+            g_ProfChrLosRoomCycles += osGetCount() - profTime;
+            profTime = osGetCount();
+        }
+
+        for (propIndex = g_RoomPropQueryIndices; *propIndex >= 0; propIndex++)
+        {
+            prop = &g_Props[*propIndex];
+
+            if (profActive)
+            {
+                g_ProfChrLosProps++;
+            }
+
+            if (!propIsOfCdType(prop, collisionTypes))
+            {
+                continue;
+            }
+
+            if (profActive)
+            {
+                g_ProfChrLosCandidates++;
+            }
+
+            chraiGetCollisionBounds(prop, &polygon, &edgeCount, &propTop, &propBottom);
+
+            if (profActive && edgeCount > 0)
+            {
+                g_ProfChrLosEdges += edgeCount;
+            }
+
+            edgeStart = &polygon->points[0];
+            edgeEnd = &polygon->points[1];
+
+            for (edgeIndex = 0; edgeIndex < edgeCount; edgeIndex++, edgeStart++, edgeEnd++)
+            {
+                if (edgeIndex + 1 == edgeCount)
+                {
+                    edgeEnd = &polygon->points[0];
+                }
+
+                if (!doSegmentsIntersect(startX, startZ, endX, endZ, edgeStart->f[0], edgeStart->f[1], edgeEnd->f[0], edgeEnd->f[1]))
+                {
+                    continue;
+                }
+
+                if (profActive)
+                {
+                    g_ProfChrLosIntersections++;
+                }
+
+                intersectionFraction = calculateSegmentIntersectionFraction(&lineStart, &lineEnd, edgeStart, edgeEnd);
+
+                if (intersectionFraction >= 1.0f)
+                {
+                    continue;
+                }
+
+                if (checkVerticalOverlap)
+                {
+                    if (!verticalExtentsPrepared)
+                    {
+                        verticalExtentsPrepared = TRUE;
+
+                        if (endBottom <= endTop)
+                        {
+                            topSlope = endTop - startTop;
+                            bottomSlope = endBottom - startBottom;
+                        }
+                        else
+                        {
+                            startFloorY = stanGetPositionYValue(*tile, startX, startZ);
+                            startTop += startFloorY;
+                            startBottom += startFloorY;
+                            topSlope = stanGetPositionYValue(reachedTile, endX, endZ) - startFloorY;
+                            bottomSlope = topSlope;
+                        }
+                    }
+
+                    if (propTop <= startBottom + bottomSlope * intersectionFraction
+                            || startTop + topSlope * intersectionFraction <= propBottom)
+                    {
+                        continue;
+                    }
+                }
+
+                if (profActive)
+                {
+                    g_ProfChrLosPropCycles += osGetCount() - profTime;
+                    g_ProfChrLosPropBlocks++;
+                }
+
+                return FALSE;
+            }
+        }
+
+        if (profActive)
+        {
+            g_ProfChrLosPropCycles += osGetCount() - profTime;
+        }
+    }
+
+    *tile = reachedTile;
+    return TRUE;
+}
+
+
+/**
  * This function collects the rooms crossed by the XZ line segment,
  * gets the props in those rooms, filters them by CDTYPE,
  * tests the segment against every edge of props' 2D collision polygons,

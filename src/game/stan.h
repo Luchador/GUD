@@ -66,6 +66,7 @@ s32 stanGetLastCollisionEdge(coord3d *pntA, coord3d *pntB);
 s32 stanTestLocusEdgeAboveY(StandTile **tile, f32 target_x, f32 target_z, f32 radius, f32 yThreshold);
 s32 stanTestCircleCollisionNoCallbacks(StandTile **tileStack, f32 target_x, f32 target_z, f32 radius);
 s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX, f32 endZ, CDTYPE collisionTypes, f32 startTop, f32 startBottom, f32 endTop, f32 endBottom);
+s32 stanTestLineOfSight(StandTile **tile, f32 startX, f32 startZ, f32 endX, f32 endZ, CDTYPE collisionTypes, f32 startTop, f32 startBottom, f32 endTop, f32 endBottom);
 StandTile* stanFillSearch(StandTile* srcTile, tilePredicate_t tilePred);
 s32 stanGetRoomsBetweenPoints(StandTile *tile, f32 start_x, f32 start_z, StandTile **destTile, f32 dest_x, f32 dest_z, s32 *roomBuffer, s32 maxBufSize);
 s32 stanWalkTilesBetweenPointsAndCollectRooms(StandTile **tileStack, f32 start_x, f32 start_z, f32 dest_x, f32 dest_z, s32 *roomBuffer, s32 *rtnCountSize, s32 maxBufSize);

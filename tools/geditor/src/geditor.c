@@ -320,12 +320,6 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
 
     menubar = GEditorCreateMenuBar();
 
-    /* 2. Create one instance of it. WS_OVERLAPPEDWINDOW is the combination
-          that gives a title bar, a resizable frame, and the standard
-          minimise / maximise / close buttons. The menu bar is the ninth
-          argument. Note that the width and height below include the frame
-          and the menu, so the drawable client area is a little smaller;
-          AdjustWindowRect works backwards from a wanted client size. */
     hwnd = CreateWindowEx(
         0,
         GEDITOR_CLASS,
