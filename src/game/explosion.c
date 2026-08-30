@@ -29,14 +29,14 @@
 
 struct Smoke *g_SmokeBuffer;
 struct Explosion *g_ExplosionBuffer;
-struct FlyingParticles *g_FlyingParticlesBuffer;
+struct Cornflakes *g_CornflakeBuffer;
 struct Scorch *g_ScorchBuffer;
 struct BulletImpact *g_BulletImpactBuffer;
 
 s32 g_NumExplosionEntries = 0;
 s32 g_NumSmokeEntries = 0;
 f32 g_SpExplosionDamageMult = 1.0;
-s32 max_particles;
+s32 g_MaxCornflakes;
 
 static Mtx g_ExplosionScaleMtx;
 
@@ -98,7 +98,7 @@ Gfx * g_ExplosionDisplayLists[] = {
     &globalDL_0x9a8
 };
 
-s32 g_NumParticleEntries = 0;
+s32 g_NumCornflakeEntries = 0;
 s32 g_NumScorchEntries = 0;
 s32 g_NumImpactEntries = 0;
 
@@ -1424,33 +1424,33 @@ void explosionInitFlyingParticles(coord3d *spawnpos, f32 spawn_rand_scale, f32 s
     rand2 = ((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 1.12f) - 0.12f;
     rand3 = (2.0f * (((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX))) - 1.0f;
 
-    g_FlyingParticlesBuffer[g_NumParticleEntries].unk00 = 1;
+    g_CornflakeBuffer[g_NumCornflakeEntries].unk00 = 1;
 
-    g_FlyingParticlesBuffer[g_NumParticleEntries].position.f[0] = spawnpos->f[0] + (spawn_rand_scale * rand1);
-    g_FlyingParticlesBuffer[g_NumParticleEntries].position.f[1] = spawnpos->f[1] + (spawn_rand_scale * rand2);
-    g_FlyingParticlesBuffer[g_NumParticleEntries].position.f[2] = spawnpos->f[2] + (spawn_rand_scale * rand3);
+    g_CornflakeBuffer[g_NumCornflakeEntries].position.f[0] = spawnpos->f[0] + (spawn_rand_scale * rand1);
+    g_CornflakeBuffer[g_NumCornflakeEntries].position.f[1] = spawnpos->f[1] + (spawn_rand_scale * rand2);
+    g_CornflakeBuffer[g_NumCornflakeEntries].position.f[2] = spawnpos->f[2] + (spawn_rand_scale * rand3);
 
-    g_FlyingParticlesBuffer[g_NumParticleEntries].position_drift.f[0] = rand1 * spawn_horiz_drift_scale;
-    g_FlyingParticlesBuffer[g_NumParticleEntries].position_drift.f[1] = rand2 * spawn_vert_drift_scale;
-    g_FlyingParticlesBuffer[g_NumParticleEntries].position_drift.f[2] = rand3 * spawn_horiz_drift_scale;
+    g_CornflakeBuffer[g_NumCornflakeEntries].position_drift.f[0] = rand1 * spawn_horiz_drift_scale;
+    g_CornflakeBuffer[g_NumCornflakeEntries].position_drift.f[1] = rand2 * spawn_vert_drift_scale;
+    g_CornflakeBuffer[g_NumCornflakeEntries].position_drift.f[2] = rand3 * spawn_horiz_drift_scale;
 
-    g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[0].v.ob[0] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * spawn_tex_scale));
-    g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[0].v.ob[1] = 0;
-    g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[0].v.ob[2] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * spawn_tex_scale));
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[0].v.ob[0] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * spawn_tex_scale));
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[0].v.ob[1] = 0;
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[0].v.ob[2] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * spawn_tex_scale));
 
     if (1)
     {
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[1].v.ob[0] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * spawn_tex_scale));
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[1].v.ob[1] = 0;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[1].v.ob[2] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * (-spawn_tex_scale)));
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.ob[0] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * spawn_tex_scale));
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.ob[1] = 0;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.ob[2] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * (-spawn_tex_scale)));
 
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[2].v.ob[0] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * (-spawn_tex_scale)));
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[2].v.ob[1] = 0;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[2].v.ob[2] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * (-spawn_tex_scale)));
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.ob[0] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * (-spawn_tex_scale)));
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.ob[1] = 0;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.ob[2] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * (-spawn_tex_scale)));
 
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[3].v.ob[0] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * (-spawn_tex_scale)));
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[3].v.ob[1] = 0;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[3].v.ob[2] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * spawn_tex_scale));
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.ob[0] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * (-spawn_tex_scale)));
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.ob[1] = 0;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.ob[2] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * spawn_tex_scale));
     }
 
     if (1) {}
@@ -1458,71 +1458,71 @@ void explosionInitFlyingParticles(coord3d *spawnpos, f32 spawn_rand_scale, f32 s
     unk08_upper = (randomGetNext() & 3) << 8;
     unk0A_upper = (randomGetNext() & 3) << 8;
 
-    g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[0].v.tc[0] = unk08_upper + 0xE0;
-    g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[0].v.tc[1] = unk0A_upper + 0xE0;
-    g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[1].v.tc[0] = unk08_upper + 0xE0;
-    g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[1].v.tc[1] = unk0A_upper;
-    g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[2].v.tc[0] = unk08_upper;
-    g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[2].v.tc[1] = unk0A_upper;
-    g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[3].v.tc[0] = unk08_upper;
-    g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[3].v.tc[1] = unk0A_upper + 0xE0;
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[0].v.tc[0] = unk08_upper + 0xE0;
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[0].v.tc[1] = unk0A_upper + 0xE0;
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.tc[0] = unk08_upper + 0xE0;
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.tc[1] = unk0A_upper;
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.tc[0] = unk08_upper;
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.tc[1] = unk0A_upper;
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.tc[0] = unk08_upper;
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.tc[1] = unk0A_upper + 0xE0;
 
     if (randomGetNext() & 1)
     {
         rand_s8 = 0xFF - (randomGetNext() & 0x3F);
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[0].v.cn[2] = rand_s8;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[0].v.cn[1] = rand_s8;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[0].v.cn[0] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[0].v.cn[2] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[0].v.cn[1] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[0].v.cn[0] = rand_s8;
         rand_s8 = 0xFF - (randomGetNext() & 0x3F);
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[1].v.cn[2] = rand_s8;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[1].v.cn[1] = rand_s8;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[1].v.cn[0] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.cn[2] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.cn[1] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.cn[0] = rand_s8;
         rand_s8 = 0xFF - (randomGetNext() & 0x3F);
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[2].v.cn[2] = rand_s8;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[2].v.cn[1] = rand_s8;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[2].v.cn[0] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.cn[2] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.cn[1] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.cn[0] = rand_s8;
         rand_s8 = 0xFF - (randomGetNext() & 0x3F);
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[3].v.cn[2] = rand_s8;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[3].v.cn[1] = rand_s8;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[3].v.cn[0] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.cn[2] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.cn[1] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.cn[0] = rand_s8;
     }
     else
     {
         rand_s8 = randomGetNext() & 0x3F;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[0].v.cn[2] = rand_s8;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[0].v.cn[1] = rand_s8;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[0].v.cn[0] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[0].v.cn[2] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[0].v.cn[1] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[0].v.cn[0] = rand_s8;
         rand_s8 = randomGetNext() & 0x3F;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[1].v.cn[2] = rand_s8;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[1].v.cn[1] = rand_s8;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[1].v.cn[0] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.cn[2] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.cn[1] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.cn[0] = rand_s8;
         rand_s8 = randomGetNext() & 0x3F;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[2].v.cn[2] = rand_s8;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[2].v.cn[1] = rand_s8;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[2].v.cn[0] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.cn[2] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.cn[1] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.cn[0] = rand_s8;
         rand_s8 = randomGetNext() & 0x3F;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[3].v.cn[2] = rand_s8;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[3].v.cn[1] = rand_s8;
-        g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[3].v.cn[0] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.cn[2] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.cn[1] = rand_s8;
+        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.cn[0] = rand_s8;
     }
 
-    g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[0].v.cn[3] = 0xdc;
-    g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[1].v.cn[3] = 0xdc;
-    g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[2].v.cn[3] = 0xdc;
-    g_FlyingParticlesBuffer[g_NumParticleEntries].vertex_list[3].v.cn[3] = 0xdc;
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[0].v.cn[3] = 0xdc;
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.cn[3] = 0xdc;
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.cn[3] = 0xdc;
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.cn[3] = 0xdc;
 
-    g_FlyingParticlesBuffer[g_NumParticleEntries].rotation.f[0] = (((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * M_TAU_F;
-    g_FlyingParticlesBuffer[g_NumParticleEntries].rotation.f[1] = (((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * M_TAU_F;
-    g_FlyingParticlesBuffer[g_NumParticleEntries].rotation.f[2] = (((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * M_TAU_F;
+    g_CornflakeBuffer[g_NumCornflakeEntries].rotation.f[0] = (((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * M_TAU_F;
+    g_CornflakeBuffer[g_NumCornflakeEntries].rotation.f[1] = (((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * M_TAU_F;
+    g_CornflakeBuffer[g_NumCornflakeEntries].rotation.f[2] = (((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * M_TAU_F;
 
-    g_FlyingParticlesBuffer[g_NumParticleEntries].rotation_drift.f[0] = (((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.1f;
-    g_FlyingParticlesBuffer[g_NumParticleEntries].rotation_drift.f[1] = (((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.1f;
-    g_FlyingParticlesBuffer[g_NumParticleEntries].rotation_drift.f[2] = (((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.1f;
+    g_CornflakeBuffer[g_NumCornflakeEntries].rotation_drift.f[0] = (((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.1f;
+    g_CornflakeBuffer[g_NumCornflakeEntries].rotation_drift.f[1] = (((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.1f;
+    g_CornflakeBuffer[g_NumCornflakeEntries].rotation_drift.f[2] = (((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.1f;
 
-    g_NumParticleEntries++;
-    if (g_NumParticleEntries >= max_particles)
+    g_NumCornflakeEntries++;
+    if (g_NumCornflakeEntries >= g_MaxCornflakes)
     {
-        g_NumParticleEntries = 0;
+        g_NumCornflakeEntries = 0;
     }
 }
 
@@ -1543,41 +1543,41 @@ void explosionUpdateFlyingParticles(void)
     }
 
 
-    for (i = 0; i < max_particles; i++)
+    for (i = 0; i < g_MaxCornflakes; i++)
     {
-        if (g_FlyingParticlesBuffer[i].unk00 > 0)
+        if (g_CornflakeBuffer[i].unk00 > 0)
         {
-            g_FlyingParticlesBuffer[i].unk00 += (s32) scalar;
+            g_CornflakeBuffer[i].unk00 += (s32) scalar;
 
-            g_FlyingParticlesBuffer[i].rotation.f[0] += g_FlyingParticlesBuffer[i].rotation_drift.f[0] * scalar;
-            g_FlyingParticlesBuffer[i].rotation.f[1] += g_FlyingParticlesBuffer[i].rotation_drift.f[1] * scalar;
-            g_FlyingParticlesBuffer[i].rotation.f[2] += g_FlyingParticlesBuffer[i].rotation_drift.f[2] * scalar;
+            g_CornflakeBuffer[i].rotation.f[0] += g_CornflakeBuffer[i].rotation_drift.f[0] * scalar;
+            g_CornflakeBuffer[i].rotation.f[1] += g_CornflakeBuffer[i].rotation_drift.f[1] * scalar;
+            g_CornflakeBuffer[i].rotation.f[2] += g_CornflakeBuffer[i].rotation_drift.f[2] * scalar;
 
-            g_FlyingParticlesBuffer[i].position.f[0] += g_FlyingParticlesBuffer[i].position_drift.f[0] * scalar;
-            g_FlyingParticlesBuffer[i].position.f[2] += g_FlyingParticlesBuffer[i].position_drift.f[2] * scalar;
+            g_CornflakeBuffer[i].position.f[0] += g_CornflakeBuffer[i].position_drift.f[0] * scalar;
+            g_CornflakeBuffer[i].position.f[2] += g_CornflakeBuffer[i].position_drift.f[2] * scalar;
 
             for (j = 0; j < (s32)scalar; j++)
             {
                 // initially sends particles flying up
-                g_FlyingParticlesBuffer[i].position.f[1] += g_FlyingParticlesBuffer[i].position_drift.f[1];
+                g_CornflakeBuffer[i].position.f[1] += g_CornflakeBuffer[i].position_drift.f[1];
 
                 // applies gravity so particles fall down
-                if (g_FlyingParticlesBuffer[i].position_drift.f[1] > -3.75f)
+                if (g_CornflakeBuffer[i].position_drift.f[1] > -3.75f)
                 {
-                    g_FlyingParticlesBuffer[i].position_drift.f[1] -= 0.2f;
+                    g_CornflakeBuffer[i].position_drift.f[1] -= 0.2f;
                 }
             }
 
             // handles particles life time
-            if ((g_FlyingParticlesBuffer[i].unk00 >= 0x65) && (!(randomGetNext() & 0x1F) || (g_FlyingParticlesBuffer[i].unk00 == 0x12C)))
+            if ((g_CornflakeBuffer[i].unk00 >= 0x65) && (!(randomGetNext() & 0x1F) || (g_CornflakeBuffer[i].unk00 == 0x12C)))
             {
-                g_FlyingParticlesBuffer[i].unk00 = 0;
+                g_CornflakeBuffer[i].unk00 = 0;
             }
 
             // position-related. deletes particles that are too low or too high.
-            if ((g_FlyingParticlesBuffer[i].position.f[1] < -30000.0f) || (g_FlyingParticlesBuffer[i].position.f[1] > 30000.0f))
+            if ((g_CornflakeBuffer[i].position.f[1] < -30000.0f) || (g_CornflakeBuffer[i].position.f[1] > 30000.0f))
             {
-                g_FlyingParticlesBuffer[i].unk00 = 0;
+                g_CornflakeBuffer[i].unk00 = 0;
             }
         }
     }
@@ -1594,17 +1594,17 @@ Gfx *explosionRenderFlyingParticles(Gfx *gdl)
     Mtxf sp80;
     s32 i;
     Mtx *temp_v0_2;
-    struct FlyingParticles *particles;
+    struct Cornflakes *particles;
 
     gSPClearGeometryMode(gdl++, G_CULL_BOTH);
     gSPSegment(gdl++, SPSEGMENT_GETITLE, osVirtualToPhysical((void*)pGlobalimagetable));
     gSPDisplayList(gdl++, &globalDL_0xa50);
     gDPSetRenderMode(gdl++, G_RM_AA_ZB_XLU_SURF, G_RM_AA_ZB_XLU_SURF2);
 
-    for (i = 0; i < max_particles; i++)
+    for (i = 0; i < g_MaxCornflakes; i++)
     {
         // HACK: regalloc has instructions backwards.
-        particles = (struct FlyingParticles *)(u32)g_FlyingParticlesBuffer + i;
+        particles = (struct Cornflakes *)(u32)g_CornflakeBuffer + i;
 
         if (particles->unk00 > 0)
         {
@@ -1622,7 +1622,7 @@ Gfx *explosionRenderFlyingParticles(Gfx *gdl)
                 matrix_4x4_f32_to_s32(&sp80, (Mtxf *)temp_v0_2);
 
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)temp_v0_2), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-                gSPVertex(gdl++, osVirtualToPhysical((void*)g_FlyingParticlesBuffer[i].vertex_list), 4, 0)
+                gSPVertex(gdl++, osVirtualToPhysical((void*)g_CornflakeBuffer[i].vertex_list), 4, 0)
                 gSP2Triangles(gdl++, 0, 1, 2, 0, 0, 2, 3, 0);
             }
         }

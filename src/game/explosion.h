@@ -14,7 +14,7 @@
 #define SCORCH_BUFFER_LEN 20
 #define IMPACT_TYPE_LEN 20
 #define BULLET_IMPACT_BUFFER_LEN 100
-#define MAX_FLYING_PARTICLES 200
+#define MAX_CORNFLAKES 20
 
 typedef struct s_smoketype {
     s16 duration;
@@ -130,7 +130,7 @@ struct BulletImpact {
     s16 unk4E;
 };
 
-struct FlyingParticles {
+struct Cornflakes {
     s32 unk00;
 
     struct coord3d position; // 0x04
@@ -146,13 +146,19 @@ struct FlyingParticles {
 extern f32 g_SpExplosionDamageMult;
 extern struct Smoke *g_SmokeBuffer;
 extern struct Explosion *g_ExplosionBuffer;
-extern s32 max_particles;
-extern struct FlyingParticles *g_FlyingParticlesBuffer;
+
+/**
+ * Cornflakes are the little bits of debris that fly out of bullet impacts. This is the actual name the Rare developers
+ * used for them.
+ */
+extern s32 g_MaxCornflakes;
+extern struct Cornflakes *g_CornflakeBuffer;
+extern s32 g_NumCornflakeEntries;
+
 extern struct Scorch *g_ScorchBuffer;
 extern struct BulletImpact *g_BulletImpactBuffer;
 extern s32 g_NumExplosionEntries;
 extern s32 g_NumSmokeEntries;
-extern s32 g_NumParticleEntries;
 extern s32 g_NumScorchEntries;
 extern s32 g_NumImpactEntries;
 

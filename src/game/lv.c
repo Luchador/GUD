@@ -329,7 +329,7 @@ void lvlStageLoad(s32 stage)
     init_guards();
     bodiesReset(stage);
     proplvreset2(stage);
-    alloc_explosion_smoke_casing_scorch_impact_buffers();
+    initFxBuffers();
     alloc_shattered_window_pieces();
     
     g_DyntexWaterScrollS = 0.0f;
