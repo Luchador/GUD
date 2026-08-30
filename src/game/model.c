@@ -8,6 +8,7 @@
 #include "gbi_extension.h"
 #include "gmath.h"
 #include "initunk_005520.h"
+#include "lv.h"
 #include "objecthandler.h"
 #include "quaternion.h"
 #include "random.h"
@@ -849,6 +850,8 @@ void modelCalcHeadingNodePosition(Model *model, ModelNode *modelNode)
     coord3d sp38;
     coord3d sp2c;
     f32 y;
+    s32 positionValid;
+    u32 profTime;
 
     rw = modelGetNodeRwData(model, modelNode);
 
@@ -890,9 +893,25 @@ void modelCalcHeadingNodePosition(Model *model, ModelNode *modelNode)
     sp2c.y = sp38.y;
     sp2c.z = sp38.z;
 
-    if (model->posValidateFunc && !((s32 (*)(Model *, coord3d *, coord3d *, f32 *)) model->posValidateFunc)(model, &rw->Header.pos, &sp2c, &rw->Header.ground))
+    if (model->posValidateFunc)
     {
-        return;
+        if (g_ProfChrPositionActive)
+        {
+            profTime = osGetCount();
+        }
+
+        positionValid = ((s32 (*)(Model *, coord3d *, coord3d *, f32 *)) model->posValidateFunc)(model, &rw->Header.pos, &sp2c, &rw->Header.ground);
+
+        if (g_ProfChrPositionActive)
+        {
+            g_ProfChrPositionValidateCycles += osGetCount() - profTime;
+            g_ProfChrPositionValidateCalls++;
+        }
+
+        if (!positionValid)
+        {
+            return;
+        }
     }
 
     sp38.x = sp2c.x - sp38.x;
