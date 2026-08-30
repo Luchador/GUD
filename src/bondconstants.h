@@ -3801,17 +3801,6 @@ typedef enum PROJECTILES
         ACT_BONDINTRO,
         ACT_BONDDIE,
         ACT_BONDMULTI,
-        /*	PD ONLY
-        ACT_BOT_ATTACKSTAND
-        ACT_BOT_ATTACKKNEEL
-        ACT_BOT_ATTACKSTRAFE
-        ACT_DRUGGEDDROP
-        ACT_DRUGGEDKO
-        ACT_DRUGGEDCOMINGUP
-        ACT_ATTACKAMOUNT
-        ACT_ROBOTATTACK
-        ACT_SKJUMP*
-        */
         ACT_NULL,
         ACT_TYPE_MAX
     } ACT_TYPE;

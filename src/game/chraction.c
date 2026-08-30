@@ -1855,16 +1855,13 @@ void chrlvStanPointPointIntersection(coord3d *arg0, coord3d *arg1, coord3d *resu
 }
 
 
-/**
- * Address 0x7F026364.
- */
 f32 chrlvPathingCollisionRelated(PropRecord *arg0, f32 arg1, f32 arg2, s32 cdtypes, f32 unkHeight, f32 unkA)
 {
-    coord3d sp5C; // sp92
-    f32 dest_x; // sp88
-    f32 dest_z; // sp84
-    StandTile *stan; // sp80
-    ChrRecord *chr; // sp76
+    coord3d sp5C;
+    f32 dest_x;
+    f32 dest_z;
+    StandTile *stan;
+    ChrRecord *chr;
     f32 ret;
     coord3d sp3C;
 

@@ -37,6 +37,11 @@
 #define GROUND_SMOOTH_FACTOR 0.100000024f
 #define FALLSPEED_DECAY      0.9f
 
+/* Ignore imperceptible horizontal root motion in otherwise stationary combat
+ * actions. This allows sub_GAME_7F01F614 to take its stationary fast path
+ * instead of running line and volume collision tests for animation jitter. */
+#define CHR_MICRO_ROOT_MOTION_MAX_DISTANCE 0.5f
+
 // Fade optimization definitions.
 extern f32 g_PropFadeStartPx;
 extern f32 g_PropFadeEndPx;
@@ -1373,6 +1378,8 @@ s32 chrUpdatePosition(Model *model, coord3d *src, coord3d *dst, f32 *ground_y)
     f32 ground;
     coord3d *groundpos;
     f32 tmp;
+    f32 rootDeltaX;
+    f32 rootDeltaZ;
     s32 i;
     StandTile *tile;
     union ModelRwData *rwdata;
@@ -1384,6 +1391,18 @@ s32 chrUpdatePosition(Model *model, coord3d *src, coord3d *dst, f32 *ground_y)
 
     if (chr->prop->stan != NULL)
     {
+        if ((chr->actiontype == ACT_STAND) || (chr->actiontype == ACT_KNEEL) || (chr->actiontype == ACT_ATTACK) || (chr->actiontype == ACT_ARGH) || (chr->actiontype == ACT_PREARGH) || (chr->actiontype == ACT_SURRENDER) || (chr->actiontype == ACT_SURPRISED))
+        {
+            rootDeltaX = dst->x - src->x;
+            rootDeltaZ = dst->z - src->z;
+
+            if (((rootDeltaX * rootDeltaX) + (rootDeltaZ * rootDeltaZ)) <= (CHR_MICRO_ROOT_MOTION_MAX_DISTANCE * CHR_MICRO_ROOT_MOTION_MAX_DISTANCE))
+            {
+                dst->x = src->x;
+                dst->z = src->z;
+            }
+        }
+
         if ((chr->actiontype == ACT_DIE) && (chr->act_die.timeextra > ground))
         {
             tmp = ((model->playspeed * g_GlobalTimerDelta) * (chr->act_die.timeextra - chr->act_die.elapseextra)) / chr->act_die.timeextra;

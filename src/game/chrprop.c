@@ -102,7 +102,6 @@ struct coord2d g_DefaultAutoAimCoord = { 0 };
 
 Gfx *chrpropRender(Gfx *arg0, PropRecord *arg1, s32 withalpha);
 void chraiCheckUseHeldItem(s32 hand);
-void chraiDefaultWeaponFireHandler(s32);
 void chraiFistAttackHandler(s32 hand, s32 item_id);
 void modelGetAxisExtents(Model* model, f32* max, f32* min, s32 axis);
 
@@ -1324,11 +1323,6 @@ void chraiFistAttackHandler(s32 hand, s32 item_id)
 }
 
 
-void chraiDefaultWeaponFireHandler(s32);
-
-/**
- * Address 0x7F03C0F0.
-*/
 void chraiCheckUseHeldItem(s32 hand)
 {
     s32 item_id;
@@ -1457,32 +1451,20 @@ PropRecord *propFindForInteract(void)
 
     g_InteractProp = NULL;
 
-    // Iterate onscreen list near to far
+    // Iterate onscreen list near to far.
     for (ptr = g_LastOnScreenProp - 1; ptr >= g_OnScreenPropList; ptr--)
     {
         PropRecord *prop = *ptr;
 
         if (prop)
         {
-            if (prop->type == PROP_TYPE_CHR)
-            {
-                // empty
-            }
-            else if (prop->type == PROP_TYPE_OBJ || prop->type == PROP_TYPE_WEAPON)
+            if (prop->type == PROP_TYPE_OBJ || prop->type == PROP_TYPE_WEAPON)
             {
                 checkmore = objTestForInteract(prop);
             }
             else if (prop->type == PROP_TYPE_DOOR)
             {
                 checkmore = doorTestForInteract(prop);
-            }
-            else if (prop->type == PROP_TYPE_EXPLOSION)
-            {
-                // empty
-            }
-            else if (prop->type == PROP_TYPE_SMOKE)
-            {
-                // empty
             }
 
             if (!checkmore)
@@ -1538,7 +1520,6 @@ s32 chrpropIsFarFromPlayers(PropRecord* prop)
 {
     PropRecord* player_prop;
     coord3d pos_diff;
-    s32 uninitialized; // needed for match
     s32 rc;
     s32 i;
     s32 player_count;
@@ -1552,6 +1533,7 @@ s32 chrpropIsFarFromPlayers(PropRecord* prop)
         pos_diff.x = player_prop->pos.x - prop->pos.x;
         pos_diff.y = player_prop->pos.y - prop->pos.y;
         pos_diff.z = player_prop->pos.z - prop->pos.z;
+
         if (sqrtf((pos_diff.x * pos_diff.x) + (pos_diff.y * pos_diff.y) + (pos_diff.z * pos_diff.z)) < 400.0f)
         {
             rc = 0;

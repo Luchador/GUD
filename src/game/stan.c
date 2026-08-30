@@ -1398,7 +1398,6 @@ PropRecord *stanFindFirstPropIntersectingSegment(StandTile *startTile, f32 start
     coord2d lineStart;
     coord2d lineEnd;
     struct coord2d *tmp;
-    s32 pad;
     coord2d edgeStart;
     coord2d edgeEnd;
     s32 i;
@@ -1565,14 +1564,7 @@ bool stanPointProjectsOntoEdge(f32 a_x, f32 a_z, f32 b_x, f32 b_z, f32 p_x, f32 
 }
 
 
-StanCollisionResult stanTestVolumeImpl(
-    StandTile **tileStack,
-    f32 p_x,
-    f32 p_z,
-    f32 radius,
-    CDTYPE cdtypes,
-    f32 topOffset,
-    f32 bottomOffset)
+StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 radius, CDTYPE cdtypes, f32 topOffset, f32 bottomOffset)
 {
     s32 i;
     f32 pointDist;
@@ -1594,14 +1586,7 @@ StanCollisionResult stanTestVolumeImpl(
 
     roomCount = 0;
 
-    stanColResult = stanTestCircleAndCollectRooms(
-        tileStack,
-        p_x,
-        p_z,
-        radius,
-        &roomList[0],
-        &roomCount,
-        20);
+    stanColResult = stanTestCircleAndCollectRooms(tileStack, p_x, p_z, radius, &roomList[0], &roomCount, 20);
 
     if (stanColResult >= 0)
     {
@@ -1610,7 +1595,6 @@ StanCollisionResult stanTestVolumeImpl(
 
     if (roomCount > 20)
     {
-        //osSyncPrintf("stanCircleLegalXFObjTypeY: %d rooms is more than %d\n", roomCount, 20);
         roomCount = 20;
     }
 
@@ -1634,16 +1618,9 @@ StanCollisionResult stanTestVolumeImpl(
 
             if (propIsOfCdType(prop, cdtypes) != 0)
             {
-                chraiGetCollisionBounds(
-                    prop,
-                    &polygon,
-                    &numvertices0,
-                    &sp94,
-                    &sp90);
+                chraiGetCollisionBounds(prop, &polygon, &numvertices0, &sp94, &sp90);
 
-                if ((numvertices0 > 0)
-                    && ((useVerticalBounds == 0)
-                        || ((sp90 <= topOffset) && (bottomOffset <= sp94))))
+                if ((numvertices0 > 0) && ((useVerticalBounds == 0) || ((sp90 <= topOffset) && (bottomOffset <= sp94))))
                 {
                     var_f24 = -1.0f;
 
@@ -1700,14 +1677,10 @@ StanCollisionResult stanTestVolumeImpl(
                                 g_StanLastCollisionEdgePointsValid = 1;
                                 var_f24 = pointDist;
 
-                                g_StanLastCollisionEdgePointA.f[0] =
-                                    polygon->points[i].f[0];
-                                g_StanLastCollisionEdgePointA.f[1] =
-                                    polygon->points[i].f[1];
-                                g_StanLastCollisionEdgePointB.f[0] =
-                                    polygon->points[next].f[0];
-                                g_StanLastCollisionEdgePointB.f[1] =
-                                    polygon->points[next].f[1];
+                                g_StanLastCollisionEdgePointA.f[0] = polygon->points[i].f[0];
+                                g_StanLastCollisionEdgePointA.f[1] = polygon->points[i].f[1];
+                                g_StanLastCollisionEdgePointB.f[0] = polygon->points[next].f[0];
+                                g_StanLastCollisionEdgePointB.f[1] = polygon->points[next].f[1];
 
                                 g_StanLastCollisionTile = NULL;
                                 g_StanLastCollisionEdgeIndex = 0;
@@ -1733,12 +1706,6 @@ StanCollisionResult stanTestVolumeImpl(
     }
 
     return STAN_COLLISION_NONE;
-}
-
-
-StanCollisionResult stanTestVolume(StandTile **tileStack, f32 arg1, f32 arg2, f32 arg3, CDTYPE cdtypes, f32 height, f32 width)
-{
-    return stanTestVolumeImpl(tileStack, arg1, arg2, arg3, cdtypes, height, width);
 }
 
 
