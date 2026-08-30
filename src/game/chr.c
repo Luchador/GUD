@@ -1197,26 +1197,45 @@ StandTile *sub_GAME_7F01F614(ChrRecord *guard, StandTile *stan, coord3d *src, co
     tile = stan;
     bottomOffset = CHR_COLLISION_BOTTOM_OFFSET;
 
-    chrGetChrWidthHeight(guard->prop, &width, &height);
     chrSetCollidable(guard, FALSE);
     stanResetHits();
 
-    lineUnobstructed = TRUE;
-
-    if (src->x != dst->x || src->z != dst->z)
+    /*
+     * Experimental stationary-character fast path. Reuse the existing STAN
+     * tile when no XZ movement is proposed, avoiding a volume test whose main
+     * remaining purpose would be detecting a dynamic collider moving into the
+     * character. Ground height and vertical following still run afterward.
+     */
+    if (src->x == dst->x && src->z == dst->z)
     {
         if (g_ProfChrPositionActive)
         {
-            profTime = osGetCount();
+            g_ProfChrStationaryVolumeSkips++;
         }
 
-        lineUnobstructed = stanTestLineUnobstructed(&tile, src->x, src->z, dst->x, dst->z, CDTYPE_ALL_NO_BG, height, bottomOffset, 0.0f, 1.0f);
-
-        if (g_ProfChrPositionActive)
+        if (updateLastMoveOk)
         {
-            g_ProfChrCollisionLineCycles += osGetCount() - profTime;
-            g_ProfChrCollisionLineCalls++;
+            guard->invalidmove = 0;
+            guard->lastmoveok60 = g_GlobalTimer;
         }
+
+        ret = tile;
+        goto done;
+    }
+
+    chrGetChrWidthHeight(guard->prop, &width, &height);
+
+    if (g_ProfChrPositionActive)
+    {
+        profTime = osGetCount();
+    }
+
+    lineUnobstructed = stanTestLineUnobstructed(&tile, src->x, src->z, dst->x, dst->z, CDTYPE_ALL_NO_BG, height, bottomOffset, 0.0f, 1.0f);
+
+    if (g_ProfChrPositionActive)
+    {
+        g_ProfChrCollisionLineCycles += osGetCount() - profTime;
+        g_ProfChrCollisionLineCalls++;
     }
 
     if (lineUnobstructed)
@@ -1532,6 +1551,7 @@ s32 chrUpdatePosition(Model *model, coord3d *src, coord3d *dst, f32 *ground_y)
             {
                 g_ProfChrGroundCycles += osGetCount() - profTime;
                 g_ProfChrGroundCalls++;
+                profTime = osGetCount();
             }
 
             chr->ground = ground;
@@ -1599,6 +1619,12 @@ s32 chrUpdatePosition(Model *model, coord3d *src, coord3d *dst, f32 *ground_y)
             }
 
             dst->y += chr->manground - ground;
+
+            if (g_ProfChrPositionActive)
+            {
+                g_ProfChrGroundFollowCycles += osGetCount() - profTime;
+                g_ProfChrGroundFollowCalls++;
+            }
         }
         else
         {
