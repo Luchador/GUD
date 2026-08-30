@@ -1804,6 +1804,11 @@ void propsTick(void)
     u32 profGroundCycles;
     u32 profGroundFollowCycles;
     u32 profMatrixCycles;
+    u32 profMatrixBodyCycles;
+    u32 profMatrixHitChainCycles;
+    u32 profMatrixWeaponsCycles;
+    u32 profMatrixHatCycles;
+    u32 profMatrixFinalizeCycles;
 
     playerCount = getPlayerCount();
     isSimOwner = playerCount == 1 || get_player_position_in_shuffled(get_cur_playernum()) == 0;
@@ -1838,6 +1843,11 @@ void propsTick(void)
                 profGroundCycles = g_ProfChrGroundCycles;
                 profGroundFollowCycles = g_ProfChrGroundFollowCycles;
                 profMatrixCycles = g_ProfChrMatrixCycles;
+                profMatrixBodyCycles = g_ProfChrMatrixBodyCycles;
+                profMatrixHitChainCycles = g_ProfChrMatrixHitChainCycles;
+                profMatrixWeaponsCycles = g_ProfChrMatrixWeaponsCycles;
+                profMatrixHatCycles = g_ProfChrMatrixHatCycles;
+                profMatrixFinalizeCycles = g_ProfChrMatrixFinalizeCycles;
                 prof_t = osGetCount();
                 g_ProfChrTickCalls++;
                 tickop = chrTick(prop);
@@ -1867,6 +1877,11 @@ void propsTick(void)
                     g_ProfChrSlowestGroundCycles = g_ProfChrGroundCycles - profGroundCycles;
                     g_ProfChrSlowestGroundFollowCycles = g_ProfChrGroundFollowCycles - profGroundFollowCycles;
                     g_ProfChrSlowestMatrixCycles = g_ProfChrMatrixCycles - profMatrixCycles;
+                    g_ProfChrSlowestMatrixBodyCycles = g_ProfChrMatrixBodyCycles - profMatrixBodyCycles;
+                    g_ProfChrSlowestMatrixHitChainCycles = g_ProfChrMatrixHitChainCycles - profMatrixHitChainCycles;
+                    g_ProfChrSlowestMatrixWeaponsCycles = g_ProfChrMatrixWeaponsCycles - profMatrixWeaponsCycles;
+                    g_ProfChrSlowestMatrixHatCycles = g_ProfChrMatrixHatCycles - profMatrixHatCycles;
+                    g_ProfChrSlowestMatrixFinalizeCycles = g_ProfChrMatrixFinalizeCycles - profMatrixFinalizeCycles;
                     g_ProfChrSlowestOnscreen = (prop->flags & PROPFLAG_ONSCREEN) != 0;
                 }
             }

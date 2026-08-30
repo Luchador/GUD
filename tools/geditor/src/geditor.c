@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "resource.h"
+#include "viewport.h"
 
 #define GEDITOR_CLASS  "GEditorWindow"
 #define GEDITOR_TITLE  "GEditor"
@@ -252,10 +253,51 @@ static BOOL GEditorPromptForProject(HWND hwnd, char *pathout, DWORD pathmax)
  * DefWindowProc, which supplies the standard behaviour (dragging,
  * resizing, the min/max/close buttons, and so on).
  */
+/* The one viewport child. Created in WM_CREATE, laid out in WM_SIZE. */
+static HWND g_Viewport;
+
+/*
+ * Positions the child windows inside the main window's client area.
+ * For now the viewport takes everything; when the content-browser
+ * column arrives, it claims a strip on the left and the viewport
+ * starts where it ends.
+ */
+static void GEditorLayout(HWND hwnd)
+{
+    RECT rc;
+    int browserwidth = 0; /* future: content browser column */
+
+    GetClientRect(hwnd, &rc);
+
+    if (g_Viewport != NULL)
+    {
+        MoveWindow(g_Viewport,
+                   browserwidth, 0,
+                   rc.right - browserwidth, rc.bottom,
+                   TRUE);
+    }
+}
+
 static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     switch (msg)
     {
+    case WM_CREATE:
+    {
+        CREATESTRUCT *cs = (CREATESTRUCT *)lparam;
+
+        g_Viewport = ViewportCreate(hwnd, cs->hInstance);
+        if (g_Viewport == NULL)
+        {
+            return -1; /* no viewport, no editor */
+        }
+        return 0;
+    }
+
+    case WM_SIZE:
+        GEditorLayout(hwnd);
+        return 0;
+
     case WM_COMMAND:
         /* Menu selections arrive here with the command ID in the low word. */
         switch (LOWORD(wparam))
@@ -323,6 +365,12 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
     if (!RegisterClass(&wc))
     {
         MessageBox(NULL, "RegisterClass failed", GEDITOR_TITLE, MB_ICONERROR);
+        return 1;
+    }
+
+    if (!ViewportRegisterClass(hinstance))
+    {
+        MessageBox(NULL, "ViewportRegisterClass failed", GEDITOR_TITLE, MB_ICONERROR);
         return 1;
     }
 

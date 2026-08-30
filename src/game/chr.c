@@ -2687,7 +2687,9 @@ after_position_update:
          * LOD distance is global model state so scope the character-specific adjustment to this character.
          */
         modelSetDistanceScale(CHR_LOD_DISTANCE_FACTOR);
+        profCallTime = osGetCount();
         subcalcmatrices(&renderdata, model);
+        g_ProfChrMatrixBodyCycles += osGetCount() - profCallTime;
 
         modelSetDistanceScale(1.0f);
 
@@ -2697,16 +2699,21 @@ after_position_update:
 
         prop->zDepth = modelGetZDepth(model);
 
+        profCallTime = osGetCount();
         chr->hitChain = sub_GAME_7F06B120(NULL, model);
+        g_ProfChrMatrixHitChainCycles += osGetCount() - profCallTime;
 
+        profCallTime = osGetCount();
         chrRenderHeldWeapon(prop, GUNRIGHT, (Gfx **)(&chr->hitChain));
         chrRenderHeldWeapon(prop, GUNLEFT, (Gfx **)(&chr->hitChain));
+        g_ProfChrMatrixWeaponsCycles += osGetCount() - profCallTime;
 
         if (chr->handle_positiondata_hat != NULL)
         {
             ObjectRecord *hatobj;
             Model *hatmodel;
 
+            profCallTime = osGetCount();
             hatobj = chr->handle_positiondata_hat->obj;
             hatmodel = hatobj->model;
 
@@ -2765,6 +2772,8 @@ after_position_update:
             {
                 chr->hitChain = sub_GAME_7F06B120(chr->hitChain, hatmodel);
             }
+
+            g_ProfChrMatrixHatCycles += osGetCount() - profCallTime;
         }
 
         if (model->obj->Switches[4] != NULL)
@@ -2781,8 +2790,10 @@ after_position_update:
             }
         }
 
+        profCallTime = osGetCount();
         sub_GAME_7F06B29C(chr->hitChain);
         chr->hitChain = sub_GAME_7F06BB28(chr->hitChain);
+        g_ProfChrMatrixFinalizeCycles += osGetCount() - profCallTime;
 
         g_ProfChrMatrixCycles += osGetCount() - profSectionTime;
     }
