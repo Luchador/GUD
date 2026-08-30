@@ -198,12 +198,6 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
             modelSetScale(objectRecord->model, objectRecord->model->scale * sp78);
             chrpropReparent(var_v0, sp6C->prop);
         }
-        #ifdef DEBUG
-        else
-        {
-            osSyncPrintf("domakedefaultobj: no chr number %d for obj number %d!\n",objectRecord->pad,cmdindex + 1);
-        }
-        #endif
     }
     else
     {
@@ -257,14 +251,6 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
                     spD0.f[2] = boundPadRecord->pos.f[2];
 
                     spCC = boundPadRecord->stan;
-
-                    if (!(objectRecord->flags & PROPFLAG_ONSCREEN) && !(objectRecord->flags & PROPFLAG_00001000))
-                    {
-                        // removed
-                        #ifdef DEBUG
-                            osSyncPrintf("object number %d not positioned correctly!\n",cmdindex + 1);
-                        #endif
-                    }
                 }
             }
             else
@@ -592,21 +578,20 @@ void weaponAssignToHome(s32 arg0, WeaponObjRecord* weapon, s32 cmdindex)
 //i should be object hat
 void setupHat(s32 arg0, ObjectRecord* hat, s32 cmdindex)
 {
-    if (hat->flags & PROPFLAG_ASSIGNEDTOCHR) {
+    if (hat->flags & PROPFLAG_ASSIGNEDTOCHR)
+    {
         ChrRecord* chr = chrFindByLiteralId(hat->pad);
-        if (chr && chr->prop && chr->model) {
+        if (chr && chr->prop && chr->model)
+        {
             hatAssignToChr(hat, chr);
         }
-        #ifdef DEBUG
-        else
-        {
-            osSyncPrintf("domakehatobj: no chr number %d for obj number %d!\n",hat->pad, cmdindex + 1);
-        }
-        #endif
-    } else {
+    } 
+    else 
+    {
         domakedefaultobj(arg0, hat, cmdindex);
     }
 }
+
 
 //i should be object key
 void setupKey(s32 arg0, ObjectRecord* key, s32 cmdindex)
@@ -615,9 +600,6 @@ void setupKey(s32 arg0, ObjectRecord* key, s32 cmdindex)
 }
 
 
-/**
- * NTSC address 0x7F002A3C.
-*/
 void setupCctv(s32 arg0, CCTVRecord *arg1, s32 cmdindex)
 {
     struct coord3d *temp_a2;
@@ -671,6 +653,7 @@ void setupCctv(s32 arg0, CCTVRecord *arg1, s32 cmdindex)
         arg1->timer = 0;
     }
 }
+
 
 void setupAutogun(s32 stageID, AutogunRecord *autogun, s32 cmdindex)
 {
@@ -895,8 +878,6 @@ void setupGetDoorAdjacentRooms(struct BoundPadRecord *pad, s32 *frontRoom, s32 *
  * for vertical/fallaway doors, along up otherwise. It also converts the setup
  * file's 16.16 fixed point motion fields to floats then initialises, registers,
  * and activates the door prop in its rooms.
- * 
- * PD equivalent: setupCreateDoor.
  */
 void setupDoor(struct DoorRecord *door, s32 cmdindex)
 {
@@ -1412,19 +1393,16 @@ void proplvreset2(enum LEVELID stageId)
                         GuardAttributeRecord *pdef_guarda;
                         u8 prob;
                         ChrRecord *chr;
+
                         pdef_guarda = (GuardAttributeRecord *) phead;
                         prob = (u8) pdef_guarda->GrenadeProb;
                         chr = chrFindByLiteralId(pdef_guarda->chrnum);
+
                         if ((chr && chr->prop) && chr->model)
                         {
                             chr->grenadeprob = prob;
                         }
-#ifdef DEBUG
-                        else
-                        {
-                            osSyncPrintf("grenade prob: no chr number %d for obj number %d! ", pdef_guarda->GrenadeProb, pdefIndex + 1);
-                        }
-#endif
+
                         break;
                     }
                     case PROPDEF_GUARD:
@@ -1493,11 +1471,8 @@ void proplvreset2(enum LEVELID stageId)
                     case PROPDEF_ARMOUR:
                     {
                         struct BodyArmourRecord *pdef_ba = (struct BodyArmourRecord *) phead;
-#ifndef VERSION_US
-                        if (withobjs && (((pdef_ba->flags2 & flags) == 0) || j_text_trigger)) // JP: armour setup also proceeds when j_text_trigger is set
-#else
+
                         if (withobjs && ((pdef_ba->flags2 & flags) == 0))
-#endif
                         {
                             pdef_ba->initialamount = (*((s32 *) (&pdef_ba->initialamount))) / M_U16_MAX_VALUE_F;
                             pdef_ba->amount = pdef_ba->initialamount;
@@ -1598,11 +1573,7 @@ void proplvreset2(enum LEVELID stageId)
                             }
 
                             pdef_tank->stan_y = stan_y;
-#ifdef VERSION_EU
-                            pdef_tank->unkD0 = stan_y / 0.2004f; // EU-tuned constant
-#else
                             pdef_tank->unkD0 = stan_y / 0.17000002f;
-#endif
                         }
                         break;
                     case PROPDEF_VEHICLE:
@@ -1757,15 +1728,6 @@ void proplvreset2(enum LEVELID stageId)
                                 modelSetScale(pdef_obj->model, pdef_obj->model->scale);
                                 chrpropReparent(pdef_obj->prop, inobj->prop);
                             }
-
-#ifdef DEBUG
-                            //possibly wrong place
-                            else
-                            {
-                                osSyncPrintf("inobj link not found for object number %d\n", pdefIndex + 1);
-                            }
-#endif
-
                         }
                         break;
                     }
@@ -1781,17 +1743,6 @@ void proplvreset2(enum LEVELID stageId)
                             {
                                 propweaponSetDual(guna, gunb);
                             }
-#ifdef DEBUG
-                            else
-                            {
-                                osSyncPrintf("link type wrong for doublegun object number %d\n", pdefIndex + 1);
-                            }
-                        }
-                        else
-                        {
-                            osSyncPrintf("link not found for doublegun object number %d\n", pdefIndex + 1);
-#endif
-
                         }
 
                         break;
@@ -1817,13 +1768,6 @@ void proplvreset2(enum LEVELID stageId)
                             initSetLevelLoadPropSwitch(pdef_switch);
                             doorA->runtime_bitflags |= RUNTIMEBITFLAG_00000001; // linked door
                         }
-
-#ifdef DEBUG
-                        else
-                        {
-                            osSyncPrintf("doorlink object number %d not initialised\n", pdefIndex + 1);
-                        }
-#endif
 
                         break;
                     }
@@ -1854,12 +1798,7 @@ void proplvreset2(enum LEVELID stageId)
                             safe_item->flags2 |= PROPFLAG2_LINKEDTOSAFE;
                             door->flags2 |= PROPFLAG2_LINKEDTOSAFE;
                         }
-#ifdef DEBUG
-                        else
-                        {
-                            osSyncPrintf("safelink object number %d not initialised\n", pdefIndex + 1);
-                        }
-#endif
+
                         break;
                     }
                     case PROPDEF_LOCK_DOOR:
@@ -1885,12 +1824,7 @@ void proplvreset2(enum LEVELID stageId)
                             initSetLevelLoadPropLockDoor(pdef_lock_door);
                             door->runtime_bitflags |= RUNTIMEBITFLAG_PADLOCKEDDOOR;
                         }
-#ifdef DEBUG
-                        else
-                        {
-                            osSyncPrintf("doorlock object number %d not initialised\n", pdefIndex + 1);
-                        }
-#endif
+
                         break;
                     }
                 }

@@ -1809,6 +1809,15 @@ void propsTick(void)
     u32 profMatrixWeaponsCycles;
     u32 profMatrixHatCycles;
     u32 profMatrixFinalizeCycles;
+    u32 profMatrixBodyFrameCycles;
+    u32 profMatrixBodyBuildCycles;
+    u32 profMatrixJointCycles;
+    u32 profMatrixJointCalls;
+    u32 profMatrixFrameCalls;
+    u32 profMatrixFrameRamCalls;
+    u32 profMatrixFrameCacheHits;
+    u32 profMatrixFrameDmaCalls;
+    u32 profMatrixFrameDmaCycles;
 
     playerCount = getPlayerCount();
     isSimOwner = playerCount == 1 || get_player_position_in_shuffled(get_cur_playernum()) == 0;
@@ -1848,6 +1857,15 @@ void propsTick(void)
                 profMatrixWeaponsCycles = g_ProfChrMatrixWeaponsCycles;
                 profMatrixHatCycles = g_ProfChrMatrixHatCycles;
                 profMatrixFinalizeCycles = g_ProfChrMatrixFinalizeCycles;
+                profMatrixBodyFrameCycles = g_ProfChrMatrixBodyFrameCycles;
+                profMatrixBodyBuildCycles = g_ProfChrMatrixBodyBuildCycles;
+                profMatrixJointCycles = g_ProfChrMatrixJointCycles;
+                profMatrixJointCalls = g_ProfChrMatrixJointCalls;
+                profMatrixFrameCalls = g_ProfChrMatrixFrameCalls;
+                profMatrixFrameRamCalls = g_ProfChrMatrixFrameRamCalls;
+                profMatrixFrameCacheHits = g_ProfChrMatrixFrameCacheHits;
+                profMatrixFrameDmaCalls = g_ProfChrMatrixFrameDmaCalls;
+                profMatrixFrameDmaCycles = g_ProfChrMatrixFrameDmaCycles;
                 prof_t = osGetCount();
                 g_ProfChrTickCalls++;
                 tickop = chrTick(prop);
@@ -1882,6 +1900,15 @@ void propsTick(void)
                     g_ProfChrSlowestMatrixWeaponsCycles = g_ProfChrMatrixWeaponsCycles - profMatrixWeaponsCycles;
                     g_ProfChrSlowestMatrixHatCycles = g_ProfChrMatrixHatCycles - profMatrixHatCycles;
                     g_ProfChrSlowestMatrixFinalizeCycles = g_ProfChrMatrixFinalizeCycles - profMatrixFinalizeCycles;
+                    g_ProfChrSlowestMatrixBodyFrameCycles = g_ProfChrMatrixBodyFrameCycles - profMatrixBodyFrameCycles;
+                    g_ProfChrSlowestMatrixBodyBuildCycles = g_ProfChrMatrixBodyBuildCycles - profMatrixBodyBuildCycles;
+                    g_ProfChrSlowestMatrixJointCycles = g_ProfChrMatrixJointCycles - profMatrixJointCycles;
+                    g_ProfChrSlowestMatrixJointCalls = g_ProfChrMatrixJointCalls - profMatrixJointCalls;
+                    g_ProfChrSlowestMatrixFrameCalls = g_ProfChrMatrixFrameCalls - profMatrixFrameCalls;
+                    g_ProfChrSlowestMatrixFrameRamCalls = g_ProfChrMatrixFrameRamCalls - profMatrixFrameRamCalls;
+                    g_ProfChrSlowestMatrixFrameCacheHits = g_ProfChrMatrixFrameCacheHits - profMatrixFrameCacheHits;
+                    g_ProfChrSlowestMatrixFrameDmaCalls = g_ProfChrMatrixFrameDmaCalls - profMatrixFrameDmaCalls;
+                    g_ProfChrSlowestMatrixFrameDmaCycles = g_ProfChrMatrixFrameDmaCycles - profMatrixFrameDmaCycles;
                     g_ProfChrSlowestOnscreen = (prop->flags & PROPFLAG_ONSCREEN) != 0;
                 }
             }

@@ -2045,6 +2045,13 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
     Mtxf rotmtx;
     u16 hidden;
     ChrRecord *chr;
+    u32 profTime;
+
+    if (g_ProfChrMatrixBodyActive)
+    {
+        profTime = osGetCount();
+        g_ProfChrMatrixJointCalls++;
+    }
 
     scale = 1.0f;
 
@@ -2064,7 +2071,7 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 
     if ((((bodypart != CHR_RENDERPART_LEFT_ARM) && (bodypart != CHR_RENDERPART_RIGHT_ARM)) && (bodypart != CHR_RENDERPART_TORSO)) && (bodypart != CHR_RENDERPART_HEAD))
     {
-        return;
+        goto profile_done;
     }
 
     zrot = (yrot = (xrot = 0.0f));
@@ -2183,7 +2190,7 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
 
     if ((((xrot == 0.0f) && (yrot == 0.0f)) && (zrot == 0.0f)) && (scale == 1.0f))
     {
-        return;
+        goto profile_done;
     }
 
     sideback = chrlvGetSubrotySideback(chr);
@@ -2255,6 +2262,12 @@ void chrHandleJointPositioned(enum CHR_RENDER_PART bodypart, Mtxf *matrix)
     matrix->m[3][2] = savedposz;
 
     matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), matrix);
+
+profile_done:
+    if (g_ProfChrMatrixBodyActive)
+    {
+        g_ProfChrMatrixJointCycles += osGetCount() - profTime;
+    }
 }
 
 
@@ -2687,9 +2700,11 @@ after_position_update:
          * LOD distance is global model state so scope the character-specific adjustment to this character.
          */
         modelSetDistanceScale(CHR_LOD_DISTANCE_FACTOR);
+        g_ProfChrMatrixBodyActive = TRUE;
         profCallTime = osGetCount();
         subcalcmatrices(&renderdata, model);
         g_ProfChrMatrixBodyCycles += osGetCount() - profCallTime;
+        g_ProfChrMatrixBodyActive = FALSE;
 
         modelSetDistanceScale(1.0f);
 

@@ -2085,8 +2085,15 @@ void instcalcmatrices(ModelRenderData* arg0, Model* arg1)
 
 void subcalcmatrices(ModelRenderData *arg0, struct Model *arg1)
 {
+    u32 profTime;
+
     if (arg1->anim != NULL)
     {
+        if (g_ProfChrMatrixBodyActive)
+        {
+            profTime = osGetCount();
+        }
+
         arg1->unk34 = loadAnimationFrame(arg1->anim, arg1->framea, arg1->obj->Skeleton);
 
         if (arg1->animFrameFrac != 0.0f)
@@ -2105,9 +2112,24 @@ void subcalcmatrices(ModelRenderData *arg0, struct Model *arg1)
         }
 
         modelResetAnimationsScratchBuffer();
+
+        if (g_ProfChrMatrixBodyActive)
+        {
+            g_ProfChrMatrixBodyFrameCycles += osGetCount() - profTime;
+        }
+    }
+
+    if (g_ProfChrMatrixBodyActive)
+    {
+        profTime = osGetCount();
     }
 
     instcalcmatrices(arg0, arg1);
+
+    if (g_ProfChrMatrixBodyActive)
+    {
+        g_ProfChrMatrixBodyBuildCycles += osGetCount() - profTime;
+    }
 }
 
 
@@ -5121,14 +5143,25 @@ s32 loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
     bool cacheHit;
     u32 dest;
     u32 size;
+    u32 profTime;
 
     ret = 0;
     frameSize = anim->unk0E >> 3; // divide by 8
+
+    if (g_ProfChrMatrixBodyActive)
+    {
+        g_ProfChrMatrixFrameCalls++;
+    }
 
     if (anim->address & 0x80000000) // If animation's address is in RAM
     {
         // Load that frame from RAM
         ret = anim->address + (frame * frameSize);
+
+        if (g_ProfChrMatrixBodyActive)
+        {
+            g_ProfChrMatrixFrameRamCalls++;
+        }
     }
     else if (D_80036414 != NULL) // should never be NULL after initAnimationsBuffer is called
     {
@@ -5196,7 +5229,18 @@ s32 loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
                 }
             }
 
+            if (g_ProfChrMatrixBodyActive)
+            {
+                g_ProfChrMatrixFrameDmaCalls++;
+                profTime = osGetCount();
+            }
+
             romCopy((void *)dest, (void *)source, size);
+
+            if (g_ProfChrMatrixBodyActive)
+            {
+                g_ProfChrMatrixFrameDmaCycles += osGetCount() - profTime;
+            }
 
             if (cacheSlot < 0)
             {
@@ -5207,6 +5251,10 @@ s32 loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
             g_ModelAnimFrameCache[cacheSlot].source = source;
             g_ModelAnimFrameCache[cacheSlot].size = size;
             g_ModelAnimFrameCacheNext = (cacheSlot + 1) % MODEL_ANIM_FRAME_CACHE_CAPACITY;
+        }
+        else if (g_ProfChrMatrixBodyActive)
+        {
+            g_ProfChrMatrixFrameCacheHits++;
         }
 
         // Increment this which serves nothing
