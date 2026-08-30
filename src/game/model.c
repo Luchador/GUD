@@ -1028,6 +1028,15 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
     Mtxf *dst;
     f32 angle;
     Mtxf **parentMtxPtr;
+    s32 profActive;
+    u32 profTime;
+
+    profActive = g_ProfChrMatrixBodyActive;
+
+    if (profActive)
+    {
+        g_ProfChrMatrixBuildCalls++;
+    }
 
     flags = mgm->flags;
     group = mgm->group;
@@ -1038,8 +1047,18 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
     matrix2 = group->MatrixID2;
     render_pos = model->render_pos;
 
+    if (profActive)
+    {
+        profTime = osGetCount();
+    }
+
     if (((Mtxf *) mgm->parentnode) != NULL)
     {
+        if (profActive)
+        {
+            g_ProfChrMatrixBuildParentLookupCalls++;
+        }
+
         parentNodeMtx = modelFindNodeMtx(model, (ModelNode *) ((Mtxf *) mgm->parentnode), 0);
         parent = parentNodeMtx;
     }
@@ -1048,8 +1067,23 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
         parent = parentMtxPtr[0];
     }
 
+    if (profActive)
+    {
+        if (parent != NULL)
+        {
+            g_ProfChrMatrixBuildParentPresentCalls++;
+        }
+
+        g_ProfChrMatrixBuildParentCycles += osGetCount() - profTime;
+    }
+
     has_matrix2 = flags & MODELGROUP_MTX_HAS_MATRIX2;
     matrix0_mtx = (Mtxf *) mgm->parentnode;
+
+    if (profActive)
+    {
+        profTime = osGetCount();
+    }
 
     if (parent != NULL)
     {
@@ -1057,19 +1091,30 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
 
         matrix0_mtx = &render_pos[matrix0].pos;
         matrix_4x4_multiply_homogeneous(parent, &tmp, matrix0_mtx);
-
-        if (g_ModelJointPositionedFunc != NULL)
-        {
-            g_ModelJointPositionedFunc(matrix0, matrix0_mtx);
-        }
     }
     else
     {
         matrix_4x4_set_position_and_rotation_around_xyz(&group->Origin, rot, &render_pos[matrix0].pos);
     }
 
+    if (profActive)
+    {
+        g_ProfChrMatrixBuildPrimaryCycles += osGetCount() - profTime;
+    }
+
+    if (parent != NULL && g_ModelJointPositionedFunc != NULL)
+    {
+        g_ModelJointPositionedFunc(matrix0, matrix0_mtx);
+    }
+
     if (flags & MODELGROUP_MTX_HAS_MATRIX1)
     {
+        if (profActive)
+        {
+            g_ProfChrMatrixBuildMatrix1Calls++;
+            profTime = osGetCount();
+        }
+
         quaternion_set_rotation_around_xyzf(rot->f, q);
         quaternion_7F05BC68(q, 0.5f, q2);
 
@@ -1082,10 +1127,21 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
         {
             quaternion_to_transform_matrix(origin, q2, (render_pos + matrix1)->pos.m);
         }
+
+        if (profActive)
+        {
+            g_ProfChrMatrixBuildMatrix1Cycles += osGetCount() - profTime;
+        }
     }
 
     if (has_matrix2)
     {
+        if (profActive)
+        {
+            g_ProfChrMatrixBuildMatrix2Calls++;
+            profTime = osGetCount();
+        }
+
         if (parent != NULL)
         {
             dst = &tmp;
@@ -1127,6 +1183,11 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
         if (parent != NULL)
         {
             matrix_4x4_multiply_homogeneous(parent, dst, &render_pos[matrix2].pos);
+        }
+
+        if (profActive)
+        {
+            g_ProfChrMatrixBuildMatrix2Cycles += osGetCount() - profTime;
         }
     }
 }
@@ -1374,49 +1435,23 @@ void process_02_position(ModelRenderData *arg0, Model *model, ModelNode *node)
     skeleton = model->obj->Skeleton;
     profActive = g_ProfChrMatrixBodyActive;
 
-    if (profActive)
-    {
-        profTime = osGetCount();
-    }
     rot1 = D_80036094;
     sub_GAME_7F06DEC0(jointnum.v, model->gunhand, skeleton, model->anim, model->unk34, &rot1);
-    if (profActive)
-    {
-        g_ProfChrMatrixBodyGroupDecodeCycles += osGetCount() - profTime;
-    }
 
     if (model->animFrameFrac != 0.0f)
     {
-        if (profActive)
-        {
-            g_ProfChrMatrixBodyGroupFrameInterpCalls++;
-            profTime = osGetCount();
-        }
         rot2 = D_800360A0;
         sub_GAME_7F06DEC0(jointnum.v, model->gunhand, skeleton, model->anim, model->unk38, &rot2);
         sub_GAME_7F06D160(&rot1, &rot2, model->animFrameFrac);
-        if (profActive)
-        {
-            g_ProfChrMatrixBodyGroupFrameInterpCycles += osGetCount() - profTime;
-        }
     }
 
     if (model->unk84 != 0.0f)
     {
-        if (profActive)
-        {
-            g_ProfChrMatrixBodyGroupAnimBlendCalls++;
-            profTime = osGetCount();
-        }
         rot3 = D_800360AC;
         sub_GAME_7F06DEC0(jointnum.v, model->unk25, skeleton, model->anim2, model->unk64, &rot3);
 
         if (model->unk5c != 0.0f)
         {
-            if (profActive)
-            {
-                g_ProfChrMatrixBodyGroupAnimBlendInterpCalls++;
-            }
             rot4 = D_800360B8;
             sub_GAME_7F06DEC0(jointnum.v, model->unk25, skeleton, model->anim2, model->unk68, &rot4);
             sub_GAME_7F06D160(&rot3, &rot4, model->unk5c);
@@ -1428,7 +1463,6 @@ void process_02_position(ModelRenderData *arg0, Model *model, ModelNode *node)
         quaternion_slerp(q1, q2, model->unk84, result);
         if (profActive)
         {
-            g_ProfChrMatrixBodyGroupAnimBlendCycles += osGetCount() - profTime;
             profTime = osGetCount();
         }
         sub_GAME_7F06DB5C(arg0, model, node, result);
@@ -2050,8 +2084,6 @@ void modelUpdateNodeRelations(Model *model)
 void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
 {
     ModelNode *node = model->obj->RootNode;
-    s32 profActive = g_ProfChrMatrixBodyActive;
-    u32 profTime;
 
     while (node)
     {
@@ -2064,16 +2096,7 @@ void modelUpdateMatrices(ModelRenderData *arg0, Model *model)
                 break;
 
             case MODELNODE_OPCODE_GROUP:
-                if (profActive)
-                {
-                    g_ProfChrMatrixBodyGroupCalls++;
-                    profTime = osGetCount();
-                }
                 process_02_position(arg0, model, node);
-                if (profActive)
-                {
-                    g_ProfChrMatrixBodyGroupCycles += osGetCount() - profTime;
-                }
                 break;
 
             case MODELNODE_OPCODE_OP03:
