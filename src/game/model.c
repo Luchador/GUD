@@ -991,39 +991,232 @@ void process_01_group_heading(ModelRenderData* renderdata, Model* model, ModelNo
 
 
 /**
- * Finds the shortest-path half rotation between the identity quaternion and q.
- *
- * This is the t=0.5 specialization of quaternion_7F05BC68. The half-angle
- * identity removes the acosf and three sinf calls from the general slerp.
+ * Builds a joint transform directly and, when a parent is present, composes it
+ * in the same pass. This avoids the temporary local matrix, its reloads, the
+ * redundant translation stores and the separate matrix-multiply call.
  */
-static void modelGetHalfRotationQuaternion(quatf q, quatf result)
+static void modelBuildJointTransform(Mtxf *parent, coord3d *position, coord3d *rotation, Mtxf *matrix)
 {
-    f32 absW = q[0];
-    f32 sign = 1.0f;
+    f32 cos_x = cosf(rotation->x);
+    f32 sin_x = sinf(rotation->x);
+    f32 cos_y = cosf(rotation->y);
+    f32 sin_y = sinf(rotation->y);
+    f32 cos_z = cosf(rotation->z);
+    f32 sin_z = sinf(rotation->z);
+    f32 sin_x_sin_z;
+    f32 cos_x_sin_z;
+    f32 sin_x_cos_z;
+    f32 cos_x_cos_z;
+    f32 m00;
+    f32 m01;
+    f32 m02;
+    f32 m10;
+    f32 m11;
+    f32 m12;
+    f32 m20;
+    f32 m21;
+    f32 m22;
+    s32 i;
 
-    if (absW < 0.0f)
+    sin_x_sin_z = sin_x * sin_z;
+    cos_x_sin_z = cos_x * sin_z;
+    sin_x_cos_z = sin_x * cos_z;
+    cos_x_cos_z = cos_x * cos_z;
+
+    m00 = cos_y * cos_z;
+    m01 = cos_y * sin_z;
+    m02 = -sin_y;
+    m10 = (sin_x_cos_z * sin_y) - cos_x_sin_z;
+    m11 = (sin_x_sin_z * sin_y) + cos_x_cos_z;
+    m12 = sin_x * cos_y;
+    m20 = (cos_x_cos_z * sin_y) + sin_x_sin_z;
+    m21 = (cos_x_sin_z * sin_y) - sin_x_cos_z;
+    m22 = cos_x * cos_y;
+
+    if (parent != NULL)
     {
-        absW = -absW;
-        sign = -1.0f;
-    }
+        for (i = 0; i < 3; i++)
+        {
+            f32 p0 = parent->m[0][i];
+            f32 p1 = parent->m[1][i];
+            f32 p2 = parent->m[2][i];
 
-    if (absW <= 0.99998999f)
-    {
-        f32 halfW = sqrtf((1.0f + absW) * 0.5f);
-        f32 scale = 0.5f / halfW;
-
-        result[0] = sign * halfW;
-        result[1] = q[1] * scale;
-        result[2] = q[2] * scale;
-        result[3] = q[3] * scale;
+            matrix->m[0][i] = p0 * m00 + p1 * m01 + p2 * m02;
+            matrix->m[1][i] = p0 * m10 + p1 * m11 + p2 * m12;
+            matrix->m[2][i] = p0 * m20 + p1 * m21 + p2 * m22;
+            matrix->m[3][i] = p0 * position->x + p1 * position->y + p2 * position->z + parent->m[3][i];
+        }
     }
     else
     {
-        /* Match the general slerp's near-identity linear fallback. */
-        result[0] = q[0] * 0.5f + sign * 0.5f;
-        result[1] = q[1] * 0.5f;
-        result[2] = q[2] * 0.5f;
-        result[3] = q[3] * 0.5f;
+        matrix->m[0][0] = m00;
+        matrix->m[0][1] = m01;
+        matrix->m[0][2] = m02;
+        matrix->m[1][0] = m10;
+        matrix->m[1][1] = m11;
+        matrix->m[1][2] = m12;
+        matrix->m[2][0] = m20;
+        matrix->m[2][1] = m21;
+        matrix->m[2][2] = m22;
+        matrix->m[3][0] = position->x;
+        matrix->m[3][1] = position->y;
+        matrix->m[3][2] = position->z;
+    }
+
+    matrix->m[0][3] = 0.0f;
+    matrix->m[1][3] = 0.0f;
+    matrix->m[2][3] = 0.0f;
+    matrix->m[3][3] = 1.0f;
+}
+
+
+/**
+ * Converts a quaternion to a transform matrix using a caller-supplied
+ * normalization factor. Euler-built and slerped quaternions are already unit
+ * length, so their factor is exactly 2 and the generic converter's four
+ * squares, three additions and floating-point division are unnecessary.
+ */
+static void modelBuildQuaternionTransform(Mtxf *parent, coord3d *position, quatf q, Mtxf *matrix, f32 factor)
+{
+    f32 x = q[1] * factor;
+    f32 y = q[2] * factor;
+    f32 z = q[3] * factor;
+    f32 wx = q[0] * x;
+    f32 wy = q[0] * y;
+    f32 wz = q[0] * z;
+    f32 xx = q[1] * x;
+    f32 xy = q[1] * y;
+    f32 xz = q[1] * z;
+    f32 yy = q[2] * y;
+    f32 yz = q[2] * z;
+    f32 zz = q[3] * z;
+    f32 m00 = 1.0f - (yy + zz);
+    f32 m01 = xy + wz;
+    f32 m02 = xz - wy;
+    f32 m10 = xy - wz;
+    f32 m11 = 1.0f - (xx + zz);
+    f32 m12 = yz + wx;
+    f32 m20 = xz + wy;
+    f32 m21 = yz - wx;
+    f32 m22 = 1.0f - (xx + yy);
+    s32 i;
+
+    if (parent != NULL)
+    {
+        for (i = 0; i < 3; i++)
+        {
+            f32 p0 = parent->m[0][i];
+            f32 p1 = parent->m[1][i];
+            f32 p2 = parent->m[2][i];
+
+            matrix->m[0][i] = p0 * m00 + p1 * m01 + p2 * m02;
+            matrix->m[1][i] = p0 * m10 + p1 * m11 + p2 * m12;
+            matrix->m[2][i] = p0 * m20 + p1 * m21 + p2 * m22;
+            matrix->m[3][i] = p0 * position->x + p1 * position->y + p2 * position->z + parent->m[3][i];
+        }
+    }
+    else
+    {
+        matrix->m[0][0] = m00;
+        matrix->m[0][1] = m01;
+        matrix->m[0][2] = m02;
+        matrix->m[1][0] = m10;
+        matrix->m[1][1] = m11;
+        matrix->m[1][2] = m12;
+        matrix->m[2][0] = m20;
+        matrix->m[2][1] = m21;
+        matrix->m[2][2] = m22;
+        matrix->m[3][0] = position->x;
+        matrix->m[3][1] = position->y;
+        matrix->m[3][2] = position->z;
+    }
+
+    matrix->m[0][3] = 0.0f;
+    matrix->m[1][3] = 0.0f;
+    matrix->m[2][3] = 0.0f;
+    matrix->m[3][3] = 1.0f;
+}
+
+
+/**
+ * Finds the shortest-path half rotation between the identity quaternion and q.
+ *
+ * q plus the appropriately signed identity quaternion points in exactly the
+ * same direction as the normalized half rotation. Leave that result
+ * unnormalized and return its known matrix factor, removing the square root
+ * and the generic four-component length calculation.
+ */
+static f32 modelGetHalfRotationQuaternion(quatf q, quatf result)
+{
+    f32 abs_w = q[0];
+    f32 sign = 1.0f;
+
+    if (abs_w < 0.0f)
+    {
+        abs_w = -abs_w;
+        sign = -1.0f;
+    }
+
+    result[0] = q[0] + sign;
+    result[1] = q[1];
+    result[2] = q[2];
+    result[3] = q[3];
+
+    /* For unit q, length_squared(q + sign * identity) is
+     * 2 * (1 + abs(q.w)). The quaternion matrix wants 2 / length_squared. */
+    return 1.0f / (1.0f + abs_w);
+}
+
+
+/**
+ * Builds the uncommon bend/stretch matrix separately so ordinary group
+ * traversal does not reserve a 64-byte temporary matrix in its stack frame.
+ */
+static void modelBuildSecondaryMatrix(Mtxf *parent, coord3d *position, f32 angle, Mtxf *matrix)
+{
+    Mtxf local_matrix;
+    Mtxf *dst;
+
+    if (parent != NULL)
+    {
+        dst = &local_matrix;
+    }
+    else
+    {
+        dst = matrix;
+    }
+
+    if (angle < M_PI_F)
+    {
+        angle *= 0.5f;
+    }
+    else
+    {
+        angle = M_TAU_F - ((M_TAU_F - angle) * 0.5f);
+    }
+
+    matrix_4x4_set_rotation_around_y(angle, dst);
+
+    if (angle >= M_PI_F)
+    {
+        angle = M_TAU_F - angle;
+    }
+
+    if (angle < 0.890118f)
+    {
+        angle = modelGetBendStretchScale(angle);
+    }
+    else
+    {
+        angle = 1.5f;
+    }
+
+    matrix_column_3_scalar_multiply_2(angle, (f32 *) dst);
+    matrix_4x4_set_position(position, dst);
+
+    if (parent != NULL)
+    {
+        matrix_4x4_multiply_homogeneous(parent, dst, matrix);
     }
 }
 
@@ -1034,24 +1227,20 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
     ModelRoData_GroupRecord *group;
     Mtxf *parent;
     Mtxf *matrix0_mtx;
-    Mtxf tmp;
     s32 matrix0;
     s32 matrix1;
     s32 matrix2;
     RenderPosView *render_pos;
-    f32 *origin;
     s32 has_matrix1;
     s32 has_matrix2;
     quatf q;
     quatf q2;
-    Mtxf *dst;
-    f32 angle;
+    f32 half_factor;
 
     flags = mgm->flags;
     group = mgm->group;
     matrix0 = group->MatrixID0;
     matrix1 = group->MatrixID1;
-    origin = group->Origin.f;
     matrix2 = group->MatrixID2;
     render_pos = model->render_pos;
 
@@ -1078,95 +1267,30 @@ void modelBuildGroupMatrices(Mtxf **parentMtx, Model *model, ModelGroupMtxBuildA
         quaternion_set_rotation_around_xyzf(rot->f, q);
     }
 
-    if (parent != NULL)
+    if (has_matrix1)
     {
-        if (has_matrix1)
-        {
-            quaternion_to_transform_matrix(origin, q, tmp.m);
-        }
-        else
-        {
-            matrix_4x4_set_position_and_rotation_around_xyz(&group->Origin, rot, &tmp);
-        }
-
-        matrix_4x4_multiply_homogeneous(parent, &tmp, matrix0_mtx);
-
-        if (g_ModelJointPositionedFunc != NULL)
-        {
-            g_ModelJointPositionedFunc(matrix0, matrix0_mtx);
-        }
+        modelBuildQuaternionTransform(parent, &group->Origin, q, matrix0_mtx, 2.0f);
     }
     else
     {
-        if (has_matrix1)
-        {
-            quaternion_to_transform_matrix(origin, q, matrix0_mtx->m);
-        }
-        else
-        {
-            matrix_4x4_set_position_and_rotation_around_xyz(&group->Origin, rot, matrix0_mtx);
-        }
+        modelBuildJointTransform(parent, &group->Origin, rot, matrix0_mtx);
+    }
+
+    if (parent != NULL && g_ModelJointPositionedFunc != NULL)
+    {
+        g_ModelJointPositionedFunc(matrix0, matrix0_mtx);
     }
 
     if (has_matrix1)
     {
-        modelGetHalfRotationQuaternion(q, q2);
+        half_factor = modelGetHalfRotationQuaternion(q, q2);
 
-        if (parent != NULL)
-        {
-            quaternion_to_transform_matrix(origin, q2, tmp.m);
-            matrix_4x4_multiply_homogeneous(parent, &tmp, &render_pos[matrix1].pos);
-        }
-        else
-        {
-            quaternion_to_transform_matrix(origin, q2, (render_pos + matrix1)->pos.m);
-        }
+        modelBuildQuaternionTransform(parent, &group->Origin, q2, &render_pos[matrix1].pos, half_factor);
     }
 
     if (has_matrix2)
     {
-        if (parent != NULL)
-        {
-            dst = &tmp;
-        }
-        else
-        {
-            dst = &render_pos[matrix2].pos;
-        }
-
-        angle = rot->y;
-
-        if (angle < M_PI_F)
-        {
-            angle = angle * 0.5f;
-        }
-        else
-        {
-            angle = M_TAU_F - ((M_TAU_F - angle) * 0.5f);
-        }
-
-        matrix_4x4_set_rotation_around_y(angle, dst);
-
-        if (angle >= M_PI_F)
-        {
-            angle = M_TAU_F - angle;
-        }
-        if (angle < 0.890118f)
-        {
-            angle = modelGetBendStretchScale(angle);
-        }
-        else
-        {
-            angle = 1.5f;
-        }
-
-        matrix_column_3_scalar_multiply_2(angle, (f32 *) dst);
-        matrix_4x4_set_position(&group->Origin, dst);
-
-        if (parent != NULL)
-        {
-            matrix_4x4_multiply_homogeneous(parent, dst, &render_pos[matrix2].pos);
-        }
+        modelBuildSecondaryMatrix(parent, &group->Origin, rot->y, &render_pos[matrix2].pos);
     }
 }
 
@@ -1176,8 +1300,6 @@ void sub_GAME_7F06DB5C(ModelRenderData *arg0, Model *arg1, ModelNode *arg2, quat
     s32 spA4;
     ModelRoData_GroupRecord *spA0;
     Mtxf *sp9C;
-    s32 _gap98;
-    Mtxf sp58;
     s32 sp54;
     s32 sp50;
     s32 sp4C;
@@ -1186,7 +1308,6 @@ void sub_GAME_7F06DB5C(ModelRenderData *arg0, Model *arg1, ModelNode *arg2, quat
     s32 *new_var;
     s32 sp40;
     quatf sp2C;
-    Mtxf *sp28;
     f32 sp24;
     s32 _gap20;
     s32 sp1C;
@@ -1207,53 +1328,23 @@ void sub_GAME_7F06DB5C(ModelRenderData *arg0, Model *arg1, ModelNode *arg2, quat
         sp9C = arg0->basemtx;
     }
 
+    sp1C = (s32)&sp48[sp54];
+    modelBuildQuaternionTransform(sp9C, &spA0->Origin, arg3, (Mtxf *)sp1C, 2.0f);
+
     if (sp9C != 0) {
-        quaternion_to_transform_matrix(&spA0->Origin, arg3, &sp58);
-        sp1C = (s32)&sp48[sp54];
-        matrix_4x4_multiply_homogeneous(sp9C, &sp58, (Mtxf *)sp1C);
         if (g_ModelJointPositionedFunc != NULL) {
             ((void (*)(s32, s32, s32)) g_ModelJointPositionedFunc)(sp54, sp1C, sp1C);
         }
-    } else {
-        quaternion_to_transform_matrix(&spA0->Origin, arg3, (Mtxf *)&sp48[sp54]);
     }
 
     if (spA4 & 0x100) {
-        quaternion_7F05BC68(arg3, 0.5f, sp2C);
-        if (sp9C != 0) {
-            quaternion_to_transform_matrix(&spA0->Origin, sp2C, &sp58);
-            matrix_4x4_multiply_homogeneous(sp9C, &sp58, (Mtxf *)&sp48[sp50]);
-        } else {
-            quaternion_to_transform_matrix(&spA0->Origin, sp2C, (Mtxf *)&sp48[sp50]);
-        }
+        sp24 = modelGetHalfRotationQuaternion(arg3, sp2C);
+        modelBuildQuaternionTransform(sp9C, &spA0->Origin, sp2C, &sp48[sp50].pos, sp24);
     }
 
     if (spA4 & 0x200) {
-        if (sp9C != 0) {
-            sp28 = &sp58;
-        } else {
-            sp28 = (Mtxf *)&sp48[sp4C];
-        }
         sp24 = 2.0f * acosf(*arg3);
-        if (sp24 < 3.1415927f) {
-            sp24 = sp24 * 0.5f;
-        } else {
-            sp24 = 6.2831855f - ((6.2831855f - sp24) * 0.5f);
-        }
-        matrix_4x4_set_rotation_around_y(sp24, sp28);
-        if (sp24 >= 3.1415927f) {
-            sp24 = 6.2831855f - sp24;
-        }
-        if (sp24 < 0.890118f) {
-            sp24 = modelGetBendStretchScale(sp24);
-        } else {
-            sp24 = 1.5f;
-        }
-        matrix_column_3_scalar_multiply_2(sp24, (f32 *)sp28);
-        matrix_4x4_set_position(&spA0->Origin, sp28);
-        if (sp9C != 0) {
-            matrix_4x4_multiply_homogeneous(sp9C, sp28, (Mtxf *)&sp48[sp4C]);
-        }
+        modelBuildSecondaryMatrix(sp9C, &spA0->Origin, sp24, &sp48[sp4C].pos);
     }
 }
 
@@ -1433,8 +1524,8 @@ void process_02_position(ModelRenderData *arg0, Model *model, ModelNode *node)
             sub_GAME_7F06D160(&rot3, &rot4, model->unk5c);
         }
 
-        quaternion_set_rotation_around_xyzf(&rot1, q1);
-        quaternion_set_rotation_around_xyzf(&rot3, q2);
+        quaternion_set_rotation_around_xyzf(rot1.f, q1);
+        quaternion_set_rotation_around_xyzf(rot3.f, q2);
         quaternion_ensure_shortest_path(q1, q2);
         quaternion_slerp(q1, q2, model->unk84, result);
         sub_GAME_7F06DB5C(arg0, model, node, result);
