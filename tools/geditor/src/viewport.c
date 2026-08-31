@@ -22,9 +22,6 @@
 
 #define VIEWPORT_CLASS "GEditorViewport"
 
-#define VIEWPORT_FLY_TIMER 1
-#define VIEWPORT_FLY_TICK_MS 16 // ~60 ticks/s
-
 /**
  * Default to 400.0, but can be changed with the mouse scroll wheel.
  */
@@ -57,7 +54,7 @@ typedef struct ViewportState {
     BOOL flying;
     BOOL keyw, keya, keys, keyd, keyq, keye;
     POINT lastmouse;
-    DWORD lasttick;
+    LONGLONG lastqpc;   /* QueryPerformanceCounter at the previous frame */
 } ViewportState;
 
 typedef struct TestVertex {
@@ -112,6 +109,21 @@ static BOOL ViewportInitGL(HWND hwnd, ViewportState *state)
     }
 
     wglMakeCurrent(state->hdc, state->hglrc);
+
+    /* Ask the driver to pace SwapBuffers to the display refresh
+       (vsync). While flying, the render loop then runs at exactly the
+       monitor rate and SwapBuffers blocking IS the frame limiter. The
+       function is an extension a driver may not provide; flying still
+       works without it, just unpaced. */
+    {
+        typedef BOOL (WINAPI *SwapIntervalFn)(int);
+        SwapIntervalFn setinterval =
+            (SwapIntervalFn)(void *)wglGetProcAddress("wglSwapIntervalEXT");
+        if (setinterval != NULL)
+        {
+            setinterval(1);
+        }
+    }
 
     /* N64 style fixed-function state: smooth vertex colors, one
        modulated texture. Texturing stays off until
@@ -192,9 +204,7 @@ static void ViewportBeginFly(HWND hwnd, ViewportState *state)
     ShowCursor(FALSE);
 
     state->flying = TRUE;
-    state->lasttick = GetTickCount();
-
-    SetTimer(hwnd, VIEWPORT_FLY_TIMER, VIEWPORT_FLY_TICK_MS, NULL);
+    QueryPerformanceCounter((LARGE_INTEGER *)&state->lastqpc);
 }
 
 
@@ -205,7 +215,6 @@ static void ViewportEndFly(HWND hwnd, ViewportState *state)
         return;
     }
 
-    KillTimer(hwnd, VIEWPORT_FLY_TIMER);
 
     state->flying = FALSE;
     state->keyw = state->keya = state->keys = state->keyd = state->keyq = state->keye = FALSE;
@@ -239,9 +248,16 @@ static void ViewportFlyLook(HWND hwnd, ViewportState *state)
     state->yaw   -= (float)(p.x - state->lastmouse.x) * VIEWPORT_LOOK_SENSITIVITY;
     state->pitch -= (float)(p.y - state->lastmouse.y) * VIEWPORT_LOOK_SENSITIVITY;
 
+    /* Clamp: at exactly +/-90 the forward and up axes align and the
+       view matrix degenerates. */
+    if (state->pitch >  VIEWPORT_PITCH_LIMIT) state->pitch =  VIEWPORT_PITCH_LIMIT;
+    if (state->pitch < -VIEWPORT_PITCH_LIMIT) state->pitch = -VIEWPORT_PITCH_LIMIT;
+
     SetCursorPos(state->lastmouse.x, state->lastmouse.y);
 
-    ViewportRedraw(hwnd);
+    /* No redraw here: while flying, ViewportFlyFrame renders once per
+       pass of the main loop. Painting per mouse event at a 1000 Hz
+       polling rate is exactly what caused the stutter. */
 }
 
 
@@ -261,12 +277,26 @@ static void ViewportGetBasis(const ViewportState *state, float fwd[3], float rig
 }
 
 
-static void ViewportFlyTick(HWND hwnd, ViewportState *state)
+/*
+ * One flight frame: advance the camera by the measured elapsed time,
+ * then render immediately.
+ *
+ * Called by the main message loop once per pass while flying - not by
+ * a timer, and not through WM_PAINT. Both are the lowest-priority
+ * messages Windows has, and a fast mouse floods the queue faster than
+ * they can surface: that starvation was the skipping camera. Rendering
+ * here, synchronously, makes the frame rate independent of queue
+ * pressure; with vsync on, SwapBuffers blocking paces the loop to the
+ * monitor.
+ */
+void ViewportFlyFrame(HWND hwnd)
 {
+    ViewportState *state = ViewportGetState(hwnd);
     float fwd[3];
     float right[3];
     float move[3];
-    DWORD now;
+    LONGLONG now;
+    LONGLONG freq;
     float dt;
     float dist;
     int moving;
@@ -276,49 +306,55 @@ static void ViewportFlyTick(HWND hwnd, ViewportState *state)
         return;
     }
 
-    now = GetTickCount();
-    dt = (float)(now - state->lasttick) * 0.001f;
-    state->lasttick = now;
+    QueryPerformanceCounter((LARGE_INTEGER *)&now);
+    QueryPerformanceFrequency((LARGE_INTEGER *)&freq);
+    dt = (float)(now - state->lastqpc) / (float)freq;
+    state->lastqpc = now;
 
-    moving = state->keyw || state->keya || state->keys || state->keyd || state->keyq || state->keye;
-
-    if (!moving)
+    /* A stall (menu open, window drag) makes one interval huge; clamp
+       so the camera does not teleport when flight resumes. */
+    if (dt > 0.1f)
     {
-        return; /* Nothing to redraw. */
-    } 
-
-    ViewportGetBasis(state, fwd, right);
-
-    move[0] = move[1] = move[2] = 0.0f;
-
-    if (state->keyw) { move[0] += fwd[0];   move[1] += fwd[1];   move[2] += fwd[2];   }
-    if (state->keys) { move[0] -= fwd[0];   move[1] -= fwd[1];   move[2] -= fwd[2];   }
-    if (state->keyd) { move[0] += right[0]; move[1] += right[1]; move[2] += right[2]; }
-    if (state->keya) { move[0] -= right[0]; move[1] -= right[1]; move[2] -= right[2]; }
-
-    /**
-     * Q and E move on the world axis.
-     */
-    if (state->keye) { move[1] += 1.0f; } 
-    if (state->keyq) { move[1] -= 1.0f; }
-
-    /**
-     * Normalize so moving diagonally isn't faster (unlike GE).
-     */
-    dist = sqrtf(move[0] * move[0] + move[1] * move[1] + move[2] * move[2]);
-
-    if (dist < 0.0001f)
-    {
-        return;
+        dt = 0.1f;
     }
 
-    dist = (state->speed * dt) / dist;
+    moving = state->keyw || state->keya || state->keys
+          || state->keyd || state->keyq || state->keye;
 
-    state->posx += move[0] * dist;
-    state->posy += move[1] * dist;
-    state->posz += move[2] * dist;
+    if (moving)
+    {
+        ViewportGetBasis(state, fwd, right);
 
-    ViewportRedraw(hwnd);
+        move[0] = move[1] = move[2] = 0.0f;
+
+        if (state->keyw) { move[0] += fwd[0];   move[1] += fwd[1];   move[2] += fwd[2];   }
+        if (state->keys) { move[0] -= fwd[0];   move[1] -= fwd[1];   move[2] -= fwd[2];   }
+        if (state->keyd) { move[0] += right[0]; move[1] += right[1]; move[2] += right[2]; }
+        if (state->keya) { move[0] -= right[0]; move[1] -= right[1]; move[2] -= right[2]; }
+        if (state->keye) { move[1] += 1.0f; }
+        if (state->keyq) { move[1] -= 1.0f; }
+
+        dist = sqrtf(move[0] * move[0] + move[1] * move[1] + move[2] * move[2]);
+        if (dist > 0.0001f)
+        {
+            dist = (state->speed * dt) / dist;
+            state->posx += move[0] * dist;
+            state->posy += move[1] * dist;
+            state->posz += move[2] * dist;
+        }
+    }
+
+    /* Render now, and tell Windows the window is clean so no stale
+       WM_PAINT arrives behind our back. */
+    ViewportPaintGL(state);
+    ValidateRect(hwnd, NULL);
+}
+
+BOOL ViewportIsFlying(HWND hwnd)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+
+    return (state != NULL) && state->flying;
 }
 
 
@@ -415,12 +451,6 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         }
         return 0;
 
-    case WM_TIMER:
-        if(wparam == VIEWPORT_FLY_TIMER)
-        {
-            ViewportFlyTick(hwnd, state);
-        }
-        return 0;
 
     case WM_MOUSEWHEEL:
         if(state != NULL)

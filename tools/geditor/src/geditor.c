@@ -15,8 +15,8 @@
 
 #define GEDITOR_CLASS  "GEditorWindow"
 #define GEDITOR_TITLE  "GEditor"
-#define GEDITOR_WIDTH  1024
-#define GEDITOR_HEIGHT  720
+#define GEDITOR_WIDTH  1920
+#define GEDITOR_HEIGHT  1080
 
 /*
  * Menu command IDs. Every clickable item needs one; it is the number
@@ -396,10 +396,39 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
 
     /* 3. The message loop. GetMessage blocks until something happens,
           returns 0 when WM_QUIT arrives, and -1 on error. */
-    while (GetMessage(&msg, NULL, 0, 0) > 0)
+    for (;;)
     {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
+        if (g_Viewport != NULL && ViewportIsFlying(g_Viewport))
+        {
+            /* Flying: drain the queue, then render one frame ourselves.
+               WM_PAINT and WM_TIMER are the lowest-priority messages
+               Windows has, and a fast mouse floods the queue faster
+               than they surface - the cause of the skipping camera.
+               With vsync on, SwapBuffers inside ViewportFlyFrame
+               blocks until the monitor is ready, pacing this loop to
+               the refresh rate. */
+            while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+            {
+                if (msg.message == WM_QUIT)
+                {
+                    return (int)msg.wParam;
+                }
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
+
+            ViewportFlyFrame(g_Viewport);
+        }
+        else
+        {
+            /* Idle: block. The editor uses no CPU, exactly as before. */
+            if (GetMessage(&msg, NULL, 0, 0) <= 0)
+            {
+                break;
+            }
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
     }
 
     return (int)msg.wParam;
