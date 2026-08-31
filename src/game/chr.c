@@ -1593,7 +1593,6 @@ PropRecord *init_GUARDdata_with_set_values(PropRecord *arg0, Model *arg1, struct
 
     modelSetPositionValidationCallback(arg1, chrUpdatePosition);
 
-    arg1->unk00 = 0xA;
     arg1->chr = chr;
 
     setsuboffset(arg1, arg2);

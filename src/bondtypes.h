@@ -1410,7 +1410,7 @@ typedef union
          */
         typedef struct Model
         {
-            s16                             unk00;
+            s16                             unused;
             s16                             rwdatalen;
             struct ChrRecord               *chr;
             ModelFileHeader                *obj;

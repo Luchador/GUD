@@ -607,7 +607,7 @@ PropRecord* objInit(ObjectRecord* obj, ModelFileHeader* model_header, PropRecord
         obj->nextcol.a = 0;
 
         obj->maxdamage = 0.0f;
-        *((s16*)&obj->model->unk00) = -1;
+        *((s16*)&obj->model->unused) = -1;
         obj->model->chr = NULL;
         modelSetScale(obj->model, PitemZ_entries[obj->obj].scale);
         prop->type = 1;
