@@ -25,6 +25,16 @@
 typedef struct ViewportState {
     HDC hdc;      /* private DC - stable for the window's lifetime (CS_OWNDC) */
     HGLRC hglrc;  /* the GL context rendering into it */
+
+    /* Fly Camera */
+    float posx, posy, posz;
+    float yaw, pitch;
+    float speed;
+
+    BOOL flying;
+    BOOL keyw, keya, keys, keyd;
+    POINT lastmouse;
+    DWORD lasttick;
 } ViewportState;
 
 /*
@@ -137,6 +147,37 @@ static void ViewportPaintGL(ViewportState *state)
     SwapBuffers(state->hdc);
 }
 
+static void ViewportBeginFly(HWND hwnd, ViewportState *state)
+{
+
+}
+
+static void ViewportEndFly(HWND hwnd, ViewportState *state)
+{
+
+}
+
+static void ViewportFlyLook(HWND hwnd, ViewportState *state)
+{
+
+}
+
+static void ViewportSetKey(ViewportState *state, WPARAM wparam, LPARAM lparam, int down)
+{
+    if(down && (lparam & (1 << 30)))
+    {
+        return; /* auto-repeat, the flag is already set */
+    }
+
+    switch(wparam)
+    {
+        case 'W': state->keyw = down; break;
+        case 'A': state->keya = down; break;
+        case 'S': state->keys = down; break;
+        case 'D': state->keyd = down; break;
+    }
+}
+
 static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     ViewportState *state;
@@ -180,6 +221,21 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         EndPaint(hwnd, &ps);
         return 0;
     }
+
+    case WM_RBUTTONDOWN: ViewportBeginFly(hwnd, state);
+        return 0;
+
+    case WM_RBUTTONUP: ViewportEndFly(hwnd, state);
+        return 0;
+
+    case WM_MOUSEMOVE: ViewportFlyLook(hwnd, state);
+        return 0;
+
+    case WM_KEYDOWN: ViewportSetKey(state, wparam, lparam, 1);
+        return 0;
+
+    case WM_KEYUP: ViewportSetKey(state, wparam, lparam, 0);
+        return 0;
 
     case WM_ERASEBKGND:
         /* GL repaints every pixel; skipping the GDI erase kills the
