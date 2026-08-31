@@ -57,6 +57,7 @@ s32 g_MemaHeapSize;
 struct memaheap g_MemoryAllocations;
 void *g_MemoryAllocationDebugData = NULL;
 
+
 // Swap two allocations.
 void memaSwap(memaspace *a, memaspace *b) {
     u32 tempaddr = a->addr;
@@ -67,6 +68,7 @@ void memaSwap(memaspace *a, memaspace *b) {
     b->size = tempsize;
 }
 
+
 // Merge two allocations.
 void memaMerge(memaspace *a, memaspace *b) {
     a->size = (a->size + b->size);
@@ -74,33 +76,45 @@ void memaMerge(memaspace *a, memaspace *b) {
     b->size = 0;
 }
 
+
 // Do a single iteration over the allocations and attempt to
 // merge adjacent ones. Return value indicates if there were
 // any merges.
-s32 memaDefragPass(struct memaheap *heap) {
+s32 memaDefragPass(struct memaheap *heap)
+{
     s32 any = FALSE;
 	struct memaspace *prev = &heap->start;
 	struct memaspace *curr = &heap->spaces[0];
 	struct memaspace *last = &heap->spaces[ALLOCATIONS_LENGTH - 2];
 
     u32 addr = 0;
-    while (curr <= last) {
-        if (curr->size != 0) {
-            if (curr->addr < addr) {
+
+    while (curr <= last)
+    {
+        if (curr->size != 0)
+        {
+            if (curr->addr < addr)
+            {
                 memaSwap(curr, prev);
             }
-            if ((prev->size + addr) == curr->addr) {
+
+            if ((prev->size + addr) == curr->addr)
+            {
                 memaMerge(prev, curr);
                 curr = prev;
                 any = TRUE;
             }
+
             prev = curr;
             addr = curr->addr;
         }
+
         curr++;
     }
+
     return any;
 }
+
 
 // Do multiple merge iterations until there are no
 // mergable pairs left.
@@ -108,6 +122,7 @@ void memaDefrag(void)
 {
     while (memaDefragPass(&g_MemoryAllocations));
 }
+
 
 /**
  * Defrag the spaces list in an attempt to free up any slot.
@@ -128,20 +143,25 @@ memaspace *memaSearch(struct memaheap *heap)
 	// looping is just wasting CPU cycles. In reality this situation probably
 	// never occurs.
     for (i = 0; i < (ALLOCATIONS_LENGTH - 1); i++) {
-        while (curr <= &heap->spaces[ALLOCATIONS_LENGTH - 2]) {
-            if (curr->size == 0) {
+        while (curr <= &heap->spaces[ALLOCATIONS_LENGTH - 2])
+        {
+            if (curr->size == 0)
+            {
                 return curr;
             }
 
-            if ((u32)curr[1].addr < (u32)curr[0].addr) {
+            if ((u32)curr[1].addr < (u32)curr[0].addr)
+            {
                 memaSwap(&curr[0], &curr[1]);
             }
 
-            if (curr[1].addr == (curr[0].size + curr[0].addr)) {
+            if (curr[1].addr == (curr[0].size + curr[0].addr))
+            {
                 // Found two that can be merged
                 curr[0].size += curr[1].size;
                 curr[1].addr = 0;
                 curr[1].size = 0;
+
                 return &curr[1];
             }
 
@@ -158,8 +178,11 @@ memaspace *memaSearch(struct memaheap *heap)
 	// original run of free space to be unusable until the mema heap is reset.
     min = 0xFFFFFFFF;
     best = curr;
-    while (curr <= &heap->spaces[ALLOCATIONS_LENGTH - 2]) {
-        if (curr->size < min) {            
+
+    while (curr <= &heap->spaces[ALLOCATIONS_LENGTH - 2])
+    {
+        if (curr->size < min)
+        {            
             best = curr;
             min = curr->size;
         }
@@ -169,6 +192,7 @@ memaspace *memaSearch(struct memaheap *heap)
 
     return best;
 }
+
 
 void _memaFree(s32 addr, s32 size)
 {
@@ -219,7 +243,8 @@ void memaReset(void *heapaddr, u32 heapsize)
 	g_MemoryAllocations.end2.addr = 0xffffffff;
 	g_MemoryAllocations.end2.size = 0xffffffff;
 
-	for (space = &g_MemoryAllocations.spaces[0]; space <= &g_MemoryAllocations.spaces[ALLOCATIONS_LENGTH - 2]; space++) {
+	for (space = &g_MemoryAllocations.spaces[0]; space <= &g_MemoryAllocations.spaces[ALLOCATIONS_LENGTH - 2]; space++)
+    {
 		space->addr = 0;
 		space->size = 0;
 	}
@@ -227,6 +252,7 @@ void memaReset(void *heapaddr, u32 heapsize)
 	g_MemoryAllocations.spaces[0].addr = g_MemaHeapStart = (uintptr_t) heapaddr;
 	g_MemoryAllocations.spaces[0].size = g_MemaHeapSize = heapsize;
 }
+
 
 void memaSingleDefragPass(void)
 {
@@ -238,7 +264,8 @@ void memaSingleDefragPass(void)
 // for a suitable one. If none is found, then look through the rest for any that are
 // large enough. If this also fails, then do 8 merge iterations and then look through
 // entire buffer again. If successful, return the address to the freed memory, otherwise 0.
-void *memaAlloc(u32 amount) {
+void *memaAlloc(u32 amount)
+{
     s32 addr;
     u32 diff;
     s32 i;
@@ -247,49 +274,59 @@ void *memaAlloc(u32 amount) {
 	u32 bestdiff;
 	struct memaspace *best;
 
-    if(1);
-
 	curr = &g_MemoryAllocations.spaces[0];
 	bestdiff = 0xffffffff;
 	best = NULL;
 
-    for (i = 0; i < 16; i++, curr++) {
-        if (curr->size < amount) {
+    for (i = 0; i < 16; i++, curr++)
+    {
+        if (curr->size < amount)
+        {
             continue;
         }
 
-        if (curr->addr == 0xffffffff) {
+        if (curr->addr == 0xffffffff)
+        {
             break;
         }
 
         diff = (curr->size - amount);
 
-        if (diff < bestdiff) {
+        if (diff < bestdiff)
+        {
             bestdiff = diff;
             best = curr;
-            if ((diff < 64) || (diff < (amount / 4))) {
+
+            if ((diff < 64) || (diff < (amount / 4)))
+            {
                 break;
             }
         }
     }
 
-    if (best == NULL) {
-        while (curr->size < amount) {
+    if (best == NULL)
+    {
+        while (curr->size < amount)
+        {
             curr++;
         }
 
-        if (curr->addr == 0xffffffff) {
-            for (i = 0; i < 8; i++) {
+        if (curr->addr == 0xffffffff)
+        {
+            for (i = 0; i < 8; i++)
+            {
                 memaDefragPass(&g_MemoryAllocations);
             }
 
             curr = &g_MemoryAllocations.spaces[0];
 
-            while (curr->size < amount) {
+            while (curr->size < amount)
+            {
                 curr++;
             }
 
-            if (curr->addr == 0xffffffff) {
+            if (curr->addr == 0xffffffff)
+            {
                 return NULL;
             }
         }
@@ -301,141 +338,49 @@ void *memaAlloc(u32 amount) {
     best->addr += amount;
     best->size -= amount;
 
-    if (best->size == 0) {
+    if (best->size == 0)
+    {
         best->addr = 0;
     }
 
     return (void*)addr;
 }
 
-// Find the memaspace of the given address and reduce its size by the given
-// amount. If successful, return the same address, otherwise 0.
-s32 memaGrow(u32 addr, u32 amount)
+
+/**
+ * Grow the allocation which ends at endaddr by consuming amount bytes from
+ * the adjacent free space. Return endaddr on success, or 0 if the allocation
+ * cannot grow in place.
+ */
+static s32 memaGrow(s32 endaddr, u32 amount)
 {
-    u32        size = 0;
-    s32        new_addr;
-    memaspace *curr;
-    short      __unused_1 = addr + 3;
-    u32        __unused_2;
-    s32        __unused_3;
-    short      __unused_4;
-    short      __unused_5;
+    memaspace *space = &g_MemoryAllocations.spaces[0];
 
-    if (addr) {}
-    if (__unused_1) {}
-
-    curr     = &g_MemoryAllocations.spaces[0];
-    new_addr = addr;
-    __unused_2 = !new_addr;
-
-    while (curr->addr != -1)
+    while (space->addr != -1)
     {
-        __unused_1 = __unused_2;
-        if (__unused_1) {}
-
-        __unused_3 = __unused_2 + 1;
-        if ((double)__unused_3) {}
-
-        if (curr->addr == new_addr && curr->size >= amount)
+        if (space->addr == endaddr && space->size >= amount)
         {
-            goto found;
+            space->addr += amount;
+            space->size -= amount;
+
+            if (space->size == 0)
+            {
+                space->addr = 0;
+            }
+
+            return endaddr;
         }
 
-        if (__unused_3) {}
-        __unused_4 = new_addr + 2;
-        if ((double)__unused_4) {}
-        __unused_5 = new_addr + 3;
-        if ((double)__unused_5) {}
-
-        curr++;
+        space++;
     }
 
     return 0;
-
-found:
-    curr->addr += amount;
-    curr->size -= amount;
-
-    size = curr->size;
-
-    if (size == 0)
-    {
-        curr->addr = 0;
-    }
-
-    return new_addr;
 }
 
 
 void memaFree(void *addr, s32 size)
 {
 	_memaFree((uintptr_t) addr, size);
-}
-
-
-// Print a list of allocations, in descending size order. Sizes are specified in
-// kilobytes, rounded to nearest integer. Up to 200 allocations can be listed.
-void memaDump(void)
-{
-    char *pos;
-    u32 tot = 0;
-    s32 lim = (1 << 31);
-    s32 count;
-    memaspace *curr;
-    char buffer[4096];
-    u32 max;
-    u32 acc;
-
-    count = 0;
-
-    for (curr = &g_MemoryAllocations.spaces[0], tot = 0; curr->addr != -1; curr++)
-    {
-        tot += curr->size;
-    }
-
-    pos = buffer;
-
-    for (max = 0, acc = 0; 1; lim = max, max = 0)
-    {
-        for (curr = &g_MemoryAllocations.spaces[0]; curr->addr != -1; curr++)
-        {
-            if ((curr->size < lim) && (curr->size > max))
-            {
-                max = curr->size;
-                acc++;
-            }
-        }
-        
-        if (acc == 0)
-        {
-            break;
-        }
-
-        
-        lim = max;
-        
-        for (curr = &g_MemoryAllocations.spaces[0],acc=0; curr->addr != -1; curr++)
-        {
-            if (curr->size == lim)
-            {
-                if (count < 200)
-                {
-                    pos += sprintf(pos, "%d ", ((curr->size + 512) / 1024));
-                }
-                else if (count == 200)
-                {
-                    pos += sprintf(pos, "...");
-                }
-                
-                count++;
-            }
-        }
-    }
-    
-    if (count > 200)
-    {
-        sprintf(pos, "[%d]", count);
-    }
 }
 
 
@@ -452,15 +397,18 @@ s32 memaGetLongestFree(void)
 
 	curr = &g_MemoryAllocations.spaces[0];
 
-	while (curr->addr != -1) {
-		if (curr->size > biggest) {
+	while (curr->addr != -1)
+    {
+		if (curr->size > biggest)
+        {
 			biggest = curr->size;
 		}
 
 		curr++;
 	}
 
-	if (biggest) {
+	if (biggest)
+    {
 		return biggest;
 	}
 
