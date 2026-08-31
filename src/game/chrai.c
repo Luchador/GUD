@@ -4083,12 +4083,12 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                             chrDetectRooms(chr);
                             if (chr->prop == g_CurrentPlayer->prop)
                             {
-                                g_CurrentPlayer->field_488.collision_position.x = pos.x;
-                                g_CurrentPlayer->field_488.collision_position.y = pos.y;
-                                g_CurrentPlayer->field_488.collision_position.z = pos.z;
+                                g_CurrentPlayer->field_488.collisionPosition.x = pos.x;
+                                g_CurrentPlayer->field_488.collisionPosition.y = pos.y;
+                                g_CurrentPlayer->field_488.collisionPosition.z = pos.z;
 
                                 // g_CurrentPlayer->pos = pos;
-                                g_CurrentPlayer->field_488.current_tile_ptr = stan;
+                                g_CurrentPlayer->field_488.collisionTile = stan;
                             }
                             pass = TRUE;
                         }

@@ -1494,7 +1494,7 @@ void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *ar
         rooms[0] = bondviewGetPlayerRoom();
         rooms[1] = 0xff;
 
-        bgFindRoomsAlongSegment(bondviewGetCurrentPlayersPosition3(), &pos, rooms, obj->projectile->unkCC, &sp54, &sp50, 0x14);
+        bgFindRoomsAlongSegment(bondviewGetPlayerGroundPosition(), &pos, rooms, obj->projectile->unkCC, &sp54, &sp50, 0x14);
     }
 }
 

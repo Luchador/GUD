@@ -390,9 +390,9 @@ void bondviewLoadSetupIntroSection(void)
     g_CurrentPlayer->stanHeight = stan_height;
     g_CurrentPlayer->field_6C = stan_height / FIELD_6C_FACTOR;
     change_player_pos_to_target(&g_CurrentPlayer->field_488, &start_pos, start_stan);
-    g_CurrentPlayer->field_488.theta_transform.f[0] = -sinf(start_look_angle);
-    g_CurrentPlayer->field_488.theta_transform.f[1] = FLOAT_INIT;
-    g_CurrentPlayer->field_488.theta_transform.f[2] = cosf(start_look_angle);
+    g_CurrentPlayer->field_488.facingDirection.f[0] = -sinf(start_look_angle);
+    g_CurrentPlayer->field_488.facingDirection.f[1] = FLOAT_INIT;
+    g_CurrentPlayer->field_488.facingDirection.f[2] = cosf(start_look_angle);
     sub_GAME_7F089718(D_800364D0);
 
     bondviewResetIntroCameraMessageDialogs();
@@ -414,9 +414,9 @@ void bondviewLoadSetupIntroSection(void)
 
     chrpropActivate(g_CurrentPlayer->prop);
     chrpropEnable(g_CurrentPlayer->prop);
-    g_CurrentPlayer->field_3B8.f[0] = (g_CurrentPlayer->field_488.pos.f[0] / FIELD_3B8_FACTOR);
-    g_CurrentPlayer->field_3B8.f[1] = (g_CurrentPlayer->field_488.pos.f[1] / FIELD_3B8_FACTOR);
-    g_CurrentPlayer->field_3B8.f[2] = (g_CurrentPlayer->field_488.pos.f[2] / FIELD_3B8_FACTOR);
+    g_CurrentPlayer->field_3B8.f[0] = (g_CurrentPlayer->field_488.cameraPosition.f[0] / FIELD_3B8_FACTOR);
+    g_CurrentPlayer->field_3B8.f[1] = (g_CurrentPlayer->field_488.cameraPosition.f[1] / FIELD_3B8_FACTOR);
+    g_CurrentPlayer->field_3B8.f[2] = (g_CurrentPlayer->field_488.cameraPosition.f[2] / FIELD_3B8_FACTOR);
 
     if (getPlayerCount() == 1)
     {

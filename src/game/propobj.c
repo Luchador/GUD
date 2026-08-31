@@ -13214,9 +13214,9 @@ void door7F05522C(DoorRecord *door, f32 *arg1, f32 *arg2, s32 altcoordsystem)
     playerprop = getCurrentPlayerProp();
 
     if (1) { scale = 1.0f; }
-    playerpos.f[0] = (((g_CurrentPlayer->field_488.theta_transform.x * 30.0f) * scale) * 0.75f) + playerprop->pos.x;
+    playerpos.f[0] = (((g_CurrentPlayer->field_488.facingDirection.x * 30.0f) * scale) * 0.75f) + playerprop->pos.x;
     playerpos.f[1] = playerprop->pos.y;
-    playerpos.f[2] = (((g_CurrentPlayer->field_488.theta_transform.z * 30.0f) * scale) * 0.75f) + playerprop->pos.z;
+    playerpos.f[2] = (((g_CurrentPlayer->field_488.facingDirection.z * 30.0f) * scale) * 0.75f) + playerprop->pos.z;
 
     if (altcoordsystem != 0)
     {

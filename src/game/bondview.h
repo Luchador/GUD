@@ -32,66 +32,69 @@ typedef struct invitem_dual
 } invitem_dual;
 
 /**
+ * Player position, collision, facing, and camera-orientation state.
+ * The player stores both the active state and a snapshot used by death replays.
+ *
  * sizeof == 84 (0x54)
  */
-struct collision434 {
+struct PlayerSpatialState {
 
     /**
+     * Stan tile containing collisionPosition.
      * Offset 0x00.
      */
-    struct StandTile *current_tile_ptr;
+    struct StandTile *collisionTile;
 
     /**
      * Offset 0x04.
      */
-    coord3d collision_position;
+    coord3d collisionPosition;
 
     /**
-     * This affects Bond's movement, but not the viewport.
-     * This does not affect boost direction.
-     *
-     * f[0]: forward component (sin theta) in radians
-     * f[1]: zero
-     * f[2]: sideways component (cos theta) in radians.
+     * Horizontal unit vector representing the player's facing direction.
+     * Derived from vv_theta and used to transform forward/sideways movement
+     * into world-space movement.
      * Offset 0x10.
      */
-    struct coord3d theta_transform;
+    struct coord3d facingDirection;
 
     /**
-     * Some kind of alternative to pos3 (in player struct).
+     * cameraPosition projected onto the Stan floor. Its X and Z match the
+     * camera position, while Y is the floor height at cameraTile.
      * Offset 0x1c.
      */
-    coord3d pos3;
+    coord3d cameraGroundPosition;
 
     /**
      * Offset 0x28.
      */
-    f32 collision_radius;
+    f32 collisionRadius;
 
     /**
-     * Some kind of alternative to pos (in player struct).
+     * Position from which the scene is rendered. Normally matches
+     * collisionPosition, but can be displaced by head and death animations.
      * Offset 0x2c.
      */
-    coord3d pos;
+    coord3d cameraPosition;
 
     /**
-     * bondviewMoveAnimationTick calculates 4x4 view matrix transform and then writes rotation
-     * to this property and applied_view2. Removing the update to this property will fix
-     * Bond's camera orientation such that Bond can still turn, but the camera is always
-     * locked facing the starting position.
+     * Camera forward/look direction calculated by bondviewMoveAnimationTick.
      * Offset 0x38.
      */
-    struct coord3d applied_view;
+    struct coord3d cameraLookDirection;
 
     /**
+     * Camera up direction calculated by bondviewMoveAnimationTick.
      * Offset 0x44.
      */
-    struct coord3d applied_view2;
+    struct coord3d cameraUp;
 
     /**
+     * Stan tile containing cameraPosition. Used to select the camera's room
+     * for portal visibility and rendering.
      * Offset 0x50.
      */
-    StandTile *current_tile_ptr_for_portals;
+    StandTile *cameraTile;
 };
 
 typedef struct TopMessageLocals
@@ -700,8 +703,8 @@ struct player
   s32 field_42c; 
   s32 controldef; //0x430 canonical name
 
-  struct collision434 previous_collision_info; // canonical "periminfo" ?
-  struct collision434 field_488;
+  struct PlayerSpatialState previous_collision_info; // canonical "periminfo" ?
+  struct PlayerSpatialState field_488;
 
   /**
    * Canonical names from here up to standcnt.
@@ -1299,6 +1302,7 @@ int bondviewGetIfCurrentPlayerDamageShowTime(void);
 int bondviewGetIfCurrentPlayerHealthShowTime(void);
 u8 bondviewGetPlayerRoom(void);
 coord3d *bondviewGetPlayerPosition(void);
+coord3d *bondviewGetPlayerGroundPosition(void);
 void bviewSetPlayerSolid(PropRecord *prop, s32 flag);
 void bondviewGetPropHeightRelatedValues(PropRecord *arg0, struct rect4f **field_B0, s32 *arg2, f32 *height_related, f32 *collision);
 void bondviewAddCurrentPlayerArmor(f32 arg0);
@@ -1334,7 +1338,7 @@ f32 bondviewWatchAnimationRelated(void);
 struct coord3d *getCurrentPlayerPrevPos(void);
 struct PropRecord *get_ptr_for_players_tank(void);
 s32 bviewGetRandomSpawnPadIndex(void);
-void change_player_pos_to_target(struct collision434* arg0, struct coord3d *arg1, struct StandTile *arg2);
+void change_player_pos_to_target(struct PlayerSpatialState *arg0, struct coord3d *arg1, struct StandTile *arg2);
 void sub_GAME_7F089718(f32);
 void bondviewResetUpperTextDisplay(void);
 Mtxf *currentPlayerGetProjectionMatrixF(void);

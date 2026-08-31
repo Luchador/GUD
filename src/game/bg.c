@@ -752,8 +752,8 @@ void bgTick(void)
 {
     PortalData *portal;
     Portal *next;
-    coord3d *pos;
-    coord3d *pos3;
+    coord3d *cameraPosition;
+    coord3d *cameraGroundPosition;
     u8 *specialPortalFlags;
     s32 room;
     s32 portalnum;
@@ -795,8 +795,8 @@ void bgTick(void)
     room = bondviewGetPlayerRoom();
     g_BgCurrentRoom = room;
 
-    pos = bondviewGetPlayerPosition();
-    pos3 = bondviewGetCurrentPlayersPosition3();
+    cameraPosition = bondviewGetPlayerPosition();
+    cameraGroundPosition = bondviewGetPlayerGroundPosition();
 
     for (depth = 0, maxdepth = 11; depth != maxdepth; depth++)
     {
@@ -813,7 +813,7 @@ void bgTick(void)
                 continue;
             }
 
-            if (((room == g_BgPortals[portalnum].connectedRoom1 || room == g_BgPortals[portalnum].connectedRoom2) && bgTestLineIntersectsPortal(portalnum, pos, pos3)))
+            if (((room == g_BgPortals[portalnum].connectedRoom1 || room == g_BgPortals[portalnum].connectedRoom2) && bgTestLineIntersectsPortal(portalnum, cameraPosition, cameraGroundPosition)))
             {
                 lastportal = portalnum;
 

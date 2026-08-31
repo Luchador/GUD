@@ -847,7 +847,7 @@ s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, co
 
     while ((outertries <= 0x80) && (!found))
     {
-        camclearance = g_CurrentPlayer->field_488.collision_radius;
+        camclearance = g_CurrentPlayer->field_488.collisionRadius;
         spD0 = 1500.0f + camclearance;
 
         angle = ((f32) randomGetNext()) * 2.3283064e-10f;
@@ -1092,10 +1092,10 @@ void bviewSetCameraMode(CAMERAMODE cameraMode)
 
             g_CurrentPlayer->vv_theta = g_CurrentPlayer->thetadie;
             g_CurrentPlayer->vv_verta = g_CurrentPlayer->vertadie;
-            g_CurrentPlayer->prop->pos.f[0] = g_CurrentPlayer->field_488.collision_position.f[0];
-            g_CurrentPlayer->prop->pos.f[1] = g_CurrentPlayer->field_488.collision_position.f[1];
-            g_CurrentPlayer->prop->pos.f[2] = g_CurrentPlayer->field_488.collision_position.f[2];
-            g_CurrentPlayer->prop->stan = g_CurrentPlayer->field_488.current_tile_ptr;
+            g_CurrentPlayer->prop->pos.f[0] = g_CurrentPlayer->field_488.collisionPosition.f[0];
+            g_CurrentPlayer->prop->pos.f[1] = g_CurrentPlayer->field_488.collisionPosition.f[1];
+            g_CurrentPlayer->prop->pos.f[2] = g_CurrentPlayer->field_488.collisionPosition.f[2];
+            g_CurrentPlayer->prop->stan = g_CurrentPlayer->field_488.collisionTile;
 
             bondviewApplyVertaTheta();
             bondviewMoveAnimationTick(0, 0, 0);
@@ -1142,10 +1142,10 @@ void bviewSetCameraMode(CAMERAMODE cameraMode)
             sp58.f[1] = g_CurrentPlayer->field_3C8;
             sp58.f[2] = g_CurrentPlayer->field_3CC;
             var_a2 = g_CurrentPlayer->prop;
-            sp48.f[0] = g_CurrentPlayer->field_488.collision_position.f[0];
-            sp48.f[1] = g_CurrentPlayer->field_488.collision_position.f[1];
-            sp48.f[2] = g_CurrentPlayer->field_488.collision_position.f[2];
-            var_v1 = g_CurrentPlayer->field_488.current_tile_ptr;
+            sp48.f[0] = g_CurrentPlayer->field_488.collisionPosition.f[0];
+            sp48.f[1] = g_CurrentPlayer->field_488.collisionPosition.f[1];
+            sp48.f[2] = g_CurrentPlayer->field_488.collisionPosition.f[2];
+            var_v1 = g_CurrentPlayer->field_488.collisionTile;
         }
 
         if (pickDeathCameraAngles(sp64, &sp58, var_a2, &sp48, var_v1, var_f0) != 0)
@@ -1307,9 +1307,9 @@ void bviewCalcIntroSwirlCamera(s32 index, f32 time, coord3d *pos, coord3d *looka
             if (entry->bitflags & 2)
             {
                 player = g_CurrentPlayer;
-                dst[3] = (entry->offsetfromBond[2].fval * player->field_488.theta_transform.f[0]) + (entry->offsetfromBond[0].fval * player->field_488.theta_transform.f[2]);
+                dst[3] = (entry->offsetfromBond[2].fval * player->field_488.facingDirection.f[0]) + (entry->offsetfromBond[0].fval * player->field_488.facingDirection.f[2]);
                 dst[4] = entry->offsetfromBond[1].fval;
-                dst[5] = (entry->offsetfromBond[2].fval * player->field_488.theta_transform.f[2]) - (entry->offsetfromBond[0].fval * player->field_488.theta_transform.f[0]);
+                dst[5] = (entry->offsetfromBond[2].fval * player->field_488.facingDirection.f[2]) - (entry->offsetfromBond[0].fval * player->field_488.facingDirection.f[0]);
             }
             else
             {
@@ -1359,9 +1359,9 @@ void bviewCalcIntroSwirlCamera(s32 index, f32 time, coord3d *pos, coord3d *looka
             scale = frac;
         }
 
-        lookat->x += (g_CurrentPlayer->field_488.applied_view.x * 40.0f) * scale;
-        lookat->y += (g_CurrentPlayer->field_488.applied_view.y * 40.0f) * scale;
-        lookat->z += (g_CurrentPlayer->field_488.applied_view.z * 40.0f) * scale;
+        lookat->x += (g_CurrentPlayer->field_488.cameraLookDirection.x * 40.0f) * scale;
+        lookat->y += (g_CurrentPlayer->field_488.cameraLookDirection.y * 40.0f) * scale;
+        lookat->z += (g_CurrentPlayer->field_488.cameraLookDirection.z * 40.0f) * scale;
     }
 }
 
@@ -1484,19 +1484,19 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
 
         sp38 = ((g_MpSwirlAngleDegrees - g_CurrentPlayer->vv_theta) * M_PI_F) / 180.0f;
 
-        pos->f[0] = g_CurrentPlayer->field_488.pos.f[0] + (sinf(sp38) * g_MpSwirlDistance);
-        pos->f[1] = g_CurrentPlayer->field_488.pos.f[1] + (g_MpSwirlDistance * 0.08f);
-        pos->f[2] = g_CurrentPlayer->field_488.pos.f[2] + (cosf(sp38) * g_MpSwirlDistance);
+        pos->f[0] = g_CurrentPlayer->field_488.cameraPosition.f[0] + (sinf(sp38) * g_MpSwirlDistance);
+        pos->f[1] = g_CurrentPlayer->field_488.cameraPosition.f[1] + (g_MpSwirlDistance * 0.08f);
+        pos->f[2] = g_CurrentPlayer->field_488.cameraPosition.f[2] + (cosf(sp38) * g_MpSwirlDistance);
 
-        pos2->f[0] = g_CurrentPlayer->field_488.pos.f[0];
-        pos2->f[1] = g_CurrentPlayer->field_488.pos.f[1];
-        pos2->f[2] = g_CurrentPlayer->field_488.pos.f[2];
+        pos2->f[0] = g_CurrentPlayer->field_488.cameraPosition.f[0];
+        pos2->f[1] = g_CurrentPlayer->field_488.cameraPosition.f[1];
+        pos2->f[2] = g_CurrentPlayer->field_488.cameraPosition.f[2];
 
         *stan = g_CurrentPlayer->prop->stan;
 
-        arg6->f[0] = g_CurrentPlayer->field_488.pos.f[0];
-        arg6->f[1] = g_CurrentPlayer->field_488.pos.f[1] + (g_MpSwirlDistance * 0.08f);
-        arg6->f[2] = g_CurrentPlayer->field_488.pos.f[2];
+        arg6->f[0] = g_CurrentPlayer->field_488.cameraPosition.f[0];
+        arg6->f[1] = g_CurrentPlayer->field_488.cameraPosition.f[1] + (g_MpSwirlDistance * 0.08f);
+        arg6->f[2] = g_CurrentPlayer->field_488.cameraPosition.f[2];
 
         if (((get_player_position_in_shuffled(get_cur_playernum()) + 1) == getPlayerCount()) && (g_MpSwirlDistance < 5.0f))
         {
@@ -1576,10 +1576,10 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
         }
         else
         {
-            *stan = g_CurrentPlayer->field_488.current_tile_ptr;
-            arg6->f[0] = g_CurrentPlayer->field_488.collision_position.f[0];
-            arg6->f[1] = g_CurrentPlayer->field_488.collision_position.f[1];
-            arg6->f[2] = g_CurrentPlayer->field_488.collision_position.f[2];
+            *stan = g_CurrentPlayer->field_488.collisionTile;
+            arg6->f[0] = g_CurrentPlayer->field_488.collisionPosition.f[0];
+            arg6->f[1] = g_CurrentPlayer->field_488.collisionPosition.f[1];
+            arg6->f[2] = g_CurrentPlayer->field_488.collisionPosition.f[2];
         }
     }
     else if ((g_CameraMode == CAMERAMODE_DEATH_CAM_SP) || (g_CameraMode == CAMERAMODE_DEATH_CAM_MP))
@@ -1645,11 +1645,11 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
             pos2->f[2] = dword_CODE_bss_800799F4->pos.f[2];
         }
 
-        *stan = g_CurrentPlayer->field_488.current_tile_ptr;
+        *stan = g_CurrentPlayer->field_488.collisionTile;
 
-        arg6->f[0] = g_CurrentPlayer->field_488.collision_position.f[0];
-        arg6->f[1] = g_CurrentPlayer->field_488.collision_position.f[1];
-        arg6->f[2] = g_CurrentPlayer->field_488.collision_position.f[2];
+        arg6->f[0] = g_CurrentPlayer->field_488.collisionPosition.f[0];
+        arg6->f[1] = g_CurrentPlayer->field_488.collisionPosition.f[1];
+        arg6->f[2] = g_CurrentPlayer->field_488.collisionPosition.f[2];
     }
     else if (g_CameraMode == CAMERAMODE_POSEND)
     {
@@ -1881,37 +1881,37 @@ void bondviewUpdateXAutoAimTime(struct PropRecord *autoaim_target, f32 auto_aim_
 }
 
 
-void change_player_pos_to_target(struct collision434 *col, coord3d *pos, StandTile *stan)
+void change_player_pos_to_target(struct PlayerSpatialState *col, coord3d *pos, StandTile *stan)
 {
     f32 store_x;
     f32 store_x2;
     f32 store_z;
     f32 store_y;
-    col->collision_position.x = pos->x;
-    store_x = col->collision_position.x;
-    col->collision_position.y = pos->y;
-    store_y = col->collision_position.y;
-    col->collision_position.z = pos->z;
-    store_z = col->collision_position.z;
+    col->collisionPosition.x = pos->x;
+    store_x = col->collisionPosition.x;
+    col->collisionPosition.y = pos->y;
+    store_y = col->collisionPosition.y;
+    col->collisionPosition.z = pos->z;
+    store_z = col->collisionPosition.z;
     store_x2 = pos->x;
-    col->current_tile_ptr = stan;
-    col->current_tile_ptr_for_portals = stan;
-    col->applied_view.y = 0.0f;
-    col->applied_view.z = 0.0f;
-    col->applied_view2.x = 0.0f;
-    col->applied_view2.z = store_x2 * 0.0f;
-    col->theta_transform.x = 0.0f;
-    col->theta_transform.y = 0.0f;
-    col->pos.x = store_x;
-    col->pos3.x = store_x;
-    col->applied_view.x = 1.0f;
-    col->applied_view2.y = 1.0f;
-    col->theta_transform.z = 1.0f;
-    col->pos.y = store_y;
-    col->pos3.y = store_y;
-    col->pos.z = store_z;
-    col->pos3.z = store_z;
-    col->collision_radius = 30;
+    col->collisionTile = stan;
+    col->cameraTile = stan;
+    col->cameraLookDirection.y = 0.0f;
+    col->cameraLookDirection.z = 0.0f;
+    col->cameraUp.x = 0.0f;
+    col->cameraUp.z = store_x2 * 0.0f;
+    col->facingDirection.x = 0.0f;
+    col->facingDirection.y = 0.0f;
+    col->cameraPosition.x = store_x;
+    col->cameraGroundPosition.x = store_x;
+    col->cameraLookDirection.x = 1.0f;
+    col->cameraUp.y = 1.0f;
+    col->facingDirection.z = 1.0f;
+    col->cameraPosition.y = store_y;
+    col->cameraGroundPosition.y = store_y;
+    col->cameraPosition.z = store_z;
+    col->cameraGroundPosition.z = store_z;
+    col->collisionRadius = 30;
 }
 
 
@@ -2126,13 +2126,13 @@ s32 sub_GAME_7F07CDD4(struct coord3d *arg0, f32 arg1, StandTile **arg2)
     StandTile *sp3C;
     s32 unused_padding[2];
 
-    sp3C = g_CurrentPlayer->field_488.current_tile_ptr;
+    sp3C = g_CurrentPlayer->field_488.collisionTile;
 
     if ((
         stanTestLineUnobstructed(
             &sp3C,
-            g_CurrentPlayer->field_488.collision_position.f[0],
-            g_CurrentPlayer->field_488.collision_position.f[2],
+            g_CurrentPlayer->field_488.collisionPosition.f[0],
+            g_CurrentPlayer->field_488.collisionPosition.f[2],
             arg0->f[0],
             arg0->f[2],
             0,
@@ -2218,7 +2218,7 @@ s32 bondviewTryMoveToStan(struct coord3d *arg0, StandTile **stan)
     }
     else
     {
-        sp90 = g_CurrentPlayer->field_488.current_tile_ptr;
+        sp90 = g_CurrentPlayer->field_488.collisionTile;
 
         if (obj_collision_flag)
         {
@@ -2246,8 +2246,8 @@ s32 bondviewTryMoveToStan(struct coord3d *arg0, StandTile **stan)
 
         if ((stanTestLineUnobstructed(
                 &sp90,
-                g_CurrentPlayer->field_488.collision_position.f[0],
-                g_CurrentPlayer->field_488.collision_position.f[2],
+                g_CurrentPlayer->field_488.collisionPosition.f[0],
+                g_CurrentPlayer->field_488.collisionPosition.f[2],
                 arg0->f[0],
                 arg0->f[2],
                 cdtypes,
@@ -2259,7 +2259,7 @@ s32 bondviewTryMoveToStan(struct coord3d *arg0, StandTile **stan)
         {
             if (g_CurrentPlayer->crouchoffset == FULL_CROUCH_OFFSET || sp7C < 0)
             {
-                if (stanGetLocusCount(&sp3C) == 0 && stanTestLocusEdgeAboveY(&sp90, arg0->f[0], arg0->f[2], collision_radius, g_CurrentPlayer->field_488.collision_position.f[1] + 175.0f) >= 0)
+                if (stanGetLocusCount(&sp3C) == 0 && stanTestLocusEdgeAboveY(&sp90, arg0->f[0], arg0->f[2], collision_radius, g_CurrentPlayer->field_488.collisionPosition.f[1] + 175.0f) >= 0)
                 {
                     goto block_20;
                 }
@@ -2323,9 +2323,9 @@ s32 bondviewTrySimpleMovePlayerCollision(coord3d *next_pos, coord3d *collision_p
 
     if (bondviewTryMoveToStan(next_pos, &stan) != 0)
     {
-        g_CurrentPlayer->field_488.current_tile_ptr = stan;
-        g_CurrentPlayer->field_488.collision_position.f[0] = next_pos->f[0];
-        g_CurrentPlayer->field_488.collision_position.f[2] = next_pos->f[2];
+        g_CurrentPlayer->field_488.collisionTile = stan;
+        g_CurrentPlayer->field_488.collisionPosition.f[0] = next_pos->f[0];
+        g_CurrentPlayer->field_488.collisionPosition.f[2] = next_pos->f[2];
 
         return 1;
     }
@@ -2373,12 +2373,12 @@ s32 bondviewTryFractionMovePlayerCollision(
 
     bondviewGetCollisionRadius(g_CurrentPlayer->prop, &collision_radius, &height, &always_30);
 
-    delta_pos.f[0] = next_pos->f[0] - g_CurrentPlayer->field_488.collision_position.f[0];
-    delta_pos.f[2] = next_pos->f[2] - g_CurrentPlayer->field_488.collision_position.f[2];
+    delta_pos.f[0] = next_pos->f[0] - g_CurrentPlayer->field_488.collisionPosition.f[0];
+    delta_pos.f[2] = next_pos->f[2] - g_CurrentPlayer->field_488.collisionPosition.f[2];
 
     sp50.f[0] = collision_radius;
-    sp50.f[1] = g_CurrentPlayer->field_488.collision_position.f[0];
-    sp50.f[2] = g_CurrentPlayer->field_488.collision_position.f[2];
+    sp50.f[1] = g_CurrentPlayer->field_488.collisionPosition.f[0];
+    sp50.f[2] = g_CurrentPlayer->field_488.collisionPosition.f[2];
 
     sp48.f[0] = collision1_pt0->f[0];
     sp48.f[1] = collision1_pt0->f[2];
@@ -2391,14 +2391,14 @@ s32 bondviewTryFractionMovePlayerCollision(
 
     temp_f0 = calculateRayToSegmentIntersectionNormalized(&sp50, &sp48, &sp40, &sp38);
 
-    try_next_pos.f[0] = g_CurrentPlayer->field_488.collision_position.f[0] + (delta_pos.f[0] * temp_f0 * 0.25f);
-    try_next_pos.f[2] = g_CurrentPlayer->field_488.collision_position.f[2] + (delta_pos.f[2] * temp_f0 * 0.25f);
+    try_next_pos.f[0] = g_CurrentPlayer->field_488.collisionPosition.f[0] + (delta_pos.f[0] * temp_f0 * 0.25f);
+    try_next_pos.f[2] = g_CurrentPlayer->field_488.collisionPosition.f[2] + (delta_pos.f[2] * temp_f0 * 0.25f);
 
     if (bondviewTryMoveToStan(&try_next_pos, &stan) != 0)
     {
-        g_CurrentPlayer->field_488.current_tile_ptr = stan;
-        g_CurrentPlayer->field_488.collision_position.f[0] = try_next_pos.f[0];
-        g_CurrentPlayer->field_488.collision_position.f[2] = try_next_pos.f[2];
+        g_CurrentPlayer->field_488.collisionTile = stan;
+        g_CurrentPlayer->field_488.collisionPosition.f[0] = try_next_pos.f[0];
+        g_CurrentPlayer->field_488.collisionPosition.f[2] = try_next_pos.f[2];
 
         return 1;
     }
@@ -2442,8 +2442,8 @@ s32 bondviewTryEdgeMovePlayerCollision(struct coord3d *prior_next_pos, struct co
     struct coord3d try_next_pos;
     StandTile *stan;
 
-    delta_pos.f[0] = prior_next_pos->f[0] - g_CurrentPlayer->field_488.collision_position.f[0];
-    delta_pos.f[2] = prior_next_pos->f[2] - g_CurrentPlayer->field_488.collision_position.f[2];
+    delta_pos.f[0] = prior_next_pos->f[0] - g_CurrentPlayer->field_488.collisionPosition.f[0];
+    delta_pos.f[2] = prior_next_pos->f[2] - g_CurrentPlayer->field_488.collisionPosition.f[2];
 
     if (collision_pt0->f[0] != collision_pt1->f[0] || collision_pt0->f[2] != collision_pt1->f[2])
     {
@@ -2462,14 +2462,14 @@ s32 bondviewTryEdgeMovePlayerCollision(struct coord3d *prior_next_pos, struct co
          * length moved along the wall times the direction vector of the wall.
          **/
         tempf = (delta_pos.f[0] * norm_collision_edge.f[0]) + (delta_pos.f[2] * norm_collision_edge.f[2]);
-        try_next_pos.f[0] = g_CurrentPlayer->field_488.collision_position.f[0] + (tempf * norm_collision_edge.f[0]);
-        try_next_pos.f[2] = g_CurrentPlayer->field_488.collision_position.f[2] + (tempf * norm_collision_edge.f[2]);
+        try_next_pos.f[0] = g_CurrentPlayer->field_488.collisionPosition.f[0] + (tempf * norm_collision_edge.f[0]);
+        try_next_pos.f[2] = g_CurrentPlayer->field_488.collisionPosition.f[2] + (tempf * norm_collision_edge.f[2]);
 
         if (bondviewTryMoveToStan(&try_next_pos, &stan))
         {
-            g_CurrentPlayer->field_488.current_tile_ptr = stan;
-            g_CurrentPlayer->field_488.collision_position.f[0] = try_next_pos.f[0];
-            g_CurrentPlayer->field_488.collision_position.f[2] = try_next_pos.f[2];
+            g_CurrentPlayer->field_488.collisionTile = stan;
+            g_CurrentPlayer->field_488.collisionPosition.f[0] = try_next_pos.f[0];
+            g_CurrentPlayer->field_488.collisionPosition.f[2] = try_next_pos.f[2];
 
             return 1;
         }
@@ -2511,18 +2511,18 @@ s32 bondviewTryEndHopPlayerCollision(struct coord3d *prior_next_pos, struct coor
 
     bondviewGetCollisionRadius(g_CurrentPlayer->prop, &collision_radius, &height, &always_30);
 
-    delta_pos.f[0] = prior_next_pos->f[0] - g_CurrentPlayer->field_488.collision_position.f[0];
-    delta_pos.f[2] = prior_next_pos->f[2] - g_CurrentPlayer->field_488.collision_position.f[2];
+    delta_pos.f[0] = prior_next_pos->f[0] - g_CurrentPlayer->field_488.collisionPosition.f[0];
+    delta_pos.f[2] = prior_next_pos->f[2] - g_CurrentPlayer->field_488.collisionPosition.f[2];
 
     sp50.f[0] = collision_pt0->f[0] - prior_next_pos->f[0];
     sp50.f[2] = collision_pt0->f[2] - prior_next_pos->f[2];
 
     if (((sp50.f[0] * sp50.f[0]) + (sp50.f[2] * sp50.f[2])) <= (collision_radius * collision_radius))
     {
-        if (collision_pt0->f[0] != g_CurrentPlayer->field_488.collision_position.f[0] || collision_pt0->f[2] != g_CurrentPlayer->field_488.collision_position.f[2])
+        if (collision_pt0->f[0] != g_CurrentPlayer->field_488.collisionPosition.f[0] || collision_pt0->f[2] != g_CurrentPlayer->field_488.collisionPosition.f[2])
         {
-            sp50.f[0] = -(collision_pt0->f[2] - g_CurrentPlayer->field_488.collision_position.f[2]);
-            sp50.f[2] = collision_pt0->f[0] - g_CurrentPlayer->field_488.collision_position.f[0];
+            sp50.f[0] = -(collision_pt0->f[2] - g_CurrentPlayer->field_488.collisionPosition.f[2]);
+            sp50.f[2] = collision_pt0->f[0] - g_CurrentPlayer->field_488.collisionPosition.f[0];
 
             tempf = (sp50.f[0] * sp50.f[0]) + (sp50.f[2] * sp50.f[2]);
             tempf =  1.0f / sqrtf(tempf);
@@ -2532,14 +2532,14 @@ s32 bondviewTryEndHopPlayerCollision(struct coord3d *prior_next_pos, struct coor
             tempf = (delta_pos.f[0] * sp50.f[0]) + (delta_pos.f[2] * sp50.f[2]);
             sp50.f[0] *= tempf;
             sp50.f[2] *= tempf;
-            try_next_pos.f[0] = g_CurrentPlayer->field_488.collision_position.f[0] + (sp50.f[0]);
-            try_next_pos.f[2] = g_CurrentPlayer->field_488.collision_position.f[2] + (sp50.f[2]);
+            try_next_pos.f[0] = g_CurrentPlayer->field_488.collisionPosition.f[0] + (sp50.f[0]);
+            try_next_pos.f[2] = g_CurrentPlayer->field_488.collisionPosition.f[2] + (sp50.f[2]);
 
             if (bondviewTryMoveToStan(&try_next_pos, &stan))
             {
-                g_CurrentPlayer->field_488.current_tile_ptr = stan;
-                g_CurrentPlayer->field_488.collision_position.f[0] = try_next_pos.f[0];
-                g_CurrentPlayer->field_488.collision_position.f[2] = try_next_pos.f[2];
+                g_CurrentPlayer->field_488.collisionTile = stan;
+                g_CurrentPlayer->field_488.collisionPosition.f[0] = try_next_pos.f[0];
+                g_CurrentPlayer->field_488.collisionPosition.f[2] = try_next_pos.f[2];
 
                 return 1;
             }
@@ -2552,10 +2552,10 @@ s32 bondviewTryEndHopPlayerCollision(struct coord3d *prior_next_pos, struct coor
 
         if (((sp50.f[0] * sp50.f[0]) + (sp50.f[2] * sp50.f[2])) <= (collision_radius * collision_radius))
         {
-            if (collision_pt1->f[0] != g_CurrentPlayer->field_488.collision_position.f[0] || collision_pt1->f[2] != g_CurrentPlayer->field_488.collision_position.f[2])
+            if (collision_pt1->f[0] != g_CurrentPlayer->field_488.collisionPosition.f[0] || collision_pt1->f[2] != g_CurrentPlayer->field_488.collisionPosition.f[2])
             {
-                sp50.f[0] = -(collision_pt1->f[2] - g_CurrentPlayer->field_488.collision_position.f[2]);
-                sp50.f[2] = collision_pt1->f[0] - g_CurrentPlayer->field_488.collision_position.f[0];
+                sp50.f[0] = -(collision_pt1->f[2] - g_CurrentPlayer->field_488.collisionPosition.f[2]);
+                sp50.f[2] = collision_pt1->f[0] - g_CurrentPlayer->field_488.collisionPosition.f[0];
 
                 tempf = (sp50.f[0] * sp50.f[0]) + (sp50.f[2] * sp50.f[2]);
                 tempf =  1.0f / sqrtf(tempf);
@@ -2565,14 +2565,14 @@ s32 bondviewTryEndHopPlayerCollision(struct coord3d *prior_next_pos, struct coor
                 tempf = (delta_pos.f[0] * sp50.f[0]) + (delta_pos.f[2] * sp50.f[2]);
                 sp50.f[0] *= tempf;
                 sp50.f[2] *= tempf;
-                try_next_pos.f[0] = g_CurrentPlayer->field_488.collision_position.f[0] + (sp50.f[0]);
-                try_next_pos.f[2] = g_CurrentPlayer->field_488.collision_position.f[2] + (sp50.f[2]);
+                try_next_pos.f[0] = g_CurrentPlayer->field_488.collisionPosition.f[0] + (sp50.f[0]);
+                try_next_pos.f[2] = g_CurrentPlayer->field_488.collisionPosition.f[2] + (sp50.f[2]);
 
                 if (bondviewTryMoveToStan(&try_next_pos, &stan))
                 {
-                    g_CurrentPlayer->field_488.current_tile_ptr = stan;
-                    g_CurrentPlayer->field_488.collision_position.f[0] = try_next_pos.f[0];
-                    g_CurrentPlayer->field_488.collision_position.f[2] = try_next_pos.f[2];
+                    g_CurrentPlayer->field_488.collisionTile = stan;
+                    g_CurrentPlayer->field_488.collisionPosition.f[0] = try_next_pos.f[0];
+                    g_CurrentPlayer->field_488.collisionPosition.f[2] = try_next_pos.f[2];
 
                     return 1;
                 }
@@ -2613,12 +2613,12 @@ void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot)
     s32 phi_a0_3;
     s32 temp_v0_7;
 
-    g_CurrentPlayer->bondprevpos.f[0] = g_CurrentPlayer->field_488.collision_position.f[0];
-    g_CurrentPlayer->bondprevpos.f[1] = g_CurrentPlayer->field_488.collision_position.f[1];
-    g_CurrentPlayer->bondprevpos.f[2] = g_CurrentPlayer->field_488.collision_position.f[2];
+    g_CurrentPlayer->bondprevpos.f[0] = g_CurrentPlayer->field_488.collisionPosition.f[0];
+    g_CurrentPlayer->bondprevpos.f[1] = g_CurrentPlayer->field_488.collisionPosition.f[1];
+    g_CurrentPlayer->bondprevpos.f[2] = g_CurrentPlayer->field_488.collisionPosition.f[2];
 
-    next_pos.f[0] = g_CurrentPlayer->field_488.collision_position.f[0] + offset->f[0];
-    next_pos.f[2] = g_CurrentPlayer->field_488.collision_position.f[2] + offset->f[2];
+    next_pos.f[0] = g_CurrentPlayer->field_488.collisionPosition.f[0] + offset->f[0];
+    next_pos.f[2] = g_CurrentPlayer->field_488.collisionPosition.f[2] + offset->f[2];
 
     g_BondCanEnterTank = FALSE;
 
@@ -2628,7 +2628,7 @@ void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot)
     {
         chraiGetCollisionBoundsWithoutY(g_WorldTankProp, &polygon, &edges);
 
-        if ((g_PlayerIsInTank) || (chrpropTestPointInPolygon(&g_CurrentPlayer->field_488.collision_position, polygon, edges) != 0) || ((chrobjTestPointPolygonCollision(&g_CurrentPlayer->field_488.collision_position, g_CurrentPlayer->field_488.collision_radius, polygon, edges) != 0)))
+        if ((g_PlayerIsInTank) || (chrpropTestPointInPolygon(&g_CurrentPlayer->field_488.collisionPosition, polygon, edges) != 0) || ((chrobjTestPointPolygonCollision(&g_CurrentPlayer->field_488.collisionPosition, g_CurrentPlayer->field_488.collisionRadius, polygon, edges) != 0)))
         {
 
             obj = g_WorldTankProp->obj;
@@ -2641,7 +2641,7 @@ void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot)
 
             temp_f2 = (farr5[4] - farr5[3]) * obj->model->scale;
 
-            if (g_PlayerIsInTank || (chrpropTestPointInPolygon(&g_CurrentPlayer->field_488.collision_position, &tank_objrecord->rect, (s32)tank_objrecord->collision) != 0))
+            if (g_PlayerIsInTank || (chrpropTestPointInPolygon(&g_CurrentPlayer->field_488.collisionPosition, &tank_objrecord->rect, (s32)tank_objrecord->collision) != 0))
             {
                 temp_f2 += (farr6[4] - farr6[3]) * obj->model->scale;
                 g_BondCanEnterTank = TRUE;
@@ -2722,9 +2722,9 @@ void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot)
      * This block seems to be some error checking code, this will only occur when Bond
      * goes out of bounds.
     */
-    if (stanIsPointNearTile(g_CurrentPlayer->field_488.current_tile_ptr, g_CurrentPlayer->field_488.collision_position.f[0], g_CurrentPlayer->field_488.collision_position.f[2]) == 0)
+    if (stanIsPointNearTile(g_CurrentPlayer->field_488.collisionTile, g_CurrentPlayer->field_488.collisionPosition.f[0], g_CurrentPlayer->field_488.collisionPosition.f[2]) == 0)
     {
-        stan = g_CurrentPlayer->field_488.current_tile_ptr;
+        stan = g_CurrentPlayer->field_488.collisionTile;
 
         for (tile_count=0; tile_count<5; tile_count++)
         {
@@ -2752,9 +2752,9 @@ void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot)
                 }
             }
 
-            if (stanIsPointNearTile(stan, g_CurrentPlayer->field_488.collision_position.f[0], g_CurrentPlayer->field_488.collision_position.f[2]))
+            if (stanIsPointNearTile(stan, g_CurrentPlayer->field_488.collisionPosition.f[0], g_CurrentPlayer->field_488.collisionPosition.f[2]))
             {
-                g_CurrentPlayer->field_488.current_tile_ptr = stan;
+                g_CurrentPlayer->field_488.collisionTile = stan;
                 break;
             }
         }
@@ -2762,9 +2762,9 @@ void bondviewCalcUpdatePlayerCollision(struct coord3d *offset, s32 allow_scoot)
 
     bondviewUpdatePlayerRoom(g_CurrentPlayer);
 
-    if (g_CurrentPlayer->field_488.current_tile_ptr != NULL)
+    if (g_CurrentPlayer->field_488.collisionTile != NULL)
     {
-        objectivestatusCheckRoomEntered(g_CurrentPlayer->field_488.current_tile_ptr->room);
+        objectivestatusCheckRoomEntered(g_CurrentPlayer->field_488.collisionTile->room);
     }
 }
 
@@ -2792,9 +2792,9 @@ void bondviewUpdatePlayerRoom(struct player *player)
         return;
     }
 
-    if (player->field_488.current_tile_ptr)
+    if (player->field_488.collisionTile)
     {
-        player->registeredroom = (s16) player->field_488.current_tile_ptr->room;
+        player->registeredroom = (s16) player->field_488.collisionTile->room;
 
         chrpropRegisterRoom(player->prop, player->registeredroom);
     }
@@ -4298,13 +4298,13 @@ void bondviewMoveAnimationTick(f32 speed, f32 speedforwards, f32 speedsideways)
     matrix_4x4_set_rotation_around_y((360.0f - g_CurrentPlayer->vv_theta) * DegToRad1Fact(1), &sp4C);
     matrix_4x4_multiply_in_place(&sp4C, &sp8C);
 
-    g_CurrentPlayer->field_488.applied_view.f[0] = sp8C.m[2][0];
-    g_CurrentPlayer->field_488.applied_view.f[1] = sp8C.m[2][1];
-    g_CurrentPlayer->field_488.applied_view.f[2] = sp8C.m[2][2];
+    g_CurrentPlayer->field_488.cameraLookDirection.f[0] = sp8C.m[2][0];
+    g_CurrentPlayer->field_488.cameraLookDirection.f[1] = sp8C.m[2][1];
+    g_CurrentPlayer->field_488.cameraLookDirection.f[2] = sp8C.m[2][2];
 
-    g_CurrentPlayer->field_488.applied_view2.f[0] = sp8C.m[1][0];
-    g_CurrentPlayer->field_488.applied_view2.f[1] = sp8C.m[1][1];
-    g_CurrentPlayer->field_488.applied_view2.f[2] = sp8C.m[1][2];
+    g_CurrentPlayer->field_488.cameraUp.f[0] = sp8C.m[1][0];
+    g_CurrentPlayer->field_488.cameraUp.f[1] = sp8C.m[1][1];
+    g_CurrentPlayer->field_488.cameraUp.f[2] = sp8C.m[1][2];
 }
 
 
@@ -4347,9 +4347,9 @@ void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
     if (g_PlayerIsInTank)
     {
         g_CurrentPlayer->stanHeight = bondviewYPositionRelated(
-            g_CurrentPlayer->field_488.current_tile_ptr,
-            g_CurrentPlayer->field_488.collision_position.f[0],
-            g_CurrentPlayer->field_488.collision_position.f[2]);
+            g_CurrentPlayer->field_488.collisionTile,
+            g_CurrentPlayer->field_488.collisionPosition.f[0],
+            g_CurrentPlayer->field_488.collisionPosition.f[2]);
 
         g_CurrentPlayer->field_6C = g_CurrentPlayer->field_70 / (1.0f - TANK_UNKD0_SCALE);
 
@@ -4367,9 +4367,9 @@ void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
             g_CurrentPlayer->stanHeight = g_CurrentPlayer->stanHeight + stanHeight_offset;
 
             temp_f0 = bondviewYPositionRelated(
-                g_CurrentPlayer->field_488.current_tile_ptr,
-                g_CurrentPlayer->field_488.collision_position.f[0],
-                g_CurrentPlayer->field_488.collision_position.f[2]);
+                g_CurrentPlayer->field_488.collisionTile,
+                g_CurrentPlayer->field_488.collisionPosition.f[0],
+                g_CurrentPlayer->field_488.collisionPosition.f[2]);
 
             if (g_CurrentPlayer->stanHeight < temp_f0)
             {
@@ -4378,20 +4378,20 @@ void bondviewUpdatePlayerY(s32 use_stanHeight, f32 stanHeight_offset)
         }
         else
         {
-            stan = g_CurrentPlayer->field_488.current_tile_ptr;
+            stan = g_CurrentPlayer->field_488.collisionTile;
 
             bondviewGetCollisionRadius(g_CurrentPlayer->prop, &collision_radius, &height, &always_30);
 
             sp64 = bondviewYPositionRelated(
-                g_CurrentPlayer->field_488.current_tile_ptr,
-                g_CurrentPlayer->field_488.collision_position.f[0],
-                g_CurrentPlayer->field_488.collision_position.f[2]);
+                g_CurrentPlayer->field_488.collisionTile,
+                g_CurrentPlayer->field_488.collisionPosition.f[0],
+                g_CurrentPlayer->field_488.collisionPosition.f[2]);
 
             // Another error checking block, it seems this condition is almost never triggered in the game.
             if (stanTestLocusEdgeAboveY(
                 &stan,
-                g_CurrentPlayer->field_488.collision_position.f[0],
-                g_CurrentPlayer->field_488.collision_position.f[2],
+                g_CurrentPlayer->field_488.collisionPosition.f[0],
+                g_CurrentPlayer->field_488.collisionPosition.f[2],
                 collision_radius,
                 bondviewGetPlayerDuckingHeightRelated(g_CurrentPlayer) + sp64) >= 0)
             {
@@ -4507,14 +4507,14 @@ void bondviewUpdatePlayerCollisionPositionFields(void)
         phi_f0 = 30.0f;
     }
 
-    g_CurrentPlayer->field_488.collision_position.f[1] = g_CurrentPlayer->field_70 + phi_f0;
+    g_CurrentPlayer->field_488.collisionPosition.f[1] = g_CurrentPlayer->field_70 + phi_f0;
 
     if (((g_CameraMode != CAMERAMODE_DEATH_CAM_SP) && (g_CameraMode != CAMERAMODE_DEATH_CAM_MP) && (g_CameraMode != CAMERAMODE_POSEND))
         || (g_CurrentPlayer->bodyModel == 0))
     {
-        g_CurrentPlayer->field_488.pos.f[0] = g_CurrentPlayer->field_488.collision_position.f[0];
-        g_CurrentPlayer->field_488.pos.f[1] = g_CurrentPlayer->field_488.collision_position.f[1];
-        g_CurrentPlayer->field_488.pos.f[2] = g_CurrentPlayer->field_488.collision_position.f[2];
+        g_CurrentPlayer->field_488.cameraPosition.f[0] = g_CurrentPlayer->field_488.collisionPosition.f[0];
+        g_CurrentPlayer->field_488.cameraPosition.f[1] = g_CurrentPlayer->field_488.collisionPosition.f[1];
+        g_CurrentPlayer->field_488.cameraPosition.f[2] = g_CurrentPlayer->field_488.collisionPosition.f[2];
     }
 
     if (g_CurrentPlayer->bondstate != BONDSTATE_ALIVE)
@@ -4532,41 +4532,41 @@ void bondviewUpdatePlayerCollisionPositionFields(void)
 
     if (g_CurrentPlayer->vv_verta < 0.0f)
     {
-        g_CurrentPlayer->field_488.pos.f[1] += -(1.0f - g_CurrentPlayer->vv_cosverta) * g_CurrentPlayer->field_29C0;
+        g_CurrentPlayer->field_488.cameraPosition.f[1] += -(1.0f - g_CurrentPlayer->vv_cosverta) * g_CurrentPlayer->field_29C0;
     }
 
-    sp2C = g_CurrentPlayer->field_488.current_tile_ptr;
+    sp2C = g_CurrentPlayer->field_488.collisionTile;
 
     walkTilesBetweenPoints_NoCallback(
         &sp2C,
-        g_CurrentPlayer->field_488.collision_position.f[0],
-        g_CurrentPlayer->field_488.collision_position.f[2],
-        g_CurrentPlayer->field_488.pos.f[0],
-        g_CurrentPlayer->field_488.pos.f[2]);
+        g_CurrentPlayer->field_488.collisionPosition.f[0],
+        g_CurrentPlayer->field_488.collisionPosition.f[2],
+        g_CurrentPlayer->field_488.cameraPosition.f[0],
+        g_CurrentPlayer->field_488.cameraPosition.f[2]);
 
-    g_CurrentPlayer->field_488.current_tile_ptr_for_portals = sp2C;
+    g_CurrentPlayer->field_488.cameraTile = sp2C;
 
-    g_CurrentPlayer->field_488.pos3.f[0] = g_CurrentPlayer->field_488.pos.f[0];
-    g_CurrentPlayer->field_488.pos3.f[2] = g_CurrentPlayer->field_488.pos.f[2];
+    g_CurrentPlayer->field_488.cameraGroundPosition.f[0] = g_CurrentPlayer->field_488.cameraPosition.f[0];
+    g_CurrentPlayer->field_488.cameraGroundPosition.f[2] = g_CurrentPlayer->field_488.cameraPosition.f[2];
 
-    g_CurrentPlayer->field_488.pos3.f[1] = bondviewYPositionRelated(
-        g_CurrentPlayer->field_488.current_tile_ptr_for_portals,
-        g_CurrentPlayer->field_488.pos.f[0],
-        g_CurrentPlayer->field_488.pos.f[2]);
+    g_CurrentPlayer->field_488.cameraGroundPosition.f[1] = bondviewYPositionRelated(
+        g_CurrentPlayer->field_488.cameraTile,
+        g_CurrentPlayer->field_488.cameraPosition.f[0],
+        g_CurrentPlayer->field_488.cameraPosition.f[2]);
 
-    g_CurrentPlayer->prop->stan = g_CurrentPlayer->field_488.current_tile_ptr;
+    g_CurrentPlayer->prop->stan = g_CurrentPlayer->field_488.collisionTile;
 
-    g_CurrentPlayer->prop->pos.f[0] = g_CurrentPlayer->field_488.collision_position.f[0];
-    g_CurrentPlayer->prop->pos.f[1] = g_CurrentPlayer->field_488.collision_position.f[1];
-    g_CurrentPlayer->prop->pos.f[2] = g_CurrentPlayer->field_488.collision_position.f[2];
+    g_CurrentPlayer->prop->pos.f[0] = g_CurrentPlayer->field_488.collisionPosition.f[0];
+    g_CurrentPlayer->prop->pos.f[1] = g_CurrentPlayer->field_488.collisionPosition.f[1];
+    g_CurrentPlayer->prop->pos.f[2] = g_CurrentPlayer->field_488.collisionPosition.f[2];
 
 #define S7F081478_FACTOR_1 0.9f
 
     for (i=0; i<g_ClockTimer; i++)
     {
-        g_CurrentPlayer->field_3B8.f[0] = (S7F081478_FACTOR_1 * g_CurrentPlayer->field_3B8.f[0]) + g_CurrentPlayer->field_488.pos.f[0];
-        g_CurrentPlayer->field_3B8.f[1] = (S7F081478_FACTOR_1 * g_CurrentPlayer->field_3B8.f[1]) + g_CurrentPlayer->field_488.pos.f[1];
-        g_CurrentPlayer->field_3B8.f[2] = (S7F081478_FACTOR_1 * g_CurrentPlayer->field_3B8.f[2]) + g_CurrentPlayer->field_488.pos.f[2];
+        g_CurrentPlayer->field_3B8.f[0] = (S7F081478_FACTOR_1 * g_CurrentPlayer->field_3B8.f[0]) + g_CurrentPlayer->field_488.cameraPosition.f[0];
+        g_CurrentPlayer->field_3B8.f[1] = (S7F081478_FACTOR_1 * g_CurrentPlayer->field_3B8.f[1]) + g_CurrentPlayer->field_488.cameraPosition.f[1];
+        g_CurrentPlayer->field_3B8.f[2] = (S7F081478_FACTOR_1 * g_CurrentPlayer->field_3B8.f[2]) + g_CurrentPlayer->field_488.cameraPosition.f[2];
     }
 
 #define S7F081478_FACTOR_2 0.100000024f
@@ -4582,7 +4582,7 @@ void bondviewUpdatePlayerCollisionPositionFields(void)
 
 /**
  * Fixes vv_verta within -90 and +90.
- * Updates vv_costheta, vv_sintheta, vv_verta360, vv_cosverta, vv_sinverta, field_488.theta_transform.
+ * Updates vv_costheta, vv_sintheta, vv_verta360, vv_cosverta, vv_sinverta, field_488.facingDirection.
  * Address 0x7F081790.
  *
  * Perfect Dark function bmoveUpdateVerta.
@@ -4620,9 +4620,9 @@ void bondviewApplyVertaTheta(void)
     g_CurrentPlayer->vv_cosverta = cosf(g_CurrentPlayer->vv_verta360 * DegToRad1Fact(1));
     g_CurrentPlayer->vv_sinverta = sinf(g_CurrentPlayer->vv_verta360 * DegToRad1Fact(1));
 
-    g_CurrentPlayer->field_488.theta_transform.f[0] = -g_CurrentPlayer->vv_sintheta;
-    g_CurrentPlayer->field_488.theta_transform.f[1] = 0;
-    g_CurrentPlayer->field_488.theta_transform.f[2] = g_CurrentPlayer->vv_costheta;
+    g_CurrentPlayer->field_488.facingDirection.f[0] = -g_CurrentPlayer->vv_sintheta;
+    g_CurrentPlayer->field_488.facingDirection.f[1] = 0;
+    g_CurrentPlayer->field_488.facingDirection.f[2] = g_CurrentPlayer->vv_costheta;
 }
 
 
@@ -5325,9 +5325,9 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             g_TankEnteringSitHeightRemain = 1.0f;
             g_TankEnterBondHorizAngleDeg = g_CurrentPlayer->vv_theta;
             g_TankEnterBondVertAngleDeg = g_CurrentPlayer->vv_verta;
-            g_EnterTankCoord.f[0] = g_CurrentPlayer->field_488.collision_position.f[0];
-            g_EnterTankCoord.f[1] = g_CurrentPlayer->field_488.collision_position.f[1];
-            g_EnterTankCoord.f[2] = g_CurrentPlayer->field_488.collision_position.f[2];
+            g_EnterTankCoord.f[0] = g_CurrentPlayer->field_488.collisionPosition.f[0];
+            g_EnterTankCoord.f[1] = g_CurrentPlayer->field_488.collisionPosition.f[1];
+            g_EnterTankCoord.f[2] = g_CurrentPlayer->field_488.collisionPosition.f[2];
             g_TankDamagePenaltyTicks = 0;
 
             bondviewTankModelRotationRelated();
@@ -5634,27 +5634,27 @@ void bondviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         // lookaheadcentreenabled is always true, so this block always executes.
         if (g_CurrentPlayer->lookaheadcentreenabled)
         {
-            spC0 = g_CurrentPlayer->field_488.current_tile_ptr;
+            spC0 = g_CurrentPlayer->field_488.collisionTile;
             spBC = 300.0f;
 
             // prop, f32 *collision_radius, f32 *height, f32 *always_30
             bondviewGetCollisionRadius(g_CurrentPlayer->prop, &spA0.f[0], &spA0.f[2], &spA0.f[1]);
 
-            spAC.f[0] = g_CurrentPlayer->field_488.collision_position.f[0] + (g_CurrentPlayer->field_488.theta_transform.f[0] * 300.0f);
-            spAC.f[1] = g_CurrentPlayer->field_488.collision_position.f[1];
-            spAC.f[2] = g_CurrentPlayer->field_488.collision_position.f[2] + (g_CurrentPlayer->field_488.theta_transform.f[2] * 300.0f);
+            spAC.f[0] = g_CurrentPlayer->field_488.collisionPosition.f[0] + (g_CurrentPlayer->field_488.facingDirection.f[0] * 300.0f);
+            spAC.f[1] = g_CurrentPlayer->field_488.collisionPosition.f[1];
+            spAC.f[2] = g_CurrentPlayer->field_488.collisionPosition.f[2] + (g_CurrentPlayer->field_488.facingDirection.f[2] * 300.0f);
 
             stanResetHits();
 
-            if (stanTestLineUnobstructed(&spC0, g_CurrentPlayer->field_488.collision_position.f[0], g_CurrentPlayer->field_488.collision_position.f[2], spAC.f[0], spAC.f[2], CDTYPE_CLOSEDDOORS, spA0.f[2], spA0.f[1], 0, 1.0f))
+            if (stanTestLineUnobstructed(&spC0, g_CurrentPlayer->field_488.collisionPosition.f[0], g_CurrentPlayer->field_488.collisionPosition.f[2], spAC.f[0], spAC.f[2], CDTYPE_CLOSEDDOORS, spA0.f[2], spA0.f[1], 0, 1.0f))
             {
                 spAC.f[1] = bondviewYPositionRelated(spC0, spAC.f[0], spAC.f[2]);
             }
             else
             {
-                chrlvStanPointPointIntersection(&g_CurrentPlayer->field_488.collision_position, &g_CurrentPlayer->field_488.theta_transform, (struct coord3d *) &spAC);
-                ftemp_nostack_spD0 = spAC.f[0] - g_CurrentPlayer->field_488.collision_position.f[0];
-                ftemp_nostack_spCC = spAC.f[2] - g_CurrentPlayer->field_488.collision_position.f[2];
+                chrlvStanPointPointIntersection(&g_CurrentPlayer->field_488.collisionPosition, &g_CurrentPlayer->field_488.facingDirection, (struct coord3d *) &spAC);
+                ftemp_nostack_spD0 = spAC.f[0] - g_CurrentPlayer->field_488.collisionPosition.f[0];
+                ftemp_nostack_spCC = spAC.f[2] - g_CurrentPlayer->field_488.collisionPosition.f[2];
                 spBC = sqrtf((ftemp_nostack_spD0 * ftemp_nostack_spD0) + (ftemp_nostack_spCC * ftemp_nostack_spCC));
                 spAC.f[1] = bondviewYPositionRelated(spC0, spAC.f[0], spAC.f[2]);
             }
@@ -6300,8 +6300,8 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         }
 
         if (bondviewTankCollisionStatus(
-            &g_CurrentPlayer->field_488.collision_position,
-            g_CurrentPlayer->field_488.current_tile_ptr,
+            &g_CurrentPlayer->field_488.collisionPosition,
+            g_CurrentPlayer->field_488.collisionTile,
             curTankAngleRad,
             &check_collision_p1,
             &check_collision_p2))
@@ -6338,8 +6338,8 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             sp320 = -tank_collision_dx;
 
             sp210 =
-                ((g_CurrentPlayer->field_488.collision_position.f[0] - check_collision_p2.f[0]) * sp324) +
-                ((g_CurrentPlayer->field_488.collision_position.f[2] - check_collision_p2.f[2]) * sp320);
+                ((g_CurrentPlayer->field_488.collisionPosition.f[0] - check_collision_p2.f[0]) * sp324) +
+                ((g_CurrentPlayer->field_488.collisionPosition.f[2] - check_collision_p2.f[2]) * sp320);
 
             if (sp210 < 0.0f)
             {
@@ -6349,8 +6349,8 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             }
 
             sp20C =
-                ((g_CurrentPlayer->field_488.collision_position.f[0] - tank_collision_pt1.f[0]) * sp324) +
-                ((g_CurrentPlayer->field_488.collision_position.f[2] - tank_collision_pt1.f[2]) * sp320);
+                ((g_CurrentPlayer->field_488.collisionPosition.f[0] - tank_collision_pt1.f[0]) * sp324) +
+                ((g_CurrentPlayer->field_488.collisionPosition.f[2] - tank_collision_pt1.f[2]) * sp320);
 
             if (sp20C < sp210)
             {
@@ -6368,8 +6368,8 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             sp308 = -tank_collision_dx;
 
             sp210 =
-                ((g_CurrentPlayer->field_488.collision_position.f[0] - check_collision_p2.f[0]) * sp30C) +
-                ((g_CurrentPlayer->field_488.collision_position.f[2] - check_collision_p2.f[2]) * sp308);
+                ((g_CurrentPlayer->field_488.collisionPosition.f[0] - check_collision_p2.f[0]) * sp30C) +
+                ((g_CurrentPlayer->field_488.collisionPosition.f[2] - check_collision_p2.f[2]) * sp308);
 
             if (sp210 < 0.0f)
             {
@@ -6379,11 +6379,11 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             }
 
             sp1FC =
-                ((g_CurrentPlayer->field_488.collision_position.f[0] - tank_collision_pt1.f[0]) * sp30C) +
-                ((g_CurrentPlayer->field_488.collision_position.f[2] - tank_collision_pt1.f[2]) * sp308);
+                ((g_CurrentPlayer->field_488.collisionPosition.f[0] - tank_collision_pt1.f[0]) * sp30C) +
+                ((g_CurrentPlayer->field_488.collisionPosition.f[2] - tank_collision_pt1.f[2]) * sp308);
             sp1E4 =
-                ((g_CurrentPlayer->field_488.collision_position.f[0] - tank_collision_pt2.f[0]) * sp30C) +
-                ((g_CurrentPlayer->field_488.collision_position.f[2] - tank_collision_pt2.f[2]) * sp308);
+                ((g_CurrentPlayer->field_488.collisionPosition.f[0] - tank_collision_pt2.f[0]) * sp30C) +
+                ((g_CurrentPlayer->field_488.collisionPosition.f[2] - tank_collision_pt2.f[2]) * sp308);
 
             if (sp1E4 < sp1FC)
             {
@@ -6413,8 +6413,8 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                 move_offset.f[2] = 0.0f;
 
                 if (bondviewTankCollisionStatus(
-                    &g_CurrentPlayer->field_488.collision_position,
-                    g_CurrentPlayer->field_488.current_tile_ptr,
+                    &g_CurrentPlayer->field_488.collisionPosition,
+                    g_CurrentPlayer->field_488.collisionTile,
                     curTankAngleRad,
                     &check_collision_p1,
                     &check_collision_p2))
@@ -6486,8 +6486,8 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         }
 
         if (bondviewCallTankCollisionStatus(
-            &g_CurrentPlayer->field_488.collision_position,
-            g_CurrentPlayer->field_488.current_tile_ptr,
+            &g_CurrentPlayer->field_488.collisionPosition,
+            g_CurrentPlayer->field_488.collisionTile,
             g_TankOrientationAngle) == 0)
         {
             g_TankTurretOrientationAngleRad = sp354;
@@ -6690,7 +6690,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                         (g_TankEnteringSitHeightRemain * g_EnterTankCoord.f[0]) +
                         ((1.0f - g_TankEnteringSitHeightRemain) * sp25C.f[0])
                     ) -
-                    g_CurrentPlayer->field_488.collision_position.f[0];
+                    g_CurrentPlayer->field_488.collisionPosition.f[0];
 
                 move_offset.f[1] = 0.0f;
 
@@ -6698,7 +6698,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                     (g_TankEnteringSitHeightRemain * g_EnterTankCoord.f[2]) +
                     ((1.0f - g_TankEnteringSitHeightRemain) * sp25C.f[2])
                     ) -
-                    g_CurrentPlayer->field_488.collision_position.f[2];
+                    g_CurrentPlayer->field_488.collisionPosition.f[2];
             }
 
             if (!(g_TankEnteringSitHeight >= 1.0f))
@@ -6870,8 +6870,8 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             f32 calc_z;
             f32 calc_speedforwards;
 
-            calc_x = (g_CurrentPlayer->field_488.collision_position.f[0] - g_CurrentPlayer->bondprevpos.f[0]) / g_GlobalTimerDelta;
-            calc_z = (g_CurrentPlayer->field_488.collision_position.f[2] - g_CurrentPlayer->bondprevpos.f[2]) / g_GlobalTimerDelta;
+            calc_x = (g_CurrentPlayer->field_488.collisionPosition.f[0] - g_CurrentPlayer->bondprevpos.f[0]) / g_GlobalTimerDelta;
+            calc_z = (g_CurrentPlayer->field_488.collisionPosition.f[2] - g_CurrentPlayer->bondprevpos.f[2]) / g_GlobalTimerDelta;
             calc_speedforwards = sqrtf((calc_x * calc_x) + (calc_z * calc_z));
 
             if (g_CurrentPlayer->speedforwards < 0.0f)
@@ -6943,8 +6943,8 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         ftemp_7 = (g_BondMoveAnimationSetup[1].speedMultiplier * 0.5f  * g_GlobalTimerDelta);
         sp3A0  = g_CurrentPlayer->speedsideways * ftemp_7;
 
-        ftemp_26 = -g_CurrentPlayer->swaytarget * g_CurrentPlayer->field_488.theta_transform.f[2];
-        ftemp_11 = g_CurrentPlayer->swaytarget * g_CurrentPlayer->field_488.theta_transform.f[0];
+        ftemp_26 = -g_CurrentPlayer->swaytarget * g_CurrentPlayer->field_488.facingDirection.f[2];
+        ftemp_11 = g_CurrentPlayer->swaytarget * g_CurrentPlayer->field_488.facingDirection.f[0];
 
         sp220 = (ftemp_26) - g_CurrentPlayer->swayoffset0;
         sp21C = (ftemp_11) - g_CurrentPlayer->swayoffset2;
@@ -7016,36 +7016,36 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
         move_offset.f[0] +=
             (
-                (headpos_z * g_CurrentPlayer->field_488.theta_transform.f[0]) -
-                (headpos_x * g_CurrentPlayer->field_488.theta_transform.f[2])
+                (headpos_z * g_CurrentPlayer->field_488.facingDirection.f[0]) -
+                (headpos_x * g_CurrentPlayer->field_488.facingDirection.f[2])
             ) * g_GlobalTimerDelta;
 
         move_offset.f[2] +=
             (
-                (headpos_z * g_CurrentPlayer->field_488.theta_transform.f[2]) +
-                (headpos_x * g_CurrentPlayer->field_488.theta_transform.f[0])
+                (headpos_z * g_CurrentPlayer->field_488.facingDirection.f[2]) +
+                (headpos_x * g_CurrentPlayer->field_488.facingDirection.f[0])
             ) * g_GlobalTimerDelta;
 
 
         move_offset.f[0] += sp220;
         move_offset.f[2] += sp21C;
 
-        start_collision_pos_x = g_CurrentPlayer->field_488.collision_position.f[0];
-        start_collision_pos_z = g_CurrentPlayer->field_488.collision_position.f[2];
-        sp200 = g_CurrentPlayer->field_488.current_tile_ptr;
+        start_collision_pos_x = g_CurrentPlayer->field_488.collisionPosition.f[0];
+        start_collision_pos_z = g_CurrentPlayer->field_488.collisionPosition.f[2];
+        sp200 = g_CurrentPlayer->field_488.collisionTile;
 
         if (getTurboModeEnabled())
         {
             move_offset.f[0] +=
                 (
-                    (g_CurrentPlayer->field_488.theta_transform.f[0] * g_CurrentPlayer->speedforwards) -
-                    (g_CurrentPlayer->field_488.theta_transform.f[2] * g_CurrentPlayer->speedsideways)
+                    (g_CurrentPlayer->field_488.facingDirection.f[0] * g_CurrentPlayer->speedforwards) -
+                    (g_CurrentPlayer->field_488.facingDirection.f[2] * g_CurrentPlayer->speedsideways)
                 ) * g_GlobalTimerDelta * 10.0f;
 
             move_offset.f[2] +=
                 (
-                    (g_CurrentPlayer->field_488.theta_transform.f[2] * g_CurrentPlayer->speedforwards) +
-                    (g_CurrentPlayer->field_488.theta_transform.f[0] * g_CurrentPlayer->speedsideways)
+                    (g_CurrentPlayer->field_488.facingDirection.f[2] * g_CurrentPlayer->speedforwards) +
+                    (g_CurrentPlayer->field_488.facingDirection.f[0] * g_CurrentPlayer->speedsideways)
                 ) * g_GlobalTimerDelta * 10.0f;
         }
 
@@ -7055,7 +7055,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             &sp200,
             start_collision_pos_x,
             start_collision_pos_z,
-            g_CurrentPlayer->field_488.collision_radius * 1.16f,
+            g_CurrentPlayer->field_488.collisionRadius * 1.16f,
             &curLocus);
 
         /* almost never true */
@@ -7065,10 +7065,10 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         }
 
         stanTileDistanceRelated(
-            &g_CurrentPlayer->field_488.current_tile_ptr,
-            g_CurrentPlayer->field_488.collision_position.f[0],
-            g_CurrentPlayer->field_488.collision_position.f[2],
-            g_CurrentPlayer->field_488.collision_radius * 1.01f,
+            &g_CurrentPlayer->field_488.collisionTile,
+            g_CurrentPlayer->field_488.collisionPosition.f[0],
+            g_CurrentPlayer->field_488.collisionPosition.f[2],
+            g_CurrentPlayer->field_488.collisionRadius * 1.01f,
             &curLocus);
 
         /* almost never true */
@@ -7078,10 +7078,10 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         }
 
         stanTileDistanceRelated(
-            &g_CurrentPlayer->field_488.current_tile_ptr,
-            g_CurrentPlayer->field_488.collision_position.f[0],
-            g_CurrentPlayer->field_488.collision_position.f[2],
-            g_CurrentPlayer->field_488.collision_radius,
+            &g_CurrentPlayer->field_488.collisionTile,
+            g_CurrentPlayer->field_488.collisionPosition.f[0],
+            g_CurrentPlayer->field_488.collisionPosition.f[2],
+            g_CurrentPlayer->field_488.collisionRadius,
             &curLocus);
 
         /* almost always true */
@@ -7091,7 +7091,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                 &sp200,
                 start_collision_pos_x,
                 start_collision_pos_z,
-                g_CurrentPlayer->field_488.collision_radius * 0.990099f,
+                g_CurrentPlayer->field_488.collisionRadius * 0.990099f,
                 &curLocus);
         }
 
@@ -7141,17 +7141,17 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                     {
                         shorten = 0.0f;
                     }
-                    else if (g_CurrentPlayer->field_488.collision_radius < sp2B0)
+                    else if (g_CurrentPlayer->field_488.collisionRadius < sp2B0)
                     {
                         shorten = 0.0f;
                     }
-                    else if (sp164 < g_CurrentPlayer->field_488.collision_radius)
+                    else if (sp164 < g_CurrentPlayer->field_488.collisionRadius)
                     {
                         shorten = 0.0f;
                     }
                     else
                     {
-                        shorten = (sp164 - g_CurrentPlayer->field_488.collision_radius) / (sp164 - sp2B0);
+                        shorten = (sp164 - g_CurrentPlayer->field_488.collisionRadius) / (sp164 - sp2B0);
                     }
                 }
 
@@ -7185,16 +7185,16 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                 move_offset.f[0] = (move_offset.f[0] * shorten) + (sp314 * (sp390 / (bondCollision.sp19C.f[1] - bondCollision.bondCollision.f[1])));
                 move_offset.f[2] = (move_offset.f[2] * shorten) + (sp310 * (sp390 / (bondCollision.sp19C.f[1] - bondCollision.bondCollision.f[1])));
 
-                g_CurrentPlayer->field_488.collision_position.f[0] = start_collision_pos_x;
-                g_CurrentPlayer->field_488.collision_position.f[2] = start_collision_pos_z;
-                g_CurrentPlayer->field_488.current_tile_ptr = sp200;
+                g_CurrentPlayer->field_488.collisionPosition.f[0] = start_collision_pos_x;
+                g_CurrentPlayer->field_488.collisionPosition.f[2] = start_collision_pos_z;
+                g_CurrentPlayer->field_488.collisionTile = sp200;
 
                 bondviewCalcUpdatePlayerCollision(&move_offset, (g_CurrentPlayer->swaytarget == 0.0f));
             }
         }
 
-        ftemp_col_x = g_CurrentPlayer->field_488.collision_position.f[0] - start_collision_pos_x;
-        ftemp_col_z = g_CurrentPlayer->field_488.collision_position.f[2] - start_collision_pos_z;
+        ftemp_col_x = g_CurrentPlayer->field_488.collisionPosition.f[0] - start_collision_pos_x;
+        ftemp_col_z = g_CurrentPlayer->field_488.collisionPosition.f[2] - start_collision_pos_z;
         sp240 = (move_offset.f[0] * move_offset.f[0]) + (move_offset.f[2] * move_offset.f[2]);
         if (sp240 != 0.0f)
         {
@@ -7287,15 +7287,15 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
         mtx4RotateVecInPlace(&spF0, &spE4);
 
-        spE4.f[0] += g_CurrentPlayer->field_488.collision_position.f[0];
-        spE4.f[2] += g_CurrentPlayer->field_488.collision_position.f[2];
+        spE4.f[0] += g_CurrentPlayer->field_488.collisionPosition.f[0];
+        spE4.f[2] += g_CurrentPlayer->field_488.collisionPosition.f[2];
 
-        sp138_tank_as_ObjectRecord->prop->stan = g_CurrentPlayer->field_488.current_tile_ptr;
+        sp138_tank_as_ObjectRecord->prop->stan = g_CurrentPlayer->field_488.collisionTile;
 
         stanlineret = walkTilesBetweenPoints_NoCallback(
             &sp138_tank_as_ObjectRecord->prop->stan,
-            g_CurrentPlayer->field_488.collision_position.f[0],
-            g_CurrentPlayer->field_488.collision_position.f[2],
+            g_CurrentPlayer->field_488.collisionPosition.f[0],
+            g_CurrentPlayer->field_488.collisionPosition.f[2],
             spE4.f[0],
             spE4.f[2]);
 
@@ -7319,7 +7319,7 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
         setupUpdateObjectRoomPosition(sp138_tank_as_ObjectRecord);
         objUpdateCollisionVolume(sp138_tank_as_ObjectRecord);
-        bondviewGetTankCollisionBounds(&spB4_tank_collision_bounds, &g_CurrentPlayer->field_488.collision_position, g_TankOrientationAngle);
+        bondviewGetTankCollisionBounds(&spB4_tank_collision_bounds, &g_CurrentPlayer->field_488.collisionPosition, g_TankOrientationAngle);
         chraiGetPropRoomIds(sp138_tank_as_ObjectRecord->prop, &sp94);
 
         roomGetProps(&sp94);
@@ -7427,8 +7427,8 @@ void bondviewFrozenMoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         offset.f[2] += g_ForceBondMoveOffset.f[2] * g_GlobalTimerDelta;
     }
 
-    offset.f[0] += ((g_CurrentPlayer->headpos.f[2] * g_CurrentPlayer->field_488.theta_transform.f[0]) - (g_CurrentPlayer->headpos.f[0] * g_CurrentPlayer->field_488.theta_transform.f[2])) * g_GlobalTimerDelta;
-    offset.f[2] += ((g_CurrentPlayer->headpos.f[2] * g_CurrentPlayer->field_488.theta_transform.f[2]) + (g_CurrentPlayer->headpos.f[0] * g_CurrentPlayer->field_488.theta_transform.f[0])) * g_GlobalTimerDelta;
+    offset.f[0] += ((g_CurrentPlayer->headpos.f[2] * g_CurrentPlayer->field_488.facingDirection.f[0]) - (g_CurrentPlayer->headpos.f[0] * g_CurrentPlayer->field_488.facingDirection.f[2])) * g_GlobalTimerDelta;
+    offset.f[2] += ((g_CurrentPlayer->headpos.f[2] * g_CurrentPlayer->field_488.facingDirection.f[2]) + (g_CurrentPlayer->headpos.f[0] * g_CurrentPlayer->field_488.facingDirection.f[0])) * g_GlobalTimerDelta;
 
     bondviewCalcUpdatePlayerCollision(&offset, 1);
     bondviewUpdatePlayerY(0, 0.0f);
@@ -7981,7 +7981,7 @@ Gfx *bviewRenderCameraView(Gfx *gdl)
     coord3d cam_pos;
     coord3d cam_look;
     coord3d cam_up;
-    struct collision434 *collision;
+    struct PlayerSpatialState *collision;
     coord3d shake;
     coord3d vec;
     coord3d zeropos;
@@ -8016,24 +8016,24 @@ Gfx *bviewRenderCameraView(Gfx *gdl)
 
         if (g_CurrentPlayer->bondstate == BONDSTATE_ALIVE)
         {
-            explosionScreenShake(&collision->pos, &collision->applied_view, &shake);
+            explosionScreenShake(&collision->cameraPosition, &collision->cameraLookDirection, &shake);
         } 
         else 
         {
             viShake(0.0f);
         }
 
-        cam_pos.x = collision->pos.x;
-        cam_pos.y = collision->pos.y;
-        cam_pos.z = collision->pos.z;
+        cam_pos.x = collision->cameraPosition.x;
+        cam_pos.y = collision->cameraPosition.y;
+        cam_pos.z = collision->cameraPosition.z;
 
-        cam_look.x = collision->applied_view.x;
-        cam_look.y = collision->applied_view.y;
-        cam_look.z = collision->applied_view.z;
+        cam_look.x = collision->cameraLookDirection.x;
+        cam_look.y = collision->cameraLookDirection.y;
+        cam_look.z = collision->cameraLookDirection.z;
 
-        cam_up.x = collision->applied_view2.x;
-        cam_up.y = collision->applied_view2.y;
-        cam_up.z = collision->applied_view2.z;
+        cam_up.x = collision->cameraUp.x;
+        cam_up.y = collision->cameraUp.y;
+        cam_up.z = collision->cameraUp.z;
     }
 
     bondviewUpdateCameraMatrices(&cam_pos, &cam_look, &cam_up);
@@ -8295,9 +8295,9 @@ Gfx *bondviewRenderWatch(Gfx *gdl)
  
         rwdata->Switch.visible = g_CurrentPlayer->outside_watch_menu;
     
-        watchpos.x = (g_CurrentPlayer->field_488.theta_transform.x * (g_CurrentPlayer->headbodyoffset.z + (-12.0f))) + (g_CurrentPlayer->field_488.collision_position.x + (g_CurrentPlayer->headbodyoffset.x * (-g_CurrentPlayer->field_488.theta_transform.z)));
-        watchpos.y = g_CurrentPlayer->headbodyoffset.y + g_CurrentPlayer->field_488.collision_position.y;
-        watchpos.z = (g_CurrentPlayer->field_488.theta_transform.z * (g_CurrentPlayer->headbodyoffset.z + (-12.0f))) + (g_CurrentPlayer->field_488.collision_position.z + (g_CurrentPlayer->headbodyoffset.x * g_CurrentPlayer->field_488.theta_transform.x));
+        watchpos.x = (g_CurrentPlayer->field_488.facingDirection.x * (g_CurrentPlayer->headbodyoffset.z + (-12.0f))) + (g_CurrentPlayer->field_488.collisionPosition.x + (g_CurrentPlayer->headbodyoffset.x * (-g_CurrentPlayer->field_488.facingDirection.z)));
+        watchpos.y = g_CurrentPlayer->headbodyoffset.y + g_CurrentPlayer->field_488.collisionPosition.y;
+        watchpos.z = (g_CurrentPlayer->field_488.facingDirection.z * (g_CurrentPlayer->headbodyoffset.z + (-12.0f))) + (g_CurrentPlayer->field_488.collisionPosition.z + (g_CurrentPlayer->headbodyoffset.x * g_CurrentPlayer->field_488.facingDirection.x));
     
         matrix_4x4_set_position_and_rotation_around_y(watchpos.f, (360.0f - g_CurrentPlayer->vv_theta) * 0.017453292f, &watchmtx);
         matrix_4x4_multiply_homogeneous_in_place(camGetWorldToScreenMtxf(), &watchmtx);
@@ -8504,16 +8504,16 @@ void mp_respawn_handler(void)
 
     change_player_pos_to_target(&g_CurrentPlayer->field_488, &start_pos, start_stan);
 
-    g_CurrentPlayer->field_488.theta_transform.x = -sinf(start_look_angle);
-    g_CurrentPlayer->field_488.theta_transform.y = 0.0f;
-    g_CurrentPlayer->field_488.theta_transform.z = cosf(start_look_angle);
+    g_CurrentPlayer->field_488.facingDirection.x = -sinf(start_look_angle);
+    g_CurrentPlayer->field_488.facingDirection.y = 0.0f;
+    g_CurrentPlayer->field_488.facingDirection.z = cosf(start_look_angle);
     g_CurrentPlayer->prop->pos.x = g_CurrentPlayer->bondprevpos.x = start_pos.f[0];
     g_CurrentPlayer->prop->pos.y = g_CurrentPlayer->bondprevpos.y = start_pos.f[1];
     g_CurrentPlayer->prop->pos.z = g_CurrentPlayer->bondprevpos.z = start_pos.f[2];
     g_CurrentPlayer->prop->stan = start_stan;
-    g_CurrentPlayer->field_3B8.x = (f32) (g_CurrentPlayer->field_488.pos.x / 0.100000024f);
-    g_CurrentPlayer->field_3B8.y = (f32) (g_CurrentPlayer->field_488.pos.y / 0.100000024f);
-    g_CurrentPlayer->field_3B8.z = (f32) (g_CurrentPlayer->field_488.pos.z / 0.100000024f);
+    g_CurrentPlayer->field_3B8.x = (f32) (g_CurrentPlayer->field_488.cameraPosition.x / 0.100000024f);
+    g_CurrentPlayer->field_3B8.y = (f32) (g_CurrentPlayer->field_488.cameraPosition.y / 0.100000024f);
+    g_CurrentPlayer->field_3B8.z = (f32) (g_CurrentPlayer->field_488.cameraPosition.z / 0.100000024f);
 
     bondinvReinitInv();
     var_v0 = 0;
@@ -8931,13 +8931,13 @@ Gfx *bondviewRenderPlayerView(Gfx *gdl)
 void sub_GAME_7F089718(f32 arg0)
 {
     f32 scalar;
-    struct collision434* col;
+    struct PlayerSpatialState* col;
 
     scalar = D_800364D0 / arg0;
 
     col = &g_CurrentPlayer->field_488;
-    col->collision_position.x *= scalar;
-    col->collision_position.z *= scalar;
+    col->collisionPosition.x *= scalar;
+    col->collisionPosition.z *= scalar;
 
     D_800364D0 = arg0;
 }
@@ -9266,7 +9266,7 @@ u8 bondviewGetPlayerRoom(void)
         return g_CurrentPlayer->cameratile->room;
     }
 
-    return g_CurrentPlayer->field_488.current_tile_ptr_for_portals->room;
+    return g_CurrentPlayer->field_488.cameraTile->room;
 }
 
 
@@ -9277,19 +9277,18 @@ coord3d *bondviewGetPlayerPosition(void)
         return &g_CurrentPlayer->pos;
     }
 
-    return &g_CurrentPlayer->field_488.pos;
+    return &g_CurrentPlayer->field_488.cameraPosition;
 }
 
 
-coord3d * bondviewGetCurrentPlayersPosition3(void)
+coord3d *bondviewGetPlayerGroundPosition(void)
 {
-
     if (g_CurrentPlayer->frozencam == 1)
     {
         return &g_CurrentPlayer->pos3;
     }
 
-    return &g_CurrentPlayer->field_488.pos3;
+    return &g_CurrentPlayer->field_488.cameraGroundPosition;
 }
 
 
@@ -9348,25 +9347,25 @@ void bondviewUpdatePlayerCollisionBounds(void)
 {
     if (g_PlayerIsInTank)
     {
-        bondviewGetTankCollisionBounds(&g_CurrentPlayer->collision_bounds, &g_CurrentPlayer->field_488.collision_position, g_TankOrientationAngle);
+        bondviewGetTankCollisionBounds(&g_CurrentPlayer->collision_bounds, &g_CurrentPlayer->field_488.collisionPosition, g_TankOrientationAngle);
 
         return;
     }
 
-    g_CurrentPlayer->collision_bounds.f[0] = (g_CurrentPlayer->field_488.collision_position.f[0] + g_CurrentPlayer->field_488.collision_radius);
-    g_CurrentPlayer->collision_bounds.f[1] = g_CurrentPlayer->field_488.collision_position.f[2];
-    g_CurrentPlayer->collision_bounds.f[2] = g_CurrentPlayer->field_488.collision_position.f[0];
-    g_CurrentPlayer->collision_bounds.f[3] = (g_CurrentPlayer->field_488.collision_position.f[2] + g_CurrentPlayer->field_488.collision_radius);
-    g_CurrentPlayer->collision_bounds.f[4] = (g_CurrentPlayer->field_488.collision_position.f[0] - g_CurrentPlayer->field_488.collision_radius);
-    g_CurrentPlayer->collision_bounds.f[5] = g_CurrentPlayer->field_488.collision_position.f[2];
-    g_CurrentPlayer->collision_bounds.f[6] = g_CurrentPlayer->field_488.collision_position.f[0];
-    g_CurrentPlayer->collision_bounds.f[7] = (g_CurrentPlayer->field_488.collision_position.f[2] - g_CurrentPlayer->field_488.collision_radius);
+    g_CurrentPlayer->collision_bounds.f[0] = (g_CurrentPlayer->field_488.collisionPosition.f[0] + g_CurrentPlayer->field_488.collisionRadius);
+    g_CurrentPlayer->collision_bounds.f[1] = g_CurrentPlayer->field_488.collisionPosition.f[2];
+    g_CurrentPlayer->collision_bounds.f[2] = g_CurrentPlayer->field_488.collisionPosition.f[0];
+    g_CurrentPlayer->collision_bounds.f[3] = (g_CurrentPlayer->field_488.collisionPosition.f[2] + g_CurrentPlayer->field_488.collisionRadius);
+    g_CurrentPlayer->collision_bounds.f[4] = (g_CurrentPlayer->field_488.collisionPosition.f[0] - g_CurrentPlayer->field_488.collisionRadius);
+    g_CurrentPlayer->collision_bounds.f[5] = g_CurrentPlayer->field_488.collisionPosition.f[2];
+    g_CurrentPlayer->collision_bounds.f[6] = g_CurrentPlayer->field_488.collisionPosition.f[0];
+    g_CurrentPlayer->collision_bounds.f[7] = (g_CurrentPlayer->field_488.collisionPosition.f[2] - g_CurrentPlayer->field_488.collisionRadius);
 }
 
 
 /**
  * @param arg0: prop
- * @param width: out parameter, will be set to field_488.collision_radius
+ * @param width: out parameter, will be set to field_488.collisionRadius
  * @param height: out parameter, will be set to character height - 30
  * @param always_30: out parameter, will be set to 30
  */
@@ -9375,7 +9374,7 @@ void bondviewGetCollisionRadius(PropRecord* arg0, f32 *collision_radius, f32 *he
     struct player **temp_v1;
 
     temp_v1 = &g_playerPointers[getPlayerPointerIndex(arg0)];
-    *collision_radius = (*temp_v1)->field_488.collision_radius;
+    *collision_radius = (*temp_v1)->field_488.collisionRadius;
     *height = (bondviewGetPlayerDuckingHeightRelated(*temp_v1) + 10.0f) - 30.0f;
     *always_30 = 30.0f;
 }
@@ -9847,19 +9846,19 @@ s32 playerTick(PropRecord *prop)
             ret = chrTick(prop);
             g_playerPointers[index]->collisionEnabled = 1;
  
-            g_playerPointers[index]->field_488.collision_position.x = g_playerPointers[index]->prop->pos.x;
-            g_playerPointers[index]->field_488.collision_position.y = g_playerPointers[index]->prop->pos.y;
-            g_playerPointers[index]->field_488.collision_position.z = g_playerPointers[index]->prop->pos.z;
-            g_playerPointers[index]->field_488.current_tile_ptr = g_playerPointers[index]->prop->stan;
+            g_playerPointers[index]->field_488.collisionPosition.x = g_playerPointers[index]->prop->pos.x;
+            g_playerPointers[index]->field_488.collisionPosition.y = g_playerPointers[index]->prop->pos.y;
+            g_playerPointers[index]->field_488.collisionPosition.z = g_playerPointers[index]->prop->pos.z;
+            g_playerPointers[index]->field_488.collisionTile = g_playerPointers[index]->prop->stan;
             bondviewUpdatePlayerRoom(g_playerPointers[index]);
  
             if (prop->flags & PROPFLAG_ONSCREEN)
             {
                 RenderPosView *rp = g_playerPointers[index]->bodyModel->render_pos;
                 matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), (Mtxf *) rp, (Mtxf *) mtx);
-                g_playerPointers[index]->field_488.pos.x = mtx[12] + (mtx[4] * 7.0f);
-                g_playerPointers[index]->field_488.pos.y = mtx[13] + (mtx[5] * 7.0f);
-                g_playerPointers[index]->field_488.pos.z = mtx[14] + (mtx[6] * 7.0f);
+                g_playerPointers[index]->field_488.cameraPosition.x = mtx[12] + (mtx[4] * 7.0f);
+                g_playerPointers[index]->field_488.cameraPosition.y = mtx[13] + (mtx[5] * 7.0f);
+                g_playerPointers[index]->field_488.cameraPosition.z = mtx[14] + (mtx[6] * 7.0f);
             }
  
             return ret;
@@ -10218,10 +10217,10 @@ join_768:
         chr->aimendcount = 10;
     }
  
-    prop->pos.x = ppointers[index]->field_488.collision_position.x;
-    prop->pos.y = ppointers[index]->field_488.collision_position.y;
-    prop->pos.z = ppointers[index]->field_488.collision_position.z;
-    prop->stan = ppointers[index]->field_488.current_tile_ptr;
+    prop->pos.x = ppointers[index]->field_488.collisionPosition.x;
+    prop->pos.y = ppointers[index]->field_488.collisionPosition.y;
+    prop->pos.z = ppointers[index]->field_488.collisionPosition.z;
+    prop->stan = ppointers[index]->field_488.collisionTile;
  
     getsuboffset(chr->model, &off);
     off.x = prop->pos.x;
@@ -10254,10 +10253,10 @@ join_768:
  
     chr->hidden |= CHRHIDDEN_FREEZE;
  
-    prop->pos.x = ppointers[index]->field_488.collision_position.x;
-    prop->pos.y = ppointers[index]->field_488.collision_position.y;
-    prop->pos.z = ppointers[index]->field_488.collision_position.z;
-    prop->stan = ppointers[index]->field_488.current_tile_ptr;
+    prop->pos.x = ppointers[index]->field_488.collisionPosition.x;
+    prop->pos.y = ppointers[index]->field_488.collisionPosition.y;
+    prop->pos.z = ppointers[index]->field_488.collisionPosition.z;
+    prop->stan = ppointers[index]->field_488.collisionTile;
  
     return tailret;
  
