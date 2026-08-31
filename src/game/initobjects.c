@@ -11,7 +11,6 @@ struct object_animation_controller g_InitialUnknownAnimController = {&monAnim34,
 struct object_animation_controller g_InitialTaserAnimController = {&monAnim35Taser, 0, 0xFFFF, 0, 0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.5, 0.0, 0.0, 0.5, 0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 1.0};
 
 f32 unused_8002a3bc = 0.0f;
-f32 g_DoorScale = 1.0f;
 
 // forward declarations
 
@@ -161,7 +160,7 @@ void reinit_between_menus(void)
 }
 
 /**
- * Called from proplvreset2 when PROPDEF type is PROPDEF_SWITCH.
+ * Called from setupLoadFiles when PROPDEF type is PROPDEF_SWITCH.
  * Address 0x7F001910.
 */
 void initSetLevelLoadPropSwitch(struct LinkRecord *arg0)
@@ -172,7 +171,7 @@ void initSetLevelLoadPropSwitch(struct LinkRecord *arg0)
 
 
 /**
- * Called from proplvreset2 when PROPDEF type is PROPDEF_LOCK_DOOR.
+ * Called from setupLoadFiles when PROPDEF type is PROPDEF_LOCK_DOOR.
  * Address 0x7F001928.
 */
 void initSetLevelLoadPropLockDoor(struct LockDoorRecord *arg0)
@@ -183,7 +182,7 @@ void initSetLevelLoadPropLockDoor(struct LockDoorRecord *arg0)
 
 
 /**
- * Called from proplvreset2 when PROPDEF type is PROPDEF_SAFE_ITEM.
+ * Called from setupLoadFiles when PROPDEF type is PROPDEF_SAFE_ITEM.
  * Address 0x7F001940.
 */
 void initSetLevelLoadPropSafeItem(struct ObjectRecord *arg0)

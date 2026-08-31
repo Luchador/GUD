@@ -28,11 +28,15 @@
 #include "token.h"
 
 
-ITEM_IDS lastmpweaponnum;
+/**
+ * Temporary state used while constructing mp weapons pickups. The setup format encodes mp weapon locations as placeholder weapon IDs 0xF0-0xF7 in weaponAssignToHome.
+ * When the setup encounters the associated PROPDEF_AMMO record it uses g_MpSetupWeaponSlot to select the weapon set entry and configure the crate's ammo type and quantity.
+ */
+s32 g_MpSetupWeaponSlot = -1;
 
-extern f32 g_DoorScale;
+f32 g_DoorScale = 1.0f;
 
-// redeclare with the element count so ARRAYCOUNT works in proplvreset2
+// redeclare with the element count so ARRAYCOUNT works in setupLoadFiles
 extern ItemModelFileRecord PitemZ_entries[341];
 
 // Begin forward declarations.
@@ -529,7 +533,7 @@ void weaponAssignToHome(s32 arg0, WeaponObjRecord* weapon, s32 cmdindex)
 
         if (getPlayerCount() >= 2)
         {
-            lastmpweaponnum = -1;
+            g_MpSetupWeaponSlot = -1;
 
             switch ((u8)weapon->weaponnum)
             {
@@ -544,7 +548,7 @@ void weaponAssignToHome(s32 arg0, WeaponObjRecord* weapon, s32 cmdindex)
                     weapon_set = getPtrMPWeaponSetData();
 
                     temp_a0 = (u8)weapon->weaponnum - 0xF0;
-                    lastmpweaponnum = temp_a0;
+                    g_MpSetupWeaponSlot = temp_a0;
 
                     weapon->weaponnum = weapon_set[temp_a0].itemID;
                     weapon->obj = weapon_set[temp_a0].propID;
@@ -1125,8 +1129,7 @@ void setupDoor(struct DoorRecord *door, s32 cmdindex)
 }
 
 
-// Perfect Dark void setupLoadFiles(s32 stagenum)
-void proplvreset2(enum LEVELID stageId)
+void setupLoadFiles(enum LEVELID stageId)
 {
     ItemModelFileRecord *pitem;
     s32 withchrs;
@@ -1136,6 +1139,7 @@ void proplvreset2(enum LEVELID stageId)
     withobjs = (((void *) tokenFind(1, "-noobj")) == NULL) && (((void *) tokenFind(1, "-noprop")) == NULL);
 
     g_DoorScale = 1.0f;
+    g_MpSetupWeaponSlot = -1;
 
     /**
      * Mark every prop model as "not resident" so the model loads later in this function actually fetch data. Essentially
@@ -1529,11 +1533,19 @@ void proplvreset2(enum LEVELID stageId)
 
                         if (getPlayerCount() >= 2)
                         {
-                            struct s_mp_weapon_set *mpweapon = &getPtrMPWeaponSetData()[lastmpweaponnum];
-                            
-                            ammoqty = mpweapon->ammoamount;
-                            if (mpweapon->ammotype);
-                            pdef_macr->slots[mpweapon->ammotype - 1].quantity = ammoqty;
+                            ammoqty = 0;
+
+                            if(g_MpSetupWeaponSlot >= 0)
+                            {
+                                struct s_mp_weapon_set *mpweapon = &getPtrMPWeaponSetData()[g_MpSetupWeaponSlot];
+                                s32 ammoType = mpweapon->ammotype;
+
+                                if(ammoType > AMMO_NONE && ammoType <= AMMOTYPE_GLOBAL_MAX)
+                                {
+                                    ammoqty = mpweapon->ammoamount;
+                                    pdef_macr->slots[ammoType - 1].quantity = ammoqty;
+                                }
+                            }
                         }
 
                         if (((ammoqty > 0) && withobjs) && (!(pdef_macr->flags2 & flags)))

@@ -328,7 +328,7 @@ void lvlStageLoad(s32 stage)
     init_sound_effects_registers();
     init_guards();
     bodiesReset(stage);
-    proplvreset2(stage);
+    setupLoadFiles(stage);
     initFxBuffers();
     alloc_shattered_window_pieces();
     
