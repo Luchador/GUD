@@ -20,6 +20,14 @@
 
 #define VIEWPORT_CLASS "GEditorViewport"
 
+#define VIEWPORT_FLY_TIMER 1
+#define VIEWPORT_FLY_TICK_MS 16 // ~60 ticks/s
+
+/**
+ * Default to 400.0, but can be changed with the mouse scroll wheel.
+ */
+#define VIEWPORT_FLY_SPEED 400.0f
+
 /* Per-viewport state, allocated at WM_CREATE, freed at WM_DESTROY,
    reachable from the window via GWLP_USERDATA. */
 typedef struct ViewportState {
@@ -32,18 +40,11 @@ typedef struct ViewportState {
     float speed;
 
     BOOL flying;
-    BOOL keyw, keya, keys, keyd;
+    BOOL keyw, keya, keys, keyd, keyq, keye;
     POINT lastmouse;
     DWORD lasttick;
 } ViewportState;
 
-/*
- * Placeholder scene: one triangle with red, green and blue corners,
- * drawn through the same vertex-array path real level geometry will
- * use. Interleaving positions and colours in one struct keeps each
- * vertex's data together, exactly like the game's Vtx records; the
- * stride argument tells GL how far apart consecutive vertices sit.
- */
 typedef struct TestVertex {
     GLfloat x, y, z;
     GLubyte r, g, b, a;
@@ -147,19 +148,51 @@ static void ViewportPaintGL(ViewportState *state)
     SwapBuffers(state->hdc);
 }
 
+/**
+ * Enter fly mode on right mouse down. Use SetFocus to make keyboard inputs go to the viewport.
+ */
 static void ViewportBeginFly(HWND hwnd, ViewportState *state)
 {
+    if (state == NULL || state->flying)
+    {
+        return;
+    }
 
+    SetFocus(hwnd); // Give keyboard inputs to the viewport.
+    SetCapture(hwnd); // All mouse inputs go to the viewport.
+
+    GetCursorPos(&state->lastmouse);
+    ShowCursor(FALSE);
+
+    state->flying = TRUE;
+    state->lasttick = GetTickCount();
+
+    SetTimer(hwnd, VIEWPORT_FLY_TIMER, VIEWPORT_FLY_TICK_MS, NULL);
 }
 
 static void ViewportEndFly(HWND hwnd, ViewportState *state)
 {
+    if (state == NULL || !state->flying)
+    {
+        return;
+    }
 
+    KillTimer(hwnd, VIEWPORT_FLY_TIMER);
+
+    state->flying = FALSE;
+    state->keyw = state->keya = state->keys = state->keyd = state->keyq = state->keye = FALSE;
+
+    ShowCursor(TRUE);
+    SetCursorPos(state->lastmouse.x, state->lastmouse.y);
+    ReleaseCapture();
 }
 
 static void ViewportFlyLook(HWND hwnd, ViewportState *state)
 {
-
+    if (state == NULL || !state->flying)
+    {
+        return;
+    }
 }
 
 static void ViewportSetKey(ViewportState *state, WPARAM wparam, LPARAM lparam, int down)
@@ -175,12 +208,14 @@ static void ViewportSetKey(ViewportState *state, WPARAM wparam, LPARAM lparam, i
         case 'A': state->keya = down; break;
         case 'S': state->keys = down; break;
         case 'D': state->keyd = down; break;
+        case 'Q': state->keyq = down; break;
+        case 'E': state->keye = down; break;
     }
 }
 
 static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
-    ViewportState *state;
+    ViewportState *state = ViewportGetState(hwnd);
 
     switch (msg)
     {
@@ -194,14 +229,12 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
         if (!ViewportInitGL(hwnd, state))
         {
-            MessageBox(hwnd, "Could not create an OpenGL context.",
-                       "GEditor", MB_ICONERROR);
+            MessageBox(hwnd, "Could not create an OpenGL context.", "GEditor", MB_ICONERROR);
             return -1;
         }
         return 0;
 
     case WM_SIZE:
-        state = ViewportGetState(hwnd);
         if (state != NULL)
         {
             ViewportResizeGL(state, LOWORD(lparam), HIWORD(lparam));
@@ -213,7 +246,6 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         PAINTSTRUCT ps;
 
         BeginPaint(hwnd, &ps);
-        state = ViewportGetState(hwnd);
         if (state != NULL)
         {
             ViewportPaintGL(state);
@@ -237,13 +269,27 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
     case WM_KEYUP: ViewportSetKey(state, wparam, lparam, 0);
         return 0;
 
+    case WM_CAPTURECHANGED:
+        /**
+         * If capture is taken away, act as if right mouse was released so the camera doesn't keep flying with a hidden cursor.
+         */
+        ViewportEndFly(hwnd, state);
+        return 0;
+
+    case WM_KILLFOCUS:
+        if(state != NULL)   
+        {
+            state->keyw = state->keya = state->keys = state->keyd = state->keyq = state->keye = FALSE;
+        }
+        return 0;
+
     case WM_ERASEBKGND:
         /* GL repaints every pixel; skipping the GDI erase kills the
            flicker you would otherwise see on every resize. */
         return 1;
 
     case WM_DESTROY:
-        state = ViewportGetState(hwnd);
+        ViewportEndFly(hwnd, state); // Never leave the cursor hidden.
         if (state != NULL)
         {
             wglMakeCurrent(NULL, NULL);
