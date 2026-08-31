@@ -53,7 +53,6 @@
 #include "vtxstore.h"
 
 
-
 #define MONITOR_TIMER_DELTA g_GlobalTimerDelta
 #define OBJECT_INTERACTION_TIMER_DELTA g_GlobalTimerDelta
 #define PROXIMITY_MINE_TRIGGER_DISTANCE 62500.0f
@@ -607,7 +606,6 @@ PropRecord* objInit(ObjectRecord* obj, ModelFileHeader* model_header, PropRecord
         obj->nextcol.a = 0;
 
         obj->maxdamage = 0.0f;
-        *((s16*)&obj->model->unused) = -1;
         obj->model->chr = NULL;
         modelSetScale(obj->model, PitemZ_entries[obj->obj].scale);
         prop->type = 1;

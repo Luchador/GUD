@@ -1116,7 +1116,7 @@ void bondviewSetCameraMode(s32 arg0)
             modelSetAnimation(
                 g_CurrentPlayer->bodyModel,
                 objecthandlerGetModelAnim((Model *) &g_CurrentPlayer->model),
-                objecthandlerGetModelGunhand(&g_CurrentPlayer->model),
+                objecthandlerGetModelAnimFlip(&g_CurrentPlayer->model),
                 0.0f,
                 0.5f,
                 0.0f);

@@ -1308,164 +1308,160 @@ typedef union
 
 #pragma endregion OpenFlight Records
 
-    #pragma region Data Structures
+#pragma region Data Structures
 
-        //21990 stuff below
+    /**
+      * Defines which Node is the Joint and which matrices are applied to it.
+      * This Node (usualy a group) will move/rotate accordingly, however to animate
+      *vertices, remember to paint them with the same matrices.
+      */
+    typedef struct ModelJoint
+    {
+        u16 NodeType;
+        u16 channelBase;
+        u16 channelMirrored;
+    } ModelJoint;
 
-        /*
-         Defines which Node is the Joint and which matrices are applied to it.
-         This Node (usualy a group) will move/rotate accordingly, however to animate
-         vertices, remember to paint them with the same matrices.
-         */
-        typedef struct ModelJoint
-        {
-            u16 NodeType;
-            u16 channelBase;
-            u16 channelMirrored;
-        } ModelJoint;
+    /*
+        This struct defines joint nodes and the matrices assosiated with them.
+        There is Always at least 1 Joint used for positioning the object in-game
+        */
+    typedef struct ModelSkeleton
+    {
+        s16         numjoints; //Always at least 1 (root)
+        s16         pad1;      //pad
+        ModelJoint *Joints;
+        s16         SkeletonSize;
+        s16         pad2;
+    } ModelSkeleton;
 
-        /*
-          This struct defines joint nodes and the matrices assosiated with them.
-          There is Always at least 1 Joint used for positioning the object in-game
-         */
-        typedef struct ModelSkeleton
-        {
-            short       numjoints; //Always at least 1 (root)
-            short       pad1;      //pad
-            ModelJoint *Joints;
-            short       SkeletonSize;
-            short       pad2;
-        } ModelSkeleton;
+    typedef struct ModelFileHeader
+    {
+        ModelNode         *RootNode;             //possibly this is "root data"
+        ModelSkeleton     *Skeleton;
+        /* This is a pointer to a variable length array of pointers to modelnodes, but the array is followed by an s16 array of part numbers.*/
+        ModelNode        **Switches;
+        s16                numSwitches;          // c Number of "05"s, these link to positions/switches Note: Does not reflect number actually used
+        s16                numMatrices;          // Number of matrices used. (GE Name is LCase)
+        f32                BoundingVolumeRadius; // 10 radius from model center to frustrum edge before culling.
+        s16                numRecords;           // 14 used in runtime for number of records
+        s16                numtextures;          // 16 Number of textures in table
+        ModelFileTextures *Textures;             // 18 offset to texture table
 
-        typedef struct ModelFileHeader
-        {
-            ModelNode         *RootNode;             //possibly this is "root data"
-            ModelSkeleton     *Skeleton;
-            /* This is a pointer to a variable length array of pointers to modelnodes, but the array is followed by an s16 array of part numbers.*/
-            ModelNode        **Switches;
-            s16                numSwitches;          // c Number of "05"s, these link to positions/switches Note: Does not reflect number actually used
-            s16                numMatrices;          // Number of matrices used. (GE Name is LCase)
-            f32                BoundingVolumeRadius; // 10 radius from model center to frustrum edge before culling.
-            s16                numRecords;           // 14 used in runtime for number of records
-            s16                numtextures;          // 16 Number of textures in table
-            ModelFileTextures *Textures;             // 18 offset to texture table
+        /* Formerly `isLoaded`, a write-only LEFTOVERDEBUG field.
+                        DO NOT REMOVE: shrinking this struct to 36 bytes corrupts
+                        first-person casing rendering (stretched
+                        triangles, missing casings) */
+        u8 sizeExperimentPad[4];
+    } ModelFileHeader;
 
-            /* Formerly `isLoaded`, a write-only LEFTOVERDEBUG field.
-                           DO NOT REMOVE: shrinking this struct to 36 bytes corrupts
-                           first-person casing rendering (stretched
-                           triangles, missing casings) */
-            u8 sizeExperimentPad[4];
-        } ModelFileHeader;
+    typedef struct ItemModelFileRecord
+    {
+        ModelFileHeader *header;
+        char            *filename;
+        float            scale;
+    } ItemModelFileRecord;
 
-        typedef struct ItemModelFileRecord
-        {
-            ModelFileHeader *header;
-            char            *filename;
-            float            scale;
-        } ItemModelFileRecord;
+    typedef struct ChrModelFileRecord
+    {
+        ModelFileHeader *header;
+        char            *filename;
+        float            scale;
+        float            pov;
+        u8               isMale;
+        u8               hasHead;
+        u8               pad1;
+        u8               pad2;
+    } ChrModelFileRecord;
 
-        typedef struct ChrModelFileRecord
-        {
-            ModelFileHeader *header;
-            char            *filename;
-            float            scale;
-            float            pov;
-            u8               isMale;
-            u8               hasHead;
-            u8               pad1;
-            u8               pad2;
-        } ChrModelFileRecord;
+    /*
+        * Model Root Runtime Data (pos, heading, height etc)
+        */
+    struct modeldata_root
+    {                    // type 0x01
+        u16     unk00;   /*0*/
+        u8      unk02;   /*2*/
+        f32     ground;  /*4*/
+        coord3d pos;     //8, 12, 16 - this is the right poition for this, but no idea what this node actually is (used in modelGetNodeRwData)
+        f32     subroty; //14 angle - this also happens to fit best for getsubroty
+        f32     unk18;   /*18*/
+        u32     unk1c;   /*1c*/
+        f32     unk20;   //20 angle
+        coord3d unk24;
+        f32     unk30; // angle copy of 20
+        coord3d unk34;
+        coord3d unk40; // "2" version of unk24
+        coord3d unk4c; // "2" version of unk34
+        f32     unk58;
+        f32     unk5c;
+    };
 
-        /*
-         * Model Root Runtime Data (pos, heading, height etc)
-         */
-        struct modeldata_root
-        {                    // type 0x01
-            u16     unk00;   /*0*/
-            u8      unk02;   /*2*/
-            f32     ground;  /*4*/
-            coord3d pos;     //8, 12, 16 - this is the right poition for this, but no idea what this node actually is (used in modelGetNodeRwData)
-            f32     subroty; //14 angle - this also happens to fit best for getsubroty
-            f32     unk18;   /*18*/
-            u32     unk1c;   /*1c*/
-            f32     unk20;   //20 angle
-            coord3d unk24;
-            f32     unk30; // angle copy of 20
-            coord3d unk34;
-            coord3d unk40; // "2" version of unk24
-            coord3d unk4c; // "2" version of unk34
-            f32     unk58;
-            f32     unk5c;
-        };
+    typedef s32 (*ModelPositionValidationCallback)(
+        struct Model *model,
+        coord3d *currentPos,
+        coord3d *proposedPos,
+        f32 *ground);
 
-        typedef s32 (*ModelPositionValidationCallback)(
-            struct Model *model,
-            coord3d *currentPos,
-            coord3d *proposedPos,
-            f32 *ground);
+    typedef void (*ModelAnimLoopCallback)(void);
 
-        /**
-         * I beleve that "datas" is actually " struct modeldata_root" and that
-         * unk1c is the model node data array
-         */
-        typedef struct Model
-        {
-            s16                             unused;
-            s16                             rwdatalen;
-            struct ChrRecord               *chr;
-            ModelFileHeader                *obj;
-            RenderPosView                  *render_pos;
-            union ModelRwData             **datas;
-            f32                             scale;
-            struct Model                   *attachedto;
-            ModelNode                      *attachedto_objinst;
-            ModelAnimation                 *anim;
-            s8                              gunhand;
-            s8                              unk25;
-            s8                              animlooping;
-            s8                              unk27;
-            f32                             animframe1;
-            f32                             animFrameFrac;
-            s16                             framea;
-            s16                             frameb;
-            s32                             unk34;
-            s32                             unk38;
-            f32                             endframe;
-            f32                             speed; /*0x40*/
-            f32                             newspeed; /*0x44*/
-            f32                             oldspeed; /*0x48*/
-            f32                             timespeed; /*0x4C*/
-            f32                             elapsespeed; /*0x50*/
-            ModelAnimation                 *anim2;
-            f32                             animframe2; /* 0x58*/
-            f32                             unk5c;
-            s16                             frame2a;
-            s16                             frame2b;
-            s32                             unk64;
-            s32                             unk68;
-            f32                             unk6c;
-            f32                             speed2;
-            f32                             unk74;
-            f32                             unk78;
-            f32                             unk7c;
-            f32                             unk80;
-            f32                             unk84;
-            f32                             unk88;
-            f32                             unk8c;
-            f32                             animloopframe; /*0x90*/
-            f32                             animloopmerge; /*0x94*/
-            s32                             animflipfunc; /*0x98*/
-            s32                             unk9c;
-            ModelPositionValidationCallback posValidateFunc;
-            f32                             playspeed;
-            f32                             animrate;
-            f32                             unkac;
-            f32                             unkb0;
-            f32                             unkb4;
-            f32                             anim_translation_scale;
-        } Model;
+    typedef struct Model
+    {
+        s16                             reserved00;
+        s16                             rwdatalen;
+        struct ChrRecord               *chr;
+        ModelFileHeader                *obj;
+        RenderPosView                  *render_pos;
+        union ModelRwData             **datas;
+        f32                             scale;
+        struct Model                   *attachedto;
+        ModelNode                      *attachedto_objinst;
+        ModelAnimation                 *anim;
+        s8                              animFlip;
+        s8                              anim2Flip;
+        s8                              animlooping;
+        s8                              padding27;
+        f32                             animframe1;
+        f32                             animFrameFrac;
+        s16                             framea;
+        s16                             frameb;
+        u8                              *animFrameDataA;
+        u8                              *animFrameDataB;
+        f32                             endframe;
+        f32                             speed;
+        f32                             newspeed;
+        f32                             oldspeed;
+        f32                             timespeed;
+        f32                             elapsespeed;
+        ModelAnimation                 *anim2;
+        f32                             animframe2;
+        f32                             animFrame2Frac;
+        s16                             frame2a;
+        s16                             frame2b;
+        u8                              *animFrame2DataA;
+        u8                              *animFrame2DataB;
+        f32                             anim2EndFrame;
+        f32                             speed2;
+        f32                             anim2NewSpeed;
+        f32                             anim2OldSpeed;
+        f32                             anim2SpeedDuration;
+        f32                             anim2SpeedElapsed;
+        f32                             anim2BlendWeight;
+        f32                             animMergeDuration;
+        f32                             animMergeElapsed;
+        f32                             animloopframe;
+        f32                             animloopmerge;
+        ModelAnimLoopCallback           animLoopCallback;
+        s32                             reserved9c;
+        ModelPositionValidationCallback posValidateFunc;
+        f32                             playspeed;
+        f32                             targetPlaySpeed;
+        f32                             oldPlaySpeed;
+        f32                             playSpeedDuration;
+        f32                             playSpeedElapsed;
+        f32                             anim_translation_scale;
+    } Model;
 
-    #pragma endregion Data Structures
+#pragma endregion Data Structures
 
 #pragma endregion ModelTypes
 

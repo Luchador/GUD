@@ -66,7 +66,7 @@ void modelUpdateMatrices(ModelRenderData *arg0, Model *model);
 void instcalcmatrices(ModelRenderData* arg0, Model* arg1);
 void subcalcmatrices(ModelRenderData *arg0, struct Model *arg1);
 struct ModelAnimation * objecthandlerGetModelAnim(struct Model* model);
-s8 objecthandlerGetModelGunhand(Model *model);
+s8 objecthandlerGetModelAnimFlip(Model *model);
 f32 modelGetAnimFrame(Model *model);
 f32 modelGetAnimEndFrame(Model *model);
 f32 modelGetAnimSpeed(Model *model);
@@ -78,7 +78,7 @@ void modelSetAnimationWithMerge(Model *model, ModelAnimation *modelAnimation, s3
 void modelSetAnimation(Model *model, ModelAnimation *modelAnimation, s32 flip, f32 startframe, f32 speed, f32 merge);
 void modelSetAnimLooping(Model *model, f32 loopframe, f32 loopmerge);
 void modelSetAnimEndFrame(Model *model, f32 endframe);
-void modelSetAnimFlipFunction(Model *model, void *callback);
+void modelSetAnimFlipFunction(Model *model, ModelAnimLoopCallback callback);
 void modelSetAnimSpeed(Model *model, f32 anim_speed, f32 startframe);
 void sub_GAME_7F06FE90(Model *model, f32 arg1, f32 arg2);
 void modelSetAnimPlaySpeed(Model *model, f32 animation_rate, f32 startframe);
@@ -106,7 +106,7 @@ void sub_GAME_7F074514(s32 param_1,struct Model *param_2,struct ModelNode *param
 void sub_GAME_7F074524(Gfx *param_1,struct Model *param_2, struct ModelNode *param_3);
 void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node);
 void subdraw(ModelRenderData *arg0, struct Model *);
-s32 loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused);
+u8 *loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused);
 void modelResetAnimationsScratchBuffer(void);
 void modelPromoteNodeOffsetsToPointers(ModelNode *node, u32 vma, u32 fileramaddr);
 void sub_GAME_7F075A90(ModelFileHeader *header, s32 vma, u32 addr);
