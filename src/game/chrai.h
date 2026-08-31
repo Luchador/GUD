@@ -217,7 +217,7 @@ extern u32 monAnim2DRandEffectFlash[];
 extern u32 monAnim00Bond[];
 extern u32 monAnim34[];
 extern u32 monAnim35Taser[];
-extern WeaponObjRecord* proxy_mine_table[30];
+extern WeaponObjRecord* g_ProxyMineTable[30];
 extern f32 gasTimeToFullOpacity;
 extern u32 gasDoesDamageFlag;
 extern f32 difficulty ;
@@ -248,15 +248,12 @@ extern struct HatRecord g_HatSlots[];
 extern struct AmmoCrateRecord g_AmmoCrates[];
 extern struct Projectile g_Projectiles[];
 extern struct Embedment g_Embedments[];
-extern struct coord3d                     flt_CODE_bss_80075B78;
-extern struct coord3d                     flt_CODE_bss_80075B88;
-
-
+extern struct coord3d g_ProjectileHitDirectionWorld;
+extern struct coord3d g_ProjectileHitDirectionView;
 extern MonitorRecord g_MonitorAnimController;
 extern struct object_animation_controller g_UnknownAnimController;
 extern struct object_animation_controller g_TaserAnimController;
-
-extern stagesetup                        *g_ptrStageSetupFile;
+extern stagesetup *g_ptrStageSetupFile;
 extern char *setup_text_pointers[];
 
 void               alarmDeactivate(void);
@@ -309,4 +306,5 @@ void               collisionCalcFootprintFromBBox(struct ModelRoData_BoundingBox
 void               projectRectCornersTo2D(struct coord3d *arg0, struct coord2d *arg1, struct coord2d *arg2, struct coord2d *arg3, struct coord2d *arg4);
 void               propActivateLinkedDoors(PropRecord *prop);
 struct PropRecord *propFindForInteract(void);
+
 #endif

@@ -7336,7 +7336,6 @@ void MoveBond(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         bondviewGetTankCollisionBounds(&spB4_tank_collision_bounds, &g_CurrentPlayer->field_488.collision_position, g_TankOrientationAngle);
         chraiGetPropRoomIds(sp138_tank_as_ObjectRecord->prop, &sp94);
 
-        // update num_obj_position_data_entries
         roomGetProps(&sp94);
 
         for (lookup_index = g_RoomPropQueryIndices; *lookup_index>=0; lookup_index++)

@@ -41,7 +41,7 @@ extern f32 g_AutogunPendingDamageTick;
 extern f32 g_AutogunDamageScalar;
 extern f32 g_SoloAmmoMultiplier;
 extern struct Model *g_CurrentProjectileModel;
-extern struct ModelNode *dword_CODE_bss_80075B74;
+extern struct ModelNode *g_ProjectileHitModelNode;
 extern ExplosionDetailsRecord object_explosion_details[];
 
 void                 objSetCollisionEnabled(PropRecord* prop, s32 enabled);

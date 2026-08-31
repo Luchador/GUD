@@ -219,7 +219,7 @@ void initialize_proxy_mine_table(void)
 
     for (i=0; i<30; i++)
     {
-        proxy_mine_table[i] = NULL;
+        g_ProxyMineTable[i] = NULL;
     }
 }
 

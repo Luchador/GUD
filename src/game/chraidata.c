@@ -1,22 +1,8 @@
-/*========================================================================
- * chraidata.c
- *
- * Global AI Data to be used by any Setup.
- *
- *========================================================================*/
-/**************************************************************************
- *
- *  $REVISION: 1.0 $
- *  $DATE: 2022/02/24 20:31:28 $
- *  $SOURCE: /src/game/chraidata.c,v $
- *
- **************************************************************************/
 #include <ultra64.h>
 #include <bondgame.h>
 #include <bondaicommands.h>
 #include "chrobjdata.h"
 
-#pragma region Private Members
 
 /*private enum, only accessible from within this file */
 static enum lbl
@@ -49,11 +35,8 @@ static enum lbl
     lblInvincibleCheck
 };
 
+/* Global AI lists used for all levels. */
 
-/* global ai lists used for all levels */
-/* data */
-
-/*D:80037070 */
 /**
     Try aiming at bond, otherwise do nothing
     @return No Return - AI List can only be changed by a 3rd party via SetChrAiList
@@ -64,7 +47,6 @@ u8 m_AimAtBond[] = {
     EndList()
 };
 
-/*D:8003707C */
 /**
     Dead or Removed AI.
     Use when AI has no more to do (or use YIELD_FOREVER)
@@ -76,7 +58,6 @@ u8 m_DeadAI[] = {
     EndList()
 };
 
-/*D:80037084 */
 /**
     Stand Guard and Kill Time or patrol (Not typicaly used for patrolling).
     While killing time, play Idle animations
@@ -141,7 +122,6 @@ u8 m_StandardGuard[] = {
     #undef THIS
 };
 
-/*D:800370DC */
 /**
     Play one random idle animation
     @return to caller if called with CALL
@@ -149,37 +129,6 @@ u8 m_StandardGuard[] = {
     return to List set by SetReturnAiList - If not set will crash
  */
 u8 m_IdleAnimations[] = {
-#if 0
-    IFNewRandomGreaterThan(50, lblNext) /* generate annd compare random seed to see which animation to play */
-    PlayAnimation(ANIM_yawning, 0, 193, ANIM_IDLE_POSE_WHEN_COMPLETE | ANIM_PLAY_SFX, ANIM_DEFAULT_INTERPOLATION)
-        GotoNext(lblDone) /* jump to end, we're done */
-
-    Label(lblNext)
-        IFRandomGreaterThan(100, lblNext)
-        PlayAnimation(ANIM_swatting_flies, 0, 294, ANIM_IDLE_POSE_WHEN_COMPLETE | ANIM_PLAY_SFX, ANIM_DEFAULT_INTERPOLATION)
-        GotoNext(lblDone) /* jump to end, we're done */
-
-    Label(lblNext)
-        IFRandomGreaterThan(150, lblNext)
-        PlayAnimation(ANIM_scratching_leg, 0, 183, ANIM_IDLE_POSE_WHEN_COMPLETE | ANIM_PLAY_SFX, ANIM_DEFAULT_INTERPOLATION)
-        GotoNext(lblDone) /* jump to end, we're done */
-
-    Label(lblNext)
-        IFRandomGreaterThan(200, lblNext)
-        PlayAnimation(ANIM_scratching_butt, 0, 123, ANIM_IDLE_POSE_WHEN_COMPLETE | ANIM_PLAY_SFX, ANIM_DEFAULT_INTERPOLATION)
-        GotoNext(lblDone) /* jump to end, we're done */
-
-    Label(lblNext)
-        IFRandomGreaterThan(250, lblNext)
-        PlayAnimation(ANIM_adjusting_crotch, 0, 56, ANIM_IDLE_POSE_WHEN_COMPLETE | ANIM_PLAY_SFX, ANIM_DEFAULT_INTERPOLATION)
-        GotoNext(lblDone) /* jump to end, we're done */
-
-    Label(lblNext)
-        PlayAnimation(ANIM_sneeze, 0, 137, ANIM_IDLE_POSE_WHEN_COMPLETE | ANIM_PLAY_SFX, ANIM_DEFAULT_INTERPOLATION)
-        GotoNext(lblDone) /* jump to end, we're done */
-
-    Label(lblDone)
-#else
     SWITCH(SetNewRandom(),
         IFRandomGreaterThan, 250,
             PlayAnimation(ANIM_sneeze          , 0, 137, ANIM_IDLE_POSE_WHEN_COMPLETE | ANIM_PLAY_SFX, ANIM_DEFAULT_INTERPOLATION)
@@ -200,39 +149,18 @@ u8 m_IdleAnimations[] = {
             PlayAnimation(ANIM_yawning         , 0, 193, ANIM_IDLE_POSE_WHEN_COMPLETE | ANIM_PLAY_SFX, ANIM_DEFAULT_INTERPOLATION)
             BREAK,
     )
-#endif
+
     Return()
     EndList()
 };
 
-/*D:8003713C */
 /**
-    Bash that Keyboard once with a random animation
+    Bash keyboard once with a random animation.
     @return to caller if called with CALL
     -or-
     return to List set by SetReturnAiList - If not set will crash
  */
 u8 m_BashKeyboard[] = {
-    #if 0
-    IFNewRandomGreaterThan(60, lblNext)
-    PlayAnimation(ANIM_keyboard_right_hand1, 0, 69, 0x00, ANIM_DEFAULT_INTERPOLATION)
-    GotoNext(lblDone) /* jump to end, we're done */
-
-    Label(lblNext)
-        IFRandomGreaterThan(120, lblNext)
-        PlayAnimation(ANIM_keyboard_right_hand2, 0, 74, 0x00, ANIM_DEFAULT_INTERPOLATION)
-        GotoNext(lblDone) /* jump to end, we're done */
-
-    Label(lblNext)
-        IFRandomGreaterThan(180, lblNext)
-        PlayAnimation(ANIM_keyboard_left_hand, 0, 79, 0x00, ANIM_DEFAULT_INTERPOLATION)
-        GotoNext(lblDone) /* jump to end, we're done */
-
-    Label(lblNext)
-        PlayAnimation(ANIM_keyboard_right_hand_tapping, 0, 89, 0x00, ANIM_DEFAULT_INTERPOLATION)
-        GotoNext(lblDone) /* jump to end, we're done */
-    Label(lblDone)
-        #endif
     SWITCH(SetNewRandom(),
         IFRandomGreaterThan,180,
             PlayAnimation(ANIM_keyboard_right_hand_tapping, 0, 89, 0x00, ANIM_DEFAULT_INTERPOLATION)
@@ -284,7 +212,6 @@ u8 m_SimpleGuardDeaf[] = {
     EndList()
 };
 
-/*D:800371B4 */
 /**
     Attack Bond once via 1 random animation
     @return to caller if called with CALL
@@ -292,38 +219,6 @@ u8 m_SimpleGuardDeaf[] = {
     return to List set by SetReturnAiList - If not set will crash
  */
 u8 m_AttackBond[] = {
-    #if 0 //Doesnt work any simpler
-    IFMyFlags2Has(FLAGS2_DONT_POINT_AT_BOND, lblNext) /* if guard already pointed at bond */
-    /*ELSE*/
-        IFNewRandomGreaterThan(32, lblNext)           /* 12.5% chance of pointing to bond */
-        PointAtBond()
-        SetMyFlags2(FLAGS2_DONT_POINT_AT_BOND)        /* don't point again, thank you object permanence */
-        Return()                                      /* guard pointed at bond, return to list */
-
-    Label(lblNext)
-        SetMyFlags2(FLAGS2_DONT_POINT_AT_BOND)        /* I am awayer of Bond, set flag so we don't point at bond */
-        SWITCH(/*SetNewRandom()*/EMPTY,
-               IFRandomGreaterThan,127,
-                    IFNewRandomGreaterThan(127, lblKneel)
-                    TRYFireAtBond(lblDone)
-                    Label(lblKneel)
-                       TRYFireAtBondKneeling,
-               IFNewRandomGreaterThan, 64,
-                   TRYFiringRun,
-               IFNewRandomGreaterThan,50,
-                   TRYFiringWalk,                     /* infinite ammo death sentence ;) */
-               IFNewRandomGreaterThan,25,
-                   TRYSideRunning,
-               IFNewRandomGreaterThan,10,
-                   TRYSidestepping,
-               IFNewRandomGreaterThan,10,
-                   TRYSideHopping,
-               /*DEFAULT*/,,
-                   TRYFiringRoll,
-               ,,
-                   TRYThrowingGrenade                 /* attempt to throw grenade, depends on chr->grenadeprob value */
-           )
-    #else
     IFMyFlags2Has(FLAGS2_DONT_POINT_AT_BOND, lblNext) /* if guard already pointed at bond */
     IFNewRandomGreaterThan(32, lblNext)               /* 12.5% chance of pointing to bond */
     PointAtBond()
@@ -366,13 +261,11 @@ u8 m_AttackBond[] = {
         TRYFireAtBondKneeling(lblDone)
 
     Label(lblDone)                                    /* guard did the thing, now go back home */
-#endif
 
     Return()
     EndList()
 };
 
-/*D:8003720C */
 /**
     Run to bond and fire if seen, otherwise wait.
     @return to caller if called with CALL
@@ -397,7 +290,6 @@ u8 m_RunToBond[] = {
         EndList()
 };
 
-/*D:80037224 */
 /**
     If Calling Chr NOT been seen, Send Clone after Bond, otherwise Act like a
     Standard Guard
@@ -423,7 +315,6 @@ u8 m_TryCloneSendOrRunToBond[] = {
     EndList()
 };
 
-/*D:80037248 */
 /**
     Run to bond then act like a Standard Guard
     @return to Standard Guard
@@ -433,7 +324,6 @@ u8 m_StandardClone[] = {
     EndList()
 };
 
-/*D:80037250 */
 /**
     Stand Guard Statically (No Clones, No animations) or patrol (Typical Use of this type).
     On detecting Bond, Act like a Standard Guard.
@@ -461,7 +351,6 @@ u8 m_SimpleGuard[] = {
     EndList()
 };
 
-/*D:80037280 */
 /**
     Stand Guard Statically (No Clones, No animations) or patrol.
     On detecting Bond, Run to padpreset1 and activate alarm.
@@ -526,7 +415,6 @@ u8 m_SimpleGuardAlarmRaiser[] = {
     EndList()
 };
 
-/*D:800372D0 */
 /**
     Startle character then Run To Bond
     @return to caller if called with CALL -or- return to List set by SetReturnAiList - If not set will crash
@@ -542,7 +430,6 @@ u8 m_StartleAndRunToBond[] = {
     EndList()
 };
 
-/*D:800372E0 */
 /**
     Persistently chase Bond and Attack (halt randomly)
     @return No Return - AI List can only be changed by a 3rd party via SetChrAiList
@@ -587,39 +474,6 @@ u8 m_RunToBondPersistent[] = {
 
     /*DO*/
     Label(lblMaybeThrowGrenade)
-        #if 0
-            IFNewRandomGreaterThan(10, lblNext)
-            TRYThrowingGrenade(lblDone) /* depends on chr->grenadeprob value */
-
-        Label(lblNext)
-            IFRandomGreaterThan(50, lblNext)
-            TRYSidestepping(lblDone)
-
-        Label(lblNext)
-            IFRandomGreaterThan(60, lblNext)
-            TRYFiringRoll(lblDone)
-
-        Label(lblNext)
-            IFRandomGreaterThan(80, lblNext)
-            TRYFiringRoll(lblDone)
-
-        Label(lblNext)
-            IFRandomGreaterThan(100, lblNext)
-            TRYFiringWalk(lblDone)
-
-        Label(lblNext)
-            IFRandomGreaterThan(150, lblNext)
-            TRYFiringRun(lblDone)
-
-        Label(lblNext)
-            IFRandomGreaterThan(200, lblNext)
-            TRYFireAtBond(lblDone)
-
-        Label(lblNext)
-            TRYFireAtBondKneeling(lblDone)
-
-        Label(lblDone)
-        #else
             SWITCH(SetNewRandom(),
                 IFRandomGreaterThan,200,
                     TRYFireAtBondKneeling,
@@ -638,7 +492,6 @@ u8 m_RunToBondPersistent[] = {
                 /*DEFAULT*/,,
                     TRYThrowingGrenade,
             )/*lblDone*/
-        #endif
             IFICouldSeeBond(lblNext)
             GotoNext(lblRunning)
 
@@ -697,7 +550,6 @@ u8 m_RunToBondPersistent[] = {
     EndList()
 };
 
-/*D : 800373D0 */
 /**
     Wait for one second then return
     @return to caller if called with CALL -or- return to List set by SetReturnAiList - If not set will crash
@@ -713,7 +565,6 @@ u8 m_WaitOneSecond[] = {
         EndList()
 };
 
-/*D:800373E0*/
 /**
     Exit level and set BG AI to nothing
     @return No Return - AI is Dead
@@ -724,9 +575,8 @@ u8 m_EndLevel[] = {
     EndList()
 };
 
-/*D:800373E8*/
 /**
-    Draw TT33, Aim and fire.
+    Draw pistol, aim and fire.
     Act like a Standard Guard thereafter
     @return to Standard Guard
  */
@@ -774,7 +624,6 @@ u8 m_DrawPistolAndAttackBond[] = {
     EndList()
 };
 
-/*D:80037444*/
 /**
     Remove Calling chr and set AI to nothing
     @return No Return - AI is Dead
@@ -787,7 +636,6 @@ u8 m_RemoveSelf[] = {
 
 #pragma endregion Private Members
 
-/*D:8003744C */
 /* global ai lists (glists) */
 AIListRecord g_GlobalAILists[] = {
     {m_AimAtBond               , GAILIST_AIM_AT_BOND},
@@ -811,8 +659,6 @@ AIListRecord g_GlobalAILists[] = {
     {NULL, 0}
 };
 
-
-/*D:800374E4 Also happens to be the same indices as levelID */
 char *setup_text_pointers[] = {
     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "UsetupsevbunkerZ",
     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,"UsetupsiloZ",
@@ -824,6 +670,3 @@ char *setup_text_pointers[] = {
     "UsetupoatZ","UsetupearZ","UsetupleeZ","UsetuplipZ","UsetuplenZ","UsetupwaxZ",
     "UsetuppamZ", NULL, NULL
 };
-
-
-

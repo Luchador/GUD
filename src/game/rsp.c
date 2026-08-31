@@ -7,45 +7,17 @@
 #include <PR/sptask.h>
 #include <PR/ucode.h>
 
+
 #define RSP_MEMP_BANK                   6
 #define RSP_MEMP_ALLOC_SIZE_BYTES  0xA000
 
-/**
- * Address 8008D370.
- */
 u8 g_gfxDramStack[SP_DRAM_STACK_SIZE8];
-
-/**
- * Address 8008D770.
- */
 u8 g_gfxYieldBuf[OS_YIELD_GFX_DATA_SIZE];
-
-/**
- * Address 8004E9E0.
- */
-s32 g_gfxDebugEntryData = 0;
-
-/**
- * Address 8004E9E4.
- */
 s32 g_gfxRdpOutputBufferEnd = 0;
-
-/**
- * Address 8004E9E8.
- */
 s32 g_gfxRdpOutputBufferStart = 0;
 
-/**
- * Address 8004E9EC.
- */
-s32 g_unused8004E9EC = 0;
-
-/**
- * Address 8004E9F0.
- */
 struct GfxInfo_s g_gfxTaskSettings[2] = 
 {
-    // 8004EA50
     {
         // next
         NULL,
@@ -197,7 +169,6 @@ struct GfxInfo_s g_gfxTaskSettings[2] =
 };
 
 /**
- * Address 8004EAB0.
  * Initialization needs to point this to an item in the g_gfxTaskSettings array
  * otherwise rspGfxTaskStart will fail.
  */
@@ -214,6 +185,7 @@ void rspAllocateBuffers(void)
     g_gfxRdpOutputBufferStart = mempAllocBytesInBank(RSP_MEMP_ALLOC_SIZE_BYTES, MEMPOOL_PERMANENT);
     g_gfxRdpOutputBufferEnd = g_gfxRdpOutputBufferStart + RSP_MEMP_ALLOC_SIZE_BYTES;
 }
+
 
 /**
  * Has similarities to:
@@ -232,8 +204,6 @@ void rspGfxTaskStart(Gfx *firstGdl, Gfx *gdl, s32 arg2, OSMesg rspReplyMsg)
     
     // u64 pointers, cast to x32 to avoid (sra _,_,0x3)
     task->t.ucode_boot_size = ((s32)rspbootTextEnd - (s32)rspbootTextStart);
-
-    if (rspbootTextStart);
     
     // task>type = M_GFXTASK, set in bss constructor
     // task->flags = OS_TASK_DP_WAIT, set in bss constructor
@@ -271,4 +241,3 @@ void rspGfxTaskStart(Gfx *firstGdl, Gfx *gdl, s32 arg2, OSMesg rspReplyMsg)
     // Not a typo, but probably not best practice.
     g_gfxTaskSettingsList = (struct GfxInfo_s *)((u32)g_gfxTaskSettingsList ^ (u32) &g_gfxTaskSettings[0] ^ (u32) &g_gfxTaskSettings[1]);
 }
-

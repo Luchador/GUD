@@ -37,8 +37,7 @@
 #include "tex.h"
 
 
-s16 * g_RoomPropQueryIndices;
-u32 num_obj_position_data_entries;
+s16 *g_RoomPropQueryIndices;
 
 /**
  * This 600 length prop pool provides storage for every PropRecord in the game.
@@ -46,7 +45,7 @@ u32 num_obj_position_data_entries;
  * all 600 slots onto the free list, and chrpropAllocate/chrpropFree pop and push to that list.
  * 
  * This is g_Vars.props in PD.
-*/
+ */
 PropRecord g_Props[MAX_PROPS];
 
 s16 *RoomPropListBlockIndices;
@@ -54,22 +53,20 @@ struct roomproplistblock *RoomPropListBlocks;
 
 /**
  * Array of pointers, containing onscreen props.
-*/
+ */
 PropRecord *g_OnScreenPropList[ONSCREEN_PROP_LIST_LEN];
 
 /**
  * Pointer to last onscreen prop.
-*/
+ */
 PropRecord **g_LastOnScreenProp;
 
 /**
  * Count of onscreen props.
- * canonically propznum
-*/
+ */
 s32 g_OnScreenPropCount;
 PropRecord *g_InteractProp;
-u32 dword_CODE_bss_80071DFC;
-WeaponObjRecord* proxy_mine_table[30];
+WeaponObjRecord* g_ProxyMineTable[30];
 f32 gasTimeToFullOpacity;
 u32 gasDoesDamageFlag;
 WeaponObjRecord g_WeaponSlots[MAX_WEAPON_SLOTS];
@@ -78,11 +75,9 @@ AmmoCrateRecord g_AmmoCrates[MAX_AMMO_CRATES];
 Projectile g_Projectiles[PROJECTILES_ARR_MAX];
 Embedment g_Embedments[EMBEDMENT_ARR_MAX];
 struct Model *g_CurrentProjectileModel;
-struct ModelNode * dword_CODE_bss_80075B74;
-coord3d flt_CODE_bss_80075B78;
-f32 flt_CODE_bss_80075B84;
-coord3d flt_CODE_bss_80075B88;
-f32 flt_CODE_bss_80075B94;
+struct ModelNode *g_ProjectileHitModelNode;
+coord3d g_ProjectileHitDirectionWorld;
+coord3d g_ProjectileHitDirectionView;
 MonitorRecord g_MonitorAnimController;
 struct object_animation_controller g_UnknownAnimController;
 struct object_animation_controller g_TaserAnimController;
@@ -117,8 +112,8 @@ void chraiUpdateOnscreenPropCount(void)
     s32 j;
     s32 count;
     PropRecord *prop;
-    s32 phi_a0;
-    f32 phi_f12;
+    s32 farthestPropIndex;
+    f32 farthestDepth;
 
     i = 0;
     count = 0;
@@ -137,27 +132,30 @@ void chraiUpdateOnscreenPropCount(void)
     g_OnScreenPropList[count] = NULL;
     g_LastOnScreenProp = (PropRecord *)&g_OnScreenPropList[count];
 
-    for (i=0; i<count; i++)
+    /**
+     * Sort g_OnScreenPropList so the list is ordered farthest prop at the start and nearest prop at the end.
+     */
+    for (i = 0; i < count; i++)
     {
-        phi_a0 = -1;
-        phi_f12 = -4.2949673e9f;
+        farthestPropIndex = -1;
+        farthestDepth = g_OnScreenPropList[i]->zDepth;
 
-        for (j = i; j < count; j++)
+        for (j = i + 1; j < count; j++)
         {
-            f32 f = g_OnScreenPropList[j]->zDepth;
+            f32 depth = g_OnScreenPropList[j]->zDepth;
 
-            if (phi_f12 < f)
+            if (depth > farthestDepth)
             {
-                phi_f12 = f;
-                phi_a0 = j;
+                farthestDepth = depth;
+                farthestPropIndex = j;
             }
         }
 
-        if (phi_a0 >= 0)
+        if (farthestPropIndex >= 0)
         {
             prop = g_OnScreenPropList[i];
-            g_OnScreenPropList[i] = g_OnScreenPropList[phi_a0];
-            g_OnScreenPropList[phi_a0] = prop;
+            g_OnScreenPropList[i] = g_OnScreenPropList[farthestPropIndex];
+            g_OnScreenPropList[farthestPropIndex] = prop;
         }
     }
 }
@@ -167,7 +165,6 @@ void chrpropEnable(PropRecord *prop)
 {
     prop->flags |= PROPFLAG_ENABLED;
 }
-
 
 
 void chrpropDisable(PropRecord *prop)
@@ -311,7 +308,6 @@ void chrpropReparent(PropRecord *newChild, PropRecord *host)
     newChild->next = NULL;
     newChild->stan = NULL;
     host->child    = newChild;
-
 }
 
 
@@ -2802,10 +2798,6 @@ void roomGetProps(s32 *rooms)
 
     *writeptr = -1;
     writeptr++;
-    num_obj_position_data_entries = writeptr - g_RoomPropQueryIndices;
-    #ifdef DEBUG
-    assert(roomspropnum<ROOMLISTMAX-1); //num_obj_position_data_entries
-    #endif
 }
 
 

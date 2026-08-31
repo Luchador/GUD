@@ -1178,7 +1178,7 @@ bool sub_GAME_7F041400(PropRecord *prop, coord3d *rayStart, coord3d *rayEnd, coo
                     D_80030B0C = prop;
                     bodypartshot = HIT_NULL_PART;
                     g_CurrentProjectileModel = NULL;
-                    dword_CODE_bss_80075B74 = NULL;
+                    g_ProjectileHitModelNode = NULL;
                     return TRUE;
                 }
             }
@@ -1257,8 +1257,6 @@ bool projectileTestObjectCollision(ObjectRecord *obj, coord3d *worldRayOrigin, c
 
 
 /**
- * Address: 7F0419E4
- *
  * Tests an object and its on screen child hierarchy for projectile collision.
  * If a closer hit is found, updates the caller's hit collision data.
  * @returns TRUE if this object or one of its recursive children produced a closer hit, FALSE otherwise.
@@ -1294,7 +1292,7 @@ bool projectileTestObjectCollisionRecursive(ObjectRecord *obj, coord3d *worldRay
             D_80030B0C = obj->prop;
             bodypartshot = -1;
             g_CurrentProjectileModel = hitModel;
-            dword_CODE_bss_80075B74 = hitNode;
+            g_ProjectileHitModelNode = hitNode;
 
             found = TRUE;
         }
@@ -1322,9 +1320,8 @@ bool projectileTestObjectCollisionRecursive(ObjectRecord *obj, coord3d *worldRay
 }
 
 
-
-
-bool sub_GAME_7F041BB8(ChrRecord *chr, coord3d *arg1, coord3d *arg2, f32 arg3, coord3d *arg4, coord3d *arg5, coord3d *arg6, coord3d *arg7, f32 *arg8) {
+bool sub_GAME_7F041BB8(ChrRecord *chr, coord3d *arg1, coord3d *arg2, f32 arg3, coord3d *arg4, coord3d *arg5, coord3d *arg6, coord3d *arg7, f32 *arg8)
+{
     f32 instSize;
     f32 dx;
     f32 dy;
@@ -1347,17 +1344,22 @@ bool sub_GAME_7F041BB8(ChrRecord *chr, coord3d *arg1, coord3d *arg2, f32 arg3, c
     dz = prop->pos.z - arg1->z;
     planeDist = (dz * arg2->z) + ((dx * arg2->x) + (dy * arg2->y));
 
-    if ((-instSize <= planeDist) && (planeDist <= (arg3 + instSize)) && (prop->flags & PROPFLAG_ONSCREEN)) {
+    if ((-instSize <= planeDist) && (planeDist <= (arg3 + instSize)) && (prop->flags & PROPFLAG_ONSCREEN))
+    {
         entry = chr->hitChain;
         bodyPart = sub_GAME_7F06C010(&entry, arg4, arg5, &model, &node);
-        if (bodyPart > 0) {
+
+        if (bodyPart > 0)
+        {
             mtx = modelFindNodeMtx(model, node, 0);
             dx = mtx->m[3][0] - arg4->x;
             dy = mtx->m[3][1] - arg4->y;
             new_var2 = mtx->m[3];
             dz = new_var2[2] - arg4->z;
             hitDist = (dz * arg5->z) + ((dx * arg5->x) + (dy * arg5->y));
-            if (hitDist < *arg8) {
+
+            if (hitDist < *arg8)
+            {
                 *arg8 = hitDist;
                 arg6->x = (arg2->x * hitDist) + arg1->x;
                 arg6->y = (arg2->y * hitDist) + arg1->y;
@@ -1365,19 +1367,25 @@ bool sub_GAME_7F041BB8(ChrRecord *chr, coord3d *arg1, coord3d *arg2, f32 arg3, c
                 arg7->x = -arg2->x;
                 arg7->y = 0.0f;
                 arg7->z = -arg2->z;
-                if ((arg7->x != 0.0f) || (arg7->z != 0.0f)) {
+
+                if ((arg7->x != 0.0f) || (arg7->z != 0.0f))
+                {
                     guNormalize(&arg7->x, &arg7->y, &arg7->z);
-                } else {
+                } 
+                else 
+                {
                     arg7->z = 1.0f;
                 }
+
                 D_80030B0C = prop;
                 bodypartshot = bodyPart;
                 g_CurrentProjectileModel = model;
-                dword_CODE_bss_80075B74 = node;
+                g_ProjectileHitModelNode = node;
                 return 1;
             }
         }
     }
+
     return 0;
 }
 
@@ -1471,8 +1479,8 @@ bool projectileFindCollidingProp(PropRecord *ignoreProp, coord3d *worldRayStart,
                             }
                         }
                     }
-                } else if (iterprop->type == PROP_TYPE_CHR
-                        || (iterprop->type == PROP_TYPE_VIEWER && iterprop->chr))
+                } 
+                else if (iterprop->type == PROP_TYPE_CHR || (iterprop->type == PROP_TYPE_VIEWER && iterprop->chr))
                 {
                     chr = iterprop->chr;
 
@@ -1511,13 +1519,13 @@ bool projectileFindCollidingProp(PropRecord *ignoreProp, coord3d *worldRayStart,
     {
         result = TRUE;
 
-        flt_CODE_bss_80075B78.x = sp98.x;
-        flt_CODE_bss_80075B78.y = sp98.y;
-        flt_CODE_bss_80075B78.z = sp98.z;
+        g_ProjectileHitDirectionWorld.x = sp98.x;
+        g_ProjectileHitDirectionWorld.y = sp98.y;
+        g_ProjectileHitDirectionWorld.z = sp98.z;
 
-        flt_CODE_bss_80075B88.x = sp7c.x;
-        flt_CODE_bss_80075B88.y = sp7c.y;
-        flt_CODE_bss_80075B88.z = sp7c.z;
+        g_ProjectileHitDirectionView.x = sp7c.x;
+        g_ProjectileHitDirectionView.y = sp7c.y;
+        g_ProjectileHitDirectionView.z = sp7c.z;
 
     }
 
@@ -5642,7 +5650,7 @@ TICKOP objTickProjectile(PropRecord *prop)
                     if (D_80030B0C != NULL)
                     {
                         temp_s2 = prop->stan;
-                        if (objEmbed(prop, D_80030B0C, g_CurrentProjectileModel, dword_CODE_bss_80075B74) != 0)
+                        if (objEmbed(prop, D_80030B0C, g_CurrentProjectileModel, g_ProjectileHitModelNode) != 0)
                         {
                             prop->stan = temp_s2;
                             tickop = TICKOP_CHANGEDLIST;
@@ -5668,7 +5676,7 @@ TICKOP objTickProjectile(PropRecord *prop)
                             temp_v0_40 = obj->projectile;
                             temp_s0_13 = (struct coord3d *) playerProp2->chr;
 
-                            if ((((temp_v0_40->flags & PROJECTILEFLAG_AIRBORNE) && (((s32) temp_v0_40->unk90) <= 0)) && (obj->runtime_bitflags & RUNTIMEBITFLAG_THROWING_KNIFE_RELATED)) && (handles_shot_actors((struct ChrRecord *) temp_s0_13, bodypartshot, &flt_CODE_bss_80075B78, ((struct WeaponObjRecord *) obj)->weaponnum, 1) != 0))
+                            if ((((temp_v0_40->flags & PROJECTILEFLAG_AIRBORNE) && (((s32) temp_v0_40->unk90) <= 0)) && (obj->runtime_bitflags & RUNTIMEBITFLAG_THROWING_KNIFE_RELATED)) && (handles_shot_actors((struct ChrRecord *) temp_s0_13, bodypartshot, &g_ProjectileHitDirectionWorld, ((struct WeaponObjRecord *) obj)->weaponnum, 1) != 0))
                             {
                                 projectileStopped = 1;
 
@@ -5691,7 +5699,7 @@ TICKOP objTickProjectile(PropRecord *prop)
 
                                 if (((D_80030B0C->flags & PROPFLAG_ONSCREEN) && (bodypartshot != HIT_GUN)) && (bodypartshot != HIT_HAT))
                                 {
-                                    playerProp2 = (struct PropRecord *) modelFindNodeMtx(g_CurrentProjectileModel, dword_CODE_bss_80075B74, 0);
+                                    playerProp2 = (struct PropRecord *) modelFindNodeMtx(g_CurrentProjectileModel, g_ProjectileHitModelNode, 0);
 
                                     bloodStainPos.f[0] = collisionPoint.f[0];
                                     bloodStainPos.f[1] = collisionPoint.f[1];
@@ -5703,13 +5711,13 @@ TICKOP objTickProjectile(PropRecord *prop)
                                     bloodStainPos.f[1] += (bloodStainPos.f[1] - ((Mtxf *) playerProp2)->m[3][1]) * 0.5f;
                                     bloodStainPos.f[2] += (bloodStainPos.f[2] - ((Mtxf *) playerProp2)->m[3][2]) * 0.5f;
 
-                                    bloodStainPos.f[0] -= (getjointsize(g_CurrentProjectileModel, dword_CODE_bss_80075B74) * 0.5f) * flt_CODE_bss_80075B88.f[0];
-                                    bloodStainPos.f[1] -= (getjointsize(g_CurrentProjectileModel, dword_CODE_bss_80075B74) * 0.5f) * flt_CODE_bss_80075B88.f[1];
-                                    bloodStainPos.f[2] -= (getjointsize(g_CurrentProjectileModel, dword_CODE_bss_80075B74) * 0.5f) * flt_CODE_bss_80075B88.f[2];
+                                    bloodStainPos.f[0] -= (getjointsize(g_CurrentProjectileModel, g_ProjectileHitModelNode) * 0.5f) * g_ProjectileHitDirectionView.f[0];
+                                    bloodStainPos.f[1] -= (getjointsize(g_CurrentProjectileModel, g_ProjectileHitModelNode) * 0.5f) * g_ProjectileHitDirectionView.f[1];
+                                    bloodStainPos.f[2] -= (getjointsize(g_CurrentProjectileModel, g_ProjectileHitModelNode) * 0.5f) * g_ProjectileHitDirectionView.f[2];
 
                                     matrix_4x4_set_inverse_rotation_and_translation((Mtxf *) playerProp2, &inverseNodeMatrix);
                                     mtx4TransformVecInPlace(&inverseNodeMatrix, &bloodStainPos);
-                                    chrCreateBloodStain(g_CurrentProjectileModel, bodypartshot, dword_CODE_bss_80075B74, &bloodStainPos);
+                                    chrCreateBloodStain(g_CurrentProjectileModel, bodypartshot, g_ProjectileHitModelNode, &bloodStainPos);
                                 }
                             }
                         }
@@ -11339,9 +11347,9 @@ void add_obj_to_temp_proxmine_table(WeaponObjRecord* proxy)
     s32 i = 0;
 
     while (1) {
-        if (proxy_mine_table[i] == NULL)
+        if (g_ProxyMineTable[i] == NULL)
         {
-            proxy_mine_table[i] = proxy;
+            g_ProxyMineTable[i] = proxy;
             #ifdef DEBUG
                 assert(i<PROXIMITYARRMAX);
             #endif
@@ -11363,9 +11371,9 @@ void remove_obj_from_temp_proxmine_table(WeaponObjRecord* proxy)
 
     while (1)
     {
-        if (proxy_mine_table[i] == proxy)
+        if (g_ProxyMineTable[i] == proxy)
         {
-            proxy_mine_table[i] = NULL;
+            g_ProxyMineTable[i] = NULL;
             return;
         }
         i++;
@@ -11382,7 +11390,7 @@ void detonate_proxmine_In_range(coord3d* pos)
     s32 i;
     for (i = 0; i < 30; i++)
     {
-        WeaponObjRecord* obj = proxy_mine_table[i];
+        WeaponObjRecord* obj = g_ProxyMineTable[i];
 
         if (obj && (obj->timer == 1))
         {
