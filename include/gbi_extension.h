@@ -221,9 +221,6 @@ typedef enum
 	_g->words.w1 =  (rgba);                         \
 }
 
-#define gDPSetEnvColorViaWord(pkt, rgba) gDPSetColor(pkt, G_SETENVCOLOR, rgba)
-#define gDPSetFogColorViaWord(pkt, rgba) gDPSetColor(pkt, G_SETFOGCOLOR, rgba)
-
 
 
 #if 0 //Rare - so far - didnt seem to use this

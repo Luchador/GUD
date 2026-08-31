@@ -118,7 +118,7 @@ f32 g_TankEnterBondHorizAngleDeg;
 f32 g_TankEnterBondVertAngleDeg;
 ALSoundState * g_TankSfxState[2] = { NULL, NULL };
 struct coord3d g_EnterTankCoord;
-ITEM_IDS starting_weapon[2];
+ITEM_IDS g_StartingWeapons[2];
 struct coord3d flt_CODE_bss_800799E8;
 struct PropRecord* dword_CODE_bss_800799F4;
 PadRecord * g_CameraLookAtBondPad;
@@ -190,7 +190,7 @@ s32 g_bondviewBondDeathAnimationsCount = 0;
 enum CAMERAMODE camera_mode = CAMERAMODE_NONE;
 s32 g_IntroAnimationIndex = 0;
 
-struct struct_4 stage_intro_anim_table[] = {
+struct IntroAnim stage_intro_anim_table[] = {
     {PTR_ANIM_extending_left_hand, 95.0, -1.0, 0.02},
     {PTR_ANIM_fire_standing_draw_one_handed_weapon_fast, 7.0, 40.0, 0.5},
     {PTR_ANIM_draw_one_handed_weapon_and_look_around, 0.0, -1.0, 0.5},
@@ -438,8 +438,7 @@ void currentPlayerAdjustCrouchPos(s32 value);
 void bondviewUpdateSpeedSideways(s32 arg0);
 void bondviewUpdateSpeedForwards(s32 arg0);
 void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, struct coord3d *pos2, struct coord3d *offset, struct StandTile **stan, struct coord3d *arg6);
-void bondviewCalcIntroSwirlCamera(s32, f32, struct coord3d *, struct coord3d *);
-s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, coord3d *collision_pos, StandTile *tile, f32 camera_dist);
+void bviewCalcIntroSwirlCamera(s32, f32, struct coord3d *, struct coord3d *);
 Gfx* hudmsgBottomRender(Gfx* arg0);
 Gfx *bondviewRenderUpperText(Gfx *gdl);
 Gfx *bondviewRenderCredits(Gfx *gdl);
@@ -683,7 +682,7 @@ void bviewLoadPlayerChr(void)
 
         if (g_CameraMode == CAMERAMODE_SWIRL)
         {
-            item = starting_weapon[GUNRIGHT];
+            item = g_StartingWeapons[GUNRIGHT];
         }
 
         if (getPlayerCount() == 1)
@@ -962,12 +961,9 @@ s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, co
 }
 
 
-void bondviewSetCameraMode(s32 arg0)
+void bviewSetCameraMode(CAMERAMODE cameraMode)
 {
-    s32 padding;
-    s32 padding2;
-
-    g_CameraMode = arg0;
+    g_CameraMode = cameraMode;
     g_CameraAfterCinema = 0;
 
     if (g_CameraMode == CAMERAMODE_INTRO)
@@ -982,7 +978,7 @@ void bondviewSetCameraMode(s32 arg0)
         }
         else
         {
-            bondviewSetCameraMode(CAMERAMODE_SWIRL);
+            bviewSetCameraMode(CAMERAMODE_SWIRL);
         }
     }
     else if (g_CameraMode == CAMERAMODE_FADESWIRL)
@@ -1002,7 +998,7 @@ void bondviewSetCameraMode(s32 arg0)
     {
         struct ModelAnimation *sp38;
         f32 sp78;
-        f32 ftemp_3;
+        f32 animSpeed;
         f32 ftemp_1;
         struct ChrRecord *temp_v1;
 
@@ -1022,15 +1018,9 @@ void bondviewSetCameraMode(s32 arg0)
             sp38 = (struct ModelAnimation *)((s32)stage_intro_anim_table[g_IntroAnimationIndex].anonymous_0 + (s32)&ptr_animation_table->data);
             sp78 = stage_intro_anim_table[g_IntroAnimationIndex].anonymous_2;
             ftemp_1 = stage_intro_anim_table[g_IntroAnimationIndex].anonymous_1;
-            ftemp_3 = stage_intro_anim_table[g_IntroAnimationIndex].anonymous_3;
+            animSpeed = stage_intro_anim_table[g_IntroAnimationIndex].animSpeed;
 
-            modelSetAnimation(
-                g_CurrentPlayer->bodyModel,
-                sp38,
-                0,
-                ftemp_1,
-                ftemp_3,
-                0.0f);
+            modelSetAnimation(g_CurrentPlayer->bodyModel, sp38, 0, ftemp_1, animSpeed, 0.0f);
 
             if (sp78 > 0.0f)
             {
@@ -1044,7 +1034,7 @@ void bondviewSetCameraMode(s32 arg0)
         }
         else
         {
-            bondviewSetCameraMode(CAMERAMODE_FP);
+            bviewSetCameraMode(CAMERAMODE_FP);
         }
     }
     else if (g_CameraMode == CAMERAMODE_FP)
@@ -1067,8 +1057,8 @@ void bondviewSetCameraMode(s32 arg0)
 
         if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x0)
         {
-            currentPlayerEquipWeaponWrapper(GUNLEFT, starting_weapon[GUNLEFT]);
-            currentPlayerEquipWeaponWrapper(GUNRIGHT, starting_weapon[GUNRIGHT]);
+            currentPlayerEquipWeaponWrapper(GUNLEFT, g_StartingWeapons[GUNLEFT]);
+            currentPlayerEquipWeaponWrapper(GUNRIGHT, g_StartingWeapons[GUNRIGHT]);
         }
 
         stop_time_flag = 0;
@@ -1218,12 +1208,12 @@ void bondviewAdvanceCameraMode(void)
 
     if (mode == CAMERAMODE_INTRO)
     {
-        bondviewSetCameraMode(CAMERAMODE_FADESWIRL);
+        bviewSetCameraMode(CAMERAMODE_FADESWIRL);
     }
     else if (mode == CAMERAMODE_FADESWIRL)
     {
         bondviewResetIntroCameraMessageDialogs();
-        bondviewSetCameraMode(CAMERAMODE_SWIRL);
+        bviewSetCameraMode(CAMERAMODE_SWIRL);
     }
     else if (mode != CAMERAMODE_MP)
     {
@@ -1231,13 +1221,13 @@ void bondviewAdvanceCameraMode(void)
         {
             bondviewRemovePlayerBody();
             currentPlayerStartChrFade(0.0f, 1.0f); // What's the point of this call?
-            bondviewSetCameraMode(CAMERAMODE_FP);
+            bviewSetCameraMode(CAMERAMODE_FP);
         }
         else if (mode != CAMERAMODE_FP)
         {
             if (mode == CAMERAMODE_DEATH_CAM_SP)
             {
-                bondviewSetCameraMode(CAMERAMODE_DEATH_CAM_MP);
+                bviewSetCameraMode(CAMERAMODE_DEATH_CAM_MP);
             }
             else if (mode == CAMERAMODE_DEATH_CAM_MP)
             {
@@ -1245,7 +1235,7 @@ void bondviewAdvanceCameraMode(void)
 
                 if (camera_mode < CAMERAMODE_SWIRL)
                 {
-                    bondviewSetCameraMode(CAMERAMODE_DEATH_CAM_SP);
+                    bviewSetCameraMode(CAMERAMODE_DEATH_CAM_SP);
                 }
             }
         }
@@ -1256,7 +1246,7 @@ void bondviewAdvanceCameraMode(void)
 /**
  * Smoothly interpolate the camera between the points on the intro swirl path.
  */
-void bondviewCalcIntroSwirlCamera(s32 index, f32 time, coord3d *pos, coord3d *lookat)
+void bviewCalcIntroSwirlCamera(s32 index, f32 time, coord3d *pos, coord3d *lookat)
 {
     struct SetupIntroSwirl *base;
     struct SetupIntroSwirl *loopbase;
@@ -1277,10 +1267,8 @@ void bondviewCalcIntroSwirlCamera(s32 index, f32 time, coord3d *pos, coord3d *lo
 
     {
         struct SetupIntroSwirl *entry;
-        union {
-            struct SetupIntroSwirl *swirl;
-            struct player *player;
-        } target;
+        struct SetupIntroSwirl *swirl;
+        struct player *player;
         s32 i;
 
         loopbase = base + (u32) index;
@@ -1289,23 +1277,23 @@ void bondviewCalcIntroSwirlCamera(s32 index, f32 time, coord3d *pos, coord3d *lo
         {
             entry = loopbase;
             loopbase = base + (u32) index;
-            target.swirl = entry + i;
+            swirl = entry + i;
             dst = &pointbuf[i * 3];
 
             if (i < 0)
             {
-                if (target.swirl < base)
+                if (swirl < base)
                 {
                     entry = base;
                 }
                 else
                 {
-                    entry = target.swirl;
+                    entry = swirl;
                 }
             }
             else
             {
-                while (entry < target.swirl)
+                while (entry < swirl)
                 {
                     if (entry[1].bitflags & 1)
                     {
@@ -1318,12 +1306,10 @@ void bondviewCalcIntroSwirlCamera(s32 index, f32 time, coord3d *pos, coord3d *lo
 
             if (entry->bitflags & 2)
             {
-                target.player = g_CurrentPlayer;
-                dst[3] = (entry->offsetfromBond[2].fval * target.player->field_488.theta_transform.f[0])
-                    + (entry->offsetfromBond[0].fval * target.player->field_488.theta_transform.f[2]);
+                player = g_CurrentPlayer;
+                dst[3] = (entry->offsetfromBond[2].fval * player->field_488.theta_transform.f[0]) + (entry->offsetfromBond[0].fval * player->field_488.theta_transform.f[2]);
                 dst[4] = entry->offsetfromBond[1].fval;
-                dst[5] = (entry->offsetfromBond[2].fval * target.player->field_488.theta_transform.f[2])
-                    - (entry->offsetfromBond[0].fval * target.player->field_488.theta_transform.f[0]);
+                dst[5] = (entry->offsetfromBond[2].fval * player->field_488.theta_transform.f[2]) - (entry->offsetfromBond[0].fval * player->field_488.theta_transform.f[0]);
             }
             else
             {
@@ -1576,7 +1562,7 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
             }
         }
 
-        bondviewCalcIntroSwirlCamera(intro_camera_index, camera_transition_timer, pos, pos2);
+        bviewCalcIntroSwirlCamera(intro_camera_index, camera_transition_timer, pos, pos2);
 
         if (g_IntroSwirl[intro_camera_index].unk1C >= 0)
         {
@@ -8198,8 +8184,8 @@ void bviewPlayerBeginLife(void)
 
     if (getPlayerCount() >= 2)
     {
-        currentPlayerEquipWeaponWrapper(GUNLEFT, starting_weapon[GUNLEFT]);
-        currentPlayerEquipWeaponWrapper(GUNRIGHT, starting_weapon[GUNRIGHT]);
+        currentPlayerEquipWeaponWrapper(GUNLEFT, g_StartingWeapons[GUNLEFT]);
+        currentPlayerEquipWeaponWrapper(GUNRIGHT, g_StartingWeapons[GUNRIGHT]);
 
         if (g_CurrentPlayer->bodyModel == NULL)
         {
@@ -8900,7 +8886,7 @@ Gfx *bondviewRenderPlayerView(Gfx *gdl)
                 {
                     if (getPlayerCount() == 1)
                     {
-                        bondviewSetCameraMode(CAMERAMODE_DEATH_CAM_SP);
+                        bviewSetCameraMode(CAMERAMODE_DEATH_CAM_SP);
                     }
                     else
                     {

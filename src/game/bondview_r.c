@@ -151,8 +151,8 @@ void bondviewLoadSetupIntroSection(void)
     watch_time_0 = 0;
     g_IntroAnimationIndex = 0;
     watch_transition_time = 0.9090909f;
-    starting_weapon[GUNLEFT] = ITEM_UNARMED;
-    starting_weapon[GUNRIGHT] = ITEM_UNARMED;
+    g_StartingWeapons[GUNLEFT] = ITEM_UNARMED;
+    g_StartingWeapons[GUNRIGHT] = ITEM_UNARMED;
 
     if (intro_record != NULL)
     {
@@ -193,7 +193,7 @@ void bondviewLoadSetupIntroSection(void)
 
                         if (set_starting_weapon == 0)
                         {
-                            starting_weapon[GUNRIGHT] = intro_item->item_right;
+                            g_StartingWeapons[GUNRIGHT] = intro_item->item_right;
 
                             if(intro_item->item_left);
 
@@ -201,7 +201,7 @@ void bondviewLoadSetupIntroSection(void)
 
                             if (intro_item->item_left >= 0)
                             {
-                                starting_weapon[GUNLEFT] = intro_item->item_left;
+                                g_StartingWeapons[GUNLEFT] = intro_item->item_left;
                             }
                         }
                     }
@@ -349,7 +349,7 @@ void bondviewLoadSetupIntroSection(void)
 
     if (set_starting_weapon == 0)
     {
-        starting_weapon[GUNRIGHT] = ITEM_FIST;
+        g_StartingWeapons[GUNRIGHT] = ITEM_FIST;
     }
 
     g_CurrentPlayer->field_78 = FLOAT_INIT;
@@ -420,11 +420,11 @@ void bondviewLoadSetupIntroSection(void)
 
     if (getPlayerCount() == 1)
     {
-        bondviewSetCameraMode(CAMERAMODE_INTRO);
+        bviewSetCameraMode(CAMERAMODE_INTRO);
     }
     else
     {
-        bondviewSetCameraMode(CAMERAMODE_MP);
+        bviewSetCameraMode(CAMERAMODE_MP);
     }
 
     g_bondviewBondDeathAnimationsCount = 0;

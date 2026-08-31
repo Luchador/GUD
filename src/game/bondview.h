@@ -1109,11 +1109,11 @@ struct firing_anim_struct {
     f32 z;
 };
 
-struct struct_4 {
-    int anonymous_0;
-    float anonymous_1;
-    float anonymous_2;
-    float anonymous_3;
+struct IntroAnim {
+    s32 anonymous_0;
+    f32 anonymous_1;
+    f32 anonymous_2;
+    f32 animSpeed;
 };
 
 typedef struct DamageType
@@ -1131,8 +1131,7 @@ typedef struct DamageType
     u32 blue;
 } DamageType;
 
-typedef struct HealthDisplayDuration 
-{
+typedef struct HealthDisplayDuration {
     s32 validStartFrame;          // When positive the health display does not show up at all.
     s32 updateToRealHealthFrame;  // Frame to switch from showing the health before taking damage, to showing the new health value.
     s32 hideHealthFrame;          // Frame to remove the health/armor gauge from the screen.
@@ -1225,15 +1224,9 @@ extern s32 g_UpperTextSuppressFlags;
 extern s32 startpadcount;
 extern vec3d g_ForceBondMoveOffset;
 extern s32 mission_timer;
-
-#if defined(VERSION_JP) || defined(VERSION_EU)
-extern f32 watch_time_0;
-#else
 extern s32 watch_time_0;
-#endif
-
 extern f32 watch_transition_time;
-extern ITEM_IDS starting_weapon[2];
+extern ITEM_IDS g_StartingWeapons[2];
 extern PadRecord *g_Startpad[];
 extern s32 startpadcount;
 
@@ -1279,16 +1272,9 @@ void bviewPlayerBeginLife(void);
 
 void bondviewMovePlayerUpdateViewport(s8 arg0, s8 arg1, u16 arg2);
 
-#if defined(BUGFIX_R1)
-#define HUDMESSAGEBOTTOM jp_hudmsgBottomShow
-void hudmsgBottomShow(char *string, s32 arg1, s32 arg2);
-void jp_hudmsgBottomShow(char *string);
-#else
-// VERSION_US
 #define HUDMESSAGEBOTTOM hudmsgBottomShow
 void hudmsgBottomShow(char *string);
 void setFontTables(s32 arg0, s32 arg1);
-#endif
 
 Gfx *bviewRenderCameraView(Gfx *arg0);
 s32 bond_pressed_reload_activate(void);
@@ -1339,7 +1325,7 @@ f32 getPlayer_c_lodscalez(void);
 f32 bondviewGetBondBreathing(void);
 void bondviewClearUpperTextDisplayFlag(int param_1);
 void bondviewSetUpperTextDisplayFlag(PLAYERFLAG flag);
-void bondviewSetCameraMode(s32 arg0);
+void bviewSetCameraMode(CAMERAMODE cameraMode);
 bool isBondInTank(void);
 void hudmsgTopShow(char* string);
 void SurroundWithExplosions(int delay);

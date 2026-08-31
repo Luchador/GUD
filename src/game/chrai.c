@@ -3943,7 +3943,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 }
                 case AI_CameraReturnToBond:
                 {
-                    bondviewSetCameraMode(CAMERAMODE_FP_NOINPUT);
+                    bviewSetCameraMode(CAMERAMODE_FP_NOINPUT);
                     Offset += sizeof(AiCameraReturnToBondRecord);
                     break;
                 }
@@ -3959,7 +3959,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                     {
                         g_CameraLookAtBondPad = (PadRecord *)&g_CurrentSetup.boundpads[getBoundPadNum(padnum)];
                     }
-                    bondviewSetCameraMode(CAMERAMODE_POSEND);
+                    bviewSetCameraMode(CAMERAMODE_POSEND);
                     Offset += sizeof(AiCameraLookAtBondFromPadRecord);
                     break;
                 }
@@ -3982,7 +3982,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                             gBondViewCutscene       = cdef;
                             dword_CODE_bss_80079A18 = ntohs(ai->LOOK_AT_BOND_FLAG);
                             dword_CODE_bss_80079A1C = ntohs(ai->UNUSED_FLAG);
-                            bondviewSetCameraMode(CAMERAMODE_POSEND);
+                            bviewSetCameraMode(CAMERAMODE_POSEND);
                         }
                     }
                     Offset += AI_CameraSwitch_LENGTH;
@@ -4336,7 +4336,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                     flt_CODE_bss_80079A0C   = camHeight;
                     flt_CODE_bss_80079A10   = targetHeight;
                     dword_CODE_bss_80079A14 = padnum;
-                    bondviewSetCameraMode(CAMERAMODE_POSEND);
+                    bviewSetCameraMode(CAMERAMODE_POSEND);
                     Offset += sizeof(AiCameraOrbitPadRecord);
                     break;
                 }

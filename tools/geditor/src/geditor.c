@@ -18,6 +18,8 @@
 #define GEDITOR_WIDTH  1920
 #define GEDITOR_HEIGHT  1080
 
+static HWND g_Viewport;
+
 /*
  * Menu command IDs. Every clickable item needs one; it is the number
  * that arrives in WM_COMMAND when the item is chosen. Start high -
@@ -32,10 +34,9 @@ enum {
     ID_EDIT_REDO
 };
 
+
 /*
- * Builds the menu bar. The menu is a tree: CreateMenu makes the
- * horizontal bar, CreatePopupMenu makes each drop-down, and
- * AppendMenu hangs items and popups onto them.
+ * Builds the top menu bar.
  */
 static HMENU GEditorCreateMenuBar(void)
 {
@@ -62,13 +63,11 @@ static HMENU GEditorCreateMenuBar(void)
     return menubar;
 }
 
+
 /*
  * Returns TRUE if name is usable as a project name. The rules are the
  * ones Windows imposes on file names, because the name becomes part of
- * the .gep file name: something must be there, and none of the
- * reserved characters may appear.
- *
- * reasonout receives a message to show the user when the name is bad.
+ * the .gep file name. There must be text and the text can't use reserved characters.
  */
 static BOOL GEditorNameIsValid(const char *name, const char **reasonout)
 {
@@ -99,6 +98,7 @@ static BOOL GEditorNameIsValid(const char *name, const char **reasonout)
     return TRUE;
 }
 
+
 /*
  * Re-checks the edit box and updates the two things that depend on it:
  * whether Create Project is clickable, and what the warning line says.
@@ -118,16 +118,7 @@ static void GEditorUpdateNameValidity(HWND hdlg)
     SetDlgItemText(hdlg, IDC_NAME_WARNING, reason);
 }
 
-/*
- * Dialog procedure for IDD_NEW_PROJECT.
- *
- * Unlike a window procedure this returns TRUE when it handled the
- * message and FALSE to let the default dialog handling run - it does
- * not call DefWindowProc.
- *
- * The caller passes a char buffer as the DialogBoxParam parameter; we
- * stash it and fill it in if the user creates a project.
- */
+
 static INT_PTR CALLBACK GEditorNewProjectProc(HWND hdlg, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     char *nameout;
@@ -206,15 +197,9 @@ static BOOL GEditorPromptForNewProject(HWND hwnd, char *nameout)
     return (result == IDOK);
 }
 
+
 /*
- * Asks the user for a .gep project file.
- *
- * Fills pathout (a buffer of at least MAX_PATH chars) and returns
- * TRUE if a file was chosen, FALSE if the user cancelled.
- *
- * This is the Explorer-style common dialog, so the File name box
- * accepts a pasted full path - to a file or to a folder - and the
- * address bar can be clicked and typed into.
+ * Ask the user for a .gep project file.
  */
 static BOOL GEditorPromptForProject(HWND hwnd, char *pathout, DWORD pathmax)
 {
@@ -238,30 +223,16 @@ static BOOL GEditorPromptForProject(HWND hwnd, char *pathout, DWORD pathmax)
     ofn.lpstrFilter = "GEditor Projects (*.gep)\0*.gep\0All Files (*.*)\0*.*\0";
     ofn.nFilterIndex = 1;              /* 1-based: start on the .gep filter */
 
-    ofn.Flags = OFN_EXPLORER          /* modern Explorer-style dialog */
-              | OFN_FILEMUSTEXIST     /* refuse names that do not exist */
+    ofn.Flags = OFN_EXPLORER          /* Modern Explorer-style dialog. */
+              | OFN_FILEMUSTEXIST     /* Refuse names that do not exist. */
               | OFN_PATHMUSTEXIST
-              | OFN_HIDEREADONLY      /* hide the vestigial read-only box */
-              | OFN_NOCHANGEDIR;      /* do not move our working directory */
+              | OFN_HIDEREADONLY      /* Hide the vestigial read-only box. */
+              | OFN_NOCHANGEDIR;      /* Do not move our working directory. */
 
     return GetOpenFileName(&ofn);
 }
 
-/*
- * Window procedure: Windows calls this for every message aimed at our
- * window. We handle the ones we care about and hand the rest to
- * DefWindowProc, which supplies the standard behaviour (dragging,
- * resizing, the min/max/close buttons, and so on).
- */
-/* The one viewport child. Created in WM_CREATE, laid out in WM_SIZE. */
-static HWND g_Viewport;
 
-/*
- * Positions the child windows inside the main window's client area.
- * For now the viewport takes everything; when the content-browser
- * column arrives, it claims a strip on the left and the viewport
- * starts where it ends.
- */
 static void GEditorLayout(HWND hwnd)
 {
     RECT rc;
@@ -278,6 +249,7 @@ static void GEditorLayout(HWND hwnd)
     }
 }
 
+
 static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     switch (msg)
@@ -289,7 +261,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         g_Viewport = ViewportCreate(hwnd, cs->hInstance);
         if (g_Viewport == NULL)
         {
-            return -1; /* no viewport, no editor */
+            return -1;
         }
         return 0;
     }
@@ -299,7 +271,6 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         return 0;
 
     case WM_COMMAND:
-        /* Menu selections arrive here with the command ID in the low word. */
         switch (LOWORD(wparam))
         {
         case ID_FILE_NEW_PROJECT:
@@ -327,11 +298,6 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
 
         case ID_FILE_EXIT:
-            /* Send the same message the close button sends, so both
-               routes share one shutdown path. When GEditor later needs
-               to ask about unsaved changes, that prompt goes in the
-               WM_CLOSE handler and covers the menu, the X button and
-               Alt+F4 at once. */
             SendMessage(hwnd, WM_CLOSE, 0, 0);
             return 0;
         }
@@ -354,12 +320,11 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
     MSG msg;
     HMENU menubar;
 
-    /* 1. Describe the kind of window we want, and register it. */
     ZeroMemory(&wc, sizeof(wc));
     wc.lpfnWndProc   = GEditorWndProc;
     wc.hInstance     = hinstance;
     wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); /* paints the blank client area */
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); /* Paints the blank client area. */
     wc.lpszClassName = GEDITOR_CLASS;
 
     if (!RegisterClass(&wc))
@@ -376,14 +341,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
 
     menubar = GEditorCreateMenuBar();
 
-    hwnd = CreateWindowEx(
-        0,
-        GEDITOR_CLASS,
-        GEDITOR_TITLE,
-        WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT,       /* let Windows place it */
-        GEDITOR_WIDTH, GEDITOR_HEIGHT,
-        NULL, menubar, hinstance, NULL);
+    hwnd = CreateWindowEx(0, GEDITOR_CLASS, GEDITOR_TITLE, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, GEDITOR_WIDTH, GEDITOR_HEIGHT, NULL, menubar, hinstance, NULL);
 
     if (hwnd == NULL)
     {
@@ -394,8 +352,9 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
     ShowWindow(hwnd, showcmd);
     UpdateWindow(hwnd);
 
-    /* 3. The message loop. GetMessage blocks until something happens,
-          returns 0 when WM_QUIT arrives, and -1 on error. */
+    /**
+     * The message loop. GetMessage blocks until something happens, returns 0 when WM_QUIT arrives, and -1 on error. 
+     */
     for (;;)
     {
         if (g_Viewport != NULL && ViewportIsFlying(g_Viewport))

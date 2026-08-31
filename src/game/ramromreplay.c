@@ -297,7 +297,7 @@ void ramromFadeToTitle(void)
 {
     if (bondviewGetCameraMode() != CAMERAMODE_FADE_TO_TITLE)
     {
-        bondviewSetCameraMode(CAMERAMODE_FADE_TO_TITLE);
+        bviewSetCameraMode(CAMERAMODE_FADE_TO_TITLE);
     }
 }
 
