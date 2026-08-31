@@ -540,7 +540,7 @@ void playerInitData(s32 player_num)
     g_playerPointers[player_num]->equipallguns = FALSE;
     g_playerPointers[player_num]->equipcuritem = ITEM_UNARMED;
     g_playerPointers[player_num]->textoverrides = NULL;
-    g_playerPointers[player_num]->field_1280 = 0.0f;
+    g_playerPointers[player_num]->mpStrafeYawOffsetDegrees = 0.0f;
     g_playerPointers[player_num]->players_cur_animation = 0;
     g_playerPointers[player_num]->field_1288 = 0.0f;
     g_playerPointers[player_num]->cheatBondInvincible = FALSE;

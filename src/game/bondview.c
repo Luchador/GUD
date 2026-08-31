@@ -9650,9 +9650,9 @@ void bondviewResetUpperTextDisplay(void)
 
 void bondviewClearUpperTextDisplayFlag(int param_1)
 {
-  int new_var;
-  new_var = ~param_1;
-  g_UpperTextSuppressFlags = g_UpperTextSuppressFlags & new_var;
+    s32 new_var;
+    new_var = ~param_1;
+    g_UpperTextSuppressFlags = g_UpperTextSuppressFlags & new_var;
 }
 
 
@@ -9665,27 +9665,19 @@ void bondviewSetUpperTextDisplayFlag(PLAYERFLAG flag)
 void hudmsgTopShow(char* mess)
 {
     s32 index;
-    #ifdef DEBUG
-        assert(strlen(mess)<=MAXTALKMESSLEN);
-    #endif
-    if (g_UpperTextMsgQueued >= 2) { return; }
+
+    if (g_UpperTextMsgQueued >= 2) 
+    { 
+        return; 
+    }
 
     index = (g_UpperTextTopSlot + g_UpperTextMsgQueued) % 2;
-#if defined(LEFTOVERDEBUG)
     strncpy(stringbuffer_top[index], mess, (BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH-1));
     g_UpperTextMsgQueued += 1;
     stringbuffer_top[index][(BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH-1)] = 0;
-#else
-    strncpy(dword_CODE_bss_80079DC8[index], mess, (BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH-1));
-    g_UpperTextMsgQueued += 1;
-    dword_CODE_bss_80079DC8[index][(BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH-1)] = 0;
-#endif
 }
 
 
-/**
- * Address 0x7F08A9F8.
- */
 void bondviewUpperTextWindowTimerTick(void)
 {
     if ((g_UpperTextSuppressFlags == FALSE) && (g_CurrentPlayer->mpmenuon == FALSE))
@@ -9730,22 +9722,14 @@ Gfx *bondviewRenderUpperText(Gfx *gdl)
     {
         if (g_UpperTextTimer >= 0)
         {
-#if defined(LEFTOVERDEBUG)
             if (stringbuffer_top[g_UpperTextTopSlot][0] != '\0')
-#else
-            if (dword_CODE_bss_80079DC8[g_UpperTextTopSlot][0] != '\0')
-#endif
             {
                 if (g_CurrentPlayer->mpmenuon == 0)
                 {
                     gdl = gfxSetup2DTextureMode(gdl);
                     msg.textwidth = 0;
                     msg.textheight = 0;
-#if defined(LEFTOVERDEBUG)
                     textMeasure(&msg.textheight, &msg.textwidth, stringbuffer_top[g_UpperTextTopSlot], ptrFontZurichBoldChars, ptrFontZurichBold, 0);
-#else
-                    textMeasure(&msg.textheight, &msg.textwidth, dword_CODE_bss_80079DC8[g_UpperTextTopSlot], ptrFontZurichBoldChars, ptrFontZurichBold, 0);
-#endif
                     if (g_HiResModeActive != 0)
                     {
                         msg.x = viGetViewLeft() + 0x46;
@@ -9763,30 +9747,10 @@ Gfx *bondviewRenderUpperText(Gfx *gdl)
 
                     msg.bottom = msg.y + msg.textheight;
                     gdl = gfxDrawTranslucentRect(gdl, 0, msg.y - 2, viGetX(), msg.bottom, 0x64);
-#ifdef VERSION_US
                     screenwidth = (s32)viGetX();
                     gdl = textRender(gdl, &msg.x, &msg.y, stringbuffer_top[g_UpperTextTopSlot], ptrFontZurichBoldChars, ptrFontZurichBold, -1, screenwidth, viGetY(), 0, 0);
-#else
-                    if (j_text_trigger != 0)
-                    {
-                        screenwidth = (s32)viGetX();
-#if defined(LEFTOVERDEBUG)
-                        gdl = textRenderOutlined(gdl, &msg.x, &msg.y, stringbuffer_top[g_UpperTextTopSlot], ptrFontZurichBoldChars, ptrFontZurichBold, -1, 0x646464FF, screenwidth, viGetY(), 0, 0);
-#else
-                        gdl = textRenderOutlined(gdl, &msg.x, &msg.y, dword_CODE_bss_80079DC8[g_UpperTextTopSlot], ptrFontZurichBoldChars, ptrFontZurichBold, -1, 0x646464FF, screenwidth, viGetY(), 0, 0);
-#endif
-                    }
-                    else
-                    {
-                        screenwidth = (s32)viGetX();
-#if defined(LEFTOVERDEBUG)
-                        gdl = textRender(gdl, &msg.x, &msg.y, stringbuffer_top[g_UpperTextTopSlot], ptrFontZurichBoldChars, ptrFontZurichBold, -1, screenwidth, viGetY(), 0, 0);
-#else
-                        gdl = textRender(gdl, &msg.x, &msg.y, dword_CODE_bss_80079DC8[g_UpperTextTopSlot], ptrFontZurichBoldChars, ptrFontZurichBold, -1, screenwidth, viGetY(), 0, 0);
-#endif
-                    }
-#endif
                     gdl = gfxRestore3DRenderMode(gdl);
+
                     goto end;
                 }
             }
@@ -9999,9 +9963,9 @@ set_crouch_lean:
             sub = 4;
             angle = -ppointers[index]->speedsideways;
  
-            if (ppointers[index]->field_1280 < 90.0f)
+            if (ppointers[index]->mpStrafeYawOffsetDegrees < 90.0f)
             {
-                ppointers[index]->field_1280 = ppointers[index]->field_1280 + 15.0f;
+                ppointers[index]->mpStrafeYawOffsetDegrees = ppointers[index]->mpStrafeYawOffsetDegrees + 15.0f;
             }
         }
         else if ((ppointers[index]->speedsideways > 0.0f) && (firing_animation_groups[group][3].pointer != NULL))
@@ -10009,9 +9973,9 @@ set_crouch_lean:
             sub = 3;
             angle = ppointers[index]->speedsideways;
  
-            if (ppointers[index]->field_1280 > (-90.0f))
+            if (ppointers[index]->mpStrafeYawOffsetDegrees > (-90.0f))
             {
-                ppointers[index]->field_1280 = ppointers[index]->field_1280 - 15.0f;
+                ppointers[index]->mpStrafeYawOffsetDegrees = ppointers[index]->mpStrafeYawOffsetDegrees - 15.0f;
             }
         }
         else
@@ -10109,14 +10073,14 @@ set_full_lean:
             sub = 0;
  
 lean_return_to_centre:
-            if (0.0f < ppointers[index]->field_1280)
+            if (0.0f < ppointers[index]->mpStrafeYawOffsetDegrees)
             {
-                ppointers[index]->field_1280 = ppointers[index]->field_1280 - 15.0f;
+                ppointers[index]->mpStrafeYawOffsetDegrees = ppointers[index]->mpStrafeYawOffsetDegrees - 15.0f;
             }
  
-            if (ppointers[index]->field_1280 < 0.0f)
+            if (ppointers[index]->mpStrafeYawOffsetDegrees < 0.0f)
             {
-                ppointers[index]->field_1280 = ppointers[index]->field_1280 + 15.0f;
+                ppointers[index]->mpStrafeYawOffsetDegrees = ppointers[index]->mpStrafeYawOffsetDegrees + 15.0f;
             }
         }
  
@@ -10226,7 +10190,7 @@ join_768:
     off.x = prop->pos.x;
     off.z = prop->pos.z;
     setsuboffset(chr->model, &off);
-    setsubroty(chr->model, (((360.0f - ppointers[index]->vv_theta) + ppointers[index]->field_1280) * M_TAU_F) / 360.0f);
+    setsubroty(chr->model, (((360.0f - ppointers[index]->vv_theta) + ppointers[index]->mpStrafeYawOffsetDegrees) * M_TAU_F) / 360.0f);
  
     chr->chrflags |= CHRFLAG_INIT;
     chr->actiontype = ACT_BONDMULTI;

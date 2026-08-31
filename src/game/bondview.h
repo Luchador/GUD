@@ -984,12 +984,12 @@ struct player
   gunheld gunheldarr[10]; // canonical name
 
   // -1 for inactive, 0 or greater for active.
-  s32 magnetattracttime; // canonical name
+  s32 magnetattracttime;
 
   f32 swaytarget;
   f32 swayoffset0;
   f32 swayoffset2;
-  f32 field_1280;
+  f32 mpStrafeYawOffsetDegrees;
   s32 players_cur_animation;
   f32 field_1288;
 
