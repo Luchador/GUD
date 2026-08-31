@@ -22,7 +22,7 @@
 #include "objective_status.h"
 #include "objecthandler.h"
 #include "player.h"
-#include "prop.h"
+#include "setup.h"
 #include "stan.h"
 #include "model.h"
 #include "token.h"

@@ -50,7 +50,7 @@
 #include "mpmenu.h"
 #include "objective.h"
 #include "player.h"
-#include "prop.h"
+#include "setup.h"
 #include "propobj.h"
 #include "stan.h"
 #include "textrelated.h"

@@ -10,7 +10,7 @@
       build/OUTCODE/src/game/initguards.o (.data);
       build/OUTCODE/src/game/chrsetup.o (.data);
       build/OUTCODE/src/game/initobjects.o (.data);
-      build/OUTCODE/src/game/prop.o (.data);
+      build/OUTCODE/src/game/setup.o (.data);
       build/OUTCODE/src/game/objective.o (.data);
       build/OUTCODE/src/game/ejectedcartridges.o (.data);
       build/OUTCODE/src/game/initBondDATA.o (.data);

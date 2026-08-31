@@ -10,7 +10,7 @@
       build/OUTCODE/src/game/initguards.o (.rodata);
       build/OUTCODE/src/game/chrsetup.o (.rodata);
       build/OUTCODE/src/game/initobjects.o (.rodata);
-      build/OUTCODE/src/game/prop.o (.rodata);
+      build/OUTCODE/src/game/setup.o (.rodata);
       build/OUTCODE/src/game/objective.o (.rodata);
       build/OUTCODE/src/game/ejectedcartridges.o (.rodata);
       build/OUTCODE/src/game/initBondDATA.o (.rodata);
