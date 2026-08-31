@@ -353,7 +353,11 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         {
             return -1; /* abort window creation */
         }
+
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
+
+        state->speed = VIEWPORT_FLY_SPEED;
+        state->posz = 600.0f;
 
         if (!ViewportInitGL(hwnd, state))
         {
