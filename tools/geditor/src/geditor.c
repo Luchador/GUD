@@ -12,6 +12,7 @@
 #include <shobjidl.h>   /* IFileOpenDialog: the modern folder picker */
 #include <shlobj.h>     /* SHGetFolderPath: default to Documents */
 #include <string.h>
+#include <stdio.h>
 
 #include "resource.h"
 #include "viewport.h"
