@@ -4,7 +4,7 @@
 #include "ob.h"
 
 
-void reset_mem_bank_5(void)
+void resetMemBank5(void)
 {
     obBlankResourcesInBank5();
     mempResetBank(MEMPOOL_ME);
@@ -12,7 +12,7 @@ void reset_mem_bank_5(void)
 }
 
 
-void sub_GAME_7F0D1A7C(void)
+void disableMemBank5(void)
 {
     mempNullNextEntryInBank(MEMPOOL_ME);
     obBlankResourcesLoadedInBank(MEMPOOL_ME);

@@ -4792,21 +4792,23 @@ void give_cur_player_ammo(s32 ammo_type, s32 ammo_amount)
 }
 
 
-
-
-s32 check_cur_player_ammo_amount_in_inventory(AMMOTYPE ammotype) {
+s32 check_cur_player_ammo_amount_in_inventory(AMMOTYPE ammotype)
+{
     return g_CurrentPlayer->ammoheldarr[ammotype];
 }
 
-s32 currentPlayerGetAmmoCount(AMMOTYPE ammotype) {
 
+s32 currentPlayerGetAmmoCount(AMMOTYPE ammotype)
+{
     s32 total_ammo = check_cur_player_ammo_amount_in_inventory(ammotype);
 
-    if (gunGetAmmoType(getCurrentPlayerWeaponId(GUNRIGHT)) == ammotype) {
+    if (gunGetAmmoType(getCurrentPlayerWeaponId(GUNRIGHT)) == ammotype)
+    {
         total_ammo += get_ammo_in_hands_magazine(GUNRIGHT);
     }
 
-    if (gunGetAmmoType(getCurrentPlayerWeaponId(GUNLEFT)) == ammotype) {
+    if (gunGetAmmoType(getCurrentPlayerWeaponId(GUNLEFT)) == ammotype)
+    {
         total_ammo += get_ammo_in_hands_magazine(GUNLEFT);
     }
 
@@ -4814,13 +4816,10 @@ s32 currentPlayerGetAmmoCount(AMMOTYPE ammotype) {
 }
 
 
-
 s32 get_max_ammo_for_type(s32 arg0)
 {
     return ammo_related[arg0].MaxAmmo;
 }
-
-
 
 
 void set_max_ammo_for_cur_player(void)
@@ -4834,11 +4833,10 @@ void set_max_ammo_for_cur_player(void)
 }
 
 
-
-s32 get_ammo_in_hands_magazine(GUNHAND hand) {
+s32 get_ammo_in_hands_magazine(GUNHAND hand)
+{
     return g_CurrentPlayer->hands[hand].weapon_ammo_in_magazine;
 }
-
 
 
 s32 get_ammo_in_hands_weapon(enum GUNHAND hand)
@@ -4867,17 +4865,20 @@ s32 get_ammo_in_hands_weapon(enum GUNHAND hand)
 }
 
 
-
-s32 gunGetAmmoType(ITEM_IDS weapon) {
+s32 gunGetAmmoType(ITEM_IDS weapon)
+{
     return gunGetItemStats(weapon)->AmmoType;
 }
 
-s32 get_ammo_count_for_weapon(ITEM_IDS weapon) {
-  WeaponStats *weaponstats = gunGetItemStats(weapon);
-  return g_CurrentPlayer->ammoheldarr[weaponstats->AmmoType];
+
+s32 get_ammo_count_for_weapon(ITEM_IDS weapon)
+{
+    WeaponStats *weaponstats = gunGetItemStats(weapon);
+    return g_CurrentPlayer->ammoheldarr[weaponstats->AmmoType];
 }
 
-void add_ammo_to_weapon(ITEM_IDS weapon, s32 ammo) {
+void add_ammo_to_weapon(ITEM_IDS weapon, s32 ammo)
+{
     give_cur_player_ammo(gunGetItemStats(weapon)->AmmoType, ammo);
 }
 

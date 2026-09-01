@@ -2,7 +2,7 @@
 #define _GAME_DEBUG_H_
 #include <ultra64.h>
 
-void reset_mem_bank_5(void);
-void sub_GAME_7F0D1A7C(void);
+void resetMemBank5(void);
+void disableMemBank5(void);
 
 #endif

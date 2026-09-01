@@ -120,9 +120,8 @@ s32 g_MainStageNum = LEVELID_NONE;
 
 OSScMsg g_bossGfxDoneMsg = { OS_SC_DONE_MSG };
 
-
-// extern declarations
 extern struct player *g_CurrentPlayer;
+
 
 void bossInitMainthreadData(void)
 {
@@ -232,7 +231,7 @@ void bossMainloop(void)
     s32 mainTickElapsed;
     s32 rspReplyMsg;
 
-    reset_mem_bank_5();
+    resetMemBank5();
 
     if (tokenFind(1, "-level_") != NULL)
     {
@@ -445,7 +444,7 @@ void bossMainloop(void)
         g_MainStageNum = LEVELID_NONE;
     }
 
-    sub_GAME_7F0D1A7C();
+    disableMemBank5();
 }
 
 
