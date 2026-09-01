@@ -11,9 +11,9 @@ struct object_animation_controller g_InitialTaserAnimController = {&monAnim35Tas
 
 // Begin forward declarations.
 
-void alloc_lookup_buffers();
-void write_monitor_ani_control_blocks();
-void initialize_proxy_mine_table();
+void initRoomPropLookup();
+void initScreenAnimControllers();
+void initProxyMineTable();
 
 // End forward declarations.
 
@@ -44,11 +44,11 @@ void init_load_objpos_table(void)
         g_Props[i].prev = &g_Props[i + 1];
     }
 
-    alloc_lookup_buffers();
+    initRoomPropLookup();
 }
 
 
-void alloc_lookup_buffers(void)
+void initRoomPropLookup(void)
 {
     s32 j;
     s32 i;
@@ -59,16 +59,16 @@ void alloc_lookup_buffers(void)
 
     g_RoomPropQueryIndices[0] = -1;
 
-    for (i=0; i<g_MaxNumRooms; i++)
+    for (i  =0; i < g_MaxNumRooms; i++)
     {
         RoomPropListBlockIndices[i] = -1;
     }
 
-    for (i=0; i<BSS_8007161C_LEN; i++)
+    for (i = 0; i < BSS_8007161C_LEN; i++)
     {
         RoomPropListBlocks[i].propnums[0] = -2;
 
-        for (j=1; j<BSS_8007161C_DATA_LEN; j++)
+        for (j = 1; j < BSS_8007161C_DATA_LEN; j++)
         {
             RoomPropListBlocks[i].propnums[j] = -1;
         }
@@ -80,8 +80,8 @@ void reinit_between_menus(void)
 {
     s32 i;
 
-    write_monitor_ani_control_blocks();
-    initialize_proxy_mine_table();
+    initScreenAnimControllers();
+    initProxyMineTable();
     alarm_timer = 0;
     ptr_alarm_sfx = 0;
     toxic_gas_sound_timer = 0.0f;
@@ -172,20 +172,14 @@ void initSetLevelLoadPropSafeItem(struct ObjectRecord *arg0)
 }
 
 
-void write_monitor_ani_control_blocks(void)
+void initScreenAnimControllers(void)
 {
-    MonitorRecord spEC;
-    struct object_animation_controller sp4;
-
-    spEC = g_InitialMonitorAnimController;
-    g_MonitorAnimController = spEC;
-
-    sp4 = g_InitialTaserAnimController;
-    g_TaserAnimController = sp4;
+    g_MonitorAnimController = g_InitialMonitorAnimController;
+    g_TaserAnimController = g_InitialTaserAnimController;
 }
 
 
-void initialize_proxy_mine_table(void)
+void initProxyMineTable(void)
 {
     s32 i;
 

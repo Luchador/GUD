@@ -4315,7 +4315,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 case AI_IFKilledCiviliansGreaterThan:
                 {
                     AiIFKilledCiviliansGreaterThanRecord *ai = AiListp + Offset;
-                    if (ai->CIVILIANS_KILLED < get_civilian_casualties())
+                    if (ai->CIVILIANS_KILLED < gunGetCivilianCasualties())
                     {
                         Offset = chraiGoToLabel(AiListp, Offset, ai->GOTOLABEL);
                     }

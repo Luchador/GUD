@@ -65,6 +65,7 @@ PropRecord **g_LastOnScreenProp;
  * Count of onscreen props.
  */
 s32 g_OnScreenPropCount;
+
 PropRecord *g_InteractProp;
 WeaponObjRecord* g_ProxyMineTable[MAX_PROXY_MINES];
 f32 gasTimeToFullOpacity;
@@ -83,7 +84,7 @@ struct object_animation_controller g_TaserAnimController;
 
 stagesetup g_CurrentSetup; //Public Working Setup
 
-stagesetup                        *g_ptrStageSetupFile;
+stagesetup *g_ptrStageSetupFile;
 
 PropRecord *g_ActivePropsTail = 0;
 PropRecord *g_ActivePropsHead = 0;
@@ -261,8 +262,8 @@ void chrpropActivateThisFrame(PropRecord* prop)
 
 void chrpropDelist(PropRecord *prop)
 {
-    PropRecord *temp_v0;
-    PropRecord *temp_v0_2;
+    PropRecord *prevprop;
+    PropRecord *nextprop;
 
     if (prop == g_ActivePropsTail)
     {
@@ -274,18 +275,18 @@ void chrpropDelist(PropRecord *prop)
         g_ActivePropsHead = prop->next;
     }
 
-    temp_v0 = prop->prev;
+    prevprop = prop->prev;
 
-    if (temp_v0 != 0)
+    if (prevprop != NULL)
     {
-        temp_v0->next = prop->next;
+        prevprop->next = prop->next;
     }
 
-    temp_v0_2 = prop->next;
+    nextprop = prop->next;
 
-    if (temp_v0_2 != 0)
+    if (nextprop != NULL)
     {
-        temp_v0_2->prev = prop->prev;
+        nextprop->prev = prop->prev;
     }
 
     prop->prev = NULL;
@@ -306,7 +307,7 @@ void chrpropReparent(PropRecord *newChild, PropRecord *host)
     newChild->prev = host->child;
     newChild->next = NULL;
     newChild->stan = NULL;
-    host->child    = newChild;
+    host->child = newChild;
 }
 
 
@@ -384,10 +385,7 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
     PropRecord *prop;
     s32 i;
     s32* rp;
-    s32 unused2;
-    s32 sp48[PROPRECORD_STAN_ROOM_LEN];
-    s32 unused3;
-    s32 unused4;
+    s32 roomids[PROPRECORD_STAN_ROOM_LEN];
 
     if (bossGetStageNum() == LEVELID_CUBA)
     {
@@ -423,9 +421,9 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
                 if (flag != 0)
                 {
                     flag = 0;
-                    chraiGetPropRoomIds(prop, sp48);
+                    chraiGetPropRoomIds(prop, roomids);
 
-                    for (rp = sp48; *rp >= 0; rp++)
+                    for (rp = roomids; *rp >= 0; rp++)
                     {
                         if (bgIsRoomRendered(*rp))
                         {
@@ -455,9 +453,9 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
             if (prop != NULL)
             {
                 flag = 0;
-                chraiGetPropRoomIds(prop, sp48);
+                chraiGetPropRoomIds(prop, roomids);
 
-                for (rp = sp48; *rp >= 0; rp++)
+                for (rp = roomids; *rp >= 0; rp++)
                 {
                     if (bgIsRoomRendered(*rp))
                     {
@@ -758,8 +756,6 @@ s32 chrpropFindClosestBgHitRoom(s32 unused, coord3d *from, coord3d *to, coord3d 
 }
 
 /*
-* Address: 0x7F03B15C
-*
 * This function has a bunch of issues. It allows the player to shoot through walls
 * and even creates sparks in the distance when they shoot at the sky. Some of these
 * issues arise because it traces over the stan tiles to find the first room to test.
@@ -956,9 +952,6 @@ void chraiDefaultWeaponFireHandler(s32 hand)
     {
         if (shotdata.hits[k].prop != 0)
         {
-#ifdef DEBUG
-        assert(!IsBadVec3d((vec3d *)&shotdata.hits[k].hit.hitpos));
-#endif
             if ((shotdata.hits[k].prop->type == PROP_TYPE_CHR) || (shotdata.hits[k].prop->type == PROP_TYPE_VIEWER))
             {
                 chrHandleBulletHit(&shotdata, &shotdata.hits[k]);
@@ -986,7 +979,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
         finalpos = 0;
         createSpark = 1;
 
-        if ((shotdata.weapon == 23) && (negz > new_var))
+        if ((shotdata.weapon == ITEM_WATCHLASER) && (negz > new_var))
         {
             createSpark = 0;
         }
@@ -1004,7 +997,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
 
             if (createSpark)
             {
-                if ((impact_sounds->thing2_len > 0) && (shotdata.weapon != 23))
+                if ((impact_sounds->thing2_len > 0) && (shotdata.weapon != ITEM_WATCHLASER))
                 {
                     pad = randomGetNext() % impact_sounds->thing2_len;
                     explosionCreateBulletImpact(&visiblehitpos, &bghit.normal, impact_sounds->thing2[pad], bestroom, 0, -1, 0);
@@ -1056,8 +1049,6 @@ void chraiDefaultWeaponFireHandler(s32 hand)
 
 
 /**
- * Address: 7F03B9C0
- *
  * Hitscans gather candidate hits along the bullet path. This function records each candidate hit into shotdata
  * and enforces pentration limits and removes hits that should be blocked by closer objects.
  */
@@ -1069,7 +1060,6 @@ void chrpropAddBulletHit(struct ShotData *shotdata, PropRecord *prop, f32 dist, 
     f32 prevfurthest;
     s32 numPenetratedObjects;
     f32 furthest;
-    struct ShotData *localshot; // Assigned but never used, required for matching.
 
     /**
      * If countsAsPenetration is true, then this hit is on an object that bullets may pass through,
@@ -1081,7 +1071,6 @@ void chrpropAddBulletHit(struct ShotData *shotdata, PropRecord *prop, f32 dist, 
         prevfurthest = furthest;
         furthestindex = 0;
         numPenetratedObjects = 0;
-        localshot = shotdata;
 
         for (i = 0; i < ARRAYCOUNT(shotdata->hits); i++)
         {
@@ -1299,8 +1288,6 @@ void chraiFistAttackHandler(s32 hand, s32 item_id)
             hitpart = HIT_GENERALHALF;
         }
 
-        if (g_musicSfxBufferPtr && g_musicSfxBufferPtr);
-
         gunCalcBulletPath(&from, &vector, hand);
         mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), &vector);
 
@@ -1362,7 +1349,7 @@ void chraiCheckUseHeldItem(s32 hand)
         {
             inc_curplayer_hitcount_with_weapon(item_id, SHOT_REGISTER_TOTAL);
 
-            for (i=0; i<NUMBER_SHOTGUN_BULLETS; i++)
+            for (i = 0; i < NUMBER_SHOTGUN_BULLETS; i++)
             {
                 chraiDefaultWeaponFireHandler(hand);
             }

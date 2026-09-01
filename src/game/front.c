@@ -6735,7 +6735,7 @@ Gfx *constructor_menu0D_missioncomplete(Gfx *DL)
     DL = gfxSetup2DTextureMode(DL);
 
     missiontimer = getMissiontimer();
-    killcount = get_curplay_killcount();
+    killcount = gunGetMPKillCount();
     shotsfired = get_curplayer_shot_register(0);
     headshots = get_curplayer_shot_register(1);
     bodyshots = get_curplayer_shot_register(2);

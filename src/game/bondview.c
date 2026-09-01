@@ -9018,22 +9018,22 @@ void record_damage_kills(f32 damage_amount, f32 vectorx, f32 vectorz, s32 player
                             if (sp2C != playerid)
                             {
                                 drop_inventory();
-                                increment_num_deaths();
+                                gunIncMPDeaths();
                             }
 
                             set_cur_player(playerid);
 
                             if (sp2C == playerid)
                             {
-                                increment_num_suicides_display_MP();
+                                gunIncMPSuicides();
                             }
                             else
                             {
-                                increment_num_kills_display_text_in_MP();
+                                gunIncMPKillCount();
 
                                 if (sp28 != 0)
                                 {
-                                    increment_num_times_killed_MwtGC();
+                                    gunIncMPGGKillCount();
                                 }
                             }
 

@@ -176,7 +176,7 @@ Rotate Image:
 
 
 /**
- * Getting a match on alloc_lookup_buffers makes it seem
+ * Getting a match on initRoomPropLookup makes it seem
  * the struct is just one continuous array. (or maybe there's no struct....)
 */
 struct roomproplistblock

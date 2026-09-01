@@ -2059,11 +2059,11 @@ void triggered_on_shot_hit(ChrRecord *self, coord3d *arg1, f32 arg2, s32 req_ani
             }
 
             chrDropItems(self);
-            increment_num_kills_display_text_in_MP();
+            gunIncMPKillCount();
 
             if (self->chrflags & CHRFLAG_COUNT_DEATH_AS_CIVILIAN)
             {
-                inc_cur_civilian_casualties();
+                gunIncCivilianCasualties();
             }
         }
         else
@@ -2648,11 +2648,11 @@ s32 chrlvExplosionDamage(ChrRecord *self, coord3d *arg1, f32 damage, s32 arg3)
         }
 
         chrDropItems(self);
-        increment_num_kills_display_text_in_MP();
+        gunIncMPKillCount();
 
         if (self->chrflags & CHRFLAG_COUNT_DEATH_AS_CIVILIAN)
         {
-            inc_cur_civilian_casualties();
+            gunIncCivilianCasualties();
         }
 
         if ((self->weapons_held[GUNRIGHT] != NULL) && ((self->weapons_held[GUNRIGHT]->obj->flags & 0x2000) == 0))

@@ -464,7 +464,7 @@ void sub_GAME_7F05DA8C(GUNHAND hand, ITEM_IDS weaponnum_watchmenu);
 void sub_GAME_7F0649D8(enum GUNHAND hand);
 void gunCreateBeamForHand(enum GUNHAND hand);
 CasingRecord* casingCreate(ModelFileHeader* header, Mtxf* mtx);
-void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos);
+void gunCreateCasing(GUNHAND handnum, f32 floor_y_pos);
 Vtx *dynAllocateVertices(s32 count);
 Mtx *dynAllocateMatrix(void);
 void divide3DCoordinates(coord3d *in, f32 divisor, coord3d *out);

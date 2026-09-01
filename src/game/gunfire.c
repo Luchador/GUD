@@ -5,35 +5,35 @@
 #include <bondgame.h>
 #include <music.h>
 #include <snd.h>
+#include "assets/obseg/text/LgunE.h"
 #include "bondview.h"
 #include "bondinv.h"
-#include "gun.h"
-#include "chrobjdata.h"
-#include "game/propobj.h"
-#include "game/objective_status.h"
-#include "quaternion.h"
-#include "image_bank.h"
 #include "bondwalk2.h"
-#include "player.h"
-#include "lv.h"
-#include "random.h"
-#include "gmath.h"
-#include "loadobjectmodel.h"
-#include "objecthandler.h"
-#include "image.h"
-#include "tex.h"
-#include "fr.h"
-#include "assets/obseg/text/LgunE.h"
-#include "textrelated.h"
 #include "chrai.h"
-#include "model.h"
-#include "options.h"
-#include "mpmenu.h"
-#include "joy.h"
-#include "matrixmath.h"
-#include "bondinv.h"
-#include "stan.h"
+#include "chrobjdata.h"
+#include "fr.h"
 #include "gbi_extension.h"
+#include "gmath.h"
+#include "gun.h"
+#include "image.h"
+#include "image_bank.h"
+#include "joy.h"
+#include "loadobjectmodel.h"
+#include "lv.h"
+#include "math.h"
+#include "matrixmath.h"
+#include "model.h"
+#include "mpmenu.h"
+#include "objecthandler.h"
+#include "objective_status.h"
+#include "options.h"
+#include "player.h"
+#include "propobj.h"
+#include "quaternion.h"
+#include "random.h"
+#include "stan.h"
+#include "tex.h"
+#include "textrelated.h"
 
 
 #define THROWN_ITEM_REFRESH_RATE 60
@@ -43,6 +43,7 @@
 #define GUN_SPRING_DAMP 0.95f
 #define GUN_SPRING_SCALE 0.050000012f
 #define TANK_SHELL_SPEED 66.666664f
+#define CASING_GRAVITY 0.27777778f
 
 coord3d g_GunZeroCoord = {0.0f, 0.0f, 0.0f};
 coord3d g_GunBlendLookDirDefault = {0.0f, 0.0f, -1.0f};
@@ -115,7 +116,7 @@ f32 gunGetTriggerFingerRotAmount(GUNHAND hand);
 void sub_GAME_7F05DA8C(GUNHAND hand, ITEM_IDS weaponnum_watchmenu);
 void sub_GAME_7F05EA94(Model *model, s32 val);
 void sub_GAME_7F0649D8(enum GUNHAND hand);
-void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos);
+void gunCreateCasing(GUNHAND handnum, f32 floor_y_pos);
 Vtx *dynAllocateVertices(s32 count);
 Mtx *dynAllocateMatrix(void);
 void divide3DCoordinates(coord3d *in, f32 divisor, coord3d *out);
@@ -915,7 +916,7 @@ void gunUpdateAndFire(GUNHAND handnum)
 
     if (hand->weapon_firing_status != 0)
     {
-        sub_GAME_7F068508(handnum, bviewGetPlayerStanHeight(g_CurrentPlayer));
+        gunCreateCasing(handnum, bviewGetPlayerStanHeight(g_CurrentPlayer));
 
         if (item == ITEM_GRENADELAUNCH)
         {
@@ -4495,17 +4496,12 @@ void sub_GAME_7F067FBC(f32 turn_x, f32 turn_y)
 }
 
 
-/*
-* Address: 0x7f068008
-*/
-void get_bullet_angle(f32* horizontal_angle, f32* vertical_angle) {
+void get_bullet_angle(f32* horizontal_angle, f32* vertical_angle)
+{
 	*horizontal_angle = g_CurrentPlayer->crosshair_angle.f[0];
 	*vertical_angle = g_CurrentPlayer->crosshair_angle.f[1];
 }
 
-extern const f32 g_GunScreenAspectRatio;
-
-extern const f32 g_CasingSwitchScale;
 extern const f32 g_PistolCasingHorizontalSpeed;
 extern const f32 g_PistolCasingRotationScaleX;
 extern const f32 g_PistolCasingRotationOffsetX;
@@ -4514,7 +4510,6 @@ extern const f32 g_PistolCasingRotationOffsetY;
 extern const f32 g_PistolCasingRotationScaleZ;
 extern const f32 g_PistolCasingRotationOffsetZ;
 extern const f32 g_PistolCasingRandomDivisor;
-extern const f32 g_PistolCasingGravity;
 extern const f32 g_RifleCasingHorizontalSpeed;
 extern const f32 g_RifleCasingVerticalSpeed;
 extern const f32 g_RifleCasingRotationScaleX;
@@ -4524,7 +4519,6 @@ extern const f32 g_RifleCasingRotationOffsetY;
 extern const f32 g_RifleCasingRotationScaleZ;
 extern const f32 g_RifleCasingRotationOffsetZ;
 extern const f32 g_RifleCasingRandomDivisor;
-extern const f32 g_RifleCasingGravity;
  
 extern ALSoundState *g_CasingSfxState;
 
@@ -4564,7 +4558,7 @@ void gunCalcBulletPath(coord3d* arg0, coord3d* result, enum GUNHAND arg2)
     scaledspread = (120.0f * inaccuracy) / viGetFovY();
 
     randfactor = (RANDOMFRAC() - 0.5f) * RANDOMFRAC();
-    crosspos.x = g_CurrentPlayer->crosshair_angle.f[0] + randfactor * scaledspread * getPlayer_c_screenwidth() * g_GunScreenAspectRatio / (getPlayer_c_perspaspect() * 320.0f);
+    crosspos.x = g_CurrentPlayer->crosshair_angle.f[0] + randfactor * scaledspread * getPlayer_c_screenwidth() * ASPECT_RATIO_SD / (getPlayer_c_perspaspect() * 320.0f);
 
     randfactor = (RANDOMFRAC() - 0.5f) * RANDOMFRAC();
     crosspos.y =  g_CurrentPlayer->crosshair_angle.f[1] + randfactor * scaledspread * getPlayer_c_screenheight() / (f32)(SCREEN_HEIGHT_240);
@@ -4627,7 +4621,7 @@ CasingRecord* casingCreate(ModelFileHeader* header, Mtxf* mtx)
 /**
  * Ejects a spent cartridge casing from the gun in the given hand.
  */
-void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
+void gunCreateCasing(GUNHAND handnum, f32 floor_y_pos)
 {
     struct hand *hand;
     CasingRecord *casing;
@@ -4639,7 +4633,6 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
     ModelNode *switch0;
     coord3d rot;
     f32 rand;
-    s32 new_var; /* dead but declared on EU — still reserves its frame slot */
     f32 frac;
     f32 oldvely;
     f32 newvely;
@@ -4662,9 +4655,9 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
     {
         switchdata = (coord3d *) switch0->Data;
  
-        switchpos.x = switchdata->x * g_CasingSwitchScale;
-        switchpos.y = switchdata->y * g_CasingSwitchScale;
-        switchpos.z = switchdata->z * g_CasingSwitchScale;
+        switchpos.x = switchdata->x * IDO_POINT_ONE;
+        switchpos.y = switchdata->y * IDO_POINT_ONE;
+        switchpos.z = switchdata->z * IDO_POINT_ONE;
  
         matrix_4x4_set_identity_and_position(&switchpos, &mtx);
         matrix_4x4_multiply_in_place(&hand->throw_item_pos_related, &mtx);
@@ -4708,20 +4701,18 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
         matrix_4x4_set_rotation_around_xyz(&rot, &casing->rot_velocity_mtx);
 
         randlimit = (((s32) ((randomGetNext() >> 24) * 0x158679)) >> 10) + 0x158679;
-        new_var = randlimit;
         randval = randomGetNext();
         oldvely = casing->vel.y;
-        frac = ((f32) ((u32) (randval % new_var))) / g_PistolCasingRandomDivisor;
+        frac = ((f32) ((u32) (randval % randlimit))) / g_PistolCasingRandomDivisor;
 
-        newvely = oldvely - (frac * g_PistolCasingGravity);
+        newvely = oldvely - (frac * CASING_GRAVITY);
  
         casing->vel.y = newvely;
         casing->pos.y += (frac * (oldvely + newvely)) * 0.5f;
         casing->pos.x += frac * casing->vel.x;
         casing->pos.z += frac * casing->vel.z;
  
-        // Keep the 0 + 1 for matching.
-        if (g_ClockTimer >= (0 + 1))
+        if (g_ClockTimer >= 1)
         {
             casing->vel.x += (hand->throw_item_pos_related.m[3][0] - hand->throw_item_pos_related_prev.m[3][0]) / g_GlobalTimerDelta;
             casing->vel.y += (hand->throw_item_pos_related.m[3][1] - hand->throw_item_pos_related_prev.m[3][1]) / g_GlobalTimerDelta;
@@ -4756,7 +4747,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
         oldvely = (&casing->vel)->y;
         frac = ((f32) ((u32) (randval % randlimit))) / g_RifleCasingRandomDivisor;
 
-        newvely = (casing->vel.y = oldvely - (frac * g_RifleCasingGravity));
+        newvely = (casing->vel.y = oldvely - (frac * CASING_GRAVITY));
  
         casing->pos.y += (frac * (oldvely + newvely)) * 0.5f;
         casing->pos.x += frac * casing->vel.x;
@@ -4772,10 +4763,9 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
 }
 
 
-extern const f32 g_CasingGravity;
-extern const f32 g_CasingModelScale;
 extern const f32 g_CasingMinMatrixTranslation;
 extern const f32 g_CasingMaxMatrixTranslation;
+
 
 void update_bullet_casing(CasingRecord* casing)
 {
@@ -4785,7 +4775,7 @@ void update_bullet_casing(CasingRecord* casing)
     struct player* current_player;
 
     delta = g_GlobalTimerDelta;
-    new_val_y = casing->vel.y - (delta * g_CasingGravity);
+    new_val_y = casing->vel.y - (delta * CASING_GRAVITY);
 
     casing->pos.y += delta * 0.5f * (casing->vel.y + new_val_y);
 
@@ -4867,7 +4857,7 @@ void sub_GAME_7F068EC4(CasingRecord *casing, Gfx **gdl)
     matrix_4x4_copy(&casing->rot_mtx, &casing_model_mtx);
 
 
-    model_scale_or_min_translation = g_CasingModelScale;
+    model_scale_or_min_translation = 0.1f;
     matrix_scalar_multiply(model_scale_or_min_translation, &casing_model_mtx);
 
     matrix_4x4_set_position(&casing->pos, &casing_model_mtx);
@@ -5477,10 +5467,12 @@ void gunDrawSight(s32 *gdl) {
 }
 
 
-void inc_curplayer_hitcount_with_weapon(ITEM_IDS item, SHOT_REGISTER shot_register) {
+void inc_curplayer_hitcount_with_weapon(ITEM_IDS item, SHOT_REGISTER shot_register)
+{
 
-    if (bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_PLAYER_STAT_HIT)) {
-        g_playerPerm->shot_count[shot_register] = g_playerPerm->shot_count[shot_register]+1;
+    if (bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_PLAYER_STAT_HIT))
+    {
+        g_playerPerm->shot_count[shot_register] = g_playerPerm->shot_count[shot_register] + 1;
     }
 }
 
@@ -5491,19 +5483,19 @@ s32 get_curplayer_shot_register(SHOT_REGISTER shot_register)
 }
 
 
-void inc_cur_civilian_casualties(void)
+void gunIncCivilianCasualties(void)
 {
     g_playerPerm->killed_civilians++;
 }
 
 
-s32 get_civilian_casualties(void)
+s32 gunGetCivilianCasualties(void)
 {
     return g_playerPerm->killed_civilians;
 }
 
 
-void increment_num_kills_display_text_in_MP(void)
+void gunIncMPKillCount(void)
 {
     s8 buffer[256];
     s32 time_since_kill;
@@ -5514,7 +5506,10 @@ void increment_num_kills_display_text_in_MP(void)
     g_playerPerm->kill_count += 1;
     g_CurrentPlayer->kills_this_life += 1;
 
-    if (getPlayerCount() < 2) { return; }
+    if (getPlayerCount() < 2) 
+    { 
+        return; 
+    }
 
     mission_time = getMissiontimer();
     sprintf(&buffer, aSD, langGet(getStringID(LGUN, GUN_STR_DA_KILLCOUNT)), g_playerPerm->kill_count); // "kill count"
@@ -5541,7 +5536,6 @@ void increment_num_kills_display_text_in_MP(void)
     g_CurrentPlayer->last_kill_time[1] = g_CurrentPlayer->last_kill_time[0];
     g_CurrentPlayer->last_kill_time[0] = mission_time;
 
-    // I tried to turn this into a loop but it didn't match
     if (g_CurrentPlayer->last_kill_time[1] != -1 && (g_CurrentPlayer->last_kill_time[0] - g_CurrentPlayer->last_kill_time[1]) < 0x78)
     {
         recent_kill_count++;
@@ -5562,85 +5556,97 @@ void increment_num_kills_display_text_in_MP(void)
 }
 
 
-s32 get_curplay_killcount(void)
+s32 gunGetMPKillCount(void)
 {
     return g_playerPerm->kill_count;
 }
 
 
-void increment_num_times_killed_MwtGC(void)
+void gunIncMPGGKillCount(void)
 {
     g_playerPerm->killed_gg_owner_count++;
 }
 
 
-void increment_num_deaths(void)
+void gunIncMPDeaths(void)
 {
 	char buffer[256];
     g_CurrentPlayer->deathcount = (s32) (g_CurrentPlayer->deathcount + 1);
+
     if (getPlayerCount() >= 2)
     {
         if (g_CurrentPlayer->deathcount == 1)
         {
-            sprintf(buffer, langGet(getStringID(LGUN, GUN_STR_DB_DIEDONCE_LF))); //died once
+            sprintf(buffer, langGet(getStringID(LGUN, GUN_STR_DB_DIEDONCE_LF))); /* died once */
         }
         else
         {
-            sprintf(buffer, g_GunDeathCountFormat, langGet(getStringID(LGUN, GUN_STR_DC_DIED)), g_CurrentPlayer->deathcount, langGet(getStringID(LGUN, GUN_STR_DD_TIMES))); //died times
+            sprintf(buffer, g_GunDeathCountFormat, langGet(getStringID(LGUN, GUN_STR_DC_DIED)), g_CurrentPlayer->deathcount, langGet(getStringID(LGUN, GUN_STR_DD_TIMES))); /* died times */
         }
 		hudmsgBottomShow(buffer);
     }
 }
 
 
-void increment_num_suicides_display_MP(void) {
+void gunIncMPSuicides(void)
+{
     char buffer[256];
     s32 time_diff;
     s32 recent_kill_count;
     s32 currentTime;
 
     g_CurrentPlayer->num_suicides += 1;
-    if (getPlayerCount() >= 2) {
+
+    if (getPlayerCount() >= 2)
+    {
 
         currentTime = getMissiontimer();
 
-        sprintf(&buffer, &aSD_0, langGet(getStringID(LGUN, GUN_STR_DE_SUICIDECOUNT)), g_CurrentPlayer->num_suicides); // "suicide count"
+        sprintf(&buffer, &aSD_0, langGet(getStringID(LGUN, GUN_STR_DE_SUICIDECOUNT)), g_CurrentPlayer->num_suicides); /* suicide count */
 
 		hudmsgBottomShow(&buffer);
 
-        if (g_playerPerm->kill_count >= 2) {
+        if (g_playerPerm->kill_count >= 2)
+        {
             time_diff = currentTime - g_CurrentPlayer->last_kill_time[0];
-            if (g_playerPerm->max_time_between_kills < time_diff) {
+
+            if (g_playerPerm->max_time_between_kills < time_diff)
+            {
                 g_playerPerm->max_time_between_kills = time_diff;
             }
-            if (time_diff < g_playerPerm->min_time_between_kills) {
+            if (time_diff < g_playerPerm->min_time_between_kills)
+            {
                 g_playerPerm->min_time_between_kills = time_diff;
             }
         }
+
         recent_kill_count = 1;
         g_CurrentPlayer->last_kill_time[3] = g_CurrentPlayer->last_kill_time[2];
         g_CurrentPlayer->last_kill_time[2] = g_CurrentPlayer->last_kill_time[1];
         g_CurrentPlayer->last_kill_time[1] = g_CurrentPlayer->last_kill_time[0];
         g_CurrentPlayer->last_kill_time[0] = currentTime;
 
-        if ( g_CurrentPlayer->last_kill_time[1] != -1) {
-
-            if ((g_CurrentPlayer->last_kill_time[0] - g_CurrentPlayer->last_kill_time[1]) < 0x78) {
-
+        if ( g_CurrentPlayer->last_kill_time[1] != -1)
+        {
+            if ((g_CurrentPlayer->last_kill_time[0] - g_CurrentPlayer->last_kill_time[1]) < 120)
+            {
                 recent_kill_count += 1;
 
-                if ((g_CurrentPlayer->last_kill_time[2] != -1) && ((g_CurrentPlayer->last_kill_time[0] - g_CurrentPlayer->last_kill_time[2]) < 0x78)) {
+                if ((g_CurrentPlayer->last_kill_time[2] != -1) && ((g_CurrentPlayer->last_kill_time[0] - g_CurrentPlayer->last_kill_time[2]) < 120))
+                {
 
                     recent_kill_count += 1;
 
-                    if ((g_CurrentPlayer->last_kill_time[3] != -1) && ((g_CurrentPlayer->last_kill_time[0] - g_CurrentPlayer->last_kill_time[3]) < 0x78)) {
+                    if ((g_CurrentPlayer->last_kill_time[3] != -1) && ((g_CurrentPlayer->last_kill_time[0] - g_CurrentPlayer->last_kill_time[3]) < 120))
+                    {
                         recent_kill_count += 1;
                     }
                 }
             }
         }
 
-        if (g_playerPerm->most_killed_one_time < recent_kill_count) {
+        if (g_playerPerm->most_killed_one_time < recent_kill_count)
+        {
             g_playerPerm->most_killed_one_time = recent_kill_count;
         }
     }
@@ -5651,8 +5657,6 @@ void increment_num_suicides_display_MP(void) {
  * IDO emits scalar const objects to .data. The linker keeps this block directly
  * after gunfire's .rodata so these values retain their original ROM layout.
  */
-const f32 g_GunScreenAspectRatio = 4.0f / 3.0f;
-const f32 g_CasingSwitchScale = 0.10000001f;
 const f32 g_PistolCasingHorizontalSpeed = 0.5333333f;
 const f32 g_PistolCasingRotationScaleX = M_TAU_F;
 const f32 g_PistolCasingRotationOffsetX = M_PI_F / 8.0f;
@@ -5661,7 +5665,6 @@ const f32 g_PistolCasingRotationOffsetY = M_PI_F / 8.0f;
 const f32 g_PistolCasingRotationScaleZ = M_TAU_F;
 const f32 g_PistolCasingRotationOffsetZ = M_PI_F / 8.0f;
 const f32 g_PistolCasingRandomDivisor = 775875.0f;
-const f32 g_PistolCasingGravity = 0.2777778f;
 const f32 g_RifleCasingHorizontalSpeed = 1.4166666f;
 const f32 g_RifleCasingVerticalSpeed = 1.6666666f;
 const f32 g_RifleCasingRotationScaleX = M_TAU_F;
@@ -5671,8 +5674,5 @@ const f32 g_RifleCasingRotationOffsetY = M_PI_F / 8.0f;
 const f32 g_RifleCasingRotationScaleZ = M_TAU_F;
 const f32 g_RifleCasingRotationOffsetZ = M_PI_F / 8.0f;
 const f32 g_RifleCasingRandomDivisor = 775875.0f;
-const f32 g_RifleCasingGravity = 0.2777778f;
-const f32 g_CasingGravity = 0.2777778f;
-const f32 g_CasingModelScale = 0.10000001f;
 const f32 g_CasingMinMatrixTranslation = -30000.0f;
 const f32 g_CasingMaxMatrixTranslation = 30000.0f;
