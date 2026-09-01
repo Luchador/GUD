@@ -577,7 +577,7 @@ s32 gunSample1PTransform(Weapon1PTransformKeyframe *keyframes, f32 time, Mtxf *m
 }
 
 
-WeaponStats *get_ptr_item_statistics(ITEM_IDS item)
+WeaponStats *gunGetItemStats(ITEM_IDS item)
 {
     if (gitem_structs[item].has_no_model == 0)
     { /* weapon has model, return stats struct */
@@ -592,7 +592,7 @@ void bgunCalculateBlend(enum GUNHAND handnum)
 {
     s32 sp60[2];
     s32 sp58[2];
-    f32 mult = get_ptr_item_statistics(getCurrentPlayerWeaponId(handnum))->Sway;
+    f32 mult = gunGetItemStats(getCurrentPlayerWeaponId(handnum))->Sway;
 
     sp60[handnum] = (g_CurrentPlayer->hands[handnum].curblendpos + 2) % 4;
     sp58[handnum] = (g_CurrentPlayer->hands[handnum].curblendpos + 1) % 4;
@@ -1033,11 +1033,11 @@ f32 gunSetHorizontalOffset(GUNHAND hand)
 
 	if (hand == GUNRIGHT)
 	{
-		offset = get_ptr_item_statistics(get_item_in_hand_or_watch_menu(GUNRIGHT))->PosX;
+		offset = gunGetItemStats(get_item_in_hand_or_watch_menu(GUNRIGHT))->PosX;
 	}
 	else
 	{
-		offset = -get_ptr_item_statistics(get_item_in_hand_or_watch_menu(GUNLEFT))->PosX;
+		offset = -gunGetItemStats(get_item_in_hand_or_watch_menu(GUNLEFT))->PosX;
 	}
 
 	return offset;
@@ -1050,7 +1050,7 @@ f32 get_item_in_hand_zoom(void) {
     if (get_item_in_hand_or_watch_menu(GUNRIGHT) == ITEM_CAMERA) {
         return g_CurrentPlayer->camera_zoom;
     }
-    return get_ptr_item_statistics(get_item_in_hand_or_watch_menu(GUNRIGHT))->Zoom;
+    return gunGetItemStats(get_item_in_hand_or_watch_menu(GUNRIGHT))->Zoom;
 }
 
 void camera_sniper_zoom_out(f32 zoom)
@@ -1093,37 +1093,37 @@ void camera_sniper_zoom_in(f32 zoom)
 
 f32 gunItemGetDestructionAmount(ITEM_IDS item)
 {
-  return get_ptr_item_statistics(item)->DestructionAmount;
+  return gunGetItemStats(item)->DestructionAmount;
 }
 
 
 f32 bondwalkItemGetForceOfImpact(ITEM_IDS item)
 {
-	return get_ptr_item_statistics(item)->ForceOfImpact;
+	return gunGetItemStats(item)->ForceOfImpact;
 }
 
 /**
  * Address 0x7F05DFCC
  */
 s8 bondwalkItemGetAutomaticFiringRate(ITEM_IDS item) {
-    return get_ptr_item_statistics(item)->AutomaticFiringRate;
+    return gunGetItemStats(item)->AutomaticFiringRate;
 }
 
 
 u8 bondwalkItemGetSoundTriggerRate(ITEM_IDS item) {
-    return get_ptr_item_statistics(item)->SoundTriggerRate;
+    return gunGetItemStats(item)->SoundTriggerRate;
 }
 
 
 u16 bondwalkItemGetSound(ITEM_IDS item)
 {
-  return get_ptr_item_statistics(item)->Sound;
+  return gunGetItemStats(item)->Sound;
 }
 
 
 u8 bondwalkItemGetObjectsShootThrough(ITEM_IDS item)
 {
-  return get_ptr_item_statistics(item)->ObjectsShootThrough;
+  return gunGetItemStats(item)->ObjectsShootThrough;
 }
 
 
@@ -1142,7 +1142,7 @@ s32 bondwalkItemHasAmmo(ITEM_IDS item)
 
 u32 bondwalkItemCheckBitflags(ITEM_IDS item, u32 mask)
 {
-  return ((get_ptr_item_statistics(item)->BitFlags & mask) != 0);
+  return ((gunGetItemStats(item)->BitFlags & mask) != 0);
 }
 
 

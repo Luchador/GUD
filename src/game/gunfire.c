@@ -294,7 +294,7 @@ void gunRecoilSlide(GUNHAND hand)
 {
     f32 recoil_back;
 
-    recoil_back = get_ptr_item_statistics(get_item_in_hand_or_watch_menu(hand))->BoltRecoilBack;
+    recoil_back = gunGetItemStats(get_item_in_hand_or_watch_menu(hand))->BoltRecoilBack;
 
     /* Move the slide back. */
     if (g_CurrentPlayer->hands[hand].slideRecoiling)
@@ -376,7 +376,7 @@ void gunUpdateAndFire(GUNHAND handnum)
     flashdata = NULL;
     hand = &g_CurrentPlayer->hands[handnum];
     item = get_item_in_hand_or_watch_menu(handnum);
-    itemstats = get_ptr_item_statistics(item);
+    itemstats = gunGetItemStats(item);
 
     /**
      * When switching from a single weapon to dual wielding, both gun models interpolate a little to the sides of the screen
@@ -2413,7 +2413,7 @@ void sub_GAME_7F0649D8(enum GUNHAND hand)
     item_id = getCurrentPlayerWeaponId(hand);
     ammo_in_magazine = hand_ptr->weapon_ammo_in_magazine;
     ammo_in_hands = get_ammo_in_hands_weapon(hand);
-    item_stats = get_ptr_item_statistics(item_id);
+    item_stats = gunGetItemStats(item_id);
     ammo_total = ammo_in_hands + ammo_in_magazine;
 
     hand_ptr->weapon_ammo_in_magazine = (ammo_total >= item_stats->MagSize)
@@ -3009,7 +3009,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
         }
         else
         {
-            weapon_stats = get_ptr_item_statistics(var_s1);
+            weapon_stats = gunGetItemStats(var_s1);
 
 #if defined(VERSION_US)
             sp1A4 = weapon_stats->b44[0];
@@ -3384,7 +3384,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
 
     if (handptr->weapon_action_state == GUN_ANIM_STATE_RELOAD_START)
     {
-        if (((handptr->weapon_ammo_in_magazine < get_ptr_item_statistics(var_s1)->MagSize)
+        if (((handptr->weapon_ammo_in_magazine < gunGetItemStats(var_s1)->MagSize)
              || (bondwalkItemCheckBitflags(var_s1, WEAPONSTATBITFLAG_AMMO_CLIP_LIMIT) != 0))
             && ((get_ammo_in_hands_weapon(hand) > 0)))
         {
@@ -4172,8 +4172,8 @@ void gunTickNoise(void)
 
     weapon_id_right = getCurrentPlayerWeaponId(GUNRIGHT);
     weapon_id_left = getCurrentPlayerWeaponId(GUNLEFT);
-    item_right_stats = get_ptr_item_statistics(weapon_id_right);
-    item_left_stats = get_ptr_item_statistics(weapon_id_left);
+    item_right_stats = gunGetItemStats(weapon_id_right);
+    item_left_stats = gunGetItemStats(weapon_id_left);
 
     if (weapon_id_right != ITEM_UNARMED && get_hands_firing_status(GUNRIGHT))
     {
@@ -4556,9 +4556,9 @@ void sub_GAME_7F067F58(f32 turn_x, f32 turn_y, f32 max_aim_lock_speed)
     f32 aim_lock_speed;
 
 #if defined(VERSION_US) || defined(VERSION_JP)
-    aim_lock_speed = get_ptr_item_statistics(getCurrentPlayerWeaponId(GUNRIGHT))->AimLockSpeed;
+    aim_lock_speed = gunGetItemStats(getCurrentPlayerWeaponId(GUNRIGHT))->AimLockSpeed;
 #elif defined(VERSION_EU)
-    aim_lock_speed = get_ptr_item_statistics(getCurrentPlayerWeaponId(GUNRIGHT))->CrosshairSpeed;
+    aim_lock_speed = gunGetItemStats(getCurrentPlayerWeaponId(GUNRIGHT))->CrosshairSpeed;
 #endif
 
     if (aim_lock_speed < max_aim_lock_speed)
@@ -4576,7 +4576,7 @@ void sub_GAME_7F067FBC(f32 turn_x, f32 turn_y)
     f32 guncrossdamp;
     f32 gunaimdamp;
 
-    item_stats = get_ptr_item_statistics(getCurrentPlayerWeaponId(GUNRIGHT));
+    item_stats = gunGetItemStats(getCurrentPlayerWeaponId(GUNRIGHT));
 
 #if defined(VERSION_US)
     guncrossdamp = item_stats->CrosshairSpeed;
@@ -4651,7 +4651,7 @@ void gunCalcBulletPath(coord3d* arg0, coord3d* result, enum GUNHAND arg2)
     f32 scaledspread;
     f32 randfactor;
 
-    inaccuracy = get_ptr_item_statistics(getCurrentPlayerWeaponId(arg2))->Inaccuracy;
+    inaccuracy = gunGetItemStats(getCurrentPlayerWeaponId(arg2))->Inaccuracy;
 
     if ((bondwalkItemCheckBitflags(get_item_in_hand_or_watch_menu(arg2), WEAPONSTATBITFLAG_FIRST_SHOT_ACCURACY) != 0) && (g_CurrentPlayer->hands[arg2].volley == 1))
     {
@@ -4746,7 +4746,7 @@ void sub_GAME_7F068508(GUNHAND handnum, f32 floor_y_pos)
 
     hand = &g_CurrentPlayer->hands[handnum];
     weaponid = getCurrentPlayerWeaponId(handnum);
-    cartridge_header = get_ptr_item_statistics(weaponid)->ptr_cartridge_struct;
+    cartridge_header = gunGetItemStats(weaponid)->ptr_cartridge_struct;
  
     // Do not create ejected casings in multiplayer.
     if ((cartridge_header == NULL) || (getPlayerCount() >= 2))
@@ -5059,9 +5059,9 @@ void give_cur_player_ammo(s32 ammo_type, s32 ammo_amount)
     {
         g_CurrentPlayer->hands[0].weapon_ammo_in_magazine += ammo_amount;
 
-        if (get_ptr_item_statistics(weapon_id)->MagSize < g_CurrentPlayer->hands[0].weapon_ammo_in_magazine)
+        if (gunGetItemStats(weapon_id)->MagSize < g_CurrentPlayer->hands[0].weapon_ammo_in_magazine)
         {
-            g_CurrentPlayer->hands[0].weapon_ammo_in_magazine = (s32) get_ptr_item_statistics(weapon_id)->MagSize;
+            g_CurrentPlayer->hands[0].weapon_ammo_in_magazine = (s32) gunGetItemStats(weapon_id)->MagSize;
         }
 
         g_CurrentPlayer->ammoheldarr[ammo_type] = 0;
@@ -5158,21 +5158,21 @@ s32 get_ammo_in_hands_weapon(enum GUNHAND hand)
 
 
 s32 gunGetAmmoType(ITEM_IDS weapon) {
-    return get_ptr_item_statistics(weapon)->AmmoType;
+    return gunGetItemStats(weapon)->AmmoType;
 }
 
 s32 get_ammo_count_for_weapon(ITEM_IDS weapon) {
-  WeaponStats *weaponstats = get_ptr_item_statistics(weapon);
+  WeaponStats *weaponstats = gunGetItemStats(weapon);
   return g_CurrentPlayer->ammoheldarr[weaponstats->AmmoType];
 }
 
 void add_ammo_to_weapon(ITEM_IDS weapon, s32 ammo) {
-    give_cur_player_ammo(get_ptr_item_statistics(weapon)->AmmoType, ammo);
+    give_cur_player_ammo(gunGetItemStats(weapon)->AmmoType, ammo);
 }
 
 s32 get_max_ammo_for_weapon(enum ITEM_IDS weapon)
 {
-    return ammo_related[get_ptr_item_statistics(weapon)->AmmoType].MaxAmmo;
+    return ammo_related[gunGetItemStats(weapon)->AmmoType].MaxAmmo;
 }
 
 
@@ -5513,7 +5513,7 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
             imageoffset = ammo_related[ammotype].IconImage;
             textwidth = 5;
 
-            get_ptr_item_statistics(item);
+            gunGetItemStats(item);
 
             if (imageoffset != 0)
             {

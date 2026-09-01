@@ -314,7 +314,7 @@ f32 sub_GAME_7F05DCB8(GUNHAND hand);
 u16 *get_ptr_short_watch_text_for_item(ITEM_IDS item);
 s32 bondwalkItemHasAmmo(ITEM_IDS item);
 void gunDrawSight(s32 *gdl);
-WeaponStats *get_ptr_item_statistics(ITEM_IDS item);
+WeaponStats *gunGetItemStats(ITEM_IDS item);
 ITEM_IDS getCurrentPlayerWeaponId(GUNHAND hand);
 s32 currentPlayerEquipWeaponWrapper(GUNHAND hand, s32 next_weapon);
 void update_bullet_casings(void);

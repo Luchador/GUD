@@ -3834,7 +3834,7 @@ struct MoveData {
     // 0x80
     s32 canNaturalPitch;
     s32 canNaturalTurn;
-    s32 canTurnTank;
+    s32 hasAnalogStrafe;
     s32 canLookAhead;
 
     // 0x90

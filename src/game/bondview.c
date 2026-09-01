@@ -4577,10 +4577,9 @@ void bondviewUpdatePlayerCollisionPositionFields(void)
 /**
  * Fixes vv_verta within -90 and +90.
  * Updates vv_costheta, vv_sintheta, vv_verta360, vv_cosverta, vv_sinverta, field_488.facingDirection.
- * Address 0x7F081790.
- *
+ * 
  * Perfect Dark function bmoveUpdateVerta.
-*/
+ */
 void bondviewApplyVertaTheta(void)
 {
     while (g_CurrentPlayer->vv_verta < -180.0f)
@@ -4620,52 +4619,385 @@ void bondviewApplyVertaTheta(void)
 }
 
 
+static f32 bviewGetAimInputSpeed(s32 stickMagnitude)
+{
+    f32 speed = (f32) (stickMagnitude - 60) / 10.0f;
+
+    if (speed > 1.0f)
+    {
+        speed = 1.0f;
+    }
+
+    return speed;
+}
+
+
+static f32 bviewApplyAnalogInputCurve(s32 stickValue)
+{
+    f32 normalized = (f32) stickValue / 70.0f;
+
+    if (normalized > 1.0f)
+    {
+        normalized = 1.0f;
+    }
+    else if (normalized < -1.0f)
+    {
+        normalized = -1.0f;
+    }
+
+    if (normalized >= 0.0f)
+    {
+        normalized *= normalized;
+    }
+    else
+    {
+        normalized *= -normalized;
+    }
+
+    return normalized;
+}
+
+
+static f32 bviewCalculateLookAheadPitch(void)
+{
+    StandTile *lookAheadTile = g_CurrentPlayer->field_488.collisionTile;
+    coord3d lookAheadPosition;
+    f32 lookAheadDistance = 300.0f;
+    f32 collisionHeight;
+    f32 collisionVerticalOffset = 30.0f;
+    f32 deltaX;
+    f32 deltaZ;
+    f32 heightDelta;
+    f32 targetPitch = -4.0f;
+
+    collisionHeight = (bondviewGetPlayerDuckingHeightRelated(g_CurrentPlayer) + 10.0f) - 30.0f;
+
+    lookAheadPosition.x = g_CurrentPlayer->field_488.collisionPosition.x + (g_CurrentPlayer->field_488.facingDirection.x * 300.0f);
+    lookAheadPosition.y = g_CurrentPlayer->field_488.collisionPosition.y;
+    lookAheadPosition.z = g_CurrentPlayer->field_488.collisionPosition.z + (g_CurrentPlayer->field_488.facingDirection.z * 300.0f);
+
+    stanResetHits();
+
+    if (stanTestLineUnobstructed(&lookAheadTile, g_CurrentPlayer->field_488.collisionPosition.x, g_CurrentPlayer->field_488.collisionPosition.z, lookAheadPosition.x, lookAheadPosition.z, CDTYPE_CLOSEDDOORS, collisionHeight, collisionVerticalOffset, 0, 1.0f))
+    {
+        lookAheadPosition.y = bondviewYPositionRelated(lookAheadTile, lookAheadPosition.x, lookAheadPosition.z);
+    }
+    else
+    {
+        chrlvStanPointPointIntersection(&g_CurrentPlayer->field_488.collisionPosition, &g_CurrentPlayer->field_488.facingDirection, &lookAheadPosition);
+
+        deltaX = lookAheadPosition.x - g_CurrentPlayer->field_488.collisionPosition.x;
+        deltaZ = lookAheadPosition.z - g_CurrentPlayer->field_488.collisionPosition.z;
+        lookAheadDistance = sqrtf((deltaX * deltaX) + (deltaZ * deltaZ));
+        lookAheadPosition.y = bondviewYPositionRelated(lookAheadTile, lookAheadPosition.x, lookAheadPosition.z);
+    }
+
+    if (lookAheadDistance > 0.0f)
+    {
+        heightDelta = lookAheadPosition.y - g_CurrentPlayer->stanHeight;
+
+        if (heightDelta > -300.0f && heightDelta < 500.0f)
+        {
+            targetPitch = ((atan2f(heightDelta, lookAheadDistance) * 360.0f) / M_TAU_F) + -4.0f;
+
+            if (targetPitch >= 180.0f)
+            {
+                targetPitch -= 360.0f;
+            }
+
+            if (targetPitch > 0.0f)
+            {
+                targetPitch *= 0.8666667f;
+            }
+        }
+    }
+
+    return targetPitch;
+}
+
+
+static void bviewHandleTankEnterExit(void)
+{
+    TankRecord *tank;
+    s32 axis;
+
+    if (g_PlayerIsInTank)
+    {
+        tank = (TankRecord *) g_PlayerTankProp->obj;
+        tank->unkD8 = get_ammo_count_for_weapon(ITEM_TANKSHELLS);
+
+        add_ammo_to_weapon(ITEM_TANKSHELLS, 0);
+        bondinvRemoveItemByID(ITEM_TANKSHELLS);
+
+        if (getCurrentPlayerWeaponId(GUNRIGHT) == ITEM_TANKSHELLS)
+        {
+            tank->unkD8 += get_ammo_in_hands_magazine(GUNRIGHT);
+            autoadvance_on_deplete_all_ammo();
+        }
+
+        tank->is_firing_tank = 0;
+        g_PlayerIsInTank = FALSE;
+        g_CurrentPlayer->speedsideways = 0.0f;
+        g_CurrentPlayer->speedforwards = 0.0f;
+        g_CurrentPlayer->speedtheta = 0.0f;
+
+        for (axis = 0; axis < 3; axis++)
+        {
+            g_CurrentPlayer->bondshotspeed.f[axis] = 0.0f;
+        }
+
+        g_CurrentPlayer->crouchpos = CROUCH_STAND;
+    }
+    else if (g_PlayerTankProp != NULL && g_PlayerTankProp->type == PROP_TYPE_OBJ && g_PlayerTankProp->obj->type == PROPDEF_TANK && g_BondCanEnterTank)
+    {
+        tank = (TankRecord *) g_PlayerTankProp->obj;
+
+        bondinvAddInvItem(ITEM_TANKSHELLS);
+        add_ammo_to_weapon(ITEM_TANKSHELLS, tank->unkD8);
+        tank->unkD8 = 0;
+
+        g_TankTurretVerticalAngle = tank->turret_vertical_angle;
+        g_TankTurretVerticalAngleRelated = g_TankTurretVerticalAngle / TANK_VERT_ANGLE_FACTOR;
+        g_TankTurretAngle = tank->turret_orientation_angle;
+        g_TankTurretOrientationAngleRad = tank->turret_orientation_angle;
+        g_TankTurretOrientationAngleDeg = g_TankTurretOrientationAngleRad / TANK_VERT_ANGLE_RAD_FACTOR;
+        tank_turret_turn_speed = 0.0f;
+        g_TankOrientationAngle = tank->tank_orientation_angle;
+        g_TankTurnSpeed = 0.0f;
+        g_PlayerIsInTank = TRUE;
+        g_EnterTankAudioState = TANK_RUN_STATE_NOT_RUNNING;
+        g_CurrentPlayer->speedsideways = 0.0f;
+        g_CurrentPlayer->speedforwards = 0.0f;
+        g_CurrentPlayer->speedtheta = 0.0f;
+        g_CurrentPlayer->crouchpos = CROUCH_HALF;
+        g_TankEnteringSitHeight = 0.0f;
+        g_TankEnteringSitHeightRemain = 1.0f;
+        g_TankEnterBondHorizAngleDeg = g_CurrentPlayer->vv_theta;
+        g_TankEnterBondVertAngleDeg = g_CurrentPlayer->vv_verta;
+        g_EnterTankCoord.x = g_CurrentPlayer->field_488.collisionPosition.x;
+        g_EnterTankCoord.y = g_CurrentPlayer->field_488.collisionPosition.y;
+        g_EnterTankCoord.z = g_CurrentPlayer->field_488.collisionPosition.z;
+        g_TankDamagePenaltyTicks = 0;
+
+        bondviewTankModelRotationRelated();
+    }
+    else
+    {
+        g_CurrentPlayer->field_D0 = 1;
+    }
+}
+
+
+static void bviewUpdateGuardHearing(void)
+{
+    bool rightHandFiring;
+    bool leftHandFiring;
+    f32 noiseRadius;
+    f32 handNoise;
+
+    if (!bondviewGetVisibleToGuardsFlag())
+    {
+        return;
+    }
+
+    rightHandFiring = get_hands_firing_status(GUNRIGHT) != 0;
+    leftHandFiring = get_hands_firing_status(GUNLEFT) != 0;
+
+    if (!rightHandFiring && !leftHandFiring)
+    {
+        return;
+    }
+
+    noiseRadius = 0.0f;
+
+    if (rightHandFiring)
+    {
+        handNoise = getCurrentPlayerNoise(GUNRIGHT);
+
+        if (handNoise > noiseRadius)
+        {
+            noiseRadius = handNoise;
+        }
+    }
+
+    if (leftHandFiring)
+    {
+        handNoise = getCurrentPlayerNoise(GUNLEFT);
+
+        if (handNoise > noiseRadius)
+        {
+            noiseRadius = handNoise;
+        }
+    }
+
+    chrCheckGuardsHeardSound(noiseRadius);
+}
+
+
+static void bviewUpdateTankMovement(struct MoveData *moveData)
+{
+    f32 analogTurretInput;
+    f32 tankThrottle = 0.0f;
+    f32 undamagedTargetSpeed;
+    f32 targetSpeed;
+    f32 accelerationScale = 1.0f;
+    f32 accelerationStep;
+
+    g_TankTurretTurn = 0.0f;
+
+    if (g_EnterTankAudioState != TANK_RUN_STATE_RUNNING)
+    {
+        return;
+    }
+
+    if (moveData->tankTurnRightSpeed > 0.0f)
+    {
+        g_TankTurretTurn += g_GlobalTimerDelta * moveData->tankTurnRightSpeed * DegToRad1Fact(1);
+    }
+    else if (moveData->tankTurnLeftSpeed > 0.0f)
+    {
+        g_TankTurretTurn -= g_GlobalTimerDelta * moveData->tankTurnLeftSpeed * DegToRad1Fact(1);
+    }
+    else if (moveData->hasAnalogStrafe)
+    {
+        analogTurretInput = (f32) moveData->analogStrafe / 70.0f;
+
+        if (analogTurretInput > 1.0f)
+        {
+            analogTurretInput = 1.0f;
+        }
+
+        if (analogTurretInput < -1.0f)
+        {
+            analogTurretInput = -1.0f;
+        }
+
+        g_TankTurretTurn += DegToRad1Fact(1) * analogTurretInput * g_GlobalTimerDelta;
+    }
+
+    if (g_CurrentPlayer->isInAimMode)
+    {
+        return;
+    }
+
+    if (moveData->canLookAhead)
+    {
+        tankThrottle = (f32) moveData->analogWalk / 70.0f;
+    }
+    else if (moveData->digitalStepForward)
+    {
+        tankThrottle = 1.0f;
+    }
+    else if (moveData->digitalStepBack)
+    {
+        tankThrottle = -1.0f;
+    }
+
+    if (tankThrottle > 1.0f)
+    {
+        tankThrottle = 1.0f;
+    }
+    else if (tankThrottle < -1.0f)
+    {
+        tankThrottle = -1.0f;
+    }
+
+    undamagedTargetSpeed = tankThrottle * TANK_MAX_SPEED;
+    targetSpeed = undamagedTargetSpeed;
+
+    if (g_TankDamagePenaltyTicks > 0)
+    {
+        targetSpeed = undamagedTargetSpeed * 0.5f;
+        accelerationScale = 4.0f;
+        g_TankDamagePenaltyTicks -= g_ClockTimer;
+    }
+
+    if (g_CurrentPlayer->speedforwards < targetSpeed)
+    {
+        accelerationStep = ((((((targetSpeed - g_CurrentPlayer->speedforwards) / 4.0f)
+            / TANK_MAX_SPEED) + 0.5f) * accelerationScale * 10.0f) / 60.0f);
+
+        g_CurrentPlayer->speedforwards += accelerationStep * g_GlobalTimerDelta;
+
+        if (targetSpeed < g_CurrentPlayer->speedforwards)
+        {
+            g_CurrentPlayer->speedforwards = targetSpeed;
+        }
+    }
+    else if (targetSpeed < g_CurrentPlayer->speedforwards)
+    {
+        accelerationStep = ((((((g_CurrentPlayer->speedforwards - targetSpeed) / 4.0f)
+            / TANK_MAX_SPEED) + 0.5f) * accelerationScale * -10.0f) / 60.0f);
+
+        g_CurrentPlayer->speedforwards += accelerationStep * g_GlobalTimerDelta;
+
+        if (g_CurrentPlayer->speedforwards < targetSpeed)
+        {
+            g_CurrentPlayer->speedforwards = targetSpeed;
+        }
+    }
+}
+
+
+static void bviewUpdateTankTurnSpeed(struct MoveData *moveData)
+{
+    f32 acceleration = 0.0f;
+    s32 tick;
+
+    if (g_EnterTankAudioState != TANK_RUN_STATE_RUNNING)
+    {
+        g_CurrentPlayer->speedtheta = 0.0f;
+        return;
+    }
+
+    if (moveData->canNaturalTurn)
+    {
+        acceleration = g_CurrentPlayer->speedtheta * 0.3f;
+    }
+    else if (moveData->aimTurnLeftSpeed > 0.0f)
+    {
+        acceleration = bviewGetLookSpeedLimit(1.0f) * 0.3f;
+    }
+    else if (moveData->aimTurnRightSpeed > 0.0f)
+    {
+        acceleration = bviewGetLookSpeedLimit(-1.0f) * 0.3f;
+    }
+
+    for (tick = 0; tick < g_ClockTimer; tick++)
+    {
+        g_TankTurnSpeed = (TANKUPDATEROTATION_SCALE * g_TankTurnSpeed) + acceleration;
+    }
+
+    g_CurrentPlayer->speedtheta = g_TankTurnSpeed * TANK_VERT_ANGLE_RAD_FACTOR;
+}
+
+
 void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 {
     struct MoveData moveData;
-    s8 player_joyGetStickX;
-    s8 player_joyGetStickY;
-    u16 player_joyGetButtons;
-    u16 copy_prev_buttons_pressed;
-    s32 adjustedStickX;
-    s32 tmpc2sticky;
-    s32 sp10C;
-    s32 sp108;
-    s32 sp104;
-    s32 sp100;
+    CONTROLLER_CONFIG controlType;
+    s32 playerCount = getPlayerCount();
+    u16 pressedButtons = buttons & ~oldbuttons;
+    s8 secondStickX;
+    s8 secondStickY;
+    u16 secondButtons;
+    u16 secondOldButtons;
+    u16 secondPressedButtons;
+    s32 secondStickXSafe;
+    s32 secondStickYSafe;
+    bool triggerHeld;
+    bool triggerPressed;
+    bool aimHeld;
+    bool aimPressed;
     u16 shootButtons;
     u16 aimButtons;
     u16 invButtons;
-    TankRecord *spF4;
-    s32 i_0;
-    TankRecord *spEC;
-    f32 ftemp_nostack_spE8;
-    f32 noiseRadius;
-    f32 ftemp_nostack_spE0;
-    f32 targetSpeed;
-    f32 ftemp_nostack_spD8;
-    f32 unadjustedTargetSpeed;
-    f32 ftemp_nostack_spD0;
-    f32 ftemp_nostack_spCC;
-    f32 ftemp_nostack_spC8;
+    f32 zoomFov;
     f32 targetPitch;
-    StandTile *spC0;
-    f32 spBC;
-    f32 ftemp_nostack_spB8;
-    struct coord3d spAC;
-    struct coord3d spA0;
-    s32 stack_padding_sp9C;
-    f32 ftemp_nostack_sp98;
-    f32 ftemp_nostack_sp94;
-    f32 ftemp_nostack_sp90;
-    f32 ftemp_nostack_sp8C;
-    f32 ftemp_nostack_sp88;
-    f32 ftemp_nostack_sp84;
-    f32 ftemp_nostack_sp80;
-    s32 i_1;
-    f32 ftemp_nostack_sp78;
-    s32 canCycleWeapons;
-    f32 sp70;
+    f32 pitchStoppingDistance;
+    f32 nextPitch;
+    f32 aimOffsetY;
+    f32 aimOffsetX;
 
 
     moveData.canSwivelGun = 0;
@@ -4673,7 +5005,7 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
     moveData.triggerOn = 0;
     moveData.btap = 0;
     moveData.canLookAhead = 0;
-    moveData.canTurnTank = 0;
+    moveData.hasAnalogStrafe = 0;
     moveData.canNaturalTurn = 0;
     moveData.canNaturalPitch = 0;
     moveData.digitalStepForward = 0;
@@ -4735,95 +5067,100 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
     moveData.analogStrafe = moveData.controlStickXSafe;
     moveData.analogWalk = moveData.controlStickYSafe;
 
-    if (g_CurrentPlayer->bondstate == BONDSTATE_ALIVE && g_bondviewForceDisarm <= 0 && ((g_CurrentPlayer->watch_animation_state != WATCH_ANIMATION_0x5 && ((buttons & ~oldbuttons) & START_BUTTON))
-            || (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x5 && g_CurrentPlayer->open_close_solo_watch_menu)) && (getPlayerCount() == 1))
+    if (g_CurrentPlayer->bondstate == BONDSTATE_ALIVE && g_bondviewForceDisarm <= 0 && ((g_CurrentPlayer->watch_animation_state != WATCH_ANIMATION_0x5 && (pressedButtons & START_BUTTON))
+            || (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x5 && g_CurrentPlayer->open_close_solo_watch_menu)) && (playerCount == 1))
     {
         trigger_solo_watch_menu(0);
     }
 
-    if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x0 && g_CurrentPlayer->bondstate == BONDSTATE_ALIVE && (getPlayerCount() == 1 || (g_stopPlayFlag == 0 && g_gameOverFlag == 0)))
+    if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x0 && g_CurrentPlayer->bondstate == BONDSTATE_ALIVE && (playerCount == 1 || (g_stopPlayFlag == 0 && g_gameOverFlag == 0)))
     {
-        if (cur_player_get_control_type() == CONTROLLER_CONFIG_DOMINO /* 2.3 */
-            || cur_player_get_control_type() == CONTROLLER_CONFIG_GOODHEAD /* 2.4 */
-            || cur_player_get_control_type() == CONTROLLER_CONFIG_GALORE /* 2.2 */
-            || cur_player_get_control_type() == CONTROLLER_CONFIG_PLENTY /* 2.1 */
+        controlType = cur_player_get_control_type();
+
+        if (controlType == CONTROLLER_CONFIG_DOMINO /* 2.3 */
+            || controlType == CONTROLLER_CONFIG_GOODHEAD /* 2.4 */
+            || controlType == CONTROLLER_CONFIG_GALORE /* 2.2 */
+            || controlType == CONTROLLER_CONFIG_PLENTY /* 2.1 */
             )
         {
-            player_joyGetStickX = joyGetStickX(get_cur_playernum() + getPlayerCount());
-            player_joyGetStickY = joyGetStickY(get_cur_playernum() + getPlayerCount());
-            player_joyGetButtons = joyGetButtons(get_cur_playernum() + getPlayerCount() , (u32)ANY_BUTTON);
+            secondStickX = joyGetStickX(get_cur_playernum() + playerCount);
+            secondStickY = joyGetStickY(get_cur_playernum() + playerCount);
+            secondButtons = joyGetButtons(get_cur_playernum() + playerCount, (u32) ANY_BUTTON);
+            secondOldButtons = g_CurrentPlayer->prev_buttons_pressed;
+            secondPressedButtons = secondButtons & ~secondOldButtons;
 
-            copy_prev_buttons_pressed = g_CurrentPlayer->prev_buttons_pressed;
-
-            if (player_joyGetStickX < -5)
+            if (secondStickX < -5)
             {
-                adjustedStickX = player_joyGetStickX + 5;
+                secondStickXSafe = secondStickX + 5;
             }
-            else if (player_joyGetStickX > 5)
+            else if (secondStickX > 5)
             {
-                adjustedStickX = player_joyGetStickX - 5;
+                secondStickXSafe = secondStickX - 5;
             }
             else
             {
-                adjustedStickX = 0;
+                secondStickXSafe = 0;
             }
 
-            if (player_joyGetStickY < -5)
+            if (secondStickY < -5)
             {
-                tmpc2sticky = player_joyGetStickY + 5;
+                secondStickYSafe = secondStickY + 5;
             }
-            else if (player_joyGetStickY >= 6)
+            else if (secondStickY > 5)
             {
-                tmpc2sticky = player_joyGetStickY - 5;
+                secondStickYSafe = secondStickY - 5;
             }
             else
             {
-                tmpc2sticky = 0;
+                secondStickYSafe = 0;
             }
 
             /* 2.1 and 2.3 */
-            if (cur_player_get_control_type() == CONTROLLER_CONFIG_PLENTY || (cur_player_get_control_type() == CONTROLLER_CONFIG_DOMINO))
+            if (controlType == CONTROLLER_CONFIG_PLENTY || controlType == CONTROLLER_CONFIG_DOMINO)
             {
-                moveData.analogStrafe = adjustedStickX;
-                moveData.analogPitch = tmpc2sticky;
+                moveData.analogStrafe = secondStickXSafe;
+                moveData.analogPitch = secondStickYSafe;
             }
             else
             {
                 if ((g_PlayerIsInTank) && (!g_CurrentPlayer->isInAimMode))
                 {
-                    moveData.analogTurn = adjustedStickX;
+                    moveData.analogTurn = secondStickXSafe;
                 }
                 else
                 {
-                    moveData.analogStrafe = adjustedStickX;
+                    moveData.analogStrafe = secondStickXSafe;
                 }
 
-                moveData.analogWalk = tmpc2sticky;
+                moveData.analogWalk = secondStickYSafe;
             }
 
             /* 2.1 and 2.2 */
-            if (cur_player_get_control_type() == CONTROLLER_CONFIG_PLENTY || cur_player_get_control_type() == CONTROLLER_CONFIG_GALORE)
+            if (controlType == CONTROLLER_CONFIG_PLENTY || controlType == CONTROLLER_CONFIG_GALORE)
             {
-                sp104 = (player_joyGetButtons & Z_TRIG) != 0;
-                sp100 = ((player_joyGetButtons & ~copy_prev_buttons_pressed) & Z_TRIG) != 0;
-                sp10C = (buttons & Z_TRIG) != 0;
-                sp108 = ((buttons & ~oldbuttons) & Z_TRIG) != 0;
+                aimHeld = (secondButtons & Z_TRIG) != 0;
+                aimPressed = (secondPressedButtons & Z_TRIG) != 0;
+                triggerHeld = (buttons & Z_TRIG) != 0;
+                triggerPressed = (pressedButtons & Z_TRIG) != 0;
             }
             else
             {
-                sp104 = (buttons & Z_TRIG) != 0;
-                sp100 = ((buttons & ~oldbuttons) & Z_TRIG) != 0;
-                sp10C = (player_joyGetButtons & Z_TRIG) != 0;
-                sp108 = ((player_joyGetButtons & ~copy_prev_buttons_pressed) & Z_TRIG) != 0;
+                aimHeld = (buttons & Z_TRIG) != 0;
+                aimPressed = (pressedButtons & Z_TRIG) != 0;
+                triggerHeld = (secondButtons & Z_TRIG) != 0;
+                triggerPressed = (secondPressedButtons & Z_TRIG) != 0;
             }
 
             if (lvGetControlsLockedFlag() == 0 && disablePlayerActionsWhenPausedOrInMpMenu())
             {
+                ITEM_IDS currentWeapon = getCurrentPlayerWeaponId(GUNRIGHT);
+                bool weaponDisablesCrouch = bondwalkItemCheckBitflags(currentWeapon, WEAPONSTATBITFLAG_DISABLE_CROUCH) != 0;
+
                 if (cur_player_get_aim_control() == 0)
                 {
-                    g_CurrentPlayer->isInAimMode = sp104;
+                    g_CurrentPlayer->isInAimMode = aimHeld;
                 }
-                else if (sp100)
+                else if (aimPressed)
                 {
                     g_CurrentPlayer->isInAimMode = !g_CurrentPlayer->isInAimMode;
                 }
@@ -4833,77 +5170,47 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                 moveData.canManualAim = g_CurrentPlayer->isInAimMode;
 
-                moveData.btap = (
-                    (((buttons & ~oldbuttons) & B_BUTTON) != 0)
-                    ||
-                    ((((player_joyGetButtons & ~copy_prev_buttons_pressed) & B_BUTTON)) != 0)
-                    );
+                moveData.btap = (((pressedButtons & B_BUTTON) != 0) || ((secondPressedButtons & B_BUTTON) != 0));
 
                 moveData.canLookAhead = !g_CurrentPlayer->isInAimMode;
-                moveData.canTurnTank = 1;
+                moveData.hasAnalogStrafe = 1;
                 moveData.canNaturalTurn = !g_CurrentPlayer->isInAimMode;
                 moveData.canNaturalPitch = !g_CurrentPlayer->isInAimMode;
 
                 if (g_CurrentPlayer->isInAimMode && (stick_y > 60))
                 {
-                    moveData.speedVertaDown = (f32) (stick_y - 60) / 10.0f;
-                    if (moveData.speedVertaDown > 1.0f)
-                    {
-                        moveData.speedVertaDown = 1.0f;
-                    }
+                    moveData.speedVertaDown = bviewGetAimInputSpeed(stick_y);
                 }
 
                 if (g_CurrentPlayer->isInAimMode && (stick_y < -60))
                 {
-                    moveData.speedVertaUp = (f32) (-60 - stick_y) / 10.0f;
-                    if (moveData.speedVertaUp > 1.0f)
-                    {
-                        moveData.speedVertaUp = 1.0f;
-                    }
+                    moveData.speedVertaUp = bviewGetAimInputSpeed(-stick_y);
                 }
 
 
                 if (g_CurrentPlayer->isInAimMode && (stick_x < -60))
                 {
-                    moveData.aimTurnLeftSpeed = (f32) (-60 - stick_x) / 10.0f;
-                    if (moveData.aimTurnLeftSpeed > 1.0f)
-                    {
-                        moveData.aimTurnLeftSpeed = 1.0f;
-                    }
+                    moveData.aimTurnLeftSpeed = bviewGetAimInputSpeed(-stick_x);
                 }
 
                 if (g_CurrentPlayer->isInAimMode && (stick_x > 60) )
                 {
-                    moveData.aimTurnRightSpeed = (f32) (stick_x - 60) / 10.0f;
-                    if (moveData.aimTurnRightSpeed > 1.0f)
-                    {
-                        moveData.aimTurnRightSpeed = 1.0f;
-                    }
+                    moveData.aimTurnRightSpeed = bviewGetAimInputSpeed(stick_x);
                 }
 
-                moveData.weaponBackOffset = (
-                        ((buttons & A_BUTTON) != 0)
-                        ||
-                        ((player_joyGetButtons & A_BUTTON) != 0)
-                    )
-                    && (sp108);
+                moveData.weaponBackOffset = (((buttons & A_BUTTON) != 0) || ((secondButtons & A_BUTTON) != 0)) && triggerPressed;
 
-               moveData.weaponForwardOffset = (
-                    (
-                       (((buttons & ~oldbuttons) & A_BUTTON) != 0)
-                       ||
-                       (((player_joyGetButtons & ~copy_prev_buttons_pressed) & A_BUTTON) != 0)
-                    ))
-                    && (!sp10C);
+                moveData.weaponForwardOffset = ((((pressedButtons & A_BUTTON) != 0) || ((secondPressedButtons & A_BUTTON) != 0))) && !triggerHeld;
 
                 moveData.aiming = g_CurrentPlayer->isInAimMode;
                 moveData.zooming = g_CurrentPlayer->isInAimMode;
 
-                if ((bondwalkItemCheckBitflags(getCurrentPlayerWeaponId(GUNRIGHT), WEAPONSTATBITFLAG_DISABLE_CROUCH)) && g_CurrentPlayer->isInAimMode)
+                if (weaponDisablesCrouch && g_CurrentPlayer->isInAimMode)
                 {
-                    if (tmpc2sticky < 0)
+                    if (secondStickYSafe < 0)
                     {
-                        moveData.zoomOutFovPersec = (f32) -tmpc2sticky / 70.0f;
+                        moveData.zoomOutFovPersec = (f32) -secondStickYSafe / 70.0f;
+
                         if (moveData.zoomOutFovPersec > 1.0f)
                         {
                             moveData.zoomOutFovPersec = 1.0f;
@@ -4912,9 +5219,10 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                         moveData.zoomOutFovPersec *= 2.0f;
                     }
 
-                    if (tmpc2sticky > 0)
+                    if (secondStickYSafe > 0)
                     {
-                        moveData.zoomInFovPersec = (f32) tmpc2sticky / 70.0f;
+                        moveData.zoomInFovPersec = (f32) secondStickYSafe / 70.0f;
+
                         if (moveData.zoomInFovPersec > 1.0f)
                         {
                             moveData.zoomInFovPersec = 1.0f;
@@ -4924,15 +5232,15 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                     }
                 }
 
-                moveData.crouchDown = (bondwalkItemCheckBitflags(getCurrentPlayerWeaponId(GUNRIGHT), WEAPONSTATBITFLAG_DISABLE_CROUCH) == 0) && (g_CurrentPlayer->isInAimMode) && (player_joyGetStickY < -30);
-                moveData.crouchUp = (bondwalkItemCheckBitflags(getCurrentPlayerWeaponId(GUNRIGHT), WEAPONSTATBITFLAG_DISABLE_CROUCH) == 0) && (g_CurrentPlayer->isInAimMode) && (player_joyGetStickY > 30);
+                moveData.crouchDown = !weaponDisablesCrouch && g_CurrentPlayer->isInAimMode && secondStickY < -30;
+                moveData.crouchUp = !weaponDisablesCrouch && g_CurrentPlayer->isInAimMode && secondStickY > 30;
 
                 if ((
-                           (((buttons & A_BUTTON) != 0) && (((buttons & ~oldbuttons) & B_BUTTON) != 0))
-                        || (((buttons & B_BUTTON) != 0) && (((buttons & ~oldbuttons) & A_BUTTON) != 0))
-                        || ((player_joyGetButtons & A_BUTTON) && ((player_joyGetButtons & ~copy_prev_buttons_pressed) & B_BUTTON))
-                        || ((player_joyGetButtons & B_BUTTON) && ((player_joyGetButtons & ~copy_prev_buttons_pressed) & A_BUTTON)))
-                    && (getCurrentPlayerWeaponId(GUNRIGHT) == ITEM_REMOTEMINE))
+                           (((buttons & A_BUTTON) != 0) && ((pressedButtons & B_BUTTON) != 0))
+                        || (((buttons & B_BUTTON) != 0) && ((pressedButtons & A_BUTTON) != 0))
+                        || ((secondButtons & A_BUTTON) && (secondPressedButtons & B_BUTTON))
+                        || ((secondButtons & B_BUTTON) && (secondPressedButtons & A_BUTTON)))
+                    && currentWeapon == ITEM_REMOTEMINE)
                 {
                     moveData.detonating = 1;
                     moveData.weaponBackOffset = 0;
@@ -4942,7 +5250,7 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                 if (g_PlayerIsInTank && g_CurrentPlayer->isInAimMode)
                 {
-                    if (getCurrentPlayerWeaponId(GUNRIGHT) == ITEM_TANKSHELLS)
+                    if (currentWeapon == ITEM_TANKSHELLS)
                     {
                         moveData.controlStickXRaw = 0;
 
@@ -4969,15 +5277,15 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                 }
             }
 
-            moveData.triggerOn = (sp10C) && (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x0) && ((buttons & A_BUTTON) == 0) && ((player_joyGetButtons & A_BUTTON) == 0);
+            moveData.triggerOn = triggerHeld && (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x0) && ((buttons & A_BUTTON) == 0) && ((secondButtons & A_BUTTON) == 0);
 
             moveData.disableLookAhead = 1;
-            g_CurrentPlayer->prev_buttons_pressed = player_joyGetButtons;
+            g_CurrentPlayer->prev_buttons_pressed = secondButtons;
         }
         else
         {
             /* 1.3 and 1.4 */
-            if (cur_player_get_control_type() == CONTROLLER_CONFIG_KISSY || cur_player_get_control_type() == CONTROLLER_CONFIG_GOODNIGHT)
+            if (controlType == CONTROLLER_CONFIG_KISSY || controlType == CONTROLLER_CONFIG_GOODNIGHT)
             {
                 shootButtons = A_BUTTON;
                 aimButtons = Z_TRIG;
@@ -4994,22 +5302,25 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             {
                 if (disablePlayerActionsWhenPausedOrInMpMenu())
                 {
+                    ITEM_IDS currentWeapon = getCurrentPlayerWeaponId(GUNRIGHT);
+                    bool weaponDisablesCrouch = bondwalkItemCheckBitflags(currentWeapon, WEAPONSTATBITFLAG_DISABLE_CROUCH) != 0;
+
                     if (cur_player_get_aim_control() == 0)
                     {
                         g_CurrentPlayer->isInAimMode = (buttons & aimButtons) != 0;
                     }
-                    else if ((buttons & ~oldbuttons) & aimButtons)
+                    else if (pressedButtons & aimButtons)
                     {
                         g_CurrentPlayer->isInAimMode = !g_CurrentPlayer->isInAimMode;
                     }
 
                     moveData.canSwivelGun = !g_CurrentPlayer->isInAimMode;
                     moveData.canAutoAim = !g_CurrentPlayer->isInAimMode;
-                    moveData.btap = ((buttons & ~oldbuttons) & B_BUTTON) != 0;
+                    moveData.btap = (pressedButtons & B_BUTTON) != 0;
                     moveData.canManualAim = g_CurrentPlayer->isInAimMode;
 
                     /* 1.2 and 1.4 */
-                    if (cur_player_get_control_type() == CONTROLLER_CONFIG_SOLITARE || cur_player_get_control_type() == CONTROLLER_CONFIG_GOODNIGHT)
+                    if (controlType == CONTROLLER_CONFIG_SOLITARE || controlType == CONTROLLER_CONFIG_GOODNIGHT)
                     {
                         if ((buttons & (L_JPAD | L_CBUTTONS)))
                         {
@@ -5055,7 +5366,7 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                         if (g_PlayerIsInTank)
                         {
-                            moveData.canTurnTank = !g_CurrentPlayer->isInAimMode;
+                            moveData.hasAnalogStrafe = !g_CurrentPlayer->isInAimMode;
                         }
                         else
                         {
@@ -5101,49 +5412,29 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                     if ((g_CurrentPlayer->isInAimMode) && (stick_y > 60))
                     {
-                        moveData.speedVertaDown = (f32) (stick_y - 60) / 10.0f;
-
-                        if (moveData.speedVertaDown > 1.0f)
-                        {
-                            moveData.speedVertaDown = 1.0f;
-                        }
+                        moveData.speedVertaDown = bviewGetAimInputSpeed(stick_y);
                     }
                     else if ((g_CurrentPlayer->isInAimMode) && (stick_y < -60))
                     {
-                        moveData.speedVertaUp = (f32) (-60 - stick_y) / 10.0f;
-
-                        if (moveData.speedVertaUp > 1.0f)
-                        {
-                            moveData.speedVertaUp = 1.0f;
-                        }
+                        moveData.speedVertaUp = bviewGetAimInputSpeed(-stick_y);
                     }
 
                     if ((g_CurrentPlayer->isInAimMode) && (stick_x < -60))
                     {
-                        moveData.aimTurnLeftSpeed = (f32) (-60 - stick_x) / 10.0f;
-
-                        if (moveData.aimTurnLeftSpeed > 1.0f)
-                        {
-                            moveData.aimTurnLeftSpeed = 1.0f;
-                        }
+                        moveData.aimTurnLeftSpeed = bviewGetAimInputSpeed(-stick_x);
                     }
 
                     if ((g_CurrentPlayer->isInAimMode) && (stick_x > 60))
                     {
-                        moveData.aimTurnRightSpeed = (f32) (stick_x - 60) / 10.0f;
-
-                        if (moveData.aimTurnRightSpeed > 1.0f)
-                        {
-                            moveData.aimTurnRightSpeed = 1.0f;
-                        }
+                        moveData.aimTurnRightSpeed = bviewGetAimInputSpeed(stick_x);
                     }
 
-                    moveData.weaponBackOffset = ((buttons & invButtons) != 0) && (((buttons & ~oldbuttons) & shootButtons) != 0);
-                    moveData.weaponForwardOffset = (((buttons & ~oldbuttons) & invButtons) != 0) && ((buttons & shootButtons) == 0);
+                    moveData.weaponBackOffset = ((buttons & invButtons) != 0) && ((pressedButtons & shootButtons) != 0);
+                    moveData.weaponForwardOffset = ((pressedButtons & invButtons) != 0) && ((buttons & shootButtons) == 0);
                     moveData.aiming = g_CurrentPlayer->isInAimMode;
                     moveData.zooming = g_CurrentPlayer->isInAimMode;
 
-                    if ((bondwalkItemCheckBitflags(getCurrentPlayerWeaponId(GUNRIGHT), WEAPONSTATBITFLAG_DISABLE_CROUCH)) && g_CurrentPlayer->isInAimMode)
+                    if (weaponDisablesCrouch && g_CurrentPlayer->isInAimMode)
                     {
                         if ((buttons & (D_JPAD | D_CBUTTONS)) != 0)
                         {
@@ -5156,11 +5447,11 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                         }
                     }
 
-                    moveData.crouchDown = (bondwalkItemCheckBitflags(getCurrentPlayerWeaponId(GUNRIGHT), WEAPONSTATBITFLAG_DISABLE_CROUCH) == 0)
+                    moveData.crouchDown = !weaponDisablesCrouch
                         && (g_CurrentPlayer->isInAimMode)
                         && ((buttons & (D_JPAD | D_CBUTTONS)));
 
-                    moveData.crouchUp = (bondwalkItemCheckBitflags(getCurrentPlayerWeaponId(GUNRIGHT), WEAPONSTATBITFLAG_DISABLE_CROUCH) == 0)
+                    moveData.crouchUp = !weaponDisablesCrouch
                         && (g_CurrentPlayer->isInAimMode)
                         && ((~buttons & (U_JPAD | U_CBUTTONS)));
 
@@ -5171,9 +5462,9 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                         && ((buttons & (R_JPAD | R_CBUTTONS)));
 
                     if (
-                        ((((buttons & invButtons) != 0) && (((buttons & ~oldbuttons) & B_BUTTON) != 0))
-                            || ((buttons & B_BUTTON) && (((buttons & ~oldbuttons) & invButtons) != 0)))
-                        && (getCurrentPlayerWeaponId(GUNRIGHT) == ITEM_REMOTEMINE))
+                        ((((buttons & invButtons) != 0) && ((pressedButtons & B_BUTTON) != 0))
+                            || ((buttons & B_BUTTON) && ((pressedButtons & invButtons) != 0)))
+                        && currentWeapon == ITEM_REMOTEMINE)
                     {
                         moveData.detonating = 1;
                         moveData.weaponBackOffset = 0;
@@ -5183,10 +5474,10 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
                     if (g_PlayerIsInTank && g_CurrentPlayer->isInAimMode)
                     {
-                        if (getCurrentPlayerWeaponId(GUNRIGHT) == ITEM_TANKSHELLS)
+                        if (currentWeapon == ITEM_TANKSHELLS)
                         {
                             moveData.controlStickXRaw = 0;
-                            moveData.canTurnTank = 1;
+                            moveData.hasAnalogStrafe = 1;
                         }
                         else if ((moveData.tankTurnLeftSpeed == 0) && (moveData.tankTurnRightSpeed == 0))
                         {
@@ -5212,7 +5503,7 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                 && ((buttons & invButtons) == 0);
 
             /* 1.2 and 1.4 */
-            if (cur_player_get_control_type() == CONTROLLER_CONFIG_SOLITARE || cur_player_get_control_type() == CONTROLLER_CONFIG_GOODNIGHT)
+            if (controlType == CONTROLLER_CONFIG_SOLITARE || controlType == CONTROLLER_CONFIG_GOODNIGHT)
             {
                 moveData.disableLookAhead = 1;
             }
@@ -5223,112 +5514,28 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
     if (moveData.btap)
     {
-        /* If Bond is in the tank and pressed B, then exit. */
-        if (g_PlayerIsInTank)
-        {
-            spF4 = (struct TankRecord *)g_PlayerTankProp->obj;
-            spF4->unkD8 = get_ammo_count_for_weapon(ITEM_TANKSHELLS);
-
-            add_ammo_to_weapon(ITEM_TANKSHELLS, 0);
-            bondinvRemoveItemByID(ITEM_TANKSHELLS);
-
-            if (getCurrentPlayerWeaponId(GUNRIGHT) == ITEM_TANKSHELLS)
-            {
-                spF4->unkD8 += get_ammo_in_hands_magazine(GUNRIGHT);
-                autoadvance_on_deplete_all_ammo();
-            }
-
-            spF4->is_firing_tank = 0;
-            g_PlayerIsInTank = FALSE;
-            g_CurrentPlayer->speedsideways = 0;
-            g_CurrentPlayer->speedforwards = 0;
-            g_CurrentPlayer->speedtheta = 0;
-
-            for (i_0 = 0; i_0 < 3; i_0++)
-            {
-                g_CurrentPlayer->bondshotspeed.f[i_0] = 0;
-            }
-
-            g_CurrentPlayer->crouchpos = CROUCH_STAND;
-        }
-        /* If Bond is standing on the tank and pressed B, enter the tank. */
-        else if (g_PlayerTankProp != NULL
-            && g_PlayerTankProp->type == PROP_TYPE_OBJ
-            && g_PlayerTankProp->obj->type == PROPDEF_TANK
-            && g_BondCanEnterTank)
-        {
-            spEC = (struct TankRecord *)g_PlayerTankProp->obj;
-
-            bondinvAddInvItem(ITEM_TANKSHELLS);
-            add_ammo_to_weapon(ITEM_TANKSHELLS, spEC->unkD8);
-
-            spEC->unkD8 = 0;
-
-            g_TankTurretVerticalAngle = spEC->turret_vertical_angle;
-            g_TankTurretVerticalAngleRelated = g_TankTurretVerticalAngle / TANK_VERT_ANGLE_FACTOR;
-            g_TankTurretAngle = spEC->turret_orientation_angle;
-            g_TankTurretOrientationAngleRad = spEC->turret_orientation_angle;
-            g_TankTurretOrientationAngleDeg = g_TankTurretOrientationAngleRad / TANK_VERT_ANGLE_RAD_FACTOR;
-            tank_turret_turn_speed = 0;
-            g_TankOrientationAngle = spEC->tank_orientation_angle;
-            g_TankTurnSpeed = 0;
-            g_PlayerIsInTank = TRUE;
-            g_EnterTankAudioState = TANK_RUN_STATE_NOT_RUNNING;
-            g_CurrentPlayer->speedsideways = 0;
-            g_CurrentPlayer->speedforwards = 0;
-            g_CurrentPlayer->speedtheta = 0;
-            g_CurrentPlayer->crouchpos = CROUCH_HALF;
-            g_TankEnteringSitHeight = 0;
-            g_TankEnteringSitHeightRemain = 1.0f;
-            g_TankEnterBondHorizAngleDeg = g_CurrentPlayer->vv_theta;
-            g_TankEnterBondVertAngleDeg = g_CurrentPlayer->vv_verta;
-            g_EnterTankCoord.f[0] = g_CurrentPlayer->field_488.collisionPosition.f[0];
-            g_EnterTankCoord.f[1] = g_CurrentPlayer->field_488.collisionPosition.f[1];
-            g_EnterTankCoord.f[2] = g_CurrentPlayer->field_488.collisionPosition.f[2];
-            g_TankDamagePenaltyTicks = 0;
-
-            bondviewTankModelRotationRelated();
-        }
-        else
-        {
-            g_CurrentPlayer->field_D0 = 1;
-        }
+        bviewHandleTankEnterExit();
     }
 
     if (moveData.invertPitch == 0)
     {
-        f32 ftemp_nostack_spE8;
+        f32 pitchSpeedSwap;
 
         moveData.controlStickYRaw = (s32) -stick_y;
         moveData.analogPitch = -moveData.analogPitch;
-        ftemp_nostack_spE8 = moveData.speedVertaDown;
+        pitchSpeedSwap = moveData.speedVertaDown;
         moveData.speedVertaDown = moveData.speedVertaUp;
-        moveData.speedVertaUp = ftemp_nostack_spE8;
+        moveData.speedVertaUp = pitchSpeedSwap;
     }
 
-    if (bondviewGetIfCurrentPlayerDamageShowTime() && getPlayerCount() == 1)
+    if (bondviewGetIfCurrentPlayerDamageShowTime() && playerCount == 1)
     {
         moveData.triggerOn = 0;
     }
 
     gunTickGameplay(moveData.triggerOn);
 
-    if (bondviewGetVisibleToGuardsFlag() && (get_hands_firing_status(GUNRIGHT) || get_hands_firing_status(GUNLEFT)))
-    {
-        noiseRadius = 0;
-
-        if (get_hands_firing_status(GUNRIGHT) && getCurrentPlayerNoise(GUNRIGHT) > noiseRadius)
-        {
-            noiseRadius = getCurrentPlayerNoise(GUNRIGHT);
-        }
-
-        if (get_hands_firing_status(GUNLEFT) && noiseRadius < getCurrentPlayerNoise(GUNLEFT))
-        {
-            noiseRadius = getCurrentPlayerNoise(GUNLEFT);
-        }
-
-        chrCheckGuardsHeardSound(noiseRadius);
-    }
+    bviewUpdateGuardHearing();
 
     gunSetSightVisible(GUNSIGHTREASON_NOTAIMING, moveData.aiming);
 
@@ -5344,118 +5551,25 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
     if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x0)
     {
-        ftemp_nostack_spE0 = 60.0f;
+        zoomFov = 60.0f;
 
         if (moveData.zooming)
         {
-            ftemp_nostack_spE0 = get_item_in_hand_zoom();
+            zoomFov = get_item_in_hand_zoom();
 
-            if (ftemp_nostack_spE0 <= 0)
+            if (zoomFov <= 0.0f)
             {
-                ftemp_nostack_spE0 = 60.0f;
+                zoomFov = 60.0f;
             }
         }
 
-        bondviewTriggerWatchZoom(ftemp_nostack_spE0);
+        bondviewTriggerWatchZoom(zoomFov);
         bondviewUpdateWatchZoomIn();
     }
 
     if (g_PlayerIsInTank)
     {
-        g_TankTurretTurn = 0;
-
-        if (g_EnterTankAudioState == TANK_RUN_STATE_RUNNING)
-        {
-            if (moveData.tankTurnRightSpeed > 0)
-            {
-                g_TankTurretTurn += g_GlobalTimerDelta * moveData.tankTurnRightSpeed * DegToRad1Fact(1);
-            }
-            else if (moveData.tankTurnLeftSpeed > 0)
-            {
-                g_TankTurretTurn -= g_GlobalTimerDelta * moveData.tankTurnLeftSpeed * DegToRad1Fact(1);
-            }
-            else if (moveData.canTurnTank)
-            {
-                targetSpeed = (f32) moveData.analogStrafe / 70.0f;
-
-                if (targetSpeed > 1.0f)
-                {
-                    targetSpeed = 1.0f;
-                }
-
-                if (targetSpeed < -1.0f)
-                {
-                    targetSpeed = -1.0f;
-                }
-
-                g_TankTurretTurn += DegToRad1Fact(1) * targetSpeed * g_GlobalTimerDelta;
-            }
-
-            if (!g_CurrentPlayer->isInAimMode)
-            {
-                ftemp_nostack_spD8 = 0;
-                targetSpeed = 1.0f;
-                ftemp_nostack_spE8 = 1.0f;
-
-                if (moveData.canLookAhead)
-                {
-                    ftemp_nostack_spD8 = (f32) moveData.analogWalk / 70.0f;
-                }
-                else if (moveData.digitalStepForward)
-                {
-                    ftemp_nostack_spD8 = 1.0f;
-                }
-                else if (moveData.digitalStepBack)
-                {
-                    ftemp_nostack_spD8 = -1.0f;
-                }
-
-                if (ftemp_nostack_spD8 > 1.0f)
-                {
-                    ftemp_nostack_spD8 = 1.0f;
-                }
-                else if (ftemp_nostack_spD8 < -1.0f)
-                {
-                    ftemp_nostack_spD8 = -1.0f;
-                }
-
-                unadjustedTargetSpeed = ftemp_nostack_spD8 * TANK_MAX_SPEED;
-                targetSpeed = unadjustedTargetSpeed;
-
-                if (g_TankDamagePenaltyTicks > 0)
-                {
-                    targetSpeed = unadjustedTargetSpeed * 0.5f;
-                    ftemp_nostack_spE8 = 4.0f;
-                    g_TankDamagePenaltyTicks -= g_ClockTimer;
-                }
-
-                if (targetSpeed != g_CurrentPlayer->speedforwards)
-                {
-                    if (g_CurrentPlayer->speedforwards < targetSpeed)
-                    {
-                        unadjustedTargetSpeed = ((((((targetSpeed - g_CurrentPlayer->speedforwards) / 4.0f) / TANK_MAX_SPEED) + 0.5f) * ftemp_nostack_spE8 * 10.0f) / 60.0f);
-
-                        g_CurrentPlayer->speedforwards += (unadjustedTargetSpeed) * g_GlobalTimerDelta;
-
-                        if (targetSpeed < g_CurrentPlayer->speedforwards)
-                        {
-                            g_CurrentPlayer->speedforwards = targetSpeed;
-                        }
-                    }
-                    else if (targetSpeed < g_CurrentPlayer->speedforwards)
-                    {
-                        unadjustedTargetSpeed = ((((((g_CurrentPlayer->speedforwards - targetSpeed) / 4.0f) / TANK_MAX_SPEED) + 0.5f) * ftemp_nostack_spE8 * -10.0f) / 60.0f);
-
-                        g_CurrentPlayer->speedforwards += (unadjustedTargetSpeed) * g_GlobalTimerDelta;
-
-                        if (g_CurrentPlayer->speedforwards < targetSpeed)
-                        {
-                            g_CurrentPlayer->speedforwards = targetSpeed;
-                        }
-                    }
-                }
-            }
-        }
+        bviewUpdateTankMovement(&moveData);
     }
     else
     {
@@ -5472,7 +5586,7 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             bondviewUpdateSpeedSideways(0);
         }
 
-        if (moveData.canTurnTank) // ?? not sure why this tank property is used here. Is the name wrong?
+        if (moveData.hasAnalogStrafe)
         {
             g_CurrentPlayer->speedsideways = (f32) moveData.analogStrafe / 70.0f;
         }
@@ -5583,57 +5697,7 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
     if (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x0)
     {
-        // By default the camera is pitched slightly below the horizon
-        targetPitch = -4.0f;
-
-        // lookaheadcentreenabled is always true, so this block always executes.
-        if (g_CurrentPlayer->lookaheadcentreenabled)
-        {
-            spC0 = g_CurrentPlayer->field_488.collisionTile;
-            spBC = 300.0f;
-
-            // prop, f32 *collision_radius, f32 *height, f32 *always_30
-            bondviewGetCollisionRadius(g_CurrentPlayer->prop, &spA0.f[0], &spA0.f[2], &spA0.f[1]);
-
-            spAC.f[0] = g_CurrentPlayer->field_488.collisionPosition.f[0] + (g_CurrentPlayer->field_488.facingDirection.f[0] * 300.0f);
-            spAC.f[1] = g_CurrentPlayer->field_488.collisionPosition.f[1];
-            spAC.f[2] = g_CurrentPlayer->field_488.collisionPosition.f[2] + (g_CurrentPlayer->field_488.facingDirection.f[2] * 300.0f);
-
-            stanResetHits();
-
-            if (stanTestLineUnobstructed(&spC0, g_CurrentPlayer->field_488.collisionPosition.f[0], g_CurrentPlayer->field_488.collisionPosition.f[2], spAC.f[0], spAC.f[2], CDTYPE_CLOSEDDOORS, spA0.f[2], spA0.f[1], 0, 1.0f))
-            {
-                spAC.f[1] = bondviewYPositionRelated(spC0, spAC.f[0], spAC.f[2]);
-            }
-            else
-            {
-                chrlvStanPointPointIntersection(&g_CurrentPlayer->field_488.collisionPosition, &g_CurrentPlayer->field_488.facingDirection, (struct coord3d *) &spAC);
-                ftemp_nostack_spD0 = spAC.f[0] - g_CurrentPlayer->field_488.collisionPosition.f[0];
-                ftemp_nostack_spCC = spAC.f[2] - g_CurrentPlayer->field_488.collisionPosition.f[2];
-                spBC = sqrtf((ftemp_nostack_spD0 * ftemp_nostack_spD0) + (ftemp_nostack_spCC * ftemp_nostack_spCC));
-                spAC.f[1] = bondviewYPositionRelated(spC0, spAC.f[0], spAC.f[2]);
-            }
-
-            if (spBC > 0)
-            {
-                ftemp_nostack_spC8 = spAC.f[1] - g_CurrentPlayer->stanHeight;
-
-                if ((ftemp_nostack_spC8 > -300.0f) && (ftemp_nostack_spC8 < 500.0f))
-                {
-                    targetPitch = ((atan2f(ftemp_nostack_spC8, spBC) * 360.0f) / M_TAU_F) + -4.0f;
-
-                    if (targetPitch >= 180.0f)
-                    {
-                        targetPitch -= 360.0f;
-                    }
-
-                    if (targetPitch > 0)
-                    {
-                        targetPitch *= 0.8666667f;
-                    }
-                }
-            }
-        }
+        targetPitch = bviewCalculateLookAheadPitch();
 
         if ((g_CurrentPlayer->movecentrerelease) && (moveData.analogWalk < 40) && (moveData.analogWalk > -40))
         {
@@ -5676,18 +5740,6 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                         g_CurrentPlayer->docentreupdown = TRUE;
                     }
                 }
-                /**
-                 * fastmovecentreenabled is never set to true, so this block can never execute. Cut option?
-                 */
-                else if ((g_CurrentPlayer->fastmovecentreenabled)
-                    && (moveData.canLookAhead)
-                    && ((moveData.analogWalk > 60) || (moveData.analogWalk < -60))
-                    && (( ((targetPitch + 5.0f) < g_CurrentPlayer->vv_verta)) || (g_CurrentPlayer->vv_verta < (targetPitch - 10.0f)))
-                    && (g_CurrentPlayer->movecentrerelease == FALSE))
-                {
-                    g_CurrentPlayer->docentreupdown = TRUE;
-                }
-
                 g_CurrentPlayer->prevupdown = FALSE;
             }
         }
@@ -5699,13 +5751,13 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         {
             if (!g_PlayerIsInTank)
             {
-                ftemp_nostack_spB8 = (g_CurrentPlayer->speedverta * g_CurrentPlayer->speedverta * 0.5f) / 0.05f;
+                pitchStoppingDistance = (g_CurrentPlayer->speedverta * g_CurrentPlayer->speedverta * 0.5f) / 0.05f;
 
-                if ((targetPitch + ftemp_nostack_spB8) < g_CurrentPlayer->vv_verta)
+                if ((targetPitch + pitchStoppingDistance) < g_CurrentPlayer->vv_verta)
                 {
                     bondviewCurrentPlayerUpdateSpeedVerta(1.0f);
                 }
-                else if (g_CurrentPlayer->vv_verta < (targetPitch - ftemp_nostack_spB8))
+                else if (g_CurrentPlayer->vv_verta < (targetPitch - pitchStoppingDistance))
                 {
                     bondviewCurrentPlayerUpdateSpeedVerta(-1.0f);
                 }
@@ -5714,15 +5766,15 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
                     bondviewCurrentPlayerUpdateSpeedVerta(0);
                 }
 
-                ftemp_nostack_spB8 = g_CurrentPlayer->vv_verta + (2.0f * (g_CurrentPlayer->speedverta * g_GlobalTimerDelta));
+                nextPitch = g_CurrentPlayer->vv_verta + (2.0f * (g_CurrentPlayer->speedverta * g_GlobalTimerDelta));
 
-                if ((targetPitch < g_CurrentPlayer->vv_verta) && (targetPitch < ftemp_nostack_spB8))
+                if ((targetPitch < g_CurrentPlayer->vv_verta) && (targetPitch < nextPitch))
                 {
-                    g_CurrentPlayer->vv_verta = ftemp_nostack_spB8;
+                    g_CurrentPlayer->vv_verta = nextPitch;
                 }
-                else if ((g_CurrentPlayer->vv_verta < targetPitch) && (ftemp_nostack_spB8 < targetPitch))
+                else if ((g_CurrentPlayer->vv_verta < targetPitch) && (nextPitch < targetPitch))
                 {
-                    g_CurrentPlayer->vv_verta = ftemp_nostack_spB8;
+                    g_CurrentPlayer->vv_verta = nextPitch;
                 }
                 else
                 {
@@ -5740,28 +5792,8 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         {
             if (moveData.canNaturalPitch)
             {
-                ftemp_nostack_sp98 = viGetFovY() / 60.0f;
-                ftemp_nostack_sp94 = (f32) moveData.analogPitch / 70.0f;
-
-                if (ftemp_nostack_sp94 > 1)
-                {
-                    ftemp_nostack_sp94 = 1;
-                }
-                else if (ftemp_nostack_sp94 < -1)
-                {
-                    ftemp_nostack_sp94 = -1;
-                }
-
-                if (ftemp_nostack_sp94 >= 0)
-                {
-                    ftemp_nostack_sp94 *= ftemp_nostack_sp94;
-                }
-                else
-                {
-                    ftemp_nostack_sp94 *= -ftemp_nostack_sp94;
-                }
-
-                g_CurrentPlayer->speedverta = -ftemp_nostack_sp94 * ftemp_nostack_sp98;
+                g_CurrentPlayer->speedverta = -bviewApplyAnalogInputCurve(moveData.analogPitch)
+                    * (viGetFovY() / FOV_Y_F);
             }
             else if (moveData.speedVertaDown > 0)
             {
@@ -5798,29 +5830,8 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
     if (moveData.canNaturalTurn)
     {
-        ftemp_nostack_sp8C = viGetFovY();
-        ftemp_nostack_sp84 = (f32) moveData.analogTurn / 70.0f;
-
-        if (ftemp_nostack_sp84 > 1)
-        {
-            ftemp_nostack_sp84 = 1;
-        }
-        else if (ftemp_nostack_sp84 < -1)
-        {
-            ftemp_nostack_sp84 = -1;
-        }
-
-        if (ftemp_nostack_sp84 >= 0)
-        {
-            ftemp_nostack_sp84 *= ftemp_nostack_sp84;
-        }
-        else
-        {
-            ftemp_nostack_sp84 *= -ftemp_nostack_sp84;
-        }
-
-        ftemp_nostack_sp88 = (ftemp_nostack_sp8C / FOV_Y_F);
-        g_CurrentPlayer->speedtheta = ftemp_nostack_sp84 * ftemp_nostack_sp88;
+        g_CurrentPlayer->speedtheta = bviewApplyAnalogInputCurve(moveData.analogTurn)
+            * (viGetFovY() / FOV_Y_F);
     }
     else if (moveData.aimTurnLeftSpeed > 0)
     {
@@ -5837,34 +5848,7 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
     if (g_PlayerIsInTank)
     {
-        if (g_EnterTankAudioState == TANK_RUN_STATE_RUNNING)
-        {
-            ftemp_nostack_sp80 = 0;
-
-            if (moveData.canNaturalTurn)
-            {
-                ftemp_nostack_sp80 = g_CurrentPlayer->speedtheta * 0.3f;
-            }
-            else if (moveData.aimTurnLeftSpeed > 0)
-            {
-                ftemp_nostack_sp80 = bviewGetLookSpeedLimit(1.0f) * 0.3f;
-            }
-            else if (moveData.aimTurnRightSpeed > 0)
-            {
-                ftemp_nostack_sp80 = bviewGetLookSpeedLimit(-1.0f) * 0.3f;
-            }
-
-            for (i_1=0; i_1<g_ClockTimer; i_1++)
-            {
-                g_TankTurnSpeed = (TANKUPDATEROTATION_SCALE * g_TankTurnSpeed) + ftemp_nostack_sp80;
-            }
-
-            g_CurrentPlayer->speedtheta = g_TankTurnSpeed * TANK_VERT_ANGLE_RAD_FACTOR;
-        }
-        else
-        {
-            g_CurrentPlayer->speedtheta = 0;
-        }
+        bviewUpdateTankTurnSpeed(&moveData);
     }
 
     if (moveData.detonating)
@@ -5874,14 +5858,7 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
         trigger_remote_mine_detonation();
     }
 
-    canCycleWeapons = 1;
-
-    if ((getPlayerCount() >= 2) && (get_scenario() == 2) && (bondinvIsAliveWithFlag()))
-    {
-        canCycleWeapons = 0;
-    }
-
-    if (canCycleWeapons)
+    if (!(playerCount >= 2 && get_scenario() == 2 && bondinvIsAliveWithFlag()))
     {
         if (moveData.weaponBackOffset)
         {
@@ -5905,33 +5882,41 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
 
     if (g_CurrentPlayer->controldef == CONTROLLER_CONFIG_HONEY)
     {
+        bool useXAutoAim = moveData.canAutoAim
+            && currentPlayerGetXAutoAimEnabledRedirect()
+            && g_CurrentPlayer->autoaim_target_x;
+        bool useYAutoAim = moveData.canAutoAim
+            && currentPlayerGetYAutoAimEnabledRedirect()
+            && g_CurrentPlayer->autoaim_target_y;
+
+        if ((useXAutoAim || useYAutoAim)
+            && !bondwalkItemCheckBitflags(getCurrentPlayerWeaponId(GUNRIGHT), WEAPONSTATBITFLAG_HAS_AUTO_AIM))
+        {
+            useXAutoAim = FALSE;
+            useYAutoAim = FALSE;
+        }
+
         gunSetAimType(0);
 
-        if (moveData.canAutoAim
-            && currentPlayerGetXAutoAimEnabledRedirect()
-            && g_CurrentPlayer->autoaim_target_x
-            && bondwalkItemCheckBitflags(getCurrentPlayerWeaponId(GUNRIGHT), WEAPONSTATBITFLAG_HAS_AUTO_AIM))
+        if (useXAutoAim)
         {
-            sp70 = g_CurrentPlayer->autoaimx;
+            aimOffsetX = g_CurrentPlayer->autoaimx;
         }
         else
         {
-            sp70 = g_CurrentPlayer->speedtheta * 0.3f;
+            aimOffsetX = g_CurrentPlayer->speedtheta * 0.3f;
         }
 
-        if (moveData.canAutoAim
-            && currentPlayerGetYAutoAimEnabledRedirect()
-            && g_CurrentPlayer->autoaim_target_y
-            && bondwalkItemCheckBitflags(getCurrentPlayerWeaponId(GUNRIGHT), WEAPONSTATBITFLAG_HAS_AUTO_AIM))
+        if (useYAutoAim)
         {
-            ftemp_nostack_sp78 = g_CurrentPlayer->autoaimy;
+            aimOffsetY = g_CurrentPlayer->autoaimy;
         }
         else
         {
-            ftemp_nostack_sp78 = -g_CurrentPlayer->speedverta * 0.1f;
+            aimOffsetY = -g_CurrentPlayer->speedverta * 0.1f;
         }
 
-        sub_GAME_7F067F58(sp70, ftemp_nostack_sp78, MAX_AIMLOCK_SPEED_DEFAULT);
+        sub_GAME_7F067F58(aimOffsetX, aimOffsetY, MAX_AIMLOCK_SPEED_DEFAULT);
     }
     else if (g_CurrentPlayer->controldef == CONTROLLER_CONFIG_KISSY)
     {
