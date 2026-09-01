@@ -11,5 +11,6 @@ typedef struct GEditorProject {
 } GEditorProject;
 
 BOOL ProjectCreate(const char *name, const char *location, GEditorProject *proj);
+BOOL ProjectRead(const char *geppath, GEditorProject *proj);
 
 #endif

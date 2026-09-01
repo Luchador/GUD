@@ -18,11 +18,10 @@
 static HWND g_Viewport;
 static GEditorProject g_Project;
 
-/*
- * Menu command IDs. Every clickable item needs one; it is the number
- * that arrives in WM_COMMAND when the item is chosen. Start high -
- * low values are reserved for standard controls (IDOK is 1).
- */
+/**
+  * Menu command IDs. Every clickable has one and it is the number
+  * that arrives in WM_COMMAND when the item is chosen.
+  */
 enum {
     ID_FILE_NEW_PROJECT = 40001,
     ID_FILE_OPEN_PROJECT,
@@ -421,11 +420,18 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             case ID_FILE_OPEN_PROJECT:
             {
                 char path[MAX_PATH];
-
+ 
                 if (GEditorPromptForProject(hwnd, path, sizeof(path)))
                 {
-                    /* Nothing loads yet - show what we would open. */
-                    MessageBox(hwnd, path, GEDITOR_TITLE, MB_OK | MB_ICONINFORMATION);
+                    if (ProjectRead(path, &g_Project))
+                    {
+                        GEditorSetTitleForProject(hwnd);
+                    }
+                    else
+                    {
+                        MessageBox(hwnd, "That file is not a readable GEditor project.",
+                                   GEDITOR_TITLE, MB_ICONERROR);
+                    }
                 }
                 return 0;
             }

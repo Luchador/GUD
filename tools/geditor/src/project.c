@@ -86,3 +86,114 @@ fail:
     ZeroMemory(proj, sizeof(*proj));
     return FALSE;
 }
+
+
+/**
+ * Strip trailing newline, carriage returns, space and tabs.
+ * This means .gep files can be edited with plaintext editors.
+ */
+static void TrimRight(char *s)
+{
+    size_t n = strlen(s);
+ 
+    while (n > 0 && (s[n - 1] == '\n' || s[n - 1] == '\r'
+                  || s[n - 1] == ' '  || s[n - 1] == '\t'))
+    {
+        s[--n] = '\0';
+    }
+}
+
+
+/**
+  * Reads a .gep file into proj. Returns FALSE if the file cannot be
+  * opened, is not a GEditor project, comes from a newer format version,
+  * or carries no name.
+  *
+  * Lines with '=' are skipped. Unknown keys are ignored so a future .gep
+  * with different keys still opens.
+  */
+BOOL ProjectRead(const char *geppath, GEditorProject *proj)
+{
+    char line[512];
+    int version = 0;
+    FILE *f;
+    char *lastslash;
+ 
+    ZeroMemory(proj, sizeof(*proj));
+ 
+    f = fopen(geppath, "r");
+
+    if (f == NULL)
+    {
+        return FALSE;
+    }
+ 
+    /**
+     * Read header first to ensure this is a GEditor project file. Versions <= ours are accepted.
+     */
+    if (fgets(line, sizeof(line), f) == NULL || sscanf(line, GEP_MAGIC " %d", &version) != 1 || version < 1 || version > GEP_VERSION)
+    {
+        fclose(f);
+        return FALSE;
+    }
+ 
+    while (fgets(line, sizeof(line), f) != NULL)
+    {
+        char *eq = strchr(line, '=');
+        char *key = line;
+        char *value;
+ 
+        if (eq == NULL)
+        {
+            continue; /* blank line or comment */
+        }
+ 
+        *eq = '\0'; /* split in place: key | value */
+        value = eq + 1;
+ 
+        TrimRight(key);
+        while (*value == ' ' || *value == '\t')
+        {
+            value++;
+        }
+        TrimRight(value);
+ 
+        if (strcmp(key, "name") == 0)
+        {
+            strncpy(proj->name, value, sizeof(proj->name) - 1);
+        }
+        /* unknown keys: ignored */
+    }
+ 
+    fclose(f);
+ 
+    if (proj->name[0] == '\0')
+    {
+        ZeroMemory(proj, sizeof(*proj));
+        return FALSE;
+    }
+ 
+    /**
+     * Derive file paths from where the file actually is so moving the .gep file doesn't break
+     * the project file.
+     */
+    strncpy(proj->geppath, geppath, sizeof(proj->geppath) - 1);
+    strncpy(proj->dir, geppath, sizeof(proj->dir) - 1);
+ 
+    lastslash = strrchr(proj->dir, '\\');
+    if (lastslash == NULL)
+    {
+        lastslash = strrchr(proj->dir, '/');
+    }
+    if (lastslash != NULL)
+    {
+        *lastslash = '\0';
+    }
+    else
+    {
+        proj->dir[0] = '.';  /* bare filename: project dir is the cwd */
+        proj->dir[1] = '\0';
+    }
+ 
+    return TRUE;
+}
