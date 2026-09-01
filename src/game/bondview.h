@@ -821,7 +821,10 @@ struct player
   
   struct rgba_u8 tileColor;
 
-  s32 resetshadecol; // canonical name
+  s32 resetshadecol;
+
+  // Former unused aimtype. Padding needed to keep the health/armor bar working.
+  u8 padding_0FE4[4];
 
   /**
    * Crosshair or bullet angle related.
