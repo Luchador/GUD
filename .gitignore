@@ -55,7 +55,6 @@ assets/obseg/gun/*/Model.c
 assets/obseg/ob__ob_end.seg
 assets/obseg/prop/*/Model.c
 assets/obseg/setup/*.bin
-assets/obseg/setup/[eju]/*.bin
 assets/obseg/stan/*.bin
 assets/obseg/text/*.bin
 assets/obseg/text/[eju]/*.bin

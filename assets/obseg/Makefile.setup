@@ -1,8 +1,5 @@
 # setup
 
-# The EU setup sources under setup/e are retained as bug-fix references, but
-# are not selected by either supported build configuration.
-
 # Combine both lists
 ALL_SETUP_NAMES := $(SETUPNAMELIST) $(MPSETUPNAMELIST)
 
@@ -10,9 +7,6 @@ ALL_SETUP_NAMES := $(SETUPNAMELIST) $(MPSETUPNAMELIST)
 SETUP_NAMES := $(foreach name,$(ALL_SETUP_NAMES),U$(name)Z)
 
 # Pattern rules for building .rz files from .bin files
-$(BUILD_DIR)/$(OBSEG_DIR)/setup/%.rz: $(OBSEG_DIR)/setup/$(COUNTRYCODE)/%.bin
-	$(RZ_COMP) $< $@
-
 $(BUILD_DIR)/$(OBSEG_DIR)/setup/%.rz: $(OBSEG_DIR)/setup/%.bin
 	$(RZ_COMP) $< $@
 
@@ -27,10 +21,7 @@ $(BUILD_DIR)/$(OBSEG_DIR)/setup/%.bin: $(BUILD_DIR)/$(OBSEG_DIR)/setup/%.elf
 $(BUILD_DIR)/$(OBSEG_DIR)/setup/%.elf: $(BUILD_DIR)/$(OBSEG_DIR)/setup/%.o
 	$(LD) -T assets/obseg/setup/Usetup.ld -o $@ $<
 
-# Build .o from .c (country-specific and generic)
-$(BUILD_DIR)/$(OBSEG_DIR)/setup/%.o: $(OBSEG_DIR)/setup/$(COUNTRYCODE)/%.c
-	$(CC) -c $(CFLAGS) -o $@ -O2 $<
-
+# Build .o from .c
 $(BUILD_DIR)/$(OBSEG_DIR)/setup/%.o: $(OBSEG_DIR)/setup/%.c
 	$(ConvertAIPRINT) $< | $(CC) -c $(CFLAGS) tools/include-stdin.c -o $@ $(OPTIMIZATION)
 

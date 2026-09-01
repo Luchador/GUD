@@ -44,7 +44,6 @@ dirs=(
 	assets/obseg/text
     assets/obseg/bg
     assets/obseg/setup
-    assets/obseg/setup/${COUNTRYCODE}
     assets/obseg/stan
 	assets/music
     assets/ramrom
