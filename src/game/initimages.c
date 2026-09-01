@@ -1,9 +1,7 @@
 #include <ultra64.h>
 #include "image.h"
 
-/**
- * NTSC address 0x7F000BD0.
-*/
+
 void image_entries_load(void)
 {   
     s32 offset;

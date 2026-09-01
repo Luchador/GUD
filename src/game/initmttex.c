@@ -3,6 +3,7 @@
 #include "image.h"
 #include "initmttex.h"
 
+
 void set_mt_tex_alloc(void)
 {  
     g_TexCacheCount = 0;

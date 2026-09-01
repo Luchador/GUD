@@ -11,24 +11,13 @@
 #define TEX_ALPHA_WEIGHT 961
 
 struct texpool *ptr_texture_alloc_start;
-//8008C724
 s32 ptr_texture_alloc_end;
-//8008C728
 s32 ptr_next_available_space;
-//8008C72C
 s32 ptr_last_entry_facemapping;
-//8008C730
 struct texcacheitem g_TexCacheItems[150];
-//8008D090
 s32 g_TexCacheCount;
-//8008D094
 s32 g_TexNumToLoad;
-
-// data
-//D:80049170
 u32 bytes = 0x6DDD0;
-//D:80049174
-u32 D_80049174 = 0;
 
 //D:80049178 #1	#bytes in pixel data for image
 s32 g_TexFormatNumChannels[] = 

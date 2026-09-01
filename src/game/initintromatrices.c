@@ -5,7 +5,7 @@
 
 void alloc_intro_matrices(void)
 {
-    D_8002A7D0 = 0;
+    g_IntroMatrixBufferIndex = 0;
     matrixBufferRareLogo0     = mempAllocBytesInBank(0x80, MEMPOOL_STAGE);
     matrixBufferGunbarrel0    = mempAllocBytesInBank(0x40, MEMPOOL_STAGE);
     matrixBufferRareLogo1     = mempAllocBytesInBank(0x80, MEMPOOL_STAGE);
@@ -14,5 +14,3 @@ void alloc_intro_matrices(void)
     matrixBufferIntroBackdrop = mempAllocBytesInBank(0x80, MEMPOOL_STAGE);
     matrixBufferIntroBond     = mempAllocBytesInBank(0x80, MEMPOOL_STAGE);
 }
-
-

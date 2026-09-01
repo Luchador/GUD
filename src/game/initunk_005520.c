@@ -24,11 +24,7 @@ void modelmgrSetLevelResetting(bool resetting)
     g_ModelIsLvResetting = resetting;
 }
 
-//this may be a file split
 
-/**
- * NTSC address 0x7F005540.
-*/
 void modelmgrAllocateModelSlots(s32 numobjs)
 {
     s32 i;
@@ -54,18 +50,12 @@ void modelmgrAllocateModelSlots(s32 numobjs)
 }
 
 
-/**
- * NTSC address 0x7F005540.
-*/
 void modelmgrAllocateAnimModelSlots(s32 numanimated)
 {
     s32 temp_t6;
     s32 i;
 
     g_MaxAnimModelSlots = numanimated + ANIM_MODEL_SPARE_SLOTS;
-
-    // mips2c says: g_AnimModelSlots = mempAllocBytesInBank(temp_t6 * 0xC0, 4);
-    // however, the pointer is incremented by 0xbc in the loop below.
     g_AnimModelSlots = mempAllocBytesInBank(g_MaxAnimModelSlots * (4 + sizeof(struct AnimModelSlot)), MEMPOOL_STAGE);
 
     for (i = 0; i < g_MaxAnimModelSlots; i++)

@@ -5,6 +5,7 @@
 #include "initintromatrices.h"
 #include <macro.h>
 
+
 void init_menus_or_reset(void)
 {
     s32 i;

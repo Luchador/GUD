@@ -21,7 +21,7 @@ extern s32 dword_CODE_bss_8006958C;
 extern s32 virtualaddress;
 extern s32 gunbarrelTimer;
 
-extern u32 D_8002A7D0;
+extern u32 g_IntroMatrixBufferIndex;
 
 Gfx *titleRenderFolderMenuBackground(Gfx *gdl, s32 xOffset, struct FolderSelectColour *topColour, struct FolderSelectColour *bottomColour);
 #endif

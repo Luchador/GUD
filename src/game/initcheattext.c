@@ -3,20 +3,20 @@
 #include "player.h"
 #include "cheat.h"
 
-void initCheatTextBuffer(void) {
-    int i;
+
+void initCheatTextBuffer(void)
+{
+    s32 i;
     
-    for(i=0;i<75;i++)
+    for(i = 0; i < 75; i++)
     {
         g_CheatPlayerTextRelated[i] = 0;
     }
-
 }
 
 
 void disableOnscreenCheatText(void)
 {
-  g_CurrentPlayer->cheatInputBufferIndex = 0;
-  g_CurrentPlayer->cheatInputCount = 0;
+    g_CurrentPlayer->cheatInputBufferIndex = 0;
+    g_CurrentPlayer->cheatInputCount = 0;
 }
-

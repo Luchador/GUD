@@ -4,14 +4,12 @@
 #include "objecthandler.h"
 #include "bondgame.h"
 
-//bss
 
 // Where animation frames are saved. Can possibly hold as much as nine, but the game will ever store four at maximum.
 char animations_frame_buffer[0x2D0];
 
 // Msg Queue stuff (unused)
 OSMesgQueue animMsgQ;
-char dword_CODE_bss_80069458[0xC0]; // Unused. Possibly meant for unused message queue.
 OSMesg animMesg[8];
 
 // Animation table ptr

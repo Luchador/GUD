@@ -36,14 +36,17 @@ void reset_counter_rand_body_head(void)
 }
 
 
-u32 sub_GAME_7F0001F0(void *ani, int aniid, int param_3) {
+u32 sub_GAME_7F0001F0(void *ani, s32 aniid, s32 param_3)
+{
     u16 asStack8[4];
     u16 result = 0;
 
-    while (aniid < param_3) {
+    while (aniid < param_3)
+    {
         result += modelAnimReadFrameRootMotion(0, 0, &skeleton_guard, ani, aniid, asStack8);
         aniid++;
     }
+
     return result;
 }
 
@@ -72,8 +75,6 @@ s32 sub_GAME_7F000290(ModelAnimation *anim, s32 startframe, s32 endframe)
 
 
 /**
- * Address: 7F00032C
- * 
  * pd is raceInitAnimGroup
  * 
  * Initializes a null-terminated table of weapon firing animation configs.
@@ -141,7 +142,6 @@ s32 initResolveAnimGroupTable(struct weapon_firing_animation_table *animconfig)
 }
 
 
-//pd is raceInitAnimGroups
 void initResolveAnimGroups(struct anim_group_info **groups)
 {
     s32 i;
@@ -157,8 +157,6 @@ void initResolveAnimGroups(struct anim_group_info **groups)
 
 
 /**
- * Address: 7F0004D0
- * 
  * Resolves each entry's anim offset into an absolute ModelAnimation*.
  * @returns the entry count.
  */

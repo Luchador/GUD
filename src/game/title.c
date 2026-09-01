@@ -74,7 +74,7 @@ s32 gunbarrelTimer;
 
 
 // data
-u32 D_8002A7D0 = 0;
+u32 g_IntroMatrixBufferIndex = 0;
 u8 gunbarrel_mode = 0x3;
 u32 D_8002A7D8 = 0;
 
@@ -110,8 +110,8 @@ struct coord3d D_8002A8A8 = { 0, 0, 0 };
  */
 Gfx *manipulateGunbarrelAndLogoMatrices(Gfx *gdl)
 {
-    guTranslate(&matrixBufferRareLogo2[D_8002A7D0], g_TitleX, g_TitleY, -5.0f);
-    guTranslate(&matrixBufferGunbarrel1[D_8002A7D0], titleTransitionX, titleTransitionY, -5.0f);
+    guTranslate(&matrixBufferRareLogo2[g_IntroMatrixBufferIndex], g_TitleX, g_TitleY, -5.0f);
+    guTranslate(&matrixBufferGunbarrel1[g_IntroMatrixBufferIndex], titleTransitionX, titleTransitionY, -5.0f);
     gSPDisplayList(gdl++, &dlBasicGeometry);
 
     gdl = sub_GAME_7F01C1A4(clear_framebuffer_black(gdl));
@@ -119,7 +119,7 @@ Gfx *manipulateGunbarrelAndLogoMatrices(Gfx *gdl)
     gDPSetCombineMode(gdl++, G_CC_PRIMITIVE, G_CC_PRIMITIVE);
     gDPSetPrimColor(gdl++, 0, 0, 0xE6, 0xE6, 0xE6, 0x00);
     gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(gunbarrelgfxListPointer));
-    gSPMatrix(gdl++, osVirtualToPhysical(&matrixBufferGunbarrel1[D_8002A7D0]), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW));
+    gSPMatrix(gdl++, osVirtualToPhysical(&matrixBufferGunbarrel1[g_IntroMatrixBufferIndex]), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW));
     gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(gunbarrelgfxListPointer));
 
     return gdl;
@@ -127,14 +127,14 @@ Gfx *manipulateGunbarrelAndLogoMatrices(Gfx *gdl)
 
 Gfx *insert_sight_backdrop_eye_intro(Gfx *gdl)
 {
-    guTranslate(&matrixBufferRareLogo2[D_8002A7D0], g_TitleX + 768.0f, g_TitleY - 40.0f, -5.0f);
-    guScale(&matrixBufferGunbarrel1[D_8002A7D0], 2.7f, 2.57f, 1.0f);
+    guTranslate(&matrixBufferRareLogo2[g_IntroMatrixBufferIndex], g_TitleX + 768.0f, g_TitleY - 40.0f, -5.0f);
+    guScale(&matrixBufferGunbarrel1[g_IntroMatrixBufferIndex], 2.7f, 2.57f, 1.0f);
     gSPDisplayList(gdl++, &dlBasicGeometry);
     gSPDisplayList(gdl++, &dlFastPipelineSetup);
 
     gdl = sub_GAME_7F01C1A4(gdl);
 
-    gSPMatrix(gdl++, osVirtualToPhysical(&matrixBufferGunbarrel1[D_8002A7D0]), (G_MTX_NOPUSH | G_MTX_MUL | G_MTX_MODELVIEW));
+    gSPMatrix(gdl++, osVirtualToPhysical(&matrixBufferGunbarrel1[g_IntroMatrixBufferIndex]), (G_MTX_NOPUSH | G_MTX_MUL | G_MTX_MODELVIEW));
     gSPDisplayList(gdl++, OS_K0_TO_PHYSICAL(gunbarrelgfxListPointer));
 
     return gdl;
@@ -288,13 +288,13 @@ Gfx *insert_bond_eye_intro(Gfx *gdl)
 {
     Mtxf matrix;
     u16 perspNorm;
-    guTranslate(&matrixBufferIntroBackdrop[D_8002A7D0], 0.0f, 0.0f, 0.0f);
-    guPerspective(&matrixBufferIntroBond[D_8002A7D0], &perspNorm, 46.0f, (320.0f / 240.0f), 10.0f, 10000.0f, 1.0f);
+    guTranslate(&matrixBufferIntroBackdrop[g_IntroMatrixBufferIndex], 0.0f, 0.0f, 0.0f);
+    guPerspective(&matrixBufferIntroBond[g_IntroMatrixBufferIndex], &perspNorm, 46.0f, (320.0f / 240.0f), 10.0f, 10000.0f, 1.0f);
     gSPPerspNormalize(gdl++, perspNorm);
     gDPSetCombineMode(gdl++, G_CC_SHADE, G_CC_SHADE);
     gDPSetRenderMode(gdl++, G_RM_AA_OPA_SURF, G_RM_AA_OPA_SURF2);
-    gSPMatrix(gdl++, osVirtualToPhysical(&matrixBufferIntroBond[D_8002A7D0]), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
-    gSPMatrix(gdl++, osVirtualToPhysical(&matrixBufferIntroBackdrop[D_8002A7D0]), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW));
+    gSPMatrix(gdl++, osVirtualToPhysical(&matrixBufferIntroBond[g_IntroMatrixBufferIndex]), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
+    gSPMatrix(gdl++, osVirtualToPhysical(&matrixBufferIntroBackdrop[g_IntroMatrixBufferIndex]), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW));
     
     matrix_4x4_set_lookat_target(&matrix, gunbarrelPosition1[0], gunbarrelPosition1[1], gunbarrelPosition1[2], (gunbarrelPosition1[0] + gunbarrelPosition2[0]), (gunbarrelPosition1[1] + gunbarrelPosition2[1]), (gunbarrelPosition1[2] + gunbarrelPosition2[2]), gunbarrelPosition3[0], gunbarrelPosition3[1], gunbarrelPosition3[2]);
 
@@ -314,17 +314,17 @@ Gfx *load_display_rare_logo(Gfx *gdl, s32 arg1, s32 arg2, s32 arg3, s32 arg4) {
     gdl = clear_framebuffer_black(gdl);
     {
         u16 perspNorm;
-        guPerspective(&matrixBufferRareLogo0[D_8002A7D0], &perspNorm, 60.0f, (320.0f / 240.0f), 100.0f, 5000.0f, 1.0f);
+        guPerspective(&matrixBufferRareLogo0[g_IntroMatrixBufferIndex], &perspNorm, 60.0f, (320.0f / 240.0f), 100.0f, 5000.0f, 1.0f);
         gSPPerspNormalize(gdl++, perspNorm);
     }
-    gSPMatrix(gdl++, osVirtualToPhysical(&matrixBufferRareLogo0[D_8002A7D0]), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
+    gSPMatrix(gdl++, osVirtualToPhysical(&matrixBufferRareLogo0[g_IntroMatrixBufferIndex]), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
     gSPClearGeometryMode(gdl++, -1);
     gSPSetGeometryMode(gdl++, (G_SHADE | G_CULL_BACK | G_LIGHTING | G_TEXTURE_GEN | G_SHADING_SMOOTH));
-    guLookAt(&matrixBufferRareLogo1[D_8002A7D0], cameraPosition1[0], cameraPosition1[1], cameraPosition1[2], (cameraPosition1[0] + cameraPosition2[0]), (cameraPosition1[1] + cameraPosition2[1]), (cameraPosition1[2] + cameraPosition2[2]), cameraPosition3[0], cameraPosition3[1], cameraPosition3[2]);
-    gSPMatrix(gdl++,  osVirtualToPhysical(&matrixBufferRareLogo1[D_8002A7D0]), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW));
-    guRotate(&matrixBufferRareLogo2[D_8002A7D0], D_8002A89C, 0.0f, 1.0f, 0.0f);
+    guLookAt(&matrixBufferRareLogo1[g_IntroMatrixBufferIndex], cameraPosition1[0], cameraPosition1[1], cameraPosition1[2], (cameraPosition1[0] + cameraPosition2[0]), (cameraPosition1[1] + cameraPosition2[1]), (cameraPosition1[2] + cameraPosition2[2]), cameraPosition3[0], cameraPosition3[1], cameraPosition3[2]);
+    gSPMatrix(gdl++,  osVirtualToPhysical(&matrixBufferRareLogo1[g_IntroMatrixBufferIndex]), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW));
+    guRotate(&matrixBufferRareLogo2[g_IntroMatrixBufferIndex], D_8002A89C, 0.0f, 1.0f, 0.0f);
     D_8002A89C += 2.0f;
-    gSPMatrix(gdl++, osVirtualToPhysical(&matrixBufferRareLogo2[D_8002A7D0]), (G_MTX_NOPUSH | G_MTX_MUL | G_MTX_MODELVIEW));
+    gSPMatrix(gdl++, osVirtualToPhysical(&matrixBufferRareLogo2[g_IntroMatrixBufferIndex]), (G_MTX_NOPUSH | G_MTX_MUL | G_MTX_MODELVIEW));
     gSPSetLights1(gdl++, gunbarrelLights);
     gunbarrelLights.a.l.col[0] = gunbarrelLights.a.l.col[1] = gunbarrelLights.a.l.col[2] = gunbarrelLights.a.l.colc[0] = gunbarrelLights.a.l.colc[1] = gunbarrelLights.a.l.colc[2] = arg4;
     gDPPipeSync(gdl++);
@@ -371,7 +371,7 @@ Gfx *retrieve_display_rareware_logo(Gfx *gdl)
     #define RAREWARE_LOGO_EYE_COUNT1 260
     #define RAREWARE_LOGO_EYE_COUNT2 290
 
-    D_8002A7D0 = (1 - D_8002A7D0);
+    g_IntroMatrixBufferIndex = (1 - g_IntroMatrixBufferIndex);
     gSPSegment(gdl++, SPSEGMENT_GETITLE, osVirtualToPhysical(virtualaddress));
 
     if ((gunbarrel_mode == 0) || (gunbarrel_mode == 1))
@@ -539,7 +539,7 @@ void clearChrGunModelInstances(void)
  * Address: 0x7F009254
 */
 Gfx *renderGunbarrelEyeIntroSequence (Gfx *gdl) {
-    D_8002A7D0 = (1 - D_8002A7D0);
+    g_IntroMatrixBufferIndex = (1 - g_IntroMatrixBufferIndex);
     switch (gunbarrel_mode - 2)
     {
     case 0:

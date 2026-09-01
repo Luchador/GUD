@@ -3,7 +3,8 @@
 #include <bondconstants.h>
 
 
-void initGameData(void) {
+void initGameData(void)
+{
     current_menu = MENU_INVALID;
     menu_update = MENU_LEGAL_SCREEN;
     maybe_prev_menu = MENU_INVALID;
@@ -30,5 +31,3 @@ void initGameData(void) {
     cast_model_weapon = NULL;
     full_actor_intro = FALSE;
 }
-
-
