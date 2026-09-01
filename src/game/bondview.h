@@ -823,9 +823,6 @@ struct player
 
   s32 resetshadecol; // canonical name
 
-  // unused.
-  s32 aimtype;
-
   /**
    * Crosshair or bullet angle related.
    * Offset 0xfe8.

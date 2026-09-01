@@ -5870,8 +5870,6 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             useYAutoAim = FALSE;
         }
 
-        gunSetAimType(0);
-
         if (useXAutoAim)
         {
             aimOffsetX = g_CurrentPlayer->autoaimx;
@@ -5894,7 +5892,6 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
     }
     else if (g_CurrentPlayer->controldef == CONTROLLER_CONFIG_KISSY)
     {
-        gunSetAimType(0);
         sub_GAME_7F067FBC(((f32) moveData.controlStickXRaw * 0.65f) / 80.0f, ((f32) moveData.controlStickYRaw * 0.65f) / 80.0f);
     }
 }

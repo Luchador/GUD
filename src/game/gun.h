@@ -365,7 +365,6 @@ void camera_sniper_zoom_out(f32 zoom);
 f32 get_item_in_hand_zoom(void);
 void advance_through_inventory(void);
 void backstep_through_inventory(void);
-void gunSetAimType(s32 param_1);
 void sub_GAME_7F067FBC(f32 turn_x, f32 turn_y);
 void gunTickGameplay(s32 arg0);
 u8 bondwalkItemGetObjectsShootThrough(ITEM_IDS item);

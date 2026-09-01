@@ -4194,12 +4194,6 @@ void gunTickGameplay(s32 triggerOn)
 }
 
 
-void gunSetAimType(s32 param_1)
-{
-    g_CurrentPlayer->aimtype = param_1;
-}
-
-
 void gunSetAimTarget(coord3d *param_1)
 {
     g_CurrentPlayer->hands[GUNRIGHT].aimTargetX = sub_GAME_7F05DCB8(GUNRIGHT) + param_1->x;
