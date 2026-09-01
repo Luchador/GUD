@@ -44,15 +44,14 @@
 #define GUN_SPRING_SCALE 0.050000012f
 #define TANK_SHELL_SPEED 66.666664f
 
-extern coord3d g_GunZeroCoord;
-extern coord3d D_80035C58;
-extern coord3d D_80035C64;
+coord3d g_GunZeroCoord = {0.0f, 0.0f, 0.0f};
+coord3d g_GunBlendLookDirDefault = {0.0f, 0.0f, -1.0f};
+coord3d g_GunBlendUpDirDefault = {0.0f, 1.0f, 0.0f};
 extern coord3d D_80035C70;
 extern coord3d D_80035C7C;
 extern coord3d D_80035C88;
 extern Vtx D_80035C98;
-extern coord3d D_80035CA8;
-extern coord3d D_80035CB4;
+coord3d D_80035CA8 = { 0.0f, 0.0f, 0.0f };
 extern ModelRenderData g_DefaultGunModelRenderData;
 extern u32 D_80035EA4;
 extern u32 watchControllerButtonBases[];
@@ -427,8 +426,8 @@ void gunUpdateAndFire(GUNHAND handnum)
      * Gun sway system. This moves the held weapons in figure-eight pattern which becomes bigger depending how fast the player is moving.
      */
     blendedpos = g_GunZeroCoord;
-    blendedlook = D_80035C58;
-    blendedup = D_80035C64;
+    blendedlook = g_GunBlendLookDirDefault;
+    blendedup = g_GunBlendUpDirDefault;
 
     i = hand->curblendpos;
 
@@ -1181,6 +1180,8 @@ Gfx *sub_GAME_7F061E18(Gfx *gdl, BeamRecord *flash, s32 arg2)
     f32 dist;
     Gfx *cmd;
 
+    return gdl;
+    
     if (flash->unk00 >= 0)
     {
         templatevtx = D_80035C98;
@@ -1188,7 +1189,7 @@ Gfx *sub_GAME_7F061E18(Gfx *gdl, BeamRecord *flash, s32 arg2)
         startoffset = flash->unk28;
         dist = flash->unk24;
         flareoffset = D_80035CA8;
-        extraorigin = D_80035CB4;
+        extraorigin = g_GunZeroCoord;
         extra_scale = 1.4142f; // ~√2
         image = flareimage3;
         worldtoscreen = camGetWorldToScreenMtxf();

@@ -284,7 +284,7 @@ s32 bondinvItemAvailableForHand(ITEM_IDS right, ITEM_IDS left)
     }
     else
     {
-        if (g_CurrentPlayer->equipallguns && right < ITEM_BOMBCASE && right == left && getPlayerCount() == 1 && bondwalkItemCheckBitflags(right, WEAPONSTATBITFLAG_CAN_DUAL_WIELD) && (right != ITEM_KNIFE))
+        if (g_CurrentPlayer->equipallguns && right < ITEM_BOMBCASE && right == left && getPlayerCount() == 1 && bondwalkItemCheckBitflags(right, WEAPONSTATBITFLAG_CAN_DUAL_WIELD))
         {
             return TRUE;
         }

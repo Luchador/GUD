@@ -304,23 +304,12 @@ Weapon1PTransformKeyframe taserRaiseKeyframes[6] = {
     {1, { 0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, 0.0f, 0.0f}
 };
 
-coord3d g_GunZeroCoord = {0.0f, 0.0f, 0.0f};
-coord3d D_80035C58 = {0.0f, 0.0f, -1.0f};
-coord3d D_80035C64 = {0.0f, 1.0f, 0.0f};
 coord3d D_80035C70 = {6.2536321f, 6.2592888f, 0.204238f};
 coord3d D_80035C7C = {0.25044999f, 0.90482301f, 0.28716999f};
 coord3d D_80035C88 = {1.715736f, 0.37460899f, 0.92193699f};
 
-//D:80035C94
 f32 D_80035C94 = 0;
-
-
-//D:80035C98
 Vtx D_80035C98 = {0, 0, 0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff };
-//D:80035CA8
-coord3d D_80035CA8 = { 0.0f, 0.0f, 0.0f };
-//D:80035CB4
-coord3d D_80035CB4 = { 0.0f, 0.0f, 0.0f };
 
 ModelRenderData g_DefaultGunModelRenderData = {
     NULL,
