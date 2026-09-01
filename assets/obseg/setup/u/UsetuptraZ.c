@@ -2727,7 +2727,9 @@ u8 ai_31[] = {
     local_timer_reset_start
     label(0x11)
     ai_sleep
+    if_chr_dying_or_dead(0x46, 0x02)
     if_chr_does_not_exist(0x46, 0x02)
+    if_chr_dying_or_dead(0x48, 0x35)
     if_chr_does_not_exist(0x48, 0x35)
     label(0x02)
     if_local_timer_greater_than(0x840300, 0x01)
