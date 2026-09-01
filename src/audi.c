@@ -571,10 +571,6 @@ void amHandleDoneMessage(AudioInfo *info)
     b = &g_FirstTime;
     if (!samplesLeft && !(*b))
     {
-        // debug printf from audioMgr demo
-#ifdef ENABLE_LOG
-      osSyncPrintf("audio: ai out of samples\n");
-#endif
         g_FirstTime = 0;
     }
 }
@@ -746,27 +742,6 @@ void amClearDmaBuffers(void)
     DMABuffer *dmaPtr, *nextPtr;
 
     osmesg = 0;
-
-   /*
-    * Don't block here. If dma's aren't complete, you've had an audio
-    * overrun. (Bad news, but go for it anyway, and try and recover.
-    */
-   for (i=0; i < g_NextDMa; i++)
-   {
-       if (osRecvMesg(&g_DmaMessageQueue, (OSMesg *)&osmesg, OS_MESG_NOBLOCK) == -1)
-       {
-#ifdef ENABLE_LOG
-	        osSyncPrintf("Dma not done\n");
-#endif
-       }
-
-#ifdef DEBUG
-    /* debug logging from audioMgr.c, I think this requires #include <ultralog.h>
-    * //    if (logging)
-    * //        osLogEvent(log, 17, 2, osmesg->devAddr, osmesg->size);
-    */
-#endif
-   }
 
     dmaPtr = g_DmaState.firstUsed;
     while (dmaPtr)

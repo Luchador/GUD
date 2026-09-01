@@ -2409,9 +2409,6 @@ void stanPackId(char *id, u16 *stanIdHi, u8 *stanIdLo)
 
     if (var1 < 0 || var1 > 1) // is p or q the first char (q never used?)
     {
-        #ifdef ENABLE_LOG
-            osSyncPrintf("stanPackId(): Bad letter chr \'%c\' in \"%s\"\n", id[0], id);
-        #endif
     }
     else
     {
@@ -2420,17 +2417,11 @@ void stanPackId(char *id, u16 *stanIdHi, u8 *stanIdLo)
 
         if (id == str_end - 1)
         {
-            #ifdef ENABLE_LOG
-                osSyncPrintf("stanPackId(): Bad integer in \"%s\"\n", id);
-            #endif
         }
         else if (bitsnumber <= 32767)
         {
             if (str_end[0] - 'a' < 0 || str_end[0] - 'a' >= 26)
             {
-                #ifdef ENABLE_LOG
-                    osSyncPrintf("stanPackId(): Bad file chr \'%c\' in \"%s\"\n", str_end[0], id);
-                #endif
             }
             else
             {
@@ -2446,38 +2437,23 @@ void stanPackId(char *id, u16 *stanIdHi, u8 *stanIdLo)
 
                 if (bitssubtri < 0 || bitssubtri >= 8)
                 {
-                    #ifdef ENABLE_LOG
-                        osSyncPrintf("stanPackId(): Bad subtri chr \'%c\' in \"%s\"\n", str_end[1], id);
-                    #endif
                 }
                 else
                 {
                     if (str_end[1] == 0 || str_end[2] == 0)
                     {
-                        #ifdef DEBUG
-                        assert(bitsletter>=0&&bitsletter<=1);     // # 1094 "stan.c"
-                        assert(bitsnumber>=0&&bitsnumber<=32767); // # 1095 "stan.c"
-                        assert(bitsfile >=0&&bitsfile <=31);      // # 1096 "stan.c"
-                        assert(bitssubtri>=0&&bitssubtri<=7);     // # 1097 "stan.c"
-                        #endif
                         *stanIdHi = bitsletter << 0xf | bitsnumber;
                         *stanIdLo = bitsfile << 3 | bitssubtri;
                         return;
                     }
                     else
                     {
-                        #ifdef ENABLE_LOG
-                            osSyncPrintf("stanPackId(): Stan id too long \"%s\"\n", id);
-                        #endif
                     }
                 }
             }
         }
         else
         {
-            #ifdef ENABLE_LOG
-                osSyncPrintf("stanPackId(): Integer %d out of range in \"%s\"\n", bitsnumber, id);
-            #endif
         }
     }
     *stanIdHi = -1;
