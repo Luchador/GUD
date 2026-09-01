@@ -197,3 +197,18 @@ BOOL ProjectRead(const char *geppath, GEditorProject *proj)
  
     return TRUE;
 }
+
+/*
+ * Closes a project: today, that just means forgetting it. The struct
+ * is zeroed so name[0] == '\0' is once again a reliable "no project
+ * open" test everywhere.
+ *
+ * The .gep on disk needs nothing - reads and writes open and close it
+ * within one call, so no handle is ever held between operations. When
+ * projects gain unsaved state (a loaded level, editor settings), this
+ * is the function that will flush it before forgetting.
+ */
+void ProjectClose(GEditorProject *proj)
+{
+    ZeroMemory(proj, sizeof(*proj));
+}

@@ -18,6 +18,26 @@
 static HWND g_Viewport;
 static GEditorProject g_Project;
 
+static void GEditorSetTitleForProject(HWND hwnd);
+
+
+/**
+  * The one place a project gets closed, however the user asks for it:
+  * the Close Project menu item, or implicitly when creating or opening
+  * another project.
+  */
+static void GEditorCloseProject(HWND hwnd)
+{
+    if (g_Project.name[0] == '\0')
+    {
+        return; /* Nothing open. */
+    }
+
+    ProjectClose(&g_Project);
+    GEditorSetTitleForProject(hwnd);
+}
+
+
 /**
   * Menu command IDs. Every clickable has one and it is the number
   * that arrives in WM_COMMAND when the item is chosen.
@@ -25,6 +45,7 @@ static GEditorProject g_Project;
 enum {
     ID_FILE_NEW_PROJECT = 40001,
     ID_FILE_OPEN_PROJECT,
+    ID_FILE_CLOSE_PROJECT,
     ID_FILE_EXIT,
 
     ID_EDIT_UNDO,
@@ -55,6 +76,7 @@ static HMENU GEditorCreateMenuBar(void)
     /* MF_STRING items carry a command ID. '&' marks the Alt mnemonic. */
     AppendMenu(filemenu, MF_STRING, ID_FILE_NEW_PROJECT, "&New Project");
     AppendMenu(filemenu, MF_STRING, ID_FILE_OPEN_PROJECT, "&Open Project");
+    AppendMenu(filemenu, MF_STRING, ID_FILE_CLOSE_PROJECT, "&Close Project");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_STRING, ID_FILE_EXIT, "E&xit");
 
@@ -278,6 +300,7 @@ static INT_PTR CALLBACK GEditorNewProjectProc(HWND hdlg, UINT msg, WPARAM wparam
     return FALSE;
 }
 
+
 /*
  * Shows the New Project dialog. Fills nameout (GEDITOR_NAME_MAX chars)
  * and returns TRUE if the user created a project.
@@ -393,6 +416,13 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         GEditorLayout(hwnd);
         return 0;
 
+    case WM_INITMENUPOPUP:
+        /* Sent just before a drop-down opens - the one moment the item
+           states matter, so they can never be stale. Close Project is
+           only clickable while a project is open. */
+        EnableMenuItem((HMENU)wparam, ID_FILE_CLOSE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
+        return 0;
+
     case WM_COMMAND:
         switch (LOWORD(wparam))
         {
@@ -405,6 +435,8 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
                 if (GEditorPromptForNewProject(hwnd, &info))
                 {
+                    GEditorCloseProject(hwnd); /* one project at a time */
+
                     if (ProjectCreate(info.name, info.location, &g_Project))
                     {
                         GEditorSetTitleForProject(hwnd);
@@ -423,18 +455,23 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
  
                 if (GEditorPromptForProject(hwnd, path, sizeof(path)))
                 {
+                    GEditorCloseProject(hwnd); /* one project at a time */
+
                     if (ProjectRead(path, &g_Project))
                     {
                         GEditorSetTitleForProject(hwnd);
                     }
                     else
                     {
-                        MessageBox(hwnd, "That file is not a readable GEditor project.",
-                                   GEDITOR_TITLE, MB_ICONERROR);
+                        MessageBox(hwnd, "That file is not a readable GEditor project.", GEDITOR_TITLE, MB_ICONERROR);
                     }
                 }
                 return 0;
             }
+
+            case ID_FILE_CLOSE_PROJECT:
+                GEditorCloseProject(hwnd);
+                return 0;
 
             case ID_FILE_EXIT:
                 SendMessage(hwnd, WM_CLOSE, 0, 0);
