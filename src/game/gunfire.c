@@ -4947,13 +4947,9 @@ Gfx *microcode_generation_ammo_related(Gfx *gdl, struct sImageTableEntry *tconfi
 }
 
 
-/**
- * Address: TODO
- * WARNING: This function is missing a "return". This will cause bugs on other compilers.
- */
 Gfx *set_rgba_redirect_generate_microcode(Gfx *gdl, sImageTableEntry *tconfig, f32 x, f32 y, f32 arg4, s32 arg5, f32 arg6, s32 arg7)
 {
-    microcode_generation_ammo_related(gdl, tconfig, x, y, arg4, arg5, arg6, arg7, 0xff, 0xff, 0xff, 0xff);
+    return microcode_generation_ammo_related(gdl, tconfig, x, y, arg4, arg5, arg6, arg7, 0xff, 0xff, 0xff, 0xff);
 }
 
 
@@ -5172,9 +5168,6 @@ Gfx *gunRenderAmmoDisplay(Gfx *gdl)
 }
 
 
-/**
- * Address: 7F06A334
- */
 Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
 {
     ITEM_IDS offhanditem;
@@ -5263,13 +5256,14 @@ void gunSetSightVisible(s32 reason, bool visible)
 }
 
 
-void gunDrawSight(s32 *gdl) {
-
+void gunDrawSight(s32 *gdl)
+{
     s32 sp54;
     f32 xypos[2];
     f32 halfedxy[2];
 
-    if ((g_CurrentPlayer->gunsightmode == 0) && (g_CurrentPlayer->mpmenuon == FALSE)) {
+    if ((g_CurrentPlayer->gunsightmode == 0) && (g_CurrentPlayer->mpmenuon == FALSE))
+    {
         sp54 = *gdl;
         texSelect(&sp54, crosshairimage, 4, 0, 0);
 
@@ -5278,9 +5272,11 @@ void gunDrawSight(s32 *gdl) {
         halfedxy[0] = 16.0f;
         halfedxy[1] = 16.0f;
 
-        if (get_screen_ratio() == SCREEN_RATIO_16_9) {
+        if (get_screen_ratio() == SCREEN_RATIO_16_9)
+        {
             halfedxy[0] = halfedxy[0] * 0.75f;
         }
+
         display_image_at_position(&sp54, &xypos, &halfedxy, 0x20, 0x20, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0x6E, (crosshairimage->level > 0), 0);
         *gdl = sp54;
     }
@@ -5289,7 +5285,6 @@ void gunDrawSight(s32 *gdl) {
 
 void inc_curplayer_hitcount_with_weapon(ITEM_IDS item, SHOT_REGISTER shot_register)
 {
-
     if (bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_PLAYER_STAT_HIT))
     {
         g_playerPerm->shot_count[shot_register] = g_playerPerm->shot_count[shot_register] + 1;
@@ -5321,7 +5316,6 @@ void gunIncMPKillCount(void)
     s32 time_since_kill;
     s32 recent_kill_count;
     s32 mission_time;
-    s32 unused; // needed this variable to match
 
     g_playerPerm->kill_count += 1;
     g_CurrentPlayer->kills_this_life += 1;
@@ -5351,6 +5345,7 @@ void gunIncMPKillCount(void)
     }
 
     recent_kill_count = 1;
+
     g_CurrentPlayer->last_kill_time[3] = g_CurrentPlayer->last_kill_time[2];
     g_CurrentPlayer->last_kill_time[2] = g_CurrentPlayer->last_kill_time[1];
     g_CurrentPlayer->last_kill_time[1] = g_CurrentPlayer->last_kill_time[0];
