@@ -2192,6 +2192,7 @@ u8 ai_30[] = {
     ai_sleep
     camera_switch(0x01, 0x0100, 0x0000)
     chr_flags_set_off(0xf8, 0x00040000)
+    chr_flags_set_on(0xf8, 0x00000018)
     jump_to_ai_list(0xf8, 0x1904)
     jump_to_ai_list(0xfd, 0x0100)
     label(0x3d)
@@ -2292,6 +2293,7 @@ u8 ai_28[] = {
     chr_flags_set_off(0x00, 0x00040000)
     jump_to_ai_list(0x00, 0x1a04)
     if_bond_in_room_with_pad(0x7400, 0x0a)
+    if_bond_in_room_with_pad(0x9400, 0x0a)
     chr_flags_set_on(0xf8, 0x00040000)
     goto_next(0x29)
     label(0x0a)
