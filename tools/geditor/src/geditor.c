@@ -1,11 +1,3 @@
-/*
- * GEditor - GoldenEye level editor for GUD.
- *
- * Step 2: the shell plus a menu bar. One resizable window with the
- * standard system buttons, and a File menu whose single Exit item
- * routes through the same shutdown path as the close button.
- */
-
 #define COBJMACROS
 #include <windows.h>
 #include <commdlg.h>
@@ -44,7 +36,6 @@ typedef struct NewProjectInfo {
     char name[GEDITOR_NAME_MAX];
     char location[MAX_PATH];
 } NewProjectInfo;
-
 
 
 /*
