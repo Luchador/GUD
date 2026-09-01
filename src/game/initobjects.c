@@ -4,26 +4,20 @@
 #include "initobjects.h"
 #include "chrai.h"
 #include "propobj.h"
-//this file may very well be a few different sub files
+
 
 MonitorRecord g_InitialMonitorAnimController = {&monAnim00Bond, 0, 0xFFFF, 0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.5, 0.0, 0.0, 0.5, 0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 1.0, 0.0};
 struct object_animation_controller g_InitialUnknownAnimController = {&monAnim34, 0, 0xFFFF, 0, 0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.5, 0.0, 0.0, 0.5, 0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 1.0};
 struct object_animation_controller g_InitialTaserAnimController = {&monAnim35Taser, 0, 0xFFFF, 0, 0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.5, 0.0, 0.0, 0.5, 0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 1.0};
 
-f32 unused_8002a3bc = 0.0f;
-
-// forward declarations
+// Begin forward declarations.
 
 void alloc_lookup_buffers();
 void write_monitor_ani_control_blocks();
 void initialize_proxy_mine_table();
 
-// end forward declarations
+// End forward declarations.
 
-
-/**
- * Address 0x7F0014B0.
-*/
 void init_sound_effects_registers(void)
 {
     s32 i;
@@ -32,13 +26,9 @@ void init_sound_effects_registers(void)
     {
         sfx_related[i].state = AL_STOPPED;
     }
-
 }
 
 
-/**
- * Address 0x7F0014E0.
-*/
 void init_load_objpos_table(void)
 {
     s32 i;
@@ -59,17 +49,14 @@ void init_load_objpos_table(void)
 }
 
 
-/**
- * Address 0x7F0015D0.
-*/
 void alloc_lookup_buffers(void)
 {
     s32 j;
     s32 i;
 
     g_RoomPropQueryIndices = (s16 *)mempAllocBytesInBank(PTR_LIST_OBJECT_LOOKUP_INDICES_LEN * sizeof(s16), MEMPOOL_STAGE);
-    RoomPropListBlockIndices       = (s16 *)mempAllocBytesInBank((((g_MaxNumRooms * 4) + 0xF) | 0xF) ^ 0xF, MEMPOOL_STAGE);
-    RoomPropListBlocks             = (s16 *)mempAllocBytesInBank(BSS_8007161C_LEN * sizeof(struct roomproplistblock), MEMPOOL_STAGE);
+    RoomPropListBlockIndices = (s16 *)mempAllocBytesInBank((((g_MaxNumRooms * 4) + 0xF) | 0xF) ^ 0xF, MEMPOOL_STAGE);
+    RoomPropListBlocks = (s16 *)mempAllocBytesInBank(BSS_8007161C_LEN * sizeof(struct roomproplistblock), MEMPOOL_STAGE);
 
     g_RoomPropQueryIndices[0] = -1;
 
@@ -90,10 +77,6 @@ void alloc_lookup_buffers(void)
 }
 
 
-
-/**
- * Address 0x7F001750.
-*/
 void reinit_between_menus(void)
 {
     s32 i;
@@ -159,9 +142,9 @@ void reinit_between_menus(void)
     g_SoloAmmoMultiplier = 1.0f;
 }
 
+
 /**
  * Called from setupLoadFiles when PROPDEF type is PROPDEF_SWITCH.
- * Address 0x7F001910.
 */
 void initSetLevelLoadPropSwitch(struct LinkRecord *arg0)
 {
@@ -172,7 +155,6 @@ void initSetLevelLoadPropSwitch(struct LinkRecord *arg0)
 
 /**
  * Called from setupLoadFiles when PROPDEF type is PROPDEF_LOCK_DOOR.
- * Address 0x7F001928.
 */
 void initSetLevelLoadPropLockDoor(struct LockDoorRecord *arg0)
 {
@@ -183,7 +165,6 @@ void initSetLevelLoadPropLockDoor(struct LockDoorRecord *arg0)
 
 /**
  * Called from setupLoadFiles when PROPDEF type is PROPDEF_SAFE_ITEM.
- * Address 0x7F001940.
 */
 void initSetLevelLoadPropSafeItem(struct ObjectRecord *arg0)
 {
@@ -192,9 +173,6 @@ void initSetLevelLoadPropSafeItem(struct ObjectRecord *arg0)
 }
 
 
-/**
- * Address 0x7F001958.
-*/
 void write_monitor_ani_control_blocks(void)
 {
     MonitorRecord spEC;
@@ -209,7 +187,6 @@ void write_monitor_ani_control_blocks(void)
 
     sp4 = g_InitialTaserAnimController;
     g_TaserAnimController = sp4;
-
 }
 
 
@@ -217,9 +194,8 @@ void initialize_proxy_mine_table(void)
 {
     s32 i;
 
-    for (i=0; i<30; i++)
+    for (i = 0; i < MAX_PROXY_MINES; i++)
     {
         g_ProxyMineTable[i] = NULL;
     }
 }
-

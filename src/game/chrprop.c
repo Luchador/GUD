@@ -66,7 +66,7 @@ PropRecord **g_LastOnScreenProp;
  */
 s32 g_OnScreenPropCount;
 PropRecord *g_InteractProp;
-WeaponObjRecord* g_ProxyMineTable[30];
+WeaponObjRecord* g_ProxyMineTable[MAX_PROXY_MINES];
 f32 gasTimeToFullOpacity;
 u32 gasDoesDamageFlag;
 WeaponObjRecord g_WeaponSlots[MAX_WEAPON_SLOTS];

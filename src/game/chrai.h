@@ -169,7 +169,7 @@ Rotate Image:
 #define MAX_HAT_SLOTS 10
 #define MAX_AMMO_CRATES 20
 #define PROJECTILES_ARR_MAX 20
-#define PROXIMITYARRMAX 30 /*canonical name for max mines*/
+#define MAX_PROXY_MINES 30
 #define EMBEDMENT_ARR_MAX 40
 #define ONSCREEN_PROP_LIST_LEN 500
 
@@ -217,7 +217,7 @@ extern u32 monAnim2DRandEffectFlash[];
 extern u32 monAnim00Bond[];
 extern u32 monAnim34[];
 extern u32 monAnim35Taser[];
-extern WeaponObjRecord* g_ProxyMineTable[30];
+extern WeaponObjRecord* g_ProxyMineTable[MAX_PROXY_MINES];
 extern f32 gasTimeToFullOpacity;
 extern u32 gasDoesDamageFlag;
 extern f32 difficulty ;

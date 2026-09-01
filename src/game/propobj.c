@@ -11247,7 +11247,7 @@ void add_obj_to_temp_proxmine_table(WeaponObjRecord* proxy)
         {
             g_ProxyMineTable[i] = proxy;
             #ifdef DEBUG
-                assert(i<PROXIMITYARRMAX);
+                assert(i<MAX_PROXY_MINES);
             #endif
 
             return;

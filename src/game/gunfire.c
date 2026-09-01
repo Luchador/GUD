@@ -1437,9 +1437,6 @@ Gfx *sub_GAME_7F061E18(Gfx *gdl, BeamRecord *flash, s32 arg2)
 }
 
 
-/*
-* Address: 0x7F062B00
-*/
 void gunAdvanceBeamTimer(BeamRecord* beam)
 {
     if (beam->unk00 >= 0)
@@ -1463,7 +1460,7 @@ void gunAdvanceBeamTimer(BeamRecord* beam)
     }
 }
 
-// Address: 0x7F062BE4
+
 void gunRenderFirstPersonGunModels(Gfx **gdlptr)
 {
     Gfx *gdl = *gdlptr;
