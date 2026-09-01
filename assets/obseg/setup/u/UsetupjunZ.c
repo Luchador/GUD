@@ -700,7 +700,7 @@ s32 propDefs[] = {
     /* Type = ObjectiveStart; index = 28 */
     _mkword(0, _mkshort(0, 23)), 3, 18472, 0,
     /* Type = ObjectiveCompleteCondition; index = 29 */
-    _mkword(0, _mkshort(0, 26)), 32768,
+    _mkword(0, _mkshort(0, 26)), 262144,
     /* Type = ObjectiveFailCondition; index = 30 */
     _mkword(0, _mkshort(0, 27)), 1024,
     /* Type = ObjectiveEnd; index = 31 */
@@ -2513,6 +2513,7 @@ u8 ai_8[] = {
     if_chr_dying_or_dead(0xfc, 0x4b)
     if_chr_does_not_exist(0xfc, 0x4b)
     ai_sleep
+    if_local_timer_greater_than(0x2c0100, 0x2c)
     if_guard_has_stopped_moving(0x2c)
     goto_first(0x0c)
     label(0x2c)
@@ -2706,6 +2707,7 @@ u8 ai_10[] = {
     label(0x2c)
     label(0x0c)
     ai_sleep
+    if_local_timer_greater_than(0x2c0100, 0x2c)
     if_guard_has_stopped_moving(0x2c)
     goto_first(0x0c)
     label(0x2c)
@@ -3008,7 +3010,7 @@ u8 ai_33[] = {
     if_bond_in_room_with_pad(0xd401, 0x2c)
     goto_first(0x03)
     label(0x2c)
-    objective_bitfield_set_on(0x00800000)
+    objective_bitfield_set_on(0x00000400)
     bond_disable_damage_and_pickups
     hud_hide_and_lock_controls_and_pause_mission_time(0x00)
     screen_fade_to_black

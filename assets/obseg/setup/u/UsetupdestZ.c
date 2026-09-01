@@ -849,7 +849,7 @@ s32 intro[] = {
     /* Type = FixedCam; index = 1 */
     _mkword(0, _mkshort(0, 6)), 0xffff7b0a, 0x0000eeed, 0xfffc4a34, 0x00011b29, 0x0005ef22, 0x0000005a, 0x00003418, 0x00000000, 0x00000000,
     /* Type = FixedCam; index = 2 */
-    _mkword(0, _mkshort(0, 6)), 0x0000801b, 0x00006ea3, 0xfffa7a99, 0x0005bfa9, 0x0005d453, 0x00000071, 0x00003418, 0x00000000, 0x00000000,
+    _mkword(0, _mkshort(0, 6)), 0x0000a5dc, 0x000066d3, 0xfffa5a45, 0x0005aaff, 0x00060101, 0x00000071, 0x00003418, 0x00000000, 0x00000000,
     /* Type = FixedCam; index = 3 */
     _mkword(0, _mkshort(0, 6)), 0xffff04ca, 0x00009875, 0xfff5fba7, 0x000245bd, 0x00003930, 0x000000a8, 0x00003418, 0x00000000, 0x00000000,
     /* Type = FixedCam; index = 4 */
