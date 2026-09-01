@@ -1,6 +1,5 @@
 #include <ultra64.h>
 #include "mema.h"
-#include "deb.h"
 
 /**
  * mema - memory (ad hoc) allocation system.

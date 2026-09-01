@@ -1,7 +1,6 @@
 #include <ultra64.h>
 #include "macro.h"
 #include "ob.h"
-#include <deb.h>
 #include <memp.h>
 #include <assets/obseg/obseg.h>
 #include "decompress.h"

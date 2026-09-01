@@ -9,10 +9,7 @@
       build/OUTCODE/src/tlb_hardwire.o (.rodata);
       build/OUTCODE/src/audi.o (.rodata);
       build/OUTCODE/src/fr.o (.rodata);
-      build/OUTCODE/src/deb.o (.rodata);
       build/OUTCODE/src/crash.o (.rodata);
-      /*deb_print may be part of fault per pd beta (.rodata);*/
-      /*build/OUTCODE/src/deb_print.o (.rodata);*/
       build/OUTCODE/src/getra.o (.rodata);
       build/OUTCODE/src/ramrom.o (.rodata);
       build/OUTCODE/src/boss.o (.rodata);
@@ -29,7 +26,6 @@
       build/OUTCODE/src/joy.o (.rodata);
       build/OUTCODE/src/motor.o (.rodata);
       build/OUTCODE/src/rmon.o (.rodata);
-      /*build/OUTCODE/src/libultra/osPiRawStartDma.o (.rodata);*/
       build/OUTCODE/src/libultra/io/pirawdma.o (.rodata);
       build/OUTCODE/src/libultra/io/pigetstat.o (.rodata);
       build/OUTCODE/src/libultrare/os/initialize.o (.rodata);

@@ -7,10 +7,7 @@
       build/OUTCODE/src/tlb_resolve.o (.bss);
       build/OUTCODE/src/audi.o (.bss);
       build/OUTCODE/src/fr.o (.bss);
-      build/OUTCODE/src/deb.o (.bss);
       build/OUTCODE/src/crash.o (.bss);
-      /*deb_print may be part of fault per pd beta (.bss);*/
-      /*build/OUTCODE/src/deb_print.o (.bss);*/
       build/OUTCODE/src/getra.o (.bss);
       build/OUTCODE/src/ramrom.o (.bss);
       build/OUTCODE/src/boss.o (.bss);
@@ -27,7 +24,6 @@
       build/OUTCODE/src/joy.o (.bss);
       build/OUTCODE/src/motor.o (.bss);
       build/OUTCODE/src/rmon.o (.bss);
-      /*build/OUTCODE/src/libultra/osPiRawStartDma.o (.bss);*/
       build/OUTCODE/src/libultra/io/pirawdma.o (.bss);
       build/OUTCODE/src/libultra/io/pigetstat.o (.bss);
       build/OUTCODE/src/libultrare/os/initialize.o (.bss);

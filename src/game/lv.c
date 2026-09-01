@@ -4,7 +4,6 @@
 #include <PR/libaudio.h>
 #include <assets/font_dl.h>
 #include <bondconstants.h>
-#include <deb.h>
 #include <memp.h>
 #include <music.h>
 #include <tlb_manage.h>

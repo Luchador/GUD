@@ -4,7 +4,7 @@
 #include <bondconstants.h>
 #include <bondgame.h>
 #include "boss.h"
-#include "deb.h"
+#include "crash.h"
 #include "explosion.h"
 #include "game/dyn.h"
 #include "game/game_debug.h"
@@ -132,7 +132,7 @@ void bossInitMainthreadData(void)
     u32 start;
     s32 i;
 
-    debInit();
+    crashInit();
     romCreateMesgQueue();
     tlbmanageEstablishManagementTable();
     image_entries_load();

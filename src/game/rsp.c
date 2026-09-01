@@ -2,7 +2,6 @@
 #include "rsp.h"
 #include <init.h>
 #include <memp.h>
-#include <deb.h>
 #include <sched.h>
 #include <PR/sptask.h>
 #include <PR/ucode.h>

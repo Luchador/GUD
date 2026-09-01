@@ -1,5 +1,4 @@
 #include <ultra64.h>
-#include <deb.h>
 #include "stan.h"
 #include "bg.h"
 #include "chrai.h"
@@ -492,7 +491,8 @@ StandTile *stanFindNearestWalkablePosition(f32 *x, f32 *y, f32 *z, f32 clearance
             tileTail = tile->tail.half;
             tile = (StandTile *) (((u8 *) tile) + g_StanTileSizeByPointCount[(tileTail >> 12) & 0xf]);
             
-        } while (*((u32 *) tile));
+        } 
+        while (*((u32 *) tile));
     }
 
     return bestTile;
@@ -517,11 +517,6 @@ f32 getShortest2dDispToInfTileEdge(StandTile *tile,s32 index,f32 p_x,f32 p_z)
     //   though it seems much more likely that the variables were used in the else clause.
     struct StandTilePoint* currPnt;
     struct StandTilePoint* nextPnt;
-    f32 UNUSED;
-
-    #ifdef DEBUG
-    assert(ei<getsides(sf));
-    #endif
 
     // Omiting the '& 0xF' is equivalent, but keeping it is necessary to match.
     // Perhaps the structure isn't correct but this seems much cleaner than doing an explicit >> 0xC.
@@ -534,19 +529,17 @@ f32 getShortest2dDispToInfTileEdge(StandTile *tile,s32 index,f32 p_x,f32 p_z)
 
     edge_len = sqrtf(edge_x * edge_x + edge_z * edge_z);
 
-    if (edge_len == 0) {
+    if (edge_len == 0) 
+    {
         // Degenerate case, edge is vertical
         // They just return the distance between the points, which is sensible and the correct value in 3 dimensions.
         v_x = p_x - (f32)tile->points[nextIndex].x;
         v_z = p_z - (f32)tile->points[nextIndex].z;
+
         return sqrtf(v_x * v_x + v_z * v_z);
     }
     else
     {
-        #ifdef DEBUG
-        assert(d>0.0f);
-        #endif
-
         // | (AP x AB) / ||AB|| | = ||PA|| sin(a),
         // so we're returning the SIGNED displacement
         crossProduct = (
@@ -573,15 +566,14 @@ f32 getShortest2dDispToInfTripleEdge(StandTile *tile, s32 start3index, f32 p_x, 
     s32 nextPntI;
     s32 tail;
 
-    #ifdef DEBUG
-    assert(ei<getsides(sf));
-    #endif
-
     nextPntI = 2;
 
-    if (start3index != nextPntI) {
+    if (start3index != nextPntI)
+    {
         end3index = start3index + 1;
-    } else {
+    } 
+    else
+    {
         end3index = 0;
     }
 
@@ -592,37 +584,37 @@ f32 getShortest2dDispToInfTripleEdge(StandTile *tile, s32 start3index, f32 p_x, 
     edgeZ = tile->points[end3index].z - tile->points[start3index].z;
     edgeLen = sqrtf((edgeX * edgeX) + (edgeZ * edgeZ));
 
-    if (edgeLen == 0.0f) {
+    if (edgeLen == 0.0f)
+    {
         dx = p_x - tile->points[end3index].x;
         dz = p_z - tile->points[end3index].z;
+
         return sqrtf((dx * dx) + (dz * dz));
     }
 
-    #ifdef DEBUG
-    assert(d>0.0f);
-    #endif
-
     crossProduct = (edgeZ * (p_x - tile->points[start3index].x)) + (-edgeX * (p_z - tile->points[start3index].z));
+
     return crossProduct / edgeLen;
 }
 
 
 f32 getShortest2dDispToInfTripleEdgeUnscaled(StandTile *tile,s32 start3index,f32 p_x,f32 p_z)
 {
-  f32 disp;
+    f32 disp;
 
-  disp = getShortest2dDispToInfTripleEdge(tile, start3index, p_x * level_scale, p_z * level_scale);
-  return disp * inv_level_scale;
+    disp = getShortest2dDispToInfTripleEdge(tile, start3index, p_x * level_scale, p_z * level_scale);
+    return disp * inv_level_scale;
 }
 
 
 f32 distToTilePnt2D(StandTile *tile,int pntI,f32 p_x,f32 p_z)
 {
-  f32 len;
+    f32 len;
 
-  p_x -= (f32)tile->points[pntI].x;
-  p_z -= (f32)tile->points[pntI].z;
-  return sqrtf(p_x * p_x + p_z * p_z);
+    p_x -= (f32)tile->points[pntI].x;
+    p_z -= (f32)tile->points[pntI].z;
+
+    return sqrtf(p_x * p_x + p_z * p_z);
 }
 
 
