@@ -1,18 +1,5 @@
-/*************************************************************************
- *
- *  File: bondconstants.h
- *
- *  Declares the bondconstants.
- *
- *  $Revision: $
- *  $Date: 2021/12/28 {HOUR}:{MINUTE}:{SECOND} $
- *  $Source: /bondconstants.h,v $
- *
- **************************************************************************/
-
-
 #ifndef _BONDCONSTANTS_H_
-#  define _BONDCONSTANTS_H_
+#define _BONDCONSTANTS_H_
 #include <ultra64.h>
 #include <CPPLib.h>
 
@@ -499,11 +486,13 @@ typedef enum STANTILEFLAG
     STANTILEFLAG_LADDER      = 0x40
 } STANTILE_FLAG;
 
-BITFLAG(PLAYERFLAG,
-        LOCKCONTROLS,
-        NOCONTROL,
-        NOTIMER
-)
+typedef enum PLAYERFLAG
+{
+    PLAYERFLAG_NONE         = 0x00,
+    PLAYERFLAG_LOCKCONTROLS = 0x01,
+    PLAYERFLAG_NOCONTROL    = 0x02,
+    PLAYERFLAG_NOTIMER      = 0x04
+} PLAYERFLAG;
 
 /*
  * Runtime bitflags on ObjectRecord/DoorRecord (obj->runtime_bitflags).
