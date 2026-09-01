@@ -2,7 +2,7 @@
 
 ### Added
 - Frame rate display
-- Three more intro cameras on Silo.
+- Added three more intro cameras to Silo taken from the PAL version.
 
 ### Fixed
 - Silo X track now loops. Previously when it was randomly selected in multiplayer matches the music would stop for good when the track finished.

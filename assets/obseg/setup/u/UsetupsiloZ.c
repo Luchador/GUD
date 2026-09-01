@@ -1040,65 +1040,73 @@ s32 propDefs[] = {
 s32 intro[] = {
     /* Type = FixedCam; index = 0 */
     _mkword(0, _mkshort(0, 6)), 0x0007d0b2, 0xfffe687b, 0x000430b2, 0x000561d5, 0x00060101, 0x00000081, 0x00008844, 0x00008845, 0x00000000,
-    /* Type = WatchTime; index = 1 */
+    /* Type = FixedCam; index = 1 */
+    _mkword(0, _mkshort(0, 6)), 0x0006ee17, 0xfffe31d9, 0x00019306, 0x0005adca, 0x000097e9, 0x0000000c, 0x00008844, 0x00008845, 0x00000000,
+    /* Type = FixedCam; index = 2 */
+    _mkword(0, _mkshort(0, 6)), 0x00040d2a, 0x0000115e, 0x0003aad5, 0x0002c9c5, 0x00052a8a, 0x000000dd, 0x00008844, 0x00008845, 0x00000000,
+    /* Type = FixedCam; index = 3 */
+    _mkword(0, _mkshort(0, 6)), 0x000045aa, 0xfffdd9d6, 0x0003beac, 0x0004240b, 0x00010325, 0x000000d8, 0x00008844, 0x00008845, 0x00000000,
+    /* Type = FixedCam; index = 4 */
+    _mkword(0, _mkshort(0, 6)), 0xfffcbca9, 0x00003e47, 0x000153ee, 0x000294b6, 0x0005c274, 0x0000005f, 0x00008844, 0x00008845, 0x00000000,
+    /* Type = WatchTime; index = 5 */
     _mkword(0, _mkshort(0, 7)), 5, 20,
-    /* Type = Spawn; index = 2 */
+    /* Type = Spawn; index = 6 */
     _mkword(0, _mkshort(0, 0)), 209, 0,
-    /* Type = StartWeapon; index = 3 */
-    _mkword(0, _mkshort(0, 1)), 5, -1, 0,
-    /* Type = StartAmmo; index = 4 */
-    _mkword(0, _mkshort(0, 2)), 1, 100, 0,
-    /* Type = StartWeapon; index = 5 */
-    _mkword(0, _mkshort(0, 1)), 34, -1, 0,
-    /* Type = StartAmmo; index = 6 */
-    _mkword(0, _mkshort(0, 2)), 23, 8, 0,
     /* Type = StartWeapon; index = 7 */
-    _mkword(0, _mkshort(0, 1)), 40, -1, 0,
+    _mkword(0, _mkshort(0, 1)), 5, -1, 0,
     /* Type = StartAmmo; index = 8 */
+    _mkword(0, _mkshort(0, 2)), 1, 100, 0,
+    /* Type = StartWeapon; index = 9 */
+    _mkword(0, _mkshort(0, 1)), 34, -1, 0,
+    /* Type = StartAmmo; index = 10 */
+    _mkword(0, _mkshort(0, 2)), 23, 8, 0,
+    /* Type = StartWeapon; index = 11 */
+    _mkword(0, _mkshort(0, 1)), 40, -1, 0,
+    /* Type = StartAmmo; index = 12 */
     _mkword(0, _mkshort(0, 2)), 27, 10, 0,
-    /* Type = Spawn; index = 9 */
+    /* Type = Spawn; index = 13 */
     _mkword(0, _mkshort(0, 0)), 110, 1,
-    /* Type = StartWeapon; index = 10 */
+    /* Type = StartWeapon; index = 14 */
     _mkword(0, _mkshort(0, 1)), 5, -1, 1,
-    /* Type = StartAmmo; index = 11 */
+    /* Type = StartAmmo; index = 15 */
     _mkword(0, _mkshort(0, 2)), 1, 100, 1,
-    /* Type = Spawn; index = 12 */
+    /* Type = Spawn; index = 16 */
     _mkword(0, _mkshort(0, 0)), 109, 2,
-    /* Type = StartWeapon; index = 13 */
+    /* Type = StartWeapon; index = 17 */
     _mkword(0, _mkshort(0, 1)), 5, -1, 2,
-    /* Type = StartAmmo; index = 14 */
+    /* Type = StartAmmo; index = 18 */
     _mkword(0, _mkshort(0, 2)), 1, 100, 2,
-    /* Type = StartWeapon; index = 15 */
+    /* Type = StartWeapon; index = 19 */
     _mkword(0, _mkshort(0, 1)), 34, -1, 2,
-    /* Type = StartAmmo; index = 16 */
+    /* Type = StartAmmo; index = 20 */
     _mkword(0, _mkshort(0, 2)), 23, 8, 2,
-    /* Type = Cuff; index = 17 */
+    /* Type = Cuff; index = 21 */
     _mkword(0, _mkshort(0, 5)), 3,
-    /* Type = SwirlCam; index = 18 */
-    _mkword(0, _mkshort(0, 3)), 2, 0xff940000, 0x08270000, 0x02bc0000, 0x0000a666, 0x00460000, 0xffffffff,
-    /* Type = SwirlCam; index = 19 */
-    _mkword(0, _mkshort(0, 3)), 2, 0xff940000, 0x08270000, 0x02bc0000, 0x0000a666, 0x00460000, 0xffffffff,
-    /* Type = SwirlCam; index = 20 */
-    _mkword(0, _mkshort(0, 3)), 2, 0xffa80000, 0x06150000, 0x02bc0000, 0x0000a666, 0x003c0000, 0xffffffff,
-    /* Type = SwirlCam; index = 21 */
-    _mkword(0, _mkshort(0, 3)), 2, 0x00610000, 0x03cc0000, 0x02ca0000, 0x0000a666, 0x00320000, 0xffffffff,
     /* Type = SwirlCam; index = 22 */
-    _mkword(0, _mkshort(0, 3)), 2, 0x010a0000, 0x01e80000, 0x01fc0000, 0x0000a666, 0x002d0000, 0xffffffff,
+    _mkword(0, _mkshort(0, 3)), 2, 0xff940000, 0x08270000, 0x02bc0000, 0x0000a666, 0x00460000, 0xffffffff,
     /* Type = SwirlCam; index = 23 */
-    _mkword(0, _mkshort(0, 3)), 2, 0x011c0000, 0x007e0000, 0x00be0000, 0x00008b3b, 0x001eebda, 0xffffffff,
+    _mkword(0, _mkshort(0, 3)), 2, 0xff940000, 0x08270000, 0x02bc0000, 0x0000a666, 0x00460000, 0xffffffff,
     /* Type = SwirlCam; index = 24 */
-    _mkword(0, _mkshort(0, 3)), 2, 0x00c30000, 0x00140000, 0x00210000, 0x000080a1, 0x001e50a3, 0xffffffff,
+    _mkword(0, _mkshort(0, 3)), 2, 0xffa80000, 0x06150000, 0x02bc0000, 0x0000a666, 0x003c0000, 0xffffffff,
     /* Type = SwirlCam; index = 25 */
-    _mkword(0, _mkshort(0, 3)), 2, 0x003d0000, 0x00070000, 0xffe30000, 0x00007480, 0x00195dc1, 0xffffffff,
+    _mkword(0, _mkshort(0, 3)), 2, 0x00610000, 0x03cc0000, 0x02ca0000, 0x0000a666, 0x00320000, 0xffffffff,
     /* Type = SwirlCam; index = 26 */
-    _mkword(0, _mkshort(0, 3)), 2, 0x00000000, 0x000a0000, 0xffe20000, 0x00004000, 0x00140000, 0xffffffff,
+    _mkword(0, _mkshort(0, 3)), 2, 0x010a0000, 0x01e80000, 0x01fc0000, 0x0000a666, 0x002d0000, 0xffffffff,
     /* Type = SwirlCam; index = 27 */
-    _mkword(0, _mkshort(0, 3)), 2, 0x00000000, 0x00000000, 0x00000000, 0x00008000, 0x00000000, 0xffffffff,
+    _mkword(0, _mkshort(0, 3)), 2, 0x011c0000, 0x007e0000, 0x00be0000, 0x00008b3b, 0x001eebda, 0xffffffff,
     /* Type = SwirlCam; index = 28 */
-    _mkword(0, _mkshort(0, 3)), 2, 0x00000000, 0x00000000, 0x00000000, 0x00008000, 0x00000000, 0xffffffff,
+    _mkword(0, _mkshort(0, 3)), 2, 0x00c30000, 0x00140000, 0x00210000, 0x000080a1, 0x001e50a3, 0xffffffff,
     /* Type = SwirlCam; index = 29 */
+    _mkword(0, _mkshort(0, 3)), 2, 0x003d0000, 0x00070000, 0xffe30000, 0x00007480, 0x00195dc1, 0xffffffff,
+    /* Type = SwirlCam; index = 30 */
+    _mkword(0, _mkshort(0, 3)), 2, 0x00000000, 0x000a0000, 0xffe20000, 0x00004000, 0x00140000, 0xffffffff,
+    /* Type = SwirlCam; index = 31 */
+    _mkword(0, _mkshort(0, 3)), 2, 0x00000000, 0x00000000, 0x00000000, 0x00008000, 0x00000000, 0xffffffff,
+    /* Type = SwirlCam; index = 32 */
+    _mkword(0, _mkshort(0, 3)), 2, 0x00000000, 0x00000000, 0x00000000, 0x00008000, 0x00000000, 0xffffffff,
+    /* Type = SwirlCam; index = 33 */
     _mkword(0, _mkshort(0, 3)), 1, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xffffffff,
-    /* Type = EndIntro; index = 30 */
+    /* Type = EndIntro; index = 34 */
     _mkword(0, _mkshort(0, 9))
 };
 
