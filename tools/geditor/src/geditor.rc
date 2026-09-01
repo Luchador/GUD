@@ -6,13 +6,19 @@
  * scale with the system font, which is what keeps the layout correct
  * on high-DPI displays.
  */
-IDD_NEW_PROJECT DIALOGEX 0, 0, 240, 92
+IDD_NEW_PROJECT DIALOGEX 0, 0, 300, 122
 STYLE DS_MODALFRAME | DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "New Project"
 FONT 8, "MS Shell Dlg"
 BEGIN
     LTEXT           "Project name:", -1, 10, 10, 100, 8
-    EDITTEXT        IDC_PROJECT_NAME, 10, 22, 220, 14, ES_AUTOHSCROLL
-    LTEXT           "", IDC_NAME_WARNING, 10, 41, 220, 16
-    DEFPUSHBUTTON   "Create Project", IDC_CREATE_PROJECT, 85, 68, 70, 16
+    EDITTEXT        IDC_PROJECT_NAME, 10, 22, 280, 14, ES_AUTOHSCROLL
+
+    LTEXT           "Location:", -1, 10, 44, 100, 8
+    EDITTEXT        IDC_PROJECT_LOCATION, 10, 56, 232, 14, ES_AUTOHSCROLL
+    PUSHBUTTON      "Browse...", IDC_BROWSE_LOCATION, 246, 55, 44, 16
+
+    LTEXT           "", IDC_NAME_WARNING, 10, 76, 280, 16
+
+    DEFPUSHBUTTON   "Create Project", IDC_CREATE_PROJECT, 115, 98, 70, 16
 END

@@ -6,8 +6,11 @@
  * routes through the same shutdown path as the close button.
  */
 
+#define COBJMACROS
 #include <windows.h>
 #include <commdlg.h>
+#include <shobjidl.h>   /* IFileOpenDialog: the modern folder picker */
+#include <shlobj.h>     /* SHGetFolderPath: default to Documents */
 #include <string.h>
 
 #include "resource.h"
@@ -33,6 +36,14 @@ enum {
     ID_EDIT_UNDO,
     ID_EDIT_REDO
 };
+
+
+/* What the New Project dialog collects. */
+typedef struct NewProjectInfo {
+    char name[GEDITOR_NAME_MAX];
+    char location[MAX_PATH];
+} NewProjectInfo;
+
 
 
 /*
@@ -99,6 +110,57 @@ static BOOL GEditorNameIsValid(const char *name, const char **reasonout)
 }
 
 
+/* TRUE if path names an existing directory. */
+static BOOL GEditorDirectoryExists(const char *path)
+{
+    DWORD attrs = GetFileAttributes(path);
+
+    return (attrs != INVALID_FILE_ATTRIBUTES) && (attrs & FILE_ATTRIBUTE_DIRECTORY);
+}
+
+
+/*
+ * Folder picker. Fills pathout and returns TRUE if a folder was chosen.
+ */
+static BOOL GEditorPromptForFolder(HWND owner, char *pathout, int pathmax)
+{
+    IFileOpenDialog *dlg = NULL;
+    IShellItem *item = NULL;
+    PWSTR wpath = NULL;
+    DWORD opts = 0;
+    BOOL ok = FALSE;
+
+    if (FAILED(CoCreateInstance(&CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER,
+                                &IID_IFileOpenDialog, (void **)&dlg)))
+    {
+        return FALSE;
+    }
+
+    if (SUCCEEDED(IFileOpenDialog_GetOptions(dlg, &opts)))
+    {
+        /* FORCEFILESYSTEM refuses virtual folders (Libraries, This PC)
+           that have no path we could write files into. */
+        IFileOpenDialog_SetOptions(dlg, opts | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM);
+    }
+    IFileOpenDialog_SetTitle(dlg, L"Choose Project Location");
+
+    if (SUCCEEDED(IFileOpenDialog_Show(dlg, owner))
+        && SUCCEEDED(IFileOpenDialog_GetResult(dlg, &item)))
+    {
+        /* The shell speaks UTF-16; the rest of GEditor is ANSI. */
+        if (SUCCEEDED(IShellItem_GetDisplayName(item, SIGDN_FILESYSPATH, &wpath)))
+        {
+            ok = WideCharToMultiByte(CP_ACP, 0, wpath, -1, pathout, pathmax, NULL, NULL) > 0;
+            CoTaskMemFree(wpath);
+        }
+        IShellItem_Release(item);
+    }
+
+    IFileOpenDialog_Release(dlg);
+    return ok;
+}
+
+
 /*
  * Re-checks the edit box and updates the two things that depend on it:
  * whether Create Project is clickable, and what the warning line says.
@@ -108,11 +170,30 @@ static BOOL GEditorNameIsValid(const char *name, const char **reasonout)
 static void GEditorUpdateNameValidity(HWND hdlg)
 {
     char name[GEDITOR_NAME_MAX];
+    char location[MAX_PATH];
     const char *reason;
     BOOL valid;
 
     GetDlgItemText(hdlg, IDC_PROJECT_NAME, name, sizeof(name));
     valid = GEditorNameIsValid(name, &reason);
+
+    /* The name check reports first; the location check only runs on
+       a good name, so the warning line shows one problem at a time. */
+    if (valid)
+    {
+        GetDlgItemText(hdlg, IDC_PROJECT_LOCATION, location, sizeof(location));
+
+        if (location[0] == '\0')
+        {
+            reason = "Choose a location for the project.";
+            valid = FALSE;
+        }
+        else if (!GEditorDirectoryExists(location))
+        {
+            reason = "That location does not exist.";
+            valid = FALSE;
+        }
+    }
 
     EnableWindow(GetDlgItem(hdlg, IDC_CREATE_PROJECT), valid);
     SetDlgItemText(hdlg, IDC_NAME_WARNING, reason);
@@ -121,7 +202,7 @@ static void GEditorUpdateNameValidity(HWND hdlg)
 
 static INT_PTR CALLBACK GEditorNewProjectProc(HWND hdlg, UINT msg, WPARAM wparam, LPARAM lparam)
 {
-    char *nameout;
+    NewProjectInfo *info;
 
     switch (msg)
     {
@@ -131,6 +212,17 @@ static INT_PTR CALLBACK GEditorNewProjectProc(HWND hdlg, UINT msg, WPARAM wparam
 
         SendDlgItemMessage(hdlg, IDC_PROJECT_NAME, EM_LIMITTEXT, GEDITOR_NAME_MAX - 1, 0);
         SetDlgItemText(hdlg, IDC_PROJECT_NAME, "GE Project");
+
+        /* Default the location to the user's Documents folder. */
+        {
+            char docs[MAX_PATH];
+
+            SendDlgItemMessage(hdlg, IDC_PROJECT_LOCATION, EM_LIMITTEXT, MAX_PATH - 1, 0);
+            if (SUCCEEDED(SHGetFolderPath(NULL, CSIDL_MYDOCUMENTS, NULL, 0, docs)))
+            {
+                SetDlgItemText(hdlg, IDC_PROJECT_LOCATION, docs);
+            }
+        }
 
         /* Select the default so typing replaces it. */
         SendDlgItemMessage(hdlg, IDC_PROJECT_NAME, EM_SETSEL, 0, -1);
@@ -154,16 +246,31 @@ static INT_PTR CALLBACK GEditorNewProjectProc(HWND hdlg, UINT msg, WPARAM wparam
         switch (LOWORD(wparam))
         {
         case IDC_PROJECT_NAME:
-            /* EN_CHANGE arrives on every edit, so validation is live. */
+        case IDC_PROJECT_LOCATION:
+            /* EN_CHANGE arrives on every edit, so validation is live
+               for both boxes - including a path pasted into Location. */
             if (HIWORD(wparam) == EN_CHANGE)
             {
                 GEditorUpdateNameValidity(hdlg);
             }
             return TRUE;
 
+        case IDC_BROWSE_LOCATION:
+        {
+            char folder[MAX_PATH];
+
+            if (GEditorPromptForFolder(hdlg, folder, sizeof(folder)))
+            {
+                /* Setting the text fires EN_CHANGE, which revalidates. */
+                SetDlgItemText(hdlg, IDC_PROJECT_LOCATION, folder);
+            }
+            return TRUE;
+        }
+
         case IDC_CREATE_PROJECT:
-            nameout = (char *)GetWindowLongPtr(hdlg, DWLP_USER);
-            GetDlgItemText(hdlg, IDC_PROJECT_NAME, nameout, GEDITOR_NAME_MAX);
+            info = (NewProjectInfo *)GetWindowLongPtr(hdlg, DWLP_USER);
+            GetDlgItemText(hdlg, IDC_PROJECT_NAME, info->name, sizeof(info->name));
+            GetDlgItemText(hdlg, IDC_PROJECT_LOCATION, info->location, sizeof(info->location));
             EndDialog(hdlg, IDOK);
             return TRUE;
 
@@ -182,17 +289,23 @@ static INT_PTR CALLBACK GEditorNewProjectProc(HWND hdlg, UINT msg, WPARAM wparam
  * Shows the New Project dialog. Fills nameout (GEDITOR_NAME_MAX chars)
  * and returns TRUE if the user created a project.
  */
-static BOOL GEditorPromptForNewProject(HWND hwnd, char *nameout)
+static BOOL GEditorPromptForNewProject(HWND hwnd, NewProjectInfo *info)
 {
     INT_PTR result;
 
-    nameout[0] = '\0';
+    ZeroMemory(info, sizeof(*info));
 
     result = DialogBoxParam(GetModuleHandle(NULL),
                             MAKEINTRESOURCE(IDD_NEW_PROJECT),
                             hwnd,
                             GEditorNewProjectProc,
-                            (LPARAM)nameout);
+                            (LPARAM)info);
+
+    if (result == -1)
+    {
+        MessageBox(hwnd, "Dialog resource missing (build problem).",
+                   GEDITOR_TITLE, MB_ICONERROR);
+    }
 
     return (result == IDOK);
 }
@@ -275,12 +388,15 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         {
         case ID_FILE_NEW_PROJECT:
         {
-            char name[GEDITOR_NAME_MAX];
+            NewProjectInfo info;
 
-            if (GEditorPromptForNewProject(hwnd, name))
+            if (GEditorPromptForNewProject(hwnd, &info))
             {
+                char text[GEDITOR_NAME_MAX + MAX_PATH + 64];
+
                 /* Nothing is created yet - show what we would make. */
-                MessageBox(hwnd, name, GEDITOR_TITLE, MB_OK | MB_ICONINFORMATION);
+                wsprintf(text, "Project: %s\nLocation: %s", info.name, info.location);
+                MessageBox(hwnd, text, GEDITOR_TITLE, MB_OK | MB_ICONINFORMATION);
             }
             return 0;
         }
@@ -370,6 +486,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             {
                 if (msg.message == WM_QUIT)
                 {
+                    CoUninitialize();
                     return (int)msg.wParam;
                 }
                 TranslateMessage(&msg);
@@ -390,5 +507,6 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
         }
     }
 
+    CoUninitialize();
     return (int)msg.wParam;
 }
