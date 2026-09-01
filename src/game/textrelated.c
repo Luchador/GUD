@@ -21,7 +21,7 @@ s32 text_x = 0;
 s32 text_y = 0;
 s32 text_s = 0;
 s32 text_t = 0;
-s32 g_JpnTextTlutNeedsLoad = 0;
+
 struct font * ptrFontBankGothic = NULL;
 struct fontchar * ptrFontBankGothicChars = NULL;
 struct font * ptrFontZurichBold = NULL;
@@ -224,15 +224,6 @@ Gfx *textRenderGlyph(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, struct 
             {
                 gDPPipeSync(gdl++);
                 gDPSetTextureLUT(gdl++, G_TT_IA16);
-
-                if (g_JpnTextTlutNeedsLoad)
-                {
-                    g_JpnTextTlutNeedsLoad = 0;
-                    
-                    gDPLoadTLUT_pal16(gdl++, 0, osVirtualToPhysical(g_JpnTextPalette0));
-                    gDPLoadTLUT_pal16(gdl++, 1, osVirtualToPhysical(&g_JpnTextPalette1));
-                }
-
                 gDPSetTextureImage(gdl++, G_IM_FMT_CI, G_IM_SIZ_16b, 1,  osVirtualToPhysical((void *) curchar->pixeldata));
                 gDPSetTile(gdl++, G_IM_FMT_CI, G_IM_SIZ_16b, 0, 0x0000, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
                 gDPLoadSync(gdl++);
@@ -323,8 +314,6 @@ Gfx *textRender(Gfx *gdl, s32 *x, s32 *y, char *text, struct fontchar *chars, st
     s32 savedx;
 	s32 savedy;
     s32 prevchar;
-    
-    g_JpnTextTlutNeedsLoad = 1;
 
     savedx = *x;
 	savedy = *y;
@@ -333,11 +322,6 @@ Gfx *textRender(Gfx *gdl, s32 *x, s32 *y, char *text, struct fontchar *chars, st
 	if (lineheight == 0) 
     {
 		lineheight = chars['['].height + chars['['].baseline;
-	}
-
-	if (j_text_trigger != 0 && lineheight < 14)
-    {
-		lineheight = 14;
 	}
 
     gDPSetPrimColor(gdl++, 0, 0, M_COLOR_R(colour), M_COLOR_G(colour), M_COLOR_B(colour), M_COLOR_A(colour));
@@ -439,15 +423,6 @@ Gfx *textRenderGlyphOutlined(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar,
         {
             gDPPipeSync(gdl++);
             gDPSetTextureLUT(gdl++, G_TT_IA16);
-
-            if (g_JpnTextTlutNeedsLoad) 
-            {
-                g_JpnTextTlutNeedsLoad = 0;
-
-                gDPLoadTLUT_pal16(gdl++, 0, osVirtualToPhysical(&g_JpnTextPalette0));
-                gDPLoadTLUT_pal16(gdl++, 1, osVirtualToPhysical(&g_JpnTextPalette1));
-            }
-
             gDPSetTextureImage(gdl++, G_IM_FMT_CI, G_IM_SIZ_16b, 1,  osVirtualToPhysical((void *) curchar->pixeldata));
             gDPSetTile(gdl++, G_IM_FMT_CI, G_IM_SIZ_16b, 0, 0x0000, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
             gDPLoadSync(gdl++);
@@ -585,19 +560,14 @@ Gfx *textRenderOutlined(Gfx *gdl, s32 *x, s32 *y, char *text, struct fontchar *c
     s32 savedx;
     struct fontchar sp74;
     s32 prevchar;
-    
-    g_JpnTextTlutNeedsLoad = 1;
 
     savedx = *x;
 	savedy = *y;
     prevchar = 'H';
 
-	if (lineheight == 0) {
+	if (lineheight == 0)
+    {
 		lineheight = chars['['].height + chars['['].baseline;
-	}
-
-	if (j_text_trigger != 0 && lineheight < 14) {
-		lineheight = 14;
 	}
     
     while (*text != '\0')
@@ -634,11 +604,7 @@ Gfx *textRenderOutlined(Gfx *gdl, s32 *x, s32 *y, char *text, struct fontchar *c
 				sp74.height = 16;
 			}
 
-#if defined(VERSION_EU) || defined(VERSION_JP)
-            if ((codepoint & 0x1fff) >= 0x3c8)
-#else
 			if ((codepoint & 0x1fff) >= 0x3c7)
-#endif
             {
 				codepoint = 2;
 			}
@@ -672,11 +638,6 @@ void textMeasure(s32 *textheight, s32 *textwidth, char *text, struct fontchar *f
     if (lineheight == 0)
     {
 		lineheight = font1['['].baseline + font1['['].height;
-    }
-    
-    if ((j_text_trigger) && (lineheight < 14))
-    {
-        lineheight = 14;
     }
 
     while (*text != '\0')

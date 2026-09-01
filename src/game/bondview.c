@@ -9553,20 +9553,15 @@ Gfx* hudmsgBottomRender(Gfx* arg0)
                 {
                     view_top = (viGetViewTop() + viGetViewHeight()) - BONDVIEW_VIEW_TOP_OFFSET_2;
                 }
-#if !defined(VERSION_EU)
+
                 if (get_cur_playernum() == 1)
                 {
                     view_top -= 8;
                 }
-#endif
             }
             else
             {
-                view_top = viGetViewTop()
-#if defined(VERSION_JP) || defined(VERSION_EU)
-                         + (((j_text_trigger != 0) && (get_cur_playernum() < 2)) ? 8 : 0)
-#endif
-                         + BONDVIEW_VIEW_TOP_OFFSET_3;
+                view_top = viGetViewTop() + BONDVIEW_VIEW_TOP_OFFSET_3;
             }
 
             view_vert = view_top - view_top_offset;

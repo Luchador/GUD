@@ -443,8 +443,8 @@ void playerInitData(s32 player_num)
     g_playerPointers[player_num]->hand_invisible[GUNLEFT] = 0;
     g_playerPointers[player_num]->hand_item[GUNRIGHT] = ITEM_UNARMED;
     g_playerPointers[player_num]->hand_item[GUNLEFT] = ITEM_UNARMED;
-    g_playerPointers[player_num]->field_2A44[GUNRIGHT] = -1;
-    g_playerPointers[player_num]->field_2A44[GUNLEFT] = -1;
+    g_playerPointers[player_num]->pendingHandModelItem[GUNRIGHT] = -1;
+    g_playerPointers[player_num]->pendingHandModelItem[GUNLEFT] = -1;
     g_playerPointers[player_num]->lock_hand_model[GUNRIGHT] = FALSE;
     g_playerPointers[player_num]->lock_hand_model[GUNLEFT] = FALSE;
     g_playerPointers[player_num]->ptr_hand_weapon_buffer[GUNRIGHT] = NULL;

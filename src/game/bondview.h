@@ -1094,7 +1094,12 @@ struct player
   s32 cur_item_weapon_getname;
   f32 actual_health;
   f32 actual_armor;
-  ITEM_IDS field_2A44[2];
+
+  /**
+   * Stores the requested model for each hand when a weapon switch is pending.
+   */
+  ITEM_IDS pendingHandModelItem[2];
+
   f32 speedgo;
   s32 lock_hand_model[2];
   s32 cur_player_control_type_0;

@@ -9918,25 +9918,16 @@ void set_sound_effect_for_weapontype_collection(ITEM_IDS weapontype)
 }
 
 
-//!FIXME, i need to be properly split from chrai.c
 void prepare_ammo_type_collection_text(u8 *finaltext, AMMOTYPE ammotype, u32 quantity)
 {
     *finaltext = 0;
-    if (j_text_trigger != 0)
-    {
-        apped_text_ammotype(finaltext,ammotype,quantity);
-        if (getPlayerCount() < 3)
-        {
-            append_text_picked_up(finaltext, ammotype, quantity);
-        }
-        strcat(finaltext, "\n");
-        return;
-    }
+
     if (getPlayerCount() < 3)
     {
         append_text_picked_up(finaltext, ammotype, quantity);
         append_text_ammo_amount_word(finaltext, ammotype, quantity);
     }
+
     apped_text_ammotype(finaltext, ammotype, quantity);
     strcat(finaltext, ".\n");
 }
@@ -9946,11 +9937,7 @@ void display_text_when_ammo_collected(s32 ammotype, s32 quantity)
 {
     char buffer[100] = "";
     prepare_ammo_type_collection_text(buffer, ammotype, quantity);
-#ifdef VERSION_US
     hudmsgBottomShow(buffer);
-#else
-    jp_hudmsgBottomShow(buffer);
-#endif
 }
 
 void add_ammo_to_inventory(AMMOTYPE ammotype,int amount,int doplaysound,int dodisplaytext)
@@ -9966,9 +9953,7 @@ void add_ammo_to_inventory(AMMOTYPE ammotype,int amount,int doplaysound,int dodi
         {
             curammo = check_cur_player_ammo_amount_in_inventory(ammotype);
             give_cur_player_ammo(ammotype,curammo + amount);
-#if defined(BUGFIX_R1)
-        }
-#endif
+
             if (dodisplaytext != 0)
             {
                 display_text_when_ammo_collected(ammotype,amount);
@@ -10024,9 +10009,7 @@ void add_ammo_to_inventory(AMMOTYPE ammotype,int amount,int doplaysound,int dodi
             {
                 bondinvAddInvItem(ITEM_PLASTIQUE);
             }
-#if !defined(BUGFIX_R1)
         }
-#endif
     }
 }
 
@@ -10095,22 +10078,11 @@ void generate_language_specific_text_for_weapon(u8 *finalstring, ITEM_IDS itemty
 
     morethan2players = FALSE;
 
-    if (j_text_trigger != 0)
+    if (getPlayerCount() < 3)
     {
-          strcpy(finalstring,"");
-          if (2 < getPlayerCount())
-          {
-              morethan2players = TRUE;
-          }
+        strcpy(finalstring, langGet(getStringID(LPROPOBJ,PROPOBJ_STR_00_PICKEDUP))); /* Picked up */
     }
-    else
-    {
-          if (getPlayerCount() < 3)
-          {
-             //Picked up
-            strcpy(finalstring, langGet(getStringID(LPROPOBJ,PROPOBJ_STR_00_PICKEDUP)));
-          }
-    }
+
 
     switch(itemtype)
     {
@@ -10242,18 +10214,6 @@ void generate_language_specific_text_for_weapon(u8 *finalstring, ITEM_IDS itemty
             strcat(finalstring, langGet(getStringID(LPROPOBJ,PROPOBJ_STR_3B_ANEWWEAPON)));
             break;
     }
-
-    if ((j_text_trigger != 0) && (!morethan2players))
-    {
-        if (finalstring[strlen(finalstring) - 1] == '\n')
-        {
-            finalstring[strlen(finalstring) - 1] = '\0';
-        }
-        //Picked up
-        strcat(finalstring, langGet(getStringID(LPROPOBJ,PROPOBJ_STR_00_PICKEDUP)));
-        strcat(finalstring,"\n");
-    }
-
 }
 
 

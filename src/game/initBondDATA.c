@@ -346,8 +346,8 @@ void init_player_BONDdata_stats(void)
     g_CurrentPlayer->hand_invisible[GUNLEFT] = 0;
     g_CurrentPlayer->hand_item[GUNRIGHT] = ITEM_UNARMED;
     g_CurrentPlayer->hand_item[GUNLEFT] = ITEM_UNARMED;
-    g_CurrentPlayer->field_2A44[GUNRIGHT] = -1;
-    g_CurrentPlayer->field_2A44[GUNLEFT] = -1;
+    g_CurrentPlayer->pendingHandModelItem[GUNRIGHT] = -1;
+    g_CurrentPlayer->pendingHandModelItem[GUNLEFT] = -1;
     g_CurrentPlayer->lock_hand_model[GUNRIGHT] = 0;
     g_CurrentPlayer->lock_hand_model[GUNLEFT] = 0;
 
@@ -403,12 +403,12 @@ void init_player_BONDdata_stats(void)
     g_CurrentPlayer->syncoffset = 0;
     g_CurrentPlayer->field_107C = 0.0f;
     g_CurrentPlayer->field_1080 = 0.0f;
-    bgunCalculateBlend(GUNRIGHT);
-    bgunCalculateBlend(GUNRIGHT);
-    bgunCalculateBlend(GUNRIGHT);
-    bgunCalculateBlend(GUNLEFT);
-    bgunCalculateBlend(GUNLEFT);
-    bgunCalculateBlend(GUNLEFT);
+    gunCalculateBlend(GUNRIGHT);
+    gunCalculateBlend(GUNRIGHT);
+    gunCalculateBlend(GUNRIGHT);
+    gunCalculateBlend(GUNLEFT);
+    gunCalculateBlend(GUNLEFT);
+    gunCalculateBlend(GUNLEFT);
     g_CurrentPlayer->gunammooff = FALSE;
     g_CurrentPlayer->gunsightmode = 2; //GUNSIGHTREASON_AIMING
     g_CurrentPlayer->sniper_zoom = sniperrifle_stats.Zoom;

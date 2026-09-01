@@ -2,12 +2,9 @@
 #include "pi.h"
 #include "snd.h"
 #include "game/language.h"
-#include "rmon.h" /*<PR/rmon.h>*/
+#include "rmon.h"
 #include "str.h"
 
-/**
- * EU .data, offset from start of data_seg : 0x36b0
-*/
 
 u32 g_TokenString[G_TOKEN_STRING_LEN];
 s32 g_TokenCount = 1;
@@ -38,7 +35,8 @@ unsigned char *tokenSplit(unsigned char *str)
 }
 
 // Sets a new token string.
-void tokenSetString(const char *str) {
+void tokenSetString(const char *str)
+{
     strcpy(g_TokenString, str);
     tokenSplit(g_TokenString);
 }
@@ -52,24 +50,31 @@ s32 tokenReadIo(void)
     u32 address;
     s32 debug = FALSE;
     address = 0xFFB000;
-    if (rmonGetToken()) {
+
+    if (rmonGetToken())
+    {
         g_TokenString[0] = 0;
-    } else {
-        for (ptr = g_TokenString, end = (g_TokenString + G_TOKEN_STRING_LEN); (ptr != end); ptr++) {
+    } 
+    else
+    {
+        for (ptr = g_TokenString, end = (g_TokenString + G_TOKEN_STRING_LEN); (ptr != end); ptr++)
+        {
             osPiReadIo(address, ptr);
             address += sizeof(u32);
         }
     }
+
     tokenSplit(g_TokenString);
-    if (tokenFind(1, "-d") != NULL) {
+
+    if (tokenFind(1, "-d") != NULL)
+    {
         debug = TRUE;
     }
-    if (tokenFind(1, "-s") != NULL) {
+    if (tokenFind(1, "-s") != NULL)
+    {
         g_sndBootswitchSound = TRUE;
     }
-    if (tokenFind(1, "-j") != NULL) {
-        j_text_trigger = TRUE;
-    }
+
     return debug;
 }
 
@@ -82,9 +87,13 @@ const char *tokenFind(s32 index, const char *token)
 {
     s32 length = strlen(token);
     s32 i = 1;
-    for (; i < g_TokenCount; i++) {
-        if (strncmp(token, g_Tokens[i], length) == 0) {
-            if (--index == 0) {
+
+    for (; i < g_TokenCount; i++)
+    {
+        if (strncmp(token, g_Tokens[i], length) == 0)
+        {
+            if (--index == 0)
+            {
                 return (g_Tokens[i] + length);
             }
         }

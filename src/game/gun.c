@@ -588,7 +588,7 @@ WeaponStats *gunGetItemStats(ITEM_IDS item)
 }
 
 
-void bgunCalculateBlend(enum GUNHAND handnum)
+void gunCalculateBlend(enum GUNHAND handnum)
 {
     s32 sp60[2];
     s32 sp58[2];
@@ -642,7 +642,7 @@ void bgunCalculateBlend(enum GUNHAND handnum)
 s32 Gun_hand_without_item(enum GUNHAND arg0)
 {
     return g_CurrentPlayer->hand_invisible[arg0] > 0
-        || (g_CurrentPlayer->hand_item[arg0] == 0 && g_CurrentPlayer->field_2A44[arg0] < 0);
+        || (g_CurrentPlayer->hand_item[arg0] == 0 && g_CurrentPlayer->pendingHandModelItem[arg0] < 0);
 }
 
 
@@ -674,7 +674,7 @@ void remove_item_in_hand(GUNHAND hand)
 {
   g_CurrentPlayer->hand_invisible[hand] = 0;
   g_CurrentPlayer->hand_item[hand] = ITEM_UNARMED;
-  g_CurrentPlayer->field_2A44[hand] = -1;
+  g_CurrentPlayer->pendingHandModelItem[hand] = -1;
   g_CurrentPlayer->lock_hand_model[hand] = 1;
   return;
 }
@@ -682,21 +682,24 @@ void remove_item_in_hand(GUNHAND hand)
 
 void place_item_in_hand_swap_and_make_visible(GUNHAND hand, ITEM_IDS item)
 {
-    if (g_CurrentPlayer->lock_hand_model[hand]) { return; }
+    if (g_CurrentPlayer->lock_hand_model[hand])
+    { 
+        return; 
+    }
 
     if (g_CurrentPlayer->hand_invisible[hand] >= 0)
     {
         if (item != g_CurrentPlayer->hand_item[hand])
         {
             g_CurrentPlayer->hand_invisible[hand] = -1;
-            g_CurrentPlayer->field_2A44[hand] = item;
+            g_CurrentPlayer->pendingHandModelItem[hand] = item;
         }
         return;
     }
 
     if (item != g_CurrentPlayer->hand_item[hand])
     {
-        g_CurrentPlayer->field_2A44[hand] = item;
+        g_CurrentPlayer->pendingHandModelItem[hand] = item;
         return;
     }
 
@@ -742,7 +745,7 @@ void used_to_load_1st_person_model_on_demand(GUNHAND hand)
     {
         if ((g_CurrentPlayer->hand_invisible[hand] < -2) || (g_CurrentPlayer->hand_item[hand] == ITEM_UNARMED))
         {
-            item             = g_CurrentPlayer->field_2A44[hand];
+            item             = g_CurrentPlayer->pendingHandModelItem[hand];
             ptr_item_text    = (s8 *)get_ptr_item_text_call_line(item);
             ptr_weapon_model = get_ptr_weapon_model_header_line(item);
 
@@ -772,7 +775,7 @@ void used_to_load_1st_person_model_on_demand(GUNHAND hand)
 
             g_CurrentPlayer->hand_invisible[hand] = 1;
             g_CurrentPlayer->hand_item[hand]      = item;
-            g_CurrentPlayer->field_2A44[hand]     = -1;
+            g_CurrentPlayer->pendingHandModelItem[hand]     = -1;
         }
         else
         {
@@ -1210,7 +1213,7 @@ void gunSetBondWeaponSway(f32 breathing, f32 arg1, f32 arg2, f32 arg3)
 
     while (dampt[0] >= 1.0f)
     {
-        bgunCalculateBlend(GUNRIGHT);
+        gunCalculateBlend(GUNRIGHT);
         dampt[0] -= 1.0f;
         g_CurrentPlayer->syncoffset++;
     }
@@ -1252,7 +1255,7 @@ void gunSetBondWeaponSway(f32 breathing, f32 arg1, f32 arg2, f32 arg3)
 
     while (dampt[1] >= 1.0f)
     {
-        bgunCalculateBlend(GUNLEFT);
+        gunCalculateBlend(GUNLEFT);
         dampt[1] -= 1.0f;
         g_CurrentPlayer->syncoffset--;
     }

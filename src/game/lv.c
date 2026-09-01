@@ -790,7 +790,6 @@ void lvTick(void)
     {
         cheatButtonSampleInput();
         menu_init();
-        langTick();
     }
     else
     {
@@ -805,7 +804,6 @@ void lvTick(void)
         explosionUpdateFlyingParticles();
         chrpropTick();
         reset_all_music_slots();
-        langTick();
     }
 }
 

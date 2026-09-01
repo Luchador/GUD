@@ -335,14 +335,8 @@ void display_objective_status_text_on_status_change(void)
     
             if (get_difficulty_for_objective(i) <= lvGetSelectedDifficulty())
             {
-                if (j_text_trigger != 0)
-                {
-                    sprintf(&buffer, "%s \x80%c ", langGet(getStringID(LMISC, MISC_STR_2C_OBJECTIVE)), availableindex + 0x1A);
-                }
-                else
-                {
-                    sprintf(&buffer, "%s %c: ", langGet(getStringID(LMISC, MISC_STR_2C_OBJECTIVE)), availableindex + 0x61);
-                }
+                sprintf(&buffer, "%s %c: ", langGet(getStringID(LMISC, MISC_STR_2C_OBJECTIVE)), availableindex + 0x61);
+
                 if (status == OBJECTIVESTATUS_COMPLETE)
                 {
                     strcat(&buffer, langGet(getStringID(LMISC, MISC_STR_2D_COMPLETED_LF)));
@@ -355,6 +349,7 @@ void display_objective_status_text_on_status_change(void)
                 {
                     strcat(&buffer, langGet(getStringID(LMISC, MISC_STR_2F_FAILED_LF)));
                 }
+
                 hudmsgBottomShow(&buffer);
             }
         }

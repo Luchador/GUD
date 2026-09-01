@@ -677,37 +677,7 @@ void set_cursor_pos_difficulty(int difficulty);
 
 Gfx *frontPrintText(Gfx *gdl, s32 *x, s32 *y, s8 *text, s32 second_font_table, s32 first_font_table, s32 arg6, s32 view_x, s32 view_y, s32 arg9, s32 arga)
 {
-    if (j_text_trigger != 0)
-    {
-        gdl = textRenderOutlined(
-            gdl,
-            x,
-            y,
-            text,
-            second_font_table,
-            first_font_table,
-            arg6,
-            (textglowR.r << 0x18) | (textglowG.r << 0x10) | (textglowB.r << 8) | textglowA.r,
-            view_x,
-            view_y,
-            arg9,
-            arga);
-    }
-    else
-    {
-        gdl = textRender(
-            gdl,
-            x,
-            y,
-            text,
-            second_font_table,
-            first_font_table,
-            arg6,
-            view_x,
-            view_y,
-            arg9,
-            arga);
-    }
+    gdl = textRender(gdl, x, y, text, second_font_table, first_font_table, arg6, view_x, view_y, arg9, arga);
 
     return gdl;
 }
@@ -2263,8 +2233,8 @@ Gfx *constructor_menu05_fileselect(Gfx *DL)
             langp = langGet(getStringID(LTITLE, TITLE_STR_25_CONFIRM)); /* confirm */
 
             folderx = floorFloat(folderpos2d.f[0]);
-            textpos.p[1] = (((j_text_trigger != 0) ? 0x17 : -1) + (s32) folderx) - 1;
-            textpos.p[0] = (s32) floorFloat(folderpos2d.f[1]) + 0x32;
+            textpos.p[1] = (s32) folderx - 2;
+            textpos.p[0] = (s32) floorFloat(folderpos2d.f[1]) + 50;
 
             if (folder_selected_for_deletion_choice != 0)
             {
@@ -2946,17 +2916,8 @@ void interface_menu07_missionsel(void)
     if (tab_next_selected != 0)
     {
         frontChangeMenu(MENU_DIFFICULTY, 0);
-
-#if defined(VERSION_JP) || defined(VERSION_EU)
-        if (j_text_trigger != 0)
-        {
-            set_cursor_pos_difficulty(0);
-        }
-        else
-#endif
-        {
-            set_cursor_pos_difficulty(get_highest_unlocked_difficulty_for_level(mission_folder_setup_entries[briefingpage].mission_num));
-        }
+        set_cursor_pos_difficulty(get_highest_unlocked_difficulty_for_level(mission_folder_setup_entries[briefingpage].mission_num));
+        
     }
     else if (tab_prev_selected != 0)
     {
@@ -3022,18 +2983,16 @@ Gfx *constructor_menu07_missionsel(Gfx *DL)
                     strcpy(sp90, langGet(mission_folder_setup_entries[temp_s0].folder_text_preset));
                 }
 
-                if (j_text_trigger == 0)
+                temp_v0_3 = strlen(sp90) - 1;
+                
+                for (; temp_v0_3 >= 0; temp_v0_3--)
                 {
-                    temp_v0_3 = strlen(sp90) - 1;
-                    for (; temp_v0_3 >= 0; temp_v0_3--)
+                    if (sp90[temp_v0_3] >= 'a')
                     {
-                        if (sp90[temp_v0_3] >= 'a')
-                        {
-                            sp90[temp_v0_3] -= 0x20;
-                        }
+                        sp90[temp_v0_3] -= 0x20;
                     }
                 }
-
+                
                 strcat(sp90, "\n");
 
                 spC4 = 0;
@@ -3286,13 +3245,7 @@ Gfx *constructor_menu08_difficulty(Gfx *DL)
 
     if (mission_difficulty_highlighted >= 0)
     {
-        DL = gfxDrawTranslucentRect(
-            DL,
-            0x7E - (j_text_trigger ? 0x32 : 0),
-            (mission_difficulty_highlighted * 0x1E) + 0xB2,
-            0xF0,
-            (mission_difficulty_highlighted * 0x1E) + 0xC3,
-            0x32);
+        DL = gfxDrawTranslucentRect(DL, 126, (mission_difficulty_highlighted * 30) + 178, 240, (mission_difficulty_highlighted * 30) + 195, 50);
     }
 
     /**
@@ -3303,34 +3256,13 @@ Gfx *constructor_menu08_difficulty(Gfx *DL)
     {
         if (i == 0 || unlockedDifficulty >= i)
         {
-            if (j_text_trigger)
-            {
-                switch (i)
-                {
-                    case 0:
-                        text_sp160 = langGet(getStringID(LTITLE, TITLE_STR_265_1DOT)); // "1.\n"
-                        break;
-                    case 1:
-                        text_sp160 = langGet(getStringID(LTITLE, TITLE_STR_266_2DOT)); // "2.\n"
-                        break;
-                    case 2:
-                        text_sp160 = langGet(getStringID(LTITLE, TITLE_STR_267_3DOT)); // "3.\n"
-                        break;
-                    case 3:
-                        text_sp160 = langGet(getStringID(LTITLE, TITLE_STR_268_4DOT)); // "4.\n"
-                        break;
-                }
-            }
-            else
-            {
-                sprintf(&stagename_struct, "%d.\n", i + 1);
-                text_sp160 = &stagename_struct;
-            }
-
+            sprintf(&stagename_struct, "%d.\n", i + 1);
+            text_sp160 = &stagename_struct;
+            
             textMeasure(&sp98, &sp9C, text_sp160, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
 
-            x = 0x82 - (j_text_trigger ? (sp9C - 0xA) : 0);
-            y = (i * 0x1E) + 0xB4;
+            x = 130;
+            y = (i * 30) + 180;
             DL = frontPrintText(DL, &x, &y, text_sp160, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
 
             switch (i)
@@ -3349,8 +3281,8 @@ Gfx *constructor_menu08_difficulty(Gfx *DL)
                     break;
             }
 
-            x = 0x96;
-            y = (i * 0x1E) + 0xB4;
+            x = 150;
+            y = (i * 30) + 180;
             DL = frontPrintText(DL, &x, &y, text_sp160, ptrFontZurichBoldChars, ptrFontZurichBold, 0xFF, viGetX(), viGetY(), 0, 0);
         }
     }
@@ -3360,10 +3292,9 @@ Gfx *constructor_menu08_difficulty(Gfx *DL)
     /**
      * Draw the checkmark for completed difficulties.
     */
-    for (i=0; i<3; i++)
+    for (i = 0; i < 3; i++)
     {
-        if ((i == 0 || unlockedDifficulty >= i)
-            && (check_if_stage_completed_on_difficulty(briefingpage, i) == 3))
+        if ((i == 0 || unlockedDifficulty >= i) && (check_if_stage_completed_on_difficulty(briefingpage, i) == 3))
         {
             image = &mainfolderimages[IMAGE_CHECK];
 
@@ -3383,9 +3314,11 @@ Gfx *constructor_menu08_difficulty(Gfx *DL)
     return DL;
 }
 
+
 //********************************************************************************************************
 //007 DIFFICULTY SELECT
 //********************************************************************************************************
+
 
 void init_menu09_007difficultyselect(void)
 {
@@ -7321,52 +7254,47 @@ Gfx *constructor_menu16_nocontrollers(Gfx *DL)
     s32 conConnected = joyGetConnectedControllers();
     s32 numContCon = 0;
 
-    if ((conConnected & 8)) {
+    if ((conConnected & 8))
+    {
         numContCon++;
     }
-    if ((conConnected & 4)) {
+
+    if ((conConnected & 4))
+    {
         numContCon++;
     }
-    if ((conConnected & 2)) {
+
+    if ((conConnected & 2))
+    {
         numContCon++;
     }
+
     DL = gfxSetup2DTextureMode(clear_framebuffer_black(DL));
 
 
-    if ((numContCon == 0) || (numContCon == 1) || (numContCon == 2) || (numContCon == 3)) {
+    if ((numContCon == 0) || (numContCon == 1) || (numContCon == 2) || (numContCon == 3))
+    {
         text = langGet(getStringID(LTITLE, TITLE_STR_118_NOCONT)); //NO CONTROLLER IN CONTROLLER SOCKET 1
     }
+
     textMeasure(&y2, &x2, text, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
+
     x = 0xDC - (x2 >> 1);
     y = 0x99 - (y2 >> 1);
-#ifdef BUGFIX_R1
-    if (j_text_trigger) {
-        DL = textRenderOutlined(DL, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, -1, 0x8000FF, viGetX(), viGetY(), 0, 0);
-    }
-    else {
-#endif
-        DL = textRender(DL, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
-#ifdef BUGFIX_R1
-    }
-#endif
 
+    DL = textRender(DL, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
 
-    if ((numContCon == 0) || (numContCon == 1) || (numContCon == 2) || (numContCon == 3)) {
+    if ((numContCon == 0) || (numContCon == 1) || (numContCon == 2) || (numContCon == 3))
+    {
         text = langGet(getStringID(LTITLE, TITLE_STR_119_ATTACHCONT)); //PLEASE POWER OFF AND ATTACH A CONTROLLER
     }
+
     textMeasure(&y2, &x2, text, ptrFontZurichBoldChars, ptrFontZurichBold, 0);
+
     x = 0xDC - (x2 >> 1);
     y = 0xB1 - (y2 >> 1);
-#ifdef BUGFIX_R1
-    if (j_text_trigger) {
-        DL = textRenderOutlined(DL, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, -1, 0x8000FF, viGetX(), viGetY(), 0, 0);
-    }
-    else {
-#endif
-        DL = textRender(DL, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
-#ifdef BUGFIX_R1
-    }
-#endif
+
+    DL = textRender(DL, &x, &y, text, ptrFontZurichBoldChars, ptrFontZurichBold, -1, viGetX(), viGetY(), 0, 0);
 
     return DL;
 }
@@ -7387,6 +7315,8 @@ void do_extended_cast_display(bool doExtended)
 //********************************************************************************************************
 //CAST SCREEN
 //********************************************************************************************************
+
+
 void init_menu18_displaycast(void)
 {
     u8 *bufferPtr;

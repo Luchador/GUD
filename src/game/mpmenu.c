@@ -1595,14 +1595,7 @@ Gfx *mp_watch_menu_display(Gfx *gdl)
             x = ((viGetViewLeft() + fav_x_offset) - (fav_textwidth >> 1)) + 80;
             x2 = viGetViewTop();
  
-            if (j_text_trigger) 
-            { 
-                i = 4; 
-            } 
-            else 
-            { 
-                i = 0; 
-            } 
+            i = 4; 
 
             y = ((i + (u32) x2) - (fav_textheight >> 1)) + (53 + MPMENU_YOFF);
  

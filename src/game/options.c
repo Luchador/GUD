@@ -342,20 +342,21 @@ u32 controllerCheckDualControllerTypesAllowed(void)
 }
 
 
-int cur_player_get_control_type(void){
-  return g_CurrentPlayer->cur_player_control_type_0;
+s32 cur_player_get_control_type(void)
+{
+    return g_CurrentPlayer->cur_player_control_type_0;
 }
 
 
-void cur_player_set_control_type(int type)
+void cur_player_set_control_type(s32 type)
 {
-    int langsize;
+    s32 langsize;
 
     g_CurrentPlayer->cur_player_control_type_0 = type;
     g_CurrentPlayer->cur_player_control_type_1 = type;
     g_CurrentPlayer->cur_player_control_type_2 = (float)type;
 
-    langsize = j_text_trigger ? 14 : 10;
+    langsize = 10;
 
     g_CurrentPlayer->neg_vspacing_for_control_type_entry = -(langsize * type);
     g_CurrentPlayer->has_set_control_type_data = TRUE;
@@ -972,16 +973,9 @@ void game_options_inventory_navigation(void)
     // The current item is determined by the integer part of the cursor's position.
     g_curWatchItemIndex = (s32) watch_inventory_cursor_pos;
 
-    if (j_text_trigger)
-    {
-        item_line_height = 14;
-    }
-    else
-    {
-        item_line_height = 12;
-    }
+    item_line_height = 12;
 
-    selected_item_line_height = j_text_trigger ? 14 : 12;
+    selected_item_line_height = 12;
     watch_inventory_text_target_y = (2 * selected_item_line_height) + (-g_curWatchItemIndex * item_line_height);
 
     if (watch_inventory_text_target_y < watch_inventory_text_y)
@@ -1697,11 +1691,11 @@ Gfx *draw_abort_cancel_confirm(Gfx *gdl)
     sp4C = langGet(getStringID(LOPTIONS, OPTION_STR_26_CANCEL_LF)); //cancel
     sp7C = 0x51;
 
-    sp78 = (j_text_trigger ? 0xF : 0) + 0xBD;
+    sp78 = 0xBD;
 
-    sp74 = (j_text_trigger ? 0xA : 0) + 0x88;
+    sp74 = 0x88;
 
-    sp70 = sp6C = sp68 = (j_text_trigger ? 3 : 0) + (PAL ? 0x4E : 0x4C);
+    sp70 = sp6C = sp68 = 76;
 
     if (watch_item_is_actively_selected != 0)
     {
@@ -1767,7 +1761,6 @@ Gfx *draw_text_mission_status(Gfx *gdl)
     s32 pFontFile;
     s32 pFontChars;
     s32 sp4C;
-    s32 joffset;
 
     txtptr_1 = langGet(getStringID(LOPTIONS, OPTION_STR_27_MISSIONSTATUS_LF)); //mission status:
     pFontFile = ptrFontBankGothic;
@@ -1789,17 +1782,8 @@ Gfx *draw_text_mission_status(Gfx *gdl)
     sp64 = 0x51;
     sp60 = YOFFSET_MISSIONSTATUS;
     gdl = textRender(gdl, &sp64, &sp60, txtptr_1, pFontChars, pFontFile, 0xFF00B0, sp58, sp5C, 0, 0);
-
-    if (j_text_trigger)
-    {
-        joffset = 0x22;
-    }
-    else
-    {
-        joffset = 0;
-    }
-
-    sp64 = sp64 + sp58 + joffset + 4;
+    
+    sp64 = sp64 + sp58 + 4;
     sp60 = sp60 - sp5C;
     textMeasure(&sp5C, &sp58, txtptr_2, pFontChars, pFontFile, 0);
     gdl = textRender(gdl, &sp64, &sp60, txtptr_2, pFontChars, pFontFile, sp4C, sp58, sp5C, 0, 0);
@@ -1809,8 +1793,9 @@ Gfx *draw_text_mission_status(Gfx *gdl)
 }
 
 
-Gfx *empty_draw_function(Gfx *gdl) {
-  return gdl;
+Gfx *empty_draw_function(Gfx *gdl)
+{
+    return gdl;
 }
 
 
@@ -1823,19 +1808,10 @@ Gfx *draw_text_q_watch_v201_beta(Gfx *gdl)
     s32 sp44;
     s32 pFontFile;
     s32 pFontChars;
-    s32 joffset;
 
     txtptr = langGet(getStringID(LOPTIONS, OPTION_STR_2B_QWATCHVERSION_LF)); //q watch v2.01 beta
 
-    if (j_text_trigger)
-    {
-        joffset = -5;
-    }
-    else
-    {
-        joffset = 0;
-    }
-    sp50 = joffset + 0x65;
+    sp50 = 0x65;
     sp4C = YOFFSET_7;
     sp48 = 0;
     sp44 = 0;
@@ -2081,7 +2057,7 @@ Gfx *draw_watch_inventory_page(Gfx *gdl, Mtx *param_2)
             s32 pFontChars2;
             char string_builder_allocation[2000];
 
-#define LINEHEIGHT() (j_text_trigger ? 14 : 12)
+#define LINEHEIGHT() 12
 #define WATCH_INV_BASE_Y() 140
 
             textheight = 0;
@@ -2533,7 +2509,6 @@ Gfx *draw_controller_style_text(Gfx *gdl)
     s32 textwidth;
     struct font *font;
     struct fontchar *chars;
-    s32 tmp;
     u8 *selectedtext;
 
     font = ptrFontBankGothic;
@@ -2561,41 +2536,31 @@ Gfx *draw_controller_style_text(Gfx *gdl)
     {
         if (controller_options_index == CONTROLLER_OPTIONS_INDEX_STYLE)
         {
-            sub_GAME_7F0A611C(&g_CurrentPlayer->cur_player_control_type_2, &g_CurrentPlayer->cur_player_control_type_0, g_MaxControlStyles, &g_CurrentPlayer->neg_vspacing_for_control_type_entry, &g_CurrentPlayer->cur_player_control_type_1, (s32 *) (&g_CurrentPlayer->has_set_control_type_data), 0, 1, (j_text_trigger) ? (0xe) : (0xa));
+            sub_GAME_7F0A611C(&g_CurrentPlayer->cur_player_control_type_2, &g_CurrentPlayer->cur_player_control_type_0, g_MaxControlStyles, &g_CurrentPlayer->neg_vspacing_for_control_type_entry, &g_CurrentPlayer->cur_player_control_type_1, (s32 *) (&g_CurrentPlayer->has_set_control_type_data), 0, 1, 10);
         }
     }
 
     x = 0xaa;
-    tmp = j_text_trigger;
     y = 0x1a;
 
-    textMeasure(&textheight, &textwidth, text, chars, font, (tmp) ? (0xe) : (0xa));
+    textMeasure(&textheight, &textwidth, text, chars, font, 10);
 
-    i = (j_text_trigger) ? (0xe) : (0xa);
+    i = 10;
 
-    gdl = textRender(gdl, &x, &y, text, chars, font, 0x00aa00b0, textwidth, i, g_CurrentPlayer->neg_vspacing_for_control_type_entry, (j_text_trigger) ? (0xe) : (0xa));
+    gdl = textRender(gdl, &x, &y, text, chars, font, 0x00aa00b0, textwidth, i, g_CurrentPlayer->neg_vspacing_for_control_type_entry, 10);
 
     if (g_CurrentPlayer->has_set_control_type_data != 0)
     {
         selectedtext = langGet(*(u16 *)((u8 *) g_GameControlStyles + (g_CurrentPlayer->cur_player_control_type_0 * 20)));
 
-        textMeasure(&textheight, &textwidth, selectedtext, chars, font, (j_text_trigger) ? (0xe) : (0xa));
+        textMeasure(&textheight, &textwidth, selectedtext, chars, font, 10);
 
         x = 0xaa;
-
-        if (j_text_trigger ? 1 : 0)
-        {
-            goto selected_y_set;
-        }
-
-        goto selected_y_set;
-
-selected_y_set:
         y = 0x1a;
 
         selectedtext = langGet(*(u16 *)((u8 *) g_GameControlStyles + (g_CurrentPlayer->cur_player_control_type_0 * 20)));
 
-        gdl = textRender(gdl, &x, &y, selectedtext, chars, font, 0xa0ffa0f0, textwidth, 0x64, 0, (j_text_trigger) ? (0xe) : (0xa));
+        gdl = textRender(gdl, &x, &y, selectedtext, chars, font, 0xa0ffa0f0, textwidth, 0x64, 0, 10);
     }
 
     return gdl;
@@ -3243,24 +3208,8 @@ Gfx *watchDrawToggleOptionValues(Gfx *gdl, s32 y, s32 option_index, u32 state)
 
     entry = &g_GameOptionEntries[option_index];
 
-    if (j_text_trigger)
-    {
-        x1 = 0xAA;
-        if (1);
-    }
-    else
-    {
-        x1 = 0xB4;
-    }
-
-    if (j_text_trigger)
-    {
-        x2 = 0xDC;
-    }
-    else
-    {
-        x2 = 0xE1;
-    }
+    x1 = 0xB4;
+    x2 = 0xE1;
 
     // Option is unhighlighted
     if (state == 0)
@@ -3340,23 +3289,8 @@ state_selected:
 after_state:
     if (entry->text[3] == 0)
     {
-        if (j_text_trigger)
-        {
-            x1 = 0xBE;
-        }
-        else
-        {
-            x1 = 0xC8;
-        }
-
-        if (j_text_trigger)
-        {
-            x2 = 0xFA; 
-        } 
-        else 
-        { 
-            x2 = 0xFA; 
-        }
+        x1 = 0xC8;
+        x2 = 0xFA; 
     }
 
     drawentry = entry;
@@ -3631,11 +3565,7 @@ Gfx *draw_watch_mission_briefing_page(Gfx *gdl, Mtx *param_2)
 
             case BRIEF_INDEX_OBJECTIVES:
             {
-#if defined(VERSION_EU)
-                char objectiveBuffer[200];
-#else
                 char objectiveBuffer[200] = "";
-#endif
                 u32 colour;
                 s32 i;
                 s32 j;
@@ -3648,7 +3578,7 @@ Gfx *draw_watch_mission_briefing_page(Gfx *gdl, Mtx *param_2)
                 objectiveRow = 0;
                 visibleObjectiveIndex = 0;
 
-                setTextOverlapCorrection((j_text_trigger) ? (1) : (5));
+                setTextOverlapCorrection(5);
                 sprintf(pageTitle, langGet(0xac3c));
 
                 for (i = 0; i < objectiveGetCount(); i++)
@@ -3673,7 +3603,7 @@ Gfx *draw_watch_mission_briefing_page(Gfx *gdl, Mtx *param_2)
                         sprintf(objectiveLetterPtr, aC_2, visibleObjectiveIndex + 'a');
                         strcat(objectiveBuffer, objectiveText);
 
-                        objY = boxTop + ((j_text_trigger) ? (1) : (5));
+                        objY = boxTop + (5);
                         objX = 0x3c;
 
                         gdl = textRender(gdl, &objX, &objY, objectiveBuffer, chars, font, 0x00ff00b0, viGetX(), viGetY(), 0, 10);
@@ -3710,15 +3640,7 @@ Gfx *draw_watch_mission_briefing_page(Gfx *gdl, Mtx *param_2)
 
                             case OBJECTIVESTATUS_FAILED:
                                 strcat(objectiveBuffer, failedText);
-
-                                if (j_text_trigger)
-                                {
-                                    colour = 0xa0ffa0f0;
-                                }
-                                else
-                                {
-                                    colour = 0x00ff00b0;
-                                }
+                                colour = 0x00ff00b0;
                                 break;
 
                             default:
@@ -3726,16 +3648,8 @@ Gfx *draw_watch_mission_briefing_page(Gfx *gdl, Mtx *param_2)
                         }
 
                         textMeasure(&textHeight, &textWidth, objectiveBuffer, chars, font, 10);
-                        objY = boxTop + ((j_text_trigger) ? (1) : (5));
-
-                        if (j_text_trigger)
-                        {
-                            objX = 0xf5 - textWidth;
-                        }
-                        else
-                        {
-                            objX = 0xaf;
-                        }
+                        objY = boxTop + 5;
+                        objX = 0xaf;
 
                         gdl = textRender(gdl, &objX, &objY, objectiveBuffer, chars, font, colour, 0xd2, viGetY(), 0, 10);
 

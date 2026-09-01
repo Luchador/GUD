@@ -46,7 +46,7 @@ void mempCheckMemflagTokens(s32 poolAreaStart, s32 poolAreaSize)
     if (poolSizes.me == 0)
     {
         poolSizes.mf = 0;
-        poolSizes.me = ((j_text_trigger ? 308 : 296) * 1024);
+        poolSizes.me = 296 * 1024;
         poolSizes.ml = poolAreaSize - poolSizes.me;
     }
 
