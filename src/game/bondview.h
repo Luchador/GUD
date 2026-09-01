@@ -473,7 +473,7 @@ struct player
    * Only applies in level, when in control of bond.
    * Address 0x800c6884
   */
-  /* 0x0124 */ s32 insightaimmode;
+  /* 0x0124 */ s32 isInAimMode;
   /* 0x0128 */ s32 autoyaimenabled;
   /* 0x012c */ f32 autoaimy;
   /* 0x0130 */ struct PropRecord *autoaim_target_y;
@@ -1327,11 +1327,11 @@ Mtx *camGetPlayerProjViewMtx(void);
 Gfx *bondviewRenderProp(PropRecord *arg0, Gfx *arg1, s32 arg2);
 f32 getPlayer_c_lodscalez(void);
 f32 bondviewGetBondBreathing(void);
-void bondviewClearUpperTextDisplayFlag(int param_1);
-void bondviewSetUpperTextDisplayFlag(PLAYERFLAG flag);
+void bviewClearUpperTextDisplayFlag(PLAYERFLAG flag);
+void bviewSetUpperTextDisplayFlag(PLAYERFLAG flag);
 void bviewSetCameraMode(CAMERAMODE cameraMode);
 bool isBondInTank(void);
-void hudmsgTopShow(char* string);
+void bviewShowUpperMessage(char* msg);
 void SurroundWithExplosions(int delay);
 s32 check_watch_page_transistion_running(void);
 f32 bondviewWatchAnimationRelated(void);
@@ -1340,7 +1340,7 @@ struct PropRecord *get_ptr_for_players_tank(void);
 s32 bviewGetRandomSpawnPadIndex(void);
 void change_player_pos_to_target(struct PlayerSpatialState *arg0, struct coord3d *arg1, struct StandTile *arg2);
 void sub_GAME_7F089718(f32);
-void bondviewResetUpperTextDisplay(void);
+void bviewResetUpperTextDisplay(void);
 Mtxf *currentPlayerGetProjectionMatrixF(void);
 void transform3Dto2DCoords(coord3d *in, coord2d *out);
 void bondviewRemovePlayerBody(void);

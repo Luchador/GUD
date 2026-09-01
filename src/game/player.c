@@ -288,7 +288,7 @@ void playerInitData(s32 player_num)
     g_playerPointers[player_num]->automovecentreenabled = TRUE;
     g_playerPointers[player_num]->fastmovecentreenabled = FALSE;
     g_playerPointers[player_num]->automovecentre = TRUE;
-    g_playerPointers[player_num]->insightaimmode = FALSE;
+    g_playerPointers[player_num]->isInAimMode = FALSE;
     g_playerPointers[player_num]->autoyaimenabled = TRUE;
     g_playerPointers[player_num]->autoaimy = 0.0f;
     g_playerPointers[player_num]->autoaim_target_y = NULL;

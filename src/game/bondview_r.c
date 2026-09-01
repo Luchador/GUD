@@ -396,7 +396,7 @@ void bondviewLoadSetupIntroSection(void)
     sub_GAME_7F089718(D_800364D0);
 
     bondviewResetIntroCameraMessageDialogs();
-    bondviewResetUpperTextDisplay();
+    bviewResetUpperTextDisplay();
     g_CurrentPlayer->prop = chrpropAllocate();
     g_CurrentPlayer->prop->obj = NULL;
     g_CurrentPlayer->prop->type = PROP_TYPE_VIEWER;

@@ -3692,7 +3692,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
 
     #endif
 
-                    hudmsgTopShow(text);
+                    bviewShowUpperMessage(text);
                     Offset += sizeof(AiTextPrintTopRecord);
                     break;
                 }
@@ -4013,7 +4013,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                     }
                     if (!(ai->val & PLAYERFLAG_LOCKCONTROLS))
                     {
-                        bondviewSetUpperTextDisplayFlag(PLAYERFLAG_NOCONTROL);
+                        bviewSetUpperTextDisplayFlag(PLAYERFLAG_NOCONTROL);
                     }
                     if (!(ai->val & PLAYERFLAG_NOTIMER))
                     {
@@ -4031,7 +4031,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                     gunSetSightVisible(GUNSIGHTREASON_NOCONTROL, TRUE);
                     gunSetGunAmmoVisible(GUNAMMOREASON_NOCONTROL, TRUE);
                     hudmsgsSetOn(PLAYERFLAG_NOCONTROL);
-                    bondviewClearUpperTextDisplayFlag(2);
+                    bviewClearUpperTextDisplayFlag(2);
                     countdownTimerSetVisible(16, TRUE);
                     is_timer_active = TRUE;
                     Offset += sizeof(AiBondEnableControlRecord);

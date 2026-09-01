@@ -3782,7 +3782,7 @@ typedef struct object_weapon {
 
 
 struct MoveData {
-    // 0x0, bondviewProcessInput sp120
+    // 0x0, bviewProcessInput sp120
     s32 analogWalk;  // sp120 ?
     s32 analogStrafe;  // sp124 ?
     s32 analogPitch; // sp128 ?
@@ -3806,7 +3806,7 @@ struct MoveData {
     s32 crouchUp;
     s32 crouchDown;
 
-    // 0x40, bondviewProcessInput sp160
+    // 0x40, bviewProcessInput sp160
     f32 zoomInFovPersec;
     // sp164
     f32 zoomOutFovPersec;

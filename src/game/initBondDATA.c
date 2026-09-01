@@ -281,7 +281,7 @@ void init_player_BONDdata(void)
     g_CurrentPlayer->automovecentreenabled = TRUE;
     g_CurrentPlayer->fastmovecentreenabled = FALSE;
     g_CurrentPlayer->automovecentre = TRUE;
-    g_CurrentPlayer->insightaimmode = FALSE;
+    g_CurrentPlayer->isInAimMode = FALSE;
     g_CurrentPlayer->autoyaimenabled = TRUE;
     g_CurrentPlayer->autoaimy = 0.0f;
     g_CurrentPlayer->autoaim_target_y = NULL;
