@@ -95,9 +95,9 @@ struct hand g_DefaultHandTemplate = {
     0, /* gunofs2_y */
     0, /* gunofs2_z */
     0, /* field_A34 */
-    0, /* field_A38 */
-    0, /* field_A3C */
-    1000.0f, /* field_A40 */
+    0, /* aimTargetX */
+    0, /* aimTargetY */
+    1000.0f, /* aimTargetZ */
     0, /* audioHandle */
     0, /* field_A48 */
     0, /* field_A4C */

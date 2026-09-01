@@ -580,7 +580,7 @@ void gunUpdateAndFire(GUNHAND handnum)
 
     matrix_4x4_set_basis_and_position_target(&tmpmtx, 0.0f, 0.0f, 0.0f, hand->sway_look_x, hand->sway_look_y, hand->sway_look_z, hand->sway_up_x, hand->sway_up_y, hand->sway_up_z);
     matrix_4x4_multiply_homogeneous_in_place(&tmpmtx, &rotmtx);
-    matrix_4x4_align(&tmpmtx, 0.0f, gunofs.x - hand->field_A38, gunofs.y - hand->field_A3C, gunofs.z - hand->field_A40);
+    matrix_4x4_align(&tmpmtx, 0.0f, gunofs.x - hand->aimTargetX, gunofs.y - hand->aimTargetY, gunofs.z - hand->aimTargetZ);
     matrix_4x4_multiply_homogeneous_in_place(&tmpmtx, &rotmtx);
     matrix_4x4_copy(&rotmtx, &gunmtx);
     matrix_4x4_set_position(&gunofs, &gunmtx);
@@ -764,7 +764,7 @@ void gunUpdateAndFire(GUNHAND handnum)
 
                     matrix_4x4_align(&flash2mtx, (randomGetNext() * (1.0f / M_U32_MAX_VALUE_F)) * M_TAU_F, -flashpos.x, -flashpos.y, -flashpos.z);
                     matrix_scalar_multiply(IDO_POINT_ONE * flashscale, flash2mtx.m[0]);
-                    matrix_4x4_set_rotation_axis_angle(&aimmtx, 0, gunofs.x - hand->field_A38, gunofs.y - hand->field_A3C, gunofs.z - hand->field_A40);
+                    matrix_4x4_set_rotation_axis_angle(&aimmtx, 0, gunofs.x - hand->aimTargetX, gunofs.y - hand->aimTargetY, gunofs.z - hand->aimTargetZ);
                     matrix_4x4_multiply_in_place(&aimmtx, &flash2mtx);
                     matrix_row_3_scalar_multiply(flashext, flash2mtx.m[0]);
                     matrix_4x4_multiply_in_place(&rotmtx, &flash2mtx);
@@ -785,7 +785,7 @@ void gunUpdateAndFire(GUNHAND handnum)
                         ((f32 *) stackpad2)[-8] = IDO_POINT_ONE * flashscale;
                         matrix_4x4_align(&flash2mtx, (randomGetNext() * (1.0f / M_U32_MAX_VALUE_F)) * M_TAU_F, -flashpos.x, -flashpos.y, -flashpos.z);
                         matrix_scalar_multiply(((f32 *) stackpad2)[-8], flash2mtx.m[0]);
-                        matrix_4x4_set_rotation_axis_angle(&aimmtx, 0, gunofs.x - hand->field_A38, gunofs.y - hand->field_A3C, gunofs.z - hand->field_A40);
+                        matrix_4x4_set_rotation_axis_angle(&aimmtx, 0, gunofs.x - hand->aimTargetX, gunofs.y - hand->aimTargetY, gunofs.z - hand->aimTargetZ);
                         matrix_4x4_multiply_in_place(&aimmtx, &flash2mtx);
                         matrix_row_3_scalar_multiply(flashext, flash2mtx.m[0]);
                         matrix_4x4_multiply_in_place(&rotmtx, &flash2mtx);
@@ -2975,9 +2975,9 @@ void gunTickHandState(enum GUNHAND handNum, s32 triggerHeld)
                 }
 
                 hand->field_8D8 = M_TAU_F - ((recoilUp * M_TAU_F) / 360.0f);
-                hand->field_8CC = ((gunSetHorizontalOffset(handNum) - hand->field_A38) * recoilBack) / 1000.0f;
+                hand->field_8CC = ((gunSetHorizontalOffset(handNum) - hand->aimTargetX) * recoilBack) / 1000.0f;
                 hand->field_8D0 = 0;
-                hand->field_8D4 = ((weaponStats->PosZ - hand->field_A40) * recoilBack) / 1000.0f;
+                hand->field_8D4 = ((weaponStats->PosZ - hand->aimTargetZ) * recoilBack) / 1000.0f;
 
                 if (hand->field_890 < recoilDuration)
                 {
@@ -3770,6 +3770,7 @@ void gunTickHandState(enum GUNHAND handNum, s32 triggerHeld)
     }
 }
 
+
 void analyzeGEKey(void)
 {
     if (bondinvHasGEKey())
@@ -3797,15 +3798,15 @@ s32 get_keyanalyzer_flag(void)
 
 void give_weapon_case_items(void)
 {
-  add_ammo_to_inventory(AMMO_KNIFE, 2, 0, 1);
-  add_ammo_to_inventory(AMMO_GRENADE, 2, 0, 1);
-  bondinvAddInvItem(ITEM_SNIPERRIFLE);
-  set_sound_effect_for_weapontype_collection(ITEM_SNIPERRIFLE);
-  display_text_for_weapon_in_lower_left_corner(ITEM_SNIPERRIFLE);
-  give_cur_player_ammo(sniperrifle_stats.AmmoType, check_cur_player_ammo_amount_in_inventory(sniperrifle_stats.AmmoType) + sniperrifle_stats.MagSize);
-  bondinvRemoveItemByID(ITEM_WEAPONCASE);
-  currentPlayerEquipWeaponWrapper(GUNRIGHT,ITEM_SNIPERRIFLE);
-  currentPlayerEquipWeaponWrapper(GUNLEFT,ITEM_UNARMED);
+    add_ammo_to_inventory(AMMO_KNIFE, 2, 0, 1);
+    add_ammo_to_inventory(AMMO_GRENADE, 2, 0, 1);
+    bondinvAddInvItem(ITEM_SNIPERRIFLE);
+    set_sound_effect_for_weapontype_collection(ITEM_SNIPERRIFLE);
+    display_text_for_weapon_in_lower_left_corner(ITEM_SNIPERRIFLE);
+    give_cur_player_ammo(sniperrifle_stats.AmmoType, check_cur_player_ammo_amount_in_inventory(sniperrifle_stats.AmmoType) + sniperrifle_stats.MagSize);
+    bondinvRemoveItemByID(ITEM_WEAPONCASE);
+    currentPlayerEquipWeaponWrapper(GUNRIGHT,ITEM_SNIPERRIFLE);
+    currentPlayerEquipWeaponWrapper(GUNLEFT,ITEM_UNARMED);
 }
 
 
@@ -4195,20 +4196,19 @@ void gunTickGameplay(s32 triggerOn)
 
 void gunSetAimType(s32 param_1)
 {
-  g_CurrentPlayer->aimtype = param_1;
+    g_CurrentPlayer->aimtype = param_1;
 }
 
 
-void sub_GAME_7F067AB4(coord3d *param_1)
+void gunSetAimTarget(coord3d *param_1)
 {
-  g_CurrentPlayer->hands[GUNRIGHT].field_A38 = sub_GAME_7F05DCB8(GUNRIGHT) + param_1->x;
-  g_CurrentPlayer->hands[GUNRIGHT].field_A3C = param_1->y;
-  g_CurrentPlayer->hands[GUNRIGHT].field_A40 = param_1->z;
+    g_CurrentPlayer->hands[GUNRIGHT].aimTargetX = sub_GAME_7F05DCB8(GUNRIGHT) + param_1->x;
+    g_CurrentPlayer->hands[GUNRIGHT].aimTargetY = param_1->y;
+    g_CurrentPlayer->hands[GUNRIGHT].aimTargetZ = param_1->z;
 
-  g_CurrentPlayer->hands[GUNLEFT].field_A38 = sub_GAME_7F05DCB8(GUNLEFT) + param_1->x;
-  g_CurrentPlayer->hands[GUNLEFT].field_A3C = param_1->y;
-  g_CurrentPlayer->hands[GUNLEFT].field_A40 = param_1->z;
-
+    g_CurrentPlayer->hands[GUNLEFT].aimTargetX = sub_GAME_7F05DCB8(GUNLEFT) + param_1->x;
+    g_CurrentPlayer->hands[GUNLEFT].aimTargetY = param_1->y;
+    g_CurrentPlayer->hands[GUNLEFT].aimTargetZ = param_1->z;
 }
 
 
@@ -4287,22 +4287,22 @@ void caclulate_gun_crosshair_position_rotation(f32 turn_x, f32 turn_y, f32 guncr
     g_CurrentPlayer->field_FFC.y += getPlayer_c_screentop();
 
     transformAndNormalizeByLength2Dto3D(&g_CurrentPlayer->field_FFC, &coords, 1000.0f);
-    sub_GAME_7F067AB4(&coords);
+    gunSetAimTarget(&coords);
 }
 
 
-void sub_GAME_7F067F58(f32 turn_x, f32 turn_y, f32 max_aim_lock_speed)
+void gunSwivelWithDamping(f32 aimOffsetX, f32 aimOffsetY, f32 crosshairDamping)
 {
-    f32 aim_lock_speed;
+    f32 aimDamping;
 
-    aim_lock_speed = gunGetItemStats(getCurrentPlayerWeaponId(GUNRIGHT))->AimLockSpeed;
+    aimDamping = gunGetItemStats(getCurrentPlayerWeaponId(GUNRIGHT))->AimLockSpeed;
 
-    if (aim_lock_speed < max_aim_lock_speed)
+    if (aimDamping < crosshairDamping)
     {
-        aim_lock_speed = max_aim_lock_speed;
+        aimDamping = crosshairDamping;
     }
 
-    caclulate_gun_crosshair_position_rotation(turn_x, turn_y, max_aim_lock_speed, aim_lock_speed);
+    caclulate_gun_crosshair_position_rotation(aimOffsetX, aimOffsetY, crosshairDamping, aimDamping);
 }
 
 

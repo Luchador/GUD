@@ -102,9 +102,9 @@ struct hand hand_data_dummy = {
     0, // f32 gunofs2_y;
     0, // f32 gunofs2_z;
     0, // f32 field_A34;
-    0, // f32 field_A38;
-    0, // f32 field_A3C;
-    1000.0f, // f32 field_A40;
+    0, // f32 aimTargetX;
+    0, // f32 aimTargetY;
+    1000.0f, // f32 aimTargetZ;
     NULL, // ALSoundState * audioHandle;
     0, // s32 field_A48;
     0, // s32 field_A4C;

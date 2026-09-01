@@ -5890,7 +5890,7 @@ void bviewProcessInput(s8 stick_x, s8 stick_y, u16 buttons, u16 oldbuttons)
             aimOffsetY = -g_CurrentPlayer->speedverta * 0.1f;
         }
 
-        sub_GAME_7F067F58(aimOffsetX, aimOffsetY, MAX_AIMLOCK_SPEED_DEFAULT);
+        gunSwivelWithDamping(aimOffsetX, aimOffsetY, MAX_AIMLOCK_SPEED_DEFAULT);
     }
     else if (g_CurrentPlayer->controldef == CONTROLLER_CONFIG_KISSY)
     {

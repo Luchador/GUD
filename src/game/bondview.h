@@ -182,9 +182,9 @@ struct hand
   f32 gunofs2_y;
   f32 gunofs2_z;
   f32 field_A34;
-  f32 field_A38;
-  f32 field_A3C;
-  f32 field_A40;
+  f32 aimTargetX;
+  f32 aimTargetY;
+  f32 aimTargetZ;
   ALSoundState * audioHandle;
   s32 field_A48;
   s32 field_A4C;
