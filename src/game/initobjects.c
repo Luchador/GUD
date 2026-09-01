@@ -7,7 +7,6 @@
 
 
 MonitorRecord g_InitialMonitorAnimController = {&monAnim00Bond, 0, 0xFFFF, 0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.5, 0.0, 0.0, 0.5, 0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 1.0, 0.0};
-struct object_animation_controller g_InitialUnknownAnimController = {&monAnim34, 0, 0xFFFF, 0, 0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.5, 0.0, 0.0, 0.5, 0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 1.0};
 struct object_animation_controller g_InitialTaserAnimController = {&monAnim35Taser, 0, 0xFFFF, 0, 0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.5, 0.0, 0.0, 0.5, 0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 1.0};
 
 // Begin forward declarations.
@@ -176,14 +175,10 @@ void initSetLevelLoadPropSafeItem(struct ObjectRecord *arg0)
 void write_monitor_ani_control_blocks(void)
 {
     MonitorRecord spEC;
-    struct object_animation_controller sp78;
     struct object_animation_controller sp4;
 
     spEC = g_InitialMonitorAnimController;
     g_MonitorAnimController = spEC;
-
-    sp78 = g_InitialUnknownAnimController;
-    g_UnknownAnimController = sp78;
 
     sp4 = g_InitialTaserAnimController;
     g_TaserAnimController = sp4;

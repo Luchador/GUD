@@ -3023,16 +3023,6 @@ u32 monAnim33BlackSolid[] = {
      MONSTOPANIM()
 };
 
-//[80031F00	34	???	Not Included in Normal List - linked @ 0x9544]
-u32 monAnim34[] = {
-     MONZOOMSQUARE(0x400, 0),
-     MONHOLDTIME(1),
-     MONZOOMSQUARE(0x1000, 20),
-     MONHOLDTIME(20),
-     MONLOOP()
-};
-
-
 u32 monAnim35Taser[] = {
      MONUSEIMAGE(IMGBOND),
      MONHORZSCROLL(0x400, 20), MONHOLDTIME(20),

@@ -1493,7 +1493,9 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
  
         gSPPerspNormalize(gdl++, matrix_4x4_calc_depth_scale(0.0f, 300.0f));
  
-        if (handptr->gunmodel.obj->numSwitches >= 0x11 && handptr->gunmodel.obj->Switches[16] != NULL)
+        if (item == ITEM_TASER
+                && handptr->gunmodel.obj->numSwitches >= 0x11
+                && handptr->gunmodel.obj->Switches[16] != NULL)
         {
             union ModelRwData *rwdata;
             model = &handptr->gunmodel;
@@ -1504,15 +1506,7 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
                 rwdata->Raw.unk00 = 1;
             }
  
-            if (item == ITEM_ROCKETLAUNCH) 
-            {
-                save_img_index_to_obj_ani_slot(&g_UnknownAnimController, crosshairimage);
-                gdl = process_monitor_animation_microcode(model, handptr->gunmodel.obj->Switches[16], &g_UnknownAnimController, gdl, 0, 4);
-            } 
-            else 
-            {
-                gdl = process_monitor_animation_microcode(model, handptr->gunmodel.obj->Switches[16], &g_TaserAnimController, gdl, 0, 1);
-            }
+            gdl = process_monitor_animation_microcode(model, handptr->gunmodel.obj->Switches[16], &g_TaserAnimController, gdl, 0, 1);
         }
  
         renderdata.gdl = gdl;

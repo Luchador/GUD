@@ -79,7 +79,6 @@ struct ModelNode *g_ProjectileHitModelNode;
 coord3d g_ProjectileHitDirectionWorld;
 coord3d g_ProjectileHitDirectionView;
 MonitorRecord g_MonitorAnimController;
-struct object_animation_controller g_UnknownAnimController;
 struct object_animation_controller g_TaserAnimController;
 
 stagesetup g_CurrentSetup; //Public Working Setup
