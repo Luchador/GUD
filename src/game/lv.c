@@ -319,7 +319,7 @@ void lvlStageLoad(s32 stage)
 
     something_with_stage_objectives();
     mpwatchUnpauseGame();
-    sub_GAME_7F09B820();
+    vtxstoreReset();
     initModelHitEntryFreeList();
     modelmgrResetSlotCounts();
     init_load_objpos_table();
@@ -783,7 +783,7 @@ void lvTick(void)
     }
     else
     {
-        sub_GAME_7F09BBBC();
+        vtxstoreTick();
         lvlSetMultipliersForDifficulty();
         updateRoomStatusFlags();
         dyntexWaterController();

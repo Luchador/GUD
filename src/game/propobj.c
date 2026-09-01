@@ -7549,7 +7549,7 @@ void objDeform(ObjectRecord *obj, E_EXPLOSIONTYPE explosiontype)
         adjust_height = 1;
     }
     
-    newverts = vtxstore_allocate(rodata->numVertices, 0x0b0b, model->obj, objGetDestroyedLevel(obj));
+    newverts = vtxstoreAllocate(rodata->numVertices, VTXSTORE_TYPE_OBJ, model->obj, objGetDestroyedLevel(obj));
     
     if (newverts != NULL)
     {
@@ -7560,7 +7560,7 @@ void objDeform(ObjectRecord *obj, E_EXPLOSIONTYPE explosiontype)
                 *((Word4 *) (((u8 *) newverts) + offset)) = *((Word4 *) (((u8 *) (*vtxslot)) + offset));
             }
 
-            sub_GAME_7F09C044(*vtxslot);
+            vtxstoreFree(*vtxslot);
         }
         else
         {
@@ -7576,7 +7576,7 @@ void objDeform(ObjectRecord *obj, E_EXPLOSIONTYPE explosiontype)
     {
         if ((*vtxslot) != rodata->Vertices)
         {
-            sub_GAME_7F09C044(*vtxslot);
+            vtxstoreFree(*vtxslot);
             *vtxslot = rodata->Vertices;
             obj->runtime_bitflags |= 4;
         }
@@ -10757,7 +10757,7 @@ void sub_GAME_7F050DE8(Model* model)
 
                 if ((rwdata->DisplayListCollisions.Vertices != rodata->DisplayListCollisions.Vertices) && (sub_GAME_7F04B590(header, node) != 0))
                 {
-                    sub_GAME_7F09C044(rwdata->DisplayListCollisions.Vertices);
+                    vtxstoreFree(rwdata->DisplayListCollisions.Vertices);
                     rwdata->DisplayListCollisions.Vertices = rodata->DisplayListCollisions.Vertices;
                 }
                 break;

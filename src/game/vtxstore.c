@@ -1,192 +1,155 @@
 #include <ultra64.h>
 #include <memp.h>
+#include "bondconstants.h"
 #include "bondtypes.h"
 #include "vtxstore.h"
 #include "propobj.h"
 #include "model.h"
 
-// unsure if these structs are defined as something else, elsewhere
-struct unk_09B7A0_struct_parent {
-    Vertex* unk00;
-    s32 unk04;
-    s32 unk08;
-    s16 unk0C;
-    s16 unk0E;
-    s16 unk10;
-    s16 unk12;
-};
 
-// bss
-//CODE.bss:8007A0D0
-s32 dword_CODE_bss_8007A0D0; // item count for dword_CODE_bss_8007A0E0
-//CODE.bss:8007A0D4
-s32 dword_CODE_bss_8007A0D4; // item count for dword_CODE_bss_8007A0E8
-//CODE.bss:8007A0D8
-s32 dword_CODE_bss_8007A0D8; // item count for dword_CODE_bss_8007A0E4
-//CODE.bss:8007A0DC
-s32 dword_CODE_bss_8007A0DC; // item count for dword_CODE_bss_8007A0EC
-//CODE.bss:8007A0E0
-Vertex* dword_CODE_bss_8007A0E0; // array ( uses dword_CODE_bss_8007A0D0 as alloc count, item size 0x10 )
-//CODE.bss:8007A0E4
-Vertex* dword_CODE_bss_8007A0E4; // array ( uses dword_CODE_bss_8007A0D8 as alloc count, item size 0x10 )
-//CODE.bss:8007A0E8
-struct unk_09B7A0_struct_parent* dword_CODE_bss_8007A0E8; // array ( uses dword_CODE_bss_8007A0D4 as alloc count, item size 0x14 )
-//CODE.bss:8007A0EC
-struct unk_09B7A0_struct_parent* dword_CODE_bss_8007A0EC; // array ( uses dword_CODE_bss_8007A0DC as alloc count, item size 0x14 )
-//CODE.bss:8007A0F0
-s16 word_CODE_bss_8007A0F0;
-//CODE.bss:8007A0F2
-s16 word_CODE_bss_8007A0F2;
+#define VTXSTORE_BLOCK_UNUSED -1
+#define VTXSTORE_BLOCK_FREE    0
 
-
-void sub_GAME_7F09B7A8(void)
+typedef struct VtxStoreBlock
 {
-    s32 i;
-    for (i = 0; i < dword_CODE_bss_8007A0D4; i++)
-    {
-        if (dword_CODE_bss_8007A0E8[i].unk00);
-    }
-}
+    Vertex *vertices;
+    ModelFileHeader *modelFile;
+    s32 destroyedLevel;
+    s16 vertexCount;
+    s16 refCount;
+    s16 nextIndex;
+    s16 previousIndex;
+} VtxStoreBlock;
 
-void sub_GAME_7F09B7E4(void)
+
+static s32 g_ChrVtxStoreVertexCapacity;
+static s32 g_ChrVtxStoreBlockCapacity;
+static s32 g_ObjVtxStoreVertexCapacity;
+static s32 g_ObjVtxStoreBlockCapacity;
+static Vertex *g_ChrVtxStoreVertices;
+static Vertex *g_ObjVtxStoreVertices;
+static VtxStoreBlock *g_ChrVtxStoreBlocks;
+static VtxStoreBlock *g_ObjVtxStoreBlocks;
+static s16 g_ChrVtxStoreFreeVertices;
+static s16 g_ObjVtxStoreFreeVertices;
+
+
+/**
+ * Initialize the fixed vertex stores used for character damage and destroyed
+ * object deformation.
+ */
+void vtxstoreReset(void)
 {
+    LEVELID stage;
     s32 i;
-    for (i = 0; i < dword_CODE_bss_8007A0DC; i++)
-    {
-        if (dword_CODE_bss_8007A0EC[i].unk00);
-    }
-}
-
-/*
-* Address: 7F09B820(
-* PD name: vtxstore_reset
-*/
-
-void sub_GAME_7F09B820(void)
-{
-    u32 tmp;
-    s32 stage;
-    s32 i;
-
-    tmp = 0x5DC;
 
     if (getPlayerCount() >= 2)
     {
-        dword_CODE_bss_8007A0D0 = 0xBB8;
-        dword_CODE_bss_8007A0D4 = 0x50;
-        dword_CODE_bss_8007A0D8 = 0x1F4;
-        dword_CODE_bss_8007A0DC = 0x14;
+        g_ChrVtxStoreVertexCapacity = 3000;
+        g_ChrVtxStoreBlockCapacity = 80;
+        g_ObjVtxStoreVertexCapacity = 500;
+        g_ObjVtxStoreBlockCapacity = 20;
     }
     else
     {
         stage = lvlGetCurrentStageToLoad();
-        if ((stage != 0x1E) && (stage != 0x1D))
+
+        g_ChrVtxStoreVertexCapacity = 500;
+        g_ChrVtxStoreBlockCapacity = 20;
+
+        if (stage == LEVELID_DEPOT || stage == LEVELID_STREETS)
         {
-            dword_CODE_bss_8007A0D0 = 0x1F4;
-            dword_CODE_bss_8007A0D4 = 0x14;
-            dword_CODE_bss_8007A0D8 = tmp;
-            dword_CODE_bss_8007A0DC = 0x28;
+            g_ObjVtxStoreVertexCapacity = 500;
+            g_ObjVtxStoreBlockCapacity = 20;
         }
         else
         {
-            dword_CODE_bss_8007A0D0 = 0x1F4;
-            dword_CODE_bss_8007A0D4 = 0x14;
-            dword_CODE_bss_8007A0D8 = 0x1F4;
-            dword_CODE_bss_8007A0DC = 0x14;
+            g_ObjVtxStoreVertexCapacity = 1500;
+            g_ObjVtxStoreBlockCapacity = 40;
         }
     }
 
-    tmp = 0x14;
-    dword_CODE_bss_8007A0E8 = mempAllocBytesInBank(dword_CODE_bss_8007A0D4 * tmp, MEMPOOL_STAGE);
-    dword_CODE_bss_8007A0E0 = mempAllocBytesInBank(dword_CODE_bss_8007A0D0 * 0x10, MEMPOOL_STAGE);
-    dword_CODE_bss_8007A0EC = mempAllocBytesInBank(dword_CODE_bss_8007A0DC * tmp, MEMPOOL_STAGE);
-    dword_CODE_bss_8007A0E4 = mempAllocBytesInBank(dword_CODE_bss_8007A0D8 * 0x10, MEMPOOL_STAGE);
+    g_ChrVtxStoreBlocks = mempAllocBytesInBank(g_ChrVtxStoreBlockCapacity * sizeof(VtxStoreBlock), MEMPOOL_STAGE);
+    g_ChrVtxStoreVertices = mempAllocBytesInBank(g_ChrVtxStoreVertexCapacity * sizeof(Vertex), MEMPOOL_STAGE);
+    g_ObjVtxStoreBlocks = mempAllocBytesInBank(g_ObjVtxStoreBlockCapacity * sizeof(VtxStoreBlock), MEMPOOL_STAGE);
+    g_ObjVtxStoreVertices = mempAllocBytesInBank(g_ObjVtxStoreVertexCapacity * sizeof(Vertex), MEMPOOL_STAGE);
 
-    word_CODE_bss_8007A0F0 = (s16) dword_CODE_bss_8007A0D0;
-    dword_CODE_bss_8007A0E8->unk00 = dword_CODE_bss_8007A0E0;
-    dword_CODE_bss_8007A0E8->unk0C = (s16) dword_CODE_bss_8007A0D0;
-    dword_CODE_bss_8007A0E8->unk0E = 0;
-    dword_CODE_bss_8007A0E8->unk10 = -1;
-    dword_CODE_bss_8007A0E8->unk12 = -1;
+    g_ChrVtxStoreFreeVertices = g_ChrVtxStoreVertexCapacity;
+    g_ChrVtxStoreBlocks[0].vertices = g_ChrVtxStoreVertices;
+    g_ChrVtxStoreBlocks[0].vertexCount = g_ChrVtxStoreVertexCapacity;
+    g_ChrVtxStoreBlocks[0].refCount = VTXSTORE_BLOCK_FREE;
+    g_ChrVtxStoreBlocks[0].nextIndex = -1;
+    g_ChrVtxStoreBlocks[0].previousIndex = -1;
 
-    for (i = 1; i < dword_CODE_bss_8007A0D4; i++)
+    for (i = 1; i < g_ChrVtxStoreBlockCapacity; i++)
     {
-        dword_CODE_bss_8007A0E8[i].unk0E = -1;
+        g_ChrVtxStoreBlocks[i].refCount = VTXSTORE_BLOCK_UNUSED;
     }
 
-    word_CODE_bss_8007A0F2 = (s16) dword_CODE_bss_8007A0D8;
-    dword_CODE_bss_8007A0EC->unk00 = dword_CODE_bss_8007A0E4;
-    dword_CODE_bss_8007A0EC->unk0C = (s16) dword_CODE_bss_8007A0D8;
-    dword_CODE_bss_8007A0EC->unk0E = 0;
-    dword_CODE_bss_8007A0EC->unk10 = -1;
-    dword_CODE_bss_8007A0EC->unk12 = -1;
+    g_ObjVtxStoreFreeVertices = g_ObjVtxStoreVertexCapacity;
+    g_ObjVtxStoreBlocks[0].vertices = g_ObjVtxStoreVertices;
+    g_ObjVtxStoreBlocks[0].vertexCount = g_ObjVtxStoreVertexCapacity;
+    g_ObjVtxStoreBlocks[0].refCount = VTXSTORE_BLOCK_FREE;
+    g_ObjVtxStoreBlocks[0].nextIndex = -1;
+    g_ObjVtxStoreBlocks[0].previousIndex = -1;
 
-    for (i = 1; i < dword_CODE_bss_8007A0DC; i++)
+    for (i = 1; i < g_ObjVtxStoreBlockCapacity; i++)
     {
-        dword_CODE_bss_8007A0EC[i].unk0E = -1;
+        g_ObjVtxStoreBlocks[i].refCount = VTXSTORE_BLOCK_UNUSED;
     }
 }
 
 
-/*
-* Address: 0x7F09BAC4
-*
-* PD name: vtxstore_fix_refs
-* PD description:
-*  Search all props and their model data for references to the `find` address
-*  and replace it with the `replacement` address.
-*/
-void vtxstoreFixRefs(Vertex* find, Vertex* replacement)
+/**
+ * Replace model references to one object-deformation allocation with another.
+ */
+static void vtxstoreFixRefs(Vertex *find, Vertex *replacement)
 {
-    PropRecord* prop;
-    ObjectRecord* obj;
-    union ModelRwData* rwdata;
-    ModelNode* node;
-    ModelFileHeader* modelfile;
-    s32 opcode;
+    PropRecord *prop;
+    ObjectRecord *obj;
+    union ModelRwData *rwdata;
+    ModelNode *node;
+    ModelFileHeader *modelFile;
 
     prop = chrpropGetActiveTail();
 
-    while (prop != NULL) 
+    while (prop != NULL)
     {
         if (prop->type == PROP_TYPE_OBJ)
         {
             obj = prop->obj;
-            modelfile = obj->model->obj;
-            node = modelfile->RootNode;
+            modelFile = obj->model->obj;
+            node = modelFile->RootNode;
 
             while (node != NULL)
             {
-                opcode = node->Opcode & 0xFF;
-
-                if (opcode == MODELNODE_OPCODE_DLCOLLISION)
+                if ((node->Opcode & 0xff) == MODELNODE_OPCODE_DLCOLLISION)
                 {
                     rwdata = modelGetNodeRwData(obj->model, node);
 
-                    if (find == rwdata->DisplayListCollisions.Vertices)
+                    if (rwdata->DisplayListCollisions.Vertices == find)
                     {
                         rwdata->DisplayListCollisions.Vertices = replacement;
                     }
+
                     break;
                 }
-                else 
-                {
-                    if (node->Child != NULL)
-                    {
-                        node = node->Child;
-                    }
-                    else 
-                    {
-                        while (node != NULL)
-                        {
-                            if (node->Next != NULL)
-                            {
-                                node = node->Next;
-                                break;
-                            }
 
-                            node = node->Parent;
+                if (node->Child != NULL)
+                {
+                    node = node->Child;
+                }
+                else
+                {
+                    while (node != NULL)
+                    {
+                        if (node->Next != NULL)
+                        {
+                            node = node->Next;
+                            break;
                         }
+
+                        node = node->Parent;
                     }
                 }
             }
@@ -197,242 +160,262 @@ void vtxstoreFixRefs(Vertex* find, Vertex* replacement)
 }
 
 
-/*
-* Address: 7F09BBBC
-* PD name: vtxstore_tick
-* Description: Merge duplicate batches. May free memory.
-*/
-void sub_GAME_7F09BBBC(void)
+/**
+ * Merge duplicate object-deformation allocations when the object vertex store
+ * is running low, then ask the object system to release an offscreen allocation
+ * if necessary.
+ */
+void vtxstoreTick(void)
 {
-    s16 temp_s2;
-    s16 var_fp;
-    s16 var_s2;
-    s32 stop;
-    s32 var_a1;
-    s32 var_s6;
+    VtxStoreBlock *originalBlock;
+    VtxStoreBlock *duplicateBlock;
+    s16 originalIndex;
+    s16 duplicateIndex;
+    s16 blockIndex;
+    s16 nextIndex;
+    s32 mergedDuplicates;
 
-    var_s6 = 0;
+    mergedDuplicates = FALSE;
 
-    if (word_CODE_bss_8007A0F2 < ((s32)dword_CODE_bss_8007A0D8 >> 2))
+    if (g_ObjVtxStoreFreeVertices < (g_ObjVtxStoreVertexCapacity >> 2))
     {
-        for (var_fp = 0; var_fp < dword_CODE_bss_8007A0DC - 1; var_fp++) 
+        for (originalIndex = 0; originalIndex < g_ObjVtxStoreBlockCapacity - 1; originalIndex++)
         {
-            if (dword_CODE_bss_8007A0EC[var_fp].unk0E > 0)
+            originalBlock = &g_ObjVtxStoreBlocks[originalIndex];
+
+            if (originalBlock->refCount > 0)
             {
-                for (var_s2 = var_fp + 1; var_s2 < dword_CODE_bss_8007A0DC; var_s2++) {
-                    if ((dword_CODE_bss_8007A0EC[var_s2].unk0E > 0) &&
-                        (dword_CODE_bss_8007A0EC[var_fp].unk04 == dword_CODE_bss_8007A0EC[var_s2].unk04) &&
-                        (dword_CODE_bss_8007A0EC[var_fp].unk08 == dword_CODE_bss_8007A0EC[var_s2].unk08))
+                for (duplicateIndex = originalIndex + 1; duplicateIndex < g_ObjVtxStoreBlockCapacity; duplicateIndex++)
+                {
+                    duplicateBlock = &g_ObjVtxStoreBlocks[duplicateIndex];
+
+                    if (duplicateBlock->refCount > 0
+                        && originalBlock->modelFile == duplicateBlock->modelFile
+                        && originalBlock->destroyedLevel == duplicateBlock->destroyedLevel)
                     {
-                        vtxstoreFixRefs(dword_CODE_bss_8007A0EC[var_s2].unk00, dword_CODE_bss_8007A0EC[var_fp].unk00);
-                        var_s6 = 1;
+                        vtxstoreFixRefs(duplicateBlock->vertices, originalBlock->vertices);
 
-                        dword_CODE_bss_8007A0EC[var_fp].unk0E += dword_CODE_bss_8007A0EC[var_s2].unk0E;
-                        dword_CODE_bss_8007A0EC[var_s2].unk0E = 0;
-                        
-                        word_CODE_bss_8007A0F2 += dword_CODE_bss_8007A0EC[var_s2].unk0C;
+                        originalBlock->refCount += duplicateBlock->refCount;
+                        duplicateBlock->refCount = VTXSTORE_BLOCK_FREE;
+                        g_ObjVtxStoreFreeVertices += duplicateBlock->vertexCount;
+                        mergedDuplicates = TRUE;
                     }
                 }
             }
         }
     }
 
-    if (var_s6 != 0) {
-        stop  = 0;
-        var_fp = 0;
+    if (mergedDuplicates)
+    {
+        blockIndex = 0;
 
-        while (stop == 0) {
-            var_s2 = dword_CODE_bss_8007A0EC[var_fp].unk10;
+        while (blockIndex >= 0)
+        {
+            nextIndex = g_ObjVtxStoreBlocks[blockIndex].nextIndex;
 
-            if (var_s2 >= 0) {
-                if (dword_CODE_bss_8007A0EC[var_fp].unk0E == 0) {
-                    if (dword_CODE_bss_8007A0EC[var_s2].unk0E == 0) {
-                        dword_CODE_bss_8007A0EC[var_fp].unk0C += dword_CODE_bss_8007A0EC[var_s2].unk0C;
-                        dword_CODE_bss_8007A0EC[var_s2].unk0E = -1;
-                        var_s2 = dword_CODE_bss_8007A0EC[var_s2].unk10;
-                        dword_CODE_bss_8007A0EC[var_fp].unk10 = var_s2;
+            if (nextIndex >= 0
+                && g_ObjVtxStoreBlocks[blockIndex].refCount == VTXSTORE_BLOCK_FREE
+                && g_ObjVtxStoreBlocks[nextIndex].refCount == VTXSTORE_BLOCK_FREE)
+            {
+                g_ObjVtxStoreBlocks[blockIndex].vertexCount += g_ObjVtxStoreBlocks[nextIndex].vertexCount;
+                g_ObjVtxStoreBlocks[nextIndex].refCount = VTXSTORE_BLOCK_UNUSED;
+                g_ObjVtxStoreBlocks[blockIndex].nextIndex = g_ObjVtxStoreBlocks[nextIndex].nextIndex;
+                nextIndex = g_ObjVtxStoreBlocks[blockIndex].nextIndex;
 
-                        if (var_s2 >= 0) {
-                            dword_CODE_bss_8007A0EC[var_s2].unk12 = var_fp;
-                        }
-                        continue;
-                    }
+                if (nextIndex >= 0)
+                {
+                    g_ObjVtxStoreBlocks[nextIndex].previousIndex = blockIndex;
                 }
-                var_fp = var_s2;
-            } else {
-                stop = 1;
+            }
+            else
+            {
+                blockIndex = nextIndex;
             }
         }
     }
 
-    if (word_CODE_bss_8007A0F2 < ((s32)dword_CODE_bss_8007A0D8 >> 2)) {
+    if (g_ObjVtxStoreFreeVertices < (g_ObjVtxStoreVertexCapacity >> 2))
+    {
         sub_GAME_7F056690();
     }
 }
 
 
-/*
-* Address: 7F09BE4C
-* PD name: vtxstore_allocate
-* Description: Allocation for batches within the storage space
-*/
-s32 vtxstore_allocate(s32 arg0, s32 type, s32 arg2, s32 arg3) 
+/**
+ * Allocate a contiguous run of vertices from the requested store.
+ */
+Vertex *vtxstoreAllocate(s32 vertexCount, VtxStoreType type, ModelFileHeader *modelFile, s32 destroyedLevel)
 {
-    s16* var_t3;
-    s16 temp_t2;
-    s32 var_a1;
-    s32 var_a2;
-    s32 var_t4;
-    s32 var_v0;
-    s32 var_v1;
-    s16 var_v1_2;
-    struct unk_09B7A0_struct_parent* var_t0;
+    VtxStoreBlock *blocks;
+    VtxStoreBlock *block;
+    s16 *freeVertexCount;
+    s16 blockIndex;
+    s16 unusedIndex;
+    s16 originalVertexCount;
+    s32 blockCapacity;
+    s32 visitedBlocks;
+    s32 splitBlock;
 
-    switch (type) {
-        case 0xCCCC:
-            var_t0 = dword_CODE_bss_8007A0E8;
-            var_t3 = &word_CODE_bss_8007A0F0;
-            var_a2 = ((s16 *)&dword_CODE_bss_8007A0D4)[1];
+    switch (type)
+    {
+        case VTXSTORE_TYPE_CHR:
+            blocks = g_ChrVtxStoreBlocks;
+            freeVertexCount = &g_ChrVtxStoreFreeVertices;
+            blockCapacity = g_ChrVtxStoreBlockCapacity;
             break;
-        case 0xB0B:
-            var_t0 = dword_CODE_bss_8007A0EC;
-            var_t3 = &word_CODE_bss_8007A0F2;
-            var_a2 = ((s16 *)&dword_CODE_bss_8007A0DC)[1];
+
+        case VTXSTORE_TYPE_OBJ:
+            blocks = g_ObjVtxStoreBlocks;
+            freeVertexCount = &g_ObjVtxStoreFreeVertices;
+            blockCapacity = g_ObjVtxStoreBlockCapacity;
             break;
+
         default:
-            return 0;
+            return NULL;
     }
 
-    var_v1_2 = 0;
-    var_v0 = 0;
-    var_a1 = 0;
-    
-    do {
-        if ((var_t0[var_a1].unk0E == 0) && (var_t0[var_a1].unk0C >= arg0)) {
-            var_v1_2 = 1;
-        } else {
-            var_a1 = var_t0[var_a1].unk10;
-            var_v0 += 1;
-            if ((var_a1 == -1) || (var_a2 < var_v0)) {
-                var_v1_2 = (s16)-1;
-            }
+    blockIndex = 0;
+    visitedBlocks = 0;
+
+    while (blockIndex >= 0 && visitedBlocks <= blockCapacity)
+    {
+        block = &blocks[blockIndex];
+
+        if (block->refCount == VTXSTORE_BLOCK_FREE && block->vertexCount >= vertexCount)
+        {
+            break;
         }
-    } while (var_v1_2 == 0);
-    if (var_a2 < var_v0) {
-        sub_GAME_7F09B7A8();
-        sub_GAME_7F09B7E4();
-        return 0;
+
+        blockIndex = block->nextIndex;
+        visitedBlocks++;
     }
-    // FAKE
-    if (var_v0) {}
-    if (var_v1_2 == 1) {
-        var_t4 = 0;
-        temp_t2 = var_t0[var_a1].unk0C;
-        var_t0[var_a1].unk04 = arg2;
-        var_t0[var_a1].unk08 = arg3;
-        var_t0[var_a1].unk0E++;
-        if (temp_t2 != arg0) {
-            for (var_v1 = 0; var_v1 < var_a2; var_v1++) {
-                if (var_t0[var_v1].unk0E == -1) {
-                    var_t0[var_a1].unk0C = arg0;
-                    var_t0[var_v1].unk00 = var_t0[var_a1].unk00 + arg0;
-                    var_t0[var_v1].unk0C = temp_t2 - arg0;
-                    var_t0[var_v1].unk0E = 0;
-                    var_t0[var_v1].unk12 = var_a1;
-                    var_t4 = 1;
-                    var_t0[var_v1].unk10 = var_t0[var_a1].unk10;
-                    if (var_t0[var_a1].unk10 >= 0) {
-                        var_t0[var_t0[var_a1].unk10].unk12 = var_v1;
-                    }
-                    var_t0[var_a1].unk10 = var_v1;
-                    break;
+
+    if (blockIndex < 0 || visitedBlocks > blockCapacity)
+    {
+        return NULL;
+    }
+
+    block = &blocks[blockIndex];
+    originalVertexCount = block->vertexCount;
+    block->modelFile = modelFile;
+    block->destroyedLevel = destroyedLevel;
+    block->refCount++;
+    splitBlock = FALSE;
+
+    if (originalVertexCount != vertexCount)
+    {
+        for (unusedIndex = 0; unusedIndex < blockCapacity; unusedIndex++)
+        {
+            if (blocks[unusedIndex].refCount == VTXSTORE_BLOCK_UNUSED)
+            {
+                block->vertexCount = vertexCount;
+                blocks[unusedIndex].vertices = block->vertices + vertexCount;
+                blocks[unusedIndex].vertexCount = originalVertexCount - vertexCount;
+                blocks[unusedIndex].refCount = VTXSTORE_BLOCK_FREE;
+                blocks[unusedIndex].previousIndex = blockIndex;
+                blocks[unusedIndex].nextIndex = block->nextIndex;
+
+                if (block->nextIndex >= 0)
+                {
+                    blocks[block->nextIndex].previousIndex = unusedIndex;
                 }
+
+                block->nextIndex = unusedIndex;
+                splitBlock = TRUE;
+                break;
             }
         }
-        if (var_t4 != 0) {
-            *var_t3 -= arg0;
-        } else {
-            *var_t3 -= temp_t2;
-        }
-        return (s32)var_t0[var_a1].unk00;
     }
-    return 0;
+
+    if (splitBlock)
+    {
+        *freeVertexCount -= vertexCount;
+    }
+    else
+    {
+        *freeVertexCount -= originalVertexCount;
+    }
+
+    return block->vertices;
 }
 
 
-/*
-* Address: 7F09C044
-* PD name: vtxstore_free (likely)
-* Description: Either deforming a vertex or frees a vertex (deallocation)
-*/
-void sub_GAME_7F09C044(Vertex* arg0) {
-    s16* var_t2;
-    struct unk_09B7A0_struct_parent* var_a3;
-    s16 var_a1;
-    s32 stop;
-    s32 var_v1;
+/**
+ * Release a vertex-store allocation and coalesce adjacent free blocks.
+ */
+void vtxstoreFree(Vertex *vertices)
+{
+    VtxStoreBlock *blocks;
+    VtxStoreBlock *block;
+    s16 *freeVertexCount;
+    s16 blockIndex;
+    s16 adjacentIndex;
 
-    if ((arg0 >= dword_CODE_bss_8007A0E0) &&
-        (arg0 <= dword_CODE_bss_8007A0E0 + (dword_CODE_bss_8007A0D0 - 1))) {
-        var_a3 = dword_CODE_bss_8007A0E8;
-        var_t2 = &word_CODE_bss_8007A0F0;
-    } else if ((arg0 >= dword_CODE_bss_8007A0E4) &&
-               (arg0 <= dword_CODE_bss_8007A0E4 + (dword_CODE_bss_8007A0D8 - 1))) {
-        var_a3 = dword_CODE_bss_8007A0EC;
-        var_t2 = &word_CODE_bss_8007A0F2;
-    } else {
-        sub_GAME_7F09B7A8();
-        sub_GAME_7F09B7E4();
+    if (vertices >= g_ChrVtxStoreVertices
+        && vertices < g_ChrVtxStoreVertices + g_ChrVtxStoreVertexCapacity)
+    {
+        blocks = g_ChrVtxStoreBlocks;
+        freeVertexCount = &g_ChrVtxStoreFreeVertices;
+    }
+    else if (vertices >= g_ObjVtxStoreVertices
+        && vertices < g_ObjVtxStoreVertices + g_ObjVtxStoreVertexCapacity)
+    {
+        blocks = g_ObjVtxStoreBlocks;
+        freeVertexCount = &g_ObjVtxStoreFreeVertices;
+    }
+    else
+    {
         return;
     }
 
-    var_a1 = 0;
-    stop = 0;
+    blockIndex = 0;
 
-    while (stop == 0) {
-        if (var_a3[var_a1].unk00 == arg0) {
-            stop = 1;
-            // FAKE
-            if (var_a3[var_a1].unk0E);
-            var_a3[var_a1].unk0E--;
-            if (var_a3[var_a1].unk0E == 0) {
-                *var_t2 += var_a3[var_a1].unk0C;
+    while (blockIndex >= 0)
+    {
+        block = &blocks[blockIndex];
 
-                // Merge with next free block
-                var_v1 = var_a3[var_a1].unk10;
-                if (var_v1 >= 0) {
-                    if (var_a3[var_v1].unk0E == 0) {
-                        var_a3[var_a1].unk0C += var_a3[var_v1].unk0C;
-                        var_a3[var_a1].unk10 = var_a3[var_v1].unk10;
-                        var_a3[var_v1].unk0E = -1;
-                        var_v1 = var_a3[var_a1].unk10;
-                        if (var_v1 >= 0) {
-                            var_a3[var_v1].unk12 = var_a1;
-                        }
+        if (block->vertices == vertices)
+        {
+            block->refCount--;
+
+            if (block->refCount == VTXSTORE_BLOCK_FREE)
+            {
+                *freeVertexCount += block->vertexCount;
+
+                adjacentIndex = block->nextIndex;
+
+                if (adjacentIndex >= 0 && blocks[adjacentIndex].refCount == VTXSTORE_BLOCK_FREE)
+                {
+                    block->vertexCount += blocks[adjacentIndex].vertexCount;
+                    block->nextIndex = blocks[adjacentIndex].nextIndex;
+                    blocks[adjacentIndex].refCount = VTXSTORE_BLOCK_UNUSED;
+
+                    if (block->nextIndex >= 0)
+                    {
+                        blocks[block->nextIndex].previousIndex = blockIndex;
                     }
                 }
 
-                // Merge with prev free block
-                var_v1 = var_a3[var_a1].unk12;
-                if (var_v1 >= 0) {
-                    if (var_a3[var_v1].unk0E == 0) {
-                        var_a3[var_v1].unk0C += var_a3[var_a1].unk0C;
-                        var_a3[var_v1].unk10 = var_a3[var_a1].unk10;
-                        var_a3[var_a1].unk0E = -1;
-                        var_a1 = var_v1;
-                        var_v1 = var_a3[var_a1].unk10;
-                        if (var_v1 >= 0) {
-                            var_a3[var_v1].unk12 = var_a1;
-                        }
+                adjacentIndex = block->previousIndex;
+
+                if (adjacentIndex >= 0 && blocks[adjacentIndex].refCount == VTXSTORE_BLOCK_FREE)
+                {
+                    blocks[adjacentIndex].vertexCount += block->vertexCount;
+                    blocks[adjacentIndex].nextIndex = block->nextIndex;
+                    block->refCount = VTXSTORE_BLOCK_UNUSED;
+                    blockIndex = adjacentIndex;
+                    block = &blocks[blockIndex];
+
+                    if (block->nextIndex >= 0)
+                    {
+                        blocks[block->nextIndex].previousIndex = blockIndex;
                     }
                 }
             }
-        } else {
-            var_a1 = var_a3[var_a1].unk10;
-            if (var_a1 == -1) {
-                stop = 1;
-            }
+
+            return;
         }
+
+        blockIndex = block->nextIndex;
     }
 }
-
