@@ -7,9 +7,6 @@
   .ifdef VERSION_US
     .incbin "build\/u\/assets\/obseg\/\path\/\name\.rz"
   .endif
-  .ifdef VERSION_JP
-    .incbin "build\/j\/assets\/obseg\/\path\/\name\.rz"
-  .endif
   .ifdef VERSION_DEBUG
     .incbin "build\/d\/assets\/obseg\/\path\/\name\.rz"
   .endif
@@ -23,10 +20,6 @@
   .ifdef VERSION_US
     #.warning "obseg_file_Z: build\/u\/assets\/obseg\/\path\/\name\.rz"
     .incbin "build\/u\/assets\/obseg\/\path\/\name\.rz"
-  .endif
-  .ifdef VERSION_JP
-    #.warning "obseg_file_Z: build\/j\/assets\/obseg\/\path\/\name\.rz"
-    .incbin "build\/j\/assets\/obseg\/\path\/\name\.rz"
   .endif
   .ifdef VERSION_DEBUG
     #.warning "obseg_file_Z: build\/d\/assets\/obseg\/\path\/\name\.rz"
@@ -44,10 +37,6 @@
     .incbin "build/u/assets/obseg/bg/\sname\.seg"
   .endif
   
-  .ifdef VERSION_JP
-    .incbin "build/j/assets/obseg/bg/\sname\.seg"
-  .endif
-
   .ifdef VERSION_DEBUG
     .incbin "build/d/assets/obseg/bg/\sname\.seg"
   .endif
@@ -697,93 +686,49 @@ obseg_file_Z setup, UsetuptraZ
 
 
 obseg_file_rz text, LameE
-obseg_file_rz text, LameJ
 obseg_file_rz text, LarchE
-obseg_file_rz text, LarchJ
 obseg_file_rz text, LarecE
-obseg_file_rz text, LarecJ
 obseg_file_rz text, LarkE
-obseg_file_rz text, LarkJ
 obseg_file_rz text, LashE
-obseg_file_rz text, LashJ
 obseg_file_rz text, LaztE
-obseg_file_rz text, LaztJ
 obseg_file_rz text, LcatE
-obseg_file_rz text, LcatJ
 obseg_file_rz text, LcaveE
-obseg_file_rz text, LcaveJ
 obseg_file_rz text, LcradE
-obseg_file_rz text, LcradJ
 obseg_file_rz text, LcrypE
-obseg_file_rz text, LcrypJ
 obseg_file_rz text, LdamE
-obseg_file_rz text, LdamJ
 obseg_file_rz text, LdepoE
-obseg_file_rz text, LdepoJ
 obseg_file_rz text, LdestE
-obseg_file_rz text, LdestJ
 obseg_file_rz text, LdishE
-obseg_file_rz text, LdishJ
 obseg_file_rz text, LearE
-obseg_file_rz text, LearJ
 obseg_file_rz text, LeldE
-obseg_file_rz text, LeldJ
 obseg_file_rz text, LgunE
-obseg_file_rz text, LgunJ
 obseg_file_rz text, LimpE
-obseg_file_rz text, LimpJ
 obseg_file_rz text, LjunE
-obseg_file_rz text, LjunJ
 obseg_file_rz text, LleeE
-obseg_file_rz text, LleeJ
 obseg_file_rz text, LlenE
-obseg_file_rz text, LlenJ
 obseg_file_rz text, LlipE
-obseg_file_rz text, LlipJ
 obseg_file_rz text, LlueE
-obseg_file_rz text, LlueJ
 obseg_file_rz text, LmiscE
-obseg_file_rz text, LmiscJ
 obseg_file_rz text, LmpmenuE
-obseg_file_rz text, LmpmenuJ
 obseg_file_rz text, LmpweaponsE
-obseg_file_rz text, LmpweaponsJ
 obseg_file_rz text, LoatE
-obseg_file_rz text, LoatJ
 obseg_file_rz text, LoptionsE
-obseg_file_rz text, LoptionsJ
 obseg_file_rz text, LpamE
-obseg_file_rz text, LpamJ
 obseg_file_rz text, LpeteE
-obseg_file_rz text, LpeteJ
 obseg_file_rz text, LpropobjE
-obseg_file_rz text, LpropobjJ
 obseg_file_rz text, LrefE
-obseg_file_rz text, LrefJ
 obseg_file_rz text, LritE
-obseg_file_rz text, LritJ
 obseg_file_rz text, LrunE
-obseg_file_rz text, LrunJ
 obseg_file_rz text, LsevE
-obseg_file_rz text, LsevJ
 obseg_file_rz text, LsevbE
-obseg_file_rz text, LsevbJ
 obseg_file_rz text, LsevxE
-obseg_file_rz text, LsevxJ
 obseg_file_rz text, LsevxbE
-obseg_file_rz text, LsevxbJ
 obseg_file_rz text, LshoE
-obseg_file_rz text, LshoJ
 obseg_file_rz text, LsiloE
-obseg_file_rz text, LsiloJ
 obseg_file_rz text, LstatE
-obseg_file_rz text, LstatJ
 obseg_file_rz text, LtitleE
-obseg_file_rz text, LtitleJ
 obseg_file_rz text, LtraE
-obseg_file_rz text, LtraJ
 obseg_file_rz text, LwaxE
-obseg_file_rz text, LwaxJ
 
 .global ob__ob_end_seg
 ob__ob_end_seg:

@@ -3,22 +3,6 @@
 #include <ultra64.h>
 #include <bondconstants.h>
 
-#ifdef VERSION_EU
-#define XOFFSET_1 65
-#define YOFFSET_1 90
-#define YOFFSET_WEAPTEXT 193
-#define YOFFSET_ACTIONTEXT 172
-#define YOFFSET_4 235
-#define YOFFSET_5 214
-#define YOFFSET_MISSIONSTATUS 0x43
-#define YOFFSET_7 0x33
-#define YOFFSET_8 0x26
-#define YOFFSET_9 0x41
-#define YINC 17
-#define WATCHZOOM1 4.80000019073f
-#define WATCHZOOM2 6.09999990463f
-#define WATCHZOOM3 4.15000009537f
-#else
 #define XOFFSET_1 64
 #define YOFFSET_1 80
 #define YINC 15
@@ -33,7 +17,6 @@
 #define WATCHZOOM1 4.6f
 #define WATCHZOOM2 5.9f
 #define WATCHZOOM3 3.95f
-#endif
 
 /**
  * A static buffer for watch menu current screen rectangles

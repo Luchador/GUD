@@ -949,20 +949,12 @@ void sub_GAME_7F024CF8(ChrRecord *self, coord3d *arg1)
 
     if (sp2C)
     {
-#ifdef VERSION_EU
-        self->act_runpos.eta60 = (s32) (((sq / (D_80030988 * 0.5f)) * 50.0f) / 60.0f);
-#else
         self->act_runpos.eta60 = (s32) (sq / (D_80030988 * 0.5f));
-#endif
         modelSetAnimation(self->model, (struct ModelAnimation*)&ptr_animation_table->data[(s32)&ANIM_DATA_running], phi_a2, 0, 0.5f, 16.0f);
     }
     else
     {
-#ifdef VERSION_EU
-        self->act_runpos.eta60 = (s32) (((sq / (D_80030994 * 0.5f)) * 50.0f) / 60.0f);
-#else
         self->act_runpos.eta60 = (s32) (sq / (D_80030994 * 0.5f));
-#endif
         modelSetAnimation(self->model, (struct ModelAnimation*)&ptr_animation_table->data[(s32)&ANIM_DATA_running_one_handed_weapon], phi_a2, 0, 0.5f, 16.0f);
     }
 }
@@ -5999,11 +5991,7 @@ void chrlvUpdateShotbondsum(ChrRecord *self, s32 *arg1, s32 *arg2, ITEM_IDS item
     {
         temp_f0_3 = sqrtf(dxdydz_square);
 
-#if defined(VERSION_JP)
-        phi_f2_4 = 0.16f * g_JP_GlobalTimerDelta;
-#else
         phi_f2_4 = 0.16f * g_GlobalTimerDelta;
-#endif
 
         if (temp_f0_3 > 300.0f)
         {
@@ -6896,11 +6884,7 @@ void chrlvTickAttack(ChrRecord *self)
         {
             if (modelGetAnimEndFrame(self_model) <= temp_f0)
             {
-#if defined(VERSION_US)
                 self->act_attack.attacktype |= TARGET_AIM_ONLY;
-#else
-                // don't set TARGET_AIM_ONLY
-#endif
                 self->act_attack.attacktype &= ~TARGET_DONTTURN;
 
                 if (self->act_attack.unk54 != 0)

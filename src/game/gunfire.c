@@ -663,11 +663,7 @@ void gunUpdateAndFire(GUNHAND handnum)
                 {
                     if (hand->weapon_action_state == 1)
                     {
-#if defined(VERSION_EU)
-                        rndf = (((hand->field_890 - (hand->weapon_ammo_in_magazine * 5)) + 0x19) * M_TAU_F) / 30.0f;
-#else
                         rndf = (((hand->field_890 - (hand->weapon_ammo_in_magazine * 6)) + 0x1E) * M_TAU_F) / 36.0f;
-#endif
                     }
                     else
                     {
@@ -676,17 +672,10 @@ void gunUpdateAndFire(GUNHAND handnum)
                 }
                 else if (hand->weapon_action_state == 1)
                 {
-#if defined(VERSION_EU)
-                if (hand->field_890 < 5)
-                {
-                    rndf = (hand->field_890 * M_TAU_F) / 30.0f;
-                }
-#else
                 if (hand->field_890 < 6)
                 {
                     rndf = (hand->field_890 * M_TAU_F) / 36.0f;
                 }
-#endif
             }
 
                 matrix_4x4_set_rotation_around_z(rndf, &tmpmtx);
@@ -702,16 +691,6 @@ void gunUpdateAndFire(GUNHAND handnum)
 
                 if (hand->weapon_action_state == 1)
                 {
-#if defined(VERSION_EU)
-                    if (hand->field_890 < 2)
-                    {
-                        rndf = (2.0f * ((-((f32) hand->field_890)) * DegToRad(30.0f))) / 5.0f;
-                    }
-                    else
-                    {
-                        rndf = (2.0f * ((-((f32) (5 - hand->field_890))) * DegToRad(30.0f))) / 5.0f;
-                    }
-#else
                     if (hand->field_890 < 3)
                     {
                         rndf = (2.0f * ((-((f32) hand->field_890)) * DegToRad(30.0f))) / 6.0f;
@@ -720,7 +699,6 @@ void gunUpdateAndFire(GUNHAND handnum)
                     {
                         rndf = (2.0f * ((-((f32) (6 - hand->field_890))) * DegToRad(30.0f))) / 6.0f;
                     }
-#endif
                     matrix_4x4_set_rotation_around_x(rndf, &tmpmtx);
                     matrix_4x4_set_position((coord3d *) hammerdata, &tmpmtx);
                 }
@@ -925,9 +903,6 @@ void gunUpdateAndFire(GUNHAND handnum)
                 break;
             case ITEM_LASER:
             case ITEM_WATCHLASER:
-#if defined(VERSION_JP) || defined(VERSION_EU)
-                hand->field_8A0 = hand->field_8A0 + 1;
-#endif
                 gunCreateBeamForHand(handnum);
                 break;
             }
@@ -1471,11 +1446,7 @@ void gunAdvanceBeamTimer(BeamRecord* beam)
     {
         if (g_ClockTimer < 3)
         {
-#ifdef VERSION_US
             beam->unk28 += beam->unk20 * g_GlobalTimerDelta;
-#else
-            beam->unk28 += beam->unk20 * g_JP_GlobalTimerDelta;
-#endif
         }
         else
         {
@@ -2537,19 +2508,10 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
 
     if (handptr->weapon_action_state == GUN_ANIM_STATE_IDLE)
     {
-#if defined(VERSION_JP) || defined(VERSION_EU)
-        if ((var_s1 == ITEM_LASER) && (handptr->field_888 != 0))
-        {
-            handptr->field_8A0 = 0;
-        }
-#endif
         if (
             (handptr->weapon_hold_time != 0)
             && (var_s1 != ITEM_UNARMED)
             && (((bondwalkItemCheckBitflags(var_s1, WEAPONSTATBITFLAG_CLICKY) != 0)) || (handptr->weapon_ammo_in_magazine > 0))
-#if defined(VERSION_JP) || defined(VERSION_EU)
-            && ((var_s1 != ITEM_LASER) || (handptr->field_8A0 < 0xC8))
-#endif
         )
         {
             handptr->weapon_action_state = GUN_ANIM_STATE_TRIGGER_PRESS;
@@ -3011,24 +2973,8 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
         {
             weapon_stats = gunGetItemStats(var_s1);
 
-#if defined(VERSION_US)
             sp1A4 = weapon_stats->b44[0];
             sp1A0 = weapon_stats->b44[1];
-#endif
-#if defined(VERSION_JP)
-            sp1A4 = weapon_stats->b44[0];
-            sp1A0 = weapon_stats->b44[1];
-            stat_2 = weapon_stats->b44[2];
-            stat_3 = weapon_stats->b44[3];
-            stat_4 = weapon_stats->SingleFiringRate;
-#endif
-#if defined(VERSION_EU)
-            sp1A4 = ((s32)weapon_stats->b44[0] * 50) / 60;
-            sp1A0 = ((s32)weapon_stats->b44[1] * 50) / 60;
-            stat_2 = ((s32)weapon_stats->b44[2] * 50) / 60;
-            stat_3 = ((s32)weapon_stats->b44[3] * 50) / 60;
-            stat_4 = weapon_stats->SingleFiringRate * 50 / 60;
-#endif
 
             if ((
                     (handptr->field_888 != 0)
@@ -3038,12 +2984,7 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
                 (
                     ((weapon_stats->SingleFiringRate >= 0))
                     && (handptr->field_888 == 0)
-#if defined(VERSION_US)
                     && (handptr->field_890 >= (sp1A4 + sp1A0 + weapon_stats->SingleFiringRate))
-#endif
-#if defined(VERSION_JP) ||  defined(VERSION_EU)
-                    && (handptr->field_890 >= (sp1A4 + sp1A0 + stat_4))
-#endif
                 )
                )
             {
@@ -3055,36 +2996,20 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
                 (handptr->field_888 != 0)
                 && (handptr->weapon_hold_time != 0)
 
-#if defined(VERSION_US)
                 && (handptr->field_890 >= weapon_stats->b44[2])
-#endif
-#if defined(VERSION_JP) ||  defined(VERSION_EU)
-                && (handptr->field_890 >= stat_2)
-#endif
 
                 && (weapon_stats->b44[3] >= 0)
 
-#if defined(VERSION_US)
                 // HACK: registers are swapped
                 // addu a1, v1, a0
                 && (handptr->field_890 + weapon_stats->b44[3] < (0,sp1A4) + sp1A0)
                 && (handptr->field_890 + weapon_stats->b44[3] >= (s32)weapon_stats->b44[2])
-#endif
-#if defined(VERSION_JP) ||  defined(VERSION_EU)
-                && (handptr->field_890 + stat_3 < sp1A4 + sp1A0)
-                && (handptr->field_890 + stat_3 >= (s32)stat_2)
-#endif
             )
             {
                 handptr->weapon_action_state = GUN_ANIM_STATE_RECOIL2;
                 handptr->field_890 = 0;
                 handptr->field_88C = 0;
-#if defined(VERSION_US)
                 handptr->field_8A8 = weapon_stats->b44[3];
-#endif
-#if defined(VERSION_JP) ||  defined(VERSION_EU)
-                handptr->field_8A8 = stat_3;
-#endif
             }
             else if (handptr->field_890 < sp1A4 + sp1A0)
             {
@@ -3433,9 +3358,6 @@ void gunTickHandState(enum GUNHAND hand, s32 triggerOn)
     if (handptr->weapon_action_state == GUN_ANIM_STATE_RELOAD_SWAP)
     {
         if ((handptr->field_88C == 0)
-#if defined(VERSION_JP) || defined(VERSION_EU)
-            && (g_ClockTimer > 0)
-#endif
             && (g_CurrentPlayer->frozencam != CAMERAMODE_INTRO)
             && (Gun_hand_without_item(hand) != 0)
             && (g_PlayerInvincible == FALSE)
@@ -4555,11 +4477,7 @@ void sub_GAME_7F067F58(f32 turn_x, f32 turn_y, f32 max_aim_lock_speed)
 {
     f32 aim_lock_speed;
 
-#if defined(VERSION_US) || defined(VERSION_JP)
     aim_lock_speed = gunGetItemStats(getCurrentPlayerWeaponId(GUNRIGHT))->AimLockSpeed;
-#elif defined(VERSION_EU)
-    aim_lock_speed = gunGetItemStats(getCurrentPlayerWeaponId(GUNRIGHT))->CrosshairSpeed;
-#endif
 
     if (aim_lock_speed < max_aim_lock_speed)
     {
@@ -4578,16 +4496,8 @@ void sub_GAME_7F067FBC(f32 turn_x, f32 turn_y)
 
     item_stats = gunGetItemStats(getCurrentPlayerWeaponId(GUNRIGHT));
 
-#if defined(VERSION_US)
     guncrossdamp = item_stats->CrosshairSpeed;
     gunaimdamp = item_stats->AimLockSpeed;
-#elif defined(VERSION_EU)
-    guncrossdamp = 0.7651f;
-    gunaimdamp = item_stats->CrosshairSpeed;
-#elif defined(VERSION_JP)
-    guncrossdamp = 0.8f;
-    gunaimdamp = item_stats->AimLockSpeed;
-#endif
 
     caclulate_gun_crosshair_position_rotation(turn_x, turn_y, guncrossdamp, gunaimdamp);
 }
@@ -5362,11 +5272,7 @@ Gfx *gunRenderAmmoDisplay(Gfx *gdl)
                     {
                         imageoffset_r += globalbank_rdram_offset;
                         gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset_r, (getPlayer_c_screenleft() + getPlayer_c_screenwidth()) - (f32)rightx, -1.0f,
-#if defined(VERSION_EU)
-                            (viGetViewTop() + viGetViewHeight()) - 30, 0,
-#else
                             (viGetViewTop() + viGetViewHeight()) - 20, 0,
-#endif
                             ammo_related[ammotype].IconYOffset, 1);
                         textwidth_r = ((u8 *)imageoffset_r)[4];
                     }
@@ -5391,21 +5297,13 @@ Gfx *gunRenderAmmoDisplay(Gfx *gdl)
                     if (!bondwalkItemCheckBitflags(weapon_right, WEAPONSTATBITFLAG_NO_CLIP_RELOADS))
                     {
                         gdl = gunDrawHudInteger(gdl, magammo, (((viGetViewLeft() + viGetViewWidth()) - rightx) - (textwidth_r / 2)) - 4, 0,
-#if defined(VERSION_EU)
-                            (viGetViewTop() + viGetViewHeight()) - 28, 2, 1);
-#else
                             (viGetViewTop() + viGetViewHeight()) - 18, 2, 1);
-#endif
                     }
 
                     if (reserveammo > 0 || bondwalkItemCheckBitflags(weapon_right, WEAPONSTATBITFLAG_NO_CLIP_RELOADS))
                     {
                         gdl = gunDrawHudInteger(gdl, reserveammo, (((viGetViewLeft() + viGetViewWidth()) - rightx) + ((textwidth_r + 1) / 2)) + 3, 1,
-#if defined(VERSION_EU)
-                            (viGetViewTop() + viGetViewHeight()) - 28, 2, 1);
-#else
                             (viGetViewTop() + viGetViewHeight()) - 18, 2, 1);
-#endif
                     }
 
                     gdl = gfxRestore3DRenderMode(gdl);
@@ -5428,11 +5326,7 @@ Gfx *gunRenderAmmoDisplay(Gfx *gdl)
                     {
                         imageoffset_l += globalbank_rdram_offset;
                         gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset_l, getPlayer_c_screenleft() + (f32)leftx, -1.0f,
-#if defined(VERSION_EU)
-                            (viGetViewTop() + viGetViewHeight()) - 30, 1,
-#else
                             (viGetViewTop() + viGetViewHeight()) - 20, 1,
-#endif
                             ammo_related[ammotype].IconYOffset, 1);
                         textwidth_l = ((u8 *)imageoffset_l)[4];
                     }
@@ -5457,21 +5351,13 @@ Gfx *gunRenderAmmoDisplay(Gfx *gdl)
                     if (!bondwalkItemCheckBitflags(weapon_left, WEAPONSTATBITFLAG_NO_CLIP_RELOADS))
                     {
                         gdl = gunDrawHudInteger(gdl, magammo, ((viGetViewLeft() + leftx) + (textwidth_l / 2)) + 3, 1,
-#if defined(VERSION_EU)
-                            (viGetViewTop() + viGetViewHeight()) - 28, 2, 1);
-#else
                             (viGetViewTop() + viGetViewHeight()) - 18, 2, 1);
-#endif
                     }
 
                     if (reserveammo > 0 || bondwalkItemCheckBitflags(weapon_left, WEAPONSTATBITFLAG_NO_CLIP_RELOADS))
                     {
                         gdl = gunDrawHudInteger(gdl, reserveammo, ((viGetViewLeft() + leftx) - ((textwidth_l + 1) / 2)) - 4, 0,
-#if defined(VERSION_EU)
-                            (viGetViewTop() + viGetViewHeight()) - 28, 2, 1);
-#else
                             (viGetViewTop() + viGetViewHeight()) - 18, 2, 1);
-#endif
                     }
 
                     gdl = gfxRestore3DRenderMode(gdl);
@@ -5520,11 +5406,7 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
                 imageoffset += globalbank_rdram_offset;
 
                 // Draw the ammo icon
-#if defined(VERSION_EU)
-                gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset, 200.0f, 208.0f, (viGetViewTop() + viGetViewHeight()) - 30, 0, ammo_related[ammotype].IconYOffset, 1);
-#else
                 gdl = set_rgba_redirect_generate_microcode(gdl, (u8 *)imageoffset, 200.0f, 180.0f, (viGetViewTop() + viGetViewHeight()) - 20, 0, ammo_related[ammotype].IconYOffset, 1);
-#endif
 
                 textwidth = ((u8 *)imageoffset)[4];
             }
@@ -5550,21 +5432,13 @@ Gfx *gunDrawWatchAmmoDisplay(Gfx *gdl)
             if (!bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_NO_CLIP_RELOADS))
             {
                 // Draw the magazine ammo count.
-#if defined(VERSION_EU)
-                gdl = gunDrawHudInteger(gdl, magammo, 196 - (textwidth / 2), 0, 205, 2, 0);
-#else
                 gdl = gunDrawHudInteger(gdl, magammo, 196 - (textwidth / 2), 0, 177, 2, 0);
-#endif
             }
 
             if (reserveammo > 0 || bondwalkItemCheckBitflags(item, WEAPONSTATBITFLAG_NO_CLIP_RELOADS))
             {
                 // Draw the reserve ammo count.
-#if defined(VERSION_EU)
-                gdl = gunDrawHudInteger(gdl, reserveammo, 203 + ((textwidth + 1) / 2), 1, 205, 2, 0);
-#else
                 gdl = gunDrawHudInteger(gdl, reserveammo, 203 + ((textwidth + 1) / 2), 1, 177, 2, 0);
-#endif
             }
 
             gdl = gfxRestore3DRenderMode(gdl);
@@ -5605,9 +5479,6 @@ void gunDrawSight(s32 *gdl) {
         if (get_screen_ratio() == SCREEN_RATIO_16_9) {
             halfedxy[0] = halfedxy[0] * 0.75f;
         }
-#ifdef VERSION_EU
-        halfedxy[1] = halfedxy[1] * g_GunSightAspectRatio;
-#endif
         display_image_at_position(&sp54, &xypos, &halfedxy, 0x20, 0x20, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0x6E, (crosshairimage->level > 0), 0);
         *gdl = sp54;
     }
@@ -5656,11 +5527,7 @@ void increment_num_kills_display_text_in_MP(void)
     mission_time = getMissiontimer();
     sprintf(&buffer, aSD, langGet(getStringID(LGUN, GUN_STR_DA_KILLCOUNT)), g_playerPerm->kill_count); // "kill count"
 
-#if defined(VERSION_US)
     hudmsgBottomShow(&buffer);
-#elif defined(VERSION_JP) || defined(VERSION_EU)
-    jp_hudmsgBottomShow(&buffer);
-#endif
 
     if (g_playerPerm->kill_count >= 2)
     {
@@ -5729,11 +5596,7 @@ void increment_num_deaths(void)
         {
             sprintf(buffer, g_GunDeathCountFormat, langGet(getStringID(LGUN, GUN_STR_DC_DIED)), g_CurrentPlayer->deathcount, langGet(getStringID(LGUN, GUN_STR_DD_TIMES))); //died times
         }
-#if defined(VERSION_JP) || defined(VERSION_EU)
-		jp_hudmsgBottomShow(buffer);
-#else
 		hudmsgBottomShow(buffer);
-#endif
     }
 }
 
@@ -5751,11 +5614,7 @@ void increment_num_suicides_display_MP(void) {
 
         sprintf(&buffer, &aSD_0, langGet(getStringID(LGUN, GUN_STR_DE_SUICIDECOUNT)), g_CurrentPlayer->num_suicides); // "suicide count"
 
-#if defined(VERSION_JP) || defined(VERSION_EU)
-		jp_hudmsgBottomShow(&buffer);
-#else
 		hudmsgBottomShow(&buffer);
-#endif
 
         if (g_playerPerm->kill_count >= 2) {
             time_diff = currentTime - g_CurrentPlayer->last_kill_time[0];
@@ -5800,11 +5659,7 @@ void increment_num_suicides_display_MP(void) {
  * IDO emits scalar const objects to .data. The linker keeps this block directly
  * after gunfire's .rodata so these values retain their original ROM layout.
  */
-#if VERSION_EU
-const f32 g_GunScreenAspectRatio = 20.0f / 17.0f;
-#else
 const f32 g_GunScreenAspectRatio = 4.0f / 3.0f;
-#endif
 const f32 g_CasingSwitchScale = 0.10000001f;
 const f32 g_PistolCasingHorizontalSpeed = 0.5333333f;
 const f32 g_PistolCasingRotationScaleX = M_TAU_F;
@@ -5813,11 +5668,7 @@ const f32 g_PistolCasingRotationScaleY = M_TAU_F;
 const f32 g_PistolCasingRotationOffsetY = M_PI_F / 8.0f;
 const f32 g_PistolCasingRotationScaleZ = M_TAU_F;
 const f32 g_PistolCasingRotationOffsetZ = M_PI_F / 8.0f;
-#if VERSION_EU
-const f32 g_PistolCasingRandomDivisor = 931050.0f;
-#else
 const f32 g_PistolCasingRandomDivisor = 775875.0f;
-#endif
 const f32 g_PistolCasingGravity = 0.2777778f;
 const f32 g_RifleCasingHorizontalSpeed = 1.4166666f;
 const f32 g_RifleCasingVerticalSpeed = 1.6666666f;
@@ -5827,16 +5678,9 @@ const f32 g_RifleCasingRotationScaleY = M_TAU_F;
 const f32 g_RifleCasingRotationOffsetY = M_PI_F / 8.0f;
 const f32 g_RifleCasingRotationScaleZ = M_TAU_F;
 const f32 g_RifleCasingRotationOffsetZ = M_PI_F / 8.0f;
-#if VERSION_EU
-const f32 g_RifleCasingRandomDivisor = 931050.0f;
-#else
 const f32 g_RifleCasingRandomDivisor = 775875.0f;
-#endif
 const f32 g_RifleCasingGravity = 0.2777778f;
 const f32 g_CasingGravity = 0.2777778f;
 const f32 g_CasingModelScale = 0.10000001f;
 const f32 g_CasingMinMatrixTranslation = -30000.0f;
 const f32 g_CasingMaxMatrixTranslation = 30000.0f;
-#if VERSION_EU
-const f32 g_GunSightAspectRatio = 25.0f / 21.0f;
-#endif

@@ -11,7 +11,7 @@ trap "exit 0" PIPE
 usage() {
     echo "$0 usage:"
     echo ""
-    echo "    -v        version. Supported options are: US,u, JP,j, EU,e"
+    echo "    -v        build. Supported options are: US, u, DEBUG, d"
     echo ""
     exit 0;
 }
@@ -23,14 +23,10 @@ while getopts "hv:" arg; do
             COUNTRY_CODE="u"
         elif [ "${OPTARG,,}" = "u" ]; then
             COUNTRY_CODE="u"
-        elif [ "${OPTARG,,}" = "jp" ]; then
-            COUNTRY_CODE="j"
-        elif [ "${OPTARG,,}" = "j" ]; then
-            COUNTRY_CODE="j"
-        elif [ "${OPTARG,,}" = "eu" ]; then
-            COUNTRY_CODE="e"
-        elif [ "${OPTARG,,}" = "e" ]; then
-            COUNTRY_CODE="e"
+        elif [ "${OPTARG,,}" = "debug" ]; then
+            COUNTRY_CODE="d"
+        elif [ "${OPTARG,,}" = "d" ]; then
+            COUNTRY_CODE="d"
         fi
         
         ARG_VERSION="${OPTARG}"

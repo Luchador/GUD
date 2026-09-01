@@ -64,10 +64,6 @@ void sets_a_bunch_of_BONDdata_values_to_default(void)
     animInit(&g_CurrentPlayer->model, &player_gait_object_header, &g_CurrentPlayer->field_654);
     modelSetScale(&g_CurrentPlayer->model, IDO_POINT_ONE);
 
-#if defined (BUGFIX_R1)
-    modelSetAnimPlaySpeed(&g_CurrentPlayer->model, ANIMRATE, 0.0f);
-#endif
-
     g_CurrentPlayer->headanim = 0;
 
     g_CurrentPlayer->headdamp = DAMPVAL;

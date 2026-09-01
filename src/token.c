@@ -1,7 +1,6 @@
 #include "token.h"
 #include "pi.h"
 #include "snd.h"
-#include "game/language.h"
 #include "rmon.h"
 #include "str.h"
 
@@ -41,8 +40,8 @@ void tokenSetString(const char *str)
     tokenSplit(g_TokenString);
 }
 
-// Reads a new token string from the PI device at address 0xFFB000. Also handles the 
-// -d (debug), -s (sound) and -j (japanese) switches.
+// Reads a new token string from the PI device at address 0xFFB000. Also handles the
+// -d (debug) and -s (sound) switches.
 s32 tokenReadIo(void)
 {
     u32 *ptr;

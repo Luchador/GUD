@@ -37,12 +37,10 @@ u32 D_80040980 = 0;
 //CODE.bss:8007A170
 s_bullet_spark g_BulletSparkArray[BULLET_SPARKS_MAX];
 
-#ifndef VERSION_EU
 
 //CODE.bss:8007A4E0
 s_moving_bullet_spark g_MovingBulletSparkArray[BULLET_MOVING_SPARKS_MAX];
 
-#endif
 
 
 /*

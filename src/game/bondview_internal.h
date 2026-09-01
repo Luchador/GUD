@@ -32,16 +32,8 @@ extern s32 dword_CODE_bss_80079A14;
 extern enum CAMERAMODE dword_CODE_bss_80079A18;
 extern s32 dword_CODE_bss_80079A1C;
 extern s32 mission_timer;
-#if defined(VERSION_JP)
-extern f32 watch_time_0;
-#else
 extern s32 watch_time_0;
-#endif
 extern char stringbuffer_lowerleft[5][BONDVIEW_HUD_MSG_BOTTOM_BUFFER_LENGTH];
-#if defined(BUGFIX_R1)
-extern s32 dword_CODE_bss_jp80079Cd8[5];
-extern s32 dword_CODE_bss_jp80079CEC[5];
-#endif
 extern PadRecord *g_Startpad[16];
 extern s32 startpadcount;
 extern char stringbuffer_top[2][BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH];

@@ -47,13 +47,8 @@
 #include "textrelated.h"
 
 
-#if defined(VERSION_US)
     #define BONDVIEW_2ND_FONTTABLE(_param) copy_2ndfonttable
     #define BONDVIEW_1ST_FONTTABLE(_param) copy_1stfonttable
-#elif defined(VERSION_JP) || defined(VERSION_EU)
-    #define BONDVIEW_2ND_FONTTABLE(_param) dword_CODE_bss_jp80079CEC[_param]
-    #define BONDVIEW_1ST_FONTTABLE(_param) dword_CODE_bss_jp80079Cd8[_param]
-#endif
 
 #define BONDVIEW_VIEW_TOP_OFFSET_1 0x0C
 #define BONDVIEW_VIEW_TOP_OFFSET_2 0x28

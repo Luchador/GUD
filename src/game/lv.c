@@ -584,16 +584,7 @@ void lvTick(void)
         g_GlobalTickCount += 1;
     }
 
-#ifdef VERSION_US
     g_GlobalTimerDelta = (f32) g_ClockTimer;
-#else
-    g_JP_GlobalTimerDelta = (f32) g_ClockTimer;
-#ifdef VERSION_EU
-    g_GlobalTimerDelta = g_JP_GlobalTimerDelta * 1.2f;
-#else
-    g_GlobalTimerDelta = g_JP_GlobalTimerDelta;
-#endif
-#endif
     g_GlobalTimer += g_ClockTimer;
 
     if ((g_CurrentStageToLoad != LEVELID_TITLE) && (g_StageElapsedTicks == 0) && (g_ClockTimer > 0))

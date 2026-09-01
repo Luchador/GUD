@@ -23,8 +23,6 @@
             "VERSION_US",
             "TARGET_N64",
             "OUTCODE=u",
-            "LANG_US",
-            "REFRESH_NTSC",
             "LEFTOVERDEBUG",
             "BYTEMATCH"
             /* IDO 5.3 Defs below */,
@@ -81,8 +79,6 @@
             "VERSION_US",
             "TARGET_N64",
             "OUTCODE=u",
-            "LANG_US",
-            "REFRESH_NTSC",
             "LEFTOVERDEBUG",
             "BYTEMATCH"
             /* IDO 5.3 Defs below */,

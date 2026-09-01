@@ -13,9 +13,6 @@ glabel rspbootTextStart
 .ifdef VERSION_US
 .incbin "build/u/rsp/rspboot.bin"
 .endif
-.ifdef VERSION_JP
-.incbin "build/j/rsp/rspboot.bin"
-.endif
 .ifdef VERSION_DEBUG
 .incbin "build/d/rsp/rspboot.bin"
 .endif

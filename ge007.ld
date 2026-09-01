@@ -96,13 +96,7 @@ SECTIONS
    }
    END_SEG(fontdl)
 
-   BEGIN_SEG(jfontchardata, _fontdlSegmentRomEnd, 0x00000000)
-   {
-      build/OUTCODE/assets/font_chardataj.o (.data);
-   }
-   END_SEG(jfontchardata)
-
-   BEGIN_SEG(efontchardata, _jfontchardataSegmentRomEnd, 0x00000000)
+   BEGIN_SEG(efontchardata, _fontdlSegmentRomEnd, 0x00000000)
    {
       build/OUTCODE/assets/font_chardatae.o (.data);
    }

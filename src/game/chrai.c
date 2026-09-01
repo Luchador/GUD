@@ -3673,11 +3673,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
     #ifdef ENABLE_LOG
                     osSyncPrintf("USING HUD MESSAGE Stringy = %d, ai->txt = %d\n", text, ntohs(ai->txt));
     #endif
-    #ifdef BUGFIX_R1
-                    jp_hudmsgBottomShow(text);
-    #else
                     hudmsgBottomShow(text);
-    #endif
                     Offset += sizeof(AiTextPrintBottomRecord);
                     break;
                 }

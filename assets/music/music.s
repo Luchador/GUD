@@ -98,9 +98,6 @@ _musicsampletblSegmentRomEnd:
   .ifdef VERSION_US
     .incbin "build\/u\/assets\/music\/\name\.rz"
   .endif
-  .ifdef VERSION_JP
-    .incbin "build\/j\/assets\/music\/\name\.rz"
-  .endif
   .ifdef VERSION_DEBUG
     .incbin "build\/d\/assets\/music\/\name\.rz"
   .endif
@@ -185,5 +182,4 @@ music_file Mfrigate_outro
 .section .musiccompressed
 .half 0
 .word 0
-
 

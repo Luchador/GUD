@@ -164,11 +164,7 @@ struct portal_data_table_entry portal_data_table[] = {
     {&portal_11, 0x0D, 0x0E, 0x0000},
     {&portal_33, 0x24, 0x27, 0x0000},
 
-#if defined(BUGFIX_R2)
-    {&portal_34, 0x24, 0x0C, 0x0008},
-#else
     {&portal_34, 0x24, 0x0C, 0x0000},
-#endif
 
     {&portal_35, 0x25, 0x05, 0x0005},
     {&portal_36, 0x27, 0x25, 0x0000},
@@ -11292,4 +11288,3 @@ u32 sec_mapping_binary_86[] = {
 u32 pri_mapping_binary_87[] = {
    0x00000000,
 };
-

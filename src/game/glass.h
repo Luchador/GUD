@@ -66,14 +66,12 @@ typedef struct s_bullet_spark {
     u8 unk2B;
 } s_bullet_spark;
 
-#ifndef VERSION_EU
 typedef struct s_moving_bullet_spark
 {
     s_bullet_spark unk00;
     coord3d velocity;
     f32 unk38;
 } s_moving_bullet_spark;
-#endif
 
 extern s32 SHATTERED_WINDOW_PIECES_BUFFER_LEN;
 extern s_shattered_window_piece* ptr_shattered_window_pieces;

@@ -1601,18 +1601,10 @@ void cheatButtonSetDkMode(CHEAT_ID cheat_id)
     for (i=0; i<numslots; i++, guard++)
     {
 
-#if defined(VERSION_US)
         model = (Model*)guard->model;
         if (model)
         {
             modelSetScale(model, model->scale * scale);
         }
-#else
-        if (guard->model && chrCanUseDKModeScaling(guard->bodynum, guard->headnum))
-        {
-            model = (Model*)guard->model;
-            modelSetScale(model, model->scale * scale);
-        }
-#endif
     }
 }

@@ -319,14 +319,8 @@ void explosionScreenShake(coord3d* source_pos, coord3d* source_mag, coord3d* res
             diff_x = explosion_prop->pos.x - source_pos->x;
             diff_y = explosion_prop->pos.y - source_pos->y;
             diff_z = explosion_prop->pos.z - source_pos->z;
-#ifndef VERSION_US
-            dist = sqrtf((diff_x * diff_x) + (diff_y * diff_y) + (diff_z * diff_z));
-            if (dist == 0.0f) { dist = 0.0001f; }
-            dist2 = g_ExplosionTypes[g_ExplosionBuffer[i].explosion_type].explosion_size / dist;
-#else
             dist = (diff_x * diff_x) + (diff_y * diff_y) + (diff_z * diff_z);
             dist2 = g_ExplosionTypes[g_ExplosionBuffer[i].explosion_type].explosion_size / sqrtf(dist);
-#endif
             explosion_mag += dist2 * 15.0f;
         }
     }

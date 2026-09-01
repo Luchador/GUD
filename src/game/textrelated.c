@@ -2,7 +2,6 @@
 #include <memp.h>
 #include "textrelated.h"
 #include "bondtypes.h"
-#include "game/language.h"
 
 
 #define SPACE_WIDTH 5
@@ -27,32 +26,12 @@ struct fontchar * ptrFontBankGothicChars = NULL;
 struct font * ptrFontZurichBold = NULL;
 struct fontchar * ptrFontZurichBoldChars = NULL;
 
-u16 g_JpnTextPalette0[16] = {
-    0x0000, 0x5555, 0xaaaa, 0xffff,
-    0x0000, 0x5555, 0xaaaa, 0xffff,
-    0x0000, 0x5555, 0xaaaa, 0xffff,
-    0x0000, 0x5555, 0xaaaa, 0xffff
-};
-
-u16 g_JpnTextPalette1[16] = {
-    0x0000, 0x0000, 0x0000, 0x0000,
-    0x5555, 0x5555, 0x5555, 0x5555,
-    0xAAAA, 0xAAAA, 0xAAAA, 0xAAAA,
-    0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF
-};
-
 extern u8 _fontbankgothicSegmentEnd;
 extern u8 _fontbankgothicSegmentRomStart;
 extern u8 _fontzurichboldSegmentEnd;
 extern u8 _fontzurichboldSegmentRomStart;
 extern u8 _fontzurichboldSegmentStart;
 extern u8 _fontbankgothicSegmentStart;
-
-// D_80040EFC
-struct fontchar g_JpnGlyphDefaults = {0, 0, 12, 11};
-
-// D_80040F14
-struct fontchar g_JpnGlyphDefaultsOutlined = {0, 0, 12, 11};
 
 // forward declarations
 
@@ -199,8 +178,6 @@ Gfx *gfxDrawTranslucentRect(Gfx *gdl, s32 ulx, s32 uly, s32 lrx, s32 lry, u32 co
  */
 Gfx *textRenderGlyph(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, struct fontchar *prevchar, struct font *font, s32 clipX, s32 clipY, s32 clipWidth, s32 clipHeight, s32 yOffset)
 {
-    s32 stack;
-    s32 stack2;
 	s32 kerningOffset;
     s32 drawY;
 
@@ -215,23 +192,8 @@ Gfx *textRenderGlyph(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar, struct 
 				&& *x >= clipX
 				&& curchar->baseline + drawY + curchar->height >= clipY)
         {
-            if (curchar->index < 0x80)
-            {
-                gDPSetTextureLUT(gdl++, G_TT_NONE);
-                gDPLoadTextureBlock(gdl++, curchar->pixeldata, G_IM_FMT_I, G_IM_SIZ_8b, ((curchar->width + 7) & 0xF8), curchar->height, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, 0, 0);
-            }
-            else
-            {
-                gDPPipeSync(gdl++);
-                gDPSetTextureLUT(gdl++, G_TT_IA16);
-                gDPSetTextureImage(gdl++, G_IM_FMT_CI, G_IM_SIZ_16b, 1,  osVirtualToPhysical((void *) curchar->pixeldata));
-                gDPSetTile(gdl++, G_IM_FMT_CI, G_IM_SIZ_16b, 0, 0x0000, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-                gDPLoadSync(gdl++);
-                gDPLoadBlock(gdl++, G_TX_LOADTILE, 0, 0, (curchar->height << 2) - 1, 0x800);
-                gDPPipeSync(gdl++);
-                gDPSetTile(gdl++, G_IM_FMT_CI, G_IM_SIZ_4b, 1, 0x0000, G_TX_RENDERTILE, (curchar->index & 1), G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOLOD, 2, 0, 0);
-                gDPSetTileSize(gdl++, G_TX_RENDERTILE, 0, 0, 0x3c, (curchar->height - 1) << 2);
-            }
+            gDPSetTextureLUT(gdl++, G_TT_NONE);
+            gDPLoadTextureBlock(gdl++, curchar->pixeldata, G_IM_FMT_I, G_IM_SIZ_8b, ((curchar->width + 7) & 0xF8), curchar->height, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, 0, 0);
 
             if ((*x + curchar->width) <= clipX + clipWidth)
             {
@@ -350,38 +312,11 @@ Gfx *textRender(Gfx *gdl, s32 *x, s32 *y, char *text, struct fontchar *chars, st
 			text++;
 			*x = savedx;
 		} 
-        else if (*text < 128) 
+        else
         {
 			gdl = textRenderGlyph(gdl, x, y, &chars[*text - 33], &chars[prevchar - 33], font, savedx, savedy, width, height, yOffset);
 			prevchar = *text;
 			text++;
-		} 
-        else 
-        {
-			u16 codepoint = ((*text & 0x7f) << 7) | (text[1] & 0x7f);
-			struct fontchar sp74 = g_JpnGlyphDefaults;
-
-			if (codepoint & 0x2000)
-            {
-				sp74.width = 15;
-				sp74.height = 16;
-			}
-
-#if defined(VERSION_EU) || defined(VERSION_JP)
-            if ((codepoint & 0x1fff) >= 0x3c8)
-#else
-			if ((codepoint & 0x1fff) >= 0x3c7)
-#endif
-            {
-				codepoint = 2;
-			}
-
-			sp74.index = codepoint + 0x80;
-			sp74.pixeldata = (void *)langGetJpnCharPixels(codepoint);
-
-			gdl = textRenderGlyph(gdl, x, y, &sp74, &sp74, font, savedx, savedy, width, height, yOffset);
-
-			text += 2;
 		}
 	}
 
@@ -414,23 +349,8 @@ Gfx *textRenderGlyphOutlined(Gfx *gdl, s32 *x, s32 *y, struct fontchar *curchar,
             && drawY + curchar->baseline <= clipY + clipHeight
             && *x >= clipX
             && drawY + curchar->baseline + curchar->height >= clipY) {
-        if (curchar->index < 0x80) 
-        {
-            gDPSetTextureLUT(gdl++, G_TT_NONE);
-            gDPLoadTextureBlock(gdl++, curchar->pixeldata, G_IM_FMT_I, G_IM_SIZ_8b, ((curchar->width + 7) & 0xF8), curchar->height, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, 0, 0);
-        } 
-        else 
-        {
-            gDPPipeSync(gdl++);
-            gDPSetTextureLUT(gdl++, G_TT_IA16);
-            gDPSetTextureImage(gdl++, G_IM_FMT_CI, G_IM_SIZ_16b, 1,  osVirtualToPhysical((void *) curchar->pixeldata));
-            gDPSetTile(gdl++, G_IM_FMT_CI, G_IM_SIZ_16b, 0, 0x0000, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-            gDPLoadSync(gdl++);
-            gDPLoadBlock(gdl++, G_TX_LOADTILE, 0, 0, (curchar->height << 2) - 1, 0x800);
-            gDPPipeSync(gdl++);
-            gDPSetTile(gdl++, G_IM_FMT_CI, G_IM_SIZ_4b, 1, 0x0000, G_TX_RENDERTILE, (curchar->index & 1), G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOLOD, 2, 0, 0);
-            gDPSetTileSize(gdl++, G_TX_RENDERTILE, 0, 0, 0x3c, (curchar->height - 1) << 2);
-        }
+        gDPSetTextureLUT(gdl++, G_TT_NONE);
+        gDPLoadTextureBlock(gdl++, curchar->pixeldata, G_IM_FMT_I, G_IM_SIZ_8b, ((curchar->width + 7) & 0xF8), curchar->height, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, 0, 0);
 
         /**
          * Render outlines.
@@ -551,14 +471,11 @@ Gfx *textDrawGlyphQuad(Gfx *gdl, s32 x, s32 y, struct fontchar *curchar, s32 cli
 /**
  * Draw strings of text with an outline.
  * Used for ammo counter, bottom left HUD messages, countdown timers.
- * Also used for rendering outlines on folder menu text in JP version.
  */
 Gfx *textRenderOutlined(Gfx *gdl, s32 *x, s32 *y, char *text, struct fontchar *chars, struct font *font, u32 colour, u32 colour2, s32 width, s32 height, s32 yOffset, s32 lineheight)
 {
-    u16 codepoint;
 	s32 savedy;
     s32 savedx;
-    struct fontchar sp74;
     s32 prevchar;
 
     savedx = *x;
@@ -585,37 +502,13 @@ Gfx *textRenderOutlined(Gfx *gdl, s32 *x, s32 *y, char *text, struct fontchar *c
             *y += lineheight;
 			text++;
 		}
-        else if (*text < 0x80)
+        else
         {
             // Render individual characters with outline.
             gdl = textRenderGlyphOutlined(gdl, x, y, &chars[*text - 0x21], &chars[prevchar - 0x21], font, savedx, savedy, colour, colour2, width, height, yOffset);
 
 			prevchar = *text;
 			text++;
-		} 
-        else
-        {
-            codepoint = ((*text & 0x7f) << 7) | (text[1] & 0x7f);
-            sp74 = g_JpnGlyphDefaultsOutlined;
-
-			if (codepoint & 0x2000)
-            {
-				sp74.width = 15;
-				sp74.height = 16;
-			}
-
-			if ((codepoint & 0x1fff) >= 0x3c7)
-            {
-				codepoint = 2;
-			}
-
-			sp74.index = codepoint + 0x80;
-			sp74.pixeldata = (void *)langGetJpnCharPixels(codepoint);
-
-            // Render Japanese characters with outline.
-            gdl = textRenderGlyphOutlined(gdl, x, y, &sp74, &sp74, font, savedx, savedy, colour, colour2, width, height, yOffset);
-
-			text += 2;
 		}
 	}
 
@@ -665,28 +558,13 @@ void textMeasure(s32 *textheight, s32 *textwidth, char *text, struct fontchar *f
             *textheight += lineheight;
             text++;
         }
-        else if (*text < 0x80)
+        else
         {
-            // Normal single-byte character
             tmp = font2->kerning[font1[prevchar - 0x21].kerningindex * 13 + font1[*text - 0x21].kerningindex] + text_spacing - 1;
             *textwidth = font1[*text - 0x21].width + *textwidth - tmp;
 
             prevchar = *text;
             text++;
-        }
-        else if (*text < 0xC0)
-        {
-            // Multi-byte character
-            tmp = font2->kerning[0] + text_spacing - 1;
-            *textwidth = *textwidth - tmp + 11;
-            text += 2;
-        }
-        else
-        {
-            // Multi-byte character
-            tmp = font2->kerning[0] + text_spacing - 1;
-            *textwidth = *textwidth - tmp + 15;
-            text += 2;
         }
     };
     
@@ -705,9 +583,7 @@ void textWrap(s32 wrapwidth, char *src, char *dst, struct fontchar *chars, struc
 	s32 wordwidth;
 	s32 wordheight = 0;
 	s32 more = 1;
-	s32 v1;
 	s32 i;
-	u32 stack;
 	char curword[32];
 
     while (more == 1)
@@ -715,23 +591,14 @@ void textWrap(s32 wrapwidth, char *src, char *dst, struct fontchar *chars, struc
 		// Load the next word
 		wordwidth = 0;
 		wordlen = 0;
-		v1 = 0;
 
         // Read one word into the curword buffer.
         while (*src > ' ')
         {
             curword[wordlen] = *src;
-			v1 += chars[*src - 0x21].width;
 			src++;
 			wordlen++;
 
-            if (curword[wordlen - 1] >= 0x80)
-            {
-                curword[wordlen] = *src;
-                v1 += chars[*src - 0x21].width;
-                src++;
-                wordlen++;
-            }
         }
         
         // Null terminate the word

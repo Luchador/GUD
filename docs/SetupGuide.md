@@ -25,7 +25,6 @@
 
 * clone this repository to a directory of your choosing
 * place an unmodified copy of your existing NTSC (US) ROM inside the root of this repository with the name `baserom.u.z64`
-  * optionally: if you want to extract assets from NTSC (JP) or PAL (EU), **additionally** place `baserom.j.z64` and `baserom.e.z64` into the root dir
 
 ## Install dependencies
 
@@ -117,21 +116,7 @@ To extract the NTSC (US) base rom assets run the following from root directory:
 ./scripts/extract_baserom.u.sh
 ```
 
-> **Extracting NTSC (US) base rom assets is mandatory before extracting NTSC (JP) or PAL (EU) assets.**
-
-To extract the NTSC (JP) base rom assets run the following from root directory:
-
-```bash
-./scripts/extract_baserom.u.sh && ./scripts/extract_diff.j.sh
-```
-
-To extract the PAL (EU) base rom assets run the following from root directory:
-
-```bash
-./scripts/extract_baserom.u.sh && ./scripts/extract_diff.e.sh
-```
-
-Other options to extract base rom assets or extract diff:
+Other asset-extraction options:
 
 ```bash
 ./scripts/extract_baserom.u.sh /path_to/rom.n64 # ROM in another directory
@@ -160,16 +145,15 @@ If all goes well, resulting artifacts can be found in the `build` directory and 
 build/u/ge007.u.z64: OK
 ```
 
-Other examples:
+To build the US debug configuration instead:
 
 ```bash
-make VERSION=JP -j4       # build NTSC (JP) version instead with 4 jobs
-make VERSION=EU COMPARE=0 # build PAL (EU) version but do not compare ROM hashes
+make VERSION=DEBUG
 ```
 
 The full list of configurable variables are listed below, **with the default being the first listed**:
 
-* ``VERSION``: ``US``, ``JP``, ``EU``
+* ``VERSION``: ``US``, ``DEBUG``
 * ``COMPARE``: ``1`` (compare ROM hash), ``0`` (do not compare ROM hash)
 * ``IDO_RECOMP``: ``YES`` (build with IDO recomp), ``NO`` (build using [qemu-irix](https://github.com/n64decomp/qemu-irix/releases))
 * ``FINAL``: ``YES`` (builds final version with -O2 optimization), ``NO`` (debug)
@@ -187,10 +171,10 @@ It is required that `qemu-irix` be installed and available.
 
 ### Environment
 
-The build uses the `US` version by default. Available options are `US`, `EU`, and `JP`. For example
+The build uses the optimized US English configuration by default. A US debug configuration is also available:
 
-    make clean VERSION=JP
-    make VERSION=JP
+    make clean VERSION=DEBUG
+    make VERSION=DEBUG
 
 ### C Compiler
 

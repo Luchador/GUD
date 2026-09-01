@@ -47,7 +47,7 @@ ConvertAIPRINT = sed -E -e ':loop s/PRINT\("(..*?)(.)"/PRINT\("\1",\x27\2\x27/g;
                 s/PRINT\((.*)\)/PRINT\(\1,\x27\\0\x27\,)/g; \
                 s/PRINT\((.*)\)/AI_PRINT,\1/g'
 
-# per VERSION flags
+# Per-build flags. Both configurations use the US English game data.
 ifeq ($(FINAL), YES)
  OPTIMIZATION := -O2
  LCDEFS :=
@@ -61,41 +61,21 @@ endif
 ifeq ($(VERSION), US)
  COUNTRYCODE := u
  OUTCODE := $(COUNTRYCODE)
- LANG := US
- LCDEFS := -DVERSION_US -DLANG_US -DREFRESH_NTSC -DLEFTOVERDEBUG -DBYTEMATCH
- ASMDEFS := --defsym VERSION_US=1 --defsym LANG_US=1 --defsym REFRESH_NTSC=1 --defsym LEFTOVERDEBUG=1 --defsym BYTEMATCH=1
- LDFILEOPTS := -DVERSION_$(LANG) -DOUTCODE=$(OUTCODE)
-endif
-
-ifeq ($(VERSION), EU)
- COUNTRYCODE := e
- OUTCODE := $(COUNTRYCODE)
- LANG := EU
- LCDEFS := -DVERSION_EU -DLANG_EU -DREFRESH_PAL -DBUGFIX_R1 -DBUGFIX_R2 -DBYTEMATCH
- ASMDEFS := --defsym VERSION_EU=1 --defsym LANG_EU=1 --defsym REFRESH_PAL=1 --defsym BUGFIX_R1=1 --defsym BUGFIX_R2=1 --defsym BYTEMATCH=1
- LDFILEOPTS := -DVERSION_$(LANG) -DOUTCODE=$(OUTCODE)
-endif
-
-ifeq ($(VERSION), JP)
- COUNTRYCODE := j
- OUTCODE := $(COUNTRYCODE)
- LANG := JP
- LCDEFS := -DVERSION_JP -DLANG_JP -DREFRESH_NTSC -DBUGFIX_R1 -DLEFTOVERDEBUG -DBYTEMATCH
- ASMDEFS := --defsym VERSION_JP=1 --defsym LANG_JP=1 --defsym REFRESH_NTSC=1 --defsym BUGFIX_R1=1 --defsym LEFTOVERDEBUG=1 --defsym BYTEMATCH=1
- LDFILEOPTS := -DVERSION_$(LANG) -DOUTCODE=$(OUTCODE)
+ LCDEFS := -DVERSION_US -DLEFTOVERDEBUG -DBYTEMATCH
+ ASMDEFS := --defsym VERSION_US=1 --defsym LEFTOVERDEBUG=1 --defsym BYTEMATCH=1
+ LDFILEOPTS := -DVERSION_US -DOUTCODE=$(OUTCODE)
 endif
 
 ifeq ($(VERSION), DEBUG)
  COUNTRYCODE := u
  OUTCODE := d
- LANG := US
- LCDEFS := -DVERSION_US -DLANG_US -DREFRESH_NTSC -DLEFTOVERDEBUG -DDEBUGMENU -DVERSION_DEBUG
- ASMDEFS := --defsym VERSION_DEBUG=1 --defsym LANG_US=1 --defsym REFRESH_NTSC=1 --defsym LEFTOVERDEBUG=1 --defsym DEBUGMENU=1
- LDFILEOPTS := -DVERSION_$(LANG) -DOUTCODE=$(OUTCODE)
+ LCDEFS := -DVERSION_US -DLEFTOVERDEBUG -DDEBUGMENU -DVERSION_DEBUG
+ ASMDEFS := --defsym VERSION_US=1 --defsym VERSION_DEBUG=1 --defsym LEFTOVERDEBUG=1 --defsym DEBUGMENU=1
+ LDFILEOPTS := -DVERSION_US -DOUTCODE=$(OUTCODE)
 endif
 
-ALLOWED_VERSIONS := US EU JP DEBUG
-ALLOWED_COUNTRYCODE := u e j
+ALLOWED_VERSIONS := US DEBUG
+ALLOWED_COUNTRYCODE := u d
 
 ifeq ($(filter $(VERSION),$(ALLOWED_VERSIONS)),)
  $(error Unsupported VERSION '$(VERSION)'. Supported values: $(ALLOWED_VERSIONS))
@@ -133,7 +113,7 @@ GAMEOBJECTS := $(foreach file,$(GAMEFILES_S),$(BUILD_DIR)/$(file:.s=.o)) \
 				$(foreach file,$(GAMEFILES_C),$(BUILD_DIR)/$(file:.c=.o))
 
 
-ASSET_DATAFILES := assets/oddtextures.c assets/animationtable_data.c assets/animationtable_entries.c assets/font_dl.c assets/font_chardataj.c assets/font_chardatae.c assets/rarewarelogo.c
+ASSET_DATAFILES := assets/oddtextures.c assets/animationtable_data.c assets/animationtable_entries.c assets/font_dl.c assets/font_chardatae.c assets/rarewarelogo.c
 ASSET_DATAOBJECTS := $(foreach file,$(ASSET_DATAFILES),$(BUILD_DIR)/$(file:.c=.o))
 
 ROMFILES2 := assets/romfiles2.s
@@ -229,7 +209,7 @@ OBJCOPY := $(TOOLCHAIN)objcopy
 .NOTPARALLEL: print_info create_directories $(APPROM)
 
 # Phony Recipes - These targets are not files, Get Make to do something
-.PHONY: print_info create_directories build_tools prerequisites all_p1 all default commonclean setupclean stanclean dataclean libultraclean codeclean clean nuke help cmdbuidler context extractassets forceextractassets textures extract_u extract_e extract_j force_extract_u force_extract_e force_extract_j extract_rsp extract_d
+.PHONY: print_info create_directories build_tools prerequisites all_p1 all default commonclean setupclean stanclean dataclean libultraclean codeclean clean nuke help cmdbuidler context extractassets forceextractassets textures extract_u force_extract_u extract_rsp extract_d
 
 
 # this file references variables defined above: BUILD_DIR, CFLAGWARNING, INCLUDE, LCDEFS
@@ -393,7 +373,7 @@ help:
 	@echo ""
 	@echo "  options:"
 	@echo ""
-	@echo "    VERSION=v                       Region version. (US is default)"
+	@echo "    VERSION=v                       Build configuration. (US is default)"
 	@echo "                                    Supported values: ${ALLOWED_VERSIONS}\n"
 
 include include/make/cmd.make
@@ -418,9 +398,9 @@ endif
 	@rm build/ctx.c build/ctx2.h || exit 0
 	@echo You can find it in Build [build/ctx.h].
 
-extractassets: extract_u extract_e extract_j
+extractassets: extract_u
 
-forceextractassets: force_extract_u force_extract_e force_extract_j
+forceextractassets: force_extract_u
 
 # The DEBUG build shares the US baserom's extracted assets.
 extract_d:
@@ -450,46 +430,6 @@ force_extract_u:
 		scripts/extract_baserom.u.sh; \
 	else \
 		echo "Error: baserom.u.z64 not found."; \
-	fi
-
-extract_e:
-	@if [ ! -f assets/obseg/text/e/LwaxP.bin ]; then \
-		echo "Extracting assets for e..."; \
-		if [ -f baserom.e.z64 ]; then \
-			scripts/extract_diff.e.sh; \
-		else \
-			echo "Error: baserom.e.z64 not found."; \
-		fi \
-	else \
-		echo "Assets for e already extracted."; \
-	fi
-
-force_extract_e:
-	@echo "Force extracting assets for e..."; \
-	if [ -f baserom.e.z64 ]; then \
-		scripts/extract_diff.e.sh; \
-	else \
-		echo "Error: baserom.e.z64 not found."; \
-	fi
-
-extract_j:
-	@if [ ! -f assets/obseg/text/j/LstatJ.bin ]; then \
-		echo "Extracting assets for j..."; \
-		if [ -f baserom.j.z64 ]; then \
-			scripts/extract_diff.j.sh; \
-		else \
-			echo "Error: baserom.j.z64 not found."; \
-		fi \
-	else \
-		echo "Assets for j already extracted."; \
-	fi
-
-force_extract_j:
-	@echo "Force extracting assets for j..."; \
-	if [ -f baserom.j.z64 ]; then \
-		scripts/extract_diff.j.sh; \
-	else \
-		echo "Error: baserom.j.z64 not found."; \
 	fi
 
 extract_rsp:

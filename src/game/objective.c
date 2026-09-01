@@ -27,9 +27,6 @@ void something_with_stage_objectives(void)
         }
     }
 
-#if defined(VERSION_JP) || defined(VERSION_EU)
-    objective_status_display_disabled = FALSE;
-#endif
 
     for (i = 0; i < OBJECTIVES_MAX; i++)
     {

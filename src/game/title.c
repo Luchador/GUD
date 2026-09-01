@@ -482,11 +482,7 @@ void initializeGunBarrelIntro(u8 *gfxBuffer, s32 bufferSize)
     modelSetAnimTranslationScale(chrModelInstance, 1.0f);
     setsuboffset(chrModelInstance, &sp50);
     setsubroty(chrModelInstance, 0.0f);
-#if defined(VERSION_EU)
-    #define S_7F008E80_ANIM_SPEED 0.6f
-#else
     #define S_7F008E80_ANIM_SPEED 0.5f
-#endif
     modelSetAnimPlaySpeed(chrModelInstance, S_7F008E80_ANIM_SPEED, 0.0f);
 #undef S_7F008E80_ANIM_SPEED
     
@@ -553,11 +549,7 @@ Gfx *renderGunbarrelEyeIntroSequence (Gfx *gdl) {
             word_CODE_bss_80069584 = 200;
             titleTransitionX = (g_TitleX - XDEC);
         } else {
-#if defined(VERSION_EU)
-            word_CODE_bss_80069584 -= 7;
-#else
             word_CODE_bss_80069584 -= 6;
-#endif
         }
         if (g_TitleX > 1390.0f) {
             gunbarrel_mode++;

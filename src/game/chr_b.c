@@ -36,13 +36,7 @@ struct Model *makeonebody(s32 body, s32 head, struct ModelFileHeader *bodyHeader
     opcode = 0;
     pov = CitemZ_entries[body].pov;
 
-    if (
-#ifdef BUGFIX_R1
-    cheatIsActive(CHEAT_DK_MODE) && chrCanUseDKModeScaling(body, head)
-#else
-    cheatIsActive(CHEAT_DK_MODE)
-#endif
-    )
+    if (cheatIsActive(CHEAT_DK_MODE))
     {
         scale *= 0.8f;
     }

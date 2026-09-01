@@ -52,9 +52,7 @@ void end_of_mission_briefing(void)
                 return;
             }
         }
-#ifdef VERSION_US
         g_NewCheatUnlocked = FALSE;
-#endif
     }
 }
 

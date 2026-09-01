@@ -1360,13 +1360,8 @@ Gfx *constructor_menu01_nintendo(Gfx *DL)
     gSPLight(DL++, &ninlogolight.l[0], 1); \
     gSPLight(DL++, &ninlogolight, 2);
 
-#if defined(VERSION_EU)
-    // 0x100000000 ? 0xFFFECD34 = 0x132CC (78540 decimal)
-    ambiantlight = 0xFF - ((s32) ((g_MenuTimer * 0xFF) + 0xFFFECD34) / 83);
-#else
     // 0x100000000 ? 0xFFFE8F72 = 0x1708E (94350 decimal)
     ambiantlight = 0xFF - ((s32) ((g_MenuTimer * 0xFF) + 0xFFFE8F72) / 100);
-#endif
     if (ambiantlight >= 0x100)
     {
         ambiantlight = 0xff;
@@ -1383,11 +1378,7 @@ Gfx *constructor_menu01_nintendo(Gfx *DL)
     ninlogolight.a.l.col[1] = ambiantlight;
     ninlogolight.a.l.col[0] = ambiantlight;
 
-#if defined(VERSION_EU)
-    ninLogoRotRate += 0.0209439527243f;
-#else
     ninLogoRotRate += 0.017453292f;
-#endif
 
     // Not sure if this is actually an `if` block, but the sp90 variable
     // needs to be declared here for the stack to match.
@@ -1398,11 +1389,7 @@ Gfx *constructor_menu01_nintendo(Gfx *DL)
         matrix_4x4_set_rotation_around_y(ninLogoRotRate, &tmpMtx);
         matrix_scalar_multiply_3(ninLogoScale, (f32*)&tmpMtx);
 
-#if defined(VERSION_EU)
-        ninLogoScale *= 1.09647190571f;
-#else
         ninLogoScale *= 1.07977f;
-#endif
         if (ninLogoScale > 1.1f)
         {
             ninLogoScale = 1.1f;
@@ -2085,11 +2072,7 @@ s32 interface_menu05_fileselect(void)
     }
 
     // Change to the legal screen if 30 seconds of no input have elapsed
-#if defined(VERSION_EU)
-    if (g_MenuTimer >= 1501) // PAL (50fps): 30 seconds + 1 frame
-#else
     if (g_MenuTimer >= 1801) // NTSC (60fps): 30 seconds + 1 frame
-#endif
     {
         frontChangeMenu(MENU_LEGAL_SCREEN, TRUE);
     }
@@ -2582,10 +2565,6 @@ Gfx* constructor_menu06_modesel(Gfx* DL)
 
     DL = viSetFillColor(DL,0,0,0);
     DL = viFillScreen(DL);
-    #ifdef VERSION_EU
-    DL = viFillScreen(DL);
-    DL = viFillScreen(DL);
-    #endif
     DL = frontSetupMenuBackground(DL);
     DL = gfxSetup2DTextureMode(DL);
 
@@ -3210,13 +3189,8 @@ Gfx *constructor_menu08_difficulty(Gfx *DL)
 
     DL = viSetFillColor(DL, 0, 0, 0);
     DL = viFillScreen(DL);
-#ifdef VERSION_EU
-    DL = viFillScreen(DL);
-    DL = viFillScreen(DL);
-#endif
     DL = frontSetupMenuBackground(DL);
 
-#ifndef VERSION_EU
     /**
      * MatchHack notes:
      *
@@ -3232,7 +3206,6 @@ Gfx *constructor_menu08_difficulty(Gfx *DL)
      * -BB Feb 3, 2022
     */
     stagename_struct = asc_D_8004F4B4;
-#endif
 
     DL = gfxSetup2DTextureMode(DL);
     DL = print_current_solo_briefing_stage_name(DL, &stagename_struct);
@@ -3486,9 +3459,7 @@ void interface_menu09_007options(void)
 }
 
 
-#if !defined(VERSION_EU)
 const struct MatchHack_front_rodata_3000 asc_D_80050074 = { "\n" };
-#endif
 
 /**
  * Render the 007 Mode options. The slider bars are 300 pixels wide and
@@ -3506,15 +3477,9 @@ Gfx *constructor_menu09_007options(Gfx *DL)
 
     DL = viSetFillColor(DL, 0, 0, 0);
     DL = viFillScreen(DL);
-#if defined(VERSION_EU)
-    DL = viFillScreen(DL);
-    DL = viFillScreen(DL);
-#endif
     DL = frontSetupMenuBackground(DL);
 
-#if !defined(VERSION_EU)
     textbuffer = asc_D_80050074;
-#endif
 
     DL = gfxSetup2DTextureMode(DL);
     DL = print_current_solo_briefing_stage_name(DL, (char*)&textbuffer);
@@ -4225,10 +4190,6 @@ Gfx * constructor_menu0E_mpoptions(Gfx *DL)
 
   DL = viSetFillColor(DL,0,0,0);
   DL = viFillScreen(DL);
-  #if defined(BUGFIX_R2)
-  DL = viFillScreen(DL);
-  DL = viFillScreen(DL);
-  #endif
   DL = frontSetupMenuBackground(DL);
   DL = gfxSetup2DTextureMode(DL);
   text = langGet(getStringID(LTITLE, TITLE_STR_76_MPOPTIONS));
@@ -5163,13 +5124,8 @@ void interface_menu11_mpcontrols(void)
     viSetZRange(100.0f, 10000.0f);
     viSetUseZBuf(0);
 
-#if defined(BUGFIX_R1)
-    #define MAYBE_OR_JOYCOUNT_NOT_4 || joyGetControllerCount() != 4
-    #define MAYBE_AND_JOYCOUNT_4 && joyGetControllerCount() == 4
-#else
     #define MAYBE_OR_JOYCOUNT_NOT_4
     #define MAYBE_AND_JOYCOUNT_4
-#endif
 
 
     for (i = 0; i < sp44; i++)
@@ -5234,20 +5190,6 @@ void interface_menu11_mpcontrols(void)
                 sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, DOOR_METAL_CLOSE2_SFX, NULL);
             }
 
-#if defined(VERSION_JP) || defined(VERSION_EU)
-            if (joyGetControllerCount() != 4)
-            {
-                if (controlstyle_player[PLAYER_1] >= CONTROLLER_CONFIG_PLENTY)
-                {
-                    controlstyle_player[PLAYER_1] = CONTROLLER_CONFIG_HONEY;
-                }
-
-                if (controlstyle_player[PLAYER_2] >= CONTROLLER_CONFIG_PLENTY)
-                {
-                    controlstyle_player[PLAYER_2] = CONTROLLER_CONFIG_HONEY;
-                }
-            }
-#endif
 
             if ((joyGetStickXInRange(i, -2, 1) == -1) || (joyGetStickXInRange(i, -2, 1) == 0))
             {
@@ -5792,10 +5734,6 @@ Gfx * constructor_menu13_mpscenario(Gfx *DL)
 
     DL = viSetFillColor(DL,0,0,0);
     DL = viFillScreen(DL);
-#ifdef VERSION_EU
-    DL = viFillScreen(DL);
-    DL = viFillScreen(DL);
-#endif
     DL = frontSetupMenuBackground(DL);
     DL = gfxSetup2DTextureMode(DL);
 
@@ -6584,10 +6522,6 @@ Gfx * constructor_menu0C_missionfailed(Gfx *DL)
 
     DL = viSetFillColor(DL, 0, 0, 0);
     DL = viFillScreen(DL);
-    #if defined(BUGFIX_R2)
-    DL = viFillScreen(DL);
-    DL = viFillScreen(DL);
-    #endif
     DL = frontSetupMenuBackground(DL);
     DL = gfxSetup2DTextureMode(DL);
     DL = print_current_solo_briefing_stage_name(DL, &stagename);
@@ -7158,11 +7092,6 @@ Gfx * constructor_menu15_cheat(Gfx *DL)
 
     DL = viSetFillColor(DL,0,0,0);
     DL = viFillScreen(DL);
-#ifdef VERSION_EU
-    DL = viFillScreen(DL);
-    DL = viFillScreen(DL);
-    DL = viFillScreen(DL);
-#endif
     DL = frontSetupMenuBackground(DL);
     DL = gfxSetup2DTextureMode(DL);
 
@@ -7488,11 +7417,7 @@ void init_menu18_displaycast(void)
     setsuboffset(cast_model, &subOffset);
     setsubroty(cast_model, 0.0f);
 
-#if defined VERSION_EU
-    modelSetAnimPlaySpeed(cast_model, 0.6f, 0);
-#else
     modelSetAnimPlaySpeed(cast_model, 0.5f, 0);
-#endif
     modelSetAnimation(cast_model, animation_table_ptrs1[intro_animation_table[randomly_selected_intro_animation].animID], flip, intro_animation_table[randomly_selected_intro_animation].startframeoffset, intro_animation_table[randomly_selected_intro_animation].playback_speed, 0.0f);
 
     g_MenuTimer = 0;

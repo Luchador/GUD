@@ -59,13 +59,8 @@
 #define BONDVIEW_UPPER_TEXT_TIMER_B 0x3c
 #define BONDVIEW_UPPER_TEXT_TIMER_C 0xf0
 
-#if defined(VERSION_US)
     #define BONDVIEW_2ND_FONTTABLE(_param) copy_2ndfonttable
     #define BONDVIEW_1ST_FONTTABLE(_param) copy_1stfonttable
-#elif defined(VERSION_JP)
-    #define BONDVIEW_2ND_FONTTABLE(_param) dword_CODE_bss_jp80079CEC[_param]
-    #define BONDVIEW_1ST_FONTTABLE(_param) dword_CODE_bss_jp80079Cd8[_param]
-#endif
 
 #define BONDVIEW_VIEW_TOP_OFFSET_1 0x0C
 #define BONDVIEW_VIEW_TOP_OFFSET_2 0x28
@@ -133,18 +128,9 @@ enum CAMERAMODE dword_CODE_bss_80079A18;
 s32 dword_CODE_bss_80079A1C;
 s32 mission_timer;
 
-#if defined(VERSION_JP)
-f32 watch_time_0;
-#else
 s32 watch_time_0;
-#endif
 
 char stringbuffer_lowerleft[0x5][BONDVIEW_HUD_MSG_BOTTOM_BUFFER_LENGTH];
-
-#if defined(BUGFIX_R1)
-s32 dword_CODE_bss_jp80079Cd8[0x05];
-s32 dword_CODE_bss_jp80079CEC[0x05];
-#endif
 
 PadRecord *g_Startpad[0x10];
 s32 startpadcount;
@@ -730,14 +716,6 @@ void bviewLoadPlayerChr(void)
             {
                 fileLoad(bodyheader, CitemZ_entries[body].filename);
             }
-#ifndef VERSION_US
-            if (CitemZ_entries[body].hasHead)
-            {
-                head       = -1;
-                headheader = NULL;
-            }
-            else
-#endif
             {
                 headheader = CitemZ_entries[head].header;
 
@@ -757,10 +735,6 @@ void bviewLoadPlayerChr(void)
         self->chrflags |= CHRFLAG_INIT;
         setsuboffset((*pp)->bodyModel, &(*pp)->prop->pos);
         setsubroty(g_CurrentPlayer->bodyModel, yaw);
-#ifndef VERSION_US
-        self->headnum = head;
-        self->bodynum = body;
-#endif
         prop = getPropForHeldItem(item);
 
         if (prop >= 0)
@@ -9074,11 +9048,7 @@ void record_damage_kills(f32 damage_amount, f32 vectorx, f32 vectorz, s32 player
                     }
                 }
 
-#if defined(VERSION_EU) || defined(VERSION_JP)
-    #define ZERO_7F08991C 0.0f
-#else
     #define ZERO_7F08991C 0
-#endif
                 if (g_CurrentPlayer->damageshowtime < ZERO_7F08991C)
                 {
                     g_CurrentPlayer->bondshotspeed.x = g_CurrentPlayer->bondshotspeed.x + 2.0f * vectorx;
@@ -9090,14 +9060,7 @@ void record_damage_kills(f32 damage_amount, f32 vectorx, f32 vectorz, s32 player
 
 #undef ZERO_7F08991C
 
-#if defined(VERSION_EU) || defined(VERSION_JP)
-                if (!lvGetControlsLockedFlag())
-                {
-                    sndPlaySfx(g_musicSfxBufferPtr, BOND_GET_HIT1_SFX, 0);
-                }
-#else
                 sndPlaySfx(g_musicSfxBufferPtr, BOND_GET_HIT1_SFX, 0);
-#endif
             }
         }
     }
@@ -9365,50 +9328,13 @@ void hudmsgsSetOff(s32 flags)
 }
 
 
-#ifdef VERSION_US
 void setFontTables(s32 arg0, s32 arg1)
 {
     copy_2ndfonttable = arg0;
     copy_1stfonttable = arg1;
 }
-#endif
 
 
-#ifdef BUGFIX_R1
-void hudmsgBottomShow(char *string, s32 font, s32 arg2)
-{
-    s32 abs_index;
-    s32 index;
-    if (getPlayerCount() == 1)
-    {
-        if (display_statusbar < 5)
-        {
-            abs_index = status_bar_text_buffer_index + display_statusbar;
-            index = abs_index % 5;
-            abs_index = index;
-            strncpy(stringbuffer_lowerleft[abs_index], string, (BONDVIEW_HUD_MSG_BOTTOM_BUFFER_LENGTH-1));
-            stringbuffer_lowerleft[abs_index][(BONDVIEW_HUD_MSG_BOTTOM_BUFFER_LENGTH-1)] = 0;
-            dword_CODE_bss_jp80079CEC[abs_index] = font;
-            dword_CODE_bss_jp80079Cd8[abs_index] = arg2;
-            display_statusbar++;
-        }
-    }
-    else
-    {
-        index = get_cur_playernum();
-        strncpy(stringbuffer_lowerleft[index], string, (BONDVIEW_HUD_MSG_BOTTOM_BUFFER_LENGTH-1));
-        stringbuffer_lowerleft[index][(BONDVIEW_HUD_MSG_BOTTOM_BUFFER_LENGTH-1)] = 0;
-        dword_CODE_bss_jp80079CEC[index] = font;
-        dword_CODE_bss_jp80079Cd8[index] = arg2;
-#if defined(VERSION_EU)
-        g_CurrentPlayer->bondmesscnt = 0x64;
-#elif defined(VERSION_JP)
-        g_CurrentPlayer->bondmesscnt = 0x78;
-#endif
-    }
-}
-
-#else
 #ifdef DEBUG
 void hudmsgBottomShow(char *mess, void *font)
 #else
@@ -9440,16 +9366,6 @@ void hudmsgBottomShow(char *mess)
         g_CurrentPlayer->bondmesscnt = 0x78;
     }
 }
-
-#endif
-
-
-#if defined(BUGFIX_R1)
-void jp_hudmsgBottomShow(char *string)
-{
-    hudmsgBottomShow(string, ptrFontBankGothicChars, ptrFontBankGothic);
-}
-#endif
 
 
 /**

@@ -6,11 +6,7 @@
 #include "lv.h"
 
 
-#ifdef VERSION_EU
-#define MP_MUSIC_FRAMERATE 50
-#else
 #define MP_MUSIC_FRAMERATE 60
-#endif
 
 s32 stageMusicID;
 s32 dword_CODE_bss_8008C604;
@@ -49,7 +45,6 @@ void set_missionstate(MISSION_STATE_ID arg0)
         case MISSION_STATE_0:
         switch (arg0)
         {
-#if defined(VERSION_US)
             case MISSION_STATE_0:
                 return;
             case MISSION_STATE_1:
@@ -73,37 +68,7 @@ void set_missionstate(MISSION_STATE_ID arg0)
                 break;
             case MISSION_STATE_6:
                 break;
-#endif
 
-#if defined(VERSION_JP) || defined(VERSION_EU)
-            case MISSION_STATE_0:
-                musicTrack1Stop();
-                musicTrack2Stop();
-                musicTrack3Stop();
-                return;
-            case MISSION_STATE_1: // switch 2
-                musicTrack1ApplySeqpVol(sub_GAME_7F0C0BF0());
-                g_musicXTrack1Fade = 0;
-                musicTrack1Play(musicGetMainTrackOrRandom(stageMusicID));
-                return;
-            case MISSION_STATE_2:
-                break;
-            case MISSION_STATE_3:
-                break;
-            case MISSION_STATE_4:
-                musicTrack1ApplySeqpVol(sub_GAME_7F0C0BF0());
-                g_musicXTrack1Fade = 0;
-                musicTrack1Play(musicGetMainTrackOrRandom(stageMusicID));
-                musicTrack3ApplySeqpVol(sub_GAME_7F0C0C10());
-                g_musicXTrack3Fade = 0;
-                musicTrack3Play(musicGetAmbientTrackForStage(stageMusicID));
-                return;
-                break;
-            case MISSION_STATE_5:
-                break;
-            case MISSION_STATE_6:
-                break;
-#endif
         }
 
         case MISSION_STATE_1:

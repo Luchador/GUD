@@ -68,7 +68,4 @@ char *LmiscE[] = {
  "Fast Animation", //MISC_STR_41
  "Slow Animation", //MISC_STR_42
  "No Radar [Multi]" //MISC_STR_43
- #ifdef VERSION_JP 
- ,"One minute left" //MISC_STR_44
- #endif
 };

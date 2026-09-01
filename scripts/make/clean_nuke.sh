@@ -27,4 +27,4 @@ rm -r -f -d assets/images/split/
 # delete binary files according to current source control directory structure.
 # fixes issues if directory structure changes ...
 echo "deleting assets"
-rm -r -f "assets/music/*.bin" "assets/obseg/bg/*.bin" "assets/obseg/brief/*.bin" "assets/obseg/chr/*.bin" "assets/obseg/gun/*.bin" "assets/obseg/prop/*.bin" "assets/obseg/setup/*.bin" "assets/obseg/setup/e/*.bin" "assets/obseg/setup/u/*.bin" "assets/obseg/setup/j/*.bin" "assets/obseg/stan/*.bin" "assets/obseg/text/*.bin" "assets/obseg/text/e/*.bin" "assets/obseg/text/u/*.bin" "assets/obseg/text/j/*.bin" "assets/ramrom/*.bin" "assets/ramrom/e/*.bin" "assets/ramrom/u/*.bin" "assets/ramrom/j/*.bin"
+rm -r -f "assets/music/*.bin" "assets/obseg/bg/*.bin" "assets/obseg/brief/*.bin" "assets/obseg/chr/*.bin" "assets/obseg/gun/*.bin" "assets/obseg/prop/*.bin" "assets/obseg/setup/*.bin" "assets/obseg/setup/u/*.bin" "assets/obseg/stan/*.bin" "assets/obseg/text/*.bin" "assets/ramrom/*.bin" "assets/ramrom/u/*.bin"

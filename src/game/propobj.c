@@ -3621,34 +3621,6 @@ bool chrobjSeparatingAxisTheorem(rect4f* rect1, s32 numvertices0, rect4f* rect2,
 */
 s32 chrobjTestPolygonsTouchingOrOverlap2D(struct rect4f *arg0, s32 arg1, struct rect4f *arg2, s32 arg3)
 {
-#if defined(VERSION_JP) || defined(VERSION_EU)
-    s32 i;
-    struct coord3d sp48;
-
-    for (i=0; i<arg1; i++)
-    {
-        sp48.f[0] = arg0->points[i].f[0];
-        sp48.f[1] = 0.0f;
-        sp48.f[2] = arg0->points[i].f[1];
-
-        if (chrpropTestPointInPolygon(&sp48, arg2, arg3) != 0)
-        {
-            return 1;
-        }
-    }
-
-    for (i=0; i<arg3; i++)
-    {
-        sp48.f[0] = arg2->points[i].f[0];
-        sp48.f[1] = 0.0f;
-        sp48.f[2] = arg2->points[i].f[1];
-
-        if (chrpropTestPointInPolygon(&sp48, arg0, arg1) != 0)
-        {
-            return 1;
-        }
-    }
-#endif
 
     if (chrobjSeparatingAxisTheorem(arg0, arg1, arg2, arg3))
     {
@@ -7562,23 +7534,6 @@ void objDeform(ObjectRecord *obj, E_EXPLOSIONTYPE explosiontype)
     
     vtxslot = (Vertex **) (&model->datas[rodata->RwDataIndex]);
     
-#ifdef VERSION_EU
-    if (obj->obj < PROP_WINDOW)
-    {
-        if (randomGetNext() & 1)
-        {
-            deformseed = (u16) object_explosion_details.seeds[obj->obj].seed[explosiontype];
-        }
-        else
-        {
-            deformseed = (u16) object_explosion_details.seeds[obj->obj].seed[explosiontype + 3];
-        }
-    }
-    else
-    {
-        deformseed = 0;
-    }
-#else
     if (randomGetNext() & 1)
     {
         deformseed = (u16) object_explosion_details[obj->obj].Seed[explosiontype];
@@ -7587,7 +7542,6 @@ void objDeform(ObjectRecord *obj, E_EXPLOSIONTYPE explosiontype)
     {
         deformseed = (u16) object_explosion_details[obj->obj].Seed[ymid = explosiontype + 3];
     }
-#endif
     
     if (deformseed == 0)
     {
@@ -7691,11 +7645,7 @@ void objDeform(ObjectRecord *obj, E_EXPLOSIONTYPE explosiontype)
     i = 0;
     ymid = (ymin + ymax) >> 1;
 
-#ifdef VERSION_EU
-    if (explosiontype == EXPLOSION_MEDIUM2)
-#else
     if ((explosiontype * 2) == EXPLOSION_SMALL)
-#endif
     {
         if ((ymid - ymin) >= 41)
         {
@@ -7705,11 +7655,7 @@ void objDeform(ObjectRecord *obj, E_EXPLOSIONTYPE explosiontype)
 
     if ((ymax - ymin) >= 61)
     {
-#ifdef VERSION_EU
-        if (explosiontype < EXPLOSION_MEDIUM2)
-#else
         if ((explosiontype * 2) < EXPLOSION_SMALL)
-#endif
         {
             yscale = 0.89999998f;
         }
@@ -7794,11 +7740,7 @@ void objDeform(ObjectRecord *obj, E_EXPLOSIONTYPE explosiontype)
                 ((Vertex *) (((u8 *) (*vtxslot)) + offset))->a = 255;
             }
             else
-#ifdef VERSION_EU
-            if (explosiontype == EXPLOSION_BREAK_OBJECT2)
-#else
             if ((explosiontype * 2) == EXPLOSION_MEDIUM)
-#endif
             {
                 ((Vertex *) (((u8 *) (*vtxslot)) + offset))->a = 0;
             }
@@ -7839,15 +7781,9 @@ void objBounce(ObjectRecord *obj, coord3d *arg1)
         projectile->speed.y = (RANDOMFRAC() * 1.6666666f * 2.0f) + 3.3333333f;
         projectile->speed.z = (RANDOMFRAC() * 1.6666666f * 4.0f) - 3.3333333f;
 
-#ifdef VERSION_EU
-        rot.x = (RANDOMFRAC() * 7.53982257843f * 0.015625f) - 0.058904863894f;
-        rot.y = (RANDOMFRAC() * 7.53982257843f * 0.015625f) - 0.058904863894f;
-        rot.z = (RANDOMFRAC() * 7.53982257843f * 0.015625f) - 0.058904863894f;
-#else
         rot.x = (RANDOMFRAC() * M_TAU_F * 0.015625f) - 0.049087387f;
         rot.y = (RANDOMFRAC() * M_TAU_F * 0.015625f) - 0.049087387f;
         rot.z = (RANDOMFRAC() * M_TAU_F * 0.015625f) - 0.049087387f;
-#endif
 
         matrix_4x4_set_rotation_around_xyz((f32*)&rot, &projectile->mtx);
 
@@ -13552,19 +13488,11 @@ TICKOP propdoorInteract(PropRecord* doorprop)
             txt = bondinvGetTextbyObj((ObjectRecord*)door);
             if ((txt != NULL) && (txt->pickuptext != 0))
             {
-#ifdef VERSION_US
                 hudmsgBottomShow(langGet((s32) txt->pickuptext));
-#else
-                jp_hudmsgBottomShow(langGet((s32) txt->pickuptext));
-#endif
             }
             else
             {
-#ifdef VERSION_US
                 hudmsgBottomShow(langGet(0xA440));
-#else
-                jp_hudmsgBottomShow(langGet(0xA440));
-#endif
             }
         }
 
@@ -13663,11 +13591,7 @@ void handle_gas_damage(void)
 
         if (gasDoesDamageFlag == 0) { return; }
 
-#ifdef VERSION_EU
-        if (D_80030ADC < (g_GlobalTimer - 0xBB))
-#else
         if (D_80030ADC < (g_GlobalTimer - 0xE1))
-#endif
         {
             D_80030ADC = g_GlobalTimer;
             if (toxic_gas_sound_timer >= 600.0f)
@@ -13778,11 +13702,7 @@ Gfx *countdownTimerRender(Gfx *DL)
 
         DL = gfxSetup2DTextureMode(DL);
 
-        #if defined(VERSION_US) || defined(VERSION_JP)
             valign_offset = 18;
-        #else
-            valign_offset = 28;
-        #endif
 
         // Minutes
         DL = gunDrawHudInteger(DL, (mins % 100) / 10, 0x82, HUDHALIGN_MIDDLE, ( viGetViewTop() + viGetViewHeight()) - valign_offset, HUDVALIGN_MIDDLE, 1);

@@ -392,13 +392,6 @@ $(BUILD_DIR)/src/libultrare/gu/%.o: src/libultrare/gu/%.s
 # io
 # #################
 
-# io is -O1, except for EU which is -O2
-
-ifeq ($(VERSION), EU)
-$(BUILD_DIR)/src/libultrare/io/vimgr.o: LIBULTRA_OPTIMIZATION := -O2
-$(BUILD_DIR)/src/libultrare/io/pimgr.o: LIBULTRA_OPTIMIZATION := -O2
-endif
-
 $(BUILD_DIR)/src/libultra/io/%.o: src/libultra/io/%.c
 	$(CC) -c $(CFLAGS_LIBULTRA) -o $@ $<
 

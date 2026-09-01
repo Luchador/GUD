@@ -286,24 +286,5 @@ char *LtitleE[] = {
  "2.4 Goodhead\n", //TITLE_STR_284
  "Select Control Style\n", //TITLE_STR_285
  "Control Style\n", //TITLE_STR_286
- #ifdef LANG_US 
  0 //TITLE_STR_287_RUSSIANSOLDIER
- #endif
- #ifdef LANG_JP
- "Russian Soldier\n", //TITLE_STR_287_RUSSIANSOLDIER
- "Russian Infantry\n", //TITLE_STR_288_RUSSIANINFANTRY
- "Scientist\n", //TITLE_STR_289_SCIENTIST
- "Russian Commandant\n", //TITLE_STR_290_RUSSIANCOMMANDANT
- "Janus Marine\n", //TITLE_STR_291_JANUSMARINE
- "Naval Officer\n", //TITLE_STR_292_NAVALOFFICER
- "Helicopter Pilot\n", //TITLE_STR_293_HELICOPTERPILOT
- "St. Petersburg Guard\n", //TITLE_STR_294_STPETERSBURGARD
- "Civilian\n", //TITLE_STR_295_CIVILIAN
- "Siberian Guard\n", //TITLE_STR_296_SIBERIANGUARD
- "Arctic Commando\n", //TITLE_STR_297_ARCTICCOMMANDO
- "Siberian Special Forces\n", //TITLE_STR_298_SIBERIANSPECIALFORCES
- "Jungle Commando\n", //TITLE_STR_299_JUNGLECOMMANDO
- "Janus Special Forces\n", //TITLE_STR_300_JANUSSPECIALFORCES
- "Moonraker Elite\n" //TITLE_STR_301_MOONRAKERELITE
- #endif
 };

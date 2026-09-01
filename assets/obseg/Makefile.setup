@@ -1,5 +1,8 @@
 # setup
 
+# The EU setup sources under setup/e are retained as bug-fix references, but
+# are not selected by either supported build configuration.
+
 # Combine both lists
 ALL_SETUP_NAMES := $(SETUPNAMELIST) $(MPSETUPNAMELIST)
 

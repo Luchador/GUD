@@ -3462,24 +3462,13 @@ u8 *sub_GAME_7F0AC120(u8 *arg)
                 ret = arg;
             }
         }
-#if defined(VERSION_EU)
-        else
-        {
             arg++;
-        }
-#else
-            arg++;
-#endif
     }
 
     return ret;
 }
 
 
-#if defined(VERSION_EU)
-//D:800577C0
-const char D_800577C0[] = "\n";
-#endif
 
 
 Gfx *draw_watch_mission_briefing_page(Gfx *gdl, Mtx *param_2)
@@ -3498,11 +3487,7 @@ Gfx *draw_watch_mission_briefing_page(Gfx *gdl, Mtx *param_2)
         struct font *font = ptrFontBankGothic;
         struct fontchar *chars = ptrFontBankGothicChars;
 
-#if defined(VERSION_EU)
-            char wrappedText[3000];
-#else
             char wrappedText[3000] = "\n";
-#endif
 
         char pageTitle[0x20];
         char *completeText;
@@ -3520,9 +3505,6 @@ Gfx *draw_watch_mission_briefing_page(Gfx *gdl, Mtx *param_2)
         failedText = langGet(0xac37);
         titleText = get_ptr_text_for_watch_breifing_page(BRIEFING_TITLE);
 
-#if defined(VERSION_EU)
-        strcpy(wrappedText, D_800577C0);
-#endif
 
         gdl = gfxSetup2DTextureMode(gdl);
         textMeasure(&textHeight, &textWidth, titleText, chars, font, 0);

@@ -5,14 +5,6 @@
 #include <io/piint.h>
 #include "../libultrare.h"
 
-#ifdef VERSION_EU
-
-u8 leoDiskStack[10];
-
-s32 __osLeoInterrupt()
-{
-}
-#else
 //TODO: so many magic constants :'(
 static void __osLeoResume(void);
 static void __osLeoAbnormalResume(void);
@@ -266,4 +258,3 @@ static void __osLeoResume(void)
 	if (mq->mtqueue->next != NULL)
 		__osEnqueueThread(&__osRunQueue, __osPopThread(&mq->mtqueue));
 }
-#endif

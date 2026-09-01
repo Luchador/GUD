@@ -817,19 +817,11 @@ void gunRequestHandWeaponChange(enum GUNHAND hand, s32 nextWeapon, s32 cycleDire
     {
         g_CurrentPlayer->hands[hand].field_8B0 = g_CurrentPlayer->hands[hand].field_890;
 
-#ifdef VERSION_EU
-        if (getPlayerCount() == 1) {
-            g_CurrentPlayer->hands[hand].field_8B0 += 0xE;
-        } else {
-            g_CurrentPlayer->hands[hand].field_8B0 += 0xA;
-        }
-#else
         if (getPlayerCount() == 1) {
             g_CurrentPlayer->hands[hand].field_8B0 += 0x11;
         } else {
             g_CurrentPlayer->hands[hand].field_8B0 += 0xD;
         }
-#endif
     }
 
     if (get_next_weapon_in_cycle_for_hand(hand, 0) != nextWeapon)
