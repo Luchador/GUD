@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "project.h"
 #include "resource.h"
 #include "viewport.h"
 
@@ -15,6 +16,7 @@
 #define GEDITOR_HEIGHT  1080
 
 static HWND g_Viewport;
+static GEditorProject g_Project;
 
 /*
  * Menu command IDs. Every clickable item needs one; it is the number
@@ -338,6 +340,23 @@ static BOOL GEditorPromptForProject(HWND hwnd, char *pathout, DWORD pathmax)
 }
 
 
+static void GEditorSetTitleForProject(HWND hwnd)
+{
+    char title[GEDITOR_NAME_MAX + 32];
+    
+    if (g_Project.name[0] != '\0')
+    {
+        snprintf(title, sizeof(title), "%s - %s", GEDITOR_TITLE, g_Project.name);
+    }
+    else
+    {
+        snprintf(title, sizeof(title), "%s", GEDITOR_TITLE);
+    }
+
+    SetWindowText(hwnd, title);
+}
+
+
 static void GEditorLayout(HWND hwnd)
 {
     RECT rc;
@@ -378,37 +397,44 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     case WM_COMMAND:
         switch (LOWORD(wparam))
         {
-        case ID_FILE_NEW_PROJECT:
-        {
-            NewProjectInfo info;
-
-            if (GEditorPromptForNewProject(hwnd, &info))
+            /**
+             * Create a new project.
+             */
+            case ID_FILE_NEW_PROJECT:
             {
-                char text[GEDITOR_NAME_MAX + MAX_PATH + 64];
+                NewProjectInfo info;
 
-                /* Nothing is created yet - show what we would make. */
-                wsprintf(text, "Project: %s\nLocation: %s", info.name, info.location);
-                MessageBox(hwnd, text, GEDITOR_TITLE, MB_OK | MB_ICONINFORMATION);
+                if (GEditorPromptForNewProject(hwnd, &info))
+                {
+                    if (ProjectCreate(info.name, info.location, &g_Project))
+                    {
+                        GEditorSetTitleForProject(hwnd);
+                    }
+                    else
+                    {
+                        MessageBox(hwnd, "Could not create the project.", GEDITOR_TITLE, MB_ICONERROR);
+                    }
+                }
+                return 0;
             }
-            return 0;
-        }
 
-        case ID_FILE_OPEN_PROJECT:
-        {
-            char path[MAX_PATH];
-
-            if (GEditorPromptForProject(hwnd, path, sizeof(path)))
+            case ID_FILE_OPEN_PROJECT:
             {
-                /* Nothing loads yet - show what we would open. */
-                MessageBox(hwnd, path, GEDITOR_TITLE, MB_OK | MB_ICONINFORMATION);
-            }
-            return 0;
-        }
+                char path[MAX_PATH];
 
-        case ID_FILE_EXIT:
-            SendMessage(hwnd, WM_CLOSE, 0, 0);
-            return 0;
-        }
+                if (GEditorPromptForProject(hwnd, path, sizeof(path)))
+                {
+                    /* Nothing loads yet - show what we would open. */
+                    MessageBox(hwnd, path, GEDITOR_TITLE, MB_OK | MB_ICONINFORMATION);
+                }
+                return 0;
+            }
+
+            case ID_FILE_EXIT:
+                SendMessage(hwnd, WM_CLOSE, 0, 0);
+                return 0;
+            }
+
         break; /* anything else falls through to DefWindowProc */
 
     case WM_DESTROY:
