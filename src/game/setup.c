@@ -421,11 +421,11 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
                     sp54 /= sp48;
                     sp50 /= sp48;
 
+                    /**
+                     * Object scale is unacceptably small, scale it to 1.0.
+                     */
                     if ((sp58 <= 0.000001f) || (sp54 <= 0.000001f) || (sp50 <= 0.000001f))
                     {
-                        #ifdef DEBUG
-                        osSyncPrintf("Scale warning: object number %d has a small scale: %f,%f,%f\n",cmdindex +1, sp58,sp54,sp50);
-                        #endif
                         sp50 = 1.0f;
                         sp54 = 1.0f;
                         sp58 = 1.0f;
@@ -455,12 +455,6 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
             chrpropActivate(prop);
             chrpropEnable(prop);
         }
-        #ifdef DEBUG
-        else
-        {
-            osSyncPrintf("domakedefaultobj: prop obj number %d not reset!\n",cmdindex + 1);
-        }
-        #endif
     }
 }
 
@@ -519,12 +513,6 @@ void weaponAssignToHome(s32 arg0, WeaponObjRecord* weapon, s32 cmdindex)
             weaponLoadProjectileModels((s8)weapon->weaponnum);
             sub_GAME_7F052030(weapon, chr);
         }
-        #ifdef DEBUG
-        else
-        {
-            osSyncPrintf("domakeweaponobj: no chr number %d for obj number %d!\n",weapon->pad, cmdindex + 1);
-        }
-        #endif
     }
     else
     {
