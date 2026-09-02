@@ -20,6 +20,8 @@ uint32_t var800ab544;
 int var800ab548;
 int total_read;
 void *g_RzipUnused;
+static uint8_t *g_TexInputEnd;
+static bool g_TexReadError;
 
 extern int g_TexFormatNumChannels[];
 extern int g_TexFormatHas1BitAlpha[];
@@ -28,28 +30,37 @@ extern int g_TexFormatBitsPerPixel[];
 
 void pdtex_flip(struct pd_tex *tex);
 
-int rzipInflate(uint8_t *src, uint8_t *dst, uint32_t output_size)
+static int rzipInflate(uint8_t *src, uint32_t input_size, uint8_t *dst, uint32_t output_size)
 {
+	uint32_t header_size;
 	int ret;
 	z_stream strm;
 
+	if (input_size < 2) {
+		return Z_DATA_ERROR;
+	}
+
 	if (src[0] == 0x11 && src[1] == 0x73) {
-		src += 5;
+		header_size = 5;
 	} else if (src[0] == 0x11 && src[1] == 0x72) {
-		src += 2;
+		header_size = 2;
 	} else {
 		fprintf(stderr, "rzipInflate: Not 1172 or 1173\n");
-		fprintf(stderr, "%02x ", src[0]);
-		fprintf(stderr, "%02x ", src[1]);
-		fprintf(stderr, "%02x ", src[2]);
-		fprintf(stderr, "%02x ", src[3]);
-		fprintf(stderr, "%02x ", src[4]);
-		fprintf(stderr, "%02x ", src[5]);
-		fprintf(stderr, "%02x ", src[6]);
-		fprintf(stderr, "%02x ", src[7]);
+
+		for (uint32_t i = 0; i < input_size && i < 8; i++) {
+			fprintf(stderr, "%02x ", src[i]);
+		}
+
 		fprintf(stderr, "\n");
 		return Z_STREAM_ERROR;
 	}
+
+	if (input_size <= header_size) {
+		return Z_DATA_ERROR;
+	}
+
+	src += header_size;
+	input_size -= header_size;
 
 	strm.zalloc = Z_NULL;
 	strm.zfree = Z_NULL;
@@ -60,7 +71,7 @@ int rzipInflate(uint8_t *src, uint8_t *dst, uint32_t output_size)
 		return ret;
 	}
 
-	strm.avail_in = 0x2000;
+	strm.avail_in = input_size;
 	strm.next_in = src;
 	strm.avail_out = output_size;
 	strm.next_out = dst;
@@ -96,7 +107,17 @@ static int texReadBits(int numbits)
 {
 	uint32_t mask;
 
+	if (numbits < 0 || numbits > 32) {
+		g_TexReadError = true;
+		return 0;
+	}
+
 	while (var800ab548 < numbits) {
+		if (var800ab540 >= g_TexInputEnd) {
+			g_TexReadError = true;
+			return 0;
+		}
+
 		var800ab544 = *var800ab540 | var800ab544 << 8;
 		var800ab540++;
 		var800ab548 += 8;
@@ -109,7 +130,7 @@ static int texReadBits(int numbits)
 	return var800ab544 >> var800ab548 & mask;
 }
 
-static void texInflateHuffman(uint8_t *dst, int numiterations, int chansize)
+static int texInflateHuffman(uint8_t *dst, int numiterations, int chansize)
 {
 	uint16_t frequencies[2048];
 	int16_t nodes[2048][2];
@@ -122,21 +143,30 @@ static void texInflateHuffman(uint8_t *dst, int numiterations, int chansize)
 	int32_t minindex2 = 1;
 	bool done = false;
 
-	// Read the frequencies list
+	if (chansize < 1 || chansize >= 2048 || numiterations < 0) {
+		return 0;
+	}
+
+	// Initialise the frequency table and tree.
+	for (i = 0; i < 2048; i++) {
+		frequencies[i] = 9999;
+		nodes[i][0] = -1;
+		nodes[i][1] = -1;
+	}
+
+	// Read the frequencies list.
 	for (i = 0; i < chansize; i++) {
 		frequencies[i] = texReadBits(8);
+	}
+
+	if (g_TexReadError) {
+		return 0;
 	}
 
 	// A one-symbol alphabet needs no tree or encoded index bits.
 	if (chansize == 1) {
 		memset(dst, 0, numiterations);
-		return;
-	}
-
-	// Initialise the tree
-	for (i = 0; i < 2048; i++) {
-		nodes[i][0] = -1;
-		nodes[i][1] = -1;
+		return 1;
 	}
 
 	// Find the two smallest frequencies
@@ -194,7 +224,17 @@ static void texInflateHuffman(uint8_t *dst, int numiterations, int chansize)
 				nodes[minindex2][1] = minindex1;
 			}
 		} else {
-			for (rootindex = 0; nodes[rootindex][0] >= 0 || nodes[rootindex][1] >= 0 || frequencies[rootindex] < 9999; rootindex++);
+			for (rootindex = 0; rootindex < 2048; rootindex++) {
+				if (nodes[rootindex][0] < 0
+						&& nodes[rootindex][1] < 0
+						&& frequencies[rootindex] >= 9999) {
+					break;
+				}
+			}
+
+			if (rootindex == 2048) {
+				return 0;
+			}
 
 			frequencies[rootindex] = sum;
 			nodes[rootindex][0] = minindex1;
@@ -231,7 +271,19 @@ static void texInflateHuffman(uint8_t *dst, int numiterations, int chansize)
 		int indexorvalue = rootindex;
 
 		while (indexorvalue < 10000) {
+			if (indexorvalue < 0 || indexorvalue >= 2048) {
+				return 0;
+			}
+
 			indexorvalue = nodes[indexorvalue][texReadBits(1)];
+
+			if (g_TexReadError) {
+				return 0;
+			}
+		}
+
+		if (indexorvalue < 10000 || indexorvalue >= 10000 + chansize) {
+			return 0;
 		}
 
 		if (chansize <= 256) {
@@ -242,9 +294,11 @@ static void texInflateHuffman(uint8_t *dst, int numiterations, int chansize)
 			dst[i * 2 + 1] = value & 0xff;
 		}
 	}
+
+	return 1;
 }
 
-static void texInflateRle(uint8_t *dst, int blockstotal)
+static int texInflateRle(uint8_t *dst, int blockstotal)
 {
 	int btfieldsize = texReadBits(3);
 	int rlfieldsize = texReadBits(3);
@@ -253,6 +307,10 @@ static void texInflateRle(uint8_t *dst, int blockstotal)
 	int fudge;
 	int blocksdone;
 	int i;
+
+	if (g_TexReadError || blockstotal < 0) {
+		return 0;
+	}
 
 	// Calculate the fudge value
 	cost = btfieldsize + rlfieldsize + blocksize + 1;
@@ -281,8 +339,18 @@ static void texInflateRle(uint8_t *dst, int blockstotal)
 			int startblockindex = blocksdone - texReadBits(btfieldsize) - 1;
 			int runnumblocks = texReadBits(rlfieldsize) + fudge;
 
+			if (g_TexReadError
+					|| startblockindex < 0
+					|| runnumblocks > blockstotal - blocksdone - 1) {
+				return 0;
+			}
+
 			if (blocksize <= 8) {
 				for (i = startblockindex; i < startblockindex + runnumblocks; i++) {
+					if (i >= blocksdone) {
+						return 0;
+					}
+
 					dst[blocksdone] = dst[i];
 					blocksdone++;
 				}
@@ -294,6 +362,10 @@ static void texInflateRle(uint8_t *dst, int blockstotal)
 				uint16_t *tmp = (uint16_t *)dst;
 
 				for (i = startblockindex; i < startblockindex + runnumblocks; i++) {
+					if (i >= blocksdone) {
+						return 0;
+					}
+
 					tmp[blocksdone] = tmp[i];
 					blocksdone++;
 				}
@@ -303,7 +375,13 @@ static void texInflateRle(uint8_t *dst, int blockstotal)
 				blocksdone++;
 			}
 		}
+
+		if (g_TexReadError) {
+			return 0;
+		}
 	}
+
+	return 1;
 }
 
 static int texBuildLookup(uint8_t *lookup, int bitsperpixel)
@@ -327,7 +405,7 @@ static int texBuildLookup(uint8_t *lookup, int bitsperpixel)
 		}
 	} else {
 		for (i = 0; i < numcolours; i++) {
-			uint32_t value = texReadBits(24) << 8 | texReadBits(bitsperpixel - 24);
+			uint32_t value = (uint32_t)texReadBits(24) << 8 | texReadBits(bitsperpixel - 24);
 
 			lookup[i * 4 + 0] = (value >> 24);
 			lookup[i * 4 + 1] = (value >> 16) & 0xff;
@@ -844,6 +922,7 @@ static int texInflateZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 	for (int i = 0; i < numimages; i++) {
 		struct pd_image *image = &tex->images[i];
 		uint8_t *scratch;
+		uint32_t input_size;
 		uint32_t pixel_count;
 		uint32_t index_data_size;
 
@@ -872,7 +951,14 @@ static int texInflateZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 			return 0;
 		}
 
-		if (rzipInflate(var800ab540, scratch, index_data_size) != Z_OK) {
+		if (g_TexReadError || var800ab540 >= g_TexInputEnd) {
+			free(scratch);
+			return 0;
+		}
+
+		input_size = g_TexInputEnd - var800ab540;
+
+		if (rzipInflate(var800ab540, input_size, scratch, index_data_size) != Z_OK) {
 			free(scratch);
 			return 0;
 		}
@@ -923,7 +1009,11 @@ static int texInflateNonZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 			texReadUncompressed(image);
 			break;
 		case PDCOMPRESSION_HUFFMAN:
-			texInflateHuffman(scratch, g_TexFormatNumChannels[image->format] * image->width * image->height, g_TexFormatChannelSizes[image->format]);
+			if (!texInflateHuffman(scratch,
+					g_TexFormatNumChannels[image->format] * image->width * image->height,
+					g_TexFormatChannelSizes[image->format])) {
+				return 0;
+			}
 
 			if (g_TexFormatHas1BitAlpha[image->format]) {
 				texReadAlphaBits(&scratch[image->width * image->height * 3], image->width * image->height);
@@ -933,7 +1023,11 @@ static int texInflateNonZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 			break;
 		case PDCOMPRESSION_HUFFMANPERHCHANNEL:
 			for (int j = 0; j < g_TexFormatNumChannels[image->format]; j++) {
-				texInflateHuffman(&scratch[image->width * image->height * j], image->width * image->height, g_TexFormatChannelSizes[image->format]);
+				if (!texInflateHuffman(&scratch[image->width * image->height * j],
+						image->width * image->height,
+						g_TexFormatChannelSizes[image->format])) {
+					return 0;
+				}
 			}
 
 			if (g_TexFormatHas1BitAlpha[image->format]) {
@@ -943,7 +1037,10 @@ static int texInflateNonZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 			texChannelsToPixels(scratch, image->width, image->height, image->pixels, image->format);
 			break;
 		case PDCOMPRESSION_RLE:
-			texInflateRle(scratch, g_TexFormatNumChannels[image->format] * image->width * image->height);
+			if (!texInflateRle(scratch,
+					g_TexFormatNumChannels[image->format] * image->width * image->height)) {
+				return 0;
+			}
 
 			if (g_TexFormatHas1BitAlpha[image->format]) {
 				texReadAlphaBits(&scratch[image->width * image->height * 3], image->width * image->height);
@@ -967,7 +1064,10 @@ static int texInflateNonZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 				return 0;
 			}
 
-			texInflateHuffman(scratch, image->width * image->height, value);
+			if (!texInflateHuffman(scratch, image->width * image->height, value)) {
+				return 0;
+			}
+
 			texInflateLookupFromBuffer(scratch, image->width, image->height, image->pixels, lookup, value, image->format);
 			break;
 		case PDCOMPRESSION_RLELOOKUP:
@@ -977,12 +1077,21 @@ static int texInflateNonZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 				return 0;
 			}
 
-			texInflateRle(scratch, image->width * image->height);
+			if (!texInflateRle(scratch, image->width * image->height)) {
+				return 0;
+			}
+
 			texInflateLookupFromBuffer(scratch, image->width, image->height, image->pixels, lookup, value, image->format);
 			break;
 		case PDCOMPRESSION_HUFFMANBLUR:
 			value = texReadBits(3);
-			texInflateHuffman(scratch, g_TexFormatNumChannels[image->format] * image->width * image->height, g_TexFormatChannelSizes[image->format]);
+
+			if (!texInflateHuffman(scratch,
+					g_TexFormatNumChannels[image->format] * image->width * image->height,
+					g_TexFormatChannelSizes[image->format])) {
+				return 0;
+			}
+
 			texBlur(scratch, image->width, g_TexFormatNumChannels[image->format] * image->height, value, g_TexFormatChannelSizes[image->format]);
 
 			if (g_TexFormatHas1BitAlpha[image->format]) {
@@ -993,7 +1102,12 @@ static int texInflateNonZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 			break;
 		case PDCOMPRESSION_RLEBLUR:
 			value = texReadBits(3);
-			texInflateRle(scratch, g_TexFormatNumChannels[image->format] * image->width * image->height);
+
+			if (!texInflateRle(scratch,
+					g_TexFormatNumChannels[image->format] * image->width * image->height)) {
+				return 0;
+			}
+
 			texBlur(scratch, image->width, g_TexFormatNumChannels[image->format] * image->height, value, g_TexFormatChannelSizes[image->format]);
 
 			if (g_TexFormatHas1BitAlpha[image->format]) {
@@ -1004,8 +1118,16 @@ static int texInflateNonZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 			break;
 		}
 
+		if (g_TexReadError) {
+			return 0;
+		}
+
 		if (var800ab548 == 0) {
-			var800ab540++;
+			if (var800ab540 < g_TexInputEnd) {
+				var800ab540++;
+			} else if (i + 1 < numimages) {
+				return 0;
+			}
 		} else {
 			var800ab548 = 0;
 		}
@@ -1068,9 +1190,11 @@ int reader_read(FILE *fp, struct pd_tex *tex)
 		return 0;
 	}
 
+	g_TexInputEnd = buffer + len;
+	g_TexReadError = false;
 	texSetBitstring(buffer);
 
-	if (!texLoad(tex)) {
+	if (!texLoad(tex) || g_TexReadError) {
 		free(buffer);
 		return 0;
 	}

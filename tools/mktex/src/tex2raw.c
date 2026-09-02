@@ -273,6 +273,7 @@ int main(int argc, char **argv)
 	size_t count = 0;
 	size_t sizes_capacity = 0;
 	uint32_t *sizes = NULL;
+	int trace = getenv("TEX2RAW_TRACE") != NULL;
 	int result = 1;
 
 	if (argc != 5) {
@@ -299,6 +300,12 @@ int main(int argc, char **argv)
 		}
 
 		*third_comma = '\0';
+
+		if (trace) {
+			fprintf(stderr, "tex2raw: decoding [%zu] %s\n", count, second_comma + 1);
+			fflush(stderr);
+		}
+
 		texture = pdtex_allocate();
 
 		if (!texture || pdtex_read_native(texture, second_comma + 1) != 0) {
