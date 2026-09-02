@@ -11,6 +11,7 @@
 #include "resource.h"
 #include "viewport.h"
 #include "browser.h"
+#include "rom.h"
 
 #define GEDITOR_CLASS  "GEditorWindow"
 #define GEDITOR_TITLE  "GEditor"
@@ -256,6 +257,26 @@ static void GEditorUpdateNameValidity(HWND hdlg)
         }
     }
 
+    if (valid)
+    {
+        char rompath[MAX_PATH];
+        DWORD attrs;
+
+        GetDlgItemText(hdlg, IDC_PROJECT_ROM, rompath, sizeof(rompath));
+        attrs = GetFileAttributes(rompath);
+
+        if (rompath[0] == '\0')
+        {
+            reason = "Choose the GUD ROM to extract assets from.";
+            valid = FALSE;
+        }
+        else if (attrs == INVALID_FILE_ATTRIBUTES || (attrs & FILE_ATTRIBUTE_DIRECTORY))
+        {
+            reason = "That ROM file does not exist.";
+            valid = FALSE;
+        }
+    }
+
     EnableWindow(GetDlgItem(hdlg, IDC_CREATE_PROJECT), valid);
     SetDlgItemText(hdlg, IDC_NAME_WARNING, reason);
 }
@@ -341,6 +362,22 @@ static INT_PTR CALLBACK GEditorNewProjectProc(HWND hdlg, UINT msg, WPARAM wparam
         }
 
         case IDC_CREATE_PROJECT:
+        {
+            char rompath[MAX_PATH];
+            RomInfo rominfo;
+            const char *reason;
+
+            /* The expensive checks run once, here - reading the whole
+               ROM and walking the manifest. A failure reports on the
+               warning line and keeps the dialog open for correction. */
+            GetDlgItemText(hdlg, IDC_PROJECT_ROM, rompath, sizeof(rompath));
+            if (!RomValidate(rompath, &rominfo, &reason))
+            {
+                SetDlgItemText(hdlg, IDC_NAME_WARNING, reason);
+                return TRUE;
+            }
+        }
+            /* fall through to the original create path */
             info = (NewProjectInfo *)GetWindowLongPtr(hdlg, DWLP_USER);
             GetDlgItemText(hdlg, IDC_PROJECT_NAME, info->name, sizeof(info->name));
             GetDlgItemText(hdlg, IDC_PROJECT_LOCATION, info->location, sizeof(info->location));
