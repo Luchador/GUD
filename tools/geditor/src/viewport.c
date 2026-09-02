@@ -1,16 +1,10 @@
-/*
- * GEditor 3D viewport.
- *
- * A child window with a private DC (CS_OWNDC) and a legacy OpenGL
- * context. Fixed-function GL was chosen deliberately: the N64's
- * pipeline - positions, per-vertex colours, one modulated texture -
- * maps onto it directly, so level geometry can be handed to
- * glVertexPointer/glColorPointer with no shader work.
- *
- * Rendering is on demand: everything happens in WM_PAINT, and the
- * window repaints only when invalidated (resize, or ViewportRedraw).
- * Idle, the editor draws nothing and uses no CPU.
- */
+/**
+  * GEditor 3D viewport.
+  *
+  * A child window with a private DC (CS_OWNDC) and a legacy OpenGL
+  * context. We're using fixed-function OpenGL because it closely mimics
+  * the N64's pipeline.
+  */
 
 #include <windows.h>
 #include <windowsx.h>
@@ -62,12 +56,16 @@ typedef struct TestVertex {
     GLubyte r, g, b, a;
 } TestVertex;
 
-static const TestVertex g_TestTriangle[3] = {
+static const TestVertex g_TestScene[6] = {
     {    0.0f,  160.0f, 0.0f,   255,  40,  40, 255 },
     { -160.0f, -120.0f, 0.0f,    40, 255,  40, 255 },
     {  160.0f, -120.0f, 0.0f,    40,  40, 255, 255 },
+    {    -80.0f,  160.0f, -200.0f,   255,  255,  0, 255 },
+    { -240.0f, -120.0f, -200.0f,    0, 255,  255, 255 },
+    {  80.0f, -120.0f, -200.0f,    255,  0, 0, 255 },
 };
 
+#define TESTSCENE_VERTS ((GLsizei)(sizeof(g_TestScene) / sizeof(g_TestScene[0])))
 
 static ViewportState *ViewportGetState(HWND hwnd)
 {
@@ -179,9 +177,9 @@ static void ViewportPaintGL(ViewportState *state)
     glRotatef(-state->yaw,   0.0f, 1.0f, 0.0f);
     glTranslatef(-state->posx, -state->posy, -state->posz);
 
-    glVertexPointer(3, GL_FLOAT, sizeof(TestVertex), &g_TestTriangle[0].x);
-    glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(TestVertex), &g_TestTriangle[0].r);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glVertexPointer(3, GL_FLOAT, sizeof(TestVertex), &g_TestScene[0].x);
+    glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(TestVertex), &g_TestScene[0].r);
+    glDrawArrays(GL_TRIANGLES, 0, TESTSCENE_VERTS);
 
     SwapBuffers(state->hdc);
 }
