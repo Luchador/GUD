@@ -3727,14 +3727,6 @@ bool chrCanSeeBond(ChrRecord *self)
     StandTile *mystan;
     f32 myheight;
 
-    /**
-     * GUD: Don't allow off-screen characters to do expensive LOS tests.
-     */
-    if (!(self->prop->flags & PROPFLAG_ONSCREEN))
-    {
-        return FALSE;
-    }
-
     if (bondviewGetVisibleToGuardsFlag())
     {
         myprop   = self->prop;
