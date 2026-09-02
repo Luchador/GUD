@@ -51,18 +51,19 @@ typedef struct ViewportState {
     LONGLONG lastqpc;   /* QueryPerformanceCounter at the previous frame */
 } ViewportState;
 
-typedef struct TestVertex {
+typedef struct Vertex {
     GLfloat x, y, z;
     GLubyte r, g, b, a;
-} TestVertex;
+    GLfloat s, t;
+} Vertex;
 
-static const TestVertex g_TestScene[6] = {
-    {    0.0f,  160.0f, 0.0f,   255,  40,  40, 255 },
-    { -160.0f, -120.0f, 0.0f,    40, 255,  40, 255 },
-    {  160.0f, -120.0f, 0.0f,    40,  40, 255, 255 },
-    {    -80.0f,  160.0f, -200.0f,   255,  255,  0, 255 },
-    { -240.0f, -120.0f, -200.0f,    0, 255,  255, 255 },
-    {  80.0f, -120.0f, -200.0f,    255,  0, 0, 255 },
+static const Vertex g_TestScene[6] = {
+    {    0.0f,  160.0f, 0.0f,   255,  40,  40, 255 , 1.0f, 0.0f},
+    { -160.0f, -120.0f, 0.0f,    40, 255,  40, 255 , 0.0f, 1.0f},
+    {  160.0f, -120.0f, 0.0f,    40,  40, 255, 255 , 0.0f, 0.0f},
+    {    -80.0f,  160.0f, -200.0f,   255,  255,  0, 255, 2.0f, 0.0f},
+    { -240.0f, -120.0f, -200.0f,    0, 255,  255, 255, 2.0f, 2.0f},
+    {  80.0f, -120.0f, -200.0f,    255,  0, 0, 255 , 0.0f, 0.0f},
 };
 
 #define TESTSCENE_VERTS ((GLsizei)(sizeof(g_TestScene) / sizeof(g_TestScene[0])))
@@ -177,8 +178,10 @@ static void ViewportPaintGL(ViewportState *state)
     glRotatef(-state->yaw,   0.0f, 1.0f, 0.0f);
     glTranslatef(-state->posx, -state->posy, -state->posz);
 
-    glVertexPointer(3, GL_FLOAT, sizeof(TestVertex), &g_TestScene[0].x);
-    glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(TestVertex), &g_TestScene[0].r);
+    glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &g_TestScene[0].x);
+    glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &g_TestScene[0].r);
+    glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), &g_TestScene[0].s);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     glDrawArrays(GL_TRIANGLES, 0, TESTSCENE_VERTS);
 
     SwapBuffers(state->hdc);
