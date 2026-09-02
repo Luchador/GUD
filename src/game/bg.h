@@ -159,7 +159,7 @@ extern Gfx DL_LUT_PRIMARY_ADDFOG[];
 
 
 bool bgRoomsSharePortal(s32 roomA, s32 roomB);
-s32 bgCopyVisibleRoomsToList(s32 *rooms, s32 max);
+s32 bgCopyGlobalVisAddedRooms(s32 *rooms, s32 max);
 bool bgTestBulletHitBackground(coord3d *from, coord3d *to, s32 roomnum, struct HitThing *hit);
 void bgFreeRoomData(s32 roomID);
 void bgLoadFile(LEVEL_INDEX stagenum);

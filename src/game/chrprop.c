@@ -545,7 +545,7 @@ s32 chrpropFindCloserBgHitInVisibleRooms(coord3d *from, coord3d *to, coord3d *di
     scale = bgGetRoomInverseScale();
 
     // Get up to 100 currently visible rooms.
-    numrooms = bgCopyVisibleRoomsToList(&rooms[0], 100);
+    numrooms = bgCopyGlobalVisAddedRooms(&rooms[0], 100);
 
     if (numrooms > 0)
     {

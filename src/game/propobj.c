@@ -1585,7 +1585,7 @@ s32 handles_projectile_motion(struct ObjectRecord *arg0, coord3d *arg1, coord3d 
         roomCount = 20;
     }
 
-    i = bgCopyVisibleRoomsToList(&roomNums[roomCount], 100);
+    i = bgCopyGlobalVisAddedRooms(&roomNums[roomCount], 100);
     roomCount = roomCount + i;
     roomNums[roomCount] = -1;
 

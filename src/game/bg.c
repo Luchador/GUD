@@ -63,7 +63,11 @@ enum BgVisResult {
 
 struct PortalCache g_PortalCameraCache[PORTMAX];
 extern s32 g_BgRenderMode;
-extern s32 *dword_CODE_bss_8007FF90;
+
+/**
+ * Points to the current stage's global visibility command stream.
+ */
+s32 *g_BgGlobalVisCommands;
 
 /**
  * Per-frame render worklist for visible background rooms.
@@ -77,10 +81,14 @@ u8* g_BgData;
 s32 g_StanData;
 s32 g_BgSingleDisplayList;
 
-char list_visible_rooms_in_cur_global_vis_packet[0x98];
+/**
+ * List and number of rooms added specifically by the global visibility command interpreter.
+ * The count is reset every bgTick(). When VISOP_IF_RESULT_ADD_ROOM succeedes the interpreter marks the room for rendering
+ * with bgSetRoomOnScreen(), adds its room number to this auxiliary list, and increments the count.
+ */
+u8 g_BgGlobalVisAddedRooms[152];
+s32 g_BgGlobalVisAddedRoomCount;
 
-s32 num_visible_rooms_in_cur_global_vis_packet;
-s32 *ptr_bg_c_debug_debug_notice_list = 0;
 f32 g_LevelScale = 1.0;
 f32 g_LevelInverseScale = 1.0;
 // Private member - use bgGetLevelVisibilityScale outside this file
@@ -575,11 +583,11 @@ void bgLoadFile(LEVEL_INDEX levelid)
 
         if (((s32 *)bgDataOffsets)[3] == 0)
         {
-            dword_CODE_bss_8007FF90 = 0;
+            g_BgGlobalVisCommands = 0;
         }
         else
         {
-            dword_CODE_bss_8007FF90 = (s32 *) BG_SEG_TO_PTR(data, ((s32 *)bgDataOffsets)[3]);
+            g_BgGlobalVisCommands = (s32 *) BG_SEG_TO_PTR(data, ((s32 *)bgDataOffsets)[3]);
         }
  
         for (i = 0; g_BgPortals[i].portal != (NULL); i++)
@@ -587,13 +595,13 @@ void bgLoadFile(LEVEL_INDEX levelid)
             g_BgPortals[i].portal = (Portal *) BG_SEG_TO_PTR(g_BgData, g_BgPortals[i].portal);
         }
  
-        if (dword_CODE_bss_8007FF90 != NULL)
+        if (g_BgGlobalVisCommands != NULL)
         {
-            for (i = 0; ((bg_envdata_entry_local *)dword_CODE_bss_8007FF90)[i].type != 0; i++)
+            for (i = 0; ((bg_envdata_entry_local *)g_BgGlobalVisCommands)[i].type != 0; i++)
             {
-                if (((bg_envdata_entry_local *)dword_CODE_bss_8007FF90)[i].type == ENVIRONMENTDATA_ALT)
+                if (((bg_envdata_entry_local *)g_BgGlobalVisCommands)[i].type == ENVIRONMENTDATA_ALT)
                 {
-                    ((bg_envdata_entry_local *)dword_CODE_bss_8007FF90)[i].data = bgGetIndexOfPortalID((s32) BG_SEG_TO_PTR(g_BgData, ((bg_envdata_entry_local *)dword_CODE_bss_8007FF90)[i].data));
+                    ((bg_envdata_entry_local *)g_BgGlobalVisCommands)[i].data = bgGetIndexOfPortalID((s32) BG_SEG_TO_PTR(g_BgData, ((bg_envdata_entry_local *)g_BgGlobalVisCommands)[i].data));
                 }
             }
         }
@@ -748,7 +756,7 @@ void bgTick(void)
 
     lastportal = -1;
 
-    num_visible_rooms_in_cur_global_vis_packet = 0;
+    g_BgGlobalVisAddedRoomCount = 0;
 
     if (get_player_position_in_shuffled(get_cur_playernum()) == 0)
     {
@@ -1426,7 +1434,6 @@ BgQueuedPortal g_BgPortalQueue[BG_PORTAL_QUEUE_LEN];
 PortalData *g_BgPortals;
 s32 g_BgRenderMode;
 BgRoomData *ptr_bgdata_room_fileposition_list;
-s32 *dword_CODE_bss_8007FF90;
 BgDrawSlot g_BgDrawSlots[204];
 
 BoundVec D_80044868 = {0x7FFF, 0x7FFF, 0x7FFF};
@@ -3332,9 +3339,9 @@ static GlobalVisCommand *bgExecuteVisCommandBranch(GlobalVisCommand *cmd, bool e
                     {
                         bgSetRoomOnScreen(cmd[1].arg, 0, &g_BgCmdScreenBox, 0);
 
-                        list_visible_rooms_in_cur_global_vis_packet[num_visible_rooms_in_cur_global_vis_packet] = cmd[1].arg;
+                        g_BgGlobalVisAddedRooms[g_BgGlobalVisAddedRoomCount] = cmd[1].arg;
 
-                        num_visible_rooms_in_cur_global_vis_packet++;
+                        g_BgGlobalVisAddedRoomCount++;
                     }
                 }
 
@@ -3511,7 +3518,7 @@ void bgDetermineVisibleRooms(void)
         g_PortalCameraCache[i].count = -1;
     }
 
-    bgExecuteGlobalVisCommands((GlobalVisCommand *)dword_CODE_bss_8007FF90);
+    bgExecuteGlobalVisCommands((GlobalVisCommand *)g_BgGlobalVisCommands);
 
     /**
      * If the level is Cradle, or has no portals, skip the portal occlusion culling algorithm. Just add every room in the player's
@@ -3590,14 +3597,13 @@ Gfx *bgRenderWrapper(Gfx *gdl)
 }
 
 
-// Copies visible rooms to a list
-s32 bgCopyVisibleRoomsToList(s32 *rooms, s32 max)
+s32 bgCopyGlobalVisAddedRooms(s32 *rooms, s32 max)
 {
     s32 i;
 
-    for (i = 0; (i < num_visible_rooms_in_cur_global_vis_packet) && (i < max); i++)
+    for (i = 0; (i < g_BgGlobalVisAddedRoomCount) && (i < max); i++)
     {
-        rooms[i] = list_visible_rooms_in_cur_global_vis_packet[i];
+        rooms[i] = g_BgGlobalVisAddedRooms[i];
     }
 
     return i;
