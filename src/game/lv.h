@@ -53,26 +53,6 @@ extern char ramrom_data_target[0x380];
 extern s32 record_slot_num;
 extern u8 * address_demo_loaded;
 
-typedef struct BgPropProfiler
-{
-    u32 preBgCommands;
-    u32 postBgCommands;
-    u32 translucentCommands;
-    u32 characterCommands;
-    u32 objectCommands;
-    u32 effectCommands;
-    u32 viewerCommands;
-    u32 characterRenderCalls;
-    u32 objectRenderCalls;
-    u32 effectRenderCalls;
-    u32 viewerRenderCalls;
-    u32 candidateChecks;
-    u32 scanCycles;
-    u32 renderCycles;
-    u32 bridgeConsoleCommands;
-    u32 bridgeConsoleRenderCalls;
-} BgPropProfiler;
-
 // TEMP
 extern u32 g_ProfBgTickCycles;
 extern u32 g_ProfLvlTickCycles;
@@ -83,13 +63,6 @@ extern u32 g_ProfChrActionCycles;
 extern u32 g_ProfObjTickCycles;
 extern u32 g_ProfGfxCommands;
 extern u32 g_ProfBgGfxCommands;
-extern u32 g_ProfBgPrimaryRoomGfxCommands;
-extern u32 g_ProfBgSecondaryRoomGfxCommands;
-extern u32 g_ProfBgPropGfxCommands;
-extern u32 g_ProfBgEffectGfxCommands;
-extern u32 g_ProfBgVisibleRoomCount;
-extern u32 g_ProfBgSecondaryRoomCount;
-extern BgPropProfiler g_ProfBgProps;
 
 void lvInit(void);
 Gfx * lvRender(Gfx *);
