@@ -75,6 +75,14 @@ def decompress_stream(stream):
 
 
 def convert(source):
+    # Several unused BG slots are represented by empty placeholder files.
+    # Preserve them as empty segments rather than attempting to read a BG header.
+    if not source:
+        return source
+
+    if len(source) < 8:
+        raise ValueError("BG segment is too short to contain a valid header")
+
     references = find_stream_references(source)
 
     # Static single-display-list backgrounds contain no room stream table.
