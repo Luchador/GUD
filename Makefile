@@ -9,6 +9,7 @@ FINAL := YES
 VERSION := US
 IDO_RECOMP := YES
 VERBOSE := 2
+ROMNAME := GUD
 
 # Include Terminal Codes for colourising text.
 include include/make/VT100Codes.make
@@ -89,9 +90,9 @@ include assets/Makefile.music
 
 ## Collect Objects ##
 
-APPELF := $(BUILD_DIR)/ge007.$(OUTCODE).elf
-APPROM := $(BUILD_DIR)/ge007.$(OUTCODE).z64
-APPBIN := $(BUILD_DIR)/ge007.$(OUTCODE).bin
+APPELF := $(BUILD_DIR)/$(ROMNAME).elf
+APPROM := $(BUILD_DIR)/$(ROMNAME).z64
+APPBIN := $(BUILD_DIR)/$(ROMNAME).bin
 
 HEADERFILES := $(foreach dir,src,$(wildcard $(dir)/*.s))
 HEADEROBJECTS := $(foreach file,$(HEADERFILES),$(BUILD_DIR)/$(file:.s=.o))
@@ -168,10 +169,10 @@ endif
 CFLAGS := -Wab,-r4300_mul -non_shared -Olimit 2000 -G 0 -Xcpluscomm $(CFLAGWARNING) $(WOFF) $(INCLUDE) $(MIPSISET) $(LCDEFS) -DTARGET_N64
 
 LD := $(TOOLCHAIN)ld
-LD_SCRIPT := $(BUILD_DIR)/ge007.$(OUTCODE).ld
+LD_SCRIPT := $(BUILD_DIR)/$(ROMNAME).ld
 
 # --no-warn-mismatch is needed to link -mips3 object files (some libultra math) with the regular files compiled with -mips2
-LDFLAGS := -T $(LD_SCRIPT) -Map $(BUILD_DIR)/ge007.$(OUTCODE).map --no-warn-mismatch
+LDFLAGS := -T $(LD_SCRIPT) -Map $(BUILD_DIR)/$(ROMNAME).map --no-warn-mismatch
 
 AS := $(TOOLCHAIN)as
 ASFLAGS := -march=vr4300 -mabi=32 $(INCLUDE) $(ASMDEFS)
@@ -199,7 +200,7 @@ OBJCOPY := $(TOOLCHAIN)objcopy
 
 # Don't delete intermediate files from these targets on make completion.
 .SECONDARY:
-	$(APPELF) $(APPROM) $(APPBIN) $(ULTRAOBJECTS) $(BUILD_DIR)/ge007.$(OUTCODE).map \
+	$(APPELF) $(APPROM) $(APPBIN) $(ULTRAOBJECTS) $(BUILD_DIR)/$(ROMNAME).map \
 	$(HEADEROBJECTS) $(BOOTOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) \
 	$(OBSEG_OBJECTS) $(OBSEG_DATA_FILES) $(ROMOBJECTS) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(IMAGE_OBJS) $(MUSIC_DATA_FILES)
 
@@ -324,7 +325,7 @@ $(BUILD_DIR)/assets/animationtable_data.o: $(ANIMATION_DATA_SOURCE) $(ANIMATION_
 
 #Link Files
 $(APPELF): $(RSPOBJECTS) $(ULTRAOBJECTS) $(HEADEROBJECTS) $(OBSEG_DATA_FILES) $(BUILD_DIR)/$(OBSEGMENT) $(MUSIC_DATA_FILES) $(BOOTOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(ROMOBJECTS) $(ASSET_DATAOBJECTS) $(ROMOBJECTS2) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(OBSEG_OBJECTS) ge007.ld
-	cpp $(LDFILEOPTS) -P ge007.ld -o $(BUILD_DIR)/ge007.$(OUTCODE).ld
+	cpp $(LDFILEOPTS) -P ge007.ld -o $(BUILD_DIR)/$(ROMNAME).ld
 	@echo "Linking Files into ELF"
 	$(LD) $(LDFLAGS) -o $@
 
@@ -359,7 +360,7 @@ all: all_p1 $(APPROM)
 	@echo "Rom File Generated in Build Directory."
 
 commonclean:
-	rm -f $(APPELF) $(APPROM) $(APPBIN) $(BUILD_DIR)/ge007.$(OUTCODE).map
+	rm -f $(APPELF) $(APPROM) $(APPBIN) $(BUILD_DIR)/$(ROMNAME).map
 
 setupclean: commonclean
 	rm -f $(SETUP_BUILD_FILES)
@@ -439,7 +440,7 @@ forceextractassets: force_extract_u
 
 # The DEBUG build shares the US baserom's extracted assets.
 extract_d:
-	@if [ ! -f build/u/ge007.u.z64 ]; then $(MAKE) VERSION=US; fi
+	@if [ ! -f build/u/GUD.z64 ]; then $(MAKE) VERSION=US; fi
 	@mkdir -p build/d/assets
 	@cp -rn build/u/assets/. build/d/assets/ 2>/dev/null || true
 

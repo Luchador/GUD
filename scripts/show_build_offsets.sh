@@ -44,7 +44,7 @@ if [ "${COUNTRY_CODE}" = "" ] ; then
     usage
 fi
 
-LD_FILE="ge007.${COUNTRY_CODE}.ld"
+LD_FILE="GUD.ld"
 
 if [ ! -f "${LD_FILE}" ]; then
     echo "File not found: ${LD_FILE}"
