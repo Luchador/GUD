@@ -37,6 +37,8 @@
 #include "tex.h"
 
 
+#define WATCH_LASER_DISTANCE 300.0f
+
 s16 *g_RoomPropQueryIndices;
 
 /**
@@ -766,7 +768,6 @@ s32 chrpropFindClosestBgHitRoom(s32 unused, coord3d *from, coord3d *to, coord3d 
 */
 void chraiDefaultWeaponFireHandler(s32 hand)
 {
-    f32 new_var;
     coord3d *playerpos;
     s32 hitbgstan;
     coord3d stanhit;
@@ -779,7 +780,6 @@ void chraiDefaultWeaponFireHandler(s32 hand)
     HitThing bghit;
     f32 negz;
     coord3d besthitpos;
-    s32 pad;
     StandTile *fromtile;
     coord3d dest;
     ShotData shotdata;
@@ -924,11 +924,9 @@ void chraiDefaultWeaponFireHandler(s32 hand)
         }
     }
 
-    new_var = 300.0f;
-
-    if ((shotdata.weapon == 23) && (shotdata.maxdist > new_var))
+    if ((shotdata.weapon == ITEM_WATCHLASER) && (shotdata.maxdist > WATCH_LASER_DISTANCE))
     {
-        shotdata.maxdist = new_var;
+        shotdata.maxdist = WATCH_LASER_DISTANCE;
     }
 
     for (pp = g_LastOnScreenProp; (--pp) >= g_OnScreenPropList;)
@@ -979,7 +977,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
         finalpos = 0;
         createSpark = 1;
 
-        if ((shotdata.weapon == ITEM_WATCHLASER) && (negz > new_var))
+        if ((shotdata.weapon == ITEM_WATCHLASER) && (negz > WATCH_LASER_DISTANCE))
         {
             createSpark = 0;
         }
@@ -999,8 +997,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
             {
                 if ((impact_sounds->thing2_len > 0) && (shotdata.weapon != ITEM_WATCHLASER))
                 {
-                    pad = randomGetNext() % impact_sounds->thing2_len;
-                    explosionCreateBulletImpact(&visiblehitpos, &bghit.normal, impact_sounds->thing2[pad], bestroom, 0, -1, 0);
+                    explosionCreateBulletImpact(&visiblehitpos, &bghit.normal, impact_sounds->thing2[randomGetNext() % impact_sounds->thing2_len], bestroom, 0, -1, 0);
                 }
 
                 if (check_if_imageID_is_light(bghit.texturenum))
@@ -1378,7 +1375,7 @@ void chraiCheckUseHeldItems(void)
 }
 
 
-void propExecuteTickOperation(PropRecord *prop, TICKOP op)
+void chrpropExecuteTickOperation(PropRecord *prop, TICKOP op)
 {
     ObjectRecord *propobj;
 
@@ -1425,7 +1422,7 @@ void propExecuteTickOperation(PropRecord *prop, TICKOP op)
 }
 
 
-PropRecord *propFindForInteract(void)
+PropRecord *chrpropFindForInteract(void)
 {
     PropRecord **ptr;
     s32 i;
@@ -1460,12 +1457,12 @@ PropRecord *propFindForInteract(void)
 }
 
 
-bool bond_interact_object(void)
+bool chrpropInteract(void)
 {
     PropRecord *prop;
     TICKOP tickop;
 
-    prop = propFindForInteract();
+    prop = chrpropFindForInteract();
     tickop = TICKOP_NONE;
 
     if (prop)
@@ -1486,7 +1483,7 @@ bool bond_interact_object(void)
                 break;
         }
 
-        propExecuteTickOperation(prop, tickop);
+        chrpropExecuteTickOperation(prop, tickop);
 
         return FALSE;
     }
@@ -1731,7 +1728,7 @@ void chrpropTick(void)
             }
             else
             {
-                propExecuteTickOperation(prop, tickop);
+                chrpropExecuteTickOperation(prop, tickop);
             }
         }
 
@@ -1810,7 +1807,7 @@ void propsTick(void)
 			}
             else
             {
-				propExecuteTickOperation(prop, tickop);
+				chrpropExecuteTickOperation(prop, tickop);
 			}
 		}
 
@@ -2071,7 +2068,7 @@ void propsTickPlayer(void)
             }
             propprev = prop->prev; //not sure why rare put this here and not in the for statement
 
-            propExecuteTickOperation(prop, isCollected);
+            chrpropExecuteTickOperation(prop, isCollected);
         }
     }
 }

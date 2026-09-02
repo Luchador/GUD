@@ -2291,7 +2291,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                     if (obj && obj->prop)
                     {
                         TICKOP op = propPickupByPlayer(obj->prop, FALSE);
-                        propExecuteTickOperation(obj->prop, op);
+                        chrpropExecuteTickOperation(obj->prop, op);
                     }
                     Offset += sizeof(AiBondCollectObjectRecord);
                     break;

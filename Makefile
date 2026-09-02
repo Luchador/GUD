@@ -108,8 +108,13 @@ GAMEOBJECTS := $(foreach file,$(GAMEFILES_S),$(BUILD_DIR)/$(file:.s=.o)) \
 				$(foreach file,$(GAMEFILES_C),$(BUILD_DIR)/$(file:.c=.o))
 
 
-ASSET_DATAFILES := assets/oddtextures.c assets/animationtable_data.c assets/animationtable_entries.c assets/font_dl.c assets/font_chardatae.c assets/rarewarelogo.c
-ASSET_DATAOBJECTS := $(foreach file,$(ASSET_DATAFILES),$(BUILD_DIR)/$(file:.c=.o))
+ANIMATION_ENTRIES_BIN := $(BUILD_DIR)/assets/animationtable_entries.bin
+ANIMATION_ENTRIES_HEADER := $(BUILD_DIR)/assets/animationtable_entries.h
+ANIMATION_DATA_SOURCE := $(BUILD_DIR)/assets/animationtable_data.c
+ANIMATION_CONVERTER := tools/make_animation_entries_uncompressed.py
+
+ASSET_DATAFILES := assets/oddtextures.c assets/animationtable_data.c assets/font_dl.c assets/font_chardatae.c assets/rarewarelogo.c
+ASSET_DATAOBJECTS := $(foreach file,$(ASSET_DATAFILES),$(BUILD_DIR)/$(file:.c=.o)) $(BUILD_DIR)/assets/animationtable_entries.o
 
 ROMFILES2 := assets/romfiles2.s
 ROMOBJECTS2 := $(BUILD_DIR)/assets/romfiles2.o
@@ -299,6 +304,18 @@ else
 	$(CC) -c $(CFLAGS) -o $@ $(OPTIMIZATION) $<
 endif
 
+# Expand packed animation rotations to directly indexable big-endian u16 values.
+# Root-motion data in animationtable_data.c remains in its original packed format.
+$(ANIMATION_ENTRIES_BIN) $(ANIMATION_ENTRIES_HEADER) $(ANIMATION_DATA_SOURCE) &: assets/animationtable_entries.c assets/animationtable_entries.h assets/animationtable_data.c $(ANIMATION_CONVERTER)
+	@mkdir -p $(BUILD_DIR)/assets
+	python3 $(ANIMATION_CONVERTER) assets/animationtable_entries.c assets/animationtable_data.c assets/animationtable_entries.h $(ANIMATION_ENTRIES_BIN) $(ANIMATION_ENTRIES_HEADER) $(ANIMATION_DATA_SOURCE)
+
+$(BUILD_DIR)/assets/animationtable_entries.o: $(ANIMATION_ENTRIES_BIN)
+	$(LD) -r -b binary $< -o $@
+
+$(BUILD_DIR)/assets/animationtable_data.o: $(ANIMATION_DATA_SOURCE) $(ANIMATION_ENTRIES_HEADER)
+	$(CC) -c $(CFLAGS) -o $@ $(OPTIMIZATION) $(ANIMATION_DATA_SOURCE)
+
 #$(BUILD_DIR)/src/random.o: OPTIMIZATION := -O3
 #$(BUILD_DIR)/src/random.o: INCLUDE := -I . -I include -I include/PR
 #$(BUILD_DIR)/src/random.o: MIPSISET := -mips3 -o32
@@ -354,6 +371,7 @@ dataclean: commonclean stanclean setupclean
 	rm -f $(OBSEG_OBJECTS) $(OBSEG_DATA_FILES) $(ROMOBJECTS) $(ROMOBJECTS2) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(IMAGE_OBJS)
 	rm -f $(GUNBARREL_BACKGROUND)
 	rm -f $(BUILD_DIR)/imagelist.csv $(RAW_IMAGE_BIN) $(RAW_IMAGE_DEF) $(RAW_IMAGE_BIN).tmp $(RAW_IMAGE_DEF).tmp
+	rm -f $(ANIMATION_ENTRIES_BIN) $(ANIMATION_ENTRIES_HEADER) $(ANIMATION_DATA_SOURCE)
 
 libultraclean: commonclean
 	rm -f $(ULTRAOBJECTS)

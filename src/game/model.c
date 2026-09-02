@@ -1349,122 +1349,45 @@ void sub_GAME_7F06DB5C(ModelRenderData *arg0, Model *arg1, ModelNode *arg2, quat
 }
 
 
-/**
- * Address: 7F06DE04
- */
-u32 modelAnimReadBitsAsU16Angle(u8 *bitstream, u8 width, u32 bitOffset)
+// Reads three adjacent big-endian u16 angles from an uncompressed animation frame.
+void modelAnimReadJointRotation(s32 jointnum, s32 flip, ModelSkeleton *skeleton, u8 *frameData, coord3d *rot)
 {
-    u32 value = 0;
-    u32 mask;
-    u8 numbitsthisbyte;
-    u8 remainingbits;
-
-    remainingbits = width;
-    value *= bitOffset / 8;
-
-    if(1);
-
-    remainingbits = width;
-    bitstream += bitOffset / 8;
-    bitOffset %= 8;
-    numbitsthisbyte = 8 - bitOffset;
-
-    while (remainingbits >= numbitsthisbyte)
-    {
-        remainingbits -= numbitsthisbyte;
-        mask = (1 << numbitsthisbyte) - 1;
-        value |= ((u16)((*bitstream) & mask)) << remainingbits;
-        value &= 0xffff;
-        bitstream++;
-        numbitsthisbyte = 8;
-    }
-
-    if (remainingbits > 0)
-    {
-        mask = (1 << remainingbits) - 1;
-        value |= ((*bitstream) >> (numbitsthisbyte - remainingbits)) & mask;
-        value &= 0xffff;
-    }
-
-    value <<= 16 - width;
-
-    return value & 0xffff;
-}
-
-
-/**
- * Address: 7F06DEC0
- */
-void sub_GAME_7F06DEC0(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAnimation *anim, u8 *bitstream, coord3d *rot)
-{
-    u32 bitoffset;
-    u32 value;
-    u32 mask;
-    u8 width;
-    u8 bitsRemaining;
-    u8 bitsAvailable;
-    u8 *src;
-    s32 i;
-    u16 rotation[3];
-
-    width = anim->unk06;
+    u16 *angles = (u16 *)frameData;
+    u32 channelIndex;
+    u16 rotationX;
+    u16 rotationY;
+    u16 rotationZ;
 
     // Mirrored joint rotation?
     if (flip)
     {
-        bitoffset = skeleton->Joints[jointnum].channelMirrored * width;
+        channelIndex = skeleton->Joints[jointnum].channelMirrored;
     }
     else
     {
-        bitoffset = skeleton->Joints[jointnum].channelBase * width;
+        channelIndex = skeleton->Joints[jointnum].channelBase;
     }
 
-    /* The three rotation channels are adjacent in the packed frame. Keep the
-     * bit-reader position between channels instead of restarting the general
-     * single-channel reader three times. */
-    src = bitstream + bitoffset / 8;
-    bitsAvailable = 8 - (bitoffset % 8);
+    rotationX = angles[channelIndex];
+    rotationY = angles[channelIndex + 1];
+    rotationZ = angles[channelIndex + 2];
 
-    for (i = 0; i < 3; i++)
-    {
-        value = 0;
-        bitsRemaining = width;
-
-        while (bitsRemaining >= bitsAvailable)
-        {
-            bitsRemaining -= bitsAvailable;
-            mask = (1 << bitsAvailable) - 1;
-            value |= ((u16)(*src & mask)) << bitsRemaining;
-            src++;
-            bitsAvailable = 8;
-        }
-
-        if (bitsRemaining > 0)
-        {
-            bitsAvailable -= bitsRemaining;
-            mask = (1 << bitsRemaining) - 1;
-            value |= (*src >> bitsAvailable) & mask;
-        }
-
-        rotation[i] = (value << (16 - width)) & 0xffff;
-    }
-
-    rot->x = (rotation[0] * M_TAU_F) / M_U16_MAX_VALUE_F;
+    rot->x = (rotationX * M_TAU_F) / M_U16_MAX_VALUE_F;
 
     if (flip)
     {
-        if (rotation[1] != 0)
+        if (rotationY != 0)
         {
-            rot->y = ((0x10000 - rotation[1]) * M_TAU_F) / M_U16_MAX_VALUE_F;
+            rot->y = ((0x10000 - rotationY) * M_TAU_F) / M_U16_MAX_VALUE_F;
         }
         else
         {
             rot->y = 0.0f;
         }
 
-        if (rotation[2] != 0)
+        if (rotationZ != 0)
         {
-            rot->z = ((0x10000 - rotation[2]) * M_TAU_F) / M_U16_MAX_VALUE_F;
+            rot->z = ((0x10000 - rotationZ) * M_TAU_F) / M_U16_MAX_VALUE_F;
         }
         else
         {
@@ -1473,8 +1396,8 @@ void sub_GAME_7F06DEC0(s32 jointnum, s32 flip, ModelSkeleton *skeleton, ModelAni
     }
     else
     {
-        rot->y = (rotation[1] * M_TAU_F) / M_U16_MAX_VALUE_F;
-        rot->z = (rotation[2] * M_TAU_F) / M_U16_MAX_VALUE_F;
+        rot->y = (rotationY * M_TAU_F) / M_U16_MAX_VALUE_F;
+        rot->z = (rotationZ * M_TAU_F) / M_U16_MAX_VALUE_F;
     }
 }
 
@@ -1503,24 +1426,24 @@ void process_02_position(ModelRenderData *arg0, Model *model, ModelNode *node)
 
     rot1 = D_80036094;
 
-    sub_GAME_7F06DEC0(jointnum.v, model->animFlip, skeleton, model->anim, model->animFrameDataA, &rot1);
+    modelAnimReadJointRotation(jointnum.v, model->animFlip, skeleton, model->animFrameDataA, &rot1);
 
     if (model->animFrameFrac != 0.0f)
     {
         rot2 = D_800360A0;
-        sub_GAME_7F06DEC0(jointnum.v, model->animFlip, skeleton, model->anim, model->animFrameDataB, &rot2);
+        modelAnimReadJointRotation(jointnum.v, model->animFlip, skeleton, model->animFrameDataB, &rot2);
         sub_GAME_7F06D160(&rot1, &rot2, model->animFrameFrac);
     }
 
     if (model->anim2BlendWeight != 0.0f)
     {
         rot3 = D_800360AC;
-        sub_GAME_7F06DEC0(jointnum.v, model->anim2Flip, skeleton, model->anim2, model->animFrame2DataA, &rot3);
+        modelAnimReadJointRotation(jointnum.v, model->anim2Flip, skeleton, model->animFrame2DataA, &rot3);
 
         if (model->animFrame2Frac != 0.0f)
         {
             rot4 = D_800360B8;
-            sub_GAME_7F06DEC0(jointnum.v, model->anim2Flip, skeleton, model->anim2, model->animFrame2DataB, &rot4);
+            modelAnimReadJointRotation(jointnum.v, model->anim2Flip, skeleton, model->animFrame2DataB, &rot4);
             sub_GAME_7F06D160(&rot3, &rot4, model->animFrame2Frac);
         }
 
@@ -1652,24 +1575,22 @@ void sub_GAME_7F06E2B8(ModelRenderData *renderData, Model *model, ModelNode *nod
 }
 
 
-// Decodes a packed joint angle from the animation bitstream using either channelBase or channelMirrored.
-f32 sub_GAME_7F06E540(s32 jointIndex, s32 useMtxB, ModelSkeleton *skeleton, ModelAnimation *anim, u8 *bitstream)
+// Reads one big-endian u16 angle from an uncompressed animation frame.
+f32 modelAnimReadJointAngle(s32 jointIndex, s32 useMtxB, ModelSkeleton *skeleton, u8 *frameData)
 {
-    u32 bitOffset;
-    u32 raw;
-    u8 width;
+    u32 channelIndex;
+    u16 raw;
     f32 angle;
 
     angle = 0.0f;
-    width = anim->unk06;
 
     if (useMtxB != 0) {
-        bitOffset = skeleton->Joints[jointIndex].channelMirrored * width;
+        channelIndex = skeleton->Joints[jointIndex].channelMirrored;
     } else {
-        bitOffset = skeleton->Joints[jointIndex].channelBase * width;
+        channelIndex = skeleton->Joints[jointIndex].channelBase;
     }
 
-    raw = modelAnimReadBitsAsU16Angle(bitstream, width, bitOffset);
+    raw = ((u16 *)frameData)[channelIndex];
 
     if (useMtxB != 0) {
         if (raw != 0) {
@@ -1696,18 +1617,18 @@ void process_03_unknown(ModelRenderData *renderData, Model *model, ModelNode *no
     jointIndex = rodata->JointID;
     skeleton = model->obj->Skeleton;
 
-    angle = sub_GAME_7F06E540(jointIndex, model->animFlip, skeleton, model->anim, model->animFrameDataA);
+    angle = modelAnimReadJointAngle(jointIndex, model->animFlip, skeleton, model->animFrameDataA);
 
     if (model->animFrameFrac != 0.0f) {
-        tmp = sub_GAME_7F06E540(jointIndex, model->animFlip, skeleton, model->anim, model->animFrameDataB);
+        tmp = modelAnimReadJointAngle(jointIndex, model->animFlip, skeleton, model->animFrameDataB);
         angle = sub_GAME_7F06D0CC(angle, tmp, model->animFrameFrac);
     }
 
     if (model->anim2BlendWeight != 0.0f) {
-        tmp = sub_GAME_7F06E540(jointIndex, model->anim2Flip, skeleton, model->anim2, model->animFrame2DataA);
+        tmp = modelAnimReadJointAngle(jointIndex, model->anim2Flip, skeleton, model->animFrame2DataA);
 
         if (model->animFrame2Frac != 0.0f) {
-            tmp2 = sub_GAME_7F06E540(jointIndex, model->anim2Flip, skeleton, model->anim2, model->animFrame2DataB);
+            tmp2 = modelAnimReadJointAngle(jointIndex, model->anim2Flip, skeleton, model->animFrame2DataB);
             tmp = sub_GAME_7F06D0CC(tmp, tmp2, model->animFrame2Frac);
         }
 
@@ -5280,7 +5201,7 @@ u8 *loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
             ret++;
         }
 
-        // Size of frame but 16-bytes aligned. Observed to be 80 bytes. Might differ for non-guards.
+        // Size of frame rounded up for DMA. An uncompressed guard frame transfers 96 bytes.
         size = ((u32) (frameSize + 15) >> 4) * 16;
 
         /* The scratch pointer returns to the same address after each model.

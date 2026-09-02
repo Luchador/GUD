@@ -3753,7 +3753,7 @@ void gunTickHandState(enum GUNHAND handNum, s32 triggerHeld)
         {
             if (hand->field_88C == 0)
             {
-                targetProp = propFindForInteract();
+                targetProp = chrpropFindForInteract();
 
                 if (targetProp != NULL)
                 {

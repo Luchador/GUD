@@ -262,7 +262,7 @@ void               propsTick(void);
 void               chraiUpdateOnscreenPropCount(void);
 void               chrpropUpdateAutoaimTarget(void);
 void               chraiCheckUseHeldItems(void);
-bool               bond_interact_object(void);
+bool               chrpropInteract(void);
 void               propsTickPlayer(void);
 void               chrpropRegisterRoom(PropRecord *, s16);
 PropRecord*        chrpropAllocate(void);
@@ -303,6 +303,6 @@ f32                chrpropSumMatrixNegZ(struct ModelRoData_BoundingBoxRecord *bb
 void               collisionCalcFootprintFromBBox(struct ModelRoData_BoundingBoxRecord *bbox, Mtxf *mtx, struct rect4f* poly, struct collision_data *collisiondata);
 void               projectRectCornersTo2D(struct coord3d *arg0, struct coord2d *arg1, struct coord2d *arg2, struct coord2d *arg3, struct coord2d *arg4);
 void               propActivateLinkedDoors(PropRecord *prop);
-struct PropRecord *propFindForInteract(void);
+struct PropRecord *chrpropFindForInteract(void);
 
 #endif

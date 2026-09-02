@@ -551,11 +551,11 @@ typedef union
     {
         s32 address;
         u16 unk04; // number of frames in the animation
-        u8 unk06;
+        u8 unk06; // number of bits stored for each rotation channel
         u8 unk07; // bit 0 is a loop flag: 0 means freeze anim at end, 1 means loop anim
         ModelAnimBitField *bitDescriptors; // 0x08
         u16 valuesPerFrame;
-        u16 unk0E;
+        u16 unk0E; // rotation frame size in bits
         u8  *bitStream; // 0x10
         s32 unk14;
         s32 unk18;

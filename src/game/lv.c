@@ -522,7 +522,7 @@ Gfx* lvRender(Gfx* DL)
             chrpropUpdateAutoaimTarget();
             chraiCheckUseHeldItems();
 
-            if (bond_pressed_reload_activate() && bond_interact_object())
+            if (bond_pressed_reload_activate() && chrpropInteract())
             {
                 attempt_reload_item_in_hand(GUNRIGHT);
                 attempt_reload_item_in_hand(GUNLEFT);

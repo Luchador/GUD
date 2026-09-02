@@ -5,7 +5,7 @@
 #include "bondgame.h"
 
 
-// Where animation frames are saved. Can possibly hold as much as nine, but the game will ever store four at maximum.
+// Where animation frames are saved. The game stores at most four uncompressed frames at once.
 char animations_frame_buffer[0x2D0];
 
 // Msg Queue stuff (unused)
