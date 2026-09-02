@@ -59,8 +59,6 @@ f32 titleTransitionX;
 f32 titleTransitionY;
 //CODE.bss:80069584
 s16 word_CODE_bss_80069584;
-//CODE.bss:80069588
-s32 dword_CODE_bss_80069588;
 //CODE.bss:8006958C
 s32 dword_CODE_bss_8006958C;
 //CODE.bss:80069590
@@ -412,15 +410,14 @@ s32 isGunBarrelInMode2(void) {
 }
 
 
-extern void *unknown2;
-extern void *unknown2_end;
+extern u8 gunbarrelBackground[];
+extern u8 gunbarrelBackgroundEnd[];
 void sub_GAME_7F008DE4(u8 **addr, s32 *size) {
     dword_CODE_bss_8006958C = *addr;
-    *size -= 0x40400;
-    *addr += 0x40400;
-    dword_CODE_bss_80069588 = *addr;
-    romCopy(dword_CODE_bss_80069588, (void *)(s32)&unknown2, ALIGN64_V2(((u32)&unknown2_end - (u32)&unknown2)));
-    rle_expand_8bit(dword_CODE_bss_80069588, dword_CODE_bss_8006958C);
+    *size -= 0x20200;
+    *addr += 0x20200;
+    romCopy(dword_CODE_bss_8006958C, gunbarrelBackground,
+            gunbarrelBackgroundEnd - gunbarrelBackground);
 }
 
 

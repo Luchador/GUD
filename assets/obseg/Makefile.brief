@@ -1,12 +1,5 @@
 # brief
 
-# Pattern rules for building .rz files from .bin files
-$(BUILD_DIR)/$(OBSEG_DIR)/brief/%.rz: $(OBSEG_DIR)/brief/%.bin
-	$(RZ_COMP) $< $@
-
-$(BUILD_DIR)/$(OBSEG_DIR)/brief/%.rz: $(BUILD_DIR)/$(OBSEG_DIR)/brief/%.bin
-	$(RZ_COMP) $< $@
-
 # Build .bin from .elf
 $(BUILD_DIR)/$(OBSEG_DIR)/brief/%.bin: $(BUILD_DIR)/$(OBSEG_DIR)/brief/%.elf
 	$(OBJCOPY) $< $@ -O binary
@@ -19,13 +12,12 @@ $(BUILD_DIR)/$(OBSEG_DIR)/brief/%.elf: $(BUILD_DIR)/$(OBSEG_DIR)/brief/%.o
 $(BUILD_DIR)/$(OBSEG_DIR)/brief/%.o: $(OBSEG_DIR)/brief/%.c
 	$(CC) -c $(CFLAGS) -o $@ -O2 $<
 
-# Build BRIEF_RZ_NAMES from BRIEFNAMELIST
-BRIEF_RZ_NAMES = $(foreach lvl,$(BRIEFNAMELIST),Ubrief$(lvl)Z)
+# Build BRIEF_NAMES from BRIEFNAMELIST
+BRIEF_NAMES = $(foreach lvl,$(BRIEFNAMELIST),Ubrief$(lvl)Z)
 
-# Use BRIEF_RZ_NAMES to generate the list of .rz files
-BRIEF_RZ_FILES = $(addprefix $(BUILD_DIR)/$(OBSEG_DIR)/brief/, $(addsuffix .rz, $(BRIEF_RZ_NAMES)))
+BRIEF_BIN_FILES = $(addprefix $(BUILD_DIR)/$(OBSEG_DIR)/brief/, $(addsuffix .bin, $(BRIEF_NAMES)))
 
 # Default target
-all: $(BRIEF_RZ_FILES)
+all: $(BRIEF_BIN_FILES)
 
 .PHONY: all

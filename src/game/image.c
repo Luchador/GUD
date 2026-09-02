@@ -91,7 +91,7 @@ s32 D_800492E4[] =
 //D:80049300
 //need way to calculate size at compile time from external data
 struct image_entry g_Textures[] = {
-    #include <assets/images.def>
+    #include <assets/images.raw.def>
     {HIT_DEFAULT, HIT_DEFAULT,0xFFFF,0,0,0,0}
 };
 #undef IMAGE
@@ -2315,8 +2315,212 @@ void texLoadFromDisplayList(Gfx *gdl, struct texpool *arg1)
 
 extern u8 _imagesSegmentRomStart;
 
+#define RAW_TEXTURE_BASE_HEADER_SIZE 0x70
+#define RAW_TEXTURE_MAX_HEADER_SIZE 0x270
+#define RAW_TEXTURE_DESCRIPTOR_OFFSET 16
+#define RAW_TEXTURE_DESCRIPTOR_SIZE 12
+#define RAW_TEXTURE_PALETTE_OFFSET 100
+#define RAW_TEXTURE_MAX_IMAGES 7
+
+static u16 texReadRawU16(u8 *src)
+{
+    return (src[0] << 8) | src[1];
+}
+
+
+static u32 texReadRawU32(u8 *src)
+{
+    return ((u32)src[0] << 24) | ((u32)src[1] << 16) | (src[2] << 8) | src[3];
+}
+
+
+static bool texShouldWriteLodCache(struct tex *tex)
+{
+    s32 i;
+
+    for (i = 0; i < g_TexCacheCount; i++)
+    {
+        if (g_TexCacheItems[i].texturenum == tex->texturenum)
+        {
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
+
+
+static void texCommitLodCache(struct tex *tex)
+{
+    g_TexCacheItems[g_TexCacheCount].texturenum = tex->texturenum;
+    g_TexCacheCount++;
+
+    if (g_TexCacheCount >= ARRAYCOUNT(g_TexCacheItems))
+    {
+        g_TexCacheCount = 0;
+    }
+}
+
+
 /**
- * Load and decompress a texture from ROM.
+ * Copy a build-time-decoded texture from ROM into a texture pool.
+ *
+ * Pixel rows and palettes are already in the format expected by the RDP. For
+ * textures with implicit LODs, the lower levels are still generated here so
+ * their memory use and filtering behaviour remain unchanged.
+ */
+static s32 texLoadRaw(u8 *header, u32 romAddress, struct texpool *pool)
+{
+    struct tex *tex = pool->rightpos;
+    u8 *dst = pool->leftpos;
+    u16 *palette = (u16 *)&header[RAW_TEXTURE_PALETTE_OFFSET];
+    s32 paletteCount = texReadRawU16(&header[8]);
+    s32 hasExplicitLods = header[4];
+    s32 lodCount = header[5];
+    s32 imageCount = header[6];
+    s32 recordSize = texReadRawU32(&header[12]);
+    s32 writeToCache = FALSE;
+    s32 totalBytes = 0;
+    s32 format = 0;
+    s32 width = 0;
+    s32 height = 0;
+    s32 firstDataOffset = 0;
+    s32 payloadBytes = 0;
+    s32 payloadPosition = 0;
+    s32 i;
+
+    if (hasExplicitLods)
+    {
+        writeToCache = texShouldWriteLodCache(tex);
+    }
+
+    tex->maxlod = lodCount;
+    tex->hasExplicitLods = hasExplicitLods;
+    tex->unk0a = paletteCount ? paletteCount - 1 : 0;
+
+    for (i = 0; i < imageCount; i++)
+    {
+        u8 *descriptor = &header[RAW_TEXTURE_DESCRIPTOR_OFFSET + i * RAW_TEXTURE_DESCRIPTOR_SIZE];
+        s32 dataOffset = texReadRawU32(&descriptor[4]);
+        s32 dataSize = texReadRawU32(&descriptor[8]);
+
+        if (i == 0)
+        {
+            firstDataOffset = dataOffset;
+        }
+
+        if (descriptor[0] >= ARRAYCOUNT(g_TexFormatGbiMappings)
+                || dataOffset < texReadRawU16(&header[10])
+                || dataOffset != firstDataOffset + payloadBytes
+                || dataSize < 0 || dataOffset + dataSize > recordSize)
+        {
+            return 0;
+        }
+
+        payloadBytes += dataSize;
+    }
+
+    romCopy(dst, (void *)(romAddress + firstDataOffset), payloadBytes);
+
+    for (i = 0; i < imageCount; i++)
+    {
+        u8 *descriptor = &header[RAW_TEXTURE_DESCRIPTOR_OFFSET + i * RAW_TEXTURE_DESCRIPTOR_SIZE];
+        s32 dataSize = texReadRawU32(&descriptor[8]);
+
+        format = descriptor[0];
+        width = descriptor[1];
+        height = descriptor[2];
+
+        if (i == 0)
+        {
+            tex->width = width;
+            tex->height = height;
+            tex->gbiformat = g_TexFormatGbiMappings[format];
+            tex->depth = g_TexFormatDepths[format];
+            tex->lutmodeindex = g_TexFormatLutModes[format] >> G_MDSFT_TEXTLUT;
+        }
+        else if (writeToCache)
+        {
+            g_TexCacheItems[g_TexCacheCount].widths[i - 1] = width;
+            g_TexCacheItems[g_TexCacheCount].heights[i - 1] = height;
+        }
+
+        if (hasExplicitLods)
+        {
+            texSwapAltRowBytes(&dst[payloadPosition], width, height, format);
+        }
+
+        payloadPosition += dataSize;
+    }
+
+    totalBytes = payloadBytes;
+
+    if (!hasExplicitLods && imageCount == 1)
+    {
+        if (lodCount >= 2)
+        {
+            u8 *source = dst;
+            u8 *output = &dst[totalBytes];
+            s32 currentWidth = width;
+            s32 currentHeight = height;
+
+            for (i = 1; i < lodCount; i++)
+            {
+                s32 imageBytes;
+
+                if (paletteCount)
+                {
+                    imageBytes = texShrinkPaletted(source, output, currentWidth,
+                            currentHeight, format, palette, paletteCount);
+
+                    if (totalBytes + imageBytes > 0x800)
+                    {
+                        tex->maxlod = i;
+                        break;
+                    }
+                }
+                else
+                {
+                    imageBytes = texShrinkNonPaletted(source, output, currentWidth,
+                            currentHeight, format);
+                }
+
+                texSwapAltRowBytes(source, currentWidth, currentHeight, format);
+                totalBytes += imageBytes;
+                currentWidth = (currentWidth + 1) >> 1;
+                currentHeight = (currentHeight + 1) >> 1;
+                source = output;
+                output += imageBytes;
+            }
+
+            texSwapAltRowBytes(source, currentWidth, currentHeight, format);
+        }
+        else if (lodCount == 1)
+        {
+            texSwapAltRowBytes(dst, width, height, format);
+        }
+    }
+
+    if (paletteCount)
+    {
+        s32 paletteBytes = paletteCount * sizeof(u16);
+
+        bcopy(palette, &dst[totalBytes], paletteBytes);
+        totalBytes += paletteBytes;
+    }
+
+    totalBytes = (totalBytes + 7) & ~7;
+
+    if (writeToCache)
+    {
+        texCommitLodCache(tex);
+    }
+
+    return totalBytes;
+}
+
+/**
+ * Load a build-time-decoded texture from ROM.
  *
  * The given pointer points to a word which determines what to load.
  * The formats of the word are:
@@ -2325,42 +2529,18 @@ extern u8 _imagesSegmentRomStart;
  *     0000xxxx -> load texture number xxxx
  *     (memory address) -> the texture is already loaded, so do nothing
  *
- * After loading and decompressing the texture, the value that's pointed to is
+ * After loading the texture, the value that's pointed to is
  * changed to be a pointer to... something.
- *
- * There are two types of textures:
- *
- * - Zlib-compressed textures, which are always paletted
- * - Non-zlib textures, which use a variety of (non-zlib) compression methods
- *   and are sometimes paletted
- *
- * Both types have support for multiple levels of detail (ie. multiple images
- * of varying size) within each texture. There are enough bits in the header
- * byte to support 64 levels of detail, but this function caps it to 5. Some
- * textures actually specify up to 7 levels of detail. However testing suggests
- * that the additional levels of detail are not even read.
- *
- * This function reads the above information from the first byte of texture data,
- * then calls the texInflateZlib or texInflateNonZlib to inflate the images.
- *
- * The format of the first byte is:
- * uzllllll
- *
- * u = unknown
- * z = texture is compressed with zlib
- * l = number of levels of detail within the texture
  */
 void texLoad(s32 *updateword, struct texpool *pool)
 {
-    u8 compbuffer[4000];
-    u8 *compptr;
-    s32 sp14a8;
-    s32 iszlib;
-    s32 lod;
+    u8 headerBuffer[RAW_TEXTURE_MAX_HEADER_SIZE + 0xf];
+    u8 *header;
     struct tex *tex;
-    u8 *alignedcompbuffer;
-    s32 thisoffset;
-    s32 nextoffset;
+    u32 romAddress;
+    s32 textureOffset;
+    s32 hasValidHeader;
+    s32 headerSize;
     s16 *texnumptr;
     s32 bytesout;
 
@@ -2374,62 +2554,46 @@ void texLoad(s32 *updateword, struct texpool *pool)
 
     if (tex == NULL)
     {
-        alignedcompbuffer = (u8 *) (((u32)compbuffer + 0xF) >> 4 << 4);
+        header = (u8 *)(((u32)headerBuffer + 0xf) & ~0xf);
+        textureOffset = *((s32 *)&g_Textures[g_TexNumToLoad]) & 0xffffff;
+        romAddress = (u32)&_imagesSegmentRomStart + textureOffset;
+        romCopy(header, (void *)romAddress, RAW_TEXTURE_BASE_HEADER_SIZE);
+        headerSize = texReadRawU16(&header[10]);
 
-        if (alignedcompbuffer);
-        if (tex);
+        hasValidHeader = header[0] == 'G' && header[1] == 'U'
+                && header[2] == 'T' && header[3] == 'X'
+                && header[6] >= 1 && header[6] <= RAW_TEXTURE_MAX_IMAGES
+                && header[5] <= RAW_TEXTURE_MAX_IMAGES
+                && headerSize >= RAW_TEXTURE_BASE_HEADER_SIZE
+                && headerSize <= RAW_TEXTURE_MAX_HEADER_SIZE;
 
-        osWritebackDCacheAll();
-        osInvalDCache(alignedcompbuffer, DCACHE_SIZE);
-
-        thisoffset = *((s32*)&g_Textures[g_TexNumToLoad]) & 0xFFFFFF;
-        nextoffset = (*((s32 *) (&g_Textures[g_TexNumToLoad + 1]))) & ((unsigned long) 0xFFFFFF);
-
-        if (TRUE)
+        if (hasValidHeader && headerSize > RAW_TEXTURE_BASE_HEADER_SIZE)
         {
-            // Copy the compressed texture to RAM
-            romCopy(alignedcompbuffer,
-                    (u32) &_imagesSegmentRomStart + (thisoffset & 0xfffffff8),
-                    ((u32) (nextoffset - thisoffset) + 0x1f) >> 4 << 4);
-
-            compptr = (u8 *) alignedcompbuffer + (thisoffset & 7);
-            thisoffset = 0;
-            sp14a8 = (*compptr & 0x80) >> 7;
-            iszlib = (*compptr & 0x40) >> 6;
-            lod = *compptr & 0x3f;
-            compptr++;
-
-            // If there's not enough memory to load the texture, set the texture
-            // pointer to the start of the pool. It'll be garbage data but the
-            // only other option is a crash. GBI commands contain texture IDs
-            // instead of pointers, and they must be replaced with pointers.
-            if ((!iszlib && (texFreeBytesInBuffer(pool) < 0x10CC)) || (iszlib && texFreeBytesInBuffer(pool) < 0xA28)) {
-                *updateword = osVirtualToPhysical(pool->start);
-                return;
-            }
-
-            // Write the texturenum into the allocation
-            texnumptr = (s16 *) pool->leftpos;
-            *texnumptr = g_TexNumToLoad;
-            pool->leftpos += 8;
-
-            // Write a tex into the allocation
-            pool->rightpos--;
-            tex = pool->rightpos;
-            tex->texturenum = g_TexNumToLoad;
-            tex->data = pool->leftpos;
-
-            // Extract the texture data to the allocation (pool->leftpos)
-            if (iszlib) {
-                bytesout = texInflateZlib(compptr, pool->leftpos, sp14a8, lod, pool);
-            } else {
-                bytesout = texInflateNonZlib(compptr, pool->leftpos, sp14a8, lod, pool);
-            }
-
-            pool->leftpos += bytesout;
+            romCopy(&header[RAW_TEXTURE_BASE_HEADER_SIZE],
+                    (void *)(romAddress + RAW_TEXTURE_BASE_HEADER_SIZE),
+                    headerSize - RAW_TEXTURE_BASE_HEADER_SIZE);
         }
 
-        texFreeBytesInBuffer(pool);
+        hasValidHeader = hasValidHeader
+                && RAW_TEXTURE_PALETTE_OFFSET + texReadRawU16(&header[8]) * 2 <= headerSize;
+
+        if (!hasValidHeader || texFreeBytesInBuffer(pool) < 0x10cc)
+        {
+            *updateword = osVirtualToPhysical(pool->start);
+            return;
+        }
+
+        texnumptr = (s16 *)pool->leftpos;
+        *texnumptr = g_TexNumToLoad;
+        pool->leftpos += 8;
+
+        pool->rightpos--;
+        tex = pool->rightpos;
+        tex->texturenum = g_TexNumToLoad;
+        tex->data = pool->leftpos;
+
+        bytesout = texLoadRaw(header, romAddress, pool);
+        pool->leftpos += bytesout;
     }
 
     *updateword = osVirtualToPhysical(tex->data);

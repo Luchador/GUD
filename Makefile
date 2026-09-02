@@ -36,8 +36,6 @@ endif
 
 # other tools
 TOOLS_DIR := tools
-DATASEG_COMP := $(TOOLS_DIR)/data_compress.sh
-RZ_COMP := $(TOOLS_DIR)/1172compress.sh
 N64CKSUM := $(TOOLS_DIR)/n64cksum
 
 # Convert AI Print commands from readable strings to byte arrays automatically.
@@ -85,11 +83,8 @@ BUILD_DIR_BASE := build
 # BUILD_DIR is the location where all build artefacts are placed
 BUILD_DIR      := $(BUILD_DIR_BASE)/$(OUTCODE)
 
-# this file references variables defined above: BUILD_DIR, RZ_COMP
-# this file defines and builds $(MUSIC_RZ_FILES)
+# These files define the raw resource and music inputs.
 include assets/Makefile.obseg
-# this file references variables defined above: BUILD_DIR, RZ_COMP, COUNTRYCODE, LD, CC, CFLAGS, OBJCOPY, ConvertAIPRINT, OPTIMIZATION
-# this file defines and builds OBSEGMENT, BG_SEG_FILES, BRIEF_RZ_FILES, CHR_RZ_FILES, GUN_RZ_FILES, PROP_RZ_FILES, ,SETUP_BUILD_FILES, STAN_BUILD_FILES, TEXT_RZ_FILES
 include assets/Makefile.music
 
 ## Collect Objects ##
@@ -118,6 +113,7 @@ ASSET_DATAOBJECTS := $(foreach file,$(ASSET_DATAFILES),$(BUILD_DIR)/$(file:.c=.o
 
 ROMFILES2 := assets/romfiles2.s
 ROMOBJECTS2 := $(BUILD_DIR)/assets/romfiles2.o
+GUNBARREL_BACKGROUND := $(BUILD_DIR)/assets/gunbarrel_background.bin
 
 RAMROM_FILES := assets/ramrom/ramrom.s
 RAMROM_OBJECTS := $(BUILD_DIR)/assets/ramrom/ramrom.o
@@ -132,21 +128,21 @@ MUSIC_OBJECTS := $(foreach file,$(MUSIC_FILES),$(BUILD_DIR)/$(file:.s=.o))
 
 OBSEG_FILES := assets/obseg/ob_seg.s
 OBSEG_OBJECTS := $(BUILD_DIR)/assets/obseg/ob_seg.o
-OBSEG_RZ := $(BG_SEG_FILES) $(CHR_RZ_FILES) $(GUN_RZ_FILES) $(PROP_RZ_FILES) $(STAN_RZ_FILES) $(BRIEF_RZ_FILES) $(SETUP_RZ_FILES) $(TEXT_RZ_FILES)
+OBSEG_DATA_FILES := $(BG_SEG_FILES) $(CHR_BIN_FILES) $(GUN_BIN_FILES) $(PROP_BIN_FILES) $(STAN_BIN_FILES) $(BRIEF_BIN_FILES) $(SETUP_BIN_FILES) $(TEXT_BIN_FILES)
 
-IMAGE_BINS := assets/images/combined/combined.bin
-IMAGE_OBJS := $(foreach file,$(IMAGE_BINS),$(BUILD_DIR)/$(file:.bin=.o))
+IMAGE_SOURCE_BINS := $(wildcard assets/images/split/*.bin)
+RAW_IMAGE_BIN := $(BUILD_DIR)/assets/images/combined/combined.bin
+RAW_IMAGE_DEF := $(BUILD_DIR)/assets/images.raw.def
+IMAGE_OBJS := $(BUILD_DIR)/assets/images/combined/combined.o
+TEX2RAW := tools/mktex/build/tex2raw
 
-RZFILES := inflate/inflate.c
-RZOBJECTS := $(foreach file,$(RZFILES),$(BUILD_DIR)/src/$(file:.c=.o))
-
-OBJECTS := $(RSPOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(RZOBJECTS) $(OBSEGMENT) $(ROMOBJECTS) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(IMAGE_OBJS)
+OBJECTS := $(RSPOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(OBSEGMENT) $(ROMOBJECTS) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(IMAGE_OBJS)
 
 ## Command Line args for builders ##
 
 MIPSISET := -mips2 -32
 
-INCLUDE := -I . -I include -I include/ultra64 -I include/PR -I src -I src/game -I src/inflate
+INCLUDE := -I $(BUILD_DIR) -I . -I include -I include/ultra64 -I include/PR -I src -I src/game -I src/inflate
 
 # ignore warnings:
 # 609 : The number of arguments in the macro invocation does not match the definition - disabled because CPPLib uses "VarArgs" which wasnt invented till c99
@@ -199,8 +195,8 @@ OBJCOPY := $(TOOLCHAIN)objcopy
 # Don't delete intermediate files from these targets on make completion.
 .SECONDARY:
 	$(APPELF) $(APPROM) $(APPBIN) $(ULTRAOBJECTS) $(BUILD_DIR)/ge007.$(OUTCODE).map \
-	$(HEADEROBJECTS) $(BOOTOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(RZOBJECTS) \
-	$(OBSEG_OBJECTS) $(OBSEG_RZ) $(ROMOBJECTS) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(IMAGE_OBJS) $(MUSIC_RZ_FILES)
+	$(HEADEROBJECTS) $(BOOTOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) \
+	$(OBSEG_OBJECTS) $(OBSEG_DATA_FILES) $(ROMOBJECTS) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(IMAGE_OBJS) $(MUSIC_DATA_FILES)
 
 # Don't delete these intermediate targets on make cancellation.
 .PRECIOUS: %.bin  %.o
@@ -230,21 +226,43 @@ $(BUILD_DIR)/%.o: src/%.s
 $(BUILD_DIR)/src/%.o: src/%.s
 	$(AS) $(ASFLAGS) -o $@ $<
 
-#Build Images
+# Build the uncompressed texture bank and its generated size table.
 # Generate imagelist by syncing imagelist.u.csv (ROM offsets/sizes) with images.def (names)
-$(BUILD_DIR)/imagelist.csv: imagelist.u.csv assets/images.def
+$(BUILD_DIR)/imagelist.csv: imagelist.u.csv assets/images.def | extractassets
 	@mkdir -p $(BUILD_DIR)
 	python3 scripts/make/sync_imagelist_with_def.py $@
 
-assets/images/combined/combined.bin: $(BUILD_DIR)/imagelist.csv
-	scripts/make/combine_images_named.sh $(BUILD_DIR)/imagelist.csv assets/images/combined
+assets/images/split/%.bin: | extractassets
+	@test -f $@ || { echo "Error: extracted texture $@ is missing."; exit 1; }
 
-$(BUILD_DIR)/assets/images/combined/%.o: assets/images/combined/combined.bin
+assets/music/%.bin: | extractassets
+	@test -f $@ || { echo "Error: extracted music file $@ is missing."; exit 1; }
+
+assets/ge007.u.2A4D50.usedby7F008DE4.bin: | extractassets
+	@test -f $@ || { echo "Error: extracted gun-barrel image $@ is missing."; exit 1; }
+
+$(TEX2RAW): tools/mktex/src/tex2raw.c tools/mktex/src/libpdtex/pdtex.c tools/mktex/src/libpdtex/reader.c tools/mktex/src/libpdtex/writer.c tools/mktex/src/libpdtex/pdtex.h
+	$(MAKE) -C tools/mktex tex2raw
+
+$(RAW_IMAGE_BIN) $(RAW_IMAGE_DEF) &: $(BUILD_DIR)/imagelist.csv assets/images.def $(IMAGE_SOURCE_BINS) $(TEX2RAW) | extractassets
+	@mkdir -p $(dir $(RAW_IMAGE_BIN))
+	$(TEX2RAW) $(BUILD_DIR)/imagelist.csv assets/images.def $(RAW_IMAGE_BIN).tmp $(RAW_IMAGE_DEF).tmp
+	mv $(RAW_IMAGE_BIN).tmp $(RAW_IMAGE_BIN)
+	mv $(RAW_IMAGE_DEF).tmp $(RAW_IMAGE_DEF)
+
+$(BUILD_DIR)/src/game/image.o: $(RAW_IMAGE_DEF)
+
+$(BUILD_DIR)/assets/images/combined/%.o: $(RAW_IMAGE_BIN)
 	$(LD) -r -b binary $< -o $@
 
+$(GUNBARREL_BACKGROUND): assets/ge007.u.2A4D50.usedby7F008DE4.bin tools/make_rle_uncompressed.py
+	python3 tools/make_rle_uncompressed.py $< $@
 
-#Compress Obseg
-$(BUILD_DIR)/$(OBSEGMENT): $(OBSEG_RZ) $(IMAGE_OBJS)
+$(ROMOBJECTS2): $(GUNBARREL_BACKGROUND)
+
+
+# Build the raw resource segment.
+$(BUILD_DIR)/$(OBSEGMENT): $(OBSEG_DATA_FILES) $(IMAGE_OBJS)
 
 
 #Build C files in src/
@@ -270,7 +288,7 @@ $(BUILD_DIR)/assets/%.o: assets/%.s
 	$(AS) $(ASFLAGS) -o $@ $<
 
 #Build Obseg
-$(BUILD_DIR)/assets/obseg/%.o: assets/obseg/%.s $(OBSEG_RZ)
+$(BUILD_DIR)/assets/obseg/%.o: assets/obseg/%.s $(OBSEG_DATA_FILES)
 	$(AS) $(ASFLAGS) -o $@ $<
 
 #Build C files in assets/
@@ -288,7 +306,7 @@ endif
 #	$(CC) -c -Wab,-r4300_mul -non_shared -G 0 -Xcpluscomm $(CFLAGWARNING) -woff 819,820,852,821,838,649 -signed $(INCLUDE) $(MIPSISET) $(LCDEFS) -DTARGET_N64 $(OPTIMIZATION) -o $@ $<
 
 #Link Files
-$(APPELF): $(RSPOBJECTS) $(ULTRAOBJECTS) $(HEADEROBJECTS) $(OBSEG_RZ) $(BUILD_DIR)/$(OBSEGMENT) $(MUSIC_RZ_FILES) $(BOOTOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(RZOBJECTS) $(ROMOBJECTS) $(ASSET_DATAOBJECTS) $(ROMOBJECTS2) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(OBSEG_OBJECTS) ge007.ld
+$(APPELF): $(RSPOBJECTS) $(ULTRAOBJECTS) $(HEADEROBJECTS) $(OBSEG_DATA_FILES) $(BUILD_DIR)/$(OBSEGMENT) $(MUSIC_DATA_FILES) $(BOOTOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(ROMOBJECTS) $(ASSET_DATAOBJECTS) $(ROMOBJECTS2) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(OBSEG_OBJECTS) ge007.ld
 	cpp $(LDFILEOPTS) -P ge007.ld -o $(BUILD_DIR)/ge007.$(OUTCODE).ld
 	@echo "Linking Files into ELF"
 	$(LD) $(LDFLAGS) -o $@
@@ -298,8 +316,6 @@ $(APPBIN): $(APPELF)
 	$(OBJCOPY) $< $@ -O binary --gap-fill=0xff
 
 $(APPROM):	$(APPBIN)
-	@echo "Compressing ROM"
-	$(DATASEG_COMP) $< $(OUTCODE)
 	@echo "Finalizing ROM"
 	$(N64CKSUM) $< $@
 
@@ -319,7 +335,7 @@ build_tools:
 
 prerequisites: print_info create_directories build_tools extractassets
 
-combine_images: assets/images/combined/combined.bin
+combine_images: $(RAW_IMAGE_BIN)
 
 all_p1: prerequisites
 all: all_p1 $(APPROM)
@@ -335,14 +351,15 @@ stanclean: commonclean
 	rm -f $(STAN_BUILD_FILES)
 
 dataclean: commonclean stanclean setupclean
-	rm -f $(OBSEG_OBJECTS) $(OBSEG_RZ) $(ROMOBJECTS) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(IMAGE_OBJS) $(MUSIC_RZ_FILES)
-	rm -f $(BUILD_DIR)/imagelist.csv
+	rm -f $(OBSEG_OBJECTS) $(OBSEG_DATA_FILES) $(ROMOBJECTS) $(ROMOBJECTS2) $(RAMROM_OBJECTS) $(FONTOBJECTS) $(MUSIC_OBJECTS) $(IMAGE_OBJS)
+	rm -f $(GUNBARREL_BACKGROUND)
+	rm -f $(BUILD_DIR)/imagelist.csv $(RAW_IMAGE_BIN) $(RAW_IMAGE_DEF) $(RAW_IMAGE_BIN).tmp $(RAW_IMAGE_DEF).tmp
 
 libultraclean: commonclean
 	rm -f $(ULTRAOBJECTS)
 
 codeclean: commonclean libultraclean
-	rm -f $(HEADEROBJECTS) $(BOOTOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(RZOBJECTS) $(RSPOBJECTS)
+	rm -f $(HEADEROBJECTS) $(BOOTOBJECTS) $(CODEOBJECTS) $(GAMEOBJECTS) $(RSPOBJECTS)
 
 clean: codeclean dataclean
 	@echo "\nAll Code and Asset Binaries Cleared! Make will Re-Build these next time.\n"

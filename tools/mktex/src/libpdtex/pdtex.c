@@ -75,7 +75,7 @@ void pdtex_flip(struct pd_tex *tex)
 				rowlen = 2 * image->width;
 			} else {
 				// Not paletted
-				rowlen = g_TexFormatBitsPerPixel[image->format] * image->width / 8;
+				rowlen = (g_TexFormatBitsPerPixel[image->format] * image->width + 7) / 8;
 			}
 
 			while (top < bottom) {
@@ -92,6 +92,17 @@ void pdtex_flip(struct pd_tex *tex)
 
 int pdtex_read(struct pd_tex *tex, char *filename)
 {
+	int result = pdtex_read_native(tex, filename);
+
+	if (result == 0) {
+		pdtex_flip(tex);
+	}
+
+	return result;
+}
+
+int pdtex_read_native(struct pd_tex *tex, char *filename)
+{
 	FILE *fp = fopen(filename, "rb");
 
 	if (!fp) {
@@ -99,6 +110,7 @@ int pdtex_read(struct pd_tex *tex, char *filename)
 	}
 
 	if (!reader_read(fp, tex)) {
+		fclose(fp);
 		return 1;
 	}
 

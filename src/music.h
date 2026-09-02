@@ -21,16 +21,15 @@ typedef struct
     // address is offset from the start of .sbk file
     u8 *address;
 
-    // seq length after uncompressed.
+    // Sequence length. Retained for compatibility with the original table format.
     u16 uncompressed_len;
 
-    // len is data segment length in the rom. This is the 1172 compressed length.
+    // Sequence length as stored in ROM.
     u16 len;
 } RareALSeqData;
 
 /**
  * Structure for storing collection of sequence metadatas.
- * These are stored 1172 compressed.
  * Based on original ALSeqFile in n64devkit\ultra\usr\include\PR\libaudio.h.
  */
 typedef struct

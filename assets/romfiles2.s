@@ -1,8 +1,13 @@
 .section .data
 
 
-.global unknown2
-unknown2:
-.incbin "assets/ge007.u.2A4D50.usedby7F008DE4.bin"
-.global unknown2_end
-unknown2_end:
+.global gunbarrelBackground
+gunbarrelBackground:
+.ifdef VERSION_US
+.incbin "build/u/assets/gunbarrel_background.bin"
+.endif
+.ifdef VERSION_DEBUG
+.incbin "build/d/assets/gunbarrel_background.bin"
+.endif
+.global gunbarrelBackgroundEnd
+gunbarrelBackgroundEnd:

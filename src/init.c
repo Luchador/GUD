@@ -21,7 +21,7 @@
  * This file contains the initial non bootstrap code ran.
  *
  * In particular, it:
- *   - unpacks main data payload
+ *   - loads the main data payload
  *   - starts idle and rmon loops
  *   - starts main loop
  */
@@ -30,9 +30,6 @@
 #define NUM_FIELDS  1
 
 #define MAXSP 7
-
-#define RZIPLOADADDR 0x70200000
-#define RZIPBUFADDR 0x80300000
 
 #define MAXCODESIZE (0x101000 - 0x1050) 
 
@@ -83,51 +80,31 @@ void mainproc(void *args);
 /**
  * 1110	70000510
  * init - The real main entry point, called from boot.s
- * Deflates the compressed data segment
+ * Loads the data segment from ROM
  * Installs the TLB miss handler
  * Then starts the main thread
  */
 void init(void)
 {
-    u32 inflateromSize;
-    u8 *csegmentSegmentVaddrStart;
-    u8 *cdataSegmentRomStart;
     u32 flags;
-    u32 cdataSegmentRomSize;
-    u8 *inflateSegmentRomStart;
+    u32 csegmentSize;
+    u32 residentCodeSize;
     s32 i;
-    s32 j;
-
-    u8 *datazipram;
-    s32 inflate_code_size;
-    u32 decompress_result;
     s32 *dest;
     s32 *src;
-    u32 copylen;
     s32 *stack_pointer;
-    u8 *dataziprom;
 
-    csegmentSegmentVaddrStart = get_csegmentSegmentStart();
-    cdataSegmentRomStart = get_cdataSegmentRomStart();
-    cdataSegmentRomSize = (u8 *) get_cdataSegmentRomEnd() - cdataSegmentRomStart;
-    inflateSegmentRomStart = get_inflateSegmentRomStart();
-    inflateromSize = (u8 *) get_inflateSegmentRomEnd() - inflateSegmentRomStart;
-    copylen = cdataSegmentRomSize + inflateromSize;
-    datazipram = (u8 *) (RZIPLOADADDR - cdataSegmentRomSize);
-    dataziprom = csegmentSegmentVaddrStart;
-
-    for (j = copylen - 1; j >= 0; j--)
+    csegmentSize = (u8 *)&_csegmentSegmentRomEnd - (u8 *)&_csegmentSegmentRomStart;
+    osInvalDCache(&_csegmentSegmentStart, csegmentSize);
+    osPiRawStartDma(OS_READ, &_csegmentSegmentRomStart, &_csegmentSegmentStart, csegmentSize);
+    while (osPiGetStatus() & PI_STATUS_DMA_BUSY)
     {
-        datazipram[j] = dataziprom[j];
     }
 
-    decompress_result = jump_decompressfile(datazipram, csegmentSegmentVaddrStart, RZIPBUFADDR);
-    if (decompress_result);
-
-    inflate_code_size = (s32) ((u32) &_inflateSegmentRomStart - (u32) &_codeSegmentRomStart);
-    if (inflate_code_size > MAXCODESIZE)
+    residentCodeSize = (u32)&_gameSegmentRomStart - (u32)&_codeSegmentRomStart;
+    if (residentCodeSize > MAXCODESIZE)
     {
-        osPiRawStartDma(OS_READ, &_alt_startSegmentRomStart, &_alt_startSegmentStart, inflate_code_size - MAXCODESIZE);
+        osPiRawStartDma(OS_READ, &_alt_startSegmentRomStart, &_alt_startSegmentStart, residentCodeSize - MAXCODESIZE);
         while ((osPiGetStatus() & PI_STATUS_DMA_BUSY))
         {
         }

@@ -102,7 +102,7 @@ static int texReadBits(int numbits)
 	total_read += numbits;
 	var800ab548 -= numbits;
 
-	return var800ab544 >> var800ab548 & (1 << numbits) - 1;
+	return var800ab544 >> var800ab548 & ((1 << numbits) - 1);
 }
 
 static void texInflateHuffman(uint8_t *dst, int numiterations, int chansize)
@@ -352,6 +352,74 @@ static void texReadAlphaBits(uint8_t *dst, int count)
 	}
 }
 
+static void texReadUncompressed(struct pd_image *image)
+{
+	int x;
+	int y;
+	int width = image->width;
+	int height = image->height;
+	uint8_t *dst = image->pixels;
+
+	for (y = 0; y < height; y++) {
+		for (x = 0; x < width; x++) {
+			switch (image->format) {
+			case PDFORMAT_RGBA32:
+				dst[x * 4 + 0] = texReadBits(8);
+				dst[x * 4 + 1] = texReadBits(8);
+				dst[x * 4 + 2] = texReadBits(8);
+				dst[x * 4 + 3] = texReadBits(8);
+				break;
+			case PDFORMAT_RGB24:
+				dst[x * 3 + 0] = texReadBits(8);
+				dst[x * 3 + 1] = texReadBits(8);
+				dst[x * 3 + 2] = texReadBits(8);
+				break;
+			case PDFORMAT_RGBA16:
+			case PDFORMAT_IA16: {
+				int value = texReadBits(16);
+				dst[x * 2 + 0] = value >> 8;
+				dst[x * 2 + 1] = value;
+				break;
+			}
+			case PDFORMAT_RGB15: {
+				int value = texReadBits(15) << 1 | 1;
+				dst[x * 2 + 0] = value >> 8;
+				dst[x * 2 + 1] = value;
+				break;
+			}
+			case PDFORMAT_IA8:
+			case PDFORMAT_I8:
+				dst[x] = texReadBits(8);
+				break;
+			case PDFORMAT_IA4: {
+				int value = texReadBits(4);
+				if ((x & 1) == 0) {
+					dst[x >> 1] = value << 4;
+				} else {
+					dst[x >> 1] |= value;
+				}
+				break;
+			}
+			case PDFORMAT_I4:
+				dst[x] = texReadBits(4);
+				break;
+			default:
+				break;
+			}
+		}
+
+		switch (image->format) {
+		case PDFORMAT_RGBA32: dst += width * 4; break;
+		case PDFORMAT_RGB24: dst += width * 3; break;
+		case PDFORMAT_RGBA16:
+		case PDFORMAT_RGB15:
+		case PDFORMAT_IA16: dst += width * 2; break;
+		case PDFORMAT_IA4: dst += (width + 1) / 2; break;
+		default: dst += width; break;
+		}
+	}
+}
+
 static void texChannelsToPixels(uint8_t *src, int width, int height, uint8_t *dst, int format)
 {
 	int x;
@@ -448,7 +516,7 @@ static void texChannelsToPixels(uint8_t *src, int width, int height, uint8_t *ds
 				pos--;
 			}
 
-			dst += width;
+			dst += (width + 1) / 2;
 		}
 
 		break;
@@ -529,7 +597,6 @@ static void texInflateLookup(int width, int height, uint8_t *dst, uint8_t *looku
 
 		break;
 	case PDFORMAT_IA4:
-	case PDFORMAT_I4:
 		for (y = 0; y < height; y++) {
 			for (x = 0; x < width; x += 2) {
 				dst[x >> 1] = lookup[texReadBits(bitspercolour) * 2 + 1] << 4;
@@ -539,7 +606,17 @@ static void texInflateLookup(int width, int height, uint8_t *dst, uint8_t *looku
 				}
 			}
 
-			dst += width >> 1;
+			dst += (width + 1) >> 1;
+		}
+
+		break;
+	case PDFORMAT_I4:
+		for (y = 0; y < height; y++) {
+			for (x = 0; x < width; x++) {
+				dst[x] = lookup[texReadBits(bitspercolour) * 2 + 1] & 0xf;
+			}
+
+			dst += width;
 		}
 
 		break;
@@ -559,7 +636,7 @@ static void texInflateLookupFromBuffer(uint8_t *src, int width, int height, uint
 		}
 	} else {
 		for (int i = 0; i < width * height; i++) {
-			indexesarray[i] = src[i * 2];
+			indexesarray[i] = src[i * 2] << 8 | src[i * 2 + 1];
 		}
 	}
 
@@ -620,7 +697,7 @@ static void texInflateLookupFromBuffer(uint8_t *src, int width, int height, uint
 	case PDFORMAT_I8:
 		for (y = 0; y < height; y++) {
 			for (x = 0; x < width; x++) {
-				dst[x] = lookup[indexes[x] * 2];
+				dst[x] = lookup[indexes[x] * 2 + 1];
 			}
 
 			dst += width;
@@ -629,13 +706,27 @@ static void texInflateLookupFromBuffer(uint8_t *src, int width, int height, uint
 
 		break;
 	case PDFORMAT_IA4:
-	case PDFORMAT_I4:
 		for (y = 0; y < height; y++) {
 			for (x = 0; x < width; x += 2) {
-				dst[x >> 1] = lookup[indexes[x] * 2] << 4 | lookup[indexes[x + 1] * 2];
+				dst[x >> 1] = lookup[indexes[x] * 2 + 1] << 4;
+
+				if (x + 1 < width) {
+					dst[x >> 1] |= lookup[indexes[x + 1] * 2 + 1];
+				}
 			}
 
-			dst += width >> 1;
+			dst += (width + 1) >> 1;
+			indexes += width;
+		}
+
+		break;
+	case PDFORMAT_I4:
+		for (y = 0; y < height; y++) {
+			for (x = 0; x < width; x++) {
+				dst[x] = lookup[indexes[x] * 2 + 1] & 0xf;
+			}
+
+			dst += width;
 			indexes += width;
 		}
 
@@ -766,6 +857,10 @@ static void texInflateNonZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 		image->pixels = malloc(image->width * image->height * sizeof(uint32_t));
 
 		switch (tex->images[i].compression) {
+		case PDCOMPRESSION_UNCOMPRESSED0:
+		case PDCOMPRESSION_UNCOMPRESSED1:
+			texReadUncompressed(image);
+			break;
 		case PDCOMPRESSION_HUFFMAN:
 			texInflateHuffman(scratch, g_TexFormatNumChannels[image->format] * image->width * image->height, g_TexFormatChannelSizes[image->format]);
 
@@ -847,6 +942,18 @@ static void texLoad(struct pd_tex *tex)
 	int iszlib = texReadBits(1);
 	int lod = texReadBits(6);
 
+	if (lod > PDTEX_MAX_IMAGES) {
+		lod = PDTEX_MAX_IMAGES;
+	}
+
+	tex->has_explicit_lods = sp14a8;
+	tex->lod_count = lod;
+	tex->num_images = sp14a8 && lod ? lod : 1;
+
+	if (tex->num_images > PDTEX_MAX_IMAGES) {
+		tex->num_images = PDTEX_MAX_IMAGES;
+	}
+
 	if (iszlib) {
 		texInflateZlib(tex, sp14a8, lod);
 	} else {
@@ -856,22 +963,38 @@ static void texLoad(struct pd_tex *tex)
 
 int reader_read(FILE *fp, struct pd_tex *tex)
 {
+	long filelen;
 	size_t len;
 	uint8_t *buffer;
 
-	fseek(fp, 0, SEEK_END);
-	len = ftell(fp);
-	fseek(fp, 0, SEEK_SET);
+	if (fseek(fp, 0, SEEK_END) != 0) {
+		return 0;
+	}
+
+	filelen = ftell(fp);
+
+	if (filelen <= 0) {
+		return 0;
+	}
+
+	len = filelen;
+
+	if (fseek(fp, 0, SEEK_SET) != 0) {
+		return 0;
+	}
 
 	buffer = malloc(len);
 
-	fread(buffer, len, 1, fp);
+	if (!buffer || fread(buffer, len, 1, fp) != 1) {
+		free(buffer);
+		return 0;
+	}
 
 	texSetBitstring(buffer);
 
 	texLoad(tex);
 
-	pdtex_flip(tex);
+	free(buffer);
 
 	return 1;
 }

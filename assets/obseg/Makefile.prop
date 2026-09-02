@@ -1,9 +1,5 @@
 # prop
 
-# Pattern rules for building .rz files from .bin files
-$(BUILD_DIR)/$(OBSEG_DIR)/prop/%.rz: $(BUILD_DIR)/$(OBSEG_DIR)/prop/%.bin
-	$(RZ_COMP) $< $@
-
 # Build .bin from .elf
 $(BUILD_DIR)/$(OBSEG_DIR)/prop/%.bin: $(BUILD_DIR)/$(OBSEG_DIR)/prop/%.elf
 	$(OBJCOPY) $< $@ -O binary
@@ -43,13 +39,12 @@ $(BUILD_DIR)/$(OBSEG_DIR)/prop/%/Switches.o: $(OBSEG_DIR)/prop/%/Switches.c
 		-woff 609,649,712,807,838 -DTARGET_N64 -I$(IRIX_ROOT)/usr/include \
 		-Iinclude -Isrc -I. -o $@ $<
 
-# Build PROP_RZ_NAMES from PROPNAMELIST
-PROP_RZ_NAMES = $(foreach prop,$(PROPNAMELIST),P$(prop)Z)
+# Build PROP_NAMES from PROPNAMELIST
+PROP_NAMES = $(foreach prop,$(PROPNAMELIST),P$(prop)Z)
 
-# Use PROP_RZ_NAMES to generate the list of .rz files
-PROP_RZ_FILES = $(addprefix $(BUILD_DIR)/$(OBSEG_DIR)/prop/, $(addsuffix .rz, $(PROP_RZ_NAMES)))
+PROP_BIN_FILES = $(addprefix $(BUILD_DIR)/$(OBSEG_DIR)/prop/, $(addsuffix .bin, $(PROP_NAMES)))
 
 # Default target
-all: $(PROP_RZ_FILES)
+all: $(PROP_BIN_FILES)
 
 .PHONY: all

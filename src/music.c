@@ -1,9 +1,7 @@
 #include <ultra64.h>
 #include <PR/libaudio.h>
-#include "inflate/inflate.h"
 #include "audi.h"
 #include <bondconstants.h>
-#include "decompress.h"
 #include "dyn.h"
 #include "memp.h"
 #include "music.h"
@@ -442,14 +440,9 @@ ALBank *g_musicInstrumentBufferPtr;
 RareALSeqBankFile *g_musicDataTable;
 
 /**
- * Length of music track after uncompressed.
+ * Lengths of music tracks as stored in ROM.
  */
-u16 g_musicTrackLength[NUM_MUSIC_TRACKS + 1];
-
-/**
- * ROM lengths for music tracks. This is 1172 compressed length.
- */
-u16 g_musicTrackCompressedLength[NUM_MUSIC_TRACKS];
+u16 g_musicTrackRomLength[NUM_MUSIC_TRACKS];
 
 
 /**
@@ -660,14 +653,7 @@ void musicSeqPlayerInit(void)
     // see auSeqPlayerSetFile in n64devkit\ultra\usr\src\pr\demos_old\nnsample1\audio.c
     for (ui = 0; ui < NUM_MUSIC_TRACKS; ui++)
     {
-        g_musicTrackLength[ui] = g_musicDataTable->seqArray[ui].uncompressed_len;
-        g_musicTrackCompressedLength[ui] = g_musicDataTable->seqArray[ui].len;
-
-        // Note that auSeqPlayerSetFile adjusts the len value, not offset.
-        if (g_musicTrackLength[ui] & 1)
-        {
-            g_musicTrackLength[ui]++;
-        }
+        g_musicTrackRomLength[ui] = g_musicDataTable->seqArray[ui].len;
     }
 
     synconfig.maxVVoices = 0;
@@ -735,7 +721,7 @@ void musicSeqPlayerInit(void)
  * Does not change g_musicXTrack1Fade, but will update current track number.
  * Waits for the sequence playing to finish "doing things" and then loads music:
  * - gets the track ROM location and size (previously set on init).
- * - copies ths ROM data to a buffer, and decompresses the content
+ * - copies the ROM data to the sequence buffer
  * - sets up the cseq player and calls alCSPPlay
  * 
  * @param track: track number to play.
@@ -743,10 +729,7 @@ void musicSeqPlayerInit(void)
 void musicTrack1Play(s32 track)
 {
     u32 trackSizeBytes;
-    u8 *temp_a0;
     void *romAddress;
-    u32 t3;
-    u8 inflateScatch[INFLATE_SCRATCH_BYTES];
     u8 *seqData;
 
     if (g_sndBootswitchSound)
@@ -773,17 +756,9 @@ void musicTrack1Play(s32 track)
         return;
     }
 
-    /**
-     * Add 256 bytes over original. The shipped game's margin (~ALIGN16 slack) assumes retail US
-     * compression profiles. Edited or appended sequence data like the Silo X
-     * loop repair needs headroom against the writer overtaking the reader. */
-    t3 = ALIGN16_a(g_musicTrackLength[g_musicXTrack1CurrentTrackNum]) + ALIGN16_a(NUM_MUSIC_TRACKS) + 256;
-    trackSizeBytes = ALIGN16_a(g_musicTrackCompressedLength[g_musicXTrack1CurrentTrackNum]);
+    trackSizeBytes = ALIGN16_a(g_musicTrackRomLength[g_musicXTrack1CurrentTrackNum]);
     seqData = g_musicXTrack1SeqData;
-    temp_a0 = seqData + t3 - trackSizeBytes;
-
-    romCopy(temp_a0, romAddress, trackSizeBytes);
-    decompressdata(temp_a0, seqData, (struct huft *)inflateScatch);
+    romCopy(seqData, romAddress, trackSizeBytes);
 
     alCSeqNew(&g_musicXTrack1Seq, g_musicXTrack1SeqData);
     alCSPSetSeq(g_musicXTrack1SeqPlayer, &g_musicXTrack1Seq);
@@ -924,7 +899,7 @@ void musicTrack1FadeIn(f32 fadeTime, u16 volume)
  * Does not change g_musicXTrack2Fade, but will update current track number.
  * Waits for the sequence playing to finish "doing things" and then loads music:
  * - gets the track ROM location and size (previously set on init).
- * - copies ths ROM data to a buffer, and decompresses the content
+ * - copies the ROM data to the sequence buffer
  * - sets up the cseq player and calls alCSPPlay
  * 
  * @param track: track number to play.
@@ -932,10 +907,7 @@ void musicTrack1FadeIn(f32 fadeTime, u16 volume)
 void musicTrack2Play(s32 track)
 {
     u32 trackSizeBytes;
-    u8 *temp_a0;
     void *romAddress;
-    u32 t3;
-    u8 inflateScatch[INFLATE_SCRATCH_BYTES];
     u8 *seqData;
 
     if (g_sndBootswitchSound)
@@ -962,13 +934,9 @@ void musicTrack2Play(s32 track)
         return;
     }
 
-    t3 = ALIGN16_a(g_musicTrackLength[g_musicXTrack2CurrentTrackNum]) + ALIGN16_a(NUM_MUSIC_TRACKS);
-    trackSizeBytes = ALIGN16_a(g_musicTrackCompressedLength[g_musicXTrack2CurrentTrackNum]);
+    trackSizeBytes = ALIGN16_a(g_musicTrackRomLength[g_musicXTrack2CurrentTrackNum]);
     seqData = g_musicXTrack2SeqData;
-    temp_a0 = seqData + t3 - trackSizeBytes;
-
-    romCopy(temp_a0, romAddress, trackSizeBytes);
-    decompressdata(temp_a0, seqData, (struct huft *)inflateScatch);
+    romCopy(seqData, romAddress, trackSizeBytes);
 
     alCSeqNew(&g_musicXTrack2Seq, g_musicXTrack2SeqData);
     alCSPSetSeq(g_musicXTrack2SeqPlayer, &g_musicXTrack2Seq);
@@ -1058,7 +1026,7 @@ void musicTrack2FadeOut(f32 fadeTime)
  * Does not change g_musicXTrack3Fade, but will update current track number.
  * Waits for the sequence playing to finish "doing things" and then loads music:
  * - gets the track ROM location and size (previously set on init).
- * - copies ths ROM data to a buffer, and decompresses the content
+ * - copies the ROM data to the sequence buffer
  * - sets up the cseq player and calls alCSPPlay
  * 
  * @param track: track number to play.
@@ -1066,10 +1034,7 @@ void musicTrack2FadeOut(f32 fadeTime)
 void musicTrack3Play(s32 track)
 {
     u32 trackSizeBytes;
-    u8 *temp_a0;
     void *romAddress;
-    u32 t3;
-    u8 inflateScatch[INFLATE_SCRATCH_BYTES];
     u8 *seqData;
 
     if (g_sndBootswitchSound)
@@ -1096,13 +1061,9 @@ void musicTrack3Play(s32 track)
         return;
     }
 
-    t3 = ALIGN16_a(g_musicTrackLength[g_musicXTrack3CurrentTrackNum]) + ALIGN16_a(NUM_MUSIC_TRACKS);
-    trackSizeBytes = ALIGN16_a(g_musicTrackCompressedLength[g_musicXTrack3CurrentTrackNum]);
+    trackSizeBytes = ALIGN16_a(g_musicTrackRomLength[g_musicXTrack3CurrentTrackNum]);
     seqData = g_musicXTrack3SeqData;
-    temp_a0 = seqData + t3 - trackSizeBytes;
-
-    romCopy(temp_a0, romAddress, trackSizeBytes);
-    decompressdata(temp_a0, seqData, (struct huft *)inflateScatch);
+    romCopy(seqData, romAddress, trackSizeBytes);
 
     alCSeqNew(&g_musicXTrack3Seq, g_musicXTrack3SeqData);
     alCSPSetSeq(g_musicXTrack3SeqPlayer, &g_musicXTrack3Seq);

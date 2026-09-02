@@ -23,6 +23,8 @@ enum pd_format {
 };
 
 enum pd_compression {
+    PDCOMPRESSION_UNCOMPRESSED0 = 0,
+    PDCOMPRESSION_UNCOMPRESSED1,
 	PDCOMPRESSION_HUFFMAN = 2,
 	PDCOMPRESSION_HUFFMANPERHCHANNEL,
 	PDCOMPRESSION_RLE,
@@ -45,6 +47,9 @@ struct pd_image {
 struct pd_tex {
 	uint8_t *palette;
 	int numcolours;
+	bool has_explicit_lods;
+	int lod_count;
+	int num_images;
 	struct pd_image images[PDTEX_MAX_IMAGES];
 };
 
@@ -53,6 +58,7 @@ struct pd_tex *pdtex_allocate(void);
 void pdtex_free(struct pd_tex *tex);
 
 int pdtex_read(struct pd_tex *tex, char *filename);
+int pdtex_read_native(struct pd_tex *tex, char *filename);
 
 int pdtex_write(struct pd_image *image, char *filename);
 

@@ -62,28 +62,8 @@ SECTIONS
    END_SEG(code)
 
 
-   BEGIN_SEG(cdata, _codeSegmentRomEnd, _codeSegmentRomEnd)
-   {
-      build/OUTCODE/src/c_data_filler.o (.data);
-   }
-   END_SEG(cdata)
-
-
-
-   /* (0x70200000, 0x702029BC, 0x701CCA70), // 033590-035F4D [29BD] */
-   BEGIN_SEG(inflate, _cdataSegmentRomEnd, 0x70200000)
-   {
-      build/OUTCODE/src/inflate/inflate.o (.text);
-      build/OUTCODE/src/inflate/inflate.o (.data);
-   }
-   END_SEG(inflate)
-
-
-
-
-
    /* (0x7F000000, 0x7F0E2D50, 0x7EFCB4D0), // 034B30-117881 [E2D51] */
-   BEGIN_SEG(game, _inflateSegmentRomEnd, 0x7F000000)
+   BEGIN_SEG(game, _codeSegmentRomEnd, 0x7F000000)
    {
 #include "ld/game.text.ld.inc"
    }
@@ -160,7 +140,7 @@ SECTIONS
       build/OUTCODE/assets/music/instruments.ctl.o (.data);
       build/OUTCODE/assets/music/instruments.tbl.o (.data);
       build/OUTCODE/assets/music/music.o (.music);
-      build/OUTCODE/assets/music/music.o (.musiccompressed);
+      build/OUTCODE/assets/music/music.o (.musicdata);
    }
    END_SEG(musicfiles)
 
@@ -174,7 +154,7 @@ SECTIONS
 
 
 
-   BEGIN_SEG(images, _obsegSegmentRomEnd, _imagesSegmentRomStart)
+   BEGIN_SEG(images, ((_obsegSegmentRomEnd + 0xf) & ~0xf), _imagesSegmentRomStart)
    {
 #include "ld/images.ld.inc"
    }
@@ -182,14 +162,9 @@ SECTIONS
 
 
 
-	_romSegmentEnd = _imagesSegmentRomEnd;
-
-
-
-   __csegtempPos = 0xC00000;
    __dataSegmentVaddrStart = _codeSegmentEnd + 0x10000000;
 
-   BEGIN_SEG(csegment, __csegtempPos, __dataSegmentVaddrStart)
+   BEGIN_SEG(csegment, ((_imagesSegmentRomEnd + 0xf) & ~0xf), __dataSegmentVaddrStart)
    {
       build/OUTCODE/src/rspboot.o (.text);
       build/OUTCODE/src/gspboot.o (.text);
@@ -203,7 +178,8 @@ SECTIONS
    }
    END_SEG(csegment)
 
-   _dataSegmentVaddrEnd = _csegmentSegmentRomEnd;
+   _dataSegmentVaddrEnd = _csegmentSegmentEnd;
+   _romSegmentEnd = _csegmentSegmentRomEnd;
 
 
 
@@ -233,7 +209,6 @@ SECTIONS
    /*move em to end, out of the way*/
    /DISCARD/ : {
       * (.MIPS.abiflags);
-      * (.musicdecompressed);
       * (.options);
       * (.gnu.attributes);
       * (.pdr);

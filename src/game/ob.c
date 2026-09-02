@@ -3,7 +3,6 @@
 #include "ob.h"
 #include <memp.h>
 #include <assets/obseg/obseg.h>
-#include "decompress.h"
 #include "assets/obseg/file_resource_id_enums.h"
 #include <assets/obseg/file_resource_table.inc.c>
 
@@ -13,28 +12,10 @@ s32 ob_c_debug_notice_list_entry = 0;
 s32 file_entry_max = OBJ_INDEX_END;
 
 
-void load_resource(u8 *ptrdata, s32 bytes,  fileentry *srcfile,  resource_lookup_data_entry *lookupdata)
+void load_resource(u8 *ptrdata, fileentry *srcfile, resource_lookup_data_entry *lookupdata)
 {
-    u8 *source;
-    u8  buffer[INFLATE_SCRATCH_BYTES];
-
-    if (bytes == 0)
-    {
-        romCopy(ptrdata, srcfile->hw_address, lookupdata->rom_size);
-        return;
-    }
-
-    source = (ptrdata + bytes) - ((lookupdata->rom_size + 7) & -8);
-
-    if ((u32) (source - ptrdata) < 8U)
-    {
-        lookupdata->poolRemaining = 0;
-    }
-    else
-    {
-        romCopy(source, srcfile->hw_address, lookupdata->rom_size);
-        lookupdata->poolRemaining = decompressdata(source, ptrdata, buffer);
-    }
+    romCopy(ptrdata, srcfile->hw_address, lookupdata->rom_size);
+    lookupdata->poolRemaining = lookupdata->rom_size;
 }
 
 
@@ -97,7 +78,7 @@ void obLoadBGFileBytesAtOffset(u8 *bgname, u8 *target, s32 offset, s32 len)
         {
             while (1);
         }
-        romCopy(target, &fileentry->hw_address[offset], len, fileentry);
+        romCopy(target, &fileentry->hw_address[offset], len);
     }
 }
 
@@ -120,7 +101,7 @@ void *fileIndexLoadToBank(s32 index, FILELOADMETHOD loadMethod, s32 size, u8 ban
         ptrdata             = mempAllocBytesInBank(info->poolRemaining, bank); // get pointer to allocated space in bank
         info->rom_remaining = info->poolRemaining;
 
-        load_resource(ptrdata, info->poolRemaining, &file_resource_table[index], info);
+        load_resource(ptrdata, &file_resource_table[index], info);
 
         if (loadMethod != FILELOADMETHOD_EXTRAMEM)
         {
@@ -144,7 +125,7 @@ void *fileIndexLoadToBank(s32 index, FILELOADMETHOD loadMethod, s32 size, u8 ban
         ptrdata = mempAllocBytesInBank(info->poolRemaining, bank);
         info->rom_remaining = info->poolRemaining;
 
-        load_resource(ptrdata, 0, &file_resource_table[index], info);
+        load_resource(ptrdata, &file_resource_table[index], info);
 
         if (size == 0)
         {
@@ -175,11 +156,11 @@ void *fileIndexLoadToAddr(s32 index, FILELOADMETHOD loadMethod, void *ptrdata, s
     if (loadMethod == FILELOADMETHOD_EXTRAMEM || loadMethod == FILELOADMETHOD_DEFAULT || loadMethod == 2)
     {
         info->rom_remaining = bytes;
-        load_resource(ptrdata, bytes, &file_resource_table[index], &resource_lookup_data_array[index]);
+        load_resource(ptrdata, &file_resource_table[index], &resource_lookup_data_array[index]);
     }
     else
     {
-        load_resource(ptrdata, 0, &file_resource_table[index], &resource_lookup_data_array[index]);
+        load_resource(ptrdata, &file_resource_table[index], &resource_lookup_data_array[index]);
     }
 
     return ptrdata;

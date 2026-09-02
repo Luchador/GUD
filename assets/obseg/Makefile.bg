@@ -1,14 +1,14 @@
 # bg
 
-# Pattern rules for building .seg files from .bin files
+# Convert each room's 1172 streams to size-prefixed raw blocks.
 $(BUILD_DIR)/$(OBSEG_DIR)/bg/%.seg: $(OBSEG_DIR)/bg/$(COUNTRYCODE)/%.bin
-	@cp -f $< $@
+	python3 tools/make_bg_uncompressed.py $< $@
 
 $(BUILD_DIR)/$(OBSEG_DIR)/bg/%.seg: $(OBSEG_DIR)/bg/%.bin
-	@cp -f $< $@
+	python3 tools/make_bg_uncompressed.py $< $@
 
 $(BUILD_DIR)/$(OBSEG_DIR)/bg/%.seg: $(BUILD_DIR)/$(OBSEG_DIR)/bg/%.bin
-	@cp -f $< $@
+	python3 tools/make_bg_uncompressed.py $< $@
 
 # Build .bin from .elf
 $(BUILD_DIR)/$(OBSEG_DIR)/bg/%.bin: $(BUILD_DIR)/$(OBSEG_DIR)/bg/%.elf

@@ -16,7 +16,6 @@ extern f32 y;
 extern f32 titleTransitionX;
 extern f32 titleTransitionY;
 extern s16 word_CODE_bss_80069584;
-extern s32 dword_CODE_bss_80069588;
 extern s32 dword_CODE_bss_8006958C;
 extern s32 virtualaddress;
 extern s32 gunbarrelTimer;

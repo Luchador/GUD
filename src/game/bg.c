@@ -9,7 +9,6 @@
 #include "bondview.h"
 #include "cam.h"
 #include "chr.h"
-#include "decompress.h"
 #include "environment.h"
 #include "gmath.h"
 #include "lv.h"
@@ -628,16 +627,16 @@ void bgLoadFile(LEVEL_INDEX levelid)
  
                 if (primaryindex <= secondaryindex)
                 {
-                    g_BgRoomInfo[i].primaryGdlCompressedSize = ((s32) ptr_bgdata_room_fileposition_list[primaryindex].primaryGraphics) - ((s32) ptr_bgdata_room_fileposition_list[i].primaryGraphics);
+                    g_BgRoomInfo[i].primaryGdlRomBlockSize = ((s32) ptr_bgdata_room_fileposition_list[primaryindex].primaryGraphics) - ((s32) ptr_bgdata_room_fileposition_list[i].primaryGraphics);
                 }
                 else
                 {
-                    g_BgRoomInfo[i].primaryGdlCompressedSize = ((s32) ptr_bgdata_room_fileposition_list[secondaryindex].secondaryGraphics) - ((s32) ptr_bgdata_room_fileposition_list[i].primaryGraphics);
+                    g_BgRoomInfo[i].primaryGdlRomBlockSize = ((s32) ptr_bgdata_room_fileposition_list[secondaryindex].secondaryGraphics) - ((s32) ptr_bgdata_room_fileposition_list[i].primaryGraphics);
                 }
             }
             else
             {
-                g_BgRoomInfo[i].primaryGdlCompressedSize = 0;
+                g_BgRoomInfo[i].primaryGdlRomBlockSize = 0;
             }
  
             if (ptr_bgdata_room_fileposition_list[i].secondaryGraphics != (NULL))
@@ -650,27 +649,27 @@ void bgLoadFile(LEVEL_INDEX levelid)
  
                 if (primaryindex <= secondaryindex)
                 {
-                    g_BgRoomInfo[i].secondaryGdlCompressedSize = ((s32) ptr_bgdata_room_fileposition_list[primaryindex].primaryGraphics) - ((s32) ptr_bgdata_room_fileposition_list[i].secondaryGraphics);
+                    g_BgRoomInfo[i].secondaryGdlRomBlockSize = ((s32) ptr_bgdata_room_fileposition_list[primaryindex].primaryGraphics) - ((s32) ptr_bgdata_room_fileposition_list[i].secondaryGraphics);
                 }
                 else
                 {
-                    g_BgRoomInfo[i].secondaryGdlCompressedSize = ((s32) ptr_bgdata_room_fileposition_list[secondaryindex].secondaryGraphics) - ((s32) ptr_bgdata_room_fileposition_list[i].secondaryGraphics);
+                    g_BgRoomInfo[i].secondaryGdlRomBlockSize = ((s32) ptr_bgdata_room_fileposition_list[secondaryindex].secondaryGraphics) - ((s32) ptr_bgdata_room_fileposition_list[i].secondaryGraphics);
                 }
             }
             else
             {
-                g_BgRoomInfo[i].secondaryGdlCompressedSize = 0;
+                g_BgRoomInfo[i].secondaryGdlRomBlockSize = 0;
             }
  
             if (ptr_bgdata_room_fileposition_list[i].pPointTableBin != (NULL))
             {
                 s32 pointindex;
                 pointindex = getPointTableBinCount(i + 1);
-                g_BgRoomInfo[i].verticesCompressedSize = ((s32) ptr_bgdata_room_fileposition_list[pointindex].pPointTableBin) - ((s32) ptr_bgdata_room_fileposition_list[i].pPointTableBin);
+                g_BgRoomInfo[i].verticesRomBlockSize = ((s32) ptr_bgdata_room_fileposition_list[pointindex].pPointTableBin) - ((s32) ptr_bgdata_room_fileposition_list[i].pPointTableBin);
             }
             else
             {
-                g_BgRoomInfo[i].verticesCompressedSize = 0;
+                g_BgRoomInfo[i].verticesRomBlockSize = 0;
             }
  
             g_BgRoomInfo[i].cur_room_totalsize = -1;
@@ -1750,174 +1749,128 @@ s32 bgGetIndexOfPortalID(s32 portalID)
 }
 
 
-u32 bgDecompress(u8* source, u8 *target)
+static s32 bgGetRoomStreamSize(s32 fileoffset)
 {
-    u8 buffer[INFLATE_SCRATCH_BYTES];
+    u8 buffer[0x20];
+    u8 *aligned = (u8 *)(((u32)buffer + 0xf) & ~0xf);
 
-    return decompressdata(source, target, buffer);
+    obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename,
+            aligned, fileoffset - 4, 0x10);
+
+    return *(s32 *)aligned;
 }
 
 
 /**
- * Load room's compressed vertex table from the bg file, decompress it
- * into dst, and store the resulting Vtx buffer in room.
+ * Load a room's raw vertex table and store the resulting Vtx buffer in room.
  */
 s32 bgLoadRoomVtxData(s32 roomnum, u8 *dst, s32 len)
 {
-    RoomInfo *room;
-    s32 alignedsize;
+    RoomInfo *room = &g_BgRoomInfo[roomnum];
     s32 fileoffset;
-    s32 result;
+    s32 dataSize;
 
-    room = &g_BgRoomInfo[roomnum];
-    alignedsize = (room->verticesCompressedSize + 0xf) & ~0xf;
+    /**
+     * pPointTableBin is stored as a segment-0x0f bgdata address.
+     * Adding 0xf1000000 strips the 0x0f000000 segment tag, yielding a file offset.
+     */
+    fileoffset = (u32)ptr_bgdata_room_fileposition_list[roomnum].pPointTableBin;
+    fileoffset += 0xf1000000;
+    dataSize = bgGetRoomStreamSize(fileoffset);
 
-    if (len < alignedsize + 0x20)
+    if (len < ((dataSize + 0xf) & ~0xf) + 0x20)
     {
         return -1;
     }
 
-    /**
-    * pPointTableBin is stored as a segment-0x0f bgdata address.
-    * Adding 0xf1000000 strips the 0x0f000000 segment tag, yielding a file offset.
-    */
-    fileoffset = (u32)ptr_bgdata_room_fileposition_list[roomnum].pPointTableBin;
-    fileoffset += 0xF1000000;
-    obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename, dst + (len - alignedsize), fileoffset, alignedsize);
-    result = bgDecompress(dst + (len - alignedsize), dst);
+    obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename,
+            dst, fileoffset, (dataSize + 0xf) & ~0xf);
 
     room->vertices = (Vtx *)dst;
-    room->verticesSize = result;
+    room->verticesSize = dataSize;
 
-    return result;
+    return dataSize;
 }
 
 
 /**
- * Load and decompress a room's primary display list data.
- *
- * On success, roominfo->primaryGdl is set to dst,
- * and roominfo->primaryGdlSize is set to the returned size.
+ * Load and process a room's raw primary display list data.
  */
 s32 bgLoadRoomPrimaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
 {
-    RoomInfo *roominfo;
-    s32 size;
+    RoomInfo *room = &g_BgRoomInfo[roomnum];
     s32 fileoffset;
-    u8 *scratch;
-    s32 expanded_size;
+    s32 dataSize;
+    s32 processedSize;
+    s32 alignedSize;
+    u8 *source;
 
-    roominfo = &g_BgRoomInfo[roomnum];
+    fileoffset = (s32)ptr_bgdata_room_fileposition_list[roomnum].primaryGraphics;
+    fileoffset += 0xf1000000;
+    dataSize = bgGetRoomStreamSize(fileoffset);
+    alignedSize = (dataSize + 0xf) & ~0xf;
 
-    size = roominfo->primaryGdlCompressedSize;
-    size = (size + 0xf) & ~0xf; // Align to 16 bytes
-
-    /**
-     * Check if there is enough room to temporarily place the compressed data
-     * at the end of the available buffer. Return -1 if there's not.
-     */
-    if (allocsize < size + 0x20)
+    if (allocsize < alignedSize + 0x20)
     {
         return -1;
     }
 
-    // Load the compressed data into the end of the buffer, starting at dst.
-    scratch = dst + (allocsize - size);
-
-    fileoffset = (s32)ptr_bgdata_room_fileposition_list[roomnum].primaryGraphics;
-    fileoffset += 0xf1000000;
-
-    obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename, scratch, fileoffset, size);
-
-    // Decompress from the end-of-buffer location at dst.
-    expanded_size = bgDecompress(scratch, dst);
-
-    /**
-     * Copy the decompressed GDL back to the end of the buffer as scratch.
-     * texLoadFromGdl can then read from scratch and write the final
-     * texture-processed GDL/data back to dst.
-     */
-    scratch = dst + (allocsize - expanded_size);
-
-    texCopyGdls((Gfx *)dst, (Gfx *)scratch, expanded_size);
+    source = dst + allocsize - alignedSize;
+    obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename,
+            source, fileoffset, alignedSize);
 
     clear_light_fixturetable_in_room(roomnum);
+    processedSize = texLoadFromGdl((Gfx *)source, dataSize, (Gfx *)dst, NULL);
 
-    size = texLoadFromGdl((Gfx *)scratch, expanded_size, (Gfx *)dst, NULL);
-
-    if (expanded_size < size)
+    if (processedSize < dataSize)
     {
-        expanded_size = size;
+        processedSize = dataSize;
     }
 
-    roominfo->primaryGdl = (Gfx*)dst;
-    roominfo->primaryGdlSize = expanded_size;
+    room->primaryGdl = (Gfx *)dst;
+    room->primaryGdlSize = processedSize;
 
-    // Return the uncompressed data size.
-    return expanded_size;
+    return processedSize;
 }
 
 
 /**
- * Load and decompress a room's secondary display list data.
- *
- * On success, roominfo->secondaryGdl is set to dst,
- * and roominfo->secondaryGdlSize is set to the returned size.
+ * Load and process a room's raw secondary display list data.
  */
 s32 bgLoadRoomSecondaryGdl(s32 roomnum, u8 *dst, s32 allocsize)
 {
-    RoomInfo *roominfo;
-    s32 size;
+    RoomInfo *room = &g_BgRoomInfo[roomnum];
     s32 fileoffset;
-    u8 *scratch;
-    s32 expanded_size;
+    s32 dataSize;
+    s32 processedSize;
+    s32 alignedSize;
+    u8 *source;
 
-    roominfo = &g_BgRoomInfo[roomnum];
+    fileoffset = (s32)ptr_bgdata_room_fileposition_list[roomnum].secondaryGraphics;
+    fileoffset += 0xf1000000;
+    dataSize = bgGetRoomStreamSize(fileoffset);
+    alignedSize = (dataSize + 0xf) & ~0xf;
 
-    size = roominfo->secondaryGdlCompressedSize;
-    size = (size + 0xf) & ~0xf; // Align to 16 bytes
-
-    /**
-     * Check if there is enough room to temporarily place the compressed data
-     * at the end of the available buffer. Return -1 if there's not.
-     */
-    if (allocsize < size + 0x20)
+    if (allocsize < alignedSize + 0x20)
     {
         return -1;
     }
 
-    // Load the compressed data into the end of the buffer, starting at dst.
-    scratch = dst + (allocsize - size);
+    source = dst + allocsize - alignedSize;
+    obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename,
+            source, fileoffset, alignedSize);
 
-    fileoffset = (s32)ptr_bgdata_room_fileposition_list[roomnum].secondaryGraphics;
-    fileoffset += 0xf1000000;
+    processedSize = texLoadFromGdl((Gfx *)source, dataSize, (Gfx *)dst, NULL);
 
-    obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename, scratch, fileoffset, size);
-
-    // Decompress from the end-of-buffer location at dst.
-    expanded_size = bgDecompress(scratch, dst);
-
-    /**
-     * Copy the decompressed GDL back to the end of the buffer as scratch.
-     * texLoadFromGdl can then read from scratch and write the final
-     * texture-processed GDL/data back to dst.
-     */
-    scratch = dst + (allocsize - expanded_size);
-
-    texCopyGdls((Gfx *)dst, (Gfx *)scratch, expanded_size);
-
-    size = texLoadFromGdl((Gfx *)scratch, (Gfx *)expanded_size, (Gfx *)dst, NULL);
-
-    if (expanded_size < size)
+    if (processedSize < dataSize)
     {
-        expanded_size = size;
+        processedSize = dataSize;
     }
 
-    roominfo->secondaryGdl = dst;
-    roominfo->secondaryGdlSize = expanded_size;
+    room->secondaryGdl = dst;
+    room->secondaryGdlSize = processedSize;
 
-    // Return the uncompressed data size.
-    return expanded_size;
+    return processedSize;
 }
 
 
@@ -1940,10 +1893,9 @@ s32 bgCheckIfRoomModelNeedsLoad(s32 roomID)
 * Allocates memory for room and update its display lists
 *
 * When a room is first allocated, the game will pick the largest block
-* available. It doesn't know the size of the decompressed asset as its
-* size is not stored as part of the GZIP format. It will then shrink
-* the allocated block to the correct size. The size is cached for the
-* next time the room is reloaded.
+ * available. It then shrinks the allocation to the final size after texture
+ * pointers and display-list commands have been processed. The size is cached
+ * for the next time the room is reloaded.
 */
 void bgLoadRoomModelData(s32 roomID)
 {
@@ -1990,7 +1942,7 @@ void bgLoadRoomModelData(s32 roomID)
         return;
     }
 
-    if (g_BgRoomInfo[roomID].verticesCompressedSize)
+    if (g_BgRoomInfo[roomID].verticesRomBlockSize)
     {
         result = bgLoadRoomVtxData(roomID, data, allocsize);
 
@@ -2009,7 +1961,7 @@ void bgLoadRoomModelData(s32 roomID)
     /**
      * Append the primary display list after the vertex data.
      */
-    if (g_BgRoomInfo[roomID].primaryGdlCompressedSize)
+    if (g_BgRoomInfo[roomID].primaryGdlRomBlockSize)
     {
         result = bgLoadRoomPrimaryGdl(roomID, data + used, allocsize - used);
 
@@ -2022,7 +1974,7 @@ void bgLoadRoomModelData(s32 roomID)
     /**
      * Append the secondary display list.
      */
-    if (g_BgRoomInfo[roomID].secondaryGdlCompressedSize)
+    if (g_BgRoomInfo[roomID].secondaryGdlRomBlockSize)
     {
         result = bgLoadRoomSecondaryGdl(roomID, data + used, allocsize - used);
 

@@ -73,9 +73,9 @@ typedef struct RoomInfo {
     Gfx *primaryGdl;                        // 0x08
     void *secondaryGdl;                     // 0x0c
 
-    s32 verticesCompressedSize;             // 0x10
-    s32 primaryGdlCompressedSize;           // 0x14
-    s32 secondaryGdlCompressedSize;         // 0x18
+    s32 verticesRomBlockSize;               // 0x10
+    s32 primaryGdlRomBlockSize;             // 0x14
+    s32 secondaryGdlRomBlockSize;           // 0x18
 
     s32 verticesSize;                       // 0x1c
     s32 primaryGdlSize;                     // 0x20
@@ -160,7 +160,6 @@ extern Gfx DL_LUT_PRIMARY_ADDFOG[];
 
 bool bgRoomsSharePortal(s32 roomA, s32 roomB);
 s32 bgCopyVisibleRoomsToList(s32 *rooms, s32 max);
-u32 bgDecompress(u8* source, u8 *target);
 bool bgTestBulletHitBackground(coord3d *from, coord3d *to, s32 roomnum, struct HitThing *hit);
 void bgFreeRoomData(s32 roomID);
 void bgLoadFile(LEVEL_INDEX stagenum);

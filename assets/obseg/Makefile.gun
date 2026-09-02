@@ -1,9 +1,5 @@
 # gun
 
-# Pattern rules for building .rz files from .bin files
-$(BUILD_DIR)/$(OBSEG_DIR)/gun/%.rz: $(BUILD_DIR)/$(OBSEG_DIR)/gun/%.bin
-	$(RZ_COMP) $< $@
-
 # Build .bin from .elf
 $(BUILD_DIR)/$(OBSEG_DIR)/gun/%.bin: $(BUILD_DIR)/$(OBSEG_DIR)/gun/%.elf
 	$(OBJCOPY) $< $@ -O binary
@@ -39,13 +35,12 @@ $(BUILD_DIR)/$(OBSEG_DIR)/gun/%/Switches.o: $(OBSEG_DIR)/gun/%/Switches.c
 	@mkdir -p $(@D)
 	$(CC) -c $(CFLAGS) -o $@ -O2 $<
 
-# Build GUN_RZ_NAMES from GUNNAMELIST
-GUN_RZ_NAMES = $(foreach gun,$(GUNNAMELIST),G$(gun)Z)
+# Build GUN_NAMES from GUNNAMELIST
+GUN_NAMES = $(foreach gun,$(GUNNAMELIST),G$(gun)Z)
 
-# Use GUN_RZ_NAMES to generate the list of .rz files
-GUN_RZ_FILES = $(addprefix $(BUILD_DIR)/$(OBSEG_DIR)/gun/, $(addsuffix .rz, $(GUN_RZ_NAMES)))
+GUN_BIN_FILES = $(addprefix $(BUILD_DIR)/$(OBSEG_DIR)/gun/, $(addsuffix .bin, $(GUN_NAMES)))
 
 # Default target
-all: $(GUN_RZ_FILES)
+all: $(GUN_BIN_FILES)
 
 .PHONY: all

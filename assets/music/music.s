@@ -18,7 +18,7 @@ number_music_samples_end:
 
 .macro music_table_entry name sized
  .word \name - number_music_samples
- .half end_d_\name - d_\name
+ .half end_\name - \name
  .half end_\name - \name
 .endm
 
@@ -92,25 +92,15 @@ table_music_data_end:
 _musicsampletblSegmentRomEnd:
 
 .macro music_file name
-  .section .musiccompressed
+  .section .musicdata
   .global \name
   \name:
-  .ifdef VERSION_US
-    .incbin "build\/u\/assets\/music\/\name\.rz"
-  .endif
-  .ifdef VERSION_DEBUG
-    .incbin "build\/d\/assets\/music\/\name\.rz"
-  .endif
+    .incbin "assets\/music\/\name\.bin"
     /* Check if file size is odd, add 0xA to pad file if needed to make it even */
     .if (. - \name) % 2 != 0
       .byte 0xA
     .endif
   end_\name:
-
-  .section .musicdecompressed
-  d_\name:
-    .incbin "assets\/music\/\name\.bin"
-  end_d_\name:
 .endm
 
 
@@ -178,8 +168,3 @@ music_file Msurface1x
 music_file Msurface2_ending
 music_file Mstatue_ending
 music_file Mfrigate_outro
-
-.section .musiccompressed
-.half 0
-.word 0
-
