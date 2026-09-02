@@ -330,6 +330,7 @@ static INT_PTR CALLBACK GEditorNewProjectProc(HWND hdlg, UINT msg, WPARAM wparam
         {
         case IDC_PROJECT_NAME:
         case IDC_PROJECT_LOCATION:
+        case IDC_PROJECT_ROM:
             /* EN_CHANGE arrives on every edit, so validation is live
                for both boxes - including a path pasted into Location. */
             if (HIWORD(wparam) == EN_CHANGE)
