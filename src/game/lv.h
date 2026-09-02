@@ -63,6 +63,12 @@ extern u32 g_ProfChrActionCycles;
 extern u32 g_ProfObjTickCycles;
 extern u32 g_ProfGfxCommands;
 extern u32 g_ProfBgGfxCommands;
+extern u32 g_ProfBgPrimaryRoomGfxCommands;
+extern u32 g_ProfBgSecondaryRoomGfxCommands;
+extern u32 g_ProfBgPropGfxCommands;
+extern u32 g_ProfBgEffectGfxCommands;
+extern u32 g_ProfBgVisibleRoomCount;
+extern u32 g_ProfBgSecondaryRoomCount;
 
 void lvInit(void);
 Gfx * lvRender(Gfx *);

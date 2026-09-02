@@ -393,6 +393,7 @@ Gfx *bgRender(Gfx *gdl)
     bool renderEnabled;
 
     renderEnabled = lvGetBgRenderEnabled();
+    g_ProfBgVisibleRoomCount += g_BgRoomsScheduledToBeDrawn;
 
     b_min = 99999999;
     b_max = 0;
@@ -421,7 +422,11 @@ Gfx *bgRender(Gfx *gdl)
  
                 if (renderEnabled)
                 {
+                    Gfx *propGdlStart;
+
+                    propGdlStart = gdl;
                     gdl = chrpropsRenderPass(gdl, g_BgDrawSlots[j].roomid, 0);
+                    g_ProfBgPropGfxCommands += (u32)(gdl - propGdlStart);
                 }
  
                 gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
@@ -429,7 +434,11 @@ Gfx *bgRender(Gfx *gdl)
  
                 if (renderEnabled)
                 {
+                    Gfx *primaryRoomGdlStart;
+
+                    primaryRoomGdlStart = gdl;
                     gdl = bgRenderRoomPrimary(gdl, g_BgDrawSlots[j].roomid);
+                    g_ProfBgPrimaryRoomGfxCommands += (u32)(gdl - primaryRoomGdlStart);
                 }
  
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)camGetPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
@@ -437,7 +446,11 @@ Gfx *bgRender(Gfx *gdl)
  
                 if (renderEnabled)
                 {
+                    Gfx *propGdlStart;
+
+                    propGdlStart = gdl;
                     gdl = chrpropsRenderPass(gdl, g_BgDrawSlots[j].roomid, 2);
+                    g_ProfBgPropGfxCommands += (u32)(gdl - propGdlStart);
                 }
             }
         }
@@ -448,8 +461,12 @@ Gfx *bgRender(Gfx *gdl)
  
     if (renderEnabled)
     {
+        Gfx *effectGdlStart;
+
+        effectGdlStart = gdl;
         gdl = explosionRenderScorchBuffer(gdl);
         gdl = explosionCallRenderBulletImpactOnProp(gdl);
+        g_ProfBgEffectGfxCommands += (u32)(gdl - effectGdlStart);
     }
  
     for (i = b_max; i >= b_min; i--)
@@ -464,9 +481,15 @@ Gfx *bgRender(Gfx *gdl)
 
                 if (renderEnabled && roomid < g_MaxNumRooms && g_BgRoomInfo[roomid].secondaryGdl != NULL)
                 {
+                    Gfx *secondaryRoomGdlStart;
+
                     gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
                     gdl = envSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl, g_BgDrawSlots[j].bbox.min.x, g_BgDrawSlots[j].bbox.min.y, g_BgDrawSlots[j].bbox.max.x, g_BgDrawSlots[j].bbox.max.y));
+
+                    secondaryRoomGdlStart = gdl;
                     gdl = bgRenderRoomSecondary(gdl, roomid);
+                    g_ProfBgSecondaryRoomGfxCommands += (u32)(gdl - secondaryRoomGdlStart);
+                    g_ProfBgSecondaryRoomCount++;
                 }
 
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)camGetPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
@@ -474,7 +497,11 @@ Gfx *bgRender(Gfx *gdl)
  
                 if (renderEnabled)
                 {
+                    Gfx *propGdlStart;
+
+                    propGdlStart = gdl;
                     gdl = chrpropsRenderPass(gdl, roomid, 1);
+                    g_ProfBgPropGfxCommands += (u32)(gdl - propGdlStart);
                 }
             }
         }
