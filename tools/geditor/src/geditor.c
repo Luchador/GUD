@@ -423,7 +423,6 @@ static void GEditorLayout(HWND hwnd)
        splitter gutter the mouse handlers below watch for. */
 }
 
-
 /* TRUE when x (main-window client coords) is inside the gutter. */
 static BOOL GEditorInSplitter(int x)
 {
