@@ -6262,7 +6262,7 @@ Gfx *print_objectives_and_status_to_menu(Gfx *DL, s32 arg1, u8 *arg2, s32 arg3)
 
             if (arg3)
             {
-                switch (get_status_of_objective(i))
+                switch (objectiveGetStatus(i))
                 {
                     case 1:
                         text   = langGet(getStringID(LTITLE, TITLE_STR_91_COMPLETED));
@@ -6497,7 +6497,7 @@ s32 frontCompleteAllObjectivesAliveSuccess(void)
 
     for (i=0; i<10; i++)
     {
-        if (ptrbriefingdata->objective[i].textid != 0 && lvGetSelectedDifficulty() >= ptrbriefingdata->objective[i].enabled_difficulty && get_status_of_objective(i) != OBJECTIVESTATUS_COMPLETE)
+        if (ptrbriefingdata->objective[i].textid != 0 && lvGetSelectedDifficulty() >= ptrbriefingdata->objective[i].enabled_difficulty && objectiveGetStatus(i) != OBJECTIVESTATUS_COMPLETE)
             {
                 return 0;
             }

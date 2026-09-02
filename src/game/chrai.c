@@ -34,9 +34,6 @@
 #include "stan.h"
 
 
-// hack? used to match as called with 2 args, but decompiled code takes 1
-extern s32 objectiveGetStatus_WEAK(s32 objectiveNum, s32);
-
 sfxRecord  sfx_related[SFX_RELATED_LEN];
 
 
@@ -2484,7 +2481,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                     /*  additional PD code for dificulty filtering
                      == OBJECTIVE_COMPLETE && objectivelvlGetSelectedDifficultyBits(ai->val[0]) & (1 << lvGetSelectedDifficulty()))  *
                     */
-                    if (objectiveGetCount() > ai->OBJ_NUM && OBJECTIVESTATUS_COMPLETE == objectiveGetStatus_WEAK(ai->OBJ_NUM * 1, ai->OBJ_NUM))
+                    if (ai->OBJ_NUM < objectiveGetCount() && objectiveGetStatus(ai->OBJ_NUM) == OBJECTIVESTATUS_COMPLETE)
                     {
                         Offset = chraiGoToLabel(AiListp, Offset, ai->GOTOLABEL);
                     }

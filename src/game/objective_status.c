@@ -136,168 +136,167 @@ s32 objectiveGetDifficulty(s32 objectiveIndex)
 }
 
 
-//horrible hack to get ai matching, but it does correctly refrence this func with 2 params
-#pragma weak    objectiveGetStatus_WEAK = get_status_of_objective
-
-
-OBJECTIVESTATUS get_status_of_objective(s32 objectiveNum)
+OBJECTIVESTATUS objectiveGetStatus(s32 objectiveIndex)
 {
-    MissionObjectiveRecord *objective;
-    OBJECTIVESTATUS         currentstatus;
-    OBJECTIVESTATUS         status = OBJECTIVESTATUS_COMPLETE;
+    struct objective_entry *entry;
+    MissionObjectiveRecord *condition;
+    OBJECTIVESTATUS conditionStatus;
+    OBJECTIVESTATUS objectiveStatus = OBJECTIVESTATUS_COMPLETE;
 
-    if (objectiveNum < 10)
+    if (objectiveIndex < 0 || objectiveIndex >= OBJECTIVES_MAX)
     {
-        if (!&objective_ptrs[objectiveNum]->id)
-        {
-            status = objectiveStatuses[objectiveNum];
-        }
-        else
-        {
-            // for each objective in objectives
-            for (objective = &objective_ptrs[objectiveNum]->id; objective->type != PROPDEF_OBJECTIVE_END; objective = sizepropdef(objective) + (PropDefHeaderRecord *)objective)
-            {
-                {
-                    currentstatus = OBJECTIVESTATUS_COMPLETE;
-                    switch (objective->type)
-                    {
-                        case PROPDEF_OBJECTIVE_DESTROY_OBJECT:
-                        {
-                            ObjectRecord *obj = objFindByTagId(objective->ObjRefID);
-                            if (obj && obj->prop && objIsHealthy(obj))
-                            {
-                                currentstatus = OBJECTIVESTATUS_INCOMPLETE;
-                            }
-                            break;
-                        }
-                        case PROPDEF_OBJECTIVE_COMPLETE_CONDITION:
-                        {
-                            if (!chrHasStageFlag(NULL, objective->ObjRefID))
-                            {
-                                currentstatus = OBJECTIVESTATUS_INCOMPLETE;
-                            }
-                            break;
-                        }
-                        case PROPDEF_OBJECTIVE_FAIL_CONDITION:
-                        {
-                            if (chrHasStageFlag(NULL, objective->ObjRefID))
-                            {
-                                currentstatus = OBJECTIVESTATUS_FAILED;
-                            }
-                            break;
-                        }
-                        case PROPDEF_OBJECTIVE_COLLECT_OBJECT:
-                        {
-                            ObjectRecord *obj = objFindByTagId(objective->ObjRefID);
-                            if (!obj || !obj->prop || !objIsHealthy(obj))
-                            {
-                                currentstatus = OBJECTIVESTATUS_FAILED;
-                            }
-                            else if (!bondinvHasPropInInv(obj->prop))
-                            {
-                                currentstatus = OBJECTIVESTATUS_INCOMPLETE;
-                            }
-                            break;
-                        }
-                        case PROPDEF_OBJECTIVE_DEPOSIT_OBJECT:
-                        {
-                            ObjectRecord *obj = objFindByTagId(objective->ObjRefID);
-                            if (obj && obj->prop && bondinvHasPropInInv(obj->prop))
-                            {
-                                currentstatus = OBJECTIVESTATUS_INCOMPLETE;
-                            }
-                            break;
-                        }
-                        case PROPDEF_OBJECTIVE_PHOTOGRAPH:
-                        {
-                            ObjectRecord *obj = objFindByTagId(objective->ObjRefID);
-                            if (!objective->TextID)
-                            {
-                                if (!obj || !obj->prop || !objIsHealthy(obj))
-                                {
-                                    currentstatus = OBJECTIVESTATUS_FAILED;
-                                }
-                                else
-                                {
-                                    currentstatus = OBJECTIVESTATUS_INCOMPLETE;
-                                }
-                            }
-                            break;
-                        }
-                        case PROPDEF_OBJECTIVE_ENTER_ROOM:
-                        {
-                            if (!objective->TextID)
-                            {
-                                currentstatus = OBJECTIVESTATUS_INCOMPLETE;
-                            }
-                            break;
-                        }
-                        case PROPDEF_OBJECTIVE_DEPOSIT_OBJECT_IN_ROOM:
-                        {
-                            if (!objective->MinDificulty)
-                            {
-                                currentstatus = OBJECTIVESTATUS_INCOMPLETE;
-                            }
-                            break;
-                        }
-                        case PROPDEF_OBJECTIVE_COPY_ITEM:
-                        {
-                            if (!get_keyanalyzer_flag())
-                            {
-                                currentstatus = OBJECTIVESTATUS_INCOMPLETE;
-                            }
-                            break;
-                        }
-                        case PROPDEF_OBJECTIVE_END:
-                        case PROPDEF_OBJECTIVE_START:
-                        case PROPDEF_OBJECTIVE_NULL:
-                        {
-                            break;
-                        }
-                        default:
-                        {
-#    ifdef DEBUG
-                            osSyncPrintf("unknown goal propdef %d\n", objective->type);
-#    endif
-                            break;
-                        }
-                    }
-                    if (status == OBJECTIVESTATUS_COMPLETE)
-                    {
-                        if (currentstatus != OBJECTIVESTATUS_COMPLETE)
-                        {
-                            status = currentstatus;
-                        }
-                    }
-                    else if ((status == OBJECTIVESTATUS_INCOMPLETE) && (currentstatus == OBJECTIVESTATUS_FAILED))
-                    {
-                        status = currentstatus;
-                    }
-                }
-            }
-        }
+        return objectiveStatus;
     }
 
-    return status;
+    entry = objective_ptrs[objectiveIndex];
+
+    if (entry == NULL)
+    {
+        return objectiveStatuses[objectiveIndex];
+    }
+
+    condition = (MissionObjectiveRecord *)entry;
+
+    while (condition->type != PROPDEF_OBJECTIVE_END)
+    {
+        conditionStatus = OBJECTIVESTATUS_COMPLETE;
+
+        switch (condition->type)
+        {
+            case PROPDEF_OBJECTIVE_DESTROY_OBJECT:
+            {
+                ObjectRecord *obj = objFindByTagId(condition->ObjRefID);
+
+                if (obj && obj->prop && objIsHealthy(obj))
+                {
+                    conditionStatus = OBJECTIVESTATUS_INCOMPLETE;
+                }
+                break;
+            }
+
+            case PROPDEF_OBJECTIVE_COMPLETE_CONDITION:
+                if (!chrHasStageFlag(NULL, condition->ObjRefID))
+                {
+                    conditionStatus = OBJECTIVESTATUS_INCOMPLETE;
+                }
+                break;
+
+            case PROPDEF_OBJECTIVE_FAIL_CONDITION:
+                if (chrHasStageFlag(NULL, condition->ObjRefID))
+                {
+                    conditionStatus = OBJECTIVESTATUS_FAILED;
+                }
+                break;
+
+            case PROPDEF_OBJECTIVE_COLLECT_OBJECT:
+            {
+                ObjectRecord *obj = objFindByTagId(condition->ObjRefID);
+
+                if (!obj || !obj->prop || !objIsHealthy(obj))
+                {
+                    conditionStatus = OBJECTIVESTATUS_FAILED;
+                }
+                else if (!bondinvHasPropInInv(obj->prop))
+                {
+                    conditionStatus = OBJECTIVESTATUS_INCOMPLETE;
+                }
+                break;
+            }
+
+            case PROPDEF_OBJECTIVE_DEPOSIT_OBJECT:
+            {
+                ObjectRecord *obj = objFindByTagId(condition->ObjRefID);
+
+                if (obj && obj->prop && bondinvHasPropInInv(obj->prop))
+                {
+                    conditionStatus = OBJECTIVESTATUS_INCOMPLETE;
+                }
+                break;
+            }
+
+            case PROPDEF_OBJECTIVE_PHOTOGRAPH:
+            {
+                ObjectRecord *obj = objFindByTagId(condition->ObjRefID);
+
+                if (!condition->TextID)
+                {
+                    if (!obj || !obj->prop || !objIsHealthy(obj))
+                    {
+                        conditionStatus = OBJECTIVESTATUS_FAILED;
+                    }
+                    else
+                    {
+                        conditionStatus = OBJECTIVESTATUS_INCOMPLETE;
+                    }
+                }
+                break;
+            }
+
+            case PROPDEF_OBJECTIVE_ENTER_ROOM:
+                if (!condition->TextID)
+                {
+                    conditionStatus = OBJECTIVESTATUS_INCOMPLETE;
+                }
+                break;
+
+            case PROPDEF_OBJECTIVE_DEPOSIT_OBJECT_IN_ROOM:
+                if (!condition->MinDificulty)
+                {
+                    conditionStatus = OBJECTIVESTATUS_INCOMPLETE;
+                }
+                break;
+
+            case PROPDEF_OBJECTIVE_COPY_ITEM:
+                if (!get_keyanalyzer_flag())
+                {
+                    conditionStatus = OBJECTIVESTATUS_INCOMPLETE;
+                }
+                break;
+
+            case PROPDEF_OBJECTIVE_START:
+            case PROPDEF_OBJECTIVE_NULL:
+                break;
+
+            default:
+#ifdef DEBUG
+                osSyncPrintf("unknown goal propdef %d\n", condition->type);
+#endif
+                break;
+        }
+
+        if (conditionStatus == OBJECTIVESTATUS_FAILED)
+        {
+            objectiveStatus = OBJECTIVESTATUS_FAILED;
+        }
+        else if (conditionStatus == OBJECTIVESTATUS_INCOMPLETE
+                && objectiveStatus == OBJECTIVESTATUS_COMPLETE)
+        {
+            objectiveStatus = OBJECTIVESTATUS_INCOMPLETE;
+        }
+
+        condition = (MissionObjectiveRecord *)((PropDefHeaderRecord *)condition
+            + sizepropdef((PropDefHeaderRecord *)condition));
+    }
+
+    return objectiveStatus;
 }
 
 
 
 bool objectiveIsAllComplete(void)
 {
-    DIFFICULTY objdiff;
-    DIFFICULTY curdiff;
-    int objective;
-    
-    for (objective = 0; objective < objectiveGetCount(); objective++)
+    DIFFICULTY currentDifficulty = lvGetSelectedDifficulty();
+    s32 objectiveIndex;
+
+    for (objectiveIndex = 0; objectiveIndex < objectiveGetCount(); objectiveIndex++)
     {
-        objdiff = objectiveGetDifficulty(objective);
-        curdiff = lvGetSelectedDifficulty();
-        if ((objdiff <= curdiff) && (get_status_of_objective(objective) != OBJECTIVESTATUS_COMPLETE))
+        if (objectiveGetDifficulty(objectiveIndex) <= currentDifficulty
+                && objectiveGetStatus(objectiveIndex) != OBJECTIVESTATUS_COMPLETE)
         {
             return FALSE;
         }
     }
+
     return TRUE;
 }
 
@@ -311,7 +310,7 @@ void display_objective_status_text_on_status_change(void)
 
     for (i = 0; i <= objective_count; i++)
     {
-        status = get_status_of_objective(i);
+        status = objectiveGetStatus(i);
 
         if (objectiveStatuses[i] != status)
         {

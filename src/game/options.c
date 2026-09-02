@@ -3608,7 +3608,7 @@ Gfx *draw_watch_mission_briefing_page(Gfx *gdl, Mtx *param_2)
                             strcat(objectiveBuffer, D_80058454);
                         }
 
-                        switch (get_status_of_objective(i))
+                        switch (objectiveGetStatus(i))
                         {
                             case OBJECTIVESTATUS_INCOMPLETE:
                                 strcat(objectiveBuffer, incompleteText);

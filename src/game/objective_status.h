@@ -15,12 +15,14 @@ extern struct criteria_picture *ptr_last_photo_obj_in_room_subobject_entry_type1
 extern s32 objective_count;
 extern s32 objective_status_display_disabled;
 
-void             objectiveTakePictureHandler(void);
-bool             objectiveIsAllComplete(void);
+void objectiveTakePictureHandler(void);
+bool objectiveIsAllComplete(void);
 TagObjectRecord *getTagID(s32 TagID);
-s32              objectiveGetCount(void);
-ObjectRecord *   objFindByTagId(s32 TagID);
-OBJECTIVESTATUS  get_status_of_objective(s32 objectiveNum);
+ObjectRecord *objFindByTagId(s32 TagID);
+u8 *objectiveGetText(s32 objectiveIndex);
+s32 objectiveGetDifficulty(s32 objectiveIndex);
+s32 objectiveGetCount(void);
+OBJECTIVESTATUS objectiveGetStatus(s32 objectiveIndex);
 void objectivestatusCheckDeposit(s32 weaponnum, s32 roomid);
 void display_objective_status_text_on_status_change(void);
 #endif
