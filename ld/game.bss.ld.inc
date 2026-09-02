@@ -25,15 +25,7 @@
       build/OUTCODE/src/game/alloc_window_pieces.o (.bss);
       build/OUTCODE/src/game/initcheattext.o (.bss);
       build/OUTCODE/src/game/initmttex.o (.bss);
-      build/OUTCODE/src/game/cleanup_guard_data.o (.bss);
-      build/OUTCODE/src/game/cleanup_object_sounds.o (.bss);
-      build/OUTCODE/src/game/cleanup_alarms.o (.bss);
-      build/OUTCODE/src/game/cleanup_objects.o (.bss);
-      build/OUTCODE/src/game/cleanup_objectives.o (.bss);
-      build/OUTCODE/src/game/cleanupSFXRelated.o (.bss);
-      build/OUTCODE/src/game/cleanexplosions.o (.bss);
-      build/OUTCODE/src/game/cleanwindowpieces.o (.bss);
-      build/OUTCODE/src/game/cleanplayersound.o (.bss);
+      build/OUTCODE/src/game/cleanup.o (.bss);
       build/OUTCODE/src/game/title.o (.bss);
       build/OUTCODE/src/game/front.o (.bss);
       build/OUTCODE/src/game/title2.o (.bss);
@@ -114,4 +106,3 @@
       build/OUTCODE/src/game/viewport.o (.bss);
       build/OUTCODE/src/game/musicselect.o (.bss);
       build/OUTCODE/src/game/gedmanifest.o (.bss);
-      

@@ -23,7 +23,7 @@
 #include "cheat.h"
 #include "chr.h"
 #include "chrai.h"
-#include "cleanup_objects.h"
+#include "cleanup.h"
 #include "ejectedcartridges.h"
 #include "explosion.h"
 #include "frametiming.h"

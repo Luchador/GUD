@@ -25,15 +25,7 @@
       build/OUTCODE/src/game/alloc_window_pieces.o (.rodata);
       build/OUTCODE/src/game/initcheattext.o (.rodata);
       build/OUTCODE/src/game/initmttex.o (.rodata);
-      build/OUTCODE/src/game/cleanup_guard_data.o (.rodata);
-      build/OUTCODE/src/game/cleanup_object_sounds.o (.rodata);
-      build/OUTCODE/src/game/cleanup_alarms.o (.rodata);
-      build/OUTCODE/src/game/cleanup_objects.o (.rodata);
-      build/OUTCODE/src/game/cleanup_objectives.o (.rodata);
-      build/OUTCODE/src/game/cleanupSFXRelated.o (.rodata);
-      build/OUTCODE/src/game/cleanexplosions.o (.rodata);
-      build/OUTCODE/src/game/cleanwindowpieces.o (.rodata);
-      build/OUTCODE/src/game/cleanplayersound.o (.rodata);
+      build/OUTCODE/src/game/cleanup.o (.rodata);
       build/OUTCODE/src/game/title.o (.rodata);
       build/OUTCODE/src/game/front.o (.rodata);
       build/OUTCODE/src/game/title2.o (.rodata);
