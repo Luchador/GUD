@@ -2,13 +2,15 @@
 #include <windows.h>
 #include <commdlg.h>
 #include <shobjidl.h>   /* IFileOpenDialog: the modern folder picker */
-#include <shlobj.h>     /* SHGetFolderPath: default to Documents */
+#include <shlobj.h>
+#include <windowsx.h>  /* GET_X_LPARAM */     /* SHGetFolderPath: default to Documents */
 #include <string.h>
 #include <stdio.h>
 
 #include "project.h"
 #include "resource.h"
 #include "viewport.h"
+#include "browser.h"
 
 #define GEDITOR_CLASS  "GEditorWindow"
 #define GEDITOR_TITLE  "GEditor"
@@ -16,6 +18,14 @@
 #define GEDITOR_HEIGHT  1080
 
 static HWND g_Viewport;
+static HWND g_Browser;
+
+/* Content browser column: user-draggable via the splitter gutter. */
+#define GEDITOR_SPLITTER_W    5
+#define GEDITOR_BROWSER_MIN 160
+#define GEDITOR_VIEWPORT_MIN 320
+static int  g_BrowserWidth = 280;
+static BOOL g_DraggingSplitter = FALSE;
 static GEditorProject g_Project;
 
 static void GEditorSetTitleForProject(HWND hwnd);
@@ -382,17 +392,42 @@ static void GEditorSetTitleForProject(HWND hwnd)
 static void GEditorLayout(HWND hwnd)
 {
     RECT rc;
-    int browserwidth = 0; /* future: content browser column */
 
     GetClientRect(hwnd, &rc);
+
+    /* Clamp the split so neither pane can be dragged out of existence,
+       and so a narrow window still shows something of both. */
+    if (g_BrowserWidth > rc.right - GEDITOR_SPLITTER_W - GEDITOR_VIEWPORT_MIN)
+    {
+        g_BrowserWidth = rc.right - GEDITOR_SPLITTER_W - GEDITOR_VIEWPORT_MIN;
+    }
+    if (g_BrowserWidth < GEDITOR_BROWSER_MIN)
+    {
+        g_BrowserWidth = GEDITOR_BROWSER_MIN;
+    }
+
+    if (g_Browser != NULL)
+    {
+        MoveWindow(g_Browser, 0, 0, g_BrowserWidth, rc.bottom, TRUE);
+    }
 
     if (g_Viewport != NULL)
     {
         MoveWindow(g_Viewport,
-                   browserwidth, 0,
-                   rc.right - browserwidth, rc.bottom,
+                   g_BrowserWidth + GEDITOR_SPLITTER_W, 0,
+                   rc.right - g_BrowserWidth - GEDITOR_SPLITTER_W, rc.bottom,
                    TRUE);
     }
+
+    /* The strip between them is bare main-window client area - the
+       splitter gutter the mouse handlers below watch for. */
+}
+
+
+/* TRUE when x (main-window client coords) is inside the gutter. */
+static BOOL GEditorInSplitter(int x)
+{
+    return x >= g_BrowserWidth && x < g_BrowserWidth + GEDITOR_SPLITTER_W;
 }
 
 
@@ -404,6 +439,12 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     {
         CREATESTRUCT *cs = (CREATESTRUCT *)lparam;
 
+        g_Browser = BrowserCreate(hwnd, cs->hInstance);
+        if (g_Browser == NULL)
+        {
+            return -1;
+        }
+
         g_Viewport = ViewportCreate(hwnd, cs->hInstance);
         if (g_Viewport == NULL)
         {
@@ -414,6 +455,54 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
     case WM_SIZE:
         GEditorLayout(hwnd);
+        return 0;
+
+    case WM_SETCURSOR:
+        /* Mouse messages over the children go to the children, so the
+           main window only hears about the cursor when it is over its
+           own client area - which is exactly the splitter gutter. */
+        if (LOWORD(lparam) == HTCLIENT)
+        {
+            POINT p;
+
+            GetCursorPos(&p);
+            ScreenToClient(hwnd, &p);
+            if (GEditorInSplitter(p.x))
+            {
+                SetCursor(LoadCursor(NULL, IDC_SIZEWE));
+                return TRUE;
+            }
+        }
+        break;
+
+    case WM_LBUTTONDOWN:
+        if (GEditorInSplitter(GET_X_LPARAM(lparam)))
+        {
+            g_DraggingSplitter = TRUE;
+            SetCapture(hwnd);
+        }
+        return 0;
+
+    case WM_MOUSEMOVE:
+        if (g_DraggingSplitter)
+        {
+            g_BrowserWidth = GET_X_LPARAM(lparam) - GEDITOR_SPLITTER_W / 2;
+            GEditorLayout(hwnd); /* clamps, then repositions both panes */
+        }
+        return 0;
+
+    case WM_LBUTTONUP:
+        if (g_DraggingSplitter)
+        {
+            g_DraggingSplitter = FALSE;
+            ReleaseCapture();
+        }
+        return 0;
+
+    case WM_CAPTURECHANGED:
+        /* Capture stolen (Alt+Tab, a dialog): abandon the drag the same
+           way the viewport abandons flight. */
+        g_DraggingSplitter = FALSE;
         return 0;
 
     case WM_INITMENUPOPUP:
@@ -508,6 +597,12 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
     if (!RegisterClass(&wc))
     {
         MessageBox(NULL, "RegisterClass failed", GEDITOR_TITLE, MB_ICONERROR);
+        return 1;
+    }
+
+    if (!BrowserRegisterClass(hinstance))
+    {
+        MessageBox(NULL, "BrowserRegisterClass failed", GEDITOR_TITLE, MB_ICONERROR);
         return 1;
     }
 
