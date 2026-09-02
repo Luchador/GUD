@@ -8,65 +8,54 @@
 #include "str.h"
 #include "bondview.h"
 
-//Public variables - move to header
-// bss
-//CODE.bss:80075D30
-struct objective_entry * objective_ptrs[OBJECTIVES_MAX];
-OBJECTIVESTATUS         objectiveStatuses[OBJECTIVES_MAX]; //This is an array of 10 OBJECTIVESTATUS,
 
-//CODE.bss:80075D80
+struct objective_entry *objective_ptrs[OBJECTIVES_MAX];
+OBJECTIVESTATUS objectiveStatuses[OBJECTIVES_MAX];
 u32 *ptr_last_tag_entry_type16;
-//CODE.bss:80075D84
 struct watchMenuObjectiveText *ptr_last_briefing_setup_entry_type23;
-//CODE.bss:80075D88
 struct criteria_roomentered *ptr_last_enter_room_subobject_entry_type20;
-//CODE.bss:80075D8C
 struct criteria_deposit *ptr_last_deposit_in_room_subobject_entry_type21;
-//CODE.bss:80075D90
 struct criteria_picture *ptr_last_photo_obj_in_room_subobject_entry_type1E;
-
-// data
 s32 objective_count = 0xFFFFFFFF;
 s32 objective_status_display_disabled = FALSE;
 
 
-
-/*
- * Return Tag with TagID
- */
-TagObjectRecord *sub_GAME_7F057080(s32 TagID) //#MATCH
+/**
+  * Return Tag with TagID
+  */
+TagObjectRecord *getTagID(s32 TagID)
 {
     u16              ID  = TagID;
     TagObjectRecord *tag = ptr_last_tag_entry_type16;
+
     while (tag)
     {
         if (tag->ID == ID)
         {
             return tag;
         }
+
         tag = tag->NextTag;
     }
+
     return NULL;
 }
 
 
-
-
-
-/*
- * Return Object with TagID  
- * Address 7F0570C0
- */
-ObjectRecord *objFindByTagId(s32 TagID) //#MATCH
+/**
+  * Return Object with TagID  
+  */
+ObjectRecord *objFindByTagId(s32 TagID)
 {
-    TagObjectRecord *tag = sub_GAME_7F057080(TagID);
+    TagObjectRecord *tag = getTagID(TagID);
     ObjectRecord *   obj = NULL;
 
     if (tag)
     {
         obj = tag->TaggedObject;
     }
-    if (obj && !(obj->runtime_bitflags & 0x10))
+
+    if (obj && !(obj->runtime_bitflags & RUNTIMEBITFLAG_TAGGED))
     {
         obj = NULL; //clear object
     }
@@ -74,11 +63,7 @@ ObjectRecord *objFindByTagId(s32 TagID) //#MATCH
 }
 
 
-
-/*
-* Address: 0x7f057104
-*/
-u8 * get_ptr_text_for_watch_breifing_page(WATCH_BRIEFING_PAGE page)
+u8 *get_ptr_text_for_watch_breifing_page(WATCH_BRIEFING_PAGE page)
 {
     struct watchMenuObjectiveText * curentry;
     u8 * textptr;
@@ -114,42 +99,41 @@ u8 * get_ptr_text_for_watch_breifing_page(WATCH_BRIEFING_PAGE page)
 }
 
 
-
-//objectiveGetCount
 s32 objectiveGetCount(void)
 {
     return objective_count + 1;
 }
 
 
-
-u8 * get_text_for_objective(int objectiveIndex)
+u8 *objectiveGetText(s32 objectiveIndex)
 {
     u8 *textptr;
     
-    if ((objectiveIndex < 10) && (objective_ptrs[objectiveIndex] != 0)) {
+    if ((objectiveIndex < OBJECTIVES_MAX) && (objective_ptrs[objectiveIndex] != NULL))
+    {
         return langGet(objective_ptrs[objectiveIndex]->text);
     }
+
     return 0;
 }
 
 
-
-s32 get_difficulty_for_objective(s32 objectiveIndex)
+s32 objectiveGetDifficulty(s32 objectiveIndex)
 {
     struct objective_entry * entry;
 
     if (objectiveIndex < OBJECTIVES_MAX)
     {
         entry = objective_ptrs[objectiveIndex];
+
         if (entry != NULL)
         {
             return entry->difficulty;
         }
     }
+
     return 0;
 }
-
 
 
 //horrible hack to get ai matching, but it does correctly refrence this func with 2 params
@@ -307,7 +291,7 @@ bool objectiveIsAllComplete(void)
     
     for (objective = 0; objective < objectiveGetCount(); objective++)
     {
-        objdiff = get_difficulty_for_objective(objective);
+        objdiff = objectiveGetDifficulty(objective);
         curdiff = lvGetSelectedDifficulty();
         if ((objdiff <= curdiff) && (get_status_of_objective(objective) != OBJECTIVESTATUS_COMPLETE))
         {
@@ -333,7 +317,7 @@ void display_objective_status_text_on_status_change(void)
         {
             objectiveStatuses[i] = status;
     
-            if (get_difficulty_for_objective(i) <= lvGetSelectedDifficulty())
+            if (objectiveGetDifficulty(i) <= lvGetSelectedDifficulty())
             {
                 sprintf(&buffer, "%s %c: ", langGet(getStringID(LMISC, MISC_STR_2C_OBJECTIVE)), availableindex + 0x61);
 
@@ -353,7 +337,7 @@ void display_objective_status_text_on_status_change(void)
                 hudmsgBottomShow(&buffer);
             }
         }
-        if (get_difficulty_for_objective(i) <= lvGetSelectedDifficulty())
+        if (objectiveGetDifficulty(i) <= lvGetSelectedDifficulty())
         {
             availableindex++;
         }

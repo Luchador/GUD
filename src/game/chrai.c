@@ -3865,7 +3865,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 case AI_CameraSwitch:
                 {
                     AiCameraSwitchRecord *ai  = AiListp + Offset;
-                    TagObjectRecord      *tag = sub_GAME_7F057080(ai->OBJECT_TAG);
+                    TagObjectRecord      *tag = getTagID(ai->OBJECT_TAG);
                     if (tag)
                     {
                         int TagIndex = tagGetCommandIndex(tag); // get index
