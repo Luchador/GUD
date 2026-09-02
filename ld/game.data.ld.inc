@@ -112,3 +112,4 @@
       build/OUTCODE/src/game/speedgraphrenderer.o (.data);
       build/OUTCODE/src/game/viewport.o (.data);
       build/OUTCODE/src/game/musicselect.o (.data);
+      build/OUTCODE/src/game/gedmanifest.o (.data);

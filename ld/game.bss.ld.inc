@@ -113,3 +113,5 @@
       build/OUTCODE/src/game/speedgraphrenderer.o (.bss);
       build/OUTCODE/src/game/viewport.o (.bss);
       build/OUTCODE/src/game/musicselect.o (.bss);
+      build/OUTCODE/src/game/gedmanifest.o (.bss);
+      
