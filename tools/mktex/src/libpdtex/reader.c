@@ -6,6 +6,8 @@
 #include <zlib.h>
 #include "pdtex.h"
 
+#define ZLIB_TEXTURE_MAX_PIXELS 0x1000
+
 /**
  * The functions in this file are copied from PD decomp's texdecompress.c.
  *
@@ -13,7 +15,7 @@
  */
 
 uint8_t *var800ab540;
-int var800ab544;
+uint32_t var800ab544;
 int var800ab548;
 int total_read;
 void *g_RzipUnused;
@@ -25,7 +27,7 @@ extern int g_TexFormatBitsPerPixel[];
 
 void pdtex_flip(struct pd_tex *tex);
 
-int rzipInflate(uint8_t *src, uint8_t *dst)
+int rzipInflate(uint8_t *src, uint8_t *dst, uint32_t output_size)
 {
 	int ret;
 	z_stream strm;
@@ -59,17 +61,15 @@ int rzipInflate(uint8_t *src, uint8_t *dst)
 
 	strm.avail_in = 0x2000;
 	strm.next_in = src;
+	strm.avail_out = output_size;
+	strm.next_out = dst;
 
-	do {
-		strm.avail_out = 0x2000;
-		strm.next_out = dst;
+	ret = inflate(&strm, Z_FINISH);
 
-		ret = inflate(&strm, Z_FINISH);
-
-		if (ret == Z_STREAM_ERROR) {
-			return Z_STREAM_ERROR;
-		}
-	} while (strm.avail_out == 0);
+	if (ret != Z_STREAM_END) {
+		inflateEnd(&strm);
+		return ret == Z_OK ? Z_BUF_ERROR : ret;
+	}
 
 	g_RzipUnused = strm.next_in;
 
@@ -93,6 +93,8 @@ static void texSetBitstring(uint8_t *arg0)
 
 static int texReadBits(int numbits)
 {
+	uint32_t mask;
+
 	while (var800ab548 < numbits) {
 		var800ab544 = *var800ab540 | var800ab544 << 8;
 		var800ab540++;
@@ -101,8 +103,9 @@ static int texReadBits(int numbits)
 
 	total_read += numbits;
 	var800ab548 -= numbits;
+	mask = numbits == 0 ? 0 : UINT32_MAX >> (32 - numbits);
 
-	return var800ab544 >> var800ab548 & ((1 << numbits) - 1);
+	return var800ab544 >> var800ab548 & mask;
 }
 
 static void texInflateHuffman(uint8_t *dst, int numiterations, int chansize)
@@ -799,9 +802,8 @@ static void texAlignIndices(uint8_t *src, int width, int height, int format, uin
 	}
 }
 
-static void texInflateZlib(struct pd_tex *tex, int arg2, int forcenumimages)
+static int texInflateZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 {
-	uint8_t scratch[0x800];
 	int numimages;
 	int format;
 
@@ -813,8 +815,19 @@ static void texInflateZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 
 	format = texReadBits(8);
 
+	if (format != PDFORMAT_RGBA16_CI8
+			&& format != PDFORMAT_RGBA16_CI4
+			&& format != PDFORMAT_IA16_CI8
+			&& format != PDFORMAT_IA4_CI4) {
+		return 0;
+	}
+
 	tex->numcolours = texReadBits(8) + 1;
 	tex->palette = malloc(tex->numcolours * 2);
+
+	if (!tex->palette) {
+		return 0;
+	}
 
 	for (int i = 0; i < tex->numcolours; i++) {
 		tex->palette[i * 2 + 0] = texReadBits(8);
@@ -823,18 +836,46 @@ static void texInflateZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 
 	for (int i = 0; i < numimages; i++) {
 		struct pd_image *image = &tex->images[i];
+		uint8_t *scratch;
+		uint32_t pixel_count;
+		uint32_t index_data_size;
 
 		image->exists = true;
 		image->format = format;
 		image->width = texReadBits(8);
 		image->height = texReadBits(8);
-		image->pixels = malloc(image->width * image->height);
+		pixel_count = image->width * image->height;
 
-		rzipInflate(var800ab540, scratch);
+		// Match the size limit enforced by the runtime texture loader.
+		if (pixel_count == 0 || pixel_count > ZLIB_TEXTURE_MAX_PIXELS) {
+			return 0;
+		}
+
+		if (format == PDFORMAT_RGBA16_CI4 || format == PDFORMAT_IA4_CI4) {
+			index_data_size = ((image->width + 1) / 2) * image->height;
+		} else {
+			index_data_size = pixel_count;
+		}
+
+		image->pixels = malloc(pixel_count);
+		scratch = malloc(index_data_size);
+
+		if (!image->pixels || !scratch) {
+			free(scratch);
+			return 0;
+		}
+
+		if (rzipInflate(var800ab540, scratch, index_data_size) != Z_OK) {
+			free(scratch);
+			return 0;
+		}
 
 		texAlignIndices(scratch, image->width, image->height, image->format, image->pixels);
+		free(scratch);
 		texSetBitstring(rzipGetUnused());
 	}
+
+	return 1;
 }
 
 static void texInflateNonZlib(struct pd_tex *tex, int arg2, int forcenumimages)
@@ -936,7 +977,7 @@ static void texInflateNonZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 	}
 }
 
-static void texLoad(struct pd_tex *tex)
+static int texLoad(struct pd_tex *tex)
 {
 	int sp14a8 = texReadBits(1);
 	int iszlib = texReadBits(1);
@@ -955,9 +996,10 @@ static void texLoad(struct pd_tex *tex)
 	}
 
 	if (iszlib) {
-		texInflateZlib(tex, sp14a8, lod);
+		return texInflateZlib(tex, sp14a8, lod);
 	} else {
 		texInflateNonZlib(tex, sp14a8, lod);
+		return 1;
 	}
 }
 
@@ -992,7 +1034,10 @@ int reader_read(FILE *fp, struct pd_tex *tex)
 
 	texSetBitstring(buffer);
 
-	texLoad(tex);
+	if (!texLoad(tex)) {
+		free(buffer);
+		return 0;
+	}
 
 	free(buffer);
 
