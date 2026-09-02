@@ -135,6 +135,24 @@ u32 g_ProfChrActionCycles;
 u32 g_ProfObjTickCycles;
 u32 g_ProfGfxCommands;
 u32 g_ProfBgGfxCommands;
+u32 g_ProfChrRouteCycles;
+u32 g_ProfChrRouteCalls;
+u32 g_ProfChrNavCycles;
+u32 g_ProfChrNavCalls;
+u32 g_ProfChrMagicCheckCycles;
+u32 g_ProfChrMagicCheckCalls;
+u32 g_ProfChrMoveCycles;
+u32 g_ProfChrMoveCalls;
+u32 g_ProfChrRoomCycles;
+u32 g_ProfChrRoomCalls;
+u32 g_ProfChrNavSweepCycles;
+u32 g_ProfChrNavSweepCalls;
+u32 g_ProfChrNavTargetCheckCycles;
+u32 g_ProfChrNavTargetCheckCalls;
+u32 g_ProfChrNavDoorCycles;
+u32 g_ProfChrNavDoorCalls;
+u32 g_ProfChrNavSpeedCycles;
+u32 g_ProfChrNavSpeedCalls;
 /* --- end profiler state --- */
 
 bool lvGetBgRenderEnabled(void)
@@ -1002,8 +1020,8 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     gdl = textRender(gdl, &x, &y, fpsText, ptrFontBankGothicChars, ptrFontBankGothic, color, screenwidth, viGetY(), 0, 0);
 
     { /* TEMP profiler readouts: raw osGetCount cycles per frame */
-        static char profText[8][32];
-        static const u32 profColor[8] = {
+        static char profText[18][32];
+        static const u32 profColor[18] = {
             0x00FFFFFF,  /* bg tick    - cyan    */
             0x4040FFFF,  /* lv tick    - blue    */
             0xFF3030FF,  /* lv render  - red     */
@@ -1012,13 +1030,27 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             0xB43CFFFF,  /* chr tick   - violet  */
             0x30FF30FF,  /* chr action - green   */
             0xFFFFFFFF,  /* display-list commands */
+            0xFF8C00FF,  /* route creation       */
+            0x00FF80FF,  /* navigation steering  */
+            0x40C0FFFF,  /* magic movement checks */
+            0xFF40FFFF,  /* physical movement     */
+            0xC0C0C0FF,  /* room maintenance      */
+            0xFF8050FF,  /* navigation sweeps     */
+            0x50FFFFFF,  /* navigation target test */
+            0xFFFF50FF,  /* navigation door scan  */
+            0x80FF80FF,  /* navigation speed      */
+            0xC080FFFF,  /* remaining navigation  */
         };
         u32 sub;
         u32 lvlOther;
+        u32 navMeasured;
+        u32 navRest;
         s32 i;
 
         sub = g_ProfBgTickCycles + g_ProfBgRenderCycles + g_ProfChrTickCycles + g_ProfObjTickCycles;
         lvlOther = g_ProfLvlRenderCycles > sub ? g_ProfLvlRenderCycles - sub : 0;
+        navMeasured = g_ProfChrNavSweepCycles + g_ProfChrNavTargetCheckCycles + g_ProfChrNavDoorCycles + g_ProfChrNavSpeedCycles;
+        navRest = g_ProfChrNavCycles > navMeasured ? g_ProfChrNavCycles - navMeasured : 0;
 
         sprintf(profText[0], "BGTICK:%4uK",   (g_ProfBgTickCycles + 500) / 1000);
         sprintf(profText[1], "LVTICK:%4uK",   (g_ProfLvlTickCycles + 500) / 1000);
@@ -1028,12 +1060,40 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         sprintf(profText[5], "CHRTICK:%4uK",  (g_ProfChrTickCycles + 500) / 1000);
         sprintf(profText[6], "CHRACT:%4uK",   (g_ProfChrActionCycles + 500) / 1000);
         sprintf(profText[7], "GFX:%5u BG:%5u", g_ProfGfxCommands, g_ProfBgGfxCommands);
+        sprintf(profText[8], "ROUTE:%4uK C:%3u", (g_ProfChrRouteCycles + 500) / 1000, g_ProfChrRouteCalls);
+        sprintf(profText[9], "NAV:  %4uK C:%3u", (g_ProfChrNavCycles + 500) / 1000, g_ProfChrNavCalls);
+        sprintf(profText[10], "MAGIC:%4uK C:%3u", (g_ProfChrMagicCheckCycles + 500) / 1000, g_ProfChrMagicCheckCalls);
+        sprintf(profText[11], "MOVE: %4uK C:%3u", (g_ProfChrMoveCycles + 500) / 1000, g_ProfChrMoveCalls);
+        sprintf(profText[12], "ROOM: %4uK C:%3u", (g_ProfChrRoomCycles + 500) / 1000, g_ProfChrRoomCalls);
+        sprintf(profText[13], "SWEEP:%4uK C:%3u", (g_ProfChrNavSweepCycles + 500) / 1000, g_ProfChrNavSweepCalls);
+        sprintf(profText[14], "CHECK:%4uK C:%3u", (g_ProfChrNavTargetCheckCycles + 500) / 1000, g_ProfChrNavTargetCheckCalls);
+        sprintf(profText[15], "DOOR: %4uK C:%3u", (g_ProfChrNavDoorCycles + 500) / 1000, g_ProfChrNavDoorCalls);
+        sprintf(profText[16], "SPEED:%4uK C:%3u", (g_ProfChrNavSpeedCycles + 500) / 1000, g_ProfChrNavSpeedCalls);
+        sprintf(profText[17], "REST: %4uK", (navRest + 500) / 1000);
 
         g_ProfChrTickCycles = 0;
         g_ProfChrActionCycles = 0;
         g_ProfObjTickCycles = 0;
+        g_ProfChrRouteCycles = 0;
+        g_ProfChrRouteCalls = 0;
+        g_ProfChrNavCycles = 0;
+        g_ProfChrNavCalls = 0;
+        g_ProfChrMagicCheckCycles = 0;
+        g_ProfChrMagicCheckCalls = 0;
+        g_ProfChrMoveCycles = 0;
+        g_ProfChrMoveCalls = 0;
+        g_ProfChrRoomCycles = 0;
+        g_ProfChrRoomCalls = 0;
+        g_ProfChrNavSweepCycles = 0;
+        g_ProfChrNavSweepCalls = 0;
+        g_ProfChrNavTargetCheckCycles = 0;
+        g_ProfChrNavTargetCheckCalls = 0;
+        g_ProfChrNavDoorCycles = 0;
+        g_ProfChrNavDoorCalls = 0;
+        g_ProfChrNavSpeedCycles = 0;
+        g_ProfChrNavSpeedCalls = 0;
 
-        for (i = 0; i < 8; i++)
+        for (i = 0; i < 18; i++)
         {
             x = viGetViewLeft() + 14;
             y = viGetViewTop() + 44 + (i * 10);

@@ -1196,7 +1196,9 @@ StandTile *chrTryMoveWithCollision(ChrRecord *guard, StandTile *stan, coord3d *s
     s32 hasprojection;
     coord3d newpos;
     s32 lineUnobstructed;
+    u32 profilerStart;
 
+    profilerStart = osGetCount();
     ret = NULL;
     tile = stan;
     bottomOffset = CHR_COLLISION_BOTTOM_OFFSET;
@@ -1368,6 +1370,8 @@ done:
         guard->invalidmove = 1;
     }
 
+    g_ProfChrMoveCycles += osGetCount() - profilerStart;
+    g_ProfChrMoveCalls++;
     return ret;
 }
 
@@ -2146,7 +2150,9 @@ void chrDetectRooms(ChrRecord *self)
     PropRecord *myprop;
     coord3d     lowerbounds;
     coord3d     upperbounds;
+    u32 profilerStart;
 
+    profilerStart = osGetCount();
     // Create a roughly character sized bounding box.
     myprop        = self->prop;
     lowerbounds.x = myprop->pos.x - 50.0f;
@@ -2164,6 +2170,9 @@ void chrDetectRooms(ChrRecord *self)
 
     // Re-register the character prop in those rooms
     chrpropRegisterRooms(myprop);
+
+    g_ProfChrRoomCycles += osGetCount() - profilerStart;
+    g_ProfChrRoomCalls++;
 }
 
 
@@ -2182,7 +2191,14 @@ void chrUpdateAnim(ChrRecord *chr, s32 tickamount)
         subcalcpos(model);
         objSetColorFromTile(prop, &chr->nextcol);
         getsuboffset(model, &prop->pos);
-        chrDetectRooms(chr);
+
+        /* An unchanged character bounding box cannot enter or leave a room. */
+        if ((prop->pos.x != chr->prevpos.x)
+            || (prop->pos.y != chr->prevpos.y)
+            || (prop->pos.z != chr->prevpos.z))
+        {
+            chrDetectRooms(chr);
+        }
 
         return;
     }
