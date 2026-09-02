@@ -1026,7 +1026,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
             finalpos->y -= 26.0f * shotdata.dir.y;
             finalpos->z -= 26.0f * shotdata.dir.z;
 
-            gunSetTracerTarget(finalpos);
+            gunSetBeamTarget(finalpos);
 
             if (createSpark)
             {

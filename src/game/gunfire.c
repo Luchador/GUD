@@ -1137,10 +1137,7 @@ void gunCreateBeamForHand(enum GUNHAND hand)
     diff2_z = hand_ptr->item_related.z - hand_ptr->field_B58.z;
     guNormalize(&diff2_x, &diff2_y, &diff2_z);
 
-    val = acosf(
-        + (diff2_z * diff1_z)
-        + ((diff1_x * diff2_x)
-        + (diff1_y * diff2_y)));
+    val = acosf((diff2_z * diff1_z) + ((diff1_x * diff2_x) + (diff1_y * diff2_y)));
 
     if (val > 0.08726647f) 
     { 
@@ -1151,7 +1148,7 @@ void gunCreateBeamForHand(enum GUNHAND hand)
 }
 
 
-Gfx *sub_GAME_7F061E18(Gfx *gdl, BeamRecord *flash, s32 arg2)
+Gfx *gunRenderBeam(Gfx *gdl, BeamRecord *flash, s32 arg2)
 {
     f32 posz;
     Mtx *mtx;
@@ -1160,7 +1157,6 @@ Gfx *sub_GAME_7F061E18(Gfx *gdl, BeamRecord *flash, s32 arg2)
     coord3d pos;
     coord3d *playerpos;
     f32 radius;
-    f32 pad_after_radius[2];
     f32 startoffset;
     coord3d up;
     coord3d right;
@@ -1180,8 +1176,6 @@ Gfx *sub_GAME_7F061E18(Gfx *gdl, BeamRecord *flash, s32 arg2)
     Vtx *vtx;
     f32 dist;
     Gfx *cmd;
-
-    return gdl;
     
     if (flash->unk00 >= 0)
     {
@@ -1484,7 +1478,7 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
  
         if (item != ITEM_WATCHLASER) 
         {
-            gdl = sub_GAME_7F061E18(gdl, &handptr->weapon_beam, 0);
+            gdl = gunRenderBeam(gdl, &handptr->weapon_beam, 0);
         }
  
         if (item == ITEM_GOLDENGUN || item == ITEM_RUGER || item == ITEM_KNIFE || item == ITEM_THROWKNIFE || item == ITEM_SILVERWPPK || item == ITEM_GOLDWPPK) 
@@ -1563,7 +1557,7 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
  
         if (item == ITEM_WATCHLASER) 
         {
-            gdl = sub_GAME_7F061E18(gdl, &handptr->weapon_beam, 0);
+            gdl = gunRenderBeam(gdl, &handptr->weapon_beam, 0);
         }
     }
  
@@ -4206,7 +4200,7 @@ void gunSetAimTarget(coord3d *param_1)
 }
 
 
-void gunSetTracerTarget(coord3d* pos)
+void gunSetBeamTarget(coord3d* pos)
 {
     g_CurrentPlayer->hands[GUNLEFT].item_related.x = g_CurrentPlayer->hands[GUNRIGHT].item_related.x = pos->x;
     g_CurrentPlayer->hands[GUNLEFT].item_related.y = g_CurrentPlayer->hands[GUNRIGHT].item_related.y = pos->y;

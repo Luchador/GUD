@@ -3261,7 +3261,7 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
     mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), &nearhitpos);
 
     // Point the tracer effect towards the impact position.
-    gunSetTracerTarget(&nearhitpos);
+    gunSetBeamTarget(&nearhitpos);
 
     // Make a fleshy impact sound.
     gunfirePlaySfxBulletImpact(shot->weapon, bhit->prop, -1);

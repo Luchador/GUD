@@ -6435,8 +6435,8 @@ Gfx *weaponRenderTracers(Gfx *gdl)
             if (type_chr == type)
             {
                 chr = prop->chr;
-                gdl = sub_GAME_7F061E18(gdl, &chr->beams[0], one);
-                gdl = sub_GAME_7F061E18(gdl, &chr->beams[1], one);
+                gdl = gunRenderBeam(gdl, &chr->beams[0], one);
+                gdl = gunRenderBeam(gdl, &chr->beams[1], one);
             }
             else if (one == type)
             {
@@ -6444,7 +6444,7 @@ Gfx *weaponRenderTracers(Gfx *gdl)
                 match = obj_type_0d == obj->type;
                 if (match)
                 {
-                    gdl = sub_GAME_7F061E18(gdl, (BeamRecord *)((AutogunRecord *)obj)->beam, one);
+                    gdl = gunRenderBeam(gdl, (BeamRecord *)((AutogunRecord *)obj)->beam, one);
                 }
             }
             else if (type_viewer == type)
@@ -6455,8 +6455,8 @@ Gfx *weaponRenderTracers(Gfx *gdl)
                     if (get_cur_playernum() != playernum)
                     {
                         chr2 = prop->chr;
-                        gdl = sub_GAME_7F061E18(gdl, &chr2->beams[0], one);
-                        gdl = sub_GAME_7F061E18(gdl, &chr2->beams[1], one);
+                        gdl = gunRenderBeam(gdl, &chr2->beams[0], one);
+                        gdl = gunRenderBeam(gdl, &chr2->beams[1], one);
                     }
                 }
             }
@@ -9267,7 +9267,7 @@ void objHit(ShotData *shotdata, BulletHit *hit)
 
     if (hit->countsAsPenetration != 0)
     {
-        gunSetTracerTarget(&pos);
+        gunSetBeamTarget(&pos);
     }
 
     bullet_spark_create(&pos, 1, 26.0f, rootprop->stan->room);
