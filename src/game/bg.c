@@ -106,6 +106,23 @@ s32 levelentry_index = 1;
  */
 s32 bgViewRelated[] = { 1, 1, -1, -1 };
 
+typedef struct BgScissorCache
+{
+    bool enabled;
+    bool valid;
+    s32 left;
+    s32 top;
+    s32 right;
+    s32 bottom;
+} BgScissorCache;
+
+/**
+ * Suppresses duplicate top-level scissor commands during background rendering.
+ * The cache is deliberately disabled outside bgSetupAndRender because other
+ * render systems may issue scissor commands without going through bg.c.
+ */
+static BgScissorCache g_BgScissorCache = {FALSE, FALSE, 0, 0, 0, 0};
+
 
 /**
  * Array of info about all the rooms on the level
@@ -373,7 +390,9 @@ Gfx *bgRender(Gfx *gdl)
     s32 j;
     s32 b_max;
     s32 b_min;
-    s32 notdone;
+    bool renderEnabled;
+
+    renderEnabled = lvGetBgRenderEnabled();
 
     b_min = 99999999;
     b_max = 0;
@@ -400,15 +419,15 @@ Gfx *bgRender(Gfx *gdl)
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)camGetPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
                 gdl = envRenderClearFogMode(gdl);
  
-                if (lvGetBgRenderEnabled())
+                if (renderEnabled)
                 {
                     gdl = chrpropsRenderPass(gdl, g_BgDrawSlots[j].roomid, 0);
                 }
  
                 gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
-                gdl = envSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl++, g_BgDrawSlots[j].bbox.min.x, g_BgDrawSlots[j].bbox.min.y, g_BgDrawSlots[j].bbox.max.x, g_BgDrawSlots[j].bbox.max.y));
+                gdl = envSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl, g_BgDrawSlots[j].bbox.min.x, g_BgDrawSlots[j].bbox.min.y, g_BgDrawSlots[j].bbox.max.x, g_BgDrawSlots[j].bbox.max.y));
  
-                if (lvGetBgRenderEnabled())
+                if (renderEnabled)
                 {
                     gdl = bgRenderRoomPrimary(gdl, g_BgDrawSlots[j].roomid);
                 }
@@ -416,7 +435,7 @@ Gfx *bgRender(Gfx *gdl)
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)camGetPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
                 gdl = envRenderClearFogMode(gdl);
  
-                if (lvGetBgRenderEnabled())
+                if (renderEnabled)
                 {
                     gdl = chrpropsRenderPass(gdl, g_BgDrawSlots[j].roomid, 2);
                 }
@@ -427,7 +446,7 @@ Gfx *bgRender(Gfx *gdl)
     gdl = bgScissorCurrentPlayerViewDefault(envRenderClearFogMode(gdl));
     gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
  
-    if (lvGetBgRenderEnabled())
+    if (renderEnabled)
     {
         gdl = explosionRenderScorchBuffer(gdl);
         gdl = explosionCallRenderBulletImpactOnProp(gdl);
@@ -439,20 +458,23 @@ Gfx *bgRender(Gfx *gdl)
         {
             if (i == g_BgDrawSlots[j].draworder)
             {
-                gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
-                gdl = envSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl++, g_BgDrawSlots[j].bbox.min.x, g_BgDrawSlots[j].bbox.min.y, g_BgDrawSlots[j].bbox.max.x, g_BgDrawSlots[j].bbox.max.y));
- 
-                if (lvGetBgRenderEnabled())
+                s32 roomid;
+
+                roomid = g_BgDrawSlots[j].roomid;
+
+                if (renderEnabled && roomid < g_MaxNumRooms && g_BgRoomInfo[roomid].secondaryGdl != NULL)
                 {
-                    gdl = bgRenderRoomSecondary(gdl, g_BgDrawSlots[j].roomid);
+                    gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
+                    gdl = envSetRenderFogColor(bgScissorCurrentPlayerViewF(gdl, g_BgDrawSlots[j].bbox.min.x, g_BgDrawSlots[j].bbox.min.y, g_BgDrawSlots[j].bbox.max.x, g_BgDrawSlots[j].bbox.max.y));
+                    gdl = bgRenderRoomSecondary(gdl, roomid);
                 }
 
                 gSPMatrix(gdl++, osVirtualToPhysical((void*)camGetPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
                 gdl = envRenderClearFogMode(gdl);
  
-                if (lvGetBgRenderEnabled())
+                if (renderEnabled)
                 {
-                    gdl = chrpropsRenderPass(gdl, g_BgDrawSlots[j].roomid, 1);
+                    gdl = chrpropsRenderPass(gdl, roomid, 1);
                 }
             }
         }
@@ -964,7 +986,16 @@ Gfx *bgSetupAndRender(Gfx *gdl)
     }
     else
     {
-        gdl = envRenderClearFogMode(bgScissorCurrentPlayerViewDefault(bgRenderWrapper(envSetRenderFogColor(gdl))));
+        g_BgScissorCache.enabled = TRUE;
+        g_BgScissorCache.valid = FALSE;
+
+        gdl = envBeginWorldFog(gdl);
+        gdl = bgRenderWrapper(gdl);
+        gdl = bgScissorCurrentPlayerViewDefault(gdl);
+        gdl = envRenderClearFogMode(gdl);
+
+        g_BgScissorCache.enabled = FALSE;
+        g_BgScissorCache.valid = FALSE;
     }
 
     gSPMatrix(gdl++, g_viProjectionMatrix, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
@@ -1038,7 +1069,23 @@ Gfx *bgScissorCurrentPlayerView(Gfx *gdl, s32 left, s32 top, s32 width, s32 heig
         height = temp_v0->viewtop + temp_v0->viewy;
     }
 
+    if (g_BgScissorCache.enabled && g_BgScissorCache.valid
+            && g_BgScissorCache.left == left && g_BgScissorCache.top == top
+            && g_BgScissorCache.right == width && g_BgScissorCache.bottom == height)
+    {
+        return gdl;
+    }
+
     gDPSetScissor(gdl++, G_SC_NON_INTERLACE, left, top, width, height);
+
+    if (g_BgScissorCache.enabled)
+    {
+        g_BgScissorCache.valid = TRUE;
+        g_BgScissorCache.left = left;
+        g_BgScissorCache.top = top;
+        g_BgScissorCache.right = width;
+        g_BgScissorCache.bottom = height;
+    }
 
     return gdl;
 }

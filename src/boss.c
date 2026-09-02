@@ -406,6 +406,7 @@ void bossMainloop(void)
                                 g_ProfLvlRenderCycles = osGetCount() - prof_t;
                             }
 
+                            g_ProfGfxCommands = (u32)(gdl - firstGdl);
                             gdl = lvDrawFrameRateDisplay(gdl);
                             
                             gDPFullSync(gdl++);

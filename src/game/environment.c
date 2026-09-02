@@ -300,6 +300,30 @@ void envSwitchToSoloSky2(f32 transitionTime)
 }
 
 
+/**
+ * Initializes fog state that is constant for the duration of one player's
+ * world render. Fog position and alpha dithering do not need to be resent for
+ * every room.
+ */
+Gfx *envBeginWorldFog(Gfx *gdl)
+{
+    if (!g_CurrentEnvironment.FogEnabled)
+    {
+        return gdl;
+    }
+
+    gSPFogPosition(gdl++, g_CurrentEnvironment.Visibility.FogStart,
+            g_CurrentEnvironment.Visibility.FogEnd);
+    gDPSetAlphaDither(gdl++, G_AD_NOISE);
+
+    return gdl;
+}
+
+
+/**
+ * Restores the environment fog colour after prop/model rendering and enables
+ * hardware fog for background geometry.
+ */
 Gfx *envSetRenderFogColor(Gfx *gdl)
 {
     if (!g_CurrentEnvironment.FogEnabled)
@@ -309,10 +333,7 @@ Gfx *envSetRenderFogColor(Gfx *gdl)
 
     gDPSetFogColor(gdl++, g_CurrentEnvironment.Sky.Red, g_CurrentEnvironment.Sky.Green,
             g_CurrentEnvironment.Sky.Blue, 0xff);
-    gSPFogPosition(gdl++, g_CurrentEnvironment.Visibility.FogStart,
-            g_CurrentEnvironment.Visibility.FogEnd);
     gSPSetGeometryMode(gdl++, G_FOG);
-    gDPSetAlphaDither(gdl++, G_AD_NOISE);
 
     return gdl;
 }

@@ -133,6 +133,8 @@ u32 g_ProfBgRenderCycles;
 u32 g_ProfChrTickCycles;
 u32 g_ProfChrActionCycles;
 u32 g_ProfObjTickCycles;
+u32 g_ProfGfxCommands;
+u32 g_ProfBgGfxCommands;
 /* --- end profiler state --- */
 
 bool lvGetBgRenderEnabled(void)
@@ -472,6 +474,8 @@ void lvlSetMultipliersForDifficulty(void)
  */
 Gfx* lvRender(Gfx* DL)
 {
+    g_ProfBgGfxCommands = 0;
+
     gSPSegment(DL++, SPSEGMENT_PHYSICAL, NULL);
     gSPSegment(DL++, SPSEGMENT_UNKNOWN, osVirtualToPhysical(ptr_font_DL));
 
@@ -531,9 +535,12 @@ Gfx* lvRender(Gfx* DL)
             propsTickPlayer();
 
             { /* TEMP profiler */
+                Gfx *bgGdlStart = DL;
                 u32 prof_t = osGetCount();
-                 DL = bgSetupAndRender(DL);
+
+                DL = bgSetupAndRender(DL);
                 g_ProfBgRenderCycles = osGetCount() - prof_t;
+                g_ProfBgGfxCommands += (u32)(DL - bgGdlStart);
             }
             
             DL = weaponRenderTracers(DL);
@@ -995,8 +1002,8 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     gdl = textRender(gdl, &x, &y, fpsText, ptrFontBankGothicChars, ptrFontBankGothic, color, screenwidth, viGetY(), 0, 0);
 
     { /* TEMP profiler readouts: raw osGetCount cycles per frame */
-        static char profText[7][28];
-        static const u32 profColor[7] = {
+        static char profText[8][32];
+        static const u32 profColor[8] = {
             0x00FFFFFF,  /* bg tick    - cyan    */
             0x4040FFFF,  /* lv tick    - blue    */
             0xFF3030FF,  /* lv render  - red     */
@@ -1004,6 +1011,7 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             0xFFFF30FF,  /* obj tick   - yellow  */
             0xB43CFFFF,  /* chr tick   - violet  */
             0x30FF30FF,  /* chr action - green   */
+            0xFFFFFFFF,  /* display-list commands */
         };
         u32 sub;
         u32 lvlOther;
@@ -1019,12 +1027,13 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         sprintf(profText[4], "OBJTICK:%4uK",  (g_ProfObjTickCycles + 500) / 1000);
         sprintf(profText[5], "CHRTICK:%4uK",  (g_ProfChrTickCycles + 500) / 1000);
         sprintf(profText[6], "CHRACT:%4uK",   (g_ProfChrActionCycles + 500) / 1000);
+        sprintf(profText[7], "GFX:%5u BG:%5u", g_ProfGfxCommands, g_ProfBgGfxCommands);
 
         g_ProfChrTickCycles = 0;
         g_ProfChrActionCycles = 0;
         g_ProfObjTickCycles = 0;
 
-        for (i = 0; i < 7; i++)
+        for (i = 0; i < 8; i++)
         {
             x = viGetViewLeft() + 14;
             y = viGetViewTop() + 44 + (i * 10);
