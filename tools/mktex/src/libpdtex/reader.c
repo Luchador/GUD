@@ -7,6 +7,7 @@
 #include "pdtex.h"
 
 #define ZLIB_TEXTURE_MAX_PIXELS 0x1000
+#define NON_ZLIB_TEXTURE_MAX_PIXELS 0x2000
 
 /**
  * The functions in this file are copied from PD decomp's texdecompress.c.
@@ -117,13 +118,19 @@ static void texInflateHuffman(uint8_t *dst, int numiterations, int chansize)
 	int32_t sum;
 	uint16_t minfreq1;
 	uint16_t minfreq2;
-	int32_t minindex1;
-	int32_t minindex2;
+	int32_t minindex1 = 0;
+	int32_t minindex2 = 1;
 	bool done = false;
 
 	// Read the frequencies list
 	for (i = 0; i < chansize; i++) {
 		frequencies[i] = texReadBits(8);
+	}
+
+	// A one-symbol alphabet needs no tree or encoded index bits.
+	if (chansize == 1) {
+		memset(dst, 0, numiterations);
+		return;
 	}
 
 	// Initialise the tree
@@ -878,7 +885,7 @@ static int texInflateZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 	return 1;
 }
 
-static void texInflateNonZlib(struct pd_tex *tex, int arg2, int forcenumimages)
+static int texInflateNonZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 {
 	uint8_t scratch[0x20000];
 	uint8_t lookup[0x10000];
@@ -895,7 +902,20 @@ static void texInflateNonZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 		image->width = texReadBits(8);
 		image->height = texReadBits(8);
 		image->compression = texReadBits(4);
+
+		if (image->format > PDFORMAT_IA4_CI4
+				|| image->compression > PDCOMPRESSION_RLEBLUR
+				|| image->width == 0
+				|| image->height == 0
+				|| image->width * image->height > NON_ZLIB_TEXTURE_MAX_PIXELS) {
+			return 0;
+		}
+
 		image->pixels = malloc(image->width * image->height * sizeof(uint32_t));
+
+		if (!image->pixels) {
+			return 0;
+		}
 
 		switch (tex->images[i].compression) {
 		case PDCOMPRESSION_UNCOMPRESSED0:
@@ -933,15 +953,30 @@ static void texInflateNonZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 			break;
 		case PDCOMPRESSION_LOOKUP:
 			value = texBuildLookup(lookup, g_TexFormatBitsPerPixel[image->format]);
+
+			if (value == 0) {
+				return 0;
+			}
+
 			texInflateLookup(image->width, image->height, image->pixels, lookup, value, image->format);
 			break;
 		case PDCOMPRESSION_HUFFMANLOOKUP:
 			value = texBuildLookup(lookup, g_TexFormatBitsPerPixel[image->format]);
+
+			if (value == 0) {
+				return 0;
+			}
+
 			texInflateHuffman(scratch, image->width * image->height, value);
 			texInflateLookupFromBuffer(scratch, image->width, image->height, image->pixels, lookup, value, image->format);
 			break;
 		case PDCOMPRESSION_RLELOOKUP:
 			value = texBuildLookup(lookup, g_TexFormatBitsPerPixel[image->format]);
+
+			if (value == 0) {
+				return 0;
+			}
+
 			texInflateRle(scratch, image->width * image->height);
 			texInflateLookupFromBuffer(scratch, image->width, image->height, image->pixels, lookup, value, image->format);
 			break;
@@ -975,6 +1010,8 @@ static void texInflateNonZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 			var800ab548 = 0;
 		}
 	}
+
+	return 1;
 }
 
 static int texLoad(struct pd_tex *tex)
@@ -998,8 +1035,7 @@ static int texLoad(struct pd_tex *tex)
 	if (iszlib) {
 		return texInflateZlib(tex, sp14a8, lod);
 	} else {
-		texInflateNonZlib(tex, sp14a8, lod);
-		return 1;
+		return texInflateNonZlib(tex, sp14a8, lod);
 	}
 }
 
