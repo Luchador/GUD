@@ -10,7 +10,7 @@ typedef struct GEditorProject {
     char geppath[MAX_PATH];
 } GEditorProject;
 
-BOOL ProjectCreate(const char *name, const char *location, GEditorProject *proj);
+BOOL ProjectCreate(const char *name, const char *location, GEditorProject *proj, const char **reasonout);
 BOOL ProjectRead(const char *geppath, GEditorProject *proj);
 void ProjectClose(GEditorProject *proj);
 

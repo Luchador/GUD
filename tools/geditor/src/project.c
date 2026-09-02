@@ -32,14 +32,17 @@ static BOOL ProjectWrite(const GEditorProject *proj)
 }
 
 
-BOOL ProjectCreate(const char *name, const char *location, GEditorProject *proj)
+BOOL ProjectCreate(const char *name, const char *location, GEditorProject *proj,
+                   const char **reasonout)
 {
     int written;
 
     ZeroMemory(proj, sizeof(*proj));
+    *reasonout = "";
 
     if (name == NULL || name[0] == '\0' || location == NULL || location[0] == '\0')
     {
+        *reasonout = "A project needs a name and a location.";
         return FALSE;
     }
 
@@ -66,17 +69,22 @@ BOOL ProjectCreate(const char *name, const char *location, GEditorProject *proj)
     /* The project folder. */
     if (!CreateDirectory(proj->dir, NULL) && GetLastError() != ERROR_ALREADY_EXISTS)
     {
+        *reasonout = "The project folder could not be created there.";
         goto fail;
     }
 
     /* Never clobber an existing project. */
     if (GetFileAttributes(proj->geppath) != INVALID_FILE_ATTRIBUTES)
     {
+        /* The likeliest refusal in practice: default name, default
+           location, second attempt. Say so instead of shrugging. */
+        *reasonout = "A project with that name already exists in that location.";
         goto fail;
     }
 
     if (!ProjectWrite(proj))
     {
+        *reasonout = "The project file could not be written (disk full or protected?).";
         goto fail;
     }
 

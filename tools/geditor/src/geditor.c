@@ -300,7 +300,8 @@ static INT_PTR CALLBACK GEditorNewProjectProc(HWND hdlg, UINT msg, WPARAM wparam
             char docs[MAX_PATH];
 
             SendDlgItemMessage(hdlg, IDC_PROJECT_LOCATION, EM_LIMITTEXT, MAX_PATH - 1, 0);
-            if (SUCCEEDED(SHGetFolderPath(NULL, CSIDL_MYDOCUMENTS, NULL, 0, docs)))
+            if (SUCCEEDED(SHGetFolderPath(NULL, CSIDL_MYDOCUMENTS, NULL, 0, docs))
+                || SUCCEEDED(SHGetFolderPath(NULL, CSIDL_PROFILE, NULL, 0, docs)))
             {
                 SetDlgItemText(hdlg, IDC_PROJECT_LOCATION, docs);
             }
@@ -611,13 +612,15 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 {
                     GEditorCloseProject(hwnd); /* one project at a time */
 
-                    if (ProjectCreate(info.name, info.location, &g_Project))
+                    const char *why = "";
+
+                    if (ProjectCreate(info.name, info.location, &g_Project, &why))
                     {
                         GEditorSetTitleForProject(hwnd);
                     }
                     else
                     {
-                        MessageBox(hwnd, "Could not create the project.", GEDITOR_TITLE, MB_ICONERROR);
+                        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
                     }
                 }
                 return 0;
