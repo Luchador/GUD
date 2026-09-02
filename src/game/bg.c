@@ -62,22 +62,14 @@ enum BgVisResult {
 };
 
 struct PortalCache g_PortalCameraCache[PORTMAX];
-extern s32 ptr_bgdata_offsets;
 extern s32 g_BgRenderMode;
 extern s32 *dword_CODE_bss_8007FF90;
-extern f32 *dword_CODE_bss_8007FF94;
 
 /**
  * Per-frame render worklist for visible background rooms.
  * bgSetRoomOnScreen adds or updates one slot for every room that may be visible.
  */
 extern BgDrawSlot g_BgDrawSlots[];
-
-extern s32 dword_CODE_bss_8007FF98;
-extern s32 dword_CODE_bss_8007FF9C;
-extern s32 dword_CODE_bss_800815f0;
-extern s32 dword_CODE_bss_800815f4;
-extern s32 dword_CODE_bss_800815f8;
 
 #define BG_PORTAL_QUEUE_LEN 500
 
@@ -502,6 +494,8 @@ s32 getPointTableBinCount(s32 room)
 
 void bgLoadFile(LEVEL_INDEX levelid)
 {
+    s32 bgDataOffsets;
+
     typedef struct bg_envdata_entry_local {
         u8 type;
         u8 pad[3];
@@ -533,7 +527,7 @@ void bgLoadFile(LEVEL_INDEX levelid)
     g_BgData = (u8 *)header;
     obLoadBGFileBytesAtOffset(g_LevelInfoTable[levelentry_index].bg_seg_filename, g_BgData, 0, 0x40);
 
-    ptr_bgdata_offsets = g_BgData;
+    bgDataOffsets = g_BgData;
     ptr_bgdata_room_fileposition_list = (BgRoomData *) BG_SEG_TO_PTR(g_BgData, ((s32 *)g_BgData)[1]);
  
     size = (((((u32) ptr_bgdata_room_fileposition_list[1].pPointTableBin) & 0x00ffffff) - 1) | 0xf) + 1;
@@ -568,8 +562,8 @@ void bgLoadFile(LEVEL_INDEX levelid)
     if (g_BgSingleDisplayList == 0)
     {
         g_BgRenderMode = BGLOADTYPE_ROOMS;
-        ptr_bgdata_offsets = (s32)data;
-        ptr_bgdata_room_fileposition_list = (BgRoomData *) BG_SEG_TO_PTR(data, ((s32 *)ptr_bgdata_offsets)[1]);
+        bgDataOffsets = (s32)data;
+        ptr_bgdata_room_fileposition_list = (BgRoomData *) BG_SEG_TO_PTR(data, ((s32 *)bgDataOffsets)[1]);
         g_MaxNumRooms = 0;
 
         for (i = 1; ptr_bgdata_room_fileposition_list[i].primaryGraphics != NULL; i++) 
@@ -577,24 +571,15 @@ void bgLoadFile(LEVEL_INDEX levelid)
             g_MaxNumRooms++;  
         }
  
-        g_BgPortals = (PortalData *) BG_SEG_TO_PTR(data, ((s32 *)ptr_bgdata_offsets)[2]);
+        g_BgPortals = (PortalData *) BG_SEG_TO_PTR(data, ((s32 *)bgDataOffsets)[2]);
 
-        if (((s32 *)ptr_bgdata_offsets)[3] == 0)
+        if (((s32 *)bgDataOffsets)[3] == 0)
         {
             dword_CODE_bss_8007FF90 = 0;
         }
         else
         {
-            dword_CODE_bss_8007FF90 = (s32 *) BG_SEG_TO_PTR(data, ((s32 *)ptr_bgdata_offsets)[3]);
- 
-            if (((s32 *)ptr_bgdata_offsets)[4] == 0)
-            {
-                dword_CODE_bss_8007FF94 = NULL;
-            }
-            else
-            {
-                dword_CODE_bss_8007FF94 = (f32 *) BG_SEG_TO_PTR(data, ((s32 *)ptr_bgdata_offsets)[4]);
-            }
+            dword_CODE_bss_8007FF90 = (s32 *) BG_SEG_TO_PTR(data, ((s32 *)bgDataOffsets)[3]);
         }
  
         for (i = 0; g_BgPortals[i].portal != (NULL); i++)
@@ -1439,17 +1424,10 @@ void bbox2dCopy(struct bbox2d *a, struct bbox2d *b)
 
 BgQueuedPortal g_BgPortalQueue[BG_PORTAL_QUEUE_LEN];
 PortalData *g_BgPortals;
-s32 ptr_bgdata_offsets;
 s32 g_BgRenderMode;
 BgRoomData *ptr_bgdata_room_fileposition_list;
 s32 *dword_CODE_bss_8007FF90;
-f32 *dword_CODE_bss_8007FF94;
-s32 dword_CODE_bss_8007FF98;
-s32 dword_CODE_bss_8007FF9C;
 BgDrawSlot g_BgDrawSlots[204];
-s32 dword_CODE_bss_800815f0;
-s32 dword_CODE_bss_800815f4;
-s32 dword_CODE_bss_800815f8;
 
 BoundVec D_80044868 = {0x7FFF, 0x7FFF, 0x7FFF};
 BoundVec D_80044874 = {-0x8000, -0x8000, -0x8000};
@@ -3525,8 +3503,6 @@ void bgDetermineVisibleRooms(void)
     {
         g_PortalTraversalDepths[i] = 0;
     }
-
-    dword_CODE_bss_8007FF98 = 0;
 
     bgResetPortalQueue();
 

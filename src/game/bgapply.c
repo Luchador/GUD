@@ -17,44 +17,6 @@
 
 
 /**
- * Scan the Gfx commands in the half-open range [start, end) and replace any
- * commands that match the first entry of a pair in the primary fog LUT
- * (DL_LUT_PRIMARY_ADDFOG). For each matching pair the command is replaced by
- * the LUT's second entry.
- *
- * This is used to patch display lists to add the "primary" fog variants.
- *
- * Parameters:
- *   start - pointer to first Gfx in the range to scan
- *   end   - pointer one-past-last Gfx in the range
- */
-void bgApplyPrimaryFogLUTEntries(Gfx *start, Gfx *end)
-{
-    Gfx *curGfx;
-    Gfx *lutPair;
-
-    curGfx = start;
-
-    while (curGfx < end)
-    {
-         /* DL_LUT_PRIMARY_ADDFOG is an array of (match,replacement) Gfx pairs,
-        terminated by an entry with words.w0 == 0. Each pair occupies two
-        Gfx entries, so we step by 2. */
-        for (lutPair = DL_LUT_PRIMARY_ADDFOG; lutPair->words.w0 != 0; lutPair += 2)
-        {
-            if ((lutPair->words.w0 == curGfx->words.w0) && (lutPair->words.w1 == curGfx->words.w1))
-            {
-                /* Replace current command with the LUT's replacement (the second entry). */
-                *curGfx = *(lutPair+1);
-            }
-        }
-
-        curGfx++;
-    }
-}
-
-
-/**
  * Scan the Gfx commands in the range starting at 'start'. If 'end' is non-NULL
  * treat it as a one-past-last pointer and scan [start, end). If 'end' is NULL
  * treat 'start' as a null-terminated display list and scan until the sentinel
