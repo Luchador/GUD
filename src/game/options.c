@@ -23,7 +23,7 @@
 
 #define WATCH_VOL_ADJUST_STEP 1024
 
-#define WATCH_ROTATION_FRAMES speedgraphframes
+#define WATCH_ROTATION_FRAMES g_FrameDelta
 #define WATCH_PERSPECTIVE_FOVY    50.5f
 #define WATCH_PERSPECTIVE_ASPECT  1.3333334f
 
@@ -1350,7 +1350,7 @@ void watchNavigate(void)
         D_80040B00 = 0xF;
     }
 
-    D_80040B14 += ((D_80040B1C * speedgraphframes * M_TAU_F) / 360.0f);
+    D_80040B14 += ((D_80040B1C * g_FrameDelta * M_TAU_F) / 360.0f);
     D_80040B14 = watchWrapAroundPI(D_80040B14);
 
     temp_1 = D_80040B0C << 0x10;

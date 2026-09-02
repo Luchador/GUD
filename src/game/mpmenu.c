@@ -582,7 +582,7 @@ void mpwatchMenuTick(void)
     // The player in shuffled position 0 drives down g_gameOverFlag which is both a flag and a timer.
     if (!get_player_position_in_shuffled(player_num) && (g_gameOverFlag >= 2))
     {
-        g_gameOverFlag -= speedgraphframes;
+        g_gameOverFlag -= g_FrameDelta;
 
         if (g_gameOverFlag <= 0) 
         { 
@@ -605,8 +605,8 @@ void mpwatchMenuTick(void)
         {
             if (get_player_position_in_shuffled(player_num) == 0)
             {
-                chevron_glow_timer += speedgraphframes;
-                alt_gameover_msg_timer += speedgraphframes;
+                chevron_glow_timer += g_FrameDelta;
+                alt_gameover_msg_timer += g_FrameDelta;
 
                 // Toggle chevron glow
                 if (chevron_glow_timer >= (PAL ? 16 : 20))

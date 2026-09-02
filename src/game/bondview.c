@@ -3056,11 +3056,11 @@ void bondviewUpdateWatchZoomIn(void)
     {
         if ((g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0x5) || (g_CurrentPlayer->watch_animation_state == WATCH_ANIMATION_0xc))
         {
-            g_CurrentPlayer->zoomintime = g_CurrentPlayer->zoomintime + (f32) speedgraphframes;
+            g_CurrentPlayer->zoomintime = g_CurrentPlayer->zoomintime + (f32) g_FrameDelta;
         }
         else
         {
-            g_CurrentPlayer->zoomintime = g_CurrentPlayer->zoomintime + (speedgraphframes * watch_transition_time);
+            g_CurrentPlayer->zoomintime = g_CurrentPlayer->zoomintime + (g_FrameDelta * watch_transition_time);
         }
 
         if (g_CurrentPlayer->zoomintimemax < g_CurrentPlayer->zoomintime)
@@ -5965,7 +5965,7 @@ void bondviewPlayerTickDamageAndHealth(void)
             }
             else
             {
-                g_CurrentPlayer->damageshowtime += speedgraphframes;
+                g_CurrentPlayer->damageshowtime += g_FrameDelta;
             }
         }
         else /* (damage showtime is over) */
@@ -7610,7 +7610,7 @@ void bondviewMovePlayerUpdateViewport(s8 stick_x, s8 stick_y, u16 buttons)
         bondviewFrozenMoveBond(stick_x, stick_y, buttons, (u16) g_CurrentPlayer->buttons_pressed);
     }
 
-    watch_time_0 += speedgraphframes;
+    watch_time_0 += g_FrameDelta;
 
     if (stop_time_flag != 0)
     {

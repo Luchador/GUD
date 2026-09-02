@@ -586,7 +586,7 @@ void lvTick(void)
     }
     else
     {
-        g_ClockTimer = speedgraphframes;
+        g_ClockTimer = g_FrameDelta;
         g_GlobalTickCount += 1;
     }
 

@@ -4,21 +4,15 @@
 #include "frametiming.h"
 
 
-s32 lastFrameCounter = -1;
-s32 currentFrameCounter = 0;
-
 /**
- * Appears to be rendered framerate, or some kind of counter since the last frame update.
+ * Stored the number of nominal game-frame intervals that elapsed since the previous rendered frame i.e. the number of skipped frames when the game lags.
+ * At full 60 FPS it equals 1. At 30 FPS it becomes 2, etc...
  */
-s32 speedgraphframes = 1;
+s32 g_FrameDelta = 1;
 
-s32 previousFrameCounter = -1;
-s32 halfFrameCounter = 0; // half of currentFrameCounter
-s32 isFrameCounterOdd = 0; // is currentFrameCounter Odd
-s32 halfMinusPreviousCounter = 0; // half - previousFrameCounter
 u32 copy_of_osgetcount_value_0 = 0;
 u32 copy_of_osgetcount_value_1 = 0;
-s32 frameDelay = 1; //usually 1
+s32 frameDelay = 1;
 
 
 /**
@@ -41,14 +35,7 @@ void updateFrameCounters(s32 deltaFrames)
     copy_of_osgetcount_value_0 = (s32) copy_of_osgetcount_value_1;
     copy_of_osgetcount_value_1 = osGetCount();
 
-    lastFrameCounter = currentFrameCounter;
-    currentFrameCounter = (s32) (currentFrameCounter + deltaFrames);
-    speedgraphframes = deltaFrames;
-
-    previousFrameCounter = (s32) halfFrameCounter;
-    halfFrameCounter = (s32) (currentFrameCounter / 2);
-    isFrameCounterOdd = (s32) (currentFrameCounter & 1);
-    halfMinusPreviousCounter = (s32) (halfFrameCounter - previousFrameCounter);
+    g_FrameDelta = deltaFrames;
 
     musicTrack1LoopWatchdog();
 }
@@ -60,24 +47,16 @@ void updateFrameCounters(s32 deltaFrames)
  */
 void waitForNextFrame(void)
 {
-  u32 nextFrameTime; //next frame time?
-  
-  do 
-  {
-    nextFrameTime = ((osGetCount() - copy_of_osgetcount_value_1) + 387937) / 775875; //current time + 1/5
-  } 
-  while (nextFrameTime < frameDelay);
+    u32 nextFrameTime; //next frame time?
 
-  frameDelay = 1;
-  updateFrameCounters(nextFrameTime);
-}
+    do 
+    {
+        nextFrameTime = ((osGetCount() - copy_of_osgetcount_value_1) + 387937) / 775875; //current time + 1/5
+    } 
+    while (nextFrameTime < frameDelay);
 
-
-void setFrameDelay(s32 arg0)
-{
-    #ifdef LEFTOVERDEBUG
-    frameDelay = arg0;
-    #endif
+    frameDelay = 1;
+    updateFrameCounters(nextFrameTime);
 }
 
 
