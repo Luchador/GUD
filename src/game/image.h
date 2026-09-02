@@ -76,8 +76,6 @@ extern struct image_entry g_Textures[];
 extern s32 g_TexCacheCount;
 extern u32 bytes;
 
-void texInflateHuffman(u8 *dst, s32 numiterations, s32 chansize);
-void texInflateRle(u8 *dst, s32 blockstotal);
 void texReadAlphaBits(u8 *image,s32 count);
 void texSwapAltRowBytes(u8 *dst, s32 width, s32 height, s32 format);
 void texBlur(u8 *pixels, s32 width, s32 height, s32 method, s32 chansize);
@@ -87,8 +85,6 @@ s32 texFindClosestColourIndexIA(u16 *palette, s32 numcolours, s32 intensity, s32
 s32 texShrinkPaletted(u8 *src, u8 *dst, s32 srcwidth, s32 srcheight, s32 format, u16 *palette, s32 numcolours);
 struct tex *texFindInPool(s32 texturenum, struct texpool *arg1);
 s32 texFreeBytesInBuffer(struct texpool *arg0);
-s32 texInflateNonZlib(u8 *src, u8 *dst, s32 arg2, s32 forcenumimages, struct texpool *arg4);
-s32 texInflateZlib(u8 *src, u8 *dst, s32 arg2, s32 forcenumimages, struct texpool *arg4);
 void texLoad(s32 *updateword, struct texpool *pool);
 void texInitPool(struct texpool *arg0, u8 *arg1, s32 arg2);
 void texLoadFromTextureNum(s32 texturenum, struct texpool *arg1);
