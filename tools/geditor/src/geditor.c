@@ -501,6 +501,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
     wc.lpfnWndProc   = GEditorWndProc;
     wc.hInstance     = hinstance;
     wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
+    wc.hIcon         = LoadIcon(hinstance, MAKEINTRESOURCE(IDI_GEDITOR));
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); /* Paints the blank client area. */
     wc.lpszClassName = GEDITOR_CLASS;
 

@@ -4,6 +4,9 @@
 /* Dialog templates */
 #define IDD_NEW_PROJECT       101
 
+/* Icons */
+#define IDI_GEDITOR           201
+
 /* Controls inside IDD_NEW_PROJECT */
 #define IDC_PROJECT_NAME     1001
 #define IDC_NAME_WARNING     1002

@@ -330,8 +330,9 @@ static int texInflateRle(uint8_t *dst, int blockstotal)
 				dst[blocksdone] = texReadBits(blocksize);
 				blocksdone++;
 			} else {
-				uint16_t *tmp = (uint16_t *)dst;
-				tmp[blocksdone] = texReadBits(blocksize);
+				int value = texReadBits(blocksize);
+				dst[blocksdone * 2 + 0] = value >> 8;
+				dst[blocksdone * 2 + 1] = value;
 				blocksdone++;
 			}
 		} else {
@@ -359,19 +360,22 @@ static int texInflateRle(uint8_t *dst, int blockstotal)
 				dst[blocksdone] = texReadBits(blocksize);
 				blocksdone++;
 			} else {
-				uint16_t *tmp = (uint16_t *)dst;
-
 				for (i = startblockindex; i < startblockindex + runnumblocks; i++) {
 					if (i >= blocksdone) {
 						return 0;
 					}
 
-					tmp[blocksdone] = tmp[i];
+					dst[blocksdone * 2 + 0] = dst[i * 2 + 0];
+					dst[blocksdone * 2 + 1] = dst[i * 2 + 1];
 					blocksdone++;
 				}
 
 				// The next instruction must be a literal
-				tmp[blocksdone] = texReadBits(blocksize);
+				{
+					int value = texReadBits(blocksize);
+					dst[blocksdone * 2 + 0] = value >> 8;
+					dst[blocksdone * 2 + 1] = value;
+				}
 				blocksdone++;
 			}
 		}
@@ -711,20 +715,27 @@ static void texInflateLookup(int width, int height, uint8_t *dst, uint8_t *looku
 	}
 }
 
-static void texInflateLookupFromBuffer(uint8_t *src, int width, int height, uint8_t *dst, uint8_t *lookup, int numcolours, int format)
+static int texInflateLookupFromBuffer(uint8_t *src, int width, int height, uint8_t *dst, uint8_t *lookup, int numcolours, int format)
 {
 	int x;
 	int y;
+	int i;
 	uint16_t indexesarray[0x2000];
 	uint16_t *indexes = indexesarray;
 
 	if (numcolours <= 256) {
-		for (int i = 0; i < width * height; i++) {
+		for (i = 0; i < width * height; i++) {
 			indexesarray[i] = src[i];
 		}
 	} else {
-		for (int i = 0; i < width * height; i++) {
+		for (i = 0; i < width * height; i++) {
 			indexesarray[i] = src[i * 2] << 8 | src[i * 2 + 1];
+		}
+	}
+
+	for (i = 0; i < width * height; i++) {
+		if (indexesarray[i] >= numcolours) {
+			return 0;
 		}
 	}
 
@@ -820,6 +831,8 @@ static void texInflateLookupFromBuffer(uint8_t *src, int width, int height, uint
 
 		break;
 	}
+
+	return 1;
 }
 
 static void texBlur(uint8_t *pixels, int width, int height, int method, int chansize)
@@ -1068,7 +1081,9 @@ static int texInflateNonZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 				return 0;
 			}
 
-			texInflateLookupFromBuffer(scratch, image->width, image->height, image->pixels, lookup, value, image->format);
+			if (!texInflateLookupFromBuffer(scratch, image->width, image->height, image->pixels, lookup, value, image->format)) {
+				return 0;
+			}
 			break;
 		case PDCOMPRESSION_RLELOOKUP:
 			value = texBuildLookup(lookup, g_TexFormatBitsPerPixel[image->format]);
@@ -1081,7 +1096,9 @@ static int texInflateNonZlib(struct pd_tex *tex, int arg2, int forcenumimages)
 				return 0;
 			}
 
-			texInflateLookupFromBuffer(scratch, image->width, image->height, image->pixels, lookup, value, image->format);
+			if (!texInflateLookupFromBuffer(scratch, image->width, image->height, image->pixels, lookup, value, image->format)) {
+				return 0;
+			}
 			break;
 		case PDCOMPRESSION_HUFFMANBLUR:
 			value = texReadBits(3);

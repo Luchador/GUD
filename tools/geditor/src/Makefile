@@ -21,7 +21,7 @@ $(TARGET): $(SOURCES) $(RCOBJ)
 	$(CC) $(CFLAGS) -o $@ $(SOURCES) $(RCOBJ) $(LDFLAGS)
 
 # Resource script -> linkable object (dialog templates, later icons/version info)
-$(RCOBJ): $(RCFILE) resource.h
+$(RCOBJ): $(RCFILE) resource.h icon.ico
 	$(RC) -i $(RCFILE) -o $@
 
 clean:

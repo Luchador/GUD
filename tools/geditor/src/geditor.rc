@@ -1,6 +1,8 @@
 #include <windows.h>
 #include "resource.h"
 
+IDI_GEDITOR ICON "icon.ico"
+
 /*
  * New Project dialog. Units here are dialog units, not pixels: they
  * scale with the system font, which is what keeps the layout correct
