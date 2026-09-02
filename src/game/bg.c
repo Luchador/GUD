@@ -4,19 +4,20 @@
 #include <gbi_extension.h>
 #include <bondconstants.h>
 #include <fr.h>
+#include <mema.h>
 #include <memp.h>
 #include "bg.h"
+#include "bgroomtrans.h"
 #include "bondview.h"
 #include "cam.h"
 #include "chr.h"
 #include "environment.h"
+#include "explosion.h"
 #include "gmath.h"
 #include "lv.h"
 #include "matrixmath.h"
 #include "player.h"
 #include "stan.h"
-#include "explosion.h"
-#include "bgroomtrans.h"
 
 
 #define BG_CMD_STACK_SIZE 20
@@ -1884,12 +1885,6 @@ s32 bgCheckIfRoomModelNeedsLoad(s32 roomID)
 */
 void bgLoadRoomModelData(s32 roomID)
 {
-    /*
-     * Keep this prototype visible here for IDO codegen.
-     * Without it, the memaRealloc call below schedules a2 too early.
-     */
-    s32 memaRealloc(s32 addr, u32 oldsize, u32 newsize);
-
     s32 allocsize;
     s32 used;
     s32 result;

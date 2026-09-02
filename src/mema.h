@@ -8,6 +8,6 @@ void memaSingleDefragPass(void);
 void *memaAlloc(u32 size);
 void memaFree(void *addr, s32 size);
 s32 memaGetLongestFree(void);
-s32 memaRealloc(s32 addr, u32 newsize, u32 oldsize);
+s32 memaRealloc(s32 addr, u32 oldsize, u32 newsize);
 
 #endif
