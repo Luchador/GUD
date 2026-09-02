@@ -5,7 +5,6 @@
 #include <assets/image_externs.h>
 #include <PR/R4300.h>
 #include "ramrom.h"
-#include "decompress.h"
 
 
 #define TEX_ALPHA_WEIGHT 961

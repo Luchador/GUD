@@ -98,7 +98,6 @@
       build/OUTCODE/src/game/image.o (.rodata);
       build/OUTCODE/src/game/image_bank.o (.rodata);
       build/OUTCODE/src/game/tex.o (.rodata);
-      build/OUTCODE/src/game/decompress.o (.rodata);
       build/OUTCODE/src/game/zlib.o (.rodata);
       build/OUTCODE/src/game/rsp.o (.rodata);
       build/OUTCODE/src/game/game_debug.o (.rodata);

@@ -6,7 +6,6 @@
 #include <memp.h>
 #include "bg.h"
 #include "bondview.h"
-#include "decompress.h"
 #include "environment.h"
 #include "gmath.h"
 #include "lv.h"
