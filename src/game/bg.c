@@ -2321,7 +2321,6 @@ bool bgTestRayIntersectsBbox(coord3d *origin, coord3d *dir, s32 *bbox_min, s32 *
 {
     coord3d bbox_min_f;
     coord3d bbox_max_f;
-    u32 stack[4];
     f32 f0;
     f32 f0_2;
     f32 f2;
@@ -3580,8 +3579,6 @@ Gfx *bgRenderWrapper(Gfx *gdl)
             // The lake in dam is a single giant room, id 0x23
             if (g_BgDrawSlots[i].roomid == 0x23)
             {
-                // speculation in discord: draworder is probably draw order or similar,
-                // this is a hack to draw the lake first.
                 g_BgDrawSlots[i].draworder = 0;
                 break;
             }
@@ -4105,7 +4102,6 @@ s32 bgTestLineIntersectsPortal(s32 portalnum, coord3d *pos1, coord3d *pos2)
     f32 value1;
     f32 value2;
     coord3d diff;
-    s32 padding;
     s32 next;
     f32 tmp;
     coord3d edge;
