@@ -395,6 +395,11 @@ Gfx *bgRender(Gfx *gdl)
     renderEnabled = lvGetBgRenderEnabled();
     g_ProfBgVisibleRoomCount += g_BgRoomsScheduledToBeDrawn;
 
+    if (renderEnabled && g_BgRoomsScheduledToBeDrawn > 0)
+    {
+        chrpropsBuildRoomRenderLists();
+    }
+
     b_min = 99999999;
     b_max = 0;
  

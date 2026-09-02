@@ -59,6 +59,18 @@ struct roomproplistblock *RoomPropListBlocks;
 PropRecord *g_OnScreenPropList[ONSCREEN_PROP_LIST_LEN];
 
 /**
+ * Links the depth-sorted onscreen prop list into one list per rendered room.
+ * The first/next direction is farthest-to-nearest; last/previous is the
+ * reverse. This preserves the ordering required by the opaque and
+ * translucent render passes without rescanning every onscreen prop for every
+ * room.
+ */
+static s16 g_OnScreenPropFirstByRoom[MAXROOMCOUNT];
+static s16 g_OnScreenPropLastByRoom[MAXROOMCOUNT];
+static s16 g_OnScreenPropNextInRoom[ONSCREEN_PROP_LIST_LEN];
+static s16 g_OnScreenPropPreviousInRoom[ONSCREEN_PROP_LIST_LEN];
+
+/**
  * Pointer to last onscreen prop.
  */
 PropRecord **g_LastOnScreenProp;
@@ -103,6 +115,79 @@ void chraiFistAttackHandler(s32 hand, s32 item_id);
 void modelGetAxisExtents(Model* model, f32* max, f32* min, s32 axis);
 
 // End forward declarations.
+
+
+/**
+ * Returns the first room occupied by the prop that will be rendered this
+ * frame. This is the same room-selection rule previously evaluated inside
+ * every room's three prop passes.
+ */
+static s32 chrpropFindFirstRenderedRoom(PropRecord *prop)
+{
+    s32 roomids[PROPRECORD_STAN_ROOM_LEN];
+    s32 *roomid;
+
+    chraiGetPropRoomIds(prop, roomids);
+
+    for (roomid = roomids; *roomid >= 0; roomid++)
+    {
+        if (bgIsRoomRendered(*roomid))
+        {
+            return *roomid;
+        }
+    }
+
+    return -1;
+}
+
+
+/**
+ * Builds per-room render lists from the depth-sorted onscreen prop list.
+ */
+void chrpropsBuildRoomRenderLists(void)
+{
+    s32 i;
+    s32 roomid;
+    s16 previous;
+    u32 buildStart;
+
+    buildStart = osGetCount();
+
+    for (roomid = 0; roomid < MAXROOMCOUNT; roomid++)
+    {
+        g_OnScreenPropFirstByRoom[roomid] = -1;
+        g_OnScreenPropLastByRoom[roomid] = -1;
+    }
+
+    for (i = 0; i < g_OnScreenPropCount; i++)
+    {
+        g_ProfBgProps.candidateChecks++;
+
+        g_OnScreenPropNextInRoom[i] = -1;
+        g_OnScreenPropPreviousInRoom[i] = -1;
+
+        roomid = chrpropFindFirstRenderedRoom(g_OnScreenPropList[i]);
+
+        if ((u32)roomid < MAXROOMCOUNT)
+        {
+            previous = g_OnScreenPropLastByRoom[roomid];
+            g_OnScreenPropPreviousInRoom[i] = previous;
+
+            if (previous >= 0)
+            {
+                g_OnScreenPropNextInRoom[previous] = i;
+            }
+            else
+            {
+                g_OnScreenPropFirstByRoom[roomid] = i;
+            }
+
+            g_OnScreenPropLastByRoom[roomid] = i;
+        }
+    }
+
+    g_ProfBgProps.scanCycles += osGetCount() - buildStart;
+}
 
 
 /**
@@ -418,12 +503,8 @@ Gfx *chrpropRender(Gfx * gdl, PropRecord *prop, s32 withalpha)
 
 Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
 {
-    s32 flag;
-    PropRecord **pp;
+    s32 propIndex;
     PropRecord *prop;
-    s32 i;
-    s32* rp;
-    s32 roomids[PROPRECORD_STAN_ROOM_LEN];
     u32 passStart;
     u32 renderCyclesStart;
     u32 passCycles;
@@ -441,89 +522,66 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
         }
     }
 
+    if ((u32)roomid >= MAXROOMCOUNT)
+    {
+        return bgScissorCurrentPlayerViewDefault(gdl);
+    }
+
     passStart = osGetCount();
     renderCyclesStart = g_ProfBgProps.renderCycles;
 
     if ((renderpass == 0) || (renderpass == 2))
     {
-        for (pp = g_LastOnScreenProp; --pp >= g_OnScreenPropList; )
+        /*
+         * Opaque props are rendered nearest-to-farthest, so traverse from
+         * the room list's tail toward its head.
+         */
+        for (propIndex = g_OnScreenPropLastByRoom[roomid];
+                propIndex >= 0;
+                propIndex = g_OnScreenPropPreviousInRoom[propIndex])
         {
             g_ProfBgProps.candidateChecks++;
-            prop = *pp;
+            prop = g_OnScreenPropList[propIndex];
 
             if (prop != NULL)
             {
-                flag = 0;
-
-                if ((renderpass == 0) && ((prop->flags & (PROPFLAG_00000020 | PROPFLAG_RENDERPOSTBG)) == 0))
+                if ((renderpass == 0)
+                        && ((prop->flags
+                            & (PROPFLAG_00000020 | PROPFLAG_RENDERPOSTBG)) == 0))
                 {
-                    flag = 1;
+                    gdl = chrpropRender(gdl, prop, FALSE);
                 }
-                else if ((renderpass == 2) && ((prop->flags & (PROPFLAG_00000020 | PROPFLAG_RENDERPOSTBG)) == PROPFLAG_RENDERPOSTBG))
+                else if ((renderpass == 2)
+                        && ((prop->flags
+                            & (PROPFLAG_00000020 | PROPFLAG_RENDERPOSTBG))
+                            == PROPFLAG_RENDERPOSTBG))
                 {
-                    flag = 1;
-                }
-
-                if (flag != 0)
-                {
-                    flag = 0;
-                    chraiGetPropRoomIds(prop, roomids);
-
-                    for (rp = roomids; *rp >= 0; rp++)
-                    {
-                        if (bgIsRoomRendered(*rp))
-                        {
-                            if (roomid == *rp)
-                            {
-                                flag = 1;
-                            }
-
-                            break;
-                        }
-                    }
-
-                    if (flag)
-                    {
-                        gdl = chrpropRender(gdl, prop, FALSE);
-                    }
+                    gdl = chrpropRender(gdl, prop, FALSE);
                 }
             }
         }
     }
     else
     {
-        for (pp = g_OnScreenPropList; pp < g_LastOnScreenProp; pp++)
+        /*
+         * Translucent props are rendered farthest-to-nearest, so traverse
+         * from the room list's head toward its tail.
+         */
+        for (propIndex = g_OnScreenPropFirstByRoom[roomid];
+                propIndex >= 0;
+                propIndex = g_OnScreenPropNextInRoom[propIndex])
         {
             g_ProfBgProps.candidateChecks++;
-            prop = *pp;
+            prop = g_OnScreenPropList[propIndex];
 
             if (prop != NULL)
             {
-                flag = 0;
-                chraiGetPropRoomIds(prop, roomids);
-
-                for (rp = roomids; *rp >= 0; rp++)
+                if (prop->flags & PROPFLAG_00000020)
                 {
-                    if (bgIsRoomRendered(*rp))
-                    {
-                        if (roomid == *rp)
-                        {
-                            flag = 1;
-                        }
-
-                        break;
-                    }
+                    gdl = chrpropRender(gdl, prop, FALSE);
                 }
 
-                if (flag)
-                {
-                    if (prop->flags & PROPFLAG_00000020)
-                    {
-                        gdl = chrpropRender(gdl, prop, FALSE);
-                    }
-
-                    gdl = chrpropRender(gdl, prop, TRUE);
-                }
+                gdl = chrpropRender(gdl, prop, TRUE);
             }
         }
     }

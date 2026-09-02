@@ -282,6 +282,7 @@ s32                chrpropTestPointInPolygon(coord3d *point, struct rect4f *poly
 void               roomGetProps(s32 *roomids);
 ObjectRecord      *objFindByPadId(s32 arg0);
 Gfx               *chrpropsRenderPass(Gfx *arg0, s32 roomid, s32 arg2);
+void               chrpropsBuildRoomRenderLists(void);
 PropRecord        *chrpropGetActiveTail(void);
 void               propsDefragRoomProps(void);
 void               chraiGetPropRoomIds(PropRecord *self, s32 *roomids);
