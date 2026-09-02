@@ -141,6 +141,7 @@ u32 g_ProfBgPropGfxCommands;
 u32 g_ProfBgEffectGfxCommands;
 u32 g_ProfBgVisibleRoomCount;
 u32 g_ProfBgSecondaryRoomCount;
+BgPropProfiler g_ProfBgProps;
 /* --- end profiler state --- */
 
 bool lvGetBgRenderEnabled(void)
@@ -487,6 +488,22 @@ Gfx* lvRender(Gfx* DL)
     g_ProfBgEffectGfxCommands = 0;
     g_ProfBgVisibleRoomCount = 0;
     g_ProfBgSecondaryRoomCount = 0;
+    g_ProfBgProps.preBgCommands = 0;
+    g_ProfBgProps.postBgCommands = 0;
+    g_ProfBgProps.translucentCommands = 0;
+    g_ProfBgProps.characterCommands = 0;
+    g_ProfBgProps.objectCommands = 0;
+    g_ProfBgProps.effectCommands = 0;
+    g_ProfBgProps.viewerCommands = 0;
+    g_ProfBgProps.characterRenderCalls = 0;
+    g_ProfBgProps.objectRenderCalls = 0;
+    g_ProfBgProps.effectRenderCalls = 0;
+    g_ProfBgProps.viewerRenderCalls = 0;
+    g_ProfBgProps.candidateChecks = 0;
+    g_ProfBgProps.scanCycles = 0;
+    g_ProfBgProps.renderCycles = 0;
+    g_ProfBgProps.bridgeConsoleCommands = 0;
+    g_ProfBgProps.bridgeConsoleRenderCalls = 0;
 
     gSPSegment(DL++, SPSEGMENT_PHYSICAL, NULL);
     gSPSegment(DL++, SPSEGMENT_UNKNOWN, osVirtualToPhysical(ptr_font_DL));
@@ -1014,8 +1031,8 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     gdl = textRender(gdl, &x, &y, fpsText, ptrFontBankGothicChars, ptrFontBankGothic, color, screenwidth, viGetY(), 0, 0);
 
     { /* TEMP profiler readouts: raw osGetCount cycles per frame */
-        static char profText[10][32];
-        static const u32 profColor[10] = {
+        static char profText[15][40];
+        static const u32 profColor[15] = {
             0x00FFFFFF,  /* bg tick    - cyan    */
             0x4040FFFF,  /* lv tick    - blue    */
             0xFF3030FF,  /* lv render  - red     */
@@ -1026,6 +1043,11 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             0xFFFFFFFF,  /* display-list commands */
             0x80C0FFFF,  /* room and prop commands */
             0xC0C0C0FF,  /* state, effects and rooms */
+            0xFFB060FF,  /* prop passes */
+            0x60D0FFFF,  /* prop type commands */
+            0x60FFB0FF,  /* prop render calls */
+            0xE0E060FF,  /* prop scan/render cycles */
+            0xFF80C0FF,  /* bridge consoles */
         };
         u32 categorizedBgCommands;
         u32 bgStateCommands;
@@ -1057,12 +1079,25 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         sprintf(profText[9], "ST:%4u FX:%4u RM:%3u/%3u", bgStateCommands,
                 g_ProfBgEffectGfxCommands, g_ProfBgVisibleRoomCount,
                 g_ProfBgSecondaryRoomCount);
+        sprintf(profText[10], "PASS 0:%u 2:%u 1:%u", g_ProfBgProps.preBgCommands,
+                g_ProfBgProps.postBgCommands, g_ProfBgProps.translucentCommands);
+        sprintf(profText[11], "TYPE C:%u O:%u E:%u V:%u", g_ProfBgProps.characterCommands,
+                g_ProfBgProps.objectCommands, g_ProfBgProps.effectCommands,
+                g_ProfBgProps.viewerCommands);
+        sprintf(profText[12], "CALL C:%u O:%u E:%u V:%u", g_ProfBgProps.characterRenderCalls,
+                g_ProfBgProps.objectRenderCalls, g_ProfBgProps.effectRenderCalls,
+                g_ProfBgProps.viewerRenderCalls);
+        sprintf(profText[13], "CHK:%u SC:%uK RD:%uK", g_ProfBgProps.candidateChecks,
+                (g_ProfBgProps.scanCycles + 500) / 1000,
+                (g_ProfBgProps.renderCycles + 500) / 1000);
+        sprintf(profText[14], "BRIDGE CON:%u/%u", g_ProfBgProps.bridgeConsoleCommands,
+                g_ProfBgProps.bridgeConsoleRenderCalls);
 
         g_ProfChrTickCycles = 0;
         g_ProfChrActionCycles = 0;
         g_ProfObjTickCycles = 0;
 
-        for (i = 0; i < 10; i++)
+        for (i = 0; i < 15; i++)
         {
             x = viGetViewLeft() + 14;
             y = viGetViewTop() + 44 + (i * 10);

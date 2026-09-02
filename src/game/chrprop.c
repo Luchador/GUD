@@ -351,8 +351,13 @@ void chrpropDetach(PropRecord* prop)
 
 Gfx *chrpropRender(Gfx * gdl, PropRecord *prop, s32 withalpha)
 {
+    Gfx *gdlStart;
+    u32 renderStart;
+    u32 commands;
     u8 type;
 
+    gdlStart = gdl;
+    renderStart = osGetCount();
     type = prop->type;
 
     if (type == PROP_TYPE_CHR)
@@ -376,6 +381,37 @@ Gfx *chrpropRender(Gfx * gdl, PropRecord *prop, s32 withalpha)
         gdl = bondviewRenderProp(prop, gdl, withalpha);
     }
 
+    g_ProfBgProps.renderCycles += osGetCount() - renderStart;
+    commands = (u32)(gdl - gdlStart);
+
+    if (type == PROP_TYPE_CHR)
+    {
+        g_ProfBgProps.characterCommands += commands;
+        g_ProfBgProps.characterRenderCalls++;
+    }
+    else if ((type == PROP_TYPE_OBJ) || (type == PROP_TYPE_WEAPON) || (type == PROP_TYPE_DOOR))
+    {
+        g_ProfBgProps.objectCommands += commands;
+        g_ProfBgProps.objectRenderCalls++;
+
+        if (type == PROP_TYPE_OBJ && prop->obj->obj >= PROP_BRIDGE_CONSOLE1A
+                && prop->obj->obj <= PROP_BRIDGE_CONSOLE3B)
+        {
+            g_ProfBgProps.bridgeConsoleCommands += commands;
+            g_ProfBgProps.bridgeConsoleRenderCalls++;
+        }
+    }
+    else if ((type == PROP_TYPE_EXPLOSION) || (type == PROP_TYPE_SMOKE))
+    {
+        g_ProfBgProps.effectCommands += commands;
+        g_ProfBgProps.effectRenderCalls++;
+    }
+    else if (type == PROP_TYPE_VIEWER)
+    {
+        g_ProfBgProps.viewerCommands += commands;
+        g_ProfBgProps.viewerRenderCalls++;
+    }
+
     return gdl;
 }
 
@@ -388,6 +424,10 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
     s32 i;
     s32* rp;
     s32 roomids[PROPRECORD_STAN_ROOM_LEN];
+    u32 passStart;
+    u32 renderCyclesStart;
+    u32 passCycles;
+    u32 renderCycles;
 
     if (bossGetStageNum() == LEVELID_CUBA)
     {
@@ -401,10 +441,14 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
         }
     }
 
+    passStart = osGetCount();
+    renderCyclesStart = g_ProfBgProps.renderCycles;
+
     if ((renderpass == 0) || (renderpass == 2))
     {
         for (pp = g_LastOnScreenProp; --pp >= g_OnScreenPropList; )
         {
+            g_ProfBgProps.candidateChecks++;
             prop = *pp;
 
             if (prop != NULL)
@@ -450,6 +494,7 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
     {
         for (pp = g_OnScreenPropList; pp < g_LastOnScreenProp; pp++)
         {
+            g_ProfBgProps.candidateChecks++;
             prop = *pp;
 
             if (prop != NULL)
@@ -483,7 +528,17 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
         }
     }
 
-    return bgScissorCurrentPlayerViewDefault(gdl);
+    gdl = bgScissorCurrentPlayerViewDefault(gdl);
+
+    passCycles = osGetCount() - passStart;
+    renderCycles = g_ProfBgProps.renderCycles - renderCyclesStart;
+
+    if (passCycles > renderCycles)
+    {
+        g_ProfBgProps.scanCycles += passCycles - renderCycles;
+    }
+
+    return gdl;
 }
 
 

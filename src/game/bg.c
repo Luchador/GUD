@@ -423,10 +423,13 @@ Gfx *bgRender(Gfx *gdl)
                 if (renderEnabled)
                 {
                     Gfx *propGdlStart;
+                    u32 propCommands;
 
                     propGdlStart = gdl;
                     gdl = chrpropsRenderPass(gdl, g_BgDrawSlots[j].roomid, 0);
-                    g_ProfBgPropGfxCommands += (u32)(gdl - propGdlStart);
+                    propCommands = (u32)(gdl - propGdlStart);
+                    g_ProfBgPropGfxCommands += propCommands;
+                    g_ProfBgProps.preBgCommands += propCommands;
                 }
  
                 gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
@@ -447,10 +450,13 @@ Gfx *bgRender(Gfx *gdl)
                 if (renderEnabled)
                 {
                     Gfx *propGdlStart;
+                    u32 propCommands;
 
                     propGdlStart = gdl;
                     gdl = chrpropsRenderPass(gdl, g_BgDrawSlots[j].roomid, 2);
-                    g_ProfBgPropGfxCommands += (u32)(gdl - propGdlStart);
+                    propCommands = (u32)(gdl - propGdlStart);
+                    g_ProfBgPropGfxCommands += propCommands;
+                    g_ProfBgProps.postBgCommands += propCommands;
                 }
             }
         }
@@ -498,10 +504,13 @@ Gfx *bgRender(Gfx *gdl)
                 if (renderEnabled)
                 {
                     Gfx *propGdlStart;
+                    u32 propCommands;
 
                     propGdlStart = gdl;
                     gdl = chrpropsRenderPass(gdl, roomid, 1);
-                    g_ProfBgPropGfxCommands += (u32)(gdl - propGdlStart);
+                    propCommands = (u32)(gdl - propGdlStart);
+                    g_ProfBgPropGfxCommands += propCommands;
+                    g_ProfBgProps.translucentCommands += propCommands;
                 }
             }
         }
