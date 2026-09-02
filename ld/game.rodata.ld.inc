@@ -36,7 +36,6 @@
       build/OUTCODE/src/game/cleanplayersound.o (.rodata);
       build/OUTCODE/src/game/title.o (.rodata);
       build/OUTCODE/src/game/front.o (.rodata);
-      build/OUTCODE/src/game/rle.o (.rodata);
       build/OUTCODE/src/game/title2.o (.rodata);
       build/OUTCODE/src/game/title3.o (.rodata);
       build/OUTCODE/src/game/blood_animation.o (.rodata);

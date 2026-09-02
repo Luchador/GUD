@@ -36,7 +36,6 @@
       build/OUTCODE/src/game/cleanplayersound.o (.bss);
       build/OUTCODE/src/game/title.o (.bss);
       build/OUTCODE/src/game/front.o (.bss);
-      build/OUTCODE/src/game/rle.o (.bss);
       build/OUTCODE/src/game/title2.o (.bss);
       build/OUTCODE/src/game/title3.o (.bss);
       build/OUTCODE/src/game/blood_animation.o (.bss);
