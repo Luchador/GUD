@@ -13,6 +13,8 @@
 #define IDC_CREATE_PROJECT   1003
 #define IDC_PROJECT_LOCATION 1004
 #define IDC_BROWSE_LOCATION  1005
+#define IDC_PROJECT_ROM      1006
+#define IDC_BROWSE_ROM       1007
 
 /* Longest project name we accept, including the terminator. */
 #define GEDITOR_NAME_MAX       64

@@ -67,6 +67,7 @@ enum {
 typedef struct NewProjectInfo {
     char name[GEDITOR_NAME_MAX];
     char location[MAX_PATH];
+    char rompath[MAX_PATH];
 } NewProjectInfo;
 
 
@@ -187,6 +188,41 @@ static BOOL GEditorPromptForFolder(HWND owner, char *pathout, int pathmax)
 
 
 /*
+ * Ask the user for a GUD ROM.
+ */
+static BOOL GEditorPromptForRom(HWND hwnd, char *pathout, DWORD pathmax)
+{
+    OPENFILENAME ofn;
+
+    /* The dialog uses this buffer as the initial contents of the File
+       name box, so it must be a valid (here, empty) string. */
+    pathout[0] = '\0';
+
+    ZeroMemory(&ofn, sizeof(ofn));
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner   = hwnd;            /* modal to our window */
+    ofn.lpstrFile   = pathout;
+    ofn.nMaxFile    = pathmax;
+    ofn.lpstrTitle  = "Open Project";
+    ofn.lpstrDefExt = "z64";           /* appended if the user types no extension */
+
+    /* Filter: pairs of "description\0pattern\0", terminated by an extra
+       \0. The literal below already ends in one implicit terminator, so
+       the explicit \0 at the end supplies the required double null. */
+    ofn.lpstrFilter = "N64 ROMs (*.z64)\0*.z64\0All Files (*.*)\0*.*\0";
+    ofn.nFilterIndex = 1;              /* 1-based: start on the .gep filter */
+
+    ofn.Flags = OFN_EXPLORER          /* Modern Explorer-style dialog. */
+              | OFN_FILEMUSTEXIST     /* Refuse names that do not exist. */
+              | OFN_PATHMUSTEXIST
+              | OFN_HIDEREADONLY      /* Hide the vestigial read-only box. */
+              | OFN_NOCHANGEDIR;      /* Do not move our working directory. */
+
+    return GetOpenFileName(&ofn);
+}
+
+
+/*
  * Re-checks the edit box and updates the two things that depend on it:
  * whether Create Project is clickable, and what the warning line says.
  * Called once when the dialog opens and again on every keystroke, so
@@ -292,10 +328,23 @@ static INT_PTR CALLBACK GEditorNewProjectProc(HWND hdlg, UINT msg, WPARAM wparam
             return TRUE;
         }
 
+        case IDC_BROWSE_ROM:
+        {
+            char folder[MAX_PATH];
+
+            if (GEditorPromptForRom(hdlg, folder, sizeof(folder)))
+            {
+                /* Setting the text fires EN_CHANGE, which revalidates. */
+                SetDlgItemText(hdlg, IDC_PROJECT_ROM, folder);
+            }
+            return TRUE;
+        }
+
         case IDC_CREATE_PROJECT:
             info = (NewProjectInfo *)GetWindowLongPtr(hdlg, DWLP_USER);
             GetDlgItemText(hdlg, IDC_PROJECT_NAME, info->name, sizeof(info->name));
             GetDlgItemText(hdlg, IDC_PROJECT_LOCATION, info->location, sizeof(info->location));
+            GetDlgItemText(hdlg, IDC_PROJECT_ROM, info->rompath, sizeof(info->rompath));
             EndDialog(hdlg, IDOK);
             return TRUE;
 
