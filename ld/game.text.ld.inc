@@ -50,7 +50,6 @@
       build/OUTCODE/src/game/propobj.o (.text);
       build/OUTCODE/src/game/loadobjectmodel.o (.text);
       build/OUTCODE/src/game/objective_status.o (.text);
-      build/OUTCODE/src/game/objective_status2.o (.text);
       build/OUTCODE/src/game/gmath.o (.text);
       build/OUTCODE/src/game/math_sincos.o (.text);
       build/OUTCODE/src/game/matrixmath.o (.text);

@@ -5,18 +5,19 @@
 #include "bondview.h"
 #include "cam.h"
 #include "dyn.h"
-#include "math_atan2f.h"
 #include "gbi_extension.h"
 #include "glass.h"
 #include "image_bank.h"
 #include "lv.h"
+#include "math_atan2f.h"
+#include "matrixmath.h"
 #include "objective_status.h"
 #include "random.h"
+
 
 #define BULLET_SPARKS_MAX 20
 #define BULLET_MOVING_SPARKS_MAX 50
 #define GAUGE_BAR_VERTEX_PAIR_STRIDE (2 * sizeof(struct WatchVertex))
-
 
 struct rgba_u8 g_BulletSparkColors[8] = {
     { 0xFF, 0xFF, 0xFF, 0xFF },

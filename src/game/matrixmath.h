@@ -45,14 +45,16 @@ void matrix_4x4_set_rotation_axis_angle(Mtxf *matrix, f32 angle, f32 x, f32 y, f
 void matrix_4x4_set_rotation_inverse(Mtxf *rotation, Mtxf *transpose);
 void matrix_4x4_transform_vector(Mtxf *matrix, struct coord3d *vector, struct coord3d *result);
 void matrix_row_3_scalar_multiply(f32 scalar, f32 *matrix);
-
-// tenative guess
 void matrix_4x4_s32_to_f32(Mtxf *arg0, Mtxf *arg1);
 void matrix_7f05842c_eu(f32 src[][4], f32 dst[3][3]);
 void matrix_4x4_multiply_homogeneous_in_place_eu(f32 src[3][3], f32 dst[3][3]);
 void matrix_4x4_multiply_homogeneous_eu(f32 lhs[3][3], f32 rhs[3][3], f32 result[3][3]);
 
 /* matrixmath_misc.h */
+void mtxLoadRandomRotation(Mtxf *mtx);
+void sub_GAME_7F057C14(coord3d *coord, Mtxf *mtx);
+void sub_GAME_7F057D44(f32* arg0, f32* arg1, f32 arg2);
+void sub_GAME_7F057D88(f32 *arg0, f32 *arg1, f32 arg2);
 
 void vec3Lerp(vec3d *x, vec3d *y, f32 scaler, vec3d *result);
 void coord3dCubicSplineInterp(coord3d *prev, coord3d *start, coord3d *end, coord3d *next, f32 fraction, f32 tangentScale, coord3d *result);

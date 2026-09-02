@@ -569,10 +569,7 @@ s32 chrpropFindCloserBgHitInVisibleRooms(coord3d *from, coord3d *to, coord3d *di
                         hit.hitpos.y *= scale;
                         hit.hitpos.z *= scale;
 
-                        /**
-                         * The (numrooms * 0) is weird but harmless and needed for matching.
-                         */
-                        if ((bestroom <= (numrooms * 0))
+                        if ((bestroom <= 0)
                                 || (((((from->x <= besthit->hitpos.x)
                                             && (from->x <= hit.hitpos.x))
                                             && (hit.hitpos.x < besthit->hitpos.x))
@@ -836,11 +833,6 @@ void chraiDefaultWeaponFireHandler(s32 hand)
     {
         distscale = bgGetRoomScale() * bgGetLevelVisibilityScale();
         playerpos = bondviewGetPlayerPosition();
-
-        new_var++;
-        new_var--;
-
-        if (new_var == new_var);
 
         stanResetHits();
 
