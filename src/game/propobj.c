@@ -185,7 +185,7 @@ bool sub_GAME_7F04B590(ModelFileHeader* arg0, ModelNode* arg1);
 void detonate_proxmine_In_range(coord3d *pos);
 void doorDeactivatePortal(DoorRecord *door);
 void doorSetOpenState(DoorRecord *door, s32 state);
-s32  sub_GAME_7F053894(coord3d *pos, f32 low, f32 high);
+s32  sndCalculateVolumeAtPosition(coord3d *pos, f32 low, f32 high);
 void sub_GAME_7F053A3C(DoorRecord *door);
 
 // End forward declarations.
@@ -4540,7 +4540,7 @@ void objTickVehicle(PropRecord *prop)
 
     if (((!(obj->flags2 & PROPFLAG2_00080000)) && (objIsHealthy(obj) != 0)) && ((poTruck->speed > 0.0f) || (poTruck->speedaim > 0.0f)))
     {
-        truckShouldPlayEngineSound = sub_GAME_7F053894(&poTruck->position, 2000.0f, 3000.0f);
+        truckShouldPlayEngineSound = sndCalculateVolumeAtPosition(&poTruck->position, 2000.0f, 3000.0f);
     }
 
     if (truckShouldPlayEngineSound > 0)
@@ -4820,7 +4820,7 @@ void objTickAircraft(PropRecord *prop)
     truckShouldPlayEngineSound = 0;
     if ((((!(render_pad2F4->flags2 & PROPFLAG2_00080000)) && (objIsHealthy(obj) != 0)) && (render_pad2F4->rotaryspeed != 0.0f)) && (!(render_pad2F4->flags & PROPFLAG_INMOTION)))
     {
-        truckShouldPlayEngineSound = sub_GAME_7F053894(&render_pad2F4->position, 5000.0f, 6000.0f);
+        truckShouldPlayEngineSound = sndCalculateVolumeAtPosition(&render_pad2F4->position, 5000.0f, 6000.0f);
     }
 
     if (truckShouldPlayEngineSound > 0)
@@ -12185,7 +12185,7 @@ PropRecord* doorInit(DoorRecord* door, coord3d* pos, Mtxf* mtx, StandTile* stan,
 }
 
 
-s32 sub_GAME_7F0537B8(f32 distance, f32 min, f32 max)
+s32 sndCalculateVolumeFromDistance(f32 distance, f32 min, f32 max)
 {
     s32 retval;
 
@@ -12210,7 +12210,7 @@ s32 sub_GAME_7F0537B8(f32 distance, f32 min, f32 max)
 }
 
 
-s32 sub_GAME_7F053894(coord3d *pos, f32 low, f32 high)
+s32 sndCalculateVolumeAtPosition(coord3d *pos, f32 low, f32 high)
 {
     PropRecord *prop;
     s32 index;
@@ -12238,25 +12238,13 @@ s32 sub_GAME_7F053894(coord3d *pos, f32 low, f32 high)
         }
     }
 
-    return sub_GAME_7F0537B8(shortest_distance, low, high);
+    return sndCalculateVolumeFromDistance(shortest_distance, low, high);
 }
 
 
 void chrobjSndCreatePostEvent(ALSoundState *state, coord3d *pos, f32 low, f32 high)
 {
-    sndCreatePostEvent(state, 8, sub_GAME_7F053894(pos, low, high));
-}
-
-
-s32 sub_GAME_7F0539B8(f32 vol)
-{
-    return sub_GAME_7F0537B8(vol, 5000.0f, 6000.0f);
-}
-
-
-s32 sub_GAME_7F0539E4(coord3d *pos)
-{
-    return sub_GAME_7F053894(pos, 5000.0f, 6000.0f);
+    sndCreatePostEvent(state, 8, sndCalculateVolumeAtPosition(pos, low, high));
 }
 
 
@@ -12266,39 +12254,32 @@ void chrobjSndCreatePostEventDefault(ALSoundState *state, coord3d *pos)
 }
 
 
-void sub_GAME_7F053A3C(DoorRecord* arg0)
+void sub_GAME_7F053A3C(DoorRecord* door)
 {
-    s32 open_playing;
-    s32 close_playing;
-    s32 sp1C;
+    bool open_playing;
+    bool close_playing;
+    s32 volume;
 
-    open_playing = (arg0->openSoundState != NULL) && (sndGetPlayingState(arg0->openSoundState) != 0);
-    close_playing = (arg0->closeSoundState != NULL) && (sndGetPlayingState(arg0->closeSoundState) != 0);
+    open_playing = (door->openSoundState != NULL) && (sndGetPlayingState(door->openSoundState));
+    close_playing = (door->closeSoundState != NULL) && (sndGetPlayingState(door->closeSoundState));
 
-    if ((open_playing != 0) || (close_playing != 0))
+    if ((open_playing) || (close_playing))
     {
+        volume = sndCalculateVolumeAtPosition(&door->prop->pos, 5000.0f, 6000.0f);
 
-        sp1C = sub_GAME_7F0539E4(&arg0->prop->pos);
-
-        if (lvGetControlsLockedFlag() != 0)
+        if (lvGetControlsLockedFlag())
         {
-            sp1C = 0;
+            volume = 0;
         }
 
-        if (open_playing != 0)
+        if (open_playing)
         {
-            #ifdef DEBUG
-            assert( po->audiostate!=NULL);
-            #endif
-            sndCreatePostEvent(arg0->openSoundState, 8, sp1C);
+            sndCreatePostEvent(door->openSoundState, 8, volume);
         }
 
-        if (close_playing != 0)
+        if (close_playing)
         {
-            #ifdef DEBUG
-            assert( po->audiostate2!=NULL);
-            #endif
-            sndCreatePostEvent(arg0->closeSoundState, 8, sp1C);
+            sndCreatePostEvent(door->closeSoundState, 8, volume);
         }
     }
 }

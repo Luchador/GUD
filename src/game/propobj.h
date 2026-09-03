@@ -55,7 +55,6 @@ void                 objDropRecursively(PropRecord *prop);
 void                 chrobjSndCreatePostEventDefault(ALSoundState *, coord3d *);
 void                 alarmActivate(void);
 void                 weaponSetGunfireVisible(PropRecord *prop, s32 firing);
-s32                  sub_GAME_7F0539E4(coord3d *pos); //getVolume?
 ObjectRecord        *create_new_item_instance_of_model(PROP modelnum, s32 weaponid);
 void                 objApplyDamage(ObjectRecord *obj, f32 damage, coord3d *pos, ITEM_IDS, s32 playernum);
 void                 chrobjMaybeDetonateObjectIfFlags(ObjectRecord *arg0, f32 arg1, coord3d *arg2, ITEM_IDS item, s32 arg4);
@@ -81,7 +80,6 @@ void                 chrSetWeaponFlag4(ChrRecord *chr, GUNHAND hand);
 void                 door7F053B10(DoorRecord *door);
 void                 doorActivatePortal(DoorRecord *door);
 void                 doorUpdateBbox(DoorRecord *door);
-s32                  sub_GAME_7F0539B8(f32 vol);
 void                 monitorSetImageByNum(MonitorRecord *mon, s32 monAnimID);
 void                 propweaponSetDual(WeaponObjRecord *leftweapon, WeaponObjRecord *rightweapon);
 f32                  countdownTimerGetValue(void);

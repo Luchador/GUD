@@ -9611,7 +9611,7 @@ _AI_CMD(
         if (ai->slotID >= 0 && ai->slotID < 8)
         {
             sfx_related[ai->slotID].sfxID = sfxID;
-            sfx_related[ai->slotID].Volume = sub_GAME_7F0539B8(vol);
+            sfx_related[ai->slotID].Volume = sndCalculateVolumeFromDistance(vol, 5000.0f, 6000.0f)
             sfx_related[ai->slotID].pos = NULL;
             sfx_related[ai->slotID].Obj = NULL;
             if (sfxID == 0)

@@ -51,13 +51,13 @@ void       audioPlayFromProp2(s32 slot)
     {
         if (sfx->pos)
         {
-            sfx->Volume = sub_GAME_7F0539E4(sfx->pos);
+            sfx->Volume = sndCalculateVolumeAtPosition(sfx->pos, 5000.0f, 6000.0f);
         }
         else
         {
             if (sfx->Obj && sfx->Obj->prop)
             {
-                sfx->Volume = sub_GAME_7F0539E4(&sfx->Obj->position);
+                sfx->Volume = sndCalculateVolumeAtPosition(&sfx->Obj->position, 5000.0f, 6000.0f);
             }
         }
 
@@ -3638,7 +3638,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                     if (ai->slotID >= 0 && ai->slotID < 8)
                     {
                         sfx_related[ai->slotID].sfxID = sfxID;
-                        sfx_related[ai->slotID].Volume = sub_GAME_7F0539B8(vol);
+                        sfx_related[ai->slotID].Volume = sndCalculateVolumeFromDistance(vol, 5000.0f, 6000.0f);
                         sfx_related[ai->slotID].pos    = NULL;
                         sfx_related[ai->slotID].Obj    = NULL;
                         if (sfxID == 0)

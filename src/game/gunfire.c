@@ -2158,7 +2158,7 @@ void gunfirePlaySfxBulletImpact(enum ITEM_IDS item, PropRecord* prop, s32 textur
     struct BulletFleshSounds bullet_flesh_sounds_copy;
     u32 sfx_index;
 
-    sp6C = sub_GAME_7F0539E4(&prop->pos);
+    sp6C = sndCalculateVolumeAtPosition(&prop->pos, 5000.0f, 6000.0f);
 
     rnd1 = randomGetNext();
     rnd2 = randomGetNext();
