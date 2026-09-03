@@ -83,6 +83,8 @@ extern u32 g_ProfChrNavSweepLineCalls;
 extern u32 g_ProfChrNavSweepVolumeCycles;
 extern u32 g_ProfChrNavSweepVolumeCalls;
 extern u32 g_ProfChrNavLineTileCycles;
+extern u32 g_ProfChrNavLineTileCandidateEdges;
+extern u32 g_ProfChrNavLineTileAabbPassedEdges;
 extern u32 g_ProfChrNavLineQueryCycles;
 extern u32 g_ProfChrNavLineFilterCycles;
 extern u32 g_ProfChrNavLineBoundsCycles;

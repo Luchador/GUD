@@ -883,6 +883,10 @@ bool stanWalkTilesBetweenPointsWithCallback(StandTile **tileStack, f32 start_x, 
     StandTile *nextTile;
     f32 lineNegDz;
     f32 lineDx;
+    f32 lineMinX;
+    f32 lineMaxX;
+    f32 lineMinZ;
+    f32 lineMaxZ;
     s32 uninitialized;
     s32 edgeIndex;
     s32 crossings;
@@ -893,12 +897,35 @@ bool stanWalkTilesBetweenPointsWithCallback(StandTile **tileStack, f32 start_x, 
     StandTilePoint *curPoint;
     s32 nextPointIndex;
     s32 hasLink;
+    s32 profileNavSweep;
     u16 linkOffset;
 
     start_x *= level_scale;
     start_z *= level_scale;
     dest_x *= level_scale;
     dest_z *= level_scale;
+
+    if (start_x < dest_x)
+    {
+        lineMinX = start_x;
+        lineMaxX = dest_x;
+    }
+    else
+    {
+        lineMinX = dest_x;
+        lineMaxX = start_x;
+    }
+
+    if (start_z < dest_z)
+    {
+        lineMinZ = start_z;
+        lineMaxZ = dest_z;
+    }
+    else
+    {
+        lineMinZ = dest_z;
+        lineMaxZ = start_z;
+    }
 
     tile = *tileStack;
     previousTile = *tileStack;
@@ -908,6 +935,7 @@ bool stanWalkTilesBetweenPointsWithCallback(StandTile **tileStack, f32 start_x, 
     nextTile = NULL;
     iterationCount = 0;
     lineDx = dest_x - start_x;
+    profileNavSweep = g_ProfChrCollisionScope == CHR_COLLISION_PROFILE_NAV_SWEEP;
 
     savedPointIndex = uninitialized;
 
@@ -936,6 +964,28 @@ bool stanWalkTilesBetweenPointsWithCallback(StandTile **tileStack, f32 start_x, 
 
             if (((lineNegDz * (nextPoint->x - curPoint->x)) + (lineDx * (nextPoint->z - curPoint->z))) <= 0.0f)
             {
+                if (profileNavSweep)
+                {
+                    g_ProfChrNavLineTileCandidateEdges++;
+                }
+
+                /*
+                 * Preserve endpoint touches by rejecting only edges whose
+                 * complete interval is strictly outside the line interval.
+                 */
+                if ((curPoint->x < lineMinX && nextPoint->x < lineMinX)
+                        || (lineMaxX < curPoint->x && lineMaxX < nextPoint->x)
+                        || (curPoint->z < lineMinZ && nextPoint->z < lineMinZ)
+                        || (lineMaxZ < curPoint->z && lineMaxZ < nextPoint->z))
+                {
+                    continue;
+                }
+
+                if (profileNavSweep)
+                {
+                    g_ProfChrNavLineTileAabbPassedEdges++;
+                }
+
                 linkOffset = curPoint->link;
                 hasLink = linkOffset >> 4 != 0;
 
