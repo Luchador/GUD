@@ -6,15 +6,12 @@
 #include <bondgame.h>
 #include "boot.h"
 #include "sched.h"
-#include "rmon.h" /*<PR/rmon.h>*/
+#include "rmon.h"
 #include "tlb_resolve.h"
 #include "tlb_hardwire.h"
 #include "init.h"
 #include "thread_config.h"
 
-/**
- * EU .data, offset from start of data_seg : 0x22B0
-*/
 
 /**
  * @file init.c
@@ -43,28 +40,6 @@ u32 piDeviceType = DEVICE_TYPE_CART;
 u32 piStatusReg = PI_CLR_INTR;
 u32 piDomAddr = PI_DOM1_ADDR2;
 
-union debug_handler_container
-{
-    /* There is a bulk memory copy of debug_handler_table,
-    * it seems to require a container with a known size,
-    * which doesn't seem correct ....
-    */
-    struct debug_handler_entry rows[MAXSP];
-    s32 data[MAXSP * 2];
-};
-
-union debug_handler_container debug_handler_table = {
-    {
-        {sp_boot, "boot"},
-        {sp_rmon, "rmon"},
-        {sp_idle, "idle"},
-        {sp_shed, "shed"},
-        {sp_main, "main"},
-        {sp_audi, "audi"},
-        {0, 0}
-    }
-};
-
 OSThread rmonThread;
 OSThread idleThread;
 OSThread mainThread;
@@ -76,9 +51,7 @@ OSMesgQueue *sched_cmdQ;
 void mainproc(void *args);
 
 
-
 /**
- * 1110	70000510
  * init - The real main entry point, called from boot.s
  * Loads the data segment from ROM
  * Installs the TLB miss handler
@@ -147,9 +120,7 @@ void init(void)
 }
 
 
-
 /**
- * 12F0	700006F0
  * setSPToEnd - set stack pointer to end of stack
  * @param stack
  * @param size
@@ -161,7 +132,6 @@ void *setSPToEnd(u8 *stack, u32 size)
 }
 
 /**
- * 12FC	700006FC
  * piStatusRegReset - set PI status register to trigger a reset
  * This is unused and is leftover from Indy debug,
  */
@@ -181,8 +151,8 @@ void idleproc(void *arg)
     for (;;);
 }
 
+
 /**
- * 1338	70000738
  * idleCreateThread - creates an empty thread;
  */
 void idleCreateThread(void)
@@ -223,7 +193,6 @@ void schedulerInitThread(void)
 }
 
 /**
- * 149C	7000089C
  * mainproc - main game setup and loop
  * calls command line parser, debug console setup, etc.
  * @param args
@@ -233,35 +202,17 @@ void mainproc(void *args)
     idleCreateThread();
     piCreateManager();
     rmonCreateThread();
+
     if (tokenReadIo())
     {
         osStopThread(RMON_THREAD_ID);
     }
 
     osSetThreadPri(RMON_THREAD_ID, MAIN_THREAD_PRIORITY);
-    // Timers are initialized via:
-    // schedulerInitThread -> osCreateScheduler -> osCreateViManager -> __osTimerServicesInit
+    /**
+     * Timers are initialized via:
+     * schedulerInitThread -> osCreateScheduler -> osCreateViManager -> __osTimerServicesInit
+     */
     schedulerInitThread();
     bossEntry();
-}
-
-
-/**
- * 1508	70000908
- * initDebugHandlerTable - setup debug handler table
- * This is unused and is leftover from Indy debug.
- */
-void initDebugHandlerTable(void)
-{
-    union debug_handler_container dhe;
-    struct debug_handler_entry *p;
-
-    dhe = debug_handler_table;
-
-    p = &dhe.rows[0];
-
-    do
-    {
-        p++;
-    } while (p->address != NULL);
 }

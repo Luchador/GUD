@@ -376,7 +376,7 @@ void gunAdvanceBeamTimer(BeamRecord* arg0);
 Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animatebuttons, WatchContButtonPositions* buttonpositions, s8* contpadnum);
 Gfx *watchRenderControllerOpaque(Gfx *gdl, Mtxf *basemtx, bool animatebuttons, WatchContButtonPositions *buttonpositions, s8 *contpadnum);
 
-Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf *mtx, s32 arg3, s32 arg4);
+Gfx *watchRenderItemModel(Gfx *gdl, ITEM_IDS itemid, Mtxf *mtx, s32 arg3, s32 arg4);
 void gunRenderCasings(Gfx **gdl);
 void gunRenderFirstPersonGunModels(Gfx **gdl);
 Gfx *gunRenderAmmoDisplay(Gfx *gdl);

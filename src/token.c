@@ -8,30 +8,35 @@
 u32 g_TokenString[G_TOKEN_STRING_LEN];
 s32 g_TokenCount = 1;
 
-#if defined(LEFTOVERDEBUG)
 const char *g_Tokens[35] = {0};
-#else
-const char *g_Tokens[10] = {0};
-#endif
+
 
 // Splits a string into tokens delimited by spaces and stores 
 // them in g_Tokens.
 unsigned char *tokenSplit(unsigned char *str)
 {
     unsigned char c;
+
     g_Tokens[0] = "";
     g_TokenCount = 1;
-    while ((s32)*str) {
-        while (*str == ' ') {
+
+    while ((s32)*str)
+    {
+        while (*str == ' ')
+        {
             *str++ = '\0';
         }
         g_Tokens[g_TokenCount++] = str;
-        while (*str > ' ') {
+    
+        while (*str > ' ')
+        {
             str++; 
         }
     }
+
     return str;
 }
+
 
 // Sets a new token string.
 void tokenSetString(const char *str)
@@ -39,6 +44,7 @@ void tokenSetString(const char *str)
     strcpy(g_TokenString, str);
     tokenSplit(g_TokenString);
 }
+
 
 // Reads a new token string from the PI device at address 0xFFB000. Also handles the
 // -d (debug) and -s (sound) switches.

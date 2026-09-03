@@ -1902,10 +1902,13 @@ Gfx* draw_current_hand_item_and_ammo(Gfx* gdl)
 
     gdl = sub_GAME_7F0A6EE8(gdl);
 
-    if (g_WatchBackgroundGreen < 0xE0) {
-        gdl = set_enviro_fog_for_items_in_solo_watch_menu(gdl, sp70, &matrix2, g_WatchBackgroundGreen + 1, 0x64DC6428);
-    } else {
-        gdl = set_enviro_fog_for_items_in_solo_watch_menu(gdl, sp70, &matrix2, 0xFF, 0x64DC6428);
+    if (g_WatchBackgroundGreen < 0xE0)
+    {
+        gdl = watchRenderItemModel(gdl, sp70, &matrix2, g_WatchBackgroundGreen + 1, 0x64DC6428);
+    } 
+    else 
+    {
+        gdl = watchRenderItemModel(gdl, sp70, &matrix2, 0xFF, 0x64DC6428);
     }
 
     gdl = gfxSetup2DTextureMode(gunDrawWatchAmmoDisplay(gdl));
@@ -2039,7 +2042,7 @@ Gfx *draw_watch_inventory_page(Gfx *gdl, Mtx *param_2)
 
         matrix_4x4_multiply_in_place(&sp8A0, &sp8E0);
 
-        gdl = set_enviro_fog_for_items_in_solo_watch_menu(sub_GAME_7F0A6EE8(gdl), sp884, &sp8E0, 0x40, 0xA0FFA03C);
+        gdl = watchRenderItemModel(sub_GAME_7F0A6EE8(gdl), sp884, &sp8E0, 0x40, 0xA0FFA03C);
 
         {
             s32 i;

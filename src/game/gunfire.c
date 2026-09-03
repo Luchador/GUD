@@ -1565,7 +1565,10 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
 }
 
 
-Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf *mtx, s32 arg3, s32 arg4)
+/**
+ * Builds and renders an inventory item in the watch menu. Used by both the main screen and the inventory list.
+ */
+Gfx *watchRenderItemModel(Gfx *gdl, ITEM_IDS itemid, Mtxf *transform, s32 alpha, s32 color)
 {
     ModelRenderData renderdata = g_DefaultGunModelRenderData;
     ModelHeader model;
@@ -1610,6 +1613,7 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
     }
 
     i = 0;
+
     ((Model *) &model)->render_pos = matrices;
     modelCalculateRwDataLen(bodymodel);
     modelInit((Model *) &model, bodymodel, spb8);
@@ -1626,19 +1630,19 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
         }
     }
 
-    matrix_4x4_copy(mtx, matrices);
+    matrix_4x4_copy(transform, matrices);
   
     if (bodymodel->Skeleton == (&skeleton_gun_revolver))
     {
         if (bodymodel->Switches[4] != NULL)
         {
             matrix_4x4_set_identity_and_position((coord3d *) bodymodel->Switches[4]->Data, &sp74);
-            matrix_4x4_multiply(mtx, &sp74, &matrices[3]);
+            matrix_4x4_multiply(transform, &sp74, &matrices[3]);
         }
         if (bodymodel->Switches[5] != NULL)
         {
             matrix_4x4_set_identity_and_position((coord3d *) bodymodel->Switches[5]->Data, &sp74);
-            matrix_4x4_multiply(mtx, &sp74, &matrices[4]);
+            matrix_4x4_multiply(transform, &sp74, &matrices[4]);
         }
     }
 
@@ -1650,7 +1654,7 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
         pos = (coord3d *) bodymodel->Switches[6]->Data;
         index = modelFindNodeMtxIndex(bodymodel->Switches[6], 0);
         matrix_4x4_set_identity_and_position(pos, &sp74);
-        matrix_4x4_multiply(mtx, &sp74, &matrices[index]);
+        matrix_4x4_multiply(transform, &sp74, &matrices[index]);
     }
 
     if (bodymodel->Switches[7] != NULL)
@@ -1662,7 +1666,7 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
         pos = (coord3d *) bodymodel->Switches[7]->Data;
         index = modelFindNodeMtxIndex(bodymodel->Switches[7], 0);
         matrix_4x4_set_identity_and_position(pos, &sp74);
-        matrix_4x4_multiply(mtx, &sp74, &matrices[index]);
+        matrix_4x4_multiply(transform, &sp74, &matrices[index]);
     }
 
     if (bodymodel->numSwitches >= 19)
@@ -1714,22 +1718,23 @@ Gfx *set_enviro_fog_for_items_in_solo_watch_menu(Gfx *gdl, ITEM_IDS itemid, Mtxf
 
     renderdata.gdl = gdl;
 
-    if (arg3 >= 0xff)
+    if (alpha >= 0xff)
     {
         renderdata.PropType = PROP_TYPE_WEAPON;
-        renderdata.envcolour.word = arg4;
+        renderdata.envcolour.word = color;
     }
     else
     {
         renderdata.PropType = PROP_TYPE_PLAYER;
-        renderdata.envcolour.word = arg3;
-        renderdata.fogcolour.word = arg4;
+        renderdata.envcolour.word = alpha;
+        renderdata.fogcolour.word = color;
     }
 
     renderdata.zbufferenabled = FALSE;
     subdraw(&renderdata, (Model *) &model);
     gdl = renderdata.gdl;
     matrixSuspendConversionScale();
+
     j = 0;
 
     if (bodymodel->numMatrices > 0)
