@@ -897,7 +897,6 @@ bool stanWalkTilesBetweenPointsWithCallback(StandTile **tileStack, f32 start_x, 
     StandTilePoint *curPoint;
     s32 nextPointIndex;
     s32 hasLink;
-    s32 profileNavSweep;
     u16 linkOffset;
 
     start_x *= level_scale;
@@ -935,7 +934,6 @@ bool stanWalkTilesBetweenPointsWithCallback(StandTile **tileStack, f32 start_x, 
     nextTile = NULL;
     iterationCount = 0;
     lineDx = dest_x - start_x;
-    profileNavSweep = g_ProfChrCollisionScope == CHR_COLLISION_PROFILE_NAV_SWEEP;
 
     savedPointIndex = uninitialized;
 
@@ -964,11 +962,6 @@ bool stanWalkTilesBetweenPointsWithCallback(StandTile **tileStack, f32 start_x, 
 
             if (((lineNegDz * (nextPoint->x - curPoint->x)) + (lineDx * (nextPoint->z - curPoint->z))) <= 0.0f)
             {
-                if (profileNavSweep)
-                {
-                    g_ProfChrNavLineTileCandidateEdges++;
-                }
-
                 /*
                  * Preserve endpoint touches by rejecting only edges whose
                  * complete interval is strictly outside the line interval.
@@ -979,11 +972,6 @@ bool stanWalkTilesBetweenPointsWithCallback(StandTile **tileStack, f32 start_x, 
                         || (lineMaxZ < curPoint->z && lineMaxZ < nextPoint->z))
                 {
                     continue;
-                }
-
-                if (profileNavSweep)
-                {
-                    g_ProfChrNavLineTileAabbPassedEdges++;
                 }
 
                 linkOffset = curPoint->link;
