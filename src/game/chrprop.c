@@ -1670,12 +1670,6 @@ void chrpropTick(void)
                                 chrpropReparent(obj->prop, setupobj->prop);
                                 skip_regen_sfx = TRUE;
                             }
-#ifdef DEBUG
-                            else
-                            {
-                                osSyncPrintf("inobj link not found for object number %d\n", cmdindex + 1);
-                            }
-#endif
                         }
                         else
                         {

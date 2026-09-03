@@ -240,9 +240,6 @@ s32 fileGetSaveStageDifficultyTime(save_data* save, LEVEL_SOLO_SEQUENCE levelid,
                 break;
             default:
                 time = 0; // shouldnt reach
-#if DEBUG
-                osSyncPrintf("file.c: SHOULDN\'T GET HERE EVER [1]\n");
-#endif
         }
 
         return time;

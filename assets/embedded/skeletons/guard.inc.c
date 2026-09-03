@@ -1,4 +1,4 @@
-#ifdef DEBUG
+#if 0
 char* chrJointNames[] = {/*oliveguard names*/
     "SKEL_NECK",
     "SKEL_BACK",
@@ -106,7 +106,7 @@ char* chrJointNames5[] = {/*spicebond names*/
     ""
 };
 #endif
-//D:8003A3A0
+
 ModelJoint JOINTLIST(guard)[] = {
     {0x401, 0x0, 0x0}, 
     {0x02, 0x00, 0x00},
@@ -126,7 +126,4 @@ ModelJoint JOINTLIST(guard)[] = {
     {0x02, 0x2A, 0x27}
 };
 
-
-//D:8003D400
 MODELSKELETON(guard, 0x10, 0x2D)
-//D:8003D40C

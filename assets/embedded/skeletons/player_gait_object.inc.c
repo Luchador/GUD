@@ -1,4 +1,4 @@
-#ifdef DEBUG
+#if 0
 char* player_gait_object_JointNames[] = {
     "SKEL_POSITION",
     "SKEL_BASE",
@@ -18,7 +18,7 @@ char* player_gait_object_JointNames[] = {
     "SKEL_RT_WRIST"
 };
 #endif
-//D:8003C510
+
 ModelJoint JOINTLIST(player_gait_object)[] = {
     {0x0401, 0x0000, 0x0000}, //"SKEL_POSITION"
     {0x0002, 0x0000, 0x0000}, //"SKEL_BASE"
@@ -37,9 +37,5 @@ ModelJoint JOINTLIST(player_gait_object)[] = {
     {0x0002, 0x0027, 0x002A}, //"SKEL_LF_WRIST"
     {0x0002, 0x002A, 0x0027}  //"SKEL_RT_WRIST"
 };
-//D:8003C570
-MODELSKELETON(player_gait_object, 16, 45)
 
-//FIXME File split likely
-//D:8003C57C
-s32 PAD_8003C57C = 0;
+MODELSKELETON(player_gait_object, 16, 45)

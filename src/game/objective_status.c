@@ -258,9 +258,6 @@ OBJECTIVESTATUS objectiveGetStatus(s32 objectiveIndex)
                 break;
 
             default:
-#ifdef DEBUG
-                osSyncPrintf("unknown goal propdef %d\n", condition->type);
-#endif
                 break;
         }
 

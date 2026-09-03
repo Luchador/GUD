@@ -1115,9 +1115,6 @@ void init_menu00_legalscreen(void)
     modelCalculateRwDataLen(PitemZ_entries[PROP_LEGALPAGE].header);
 
     logoinst = modelmgrInstantiateModel(PitemZ_entries[PROP_LEGALPAGE].header);
-    #ifdef DEBUG
-        assert(logoinst);
-    #endif
     modelSetScale(logoinst, 1.0f);
     setsuboffset(logoinst, &pos);
     fileValidateSaves();
@@ -1546,9 +1543,6 @@ void init_menu04_goldeneyelogo(void)
     load_object_fill_header(PitemZ_entries[PROP_GOLDENEYELOGO].header, PitemZ_entries[PROP_GOLDENEYELOGO].filename, ptr_logo_and_walletbond_DL, 0x3c000, 0);
     modelCalculateRwDataLen(PitemZ_entries[PROP_GOLDENEYELOGO].header);
     logoinst = modelmgrInstantiateModel(PitemZ_entries[PROP_GOLDENEYELOGO].header);
-    #ifdef DEBUG
-        assert(logoinst);
-    #endif
 
     modelSetScale(logoinst, 1.0f);
     setsuboffset(logoinst, &pos);
@@ -1745,9 +1739,6 @@ void load_walletbond(void)
         for (i = FOLDER1; i < MAX_FOLDER_COUNT; i++)
         {
             walletinst[i]  = modelmgrInstantiateModelWithAnim(PitemZ_entries[PROP_WALLETBOND].header);
-            #ifdef DEBUG
-            assert(walletinst[i]);
-            #endif
             modelSetScale(walletinst[i], 1.0f);
         }
 
@@ -1995,9 +1986,6 @@ s32 interface_menu05_fileselect(void)
                 && (cursor_v_pos <= folderbbox.up))
             {
                 fileGetHighestStageDifficultyCompletedForFolder(foldernum, &higheststage, &highestdifficulty);
-#ifdef DEBUG
-                osSyncPrintf("selected file %d\n", foldernum);
-#endif
 
                 if (joyGetButtonsPressedThisFrame(PLAYER_1, A_BUTTON | Z_TRIG | START_BUTTON) != 0)
                 {

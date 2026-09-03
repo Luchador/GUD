@@ -665,7 +665,6 @@ typedef enum RUNTIMEBITFLAG
 #define SP_SHED_SZ 0x200
 #define SP_MAIN_SZ 0x8000
 #define SP_AUDI_SZ 0x1000
-#define SP_DEBUG_SZ 0x6B0
 
 /*
 Enums Index by adding 1 to the list from the first value, unless this value

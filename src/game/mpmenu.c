@@ -81,11 +81,7 @@ s32 mpwatchMenuCanGoLeft(void)
         case MENU_LOSSES:
             return g_gameOverFlag ? 1 : 0;
         default:
-#ifdef DEBUG
-            // kill the process
-            assert(1 == 0); // mpmenu.c, line87
-#endif
-        return 0;
+            return 0;
     }
 }
 
@@ -997,10 +993,7 @@ s32 mpwatchShouldDisplayRank(s32 param_1)
         case SCENARIO_YOLT:
             return param_1 ? 0 : 1;
         default:
-#ifdef DEBUG
-            osSyncPrintf("Invalid scenario %d!", get_scenario());
-#endif
-        do {} while (1);
+            do {} while (1);
     }
 }
 
@@ -1021,9 +1014,6 @@ s32 mpwatchShouldDisplayScore(s32 param_1)
             return 0;
         break;
         default:
-#ifdef DEBUG
-            osSyncPrintf("Invalid scenario %d!", get_scenario());
-#endif
             do {} while (1);
     }
 }

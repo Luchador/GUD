@@ -1,4 +1,4 @@
-#ifdef DEBUG
+#if 0
 /*Controller model*/
 char* weapon_gun_controller_JointNames[] = {
     "SKEL_TOP",
@@ -17,7 +17,6 @@ char* weapon_gun_controller_JointNames[] = {
 };
 #endif
 
-//D:8003D340
 ModelJoint JOINTLIST(g_weapon)[] = {
     {0x02, 0x00, 0x00}, 
     {0x02, 0x03, 0x03}, 
@@ -34,9 +33,4 @@ ModelJoint JOINTLIST(g_weapon)[] = {
     {0x02, 0x24, 0x24}
 };
 
-
-//D:8003D390
 MODELSKELETON(g_weapon, 0xD, 0x27)
-
-//D:8003D39C
-s32 PAD_8003D39C = 0;

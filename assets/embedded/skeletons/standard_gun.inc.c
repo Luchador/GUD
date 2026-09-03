@@ -7,7 +7,7 @@ ModelJoint JOINTLIST(standard_gun)[] = {
     {0x0002, 0x000C, 0x000C}
 };
 
-#ifdef DEBUG
+#if 0
 char* weapon_gun_standard_gun_JointNames[] = {
     "SKEL_TOP",
     "SKEL_MUZZLE",
@@ -17,5 +17,4 @@ char* weapon_gun_standard_gun_JointNames[] = {
     "SKEL_FINGER" };
 #endif
 
-//D:8003C714
 MODELSKELETON(standard_gun, 6, 15)

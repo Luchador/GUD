@@ -35,7 +35,6 @@ extern u8 sp_idle[SP_IDLE_SZ];
 extern u8 sp_shed[SP_SHED_SZ];
 extern u8 sp_main[SP_MAIN_SZ];
 extern u8 sp_audi[SP_AUDI_SZ];
-extern u8 sp_debug[SP_DEBUG_SZ];
 
 
 

@@ -1911,19 +1911,11 @@ Gfx* draw_current_hand_item_and_ammo(Gfx* gdl)
     gdl = gfxSetup2DTextureMode(gunDrawWatchAmmoDisplay(gdl));
 
     sp8C = 0x60;
-#if defined(LEFTOVERDEBUG)
     sp88 = 0xA0;
-#else
-    sp88 = 0xBC;
-#endif
     textMeasure(&sp84, &sp80, text, sp78, sp7C, 0);
     gdl = textRender(gdl, &sp8C, &sp88, text, sp78, sp7C, 0xFF00B0, sp80, sp84, 0, 0);
 
-#if defined(LEFTOVERDEBUG)
     sp88 = 0xAA;
-#else
-    sp88 = 0xC6;
-#endif
     textMeasure(&sp84, &sp80, text2, sp78, sp7C, 0);
     gdl = textRender(gdl, &sp8C, &sp88, text2, sp78, sp7C, 0xFF00B0, sp80, sp84, 0, 0);
 

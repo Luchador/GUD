@@ -106,7 +106,7 @@ void loop_set_sound_effect_all_slots(void)
 void audioPlayFromProp(s32 slot, s16 soundIndex)
 {
     sfxRecord *sfx = NULL; // always added to stack anyway, cleaner to use
-    //"Existing ai sound number %d!\n"
+
     if (slot >= 0 && slot < SFX_RELATED_LEN)
     {
         if (!sfx_related[slot].state || !sndGetPlayingState(sfx_related[slot].state))
@@ -119,13 +119,8 @@ void audioPlayFromProp(s32 slot, s16 soundIndex)
             sfx->pos     = NULL;
             sfx->Obj     = NULL;
         }
-#ifdef DEBUG
-        else
-        {
-            osSyncPrintf("Existing ai sound number %d!\n", slot);
-        }
-#endif
     }
+
     sndPlaySfx(g_musicSfxBufferPtr, soundIndex, sfx);
 }
 
