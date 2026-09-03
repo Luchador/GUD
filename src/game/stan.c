@@ -3,6 +3,7 @@
 #include "bg.h"
 #include "chrai.h"
 #include "chr.h"
+#include "lv.h"
 #include "stanintersection.h"
 #include "assert.h"
 
@@ -1099,6 +1100,17 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
     coord2d *edgeStart;
     coord2d *edgeEnd;
     struct rect4f *polygon;
+    ChrCollisionProfileScope profilerScope;
+    u32 profilerStart;
+    u32 profilerCycles;
+
+    profilerScope = g_ProfChrCollisionScope;
+    profilerStart = 0;
+
+    if (profilerScope != CHR_COLLISION_PROFILE_NONE)
+    {
+        profilerStart = osGetCount();
+    }
 
     nearestCollisionFraction = 1.0f;
     roomCount = 0;
@@ -1240,6 +1252,22 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
 
     *tile = reachedTile;
     g_StanLastLineCollisionFraction = nearestCollisionFraction;
+
+    if (profilerScope != CHR_COLLISION_PROFILE_NONE)
+    {
+        profilerCycles = osGetCount() - profilerStart;
+
+        if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+        {
+            g_ProfChrNavSweepLineCycles += profilerCycles;
+            g_ProfChrNavSweepLineCalls++;
+        }
+        else if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
+        {
+            g_ProfChrMoveLineCycles += profilerCycles;
+            g_ProfChrMoveLineCalls++;
+        }
+    }
 
     return unobstructed;
 }
@@ -1573,6 +1601,17 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
     s32 numvertices0;
     f32 sp94;
     f32 sp90;
+    ChrCollisionProfileScope profilerScope;
+    u32 profilerStart;
+    u32 profilerCycles;
+
+    profilerScope = g_ProfChrCollisionScope;
+    profilerStart = 0;
+
+    if (profilerScope != CHR_COLLISION_PROFILE_NONE)
+    {
+        profilerStart = osGetCount();
+    }
 
     useVerticalBounds = (bottomOffset <= topOffset);
 
@@ -1582,6 +1621,22 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
 
     if (stanColResult >= 0)
     {
+        if (profilerScope != CHR_COLLISION_PROFILE_NONE)
+        {
+            profilerCycles = osGetCount() - profilerStart;
+
+            if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+            {
+                g_ProfChrNavSweepVolumeCycles += profilerCycles;
+                g_ProfChrNavSweepVolumeCalls++;
+            }
+            else if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
+            {
+                g_ProfChrMoveVolumeCycles += profilerCycles;
+                g_ProfChrMoveVolumeCalls++;
+            }
+        }
+
         return stanColResult;
     }
 
@@ -1690,10 +1745,42 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
 
                     if (var_f24 > -1.0f)
                     {
+                        if (profilerScope != CHR_COLLISION_PROFILE_NONE)
+                        {
+                            profilerCycles = osGetCount() - profilerStart;
+
+                            if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+                            {
+                                g_ProfChrNavSweepVolumeCycles += profilerCycles;
+                                g_ProfChrNavSweepVolumeCalls++;
+                            }
+                            else if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
+                            {
+                                g_ProfChrMoveVolumeCycles += profilerCycles;
+                                g_ProfChrMoveVolumeCalls++;
+                            }
+                        }
+
                         return STAN_COLLISION_FOUND;
                     }
                 }
             }
+        }
+    }
+
+    if (profilerScope != CHR_COLLISION_PROFILE_NONE)
+    {
+        profilerCycles = osGetCount() - profilerStart;
+
+        if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+        {
+            g_ProfChrNavSweepVolumeCycles += profilerCycles;
+            g_ProfChrNavSweepVolumeCalls++;
+        }
+        else if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
+        {
+            g_ProfChrMoveVolumeCycles += profilerCycles;
+            g_ProfChrMoveVolumeCalls++;
         }
     }
 

@@ -7828,6 +7828,7 @@ s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     f32 sp44;
     f32 bottomOffset;
     u32 profilerStart;
+    ChrCollisionProfileScope profilerPreviousScope;
 
     profilerStart = osGetCount();
     sp88 = 0;
@@ -7860,6 +7861,8 @@ s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     sp94 = 1.2f * (arg7 * spA0.f[0]);
     sp90 = 1.2f * (arg7 * spA0.f[2]);
 
+    profilerPreviousScope = g_ProfChrCollisionScope;
+    g_ProfChrCollisionScope = CHR_COLLISION_PROFILE_NAV_SWEEP;
     chrSetCollidable(self, 0);
     stanResetHits();
 
@@ -7934,6 +7937,7 @@ s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     }
 
     chrSetCollidable(self, 1);
+    g_ProfChrCollisionScope = profilerPreviousScope;
 
     g_ProfChrNavSweepCycles += osGetCount() - profilerStart;
     g_ProfChrNavSweepCalls++;
@@ -7966,6 +7970,7 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     f32 sp44;
     f32 bottomOffset;
     u32 profilerStart;
+    ChrCollisionProfileScope profilerPreviousScope;
 
     profilerStart = osGetCount();
     sp88 = 0;
@@ -7998,6 +8003,8 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     sp94 = 1.2f * (arg7 * spA0.f[0]);
     sp90 = 1.2f * (arg7 * spA0.f[2]);
 
+    profilerPreviousScope = g_ProfChrCollisionScope;
+    g_ProfChrCollisionScope = CHR_COLLISION_PROFILE_NAV_SWEEP;
     chrSetCollidable(self, 0);
     stanResetHits();
 
@@ -8087,6 +8094,7 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     }
 
     chrSetCollidable(self, 1);
+    g_ProfChrCollisionScope = profilerPreviousScope;
 
     g_ProfChrNavSweepCycles += osGetCount() - profilerStart;
     g_ProfChrNavSweepCalls++;
@@ -8104,8 +8112,6 @@ s32 sub_GAME_7F03130C(ChrRecord *self, coord3d *arg1, s32 arg2, coord3d *arg3, f
     coord3d sp50; // 80
     coord3d *sp4C; // 76
     coord3d *sp48; // 72
-    s32 pathClear;
-    u32 profilerStart;
 
     self_prop = self->prop;
 
@@ -8151,17 +8157,8 @@ s32 sub_GAME_7F03130C(ChrRecord *self, coord3d *arg1, s32 arg2, coord3d *arg3, f
     sp64.f[1] = arg1->f[1];
     sp64.f[2] = arg1->f[2] + sp50.f[2];
 
-    pathClear = sub_GAME_7F03081C(self, &self_prop->pos, self_prop->stan, &sp64, sp4C, sp48, arg8, self->chrwidth, cdtypes);
-
-    if (pathClear && arg5 != 0)
-    {
-        profilerStart = osGetCount();
-        pathClear = sub_GAME_7F0304AC(self, &self_prop->pos, self_prop->stan, &sp64, arg6, NULL, cdtypes);
-        g_ProfChrNavTargetCheckCycles += osGetCount() - profilerStart;
-        g_ProfChrNavTargetCheckCalls++;
-    }
-
-    if (pathClear)
+    if (sub_GAME_7F03081C(self, &self_prop->pos, self_prop->stan, &sp64, sp4C, sp48, arg8, self->chrwidth, cdtypes)
+        && ((arg5 == 0) || sub_GAME_7F0304AC(self, &self_prop->pos, self_prop->stan, &sp64, arg6, NULL, cdtypes)))
     {
         if (set_copy != 0)
         {
@@ -8228,7 +8225,6 @@ void chrlvTravelTick(ChrRecord *self, coord3d *arg1, StandTile *arg2, struct way
     s32 stack_01;
     s32 stack_02;
     u32 profilerStart;
-    u32 profilerSubStart;
 
     profilerStart = osGetCount();
     self_prop = self->prop;
@@ -8482,10 +8478,7 @@ void chrlvTravelTick(ChrRecord *self, coord3d *arg1, StandTile *arg2, struct way
 
     if (((s32) arg3->age % 10) == 0)
     {
-        profilerSubStart = osGetCount();
         phi_s3 = stanFindFirstPropIntersectingSegment(self_prop->stan, self_prop->pos.f[0], self_prop->pos.f[2], arg3->pos_copy.f[0], arg3->pos_copy.f[2], CDTYPE_CLOSEDDOORS | CDTYPE_AJARDOORS);
-        g_ProfChrNavDoorCycles += osGetCount() - profilerSubStart;
-        g_ProfChrNavDoorCalls++;
 
         if (phi_s3 != NULL)
         {
@@ -8545,17 +8538,11 @@ void chrlvTravelTick(ChrRecord *self, coord3d *arg1, StandTile *arg2, struct way
 
     if (self->actiontype == ACT_PATROL)
     {
-        profilerSubStart = osGetCount();
         chrlvApplySpeed(self, &arg3->pos_copy, 0, &self->act_patrol.speed);
-        g_ProfChrNavSpeedCycles += osGetCount() - profilerSubStart;
-        g_ProfChrNavSpeedCalls++;
     }
     else
     {
-        profilerSubStart = osGetCount();
         chrlvApplySpeed(self, &arg3->pos_copy, (s32) self->act_gopos.unk59, &self->act_gopos.speed);
-        g_ProfChrNavSpeedCycles += osGetCount() - profilerSubStart;
-        g_ProfChrNavSpeedCalls++;
 
         if (self->act_gopos.unk59 == 2)
         {

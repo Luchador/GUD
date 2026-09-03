@@ -54,6 +54,12 @@ extern s32 record_slot_num;
 extern u8 * address_demo_loaded;
 
 // TEMP
+typedef enum ChrCollisionProfileScope {
+    CHR_COLLISION_PROFILE_NONE,
+    CHR_COLLISION_PROFILE_NAV_SWEEP,
+    CHR_COLLISION_PROFILE_MOVE
+} ChrCollisionProfileScope;
+
 extern u32 g_ProfBgTickCycles;
 extern u32 g_ProfLvlTickCycles;
 extern u32 g_ProfLvlRenderCycles;
@@ -75,12 +81,17 @@ extern u32 g_ProfChrRoomCycles;
 extern u32 g_ProfChrRoomCalls;
 extern u32 g_ProfChrNavSweepCycles;
 extern u32 g_ProfChrNavSweepCalls;
-extern u32 g_ProfChrNavTargetCheckCycles;
-extern u32 g_ProfChrNavTargetCheckCalls;
-extern u32 g_ProfChrNavDoorCycles;
-extern u32 g_ProfChrNavDoorCalls;
-extern u32 g_ProfChrNavSpeedCycles;
-extern u32 g_ProfChrNavSpeedCalls;
+extern ChrCollisionProfileScope g_ProfChrCollisionScope;
+extern u32 g_ProfChrNavSweepLineCycles;
+extern u32 g_ProfChrNavSweepLineCalls;
+extern u32 g_ProfChrNavSweepVolumeCycles;
+extern u32 g_ProfChrNavSweepVolumeCalls;
+extern u32 g_ProfChrMoveLineCycles;
+extern u32 g_ProfChrMoveLineCalls;
+extern u32 g_ProfChrMoveVolumeCycles;
+extern u32 g_ProfChrMoveVolumeCalls;
+extern u32 g_ProfChrRoomScanCycles;
+extern u32 g_ProfChrRoomListCycles;
 
 void lvInit(void);
 Gfx * lvRender(Gfx *);

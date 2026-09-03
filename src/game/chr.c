@@ -1197,14 +1197,11 @@ StandTile *chrTryMoveWithCollision(ChrRecord *guard, StandTile *stan, coord3d *s
     coord3d newpos;
     s32 lineUnobstructed;
     u32 profilerStart;
+    ChrCollisionProfileScope profilerPreviousScope;
 
     profilerStart = osGetCount();
     ret = NULL;
     tile = stan;
-    bottomOffset = CHR_COLLISION_BOTTOM_OFFSET;
-
-    chrSetCollidable(guard, FALSE);
-    stanResetHits();
 
     /* A stationary character can retain its current tile. Ground following
      * still runs later in chrUpdatePosition. */
@@ -1216,9 +1213,17 @@ StandTile *chrTryMoveWithCollision(ChrRecord *guard, StandTile *stan, coord3d *s
             guard->lastmoveok60 = g_GlobalTimer;
         }
 
-        ret = tile;
-        goto done;
+        chrSetCollidable(guard, TRUE);
+        g_ProfChrMoveCycles += osGetCount() - profilerStart;
+        g_ProfChrMoveCalls++;
+        return tile;
     }
+
+    bottomOffset = CHR_COLLISION_BOTTOM_OFFSET;
+    profilerPreviousScope = g_ProfChrCollisionScope;
+    g_ProfChrCollisionScope = CHR_COLLISION_PROFILE_MOVE;
+    chrSetCollidable(guard, FALSE);
+    stanResetHits();
 
     chrGetChrWidthHeight(guard->prop, &width, &height);
     lineUnobstructed = stanTestLineUnobstructed(&tile, src->x, src->z, dst->x, dst->z, CDTYPE_ALL_NO_BG, height, bottomOffset, 0.0f, 1.0f);
@@ -1363,6 +1368,7 @@ StandTile *chrTryMoveWithCollision(ChrRecord *guard, StandTile *stan, coord3d *s
     }
 
 done:
+    g_ProfChrCollisionScope = profilerPreviousScope;
     chrSetCollidable(guard, TRUE);
 
     if (ret == NULL)
@@ -2151,6 +2157,7 @@ void chrDetectRooms(ChrRecord *self)
     coord3d     lowerbounds;
     coord3d     upperbounds;
     u32 profilerStart;
+    u32 profilerSubStart;
 
     profilerStart = osGetCount();
     // Create a roughly character sized bounding box.
@@ -2163,13 +2170,19 @@ void chrDetectRooms(ChrRecord *self)
     upperbounds.z = myprop->pos.z + 50.0f;
 
     // Delist the character prop from its previous room(s)
+    profilerSubStart = osGetCount();
     chrpropDeregisterRooms(myprop);
+    g_ProfChrRoomListCycles += osGetCount() - profilerSubStart;
 
     // Detect rooms overlapped by the bounding box
+    profilerSubStart = osGetCount();
     chrpropUpdateRoomList(myprop, &lowerbounds, &upperbounds, 50.0f);
+    g_ProfChrRoomScanCycles += osGetCount() - profilerSubStart;
 
     // Re-register the character prop in those rooms
+    profilerSubStart = osGetCount();
     chrpropRegisterRooms(myprop);
+    g_ProfChrRoomListCycles += osGetCount() - profilerSubStart;
 
     g_ProfChrRoomCycles += osGetCount() - profilerStart;
     g_ProfChrRoomCalls++;
