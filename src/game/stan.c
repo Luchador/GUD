@@ -1095,6 +1095,10 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
     f32 floorEndX;
     f32 floorEndZ;
     f32 intersectionFraction;
+    f32 lineMinX;
+    f32 lineMaxX;
+    f32 lineMinZ;
+    f32 lineMaxZ;
     f32 propTop;
     f32 propBottom;
     s32 unobstructed;
@@ -1169,6 +1173,28 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
 
     if (collisionTypes != 0)
     {
+        if (startX < endX)
+        {
+            lineMinX = startX;
+            lineMaxX = endX;
+        }
+        else
+        {
+            lineMinX = endX;
+            lineMaxX = startX;
+        }
+
+        if (startZ < endZ)
+        {
+            lineMinZ = startZ;
+            lineMaxZ = endZ;
+        }
+        else
+        {
+            lineMinZ = endZ;
+            lineMaxZ = startZ;
+        }
+
         roomBuffer[roomCount] = -1;
 
         if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
@@ -1239,6 +1265,31 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
                 if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
                 {
                     profilerSubStart = osGetCount();
+                    g_ProfChrNavLineTestedEdges++;
+                }
+
+                /*
+                 * Segment intersection is impossible when the segments'
+                 * projected intervals are disjoint on either horizontal axis.
+                 * Keep strict comparisons so touching endpoints still reach
+                 * the exact intersection test.
+                 */
+                if ((edgeStart->f[0] < lineMinX && edgeEnd->f[0] < lineMinX)
+                        || (lineMaxX < edgeStart->f[0] && lineMaxX < edgeEnd->f[0])
+                        || (edgeStart->f[1] < lineMinZ && edgeEnd->f[1] < lineMinZ)
+                        || (lineMaxZ < edgeStart->f[1] && lineMaxZ < edgeEnd->f[1]))
+                {
+                    if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+                    {
+                        g_ProfChrNavLineIntersectionTestCycles += osGetCount() - profilerSubStart;
+                    }
+
+                    continue;
+                }
+
+                if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+                {
+                    g_ProfChrNavLineAabbPassedEdges++;
                 }
 
                 blocksLine = doSegmentsIntersect(startX, startZ, endX, endZ, edgeStart->f[0], edgeStart->f[1], edgeEnd->f[0], edgeEnd->f[1]);
@@ -1246,7 +1297,6 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
                 if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
                 {
                     g_ProfChrNavLineIntersectionTestCycles += osGetCount() - profilerSubStart;
-                    g_ProfChrNavLineTestedEdges++;
                 }
 
                 if (!blocksLine)

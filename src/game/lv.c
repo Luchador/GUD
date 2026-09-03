@@ -157,6 +157,7 @@ u32 g_ProfChrNavLineHitProcessingCycles;
 u32 g_ProfChrNavLineCandidateProps;
 u32 g_ProfChrNavLineZeroEdgeProps;
 u32 g_ProfChrNavLineTestedEdges;
+u32 g_ProfChrNavLineAabbPassedEdges;
 u32 g_ProfChrNavLineIntersectingEdges;
 u32 g_ProfChrMoveLineCycles;
 u32 g_ProfChrMoveLineCalls;
@@ -1029,8 +1030,8 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     gdl = textRender(gdl, &x, &y, fpsText, ptrFontBankGothicChars, ptrFontBankGothic, color, screenwidth, viGetY(), 0, 0);
 
     { /* TEMP profiler readouts: raw osGetCount cycles per frame */
-        static char profText[18][40];
-        static const u32 profColor[18] = {
+        static char profText[19][40];
+        static const u32 profColor[19] = {
             0x00FFFFFF,  /* bg tick    - cyan    */
             0x4040FFFF,  /* lv tick    - blue    */
             0xFF3030FF,  /* lv render  - red     */
@@ -1048,7 +1049,8 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             0xFF8050FF,  /* prop filtering/bounds  */
             0xFF8050FF,  /* edge test/hit processing*/
             0xFF40FFFF,  /* move line and volume   */
-            0xFF8050FF,  /* prop/edge/hit counts   */
+            0xFF8050FF,  /* prop counts            */
+            0xFF8050FF,  /* edge broad-phase counts*/
         };
         u32 sub;
         u32 lvlOther;
@@ -1084,9 +1086,11 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         sprintf(profText[16], "MV L:%3uK/%2u V:%3uK/%2u",
             (g_ProfChrMoveLineCycles + 500) / 1000, g_ProfChrMoveLineCalls,
             (g_ProfChrMoveVolumeCycles + 500) / 1000, g_ProfChrMoveVolumeCalls);
-        sprintf(profText[17], "LN C:%3u Z:%3u E:%3u H:%3u",
-            g_ProfChrNavLineCandidateProps, g_ProfChrNavLineZeroEdgeProps,
-            g_ProfChrNavLineTestedEdges, g_ProfChrNavLineIntersectingEdges);
+        sprintf(profText[17], "LN C:%3u Z:%3u",
+            g_ProfChrNavLineCandidateProps, g_ProfChrNavLineZeroEdgeProps);
+        sprintf(profText[18], "LN E:%3u A:%3u H:%3u",
+            g_ProfChrNavLineTestedEdges, g_ProfChrNavLineAabbPassedEdges,
+            g_ProfChrNavLineIntersectingEdges);
 
         g_ProfChrTickCycles = 0;
         g_ProfChrActionCycles = 0;
@@ -1112,13 +1116,14 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         g_ProfChrNavLineCandidateProps = 0;
         g_ProfChrNavLineZeroEdgeProps = 0;
         g_ProfChrNavLineTestedEdges = 0;
+        g_ProfChrNavLineAabbPassedEdges = 0;
         g_ProfChrNavLineIntersectingEdges = 0;
         g_ProfChrMoveLineCycles = 0;
         g_ProfChrMoveLineCalls = 0;
         g_ProfChrMoveVolumeCycles = 0;
         g_ProfChrMoveVolumeCalls = 0;
 
-        for (i = 0; i < 18; i++)
+        for (i = 0; i < 19; i++)
         {
             x = viGetViewLeft() + 14;
             y = viGetViewTop() + 44 + (i * 10);

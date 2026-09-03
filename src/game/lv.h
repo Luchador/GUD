@@ -91,6 +91,7 @@ extern u32 g_ProfChrNavLineHitProcessingCycles;
 extern u32 g_ProfChrNavLineCandidateProps;
 extern u32 g_ProfChrNavLineZeroEdgeProps;
 extern u32 g_ProfChrNavLineTestedEdges;
+extern u32 g_ProfChrNavLineAabbPassedEdges;
 extern u32 g_ProfChrNavLineIntersectingEdges;
 extern u32 g_ProfChrMoveLineCycles;
 extern u32 g_ProfChrMoveLineCalls;
