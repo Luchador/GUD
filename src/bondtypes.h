@@ -2667,7 +2667,7 @@ typedef union
         */
         struct DoorRecord *linkedDoor;
 
-        Vertex*            unkcc; /*0xcc*/
+        Vertex            *clippedVertexCache; /*0xcc*/
 
         struct ModelRoData_BoundingBoxRecord bbox;
 
@@ -2686,17 +2686,14 @@ typedef union
         ALSoundState *closeSoundState;
 
         /**
-         * Copy of global timer value.
-         *
-         * For each sibling, the original frac is backed up into the sibling's
-         * lastcalc60 field. The desired frac is then calculated and set in the
-         * sibling's frac property. Then collision checks are done, and the original
-         * frac is restored if any sibling is blocked.
+         * While linked doors are moving, this stores each door's previous open
+         * position so the entire group can be rolled back if one door is blocked.
+         * Otherwise it stores the frame on which the linked group was last updated.
          * Offset 0xfc.
          */
         union {
-            s32 lastcalc60i;
-            f32 lastcalc60f;
+            s32 lastUpdateFrame;
+            f32 previousOpenPosition;
         };
     } DoorRecord;
 

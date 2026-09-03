@@ -163,7 +163,7 @@ struct tvcmd {
 
 // Begin forward declarations.
 
-s32 updateDoorDisplacement(DoorRecord* door);
+bool doorCalculateIntendedPosition(DoorRecord *door);
 s32 objGetShotsTaken(ObjectRecord *);
 void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool translucentPass);
 void chrobjSndCreatePostEvent(ALSoundState *state, coord3d *pos, f32 low, f32 high);
@@ -173,7 +173,7 @@ s32 sub_GAME_7F042EB4(struct ObjectRecord *arg0, f32 *arg1, struct coord3d *arg2
 s32 objTryMovePropWithCollision(ObjectRecord *obj, coord3d *arg1, coord3d *arg2, coord3d *arg3, s32 arg4);
 s32 handles_projectile_motion(struct ObjectRecord *arg0, coord3d *arg1, coord3d *arg2, coord3d *arg3, s32 arg4, s32 arg5);
 void objSettle(struct ObjectRecord *arg0, struct coord3d *arg1);
-void door7F054FB4(struct DoorRecord *arg0);
+void doorsUpdateLinkedMovement(DoorRecord *door);
 void door7F0526EC(DoorRecord *door, Mtxf *rhs);
 void objBreakCCTVGlass(ObjectRecord *obj);
 void save_img_index_to_obj_ani_slot(MonitorRecord *mon, void *unk88);
@@ -4032,9 +4032,9 @@ f32 objTickDoor(PropRecord *prop)
         doorActivateWrapper(prop);
     }
 
-    if (door->lastcalc60i < g_GlobalTimer || g_ClockTimer == 0)
+    if (door->lastUpdateFrame < g_GlobalTimer || g_ClockTimer == 0)
     {
-        door7F054FB4(door);
+        doorsUpdateLinkedMovement(door);
     }
 
     return previousOpenPosition;
@@ -12149,11 +12149,11 @@ PropRecord* doorInit(DoorRecord* door, coord3d* pos, Mtxf* mtx, StandTile* stan,
     if (door->doorFlags & DOORFLAG_CLIP_TO_BBOX)
     {
         union ModelRoData *rodata = door->model->obj->RootNode->Child->Child->Data;
-        door->unkcc = mempAllocBytesInBank(rodata->DisplayListCollisions.numVertices * sizeof(Vertex), MEMPOOL_STAGE);
+        door->clippedVertexCache = mempAllocBytesInBank(rodata->DisplayListCollisions.numVertices * sizeof(Vertex), MEMPOOL_STAGE);
     } 
     else
     {
-        door->unkcc = NULL;
+        door->clippedVertexCache = NULL;
     }
 
     door->portalNumber = -1;
@@ -12884,168 +12884,171 @@ f32 chrobjFogVisRangeRelated(PropRecord *prop, f32 size)
 }
 
 
-s32 updateDoorDisplacement(DoorRecord* door)
+bool doorCalculateIntendedPosition(DoorRecord *door)
 {
-    s32 isMoving = 0;
+    f32 targetPosition;
 
     if (door->openstate == DOORSTATE_OPENING)
     {
-        chrobjApplySpeed(&door->openPosition, door->maxFrac, &door->speed, door->accel, door->decel, door->maxSpeed);
-
-        if (door->maxFrac <= door->openPosition)
-        {
-            door->openPosition = door->maxFrac;
-        }
-        else
-        {
-            if (door->openPosition <= 0.0f)
-            {
-                door->openPosition = 0.0f;
-            }
-        }
-
-        isMoving = 1;
+        targetPosition = door->maxFrac;
     }
     else if (door->openstate == DOORSTATE_CLOSING)
     {
-        chrobjApplySpeed(&door->openPosition, 0.0f, &door->speed, door->accel, door->decel, door->maxSpeed);
-
-        if (door->maxFrac <= door->openPosition)
-        {
-            door->openPosition = door->maxFrac;
-        }
-        else
-        {
-            if (door->openPosition <= 0.0f)
-            {
-                door->openPosition = 0.0f;
-            }
-        }
-
-        isMoving = 1;
+        targetPosition = 0.0f;
+    }
+    else
+    {
+        return FALSE;
     }
 
-    return isMoving;
+    chrobjApplySpeed(&door->openPosition, targetPosition, &door->speed,
+        door->accel, door->decel, door->maxSpeed);
+
+    if (door->openPosition >= door->maxFrac)
+    {
+        door->openPosition = door->maxFrac;
+    }
+    else if (door->openPosition <= 0.0f)
+    {
+        door->openPosition = 0.0f;
+    }
+
+    return TRUE;
 }
 
 
-void door7F054FB4(DoorRecord *door)
+/**
+ * Advance a door and its linked doors as one group.
+ *
+ * Each door's previous open position is saved before its intended position is
+ * calculated. The new collision volumes are then tested. If any linked door is
+ * blocked, every door in the group is restored to its previous position.
+ */
+void doorsUpdateLinkedMovement(DoorRecord *door)
 {
-    Model *temp_a0;
-    ModelNode *temp_a1;
-    s32 var_s4;
-    DoorRecord *var_s1;
-    s32 var_s5;
-    s32 var_a0;
+    DoorRecord *currentDoor;
+    bool anyDoorMoving = FALSE;
+    bool movementClear = TRUE;
 
-    struct ModelRoData_DisplayList_CollisionRecord *temp_s0;
-    struct ModelRwData_DisplayList_CollisionRecord *temp_v0_3;
-
-    var_s4 = 0;
-    var_s5 = 1;
-
-    var_s1 = door;
-    while (var_s1 != NULL)
+    /* Most doors spend nearly all their time stationary and unlinked. */
+    if (door->linkedDoor == NULL
+            && door->openstate != DOORSTATE_OPENING
+            && door->openstate != DOORSTATE_CLOSING
+            && !(door->doorFlags & DOORFLAG_CLIP_TO_BBOX))
     {
-        var_s1->lastcalc60f = var_s1->openPosition;
-        if (updateDoorDisplacement(var_s1) != 0)
+        door->lastUpdateFrame = g_GlobalTimer;
+        return;
+    }
+
+    currentDoor = door;
+
+    while (currentDoor != NULL)
+    {
+        currentDoor->previousOpenPosition = currentDoor->openPosition;
+
+        if (doorCalculateIntendedPosition(currentDoor))
         {
-            var_s4 = 1;
+            anyDoorMoving = TRUE;
         }
 
-        var_s1 = var_s1->linkedDoor;
+        currentDoor = currentDoor->linkedDoor;
 
-        if (var_s1 == door)
+        if (currentDoor == door)
         {
             break;
         }
     }
 
-    var_s1 = door;
-    if ((var_s4 != 0))
+    if (anyDoorMoving)
     {
-        while (var_s1 != NULL)
-        {
-            doorUpdateBbox(var_s1);
-            var_s5 = sub_GAME_7F0448A8(var_s1->prop);
+        currentDoor = door;
 
-            if (var_s5 == 0)
+        while (currentDoor != NULL)
+        {
+            doorUpdateBbox(currentDoor);
+
+            if (!sub_GAME_7F0448A8(currentDoor->prop))
             {
+                movementClear = FALSE;
                 break;
             }
 
-            var_s1 = var_s1->linkedDoor;
+            currentDoor = currentDoor->linkedDoor;
 
-            if (var_s1 == door)
+            if (currentDoor == door)
             {
                 break;
             }
         }
     }
 
-    var_s1 = door;
-    while (var_s1 != NULL)
-    {
-        if (var_s4)
-        {
-            if (var_s5 != 0)
-            {
-                if (var_s1->openstate == DOORSTATE_OPENING)
-                {
-                    if (var_s1->maxFrac <= var_s1->openPosition)
-                    {
-                        var_s1->openstate = DOORSTATE_STATIONARY;
-                        var_s1->speed = 0.0f;
-                        var_s1->openedTime = (u32) g_GlobalTimer;
+    currentDoor = door;
 
-                        doorFinishOpen(var_s1);
+    while (currentDoor != NULL)
+    {
+        if (anyDoorMoving)
+        {
+            if (movementClear)
+            {
+                if (currentDoor->openstate == DOORSTATE_OPENING)
+                {
+                    if (currentDoor->maxFrac <= currentDoor->openPosition)
+                    {
+                        currentDoor->openstate = DOORSTATE_STATIONARY;
+                        currentDoor->speed = 0.0f;
+                        currentDoor->openedTime = (u32) g_GlobalTimer;
+
+                        doorFinishOpen(currentDoor);
                     }
                 }
-                else if ((var_s1->openstate == DOORSTATE_CLOSING) && (var_s1->openPosition <= 0.0f))
+                else if (currentDoor->openstate == DOORSTATE_CLOSING && currentDoor->openPosition <= 0.0f)
                 {
-                    var_s1->openstate = DOORSTATE_STATIONARY;
-                    var_s1->speed = 0.0f;
-                    var_s1->openedTime = 0;
+                    currentDoor->openstate = DOORSTATE_STATIONARY;
+                    currentDoor->speed = 0.0f;
+                    currentDoor->openedTime = 0;
 
-                    doorFinishClose(var_s1);
+                    doorFinishClose(currentDoor);
                 }
 
-                objSetShading(var_s1->prop, &var_s1->nextcol);
+                objSetShading(currentDoor->prop, &currentDoor->nextcol);
             }
             else
             {
-                var_s1->speed = 0.0f;
-                var_s1->openPosition = var_s1->lastcalc60f;
+                currentDoor->speed = 0.0f;
+                currentDoor->openPosition = currentDoor->previousOpenPosition;
 
-                doorUpdateBbox(var_s1);
+                doorUpdateBbox(currentDoor);
             }
 
-            doorBuildClippedVertices(var_s1);
-        }
-        else if  (var_s1->doorFlags & DOORFLAG_CLIP_TO_BBOX)
-        {
-            temp_a0 = var_s1->model;
-            temp_a1 = temp_a0->obj->RootNode->Child->Child;
-            temp_s0 = (struct ModelRoData_DisplayList_CollisionRecord *)temp_a1->Data;
-            temp_v0_3 = (struct ModelRwData_DisplayList_CollisionRecord*)modelGetNodeRwData(temp_a0, temp_a1);
-
-            if (temp_v0_3->Vertices != var_s1->unkcc)
+            if (currentDoor->doorFlags & DOORFLAG_CLIP_TO_BBOX)
             {
-                for (var_a0 = 0; var_a0 < temp_s0->numVertices; var_a0++)
+                doorBuildClippedVertices(currentDoor);
+            }
+        }
+        else if (currentDoor->doorFlags & DOORFLAG_CLIP_TO_BBOX)
+        {
+            Model *model = currentDoor->model;
+            ModelNode *displayListNode = model->obj->RootNode->Child->Child;
+            ModelRoData_DisplayList_CollisionRecord *rodata = &displayListNode->Data->DisplayListCollisions;
+            ModelRwData_DisplayList_CollisionRecord *rwdata = modelGetNodeRwData(model, displayListNode);
+            s32 vertexIndex;
+
+            if (rwdata->Vertices != currentDoor->clippedVertexCache)
+            {
+                for (vertexIndex = 0; vertexIndex < rodata->numVertices; vertexIndex++)
                 {
-                    // struct copy
-                    var_s1->unkcc[var_a0] = temp_v0_3->Vertices[var_a0];
+                    currentDoor->clippedVertexCache[vertexIndex] = rwdata->Vertices[vertexIndex];
                 }
             }
 
-            temp_v0_3->Vertices = var_s1->unkcc;
+            rwdata->Vertices = currentDoor->clippedVertexCache;
         }
 
-        var_s1->lastcalc60i = g_GlobalTimer;
+        currentDoor->lastUpdateFrame = g_GlobalTimer;
 
-        var_s1 = var_s1->linkedDoor;
+        currentDoor = currentDoor->linkedDoor;
 
-        if (var_s1 == door)
+        if (currentDoor == door)
         {
             break;
         }
