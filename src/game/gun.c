@@ -450,7 +450,7 @@ typedef struct ModelHeader {
 } ModelHeader;
 
 
-// forward declarations
+// Begin forward declarations.
 
 void gunInitProjectileFromPlayer(ObjectRecord *obj, coord3d *targetpos, Mtxf *arg2, coord3d *velocity, Mtxf *arg4);
 s32 gunSample1PTransform(Weapon1PTransformKeyframe *keyframes, f32 time, Mtxf *matrix, GUNHAND hand);
@@ -460,7 +460,7 @@ struct ModelFileHeader * get_ptr_weapon_model_header_line(ITEM_IDS weapon);
 s32 get_ammo_in_hands_weapon(enum GUNHAND hand);
 f32 gunSetHorizontalOffset(GUNHAND hand);
 void give_weapon_case_items(void);
-void sub_GAME_7F05DA8C(GUNHAND hand, ITEM_IDS weaponnum_watchmenu);
+
 void sub_GAME_7F0649D8(enum GUNHAND hand);
 void gunCreateBeamForHand(enum GUNHAND hand);
 CasingRecord* casingCreate(ModelFileHeader* header, Mtxf* mtx);
@@ -469,7 +469,7 @@ Vtx *dynAllocateVertices(s32 count);
 Mtx *dynAllocateMatrix(void);
 void divide3DCoordinates(coord3d *in, f32 divisor, coord3d *out);
 
-// end forward declarations
+// End forward declarations.
 
 // current debug keyframes  (Statically assigned at compile time)
 #define DEB_KEYFRAMES sniperMeleeKeyframes2
@@ -950,13 +950,17 @@ ITEM_IDS get_item_in_hand_or_watch_menu(GUNHAND hand) {
 	}
 }
 
-void sub_GAME_7F05DA8C(GUNHAND hand, ITEM_IDS weaponnum_watchmenu) {
+void gunSetWatchMenuItemOverride(GUNHAND hand, ITEM_IDS weaponnum_watchmenu)
+{
     place_item_in_hand_swap_and_make_visible(hand, weaponnum_watchmenu);
 	g_CurrentPlayer->hands[hand].weaponnum_watchmenu = weaponnum_watchmenu;
 }
 
-void sub_GAME_7F05DAE4(GUNHAND hand) {
-    if (g_CurrentPlayer->hands[hand].weaponnum_watchmenu >= 0) {
+
+void gunClearWatchMenuItemOverride(GUNHAND hand)
+{
+    if (g_CurrentPlayer->hands[hand].weaponnum_watchmenu >= 0)
+    {
         place_item_in_hand_swap_and_make_visible(hand, g_CurrentPlayer->hands[hand].weaponnum);
 		g_CurrentPlayer->hands[hand].weaponnum_watchmenu = -1;
     }

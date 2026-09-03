@@ -113,7 +113,6 @@ s32 get_ammo_in_hands_weapon(enum GUNHAND hand);
 s32 gunGetAmmoType(ITEM_IDS weapon);
 f32 gunSetHorizontalOffset(GUNHAND hand);
 f32 gunGetTriggerFingerRotAmount(GUNHAND hand);
-void sub_GAME_7F05DA8C(GUNHAND hand, ITEM_IDS weaponnum_watchmenu);
 void sub_GAME_7F05EA94(Model *model, s32 val);
 void sub_GAME_7F0649D8(enum GUNHAND hand);
 void gunCreateCasing(GUNHAND handnum, f32 floor_y_pos);
@@ -573,9 +572,9 @@ void gunUpdateAndFire(GUNHAND handnum)
     else
     {
         hand->field_8E8 = 0.0f;
-        hand->field_8DC = (-0.0f) + 0.0f;
+        hand->field_8DC = 0.0f;
         hand->field_8E0 = 0.0f;
-        hand->field_8E4 = (-0.0f) + 0.0f;
+        hand->field_8E4 = 0.0f;
     }
 
     matrix_4x4_set_basis_and_position_target(&tmpmtx, 0.0f, 0.0f, 0.0f, hand->sway_look_x, hand->sway_look_y, hand->sway_look_z, hand->sway_up_x, hand->sway_up_y, hand->sway_up_z);
@@ -1586,7 +1585,7 @@ Gfx *watchRenderItemModel(Gfx *gdl, ITEM_IDS itemid, Mtxf *transform, s32 alpha,
         itemid = ITEM_WATCHMAGNETATTRACT;
     }
 
-    sub_GAME_7F05DA8C(GUNRIGHT, itemid);
+    gunSetWatchMenuItemOverride(GUNRIGHT, itemid);
 
     if ((!Gun_hand_without_item(GUNRIGHT)) || (!get_itemtype_in_hand(GUNRIGHT)))
     {
@@ -1757,23 +1756,26 @@ earlyreturn:
 }
 
 
-void sub_GAME_7F06351C(struct coord3d* arg0, Mtxf* arg1, Mtxf* arg2, Mtxf* arg3, struct coord3d* arg4, Mtxf* arg5, Mtxf* arg6)
+/**
+ * Builds the transform for a controller button displayed separately around
+ * the control-options screen.
+ *
+ * The transforms are composed in this order:
+ * view * menu position * button orientation * input animation * local offset.
+ */
+static void watchBuildControllerButtonTransform(struct coord3d *localOffset, Mtxf *inputRotation, Mtxf *buttonOrientation, struct coord3d *menuPosition, Mtxf *viewTransform, Mtxf *result)
 {
-    Mtxf sp20;
+    Mtxf menuPositionTransform;
 
-    matrix_4x4_set_identity_and_position(arg0, arg6);
-    matrix_4x4_multiply_in_place(arg1, arg6);
-    matrix_4x4_multiply_in_place(arg2, arg6);
-    matrix_4x4_multiply_in_place(arg3, arg6);
-    matrix_4x4_set_identity_and_position(arg4, &sp20);
-    matrix_4x4_multiply_in_place(&sp20, arg6);
-    matrix_4x4_multiply_in_place(arg5, arg6);
+    matrix_4x4_set_identity_and_position(localOffset, result);
+    matrix_4x4_multiply_in_place(inputRotation, result);
+    matrix_4x4_multiply_in_place(buttonOrientation, result);
+    matrix_4x4_set_identity_and_position(menuPosition, &menuPositionTransform);
+    matrix_4x4_multiply_in_place(&menuPositionTransform, result);
+    matrix_4x4_multiply_in_place(viewTransform, result);
 }
 
 
-/**
- * Address: 7F06359C
- */
 Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animatebuttons, WatchContButtonPositions* buttonpositions, s8* contpadnum)
 {
     ModelRenderData renderdata;
@@ -1790,14 +1792,11 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
     struct coord3d* position;
     Mtxf* matrices;
     ModelNode* node;
-    Mtxf sp38c;
     Mtxf sp34c;
     Mtxf sp30c;
-    Mtxf sp2cc;
-    Mtxf sp28c;
-    Mtxf sp24c;
-    Mtxf sp20c;
-    Mtxf sp1cc;
+    Mtxf buttonOrientation;
+    Mtxf inputRotation;
+    Mtxf buttonViewTransform;
     struct coord3d coord_node2;
     struct coord3d coord_node11_pos;
     struct coord3d coord_node11_base;
@@ -1825,7 +1824,7 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
 
     renderdata = g_DefaultGunModelRenderData;
 
-    sub_GAME_7F05DA8C(GUNRIGHT, 0x55);
+    gunSetWatchMenuItemOverride(GUNRIGHT, ITEM_JOYPAD);
 
     if (!(Gun_hand_without_item(GUNRIGHT) && get_itemtype_in_hand(GUNRIGHT)))
     {
@@ -1835,9 +1834,6 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
     objheader = g_CurrentPlayer->copy_of_body_obj_header;
     matrices = dynAllocate(objheader->numMatrices * (sizeof(Mtxf)));
     modelCalculateRwDataLen(objheader);
-
-    if (objheader);
-
     modelInit(&modelstack, objheader, rwdata);
     modelstack.render_pos = (RenderPosView*) matrices;
     matrix_4x4_copy(basemtx, &matrices[0]);
@@ -1903,14 +1899,12 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
         matrices = dynAllocate(objheader->numMatrices * (sizeof(Mtxf)));
         modelstack.render_pos = (RenderPosView*) matrices;
 
+        matrix_4x4_set_lookat_target(&buttonViewTransform, -5.0f, 2000.0f, -168.0f, -5.0f, 0.0f, -168.0f, 0.0f, 0.0f, -1.0f);
+
         // Update the positions and/or rotations of the free floating buttons on the sides of the screen.
         for (i = 0; i < 13; i++)
         {
-            matrix_4x4_set_lookat_target(&sp20c, -5.0f, 2000.0f, -168.0f, -5.0f, 0.0f, -168.0f, 0.0f, 0.0f, -1.0f);
-            matrix_4x4_set_lookat_target(&sp38c, -5.0f, 2000.0f, -168.0f, -5.0f, 0.0f, -168.0f, 0.0f, 0.0f, -1.0f);
-            matrix_4x4_set_identity(&sp24c);
-            matrix_4x4_set_identity(&sp1cc);
-            matrix_4x4_copy(&sp1cc, &sp2cc);
+            matrix_4x4_set_identity(&inputRotation);
             
             // Joy stick
             if (i == 2)
@@ -1923,7 +1917,7 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
                 matrix_4x4_set_rotation_around_x(angle, &sp3dc);
                 matrix_4x4_multiply_in_place(&sp3dc, &sp41c);
                 matrix_4x4_multiply_in_place(&sp34c, &sp41c);
-                matrix_4x4_multiply(&sp20c, &sp41c, &sp30c);
+                matrix_4x4_multiply(&buttonViewTransform, &sp41c, &sp30c);
                 matrix_4x4_copy(&sp30c, &matrices[i]);
             }
             // R
@@ -1934,12 +1928,12 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
 
                 if (joyGetButtons(*contpadnum, R_TRIG))
                 {
-                    matrix_4x4_set_rotation_around_y(-0.17453294f, &sp24c);
+                    matrix_4x4_set_rotation_around_y(-0.17453294f, &inputRotation);
                 }
 
-                matrix_4x4_set_rotation_around_x(1.0471976f, &sp28c);
-                sub_GAME_7F06351C(&coord_node11_base, &sp24c, &sp28c, &sp1cc, &coord_node11_pos, &sp20c, &sp38c);
-                matrix_4x4_copy(&sp38c, &matrices[i]);
+                matrix_4x4_set_rotation_around_x(1.0471976f, &buttonOrientation);
+                watchBuildControllerButtonTransform(&coord_node11_base, &inputRotation,
+                    &buttonOrientation, &coord_node11_pos, &buttonViewTransform, &matrices[i]);
             }
             // C-Up
             else if (i == 4)
@@ -1952,9 +1946,9 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
                     coord_node4_base.y += -10.0f;
                 }
 
-                matrix_4x4_set_rotation_around_x(-1.0471976f, &sp28c);
-                sub_GAME_7F06351C(&coord_node4_base, &sp24c, &sp28c, &sp1cc, &coord_node4_pos, &sp20c, &sp38c);
-                matrix_4x4_copy(&sp38c, &matrices[i]);
+                matrix_4x4_set_rotation_around_x(-1.0471976f, &buttonOrientation);
+                watchBuildControllerButtonTransform(&coord_node4_base, &inputRotation,
+                    &buttonOrientation, &coord_node4_pos, &buttonViewTransform, &matrices[i]);
             }
             // C-Down
             else if (i == 5)
@@ -1967,9 +1961,9 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
                     coord_node5_base.y += -10.0f;
                 }
 
-                matrix_4x4_set_rotation_around_x(-1.0471976f, &sp28c);
-                sub_GAME_7F06351C(&coord_node5_base, &sp24c, &sp28c, &sp1cc, &coord_node5_pos, &sp20c, &sp38c);
-                matrix_4x4_copy(&sp38c, &matrices[i]);
+                matrix_4x4_set_rotation_around_x(-1.0471976f, &buttonOrientation);
+                watchBuildControllerButtonTransform(&coord_node5_base, &inputRotation,
+                    &buttonOrientation, &coord_node5_pos, &buttonViewTransform, &matrices[i]);
             }
             // C-Left
             else if (i == 6)
@@ -1982,9 +1976,9 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
                     coord_node6_base.y += -10.0f;
                 }
 
-                matrix_4x4_set_rotation_around_x(-1.0471976f, &sp28c);
-                sub_GAME_7F06351C(&coord_node6_base, &sp24c, &sp28c, &sp1cc, &coord_node6_pos, &sp20c, &sp38c);
-                matrix_4x4_copy(&sp38c, &matrices[i]);
+                matrix_4x4_set_rotation_around_x(-1.0471976f, &buttonOrientation);
+                watchBuildControllerButtonTransform(&coord_node6_base, &inputRotation,
+                    &buttonOrientation, &coord_node6_pos, &buttonViewTransform, &matrices[i]);
             }
             // C-Right
             else if (i == 7)
@@ -1997,9 +1991,9 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
                     coord_node7_base.y += -10.0f;
                 }
 
-                matrix_4x4_set_rotation_around_x(-1.0471976f, &sp28c);
-                sub_GAME_7F06351C(&coord_node7_base, &sp24c, &sp28c, &sp1cc, &coord_node7_pos, &sp20c, &sp38c);
-                matrix_4x4_copy(&sp38c, &matrices[i]);
+                matrix_4x4_set_rotation_around_x(-1.0471976f, &buttonOrientation);
+                watchBuildControllerButtonTransform(&coord_node7_base, &inputRotation,
+                    &buttonOrientation, &coord_node7_pos, &buttonViewTransform, &matrices[i]);
             }
             // B
             else if (i == 9)
@@ -2012,9 +2006,9 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
                     coord_node9_base.y += -10.0f;
                 }
 
-                matrix_4x4_set_rotation_around_x(-1.0471976, &sp28c);
-                sub_GAME_7F06351C(&coord_node9_base, &sp24c, &sp28c, &sp1cc, &coord_node9_pos, &sp20c, &sp38c);
-                matrix_4x4_copy(&sp38c, &matrices[i]);
+                matrix_4x4_set_rotation_around_x(-1.0471976, &buttonOrientation);
+                watchBuildControllerButtonTransform(&coord_node9_base, &inputRotation,
+                    &buttonOrientation, &coord_node9_pos, &buttonViewTransform, &matrices[i]);
             }
             // A
             else if (i == 8)
@@ -2027,9 +2021,9 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
                     coord_node8_base.y += -10.0f;
                 }
 
-                matrix_4x4_set_rotation_around_x(-1.0471976f, &sp28c);
-                sub_GAME_7F06351C(&coord_node8_base, &sp24c, &sp28c, &sp1cc, &coord_node8_pos, &sp20c, &sp38c);
-                matrix_4x4_copy(&sp38c, &matrices[i]);
+                matrix_4x4_set_rotation_around_x(-1.0471976f, &buttonOrientation);
+                watchBuildControllerButtonTransform(&coord_node8_base, &inputRotation,
+                    &buttonOrientation, &coord_node8_pos, &buttonViewTransform, &matrices[i]);
             }
             // L
             else if (i == 10)
@@ -2039,12 +2033,12 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
 
                 if (joyGetButtons(*contpadnum, L_TRIG))
                 {
-                    matrix_4x4_set_rotation_around_y(0.17453294f, &sp24c);
+                    matrix_4x4_set_rotation_around_y(0.17453294f, &inputRotation);
                 }
 
-                matrix_4x4_set_rotation_around_x(1.0471976f, &sp28c);
-                sub_GAME_7F06351C(&coord_node10_base, &sp24c, &sp28c, &sp1cc, &coord_node10_pos, &sp20c, &sp38c);
-                matrix_4x4_copy(&sp38c, &matrices[i]);
+                matrix_4x4_set_rotation_around_x(1.0471976f, &buttonOrientation);
+                watchBuildControllerButtonTransform(&coord_node10_base, &inputRotation,
+                    &buttonOrientation, &coord_node10_pos, &buttonViewTransform, &matrices[i]);
             }
             // D-pad
             else if (i == 3)
@@ -2055,11 +2049,11 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
 
                 if (joyGetButtons(*contpadnum, U_JPAD))
                 {
-                    matrix_4x4_set_rotation_around_x(-0.17453294f, &sp24c);
+                    matrix_4x4_set_rotation_around_x(-0.17453294f, &inputRotation);
                 }
                 else if (joyGetButtons(*contpadnum, D_JPAD))
                 {
-                    matrix_4x4_set_rotation_around_x(0.17453294f, &sp24c);
+                    matrix_4x4_set_rotation_around_x(0.17453294f, &inputRotation);
                 }
 
                 if (joyGetButtons(*contpadnum, L_JPAD))
@@ -2071,10 +2065,10 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
                     matrix_4x4_set_rotation_around_z(-0.17453294f, &spb4);
                 }
 
-                matrix_4x4_multiply_in_place(&spb4, &sp24c);
-                matrix_4x4_set_rotation_around_x(-0.89759791f, &sp28c);
-                sub_GAME_7F06351C(&coord_node3_base, &sp24c, &sp28c, &sp1cc, &coord_node3_pos, &sp20c, &sp38c);
-                matrix_4x4_copy(&sp38c, &matrices[i]);
+                matrix_4x4_multiply_in_place(&spb4, &inputRotation);
+                matrix_4x4_set_rotation_around_x(-0.89759791f, &buttonOrientation);
+                watchBuildControllerButtonTransform(&coord_node3_base, &inputRotation,
+                    &buttonOrientation, &coord_node3_pos, &buttonViewTransform, &matrices[i]);
             }
             // Start
             else if (i == 1)
@@ -2087,9 +2081,9 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
                     coord_node1_base.y += -10.0f;
                 }
 
-                matrix_4x4_set_rotation_around_x(-1.0471976f, &sp28c);
-                sub_GAME_7F06351C(&coord_node1_base, &sp24c, &sp28c, &sp1cc, &coord_node1_pos, &sp20c, &sp38c);
-                matrix_4x4_copy(&sp38c, &matrices[i]);
+                matrix_4x4_set_rotation_around_x(-1.0471976f, &buttonOrientation);
+                watchBuildControllerButtonTransform(&coord_node1_base, &inputRotation,
+                    &buttonOrientation, &coord_node1_pos, &buttonViewTransform, &matrices[i]);
             }
             // Z
             else if (i == 12)
@@ -2099,12 +2093,12 @@ Gfx* watchRenderController(Gfx* gdl, Mtxf* basemtx, s32 envcolour, bool animateb
 
                 if (joyGetButtons(*contpadnum, Z_TRIG))
                 {
-                    matrix_4x4_set_rotation_around_x(-0.17453294f, &sp24c);
+                    matrix_4x4_set_rotation_around_x(-0.17453294f, &inputRotation);
                 }
 
-                matrix_4x4_set_rotation_around_z(M_PI_F, &sp28c);
-                sub_GAME_7F06351C(&coord_node12_base, &sp24c, &sp28c, &sp1cc, &coord_node12_pos, &sp20c, &sp38c);
-                matrix_4x4_copy(&sp38c, &matrices[i]);
+                matrix_4x4_set_rotation_around_z(M_PI_F, &buttonOrientation);
+                watchBuildControllerButtonTransform(&coord_node12_base, &inputRotation,
+                    &buttonOrientation, &coord_node12_pos, &buttonViewTransform, &matrices[i]);
             }
             else
             {
@@ -3392,7 +3386,7 @@ void gunTickHandState(enum GUNHAND handNum, s32 triggerHeld)
     {
         if ((hand->field_88C == 0) || (Gun_hand_without_item(handNum) == 0))
         {
-            sub_GAME_7F05DA8C(handNum, hand->weapon_next_weapon);
+            gunSetWatchMenuItemOverride(handNum, hand->weapon_next_weapon);
             weaponId = get_item_in_hand_or_watch_menu(handNum);
         }
 

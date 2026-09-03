@@ -353,7 +353,6 @@ void get_bullet_angle(f32* horizontal_angle, f32* vertical_angle);
 
 ITEM_IDS get_item_in_hand_or_watch_menu(GUNHAND hand);
 void draw_item_in_hand(GUNHAND hand, s32 next_weapon);
-void sub_GAME_7F05DAE4(GUNHAND hand);
 void gunSwivelWithDamping(f32 turn_x, f32 turn_y, f32 max_aim_lock_speed);
 s32 get_ammo_count_for_weapon(ITEM_IDS weapon);
 void add_ammo_to_weapon(ITEM_IDS weapon, s32 ammo);
@@ -380,5 +379,7 @@ Gfx *watchRenderItemModel(Gfx *gdl, ITEM_IDS itemid, Mtxf *mtx, s32 arg3, s32 ar
 void gunRenderCasings(Gfx **gdl);
 void gunRenderFirstPersonGunModels(Gfx **gdl);
 Gfx *gunRenderAmmoDisplay(Gfx *gdl);
+void gunSetWatchMenuItemOverride(GUNHAND hand, ITEM_IDS weaponnum_watchmenu);
+void gunClearWatchMenuItemOverride(GUNHAND hand);
 
 #endif

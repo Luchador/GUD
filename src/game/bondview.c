@@ -3479,7 +3479,7 @@ void bondviewWatchAnimationTick(void)
                 }
                 else
                 {
-                    sub_GAME_7F05DAE4(0);
+                    gunClearWatchMenuItemOverride(0);
                 }
             }
             if (check_watch_page_transistion_running())
@@ -3559,11 +3559,11 @@ void bondviewWatchAnimationTick(void)
                         (sp3c == 0)
                         || (((get_item_in_hand_or_watch_menu(GUNRIGHT) == getCurrentPlayerWeaponId(GUNRIGHT))) && (Gun_hand_without_item(GUNRIGHT) != ITEM_UNARMED))))
                 {
-                    sub_GAME_7F05DAE4(1);
+                    gunClearWatchMenuItemOverride(1);
 
                     if (sp3c)
                     {
-                        sub_GAME_7F05DAE4(0);
+                        gunClearWatchMenuItemOverride(0);
                     }
 
                     gunSetSightVisible(GUNAMMOREASON_DAMAGE, TRUE);
