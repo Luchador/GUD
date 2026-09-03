@@ -77,7 +77,7 @@ void                 objBounce(ObjectRecord *obj, coord3d *arg1);
 bool                 alarmIsActive(void);
 void                 init_trigger_toxic_gas_effect(coord3d *source);
 void                 chrSetWeaponFlag4(ChrRecord *chr, GUNHAND hand);
-void                 door7F053B10(DoorRecord *door);
+void                 doorStopMovementSounds(DoorRecord *door);
 void                 doorActivatePortal(DoorRecord *door);
 void                 doorUpdateBbox(DoorRecord *door);
 void                 monitorSetImageByNum(MonitorRecord *mon, s32 monAnimID);

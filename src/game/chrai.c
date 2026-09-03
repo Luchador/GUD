@@ -4058,7 +4058,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                         door->openstate    = DOORSTATE_STATIONARY;
                         doorUpdateBbox(door);
                         doorActivatePortal(door); // doorActivatePortal
-                        door7F053B10(door);
+                        doorStopMovementSounds(door);
                     }
                     Offset += sizeof(AiDoorOpenInstantRecord);
                     break;

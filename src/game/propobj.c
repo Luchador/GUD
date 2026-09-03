@@ -161,7 +161,7 @@ struct tvcmd {
     u32 arg2;
 };
 
-// Forward declarations.
+// Begin forward declarations.
 
 s32 updateDoorDisplacement(DoorRecord* door);
 s32 objGetShotsTaken(ObjectRecord *);
@@ -186,7 +186,7 @@ void detonate_proxmine_In_range(coord3d *pos);
 void doorDeactivatePortal(DoorRecord *door);
 void doorSetOpenState(DoorRecord *door, s32 state);
 s32  sndCalculateVolumeAtPosition(coord3d *pos, f32 low, f32 high);
-void sub_GAME_7F053A3C(DoorRecord *door);
+void doorUpdateSoundVolume(DoorRecord *door);
 
 // End forward declarations.
 
@@ -6372,7 +6372,7 @@ s32 objTick(struct PropRecord *prop, s32 playerCount, bool isSimOwner)
 		switch (obj->type)
 		{
 			case PROPDEF_DOOR:
-				sub_GAME_7F053A3C((DoorRecord *) obj);
+				doorUpdateSoundVolume((DoorRecord *) obj);
 				break;
 			case PROPDEF_AUTOGUN:
 				if (lvGetControlsLockedFlag() == 0)
@@ -12254,7 +12254,10 @@ void chrobjSndCreatePostEventDefault(ALSoundState *state, coord3d *pos)
 }
 
 
-void sub_GAME_7F053A3C(DoorRecord* door)
+/**
+ * Calculates the volume of doors with sustained movement like sliding doors.
+ */
+void doorUpdateSoundVolume(DoorRecord* door)
 {
     bool open_playing;
     bool close_playing;
@@ -12285,7 +12288,7 @@ void sub_GAME_7F053A3C(DoorRecord* door)
 }
 
 
-void door7F053B10(DoorRecord *door)
+void doorStopMovementSounds(DoorRecord *door)
 {
     if (door->openSoundState && sndGetPlayingState(door->openSoundState))
     {
@@ -12304,7 +12307,7 @@ void doorPlayOpenSound0(DoorRecord *door)
     ALSoundState *soundState = NULL;
     ALSoundState *pendingState = NULL;
 
-    door7F053B10(door);
+    doorStopMovementSounds(door);
 
     if (door->openSoundState == NULL)
     {
@@ -12421,7 +12424,7 @@ void doorPlayOpenSound0(DoorRecord *door)
         chrobjSndCreatePostEventDefault(soundState, &door->prop->pos);
     }
 
-    sub_GAME_7F053A3C(door);
+    doorUpdateSoundVolume(door);
 }
 
 
@@ -12430,7 +12433,7 @@ void doorPlayOpenSound1(DoorRecord *door)
     ALSoundState *soundState = NULL;
     ALSoundState *pendingState = NULL;
 
-    door7F053B10(door);
+    doorStopMovementSounds(door);
 
     if (door->openSoundState == NULL)
     {
@@ -12532,7 +12535,7 @@ void doorPlayOpenSound1(DoorRecord *door)
         chrobjSndCreatePostEventDefault(soundState, &door->prop->pos);
     }
 
-    sub_GAME_7F053A3C(door);
+    doorUpdateSoundVolume(door);
 }
 
 
@@ -12540,7 +12543,7 @@ void doorPlayCloseSound0(DoorRecord *door)
 {
     ALSoundState *soundState = NULL;
 
-    door7F053B10(door);
+    doorStopMovementSounds(door);
 
     switch (door->doorOpenSound)
     {
@@ -12587,7 +12590,7 @@ void doorPlayCloseSound0(DoorRecord *door)
         chrobjSndCreatePostEventDefault(soundState, &door->prop->pos);
     }
 
-    sub_GAME_7F053A3C(door);
+    doorUpdateSoundVolume(door);
 }
 
 
@@ -12595,7 +12598,7 @@ void doorPlayCloseSound1(DoorRecord *door)
 {
     ALSoundState *soundState = NULL;
 
-    door7F053B10(door);
+    doorStopMovementSounds(door);
 
     switch (door->doorOpenSound)
     {
@@ -12657,7 +12660,7 @@ void doorPlayCloseSound1(DoorRecord *door)
         chrobjSndCreatePostEventDefault(soundState, &door->prop->pos);
     }
 
-    sub_GAME_7F053A3C(door);
+    doorUpdateSoundVolume(door);
 }
 
 
@@ -12757,12 +12760,12 @@ void doorSetOpenState(DoorRecord *door, s32 newstate)
 }
 
 
-void doorActivate(DoorRecord *door, DOORSTATE State) //#MATCH
+void doorActivate(DoorRecord *door, DOORSTATE State)
 {
     DoorRecord *linkeddoor;
     DOORSTATE   LinkedState = State;
 
-    if (door->flags2 & 0x40000000) //Close first door before opening second
+    if (door->flags2 & 0x40000000) // Close first door before opening second
     {
         if (State == DOORSTATE_OPENING)
         {
@@ -12790,6 +12793,7 @@ bool doorIsClosed(DoorRecord *door)
 {
     return ((door->openstate == DOORSTATE_STATIONARY) || (door->openstate == DOORSTATE_WAITING)) && (door->openPosition <= 0.0f);
 }
+
 
 /*
 * Computes the 2D bounding box for every room the prop is in
