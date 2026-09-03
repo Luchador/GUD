@@ -38,10 +38,8 @@ void *fileIndexLoadToAddr(s32 index, FILELOADMETHOD loadMethod, void *ptrdata, s
 void *_fileNameLoadToAddr(char *filename, FILELOADMETHOD loadMethod, u8 *ptrdata, s32 size);
 void *_fileNameLoadToBank(char *filename, FILELOADMETHOD loadMethod, s32 size, u8 bank);
 
-#if defined(LEFTOVERDEBUG)
 void *_fileIndexLoadToAddr(int index, FILELOADMETHOD param_2, u8 *ptrdata, int size);
 void *_fileIndexLoadToBank(s32 index, FILELOADMETHOD param_2, s32 size, u8 bank);
-#endif
 
 void fileSetSize(s32 filenum, u8* ptr, u32 size, s32 reallocate);
 s32 get_pc_buffer_remaining_value(u8 *name);

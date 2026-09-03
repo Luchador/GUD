@@ -2239,8 +2239,6 @@ void objSettle(ObjectRecord *obj, coord3d *arg1)
 
 
 /**
- * Address: 7F043650
- * 
  * Plays and maintains the sound of the whoosh of a throwing knife spinning through the air.
  */
 void objUpdateThrowKnifeSound(ObjectRecord *obj) 
@@ -2260,12 +2258,8 @@ void objUpdateThrowKnifeSound(ObjectRecord *obj)
         slot = obj->projectile->soundSlot;
         sfxindex = randomGetNext() % 3;
 
-#if defined(LEFTOVERDEBUG)
-        if ((s32)obj->projectile->lastSfxTimer < g_GlobalTimer - 6) {
-#else
-        if ((s32)obj->projectile->lastSfxTimer < g_GlobalTimer - 5) 
+        if ((s32)obj->projectile->lastSfxTimer < g_GlobalTimer - 6)
         {
-#endif
             if (obj->projectile->sounds[slot] != NULL) 
             {
                 if (sndGetPlayingState(obj->projectile->sounds[slot])) 

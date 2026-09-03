@@ -532,121 +532,119 @@ void clearChrGunModelInstances(void)
 #define INTRO_EYE_COUNTER_CASE_6 0x1e
 
 
-/*
- * Address: 0x7F009254
-*/
-Gfx *renderGunbarrelEyeIntroSequence (Gfx *gdl) {
+Gfx *renderGunbarrelEyeIntroSequence (Gfx *gdl)
+{
     g_IntroMatrixBufferIndex = (1 - g_IntroMatrixBufferIndex);
     switch (gunbarrel_mode - 2)
     {
-    case 0:
-        gdl = manipulateGunbarrelAndLogoMatrices(gdl);
-        g_TitleX += XINC;
-        if (word_CODE_bss_80069584 < 0) {
-            word_CODE_bss_80069584 = 200;
-            titleTransitionX = (g_TitleX - XDEC);
-        } else {
-            word_CODE_bss_80069584 -= 6;
-        }
-        if (g_TitleX > 1390.0f) {
-            gunbarrel_mode++;
-            g_TitleX = 1276.0f;
-        }
-        break;
+        case 0:
+            gdl = manipulateGunbarrelAndLogoMatrices(gdl);
+            g_TitleX += XINC;
+            if (word_CODE_bss_80069584 < 0)
+            {
+                word_CODE_bss_80069584 = 200;
+                titleTransitionX = (g_TitleX - XDEC);
+            } else {
+                word_CODE_bss_80069584 -= 6;
+            }
+            if (g_TitleX > 1390.0f) {
+                gunbarrel_mode++;
+                g_TitleX = 1276.0f;
+            }
+            break;
 
-    case 1:
-        #if defined(LEFTOVERDEBUG)
-        gSPDisplayList(gdl++, &dlBasicGeometry);
-        gdl = clear_framebuffer_black(gdl++);
-        gdl = clear_framebuffer_black(gdl++);
-        gdl = clear_framebuffer_black(gdl++);
-        gdl = clear_framebuffer_black(gdl++);
-        gdl = clear_framebuffer_black(gdl++);
-        #endif
-        gdl = insert_sniper_sight_eye_intro(gdl++);
-        gdl = insert_sight_backdrop_eye_intro(gdl++);
-        
-        if (g_TitleX < 600.0f) {
+        case 1:
+            gSPDisplayList(gdl++, &dlBasicGeometry);
+            gdl = clear_framebuffer_black(gdl++);
+            gdl = clear_framebuffer_black(gdl++);
+            gdl = clear_framebuffer_black(gdl++);
+            gdl = clear_framebuffer_black(gdl++);
+            gdl = clear_framebuffer_black(gdl++);
+
+            gdl = insert_sniper_sight_eye_intro(gdl++);
+            gdl = insert_sight_backdrop_eye_intro(gdl++);
+            
+            if (g_TitleX < 600.0f) {
+                gdl = insert_bond_eye_intro(gdl);
+            }
+            g_TitleX -= XDEC3;
+            if (g_TitleX <= -80.0f) {
+                gunbarrel_mode++;
+                intro_eye_counter = 20;
+            }
+            break;
+
+        case 2:
+            gdl = insert_sniper_sight_eye_intro(gdl);
+            gdl = insert_sight_backdrop_eye_intro(gdl);
             gdl = insert_bond_eye_intro(gdl);
-        }
-        g_TitleX -= XDEC3;
-        if (g_TitleX <= -80.0f) {
-            gunbarrel_mode++;
-            intro_eye_counter = 20;
-        }
-        break;
+            intro_eye_counter--;
+            if (intro_eye_counter < 0) {
+                gunbarrel_mode++;
+                die_blood_image_routine(0);
+                intro_state_blood_animation = 0;
+                intro_eye_counter = 1;
+            }
+            break;
 
-    case 2:
-        gdl = insert_sniper_sight_eye_intro(gdl);
-        gdl = insert_sight_backdrop_eye_intro(gdl);
-        gdl = insert_bond_eye_intro(gdl);
-        intro_eye_counter--;
-        if (intro_eye_counter < 0) {
-            gunbarrel_mode++;
-            die_blood_image_routine(0);
-            intro_state_blood_animation = 0;
-            intro_eye_counter = 1;
-        }
-        break;
+        case 3:
+            intro_eye_counter--;
+            if (intro_eye_counter == 0) {
+                intro_state_blood_animation = die_blood_image_routine(1);
+                intro_eye_counter = 2;
+            }
+            gdl = insert_sniper_sight_eye_intro(gdl);
+            gdl = insert_sight_backdrop_eye_intro(gdl);
+            gdl = insert_bond_eye_intro(gdl);
+            gdl = gunbarrelBloodOverlayDL(gdl);
+            if (intro_state_blood_animation != 0) {
+                gunbarrel_mode++;
+                word_CODE_bss_80069584 = 0;
+                titleTransitionX = g_TitleX;
+                intro_eye_counter = 0;
+            }
+            break;
 
-    case 3:
-        intro_eye_counter--;
-        if (intro_eye_counter == 0) {
-            intro_state_blood_animation = die_blood_image_routine(1);
-            intro_eye_counter = 2;
-        }
-        gdl = insert_sniper_sight_eye_intro(gdl);
-        gdl = insert_sight_backdrop_eye_intro(gdl);
-        gdl = insert_bond_eye_intro(gdl);
-        gdl = gunbarrelBloodOverlayDL(gdl);
-        if (intro_state_blood_animation != 0) {
-            gunbarrel_mode++;
-            word_CODE_bss_80069584 = 0;
-            titleTransitionX = g_TitleX;
-            intro_eye_counter = 0;
-        }
-        break;
+        case 4:
+            word_CODE_bss_80069584 += INCVAL;
+            intro_eye_counter++;
+            g_TitleX = ((sins(word_CODE_bss_80069584) * 64.0f) / 32768.0f) + titleTransitionX;
+            gdl = insert_sniper_sight_eye_intro(gdl);
+            gdl = insert_sight_backdrop_eye_intro(gdl);
+            gdl = insert_bond_eye_intro(gdl);
+            gdl = sub_GAME_7F01CA18(gdl);
+            if (intro_eye_counter >= INTRO_EYE_COUNTER_CASE_4)
+            {
+                intro_eye_counter = 0;
+                gunbarrel_mode++;
+            }
+            break;
 
-    case 4:
-        word_CODE_bss_80069584 += INCVAL;
-        intro_eye_counter++;
-        g_TitleX = ((sins(word_CODE_bss_80069584) * 64.0f) / 32768.0f) + titleTransitionX;
-        gdl = insert_sniper_sight_eye_intro(gdl);
-        gdl = insert_sight_backdrop_eye_intro(gdl);
-        gdl = insert_bond_eye_intro(gdl);
-        gdl = sub_GAME_7F01CA18(gdl);
-        if (intro_eye_counter >= INTRO_EYE_COUNTER_CASE_4)
-        {
-            intro_eye_counter = 0;
-            gunbarrel_mode++;
-        }
-        break;
+        case 5:
+            word_CODE_bss_80069584 += INCVAL;
+            g_TitleX = ((sins(word_CODE_bss_80069584) * 64.0f) / 32768.0f) + titleTransitionX;
+            gdl = insert_sniper_sight_eye_intro(gdl);
+            gdl = insert_sight_backdrop_eye_intro(gdl);
+            gdl = insert_bond_eye_intro(gdl);
+            gdl = sub_GAME_7F01CA18(gdl);
+            
+            intro_eye_counter += INTRO_EYE_COUNTER_CASE_5_ADD;
+            
+            gdl = sub_GAME_7F007E70(gdl, intro_eye_counter);
+            if (intro_eye_counter >= 0xF7) {
+                intro_eye_counter = 0;
+                gunbarrel_mode++;                
+            }
+            break;
 
-    case 5:
-        word_CODE_bss_80069584 += INCVAL;
-        g_TitleX = ((sins(word_CODE_bss_80069584) * 64.0f) / 32768.0f) + titleTransitionX;
-        gdl = insert_sniper_sight_eye_intro(gdl);
-        gdl = insert_sight_backdrop_eye_intro(gdl);
-        gdl = insert_bond_eye_intro(gdl);
-        gdl = sub_GAME_7F01CA18(gdl);
-        
-        intro_eye_counter += INTRO_EYE_COUNTER_CASE_5_ADD;
-        
-        gdl = sub_GAME_7F007E70(gdl, intro_eye_counter);
-        if (intro_eye_counter >= 0xF7) {
-            intro_eye_counter = 0;
-            gunbarrel_mode++;                
-        }
-        break;
-
-    case 6:
-        gSPDisplayList(gdl++, &dlBasicGeometry);
-        gdl = clear_framebuffer_black(gdl);
-        if (intro_eye_counter++ >= INTRO_EYE_COUNTER_CASE_6) {
-            intro_eye_counter = 0;
-            gunbarrel_mode++;
-        }
-        break;
+        case 6:
+            gSPDisplayList(gdl++, &dlBasicGeometry);
+            gdl = clear_framebuffer_black(gdl);
+            if (intro_eye_counter++ >= INTRO_EYE_COUNTER_CASE_6) {
+                intro_eye_counter = 0;
+                gunbarrel_mode++;
+            }
+            break;
     };
 
     return gdl;

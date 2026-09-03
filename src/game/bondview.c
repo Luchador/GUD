@@ -135,9 +135,8 @@ char stringbuffer_lowerleft[0x5][BONDVIEW_HUD_MSG_BOTTOM_BUFFER_LENGTH];
 PadRecord *g_Startpad[0x10];
 s32 startpadcount;
 
-#if defined LEFTOVERDEBUG
 char stringbuffer_top[0x2][BONDVIEW_HUD_MSG_TOP_BUFFER_LENGTH];
-#endif
+
 
 s32 status_bar_text_buffer_index = 0;
 s32 display_statusbar = 0;

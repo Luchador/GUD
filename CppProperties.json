@@ -23,7 +23,6 @@
             "VERSION_US",
             "TARGET_N64",
             "OUTCODE=u",
-            "LEFTOVERDEBUG",
             "BYTEMATCH"
             /* IDO 5.3 Defs below */,
             "_MIPS_FPSET=16",
@@ -79,7 +78,6 @@
             "VERSION_US",
             "TARGET_N64",
             "OUTCODE=u",
-            "LEFTOVERDEBUG",
             "BYTEMATCH"
             /* IDO 5.3 Defs below */,
             "_MIPS_FPSET=16",

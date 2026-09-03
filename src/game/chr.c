@@ -1876,13 +1876,9 @@ f32 chrGetFlinchAmount(ChrRecord *chr)
 {
     f32 temp_f2;
     f32 phi_f2;
-#if defined(LEFTOVERDEBUG)
+
     f32 rise = 10.0f;
     f32 fall = 20.0f;
-#else
-    f32 rise = 8.0f;
-    f32 fall = 16.0f;
-#endif
 
     phi_f2 = chr->flinchcnt;
     temp_f2 = (f32) phi_f2;
