@@ -148,21 +148,21 @@ u32 g_ProfChrNavSweepLineCycles;
 u32 g_ProfChrNavSweepLineCalls;
 u32 g_ProfChrNavSweepVolumeCycles;
 u32 g_ProfChrNavSweepVolumeCalls;
-u32 g_ProfChrNavLineTileCycles;
-u32 g_ProfChrNavLineQueryCycles;
-u32 g_ProfChrNavLineFilterCycles;
-u32 g_ProfChrNavLineBoundsCycles;
-u32 g_ProfChrNavLineIntersectionTestCycles;
-u32 g_ProfChrNavLineHitProcessingCycles;
-u32 g_ProfChrNavLineCandidateProps;
-u32 g_ProfChrNavLineZeroEdgeProps;
-u32 g_ProfChrNavLineTestedEdges;
-u32 g_ProfChrNavLineAabbPassedEdges;
-u32 g_ProfChrNavLineIntersectingEdges;
 u32 g_ProfChrMoveLineCycles;
 u32 g_ProfChrMoveLineCalls;
 u32 g_ProfChrMoveVolumeCycles;
 u32 g_ProfChrMoveVolumeCalls;
+u32 g_ProfChrMoveVolumeTileCycles;
+u32 g_ProfChrMoveVolumeQueryCycles;
+u32 g_ProfChrMoveVolumeFilterCycles;
+u32 g_ProfChrMoveVolumeBoundsCycles;
+u32 g_ProfChrMoveVolumeEdgeCycles;
+u32 g_ProfChrMoveVolumeRooms;
+u32 g_ProfChrMoveVolumeQueriedProps;
+u32 g_ProfChrMoveVolumeCandidateProps;
+u32 g_ProfChrMoveVolumeTestedEdges;
+u32 g_ProfChrMoveVolumeStanStops;
+u32 g_ProfChrMoveVolumePropHits;
 /* --- end profiler state --- */
 
 bool lvGetBgRenderEnabled(void)
@@ -1045,10 +1045,10 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             0xC0C0C0FF,  /* room maintenance       */
             0xFF8050FF,  /* navigation sweeps      */
             0xFF8050FF,  /* sweep line and volume  */
-            0xFF8050FF,  /* line tile/query work   */
-            0xFF8050FF,  /* line prop work          */
             0xFF40FFFF,  /* move line and volume   */
-            0xFF8050FF,  /* prop/edge counts       */
+            0xFF40FFFF,  /* volume tile/query/filter */
+            0xFF40FFFF,  /* volume bounds/edges/stops */
+            0xFF40FFFF,  /* volume workload counts */
         };
         u32 sub;
         u32 lvlOther;
@@ -1072,21 +1072,21 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         sprintf(profText[12], "SW L:%3uK/%2u V:%3uK/%2u",
             (g_ProfChrNavSweepLineCycles + 500) / 1000, g_ProfChrNavSweepLineCalls,
             (g_ProfChrNavSweepVolumeCycles + 500) / 1000, g_ProfChrNavSweepVolumeCalls);
-        sprintf(profText[13], "LN T:%3uK Q:%3uK",
-            (g_ProfChrNavLineTileCycles + 500) / 1000,
-            (g_ProfChrNavLineQueryCycles + 500) / 1000);
-        sprintf(profText[14], "LN F:%3uK B:%3uK I:%3uK P:%3uK",
-            (g_ProfChrNavLineFilterCycles + 500) / 1000,
-            (g_ProfChrNavLineBoundsCycles + 500) / 1000,
-            (g_ProfChrNavLineIntersectionTestCycles + 500) / 1000,
-            (g_ProfChrNavLineHitProcessingCycles + 500) / 1000);
-        sprintf(profText[15], "MV L:%3uK/%2u V:%3uK/%2u",
+        sprintf(profText[13], "MV L:%3uK/%2u V:%3uK/%2u",
             (g_ProfChrMoveLineCycles + 500) / 1000, g_ProfChrMoveLineCalls,
             (g_ProfChrMoveVolumeCycles + 500) / 1000, g_ProfChrMoveVolumeCalls);
-        sprintf(profText[16], "LN C:%3u Z:%3u E:%3u A:%3u H:%3u",
-            g_ProfChrNavLineCandidateProps, g_ProfChrNavLineZeroEdgeProps,
-            g_ProfChrNavLineTestedEdges, g_ProfChrNavLineAabbPassedEdges,
-            g_ProfChrNavLineIntersectingEdges);
+        /* VOL: tile/height, query, filter, bounds, edges, STAN stops and prop hits. */
+        sprintf(profText[14], "VOL T:%3uK Q:%3uK F:%3uK",
+            (g_ProfChrMoveVolumeTileCycles + 500) / 1000,
+            (g_ProfChrMoveVolumeQueryCycles + 500) / 1000,
+            (g_ProfChrMoveVolumeFilterCycles + 500) / 1000);
+        sprintf(profText[15], "VOL B:%3uK E:%3uK S:%3u H:%3u",
+            (g_ProfChrMoveVolumeBoundsCycles + 500) / 1000,
+            (g_ProfChrMoveVolumeEdgeCycles + 500) / 1000,
+            g_ProfChrMoveVolumeStanStops, g_ProfChrMoveVolumePropHits);
+        sprintf(profText[16], "VOL R:%3u P:%3u C:%3u E:%3u",
+            g_ProfChrMoveVolumeRooms, g_ProfChrMoveVolumeQueriedProps,
+            g_ProfChrMoveVolumeCandidateProps, g_ProfChrMoveVolumeTestedEdges);
 
         g_ProfChrTickCycles = 0;
         g_ProfChrActionCycles = 0;
@@ -1103,21 +1103,21 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         g_ProfChrNavSweepLineCalls = 0;
         g_ProfChrNavSweepVolumeCycles = 0;
         g_ProfChrNavSweepVolumeCalls = 0;
-        g_ProfChrNavLineTileCycles = 0;
-        g_ProfChrNavLineQueryCycles = 0;
-        g_ProfChrNavLineFilterCycles = 0;
-        g_ProfChrNavLineBoundsCycles = 0;
-        g_ProfChrNavLineIntersectionTestCycles = 0;
-        g_ProfChrNavLineHitProcessingCycles = 0;
-        g_ProfChrNavLineCandidateProps = 0;
-        g_ProfChrNavLineZeroEdgeProps = 0;
-        g_ProfChrNavLineTestedEdges = 0;
-        g_ProfChrNavLineAabbPassedEdges = 0;
-        g_ProfChrNavLineIntersectingEdges = 0;
         g_ProfChrMoveLineCycles = 0;
         g_ProfChrMoveLineCalls = 0;
         g_ProfChrMoveVolumeCycles = 0;
         g_ProfChrMoveVolumeCalls = 0;
+        g_ProfChrMoveVolumeTileCycles = 0;
+        g_ProfChrMoveVolumeQueryCycles = 0;
+        g_ProfChrMoveVolumeFilterCycles = 0;
+        g_ProfChrMoveVolumeBoundsCycles = 0;
+        g_ProfChrMoveVolumeEdgeCycles = 0;
+        g_ProfChrMoveVolumeRooms = 0;
+        g_ProfChrMoveVolumeQueriedProps = 0;
+        g_ProfChrMoveVolumeCandidateProps = 0;
+        g_ProfChrMoveVolumeTestedEdges = 0;
+        g_ProfChrMoveVolumeStanStops = 0;
+        g_ProfChrMoveVolumePropHits = 0;
 
         for (i = 0; i < 17; i++)
         {
