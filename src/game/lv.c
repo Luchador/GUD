@@ -161,6 +161,7 @@ u32 g_ProfChrMoveVolumeRooms;
 u32 g_ProfChrMoveVolumeQueriedProps;
 u32 g_ProfChrMoveVolumeCandidateProps;
 u32 g_ProfChrMoveVolumeTestedEdges;
+u32 g_ProfChrMoveVolumeAabbPassedEdges;
 u32 g_ProfChrMoveVolumeStanStops;
 u32 g_ProfChrMoveVolumePropHits;
 /* --- end profiler state --- */
@@ -1084,9 +1085,10 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             (g_ProfChrMoveVolumeBoundsCycles + 500) / 1000,
             (g_ProfChrMoveVolumeEdgeCycles + 500) / 1000,
             g_ProfChrMoveVolumeStanStops, g_ProfChrMoveVolumePropHits);
-        sprintf(profText[16], "VOL R:%3u P:%3u C:%3u E:%3u",
+        sprintf(profText[16], "VOL R:%3u P:%3u C:%3u E:%3u A:%3u",
             g_ProfChrMoveVolumeRooms, g_ProfChrMoveVolumeQueriedProps,
-            g_ProfChrMoveVolumeCandidateProps, g_ProfChrMoveVolumeTestedEdges);
+            g_ProfChrMoveVolumeCandidateProps, g_ProfChrMoveVolumeTestedEdges,
+            g_ProfChrMoveVolumeAabbPassedEdges);
 
         g_ProfChrTickCycles = 0;
         g_ProfChrActionCycles = 0;
@@ -1116,6 +1118,7 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         g_ProfChrMoveVolumeQueriedProps = 0;
         g_ProfChrMoveVolumeCandidateProps = 0;
         g_ProfChrMoveVolumeTestedEdges = 0;
+        g_ProfChrMoveVolumeAabbPassedEdges = 0;
         g_ProfChrMoveVolumeStanStops = 0;
         g_ProfChrMoveVolumePropHits = 0;
 

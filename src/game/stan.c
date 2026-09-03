@@ -1688,6 +1688,10 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
     s32 i;
     f32 pointDist;
     f32 var_f24;
+    f32 circleMinX;
+    f32 circleMaxX;
+    f32 circleMinZ;
+    f32 circleMaxZ;
     StanCollisionResult stanColResult;
     s32 next;
     bool useVerticalBounds;
@@ -1766,6 +1770,11 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
 
     if (cdtypes)
     {
+        circleMinX = p_x - radius;
+        circleMaxX = p_x + radius;
+        circleMinZ = p_z - radius;
+        circleMaxZ = p_z + radius;
+
         if (useVerticalBounds)
         {
             if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
@@ -1845,56 +1854,77 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
                             next = 0;
                         }
 
-                        pointDist = stanGetSignedPointLineDistance(
-                            polygon->points[i].f[0],
-                            polygon->points[i].f[1],
-                            polygon->points[next].f[0],
-                            polygon->points[next].f[1],
-                            p_x,
-                            p_z);
-
-                        if (pointDist < 0.0f)
-                        {
-                            pointDist = -pointDist;
-                        }
-
                         /*
-                         * Reject distant edge lines before calculating either
-                         * endpoint distance. Most edges fail this inexpensive
-                         * test, and a projection onto the segment avoids both
-                         * endpoint square roots for the usual edge hit.
+                         * A segment cannot touch the test circle when both
+                         * endpoints lie outside the circle's bounding square
+                         * on the same side. Strict comparisons keep tangent
+                         * edges on the exact path.
                          */
-                        if ((var_f24 < pointDist) && (pointDist < radius))
+                        if (!((polygon->points[i].f[0] < circleMinX
+                                    && polygon->points[next].f[0] < circleMinX)
+                                || (circleMaxX < polygon->points[i].f[0]
+                                    && circleMaxX < polygon->points[next].f[0])
+                                || (polygon->points[i].f[1] < circleMinZ
+                                    && polygon->points[next].f[1] < circleMinZ)
+                                || (circleMaxZ < polygon->points[i].f[1]
+                                    && circleMaxZ < polygon->points[next].f[1])))
                         {
-                            if ((stanPointProjectsOntoEdge(
-                                    polygon->points[i].f[0],
-                                    polygon->points[i].f[1],
-                                    polygon->points[next].f[0],
-                                    polygon->points[next].f[1],
-                                    p_x,
-                                    p_z) != 0)
-                                || (distBetweenPoints2d(
+                            if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
+                            {
+                                g_ProfChrMoveVolumeAabbPassedEdges++;
+                            }
+
+                            pointDist = stanGetSignedPointLineDistance(
+                                polygon->points[i].f[0],
+                                polygon->points[i].f[1],
+                                polygon->points[next].f[0],
+                                polygon->points[next].f[1],
+                                p_x,
+                                p_z);
+
+                            if (pointDist < 0.0f)
+                            {
+                                pointDist = -pointDist;
+                            }
+
+                            /*
+                             * Reject distant edge lines before calculating either
+                             * endpoint distance. Most edges fail this inexpensive
+                             * test, and a projection onto the segment avoids both
+                             * endpoint square roots for the usual edge hit.
+                             */
+                            if ((var_f24 < pointDist) && (pointDist < radius))
+                            {
+                                if ((stanPointProjectsOntoEdge(
                                         polygon->points[i].f[0],
                                         polygon->points[i].f[1],
-                                        p_x,
-                                        p_z) < radius)
-                                || (distBetweenPoints2d(
                                         polygon->points[next].f[0],
                                         polygon->points[next].f[1],
                                         p_x,
-                                        p_z) < radius))
-                            {
-                                g_StanLastCollisionEdgePointsValid = 1;
-                                var_f24 = pointDist;
+                                        p_z) != 0)
+                                    || (distBetweenPoints2d(
+                                            polygon->points[i].f[0],
+                                            polygon->points[i].f[1],
+                                            p_x,
+                                            p_z) < radius)
+                                    || (distBetweenPoints2d(
+                                            polygon->points[next].f[0],
+                                            polygon->points[next].f[1],
+                                            p_x,
+                                            p_z) < radius))
+                                {
+                                    g_StanLastCollisionEdgePointsValid = 1;
+                                    var_f24 = pointDist;
 
-                                g_StanLastCollisionEdgePointA.f[0] = polygon->points[i].f[0];
-                                g_StanLastCollisionEdgePointA.f[1] = polygon->points[i].f[1];
-                                g_StanLastCollisionEdgePointB.f[0] = polygon->points[next].f[0];
-                                g_StanLastCollisionEdgePointB.f[1] = polygon->points[next].f[1];
+                                    g_StanLastCollisionEdgePointA.f[0] = polygon->points[i].f[0];
+                                    g_StanLastCollisionEdgePointA.f[1] = polygon->points[i].f[1];
+                                    g_StanLastCollisionEdgePointB.f[0] = polygon->points[next].f[0];
+                                    g_StanLastCollisionEdgePointB.f[1] = polygon->points[next].f[1];
 
-                                g_StanLastCollisionTile = NULL;
-                                g_StanLastCollisionEdgeIndex = 0;
-                                g_StanLastCollisionProp = prop;
+                                    g_StanLastCollisionTile = NULL;
+                                    g_StanLastCollisionEdgeIndex = 0;
+                                    g_StanLastCollisionProp = prop;
+                                }
                             }
                         }
 

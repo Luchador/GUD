@@ -95,6 +95,7 @@ extern u32 g_ProfChrMoveVolumeRooms;
 extern u32 g_ProfChrMoveVolumeQueriedProps;
 extern u32 g_ProfChrMoveVolumeCandidateProps;
 extern u32 g_ProfChrMoveVolumeTestedEdges;
+extern u32 g_ProfChrMoveVolumeAabbPassedEdges;
 extern u32 g_ProfChrMoveVolumeStanStops;
 extern u32 g_ProfChrMoveVolumePropHits;
 
