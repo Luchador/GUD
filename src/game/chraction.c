@@ -2768,9 +2768,7 @@ s32 chrlvStanRoomRelated(ChrRecord *self, coord3d *arg1, StandTile *tile)
     PropRecord *prop;
     s32 tile_something;
     s32 i;
-    u32 profilerStart;
 
-    profilerStart = osGetCount();
     prop = self->prop;
     tile_something = stanGetRoomsBetweenPoints(prop->stan, prop->pos.x, prop->pos.f[2], &tile, arg1->f[0], arg1->f[2], &sp48[0], BUFFER_SIZE_7F027DB0);
 
@@ -2780,21 +2778,15 @@ s32 chrlvStanRoomRelated(ChrRecord *self, coord3d *arg1, StandTile *tile)
         {
             if (bgIsRoomRendered(sp48[i]) != 0)
             {
-                g_ProfChrMagicCheckCycles += osGetCount() - profilerStart;
-                g_ProfChrMagicCheckCalls++;
                 return 0;
             }
         }
     }
     else
     {
-        g_ProfChrMagicCheckCycles += osGetCount() - profilerStart;
-        g_ProfChrMagicCheckCalls++;
         return 0;
     }
 
-    g_ProfChrMagicCheckCycles += osGetCount() - profilerStart;
-    g_ProfChrMagicCheckCalls++;
     return 1;
 }
 
@@ -3476,9 +3468,7 @@ s32 plot_course_for_actor(ChrRecord *self, coord3d *arg1, StandTile *stan, SPEED
     coord3d sp34;
     StandTile *sp30;
     s32 phi_v0;
-    u32 profilerStart;
 
-    profilerStart = osGetCount();
     prop = self->prop;
 
     phi_v0 = (self->actiontype == ACT_GOPOS) && (self->act_gopos.unk59 == (u8)speed);
@@ -3527,13 +3517,9 @@ s32 plot_course_for_actor(ChrRecord *self, coord3d *arg1, StandTile *stan, SPEED
             chrlvSetGoposSegDistTotal(self, &self->act_gopos.waydata, &sp34);
         }
 
-        g_ProfChrRouteCycles += osGetCount() - profilerStart;
-        g_ProfChrRouteCalls++;
         return 1;
     }
 
-    g_ProfChrRouteCycles += osGetCount() - profilerStart;
-    g_ProfChrRouteCalls++;
     return 0;
 }
 

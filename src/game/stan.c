@@ -888,10 +888,12 @@ bool stanWalkTilesBetweenPointsWithCallback(StandTile **tileStack, f32 start_x, 
     s32 crossings;
     s32 iterationCount;
     s32 savedPointIndex;
+    s32 pointCount;
     StandTilePoint *nextPoint;
     StandTilePoint *curPoint;
     s32 nextPointIndex;
     s32 hasLink;
+    u16 linkOffset;
 
     start_x *= level_scale;
     start_z *= level_scale;
@@ -918,26 +920,34 @@ bool stanWalkTilesBetweenPointsWithCallback(StandTile **tileStack, f32 start_x, 
             callback(tile, previousTile, callbackData);
         }
 
-        curPoint = (StandTilePoint *) tile;
+        pointCount = tile->tail.hdrTail.pointCount & 0xf;
+        curPoint = tile->points;
 
-        for (edgeIndex = 0; edgeIndex < (tile->tail.hdrTail.pointCount & 0xF); edgeIndex++, curPoint++)
+        for (edgeIndex = 0; edgeIndex < pointCount; edgeIndex++, curPoint++)
         {
-            nextPointIndex = (edgeIndex + 1) % (tile->tail.hdrTail.pointCount & 0xF);
-            nextPoint = &((StandTilePoint *) tile)[nextPointIndex];
+            nextPointIndex = edgeIndex + 1;
 
-            if (((lineNegDz * (nextPoint[1].x - curPoint[1].x)) + (lineDx * (nextPoint[1].z - curPoint[1].z))) <= 0.0f)
+            if (nextPointIndex == pointCount)
             {
-                hasLink = curPoint[1].link >> 4 != 0;
+                nextPointIndex = 0;
+            }
 
-                if (doSegmentsIntersectWithTolerance(start_x, start_z, dest_x, dest_z, curPoint[1].x, curPoint[1].z, nextPoint[1].x, nextPoint[1].z, hasLink))
+            nextPoint = &tile->points[nextPointIndex];
+
+            if (((lineNegDz * (nextPoint->x - curPoint->x)) + (lineDx * (nextPoint->z - curPoint->z))) <= 0.0f)
+            {
+                linkOffset = curPoint->link;
+                hasLink = linkOffset >> 4 != 0;
+
+                if (doSegmentsIntersectWithTolerance(start_x, start_z, dest_x, dest_z, curPoint->x, curPoint->z, nextPoint->x, nextPoint->z, hasLink))
                 {
-                    linkedTile = &standTileStart[curPoint[1].link];
+                    linkedTile = &standTileStart[linkOffset];
                     crossings++;
 
                     if (previousTile != linkedTile && previousPreviousTile != linkedTile)
                     {
                         savedPointIndex = edgeIndex;
-                        nextTile = curPoint[1].link >> 4 != 0 ? linkedTile : NULL;
+                        nextTile = hasLink ? linkedTile : NULL;
                     }
                 }
             }
@@ -958,7 +968,7 @@ bool stanWalkTilesBetweenPointsWithCallback(StandTile **tileStack, f32 start_x, 
             return TRUE;
         }
 
-        if (iterationCount++ > 500 || nextTile == NULL || crossings == 0)
+        if (iterationCount++ > 500 || nextTile == NULL)
         {
             g_StanLastCollisionTile = previousTile;
             g_StanLastCollisionEdgeIndex = savedPointIndex;
@@ -1103,6 +1113,8 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
     ChrCollisionProfileScope profilerScope;
     u32 profilerStart;
     u32 profilerSubStart;
+    u32 profilerSegmentStart;
+    u32 profilerSegmentCycles;
     u32 profilerCycles;
 
     profilerScope = g_ProfChrCollisionScope;
@@ -1172,6 +1184,7 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
         {
             g_ProfChrNavLineQueryCycles += osGetCount() - profilerSubStart;
             profilerSubStart = osGetCount();
+            profilerSegmentCycles = 0;
         }
 
         for (propIndex = g_RoomPropQueryIndices; *propIndex >= 0; propIndex++)
@@ -1186,6 +1199,13 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
             chraiGetCollisionBounds(prop, &polygon, &edgeCount, &propTop, &propBottom);
             edgeStart = &polygon->points[0];
             edgeEnd = &polygon->points[1];
+
+            if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+            {
+                g_ProfChrNavLineCandidateProps++;
+                g_ProfChrNavLineTestedEdges += edgeCount;
+                profilerSegmentStart = osGetCount();
+            }
 
             for (edgeIndex = 0; edgeIndex < edgeCount; edgeIndex++, edgeStart++, edgeEnd++)
             {
@@ -1262,11 +1282,18 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
                     reachedTile = NULL;
                 }
             }
+
+            if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+            {
+                profilerSegmentCycles += osGetCount() - profilerSegmentStart;
+            }
         }
 
         if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
         {
-            g_ProfChrNavLineEdgeCycles += osGetCount() - profilerSubStart;
+            profilerCycles = osGetCount() - profilerSubStart;
+            g_ProfChrNavLinePropSetupCycles += profilerCycles - profilerSegmentCycles;
+            g_ProfChrNavLineSegmentCycles += profilerSegmentCycles;
         }
     }
 

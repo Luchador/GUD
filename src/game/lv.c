@@ -135,12 +135,8 @@ u32 g_ProfChrActionCycles;
 u32 g_ProfObjTickCycles;
 u32 g_ProfGfxCommands;
 u32 g_ProfBgGfxCommands;
-u32 g_ProfChrRouteCycles;
-u32 g_ProfChrRouteCalls;
 u32 g_ProfChrNavCycles;
 u32 g_ProfChrNavCalls;
-u32 g_ProfChrMagicCheckCycles;
-u32 g_ProfChrMagicCheckCalls;
 u32 g_ProfChrMoveCycles;
 u32 g_ProfChrMoveCalls;
 u32 g_ProfChrRoomCycles;
@@ -154,18 +150,16 @@ u32 g_ProfChrNavSweepVolumeCycles;
 u32 g_ProfChrNavSweepVolumeCalls;
 u32 g_ProfChrNavLineTileCycles;
 u32 g_ProfChrNavLineQueryCycles;
-u32 g_ProfChrNavLineEdgeCycles;
+u32 g_ProfChrNavLinePropSetupCycles;
+u32 g_ProfChrNavLineSegmentCycles;
+u32 g_ProfChrNavLineCandidateProps;
+u32 g_ProfChrNavLineTestedEdges;
 u32 g_ProfChrNavLineRecoveryCycles;
 u32 g_ProfChrNavLineRecoveryCalls;
 u32 g_ProfChrMoveLineCycles;
 u32 g_ProfChrMoveLineCalls;
 u32 g_ProfChrMoveVolumeCycles;
 u32 g_ProfChrMoveVolumeCalls;
-u32 g_ProfChrRoomScanCycles;
-u32 g_ProfChrRoomListCycles;
-u32 g_ProfChrRoomCircleCycles;
-u32 g_ProfChrRoomBboxCycles;
-s32 g_ProfChrRoomScanActive;
 /* --- end profiler state --- */
 
 bool lvGetBgRenderEnabled(void)
@@ -1049,9 +1043,9 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             0xFF8050FF,  /* navigation sweeps      */
             0xFF8050FF,  /* sweep line and volume  */
             0xFF8050FF,  /* line tile/query work   */
-            0xFF8050FF,  /* line edge/recovery work*/
+            0xFF8050FF,  /* prop setup/edge tests  */
             0xFF40FFFF,  /* move line and volume   */
-            0xC0C0C0FF,  /* room scan breakdown    */
+            0xFF8050FF,  /* prop/edge/recovery count*/
         };
         u32 sub;
         u32 lvlOther;
@@ -1078,26 +1072,21 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         sprintf(profText[13], "LN T:%3uK Q:%3uK",
             (g_ProfChrNavLineTileCycles + 500) / 1000,
             (g_ProfChrNavLineQueryCycles + 500) / 1000);
-        sprintf(profText[14], "LN E:%3uK R:%3uK/%2u",
-            (g_ProfChrNavLineEdgeCycles + 500) / 1000,
-            (g_ProfChrNavLineRecoveryCycles + 500) / 1000, g_ProfChrNavLineRecoveryCalls);
+        sprintf(profText[14], "LN B:%3uK X:%3uK",
+            (g_ProfChrNavLinePropSetupCycles + 500) / 1000,
+            (g_ProfChrNavLineSegmentCycles + 500) / 1000);
         sprintf(profText[15], "MV L:%3uK/%2u V:%3uK/%2u",
             (g_ProfChrMoveLineCycles + 500) / 1000, g_ProfChrMoveLineCalls,
             (g_ProfChrMoveVolumeCycles + 500) / 1000, g_ProfChrMoveVolumeCalls);
-        sprintf(profText[16], "RM C:%3uK B:%3uK L:%3uK",
-            (g_ProfChrRoomCircleCycles + 500) / 1000,
-            (g_ProfChrRoomBboxCycles + 500) / 1000,
-            (g_ProfChrRoomListCycles + 500) / 1000);
+        sprintf(profText[16], "LN C:%3u E:%3u R:%3uK/%2u",
+            g_ProfChrNavLineCandidateProps, g_ProfChrNavLineTestedEdges,
+            (g_ProfChrNavLineRecoveryCycles + 500) / 1000, g_ProfChrNavLineRecoveryCalls);
 
         g_ProfChrTickCycles = 0;
         g_ProfChrActionCycles = 0;
         g_ProfObjTickCycles = 0;
-        g_ProfChrRouteCycles = 0;
-        g_ProfChrRouteCalls = 0;
         g_ProfChrNavCycles = 0;
         g_ProfChrNavCalls = 0;
-        g_ProfChrMagicCheckCycles = 0;
-        g_ProfChrMagicCheckCalls = 0;
         g_ProfChrMoveCycles = 0;
         g_ProfChrMoveCalls = 0;
         g_ProfChrRoomCycles = 0;
@@ -1110,17 +1099,16 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         g_ProfChrNavSweepVolumeCalls = 0;
         g_ProfChrNavLineTileCycles = 0;
         g_ProfChrNavLineQueryCycles = 0;
-        g_ProfChrNavLineEdgeCycles = 0;
+        g_ProfChrNavLinePropSetupCycles = 0;
+        g_ProfChrNavLineSegmentCycles = 0;
+        g_ProfChrNavLineCandidateProps = 0;
+        g_ProfChrNavLineTestedEdges = 0;
         g_ProfChrNavLineRecoveryCycles = 0;
         g_ProfChrNavLineRecoveryCalls = 0;
         g_ProfChrMoveLineCycles = 0;
         g_ProfChrMoveLineCalls = 0;
         g_ProfChrMoveVolumeCycles = 0;
         g_ProfChrMoveVolumeCalls = 0;
-        g_ProfChrRoomScanCycles = 0;
-        g_ProfChrRoomListCycles = 0;
-        g_ProfChrRoomCircleCycles = 0;
-        g_ProfChrRoomBboxCycles = 0;
 
         for (i = 0; i < 17; i++)
         {
