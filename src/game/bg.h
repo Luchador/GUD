@@ -5,6 +5,7 @@
 #include <bondtypes.h>
 #include <bondconstants.h>
 
+
 struct levelentry
 {
     s32 levelID;
@@ -12,14 +13,10 @@ struct levelentry
     void *bg_stan_filename;
     f32 levelscale;
     f32 visibility;
-    f32 unknownfloat;
 };
-// cannon definition
+
 #define MAXPORTALSPERROOM 20
-
-// cannonical name
 #define PORTMAX 200
-
 #define BG_SEG_TO_PTR(base, off) ((void *) (((u32) (base)) + (((u32) (off)) + 0xF1000000)))
 
 typedef struct RoomVtxBatchBounds {
