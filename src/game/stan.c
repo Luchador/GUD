@@ -1717,6 +1717,23 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
         profilerStart = osGetCount();
     }
 
+    if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
+    {
+        if (cdtypes == CDTYPE_ALL_NO_BG)
+        {
+            g_ProfChrMoveVolumeAllMaskCalls++;
+        }
+        else if (cdtypes == (CDTYPE_OBJS | CDTYPE_PLAYERS | CDTYPE_CHRS
+                | CDTYPE_PATHBLOCKER | CDTYPE_DOORSLOCKEDTOAI))
+        {
+            g_ProfChrMoveVolumeLockedDoorMaskCalls++;
+        }
+        else
+        {
+            g_ProfChrMoveVolumeOtherMaskCalls++;
+        }
+    }
+
     useVerticalBounds = (bottomOffset <= topOffset);
 
     roomCount = 0;
@@ -1731,7 +1748,7 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
 
     if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
     {
-        g_ProfChrMoveVolumeTileCycles += osGetCount() - profilerSubStart;
+        g_ProfChrMoveVolumeCollectCycles += osGetCount() - profilerSubStart;
         g_ProfChrMoveVolumeRooms += roomCount;
     }
 
@@ -1786,7 +1803,7 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
 
             if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
             {
-                g_ProfChrMoveVolumeTileCycles += osGetCount() - profilerSubStart;
+                g_ProfChrMoveVolumeHeightCycles += osGetCount() - profilerSubStart;
             }
 
             topOffset += temp_f0;
@@ -1841,7 +1858,6 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
 
                     if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
                     {
-                        g_ProfChrMoveVolumeTestedEdges += numvertices0;
                         profilerSubStart = osGetCount();
                     }
 
@@ -1869,11 +1885,6 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
                                 || (circleMaxZ < polygon->points[i].f[1]
                                     && circleMaxZ < polygon->points[next].f[1])))
                         {
-                            if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-                            {
-                                g_ProfChrMoveVolumeAabbPassedEdges++;
-                            }
-
                             pointDist = stanGetSignedPointLineDistance(
                                 polygon->points[i].f[0],
                                 polygon->points[i].f[1],

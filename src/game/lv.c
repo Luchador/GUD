@@ -152,7 +152,8 @@ u32 g_ProfChrMoveLineCycles;
 u32 g_ProfChrMoveLineCalls;
 u32 g_ProfChrMoveVolumeCycles;
 u32 g_ProfChrMoveVolumeCalls;
-u32 g_ProfChrMoveVolumeTileCycles;
+u32 g_ProfChrMoveVolumeCollectCycles;
+u32 g_ProfChrMoveVolumeHeightCycles;
 u32 g_ProfChrMoveVolumeQueryCycles;
 u32 g_ProfChrMoveVolumeFilterCycles;
 u32 g_ProfChrMoveVolumeBoundsCycles;
@@ -160,8 +161,9 @@ u32 g_ProfChrMoveVolumeEdgeCycles;
 u32 g_ProfChrMoveVolumeRooms;
 u32 g_ProfChrMoveVolumeQueriedProps;
 u32 g_ProfChrMoveVolumeCandidateProps;
-u32 g_ProfChrMoveVolumeTestedEdges;
-u32 g_ProfChrMoveVolumeAabbPassedEdges;
+u32 g_ProfChrMoveVolumeAllMaskCalls;
+u32 g_ProfChrMoveVolumeLockedDoorMaskCalls;
+u32 g_ProfChrMoveVolumeOtherMaskCalls;
 u32 g_ProfChrMoveVolumeStanStops;
 u32 g_ProfChrMoveVolumePropHits;
 /* --- end profiler state --- */
@@ -1047,9 +1049,9 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             0xFF8050FF,  /* navigation sweeps      */
             0xFF8050FF,  /* sweep line and volume  */
             0xFF40FFFF,  /* move line and volume   */
-            0xFF40FFFF,  /* volume tile/query/filter */
-            0xFF40FFFF,  /* volume bounds/edges/stops */
-            0xFF40FFFF,  /* volume workload counts */
+            0xFF40FFFF,  /* volume collect/height/query */
+            0xFF40FFFF,  /* volume filter/bounds/edges */
+            0xFF40FFFF,  /* volume workload/mask counts */
         };
         u32 sub;
         u32 lvlOther;
@@ -1076,19 +1078,20 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         sprintf(profText[13], "MV L:%3uK/%2u V:%3uK/%2u",
             (g_ProfChrMoveLineCycles + 500) / 1000, g_ProfChrMoveLineCalls,
             (g_ProfChrMoveVolumeCycles + 500) / 1000, g_ProfChrMoveVolumeCalls);
-        /* VOL: tile/height, query, filter, bounds, edges, STAN stops and prop hits. */
-        sprintf(profText[14], "VOL T:%3uK Q:%3uK F:%3uK",
-            (g_ProfChrMoveVolumeTileCycles + 500) / 1000,
-            (g_ProfChrMoveVolumeQueryCycles + 500) / 1000,
-            (g_ProfChrMoveVolumeFilterCycles + 500) / 1000);
-        sprintf(profText[15], "VOL B:%3uK E:%3uK S:%3u H:%3u",
+        /* VOL C/Y: room collection and tile-height lookup. M: all/locked/other masks. */
+        sprintf(profText[14], "VOL C:%3uK Y:%3uK Q:%3uK",
+            (g_ProfChrMoveVolumeCollectCycles + 500) / 1000,
+            (g_ProfChrMoveVolumeHeightCycles + 500) / 1000,
+            (g_ProfChrMoveVolumeQueryCycles + 500) / 1000);
+        sprintf(profText[15], "VOL F:%3uK B:%3uK E:%3uK S:%2u H:%2u",
+            (g_ProfChrMoveVolumeFilterCycles + 500) / 1000,
             (g_ProfChrMoveVolumeBoundsCycles + 500) / 1000,
             (g_ProfChrMoveVolumeEdgeCycles + 500) / 1000,
             g_ProfChrMoveVolumeStanStops, g_ProfChrMoveVolumePropHits);
-        sprintf(profText[16], "VOL R:%3u P:%3u C:%3u E:%3u A:%3u",
+        sprintf(profText[16], "VOL R:%2u P:%3u C:%3u M:%2u/%2u/%2u",
             g_ProfChrMoveVolumeRooms, g_ProfChrMoveVolumeQueriedProps,
-            g_ProfChrMoveVolumeCandidateProps, g_ProfChrMoveVolumeTestedEdges,
-            g_ProfChrMoveVolumeAabbPassedEdges);
+            g_ProfChrMoveVolumeCandidateProps, g_ProfChrMoveVolumeAllMaskCalls,
+            g_ProfChrMoveVolumeLockedDoorMaskCalls, g_ProfChrMoveVolumeOtherMaskCalls);
 
         g_ProfChrTickCycles = 0;
         g_ProfChrActionCycles = 0;
@@ -1109,7 +1112,8 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         g_ProfChrMoveLineCalls = 0;
         g_ProfChrMoveVolumeCycles = 0;
         g_ProfChrMoveVolumeCalls = 0;
-        g_ProfChrMoveVolumeTileCycles = 0;
+        g_ProfChrMoveVolumeCollectCycles = 0;
+        g_ProfChrMoveVolumeHeightCycles = 0;
         g_ProfChrMoveVolumeQueryCycles = 0;
         g_ProfChrMoveVolumeFilterCycles = 0;
         g_ProfChrMoveVolumeBoundsCycles = 0;
@@ -1117,8 +1121,9 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         g_ProfChrMoveVolumeRooms = 0;
         g_ProfChrMoveVolumeQueriedProps = 0;
         g_ProfChrMoveVolumeCandidateProps = 0;
-        g_ProfChrMoveVolumeTestedEdges = 0;
-        g_ProfChrMoveVolumeAabbPassedEdges = 0;
+        g_ProfChrMoveVolumeAllMaskCalls = 0;
+        g_ProfChrMoveVolumeLockedDoorMaskCalls = 0;
+        g_ProfChrMoveVolumeOtherMaskCalls = 0;
         g_ProfChrMoveVolumeStanStops = 0;
         g_ProfChrMoveVolumePropHits = 0;
 
