@@ -2719,6 +2719,7 @@ void chrpropUpdateRoomList(PropRecord *prop, coord3d *bbmin, coord3d *bbmax, f32
     s32 count;
     s32 i;
     u8 *src;
+    u32 profilerStart;
 
     count = 0;
     obj = NULL;
@@ -2752,11 +2753,31 @@ void chrpropUpdateRoomList(PropRecord *prop, coord3d *bbmin, coord3d *bbmax, f32
         tile = prop->stan;
         count = 0;
 
+        if (g_ProfChrRoomScanActive)
+        {
+            profilerStart = osGetCount();
+        }
+
         stanTestCircleAndCollectRooms(&tile, prop->pos.x, prop->pos.z, radius, rooms, &count, 7);
+
+        if (g_ProfChrRoomScanActive)
+        {
+            g_ProfChrRoomCircleCycles += osGetCount() - profilerStart;
+        }
     }
 
     // Update the room list with neighboring rooms reachable through portals and overlapped by the bounding box.
+    if (g_ProfChrRoomScanActive)
+    {
+        profilerStart = osGetCount();
+    }
+
     bgGetRoomsIntersectingBbox(bbmin, bbmax, rooms, &count, 7);
+
+    if (g_ProfChrRoomScanActive)
+    {
+        g_ProfChrRoomBboxCycles += osGetCount() - profilerStart;
+    }
 
     for (i = 0; i < count; i++)
     {

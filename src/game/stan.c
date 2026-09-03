@@ -1102,6 +1102,7 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
     struct rect4f *polygon;
     ChrCollisionProfileScope profilerScope;
     u32 profilerStart;
+    u32 profilerSubStart;
     u32 profilerCycles;
 
     profilerScope = g_ProfChrCollisionScope;
@@ -1124,7 +1125,17 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
     lineEnd.f[1] = endZ;
 
     /* The extra room slot is reserved for roomGetProps's -1 terminator. */
+    if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+    {
+        profilerSubStart = osGetCount();
+    }
+
     unobstructed = stanWalkTilesBetweenPointsAndCollectRooms(&reachedTile, startX, startZ, endX, endZ, roomBuffer, &roomCount, 20);
+
+    if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+    {
+        g_ProfChrNavLineTileCycles += osGetCount() - profilerSubStart;
+    }
 
     if (!unobstructed)
     {
@@ -1149,7 +1160,19 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
     if (collisionTypes != 0)
     {
         roomBuffer[roomCount] = -1;
+
+        if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+        {
+            profilerSubStart = osGetCount();
+        }
+
         roomGetProps(roomBuffer);
+
+        if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+        {
+            g_ProfChrNavLineQueryCycles += osGetCount() - profilerSubStart;
+            profilerSubStart = osGetCount();
+        }
 
         for (propIndex = g_RoomPropQueryIndices; *propIndex >= 0; propIndex++)
         {
@@ -1240,6 +1263,11 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
                 }
             }
         }
+
+        if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+        {
+            g_ProfChrNavLineEdgeCycles += osGetCount() - profilerSubStart;
+        }
     }
 
     if (reachedTile == NULL)
@@ -1247,7 +1275,19 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
         reachedTile = *tile;
         endX = startX + (endX - startX) * nearestCollisionFraction;
         endZ = startZ + (endZ - startZ) * nearestCollisionFraction;
+
+        if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+        {
+            profilerSubStart = osGetCount();
+        }
+
         walkTilesBetweenPoints_NoCallback(&reachedTile, startX, startZ, endX, endZ);
+
+        if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+        {
+            g_ProfChrNavLineRecoveryCycles += osGetCount() - profilerSubStart;
+            g_ProfChrNavLineRecoveryCalls++;
+        }
     }
 
     *tile = reachedTile;

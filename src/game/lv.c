@@ -152,12 +152,20 @@ u32 g_ProfChrNavSweepLineCycles;
 u32 g_ProfChrNavSweepLineCalls;
 u32 g_ProfChrNavSweepVolumeCycles;
 u32 g_ProfChrNavSweepVolumeCalls;
+u32 g_ProfChrNavLineTileCycles;
+u32 g_ProfChrNavLineQueryCycles;
+u32 g_ProfChrNavLineEdgeCycles;
+u32 g_ProfChrNavLineRecoveryCycles;
+u32 g_ProfChrNavLineRecoveryCalls;
 u32 g_ProfChrMoveLineCycles;
 u32 g_ProfChrMoveLineCalls;
 u32 g_ProfChrMoveVolumeCycles;
 u32 g_ProfChrMoveVolumeCalls;
 u32 g_ProfChrRoomScanCycles;
 u32 g_ProfChrRoomListCycles;
+u32 g_ProfChrRoomCircleCycles;
+u32 g_ProfChrRoomBboxCycles;
+s32 g_ProfChrRoomScanActive;
 /* --- end profiler state --- */
 
 bool lvGetBgRenderEnabled(void)
@@ -1035,15 +1043,15 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             0xB43CFFFF,  /* chr tick   - violet  */
             0x30FF30FF,  /* chr action - green   */
             0xFFFFFFFF,  /* display-list commands */
-            0xFF8C00FF,  /* route creation       */
-            0x00FF80FF,  /* navigation steering  */
-            0x40C0FFFF,  /* magic movement checks */
-            0xFF40FFFF,  /* physical movement     */
-            0xC0C0C0FF,  /* room maintenance      */
-            0xFF8050FF,  /* navigation sweeps     */
-            0xFF8050FF,  /* sweep line and volume */
-            0xFF40FFFF,  /* move line and volume  */
-            0xC0C0C0FF,  /* room scan and lists   */
+            0x00FF80FF,  /* navigation steering   */
+            0xFF40FFFF,  /* physical movement      */
+            0xC0C0C0FF,  /* room maintenance       */
+            0xFF8050FF,  /* navigation sweeps      */
+            0xFF8050FF,  /* sweep line and volume  */
+            0xFF8050FF,  /* line tile/query work   */
+            0xFF8050FF,  /* line edge/recovery work*/
+            0xFF40FFFF,  /* move line and volume   */
+            0xC0C0C0FF,  /* room scan breakdown    */
         };
         u32 sub;
         u32 lvlOther;
@@ -1060,21 +1068,26 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         sprintf(profText[5], "CHRTICK:%4uK",  (g_ProfChrTickCycles + 500) / 1000);
         sprintf(profText[6], "CHRACT:%4uK",   (g_ProfChrActionCycles + 500) / 1000);
         sprintf(profText[7], "GFX:%5u BG:%5u", g_ProfGfxCommands, g_ProfBgGfxCommands);
-        sprintf(profText[8], "ROUTE:%4uK C:%3u", (g_ProfChrRouteCycles + 500) / 1000, g_ProfChrRouteCalls);
-        sprintf(profText[9], "NAV:  %4uK C:%3u", (g_ProfChrNavCycles + 500) / 1000, g_ProfChrNavCalls);
-        sprintf(profText[10], "MAGIC:%4uK C:%3u", (g_ProfChrMagicCheckCycles + 500) / 1000, g_ProfChrMagicCheckCalls);
-        sprintf(profText[11], "MOVE: %4uK C:%3u", (g_ProfChrMoveCycles + 500) / 1000, g_ProfChrMoveCalls);
-        sprintf(profText[12], "ROOM: %4uK C:%3u", (g_ProfChrRoomCycles + 500) / 1000, g_ProfChrRoomCalls);
-        sprintf(profText[13], "SWEEP:%4uK C:%3u", (g_ProfChrNavSweepCycles + 500) / 1000, g_ProfChrNavSweepCalls);
-        sprintf(profText[14], "SW L:%3uK/%2u V:%3uK/%2u",
+        sprintf(profText[8], "NAV:  %4uK C:%3u", (g_ProfChrNavCycles + 500) / 1000, g_ProfChrNavCalls);
+        sprintf(profText[9], "MOVE: %4uK C:%3u", (g_ProfChrMoveCycles + 500) / 1000, g_ProfChrMoveCalls);
+        sprintf(profText[10], "ROOM: %4uK C:%3u", (g_ProfChrRoomCycles + 500) / 1000, g_ProfChrRoomCalls);
+        sprintf(profText[11], "SWEEP:%4uK C:%3u", (g_ProfChrNavSweepCycles + 500) / 1000, g_ProfChrNavSweepCalls);
+        sprintf(profText[12], "SW L:%3uK/%2u V:%3uK/%2u",
             (g_ProfChrNavSweepLineCycles + 500) / 1000, g_ProfChrNavSweepLineCalls,
             (g_ProfChrNavSweepVolumeCycles + 500) / 1000, g_ProfChrNavSweepVolumeCalls);
+        sprintf(profText[13], "LN T:%3uK Q:%3uK",
+            (g_ProfChrNavLineTileCycles + 500) / 1000,
+            (g_ProfChrNavLineQueryCycles + 500) / 1000);
+        sprintf(profText[14], "LN E:%3uK R:%3uK/%2u",
+            (g_ProfChrNavLineEdgeCycles + 500) / 1000,
+            (g_ProfChrNavLineRecoveryCycles + 500) / 1000, g_ProfChrNavLineRecoveryCalls);
         sprintf(profText[15], "MV L:%3uK/%2u V:%3uK/%2u",
             (g_ProfChrMoveLineCycles + 500) / 1000, g_ProfChrMoveLineCalls,
             (g_ProfChrMoveVolumeCycles + 500) / 1000, g_ProfChrMoveVolumeCalls);
-        sprintf(profText[16], "RM S:%3uK L:%3uK C:%2u",
-            (g_ProfChrRoomScanCycles + 500) / 1000,
-            (g_ProfChrRoomListCycles + 500) / 1000, g_ProfChrRoomCalls);
+        sprintf(profText[16], "RM C:%3uK B:%3uK L:%3uK",
+            (g_ProfChrRoomCircleCycles + 500) / 1000,
+            (g_ProfChrRoomBboxCycles + 500) / 1000,
+            (g_ProfChrRoomListCycles + 500) / 1000);
 
         g_ProfChrTickCycles = 0;
         g_ProfChrActionCycles = 0;
@@ -1095,12 +1108,19 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         g_ProfChrNavSweepLineCalls = 0;
         g_ProfChrNavSweepVolumeCycles = 0;
         g_ProfChrNavSweepVolumeCalls = 0;
+        g_ProfChrNavLineTileCycles = 0;
+        g_ProfChrNavLineQueryCycles = 0;
+        g_ProfChrNavLineEdgeCycles = 0;
+        g_ProfChrNavLineRecoveryCycles = 0;
+        g_ProfChrNavLineRecoveryCalls = 0;
         g_ProfChrMoveLineCycles = 0;
         g_ProfChrMoveLineCalls = 0;
         g_ProfChrMoveVolumeCycles = 0;
         g_ProfChrMoveVolumeCalls = 0;
         g_ProfChrRoomScanCycles = 0;
         g_ProfChrRoomListCycles = 0;
+        g_ProfChrRoomCircleCycles = 0;
+        g_ProfChrRoomBboxCycles = 0;
 
         for (i = 0; i < 17; i++)
         {

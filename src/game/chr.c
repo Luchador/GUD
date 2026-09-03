@@ -2158,6 +2158,7 @@ void chrDetectRooms(ChrRecord *self)
     coord3d     upperbounds;
     u32 profilerStart;
     u32 profilerSubStart;
+    s32 profilerPreviousRoomScanActive;
 
     profilerStart = osGetCount();
     // Create a roughly character sized bounding box.
@@ -2176,7 +2177,10 @@ void chrDetectRooms(ChrRecord *self)
 
     // Detect rooms overlapped by the bounding box
     profilerSubStart = osGetCount();
+    profilerPreviousRoomScanActive = g_ProfChrRoomScanActive;
+    g_ProfChrRoomScanActive = TRUE;
     chrpropUpdateRoomList(myprop, &lowerbounds, &upperbounds, 50.0f);
+    g_ProfChrRoomScanActive = profilerPreviousRoomScanActive;
     g_ProfChrRoomScanCycles += osGetCount() - profilerSubStart;
 
     // Re-register the character prop in those rooms
