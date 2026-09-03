@@ -1777,11 +1777,9 @@ u8 ai_1[] = {
     guard_bitfield_set_on(0x10)
     if_bond_damage_and_pickups_disabled(0x0a)
     chr_try_spawning_at_pad(0x11, 0xff, 0x9800, 0x0604, 0x00000000, 0x21)
-    debug_log 'F', '!', '\n', '\0',
     label(0x0a)
     goto_first(0x06)
     label(0x21)
-    debug_log 'H', 'e', 'l', 'l', 'o', '!', '\n', '\0',
     label(0x01)
     random_generate_seed
     if_random_seed_greater_than(0x19, 0x01)
@@ -1837,11 +1835,9 @@ u8 ai_2[] = {
     if_guard_bitfield_is_set_on(0x20, 0x01)
     guard_bitfield_set_on(0x20)
     chr_try_spawning_clone(0xfd, 0x0604, 0x21)
-    debug_log 'F', '!', '\n', '\0',
     goto_first(0x06)
     label(0x21)
     ai_sleep
-    debug_log 'H', 'e', 'l', 'l', 'o', '!', '\n', '\0',
     label(0x01)
     random_generate_seed
     if_random_seed_greater_than(0x19, 0x01)
@@ -1942,7 +1938,6 @@ u8 ai_5[] = {
     label(0x27)
     guard_try_spawning_item(0xc300, 0x09, 0x00000090, 0x20)
     ai_sleep
-    debug_log 'D', 'a', '-', 'D', 'a', '!', '\n', '\0',
     label(0x20)
     ai_sleep
     guard_try_running_to_bond_position(0x1f)
@@ -2042,7 +2037,6 @@ u8 ai_8[] = {
     goto_first(0x13)
     label(0x01)
     guard_animation_stop
-    debug_log 'w', 'a', 'i', 't', '\n', '\0',
     guard_bitfield_set_off(0x04)
     random_generate_seed
     if_random_seed_greater_than(0xc8, 0x01)
@@ -2410,7 +2404,6 @@ u8 ai_17[] = {
     ai_list_end
 };
 u8 ai_9[] = {
-    debug_log 'D', 'o', 'n', 'e', '\n', '\0',
     guard_set_health_total(0x5000)
     guard_try_spawning_hat(0xdc00, 0x00000000, 0x01)
     label(0x01)
@@ -2621,7 +2614,6 @@ u8 ai_30[] = {
     if_bond_distance_to_pad_less_than(0x6400, 0xaf00, 0x01)
     goto_first(0x06)
     label(0x01)
-    debug_log 'G', 'o', '\n', '\0',
     random_generate_seed
     if_random_seed_greater_than(0x64, 0x01)
     if_bond_damage_and_pickups_disabled(0x11)
@@ -2647,7 +2639,6 @@ u8 ai_30[] = {
     if_bond_in_room_with_pad(0x9000, 0x01)
     goto_first(0x12)
     label(0x01)
-    debug_log 'p', 'o', 'p', '2', '\n', '\0',
     ai_sleep
     if_bond_damage_and_pickups_disabled(0x01)
     chr_try_spawning_at_pad(0x04, 0xff, 0x4100, 0x0b04, 0x00000000, 0x01)
@@ -2712,7 +2703,6 @@ u8 ai_30[] = {
     if_bond_damage_and_pickups_disabled(0x02)
     chr_try_spawning_at_pad(0x04, 0xff, 0x3c00, 0x0f04, 0x00000000, 0x02)
     label(0x02)
-    debug_log 'p', 'o', 'p', '3', '\n', '\0',
     label(0x13)
     ai_sleep
     goto_first(0x13)

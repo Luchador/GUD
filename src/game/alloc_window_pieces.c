@@ -12,11 +12,6 @@ void alloc_shattered_window_pieces(void)
 
     SHATTERED_WINDOW_PIECES_BUFFER_LEN = (200 / getPlayerCount());
 
-    if ((level == LEVELID_STREETS) || (level == LEVELID_DEPOT))
-    {
-        SHATTERED_WINDOW_PIECES_BUFFER_LEN = (SHATTERED_WINDOW_PIECES_BUFFER_LEN >> 1);
-    }
-
     ptr_shattered_window_pieces = mempAllocBytesInBank(((SHATTERED_WINDOW_PIECES_BUFFER_LEN * sizeof(s_shattered_window_piece)) + 0xF) & ~0xF, MEMPOOL_STAGE);
 
     for(i=0; i<SHATTERED_WINDOW_PIECES_BUFFER_LEN; i++)

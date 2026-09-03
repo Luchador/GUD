@@ -1620,7 +1620,6 @@ u8 ai_15[] = {
     set_return_ai_list(0x1004)
     jump_to_ai_list(0xfd, 0x1304)
     label(0x24)
-    debug_log 'I', 'f', ' ', 'o', 'n', 'l', 'y', ' ', 'I', ' ', 'h', 'a', 'd', ' ', 'a', ' ', 'g', 'u', 'n', '!', '!', '!', '\n', '\0',
     guard_try_throwing_grenade(0x25)
     goto_first(0x00)
     label(0x25)
@@ -1700,7 +1699,6 @@ u8 ai_18[] = {
     if_guard_shot_from_bond_missed(0x1f)
     goto_first(0x03)
     label(0x1f)
-    debug_log '!', '\n', '\0',
     guard_surrenders
     label(0x23)
     ai_sleep
@@ -1710,7 +1708,6 @@ u8 ai_18[] = {
     if_guard_has_stopped_moving(0x23)
     goto_first(0x23)
     label(0x23)
-    debug_log 'I', 'm', ' ', 'o', 'f', 'f', '!', '\n', '\0',
     goto_first(0x00)
     label(0x01)
     if_chr_distance_to_pad_less_than(0xfd, 0x3200, 0xd100, 0x2d)

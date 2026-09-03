@@ -1897,7 +1897,6 @@ u8 ai_2[] = {
     if_objective_bitfield_is_set_on(0x00080000, 0x36)
     if_local_timer_greater_than(0x840300, 0x0f)
     label(0x36)
-    debug_log 't', 'i', 'm', 'e', '\0',
     label(0x01)
     random_generate_seed
     if_random_seed_greater_than(0x32, 0x2c)
@@ -2108,19 +2107,16 @@ u8 ai_21[] = {
     if_chr_does_not_exist(0x1c, 0x2c)
     goto_next(0x36)
     label(0x2c)
-    debug_log 'S', '1', '\0',
     chr_try_spawning_at_pad(0x00, 0xff, 0x3f00, 0x0504, 0x10000000, 0x36)
     label(0x36)
     if_chr_does_not_exist(0x1d, 0x2c)
     goto_next(0x36)
     label(0x2c)
-    debug_log 'S', '2', '\0',
     chr_try_spawning_at_pad(0x00, 0xff, 0x4500, 0x0604, 0x10000000, 0x36)
     label(0x36)
     if_chr_does_not_exist(0x1d, 0x2c)
     goto_next(0x36)
     label(0x2c)
-    debug_log 'S', '3', '\0',
     label(0x36)
     label(0x08)
     goto_first(0x04)
@@ -2612,13 +2608,11 @@ u8 ai_25[] = {
 };
 u8 ai_13[] = {
     guard_set_chr_num(0x26)
-    debug_log 'S', '4', '\n', '\0',
     jump_to_ai_list(0xfd, 0x1004)
     ai_list_end
 };
 u8 ai_14[] = {
     guard_set_chr_num(0x27)
-    debug_log 'S', '5', '\n', '\0',
     jump_to_ai_list(0xfd, 0x1004)
     ai_list_end
 };

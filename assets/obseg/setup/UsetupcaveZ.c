@@ -2264,7 +2264,6 @@ u8 ai_11[] = {
     if_guard_has_stopped_moving(0x2e)
     goto_first(0x04)
     label(0x02)
-    debug_log 'D', '\n', '\0',
     if_objective_bitfield_is_set_on(0x00000100, 0x2f)
     if_objective_bitfield_is_set_on(0x00800000, 0x01)
     label(0x2f)
@@ -2276,7 +2275,6 @@ u8 ai_11[] = {
     if_objective_bitfield_is_set_on(0x00020000, 0x16)
     if_objective_bitfield_is_set_on(0x00010000, 0x15)
     label(0x14)
-    debug_log '1', '\n', '\0',
     objective_bitfield_set_on(0x00010000)
     guard_set_pad_preset(0xd300)
     door_close(0x19)
@@ -2301,21 +2299,18 @@ u8 ai_11[] = {
     door_close(0x13)
     goto_next(0x2e)
     label(0x18)
-    debug_log '5', '\n', '\0',
     objective_bitfield_set_on(0x00100000)
     guard_set_pad_preset(0x5901)
     door_close(0x1d)
     door_close(0x14)
     goto_next(0x2e)
     label(0x19)
-    debug_log '6', '\n', '\0',
     objective_bitfield_set_on(0x00200000)
     guard_set_pad_preset(0x6701)
     door_close(0x1e)
     door_close(0x15)
     goto_next(0x2e)
     label(0x1b)
-    debug_log '7', '\n', '\0',
     objective_bitfield_set_on(0x00800000)
     guard_set_pad_preset(0x6901)
     door_close(0x20)
@@ -2324,7 +2319,6 @@ u8 ai_11[] = {
     door_close(0x25)
     goto_next(0x2e)
     label(0x1c)
-    debug_log '8', '\n', '\0',
     door_close(0x21)
     door_close(0x18)
     guard_set_pad_preset(0x6f01)
@@ -2344,18 +2338,15 @@ u8 ai_11[] = {
     ai_sleep
     goto_first(0x0b)
     label(0x01)
-    debug_log 'W', '\n', '\0',
     guard_runs_to_pad(0x6801)
     objective_bitfield_set_on(0x00000100)
     label(0x07)
-    debug_log '4', '\n', '\0',
     ai_sleep
     if_guard_has_stopped_moving(0x2e)
     if_chr_distance_to_pad_less_than(0xfd, 0x3200, 0x6801, 0x2e)
     goto_first(0x07)
     label(0x2e)
     label(0x08)
-    debug_log '5', '\n', '\0',
     ai_sleep
     if_guard_and_bond_within_line_of_sight(0x2e)
     goto_first(0x08)
@@ -2444,7 +2435,6 @@ u8 ai_7[] = {
     set_return_ai_list(0x0804)
     jump_to_ai_list(0xfd, 0x0b04)
     label(0x30)
-    debug_log 'I', 'f', ' ', 'o', 'n', 'l', 'y', ' ', 'I', ' ', 'h', 'a', 'd', ' ', 'a', ' ', 'g', 'u', 'n', '!', '!', '!', '\n', '\0',
     guard_try_throwing_grenade(0x31)
     goto_first(0x00)
     label(0x31)
@@ -2524,7 +2514,6 @@ u8 ai_10[] = {
     if_guard_shot_from_bond_missed(0x2a)
     goto_first(0x04)
     label(0x2a)
-    debug_log '!', '\n', '\0',
     guard_surrenders
     label(0x2e)
     ai_sleep
@@ -2534,7 +2523,6 @@ u8 ai_10[] = {
     if_guard_has_stopped_moving(0x2e)
     goto_first(0x2e)
     label(0x2e)
-    debug_log 'I', 'm', ' ', 'o', 'f', 'f', '!', '\n', '\0',
     goto_first(0x00)
     label(0x02)
     if_chr_distance_to_pad_less_than(0xfd, 0x3200, 0x7001, 0x39)
@@ -2627,7 +2615,6 @@ u8 ai_23[] = {
     ai_list_end
 };
 u8 ai_24[] = {
-    debug_log 'h', 'e', 'l', 'l', 'o', '\0',
     label(0x00)
     ai_sleep
     if_objective_bitfield_is_set_on(0x00000200, 0x3c)
@@ -2637,7 +2624,6 @@ u8 ai_24[] = {
     door_open(0x23)
     door_open(0x24)
     door_open(0x25)
-    debug_log '!', '\n', '\0',
     ai_sleep
     if_chr_does_not_exist(0x59, 0x2e)
     goto_next(0x1e)
@@ -2671,19 +2657,16 @@ u8 ai_24[] = {
 };
 u8 ai_15[] = {
     guard_set_chr_num(0x59)
-    debug_log 'h', '1', '\n', '\0',
     jump_to_ai_list(0xfd, 0x1304)
     ai_list_end
 };
 u8 ai_16[] = {
     guard_set_chr_num(0x5a)
-    debug_log 'h', '2', '\n', '\0',
     jump_to_ai_list(0xfd, 0x1304)
     ai_list_end
 };
 u8 ai_17[] = {
     guard_set_chr_num(0x5b)
-    debug_log 'h', '3', '\n', '\0',
     jump_to_ai_list(0xfd, 0x1304)
     ai_list_end
 };

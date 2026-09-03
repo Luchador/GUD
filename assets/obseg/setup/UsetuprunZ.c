@@ -852,43 +852,36 @@ u8 ai_1[] = {
 };
 u8 ai_3[] = {
     guard_set_chr_num(0x19)
-    debug_log 'd', '1', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0304)
     ai_list_end
 };
 u8 ai_4[] = {
     guard_set_chr_num(0x1a)
-    debug_log 'd', '2', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0304)
     ai_list_end
 };
 u8 ai_5[] = {
     guard_set_chr_num(0x1b)
-    debug_log 'd', '3', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0304)
     ai_list_end
 };
 u8 ai_6[] = {
     guard_set_chr_num(0x1c)
-    debug_log 'd', '4', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0304)
     ai_list_end
 };
 u8 ai_7[] = {
     guard_set_chr_num(0x1d)
-    debug_log 'd', '5', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0304)
     ai_list_end
 };
 u8 ai_8[] = {
     guard_set_chr_num(0x1e)
-    debug_log 'd', '6', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0304)
     ai_list_end
 };
 u8 ai_9[] = {
     guard_set_chr_num(0x1f)
-    debug_log 'd', '7', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0304)
     ai_list_end
 };
@@ -1117,13 +1110,10 @@ u8 ai_14[] = {
     if_chr_does_not_exist(0x19, 0x29)
     goto_first(0x03)
     label(0x29)
-    debug_log 's', 'p', 'a', 'w', 'n', '1', '\0',
     if_bond_damage_and_pickups_disabled(0x06)
     chr_try_spawning_at_pad(0x02, 0xff, 0x2823, 0x0404, 0x10000000, 0x06)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x06)
-    debug_log 's', '1', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x08)
     ai_sleep
@@ -1151,13 +1141,10 @@ u8 ai_15[] = {
     if_chr_does_not_exist(0x1a, 0x29)
     goto_first(0x03)
     label(0x29)
-    debug_log 's', 'p', 'a', 'w', 'n', '2', '\0',
     if_bond_damage_and_pickups_disabled(0x06)
     chr_try_spawning_at_pad(0x02, 0xff, 0x2823, 0x0504, 0x10000000, 0x06)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x06)
-    debug_log 's', '2', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x08)
     ai_sleep
@@ -1185,13 +1172,10 @@ u8 ai_15[] = {
     if_chr_does_not_exist(0x1b, 0x29)
     goto_first(0x03)
     label(0x29)
-    debug_log 's', 'p', 'a', 'w', 'n', '3', '\0',
     if_bond_damage_and_pickups_disabled(0x06)
     chr_try_spawning_at_pad(0x02, 0xff, 0x2823, 0x0604, 0x10000000, 0x06)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x06)
-    debug_log 's', '3', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x08)
     ai_sleep
@@ -1219,13 +1203,10 @@ u8 ai_16[] = {
     if_chr_does_not_exist(0x1c, 0x29)
     goto_first(0x03)
     label(0x29)
-    debug_log 's', 'p', 'a', 'w', 'n', '4', '\0',
     if_bond_damage_and_pickups_disabled(0x06)
     chr_try_spawning_at_pad(0x02, 0xff, 0x2823, 0x0704, 0x10000000, 0x06)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x06)
-    debug_log 's', '4', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x08)
     ai_sleep
@@ -1253,13 +1234,10 @@ u8 ai_17[] = {
     if_chr_does_not_exist(0x1d, 0x29)
     goto_first(0x03)
     label(0x29)
-    debug_log 's', 'p', 'a', 'w', 'n', '5', '\0',
     if_bond_damage_and_pickups_disabled(0x06)
     chr_try_spawning_at_pad(0x02, 0xff, 0x2823, 0x0804, 0x10000000, 0x06)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x06)
-    debug_log 's', '5', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x08)
     ai_sleep
@@ -1287,13 +1265,10 @@ u8 ai_18[] = {
     if_chr_does_not_exist(0x1e, 0x29)
     goto_first(0x03)
     label(0x29)
-    debug_log 's', 'p', 'a', 'w', 'n', '6', '\0',
     if_bond_damage_and_pickups_disabled(0x06)
     chr_try_spawning_at_pad(0x25, 0xff, 0x2823, 0x0904, 0x10000000, 0x06)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x06)
-    debug_log 's', '6', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x08)
     ai_sleep
@@ -1321,13 +1296,10 @@ u8 ai_18[] = {
     if_chr_does_not_exist(0x1f, 0x29)
     goto_first(0x03)
     label(0x29)
-    debug_log 's', 'p', 'a', 'w', 'n', '7', '\0',
     if_bond_damage_and_pickups_disabled(0x06)
     chr_try_spawning_at_pad(0x25, 0xff, 0x2823, 0x0a04, 0x10000000, 0x06)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x06)
-    debug_log 's', '7', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x08)
     ai_sleep

@@ -806,7 +806,6 @@ void lvTick(void)
 
 
 /**
- * Assumes a debug mode is present, and handles debug edit intro, debug stan edit, debug bond "view."
  * This updates the player viewport(s), and handles player movement.
  *
  * Multiplayer:

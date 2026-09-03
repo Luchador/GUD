@@ -1331,11 +1331,9 @@ u8 ai_3[] = {
     if_random_seed_greater_than(0x80, 0x09)
     goto_next(0x08)
     label(0x08)
-    debug_log '1', '\n', '\0',
     guard_set_pad_preset(0x6400)
     goto_next(0x2f)
     label(0x09)
-    debug_log '2', '\n', '\0',
     guard_set_pad_preset(0x6000)
     goto_next(0x2f)
     label(0x2f)
@@ -1344,7 +1342,6 @@ u8 ai_3[] = {
     ai_list_end
 };
 u8 ai_4[] = {
-    debug_log 'g', '\n', '\0',
     guard_walks_to_pad(0x2823)
     label(0x2f)
     ai_sleep
@@ -1389,7 +1386,6 @@ u8 ai_5[] = {
     ai_list_end
 };
 u8 ai_6[] = {
-    debug_log 'J', '1', '\n', '\0',
     guard_try_facing_target(0x0100, 0x0000, 0x2a)
     label(0x2a)
     local_timer_reset_start
@@ -1423,7 +1419,6 @@ u8 ai_6[] = {
     ai_list_end
 };
 u8 ai_7[] = {
-    debug_log 'J', '2', '\n', '\0',
     guard_try_facing_target(0x0100, 0x0000, 0x2a)
     label(0x2a)
     local_timer_reset_start
@@ -1494,7 +1489,6 @@ u8 ai_8[] = {
     ai_list_end
 };
 u8 ai_9[] = {
-    debug_log 'N', '1', '\n', '\0',
     guard_animation_stop
     local_timer_reset_start
     text_print_top(0x0974)
@@ -1564,7 +1558,6 @@ u8 ai_9[] = {
     ai_list_end
 };
 u8 ai_10[] = {
-    debug_log 'N', '2', '\n', '\0',
     guard_animation_stop
     local_timer_reset_start
     label(0x00)
@@ -1776,7 +1769,6 @@ u8 ai_13[] = {
     text_print_top(0x2974)
     goto_next(0x07)
     label(0x07)
-    debug_log 'g', 'o', '\0',
     guard_bitfield_set_on(0x04)
     objective_bitfield_set_on(0x00200000)
     jump_to_ai_list(0xfd, 0x1604)
@@ -1807,7 +1799,6 @@ u8 ai_28[] = {
 };
 u8 ai_21[] = {
     label(0x04)
-    debug_log 'G', 'O', '\0',
     guard_runs_to_pad(0x7800)
     label(0x08)
     ai_sleep
@@ -1825,7 +1816,6 @@ u8 ai_21[] = {
     ai_list_end
 };
 u8 ai_25[] = {
-    debug_log 'h', 'e', 'l', 'l', 'o', '\0',
     label(0x05)
     ai_sleep
     if_alarm_is_on(0x36)
@@ -1833,7 +1823,6 @@ u8 ai_25[] = {
     label(0x36)
     label(0x35)
     local_timer_reset_start
-    debug_log '!', '\n', '\0',
     ai_sleep
     if_chr_does_not_exist(0x23, 0x2a)
     goto_next(0x34)
@@ -1883,31 +1872,26 @@ u8 ai_25[] = {
 };
 u8 ai_15[] = {
     guard_set_chr_num(0x23)
-    debug_log 'h', '1', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0f04)
     ai_list_end
 };
 u8 ai_16[] = {
     guard_set_chr_num(0x24)
-    debug_log 'h', '2', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0f04)
     ai_list_end
 };
 u8 ai_17[] = {
     guard_set_chr_num(0x25)
-    debug_log 'h', '3', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0f04)
     ai_list_end
 };
 u8 ai_18[] = {
     guard_set_chr_num(0x26)
-    debug_log 'h', '4', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0f04)
     ai_list_end
 };
 u8 ai_19[] = {
     guard_set_chr_num(0x27)
-    debug_log 'h', '5', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0f04)
     ai_list_end
 };

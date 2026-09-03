@@ -2305,7 +2305,6 @@ u8 ai_1[] = {
     ai_list_end
 };
 u8 ai_2[] = {
-    debug_log 'X', ' ', '-', ' ', 'm', 'a', '\0',
     label(0x03)
     ai_sleep
     set_return_ai_list(0x0304)
@@ -2323,7 +2322,6 @@ u8 ai_2[] = {
     ai_list_end
 };
 u8 ai_3[] = {
-    debug_log 'X', ' ', '-', ' ', 'a', 't', '\0',
     label(0x03)
     random_generate_seed
     if_random_seed_greater_than(0x80, 0x2c)
@@ -2368,7 +2366,6 @@ u8 ai_3[] = {
     ai_list_end
 };
 u8 ai_5[] = {
-    debug_log 'X', ' ', '-', ' ', 'e', 'v', '\0',
     label(0x03)
     ai_sleep
     random_generate_seed
@@ -2396,7 +2393,6 @@ u8 ai_5[] = {
     ai_list_end
 };
 u8 ai_4[] = {
-    debug_log 'X', ' ', '-', ' ', 'g', 'o', '\0',
     label(0x03)
     guard_try_running_to_bond_position(0x2c)
     label(0x2c)
@@ -2431,7 +2427,6 @@ u8 ai_7[] = {
     ai_list_end
 };
 u8 ai_6[] = {
-    debug_log 'f', 'o', 'l', '\0',
     guard_set_speed_rating(0x0a)
     guard_flags_set_on(0x40000000)
     label(0x01)
@@ -2455,7 +2450,6 @@ u8 ai_6[] = {
     guard_animation_stop
     jump_to_ai_list(0xfd, 0x0c04)
     label(0x2c)
-    debug_log 'f', 'r', 'o', 'l', 'i', 'c', '\0',
     guard_runs_to_pad_preset
     label(0x0a)
     ai_sleep
@@ -2468,7 +2462,6 @@ u8 ai_6[] = {
     ai_list_end
 };
 u8 ai_8[] = {
-    debug_log 'm', 'd', 'k', '\0',
     if_bond_is_dead(0x26)
     label(0x03)
     guard_try_setting_chr_preset_to_guard_within_distance(0x6400, 0x26)
@@ -2625,7 +2618,6 @@ u8 ai_9[] = {
     ai_list_end
 };
 u8 ai_11[] = {
-    debug_log 's', 'c', 'a', 'n', '\0',
     guard_set_speed_rating(0x00)
     random_generate_seed
     if_random_seed_greater_than(0x3c, 0x2c)
@@ -2681,7 +2673,6 @@ u8 ai_11[] = {
     ai_list_end
 };
 u8 ai_10[] = {
-    debug_log 'e', 'v', 'a', 'd', '\0',
     guard_set_speed_rating(0x14)
     chr_bitfield_set_on(0xfc, 0x80)
     random_generate_seed
@@ -2732,7 +2723,6 @@ u8 ai_10[] = {
     label(0x2c)
     ai_sleep
     chr_hit_chr_body_part_with_held_item(0xfd, 0xfc, 0x08)
-    debug_log 'c', 'h', 'e', 'a', 'p', '\0',
     chr_bitfield_set_off(0xfc, 0x80)
     label(0x0d)
     ai_sleep
@@ -2875,7 +2865,6 @@ u8 ai_15[] = {
     ai_list_end
 };
 u8 ai_27[] = {
-    debug_log 'g', 'e', 't', ' ', 'N', '\0',
     guard_set_chr_preset(0x01)
     ai_sleep
     guard_flags_set_off(0x40000000)
@@ -3196,7 +3185,6 @@ u8 ai_34[] = {
     objective_bitfield_set_on(0x00080000)
     label(0x37)
     local_timer_reset_start
-    debug_log '!', '\n', '\0',
     ai_sleep
     if_chr_does_not_exist(0x27, 0x2c)
     goto_next(0x36)
@@ -3262,7 +3250,6 @@ u8 ai_34[] = {
     label(0x2c)
     goto_first(0x37)
     label(0x07)
-    debug_log 's', 'p', 'a', 'w', 'n', ' ', 'o', 'f', 'f', '\0',
     objective_bitfield_set_off(0x00080000)
     goto_first(0x04)
     ai_list_end
@@ -3276,7 +3263,6 @@ u8 ai_19[] = {
     label(0x36)
     guard_set_pad_preset(0xcb01)
     label(0x2c)
-    debug_log '1', '8', '\n', '\0',
     jump_to_ai_list(0xfd, 0x1a04)
     ai_list_end
 };
@@ -3289,7 +3275,6 @@ u8 ai_20[] = {
     label(0x36)
     guard_set_pad_preset(0xca01)
     label(0x2c)
-    debug_log '1', '9', '\n', '\0',
     jump_to_ai_list(0xfd, 0x1a04)
     ai_list_end
 };
@@ -3302,7 +3287,6 @@ u8 ai_21[] = {
     label(0x36)
     guard_set_pad_preset(0xc701)
     label(0x2c)
-    debug_log '2', '0', '\n', '\0',
     jump_to_ai_list(0xfd, 0x1a04)
     ai_list_end
 };
@@ -3315,7 +3299,6 @@ u8 ai_22[] = {
     label(0x36)
     guard_set_pad_preset(0xc801)
     label(0x2c)
-    debug_log '1', '0', '\n', '\0',
     jump_to_ai_list(0xfd, 0x1a04)
     ai_list_end
 };
@@ -3328,7 +3311,6 @@ u8 ai_23[] = {
     label(0x36)
     guard_set_pad_preset(0xc901)
     label(0x2c)
-    debug_log '1', '1', '\n', '\0',
     jump_to_ai_list(0xfd, 0x1a04)
     ai_list_end
 };
@@ -3341,7 +3323,6 @@ u8 ai_24[] = {
     label(0x36)
     guard_set_pad_preset(0xc401)
     label(0x2c)
-    debug_log '2', '0', '\n', '\0',
     jump_to_ai_list(0xfd, 0x1a04)
     ai_list_end
 };
@@ -3399,7 +3380,6 @@ u8 ai_35[] = {
     if_local_timer_greater_than(0x302a00, 0x2c)
     goto_first(0x09)
     label(0x2c)
-    debug_log 'r', 'a', 'm', 'p', ' ', 'd', 'o', 'w', 'n', ' ', '1', '\0',
     objective_bitfield_set_on(0x00800000)
     objective_bitfield_set_on(0x00000100)
     objective_bitfield_set_on(0x00000200)
@@ -3411,7 +3391,6 @@ u8 ai_35[] = {
     if_local_timer_greater_than(0xa08c00, 0x2c)
     goto_first(0x0a)
     label(0x2c)
-    debug_log 'r', 'a', 'm', 'p', ' ', 'd', 'o', 'w', 'n', ' ', '2', '\0',
     objective_bitfield_set_on(0x00100000)
     objective_bitfield_set_on(0x00200000)
     objective_bitfield_set_on(0x00400000)

@@ -1597,13 +1597,11 @@ u8 ai_0[] = {
     ai_list_end
 };
 u8 ai_1[] = {
-    debug_log 'b', 'r', 'r', 'm', ' ', 'b', 'r', 'r', 'm', '\n', '\0',
     label(0x03)
     ai_sleep
     if_bond_distance_to_pad_less_than(0x3200, 0x0a01, 0x2c)
     goto_first(0x03)
     label(0x2c)
-    debug_log '\n', '\n', '\n', 'g', 'o', '\n', '\n', '\n', '\0',
     vehicle_start_path(0x00)
     vehicle_speed(0x0006, 0x7800)
     label(0x04)
@@ -1790,7 +1788,6 @@ u8 ai_21[] = {
     goto_first(0x04)
     label(0x41)
     ai_sleep
-    debug_log 'I', 'N', '1', '\n', '\0',
     chr_set_pad_preset(0x2a, 0x3600)
     chr_set_pad_preset(0x2b, 0x3700)
     chr_set_pad_preset(0x2c, 0x3800)
@@ -1801,7 +1798,6 @@ u8 ai_21[] = {
     goto_first(0x04)
     label(0x42)
     ai_sleep
-    debug_log 'I', 'N', '2', '\n', '\0',
     chr_set_pad_preset(0x2a, 0x4c00)
     chr_set_pad_preset(0x2b, 0x4b00)
     chr_set_pad_preset(0x2c, 0x4d00)
@@ -1812,7 +1808,6 @@ u8 ai_21[] = {
     goto_first(0x04)
     label(0x43)
     ai_sleep
-    debug_log 'I', 'N', '3', '\n', '\0',
     chr_set_pad_preset(0x2a, 0x5400)
     chr_set_pad_preset(0x2b, 0x5500)
     chr_set_pad_preset(0x2c, 0x5600)
@@ -1823,7 +1818,6 @@ u8 ai_21[] = {
     goto_first(0x04)
     label(0x44)
     ai_sleep
-    debug_log 'I', 'N', '4', '\n', '\0',
     chr_set_pad_preset(0x2a, 0x6900)
     chr_set_pad_preset(0x2b, 0x6a00)
     chr_set_pad_preset(0x2c, 0x6b00)
@@ -1834,7 +1828,6 @@ u8 ai_21[] = {
     goto_first(0x04)
     label(0x45)
     ai_sleep
-    debug_log 'I', 'N', '5', '\n', '\0',
     chr_set_pad_preset(0x2a, 0x6c00)
     chr_set_pad_preset(0x2b, 0x6d00)
     chr_set_pad_preset(0x2c, 0x6e00)
@@ -1845,7 +1838,6 @@ u8 ai_21[] = {
     goto_first(0x04)
     label(0x46)
     ai_sleep
-    debug_log 'I', 'N', '6', '\n', '\0',
     chr_set_pad_preset(0x2a, 0x6900)
     chr_set_pad_preset(0x2b, 0x6a00)
     chr_set_pad_preset(0x2c, 0x6b00)
@@ -1856,7 +1848,6 @@ u8 ai_21[] = {
     goto_first(0x04)
     label(0x47)
     ai_sleep
-    debug_log 'I', 'N', '7', '\n', '\0',
     chr_set_pad_preset(0x2a, 0x7600)
     chr_set_pad_preset(0x2b, 0x7900)
     chr_set_pad_preset(0x2c, 0x7c00)
@@ -1867,7 +1858,6 @@ u8 ai_21[] = {
     goto_first(0x04)
     label(0x48)
     ai_sleep
-    debug_log 'I', 'N', '8', '\n', '\0',
     chr_set_pad_preset(0x2a, 0x8200)
     chr_set_pad_preset(0x2b, 0x8900)
     chr_set_pad_preset(0x2c, 0x8800)
@@ -1878,7 +1868,6 @@ u8 ai_21[] = {
     goto_first(0x04)
     label(0x49)
     ai_sleep
-    debug_log 'I', 'N', '9', '\n', '\0',
     chr_set_pad_preset(0x2a, 0x8500)
     chr_set_pad_preset(0x2b, 0x8600)
     chr_set_pad_preset(0x2c, 0x8400)
@@ -1889,7 +1878,6 @@ u8 ai_21[] = {
     goto_first(0x04)
     label(0x4a)
     ai_sleep
-    debug_log 'I', 'N', '1', '0', '\n', '\0',
     chr_set_pad_preset(0x2a, 0x9900)
     chr_set_pad_preset(0x2b, 0x9c00)
     chr_set_pad_preset(0x2c, 0x9d00)
@@ -1900,7 +1888,6 @@ u8 ai_21[] = {
     goto_first(0x04)
     label(0x4b)
     ai_sleep
-    debug_log 'I', 'N', '1', '1', '\n', '\0',
     chr_set_pad_preset(0x2a, 0xa800)
     chr_set_pad_preset(0x2b, 0xa900)
     chr_set_pad_preset(0x2c, 0xaa00)
@@ -1911,7 +1898,6 @@ u8 ai_21[] = {
     goto_first(0x04)
     label(0x4c)
     ai_sleep
-    debug_log 'I', 'N', '1', '2', '\n', '\0',
     chr_set_pad_preset(0x2a, 0x8b00)
     chr_set_pad_preset(0x2b, 0xac00)
     chr_set_pad_preset(0x2c, 0xa800)
@@ -1922,7 +1908,6 @@ u8 ai_21[] = {
     goto_first(0x04)
     label(0x4d)
     ai_sleep
-    debug_log 'I', 'N', '1', '3', '\n', '\0',
     chr_set_pad_preset(0x2a, 0x8500)
     chr_set_pad_preset(0x2b, 0x8900)
     chr_set_pad_preset(0x2c, 0x8700)
@@ -1955,13 +1940,10 @@ u8 ai_22[] = {
     if_chr_does_not_exist(0x20, 0x2c)
     goto_first(0x03)
     label(0x2c)
-    debug_log 's', 'p', 'a', 'w', 'n', '1', '\0',
     if_bond_damage_and_pickups_disabled(0x06)
     chr_try_spawning_at_pad(0x02, 0xff, 0x2823, 0x0304, 0x10000000, 0x06)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x06)
-    debug_log 's', '1', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x09)
     ai_sleep
@@ -1989,14 +1971,11 @@ u8 ai_23[] = {
     if_chr_does_not_exist(0x27, 0x2c)
     goto_first(0x03)
     label(0x2c)
-    debug_log 's', 'p', 'a', 'w', 'n', '2', '\0',
     if_bond_damage_and_pickups_disabled(0x06)
     chr_try_spawning_at_pad(0x20, 0xff, 0x2823, 0x0404, 0x10000000, 0x06)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x06)
     chr_bitfield_set_on(0x2d, 0x02)
-    debug_log 'c', '1', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x09)
     ai_sleep
@@ -2022,13 +2001,10 @@ u8 ai_23[] = {
     if_chr_does_not_exist(0x21, 0x2c)
     goto_first(0x03)
     label(0x2c)
-    debug_log 's', 'p', 'a', 'w', 'n', '3', '\0',
     if_bond_damage_and_pickups_disabled(0x06)
     chr_try_spawning_at_pad(0x02, 0xff, 0x2823, 0x0504, 0x10000000, 0x06)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x06)
-    debug_log 's', '3', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x09)
     ai_sleep
@@ -2056,14 +2032,11 @@ u8 ai_24[] = {
     if_chr_does_not_exist(0x28, 0x2c)
     goto_first(0x03)
     label(0x2c)
-    debug_log 's', 'p', 'a', 'w', 'n', '4', '\0',
     if_bond_damage_and_pickups_disabled(0x06)
     chr_try_spawning_at_pad(0x20, 0xff, 0x2823, 0x0604, 0x10000000, 0x06)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x06)
     chr_bitfield_set_on(0x2d, 0x02)
-    debug_log 'c', '2', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x09)
     ai_sleep
@@ -2091,13 +2064,10 @@ u8 ai_25[] = {
     if_chr_does_not_exist(0x22, 0x2c)
     goto_first(0x03)
     label(0x2c)
-    debug_log 's', 'p', 'a', 'w', 'n', '5', '\0',
     if_bond_damage_and_pickups_disabled(0x06)
     chr_try_spawning_at_pad(0x02, 0xff, 0x2823, 0x0704, 0x10000000, 0x06)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x06)
-    debug_log 's', '5', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x09)
     ai_sleep
@@ -2124,14 +2094,11 @@ u8 ai_25[] = {
     if_chr_does_not_exist(0x29, 0x2c)
     goto_first(0x03)
     label(0x2c)
-    debug_log 's', 'p', 'a', 'w', 'n', '6', '\0',
     if_bond_damage_and_pickups_disabled(0x06)
     chr_try_spawning_at_pad(0x20, 0xff, 0x2823, 0x0804, 0x10000000, 0x06)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x06)
     chr_bitfield_set_on(0x2f, 0x02)
-    debug_log 'c', '3', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x09)
     ai_sleep
@@ -2157,13 +2124,10 @@ u8 ai_25[] = {
     if_chr_does_not_exist(0x23, 0x2c)
     goto_first(0x03)
     label(0x2c)
-    debug_log 's', 'p', 'a', 'w', 'n', '7', '\0',
     if_bond_damage_and_pickups_disabled(0x06)
     chr_try_spawning_at_pad(0x02, 0xff, 0x2823, 0x0904, 0x10000000, 0x06)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x06)
-    debug_log 's', '7', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x09)
     ai_sleep
@@ -2175,43 +2139,36 @@ u8 ai_25[] = {
 };
 u8 ai_2[] = {
     guard_set_chr_num(0x20)
-    debug_log 'd', '1', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0a04)
     ai_list_end
 };
 u8 ai_3[] = {
     guard_set_chr_num(0x27)
-    debug_log 'd', '2', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0b04)
     ai_list_end
 };
 u8 ai_4[] = {
     guard_set_chr_num(0x21)
-    debug_log 'd', '3', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0a04)
     ai_list_end
 };
 u8 ai_5[] = {
     guard_set_chr_num(0x28)
-    debug_log 'd', '4', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0b04)
     ai_list_end
 };
 u8 ai_6[] = {
     guard_set_chr_num(0x22)
-    debug_log 'd', '5', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0a04)
     ai_list_end
 };
 u8 ai_7[] = {
     guard_set_chr_num(0x29)
-    debug_log 'd', '6', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0b04)
     ai_list_end
 };
 u8 ai_8[] = {
     guard_set_chr_num(0x23)
-    debug_log 'd', '7', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0a04)
     ai_list_end
 };
@@ -2245,7 +2202,6 @@ u8 ai_10[] = {
     guard_animation_stop
     goto_first(0x00)
     label(0x2c)
-    debug_log 'f', 'r', 'o', 'l', 'i', 'c', '\0',
     guard_runs_to_pad_preset
     label(0x0a)
     ai_sleep
@@ -2286,7 +2242,6 @@ u8 ai_10[] = {
     ai_list_end
 };
 u8 ai_15[] = {
-    debug_log '\n', '-', '-', '-', '-', '>', 'd', 'e', 'l', 'e', 't', 'e', '!', '\n', '\0',
     objective_bitfield_set_on(0x00200000)
     chr_remove_instant(0xfd)
     label(0x05)
@@ -2473,25 +2428,21 @@ u8 ai_27[] = {
     label(0x38)
     goto_first(0x00)
     label(0x41)
-    debug_log '\n', 'm', 'u', 'r', 'd', 'e', 'r', '!', '\n', '\0',
     local_byte_2_subtract(0x01)
     label(0x38)
     chr_bitfield_set_off(0x2b, 0x02)
     goto_first(0x00)
     label(0x42)
-    debug_log '\n', 'm', 'u', 'r', 'd', 'e', 'r', '!', '\n', '\0',
     local_byte_2_subtract(0x01)
     label(0x38)
     chr_bitfield_set_off(0x2d, 0x02)
     goto_first(0x00)
     label(0x43)
-    debug_log '\n', 'm', 'u', 'r', 'd', 'e', 'r', '!', '\n', '\0',
     local_byte_2_subtract(0x01)
     label(0x38)
     chr_bitfield_set_off(0x2f, 0x02)
     goto_first(0x00)
     label(0x44)
-    debug_log '\n', 'f', 'a', 'l', 's', 'e', '!', '\n', '\0',
     local_byte_2_add(0x01)
     objective_bitfield_set_off(0x00200000)
     goto_first(0x00)
@@ -2565,7 +2516,6 @@ u8 ai_18[] = {
     label(0x2c)
     label(0x09)
     local_timer_reset_start
-    debug_log 'h', 'e', 'l', 'l', 'o', '\n', '\0',
     label(0x00)
     ai_sleep
     if_chr_dying_or_dead(0xfd, 0x0c)
@@ -2659,7 +2609,6 @@ u8 ai_28[] = {
     label(0x2c)
     random_generate_seed
     if_random_seed_greater_than(0x80, 0x38)
-    debug_log '3', ' ', 'H', 'A', 'R', 'D', '\n', '\0',
     jump_to_ai_list(0x06, 0x0d04)
     jump_to_ai_list(0x07, 0x0d04)
     jump_to_ai_list(0x08, 0x0d04)
@@ -2668,7 +2617,6 @@ u8 ai_28[] = {
     jump_to_ai_list(0x0e, 0x0f04)
     goto_next(0x08)
     label(0x38)
-    debug_log '5', ' ', 'H', 'A', 'R', 'D', '\n', '\0',
     jump_to_ai_list(0x06, 0x0f04)
     jump_to_ai_list(0x07, 0x0f04)
     jump_to_ai_list(0x08, 0x0f04)
@@ -2679,7 +2627,6 @@ u8 ai_28[] = {
     label(0x08)
     random_generate_seed
     if_random_seed_greater_than(0x80, 0x38)
-    debug_log '8', ' ', 'H', 'A', 'R', 'D', '\n', '\0',
     jump_to_ai_list(0x0f, 0x0d04)
     jump_to_ai_list(0x10, 0x0d04)
     jump_to_ai_list(0x11, 0x0d04)
@@ -2688,7 +2635,6 @@ u8 ai_28[] = {
     jump_to_ai_list(0x17, 0x0f04)
     goto_next(0x09)
     label(0x38)
-    debug_log '1', '1', ' ', 'H', 'A', 'R', 'D', '\n', '\0',
     jump_to_ai_list(0x0f, 0x0f04)
     jump_to_ai_list(0x10, 0x0f04)
     jump_to_ai_list(0x11, 0x0f04)

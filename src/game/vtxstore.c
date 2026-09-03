@@ -57,16 +57,8 @@ void vtxstoreReset(void)
         g_ChrVtxStoreVertexCapacity = 500;
         g_ChrVtxStoreBlockCapacity = 20;
 
-        if (stage == LEVELID_DEPOT || stage == LEVELID_STREETS)
-        {
-            g_ObjVtxStoreVertexCapacity = 500;
-            g_ObjVtxStoreBlockCapacity = 20;
-        }
-        else
-        {
-            g_ObjVtxStoreVertexCapacity = 1500;
-            g_ObjVtxStoreBlockCapacity = 40;
-        }
+        g_ObjVtxStoreVertexCapacity = 1500;
+        g_ObjVtxStoreBlockCapacity = 40;
     }
 
     g_ChrVtxStoreBlocks = mempAllocBytesInBank(g_ChrVtxStoreBlockCapacity * sizeof(VtxStoreBlock), MEMPOOL_STAGE);

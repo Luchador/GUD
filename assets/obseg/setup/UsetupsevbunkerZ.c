@@ -912,19 +912,16 @@ u8 ai_3[] = {
 };
 u8 ai_4[] = {
     guard_set_chr_num(0x1a)
-    debug_log 'h', '1', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0904)
     ai_list_end
 };
 u8 ai_5[] = {
     guard_set_chr_num(0x1b)
-    debug_log 'h', '2', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0904)
     ai_list_end
 };
 u8 ai_6[] = {
     guard_set_chr_num(0x1c)
-    debug_log 'h', '3', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0904)
     ai_list_end
 };
@@ -1213,7 +1210,6 @@ u8 ai_11[] = {
     ai_list_end
 };
 u8 ai_13[] = {
-    debug_log 'h', 'e', 'l', 'l', 'o', '\0',
     label(0x00)
     ai_sleep
     if_alarm_is_on(0x05)
@@ -1224,7 +1220,6 @@ u8 ai_13[] = {
     guard_bitfield_set_on(0x01)
     label(0x26)
     local_timer_reset_start
-    debug_log '!', '\n', '\0',
     ai_sleep
     if_chr_does_not_exist(0x1a, 0x06)
     goto_next(0x27)

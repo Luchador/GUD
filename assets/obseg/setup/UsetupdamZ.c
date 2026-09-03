@@ -2026,7 +2026,6 @@ u8 ai_6[] = {
     ai_list_end
 };
 u8 ai_9[] = {
-    debug_log 'b', 'r', 'r', 'm', ' ', 'b', 'r', 'r', 'm', '\n', '\0',
     vehicle_start_path(0x07)
     vehicle_speed(0x0002, 0x7800)
     label(0x00)
@@ -2160,7 +2159,6 @@ u8 ai_7[] = {
     local_byte_2_set(0x00)
     goto_first(0x00)
     label(0x10)
-    debug_log 'g', 'o', 'i', 'n', 'g', '\n', '\0',
     guard_bitfield_set_off(0x80)
     guard_runs_to_pad_preset
     label(0x11)
@@ -2168,7 +2166,6 @@ u8 ai_7[] = {
     if_guard_has_stopped_moving(0x07)
     goto_first(0x11)
     label(0x07)
-    debug_log 'h', 'o', 'm', 'e', '\n', '\0',
     goto_first(0x0e)
     ai_list_end
 };
@@ -2513,7 +2510,6 @@ u8 ai_25[] = {
     ai_list_end
 };
 u8 ai_17[] = {
-    debug_log 'w', 'h', 'e', 'e', '\n', '\0',
     chr_try_teleporting_to_pad(0xfd, 0x4b01, 0x07)
     label(0x07)
     guard_flags_set_on(0x00200000)

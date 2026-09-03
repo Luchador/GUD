@@ -1120,11 +1120,9 @@ u8 ai_24[] = {
     object_destroy(0x07)
     label(0x06)
     ai_sleep
-    debug_log 'B', '?', '\0',
     if_objective_bitfield_is_set_on(0x00200000, 0x2b)
     goto_first(0x06)
     label(0x2b)
-    debug_log 'B', '3', '\0',
     gas_leak_and_fade_fog
     local_timer_reset_start
     label(0x0c)
@@ -1145,7 +1143,6 @@ u8 ai_24[] = {
     ai_list_end
 };
 u8 ai_2[] = {
-    debug_log 'X', ' ', '-', ' ', 'm', 'a', '\0',
     label(0x03)
     ai_sleep
     set_return_ai_list(0x0304)
@@ -1163,7 +1160,6 @@ u8 ai_2[] = {
     ai_list_end
 };
 u8 ai_3[] = {
-    debug_log 'X', ' ', '-', ' ', 'a', 't', '\0',
     label(0x03)
     random_generate_seed
     if_random_seed_greater_than(0x80, 0x2b)
@@ -1208,7 +1204,6 @@ u8 ai_3[] = {
     ai_list_end
 };
 u8 ai_5[] = {
-    debug_log 'X', ' ', '-', ' ', 'e', 'v', '\0',
     label(0x03)
     ai_sleep
     random_generate_seed
@@ -1236,7 +1231,6 @@ u8 ai_5[] = {
     ai_list_end
 };
 u8 ai_4[] = {
-    debug_log 'X', ' ', '-', ' ', 'g', 'o', '\0',
     label(0x03)
     guard_try_running_to_bond_position(0x2b)
     label(0x2b)
@@ -1467,14 +1461,11 @@ u8 ai_18[] = {
     if_chr_does_not_exist(0x05, 0x2b)
     goto_first(0x03)
     label(0x2b)
-    debug_log 's', 'p', 'a', 'w', 'n', '1', '\0',
     if_bond_damage_and_pickups_disabled(0x35)
     chr_try_spawning_at_pad(0x03, 0xff, 0x2823, 0x0704, 0x00000000, 0x07)
     label(0x35)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x07)
-    debug_log 's', '1', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x0a)
     ai_sleep
@@ -1502,14 +1493,11 @@ u8 ai_19[] = {
     if_chr_does_not_exist(0x06, 0x2b)
     goto_first(0x03)
     label(0x2b)
-    debug_log 's', 'p', 'a', 'w', 'n', '2', '\0',
     if_bond_damage_and_pickups_disabled(0x35)
     chr_try_spawning_at_pad(0x03, 0xff, 0x2823, 0x0804, 0x00000000, 0x07)
     label(0x35)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x07)
-    debug_log 's', '2', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x0a)
     ai_sleep
@@ -1537,14 +1525,11 @@ u8 ai_20[] = {
     if_chr_does_not_exist(0x07, 0x2b)
     goto_first(0x03)
     label(0x2b)
-    debug_log 's', 'p', 'a', 'w', 'n', '3', '\0',
     if_bond_damage_and_pickups_disabled(0x35)
     chr_try_spawning_at_pad(0x03, 0xff, 0x2823, 0x0904, 0x00000000, 0x07)
     label(0x35)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x07)
-    debug_log 's', '3', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x0a)
     ai_sleep
@@ -1572,14 +1557,11 @@ u8 ai_21[] = {
     if_chr_does_not_exist(0x08, 0x2b)
     goto_first(0x03)
     label(0x2b)
-    debug_log 's', 'p', 'a', 'w', 'n', '4', '\0',
     if_bond_damage_and_pickups_disabled(0x35)
     chr_try_spawning_at_pad(0x03, 0xff, 0x2823, 0x0a04, 0x00000000, 0x07)
     label(0x35)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x07)
-    debug_log 's', '4', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x0a)
     ai_sleep
@@ -1607,14 +1589,11 @@ u8 ai_22[] = {
     if_chr_does_not_exist(0x09, 0x2b)
     goto_first(0x03)
     label(0x2b)
-    debug_log 's', 'p', 'a', 'w', 'n', '5', '\0',
     if_bond_damage_and_pickups_disabled(0x35)
     chr_try_spawning_at_pad(0x03, 0xff, 0x2823, 0x0b04, 0x00000000, 0x07)
     label(0x35)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x03)
     label(0x07)
-    debug_log 's', '5', ' ', 'O', 'K', '!', '\0',
     goto_first(0x03)
     label(0x0a)
     ai_sleep
@@ -1626,31 +1605,26 @@ u8 ai_22[] = {
 };
 u8 ai_6[] = {
     guard_set_chr_num(0x05)
-    debug_log 'd', '1', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0c04)
     ai_list_end
 };
 u8 ai_7[] = {
     guard_set_chr_num(0x06)
-    debug_log 'd', '2', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0c04)
     ai_list_end
 };
 u8 ai_8[] = {
     guard_set_chr_num(0x07)
-    debug_log 'd', '3', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0c04)
     ai_list_end
 };
 u8 ai_9[] = {
     guard_set_chr_num(0x08)
-    debug_log 'd', '4', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0c04)
     ai_list_end
 };
 u8 ai_10[] = {
     guard_set_chr_num(0x09)
-    debug_log 'd', '5', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0c04)
     ai_list_end
 };
@@ -1768,7 +1742,6 @@ u8 ai_12[] = {
     ai_list_end
 };
 u8 ai_13[] = {
-    debug_log ' ', '-', '>', 'C', 'O', 'V', 'E', 'R', '\n', '\0',
     guard_try_running_to_bond_position(0x09)
     label(0x09)
     ai_sleep
@@ -1782,7 +1755,6 @@ u8 ai_13[] = {
     ai_list_end
 };
 u8 ai_14[] = {
-    debug_log ' ', '-', '>', 'T', 'R', 'E', 'E', 'D', '\n', '\0',
     label(0x03)
     guard_try_fire_or_aim_at_target_kneel(0x2100, 0x0000, 0x2b)
     if_guard_shot_from_bond_missed(0x07)
@@ -1856,7 +1828,6 @@ u8 ai_25[] = {
     goto_first(0x0a)
     label(0x2b)
     chr_try_spawning_at_pad(0x0c, 0xff, 0xbb00, 0x1104, 0x10000000, 0x2b)
-    debug_log 'S', '!', '\n', '\0',
     label(0x2b)
     jump_to_ai_list(0xfd, 0x0100)
     label(0x53)
@@ -1874,7 +1845,6 @@ u8 ai_15[] = {
     ai_list_end
 };
 u8 ai_16[] = {
-    debug_log 'S', '-', '>', 'P', '\n', '\0',
     guard_runs_to_pad(0x5800)
     label(0x09)
     ai_sleep

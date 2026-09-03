@@ -772,7 +772,6 @@ u8 ai_2[] = {
     if_folder_actor_is_equal(0x00, 0x09)
     chr_try_teleporting_to_pad(0xfd, 0x2c00, 0x2c)
     label(0x09)
-    debug_log 'b', '2', '\n', '\0',
     chr_try_teleporting_to_pad(0xfd, 0x2f00, 0x2c)
     label(0x2c)
     guard_play_animation(0xb500, 0xffff, 0xffff, 0x06, 0x00)

@@ -1480,7 +1480,7 @@ typedef enum GUN_ANIMATION_STATE_IDS
     GUN_ANIM_STATE_USE_ITEM
 } GUN_ANIMATION_STATE_IDS;
 
-typedef enum GUNHAND //Canonical name
+typedef enum GUNHAND
 {
     GUNRIGHT,
     GUNLEFT,
@@ -1488,7 +1488,7 @@ typedef enum GUNHAND //Canonical name
 } GUNHAND;
 
 
-/*Hit Type for triangle (Canonical name)*/
+/*Hit Type for triangle */
 typedef enum HIT_TYPE
 {
     HIT_DEFAULT,
@@ -1506,7 +1506,7 @@ typedef enum HIT_TYPE
     HIT_GLASS_XLU,
     HIT_TYPE_COUNT
 }HIT_TYPE;
-#ifdef DEBUG
+#if 0
     char *HIT_TYPE_ToString[] = {
          "HIT_DEFAULT",
         "HIT_STONE",

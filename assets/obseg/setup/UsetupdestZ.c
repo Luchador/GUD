@@ -1396,7 +1396,6 @@ u8 ai_3[] = {
     if_guard_shot_from_bond_missed(0x23)
     goto_first(0x0a)
     label(0x23)
-    debug_log '!', '\n', '\0',
     guard_surrenders
     label(0x07)
     ai_sleep
@@ -1406,7 +1405,6 @@ u8 ai_3[] = {
     if_guard_has_stopped_moving(0x07)
     goto_first(0x07)
     label(0x07)
-    debug_log 'I', 'm', ' ', 'o', 'f', 'f', '!', '\n', '\0',
     goto_first(0x00)
     label(0x04)
     if_chr_distance_to_pad_less_than(0xfd, 0x3200, 0x2823, 0x2e)
@@ -1500,7 +1498,6 @@ u8 ai_6[] = {
     if_objective_bitfield_is_set_on(0x00000800, 0x08)
     goto_first(0x0a)
     label(0x07)
-    debug_log '!', '!', '!', '\n', '\0',
     sfx_set_channel_volume(0x00, 0xff7f, 0x7800)
     goto_next(0x0b)
     label(0x0b)
@@ -1509,11 +1506,9 @@ u8 ai_6[] = {
     if_bond_distance_to_pad_greater_than(0x8c00, 0x5427, 0x07)
     goto_first(0x0b)
     label(0x07)
-    debug_log 'o', 'f', 'f', '\n', '\0',
     sfx_set_channel_volume(0x00, 0x0000, 0xf000)
     goto_first(0x0a)
     label(0x08)
-    debug_log 'b', 'a', 'n', 'g', '\n', '\0',
     object_flags_1_set_off(0x03, 0x00000200)
     object_destroy(0x03)
     sfx_stop_channel(0x00)

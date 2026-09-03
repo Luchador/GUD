@@ -1106,7 +1106,6 @@ u8 ai_17[] = {
     label(0x23)
     label(0x04)
     local_timer_reset_start
-    debug_log 'h', 'e', 'l', 'l', 'o', '\n', '\0',
     label(0x33)
     ai_sleep
     if_chr_dying_or_dead(0xfd, 0x06)
@@ -1201,11 +1200,9 @@ u8 ai_36[] = {
     label(0x23)
     if_bond_damage_and_pickups_disabled(0x23)
     chr_try_spawning_at_pad(0x08, 0xff, 0x3600, 0x1304, 0x00000000, 0x23)
-    debug_log 'T', ' ', 'f', 'a', 'i', 'l', '\n', '\0',
     goto_first(0x00)
     label(0x23)
     objective_bitfield_set_on(0x00000400)
-    debug_log 'T', ' ', 'i', 'n', 'i', 't', '\n', '\0',
     ai_sleep
     if_bond_damage_and_pickups_disabled(0x23)
     chr_try_spawning_at_pad(0x04, 0xff, 0x3600, 0x0204, 0x01000000, 0x23)
@@ -1300,28 +1297,24 @@ u8 ai_37[] = {
 };
 u8 ai_1[] = {
     guard_set_chr_num(0x02)
-    debug_log 'h', '1', '\n', '\0',
     guard_set_pad_preset(0x0200)
     jump_to_ai_list(0xfd, 0x0604)
     ai_list_end
 };
 u8 ai_2[] = {
     guard_set_chr_num(0x03)
-    debug_log 'h', '2', '\n', '\0',
     guard_set_pad_preset(0x0300)
     jump_to_ai_list(0xfd, 0x0604)
     ai_list_end
 };
 u8 ai_3[] = {
     guard_set_chr_num(0x04)
-    debug_log 'h', '3', '\n', '\0',
     guard_set_pad_preset(0x0400)
     jump_to_ai_list(0xfd, 0x0604)
     ai_list_end
 };
 u8 ai_4[] = {
     guard_set_chr_num(0x05)
-    debug_log 'h', '4', '\n', '\0',
     guard_set_pad_preset(0x0500)
     jump_to_ai_list(0xfd, 0x0604)
     ai_list_end
@@ -1693,7 +1686,6 @@ u8 ai_38[] = {
     if_objective_bitfield_is_set_on(0x00001000, 0x13)
     if_objective_bitfield_is_set_on(0x00000800, 0x01)
     label(0x13)
-    debug_log '!', '\n', '\0',
     label(0x23)
     ai_sleep
     if_chr_does_not_exist(0x06, 0x23)
@@ -1876,25 +1868,21 @@ u8 ai_38[] = {
 };
 u8 ai_10[] = {
     guard_set_chr_num(0x06)
-    debug_log 'r', '1', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0704)
     ai_list_end
 };
 u8 ai_11[] = {
     guard_set_chr_num(0x07)
-    debug_log 'r', '2', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0704)
     ai_list_end
 };
 u8 ai_12[] = {
     guard_set_chr_num(0x08)
-    debug_log 'r', '3', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0704)
     ai_list_end
 };
 u8 ai_13[] = {
     guard_set_chr_num(0x09)
-    debug_log 'r', '4', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0704)
     ai_list_end
 };
@@ -1926,7 +1914,6 @@ u8 ai_14[] = {
     goto_first(0x38)
     label(0x23)
     guard_remove_fade
-    debug_log 'g', 'o', 'n', 'e', '\n', '\0',
     label(0x01)
     ai_sleep
     goto_first(0x01)
@@ -1944,7 +1931,6 @@ u8 ai_15[] = {
     goto_first(0x38)
     label(0x23)
     guard_remove_fade
-    debug_log 'g', 'o', 'n', 'e', '\n', '\0',
     label(0x01)
     ai_sleep
     goto_first(0x01)
@@ -2107,11 +2093,9 @@ u8 ai_40[] = {
     label(0x23)
     if_bond_damage_and_pickups_disabled(0x23)
     chr_try_spawning_at_pad(0x13, 0x45, 0x0c00, 0x1d04, 0x10000000, 0x23)
-    debug_log 'O', ' ', 'f', 'a', 'i', 'l', '\n', '\0',
     goto_first(0x03)
     label(0x23)
     objective_bitfield_set_on(0x00000002)
-    debug_log 'O', ' ', 'i', 'n', 'i', 't', '\n', '\0',
     ai_sleep
     if_bond_damage_and_pickups_disabled(0x23)
     chr_try_spawning_at_pad(0x13, 0xff, 0x0a00, 0x1a04, 0x10000000, 0x23)
@@ -2354,7 +2338,6 @@ u8 ai_41[] = {
     ai_list_end
 };
 u8 ai_0[] = {
-    debug_log 'b', 'r', 'r', 'm', ' ', 'b', 'r', 'r', 'm', '\n', '\0',
     label(0x00)
     ai_sleep
     goto_first(0x00)
@@ -2504,7 +2487,6 @@ u8 ai_44[] = {
     local_timer_reset_start
     label(0x04)
     ai_sleep
-    debug_log 'I', '2', '\n', '\0',
     if_local_timer_greater_than(0x580200, 0x10)
     if_local_timer_greater_than(0x680100, 0x0f)
     if_local_timer_greater_than(0x2c0100, 0x0e)
@@ -2514,7 +2496,6 @@ u8 ai_44[] = {
     if_local_timer_greater_than(0x000000, 0x0a)
     goto_first(0x04)
     label(0x0a)
-    debug_log 'T', '1', '\n', '\0',
     object_flags_1_set_off(0x0b, 0x00000200)
     object_destroy(0x0b)
     object_flags_1_set_off(0x0c, 0x00000200)
@@ -2541,7 +2522,6 @@ u8 ai_44[] = {
     label(0x0f)
     goto_first(0x04)
     label(0x10)
-    debug_log 'C', 'L', '\n', '\0',
     jump_to_ai_list(0xfd, 0x0100)
     ai_list_end
     label(0x00)

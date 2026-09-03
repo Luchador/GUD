@@ -1449,14 +1449,12 @@ u8 ai_10[] = {
     label(0x36)
     label(0x7)
     ai_sleep
-    debug_log 'W', '2', '\n', '\0',
     if_objective_bitfield_is_set_on(0x10000, 0x2c)
     goto_first(0x7)
     label(0x2c)
     local_timer_reset_start
     label(0xb)
     ai_sleep
-    debug_log 'I', '2', '\n', '\0',
     if_local_timer_greater_than(0x580200, 0x18)
     if_local_timer_greater_than(0x860100, 0x17)
     if_local_timer_greater_than(0x4a0100, 0x16)
@@ -1466,7 +1464,6 @@ u8 ai_10[] = {
     if_local_timer_greater_than(0x1e0000, 0x12)
     goto_first(0xb)
     label(0x12)
-    debug_log 'T', '1', '\n', '\0',
     object_flags_1_set_off(0x1, 0x200)
     object_destroy(0x1)
     object_flags_1_set_off(0x2, 0x200)
@@ -1495,7 +1492,6 @@ u8 ai_10[] = {
     label(0x17)
     goto_first(0xb)
     label(0x18)
-    debug_log 'C', 'L', '\n', '\0',
     jump_to_ai_list(0xfd, 0x100)
     ai_list_end
  };
@@ -1804,42 +1800,36 @@ u8 ai_17[] = {
     goto_first(0x6)
     label(0x40)
     ai_sleep
-    debug_log 'S', 'T', 'A', 'R', 'T', '\n', '\0',
     chr_set_pad_preset(0x0, 0x6100)
     chr_set_pad_preset(0x1, 0x6500)
     chr_set_pad_preset(0x2, 0x6300)
     goto_first(0x6)
     label(0x41)
     ai_sleep
-    debug_log 'S', 'C', 'R', 'E', 'E', 'N', '\n', '\0',
     chr_set_pad_preset(0x0, 0x6700)
     chr_set_pad_preset(0x1, 0x5a00)
     chr_set_pad_preset(0x2, 0x5900)
     goto_first(0x6)
     label(0x42)
     ai_sleep
-    debug_log 'D', 'U', 'C', 'T', '\n', '\0',
     chr_set_pad_preset(0x0, 0x7500)
     chr_set_pad_preset(0x1, 0x8000)
     chr_set_pad_preset(0x2, 0x7600)
     goto_first(0x6)
     label(0x43)
     ai_sleep
-    debug_log 'B', 'A', 'Y', '\n', '\0',
     chr_set_pad_preset(0x0, 0x5400)
     chr_set_pad_preset(0x1, 0x7d00)
     chr_set_pad_preset(0x2, 0x7c00)
     goto_first(0x6)
     label(0x44)
     ai_sleep
-    debug_log 'A', 'Z', 'T', '1', '\n', '\0',
     chr_set_pad_preset(0x0, 0x7600)
     chr_set_pad_preset(0x1, 0x6f00)
     chr_set_pad_preset(0x2, 0x7000)
     goto_first(0x6)
     label(0x45)
     ai_sleep
-    debug_log 'A', 'Z', 'T', '2', '\n', '\0',
     chr_set_pad_preset(0x0, 0x5f00)
     chr_set_pad_preset(0x1, 0x5b00)
     chr_set_pad_preset(0x2, 0x7c00)
@@ -1864,15 +1854,12 @@ u8 ai_18[] = {
     if_chr_does_not_exist(0x3, 0x2c)
     goto_first(0x4)
     label(0x2c)
-    debug_log 's', 'p', 'a', 'w', 'n', '1', '\0',
     if_bond_damage_and_pickups_disabled(0x36)
     label(0x56)
     chr_try_spawning_at_pad(0x27, 0xff, 0x2823, 0x604, 0x0, 0x8)
     label(0x36)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x4)
     label(0x8)
-    debug_log 's', '1', ' ', 'O', 'K', '!', '\0',
     goto_first(0x4)
     label(0xb)
     ai_sleep
@@ -1900,15 +1887,12 @@ u8 ai_19[] = {
     if_chr_does_not_exist(0x4, 0x2c)
     goto_first(0x4)
     label(0x2c)
-    debug_log 's', 'p', 'a', 'w', 'n', '2', '\0',
     if_bond_damage_and_pickups_disabled(0x36)
     label(0x56)
     chr_try_spawning_at_pad(0x27, 0xff, 0x2823, 0x704, 0x0, 0x8)
     label(0x36)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x4)
     label(0x8)
-    debug_log 's', '2', ' ', 'O', 'K', '!', '\0',
     goto_first(0x4)
     label(0xb)
     ai_sleep
@@ -1936,15 +1920,12 @@ u8 ai_20[] = {
     if_chr_does_not_exist(0x5, 0x2c)
     goto_first(0x4)
     label(0x2c)
-    debug_log 's', 'p', 'a', 'w', 'n', '3', '\0',
     if_bond_damage_and_pickups_disabled(0x36)
     label(0x56)
     chr_try_spawning_at_pad(0x27, 0xff, 0x2823, 0x804, 0x0, 0x8)
     label(0x36)
-    debug_log '-', '>', 'f', 'a', 'i', 'l', '\0',
     goto_first(0x4)
     label(0x8)
-    debug_log 's', '3', ' ', 'O', 'K', '!', '\0',
     goto_first(0x4)
     label(0xb)
     ai_sleep
@@ -2070,7 +2051,6 @@ u8 ai_9[] = {
     goto_first(0x3d)
     label(0x9)
     if_guard_is_on_screen(0x36)
-    debug_log 'D', 'E', 'L', 'E', 'T', 'E', '!', '\0',
     chr_remove_instant(0xfd)
     jump_to_ai_list(0xfd, 0x100)
     label(0x36)

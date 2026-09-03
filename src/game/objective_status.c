@@ -271,13 +271,11 @@ OBJECTIVESTATUS objectiveGetStatus(s32 objectiveIndex)
             objectiveStatus = OBJECTIVESTATUS_INCOMPLETE;
         }
 
-        condition = (MissionObjectiveRecord *)((PropDefHeaderRecord *)condition
-            + sizepropdef((PropDefHeaderRecord *)condition));
+        condition = (MissionObjectiveRecord *)((PropDefHeaderRecord *)condition + sizepropdef((PropDefHeaderRecord *)condition));
     }
 
     return objectiveStatus;
 }
-
 
 
 bool objectiveIsAllComplete(void)
@@ -344,10 +342,6 @@ void display_objective_status_text_on_status_change(void)
 /**
  * Iterate list of ptr_last_enter_room_subobject_entry_type20, if it's the same
  * room as the argument then set the `flag` property.
- * 
- * US address 7F057744.
- * 
- * Perfect Dark method objectiveCheckRoomEntered.
 */
 void objectivestatusCheckRoomEntered(s32 roomid)
 {
