@@ -97,7 +97,6 @@
       build/OUTCODE/src/game/image.o (.text);
       build/OUTCODE/src/game/image_bank.o (.text);
       build/OUTCODE/src/game/tex.o (.text);
-      build/OUTCODE/src/game/zlib.o (.text);
       build/OUTCODE/src/game/rsp.o (.text);
       build/OUTCODE/src/game/game_debug.o (.text);
       build/OUTCODE/src/game/compiletime.o (.text);
