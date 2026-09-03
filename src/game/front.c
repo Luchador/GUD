@@ -634,8 +634,6 @@ ModelRenderData cast_renderdata_default = { NULL,
 
 struct coord3d cast_camera_offset = { 0.0f, 40.0f, 25.0f }; // vec in constructor_menu18_displaycast is initialized to this, but then gets overwritten before it's read, so these values don't have any effect.
 
-u16 color_palette_entries_50_percent[] = {1, 0x1F, 0x3C1, 0x3DF, 0x7801, 0x781F, 0x7BC1, 0x7BDF};
-
 // Begin forward declarations.
 
 Gfx* frontAddPreviousTabText(Gfx* DL);

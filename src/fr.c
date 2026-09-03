@@ -33,12 +33,8 @@
 struct VideoSettings_s g_ViDataArray[NUM_VIDEO_SETTINGS] =
 {
     {MD_BLACK, 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FOV_Y_F, ASPECT_RATIO, 30.0f, 10000.0f, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, TRUE, NULL},
-    {MD_BLACK, 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FOV_Y_F, ASPECT_RATIO, 30.0f, 10000.0f, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, TRUE, NULL}};
-
-/**
- * vimode hStart horizontal offset in video_related_8.
- */
-s32 g_viHorizontalOffset = 0;
+    {MD_BLACK, 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FOV_Y_F, ASPECT_RATIO, 30.0f, 10000.0f, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, TRUE, NULL}
+};
 
 VideoSettings *g_ViFrontData = &g_ViDataArray[0];
 VideoSettings *g_ViBackData = &g_ViDataArray[0];
@@ -55,19 +51,16 @@ s32 g_viVstartSign = 1;
 s32 g_ViShakeIntensity = 0;
 
 /**
- * Address 800232B8.
  * Some kind of counter for how frequently g_ViShakeIntensity is zero'd in viVsyncRelated.
  */
 u32 g_ViShakeTimer = 0;
 
 /**
- * Address 800232BC.
  * Some kind of counter for how frequently osViBlack is called with "active" parameter.
  */
 u32 g_ViUnblackTimer = 3;
 
 /**
- * Address 800232C0.
  * should correlate to g_schedViCurrentFrameBuffer
  */
 s32 D_800232C0 = 0;
@@ -133,8 +126,6 @@ void viInitVideoSettings(void)
 
     g_ViBackData = (VideoSettings*)((u8*)&g_ViDataArray + (g_ViBackIndex * sizeof(VideoSettings))); //AKA back = viDataArray[1] - was Rare mental?
     g_ViBackData->framebuf = cfb_16[g_ViBackIndex];
-
-    g_viHorizontalOffset = 0;
 }
 
 
@@ -328,7 +319,7 @@ void video_related_8(void)
         g_ViModes[nextMode].fldRegs[1].origin = g_ViBackData->bufx * 2;
 
         registerValue = packedStart;
-        registerValue = ADD_LOW_AND_HI_16_MOD(registerValue, g_viHorizontalOffset);
+        registerValue = ADD_LOW_AND_HI_16_MOD(registerValue, 0);
 
         g_ViModes[nextMode].comRegs.hStart = registerValue;
         g_viOriginalHstart = registerValue;
@@ -402,18 +393,6 @@ void viSetVideoMode(s32 m)
     g_ViBackData->mode = m;
     g_ViBackData->x = g_ViBackData->bufx = g_viRuntimeScreenWidths[m];
     g_ViBackData->y = g_ViBackData->bufy = g_viRuntimeScreenHeights[m];
-}
-
-
-void viSetColorMode16Bit(void)
-{
-    g_viColorOutputMode = COLORMODE_16BIT;
-}
-
-
-void viSetColorMode32Bit(void)
-{
-    g_viColorOutputMode = COLORMODE_32BIT;
 }
 
 
@@ -551,18 +530,6 @@ Gfx *viSetupScreensForNumPlayers(Gfx *gdl)
     }
 
     return gdl;
-}
-
-
-void viSetHorizontalOffset(s32 arg0)
-{
-    g_viHorizontalOffset = arg0;
-}
-
-
-s32 viGetHorizontalOffset(void)
-{
-    return g_viHorizontalOffset;
 }
 
 

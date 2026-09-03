@@ -42,34 +42,6 @@ struct sImageTableEntry *mpradarimages;
 struct sImageTableEntry *mpcharselimages;
 struct sImageTableEntry *mpstageselimages;
 extern u8* _GlobalimagetableSegmentRomStart;
-
-
-void texSetBitstring(s32 pos)
-{
-    img_curpos = pos;
-    img_curdatatable = 0;
-    img_bitcount = 0;
-}
-
-
-u32 texReadBits(s32 bitCount)
-{
-    if (img_bitcount < bitCount)
-    {
-        do
-        {
-            img_curdatatable = (*img_curpos | (img_curdatatable << 8));
-            img_curpos++;
-            img_bitcount = img_bitcount + 8;
-        } while (img_bitcount < bitCount);
-    }
-    
-    img_bitcount -= bitCount;
-
-    return (img_curdatatable >> img_bitcount) & ((1 << bitCount) - 1);
-}
-
-
 extern u32* _GlobalimagetableSegmentStart;
 extern u32* _GlobalimagetableSegmentEnd;
 extern void* s_genericimage;

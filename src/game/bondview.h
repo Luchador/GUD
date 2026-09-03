@@ -513,16 +513,15 @@ struct player
   /* 0x0160 */ f32 speedverta;
 
   /**
-   * Computed value from vv_verta360, but otherwise unused?
    * 0x0164
    **/
   f32 vv_cosverta;
 
   /**
-   * Computed value from vv_verta360, but otherwise unused?
+   * Used to be vv_sinverta which was set but never read.
    * 0x0168
    **/
-  f32 vv_sinverta;
+  f32 pad168;
 
   /* 0x016c */ f32 speedsideways;
   /* 0x0170 */ f32 speedstrafe;

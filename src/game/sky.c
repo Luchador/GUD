@@ -13,7 +13,6 @@
 
 #define SKYABS(val) (val >= 0.0f ? (val) : -(val))
 
-s32 g_SkyStageNum;
 f32 g_SkyCloudOffset = 0;
 static Mtxf g_SkyInverseRoomScaleMatrix;
 
@@ -211,12 +210,6 @@ u32 sub_GAME_7F094298(f32 arg0)
     }
 
     return result;
-}
-
-
-void skySetStageNum(s32 stagenum)
-{
-  g_SkyStageNum = stagenum;
 }
 
 

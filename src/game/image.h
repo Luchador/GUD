@@ -76,10 +76,7 @@ extern struct image_entry g_Textures[];
 extern s32 g_TexCacheCount;
 extern u32 bytes;
 
-void texReadAlphaBits(u8 *image,s32 count);
 void texSwapAltRowBytes(u8 *dst, s32 width, s32 height, s32 format);
-void texBlur(u8 *pixels, s32 width, s32 height, s32 method, s32 chansize);
-s32 texAlignIndices(u8 *src, s32 width, s32 height, s32 format, u8 *dst);
 s32 texFindClosestColourIndexRGBA(u16 *palette, s32 numcolours, s32 r, s32 g, s32 b, s32 a);
 s32 texFindClosestColourIndexIA(u16 *palette, s32 numcolours, s32 intensity, s32 alpha);
 s32 texShrinkPaletted(u8 *src, u8 *dst, s32 srcwidth, s32 srcheight, s32 format, u16 *palette, s32 numcolours);

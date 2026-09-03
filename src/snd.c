@@ -107,7 +107,7 @@ s8 g_sndBootswitchSound = 0;
  */
 f32 g_sndSfxVolumeScale = 1.0;
 
-// forward declarations
+// Begin forward declarations.
 
 ALMicroTime sndPlayerVoiceHandler(void *node);
 void sndHandleEvent(ALSndPlayer *sndp, ALSndpEvent *event);
@@ -117,23 +117,18 @@ void sndRemoveEvents(ALEventQueue *evtq, ALSoundState *state, u16 eventType);
 s32 sndCountAllocList(s16 *allocListCount, s16 *freeListCount);
 ALSoundState *sndSetupSound(struct ALBankAlt_s *soundBank, ALSound* sound);
 void sndUnlinkClearSound(ALSoundState *state);
-void sndSetPriority(ALSoundState *state, u8 priority);
 u8 sndGetPlayingState(ALSoundState *state);
 void sndDeactivateAllSfxByFlag(u8 flag);
 void sndDeactivateAllSfxByFlag_1(void);
-void sndDeactivateAllSfxByFlag_11(void);
-void sndDeactivateAllSfxByFlag_3(void);
 u16 sndGetSfxSlotFirstNaturalVolume(void);
 void sndApplyVolumeAllSfxSlot(u16 arg0);
 void sndSetScalerApplyVolumeAllSfxSlot(f32 arg0);
 u16 sndGetSfxSlotNaturalVolume(u8 arg0);
 void sndSetSfxSlotVolume(u8 arg0, u16 arg1);
 
-// end forward declarations
+// End forward declarations.
 
 /**
- * 8720    70007B20
- *
  * Mostly identical to n64devkit\ultra\usr\src\pr\libsrc\libultra\audio\sndplayer.c
  * method alSndpNew.
  */
@@ -750,17 +745,6 @@ void sndUnlinkClearSound(ALSoundState *state)
     }
 }
 
-/**
- * 99D8    70008DD8
- * Sets priority of ALSoundState.
- */
-void sndSetPriority(ALSoundState *state, u8 priority)
-{
-    if (state != NULL)
-    {
-        state->priority = priority;
-    }
-}
 
 /**
  * 99F0    70008DF0
@@ -967,35 +951,14 @@ void sndDeactivateAllSfxByFlag(u8 flag)
     osSetIntMask(mask);
 }
 
-/**
- * 9D24    70009124
- *     redirect to 7000906C: A0=1
- */
+
 void sndDeactivateAllSfxByFlag_1(void)
 {
     sndDeactivateAllSfxByFlag(1);
 }
 
-/**
- * 9D44    70009144
- *     redirect to 7000906C: A0=11
- */
-void sndDeactivateAllSfxByFlag_11(void)
-{
-    sndDeactivateAllSfxByFlag(0x11);
-}
 
 /**
- * 9D64    70009164
- *     redirect to 7000906C: A0=3
- */
-void sndDeactivateAllSfxByFlag_3(void)
-{
-    sndDeactivateAllSfxByFlag(3);
-}
-
-/**
- * 9D84    70009184
  * Calls alEvtqPostEvent with the method parameters and delta=0.
  *
  * @param state sound state.

@@ -73,7 +73,6 @@ extern OSViMode *g_ViModePtrs[2];
 extern s32 dword_CODE_bss_8005DBE8[2];
 
 void __scMain(void *arg);
-u32 *get_counters(void);
 void __scYield(OSSched *sc) ;
 void __scAppendList(OSSched *sc, OSScTask *t);
 void __scExec(OSSched *sc, OSScTask *sp, OSScTask *dp);

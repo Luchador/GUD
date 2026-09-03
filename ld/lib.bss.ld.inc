@@ -52,7 +52,6 @@
       build/OUTCODE/src/libultra/io/virepeatline.o (.bss);
       build/OUTCODE/src/libultra/io/viblack.o (.bss);
       build/OUTCODE/src/libultra/io/sptaskyielded.o (.bss);
-      build/OUTCODE/src/libultra/io/dpctr.o (.bss);
       build/OUTCODE/src/libultra/io/vigetcurrframebuf.o (.bss);
       build/OUTCODE/src/libultra/io/vigetnextframebuf.o (.bss);
       build/OUTCODE/src/libultra/io/viswapbuf.o (.bss);

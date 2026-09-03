@@ -213,63 +213,12 @@ void modelSetDistanceScale(f32 scale)
 }
 
 
-void sub_GAME_7F06C418(Vew4s32 *src, Vew4s32 *dst)
-{
-    s32 i, j;
-    for (i = 0; i < 4; i++) {
-        for (j = 0; j < 4; j++) {
-            dst[i].v[j] = src[i].v[j];
-        }
-    }
-}
-
-
 void set_vtxallocator(s32 param_1)
 {
     vtxallocator = param_1;
 }
 
 
-void modelCalculateScaledRootToOriginDir(Model* model, coord3d* coord)
-{
-    Mtxf* mtx;
-    f32 dist;
-    f32 neg_x;
-    f32 neg_y;
-    f32 neg_z;
-    f32 inv_dist;
-
-    mtx = getsubmatrix(model);
-    neg_x = -mtx->m[3][0];
-    neg_y = -mtx->m[3][1];
-    neg_z = -mtx->m[3][2];
-
-    dist = sqrtf((neg_x * neg_x) + (neg_y * neg_y) + (neg_z * neg_z));
-    if (dist > 0.0f)
-    {
-        inv_dist = 1.0f / (model->scale * dist);
-        coord->f[0] = neg_x * inv_dist;
-        coord->f[1] = neg_y * inv_dist;
-        coord->f[2] = neg_z * inv_dist;
-        return;
-    }
-
-    coord->f[0] = 0.0f;
-    coord->f[1] = 0.0f;
-    coord->f[2] = 1.0f / model->scale;
-}
-
-
-/**
- * Address: 7F06C550
- */
-void modelGetScaledRootToOriginDir(Model* model, coord3d* coord)
-{
-  modelCalculateScaledRootToOriginDir(model, coord);
-}
-
-
-// PD: model0001a524
 s32 modelFindNodeMtxIndex(ModelNode *node, s32 arg1)
 {
     s32 index;
@@ -1882,47 +1831,6 @@ void modelUpdateReorderRelations(Model *model, ModelNode *node)
 
     modelApplyReorderRelations(model, node);
 }
-
-
-/**
- * It's possible this was meant to create a 3D gun barrel for the intro along with the dotube() function. Martin Hollis talked about having such an effect for the
- * Bond walk, but it had to be dropped due to technical constraints. No asset in the finished game uses this, even though the model node
- * walks still check for MODELNODE_OPCODE_OP07.
- */
-/*void process_07_unknown(Model *model, ModelNode *node)
-{
-    union ModelRoData *rodata = node->Data;
-    union ModelRwData *rwdata = modelGetNodeRwData(model, node);
-    Mtxf *mtx = modelFindNodeMtx(model, node, 0);
-    f32 ratio;
-    f32 coord_multiplied;
-    coord3d coord;
-    s32 index1;
-    f32 theta;
-    s32 index2;
-    s32 index3;
-
-    modelGetScaledRootToOriginDir(model, &coord);
-
-    theta = acosf(((coord.x * mtx->m[1][0]) + (coord.y * mtx->m[1][1])) + (coord.z * mtx->m[1][2]));
-    ratio = acosf((((coord.x * mtx->m[2][0]) + (coord.y * mtx->m[2][1])) + (coord.z * mtx->m[2][2])) / sinf(theta));
-    coord_multiplied = ((coord.x * mtx->m[0][0]) + (coord.y * mtx->m[0][1])) + (coord.z * mtx->m[0][2]);
-
-    if ((coord_multiplied < 0.0f) && (ratio > 0.0f))
-    {
-        ratio = M_TAU_F - ratio;
-    }
-
-    index1 = (theta * 64.0f) / M_TAU_F;
-
-    index2 = (s32) ((ratio * M_U16_MAX_VALUE_F) / M_TAU_F);
-    index2 += D_800360C4[index1].unk04;
-    index2 = index2 >> D_800360C4[index1].unk0C;
-
-    index3 = index2 + D_800360C4[index1].unk00;
-
-    rwdata->Op07.index = rodata->Op07.Data[index3];
-}*/
 
 
 void modelUpdateRelationsQuick(Model *model, ModelNode *parent)
@@ -4510,18 +4418,6 @@ void doshadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
 }
 
 
-void sub_GAME_7F074514(s32 param_1,struct Model *param_2,struct ModelNode *param_3)
-{
-    return;
-}
-
-
-void sub_GAME_7F074524(Gfx *param_1,struct Model *param_2, struct ModelNode *param_3)
-{
-    return;
-}
-
-
 void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node) 
 {
     u32 id = node->Opcode & 0xFF;
@@ -4549,7 +4445,6 @@ void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node)
             doshadow(data, model, node);
             return;
         case MODELNODE_OPCODE_BBOX:
-            sub_GAME_7F074514(data, model, node);
             return;
         case MODELNODE_OPCODE_DL:
             modelRenderNodeGundl(data, node);
@@ -5011,9 +4906,6 @@ u8 *loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
             g_ModelAnimFrameCacheNext = (cacheSlot + 1) % MODEL_ANIM_FRAME_CACHE_CAPACITY;
         }
 
-        // Increment this which serves nothing
-        D_80036414->uselessPointer += 1;
-
         // Set this to point to the end of the copied frame
         // This allows to copy another frame after this one
         D_80036414->animBufferPtr2 = dest + size;
@@ -5028,7 +4920,6 @@ void modelResetAnimationsScratchBuffer(void)
     {
         // Reset the pointer to point to the start of the array
         D_80036414->animBufferPtr2 = D_80036414->animBufferPtr1;
-        D_80036414->uselessPointer = NULL;
     }
 }
 

@@ -54,7 +54,6 @@
       build/OUTCODE/src/libultra/io/virepeatline.o (.rodata);
       build/OUTCODE/src/libultra/io/viblack.o (.rodata);
       build/OUTCODE/src/libultra/io/sptaskyielded.o (.rodata);
-      build/OUTCODE/src/libultra/io/dpctr.o (.rodata);
       build/OUTCODE/src/libultra/io/vigetcurrframebuf.o (.rodata);
       build/OUTCODE/src/libultra/io/vigetnextframebuf.o (.rodata);
       build/OUTCODE/src/libultra/io/viswapbuf.o (.rodata);

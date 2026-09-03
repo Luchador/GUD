@@ -48,9 +48,6 @@ void __scHandleRSP(OSSched *sc);
 void __scHandleRDP(OSSched *sc);
 void __scMain(void *arg);
 
-u32 dp_busy = 0;
-u32 dpCount = 0;
-
 s32 g_schedViCurrentFrameBuffer = 0;
 f32 g_ViXScales[NUM_VIDEO_FRAME_BUFFERS] = {1.0, 1.0};
 f32 g_ViYScales[NUM_VIDEO_FRAME_BUFFERS] = {1.0, 1.0};
@@ -58,7 +55,6 @@ s32 g_ViChangeVideoModes[NUM_VIDEO_FRAME_BUFFERS] = {0, 0}; // boolean
 
 OSSched os_scheduler;
 OSScClient gfxClient[3];
-u32 g_DisplayPerformanceCounters[4]; // clock, cmc, pipe, tmem
 OSViMode g_ViModes[NUM_VIDEO_FRAME_BUFFERS];
 OSViMode *g_ViModePtrs[NUM_VIDEO_FRAME_BUFFERS];
 
@@ -106,9 +102,6 @@ void osScAddClient(OSSched *sc, OSScClient *c, OSMesgQueue *msgQ, OSScClient *ne
 }
 
 
-/**
- * 1870	70000C70
- */
 void osScRemoveClient(OSSched *sc, OSScClient *c)
 {
     OSScClient *client = sc->clientList; 
@@ -122,11 +115,16 @@ void osScRemoveClient(OSSched *sc, OSScClient *c)
         if (client == c) 
         {
 	        if(prev)
+            {
 		        prev->next = c->next;
+            }
 	        else
+            {
 		        sc->clientList = c->next;
                 break;
+            }
         }
+
         prev   = client;
         client = client->next;
     }
@@ -135,17 +133,13 @@ void osScRemoveClient(OSSched *sc, OSScClient *c)
 }
 
 
-/**
- * 18F8	70000CF8
- * V0= A0+78
- */
 OSMesgQueue *osScGetCmdQ(OSSched *sc)
 {
     return &sc->cmdQ;
 }
 
+
 /**
- * 1900	70000D00
  * Based on libultra\sched\sched.c. In particular, unlike the other scheduler methods,
  * the arg is actually void* instead of OSSched *sc.
  */
@@ -210,11 +204,13 @@ void __scMain(void *arg)
         do
         {
             osRecvMesg(&sc->interruptQ, &msg, OS_MESG_BLOCK);
-        } while((s32)msg != VIDEO_MSG);
+        }
+        while((s32)msg != VIDEO_MSG);
 
         joyPoll();
     }
 }
+
 
 void __scHandleRetrace(OSSched *sc)
 {
@@ -242,7 +238,9 @@ void __scHandleRetrace(OSSched *sc)
     {
         state = ((sc->curRSPTask == 0) << 1) | (sc->curRDPTask == 0);
         if ( __scSchedule (sc, &sp, &dp, state) != state)
+        {
             __scExec(sc, sp, dp);
+        }
     }
 
     for (client = sc->clientList; client != 0; client = client->next)
@@ -288,19 +286,12 @@ void __scHandleRSP(OSSched *sc)
 }
 
 
-u32 *get_counters(void)
-{
-    return g_DisplayPerformanceCounters;
-}
-
-
 void __scHandleRDP(OSSched *sc)
 {
     OSScTask *t, *sp = NULL, *dp = NULL; 
     s32 state;
     if (sc->curRDPTask != NULL)
     {
-        osDpGetCounters(g_DisplayPerformanceCounters);
         t = sc->curRDPTask;
         sc->curRDPTask = NULL;
         t->state &= ~OS_SC_NEEDS_RDP;
@@ -320,8 +311,10 @@ OSScTask *__scTaskReady(OSScTask *t)
     void *a;
     void *b;    
 
-    if (t) {    
-        if ((a=osViGetCurrentFramebuffer()) != (b=osViGetNextFramebuffer())) {
+    if (t) 
+    {    
+        if ((a = osViGetCurrentFramebuffer()) != (b = osViGetNextFramebuffer())) 
+        {
             return 0;
         }
 
@@ -359,6 +352,7 @@ s32 __scTaskComplete(OSSched *sc, OSScTask *t)
     }    
     return 0;
 }
+
 
 void __scAppendList(OSSched *sc, OSScTask *t) 
 {
@@ -414,36 +408,25 @@ void __scExec(OSSched *sc, OSScTask *sp, OSScTask *dp)
     {
         rv = osDpSetNextBuffer(dp->list.t.output_buff, *dp->list.t.output_buff_size);
 
-        dp_busy = 1;
-        dpCount = 0;
-
         sc->curRDPTask = dp;        
     }
 }
 
-/**
- * 2160	70001560
- */
 
 void __scYield(OSSched *sc) 
 {
-    if (sc->curRSPTask->list.t.type == M_GFXTASK) {
+    if (sc->curRSPTask->list.t.type == M_GFXTASK) 
+    {
         sc->curRSPTask->state |= 0x0010;
         osSpTaskYield();
-    } else {
+    } 
+    else 
+    {
       
     }    
 }
 
 
-/**
- * 219C	7000159C
- * ???
- *	uses TLB pointers at 80028400
- *	7000167C	3
- *	70001704	2,6,7
- *	70001758	default; 1,4,5
- */
 s32 __scSchedule(OSSched *sc, OSScTask **sp, OSScTask **dp, s32 availRCP) 
 {
     s32 avail = availRCP;

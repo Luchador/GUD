@@ -101,7 +101,6 @@
       build/OUTCODE/src/game/rsp.o (.rodata);
       build/OUTCODE/src/game/game_debug.o (.rodata);
       build/OUTCODE/src/game/compiletime.o (.rodata);
-      build/OUTCODE/src/game/speedgraphrenderer.o (.rodata);
       build/OUTCODE/src/game/viewport.o (.rodata);
       build/OUTCODE/src/game/musicselect.o (.rodata);
       build/OUTCODE/src/game/gedmanifest.o (.rodata);

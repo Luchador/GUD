@@ -5,7 +5,7 @@
 #include <image.h>
 
 struct bondstruct_unk_animation_related {
-    char* uselessPointer; // Is incremented like a count when an animation is copied from ROM to RAM but it's never read
+    char* pad;
     char* animBufferPtr1; 
     char* animBufferPtr2; 
 };

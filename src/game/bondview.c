@@ -4549,7 +4549,7 @@ void bondviewUpdatePlayerCollisionPositionFields(void)
 
 /**
  * Fixes vv_verta within -90 and +90.
- * Updates vv_costheta, vv_sintheta, vv_verta360, vv_cosverta, vv_sinverta, field_488.facingDirection.
+ * Updates vv_costheta, vv_sintheta, vv_verta360, vv_cosverta, field_488.facingDirection.
  * 
  * Perfect Dark function bmoveUpdateVerta.
  */
@@ -4584,7 +4584,6 @@ void bondviewApplyVertaTheta(void)
     }
 
     g_CurrentPlayer->vv_cosverta = cosf(g_CurrentPlayer->vv_verta360 * DegToRad1Fact(1));
-    g_CurrentPlayer->vv_sinverta = sinf(g_CurrentPlayer->vv_verta360 * DegToRad1Fact(1));
 
     g_CurrentPlayer->field_488.facingDirection.f[0] = -g_CurrentPlayer->vv_sintheta;
     g_CurrentPlayer->field_488.facingDirection.f[1] = 0;

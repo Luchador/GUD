@@ -862,7 +862,6 @@ extern s32		osAiSetNextBuffer(void *, u32);
 /* Display processor interface (Dp) */
 extern u32 		osDpGetStatus(void);
 extern void		osDpSetStatus(u32);
-extern void 		osDpGetCounters(u32 *);
 extern s32		osDpSetNextBuffer(void *, u64);
 
 /* Peripheral interface (Pi) */

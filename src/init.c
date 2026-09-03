@@ -30,13 +30,6 @@
 
 #define MAXCODESIZE (0x101000 - 0x1050) 
 
-
-/**
- * These 3 values (likely more as u32 piDeviceType = DEVICE_TYPE_CART could be 4x u8)
- * piDeviceType is completely unused but the most logical value here
- * piStatusReg, and piDomAddr are explicitly stored as 32bit values
-*/
-u32 piDeviceType = DEVICE_TYPE_CART;
 u32 piStatusReg = PI_CLR_INTR;
 u32 piDomAddr = PI_DOM1_ADDR2;
 

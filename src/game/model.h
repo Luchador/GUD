@@ -25,8 +25,6 @@ void clear_aircraft_model_obj(Model *objinstance);
 void modelSetDistanceDisabled(s32 param_1);
 void modelSetDistanceScale(f32 scale);
 void set_vtxallocator(s32 param_1);
-void modelCalculateScaledRootToOriginDir(Model* model, coord3d* coord);
-void modelGetScaledRootToOriginDir(Model* model, coord3d* coord);
 s32 modelFindNodeMtxIndex(ModelNode *node, s32 arg1);
 Mtxf *modelFindNodeMtx(struct Model *model, struct ModelNode *node, s32 arg2);
 Mtxf *getsubmatrix(Model *objinst);
@@ -102,8 +100,6 @@ void sub_GAME_7F073038(ModelRenderData *renderdata, struct sImageTableEntry *tco
 void dogfnegx(ModelRenderData *renderdata, Model *model, ModelNode *node);
 void sub_GAME_7F073FC8(s32 arg0);
 void doshadow(ModelRenderData *renderdata, Model *model, ModelNode *node);
-void sub_GAME_7F074514(s32 param_1,struct Model *param_2,struct ModelNode *param_3);
-void sub_GAME_7F074524(Gfx *param_1,struct Model *param_2, struct ModelNode *param_3);
 void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node);
 void subdraw(ModelRenderData *arg0, struct Model *);
 u8 *loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused);

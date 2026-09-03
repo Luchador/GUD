@@ -33,7 +33,6 @@ static EnvironmentRecord *g_MainEnvironment;
 static EnvironmentRecord *g_AlternateEnvironment;
 
 static f32 g_ScaledFarFogIntensity = FLT_MAX;
-static f32 g_ScaledDifferenceFromFarFogIntensity = 0.0;
 
 static EnvironmentRecord g_CurrentEnvironment = {
     ENVIRONMENTDATA_END,
@@ -162,7 +161,6 @@ static void envLoadCurrentEnvironment(EnvironmentRecord *record)
         g_FarFogIntensity = 0.0f;
         g_DifferenceFromFarFogIntensity = 0.0f;
         g_ScaledFarFogIntensity = FLT_MAX;
-        g_ScaledDifferenceFromFarFogIntensity = 0.0f;
         g_NearFogValuesP = NULL;
         return;
     }
@@ -175,7 +173,6 @@ static void envLoadCurrentEnvironment(EnvironmentRecord *record)
     g_FarFogIntensity = (f32)record->Visibility.FogEnd / 1000.0f;
 
     g_ScaledFarFogIntensity = ((zrange[1] - zrange[0]) *  g_FarFogIntensity) + zrange[0];
-    g_ScaledDifferenceFromFarFogIntensity = ((zrange[1] - zrange[0]) * g_DifferenceFromFarFogIntensity) + zrange[0];
 
     g_CurFogDetails.g_CurFogDetails = record->Visibility.NearClipDistance / levelScale;
     pk0 = g_CurFogDetails.g_CurFogDetails;

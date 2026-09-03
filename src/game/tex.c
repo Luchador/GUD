@@ -10,100 +10,59 @@
 s32 g_TexLutMode;
 s_bss_8008D148 g_TexTileStates[8]; //[0x160]; //8 entries of 0x2c ea
 s_bss_8008D2A8 g_TexTileSizes[8]; //[0xA0]; //8 entries of 0x14 ea
-s32 dword_CODE_bss_8008D348; // unused/padding
 
-//D:8004E760
 u16 default_hit_sfx[] = {HIT_BULLET_STONE1_SFX, HIT_BULLET_STONE2_SFX};
-//D:8004E764
 u8 default_impact_types[] = {0x7, 0x0, 0x0, 0x0};
-//D:8004E768
 struct image_sound isnd_default = {default_hit_sfx, default_impact_types, 0x0, 0x1};
 
-//D:8004E774
 u16 stone_hit_sfx[] = {HIT_BULLET_STONE1_SFX, HIT_BULLET_STONE2_SFX};
-//D:8004E778
 u8 stone_impact_types[] = {0x1, 0x0, 0x0, 0x0};
-//D:8004E77C
 struct image_sound isnd_stone = {stone_hit_sfx, stone_impact_types, 0x2, 0x1};
 
-//D:8004E788
 u16 wood_hit_sfx[] = {HIT_BULLET_WOOD_SFX, HIT_BULLET_WOOD2_SFX};
-//D:8004E78C
 u8 wood_impact_types[] = {0x1, 0x0, 0x0, 0x0};
-//D:8004E790
 struct image_sound isnd_wood = {wood_hit_sfx, wood_impact_types, 0x2, 0x1};
 
-//D:8004E79C
 u16 metal_hit_sfx[] = {HIT_BULLET_METAL_A_SFX, HIT_BULLET_METAL_A4_SFX, HIT_BULLET_METAL_A3_SFX, 0x00};
-//D:8004E7A4
 u8 metal_impact_types[] = {0x7, 0x0, 0x0, 0x0};
-//D:8004E7A8
 struct image_sound isnd_metal = {metal_hit_sfx, metal_impact_types, 0x3, 0x1};
 
-//D:8004E7B4
 u16 glass_hit_sfx[] = {HIT_BULLET_GLASS_SFX, 0x00};
-//D:8004E7B8
 u8 glass_impact_types[] = {0x4, 0x5, 0x6, 0x0};
-//D:8004E7BC
 struct image_sound isnd_glass = {glass_hit_sfx, glass_impact_types, 0x1, 0x3};
 
-//D:8004E7C8
 u16 water_hit_sfx[] = {HIT_BULLET_WATER_SFX, 0x00};
-//D:8004E7CC
 u8 water_impact_types[] = {0, 0, 0, 0};
-//D:8004E7D0
 struct image_sound isnd_water = {water_hit_sfx, water_impact_types, 0x1, 0x0};
 
-//D:8004E7DC
 u16 snow_hit_sfx[] = {HIT_BULLET_SNOW_SFX, 0x00};
-//D:8004E7E0
 u8 snow_impact_types[] = {0x1, 0x0, 0x0, 0x0};
-//D:8004E7E4
 struct image_sound isnd_snow = {snow_hit_sfx, snow_impact_types, 0x1, 0x1};
 
-//D:8004E7F0
 u16 dirt_hit_sfx[] = {HIT_BULLET_DIRT1_SFX, HIT_BULLET_DIRT2_SFX};
-//D:8004E7F4
 u8 dirt_impact_types[] = {0x2, 0x0, 0x0, 0x0};
-//D:8004E7F8
 struct image_sound isnd_dirt = {dirt_hit_sfx, dirt_impact_types, 0x2, 0x1};
 
-//D:8004E804
 u16 mud_hit_sfx[] = {HIT_BULLET_MUD1_SFX, HIT_BULLET_MUD2_SFX, HIT_BULLET_MUD3_SFX, 0x00};
-//D:8004E80C
 u8 mud_impact_types[] = {0x2, 0x0, 0x0, 0x0};
-//D:8004E810
 struct image_sound isnd_mud = {mud_hit_sfx, mud_impact_types, 0x3, 0x1};
 
-//D:8004E81C
 u16 tile_hit_sfx[] = {HIT_BULLET_TILE_SFX, 0x00};
-//D:8004E820
 u8 tile_impact_types[] = {0x1, 0x0, 0x0, 0x0};
-//D:8004E824
 struct image_sound isnd_tile = {tile_hit_sfx, tile_impact_types, 0x1, 0x1};
 
-//D:8004E830
 u16 metal_object_hit_sfx[] = {HIT_METAL_OBJECT1_SFX, HIT_METAL_OBJECT2_SFX};
-//D:8004E834
 u8 metal_object_impact_types[] = {0x1, 0x7, 0x0, 0x0};
-//D:8004E838
 struct image_sound isnd_metalobj = {metal_object_hit_sfx, metal_object_impact_types, 0x2, 0x2};
 
-//D:8004E844
 u16 character_hit_sfx[] = {HIT_BULLET_FLESH_SFX, 0x00};
-//D:8004E848
 u8 character_impact_types[] = {0x2, 0x0, 0x0, 0x0};
-//D:8004E84C
 struct image_sound isnd_chr = {character_hit_sfx, character_impact_types, 0x1, 0x1};
 
-//D:8004E858
 u16 translucent_glass_hit_sfx[] = {HIT_BULLET_GLASS_SFX, 0x00};
-//D:8004E85C
 u8 translucent_glass_impact_types[] = {0x11, 0x12, 0x13, 0x0};
-//D:8004E860
 struct image_sound isnd_glass_xlu = {translucent_glass_hit_sfx, translucent_glass_impact_types, 0x1, 0x3};
 
-//D:8004E86C
 struct image_sound *g_HitTypeSounds[] = { 
     &isnd_default,
     &isnd_stone,
@@ -120,37 +79,17 @@ struct image_sound *g_HitTypeSounds[] = {
     &isnd_glass_xlu
 };
 
-char * image_sound_names[] = {
-    "HIT_DEFAULT",
-    "HIT_STONE",
-    "HIT_WOOD",
-    "HIT_METAL",
-    "HIT_GLASS",
-    "HIT_WATER",
-    "HIT_SNOW",
-    "HIT_DIRT",
-    "HIT_MUD",
-    "HIT_TILE",
-    "HIT_METALOBJ",
-    "HIT_CHR",
-    "HIT_GLASS_XLU"
-};
-
-
-void nullsub_47(void) {
-    return;
-}
-
 
 void sub_GAME_7F0CC4C8(void)
 {
-    int i;
+    s32 i;
 
-    for (i=0; i<8; i++)
+    for (i = 0; i <8 ; i++)
     {
         g_TexTileStates[i].inuse = 0;
         g_TexTileSizes[i].inuse = 0;
     }
+
     g_TexLutMode = -1;
 }
 

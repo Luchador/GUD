@@ -100,7 +100,6 @@
       build/OUTCODE/src/game/rsp.o (.text);
       build/OUTCODE/src/game/game_debug.o (.text);
       build/OUTCODE/src/game/compiletime.o (.text);
-      build/OUTCODE/src/game/speedgraphrenderer.o (.text);
       build/OUTCODE/src/game/viewport.o (.text);
       build/OUTCODE/src/game/musicselect.o (.text);
       build/OUTCODE/src/game/gedmanifest.o (.text);

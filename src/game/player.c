@@ -308,7 +308,7 @@ void playerInitData(s32 player_num)
     g_playerPointers[player_num]->vv_verta360 = -229.1831f;
     g_playerPointers[player_num]->speedverta = 0.0f;
     g_playerPointers[player_num]->vv_cosverta = 1.0f;
-    g_playerPointers[player_num]->vv_sinverta = 0.0f;
+    g_playerPointers[player_num]->pad168 = 0.0f;
     g_playerPointers[player_num]->speedsideways = 0.0f;
     g_playerPointers[player_num]->speedstrafe = 0.0f;
     g_playerPointers[player_num]->speedforwards = 0.0f;

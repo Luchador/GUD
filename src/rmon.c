@@ -30,21 +30,6 @@ s32 rmonGetToken(void) {
     #endif
 }
 
-/**
- * REMOVED
- * rmonStatus
- * returns the status of rmon
- */
-s32 rmonStatus(void) {
-    #ifdef DEBUG
-        //removed
-    #else
-        return -1;
-    #endif
-
-}
-
-
 
 /**
  * Removed
@@ -68,41 +53,6 @@ void osReadHost(void * buffer, u32 size)
     if (buffer);
 	if (size);
 }
-
-
-/**
- * Removed
- * rmon7000CEC8
- * unknown function
- */
-void rmon7000CEC8(void) {
-    #ifdef DEBUG
-        //removed
-    #endif
-}
-
-/**
- * Removed
- * rmon7000CED0
- * unknown function
- */
-void rmon7000CED0(void) {
-    #ifdef DEBUG
-        //removed
-    #endif
-}
-
-/**
- * Removed
- * rmon7000CED8
- * unknown function
- */
-void rmon7000CED8(void) {
-    #ifdef DEBUG
-        //removed
-    #endif
-}
-
 
 
 /**

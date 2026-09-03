@@ -263,7 +263,7 @@ void init_player_BONDdata(void)
     }
     g_CurrentPlayer->speedverta = 0.0f;
     g_CurrentPlayer->vv_cosverta = 1.0f;
-    g_CurrentPlayer->vv_sinverta = 0.0f;
+    g_CurrentPlayer->pad168 = 0.0f;
     g_CurrentPlayer->speedsideways = 0.0f;
     g_CurrentPlayer->speedstrafe = 0.0f;
     g_CurrentPlayer->speedforwards = 0.0f;

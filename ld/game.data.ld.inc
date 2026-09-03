@@ -99,7 +99,6 @@
       build/OUTCODE/src/game/rsp.o (.data);
       build/OUTCODE/src/game/game_debug.o (.data);
       build/OUTCODE/src/game/compiletime.o (.data);
-      build/OUTCODE/src/game/speedgraphrenderer.o (.data);
       build/OUTCODE/src/game/viewport.o (.data);
       build/OUTCODE/src/game/musicselect.o (.data);
       build/OUTCODE/src/game/gedmanifest.o (.data);

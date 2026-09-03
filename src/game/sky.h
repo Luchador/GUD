@@ -5,7 +5,6 @@
 #include <bondtypes.h>
 #include "bondview.h"
 
-void skySetStageNum(s32 stagenum);
 void skyTick(void);
 Gfx * skyRender(Gfx *arg0);
 void skyProjectVertex(SkyRelated18 *arg0, Mtxf *arg1, u16 arg2, f32 arg3, f32 arg4, SkyRelated38 *arg5);

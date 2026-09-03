@@ -7,11 +7,6 @@
 #include "bondgame.h"
 
 
-/**
- * @file audi.c
- * This file contains audio code. Starts main audio thread, handles some audio DMA.
- */
-
 // 0x5622 = 22050
 #define OUTPUT_RATE                    0x5622
 #define FRAMES_PER_FIELD_AS_POW2            1
@@ -38,36 +33,13 @@ extern long long int aspMainTextStart[];
 extern long long int aspMainDataStart[];
 extern u8 sp_audi[];
 
-/**
- * Copied from the n64devkit audio examples.
- * sizeof(struct DMABuffer_s) == 0x14 (20)
- */
 typedef struct DMABuffer_s {
-    /**
-     * 0x0.
-     */
     ALLink node;
-
-    /**
-     * 0x8.
-     */
     int startAddr;
-
-    /**
-     * 0xc.
-     */
     u32 lastFrame;
-
-    /**
-     * 0x10.
-     */
     u8* ptr;
 } DMABuffer;
 
-/**
- * Copied from the n64devkit audio examples.
- * sizeof(struct DMAState_s) == 0xc (12).
- */
 typedef struct DMAState_s {
     /**
      * This was defined (in the devkit) as u8 (and code expects a byte), but the size
@@ -80,20 +52,10 @@ typedef struct DMAState_s {
         s32 _unusedAlign;
     } u;
 
-    /**
-     * 0x4.
-     */
     DMABuffer *firstUsed;
-
-    /**
-     * 0x8.
-     */
     DMABuffer *firstFree;
 } DMAState;
 
-/**
- * Copied from the n64devkit audio examples.
- */
 typedef union AudioMessage_u {
     struct {
         s16 type;
@@ -107,42 +69,23 @@ typedef union AudioMessage_u {
     OSScMsg app;
 } AudioMessage;
 
-/**
-* Modified from n64devkit example.
-* sizeof(struct _DMAState) == 0xc (12).
-*/
 typedef struct AudioInfo_s {
-    /**
-    * Output data pointer.
-    * 0x0.
-    */
     s16 *data;
 
     /**
      * # of samples synthesized in this frame
-     * 0x4.
      */
     s16 frameSamples;
-
-    /**
-     * scheduler structure
-     * 0x8
-     */
     OSScTask task;
 } AudioInfo;
 
-// unknown purpose
-u32 D_800230F0 = 0;
-
 u32 g_AudioFrameCount = 0;
-
 u32 g_NextDMa = 0;
-
 u32 g_CurrentAcmdList = 0;
 
-/*
-* This macro is used/defined in both libultra and libnaudio
-*/
+/**
+ * This macro is used/defined in both libultra and libnaudio
+ */
 #define ms *(((s32)((f32)44.1)) & ~0x7)
 
 #define CUSTOM_FX_SECTION_COUNT   6
@@ -167,11 +110,7 @@ s32 CUSTOM_FX_PARAMS_N[CUSTOM_FX_SECTION_COUNT * CUSTOM_FX_SECTION_SIZE + 2] = {
 
 s32 g_FirstTime = 1;
 
-/*bss needs fixing */
-s32 dword_CODE_bss_8005E4B0[2];
-
 /**
- * Address 8005E4B8.
  * (type is u64)
  * Used in amMain.
  * This looks like it stores the largest sDeltaTime between
@@ -180,7 +119,6 @@ s32 dword_CODE_bss_8005E4B0[2];
 OSTime g_LargestDeltaTime;
 
 /**
- * Address 8005E4C0.
  * (type is u64)
  * Used in amMain.
  * Stores the elpased time of main loop (difference between sEndTime and sStartTime).
@@ -189,7 +127,6 @@ OSTime g_DeltaTime;
 
 
 /**
- * Address 8005E4C8.
  * Every AUDIO_MANAGER_COUNT_INTERVAL number of events, the average for sDeltaTimeSum
  * is computed and stored here.
  */
@@ -197,13 +134,11 @@ u64 g_DeltaAverage;
 
 
 /**
- * Address 8005E4D0.
  * Tracks the sum total elapsed time. Reset every AUDIO_MANAGER_COUNT_INTERVAL.
  */
 u64 g_DeltaTimeSum;
 
 /**
- * Address 8005E4D8.
  * (type is u64)
  * Used in amMain.
  * Stores the time at the start of the loop.
@@ -211,7 +146,6 @@ u64 g_DeltaTimeSum;
 OSTime g_StartTime;
 
 /**
- * Address 8005E4E0.
  * (type is u64)
  * Used in amMain.
  * Stores the time after primary processing is done.
@@ -219,71 +153,21 @@ OSTime g_StartTime;
 OSTime g_EndTime;
 
 /**
- * Unknown / unused
- */
-char dword_CODE_bss_8005E4E8[0x30];
-
-/**
- * Address 8005e518.
  * sizeof(struct AudioManager_s) == 0x288 (648)
  */
 struct AudioManager_s {
-
-    /**
-     * 0.
-     */
     Acmd *cmdList[NUMBER_ACMD_LISTS];
-
-    /**
-     * 0x8.
-     */
     AudioInfo *audioInfo[NUMBER_OUTPUT_BUFFERS];
-
-    /**
-    * 0x14.
-    */
     u32 numberOutputBuffers;
-
-    /**
-     * 0x18.
-     */
     OSThread audioThread;
-
-    /**
-     * 0x1c8.
-     */
     OSMesgQueue frameMessageQueue;
-
-    /**
-     * 0x1e0.
-     */
     OSMesg frameMessageBuffer[AUDIO_FRAME_MESSAGE_QUEUE_SIZE];
-
-    /**
-     * 0x200.
-     */
     OSMesgQueue replyMessageQueue;
-
-    /**
-     * 0x218.
-     */
     OSMesg replyMessageBuffer[AUDIO_REPLY_MESSAGE_QUEUE_SIZE];
-
-    /**
-     * 0x238
-     */
     ALGlobals g;
-
 } g_AudioManager;
 
-/**
- * Address 0x8005e7a0.
- */
 OSScClient g_AudioClient[2];
-
-/**
- * Address 0x8005e7b0.
- */
 DMAState g_DmaState;
 
 DMABuffer g_DmaBuffers[NUMBER_DMA_BUFFERS];
@@ -294,13 +178,12 @@ u32 g_MaxFrameSize;
 s32 g_CommandLength;
 
 OSIoMesg g_DmaIOMessageBuffer[AUDIO_DMA_IO_QUEUE_SIZE];
-
 OSMesgQueue g_DmaMessageQueue;
-
 OSMesg g_DmaMessageBuffer[AUDIO_DMA_QUEUE_SIZE];
 
 
-// Forward declarations
+// Begin forward declarations.
+
 s32 amDmaCallback(s32 addr, s32 len, void* state);
 void amClearDmaBuffers(void);
 void amHandleFrameMessage(AudioInfo *info, AudioInfo *lastInfo);
@@ -308,14 +191,9 @@ void amHandleDoneMessage(AudioInfo *info);
 void amMain(void* arg);
 ALDMAproc amDmaNew(DMAState** state);
 
+// End forward declarations.
 
 /**
- * Address 29D0 70001BD0
- *
- * Looks to be loosely based on method
- *     amCreateAudioMgr
- * from the n64devkit.
- *
  * @param alconf hw setup/config.
  */
 void amCreateAudioManager(ALSynConfig* alconf)
@@ -384,24 +262,13 @@ void amCreateAudioManager(ALSynConfig* alconf)
     osCreateThread(&g_AudioManager.audioThread, AUDI_THREAD_ID, &amMain, 0, (void*)setSPToEnd((u8*)(&sp_audi), sizeof(sp_audi)), AUDI_THREAD_PRIORITY);
 }
 
-/**
- * 2B58 70001F58
- * insert sound manager thread
- *	redirect to 7000D580: A0=8005E530
- */
+
 void amStartAudioThread(void)
 {
     osStartThread(&g_AudioManager.audioThread);
 }
 
 /**
- * 2B7C 70001F7C
- * Looks to be loosely based on method
- *     __amMain
- * from the n64devkit. This method makes some kind of video calls,
- * but also does some kind of debug tracking of the time spent between
- * beginning and end of processing.
- *
  * @param arg unused.
  */
 void amMain(void* arg)
@@ -413,43 +280,49 @@ void amMain(void* arg)
 
 	osScAddClient(&os_scheduler, &g_AudioClient[0], &g_AudioManager.frameMessageQueue, 1);
 
-	while (!done) {
+	while (!done)
+    {
 		osRecvMesg(&g_AudioManager.frameMessageQueue, (OSMesg *) &msg, OS_MESG_BLOCK);
 
-		switch (*msg) {
-		case OS_SC_RETRACE_MSG:
-			g_StartTime = osGetTime();
-			amHandleFrameMessage(g_AudioManager.audioInfo[g_AudioFrameCount % 3], info);
-			count++;
+		switch (*msg)
+        {
+            case OS_SC_RETRACE_MSG:
+                g_StartTime = osGetTime();
+                amHandleFrameMessage(g_AudioManager.audioInfo[g_AudioFrameCount % 3], info);
+                count++;
 
-			g_EndTime = osGetTime();
-			g_DeltaTime = g_EndTime - g_StartTime;
+                g_EndTime = osGetTime();
+                g_DeltaTime = g_EndTime - g_StartTime;
 
-			if (count % AUDIO_MANAGER_COUNT_INTERVAL == 0) {
-				g_DeltaAverage = g_DeltaTimeSum / AUDIO_MANAGER_COUNT_INTERVAL;
+                if (count % AUDIO_MANAGER_COUNT_INTERVAL == 0)
+                {
+                    g_DeltaAverage = g_DeltaTimeSum / AUDIO_MANAGER_COUNT_INTERVAL;
 
-                // comma is required to continue into next statement, or will fail to match.
-                // Or can have two statements on the same line.
-                g_DeltaTimeSum = 0,
-                g_LargestDeltaTime = 0;
-			} else {
-				g_DeltaTimeSum = (g_DeltaTimeSum + g_EndTime) - g_StartTime;
-			}
+                    // comma is required to continue into next statement, or will fail to match.
+                    // Or can have two statements on the same line.
+                    g_DeltaTimeSum = 0,
+                    g_LargestDeltaTime = 0;
+                } 
+                else 
+                {
+                    g_DeltaTimeSum = (g_DeltaTimeSum + g_EndTime) - g_StartTime;
+                }
 
-			if (g_LargestDeltaTime < g_EndTime - g_StartTime) {
-				g_LargestDeltaTime = g_EndTime - g_StartTime;
-			}
+                if (g_LargestDeltaTime < g_EndTime - g_StartTime)
+                {
+                    g_LargestDeltaTime = g_EndTime - g_StartTime;
+                }
 
-			osRecvMesg(&g_AudioManager.replyMessageQueue, (OSMesg *) &info, OS_MESG_BLOCK);
+                osRecvMesg(&g_AudioManager.replyMessageQueue, (OSMesg *) &info, OS_MESG_BLOCK);
 
-			amHandleDoneMessage(info);
-			break;
-		case 5:
-			done = 1;
-			break;
-		case MAIN_QUIT_MESSAGE:
-			done = 1;
-			break;
+                amHandleDoneMessage(info);
+                break;
+            case 5:
+                done = 1;
+                break;
+            case MAIN_QUIT_MESSAGE:
+                done = 1;
+                break;
 		}
 	}
 
@@ -457,12 +330,7 @@ void amMain(void* arg)
 }
 
 /**
- * 2E44	70002244
- * Based on method
- *     static u32 __amHandleFrameMsg(AudioInfo *info, AudioInfo *lastInfo)
- * from the n64devkit demos_old/simple/audiomgr.c.
- *
- * original documentation:
+ * Original documentation:
  * First, clear the past audio dma's, then calculate
  * the number of samples you will need for this frame. This value varies
  * due to the fact that audio is synchronised off of the video interupt
@@ -539,12 +407,7 @@ void amHandleFrameMessage(AudioInfo *info, AudioInfo *lastInfo)
 
 
 /**
- * 2FE4	700023E4
- * Based on method
- *     static void __amHandleDoneMsg(AudioInfo *info)
- * from the n64devkit demos_old/simple/audiomgr.c.
- *
- * original documentation:
+ * Original documentation:
  * Really just debugging info in this frame. Checks
  * to make sure we completed before we were out of samples.
  *
@@ -569,6 +432,7 @@ void amHandleDoneMessage(AudioInfo *info)
     *     if (samplesLeft == 0 && !firstTime)
     */
     b = &g_FirstTime;
+
     if (!samplesLeft && !(*b))
     {
         g_FirstTime = 0;
@@ -576,12 +440,7 @@ void amHandleDoneMessage(AudioInfo *info)
 }
 
 /**
- * 3024 70002424
- * Looks to be based on method
- *     s32 __amDMA(s32 addr, s32 len, void *state)
- * from the n64devkit.
- *
- *  original documentation:
+ * Original documentation:
  * This routine handles the dma'ing of samples from rom to ram.
  * First it checks the current buffers to see if the samples needed are
  * already in place. Because buffers are linked sequentially by the
@@ -693,12 +552,7 @@ s32 amDmaCallback(s32 addr, s32 len, void* state)
 }
 
 /**
- * 31D8 700025D8
- * Based on method
- *     ALDMAproc __amDmaNew(AMDMAState **state)
- * from the n64devkit demos_old/simple/audiomgr.c.
- *
- * original documentation:
+ * Original documentation:
  * Initialize the dma buffers and return the address of the
  * procedure that will be used to dma the samples from rom to ram. This
  * routine will be called once for each physical voice that is created.
@@ -724,12 +578,7 @@ ALDMAproc amDmaNew(DMAState** state)
 }
 
 /**
- * 3210 70002610
- * Based on method
- *     static void __clearAudioDMA(void)
- * from the n64devkit demos_old/simple/audiomgr.c.
- *
- * original documentation:
+ * Original documentation:
  * Routine to move dma buffers back to the unused list.
  * First clear out your dma messageQ. Then check each buffer to see when
  * it was last used. If that was more than FRAME_LAG frames ago, move it
@@ -777,4 +626,3 @@ void amClearDmaBuffers(void)
     g_NextDMa = 0U;
     g_AudioFrameCount = (s32)(g_AudioFrameCount + 1);
 }
-

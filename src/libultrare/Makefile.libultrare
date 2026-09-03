@@ -126,7 +126,6 @@ LIBULTRA_IO_C_FILES := \
     contquery \
     crc \
     dp \
-    dpctr \
     dpsetnextbuf \
     dpsetstat \
     piacs \

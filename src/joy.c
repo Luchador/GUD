@@ -62,7 +62,6 @@ OSMesgQueue g_ContEnablePollReceiveMessageQueue;
 
 OSContStatus g_ContStatus[MAXCONTROLLERS];
 OSPfs g_ContPfs[MAXCONTROLLERS];
-s32 g_ContDebugData = 0;
 
 struct contdata *g_ContDataPtr = &g_ContData[CONTDATA_REGULAR];
 s32 g_ContBusy = 0;
@@ -105,7 +104,6 @@ s32 g_ContInitDone = 0;
 s32 g_ContCheckStatusTimer60 = 0;
 
 contplaybackfunc g_ContPlaybackFunc = NULL;
-contrecordfunc g_ContRecordFunc = NULL;
 
 /**
  * Startup flag, cleared after first call to joyCheckStatus.
@@ -132,7 +130,6 @@ void joyInit(void)
 
     g_ContQueuesCreated = TRUE;
     g_ContPlaybackFunc = NULL;
-    g_ContRecordFunc = NULL;
 
     for (i = 0; i < CONTDATA_LEN; i++)
     {
@@ -353,16 +350,13 @@ void joyRumblePakTick(void)
     }
 }
 
+
 void joySetPlaybackFunc(contplaybackfunc func, s32 controllercount)
 {
     g_ContPlaybackFunc = func;
     g_ContData[CONTDATA_PLAYBACK].playbackcontcount = controllercount;
 }
 
-void joySetRecordFunc(contrecordfunc func)
-{
-    g_ContRecordFunc = func;
-}
 
 void joyConsumeSamples(struct contdata *contdata)
 {
@@ -410,11 +404,6 @@ void joyConsumeSamplesWrapper(void)
     }
 
     joyConsumeSamples(&g_ContData[CONTDATA_REGULAR]);
-
-    if (g_ContRecordFunc)
-    {
-        g_ContRecordFunc(g_ContData[CONTDATA_REGULAR].samples, g_ContData[CONTDATA_REGULAR].curstart, g_ContData[CONTDATA_REGULAR].curlast);
-    }
 }
 
 

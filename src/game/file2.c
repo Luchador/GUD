@@ -1018,25 +1018,6 @@ void fileSetSelectedBondTofolder(s32 folder, s32 bond)
 #endif
 }
 
-/**
- *
- *
- * @param unused
- */
-void sub_GAME_7F01EBF4(u32 unused)
-{
-    return;
-}
-
-/**
- *
- *
- * @param unused
- */
-void sub_GAME_7F01EBFC(u32 unused)
-{
-    return;
-}
 
 /**
  * Delete save at foldernum
@@ -1052,9 +1033,11 @@ void fileDeleteSaveForFolder(s32 foldernum)
     if (foldernum >= FOLDER1 && foldernum < MAX_FOLDER_COUNT)
     {
         save = fileGetSaveForFoldernum(foldernum);
+
         if (save)
         {
             fileGetHighestStageDifficultyCompletedForFolder(foldernum, &levelid, &difficulty);
+
             if ((levelid >= SP_LEVEL_DAM) && (difficulty >= DIFFICULTY_AGENT))
             {
                 save_data new_save = BLANKSAVEDATA;
@@ -1069,28 +1052,6 @@ void fileDeleteSaveForFolder(s32 foldernum)
     }
 }
 
-/**
- *
- *
- * Resetting times??
- * @param folder
- */
-void fileInitializeAllTimes(u32 folder)
-{
-    save_data *save;
-    LEVEL_SOLO_SEQUENCE levelid;
-    DIFFICULTY difficulty;
-
-    save = fileGetSaveForFoldernum(folder);
-
-    for (levelid = SP_LEVEL_DAM; levelid < SP_LEVEL_MAX; levelid++)
-    {
-        for(difficulty = DIFFICULTY_AGENT; difficulty < DIFFICULTY_007; difficulty++)
-        {
-            fileCheckSaveStageDifficultyTime(save, levelid, difficulty, 99999999);
-        }
-    }
-}
 
 /**
  * Copy save

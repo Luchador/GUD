@@ -112,10 +112,6 @@ coord3d D_8002CCAC = {0, 0, 0};
 
 rgba_u8 gBloodColour = { 0x5a, 0, 0, 0};
 
-/**
- * Address 0x8002CCBC.
-*/
-
 ModelRenderData D_8002CCBC         = {NULL,
                                       TRUE,
                                       0x00000003,
@@ -126,7 +122,6 @@ ModelRenderData D_8002CCBC         = {NULL,
                                       {0, 0, 0, 0},
                                       CULLMODE_BOTH};
 
-s32 D_8002CCFC = 0; // Unused.
 u32 num_bodies = 0;
 u32 num_male_heads = 0;
 u32 num_female_heads = 0;

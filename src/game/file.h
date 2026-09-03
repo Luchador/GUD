@@ -44,7 +44,6 @@ s32 fileGetBondForCurrentFolder(void);
 void fileSetCurrentFolder(u32 foldernum);
 void set_selected_difficulty(DIFFICULTY difficulty);
 void set_solo_and_ptr_briefing(LEVELID stage);
-void sub_GAME_7F01D61C(struct save_data *savefile);
 void set_selected_foldernum_and_copy_demo_eeprom(struct save_data *eeprom);
 void store_favorite_weapon_current_player(u32 right,u32 left);
 

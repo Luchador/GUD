@@ -172,7 +172,6 @@ void viSetViewSize(s16 x, s16 y);
 void viSetViewPosition(s16 left, s16 top);
 void viInitBuffers(void);
 void viVsyncRelated(void);
-void viSetHorizontalOffset(s32 arg0);
 s32 viGetHorizontalOffset(void);
 void video_related_8(void);
 void viSetBuf(s16 x, s16 y);
