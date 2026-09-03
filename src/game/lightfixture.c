@@ -151,6 +151,7 @@ bool check_if_imageID_is_light(s32 imageID)
         (imageID == IMAGE_203_LIGHT)     ||
         (imageID == IMAGE_205_LIGHT)     ||
         (imageID == IMAGE_252_LIGHT)     ||
+        (imageID == 0xFD)                ||
         (imageID == IMAGE_PANEL_LAMP)    ||
         (imageID == IMAGE_255_LIGHT)     ||
         (imageID == IMAGE_256_LIGHT)     ||
