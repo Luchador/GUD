@@ -1113,8 +1113,6 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
     ChrCollisionProfileScope profilerScope;
     u32 profilerStart;
     u32 profilerSubStart;
-    u32 profilerSegmentStart;
-    u32 profilerSegmentCycles;
     u32 profilerCycles;
 
     profilerScope = g_ProfChrCollisionScope;
@@ -1183,29 +1181,53 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
         if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
         {
             g_ProfChrNavLineQueryCycles += osGetCount() - profilerSubStart;
-            profilerSubStart = osGetCount();
-            profilerSegmentCycles = 0;
         }
 
         for (propIndex = g_RoomPropQueryIndices; *propIndex >= 0; propIndex++)
         {
             prop = &g_Props[*propIndex];
 
+            if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+            {
+                profilerSubStart = osGetCount();
+            }
+
             if (!propIsOfCdType(prop, collisionTypes))
+            {
+                if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+                {
+                    g_ProfChrNavLineFilterCycles += osGetCount() - profilerSubStart;
+                }
+
+                continue;
+            }
+
+            if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+            {
+                g_ProfChrNavLineFilterCycles += osGetCount() - profilerSubStart;
+                g_ProfChrNavLineCandidateProps++;
+                profilerSubStart = osGetCount();
+            }
+
+            chraiGetCollisionBounds(prop, &polygon, &edgeCount, &propTop, &propBottom);
+
+            if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+            {
+                g_ProfChrNavLineBoundsCycles += osGetCount() - profilerSubStart;
+
+                if (edgeCount == 0)
+                {
+                    g_ProfChrNavLineZeroEdgeProps++;
+                }
+            }
+
+            if (edgeCount == 0)
             {
                 continue;
             }
 
-            chraiGetCollisionBounds(prop, &polygon, &edgeCount, &propTop, &propBottom);
             edgeStart = &polygon->points[0];
             edgeEnd = &polygon->points[1];
-
-            if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
-            {
-                g_ProfChrNavLineCandidateProps++;
-                g_ProfChrNavLineTestedEdges += edgeCount;
-                profilerSegmentStart = osGetCount();
-            }
 
             for (edgeIndex = 0; edgeIndex < edgeCount; edgeIndex++, edgeStart++, edgeEnd++)
             {
@@ -1214,15 +1236,39 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
                     edgeEnd = &polygon->points[0];
                 }
 
-                if (!doSegmentsIntersect(startX, startZ, endX, endZ, edgeStart->f[0], edgeStart->f[1], edgeEnd->f[0], edgeEnd->f[1]))
+                if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+                {
+                    profilerSubStart = osGetCount();
+                }
+
+                blocksLine = doSegmentsIntersect(startX, startZ, endX, endZ, edgeStart->f[0], edgeStart->f[1], edgeEnd->f[0], edgeEnd->f[1]);
+
+                if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+                {
+                    g_ProfChrNavLineIntersectionTestCycles += osGetCount() - profilerSubStart;
+                    g_ProfChrNavLineTestedEdges++;
+                }
+
+                if (!blocksLine)
                 {
                     continue;
+                }
+
+                if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+                {
+                    g_ProfChrNavLineIntersectingEdges++;
+                    profilerSubStart = osGetCount();
                 }
 
                 intersectionFraction = calculateSegmentIntersectionFraction(&lineStart, &lineEnd, edgeStart, edgeEnd);
 
                 if (intersectionFraction >= nearestCollisionFraction)
                 {
+                    if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+                    {
+                        g_ProfChrNavLineHitProcessingCycles += osGetCount() - profilerSubStart;
+                    }
+
                     continue;
                 }
 
@@ -1281,19 +1327,12 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
                     /* Recover the STAN tile at the prop collision point below. */
                     reachedTile = NULL;
                 }
-            }
 
-            if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
-            {
-                profilerSegmentCycles += osGetCount() - profilerSegmentStart;
+                if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
+                {
+                    g_ProfChrNavLineHitProcessingCycles += osGetCount() - profilerSubStart;
+                }
             }
-        }
-
-        if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
-        {
-            profilerCycles = osGetCount() - profilerSubStart;
-            g_ProfChrNavLinePropSetupCycles += profilerCycles - profilerSegmentCycles;
-            g_ProfChrNavLineSegmentCycles += profilerSegmentCycles;
         }
     }
 
@@ -1303,18 +1342,7 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
         endX = startX + (endX - startX) * nearestCollisionFraction;
         endZ = startZ + (endZ - startZ) * nearestCollisionFraction;
 
-        if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
-        {
-            profilerSubStart = osGetCount();
-        }
-
         walkTilesBetweenPoints_NoCallback(&reachedTile, startX, startZ, endX, endZ);
-
-        if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
-        {
-            g_ProfChrNavLineRecoveryCycles += osGetCount() - profilerSubStart;
-            g_ProfChrNavLineRecoveryCalls++;
-        }
     }
 
     *tile = reachedTile;
