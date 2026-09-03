@@ -93,11 +93,9 @@ extern u32 g_ProfChrMoveVolumeFilterCycles;
 extern u32 g_ProfChrMoveVolumeBoundsCycles;
 extern u32 g_ProfChrMoveVolumeEdgeCycles;
 extern u32 g_ProfChrMoveVolumeRooms;
-extern u32 g_ProfChrMoveVolumeQueriedProps;
-extern u32 g_ProfChrMoveVolumeCandidateProps;
-extern u32 g_ProfChrMoveVolumeAllMaskCalls;
-extern u32 g_ProfChrMoveVolumeLockedDoorMaskCalls;
-extern u32 g_ProfChrMoveVolumeOtherMaskCalls;
+extern u32 g_ProfChrMoveVolumeStanTiles;
+extern u32 g_ProfChrMoveVolumeStanEdges;
+extern u32 g_ProfChrMoveVolumeStanAabbRejects;
 extern u32 g_ProfChrMoveVolumeStanStops;
 extern u32 g_ProfChrMoveVolumePropHits;
 

@@ -1704,6 +1704,7 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
     s32 numvertices0;
     f32 sp94;
     f32 sp90;
+    bool includeAllProps;
     ChrCollisionProfileScope profilerScope;
     u32 profilerStart;
     u32 profilerSubStart;
@@ -1717,23 +1718,7 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
         profilerStart = osGetCount();
     }
 
-    if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-    {
-        if (cdtypes == CDTYPE_ALL_NO_BG)
-        {
-            g_ProfChrMoveVolumeAllMaskCalls++;
-        }
-        else if (cdtypes == (CDTYPE_OBJS | CDTYPE_PLAYERS | CDTYPE_CHRS
-                | CDTYPE_PATHBLOCKER | CDTYPE_DOORSLOCKEDTOAI))
-        {
-            g_ProfChrMoveVolumeLockedDoorMaskCalls++;
-        }
-        else
-        {
-            g_ProfChrMoveVolumeOtherMaskCalls++;
-        }
-    }
-
+    includeAllProps = cdtypes == CDTYPE_ALL_NO_BG;
     useVerticalBounds = (bottomOffset <= topOffset);
 
     roomCount = 0;
@@ -1830,16 +1815,14 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
 
             if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
             {
-                g_ProfChrMoveVolumeQueriedProps++;
                 profilerSubStart = osGetCount();
             }
 
-            if (propIsOfCdType(prop, cdtypes) != 0)
+            if (includeAllProps || propIsOfCdType(prop, cdtypes) != 0)
             {
                 if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
                 {
                     g_ProfChrMoveVolumeFilterCycles += osGetCount() - profilerSubStart;
-                    g_ProfChrMoveVolumeCandidateProps++;
                     profilerSubStart = osGetCount();
                 }
 
@@ -2063,10 +2046,24 @@ StanCollisionResult stanTestCircleCollisionWithCallbacks(StandTile **startTile, 
     s32 edgeIndex;
     s32 nextEdgeIndex;
     f32 edgeDist;
+    f32 circleMinX;
+    f32 circleMaxX;
+    f32 circleMinZ;
+    f32 circleMaxZ;
+    f32 edgeX;
+    f32 edgeZ;
+    f32 edgeCross;
+    bool profileVolumeCollect;
 
     x *= level_scale;
     z *= level_scale;
     radius *= level_scale;
+    circleMinX = x - radius;
+    circleMaxX = x + radius;
+    circleMinZ = z - radius;
+    circleMaxZ = z + radius;
+    profileVolumeCollect = g_ProfChrCollisionScope == CHR_COLLISION_PROFILE_MOVE
+        && onVisitTile == stanLocusAddTileRoomIfNew;
     visitedCount = 0;
     tileCount = 1;
     visitedTiles[0] = *startTile;
@@ -2074,6 +2071,11 @@ StanCollisionResult stanTestCircleCollisionWithCallbacks(StandTile **startTile, 
     while (visitedCount < tileCount)
     {
         tile = visitedTiles[visitedCount++];
+
+        if (profileVolumeCollect)
+        {
+            g_ProfChrMoveVolumeStanTiles++;
+        }
 
         if (onVisitTile != NULL)
         {
@@ -2087,12 +2089,54 @@ StanCollisionResult stanTestCircleCollisionWithCallbacks(StandTile **startTile, 
             for (edgeIndex = 0; edgeIndex < pointCount; edgeIndex++)
             {
                 nextEdgeIndex = edgeIndex + 1;
-                edgeDist = getShortest2dDispToInfTileEdge(tile, edgeIndex, x, z);
 
                 if (nextEdgeIndex == pointCount)
                 {
                     nextEdgeIndex = 0;
                 }
+
+                if (profileVolumeCollect)
+                {
+                    g_ProfChrMoveVolumeStanEdges++;
+                }
+
+                /*
+                 * On the edge's non-crossed side, the edge cannot affect the
+                 * circle when both endpoints are outside its bounding square
+                 * on the same side. Keep strict comparisons so tangent edges
+                 * take the exact path below.
+                 *
+                 * A negative signed edge distance means the circle center has
+                 * crossed the edge. Those edges must retain the original path
+                 * even when the circle itself is not touching the segment.
+                 */
+                if (radius >= 0.0f
+                    && ((tile->points[edgeIndex].x < circleMinX
+                            && tile->points[nextEdgeIndex].x < circleMinX)
+                        || (circleMaxX < tile->points[edgeIndex].x
+                            && circleMaxX < tile->points[nextEdgeIndex].x)
+                        || (tile->points[edgeIndex].z < circleMinZ
+                            && tile->points[nextEdgeIndex].z < circleMinZ)
+                        || (circleMaxZ < tile->points[edgeIndex].z
+                            && circleMaxZ < tile->points[nextEdgeIndex].z)))
+                {
+                    edgeX = tile->points[nextEdgeIndex].x - tile->points[edgeIndex].x;
+                    edgeZ = tile->points[nextEdgeIndex].z - tile->points[edgeIndex].z;
+                    edgeCross = edgeZ * (x - tile->points[edgeIndex].x)
+                        - edgeX * (z - tile->points[edgeIndex].z);
+
+                    if (edgeCross >= 0.0f)
+                    {
+                        if (profileVolumeCollect)
+                        {
+                            g_ProfChrMoveVolumeStanAabbRejects++;
+                        }
+
+                        continue;
+                    }
+                }
+
+                edgeDist = getShortest2dDispToInfTileEdge(tile, edgeIndex, x, z);
 
                 /*
                  * Projection is cheaper than either endpoint distance. Only

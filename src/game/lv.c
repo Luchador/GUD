@@ -159,11 +159,9 @@ u32 g_ProfChrMoveVolumeFilterCycles;
 u32 g_ProfChrMoveVolumeBoundsCycles;
 u32 g_ProfChrMoveVolumeEdgeCycles;
 u32 g_ProfChrMoveVolumeRooms;
-u32 g_ProfChrMoveVolumeQueriedProps;
-u32 g_ProfChrMoveVolumeCandidateProps;
-u32 g_ProfChrMoveVolumeAllMaskCalls;
-u32 g_ProfChrMoveVolumeLockedDoorMaskCalls;
-u32 g_ProfChrMoveVolumeOtherMaskCalls;
+u32 g_ProfChrMoveVolumeStanTiles;
+u32 g_ProfChrMoveVolumeStanEdges;
+u32 g_ProfChrMoveVolumeStanAabbRejects;
 u32 g_ProfChrMoveVolumeStanStops;
 u32 g_ProfChrMoveVolumePropHits;
 /* --- end profiler state --- */
@@ -1051,7 +1049,7 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             0xFF40FFFF,  /* move line and volume   */
             0xFF40FFFF,  /* volume collect/height/query */
             0xFF40FFFF,  /* volume filter/bounds/edges */
-            0xFF40FFFF,  /* volume workload/mask counts */
+            0xFF40FFFF,  /* volume stan traversal counts */
         };
         u32 sub;
         u32 lvlOther;
@@ -1078,7 +1076,7 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         sprintf(profText[13], "MV L:%3uK/%2u V:%3uK/%2u",
             (g_ProfChrMoveLineCycles + 500) / 1000, g_ProfChrMoveLineCalls,
             (g_ProfChrMoveVolumeCycles + 500) / 1000, g_ProfChrMoveVolumeCalls);
-        /* VOL C/Y: room collection and tile-height lookup. M: all/locked/other masks. */
+        /* VOL C/Y: stan traversal/room collection and tile-height lookup. */
         sprintf(profText[14], "VOL C:%3uK Y:%3uK Q:%3uK",
             (g_ProfChrMoveVolumeCollectCycles + 500) / 1000,
             (g_ProfChrMoveVolumeHeightCycles + 500) / 1000,
@@ -1088,10 +1086,10 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             (g_ProfChrMoveVolumeBoundsCycles + 500) / 1000,
             (g_ProfChrMoveVolumeEdgeCycles + 500) / 1000,
             g_ProfChrMoveVolumeStanStops, g_ProfChrMoveVolumePropHits);
-        sprintf(profText[16], "VOL R:%2u P:%3u C:%3u M:%2u/%2u/%2u",
-            g_ProfChrMoveVolumeRooms, g_ProfChrMoveVolumeQueriedProps,
-            g_ProfChrMoveVolumeCandidateProps, g_ProfChrMoveVolumeAllMaskCalls,
-            g_ProfChrMoveVolumeLockedDoorMaskCalls, g_ProfChrMoveVolumeOtherMaskCalls);
+        /* T/E/A: visited stan tiles, tested edges and AABB-rejected edges. */
+        sprintf(profText[16], "VOL R:%2u T:%3u E:%3u A:%3u",
+            g_ProfChrMoveVolumeRooms, g_ProfChrMoveVolumeStanTiles,
+            g_ProfChrMoveVolumeStanEdges, g_ProfChrMoveVolumeStanAabbRejects);
 
         g_ProfChrTickCycles = 0;
         g_ProfChrActionCycles = 0;
@@ -1119,11 +1117,9 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         g_ProfChrMoveVolumeBoundsCycles = 0;
         g_ProfChrMoveVolumeEdgeCycles = 0;
         g_ProfChrMoveVolumeRooms = 0;
-        g_ProfChrMoveVolumeQueriedProps = 0;
-        g_ProfChrMoveVolumeCandidateProps = 0;
-        g_ProfChrMoveVolumeAllMaskCalls = 0;
-        g_ProfChrMoveVolumeLockedDoorMaskCalls = 0;
-        g_ProfChrMoveVolumeOtherMaskCalls = 0;
+        g_ProfChrMoveVolumeStanTiles = 0;
+        g_ProfChrMoveVolumeStanEdges = 0;
+        g_ProfChrMoveVolumeStanAabbRejects = 0;
         g_ProfChrMoveVolumeStanStops = 0;
         g_ProfChrMoveVolumePropHits = 0;
 
