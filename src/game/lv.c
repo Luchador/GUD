@@ -159,9 +159,6 @@ u32 g_ProfChrMoveVolumeFilterCycles;
 u32 g_ProfChrMoveVolumeBoundsCycles;
 u32 g_ProfChrMoveVolumeEdgeCycles;
 u32 g_ProfChrMoveVolumeRooms;
-u32 g_ProfChrMoveVolumeStanTiles;
-u32 g_ProfChrMoveVolumeStanEdges;
-u32 g_ProfChrMoveVolumeStanAabbRejects;
 u32 g_ProfChrMoveVolumeStanStops;
 u32 g_ProfChrMoveVolumePropHits;
 /* --- end profiler state --- */
@@ -1049,7 +1046,7 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             0xFF40FFFF,  /* move line and volume   */
             0xFF40FFFF,  /* volume collect/height/query */
             0xFF40FFFF,  /* volume filter/bounds/edges */
-            0xFF40FFFF,  /* volume stan traversal counts */
+            0xFF40FFFF,  /* volume room count */
         };
         u32 sub;
         u32 lvlOther;
@@ -1086,10 +1083,7 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             (g_ProfChrMoveVolumeBoundsCycles + 500) / 1000,
             (g_ProfChrMoveVolumeEdgeCycles + 500) / 1000,
             g_ProfChrMoveVolumeStanStops, g_ProfChrMoveVolumePropHits);
-        /* T/E/A: visited stan tiles, tested edges and AABB-rejected edges. */
-        sprintf(profText[16], "VOL R:%2u T:%3u E:%3u A:%3u",
-            g_ProfChrMoveVolumeRooms, g_ProfChrMoveVolumeStanTiles,
-            g_ProfChrMoveVolumeStanEdges, g_ProfChrMoveVolumeStanAabbRejects);
+        sprintf(profText[16], "VOL R:%2u", g_ProfChrMoveVolumeRooms);
 
         g_ProfChrTickCycles = 0;
         g_ProfChrActionCycles = 0;
@@ -1117,9 +1111,6 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         g_ProfChrMoveVolumeBoundsCycles = 0;
         g_ProfChrMoveVolumeEdgeCycles = 0;
         g_ProfChrMoveVolumeRooms = 0;
-        g_ProfChrMoveVolumeStanTiles = 0;
-        g_ProfChrMoveVolumeStanEdges = 0;
-        g_ProfChrMoveVolumeStanAabbRejects = 0;
         g_ProfChrMoveVolumeStanStops = 0;
         g_ProfChrMoveVolumePropHits = 0;
 

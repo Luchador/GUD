@@ -2053,7 +2053,6 @@ StanCollisionResult stanTestCircleCollisionWithCallbacks(StandTile **startTile, 
     f32 edgeX;
     f32 edgeZ;
     f32 edgeCross;
-    bool profileVolumeCollect;
 
     x *= level_scale;
     z *= level_scale;
@@ -2062,8 +2061,6 @@ StanCollisionResult stanTestCircleCollisionWithCallbacks(StandTile **startTile, 
     circleMaxX = x + radius;
     circleMinZ = z - radius;
     circleMaxZ = z + radius;
-    profileVolumeCollect = g_ProfChrCollisionScope == CHR_COLLISION_PROFILE_MOVE
-        && onVisitTile == stanLocusAddTileRoomIfNew;
     visitedCount = 0;
     tileCount = 1;
     visitedTiles[0] = *startTile;
@@ -2071,11 +2068,6 @@ StanCollisionResult stanTestCircleCollisionWithCallbacks(StandTile **startTile, 
     while (visitedCount < tileCount)
     {
         tile = visitedTiles[visitedCount++];
-
-        if (profileVolumeCollect)
-        {
-            g_ProfChrMoveVolumeStanTiles++;
-        }
 
         if (onVisitTile != NULL)
         {
@@ -2093,11 +2085,6 @@ StanCollisionResult stanTestCircleCollisionWithCallbacks(StandTile **startTile, 
                 if (nextEdgeIndex == pointCount)
                 {
                     nextEdgeIndex = 0;
-                }
-
-                if (profileVolumeCollect)
-                {
-                    g_ProfChrMoveVolumeStanEdges++;
                 }
 
                 /*
@@ -2127,11 +2114,6 @@ StanCollisionResult stanTestCircleCollisionWithCallbacks(StandTile **startTile, 
 
                     if (edgeCross >= 0.0f)
                     {
-                        if (profileVolumeCollect)
-                        {
-                            g_ProfChrMoveVolumeStanAabbRejects++;
-                        }
-
                         continue;
                     }
                 }

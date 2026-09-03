@@ -93,9 +93,6 @@ extern u32 g_ProfChrMoveVolumeFilterCycles;
 extern u32 g_ProfChrMoveVolumeBoundsCycles;
 extern u32 g_ProfChrMoveVolumeEdgeCycles;
 extern u32 g_ProfChrMoveVolumeRooms;
-extern u32 g_ProfChrMoveVolumeStanTiles;
-extern u32 g_ProfChrMoveVolumeStanEdges;
-extern u32 g_ProfChrMoveVolumeStanAabbRejects;
 extern u32 g_ProfChrMoveVolumeStanStops;
 extern u32 g_ProfChrMoveVolumePropHits;
 
