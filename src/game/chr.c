@@ -1196,10 +1196,7 @@ StandTile *chrTryMoveWithCollision(ChrRecord *guard, StandTile *stan, coord3d *s
     s32 hasprojection;
     coord3d newpos;
     s32 lineUnobstructed;
-    u32 profilerStart;
-    ChrCollisionProfileScope profilerPreviousScope;
 
-    profilerStart = osGetCount();
     ret = NULL;
     tile = stan;
 
@@ -1214,14 +1211,10 @@ StandTile *chrTryMoveWithCollision(ChrRecord *guard, StandTile *stan, coord3d *s
         }
 
         chrSetCollidable(guard, TRUE);
-        g_ProfChrMoveCycles += osGetCount() - profilerStart;
-        g_ProfChrMoveCalls++;
         return tile;
     }
 
     bottomOffset = CHR_COLLISION_BOTTOM_OFFSET;
-    profilerPreviousScope = g_ProfChrCollisionScope;
-    g_ProfChrCollisionScope = CHR_COLLISION_PROFILE_MOVE;
     chrSetCollidable(guard, FALSE);
     stanResetHits();
 
@@ -1368,7 +1361,6 @@ StandTile *chrTryMoveWithCollision(ChrRecord *guard, StandTile *stan, coord3d *s
     }
 
 done:
-    g_ProfChrCollisionScope = profilerPreviousScope;
     chrSetCollidable(guard, TRUE);
 
     if (ret == NULL)
@@ -1376,8 +1368,6 @@ done:
         guard->invalidmove = 1;
     }
 
-    g_ProfChrMoveCycles += osGetCount() - profilerStart;
-    g_ProfChrMoveCalls++;
     return ret;
 }
 
@@ -2156,9 +2146,7 @@ void chrDetectRooms(ChrRecord *self)
     PropRecord *myprop;
     coord3d     lowerbounds;
     coord3d     upperbounds;
-    u32 profilerStart;
 
-    profilerStart = osGetCount();
     // Create a roughly character sized bounding box.
     myprop        = self->prop;
     lowerbounds.x = myprop->pos.x - 50.0f;
@@ -2176,9 +2164,6 @@ void chrDetectRooms(ChrRecord *self)
 
     // Re-register the character prop in those rooms
     chrpropRegisterRooms(myprop);
-
-    g_ProfChrRoomCycles += osGetCount() - profilerStart;
-    g_ProfChrRoomCalls++;
 }
 
 

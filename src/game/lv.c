@@ -135,32 +135,6 @@ u32 g_ProfChrActionCycles;
 u32 g_ProfObjTickCycles;
 u32 g_ProfGfxCommands;
 u32 g_ProfBgGfxCommands;
-u32 g_ProfChrNavCycles;
-u32 g_ProfChrNavCalls;
-u32 g_ProfChrMoveCycles;
-u32 g_ProfChrMoveCalls;
-u32 g_ProfChrRoomCycles;
-u32 g_ProfChrRoomCalls;
-u32 g_ProfChrNavSweepCycles;
-u32 g_ProfChrNavSweepCalls;
-ChrCollisionProfileScope g_ProfChrCollisionScope;
-u32 g_ProfChrNavSweepLineCycles;
-u32 g_ProfChrNavSweepLineCalls;
-u32 g_ProfChrNavSweepVolumeCycles;
-u32 g_ProfChrNavSweepVolumeCalls;
-u32 g_ProfChrMoveLineCycles;
-u32 g_ProfChrMoveLineCalls;
-u32 g_ProfChrMoveVolumeCycles;
-u32 g_ProfChrMoveVolumeCalls;
-u32 g_ProfChrMoveVolumeCollectCycles;
-u32 g_ProfChrMoveVolumeHeightCycles;
-u32 g_ProfChrMoveVolumeQueryCycles;
-u32 g_ProfChrMoveVolumeFilterCycles;
-u32 g_ProfChrMoveVolumeBoundsCycles;
-u32 g_ProfChrMoveVolumeEdgeCycles;
-u32 g_ProfChrMoveVolumeRooms;
-u32 g_ProfChrMoveVolumeStanStops;
-u32 g_ProfChrMoveVolumePropHits;
 /* --- end profiler state --- */
 
 bool lvGetBgRenderEnabled(void)
@@ -1028,8 +1002,8 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     gdl = textRender(gdl, &x, &y, fpsText, ptrFontBankGothicChars, ptrFontBankGothic, color, screenwidth, viGetY(), 0, 0);
 
     { /* TEMP profiler readouts: raw osGetCount cycles per frame */
-        static char profText[17][40];
-        static const u32 profColor[17] = {
+        static char profText[8][32];
+        static const u32 profColor[8] = {
             0x00FFFFFF,  /* bg tick    - cyan    */
             0x4040FFFF,  /* lv tick    - blue    */
             0xFF3030FF,  /* lv render  - red     */
@@ -1038,15 +1012,6 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
             0xB43CFFFF,  /* chr tick   - violet  */
             0x30FF30FF,  /* chr action - green   */
             0xFFFFFFFF,  /* display-list commands */
-            0x00FF80FF,  /* navigation steering   */
-            0xFF40FFFF,  /* physical movement      */
-            0xC0C0C0FF,  /* room maintenance       */
-            0xFF8050FF,  /* navigation sweeps      */
-            0xFF8050FF,  /* sweep line and volume  */
-            0xFF40FFFF,  /* move line and volume   */
-            0xFF40FFFF,  /* volume collect/height/query */
-            0xFF40FFFF,  /* volume filter/bounds/edges */
-            0xFF40FFFF,  /* volume room count */
         };
         u32 sub;
         u32 lvlOther;
@@ -1063,58 +1028,12 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
         sprintf(profText[5], "CHRTICK:%4uK",  (g_ProfChrTickCycles + 500) / 1000);
         sprintf(profText[6], "CHRACT:%4uK",   (g_ProfChrActionCycles + 500) / 1000);
         sprintf(profText[7], "GFX:%5u BG:%5u", g_ProfGfxCommands, g_ProfBgGfxCommands);
-        sprintf(profText[8], "NAV:  %4uK C:%3u", (g_ProfChrNavCycles + 500) / 1000, g_ProfChrNavCalls);
-        sprintf(profText[9], "MOVE: %4uK C:%3u", (g_ProfChrMoveCycles + 500) / 1000, g_ProfChrMoveCalls);
-        sprintf(profText[10], "ROOM: %4uK C:%3u", (g_ProfChrRoomCycles + 500) / 1000, g_ProfChrRoomCalls);
-        sprintf(profText[11], "SWEEP:%4uK C:%3u", (g_ProfChrNavSweepCycles + 500) / 1000, g_ProfChrNavSweepCalls);
-        sprintf(profText[12], "SW L:%3uK/%2u V:%3uK/%2u",
-            (g_ProfChrNavSweepLineCycles + 500) / 1000, g_ProfChrNavSweepLineCalls,
-            (g_ProfChrNavSweepVolumeCycles + 500) / 1000, g_ProfChrNavSweepVolumeCalls);
-        sprintf(profText[13], "MV L:%3uK/%2u V:%3uK/%2u",
-            (g_ProfChrMoveLineCycles + 500) / 1000, g_ProfChrMoveLineCalls,
-            (g_ProfChrMoveVolumeCycles + 500) / 1000, g_ProfChrMoveVolumeCalls);
-        /* VOL C/Y: stan traversal/room collection and tile-height lookup. */
-        sprintf(profText[14], "VOL C:%3uK Y:%3uK Q:%3uK",
-            (g_ProfChrMoveVolumeCollectCycles + 500) / 1000,
-            (g_ProfChrMoveVolumeHeightCycles + 500) / 1000,
-            (g_ProfChrMoveVolumeQueryCycles + 500) / 1000);
-        sprintf(profText[15], "VOL F:%3uK B:%3uK E:%3uK S:%2u H:%2u",
-            (g_ProfChrMoveVolumeFilterCycles + 500) / 1000,
-            (g_ProfChrMoveVolumeBoundsCycles + 500) / 1000,
-            (g_ProfChrMoveVolumeEdgeCycles + 500) / 1000,
-            g_ProfChrMoveVolumeStanStops, g_ProfChrMoveVolumePropHits);
-        sprintf(profText[16], "VOL R:%2u", g_ProfChrMoveVolumeRooms);
 
         g_ProfChrTickCycles = 0;
         g_ProfChrActionCycles = 0;
         g_ProfObjTickCycles = 0;
-        g_ProfChrNavCycles = 0;
-        g_ProfChrNavCalls = 0;
-        g_ProfChrMoveCycles = 0;
-        g_ProfChrMoveCalls = 0;
-        g_ProfChrRoomCycles = 0;
-        g_ProfChrRoomCalls = 0;
-        g_ProfChrNavSweepCycles = 0;
-        g_ProfChrNavSweepCalls = 0;
-        g_ProfChrNavSweepLineCycles = 0;
-        g_ProfChrNavSweepLineCalls = 0;
-        g_ProfChrNavSweepVolumeCycles = 0;
-        g_ProfChrNavSweepVolumeCalls = 0;
-        g_ProfChrMoveLineCycles = 0;
-        g_ProfChrMoveLineCalls = 0;
-        g_ProfChrMoveVolumeCycles = 0;
-        g_ProfChrMoveVolumeCalls = 0;
-        g_ProfChrMoveVolumeCollectCycles = 0;
-        g_ProfChrMoveVolumeHeightCycles = 0;
-        g_ProfChrMoveVolumeQueryCycles = 0;
-        g_ProfChrMoveVolumeFilterCycles = 0;
-        g_ProfChrMoveVolumeBoundsCycles = 0;
-        g_ProfChrMoveVolumeEdgeCycles = 0;
-        g_ProfChrMoveVolumeRooms = 0;
-        g_ProfChrMoveVolumeStanStops = 0;
-        g_ProfChrMoveVolumePropHits = 0;
 
-        for (i = 0; i < 17; i++)
+        for (i = 0; i < 8; i++)
         {
             x = viGetViewLeft() + 14;
             y = viGetViewTop() + 44 + (i * 10);

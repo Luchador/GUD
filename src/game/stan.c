@@ -1152,17 +1152,6 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
     coord2d *edgeStart;
     coord2d *edgeEnd;
     struct rect4f *polygon;
-    ChrCollisionProfileScope profilerScope;
-    u32 profilerStart;
-    u32 profilerCycles;
-
-    profilerScope = g_ProfChrCollisionScope;
-    profilerStart = 0;
-
-    if (profilerScope != CHR_COLLISION_PROFILE_NONE)
-    {
-        profilerStart = osGetCount();
-    }
 
     nearestCollisionFraction = 1.0f;
     roomCount = 0;
@@ -1351,22 +1340,6 @@ s32 stanTestLineUnobstructed(StandTile **tile, f32 startX, f32 startZ, f32 endX,
 
     *tile = reachedTile;
     g_StanLastLineCollisionFraction = nearestCollisionFraction;
-
-    if (profilerScope != CHR_COLLISION_PROFILE_NONE)
-    {
-        profilerCycles = osGetCount() - profilerStart;
-
-        if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
-        {
-            g_ProfChrNavSweepLineCycles += profilerCycles;
-            g_ProfChrNavSweepLineCalls++;
-        }
-        else if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-        {
-            g_ProfChrMoveLineCycles += profilerCycles;
-            g_ProfChrMoveLineCalls++;
-        }
-    }
 
     return unobstructed;
 }
@@ -1705,61 +1678,16 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
     f32 sp94;
     f32 sp90;
     bool includeAllProps;
-    ChrCollisionProfileScope profilerScope;
-    u32 profilerStart;
-    u32 profilerSubStart;
-    u32 profilerCycles;
-
-    profilerScope = g_ProfChrCollisionScope;
-    profilerStart = 0;
-
-    if (profilerScope != CHR_COLLISION_PROFILE_NONE)
-    {
-        profilerStart = osGetCount();
-    }
 
     includeAllProps = cdtypes == CDTYPE_ALL_NO_BG;
     useVerticalBounds = (bottomOffset <= topOffset);
 
     roomCount = 0;
 
-    /* Keep the detailed breakdown out of navigation-sweep measurements. */
-    if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-    {
-        profilerSubStart = osGetCount();
-    }
-
     stanColResult = stanTestCircleAndCollectRooms(tileStack, p_x, p_z, radius, &roomList[0], &roomCount, 20);
-
-    if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-    {
-        g_ProfChrMoveVolumeCollectCycles += osGetCount() - profilerSubStart;
-        g_ProfChrMoveVolumeRooms += roomCount;
-    }
 
     if (stanColResult >= 0)
     {
-        if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-        {
-            g_ProfChrMoveVolumeStanStops++;
-        }
-
-        if (profilerScope != CHR_COLLISION_PROFILE_NONE)
-        {
-            profilerCycles = osGetCount() - profilerStart;
-
-            if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
-            {
-                g_ProfChrNavSweepVolumeCycles += profilerCycles;
-                g_ProfChrNavSweepVolumeCalls++;
-            }
-            else if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-            {
-                g_ProfChrMoveVolumeCycles += profilerCycles;
-                g_ProfChrMoveVolumeCalls++;
-            }
-        }
-
         return stanColResult;
     }
 
@@ -1779,17 +1707,7 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
 
         if (useVerticalBounds)
         {
-            if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-            {
-                profilerSubStart = osGetCount();
-            }
-
             temp_f0 = stanGetPositionYValue(*tileStack, p_x, p_z);
-
-            if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-            {
-                g_ProfChrMoveVolumeHeightCycles += osGetCount() - profilerSubStart;
-            }
 
             topOffset += temp_f0;
             bottomOffset += temp_f0;
@@ -1797,52 +1715,21 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
 
         roomList[roomCount] = -1;
 
-        if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-        {
-            profilerSubStart = osGetCount();
-        }
-
         roomGetProps(&roomList[0]);
-
-        if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-        {
-            g_ProfChrMoveVolumeQueryCycles += osGetCount() - profilerSubStart;
-        }
 
         for (sp100 = g_RoomPropQueryIndices; *sp100 >= 0; sp100++)
         {
             prop = &g_Props[*sp100];
 
-            if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-            {
-                profilerSubStart = osGetCount();
-            }
-
             if (includeAllProps || propIsOfCdType(prop, cdtypes) != 0)
             {
-                if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-                {
-                    g_ProfChrMoveVolumeFilterCycles += osGetCount() - profilerSubStart;
-                    profilerSubStart = osGetCount();
-                }
-
                 chraiGetCollisionBounds(prop, &polygon, &numvertices0, &sp94, &sp90);
-
-                if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-                {
-                    g_ProfChrMoveVolumeBoundsCycles += osGetCount() - profilerSubStart;
-                }
 
                 if ((numvertices0 > 0) && ((useVerticalBounds == 0) || ((sp90 <= topOffset) && (bottomOffset <= sp94))))
                 {
                     var_f24 = -1.0f;
 
                     i = 0;
-
-                    if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-                    {
-                        profilerSubStart = osGetCount();
-                    }
 
                     while (1)
                     {
@@ -1930,58 +1817,12 @@ StanCollisionResult stanTestVolume(StandTile **tileStack, f32 p_x, f32 p_z, f32 
                         i = next;
                     }
 
-                    if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-                    {
-                        g_ProfChrMoveVolumeEdgeCycles += osGetCount() - profilerSubStart;
-                    }
-
                     if (var_f24 > -1.0f)
                     {
-                        if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-                        {
-                            g_ProfChrMoveVolumePropHits++;
-                        }
-
-                        if (profilerScope != CHR_COLLISION_PROFILE_NONE)
-                        {
-                            profilerCycles = osGetCount() - profilerStart;
-
-                            if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
-                            {
-                                g_ProfChrNavSweepVolumeCycles += profilerCycles;
-                                g_ProfChrNavSweepVolumeCalls++;
-                            }
-                            else if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-                            {
-                                g_ProfChrMoveVolumeCycles += profilerCycles;
-                                g_ProfChrMoveVolumeCalls++;
-                            }
-                        }
-
                         return STAN_COLLISION_FOUND;
                     }
                 }
             }
-            else if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-            {
-                g_ProfChrMoveVolumeFilterCycles += osGetCount() - profilerSubStart;
-            }
-        }
-    }
-
-    if (profilerScope != CHR_COLLISION_PROFILE_NONE)
-    {
-        profilerCycles = osGetCount() - profilerStart;
-
-        if (profilerScope == CHR_COLLISION_PROFILE_NAV_SWEEP)
-        {
-            g_ProfChrNavSweepVolumeCycles += profilerCycles;
-            g_ProfChrNavSweepVolumeCalls++;
-        }
-        else if (profilerScope == CHR_COLLISION_PROFILE_MOVE)
-        {
-            g_ProfChrMoveVolumeCycles += profilerCycles;
-            g_ProfChrMoveVolumeCalls++;
         }
     }
 

@@ -7813,10 +7813,7 @@ s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     f32 sp4C;
     f32 sp44;
     f32 bottomOffset;
-    u32 profilerStart;
-    ChrCollisionProfileScope profilerPreviousScope;
 
-    profilerStart = osGetCount();
     sp88 = 0;
     sp84 = 0;
     sp50 = 0;
@@ -7830,8 +7827,6 @@ s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
 
     if ((spA0.f[0] == 0.0f) && (spA0.f[2] == 0.0f))
     {
-        g_ProfChrNavSweepCycles += osGetCount() - profilerStart;
-        g_ProfChrNavSweepCalls++;
         return 1;
     }
 
@@ -7847,8 +7842,6 @@ s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     sp94 = 1.2f * (arg7 * spA0.f[0]);
     sp90 = 1.2f * (arg7 * spA0.f[2]);
 
-    profilerPreviousScope = g_ProfChrCollisionScope;
-    g_ProfChrCollisionScope = CHR_COLLISION_PROFILE_NAV_SWEEP;
     chrSetCollidable(self, 0);
     stanResetHits();
 
@@ -7923,10 +7916,7 @@ s32 sub_GAME_7F03081C(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     }
 
     chrSetCollidable(self, 1);
-    g_ProfChrCollisionScope = profilerPreviousScope;
 
-    g_ProfChrNavSweepCycles += osGetCount() - profilerStart;
-    g_ProfChrNavSweepCalls++;
     return sp50;
 }
 
@@ -7955,10 +7945,7 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     f32 sp4C;
     f32 sp44;
     f32 bottomOffset;
-    u32 profilerStart;
-    ChrCollisionProfileScope profilerPreviousScope;
 
-    profilerStart = osGetCount();
     sp88 = 0;
     sp84 = 0;
     sp50 = 0;
@@ -7972,8 +7959,6 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
 
     if ((spA0.f[0] == 0.0f) && (spA0.f[2] == 0.0f))
     {
-        g_ProfChrNavSweepCycles += osGetCount() - profilerStart;
-        g_ProfChrNavSweepCalls++;
         return 1;
     }
 
@@ -7989,8 +7974,6 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     sp94 = 1.2f * (arg7 * spA0.f[0]);
     sp90 = 1.2f * (arg7 * spA0.f[2]);
 
-    profilerPreviousScope = g_ProfChrCollisionScope;
-    g_ProfChrCollisionScope = CHR_COLLISION_PROFILE_NAV_SWEEP;
     chrSetCollidable(self, 0);
     stanResetHits();
 
@@ -8080,10 +8063,7 @@ s32 sub_GAME_7F030D70(ChrRecord *self, coord3d *arg1, StandTile *arg2, coord3d *
     }
 
     chrSetCollidable(self, 1);
-    g_ProfChrCollisionScope = profilerPreviousScope;
 
-    g_ProfChrNavSweepCycles += osGetCount() - profilerStart;
-    g_ProfChrNavSweepCalls++;
     return sp50;
 }
 
@@ -8210,9 +8190,7 @@ void chrlvTravelTick(ChrRecord *self, coord3d *arg1, StandTile *arg2, struct way
     PropRecord *phi_s3;
     s32 stack_01;
     s32 stack_02;
-    u32 profilerStart;
 
-    profilerStart = osGetCount();
     self_prop = self->prop;
     cdtypes = CDTYPE_OBJS | CDTYPE_PLAYERS | CDTYPE_CHRS | CDTYPE_PATHBLOCKER | CDTYPE_DOORSLOCKEDTOAI;
     if ((self->hidden & CHRHIDDEN_OFFSCREEN_PATROL) != 0)
@@ -8557,9 +8535,6 @@ void chrlvTravelTick(ChrRecord *self, coord3d *arg1, StandTile *arg2, struct way
             }
         }
     }
-
-    g_ProfChrNavCycles += osGetCount() - profilerStart;
-    g_ProfChrNavCalls++;
 }
 
 

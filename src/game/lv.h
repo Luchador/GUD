@@ -54,12 +54,6 @@ extern s32 record_slot_num;
 extern u8 * address_demo_loaded;
 
 // TEMP
-typedef enum ChrCollisionProfileScope {
-    CHR_COLLISION_PROFILE_NONE,
-    CHR_COLLISION_PROFILE_NAV_SWEEP,
-    CHR_COLLISION_PROFILE_MOVE
-} ChrCollisionProfileScope;
-
 extern u32 g_ProfBgTickCycles;
 extern u32 g_ProfLvlTickCycles;
 extern u32 g_ProfLvlRenderCycles;
@@ -69,32 +63,6 @@ extern u32 g_ProfChrActionCycles;
 extern u32 g_ProfObjTickCycles;
 extern u32 g_ProfGfxCommands;
 extern u32 g_ProfBgGfxCommands;
-extern u32 g_ProfChrNavCycles;
-extern u32 g_ProfChrNavCalls;
-extern u32 g_ProfChrMoveCycles;
-extern u32 g_ProfChrMoveCalls;
-extern u32 g_ProfChrRoomCycles;
-extern u32 g_ProfChrRoomCalls;
-extern u32 g_ProfChrNavSweepCycles;
-extern u32 g_ProfChrNavSweepCalls;
-extern ChrCollisionProfileScope g_ProfChrCollisionScope;
-extern u32 g_ProfChrNavSweepLineCycles;
-extern u32 g_ProfChrNavSweepLineCalls;
-extern u32 g_ProfChrNavSweepVolumeCycles;
-extern u32 g_ProfChrNavSweepVolumeCalls;
-extern u32 g_ProfChrMoveLineCycles;
-extern u32 g_ProfChrMoveLineCalls;
-extern u32 g_ProfChrMoveVolumeCycles;
-extern u32 g_ProfChrMoveVolumeCalls;
-extern u32 g_ProfChrMoveVolumeCollectCycles;
-extern u32 g_ProfChrMoveVolumeHeightCycles;
-extern u32 g_ProfChrMoveVolumeQueryCycles;
-extern u32 g_ProfChrMoveVolumeFilterCycles;
-extern u32 g_ProfChrMoveVolumeBoundsCycles;
-extern u32 g_ProfChrMoveVolumeEdgeCycles;
-extern u32 g_ProfChrMoveVolumeRooms;
-extern u32 g_ProfChrMoveVolumeStanStops;
-extern u32 g_ProfChrMoveVolumePropHits;
 
 void lvInit(void);
 Gfx * lvRender(Gfx *);
