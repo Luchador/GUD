@@ -6272,10 +6272,10 @@ s32 objTick(struct PropRecord *prop, s32 playerCount, bool isSimOwner)
 		return TICKOP_RETICK;
 	}
 
-	if (playerCount != 1 && obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
-	{
-		isSimOwner = obj->projectile->ownerprop == g_CurrentPlayer->prop;
-	}
+    if (playerCount != 1 && (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE) && obj->projectile->ownerprop != NULL)
+    {
+        isSimOwner = obj->projectile->ownerprop == g_CurrentPlayer->prop;
+    }
 
 	if (isSimOwner)
 	{
