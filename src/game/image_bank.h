@@ -16,6 +16,7 @@ extern struct sImageTableEntry *mpradarimages;
 extern struct sImageTableEntry *impactimages;
 extern struct sImageTableEntry *explosion_smokeimages;
 extern struct sImageTableEntry *scattered_explosions;
+extern struct sImageTableEntry *flareimage1;
 extern struct sImageTableEntry *flareimage2;
 extern struct sImageTableEntry *glassoverlayimage;
 extern struct sImageTableEntry *flareimage3;

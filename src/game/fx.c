@@ -21,6 +21,7 @@ typedef struct BulletSparkStyle
 {
     f32 size;
     rgba_u8 color;
+    struct sImageTableEntry **imageFrames;
 } BulletSparkStyle;
 
 static BulletSpark g_BulletSparks[BULLET_SPARKS_MAX];
@@ -29,14 +30,14 @@ static MovingBulletSpark g_MovingBulletSparks[BULLET_MOVING_SPARKS_MAX];
 static Vtx g_BulletSparkVertexTemplate;
 
 static const BulletSparkStyle g_BulletSparkStyles[8] = {
-    /* SPARK_WHITE      */ { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF } },
-    /* SPARK_STANDARD   */ { 26.0f, { 0xFF, 0xFF, 0xC8, 0xFF } },
-    /* SPARK_LASER      */ { 26.0f, { 0xFF, 0x00, 0x00, 0xFF } },
-    /* SPARK_WATCHLASER */ { 20.0f, { 0xFF, 0xFF, 0xFF, 0xFF } },
-    { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF } },
-    { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF } },
-    { 26.0f, { 0 } },
-    { 26.0f, { 0 } }
+    /* SPARK_WHITE      */ { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF }, NULL },
+    /* SPARK_STANDARD   */ { 26.0f, { 0xFF, 0xFF, 0xC8, 0xFF }, NULL },
+    /* SPARK_LASER      */ { 35.0f, { 0x9B, 0xD0, 0xFF, 0xFF }, &flareimage2 },
+    /* SPARK_WATCHLASER */ { 24.0f, { 0x9B, 0xD0, 0xFF, 0xFF }, &flareimage1 },
+    { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF }, NULL },
+    { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF }, NULL },
+    { 26.0f, { 0 }, NULL },
+    { 26.0f, { 0 }, NULL }
 };
 
 
@@ -53,7 +54,8 @@ static void fxResetBulletSparks(void)
 }
 
 
-static void fxInitBulletSpark(BulletSpark *spark, coord3d *position, s32 effectType, f32 size, const rgba_u8 *color, s16 room)
+static void fxInitBulletSpark(BulletSpark *spark, coord3d *position, s32 effectType, f32 size,
+    const rgba_u8 *color, struct sImageTableEntry *imageFrames, s16 room)
 {
     f32 rotationAngle;
 
@@ -95,6 +97,12 @@ static void fxInitBulletSpark(BulletSpark *spark, coord3d *position, s32 effectT
         spark->imageFrames = explosion_smokeimages;
     }
 
+    if (imageFrames != NULL)
+    {
+        spark->framesPerTick = 0.0f;
+        spark->imageFrames = imageFrames;
+    }
+
     spark->color = *color;
 
     spark->position = *position;
@@ -108,7 +116,8 @@ static void fxInitBulletSpark(BulletSpark *spark, coord3d *position, s32 effectT
 }
 
 
-static BulletSpark *fxCreateSpark(coord3d *position, s32 effectType, f32 size, const rgba_u8 *color, s16 room)
+static BulletSpark *fxCreateSpark(coord3d *position, s32 effectType, f32 size,
+    const rgba_u8 *color, struct sImageTableEntry *imageFrames, s16 room)
 {
     BulletSpark *spark;
 
@@ -116,7 +125,7 @@ static BulletSpark *fxCreateSpark(coord3d *position, s32 effectType, f32 size, c
     {
         if (spark->lifetime == 0)
         {
-            fxInitBulletSpark(spark, position, effectType, size, color, room);
+            fxInitBulletSpark(spark, position, effectType, size, color, imageFrames, room);
             return spark;
         }
     }
@@ -128,14 +137,20 @@ static BulletSpark *fxCreateSpark(coord3d *position, s32 effectType, f32 size, c
 BulletSpark *fxCreateBulletSpark(coord3d *position, s32 sparkType, s16 room)
 {
     const BulletSparkStyle *style = &g_BulletSparkStyles[sparkType];
+    struct sImageTableEntry *imageFrames = NULL;
 
-    return fxCreateSpark(position, sparkType, style->size, &style->color, room);
+    if (style->imageFrames != NULL)
+    {
+        imageFrames = *style->imageFrames;
+    }
+
+    return fxCreateSpark(position, sparkType, style->size, &style->color, imageFrames, room);
 }
 
 
 BulletSpark *fxCreateHitPuff(coord3d *position, s32 effectType, f32 size, s16 room)
 {
-    return fxCreateSpark(position, effectType, size, &g_BulletSparkStyles[effectType].color, room);
+    return fxCreateSpark(position, effectType, size, &g_BulletSparkStyles[effectType].color, NULL, room);
 }
 
 
