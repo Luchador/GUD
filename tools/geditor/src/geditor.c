@@ -45,6 +45,7 @@ static void GEditorCloseProject(HWND hwnd)
     }
 
     ProjectClose(&g_Project);
+    BrowserSetLevels(g_Browser, NULL, 0);
     GEditorSetTitleForProject(hwnd);
 }
 
@@ -69,6 +70,7 @@ typedef struct NewProjectInfo {
     char name[GEDITOR_NAME_MAX];
     char location[MAX_PATH];
     char rompath[MAX_PATH];
+    RomInfo rominfo;   /* filled by the dialog's Create validation */
 } NewProjectInfo;
 
 
@@ -366,14 +368,16 @@ static INT_PTR CALLBACK GEditorNewProjectProc(HWND hdlg, UINT msg, WPARAM wparam
         case IDC_CREATE_PROJECT:
         {
             char rompath[MAX_PATH];
-            RomInfo rominfo;
             const char *reason;
 
             /* The expensive checks run once, here - reading the whole
                ROM and walking the manifest. A failure reports on the
-               warning line and keeps the dialog open for correction. */
+               warning line and keeps the dialog open for correction.
+               On success the parsed RomInfo (including the level list)
+               rides out to the caller inside NewProjectInfo. */
+            info = (NewProjectInfo *)GetWindowLongPtr(hdlg, DWLP_USER);
             GetDlgItemText(hdlg, IDC_PROJECT_ROM, rompath, sizeof(rompath));
-            if (!RomValidate(rompath, &rominfo, &reason))
+            if (!RomValidate(rompath, &info->rominfo, &reason))
             {
                 SetDlgItemText(hdlg, IDC_NAME_WARNING, reason);
                 return TRUE;
@@ -617,6 +621,17 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
                     if (ProjectCreate(info.name, info.location, &g_Project, &why))
                     {
+                        BrowserLevelItem items[ROM_MAX_LEVELS];
+                        DWORD n;
+
+                        for (n = 0; n < info.rominfo.levelcount; n++)
+                        {
+                            wsprintf(items[n].label, "%s  (%s)",
+                                     info.rominfo.levels[n].name,
+                                     info.rominfo.levels[n].world);
+                        }
+
+                        BrowserSetLevels(g_Browser, items, (int)info.rominfo.levelcount);
                         GEditorSetTitleForProject(hwnd);
                     }
                     else

@@ -30,9 +30,14 @@ typedef struct BrowserSection {
 } BrowserSection;
 
 #define BROWSER_SECTION_COUNT 3
+#define BROWSER_SECTION_LEVELS 0
+#define BROWSER_MAX_LEVELS 64
+#define BROWSER_ROW_H 16
 
 typedef struct BrowserState {
     BrowserSection sections[BROWSER_SECTION_COUNT];
+    BrowserLevelItem levels[BROWSER_MAX_LEVELS];
+    int levelcount;
 } BrowserState;
 
 static BrowserState *BrowserGetState(HWND hwnd)
@@ -173,6 +178,61 @@ static void BrowserPaintArrow(HDC hdc, const RECT *header, BOOL expanded)
     DeleteObject(pen); /* created objects are ours to free; stock ones are not */
 }
 
+/*
+ * Draws the level rows top-down inside the body rect, clipping to it.
+ * When rows do not fit, the last visible line becomes a "+N more"
+ * hint; scrolling is a later feature.
+ */
+static void BrowserPaintLevelRows(BrowserState *state, HDC hdc, const RECT *body)
+{
+    int y = body->top + 4;
+    int i;
+    int fits = (body->bottom - y) / BROWSER_ROW_H;
+    int shown = state->levelcount;
+
+    if (fits < 1)
+    {
+        return;
+    }
+
+    if (shown > fits)
+    {
+        shown = fits - 1; /* reserve the last line for the hint */
+    }
+
+    SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
+
+    for (i = 0; i < shown; i++)
+    {
+        RECT rc;
+
+        rc.left = 26;
+        rc.right = body->right - 4;
+        rc.top = y;
+        rc.bottom = y + BROWSER_ROW_H;
+
+        DrawText(hdc, state->levels[i].label, -1, &rc,
+                 DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_END_ELLIPSIS | DT_NOPREFIX);
+
+        y += BROWSER_ROW_H;
+    }
+
+    if (shown < state->levelcount)
+    {
+        RECT rc;
+        char more[32];
+
+        rc.left = 26;
+        rc.right = body->right - 4;
+        rc.top = y;
+        rc.bottom = y + BROWSER_ROW_H;
+
+        wsprintf(more, "... +%d more", state->levelcount - shown);
+        SetTextColor(hdc, GetSysColor(COLOR_GRAYTEXT));
+        DrawText(hdc, more, -1, &rc, DT_SINGLELINE | DT_VCENTER | DT_LEFT);
+    }
+}
+
 static void BrowserPaint(HWND hwnd, HDC hdc)
 {
     BrowserState *state = BrowserGetState(hwnd);
@@ -211,12 +271,19 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
 
         if (sec->expanded && sec->bodyrc.bottom > sec->bodyrc.top)
         {
-            RECT hint = sec->bodyrc;
+            if (i == BROWSER_SECTION_LEVELS && state->levelcount > 0)
+            {
+                BrowserPaintLevelRows(state, hdc, &sec->bodyrc);
+            }
+            else
+            {
+                RECT hint = sec->bodyrc;
 
-            hint.left += 26;
-            hint.top += 6;
-            SetTextColor(hdc, GetSysColor(COLOR_GRAYTEXT));
-            DrawText(hdc, "(empty)", -1, &hint, DT_SINGLELINE | DT_TOP | DT_LEFT);
+                hint.left += 26;
+                hint.top += 6;
+                SetTextColor(hdc, GetSysColor(COLOR_GRAYTEXT));
+                DrawText(hdc, "(empty)", -1, &hint, DT_SINGLELINE | DT_TOP | DT_LEFT);
+            }
         }
     }
 
@@ -327,4 +394,34 @@ HWND BrowserCreate(HWND parent, HINSTANCE hinstance)
         WS_CHILD | WS_VISIBLE,
         0, 0, 16, 16, /* placeholder; the parent's layout positions it */
         parent, NULL, hinstance, NULL);
+}
+
+
+void BrowserSetLevels(HWND browser, const BrowserLevelItem *items, int count)
+{
+    BrowserState *state = BrowserGetState(browser);
+    int i;
+
+    if (state == NULL)
+    {
+        return;
+    }
+
+    if (count > BROWSER_MAX_LEVELS)
+    {
+        count = BROWSER_MAX_LEVELS;
+    }
+    if (items == NULL)
+    {
+        count = 0;
+    }
+
+    for (i = 0; i < count; i++)
+    {
+        state->levels[i] = items[i];
+    }
+
+    state->levelcount = count;
+
+    InvalidateRect(browser, NULL, TRUE);
 }

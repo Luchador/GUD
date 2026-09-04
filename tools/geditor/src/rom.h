@@ -5,6 +5,7 @@
 
 
 #define ROM_MAX_ENTRIES 32
+#define ROM_MAX_LEVELS  64
 
 typedef struct RomManifestEntry {
     DWORD kind;      /* fourcc, e.g. 'IMGS'  */
@@ -13,6 +14,25 @@ typedef struct RomManifestEntry {
     DWORD flags;
 } RomManifestEntry;
 
+/*
+ * One row of the ROM's level table, strings resolved and copied out.
+ * name/world are display stems derived from Rare's filenames:
+ * "UsetupsevbunkerZ" -> "sevbunker", "bg/bg_sev_all_p.seg" -> "sev".
+ */
+typedef struct RomLevel {
+    LONG  levelID;
+    char  setupname[32];   /* raw, e.g. "UsetupsevbunkerZ" */
+    char  bgname[40];      /* raw, e.g. "bg/bg_sev_all_p.seg" */
+    char  stanname[40];    /* raw, e.g. "Tbg_sev_all_p_stanZ" */
+    char  name[32];        /* display stem */
+    char  world[24];       /* display stem of the shared bg/stan pair */
+    float levelscale;
+    float renderScale;
+    short music;
+    short bgsound;
+    short xtrack;
+} RomLevel;
+
 typedef struct RomInfo {
     DWORD size;
     char  internalname[21];      /* header title, NUL-terminated */
@@ -20,6 +40,8 @@ typedef struct RomInfo {
     DWORD manifestversion;
     DWORD entrycount;
     RomManifestEntry entries[ROM_MAX_ENTRIES];
+    DWORD levelcount;
+    RomLevel levels[ROM_MAX_LEVELS];
 } RomInfo;
 
 

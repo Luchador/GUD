@@ -93,6 +93,142 @@ static DWORD RomFindManifest(const unsigned char *data, DWORD size)
     return 0;
 }
 
+/* Bounded copy that always terminates. */
+static void RomCopyString(char *dst, DWORD dstmax, const unsigned char *src, DWORD srcmax)
+{
+    DWORD i;
+
+    for (i = 0; i + 1 < dstmax && i < srcmax && src[i] != '\0'; i++)
+    {
+        dst[i] = (char)src[i];
+    }
+
+    dst[i] = '\0';
+}
+
+/* "UsetupsevbunkerZ" -> "sevbunker". Unrecognized shapes copy through. */
+static void RomSetupStem(char *dst, DWORD dstmax, const char *setup)
+{
+    DWORD len;
+
+    if (strncmp(setup, "Usetup", 6) == 0)
+    {
+        setup += 6;
+    }
+
+    RomCopyString(dst, dstmax, (const unsigned char *)setup, dstmax);
+
+    len = strlen(dst);
+    if (len > 0 && dst[len - 1] == 'Z')
+    {
+        dst[len - 1] = '\0';
+    }
+}
+
+/* "bg/bg_sev_all_p.seg" -> "sev". */
+static void RomWorldStem(char *dst, DWORD dstmax, const char *bg)
+{
+    const char *slash = strrchr(bg, '/');
+    char *cut;
+
+    if (slash != NULL)
+    {
+        bg = slash + 1;
+    }
+    if (strncmp(bg, "bg_", 3) == 0)
+    {
+        bg += 3;
+    }
+
+    RomCopyString(dst, dstmax, (const unsigned char *)bg, dstmax);
+
+    cut = strstr(dst, "_all_p.seg");
+    if (cut == NULL)
+    {
+        cut = strstr(dst, ".seg");
+    }
+    if (cut != NULL)
+    {
+        *cut = '\0';
+    }
+}
+
+/*
+ * Parses the STGT level table, chasing its name pointers through the
+ * CMAP virtual-address mapping. Fills info->levels/levelcount.
+ * Returns FALSE with *reasonout set if the table is malformed.
+ */
+static BOOL RomParseLevelTable(const unsigned char *data, DWORD size,
+                               const RomManifestEntry *stgt,
+                               const RomManifestEntry *cmap,
+                               RomInfo *info, const char **reasonout)
+{
+    DWORD rows = stgt->flags;
+    DWORD i;
+
+    if (rows < 1 || rows > ROM_MAX_LEVELS
+        || stgt->romstart + rows * 32 > size)
+    {
+        *reasonout = "GUD level table is malformed.";
+        return FALSE;
+    }
+
+    for (i = 0; i < rows; i++)
+    {
+        const unsigned char *row = data + stgt->romstart + i * 32;
+        RomLevel *lvl = &info->levels[info->levelcount];
+        DWORD p;
+        DWORD strs[3];
+        char *dsts[3];
+        DWORD dstmax[3];
+        DWORD s;
+
+        lvl->levelID = (LONG)be32(row + 0);
+        strs[0] = be32(row + 4);   dsts[0] = lvl->setupname; dstmax[0] = sizeof(lvl->setupname);
+        strs[1] = be32(row + 8);   dsts[1] = lvl->bgname;    dstmax[1] = sizeof(lvl->bgname);
+        strs[2] = be32(row + 12);  dsts[2] = lvl->stanname;  dstmax[2] = sizeof(lvl->stanname);
+
+        for (s = 0; s < 3; s++)
+        {
+            /* virtual address -> ROM offset, per the CMAP contract */
+            p = strs[s] - cmap->flags + cmap->romstart;
+
+            if (strs[s] < cmap->flags || p >= size)
+            {
+                *reasonout = "GUD level table points outside the ROM (corrupt build?).";
+                return FALSE;
+            }
+
+            RomCopyString(dsts[s], dstmax[s], data + p, size - p);
+        }
+
+        /* The table ends with a placeholder row; it is not a level. */
+        if (strcmp(lvl->bgname, "bg/bgx.seg") == 0)
+        {
+            continue;
+        }
+
+        {
+            /* floats arrive as big-endian bit patterns */
+            union { DWORD u; float f; } cvt;
+
+            cvt.u = be32(row + 16); lvl->levelscale = cvt.f;
+            cvt.u = be32(row + 20); lvl->renderScale = cvt.f;
+        }
+
+        lvl->music   = (short)((row[24] << 8) | row[25]);
+        lvl->bgsound = (short)((row[26] << 8) | row[27]);
+        lvl->xtrack  = (short)((row[28] << 8) | row[29]);
+
+        RomSetupStem(lvl->name, sizeof(lvl->name), lvl->setupname);
+        RomWorldStem(lvl->world, sizeof(lvl->world), lvl->bgname);
+
+        info->levelcount++;
+    }
+
+    return TRUE;
+}
+
 BOOL RomValidate(const char *path, RomInfo *info, const char **reasonout)
 {
     static const unsigned char z64magic[4] = { 0x80, 0x37, 0x12, 0x40 };
@@ -186,6 +322,36 @@ BOOL RomValidate(const char *path, RomInfo *info, const char **reasonout)
         {
             free(data);
             *reasonout = "GUD manifest points outside the ROM (corrupt build?).";
+            return FALSE;
+        }
+    }
+
+    {
+        const RomManifestEntry *stgt = NULL;
+        const RomManifestEntry *cmap = NULL;
+
+        for (i = 0; i < info->entrycount; i++)
+        {
+            if (info->entries[i].kind == 0x53544754)      /* 'STGT' */
+            {
+                stgt = &info->entries[i];
+            }
+            else if (info->entries[i].kind == 0x434D4150) /* 'CMAP' */
+            {
+                cmap = &info->entries[i];
+            }
+        }
+
+        if (stgt == NULL || cmap == NULL)
+        {
+            free(data);
+            *reasonout = "GUD build predates the level manifest - rebuild GUD.";
+            return FALSE;
+        }
+
+        if (!RomParseLevelTable(data, size, stgt, cmap, info, reasonout))
+        {
+            free(data);
             return FALSE;
         }
     }
