@@ -110,11 +110,6 @@ contplaybackfunc g_ContPlaybackFunc = NULL;
  */
 s32 g_ContNeedsInit = 1;
 
-u32 g_ContBadReadsStickX[MAXCONTROLLERS] = {0};
-u32 g_ContBadReadsStickY[MAXCONTROLLERS] = {0};
-u32 g_ContBadReadsButtons[MAXCONTROLLERS] = {0};
-u32 g_ContBadReadsButtonsPressed[MAXCONTROLLERS] = {0};
-
 void joyInit(void)
 {
     s32 i;
@@ -447,8 +442,6 @@ void joyPoll(void)
     // Poll controller input from SI
     if (g_ContInitDone && osRecvMesg(&g_ContInputMessageQueue, &msg, 0) == 0)
     {
-        static s32 count = 0;
-
         g_ContBusy = 0;
 
         index = (g_ContData[0].nextlast + 1) % 20;
@@ -485,32 +478,6 @@ void joyPoll(void)
         osContStartReadData(&g_ContInputMessageQueue);
 
         g_ContBusy = 1;
-        count++;
-
-        if (count >= 60)
-        {
-            for (i = 0; i < 4; i++)
-            {
-                if (g_ContBadReadsStickX[i] != 0
-                        || g_ContBadReadsStickY[i] != 0
-                        || g_ContBadReadsButtons[i] != 0
-                        || g_ContBadReadsButtonsPressed[i] != 0)
-                {
-                    // These empty checks are required for matching.
-                    if (g_ContBadReadsStickX[i]);
-                    if (g_ContBadReadsStickY[i]);
-                    if (g_ContBadReadsButtons[i]);
-                    if (g_ContBadReadsButtonsPressed[i]);
-
-                    g_ContBadReadsStickX[i] = 0;
-                    g_ContBadReadsStickY[i] = 0;
-                    g_ContBadReadsButtons[i] = 0;
-                    g_ContBadReadsButtonsPressed[i] = 0;
-                }
-            }
-
-            count = 0;
-        }
     }
 }
 
@@ -519,7 +486,6 @@ s8 joyGetStickX(s8 contpadnum)
 {
     if ((g_ContDataPtr->playbackcontcount < 0) && ((g_ConnectedControllers >> contpadnum & 1) == 0))
     {
-        g_ContBadReadsStickX[contpadnum]++;
         return 0;
     }
 
@@ -534,7 +500,6 @@ s8 joyGetPrevStickX(s8 contpadnum)
 {
     if ((g_ContDataPtr->playbackcontcount < 0) && ((g_ConnectedControllers >> contpadnum & 1) == 0))
     {
-        g_ContBadReadsStickX[contpadnum]++;
         return 0;
     }
 
@@ -546,7 +511,6 @@ s8 joyGetStickY(s8 contpadnum)
 {
     if ((g_ContDataPtr->playbackcontcount < 0) && ((g_ConnectedControllers >> contpadnum & 1) == 0))
     {
-        g_ContBadReadsStickY[contpadnum]++;
         return 0;
     }
 
@@ -561,7 +525,6 @@ s8 joyGetPrevStickY(s8 contpadnum)
 {
     if ((g_ContDataPtr->playbackcontcount < 0) && ((g_ConnectedControllers >> contpadnum & 1) == 0))
     {
-        g_ContBadReadsStickY[contpadnum]++;
         return 0;
     }
 
@@ -573,7 +536,6 @@ u16 joyGetButtons(s8 contpadnum, u16 mask)
 {
     if ((g_ContDataPtr->playbackcontcount < 0) && ((g_ConnectedControllers >> contpadnum & 1) == 0))
     {
-        g_ContBadReadsButtons[contpadnum]++;
         return 0;
     }
 
@@ -585,7 +547,6 @@ u16 joyGetButtonsPressedThisFrame(s8 contpadnum, u16 mask)
 {
     if ((g_ContDataPtr->playbackcontcount < 0) && ((g_ConnectedControllers >> contpadnum & 1) == 0))
     {
-        g_ContBadReadsButtonsPressed[contpadnum]++;
         return 0;
     }
 

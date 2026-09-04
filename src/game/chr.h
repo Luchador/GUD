@@ -66,7 +66,7 @@ struct weapon_firing_animation_table
     } anim;
     
     f32 unk04;
-    f32 turn_angle_per_frame;
+    f32 pad;
     f32 angle_offset;
 
     /**

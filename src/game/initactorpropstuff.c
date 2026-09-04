@@ -36,21 +36,6 @@ void reset_counter_rand_body_head(void)
 }
 
 
-u32 sub_GAME_7F0001F0(void *ani, s32 aniid, s32 param_3)
-{
-    u16 asStack8[4];
-    u16 result = 0;
-
-    while (aniid < param_3)
-    {
-        result += modelAnimReadFrameRootMotion(0, 0, &skeleton_guard, ani, aniid, asStack8);
-        aniid++;
-    }
-
-    return result;
-}
-
-
 s32 sub_GAME_7F000290(ModelAnimation *anim, s32 startframe, s32 endframe)
 {
     s32 sum;
@@ -94,7 +79,6 @@ s32 initResolveAnimGroupTable(struct weapon_firing_animation_table *animconfig)
     } *initialanim;
 
     s32 endframe;
-    u32 angle16;
     f32 duration;
 
     numconfigs = 0;
@@ -112,25 +96,7 @@ s32 initResolveAnimGroupTable(struct weapon_firing_animation_table *animconfig)
         {
             config->anim.anim = (struct ModelAnimation *)(((0, animoffset)) + ((s32)ptr_animation_table));
             endframe = floorFloatToInt(config->unk04);
-            angle16 = sub_GAME_7F0001F0(config->anim.anim, 0, endframe) & 0xffff;
             duration = config->unk04;
-
-            if (duration > 0.0f)
-            {
-                if (((s32)angle16) < 0x8000)
-                {
-                    config->turn_angle_per_frame = (angle16 * angleconv) / duration;
-                }
-                else
-                {
-                    config->turn_angle_per_frame = ((angle16 * angleconv) - fullturn) / duration;
-                }
-            }
-            else
-            {
-                config->turn_angle_per_frame = 0.0f;
-            }
-
             animoffset = config[1].anim.offset;
             config++;
             numconfigs++;

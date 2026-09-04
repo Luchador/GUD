@@ -18,27 +18,30 @@ s32 g_TexCacheCount;
 s32 g_TexNumToLoad;
 u32 bytes = 0x6DDD0;
 
-//D:80049178 #1	#bytes in pixel data for image
+// #1 #bytes in pixel data for image
 s32 g_TexFormatNumChannels[] = 
 {
     4, 3, 3, 3, 2, 2, 1, 1, 1, 1, 1, 1, 1
 };
-//D:800491AC #2	1=alphagrab.  Grabs 1 bit of alpha data for each pixel
+// #2 1=alphagrab.  Grabs 1 bit of alpha data for each pixel
 s32 g_TexFormatHas1BitAlpha[] = 
 {
     0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0
 };
-//D:800491E0 #3	#bits in 'samples', *2	-1=bitmask
+
+// #3 #bits in 'samples', *2	-1=bitmask
 s32 g_TexFormatChannelSizes[] = 
 {
     0x100, 0x20, 0x100, 0x20, 0x100, 0x10, 8, 0x100, 0x10, 0x100, 0x10, 0x100, 0x10
 };
-//D:80049214 #4	bitcount for pixel data
+
+// #4 bitcount for pixel data
 s32 g_TexFormatBitsPerPixel[] = 
 {
      0x20, 0x10, 0x18, 0xF, 0x10, 8, 4, 8, 4, 0x10, 0x10, 0x10, 0x10, 
 };
-//D:80049248 #5	N64 image types (0=color, 1=YUV, 2=indexed, 3=IA, 4=I)
+
+// #5 N64 image types (0=color, 1=YUV, 2=indexed, 3=IA, 4=I)
 s32 g_TexFormatGbiMappings[] = 
 {
     G_IM_FMT_RGBA, G_IM_FMT_RGBA, G_IM_FMT_RGBA, G_IM_FMT_RGBA,	
@@ -46,7 +49,8 @@ s32 g_TexFormatGbiMappings[] =
     G_IM_FMT_I, G_IM_FMT_I, 
     G_IM_FMT_CI, G_IM_FMT_CI, G_IM_FMT_CI, G_IM_FMT_CI,
 };
-//D:8004927C #6	N64 pixel sizes (0=4bit, 1=8bit, 2=16bit, 3=32bit)
+
+// #6 N64 pixel sizes (0=4bit, 1=8bit, 2=16bit, 3=32bit)
 s32 g_TexFormatDepths[] = 
 {
 	G_IM_SIZ_32b,
@@ -63,7 +67,8 @@ s32 g_TexFormatDepths[] =
 	G_IM_SIZ_8b,
 	G_IM_SIZ_4b,
 };
-//D:800492B0 #7	imageflip values for indexed types
+
+// #7	imageflip values for indexed types
 s32 g_TexFormatLutModes[] = {
 	G_TT_NONE,
 	G_TT_NONE,
@@ -79,15 +84,10 @@ s32 g_TexFormatLutModes[] = {
 	G_TT_IA16,
 	G_TT_IA16,
 };
-//D:800492e4
-s32 D_800492E4[] = 
-{
-    0, 0, 0, 0, 0, 0, 0
-};
+
 #define IMAGE(NAME, SZ, HS, HT, F3, F4, F5, F6) \
     {HS, HT, SZ, F3, F4, F5, F6 },
 
-//D:80049300
 //need way to calculate size at compile time from external data
 struct image_entry g_Textures[] = {
     #include <assets/images.raw.def>
