@@ -63,7 +63,6 @@ f32  get_007_health_mod(void);
 // End forward declarations.
 
 f32 animation_rate = 0;
-s32 g_AnimationTablePointerCountRelated = 0;
 
 /*
  * D:8002C914
@@ -1540,26 +1539,9 @@ void chrSetMaxDamage(ChrRecord *chr, f32 maxdamage)
 }
 
 
-f32 chrGetMaxDamage(ChrRecord *chr)
-{
-    return chr->maxdamage;
-}
-
-
 void chrAddHealth(ChrRecord *chr, f32 health)
 {
     chr->damage -= (health * get_007_health_mod());
-}
-
-
-f32 chrGetArmor(ChrRecord *chr)
-{
-    if (chr->damage < 0)
-    {
-        return -chr->damage;
-    }
-
-    return 0;
 }
 
 
@@ -3350,44 +3332,6 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
 
     // Create a blood stain at the impact point.
     chrCreateBloodStain(bhit->model, bhit->hitpart, bhit->node, &jointpos);
-}
-
-
-/**
- * Decrements g_AnimationTablePointerCountRelated.
- * If less than zero, the variable will then be set to the
- * number of non-zero entries in animation_table_ptrs1.
- */
-void chrDecrementAnimationTablePointerCount(void)
-{
-    g_AnimationTablePointerCountRelated--;
-
-    if (g_AnimationTablePointerCountRelated < 0)
-    {
-        for (
-            g_AnimationTablePointerCountRelated = 0;
-            animation_table_ptrs1[g_AnimationTablePointerCountRelated+1] != 0;
-            g_AnimationTablePointerCountRelated++)
-        {
-            // nothing to do.
-        }
-    }
-}
-
-
-/**
- * Decrements g_AnimationTablePointerCountRelated.
- * If the entry in animation_table_ptrs1 at that index is zero
- * then the global variable will be set to zero.
- */
-void chrIncrementAnimationTablePointerCount(void)
-{
-    g_AnimationTablePointerCountRelated++;
-
-    if (animation_table_ptrs1[g_AnimationTablePointerCountRelated] == 0)
-    {
-        g_AnimationTablePointerCountRelated = 0;
-    }
 }
 
 

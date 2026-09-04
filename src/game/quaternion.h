@@ -10,9 +10,7 @@ typedef f32 quatf[4]; // w, x, y, z
 
 void quaternion_set_rotation_around_xyzf(vec3f angles, quatf q);
 void quaternion_to_matrix(quatf q, mat44f matrix);
-void quaternion_to_transform_matrix(vec3f position, quatf rotation, mat44f matrix);
 void quaternion_slerp(quatf q1, quatf q2, f32 t, quatf result);
-void quaternion_7F05BC68(quatf q, f32 t, quatf result);
 void quaternion_ensure_shortest_path(quatf q1, quatf q2);
 void quaternion_multiply(quatf lhs, quatf rhs, quatf result);
 void quaternion_7F05BFD4(quatf q1, quatf q2);

@@ -2969,19 +2969,6 @@ bool objCanPickupFromSafe(ObjectRecord *obj)
 }
 
 
-void sub_GAME_7F03E830(ObjectRecord* arg0)
-{
-    PropRecord* prop = arg0->prop;
-    stanGetPositionYValue(prop->stan, prop->pos.x, prop->pos.z);
-}
-
-
-f32 chrpropBBOXGetXmin(ModelRoData_BoundingBoxRecord *modelBoundingBox)
-{
-    return modelBoundingBox->Bounds.xmin;
-}
-
-
 f32 chrpropBBOXGetYmin(ModelRoData_BoundingBoxRecord *modelBoundingBox)
 {
     return modelBoundingBox->Bounds.ymin;

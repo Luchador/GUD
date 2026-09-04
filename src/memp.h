@@ -50,7 +50,6 @@ void mempSetBankStarts(s32 banks[8]);
 void *mempAllocBytesInBank(u32 bytes,u8 bank);
 MEMP_ADD_ENTRY_RESULT mempAddEntryOfSizeToBank(void *allocation, s32 newsize, u8 poolnum);
 s32 mempGetBankSizeLeft(u8 bank);
-u32 mempAllocPackedBytesInBank(u32 param_1);
 void mempResetBank(u8 bank);
 void mempNullNextEntryInBank(u8 bank);
 

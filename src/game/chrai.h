@@ -288,7 +288,6 @@ void               propsDefragRoomProps(void);
 void               chraiGetPropRoomIds(PropRecord *self, s32 *roomids);
 void               chrpropFree(PropRecord *prop);
 void               chrpropDisable(PropRecord *prop);
-f32                chrpropBBOXGetXmin(ModelRoData_BoundingBoxRecord *modelBoundingBox);
 f32                chrpropBBOXGetYmin(ModelRoData_BoundingBoxRecord *modelBoundingBox);
 f32                chrpropBBOXGetYmax(ModelRoData_BoundingBoxRecord *modelBoundingBox);
 f32                chrpropBBOXGetZmin(ModelRoData_BoundingBoxRecord *modelBoundingBox);

@@ -553,20 +553,6 @@ void bullet_sparks_render(Gfx *gdl, s32 zbufferMode)
 }
 
 
-f32 bullet_spark_get_depth(s_bullet_spark* spark)
-{
-    coord3d tempVec;
-
-    tempVec.x = spark->unk10;
-    tempVec.y = spark->unk14;
-    tempVec.z = spark->unk18;
-
-    mtx4TransformVecInPlace(camGetWorldToScreenMtxf(), &tempVec);
-
-    return -tempVec.z;
-}
-
-
 void bullet_moving_sparks_reset(void)
 {
     s_moving_bullet_spark *ptr;

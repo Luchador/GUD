@@ -58,14 +58,6 @@ void quaternion_to_matrix(quatf q, mat44f matrix)
 }
 
 
-void quaternion_to_transform_matrix(vec3f position, quatf rotation, mat44f matrix)
-{
-    quaternion_to_matrix(rotation, matrix);
-    matrix[3][0] = position[0];
-    matrix[3][1] = position[1];
-    matrix[3][2] = position[2];
-}
-
 #define EPSILON 0.00001001f
 
 void quaternion_slerp(quatf q1, quatf q2, f32 t, quatf result)
@@ -101,45 +93,6 @@ void quaternion_slerp(quatf q1, quatf q2, f32 t, quatf result)
         result[3] = ((1.0f - t) * q1[3]) + (q2[3] * t);
     }
 }
-
-void quaternion_7F05BC68(quatf q, f32 t, quatf result)
-{
-    f32 phi_f12 = q[0];
-    f32 phi_f16 = 1.0f;
-    f32 temp_f0_2;
-    f32 test2;
-    f32 temp_f4;
-    f32 sp20;
-    f32 temp_f2;
-    f32 test;
-    if (q[0] < 0.0f) {
-        phi_f12 = -phi_f12;
-        phi_f16 = -phi_f16;
-    }
-    if (phi_f12 < -0.99998999f) {
-        result[0] = (q[0] * t) - ((1.0f - t) * phi_f16);
-        result[1] = (q[1] * t);
-        result[2] = (q[2] * t);
-        result[3] = (q[3] * t);
-    } else if (phi_f12 <= 0.99998999f) {
-        temp_f0_2 = acosf(phi_f12);
-        test2 = t * temp_f0_2;
-        temp_f4 = (1.0f - t) * temp_f0_2;
-        sp20 = sinf(temp_f0_2);
-        temp_f2 = sinf(test2) / sp20;
-        test = sinf(temp_f4) / sp20;
-        result[0] = (q[0] * temp_f2) + (test * phi_f16);
-        result[1] = (q[1] * temp_f2);
-        result[2] = (q[2] * temp_f2);
-        result[3] = (q[3] * temp_f2);
-    } else {
-        result[0] = (q[0] * t) + ((1.0f - t) * phi_f16);
-        result[1] = (q[1] * t);
-        result[2] = (q[2] * t);
-        result[3] = (q[3] * t);
-    }
-}
-
 
 void quaternion_ensure_shortest_path(quatf q1, quatf q2)
 {

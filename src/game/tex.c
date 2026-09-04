@@ -94,26 +94,6 @@ void sub_GAME_7F0CC4C8(void)
 }
 
 
-s32 unused_copy_byte_array(u8* src, s32 count, u8* dst)
-{
-    u8* src_itr;
-    u8* dst_itr;
-
-    src_itr = src;
-    dst_itr = dst;
-
-    while (count > 0)
-    {
-        *dst_itr = *src_itr;
-        dst_itr++;
-        src_itr++;
-        count--;
-    }
-
-    return dst_itr - dst;
-}
-
-
 u32 texSetLutMode(s32 arg0) {
     if (arg0 == g_TexLutMode) {
         return 0;

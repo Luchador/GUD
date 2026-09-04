@@ -30,9 +30,6 @@
 
 #define MAXCODESIZE (0x101000 - 0x1050) 
 
-u32 piStatusReg = PI_CLR_INTR;
-u32 piDomAddr = PI_DOM1_ADDR2;
-
 OSThread rmonThread;
 OSThread idleThread;
 OSThread mainThread;
@@ -122,16 +119,6 @@ void init(void)
 void *setSPToEnd(u8 *stack, u32 size)
 {
     return stack + size - 8;
-}
-
-/**
- * piStatusRegReset - set PI status register to trigger a reset
- * This is unused and is leftover from Indy debug,
- */
-void piStatusRegReset(void)
-{
-    piStatusReg = PI_SET_RESET;
-    piDomAddr = PI_DOM1_ADDR2;
 }
 
 /**

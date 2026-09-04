@@ -220,13 +220,6 @@ s32 mempGetBankSizeLeft(u8 bank)
 }
 
 
-// Last three bits contains the bank, the rest contains the size.
-u32 mempAllocPackedBytesInBank(u32 sizeandbank)
-{
-    return mempAllocBytesInBank((sizeandbank >> 3), (sizeandbank & 7));
-}
-
-
 void mempResetBank(u8 bank)
 {
     g_mempPools[bank].prevpos = 0;

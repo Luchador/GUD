@@ -825,23 +825,6 @@ void musicTrack1ApplySeqpVol(u16 volume)
 
 
 /**
- * g_musicDefaultTrackVolume is updated so that the currently playing
- * track's default volume is now the current volume.
- */
-void musicTrack1SaveCurrentVolumeAsTrackDefault(void)
-{
-    s32 i;
-    
-    g_musicDefaultTrackVolume[g_musicXTrack1CurrentTrackNum] = musicTrack1GetVolume();
-
-    for (i = 0; g_musicDefaultTrackVolume[i] >= 0; i++)
-    {
-        // removed;
-    }
-}
-
-
-/**
  * Updates internal variables to fadeout state, if not already fading out.
  * Starting/stopping output of audio is not directly managed here.
  * Sets g_musicXTrack1Fade to MUSIC_FADESTATE_UNSET.

@@ -7,16 +7,6 @@
 #include "objecthandler.h"
 #include "model.h"
 
-s32 load_body_head_if_not_loaded(s32 model)
-{
-    if (CitemZ_entries[model].header->RootNode == 0)
-    {
-        fileLoad(CitemZ_entries[model].header, CitemZ_entries[model].filename);
-        return 1;
-    }
-    return 0;
-}
-
 // # This file is chrlv.c
 
 /**

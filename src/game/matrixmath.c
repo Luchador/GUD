@@ -119,18 +119,6 @@ void matrix_4x4_multiply_homogeneous(Mtxf *lhs, Mtxf *rhs, Mtxf *result)
 }
 
 
-void matrix_4x4_rotate_vector(Mtxf *matrix, struct coord3d *vector, struct coord3d *result)
-{
-    f32 x = vector->f[0];
-    f32 y = vector->f[1];
-    f32 z = vector->f[2];
-
-    result->f[0] = matrix->m[0][0] * x + matrix->m[1][0] * y + matrix->m[2][0] * z;
-    result->f[1] = matrix->m[0][1] * x + matrix->m[1][1] * y + matrix->m[2][1] * z;
-    result->f[2] = matrix->m[0][2] * x + matrix->m[1][2] * y + matrix->m[2][2] * z;
-}
-
-
 void mtx4RotateVecInPlace(Mtxf *matrix, struct coord3d *vector)
 {
     f32 x = vector->f[0];

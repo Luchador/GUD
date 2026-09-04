@@ -7833,12 +7833,6 @@ void frontChangeMenu(MENU menu, s32 reload)
 }
 
 
-MENU get_currentmenu(void)
-{
-  return current_menu;
-}
-
-
 void menu_init(void)
 {
     if (current_menu == MENU_SWITCH_SCREENS)

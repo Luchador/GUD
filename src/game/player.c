@@ -627,12 +627,6 @@ void set_cur_player_aspect(f32 aspect)
 }
 
 
-f32 get_cur_player_fovy(void)
-{
-    return g_CurrentPlayer->fovy;
-}
-
-
 PROP getPropForHeldItem(ITEM_IDS itemnum)
 {
     PROP ret = -1;

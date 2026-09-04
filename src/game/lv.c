@@ -63,7 +63,6 @@ char ramrom_data_target[0x380];
 s32 record_slot_num;
 u8 * address_demo_loaded;
 s32 g_CurrentStageToLoad = 0;
-s32 musictrack1_playing = 0;
 s32 g_ControlsLockedFlag = 0;
 s32 g_ClockTimer = 0;
 f32 g_GlobalTimerDelta = 0;
@@ -156,39 +155,6 @@ void lvInit(void)
     size = (s32)&_fontdlSegmentRomEnd - (s32)&_fontdlSegmentRomStart;
     ptr_font_DL = mempAllocBytesInBank(size, MEMPOOL_PERMANENT);
     romCopy(ptr_font_DL, &_fontdlSegmentRomStart, size);
-}
-
-
-void lvlPlayMusicTrack1(MUSIC_TRACKS track)
-{
-    musictrack1_playing = track;
-    musicTrack1Play(musictrack1_playing);
-}
-
-
-void lvlMusicAppendPlaySoloDeathShort(void)
-{
-    musictrack1_playing = (musictrack1_playing + M_SHORT_SOLO_DEATH) % NUM_MUSIC_TRACKS;
-
-    if (musictrack1_playing == M_NONE)
-    {
-        musictrack1_playing = M_SHORT_SOLO_DEATH;
-    }
-
-    musicTrack1Play(musictrack1_playing);
-}
-
-
-void lvlMusicAppendPlayEndTheme(void)
-{
-    musictrack1_playing = (musictrack1_playing + M_END_SOMETHING) % NUM_MUSIC_TRACKS;
-
-    if (musictrack1_playing == M_NONE)
-    {
-        musictrack1_playing = M_END_SOMETHING;
-    }
-
-    musicTrack1Play(musictrack1_playing);
 }
 
 

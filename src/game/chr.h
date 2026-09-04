@@ -204,7 +204,6 @@ extern struct anim_group_info *ptr_crouched_pistol_firing_animation_groups[];
 extern struct anim_group_info *ptr_crouched_doubles_firing_animation_groups[];
 
 extern f32 animation_rate;
-extern s32 g_AnimationTablePointerCountRelated;
 
 extern s32 player1_guardID;
 extern ChrRecord *g_ChrSlots;
@@ -264,8 +263,6 @@ void        setAnimationRate(f32);
 PropRecord *init_GUARDdata_with_set_values(PropRecord *, Model *, coord3d *, f32 arg2, StandTile * arg3, struct AIListRecord *arg4);
 PropRecord *chrAllocate(struct Model * arg0, coord3d * arg1, f32 arg2, StandTile * arg3, s32 arg4);
 void        chrSetHiddenToRandom(ChrRecord *arg0);
-void        chrDecrementAnimationTablePointerCount(void);
-void        chrIncrementAnimationTablePointerCount(void);
 void        chrCheckGuardsHeardSound(f32 arg0);
 ChrRecord  *chrFindByLiteralId(s32 index);
 PropRecord *chrGetEquippedWeaponProp(ChrRecord *arg0, GUNHAND arg1);

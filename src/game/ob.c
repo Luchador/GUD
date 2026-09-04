@@ -36,18 +36,6 @@ void obInit(void)
 }
 
 
-void *_fileIndexLoadToBank(s32 index, FILELOADMETHOD param_2, s32 size, u8 bank)
-{
-    return fileIndexLoadToBank(index, param_2, size, bank);
-}
-
-
-void *_fileIndexLoadToAddr(int index, FILELOADMETHOD param_2, u8 *ptrdata, int size)
-{
-    return fileIndexLoadToAddr(index, param_2, ptrdata, size);
-}
-
-
 void *_fileNameLoadToBank(char *filename, FILELOADMETHOD loadMethod, s32 size, u8 bank)
 {
     return fileIndexLoadToBank(fileGetIndex(filename), loadMethod, size, bank);

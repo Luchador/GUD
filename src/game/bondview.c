@@ -1720,12 +1720,6 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
 }
 
 
-void sub_GAME_7F07C540(s32 arg0)
-{
-    g_CurrentPlayer->field_42c = arg0;
-}
-
-
 void currentPlayerSetLookAheadSetting(bool enabled)
 {
     g_CurrentPlayer->automovecentreenabled = enabled;
@@ -3212,12 +3206,6 @@ f32 bondviewGetPauseAnimationPercent(void)
 void set_BONDdata_outside_watch_menu_flag(s32 arg0)
 {
     g_CurrentPlayer->outside_watch_menu = arg0;
-}
-
-
-s32 get_BONDdata_outside_watch_menu_flag(void)
-{
-    return g_CurrentPlayer->outside_watch_menu;
 }
 
 
@@ -9150,12 +9138,6 @@ s32 bondviewGetVisibleToGuardsFlag(void)
 void set_obj_collision_flag(s32 flag) {
   obj_collision_flag = flag;
 }
-
-s32 get_obj_collision_flag(void)
-{
-    return obj_collision_flag;
-}
-
 
 u8 bondviewGetPlayerRoom(void)
 {

@@ -1279,28 +1279,6 @@ void fileUpdateSelectedBondInSave(s32 folder)
 }
 
 /**
- * Copy folder save
- *
- * @param foldernum
- * @param out_save
- */
-void fileCopySave(s32 folder, save_data *out_save)
-{
-
-    save_data *in_save = fileGetSaveForFoldernum(folder);
-
-    if (in_save)
-    {
-        *out_save = *in_save;
-    }
-    else
-    {
-        save_data new_save = BLANKSAVEDATA;
-        *out_save = new_save;
-    }
-}
-
-/**
  * Copy save to RarRom replay save
  *
  * @param folder

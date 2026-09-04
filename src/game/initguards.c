@@ -10,7 +10,6 @@
 void init_guards(void) 
 {
     animation_rate = 1.0f;
-    g_AnimationTablePointerCountRelated = 0;
     player1_guardID = 0x1388;
     g_ChrSlots = 0;
     g_NumChrSlots = 0;
