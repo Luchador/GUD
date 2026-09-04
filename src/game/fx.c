@@ -1,8 +1,17 @@
 #include <ultra64.h>
 #include <bondtypes.h>
+#include <random.h>
+#include "bg.h"
+#include "bgroomtrans.h"
+#include "bondview.h"
+#include "cam.h"
+#include "dyn.h"
 #include "fx.h"
+#include "gbi_extension.h"
 #include "image_bank.h"
 #include "lv.h"
+#include "matrixmath.h"
+#include "tex.h"
 
 
 #define BULLET_SPARKS_MAX 20
@@ -138,7 +147,7 @@ void fxUpdateBulletSparks(void)
 }
 
 
-void fxRenderBulletSpark(s_bullet_spark *thing, Gfx *gdlarg, s32 zbufferMode)
+void fxRenderBulletSpark(s_bullet_spark *thing, Gfx **gdlptr, s32 zbufferMode)
 {
     Vtx vtx;
     Mtxf *mtx;
@@ -172,7 +181,7 @@ void fxRenderBulletSpark(s_bullet_spark *thing, Gfx *gdlarg, s32 zbufferMode)
 
     vtx = g_BulletSparkVertexTemplate;
     mtx = currentPlayerGetViewToWorldMtxf();
-    gdl = *((Gfx **) gdlarg);
+    gdl = *gdlptr;
     vertices = dynAllocateVertices(4);
     room = thing->unk06;
     roompos = getRoomPositionByIndex(room);
@@ -231,7 +240,7 @@ void fxRenderBulletSpark(s_bullet_spark *thing, Gfx *gdlarg, s32 zbufferMode)
     gSPVertex(gdl++, osVirtualToPhysical(vertices), 4, 0);
     gSP2Triangles(gdl++, 0, 1, 2, 0, 0, 2, 3, 0);
     gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjMtx()), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
-    *((Gfx **) gdlarg) = gdl;
+    *gdlptr = gdl;
 }
 
 
@@ -294,7 +303,7 @@ void fxUpdateMovingSparks(void)
 }
 
 
-void fxRenderMovingSparks(Gfx *arg0, s32 zbufferMode)
+void fxRenderMovingSparks(Gfx **gdl, s32 zbufferMode)
 {
     s32 max_index;
     s_moving_bullet_spark *ptr;
@@ -303,7 +312,7 @@ void fxRenderMovingSparks(Gfx *arg0, s32 zbufferMode)
 
     for (ptr = &g_MovingBulletSparkArray[0]; ptr < (&g_MovingBulletSparkArray[max_index]); ptr++)
     {
-        fxRenderBulletSpark(&ptr->unk00, arg0, zbufferMode);
+        fxRenderBulletSpark(&ptr->unk00, gdl, zbufferMode);
     }
 
 }
