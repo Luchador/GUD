@@ -195,11 +195,6 @@ f32 slider_007_mode_health = 1.0f;
 f32 slider_007_mode_damage = 1.0f;
 f32 slider_007_mode_accuracy = 1.0f;
 
-rgba_u8 textglowR = { 160, 0, 0, 0 };
-rgba_u8 textglowG = { 150, 0, 0, 0 };
-rgba_u8 textglowB = { 40, 0, 0, 0 };
-rgba_u8 textglowA = { 140, 0, 0, 0 };
-
 struct coord3d legalpage_pos = {0.0f, 0.0f, 0.0f};
 
 struct legal_screen_text legalpage_text_array[] = {
@@ -264,37 +259,37 @@ struct rectbbox folder_option_COPY_bound = { 0 };
 struct rectbbox folder_option_ERASE_bound = { 0 };
 
 struct mission_folder_setup mission_folder_setup_entries[] = {
-  /* string_ptr  folder_text_preset                                                         icon_text_preset                                            stage_id           unknown type             mission_num briefing_name_ptr */
-    {"1",        getStringID(LTITLE, TITLE_STR_120_ARK)            /* Arkangelsk */,        0,                                                          LEVELID_NONE,           0, MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_121_DAM)            /* Dam */,               0,                                                          LEVELID_DAM,            0, MISSION_PART,             0, "UbriefdamZ"},
-    {"ii",       getStringID(LTITLE, TITLE_STR_122_FAC)            /* Facility */,          0,                                                          LEVELID_FACILITY,       0, MISSION_PART,             1, "UbriefarkZ"},
-    {"iii",      getStringID(LTITLE, TITLE_STR_123_RUN)            /* Runway */,            0,                                                          LEVELID_RUNWAY,         0, MISSION_PART,             2, "UbriefrunZ"},
-    {"2",        getStringID(LTITLE, TITLE_STR_124_SEV)            /* Severnaya */,         0,                                                          LEVELID_NONE,           0, MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_125_SURF)           /* Surface */,           0,                                                          LEVELID_SURFACE,        0, MISSION_PART,             3, "UbriefsevxZ"},
-    {"ii",       getStringID(LTITLE, TITLE_STR_126_BUNK)           /* Bunker */,            0,                                                          LEVELID_BUNKER1,        0, MISSION_PART,             4, "UbriefsevbunkerZ"},
-    {"3",        getStringID(LTITLE, TITLE_STR_127_KIRG)           /* Kirghizstan */,       0,                                                          LEVELID_NONE,           1, MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_128_SILO4)          /* Launch Silo #4 */,    getStringID(LTITLE, TITLE_STR_129_SILO)     /* Silo */,     LEVELID_SILO,           1, MISSION_PART,             5, "UbriefsiloZ"},
-    {"4",        getStringID(LTITLE, TITLE_STR_130_MONTE)          /* Monte Carlo */,       0,                                                          LEVELID_NONE,           1, MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_131_FRIG)           /* Frigate */,           0,                                                          LEVELID_FRIGATE,        1, MISSION_PART,             6, "UbriefdestZ"},
-    {"5",        getStringID(LTITLE, TITLE_STR_124_SEV)            /* Severnaya */,         0,                                                          LEVELID_NONE,           1, MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_125_SURF)           /* Surface */,           0,                                                          LEVELID_SURFACE2,       1, MISSION_PART,             7, "UbriefsevxbZ"},
-    {"ii",       getStringID(LTITLE, TITLE_STR_126_BUNK)           /* Bunker */,            0,                                                          LEVELID_BUNKER2,        1, MISSION_PART,             8, "UbriefsevbZ"},
-    {"6",        getStringID(LTITLE, TITLE_STR_132_STPETER)        /* St. Petersburg */,    0,                                                          LEVELID_NONE,           2, MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_133_STATPARK)       /* Statue Park */,       getStringID(LTITLE, TITLE_STR_134_STAT)     /* Statue */,   LEVELID_STATUE,         2, MISSION_PART,             9, "UbriefstatueZ"},
-    {"ii",       getStringID(LTITLE, TITLE_STR_135_MILARCH)        /* Military Archives */, getStringID(LTITLE, TITLE_STR_136_ARCH)     /* Archives */, LEVELID_ARCHIVES,       2, MISSION_PART,            10, "UbriefarchZ"},
-    {"iii",      getStringID(LTITLE, TITLE_STR_137_STREETS)        /* Streets */,           0,                                                          LEVELID_STREETS,        2, MISSION_PART,            11, "UbriefpeteZ"},
-    {"iv",       getStringID(LTITLE, TITLE_STR_138_DEPOT)          /* Depot */,             0,                                                          LEVELID_DEPOT,          2, MISSION_PART,            12, "UbriefdepoZ"},
-    {"v",        getStringID(LTITLE, TITLE_STR_139_TRAIN)          /* Train */,             0,                                                          LEVELID_TRAIN,          2, MISSION_PART,            13, "UbrieftraZ"},
-    {"7",        getStringID(LTITLE, TITLE_STR_140_CUBA)           /* Cuba */,              0,                                                          LEVELID_NONE,           3, MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_141_JUN)            /* Jungle */,            0,                                                          LEVELID_JUNGLE,         3, MISSION_PART,            14, "UbriefjunZ"},
-    {"ii",       getStringID(LTITLE, TITLE_STR_142_CONCENTER)      /* Control Center */,    getStringID(LTITLE, TITLE_STR_143_CON)      /* Control */,  LEVELID_CONTROL,        3, MISSION_PART,            15, "UbriefcontrolZ"},
-    {"iii",      getStringID(LTITLE, TITLE_STR_144_WATERCAV)       /* Water Caverns */,     getStringID(LTITLE, TITLE_STR_145_CAV)      /* Caverns */,  LEVELID_CAVERNS,        3, MISSION_PART,            16, "UbriefcaveZ"},
-    {"iv",       getStringID(LTITLE, TITLE_STR_146_ANTENNA)        /* Antenna Cradle */,    getStringID(LTITLE, TITLE_STR_147_CRADLE)   /* Cradle */,   LEVELID_CRADLE,         3, MISSION_PART,            17, "UbriefcradZ"},
-    {"8",        getStringID(LTITLE, TITLE_STR_148_TEOTIHUACA)     /* Teotihuaca'n */,      0,                                                          LEVELID_NONE,           4, MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_149_AZTECCOMPLEX)   /* Aztec Complex */,     getStringID(LTITLE, TITLE_STR_150_AZTEC)    /* Aztec */,    LEVELID_AZTEC,          4, MISSION_PART,            18, "UbriefaztZ"},
-    {"9",        getStringID(LTITLE, TITLE_STR_151_ELSAGHIRA)      /* el-Saghira */,        0,                                                          LEVELID_NONE,           4, MISSION_HEADER,          -1, 0},
-    {"i",        getStringID(LTITLE, TITLE_STR_152_EGYPTIANTEMPLE) /* Egyptian Temple */,   getStringID(LTITLE, TITLE_STR_153_EGYPTIAN) /* Egyptian */, LEVELID_EGYPT,          4, MISSION_PART,            19, "UbriefcrypZ"},
-    {NULL,       0,                                                                         0,                                                          LEVELID_NONE,          -1, MISSION_PART,            -1, 0}
+  /* string_ptr  folder_text_preset                                                         icon_text_preset                                            stage_id              type             mission_num briefing_name_ptr */
+    {"1",        getStringID(LTITLE, TITLE_STR_120_ARK)            /* Arkangelsk */,        0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_121_DAM)            /* Dam */,               0,                                                          LEVELID_DAM,          MISSION_PART,             0, "UbriefdamZ"},
+    {"ii",       getStringID(LTITLE, TITLE_STR_122_FAC)            /* Facility */,          0,                                                          LEVELID_FACILITY,     MISSION_PART,             1, "UbriefarkZ"},
+    {"iii",      getStringID(LTITLE, TITLE_STR_123_RUN)            /* Runway */,            0,                                                          LEVELID_RUNWAY,       MISSION_PART,             2, "UbriefrunZ"},
+    {"2",        getStringID(LTITLE, TITLE_STR_124_SEV)            /* Severnaya */,         0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_125_SURF)           /* Surface */,           0,                                                          LEVELID_SURFACE,      MISSION_PART,             3, "UbriefsevxZ"},
+    {"ii",       getStringID(LTITLE, TITLE_STR_126_BUNK)           /* Bunker */,            0,                                                          LEVELID_BUNKER1,      MISSION_PART,             4, "UbriefsevbunkerZ"},
+    {"3",        getStringID(LTITLE, TITLE_STR_127_KIRG)           /* Kirghizstan */,       0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_128_SILO4)          /* Launch Silo #4 */,    getStringID(LTITLE, TITLE_STR_129_SILO)     /* Silo */,     LEVELID_SILO,         MISSION_PART,             5, "UbriefsiloZ"},
+    {"4",        getStringID(LTITLE, TITLE_STR_130_MONTE)          /* Monte Carlo */,       0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_131_FRIG)           /* Frigate */,           0,                                                          LEVELID_FRIGATE,      MISSION_PART,             6, "UbriefdestZ"},
+    {"5",        getStringID(LTITLE, TITLE_STR_124_SEV)            /* Severnaya */,         0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_125_SURF)           /* Surface */,           0,                                                          LEVELID_SURFACE2,     MISSION_PART,             7, "UbriefsevxbZ"},
+    {"ii",       getStringID(LTITLE, TITLE_STR_126_BUNK)           /* Bunker */,            0,                                                          LEVELID_BUNKER2,      MISSION_PART,             8, "UbriefsevbZ"},
+    {"6",        getStringID(LTITLE, TITLE_STR_132_STPETER)        /* St. Petersburg */,    0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_133_STATPARK)       /* Statue Park */,       getStringID(LTITLE, TITLE_STR_134_STAT)     /* Statue */,   LEVELID_STATUE,       MISSION_PART,             9, "UbriefstatueZ"},
+    {"ii",       getStringID(LTITLE, TITLE_STR_135_MILARCH)        /* Military Archives */, getStringID(LTITLE, TITLE_STR_136_ARCH)     /* Archives */, LEVELID_ARCHIVES,     MISSION_PART,            10, "UbriefarchZ"},
+    {"iii",      getStringID(LTITLE, TITLE_STR_137_STREETS)        /* Streets */,           0,                                                          LEVELID_STREETS,      MISSION_PART,            11, "UbriefpeteZ"},
+    {"iv",       getStringID(LTITLE, TITLE_STR_138_DEPOT)          /* Depot */,             0,                                                          LEVELID_DEPOT,        MISSION_PART,            12, "UbriefdepoZ"},
+    {"v",        getStringID(LTITLE, TITLE_STR_139_TRAIN)          /* Train */,             0,                                                          LEVELID_TRAIN,        MISSION_PART,            13, "UbrieftraZ"},
+    {"7",        getStringID(LTITLE, TITLE_STR_140_CUBA)           /* Cuba */,              0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_141_JUN)            /* Jungle */,            0,                                                          LEVELID_JUNGLE,       MISSION_PART,            14, "UbriefjunZ"},
+    {"ii",       getStringID(LTITLE, TITLE_STR_142_CONCENTER)      /* Control Center */,    getStringID(LTITLE, TITLE_STR_143_CON)      /* Control */,  LEVELID_CONTROL,      MISSION_PART,            15, "UbriefcontrolZ"},
+    {"iii",      getStringID(LTITLE, TITLE_STR_144_WATERCAV)       /* Water Caverns */,     getStringID(LTITLE, TITLE_STR_145_CAV)      /* Caverns */,  LEVELID_CAVERNS,      MISSION_PART,            16, "UbriefcaveZ"},
+    {"iv",       getStringID(LTITLE, TITLE_STR_146_ANTENNA)        /* Antenna Cradle */,    getStringID(LTITLE, TITLE_STR_147_CRADLE)   /* Cradle */,   LEVELID_CRADLE,       MISSION_PART,            17, "UbriefcradZ"},
+    {"8",        getStringID(LTITLE, TITLE_STR_148_TEOTIHUACA)     /* Teotihuaca'n */,      0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_149_AZTECCOMPLEX)   /* Aztec Complex */,     getStringID(LTITLE, TITLE_STR_150_AZTEC)    /* Aztec */,    LEVELID_AZTEC,        MISSION_PART,            18, "UbriefaztZ"},
+    {"9",        getStringID(LTITLE, TITLE_STR_151_ELSAGHIRA)      /* el-Saghira */,        0,                                                          LEVELID_NONE,         MISSION_HEADER,          -1, 0},
+    {"i",        getStringID(LTITLE, TITLE_STR_152_EGYPTIANTEMPLE) /* Egyptian Temple */,   getStringID(LTITLE, TITLE_STR_153_EGYPTIAN) /* Egyptian */, LEVELID_EGYPT,        MISSION_PART,            19, "UbriefcrypZ"},
+    {NULL,       0,                                                                         0,                                                          LEVELID_NONE,         MISSION_PART,            -1, 0}
 };
 
 struct FolderSelectColour unknown_folderselect_constructor = { 0x14, 0x14, 0x14 };

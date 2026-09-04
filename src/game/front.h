@@ -47,7 +47,6 @@ struct mission_folder_setup {
     u16 folder_text_preset;
     u16 icon_text_preset;
     s32 stage_id;
-    s32 unknown; 
     s32 type;
     s32 mission_num;
     void * briefing_name_ptr;
@@ -93,7 +92,6 @@ struct MP_handicap_menu {
 
 struct MP_controller_configuration_menu {
     u16 text_preset;
-    //char field_1;
     u8 field_2;
     u8 field_3;
 };
