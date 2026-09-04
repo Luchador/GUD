@@ -33,7 +33,7 @@ static const BulletSparkStyle g_BulletSparkStyles[8] = {
     /* SPARK_WHITE      */ { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF }, NULL },
     /* SPARK_STANDARD   */ { 26.0f, { 0xFF, 0xFF, 0xC8, 0xFF }, NULL },
     /* SPARK_LASER      */ { 30.0f, { 0x9B, 0xD0, 0xFF, 0xFF }, &flareimage2 },
-    /* SPARK_WATCHLASER */ { 24.0f, { 0xAC, 0xD8, 0xFF, 0xFF }, &flareimage1 },
+    /* SPARK_WATCHLASER */ { 28.0f, { 0xAC, 0xD8, 0xFF, 0xFF }, &flareimage1 },
     { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF }, NULL },
     { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF }, NULL },
     { 26.0f, { 0 }, NULL },
@@ -74,7 +74,7 @@ static void fxInitBulletSpark(BulletSpark *spark, coord3d *position, s32 effectT
     }
     else if (effectType == SPARK_WATCHLASER)
     {
-        spark->lifetime = 3;
+        spark->lifetime = 2;
         spark->framesPerTick = 0.5f;
         spark->imageFrames = scattered_explosions;
     }

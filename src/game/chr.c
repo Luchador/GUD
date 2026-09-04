@@ -3237,7 +3237,18 @@ void chrHandleBulletHit(struct ShotData *shot, struct BulletHit *bhit)
     // Make a fleshy impact sound.
     gunfirePlaySfxBulletImpact(shot->weapon, bhit->prop, -1);
 
-    chrCreateHitPuffs(bhit->prop, bhit->hitpart, &hitpos, &nearhitpos);
+    if (shot->weapon == ITEM_LASER)
+    {
+        fxCreateBulletSpark(&nearhitpos, SPARK_LASER, bhit->prop->stan->room);
+    }
+    else if (shot->weapon == ITEM_WATCHLASER)
+    {
+        fxCreateBulletSpark(&nearhitpos, SPARK_WATCHLASER, bhit->prop->stan->room);
+    }
+    else
+    {
+        chrCreateHitPuffs(bhit->prop, bhit->hitpart, &hitpos, &nearhitpos);
+    }
 
     // Apply damage to the character.
     if (!handles_shot_actors(chr, bhit->hitpart, &shot->dir, shot->weapon, TRUE)) {
