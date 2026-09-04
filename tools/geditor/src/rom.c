@@ -177,7 +177,6 @@ static BOOL RomParseLevelTable(const unsigned char *data, DWORD size,
     {
         const unsigned char *row = data + stgt->romstart + i * 32;
         RomLevel *lvl = &info->levels[info->levelcount];
-        DWORD p;
         DWORD strs[3];
         char *dsts[3];
         DWORD dstmax[3];
@@ -190,20 +189,33 @@ static BOOL RomParseLevelTable(const unsigned char *data, DWORD size,
 
         for (s = 0; s < 3; s++)
         {
-            /* virtual address -> ROM offset, per the CMAP contract */
-            p = strs[s] - cmap->flags + cmap->romstart;
+            LONGLONG off;
 
-            if (strs[s] < cmap->flags || p >= size)
+            if (strs[s] == 0)
+            {
+                /* NULL is a legal value here: the table's sentinel row
+                   carries no setup file. Resolve it to an empty string
+                   instead of refusing the whole ROM. */
+                dsts[s][0] = '\0';
+                continue;
+            }
+
+            /* virtual address -> ROM offset, per the CMAP contract.
+               Signed 64-bit so an out-of-segment address becomes a
+               plainly negative offset rather than an unsigned wrap. */
+            off = (LONGLONG)strs[s] - cmap->flags + cmap->romstart;
+
+            if (off < 0 || off >= (LONGLONG)size)
             {
                 *reasonout = "GUD level table points outside the ROM (corrupt build?).";
                 return FALSE;
             }
 
-            RomCopyString(dsts[s], dstmax[s], data + p, size - p);
+            RomCopyString(dsts[s], dstmax[s], data + (DWORD)off, size - (DWORD)off);
         }
 
         /* The table ends with a placeholder row; it is not a level. */
-        if (strcmp(lvl->bgname, "bg/bgx.seg") == 0)
+        if (lvl->bgname[0] == '\0' || strcmp(lvl->bgname, "bg/bgx.seg") == 0)
         {
             continue;
         }
