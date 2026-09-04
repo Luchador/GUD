@@ -102,7 +102,7 @@ void modelSetShadowAlpha(s32 alpha);
 void modelRenderShadow(ModelRenderData *renderdata, Model *model, ModelNode *node);
 void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node);
 void subdraw(ModelRenderData *arg0, struct Model *);
-u8 *loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused);
+u8 *loadAnimationFrame(ModelAnimation* anim, s32 frame);
 void modelResetAnimationsScratchBuffer(void);
 void modelPromoteNodeOffsetsToPointers(ModelNode *node, u32 vma, u32 fileramaddr);
 void sub_GAME_7F075A90(ModelFileHeader *header, s32 vma, u32 addr);

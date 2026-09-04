@@ -4,8 +4,10 @@
 #include <bondtypes.h>
 #include <image.h>
 
+
+#define MODEL_HIT_ENTRY_POOL_SIZE 600
+
 struct ModelAnimationScratch {
-    char *reserved;
     char *bufferStart;
     char *nextFree;
 };
@@ -59,9 +61,6 @@ struct AnimModelSlot {
     s32 unkb0;
     s32 unkb4;
     s32 unkb8;
-
-    // is this struct size 0xbc or 0xc0 ?
-    //s32 unkbc;
 };
 
 struct ModelSlot {
@@ -78,9 +77,6 @@ struct ModelSlot {
 
 extern struct AnimModelSlot *g_AnimModelSlots;
 extern struct ModelSlot *g_ModelSlots;
-
-#define MODEL_HIT_ENTRY_POOL_SIZE 600
-
 extern struct ModelHitEntry g_ModelHitEntries[MODEL_HIT_ENTRY_POOL_SIZE];
 extern struct ModelHitEntry *g_ModelHitFreeList;
 extern s32 g_ModelDistanceDisabled;
@@ -97,10 +93,7 @@ extern Vertex g_GunfireVertexTemplate;
 extern Vtx g_ShadowVertexTemplate;
 
 void fileLoad(ModelFileHeader *header,char *name);
-void load_object_into_memory_unused_maybe(ModelFileHeader *header,int *recallstring,int *targetloc,int sizeleft);
 void initAnimationsBuffer(struct ModelAnimationScratch *animBuffer);
-
-// tentative signature
 PropRecord *chrGiveWeapon(ChrRecord *self, s32 PropID, ITEM_IDS ItemID, s32 flags);
 
 /* Depth-sorted model-node lists used for rendering and hit tests. */

@@ -52,7 +52,6 @@ void modelmgrAllocateModelSlots(s32 numobjs)
 
 void modelmgrAllocateAnimModelSlots(s32 numanimated)
 {
-    s32 temp_t6;
     s32 i;
 
     g_MaxAnimModelSlots = numanimated + ANIM_MODEL_SPARE_SLOTS;

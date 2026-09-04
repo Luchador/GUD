@@ -8,16 +8,10 @@
 // Where animation frames are saved. The game stores at most four uncompressed frames at once.
 static char g_ModelAnimationFrameBuffer[0x2D0];
 
-// Msg Queue stuff (unused)
-OSMesgQueue animMsgQ;
-OSMesg animMesg[8];
-
 // Animation table ptr
 struct animation_table_data * ptr_animation_table;
 
-//data
 static struct ModelAnimationScratch g_ModelAnimationScratchState = {
-    NULL,
     g_ModelAnimationFrameBuffer,
     g_ModelAnimationFrameBuffer
 };
@@ -253,7 +247,6 @@ void alloc_load_expand_ani_table(void)
 {
     s32 animsDataSegmentSize;
     
-    osCreateMesgQueue(&animMsgQ, animMesg, 8);
     initAnimationsBuffer(&g_ModelAnimationScratchState);
     
     animsDataSegmentSize = (s32)&_animation_dataSegmentEnd - (s32)&_animation_dataSegmentStart;

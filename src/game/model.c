@@ -648,7 +648,6 @@ f32 sub_GAME_7F06D0CC(f32 arg0, f32 angle, f32 mult)
 }
 
 
-// PD: model0001b07c
 void sub_GAME_7F06D160(coord3d *arg0, coord3d *arg1, f32 mult)
 {
     arg0->x = sub_GAME_7F06D0CC(arg0->x, arg1->x, mult);
@@ -657,9 +656,6 @@ void sub_GAME_7F06D160(coord3d *arg0, coord3d *arg1, f32 mult)
 }
 
 
-/**
- * Address: 7F06D1CC
- */
 u16 modelAnimReadRootMotionValue(ModelAnimation *anim, s32 fieldIndex, s32 extraBitOffset)
 {
     u32 result;
@@ -1836,7 +1832,6 @@ void modelUpdateReorderRelations(Model *model, ModelNode *node)
 void modelUpdateRelationsQuick(Model *model, ModelNode *parent)
 {
     ModelNode *node = parent->Child;
-    ModelNode **unused_parent;
 
     while (node)
     {
@@ -1879,7 +1874,6 @@ void modelUpdateRelationsQuick(Model *model, ModelNode *parent)
         }
         else
         {
-            unused_parent = &parent;
             while (node)
             {
                 if (node == parent->Parent)
@@ -1901,9 +1895,6 @@ void modelUpdateRelationsQuick(Model *model, ModelNode *parent)
 }
 
 
-/*
- * Address: 0x7F06EFC4
-*/
 void modelUpdateNodeRelations(Model *model)
 {
     ModelNode *node = model->obj->RootNode;
@@ -2046,20 +2037,20 @@ void subcalcmatrices(ModelRenderData *arg0, struct Model *arg1)
 {
     if (arg1->anim != NULL)
     {
-        arg1->animFrameDataA = loadAnimationFrame(arg1->anim, arg1->framea, arg1->obj->Skeleton);
+        arg1->animFrameDataA = loadAnimationFrame(arg1->anim, arg1->framea);
 
         if (arg1->animFrameFrac != 0.0f)
         {
-            arg1->animFrameDataB = loadAnimationFrame(arg1->anim, arg1->frameb, arg1->obj->Skeleton);
+            arg1->animFrameDataB = loadAnimationFrame(arg1->anim, arg1->frameb);
         }
 
         if (arg1->anim2 != NULL)
         {
-            arg1->animFrame2DataA = loadAnimationFrame(arg1->anim2, arg1->frame2a, arg1->obj->Skeleton);
+            arg1->animFrame2DataA = loadAnimationFrame(arg1->anim2, arg1->frame2a);
 
             if (arg1->animFrame2Frac != 0.0f)
             {
-                arg1->animFrame2DataB = loadAnimationFrame(arg1->anim2, arg1->frame2b, arg1->obj->Skeleton);
+                arg1->animFrame2DataB = loadAnimationFrame(arg1->anim2, arg1->frame2b);
             }
         }
 
@@ -4125,10 +4116,8 @@ void sub_GAME_7F073038(ModelRenderData *renderdata, struct sImageTableEntry *tco
 }
 
 
-// PD: modelRenderNodeChrGunfire
 void modelRenderGunfire(ModelRenderData *renderdata, Model *model, ModelNode *node)
 {
-    u32 unused[3];
     f32 negspc0;
     ModelRoData_GunfireRecord *rodata;
     union ModelRwData *rwdata;
@@ -4290,7 +4279,6 @@ void modelSetShadowAlpha(s32 alpha)
 {
     g_ModelShadowAlpha = alpha;
 }
-
 
 
 void modelRenderShadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
@@ -4808,7 +4796,7 @@ u32 modelFindNextProjectileHitCandidate(Model *model, coord3d *arg1, coord3d *ar
 /**
  * Copy animation from ROM to RAM
 */
-u8 *loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
+u8 *loadAnimationFrame(ModelAnimation* anim, s32 frame)
 {
     u8 *ret;
     s32 source;
@@ -4909,6 +4897,7 @@ u8 *loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
         // This allows to copy another frame after this one
         g_ModelAnimationScratch->nextFree = (char *)(dest + size);
     }
+
     return ret;
 }
 

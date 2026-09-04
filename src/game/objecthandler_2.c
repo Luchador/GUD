@@ -102,22 +102,8 @@ void load_object_fill_header(struct ModelFileHeader *objheader, u8 *name, u8* ds
 }
 
 
-
-
 void fileLoad(struct ModelFileHeader *header,char *name)
 {
    load_object_fill_header(header,name,0,0,0);
    return;
 }
-
-
-void load_object_into_memory_unused_maybe(struct ModelFileHeader *header,int *recallstring,int *targetloc,int sizeleft)
-{
-   load_object_fill_header(header,recallstring,targetloc,sizeleft,0);
-   return;
-}
-
-
-
-
-

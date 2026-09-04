@@ -1730,28 +1730,22 @@ void explosionScorchTick(struct coord3d *pos, f32 explosion_size, s16 room)
 }
 
 
-
-
-/**
- * Address 0x7F0A0AB4.
-*/
-Gfx *explosionRenderScorchBuffer(Gfx *arg0)
+Gfx *explosionRenderScorchBuffer(Gfx *gdl)
 {
-    //temp_t6 = arg0;
     s32 i;
     s32 phi_s3 = -1;
 
     if (getPlayerCount() >= 2)
     {
-        return arg0;
+        return gdl;
     }
     else
     {
-        gSPSetGeometryMode(arg0++, G_CULL_BACK);
-        gSPClearGeometryMode(arg0++, G_CULL_FRONT | G_FOG);
-        gDPSetColorDither(arg0++, G_CD_NOISE);
+        gSPSetGeometryMode(gdl++, G_CULL_BACK);
+        gSPClearGeometryMode(gdl++, G_CULL_FRONT | G_FOG);
+        gDPSetColorDither(gdl++, G_CD_NOISE);
 
-        texSelect(&arg0, genericimage, 4, 1, 2);
+        texSelect(&gdl, genericimage, 4, 1, 2);
 
         for (i=0; i<20; i++)
         {
@@ -1760,7 +1754,7 @@ Gfx *explosionRenderScorchBuffer(Gfx *arg0)
                 if (phi_s3 != g_ScorchBuffer[i].roomid)
                 {
                     phi_s3 = g_ScorchBuffer[i].roomid;
-                    arg0 = applyRoomMatrixToDisplayList(arg0, g_ScorchBuffer[i].roomid);
+                    gdl = applyRoomMatrixToDisplayList(gdl, g_ScorchBuffer[i].roomid);
                 }
 
                 /**
@@ -1771,21 +1765,16 @@ Gfx *explosionRenderScorchBuffer(Gfx *arg0)
                  * param v0: Starting index in vertex buffer where vertices are to be loaded
                  * gSPVertex(Gfx *gdl, Vtx *v, u32 n, u32 v0)
                 */
-                gSPVertex(arg0++, osVirtualToPhysical((void*)g_ScorchBuffer[i].vertex_list), 4, 0);
-                gSP2Triangles(arg0++,
-                                0, 1, 2, 0,
-                                0, 2, 3, 0);
+                gSPVertex(gdl++, osVirtualToPhysical((void*)g_ScorchBuffer[i].vertex_list), 4, 0);
+                gSP2Triangles(gdl++, 0, 1, 2, 0, 0, 2, 3, 0);
             }
         }
 
-        gDPSetColorDither(arg0++, G_CD_BAYER);
+        gDPSetColorDither(gdl++, G_CD_BAYER);
     }
 
-    return arg0;
+    return gdl;
 }
-
-
-
 
 
 s32 explosionRoundFloat(f32 arg0)
@@ -1799,7 +1788,6 @@ s32 explosionRoundFloat(f32 arg0)
 }
 
 
-
 void explosionClearBulletImpactRoomByFlag(PropRecord* arg0, s8 arg1)
 {
     s32 i;
@@ -1811,7 +1799,6 @@ void explosionClearBulletImpactRoomByFlag(PropRecord* arg0, s8 arg1)
         }
     }
 }
-
 
 
 void explosionClearBulletImpactRoom(PropRecord* arg0)
@@ -1831,6 +1818,7 @@ void explosionSetBulletImpactAlpha(s32 arg0)
 {
     u32 val;
     s32 i;
+
     for (i = 0; i < SMOKE_PARTS_LEN; i++)
     {
         val = (u32) (((f32) i / 10.0f) * 255.0f);
@@ -1848,9 +1836,6 @@ void explosionSetBulletImpactAlpha(s32 arg0)
 }
 
 
-/***
- * NTSC address 0x7F0A108C.
-*/
 void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16 impact_type, s16 room, PropRecord *prop, s8 model_render_pos_index, s8 room_clear_flag)
 {
     Vtx spE0;
@@ -2148,12 +2133,7 @@ Gfx *explosionRenderBulletImpactOnProp(Gfx *gdl, PropRecord *arg1, s32 arg2)
 }
 
 
-
-
-
 Gfx * explosionCallRenderBulletImpactOnProp(Gfx *arg0)
 {
     return explosionRenderBulletImpactOnProp(arg0, NULL, 0);
 }
-
-
