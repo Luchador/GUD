@@ -1118,7 +1118,11 @@ static s32 texLoadRaw(u8 *header, u32 romAddress, struct texpool *pool)
             g_TexCacheItems[g_TexCacheCount].heights[i - 1] = height;
         }
 
-        if (hasExplicitLods)
+        /* Match the original decoder: bit 7 only requests a row swap when
+         * the texture also contains an explicit LOD count. Textures such as
+         * the Laser's four preswapped muzzle-flash tiles use 0x80 with a zero
+         * LOD count and must remain untouched. */
+        if (hasExplicitLods && lodCount > 0)
         {
             texSwapAltRowBytes(&dst[payloadPosition], width, height, format);
         }
