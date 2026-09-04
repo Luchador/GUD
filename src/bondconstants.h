@@ -141,6 +141,14 @@ typedef enum BGLOADTYPE
     BGLOADTYPE_ROOMS     = 2
 } BGLOADTYPE;
 
+typedef enum BULLET_SPARK
+{
+    SPARK_WHITE,
+    SPARK_STANDARD,
+    SPARK_LASER,
+    SPARK_WATCHLASER
+} BULLET_SPARK;
+
 // character flags
 typedef enum CHRHIDDEN
 {

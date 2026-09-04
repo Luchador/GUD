@@ -6135,7 +6135,7 @@ void objTickAutogunFire(PropRecord *prop)
             {
                 if (sp10C != NULL)
                 {
-                    fxCreateBulletSpark(&sp110, 1, 26.0f, (s16) sp10C->room);
+                    fxCreateBulletSpark(&sp110, SPARK_STANDARD, 26.0f, (s16) sp10C->room);
                 }
 
                 gunfirePlaySfxRicochetSounds(14, &sp110, -1);
@@ -9306,7 +9306,6 @@ void objHit(ShotData *shotdata, BulletHit *hit)
         gunSetBeamTarget(&pos);
     }
 
-    fxCreateBulletSpark(&pos, 1, 26.0f, rootprop->stan->room);
 
     if ((objIsHealthy(obj) && objIsMortal(obj)) && (hit->countsAsPenetration != 0))
     {
@@ -9324,6 +9323,15 @@ void objHit(ShotData *shotdata, BulletHit *hit)
 
     if (shotdata->weapon != ITEM_WATCHLASER)
     {
+        if(shotdata->weapon != ITEM_LASER)
+        {
+            fxCreateBulletSpark(&pos, SPARK_STANDARD, 26.0f, rootprop->stan->room);
+        }
+        else if(shotdata->weapon == ITEM_LASER)
+        {
+            fxCreateBulletSpark(&pos, SPARK_LASER, 26.0f, rootprop->stan->room);
+        }
+
         if (hit->countsAsPenetration == 0)
         {
             PropRecord *hitprop;
@@ -9370,6 +9378,10 @@ void objHit(ShotData *shotdata, BulletHit *hit)
 
             explosionCreateBulletImpact(&hit->hit.hitpos, &hit->hit.normal, impact_sounds->thing2[thing2_index], 1, hit->prop, hit->room, room_clear_flag);
         }
+    }
+    else
+    {
+        fxCreateBulletSpark(&pos, SPARK_WATCHLASER, 20.0f, rootprop->stan->room);
     }
 
     {

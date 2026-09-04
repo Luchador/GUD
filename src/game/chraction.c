@@ -6398,7 +6398,8 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                         {
                             if (sp254 != 0)
                             {
-                                fxCreateBulletSpark(&sp258, 1, 26.0f, (s16) sp254->room);
+                                // NPC-created bullet spark.
+                                fxCreateBulletSpark(&sp258, SPARK_STANDARD, 26.0f, (s16) sp254->room);
                             }
 
                             if (g_StanLastCollisionProp != NULL)
