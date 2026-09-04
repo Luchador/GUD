@@ -29,7 +29,7 @@ typedef struct BrowserSection {
     RECT bodyrc;     /* valid only when expanded        */
 } BrowserSection;
 
-#define BROWSER_SECTION_COUNT 2
+#define BROWSER_SECTION_COUNT 3
 
 typedef struct BrowserState {
     BrowserSection sections[BROWSER_SECTION_COUNT];
@@ -231,15 +231,18 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     {
     case WM_CREATE:
         state = (BrowserState *)calloc(1, sizeof(*state));
+
         if (state == NULL)
         {
             return -1;
         }
 
-        state->sections[0].name = "Images";
+        state->sections[0].name = "Levels";
         state->sections[0].expanded = TRUE;
-        state->sections[1].name = "Models";
+        state->sections[1].name = "Images";
         state->sections[1].expanded = TRUE;
+        state->sections[2].name = "Models";
+        state->sections[2].expanded = TRUE;
 
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         return 0;

@@ -20,6 +20,7 @@
 typedef struct BulletSparkStyle
 {
     f32 size;
+    s32 lifetime;
     rgba_u8 color;
     struct sImageTableEntry **imageFrames;
 } BulletSparkStyle;
@@ -30,14 +31,27 @@ static MovingBulletSpark g_MovingBulletSparks[BULLET_MOVING_SPARKS_MAX];
 static Vtx g_BulletSparkVertexTemplate;
 
 static const BulletSparkStyle g_BulletSparkStyles[8] = {
-    /* SPARK_WHITE      */ { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF }, NULL },
-    /* SPARK_STANDARD   */ { 26.0f, { 0xFF, 0xFF, 0xC8, 0xFF }, NULL },
-    /* SPARK_LASER      */ { 30.0f, { 0x9B, 0xD0, 0xFF, 0xFF }, &flareimage2 },
-    /* SPARK_WATCHLASER */ { 28.0f, { 0xAC, 0xD8, 0xFF, 0xFF }, &flareimage1 },
-    { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF }, NULL },
-    { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF }, NULL },
-    { 26.0f, { 0 }, NULL },
-    { 26.0f, { 0 }, NULL }
+    /* SPARK_WHITE      */ { 26.0f,  11, { 0xFF, 0xFF, 0xFF, 0xFF }, NULL },
+    /* SPARK_STANDARD   */ { 26.0f,  11, { 0xFF, 0xFF, 0xC8, 0xFF }, NULL },
+    /* SPARK_LASER      */ { 25.0f,   2, { 0x9B, 0xD0, 0xFF, 0xFF }, &flareimage2 },
+    /* SPARK_WATCHLASER */ { 28.0f,   2, { 0xAC, 0xD8, 0xFF, 0xFF }, &flareimage1 },
+    { 26.0f,   1, { 0xFF, 0xFF, 0xFF, 0xFF }, NULL },
+    { 26.0f,  11, { 0xFF, 0xFF, 0xFF, 0xFF }, NULL },
+    { 26.0f, 100, { 0 }, NULL },
+    { 26.0f,  11, { 0 }, NULL }
+};
+
+/* Hit puff effect IDs overlap the BULLET_SPARK values, but their colors are
+ * independent. Keep the legacy hit puff colors separate from impact styles. */
+static const rgba_u8 g_HitPuffColors[8] = {
+    { 0xFF, 0xFF, 0xFF, 0xFF },
+    { 0xFF, 0xFF, 0xC8, 0xFF },
+    { 0xFF, 0x00, 0x00, 0xFF },
+    { 0xFF, 0xFF, 0xFF, 0xFF },
+    { 0xFF, 0xFF, 0xFF, 0xFF },
+    { 0xFF, 0xFF, 0xFF, 0xFF },
+    { 0 },
+    { 0 }
 };
 
 
@@ -54,8 +68,8 @@ static void fxResetBulletSparks(void)
 }
 
 
-static void fxInitBulletSpark(BulletSpark *spark, coord3d *position, s32 effectType, f32 size,
-    const rgba_u8 *color, struct sImageTableEntry *imageFrames, s16 room)
+static void fxInitBulletSpark(BulletSpark *spark, coord3d *position, s32 effectType, s32 lifetimeOverride,
+    f32 size, const rgba_u8 *color, struct sImageTableEntry *imageFrames, s16 room)
 {
     f32 rotationAngle;
 
@@ -66,22 +80,28 @@ static void fxInitBulletSpark(BulletSpark *spark, coord3d *position, s32 effectT
     spark->age = 0;
     spark->room = room;
 
-    if (effectType == SPARK_STANDARD)
+    if (effectType == 4)
+    {
+        spark->lifetime = 1;
+        spark->framesPerTick = 1.0f;
+        spark->imageFrames = flareimage2;
+    }
+    else if (effectType == 1)
     {
         spark->lifetime = 11;
         spark->framesPerTick = 0.5f;
         spark->imageFrames = explosion_smokeimages;
     }
-    else if (effectType == SPARK_WATCHLASER)
+    else if (effectType == 3)
     {
-        spark->lifetime = 2;
+        spark->lifetime = 9;
         spark->framesPerTick = 0.5f;
         spark->imageFrames = scattered_explosions;
     }
-    else if (effectType == SPARK_LASER)
+    else if (effectType == 6)
     {
-        spark->lifetime = 2;
-        spark->framesPerTick = 0.5f;
+        spark->lifetime = 100;
+        spark->framesPerTick = 0.0f;
         spark->imageFrames = flareimage2;
     }
     else
@@ -89,6 +109,11 @@ static void fxInitBulletSpark(BulletSpark *spark, coord3d *position, s32 effectT
         spark->lifetime = 11;
         spark->framesPerTick = 0.5f;
         spark->imageFrames = explosion_smokeimages;
+    }
+
+    if (lifetimeOverride > 0)
+    {
+        spark->lifetime = lifetimeOverride;
     }
 
     if (imageFrames != NULL)
@@ -110,7 +135,8 @@ static void fxInitBulletSpark(BulletSpark *spark, coord3d *position, s32 effectT
 }
 
 
-static BulletSpark *fxCreateSpark(coord3d *position, s32 effectType, f32 size, const rgba_u8 *color, struct sImageTableEntry *imageFrames, s16 room)
+static BulletSpark *fxCreateSpark(coord3d *position, s32 effectType, s32 lifetimeOverride,
+    f32 size, const rgba_u8 *color, struct sImageTableEntry *imageFrames, s16 room)
 {
     BulletSpark *spark;
 
@@ -118,7 +144,7 @@ static BulletSpark *fxCreateSpark(coord3d *position, s32 effectType, f32 size, c
     {
         if (spark->lifetime == 0)
         {
-            fxInitBulletSpark(spark, position, effectType, size, color, imageFrames, room);
+            fxInitBulletSpark(spark, position, effectType, lifetimeOverride, size, color, imageFrames, room);
             return spark;
         }
     }
@@ -138,11 +164,11 @@ BulletSpark *fxCreateBulletSpark(coord3d *position, s32 sparkType, s16 room)
         imageFrames = *style->imageFrames;
     }
 
-    spark = fxCreateSpark(position, sparkType, style->size, &style->color, imageFrames, room);
+    spark = fxCreateSpark(position, sparkType, style->lifetime, style->size, &style->color, imageFrames, room);
 
     if (sparkType == SPARK_WATCHLASER)
     {
-        fxCreateSpark(position, sparkType, style->size, &style->color, imageFrames, room);
+        fxCreateSpark(position, sparkType, style->lifetime, style->size, &style->color, imageFrames, room);
     }
 
     return spark;
@@ -151,7 +177,7 @@ BulletSpark *fxCreateBulletSpark(coord3d *position, s32 sparkType, s16 room)
 
 BulletSpark *fxCreateHitPuff(coord3d *position, s32 effectType, f32 size, s16 room)
 {
-    return fxCreateSpark(position, effectType, size, &g_BulletSparkStyles[effectType].color, NULL, room);
+    return fxCreateSpark(position, effectType, 0, size, &g_HitPuffColors[effectType], NULL, room);
 }
 
 
