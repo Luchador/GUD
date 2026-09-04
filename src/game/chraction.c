@@ -17,7 +17,7 @@
 #include "chrai.h"
 #include "file.h"
 #include "front.h"
-#include "glass.h"
+#include "fx.h"
 #include "gmath.h"
 #include "gun.h"
 #include "initanitable.h"

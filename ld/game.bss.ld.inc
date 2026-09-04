@@ -74,7 +74,8 @@
       build/OUTCODE/src/game/vtxstore.o (.bss);
       build/OUTCODE/src/game/explosion.o (.bss);
       build/OUTCODE/src/game/glass.o (.bss);
-      build/OUTCODE/src/game/glass2.o (.bss);
+      build/OUTCODE/src/game/hud.o (.bss);
+      build/OUTCODE/src/game/fx.o
       build/OUTCODE/src/game/options.o (.bss);
       build/OUTCODE/src/game/textrelated.o (.bss);
       build/OUTCODE/src/game/stan.o (.bss);

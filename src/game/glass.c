@@ -15,8 +15,6 @@
 #define SHARD_VERT_VEL_SCALE 3.0f
 #define SHARD_ANGVEL_SCALE 0.1f
 
-#define BULLET_SPARKS_MAX 20
-
 s32 SHATTERED_WINDOW_PIECES_BUFFER_LEN;
 s_shattered_window_piece* ptr_shattered_window_pieces;
 s32 g_NextShardNum = 0;

@@ -12,10 +12,10 @@
 #include "file.h"
 #include "front.h"
 #include "gbi_extension.h"
+#include "hud.h"
 #include "language.h"
 #include "player.h"
 #include "textrelated.h"
-#include "glass.h"
 #include "frametiming.h"
 #include "assets/obseg/text/LoptionE.h"
 
