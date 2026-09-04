@@ -6135,7 +6135,7 @@ void objTickAutogunFire(PropRecord *prop)
             {
                 if (sp10C != NULL)
                 {
-                    fxCreateBulletspark(&sp110, 1, 26.0f, (s16) sp10C->room);
+                    fxCreateBulletSpark(&sp110, 1, 26.0f, (s16) sp10C->room);
                 }
 
                 gunfirePlaySfxRicochetSounds(14, &sp110, -1);
@@ -9306,7 +9306,7 @@ void objHit(ShotData *shotdata, BulletHit *hit)
         gunSetBeamTarget(&pos);
     }
 
-    fxCreateBulletspark(&pos, 1, 26.0f, rootprop->stan->room);
+    fxCreateBulletSpark(&pos, 1, 26.0f, rootprop->stan->room);
 
     if ((objIsHealthy(obj) && objIsMortal(obj)) && (hit->countsAsPenetration != 0))
     {

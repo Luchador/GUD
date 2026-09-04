@@ -1082,7 +1082,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
 
             if (createSpark)
             {
-                fxCreateBulletspark(finalpos, 1, 26.0f, bestroom);
+                fxCreateBulletSpark(finalpos, 1, 26.0f, bestroom);
             }
         }
     }

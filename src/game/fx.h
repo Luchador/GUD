@@ -2,35 +2,31 @@
 #define GAME_FX_H
 
 #include <ultra64.h>
+#include <bondtypes.h>
 
-typedef struct s_bullet_spark {
+typedef struct BulletSpark {
     s32 age;
     s16 lifetime;
-    s16 unk06;
-    f32 unk08;
-    void* unk0C;
-    f32 unk10;
-    f32 unk14;
-    f32 unk18;
-    f32 unk1c;
-    f32 unk20;
-    f32 unk24;
-    u8 unk28;
-    u8 unk29;
-    u8 unk2A;
-    u8 unk2B;
-} s_bullet_spark;
+    s16 room;
+    f32 framesPerTick;
+    struct sImageTableEntry *imageFrames;
+    coord3d position;
+    f32 rotationCosRadius;
+    f32 rotationSinRadius;
+    f32 radius;
+    rgba_u8 color;
+} BulletSpark;
 
-typedef struct s_moving_bullet_spark
+typedef struct MovingBulletSpark
 {
-    s_bullet_spark unk00;
+    BulletSpark spark;
     coord3d velocity;
-    f32 unk38;
-} s_moving_bullet_spark;
+    f32 minimumY;
+} MovingBulletSpark;
 
 void fxResetAllSparks(void);
 void fxUpdateAllSparks(void);
 void fxRenderAllSparks(Gfx **gdl, s32 zbufferMode);
-s_bullet_spark *fxCreateBulletspark(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3);
+BulletSpark *fxCreateBulletSpark(coord3d *position, s32 effectType, f32 size, s16 room);
 
 #endif
