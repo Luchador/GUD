@@ -32,8 +32,8 @@ static Vtx g_BulletSparkVertexTemplate;
 static const BulletSparkStyle g_BulletSparkStyles[8] = {
     /* SPARK_WHITE      */ { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF }, NULL },
     /* SPARK_STANDARD   */ { 26.0f, { 0xFF, 0xFF, 0xC8, 0xFF }, NULL },
-    /* SPARK_LASER      */ { 35.0f, { 0x9B, 0xD0, 0xFF, 0xFF }, &flareimage2 },
-    /* SPARK_WATCHLASER */ { 24.0f, { 0x9B, 0xD0, 0xFF, 0xFF }, &flareimage1 },
+    /* SPARK_LASER      */ { 30.0f, { 0x9B, 0xD0, 0xFF, 0xFF }, &flareimage2 },
+    /* SPARK_WATCHLASER */ { 24.0f, { 0xAC, 0xD8, 0xFF, 0xFF }, &flareimage1 },
     { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF }, NULL },
     { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF }, NULL },
     { 26.0f, { 0 }, NULL },
@@ -66,28 +66,22 @@ static void fxInitBulletSpark(BulletSpark *spark, coord3d *position, s32 effectT
     spark->age = 0;
     spark->room = room;
 
-    if (effectType == 4)
-    {
-        spark->lifetime = 1;
-        spark->framesPerTick = 1.0f;
-        spark->imageFrames = flareimage2;
-    }
-    else if (effectType == 1)
+    if (effectType == SPARK_STANDARD)
     {
         spark->lifetime = 11;
         spark->framesPerTick = 0.5f;
         spark->imageFrames = explosion_smokeimages;
     }
-    else if (effectType == 3)
+    else if (effectType == SPARK_WATCHLASER)
     {
-        spark->lifetime = 9;
+        spark->lifetime = 3;
         spark->framesPerTick = 0.5f;
         spark->imageFrames = scattered_explosions;
     }
-    else if (effectType == 6)
+    else if (effectType == SPARK_LASER)
     {
-        spark->lifetime = 100;
-        spark->framesPerTick = 0.0f;
+        spark->lifetime = 2;
+        spark->framesPerTick = 0.5f;
         spark->imageFrames = flareimage2;
     }
     else
@@ -116,8 +110,7 @@ static void fxInitBulletSpark(BulletSpark *spark, coord3d *position, s32 effectT
 }
 
 
-static BulletSpark *fxCreateSpark(coord3d *position, s32 effectType, f32 size,
-    const rgba_u8 *color, struct sImageTableEntry *imageFrames, s16 room)
+static BulletSpark *fxCreateSpark(coord3d *position, s32 effectType, f32 size, const rgba_u8 *color, struct sImageTableEntry *imageFrames, s16 room)
 {
     BulletSpark *spark;
 
@@ -138,13 +131,21 @@ BulletSpark *fxCreateBulletSpark(coord3d *position, s32 sparkType, s16 room)
 {
     const BulletSparkStyle *style = &g_BulletSparkStyles[sparkType];
     struct sImageTableEntry *imageFrames = NULL;
+    BulletSpark *spark;
 
     if (style->imageFrames != NULL)
     {
         imageFrames = *style->imageFrames;
     }
 
-    return fxCreateSpark(position, sparkType, style->size, &style->color, imageFrames, room);
+    spark = fxCreateSpark(position, sparkType, style->size, &style->color, imageFrames, room);
+
+    if (sparkType == SPARK_WATCHLASER)
+    {
+        fxCreateSpark(position, sparkType, style->size, &style->color, imageFrames, room);
+    }
+
+    return spark;
 }
 
 
