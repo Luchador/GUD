@@ -27,6 +27,7 @@ typedef struct MovingBulletSpark
 void fxResetAllSparks(void);
 void fxUpdateAllSparks(void);
 void fxRenderAllSparks(Gfx **gdl, s32 zbufferMode);
-BulletSpark *fxCreateBulletSpark(coord3d *position, s32 effectType, f32 size, s16 room);
+BulletSpark *fxCreateBulletSpark(coord3d *position, s32 sparkType, s16 room);
+BulletSpark *fxCreateHitPuff(coord3d *position, s32 effectType, f32 size, s16 room);
 
 #endif

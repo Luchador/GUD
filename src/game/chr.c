@@ -2832,12 +2832,12 @@ void chrCreateHitPuffs(PropRecord *hitProp, s32 hitPart, coord3d *viewSpaceHitPo
 
         mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), &backPuffWorldPosition);
 
-        fxCreateBulletSpark(&backPuffWorldPosition, hitReaction->backPuffType, hitReaction->backPuffSize, hitProp->stan->room);
+        fxCreateHitPuff(&backPuffWorldPosition, hitReaction->backPuffType, hitReaction->backPuffSize, hitProp->stan->room);
     }
 
     if (hitReaction->frontPuffType != 0)
     {
-        fxCreateBulletSpark(frontPuffWorldPosition, hitReaction->frontPuffType, hitReaction->frontPuffSize, hitProp->stan->room);
+        fxCreateHitPuff(frontPuffWorldPosition, hitReaction->frontPuffType, hitReaction->frontPuffSize, hitProp->stan->room);
     }
 }
 

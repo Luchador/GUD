@@ -1082,17 +1082,17 @@ void chraiDefaultWeaponFireHandler(s32 hand)
 
             if (createSpark)
             {
-                if(shotdata.weapon != ITEM_WATCHLASER && shotdata.weapon != ITEM_LASER)
+                if (shotdata.weapon == ITEM_LASER)
                 {
-                    fxCreateBulletSpark(finalpos, SPARK_STANDARD, 26.0f, bestroom);
+                    fxCreateBulletSpark(finalpos, SPARK_LASER, bestroom);
                 }
-                else if(shotdata.weapon == ITEM_LASER)
+                else if (shotdata.weapon == ITEM_WATCHLASER)
                 {
-                    fxCreateBulletSpark(finalpos, SPARK_LASER, 26.0f, bestroom);
+                    fxCreateBulletSpark(finalpos, SPARK_WATCHLASER, bestroom);
                 }
-                else // Watch Laser
+                else
                 {
-                    fxCreateBulletSpark(finalpos, SPARK_WATCHLASER, 26.0f, bestroom);
+                    fxCreateBulletSpark(finalpos, SPARK_STANDARD, bestroom);
                 }
             }
         }

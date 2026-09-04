@@ -17,20 +17,26 @@
 #define BULLET_SPARKS_MAX 20
 #define BULLET_MOVING_SPARKS_MAX 50
 
+typedef struct BulletSparkStyle
+{
+    f32 size;
+    rgba_u8 color;
+} BulletSparkStyle;
+
 static BulletSpark g_BulletSparks[BULLET_SPARKS_MAX];
 static MovingBulletSpark g_MovingBulletSparks[BULLET_MOVING_SPARKS_MAX];
 
 static Vtx g_BulletSparkVertexTemplate;
 
-static rgba_u8 g_BulletSparkColors[8] = {
-    { 0xFF, 0xFF, 0xFF, 0xFF },
-    { 0xFF, 0xFF, 0xC8, 0xFF },
-    { 0xFF, 0x00, 0x00, 0xFF },
-    { 0xFF, 0xFF, 0xFF, 0xFF },
-    { 0xFF, 0xFF, 0xFF, 0xFF },
-    { 0xFF, 0xFF, 0xFF, 0xFF },
-    { 0 },
-    { 0 }
+static const BulletSparkStyle g_BulletSparkStyles[8] = {
+    /* SPARK_WHITE      */ { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF } },
+    /* SPARK_STANDARD   */ { 26.0f, { 0xFF, 0xFF, 0xC8, 0xFF } },
+    /* SPARK_LASER      */ { 26.0f, { 0xFF, 0x00, 0x00, 0xFF } },
+    /* SPARK_WATCHLASER */ { 20.0f, { 0xFF, 0xFF, 0xFF, 0xFF } },
+    { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF } },
+    { 26.0f, { 0xFF, 0xFF, 0xFF, 0xFF } },
+    { 26.0f, { 0 } },
+    { 26.0f, { 0 } }
 };
 
 
@@ -47,7 +53,7 @@ static void fxResetBulletSparks(void)
 }
 
 
-static void fxInitBulletSpark(BulletSpark *spark, coord3d *position, s32 effectType, f32 size, s16 room)
+static void fxInitBulletSpark(BulletSpark *spark, coord3d *position, s32 effectType, f32 size, const rgba_u8 *color, s16 room)
 {
     f32 rotationAngle;
 
@@ -89,7 +95,7 @@ static void fxInitBulletSpark(BulletSpark *spark, coord3d *position, s32 effectT
         spark->imageFrames = explosion_smokeimages;
     }
 
-    spark->color = g_BulletSparkColors[effectType];
+    spark->color = *color;
 
     spark->position = *position;
 
@@ -102,7 +108,7 @@ static void fxInitBulletSpark(BulletSpark *spark, coord3d *position, s32 effectT
 }
 
 
-BulletSpark *fxCreateBulletSpark(coord3d *position, s32 effectType, f32 size, s16 room)
+static BulletSpark *fxCreateSpark(coord3d *position, s32 effectType, f32 size, const rgba_u8 *color, s16 room)
 {
     BulletSpark *spark;
 
@@ -110,12 +116,26 @@ BulletSpark *fxCreateBulletSpark(coord3d *position, s32 effectType, f32 size, s1
     {
         if (spark->lifetime == 0)
         {
-            fxInitBulletSpark(spark, position, effectType, size, room);
+            fxInitBulletSpark(spark, position, effectType, size, color, room);
             return spark;
         }
     }
 
     return NULL;
+}
+
+
+BulletSpark *fxCreateBulletSpark(coord3d *position, s32 sparkType, s16 room)
+{
+    const BulletSparkStyle *style = &g_BulletSparkStyles[sparkType];
+
+    return fxCreateSpark(position, sparkType, style->size, &style->color, room);
+}
+
+
+BulletSpark *fxCreateHitPuff(coord3d *position, s32 effectType, f32 size, s16 room)
+{
+    return fxCreateSpark(position, effectType, size, &g_BulletSparkStyles[effectType].color, room);
 }
 
 
