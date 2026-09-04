@@ -81,6 +81,7 @@ s32 texFindClosestColourIndexRGBA(u16 *palette, s32 numcolours, s32 r, s32 g, s3
 s32 texFindClosestColourIndexIA(u16 *palette, s32 numcolours, s32 intensity, s32 alpha);
 s32 texShrinkPaletted(u8 *src, u8 *dst, s32 srcwidth, s32 srcheight, s32 format, u16 *palette, s32 numcolours);
 struct tex *texFindInPool(s32 texturenum, struct texpool *arg1);
+struct tex *texFindByData(u32 physicalAddress, struct texpool *pool);
 s32 texFreeBytesInBuffer(struct texpool *arg0);
 void texLoad(s32 *updateword, struct texpool *pool);
 void texInitPool(struct texpool *arg0, u8 *arg1, s32 arg2);

@@ -9,6 +9,14 @@
 
 #define TEX_ALPHA_WEIGHT 961
 
+/** Metadata stored in the eight bytes immediately before a texture's pixel data. */
+struct texdataprefix
+{
+    s16 texturenum;
+    s16 unused;
+    struct tex *descriptor;
+};
+
 struct texpool *ptr_texture_alloc_start;
 s32 ptr_texture_alloc_end;
 s32 ptr_next_available_space;
@@ -918,6 +926,43 @@ struct tex *texFindInPool(s32 texturenum, struct texpool *arg1)
 }
 
 
+/**
+ * Return the descriptor stored immediately before a loaded texture's pixel data.
+ *
+ * The bounds checks reject failed-load pointers and addresses from another pool
+ * before the prefix is read.
+ */
+struct tex *texFindByData(u32 physicalAddress, struct texpool *pool)
+{
+    u8 *data = PHYS_TO_K0(physicalAddress);
+    struct texdataprefix *prefix;
+    struct tex *tex;
+
+    if (pool == NULL)
+    {
+        pool = (struct texpool *)&ptr_texture_alloc_start;
+    }
+
+    if ((u32)data < (u32)pool->start + sizeof(struct texdataprefix)
+            || (u32)data > (u32)pool->leftpos)
+    {
+        return NULL;
+    }
+
+    prefix = (struct texdataprefix *)(data - sizeof(struct texdataprefix));
+    tex = prefix->descriptor;
+
+    if ((u32)tex < (u32)pool->rightpos
+            || (u32)tex >= (u32)pool->end
+            || tex->data != data)
+    {
+        return NULL;
+    }
+
+    return tex;
+}
+
+
 s32 texFreeBytesInBuffer(struct texpool *arg0)
 {
 	return (u32)arg0->rightpos - (u32)arg0->leftpos;
@@ -1169,7 +1214,7 @@ void texLoad(s32 *updateword, struct texpool *pool)
     s32 textureOffset;
     s32 hasValidHeader;
     s32 headerSize;
-    s16 *texnumptr;
+    struct texdataprefix *prefix;
     s32 bytesout;
 
     if (pool == NULL)
@@ -1211,14 +1256,15 @@ void texLoad(s32 *updateword, struct texpool *pool)
             return;
         }
 
-        texnumptr = (s16 *)pool->leftpos;
-        *texnumptr = g_TexNumToLoad;
-        pool->leftpos += 8;
+        prefix = (struct texdataprefix *)pool->leftpos;
+        prefix->texturenum = g_TexNumToLoad;
+        pool->leftpos += sizeof(struct texdataprefix);
 
         pool->rightpos--;
         tex = pool->rightpos;
         tex->texturenum = g_TexNumToLoad;
         tex->data = pool->leftpos;
+        prefix->descriptor = tex;
 
         bytesout = texLoadRaw(header, romAddress, pool);
         pool->leftpos += bytesout;

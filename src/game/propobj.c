@@ -6787,8 +6787,6 @@ Gfx *monitorProcessAndRender(Model *model, ModelNode *node, MonitorRecord *scree
             }
         }
 
-        if (screen->rot == (1.0f / 1024.0f));
-
         // Increment X scale
         if (screen->xscaleinc > 0.0f) 
         {
@@ -6884,10 +6882,20 @@ Gfx *monitorProcessAndRender(Model *model, ModelNode *node, MonitorRecord *scree
         rwdata->DisplayListCollisions.gdl = gdl;
         rwdata->DisplayListCollisions.Vertices = vertices;
 
-        vertices[0] = rodata->DisplayListCollisions.Vertices[0];
-        vertices[1] = rodata->DisplayListCollisions.Vertices[1];
-        vertices[2] = rodata->DisplayListCollisions.Vertices[2];
-        vertices[3] = rodata->DisplayListCollisions.Vertices[3];
+        {
+            u32 *sourceVertexWords = (u32 *)rodata->DisplayListCollisions.Vertices;
+            u32 *vertexWords = (u32 *)vertices;
+
+            // UVs and colours are replaced below, so only copy coordinates and indexes.
+            vertexWords[0] = sourceVertexWords[0];
+            vertexWords[1] = sourceVertexWords[1];
+            vertexWords[4] = sourceVertexWords[4];
+            vertexWords[5] = sourceVertexWords[5];
+            vertexWords[8] = sourceVertexWords[8];
+            vertexWords[9] = sourceVertexWords[9];
+            vertexWords[12] = sourceVertexWords[12];
+            vertexWords[13] = sourceVertexWords[13];
+        }
 
         if ((u32)screen->tconfig < 100) 
         {
@@ -6899,70 +6907,51 @@ Gfx *monitorProcessAndRender(Model *model, ModelNode *node, MonitorRecord *scree
         }
 
         {
-            f32 tmp1;
-            f32 tmp2;
+            f32 xfrac1;
+            f32 yfrac1;
+            f32 xfrac2;
+            f32 yfrac2;
+            f32 cosrot;
+            f32 sinrot;
+            f32 rotscale;
+            f32 textureWidthScale;
+            f32 textureHeightScale;
 
-            if (tconfig != NULL) 
+            xfrac1 = screen->xscale / 2.0f;
+            yfrac1 = screen->yscale / 2.0f;
+            xfrac2 = xfrac1;
+            yfrac2 = yfrac1;
+
+            if (screen->rot != 0.0f)
             {
-                u32 stack[11];
-                f32 xfrac1;
-                f32 yfrac1;
-                f32 xfrac2;
-                f32 yfrac2;
-                f32 cosrot;
-                f32 sinrot;
-                f32 rotscale;
+                cosrot = cosf(screen->rot);
+                rotscale = 1.4141999f;
+                cosrot *= rotscale;
+                sinrot = sinf(screen->rot);
 
-                xfrac1 = screen->xscale / 2.0f;
-                yfrac1 = screen->yscale / 2.0f;
-                xfrac2 = xfrac1;
-                yfrac2 = yfrac1;
-
-                if (xfrac1 || 1);
-                if (yfrac1 || 1);
-
-                tmp1 = 1.5707964f;
-                if (tmp1 == tmp1);
-
-                if (screen->rot != 0.0f) 
-                {
-                    cosrot = cosf(screen->rot);
-                    rotscale = 1.4141999f;
-                    cosrot *= rotscale;
-                    sinrot = sinf(screen->rot);
-
-                    if (rotscale == rotscale);
-                    if (sinrot == sinrot);
-                    if (sinrot == sinrot);
-
-                    xfrac1 *= cosrot;
-                    sinrot *= rotscale;
-                    yfrac1 *= sinrot;
-                    xfrac2 *= sinrot;
-                    yfrac2 *= cosrot;
-                }
-
-                tmp1 = xfrac1 * yfrac1 * xfrac2;
-
-                if (tmp1 * yfrac2);
-
-                vertices[0].s = tconfig->width  * (screen->xmid + xfrac1) * 32.0f;
-                vertices[0].t = tconfig->height * (screen->ymid + yfrac1) * 32.0f;
-
-                vertices[1].s = tconfig->width  * (screen->xmid - xfrac2) * 32.0f;
-                vertices[1].t = tconfig->height * (screen->ymid + yfrac2) * 32.0f;
-
-                vertices[2].s = tconfig->width  * (screen->xmid - xfrac1) * 32.0f;
-                vertices[2].t = tconfig->height * (screen->ymid - yfrac1) * 32.0f;
-
-                vertices[3].s = tconfig->width  * (screen->xmid + xfrac2) * 32.0f;
-                vertices[3].t = tconfig->height * (screen->ymid - yfrac2) * 32.0f;
+                xfrac1 *= cosrot;
+                sinrot *= rotscale;
+                yfrac1 *= sinrot;
+                xfrac2 *= sinrot;
+                yfrac2 *= cosrot;
             }
 
-            tmp2 = tmp1;
+            textureWidthScale = tconfig->width * 32.0f;
+            textureHeightScale = tconfig->height * 32.0f;
+
+            vertices[0].s = (screen->xmid + xfrac1) * textureWidthScale;
+            vertices[0].t = (screen->ymid + yfrac1) * textureHeightScale;
+
+            vertices[1].s = (screen->xmid - xfrac2) * textureWidthScale;
+            vertices[1].t = (screen->ymid + yfrac2) * textureHeightScale;
+
+            vertices[2].s = (screen->xmid - xfrac1) * textureWidthScale;
+            vertices[2].t = (screen->ymid - yfrac1) * textureHeightScale;
+
+            vertices[3].s = (screen->xmid + xfrac2) * textureWidthScale;
+            vertices[3].t = (screen->ymid - yfrac2) * textureHeightScale;
         }
 
-        if (1) 
         {
             u8 tmpc;
             u8 tmpc2;
@@ -7002,7 +6991,6 @@ Gfx *monitorProcessAndRender(Model *model, ModelNode *node, MonitorRecord *scree
         texSelect(&gdl, tconfig, arg5, arg4, 2);
 
         gSPMatrix(gdl++, osVirtualToPhysical(model->render_pos), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-        gSPSegment(gdl++, SPSEGMENT_MODEL_VTX, osVirtualToPhysical(vertices));
         gSPVertex(gdl++, 0x04000000, 4, 0);
         gSP2Triangles(gdl++, 0, 1, 2, 0, 0, 2, 3, 0);
         gSPEndDisplayList(gdl++);

@@ -1233,8 +1233,6 @@ void texSelect(Gfx **gdlptr, struct sImageTableEntry *tconfig, TEXTURE_RENDER_ST
         s32 sp138;
 		s32 line;
             
-        u16* aa;
-
         tex = NULL;
         
         width = tconfig->width;
@@ -1245,8 +1243,7 @@ void texSelect(Gfx **gdlptr, struct sImageTableEntry *tconfig, TEXTURE_RENDER_ST
             texLoad((s32 *)tconfig, NULL);
         }
 
-        aa = PHYS_TO_K0(tconfig->index);
-        tex = texFindInPool((aa)[-4], NULL);
+        tex = texFindByData(tconfig->index, NULL);
 
         if (tconfig->level == 0)
         {
