@@ -147,7 +147,7 @@ void fxUpdateBulletSparks(void)
 }
 
 
-void fxRenderBulletSpark(s_bullet_spark *thing, Gfx **gdlptr, s32 zbufferMode)
+void fxRenderBulletSpark(s_bullet_spark *spark, Gfx **gdlptr, s32 zbufferMode)
 {
     Vtx vtx;
     Mtxf *mtx;
@@ -164,17 +164,17 @@ void fxRenderBulletSpark(s_bullet_spark *thing, Gfx **gdlptr, s32 zbufferMode)
     s32 room;
     struct coord3d *roompos;
     
-    if (thing->lifetime <= 0)
+    if (spark->lifetime <= 0)
     {
         return;
     }
     
-    if (thing->age < 0)
+    if (spark->age < 0)
     {
         return;
     }
     
-    if (!camIsPosInScreen((coord3d *) (&thing->unk10), *((f32 *) (&thing->unk24))))
+    if (!camIsPosInScreen((coord3d *) (&spark->unk10), *((f32 *) (&spark->unk24))))
     {
         return;
     }
@@ -183,30 +183,30 @@ void fxRenderBulletSpark(s_bullet_spark *thing, Gfx **gdlptr, s32 zbufferMode)
     mtx = currentPlayerGetViewToWorldMtxf();
     gdl = *gdlptr;
     vertices = dynAllocateVertices(4);
-    room = thing->unk06;
+    room = spark->unk06;
     roompos = getRoomPositionByIndex(room);
-    vtx.v.cn[0] = ((u8 *) thing)[0x28];
-    vtx.v.cn[1] = ((u8 *) thing)[0x29];
-    vtx.v.cn[2] = ((u8 *) thing)[0x2a];
-    vtx.v.cn[3] = ((u8 *) thing)[0x2b];
-    frame = (s32) (((f32) thing->age) * (*(&thing->unk08)));
+    vtx.v.cn[0] = ((u8 *) spark)[0x28];
+    vtx.v.cn[1] = ((u8 *) spark)[0x29];
+    vtx.v.cn[2] = ((u8 *) spark)[0x2a];
+    vtx.v.cn[3] = ((u8 *) spark)[0x2b];
+    frame = (s32) (((f32) spark->age) * (*(&spark->unk08)));
     
-    x = *((f32 *) (&thing->unk10));
-    y = *((f32 *) (&thing->unk14));
-    z = *((f32 *) (&thing->unk18));
+    x = *((f32 *) (&spark->unk10));
+    y = *((f32 *) (&spark->unk14));
+    z = *((f32 *) (&spark->unk18));
     
-    s0[0] = mtx->m[0][0] * thing->unk1c;
-    s0[1] = mtx->m[0][1] * thing->unk1c;
-    s0[2] = mtx->m[0][2] * thing->unk1c;
-    s1[0] = mtx->m[0][0] * thing->unk20;
-    s1[1] = mtx->m[0][1] * thing->unk20;
-    s1[2] = mtx->m[0][2] * thing->unk20;
-    s2[0] = mtx->m[1][0] * thing->unk1c;
-    s2[1] = mtx->m[1][1] * thing->unk1c;
-    s2[2] = mtx->m[1][2] * thing->unk1c;
-    s3[0] = mtx->m[1][0] * thing->unk20;
-    s3[1] = mtx->m[1][1] * thing->unk20;
-    s3[2] = mtx->m[1][2] * thing->unk20;
+    s0[0] = mtx->m[0][0] * spark->unk1c;
+    s0[1] = mtx->m[0][1] * spark->unk1c;
+    s0[2] = mtx->m[0][2] * spark->unk1c;
+    s1[0] = mtx->m[0][0] * spark->unk20;
+    s1[1] = mtx->m[0][1] * spark->unk20;
+    s1[2] = mtx->m[0][2] * spark->unk20;
+    s2[0] = mtx->m[1][0] * spark->unk1c;
+    s2[1] = mtx->m[1][1] * spark->unk1c;
+    s2[2] = mtx->m[1][2] * spark->unk1c;
+    s3[0] = mtx->m[1][0] * spark->unk20;
+    s3[1] = mtx->m[1][1] * spark->unk20;
+    s3[2] = mtx->m[1][2] * spark->unk20;
 
     vertices[0] = vtx;
     vertices[1] = vtx;
@@ -215,7 +215,7 @@ void fxRenderBulletSpark(s_bullet_spark *thing, Gfx **gdlptr, s32 zbufferMode)
     vertices[0].v.ob[0] = (((x - s0[0]) - s3[0]) * bgGetRoomScale()) - roompos->f[0];
     vertices[0].v.ob[1] = (((y - s0[1]) - s3[1]) * bgGetRoomScale()) - roompos->f[1];
     vertices[0].v.ob[2] = (((z - s0[2]) - s3[2]) * bgGetRoomScale()) - roompos->f[2];
-    vertices[0].v.tc[0] = ((struct sImageTableEntry *) (((u8 *) thing->unk0C) + (frame * 12)))->width << 5;
+    vertices[0].v.tc[0] = ((struct sImageTableEntry *) (((u8 *) spark->unk0C) + (frame * 12)))->width << 5;
     vertices[0].v.tc[1] = 0;
     vertices[1].v.ob[0] = (((x + s1[0]) - s2[0]) * bgGetRoomScale()) - roompos->f[0];
     vertices[1].v.ob[1] = (((y + s1[1]) - s2[1]) * bgGetRoomScale()) - roompos->f[1];
@@ -226,17 +226,17 @@ void fxRenderBulletSpark(s_bullet_spark *thing, Gfx **gdlptr, s32 zbufferMode)
     vertices[2].v.ob[1] = (((y + s0[1]) + s3[1]) * bgGetRoomScale()) - roompos->f[1];
     vertices[2].v.ob[2] = (((z + s0[2]) + s3[2]) * bgGetRoomScale()) - roompos->f[2];
     vertices[2].v.tc[0] = 0;
-    vertices[2].v.tc[1] = ((struct sImageTableEntry *) (((u8 *) thing->unk0C) + (frame * 12)))->height << 5;
+    vertices[2].v.tc[1] = ((struct sImageTableEntry *) (((u8 *) spark->unk0C) + (frame * 12)))->height << 5;
     vertices[3].v.ob[0] = (((x - s1[0]) + s2[0]) * bgGetRoomScale()) - roompos->f[0];
     vertices[3].v.ob[1] = (((y - s1[1]) + s2[1]) * bgGetRoomScale()) - roompos->f[1];
     vertices[3].v.ob[2] = (((z - s1[2]) + s2[2]) * bgGetRoomScale()) - roompos->f[2];
-    vertices[3].v.tc[0] = ((struct sImageTableEntry *) (((u8 *) thing->unk0C) + (frame * 12)))->width << 5;
-    vertices[3].v.tc[1] = ((struct sImageTableEntry *) (((u8 *) thing->unk0C) + (frame * 12)))->height << 5;
+    vertices[3].v.tc[0] = ((struct sImageTableEntry *) (((u8 *) spark->unk0C) + (frame * 12)))->width << 5;
+    vertices[3].v.tc[1] = ((struct sImageTableEntry *) (((u8 *) spark->unk0C) + (frame * 12)))->height << 5;
     
     gSPSetGeometryMode(gdl++, G_CULL_BACK);
     gSPMatrix(gdl++, osVirtualToPhysical((void *) camGetPlayerProjViewMtx()), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
     gdl = applyRoomMatrixToDisplayList(gdl, room);
-    texSelect(&gdl, (struct sImageTableEntry *) (((u8 *) thing->unk0C) + (frame * 12)), 4, zbufferMode, 2);
+    texSelect(&gdl, (struct sImageTableEntry *) (((u8 *) spark->unk0C) + (frame * 12)), 4, zbufferMode, 2);
     gSPVertex(gdl++, osVirtualToPhysical(vertices), 4, 0);
     gSP2Triangles(gdl++, 0, 1, 2, 0, 0, 2, 3, 0);
     gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjMtx()), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
@@ -247,7 +247,7 @@ void fxRenderBulletSpark(s_bullet_spark *thing, Gfx **gdlptr, s32 zbufferMode)
 void fxRenderBulletSparks(Gfx *gdl, s32 zbufferMode)
 {
 
-    s_bullet_spark *thing = &g_BulletSparkArray[0]; \
+    s_bullet_spark *thing = &g_BulletSparkArray[0];
     s_bullet_spark *end = g_BulletSparkArray + BULLET_SPARKS_MAX;
 
     for (; (thing < end); thing++)
