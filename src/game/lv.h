@@ -27,6 +27,7 @@
 struct levelentry
 {
     s32 levelID;
+    char *setupFileName;
     void *bg_seg_filename;
     void *bg_stan_filename;
     f32 levelscale;
