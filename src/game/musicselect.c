@@ -1,42 +1,8 @@
 #include <ultra64.h>
 #include "musicselect.h"
 #include "bondconstants.h"
+#include "lv.h"
 #include "random.h"
-
-struct music_setup
-{
-  s16 stage_id;
-  s16 main_music;
-  s16 bg_sound;
-  s16 xtrack;
-};
-
-struct music_setup music_setup_entries[] = {
-    { LEVELID_BUNKER1,   M_BUNKER1,      0xFFFF,   M_BUNKER1X },
-    { LEVELID_SILO,      M_SILO,         0xFFFF,   M_SILOX },
-    { LEVELID_STATUE,    M_STATUE,       0xFFFF,   M_STATUEPART },
-    { LEVELID_CONTROL,   M_CONTROL,      0xFFFF,   M_ELEVATOR_CONTROL },
-    { LEVELID_ARCHIVES,  M_ARCHIVES,     0xFFFF,   M_ARCHIVESX },
-    { LEVELID_TRAIN,     M_TRAIN,        0xFFFF,   M_TRAINX },
-    { LEVELID_FRIGATE,   M_FRIGATE,      0xFFFF,   M_END_SOMETHING },
-    { LEVELID_BUNKER2,   M_BUNKER2,      0xFFFF,   M_BUNKER2X },
-    { LEVELID_AZTEC,     M_AZTEC,        0xFFFF,   M_AZTECX },
-    { LEVELID_STREETS,   M_STREETS,      0xFFFF,   M_STREETSX },
-    { LEVELID_DEPOT,     M_DEPOT,        0xFFFF,   M_DEPOTX },
-    { LEVELID_EGYPT,     M_EGYPTIAN,     0xFFFF,   M_EGYPTX },
-    { LEVELID_DAM,       M_DAM,          0xFFFF,   M_WIND },
-    { LEVELID_FACILITY,  M_FACILITY,     0xFFFF,   M_FACILITYX },
-    { LEVELID_RUNWAY,    M_RUNWAY,       0xFFFF,   M_RUNWAYPLANE },
-    { LEVELID_SURFACE,   M_SURFACE1,     0xFFFF,   M_WIND },
-    { LEVELID_JUNGLE,    M_JUNGLE,       0xFFFF,   M_JUNGLEX },
-    { LEVELID_CAVERNS,   M_WATERCAVERNS, 0xFFFF,   M_ELEVATOR_WC },
-    { LEVELID_CITADEL,   M_CITADEL,      0xFFFF,   0xFFFF },
-    { LEVELID_CRADLE,    M_CRADLE,       0xFFFF,   M_CRADLEX },
-    { LEVELID_SHO,       M_SURFACE2,     0xFFFF,   0xFFFF },
-    { LEVELID_SURFACE2,  M_SURFACE2,     M_WIND,   M_SURFACE2END },
-    { LEVELID_CUBA,      M_CUBA,         0xFFFF,   0xFFFF },
-    { 0 }
-};
 
 s16 random_tracks[] = {
     M_TRAIN,
@@ -89,33 +55,26 @@ s16 random_tracks[] = {
 /**
  * Returns the stage's assigned music track, or a random track
  * from random_tracks[] if the stage's main_music entry is -1. Also returns
- * a random track if the stage is not in music_setup_entries[] at all.
+ * a random track if the stage is not in g_LevelInfoTable.
  */
 s32 musicGetMainTrackOrRandom(s32 stageID)
 {
-    s32 index;
+    struct LevelEntry *levelInfo;
 
-    for (index = 0; music_setup_entries[index].stage_id != 0; index++)
+    levelInfo = lvFindLevelInfo(stageID);
+
+    if (levelInfo != NULL && levelInfo->main_music != -1)
     {
-        if (music_setup_entries[index].stage_id == stageID)
-        {
-            if (music_setup_entries[index].main_music != -1)
-            {
-
-                return music_setup_entries[index].main_music;
-            }
-
-            break; // music_setup_entries[] says pick a random track
-        }
+        return levelInfo->main_music;
     }
 
     /**
-     * Stage not in music_setup_entries[] or listed as random.
-     * Select a random entry from ramdom_tracks[].
+     * Stage not in g_LevelInfoTable or listed as random.
+     * Select a random entry from random_tracks[].
      */
     {
         s32 count = 0;
-    
+
         while (random_tracks[count] != M_NONE)
         {
             count++;
@@ -128,31 +87,19 @@ s32 musicGetMainTrackOrRandom(s32 stageID)
 
 s32 musicGetAmbientTrackForStage(s32 stageID)
 {
-    s32 i;
+    struct LevelEntry *levelInfo;
 
-    for (i = 0; music_setup_entries[i].stage_id !=0 ; i++)
-    {
-        if (stageID == music_setup_entries[i].stage_id) 
-        {
-            return music_setup_entries[i].bg_sound;
-        }
-    }
+    levelInfo = lvFindLevelInfo(stageID);
 
-    return -1;
+    return levelInfo != NULL ? levelInfo->bg_sound : -1;
 }
 
 
 s32 musicGetXTrackForStage(s32 stageID)
 {
-    s32 i;
+    struct LevelEntry *levelInfo;
 
-    for (i = 0; music_setup_entries[i].stage_id !=0 ; i++)
-    {
-        if (stageID == music_setup_entries[i].stage_id) 
-        {
-            return music_setup_entries[i].xtrack;
-        }
-    }
+    levelInfo = lvFindLevelInfo(stageID);
 
-    return -1;
+    return levelInfo != NULL ? levelInfo->xtrack : -1;
 }
