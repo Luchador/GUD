@@ -6,6 +6,7 @@
 #include <bondconstants.h>
 
 
+#define STAGES_MAX 38
 #define MAXPORTALSPERROOM 20
 #define PORTMAX 200
 #define BG_SEG_TO_PTR(base, off) ((void *) (((u32) (base)) + (((u32) (off)) + 0xF1000000)))

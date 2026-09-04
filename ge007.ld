@@ -180,7 +180,7 @@ SECTIONS
 
    _dataSegmentVaddrEnd = _csegmentSegmentEnd;
    _romSegmentEnd = _csegmentSegmentRomEnd;
-
+   _gedLevelTableRom = _csegmentSegmentRomStart + (g_LevelInfoTable - _csegmentSegmentStart);
 
 
    _bssSegmentStart = ADDR(.bss);

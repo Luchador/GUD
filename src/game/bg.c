@@ -21,7 +21,6 @@
 
 
 #define BG_CMD_STACK_SIZE 20
-#define STAGES_MAX 38
 
 typedef struct GlobalVisCommand {
     u8 type;
