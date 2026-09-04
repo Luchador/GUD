@@ -6640,7 +6640,7 @@ void save_img_index_to_obj_ani_slot(MonitorRecord *mon, void *unk88)
 }
 
 
-Gfx *process_monitor_animation_microcode(Model *model, ModelNode *node, MonitorRecord *screen, Gfx *gdl, s32 arg4, s32 arg5)
+Gfx *monitorProcessAndRender(Model *model, ModelNode *node, MonitorRecord *screen, Gfx *gdl, s32 arg4, s32 arg5)
 {
     if (node && (node->Opcode & 0xff) == MODELNODE_OPCODE_DLCOLLISION) 
     {
@@ -6724,10 +6724,6 @@ Gfx *process_monitor_animation_microcode(Model *model, ModelNode *node, MonitorR
                 } 
                 else 
                 {
-                    #ifdef DEBUG
-                    assert(m->time>0);
-                    #endif
-
                     yielding = TRUE;
                     screen->pause60 = m->time;
                 }
@@ -7072,23 +7068,23 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
         {
             MonitorObjRecord *monitor = (MonitorObjRecord *)obj;
 
-            gdl = process_monitor_animation_microcode(model, model->obj->Switches[0],
+            gdl = monitorProcessAndRender(model, model->obj->Switches[0],
                     &monitor->Monitor, gdl, monitorZBufferMode, 1);
         }
         else
         {
             MultiMonitorObjRecord *multiMonitor = (MultiMonitorObjRecord *)obj;
 
-            gdl = process_monitor_animation_microcode(model, model->obj->Switches[0], &multiMonitor->Monitor[0], gdl, monitorZBufferMode, 1);
+            gdl = monitorProcessAndRender(model, model->obj->Switches[0], &multiMonitor->Monitor[0], gdl, monitorZBufferMode, 1);
 
             if (monitorZBufferMode != MONITOR_ZBUFFER_DISABLED && (obj->flags & PROPFLAG_SPECIAL_FUNC))
             {
                 monitorZBufferMode = MONITOR_ZBUFFER_DECAL;
             }
 
-            gdl = process_monitor_animation_microcode(model, model->obj->Switches[1], &multiMonitor->Monitor[1], gdl, monitorZBufferMode, 1);
-            gdl = process_monitor_animation_microcode(model, model->obj->Switches[2], &multiMonitor->Monitor[2], gdl, monitorZBufferMode, 1);
-            gdl = process_monitor_animation_microcode(model, model->obj->Switches[3], &multiMonitor->Monitor[3], gdl, monitorZBufferMode, 1);
+            gdl = monitorProcessAndRender(model, model->obj->Switches[1], &multiMonitor->Monitor[1], gdl, monitorZBufferMode, 1);
+            gdl = monitorProcessAndRender(model, model->obj->Switches[2], &multiMonitor->Monitor[2], gdl, monitorZBufferMode, 1);
+            gdl = monitorProcessAndRender(model, model->obj->Switches[3], &multiMonitor->Monitor[3], gdl, monitorZBufferMode, 1);
         }
     }
 

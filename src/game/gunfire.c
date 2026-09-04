@@ -1501,7 +1501,7 @@ void gunRenderFirstPersonGunModels(Gfx **gdlptr)
                 rwdata->Raw.unk00 = 1;
             }
  
-            gdl = process_monitor_animation_microcode(model, handptr->gunmodel.obj->Switches[16], &g_TaserAnimController, gdl, 0, 1);
+            gdl = monitorProcessAndRender(model, handptr->gunmodel.obj->Switches[16], &g_TaserAnimController, gdl, 0, 1);
         }
  
         renderdata.gdl = gdl;
