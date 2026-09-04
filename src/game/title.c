@@ -224,7 +224,7 @@ Gfx *sub_GAME_7F007F30(Gfx *gdl, s32 count, Mtxf *matrix)
     }
 
     modelSetDistanceDisabled(1);
-    sub_GAME_7F073FC8(80);
+    modelSetShadowAlpha(80);
     subcalcpos(chrModelInstance);
 
     if (gunModelInstance->obj->Switches[0] != NULL)
@@ -245,19 +245,19 @@ Gfx *sub_GAME_7F007F30(Gfx *gdl, s32 count, Mtxf *matrix)
     renderData.mtxlist = dynAllocate(gunModelInstance->obj->numMatrices << 6);
     instcalcmatrices(&renderData, gunModelInstance);
 
-    entry = sub_GAME_7F06B120(NULL, chrModelInstance);
-    entry = sub_GAME_7F06B120(entry, gunModelInstance);
-    sub_GAME_7F06B29C(entry);
-    entry = sub_GAME_7F06BB28(entry);
+    entry = modelHitBuildNodeList(NULL, chrModelInstance);
+    entry = modelHitBuildNodeList(entry, gunModelInstance);
+    modelHitCalculateNodeDepths(entry);
+    entry = modelHitSortByDepth(entry);
 
     renderData.PropType = 7;
     renderData.zbufferenabled = FALSE;
     renderData.gdl = gdl;
     renderData.flags = 1;
-    drawjointlist(&renderData, entry);
+    modelHitRenderNodeList(&renderData, entry);
 
     renderData.flags = 2;
-    drawjointlist(&renderData, entry);
+    modelHitRenderNodeList(&renderData, entry);
 
     modelSetDistanceDisabled(0);
     modelHitFreeChain(entry);

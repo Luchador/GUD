@@ -274,6 +274,7 @@ void        chrUpdateCollisionBounds(PropRecord *arg0, struct rect4f **arg1, s32
 void        chrGetChrWidthHeight(PropRecord *prop, f32 *width, f32 *height);
 void        chrDropItems(struct ChrRecord *arg0);
 s32         get_numguards(void);
+Vertex     *chrAllocateVertices(s32 numVertices);
 Gfx        *chrRenderChr(PropRecord *arg0, Gfx *arg1, s32 arg2);
 
 void        chrAddHealth(ChrRecord *chr, f32 health);

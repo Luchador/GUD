@@ -7610,7 +7610,7 @@ Gfx *constructor_menu18_displaycast(Gfx *DL)
  
     modelTickAnim(cast_model, g_ClockTimer, 1);
     modelSetDistanceDisabled(1);
-    sub_GAME_7F073FC8(0);
+    modelSetShadowAlpha(0);
     subcalcpos(cast_model);
  
     if (cast_model_weapon != NULL && cast_model_weapon->obj->Switches[0] != NULL)

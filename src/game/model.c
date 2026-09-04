@@ -213,9 +213,9 @@ void modelSetDistanceScale(f32 scale)
 }
 
 
-void set_vtxallocator(s32 param_1)
+void modelSetVertexAllocator(struct Vertex *(*allocator)(s32 numVertices))
 {
-    vtxallocator = param_1;
+    g_ModelVertexAllocator = allocator;
 }
 
 
@@ -1373,25 +1373,25 @@ void process_02_position(ModelRenderData *arg0, Model *model, ModelNode *node)
     jointnum.v = group->JointID;
     skeleton = model->obj->Skeleton;
 
-    rot1 = D_80036094;
+    rot1 = g_ModelZeroVector;
 
     modelAnimReadJointRotation(jointnum.v, model->animFlip, skeleton, model->animFrameDataA, &rot1);
 
     if (model->animFrameFrac != 0.0f)
     {
-        rot2 = D_800360A0;
+        rot2 = g_ModelZeroVector;
         modelAnimReadJointRotation(jointnum.v, model->animFlip, skeleton, model->animFrameDataB, &rot2);
         sub_GAME_7F06D160(&rot1, &rot2, model->animFrameFrac);
     }
 
     if (model->anim2BlendWeight != 0.0f)
     {
-        rot3 = D_800360AC;
+        rot3 = g_ModelZeroVector;
         modelAnimReadJointRotation(jointnum.v, model->anim2Flip, skeleton, model->animFrame2DataA, &rot3);
 
         if (model->animFrame2Frac != 0.0f)
         {
-            rot4 = D_800360B8;
+            rot4 = g_ModelZeroVector;
             modelAnimReadJointRotation(jointnum.v, model->anim2Flip, skeleton, model->animFrame2DataB, &rot4);
             sub_GAME_7F06D160(&rot3, &rot4, model->animFrame2Frac);
         }
@@ -2261,7 +2261,7 @@ void modelSetAnimation2(Model *model, ModelAnimation *anim, s32 flip, f32 frame,
         animPart = rodata->AnimPart;
         skeleton = model->obj->Skeleton;
         scale = model->scale * model->anim_translation_scale;
-        pos = D_80036244;
+        pos = g_ModelZeroVector;
 
         angleDelta = modelAnimReadFrameRootMotionF(animPart, model->animFlip, skeleton, model->anim, model->frameb, &pos
         );
@@ -2582,7 +2582,7 @@ void modelSetAnimFrame2WithChrStuff(Model *model, f32 framea, f32 frameb, f32 fr
             jointnum = node->Opcode;
             skeleton = modelptr->obj->Skeleton;
             scale = modelptr->scale * modelptr->anim_translation_scale;
-            pos = D_80036254;
+            pos = g_ModelZeroVector;
 
             pos34.f[0] = header->unk34.x;
             pos34.f[1] = header->unk34.y;
@@ -4049,7 +4049,7 @@ void modelRenderNodeDl(ModelRenderData *renderdata, Model *model, ModelNode *nod
  * writes them to a newly allocated vertices table and queues the node's
  * displaylist to the renderdata's DL.
  */
-void dorottex(ModelRenderData *renderdata, ModelNode *node)
+void modelRenderRotatingTexture(ModelRenderData *renderdata, ModelNode *node)
 {
     if (renderdata->flags & 2)
     {
@@ -4062,7 +4062,7 @@ void dorottex(ModelRenderData *renderdata, ModelNode *node)
             Vertex *dst;
 
             src = (Vertex *) rodata->Vertices;
-            dst = vtxallocator(rodata->numVertices * 4);
+            dst = g_ModelVertexAllocator(rodata->numVertices * 4);
 
             gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_VTX, osVirtualToPhysical(dst));
             gSPSegment(renderdata->gdl++, SPSEGMENT_MODEL_COL1, osVirtualToPhysical(rodata->BaseAddr));
@@ -4126,7 +4126,7 @@ void sub_GAME_7F073038(ModelRenderData *renderdata, struct sImageTableEntry *tco
 
 
 // PD: modelRenderNodeChrGunfire
-void dogfnegx(ModelRenderData *renderdata, Model *model, ModelNode *node)
+void modelRenderGunfire(ModelRenderData *renderdata, Model *model, ModelNode *node)
 {
     u32 unused[3];
     f32 negspc0;
@@ -4152,7 +4152,7 @@ void dogfnegx(ModelRenderData *renderdata, Model *model, ModelNode *node)
     f32 tmp;
     coord3d sp9c;
     coord3d sp90;
-    Vertex vtxtemplate = D_800363E0;
+    Vertex vtxtemplate = g_GunfireVertexTemplate;
     Vertex *vertices;
     f32 distance;
 
@@ -4225,7 +4225,7 @@ void dogfnegx(ModelRenderData *renderdata, Model *model, ModelNode *node)
         sp90.f[1] = rodata->Offset.f[1];
         sp90.f[2] = rodata->Offset.f[2];
 
-        vertices = vtxallocator(4);
+        vertices = g_ModelVertexAllocator(4);
 
         vertices[0] = vtxtemplate;
         vertices[1] = vtxtemplate;
@@ -4286,14 +4286,14 @@ void dogfnegx(ModelRenderData *renderdata, Model *model, ModelNode *node)
 }
 
 
-void sub_GAME_7F073FC8(s32 arg0)
+void modelSetShadowAlpha(s32 alpha)
 {
-    D_800363F0 = arg0;
+    g_ModelShadowAlpha = alpha;
 }
 
 
 
-void doshadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
+void modelRenderShadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
 {
     sImageTableEntry *image;
     RenderPosView *mtx;
@@ -4307,7 +4307,7 @@ void doshadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
     f32 height;
     ModelRwData_HeaderRecord *rwdata;
 
-    if ((s32) D_800363F0 <= 0)
+    if (g_ModelShadowAlpha <= 0)
     {
         return;
     }
@@ -4318,7 +4318,7 @@ void doshadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
     }
 
     shadow = &node->Data->Shadow;
-    vtxtemplate = D_800363F8;
+    vtxtemplate = g_ShadowVertexTemplate;
     rwdata = (ModelRwData_HeaderRecord *) modelGetNodeRwData(model, shadow->HeaderNode);
     height = rwdata->pos.y - rwdata->ground;
     sizex = shadow->size.x;
@@ -4326,11 +4326,11 @@ void doshadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
 
     if ((renderdata->PropType == PROP_TYPE_CHR) || (renderdata->PropType == PROP_TYPE_SMOKE))
     {
-        temp = (vtxtemplate.v.cn[3] = ((renderdata->envcolour.word & 0xff) * D_800363F0) / 255);
+        temp = (vtxtemplate.v.cn[3] = ((renderdata->envcolour.word & 0xff) * g_ModelShadowAlpha) / 255);
     }
     else
     {
-        vtxtemplate.v.cn[3] = D_800363F0;
+        vtxtemplate.v.cn[3] = g_ModelShadowAlpha;
     }
 
     temp = modelFindNodeMtxIndex(node, 0);
@@ -4361,7 +4361,7 @@ void doshadow(ModelRenderData *renderdata, Model *model, ModelNode *node)
         sizey *= (300.0f - height) / 200.0f;
     }
 
-    vtx = (Vtx *) vtxallocator(4);
+    vtx = (Vtx *)g_ModelVertexAllocator(4);
 
     vtx[0] = vtxtemplate;
     vtx[1] = vtxtemplate;
@@ -4439,10 +4439,10 @@ void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node)
         case MODELNODE_OPCODE_OP11:
             return;
         case MODELNODE_OPCODE_GUNFIRE:
-            dogfnegx(data, model, node);
+            modelRenderGunfire(data, model, node);
             return;
         case MODELNODE_OPCODE_SHADOW:
-            doshadow(data, model, node);
+            modelRenderShadow(data, model, node);
             return;
         case MODELNODE_OPCODE_BBOX:
             return;
@@ -4455,7 +4455,7 @@ void sub_GAME_7F074534(ModelRenderData* data, Model* model, ModelNode* node)
         case MODELNODE_OPCODE_OP20:
             return;
         case MODELNODE_OPCODE_DLPRIMARY:
-            dorottex(data, node);
+            modelRenderRotatingTexture(data, node);
             return;
         case MODELNODE_OPCODE_OP05:
             return;
@@ -4827,10 +4827,9 @@ u8 *loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
         // Load that frame from RAM
         ret = (u8 *)(anim->address + (frame * frameSize));
     }
-    else if (D_80036414 != NULL) // should never be NULL after initAnimationsBuffer is called
+    else if (g_ModelAnimationScratch != NULL) // should never be NULL after initAnimationsBuffer is called
     {
-        // Get dest from this D_80036414 which points to an array. Align to 16 bytes.
-        dest = ((u32) (D_80036414->animBufferPtr2 + 15) >> 4) * 16;
+        dest = ((u32)(g_ModelAnimationScratch->nextFree + 15) >> 4) * 16;
         ret = (u8 *)dest;
 
         // Get source of this animation in ROM with the offset of the frame we'll load
@@ -4848,9 +4847,9 @@ u8 *loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
         /* The scratch pointer returns to the same address after each model.
          * When consecutive models need the same frame in the same slot, the
          * ROM data is already there and the blocking PI DMA can be skipped. */
-        if (g_ModelAnimFrameCacheBuffer != D_80036414->animBufferPtr1)
+        if (g_ModelAnimFrameCacheBuffer != g_ModelAnimationScratch->bufferStart)
         {
-            g_ModelAnimFrameCacheBuffer = D_80036414->animBufferPtr1;
+            g_ModelAnimFrameCacheBuffer = g_ModelAnimationScratch->bufferStart;
             g_ModelAnimFrameCacheNext = 0;
 
             for (i = 0; i < MODEL_ANIM_FRAME_CACHE_CAPACITY; i++)
@@ -4908,7 +4907,7 @@ u8 *loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
 
         // Set this to point to the end of the copied frame
         // This allows to copy another frame after this one
-        D_80036414->animBufferPtr2 = dest + size;
+        g_ModelAnimationScratch->nextFree = (char *)(dest + size);
     }
     return ret;
 }
@@ -4916,10 +4915,10 @@ u8 *loadAnimationFrame(ModelAnimation* anim, s32 frame, ModelSkeleton* unused)
 
 void modelResetAnimationsScratchBuffer(void)
 {
-    if (D_80036414 != NULL) // should never be NULL after initAnimationsBuffer is called
+    if (g_ModelAnimationScratch != NULL) // should never be NULL after initAnimationsBuffer is called
     {
         // Reset the pointer to point to the start of the array
-        D_80036414->animBufferPtr2 = D_80036414->animBufferPtr1;
+        g_ModelAnimationScratch->nextFree = g_ModelAnimationScratch->bufferStart;
     }
 }
 

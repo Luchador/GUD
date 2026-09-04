@@ -3,232 +3,23 @@
 #include "objecthandler.h"
 #include "model.h"
 
-// bss
-//CODE.bss:80076A50
-char g_ModelHitEntries[0xC];
-//CODE.bss:80076A5C
-u32 dword_CODE_bss_80076A5C;
-//CODE.bss:80076A60
-u32 dword_CODE_bss_80076A60;
-//CODE.bss:80076A64;
-u32 dword_CODE_bss_80076A64;
-//CODE.bss:80076A68;
-u32 dword_CODE_bss_80076A68;
-//CODE.bss:80076A6C;
-u32 dword_CODE_bss_80076A6C;
-//CODE.bss:80076A70
-u32 dword_CODE_bss_80076A70;
-//CODE.bss:80076A74
-u32 dword_CODE_bss_80076A74;
-//CODE.bss:80076A78
-char dword_CODE_bss_80076A78[0xC];
-//CODE.bss:80076A84
-u32 dword_CODE_bss_80076A84;
-//CODE.bss:80076A88
-u32 dword_CODE_bss_80076A88;
-//CODE.bss:80076A8C
-char dword_CODE_bss_80076A8C;
-char dword_CODE_bss_80076A8D;
-char dword_CODE_bss_80076A8E;
-char dword_CODE_bss_80076A8F;
-char dword_CODE_bss_80076A90[0x10];
-//CODE.bss:80076AA0
-char dword_CODE_bss_80076AA0[0x14];
-//CODE.bss:80076AB4
-char dword_CODE_bss_80076AB4;
-char dword_CODE_bss_80076AB5;
-char dword_CODE_bss_80076AB6;
-char dword_CODE_bss_80076AB7;
-char dword_CODE_bss_80076AB8[0x10];
-//CODE.bss:80076AC8
-char dword_CODE_bss_80076AC8[0x14];
-//CODE.bss:80076ADC
-char dword_CODE_bss_80076ADC;
-char dword_CODE_bss_80076ADD;
-char dword_CODE_bss_80076ADE;
-char dword_CODE_bss_80076ADF;
-char dword_CODE_bss_80076AE0[0x2E28];
-//CODE.bss:80079908
-char g_ModelHitEntriesPenultimate[0x28];
+/* Fixed scratch pool rebuilt into a doubly linked free list on stage load. */
+ModelHitEntry g_ModelHitEntries[MODEL_HIT_ENTRY_POOL_SIZE];
 
-//CODE.bss:80079930
 struct AnimModelSlot *g_AnimModelSlots;
-//CODE.bss:80079934
 struct ModelSlot *g_ModelSlots;
 
-
-// data
-//D:80036070
-s32 g_MaxAnimModelSlots = 0;
-//D:80036074
-s32 g_MaxModelSlots = 0;
-//D:80036078
-s32 g_ModelIsLvResetting = 0;
-//D:8003607C
-u32 D_8003607C = 0;
-//D:80036080
-u32 D_80036080 = 0;
-//D:80036084
-s32 g_ModelDistanceDisabled = 0;
-//D:80036088
+s32 g_MaxAnimModelSlots;
+s32 g_MaxModelSlots;
+s32 g_ModelIsLvResetting;
+s32 g_ModelDistanceDisabled;
 f32 g_ModelDistanceScale = 1.0;
-//D:8003608C
-struct Vertex* (*vtxallocator)(s32 numvertices) = NULL;
-//D:80036090
-void (*g_ModelJointPositionedFunc)(s32 mtxindex, Mtxf *mtx) = NULL;
-//D:80036094
-coord3d D_80036094 = {0};
-//D:800360A0
-coord3d D_800360A0 = {0};
-//D:800360AC
-coord3d D_800360AC = {0};
-//D:800360B8
-coord3d D_800360B8 = {0};
-//D:800360C4
-struct bondstruct_unk_op07_related D_800360C4[32] = {
-    { 0, 0, 0x10 },
-    { 1, 0x1000, 0xD },
-    { 1, 0x1000, 0xD },
-    { 9, 0x800, 0xC },
-    { 9, 0x800, 0xC },
-    { 0x19, 0x400, 0xB },
-    { 0x19, 0x400, 0xB },
-    { 0x39, 0x400, 0xB },
-    { 0x39, 0x400, 0xB },
-    { 0x59, 0x400, 0xB },
-    { 0x59, 0x400, 0xB },
-    { 0x79, 0x400, 0xB },
-    { 0x79, 0x400, 0xB },
-    { 0x99, 0x400, 0xB },
-    { 0x99, 0x400, 0xB, },
-    { 0xB9, 0x400, 0xB, },
-    { 0xB9, 0x400, 0xB, },
-    { 0xD9, 0x400, 0xB, },
-    { 0xD9, 0x400, 0xB, },
-    { 0xF9, 0x400, 0xB, },
-    { 0xF9, 0x400, 0xB, },
-    { 0x119, 0x400, 0xB, },
-    { 0x119, 0x400, 0xB, },
-    { 0x139, 0x400, 0xB, },
-    { 0x139, 0x400, 0xB, },
-    { 0x159, 0x400, 0xB, },
-    { 0x159, 0x400, 0xB, },
-    { 0x179, 0x800, 0xC, },
-    { 0x179, 0x800, 0xC, },
-    { 0x189, 0x1000, 0xD },
-    { 0x189, 0x1000, 0xD },
-    { 0x191, 0, 0x10 },
-};
-
-//D:80036244
-coord3d D_80036244 = { 0 };
-//D:80036250
+struct Vertex* (*g_ModelVertexAllocator)(s32 numVertices);
+void (*g_ModelJointPositionedFunc)(s32 mtxindex, Mtxf *mtx);
+coord3d g_ModelZeroVector;
 u32 g_ModelAnimMergingEnabled = 1;
-//D:80036254
-coord3d D_80036254 = { 0 };
 
-//D:80036260
-u32 D_80036260 = 0;
-//D:80036264
-u32 D_80036264 = 0;
-//D:80036268
-u32 D_80036268 = 0x10;
-//D:8003626C
-u32 D_8003626C = 1;
-//D:80036270
-u32 D_80036270 = 0x1000;
-//D:80036274
-u32 D_80036274 = 0xD;
-//D:80036278
-u32 D_80036278 = 1;
-//D:8003627C
-u32 D_8003627C = 0x1000;
-//D:80036280
-u32 D_80036280 = 0xD;
-//D:80036284
-u32 D_80036284 = 9;
-//D:80036288
-u32 D_80036288 = 0x800;
-//D:8003628C
-u32 D_8003628C = 0xC;
-//D:80036290
-u32 D_80036290 = 9;
-//D:80036294
-u32 D_80036294 = 0x800;
-//D:80036298
-u32 D_80036298 = 0xC;
-//D:8003629C
-u32 D_8003629C = 0x19;
-//D:800362A0
-u32 D_800362A0 = 0x800;
-//D:800362A4
-u32 D_800362A4 = 0xC;
-//D:800362A8
-u32 D_800362A8 = 0x19;
-//D:800362AC
-u32 D_800362AC = 0x800;
-//D:800362B0
-u32 D_800362B0 = 0xC;
-//D:800362B4
-u32 D_800362B4 = 0x29;
-//D:800362B8
-u32 D_800362B8 = 0x800;
-//D:800362BC
-u32 D_800362BC = 0xC;
-//D:800362C0
-u32 D_800362C0 = 0x29;
-//D:800362C4
-u32 D_800362C4 = 0x800;
-//D:800362C8
-u32 D_800362C8 = 0xC;
-//D:800362CC
-u32 D_800362CC = 0x39;
-//D:800362D0
-u32 D_800362D0 = 0x800;
-//D:800362D4
-u32 D_800362D4 = 0xC;
-//D:800362D8
-u32 D_800362D8 = 0x39;
-//D:800362DC
-u32 D_800362DC = 0x800;
-//D:800362E0
-u32 D_800362E0 = 0xC;
-//D:800362E4
-u32 D_800362E4 = 0x49;
-//D:800362E8
-u32 D_800362E8 = 0x800;
-//D:800362EC
-u32 D_800362EC = 0xC;
-//D:800362F0
-u32 D_800362F0 = 0x49;
-//D:800362F4
-u32 D_800362F4 = 0x800;
-//D:800362F8
-u32 D_800362F8 = 0xC;
-//D:800362FC
-u32 D_800362FC = 0x59;
-//D:80036300
-u32 D_80036300 = 0x1000;
-//D:80036304
-u32 D_80036304 = 0xD;
-//D:80036308
-u32 D_80036308 = 0x59;
-//D:8003630C
-u32 D_8003630C = 0x1000;
-//D:80036310
-u32 D_80036310 = 0xD;
-//D:80036314
-u32 D_80036314 = 0x61;
-//D:80036318
-u32 D_80036318 = 0;
-//D:8003631C
-u32 D_8003631C[] = {
-  0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
-
-//D:800363EC0
-Vertex D_800363E0 = {
+Vertex g_GunfireVertexTemplate = {
     { 0, 0, 0 },
     0,
     { 0, 0 },
@@ -238,12 +29,8 @@ Vertex D_800363E0 = {
     0xFF
 };
 
-//D:800363F0
-u32 D_800363F0 = 0x50;
-//D:800363F4
-u32 D_800363F4 = 0;
-//D:800363F8
-Vtx D_800363F8 = {
+s32 g_ModelShadowAlpha = 0x50;
+Vtx g_ShadowVertexTemplate = {
     {
         { 0, 0, 0 },
         0,
@@ -251,69 +38,63 @@ Vtx D_800363F8 = {
         { 0xFF, 0xFF, 0xFF, 0x50 }
     }
 };
-//D:80036408
-coord3d D_80036408 = { 1.0f, 0.0f, 0.0f };
-//D:80036414
-struct bondstruct_unk_animation_related* D_80036414 =  0;
+struct ModelAnimationScratch *g_ModelAnimationScratch;
 
 
-ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context)
+/**
+ * Appends the model nodes that need independent depth sorting to a hit/render
+ * list. Entries come from the fixed stage-lifetime pool above.
+ */
+ModelHitEntry *modelHitBuildNodeList(ModelHitEntry *head, Model *model)
 {
-    ModelHitEntry* freeListCursor;
-    ModelNode* sceneCursor;
-    ModelNode* childPtr;
-    s32 nodeType;
+    ModelHitEntry *firstNewEntry = g_ModelHitFreeList;
+    ModelHitEntry *freeEntry = firstNewEntry;
+    ModelNode *node = model->obj->RootNode;
+    ModelNode *nextNode;
 
-    sceneCursor = context->obj->RootNode;
-    freeListCursor = g_ModelHitFreeList;
-
-    while ((sceneCursor != NULL) && (freeListCursor != NULL)) 
+    while (node != NULL && freeEntry != NULL)
     {
-        nodeType = sceneCursor->Opcode & 0xFF;
-
-        switch (nodeType) 
+        switch (node->Opcode & 0xff)
         {
-            case 1:
-            case 2:
-            case 3:
-            case 11:
-            case 12:
-            case 13:
-            case 14:
-            case 15:
-            case 16:
-            case 21:
-                freeListCursor->model = context;
-                freeListCursor->rootnode = sceneCursor;
-                freeListCursor = freeListCursor->next;
+            case MODELNODE_OPCODE_HEADER:
+            case MODELNODE_OPCODE_GROUP:
+            case MODELNODE_OPCODE_OP03:
+            case MODELNODE_OPCODE_OP11:
+            case MODELNODE_OPCODE_GUNFIRE:
+            case MODELNODE_OPCODE_SHADOW:
+            case MODELNODE_OPCODE_OP14:
+            case MODELNODE_OPCODE_INTERLINK:
+            case MODELNODE_OPCODE_OP16:
+            case MODELNODE_OPCODE_GROUPSIMPLE:
+                freeEntry->model = model;
+                freeEntry->rootnode = node;
+                freeEntry = freeEntry->next;
                 break;
             default:
                 break;
         }
 
-        childPtr = sceneCursor->Child;
-
-        if (childPtr != NULL)
+        if (node->Child != NULL)
         {
-            sceneCursor = childPtr;
+            node = node->Child;
             continue;
         }
 
-        while (sceneCursor != NULL)
+        while (node != NULL)
         {
-            childPtr = sceneCursor->Next;
+            nextNode = node->Next;
 
-            if (childPtr != NULL)
+            if (nextNode != NULL)
             {
-                sceneCursor = childPtr;
+                node = nextNode;
                 break;
             }
 
-            sceneCursor = sceneCursor->Parent;
+            node = node->Parent;
         }
     }
 
-    if (freeListCursor != g_ModelHitFreeList)
+    if (freeEntry != firstNewEntry)
     {
         if (head != NULL)
         {
@@ -324,26 +105,23 @@ ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context)
                 tail = tail->next;
             }
 
-            tail->next = g_ModelHitFreeList;
-            g_ModelHitFreeList->prev = tail;
-        } 
-        else 
+            tail->next = firstNewEntry;
+            firstNewEntry->prev = tail;
+        }
+        else
         {
-            head = g_ModelHitFreeList;
+            head = firstNewEntry;
         }
 
-        if (freeListCursor != NULL)
+        if (freeEntry != NULL)
         {
-            ModelHitEntry* prevNode = freeListCursor->prev;
+            ModelHitEntry *lastNewEntry = freeEntry->prev;
 
-            if (prevNode != NULL)
-            {
-                prevNode->next = NULL;
-                freeListCursor->prev = NULL;
-            }
+            lastNewEntry->next = NULL;
+            freeEntry->prev = NULL;
         }
 
-        g_ModelHitFreeList = freeListCursor;
+        g_ModelHitFreeList = freeEntry;
     }
 
     return head;
@@ -358,54 +136,54 @@ ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context)
  */
 void modelHitFreeChain(ModelHitEntry *entry)
 {
-    ModelHitEntry *oldhead;
     ModelHitEntry *tail;
-    
-    if (entry != NULL)
+
+    if (entry == NULL)
     {
-        oldhead = g_ModelHitFreeList;
+        return;
+    }
 
-        if (oldhead != NULL)
+    if (g_ModelHitFreeList != NULL)
+    {
+        tail = entry;
+
+        while (tail->next != NULL)
         {
-            tail = entry;
-            while (tail->next != NULL)
-            {
-                tail = tail->next;
-            }
-
-            tail->next = oldhead;
-            g_ModelHitFreeList->prev = tail;
+            tail = tail->next;
         }
 
-        g_ModelHitFreeList = entry;
+        tail->next = g_ModelHitFreeList;
+        g_ModelHitFreeList->prev = tail;
     }
+
+    entry->prev = NULL;
+    g_ModelHitFreeList = entry;
 }
 
 
-#define OP16_NODEINDEX_0C(data) (((ModelNode_Op16Record *)(data))->nodeindex0c)
-#define OP16_NODEINDEX_0E(data) (((ModelNode_Op16Record *)(data))->nodeindex0e)
-#define OP16_NODEINDEX_10(data) (((ModelNode_Op16Record *)(data))->nodeindex10)
+#define MODEL_HIT_POINT_DEPTH(position, matrix) \
+    (-((position)->x * (matrix)->m[0][2] \
+     + (position)->y * (matrix)->m[1][2] \
+     + (position)->z * (matrix)->m[2][2] \
+     + (matrix)->m[3][2]))
 
-#define OP16_POS_X_VOL(data) (((volatile ModelNode_Op16Record *)(data))->pos.f[0])
-#define OP16_POS_Y_VOL(data) (((volatile ModelNode_Op16Record *)(data))->pos.f[1])
-#define OP16_POS_Z_VOL(data) (((volatile ModelNode_Op16Record *)(data))->pos.f[2])
+#define MODEL_HIT_DEPTH_BIAS_1 0.0000152587890625f
+#define MODEL_HIT_DEPTH_BIAS_2 0.000030517578125f
+#define MODEL_HIT_DEPTH_BIAS_4 0.00006103515625f
+#define MODEL_HIT_DEPTH_BIAS_6 0.000091552734375f
 
-/**
- * Address: 7F06B29C
- */
-void sub_GAME_7F06B29C(ModelHitEntry *arg0)
+/** Calculates camera-space depths for sorting the independently rendered nodes. */
+void modelHitCalculateNodeDepths(ModelHitEntry *head)
 {
-    ModelHitEntry *entry;
-    ModelHitEntry *special;
+    ModelHitEntry *entry = head;
+    ModelHitEntry *op16Entry = NULL;
 
-    entry = arg0;
-    special = NULL;
+    while (entry != NULL)
+    {
+        ModelNode *node = entry->rootnode;
+        s32 opcode = node->Opcode & 0xff;
 
-    while (arg0 != NULL) {
-        ModelNode *node = arg0->rootnode;
-        u16 opcode = node->Opcode;
-
-        switch (opcode & 0xFF)
+        switch (opcode)
         {
             case MODELNODE_OPCODE_HEADER:
             {
@@ -416,18 +194,18 @@ void sub_GAME_7F06B29C(ModelHitEntry *arg0)
                 data = node->Data;
                 othernode = data->Header.FirstGroupNode;
 
-                mtx = modelFindNodeMtx(arg0->model, node, 0);
+                mtx = modelFindNodeMtx(entry->model, node, 0);
 
                 if (othernode != NULL)
                 {
                     Mtxf *othermtx;
 
-                    othermtx = modelFindNodeMtx(arg0->model, othernode, 0);
-                    arg0->sortvalue = -(mtx->m[3][2] + othermtx->m[3][2]) * 0.5f;
+                    othermtx = modelFindNodeMtx(entry->model, othernode, 0);
+                    entry->sortvalue = -(mtx->m[3][2] + othermtx->m[3][2]) * 0.5f;
                 }
                 else
                 {
-                    arg0->sortvalue = -mtx->m[3][2];
+                    entry->sortvalue = -mtx->m[3][2];
                 }
                 break;
             }
@@ -441,18 +219,18 @@ void sub_GAME_7F06B29C(ModelHitEntry *arg0)
                 data = node->Data;
                 othernode = data->Group.ChildGroupNode;
 
-                mtx = modelFindNodeMtx(arg0->model, node, 0);
+                mtx = modelFindNodeMtx(entry->model, node, 0);
 
                 if (othernode != NULL)
                 {
                     Mtxf *othermtx;
 
-                    othermtx = modelFindNodeMtx(arg0->model, othernode, 0);
-                    arg0->sortvalue = -(mtx->m[3][2] + othermtx->m[3][2]) * 0.5f;
+                    othermtx = modelFindNodeMtx(entry->model, othernode, 0);
+                    entry->sortvalue = -(mtx->m[3][2] + othermtx->m[3][2]) * 0.5f;
                 }
                 else
                 {
-                    arg0->sortvalue = -mtx->m[3][2];
+                    entry->sortvalue = -mtx->m[3][2];
                 }
                 break;
             }
@@ -466,18 +244,18 @@ void sub_GAME_7F06B29C(ModelHitEntry *arg0)
                 data = node->Data;
                 othernode = data->Group.ChildGroupNode;
 
-                mtx = modelFindNodeMtx(arg0->model, node, 0);
+                mtx = modelFindNodeMtx(entry->model, node, 0);
 
                 if (othernode != NULL)
                 {
                     Mtxf *othermtx;
 
-                    othermtx = modelFindNodeMtx(arg0->model, othernode, 0);
-                    arg0->sortvalue = -(mtx->m[3][2] + othermtx->m[3][2]) * 0.5f;
+                    othermtx = modelFindNodeMtx(entry->model, othernode, 0);
+                    entry->sortvalue = -(mtx->m[3][2] + othermtx->m[3][2]) * 0.5f;
                 }
                 else
                 {
-                    arg0->sortvalue = -mtx->m[3][2];
+                    entry->sortvalue = -mtx->m[3][2];
                 }
                 break;
             }
@@ -486,23 +264,25 @@ void sub_GAME_7F06B29C(ModelHitEntry *arg0)
             {
                 Mtxf *mtx;
 
-                mtx = modelFindNodeMtx(arg0->model, node, 0);
-                arg0->sortvalue = -mtx->m[3][2];
+                mtx = modelFindNodeMtx(entry->model, node, 0);
+                entry->sortvalue = -mtx->m[3][2];
                 break;
             }
 
             case MODELNODE_OPCODE_OP14:
+            case MODELNODE_OPCODE_OP16:
+            case MODELNODE_OPCODE_OP11:
+            case MODELNODE_OPCODE_GUNFIRE:
             {
-                Mtxf *mtx;
-                f32 *data;
+                Mtxf *mtx = modelFindNodeMtx(entry->model, node, 0);
+                coord3d *position = (coord3d *)node->Data;
 
-                mtx = modelFindNodeMtx(arg0->model, node, 0);
-                data = (f32 *)node->Data;
+                entry->sortvalue = MODEL_HIT_POINT_DEPTH(position, mtx);
 
-                arg0->sortvalue = -(data[0] * mtx->m[0][2]
-                                + data[1] * mtx->m[1][2]
-                                + data[2] * mtx->m[2][2]
-                                + mtx->m[3][2]);
+                if (opcode == MODELNODE_OPCODE_OP16)
+                {
+                    op16Entry = entry;
+                }
                 break;
             }
 
@@ -513,74 +293,12 @@ void sub_GAME_7F06B29C(ModelHitEntry *arg0)
                 f32 sortvalue1;
                 f32 sortvalue2;
 
-                mtx = modelFindNodeMtx(arg0->model, node, 0);
+                mtx = modelFindNodeMtx(entry->model, node, 0);
                 interlinkage = &node->Data->Interlinkage;
 
-                sortvalue1 = -(interlinkage->pos.x * mtx->m[0][2]
-                            + interlinkage->pos.y * mtx->m[1][2]
-                            + interlinkage->pos.z * mtx->m[2][2]
-                            + mtx->m[3][2]);
-
-                sortvalue2 = -(interlinkage->pos2.x * mtx->m[0][2]
-                            + interlinkage->pos2.y * mtx->m[1][2]
-                            + interlinkage->pos2.z * mtx->m[2][2]
-                            + mtx->m[3][2]);
-
-                if (sortvalue1 < sortvalue2)
-                {
-                    arg0->sortvalue = sortvalue1;
-                }
-                else
-                {
-                    arg0->sortvalue = sortvalue2;
-                }
-                break;
-            }
-
-            case MODELNODE_OPCODE_OP16:
-            {
-                Mtxf *mtx;
-                f32 *data;
-
-                mtx = modelFindNodeMtx(arg0->model, node, 0);
-                data = (f32 *)node->Data;
-
-                arg0->sortvalue = -(data[0] * mtx->m[0][2]
-                                + data[1] * mtx->m[1][2]
-                                + data[2] * mtx->m[2][2]
-                                + mtx->m[3][2]);
-
-                special = arg0;
-                break;
-            }
-
-            case MODELNODE_OPCODE_OP11:
-            {
-                Mtxf *mtx;
-                ModelRoData_Op11Record *op11;
-
-                mtx = modelFindNodeMtx(arg0->model, node, 0);
-                op11 = &node->Data->Op11;
-
-                arg0->sortvalue = -(op11->pos.x * mtx->m[0][2]
-                                + op11->pos.y * mtx->m[1][2]
-                                + op11->pos.z * mtx->m[2][2]
-                                + mtx->m[3][2]);
-                break;
-            }
-
-            case MODELNODE_OPCODE_GUNFIRE:
-            {
-                Mtxf *mtx;
-                f32 *data;
-
-                mtx = modelFindNodeMtx(arg0->model, node, 0);
-                data = (f32 *)node->Data;
-
-                arg0->sortvalue = -(data[0] * mtx->m[0][2]
-                                + data[1] * mtx->m[1][2]
-                                + data[2] * mtx->m[2][2]
-                                + mtx->m[3][2]);
+                sortvalue1 = MODEL_HIT_POINT_DEPTH(&interlinkage->pos, mtx);
+                sortvalue2 = MODEL_HIT_POINT_DEPTH(&interlinkage->pos2, mtx);
+                entry->sortvalue = sortvalue1 < sortvalue2 ? sortvalue1 : sortvalue2;
                 break;
             }
 
@@ -590,201 +308,202 @@ void sub_GAME_7F06B29C(ModelHitEntry *arg0)
                 ModelRoData_ShadowRecord *shadow;
                 union ModelRwData *rwdata;
 
-                mtx = modelFindNodeMtx(arg0->model, node, 0);
+                mtx = modelFindNodeMtx(entry->model, node, 0);
                 shadow = &node->Data->Shadow;
 
-                rwdata = modelGetNodeRwData(arg0->model, shadow->HeaderNode);
+                rwdata = modelGetNodeRwData(entry->model, shadow->HeaderNode);
 
-                arg0->sortvalue = -(shadow->pos.x * mtx->m[0][2]
-                                + (rwdata->Header.ground - rwdata->Header.pos.y) * mtx->m[1][2]
-                                + shadow->pos.y * mtx->m[2][2]
-                                + mtx->m[3][2]);
+                entry->sortvalue = -(shadow->pos.x * mtx->m[0][2]
+                                   + (rwdata->Header.ground - rwdata->Header.pos.y) * mtx->m[1][2]
+                                   + shadow->pos.y * mtx->m[2][2]
+                                   + mtx->m[3][2]);
                 break;
             }
         }
 
-        arg0 = arg0->next;
+        entry = entry->next;
     }
 
-    if (special != NULL)
+    if (op16Entry != NULL)
     {
-        Model *model = special->model;
+        Model *model = op16Entry->model;
 
         if (model->attachedto != NULL)
         {
+            /* Keep the four linked pieces in a stable painter's order as the
+             * attached model changes orientation. */
             ModelNode **switches;
-            ModelNode *node0e;
-            ModelNode *specialnode;
-            void *op16data;
-            ModelNode *node0c;
-            ModelNode *node10;
-            ModelHitEntry *entry0e;
-            ModelHitEntry *entry0c;
-            ModelHitEntry *entry10;
+            ModelNode *referencedNode0e;
+            ModelNode *op16Node;
+            volatile ModelNode_Op16Record *op16Data;
+            ModelNode *referencedNode0c;
+            ModelNode *referencedNode10;
+            ModelHitEntry *referencedEntry0e;
+            ModelHitEntry *referencedEntry0c;
+            ModelHitEntry *referencedEntry10;
             Mtxf *mtx;
-            f32 axis2dot;
-            f32 axis1dot;
-            f32 sort0e;
-            coord3d axis2;
-            coord3d axis1;
-            f32 sort0c;
-            f32 sort10;
-            coord3d transformed;
+            f32 zAxisDot;
+            f32 yAxisDot;
+            f32 depth0e;
+            coord3d zAxis;
+            coord3d yAxis;
+            f32 depth0c;
+            f32 depth10;
+            coord3d worldPosition;
             ModelHitEntry *scan;
-            f32 tempf;
+            f32 op16Depth;
 
-            tempf = special->sortvalue;
-            specialnode = special->rootnode;
-            op16data = specialnode->Data;
+            op16Depth = op16Entry->sortvalue;
+            op16Node = op16Entry->rootnode;
+            op16Data = (volatile ModelNode_Op16Record *)op16Node->Data;
 
             switches = model->attachedto->obj->Switches;
 
-            node0e = switches[OP16_NODEINDEX_0E(op16data)];
-            node0c = switches[OP16_NODEINDEX_0C(op16data)];
-            node10 = switches[OP16_NODEINDEX_10(op16data)];
+            referencedNode0e = switches[op16Data->nodeindex0e];
+            referencedNode0c = switches[op16Data->nodeindex0c];
+            referencedNode10 = switches[op16Data->nodeindex10];
 
-            entry10 = NULL;
-            entry0e = NULL;
-            entry0c = NULL;
+            referencedEntry10 = NULL;
+            referencedEntry0e = NULL;
+            referencedEntry0c = NULL;
 
-
-            mtx = modelFindNodeMtx(model, specialnode, 0);
-            scan = entry;
+            mtx = modelFindNodeMtx(model, op16Node, 0);
+            scan = head;
 
             while (scan != NULL)
             {
-                if (node0e == scan->rootnode)
+                if (referencedNode0e == scan->rootnode)
                 {
-                    entry0e = scan;
+                    referencedEntry0e = scan;
                 }
 
-                if (node0c == scan->rootnode)
+                if (referencedNode0c == scan->rootnode)
                 {
-                    entry0c = scan;
+                    referencedEntry0c = scan;
                 }
 
-                if (node10 == scan->rootnode)
+                if (referencedNode10 == scan->rootnode)
                 {
-                    entry10 = scan;
+                    referencedEntry10 = scan;
                 }
 
                 scan = scan->next;
             }
 
-            axis2.f[0] = mtx->m[2][0];
-            axis2.f[1] = mtx->m[2][1];
-            axis2.f[2] = mtx->m[2][2];
+            zAxis.x = mtx->m[2][0];
+            zAxis.y = mtx->m[2][1];
+            zAxis.z = mtx->m[2][2];
 
-            axis1.f[0] = mtx->m[1][0];
-            axis1.f[1] = mtx->m[1][1];
-            axis1.f[2] = mtx->m[1][2];
+            yAxis.x = mtx->m[1][0];
+            yAxis.y = mtx->m[1][1];
+            yAxis.z = mtx->m[1][2];
 
-            transformed.f[0] = OP16_POS_X_VOL(op16data) * mtx->m[0][0]
-                          + OP16_POS_Y_VOL(op16data) * mtx->m[1][0]
-                          + OP16_POS_Z_VOL(op16data) * mtx->m[2][0]
-                          + mtx->m[3][0];
-            
-            transformed.f[1] = OP16_POS_X_VOL(op16data) * mtx->m[0][1]
-                          + OP16_POS_Y_VOL(op16data) * mtx->m[1][1]
-                          + OP16_POS_Z_VOL(op16data) * mtx->m[2][1]
-                          + mtx->m[3][1];
-            
-            transformed.f[2] = OP16_POS_X_VOL(op16data) * mtx->m[0][2]
-                          + OP16_POS_Y_VOL(op16data) * mtx->m[1][2]
-                          + OP16_POS_Z_VOL(op16data) * mtx->m[2][2]
-                          + mtx->m[3][2];
+            worldPosition.x = op16Data->pos.x * mtx->m[0][0]
+                            + op16Data->pos.y * mtx->m[1][0]
+                            + op16Data->pos.z * mtx->m[2][0]
+                            + mtx->m[3][0];
+            worldPosition.y = op16Data->pos.x * mtx->m[0][1]
+                            + op16Data->pos.y * mtx->m[1][1]
+                            + op16Data->pos.z * mtx->m[2][1]
+                            + mtx->m[3][1];
+            worldPosition.z = op16Data->pos.x * mtx->m[0][2]
+                            + op16Data->pos.y * mtx->m[1][2]
+                            + op16Data->pos.z * mtx->m[2][2]
+                            + mtx->m[3][2];
 
-            axis2dot = axis2.f[0] * transformed.f[0]
-                     + axis2.f[1] * transformed.f[1]
-                     + axis2.f[2] * transformed.f[2];
-            axis1dot = axis1.f[0] * transformed.f[0]
-                     + axis1.f[1] * transformed.f[1]
-                     + axis1.f[2] * transformed.f[2];
-            
-            
-            sort0e = entry0e->sortvalue;
-            sort0c = entry0c->sortvalue;
-            sort10 = entry10->sortvalue;
-            if (axis2dot < 0.0f)
+            zAxisDot = zAxis.x * worldPosition.x
+                     + zAxis.y * worldPosition.y
+                     + zAxis.z * worldPosition.z;
+            yAxisDot = yAxis.x * worldPosition.x
+                     + yAxis.y * worldPosition.y
+                     + yAxis.z * worldPosition.z;
+
+            depth0e = referencedEntry0e->sortvalue;
+            depth0c = referencedEntry0c->sortvalue;
+            depth10 = referencedEntry10->sortvalue;
+
+            if (zAxisDot < 0.0f)
             {
-                if (sort10 < sort0e)
+                if (depth10 < depth0e)
                 {
-                    if (sort10 < tempf)
+                    if (depth10 < op16Depth)
                     {
-                        special->sortvalue = sort10 - 0.000030517578125f; // 2/65536
+                        op16Entry->sortvalue = depth10 - MODEL_HIT_DEPTH_BIAS_2;
                     }
                 }
                 else
                 {
-                    if (sort0e < tempf)
+                    if (depth0e < op16Depth)
                     {
-                        special->sortvalue = sort0e - 0.000030517578125f; // 2/65536
+                        op16Entry->sortvalue = depth0e - MODEL_HIT_DEPTH_BIAS_2;
                     }
                 }
             }
-            else if (0.0f <= axis2dot)
+            else if (0.0f <= zAxisDot)
             {
-                if (tempf < sort0e)
+                if (op16Depth < depth0e)
                 {
-                    entry0e->sortvalue = tempf - 0.00006103515625f; // 4/65536
+                    referencedEntry0e->sortvalue = op16Depth - MODEL_HIT_DEPTH_BIAS_4;
                 }
 
-                if (tempf < sort10)
+                if (op16Depth < depth10)
                 {
-                    if (sort10 < sort0e)
+                    if (depth10 < depth0e)
                     {
-                        entry10->sortvalue = tempf - 0.000091552734375f; // 6/65536
+                        referencedEntry10->sortvalue = op16Depth - MODEL_HIT_DEPTH_BIAS_6;
                     }
                     else
                     {
-                        entry10->sortvalue = tempf - 0.000030517578125f; // 2/65536
+                        referencedEntry10->sortvalue = op16Depth - MODEL_HIT_DEPTH_BIAS_2;
                     }
                 }
             }
 
-            if (axis1dot < 0.0f)
+            if (yAxisDot < 0.0f)
             {
-                if (sort0c < special->sortvalue)
+                if (depth0c < op16Entry->sortvalue)
                 {
-                    if (entry0e->sortvalue < special->sortvalue && sort0c < entry0e->sortvalue)
+                    if (referencedEntry0e->sortvalue < op16Entry->sortvalue
+                            && depth0c < referencedEntry0e->sortvalue)
                     {
-                        entry0e->sortvalue = sort0c - 0.00006103515625f; // 4/65536
+                        referencedEntry0e->sortvalue = depth0c - MODEL_HIT_DEPTH_BIAS_4;
                     }
 
-                    if (entry10->sortvalue < special->sortvalue && sort0c < entry10->sortvalue)
+                    if (referencedEntry10->sortvalue < op16Entry->sortvalue
+                            && depth0c < referencedEntry10->sortvalue)
                     {
-                        if (sort10 < sort0e)
+                        if (depth10 < depth0e)
                         {
-                            entry10->sortvalue = sort0c - 0.000091552734375f; // 6/65536
+                            referencedEntry10->sortvalue = depth0c - MODEL_HIT_DEPTH_BIAS_6;
                         }
                         else
                         {
-                            entry10->sortvalue = sort0c - 0.000030517578125f; // 2/65536
+                            referencedEntry10->sortvalue = depth0c - MODEL_HIT_DEPTH_BIAS_2;
                         }
                     }
 
-                    special->sortvalue = sort0c - 0.0000152587890625f; // 1/65536
+                    op16Entry->sortvalue = depth0c - MODEL_HIT_DEPTH_BIAS_1;
                 }
             }
-            else if (0.0f <= axis1dot)
+            else if (0.0f <= yAxisDot)
             {
-                if (special->sortvalue < sort0c)
+                if (op16Entry->sortvalue < depth0c)
                 {
-                    entry0c->sortvalue = special->sortvalue - 0.0000152587890625f; // 1/65536
+                    referencedEntry0c->sortvalue = op16Entry->sortvalue - MODEL_HIT_DEPTH_BIAS_1;
 
-                    if (sort0c < sort0e)
+                    if (depth0c < depth0e)
                     {
-                        if (entry0e->sortvalue < entry0c->sortvalue)
+                        if (referencedEntry0e->sortvalue < referencedEntry0c->sortvalue)
                         {
-                            entry0c->sortvalue = entry0e->sortvalue - 0.0000152587890625f; // 1/65536
+                            referencedEntry0c->sortvalue = referencedEntry0e->sortvalue - MODEL_HIT_DEPTH_BIAS_1;
                         }
                     }
 
-                    if (sort0c < sort10)
+                    if (depth0c < depth10)
                     {
-                        if (entry10->sortvalue < entry0c->sortvalue)
+                        if (referencedEntry10->sortvalue < referencedEntry0c->sortvalue)
                         {
-                            entry0c->sortvalue = entry10->sortvalue - 0.0000152587890625f; // 1/65536
+                            referencedEntry0c->sortvalue = referencedEntry10->sortvalue - MODEL_HIT_DEPTH_BIAS_1;
                         }
                     }
                 }
@@ -793,12 +512,11 @@ void sub_GAME_7F06B29C(ModelHitEntry *arg0)
     }
 }
 
-#undef OP16_NODEINDEX_0C
-#undef OP16_NODEINDEX_0E
-#undef OP16_NODEINDEX_10
-#undef OP16_POS_X_VOL
-#undef OP16_POS_Y_VOL
-#undef OP16_POS_Z_VOL
+#undef MODEL_HIT_POINT_DEPTH
+#undef MODEL_HIT_DEPTH_BIAS_1
+#undef MODEL_HIT_DEPTH_BIAS_2
+#undef MODEL_HIT_DEPTH_BIAS_4
+#undef MODEL_HIT_DEPTH_BIAS_6
 
 
 /**
@@ -808,7 +526,7 @@ void sub_GAME_7F06B29C(ModelHitEntry *arg0)
  * roughly n(n+1)/2 depth comparisons each frame; merge sort reduces that to
  * O(n log n) while preserving the order of entries with equal depth.
  */
-ModelHitEntry *sub_GAME_7F06BB28(ModelHitEntry *modelhit)
+ModelHitEntry *modelHitSortByDepth(ModelHitEntry *head)
 {
     ModelHitEntry *left;
     ModelHitEntry *right;
@@ -820,17 +538,17 @@ ModelHitEntry *sub_GAME_7F06BB28(ModelHitEntry *modelhit)
     s32 mergeCount;
     s32 i;
 
-    if (modelhit == NULL || modelhit->next == NULL)
+    if (head == NULL || head->next == NULL)
     {
-        return modelhit;
+        return head;
     }
 
     runSize = 1;
 
     do
     {
-        left = modelhit;
-        modelhit = NULL;
+        left = head;
+        head = NULL;
         tail = NULL;
         mergeCount = 0;
 
@@ -881,7 +599,7 @@ ModelHitEntry *sub_GAME_7F06BB28(ModelHitEntry *modelhit)
                 }
                 else
                 {
-                    modelhit = node;
+                    head = node;
                 }
 
                 node->prev = tail;
@@ -896,28 +614,32 @@ ModelHitEntry *sub_GAME_7F06BB28(ModelHitEntry *modelhit)
     }
     while (mergeCount > 1);
 
-    return modelhit;
+    return head;
 }
 
 
-void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
+void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *entry)
 {
     ModelNode *root;
     ModelNode *node;
+    Model *model;
     RenderPosView *matrixSegment = NULL;
     ModelNodeRenderCache renderCache = {NULL, NULL, FALSE};
+    s32 renderPrimary = renderData->flags & 1;
+    s32 renderSecondary = renderData->flags & 2;
     s32 descend;
     s32 opcode;
 
     while (entry != NULL)
     {
+        model = entry->model;
         root = entry->rootnode;
         node = root;
 
-        if (matrixSegment != entry->model->render_pos)
+        if (matrixSegment != model->render_pos)
         {
-            matrixSegment = entry->model->render_pos;
-            gSPSegment(data->gdl++, SPSEGMENT_MODEL_MTX, osVirtualToPhysical(matrixSegment));
+            matrixSegment = model->render_pos;
+            gSPSegment(renderData->gdl++, SPSEGMENT_MODEL_MTX, osVirtualToPhysical(matrixSegment));
         }
 
         if (node != NULL)
@@ -945,12 +667,12 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
                 case MODELNODE_OPCODE_GUNFIRE:
                     if (node == root)
                     {
-                        if (data->flags & 2)
+                        if (renderSecondary)
                         {
                             renderCache.colorSegmentBase = NULL;
                             renderCache.vertexSegmentBase = NULL;
                             renderCache.type3PipelineReady = FALSE;
-                            dogfnegx(data, entry->model, node);
+                            modelRenderGunfire(renderData, model, node);
                         }
                     }
                     else
@@ -961,12 +683,12 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
                 case MODELNODE_OPCODE_SHADOW:
                     if (node == root)
                     {
-                        if (data->flags & 2)
+                        if (renderSecondary)
                         {
                             renderCache.colorSegmentBase = NULL;
                             renderCache.vertexSegmentBase = NULL;
                             renderCache.type3PipelineReady = FALSE;
-                            doshadow(data, entry->model, node);
+                            modelRenderShadow(renderData, model, node);
                         }
                     }
                     else
@@ -975,8 +697,8 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
                     }
                     break;
                 case MODELNODE_OPCODE_DL:
-                    if (((data->flags & 1) && node->Data->DisplayList.Primary)
-                            || ((data->flags & 2)
+                    if ((renderPrimary && node->Data->DisplayList.Primary)
+                            || (renderSecondary
                                 && node->Data->DisplayList.Primary
                                 && node->Data->DisplayList.ModelType == 4
                                 && node->Data->DisplayList.Secondary))
@@ -984,38 +706,38 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
                         renderCache.colorSegmentBase = NULL;
                         renderCache.vertexSegmentBase = NULL;
                         renderCache.type3PipelineReady = FALSE;
-                        modelRenderNodeGundl(data, node);
+                        modelRenderNodeGundl(renderData, node);
                     }
                     break;
                 case MODELNODE_OPCODE_DLCOLLISION:
-                    if ((data->flags & 1)
-                            || ((data->flags & 2)
+                    if (renderPrimary
+                            || (renderSecondary
                                 && node->Data->DisplayListCollisions.ModelType == 4
                                 && node->Data->DisplayListCollisions.Secondary))
                     {
-                        modelRenderNodeDlWithCache(data, entry->model, node, &renderCache);
+                        modelRenderNodeDlWithCache(renderData, model, node, &renderCache);
                     }
                     break;
                 case MODELNODE_OPCODE_DLPRIMARY:
-                    if ((data->flags & 2) && node->Data->DisplayListPrimary.Primary)
+                    if (renderSecondary && node->Data->DisplayListPrimary.Primary)
                     {
                         renderCache.colorSegmentBase = NULL;
                         renderCache.vertexSegmentBase = NULL;
                         renderCache.type3PipelineReady = FALSE;
-                        dorottex(data, node);
+                        modelRenderRotatingTexture(renderData, node);
                     }
                     break;
                 case MODELNODE_OPCODE_LOD:
-                    modelApplyDistanceRelations(entry->model, node);
+                    modelApplyDistanceRelations(model, node);
                     break;
                 case MODELNODE_OPCODE_BSP:
-                    modelApplyReorderRelations(entry->model, node);
+                    modelApplyReorderRelations(model, node);
                     break;
                 case MODELNODE_OPCODE_SWITCH:
-                    modelApplyToggleRelations(entry->model, node);
+                    modelApplyToggleRelations(model, node);
                     break;
                 case MODELNODE_OPCODE_HEAD:
-                    modelApplyHeadRelations(entry->model, node);
+                    modelApplyHeadRelations(model, node);
                     break;
                 case MODELNODE_OPCODE_OP05:
                 case MODELNODE_OPCODE_OP06:
@@ -1060,150 +782,121 @@ void drawjointlist(ModelRenderData *data, ModelHitEntry *entry)
 }
 
 
-s32 probably_damage_detail_blood_effect_related(ModelHitEntry **entryptr, coord3d *raypos, coord3d *raydir, Model **outModel, ModelNode **inoutNode)
+/** Continues a back-to-front bounding-box ray query from the previous hit. */
+s32 modelHitFindNextBBoxHit(ModelHitEntry **entryPtr, coord3d *rayOrigin, coord3d *rayDirection, Model **hitModel, ModelNode **hitNode)
 {
-    ModelHitEntry *entry = *entryptr;
-    ModelNode *node;
-    s32 descend;
-    ModelNode *root;
-    ModelNode *next;
+    ModelHitEntry *entry = *entryPtr;
 
-    while (entry != NULL) 
+    while (entry != NULL)
     {
-        ModelNode *resume = *inoutNode;
+        Model *model = entry->model;
+        ModelNode *root = entry->rootnode;
+        ModelNode *node = *hitNode != NULL ? *hitNode : root;
+        s32 descend = TRUE;
 
-        root = entry->rootnode;
-        descend = TRUE;
+        *hitNode = NULL;
 
-        if (resume != NULL)
+        while (node != NULL)
         {
-            node = resume;
-            *inoutNode = NULL;
-        } 
-        else 
-        {
-            node = root;
-        }
-
-        while (node != NULL) 
-        {
-            if (descend && node->Child != NULL) 
+            if (descend && node->Child != NULL)
             {
                 node = node->Child;
-            } 
-            else 
+            }
+            else
             {
-                if (node != NULL) 
+                while (node != NULL)
                 {
-walk_node:
-                    if (node == root) 
+                    if (node == root)
                     {
                         node = NULL;
-                    } 
-                    else 
-                    {
-                        next = node->Next;
-
-                        if (next != NULL) 
-                        {
-                            node = next;
-                        } 
-                        else 
-                        {
-                            node = node->Parent;
-
-                            if (node != NULL) {
-                                goto walk_node;
-                            }
-                        }
+                        break;
                     }
+
+                    if (node->Next != NULL)
+                    {
+                        node = node->Next;
+                        break;
+                    }
+
+                    node = node->Parent;
                 }
 
-                if (node == NULL) 
+                if (node == NULL)
                 {
                     break;
                 }
             }
 
             descend = TRUE;
-            
+
+            switch (node->Opcode & 0xff)
             {
-                u16 opcode = node->Opcode;
-            
-                descend = TRUE;
-            
-                switch (opcode & 0xff) 
-                {
-                    case MODELNODE_OPCODE_HEADER:
-                    case MODELNODE_OPCODE_GROUP:
-                    case MODELNODE_OPCODE_OP03:
-                    case MODELNODE_OPCODE_GROUPSIMPLE:
-                        descend = FALSE;
-                        break;
-                    case MODELNODE_OPCODE_OP11:
-                    case MODELNODE_OPCODE_GUNFIRE:
-                    case MODELNODE_OPCODE_SHADOW:
-                    case MODELNODE_OPCODE_OP14:
-                    case MODELNODE_OPCODE_INTERLINK:
-                    case MODELNODE_OPCODE_OP16:
-                        descend = FALSE;
-                        break;
-                    case MODELNODE_OPCODE_BBOX:
-                        if (modelTestRayIntersectsNodeBBox(entry->model, node, raypos, raydir)) {
-                            *outModel = entry->model;
-                            *inoutNode = node;
-                            *entryptr = entry;
-                
-                            return *(s32 *)node->Data;
-                        }
-            
-                        descend = FALSE;
-                        break;
-                    case MODELNODE_OPCODE_LOD:
-                        modelApplyDistanceRelations(entry->model, node);
-                        break;
-                
-                    case MODELNODE_OPCODE_SWITCH:
-                        modelApplyToggleRelations(entry->model, node);
-                        break;
-                
-                    case MODELNODE_OPCODE_HEAD:
-                        modelApplyHeadRelations(entry->model, node);
-                        break;
-                
-                    case MODELNODE_OPCODE_DLCOLLISION:
-                    default:
-                        break;
+                case MODELNODE_OPCODE_HEADER:
+                case MODELNODE_OPCODE_GROUP:
+                case MODELNODE_OPCODE_OP03:
+                case MODELNODE_OPCODE_OP11:
+                case MODELNODE_OPCODE_GUNFIRE:
+                case MODELNODE_OPCODE_SHADOW:
+                case MODELNODE_OPCODE_OP14:
+                case MODELNODE_OPCODE_INTERLINK:
+                case MODELNODE_OPCODE_OP16:
+                case MODELNODE_OPCODE_GROUPSIMPLE:
+                    descend = FALSE;
+                    break;
+                case MODELNODE_OPCODE_BBOX:
+                    if (modelTestRayIntersectsNodeBBox(model, node, rayOrigin, rayDirection))
+                    {
+                        *hitModel = model;
+                        *hitNode = node;
+                        *entryPtr = entry;
+
+                        return *(s32 *)node->Data;
                     }
+
+                    descend = FALSE;
+                    break;
+                case MODELNODE_OPCODE_LOD:
+                    modelApplyDistanceRelations(model, node);
+                    break;
+                case MODELNODE_OPCODE_SWITCH:
+                    modelApplyToggleRelations(model, node);
+                    break;
+                case MODELNODE_OPCODE_HEAD:
+                    modelApplyHeadRelations(model, node);
+                    break;
+                case MODELNODE_OPCODE_DLCOLLISION:
+                default:
+                    break;
             }
         }
 
         entry = entry->prev;
     }
 
-    *entryptr = NULL;
+    *entryPtr = NULL;
     return 0;
 }
 
 
-/**
- * Address: 7F06C010
- * 
- * Update: decompiling probably_damage_detail_blood_effect_related revealed that the first argument for this function is a ModelHitEntry.
- * The previous function matched because both ModelNode and ModelHitEntry happen to have a normal 32 bit field at offset 0x0c.
- */
-s32 sub_GAME_7F06C010(ModelHitEntry **entryptr, coord3d *modelRayStart, coord3d *modelRayDir, Model **outModel, ModelNode **outNode)
+/** Starts a back-to-front bounding-box ray query at the list tail. */
+s32 modelHitFindFirstBBoxHit(ModelHitEntry **entryPtr, coord3d *rayOrigin, coord3d *rayDirection, Model **hitModel, ModelNode **hitNode)
 {
-    ModelHitEntry *entry = *entryptr;
+    ModelHitEntry *entry = *entryPtr;
 
-    while (entry->next != NULL) 
+    *hitModel = NULL;
+    *hitNode = NULL;
+
+    if (entry == NULL)
+    {
+        return 0;
+    }
+
+    while (entry->next != NULL)
     {
         entry = entry->next;
     }
 
-    *entryptr = entry;
-    *outModel = NULL;
-    *outNode = NULL;
+    *entryPtr = entry;
 
-    return probably_damage_detail_blood_effect_related( entryptr, modelRayStart, modelRayDir, outModel, outNode);
+    return modelHitFindNextBBoxHit(entryPtr, rayOrigin, rayDirection, hitModel, hitNode);
 }

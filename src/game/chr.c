@@ -1157,9 +1157,9 @@ s32 get_numguards(void)
 }
 
 
-void get_ptr_allocated_block_for_vertices(int param_1)
+Vertex *chrAllocateVertices(s32 numVertices)
 {
-  dynAllocate(param_1 << 4);
+    return dynAllocate(numVertices * sizeof(Vertex));
 }
 
 
@@ -2469,7 +2469,7 @@ after_position_update:
 
         prop->zDepth = modelGetZDepth(model);
 
-        chr->hitChain = sub_GAME_7F06B120(NULL, model);
+        chr->hitChain = modelHitBuildNodeList(NULL, model);
 
         chrRenderHeldWeapon(prop, GUNRIGHT, (Gfx **)(&chr->hitChain));
         chrRenderHeldWeapon(prop, GUNLEFT, (Gfx **)(&chr->hitChain));
@@ -2535,7 +2535,7 @@ after_position_update:
 
             if ((!(chr->hidden & CHRHIDDEN_DROP_HELD_ITEMS)) || (!(hatobj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)))
             {
-                chr->hitChain = sub_GAME_7F06B120(chr->hitChain, hatmodel);
+                chr->hitChain = modelHitBuildNodeList(chr->hitChain, hatmodel);
             }
         }
 
@@ -2553,8 +2553,8 @@ after_position_update:
             }
         }
 
-        sub_GAME_7F06B29C(chr->hitChain);
-        chr->hitChain = sub_GAME_7F06BB28(chr->hitChain);
+        modelHitCalculateNodeDepths(chr->hitChain);
+        chr->hitChain = modelHitSortByDepth(chr->hitChain);
     }
     else
     {
@@ -2740,7 +2740,7 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
                 sp4C = ((1.0f - spC0.a) * (f32)(sp4C));
             }
 
-            sub_GAME_7F073FC8(sp4C);
+            modelSetShadowAlpha(sp4C);
 
             chrShade.r = chr->shadecol.r;
             chrShade.g = chr->shadecol.g;
@@ -2763,7 +2763,7 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
             }
 
             g_playerPerm->time_other_players_on_screen += 1;
-            drawjointlist(&mrData, chr->hitChain);
+            modelHitRenderNodeList(&mrData, chr->hitChain);
 
             gdl = mrData.gdl;
 
@@ -3176,7 +3176,7 @@ void chrTestHit(PropRecord *prop, ShotData *shotdata)
     if (hitpart != HIT_NULL_PART)
     {
         entry = chr->hitChain;
-        hitpart = sub_GAME_7F06C010(&entry, &shotdata->viewOrigin, &shotdata->viewDir, &hitmodel, &hitnode);
+        hitpart = modelHitFindFirstBBoxHit(&entry, &shotdata->viewOrigin, &shotdata->viewDir, &hitmodel, &hitnode);
 
         while ((hitpart == HIT_GUN) || (hitpart == HIT_HAT))
         {
@@ -3185,7 +3185,7 @@ void chrTestHit(PropRecord *prop, ShotData *shotdata)
                 break;
             }
 
-            hitpart = probably_damage_detail_blood_effect_related(&entry, &shotdata->viewOrigin, &shotdata->viewDir, &hitmodel, &hitnode);
+            hitpart = modelHitFindNextBBoxHit(&entry, &shotdata->viewOrigin, &shotdata->viewDir, &hitmodel, &hitnode);
         }
     }
 

@@ -1,19 +1,7 @@
 #include <ultra64.h>
 #include "bondtypes.h"
 #include "initunk_005450.h"
-
-#define MODELHITENTRIES_LEN 600
-
-extern struct ModelHitEntry *g_ModelHitFreeList; // canonically freedist
-
-/**
- * These are linker/BSS labels. g_ModelHitEntries is the start of a
- * ModelHitEntry[600] pool. g_ModelHitEntriesPenultimate labels entry 598
- * inside that same pool and is kept as a raw char symbol so IDO emits the
- * original relocation.
- */
-extern char g_ModelHitEntries[];
-extern char g_ModelHitEntriesPenultimate[];
+#include "objecthandler.h"
 
 /**
  * Called by stage load.
@@ -24,17 +12,15 @@ extern char g_ModelHitEntriesPenultimate[];
 void initModelHitEntryFreeList(void)
 {
     s32 i;
-    ModelHitEntry *entries = (ModelHitEntry *)g_ModelHitEntries;
 
-    g_ModelHitFreeList = entries;
+    g_ModelHitFreeList = g_ModelHitEntries;
+    g_ModelHitEntries[0].prev = NULL;
 
-    entries[0].next = &entries[1];
-
-    for (i = 1; i < MODELHITENTRIES_LEN - 1; i++)
+    for (i = 0; i < MODEL_HIT_ENTRY_POOL_SIZE - 1; i++)
     {
-        entries[i].next = &entries[i + 1];
-        entries[i].prev = &entries[i - 1];
+        g_ModelHitEntries[i].next = &g_ModelHitEntries[i + 1];
+        g_ModelHitEntries[i + 1].prev = &g_ModelHitEntries[i];
     }
 
-    ((ModelHitEntry *)g_ModelHitEntries)[MODELHITENTRIES_LEN - 1].prev = (ModelHitEntry *)g_ModelHitEntriesPenultimate;
+    g_ModelHitEntries[MODEL_HIT_ENTRY_POOL_SIZE - 1].next = NULL;
 }

@@ -4,16 +4,10 @@
 #include <bondtypes.h>
 #include <image.h>
 
-struct bondstruct_unk_animation_related {
-    char* pad;
-    char* animBufferPtr1; 
-    char* animBufferPtr2; 
-};
-
-struct bondstruct_unk_op07_related {
-    s32 unk00;
-    s32 unk04;
-    s32 unk0C;
+struct ModelAnimationScratch {
+    char *reserved;
+    char *bufferStart;
+    char *nextFree;
 };
 
 struct AnimModelSlot {
@@ -85,42 +79,38 @@ struct ModelSlot {
 extern struct AnimModelSlot *g_AnimModelSlots;
 extern struct ModelSlot *g_ModelSlots;
 
+#define MODEL_HIT_ENTRY_POOL_SIZE 600
+
+extern struct ModelHitEntry g_ModelHitEntries[MODEL_HIT_ENTRY_POOL_SIZE];
 extern struct ModelHitEntry *g_ModelHitFreeList;
 extern s32 g_ModelDistanceDisabled;
 extern f32 g_ModelDistanceScale;
 extern u32 g_ModelAnimMergingEnabled;
-extern s32 D_80036410;
-extern struct bondstruct_unk_animation_related* D_80036414;
-extern u32 D_800363F0;
+extern struct ModelAnimationScratch *g_ModelAnimationScratch;
+extern s32 g_ModelShadowAlpha;
 
-extern coord3d D_80036094;
-extern coord3d D_800360A0;
-extern coord3d D_800360AC;
-extern coord3d D_800360B8;
-extern coord3d D_80036244;
-extern coord3d D_80036254;
+extern coord3d g_ModelZeroVector;
 
-extern struct Vertex* (*vtxallocator)(s32 numvertices);
+extern struct Vertex* (*g_ModelVertexAllocator)(s32 numVertices);
 extern void (*g_ModelJointPositionedFunc)(s32 mtxindex, Mtxf *mtx);
-extern struct bondstruct_unk_op07_related D_800360C4[];
-extern Vertex D_800363E0;
-extern Vtx D_800363F8;
-extern coord3d D_80036408;
+extern Vertex g_GunfireVertexTemplate;
+extern Vtx g_ShadowVertexTemplate;
 
 void fileLoad(ModelFileHeader *header,char *name);
 void load_object_into_memory_unused_maybe(ModelFileHeader *header,int *recallstring,int *targetloc,int sizeleft);
+void initAnimationsBuffer(struct ModelAnimationScratch *animBuffer);
 
 // tentative signature
 PropRecord *chrGiveWeapon(ChrRecord *self, s32 PropID, ITEM_IDS ItemID, s32 flags);
 
-// called with struct ChrRecord->hitChain
-ModelHitEntry* sub_GAME_7F06B120(ModelHitEntry* head, Model* context);
+/* Depth-sorted model-node lists used for rendering and hit tests. */
+ModelHitEntry *modelHitBuildNodeList(ModelHitEntry *head, Model *model);
 void modelHitFreeChain(ModelHitEntry *entry);
-void drawjointlist(ModelRenderData *arg0, ModelHitEntry *entry);
-void sub_GAME_7F06B29C(ModelHitEntry *arg0);
-ModelHitEntry *sub_GAME_7F06BB28(ModelHitEntry *modelhit);
-s32 probably_damage_detail_blood_effect_related(ModelHitEntry **entryptr, coord3d *raypos, coord3d *raydir, Model **outModel, ModelNode **inoutNode);
-s32 sub_GAME_7F06C010(ModelHitEntry **entryptr, coord3d *modelRayStart, coord3d *modelRayDir, Model **outModel, ModelNode **outNode);
+void modelHitCalculateNodeDepths(ModelHitEntry *head);
+ModelHitEntry *modelHitSortByDepth(ModelHitEntry *head);
+void modelHitRenderNodeList(ModelRenderData *renderData, ModelHitEntry *head);
+s32 modelHitFindNextBBoxHit(ModelHitEntry **entry, coord3d *rayOrigin, coord3d *rayDirection, Model **hitModel, ModelNode **hitNode);
+s32 modelHitFindFirstBBoxHit(ModelHitEntry **entry, coord3d *rayOrigin, coord3d *rayDirection, Model **hitModel, ModelNode **hitNode);
 
 void load_object_fill_header(struct ModelFileHeader *objheader, u8 *name, u8* dst, s32 size, struct texpool * buffer);
 

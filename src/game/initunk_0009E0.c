@@ -2,7 +2,7 @@
 #include "objecthandler.h"
 
 
-void initAnimationsBuffer(struct bondstruct_unk_animation_related* animBuffer)
+void initAnimationsBuffer(struct ModelAnimationScratch *animBuffer)
 {
-    D_80036414 = animBuffer; // Data structure with offset and two tables
+    g_ModelAnimationScratch = animBuffer;
 }

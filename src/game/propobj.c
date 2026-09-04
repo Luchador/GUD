@@ -178,7 +178,6 @@ void door7F0526EC(DoorRecord *door, Mtxf *rhs);
 void objBreakCCTVGlass(ObjectRecord *obj);
 void save_img_index_to_obj_ani_slot(MonitorRecord *mon, void *unk88);
 void save_ptr_monitor_ani_code_to_obj_ani_slot(MonitorRecord *mon, void *image);
-s32 sub_GAME_7F06C010(ModelHitEntry **entryptr, coord3d *modelRayStart, coord3d *modelRayDir, Model **outModel, ModelNode **outNode);
 AmmoCrateRecord *ammocrateAllocate(void);
 ModelNode* sub_GAME_7F04B478(ObjectRecord* obj);
 bool sub_GAME_7F04B590(ModelFileHeader* arg0, ModelNode* arg1);
@@ -1347,7 +1346,7 @@ bool sub_GAME_7F041BB8(ChrRecord *chr, coord3d *arg1, coord3d *arg2, f32 arg3, c
     if ((-instSize <= planeDist) && (planeDist <= (arg3 + instSize)) && (prop->flags & PROPFLAG_ONSCREEN))
     {
         entry = chr->hitChain;
-        bodyPart = sub_GAME_7F06C010(&entry, arg4, arg5, &model, &node);
+        bodyPart = modelHitFindFirstBBoxHit(&entry, arg4, arg5, &model, &node);
 
         if (bodyPart > 0)
         {
@@ -11701,7 +11700,7 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
                 {
                     if (!(weaponObj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)) 
                     {
-                        *gdl = sub_GAME_7F06B120(*gdl, heldModel);
+                        *gdl = modelHitBuildNodeList(*gdl, heldModel);
                     }
                 }
 
