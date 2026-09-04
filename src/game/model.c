@@ -38,9 +38,10 @@ void modelSetAnimFrame2WithChrStuff(struct Model *model, f32 framea, f32 frameb,
 // End forward declarations.
 
 
-bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef)
+bool modelmgrCanSlotFitRwdata(Model *model, ModelFileHeader *header)
 {
-    return modeldef->numRecords <= 0 || (modelslot->datas != NULL && modelslot->rwdatalen >= modeldef->numRecords);
+    return header->numRecords <= 0
+        || (model->datas != NULL && model->rwdatalen >= header->numRecords);
 }
 
 
@@ -58,19 +59,19 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
 {
     Model *model;
     u32 *rwdata;
-    s16 rwdatalen;
+    s16 rwdataCapacity;
 
     model = NULL;
     rwdata = NULL;
-    rwdatalen = -1;
+    rwdataCapacity = -1;
 
     if (g_ModelIsLvResetting)
     {
         s32 i;
 
-        for (i = 0; i < (g_MaxModelSlots - 30); i++)
+        for (i = 0; i < (g_ModelSlotCount - MODEL_SPARE_SLOT_COUNT); i++)
         {
-            if (g_ModelSlots[i].unk08 == 0)
+            if (g_ModelSlots[i].obj == NULL)
             {
                 model = (Model *)&g_ModelSlots[i];
                 break;
@@ -79,25 +80,26 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
 
         if (model == NULL)
         {
-            model = mempAllocBytesInBank(0x20, MEMPOOL_STAGE);
+            model = mempAllocBytesInBank(sizeof(ModelSlot), MEMPOOL_STAGE);
         }
 
         if (header->numRecords > 0)
         {
             rwdata = mempAllocBytesInBank((((header->numRecords * 4) + 0xf) | 0xf) ^ 0xf, MEMPOOL_STAGE);
-            rwdatalen = header->numRecords;
+            rwdataCapacity = header->numRecords;
         }
     }
     else
     {
         s32 i;
 
-        for (i = 0; i < g_MaxModelSlots; i++)
+        for (i = 0; i < g_ModelSlotCount; i++)
         {
-            if (g_ModelSlots[i].unk08 == 0 && modelmgrCanSlotFitRwdata((Model *)&g_ModelSlots[i], header))
+            if (g_ModelSlots[i].obj == NULL
+                && modelmgrCanSlotFitRwdata((Model *)&g_ModelSlots[i], header))
             {
-                rwdata = g_ModelSlots[i].unk10;
-                rwdatalen = g_ModelSlots[i].unk02;
+                rwdata = g_ModelSlots[i].datas;
+                rwdataCapacity = g_ModelSlots[i].rwdatalen;
                 model = (Model *)&g_ModelSlots[i];
                 break;
             }
@@ -107,7 +109,7 @@ Model *modelmgrInstantiateModel(ModelFileHeader *header)
     if (model != NULL)
     {
         modelInit(model, header, rwdata);
-        ((struct ModelSlot *)model)->unk02 = rwdatalen;
+        model->rwdatalen = rwdataCapacity;
     }
 
     return model;
@@ -121,69 +123,72 @@ void modelClearObj(Model* model)
 
 
 /**
- * Allocates 0xc0 bytes for a new model to allow enough memory for animations.
+ * Allocates a full model instance for models that use animations.
  */
-Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *modelFileHeader)
+Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *header)
 {
-    Model *newModel;
-    void *rwdatas;
-    s16 rwdatalen;
+    Model *model;
+    void *rwdata;
+    s16 rwdataCapacity;
     s32 i;
-    s16 requiredRwdatalen;
-    s32 i2;
+    s16 requiredRwdataLen;
+    s32 slotIndex;
 
-    newModel = NULL;
-    rwdatas = NULL;
-    rwdatalen = -1;
+    model = NULL;
+    rwdata = NULL;
+    rwdataCapacity = -1;
 
     if (g_ModelIsLvResetting)
     {
-        for (i = 0; i < (g_MaxAnimModelSlots - 10); i++)
+        for (i = 0; i < (g_AnimatedModelSlotCount - ANIM_MODEL_SPARE_SLOT_COUNT); i++)
         {
-            if (g_AnimModelSlots[i].unk08 == 0)
+            if (g_AnimatedModelSlots[i].obj == NULL)
             {
-                newModel = (Model *)&g_AnimModelSlots[i];
+                model = &g_AnimatedModelSlots[i];
                 break;
             }
         }
 
-        if (newModel == NULL)
+        if (model == NULL)
         {
-            newModel = mempAllocBytesInBank(0xc0, MEMPOOL_STAGE);
+            model = mempAllocBytesInBank(ANIM_MODEL_ALLOCATION_SIZE, MEMPOOL_STAGE);
         }
 
-        requiredRwdatalen = modelFileHeader->numRecords;
+        requiredRwdataLen = header->numRecords;
 
-        if (requiredRwdatalen > 0)
+        if (requiredRwdataLen > 0)
         {
-            i = requiredRwdatalen;
-            rwdatas = mempAllocBytesInBank((((i * 4) + 0xf) | 0xf) ^ 0xf, MEMPOOL_STAGE);
-            rwdatalen = modelFileHeader->numRecords;
+            i = requiredRwdataLen;
+            rwdata = mempAllocBytesInBank((((i * 4) + 0xf) | 0xf) ^ 0xf, MEMPOOL_STAGE);
+            rwdataCapacity = header->numRecords;
         }
     }
     else
     {
-        requiredRwdatalen = modelFileHeader->numRecords;
+        requiredRwdataLen = header->numRecords;
 
-        for (i2 = 0; i2 < g_MaxAnimModelSlots; i2++)
+        for (slotIndex = 0; slotIndex < g_AnimatedModelSlotCount; slotIndex++)
         {
-            if ((g_AnimModelSlots[i2].unk08 == 0) && ((requiredRwdatalen <= 0) || ((g_AnimModelSlots[i2].unk10 != NULL) &&(g_AnimModelSlots[i2].unk02 >= requiredRwdatalen))))
+            if (g_AnimatedModelSlots[slotIndex].obj == NULL
+                && (requiredRwdataLen <= 0
+                    || (g_AnimatedModelSlots[slotIndex].datas != NULL
+                        && g_AnimatedModelSlots[slotIndex].rwdatalen >= requiredRwdataLen)))
             {
-                newModel = (Model *)&g_AnimModelSlots[i2];
-                rwdatas = g_AnimModelSlots[i2].unk10;
-                rwdatalen = g_AnimModelSlots[i2].unk02;
+                model = &g_AnimatedModelSlots[slotIndex];
+                rwdata = g_AnimatedModelSlots[slotIndex].datas;
+                rwdataCapacity = g_AnimatedModelSlots[slotIndex].rwdatalen;
                 break;
             }
         }
     }
 
-    if (newModel != NULL)
+    if (model != NULL)
     {
-        animInit(newModel, modelFileHeader, rwdatas);
-        newModel->rwdatalen = rwdatalen;
+        animInit(model, header, rwdata);
+        model->rwdatalen = rwdataCapacity;
     }
 
-    return newModel;
+    return model;
 }
 
 

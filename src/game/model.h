@@ -6,8 +6,19 @@
 #include "bondconstants.h"
 
 
-extern s32 g_MaxModelSlots;
-extern s32 g_MaxAnimModelSlots;
+#define MODEL_SPARE_SLOT_COUNT          30
+#define ANIM_MODEL_SPARE_SLOT_COUNT     10
+
+/*
+ * The original game budgets 0xc0 bytes per animated model even though Model
+ * has a 0xbc-byte stride. Preserve that unexplained pool tail padding.
+ */
+#define ANIM_MODEL_ALLOCATION_SIZE      0xc0
+
+extern ModelSlot *g_ModelSlots;
+extern Model *g_AnimatedModelSlots;
+extern s32 g_ModelSlotCount;
+extern s32 g_AnimatedModelSlotCount;
 extern s32 g_ModelIsLvResetting;
 
 typedef struct ModelNodeRenderCache {
@@ -16,7 +27,7 @@ typedef struct ModelNodeRenderCache {
     bool type3PipelineReady;
 } ModelNodeRenderCache;
 
-bool modelmgrCanSlotFitRwdata(Model *modelslot, ModelFileHeader *modeldef);
+bool modelmgrCanSlotFitRwdata(Model *model, ModelFileHeader *header);
 Model* modelmgrInstantiateModel(struct ModelFileHeader* arg0);
 void modelClearObj(Model* model);
 Model *modelmgrInstantiateModelWithAnim(ModelFileHeader *);

@@ -1404,7 +1404,11 @@ typedef union
 
     typedef void (*ModelAnimLoopCallback)(void);
 
-    typedef struct Model
+    /**
+     * Storage shared by all model instances. Models without animations are
+     * allocated as this compact prefix rather than as a full Model.
+     */
+    typedef struct ModelSlot
     {
         s16                             reserved00;
         s16                             rwdatalen;
@@ -1415,6 +1419,11 @@ typedef union
         f32                             scale;
         struct Model                   *attachedto;
         ModelNode                      *attachedto_objinst;
+    } ModelSlot;
+
+    typedef struct Model
+    {
+        inherits ModelSlot;
         ModelAnimation                 *anim;
         s8                              animFlip;
         s8                              anim2Flip;

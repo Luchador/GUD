@@ -4,7 +4,7 @@
 
 void modelmgrSetLevelResetting(bool resetting);
 void modelmgrResetSlotCounts(void);
-void modelmgrAllocateModelSlots(s32 numobjs);
-void modelmgrAllocateAnimModelSlots(s32 numanimated);
+void modelmgrAllocateModelSlots(s32 modelCount);
+void modelmgrAllocateAnimModelSlots(s32 animatedModelCount);
 
 #endif

@@ -5,17 +5,14 @@
 #include "objecthandler.h"
 #include "memp.h"
 
-#define MODEL_SPARE_SLOTS          30
-#define ANIM_MODEL_SPARE_SLOTS     10
-
 #define MODEL_SPARE_RWDATALEN      0x14
 #define ANIM_MODEL_SPARE_RWDATALEN 0x8c
 
 
 void modelmgrResetSlotCounts(void)
 {
-    g_MaxAnimModelSlots = 0;
-    g_MaxModelSlots = 0;
+    g_AnimatedModelSlotCount = 0;
+    g_ModelSlotCount = 0;
 }
 
 
@@ -25,50 +22,51 @@ void modelmgrSetLevelResetting(bool resetting)
 }
 
 
-void modelmgrAllocateModelSlots(s32 numobjs)
+void modelmgrAllocateModelSlots(s32 modelCount)
 {
     s32 i;
 
-    g_MaxModelSlots = numobjs + MODEL_SPARE_SLOTS;
+    g_ModelSlotCount = modelCount + MODEL_SPARE_SLOT_COUNT;
     
-    g_ModelSlots = mempAllocBytesInBank(g_MaxModelSlots * sizeof(struct ModelSlot), MEMPOOL_STAGE);
+    g_ModelSlots = mempAllocBytesInBank(g_ModelSlotCount * sizeof(ModelSlot), MEMPOOL_STAGE);
 
-    for (i = 0; i < g_MaxModelSlots; i++)
+    for (i = 0; i < g_ModelSlotCount; i++)
     {
-        g_ModelSlots[i].unk08 = 0;
+        g_ModelSlots[i].obj = NULL;
 
-        if (i < numobjs)
+        if (i < modelCount)
         {
-            g_ModelSlots[i].unk10 = NULL;
+            g_ModelSlots[i].datas = NULL;
         }
         else
         {
-            g_ModelSlots[i].unk10 = mempAllocBytesInBank(MODEL_SPARE_RWDATALEN * sizeof(u32), MEMPOOL_STAGE);
-            g_ModelSlots[i].unk02 = MODEL_SPARE_RWDATALEN;
+            g_ModelSlots[i].datas = mempAllocBytesInBank(MODEL_SPARE_RWDATALEN * sizeof(u32), MEMPOOL_STAGE);
+            g_ModelSlots[i].rwdatalen = MODEL_SPARE_RWDATALEN;
         }
     }
 }
 
 
-void modelmgrAllocateAnimModelSlots(s32 numanimated)
+void modelmgrAllocateAnimModelSlots(s32 animatedModelCount)
 {
     s32 i;
 
-    g_MaxAnimModelSlots = numanimated + ANIM_MODEL_SPARE_SLOTS;
-    g_AnimModelSlots = mempAllocBytesInBank(g_MaxAnimModelSlots * (4 + sizeof(struct AnimModelSlot)), MEMPOOL_STAGE);
+    g_AnimatedModelSlotCount = animatedModelCount + ANIM_MODEL_SPARE_SLOT_COUNT;
+    g_AnimatedModelSlots = mempAllocBytesInBank(
+        g_AnimatedModelSlotCount * ANIM_MODEL_ALLOCATION_SIZE, MEMPOOL_STAGE);
 
-    for (i = 0; i < g_MaxAnimModelSlots; i++)
+    for (i = 0; i < g_AnimatedModelSlotCount; i++)
     {
-        g_AnimModelSlots[i].unk08 = 0;
+        g_AnimatedModelSlots[i].obj = NULL;
 
-        if (i < numanimated)
+        if (i < animatedModelCount)
         {
-            g_AnimModelSlots[i].unk10 = NULL;
+            g_AnimatedModelSlots[i].datas = NULL;
         }
         else
         {
-            g_AnimModelSlots[i].unk10 = mempAllocBytesInBank(ANIM_MODEL_SPARE_RWDATALEN * sizeof(u32), MEMPOOL_STAGE);
-            g_AnimModelSlots[i].unk02 = ANIM_MODEL_SPARE_RWDATALEN;
+            g_AnimatedModelSlots[i].datas = mempAllocBytesInBank(ANIM_MODEL_SPARE_RWDATALEN * sizeof(u32), MEMPOOL_STAGE);
+            g_AnimatedModelSlots[i].rwdatalen = ANIM_MODEL_SPARE_RWDATALEN;
         }
     }
 }

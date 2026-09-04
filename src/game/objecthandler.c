@@ -6,11 +6,11 @@
 /* Fixed scratch pool rebuilt into a doubly linked free list on stage load. */
 ModelHitEntry g_ModelHitEntries[MODEL_HIT_ENTRY_POOL_SIZE];
 
-struct AnimModelSlot *g_AnimModelSlots;
-struct ModelSlot *g_ModelSlots;
+Model *g_AnimatedModelSlots;
+ModelSlot *g_ModelSlots;
 
-s32 g_MaxAnimModelSlots;
-s32 g_MaxModelSlots;
+s32 g_AnimatedModelSlotCount;
+s32 g_ModelSlotCount;
 s32 g_ModelIsLvResetting;
 s32 g_ModelDistanceDisabled;
 f32 g_ModelDistanceScale = 1.0;
