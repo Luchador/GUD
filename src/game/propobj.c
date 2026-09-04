@@ -6468,6 +6468,107 @@ void save_ptr_monitor_ani_code_to_obj_ani_slot(MonitorRecord *mon, void *image)
 }
 
 
+typedef struct MonitorTexcoord
+{
+    s16 s;
+    s16 t;
+} MonitorTexcoord;
+
+typedef struct MonitorUvCache
+{
+    u32 xscaleBits;
+    u32 yscaleBits;
+    u32 xmidBits;
+    u32 ymidBits;
+    u32 rotationBits;
+    u8 textureWidth;
+    u8 textureHeight;
+    u8 valid;
+    MonitorTexcoord texcoords[4];
+} MonitorUvCache;
+
+static MonitorUvCache g_MonitorUvCache;
+
+
+/**
+ * Calculate monitor UVs only when their inputs change. Most monitor images are
+ * the same size and use the default transform, so this cache is shared across
+ * both frames and monitor objects without expanding the fixed setup records.
+ */
+static void monitorApplyCachedUvs(MonitorRecord *screen, sImageTableEntry *texture, Vertex *vertices)
+{
+    MonitorUvCache *cache = &g_MonitorUvCache;
+    u32 xscaleBits = *(u32 *)&screen->xscale;
+    u32 yscaleBits = *(u32 *)&screen->yscale;
+    u32 xmidBits = *(u32 *)&screen->xmid;
+    u32 ymidBits = *(u32 *)&screen->ymid;
+    u32 rotationBits = *(u32 *)&screen->rot;
+
+    if (!cache->valid
+            || cache->xscaleBits != xscaleBits
+            || cache->yscaleBits != yscaleBits
+            || cache->xmidBits != xmidBits
+            || cache->ymidBits != ymidBits
+            || cache->rotationBits != rotationBits
+            || cache->textureWidth != texture->width
+            || cache->textureHeight != texture->height)
+    {
+        f32 xCosOffset = screen->xscale / 2.0f;
+        f32 ySinOffset = screen->yscale / 2.0f;
+        f32 xSinOffset = xCosOffset;
+        f32 yCosOffset = ySinOffset;
+        f32 textureWidthScale;
+        f32 textureHeightScale;
+
+        cache->xscaleBits = xscaleBits;
+        cache->yscaleBits = yscaleBits;
+        cache->xmidBits = xmidBits;
+        cache->ymidBits = ymidBits;
+        cache->rotationBits = rotationBits;
+        cache->textureWidth = texture->width;
+        cache->textureHeight = texture->height;
+
+        if (screen->rot != 0.0f)
+        {
+            f32 scaledCos = cosf(screen->rot) * 1.4141999f;
+            f32 scaledSin = sinf(screen->rot) * 1.4141999f;
+
+            xCosOffset *= scaledCos;
+            ySinOffset *= scaledSin;
+            xSinOffset *= scaledSin;
+            yCosOffset *= scaledCos;
+        }
+
+        textureWidthScale = texture->width * 32.0f;
+        textureHeightScale = texture->height * 32.0f;
+
+        cache->texcoords[0].s = (screen->xmid + xCosOffset) * textureWidthScale;
+        cache->texcoords[0].t = (screen->ymid + ySinOffset) * textureHeightScale;
+
+        cache->texcoords[1].s = (screen->xmid - xSinOffset) * textureWidthScale;
+        cache->texcoords[1].t = (screen->ymid + yCosOffset) * textureHeightScale;
+
+        cache->texcoords[2].s = (screen->xmid - xCosOffset) * textureWidthScale;
+        cache->texcoords[2].t = (screen->ymid - ySinOffset) * textureHeightScale;
+
+        cache->texcoords[3].s = (screen->xmid + xSinOffset) * textureWidthScale;
+        cache->texcoords[3].t = (screen->ymid - yCosOffset) * textureHeightScale;
+
+        cache->valid = TRUE;
+    }
+
+    {
+        u32 *vertexWords = (u32 *)vertices;
+        u32 *texcoordWords = (u32 *)cache->texcoords;
+
+        vertexWords[2] = texcoordWords[0];
+        vertexWords[6] = texcoordWords[1];
+        vertexWords[10] = texcoordWords[2];
+        vertexWords[14] = texcoordWords[3];
+    }
+}
+
+
 void monitorSetImageByNum(MonitorRecord *mon, s32 monAnimID)
 {
     s32 *image = &monAnim00Bond;
@@ -6906,51 +7007,7 @@ Gfx *monitorProcessAndRender(Model *model, ModelNode *node, MonitorRecord *scree
             tconfig = screen->tconfig;
         }
 
-        {
-            f32 xfrac1;
-            f32 yfrac1;
-            f32 xfrac2;
-            f32 yfrac2;
-            f32 cosrot;
-            f32 sinrot;
-            f32 rotscale;
-            f32 textureWidthScale;
-            f32 textureHeightScale;
-
-            xfrac1 = screen->xscale / 2.0f;
-            yfrac1 = screen->yscale / 2.0f;
-            xfrac2 = xfrac1;
-            yfrac2 = yfrac1;
-
-            if (screen->rot != 0.0f)
-            {
-                cosrot = cosf(screen->rot);
-                rotscale = 1.4141999f;
-                cosrot *= rotscale;
-                sinrot = sinf(screen->rot);
-
-                xfrac1 *= cosrot;
-                sinrot *= rotscale;
-                yfrac1 *= sinrot;
-                xfrac2 *= sinrot;
-                yfrac2 *= cosrot;
-            }
-
-            textureWidthScale = tconfig->width * 32.0f;
-            textureHeightScale = tconfig->height * 32.0f;
-
-            vertices[0].s = (screen->xmid + xfrac1) * textureWidthScale;
-            vertices[0].t = (screen->ymid + yfrac1) * textureHeightScale;
-
-            vertices[1].s = (screen->xmid - xfrac2) * textureWidthScale;
-            vertices[1].t = (screen->ymid + yfrac2) * textureHeightScale;
-
-            vertices[2].s = (screen->xmid - xfrac1) * textureWidthScale;
-            vertices[2].t = (screen->ymid - yfrac1) * textureHeightScale;
-
-            vertices[3].s = (screen->xmid + xfrac2) * textureWidthScale;
-            vertices[3].t = (screen->ymid - yfrac2) * textureHeightScale;
-        }
+        monitorApplyCachedUvs(screen, tconfig, vertices);
 
         {
             u8 tmpc;

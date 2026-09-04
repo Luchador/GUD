@@ -303,7 +303,7 @@ void envSwitchToSoloSky2(f32 transitionTime)
 
 /**
  * Initializes fog state that is constant for the duration of one player's
- * world render. Fog position and alpha dithering do not need to be resent for
+ * world render. Fog position and alpha dithering do not need to be present for
  * every room.
  */
 Gfx *envBeginWorldFog(Gfx *gdl)
