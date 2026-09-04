@@ -142,10 +142,11 @@ static EnvironmentRecord *envFindEnvironment(u32 id)
 
 static void envLoadCurrentEnvironment(EnvironmentRecord *record)
 {
-    f32 zrange[2];
     f32 pk0;
     f32 pk4;
-    f32 renderScale;
+    f32 inverseRenderScale;
+    f32 worldNearClipDistance;
+    f32 worldFarClipDistance;
     f32 sp20;
     f32 sp1C;
 
@@ -154,7 +155,13 @@ static void envLoadCurrentEnvironment(EnvironmentRecord *record)
     g_PropFadeEndPx = record->PropVisibility.FadeEndPx;
 
     viSetZRange(record->Visibility.NearClipDistance, record->Visibility.FarClipDistance);
-    viGetZRange(&zrange);
+
+    inverseRenderScale = 1.0f / bgGetLevelRenderScale();
+    worldNearClipDistance = record->Visibility.NearClipDistance * inverseRenderScale;
+    worldFarClipDistance = record->Visibility.FarClipDistance * inverseRenderScale;
+
+    // Cache this once when the environment changes instead of dividing in every BG culling test.
+    bgSetWorldFarClipDistance(worldFarClipDistance);
 
     if (!record->FogEnabled)
     {
@@ -165,18 +172,15 @@ static void envLoadCurrentEnvironment(EnvironmentRecord *record)
         return;
     }
 
-    renderScale = bgGetLevelRenderScale();
-    zrange[0] /= renderScale;
-    zrange[1] /= renderScale;
-
     g_DifferenceFromFarFogIntensity = (f32)record->Visibility.FogStart / 1000.0f;
     g_FarFogIntensity = (f32)record->Visibility.FogEnd / 1000.0f;
 
-    g_ScaledFarFogIntensity = ((zrange[1] - zrange[0]) *  g_FarFogIntensity) + zrange[0];
+    g_ScaledFarFogIntensity =
+        ((worldFarClipDistance - worldNearClipDistance) * g_FarFogIntensity) + worldNearClipDistance;
 
-    g_CurFogDetails.g_CurFogDetails = record->Visibility.NearClipDistance / renderScale;
+    g_CurFogDetails.g_CurFogDetails = worldNearClipDistance;
     pk0 = g_CurFogDetails.g_CurFogDetails;
-    g_CurFogDetails.scaled_far_fog_dist = record->Visibility.FarClipDistance / renderScale;
+    g_CurFogDetails.scaled_far_fog_dist = worldFarClipDistance;
     pk4 = g_CurFogDetails.scaled_far_fog_dist;
 
     // numerator is constant 128.0f

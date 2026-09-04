@@ -637,13 +637,6 @@ void viSetZRange(f32 near, f32 far)
 }
 
 
-void viGetZRange(f32 *zrange)
-{
-    zrange[0] = g_ViBackData->znear;
-    zrange[1] = g_ViBackData->zfar;
-}
-
-
 Gfx *viSetFillColor(Gfx *gdl, s32 r, s32 g, s32 b)
 {
     if (g_viColorOutputMode != COLORMODE_32BIT)

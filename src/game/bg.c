@@ -94,6 +94,13 @@ f32 g_LevelScale = 1.0;
 f32 g_LevelInverseScale = 1.0;
 // Private member - use bgGetLevelRenderScale outside this file
 f32 g_CurrentLevelRenderScale = 1.0;
+
+/**
+ * Far clip converted from render units to gameplay world units. The environment
+ * updates this when its clipping range changes; room and portal culling read it
+ * many times per frame.
+ */
+static f32 g_CurrentWorldFarClipDistance = 10000.0f;
 s32 levelentry_index = 1;
 
 /**
@@ -725,6 +732,12 @@ f32 bgGetLevelRenderScale(void)
 }
 
 
+void bgSetWorldFarClipDistance(f32 distance)
+{
+    g_CurrentWorldFarClipDistance = distance;
+}
+
+
 void bgTick(void)
 {
     PortalData *portal;
@@ -1065,7 +1078,7 @@ bool bgIsRoomOnScreen(s32 roomID, struct rectbbox *screenbox)
     s32 count_right;
     s32 count_top;
     s32 count_bottom;
-    f32 zrange[2];
+    f32 farClipZ;
 
     count_z = 0;
     count_failed_projection = 0;
@@ -1074,9 +1087,7 @@ bool bgIsRoomOnScreen(s32 roomID, struct rectbbox *screenbox)
     count_top = 0;
     count_bottom = 0;
 
-    viGetZRange(zrange);
-
-    zrange[1] = zrange[1] / g_CurrentLevelRenderScale;
+    farClipZ = -g_CurrentWorldFarClipDistance;
 
     for (i = 0; i < 8; i++) 
     {
@@ -1109,7 +1120,7 @@ bool bgIsRoomOnScreen(s32 roomID, struct rectbbox *screenbox)
 
         if (bgProjectRoomCoordToScreen(&corner, &projected) == 0) 
         {
-            if (zrange[1] <= -projected.z) 
+            if (projected.z <= farClipZ)
             {
                 count_z++;
             }
@@ -1138,7 +1149,7 @@ bool bgIsRoomOnScreen(s32 roomID, struct rectbbox *screenbox)
         } 
         else 
         {
-            if (zrange[1] <= -projected.z) 
+            if (projected.z <= farClipZ)
             {
                 count_z++;
             }
@@ -1210,15 +1221,14 @@ s32 bgProjectPortalPoints(s32 portalnum, f32 scale, coord3d *points)
     coord3d *point;
     s32 i;
     s32 next;
-    f32 zrange[2];
+    f32 farClipThreshold;
     s32 allbehind;
     struct PortalMetric metric;
     s32 len;
 
     matrix = camGetWorldToScreenMtxf();
     allbehind = 1;
-    viGetZRange(zrange);
-    zrange[1] /= g_CurrentLevelRenderScale;
+    farClipThreshold = g_CurrentWorldFarClipDistance * -0.9f;
 
     metric = g_PortalPlanes[portalnum];
 
@@ -1244,7 +1254,7 @@ s32 bgProjectPortalPoints(s32 portalnum, f32 scale, coord3d *points)
 
         mtx4TransformVecInPlace(matrix, point);
 
-        if (-zrange[1] * 0.9f < point->z)
+        if (farClipThreshold < point->z)
         {
             allbehind = 0;
         }

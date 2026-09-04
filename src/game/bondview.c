@@ -7701,9 +7701,17 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
 
     scale = g_ViewConversionScale;
 
-    scaledpos.x = (cam_pos->x - g_CurrentPlayer->current_model_pos.x) * scale;
-    scaledpos.y = (cam_pos->y - g_CurrentPlayer->current_model_pos.y) * scale;
-    scaledpos.z = (cam_pos->z - g_CurrentPlayer->current_model_pos.z) * scale;
+    scaledpos.x = cam_pos->x - g_CurrentPlayer->current_model_pos.x;
+    scaledpos.y = cam_pos->y - g_CurrentPlayer->current_model_pos.y;
+    scaledpos.z = cam_pos->z - g_CurrentPlayer->current_model_pos.z;
+
+    // Nearly every stage uses 1.0f, so keep the common path free of redundant multiplies.
+    if (scale != 1.0f)
+    {
+        scaledpos.x *= scale;
+        scaledpos.y *= scale;
+        scaledpos.z *= scale;
+    }
 
     clpos.f[0] = scaledpos.f[0] + cam_look_dir->f[0];
     clpos.f[1] = scaledpos.f[1] + cam_look_dir->f[1];
@@ -7752,9 +7760,14 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
     guMtxF2L((f32 (*)[4]) &sp60, temp_s0);
     camSetPlayerProjViewMtx(temp_s0);
 
-    scale = bgGetLevelRenderScale();
+    scale = g_ViewConversionScale;
 
-    matrix_scalar_multiply(scale, spC4.m[0]);
+    // Scaling the matrix costs another twelve multiplies when the scale is 1.0f.
+    if (scale != 1.0f)
+    {
+        matrix_scalar_multiply(scale, spC4.m[0]);
+    }
+
     guMtxF2L((f32 (*)[4]) &spC4, (Mtx* ) g_CurrentPlayer->field_5C);
     matrix_4x4_s32_unpack((s32* ) g_CurrentPlayer->field_5C, (s32* ) g_CurrentPlayer->field_60);
 

@@ -160,6 +160,7 @@ f32 bgGetRoomScale(void);
 u8 bgIsRoomRendered(s32 roomID);
 s32 bgGet2dBboxByRoomId(s32 room_id, struct bbox2d *result);
 f32 bgGetLevelRenderScale(void);
+void bgSetWorldFarClipDistance(f32 distance);
 void bgRectOutersect(struct bbox2d *a, struct bbox2d *b);
 f32 bgGetRoomInverseScale(void);
 s32 bgGetPortalBetweenRooms(s32 arg0, s32 arg1, struct coord3d *arg2, struct coord3d *arg3);
