@@ -26,7 +26,6 @@
 #include "propobj.h"
 #include "setup.h"
 #include "stan.h"
-#include "token.h"
 
 
 /**
@@ -42,7 +41,6 @@ extern ItemModelFileRecord PitemZ_entries[341];
 
 // Begin forward declarations.
 
-s32 load_proptype(PROPDEF_TYPE type);
 void padGetCenter(struct BoundPadRecord *pad, struct coord3d *centerPoint);
 void weaponAssignToHome(s32 arg0, WeaponObjRecord* weapon, s32 cmdindex);
 void setupHat(s32 arg0, ObjectRecord* hat, s32 cmdindex);
@@ -58,23 +56,71 @@ void setupDoor(struct DoorRecord *door, s32 cmdindex);
 // End forward declarations.
 
 
-s32 load_proptype(PROPDEF_TYPE type)
+struct SetupSlotCounts
 {
-    PropDefHeaderRecord *propdef = (PropDefHeaderRecord *) g_CurrentSetup.propDefs;
-    s32 count = 0;
+    s32 guards;
+    s32 modelSlots;
+    s32 animatedModelSlots;
+    s32 itemLinks;
+};
 
-    if (propdef != NULL)
+
+static void setupCountRequiredSlots(struct SetupSlotCounts *counts)
+{
+    PropDefHeaderRecord *command = g_CurrentSetup.propDefs;
+
+    counts->guards = 0;
+    counts->modelSlots = 0;
+    counts->animatedModelSlots = 0;
+    counts->itemLinks = 0;
+
+    while ((command != NULL) && (command->type != PROPDEF_END))
     {
-        while (propdef->type != PROPDEF_END)
+        switch (command->type)
         {
-            if (propdef->type == (type & 0xFF))
-            {
-                count ++;
-            }
-            propdef = &propdef[sizepropdef((PropDefHeaderRecord* ) propdef)];
+            case PROPDEF_GUARD:
+                counts->guards++;
+                counts->animatedModelSlots++;
+                break;
+            case PROPDEF_AIRCRAFT:
+                counts->animatedModelSlots++;
+                break;
+            case PROPDEF_LINK:
+                counts->itemLinks++;
+                break;
+            case PROPDEF_COLLECTABLE:
+            case PROPDEF_KEY:
+            case PROPDEF_HAT:
+            case PROPDEF_DOOR:
+            case PROPDEF_CCTV:
+            case PROPDEF_AUTOGUN:
+            case PROPDEF_RACK:
+            case PROPDEF_MONITOR:
+            case PROPDEF_MULTI_MONITOR:
+            case PROPDEF_ARMOUR:
+            case PROPDEF_PROP:
+            case PROPDEF_GLASS:
+            case PROPDEF_TINTED_GLASS:
+            case PROPDEF_SAFE:
+            case PROPDEF_UNK41:
+            case PROPDEF_GAS_RELEASING:
+            case PROPDEF_ALARM:
+            case PROPDEF_MAGAZINE:
+            case PROPDEF_AMMO:
+            case PROPDEF_VEHICLE:
+            case PROPDEF_TANK:
+                counts->modelSlots++;
+                break;
         }
+
+        command = &command[sizepropdef(command)];
     }
-    return count;
+}
+
+
+static bool setupShouldLoadObject(const ObjectRecord *object, u32 exclusionFlags)
+{
+    return (object->flags2 & exclusionFlags) == 0;
 }
 
 
@@ -1120,13 +1166,8 @@ void setupDoor(struct DoorRecord *door, s32 cmdindex)
 
 void setupLoadFiles(enum LEVELID stageId)
 {
-    ItemModelFileRecord *pitem;
+    ItemModelFileRecord *itemModel;
     struct levelentry *levelInfo;
-    s32 withchrs;
-    s32 withobjs;
-
-    withchrs = (((void *) tokenFind(1, "-nochr")) == NULL) && (((void *) tokenFind(1, "-noprop")) == NULL);
-    withobjs = (((void *) tokenFind(1, "-noobj")) == NULL) && (((void *) tokenFind(1, "-noprop")) == NULL);
 
     g_DoorScale = 1.0f;
     g_MpSetupWeaponSlot = -1;
@@ -1137,29 +1178,21 @@ void setupLoadFiles(enum LEVELID stageId)
      * 
      * The last entry in the PitemZ_entries table is a terminator which is why 1 is subtracted from the loop length.
      */
-    for (pitem = PitemZ_entries; pitem < &PitemZ_entries[ARRAYCOUNT(PitemZ_entries) - 1]; pitem++)
+    for (itemModel = PitemZ_entries; itemModel < &PitemZ_entries[ARRAYCOUNT(PitemZ_entries) - 1]; itemModel++)
     {
-        pitem->header->RootNode = NULL;
+        itemModel->header->RootNode = NULL;
     }
 
     levelInfo = lvFindLevelInfo(stageId);
 
     if ((levelInfo != NULL) && (levelInfo->setupFileName != NULL))
     {
-        char strResource[0x100] = ""; // Scratch buffer for synthesizing the setup file's name at runtime.
-        s32 numAnimatedObjects = 0;
-        s32 numObjects = 0;
-        s32 i1 = 0;
-        s32 i2 = 0;
-        s32 i3 = 0;
-        f32 roompos_1;
-        s32 i5 = 0;
-        s32 i8;
-        f32 roompos_2;
-        struct stagesetup *local_stage;
+        char setupFileName[0x100] = "";
+        struct SetupSlotCounts slotCounts;
+        struct stagesetup *setupFile;
 
-        strResource[0] = levelInfo->setupFileName[0]; // 'U' -> "U"
-        strResource[1] = 0; // Terminate so strcat has a valid string.
+        setupFileName[0] = levelInfo->setupFileName[0];
+        setupFileName[1] = '\0';
 
         /**
          * g_LevelInfoTable stores the single-player setup name. The multiplayer name is created
@@ -1167,42 +1200,42 @@ void setupLoadFiles(enum LEVELID stageId)
          */
         if (getPlayerCount() >= 2)
         {
-            strcat(strResource, "mp_"); // -> "Ump_"
+            strcat(setupFileName, "mp_");
         }
 
-        strcat(strResource, levelInfo->setupFileName + 1); // Add remaining text back U[mp_] + setupxxxZ
+        strcat(setupFileName, levelInfo->setupFileName + 1);
 
-        g_ptrStageSetupFile = _fileNameLoadToBank(strResource, FILELOADMETHOD_DEFAULT, 256, MEMPOOL_STAGE);
+        g_ptrStageSetupFile = _fileNameLoadToBank(setupFileName, FILELOADMETHOD_DEFAULT, 256, MEMPOOL_STAGE);
 
-        local_stage = g_ptrStageSetupFile;
+        setupFile = g_ptrStageSetupFile;
         langLoadToAddr(langGetLangBankIndexFromStagenum(stageId));
 
         /**
          * The setup file stores every internal reference as a byte offset from the start of the file,
-         * so rebase them all onto the RAM copy at local_stage.
+         * so rebase them all onto the RAM copy at setupFile.
          */
-        g_CurrentSetup.pathwaypoints = (void *) (((u32) local_stage) + ((u32) local_stage->pathwaypoints));
-        g_CurrentSetup.waypointgroups = (void *) (((u32) local_stage) + ((u32) local_stage->waypointgroups));
-        g_CurrentSetup.intro = (void *) (((u32) local_stage) + ((u32) local_stage->intro));
-        g_CurrentSetup.propDefs = (void *) (((u32) local_stage) + ((u32) local_stage->propDefs));
-        g_CurrentSetup.patrolpaths = (void *) (((u32) local_stage) + ((u32) local_stage->patrolpaths));
-        g_CurrentSetup.ailists = (void *) (((u32) local_stage) + ((u32) local_stage->ailists));
-        g_CurrentSetup.pads = (void *) (((u32) local_stage) + ((u32) local_stage->pads));
-        g_CurrentSetup.boundpads = (void *) (((u32) local_stage) + ((u32) local_stage->boundpads));
+        g_CurrentSetup.pathwaypoints = (void *) ((u32) setupFile + (u32) setupFile->pathwaypoints);
+        g_CurrentSetup.waypointgroups = (void *) ((u32) setupFile + (u32) setupFile->waypointgroups);
+        g_CurrentSetup.intro = (void *) ((u32) setupFile + (u32) setupFile->intro);
+        g_CurrentSetup.propDefs = (void *) ((u32) setupFile + (u32) setupFile->propDefs);
+        g_CurrentSetup.patrolpaths = (void *) ((u32) setupFile + (u32) setupFile->patrolpaths);
+        g_CurrentSetup.ailists = (void *) ((u32) setupFile + (u32) setupFile->ailists);
+        g_CurrentSetup.pads = (void *) ((u32) setupFile + (u32) setupFile->pads);
+        g_CurrentSetup.boundpads = (void *) ((u32) setupFile + (u32) setupFile->boundpads);
 
         // Pad names and bound names are optional. An offset of 0 means absent.
-        if (local_stage->padnames != 0)
+        if (setupFile->padnames != NULL)
         {
-            g_CurrentSetup.padnames = (void *) (((u32) local_stage) + ((u32) local_stage->padnames));
+            g_CurrentSetup.padnames = (void *) ((u32) setupFile + (u32) setupFile->padnames);
         }
         else
         {
             g_CurrentSetup.padnames = NULL;
         }
 
-        if (local_stage->boundpadnames != 0)
+        if (setupFile->boundpadnames != NULL)
         {
-            g_CurrentSetup.boundpadnames = (void *) (((u32) local_stage) + ((u32) local_stage->boundpadnames));
+            g_CurrentSetup.boundpadnames = (void *) ((u32) setupFile + (u32) setupFile->boundpadnames);
         }
         else
         {
@@ -1211,159 +1244,128 @@ void setupLoadFiles(enum LEVELID stageId)
 
         if (g_CurrentSetup.pathwaypoints)
         {
-            for (i1 = 0; g_CurrentSetup.pathwaypoints[i1].padID >= 0; i1++)
+            waypoint *waypointEntry;
+
+            for (waypointEntry = g_CurrentSetup.pathwaypoints; waypointEntry->padID >= 0; waypointEntry++)
             {
-                g_CurrentSetup.pathwaypoints[i1].neighbours = (void *) (((u32) g_CurrentSetup.pathwaypoints[i1].neighbours) + ((u32) local_stage));
+                waypointEntry->neighbours = (void *) ((u32) setupFile + (u32) waypointEntry->neighbours);
             }
         }
 
         if (g_CurrentSetup.waypointgroups)
         {
-            for (i2 = 0; g_CurrentSetup.waypointgroups[i2].neighbours; i2++)
+            waygroup *waypointGroup;
+
+            for (waypointGroup = g_CurrentSetup.waypointgroups; waypointGroup->neighbours != NULL; waypointGroup++)
             {
-                g_CurrentSetup.waypointgroups[i2].neighbours = (void *) (((u32) g_CurrentSetup.waypointgroups[i2].neighbours) + ((u32) local_stage));
-                g_CurrentSetup.waypointgroups[i2].waypoints = (void *) (((u32) g_CurrentSetup.waypointgroups[i2].waypoints) + ((u32) local_stage));
+                waypointGroup->neighbours = (void *) ((u32) setupFile + (u32) waypointGroup->neighbours);
+                waypointGroup->waypoints = (void *) ((u32) setupFile + (u32) waypointGroup->waypoints);
             }
         }
 
-        // Convert ailist pointers a.k.a. Action Blocks from file-local to proper pointers
+        // Convert AI list (action block) offsets to pointers.
+        if (g_CurrentSetup.ailists)
         {
-            AIListRecord *ailists = g_CurrentSetup.ailists;
-            if (ailists)
+            AIListRecord *aiList;
+
+            for (aiList = g_CurrentSetup.ailists; aiList->ailist != NULL; aiList++)
             {
-                for (i3 = 0; g_CurrentSetup.ailists[i3].ailist != 0; i3++)
-                {
-                    g_CurrentSetup.ailists[i3].ailist = (void *) (((u32) g_CurrentSetup.ailists[i3].ailist) + ((u32) local_stage));
-                }
+                aiList->ailist = (void *) ((u32) setupFile + (u32) aiList->ailist);
             }
         }
 
         if (g_CurrentSetup.patrolpaths)
         {
-            for (i3 = 0; g_CurrentSetup.patrolpaths[i3].waypoints != NULL; i3++)
+            PathRecord *patrolPath;
+
+            for (patrolPath = g_CurrentSetup.patrolpaths; patrolPath->waypoints != NULL; patrolPath++)
             {
-                g_CurrentSetup.patrolpaths[i3].waypoints = (void *) (((u32) g_CurrentSetup.patrolpaths[i3].waypoints) + ((u32) local_stage));
-                g_CurrentSetup.patrolpaths[i3].len = i5;
+                patrolPath->waypoints = (void *) ((u32) setupFile + (u32) patrolPath->waypoints);
+                patrolPath->len = 0;
             }
         }
 
         if (g_CurrentSetup.pads)
         {
             struct PadRecord *pad;
-    
-            roompos_1 = bgGetRoomInverseScale();
-            pad = g_CurrentSetup.pads;
+            f32 roomScale = bgGetRoomInverseScale();
 
-            for (; pad->plink != NULL; pad++)
+            for (pad = g_CurrentSetup.pads; pad->plink != NULL; pad++)
             {
-                pad->plink = (void *) (((u32) local_stage) + ((u32) pad->plink));
-                pad->pos.f[0] *= roompos_1;
-                pad->pos.f[1] *= roompos_1;
-                pad->pos.f[2] *= roompos_1;
-        
+                pad->plink = (void *) ((u32) setupFile + (u32) pad->plink);
+                pad->pos.x *= roomScale;
+                pad->pos.y *= roomScale;
+                pad->pos.z *= roomScale;
+
                 padAssignStanTile(pad, pad->plink, &pad->stan);
             }
         }
 
         if (g_CurrentSetup.boundpads)
         {
-            struct BoundPadRecord *vol;
+            struct BoundPadRecord *boundPad;
+            f32 roomScale = bgGetRoomInverseScale();
 
-            roompos_2 = bgGetRoomInverseScale();
-            vol = g_CurrentSetup.boundpads;
-            
-            for (; vol->plink != NULL; vol++)
+            for (boundPad = g_CurrentSetup.boundpads; boundPad->plink != NULL; boundPad++)
             {
-                /** Ugly matching hack. 
-                *   TODO: investigate if there's a way to get rid of this.
-                */
-                if ((((u32) local_stage) ^ 0) + ((u32)vol->plink));
+                boundPad->plink = (void *) ((u32) setupFile + (u32) boundPad->plink);
+                boundPad->pos.x *= roomScale;
+                boundPad->pos.y *= roomScale;
+                boundPad->pos.z *= roomScale;
+                boundPad->bbox.xmin *= roomScale;
+                boundPad->bbox.xmax *= roomScale;
+                boundPad->bbox.ymin *= roomScale;
+                boundPad->bbox.ymax *= roomScale;
+                boundPad->bbox.zmin *= roomScale;
+                boundPad->bbox.zmax *= roomScale;
 
-                vol->plink = (void *) (((u32) local_stage) + ((u32)vol->plink));
-                vol->pos.f[0] *= roompos_2;
-                vol->pos.f[1] *= roompos_2;
-                vol->pos.f[2] *= roompos_2;
-                vol->bbox.xmin *= roompos_2;
-                vol->bbox.xmax *= roompos_2;
-                vol->bbox.ymin *= roompos_2;
-                vol->bbox.ymax *= roompos_2;
-                vol->bbox.zmin *= roompos_2;
-                vol->bbox.zmax *= roompos_2;
-
-                padAssignStanTile((struct PadRecord *) vol, vol->plink, &vol->stan);
+                padAssignStanTile((struct PadRecord *) boundPad, boundPad->plink, &boundPad->stan);
             }
         }
 
         if (g_CurrentSetup.padnames)
         {
-            for (i1 = 0; g_CurrentSetup.padnames[i1].p; i1++)
+            pname *padName;
+
+            for (padName = g_CurrentSetup.padnames; padName->p != NULL; padName++)
             {
-                g_CurrentSetup.padnames[i1].p = (void *) (((u32) g_CurrentSetup.padnames[i1].p) + ((u32) local_stage));
+                padName->p = (void *) ((u32) setupFile + (u32) padName->p);
             }
         }
 
         if (g_CurrentSetup.boundpadnames)
         {
-            for (i1 = 0; g_CurrentSetup.boundpadnames[i1].p; i1++)
+            pname *boundPadName;
+
+            for (boundPadName = g_CurrentSetup.boundpadnames; boundPadName->p != NULL; boundPadName++)
             {
-                g_CurrentSetup.boundpadnames[i1].p = (void *) (((u32) g_CurrentSetup.boundpadnames[i1].p) + ((u32) local_stage));
+                boundPadName->p = (void *) ((u32) setupFile + (u32) boundPadName->p);
             }
         }
 
-        if (withchrs)
-        {
-            alloc_init_GUARDdata_entries(load_proptype(PROPDEF_GUARD));
-            numAnimatedObjects += load_proptype(PROPDEF_GUARD);
-            numObjects += load_proptype(PROPDEF_COLLECTABLE);
-            numObjects += load_proptype(PROPDEF_KEY);
-            numObjects += load_proptype(PROPDEF_HAT);
-        }
-        else
-        {
-            alloc_init_GUARDdata_entries(0); // chrmgrConfigure
-        }
+        setupCountRequiredSlots(&slotCounts);
+        alloc_init_GUARDdata_entries(slotCounts.guards);
+        modelmgrAllocateModelSlots(slotCounts.modelSlots);
+        modelmgrAllocateAnimModelSlots(slotCounts.animatedModelSlots);
 
-        if (withobjs)
         {
-            // load std props for all stages
-            numObjects += load_proptype(PROPDEF_DOOR);
-            numObjects += load_proptype(PROPDEF_CCTV);
-            numObjects += load_proptype(PROPDEF_AUTOGUN);
-            numObjects += load_proptype(PROPDEF_RACK);
-            numObjects += load_proptype(PROPDEF_MONITOR);
-            numObjects += load_proptype(PROPDEF_MULTI_MONITOR);
-            numObjects += load_proptype(PROPDEF_ARMOUR);
-            numObjects += load_proptype(PROPDEF_PROP);
-            numObjects += load_proptype(PROPDEF_GLASS);
-            numObjects += load_proptype(PROPDEF_TINTED_GLASS);
-            numObjects += load_proptype(PROPDEF_SAFE);
-            numObjects += load_proptype(PROPDEF_UNK41);
-            numObjects += load_proptype(PROPDEF_GAS_RELEASING);
-            numObjects += load_proptype(PROPDEF_ALARM);
-            numObjects += load_proptype(PROPDEF_MAGAZINE);
-            numObjects += load_proptype(PROPDEF_AMMO);
-            numObjects += load_proptype(PROPDEF_VEHICLE);
-            numObjects += load_proptype(PROPDEF_TANK);
-            numAnimatedObjects += load_proptype(PROPDEF_AIRCRAFT);
-        }
+            s32 player;
 
-        modelmgrAllocateModelSlots(numObjects);
-        modelmgrAllocateAnimModelSlots(numAnimatedObjects);
-
-        for (i8 = 0; i8 < getPlayerCount(); i8++)
-        {
-            set_cur_player(i8);
-            alloc_additional_item_slots(load_proptype(PROPDEF_LINK));
+            for (player = 0; player < getPlayerCount(); player++)
+            {
+                set_cur_player(player);
+                alloc_additional_item_slots(slotCounts.itemLinks);
+            }
         }
 
         if (g_CurrentSetup.propDefs)
         {
-            PropDefHeaderRecord *phead;
-            s32 flags;
-            s32 pdefIndex;
+            PropDefHeaderRecord *command;
+            s32 exclusionFlags;
+            s32 commandIndex;
 
-            // per-difficulty "Don't Load" mask: PROPFLAG2_00000010/20/40 for Agent/Secret/00
-            flags = 1 << (lvGetSelectedDifficulty() + 4);
+            // PROPFLAG2_00000010/20/40 exclude objects on Agent, Secret Agent, and 00 Agent.
+            exclusionFlags = 1 << (lvGetSelectedDifficulty() + 4);
 
             /**
              * Complete the skip loading mask started on the line above. Checks for:
@@ -1374,134 +1376,126 @@ void setupLoadFiles(enum LEVELID stageId)
              */
             if (getPlayerCount() >= 2)
             {
-                flags |= 1 << (getPlayerCount() + 20);
+                exclusionFlags |= 1 << (getPlayerCount() + 20);
             }
 
-            phead = g_CurrentSetup.propDefs;
-            pdefIndex = 0;
+            // First pass: create stage entities and register objectives and metadata.
+            command = g_CurrentSetup.propDefs;
+            commandIndex = 0;
 
-            while ((i1 = phead->type) != PROPDEF_END)
+            while (command->type != PROPDEF_END)
             {
-                switch (phead->type)
+                switch (command->type)
                 {
                     case PROPDEF_GUARD_ATTRIBUTE:
                     {
-                        GuardAttributeRecord *pdef_guarda;
-                        u8 prob;
-                        ChrRecord *chr;
+                        GuardAttributeRecord *guardAttribute = (GuardAttributeRecord *) command;
+                        ChrRecord *guard = chrFindByLiteralId(guardAttribute->chrnum);
 
-                        pdef_guarda = (GuardAttributeRecord *) phead;
-                        prob = (u8) pdef_guarda->GrenadeProb;
-                        chr = chrFindByLiteralId(pdef_guarda->chrnum);
-
-                        if ((chr && chr->prop) && chr->model)
+                        if (guard && guard->prop && guard->model)
                         {
-                            chr->grenadeprob = prob;
+                            guard->grenadeprob = (u8) guardAttribute->GrenadeProb;
                         }
 
                         break;
                     }
                     case PROPDEF_GUARD:
-                        if (withchrs)
-                        {
-                            expand_09_characters(stageId, (struct GuardRecord *) phead, pdefIndex);
-                        }
+                        expand_09_characters(stageId, (struct GuardRecord *) command, commandIndex);
                         break;
                     case PROPDEF_DOOR:
-                        if (withobjs && (!(((struct DoorRecord *) phead)->flags2 & flags)))
+                        if (setupShouldLoadObject((ObjectRecord *) command, exclusionFlags))
                         {
-                            setupDoor((struct DoorRecord *) phead, pdefIndex);
+                            setupDoor((struct DoorRecord *) command, commandIndex);
                         }
                         break;
                     case PROPDEF_DOOR_SCALE:
-                        g_DoorScale = ((struct GlobalDoorScaleRecord *) phead)->Scale / M_U16_MAX_VALUE_F;
+                        g_DoorScale = ((struct GlobalDoorScaleRecord *) command)->Scale / M_U16_MAX_VALUE_F;
                         break;
                     case PROPDEF_COLLECTABLE:
-                        if (withchrs && (!(((struct WeaponObjRecord *) phead)->flags2 & flags)))
+                        if (setupShouldLoadObject((ObjectRecord *) command, exclusionFlags))
                         {
-                            weaponAssignToHome(stageId, (struct WeaponObjRecord *) phead, pdefIndex);
+                            weaponAssignToHome(stageId, (struct WeaponObjRecord *) command, commandIndex);
                         }
                         break;
                     case PROPDEF_KEY:
-                        if (withchrs && (!(((struct KeyRecord *) phead)->flags2 & flags)))
+                        if (setupShouldLoadObject((ObjectRecord *) command, exclusionFlags))
                         {
-                            setupKey(stageId, (struct ObjectRecord *) phead, pdefIndex);
+                            setupKey(stageId, (struct ObjectRecord *) command, commandIndex);
                         }
                         break;
                     case PROPDEF_HAT:
-                        if (withchrs && (!(((struct ObjectRecord *) phead)->flags2 & flags)))
+                        if (setupShouldLoadObject((ObjectRecord *) command, exclusionFlags))
                         {
-                            setupHat(stageId, (struct ObjectRecord *) phead, pdefIndex);
+                            setupHat(stageId, (struct ObjectRecord *) command, commandIndex);
                         }
                         break;
                     case PROPDEF_CCTV:
-                        if (withobjs && (!(((struct CCTVRecord *) phead)->flags2 & flags)))
+                        if (setupShouldLoadObject((ObjectRecord *) command, exclusionFlags))
                         {
-                            setupCctv(stageId, (struct CCTVRecord *) phead, pdefIndex);
+                            setupCctv(stageId, (struct CCTVRecord *) command, commandIndex);
                         }
                         break;
                     case PROPDEF_AUTOGUN:
-                        if (withobjs && (!(((struct AutogunRecord *) phead)->flags2 & flags)))
+                        if (setupShouldLoadObject((ObjectRecord *) command, exclusionFlags))
                         {
-                            setupAutogun(stageId, (struct AutogunRecord *) phead, pdefIndex);
+                            setupAutogun(stageId, (struct AutogunRecord *) command, commandIndex);
                         }
                         break;
                     case PROPDEF_RACK:
-                        if (withobjs && (!(((struct ObjectRecord *) phead)->flags2 & flags)))
+                        if (setupShouldLoadObject((ObjectRecord *) command, exclusionFlags))
                         {
-                            setupHangingMonitors(stageId, (struct ObjectRecord *) phead, pdefIndex);
+                            setupHangingMonitors(stageId, (struct ObjectRecord *) command, commandIndex);
                         }
                         break;
                     case PROPDEF_MONITOR:
-                        if (withobjs && (!(((struct MonitorObjRecord *) phead)->flags2 & flags)))
+                        if (setupShouldLoadObject((ObjectRecord *) command, exclusionFlags))
                         {
-                            setupSingleMonitor(stageId, (struct MonitorObjRecord *) phead, pdefIndex);
+                            setupSingleMonitor(stageId, (struct MonitorObjRecord *) command, commandIndex);
                         }
                         break;
                     case PROPDEF_MULTI_MONITOR:
-                        if (withobjs && (!(((struct MultiMonitorObjRecord *) phead)->flags2 & flags)))
+                        if (setupShouldLoadObject((ObjectRecord *) command, exclusionFlags))
                         {
-                            setupMultiMonitor(stageId, (struct MultiMonitorObjRecord *) phead, pdefIndex);
+                            setupMultiMonitor(stageId, (struct MultiMonitorObjRecord *) command, commandIndex);
                         }
                         break;
                     case PROPDEF_ARMOUR:
                     {
-                        struct BodyArmourRecord *pdef_ba = (struct BodyArmourRecord *) phead;
+                        struct BodyArmourRecord *armour = (struct BodyArmourRecord *) command;
 
-                        if (withobjs && ((pdef_ba->flags2 & flags) == 0))
+                        if (setupShouldLoadObject((ObjectRecord *) armour, exclusionFlags))
                         {
-                            pdef_ba->initialamount = (*((s32 *) (&pdef_ba->initialamount))) / M_U16_MAX_VALUE_F;
-                            pdef_ba->amount = pdef_ba->initialamount;
-                            domakedefaultobj(stageId, (struct ObjectRecord *) phead, pdefIndex);
+                            armour->initialamount = *(s32 *) &armour->initialamount / M_U16_MAX_VALUE_F;
+                            armour->amount = armour->initialamount;
+                            domakedefaultobj(stageId, (struct ObjectRecord *) armour, commandIndex);
                         }
                         break;
                     }
                     case PROPDEF_TINTED_GLASS:
                     {
-                        if (withobjs && (!(((struct TintedGlassRecord *) phead)->flags2 & flags)))
+                        struct TintedGlassRecord *glass = (struct TintedGlassRecord *) command;
+
+                        if (setupShouldLoadObject((ObjectRecord *) glass, exclusionFlags))
                         {
-                            if (((struct TintedGlassRecord *) phead)->flags & PROPFLAG_GLASS_HASPORTAL)
+                            if ((glass->flags & PROPFLAG_GLASS_HASPORTAL) && (glass->pad >= 10000))
                             {
-                                if (!(((struct TintedGlassRecord *) phead)->pad < 10000))
-                                {
-                                    struct coord3d up;
-                                    struct coord3d up2;
-                                    BoundPadRecord *pad3d;
+                                struct coord3d lineStart;
+                                struct coord3d lineEnd;
+                                BoundPadRecord *boundPad = &g_CurrentSetup.boundpads[glass->pad - 10000];
 
-                                    pad3d = &g_CurrentSetup.boundpads[((struct TintedGlassRecord *) phead)->pad - 10000];
-                                    padGetCenter(pad3d, &up);
-                                    up2.x = (10.0f * pad3d->up.x) + up.x;
-                                    up2.y = (10.0f * pad3d->up.y) + up.y;
-                                    up2.z = (10.0f * pad3d->up.z) + up.z;
-                                    up.x -= 10.0f * pad3d->up.x;
-                                    up.y -= 10.0f * pad3d->up.y;
-                                    up.z -= 10.0f * pad3d->up.z;
+                                padGetCenter(boundPad, &lineStart);
+                                lineEnd.x = lineStart.x + 10.0f * boundPad->up.x;
+                                lineEnd.y = lineStart.y + 10.0f * boundPad->up.y;
+                                lineEnd.z = lineStart.z + 10.0f * boundPad->up.z;
+                                lineStart.x -= 10.0f * boundPad->up.x;
+                                lineStart.y -= 10.0f * boundPad->up.y;
+                                lineStart.z -= 10.0f * boundPad->up.z;
 
-                                    ((struct TintedGlassRecord *) phead)->portalnum = bgFindPortalCrossedByLine(&up, &up2);
-                                    ((struct TintedGlassRecord *) phead)->unk90 = (*((s32 *) (&((struct TintedGlassRecord *) phead)->unk90))) / M_U16_MAX_VALUE_F;
-                                }
+                                glass->portalnum = bgFindPortalCrossedByLine(&lineStart, &lineEnd);
+                                glass->unk90 = *(s32 *) &glass->unk90 / M_U16_MAX_VALUE_F;
                             }
-                            domakedefaultobj(stageId, (struct ObjectRecord *) phead, pdefIndex);
+
+                            domakedefaultobj(stageId, (struct ObjectRecord *) glass, commandIndex);
                         }
                         break;
                     }
@@ -1512,199 +1506,194 @@ void setupLoadFiles(enum LEVELID stageId)
                     case PROPDEF_UNK41:
                     case PROPDEF_GLASS:
                     case PROPDEF_SAFE:
-                        if (withobjs && (!(((ObjectRecord *) phead)->flags2 & flags)))
+                        if (setupShouldLoadObject((ObjectRecord *) command, exclusionFlags))
                         {
-                            domakedefaultobj(stageId, (struct ObjectRecord *) phead, pdefIndex);
+                            domakedefaultobj(stageId, (struct ObjectRecord *) command, commandIndex);
                         }
                         break;
                     case PROPDEF_AMMO:
                     {
-                        struct MultiAmmoCrateRecord *pdef_macr = (struct MultiAmmoCrateRecord *) phead;
-                        s32 ammoqty = 1;
-                        s32 i9;
+                        struct MultiAmmoCrateRecord *ammoCrate = (struct MultiAmmoCrateRecord *) command;
+                        s32 ammoQuantity = 1;
 
                         if (getPlayerCount() >= 2)
                         {
-                            ammoqty = 0;
+                            ammoQuantity = 0;
 
-                            if(g_MpSetupWeaponSlot >= 0)
+                            if (g_MpSetupWeaponSlot >= 0)
                             {
-                                struct s_mp_weapon_set *mpweapon = &getPtrMPWeaponSetData()[g_MpSetupWeaponSlot];
-                                s32 ammoType = mpweapon->ammotype;
+                                struct s_mp_weapon_set *weaponSetEntry = &getPtrMPWeaponSetData()[g_MpSetupWeaponSlot];
+                                s32 ammoType = weaponSetEntry->ammotype;
 
-                                if(ammoType > AMMO_NONE && ammoType <= AMMOTYPE_GLOBAL_MAX)
+                                if ((ammoType > AMMO_NONE) && (ammoType <= AMMOTYPE_GLOBAL_MAX))
                                 {
-                                    ammoqty = mpweapon->ammoamount;
-                                    pdef_macr->slots[ammoType - 1].quantity = ammoqty;
+                                    ammoQuantity = weaponSetEntry->ammoamount;
+                                    ammoCrate->slots[ammoType - 1].quantity = ammoQuantity;
                                 }
                             }
                         }
 
-                        if (((ammoqty > 0) && withobjs) && (!(pdef_macr->flags2 & flags)))
+                        if ((ammoQuantity > 0) && setupShouldLoadObject((ObjectRecord *) ammoCrate, exclusionFlags))
                         {
-                            for (i9 = 0; i9 < AMMOTYPE_GLOBAL_MAX; i9++)
+                            s32 slotIndex;
+
+                            for (slotIndex = 0; slotIndex < AMMOTYPE_GLOBAL_MAX; slotIndex++)
                             {
-                                if ((pdef_macr->slots[i9].quantity > 0) && (pdef_macr->slots[i9].modelnum != 0xFFFF))
+                                if ((ammoCrate->slots[slotIndex].quantity > 0) && (ammoCrate->slots[slotIndex].modelnum != 0xFFFF))
                                 {
-                                    modelLoad(pdef_macr->slots[i9].modelnum);
+                                    modelLoad(ammoCrate->slots[slotIndex].modelnum);
                                 }
                             }
 
-                            domakedefaultobj(stageId, (struct ObjectRecord *) pdef_macr, pdefIndex);
+                            domakedefaultobj(stageId, (struct ObjectRecord *) ammoCrate, commandIndex);
                         }
                         break;
                     }
                     case PROPDEF_TANK:
-                        if (withobjs && (!(((struct TankRecord *) phead)->flags2 & flags)))
+                        if (setupShouldLoadObject((ObjectRecord *) command, exclusionFlags))
                         {
-                            struct TankRecord *pdef_tank = (struct TankRecord *) phead;
-                            struct PropRecord *tank_prop;
-
-                            s32 padding;
-                            f32 stan_y = 0.0f;
-                            s32 paddinggg[4];
+                            struct TankRecord *tank = (struct TankRecord *) command;
+                            struct PropRecord *tankProp;
+                            f32 groundY = 0.0f;
 
                             weaponLoadProjectileModels(ITEM_TANKSHELLS);
-                            domakedefaultobj(stageId, (struct ObjectRecord *) pdef_tank, pdefIndex);
-                            pdef_tank->turret_vertical_angle = 0.0f;
-                            pdef_tank->turret_orientation_angle = 0.0f;
-                            pdef_tank->tank_orientation_angle = M_TAU_F - atan2f(pdef_tank->mtx.m[2][0], pdef_tank->mtx.m[2][2]);
-                            tank_prop = pdef_tank->prop;
+                            domakedefaultobj(stageId, (struct ObjectRecord *) tank, commandIndex);
+                            tank->turret_vertical_angle = 0.0f;
+                            tank->turret_orientation_angle = 0.0f;
+                            tank->tank_orientation_angle = M_TAU_F - atan2f(tank->mtx.m[2][0], tank->mtx.m[2][2]);
+                            tankProp = tank->prop;
 
-                            if (tank_prop)
+                            if (tankProp)
                             {
-                                stan_y = stanGetPositionYValue(tank_prop->stan, tank_prop->pos.f[0], tank_prop->pos.f[2]);
+                                groundY = stanGetPositionYValue(tankProp->stan, tankProp->pos.x, tankProp->pos.z);
                             }
 
-                            pdef_tank->stan_y = stan_y;
-                            pdef_tank->unkD0 = stan_y / 0.17000002f;
+                            tank->stan_y = groundY;
+                            tank->unkD0 = groundY / 0.17000002f;
                         }
                         break;
                     case PROPDEF_VEHICLE:
-                        if (withobjs && (!(((struct VehichleRecord *) phead)->flags2 & flags)))
+                        if (setupShouldLoadObject((ObjectRecord *) command, exclusionFlags))
                         {
-                            struct VehichleRecord *pdef_veh = (struct VehichleRecord *) phead;
+                            struct VehichleRecord *vehicle = (struct VehichleRecord *) command;
 
-                            domakedefaultobj(stageId, (struct ObjectRecord *) pdef_veh, pdefIndex);
+                            domakedefaultobj(stageId, (struct ObjectRecord *) vehicle, commandIndex);
 
-                            if (pdef_veh->model != NULL)
+                            if ((vehicle->model != NULL) && (vehicle->model->obj->Switches[5] != NULL))
                             {
-                                if (pdef_veh->model->obj->Switches[5] != NULL)
-                                {
-                                    modelGetNodeRwData(pdef_veh->model, pdef_veh->model->obj->Switches[5])->Raw.unk00 = (pdef_veh->flags & 0x10000000) == 0;
-                                }
+                                modelGetNodeRwData(vehicle->model, vehicle->model->obj->Switches[5])->Raw.unk00 = (vehicle->flags & 0x10000000) == 0;
                             }
 
-                            pdef_veh->speed        = 0.0f;
-                            pdef_veh->wheelxrot    = 0.0f;
-                            pdef_veh->wheelyrot    = 0.0f;
-                            pdef_veh->speedaim     = 0.0f;
-                            pdef_veh->turnrot60    = 0.0f;
-                            pdef_veh->roty         = 0.0f;
-                            pdef_veh->speedtime60  = -1.0f;
-                            pdef_veh->ailist       = ailistFindById(pdef_veh->ailist);
-                            pdef_veh->aioffset     = 0;
-                            pdef_veh->aireturnlist = -1;
-                            pdef_veh->path         = 0;
-                            pdef_veh->nextstep     = 0;
-                            pdef_veh->Sound        = 0;
+                            vehicle->speed        = 0.0f;
+                            vehicle->wheelxrot    = 0.0f;
+                            vehicle->wheelyrot    = 0.0f;
+                            vehicle->speedaim     = 0.0f;
+                            vehicle->turnrot60    = 0.0f;
+                            vehicle->roty         = 0.0f;
+                            vehicle->speedtime60  = -1.0f;
+                            vehicle->ailist       = ailistFindById(vehicle->ailist);
+                            vehicle->aioffset     = 0;
+                            vehicle->aireturnlist = -1;
+                            vehicle->path         = 0;
+                            vehicle->nextstep     = 0;
+                            vehicle->Sound        = 0;
                         }
                         break;
                     case PROPDEF_AIRCRAFT:
-                        if (withobjs && (!(((struct AircraftRecord *) phead)->flags2 & flags)))
+                        if (setupShouldLoadObject((ObjectRecord *) command, exclusionFlags))
                         {
-                            struct AircraftRecord *pdef_air = (struct AircraftRecord *) phead;
+                            struct AircraftRecord *aircraft = (struct AircraftRecord *) command;
 
-                            domakedefaultobj(stageId, (struct ObjectRecord *) pdef_air, pdefIndex);
-                            pdef_air->speed           = 0.0f;
-                            pdef_air->speedaim        = 0.0f;
-                            pdef_air->rotoryrot       = 0.0f;
-                            pdef_air->rotaryspeed     = 0.0f;
-                            pdef_air->rotaryspeedaim  = 0.0f;
-                            pdef_air->yrot            = 0.0f;
-                            pdef_air->speedtime60     = -1.0f;
-                            pdef_air->rotaryspeedtime = -1.0f;
-                            pdef_air->ailist          = ailistFindById(pdef_air->ailist);
-                            pdef_air->aioffset        = 0;
-                            pdef_air->aireturnlist    = -1;
-                            pdef_air->nextstep        = 0;
-                            pdef_air->path            = 0;
-                            pdef_air->Sound           = 0;
+                            domakedefaultobj(stageId, (struct ObjectRecord *) aircraft, commandIndex);
+                            aircraft->speed           = 0.0f;
+                            aircraft->speedaim        = 0.0f;
+                            aircraft->rotoryrot       = 0.0f;
+                            aircraft->rotaryspeed     = 0.0f;
+                            aircraft->rotaryspeedaim  = 0.0f;
+                            aircraft->yrot            = 0.0f;
+                            aircraft->speedtime60     = -1.0f;
+                            aircraft->rotaryspeedtime = -1.0f;
+                            aircraft->ailist          = ailistFindById(aircraft->ailist);
+                            aircraft->aioffset        = 0;
+                            aircraft->aireturnlist    = -1;
+                            aircraft->nextstep        = 0;
+                            aircraft->path            = 0;
+                            aircraft->Sound           = 0;
                         }
                         break;
                     case PROPDEF_TAG:
                     {
-                        struct TagObjectRecord *pdef_tag;
-                        struct ObjectRecord *taggedobj;
+                        struct TagObjectRecord *tag = (struct TagObjectRecord *) command;
+                        struct ObjectRecord *taggedObject;
 
-                        pdef_tag = (struct TagObjectRecord *) phead;
-                        taggedobj = setupCommandGetObject(stageId, pdefIndex + ((s32) pdef_tag->OffsetToObj));
-                        pdef_tag->TaggedObject = taggedobj;
+                        taggedObject = setupCommandGetObject(stageId, commandIndex + (s32) tag->OffsetToObj);
+                        tag->TaggedObject = taggedObject;
 
-                        if (taggedobj)
+                        if (taggedObject)
                         {
-                            taggedobj->runtime_bitflags |= RUNTIMEBITFLAG_TAGGED;
+                            taggedObject->runtime_bitflags |= RUNTIMEBITFLAG_TAGGED;
                         }
 
-                        set_parent_cur_tag_entry(pdef_tag);
+                        set_parent_cur_tag_entry(tag);
                         break;
                     }
                     case PROPDEF_RENAME:
                     {
-                        struct RenameObjectRecord *pdef_ren;
-                        struct ObjectRecord *targetobj;
+                        struct RenameObjectRecord *rename = (struct RenameObjectRecord *) command;
+                        struct ObjectRecord *targetObject;
+                        s32 targetIndex;
 
-                        pdef_ren = (struct RenameObjectRecord *) phead;
-                        i3 = pdef_ren->TagID + pdefIndex;
-                        targetobj = setupCommandGetObject(stageId, i3);
-                        pdef_ren->renobj = targetobj;
+                        targetIndex = rename->TagID + commandIndex;
+                        targetObject = setupCommandGetObject(stageId, targetIndex);
+                        rename->renobj = targetObject;
 
-                        if (targetobj)
+                        if (targetObject)
                         {
-                            targetobj->runtime_bitflags |= RUNTIMEBITFLAG_DESTROYED;
+                            targetObject->runtime_bitflags |= RUNTIMEBITFLAG_DESTROYED;
                         }
 
-                        bondinvAddTextOverride((struct textoverride *) pdef_ren);
+                        bondinvAddTextOverride((struct textoverride *) rename);
                         break;
                     }
                     case PROPDEF_WATCH_MENU_OBJECTIVE_TEXT:
-                        setup_briefing_text_entry_parent((struct setup_objective_text *) phead);
+                        setup_briefing_text_entry_parent((struct setup_objective_text *) command);
                         break;
                     case PROPDEF_CAMERAPOS:
                     {
-                        struct CutsceneRecord *pdef_cam = (struct CutsceneRecord *) phead;
+                        struct CutsceneRecord *camera = (struct CutsceneRecord *) command;
 
-                        pdef_cam->pos.f[0] = (*((s32 *) (&pdef_cam->pos.f[0]))) / 100.0f;
-                        pdef_cam->pos.f[1] = (*((s32 *) (&pdef_cam->pos.f[1]))) / 100.0f;
-                        pdef_cam->pos.f[2] = (*((s32 *) (&pdef_cam->pos.f[2]))) / 100.0f;
-                        pdef_cam->theta = (*((s32 *) (&pdef_cam->theta))) / M_U16_MAX_VALUE_F;
-                        pdef_cam->verta = (*((s32 *) (&pdef_cam->verta))) / M_U16_MAX_VALUE_F;
+                        camera->pos.x = *(s32 *) &camera->pos.x / 100.0f;
+                        camera->pos.y = *(s32 *) &camera->pos.y / 100.0f;
+                        camera->pos.z = *(s32 *) &camera->pos.z / 100.0f;
+                        camera->theta = *(s32 *) &camera->theta / M_U16_MAX_VALUE_F;
+                        camera->verta = *(s32 *) &camera->verta / M_U16_MAX_VALUE_F;
                         break;
                     }
                     case PROPDEF_OBJECTIVE_START:
-                        add_ptr_to_objective((struct objective_entry *) phead);
+                        add_ptr_to_objective((struct objective_entry *) command);
                         break;
                     case PROPDEF_OBJECTIVE_ENTER_ROOM:
-                        set_parent_cur_obj_enter_room((struct criteria_roomentered *) phead);
+                        set_parent_cur_obj_enter_room((struct criteria_roomentered *) command);
                         break;
                     case PROPDEF_OBJECTIVE_DEPOSIT_OBJECT_IN_ROOM:
-                        set_parent_cur_obj_deposited_in_room((struct criteria_deposit *) phead);
+                        set_parent_cur_obj_deposited_in_room((struct criteria_deposit *) command);
                         break;
                     case PROPDEF_OBJECTIVE_PHOTOGRAPH:
-                        set_parent_cur_obj_photograph((struct criteria_picture *) phead);
+                        set_parent_cur_obj_photograph((struct criteria_picture *) command);
                         break;
                 }
 
-                phead = (PropDefHeaderRecord *) (((u32 *) phead) + sizepropdef(phead));
-                pdefIndex++;
+                command = (PropDefHeaderRecord *) ((u32 *) command + sizepropdef(command));
+                commandIndex++;
             }
 
-            phead = g_CurrentSetup.propDefs;
-            pdefIndex = 0;
+            // Second pass: resolve relationships that require both objects to exist.
+            command = g_CurrentSetup.propDefs;
+            commandIndex = 0;
 
-            while (phead->type != PROPDEF_END)
+            while (command->type != PROPDEF_END)
             {
-                switch (phead->type)
+                switch (command->type)
                 {
                     case PROPDEF_PROP:
                     case PROPDEF_KEY:
@@ -1719,87 +1708,72 @@ void setupLoadFiles(enum LEVELID stageId)
                     case PROPDEF_SAFE:
                     case PROPDEF_TINTED_GLASS:
                     {
-                        struct ObjectRecord *pdef_obj = (struct ObjectRecord *) phead;
+                        struct ObjectRecord *object = (struct ObjectRecord *) command;
 
-                        if (pdef_obj->prop && (pdef_obj->flags & PROPFLAG_INSIDEANOTHEROBJ))
+                        if (object->prop && (object->flags & PROPFLAG_INSIDEANOTHEROBJ))
                         {
-                            u32 offset = pdef_obj->pad;
-                            struct ObjectRecord *inobj = setupCommandGetObject(stageId, offset + pdefIndex);
+                            struct ObjectRecord *parent = setupCommandGetObject(stageId, object->pad + commandIndex);
 
-                            if (inobj && inobj->prop)
+                            if (parent && parent->prop)
                             {
-                                pdef_obj->runtime_bitflags |= RUNTIMEBITFLAG_HASOWNER;
-                                modelSetScale(pdef_obj->model, pdef_obj->model->scale);
-                                chrpropReparent(pdef_obj->prop, inobj->prop);
+                                object->runtime_bitflags |= RUNTIMEBITFLAG_HASOWNER;
+                                modelSetScale(object->model, object->model->scale);
+                                chrpropReparent(object->prop, parent->prop);
                             }
                         }
                         break;
                     }
                     case PROPDEF_LINK:
                     {
-                        struct LinkRecord *pdef_link = (struct LinkRecord *) phead;
-                        struct WeaponObjRecord *guna = (struct WeaponObjRecord *) setupGetPtrToCommandByIndex(pdef_link->Index1 + pdefIndex);
-                        struct WeaponObjRecord *gunb = (struct WeaponObjRecord *) setupGetPtrToCommandByIndex(pdef_link->Index2 + pdefIndex);
+                        struct LinkRecord *link = (struct LinkRecord *) command;
+                        struct WeaponObjRecord *firstWeapon = (struct WeaponObjRecord *) setupGetPtrToCommandByIndex(link->Index1 + commandIndex);
+                        struct WeaponObjRecord *secondWeapon = (struct WeaponObjRecord *) setupGetPtrToCommandByIndex(link->Index2 + commandIndex);
 
-                        if (guna && gunb)
+                        if (firstWeapon && secondWeapon
+                            && (firstWeapon->type == PROPDEF_COLLECTABLE)
+                            && (secondWeapon->type == PROPDEF_COLLECTABLE))
                         {
-                            if ((guna->type == PROPDEF_COLLECTABLE) && (gunb->type == PROPDEF_COLLECTABLE))
-                            {
-                                propweaponSetDual(guna, gunb);
-                            }
+                            propweaponSetDual(firstWeapon, secondWeapon);
                         }
 
                         break;
                     }
                     case PROPDEF_SWITCH:
                     {
-                        struct LinkRecord *pdef_switch;
-                        struct ObjectRecord *doorA;
-                        struct ObjectRecord *doorB;
-                        s32 index1;
-                        s32 index2;
+                        struct LinkRecord *link = (struct LinkRecord *) command;
+                        struct ObjectRecord *switchObject = setupCommandGetObject(stageId, commandIndex + link->Index1);
+                        struct ObjectRecord *door = (struct ObjectRecord *) setupGetPtrToCommandByIndex(commandIndex + link->Index2);
 
-                        pdef_switch = (struct LinkRecord *) phead;
-                        index1 = pdef_switch->Index1;
-                        index2 = pdef_switch->Index2;
-                        doorA = (struct ObjectRecord *) setupCommandGetObject(stageId, pdefIndex + index1);
-                        doorB = (struct ObjectRecord *) setupGetPtrToCommandByIndex(pdefIndex + index2);
-
-                        if ((((doorA && doorA->prop) && doorB) && (doorB->type == PROPDEF_DOOR)) && doorB->prop)
+                        if (switchObject && switchObject->prop && door && (door->type == PROPDEF_DOOR) && door->prop)
                         {
-                            pdef_switch->first = doorA->prop;
-                            pdef_switch->second = doorB->prop;
-                            initSetLevelLoadPropSwitch(pdef_switch);
-                            doorA->runtime_bitflags |= RUNTIMEBITFLAG_00000001; // linked door
+                            link->first = switchObject->prop;
+                            link->second = door->prop;
+                            initSetLevelLoadPropSwitch(link);
+                            switchObject->runtime_bitflags |= RUNTIMEBITFLAG_00000001;
                         }
 
                         break;
                     }
                     case PROPDEF_SAFE_ITEM:
                     {
-                        s32 index1;
-                        struct SafeObjectRecord *pdef_safe;
-                        s32 index2;
-                        s32 index3;
-                        struct ObjectRecord *safe_item;
+                        struct SafeObjectRecord *link = (struct SafeObjectRecord *) command;
+                        struct ObjectRecord *item;
                         struct SafeRecord *safe;
                         struct DoorRecord *door;
 
-                        pdef_safe = (struct SafeObjectRecord *) phead;
-                        index1 = pdef_safe->Index1;
-                        index2 = pdef_safe->Index2;
-                        index3 = pdef_safe->Index3;
-                        safe_item = setupCommandGetObject(stageId, pdefIndex + index1);
-                        safe = (struct SafeRecord *) setupCommandGetObject(stageId, pdefIndex + index2);
-                        door = (struct DoorRecord *) setupCommandGetObject(stageId, pdefIndex + index3);
+                        item = setupCommandGetObject(stageId, commandIndex + link->Index1);
+                        safe = (struct SafeRecord *) setupCommandGetObject(stageId, commandIndex + link->Index2);
+                        door = (struct DoorRecord *) setupCommandGetObject(stageId, commandIndex + link->Index3);
 
-                        if (((((((safe_item && safe_item->prop) && safe) && safe->prop) && (safe->type == PROPDEF_SAFE)) && door) && door->prop) && (door->type == PROPDEF_DOOR))
+                        if (item && item->prop
+                            && safe && safe->prop && (safe->type == PROPDEF_SAFE)
+                            && door && door->prop && (door->type == PROPDEF_DOOR))
                         {
-                            pdef_safe->item = safe_item;
-                            pdef_safe->safe = safe;
-                            pdef_safe->door = door;
-                            initSetLevelLoadPropSafeItem((struct ObjectRecord *) pdef_safe);
-                            safe_item->flags2 |= PROPFLAG2_LINKEDTOSAFE;
+                            link->item = item;
+                            link->safe = safe;
+                            link->door = door;
+                            initSetLevelLoadPropSafeItem((struct ObjectRecord *) link);
+                            item->flags2 |= PROPFLAG2_LINKEDTOSAFE;
                             door->flags2 |= PROPFLAG2_LINKEDTOSAFE;
                         }
 
@@ -1807,25 +1781,18 @@ void setupLoadFiles(enum LEVELID stageId)
                     }
                     case PROPDEF_LOCK_DOOR:
                     {
-                        struct LockDoorRecord *pdef_lock_door;
+                        struct LockDoorRecord *link = (struct LockDoorRecord *) command;
                         struct DoorRecord *door;
                         struct ObjectRecord *lock;
-                        s32 index1;
-                        s32 index2;
 
-                        pdef_lock_door = (struct LockDoorRecord *) phead;
+                        door = (struct DoorRecord *) setupCommandGetObject(stageId, commandIndex + link->Index1);
+                        lock = setupCommandGetObject(stageId, commandIndex + link->Index2);
 
-                        index1 = pdef_lock_door->Index1;
-                        index2 = pdef_lock_door->Index2;
-
-                        door = (struct DoorRecord *) setupCommandGetObject(stageId, pdefIndex + index1);
-                        lock = setupCommandGetObject(stageId, pdefIndex + index2);
-
-                        if ((((door && door->prop) && lock) && lock->prop) && (door->type == PROPDEF_DOOR))
+                        if (door && door->prop && (door->type == PROPDEF_DOOR) && lock && lock->prop)
                         {
-                            pdef_lock_door->door = door;
-                            pdef_lock_door->lock = lock;
-                            initSetLevelLoadPropLockDoor(pdef_lock_door);
+                            link->door = door;
+                            link->lock = lock;
+                            initSetLevelLoadPropLockDoor(link);
                             door->runtime_bitflags |= RUNTIMEBITFLAG_PADLOCKEDDOOR;
                         }
 
@@ -1833,8 +1800,8 @@ void setupLoadFiles(enum LEVELID stageId)
                     }
                 }
 
-                phead = (PropDefHeaderRecord *) (((u32 *) phead) + sizepropdef(phead));
-                pdefIndex += 1;
+                command = (PropDefHeaderRecord *) ((u32 *) command + sizepropdef(command));
+                commandIndex++;
             }
         }
     }
