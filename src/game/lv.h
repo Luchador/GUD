@@ -59,7 +59,7 @@ extern u32 g_ProfBgGfxCommands;
 
 void lvInit(void);
 struct levelentry *lvFindLevelInfo(enum LEVELID levelId);
-Gfx * lvRender(Gfx *);
+Gfx *lvRender(Gfx *gdl);
 void lvSetSelectedDifficulty(DIFFICULTY diff);
 void lvTick(void);
 void lvlViewMoveTick(void);

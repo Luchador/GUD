@@ -28,9 +28,9 @@ typedef struct s_moving_bullet_spark
     f32 unk38;
 } s_moving_bullet_spark;
 
-void bullet_sparks_reset_all(void);
-void bullet_sparks_update_all(void);
-void bullet_sparks_render_all(Gfx **gdl, s32 zbufferMode);
-s_bullet_spark *bullet_spark_create(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3);
+void fxResetAllSparks(void);
+void fxUpdateAllSparks(void);
+void fxRenderAllSparks(Gfx **gdl, s32 zbufferMode);
+s_bullet_spark *fxCreateBulletspark(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3);
 
 #endif

@@ -75,7 +75,7 @@
       build/OUTCODE/src/game/explosion.o (.text);
       build/OUTCODE/src/game/glass.o (.text);
       build/OUTCODE/src/game/hud.o (.text);
-      build/OUTCODE/src/game/fx.o (.rodata);
+      build/OUTCODE/src/game/fx.o (.text);
       build/OUTCODE/src/game/options.o (.text);
       build/OUTCODE/src/game/textrelated.o (.text);
       build/OUTCODE/src/game/stan.o (.text);

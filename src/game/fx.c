@@ -25,7 +25,7 @@ struct rgba_u8 g_BulletSparkColors[8] = {
 };
 
 
-void bullet_sparks_reset(void)
+void fxResetBulletSparks(void)
 {
     s32 i;
     s32 start_index;
@@ -41,7 +41,7 @@ void bullet_sparks_reset(void)
 }
 
 
-void bullet_sparks_init(s_bullet_spark *spark, coord3d *arg1, s32 arg2, f32 arg3, s16 arg4)
+void fxInitBulletSparks(s_bullet_spark *spark, coord3d *arg1, s32 arg2, f32 arg3, s16 arg4)
 {
     f32 angle;
 
@@ -101,7 +101,7 @@ void bullet_sparks_init(s_bullet_spark *spark, coord3d *arg1, s32 arg2, f32 arg3
 }
 
 
-s_bullet_spark *bullet_spark_create(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3)
+s_bullet_spark *fxCreateBulletspark(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3)
 {
     s_bullet_spark *ptr;
 
@@ -109,7 +109,7 @@ s_bullet_spark *bullet_spark_create(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3)
     {
         if (ptr->lifetime == 0)
         {
-            bullet_sparks_init(ptr, arg0, arg1, arg2, arg3);
+            fxInitBulletSparks(ptr, arg0, arg1, arg2, arg3);
             return ptr;
         }
     }
@@ -118,7 +118,7 @@ s_bullet_spark *bullet_spark_create(coord3d *arg0, s32 arg1, f32 arg2, s16 arg3)
 }
 
 
-void bullet_sparks_update(void)
+void fxUpdateBulletSparks(void)
 {
     s_bullet_spark *thing = &g_BulletSparkArray[0]; \
     s_bullet_spark *end = g_BulletSparkArray + BULLET_SPARKS_MAX;
@@ -138,7 +138,7 @@ void bullet_sparks_update(void)
 }
 
 
-void bullet_spark_render(s_bullet_spark *thing, Gfx *gdlarg, s32 zbufferMode)
+void fxRenderBulletSpark(s_bullet_spark *thing, Gfx *gdlarg, s32 zbufferMode)
 {
     Vtx vtx;
     Mtxf *mtx;
@@ -235,7 +235,7 @@ void bullet_spark_render(s_bullet_spark *thing, Gfx *gdlarg, s32 zbufferMode)
 }
 
 
-void bullet_sparks_render(Gfx *gdl, s32 zbufferMode)
+void fxRenderBulletSparks(Gfx *gdl, s32 zbufferMode)
 {
 
     s_bullet_spark *thing = &g_BulletSparkArray[0]; \
@@ -243,12 +243,12 @@ void bullet_sparks_render(Gfx *gdl, s32 zbufferMode)
 
     for (; (thing < end); thing++)
     {
-        bullet_spark_render(thing, gdl, zbufferMode);
+        fxRenderBulletSpark(thing, gdl, zbufferMode);
     }
 }
 
 
-void bullet_moving_sparks_reset(void)
+void fxResetMovingSparks(void)
 {
     s_moving_bullet_spark *ptr;
 
@@ -261,7 +261,7 @@ void bullet_moving_sparks_reset(void)
 }
 
 
-void bullet_moving_sparks_update(void)
+void fxUpdateMovingSparks(void)
 {
     s_moving_bullet_spark *ptr;
     s_moving_bullet_spark *end;
@@ -294,7 +294,7 @@ void bullet_moving_sparks_update(void)
 }
 
 
-void bullet_moving_sparks_render_all(Gfx *arg0, s32 zbufferMode)
+void fxRenderMovingSparks(Gfx *arg0, s32 zbufferMode)
 {
     s32 max_index;
     s_moving_bullet_spark *ptr;
@@ -303,31 +303,31 @@ void bullet_moving_sparks_render_all(Gfx *arg0, s32 zbufferMode)
 
     for (ptr = &g_MovingBulletSparkArray[0]; ptr < (&g_MovingBulletSparkArray[max_index]); ptr++)
     {
-        bullet_spark_render(&ptr->unk00, arg0, zbufferMode);
+        fxRenderBulletSpark(&ptr->unk00, arg0, zbufferMode);
     }
 
 }
 
 
-void bullet_sparks_reset_all(void)
+void fxResetAllSparks(void)
 {
-    bullet_sparks_reset();
-    bullet_moving_sparks_reset();
+    fxResetBulletSparks();
+    fxResetMovingSparks();
 }
 
 
-void bullet_sparks_update_all(void)
+void fxUpdateAllSparks(void)
 {
-    bullet_sparks_update();
+    fxUpdateBulletSparks();
 
     // responsible for updating bullet sparks and dust clouds that spawn when shooting at other players
     // these are 2D and always facing the camera
-    bullet_moving_sparks_update();
+    fxUpdateMovingSparks();
 }
 
 
-void bullet_sparks_render_all(Gfx **arg0, s32 zbufferMode)
+void fxRenderAllSparks(Gfx **gdl, s32 zbufferMode)
 {
-    bullet_sparks_render(arg0, zbufferMode);
-    bullet_moving_sparks_render_all(arg0, zbufferMode);
+    fxRenderBulletSparks(gdl, zbufferMode);
+    fxRenderMovingSparks(gdl, zbufferMode);
 }

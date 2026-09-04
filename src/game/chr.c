@@ -36,6 +36,7 @@
 #include "tex.h"
 #include "vtxstore.h"
 
+
 #define GROUND_SMOOTH_FACTOR 0.100000024f
 #define FALLSPEED_DECAY      0.9f
 
@@ -2841,13 +2842,13 @@ void chrCreateHitPuffs(PropRecord *prop, s32 anim_id, coord3d *vec, coord3d *pos
 
             mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), &sp3c);
 
-            bullet_spark_create(&sp3c, entry->backImpactPuffCount, entry->backImpactPuffSize, prop->stan->room);
+            fxCreateBulletspark(&sp3c, entry->backImpactPuffCount, entry->backImpactPuffSize, prop->stan->room);
         }
     }
 
     if (entry->impactPuffCount)
     {
-        bullet_spark_create(pos, entry->impactPuffCount, entry->impactPuffSize, prop->stan->room);
+        fxCreateBulletspark(pos, entry->impactPuffCount, entry->impactPuffSize, prop->stan->room);
     }
 }
 

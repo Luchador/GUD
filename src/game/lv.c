@@ -241,7 +241,7 @@ void lvlStageLoad(s32 stage)
     sub_GAME_7F0C1364();
     modelmgrSetLevelResetting(TRUE);
     set_mt_tex_alloc();
-    bullet_sparks_reset_all();
+    fxResetAllSparks();
     texReset();
     load_font_tables();
 
@@ -491,22 +491,22 @@ void lvlSetMultipliersForDifficulty(void)
  * Graphics render method.
  * Also sets player max ammo if infinite ammo cheat is enabled.
  */
-Gfx* lvRender(Gfx* DL)
+Gfx* lvRender(Gfx* gdl)
 {
     g_ProfBgGfxCommands = 0;
 
-    gSPSegment(DL++, SPSEGMENT_PHYSICAL, NULL);
-    gSPSegment(DL++, SPSEGMENT_UNKNOWN, osVirtualToPhysical(ptr_font_DL));
+    gSPSegment(gdl++, SPSEGMENT_PHYSICAL, NULL);
+    gSPSegment(gdl++, SPSEGMENT_UNKNOWN, osVirtualToPhysical(ptr_font_DL));
 
-    gSPDisplayList(DL++, &dlFastPipelineSetup);
-    gSPDisplayList(DL++, &dlZBufferGeometry);
+    gSPDisplayList(gdl++, &dlFastPipelineSetup);
+    gSPDisplayList(gdl++, &dlZBufferGeometry);
 
     if (g_CurrentStageToLoad == LEVELID_TITLE)
     {
-        DL = viClearZBufCurrentPlayer(DL);
-        DL = viSetupCurrentPlayerView(DL);
-        gDPSetScissor(DL++, G_SC_NON_INTERLACE, 0, 0, (s16)viGetX(), (s16)viGetY());
-        DL = menu_jump_constructor_handler(DL);
+        gdl = viClearZBufCurrentPlayer(gdl);
+        gdl = viSetupCurrentPlayerView(gdl);
+        gDPSetScissor(gdl++, G_SC_NON_INTERLACE, 0, 0, (s16)viGetX(), (s16)viGetY());
+        gdl = menu_jump_constructor_handler(gdl);
     }
     else
     {
@@ -515,7 +515,7 @@ Gfx* lvRender(Gfx* DL)
 
         pcount = getPlayerCount();
 
-        gSPClipRatio(DL++, FRUSTRATIO_2);
+        gSPClipRatio(gdl++, FRUSTRATIO_2);
 
         for(i = 0; i < pcount; i++)
         {
@@ -526,11 +526,11 @@ Gfx* lvRender(Gfx* DL)
             viSetFovY(g_CurrentPlayer->fovy);
             viSetAspect(g_CurrentPlayer->aspect);
 
-            DL = viClearZBufCurrentPlayer(DL);
-            DL = viSetupCurrentPlayerView(DL);
-            DL = bviewRenderCameraView(DL);
-            DL = viSetupScreensForNumPlayers(DL);
-            DL = skyRender(DL);
+            gdl = viClearZBufCurrentPlayer(gdl);
+            gdl = viSetupCurrentPlayerView(gdl);
+            gdl = bviewRenderCameraView(gdl);
+            gdl = viSetupScreensForNumPlayers(gdl);
+            gdl = skyRender(gdl);
 
             
             { /* TEMP profiler */
@@ -554,34 +554,34 @@ Gfx* lvRender(Gfx* DL)
             propsTickPlayer();
 
             { /* TEMP profiler */
-                Gfx *bgGdlStart = DL;
+                Gfx *bgGdlStart = gdl;
                 u32 prof_t = osGetCount();
 
-                DL = bgSetupAndRender(DL);
+                gdl = bgSetupAndRender(gdl);
                 g_ProfBgRenderCycles = osGetCount() - prof_t;
-                g_ProfBgGfxCommands += (u32)(DL - bgGdlStart);
+                g_ProfBgGfxCommands += (u32)(gdl - bgGdlStart);
             }
             
-            DL = weaponRenderTracers(DL);
+            gdl = weaponRenderTracers(gdl);
 
-            bullet_sparks_render_all(&DL, ZBUF_SURFACE);
+            fxRenderAllSparks(&gdl, ZBUF_SURFACE);
 
-            DL = glassRenderShards(DL);
-            DL = explosionRenderFlyingParticles(DL);
+            gdl = glassRenderShards(gdl);
+            gdl = explosionRenderFlyingParticles(gdl);
 
             if (cheatIsActive(CHEAT_INFINITE_AMMO))
             {
                 set_max_ammo_for_cur_player();
             }
 
-            DL = bondviewRenderPlayerView(DL);
-            DL = mp_watch_menu_display(DL);
+            gdl = bondviewRenderPlayerView(gdl);
+            gdl = mp_watch_menu_display(gdl);
         }
     }
 
-    gDPSetScissor(DL++, G_SC_NON_INTERLACE, 0, 0, viGetX(), viGetY());
+    gDPSetScissor(gdl++, G_SC_NON_INTERLACE, 0, 0, viGetX(), viGetY());
 
-    return DL;
+    return gdl;
 }
 
 
@@ -814,7 +814,7 @@ void lvTick(void)
         updateRoomStatusFlags();
         dyntexWaterController();
         skyTick();
-        bullet_sparks_update_all();
+        fxUpdateAllSparks();
         update_bullet_casings();
         update_broken_windows();
         explosionUpdateFlyingParticles();
