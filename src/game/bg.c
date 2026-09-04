@@ -92,8 +92,8 @@ s32 g_BgGlobalVisAddedRoomCount;
 
 f32 g_LevelScale = 1.0;
 f32 g_LevelInverseScale = 1.0;
-// Private member - use bgGetLevelVisibilityScale outside this file
-f32 mCurrentLevelVisibilityScale = 1.0;
+// Private member - use bgGetLevelRenderScale outside this file
+f32 g_CurrentLevelRenderScale = 1.0;
 s32 levelentry_index = 1;
 
 /**
@@ -537,10 +537,10 @@ void bgLoadFile(LEVEL_INDEX levelid)
     bgSetLevelScale(g_LevelInfoTable[levelentry_index].levelscale);
     setLevelScale(g_LevelInfoTable[levelentry_index].levelscale);
  
-    mCurrentLevelVisibilityScale = g_LevelInfoTable[levelentry_index].visibility;
+    g_CurrentLevelRenderScale = g_LevelInfoTable[levelentry_index].renderScale;
  
-    bviewSetConversionScale(mCurrentLevelVisibilityScale);
-    matrixSetConversionScale(mCurrentLevelVisibilityScale);
+    bviewSetConversionScale(g_CurrentLevelRenderScale);
+    matrixSetConversionScale(g_CurrentLevelRenderScale);
  
     data = (s32 *)g_BgData;
 
@@ -719,9 +719,9 @@ f32 bgGetRoomScale(void)
 }
 
 
-f32 bgGetLevelVisibilityScale(void)
+f32 bgGetLevelRenderScale(void)
 {
-    return mCurrentLevelVisibilityScale;
+    return g_CurrentLevelRenderScale;
 }
 
 
@@ -1076,7 +1076,7 @@ bool bgIsRoomOnScreen(s32 roomID, struct rectbbox *screenbox)
 
     viGetZRange(zrange);
 
-    zrange[1] = zrange[1] / mCurrentLevelVisibilityScale;
+    zrange[1] = zrange[1] / g_CurrentLevelRenderScale;
 
     for (i = 0; i < 8; i++) 
     {
@@ -1218,7 +1218,7 @@ s32 bgProjectPortalPoints(s32 portalnum, f32 scale, coord3d *points)
     matrix = camGetWorldToScreenMtxf();
     allbehind = 1;
     viGetZRange(zrange);
-    zrange[1] /= mCurrentLevelVisibilityScale;
+    zrange[1] /= g_CurrentLevelRenderScale;
 
     metric = g_PortalPlanes[portalnum];
 

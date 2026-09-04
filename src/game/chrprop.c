@@ -882,7 +882,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
 
     if (walkTilesBetweenPoints_NoCallback(&fromtile, playerprop->pos.x, playerprop->pos.z, shotdata.gunpos.x, shotdata.gunpos.z))
     {
-        distscale = bgGetRoomScale() * bgGetLevelVisibilityScale();
+        distscale = bgGetRoomScale() * bgGetLevelRenderScale();
         playerpos = bondviewGetPlayerPosition();
 
         stanResetHits();

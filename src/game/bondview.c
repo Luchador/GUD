@@ -7752,7 +7752,7 @@ void bondviewUpdateCameraMatrices(coord3d* cam_pos, coord3d* cam_look_dir, coord
     guMtxF2L((f32 (*)[4]) &sp60, temp_s0);
     camSetPlayerProjViewMtx(temp_s0);
 
-    scale = bgGetLevelVisibilityScale();
+    scale = bgGetLevelRenderScale();
 
     matrix_scalar_multiply(scale, spC4.m[0]);
     guMtxF2L((f32 (*)[4]) &spC4, (Mtx* ) g_CurrentPlayer->field_5C);

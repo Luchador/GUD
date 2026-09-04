@@ -31,7 +31,7 @@ struct levelentry
     void *bg_seg_filename;
     void *bg_stan_filename;
     f32 levelscale;
-    f32 visibility;
+    f32 renderScale;
 };
 
 extern struct levelentry g_LevelInfoTable[];

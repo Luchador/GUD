@@ -145,7 +145,7 @@ static void envLoadCurrentEnvironment(EnvironmentRecord *record)
     f32 zrange[2];
     f32 pk0;
     f32 pk4;
-    f32 levelScale;
+    f32 renderScale;
     f32 sp20;
     f32 sp1C;
 
@@ -165,18 +165,18 @@ static void envLoadCurrentEnvironment(EnvironmentRecord *record)
         return;
     }
 
-    levelScale = bgGetLevelVisibilityScale();
-    zrange[0] /= levelScale;
-    zrange[1] /= levelScale;
+    renderScale = bgGetLevelRenderScale();
+    zrange[0] /= renderScale;
+    zrange[1] /= renderScale;
 
     g_DifferenceFromFarFogIntensity = (f32)record->Visibility.FogStart / 1000.0f;
     g_FarFogIntensity = (f32)record->Visibility.FogEnd / 1000.0f;
 
     g_ScaledFarFogIntensity = ((zrange[1] - zrange[0]) *  g_FarFogIntensity) + zrange[0];
 
-    g_CurFogDetails.g_CurFogDetails = record->Visibility.NearClipDistance / levelScale;
+    g_CurFogDetails.g_CurFogDetails = record->Visibility.NearClipDistance / renderScale;
     pk0 = g_CurFogDetails.g_CurFogDetails;
-    g_CurFogDetails.scaled_far_fog_dist = record->Visibility.FarClipDistance / levelScale;
+    g_CurFogDetails.scaled_far_fog_dist = record->Visibility.FarClipDistance / renderScale;
     pk4 = g_CurFogDetails.scaled_far_fog_dist;
 
     // numerator is constant 128.0f
