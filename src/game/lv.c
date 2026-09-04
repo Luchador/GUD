@@ -158,20 +158,23 @@ struct levelentry g_LevelInfoTable[] = {
     {LEVELID_CUBA,     "UsetuplenZ",               "bg/bg_len_all_p.seg",  "Tbg_len_all_p_stanZ",  0.094662853, 1.0},
     {LEVELID_WAX,      "UsetupwaxZ",               "bg/bg_wax_all_p.seg",  "Tbg_wax_all_p_stanZ",  0.94285715,  1.0},
     {LEVELID_PAM,      "UsetuppamZ",               "bg/bg_pam_all_p.seg",  "Tbg_pam_all_p_stanZ",  0.94285715,  1.0},
-    {LEVELID_MAX,      "UsetupmaxZ",               "bg/bgx.seg",           "TbgxZ",                0.94285715,  1.0}
+    {LEVELID_MAX,      NULL,                        "bg/bgx.seg",           "TbgxZ",                0.94285715,  1.0}
 };
 
-char *setup_text_pointers[] = {
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,"UsetupsevbunkerZ" ,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,"UsetupsiloZ",
-    "UsetupsevbunkerZ","UsetupstatueZ","UsetupcontrolZ","UsetuparchZ","UsetuptraZ",
-    "UsetupdestZ","UsetupsevbZ","UsetupaztZ","UsetuppeteZ","UsetupdepoZ","UsetuprefZ",
-    "UsetupcrypZ","UsetupdamZ","UsetuparkZ","UsetuprunZ","UsetupsevxZ","UsetupjunZ",
-    "UsetupdishZ","UsetupcaveZ","UsetupcatZ","UsetupcradZ","UsetupshoZ","UsetupsevxbZ",
-    "UsetupeldZ","UsetupimpZ","UsetupashZ","UsetuplueZ","UsetupameZ","UsetupritZ",
-    "UsetupoatZ","UsetupearZ","UsetupleeZ","UsetuplipZ","UsetuplenZ","UsetupwaxZ",
-    "UsetuppamZ", NULL, NULL
-};
+struct levelentry *lvFindLevelInfo(enum LEVELID levelId)
+{
+    s32 i;
+
+    for (i = 0; i < ARRAYCOUNT(g_LevelInfoTable); i++)
+    {
+        if (g_LevelInfoTable[i].levelID == levelId)
+        {
+            return &g_LevelInfoTable[i];
+        }
+    }
+
+    return NULL;
+}
 
 /* --- TEMP performance profiler --- */
 u32 g_ProfBgTickCycles;

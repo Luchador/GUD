@@ -1121,6 +1121,7 @@ void setupDoor(struct DoorRecord *door, s32 cmdindex)
 void setupLoadFiles(enum LEVELID stageId)
 {
     ItemModelFileRecord *pitem;
+    struct levelentry *levelInfo;
     s32 withchrs;
     s32 withobjs;
 
@@ -1141,7 +1142,9 @@ void setupLoadFiles(enum LEVELID stageId)
         pitem->header->RootNode = NULL;
     }
 
-    if ((stageId <= (LEVELID_MAX + 1)) && setup_text_pointers[stageId])
+    levelInfo = lvFindLevelInfo(stageId);
+
+    if ((levelInfo != NULL) && (levelInfo->setupFileName != NULL))
     {
         char strResource[0x100] = ""; // Scratch buffer for synthesizing the setup file's name at runtime.
         s32 numAnimatedObjects = 0;
@@ -1155,19 +1158,19 @@ void setupLoadFiles(enum LEVELID stageId)
         f32 roompos_2;
         struct stagesetup *local_stage;
 
-        strResource[0] = setup_text_pointers[stageId][0]; // 'U' -> "U"
+        strResource[0] = levelInfo->setupFileName[0]; // 'U' -> "U"
         strResource[1] = 0; // Terminate so strcat has a valid string.
 
         /**
-         * There are no slots for the mp stages in setup_text_pointers. The name is created
-         * by adding "mp_" after the "U" e.g. "Ump_setuparchZ"
+         * g_LevelInfoTable stores the single-player setup name. The multiplayer name is created
+         * by adding "mp_" after the "U", for example "Ump_setuparchZ".
          */
         if (getPlayerCount() >= 2)
         {
             strcat(strResource, "mp_"); // -> "Ump_"
         }
 
-        strcat(strResource, setup_text_pointers[stageId] + 1); // Add remaining text back U[mp_] + setupxxxZ
+        strcat(strResource, levelInfo->setupFileName + 1); // Add remaining text back U[mp_] + setupxxxZ
 
         g_ptrStageSetupFile = _fileNameLoadToBank(strResource, FILELOADMETHOD_DEFAULT, 256, MEMPOOL_STAGE);
 

@@ -36,7 +36,6 @@ struct levelentry
 
 extern struct levelentry g_LevelInfoTable[];
 extern stagesetup *g_ptrStageSetupFile;
-extern char *setup_text_pointers[];
 
 extern s32 g_ClockTimer;
 extern s32 g_GlobalTimer;
@@ -59,6 +58,7 @@ extern u32 g_ProfGfxCommands;
 extern u32 g_ProfBgGfxCommands;
 
 void lvInit(void);
+struct levelentry *lvFindLevelInfo(enum LEVELID levelId);
 Gfx * lvRender(Gfx *);
 void lvSetSelectedDifficulty(DIFFICULTY diff);
 void lvTick(void);
