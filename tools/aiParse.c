@@ -66,6 +66,7 @@ typedef long                        wchar_t;
 #include <bondaicommands.h>
 #include <bondconstants.h>
 #include <bondtypes.h>
+#include <lv.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wint-conversion"

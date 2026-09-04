@@ -7,14 +7,15 @@
 #include "bondview.h"
 #include "fr.h"
 #include "random.h"
-#include "game/bondinv.h"
-#include "game/chrai.h"
-#include "game/front.h"
-#include "game/gun.h"
-#include "game/language.h"
-#include "game/player.h"
-#include "game/ramromreplay.h"
-#include "game/stan.h"
+#include "bondinv.h"
+#include "chrai.h"
+#include "front.h"
+#include "gun.h"
+#include "language.h"
+#include "lv.h"
+#include "player.h"
+#include "ramromreplay.h"
+#include "stan.h"
 
 #define FLOAT_INIT 0
 #define FIELD_6C_FACTOR 0.170000016689f

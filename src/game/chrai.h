@@ -251,8 +251,6 @@ extern struct coord3d g_ProjectileHitDirectionWorld;
 extern struct coord3d g_ProjectileHitDirectionView;
 extern MonitorRecord g_MonitorAnimController;
 extern struct object_animation_controller g_TaserAnimController;
-extern stagesetup *g_ptrStageSetupFile;
-extern char *setup_text_pointers[];
 
 void               alarmDeactivate(void);
 s32                chraiitemsize(u8 *AIList, s32 offset);

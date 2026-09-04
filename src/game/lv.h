@@ -41,6 +41,19 @@ struct LvlMpUnknown {
     };
 };
 
+struct levelentry
+{
+    s32 levelID;
+    void *bg_seg_filename;
+    void *bg_stan_filename;
+    f32 levelscale;
+    f32 visibility;
+};
+
+extern struct levelentry g_LevelInfoTable[];
+extern stagesetup *g_ptrStageSetupFile;
+extern char *setup_text_pointers[];
+
 extern s32 g_LastImpactTexNum;
 extern struct LvlMpUnknown *D_800483C8;
 
