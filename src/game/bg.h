@@ -47,9 +47,7 @@ typedef struct BoundVec {
 typedef struct RoomInfo {
     // is room being rendered? boolean
     u8 room_rendered;                       // 0x00
-
-    // is the room a neighbor to a room being rendered? boolean
-    u8 room_neighbor_to_rendered;           // 0x01
+    u8 pad;
 
     /**
      * Acts like a small room age counter.

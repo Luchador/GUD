@@ -3549,7 +3549,6 @@ void bgDetermineVisibleRooms(void)
     for (i = 0; i < MAXROOMCOUNT; i++) 
     {
         g_BgRoomInfo[i].room_rendered = 0;
-        g_BgRoomInfo[i].room_neighbor_to_rendered = 0;
         g_BgRoomInfo[i].room_loaded_mask = 0;
     }
 
@@ -3601,21 +3600,6 @@ void bgDetermineVisibleRooms(void)
         while (bgProcessNextQueuedPortal())
         {
             // empty
-        }
-    }
-
-    for (i = 0; g_BgPortals[i].portal != NULL; i++) 
-    {
-        temp_v1 = g_BgPortals[i].connectedRoom1;
-        temp_a0 = g_BgPortals[i].connectedRoom2;
-
-        if ((g_BgRoomInfo[temp_v1].room_rendered != 0) && (g_BgRoomInfo[temp_a0].room_rendered == 0)) 
-        {
-            g_BgRoomInfo[temp_a0].room_neighbor_to_rendered = 1;
-        } 
-        else if ((g_BgRoomInfo[temp_a0].room_rendered != 0) && (g_BgRoomInfo[temp_v1].room_rendered == 0)) 
-        {
-            g_BgRoomInfo[temp_v1].room_neighbor_to_rendered = 1;
         }
     }
 }
