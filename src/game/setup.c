@@ -1167,7 +1167,7 @@ void setupDoor(struct DoorRecord *door, s32 cmdindex)
 void setupLoadFiles(enum LEVELID stageId)
 {
     ItemModelFileRecord *itemModel;
-    struct levelentry *levelInfo;
+    struct LevelEntry *levelInfo;
 
     g_DoorScale = 1.0f;
     g_MpSetupWeaponSlot = -1;

@@ -4,6 +4,7 @@
 #include <bondconstants.h>
 #include "bondtypes.h"
 
+
 #define DEFAULT_AGENT_AI_ACCURACY_MODIFIER 0.6f
 #define DEFAULT_AGENT_AI_DAMAGE_MODIFIER 0.5f
 #define DEFAULT_AGENT_SOLO_AMMO_MULTIPLIER 2.0f
@@ -24,7 +25,7 @@
 #define DEFAULT_007_SOLO_AMMO_MULTIPLIER DEFAULT_00_AGENT_SOLO_AMMO_MULTIPLIER
 #define DEFAULT_007_AI_REACTION_SPEED DEFAULT_00_AGENT_AI_REACTION_SPEED
 
-struct levelentry
+struct LevelEntry
 {
     s32 levelID;
     char *setupFileName;
@@ -32,9 +33,12 @@ struct levelentry
     void *bg_stan_filename;
     f32 levelscale;
     f32 renderScale;
+    s16 main_music;
+    s16 bg_sound;
+    s16 xtrack;
 };
 
-extern struct levelentry g_LevelInfoTable[];
+extern struct LevelEntry g_LevelInfoTable[];
 extern stagesetup *g_ptrStageSetupFile;
 
 extern s32 g_ClockTimer;
@@ -58,7 +62,7 @@ extern u32 g_ProfGfxCommands;
 extern u32 g_ProfBgGfxCommands;
 
 void lvInit(void);
-struct levelentry *lvFindLevelInfo(enum LEVELID levelId);
+struct LevelEntry *lvFindLevelInfo(enum LEVELID levelId);
 Gfx *lvRender(Gfx *gdl);
 void lvSetSelectedDifficulty(DIFFICULTY diff);
 void lvTick(void);
