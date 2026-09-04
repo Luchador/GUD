@@ -969,6 +969,7 @@ Gfx *bgSetupAndRender(Gfx *gdl)
         gdl = bgRenderWrapper(gdl);
         gdl = bgScissorCurrentPlayerViewDefault(gdl);
         gdl = envRenderClearFogMode(gdl);
+        gdl = envRestoreFogAlphaDither(gdl);
 
         g_BgScissorCache.enabled = FALSE;
         g_BgScissorCache.valid = FALSE;

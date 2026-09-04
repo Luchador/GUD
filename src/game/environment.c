@@ -302,9 +302,9 @@ void envSwitchToSoloSky2(f32 transitionTime)
 
 
 /**
- * Initializes fog state that is constant for the duration of one player's
- * world render. Fog position and alpha dithering do not need to be present for
- * every room.
+ * Initializes fog state for one player's world render. These settings are
+ * shared by every room, although alpha dithering must be restored afterward
+ * because loaded display lists can change persistent RDP state.
  */
 Gfx *envBeginWorldFog(Gfx *gdl)
 {
@@ -315,6 +315,24 @@ Gfx *envBeginWorldFog(Gfx *gdl)
 
     gSPFogPosition(gdl++, g_CurrentEnvironment.Visibility.FogStart,
             g_CurrentEnvironment.Visibility.FogEnd);
+    gDPSetAlphaDither(gdl++, G_AD_NOISE);
+
+    return gdl;
+}
+
+
+/**
+ * Room and prop display lists may change persistent RDP state. Restore the
+ * alpha-dither mode used by fogged levels before rendering effects and the
+ * first-person weapon.
+ */
+Gfx *envRestoreFogAlphaDither(Gfx *gdl)
+{
+    if (!g_CurrentEnvironment.FogEnabled)
+    {
+        return gdl;
+    }
+
     gDPSetAlphaDither(gdl++, G_AD_NOISE);
 
     return gdl;
