@@ -548,6 +548,29 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         GEditorLayout(hwnd);
         return 0;
 
+    case WM_MOUSEWHEEL:
+    {
+        /*
+         * Win32 delivers the wheel to the keyboard-focus window, which
+         * is usually this frame - not the panel under the pointer.
+         * Route it by position so the browser scrolls whenever the
+         * cursor is over it, matching what hands expect.
+         */
+        POINT p;
+        RECT rc;
+
+        p.x = GET_X_LPARAM(lparam);
+        p.y = GET_Y_LPARAM(lparam);
+        GetWindowRect(g_Browser, &rc);
+
+        if (PtInRect(&rc, p))
+        {
+            SendMessage(g_Browser, WM_MOUSEWHEEL, wparam, lparam);
+            return 0;
+        }
+        break;
+    }
+
     case WM_SETCURSOR:
         /* Mouse messages over the children go to the children, so the
            main window only hears about the cursor when it is over its

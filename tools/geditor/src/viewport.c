@@ -454,7 +454,10 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
 
     case WM_MOUSEWHEEL:
-        if(state != NULL)
+        /* The wheel is fly-speed only while flying. Otherwise let
+           DefWindowProc bubble it to the frame, which routes it to
+           whichever panel the cursor is over. */
+        if (state != NULL && state->flying)
         {
             int clicks = GET_WHEEL_DELTA_WPARAM(wparam) / WHEEL_DELTA;
 
@@ -479,8 +482,10 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
             {
                 state->speed = 50000.0f;
             }
+
+            return 0; /* consumed: wheel steers fly speed */
         }
-        return 0;
+        break; /* not flying: DefWindowProc forwards the wheel to the frame */
 
     case WM_ERASEBKGND:
         /* GL repaints every pixel; skipping the GDI erase kills the

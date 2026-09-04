@@ -38,7 +38,92 @@ typedef struct BrowserState {
     BrowserSection sections[BROWSER_SECTION_COUNT];
     BrowserLevelItem levels[BROWSER_MAX_LEVELS];
     int levelcount;
+    int scroll[BROWSER_SECTION_COUNT];   /* pixels scrolled per body */
+    int dragsection;                     /* thumb being dragged, or -1 */
+    int dragstarty;
+    int dragstartscroll;
 } BrowserState;
+
+#define BROWSER_SCROLLBAR_W 8
+
+/*
+ * Pixel height of a section's content, independent of the body rect.
+ * Images and Models report 0 until they have content to show.
+ */
+static int BrowserContentHeight(const BrowserState *state, int section)
+{
+    if (section == BROWSER_SECTION_LEVELS)
+    {
+        return state->levelcount > 0 ? state->levelcount * BROWSER_ROW_H + 8 : 0;
+    }
+
+    return 0;
+}
+
+static int BrowserMaxScroll(const BrowserState *state, int section)
+{
+    const BrowserSection *sec = &state->sections[section];
+    int body = sec->bodyrc.bottom - sec->bodyrc.top;
+    int content = BrowserContentHeight(state, section);
+
+    return content > body ? content - body : 0;
+}
+
+/*
+ * Where the scrollbar thumb sits for a section, in client coordinates.
+ * Returns FALSE when the section needs no scrollbar.
+ */
+static BOOL BrowserThumbRect(const BrowserState *state, int section, RECT *out)
+{
+    const BrowserSection *sec = &state->sections[section];
+    int body = sec->bodyrc.bottom - sec->bodyrc.top;
+    int content = BrowserContentHeight(state, section);
+    int track;
+    int thumb;
+    int maxscroll;
+    int y;
+
+    if (!sec->expanded || content <= body || body <= 0)
+    {
+        return FALSE;
+    }
+
+    track = body - 4;
+    thumb = track * body / content;   /* proportional */
+    if (thumb < 20)
+    {
+        thumb = 20;                   /* never vanishingly small */
+    }
+    if (thumb > track)
+    {
+        thumb = track;
+    }
+
+    maxscroll = content - body;
+    y = sec->bodyrc.top + 2
+      + (maxscroll > 0 ? (track - thumb) * state->scroll[section] / maxscroll : 0);
+
+    out->left = sec->bodyrc.right - BROWSER_SCROLLBAR_W - 2;
+    out->right = sec->bodyrc.right - 2;
+    out->top = y;
+    out->bottom = y + thumb;
+
+    return TRUE;
+}
+
+static void BrowserClampScroll(BrowserState *state, int section)
+{
+    int maxscroll = BrowserMaxScroll(state, section);
+
+    if (state->scroll[section] > maxscroll)
+    {
+        state->scroll[section] = maxscroll;
+    }
+    if (state->scroll[section] < 0)
+    {
+        state->scroll[section] = 0;
+    }
+}
 
 static BrowserState *BrowserGetState(HWND hwnd)
 {
@@ -183,54 +268,55 @@ static void BrowserPaintArrow(HDC hdc, const RECT *header, BOOL expanded)
  * When rows do not fit, the last visible line becomes a "+N more"
  * hint; scrolling is a later feature.
  */
+/*
+ * Draws the level rows offset by the section's scroll position. The
+ * caller has already clipped the DC to the body rect, so rows that
+ * hang over either edge are cut cleanly instead of painted over the
+ * neighbouring section.
+ */
 static void BrowserPaintLevelRows(BrowserState *state, HDC hdc, const RECT *body)
 {
-    int y = body->top + 4;
+    int y = body->top + 4 - state->scroll[BROWSER_SECTION_LEVELS];
     int i;
-    int fits = (body->bottom - y) / BROWSER_ROW_H;
-    int shown = state->levelcount;
-
-    if (fits < 1)
-    {
-        return;
-    }
-
-    if (shown > fits)
-    {
-        shown = fits - 1; /* reserve the last line for the hint */
-    }
 
     SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
 
-    for (i = 0; i < shown; i++)
+    for (i = 0; i < state->levelcount; i++, y += BROWSER_ROW_H)
     {
         RECT rc;
 
+        if (y + BROWSER_ROW_H < body->top || y > body->bottom)
+        {
+            continue; /* entirely outside the body: nothing to draw */
+        }
+
         rc.left = 26;
-        rc.right = body->right - 4;
+        rc.right = body->right - BROWSER_SCROLLBAR_W - 6;
         rc.top = y;
         rc.bottom = y + BROWSER_ROW_H;
 
         DrawText(hdc, state->levels[i].label, -1, &rc,
                  DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_END_ELLIPSIS | DT_NOPREFIX);
-
-        y += BROWSER_ROW_H;
     }
+}
 
-    if (shown < state->levelcount)
+/* Slim track-and-thumb indicator on the body's right edge. */
+static void BrowserPaintScrollbar(BrowserState *state, HDC hdc, int section)
+{
+    RECT thumb;
+    RECT track;
+
+    if (!BrowserThumbRect(state, section, &thumb))
     {
-        RECT rc;
-        char more[32];
-
-        rc.left = 26;
-        rc.right = body->right - 4;
-        rc.top = y;
-        rc.bottom = y + BROWSER_ROW_H;
-
-        wsprintf(more, "... +%d more", state->levelcount - shown);
-        SetTextColor(hdc, GetSysColor(COLOR_GRAYTEXT));
-        DrawText(hdc, more, -1, &rc, DT_SINGLELINE | DT_VCENTER | DT_LEFT);
+        return;
     }
+
+    track = state->sections[section].bodyrc;
+    track.left = thumb.left;
+    track.right = thumb.right;
+
+    FillRect(hdc, &track, GetSysColorBrush(COLOR_BTNFACE));
+    FillRect(hdc, &thumb, GetSysColorBrush(COLOR_BTNSHADOW));
 }
 
 static void BrowserPaint(HWND hwnd, HDC hdc)
@@ -273,7 +359,15 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
         {
             if (i == BROWSER_SECTION_LEVELS && state->levelcount > 0)
             {
+                int saved = SaveDC(hdc);
+
+                BrowserClampScroll(state, i);
+                IntersectClipRect(hdc, sec->bodyrc.left, sec->bodyrc.top,
+                                  sec->bodyrc.right, sec->bodyrc.bottom);
                 BrowserPaintLevelRows(state, hdc, &sec->bodyrc);
+                RestoreDC(hdc, saved);
+
+                BrowserPaintScrollbar(state, hdc, i);
             }
             else
             {
@@ -310,13 +404,65 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         state->sections[1].expanded = TRUE;
         state->sections[2].name = "Models";
         state->sections[2].expanded = TRUE;
+        state->dragsection = -1;
 
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         return 0;
 
     case WM_LBUTTONDOWN:
     {
-        int hit = BrowserHitHeader(hwnd, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+        int x = GET_X_LPARAM(lparam);
+        int y = GET_Y_LPARAM(lparam);
+        int hit;
+        int i;
+
+        if (state != NULL)
+        {
+            RECT client;
+            POINT p;
+
+            GetClientRect(hwnd, &client);
+            BrowserLayoutSections(state, &client);
+            p.x = x;
+            p.y = y;
+
+            /* Scrollbar first: the thumb and track live inside body
+               rects, and a click there must not fall through. */
+            for (i = 0; i < BROWSER_SECTION_COUNT; i++)
+            {
+                RECT thumb;
+
+                if (!BrowserThumbRect(state, i, &thumb))
+                {
+                    continue;
+                }
+
+                if (PtInRect(&thumb, p))
+                {
+                    state->dragsection = i;
+                    state->dragstarty = y;
+                    state->dragstartscroll = state->scroll[i];
+                    SetCapture(hwnd);
+                    return 0;
+                }
+
+                /* The track above/below the thumb pages the view. */
+                if (x >= thumb.left && x < thumb.right
+                    && y >= state->sections[i].bodyrc.top
+                    && y < state->sections[i].bodyrc.bottom)
+                {
+                    int body = state->sections[i].bodyrc.bottom
+                             - state->sections[i].bodyrc.top;
+
+                    state->scroll[i] += (y < thumb.top) ? -body : body;
+                    BrowserClampScroll(state, i);
+                    InvalidateRect(hwnd, NULL, FALSE);
+                    return 0;
+                }
+            }
+        }
+
+        hit = BrowserHitHeader(hwnd, x, y);
 
         if (hit >= 0 && state != NULL)
         {
@@ -325,6 +471,82 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
         return 0;
     }
+
+    case WM_MOUSEMOVE:
+        if (state != NULL && state->dragsection >= 0)
+        {
+            int i = state->dragsection;
+            int body = state->sections[i].bodyrc.bottom - state->sections[i].bodyrc.top;
+            int content = BrowserContentHeight(state, i);
+            int track = body - 4;
+            int thumb = content > 0 ? track * body / content : track;
+            int range;
+
+            if (thumb < 20)
+            {
+                thumb = 20;
+            }
+
+            range = track - thumb;
+
+            if (range > 0)
+            {
+                int dy = GET_Y_LPARAM(lparam) - state->dragstarty;
+                int maxscroll = BrowserMaxScroll(state, i);
+
+                /* thumb pixels -> content pixels, same ratio the
+                   painter uses in the other direction */
+                state->scroll[i] = state->dragstartscroll + dy * maxscroll / range;
+                BrowserClampScroll(state, i);
+                InvalidateRect(hwnd, NULL, FALSE);
+            }
+        }
+        return 0;
+
+    case WM_LBUTTONUP:
+    case WM_CAPTURECHANGED:
+        if (state != NULL && state->dragsection >= 0)
+        {
+            state->dragsection = -1;
+
+            if (msg == WM_LBUTTONUP)
+            {
+                ReleaseCapture();
+            }
+        }
+        return 0;
+
+    case WM_MOUSEWHEEL:
+        if (state != NULL)
+        {
+            RECT client;
+            POINT p;
+            int i;
+
+            /* Wheel coordinates are screen coordinates. */
+            p.x = GET_X_LPARAM(lparam);
+            p.y = GET_Y_LPARAM(lparam);
+            ScreenToClient(hwnd, &p);
+
+            GetClientRect(hwnd, &client);
+            BrowserLayoutSections(state, &client);
+
+            for (i = 0; i < BROWSER_SECTION_COUNT; i++)
+            {
+                BrowserSection *sec = &state->sections[i];
+
+                if (sec->expanded && PtInRect(&sec->bodyrc, p))
+                {
+                    int notches = GET_WHEEL_DELTA_WPARAM(wparam) / WHEEL_DELTA;
+
+                    state->scroll[i] -= notches * 3 * BROWSER_ROW_H;
+                    BrowserClampScroll(state, i);
+                    InvalidateRect(hwnd, NULL, FALSE);
+                    break;
+                }
+            }
+        }
+        return 0;
 
     case WM_SETCURSOR:
     {
@@ -422,6 +644,7 @@ void BrowserSetLevels(HWND browser, const BrowserLevelItem *items, int count)
     }
 
     state->levelcount = count;
+    state->scroll[BROWSER_SECTION_LEVELS] = 0;
 
     InvalidateRect(browser, NULL, TRUE);
 }
