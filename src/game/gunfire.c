@@ -2163,8 +2163,6 @@ void gunfirePlaySfxBulletImpact(enum ITEM_IDS item, PropRecord* prop, s32 textur
     rnd1 = randomGetNext();
     rnd2 = randomGetNext();
 
-    g_LastImpactTexNum = texture_index;
-
     if ((item == ITEM_REMOTEMINE)
         || (item == ITEM_PROXIMITYMINE)
         || (item == ITEM_TIMEDMINE)
@@ -2286,8 +2284,6 @@ void gunfirePlaySfxRicochetSounds(enum ITEM_IDS item, coord3d* arg1, s32 texture
 
     rnd1 = randomGetNext();
     rnd2 = randomGetNext();
-
-    g_LastImpactTexNum = texture_index;
 
     if (g_ClockTimer <= 0)
     { 

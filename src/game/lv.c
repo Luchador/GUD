@@ -116,11 +116,6 @@ f32 g_SystemPowerTimeSeconds = 0.0;
  */
 bool g_BgRenderEnabled = TRUE;
 
-s32 g_LastImpactTexNum = 0xFFFFFFFF;
-
-struct LvlMpUnknown *D_800483C8 = NULL;
-
-
 extern u8* _fontdlSegmentRomStart;
 extern u8* _fontdlSegmentRomEnd;
 

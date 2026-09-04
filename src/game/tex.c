@@ -701,7 +701,6 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
     struct tex *tex;
     Gfx        *saved = NULL;
     s32         count;
-    s32         valid = FALSE;
     s32         texnum2;
     s32         syncEmitted = FALSE;
     s32         smode;
@@ -744,22 +743,6 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
 
                 texnum = in->words.w1 & 0xfff;
 
-                if ((texnum == g_LastImpactTexNum) && (D_800483C8 != NULL))
-                {
-                    if (D_800483C8[texnum].unk_0_0 < 0xffU)
-                    {
-                        valid = TRUE;
-                    }
-                    else
-                    {
-                        valid = FALSE;
-                    }
-                }
-                else
-                {
-                    valid = FALSE;
-                }
-
                 texLoadFromTextureNum(texnum, texpool);
                 tex = texFindInPool(texnum, texpool);
 
@@ -778,38 +761,7 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
                             shifts = (in->words.w0 >> 14) & 0xf;
                             shiftt = (in->words.w0 >> 10) & 0xf;
 
-                            if ((D_800483C8 != NULL) && (D_800483C8[texnum].unk_0_0 == 0xff))
-                            {
-                                do
-                                {
-                                    if (TRUE) {}
-                                } while (FALSE);
-
-                                D_800483C8[texnum].unk_0_0 = min;
-                                D_800483C8[texnum].unk_1_3 = 15 - shifts;
-                                D_800483C8[texnum].unk_1_0 = 15 - shiftt;
-                            }
-
-                            if (valid)
-                            {
-                                out = texHandleType0(
-                                    out,
-                                    tex,
-                                    smode,
-                                    tmode,
-                                    offset,
-                                    15 - D_800483C8[texnum].unk_1_3,
-                                    15 - D_800483C8[texnum].unk_1_0,
-                                    D_800483C8[texnum].unk_0_0);
-
-                                gDPSetCycleType(out++, G_CYC_2CYCLE);
-                                gDPSetTextureLOD(out++, G_TL_LOD);
-                                gDPSetTextureDetail(out++, G_TD_DETAIL);
-                            }
-                            else
-                            {
-                                out = texHandleType0(out, tex, smode, tmode, offset, shifts, shiftt, min);
-                            }
+                            out = texHandleType0(out, tex, smode, tmode, offset, shifts, shiftt, min);
                             break;
 
                         case TEXTURETYPE_DETAIL:
@@ -840,26 +792,7 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
                             tmode  = (in->words.w0 >> 20) & 3;
                             offset = (in->words.w0 >> 18) & 3;
 
-                            if (valid)
-                            {
-                                out = texHandleType0(
-                                    out,
-                                    tex,
-                                    smode,
-                                    tmode,
-                                    offset,
-                                    15 - D_800483C8[texnum].unk_1_3,
-                                    15 - D_800483C8[texnum].unk_1_0,
-                                    D_800483C8[texnum].unk_0_0);
-
-                                gDPSetCycleType(out++, G_CYC_2CYCLE);
-                                gDPSetTextureLOD(out++, G_TL_LOD);
-                                gDPSetTextureDetail(out++, G_TD_DETAIL);
-                            }
-                            else
-                            {
-                                out = texHandleType2(out, tex, smode, tmode, offset);
-                            }
+                            out = texHandleType2(out, tex, smode, tmode, offset);
                             break;
 
                         case TEXTURETYPE_TILE:
@@ -922,24 +855,6 @@ s32 texLoadFromGdl(Gfx *src, s32 srcsize, Gfx *dst, void *texpool)
                 saved        = out;
                 writeTexFlag = FALSE;
                 *(out++)     = *(in++);
-                break;
-
-            case 0xba:
-                if (valid)
-                {
-                    if ((((*(((s8 *)in) + 2)) == 17) || ((*(((s8 *)in) + 2)) == 20)) || ((*(((s8 *)in) + 2)) == 16))
-                    {
-                        in++;
-                    }
-                    else
-                    {
-                        *(out++) = *(in++);
-                    }
-                }
-                else
-                {
-                    *(out++) = *(in++);
-                }
                 break;
 
             default:

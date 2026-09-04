@@ -24,23 +24,6 @@
 #define DEFAULT_007_SOLO_AMMO_MULTIPLIER DEFAULT_00_AGENT_SOLO_AMMO_MULTIPLIER
 #define DEFAULT_007_AI_REACTION_SPEED DEFAULT_00_AGENT_AI_REACTION_SPEED
 
-struct LvlMpUnknown {
-    union {
-        struct {
-            u8 unk_0;
-            u8 unk_1;
-            u8 unk_2;
-            u8 unk_3;
-        };
-        struct {
-            u32 unk_0_0 : 8;
-            u32 unk_1_3 : 3;
-            u32 unk_1_0 : 3;
-        };
-        u32 word;
-    };
-};
-
 struct levelentry
 {
     s32 levelID;
@@ -53,9 +36,6 @@ struct levelentry
 extern struct levelentry g_LevelInfoTable[];
 extern stagesetup *g_ptrStageSetupFile;
 extern char *setup_text_pointers[];
-
-extern s32 g_LastImpactTexNum;
-extern struct LvlMpUnknown *D_800483C8;
 
 extern s32 g_ClockTimer;
 extern s32 g_GlobalTimer;
