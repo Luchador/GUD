@@ -69,10 +69,11 @@ f32 animation_rate = 0;
 /*
  * D:8002C914
  * Per-body-part hit reaction table, indexed by HITTARGET.
- * Legend: iN/iSz = impact puff count/size, bN/bSz = back puff count/size,
+ * Legend: fType/fSize = front puff effect type/size,
+ *         bType/bSize = back puff effect type/size,
  *         u8/u14 = unused, dN/fN = death/flinch anim counts (filled at init by initWeaponAnimGroups).
  */
-/*                       part,                       iN,  u8,  iSz,   bN, u14,  bSz,  deathAnims,           dN, flinchAnims,          fN */
+/*                       part,                       fType, u8, fSize, bType, u14, bSize, deathAnims,           dN, flinchAnims,          fN */
 struct ChrHitReaction g_HitReactionTable[] = {
 /* HIT_NULL_PART      */ {0                        , 0,   0,   0,     0,  0,    0,    NULL,                 0,  NULL,                  0},
 /* HIT_LEFT_FOOT      */ {1                        , 1,   0,   17.0,  3,  0,    34.0, death_left_foot,      0,  flinch_left_foot,      0},
@@ -2802,53 +2803,41 @@ Gfx *chrRenderChr(PropRecord *prop, Gfx *gdl, s32 withalpha)
  * Creates a smoke puff at the front of the character when the character is shot,
  * and also has a ~50% chance of creating a second smoke puff just behind the character.
  */
-void chrCreateHitPuffs(PropRecord *prop, s32 anim_id, coord3d *vec, coord3d *pos)
+void chrCreateHitPuffs(PropRecord *hitProp, s32 hitPart, coord3d *viewSpaceHitPosition, coord3d *frontPuffWorldPosition)
 {
-    s32 i;
-    f32 scale;
-    coord3d sp3c;
-    s32 index;
-    struct ChrHitReaction *entry;
+    struct ChrHitReaction *hitReaction;
+    coord3d backPuffWorldPosition;
+    f32 backPuffDistanceScale;
 
-    index = 0;
-    i = 0;
+    hitReaction = &g_HitReactionTable[0];
 
-    if (g_HitReactionTable[0].hitpart != -1)
+    while (hitReaction->hitpart != -1 && hitReaction->hitpart != hitPart)
     {
-        do
-        {
-            if (anim_id == g_HitReactionTable[i].hitpart)
-            {
-                index = i;
-                break;
-            }
-
-            i++;
-        }
-        while (g_HitReactionTable[i].hitpart != -1);
+        hitReaction++;
     }
 
-    entry = &g_HitReactionTable[index];
-
-    if (entry->backImpactPuffCount) {
-        // True when randomGetNext() bit 2 is 0, so roughly 50% chance.
-        if ((randomGetNext() & 4) == 0)
-        {
-            scale = (42.0f / sqrtf(vec->z * vec->z + (vec->x * vec->x + vec->y * vec->y))) + 1.0f;
-
-            sp3c.x = vec->x * scale;
-            sp3c.y = vec->y * scale;
-            sp3c.z = vec->z * scale;
-
-            mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), &sp3c);
-
-            fxCreateBulletspark(&sp3c, entry->backImpactPuffCount, entry->backImpactPuffSize, prop->stan->room);
-        }
+    // Unknown hit parts use the HIT_NULL_PART entry, which creates no puffs.
+    if (hitReaction->hitpart == -1)
+    {
+        hitReaction = &g_HitReactionTable[0];
     }
 
-    if (entry->impactPuffCount)
+    // The back puff is optional and is emitted on roughly half of eligible hits.
+    if (hitReaction->backPuffType != 0 && (randomGetNext() & 4) == 0)
     {
-        fxCreateBulletspark(pos, entry->impactPuffCount, entry->impactPuffSize, prop->stan->room);
+        backPuffDistanceScale = 1.0f + (42.0f / sqrtf(viewSpaceHitPosition->x * viewSpaceHitPosition->x + viewSpaceHitPosition->y * viewSpaceHitPosition->y + viewSpaceHitPosition->z * viewSpaceHitPosition->z));
+        backPuffWorldPosition.x = viewSpaceHitPosition->x * backPuffDistanceScale;
+        backPuffWorldPosition.y = viewSpaceHitPosition->y * backPuffDistanceScale;
+        backPuffWorldPosition.z = viewSpaceHitPosition->z * backPuffDistanceScale;
+
+        mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), &backPuffWorldPosition);
+
+        fxCreateBulletspark(&backPuffWorldPosition, hitReaction->backPuffType, hitReaction->backPuffSize, hitProp->stan->room);
+    }
+
+    if (hitReaction->frontPuffType != 0)
+    {
+        fxCreateBulletspark(frontPuffWorldPosition, hitReaction->frontPuffType, hitReaction->frontPuffSize, hitProp->stan->room);
     }
 }
 

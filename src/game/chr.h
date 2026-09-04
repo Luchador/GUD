@@ -14,12 +14,12 @@ struct StruckAnim;
 struct ChrHitReaction
 {
     s32 hitpart; // HITTARGET key
-    s32 impactPuffCount;
+    s32 frontPuffType;
     s32 unused_8;
-    f32 impactPuffSize;
-    s32 backImpactPuffCount; // Count for the impact puff(s) that appears behind the hit point
+    f32 frontPuffSize;
+    s32 backPuffType;
     s32 unused_14;
-    f32 backImpactPuffSize;
+    f32 backPuffSize;
 
     struct StruckAnim *deathAnims;
     s32 deathAnimCount;
