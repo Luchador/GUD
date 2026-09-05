@@ -3,6 +3,12 @@
 
 #include <windows.h>
 
+/*
+ * Sent to the browser's parent when a level row is double-clicked.
+ * wparam: level index. lparam: the row's label (char *), valid only
+ * for the duration of the message.
+ */
+#define BROWSER_WM_LEVEL_OPEN (WM_APP + 1)
 
 BOOL BrowserRegisterClass(HINSTANCE hinstance);
 HWND BrowserCreate(HWND parent, HINSTANCE hinstance);

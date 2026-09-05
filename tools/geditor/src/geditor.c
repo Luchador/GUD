@@ -548,6 +548,19 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         GEditorLayout(hwnd);
         return 0;
 
+    case BROWSER_WM_LEVEL_OPEN:
+    {
+        /* Level loading lands in a later step. For now the frame just
+           reflects the choice in its title, which also proves the
+           plumbing end to end. */
+        char title[256];
+
+        wsprintf(title, "%s - %s", GEDITOR_TITLE,
+                 (const char *)lparam);
+        SetWindowText(hwnd, title);
+        return 0;
+    }
+
     case WM_MOUSEWHEEL:
     {
         /*

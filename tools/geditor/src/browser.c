@@ -39,6 +39,7 @@ typedef struct BrowserState {
     BrowserLevelItem levels[BROWSER_MAX_LEVELS];
     int levelcount;
     int scroll[BROWSER_SECTION_COUNT];   /* pixels scrolled per body */
+    int selectedlevel;
     int dragsection;                     /* thumb being dragged, or -1 */
     int dragstarty;
     int dragstartscroll;
@@ -198,6 +199,49 @@ static void BrowserLayoutSections(BrowserState *state, const RECT *client)
     }
 }
 
+
+static int BrowserHitLevelRow(HWND hwnd, int x, int y)
+{
+    BrowserState *state = BrowserGetState(hwnd);
+    BrowserSection *sec;
+    RECT client;
+    POINT p;
+    int index;
+
+    if (state == NULL || state->levelcount == 0)
+    {
+        return -1;
+    }
+
+    GetClientRect(hwnd, &client);
+    BrowserLayoutSections(state, &client);
+
+    sec = &state->sections[BROWSER_SECTION_LEVELS];
+    p.x = x;
+    p.y = y;
+
+    if (!sec->expanded || !PtInRect(&sec->bodyrc, p))
+    {
+        return -1;
+    }
+
+    if (x >= sec->bodyrc.right - BROWSER_SCROLLBAR_W - 2)
+    {
+        return -1; /* that's the scrollbar, not a row */
+    }
+
+    index = (y - sec->bodyrc.top - 4 + state->scroll[BROWSER_SECTION_LEVELS])
+          / BROWSER_ROW_H;
+
+    if (index < 0 || index >= state->levelcount)
+    {
+        return -1;
+    }
+
+    return index;
+}
+
+
 /* Section index whose header contains the point, or -1. */
 static int BrowserHitHeader(HWND hwnd, int x, int y)
 {
@@ -279,8 +323,6 @@ static void BrowserPaintLevelRows(BrowserState *state, HDC hdc, const RECT *body
     int y = body->top + 4 - state->scroll[BROWSER_SECTION_LEVELS];
     int i;
 
-    SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
-
     for (i = 0; i < state->levelcount; i++, y += BROWSER_ROW_H)
     {
         RECT rc;
@@ -294,6 +336,19 @@ static void BrowserPaintLevelRows(BrowserState *state, HDC hdc, const RECT *body
         rc.right = body->right - BROWSER_SCROLLBAR_W - 6;
         rc.top = y;
         rc.bottom = y + BROWSER_ROW_H;
+
+        if (i == state->selectedlevel)
+        {
+            RECT fill = rc;
+
+            fill.left = body->left;
+            FillRect(hdc, &fill, GetSysColorBrush(COLOR_HIGHLIGHT));
+            SetTextColor(hdc, GetSysColor(COLOR_HIGHLIGHTTEXT));
+        }
+        else
+        {
+            SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
+        }
 
         DrawText(hdc, state->levels[i].label, -1, &rc,
                  DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_END_ELLIPSIS | DT_NOPREFIX);
@@ -405,9 +460,41 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         state->sections[2].name = "Models";
         state->sections[2].expanded = TRUE;
         state->dragsection = -1;
+        state->selectedlevel = -1;
 
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         return 0;
+
+    case WM_LBUTTONDBLCLK:
+    {
+        int x = GET_X_LPARAM(lparam);
+        int y = GET_Y_LPARAM(lparam);
+        int row = BrowserHitLevelRow(hwnd, x, y);
+
+        if (row >= 0)
+        {
+            state->selectedlevel = row;
+            InvalidateRect(hwnd, NULL, FALSE);
+
+            /* Tell the frame which level was opened. The label pointer
+               is only valid for the duration of this SendMessage. */
+            SendMessage(GetParent(hwnd), BROWSER_WM_LEVEL_OPEN, (WPARAM)row, (LPARAM)state->levels[row].label);
+            return 0;
+        }
+
+        /* A double-click on a header behaves like a second click, so
+           rapid clicking toggles twice instead of eating a click. */
+        {
+            int hit = BrowserHitHeader(hwnd, x, y);
+
+            if (hit >= 0 && state != NULL)
+            {
+                state->sections[hit].expanded = !state->sections[hit].expanded;
+                InvalidateRect(hwnd, NULL, FALSE);
+            }
+        }
+        return 0;
+    }
 
     case WM_LBUTTONDOWN:
     {
@@ -599,6 +686,7 @@ BOOL BrowserRegisterClass(HINSTANCE hinstance)
 
     ZeroMemory(&wc, sizeof(wc));
     wc.lpfnWndProc   = BrowserWndProc;
+    wc.style         = CS_DBLCLKS;
     wc.hInstance     = hinstance;
     wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = NULL; /* painted in WM_PAINT */
@@ -645,6 +733,7 @@ void BrowserSetLevels(HWND browser, const BrowserLevelItem *items, int count)
 
     state->levelcount = count;
     state->scroll[BROWSER_SECTION_LEVELS] = 0;
+    state->selectedlevel = -1;
 
     InvalidateRect(browser, NULL, TRUE);
 }
