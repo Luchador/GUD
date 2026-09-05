@@ -13,6 +13,16 @@
 BOOL BrowserRegisterClass(HINSTANCE hinstance);
 HWND BrowserCreate(HWND parent, HINSTANCE hinstance);
 
+#include "texload.h"
+
+/*
+ * Hands the Images section its thumbnails. The browser TAKES OWNERSHIP
+ * of both allocations (the item array and the shared pixel block) and
+ * frees them on replacement, clearing, or destruction. NULLs clear.
+ */
+void BrowserSetImages(HWND browser, TexThumb *items, int count,
+                      unsigned char *pixelblock);
+
 /* One row in the Levels section. */
 typedef struct BrowserLevelItem {
     char label[64];

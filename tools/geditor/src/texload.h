@@ -20,4 +20,27 @@
 DWORD TexExtractImages(const RomFile *rom, const char *projectdir,
                        const char **reasonout);
 
+/*
+ * One browser thumbnail: a small top-down RGBA image plus its label
+ * (the texture ID, i.e. the file stem).
+ */
+typedef struct TexThumb {
+    char label[16];
+    int  w, h;                    /* actual thumb size, <= TEX_THUMB_MAX */
+    unsigned int pixeloffset;     /* byte offset into the shared block */
+} TexThumb;
+
+#define TEX_THUMB_MAX 32
+
+/*
+ * Scans <projectdir>\images for the extracted BMPs and builds
+ * thumbnails for all of them, sorted by name. On success returns the
+ * count and hands out two allocations the CALLER owns: the item array
+ * and one shared pixel block the items' offsets point into. Returns 0
+ * with *reasonout set when the folder is missing or empty.
+ */
+DWORD TexLoadProjectThumbnails(const char *projectdir, TexThumb **items,
+                               unsigned char **pixelblock,
+                               const char **reasonout);
+
 #endif /* GEDITOR_TEXLOAD_H */

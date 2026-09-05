@@ -43,6 +43,25 @@ static void GEditorSetTitleForProject(HWND hwnd);
   * the Close Project menu item, or implicitly when creating or opening
   * another project.
   */
+/*
+ * (Re)loads the Images section from the project's images folder. Works
+ * for both freshly created and reopened projects - the folder on disk
+ * is the source of truth, no ROM needed.
+ */
+static void GEditorRefreshImages(HWND hwnd)
+{
+    TexThumb *items = NULL;
+    unsigned char *pixels = NULL;
+    const char *why = "";
+    DWORD count;
+
+    count = TexLoadProjectThumbnails(g_Project.dir, &items, &pixels, &why);
+
+    /* count==0 hands back no allocations; passing the NULLs through
+       clears the section, which is the right display for "none". */
+    BrowserSetImages(g_Browser, items, (int)count, pixels);
+}
+
 static void GEditorCloseProject(HWND hwnd)
 {
     if (g_Project.name[0] == '\0')
@@ -59,6 +78,7 @@ static void GEditorCloseProject(HWND hwnd)
     }
 
     BrowserSetLevels(g_Browser, NULL, 0);
+    BrowserSetImages(g_Browser, NULL, 0, NULL);
     ViewportSetScene(g_Viewport, NULL, 0);
     GEditorSetTitleForProject(hwnd);
 }
@@ -739,6 +759,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                         }
 
                         BrowserSetLevels(g_Browser, items, (int)info.rominfo.levelcount);
+                        GEditorRefreshImages(hwnd);
                         GEditorSetTitleForProject(hwnd);
                     }
                     else
@@ -759,6 +780,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
                     if (ProjectRead(path, &g_Project))
                     {
+                        GEditorRefreshImages(hwnd);
                         GEditorSetTitleForProject(hwnd);
                     }
                     else

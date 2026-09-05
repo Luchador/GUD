@@ -31,6 +31,8 @@ typedef struct BrowserSection {
 
 #define BROWSER_SECTION_COUNT 3
 #define BROWSER_SECTION_LEVELS 0
+#define BROWSER_SECTION_IMAGES 1
+#define BROWSER_IMAGE_ROW_H 36
 #define BROWSER_MAX_LEVELS 64
 #define BROWSER_ROW_H 16
 
@@ -38,6 +40,9 @@ typedef struct BrowserState {
     BrowserSection sections[BROWSER_SECTION_COUNT];
     BrowserLevelItem levels[BROWSER_MAX_LEVELS];
     int levelcount;
+    TexThumb *images;             /* owned; freed on replace/destroy */
+    unsigned char *imagepixels;   /* owned shared pixel block */
+    int imagecount;
     int scroll[BROWSER_SECTION_COUNT];   /* pixels scrolled per body */
     int selectedlevel;
     int dragsection;                     /* thumb being dragged, or -1 */
@@ -56,6 +61,11 @@ static int BrowserContentHeight(const BrowserState *state, int section)
     if (section == BROWSER_SECTION_LEVELS)
     {
         return state->levelcount > 0 ? state->levelcount * BROWSER_ROW_H + 8 : 0;
+    }
+
+    if (section == BROWSER_SECTION_IMAGES)
+    {
+        return state->imagecount > 0 ? state->imagecount * BROWSER_IMAGE_ROW_H + 8 : 0;
     }
 
     return 0;
@@ -355,6 +365,64 @@ static void BrowserPaintLevelRows(BrowserState *state, HDC hdc, const RECT *body
     }
 }
 
+/*
+ * Image rows: thumbnail left, label right. Thumbs are top-down RGBA in
+ * the shared block; StretchDIBits takes them straight from memory via
+ * a negative-height BITMAPINFO, so no per-item GDI bitmaps ever exist.
+ */
+static void BrowserPaintImageRows(BrowserState *state, HDC hdc, const RECT *body)
+{
+    int y = body->top + 4 - state->scroll[BROWSER_SECTION_IMAGES];
+    int i;
+    BITMAPINFO bmi;
+
+    ZeroMemory(&bmi, sizeof(bmi));
+    bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
+
+    for (i = 0; i < state->imagecount; i++, y += BROWSER_IMAGE_ROW_H)
+    {
+        const TexThumb *t;
+        RECT rc;
+
+        if (y + BROWSER_IMAGE_ROW_H < body->top || y > body->bottom)
+        {
+            continue;
+        }
+
+        t = &state->images[i];
+
+        if (t->w > 0 && t->h > 0)
+        {
+            /* Thumb rows are RGBA; GDI DIBs want BGRA, so red and blue
+               swap in the header's eyes - x8 masks don't exist in
+               BI_RGB, so we pre-swapped at load instead: the block is
+               stored ready for this call. */
+            bmi.bmiHeader.biWidth = TEX_THUMB_MAX;
+            bmi.bmiHeader.biHeight = -t->h; /* negative: top-down */
+
+            StretchDIBits(hdc,
+                          26, y + (BROWSER_IMAGE_ROW_H - 4 - t->h) / 2 + 2,
+                          t->w, t->h,
+                          0, 0, t->w, t->h,
+                          state->imagepixels + t->pixeloffset,
+                          &bmi, DIB_RGB_COLORS, SRCCOPY);
+        }
+
+        rc.left = 26 + TEX_THUMB_MAX + 8;
+        rc.right = body->right - BROWSER_SCROLLBAR_W - 6;
+        rc.top = y;
+        rc.bottom = y + BROWSER_IMAGE_ROW_H;
+
+        DrawText(hdc, t->label, -1, &rc,
+                 DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_END_ELLIPSIS | DT_NOPREFIX);
+    }
+}
+
 /* Slim track-and-thumb indicator on the body's right edge. */
 static void BrowserPaintScrollbar(BrowserState *state, HDC hdc, int section)
 {
@@ -412,14 +480,24 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
 
         if (sec->expanded && sec->bodyrc.bottom > sec->bodyrc.top)
         {
-            if (i == BROWSER_SECTION_LEVELS && state->levelcount > 0)
+            if ((i == BROWSER_SECTION_LEVELS && state->levelcount > 0)
+                || (i == BROWSER_SECTION_IMAGES && state->imagecount > 0))
             {
                 int saved = SaveDC(hdc);
 
                 BrowserClampScroll(state, i);
                 IntersectClipRect(hdc, sec->bodyrc.left, sec->bodyrc.top,
                                   sec->bodyrc.right, sec->bodyrc.bottom);
-                BrowserPaintLevelRows(state, hdc, &sec->bodyrc);
+
+                if (i == BROWSER_SECTION_LEVELS)
+                {
+                    BrowserPaintLevelRows(state, hdc, &sec->bodyrc);
+                }
+                else
+                {
+                    BrowserPaintImageRows(state, hdc, &sec->bodyrc);
+                }
+
                 RestoreDC(hdc, saved);
 
                 BrowserPaintScrollbar(state, hdc, i);
@@ -671,6 +749,11 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     case WM_DESTROY:
         if (state != NULL)
         {
+            free(state->images);
+            free(state->imagepixels);
+        }
+        if (state != NULL)
+        {
             free(state);
             SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
         }
@@ -734,6 +817,31 @@ void BrowserSetLevels(HWND browser, const BrowserLevelItem *items, int count)
     state->levelcount = count;
     state->scroll[BROWSER_SECTION_LEVELS] = 0;
     state->selectedlevel = -1;
+
+    InvalidateRect(browser, NULL, TRUE);
+}
+
+
+void BrowserSetImages(HWND browser, TexThumb *items, int count,
+                      unsigned char *pixelblock)
+{
+    BrowserState *state = BrowserGetState(browser);
+
+    if (state == NULL)
+    {
+        /* No state to own them: honour the contract by freeing. */
+        free(items);
+        free(pixelblock);
+        return;
+    }
+
+    free(state->images);
+    free(state->imagepixels);
+
+    state->images = items;
+    state->imagepixels = pixelblock;
+    state->imagecount = items != NULL ? count : 0;
+    state->scroll[BROWSER_SECTION_IMAGES] = 0;
 
     InvalidateRect(browser, NULL, TRUE);
 }

@@ -374,3 +374,179 @@ DWORD TexExtractImages(const RomFile *rom, const char *projectdir,
 
     return writtencount;
 }
+
+
+/*
+ * Reads one of our own extracted BMPs (32-bit, bottom-up, BI_RGB) and
+ * scales it to a thumbnail with nearest-neighbour sampling, writing
+ * top-down RGBA into dst. Files that are not ours are skipped.
+ */
+static BOOL TexReadBmpThumb(const char *path, unsigned char *dst,
+                            int *tw, int *th)
+{
+    HANDLE f;
+    DWORD got = 0;
+    unsigned char header[54];
+    unsigned char *pix = NULL;
+    LONG w;
+    LONG h;
+    DWORD size;
+    int x;
+    int y;
+    BOOL ok = FALSE;
+
+    f = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL,
+                   OPEN_EXISTING, 0, NULL);
+    if (f == INVALID_HANDLE_VALUE)
+    {
+        return FALSE;
+    }
+
+    if (ReadFile(f, header, sizeof(header), &got, NULL) && got == sizeof(header)
+        && header[0] == 'B' && header[1] == 'M'
+        && header[28] == 32 /* biBitCount */)
+    {
+        w = (LONG)(header[18] | (header[19] << 8) | (header[20] << 16) | (header[21] << 24));
+        h = (LONG)(header[22] | (header[23] << 8) | (header[24] << 16) | (header[25] << 24));
+
+        if (w > 0 && h > 0 && w <= 256 && h <= 256)
+        {
+            size = (DWORD)(w * h * 4);
+            pix = (unsigned char *)malloc(size);
+
+            if (pix != NULL && ReadFile(f, pix, size, &got, NULL) && got == size)
+            {
+                /* fit inside TEX_THUMB_MAX, preserving aspect */
+                int longest = w > h ? w : h;
+                int sw = longest > TEX_THUMB_MAX ? (int)(w * TEX_THUMB_MAX / longest) : (int)w;
+                int sh = longest > TEX_THUMB_MAX ? (int)(h * TEX_THUMB_MAX / longest) : (int)h;
+
+                if (sw < 1) { sw = 1; }
+                if (sh < 1) { sh = 1; }
+
+                for (y = 0; y < sh; y++)
+                {
+                    /* BMP rows are bottom-up; thumbs are top-down */
+                    int sy = (int)((LONG)y * h / sh);
+                    const unsigned char *srow = pix + (h - 1 - sy) * w * 4;
+                    unsigned char *drow = dst + (y * TEX_THUMB_MAX) * 4;
+
+                    for (x = 0; x < sw; x++)
+                    {
+                        const unsigned char *s = srow + (LONG)x * w / sw * 4;
+
+                        drow[x * 4 + 0] = s[2]; /* BGRA -> RGBA */
+                        drow[x * 4 + 1] = s[1];
+                        drow[x * 4 + 2] = s[0];
+                        drow[x * 4 + 3] = s[3];
+                    }
+                }
+
+                *tw = sw;
+                *th = sh;
+                ok = TRUE;
+            }
+        }
+    }
+
+    free(pix);
+    CloseHandle(f);
+    return ok;
+}
+
+static int TexThumbCompare(const void *a, const void *b)
+{
+    return strcmp(((const TexThumb *)a)->label, ((const TexThumb *)b)->label);
+}
+
+DWORD TexLoadProjectThumbnails(const char *projectdir, TexThumb **items,
+                               unsigned char **pixelblock,
+                               const char **reasonout)
+{
+    char pattern[MAX_PATH];
+    char path[MAX_PATH];
+    WIN32_FIND_DATA find;
+    HANDLE search;
+    TexThumb *list = NULL;
+    unsigned char *pixels = NULL;
+    DWORD capacity = 0;
+    DWORD count = 0;
+    DWORD thumbbytes = TEX_THUMB_MAX * TEX_THUMB_MAX * 4;
+
+    *items = NULL;
+    *pixelblock = NULL;
+    *reasonout = "";
+
+    wsprintf(pattern, "%s\\images\\*.bmp", projectdir);
+
+    search = FindFirstFile(pattern, &find);
+    if (search == INVALID_HANDLE_VALUE)
+    {
+        *reasonout = "the project has no images folder (created before texture extraction?).";
+        return 0;
+    }
+
+    do
+    {
+        TexThumb *item;
+        char *dot;
+
+        if (find.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        {
+            continue;
+        }
+
+        if (count == capacity)
+        {
+            DWORD next = capacity ? capacity * 2 : 512;
+            TexThumb *growni = (TexThumb *)realloc(list, next * sizeof(TexThumb));
+            unsigned char *grownp = (unsigned char *)realloc(pixels, next * thumbbytes);
+
+            if (growni != NULL) { list = growni; }
+            if (grownp != NULL) { pixels = grownp; }
+            if (growni == NULL || grownp == NULL)
+            {
+                break; /* keep what we have */
+            }
+
+            capacity = next;
+        }
+
+        item = &list[count];
+        ZeroMemory(item, sizeof(*item));
+        ZeroMemory(pixels + count * thumbbytes, thumbbytes);
+
+        lstrcpyn(item->label, find.cFileName, sizeof(item->label));
+        dot = strrchr(item->label, '.');
+        if (dot != NULL)
+        {
+            *dot = '\0';
+        }
+
+        wsprintf(path, "%s\\images\\%s", projectdir, find.cFileName);
+
+        if (TexReadBmpThumb(path, pixels + count * thumbbytes,
+                            &item->w, &item->h))
+        {
+            item->pixeloffset = count * thumbbytes;
+            count++;
+        }
+    }
+    while (FindNextFile(search, &find));
+
+    FindClose(search);
+
+    if (count == 0)
+    {
+        free(list);
+        free(pixels);
+        *reasonout = "the images folder holds no readable BMPs.";
+        return 0;
+    }
+
+    qsort(list, count, sizeof(TexThumb), TexThumbCompare);
+
+    *items = list;
+    *pixelblock = pixels;
+    return count;
+}
