@@ -21,7 +21,6 @@
 #include <string.h>
 
 #include "bgload.h"
-#include "browser.h"
 
 #define BG_ROOM_RECORD_SIZE 24
 #define BG_MAX_ROOMS        256
