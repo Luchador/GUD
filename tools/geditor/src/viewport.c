@@ -35,6 +35,8 @@
 #define VIEWPORT_DEG_TO_RAD (3.14159265358979323846f / 180.0f)
 #define VIEWPORT_PAD_HALF_SIZE 10.0f
 #define VIEWPORT_BOX_VERTICES  24
+#define VIEWPORT_STAN_FILL_ALPHA 112
+#define VIEWPORT_STAN_EDGE_ALPHA 224
 
 /* A contiguous run of scene vertices sharing one texture. */
 typedef struct SceneBatch {
@@ -72,6 +74,10 @@ typedef struct ViewportState {
     int batchcount;
     GLuint *textures;    /* GL texture names owned by the scene */
     int texturecount;
+    Vertex *stanfill;    /* translucent GL_TRIANGLES tile overlay */
+    GLsizei stanfillcount;
+    Vertex *stanedges;   /* colored GL_LINES around each tile */
+    GLsizei stanedgecount;
     Vertex *padmarkers;  /* GL_LINES: 24 vertices per wireframe box */
     GLsizei padmarkercount;
     BOOL cullbackfaces;  /* master toggle for authored backface culling */
@@ -305,6 +311,55 @@ static void ViewportPaintGL(ViewportState *state)
         }
 
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    }
+
+    if (state->stanfill != NULL && state->stanfillcount > 0)
+    {
+        /* Stan polygons commonly lie directly on their matching BG
+           floors. Pull the overlay infinitesimally toward the camera
+           to prevent z-fighting while retaining normal depth tests. */
+        glDisable(GL_TEXTURE_2D);
+        glDisable(GL_ALPHA_TEST);
+        glDisable(GL_CULL_FACE);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask(GL_FALSE);
+        glDepthFunc(GL_LEQUAL);
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(-1.0f, -1.0f);
+
+        glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->stanfill[0].x);
+        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex),
+                       &state->stanfill[0].r);
+        glDrawArrays(GL_TRIANGLES, 0, state->stanfillcount);
+
+        glDisable(GL_POLYGON_OFFSET_FILL);
+        glDisable(GL_BLEND);
+        glDepthMask(GL_TRUE);
+        glDepthFunc(GL_LESS);
+    }
+
+    if (state->stanedges != NULL && state->stanedgecount > 0)
+    {
+        /* Tile outlines make adjacent polygons readable even when they
+           share the same authored RGB value. */
+        glDisable(GL_TEXTURE_2D);
+        glDisable(GL_ALPHA_TEST);
+        glDisable(GL_CULL_FACE);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask(GL_FALSE);
+        glDepthFunc(GL_LEQUAL);
+
+        glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->stanedges[0].x);
+        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex),
+                       &state->stanedges[0].r);
+        glLineWidth(1.0f);
+        glDrawArrays(GL_LINES, 0, state->stanedgecount);
+
+        glDisable(GL_BLEND);
+        glDepthMask(GL_TRUE);
+        glDepthFunc(GL_LESS);
     }
 
     if (state->padmarkers != NULL && state->padmarkercount > 0)
@@ -707,16 +762,119 @@ static void ViewportFreeScene(struct ViewportState *state_)
 
     free(state->textures);
     free(state->batches);
+    free(state->stanedges);
+    free(state->stanfill);
     free(state->padmarkers);
     free(state->scene);
     state->textures = NULL;
     state->batches = NULL;
+    state->stanedges = NULL;
+    state->stanfill = NULL;
     state->padmarkers = NULL;
     state->scene = NULL;
     state->texturecount = 0;
     state->batchcount = 0;
+    state->stanedgecount = 0;
+    state->stanfillcount = 0;
     state->padmarkercount = 0;
     state->scenecount = 0;
+}
+
+
+static void ViewportSetStanVertex(Vertex *vertex, const StanPoint *point,
+                                  const StanTile *tile,
+                                  unsigned char alpha)
+{
+    vertex->x = point->x;
+    vertex->y = point->y;
+    vertex->z = point->z;
+    vertex->r = tile->red;
+    vertex->g = tile->green;
+    vertex->b = tile->blue;
+    vertex->a = alpha;
+    vertex->s = 0.0f;
+    vertex->t = 0.0f;
+}
+
+
+void ViewportSetStanTiles(HWND hwnd, const StanFile *stan)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    Vertex *fill = NULL;
+    Vertex *edges = NULL;
+    size_t fillcount = 0;
+    size_t edgecount = 0;
+    size_t fillat = 0;
+    size_t edgeat = 0;
+    DWORD i;
+
+    if (state == NULL)
+    {
+        return;
+    }
+
+    free(state->stanfill);
+    free(state->stanedges);
+    state->stanfill = NULL;
+    state->stanedges = NULL;
+    state->stanfillcount = 0;
+    state->stanedgecount = 0;
+
+    if (stan == NULL || stan->tiles == NULL || stan->tilecount == 0)
+    {
+        InvalidateRect(hwnd, NULL, FALSE);
+        return;
+    }
+
+    for (i = 0; i < stan->tilecount; i++)
+    {
+        fillcount += (stan->tiles[i].pointcount - 2) * 3;
+        edgecount += stan->tiles[i].pointcount * 2;
+    }
+
+    fill = (Vertex *)malloc(fillcount * sizeof(*fill));
+    edges = (Vertex *)malloc(edgecount * sizeof(*edges));
+    if (fill == NULL || edges == NULL)
+    {
+        free(fill);
+        free(edges);
+        InvalidateRect(hwnd, NULL, FALSE);
+        return;
+    }
+
+    for (i = 0; i < stan->tilecount; i++)
+    {
+        const StanTile *tile = &stan->tiles[i];
+        unsigned int point;
+
+        /* Stan polygons are authored in perimeter order and are convex
+           for the game's point-in-tile tests, so a fan preserves the
+           original 3-10 sided face without inventing new positions. */
+        for (point = 1; point + 1 < tile->pointcount; point++)
+        {
+            ViewportSetStanVertex(&fill[fillat++], &tile->points[0],
+                                  tile, VIEWPORT_STAN_FILL_ALPHA);
+            ViewportSetStanVertex(&fill[fillat++], &tile->points[point],
+                                  tile, VIEWPORT_STAN_FILL_ALPHA);
+            ViewportSetStanVertex(&fill[fillat++], &tile->points[point + 1],
+                                  tile, VIEWPORT_STAN_FILL_ALPHA);
+        }
+
+        for (point = 0; point < tile->pointcount; point++)
+        {
+            ViewportSetStanVertex(&edges[edgeat++], &tile->points[point],
+                                  tile, VIEWPORT_STAN_EDGE_ALPHA);
+            ViewportSetStanVertex(&edges[edgeat++],
+                                  &tile->points[(point + 1) % tile->pointcount],
+                                  tile, VIEWPORT_STAN_EDGE_ALPHA);
+        }
+    }
+
+    state->stanfill = fill;
+    state->stanedges = edges;
+    state->stanfillcount = (GLsizei)fillat;
+    state->stanedgecount = (GLsizei)edgeat;
+    InvalidateRect(hwnd, NULL, FALSE);
 }
 
 /* qsort helper: keep the transparent pass last, then group triangles

@@ -5,6 +5,7 @@
 
 #include "bgload.h"
 #include "setupload.h"
+#include "stanload.h"
 #include "texload.h"
 
 /**
@@ -34,6 +35,10 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
    cubes; BoundPadRecords are red wireframes of their authored volume. */
 void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup,
                           float levelscale);
+
+/* Replaces the colored stan overlay. Stan positions have already been
+   converted to gameplay world coordinates by StanLoadProjectFile. */
+void ViewportSetStanTiles(HWND hwnd, const StanFile *stan);
 
 /* Master culling toggle. Enabled honors the BG's per-triangle state;
    disabled renders every triangle double-sided. */

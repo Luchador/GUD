@@ -14,6 +14,7 @@
 #include "rom.h"
 #include "bgload.h"
 #include "setupload.h"
+#include "stanload.h"
 #include "texload.h"
 #include "modelload.h"
 
@@ -35,6 +36,9 @@ static GEditorProject g_Project;
 /* Setup for the selected level, including host-native parsed views.
    Editor tools can consume it without retaining the source ROM. */
 static SetupFile g_CurrentSetup;
+/* Decoded stan for the selected level. Kept beside the setup so later
+   editing tools can inspect tile IDs, rooms, links, and special types. */
+static StanFile g_CurrentStan;
 
 static void GEditorSetTitleForProject(HWND hwnd);
 
@@ -128,6 +132,7 @@ static void GEditorCloseProject(HWND hwnd)
     }
 
     SetupFileFree(&g_CurrentSetup);
+    StanFileFree(&g_CurrentStan);
     ProjectClose(&g_Project);
 
     BrowserSetLevels(g_Browser, NULL, 0);
@@ -648,9 +653,12 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         DWORD tricount = 0;
         BgVertex *tris;
         SetupFile setup;
+        StanFile stan;
         const char *bgwhy = "";
         const char *setupwhy = "";
+        const char *stanwhy = "";
         BOOL setupLoaded;
+        BOOL stanLoaded;
         char title[256];
 
         if (index >= g_Project.levelcount)
@@ -677,11 +685,28 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
         setupLoaded = SetupLoadProjectFile(g_Project.dir, level->setupname,
                                            &setup, &setupwhy);
+        stanLoaded = StanLoadProjectFile(g_Project.dir, level->stanname,
+                                         level->levelscale, &stan,
+                                         &stanwhy);
 
         ViewportSetScene(g_Viewport, tris, tritags, (int)tricount,
                          g_Project.dir);
         free(tris);   /* the viewport copied and normalized both */
         free(tritags);
+
+        StanFileFree(&g_CurrentStan);
+        if (stanLoaded)
+        {
+            g_CurrentStan = stan;
+            ViewportSetStanTiles(g_Viewport, &g_CurrentStan);
+        }
+        else
+        {
+            ViewportSetStanTiles(g_Viewport, NULL);
+            /* As with unfinished setup entries, keep the useful BG
+               open even when this level has no project stan. */
+            MessageBox(hwnd, stanwhy, GEDITOR_TITLE, MB_ICONWARNING);
+        }
 
         SetupFileFree(&g_CurrentSetup);
         if (setupLoaded)
@@ -836,6 +861,11 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                                 MessageBox(hwnd, assetwhy, GEDITOR_TITLE, MB_ICONWARNING);
                             }
 
+                            if (StanExtractAll(&rom, g_Project.dir, &assetwhy) == 0)
+                            {
+                                MessageBox(hwnd, assetwhy, GEDITOR_TITLE, MB_ICONWARNING);
+                            }
+
                             RomFree(&rom);
                         }
                         else
@@ -895,6 +925,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         /* The window is gone; ask the message loop to stop. Without
            this the process keeps running after the window closes. */
         SetupFileFree(&g_CurrentSetup);
+        StanFileFree(&g_CurrentStan);
         PostQuitMessage(0);
         return 0;
     }
