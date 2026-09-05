@@ -80,6 +80,9 @@ typedef struct ViewportState {
     GLsizei stanedgecount;
     Vertex *padmarkers;  /* GL_LINES: 24 vertices per wireframe box */
     GLsizei padmarkercount;
+    BOOL showbgprimary;
+    BOOL showbgsecondary;
+    BOOL showstan;
     BOOL cullbackfaces;  /* master toggle for authored backface culling */
     BOOL keyw, keya, keys, keyd, keyq, keye;
     POINT lastmouse;
@@ -253,7 +256,15 @@ static void ViewportPaintGL(ViewportState *state)
             for (i = 0; i < state->batchcount; i++)
             {
                 const SceneBatch *batch = &state->batches[i];
-                BOOL wantcullback = state->cullbackfaces && batch->cullbackfaces;
+                BOOL wantcullback;
+
+                if ((!batch->secondary && !state->showbgprimary)
+                    || (batch->secondary && !state->showbgsecondary))
+                {
+                    continue;
+                }
+
+                wantcullback = state->cullbackfaces && batch->cullbackfaces;
 
                 if (batch->secondary && !insecondary)
                 {
@@ -313,7 +324,8 @@ static void ViewportPaintGL(ViewportState *state)
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     }
 
-    if (state->stanfill != NULL && state->stanfillcount > 0)
+    if (state->showstan
+        && state->stanfill != NULL && state->stanfillcount > 0)
     {
         /* Stan polygons commonly lie directly on their matching BG
            floors. Pull the overlay infinitesimally toward the camera
@@ -339,7 +351,8 @@ static void ViewportPaintGL(ViewportState *state)
         glDepthFunc(GL_LESS);
     }
 
-    if (state->stanedges != NULL && state->stanedgecount > 0)
+    if (state->showstan
+        && state->stanedges != NULL && state->stanedgecount > 0)
     {
         /* Tile outlines make adjacent polygons readable even when they
            share the same authored RGB value. */
@@ -591,6 +604,9 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
         state->speed = VIEWPORT_FLY_SPEED;
         state->posz = 600.0f;
+        state->showbgprimary = TRUE;
+        state->showbgsecondary = TRUE;
+        state->showstan = TRUE;
         state->cullbackfaces = TRUE;
 
         if (!ViewportInitGL(hwnd, state))
@@ -874,6 +890,23 @@ void ViewportSetStanTiles(HWND hwnd, const StanFile *stan)
     state->stanedges = edges;
     state->stanfillcount = (GLsizei)fillat;
     state->stanedgecount = (GLsizei)edgeat;
+    InvalidateRect(hwnd, NULL, FALSE);
+}
+
+
+void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
+                                   BOOL bgsecondary, BOOL stan)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+
+    if (state == NULL)
+    {
+        return;
+    }
+
+    state->showbgprimary = bgprimary;
+    state->showbgsecondary = bgsecondary;
+    state->showstan = stan;
     InvalidateRect(hwnd, NULL, FALSE);
 }
 

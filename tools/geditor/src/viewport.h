@@ -40,6 +40,11 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup,
    converted to gameplay world coordinates by StanLoadProjectFile. */
 void ViewportSetStanTiles(HWND hwnd, const StanFile *stan);
 
+/* Controls the three independently previewable world-geometry layers.
+   The loaded scene remains resident while a layer is hidden. */
+void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
+                                   BOOL bgsecondary, BOOL stan);
+
 /* Master culling toggle. Enabled honors the BG's per-triangle state;
    disabled renders every triangle double-sided. */
 BOOL ViewportGetBackfaceCulling(HWND hwnd);

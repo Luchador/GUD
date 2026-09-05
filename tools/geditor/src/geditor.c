@@ -11,6 +11,7 @@
 #include "resource.h"
 #include "viewport.h"
 #include "browser.h"
+#include "rightpanel.h"
 #include "rom.h"
 #include "bgload.h"
 #include "setupload.h"
@@ -25,13 +26,18 @@
 
 static HWND g_Viewport;
 static HWND g_Browser;
+static HWND g_RightPanel;
 
-/* Content browser column: user-draggable via the splitter gutter. */
+/* Full-height side columns, each separated from the viewport by a
+   user-draggable splitter gutter. */
 #define GEDITOR_SPLITTER_W    5
 #define GEDITOR_BROWSER_MIN 160
+#define GEDITOR_RIGHTPANEL_MIN 180
 #define GEDITOR_VIEWPORT_MIN 320
 static int  g_BrowserWidth = 280;
-static BOOL g_DraggingSplitter = FALSE;
+static int  g_RightPanelWidth = 260;
+static BOOL g_DraggingBrowserSplitter = FALSE;
+static BOOL g_DraggingRightSplitter = FALSE;
 static GEditorProject g_Project;
 /* Setup for the selected level, including host-native parsed views.
    Editor tools can consume it without retaining the source ROM. */
@@ -582,19 +588,64 @@ static void GEditorSetTitleForProject(HWND hwnd)
 static void GEditorLayout(HWND hwnd)
 {
     RECT rc;
+    int sidewidth;
+    int viewportleft;
+    int viewportright;
+    int panelleft;
 
     GetClientRect(hwnd, &rc);
 
-    /* Clamp the split so neither pane can be dragged out of existence,
-       and so a narrow window still shows something of both. */
-    if (g_BrowserWidth > rc.right - GEDITOR_SPLITTER_W - GEDITOR_VIEWPORT_MIN)
+    /* Space available to the two sidebars after reserving a useful
+       viewport and both splitter gutters. */
+    sidewidth = rc.right - GEDITOR_VIEWPORT_MIN - GEDITOR_SPLITTER_W * 2;
+
+    if (sidewidth < GEDITOR_BROWSER_MIN + GEDITOR_RIGHTPANEL_MIN)
     {
-        g_BrowserWidth = rc.right - GEDITOR_SPLITTER_W - GEDITOR_VIEWPORT_MIN;
+        /* On an unusually narrow window, share what remains instead of
+           allowing a negative viewport width or overlapping children. */
+        if (sidewidth < 0)
+        {
+            sidewidth = 0;
+        }
+
+        g_BrowserWidth = sidewidth * GEDITOR_BROWSER_MIN
+                       / (GEDITOR_BROWSER_MIN + GEDITOR_RIGHTPANEL_MIN);
+        g_RightPanelWidth = sidewidth - g_BrowserWidth;
     }
-    if (g_BrowserWidth < GEDITOR_BROWSER_MIN)
+    else
     {
-        g_BrowserWidth = GEDITOR_BROWSER_MIN;
+        if (g_BrowserWidth < GEDITOR_BROWSER_MIN)
+        {
+            g_BrowserWidth = GEDITOR_BROWSER_MIN;
+        }
+        if (g_RightPanelWidth < GEDITOR_RIGHTPANEL_MIN)
+        {
+            g_RightPanelWidth = GEDITOR_RIGHTPANEL_MIN;
+        }
+
+        if (g_DraggingBrowserSplitter)
+        {
+            int maxbrowser = sidewidth - g_RightPanelWidth;
+
+            if (g_BrowserWidth > maxbrowser)
+            {
+                g_BrowserWidth = maxbrowser;
+            }
+        }
+        else
+        {
+            int maxpanel = sidewidth - g_BrowserWidth;
+
+            if (g_RightPanelWidth > maxpanel)
+            {
+                g_RightPanelWidth = maxpanel;
+            }
+        }
     }
+
+    viewportleft = g_BrowserWidth + GEDITOR_SPLITTER_W;
+    panelleft = rc.right - g_RightPanelWidth;
+    viewportright = panelleft - GEDITOR_SPLITTER_W;
 
     if (g_Browser != NULL)
     {
@@ -603,20 +654,33 @@ static void GEditorLayout(HWND hwnd)
 
     if (g_Viewport != NULL)
     {
-        MoveWindow(g_Viewport,
-                   g_BrowserWidth + GEDITOR_SPLITTER_W, 0,
-                   rc.right - g_BrowserWidth - GEDITOR_SPLITTER_W, rc.bottom,
-                   TRUE);
+        MoveWindow(g_Viewport, viewportleft, 0,
+                   viewportright - viewportleft, rc.bottom, TRUE);
     }
 
-    /* The strip between them is bare main-window client area - the
-       splitter gutter the mouse handlers below watch for. */
+    if (g_RightPanel != NULL)
+    {
+        MoveWindow(g_RightPanel, panelleft, 0,
+                   g_RightPanelWidth, rc.bottom, TRUE);
+    }
+
+    /* The strips between the three children are bare main-window
+       client area; the mouse handlers below treat them as gutters. */
 }
 
-/* TRUE when x (main-window client coords) is inside the gutter. */
-static BOOL GEditorInSplitter(int x)
+static BOOL GEditorInBrowserSplitter(int x)
 {
     return x >= g_BrowserWidth && x < g_BrowserWidth + GEDITOR_SPLITTER_W;
+}
+
+static BOOL GEditorInRightSplitter(HWND hwnd, int x)
+{
+    RECT client;
+    int splitterleft;
+
+    GetClientRect(hwnd, &client);
+    splitterleft = client.right - g_RightPanelWidth - GEDITOR_SPLITTER_W;
+    return x >= splitterleft && x < splitterleft + GEDITOR_SPLITTER_W;
 }
 
 
@@ -634,6 +698,12 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             return -1;
         }
 
+        g_RightPanel = RightPanelCreate(hwnd, cs->hInstance);
+        if (g_RightPanel == NULL)
+        {
+            return -1;
+        }
+
         g_Viewport = ViewportCreate(hwnd, cs->hInstance);
         if (g_Viewport == NULL)
         {
@@ -645,6 +715,18 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     case WM_SIZE:
         GEditorLayout(hwnd);
         return 0;
+
+    case RIGHTPANEL_WM_VISIBILITY_CHANGED:
+    {
+        DWORD visibility = (DWORD)wparam;
+
+        ViewportSetGeometryVisibility(
+            g_Viewport,
+            (visibility & RIGHTPANEL_SHOW_BG_PRIMARY) != 0,
+            (visibility & RIGHTPANEL_SHOW_BG_SECONDARY) != 0,
+            (visibility & RIGHTPANEL_SHOW_STAN) != 0);
+        return 0;
+    }
 
     case BROWSER_WM_LEVEL_OPEN:
     {
@@ -763,7 +845,8 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
             GetCursorPos(&p);
             ScreenToClient(hwnd, &p);
-            if (GEditorInSplitter(p.x))
+            if (GEditorInBrowserSplitter(p.x)
+                || GEditorInRightSplitter(hwnd, p.x))
             {
                 SetCursor(LoadCursor(NULL, IDC_SIZEWE));
                 return TRUE;
@@ -772,25 +855,40 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         break;
 
     case WM_LBUTTONDOWN:
-        if (GEditorInSplitter(GET_X_LPARAM(lparam)))
+        if (GEditorInBrowserSplitter(GET_X_LPARAM(lparam)))
         {
-            g_DraggingSplitter = TRUE;
+            g_DraggingBrowserSplitter = TRUE;
+            SetCapture(hwnd);
+        }
+        else if (GEditorInRightSplitter(hwnd, GET_X_LPARAM(lparam)))
+        {
+            g_DraggingRightSplitter = TRUE;
             SetCapture(hwnd);
         }
         return 0;
 
     case WM_MOUSEMOVE:
-        if (g_DraggingSplitter)
+        if (g_DraggingBrowserSplitter)
         {
             g_BrowserWidth = GET_X_LPARAM(lparam) - GEDITOR_SPLITTER_W / 2;
-            GEditorLayout(hwnd); /* clamps, then repositions both panes */
+            GEditorLayout(hwnd);
+        }
+        else if (g_DraggingRightSplitter)
+        {
+            RECT client;
+
+            GetClientRect(hwnd, &client);
+            g_RightPanelWidth = client.right - GET_X_LPARAM(lparam)
+                              - GEDITOR_SPLITTER_W / 2;
+            GEditorLayout(hwnd);
         }
         return 0;
 
     case WM_LBUTTONUP:
-        if (g_DraggingSplitter)
+        if (g_DraggingBrowserSplitter || g_DraggingRightSplitter)
         {
-            g_DraggingSplitter = FALSE;
+            g_DraggingBrowserSplitter = FALSE;
+            g_DraggingRightSplitter = FALSE;
             ReleaseCapture();
         }
         return 0;
@@ -798,7 +896,8 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     case WM_CAPTURECHANGED:
         /* Capture stolen (Alt+Tab, a dialog): abandon the drag the same
            way the viewport abandons flight. */
-        g_DraggingSplitter = FALSE;
+        g_DraggingBrowserSplitter = FALSE;
+        g_DraggingRightSplitter = FALSE;
         return 0;
 
     case WM_INITMENUPOPUP:
@@ -957,6 +1056,12 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
     if (!BrowserRegisterClass(hinstance))
     {
         MessageBox(NULL, "BrowserRegisterClass failed", GEDITOR_TITLE, MB_ICONERROR);
+        return 1;
+    }
+
+    if (!RightPanelRegisterClass(hinstance))
+    {
+        MessageBox(NULL, "RightPanelRegisterClass failed", GEDITOR_TITLE, MB_ICONERROR);
         return 1;
     }
 
