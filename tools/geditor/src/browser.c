@@ -32,6 +32,8 @@ typedef struct BrowserSection {
 #define BROWSER_SECTION_COUNT 3
 #define BROWSER_SECTION_LEVELS 0
 #define BROWSER_SECTION_IMAGES 1
+#define BROWSER_SECTION_MODELS 2
+#define BROWSER_MAX_MODELS 512
 #define BROWSER_IMAGE_ROW_H 36
 #define BROWSER_MAX_LEVELS 64
 #define BROWSER_ROW_H 16
@@ -43,6 +45,8 @@ typedef struct BrowserState {
     TexThumb *images;             /* owned; freed on replace/destroy */
     unsigned char *imagepixels;   /* owned shared pixel block */
     int imagecount;
+    BrowserLevelItem models[BROWSER_MAX_MODELS];
+    int modelcount;
     int scroll[BROWSER_SECTION_COUNT];   /* pixels scrolled per body */
     int selectedlevel;
     int dragsection;                     /* thumb being dragged, or -1 */
@@ -66,6 +70,11 @@ static int BrowserContentHeight(const BrowserState *state, int section)
     if (section == BROWSER_SECTION_IMAGES)
     {
         return state->imagecount > 0 ? state->imagecount * BROWSER_IMAGE_ROW_H + 8 : 0;
+    }
+
+    if (section == BROWSER_SECTION_MODELS)
+    {
+        return state->modelcount > 0 ? state->modelcount * BROWSER_ROW_H + 8 : 0;
     }
 
     return 0;
@@ -421,6 +430,33 @@ static void BrowserPaintImageRows(BrowserState *state, HDC hdc, const RECT *body
     }
 }
 
+/* Model rows: plain labels, same geometry as level rows. */
+static void BrowserPaintModelRows(BrowserState *state, HDC hdc, const RECT *body)
+{
+    int y = body->top + 4 - state->scroll[BROWSER_SECTION_MODELS];
+    int i;
+
+    SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
+
+    for (i = 0; i < state->modelcount; i++, y += BROWSER_ROW_H)
+    {
+        RECT rc;
+
+        if (y + BROWSER_ROW_H < body->top || y > body->bottom)
+        {
+            continue;
+        }
+
+        rc.left = 26;
+        rc.right = body->right - BROWSER_SCROLLBAR_W - 6;
+        rc.top = y;
+        rc.bottom = y + BROWSER_ROW_H;
+
+        DrawText(hdc, state->models[i].label, -1, &rc,
+                 DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_END_ELLIPSIS | DT_NOPREFIX);
+    }
+}
+
 /* Slim track-and-thumb indicator on the body's right edge. */
 static void BrowserPaintScrollbar(BrowserState *state, HDC hdc, int section)
 {
@@ -479,7 +515,8 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
         if (sec->expanded && sec->bodyrc.bottom > sec->bodyrc.top)
         {
             if ((i == BROWSER_SECTION_LEVELS && state->levelcount > 0)
-                || (i == BROWSER_SECTION_IMAGES && state->imagecount > 0))
+                || (i == BROWSER_SECTION_IMAGES && state->imagecount > 0)
+                || (i == BROWSER_SECTION_MODELS && state->modelcount > 0))
             {
                 int saved = SaveDC(hdc);
 
@@ -491,9 +528,13 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
                 {
                     BrowserPaintLevelRows(state, hdc, &sec->bodyrc);
                 }
-                else
+                else if (i == BROWSER_SECTION_IMAGES)
                 {
                     BrowserPaintImageRows(state, hdc, &sec->bodyrc);
+                }
+                else
+                {
+                    BrowserPaintModelRows(state, hdc, &sec->bodyrc);
                 }
 
                 RestoreDC(hdc, saved);
@@ -840,6 +881,37 @@ void BrowserSetImages(HWND browser, TexThumb *items, int count,
     state->imagepixels = pixelblock;
     state->imagecount = items != NULL ? count : 0;
     state->scroll[BROWSER_SECTION_IMAGES] = 0;
+
+    InvalidateRect(browser, NULL, TRUE);
+}
+
+
+void BrowserSetModels(HWND browser, const BrowserLevelItem *items, int count)
+{
+    BrowserState *state = BrowserGetState(browser);
+    int i;
+
+    if (state == NULL)
+    {
+        return;
+    }
+
+    if (count > BROWSER_MAX_MODELS)
+    {
+        count = BROWSER_MAX_MODELS;
+    }
+    if (items == NULL)
+    {
+        count = 0;
+    }
+
+    for (i = 0; i < count; i++)
+    {
+        state->models[i] = items[i];
+    }
+
+    state->modelcount = count;
+    state->scroll[BROWSER_SECTION_MODELS] = 0;
 
     InvalidateRect(browser, NULL, TRUE);
 }

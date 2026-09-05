@@ -18,7 +18,18 @@ typedef struct BgVertex {
     unsigned char r, g, b, a;
 } BgVertex;
 
-#define BG_TEX_NONE 0xFFFF
+/*
+ * Per-triangle tag: low 12 bits are the texture ID (0xFFF = none),
+ * bit 12 marks secondary (transparent-layer) geometry. Secondary
+ * sorts after primary by plain integer order, which is exactly the
+ * draw order blending needs.
+ */
+#define BG_TEX_ID_MASK   0x0FFF
+#define BG_TEX_NONE      0x0FFF
+#define BG_TRI_SECONDARY 0x1000
+
+#define BG_TEX_ID(tag)        ((tag) & BG_TEX_ID_MASK)
+#define BG_TRI_IS_SECONDARY(tag) (((tag) & BG_TRI_SECONDARY) != 0)
 
 /*
  * Parses the bg file at data (maxlen readable bytes) and returns a

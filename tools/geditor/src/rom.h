@@ -73,6 +73,15 @@ void RomFree(RomFile *rom);
  * segment). FALSE with *reasonout set when the table is missing or
  * the name is not present.
  */
+/*
+ * Indexed access to the ROM's file table, for enumeration. Copies the
+ * entry's name into nameout and (when offset/maxlen are non-NULL) its
+ * location. Returns FALSE past the end of the table.
+ */
+BOOL RomGetFileByIndex(const RomFile *rom, DWORD index,
+                       char *nameout, DWORD namemax,
+                       DWORD *offset, DWORD *maxlen);
+
 BOOL RomFindFile(const RomFile *rom, const char *name,
                  DWORD *offset, DWORD *maxlen, const char **reasonout);
 

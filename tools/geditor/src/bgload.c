@@ -119,13 +119,16 @@ static void BgWalkGdl(BgBuilder *b,
                       const unsigned char *data, DWORD maxlen,
                       DWORD gdloffset, DWORD gdlsize,
                       const unsigned char *vtxblob, DWORD vtxsize,
-                      float roomx, float roomy, float roomz)
+                      float roomx, float roomy, float roomz,
+                      unsigned short layerflag)
 {
     DWORD pc;
     const unsigned char *batch = NULL;
     DWORD batchcount = 0;
     int batchv0 = 0;
     unsigned short curtex = BG_TEX_NONE;
+
+    /* every triangle this walk emits carries the layer flag */
 
     for (pc = gdloffset; pc + 8 <= gdloffset + gdlsize && pc + 8 <= maxlen; pc += 8)
     {
@@ -246,7 +249,7 @@ static void BgWalkGdl(BgBuilder *b,
                    already resized the texid array to match. */
                 if (!b->failed)
                 {
-                    b->texids[b->count / 3 - 1] = curtex;
+                    b->texids[b->count / 3 - 1] = (unsigned short)(curtex | layerflag);
                 }
             }
         }
@@ -331,14 +334,14 @@ BgVertex *BgLoadGeometry(const unsigned char *data, DWORD maxlen,
         if (prioff != 0 && prisize != 0)
         {
             BgWalkGdl(&b, data, maxlen, prioff, prisize,
-                      data + vtxoff, vtxsize, rx, ry, rz);
+                      data + vtxoff, vtxsize, rx, ry, rz, 0);
         }
 
         secsize = BgBlockSize(data, maxlen, secoff);
         if (secoff != 0 && secsize != 0)
         {
             BgWalkGdl(&b, data, maxlen, secoff, secsize,
-                      data + vtxoff, vtxsize, rx, ry, rz);
+                      data + vtxoff, vtxsize, rx, ry, rz, BG_TRI_SECONDARY);
         }
     }
 

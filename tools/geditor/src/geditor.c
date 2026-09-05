@@ -14,6 +14,7 @@
 #include "rom.h"
 #include "bgload.h"
 #include "texload.h"
+#include "modelload.h"
 
 #define GEDITOR_CLASS  "GEditorWindow"
 #define GEDITOR_TITLE  "GEditor"
@@ -60,6 +61,50 @@ static void GEditorRefreshImages(HWND hwnd)
     /* count==0 hands back no allocations; passing the NULLs through
        clears the section, which is the right display for "none". */
     BrowserSetImages(g_Browser, items, (int)count, pixels);
+
+    /* Models: enumerate the four class folders into plain rows. */
+    {
+        static const char *classes[] = { "characters", "guns", "objects", "casings" };
+        BrowserLevelItem models[512];
+        int modelcount = 0;
+        int c;
+
+        for (c = 0; c < 4 && modelcount < 512; c++)
+        {
+            char pattern[MAX_PATH];
+            WIN32_FIND_DATA find;
+            HANDLE search;
+
+            wsprintf(pattern, "%s\\models\\%s\\*.ply", g_Project.dir, classes[c]);
+            search = FindFirstFile(pattern, &find);
+
+            if (search == INVALID_HANDLE_VALUE)
+            {
+                continue;
+            }
+
+            do
+            {
+                char stem[64];
+                char *dot;
+
+                lstrcpyn(stem, find.cFileName, sizeof(stem));
+                dot = strrchr(stem, '.');
+                if (dot != NULL)
+                {
+                    *dot = '\0';
+                }
+
+                wsprintf(models[modelcount].label, "%s  (%s)", stem, classes[c]);
+                modelcount++;
+            }
+            while (modelcount < 512 && FindNextFile(search, &find));
+
+            FindClose(search);
+        }
+
+        BrowserSetModels(g_Browser, modelcount > 0 ? models : NULL, modelcount);
+    }
 }
 
 static void GEditorCloseProject(HWND hwnd)
@@ -79,6 +124,7 @@ static void GEditorCloseProject(HWND hwnd)
 
     BrowserSetLevels(g_Browser, NULL, 0);
     BrowserSetImages(g_Browser, NULL, 0, NULL);
+    BrowserSetModels(g_Browser, NULL, 0);
     ViewportSetScene(g_Viewport, NULL, NULL, 0, NULL);
     GEditorSetTitleForProject(hwnd);
 }
@@ -747,6 +793,11 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                                the images folder becomes the project's
                                own copy of the ROM's texture library. */
                             if (TexExtractImages(&g_Rom, g_Project.dir, &texwhy) == 0)
+                            {
+                                MessageBox(hwnd, texwhy, GEDITOR_TITLE, MB_ICONWARNING);
+                            }
+
+                            if (ModelExtractAll(&g_Rom, g_Project.dir, &texwhy) == 0)
                             {
                                 MessageBox(hwnd, texwhy, GEDITOR_TITLE, MB_ICONWARNING);
                             }

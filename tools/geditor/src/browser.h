@@ -34,4 +34,7 @@ typedef struct BrowserLevelItem {
  */
 void BrowserSetLevels(HWND browser, const BrowserLevelItem *items, int count);
 
+/* Same contract for the Models section (labels only, copied). */
+void BrowserSetModels(HWND browser, const BrowserLevelItem *items, int count);
+
 #endif

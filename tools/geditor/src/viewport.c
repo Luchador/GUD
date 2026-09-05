@@ -39,6 +39,7 @@ typedef struct SceneBatch {
     GLuint  gltex;      /* 0 = untextured, vertex colors only */
     GLsizei first;
     GLsizei count;
+    BOOL    secondary;  /* transparent layer: blended, no depth write */
 } SceneBatch;
 
 struct ViewportState;
@@ -225,12 +226,41 @@ static void ViewportPaintGL(ViewportState *state)
         if (state->scene != NULL && state->batchcount > 0)
         {
             int i;
+            BOOL insecondary = FALSE;
 
             glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+            /*
+             * Primary pass: opaque, with alpha TEST so cutout textures
+             * (fences, grates, foliage) punch real holes - fully
+             * opaque texels are unaffected. The sort key put every
+             * secondary batch after every primary one, so the state
+             * flip below happens exactly once per frame.
+             */
+            glEnable(GL_ALPHA_TEST);
+            glAlphaFunc(GL_GREATER, 0.5f);
 
             for (i = 0; i < state->batchcount; i++)
             {
                 const SceneBatch *batch = &state->batches[i];
+
+                if (batch->secondary && !insecondary)
+                {
+                    /*
+                     * Secondary pass: blended glass and decals. Depth
+                     * WRITES stop - transparent surfaces must not
+                     * occlude each other or later batches - but depth
+                     * TESTING continues, so walls still hide windows
+                     * behind them. No per-triangle sorting yet;
+                     * overlapping transparencies may pick the wrong
+                     * winner, which matches the console's own habits.
+                     */
+                    glDisable(GL_ALPHA_TEST);
+                    glEnable(GL_BLEND);
+                    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                    glDepthMask(GL_FALSE);
+                    insecondary = TRUE;
+                }
 
                 if (batch->gltex != 0)
                 {
@@ -246,6 +276,9 @@ static void ViewportPaintGL(ViewportState *state)
             }
 
             glDisable(GL_TEXTURE_2D);
+            glDisable(GL_ALPHA_TEST);
+            glDisable(GL_BLEND);
+            glDepthMask(GL_TRUE);
         }
         else
         {
@@ -719,13 +752,14 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
                 batch->gltex = 0;
                 batch->first = i * 3;
                 batch->count = 0;
+                batch->secondary = BG_TRI_IS_SECONDARY(order[i].texid);
 
-                if (order[i].texid != BG_TEX_NONE && rom != NULL)
+                if (BG_TEX_ID(order[i].texid) != BG_TEX_NONE && rom != NULL)
                 {
                     int tw = 0;
                     int th = 0;
 
-                    if (TexDecodeById(rom, order[i].texid, decode, &tw, &th))
+                    if (TexDecodeById(rom, BG_TEX_ID(order[i].texid), decode, &tw, &th))
                     {
                         GLuint name = 0;
 

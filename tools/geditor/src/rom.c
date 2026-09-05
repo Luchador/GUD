@@ -491,3 +491,83 @@ BOOL RomFindFile(const RomFile *rom, const char *name,
     *reasonout = "file not present in the ROM's file table.";
     return FALSE;
 }
+
+
+BOOL RomGetFileByIndex(const RomFile *rom, DWORD index,
+                       char *nameout, DWORD namemax,
+                       DWORD *offset, DWORD *maxlen)
+{
+    const RomManifestEntry *ftbl = NULL;
+    const RomManifestEntry *cmap = NULL;
+    const RomManifestEntry *obsg = NULL;
+    DWORD row;
+    DWORD namev;
+    DWORD datav;
+    LONGLONG nameoff;
+    DWORD i;
+
+    nameout[0] = '\0';
+
+    for (i = 0; i < rom->info.entrycount; i++)
+    {
+        const RomManifestEntry *e = &rom->info.entries[i];
+
+        if (e->kind == ROM_KIND_FTBL) { ftbl = e; }
+        if (e->kind == ROM_KIND_CMAP) { cmap = e; }
+        if (e->kind == ROM_KIND_OBSG) { obsg = e; }
+    }
+
+    if (ftbl == NULL || cmap == NULL || index >= ROM_FTBL_MAX_ROWS)
+    {
+        return FALSE;
+    }
+
+    row = ftbl->romstart + index * 12;
+    if (row + 12 > rom->size)
+    {
+        return FALSE;
+    }
+
+    namev = be32(rom->data + row + 4);
+    if (namev == 0)
+    {
+        return FALSE; /* terminator */
+    }
+
+    nameoff = (LONGLONG)namev - cmap->flags + cmap->romstart;
+    if (nameoff < 0 || nameoff >= (LONGLONG)rom->size)
+    {
+        return FALSE;
+    }
+
+    for (i = 0; i + 1 < namemax && (DWORD)nameoff + i < rom->size; i++)
+    {
+        char ch = (char)rom->data[(DWORD)nameoff + i];
+
+        if (ch == '\0')
+        {
+            break;
+        }
+
+        nameout[i] = ch;
+    }
+
+    nameout[i] = '\0';
+
+    if (offset != NULL && maxlen != NULL)
+    {
+        DWORD end = obsg != NULL ? obsg->romend : rom->size;
+
+        datav = be32(rom->data + row + 8);
+
+        if (datav >= end || (obsg != NULL && datav < obsg->romstart))
+        {
+            return FALSE;
+        }
+
+        *offset = datav;
+        *maxlen = end - datav;
+    }
+
+    return TRUE;
+}
