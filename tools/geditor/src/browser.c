@@ -398,10 +398,8 @@ static void BrowserPaintImageRows(BrowserState *state, HDC hdc, const RECT *body
 
         if (t->w > 0 && t->h > 0)
         {
-            /* Thumb rows are RGBA; GDI DIBs want BGRA, so red and blue
-               swap in the header's eyes - x8 masks don't exist in
-               BI_RGB, so we pre-swapped at load instead: the block is
-               stored ready for this call. */
+            /* The thumb block is stored in GDI's native BGRA order,
+               so this call needs no channel gymnastics. */
             bmi.bmiHeader.biWidth = TEX_THUMB_MAX;
             bmi.bmiHeader.biHeight = -t->h; /* negative: top-down */
 

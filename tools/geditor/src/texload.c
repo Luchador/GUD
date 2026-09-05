@@ -435,9 +435,13 @@ static BOOL TexReadBmpThumb(const char *path, unsigned char *dst,
                     {
                         const unsigned char *s = srow + (LONG)x * w / sw * 4;
 
-                        drow[x * 4 + 0] = s[2]; /* BGRA -> RGBA */
+                        /* Keep BGRA byte order: the BMP already
+                           stores it, and StretchDIBits expects it.
+                           The only transform here is the row flip
+                           to top-down. */
+                        drow[x * 4 + 0] = s[0];
                         drow[x * 4 + 1] = s[1];
-                        drow[x * 4 + 2] = s[0];
+                        drow[x * 4 + 2] = s[2];
                         drow[x * 4 + 3] = s[3];
                     }
                 }

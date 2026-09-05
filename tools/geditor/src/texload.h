@@ -21,7 +21,7 @@ DWORD TexExtractImages(const RomFile *rom, const char *projectdir,
                        const char **reasonout);
 
 /*
- * One browser thumbnail: a small top-down RGBA image plus its label
+ * One browser thumbnail: a small top-down BGRA image (GDI-native, ready for StretchDIBits) plus its label
  * (the texture ID, i.e. the file stem).
  */
 typedef struct TexThumb {
