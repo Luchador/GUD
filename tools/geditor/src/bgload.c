@@ -112,14 +112,15 @@ static DWORD BgBlockSize(const unsigned char *data, DWORD maxlen, DWORD offset)
 
 /*
  * Walks one display list, emitting triangles from the room's vertex
- * blob. roomx/y/z translate model space into world space, exactly as
- * the game's per-room matrix does.
+ * blob. The room origin and local vertices are both stored in scaled
+ * bg coordinates, so worldscale reproduces the game's per-room matrix.
  */
 static void BgWalkGdl(BgBuilder *b,
                       const unsigned char *data, DWORD maxlen,
                       DWORD gdloffset, DWORD gdlsize,
                       const unsigned char *vtxblob, DWORD vtxsize,
                       float roomx, float roomy, float roomz,
+                      float worldscale,
                       unsigned short layerflag)
 {
     DWORD pc;
@@ -232,9 +233,9 @@ static void BgWalkGdl(BgBuilder *b,
                     const unsigned char *v = batch + idx[k] * 16;
                     BgVertex out;
 
-                    out.x = roomx + bg16(v + 0);
-                    out.y = roomy + bg16(v + 2);
-                    out.z = roomz + bg16(v + 4);
+                    out.x = (roomx + bg16(v + 0)) * worldscale;
+                    out.y = (roomy + bg16(v + 2)) * worldscale;
+                    out.z = (roomz + bg16(v + 4)) * worldscale;
                     out.s = (float)bg16(v + 8) / 32.0f;   /* s10.5 -> texels */
                     out.t = (float)bg16(v + 10) / 32.0f;
                     out.r = v[12];
@@ -257,10 +258,12 @@ static void BgWalkGdl(BgBuilder *b,
 }
 
 BgVertex *BgLoadGeometry(const unsigned char *data, DWORD maxlen,
+                         float levelscale,
                          DWORD *tricount, unsigned short **texids,
                          const char **reasonout)
 {
     BgBuilder b;
+    float worldscale;
     DWORD roomlist;
     DWORD rooms;
     DWORD i;
@@ -268,6 +271,14 @@ BgVertex *BgLoadGeometry(const unsigned char *data, DWORD maxlen,
     *tricount = 0;
     *texids = NULL;
     *reasonout = "";
+
+    if (!(levelscale > 0.0f))
+    {
+        *reasonout = "level scale must be greater than zero.";
+        return NULL;
+    }
+
+    worldscale = 1.0f / levelscale;
 
     if (maxlen < 0x40)
     {
@@ -334,14 +345,15 @@ BgVertex *BgLoadGeometry(const unsigned char *data, DWORD maxlen,
         if (prioff != 0 && prisize != 0)
         {
             BgWalkGdl(&b, data, maxlen, prioff, prisize,
-                      data + vtxoff, vtxsize, rx, ry, rz, 0);
+                      data + vtxoff, vtxsize, rx, ry, rz, worldscale, 0);
         }
 
         secsize = BgBlockSize(data, maxlen, secoff);
         if (secoff != 0 && secsize != 0)
         {
             BgWalkGdl(&b, data, maxlen, secoff, secsize,
-                      data + vtxoff, vtxsize, rx, ry, rz, BG_TRI_SECONDARY);
+                      data + vtxoff, vtxsize, rx, ry, rz, worldscale,
+                      BG_TRI_SECONDARY);
         }
     }
 

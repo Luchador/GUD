@@ -34,12 +34,14 @@ typedef struct BgVertex {
 /*
  * Parses the bg file at data (maxlen readable bytes) and returns a
  * malloc'd array of tricount*3 BgVertex, or NULL with *reasonout set.
- * Caller frees.
+ * Positions are converted from the bg's scaled room coordinates to
+ * gameplay world coordinates using levelscale. Caller frees.
  *
  * texids receives a malloc'd array of tricount entries - the texture
  * ID each triangle was drawn with, or BG_TEX_NONE. Caller frees.
  */
 BgVertex *BgLoadGeometry(const unsigned char *data, DWORD maxlen,
+                         float levelscale,
                          DWORD *tricount, unsigned short **texids,
                          const char **reasonout);
 

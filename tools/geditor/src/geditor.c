@@ -662,7 +662,8 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         {
         unsigned short *tritex = NULL;
 
-        tris = BgLoadGeometry(g_Rom.data + offset, maxlen, &tricount, &tritex, &why);
+        tris = BgLoadGeometry(g_Rom.data + offset, maxlen, level->levelscale,
+                              &tricount, &tritex, &why);
 
         if (tris == NULL)
         {
