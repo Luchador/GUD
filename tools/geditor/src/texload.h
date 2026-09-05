@@ -20,6 +20,17 @@
 DWORD TexExtractImages(const RomFile *rom, const char *projectdir,
                        const char **reasonout);
 
+/* One decoded RGBA pixel - the decoder's public output unit. */
+typedef struct TexPixel { unsigned char r, g, b, a; } TexPixel;
+
+/*
+ * Decodes GUTX record #id from the IMGS segment (image 0, native
+ * orientation) into out (room for 256x256 TexPixels). Returns FALSE
+ * for a bad id or undecodable record.
+ */
+BOOL TexDecodeById(const RomFile *rom, DWORD id,
+                   TexPixel *out, int *w, int *h);
+
 /*
  * One browser thumbnail: a small top-down BGRA image (GDI-native, ready for StretchDIBits) plus its label
  * (the texture ID, i.e. the file stem).

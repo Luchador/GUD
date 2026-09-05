@@ -40,8 +40,6 @@ enum {
     PDFORMAT_IA4_CI4
 };
 
-typedef struct TexPixel { unsigned char r, g, b, a; } TexPixel;
-
 static DWORD texbe16(const unsigned char *p)
 {
     return ((DWORD)p[0] << 8) | p[1];
@@ -553,4 +551,80 @@ DWORD TexLoadProjectThumbnails(const char *projectdir, TexThumb **items,
     *items = list;
     *pixelblock = pixels;
     return count;
+}
+
+
+BOOL TexDecodeById(const RomFile *rom, DWORD id,
+                   TexPixel *out, int *w, int *h)
+{
+    const RomManifestEntry *imgs = NULL;
+    DWORD pos;
+    DWORD i;
+
+    for (i = 0; i < rom->info.entrycount; i++)
+    {
+        if (rom->info.entries[i].kind == 0x494D4753) /* 'IMGS' */
+        {
+            imgs = &rom->info.entries[i];
+        }
+    }
+
+    if (imgs == NULL)
+    {
+        return FALSE;
+    }
+
+    /* Hop record to record; each header knows its own size. 2,698
+       header reads is microseconds - no index needed yet. */
+    pos = imgs->romstart;
+
+    for (i = 0; i < id; i++)
+    {
+        DWORD recsize;
+
+        if (pos + GUTX_PALETTE_OFFSET > imgs->romend
+            || memcmp(rom->data + pos, "GUTX", 4) != 0)
+        {
+            return FALSE;
+        }
+
+        recsize = texbe32(rom->data + pos + 12);
+        if (recsize == 0 || (recsize & 0xF))
+        {
+            return FALSE;
+        }
+
+        pos += recsize;
+    }
+
+    if (pos + GUTX_PALETTE_OFFSET > imgs->romend
+        || memcmp(rom->data + pos, "GUTX", 4) != 0)
+    {
+        return FALSE;
+    }
+
+    {
+        const unsigned char *rec = rom->data + pos;
+        DWORD recsize = texbe32(rec + 12);
+        int format = rec[GUTX_DESC_OFFSET + 0];
+        DWORD width = rec[GUTX_DESC_OFFSET + 1];
+        DWORD height = rec[GUTX_DESC_OFFSET + 2];
+        DWORD dataoff = texbe32(rec + GUTX_DESC_OFFSET + 4);
+
+        if (width == 0 || height == 0 || pos + recsize > imgs->romend)
+        {
+            return FALSE;
+        }
+
+        if (!TexDecodeImage(rec, recsize, format, width, height,
+                            dataoff, texbe16(rec + 8), out))
+        {
+            return FALSE;
+        }
+
+        *w = (int)width;
+        *h = (int)height;
+    }
+
+    return TRUE;
 }

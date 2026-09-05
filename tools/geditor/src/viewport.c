@@ -11,7 +11,7 @@
 #include <GL/gl.h>
 #include <stdlib.h>
 #include <math.h>
-
+#include "browser.h"
 #include "viewport.h"
 
 #define VIEWPORT_CLASS "GEditorViewport"
@@ -34,6 +34,16 @@
 
 #define VIEWPORT_DEG_TO_RAD (3.14159265358979323846f / 180.0f)
 
+/* A contiguous run of scene vertices sharing one texture. */
+typedef struct SceneBatch {
+    GLuint  gltex;      /* 0 = untextured, vertex colors only */
+    GLsizei first;
+    GLsizei count;
+} SceneBatch;
+
+struct ViewportState;
+static void ViewportFreeScene(struct ViewportState *state);
+
 typedef struct Vertex {
     GLfloat x, y, z;
     GLubyte r, g, b, a;
@@ -54,6 +64,10 @@ typedef struct ViewportState {
     BOOL flying;
     Vertex *scene;       /* malloc'd level geometry, or NULL for the test scene */
     GLsizei scenecount;  /* vertices in scene */
+    struct SceneBatch *batches;  /* texture-sorted draw ranges */
+    int batchcount;
+    GLuint *textures;    /* GL texture names owned by the scene */
+    int texturecount;
     BOOL cullbackfaces;  /* global backface culling toggle */
     BOOL keyw, keya, keys, keyd, keyq, keye;
     POINT lastmouse;
@@ -207,7 +221,36 @@ static void ViewportPaintGL(ViewportState *state)
         glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &verts[0].r);
         glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), &verts[0].s);
         glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-        glDrawArrays(GL_TRIANGLES, 0, count);
+
+        if (state->scene != NULL && state->batchcount > 0)
+        {
+            int i;
+
+            glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+            for (i = 0; i < state->batchcount; i++)
+            {
+                const SceneBatch *batch = &state->batches[i];
+
+                if (batch->gltex != 0)
+                {
+                    glEnable(GL_TEXTURE_2D);
+                    glBindTexture(GL_TEXTURE_2D, batch->gltex);
+                }
+                else
+                {
+                    glDisable(GL_TEXTURE_2D);
+                }
+
+                glDrawArrays(GL_TRIANGLES, batch->first, batch->count);
+            }
+
+            glDisable(GL_TEXTURE_2D);
+        }
+        else
+        {
+            glDrawArrays(GL_TRIANGLES, 0, count);
+        }
     }
 
     SwapBuffers(state->hdc);
@@ -521,8 +564,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
     case WM_DESTROY:
         if (state != NULL)
         {
-            free(state->scene);
-            state->scene = NULL;
+            ViewportFreeScene(state);
         }
         ViewportEndFly(hwnd, state); // Never leave the cursor hidden.
         if (state != NULL)
@@ -578,10 +620,51 @@ void ViewportRedraw(HWND viewport)
 }
 
 
-void ViewportSetScene(HWND hwnd, const BgVertex *tris, int tricount)
+/* Frees the scene's GL textures and CPU arrays. Needs the GL context
+   current for glDeleteTextures. */
+static void ViewportFreeScene(struct ViewportState *state_)
+{
+    ViewportState *state = (ViewportState *)state_;
+
+    if (state->texturecount > 0)
+    {
+        wglMakeCurrent(state->hdc, state->hglrc);
+        glDeleteTextures(state->texturecount, state->textures);
+    }
+
+    free(state->textures);
+    free(state->batches);
+    free(state->scene);
+    state->textures = NULL;
+    state->batches = NULL;
+    state->scene = NULL;
+    state->texturecount = 0;
+    state->batchcount = 0;
+    state->scenecount = 0;
+}
+
+/* qsort helper: order triangle indices by texture id. */
+typedef struct TriKey { unsigned short texid; int tri; } TriKey;
+
+static int ViewportTriKeyCompare(const void *a, const void *b)
+{
+    int d = (int)((const TriKey *)a)->texid - (int)((const TriKey *)b)->texid;
+
+    return d != 0 ? d : ((const TriKey *)a)->tri - ((const TriKey *)b)->tri;
+}
+
+void ViewportSetScene(HWND hwnd, const BgVertex *tris,
+                      const unsigned short *texids, int tricount,
+                      const RomFile *rom)
 {
     ViewportState *state = (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
     Vertex *scene = NULL;
+    SceneBatch *batches = NULL;
+    GLuint *textures = NULL;
+    TriKey *order = NULL;
+    TexPixel *decode = NULL;
+    int batchcount = 0;
+    int texturecount = 0;
     float minx = 0, miny = 0, minz = 0, maxx = 0, maxy = 0, maxz = 0;
     int i;
 
@@ -593,45 +676,144 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris, int tricount)
     if (tris != NULL && tricount > 0)
     {
         scene = (Vertex *)malloc((size_t)tricount * 3 * sizeof(Vertex));
+        order = (TriKey *)malloc((size_t)tricount * sizeof(TriKey));
+        batches = (SceneBatch *)malloc((size_t)tricount * sizeof(SceneBatch));
+        textures = (GLuint *)malloc((size_t)tricount * sizeof(GLuint));
+        decode = (TexPixel *)malloc(256 * 256 * sizeof(TexPixel));
 
-        if (scene == NULL)
+        if (scene == NULL || order == NULL || batches == NULL
+            || textures == NULL || decode == NULL)
         {
+            free(scene); free(order); free(batches);
+            free(textures); free(decode);
             return; /* keep whatever we had */
         }
 
-        for (i = 0; i < tricount * 3; i++)
+        /*
+         * Sort triangles by texture so each texture binds exactly once
+         * per frame - the same batching that fixes Cradle in the game
+         * fixes it here.
+         */
+        for (i = 0; i < tricount; i++)
         {
-            scene[i].x = tris[i].x;
-            scene[i].y = tris[i].y;
-            scene[i].z = tris[i].z;
-            scene[i].r = tris[i].r;
-            scene[i].g = tris[i].g;
-            scene[i].b = tris[i].b;
-            scene[i].a = tris[i].a;
-            scene[i].s = 0.0f;
-            scene[i].t = 0.0f;
+            order[i].texid = texids != NULL ? texids[i] : BG_TEX_NONE;
+            order[i].tri = i;
+        }
 
-            if (i == 0)
+        qsort(order, (size_t)tricount, sizeof(TriKey), ViewportTriKeyCompare);
+
+        wglMakeCurrent(state->hdc, state->hglrc);
+
+        for (i = 0; i < tricount; i++)
+        {
+            const BgVertex *src = &tris[order[i].tri * 3];
+            Vertex *dst = &scene[i * 3];
+            float invw = 0.0f;
+            float invh = 0.0f;
+            int k;
+
+            if (i == 0 || order[i].texid != order[i - 1].texid)
             {
-                minx = maxx = scene[i].x;
-                miny = maxy = scene[i].y;
-                minz = maxz = scene[i].z;
+                SceneBatch *batch = &batches[batchcount++];
+
+                batch->gltex = 0;
+                batch->first = i * 3;
+                batch->count = 0;
+
+                if (order[i].texid != BG_TEX_NONE && rom != NULL)
+                {
+                    int tw = 0;
+                    int th = 0;
+
+                    if (TexDecodeById(rom, order[i].texid, decode, &tw, &th))
+                    {
+                        GLuint name = 0;
+
+                        glGenTextures(1, &name);
+                        glBindTexture(GL_TEXTURE_2D, name);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0,
+                                     GL_RGBA, GL_UNSIGNED_BYTE, decode);
+
+                        batch->gltex = name;
+                        textures[texturecount++] = name;
+                    }
+                }
             }
-            else
+
             {
-                if (scene[i].x < minx) { minx = scene[i].x; }
-                if (scene[i].x > maxx) { maxx = scene[i].x; }
-                if (scene[i].y < miny) { miny = scene[i].y; }
-                if (scene[i].y > maxy) { maxy = scene[i].y; }
-                if (scene[i].z < minz) { minz = scene[i].z; }
-                if (scene[i].z > maxz) { maxz = scene[i].z; }
+                SceneBatch *batch = &batches[batchcount - 1];
+
+                batch->count += 3;
+
+                if (batch->gltex != 0)
+                {
+                    GLint tw = 0;
+                    GLint th = 0;
+
+                    glBindTexture(GL_TEXTURE_2D, batch->gltex);
+                    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &tw);
+                    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &th);
+
+                    if (tw > 0) { invw = 1.0f / (float)tw; }
+                    if (th > 0) { invh = 1.0f / (float)th; }
+                }
+            }
+
+            for (k = 0; k < 3; k++)
+            {
+                dst[k].x = src[k].x;
+                dst[k].y = src[k].y;
+                dst[k].z = src[k].z;
+                dst[k].s = src[k].s * invw;   /* texels -> normalized */
+                dst[k].t = src[k].t * invh;
+                dst[k].r = src[k].r;
+                dst[k].g = src[k].g;
+                dst[k].b = src[k].b;
+                dst[k].a = src[k].a;
+
+                if (i == 0 && k == 0)
+                {
+                    minx = maxx = dst[k].x;
+                    miny = maxy = dst[k].y;
+                    minz = maxz = dst[k].z;
+                }
+                else
+                {
+                    if (dst[k].x < minx) { minx = dst[k].x; }
+                    if (dst[k].x > maxx) { maxx = dst[k].x; }
+                    if (dst[k].y < miny) { miny = dst[k].y; }
+                    if (dst[k].y > maxy) { maxy = dst[k].y; }
+                    if (dst[k].z < minz) { minz = dst[k].z; }
+                    if (dst[k].z > maxz) { maxz = dst[k].z; }
+                }
             }
         }
+
+        free(order);
+        free(decode);
     }
 
-    free(state->scene);
+    ViewportFreeScene(state);
     state->scene = scene;
     state->scenecount = scene != NULL ? (GLsizei)(tricount * 3) : 0;
+    state->batches = batches;
+    state->batchcount = scene != NULL ? batchcount : 0;
+    state->textures = textures;
+    state->texturecount = scene != NULL ? texturecount : 0;
+
+    if (scene == NULL)
+    {
+        free(batches);
+        free(textures);
+        state->batches = NULL;
+        state->textures = NULL;
+        state->batchcount = 0;
+        state->texturecount = 0;
+    }
 
     if (scene != NULL)
     {

@@ -79,7 +79,7 @@ static void GEditorCloseProject(HWND hwnd)
 
     BrowserSetLevels(g_Browser, NULL, 0);
     BrowserSetImages(g_Browser, NULL, 0, NULL);
-    ViewportSetScene(g_Viewport, NULL, 0);
+    ViewportSetScene(g_Viewport, NULL, NULL, 0, NULL);
     GEditorSetTitleForProject(hwnd);
 }
 
@@ -613,7 +613,10 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             return 0;
         }
 
-        tris = BgLoadGeometry(g_Rom.data + offset, maxlen, &tricount, &why);
+        {
+        unsigned short *tritex = NULL;
+
+        tris = BgLoadGeometry(g_Rom.data + offset, maxlen, &tricount, &tritex, &why);
 
         if (tris == NULL)
         {
@@ -621,8 +624,10 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             return 0;
         }
 
-        ViewportSetScene(g_Viewport, tris, (int)tricount);
-        free(tris); /* the viewport copied it */
+        ViewportSetScene(g_Viewport, tris, tritex, (int)tricount, &g_Rom);
+        free(tris);   /* the viewport copied and normalized both */
+        free(tritex);
+        }
 
         wsprintf(title, "%s - %s", GEDITOR_TITLE, (const char *)lparam);
         SetWindowText(hwnd, title);

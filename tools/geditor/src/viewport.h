@@ -4,6 +4,8 @@
 #include <windows.h>
 
 #include "bgload.h"
+#include "rom.h"
+#include "texload.h"
 
 /**
  * Main 3D viewport functions. Create a child window with OpenGL context.
@@ -24,7 +26,9 @@ void ViewportFlyFrame(HWND viewport);
  * caller keeps ownership of tris). NULL/0 restores the built-in test
  * scene. The camera is repositioned to frame the new geometry.
  */
-void ViewportSetScene(HWND hwnd, const BgVertex *tris, int tricount);
+void ViewportSetScene(HWND hwnd, const BgVertex *tris,
+                      const unsigned short *texids, int tricount,
+                      const RomFile *rom);
 
 /* Global backface culling toggle for the viewport. */
 BOOL ViewportGetBackfaceCulling(HWND hwnd);

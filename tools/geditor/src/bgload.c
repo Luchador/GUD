@@ -21,21 +21,24 @@
 #include <string.h>
 
 #include "bgload.h"
+#include "browser.h"
 
 #define BG_ROOM_RECORD_SIZE 24
 #define BG_MAX_ROOMS        256
 #define BG_MAX_BATCH        64      /* vertices a G_VTX may load */
 
+#define G_NOOP  0xC0   /* F3DEX G_NOOP; in raw GE DLs a texture reference, ID in w1 & 0xFFF */
 #define G_VTX   0x04
 #define G_TRI4  0xB1
 #define G_ENDDL 0xB8
 #define G_TRI1  0xBF
 
 typedef struct BgBuilder {
-    BgVertex *verts;
-    DWORD     count;
-    DWORD     capacity;
-    BOOL      failed;
+    BgVertex       *verts;
+    unsigned short *texids;     /* one per triangle */
+    DWORD           count;      /* vertices */
+    DWORD           capacity;
+    BOOL            failed;
 } BgBuilder;
 
 static DWORD bg32(const unsigned char *p)
@@ -68,14 +71,17 @@ static void BgBuilderPush(BgBuilder *b, const BgVertex *v)
     {
         DWORD next = b->capacity ? b->capacity * 2 : 4096;
         BgVertex *grown = (BgVertex *)realloc(b->verts, next * sizeof(BgVertex));
+        unsigned short *grownt = (unsigned short *)realloc(b->texids,
+                                     (next / 3) * sizeof(unsigned short));
 
-        if (grown == NULL)
+        if (grown != NULL) { b->verts = grown; }
+        if (grownt != NULL) { b->texids = grownt; }
+        if (grown == NULL || grownt == NULL)
         {
             b->failed = TRUE;
             return;
         }
 
-        b->verts = grown;
         b->capacity = next;
     }
 
@@ -120,6 +126,7 @@ static void BgWalkGdl(BgBuilder *b,
     const unsigned char *batch = NULL;
     DWORD batchcount = 0;
     int batchv0 = 0;
+    unsigned short curtex = BG_TEX_NONE;
 
     for (pc = gdloffset; pc + 8 <= gdloffset + gdlsize && pc + 8 <= maxlen; pc += 8)
     {
@@ -128,6 +135,15 @@ static void BgWalkGdl(BgBuilder *b,
         if (cmd[0] == G_ENDDL)
         {
             return;
+        }
+
+        if (cmd[0] == G_NOOP)
+        {
+            /* The raw file marks texture changes with G_NOOP commands;
+               the game rewrites them into SETTIMG/SETTILE sequences at
+               load (texLoadFromGdl). The ID is the low 12 bits. */
+            curtex = (unsigned short)(bg32(cmd + 4) & 0xFFF);
+            continue;
         }
 
         if (cmd[0] == G_VTX)
@@ -217,6 +233,8 @@ static void BgWalkGdl(BgBuilder *b,
                     out.x = roomx + bg16(v + 0);
                     out.y = roomy + bg16(v + 2);
                     out.z = roomz + bg16(v + 4);
+                    out.s = (float)bg16(v + 8) / 32.0f;   /* s10.5 -> texels */
+                    out.t = (float)bg16(v + 10) / 32.0f;
                     out.r = v[12];
                     out.g = v[13];
                     out.b = v[14];
@@ -224,13 +242,21 @@ static void BgWalkGdl(BgBuilder *b,
 
                     BgBuilderPush(b, &out);
                 }
+
+                /* Record the texture after the pushes: growth has
+                   already resized the texid array to match. */
+                if (!b->failed)
+                {
+                    b->texids[b->count / 3 - 1] = curtex;
+                }
             }
         }
     }
 }
 
 BgVertex *BgLoadGeometry(const unsigned char *data, DWORD maxlen,
-                         DWORD *tricount, const char **reasonout)
+                         DWORD *tricount, unsigned short **texids,
+                         const char **reasonout)
 {
     BgBuilder b;
     DWORD roomlist;
@@ -238,6 +264,7 @@ BgVertex *BgLoadGeometry(const unsigned char *data, DWORD maxlen,
     DWORD i;
 
     *tricount = 0;
+    *texids = NULL;
     *reasonout = "";
 
     if (maxlen < 0x40)
@@ -319,11 +346,13 @@ BgVertex *BgLoadGeometry(const unsigned char *data, DWORD maxlen,
     if (b.failed || b.count == 0)
     {
         free(b.verts);
+        free(b.texids);
         *reasonout = b.failed ? "out of memory building bg geometry."
                               : "bg file produced no triangles.";
         return NULL;
     }
 
     *tricount = b.count / 3;
+    *texids = b.texids;
     return b.verts;
 }
