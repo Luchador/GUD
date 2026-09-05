@@ -32,9 +32,8 @@ static HWND g_Browser;
 static int  g_BrowserWidth = 280;
 static BOOL g_DraggingSplitter = FALSE;
 static GEditorProject g_Project;
-/* Raw setup for the selected level. Keeping the project copy in
-   editor-owned memory lets setup/object tools consume it without
-   retaining or reopening the source ROM. */
+/* Setup for the selected level, including host-native parsed views.
+   Editor tools can consume it without retaining the source ROM. */
 static SetupFile g_CurrentSetup;
 
 static void GEditorSetTitleForProject(HWND hwnd);
@@ -688,9 +687,12 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         if (setupLoaded)
         {
             g_CurrentSetup = setup;
+            ViewportSetSetupPads(g_Viewport, &g_CurrentSetup,
+                                 level->levelscale);
         }
         else
         {
+            ViewportSetSetupPads(g_Viewport, NULL, level->levelscale);
             /* Some unfinished/test level-table entries name setup
                resources which are not present in obseg. Their BG is
                still useful, so open it and report only the setup gap. */

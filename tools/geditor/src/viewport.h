@@ -4,6 +4,7 @@
 #include <windows.h>
 
 #include "bgload.h"
+#include "setupload.h"
 #include "texload.h"
 
 /**
@@ -28,6 +29,11 @@ void ViewportFlyFrame(HWND viewport);
 void ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const unsigned short *tritags, int tricount,
                       const char *projectdir);
+
+/* Replaces the pad overlay. PadRecords are small green wireframe
+   cubes; BoundPadRecords are red wireframes of their authored volume. */
+void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup,
+                          float levelscale);
 
 /* Master culling toggle. Enabled honors the BG's per-triangle state;
    disabled renders every triangle double-sided. */

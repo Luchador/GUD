@@ -33,6 +33,8 @@
 #define VIEWPORT_PITCH_LIMIT 89.0f
 
 #define VIEWPORT_DEG_TO_RAD (3.14159265358979323846f / 180.0f)
+#define VIEWPORT_PAD_HALF_SIZE 10.0f
+#define VIEWPORT_BOX_VERTICES  24
 
 /* A contiguous run of scene vertices sharing one texture. */
 typedef struct SceneBatch {
@@ -70,6 +72,8 @@ typedef struct ViewportState {
     int batchcount;
     GLuint *textures;    /* GL texture names owned by the scene */
     int texturecount;
+    Vertex *padmarkers;  /* GL_LINES: 24 vertices per wireframe box */
+    GLsizei padmarkercount;
     BOOL cullbackfaces;  /* master toggle for authored backface culling */
     BOOL keyw, keya, keys, keyd, keyq, keye;
     POINT lastmouse;
@@ -299,6 +303,26 @@ static void ViewportPaintGL(ViewportState *state)
         {
             glDrawArrays(GL_TRIANGLES, 0, count);
         }
+
+        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    }
+
+    if (state->padmarkers != NULL && state->padmarkercount > 0)
+    {
+        /* Editor overlays remain depth-tested, so pads hidden behind a
+           wall do not turn the whole level into an unreadable lattice. */
+        glDisable(GL_TEXTURE_2D);
+        glDisable(GL_ALPHA_TEST);
+        glDisable(GL_BLEND);
+        glDisable(GL_CULL_FACE);
+        glDepthMask(GL_TRUE);
+
+        glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->padmarkers[0].x);
+        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex),
+                       &state->padmarkers[0].r);
+        glLineWidth(2.0f);
+        glDrawArrays(GL_LINES, 0, state->padmarkercount);
+        glLineWidth(1.0f);
     }
 
     SwapBuffers(state->hdc);
@@ -669,8 +693,8 @@ void ViewportRedraw(HWND viewport)
 }
 
 
-/* Frees the scene's GL textures and CPU arrays. Needs the GL context
-   current for glDeleteTextures. */
+/* Frees the scene's GL textures, geometry, and pad overlay. Needs the
+   GL context current for glDeleteTextures. */
 static void ViewportFreeScene(struct ViewportState *state_)
 {
     ViewportState *state = (ViewportState *)state_;
@@ -683,12 +707,15 @@ static void ViewportFreeScene(struct ViewportState *state_)
 
     free(state->textures);
     free(state->batches);
+    free(state->padmarkers);
     free(state->scene);
     state->textures = NULL;
     state->batches = NULL;
+    state->padmarkers = NULL;
     state->scene = NULL;
     state->texturecount = 0;
     state->batchcount = 0;
+    state->padmarkercount = 0;
     state->scenecount = 0;
 }
 
@@ -905,6 +932,121 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
         state->pitch = 0.0f;
     }
 
+    InvalidateRect(hwnd, NULL, FALSE);
+}
+
+
+static void ViewportSetMarkerVertex(Vertex *vertex, const float point[3],
+                                    unsigned char r, unsigned char g,
+                                    unsigned char b)
+{
+    vertex->x = point[0];
+    vertex->y = point[1];
+    vertex->z = point[2];
+    vertex->r = r;
+    vertex->g = g;
+    vertex->b = b;
+    vertex->a = 255;
+    vertex->s = 0.0f;
+    vertex->t = 0.0f;
+}
+
+
+/* Appends the twelve edges of an oriented pad box. */
+static void ViewportAppendPadBox(Vertex *vertices, int *vertexcount,
+                                 const SetupPad *pad,
+                                 float xmin, float xmax,
+                                 float ymin, float ymax,
+                                 float zmin, float zmax,
+                                 float worldscale,
+                                 unsigned char r, unsigned char g,
+                                 unsigned char b)
+{
+    static const unsigned char edges[12][2] = {
+        {0, 1}, {2, 3}, {4, 5}, {6, 7},
+        {0, 2}, {1, 3}, {4, 6}, {5, 7},
+        {0, 4}, {1, 5}, {2, 6}, {3, 7}
+    };
+    float corners[8][3];
+    int edge;
+
+    SetupPadGetBoxCorners(pad, xmin, xmax, ymin, ymax, zmin, zmax,
+                          worldscale, corners);
+
+    for (edge = 0; edge < 12; edge++)
+    {
+        ViewportSetMarkerVertex(&vertices[*vertexcount],
+            corners[edges[edge][0]], r, g, b);
+        (*vertexcount)++;
+        ViewportSetMarkerVertex(&vertices[*vertexcount],
+            corners[edges[edge][1]], r, g, b);
+        (*vertexcount)++;
+    }
+}
+
+
+void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup,
+                          float levelscale)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    Vertex *markers = NULL;
+    DWORD boxcount = 0;
+    int vertexcount = 0;
+    float worldscale;
+    DWORD i;
+
+    if (state == NULL)
+    {
+        return;
+    }
+
+    free(state->padmarkers);
+    state->padmarkers = NULL;
+    state->padmarkercount = 0;
+
+    if (setup == NULL || !(levelscale > 0.0f))
+    {
+        InvalidateRect(hwnd, NULL, FALSE);
+        return;
+    }
+
+    boxcount = setup->padcount + setup->boundpadcount;
+    if (boxcount == 0)
+    {
+        InvalidateRect(hwnd, NULL, FALSE);
+        return;
+    }
+
+    markers = (Vertex *)malloc((size_t)boxcount * VIEWPORT_BOX_VERTICES
+                              * sizeof(*markers));
+    if (markers == NULL)
+    {
+        InvalidateRect(hwnd, NULL, FALSE);
+        return;
+    }
+
+    worldscale = 1.0f / levelscale;
+
+    for (i = 0; i < setup->padcount; i++)
+    {
+        ViewportAppendPadBox(markers, &vertexcount, &setup->pads[i],
+            -VIEWPORT_PAD_HALF_SIZE, VIEWPORT_PAD_HALF_SIZE,
+            -VIEWPORT_PAD_HALF_SIZE, VIEWPORT_PAD_HALF_SIZE,
+            -VIEWPORT_PAD_HALF_SIZE, VIEWPORT_PAD_HALF_SIZE,
+            worldscale, 32, 255, 64);
+    }
+
+    for (i = 0; i < setup->boundpadcount; i++)
+    {
+        const SetupBoundPad *pad = &setup->boundpads[i];
+
+        ViewportAppendPadBox(markers, &vertexcount, &pad->pad,
+            pad->xmin, pad->xmax, pad->ymin, pad->ymax,
+            pad->zmin, pad->zmax, worldscale, 255, 48, 48);
+    }
+
+    state->padmarkers = markers;
+    state->padmarkercount = vertexcount;
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
