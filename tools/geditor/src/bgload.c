@@ -18,6 +18,7 @@
  */
 
 #include <windows.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -36,6 +37,34 @@
 #define G_TRI1  0xBF
 
 #define G_CULL_BACK 0x00002000
+
+static const char *BgBaseName(const char *name)
+{
+    const char *slash = strrchr(name, '/');
+    const char *backslash = strrchr(name, '\\');
+
+    if (backslash != NULL && (slash == NULL || backslash > slash))
+    {
+        slash = backslash;
+    }
+
+    return slash != NULL ? slash + 1 : name;
+}
+
+static BOOL BgProjectPath(char *path, size_t pathsize,
+                          const char *projectdir, const char *bgname)
+{
+    const char *base = BgBaseName(bgname);
+    int written;
+
+    if (base[0] == '\0')
+    {
+        return FALSE;
+    }
+
+    written = snprintf(path, pathsize, "%s\\bg\\%s", projectdir, base);
+    return written >= 0 && written < (int)pathsize;
+}
 
 typedef struct BgBuilder {
     BgVertex       *verts;
@@ -113,6 +142,70 @@ static DWORD BgBlockSize(const unsigned char *data, DWORD maxlen, DWORD offset)
     }
 
     return size;
+}
+
+/*
+ * GUD's uncompressed BG converter prefixes every room stream with its
+ * byte length and aligns the completed segment to 16 bytes. Measuring
+ * those streams gives us the real .seg boundary even when file-table
+ * aliases or an unreferenced linker blob make the next table address
+ * only an upper bound.
+ */
+static DWORD BgMeasureFileLength(const unsigned char *data, DWORD maxlen)
+{
+    DWORD roomlist;
+    DWORD end = 0;
+    DWORD i;
+
+    if (maxlen < 0x40 || bg32(data) != 0)
+    {
+        return maxlen;
+    }
+
+    roomlist = bg32(data + 4) & 0x00FFFFFF;
+    if (roomlist >= maxlen)
+    {
+        return maxlen;
+    }
+
+    for (i = 1; i < BG_MAX_ROOMS; i++)
+    {
+        DWORD rec = roomlist + i * BG_ROOM_RECORD_SIZE;
+        int field;
+
+        if (rec + BG_ROOM_RECORD_SIZE > maxlen || bg32(data + rec + 4) == 0)
+        {
+            break;
+        }
+
+        for (field = 0; field < 3; field++)
+        {
+            DWORD offset = bg32(data + rec + field * 4) & 0x00FFFFFF;
+
+            if (offset != 0)
+            {
+                DWORD size = BgBlockSize(data, maxlen, offset);
+
+                if (size == 0)
+                {
+                    return maxlen;
+                }
+
+                if (offset + size > end)
+                {
+                    end = offset + size;
+                }
+            }
+        }
+    }
+
+    if (end == 0 || end > maxlen - 15)
+    {
+        return maxlen;
+    }
+
+    end = (end + 15) & ~(DWORD)15;
+    return end <= maxlen ? end : maxlen;
 }
 
 /*
@@ -398,4 +491,157 @@ BgVertex *BgLoadGeometry(const unsigned char *data, DWORD maxlen,
     *tricount = b.count / 3;
     *tritags = b.tags;
     return b.verts;
+}
+
+
+DWORD BgExtractAll(const RomFile *rom, const char *projectdir,
+                   const char **reasonout)
+{
+    char dir[MAX_PATH];
+    DWORD count = 0;
+    DWORD i;
+    int written;
+
+    *reasonout = "";
+
+    written = snprintf(dir, sizeof(dir), "%s\\bg", projectdir);
+    if (written < 0 || written >= (int)sizeof(dir))
+    {
+        *reasonout = "the bg folder path is too long.";
+        return 0;
+    }
+
+    if (!CreateDirectory(dir, NULL) && GetLastError() != ERROR_ALREADY_EXISTS)
+    {
+        *reasonout = "the bg folder could not be created.";
+        return 0;
+    }
+
+    for (i = 0; ; i++)
+    {
+        char bgname[64];
+        DWORD offset;
+        DWORD length;
+        char path[MAX_PATH];
+        HANDLE file;
+        DWORD output;
+        BOOL ok;
+        size_t namelen;
+
+        if (!RomGetFileByIndex(rom, i, bgname, sizeof(bgname), NULL, NULL))
+        {
+            break;
+        }
+
+        namelen = strlen(bgname);
+        if (strncmp(bgname, "bg/", 3) != 0
+            || namelen < 4 || strcmp(bgname + namelen - 4, ".seg") != 0)
+        {
+            continue;
+        }
+
+        if (!RomGetFileByIndex(rom, i, bgname, sizeof(bgname),
+                               &offset, &length))
+        {
+            *reasonout = "a background file-table entry is invalid.";
+            return 0;
+        }
+
+        length = BgMeasureFileLength(rom->data + offset, length);
+
+        if (!BgProjectPath(path, sizeof(path), projectdir, bgname))
+        {
+            *reasonout = "a background output path is too long.";
+            return 0;
+        }
+
+        file = CreateFile(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                          FILE_ATTRIBUTE_NORMAL, NULL);
+        if (file == INVALID_HANDLE_VALUE)
+        {
+            *reasonout = "a background file could not be created.";
+            return 0;
+        }
+
+        ok = WriteFile(file, rom->data + offset, length, &output, NULL)
+          && output == length;
+        CloseHandle(file);
+
+        if (!ok)
+        {
+            *reasonout = "a background file could not be fully written.";
+            return 0;
+        }
+
+        count++;
+    }
+
+    if (count == 0)
+    {
+        *reasonout = "the ROM file table contains no backgrounds.";
+    }
+
+    return count;
+}
+
+
+BgVertex *BgLoadProjectGeometry(const char *projectdir, const char *bgname,
+                                float levelscale,
+                                DWORD *tricount, unsigned short **tritags,
+                                const char **reasonout)
+{
+    char path[MAX_PATH];
+    HANDLE file;
+    DWORD length;
+    DWORD got;
+    unsigned char *data;
+    BgVertex *vertices;
+
+    *tricount = 0;
+    *tritags = NULL;
+    *reasonout = "";
+
+    if (!BgProjectPath(path, sizeof(path), projectdir, bgname))
+    {
+        *reasonout = "the background path is too long.";
+        return NULL;
+    }
+
+    file = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL,
+                      OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE)
+    {
+        *reasonout = "the background .seg file is missing from this project.";
+        return NULL;
+    }
+
+    length = GetFileSize(file, NULL);
+    if (length == INVALID_FILE_SIZE || length == 0)
+    {
+        CloseHandle(file);
+        *reasonout = "the project background file is empty or unreadable.";
+        return NULL;
+    }
+
+    data = (unsigned char *)malloc(length);
+    if (data == NULL)
+    {
+        CloseHandle(file);
+        *reasonout = "out of memory reading the project background.";
+        return NULL;
+    }
+
+    if (!ReadFile(file, data, length, &got, NULL) || got != length)
+    {
+        free(data);
+        CloseHandle(file);
+        *reasonout = "the project background file could not be fully read.";
+        return NULL;
+    }
+
+    CloseHandle(file);
+    vertices = BgLoadGeometry(data, length, levelscale,
+                              tricount, tritags, reasonout);
+    free(data);
+    return vertices;
 }

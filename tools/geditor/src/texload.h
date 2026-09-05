@@ -24,12 +24,13 @@ DWORD TexExtractImages(const RomFile *rom, const char *projectdir,
 typedef struct TexPixel { unsigned char r, g, b, a; } TexPixel;
 
 /*
- * Decodes GUTX record #id from the IMGS segment (image 0, native
- * orientation) into out (room for 256x256 TexPixels). Returns FALSE
- * for a bad id or undecodable record.
+ * Reads <projectdir>\images\<ID hex>.bmp into native GE orientation,
+ * reversing the display rotation applied during extraction. out has
+ * room for 256x256 TexPixels. This makes the project copy, including
+ * user edits, the viewport's texture source.
  */
-BOOL TexDecodeById(const RomFile *rom, DWORD id,
-                   TexPixel *out, int *w, int *h);
+BOOL TexLoadProjectImage(const char *projectdir, DWORD id,
+                         TexPixel *out, int *w, int *h);
 
 /*
  * One browser thumbnail: a small top-down BGRA image (GDI-native, ready for StretchDIBits) plus its label

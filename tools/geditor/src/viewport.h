@@ -4,7 +4,6 @@
 #include <windows.h>
 
 #include "bgload.h"
-#include "rom.h"
 #include "texload.h"
 
 /**
@@ -28,7 +27,7 @@ void ViewportFlyFrame(HWND viewport);
  */
 void ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const unsigned short *tritags, int tricount,
-                      const RomFile *rom);
+                      const char *projectdir);
 
 /* Master culling toggle. Enabled honors the BG's per-triangle state;
    disabled renders every triangle double-sided. */

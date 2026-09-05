@@ -415,6 +415,39 @@ void RomFree(RomFile *rom)
 #define ROM_KIND_OBSG 0x4F425347  /* 'OBSG' */
 #define ROM_FTBL_MAX_ROWS 1024
 
+/* File-table entries can alias the same data (several multiplayer
+   names do). The tightest table-derived upper bound is therefore the
+   smallest DISTINCT data address after the start, not necessarily the
+   following row. */
+static DWORD RomFindFileUpperBound(const RomFile *rom,
+                                   const RomManifestEntry *ftbl,
+                                   const RomManifestEntry *obsg,
+                                   DWORD start)
+{
+    DWORD end = obsg != NULL ? obsg->romend : rom->size;
+    DWORD i;
+
+    for (i = 0; i < ROM_FTBL_MAX_ROWS; i++)
+    {
+        DWORD row = ftbl->romstart + i * 12;
+        DWORD candidate;
+
+        if (row + 12 > rom->size || be32(rom->data + row + 4) == 0)
+        {
+            break;
+        }
+
+        candidate = be32(rom->data + row + 8);
+
+        if (candidate > start && candidate < end)
+        {
+            end = candidate;
+        }
+    }
+
+    return end;
+}
+
 BOOL RomFindFile(const RomFile *rom, const char *name,
                  DWORD *offset, DWORD *maxlen, const char **reasonout)
 {
@@ -474,7 +507,7 @@ BOOL RomFindFile(const RomFile *rom, const char *name,
         if (strncmp((const char *)rom->data + (DWORD)nameoff, name,
                     rom->size - (DWORD)nameoff) == 0)
         {
-            DWORD end = obsg != NULL ? obsg->romend : rom->size;
+            DWORD end = RomFindFileUpperBound(rom, ftbl, obsg, datav);
 
             if (datav >= end || (obsg != NULL && datav < obsg->romstart))
             {
@@ -556,17 +589,19 @@ BOOL RomGetFileByIndex(const RomFile *rom, DWORD index,
 
     if (offset != NULL && maxlen != NULL)
     {
-        DWORD end = obsg != NULL ? obsg->romend : rom->size;
-
         datav = be32(rom->data + row + 8);
 
-        if (datav >= end || (obsg != NULL && datav < obsg->romstart))
         {
-            return FALSE;
-        }
+            DWORD end = RomFindFileUpperBound(rom, ftbl, obsg, datav);
 
-        *offset = datav;
-        *maxlen = end - datav;
+            if (datav >= end || (obsg != NULL && datav < obsg->romstart))
+            {
+                return FALSE;
+            }
+
+            *offset = datav;
+            *maxlen = end - datav;
+        }
     }
 
     return TRUE;

@@ -22,10 +22,6 @@
 #define GEDITOR_HEIGHT  1080
 
 static HWND g_Viewport;
-
-/* The project's ROM, held in memory for asset access. */
-static RomFile g_Rom;
-static BOOL g_RomLoaded;
 static HWND g_Browser;
 
 /* Content browser column: user-draggable via the splitter gutter. */
@@ -45,16 +41,29 @@ static void GEditorSetTitleForProject(HWND hwnd);
   * another project.
   */
 /*
- * (Re)loads the Images section from the project's images folder. Works
- * for both freshly created and reopened projects - the folder on disk
- * is the source of truth, no ROM needed.
+ * (Re)loads the browser from the project file and extracted asset
+ * folders. Works for both freshly created and reopened projects: the
+ * files on disk are the source of truth, no ROM needed.
  */
-static void GEditorRefreshImages(HWND hwnd)
+static void GEditorRefreshProjectAssets(void)
 {
+    BrowserLevelItem levels[ROM_MAX_LEVELS];
     TexThumb *items = NULL;
     unsigned char *pixels = NULL;
     const char *why = "";
     DWORD count;
+    DWORD i;
+
+    for (i = 0; i < g_Project.levelcount; i++)
+    {
+        wsprintf(levels[i].label, "%s  (%s)",
+                 g_Project.levels[i].name,
+                 g_Project.levels[i].world);
+    }
+
+    BrowserSetLevels(g_Browser,
+                     g_Project.levelcount > 0 ? levels : NULL,
+                     (int)g_Project.levelcount);
 
     count = TexLoadProjectThumbnails(g_Project.dir, &items, &pixels, &why);
 
@@ -115,12 +124,6 @@ static void GEditorCloseProject(HWND hwnd)
     }
 
     ProjectClose(&g_Project);
-
-    if (g_RomLoaded)
-    {
-        RomFree(&g_Rom);
-        g_RomLoaded = FALSE;
-    }
 
     BrowserSetLevels(g_Browser, NULL, 0);
     BrowserSetImages(g_Browser, NULL, 0, NULL);
@@ -637,33 +640,26 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     {
         DWORD index = (DWORD)wparam;
         const RomLevel *level;
-        DWORD offset;
-        DWORD maxlen;
         DWORD tricount = 0;
         BgVertex *tris;
         const char *why = "";
         char title[256];
 
-        if (!g_RomLoaded || index >= g_Rom.info.levelcount)
+        if (index >= g_Project.levelcount)
         {
-            MessageBox(hwnd, "No ROM is loaded for this project.",
+            MessageBox(hwnd, "That level is not present in this project.",
                        GEDITOR_TITLE, MB_ICONERROR);
             return 0;
         }
 
-        level = &g_Rom.info.levels[index];
-
-        if (!RomFindFile(&g_Rom, level->bgname, &offset, &maxlen, &why))
-        {
-            MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
-            return 0;
-        }
+        level = &g_Project.levels[index];
 
         {
         unsigned short *tritags = NULL;
 
-        tris = BgLoadGeometry(g_Rom.data + offset, maxlen, level->levelscale,
-                              &tricount, &tritags, &why);
+        tris = BgLoadProjectGeometry(g_Project.dir, level->bgname,
+                                     level->levelscale,
+                                     &tricount, &tritags, &why);
 
         if (tris == NULL)
         {
@@ -671,7 +667,8 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             return 0;
         }
 
-        ViewportSetScene(g_Viewport, tris, tritags, (int)tricount, &g_Rom);
+        ViewportSetScene(g_Viewport, tris, tritags, (int)tricount,
+                         g_Project.dir);
         free(tris);   /* the viewport copied and normalized both */
         free(tritags);
         }
@@ -776,47 +773,45 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
                     const char *why = "";
 
-                    if (ProjectCreate(info.name, info.location, &g_Project, &why))
+                    if (ProjectCreate(info.name, info.location, &info.rominfo,
+                                      &g_Project, &why))
                     {
-                        BrowserLevelItem items[ROM_MAX_LEVELS];
-                        DWORD n;
+                        RomFile rom;
                         const char *romwhy = "";
 
-                        /* Keep the ROM resident: level loading reads
-                           assets straight out of this buffer. */
-                        if (RomLoad(info.rompath, &g_Rom, &romwhy))
+                        /* The ROM is only an import source. Once these
+                           assets are copied, the project is entirely
+                           independent of it. */
+                        if (RomLoad(info.rompath, &rom, &romwhy))
                         {
-                            const char *texwhy = "";
-
-                            g_RomLoaded = TRUE;
+                            const char *assetwhy = "";
 
                             /* One-time extraction into the project:
-                               the images folder becomes the project's
-                               own copy of the ROM's texture library. */
-                            if (TexExtractImages(&g_Rom, g_Project.dir, &texwhy) == 0)
+                               its asset folders become the editable
+                               copies used whenever it is opened. */
+                            if (TexExtractImages(&rom, g_Project.dir, &assetwhy) == 0)
                             {
-                                MessageBox(hwnd, texwhy, GEDITOR_TITLE, MB_ICONWARNING);
+                                MessageBox(hwnd, assetwhy, GEDITOR_TITLE, MB_ICONWARNING);
                             }
 
-                            if (ModelExtractAll(&g_Rom, g_Project.dir, &texwhy) == 0)
+                            if (ModelExtractAll(&rom, g_Project.dir, &assetwhy) == 0)
                             {
-                                MessageBox(hwnd, texwhy, GEDITOR_TITLE, MB_ICONWARNING);
+                                MessageBox(hwnd, assetwhy, GEDITOR_TITLE, MB_ICONWARNING);
                             }
+
+                            if (BgExtractAll(&rom, g_Project.dir, &assetwhy) == 0)
+                            {
+                                MessageBox(hwnd, assetwhy, GEDITOR_TITLE, MB_ICONWARNING);
+                            }
+
+                            RomFree(&rom);
                         }
                         else
                         {
                             MessageBox(hwnd, romwhy, GEDITOR_TITLE, MB_ICONERROR);
                         }
 
-                        for (n = 0; n < info.rominfo.levelcount; n++)
-                        {
-                            wsprintf(items[n].label, "%s  (%s)",
-                                     info.rominfo.levels[n].name,
-                                     info.rominfo.levels[n].world);
-                        }
-
-                        BrowserSetLevels(g_Browser, items, (int)info.rominfo.levelcount);
-                        GEditorRefreshImages(hwnd);
+                        GEditorRefreshProjectAssets();
                         GEditorSetTitleForProject(hwnd);
                     }
                     else
@@ -837,7 +832,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
                     if (ProjectRead(path, &g_Project))
                     {
-                        GEditorRefreshImages(hwnd);
+                        GEditorRefreshProjectAssets();
                         GEditorSetTitleForProject(hwnd);
                     }
                     else

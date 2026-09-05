@@ -719,7 +719,7 @@ static int ViewportTriKeyCompare(const void *a, const void *b)
 
 void ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const unsigned short *tritags, int tricount,
-                      const RomFile *rom)
+                      const char *projectdir)
 {
     ViewportState *state = (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
     Vertex *scene = NULL;
@@ -791,12 +791,15 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
                 {
                     batch->gltex = batches[batchcount - 2].gltex;
                 }
-                else if (BG_TEX_ID(order[i].tag) != BG_TEX_NONE && rom != NULL)
+                else if (BG_TEX_ID(order[i].tag) != BG_TEX_NONE
+                         && projectdir != NULL)
                 {
                     int tw = 0;
                     int th = 0;
 
-                    if (TexDecodeById(rom, BG_TEX_ID(order[i].tag), decode, &tw, &th))
+                    if (TexLoadProjectImage(projectdir,
+                                            BG_TEX_ID(order[i].tag),
+                                            decode, &tw, &th))
                     {
                         GLuint name = 0;
 

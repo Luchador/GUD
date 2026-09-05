@@ -69,9 +69,9 @@ void RomFree(RomFile *rom);
 /*
  * Looks a file up by its resource name ("bg/bg_sev_all_p.seg") in the
  * ROM's file table. On success *offset is the file's position in the
- * ROM and *maxlen the readable bytes from there (bounded by the obseg
- * segment). FALSE with *reasonout set when the table is missing or
- * the name is not present.
+ * ROM and *maxlen a bounded span ending at the next distinct file-table
+ * address or the end of obseg. FALSE with *reasonout set when the table
+ * is missing or the name is not present.
  */
 /*
  * Indexed access to the ROM's file table, for enumeration. Copies the

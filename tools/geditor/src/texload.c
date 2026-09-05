@@ -51,6 +51,17 @@ static DWORD texbe32(const unsigned char *p)
          | ((DWORD)p[2] << 8)  |  (DWORD)p[3];
 }
 
+static DWORD texle16(const unsigned char *p)
+{
+    return (DWORD)p[0] | ((DWORD)p[1] << 8);
+}
+
+static DWORD texle32(const unsigned char *p)
+{
+    return (DWORD)p[0] | ((DWORD)p[1] << 8)
+         | ((DWORD)p[2] << 16) | ((DWORD)p[3] << 24);
+}
+
 static DWORD texalign(DWORD v, DWORD a)
 {
     return (v + a - 1) & ~(a - 1);
@@ -554,77 +565,112 @@ DWORD TexLoadProjectThumbnails(const char *projectdir, TexThumb **items,
 }
 
 
-BOOL TexDecodeById(const RomFile *rom, DWORD id,
-                   TexPixel *out, int *w, int *h)
+BOOL TexLoadProjectImage(const char *projectdir, DWORD id,
+                         TexPixel *out, int *w, int *h)
 {
-    const RomManifestEntry *imgs = NULL;
-    DWORD pos;
-    DWORD i;
+    char path[MAX_PATH];
+    unsigned char header[54];
+    unsigned char *pixels = NULL;
+    HANDLE file;
+    DWORD got;
+    DWORD filesize;
+    DWORD pixeloffset;
+    DWORD pixelsize;
+    LONG width;
+    LONG rawheight;
+    int height;
+    int x;
+    int y;
+    BOOL ok = FALSE;
+    int written;
 
-    for (i = 0; i < rom->info.entrycount; i++)
-    {
-        if (rom->info.entries[i].kind == 0x494D4753) /* 'IMGS' */
-        {
-            imgs = &rom->info.entries[i];
-        }
-    }
+    *w = 0;
+    *h = 0;
 
-    if (imgs == NULL)
-    {
-        return FALSE;
-    }
-
-    /* Hop record to record; each header knows its own size. 2,698
-       header reads is microseconds - no index needed yet. */
-    pos = imgs->romstart;
-
-    for (i = 0; i < id; i++)
-    {
-        DWORD recsize;
-
-        if (pos + GUTX_PALETTE_OFFSET > imgs->romend
-            || memcmp(rom->data + pos, "GUTX", 4) != 0)
-        {
-            return FALSE;
-        }
-
-        recsize = texbe32(rom->data + pos + 12);
-        if (recsize == 0 || (recsize & 0xF))
-        {
-            return FALSE;
-        }
-
-        pos += recsize;
-    }
-
-    if (pos + GUTX_PALETTE_OFFSET > imgs->romend
-        || memcmp(rom->data + pos, "GUTX", 4) != 0)
+    written = snprintf(path, sizeof(path), "%s\\images\\%04lX.bmp",
+                       projectdir, (unsigned long)id);
+    if (written < 0 || written >= (int)sizeof(path))
     {
         return FALSE;
     }
 
+    file = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL,
+                      OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE)
     {
-        const unsigned char *rec = rom->data + pos;
-        DWORD recsize = texbe32(rec + 12);
-        int format = rec[GUTX_DESC_OFFSET + 0];
-        DWORD width = rec[GUTX_DESC_OFFSET + 1];
-        DWORD height = rec[GUTX_DESC_OFFSET + 2];
-        DWORD dataoff = texbe32(rec + GUTX_DESC_OFFSET + 4);
+        return FALSE;
+    }
 
-        if (width == 0 || height == 0 || pos + recsize > imgs->romend)
-        {
-            return FALSE;
-        }
+    filesize = GetFileSize(file, NULL);
 
-        if (!TexDecodeImage(rec, recsize, format, width, height,
-                            dataoff, texbe16(rec + 8), out))
+    if (filesize == INVALID_FILE_SIZE
+        || !ReadFile(file, header, sizeof(header), &got, NULL)
+        || got != sizeof(header)
+        || header[0] != 'B' || header[1] != 'M'
+        || texle32(header + 14) < 40
+        || texle16(header + 26) != 1
+        || texle16(header + 28) != 32
+        || texle32(header + 30) != BI_RGB)
+    {
+        CloseHandle(file);
+        return FALSE;
+    }
+
+    width = (LONG)texle32(header + 18);
+    rawheight = (LONG)texle32(header + 22);
+    pixeloffset = texle32(header + 10);
+
+    if (width <= 0 || width > 256
+        || rawheight == 0 || rawheight < -256 || rawheight > 256)
+    {
+        CloseHandle(file);
+        return FALSE;
+    }
+
+    height = rawheight < 0 ? (int)-rawheight : (int)rawheight;
+    pixelsize = (DWORD)width * (DWORD)height * 4;
+
+    if (pixeloffset < sizeof(header) || pixeloffset > filesize
+        || pixelsize > filesize - pixeloffset
+        || SetFilePointer(file, (LONG)pixeloffset, NULL, FILE_BEGIN)
+            != pixeloffset)
+    {
+        CloseHandle(file);
+        return FALSE;
+    }
+
+    pixels = (unsigned char *)malloc(pixelsize);
+    if (pixels != NULL
+        && ReadFile(file, pixels, pixelsize, &got, NULL)
+        && got == pixelsize)
+    {
+        for (y = 0; y < height; y++)
         {
-            return FALSE;
+            /* Positive BMPs store the bottom row first. Our extracted
+               files also reverse X, so this is the inverse of
+               TexWriteBmp's display-oriented rotation. */
+            int sourcey = rawheight > 0 ? y : height - 1 - y;
+            const unsigned char *row = pixels
+                                     + sourcey * (int)width * 4;
+
+            for (x = 0; x < width; x++)
+            {
+                const unsigned char *source = row + ((int)width - 1 - x) * 4;
+                TexPixel *dest = &out[y * (int)width + x];
+
+                dest->r = source[2];
+                dest->g = source[1];
+                dest->b = source[0];
+                dest->a = source[3];
+            }
         }
 
         *w = (int)width;
         *h = (int)height;
+        ok = TRUE;
     }
 
-    return TRUE;
+    free(pixels);
+    CloseHandle(file);
+    return ok;
 }

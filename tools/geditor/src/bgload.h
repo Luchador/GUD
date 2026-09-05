@@ -3,6 +3,8 @@
 
 #include <windows.h>
 
+#include "rom.h"
+
 /*
  * GoldenEye background geometry loader.
  *
@@ -46,5 +48,22 @@ BgVertex *BgLoadGeometry(const unsigned char *data, DWORD maxlen,
                          float levelscale,
                          DWORD *tricount, unsigned short **tritags,
                          const char **reasonout);
+
+/*
+ * Copies every .seg resource beneath bg/ in the ROM file table into
+ * <projectdir>\bg, preserving its .seg filename. Returns the number
+ * written, or 0 with *reasonout set if extraction could not complete.
+ */
+DWORD BgExtractAll(const RomFile *rom, const char *projectdir,
+                   const char **reasonout);
+
+/*
+ * Loads and parses one background from the project's bg folder. The
+ * caller owns the returned vertices and triangle tags, as above.
+ */
+BgVertex *BgLoadProjectGeometry(const char *projectdir, const char *bgname,
+                                float levelscale,
+                                DWORD *tricount, unsigned short **tritags,
+                                const char **reasonout);
 
 #endif /* GEDITOR_BGLOAD_H */

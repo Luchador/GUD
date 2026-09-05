@@ -984,7 +984,7 @@ Gfx *lvDrawFrameRateDisplay(Gfx *gdl)
     s32 x;
     s32 y;
     s32 screenwidth;
-    
+
     fpsFrameCount++;
 
     if (fpsWindowStart == 0)

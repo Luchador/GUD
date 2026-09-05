@@ -9,7 +9,7 @@
 #include "project.h"
 
 #define GEP_MAGIC   "GEditor Project"
-#define GEP_VERSION 1
+#define GEP_VERSION 2
 
 
 /**
@@ -18,6 +18,8 @@
 static BOOL ProjectWrite(const GEditorProject *proj)
 {
     FILE *f;
+    DWORD i;
+    BOOL ok = TRUE;
 
     f = fopen(proj->geppath, "w");
     if (f == NULL)
@@ -25,14 +27,32 @@ static BOOL ProjectWrite(const GEditorProject *proj)
         return FALSE;
     }
 
-    fprintf(f, "%s %d\n", GEP_MAGIC, GEP_VERSION);
-    fprintf(f, "name = %s\n", proj->name);
+    ok = ok && fprintf(f, "%s %d\n", GEP_MAGIC, GEP_VERSION) >= 0;
+    ok = ok && fprintf(f, "name = %s\n", proj->name) >= 0;
 
-    return fclose(f) == 0;
+    /* Keep the ROM's level table with the project. The pipe separator
+       cannot occur in a Windows filename, which makes these rows both
+       unambiguous and reasonably pleasant to edit by hand. */
+    for (i = 0; ok && i < proj->levelcount; i++)
+    {
+        const RomLevel *level = &proj->levels[i];
+
+        ok = fprintf(f,
+            "level = %ld|%s|%s|%s|%s|%s|%.9g|%.9g|%d|%d|%d\n",
+            (long)level->levelID,
+            level->setupname, level->bgname, level->stanname,
+            level->name, level->world,
+            level->levelscale, level->renderScale,
+            (int)level->music, (int)level->bgsound,
+            (int)level->xtrack) >= 0;
+    }
+
+    return fclose(f) == 0 && ok;
 }
 
 
-BOOL ProjectCreate(const char *name, const char *location, GEditorProject *proj,
+BOOL ProjectCreate(const char *name, const char *location,
+                   const RomInfo *rominfo, GEditorProject *proj,
                    const char **reasonout)
 {
     int written;
@@ -40,13 +60,17 @@ BOOL ProjectCreate(const char *name, const char *location, GEditorProject *proj,
     ZeroMemory(proj, sizeof(*proj));
     *reasonout = "";
 
-    if (name == NULL || name[0] == '\0' || location == NULL || location[0] == '\0')
+    if (name == NULL || name[0] == '\0' || location == NULL || location[0] == '\0'
+        || rominfo == NULL || rominfo->levelcount > ROM_MAX_LEVELS)
     {
-        *reasonout = "A project needs a name and a location.";
+        *reasonout = "A project needs a name, a location, and valid level data.";
         return FALSE;
     }
 
     strncpy(proj->name, name, sizeof(proj->name) - 1);
+    proj->levelcount = rominfo->levelcount;
+    memcpy(proj->levels, rominfo->levels,
+           proj->levelcount * sizeof(proj->levels[0]));
 
     /**
      * Build the two paths, refusing anything snprintf had to truncate:
@@ -112,13 +136,45 @@ static void TrimRight(char *s)
 }
 
 
+/* Reads one version-2 level row. The temporary ints avoid asking
+   sscanf to write through a short pointer. */
+static BOOL ProjectReadLevel(const char *value, RomLevel *level)
+{
+    long levelid;
+    int music;
+    int bgsound;
+    int xtrack;
+    char tail;
+
+    ZeroMemory(level, sizeof(*level));
+
+    if (sscanf(value,
+        "%ld|%31[^|]|%39[^|]|%39[^|]|%31[^|]|%23[^|]|%f|%f|%d|%d|%d%c",
+        &levelid,
+        level->setupname, level->bgname, level->stanname,
+        level->name, level->world,
+        &level->levelscale, &level->renderScale,
+        &music, &bgsound, &xtrack, &tail) != 11)
+    {
+        return FALSE;
+    }
+
+    level->levelID = (LONG)levelid;
+    level->music = (short)music;
+    level->bgsound = (short)bgsound;
+    level->xtrack = (short)xtrack;
+    return TRUE;
+}
+
+
 /**
   * Reads a .gep file into proj. Returns FALSE if the file cannot be
   * opened, is not a GEditor project, comes from a newer format version,
   * or carries no name.
   *
-  * Lines with '=' are skipped. Unknown keys are ignored so a future .gep
-  * with different keys still opens.
+  * Unknown keys are ignored so a future .gep with additional fields
+  * still opens. Version-1 projects have no saved level rows and remain
+  * readable; newly created version-2 projects are self-contained.
   */
 BOOL ProjectRead(const char *geppath, GEditorProject *proj)
 {
@@ -169,6 +225,18 @@ BOOL ProjectRead(const char *geppath, GEditorProject *proj)
         if (strcmp(key, "name") == 0)
         {
             strncpy(proj->name, value, sizeof(proj->name) - 1);
+        }
+        else if (strcmp(key, "level") == 0)
+        {
+            if (proj->levelcount >= ROM_MAX_LEVELS
+                || !ProjectReadLevel(value, &proj->levels[proj->levelcount]))
+            {
+                fclose(f);
+                ZeroMemory(proj, sizeof(*proj));
+                return FALSE;
+            }
+
+            proj->levelcount++;
         }
         /* unknown keys: ignored */
     }
