@@ -8,12 +8,12 @@
 
 
 #define TEX_ALPHA_WEIGHT 961
+#define TEX_DATA_PREFIX_MAGIC 0x47555458U
 
 /** Metadata stored in the eight bytes immediately before a texture's pixel data. */
 struct texdataprefix
 {
-    s16 texturenum;
-    s16 unused;
+    u32 magic;
     struct tex *descriptor;
 };
 
@@ -928,32 +928,35 @@ struct tex *texFindInPool(s32 texturenum, struct texpool *arg1)
 
 /**
  * Return the descriptor stored immediately before a loaded texture's pixel data.
- *
- * The bounds checks reject failed-load pointers and addresses from another pool
- * before the prefix is read.
+ * The prefix is deliberately self-describing because texSelect does not know
+ * which texture pool owns the data. In particular, cutscene player models use
+ * a private pool in the weapon buffer rather than the global stage pool.
  */
-struct tex *texFindByData(u32 physicalAddress, struct texpool *pool)
+struct tex *texFindByData(u32 physicalAddress)
 {
-    u8 *data = PHYS_TO_K0(physicalAddress);
+    u32 dataAddress = K0_TO_PHYS(physicalAddress);
+    u8 *data;
     struct texdataprefix *prefix;
     struct tex *tex;
 
-    if (pool == NULL)
-    {
-        pool = (struct texpool *)&ptr_texture_alloc_start;
-    }
-
-    if ((u32)data < (u32)pool->start + sizeof(struct texdataprefix)
-            || (u32)data > (u32)pool->leftpos)
+    if (dataAddress < sizeof(struct texdataprefix) || dataAddress >= osMemSize)
     {
         return NULL;
     }
 
+    data = (u8 *)PHYS_TO_K0(dataAddress);
     prefix = (struct texdataprefix *)(data - sizeof(struct texdataprefix));
+
+    if (prefix->magic != TEX_DATA_PREFIX_MAGIC)
+    {
+        return NULL;
+    }
+
     tex = prefix->descriptor;
 
-    if ((u32)tex < (u32)pool->rightpos
-            || (u32)tex >= (u32)pool->end
+    if (!IS_KSEG0(tex)
+            || ((u32)tex & (sizeof(u32) - 1)) != 0
+            || K0_TO_PHYS(tex) > osMemSize - sizeof(struct tex)
             || tex->data != data)
     {
         return NULL;
@@ -1261,7 +1264,7 @@ void texLoad(s32 *updateword, struct texpool *pool)
         }
 
         prefix = (struct texdataprefix *)pool->leftpos;
-        prefix->texturenum = g_TexNumToLoad;
+        prefix->magic = TEX_DATA_PREFIX_MAGIC;
         pool->leftpos += sizeof(struct texdataprefix);
 
         pool->rightpos--;

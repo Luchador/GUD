@@ -1243,7 +1243,7 @@ void texSelect(Gfx **gdlptr, struct sImageTableEntry *tconfig, TEXTURE_RENDER_ST
             texLoad((s32 *)tconfig, NULL);
         }
 
-        tex = texFindByData(tconfig->index, NULL);
+        tex = texFindByData(tconfig->index);
 
         if (tconfig->level == 0)
         {
