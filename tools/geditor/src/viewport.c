@@ -54,6 +54,7 @@ typedef struct ViewportState {
     BOOL flying;
     Vertex *scene;       /* malloc'd level geometry, or NULL for the test scene */
     GLsizei scenecount;  /* vertices in scene */
+    BOOL cullbackfaces;  /* global backface culling toggle */
     BOOL keyw, keya, keys, keyd, keyq, keye;
     POINT lastmouse;
     LONGLONG lastqpc;   /* QueryPerformanceCounter at the previous frame */
@@ -172,6 +173,23 @@ static void ViewportPaintGL(ViewportState *state)
     wglMakeCurrent(state->hdc, state->hglrc);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    /*
+     * Global backface culling. Front faces are counter-clockwise, the
+     * shared convention of Fast3D and OpenGL, so the level's authored
+     * winding carries through unchanged. The game's per-material cull
+     * state is deliberately ignored for now - this is one big switch.
+     */
+    if (state->cullbackfaces)
+    {
+        glFrontFace(GL_CCW);
+        glCullFace(GL_BACK);
+        glEnable(GL_CULL_FACE);
+    }
+    else
+    {
+        glDisable(GL_CULL_FACE);
+    }
 
     /**
      * Build the view transform. -z = forward. Eye stays at the origin.
@@ -631,5 +649,26 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris, int tricount)
         state->pitch = 0.0f;
     }
 
+    InvalidateRect(hwnd, NULL, FALSE);
+}
+
+
+BOOL ViewportGetBackfaceCulling(HWND hwnd)
+{
+    ViewportState *state = (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+
+    return state != NULL && state->cullbackfaces;
+}
+
+void ViewportSetBackfaceCulling(HWND hwnd, BOOL enabled)
+{
+    ViewportState *state = (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+
+    if (state == NULL || state->cullbackfaces == enabled)
+    {
+        return;
+    }
+
+    state->cullbackfaces = enabled;
     InvalidateRect(hwnd, NULL, FALSE);
 }

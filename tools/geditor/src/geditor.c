@@ -74,7 +74,8 @@ enum {
     ID_FILE_EXIT,
 
     ID_EDIT_UNDO,
-    ID_EDIT_REDO
+    ID_EDIT_REDO,
+    ID_VIEW_BACKFACE_CULLING
 };
 
 
@@ -95,6 +96,7 @@ static HMENU GEditorCreateMenuBar(void)
     HMENU menubar;
     HMENU filemenu;
     HMENU editmenu;
+    HMENU viewmenu = CreatePopupMenu();
 
     menubar = CreateMenu();
     filemenu = CreatePopupMenu();
@@ -110,8 +112,11 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(editmenu, MF_STRING, ID_EDIT_UNDO, "&Undo");
     AppendMenu(editmenu, MF_STRING, ID_EDIT_REDO, "&Redo");
 
+    AppendMenu(viewmenu, MF_STRING, ID_VIEW_BACKFACE_CULLING, "&Backface Culling");
+
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)filemenu, "&File");
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)editmenu, "&Edit");
+    AppendMenu(menubar, MF_POPUP, (UINT_PTR)viewmenu, "&View");
 
     return menubar;
 }
@@ -679,6 +684,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
            states matter, so they can never be stale. Close Project is
            only clickable while a project is open. */
         EnableMenuItem((HMENU)wparam, ID_FILE_CLOSE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
+        CheckMenuItem((HMENU)wparam, ID_VIEW_BACKFACE_CULLING, MF_BYCOMMAND | (ViewportGetBackfaceCulling(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
         return 0;
 
     case WM_COMMAND:
@@ -754,6 +760,11 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
             case ID_FILE_CLOSE_PROJECT:
                 GEditorCloseProject(hwnd);
+                return 0;
+
+            case ID_VIEW_BACKFACE_CULLING:
+                ViewportSetBackfaceCulling(g_Viewport,
+                    !ViewportGetBackfaceCulling(g_Viewport));
                 return 0;
 
             case ID_FILE_EXIT:

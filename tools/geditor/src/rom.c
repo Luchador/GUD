@@ -316,7 +316,18 @@ static BOOL RomValidateBuffer(unsigned char *data, DWORD size,
         out->romend   = be32(e + 8);
         out->flags    = be32(e + 12);
 
-        if (out->romstart >= out->romend || out->romend > size)
+        /* romend == 0 marks a self-terminating entry (FTBL ends at a
+           NULL row), so only its start needs to be inside the ROM.
+           Every other entry must be a well-formed range. */
+        if (out->romend == 0)
+        {
+            if (out->romstart >= size)
+            {
+                *reasonout = "GUD manifest points outside the ROM (corrupt build?).";
+                return FALSE;
+            }
+        }
+        else if (out->romstart >= out->romend || out->romend > size)
         {
             *reasonout = "GUD manifest points outside the ROM (corrupt build?).";
             return FALSE;

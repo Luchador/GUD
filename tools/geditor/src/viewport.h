@@ -26,4 +26,8 @@ void ViewportFlyFrame(HWND viewport);
  */
 void ViewportSetScene(HWND hwnd, const BgVertex *tris, int tricount);
 
+/* Global backface culling toggle for the viewport. */
+BOOL ViewportGetBackfaceCulling(HWND hwnd);
+void ViewportSetBackfaceCulling(HWND hwnd, BOOL enabled);
+
 #endif
