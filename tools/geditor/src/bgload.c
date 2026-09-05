@@ -10,7 +10,8 @@
  * The display lists are Fast3D: 8-byte commands, G_VTX (0x04) loads a
  * vertex batch, G_TRI1 (0xBF) indexes it with bytes scaled by 10,
  * G_TRI4 (0xB1) packs four nibble-indexed triangles, G_ENDDL (0xB8)
- * ends. Everything else is state we can ignore while untextured.
+ * ends, and geometry-mode commands carry the authored culling state.
+ * The remaining Fast3D state is not needed by the current preview.
  *
  * Malformed data is handled by stopping the current room, never by
  * reading outside the file: the parser must survive any input.
@@ -29,12 +30,16 @@
 #define G_NOOP  0xC0   /* F3DEX G_NOOP; in raw GE DLs a texture reference, ID in w1 & 0xFFF */
 #define G_VTX   0x04
 #define G_TRI4  0xB1
+#define G_CLEARGEOMETRYMODE 0xB6
+#define G_SETGEOMETRYMODE   0xB7
 #define G_ENDDL 0xB8
 #define G_TRI1  0xBF
 
+#define G_CULL_BACK 0x00002000
+
 typedef struct BgBuilder {
     BgVertex       *verts;
-    unsigned short *texids;     /* one per triangle */
+    unsigned short *tags;       /* one per triangle */
     DWORD           count;      /* vertices */
     DWORD           capacity;
     BOOL            failed;
@@ -70,11 +75,11 @@ static void BgBuilderPush(BgBuilder *b, const BgVertex *v)
     {
         DWORD next = b->capacity ? b->capacity * 2 : 4096;
         BgVertex *grown = (BgVertex *)realloc(b->verts, next * sizeof(BgVertex));
-        unsigned short *grownt = (unsigned short *)realloc(b->texids,
+        unsigned short *grownt = (unsigned short *)realloc(b->tags,
                                      (next / 3) * sizeof(unsigned short));
 
         if (grown != NULL) { b->verts = grown; }
-        if (grownt != NULL) { b->texids = grownt; }
+        if (grownt != NULL) { b->tags = grownt; }
         if (grown == NULL || grownt == NULL)
         {
             b->failed = TRUE;
@@ -128,6 +133,9 @@ static void BgWalkGdl(BgBuilder *b,
     DWORD batchcount = 0;
     int batchv0 = 0;
     unsigned short curtex = BG_TEX_NONE;
+    /* Valid room streams establish this state before their first tri.
+       False is the safest fallback for malformed or future data. */
+    BOOL cullbackfaces = FALSE;
 
     /* every triangle this walk emits carries the layer flag */
 
@@ -146,6 +154,24 @@ static void BgWalkGdl(BgBuilder *b,
                the game rewrites them into SETTIMG/SETTILE sequences at
                load (texLoadFromGdl). The ID is the low 12 bits. */
             curtex = (unsigned short)(bg32(cmd + 4) & 0xFFF);
+            continue;
+        }
+
+        if (cmd[0] == G_SETGEOMETRYMODE)
+        {
+            if (bg32(cmd + 4) & G_CULL_BACK)
+            {
+                cullbackfaces = TRUE;
+            }
+            continue;
+        }
+
+        if (cmd[0] == G_CLEARGEOMETRYMODE)
+        {
+            if (bg32(cmd + 4) & G_CULL_BACK)
+            {
+                cullbackfaces = FALSE;
+            }
             continue;
         }
 
@@ -246,11 +272,14 @@ static void BgWalkGdl(BgBuilder *b,
                     BgBuilderPush(b, &out);
                 }
 
-                /* Record the texture after the pushes: growth has
-                   already resized the texid array to match. */
+                /* Record the render state after the pushes: growth has
+                   already resized the tag array to match. */
                 if (!b->failed)
                 {
-                    b->texids[b->count / 3 - 1] = (unsigned short)(curtex | layerflag);
+                    unsigned short cullflag = cullbackfaces ? BG_TRI_CULL_BACK : 0;
+
+                    b->tags[b->count / 3 - 1] =
+                        (unsigned short)(curtex | layerflag | cullflag);
                 }
             }
         }
@@ -259,7 +288,7 @@ static void BgWalkGdl(BgBuilder *b,
 
 BgVertex *BgLoadGeometry(const unsigned char *data, DWORD maxlen,
                          float levelscale,
-                         DWORD *tricount, unsigned short **texids,
+                         DWORD *tricount, unsigned short **tritags,
                          const char **reasonout)
 {
     BgBuilder b;
@@ -269,7 +298,7 @@ BgVertex *BgLoadGeometry(const unsigned char *data, DWORD maxlen,
     DWORD i;
 
     *tricount = 0;
-    *texids = NULL;
+    *tritags = NULL;
     *reasonout = "";
 
     if (!(levelscale > 0.0f))
@@ -360,13 +389,13 @@ BgVertex *BgLoadGeometry(const unsigned char *data, DWORD maxlen,
     if (b.failed || b.count == 0)
     {
         free(b.verts);
-        free(b.texids);
+        free(b.tags);
         *reasonout = b.failed ? "out of memory building bg geometry."
                               : "bg file produced no triangles.";
         return NULL;
     }
 
     *tricount = b.count / 3;
-    *texids = b.texids;
+    *tritags = b.tags;
     return b.verts;
 }

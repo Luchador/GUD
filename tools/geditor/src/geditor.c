@@ -660,10 +660,10 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
 
         {
-        unsigned short *tritex = NULL;
+        unsigned short *tritags = NULL;
 
         tris = BgLoadGeometry(g_Rom.data + offset, maxlen, level->levelscale,
-                              &tricount, &tritex, &why);
+                              &tricount, &tritags, &why);
 
         if (tris == NULL)
         {
@@ -671,9 +671,9 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             return 0;
         }
 
-        ViewportSetScene(g_Viewport, tris, tritex, (int)tricount, &g_Rom);
+        ViewportSetScene(g_Viewport, tris, tritags, (int)tricount, &g_Rom);
         free(tris);   /* the viewport copied and normalized both */
-        free(tritex);
+        free(tritags);
         }
 
         wsprintf(title, "%s - %s", GEDITOR_TITLE, (const char *)lparam);

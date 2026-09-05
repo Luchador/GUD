@@ -40,6 +40,7 @@ typedef struct SceneBatch {
     GLsizei first;
     GLsizei count;
     BOOL    secondary;  /* transparent layer: blended, no depth write */
+    BOOL    cullbackfaces;
 } SceneBatch;
 
 struct ViewportState;
@@ -69,7 +70,7 @@ typedef struct ViewportState {
     int batchcount;
     GLuint *textures;    /* GL texture names owned by the scene */
     int texturecount;
-    BOOL cullbackfaces;  /* global backface culling toggle */
+    BOOL cullbackfaces;  /* master toggle for authored backface culling */
     BOOL keyw, keya, keys, keyd, keyq, keye;
     POINT lastmouse;
     LONGLONG lastqpc;   /* QueryPerformanceCounter at the previous frame */
@@ -189,16 +190,14 @@ static void ViewportPaintGL(ViewportState *state)
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    /*
-     * Global backface culling. Front faces are counter-clockwise, the
-     * shared convention of Fast3D and OpenGL, so the level's authored
-     * winding carries through unchanged. The game's per-material cull
-     * state is deliberately ignored for now - this is one big switch.
-     */
-    if (state->cullbackfaces)
+    /* Fast3D and OpenGL both treat counter-clockwise faces as front. */
+    glFrontFace(GL_CCW);
+    glCullFace(GL_BACK);
+
+    /* Loaded BG scenes select culling per batch below. The built-in
+       test scene continues to use the menu option as a global switch. */
+    if (state->scene == NULL && state->cullbackfaces)
     {
-        glFrontFace(GL_CCW);
-        glCullFace(GL_BACK);
         glEnable(GL_CULL_FACE);
     }
     else
@@ -227,6 +226,7 @@ static void ViewportPaintGL(ViewportState *state)
         {
             int i;
             BOOL insecondary = FALSE;
+            BOOL incullback = FALSE;
 
             glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
@@ -243,6 +243,7 @@ static void ViewportPaintGL(ViewportState *state)
             for (i = 0; i < state->batchcount; i++)
             {
                 const SceneBatch *batch = &state->batches[i];
+                BOOL wantcullback = state->cullbackfaces && batch->cullbackfaces;
 
                 if (batch->secondary && !insecondary)
                 {
@@ -260,6 +261,20 @@ static void ViewportPaintGL(ViewportState *state)
                     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
                     glDepthMask(GL_FALSE);
                     insecondary = TRUE;
+                }
+
+                if (wantcullback != incullback)
+                {
+                    if (wantcullback)
+                    {
+                        glEnable(GL_CULL_FACE);
+                    }
+                    else
+                    {
+                        glDisable(GL_CULL_FACE);
+                    }
+
+                    incullback = wantcullback;
                 }
 
                 if (batch->gltex != 0)
@@ -497,6 +512,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
         state->speed = VIEWPORT_FLY_SPEED;
         state->posz = 600.0f;
+        state->cullbackfaces = TRUE;
 
         if (!ViewportInitGL(hwnd, state))
         {
@@ -676,18 +692,33 @@ static void ViewportFreeScene(struct ViewportState *state_)
     state->scenecount = 0;
 }
 
-/* qsort helper: order triangle indices by texture id. */
-typedef struct TriKey { unsigned short texid; int tri; } TriKey;
+/* qsort helper: keep the transparent pass last, then group triangles
+   by texture and authored culling state. */
+typedef struct TriKey { unsigned short tag; int tri; } TriKey;
 
 static int ViewportTriKeyCompare(const void *a, const void *b)
 {
-    int d = (int)((const TriKey *)a)->texid - (int)((const TriKey *)b)->texid;
+    const TriKey *ka = (const TriKey *)a;
+    const TriKey *kb = (const TriKey *)b;
+    int d = (int)BG_TRI_IS_SECONDARY(ka->tag)
+          - (int)BG_TRI_IS_SECONDARY(kb->tag);
 
-    return d != 0 ? d : ((const TriKey *)a)->tri - ((const TriKey *)b)->tri;
+    if (d == 0)
+    {
+        d = (int)BG_TEX_ID(ka->tag) - (int)BG_TEX_ID(kb->tag);
+    }
+
+    if (d == 0)
+    {
+        d = (int)BG_TRI_CULLS_BACK(ka->tag)
+          - (int)BG_TRI_CULLS_BACK(kb->tag);
+    }
+
+    return d != 0 ? d : ka->tri - kb->tri;
 }
 
 void ViewportSetScene(HWND hwnd, const BgVertex *tris,
-                      const unsigned short *texids, int tricount,
+                      const unsigned short *tritags, int tricount,
                       const RomFile *rom)
 {
     ViewportState *state = (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
@@ -722,14 +753,11 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
             return; /* keep whatever we had */
         }
 
-        /*
-         * Sort triangles by texture so each texture binds exactly once
-         * per frame - the same batching that fixes Cradle in the game
-         * fixes it here.
-         */
+        /* Keep primary geometry before secondary geometry, then group
+           by texture and culling state to minimize GL state changes. */
         for (i = 0; i < tricount; i++)
         {
-            order[i].texid = texids != NULL ? texids[i] : BG_TEX_NONE;
+            order[i].tag = tritags != NULL ? tritags[i] : BG_TEX_NONE;
             order[i].tri = i;
         }
 
@@ -745,21 +773,30 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
             float invh = 0.0f;
             int k;
 
-            if (i == 0 || order[i].texid != order[i - 1].texid)
+            if (i == 0 || order[i].tag != order[i - 1].tag)
             {
                 SceneBatch *batch = &batches[batchcount++];
 
                 batch->gltex = 0;
                 batch->first = i * 3;
                 batch->count = 0;
-                batch->secondary = BG_TRI_IS_SECONDARY(order[i].texid);
+                batch->secondary = BG_TRI_IS_SECONDARY(order[i].tag);
+                batch->cullbackfaces = BG_TRI_CULLS_BACK(order[i].tag);
 
-                if (BG_TEX_ID(order[i].texid) != BG_TEX_NONE && rom != NULL)
+                /* Culling can split one texture into two adjacent
+                   batches. Share the existing GL texture instead of
+                   decoding and uploading it again. */
+                if (i > 0
+                    && BG_TEX_ID(order[i].tag) == BG_TEX_ID(order[i - 1].tag))
+                {
+                    batch->gltex = batches[batchcount - 2].gltex;
+                }
+                else if (BG_TEX_ID(order[i].tag) != BG_TEX_NONE && rom != NULL)
                 {
                     int tw = 0;
                     int th = 0;
 
-                    if (TexDecodeById(rom, BG_TEX_ID(order[i].texid), decode, &tw, &th))
+                    if (TexDecodeById(rom, BG_TEX_ID(order[i].tag), decode, &tw, &th))
                     {
                         GLuint name = 0;
 

@@ -27,10 +27,11 @@ void ViewportFlyFrame(HWND viewport);
  * scene. The camera is repositioned to frame the new geometry.
  */
 void ViewportSetScene(HWND hwnd, const BgVertex *tris,
-                      const unsigned short *texids, int tricount,
+                      const unsigned short *tritags, int tricount,
                       const RomFile *rom);
 
-/* Global backface culling toggle for the viewport. */
+/* Master culling toggle. Enabled honors the BG's per-triangle state;
+   disabled renders every triangle double-sided. */
 BOOL ViewportGetBackfaceCulling(HWND hwnd);
 void ViewportSetBackfaceCulling(HWND hwnd, BOOL enabled);
 
