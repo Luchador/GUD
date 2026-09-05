@@ -1,36 +1,37 @@
-#ifndef GEDITOR_BGLOAD_H
-#define GEDITOR_BGLOAD_H
+#ifndef GEDITOR_BROWSER_H
+#define GEDITOR_BROWSER_H
 
 #include <windows.h>
 
 /*
- * GoldenEye background geometry loader.
- *
- * Parses a bg .seg file (uncompressed, as GUD ships them) into a flat
- * triangle soup with vertex colors - the untextured preview the
- * viewport can draw today. Primary and secondary (transparent) room
- * geometry are both included.
+ * Sent to the browser's parent when a level row is double-clicked.
+ * wparam: level index. lparam: the row's label (char *), valid only
+ * for the duration of the message.
  */
+#define BROWSER_WM_LEVEL_OPEN (WM_APP + 1)
 
-typedef struct BgVertex {
-    float x, y, z;
-    float s, t;                 /* texel coordinates (already /32) */
-    unsigned char r, g, b, a;
-} BgVertex;
+BOOL BrowserRegisterClass(HINSTANCE hinstance);
+HWND BrowserCreate(HWND parent, HINSTANCE hinstance);
 
-#define BG_TEX_NONE 0xFFFF
+#include "texload.h"
 
 /*
- * Parses the bg file at data (maxlen readable bytes) and returns a
- * malloc'd array of tricount*3 BgVertex, or NULL with *reasonout set.
- * Caller frees.
+ * Hands the Images section its thumbnails. The browser TAKES OWNERSHIP
+ * of both allocations (the item array and the shared pixel block) and
+ * frees them on replacement, clearing, or destruction. NULLs clear.
  */
-/*
- * texids receives a malloc'd array of tricount entries - the texture
- * ID each triangle was drawn with, or BG_TEX_NONE. Caller frees.
- */
-BgVertex *BgLoadGeometry(const unsigned char *data, DWORD maxlen,
-                         DWORD *tricount, unsigned short **texids,
-                         const char **reasonout);
+void BrowserSetImages(HWND browser, TexThumb *items, int count,
+                      unsigned char *pixelblock);
 
-#endif /* GEDITOR_BGLOAD_H */
+/* One row in the Levels section. */
+typedef struct BrowserLevelItem {
+    char label[64];
+} BrowserLevelItem;
+
+/*
+ * Replaces the Levels section's contents. Copies the items, so the
+ * caller's array can live on the stack. NULL/0 clears the section.
+ */
+void BrowserSetLevels(HWND browser, const BrowserLevelItem *items, int count);
+
+#endif
