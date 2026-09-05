@@ -257,18 +257,28 @@ static BOOL TexWriteBmp(const char *path, const TexPixel *pixels,
     ok = ok && WriteFile(f, &bfh, sizeof(bfh), &written, NULL);
     ok = ok && WriteFile(f, &bih, sizeof(bih), &written, NULL);
 
+    /*
+     * GE's texel data is stored rotated 180 degrees from viewing
+     * orientation - the game's UV mapping compensates in-engine, so
+     * the decoder keeps the native order (the future GL path wants
+     * it). Only here, at the disk boundary, do we rotate into human
+     * orientation: bottom-up BMP encoding plus forward row order
+     * flips vertically, and reversing x flips horizontally.
+     */
     for (y = 0; ok && y < height; y++)
     {
-        const TexPixel *row = pixels + (height - 1 - y) * width;
+        const TexPixel *row = pixels + y * width;
         DWORD x;
         unsigned char line[256 * 4];
 
         for (x = 0; x < width; x++)
         {
-            line[x * 4 + 0] = row[x].b;
-            line[x * 4 + 1] = row[x].g;
-            line[x * 4 + 2] = row[x].r;
-            line[x * 4 + 3] = row[x].a;
+            const TexPixel *p = &row[width - 1 - x];
+
+            line[x * 4 + 0] = p->b;
+            line[x * 4 + 1] = p->g;
+            line[x * 4 + 2] = p->r;
+            line[x * 4 + 3] = p->a;
         }
 
         ok = WriteFile(f, line, width * 4, &written, NULL);
