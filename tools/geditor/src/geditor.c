@@ -13,6 +13,7 @@
 #include "browser.h"
 #include "rom.h"
 #include "bgload.h"
+#include "texload.h"
 
 #define GEDITOR_CLASS  "GEditorWindow"
 #define GEDITOR_TITLE  "GEditor"
@@ -713,7 +714,17 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                            assets straight out of this buffer. */
                         if (RomLoad(info.rompath, &g_Rom, &romwhy))
                         {
+                            const char *texwhy = "";
+
                             g_RomLoaded = TRUE;
+
+                            /* One-time extraction into the project:
+                               the images folder becomes the project's
+                               own copy of the ROM's texture library. */
+                            if (TexExtractImages(&g_Rom, g_Project.dir, &texwhy) == 0)
+                            {
+                                MessageBox(hwnd, texwhy, GEDITOR_TITLE, MB_ICONWARNING);
+                            }
                         }
                         else
                         {
