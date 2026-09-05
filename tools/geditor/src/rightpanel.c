@@ -17,7 +17,7 @@
 #define RIGHTPANEL_CLASS "GEditorRightPanel"
 
 #define RIGHTPANEL_SPLITTER_H 5
-#define RIGHTPANEL_TOP_MIN 116
+#define RIGHTPANEL_TOP_MIN 142
 #define RIGHTPANEL_BOTTOM_MIN 48
 #define RIGHTPANEL_INITIAL_TOP_H 160
 #define RIGHTPANEL_MARGIN 12
@@ -27,13 +27,15 @@
 enum {
     RIGHTPANEL_ID_BG_PRIMARY = 2001,
     RIGHTPANEL_ID_BG_SECONDARY,
-    RIGHTPANEL_ID_STAN
+    RIGHTPANEL_ID_STAN,
+    RIGHTPANEL_ID_PORTALS
 };
 
 typedef struct RightPanelState {
     HWND bgprimary;
     HWND bgsecondary;
     HWND stan;
+    HWND portals;
     int topheight;
     BOOL draggingsplitter;
 } RightPanelState;
@@ -95,6 +97,9 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
     y += RIGHTPANEL_CHECK_H + RIGHTPANEL_CHECK_GAP;
     MoveWindow(state->stan, RIGHTPANEL_MARGIN, y,
                width, RIGHTPANEL_CHECK_H, TRUE);
+    y += RIGHTPANEL_CHECK_H + RIGHTPANEL_CHECK_GAP;
+    MoveWindow(state->portals, RIGHTPANEL_MARGIN, y,
+               width, RIGHTPANEL_CHECK_H, TRUE);
 
     InvalidateRect(hwnd, NULL, FALSE);
 }
@@ -120,6 +125,10 @@ static DWORD RightPanelGetVisibility(const RightPanelState *state)
     if (SendMessage(state->stan, BM_GETCHECK, 0, 0) == BST_CHECKED)
     {
         visibility |= RIGHTPANEL_SHOW_STAN;
+    }
+    if (SendMessage(state->portals, BM_GETCHECK, 0, 0) == BST_CHECKED)
+    {
+        visibility |= RIGHTPANEL_SHOW_PORTALS;
     }
 
     return visibility;
@@ -207,9 +216,14 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX,
             0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_STAN,
             cs->hInstance, NULL);
+        state->portals = CreateWindowEx(
+            0, "BUTTON", "Portals",
+            WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX,
+            0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_PORTALS,
+            cs->hInstance, NULL);
 
         if (state->bgprimary == NULL || state->bgsecondary == NULL
-            || state->stan == NULL)
+            || state->stan == NULL || state->portals == NULL)
         {
             free(state);
             SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
@@ -219,9 +233,11 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         SendMessage(state->bgprimary, WM_SETFONT, (WPARAM)font, TRUE);
         SendMessage(state->bgsecondary, WM_SETFONT, (WPARAM)font, TRUE);
         SendMessage(state->stan, WM_SETFONT, (WPARAM)font, TRUE);
+        SendMessage(state->portals, WM_SETFONT, (WPARAM)font, TRUE);
         SendMessage(state->bgprimary, BM_SETCHECK, BST_CHECKED, 0);
         SendMessage(state->bgsecondary, BM_SETCHECK, BST_CHECKED, 0);
         SendMessage(state->stan, BM_SETCHECK, BST_CHECKED, 0);
+        SendMessage(state->portals, BM_SETCHECK, BST_CHECKED, 0);
         return 0;
     }
 
@@ -240,6 +256,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             case RIGHTPANEL_ID_BG_PRIMARY:
             case RIGHTPANEL_ID_BG_SECONDARY:
             case RIGHTPANEL_ID_STAN:
+            case RIGHTPANEL_ID_PORTALS:
                 RightPanelNotifyVisibility(hwnd, state);
                 return 0;
             }

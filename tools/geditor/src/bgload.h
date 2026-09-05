@@ -20,6 +20,31 @@ typedef struct BgVertex {
     unsigned char r, g, b, a;
 } BgVertex;
 
+#define BG_PORTAL_MAX_POINTS 8
+
+/* Host-native view of one entry in the BG portal table. Portal points
+   are absolute (not room-relative) and are converted to gameplay world
+   units while the room links and control bytes remain authored data.
+   geometryoffset identifies entries which share one polygon. */
+typedef struct BgPortalPoint {
+    float x, y, z;
+} BgPortalPoint;
+
+typedef struct BgPortal {
+    DWORD geometryoffset;
+    unsigned char connectedroom1;
+    unsigned char connectedroom2;
+    unsigned char controlbytes1;
+    unsigned char controlbytes2;
+    unsigned char pointcount;
+    BgPortalPoint points[BG_PORTAL_MAX_POINTS];
+} BgPortal;
+
+typedef struct BgPortalFile {
+    BgPortal *portals;
+    DWORD portalcount;
+} BgPortalFile;
+
 /*
  * Per-triangle tag: low 12 bits are the texture ID (0xFFF = none),
  * bit 12 marks secondary (transparent-layer) geometry, bit 13 records
@@ -51,10 +76,18 @@ BgVertex *BgLoadGeometry(const unsigned char *data, DWORD maxlen,
                          DWORD *tricount, unsigned short **tritags,
                          const char **reasonout);
 
+/* Decodes the portal table embedded in a room-based BG. Repeated table
+   entries are retained because their room links are meaningful; their
+   shared geometryoffset lets the viewport draw the polygon only once. */
+BOOL BgLoadPortals(const unsigned char *data, DWORD maxlen,
+                   float levelscale, BgPortalFile *out,
+                   const char **reasonout);
+
 /*
- * Copies every .seg resource beneath bg/ in the ROM file table into
- * <projectdir>\bg, preserving its .seg filename. Returns the number
- * written, or 0 with *reasonout set if extraction could not complete.
+ * Copies every complete .seg resource beneath bg/ in the ROM file table
+ * into <projectdir>\bg, preserving its rooms, embedded portals, and
+ * filename. Returns the number written, or 0 with *reasonout set if
+ * extraction could not complete.
  */
 DWORD BgExtractAll(const RomFile *rom, const char *projectdir,
                    const char **reasonout);
@@ -67,5 +100,14 @@ BgVertex *BgLoadProjectGeometry(const char *projectdir, const char *bgname,
                                 float levelscale,
                                 DWORD *tricount, unsigned short **tritags,
                                 const char **reasonout);
+
+/* Loads the portals from the same saved <projectdir>\bg\*.seg used by
+   BgLoadProjectGeometry; no ROM access or duplicate portal asset is
+   required when a project is reopened. */
+BOOL BgLoadProjectPortals(const char *projectdir, const char *bgname,
+                          float levelscale, BgPortalFile *out,
+                          const char **reasonout);
+
+void BgPortalFileFree(BgPortalFile *portals);
 
 #endif /* GEDITOR_BGLOAD_H */

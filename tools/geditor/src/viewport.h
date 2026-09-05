@@ -44,10 +44,15 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup,
    converted to gameplay world coordinates by StanLoadProjectFile. */
 void ViewportSetStanTiles(HWND hwnd, const StanFile *stan);
 
-/* Controls the three independently previewable world-geometry layers.
+/* Replaces the BG portal overlay. Shared portal polygons are rendered
+   once even when several authored table entries refer to them. */
+void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals);
+
+/* Controls the four independently previewable world-geometry layers.
    The loaded scene remains resident while a layer is hidden. */
 void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
-                                   BOOL bgsecondary, BOOL stan);
+                                   BOOL bgsecondary, BOOL stan,
+                                   BOOL portals);
 
 /* Master culling toggle. Enabled honors the BG's per-triangle state;
    disabled renders every triangle double-sided. */

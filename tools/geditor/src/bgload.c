@@ -3,6 +3,7 @@
  *
  * The file layout mirrors what bgLoadFile in the game does:
  *   header word 1 -> room record list (24-byte records, index 0 unused)
+ *   header word 2 -> portal table (8-byte records pointing to polygons)
  *   each record  -> vertex blob, primary GDL, secondary GDL, room pos
  * Every block is preceded by a 4-byte size word. Internal pointers are
  * 0x0F-segment addresses; their low 24 bits are file offsets.
@@ -27,6 +28,8 @@
 #define BG_ROOM_RECORD_SIZE 24
 #define BG_MAX_ROOMS        256
 #define BG_MAX_BATCH        64      /* vertices a G_VTX may load */
+#define BG_PORTAL_RECORD_SIZE 8
+#define BG_MAX_PORTALS      200
 
 #define G_NOOP  0xC0   /* F3DEX G_NOOP; in raw GE DLs a texture reference, ID in w1 & 0xFFF */
 #define G_VTX   0x04
@@ -146,10 +149,11 @@ static DWORD BgBlockSize(const unsigned char *data, DWORD maxlen, DWORD offset)
 
 /*
  * GUD's uncompressed BG converter prefixes every room stream with its
- * byte length and aligns the completed segment to 16 bytes. Measuring
- * those streams gives us the real .seg boundary even when file-table
- * aliases or an unreferenced linker blob make the next table address
- * only an upper bound.
+ * byte length and aligns the completed segment to 16 bytes. Portal data
+ * sits before those streams, so measuring the stream end preserves the
+ * complete room and portal asset while still finding the real .seg
+ * boundary when file-table aliases or an unreferenced linker blob make
+ * the next table address only an upper bound.
  */
 static DWORD BgMeasureFileLength(const unsigned char *data, DWORD maxlen)
 {
@@ -494,6 +498,136 @@ BgVertex *BgLoadGeometry(const unsigned char *data, DWORD maxlen,
 }
 
 
+BOOL BgLoadPortals(const unsigned char *data, DWORD maxlen,
+                   float levelscale, BgPortalFile *out,
+                   const char **reasonout)
+{
+    DWORD tableoffset;
+    DWORD portalcount = 0;
+    DWORD i;
+    float worldscale;
+
+    ZeroMemory(out, sizeof(*out));
+    *reasonout = "";
+
+    if (!(levelscale > 0.0f))
+    {
+        *reasonout = "level scale must be greater than zero.";
+        return FALSE;
+    }
+
+    if (maxlen < 0x14)
+    {
+        *reasonout = "bg file is too small to have a portal table.";
+        return FALSE;
+    }
+
+    if (bg32(data) != 0)
+    {
+        *reasonout = "bg file is a single display list and has no portal table.";
+        return FALSE;
+    }
+
+    tableoffset = bg32(data + 8) & 0x00ffffffu;
+    if (tableoffset > maxlen - BG_PORTAL_RECORD_SIZE)
+    {
+        *reasonout = "bg portal table offset is outside the file.";
+        return FALSE;
+    }
+
+    /* The game stops on the first null portal pointer. Count with the
+       same rule, but cap the walk at its PORTMAX-sized runtime tables. */
+    for (portalcount = 0; portalcount < BG_MAX_PORTALS; portalcount++)
+    {
+        DWORD recordoffset = tableoffset
+                           + portalcount * BG_PORTAL_RECORD_SIZE;
+
+        if (recordoffset > maxlen - BG_PORTAL_RECORD_SIZE)
+        {
+            *reasonout = "bg portal table has no terminator.";
+            return FALSE;
+        }
+
+        if (bg32(data + recordoffset) == 0)
+        {
+            break;
+        }
+    }
+
+    if (portalcount == BG_MAX_PORTALS)
+    {
+        *reasonout = "bg portal table exceeds the game's portal limit.";
+        return FALSE;
+    }
+
+    if (portalcount == 0)
+    {
+        return TRUE;
+    }
+
+    out->portals = (BgPortal *)calloc(portalcount, sizeof(*out->portals));
+    if (out->portals == NULL)
+    {
+        *reasonout = "out of memory decoding the bg portals.";
+        return FALSE;
+    }
+
+    out->portalcount = portalcount;
+    worldscale = 1.0f / levelscale;
+
+    for (i = 0; i < portalcount; i++)
+    {
+        DWORD recordoffset = tableoffset + i * BG_PORTAL_RECORD_SIZE;
+        DWORD geometryoffset = bg32(data + recordoffset) & 0x00ffffffu;
+        unsigned int pointcount;
+        DWORD pointbytes;
+        unsigned int point;
+        BgPortal *portal = &out->portals[i];
+
+        if (geometryoffset > maxlen - 4)
+        {
+            BgPortalFileFree(out);
+            *reasonout = "a bg portal geometry pointer is outside the file.";
+            return FALSE;
+        }
+
+        pointcount = data[geometryoffset];
+        if (pointcount < 3 || pointcount > BG_PORTAL_MAX_POINTS)
+        {
+            BgPortalFileFree(out);
+            *reasonout = "a bg portal has an invalid point count.";
+            return FALSE;
+        }
+
+        pointbytes = pointcount * 12;
+        if (pointbytes > maxlen - geometryoffset - 4)
+        {
+            BgPortalFileFree(out);
+            *reasonout = "a bg portal extends beyond the file.";
+            return FALSE;
+        }
+
+        portal->geometryoffset = geometryoffset;
+        portal->connectedroom1 = data[recordoffset + 4];
+        portal->connectedroom2 = data[recordoffset + 5];
+        portal->controlbytes1 = data[recordoffset + 6];
+        portal->controlbytes2 = data[recordoffset + 7];
+        portal->pointcount = (unsigned char)pointcount;
+
+        for (point = 0; point < pointcount; point++)
+        {
+            const unsigned char *src = data + geometryoffset + 4 + point * 12;
+
+            portal->points[point].x = bgf32(src + 0) * worldscale;
+            portal->points[point].y = bgf32(src + 4) * worldscale;
+            portal->points[point].z = bgf32(src + 8) * worldscale;
+        }
+    }
+
+    return TRUE;
+}
+
+
 DWORD BgExtractAll(const RomFile *rom, const char *projectdir,
                    const char **reasonout)
 {
@@ -585,20 +719,17 @@ DWORD BgExtractAll(const RomFile *rom, const char *projectdir,
 }
 
 
-BgVertex *BgLoadProjectGeometry(const char *projectdir, const char *bgname,
-                                float levelscale,
-                                DWORD *tricount, unsigned short **tritags,
-                                const char **reasonout)
+static unsigned char *BgReadProjectFile(const char *projectdir,
+                                        const char *bgname,
+                                        DWORD *lengthout,
+                                        const char **reasonout)
 {
     char path[MAX_PATH];
     HANDLE file;
     DWORD length;
     DWORD got;
     unsigned char *data;
-    BgVertex *vertices;
-
-    *tricount = 0;
-    *tritags = NULL;
+    *lengthout = 0;
     *reasonout = "";
 
     if (!BgProjectPath(path, sizeof(path), projectdir, bgname))
@@ -640,8 +771,59 @@ BgVertex *BgLoadProjectGeometry(const char *projectdir, const char *bgname,
     }
 
     CloseHandle(file);
+    *lengthout = length;
+    return data;
+}
+
+
+BgVertex *BgLoadProjectGeometry(const char *projectdir, const char *bgname,
+                                float levelscale,
+                                DWORD *tricount, unsigned short **tritags,
+                                const char **reasonout)
+{
+    DWORD length;
+    unsigned char *data;
+    BgVertex *vertices;
+
+    *tricount = 0;
+    *tritags = NULL;
+
+    data = BgReadProjectFile(projectdir, bgname, &length, reasonout);
+    if (data == NULL)
+    {
+        return NULL;
+    }
+
     vertices = BgLoadGeometry(data, length, levelscale,
                               tricount, tritags, reasonout);
     free(data);
     return vertices;
+}
+
+
+BOOL BgLoadProjectPortals(const char *projectdir, const char *bgname,
+                          float levelscale, BgPortalFile *out,
+                          const char **reasonout)
+{
+    DWORD length;
+    unsigned char *data;
+    BOOL ok;
+
+    ZeroMemory(out, sizeof(*out));
+    data = BgReadProjectFile(projectdir, bgname, &length, reasonout);
+    if (data == NULL)
+    {
+        return FALSE;
+    }
+
+    ok = BgLoadPortals(data, length, levelscale, out, reasonout);
+    free(data);
+    return ok;
+}
+
+
+void BgPortalFileFree(BgPortalFile *portals)
+{
+    free(portals->portals);
+    ZeroMemory(portals, sizeof(*portals));
 }

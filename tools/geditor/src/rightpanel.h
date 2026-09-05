@@ -10,6 +10,7 @@
 #define RIGHTPANEL_SHOW_BG_PRIMARY   0x01
 #define RIGHTPANEL_SHOW_BG_SECONDARY 0x02
 #define RIGHTPANEL_SHOW_STAN         0x04
+#define RIGHTPANEL_SHOW_PORTALS      0x08
 
 BOOL RightPanelRegisterClass(HINSTANCE hinstance);
 HWND RightPanelCreate(HWND parent, HINSTANCE hinstance);

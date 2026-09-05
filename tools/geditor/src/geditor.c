@@ -47,6 +47,8 @@ static SetupFile g_CurrentSetup;
 /* Decoded stan for the selected level. Kept beside the setup so later
    editing tools can inspect tile IDs, rooms, links, and special types. */
 static StanFile g_CurrentStan;
+/* Portal records decoded from the selected level's saved BG segment. */
+static BgPortalFile g_CurrentPortals;
 
 static void GEditorSetTitleForProject(HWND hwnd);
 
@@ -141,6 +143,7 @@ static void GEditorCloseProject(HWND hwnd)
 
     SetupFileFree(&g_CurrentSetup);
     StanFileFree(&g_CurrentStan);
+    BgPortalFileFree(&g_CurrentPortals);
     ProjectClose(&g_Project);
 
     BrowserSetLevels(g_Browser, NULL, 0);
@@ -726,7 +729,8 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             g_Viewport,
             (visibility & RIGHTPANEL_SHOW_BG_PRIMARY) != 0,
             (visibility & RIGHTPANEL_SHOW_BG_SECONDARY) != 0,
-            (visibility & RIGHTPANEL_SHOW_STAN) != 0);
+            (visibility & RIGHTPANEL_SHOW_STAN) != 0,
+            (visibility & RIGHTPANEL_SHOW_PORTALS) != 0);
         return 0;
     }
 
@@ -739,13 +743,16 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         SetupFile setup;
         SetupObjectGeometry objects;
         StanFile stan;
+        BgPortalFile portals;
         const char *bgwhy = "";
         const char *setupwhy = "";
         const char *objectwhy = "";
         const char *stanwhy = "";
+        const char *portalwhy = "";
         BOOL setupLoaded;
         BOOL objectsLoaded = FALSE;
         BOOL stanLoaded;
+        BOOL portalsLoaded;
         char title[256];
 
         if (index >= g_Project.levelcount)
@@ -769,6 +776,10 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             MessageBox(hwnd, bgwhy, GEDITOR_TITLE, MB_ICONERROR);
             return 0;
         }
+
+        portalsLoaded = BgLoadProjectPortals(g_Project.dir, level->bgname,
+                                             level->levelscale, &portals,
+                                             &portalwhy);
 
         setupLoaded = SetupLoadProjectFile(g_Project.dir, level->setupname,
                                            &setup, &setupwhy);
@@ -840,6 +851,18 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                          g_Project.dir);
         free(tris);   /* the viewport copied and normalized both */
         free(tritags);
+
+        BgPortalFileFree(&g_CurrentPortals);
+        if (portalsLoaded)
+        {
+            g_CurrentPortals = portals;
+            ViewportSetPortals(g_Viewport, &g_CurrentPortals);
+        }
+        else
+        {
+            ViewportSetPortals(g_Viewport, NULL);
+            MessageBox(hwnd, portalwhy, GEDITOR_TITLE, MB_ICONWARNING);
+        }
 
         StanFileFree(&g_CurrentStan);
         if (stanLoaded)
@@ -1100,6 +1123,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
            this the process keeps running after the window closes. */
         SetupFileFree(&g_CurrentSetup);
         StanFileFree(&g_CurrentStan);
+        BgPortalFileFree(&g_CurrentPortals);
         PostQuitMessage(0);
         return 0;
     }

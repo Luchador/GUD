@@ -37,6 +37,8 @@
 #define VIEWPORT_BOX_VERTICES  24
 #define VIEWPORT_STAN_FILL_ALPHA 112
 #define VIEWPORT_STAN_EDGE_ALPHA 224
+#define VIEWPORT_PORTAL_FILL_ALPHA 128
+#define VIEWPORT_PORTAL_EDGE_ALPHA 255
 
 /* A contiguous run of scene vertices sharing one texture. */
 typedef struct SceneBatch {
@@ -79,11 +81,16 @@ typedef struct ViewportState {
     GLsizei stanfillcount;
     Vertex *stanedges;   /* colored GL_LINES around each tile */
     GLsizei stanedgecount;
+    Vertex *portalfill;  /* half-transparent cyan portal polygons */
+    GLsizei portalfillcount;
+    Vertex *portaledges; /* opaque cyan GL_LINES around portals */
+    GLsizei portaledgecount;
     Vertex *padmarkers;  /* GL_LINES: 24 vertices per wireframe box */
     GLsizei padmarkercount;
     BOOL showbgprimary;
     BOOL showbgsecondary;
     BOOL showstan;
+    BOOL showportals;
     BOOL cullbackfaces;  /* master toggle for authored backface culling */
     BOOL keyw, keya, keys, keyd, keyq, keye;
     POINT lastmouse;
@@ -377,6 +384,51 @@ static void ViewportPaintGL(ViewportState *state)
         glDepthFunc(GL_LESS);
     }
 
+    if (state->showportals
+        && state->portalfill != NULL && state->portalfillcount > 0)
+    {
+        /* Portals are editor-only, double-sided translucent surfaces.
+           Keep depth testing so a portal remains hidden by walls, but
+           do not let its fill occlude its own outline. */
+        glDisable(GL_TEXTURE_2D);
+        glDisable(GL_ALPHA_TEST);
+        glDisable(GL_CULL_FACE);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask(GL_FALSE);
+        glDepthFunc(GL_LEQUAL);
+
+        glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->portalfill[0].x);
+        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex),
+                       &state->portalfill[0].r);
+        glDrawArrays(GL_TRIANGLES, 0, state->portalfillcount);
+
+        glDisable(GL_BLEND);
+        glDepthMask(GL_TRUE);
+        glDepthFunc(GL_LESS);
+    }
+
+    if (state->showportals
+        && state->portaledges != NULL && state->portaledgecount > 0)
+    {
+        glDisable(GL_TEXTURE_2D);
+        glDisable(GL_ALPHA_TEST);
+        glDisable(GL_BLEND);
+        glDisable(GL_CULL_FACE);
+        glDepthMask(GL_FALSE);
+        glDepthFunc(GL_LEQUAL);
+
+        glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->portaledges[0].x);
+        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex),
+                       &state->portaledges[0].r);
+        glLineWidth(2.0f);
+        glDrawArrays(GL_LINES, 0, state->portaledgecount);
+        glLineWidth(1.0f);
+
+        glDepthMask(GL_TRUE);
+        glDepthFunc(GL_LESS);
+    }
+
     if (state->padmarkers != NULL && state->padmarkercount > 0)
     {
         /* Editor overlays remain depth-tested, so pads hidden behind a
@@ -609,6 +661,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         state->showbgprimary = TRUE;
         state->showbgsecondary = TRUE;
         state->showstan = TRUE;
+        state->showportals = TRUE;
         state->cullbackfaces = TRUE;
 
         if (!ViewportInitGL(hwnd, state))
@@ -766,7 +819,7 @@ void ViewportRedraw(HWND viewport)
 }
 
 
-/* Frees the scene's GL textures, geometry, and pad overlay. Needs the
+/* Frees the scene's GL textures, geometry, and editor overlays. Needs the
    GL context current for glDeleteTextures. */
 static void ViewportFreeScene(struct ViewportState *state_)
 {
@@ -782,18 +835,24 @@ static void ViewportFreeScene(struct ViewportState *state_)
     free(state->batches);
     free(state->stanedges);
     free(state->stanfill);
+    free(state->portaledges);
+    free(state->portalfill);
     free(state->padmarkers);
     free(state->scene);
     state->textures = NULL;
     state->batches = NULL;
     state->stanedges = NULL;
     state->stanfill = NULL;
+    state->portaledges = NULL;
+    state->portalfill = NULL;
     state->padmarkers = NULL;
     state->scene = NULL;
     state->texturecount = 0;
     state->batchcount = 0;
     state->stanedgecount = 0;
     state->stanfillcount = 0;
+    state->portaledgecount = 0;
+    state->portalfillcount = 0;
     state->padmarkercount = 0;
     state->scenecount = 0;
 }
@@ -896,8 +955,134 @@ void ViewportSetStanTiles(HWND hwnd, const StanFile *stan)
 }
 
 
+static void ViewportSetPortalVertex(Vertex *vertex,
+                                    const BgPortalPoint *point,
+                                    unsigned char alpha)
+{
+    vertex->x = point->x;
+    vertex->y = point->y;
+    vertex->z = point->z;
+    vertex->r = 0;
+    vertex->g = 255;
+    vertex->b = 255;
+    vertex->a = alpha;
+    vertex->s = 0.0f;
+    vertex->t = 0.0f;
+}
+
+
+static BOOL ViewportPortalGeometryIsFirst(const BgPortalFile *file,
+                                          DWORD index)
+{
+    DWORD earlier;
+
+    for (earlier = 0; earlier < index; earlier++)
+    {
+        if (file->portals[earlier].geometryoffset
+            == file->portals[index].geometryoffset)
+        {
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
+
+
+void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    Vertex *fill = NULL;
+    Vertex *edges = NULL;
+    size_t fillcount = 0;
+    size_t edgecount = 0;
+    size_t fillat = 0;
+    size_t edgeat = 0;
+    DWORD i;
+
+    if (state == NULL)
+    {
+        return;
+    }
+
+    free(state->portalfill);
+    free(state->portaledges);
+    state->portalfill = NULL;
+    state->portaledges = NULL;
+    state->portalfillcount = 0;
+    state->portaledgecount = 0;
+
+    if (portals == NULL || portals->portals == NULL
+        || portals->portalcount == 0)
+    {
+        InvalidateRect(hwnd, NULL, FALSE);
+        return;
+    }
+
+    for (i = 0; i < portals->portalcount; i++)
+    {
+        if (ViewportPortalGeometryIsFirst(portals, i))
+        {
+            fillcount += (portals->portals[i].pointcount - 2) * 3;
+            edgecount += portals->portals[i].pointcount * 2;
+        }
+    }
+
+    fill = (Vertex *)malloc(fillcount * sizeof(*fill));
+    edges = (Vertex *)malloc(edgecount * sizeof(*edges));
+    if (fill == NULL || edges == NULL)
+    {
+        free(fill);
+        free(edges);
+        InvalidateRect(hwnd, NULL, FALSE);
+        return;
+    }
+
+    for (i = 0; i < portals->portalcount; i++)
+    {
+        const BgPortal *portal = &portals->portals[i];
+        unsigned int point;
+
+        if (!ViewportPortalGeometryIsFirst(portals, i))
+        {
+            continue;
+        }
+
+        /* Authored portal polygons are convex and perimeter ordered.
+           Most have four points, while the few 3-7 point records use
+           the same fan triangulation as the game's visibility tests. */
+        for (point = 1; point + 1 < portal->pointcount; point++)
+        {
+            ViewportSetPortalVertex(&fill[fillat++], &portal->points[0],
+                                    VIEWPORT_PORTAL_FILL_ALPHA);
+            ViewportSetPortalVertex(&fill[fillat++], &portal->points[point],
+                                    VIEWPORT_PORTAL_FILL_ALPHA);
+            ViewportSetPortalVertex(&fill[fillat++],
+                                    &portal->points[point + 1],
+                                    VIEWPORT_PORTAL_FILL_ALPHA);
+        }
+
+        for (point = 0; point < portal->pointcount; point++)
+        {
+            ViewportSetPortalVertex(&edges[edgeat++], &portal->points[point],
+                                    VIEWPORT_PORTAL_EDGE_ALPHA);
+            ViewportSetPortalVertex(&edges[edgeat++],
+                &portal->points[(point + 1) % portal->pointcount],
+                VIEWPORT_PORTAL_EDGE_ALPHA);
+        }
+    }
+
+    state->portalfill = fill;
+    state->portaledges = edges;
+    state->portalfillcount = (GLsizei)fillat;
+    state->portaledgecount = (GLsizei)edgeat;
+    InvalidateRect(hwnd, NULL, FALSE);
+}
+
+
 void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
-                                   BOOL bgsecondary, BOOL stan)
+                                   BOOL bgsecondary, BOOL stan,
+                                   BOOL portals)
 {
     ViewportState *state = ViewportGetState(hwnd);
 
@@ -909,6 +1094,7 @@ void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
     state->showbgprimary = bgprimary;
     state->showbgsecondary = bgsecondary;
     state->showstan = stan;
+    state->showportals = portals;
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
