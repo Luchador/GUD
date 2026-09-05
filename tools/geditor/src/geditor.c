@@ -13,6 +13,7 @@
 #include "browser.h"
 #include "rom.h"
 #include "bgload.h"
+#include "setupload.h"
 #include "texload.h"
 #include "modelload.h"
 
@@ -31,6 +32,10 @@ static HWND g_Browser;
 static int  g_BrowserWidth = 280;
 static BOOL g_DraggingSplitter = FALSE;
 static GEditorProject g_Project;
+/* Raw setup for the selected level. Keeping the project copy in
+   editor-owned memory lets setup/object tools consume it without
+   retaining or reopening the source ROM. */
+static SetupFile g_CurrentSetup;
 
 static void GEditorSetTitleForProject(HWND hwnd);
 
@@ -123,6 +128,7 @@ static void GEditorCloseProject(HWND hwnd)
         return; /* Nothing open. */
     }
 
+    SetupFileFree(&g_CurrentSetup);
     ProjectClose(&g_Project);
 
     BrowserSetLevels(g_Browser, NULL, 0);
@@ -642,7 +648,10 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         const RomLevel *level;
         DWORD tricount = 0;
         BgVertex *tris;
-        const char *why = "";
+        SetupFile setup;
+        const char *bgwhy = "";
+        const char *setupwhy = "";
+        BOOL setupLoaded;
         char title[256];
 
         if (index >= g_Project.levelcount)
@@ -659,18 +668,34 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
         tris = BgLoadProjectGeometry(g_Project.dir, level->bgname,
                                      level->levelscale,
-                                     &tricount, &tritags, &why);
+                                     &tricount, &tritags, &bgwhy);
 
         if (tris == NULL)
         {
-            MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+            MessageBox(hwnd, bgwhy, GEDITOR_TITLE, MB_ICONERROR);
             return 0;
         }
+
+        setupLoaded = SetupLoadProjectFile(g_Project.dir, level->setupname,
+                                           &setup, &setupwhy);
 
         ViewportSetScene(g_Viewport, tris, tritags, (int)tricount,
                          g_Project.dir);
         free(tris);   /* the viewport copied and normalized both */
         free(tritags);
+
+        SetupFileFree(&g_CurrentSetup);
+        if (setupLoaded)
+        {
+            g_CurrentSetup = setup;
+        }
+        else
+        {
+            /* Some unfinished/test level-table entries name setup
+               resources which are not present in obseg. Their BG is
+               still useful, so open it and report only the setup gap. */
+            MessageBox(hwnd, setupwhy, GEDITOR_TITLE, MB_ICONWARNING);
+        }
         }
 
         wsprintf(title, "%s - %s", GEDITOR_TITLE, (const char *)lparam);
@@ -804,6 +829,11 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                                 MessageBox(hwnd, assetwhy, GEDITOR_TITLE, MB_ICONWARNING);
                             }
 
+                            if (SetupExtractAll(&rom, g_Project.dir, &assetwhy) == 0)
+                            {
+                                MessageBox(hwnd, assetwhy, GEDITOR_TITLE, MB_ICONWARNING);
+                            }
+
                             RomFree(&rom);
                         }
                         else
@@ -862,6 +892,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     case WM_DESTROY:
         /* The window is gone; ask the message loop to stop. Without
            this the process keeps running after the window closes. */
+        SetupFileFree(&g_CurrentSetup);
         PostQuitMessage(0);
         return 0;
     }
