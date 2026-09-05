@@ -181,7 +181,7 @@ SECTIONS
    _dataSegmentVaddrEnd = _csegmentSegmentEnd;
    _romSegmentEnd = _csegmentSegmentRomEnd;
    _gedLevelTableRom = _csegmentSegmentRomStart + (g_LevelInfoTable - _csegmentSegmentStart);
-
+   _gedFileTableRom = _csegmentSegmentRomStart + (file_resource_table - _csegmentSegmentStart);
 
    _bssSegmentStart = ADDR(.bss);
    .bss (NOLOAD) :

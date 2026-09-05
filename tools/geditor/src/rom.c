@@ -241,36 +241,27 @@ static BOOL RomParseLevelTable(const unsigned char *data, DWORD size,
     return TRUE;
 }
 
-BOOL RomValidate(const char *path, RomInfo *info, const char **reasonout)
+/*
+ * Validates an in-memory ROM image and fills info. Never frees data.
+ */
+static BOOL RomValidateBuffer(unsigned char *data, DWORD size,
+                              RomInfo *info, const char **reasonout)
 {
     static const unsigned char z64magic[4] = { 0x80, 0x37, 0x12, 0x40 };
-    unsigned char *data;
-    DWORD size = 0;
     DWORD m;
     DWORD i;
 
     ZeroMemory(info, sizeof(*info));
     *reasonout = "";
 
-    data = RomReadAll(path, &size);
-    if (data == NULL)
-    {
-        *reasonout = "The ROM file could not be read.";
-        return FALSE;
-    }
-
-    /* Everything below this point must free data before returning. */
-
     if (size < ROM_MIN_SIZE || size > ROM_MAX_SIZE)
     {
-        free(data);
         *reasonout = "That file is not a plausible ROM size.";
         return FALSE;
     }
 
     if (memcmp(data, z64magic, 4) != 0)
     {
-        free(data);
         *reasonout = "Not a big-endian .z64 ROM (byte-swapped dump?).";
         return FALSE;
     }
@@ -280,7 +271,6 @@ BOOL RomValidate(const char *path, RomInfo *info, const char **reasonout)
     info->internalname[20] = '\0';
     if (strstr(info->internalname, "GOLDENEYE") == NULL)
     {
-        free(data);
         *reasonout = "Not a GoldenEye-engine ROM (header title mismatch).";
         return FALSE;
     }
@@ -288,14 +278,12 @@ BOOL RomValidate(const char *path, RomInfo *info, const char **reasonout)
     m = RomFindManifest(data, size);
     if (m == 0)
     {
-        free(data);
         *reasonout = "GoldenEye ROM, but not a GUD build - no GEditor manifest.";
         return FALSE;
     }
 
     if (m + 24 > size)
     {
-        free(data);
         *reasonout = "GUD manifest is truncated.";
         return FALSE;
     }
@@ -307,7 +295,6 @@ BOOL RomValidate(const char *path, RomInfo *info, const char **reasonout)
 
     if (info->manifestversion < 1 || info->manifestversion > ROM_MANIFEST_VERSION)
     {
-        free(data);
         *reasonout = "GUD manifest is from a newer GEditor - update GEditor.";
         return FALSE;
     }
@@ -315,7 +302,6 @@ BOOL RomValidate(const char *path, RomInfo *info, const char **reasonout)
     if (info->entrycount < 1 || info->entrycount > ROM_MAX_ENTRIES
         || m + 24 + info->entrycount * 16 > size)
     {
-        free(data);
         *reasonout = "GUD manifest entry table is malformed.";
         return FALSE;
     }
@@ -332,7 +318,6 @@ BOOL RomValidate(const char *path, RomInfo *info, const char **reasonout)
 
         if (out->romstart >= out->romend || out->romend > size)
         {
-            free(data);
             *reasonout = "GUD manifest points outside the ROM (corrupt build?).";
             return FALSE;
         }
@@ -356,18 +341,142 @@ BOOL RomValidate(const char *path, RomInfo *info, const char **reasonout)
 
         if (stgt == NULL || cmap == NULL)
         {
-            free(data);
             *reasonout = "GUD build predates the level manifest - rebuild GUD.";
             return FALSE;
         }
 
         if (!RomParseLevelTable(data, size, stgt, cmap, info, reasonout))
         {
-            free(data);
             return FALSE;
         }
     }
 
-    free(data);
     return TRUE;
+}
+
+BOOL RomValidate(const char *path, RomInfo *info, const char **reasonout)
+{
+    unsigned char *data;
+    DWORD size = 0;
+    BOOL ok;
+
+    data = RomReadAll(path, &size);
+    if (data == NULL)
+    {
+        ZeroMemory(info, sizeof(*info));
+        *reasonout = "The ROM file could not be read.";
+        return FALSE;
+    }
+
+    ok = RomValidateBuffer(data, size, info, reasonout);
+    free(data);
+    return ok;
+}
+
+BOOL RomLoad(const char *path, RomFile *rom, const char **reasonout)
+{
+    ZeroMemory(rom, sizeof(*rom));
+
+    rom->data = RomReadAll(path, &rom->size);
+    if (rom->data == NULL)
+    {
+        *reasonout = "The ROM file could not be read.";
+        return FALSE;
+    }
+
+    if (!RomValidateBuffer(rom->data, rom->size, &rom->info, reasonout))
+    {
+        RomFree(rom);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+void RomFree(RomFile *rom)
+{
+    free(rom->data);
+    ZeroMemory(rom, sizeof(*rom));
+}
+
+#define ROM_KIND_FTBL 0x4654424C  /* 'FTBL' */
+#define ROM_KIND_CMAP 0x434D4150  /* 'CMAP' */
+#define ROM_KIND_OBSG 0x4F425347  /* 'OBSG' */
+#define ROM_FTBL_MAX_ROWS 1024
+
+BOOL RomFindFile(const RomFile *rom, const char *name,
+                 DWORD *offset, DWORD *maxlen, const char **reasonout)
+{
+    const RomManifestEntry *ftbl = NULL;
+    const RomManifestEntry *cmap = NULL;
+    const RomManifestEntry *obsg = NULL;
+    DWORD i;
+
+    *offset = 0;
+    *maxlen = 0;
+    *reasonout = "";
+
+    for (i = 0; i < rom->info.entrycount; i++)
+    {
+        const RomManifestEntry *e = &rom->info.entries[i];
+
+        if (e->kind == ROM_KIND_FTBL) { ftbl = e; }
+        if (e->kind == ROM_KIND_CMAP) { cmap = e; }
+        if (e->kind == ROM_KIND_OBSG) { obsg = e; }
+    }
+
+    if (ftbl == NULL || cmap == NULL)
+    {
+        *reasonout = "GUD build predates the file table - rebuild GUD.";
+        return FALSE;
+    }
+
+    /* fileentry rows: {id, name vaddr, data} - 12 bytes each, ending
+       at a row whose name pointer is NULL. Data pointers are plain
+       ROM offsets: the obseg segment is linked at its own ROM start. */
+    for (i = 0; i < ROM_FTBL_MAX_ROWS; i++)
+    {
+        DWORD row = ftbl->romstart + i * 12;
+        DWORD namev;
+        DWORD datav;
+        LONGLONG nameoff;
+
+        if (row + 12 > rom->size)
+        {
+            break;
+        }
+
+        namev = be32(rom->data + row + 4);
+        if (namev == 0)
+        {
+            break; /* terminator */
+        }
+
+        datav = be32(rom->data + row + 8);
+
+        nameoff = (LONGLONG)namev - cmap->flags + cmap->romstart;
+        if (nameoff < 0 || nameoff >= (LONGLONG)rom->size)
+        {
+            continue; /* unresolvable name: not ours to match */
+        }
+
+        if (strncmp((const char *)rom->data + (DWORD)nameoff, name,
+                    rom->size - (DWORD)nameoff) == 0)
+        {
+            DWORD end = obsg != NULL ? obsg->romend : rom->size;
+
+            if (datav >= end || (obsg != NULL && datav < obsg->romstart))
+            {
+                *reasonout = "file table entry points outside the ROM.";
+                return FALSE;
+            }
+
+            *offset = datav;
+            *maxlen = end - datav;
+            return TRUE;
+        }
+    }
+
+    *reasonout = "file not present in the ROM's file table.";
+    return FALSE;
 }

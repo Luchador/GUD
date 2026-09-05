@@ -49,6 +49,33 @@ typedef struct RomInfo {
  * Full ROM validation. Opens and reads the ROM, checks byte-order and manifest internal inconsistency.
  * On success fills info and returns TRUE. On failure returns FALSE with *reasonout explaining why.
  */
+/*
+ * A loaded ROM: the raw bytes plus the parsed manifest info. Owns the
+ * data buffer; release with RomFree.
+ */
+typedef struct RomFile {
+    unsigned char *data;
+    DWORD size;
+    RomInfo info;
+} RomFile;
+
+/*
+ * Loads and validates in one step, keeping the buffer for asset
+ * access. TRUE on success; FALSE with *reasonout set otherwise.
+ */
+BOOL RomLoad(const char *path, RomFile *rom, const char **reasonout);
+void RomFree(RomFile *rom);
+
+/*
+ * Looks a file up by its resource name ("bg/bg_sev_all_p.seg") in the
+ * ROM's file table. On success *offset is the file's position in the
+ * ROM and *maxlen the readable bytes from there (bounded by the obseg
+ * segment). FALSE with *reasonout set when the table is missing or
+ * the name is not present.
+ */
+BOOL RomFindFile(const RomFile *rom, const char *name,
+                 DWORD *offset, DWORD *maxlen, const char **reasonout);
+
 BOOL RomValidate(const char *path, RomInfo *info, const char **reasonout);
 
 #endif

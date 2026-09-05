@@ -34,6 +34,12 @@
 
 #define VIEWPORT_DEG_TO_RAD (3.14159265358979323846f / 180.0f)
 
+typedef struct Vertex {
+    GLfloat x, y, z;
+    GLubyte r, g, b, a;
+    GLfloat s, t;
+} Vertex;
+
 /* Per-viewport state, allocated at WM_CREATE, freed at WM_DESTROY,
    reachable from the window via GWLP_USERDATA. */
 typedef struct ViewportState {
@@ -46,16 +52,13 @@ typedef struct ViewportState {
     float speed;
 
     BOOL flying;
+    Vertex *scene;       /* malloc'd level geometry, or NULL for the test scene */
+    GLsizei scenecount;  /* vertices in scene */
     BOOL keyw, keya, keys, keyd, keyq, keye;
     POINT lastmouse;
     LONGLONG lastqpc;   /* QueryPerformanceCounter at the previous frame */
 } ViewportState;
 
-typedef struct Vertex {
-    GLfloat x, y, z;
-    GLubyte r, g, b, a;
-    GLfloat s, t;
-} Vertex;
 
 static const Vertex g_TestScene[6] = {
     {    0.0f,  160.0f, 0.0f,   255,  40,  40, 255 , 1.0f, 0.0f},
@@ -178,11 +181,16 @@ static void ViewportPaintGL(ViewportState *state)
     glRotatef(-state->yaw,   0.0f, 1.0f, 0.0f);
     glTranslatef(-state->posx, -state->posy, -state->posz);
 
-    glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &g_TestScene[0].x);
-    glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &g_TestScene[0].r);
-    glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), &g_TestScene[0].s);
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    glDrawArrays(GL_TRIANGLES, 0, TESTSCENE_VERTS);
+    {
+        const Vertex *verts = state->scene != NULL ? state->scene : g_TestScene;
+        GLsizei count = state->scene != NULL ? state->scenecount : TESTSCENE_VERTS;
+
+        glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &verts[0].x);
+        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &verts[0].r);
+        glTexCoordPointer(2, GL_FLOAT, sizeof(Vertex), &verts[0].s);
+        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+        glDrawArrays(GL_TRIANGLES, 0, count);
+    }
 
     SwapBuffers(state->hdc);
 }
@@ -493,6 +501,11 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 1;
 
     case WM_DESTROY:
+        if (state != NULL)
+        {
+            free(state->scene);
+            state->scene = NULL;
+        }
         ViewportEndFly(hwnd, state); // Never leave the cursor hidden.
         if (state != NULL)
         {
@@ -544,4 +557,79 @@ void ViewportRedraw(HWND viewport)
 {
     /* FALSE: no GDI erase - WM_ERASEBKGND is suppressed anyway. */
     InvalidateRect(viewport, NULL, FALSE);
+}
+
+
+void ViewportSetScene(HWND hwnd, const BgVertex *tris, int tricount)
+{
+    ViewportState *state = (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+    Vertex *scene = NULL;
+    float minx = 0, miny = 0, minz = 0, maxx = 0, maxy = 0, maxz = 0;
+    int i;
+
+    if (state == NULL)
+    {
+        return;
+    }
+
+    if (tris != NULL && tricount > 0)
+    {
+        scene = (Vertex *)malloc((size_t)tricount * 3 * sizeof(Vertex));
+
+        if (scene == NULL)
+        {
+            return; /* keep whatever we had */
+        }
+
+        for (i = 0; i < tricount * 3; i++)
+        {
+            scene[i].x = tris[i].x;
+            scene[i].y = tris[i].y;
+            scene[i].z = tris[i].z;
+            scene[i].r = tris[i].r;
+            scene[i].g = tris[i].g;
+            scene[i].b = tris[i].b;
+            scene[i].a = tris[i].a;
+            scene[i].s = 0.0f;
+            scene[i].t = 0.0f;
+
+            if (i == 0)
+            {
+                minx = maxx = scene[i].x;
+                miny = maxy = scene[i].y;
+                minz = maxz = scene[i].z;
+            }
+            else
+            {
+                if (scene[i].x < minx) { minx = scene[i].x; }
+                if (scene[i].x > maxx) { maxx = scene[i].x; }
+                if (scene[i].y < miny) { miny = scene[i].y; }
+                if (scene[i].y > maxy) { maxy = scene[i].y; }
+                if (scene[i].z < minz) { minz = scene[i].z; }
+                if (scene[i].z > maxz) { maxz = scene[i].z; }
+            }
+        }
+    }
+
+    free(state->scene);
+    state->scene = scene;
+    state->scenecount = scene != NULL ? (GLsizei)(tricount * 3) : 0;
+
+    if (scene != NULL)
+    {
+        /* Frame the level: eye at the bbox centre, pulled back along
+           +Z by most of the larger horizontal extent. Free-fly from
+           there. */
+        float dx = maxx - minx;
+        float dz = maxz - minz;
+        float dim = dx > dz ? dx : dz;
+
+        state->posx = (minx + maxx) * 0.5f;
+        state->posy = (miny + maxy) * 0.5f;
+        state->posz = (minz + maxz) * 0.5f + dim * 0.75f;
+        state->yaw = 0.0f;
+        state->pitch = 0.0f;
+    }
+
+    InvalidateRect(hwnd, NULL, FALSE);
 }

@@ -3,6 +3,8 @@
 
 #include <windows.h>
 
+#include "bgload.h"
+
 /**
  * Main 3D viewport functions. Create a child window with OpenGL context.
  */
@@ -16,5 +18,12 @@ void ViewportRedraw(HWND viewport);
  **/
 BOOL ViewportIsFlying(HWND viewport);
 void ViewportFlyFrame(HWND viewport);
+
+/*
+ * Replaces the viewport's scene with a triangle soup (copied; the
+ * caller keeps ownership of tris). NULL/0 restores the built-in test
+ * scene. The camera is repositioned to frame the new geometry.
+ */
+void ViewportSetScene(HWND hwnd, const BgVertex *tris, int tricount);
 
 #endif

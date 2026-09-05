@@ -12,6 +12,7 @@
 #include "viewport.h"
 #include "browser.h"
 #include "rom.h"
+#include "bgload.h"
 
 #define GEDITOR_CLASS  "GEditorWindow"
 #define GEDITOR_TITLE  "GEditor"
@@ -19,6 +20,10 @@
 #define GEDITOR_HEIGHT  1080
 
 static HWND g_Viewport;
+
+/* The project's ROM, held in memory for asset access. */
+static RomFile g_Rom;
+static BOOL g_RomLoaded;
 static HWND g_Browser;
 
 /* Content browser column: user-draggable via the splitter gutter. */
@@ -45,7 +50,15 @@ static void GEditorCloseProject(HWND hwnd)
     }
 
     ProjectClose(&g_Project);
+
+    if (g_RomLoaded)
+    {
+        RomFree(&g_Rom);
+        g_RomLoaded = FALSE;
+    }
+
     BrowserSetLevels(g_Browser, NULL, 0);
+    ViewportSetScene(g_Viewport, NULL, 0);
     GEditorSetTitleForProject(hwnd);
 }
 
@@ -550,13 +563,42 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
     case BROWSER_WM_LEVEL_OPEN:
     {
-        /* Level loading lands in a later step. For now the frame just
-           reflects the choice in its title, which also proves the
-           plumbing end to end. */
+        DWORD index = (DWORD)wparam;
+        const RomLevel *level;
+        DWORD offset;
+        DWORD maxlen;
+        DWORD tricount = 0;
+        BgVertex *tris;
+        const char *why = "";
         char title[256];
 
-        wsprintf(title, "%s - %s", GEDITOR_TITLE,
-                 (const char *)lparam);
+        if (!g_RomLoaded || index >= g_Rom.info.levelcount)
+        {
+            MessageBox(hwnd, "No ROM is loaded for this project.",
+                       GEDITOR_TITLE, MB_ICONERROR);
+            return 0;
+        }
+
+        level = &g_Rom.info.levels[index];
+
+        if (!RomFindFile(&g_Rom, level->bgname, &offset, &maxlen, &why))
+        {
+            MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+            return 0;
+        }
+
+        tris = BgLoadGeometry(g_Rom.data + offset, maxlen, &tricount, &why);
+
+        if (tris == NULL)
+        {
+            MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+            return 0;
+        }
+
+        ViewportSetScene(g_Viewport, tris, (int)tricount);
+        free(tris); /* the viewport copied it */
+
+        wsprintf(title, "%s - %s", GEDITOR_TITLE, (const char *)lparam);
         SetWindowText(hwnd, title);
         return 0;
     }
@@ -659,6 +701,18 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                     {
                         BrowserLevelItem items[ROM_MAX_LEVELS];
                         DWORD n;
+                        const char *romwhy = "";
+
+                        /* Keep the ROM resident: level loading reads
+                           assets straight out of this buffer. */
+                        if (RomLoad(info.rompath, &g_Rom, &romwhy))
+                        {
+                            g_RomLoaded = TRUE;
+                        }
+                        else
+                        {
+                            MessageBox(hwnd, romwhy, GEDITOR_TITLE, MB_ICONERROR);
+                        }
 
                         for (n = 0; n < info.rominfo.levelcount; n++)
                         {
