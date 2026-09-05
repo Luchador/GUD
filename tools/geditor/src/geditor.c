@@ -4,6 +4,7 @@
 #include <shobjidl.h>   /* IFileOpenDialog: the modern folder picker */
 #include <shlobj.h>
 #include <windowsx.h>  /* GET_X_LPARAM */     /* SHGetFolderPath: default to Documents */
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -18,6 +19,7 @@
 #include "stanload.h"
 #include "texload.h"
 #include "modelload.h"
+#include "objectload.h"
 
 #define GEDITOR_CLASS  "GEditorWindow"
 #define GEDITOR_TITLE  "GEditor"
@@ -735,11 +737,14 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         DWORD tricount = 0;
         BgVertex *tris;
         SetupFile setup;
+        SetupObjectGeometry objects;
         StanFile stan;
         const char *bgwhy = "";
         const char *setupwhy = "";
+        const char *objectwhy = "";
         const char *stanwhy = "";
         BOOL setupLoaded;
+        BOOL objectsLoaded = FALSE;
         BOOL stanLoaded;
         char title[256];
 
@@ -767,6 +772,66 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
         setupLoaded = SetupLoadProjectFile(g_Project.dir, level->setupname,
                                            &setup, &setupwhy);
+        ZeroMemory(&objects, sizeof(objects));
+
+        if (setupLoaded)
+        {
+            objectsLoaded = ObjectLoadSetupGeometry(g_Project.dir, &setup,
+                level->levelscale, &objects, &objectwhy);
+
+            if (objectsLoaded && objects.tricount > 0)
+            {
+                DWORD total = tricount + objects.tricount;
+                BgVertex *combinedtris = NULL;
+                unsigned short *combinedtags = NULL;
+
+                if (total >= tricount && total >= objects.tricount)
+                {
+                    combinedtris = (BgVertex *)malloc(
+                        (size_t)total * 3 * sizeof(*combinedtris));
+                    combinedtags = (unsigned short *)malloc(
+                        (size_t)total * sizeof(*combinedtags));
+                }
+
+                if (combinedtris != NULL && combinedtags != NULL)
+                {
+                    memcpy(combinedtris, tris,
+                           (size_t)tricount * 3 * sizeof(*combinedtris));
+                    memcpy(combinedtris + tricount * 3, objects.tris,
+                           (size_t)objects.tricount * 3 * sizeof(*combinedtris));
+                    if (tritags != NULL)
+                    {
+                        memcpy(combinedtags, tritags,
+                               (size_t)tricount * sizeof(*combinedtags));
+                    }
+                    else
+                    {
+                        DWORD triangle;
+
+                        for (triangle = 0; triangle < tricount; triangle++)
+                        {
+                            combinedtags[triangle] = BG_TEX_NONE;
+                        }
+                    }
+                    memcpy(combinedtags + tricount, objects.tritags,
+                           (size_t)objects.tricount * sizeof(*combinedtags));
+
+                    free(tris);
+                    free(tritags);
+                    tris = combinedtris;
+                    tritags = combinedtags;
+                    tricount = total;
+                }
+                else
+                {
+                    free(combinedtris);
+                    free(combinedtags);
+                    objectsLoaded = FALSE;
+                    objectwhy = "out of memory adding setup objects to the viewport.";
+                }
+            }
+        }
+
         stanLoaded = StanLoadProjectFile(g_Project.dir, level->stanname,
                                          level->levelscale, &stan,
                                          &stanwhy);
@@ -795,16 +860,26 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         {
             g_CurrentSetup = setup;
             ViewportSetSetupPads(g_Viewport, &g_CurrentSetup,
-                                 level->levelscale);
+                                 level->levelscale,
+                                 objectsLoaded ? objects.occupiedpads : NULL,
+                                 objectsLoaded ? objects.occupiedboundpads : NULL);
         }
         else
         {
-            ViewportSetSetupPads(g_Viewport, NULL, level->levelscale);
+            ViewportSetSetupPads(g_Viewport, NULL, level->levelscale,
+                                 NULL, NULL);
             /* Some unfinished/test level-table entries name setup
                resources which are not present in obseg. Their BG is
                still useful, so open it and report only the setup gap. */
             MessageBox(hwnd, setupwhy, GEDITOR_TITLE, MB_ICONWARNING);
         }
+
+        if (setupLoaded && !objectsLoaded)
+        {
+            MessageBox(hwnd, objectwhy, GEDITOR_TITLE, MB_ICONWARNING);
+        }
+
+        ObjectGeometryFree(&objects);
         }
 
         wsprintf(title, "%s - %s", GEDITOR_TITLE, (const char *)lparam);

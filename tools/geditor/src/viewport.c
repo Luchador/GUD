@@ -45,6 +45,7 @@ typedef struct SceneBatch {
     GLsizei count;
     BOOL    secondary;  /* transparent layer: blended, no depth write */
     BOOL    cullbackfaces;
+    BOOL    object;     /* setup model, independent of BG visibility */
 } SceneBatch;
 
 struct ViewportState;
@@ -258,8 +259,9 @@ static void ViewportPaintGL(ViewportState *state)
                 const SceneBatch *batch = &state->batches[i];
                 BOOL wantcullback;
 
-                if ((!batch->secondary && !state->showbgprimary)
-                    || (batch->secondary && !state->showbgsecondary))
+                if (!batch->object
+                    && ((!batch->secondary && !state->showbgprimary)
+                        || (batch->secondary && !state->showbgsecondary)))
                 {
                     continue;
                 }
@@ -923,6 +925,12 @@ static int ViewportTriKeyCompare(const void *a, const void *b)
 
     if (d == 0)
     {
+        d = (int)BG_TRI_IS_OBJECT(ka->tag)
+          - (int)BG_TRI_IS_OBJECT(kb->tag);
+    }
+
+    if (d == 0)
+    {
         d = (int)BG_TEX_ID(ka->tag) - (int)BG_TEX_ID(kb->tag);
     }
 
@@ -1000,6 +1008,7 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
                 batch->count = 0;
                 batch->secondary = BG_TRI_IS_SECONDARY(order[i].tag);
                 batch->cullbackfaces = BG_TRI_CULLS_BACK(order[i].tag);
+                batch->object = BG_TRI_IS_OBJECT(order[i].tag);
 
                 /* Culling can split one texture into two adjacent
                    batches. Share the existing GL texture instead of
@@ -1177,7 +1186,9 @@ static void ViewportAppendPadBox(Vertex *vertices, int *vertexcount,
 
 
 void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup,
-                          float levelscale)
+                          float levelscale,
+                          const unsigned char *occupiedpads,
+                          const unsigned char *occupiedboundpads)
 {
     ViewportState *state = ViewportGetState(hwnd);
     Vertex *markers = NULL;
@@ -1220,6 +1231,11 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup,
 
     for (i = 0; i < setup->padcount; i++)
     {
+        if (occupiedpads != NULL && occupiedpads[i])
+        {
+            continue;
+        }
+
         ViewportAppendPadBox(markers, &vertexcount, &setup->pads[i],
             -VIEWPORT_PAD_HALF_SIZE, VIEWPORT_PAD_HALF_SIZE,
             -VIEWPORT_PAD_HALF_SIZE, VIEWPORT_PAD_HALF_SIZE,
@@ -1230,6 +1246,11 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup,
     for (i = 0; i < setup->boundpadcount; i++)
     {
         const SetupBoundPad *pad = &setup->boundpads[i];
+
+        if (occupiedboundpads != NULL && occupiedboundpads[i])
+        {
+            continue;
+        }
 
         ViewportAppendPadBox(markers, &vertexcount, &pad->pad,
             pad->xmin, pad->xmax, pad->ymin, pad->ymax,

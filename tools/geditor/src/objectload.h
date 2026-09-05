@@ -1,0 +1,26 @@
+#ifndef GEDITOR_OBJECTLOAD_H
+#define GEDITOR_OBJECTLOAD_H
+
+#include <windows.h>
+
+#include "bgload.h"
+#include "setupload.h"
+
+/* One level's placed non-character setup models. The occupied arrays
+   parallel SetupFile's pad arrays and tell the overlay not to draw a
+   marker where a model was successfully loaded. */
+typedef struct SetupObjectGeometry {
+    BgVertex *tris;
+    unsigned short *tritags;
+    DWORD tricount;
+    unsigned char *occupiedpads;
+    unsigned char *occupiedboundpads;
+    DWORD objectcount;
+} SetupObjectGeometry;
+
+BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
+                             float levelscale, SetupObjectGeometry *out,
+                             const char **reasonout);
+void ObjectGeometryFree(SetupObjectGeometry *geometry);
+
+#endif /* GEDITOR_OBJECTLOAD_H */

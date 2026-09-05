@@ -22,18 +22,20 @@ typedef struct BgVertex {
 
 /*
  * Per-triangle tag: low 12 bits are the texture ID (0xFFF = none),
- * bit 12 marks secondary (transparent-layer) geometry, and bit 13
- * records whether Fast3D backface culling was enabled when the
- * triangle was emitted.
+ * bit 12 marks secondary (transparent-layer) geometry, bit 13 records
+ * whether Fast3D backface culling was enabled, and bit 14 identifies
+ * setup-object geometry appended to the viewport scene.
  */
 #define BG_TEX_ID_MASK   0x0FFF
 #define BG_TEX_NONE      0x0FFF
 #define BG_TRI_SECONDARY 0x1000
 #define BG_TRI_CULL_BACK 0x2000
+#define BG_TRI_OBJECT    0x4000
 
 #define BG_TEX_ID(tag)        ((tag) & BG_TEX_ID_MASK)
 #define BG_TRI_IS_SECONDARY(tag) (((tag) & BG_TRI_SECONDARY) != 0)
 #define BG_TRI_CULLS_BACK(tag)   (((tag) & BG_TRI_CULL_BACK) != 0)
+#define BG_TRI_IS_OBJECT(tag)    (((tag) & BG_TRI_OBJECT) != 0)
 
 /*
  * Parses the bg file at data (maxlen readable bytes) and returns a

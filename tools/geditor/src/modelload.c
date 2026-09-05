@@ -20,6 +20,28 @@
 
 #include "modelload.h"
 
+/* Reuse the exact model-ID order and scale values compiled into the
+   game. Redefining the record macro avoids pulling any N64 structs or
+   symbols into the editor build; the asset list remains the one source
+   of truth when props are added or reordered. */
+typedef struct PropModelDefinition {
+    void *unusedheader;
+    const char *filename;
+    float scale;
+} PropModelDefinition;
+
+#define ItemModelFileRecord PropModelDefinition
+#define PitemZ_entries g_PropModelDefinitions
+#define PROPFILERECORD(NAME, SCALE) { NULL, "P" #NAME "Z", SCALE },
+#include <assets/obseg/prop/propItemModelFileRecord.inc.c>
+#undef PROPFILERECORD
+#undef PitemZ_entries
+#undef ItemModelFileRecord
+
+#define PROP_MODEL_COUNT \
+    ((int)(sizeof(g_PropModelDefinitions) \
+         / sizeof(g_PropModelDefinitions[0])) - 1)
+
 #define MDL_G_NOOP  0xC0
 #define MDL_G_VTX   0x04
 #define MDL_G_TRI4  0xB1
@@ -348,7 +370,8 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
 
 /* --- extraction to PLY ------------------------------------------- */
 
-static BOOL MdlWritePly(const char *path, const BgVertex *v, DWORD tricount)
+static BOOL MdlWritePly(const char *path, const BgVertex *v,
+                        const unsigned short *tritags, DWORD tricount)
 {
     FILE *f = fopen(path, "w");
     DWORD i;
@@ -366,7 +389,8 @@ static BOOL MdlWritePly(const char *path, const BgVertex *v, DWORD tricount)
         "property uchar alpha\n"
         "property float s\nproperty float t\n"
         "element face %lu\n"
-        "property list uchar int vertex_indices\nend_header\n",
+        "property list uchar int vertex_indices\n"
+        "property ushort texture_tag\nend_header\n",
         (unsigned long)(tricount * 3), (unsigned long)tricount);
 
     for (i = 0; i < tricount * 3; i++)
@@ -378,8 +402,9 @@ static BOOL MdlWritePly(const char *path, const BgVertex *v, DWORD tricount)
 
     for (i = 0; i < tricount; i++)
     {
-        fprintf(f, "3 %lu %lu %lu\n", (unsigned long)(i * 3),
-                (unsigned long)(i * 3 + 1), (unsigned long)(i * 3 + 2));
+        fprintf(f, "3 %lu %lu %lu %u\n", (unsigned long)(i * 3),
+                (unsigned long)(i * 3 + 1), (unsigned long)(i * 3 + 2),
+                tritags != NULL ? tritags[i] : BG_TEX_NONE);
     }
 
     fclose(f);
@@ -456,7 +481,7 @@ DWORD ModelExtractAll(const RomFile *rom, const char *projectdir,
         {
             wsprintf(path, "%s\\models\\%s\\%s.ply", projectdir, cls, name);
 
-            if (MdlWritePly(path, tris, tricount))
+            if (MdlWritePly(path, tris, texids, tricount))
             {
                 written++;
             }
@@ -472,4 +497,180 @@ DWORD ModelExtractAll(const RomFile *rom, const char *projectdir,
     }
 
     return written;
+}
+
+BOOL ModelGetPropDefinition(int modelid, const char **nameout,
+                            float *scaleout)
+{
+    if (modelid < 0 || modelid >= PROP_MODEL_COUNT)
+    {
+        return FALSE;
+    }
+
+    if (nameout != NULL)
+    {
+        *nameout = g_PropModelDefinitions[modelid].filename;
+    }
+    if (scaleout != NULL)
+    {
+        *scaleout = g_PropModelDefinitions[modelid].scale;
+    }
+
+    return TRUE;
+}
+
+BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
+                                   DWORD *tricount,
+                                   unsigned short **tritags,
+                                   float *modelscale,
+                                   const char **reasonout)
+{
+    const char *name;
+    char path[MAX_PATH];
+    FILE *file = NULL;
+    char line[512];
+    DWORD vertexcount = 0;
+    DWORD facecount = 0;
+    DWORD i;
+    BOOL hastexturetags = FALSE;
+    BOOL inface = FALSE;
+    BgVertex *source = NULL;
+    BgVertex *result = NULL;
+    unsigned short *tags = NULL;
+    int pathlength;
+
+    *tricount = 0;
+    *tritags = NULL;
+    *reasonout = "";
+
+    if (!ModelGetPropDefinition(modelid, &name, modelscale))
+    {
+        *reasonout = "the setup references an unknown prop model ID.";
+        return NULL;
+    }
+
+    pathlength = snprintf(path, sizeof(path),
+                          "%s\\models\\objects\\%s.ply",
+                          projectdir, name);
+    if (pathlength < 0 || pathlength >= (int)sizeof(path))
+    {
+        *reasonout = "the object model path is too long.";
+        return NULL;
+    }
+
+    file = fopen(path, "r");
+    if (file == NULL)
+    {
+        *reasonout = "the object's extracted model file is missing.";
+        return NULL;
+    }
+
+    if (fgets(line, sizeof(line), file) == NULL || strcmp(line, "ply\n") != 0)
+    {
+        *reasonout = "the object model is not an ASCII PLY file.";
+        goto fail;
+    }
+
+    while (fgets(line, sizeof(line), file) != NULL)
+    {
+        unsigned long count;
+
+        if (sscanf(line, "element vertex %lu", &count) == 1)
+        {
+            vertexcount = (DWORD)count;
+            inface = FALSE;
+        }
+        else if (sscanf(line, "element face %lu", &count) == 1)
+        {
+            facecount = (DWORD)count;
+            inface = TRUE;
+        }
+        else if (inface && strstr(line, "texture_tag") != NULL)
+        {
+            hastexturetags = TRUE;
+        }
+        else if (strncmp(line, "end_header", 10) == 0)
+        {
+            break;
+        }
+    }
+
+    if (vertexcount == 0 || facecount == 0
+        || vertexcount > 3000000u || facecount > 1000000u)
+    {
+        *reasonout = "the object model has invalid PLY counts.";
+        goto fail;
+    }
+
+    source = (BgVertex *)malloc((size_t)vertexcount * sizeof(*source));
+    result = (BgVertex *)malloc((size_t)facecount * 3 * sizeof(*result));
+    tags = (unsigned short *)malloc((size_t)facecount * sizeof(*tags));
+    if (source == NULL || result == NULL || tags == NULL)
+    {
+        *reasonout = "out of memory loading an object model.";
+        goto fail;
+    }
+
+    for (i = 0; i < vertexcount; i++)
+    {
+        unsigned int r, g, b, a;
+
+        if (fgets(line, sizeof(line), file) == NULL
+            || sscanf(line, "%f %f %f %u %u %u %u %f %f",
+                      &source[i].x, &source[i].y, &source[i].z,
+                      &r, &g, &b, &a, &source[i].s, &source[i].t) != 9
+            || r > 255 || g > 255 || b > 255 || a > 255)
+        {
+            *reasonout = "the object model has invalid PLY vertices.";
+            goto fail;
+        }
+
+        source[i].r = (unsigned char)r;
+        source[i].g = (unsigned char)g;
+        source[i].b = (unsigned char)b;
+        source[i].a = (unsigned char)a;
+    }
+
+    for (i = 0; i < facecount; i++)
+    {
+        unsigned long a, b, c;
+        unsigned int tag = BG_TEX_NONE;
+        int fields;
+
+        if (fgets(line, sizeof(line), file) == NULL)
+        {
+            *reasonout = "the object model ends inside its PLY faces.";
+            goto fail;
+        }
+
+        fields = sscanf(line, "3 %lu %lu %lu %u", &a, &b, &c, &tag);
+        if (fields < 3 || a >= vertexcount || b >= vertexcount
+            || c >= vertexcount || (hastexturetags && fields != 4)
+            || tag > 0xffffu)
+        {
+            *reasonout = "the object model has invalid PLY faces.";
+            goto fail;
+        }
+
+        result[i * 3 + 0] = source[a];
+        result[i * 3 + 1] = source[b];
+        result[i * 3 + 2] = source[c];
+        tags[i] = hastexturetags ? (unsigned short)tag : BG_TEX_NONE;
+    }
+
+    fclose(file);
+    free(source);
+    *tricount = facecount;
+    *tritags = tags;
+    return result;
+
+fail:
+    if (file != NULL)
+    {
+        fclose(file);
+    }
+    free(source);
+    free(result);
+    free(tags);
+    return NULL;
 }

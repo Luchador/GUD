@@ -19,6 +19,21 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
                             DWORD *tricount, unsigned short **texids,
                             const char **reasonout);
 
+/* Looks up a setup ObjectRecord's model ID in GoldenEye's canonical
+   PitemZ_entries table. The returned name is the extracted P...Z
+   resource filename and scale is the model's authored base scale. */
+BOOL ModelGetPropDefinition(int modelid, const char **nameout,
+                            float *scaleout);
+
+/* Loads one previously extracted object-model PLY. New projects retain
+   per-face texture tags; older PLYs without that property remain valid
+   and are returned as untextured geometry. Caller frees both arrays. */
+BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
+                                   DWORD *tricount,
+                                   unsigned short **tritags,
+                                   float *modelscale,
+                                   const char **reasonout);
+
 /*
  * Extracts every model in the ROM's file table into
  * <projectdir>\models\{characters,guns,objects,casings}\<name>.ply -

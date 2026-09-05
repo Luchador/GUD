@@ -32,9 +32,13 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const char *projectdir);
 
 /* Replaces the pad overlay. PadRecords are small green wireframe
-   cubes; BoundPadRecords are red wireframes of their authored volume. */
+   cubes; BoundPadRecords are red wireframes of their authored volume.
+   A nonzero occupied entry suppresses the corresponding marker because
+   the setup object's model is already visible at that pad. */
 void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup,
-                          float levelscale);
+                          float levelscale,
+                          const unsigned char *occupiedpads,
+                          const unsigned char *occupiedboundpads);
 
 /* Replaces the colored stan overlay. Stan positions have already been
    converted to gameplay world coordinates by StanLoadProjectFile. */

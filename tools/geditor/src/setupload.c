@@ -16,6 +16,7 @@
 
 #define SETUP_FILE_MAX (16u * 1024u * 1024u)
 #define SETUP_HEADER_SIZE       40u
+#define SETUP_OBJECT_POINTER     12u
 #define SETUP_PAD_POINTER       24u
 #define SETUP_BOUNDPAD_POINTER  28u
 #define SETUP_PAD_SIZE          44u
@@ -23,11 +24,213 @@
 #define SETUP_PAD_LINK          36u
 #define SETUP_BOUNDPAD_BBOX     44u
 #define SETUP_PAD_MAX        65536u
+#define SETUP_OBJECT_MAX     65536u
+
+#define SETUP_PROP_END 48u
 
 static DWORD SetupRead32(const unsigned char *p)
 {
     return ((DWORD)p[0] << 24) | ((DWORD)p[1] << 16)
          | ((DWORD)p[2] << 8)  |  (DWORD)p[3];
+}
+
+static short SetupRead16(const unsigned char *p)
+{
+    return (short)(((unsigned int)p[0] << 8) | p[1]);
+}
+
+/* Setup commands are variable length. These are their encoded source
+   sizes; they must not use host sizeof because a 64-bit editor has
+   different pointer sizes from the N64. */
+static DWORD SetupObjectWordCount(unsigned char type)
+{
+    switch (type)
+    {
+    case 1:  return 64;  /* DoorRecord */
+    case 2:  return 2;   /* GlobalDoorScaleRecord */
+    case 3:  return 32;  /* ObjectRecord */
+    case 4:  return 33;  /* KeyRecord */
+    case 5:  return 32;
+    case 6:  return 0x3b;
+    case 7:  return 0x21;
+    case 8:  return 0x22;
+    case 9:  return 7;
+    case 10: return 0x40;
+    case 11: return 0x95;
+    case 12: return 32;
+    case 13: return 0x36;
+    case 14: return 3;
+    case 17: return 32;
+    case 18: return 3;
+    case 19: return 4;
+    case 20: return 0x2d;
+    case 21: return 0x22;
+    case 22: return 4;
+    case 23: return 4;
+    case 24: return 1;
+    case 25: return 2;
+    case 26: return 2;
+    case 27: return 2;
+    case 28: return 2;
+    case 29: return 2;
+    case 30: return 4;
+    case 31: return 1;
+    case 32: return 4;
+    case 33: return 5;
+    case 34: return 3;   /* ObjectiveCopyItemRecord (three source words) */
+    case 35: return 4;
+    case 36: return 32;
+    case 37: return 10;
+    case 38: return 4;
+    case 39: return 0x2c;
+    case 40: return 0x2d;
+    case 42: return 32;
+    case 43: return 32;
+    case 44: return 5;
+    case 45: return 0x38;
+    case 46: return 7;
+    case 47: return 37;
+    default: return 1;   /* PropDefHeaderRecord and unused types */
+    }
+}
+
+static BOOL SetupTypeCreatesObject(unsigned char type)
+{
+    switch (type)
+    {
+    case 1:  /* door */
+    case 3:  /* ordinary prop */
+    case 4:  /* key */
+    case 5:  /* alarm */
+    case 6:  /* CCTV */
+    case 7:  /* magazine */
+    case 8:  /* collectable/weapon */
+    case 10: /* monitor */
+    case 11: /* multi-monitor */
+    case 12: /* hanging monitor rack */
+    case 13: /* autogun */
+    case 17: /* hat */
+    case 20: /* ammo crate */
+    case 21: /* body armour */
+    case 36: /* gas-releasing object */
+    case 39: /* vehicle */
+    case 40: /* aircraft */
+    case 42: /* glass */
+    case 43: /* safe */
+    case 45: /* tank */
+    case 47: /* tinted glass */
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+static BOOL SetupParseObjects(SetupFile *setup, const char **reasonout)
+{
+    DWORD offset;
+    DWORD at;
+    DWORD commandcount;
+    DWORD objectcount = 0;
+    DWORD objectat = 0;
+
+    offset = SetupRead32(setup->data + SETUP_OBJECT_POINTER);
+
+    /* A NULL propDefs pointer is legal for a setup with no objects. */
+    if (offset == 0)
+    {
+        return TRUE;
+    }
+
+    if (offset < SETUP_HEADER_SIZE || offset >= setup->size)
+    {
+        *reasonout = "the setup's object-list pointer is invalid.";
+        return FALSE;
+    }
+
+    at = offset;
+
+    /* First validate the complete variable-sized list and count only
+       records which actually create a visible non-character object. */
+    for (commandcount = 0; commandcount < SETUP_OBJECT_MAX; commandcount++)
+    {
+        unsigned char type;
+        DWORD bytes;
+
+        if (setup->size - at < 4)
+        {
+            *reasonout = "the setup's object list has no terminator.";
+            return FALSE;
+        }
+
+        type = setup->data[at + 3];
+        if (type == SETUP_PROP_END)
+        {
+            break;
+        }
+
+        bytes = SetupObjectWordCount(type) * 4;
+        if (bytes < 4 || bytes > setup->size - at)
+        {
+            *reasonout = "the setup's object list is malformed.";
+            return FALSE;
+        }
+
+        if (SetupTypeCreatesObject(type))
+        {
+            /* Every type accepted above starts with ObjectRecord. */
+            if (bytes < 16)
+            {
+                *reasonout = "an object setup command is too small.";
+                return FALSE;
+            }
+            objectcount++;
+        }
+
+        at += bytes;
+    }
+
+    if (commandcount == SETUP_OBJECT_MAX)
+    {
+        *reasonout = "the setup's object list is unreasonably long.";
+        return FALSE;
+    }
+
+    if (objectcount == 0)
+    {
+        return TRUE;
+    }
+
+    setup->objects = (SetupObject *)malloc(objectcount * sizeof(*setup->objects));
+    if (setup->objects == NULL)
+    {
+        *reasonout = "out of memory decoding the setup's objects.";
+        return FALSE;
+    }
+
+    at = offset;
+    while (setup->data[at + 3] != SETUP_PROP_END)
+    {
+        const unsigned char *record = setup->data + at;
+        unsigned char type = record[3];
+        DWORD bytes = SetupObjectWordCount(type) * 4;
+
+        if (SetupTypeCreatesObject(type))
+        {
+            SetupObject *object = &setup->objects[objectat++];
+
+            object->type = type;
+            object->extrascale = (unsigned short)SetupRead16(record);
+            object->modelid = SetupRead16(record + 4);
+            object->pad = SetupRead16(record + 6);
+            object->flags = SetupRead32(record + 8);
+            object->flags2 = SetupRead32(record + 12);
+        }
+
+        at += bytes;
+    }
+
+    setup->objectcount = objectat;
+    return TRUE;
 }
 
 /* Returns FALSE for NaN and infinity as well as decoding big endian. */
@@ -394,7 +597,8 @@ BOOL SetupLoadProjectFile(const char *projectdir, const char *setupname,
 
     CloseHandle(file);
 
-    if (!SetupParsePads(out, reasonout))
+    if (!SetupParsePads(out, reasonout)
+        || !SetupParseObjects(out, reasonout))
     {
         SetupFileFree(out);
         return FALSE;
@@ -406,6 +610,7 @@ BOOL SetupLoadProjectFile(const char *projectdir, const char *setupname,
 
 void SetupFileFree(SetupFile *setup)
 {
+    free(setup->objects);
     free(setup->boundpads);
     free(setup->pads);
     free(setup->data);

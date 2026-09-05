@@ -19,6 +19,18 @@ typedef struct SetupBoundPad {
     float zmin, zmax;
 } SetupBoundPad;
 
+/* The placement fields shared by setup records which create a
+   non-character object. Runtime pointers later overwrite much of the
+   source record, so GEditor keeps only the authored values it needs. */
+typedef struct SetupObject {
+    unsigned char type;
+    unsigned short extrascale;  /* unsigned 8.8 fixed point */
+    short modelid;              /* index into PitemZ_entries */
+    short pad;
+    DWORD flags;
+    DWORD flags2;
+} SetupObject;
+
 /* Builds an oriented box in gameplay world coordinates. The local
    axes are the same ones GoldenEye uses for bound-pad volume tests. */
 void SetupPadGetBoxCorners(const SetupPad *pad,
@@ -38,6 +50,8 @@ typedef struct SetupFile {
     DWORD padcount;
     SetupBoundPad *boundpads;
     DWORD boundpadcount;
+    SetupObject *objects;
+    DWORD objectcount;
 } SetupFile;
 
 /*

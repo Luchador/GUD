@@ -8,16 +8,18 @@ WIN_DIR := /mnt/c/Users/lucha/Documents/N64/GEditor
 
 CC      := x86_64-w64-mingw32-gcc
 RC      := x86_64-w64-mingw32-windres
-CFLAGS  := -O2 -Wall -Wextra -Wno-unused-parameter -std=c99
+CFLAGS  := -O2 -Wall -Wextra -Wno-unused-parameter -std=c99 -I../../..
 LDFLAGS := -mwindows -lgdi32 -lcomdlg32 -lopengl32 -lole32 -luuid -lshell32
 
 BIN_DIR := ..
 TARGET  := $(BIN_DIR)/GEditor.exe
 SOURCES := $(wildcard *.c)
+PROP_RECORDS := ../../../assets/obseg/prop/propItemModelFileRecord.inc.c \
+                $(wildcard ../../../assets/obseg/prop/*/propFileRecord.inc.c)
 RCFILE  := geditor.rc
 RCOBJ   := geditor_rc.o
 
-$(TARGET): $(SOURCES) $(RCOBJ)
+$(TARGET): $(SOURCES) $(PROP_RECORDS) $(RCOBJ)
 	$(CC) $(CFLAGS) -o $@ $(SOURCES) $(RCOBJ) $(LDFLAGS)
 
 # Resource script -> linkable object (dialog templates, later icons/version info)
