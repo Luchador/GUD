@@ -608,6 +608,47 @@ BOOL SetupLoadProjectFile(const char *projectdir, const char *setupname,
     return TRUE;
 }
 
+
+BOOL SetupSaveProjectFile(const char *projectdir, const SetupFile *setup,
+                          const char **reasonout)
+{
+    char path[MAX_PATH];
+    HANDLE file;
+    DWORD written;
+    BOOL ok;
+
+    *reasonout = "";
+
+    if (setup == NULL || setup->data == NULL || setup->size == 0
+        || !SetupProjectPath(path, sizeof(path), projectdir, setup->name))
+    {
+        *reasonout = "there is no valid setup loaded to save.";
+        return FALSE;
+    }
+
+    file = CreateFile(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                      FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE)
+    {
+        *reasonout = "the project setup could not be opened for writing.";
+        return FALSE;
+    }
+
+    ok = WriteFile(file, setup->data, setup->size, &written, NULL)
+      && written == setup->size;
+    if (!CloseHandle(file))
+    {
+        ok = FALSE;
+    }
+
+    if (!ok)
+    {
+        *reasonout = "the project setup could not be fully written.";
+    }
+
+    return ok;
+}
+
 void SetupFileFree(SetupFile *setup)
 {
     free(setup->objects);

@@ -47,6 +47,10 @@ BOOL StanLoadProjectFile(const char *projectdir, const char *stanname,
                          float levelscale, StanFile *out,
                          const char **reasonout);
 
+/* Overwrites the project copy with the raw stan retained in memory. */
+BOOL StanSaveProjectFile(const char *projectdir, const StanFile *stan,
+                         const char **reasonout);
+
 void StanFileFree(StanFile *stan);
 
 #endif /* GEDITOR_STANLOAD_H */

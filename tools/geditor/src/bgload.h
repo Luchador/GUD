@@ -20,6 +20,15 @@ typedef struct BgVertex {
     unsigned char r, g, b, a;
 } BgVertex;
 
+/* Raw project background retained while a level is open. Keeping the
+   original segment makes saving lossless even though GEditor only
+   understands part of GoldenEye's display-list state today. */
+typedef struct BgFile {
+    unsigned char *data;
+    DWORD size;
+    char name[64];
+} BgFile;
+
 #define BG_PORTAL_MAX_POINTS 8
 
 /* Host-native view of one entry in the BG portal table. Portal points
@@ -91,6 +100,13 @@ BOOL BgLoadPortals(const unsigned char *data, DWORD maxlen,
  */
 DWORD BgExtractAll(const RomFile *rom, const char *projectdir,
                    const char **reasonout);
+
+/* Loads and saves the editable project copy of one complete BG segment. */
+BOOL BgLoadProjectFile(const char *projectdir, const char *bgname,
+                       BgFile *out, const char **reasonout);
+BOOL BgSaveProjectFile(const char *projectdir, const BgFile *bg,
+                       const char **reasonout);
+void BgFileFree(BgFile *bg);
 
 /*
  * Loads and parses one background from the project's bg folder. The

@@ -17,6 +17,7 @@ BOOL ProjectCreate(const char *name, const char *location,
                    const RomInfo *rominfo, GEditorProject *proj,
                    const char **reasonout);
 BOOL ProjectRead(const char *geppath, GEditorProject *proj);
+BOOL ProjectSave(const GEditorProject *proj, const char **reasonout);
 void ProjectClose(GEditorProject *proj);
 
 #endif

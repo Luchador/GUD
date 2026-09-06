@@ -13,7 +13,8 @@
 
 
 /**
- * Writes .proj to its .gep path. Returns FALSE if the file could not be created or fully written.
+ * Writes the project metadata to its .gep path. Returns FALSE if the
+ * file could not be created or fully written.
  */
 static BOOL ProjectWrite(const GEditorProject *proj)
 {
@@ -48,6 +49,26 @@ static BOOL ProjectWrite(const GEditorProject *proj)
     }
 
     return fclose(f) == 0 && ok;
+}
+
+
+BOOL ProjectSave(const GEditorProject *proj, const char **reasonout)
+{
+    *reasonout = "";
+
+    if (proj == NULL || proj->name[0] == '\0' || proj->geppath[0] == '\0')
+    {
+        *reasonout = "there is no valid project open to save.";
+        return FALSE;
+    }
+
+    if (!ProjectWrite(proj))
+    {
+        *reasonout = "the project file could not be fully written.";
+        return FALSE;
+    }
+
+    return TRUE;
 }
 
 
@@ -280,9 +301,9 @@ BOOL ProjectRead(const char *geppath, GEditorProject *proj)
  * open" test everywhere.
  *
  * The .gep on disk needs nothing - reads and writes open and close it
- * within one call, so no handle is ever held between operations. When
- * projects gain unsaved state (a loaded level, editor settings), this
- * is the function that will flush it before forgetting.
+ * within one call, so no handle is ever held between operations.
+ * Saving is explicit through File > Save Project; closing only releases
+ * the in-memory project.
  */
 void ProjectClose(GEditorProject *proj)
 {

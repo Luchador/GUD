@@ -25,6 +25,7 @@
 #define GEDITOR_TITLE  "GEditor"
 #define GEDITOR_WIDTH  1920
 #define GEDITOR_HEIGHT  1080
+#define GEDITOR_NO_LEVEL ((DWORD)-1)
 
 static HWND g_Viewport;
 static HWND g_Browser;
@@ -41,6 +42,11 @@ static int  g_RightPanelWidth = 260;
 static BOOL g_DraggingBrowserSplitter = FALSE;
 static BOOL g_DraggingRightSplitter = FALSE;
 static GEditorProject g_Project;
+static DWORD g_CurrentLevelIndex = GEDITOR_NO_LEVEL;
+/* Complete source segment for the selected level. Parsed viewport
+   geometry is deliberately separate so selection colors and other
+   display-only state can never leak into a saved background. */
+static BgFile g_CurrentBg;
 /* Setup for the selected level, including host-native parsed views.
    Editor tools can consume it without retaining the source ROM. */
 static SetupFile g_CurrentSetup;
@@ -144,6 +150,8 @@ static void GEditorCloseProject(HWND hwnd)
     SetupFileFree(&g_CurrentSetup);
     StanFileFree(&g_CurrentStan);
     BgPortalFileFree(&g_CurrentPortals);
+    BgFileFree(&g_CurrentBg);
+    g_CurrentLevelIndex = GEDITOR_NO_LEVEL;
     ProjectClose(&g_Project);
 
     BrowserSetLevels(g_Browser, NULL, 0);
@@ -161,6 +169,7 @@ static void GEditorCloseProject(HWND hwnd)
 enum {
     ID_FILE_NEW_PROJECT = 40001,
     ID_FILE_OPEN_PROJECT,
+    ID_FILE_SAVE_PROJECT,
     ID_FILE_CLOSE_PROJECT,
     ID_FILE_EXIT,
 
@@ -196,6 +205,7 @@ static HMENU GEditorCreateMenuBar(void)
     /* MF_STRING items carry a command ID. '&' marks the Alt mnemonic. */
     AppendMenu(filemenu, MF_STRING, ID_FILE_NEW_PROJECT, "&New Project");
     AppendMenu(filemenu, MF_STRING, ID_FILE_OPEN_PROJECT, "&Open Project");
+    AppendMenu(filemenu, MF_STRING, ID_FILE_SAVE_PROJECT, "&Save Project");
     AppendMenu(filemenu, MF_STRING, ID_FILE_CLOSE_PROJECT, "&Close Project");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_STRING, ID_FILE_EXIT, "E&xit");
@@ -590,6 +600,47 @@ static void GEditorSetTitleForProject(HWND hwnd)
 }
 
 
+/*
+ * Saves only the project's metadata and the resource files belonging
+ * to the currently open level. Other extracted levels and shared
+ * image/model assets remain untouched.
+ */
+static BOOL GEditorSaveProject(HWND hwnd)
+{
+    const char *why = "";
+
+    if (g_Project.name[0] == '\0')
+    {
+        return FALSE;
+    }
+
+    if (g_CurrentLevelIndex < g_Project.levelcount)
+    {
+        /* Portals live inside this complete BG segment, so they are
+           preserved by the same write rather than as a sidecar file. */
+        if (!BgSaveProjectFile(g_Project.dir, &g_CurrentBg, &why)
+            || (g_CurrentSetup.data != NULL
+                && !SetupSaveProjectFile(g_Project.dir, &g_CurrentSetup,
+                                         &why))
+            || (g_CurrentStan.data != NULL
+                && !StanSaveProjectFile(g_Project.dir, &g_CurrentStan,
+                                        &why)))
+        {
+            MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+            return FALSE;
+        }
+    }
+
+    if (!ProjectSave(&g_Project, &why))
+    {
+        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+
 static void GEditorLayout(HWND hwnd)
 {
     RECT rc;
@@ -739,6 +790,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         DWORD index = (DWORD)wparam;
         const RomLevel *level;
         DWORD tricount = 0;
+        BgFile bg;
         BgVertex *tris;
         SetupFile setup;
         SetupObjectGeometry objects;
@@ -767,19 +819,24 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         {
         unsigned short *tritags = NULL;
 
-        tris = BgLoadProjectGeometry(g_Project.dir, level->bgname,
-                                     level->levelscale,
-                                     &tricount, &tritags, &bgwhy);
-
-        if (tris == NULL)
+        if (!BgLoadProjectFile(g_Project.dir, level->bgname, &bg, &bgwhy))
         {
             MessageBox(hwnd, bgwhy, GEDITOR_TITLE, MB_ICONERROR);
             return 0;
         }
 
-        portalsLoaded = BgLoadProjectPortals(g_Project.dir, level->bgname,
-                                             level->levelscale, &portals,
-                                             &portalwhy);
+        tris = BgLoadGeometry(bg.data, bg.size, level->levelscale,
+                              &tricount, &tritags, &bgwhy);
+
+        if (tris == NULL)
+        {
+            BgFileFree(&bg);
+            MessageBox(hwnd, bgwhy, GEDITOR_TITLE, MB_ICONERROR);
+            return 0;
+        }
+
+        portalsLoaded = BgLoadPortals(bg.data, bg.size, level->levelscale,
+                                      &portals, &portalwhy);
 
         setupLoaded = SetupLoadProjectFile(g_Project.dir, level->setupname,
                                            &setup, &setupwhy);
@@ -852,6 +909,9 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         free(tris);   /* the viewport copied and normalized both */
         free(tritags);
 
+        BgFileFree(&g_CurrentBg);
+        g_CurrentBg = bg;
+
         BgPortalFileFree(&g_CurrentPortals);
         if (portalsLoaded)
         {
@@ -904,6 +964,8 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
         ObjectGeometryFree(&objects);
         }
+
+        g_CurrentLevelIndex = index;
 
         wsprintf(title, "%s - %s", GEDITOR_TITLE, (const char *)lparam);
         SetWindowText(hwnd, title);
@@ -1000,8 +1062,9 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
     case WM_INITMENUPOPUP:
         /* Sent just before a drop-down opens - the one moment the item
-           states matter, so they can never be stale. Close Project is
-           only clickable while a project is open. */
+           states matter, so they can never be stale. Save and Close
+           are only clickable while a project is open. */
+        EnableMenuItem((HMENU)wparam, ID_FILE_SAVE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_FILE_CLOSE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         CheckMenuItem((HMENU)wparam, ID_VIEW_BACKFACE_CULLING, MF_BYCOMMAND | (ViewportGetBackfaceCulling(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
         return 0;
@@ -1106,6 +1169,10 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 GEditorCloseProject(hwnd);
                 return 0;
 
+            case ID_FILE_SAVE_PROJECT:
+                GEditorSaveProject(hwnd);
+                return 0;
+
             case ID_VIEW_BACKFACE_CULLING:
                 ViewportSetBackfaceCulling(g_Viewport,
                     !ViewportGetBackfaceCulling(g_Viewport));
@@ -1124,6 +1191,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         SetupFileFree(&g_CurrentSetup);
         StanFileFree(&g_CurrentStan);
         BgPortalFileFree(&g_CurrentPortals);
+        BgFileFree(&g_CurrentBg);
         PostQuitMessage(0);
         return 0;
     }

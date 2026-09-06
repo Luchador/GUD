@@ -66,6 +66,10 @@ DWORD SetupExtractAll(const RomFile *rom, const char *projectdir,
 BOOL SetupLoadProjectFile(const char *projectdir, const char *setupname,
                           SetupFile *out, const char **reasonout);
 
+/* Overwrites the project copy with the raw setup retained in memory. */
+BOOL SetupSaveProjectFile(const char *projectdir, const SetupFile *setup,
+                          const char **reasonout);
+
 /* Releases a SetupFile and returns it to the empty state. */
 void SetupFileFree(SetupFile *setup);
 

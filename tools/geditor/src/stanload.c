@@ -375,6 +375,47 @@ BOOL StanLoadProjectFile(const char *projectdir, const char *stanname,
     return TRUE;
 }
 
+
+BOOL StanSaveProjectFile(const char *projectdir, const StanFile *stan,
+                         const char **reasonout)
+{
+    char path[MAX_PATH];
+    HANDLE file;
+    DWORD written;
+    BOOL ok;
+
+    *reasonout = "";
+
+    if (stan == NULL || stan->data == NULL || stan->size == 0
+        || !StanProjectPath(path, sizeof(path), projectdir, stan->name))
+    {
+        *reasonout = "there is no valid stan loaded to save.";
+        return FALSE;
+    }
+
+    file = CreateFile(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                      FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE)
+    {
+        *reasonout = "the project stan could not be opened for writing.";
+        return FALSE;
+    }
+
+    ok = WriteFile(file, stan->data, stan->size, &written, NULL)
+      && written == stan->size;
+    if (!CloseHandle(file))
+    {
+        ok = FALSE;
+    }
+
+    if (!ok)
+    {
+        *reasonout = "the project stan could not be fully written.";
+    }
+
+    return ok;
+}
+
 void StanFileFree(StanFile *stan)
 {
     free(stan->tiles);

@@ -776,27 +776,89 @@ static unsigned char *BgReadProjectFile(const char *projectdir,
 }
 
 
+BOOL BgLoadProjectFile(const char *projectdir, const char *bgname,
+                       BgFile *out, const char **reasonout)
+{
+    ZeroMemory(out, sizeof(*out));
+    out->data = BgReadProjectFile(projectdir, bgname, &out->size,
+                                  reasonout);
+    if (out->data == NULL)
+    {
+        return FALSE;
+    }
+
+    strncpy(out->name, bgname, sizeof(out->name) - 1);
+    return TRUE;
+}
+
+
+BOOL BgSaveProjectFile(const char *projectdir, const BgFile *bg,
+                       const char **reasonout)
+{
+    char path[MAX_PATH];
+    HANDLE file;
+    DWORD written;
+    BOOL ok;
+
+    *reasonout = "";
+
+    if (bg == NULL || bg->data == NULL || bg->size == 0
+        || !BgProjectPath(path, sizeof(path), projectdir, bg->name))
+    {
+        *reasonout = "there is no valid background loaded to save.";
+        return FALSE;
+    }
+
+    file = CreateFile(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                      FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE)
+    {
+        *reasonout = "the project background could not be opened for writing.";
+        return FALSE;
+    }
+
+    ok = WriteFile(file, bg->data, bg->size, &written, NULL)
+      && written == bg->size;
+    if (!CloseHandle(file))
+    {
+        ok = FALSE;
+    }
+
+    if (!ok)
+    {
+        *reasonout = "the project background could not be fully written.";
+    }
+
+    return ok;
+}
+
+
+void BgFileFree(BgFile *bg)
+{
+    free(bg->data);
+    ZeroMemory(bg, sizeof(*bg));
+}
+
+
 BgVertex *BgLoadProjectGeometry(const char *projectdir, const char *bgname,
                                 float levelscale,
                                 DWORD *tricount, unsigned short **tritags,
                                 const char **reasonout)
 {
-    DWORD length;
-    unsigned char *data;
+    BgFile bg;
     BgVertex *vertices;
 
     *tricount = 0;
     *tritags = NULL;
 
-    data = BgReadProjectFile(projectdir, bgname, &length, reasonout);
-    if (data == NULL)
+    if (!BgLoadProjectFile(projectdir, bgname, &bg, reasonout))
     {
         return NULL;
     }
 
-    vertices = BgLoadGeometry(data, length, levelscale,
+    vertices = BgLoadGeometry(bg.data, bg.size, levelscale,
                               tricount, tritags, reasonout);
-    free(data);
+    BgFileFree(&bg);
     return vertices;
 }
 
@@ -805,19 +867,17 @@ BOOL BgLoadProjectPortals(const char *projectdir, const char *bgname,
                           float levelscale, BgPortalFile *out,
                           const char **reasonout)
 {
-    DWORD length;
-    unsigned char *data;
+    BgFile bg;
     BOOL ok;
 
     ZeroMemory(out, sizeof(*out));
-    data = BgReadProjectFile(projectdir, bgname, &length, reasonout);
-    if (data == NULL)
+    if (!BgLoadProjectFile(projectdir, bgname, &bg, reasonout))
     {
         return FALSE;
     }
 
-    ok = BgLoadPortals(data, length, levelscale, out, reasonout);
-    free(data);
+    ok = BgLoadPortals(bg.data, bg.size, levelscale, out, reasonout);
+    BgFileFree(&bg);
     return ok;
 }
 
