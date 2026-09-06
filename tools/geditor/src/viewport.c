@@ -87,6 +87,7 @@ typedef struct ViewportState {
     struct SceneBatch *batches;  /* texture-sorted draw ranges */
     int batchcount;
     unsigned char *selectedtris; /* one byte per texture-sorted triangle */
+    BgFaceRef *scenefacerefs;    /* stable document identity in the same order */
     int selectedtricount;
     GLuint *textures;    /* GL texture names owned by the scene */
     int texturecount;
@@ -1048,6 +1049,7 @@ static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex,
         }
 
         InvalidateRect(hwnd, NULL, FALSE);
+        SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
         return;
     }
 
@@ -1066,6 +1068,7 @@ static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex,
     }
 
     InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
 }
 
 
@@ -1270,6 +1273,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
     free(state->textures);
     free(state->batches);
     free(state->selectedtris);
+    free(state->scenefacerefs);
     free(state->scenecolors);
     free(state->stanedges);
     free(state->stanfill);
@@ -1280,6 +1284,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
     state->textures = NULL;
     state->batches = NULL;
     state->selectedtris = NULL;
+    state->scenefacerefs = NULL;
     state->scenecolors = NULL;
     state->stanedges = NULL;
     state->stanfill = NULL;
@@ -1571,7 +1576,8 @@ static int ViewportTriKeyCompare(const void *a, const void *b)
 }
 
 void ViewportSetScene(HWND hwnd, const BgVertex *tris,
-                      const unsigned short *tritags, int tricount,
+                      const unsigned short *tritags,
+                      const BgFaceRef *facerefs, int tricount,
                       const char *projectdir)
 {
     ViewportState *state = (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
@@ -1580,6 +1586,7 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
     SceneBatch *batches = NULL;
     GLuint *textures = NULL;
     unsigned char *selectedtris = NULL;
+    BgFaceRef *scenefacerefs = NULL;
     TriKey *order = NULL;
     TexPixel *decode = NULL;
     int batchcount = 0;
@@ -1602,13 +1609,17 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
         textures = (GLuint *)malloc((size_t)tricount * sizeof(GLuint));
         selectedtris = (unsigned char *)calloc((size_t)tricount,
                                                sizeof(*selectedtris));
+        scenefacerefs = (BgFaceRef *)calloc((size_t)tricount,
+                                            sizeof(*scenefacerefs));
         decode = (TexPixel *)malloc(256 * 256 * sizeof(TexPixel));
 
         if (scene == NULL || scenecolors == NULL || order == NULL || batches == NULL
-            || textures == NULL || selectedtris == NULL || decode == NULL)
+            || textures == NULL || selectedtris == NULL
+            || scenefacerefs == NULL || decode == NULL)
         {
             free(scene); free(scenecolors); free(order); free(batches);
-            free(textures); free(selectedtris); free(decode);
+            free(textures); free(selectedtris); free(scenefacerefs);
+            free(decode);
             return; /* keep whatever we had */
         }
 
@@ -1631,6 +1642,11 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
             float invw = 0.0f;
             float invh = 0.0f;
             int k;
+
+            if (facerefs != NULL)
+            {
+                scenefacerefs[i] = facerefs[order[i].tri];
+            }
 
             if (i == 0 || order[i].tag != order[i - 1].tag)
             {
@@ -1741,6 +1757,7 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
     state->batches = batches;
     state->batchcount = scene != NULL ? batchcount : 0;
     state->selectedtris = selectedtris;
+    state->scenefacerefs = scenefacerefs;
     state->textures = textures;
     state->texturecount = scene != NULL ? texturecount : 0;
 
@@ -1749,10 +1766,12 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
         free(batches);
         free(textures);
         free(selectedtris);
+        free(scenefacerefs);
         free(scenecolors);
         state->batches = NULL;
         state->textures = NULL;
         state->selectedtris = NULL;
+        state->scenefacerefs = NULL;
         state->scenecolors = NULL;
         state->batchcount = 0;
         state->texturecount = 0;
@@ -1775,6 +1794,78 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
     }
 
     InvalidateRect(hwnd, NULL, FALSE);
+}
+
+
+int ViewportGetSelectedBgFaceCount(HWND hwnd)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    int count = 0;
+    int triangle;
+    int trianglecount;
+
+    if (state == NULL || state->selectedtris == NULL
+        || state->scenefacerefs == NULL)
+    {
+        return 0;
+    }
+
+    trianglecount = state->scenecount / 3;
+    for (triangle = 0; triangle < trianglecount; triangle++)
+    {
+        if (state->selectedtris[triangle]
+            && state->scenefacerefs[triangle].faceid != BG_FACE_ID_NONE)
+        {
+            count++;
+        }
+    }
+
+    return count;
+}
+
+
+BOOL ViewportGetSingleSelectedBgFace(HWND hwnd, BgFaceRef *out)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    const BgFaceRef *found = NULL;
+    int triangle;
+    int trianglecount;
+
+    if (out == NULL)
+    {
+        return FALSE;
+    }
+    ZeroMemory(out, sizeof(*out));
+
+    if (state == NULL || state->selectedtris == NULL
+        || state->scenefacerefs == NULL)
+    {
+        return FALSE;
+    }
+
+    trianglecount = state->scenecount / 3;
+    for (triangle = 0; triangle < trianglecount; triangle++)
+    {
+        if (!state->selectedtris[triangle]
+            || state->scenefacerefs[triangle].faceid == BG_FACE_ID_NONE)
+        {
+            continue;
+        }
+
+        if (found != NULL)
+        {
+            return FALSE;
+        }
+        found = &state->scenefacerefs[triangle];
+    }
+
+    if (found == NULL)
+    {
+        return FALSE;
+    }
+
+    *out = *found;
+    return TRUE;
 }
 
 

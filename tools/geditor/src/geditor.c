@@ -16,6 +16,7 @@
 #include "rom.h"
 #include "romexport.h"
 #include "bgload.h"
+#include "bgdocument.h"
 #include "setupload.h"
 #include "stanload.h"
 #include "texload.h"
@@ -48,6 +49,9 @@ static DWORD g_CurrentLevelIndex = GEDITOR_NO_LEVEL;
    geometry is deliberately separate so selection colors and other
    display-only state can never leak into a saved background. */
 static BgFile g_CurrentBg;
+/* Room-aware editable geometry. The raw segment above remains the save source
+   until the BG compiler is introduced. */
+static BgDocument g_CurrentBgDocument;
 /* Setup for the selected level, including host-native parsed views.
    Editor tools can consume it without retaining the source ROM. */
 static SetupFile g_CurrentSetup;
@@ -151,6 +155,7 @@ static void GEditorCloseProject(HWND hwnd)
     SetupFileFree(&g_CurrentSetup);
     StanFileFree(&g_CurrentStan);
     BgPortalFileFree(&g_CurrentPortals);
+    BgDocumentFree(&g_CurrentBgDocument);
     BgFileFree(&g_CurrentBg);
     g_CurrentLevelIndex = GEDITOR_NO_LEVEL;
     ProjectClose(&g_Project);
@@ -158,7 +163,8 @@ static void GEditorCloseProject(HWND hwnd)
     BrowserSetLevels(g_Browser, NULL, 0);
     BrowserSetImages(g_Browser, NULL, 0, NULL);
     BrowserSetModels(g_Browser, NULL, 0);
-    ViewportSetScene(g_Viewport, NULL, NULL, 0, NULL);
+    ViewportSetScene(g_Viewport, NULL, NULL, NULL, 0, NULL);
+    RightPanelSetBgSelectionCount(g_RightPanel, 0);
     GEditorSetTitleForProject(hwnd);
 }
 
@@ -1011,13 +1017,31 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         return 0;
     }
 
+    case VIEWPORT_WM_SELECTION_CHANGED:
+    {
+        BgFaceRef selected;
+        int count = ViewportGetSelectedBgFaceCount(g_Viewport);
+
+        if (count == 1
+            && ViewportGetSingleSelectedBgFace(g_Viewport, &selected))
+        {
+            RightPanelSetBgTriangle(g_RightPanel, &g_CurrentBgDocument,
+                                    &selected);
+        }
+        else
+        {
+            RightPanelSetBgSelectionCount(g_RightPanel, count);
+        }
+        return 0;
+    }
+
     case BROWSER_WM_LEVEL_OPEN:
     {
         DWORD index = (DWORD)wparam;
         const RomLevel *level;
-        DWORD tricount = 0;
         BgFile bg;
-        BgVertex *tris;
+        BgDocument document;
+        BgDocumentRenderMesh mesh;
         SetupFile setup;
         SetupObjectGeometry objects;
         StanFile stan;
@@ -1042,20 +1066,23 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
         level = &g_Project.levels[index];
 
-        {
-        unsigned short *tritags = NULL;
-
         if (!BgLoadProjectFile(g_Project.dir, level->bgname, &bg, &bgwhy))
         {
             MessageBox(hwnd, bgwhy, GEDITOR_TITLE, MB_ICONERROR);
             return 0;
         }
 
-        tris = BgLoadGeometry(bg.data, bg.size, level->levelscale,
-                              &tricount, &tritags, &bgwhy);
-
-        if (tris == NULL)
+        if (!BgDocumentLoad(bg.data, bg.size, level->levelscale,
+                            &document, &bgwhy))
         {
+            BgFileFree(&bg);
+            MessageBox(hwnd, bgwhy, GEDITOR_TITLE, MB_ICONERROR);
+            return 0;
+        }
+
+        if (!BgDocumentBuildRenderMesh(&document, &mesh, &bgwhy))
+        {
+            BgDocumentFree(&document);
             BgFileFree(&bg);
             MessageBox(hwnd, bgwhy, GEDITOR_TITLE, MB_ICONERROR);
             return 0;
@@ -1075,51 +1102,46 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
             if (objectsLoaded && objects.tricount > 0)
             {
-                DWORD total = tricount + objects.tricount;
+                DWORD total = mesh.facecount + objects.tricount;
                 BgVertex *combinedtris = NULL;
                 unsigned short *combinedtags = NULL;
+                BgFaceRef *combinedrefs = NULL;
 
-                if (total >= tricount && total >= objects.tricount)
+                if (total >= mesh.facecount && total >= objects.tricount)
                 {
                     combinedtris = (BgVertex *)malloc(
                         (size_t)total * 3 * sizeof(*combinedtris));
                     combinedtags = (unsigned short *)malloc(
                         (size_t)total * sizeof(*combinedtags));
+                    combinedrefs = (BgFaceRef *)calloc(
+                        (size_t)total, sizeof(*combinedrefs));
                 }
 
-                if (combinedtris != NULL && combinedtags != NULL)
+                if (combinedtris != NULL && combinedtags != NULL
+                    && combinedrefs != NULL)
                 {
-                    memcpy(combinedtris, tris,
-                           (size_t)tricount * 3 * sizeof(*combinedtris));
-                    memcpy(combinedtris + tricount * 3, objects.tris,
+                    memcpy(combinedtris, mesh.vertices,
+                           (size_t)mesh.facecount * 3 * sizeof(*combinedtris));
+                    memcpy(combinedtris + mesh.facecount * 3, objects.tris,
                            (size_t)objects.tricount * 3 * sizeof(*combinedtris));
-                    if (tritags != NULL)
-                    {
-                        memcpy(combinedtags, tritags,
-                               (size_t)tricount * sizeof(*combinedtags));
-                    }
-                    else
-                    {
-                        DWORD triangle;
-
-                        for (triangle = 0; triangle < tricount; triangle++)
-                        {
-                            combinedtags[triangle] = BG_TEX_NONE;
-                        }
-                    }
-                    memcpy(combinedtags + tricount, objects.tritags,
+                    memcpy(combinedtags, mesh.tags,
+                           (size_t)mesh.facecount * sizeof(*combinedtags));
+                    memcpy(combinedtags + mesh.facecount, objects.tritags,
                            (size_t)objects.tricount * sizeof(*combinedtags));
+                    memcpy(combinedrefs, mesh.facerefs,
+                           (size_t)mesh.facecount * sizeof(*combinedrefs));
 
-                    free(tris);
-                    free(tritags);
-                    tris = combinedtris;
-                    tritags = combinedtags;
-                    tricount = total;
+                    BgDocumentRenderMeshFree(&mesh);
+                    mesh.vertices = combinedtris;
+                    mesh.tags = combinedtags;
+                    mesh.facerefs = combinedrefs;
+                    mesh.facecount = total;
                 }
                 else
                 {
                     free(combinedtris);
                     free(combinedtags);
+                    free(combinedrefs);
                     objectsLoaded = FALSE;
                     objectwhy = "out of memory adding setup objects to the viewport.";
                 }
@@ -1130,13 +1152,15 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                                          level->levelscale, &stan,
                                          &stanwhy);
 
-        ViewportSetScene(g_Viewport, tris, tritags, (int)tricount,
-                         g_Project.dir);
-        free(tris);   /* the viewport copied and normalized both */
-        free(tritags);
+        ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags, mesh.facerefs,
+                         (int)mesh.facecount, g_Project.dir);
+        BgDocumentRenderMeshFree(&mesh); /* the viewport copied all arrays */
 
         BgFileFree(&g_CurrentBg);
         g_CurrentBg = bg;
+        BgDocumentFree(&g_CurrentBgDocument);
+        g_CurrentBgDocument = document;
+        RightPanelSetBgSelectionCount(g_RightPanel, 0);
 
         BgPortalFileFree(&g_CurrentPortals);
         if (portalsLoaded)
@@ -1189,7 +1213,6 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
 
         ObjectGeometryFree(&objects);
-        }
 
         g_CurrentLevelIndex = index;
 
@@ -1431,6 +1454,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         SetupFileFree(&g_CurrentSetup);
         StanFileFree(&g_CurrentStan);
         BgPortalFileFree(&g_CurrentPortals);
+        BgDocumentFree(&g_CurrentBgDocument);
         BgFileFree(&g_CurrentBg);
         PostQuitMessage(0);
         return 0;

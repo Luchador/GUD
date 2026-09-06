@@ -3,6 +3,8 @@
 
 #include <windows.h>
 
+#include "bgdocument.h"
+
 /* Sent to the frame whenever a visibility checkbox changes. wparam is
    a bitwise combination of the RIGHTPANEL_SHOW_* flags below. */
 #define RIGHTPANEL_WM_VISIBILITY_CHANGED (WM_APP + 2)
@@ -14,5 +16,11 @@
 
 BOOL RightPanelRegisterClass(HINSTANCE hinstance);
 HWND RightPanelCreate(HWND parent, HINSTANCE hinstance);
+
+/* The lower pane is a generic properties surface. Background triangles are
+   its first supported selection type. */
+void RightPanelSetBgTriangle(HWND panel, const BgDocument *document,
+                             const BgFaceRef *ref);
+void RightPanelSetBgSelectionCount(HWND panel, int count);
 
 #endif /* GEDITOR_RIGHTPANEL_H */

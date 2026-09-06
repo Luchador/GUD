@@ -2,15 +2,15 @@
  * GEditor right-hand tool panel.
  *
  * The upper and lower panes share one child window and are separated
- * by a draggable horizontal splitter. Only the visibility controls in
- * the upper pane are populated for now; the lower pane is deliberately
- * empty so its eventual tools can be added without changing the frame
- * window's layout.
+ * by a draggable horizontal splitter. The lower pane is intentionally a
+ * generic properties surface even though background triangles are its first
+ * supported selection type.
  */
 
 #include <windows.h>
 #include <windowsx.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "rightpanel.h"
 
@@ -18,7 +18,7 @@
 
 #define RIGHTPANEL_SPLITTER_H 5
 #define RIGHTPANEL_TOP_MIN 142
-#define RIGHTPANEL_BOTTOM_MIN 48
+#define RIGHTPANEL_BOTTOM_MIN 160
 #define RIGHTPANEL_INITIAL_TOP_H 160
 #define RIGHTPANEL_MARGIN 12
 #define RIGHTPANEL_CHECK_H 22
@@ -38,6 +38,8 @@ typedef struct RightPanelState {
     HWND portals;
     int topheight;
     BOOL draggingsplitter;
+    char detailtitle[64];
+    char detailtext[2048];
 } RightPanelState;
 
 static RightPanelState *RightPanelGetState(HWND hwnd)
@@ -53,8 +55,8 @@ static void RightPanelClampTopHeight(RightPanelState *state, int height)
                + RIGHTPANEL_BOTTOM_MIN)
     {
         /* There is not enough room to honor both pane minimums. Keep
-           the populated upper pane visible and leave no negative or
-           off-client dimensions for the empty lower pane. */
+           the visibility controls usable and leave no negative or
+           off-client dimensions for the properties pane. */
         state->topheight = height - RIGHTPANEL_SPLITTER_H;
         if (state->topheight < 0)
         {
@@ -147,6 +149,9 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     RECT title;
     RECT splitter;
     RECT line;
+    RECT detailtitle;
+    RECT detailtype;
+    RECT detailtext;
     HFONT font;
     HFONT oldfont;
 
@@ -178,6 +183,28 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     line.bottom = splitter.bottom;
     FillRect(hdc, &line, GetSysColorBrush(COLOR_BTNHIGHLIGHT));
 
+    detailtitle.left = RIGHTPANEL_MARGIN;
+    detailtitle.right = client.right - RIGHTPANEL_MARGIN;
+    detailtitle.top = splitter.bottom + 8;
+    detailtitle.bottom = detailtitle.top + 20;
+    DrawText(hdc, "Properties", -1, &detailtitle,
+             DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX);
+
+    detailtype = detailtitle;
+    detailtype.top = detailtitle.bottom + 2;
+    detailtype.bottom = detailtype.top + 20;
+    SetTextColor(hdc, GetSysColor(COLOR_GRAYTEXT));
+    DrawText(hdc, state->detailtitle, -1, &detailtype,
+             DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX);
+
+    detailtext.left = RIGHTPANEL_MARGIN;
+    detailtext.right = client.right - RIGHTPANEL_MARGIN;
+    detailtext.top = detailtype.bottom + 6;
+    detailtext.bottom = client.bottom - RIGHTPANEL_MARGIN;
+    SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
+    DrawText(hdc, state->detailtext, -1, &detailtext,
+             DT_LEFT | DT_TOP | DT_WORDBREAK | DT_NOPREFIX);
+
     SelectObject(hdc, oldfont);
 }
 
@@ -200,6 +227,10 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         }
 
         state->topheight = RIGHTPANEL_INITIAL_TOP_H;
+        lstrcpyn(state->detailtitle, "Selection",
+                 sizeof(state->detailtitle));
+        lstrcpyn(state->detailtext, "No background triangle selected.",
+                 sizeof(state->detailtext));
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
 
         state->bgprimary = CreateWindowEx(
@@ -368,4 +399,141 @@ HWND RightPanelCreate(HWND parent, HINSTANCE hinstance)
         WS_CHILD | WS_VISIBLE,
         0, 0, 16, 16,
         parent, NULL, hinstance, NULL);
+}
+
+
+void RightPanelSetBgSelectionCount(HWND panel, int count)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+
+    if (state == NULL)
+    {
+        return;
+    }
+
+    if (count > 1)
+    {
+        lstrcpyn(state->detailtitle, "Background Triangles",
+                 sizeof(state->detailtitle));
+        snprintf(state->detailtext, sizeof(state->detailtext),
+                 "%d background triangles selected.\r\n\r\n"
+                 "Select one triangle to inspect its properties.", count);
+        state->detailtext[sizeof(state->detailtext) - 1] = '\0';
+    }
+    else
+    {
+        lstrcpyn(state->detailtitle, "Selection",
+                 sizeof(state->detailtitle));
+        lstrcpyn(state->detailtext, "No background triangle selected.",
+                 sizeof(state->detailtext));
+    }
+
+    InvalidateRect(panel, NULL, FALSE);
+}
+
+
+void RightPanelSetBgTriangle(HWND panel, const BgDocument *document,
+                             const BgFaceRef *ref)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    const BgDocumentRoom *room = NULL;
+    const BgDocumentFace *face;
+    const BgDocumentVertex *vertices[3];
+    float positions[3][3];
+    const char *layer;
+    char texture[48];
+    int corner;
+
+    if (state == NULL)
+    {
+        return;
+    }
+
+    face = BgDocumentFindFace(document, ref, &room);
+    if (face == NULL || room == NULL)
+    {
+        RightPanelSetBgSelectionCount(panel, 0);
+        return;
+    }
+
+    for (corner = 0; corner < 3; corner++)
+    {
+        if (face->vertexindices[corner] >= room->vertexcount)
+        {
+            RightPanelSetBgSelectionCount(panel, 0);
+            return;
+        }
+        vertices[corner] = &room->vertices[face->vertexindices[corner]];
+        BgDocumentGetWorldPosition(document, room, vertices[corner],
+                                   positions[corner]);
+    }
+
+    layer = face->layer == BG_GEOMETRY_SECONDARY
+        ? "Secondary" : "Primary";
+    if (face->textureid == BG_TEX_NONE)
+    {
+        lstrcpyn(texture, "None", sizeof(texture));
+    }
+    else
+    {
+        snprintf(texture, sizeof(texture), "%u",
+                 (unsigned int)face->textureid);
+        texture[sizeof(texture) - 1] = '\0';
+    }
+
+    lstrcpyn(state->detailtitle, "Background Triangle",
+             sizeof(state->detailtitle));
+    snprintf(state->detailtext, sizeof(state->detailtext),
+        "Face ID: %lu\r\n"
+        "Room: %u\r\n"
+        "Layer: %s\r\n"
+        "Texture: %s\r\n"
+        "Backface culling: %s\r\n\r\n"
+        "Vertex 1  [ID %lu, index %lu]\r\n"
+        "Shared by: %lu faces\r\n"
+        "World: %.3f, %.3f, %.3f\r\n"
+        "Local: %d, %d, %d\r\n"
+        "UV: %.3f, %.3f texels\r\n"
+        "Color: %u, %u, %u, %u\r\n\r\n"
+        "Vertex 2  [ID %lu, index %lu]\r\n"
+        "Shared by: %lu faces\r\n"
+        "World: %.3f, %.3f, %.3f\r\n"
+        "Local: %d, %d, %d\r\n"
+        "UV: %.3f, %.3f texels\r\n"
+        "Color: %u, %u, %u, %u\r\n\r\n"
+        "Vertex 3  [ID %lu, index %lu]\r\n"
+        "Shared by: %lu faces\r\n"
+        "World: %.3f, %.3f, %.3f\r\n"
+        "Local: %d, %d, %d\r\n"
+        "UV: %.3f, %.3f texels\r\n"
+        "Color: %u, %u, %u, %u",
+        (unsigned long)face->id, (unsigned int)face->room, layer, texture,
+        face->cullbackfaces ? "On" : "Off",
+        (unsigned long)vertices[0]->id,
+        (unsigned long)face->vertexindices[0],
+        (unsigned long)vertices[0]->usecount,
+        positions[0][0], positions[0][1], positions[0][2],
+        (int)vertices[0]->x, (int)vertices[0]->y, (int)vertices[0]->z,
+        vertices[0]->s / 32.0f, vertices[0]->t / 32.0f,
+        (unsigned int)vertices[0]->r, (unsigned int)vertices[0]->g,
+        (unsigned int)vertices[0]->b, (unsigned int)vertices[0]->a,
+        (unsigned long)vertices[1]->id,
+        (unsigned long)face->vertexindices[1],
+        (unsigned long)vertices[1]->usecount,
+        positions[1][0], positions[1][1], positions[1][2],
+        (int)vertices[1]->x, (int)vertices[1]->y, (int)vertices[1]->z,
+        vertices[1]->s / 32.0f, vertices[1]->t / 32.0f,
+        (unsigned int)vertices[1]->r, (unsigned int)vertices[1]->g,
+        (unsigned int)vertices[1]->b, (unsigned int)vertices[1]->a,
+        (unsigned long)vertices[2]->id,
+        (unsigned long)face->vertexindices[2],
+        (unsigned long)vertices[2]->usecount,
+        positions[2][0], positions[2][1], positions[2][2],
+        (int)vertices[2]->x, (int)vertices[2]->y, (int)vertices[2]->z,
+        vertices[2]->s / 32.0f, vertices[2]->t / 32.0f,
+        (unsigned int)vertices[2]->r, (unsigned int)vertices[2]->g,
+        (unsigned int)vertices[2]->b, (unsigned int)vertices[2]->a);
+    state->detailtext[sizeof(state->detailtext) - 1] = '\0';
+
+    InvalidateRect(panel, NULL, FALSE);
 }

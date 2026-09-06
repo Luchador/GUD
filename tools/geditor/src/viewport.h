@@ -3,10 +3,14 @@
 
 #include <windows.h>
 
-#include "bgload.h"
+#include "bgdocument.h"
 #include "setupload.h"
 #include "stanload.h"
 #include "texload.h"
+
+/* Sent to the frame after mouse picking changes the background-triangle
+   selection. The frame can query the stable document face references below. */
+#define VIEWPORT_WM_SELECTION_CHANGED (WM_APP + 3)
 
 /**
  * Main 3D viewport functions. Create a child window with OpenGL context.
@@ -23,13 +27,19 @@ BOOL ViewportIsFlying(HWND viewport);
 void ViewportFlyFrame(HWND viewport);
 
 /*
- * Replaces the viewport's scene with a triangle soup (copied; the
- * caller keeps ownership of tris). NULL/0 restores the built-in test
+ * Replaces the viewport's scene with a triangle soup. All supplied arrays
+ * are copied and remain caller-owned. NULL/0 restores the built-in test
  * scene. The camera is repositioned to frame the new geometry.
  */
 void ViewportSetScene(HWND hwnd, const BgVertex *tris,
-                      const unsigned short *tritags, int tricount,
+                      const unsigned short *tritags,
+                      const BgFaceRef *facerefs, int tricount,
                       const char *projectdir);
+
+/* Selection is stored in texture-sorted viewport order. These accessors
+   expose document identities instead, so callers never depend on draw order. */
+int ViewportGetSelectedBgFaceCount(HWND hwnd);
+BOOL ViewportGetSingleSelectedBgFace(HWND hwnd, BgFaceRef *out);
 
 /* Replaces the pad overlay. PadRecords are small green wireframe
    cubes; BoundPadRecords are red wireframes of their authored volume.
