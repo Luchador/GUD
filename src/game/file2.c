@@ -320,6 +320,9 @@ void fileSetDifficultyStageTime(save_data *save, LEVEL_SOLO_SEQUENCE levelid, DI
  */
 bool fileGetSaveStageCompletedForDifficulty(save_data *folder, LEVEL_SOLO_SEQUENCE levelid, DIFFICULTY difficulty)
 {
+    //TEMP: unlock all levels
+    return TRUE;
+
     if ((levelid >= SP_LEVEL_DAM) && (levelid < SP_LEVEL_MAX) && (difficulty >= DIFFICULTY_AGENT) && (difficulty <= DIFFICULTY_007))
     {
         return fileGetSaveStageDifficultyTime(folder, levelid, difficulty) != 0;
@@ -353,6 +356,9 @@ void fileCheckSaveStageDifficultyTime(save_data *folder, LEVEL_SOLO_SEQUENCE lev
 bool fileGetIsCheatUnlocked(save_data *save, s32 cheat)
 {
     s32 bits;
+    //TEMP: unlock all cheats
+
+    return TRUE;
 
     if (cheat >= 0 && cheat < CHEAT_INPUT_BUFFER_SIZE)
     {
