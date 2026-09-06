@@ -14,6 +14,7 @@
 #include "browser.h"
 #include "rightpanel.h"
 #include "rom.h"
+#include "romexport.h"
 #include "bgload.h"
 #include "setupload.h"
 #include "stanload.h"
@@ -175,7 +176,9 @@ enum {
 
     ID_EDIT_UNDO,
     ID_EDIT_REDO,
-    ID_VIEW_BACKFACE_CULLING
+    ID_VIEW_BACKFACE_CULLING,
+
+    ID_TOOLS_CREATE_ROM
 };
 
 
@@ -196,11 +199,14 @@ static HMENU GEditorCreateMenuBar(void)
     HMENU menubar;
     HMENU filemenu;
     HMENU editmenu;
-    HMENU viewmenu = CreatePopupMenu();
+    HMENU viewmenu;
+    HMENU toolsmenu;
 
     menubar = CreateMenu();
     filemenu = CreatePopupMenu();
     editmenu = CreatePopupMenu();
+    viewmenu = CreatePopupMenu();
+    toolsmenu = CreatePopupMenu();
 
     /* MF_STRING items carry a command ID. '&' marks the Alt mnemonic. */
     AppendMenu(filemenu, MF_STRING, ID_FILE_NEW_PROJECT, "&New Project");
@@ -215,9 +221,12 @@ static HMENU GEditorCreateMenuBar(void)
 
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_BACKFACE_CULLING, "&Backface Culling");
 
+    AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CREATE_ROM, "&Create ROM...");
+
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)filemenu, "&File");
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)editmenu, "&Edit");
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)viewmenu, "&View");
+    AppendMenu(menubar, MF_POPUP, (UINT_PTR)toolsmenu, "&Tools");
 
     return menubar;
 }
@@ -270,7 +279,8 @@ static BOOL GEditorDirectoryExists(const char *path)
 /*
  * Folder picker. Fills pathout and returns TRUE if a folder was chosen.
  */
-static BOOL GEditorPromptForFolder(HWND owner, char *pathout, int pathmax)
+static BOOL GEditorPromptForFolder(HWND owner, const WCHAR *title,
+                                   char *pathout, int pathmax)
 {
     IFileOpenDialog *dlg = NULL;
     IShellItem *item = NULL;
@@ -290,7 +300,7 @@ static BOOL GEditorPromptForFolder(HWND owner, char *pathout, int pathmax)
            that have no path we could write files into. */
         IFileOpenDialog_SetOptions(dlg, opts | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM);
     }
-    IFileOpenDialog_SetTitle(dlg, L"Choose Project Location");
+    IFileOpenDialog_SetTitle(dlg, title);
 
     if (SUCCEEDED(IFileOpenDialog_Show(dlg, owner))
         && SUCCEEDED(IFileOpenDialog_GetResult(dlg, &item)))
@@ -325,7 +335,7 @@ static BOOL GEditorPromptForRom(HWND hwnd, char *pathout, DWORD pathmax)
     ofn.hwndOwner   = hwnd;            /* modal to our window */
     ofn.lpstrFile   = pathout;
     ofn.nMaxFile    = pathmax;
-    ofn.lpstrTitle  = "Open Project";
+    ofn.lpstrTitle  = "Select GUD ROM";
     ofn.lpstrDefExt = "z64";           /* appended if the user types no extension */
 
     /* Filter: pairs of "description\0pattern\0", terminated by an extra
@@ -464,7 +474,8 @@ static INT_PTR CALLBACK GEditorNewProjectProc(HWND hdlg, UINT msg, WPARAM wparam
         {
             char folder[MAX_PATH];
 
-            if (GEditorPromptForFolder(hdlg, folder, sizeof(folder)))
+            if (GEditorPromptForFolder(hdlg, L"Choose Project Location",
+                                       folder, sizeof(folder)))
             {
                 /* Setting the text fires EN_CHANGE, which revalidates. */
                 SetDlgItemText(hdlg, IDC_PROJECT_LOCATION, folder);
@@ -638,6 +649,221 @@ static BOOL GEditorSaveProject(HWND hwnd)
     }
 
     return TRUE;
+}
+
+
+typedef struct CreateRomInfo {
+    const GEditorProject *project;
+} CreateRomInfo;
+
+
+/* Live validation for the Create ROM dialog. The conversion button is
+ * reachable only when its filename and destination are both usable. */
+static void GEditorUpdateRomExportValidity(HWND hdlg)
+{
+    char name[ROM_EXPORT_NAME_MAX];
+    char directory[MAX_PATH];
+    char outputpath[MAX_PATH];
+    const char *reason = "";
+    BOOL valid;
+
+    GetDlgItemText(hdlg, IDC_ROM_NAME, name, sizeof(name));
+    GetDlgItemText(hdlg, IDC_ROM_OUTPUT_DIR, directory, sizeof(directory));
+
+    valid = RomExportDestinationIsValid(&g_Project, directory, name,
+                                        outputpath, sizeof(outputpath),
+                                        &reason);
+
+    EnableWindow(GetDlgItem(hdlg, IDC_CREATE_ROM), valid);
+    SetDlgItemText(hdlg, IDC_ROM_WARNING, reason);
+}
+
+
+static INT_PTR CALLBACK GEditorCreateRomProc(HWND hdlg, UINT msg,
+                                             WPARAM wparam, LPARAM lparam)
+{
+    CreateRomInfo *info;
+
+    switch (msg)
+    {
+    case WM_INITDIALOG:
+        info = (CreateRomInfo *)lparam;
+        SetWindowLongPtr(hdlg, DWLP_USER, (LONG_PTR)info);
+
+        SendDlgItemMessage(hdlg, IDC_ROM_NAME, EM_LIMITTEXT,
+                           ROM_EXPORT_NAME_MAX - 1, 0);
+        SendDlgItemMessage(hdlg, IDC_ROM_OUTPUT_DIR, EM_LIMITTEXT,
+                           MAX_PATH - 1, 0);
+        SetDlgItemText(hdlg, IDC_ROM_NAME, info->project->name);
+        SetDlgItemText(hdlg, IDC_ROM_OUTPUT_DIR, info->project->dir);
+        GEditorUpdateRomExportValidity(hdlg);
+        return TRUE;
+
+    case WM_CTLCOLORSTATIC:
+        if (GetDlgCtrlID((HWND)lparam) == IDC_ROM_WARNING)
+        {
+            HDC hdc = (HDC)wparam;
+            SetTextColor(hdc, RGB(192, 0, 0));
+            SetBkMode(hdc, TRANSPARENT);
+            return (INT_PTR)GetSysColorBrush(COLOR_3DFACE);
+        }
+        return FALSE;
+
+    case WM_COMMAND:
+        switch (LOWORD(wparam))
+        {
+        case IDC_ROM_NAME:
+        case IDC_ROM_OUTPUT_DIR:
+            if (HIWORD(wparam) == EN_CHANGE)
+            {
+                GEditorUpdateRomExportValidity(hdlg);
+            }
+            return TRUE;
+
+        case IDC_BROWSE_ROM_OUTPUT:
+        {
+            char folder[MAX_PATH];
+
+            if (GEditorPromptForFolder(hdlg, L"Choose ROM Output Directory",
+                                       folder, sizeof(folder)))
+            {
+                SetDlgItemText(hdlg, IDC_ROM_OUTPUT_DIR, folder);
+            }
+            return TRUE;
+        }
+
+        case IDC_CREATE_ROM:
+        {
+            char name[ROM_EXPORT_NAME_MAX];
+            char directory[MAX_PATH];
+            char outputpath[MAX_PATH];
+            char message[MAX_PATH + 64];
+            const char *reason = "";
+            DWORD attrs;
+
+            info = (CreateRomInfo *)GetWindowLongPtr(hdlg, DWLP_USER);
+            GetDlgItemText(hdlg, IDC_ROM_NAME, name, sizeof(name));
+            GetDlgItemText(hdlg, IDC_ROM_OUTPUT_DIR, directory,
+                           sizeof(directory));
+
+            if (!RomExportDestinationIsValid(info->project, directory, name,
+                                             outputpath, sizeof(outputpath),
+                                             &reason))
+            {
+                SetDlgItemText(hdlg, IDC_ROM_WARNING, reason);
+                return TRUE;
+            }
+
+            attrs = GetFileAttributes(outputpath);
+            if (attrs != INVALID_FILE_ATTRIBUTES)
+            {
+                if (attrs & FILE_ATTRIBUTE_DIRECTORY)
+                {
+                    MessageBox(hdlg, "A directory already uses that ROM name.",
+                               GEDITOR_TITLE, MB_ICONERROR);
+                    return TRUE;
+                }
+
+                if (MessageBox(hdlg,
+                        "That ROM already exists. Overwrite it?",
+                        GEDITOR_TITLE,
+                        MB_ICONWARNING | MB_YESNO | MB_DEFBUTTON2) != IDYES)
+                {
+                    return TRUE;
+                }
+            }
+
+            /* Export consumes the project files, so first flush the
+             * currently open level's retained raw buffers to them. */
+            if (!GEditorSaveProject(hdlg))
+            {
+                return TRUE;
+            }
+
+            if (!RomExportCreate(info->project, name, directory,
+                                 outputpath, sizeof(outputpath), &reason))
+            {
+                MessageBox(hdlg, reason, GEDITOR_TITLE, MB_ICONERROR);
+                return TRUE;
+            }
+
+            snprintf(message, sizeof(message), "ROM created successfully:\n%s",
+                     outputpath);
+            MessageBox(hdlg, message, GEDITOR_TITLE, MB_ICONINFORMATION);
+            EndDialog(hdlg, IDOK);
+            return TRUE;
+        }
+
+        case IDCANCEL:
+            EndDialog(hdlg, IDCANCEL);
+            return TRUE;
+        }
+        break;
+    }
+
+    return FALSE;
+}
+
+
+static BOOL GEditorEnsureProjectBaseRom(HWND hwnd)
+{
+    char path[MAX_PATH];
+    const char *reason = "";
+    RomFile rom;
+    BOOL ok;
+
+    if (RomExportHasProjectBase(&g_Project))
+    {
+        return TRUE;
+    }
+
+    if (MessageBox(hwnd,
+            "This project predates ROM export and has no base.z64. "
+            "Select the GUD ROM used to create it. GEditor will retain "
+            "a project copy and will only ask once.",
+            GEDITOR_TITLE, MB_ICONINFORMATION | MB_OKCANCEL) != IDOK)
+    {
+        return FALSE;
+    }
+
+    if (!GEditorPromptForRom(hwnd, path, sizeof(path)))
+    {
+        return FALSE;
+    }
+
+    if (!RomLoad(path, &rom, &reason))
+    {
+        MessageBox(hwnd, reason, GEDITOR_TITLE, MB_ICONERROR);
+        return FALSE;
+    }
+
+    ok = RomExportStoreProjectBase(&g_Project, &rom, &reason);
+    RomFree(&rom);
+
+    if (!ok)
+    {
+        MessageBox(hwnd, reason, GEDITOR_TITLE, MB_ICONERROR);
+    }
+
+    return ok;
+}
+
+
+static void GEditorPromptForRomExport(HWND hwnd)
+{
+    CreateRomInfo info;
+    INT_PTR result;
+
+    info.project = &g_Project;
+    result = DialogBoxParam(GetModuleHandle(NULL),
+                            MAKEINTRESOURCE(IDD_CREATE_ROM), hwnd,
+                            GEditorCreateRomProc, (LPARAM)&info);
+
+    if (result == -1)
+    {
+        MessageBox(hwnd, "Create ROM dialog resource missing (build problem).",
+                   GEDITOR_TITLE, MB_ICONERROR);
+    }
 }
 
 
@@ -1066,6 +1292,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
            are only clickable while a project is open. */
         EnableMenuItem((HMENU)wparam, ID_FILE_SAVE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_FILE_CLOSE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_TOOLS_CREATE_ROM, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         CheckMenuItem((HMENU)wparam, ID_VIEW_BACKFACE_CULLING, MF_BYCOMMAND | (ViewportGetBackfaceCulling(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
         return 0;
 
@@ -1091,12 +1318,18 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                         RomFile rom;
                         const char *romwhy = "";
 
-                        /* The ROM is only an import source. Once these
-                           assets are copied, the project is entirely
-                           independent of it. */
+                        /* Read the ROM once to extract editable assets
+                           and retain a validated base for later exports. */
                         if (RomLoad(info.rompath, &rom, &romwhy))
                         {
                             const char *assetwhy = "";
+
+                            if (!RomExportStoreProjectBase(&g_Project, &rom,
+                                                          &assetwhy))
+                            {
+                                MessageBox(hwnd, assetwhy, GEDITOR_TITLE,
+                                           MB_ICONWARNING);
+                            }
 
                             /* One-time extraction into the project:
                                its asset folders become the editable
@@ -1176,6 +1409,13 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             case ID_VIEW_BACKFACE_CULLING:
                 ViewportSetBackfaceCulling(g_Viewport,
                     !ViewportGetBackfaceCulling(g_Viewport));
+                return 0;
+
+            case ID_TOOLS_CREATE_ROM:
+                if (GEditorEnsureProjectBaseRom(hwnd))
+                {
+                    GEditorPromptForRomExport(hwnd);
+                }
                 return 0;
 
             case ID_FILE_EXIT:

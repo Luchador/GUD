@@ -3,6 +3,7 @@
 
 /* Dialog templates */
 #define IDD_NEW_PROJECT       101
+#define IDD_CREATE_ROM        102
 
 /* Icons */
 #define IDI_GEDITOR           201
@@ -15,6 +16,13 @@
 #define IDC_BROWSE_LOCATION  1005
 #define IDC_PROJECT_ROM      1006
 #define IDC_BROWSE_ROM       1007
+
+/* Controls inside IDD_CREATE_ROM */
+#define IDC_ROM_NAME          1010
+#define IDC_ROM_OUTPUT_DIR    1011
+#define IDC_BROWSE_ROM_OUTPUT 1012
+#define IDC_ROM_WARNING       1013
+#define IDC_CREATE_ROM        1014
 
 /* Longest project name we accept, including the terminator. */
 #define GEDITOR_NAME_MAX       64
