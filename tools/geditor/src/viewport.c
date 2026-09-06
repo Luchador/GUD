@@ -885,11 +885,14 @@ static int ViewportFindPickedTriangle(HWND hwnd, const ViewportState *state,
     *hitanything = TRUE;
     coplanartolerance = ViewportCoplanarPickTolerance(nearestdistance);
 
-    /* Secondary geometry is drawn over the primary layer and commonly
-       contains signs, decals, and other coplanar details. Put it first
-       in the hit stack, then allow repeated clicks to cycle down to the
-       primary surface beneath it. */
-    for (secondary = 1; secondary >= 0; secondary--)
+    /* Primary geometry writes the depth buffer before the secondary pass.
+       With GL_LESS, an exactly coplanar secondary face is therefore hidden
+       by its primary counterpart. Several levels (notably Depot) contain
+       many such deliberate duplicates. Keep the visible primary face first
+       in the coplanar hit stack; repeated clicks can still cycle through to
+       the secondary face. A secondary face which is closer by more than the
+       coplanar tolerance remains first because the primary is excluded. */
+    for (secondary = 0; secondary <= 1; secondary++)
     {
         for (batchindex = 0; batchindex < state->batchcount; batchindex++)
         {
