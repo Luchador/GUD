@@ -665,6 +665,13 @@ static BOOL RomExportUpdateFileOffsets(RomFile *rom,
         }
 
         offset = RomExportRead32(rom->data + row + 8);
+        /* Row zero is the intentional { NULLFILE, "", 0 } sentinel-like
+           entry. It has a name pointer so it is not the table terminator,
+           but it does not describe data inside obseg and must not move. */
+        if (offset == 0)
+        {
+            continue;
+        }
         slot = RomExportFindSlot(slots, slotcount, offset);
         if (slot == NULL)
         {
@@ -916,6 +923,14 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
                                NULL, NULL))
         {
             break;
+        }
+
+        /* file_resource_table[0] is { NULLFILE, "", 0 }. Its non-NULL
+           empty-string pointer keeps it distinct from the real terminator,
+           but it has no ROM slot to collect or replace. */
+        if (resource[0] == '\0')
+        {
+            continue;
         }
 
         if (!RomGetFileByIndex(rom, index, resource, sizeof(resource),
