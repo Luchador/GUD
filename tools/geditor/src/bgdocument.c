@@ -1,12 +1,12 @@
 /*
  * Editable, room-aware view of a GoldenEye background.
  *
- * This parser intentionally does not replace the raw BgFile yet. The raw
- * segment remains the lossless save source until the BG compiler lands, while
  * BgDocument supplies stable room, face, and shared-vertex identities to the
- * editor. Both primary and secondary display lists reference the same room
- * vertex table, so preserving those indices is essential for later topology
- * editing and vertex painting.
+ * editor. It also retains opaque display-list state so the BG compiler can
+ * regenerate geometry without discarding authored rendering behavior. Both
+ * primary and secondary display lists reference the same room vertex table,
+ * so preserving those indices is essential for topology editing and vertex
+ * painting.
  */
 
 #include <windows.h>
@@ -74,6 +74,7 @@ static BOOL BgDocumentAppendFace(BgDocument *document,
                                  BgDocumentRoom *room,
                                  unsigned short roomnumber,
                                  const DWORD vertexindices[3],
+                                 DWORD drawgroup,
                                  BgGeometryLayer layer,
                                  DWORD textureword0, DWORD textureword1,
                                  BOOL cullbackfaces)
@@ -112,6 +113,7 @@ static BOOL BgDocumentAppendFace(BgDocument *document,
     ZeroMemory(face, sizeof(*face));
     face->id = document->nextfaceid++;
     face->room = roomnumber;
+    face->drawgroup = drawgroup;
     face->layer = (unsigned char)layer;
     face->cullbackfaces = (unsigned char)cullbackfaces;
     face->textureword0 = textureword0;
@@ -126,6 +128,85 @@ static BOOL BgDocumentAppendFace(BgDocument *document,
     }
 
     document->facecount++;
+    return TRUE;
+}
+
+
+static BOOL BgDocumentAppendDrawGroup(BgDocumentLayerData *layer)
+{
+    BgDocumentDrawGroup *grown;
+    DWORD nextcapacity;
+
+    if (layer->groupcount < layer->groupcapacity)
+    {
+        ZeroMemory(&layer->groups[layer->groupcount],
+                   sizeof(layer->groups[layer->groupcount]));
+        layer->groupcount++;
+        return TRUE;
+    }
+
+    nextcapacity = layer->groupcapacity ? layer->groupcapacity * 2 : 8;
+    if (nextcapacity < layer->groupcapacity
+        || nextcapacity > ((DWORD)-1) / sizeof(*layer->groups))
+    {
+        return FALSE;
+    }
+
+    grown = (BgDocumentDrawGroup *)realloc(layer->groups,
+                (size_t)nextcapacity * sizeof(*layer->groups));
+    if (grown == NULL)
+    {
+        return FALSE;
+    }
+
+    layer->groups = grown;
+    layer->groupcapacity = nextcapacity;
+    ZeroMemory(&layer->groups[layer->groupcount],
+               sizeof(layer->groups[layer->groupcount]));
+    layer->groupcount++;
+    return TRUE;
+}
+
+
+static BOOL BgDocumentAppendGroupCommand(BgDocumentDrawGroup *group,
+                                         const unsigned char command[8])
+{
+    DWORD nextcapacity;
+    unsigned char *grown;
+
+    if (group->commandsize > (DWORD)-1 - 8)
+    {
+        return FALSE;
+    }
+
+    if (group->commandsize + 8 > group->commandcapacity)
+    {
+        nextcapacity = group->commandcapacity
+            ? group->commandcapacity * 2 : 64;
+        if (nextcapacity < group->commandcapacity)
+        {
+            return FALSE;
+        }
+        while (nextcapacity < group->commandsize + 8)
+        {
+            if (nextcapacity > (DWORD)-1 / 2)
+            {
+                return FALSE;
+            }
+            nextcapacity *= 2;
+        }
+
+        grown = (unsigned char *)realloc(group->commands, nextcapacity);
+        if (grown == NULL)
+        {
+            return FALSE;
+        }
+        group->commands = grown;
+        group->commandcapacity = nextcapacity;
+    }
+
+    memcpy(group->commands + group->commandsize, command, 8);
+    group->commandsize += 8;
     return TRUE;
 }
 
@@ -181,13 +262,23 @@ static BOOL BgDocumentWalkDisplayList(BgDocument *document,
                                       DWORD gdloffset, DWORD gdlsize,
                                       BgGeometryLayer layer)
 {
+    BgDocumentLayerData *layerdata = &room->layers[layer];
     DWORD pc;
-    DWORD batchfirst = 0;
-    DWORD batchcount = 0;
-    int batchv0 = 0;
+    DWORD cachevertices[16];
+    BOOL cachevalid[16];
     DWORD textureword0 = 0;
     DWORD textureword1 = 0;
     BOOL cullbackfaces = FALSE;
+    DWORD drawgroup = 0;
+    BOOL grouphasfaces = FALSE;
+
+    ZeroMemory(cachevertices, sizeof(cachevertices));
+    ZeroMemory(cachevalid, sizeof(cachevalid));
+    layerdata->sourcepresent = TRUE;
+    if (!BgDocumentAppendDrawGroup(layerdata))
+    {
+        return FALSE;
+    }
 
     for (pc = gdloffset;
          pc + 8 <= gdloffset + gdlsize && pc + 8 <= size;
@@ -200,54 +291,33 @@ static BOOL BgDocumentWalkDisplayList(BgDocument *document,
             return TRUE;
         }
 
-        if (command[0] == BGDOC_G_NOOP)
-        {
-            textureword0 = BgDocumentRead32(command);
-            textureword1 = BgDocumentRead32(command + 4);
-            continue;
-        }
-
-        if (command[0] == BGDOC_G_SETGEOMETRYMODE)
-        {
-            if (BgDocumentRead32(command + 4) & BGDOC_G_CULL_BACK)
-            {
-                cullbackfaces = TRUE;
-            }
-            continue;
-        }
-
-        if (command[0] == BGDOC_G_CLEARGEOMETRYMODE)
-        {
-            if (BgDocumentRead32(command + 4) & BGDOC_G_CULL_BACK)
-            {
-                cullbackfaces = FALSE;
-            }
-            continue;
-        }
-
         if (command[0] == BGDOC_G_VTX)
         {
             DWORD addressoffset = BgDocumentRead32(command + 4)
                                 & 0x00FFFFFFu;
-
-            batchcount = ((command[1] >> 4) & 0xF) + 1;
-            batchv0 = command[1] & 0xF;
+            DWORD batchcount = ((command[1] >> 4) & 0xF) + 1;
+            DWORD batchv0 = command[1] & 0xF;
+            DWORD batchfirst;
+            DWORD vertex;
 
             if ((addressoffset & 15) != 0
                 || addressoffset / 16 >= room->vertexcount
-                || batchcount > room->vertexcount - addressoffset / 16)
+                || batchcount > room->vertexcount - addressoffset / 16
+                || batchv0 + batchcount > 16)
             {
-                batchcount = 0;
+                continue;
             }
-            else
+
+            batchfirst = addressoffset / 16;
+            for (vertex = 0; vertex < batchcount; vertex++)
             {
-                batchfirst = addressoffset / 16;
+                cachevertices[batchv0 + vertex] = batchfirst + vertex;
+                cachevalid[batchv0 + vertex] = TRUE;
             }
             continue;
         }
 
-        if ((command[0] == BGDOC_G_TRI1 || command[0] == BGDOC_G_TRI4)
-            && batchcount != 0)
+        if (command[0] == BGDOC_G_TRI1 || command[0] == BGDOC_G_TRI4)
         {
             int trianglecount = command[0] == BGDOC_G_TRI1 ? 1 : 4;
             int triangle;
@@ -262,36 +332,81 @@ static BOOL BgDocumentWalkDisplayList(BgDocument *document,
                 BgDocumentReadTriangleIndices(command, triangle,
                                                cacheindices);
 
-                /* An unused TRI4 slot is encoded as the degenerate 0,0,0. */
-                if (cacheindices[0] == cacheindices[1]
-                    && cacheindices[1] == cacheindices[2])
+                /* Only 0,0,0 in a TRI4 is an unused packed slot. TRI1 and
+                   nonzero degenerate triangles remain authored geometry. */
+                if (command[0] == BGDOC_G_TRI4
+                    && cacheindices[0] == 0
+                    && cacheindices[1] == 0
+                    && cacheindices[2] == 0)
                 {
                     continue;
                 }
 
                 for (corner = 0; corner < 3; corner++)
                 {
-                    cacheindices[corner] -= batchv0;
                     if (cacheindices[corner] < 0
-                        || cacheindices[corner] >= (int)batchcount)
+                        || cacheindices[corner] >= 16
+                        || !cachevalid[cacheindices[corner]])
                     {
                         valid = FALSE;
                         break;
                     }
-                    vertexindices[corner] = batchfirst
-                                          + (DWORD)cacheindices[corner];
+                    vertexindices[corner] =
+                        cachevertices[cacheindices[corner]];
                 }
 
                 if (valid
                     && !BgDocumentAppendFace(document, room, roomnumber,
                                              vertexindices,
+                                             drawgroup,
                                              layer, textureword0,
                                              textureword1,
                                              cullbackfaces))
                 {
                     return FALSE;
                 }
+                else if (valid)
+                {
+                    grouphasfaces = TRUE;
+                }
             }
+
+            continue;
+        }
+
+        /* Preserve every non-geometry command. A new group starts when state
+         * changes after geometry, anchoring that transition even if all faces
+         * in the preceding group are later deleted. */
+        if (grouphasfaces)
+        {
+            if (!BgDocumentAppendDrawGroup(layerdata))
+            {
+                return FALSE;
+            }
+            drawgroup++;
+            grouphasfaces = FALSE;
+        }
+
+        if (!BgDocumentAppendGroupCommand(&layerdata->groups[drawgroup],
+                                          command))
+        {
+            return FALSE;
+        }
+
+        if (command[0] == BGDOC_G_NOOP)
+        {
+            textureword0 = BgDocumentRead32(command);
+            textureword1 = BgDocumentRead32(command + 4);
+        }
+        else if (command[0] == BGDOC_G_SETGEOMETRYMODE
+                 && (BgDocumentRead32(command + 4) & BGDOC_G_CULL_BACK))
+        {
+            cullbackfaces = TRUE;
+        }
+        else if (command[0] == BGDOC_G_CLEARGEOMETRYMODE
+                 && (BgDocumentRead32(command + 4) & BGDOC_G_CULL_BACK))
+        {
+            cullbackfaces = FALSE;
         }
     }
 
@@ -468,13 +583,6 @@ BOOL BgDocumentLoad(const unsigned char *data, DWORD size, float levelscale,
         }
     }
 
-    if (out->facecount == 0)
-    {
-        BgDocumentFree(out);
-        *reasonout = "bg file produced no editable triangles.";
-        return FALSE;
-    }
-
     return TRUE;
 }
 
@@ -512,6 +620,7 @@ BOOL BgDocumentClone(const BgDocument *source, BgDocument *out,
     {
         const BgDocumentRoom *srcroom = &source->rooms[roomindex];
         BgDocumentRoom *dstroom = &out->rooms[roomindex];
+        int layer;
 
         memcpy(dstroom->origin, srcroom->origin, sizeof(dstroom->origin));
 
@@ -547,6 +656,57 @@ BOOL BgDocumentClone(const BgDocument *source, BgDocument *out,
             dstroom->facecount = srcroom->facecount;
             dstroom->facecapacity = srcroom->facecount;
         }
+
+        for (layer = 0; layer < 2; layer++)
+        {
+            const BgDocumentLayerData *srclayer = &srcroom->layers[layer];
+            BgDocumentLayerData *dstlayer = &dstroom->layers[layer];
+            DWORD groupindex;
+
+            dstlayer->sourcepresent = srclayer->sourcepresent;
+            if (srclayer->groupcount == 0)
+            {
+                continue;
+            }
+
+            dstlayer->groups = (BgDocumentDrawGroup *)calloc(
+                srclayer->groupcount, sizeof(*dstlayer->groups));
+            if (dstlayer->groups == NULL)
+            {
+                BgDocumentFree(out);
+                *reasonout = "out of memory copying bg draw groups.";
+                return FALSE;
+            }
+            dstlayer->groupcount = srclayer->groupcount;
+            dstlayer->groupcapacity = srclayer->groupcount;
+
+            for (groupindex = 0; groupindex < srclayer->groupcount;
+                 groupindex++)
+            {
+                const BgDocumentDrawGroup *srcgroup =
+                    &srclayer->groups[groupindex];
+                BgDocumentDrawGroup *dstgroup =
+                    &dstlayer->groups[groupindex];
+
+                if (srcgroup->commandsize == 0)
+                {
+                    continue;
+                }
+
+                dstgroup->commands = (unsigned char *)malloc(
+                    srcgroup->commandsize);
+                if (dstgroup->commands == NULL)
+                {
+                    BgDocumentFree(out);
+                    *reasonout = "out of memory copying bg display-list state.";
+                    return FALSE;
+                }
+                memcpy(dstgroup->commands, srcgroup->commands,
+                       srcgroup->commandsize);
+                dstgroup->commandsize = srcgroup->commandsize;
+                dstgroup->commandcapacity = srcgroup->commandsize;
+            }
+        }
     }
 
     return TRUE;
@@ -565,11 +725,145 @@ void BgDocumentFree(BgDocument *document)
     for (room = 0; document->rooms != NULL
          && room <= document->roomcount; room++)
     {
+        int layer;
+
+        for (layer = 0; layer < 2; layer++)
+        {
+            BgDocumentLayerData *layerdata =
+                &document->rooms[room].layers[layer];
+            DWORD group;
+
+            for (group = 0; group < layerdata->groupcount; group++)
+            {
+                free(layerdata->groups[group].commands);
+            }
+            free(layerdata->groups);
+        }
         free(document->rooms[room].vertices);
         free(document->rooms[room].faces);
     }
     free(document->rooms);
     ZeroMemory(document, sizeof(*document));
+}
+
+
+BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
+                           DWORD refcount, DWORD *deletedout,
+                           const char **reasonout)
+{
+    DWORD refindex;
+    DWORD roomindex;
+    DWORD deleted = 0;
+
+    if (deletedout != NULL)
+    {
+        *deletedout = 0;
+    }
+    if (reasonout != NULL)
+    {
+        *reasonout = "";
+    }
+
+    if (document == NULL || document->rooms == NULL
+        || refs == NULL || refcount == 0)
+    {
+        if (reasonout != NULL)
+        {
+            *reasonout = "there are no bg faces to delete.";
+        }
+        return FALSE;
+    }
+
+    /* Validate the entire selection before changing the document. */
+    for (refindex = 0; refindex < refcount; refindex++)
+    {
+        DWORD duplicate;
+
+        if (BgDocumentFindFace(document, &refs[refindex], NULL) == NULL)
+        {
+            if (reasonout != NULL)
+            {
+                *reasonout = "a selected bg face no longer exists.";
+            }
+            return FALSE;
+        }
+        for (duplicate = 0; duplicate < refindex; duplicate++)
+        {
+            if (refs[duplicate].faceid == refs[refindex].faceid
+                && refs[duplicate].room == refs[refindex].room
+                && refs[duplicate].layer == refs[refindex].layer)
+            {
+                if (reasonout != NULL)
+                {
+                    *reasonout = "the bg face selection contains duplicates.";
+                }
+                return FALSE;
+            }
+        }
+    }
+
+    for (roomindex = 1; roomindex <= document->roomcount; roomindex++)
+    {
+        BgDocumentRoom *room = &document->rooms[roomindex];
+        DWORD sourceindex;
+        DWORD targetindex = 0;
+
+        for (sourceindex = 0; sourceindex < room->facecount; sourceindex++)
+        {
+            BgDocumentFace *face = &room->faces[sourceindex];
+            BOOL remove = FALSE;
+
+            for (refindex = 0; refindex < refcount; refindex++)
+            {
+                if (face->id == refs[refindex].faceid
+                    && face->room == refs[refindex].room
+                    && face->layer == refs[refindex].layer)
+                {
+                    int corner;
+
+                    remove = TRUE;
+                    for (corner = 0; corner < 3; corner++)
+                    {
+                        DWORD vertexindex = face->vertexindices[corner];
+
+                        if (vertexindex < room->vertexcount
+                            && room->vertices[vertexindex].usecount > 0)
+                        {
+                            room->vertices[vertexindex].usecount--;
+                        }
+                    }
+                    deleted++;
+                    break;
+                }
+            }
+
+            if (!remove)
+            {
+                if (targetindex != sourceindex)
+                {
+                    room->faces[targetindex] = room->faces[sourceindex];
+                }
+                targetindex++;
+            }
+        }
+        room->facecount = targetindex;
+    }
+
+    if (deleted != refcount || deleted > document->facecount)
+    {
+        if (reasonout != NULL)
+        {
+            *reasonout = "the bg face deletion was incomplete.";
+        }
+        return FALSE;
+    }
+
+    document->facecount -= deleted;
+    if (deletedout != NULL)
+    {
+        *deletedout = deleted;
+    }
+    return TRUE;
 }
 
 
@@ -596,11 +890,15 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
     ZeroMemory(out, sizeof(*out));
     *reasonout = "";
 
-    if (document == NULL || document->rooms == NULL
-        || document->facecount == 0)
+    if (document == NULL || document->rooms == NULL)
     {
         *reasonout = "there is no editable bg geometry to render.";
         return FALSE;
+    }
+
+    if (document->facecount == 0)
+    {
+        return TRUE;
     }
 
     if (document->facecount > ((DWORD)-1) / (3 * sizeof(*out->vertices)))

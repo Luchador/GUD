@@ -27,7 +27,6 @@
 
 #define BG_ROOM_RECORD_SIZE 24
 #define BG_MAX_ROOMS        256
-#define BG_MAX_BATCH        64      /* vertices a G_VTX may load */
 #define BG_PORTAL_RECORD_SIZE 8
 #define BG_MAX_PORTALS      200
 
@@ -226,14 +225,13 @@ static void BgWalkGdl(BgBuilder *b,
                       unsigned short layerflag)
 {
     DWORD pc;
-    const unsigned char *batch = NULL;
-    DWORD batchcount = 0;
-    int batchv0 = 0;
+    const unsigned char *vertexcache[16];
     unsigned short curtex = BG_TEX_NONE;
     /* Valid room streams establish this state before their first tri.
        False is the safest fallback for malformed or future data. */
     BOOL cullbackfaces = FALSE;
 
+    ZeroMemory(vertexcache, sizeof(vertexcache));
     /* every triangle this walk emits carries the layer flag */
 
     for (pc = gdloffset; pc + 8 <= gdloffset + gdlsize && pc + 8 <= maxlen; pc += 8)
@@ -275,23 +273,30 @@ static void BgWalkGdl(BgBuilder *b,
         if (cmd[0] == G_VTX)
         {
             DWORD addr = bg32(cmd + 4) & 0x00FFFFFF;
+            DWORD batchcount = ((cmd[1] >> 4) & 0xF) + 1;
+            DWORD batchv0 = cmd[1] & 0xF;
+            DWORD vertex;
 
-            batchcount = ((cmd[1] >> 4) & 0xF) + 1;
-            batchv0 = cmd[1] & 0xF;
-
-            if (addr + batchcount * 16 > vtxsize)
+            if (batchv0 + batchcount > 16)
             {
-                batch = NULL; /* points outside the blob: poison it */
-                batchcount = 0;
+                continue;
             }
-            else
+            for (vertex = 0; vertex < batchcount; vertex++)
             {
-                batch = vtxblob + addr;
+                vertexcache[batchv0 + vertex] = NULL;
+            }
+            if (addr > vtxsize || batchcount * 16 > vtxsize - addr)
+            {
+                continue;
+            }
+            for (vertex = 0; vertex < batchcount; vertex++)
+            {
+                vertexcache[batchv0 + vertex] = vtxblob + addr + vertex * 16;
             }
             continue;
         }
 
-        if ((cmd[0] == G_TRI1 || cmd[0] == G_TRI4) && batch != NULL)
+        if (cmd[0] == G_TRI1 || cmd[0] == G_TRI4)
         {
             int tri;
             int tricount = (cmd[0] == G_TRI1) ? 1 : 4;
@@ -332,28 +337,25 @@ static void BgWalkGdl(BgBuilder *b,
                     idx[2] = cmd[2] >> 4;
                 }
 
-                /* A TRI4 slot holding no triangle packs as 0,0,0. */
-                if (idx[0] == idx[1] && idx[1] == idx[2])
+                /* Only 0,0,0 in a TRI4 is an unused packed slot. */
+                if (cmd[0] == G_TRI4
+                    && idx[0] == 0 && idx[1] == 0 && idx[2] == 0)
                 {
                     continue;
                 }
 
-                for (k = 0; k < 3; k++)
-                {
-                    idx[k] -= batchv0;
-                }
-
                 if (idx[0] < 0 || idx[1] < 0 || idx[2] < 0
-                    || idx[0] >= (int)batchcount
-                    || idx[1] >= (int)batchcount
-                    || idx[2] >= (int)batchcount)
+                    || idx[0] >= 16 || idx[1] >= 16 || idx[2] >= 16
+                    || vertexcache[idx[0]] == NULL
+                    || vertexcache[idx[1]] == NULL
+                    || vertexcache[idx[2]] == NULL)
                 {
-                    continue; /* index escaped the batch: drop the tri */
+                    continue; /* index escaped the cache: drop the tri */
                 }
 
                 for (k = 0; k < 3; k++)
                 {
-                    const unsigned char *v = batch + idx[k] * 16;
+                    const unsigned char *v = vertexcache[idx[k]];
                     BgVertex out;
 
                     out.x = (roomx + bg16(v + 0)) * worldscale;

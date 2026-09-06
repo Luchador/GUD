@@ -20,9 +20,9 @@ typedef struct BgVertex {
     unsigned char r, g, b, a;
 } BgVertex;
 
-/* Raw project background retained while a level is open. Keeping the
-   original segment makes saving lossless even though GEditor only
-   understands part of GoldenEye's display-list state today. */
+/* Raw project background retained while a level is open. The compiler uses
+   it to preserve the header, portals, visibility data, and other data which
+   sits outside editable room geometry. */
 typedef struct BgFile {
     unsigned char *data;
     DWORD size;

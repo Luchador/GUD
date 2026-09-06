@@ -50,8 +50,8 @@ static DWORD g_CurrentLevelIndex = GEDITOR_NO_LEVEL;
    geometry is deliberately separate so selection colors and other
    display-only state can never leak into a saved background. */
 static BgFile g_CurrentBg;
-/* Room-aware editable geometry. The raw segment above remains the save source
-   until the BG compiler is introduced. */
+/* Room-aware editable geometry. Saving compiles it back into g_CurrentBg;
+   the raw segment supplies preserved portal, visibility, and header data. */
 static BgDocument g_CurrentBgDocument;
 static BgHistory g_BgHistory;
 /* Setup for the selected level, including host-native parsed views.
@@ -820,10 +820,41 @@ static BOOL GEditorSaveProject(HWND hwnd)
 
     if (g_CurrentLevelIndex < g_Project.levelcount)
     {
+        BgFile compiled;
+        const BgFile *bgtosave = &g_CurrentBg;
+
+        ZeroMemory(&compiled, sizeof(compiled));
+
+        if (g_CurrentBgDocument.dirty)
+        {
+            if (!BgDocumentCompile(&g_CurrentBgDocument, &g_CurrentBg,
+                                   &compiled, &why))
+            {
+                MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+                return FALSE;
+            }
+            bgtosave = &compiled;
+        }
+
         /* Portals live inside this complete BG segment, so they are
            preserved by the same write rather than as a sidecar file. */
-        if (!BgSaveProjectFile(g_Project.dir, &g_CurrentBg, &why)
-            || (g_CurrentSetup.data != NULL
+        if (!BgSaveProjectFile(g_Project.dir, bgtosave, &why))
+        {
+            BgFileFree(&compiled);
+            MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+            return FALSE;
+        }
+
+        if (compiled.data != NULL)
+        {
+            BgFileFree(&g_CurrentBg);
+            g_CurrentBg = compiled;
+            ZeroMemory(&compiled, sizeof(compiled));
+            BgHistoryMarkSaved(&g_BgHistory, &g_CurrentBgDocument);
+            GEditorRefreshHistoryMenu(hwnd);
+        }
+
+        if ((g_CurrentSetup.data != NULL
                 && !SetupSaveProjectFile(g_Project.dir, &g_CurrentSetup,
                                          &why))
             || (g_CurrentStan.data != NULL
@@ -1195,6 +1226,62 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
 }
 
 
+static void GEditorDeleteSelectedBgFaces(HWND hwnd)
+{
+    BgHistoryTransaction transaction;
+    BgFaceRef *selected;
+    const char *why = "";
+    const char *restorewhy = "";
+    DWORD deleted = 0;
+    int count = ViewportGetSelectedBgFaceCount(g_Viewport);
+    const char *action = count == 1 ? "Delete BG Face" : "Delete BG Faces";
+
+    if (count <= 0)
+    {
+        return;
+    }
+
+    selected = (BgFaceRef *)malloc((size_t)count * sizeof(*selected));
+    if (selected == NULL)
+    {
+        MessageBox(hwnd, "Out of memory reading the BG selection.",
+                   GEDITOR_TITLE, MB_ICONERROR);
+        return;
+    }
+
+    if (!ViewportGetSelectedBgFaces(g_Viewport, selected, count)
+        || !BgHistoryBeginEdit(&g_BgHistory, &g_CurrentBgDocument,
+                               action, &transaction, &why))
+    {
+        free(selected);
+        if (why[0] == '\0')
+        {
+            why = "The selected BG faces could not be read.";
+        }
+        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+        return;
+    }
+
+    if (!BgDocumentDeleteFaces(&g_CurrentBgDocument, selected,
+                               (DWORD)count, &deleted, &why)
+        || deleted != (DWORD)count
+        || !GEditorRebuildCurrentViewport(&why)
+        || !BgHistoryCommitEdit(&g_BgHistory, &g_CurrentBgDocument,
+                                &transaction, &why))
+    {
+        BgHistoryRollbackEdit(&transaction, &g_CurrentBgDocument);
+        GEditorRebuildCurrentViewport(&restorewhy);
+        free(selected);
+        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+        GEditorRefreshHistoryMenu(hwnd);
+        return;
+    }
+
+    free(selected);
+    GEditorRefreshHistoryMenu(hwnd);
+}
+
+
 static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     switch (msg)
@@ -1258,6 +1345,10 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
         return 0;
     }
+
+    case VIEWPORT_WM_DELETE_SELECTION:
+        GEditorDeleteSelectedBgFaces(hwnd);
+        return 0;
 
     case BROWSER_WM_LEVEL_OPEN:
     {

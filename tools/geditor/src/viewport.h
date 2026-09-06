@@ -11,6 +11,9 @@
 /* Sent to the frame after mouse picking changes the background-triangle
    selection. The frame can query the stable document face references below. */
 #define VIEWPORT_WM_SELECTION_CHANGED (WM_APP + 3)
+/* Sent only while the viewport owns keyboard focus, so Delete in future
+   property editors cannot accidentally remove scene geometry. */
+#define VIEWPORT_WM_DELETE_SELECTION  (WM_APP + 4)
 
 /**
  * Main 3D viewport functions. Create a child window with OpenGL context.
@@ -40,6 +43,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
 /* Selection is stored in texture-sorted viewport order. These accessors
    expose document identities instead, so callers never depend on draw order. */
 int ViewportGetSelectedBgFaceCount(HWND hwnd);
+BOOL ViewportGetSelectedBgFaces(HWND hwnd, BgFaceRef *out, int count);
 BOOL ViewportGetSingleSelectedBgFace(HWND hwnd, BgFaceRef *out);
 
 /* Replaces the pad overlay. PadRecords are small green wireframe

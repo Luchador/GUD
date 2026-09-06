@@ -1139,7 +1139,15 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
     case WM_MOUSEMOVE: ViewportFlyLook(hwnd, state);
         return 0;
 
-    case WM_KEYDOWN: ViewportSetKey(state, wparam, lparam, 1);
+    case WM_KEYDOWN:
+        if (wparam == VK_DELETE)
+        {
+            SendMessage(GetParent(hwnd), VIEWPORT_WM_DELETE_SELECTION, 0, 0);
+        }
+        else
+        {
+            ViewportSetKey(state, wparam, lparam, 1);
+        }
         return 0;
 
     case WM_KEYUP: ViewportSetKey(state, wparam, lparam, 0);
@@ -1822,6 +1830,38 @@ int ViewportGetSelectedBgFaceCount(HWND hwnd)
     }
 
     return count;
+}
+
+
+BOOL ViewportGetSelectedBgFaces(HWND hwnd, BgFaceRef *out, int count)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    int output = 0;
+    int triangle;
+    int trianglecount;
+
+    if (state == NULL || state->selectedtris == NULL
+        || state->scenefacerefs == NULL || out == NULL || count < 0)
+    {
+        return FALSE;
+    }
+
+    trianglecount = state->scenecount / 3;
+    for (triangle = 0; triangle < trianglecount; triangle++)
+    {
+        if (!state->selectedtris[triangle]
+            || state->scenefacerefs[triangle].faceid == BG_FACE_ID_NONE)
+        {
+            continue;
+        }
+        if (output >= count)
+        {
+            return FALSE;
+        }
+        out[output++] = state->scenefacerefs[triangle];
+    }
+
+    return output == count;
 }
 
 

@@ -7,11 +7,11 @@
  * base.z64. Export works on an in-memory copy of that base and never
  * alters it.
  *
- * Resources stay in their original ROM slots. This is lossless for the
- * current editor operations and avoids relocating the later images and
- * csegment. A future format-changing editor can add a full obseg repack;
- * until then an oversized file is rejected rather than corrupting the
- * resource which follows it.
+ * Resources which still fit stay in their original ROM slots. If edited
+ * geometry outgrows one, the complete resource segment is repacked as a
+ * unit and, when necessary, relocated to padded space at the end of the
+ * ROM. Only file-table data offsets and the OBSG manifest range change;
+ * executable and other linked segments never move.
  */
 
 #include <windows.h>
@@ -24,13 +24,18 @@
 
 #define ROM_EXPORT_FTBL_MAX_ROWS 1024u
 #define ROM_EXPORT_CHECKSUM_END  0x101000u
+#define ROM_EXPORT_MAX_SIZE      (64u * 1024u * 1024u)
 
+#define ROM_KIND_FTBL 0x4654424cu /* 'FTBL' */
 #define ROM_KIND_STGT 0x53544754u /* 'STGT' */
 #define ROM_KIND_OBSG 0x4f425347u /* 'OBSG' */
 
 typedef struct RomExportSlot {
     DWORD offset;
     DWORD length;
+    DWORD newoffset;
+    unsigned char *replacement;
+    DWORD replacementlength;
 } RomExportSlot;
 
 static char g_RomExportError[256];
@@ -529,7 +534,6 @@ static int RomExportProjectResourcePath(const GEditorProject *project,
 
 static unsigned char *RomExportReadResource(const char *path,
                                             const char *resource,
-                                            DWORD maxsize,
                                             DWORD *sizeout,
                                             const char **reasonout)
 {
@@ -557,15 +561,6 @@ static unsigned char *RomExportReadResource(const char *path,
         return NULL;
     }
 
-    if (size > maxsize)
-    {
-        CloseHandle(file);
-        RomExportSetError(reasonout,
-                          "%s is larger than its %lu-byte ROM slot.",
-                          resource, (unsigned long)maxsize);
-        return NULL;
-    }
-
     data = (unsigned char *)malloc(size);
     if (data == NULL)
     {
@@ -590,42 +585,320 @@ static unsigned char *RomExportReadResource(const char *path,
 }
 
 
+static void RomExportFreeSlots(RomExportSlot *slots, DWORD slotcount)
+{
+    DWORD slot;
+
+    for (slot = 0; slot < slotcount; slot++)
+    {
+        free(slots[slot].replacement);
+    }
+}
+
+
+static int RomExportCompareSlots(const void *left, const void *right)
+{
+    const RomExportSlot *a = (const RomExportSlot *)left;
+    const RomExportSlot *b = (const RomExportSlot *)right;
+
+    return a->offset < b->offset ? -1 : a->offset > b->offset ? 1 : 0;
+}
+
+
+static RomExportSlot *RomExportFindSlot(RomExportSlot *slots,
+                                        DWORD slotcount, DWORD offset)
+{
+    DWORD slot;
+
+    for (slot = 0; slot < slotcount; slot++)
+    {
+        if (slots[slot].offset == offset)
+        {
+            return &slots[slot];
+        }
+    }
+    return NULL;
+}
+
+
+static BOOL RomExportAddSize(DWORD *value, DWORD add)
+{
+    if (add > (DWORD)-1 - *value)
+    {
+        return FALSE;
+    }
+    *value += add;
+    return TRUE;
+}
+
+
+static BOOL RomExportAlignSize(DWORD *value, DWORD alignment)
+{
+    DWORD padding = (alignment - (*value % alignment)) % alignment;
+
+    return RomExportAddSize(value, padding);
+}
+
+
+static BOOL RomExportUpdateFileOffsets(RomFile *rom,
+                                       const RomManifestEntry *ftbl,
+                                       RomExportSlot *slots,
+                                       DWORD slotcount,
+                                       const char **reasonout)
+{
+    DWORD rowindex;
+
+    for (rowindex = 0; rowindex < ROM_EXPORT_FTBL_MAX_ROWS; rowindex++)
+    {
+        DWORD row = ftbl->romstart + rowindex * 12;
+        DWORD offset;
+        RomExportSlot *slot;
+
+        if (row > rom->size || rom->size - row < 12)
+        {
+            *reasonout = "the base ROM's file table is incomplete.";
+            return FALSE;
+        }
+        if (RomExportRead32(rom->data + row + 4) == 0)
+        {
+            return TRUE;
+        }
+
+        offset = RomExportRead32(rom->data + row + 8);
+        slot = RomExportFindSlot(slots, slotcount, offset);
+        if (slot == NULL)
+        {
+            *reasonout = "the base ROM's file table changed during export.";
+            return FALSE;
+        }
+        RomExportWrite32(rom->data + row + 8, slot->newoffset);
+    }
+
+    *reasonout = "the base ROM's file table has no terminator.";
+    return FALSE;
+}
+
+
+static DWORD RomExportNextRomSize(DWORD required)
+{
+    DWORD size = 1024u * 1024u;
+
+    while (size < required && size < ROM_EXPORT_MAX_SIZE)
+    {
+        size *= 2;
+    }
+    return size >= required ? size : 0;
+}
+
+
+static BOOL RomExportRepackResources(RomFile *rom,
+                                     RomManifestEntry *obsg,
+                                     const RomManifestEntry *ftbl,
+                                     RomExportSlot *slots, DWORD slotcount,
+                                     const char **reasonout)
+{
+    unsigned char *packed;
+    DWORD packedsize;
+    DWORD prefixsize;
+    DWORD cursor;
+    DWORD slotindex;
+    DWORD target;
+    DWORD oldstart = obsg->romstart;
+    DWORD oldend = obsg->romend;
+    DWORD ftblend = 0;
+    DWORD manifestend;
+
+    for (slotindex = 0; slotindex < ROM_EXPORT_FTBL_MAX_ROWS; slotindex++)
+    {
+        DWORD row = ftbl->romstart + slotindex * 12;
+
+        if (row > rom->size || rom->size - row < 12)
+        {
+            *reasonout = "the base ROM's file table is incomplete.";
+            return FALSE;
+        }
+        if (RomExportRead32(rom->data + row + 4) == 0)
+        {
+            ftblend = row + 12;
+            break;
+        }
+    }
+    manifestend = rom->info.manifestoffset + 24
+                + rom->info.entrycount * 16;
+    if (ftblend == 0 || manifestend < rom->info.manifestoffset
+        || (ftbl->romstart < oldend && ftblend > oldstart)
+        || (rom->info.manifestoffset < oldend && manifestend > oldstart))
+    {
+        *reasonout = "the base ROM embeds export metadata inside its resource segment.";
+        return FALSE;
+    }
+
+    qsort(slots, slotcount, sizeof(*slots), RomExportCompareSlots);
+    if (slotcount == 0 || slots[0].offset < oldstart)
+    {
+        *reasonout = "the base ROM's resource table is empty or invalid.";
+        return FALSE;
+    }
+
+    prefixsize = slots[0].offset - oldstart;
+    packedsize = prefixsize;
+    for (slotindex = 0; slotindex < slotcount; slotindex++)
+    {
+        DWORD payload = slots[slotindex].length;
+
+        if (slots[slotindex].offset < oldstart
+            || slots[slotindex].offset > oldend
+            || slots[slotindex].length > oldend - slots[slotindex].offset)
+        {
+            *reasonout = "the base ROM contains an invalid resource slot.";
+            return FALSE;
+        }
+        if (slots[slotindex].replacementlength > payload)
+        {
+            payload = slots[slotindex].replacementlength;
+        }
+        if (!RomExportAddSize(&packedsize, payload)
+            || !RomExportAlignSize(&packedsize, 16))
+        {
+            *reasonout = "the repacked resource segment is too large.";
+            return FALSE;
+        }
+    }
+
+    packed = (unsigned char *)calloc(packedsize, 1);
+    if (packed == NULL)
+    {
+        *reasonout = "out of memory repacking the ROM resource segment.";
+        return FALSE;
+    }
+    memcpy(packed, rom->data + oldstart, prefixsize);
+
+    cursor = prefixsize;
+    for (slotindex = 0; slotindex < slotcount; slotindex++)
+    {
+        RomExportSlot *slot = &slots[slotindex];
+        DWORD payload = slot->length;
+
+        slot->newoffset = cursor;
+        memcpy(packed + cursor, rom->data + slot->offset, slot->length);
+        if (slot->replacement != NULL)
+        {
+            memcpy(packed + cursor, slot->replacement,
+                   slot->replacementlength);
+            if (slot->replacementlength > payload)
+            {
+                payload = slot->replacementlength;
+            }
+        }
+        cursor += payload;
+        RomExportAlignSize(&cursor, 16);
+    }
+
+    if (packedsize <= oldend - oldstart)
+    {
+        target = oldstart;
+        memcpy(rom->data + target, packed, packedsize);
+    }
+    else
+    {
+        unsigned char *grown;
+        DWORD targetend;
+        DWORD newsize;
+
+        target = rom->size;
+        if (!RomExportAlignSize(&target, 16)
+            || packedsize > (DWORD)-1 - target)
+        {
+            free(packed);
+            *reasonout = "the repacked resource segment cannot fit in a ROM.";
+            return FALSE;
+        }
+        targetend = target + packedsize;
+        newsize = RomExportNextRomSize(targetend);
+        if (newsize == 0)
+        {
+            free(packed);
+            *reasonout = "the edited resources exceed the 64 MB ROM limit.";
+            return FALSE;
+        }
+
+        grown = (unsigned char *)realloc(rom->data, newsize);
+        if (grown == NULL)
+        {
+            free(packed);
+            *reasonout = "out of memory growing the output ROM.";
+            return FALSE;
+        }
+        rom->data = grown;
+        memset(rom->data + rom->size, 0, newsize - rom->size);
+        rom->size = newsize;
+        rom->info.size = newsize;
+        memcpy(rom->data + target, packed, packedsize);
+    }
+
+    for (slotindex = 0; slotindex < slotcount; slotindex++)
+    {
+        slots[slotindex].newoffset += target;
+    }
+    free(packed);
+
+    if (!RomExportUpdateFileOffsets(rom, ftbl, slots, slotcount,
+                                    reasonout))
+    {
+        return FALSE;
+    }
+
+    if (target != oldstart)
+    {
+        DWORD manifestentry = rom->info.manifestoffset + 24
+                            + (DWORD)(obsg - rom->info.entries) * 16;
+
+        if (manifestentry > rom->size || rom->size - manifestentry < 16)
+        {
+            *reasonout = "the output ROM's manifest is incomplete.";
+            return FALSE;
+        }
+        obsg->romstart = target;
+        obsg->romend = target + packedsize;
+        RomExportWrite32(rom->data + manifestentry + 4, obsg->romstart);
+        RomExportWrite32(rom->data + manifestentry + 8, obsg->romend);
+    }
+
+    return TRUE;
+}
+
+
 static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
                                              RomFile *rom,
                                              const char **reasonout)
 {
     RomExportSlot slots[ROM_EXPORT_FTBL_MAX_ROWS];
-    const RomManifestEntry *obsg = NULL;
-    unsigned char *original;
+    RomManifestEntry *obsg = NULL;
+    const RomManifestEntry *ftbl = NULL;
     DWORD slotcount = 0;
     DWORD index;
+    BOOL needrepack = FALSE;
+
+    ZeroMemory(slots, sizeof(slots));
 
     for (index = 0; index < rom->info.entrycount; index++)
     {
+        if (rom->info.entries[index].kind == ROM_KIND_FTBL)
+        {
+            ftbl = &rom->info.entries[index];
+        }
         if (rom->info.entries[index].kind == ROM_KIND_OBSG)
         {
             obsg = &rom->info.entries[index];
-            break;
         }
     }
 
-    if (obsg == NULL || obsg->romstart >= obsg->romend
+    if (ftbl == NULL || obsg == NULL || obsg->romstart >= obsg->romend
         || obsg->romend > rom->size)
     {
         *reasonout = "the base ROM's resource segment is invalid.";
         return FALSE;
     }
-
-    /* Alias decisions must compare every project file with the same
-     * pristine base bytes even after another name has replaced a slot. */
-    original = (unsigned char *)malloc(obsg->romend - obsg->romstart);
-    if (original == NULL)
-    {
-        *reasonout = "out of memory preparing the ROM resource segment.";
-        return FALSE;
-    }
-    memcpy(original, rom->data + obsg->romstart,
-           obsg->romend - obsg->romstart);
 
     for (index = 0; index < ROM_EXPORT_FTBL_MAX_ROWS; index++)
     {
@@ -636,13 +909,34 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
         DWORD attrs;
         DWORD length;
         unsigned char *data;
-        DWORD slot;
+        RomExportSlot *slot;
         int managed;
 
         if (!RomGetFileByIndex(rom, index, resource, sizeof(resource),
                                NULL, NULL))
         {
             break;
+        }
+
+        if (!RomGetFileByIndex(rom, index, resource, sizeof(resource),
+                               &offset, &maxlen))
+        {
+            RomExportSetError(reasonout,
+                              "the ROM slot for %s is invalid.", resource);
+            goto fail;
+        }
+
+        slot = RomExportFindSlot(slots, slotcount, offset);
+        if (slot == NULL)
+        {
+            if (slotcount == ROM_EXPORT_FTBL_MAX_ROWS)
+            {
+                *reasonout = "the base ROM has too many resource slots.";
+                goto fail;
+            }
+            slot = &slots[slotcount++];
+            slot->offset = offset;
+            slot->length = maxlen;
         }
 
         managed = RomExportProjectResourcePath(project, resource, path,
@@ -672,16 +966,7 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
             goto fail;
         }
 
-        if (!RomGetFileByIndex(rom, index, resource, sizeof(resource),
-                               &offset, &maxlen))
-        {
-            RomExportSetError(reasonout,
-                              "the ROM slot for %s is invalid.", resource);
-            goto fail;
-        }
-
-        data = RomExportReadResource(path, resource, maxlen, &length,
-                                     reasonout);
+        data = RomExportReadResource(path, resource, &length, reasonout);
         if (data == NULL)
         {
             goto fail;
@@ -690,27 +975,20 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
         /* Most aliases are untouched duplicate project copies. Ignore
          * those so one genuinely edited alias can supply the shared
          * slot without conflicting with its original siblings. */
-        if (memcmp(original + offset - obsg->romstart, data, length) == 0)
+        if (length <= maxlen
+            && memcmp(rom->data + offset, data, length) == 0)
         {
             free(data);
             continue;
         }
 
-        for (slot = 0; slot < slotcount; slot++)
-        {
-            if (slots[slot].offset == offset)
-            {
-                break;
-            }
-        }
-
-        if (slot < slotcount)
+        if (slot->replacement != NULL)
         {
             /* Rare aliases several placeholder names to one resource.
              * Identical project copies are harmless; divergent edits
              * would otherwise make table order decide which one wins. */
-            if (slots[slot].length != length
-                || memcmp(rom->data + offset, data, length) != 0)
+            if (slot->replacementlength != length
+                || memcmp(slot->replacement, data, length) != 0)
             {
                 free(data);
                 RomExportSetError(reasonout,
@@ -721,22 +999,40 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
         }
         else
         {
-            /* Keep any bytes after the editable file intact. BG slots
-             * can contain linker padding or data not named by FTBL. */
-            memcpy(rom->data + offset, data, length);
-            slots[slotcount].offset = offset;
-            slots[slotcount].length = length;
-            slotcount++;
+            slot->replacement = data;
+            slot->replacementlength = length;
+            data = NULL;
+            if (length > maxlen)
+            {
+                needrepack = TRUE;
+            }
         }
 
         free(data);
     }
 
-    free(original);
+    if (needrepack)
+    {
+        BOOL ok = RomExportRepackResources(rom, obsg, ftbl, slots,
+                                           slotcount, reasonout);
+        RomExportFreeSlots(slots, slotcount);
+        return ok;
+    }
+
+    for (index = 0; index < slotcount; index++)
+    {
+        if (slots[index].replacement != NULL)
+        {
+            memcpy(rom->data + slots[index].offset,
+                   slots[index].replacement,
+                   slots[index].replacementlength);
+        }
+    }
+    RomExportFreeSlots(slots, slotcount);
     return TRUE;
 
 fail:
-    free(original);
+    RomExportFreeSlots(slots, slotcount);
     return FALSE;
 }
 
