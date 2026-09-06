@@ -1,0 +1,26 @@
+diff --git a/tools/geditor/src/bgcompile.c b/tools/geditor/src/bgcompile.c
+index ae17477..9c4a44a 100644
+--- a/tools/geditor/src/bgcompile.c
++++ b/tools/geditor/src/bgcompile.c
+@@ -849,6 +849,6 @@ room_failed:
+ 
+     out->data = output.data;
+     out->size = output.size;
+-    strncpy(out->name, source->name, sizeof(out->name) - 1);
++    lstrcpyn(out->name, source->name, sizeof(out->name));
+     return TRUE;
+ }
+diff --git a/tools/geditor/src/bghistory.c b/tools/geditor/src/bghistory.c
+index dfe925e..133558a 100644
+--- a/tools/geditor/src/bghistory.c
++++ b/tools/geditor/src/bghistory.c
+@@ -21,8 +21,7 @@ static void BgHistoryCopyAction(char out[BG_HISTORY_ACTION_MAX],
+         action = "Edit";
+     }
+ 
+-    strncpy(out, action, BG_HISTORY_ACTION_MAX - 1);
+-    out[BG_HISTORY_ACTION_MAX - 1] = '\0';
++    lstrcpyn(out, action, BG_HISTORY_ACTION_MAX);
+ }
+ 
+ 

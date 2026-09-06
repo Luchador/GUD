@@ -849,6 +849,6 @@ room_failed:
 
     out->data = output.data;
     out->size = output.size;
-    strncpy(out->name, source->name, sizeof(out->name) - 1);
+    lstrcpyn(out->name, source->name, sizeof(out->name));
     return TRUE;
 }

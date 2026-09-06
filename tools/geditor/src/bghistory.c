@@ -21,8 +21,7 @@ static void BgHistoryCopyAction(char out[BG_HISTORY_ACTION_MAX],
         action = "Edit";
     }
 
-    strncpy(out, action, BG_HISTORY_ACTION_MAX - 1);
-    out[BG_HISTORY_ACTION_MAX - 1] = '\0';
+    lstrcpyn(out, action, BG_HISTORY_ACTION_MAX);
 }
 
 
