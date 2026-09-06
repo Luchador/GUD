@@ -82,6 +82,7 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
 
     GetClientRect(hwnd, &client);
     width = client.right - RIGHTPANEL_MARGIN * 2;
+
     if (width < 1)
     {
         width = 1;
@@ -89,26 +90,23 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
 
     RightPanelClampTopHeight(state, client.bottom);
 
-    MoveWindow(state->bgprimary, RIGHTPANEL_MARGIN, y,
-               width, RIGHTPANEL_CHECK_H, TRUE);
+    MoveWindow(state->bgprimary, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
     y += RIGHTPANEL_CHECK_H + RIGHTPANEL_CHECK_GAP;
-    MoveWindow(state->bgsecondary, RIGHTPANEL_MARGIN, y,
-               width, RIGHTPANEL_CHECK_H, TRUE);
+    MoveWindow(state->bgsecondary, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
     y += RIGHTPANEL_CHECK_H + RIGHTPANEL_CHECK_GAP;
-    MoveWindow(state->stan, RIGHTPANEL_MARGIN, y,
-               width, RIGHTPANEL_CHECK_H, TRUE);
+    MoveWindow(state->stan, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
     y += RIGHTPANEL_CHECK_H + RIGHTPANEL_CHECK_GAP;
-    MoveWindow(state->portals, RIGHTPANEL_MARGIN, y,
-               width, RIGHTPANEL_CHECK_H, TRUE);
+    MoveWindow(state->portals, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
 
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
+
 static BOOL RightPanelInSplitter(const RightPanelState *state, int y)
 {
-    return y >= state->topheight
-        && y < state->topheight + RIGHTPANEL_SPLITTER_H;
+    return y >= state->topheight && y < state->topheight + RIGHTPANEL_SPLITTER_H;
 }
+
 
 static DWORD RightPanelGetVisibility(const RightPanelState *state)
 {
@@ -118,14 +116,17 @@ static DWORD RightPanelGetVisibility(const RightPanelState *state)
     {
         visibility |= RIGHTPANEL_SHOW_BG_PRIMARY;
     }
+
     if (SendMessage(state->bgsecondary, BM_GETCHECK, 0, 0) == BST_CHECKED)
     {
         visibility |= RIGHTPANEL_SHOW_BG_SECONDARY;
     }
+
     if (SendMessage(state->stan, BM_GETCHECK, 0, 0) == BST_CHECKED)
     {
         visibility |= RIGHTPANEL_SHOW_STAN;
     }
+
     if (SendMessage(state->portals, BM_GETCHECK, 0, 0) == BST_CHECKED)
     {
         visibility |= RIGHTPANEL_SHOW_PORTALS;
@@ -236,8 +237,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         SendMessage(state->portals, WM_SETFONT, (WPARAM)font, TRUE);
         SendMessage(state->bgprimary, BM_SETCHECK, BST_CHECKED, 0);
         SendMessage(state->bgsecondary, BM_SETCHECK, BST_CHECKED, 0);
-        SendMessage(state->stan, BM_SETCHECK, BST_CHECKED, 0);
-        SendMessage(state->portals, BM_SETCHECK, BST_CHECKED, 0);
+
         return 0;
     }
 

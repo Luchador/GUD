@@ -10,16 +10,18 @@
 #include <windowsx.h>
 #include <GL/gl.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
+#include <float.h>
 #include "browser.h"
 #include "viewport.h"
 
 #define VIEWPORT_CLASS "GEditorViewport"
 
 /**
- * Default to 400.0, but can be changed with the mouse scroll wheel.
+ * Default to 4000.0, but can be changed with the mouse scroll wheel.
  */
-#define VIEWPORT_FLY_SPEED 400.0f
+#define VIEWPORT_FLY_SPEED 4000.0f
 
 #define VIEWPORT_FOV_Y 60.0f
 #define VIEWPORT_NEAR_Z 10.0f
@@ -33,12 +35,14 @@
 #define VIEWPORT_PITCH_LIMIT 89.0f
 
 #define VIEWPORT_DEG_TO_RAD (3.14159265358979323846f / 180.0f)
-#define VIEWPORT_PAD_HALF_SIZE 10.0f
+#define VIEWPORT_PAD_HALF_SIZE 5.0f
 #define VIEWPORT_BOX_VERTICES  24
 #define VIEWPORT_STAN_FILL_ALPHA 112
 #define VIEWPORT_STAN_EDGE_ALPHA 224
-#define VIEWPORT_PORTAL_FILL_ALPHA 128
+#define VIEWPORT_PORTAL_FILL_ALPHA 64
 #define VIEWPORT_PORTAL_EDGE_ALPHA 255
+#define VIEWPORT_PICK_EPSILON 1.0e-10
+#define VIEWPORT_PICK_BARY_EPSILON 1.0e-8
 
 /* A contiguous run of scene vertices sharing one texture. */
 typedef struct SceneBatch {
@@ -75,6 +79,8 @@ typedef struct ViewportState {
     GLsizei scenecount;  /* vertices in scene */
     struct SceneBatch *batches;  /* texture-sorted draw ranges */
     int batchcount;
+    unsigned char *selectedtris; /* one byte per texture-sorted triangle */
+    int selectedtricount;
     GLuint *textures;    /* GL texture names owned by the scene */
     int texturecount;
     Vertex *stanfill;    /* translucent GL_TRIANGLES tile overlay */
@@ -251,24 +257,12 @@ static void ViewportPaintGL(ViewportState *state)
 
             glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
-            /*
-             * Primary pass: opaque, with alpha TEST so cutout textures
-             * (fences, grates, foliage) punch real holes - fully
-             * opaque texels are unaffected. The sort key put every
-             * secondary batch after every primary one, so the state
-             * flip below happens exactly once per frame.
-             */
-            glEnable(GL_ALPHA_TEST);
-            glAlphaFunc(GL_GREATER, 0.5f);
-
             for (i = 0; i < state->batchcount; i++)
             {
                 const SceneBatch *batch = &state->batches[i];
                 BOOL wantcullback;
 
-                if (!batch->object
-                    && ((!batch->secondary && !state->showbgprimary)
-                        || (batch->secondary && !state->showbgsecondary)))
+                if (!batch->object && ((!batch->secondary && !state->showbgprimary) || (batch->secondary && !state->showbgsecondary)))
                 {
                     continue;
                 }
@@ -286,7 +280,6 @@ static void ViewportPaintGL(ViewportState *state)
                      * overlapping transparencies may pick the wrong
                      * winner, which matches the console's own habits.
                      */
-                    glDisable(GL_ALPHA_TEST);
                     glEnable(GL_BLEND);
                     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
                     glDepthMask(GL_FALSE);
@@ -333,8 +326,7 @@ static void ViewportPaintGL(ViewportState *state)
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     }
 
-    if (state->showstan
-        && state->stanfill != NULL && state->stanfillcount > 0)
+    if (state->showstan && state->stanfill != NULL && state->stanfillcount > 0)
     {
         /* Stan polygons commonly lie directly on their matching BG
            floors. Pull the overlay infinitesimally toward the camera
@@ -350,8 +342,7 @@ static void ViewportPaintGL(ViewportState *state)
         glPolygonOffset(-1.0f, -1.0f);
 
         glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->stanfill[0].x);
-        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex),
-                       &state->stanfill[0].r);
+        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &state->stanfill[0].r);
         glDrawArrays(GL_TRIANGLES, 0, state->stanfillcount);
 
         glDisable(GL_POLYGON_OFFSET_FILL);
@@ -360,8 +351,7 @@ static void ViewportPaintGL(ViewportState *state)
         glDepthFunc(GL_LESS);
     }
 
-    if (state->showstan
-        && state->stanedges != NULL && state->stanedgecount > 0)
+    if (state->showstan && state->stanedges != NULL && state->stanedgecount > 0)
     {
         /* Tile outlines make adjacent polygons readable even when they
            share the same authored RGB value. */
@@ -374,8 +364,7 @@ static void ViewportPaintGL(ViewportState *state)
         glDepthFunc(GL_LEQUAL);
 
         glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->stanedges[0].x);
-        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex),
-                       &state->stanedges[0].r);
+        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &state->stanedges[0].r);
         glLineWidth(1.0f);
         glDrawArrays(GL_LINES, 0, state->stanedgecount);
 
@@ -384,8 +373,7 @@ static void ViewportPaintGL(ViewportState *state)
         glDepthFunc(GL_LESS);
     }
 
-    if (state->showportals
-        && state->portalfill != NULL && state->portalfillcount > 0)
+    if (state->showportals && state->portalfill != NULL && state->portalfillcount > 0)
     {
         /* Portals are editor-only, double-sided translucent surfaces.
            Keep depth testing so a portal remains hidden by walls, but
@@ -399,8 +387,7 @@ static void ViewportPaintGL(ViewportState *state)
         glDepthFunc(GL_LEQUAL);
 
         glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->portalfill[0].x);
-        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex),
-                       &state->portalfill[0].r);
+        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &state->portalfill[0].r);
         glDrawArrays(GL_TRIANGLES, 0, state->portalfillcount);
 
         glDisable(GL_BLEND);
@@ -408,8 +395,7 @@ static void ViewportPaintGL(ViewportState *state)
         glDepthFunc(GL_LESS);
     }
 
-    if (state->showportals
-        && state->portaledges != NULL && state->portaledgecount > 0)
+    if (state->showportals && state->portaledges != NULL && state->portaledgecount > 0)
     {
         glDisable(GL_TEXTURE_2D);
         glDisable(GL_ALPHA_TEST);
@@ -419,14 +405,92 @@ static void ViewportPaintGL(ViewportState *state)
         glDepthFunc(GL_LEQUAL);
 
         glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->portaledges[0].x);
-        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex),
-                       &state->portaledges[0].r);
+        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex), &state->portaledges[0].r);
         glLineWidth(2.0f);
         glDrawArrays(GL_LINES, 0, state->portaledgecount);
         glLineWidth(1.0f);
 
         glDepthMask(GL_TRUE);
         glDepthFunc(GL_LESS);
+    }
+
+    if (state->scene != NULL && state->selectedtris != NULL && state->selectedtricount > 0)
+    {
+        int batchindex;
+        BOOL incullback = FALSE;
+
+        /* Selected BG faces use a small depth bias and an untextured
+           cyan pass. This replaces their displayed vertex color
+           without allowing a dark texture to hide the highlight. */
+        glDisable(GL_TEXTURE_2D);
+        glDisable(GL_ALPHA_TEST);
+        glDisable(GL_BLEND);
+        glDisable(GL_CULL_FACE);
+        glDisableClientState(GL_COLOR_ARRAY);
+        glColor4ub(0, 255, 255, 255);
+        glDepthMask(GL_FALSE);
+        glDepthFunc(GL_LEQUAL);
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(-2.0f, -2.0f);
+        glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->scene[0].x);
+
+        for (batchindex = 0; batchindex < state->batchcount; batchindex++)
+        {
+            const SceneBatch *batch = &state->batches[batchindex];
+            BOOL wantcullback;
+            int vertex = batch->first;
+            int end = batch->first + batch->count;
+
+            if (batch->object || (!batch->secondary && !state->showbgprimary) || (batch->secondary && !state->showbgsecondary))
+            {
+                continue;
+            }
+
+            wantcullback = state->cullbackfaces && batch->cullbackfaces;
+
+            if (wantcullback != incullback)
+            {
+                if (wantcullback)
+                {
+                    glEnable(GL_CULL_FACE);
+                }
+                else
+                {
+                    glDisable(GL_CULL_FACE);
+                }
+                incullback = wantcullback;
+            }
+
+            while (vertex + 2 < end)
+            {
+                int firstselected;
+
+                while (vertex + 2 < end
+                       && !state->selectedtris[vertex / 3])
+                {
+                    vertex += 3;
+                }
+
+                firstselected = vertex;
+                while (vertex + 2 < end
+                       && state->selectedtris[vertex / 3])
+                {
+                    vertex += 3;
+                }
+
+                if (firstselected < vertex)
+                {
+                    glDrawArrays(GL_TRIANGLES, firstselected,
+                                 vertex - firstselected);
+                }
+            }
+        }
+
+        glDisable(GL_POLYGON_OFFSET_FILL);
+        glDisable(GL_CULL_FACE);
+        glDepthMask(GL_TRUE);
+        glDepthFunc(GL_LESS);
+        glEnableClientState(GL_COLOR_ARRAY);
     }
 
     if (state->padmarkers != NULL && state->padmarkercount > 0)
@@ -478,7 +542,6 @@ static void ViewportEndFly(HWND hwnd, ViewportState *state)
     {
         return;
     }
-
 
     state->flying = FALSE;
     state->keyw = state->keya = state->keys = state->keyd = state->keyq = state->keye = FALSE;
@@ -641,6 +704,258 @@ static void ViewportSetKey(ViewportState *state, WPARAM wparam, LPARAM lparam, i
 }
 
 
+typedef struct ViewportPickRay {
+    double origin[3];
+    double direction[3];
+    double mindistance;
+    double maxdistance;
+} ViewportPickRay;
+
+
+static BOOL ViewportBuildPickRay(HWND hwnd, const ViewportState *state,
+                                 int mousex, int mousey,
+                                 ViewportPickRay *ray)
+{
+    RECT client;
+    float fwdf[3];
+    float rightf[3];
+    double fwd[3];
+    double right[3];
+    double up[3];
+    double ndcx;
+    double ndcy;
+    double halfheight;
+    double aspect;
+    double length;
+    double forwardcomponent;
+    int width;
+    int height;
+    int axis;
+
+    if (!GetClientRect(hwnd, &client))
+    {
+        return FALSE;
+    }
+
+    width = client.right - client.left;
+    height = client.bottom - client.top;
+
+    if (width < 1 || height < 1
+        || mousex < 0 || mousex >= width
+        || mousey < 0 || mousey >= height)
+    {
+        return FALSE;
+    }
+
+    ViewportGetBasis(state, fwdf, rightf);
+
+    for (axis = 0; axis < 3; axis++)
+    {
+        fwd[axis] = fwdf[axis];
+        right[axis] = rightf[axis];
+    }
+
+    /* right x forward is the camera's screen-up vector. */
+    up[0] = right[1] * fwd[2] - right[2] * fwd[1];
+    up[1] = right[2] * fwd[0] - right[0] * fwd[2];
+    up[2] = right[0] * fwd[1] - right[1] * fwd[0];
+
+    ndcx = ((mousex + 0.5) * 2.0 / width) - 1.0;
+    ndcy = 1.0 - ((mousey + 0.5) * 2.0 / height);
+    halfheight = tan(VIEWPORT_FOV_Y * 0.5 * VIEWPORT_DEG_TO_RAD);
+    aspect = (double)width / height;
+
+    for (axis = 0; axis < 3; axis++)
+    {
+        ray->direction[axis] = fwd[axis]
+            + right[axis] * ndcx * aspect * halfheight
+            + up[axis] * ndcy * halfheight;
+    }
+
+    length = sqrt(ray->direction[0] * ray->direction[0] + ray->direction[1] * ray->direction[1] + ray->direction[2] * ray->direction[2]);
+
+    if (!(length > 0.0))
+    {
+        return FALSE;
+    }
+
+    for (axis = 0; axis < 3; axis++)
+    {
+        ray->direction[axis] /= length;
+    }
+
+    ray->origin[0] = state->posx;
+    ray->origin[1] = state->posy;
+    ray->origin[2] = state->posz;
+
+    forwardcomponent = ray->direction[0] * fwd[0] + ray->direction[1] * fwd[1] + ray->direction[2] * fwd[2];
+
+    if (!(forwardcomponent > 0.0))
+    {
+        return FALSE;
+    }
+
+    /* The OpenGL near/far planes are perpendicular to camera forward,
+       not spherical distances from the eye. Convert them to distances
+       along this particular off-axis ray. */
+    ray->mindistance = VIEWPORT_NEAR_Z / forwardcomponent;
+    ray->maxdistance = VIEWPORT_FAR_Z / forwardcomponent;
+
+    return TRUE;
+}
+
+
+static BOOL ViewportRayTriangleDistance(const ViewportPickRay *ray, const Vertex *vertices, BOOL cullbackfaces, double *distanceout)
+{
+    double edge1[3];
+    double edge2[3];
+    double fromvertex[3];
+    double cross1[3];
+    double cross2[3];
+    double determinant;
+    double inverse;
+    double u;
+    double v;
+    double distance;
+
+    edge1[0] = vertices[1].x - vertices[0].x;
+    edge1[1] = vertices[1].y - vertices[0].y;
+    edge1[2] = vertices[1].z - vertices[0].z;
+    edge2[0] = vertices[2].x - vertices[0].x;
+    edge2[1] = vertices[2].y - vertices[0].y;
+    edge2[2] = vertices[2].z - vertices[0].z;
+    fromvertex[0] = ray->origin[0] - vertices[0].x;
+    fromvertex[1] = ray->origin[1] - vertices[0].y;
+    fromvertex[2] = ray->origin[2] - vertices[0].z;
+
+    cross1[0] = ray->direction[1] * edge2[2] - ray->direction[2] * edge2[1];
+    cross1[1] = ray->direction[2] * edge2[0] - ray->direction[0] * edge2[2];
+    cross1[2] = ray->direction[0] * edge2[1] - ray->direction[1] * edge2[0];
+    determinant = edge1[0] * cross1[0] + edge1[1] * cross1[1] + edge1[2] * cross1[2];
+
+    if (cullbackfaces)
+    {
+        if (determinant <= VIEWPORT_PICK_EPSILON)
+        {
+            return FALSE;
+        }
+    }
+    else if (fabs(determinant) <= VIEWPORT_PICK_EPSILON)
+    {
+        return FALSE;
+    }
+
+    inverse = 1.0 / determinant;
+    u = (fromvertex[0] * cross1[0]
+       + fromvertex[1] * cross1[1]
+       + fromvertex[2] * cross1[2]) * inverse;
+       
+    if (u < -VIEWPORT_PICK_BARY_EPSILON || u > 1.0 + VIEWPORT_PICK_BARY_EPSILON)
+    {
+        return FALSE;
+    }
+
+    cross2[0] = fromvertex[1] * edge1[2] - fromvertex[2] * edge1[1];
+    cross2[1] = fromvertex[2] * edge1[0] - fromvertex[0] * edge1[2];
+    cross2[2] = fromvertex[0] * edge1[1] - fromvertex[1] * edge1[0];
+
+    v = (ray->direction[0] * cross2[0] + ray->direction[1] * cross2[1] + ray->direction[2] * cross2[2]) * inverse;
+
+    if (v < -VIEWPORT_PICK_BARY_EPSILON || u + v > 1.0 + VIEWPORT_PICK_BARY_EPSILON)
+    {
+        return FALSE;
+    }
+
+    distance = (edge2[0] * cross2[0] + edge2[1] * cross2[1] + edge2[2] * cross2[2]) * inverse;
+
+    if (distance < ray->mindistance || distance > ray->maxdistance)
+    {
+        return FALSE;
+    }
+
+    *distanceout = distance;
+    return TRUE;
+}
+
+
+static int ViewportFindPickedTriangle(HWND hwnd, const ViewportState *state, int mousex, int mousey)
+{
+    ViewportPickRay ray;
+    double nearestdistance = DBL_MAX;
+    int nearesttriangle = -1;
+    int batchindex;
+
+    if (state->scene == NULL || state->selectedtris == NULL || !ViewportBuildPickRay(hwnd, state, mousex, mousey, &ray))
+    {
+        return -1;
+    }
+
+    for (batchindex = 0; batchindex < state->batchcount; batchindex++)
+    {
+        const SceneBatch *batch = &state->batches[batchindex];
+        BOOL cullbackfaces;
+        int vertex;
+        int end;
+
+        if (batch->object
+            || (!batch->secondary && !state->showbgprimary)
+            || (batch->secondary && !state->showbgsecondary))
+        {
+            continue;
+        }
+
+        cullbackfaces = state->cullbackfaces && batch->cullbackfaces;
+        end = batch->first + batch->count;
+
+        for (vertex = batch->first; vertex + 2 < end; vertex += 3)
+        {
+            double distance;
+
+            if (ViewportRayTriangleDistance(&ray, &state->scene[vertex],
+                                            cullbackfaces, &distance)
+                && distance < nearestdistance)
+            {
+                nearestdistance = distance;
+                nearesttriangle = vertex / 3;
+            }
+        }
+    }
+
+    return nearesttriangle;
+}
+
+
+static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex, int mousey, BOOL addtoselection)
+{
+    int triangle;
+    size_t trianglecount;
+
+    if (state == NULL || state->selectedtris == NULL || state->flying)
+    {
+        return;
+    }
+
+    trianglecount = (size_t)state->scenecount / 3;
+    triangle = ViewportFindPickedTriangle(hwnd, state, mousex, mousey);
+
+    /* A miss always clears, even when Ctrl is held. A normal hit also
+       replaces the old selection; Ctrl-hit is purely additive. */
+    if (triangle < 0 || !addtoselection)
+    {
+        memset(state->selectedtris, 0, trianglecount);
+        state->selectedtricount = 0;
+    }
+
+    if (triangle >= 0 && !state->selectedtris[triangle])
+    {
+        state->selectedtris[triangle] = 1;
+        state->selectedtricount++;
+    }
+
+    InvalidateRect(hwnd, NULL, FALSE);
+}
+
+
 static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     ViewportState *state = ViewportGetState(hwnd);
@@ -649,6 +964,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
     {
     case WM_CREATE:
         state = (ViewportState *)calloc(1, sizeof(*state));
+
         if (state == NULL)
         {
             return -1; /* abort window creation */
@@ -660,8 +976,8 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         state->posz = 600.0f;
         state->showbgprimary = TRUE;
         state->showbgsecondary = TRUE;
-        state->showstan = TRUE;
-        state->showportals = TRUE;
+        state->showstan = FALSE;
+        state->showportals = FALSE;
         state->cullbackfaces = TRUE;
 
         if (!ViewportInitGL(hwnd, state))
@@ -695,6 +1011,11 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 0;
 
     case WM_RBUTTONUP: ViewportEndFly(hwnd, state);
+        return 0;
+
+    case WM_LBUTTONDOWN:
+        SetFocus(hwnd);
+        ViewportPickAt(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam), (wparam & MK_SHIFT) != 0);
         return 0;
 
     case WM_MOUSEMOVE: ViewportFlyLook(hwnd, state);
@@ -833,6 +1154,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
 
     free(state->textures);
     free(state->batches);
+    free(state->selectedtris);
     free(state->stanedges);
     free(state->stanfill);
     free(state->portaledges);
@@ -841,6 +1163,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
     free(state->scene);
     state->textures = NULL;
     state->batches = NULL;
+    state->selectedtris = NULL;
     state->stanedges = NULL;
     state->stanfill = NULL;
     state->portaledges = NULL;
@@ -849,6 +1172,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
     state->scene = NULL;
     state->texturecount = 0;
     state->batchcount = 0;
+    state->selectedtricount = 0;
     state->stanedgecount = 0;
     state->stanfillcount = 0;
     state->portaledgecount = 0;
@@ -1137,6 +1461,7 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
     Vertex *scene = NULL;
     SceneBatch *batches = NULL;
     GLuint *textures = NULL;
+    unsigned char *selectedtris = NULL;
     TriKey *order = NULL;
     TexPixel *decode = NULL;
     int batchcount = 0;
@@ -1155,13 +1480,15 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
         order = (TriKey *)malloc((size_t)tricount * sizeof(TriKey));
         batches = (SceneBatch *)malloc((size_t)tricount * sizeof(SceneBatch));
         textures = (GLuint *)malloc((size_t)tricount * sizeof(GLuint));
+        selectedtris = (unsigned char *)calloc((size_t)tricount,
+                                               sizeof(*selectedtris));
         decode = (TexPixel *)malloc(256 * 256 * sizeof(TexPixel));
 
         if (scene == NULL || order == NULL || batches == NULL
-            || textures == NULL || decode == NULL)
+            || textures == NULL || selectedtris == NULL || decode == NULL)
         {
             free(scene); free(order); free(batches);
-            free(textures); free(decode);
+            free(textures); free(selectedtris); free(decode);
             return; /* keep whatever we had */
         }
 
@@ -1289,6 +1616,7 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
     state->scenecount = scene != NULL ? (GLsizei)(tricount * 3) : 0;
     state->batches = batches;
     state->batchcount = scene != NULL ? batchcount : 0;
+    state->selectedtris = selectedtris;
     state->textures = textures;
     state->texturecount = scene != NULL ? texturecount : 0;
 
@@ -1296,8 +1624,10 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
     {
         free(batches);
         free(textures);
+        free(selectedtris);
         state->batches = NULL;
         state->textures = NULL;
+        state->selectedtris = NULL;
         state->batchcount = 0;
         state->texturecount = 0;
     }
@@ -1371,10 +1701,7 @@ static void ViewportAppendPadBox(Vertex *vertices, int *vertexcount,
 }
 
 
-void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup,
-                          float levelscale,
-                          const unsigned char *occupiedpads,
-                          const unsigned char *occupiedboundpads)
+void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, const unsigned char *occupiedpads, const unsigned char *occupiedboundpads)
 {
     ViewportState *state = ViewportGetState(hwnd);
     Vertex *markers = NULL;
