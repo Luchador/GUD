@@ -43,6 +43,8 @@
 #define VIEWPORT_PORTAL_EDGE_ALPHA 255
 #define VIEWPORT_PICK_EPSILON 1.0e-10
 #define VIEWPORT_PICK_BARY_EPSILON 1.0e-8
+#define VIEWPORT_PICK_COPLANAR_EPSILON 1.0e-3
+#define VIEWPORT_PICK_COPLANAR_RELATIVE_EPSILON 1.0e-6
 
 /* A contiguous run of scene vertices sharing one texture. */
 typedef struct SceneBatch {
@@ -804,12 +806,38 @@ static BOOL ViewportRayTriangleDistance(const ViewportPickRay *ray, const Vertex
 }
 
 
-static int ViewportFindPickedTriangle(HWND hwnd, const ViewportState *state, int mousex, int mousey)
+static BOOL ViewportBatchIsPickable(const ViewportState *state,
+                                    const SceneBatch *batch)
+{
+    return !batch->object
+        && (batch->secondary ? state->showbgsecondary
+                             : state->showbgprimary);
+}
+
+
+static double ViewportCoplanarPickTolerance(double distance)
+{
+    double relative = distance * VIEWPORT_PICK_COPLANAR_RELATIVE_EPSILON;
+
+    return relative > VIEWPORT_PICK_COPLANAR_EPSILON
+        ? relative : VIEWPORT_PICK_COPLANAR_EPSILON;
+}
+
+
+static int ViewportFindPickedTriangle(HWND hwnd, const ViewportState *state,
+                                      int mousex, int mousey,
+                                      BOOL addtoselection)
 {
     ViewportPickRay ray;
     double nearestdistance = DBL_MAX;
-    int nearesttriangle = -1;
+    double coplanartolerance;
+    int firsttriangle = -1;
+    int firstunselected = -1;
+    int nextafterselected = -1;
+    int selectedhits = 0;
+    BOOL passedselected = FALSE;
     int batchindex;
+    int secondary;
 
     if (state->scene == NULL || state->selectedtris == NULL || !ViewportBuildPickRay(hwnd, state, mousex, mousey, &ray))
     {
@@ -823,9 +851,7 @@ static int ViewportFindPickedTriangle(HWND hwnd, const ViewportState *state, int
         int vertex;
         int end;
 
-        if (batch->object
-            || (!batch->secondary && !state->showbgprimary)
-            || (batch->secondary && !state->showbgsecondary))
+        if (!ViewportBatchIsPickable(state, batch))
         {
             continue;
         }
@@ -842,12 +868,86 @@ static int ViewportFindPickedTriangle(HWND hwnd, const ViewportState *state, int
                 && distance < nearestdistance)
             {
                 nearestdistance = distance;
-                nearesttriangle = vertex / 3;
             }
         }
     }
 
-    return nearesttriangle;
+    if (nearestdistance == DBL_MAX)
+    {
+        return -1;
+    }
+
+    coplanartolerance = ViewportCoplanarPickTolerance(nearestdistance);
+
+    /* Secondary geometry is drawn over the primary layer and commonly
+       contains signs, decals, and other coplanar details. Put it first
+       in the hit stack, then allow repeated clicks to cycle down to the
+       primary surface beneath it. */
+    for (secondary = 1; secondary >= 0; secondary--)
+    {
+        for (batchindex = 0; batchindex < state->batchcount; batchindex++)
+        {
+            const SceneBatch *batch = &state->batches[batchindex];
+            BOOL cullbackfaces;
+            int vertex;
+            int end;
+
+            if (!ViewportBatchIsPickable(state, batch)
+                || batch->secondary != secondary)
+            {
+                continue;
+            }
+
+            cullbackfaces = state->cullbackfaces && batch->cullbackfaces;
+            end = batch->first + batch->count;
+
+            for (vertex = batch->first; vertex + 2 < end; vertex += 3)
+            {
+                double distance;
+                int triangle = vertex / 3;
+
+                if (!ViewportRayTriangleDistance(&ray, &state->scene[vertex],
+                                                 cullbackfaces, &distance)
+                    || fabs(distance - nearestdistance) > coplanartolerance)
+                {
+                    continue;
+                }
+
+                if (firsttriangle < 0)
+                {
+                    firsttriangle = triangle;
+                }
+
+                if (!state->selectedtris[triangle] && firstunselected < 0)
+                {
+                    firstunselected = triangle;
+                }
+
+                if (passedselected && nextafterselected < 0)
+                {
+                    nextafterselected = triangle;
+                }
+
+                if (state->selectedtris[triangle])
+                {
+                    selectedhits++;
+                    passedselected = TRUE;
+                }
+            }
+        }
+    }
+
+    if (addtoselection && firstunselected >= 0)
+    {
+        return firstunselected;
+    }
+
+    if (!addtoselection && selectedhits == 1)
+    {
+        return nextafterselected >= 0 ? nextafterselected : firsttriangle;
+    }
+
+    return firsttriangle;
 }
 
 
@@ -908,7 +1008,8 @@ static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex, int mous
         return;
     }
 
-    triangle = ViewportFindPickedTriangle(hwnd, state, mousex, mousey);
+    triangle = ViewportFindPickedTriangle(hwnd, state, mousex, mousey,
+                                          addtoselection);
 
     /* A miss always clears, even with the additive-selection modifier.
        A normal hit also replaces the old selection. */
