@@ -29,12 +29,13 @@ void ViewportFlyFrame(HWND viewport);
 /*
  * Replaces the viewport's scene with a triangle soup. All supplied arrays
  * are copied and remain caller-owned. NULL/0 restores the built-in test
- * scene. The camera is repositioned to frame the new geometry.
+ * scene. Set framecamera when opening a level; clear it when rebuilding an
+ * edited level so undo and redo do not move the user's viewpoint.
  */
-void ViewportSetScene(HWND hwnd, const BgVertex *tris,
+BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const unsigned short *tritags,
                       const BgFaceRef *facerefs, int tricount,
-                      const char *projectdir);
+                      const char *projectdir, BOOL framecamera);
 
 /* Selection is stored in texture-sorted viewport order. These accessors
    expose document identities instead, so callers never depend on draw order. */

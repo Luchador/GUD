@@ -17,6 +17,7 @@
 #include "romexport.h"
 #include "bgload.h"
 #include "bgdocument.h"
+#include "bghistory.h"
 #include "setupload.h"
 #include "stanload.h"
 #include "texload.h"
@@ -52,6 +53,7 @@ static BgFile g_CurrentBg;
 /* Room-aware editable geometry. The raw segment above remains the save source
    until the BG compiler is introduced. */
 static BgDocument g_CurrentBgDocument;
+static BgHistory g_BgHistory;
 /* Setup for the selected level, including host-native parsed views.
    Editor tools can consume it without retaining the source ROM. */
 static SetupFile g_CurrentSetup;
@@ -60,8 +62,111 @@ static SetupFile g_CurrentSetup;
 static StanFile g_CurrentStan;
 /* Portal records decoded from the selected level's saved BG segment. */
 static BgPortalFile g_CurrentPortals;
+/* Setup model geometry is retained so undo/redo can rebuild the BG scene
+   without reloading every model from disk. */
+static SetupObjectGeometry g_CurrentObjects;
 
 static void GEditorSetTitleForProject(HWND hwnd);
+static void GEditorRefreshHistoryMenu(HWND hwnd);
+
+
+static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
+                                        const SetupObjectGeometry *objects,
+                                        const char **reasonout)
+{
+    DWORD total;
+    BgVertex *combinedtris;
+    unsigned short *combinedtags;
+    BgFaceRef *combinedrefs;
+
+    *reasonout = "";
+    if (objects == NULL || objects->tricount == 0)
+    {
+        return TRUE;
+    }
+
+    total = mesh->facecount + objects->tricount;
+    if (total < mesh->facecount || total < objects->tricount)
+    {
+        *reasonout = "too many setup triangles for the viewport.";
+        return FALSE;
+    }
+
+    combinedtris = (BgVertex *)malloc(
+        (size_t)total * 3 * sizeof(*combinedtris));
+    combinedtags = (unsigned short *)malloc(
+        (size_t)total * sizeof(*combinedtags));
+    /* Setup objects do not belong to BgDocument, so their zeroed references
+       remain BG_FACE_ID_NONE and cannot be mistaken for editable faces. */
+    combinedrefs = (BgFaceRef *)calloc((size_t)total,
+                                       sizeof(*combinedrefs));
+
+    if (combinedtris == NULL || combinedtags == NULL || combinedrefs == NULL)
+    {
+        free(combinedtris);
+        free(combinedtags);
+        free(combinedrefs);
+        *reasonout = "out of memory adding setup objects to the viewport.";
+        return FALSE;
+    }
+
+    if (mesh->facecount > 0)
+    {
+        memcpy(combinedtris, mesh->vertices,
+               (size_t)mesh->facecount * 3 * sizeof(*combinedtris));
+        memcpy(combinedtags, mesh->tags,
+               (size_t)mesh->facecount * sizeof(*combinedtags));
+        memcpy(combinedrefs, mesh->facerefs,
+               (size_t)mesh->facecount * sizeof(*combinedrefs));
+    }
+    memcpy(combinedtris + mesh->facecount * 3, objects->tris,
+           (size_t)objects->tricount * 3 * sizeof(*combinedtris));
+    memcpy(combinedtags + mesh->facecount, objects->tritags,
+           (size_t)objects->tricount * sizeof(*combinedtags));
+
+    BgDocumentRenderMeshFree(mesh);
+    mesh->vertices = combinedtris;
+    mesh->tags = combinedtags;
+    mesh->facerefs = combinedrefs;
+    mesh->facecount = total;
+    return TRUE;
+}
+
+
+static BOOL GEditorRebuildCurrentViewport(const char **reasonout)
+{
+    BgDocumentRenderMesh mesh;
+
+    if (!BgDocumentBuildRenderMesh(&g_CurrentBgDocument, &mesh, reasonout))
+    {
+        return FALSE;
+    }
+    if (!GEditorAppendObjectGeometry(&mesh, &g_CurrentObjects, reasonout))
+    {
+        BgDocumentRenderMeshFree(&mesh);
+        return FALSE;
+    }
+    if (!ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags, mesh.facerefs,
+                          (int)mesh.facecount, g_Project.dir, FALSE))
+    {
+        BgDocumentRenderMeshFree(&mesh);
+        *reasonout = "out of memory rebuilding the viewport.";
+        return FALSE;
+    }
+    BgDocumentRenderMeshFree(&mesh);
+
+    ViewportSetPortals(g_Viewport,
+        g_CurrentPortals.portals != NULL ? &g_CurrentPortals : NULL);
+    ViewportSetStanTiles(g_Viewport,
+        g_CurrentStan.data != NULL ? &g_CurrentStan : NULL);
+    ViewportSetSetupPads(g_Viewport,
+        g_CurrentSetup.data != NULL ? &g_CurrentSetup : NULL,
+        g_CurrentBgDocument.levelscale,
+        g_CurrentObjects.occupiedpads,
+        g_CurrentObjects.occupiedboundpads);
+    RightPanelSetBgSelectionCount(g_RightPanel, 0);
+    return TRUE;
+}
 
 
 /**
@@ -155,6 +260,8 @@ static void GEditorCloseProject(HWND hwnd)
     SetupFileFree(&g_CurrentSetup);
     StanFileFree(&g_CurrentStan);
     BgPortalFileFree(&g_CurrentPortals);
+    ObjectGeometryFree(&g_CurrentObjects);
+    BgHistoryFree(&g_BgHistory);
     BgDocumentFree(&g_CurrentBgDocument);
     BgFileFree(&g_CurrentBg);
     g_CurrentLevelIndex = GEDITOR_NO_LEVEL;
@@ -163,8 +270,9 @@ static void GEditorCloseProject(HWND hwnd)
     BrowserSetLevels(g_Browser, NULL, 0);
     BrowserSetImages(g_Browser, NULL, 0, NULL);
     BrowserSetModels(g_Browser, NULL, 0);
-    ViewportSetScene(g_Viewport, NULL, NULL, NULL, 0, NULL);
+    ViewportSetScene(g_Viewport, NULL, NULL, NULL, 0, NULL, FALSE);
     RightPanelSetBgSelectionCount(g_RightPanel, 0);
+    GEditorRefreshHistoryMenu(hwnd);
     GEditorSetTitleForProject(hwnd);
 }
 
@@ -222,8 +330,8 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_STRING, ID_FILE_EXIT, "E&xit");
 
-    AppendMenu(editmenu, MF_STRING, ID_EDIT_UNDO, "&Undo");
-    AppendMenu(editmenu, MF_STRING, ID_EDIT_REDO, "&Redo");
+    AppendMenu(editmenu, MF_STRING, ID_EDIT_UNDO, "&Undo\tCtrl+Z");
+    AppendMenu(editmenu, MF_STRING, ID_EDIT_REDO, "&Redo\tCtrl+Y");
 
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_BACKFACE_CULLING, "&Backface Culling");
 
@@ -235,6 +343,85 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)toolsmenu, "&Tools");
 
     return menubar;
+}
+
+
+static HACCEL GEditorCreateAccelerators(void)
+{
+    ACCEL entries[3];
+
+    ZeroMemory(entries, sizeof(entries));
+    entries[0].fVirt = FVIRTKEY | FCONTROL;
+    entries[0].key = 'Z';
+    entries[0].cmd = ID_EDIT_UNDO;
+    entries[1].fVirt = FVIRTKEY | FCONTROL;
+    entries[1].key = 'Y';
+    entries[1].cmd = ID_EDIT_REDO;
+    entries[2].fVirt = FVIRTKEY | FCONTROL | FSHIFT;
+    entries[2].key = 'Z';
+    entries[2].cmd = ID_EDIT_REDO;
+    return CreateAcceleratorTable(entries, 3);
+}
+
+
+static void GEditorUpdateHistoryMenu(HMENU menu)
+{
+    const char *undoaction;
+    const char *redoaction;
+    char label[128];
+
+    if (GetMenuState(menu, ID_EDIT_UNDO, MF_BYCOMMAND) == (UINT)-1)
+    {
+        return;
+    }
+
+    undoaction = BgHistoryGetUndoAction(&g_BgHistory);
+    redoaction = BgHistoryGetRedoAction(&g_BgHistory);
+
+    if (undoaction[0] != '\0')
+    {
+        snprintf(label, sizeof(label), "&Undo %s\tCtrl+Z", undoaction);
+    }
+    else
+    {
+        snprintf(label, sizeof(label), "&Undo\tCtrl+Z");
+    }
+    ModifyMenu(menu, ID_EDIT_UNDO, MF_BYCOMMAND | MF_STRING,
+               ID_EDIT_UNDO, label);
+    EnableMenuItem(menu, ID_EDIT_UNDO, MF_BYCOMMAND
+        | (BgHistoryCanUndo(&g_BgHistory) ? MF_ENABLED : MF_GRAYED));
+
+    if (redoaction[0] != '\0')
+    {
+        snprintf(label, sizeof(label), "&Redo %s\tCtrl+Y", redoaction);
+    }
+    else
+    {
+        snprintf(label, sizeof(label), "&Redo\tCtrl+Y");
+    }
+    ModifyMenu(menu, ID_EDIT_REDO, MF_BYCOMMAND | MF_STRING,
+               ID_EDIT_REDO, label);
+    EnableMenuItem(menu, ID_EDIT_REDO, MF_BYCOMMAND
+        | (BgHistoryCanRedo(&g_BgHistory) ? MF_ENABLED : MF_GRAYED));
+}
+
+
+static void GEditorRefreshHistoryMenu(HWND hwnd)
+{
+    HMENU menubar = GetMenu(hwnd);
+    HMENU editmenu;
+
+    if (menubar == NULL)
+    {
+        return;
+    }
+
+    editmenu = GetSubMenu(menubar, 1);
+    if (editmenu != NULL)
+    {
+        GEditorUpdateHistoryMenu(editmenu);
+        DrawMenuBar(hwnd);
+    }
 }
 
 
@@ -972,6 +1159,42 @@ static BOOL GEditorInRightSplitter(HWND hwnd, int x)
 }
 
 
+static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
+{
+    const char *why = "";
+    const char *restorewhy = "";
+    BOOL changed;
+
+    changed = redo
+        ? BgHistoryRedo(&g_BgHistory, &g_CurrentBgDocument, &why)
+        : BgHistoryUndo(&g_BgHistory, &g_CurrentBgDocument, &why);
+
+    if (!changed)
+    {
+        return;
+    }
+
+    if (!GEditorRebuildCurrentViewport(&why))
+    {
+        /* A history step is not useful if its geometry cannot be presented.
+           The inverse transfer cannot allocate here: the destination stack
+           just released one entry and already owns sufficient capacity. */
+        if (redo)
+        {
+            BgHistoryUndo(&g_BgHistory, &g_CurrentBgDocument, &restorewhy);
+        }
+        else
+        {
+            BgHistoryRedo(&g_BgHistory, &g_CurrentBgDocument, &restorewhy);
+        }
+
+        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    }
+
+    GEditorRefreshHistoryMenu(hwnd);
+}
+
+
 static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     switch (msg)
@@ -997,6 +1220,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         {
             return -1;
         }
+        GEditorRefreshHistoryMenu(hwnd);
         return 0;
     }
 
@@ -1102,48 +1326,9 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
             if (objectsLoaded && objects.tricount > 0)
             {
-                DWORD total = mesh.facecount + objects.tricount;
-                BgVertex *combinedtris = NULL;
-                unsigned short *combinedtags = NULL;
-                BgFaceRef *combinedrefs = NULL;
-
-                if (total >= mesh.facecount && total >= objects.tricount)
+                if (!GEditorAppendObjectGeometry(&mesh, &objects, &objectwhy))
                 {
-                    combinedtris = (BgVertex *)malloc(
-                        (size_t)total * 3 * sizeof(*combinedtris));
-                    combinedtags = (unsigned short *)malloc(
-                        (size_t)total * sizeof(*combinedtags));
-                    combinedrefs = (BgFaceRef *)calloc(
-                        (size_t)total, sizeof(*combinedrefs));
-                }
-
-                if (combinedtris != NULL && combinedtags != NULL
-                    && combinedrefs != NULL)
-                {
-                    memcpy(combinedtris, mesh.vertices,
-                           (size_t)mesh.facecount * 3 * sizeof(*combinedtris));
-                    memcpy(combinedtris + mesh.facecount * 3, objects.tris,
-                           (size_t)objects.tricount * 3 * sizeof(*combinedtris));
-                    memcpy(combinedtags, mesh.tags,
-                           (size_t)mesh.facecount * sizeof(*combinedtags));
-                    memcpy(combinedtags + mesh.facecount, objects.tritags,
-                           (size_t)objects.tricount * sizeof(*combinedtags));
-                    memcpy(combinedrefs, mesh.facerefs,
-                           (size_t)mesh.facecount * sizeof(*combinedrefs));
-
-                    BgDocumentRenderMeshFree(&mesh);
-                    mesh.vertices = combinedtris;
-                    mesh.tags = combinedtags;
-                    mesh.facerefs = combinedrefs;
-                    mesh.facecount = total;
-                }
-                else
-                {
-                    free(combinedtris);
-                    free(combinedtags);
-                    free(combinedrefs);
                     objectsLoaded = FALSE;
-                    objectwhy = "out of memory adding setup objects to the viewport.";
                 }
             }
         }
@@ -1152,14 +1337,29 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                                          level->levelscale, &stan,
                                          &stanwhy);
 
-        ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags, mesh.facerefs,
-                         (int)mesh.facecount, g_Project.dir);
+        if (!ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags,
+                              mesh.facerefs, (int)mesh.facecount,
+                              g_Project.dir, TRUE))
+        {
+            BgDocumentRenderMeshFree(&mesh);
+            ObjectGeometryFree(&objects);
+            SetupFileFree(&setup);
+            StanFileFree(&stan);
+            BgPortalFileFree(&portals);
+            BgDocumentFree(&document);
+            BgFileFree(&bg);
+            MessageBox(hwnd, "Out of memory loading the level viewport.",
+                       GEDITOR_TITLE, MB_ICONERROR);
+            return 0;
+        }
         BgDocumentRenderMeshFree(&mesh); /* the viewport copied all arrays */
 
         BgFileFree(&g_CurrentBg);
         g_CurrentBg = bg;
         BgDocumentFree(&g_CurrentBgDocument);
         g_CurrentBgDocument = document;
+        BgHistoryReset(&g_BgHistory, &g_CurrentBgDocument);
+        GEditorRefreshHistoryMenu(hwnd);
         RightPanelSetBgSelectionCount(g_RightPanel, 0);
 
         BgPortalFileFree(&g_CurrentPortals);
@@ -1212,6 +1412,12 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             MessageBox(hwnd, objectwhy, GEDITOR_TITLE, MB_ICONWARNING);
         }
 
+        ObjectGeometryFree(&g_CurrentObjects);
+        if (objectsLoaded)
+        {
+            g_CurrentObjects = objects;
+            ZeroMemory(&objects, sizeof(objects));
+        }
         ObjectGeometryFree(&objects);
 
         g_CurrentLevelIndex = index;
@@ -1316,6 +1522,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         EnableMenuItem((HMENU)wparam, ID_FILE_SAVE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_FILE_CLOSE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CREATE_ROM, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
+        GEditorUpdateHistoryMenu((HMENU)wparam);
         CheckMenuItem((HMENU)wparam, ID_VIEW_BACKFACE_CULLING, MF_BYCOMMAND | (ViewportGetBackfaceCulling(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
         return 0;
 
@@ -1429,6 +1636,14 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 GEditorSaveProject(hwnd);
                 return 0;
 
+            case ID_EDIT_UNDO:
+                GEditorApplyHistoryStep(hwnd, FALSE);
+                return 0;
+
+            case ID_EDIT_REDO:
+                GEditorApplyHistoryStep(hwnd, TRUE);
+                return 0;
+
             case ID_VIEW_BACKFACE_CULLING:
                 ViewportSetBackfaceCulling(g_Viewport,
                     !ViewportGetBackfaceCulling(g_Viewport));
@@ -1454,6 +1669,8 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         SetupFileFree(&g_CurrentSetup);
         StanFileFree(&g_CurrentStan);
         BgPortalFileFree(&g_CurrentPortals);
+        ObjectGeometryFree(&g_CurrentObjects);
+        BgHistoryFree(&g_BgHistory);
         BgDocumentFree(&g_CurrentBgDocument);
         BgFileFree(&g_CurrentBg);
         PostQuitMessage(0);
@@ -1469,6 +1686,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
     HWND hwnd;
     MSG msg;
     HMENU menubar;
+    HACCEL accelerators;
 
     ZeroMemory(&wc, sizeof(wc));
     wc.lpfnWndProc   = GEditorWndProc;
@@ -1514,6 +1732,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
 
     ShowWindow(hwnd, showcmd);
     UpdateWindow(hwnd);
+    accelerators = GEditorCreateAccelerators();
 
     /**
      * The message loop. GetMessage blocks until something happens, returns 0 when WM_QUIT arrives, and -1 on error. 
@@ -1533,11 +1752,19 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             {
                 if (msg.message == WM_QUIT)
                 {
+                    if (accelerators != NULL)
+                    {
+                        DestroyAcceleratorTable(accelerators);
+                    }
                     CoUninitialize();
                     return (int)msg.wParam;
                 }
-                TranslateMessage(&msg);
-                DispatchMessage(&msg);
+                if (accelerators == NULL
+                    || !TranslateAccelerator(hwnd, accelerators, &msg))
+                {
+                    TranslateMessage(&msg);
+                    DispatchMessage(&msg);
+                }
             }
 
             ViewportFlyFrame(g_Viewport);
@@ -1549,11 +1776,19 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             {
                 break;
             }
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
+            if (accelerators == NULL
+                || !TranslateAccelerator(hwnd, accelerators, &msg))
+            {
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
         }
     }
 
+    if (accelerators != NULL)
+    {
+        DestroyAcceleratorTable(accelerators);
+    }
     CoUninitialize();
     return (int)msg.wParam;
 }

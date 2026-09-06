@@ -77,6 +77,8 @@ typedef struct BgDocumentRenderMesh {
 
 BOOL BgDocumentLoad(const unsigned char *data, DWORD size, float levelscale,
                     BgDocument *out, const char **reasonout);
+BOOL BgDocumentClone(const BgDocument *source, BgDocument *out,
+                     const char **reasonout);
 void BgDocumentFree(BgDocument *document);
 
 BOOL BgDocumentBuildRenderMesh(const BgDocument *document,

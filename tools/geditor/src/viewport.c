@@ -1575,10 +1575,10 @@ static int ViewportTriKeyCompare(const void *a, const void *b)
     return d != 0 ? d : ka->tri - kb->tri;
 }
 
-void ViewportSetScene(HWND hwnd, const BgVertex *tris,
+BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const unsigned short *tritags,
                       const BgFaceRef *facerefs, int tricount,
-                      const char *projectdir)
+                      const char *projectdir, BOOL framecamera)
 {
     ViewportState *state = (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
     Vertex *scene = NULL;
@@ -1596,7 +1596,7 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
 
     if (state == NULL)
     {
-        return;
+        return FALSE;
     }
 
     if (tris != NULL && tricount > 0)
@@ -1620,7 +1620,7 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
             free(scene); free(scenecolors); free(order); free(batches);
             free(textures); free(selectedtris); free(scenefacerefs);
             free(decode);
-            return; /* keep whatever we had */
+            return FALSE; /* keep whatever we had */
         }
 
         /* Keep primary geometry before secondary geometry, then group
@@ -1777,7 +1777,7 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
         state->texturecount = 0;
     }
 
-    if (scene != NULL)
+    if (scene != NULL && framecamera)
     {
         /* Frame the level: eye at the bbox centre, pulled back along
            +Z by most of the larger horizontal extent. Free-fly from
@@ -1794,6 +1794,7 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
     }
 
     InvalidateRect(hwnd, NULL, FALSE);
+    return TRUE;
 }
 
 

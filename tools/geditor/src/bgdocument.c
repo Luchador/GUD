@@ -479,6 +479,80 @@ BOOL BgDocumentLoad(const unsigned char *data, DWORD size, float levelscale,
 }
 
 
+BOOL BgDocumentClone(const BgDocument *source, BgDocument *out,
+                     const char **reasonout)
+{
+    DWORD roomindex;
+
+    ZeroMemory(out, sizeof(*out));
+    *reasonout = "";
+
+    if (source == NULL || source->rooms == NULL)
+    {
+        *reasonout = "there is no bg document to copy.";
+        return FALSE;
+    }
+
+    out->rooms = (BgDocumentRoom *)calloc(source->roomcount + 1,
+                                           sizeof(*out->rooms));
+    if (out->rooms == NULL)
+    {
+        *reasonout = "out of memory copying the bg document.";
+        return FALSE;
+    }
+
+    out->roomcount = source->roomcount;
+    out->facecount = source->facecount;
+    out->nextvertexid = source->nextvertexid;
+    out->nextfaceid = source->nextfaceid;
+    out->levelscale = source->levelscale;
+    out->dirty = source->dirty;
+
+    for (roomindex = 0; roomindex <= source->roomcount; roomindex++)
+    {
+        const BgDocumentRoom *srcroom = &source->rooms[roomindex];
+        BgDocumentRoom *dstroom = &out->rooms[roomindex];
+
+        memcpy(dstroom->origin, srcroom->origin, sizeof(dstroom->origin));
+
+        if (srcroom->vertexcount > 0)
+        {
+            dstroom->vertices = (BgDocumentVertex *)malloc(
+                (size_t)srcroom->vertexcount * sizeof(*dstroom->vertices));
+            if (dstroom->vertices == NULL)
+            {
+                BgDocumentFree(out);
+                *reasonout = "out of memory copying bg vertices.";
+                return FALSE;
+            }
+
+            memcpy(dstroom->vertices, srcroom->vertices,
+                   (size_t)srcroom->vertexcount * sizeof(*dstroom->vertices));
+            dstroom->vertexcount = srcroom->vertexcount;
+        }
+
+        if (srcroom->facecount > 0)
+        {
+            dstroom->faces = (BgDocumentFace *)malloc(
+                (size_t)srcroom->facecount * sizeof(*dstroom->faces));
+            if (dstroom->faces == NULL)
+            {
+                BgDocumentFree(out);
+                *reasonout = "out of memory copying bg faces.";
+                return FALSE;
+            }
+
+            memcpy(dstroom->faces, srcroom->faces,
+                   (size_t)srcroom->facecount * sizeof(*dstroom->faces));
+            dstroom->facecount = srcroom->facecount;
+            dstroom->facecapacity = srcroom->facecount;
+        }
+    }
+
+    return TRUE;
+}
+
+
 void BgDocumentFree(BgDocument *document)
 {
     DWORD room;
