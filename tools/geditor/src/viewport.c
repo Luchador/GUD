@@ -826,18 +826,22 @@ static double ViewportCoplanarPickTolerance(double distance)
 
 static int ViewportFindPickedTriangle(HWND hwnd, const ViewportState *state,
                                       int mousex, int mousey,
-                                      BOOL addtoselection)
+                                      BOOL addtoselection, BOOL deselect,
+                                      BOOL *hitanything)
 {
     ViewportPickRay ray;
     double nearestdistance = DBL_MAX;
     double coplanartolerance;
     int firsttriangle = -1;
+    int firstselected = -1;
     int firstunselected = -1;
     int nextafterselected = -1;
     int selectedhits = 0;
     BOOL passedselected = FALSE;
     int batchindex;
     int secondary;
+
+    *hitanything = FALSE;
 
     if (state->scene == NULL || state->selectedtris == NULL || !ViewportBuildPickRay(hwnd, state, mousex, mousey, &ray))
     {
@@ -877,6 +881,7 @@ static int ViewportFindPickedTriangle(HWND hwnd, const ViewportState *state,
         return -1;
     }
 
+    *hitanything = TRUE;
     coplanartolerance = ViewportCoplanarPickTolerance(nearestdistance);
 
     /* Secondary geometry is drawn over the primary layer and commonly
@@ -923,6 +928,11 @@ static int ViewportFindPickedTriangle(HWND hwnd, const ViewportState *state,
                     firstunselected = triangle;
                 }
 
+                if (state->selectedtris[triangle] && firstselected < 0)
+                {
+                    firstselected = triangle;
+                }
+
                 if (passedselected && nextafterselected < 0)
                 {
                     nextafterselected = triangle;
@@ -935,6 +945,11 @@ static int ViewportFindPickedTriangle(HWND hwnd, const ViewportState *state,
                 }
             }
         }
+    }
+
+    if (deselect)
+    {
+        return firstselected;
     }
 
     if (addtoselection && firstunselected >= 0)
@@ -998,8 +1013,10 @@ static void ViewportClearSelection(ViewportState *state)
 }
 
 
-static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex, int mousey, BOOL addtoselection)
+static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex,
+                           int mousey, BOOL addtoselection, BOOL deselect)
 {
+    BOOL hitanything;
     int triangle;
 
     if (state == NULL || state->selectedtris == NULL
@@ -1008,8 +1025,31 @@ static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex, int mous
         return;
     }
 
+    if (deselect)
+    {
+        addtoselection = FALSE;
+    }
+
     triangle = ViewportFindPickedTriangle(hwnd, state, mousex, mousey,
-                                          addtoselection);
+                                          addtoselection, deselect,
+                                          &hitanything);
+
+    if (deselect)
+    {
+        if (triangle >= 0)
+        {
+            state->selectedtris[triangle] = 0;
+            state->selectedtricount--;
+            ViewportSetTriangleColor(state, triangle, FALSE);
+        }
+        else if (!hitanything)
+        {
+            ViewportClearSelection(state);
+        }
+
+        InvalidateRect(hwnd, NULL, FALSE);
+        return;
+    }
 
     /* A miss always clears, even with the additive-selection modifier.
        A normal hit also replaces the old selection. */
@@ -1088,7 +1128,9 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
     case WM_LBUTTONDOWN:
         SetFocus(hwnd);
-        ViewportPickAt(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam), (wparam & MK_SHIFT) != 0);
+        ViewportPickAt(hwnd, state, GET_X_LPARAM(lparam),
+                       GET_Y_LPARAM(lparam), (wparam & MK_SHIFT) != 0,
+                       (wparam & MK_CONTROL) != 0);
         return 0;
 
     case WM_MOUSEMOVE: ViewportFlyLook(hwnd, state);
