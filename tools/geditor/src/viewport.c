@@ -63,6 +63,10 @@ typedef struct Vertex {
     GLfloat s, t;
 } Vertex;
 
+typedef struct VertexColor {
+    GLubyte r, g, b;
+} VertexColor;
+
 /* Per-viewport state, allocated at WM_CREATE, freed at WM_DESTROY,
    reachable from the window via GWLP_USERDATA. */
 typedef struct ViewportState {
@@ -76,6 +80,7 @@ typedef struct ViewportState {
 
     BOOL flying;
     Vertex *scene;       /* malloc'd level geometry, or NULL for the test scene */
+    VertexColor *scenecolors; /* original RGB restored when faces are deselected */
     GLsizei scenecount;  /* vertices in scene */
     struct SceneBatch *batches;  /* texture-sorted draw ranges */
     int batchcount;
@@ -412,85 +417,6 @@ static void ViewportPaintGL(ViewportState *state)
 
         glDepthMask(GL_TRUE);
         glDepthFunc(GL_LESS);
-    }
-
-    if (state->scene != NULL && state->selectedtris != NULL && state->selectedtricount > 0)
-    {
-        int batchindex;
-        BOOL incullback = FALSE;
-
-        /* Selected BG faces use a small depth bias and an untextured
-           cyan pass. This replaces their displayed vertex color
-           without allowing a dark texture to hide the highlight. */
-        glDisable(GL_TEXTURE_2D);
-        glDisable(GL_ALPHA_TEST);
-        glDisable(GL_BLEND);
-        glDisable(GL_CULL_FACE);
-        glDisableClientState(GL_COLOR_ARRAY);
-        glColor4ub(0, 255, 255, 255);
-        glDepthMask(GL_FALSE);
-        glDepthFunc(GL_LEQUAL);
-        glEnable(GL_POLYGON_OFFSET_FILL);
-        glPolygonOffset(-2.0f, -2.0f);
-        glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->scene[0].x);
-
-        for (batchindex = 0; batchindex < state->batchcount; batchindex++)
-        {
-            const SceneBatch *batch = &state->batches[batchindex];
-            BOOL wantcullback;
-            int vertex = batch->first;
-            int end = batch->first + batch->count;
-
-            if (batch->object || (!batch->secondary && !state->showbgprimary) || (batch->secondary && !state->showbgsecondary))
-            {
-                continue;
-            }
-
-            wantcullback = state->cullbackfaces && batch->cullbackfaces;
-
-            if (wantcullback != incullback)
-            {
-                if (wantcullback)
-                {
-                    glEnable(GL_CULL_FACE);
-                }
-                else
-                {
-                    glDisable(GL_CULL_FACE);
-                }
-                incullback = wantcullback;
-            }
-
-            while (vertex + 2 < end)
-            {
-                int firstselected;
-
-                while (vertex + 2 < end
-                       && !state->selectedtris[vertex / 3])
-                {
-                    vertex += 3;
-                }
-
-                firstselected = vertex;
-                while (vertex + 2 < end
-                       && state->selectedtris[vertex / 3])
-                {
-                    vertex += 3;
-                }
-
-                if (firstselected < vertex)
-                {
-                    glDrawArrays(GL_TRIANGLES, firstselected,
-                                 vertex - firstselected);
-                }
-            }
-        }
-
-        glDisable(GL_POLYGON_OFFSET_FILL);
-        glDisable(GL_CULL_FACE);
-        glDepthMask(GL_TRUE);
-        glDepthFunc(GL_LESS);
-        glEnableClientState(GL_COLOR_ARRAY);
     }
 
     if (state->padmarkers != NULL && state->padmarkercount > 0)
@@ -925,31 +851,77 @@ static int ViewportFindPickedTriangle(HWND hwnd, const ViewportState *state, int
 }
 
 
-static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex, int mousey, BOOL addtoselection)
+static void ViewportSetTriangleColor(ViewportState *state, int triangle,
+                                     BOOL selected)
+{
+    int vertex;
+    int end = triangle * 3 + 3;
+
+    for (vertex = triangle * 3; vertex < end; vertex++)
+    {
+        if (selected)
+        {
+            state->scene[vertex].r = 0;
+            state->scene[vertex].g = 255;
+            state->scene[vertex].b = 255;
+        }
+        else
+        {
+            state->scene[vertex].r = state->scenecolors[vertex].r;
+            state->scene[vertex].g = state->scenecolors[vertex].g;
+            state->scene[vertex].b = state->scenecolors[vertex].b;
+        }
+    }
+}
+
+
+static void ViewportClearSelection(ViewportState *state)
 {
     int triangle;
-    size_t trianglecount;
+    int trianglecount = state->scenecount / 3;
 
-    if (state == NULL || state->selectedtris == NULL || state->flying)
+    if (state->selectedtricount == 0)
     {
         return;
     }
 
-    trianglecount = (size_t)state->scenecount / 3;
+    for (triangle = 0; triangle < trianglecount; triangle++)
+    {
+        if (state->selectedtris[triangle])
+        {
+            ViewportSetTriangleColor(state, triangle, FALSE);
+        }
+    }
+
+    memset(state->selectedtris, 0, (size_t)trianglecount);
+    state->selectedtricount = 0;
+}
+
+
+static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex, int mousey, BOOL addtoselection)
+{
+    int triangle;
+
+    if (state == NULL || state->selectedtris == NULL
+        || state->scenecolors == NULL || state->flying)
+    {
+        return;
+    }
+
     triangle = ViewportFindPickedTriangle(hwnd, state, mousex, mousey);
 
-    /* A miss always clears, even when Ctrl is held. A normal hit also
-       replaces the old selection; Ctrl-hit is purely additive. */
+    /* A miss always clears, even with the additive-selection modifier.
+       A normal hit also replaces the old selection. */
     if (triangle < 0 || !addtoselection)
     {
-        memset(state->selectedtris, 0, trianglecount);
-        state->selectedtricount = 0;
+        ViewportClearSelection(state);
     }
 
     if (triangle >= 0 && !state->selectedtris[triangle])
     {
         state->selectedtris[triangle] = 1;
         state->selectedtricount++;
+        ViewportSetTriangleColor(state, triangle, TRUE);
     }
 
     InvalidateRect(hwnd, NULL, FALSE);
@@ -1155,6 +1127,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
     free(state->textures);
     free(state->batches);
     free(state->selectedtris);
+    free(state->scenecolors);
     free(state->stanedges);
     free(state->stanfill);
     free(state->portaledges);
@@ -1164,6 +1137,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
     state->textures = NULL;
     state->batches = NULL;
     state->selectedtris = NULL;
+    state->scenecolors = NULL;
     state->stanedges = NULL;
     state->stanfill = NULL;
     state->portaledges = NULL;
@@ -1459,6 +1433,7 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
 {
     ViewportState *state = (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
     Vertex *scene = NULL;
+    VertexColor *scenecolors = NULL;
     SceneBatch *batches = NULL;
     GLuint *textures = NULL;
     unsigned char *selectedtris = NULL;
@@ -1477,6 +1452,8 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
     if (tris != NULL && tricount > 0)
     {
         scene = (Vertex *)malloc((size_t)tricount * 3 * sizeof(Vertex));
+        scenecolors = (VertexColor *)malloc((size_t)tricount * 3
+                                            * sizeof(*scenecolors));
         order = (TriKey *)malloc((size_t)tricount * sizeof(TriKey));
         batches = (SceneBatch *)malloc((size_t)tricount * sizeof(SceneBatch));
         textures = (GLuint *)malloc((size_t)tricount * sizeof(GLuint));
@@ -1484,10 +1461,10 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
                                                sizeof(*selectedtris));
         decode = (TexPixel *)malloc(256 * 256 * sizeof(TexPixel));
 
-        if (scene == NULL || order == NULL || batches == NULL
+        if (scene == NULL || scenecolors == NULL || order == NULL || batches == NULL
             || textures == NULL || selectedtris == NULL || decode == NULL)
         {
-            free(scene); free(order); free(batches);
+            free(scene); free(scenecolors); free(order); free(batches);
             free(textures); free(selectedtris); free(decode);
             return; /* keep whatever we had */
         }
@@ -1588,6 +1565,9 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
                 dst[k].g = src[k].g;
                 dst[k].b = src[k].b;
                 dst[k].a = src[k].a;
+                scenecolors[i * 3 + k].r = src[k].r;
+                scenecolors[i * 3 + k].g = src[k].g;
+                scenecolors[i * 3 + k].b = src[k].b;
 
                 if (i == 0 && k == 0)
                 {
@@ -1613,6 +1593,7 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
 
     ViewportFreeScene(state);
     state->scene = scene;
+    state->scenecolors = scenecolors;
     state->scenecount = scene != NULL ? (GLsizei)(tricount * 3) : 0;
     state->batches = batches;
     state->batchcount = scene != NULL ? batchcount : 0;
@@ -1625,9 +1606,11 @@ void ViewportSetScene(HWND hwnd, const BgVertex *tris,
         free(batches);
         free(textures);
         free(selectedtris);
+        free(scenecolors);
         state->batches = NULL;
         state->textures = NULL;
         state->selectedtris = NULL;
+        state->scenecolors = NULL;
         state->batchcount = 0;
         state->texturecount = 0;
     }
