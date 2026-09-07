@@ -53,7 +53,8 @@ static BgFile g_CurrentBg;
 /* Room-aware editable geometry. Saving compiles it back into g_CurrentBg;
    the raw segment supplies preserved portal, visibility, and header data. */
 static BgDocument g_CurrentBgDocument;
-static BgHistory g_BgHistory;
+/* One chronological history spans both BG and setup edits. */
+static EditHistory g_EditHistory;
 /* Setup for the selected level, including host-native parsed views.
    Editor tools can consume it without retaining the source ROM. */
 static SetupFile g_CurrentSetup;
@@ -62,8 +63,8 @@ static SetupFile g_CurrentSetup;
 static StanFile g_CurrentStan;
 /* Portal records decoded from the selected level's saved BG segment. */
 static BgPortalFile g_CurrentPortals;
-/* Setup model geometry is retained so undo/redo can rebuild the BG scene
-   without reloading every model from disk. */
+/* Setup model geometry is retained so BG-only undo/redo can rebuild the scene
+   without reloading every model from disk. Setup edits regenerate this layer. */
 static SetupObjectGeometry g_CurrentObjects;
 
 static void GEditorSetTitleForProject(HWND hwnd);
@@ -133,7 +134,8 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
 }
 
 
-static BOOL GEditorRebuildCurrentViewport(const char **reasonout)
+static BOOL GEditorRebuildCurrentViewportWithObjects(
+    const SetupObjectGeometry *objects, const char **reasonout)
 {
     BgDocumentRenderMesh mesh;
     DWORD objectfirsttriangle;
@@ -143,13 +145,13 @@ static BOOL GEditorRebuildCurrentViewport(const char **reasonout)
         return FALSE;
     }
     objectfirsttriangle = mesh.facecount;
-    if (!GEditorAppendObjectGeometry(&mesh, &g_CurrentObjects, reasonout))
+    if (!GEditorAppendObjectGeometry(&mesh, objects, reasonout))
     {
         BgDocumentRenderMeshFree(&mesh);
         return FALSE;
     }
     if (!ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags, mesh.facerefs,
-                          g_CurrentObjects.objectindices,
+                          objects->objectindices,
                           (int)objectfirsttriangle,
                           (int)mesh.facecount, g_Project.dir, FALSE))
     {
@@ -166,9 +168,41 @@ static BOOL GEditorRebuildCurrentViewport(const char **reasonout)
     ViewportSetSetupPads(g_Viewport,
         g_CurrentSetup.data != NULL ? &g_CurrentSetup : NULL,
         g_CurrentBgDocument.levelscale,
-        g_CurrentObjects.occupiedpads,
-        g_CurrentObjects.occupiedboundpads);
+        objects->occupiedpads,
+        objects->occupiedboundpads);
     RightPanelSetBgSelectionCount(g_RightPanel, 0);
+    return TRUE;
+}
+
+
+static BOOL GEditorRebuildCurrentViewport(const char **reasonout)
+{
+    return GEditorRebuildCurrentViewportWithObjects(&g_CurrentObjects,
+                                                     reasonout);
+}
+
+
+static BOOL GEditorReloadCurrentObjectsAndViewport(const char **reasonout)
+{
+    SetupObjectGeometry objects;
+
+    ZeroMemory(&objects, sizeof(objects));
+    if (g_CurrentSetup.data != NULL
+        && !ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup,
+                                    g_CurrentBgDocument.levelscale,
+                                    &objects, reasonout))
+    {
+        return FALSE;
+    }
+
+    if (!GEditorRebuildCurrentViewportWithObjects(&objects, reasonout))
+    {
+        ObjectGeometryFree(&objects);
+        return FALSE;
+    }
+
+    ObjectGeometryFree(&g_CurrentObjects);
+    g_CurrentObjects = objects;
     return TRUE;
 }
 
@@ -274,7 +308,7 @@ static void GEditorCloseProject(HWND hwnd)
     StanFileFree(&g_CurrentStan);
     BgPortalFileFree(&g_CurrentPortals);
     ObjectGeometryFree(&g_CurrentObjects);
-    BgHistoryFree(&g_BgHistory);
+    EditHistoryFree(&g_EditHistory);
     BgDocumentFree(&g_CurrentBgDocument);
     BgFileFree(&g_CurrentBg);
     g_CurrentLevelIndex = GEDITOR_NO_LEVEL;
@@ -388,8 +422,8 @@ static void GEditorUpdateHistoryMenu(HMENU menu)
         return;
     }
 
-    undoaction = BgHistoryGetUndoAction(&g_BgHistory);
-    redoaction = BgHistoryGetRedoAction(&g_BgHistory);
+    undoaction = EditHistoryGetUndoAction(&g_EditHistory);
+    redoaction = EditHistoryGetRedoAction(&g_EditHistory);
 
     if (undoaction[0] != '\0')
     {
@@ -402,7 +436,7 @@ static void GEditorUpdateHistoryMenu(HMENU menu)
     ModifyMenu(menu, ID_EDIT_UNDO, MF_BYCOMMAND | MF_STRING,
                ID_EDIT_UNDO, label);
     EnableMenuItem(menu, ID_EDIT_UNDO, MF_BYCOMMAND
-        | (BgHistoryCanUndo(&g_BgHistory) ? MF_ENABLED : MF_GRAYED));
+        | (EditHistoryCanUndo(&g_EditHistory) ? MF_ENABLED : MF_GRAYED));
 
     if (redoaction[0] != '\0')
     {
@@ -415,7 +449,7 @@ static void GEditorUpdateHistoryMenu(HMENU menu)
     ModifyMenu(menu, ID_EDIT_REDO, MF_BYCOMMAND | MF_STRING,
                ID_EDIT_REDO, label);
     EnableMenuItem(menu, ID_EDIT_REDO, MF_BYCOMMAND
-        | (BgHistoryCanRedo(&g_BgHistory) ? MF_ENABLED : MF_GRAYED));
+        | (EditHistoryCanRedo(&g_EditHistory) ? MF_ENABLED : MF_GRAYED));
 }
 
 
@@ -863,20 +897,29 @@ static BOOL GEditorSaveProject(HWND hwnd)
             BgFileFree(&g_CurrentBg);
             g_CurrentBg = compiled;
             ZeroMemory(&compiled, sizeof(compiled));
-            BgHistoryMarkSaved(&g_BgHistory, &g_CurrentBgDocument);
-            GEditorRefreshHistoryMenu(hwnd);
+        }
+        EditHistoryMarkBgSaved(&g_EditHistory, &g_CurrentBgDocument);
+
+        if (g_CurrentSetup.data != NULL)
+        {
+            if (!SetupSaveProjectFile(g_Project.dir, &g_CurrentSetup, &why))
+            {
+                MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+                GEditorRefreshHistoryMenu(hwnd);
+                return FALSE;
+            }
+            EditHistoryMarkSetupSaved(&g_EditHistory, &g_CurrentSetup);
         }
 
-        if ((g_CurrentSetup.data != NULL
-                && !SetupSaveProjectFile(g_Project.dir, &g_CurrentSetup,
-                                         &why))
-            || (g_CurrentStan.data != NULL
-                && !StanSaveProjectFile(g_Project.dir, &g_CurrentStan,
-                                        &why)))
+        if (g_CurrentStan.data != NULL
+            && !StanSaveProjectFile(g_Project.dir, &g_CurrentStan, &why))
         {
             MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+            GEditorRefreshHistoryMenu(hwnd);
             return FALSE;
         }
+
+        GEditorRefreshHistoryMenu(hwnd);
     }
 
     if (!ProjectSave(&g_Project, &why))
@@ -1207,29 +1250,46 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
 {
     const char *why = "";
     const char *restorewhy = "";
+    EditHistoryAsset asset = EDIT_HISTORY_ASSET_NONE;
+    EditHistoryAsset restoreasset = EDIT_HISTORY_ASSET_NONE;
     BOOL changed;
 
     changed = redo
-        ? BgHistoryRedo(&g_BgHistory, &g_CurrentBgDocument, &why)
-        : BgHistoryUndo(&g_BgHistory, &g_CurrentBgDocument, &why);
+        ? EditHistoryRedo(&g_EditHistory, &g_CurrentBgDocument,
+                          &g_CurrentSetup, &asset, &why)
+        : EditHistoryUndo(&g_EditHistory, &g_CurrentBgDocument,
+                          &g_CurrentSetup, &asset, &why);
 
     if (!changed)
     {
         return;
     }
 
-    if (!GEditorRebuildCurrentViewport(&why))
+    if (!(asset == EDIT_HISTORY_ASSET_SETUP
+            ? GEditorReloadCurrentObjectsAndViewport(&why)
+            : GEditorRebuildCurrentViewport(&why)))
     {
         /* A history step is not useful if its geometry cannot be presented.
            The inverse transfer cannot allocate here: the destination stack
            just released one entry and already owns sufficient capacity. */
         if (redo)
         {
-            BgHistoryUndo(&g_BgHistory, &g_CurrentBgDocument, &restorewhy);
+            EditHistoryUndo(&g_EditHistory, &g_CurrentBgDocument,
+                            &g_CurrentSetup, &restoreasset, &restorewhy);
         }
         else
         {
-            BgHistoryRedo(&g_BgHistory, &g_CurrentBgDocument, &restorewhy);
+            EditHistoryRedo(&g_EditHistory, &g_CurrentBgDocument,
+                            &g_CurrentSetup, &restoreasset, &restorewhy);
+        }
+
+        if (restoreasset == EDIT_HISTORY_ASSET_SETUP)
+        {
+            GEditorReloadCurrentObjectsAndViewport(&restorewhy);
+        }
+        else if (restoreasset == EDIT_HISTORY_ASSET_BG)
+        {
+            GEditorRebuildCurrentViewport(&restorewhy);
         }
 
         MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
@@ -1241,7 +1301,7 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
 
 static void GEditorDeleteSelectedBgFaces(HWND hwnd)
 {
-    BgHistoryTransaction transaction;
+    EditHistoryTransaction transaction;
     BgFaceRef *selected;
     const char *why = "";
     const char *restorewhy = "";
@@ -1263,8 +1323,8 @@ static void GEditorDeleteSelectedBgFaces(HWND hwnd)
     }
 
     if (!ViewportGetSelectedBgFaces(g_Viewport, selected, count)
-        || !BgHistoryBeginEdit(&g_BgHistory, &g_CurrentBgDocument,
-                               action, &transaction, &why))
+        || !EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+                                   action, &transaction, &why))
     {
         free(selected);
         if (why[0] == '\0')
@@ -1279,10 +1339,11 @@ static void GEditorDeleteSelectedBgFaces(HWND hwnd)
                                (DWORD)count, &deleted, &why)
         || deleted != (DWORD)count
         || !GEditorRebuildCurrentViewport(&why)
-        || !BgHistoryCommitEdit(&g_BgHistory, &g_CurrentBgDocument,
-                                &transaction, &why))
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
+                                  &g_CurrentSetup, &transaction, &why))
     {
-        BgHistoryRollbackEdit(&transaction, &g_CurrentBgDocument);
+        EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument,
+                                &g_CurrentSetup);
         GEditorRebuildCurrentViewport(&restorewhy);
         free(selected);
         MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
@@ -1291,6 +1352,42 @@ static void GEditorDeleteSelectedBgFaces(HWND hwnd)
     }
 
     free(selected);
+    GEditorRefreshHistoryMenu(hwnd);
+}
+
+
+static void GEditorDeleteSelectedObject(HWND hwnd, DWORD objectindex)
+{
+    EditHistoryTransaction transaction;
+    const char *why = "";
+    const char *restorewhy = "";
+
+    if (objectindex >= g_CurrentSetup.objectcount
+        || g_CurrentSetup.objects[objectindex].deleted)
+    {
+        return;
+    }
+
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
+                                   "Delete Object", &transaction, &why))
+    {
+        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+        return;
+    }
+
+    if (!SetupFileDeleteObject(&g_CurrentSetup, objectindex, &why)
+        || !GEditorReloadCurrentObjectsAndViewport(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
+                                  &g_CurrentSetup, &transaction, &why))
+    {
+        EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument,
+                                &g_CurrentSetup);
+        GEditorReloadCurrentObjectsAndViewport(&restorewhy);
+        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+        GEditorRefreshHistoryMenu(hwnd);
+        return;
+    }
+
     GEditorRefreshHistoryMenu(hwnd);
 }
 
@@ -1367,8 +1464,19 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     }
 
     case VIEWPORT_WM_DELETE_SELECTION:
-        GEditorDeleteSelectedBgFaces(hwnd);
+    {
+        DWORD selectedobject;
+
+        if (ViewportGetSelectedObject(g_Viewport, &selectedobject))
+        {
+            GEditorDeleteSelectedObject(hwnd, selectedobject);
+        }
+        else
+        {
+            GEditorDeleteSelectedBgFaces(hwnd);
+        }
         return 0;
+    }
 
     case BROWSER_WM_LEVEL_OPEN:
     {
@@ -1474,8 +1582,6 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         g_CurrentBg = bg;
         BgDocumentFree(&g_CurrentBgDocument);
         g_CurrentBgDocument = document;
-        BgHistoryReset(&g_BgHistory, &g_CurrentBgDocument);
-        GEditorRefreshHistoryMenu(hwnd);
         RightPanelSetBgSelectionCount(g_RightPanel, 0);
 
         BgPortalFileFree(&g_CurrentPortals);
@@ -1536,6 +1642,9 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
         ObjectGeometryFree(&objects);
 
+        EditHistoryReset(&g_EditHistory, &g_CurrentBgDocument,
+                         &g_CurrentSetup);
+        GEditorRefreshHistoryMenu(hwnd);
         g_CurrentLevelIndex = index;
 
         wsprintf(title, "%s - %s", GEDITOR_TITLE, (const char *)lparam);
@@ -1786,7 +1895,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         StanFileFree(&g_CurrentStan);
         BgPortalFileFree(&g_CurrentPortals);
         ObjectGeometryFree(&g_CurrentObjects);
-        BgHistoryFree(&g_BgHistory);
+        EditHistoryFree(&g_EditHistory);
         BgDocumentFree(&g_CurrentBgDocument);
         BgFileFree(&g_CurrentBg);
         PostQuitMessage(0);

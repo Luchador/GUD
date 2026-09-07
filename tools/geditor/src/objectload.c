@@ -323,7 +323,8 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         BOOL isbound;
         BOOL isdoor = object->type == PROPDEF_DOOR;
 
-        if ((object->flags & (PROPFLAG_ASSIGNED_TO_CHR
+        if (object->deleted
+            || (object->flags & (PROPFLAG_ASSIGNED_TO_CHR
                               | PROPFLAG_INSIDE_OBJECT)) != 0
             || object->pad < 0)
         {

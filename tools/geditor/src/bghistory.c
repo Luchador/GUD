@@ -1,9 +1,9 @@
 /*
- * Bounded undo/redo history for the editable background document.
+ * Bounded chronological undo/redo history for editable level documents.
  *
- * Each committed edit stores the complete pre-edit document. Undo and redo
- * transfer ownership between the live document and the opposite stack, so
- * stepping through history does not copy the level geometry again.
+ * Each entry owns only the pre-edit document for the asset which changed.
+ * Undo and redo transfer that ownership between the live document and the
+ * opposite stack, avoiding another potentially large clone while stepping.
  */
 
 #include <windows.h>
@@ -13,56 +13,70 @@
 #include "bghistory.h"
 
 
-static void BgHistoryCopyAction(char out[BG_HISTORY_ACTION_MAX],
-                                const char *action)
+static void EditHistoryCopyAction(char out[EDIT_HISTORY_ACTION_MAX],
+                                  const char *action)
 {
     if (action == NULL || action[0] == '\0')
     {
         action = "Edit";
     }
 
-    lstrcpyn(out, action, BG_HISTORY_ACTION_MAX);
+    lstrcpyn(out, action, EDIT_HISTORY_ACTION_MAX);
 }
 
 
-static void BgHistoryFreeEntries(BgHistoryEntry *entries, DWORD count)
+static void EditHistoryFreeEntry(EditHistoryEntry *entry)
+{
+    if (entry->asset == EDIT_HISTORY_ASSET_BG)
+    {
+        BgDocumentFree(&entry->bgdocument);
+    }
+    else if (entry->asset == EDIT_HISTORY_ASSET_SETUP)
+    {
+        SetupFileFree(&entry->setup);
+    }
+    ZeroMemory(entry, sizeof(*entry));
+}
+
+
+static void EditHistoryFreeEntries(EditHistoryEntry *entries, DWORD count)
 {
     DWORD index;
 
     for (index = 0; index < count; index++)
     {
-        BgDocumentFree(&entries[index].document);
+        EditHistoryFreeEntry(&entries[index]);
     }
     free(entries);
 }
 
 
-static BOOL BgHistoryEnsureCapacity(BgHistoryEntry **entries,
-                                    DWORD *capacity, DWORD needed)
+static BOOL EditHistoryEnsureCapacity(EditHistoryEntry **entries,
+                                      DWORD *capacity, DWORD needed)
 {
     DWORD nextcapacity;
-    BgHistoryEntry *grown;
+    EditHistoryEntry *grown;
 
     if (needed <= *capacity)
     {
         return TRUE;
     }
-    if (needed > BG_HISTORY_LIMIT)
+    if (needed > EDIT_HISTORY_LIMIT)
     {
         return FALSE;
     }
 
     nextcapacity = *capacity == 0 ? 8 : *capacity * 2;
-    if (nextcapacity > BG_HISTORY_LIMIT)
+    if (nextcapacity > EDIT_HISTORY_LIMIT)
     {
-        nextcapacity = BG_HISTORY_LIMIT;
+        nextcapacity = EDIT_HISTORY_LIMIT;
     }
     if (nextcapacity < needed)
     {
         nextcapacity = needed;
     }
 
-    grown = (BgHistoryEntry *)realloc(*entries,
+    grown = (EditHistoryEntry *)realloc(*entries,
                 (size_t)nextcapacity * sizeof(**entries));
     if (grown == NULL)
     {
@@ -75,25 +89,25 @@ static BOOL BgHistoryEnsureCapacity(BgHistoryEntry **entries,
 }
 
 
-static void BgHistoryClearStack(BgHistoryEntry *entries, DWORD *count)
+static void EditHistoryClearStack(EditHistoryEntry *entries, DWORD *count)
 {
     while (*count > 0)
     {
         (*count)--;
-        BgDocumentFree(&entries[*count].document);
-        ZeroMemory(&entries[*count], sizeof(entries[*count]));
+        EditHistoryFreeEntry(&entries[*count]);
     }
 }
 
 
-static void BgHistoryDiscardOldest(BgHistoryEntry *entries, DWORD *count)
+static void EditHistoryDiscardOldest(EditHistoryEntry *entries,
+                                     DWORD *count)
 {
-    if (*count < BG_HISTORY_LIMIT)
+    if (*count < EDIT_HISTORY_LIMIT)
     {
         return;
     }
 
-    BgDocumentFree(&entries[0].document);
+    EditHistoryFreeEntry(&entries[0]);
     memmove(entries, entries + 1,
             (size_t)(*count - 1) * sizeof(*entries));
     (*count)--;
@@ -101,117 +115,191 @@ static void BgHistoryDiscardOldest(BgHistoryEntry *entries, DWORD *count)
 }
 
 
-static void BgHistoryUpdateDirty(const BgHistory *history,
-                                 BgDocument *document)
+static void EditHistoryUpdateDirty(const EditHistory *history,
+                                   BgDocument *bgdocument, SetupFile *setup)
 {
-    document->dirty = history->currentrevision != history->savedrevision;
-}
-
-
-void BgHistoryReset(BgHistory *history, BgDocument *document)
-{
-    BgHistoryFree(history);
-    history->currentrevision = 1;
-    history->savedrevision = 1;
-    history->nextrevision = 2;
-
-    if (document != NULL)
+    if (bgdocument != NULL)
     {
-        document->dirty = FALSE;
+        bgdocument->dirty = history->currentbgrevision
+                         != history->savedbgrevision;
+    }
+    if (setup != NULL)
+    {
+        setup->dirty = history->currentsetuprevision
+                    != history->savedsetuprevision;
     }
 }
 
 
-void BgHistoryFree(BgHistory *history)
+void EditHistoryReset(EditHistory *history, BgDocument *bgdocument,
+                      SetupFile *setup)
+{
+    EditHistoryFree(history);
+    history->currentstaterevision = 1;
+    history->currentbgrevision = 1;
+    history->currentsetuprevision = 1;
+    history->savedbgrevision = 1;
+    history->savedsetuprevision = 1;
+    history->nextrevision = 2;
+    EditHistoryUpdateDirty(history, bgdocument, setup);
+}
+
+
+void EditHistoryFree(EditHistory *history)
 {
     if (history == NULL)
     {
         return;
     }
 
-    BgHistoryFreeEntries(history->undoentries, history->undocount);
-    BgHistoryFreeEntries(history->redoentries, history->redocount);
+    EditHistoryFreeEntries(history->undoentries, history->undocount);
+    EditHistoryFreeEntries(history->redoentries, history->redocount);
     ZeroMemory(history, sizeof(*history));
 }
 
 
-BOOL BgHistoryBeginEdit(const BgHistory *history,
-                        const BgDocument *document, const char *action,
-                        BgHistoryTransaction *transaction,
-                        const char **reasonout)
+static BOOL EditHistoryBegin(const EditHistory *history,
+                             EditHistoryAsset asset, const char *action,
+                             EditHistoryTransaction *transaction,
+                             const char **reasonout)
 {
     ZeroMemory(transaction, sizeof(*transaction));
     *reasonout = "";
 
-    if (history == NULL || history->currentrevision == 0)
+    if (history == NULL || history->currentstaterevision == 0)
     {
-        *reasonout = "the bg undo history has not been initialized.";
+        *reasonout = "the edit undo history has not been initialized.";
         return FALSE;
     }
 
-    if (!BgDocumentClone(document, &transaction->before, reasonout))
+    transaction->asset = asset;
+    transaction->staterevision = history->currentstaterevision;
+    transaction->assetrevision = asset == EDIT_HISTORY_ASSET_BG
+        ? history->currentbgrevision : history->currentsetuprevision;
+    EditHistoryCopyAction(transaction->action, action);
+    return TRUE;
+}
+
+
+BOOL EditHistoryBeginBgEdit(const EditHistory *history,
+                            const BgDocument *document, const char *action,
+                            EditHistoryTransaction *transaction,
+                            const char **reasonout)
+{
+    if (!EditHistoryBegin(history, EDIT_HISTORY_ASSET_BG, action,
+                          transaction, reasonout))
     {
         return FALSE;
     }
+    if (!BgDocumentClone(document, &transaction->beforebg, reasonout))
+    {
+        ZeroMemory(transaction, sizeof(*transaction));
+        return FALSE;
+    }
 
-    transaction->revision = history->currentrevision;
-    BgHistoryCopyAction(transaction->action, action);
     transaction->active = TRUE;
     return TRUE;
 }
 
 
-BOOL BgHistoryCommitEdit(BgHistory *history, BgDocument *document,
-                         BgHistoryTransaction *transaction,
-                         const char **reasonout)
+BOOL EditHistoryBeginSetupEdit(const EditHistory *history,
+                               const SetupFile *setup, const char *action,
+                               EditHistoryTransaction *transaction,
+                               const char **reasonout)
 {
-    BgHistoryEntry *entry;
-    DWORD needed;
-
-    *reasonout = "";
-    if (history == NULL || document == NULL || transaction == NULL
-        || !transaction->active)
+    if (!EditHistoryBegin(history, EDIT_HISTORY_ASSET_SETUP, action,
+                          transaction, reasonout))
     {
-        *reasonout = "there is no bg edit transaction to commit.";
         return FALSE;
     }
-    if (transaction->revision != history->currentrevision)
+    if (!SetupFileClone(setup, &transaction->beforesetup, reasonout))
     {
-        *reasonout = "the bg document changed during the edit transaction.";
-        return FALSE;
-    }
-    if (history->nextrevision == 0)
-    {
-        *reasonout = "the bg undo history revision counter is exhausted.";
+        ZeroMemory(transaction, sizeof(*transaction));
         return FALSE;
     }
 
-    needed = history->undocount < BG_HISTORY_LIMIT
-        ? history->undocount + 1 : BG_HISTORY_LIMIT;
-    if (!BgHistoryEnsureCapacity(&history->undoentries,
-                                  &history->undocapacity, needed))
-    {
-        *reasonout = "out of memory extending the bg undo history.";
-        return FALSE;
-    }
-
-    BgHistoryClearStack(history->redoentries, &history->redocount);
-    BgHistoryDiscardOldest(history->undoentries, &history->undocount);
-
-    entry = &history->undoentries[history->undocount++];
-    ZeroMemory(entry, sizeof(*entry));
-    entry->document = transaction->before;
-    entry->revision = transaction->revision;
-    BgHistoryCopyAction(entry->action, transaction->action);
-    ZeroMemory(transaction, sizeof(*transaction));
-
-    history->currentrevision = history->nextrevision++;
-    BgHistoryUpdateDirty(history, document);
+    transaction->active = TRUE;
     return TRUE;
 }
 
 
-void BgHistoryCancelEdit(BgHistoryTransaction *transaction)
+BOOL EditHistoryCommitEdit(EditHistory *history, BgDocument *bgdocument,
+                           SetupFile *setup,
+                           EditHistoryTransaction *transaction,
+                           const char **reasonout)
+{
+    EditHistoryEntry *entry;
+    DWORD needed;
+    ULONGLONG currentassetrevision;
+    ULONGLONG newrevision;
+
+    *reasonout = "";
+    if (history == NULL || transaction == NULL || !transaction->active
+        || (transaction->asset != EDIT_HISTORY_ASSET_BG
+            && transaction->asset != EDIT_HISTORY_ASSET_SETUP))
+    {
+        *reasonout = "there is no edit transaction to commit.";
+        return FALSE;
+    }
+
+    currentassetrevision = transaction->asset == EDIT_HISTORY_ASSET_BG
+        ? history->currentbgrevision : history->currentsetuprevision;
+    if (transaction->staterevision != history->currentstaterevision
+        || transaction->assetrevision != currentassetrevision)
+    {
+        *reasonout = "a level document changed during the edit transaction.";
+        return FALSE;
+    }
+    if (history->nextrevision == 0)
+    {
+        *reasonout = "the edit undo history revision counter is exhausted.";
+        return FALSE;
+    }
+
+    needed = history->undocount < EDIT_HISTORY_LIMIT
+        ? history->undocount + 1 : EDIT_HISTORY_LIMIT;
+    if (!EditHistoryEnsureCapacity(&history->undoentries,
+                                    &history->undocapacity, needed))
+    {
+        *reasonout = "out of memory extending the edit undo history.";
+        return FALSE;
+    }
+
+    EditHistoryClearStack(history->redoentries, &history->redocount);
+    EditHistoryDiscardOldest(history->undoentries, &history->undocount);
+
+    entry = &history->undoentries[history->undocount++];
+    ZeroMemory(entry, sizeof(*entry));
+    entry->asset = transaction->asset;
+    entry->staterevision = transaction->staterevision;
+    entry->assetrevision = transaction->assetrevision;
+    if (entry->asset == EDIT_HISTORY_ASSET_BG)
+    {
+        entry->bgdocument = transaction->beforebg;
+    }
+    else
+    {
+        entry->setup = transaction->beforesetup;
+    }
+    EditHistoryCopyAction(entry->action, transaction->action);
+    ZeroMemory(transaction, sizeof(*transaction));
+
+    newrevision = history->nextrevision++;
+    history->currentstaterevision = newrevision;
+    if (entry->asset == EDIT_HISTORY_ASSET_BG)
+    {
+        history->currentbgrevision = newrevision;
+    }
+    else
+    {
+        history->currentsetuprevision = newrevision;
+    }
+    EditHistoryUpdateDirty(history, bgdocument, setup);
+    return TRUE;
+}
+
+
+void EditHistoryCancelEdit(EditHistoryTransaction *transaction)
 {
     if (transaction == NULL)
     {
@@ -220,136 +308,233 @@ void BgHistoryCancelEdit(BgHistoryTransaction *transaction)
 
     if (transaction->active)
     {
-        BgDocumentFree(&transaction->before);
+        if (transaction->asset == EDIT_HISTORY_ASSET_BG)
+        {
+            BgDocumentFree(&transaction->beforebg);
+        }
+        else if (transaction->asset == EDIT_HISTORY_ASSET_SETUP)
+        {
+            SetupFileFree(&transaction->beforesetup);
+        }
     }
     ZeroMemory(transaction, sizeof(*transaction));
 }
 
 
-void BgHistoryRollbackEdit(BgHistoryTransaction *transaction,
-                           BgDocument *document)
+void EditHistoryRollbackEdit(EditHistoryTransaction *transaction,
+                             BgDocument *bgdocument, SetupFile *setup)
 {
-    if (transaction == NULL || document == NULL || !transaction->active)
+    if (transaction == NULL || !transaction->active)
     {
         return;
     }
 
-    BgDocumentFree(document);
-    *document = transaction->before;
+    if (transaction->asset == EDIT_HISTORY_ASSET_BG && bgdocument != NULL)
+    {
+        BgDocumentFree(bgdocument);
+        *bgdocument = transaction->beforebg;
+    }
+    else if (transaction->asset == EDIT_HISTORY_ASSET_SETUP && setup != NULL)
+    {
+        SetupFileFree(setup);
+        *setup = transaction->beforesetup;
+    }
+    else
+    {
+        EditHistoryCancelEdit(transaction);
+        return;
+    }
+
     ZeroMemory(transaction, sizeof(*transaction));
 }
 
 
-BOOL BgHistoryCanUndo(const BgHistory *history)
+BOOL EditHistoryCanUndo(const EditHistory *history)
 {
     return history != NULL && history->undocount > 0;
 }
 
 
-BOOL BgHistoryCanRedo(const BgHistory *history)
+BOOL EditHistoryCanRedo(const EditHistory *history)
 {
     return history != NULL && history->redocount > 0;
 }
 
 
-const char *BgHistoryGetUndoAction(const BgHistory *history)
+const char *EditHistoryGetUndoAction(const EditHistory *history)
 {
-    return BgHistoryCanUndo(history)
+    return EditHistoryCanUndo(history)
         ? history->undoentries[history->undocount - 1].action : "";
 }
 
 
-const char *BgHistoryGetRedoAction(const BgHistory *history)
+const char *EditHistoryGetRedoAction(const EditHistory *history)
 {
-    return BgHistoryCanRedo(history)
+    return EditHistoryCanRedo(history)
         ? history->redoentries[history->redocount - 1].action : "";
 }
 
 
-BOOL BgHistoryUndo(BgHistory *history, BgDocument *document,
-                   const char **reasonout)
+static void EditHistoryMoveLiveToEntry(EditHistoryEntry *entry,
+                                       EditHistoryAsset asset,
+                                       BgDocument *bgdocument,
+                                       SetupFile *setup)
 {
-    BgHistoryEntry previous;
-    BgHistoryEntry *current;
+    entry->asset = asset;
+    if (asset == EDIT_HISTORY_ASSET_BG)
+    {
+        entry->bgdocument = *bgdocument;
+    }
+    else
+    {
+        entry->setup = *setup;
+    }
+}
+
+
+static void EditHistoryMoveEntryToLive(EditHistoryEntry *entry,
+                                       BgDocument *bgdocument,
+                                       SetupFile *setup)
+{
+    if (entry->asset == EDIT_HISTORY_ASSET_BG)
+    {
+        *bgdocument = entry->bgdocument;
+        ZeroMemory(&entry->bgdocument, sizeof(entry->bgdocument));
+    }
+    else
+    {
+        *setup = entry->setup;
+        ZeroMemory(&entry->setup, sizeof(entry->setup));
+    }
+}
+
+
+static BOOL EditHistoryStep(EditHistory *history,
+                            EditHistoryEntry *fromentries, DWORD *fromcount,
+                            EditHistoryEntry **toentries, DWORD *tocount,
+                            DWORD *tocapacity,
+                            BgDocument *bgdocument, SetupFile *setup,
+                            EditHistoryAsset *assetout,
+                            const char **reasonout)
+{
+    EditHistoryEntry previous;
+    EditHistoryEntry *current;
+    ULONGLONG currentassetrevision;
 
     *reasonout = "";
-    if (!BgHistoryCanUndo(history) || document == NULL)
+    if (history == NULL || *fromcount == 0
+        || bgdocument == NULL || setup == NULL)
     {
-        *reasonout = "there is no bg edit to undo.";
+        *reasonout = "there is no edit history step available.";
         return FALSE;
     }
-    if (!BgHistoryEnsureCapacity(&history->redoentries,
-                                  &history->redocapacity,
-                                  history->redocount + 1))
+    if (!EditHistoryEnsureCapacity(toentries, tocapacity, *tocount + 1))
     {
-        *reasonout = "out of memory extending the bg redo history.";
+        *reasonout = "out of memory extending the edit history.";
         return FALSE;
     }
 
-    previous = history->undoentries[--history->undocount];
-    ZeroMemory(&history->undoentries[history->undocount],
-               sizeof(history->undoentries[history->undocount]));
+    previous = fromentries[--(*fromcount)];
+    ZeroMemory(&fromentries[*fromcount], sizeof(fromentries[*fromcount]));
+    currentassetrevision = previous.asset == EDIT_HISTORY_ASSET_BG
+        ? history->currentbgrevision : history->currentsetuprevision;
 
-    current = &history->redoentries[history->redocount++];
+    current = &(*toentries)[(*tocount)++];
     ZeroMemory(current, sizeof(*current));
-    current->document = *document;
-    current->revision = history->currentrevision;
-    BgHistoryCopyAction(current->action, previous.action);
+    EditHistoryMoveLiveToEntry(current, previous.asset, bgdocument, setup);
+    current->staterevision = history->currentstaterevision;
+    current->assetrevision = currentassetrevision;
+    EditHistoryCopyAction(current->action, previous.action);
 
-    *document = previous.document;
-    history->currentrevision = previous.revision;
-    BgHistoryUpdateDirty(history, document);
+    EditHistoryMoveEntryToLive(&previous, bgdocument, setup);
+    history->currentstaterevision = previous.staterevision;
+    if (previous.asset == EDIT_HISTORY_ASSET_BG)
+    {
+        history->currentbgrevision = previous.assetrevision;
+    }
+    else
+    {
+        history->currentsetuprevision = previous.assetrevision;
+    }
+    EditHistoryUpdateDirty(history, bgdocument, setup);
+
+    if (assetout != NULL)
+    {
+        *assetout = previous.asset;
+    }
     return TRUE;
 }
 
 
-BOOL BgHistoryRedo(BgHistory *history, BgDocument *document,
-                   const char **reasonout)
+BOOL EditHistoryUndo(EditHistory *history, BgDocument *bgdocument,
+                     SetupFile *setup, EditHistoryAsset *assetout,
+                     const char **reasonout)
 {
-    BgHistoryEntry next;
-    BgHistoryEntry *current;
-
-    *reasonout = "";
-    if (!BgHistoryCanRedo(history) || document == NULL)
+    if (assetout != NULL)
     {
-        *reasonout = "there is no bg edit to redo.";
-        return FALSE;
+        *assetout = EDIT_HISTORY_ASSET_NONE;
     }
-    if (!BgHistoryEnsureCapacity(&history->undoentries,
-                                  &history->undocapacity,
-                                  history->undocount + 1))
+    if (!EditHistoryCanUndo(history))
     {
-        *reasonout = "out of memory extending the bg undo history.";
+        *reasonout = "there is no edit to undo.";
         return FALSE;
     }
 
-    next = history->redoentries[--history->redocount];
-    ZeroMemory(&history->redoentries[history->redocount],
-               sizeof(history->redoentries[history->redocount]));
-
-    current = &history->undoentries[history->undocount++];
-    ZeroMemory(current, sizeof(*current));
-    current->document = *document;
-    current->revision = history->currentrevision;
-    BgHistoryCopyAction(current->action, next.action);
-
-    *document = next.document;
-    history->currentrevision = next.revision;
-    BgHistoryUpdateDirty(history, document);
-    return TRUE;
+    return EditHistoryStep(history,
+        history->undoentries, &history->undocount,
+        &history->redoentries, &history->redocount,
+        &history->redocapacity,
+        bgdocument, setup, assetout, reasonout);
 }
 
 
-void BgHistoryMarkSaved(BgHistory *history, BgDocument *document)
+BOOL EditHistoryRedo(EditHistory *history, BgDocument *bgdocument,
+                     SetupFile *setup, EditHistoryAsset *assetout,
+                     const char **reasonout)
 {
-    if (history == NULL || history->currentrevision == 0)
+    if (assetout != NULL)
+    {
+        *assetout = EDIT_HISTORY_ASSET_NONE;
+    }
+    if (!EditHistoryCanRedo(history))
+    {
+        *reasonout = "there is no edit to redo.";
+        return FALSE;
+    }
+
+    return EditHistoryStep(history,
+        history->redoentries, &history->redocount,
+        &history->undoentries, &history->undocount,
+        &history->undocapacity,
+        bgdocument, setup, assetout, reasonout);
+}
+
+
+void EditHistoryMarkBgSaved(EditHistory *history, BgDocument *document)
+{
+    if (history == NULL || history->currentstaterevision == 0)
     {
         return;
     }
 
-    history->savedrevision = history->currentrevision;
+    history->savedbgrevision = history->currentbgrevision;
     if (document != NULL)
     {
         document->dirty = FALSE;
+    }
+}
+
+
+void EditHistoryMarkSetupSaved(EditHistory *history, SetupFile *setup)
+{
+    if (history == NULL || history->currentstaterevision == 0)
+    {
+        return;
+    }
+
+    history->savedsetuprevision = history->currentsetuprevision;
+    if (setup != NULL)
+    {
+        setup->dirty = FALSE;
     }
 }

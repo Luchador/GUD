@@ -29,6 +29,8 @@ typedef struct SetupObject {
     short pad;
     DWORD flags;
     DWORD flags2;
+    DWORD sourceoffset;         /* byte offset of the complete raw command */
+    BOOL deleted;               /* retained command-index tombstone */
 } SetupObject;
 
 /* Builds an oriented box in gameplay world coordinates. The local
@@ -52,6 +54,7 @@ typedef struct SetupFile {
     DWORD boundpadcount;
     SetupObject *objects;
     DWORD objectcount;
+    BOOL dirty;
 } SetupFile;
 
 /*
@@ -65,6 +68,14 @@ DWORD SetupExtractAll(const RomFile *rom, const char *projectdir,
 /* Loads <projectdir>\setup\<setupname>.set and parses both pad lists. */
 BOOL SetupLoadProjectFile(const char *projectdir, const char *setupname,
                           SetupFile *out, const char **reasonout);
+
+/* Deep-copies both the raw resource and its editable host-native views. */
+BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
+                    const char **reasonout);
+
+/* Logically removes an object without changing setup command indices. */
+BOOL SetupFileDeleteObject(SetupFile *setup, DWORD objectindex,
+                           const char **reasonout);
 
 /* Overwrites the project copy with the raw setup retained in memory. */
 BOOL SetupSaveProjectFile(const char *projectdir, const SetupFile *setup,

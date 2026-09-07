@@ -4,60 +4,87 @@
 #include <windows.h>
 
 #include "bgdocument.h"
+#include "setupload.h"
 
-#define BG_HISTORY_ACTION_MAX 64
-#define BG_HISTORY_LIMIT 64
+#define EDIT_HISTORY_ACTION_MAX 64
+#define EDIT_HISTORY_LIMIT 64
 
-typedef struct BgHistoryEntry {
-    BgDocument document;
-    ULONGLONG revision;
-    char action[BG_HISTORY_ACTION_MAX];
-} BgHistoryEntry;
+typedef enum EditHistoryAsset {
+    EDIT_HISTORY_ASSET_NONE = 0,
+    EDIT_HISTORY_ASSET_BG,
+    EDIT_HISTORY_ASSET_SETUP
+} EditHistoryAsset;
 
-typedef struct BgHistory {
-    BgHistoryEntry *undoentries;
+/* Only the document selected by asset owns allocated data in an entry. */
+typedef struct EditHistoryEntry {
+    EditHistoryAsset asset;
+    BgDocument bgdocument;
+    SetupFile setup;
+    ULONGLONG staterevision;
+    ULONGLONG assetrevision;
+    char action[EDIT_HISTORY_ACTION_MAX];
+} EditHistoryEntry;
+
+/* The chronological stack is shared by all editable level documents. Each
+ * document has its own saved revision so saving or undoing one asset cannot
+ * incorrectly mark another one clean or dirty. */
+typedef struct EditHistory {
+    EditHistoryEntry *undoentries;
     DWORD undocount;
     DWORD undocapacity;
-    BgHistoryEntry *redoentries;
+    EditHistoryEntry *redoentries;
     DWORD redocount;
     DWORD redocapacity;
-    ULONGLONG currentrevision;
-    ULONGLONG savedrevision;
+    ULONGLONG currentstaterevision;
+    ULONGLONG currentbgrevision;
+    ULONGLONG currentsetuprevision;
+    ULONGLONG savedbgrevision;
+    ULONGLONG savedsetuprevision;
     ULONGLONG nextrevision;
-} BgHistory;
+} EditHistory;
 
-/* A transaction captures the complete pre-edit document before any mutation.
-   Successful edits commit it to the undo stack; failed edits can restore it. */
-typedef struct BgHistoryTransaction {
-    BgDocument before;
-    ULONGLONG revision;
-    char action[BG_HISTORY_ACTION_MAX];
+typedef struct EditHistoryTransaction {
+    EditHistoryAsset asset;
+    BgDocument beforebg;
+    SetupFile beforesetup;
+    ULONGLONG staterevision;
+    ULONGLONG assetrevision;
+    char action[EDIT_HISTORY_ACTION_MAX];
     BOOL active;
-} BgHistoryTransaction;
+} EditHistoryTransaction;
 
-void BgHistoryReset(BgHistory *history, BgDocument *document);
-void BgHistoryFree(BgHistory *history);
+void EditHistoryReset(EditHistory *history, BgDocument *bgdocument,
+                      SetupFile *setup);
+void EditHistoryFree(EditHistory *history);
 
-BOOL BgHistoryBeginEdit(const BgHistory *history,
-                        const BgDocument *document, const char *action,
-                        BgHistoryTransaction *transaction,
-                        const char **reasonout);
-BOOL BgHistoryCommitEdit(BgHistory *history, BgDocument *document,
-                         BgHistoryTransaction *transaction,
-                         const char **reasonout);
-void BgHistoryCancelEdit(BgHistoryTransaction *transaction);
-void BgHistoryRollbackEdit(BgHistoryTransaction *transaction,
-                           BgDocument *document);
+BOOL EditHistoryBeginBgEdit(const EditHistory *history,
+                            const BgDocument *document, const char *action,
+                            EditHistoryTransaction *transaction,
+                            const char **reasonout);
+BOOL EditHistoryBeginSetupEdit(const EditHistory *history,
+                               const SetupFile *setup, const char *action,
+                               EditHistoryTransaction *transaction,
+                               const char **reasonout);
+BOOL EditHistoryCommitEdit(EditHistory *history, BgDocument *bgdocument,
+                           SetupFile *setup,
+                           EditHistoryTransaction *transaction,
+                           const char **reasonout);
+void EditHistoryCancelEdit(EditHistoryTransaction *transaction);
+void EditHistoryRollbackEdit(EditHistoryTransaction *transaction,
+                             BgDocument *bgdocument, SetupFile *setup);
 
-BOOL BgHistoryCanUndo(const BgHistory *history);
-BOOL BgHistoryCanRedo(const BgHistory *history);
-const char *BgHistoryGetUndoAction(const BgHistory *history);
-const char *BgHistoryGetRedoAction(const BgHistory *history);
-BOOL BgHistoryUndo(BgHistory *history, BgDocument *document,
-                   const char **reasonout);
-BOOL BgHistoryRedo(BgHistory *history, BgDocument *document,
-                   const char **reasonout);
+BOOL EditHistoryCanUndo(const EditHistory *history);
+BOOL EditHistoryCanRedo(const EditHistory *history);
+const char *EditHistoryGetUndoAction(const EditHistory *history);
+const char *EditHistoryGetRedoAction(const EditHistory *history);
+BOOL EditHistoryUndo(EditHistory *history, BgDocument *bgdocument,
+                     SetupFile *setup, EditHistoryAsset *assetout,
+                     const char **reasonout);
+BOOL EditHistoryRedo(EditHistory *history, BgDocument *bgdocument,
+                     SetupFile *setup, EditHistoryAsset *assetout,
+                     const char **reasonout);
 
-void BgHistoryMarkSaved(BgHistory *history, BgDocument *document);
+void EditHistoryMarkBgSaved(EditHistory *history, BgDocument *document);
+void EditHistoryMarkSetupSaved(EditHistory *history, SetupFile *setup);
 
 #endif /* GEDITOR_BGHISTORY_H */

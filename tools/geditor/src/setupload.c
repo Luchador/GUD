@@ -28,6 +28,12 @@
 
 #define SETUP_PROP_END 48u
 
+/* GoldenEye tests one of these bits for the selected single-player
+ * difficulty or the multiplayer mode before creating an object. Setting
+ * all five makes a command an inert tombstone while preserving its byte
+ * size and index for relative setup references. */
+#define SETUP_OBJECT_DELETED_FLAGS2 0x000000f8u
+
 static DWORD SetupRead32(const unsigned char *p)
 {
     return ((DWORD)p[0] << 24) | ((DWORD)p[1] << 16)
@@ -37,6 +43,14 @@ static DWORD SetupRead32(const unsigned char *p)
 static short SetupRead16(const unsigned char *p)
 {
     return (short)(((unsigned int)p[0] << 8) | p[1]);
+}
+
+static void SetupWrite32(unsigned char *p, DWORD value)
+{
+    p[0] = (unsigned char)(value >> 24);
+    p[1] = (unsigned char)(value >> 16);
+    p[2] = (unsigned char)(value >> 8);
+    p[3] = (unsigned char)value;
 }
 
 /* Setup commands are variable length. These are their encoded source
@@ -224,6 +238,10 @@ static BOOL SetupParseObjects(SetupFile *setup, const char **reasonout)
             object->pad = SetupRead16(record + 6);
             object->flags = SetupRead32(record + 8);
             object->flags2 = SetupRead32(record + 12);
+            object->sourceoffset = at;
+            object->deleted =
+                (object->flags2 & SETUP_OBJECT_DELETED_FLAGS2)
+                    == SETUP_OBJECT_DELETED_FLAGS2;
         }
 
         at += bytes;
@@ -647,6 +665,122 @@ BOOL SetupSaveProjectFile(const char *projectdir, const SetupFile *setup,
     }
 
     return ok;
+}
+
+
+BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
+                    const char **reasonout)
+{
+    ZeroMemory(out, sizeof(*out));
+    *reasonout = "";
+
+    if (source == NULL)
+    {
+        *reasonout = "there is no setup to copy.";
+        return FALSE;
+    }
+    if ((source->size > 0 && source->data == NULL)
+        || (source->padcount > 0 && source->pads == NULL)
+        || (source->boundpadcount > 0 && source->boundpads == NULL)
+        || (source->objectcount > 0 && source->objects == NULL))
+    {
+        *reasonout = "the setup document is incomplete.";
+        return FALSE;
+    }
+
+    if (source->size > 0)
+    {
+        out->data = (unsigned char *)malloc(source->size);
+    }
+    if (source->padcount > 0)
+    {
+        out->pads = (SetupPad *)malloc(
+            (size_t)source->padcount * sizeof(*out->pads));
+    }
+    if (source->boundpadcount > 0)
+    {
+        out->boundpads = (SetupBoundPad *)malloc(
+            (size_t)source->boundpadcount * sizeof(*out->boundpads));
+    }
+    if (source->objectcount > 0)
+    {
+        out->objects = (SetupObject *)malloc(
+            (size_t)source->objectcount * sizeof(*out->objects));
+    }
+
+    if ((source->size > 0 && out->data == NULL)
+        || (source->padcount > 0 && out->pads == NULL)
+        || (source->boundpadcount > 0 && out->boundpads == NULL)
+        || (source->objectcount > 0 && out->objects == NULL))
+    {
+        SetupFileFree(out);
+        *reasonout = "out of memory copying the setup document.";
+        return FALSE;
+    }
+
+    if (source->size > 0)
+    {
+        memcpy(out->data, source->data, source->size);
+    }
+    if (source->padcount > 0)
+    {
+        memcpy(out->pads, source->pads,
+               (size_t)source->padcount * sizeof(*out->pads));
+    }
+    if (source->boundpadcount > 0)
+    {
+        memcpy(out->boundpads, source->boundpads,
+               (size_t)source->boundpadcount * sizeof(*out->boundpads));
+    }
+    if (source->objectcount > 0)
+    {
+        memcpy(out->objects, source->objects,
+               (size_t)source->objectcount * sizeof(*out->objects));
+    }
+
+    out->size = source->size;
+    out->padcount = source->padcount;
+    out->boundpadcount = source->boundpadcount;
+    out->objectcount = source->objectcount;
+    out->dirty = source->dirty;
+    lstrcpyn(out->name, source->name, sizeof(out->name));
+    return TRUE;
+}
+
+
+BOOL SetupFileDeleteObject(SetupFile *setup, DWORD objectindex,
+                           const char **reasonout)
+{
+    SetupObject *object;
+    DWORD flags2;
+
+    *reasonout = "";
+    if (setup == NULL || setup->data == NULL
+        || objectindex >= setup->objectcount)
+    {
+        *reasonout = "the selected setup object is invalid.";
+        return FALSE;
+    }
+
+    object = &setup->objects[objectindex];
+    if (object->deleted)
+    {
+        *reasonout = "the selected setup object is already deleted.";
+        return FALSE;
+    }
+    if (object->sourceoffset > setup->size
+        || setup->size - object->sourceoffset < 16)
+    {
+        *reasonout = "the selected setup object's source record is invalid.";
+        return FALSE;
+    }
+
+    flags2 = object->flags2 | SETUP_OBJECT_DELETED_FLAGS2;
+    SetupWrite32(setup->data + object->sourceoffset + 12, flags2);
+    object->flags2 = flags2;
+    object->deleted = TRUE;
+    setup->dirty = TRUE;
+    return TRUE;
 }
 
 void SetupFileFree(SetupFile *setup)
