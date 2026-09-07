@@ -679,8 +679,6 @@ Gfx *explosionRender(PropRecord *prop, Gfx *gdl, s32 withalpha)
     s32 temp_f10;
     s32 i;
 
-    return gdl;
-
     temp_s1 = prop->rooms[0];
     explosion = prop->explosion;
     temp_s6 = getRoomPositionByIndex((s32) temp_s1);
