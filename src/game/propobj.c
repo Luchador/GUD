@@ -92,6 +92,12 @@
 
 #define AUTOGUN_TRACKING_FRAMES 120
 
+#define AUTOGUN_PRIMARY_MUZZLE_SWITCH   5
+#define AUTOGUN_SECONDARY_MUZZLE_SWITCH 7
+#define AUTOGUN_SHOT_RANGE             65536.0f
+#define AUTOGUN_IMPACT_BACKOFF         26.0f
+#define AUTOGUN_DAMAGE_FALLOFF_DISTANCE 200.0f
+
 //0.375 deg/s/s - hmm, wheels maybe?
 #define TRUCK_TURN_ACCEL_PER_FRAME     0.000109083085f
 
@@ -5989,56 +5995,37 @@ TICKOP objTickProjectile(PropRecord *prop)
 }
 
 
+/**
+ * Advance autogun firing audio, shot impacts, tracers and muzzle flashes.
+ * By this point objTickAutogun has already updated the aim and active state for this frame.
+ */
 void objTickAutogunFire(PropRecord *prop)
 {
     ObjectRecord *obj = prop->obj;
     Model *model = obj->model;
-    Mtxf *temp_s2_7;
-    coord3d *temp_v1_11;
-    StandTile *sp10C;
-    StandTile *sp108;
-    PropRecord *sp100;
-    coord3d sp12C;
-    coord3d sp120;
-    coord3d sp110;
-    Mtxf spB8;
-    f32 temp_f20_4;
-    f32 temp_f0_35;
-    f32 var_f2_7;
-    f32 temp_f2_23;
-    s32 sp13C;
-    s32 sp138;
-    s32 sp11C;
-    s32 sp104;
-    s32 var_a0_6;
-    struct AutogunRecord *autogun = (struct AutogunRecord *) prop->obj;
-    f32 beam_xdiff;
-    f32 dist_local;
-    struct beam *beam_local;
-    f32 beam_ydiff;
-    f32 beam_collisionTile;
+    AutogunRecord *autogun = (AutogunRecord *) obj;
+    bool showPrimaryMuzzleFlash = FALSE;
+    bool showSecondaryMuzzleFlash = FALSE;
 
-    sp13C = 0;
-    sp138 = 0;
-
-    if ((autogun->isActive != 0) && (!(obj->flags & PROPFLAG_IS_DRONE_GUN)))
+    if (autogun->isActive && !(obj->flags & PROPFLAG_IS_DRONE_GUN))
     {
-        autogun->firingCycle = autogun->firingCycle + 1;
-        sp13C = (autogun->firingCycle & 1) == 0;
+        autogun->firingCycle++;
+        showPrimaryMuzzleFlash = (autogun->firingCycle & 1) == 0;
 
-        if (model->obj->Switches[5] != 0)
+        /* Without a primary muzzle node, the gun fires only on even cycles. */
+        if (model->obj->Switches[AUTOGUN_PRIMARY_MUZZLE_SWITCH] != NULL)
         {
-            sp138 = (autogun->firingCycle & 1) == 1;
+            showSecondaryMuzzleFlash = (autogun->firingCycle & 1) != 0;
         }
 
         if (autogun->fireSoundCooldownFrame < g_GlobalTimer)
         {
-            if ((autogun->fireSoundPrimary != NULL) && (sndGetPlayingState(autogun->fireSoundPrimary) != 0))
+            if (autogun->fireSoundPrimary != NULL && sndGetPlayingState(autogun->fireSoundPrimary) != 0)
             {
                 sndDeactivate(autogun->fireSoundPrimary);
             }
 
-            if ((autogun->fireSoundSecondary != NULL) && (sndGetPlayingState(autogun->fireSoundSecondary) != 0))
+            if (autogun->fireSoundSecondary != NULL && sndGetPlayingState(autogun->fireSoundSecondary) != 0)
             {
                 sndDeactivate(autogun->fireSoundSecondary);
             }
@@ -6056,179 +6043,175 @@ void objTickAutogunFire(PropRecord *prop)
 
             autogun->fireSoundCooldownFrame = (s32) (g_GlobalTimer + 2);
         }
+    }
 
-        if ((sp13C != 0) || (sp138 != 0))
+    if (showPrimaryMuzzleFlash || showSecondaryMuzzleFlash)
+    {
+        StandTile *shotTile = prop->stan;
+        StandTile *impactTile = NULL;
+        bool emitTracer = (autogun->firingCycle & 3) == 0;
+        PropRecord *playerProp = getCurrentPlayerProp();
+        ModelNode *muzzleNode = model->obj->Switches[AUTOGUN_PRIMARY_MUZZLE_SWITCH];
+        coord3d muzzlePosition;
+        coord3d shotDirection;
+        coord3d shotEnd;
+        f32 pitchCos;
+        bool hitPlayer = FALSE;
+
+        /** The shot origin uses the secondary muzzle every eighth cycle;
+          * its cadence differs from the alternating muzzle flashes. 
+          */
+        if (model->obj->Switches[AUTOGUN_SECONDARY_MUZZLE_SWITCH] != NULL
+            && (autogun->firingCycle & 7) == 0)
         {
-            sp11C = 1;
-            sp10C = NULL;
-            sp108 = prop->stan;
-            sp104 = (autogun->firingCycle & 3) == 0;
-            sp100 = getCurrentPlayerProp();
-            var_a0_6 = 5;
+            muzzleNode = model->obj->Switches[AUTOGUN_SECONDARY_MUZZLE_SWITCH];
+        }
 
-            if ((model->obj->Switches[7] != 0) && (!(autogun->firingCycle & 7)))
+        if ((prop->flags & PROPFLAG_ONSCREEN) && muzzleNode != NULL)
+        {
+            Mtxf *muzzleViewMatrix = modelFindNodeMtx(model, muzzleNode, 0);
+            Mtxf muzzleToWorld;
+
+            muzzlePosition = muzzleNode->Data->Gunfire.Offset;
+            matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), muzzleViewMatrix, &muzzleToWorld);
+            mtx4TransformVecInPlace(&muzzleToWorld, &muzzlePosition);
+
+            if (walkTilesBetweenPoints_NoCallback(&shotTile,
+                    prop->pos.x, prop->pos.z, muzzlePosition.x, muzzlePosition.z) == 0)
             {
-                var_a0_6 = 7;
+                muzzlePosition = prop->pos;
             }
+        }
+        else
+        {
+            muzzlePosition = prop->pos;
+        }
 
-            if ((prop->flags & PROPFLAG_ONSCREEN) && (model->obj->Switches[var_a0_6] != NULL))
+        pitchCos = cosf(autogun->pitch);
+        shotDirection.x = pitchCos * sinf(autogun->yaw);
+        shotDirection.y = sinf(autogun->pitch);
+        shotDirection.z = pitchCos * cosf(autogun->yaw);
+        shotEnd.x = muzzlePosition.x + (shotDirection.x * AUTOGUN_SHOT_RANGE);
+        shotEnd.y = muzzlePosition.y + (shotDirection.y * AUTOGUN_SHOT_RANGE);
+        shotEnd.z = muzzlePosition.z + (shotDirection.z * AUTOGUN_SHOT_RANGE);
+
+        stanResetHits();
+
+        if (stanTestLineUnobstructed(&shotTile,
+                muzzlePosition.x, muzzlePosition.z, shotEnd.x, shotEnd.z,
+                2, 100.0f, 100.0f, 0.0f, 1.0f) == 0)
+        {
+            chrlvStanLineDirIntersection(&muzzlePosition, &shotDirection, &shotEnd);
+            impactTile = shotTile;
+            shotEnd.x -= AUTOGUN_IMPACT_BACKOFF * shotDirection.x;
+            shotEnd.y -= AUTOGUN_IMPACT_BACKOFF * shotDirection.y;
+            shotEnd.z -= AUTOGUN_IMPACT_BACKOFF * shotDirection.z;
+        }
+
+        /* Damage requires an accurate aim this frame and no player invulnerability. */
+        if (g_GlobalTimer == autogun->lastAimFrame && bondviewGetIfCurrentPlayerDamageShowTime() == 0)
+        {
+            f32 deltaX = playerProp->pos.x - muzzlePosition.x;
+            f32 deltaY = playerProp->pos.y - muzzlePosition.y;
+            f32 deltaZ = playerProp->pos.z - muzzlePosition.z;
+            f32 playerDistanceSq = ((deltaX * deltaX) + (deltaY * deltaY)) + (deltaZ * deltaZ);
+            f32 shotDistanceSq;
+            f32 damageIncrement;
+
+            deltaX = shotEnd.x - muzzlePosition.x;
+            deltaY = shotEnd.y - muzzlePosition.y;
+            deltaZ = shotEnd.z - muzzlePosition.z;
+            shotDistanceSq = ((deltaX * deltaX) + (deltaY * deltaY)) + (deltaZ * deltaZ);
+
+            if (playerDistanceSq <= shotDistanceSq)
             {
-                temp_s2_7 = modelFindNodeMtx(model, model->obj->Switches[var_a0_6], 0);
-                temp_v1_11 = model->obj->Switches[var_a0_6]->Data;
-                sp12C.f[0] = temp_v1_11->f[0];
-                sp12C.f[1] = temp_v1_11->f[1];
-                sp12C.f[2] = temp_v1_11->f[2];
-                matrix_4x4_multiply_homogeneous(currentPlayerGetViewToWorldMtxf(), temp_s2_7, &spB8);
-                mtx4TransformVecInPlace(&spB8, &sp12C);
-                if (walkTilesBetweenPoints_NoCallback(&sp108, prop->pos.f[0], prop->pos.f[2], sp12C.f[0], sp12C.f[2]) == 0)
+                /** 
+                 * Distant shots build damage more slowly. The square root is
+                 * only needed outside the full-damage range. 
+                 */
+                damageIncrement = (0.16f * OBJECT_INTERACTION_TIMER_DELTA) * g_AutogunPendingDamageTick;
+
+                if (playerDistanceSq > AUTOGUN_DAMAGE_FALLOFF_DISTANCE * AUTOGUN_DAMAGE_FALLOFF_DISTANCE)
                 {
-                    sp12C.f[0] = prop->pos.f[0];
-                    sp12C.f[1] = prop->pos.f[1];
-                    sp12C.f[2] = prop->pos.f[2];
-                }
-            }
-            else
-            {
-                sp12C.f[0] = prop->pos.f[0];
-                sp12C.f[1] = prop->pos.f[1];
-                sp12C.f[2] = prop->pos.f[2];
-            }
-
-            sp120.f[0] = cosf(autogun->pitch) * sinf(autogun->yaw);
-            sp120.f[1] = sinf(autogun->pitch);
-            sp120.f[2] = cosf(autogun->pitch) * cosf(autogun->yaw);
-            sp110.f[0] = sp12C.f[0] + (sp120.f[0] * 65536.0f);
-            sp110.f[1] = sp12C.f[1] + (sp120.f[1] * 65536.0f);
-            sp110.f[2] = sp12C.f[2] + (sp120.f[2] * 65536.0f);
-
-            stanResetHits();
-
-            if (stanTestLineUnobstructed(&sp108, sp12C.f[0], sp12C.f[2], sp110.f[0], sp110.f[2], 2, 100.0f, 100.0f, 0.0f, 1.0f) == 0)
-            {
-                chrlvStanLineDirIntersection(&sp12C, &sp120, &sp110);
-                sp10C = sp108;
-                sp110.f[0] -= 26.0f * sp120.f[0];
-                sp110.f[1] -= 26.0f * sp120.f[1];
-                sp110.f[2] -= 26.0f * sp120.f[2];
-            }
-
-            if (g_GlobalTimer == ((s32) autogun->lastAimFrame))
-            {
-                beam_xdiff = sp100->pos.f[0] - sp12C.f[0];
-                beam_ydiff = sp100->pos.f[1] - sp12C.f[1];
-                beam_collisionTile = sp100->pos.f[2] - sp12C.f[2];
-                temp_f20_4 = ((beam_xdiff * beam_xdiff) + (beam_ydiff * beam_ydiff)) + (beam_collisionTile * beam_collisionTile);
-                beam_xdiff = sp110.f[0] - sp12C.f[0];
-                beam_ydiff = sp110.f[1] - sp12C.f[1];
-                beam_collisionTile = sp110.f[2] - sp12C.f[2];
-
-                if ((temp_f20_4 <= (((beam_xdiff * beam_xdiff) + (beam_ydiff * beam_ydiff)) + (beam_collisionTile * beam_collisionTile))) && (bondviewGetIfCurrentPlayerDamageShowTime() == 0))
-                {
-                    temp_f0_35 = sqrtf(temp_f20_4);
-                    var_f2_7 = (0.16f * OBJECT_INTERACTION_TIMER_DELTA) * g_AutogunPendingDamageTick;
-                    if (temp_f0_35 > 200.0f)
-                    {
-                        var_f2_7 *= 200.0f / temp_f0_35;
-                    }
-
-                    autogun->damageAccumulator += var_f2_7;
-                    if (autogun->damageAccumulator >= 1.0f)
-                    {
-                        bondviewCallRecordDamageKills((gunItemGetDestructionAmount(14) * 0.125f) * g_AutogunDamageScalar, autogun->yaw, -1, 1);
-                        autogun->damageAccumulator = 0.0f;
-                        if (bondviewGetIfCurrentPlayerDamageShowTime() != 0)
-                        {
-                            sp11C = 0;
-                        }
-                    }
-                }
-            }
-
-            if (sp11C != 0)
-            {
-                if (sp10C != NULL)
-                {
-                    fxCreateBulletSpark(&sp110, SPARK_STANDARD, (s16)sp10C->room);
+                    damageIncrement *= AUTOGUN_DAMAGE_FALLOFF_DISTANCE / sqrtf(playerDistanceSq);
                 }
 
-                gunfirePlaySfxRicochetSounds(14, &sp110, -1);
-            }
-            else
-            {
-                sp110.f[0] = sp100->pos.f[0];
-                sp110.f[1] = sp100->pos.f[1];
-                sp110.f[2] = sp100->pos.f[2];
-                gunfirePlaySfxBulletImpact(14, sp100, -1);
-            }
+                autogun->damageAccumulator += damageIncrement;
 
-            if (sp104 != 0)
-            {
-                beam_local = autogun->beam;
-                beam_local->from.f[0] = sp12C.f[0];
-                beam_local->from.f[1] = sp12C.f[1];
-                beam_local->from.f[2] = sp12C.f[2];
-                beam_local->dir.f[0] = sp110.f[0] - beam_local->from.f[0];
-                beam_local->dir.f[1] = sp110.f[1] - beam_local->from.f[1];
-                beam_local->dir.f[2] = sp110.f[2] - beam_local->from.f[2];
-                dist_local = sqrtf(((beam_local->dir.f[0] * beam_local->dir.f[0]) + (beam_local->dir.f[1] * beam_local->dir.f[1])) + (beam_local->dir.f[2] * beam_local->dir.f[2]));
-                temp_f2_23 = 1.0f / dist_local;
-                beam_local->dir.f[0] = (f32) (beam_local->dir.f[0] * temp_f2_23);
-                beam_local->dir.f[1] = (f32) (beam_local->dir.f[1] * temp_f2_23);
-                beam_local->dir.f[2] = (f32) (beam_local->dir.f[2] * temp_f2_23);
-
-                if (dist_local > 10000.0f)
+                if (autogun->damageAccumulator >= 1.0f)
                 {
-                    dist_local = 10000.0f;
-                }
-
-                beam_local->age = 0;
-                beam_local->weaponnum = ITEM_FNP90;
-                beam_local->maxdist = dist_local;
-
-                if (dist_local < 500.0f)
-                {
-                    dist_local = 500.0f;
-                }
-
-                if (beam_local->weaponnum == ITEM_LASER)
-                {
-                    beam_local->speed = 0.25f * dist_local;
-                    beam_local->mindist = 0.6f * dist_local;
-
-                    if (beam_local->mindist > 3000.0f)
-                    {
-                        beam_local->mindist = 3000.0f;
-                    }
-
-                    beam_local->dist = ((-0.1f) - (U32_TO_F32(randomGetNext()) * 0.3f)) * dist_local;
-                }
-                else
-                {
-                    beam_local->speed = 0.2f * dist_local;
-                    beam_local->mindist = 0.2f * dist_local;
-
-                    if (beam_local->mindist > 3000.0f)
-                    {
-                        beam_local->mindist = 3000.0f;
-                    }
-
-                    beam_local->dist = ((2.0f * U32_TO_F32(randomGetNext())) - 1.0f) * beam_local->speed;
+                    bondviewCallRecordDamageKills((gunItemGetDestructionAmount(ITEM_FNP90) * 0.125f) * g_AutogunDamageScalar, autogun->yaw, -1, TRUE);
+                    autogun->damageAccumulator = 0.0f;
+                    hitPlayer = bondviewGetIfCurrentPlayerDamageShowTime() != 0;
                 }
             }
         }
+
+        if (hitPlayer)
+        {
+            shotEnd = playerProp->pos;
+            gunfirePlaySfxBulletImpact(ITEM_FNP90, playerProp, -1);
+        }
+        else
+        {
+            if (impactTile != NULL)
+            {
+                fxCreateBulletSpark(&shotEnd, SPARK_STANDARD, (s16) impactTile->room);
+            }
+
+            gunfirePlaySfxRicochetSounds(ITEM_FNP90, &shotEnd, -1);
+        }
+
+        /* Emit a tracer every fourth firing cycle, after resolving its endpoint. */
+        if (emitTracer)
+        {
+            struct beam *beam = autogun->beam;
+            f32 beamLength;
+            f32 inverseLength;
+
+            beam->from = muzzlePosition;
+            beam->dir.x = shotEnd.x - beam->from.x;
+            beam->dir.y = shotEnd.y - beam->from.y;
+            beam->dir.z = shotEnd.z - beam->from.z;
+            beamLength = sqrtf(((beam->dir.x * beam->dir.x) + (beam->dir.y * beam->dir.y))
+                + (beam->dir.z * beam->dir.z));
+            inverseLength = 1.0f / beamLength;
+            beam->dir.x *= inverseLength;
+            beam->dir.y *= inverseLength;
+            beam->dir.z *= inverseLength;
+
+            if (beamLength > 10000.0f)
+            {
+                beamLength = 10000.0f;
+            }
+
+            beam->age = 0;
+            beam->weaponnum = ITEM_FNP90;
+            beam->maxdist = beamLength;
+
+            /* The minimum affects tracer speed and length, not its endpoint. */
+            if (beamLength < 500.0f)
+            {
+                beamLength = 500.0f;
+            }
+
+            beam->speed = 0.2f * beamLength;
+            beam->mindist = beam->speed;
+            beam->dist = ((2.0f * U32_TO_F32(randomGetNext())) - 1.0f) * beam->speed;
+        }
     }
 
-    if (model->obj->Switches[5] != NULL)
+    /* Clear stale flashes even when inactive or using the drone-gun behavior. */
+    if (model->obj->Switches[AUTOGUN_PRIMARY_MUZZLE_SWITCH] != NULL)
     {
-        modelGetNodeRwData(model, model->obj->Switches[5])->Gunfire.visible = (s16) sp13C;
+        modelGetNodeRwData(model, model->obj->Switches[AUTOGUN_PRIMARY_MUZZLE_SWITCH])->Gunfire.visible = (s16) showPrimaryMuzzleFlash;
     }
 
-    if (model->obj->Switches[7] != NULL)
+    if (model->obj->Switches[AUTOGUN_SECONDARY_MUZZLE_SWITCH] != NULL)
     {
-        modelGetNodeRwData(model, model->obj->Switches[7])->Gunfire.visible = (s16) sp138;
+        modelGetNodeRwData(model, model->obj->Switches[AUTOGUN_SECONDARY_MUZZLE_SWITCH])->Gunfire.visible = (s16) showSecondaryMuzzleFlash;
     }
 }
-
 
 
 void objTickUpdateChildren(PropRecord *prop, bool isOnScreen)
