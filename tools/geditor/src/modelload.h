@@ -25,9 +25,9 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
 BOOL ModelGetPropDefinition(int modelid, const char **nameout,
                             float *scaleout);
 
-/* Loads one previously extracted object-model PLY. New projects retain
-   per-face texture tags; older PLYs without that property remain valid
-   and are returned as untextured geometry. Caller frees both arrays. */
+/* Loads one previously extracted object-model glTF. The legacy PLY reader is
+   retained so projects created by older GEditor builds still open. Caller
+   frees both returned arrays. */
 BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
                                    DWORD *tricount,
                                    unsigned short **tritags,
@@ -36,9 +36,10 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
 
 /*
  * Extracts every model in the ROM's file table into
- * <projectdir>\models\{characters,guns,objects,casings}\<name>.ply -
- * PLY chosen for native vertex colors. Returns models written; 0 with
- * *reasonout set on total failure. Unparseable models are skipped.
+ * <projectdir>\models\{characters,guns,objects,casings}\<name>.gltf.
+ * Files are self-contained glTF 2.0 assets with positions, UVs, vertex colors,
+ * and GoldenEye texture tags. Returns models written; 0 with *reasonout set
+ * on total failure. Unparseable models are skipped.
  */
 DWORD ModelExtractAll(const RomFile *rom, const char *projectdir,
                       const char **reasonout);

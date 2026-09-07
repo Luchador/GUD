@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "gltf.h"
 #include "modelload.h"
 
 /* Reuse the exact model-ID order and scale values compiled into the
@@ -368,49 +369,6 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
     return b.verts;
 }
 
-/* --- extraction to PLY ------------------------------------------- */
-
-static BOOL MdlWritePly(const char *path, const BgVertex *v,
-                        const unsigned short *tritags, DWORD tricount)
-{
-    FILE *f = fopen(path, "w");
-    DWORD i;
-
-    if (f == NULL)
-    {
-        return FALSE;
-    }
-
-    fprintf(f,
-        "ply\nformat ascii 1.0\ncomment GEditor model export\n"
-        "element vertex %lu\n"
-        "property float x\nproperty float y\nproperty float z\n"
-        "property uchar red\nproperty uchar green\nproperty uchar blue\n"
-        "property uchar alpha\n"
-        "property float s\nproperty float t\n"
-        "element face %lu\n"
-        "property list uchar int vertex_indices\n"
-        "property ushort texture_tag\nend_header\n",
-        (unsigned long)(tricount * 3), (unsigned long)tricount);
-
-    for (i = 0; i < tricount * 3; i++)
-    {
-        fprintf(f, "%g %g %g %u %u %u %u %g %g\n",
-                v[i].x, v[i].y, v[i].z, v[i].r, v[i].g, v[i].b, v[i].a,
-                v[i].s, v[i].t);
-    }
-
-    for (i = 0; i < tricount; i++)
-    {
-        fprintf(f, "3 %lu %lu %lu %u\n", (unsigned long)(i * 3),
-                (unsigned long)(i * 3 + 1), (unsigned long)(i * 3 + 2),
-                tritags != NULL ? tritags[i] : BG_TEX_NONE);
-    }
-
-    fclose(f);
-    return TRUE;
-}
-
 static const char *MdlClassFolder(const char *name)
 {
     if (strcmp(name, "GcartblueZ") == 0 || strcmp(name, "GcartridgeZ") == 0
@@ -479,9 +437,9 @@ DWORD ModelExtractAll(const RomFile *rom, const char *projectdir,
 
         if (tris != NULL)
         {
-            wsprintf(path, "%s\\models\\%s\\%s.ply", projectdir, cls, name);
+            wsprintf(path, "%s\\models\\%s\\%s.gltf", projectdir, cls, name);
 
-            if (MdlWritePly(path, tris, texids, tricount))
+            if (GltfWriteModel(path, tris, texids, tricount, &why))
             {
                 written++;
             }
@@ -547,6 +505,24 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
     {
         *reasonout = "the setup references an unknown prop model ID.";
         return NULL;
+    }
+
+    pathlength = snprintf(path, sizeof(path),
+                          "%s\\models\\objects\\%s.gltf",
+                          projectdir, name);
+    if (pathlength < 0 || pathlength >= (int)sizeof(path))
+    {
+        *reasonout = "the object model path is too long.";
+        return NULL;
+    }
+
+    /* New projects use glTF. Keep the PLY reader below as a compatibility
+       path so existing projects remain openable without re-extraction. */
+    file = fopen(path, "rb");
+    if (file != NULL)
+    {
+        fclose(file);
+        return GltfLoadModel(path, tricount, tritags, reasonout);
     }
 
     pathlength = snprintf(path, sizeof(path),

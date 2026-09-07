@@ -1,5 +1,5 @@
 /* Builds the editor's placed-object layer from setup records and the
-   model PLYs stored in a project. Character records are deliberately
+   model glTF files stored in a project. Character records are deliberately
    excluded: their skeleton assembly is a separate concern. */
 
 #include <windows.h>

@@ -218,7 +218,7 @@ static void GEditorRefreshProjectAssets(void)
             WIN32_FIND_DATA find;
             HANDLE search;
 
-            wsprintf(pattern, "%s\\models\\%s\\*.ply", g_Project.dir, classes[c]);
+            wsprintf(pattern, "%s\\models\\%s\\*.*", g_Project.dir, classes[c]);
             search = FindFirstFile(pattern, &find);
 
             if (search == INVALID_HANDLE_VALUE)
@@ -230,6 +230,15 @@ static void GEditorRefreshProjectAssets(void)
             {
                 char stem[64];
                 char *dot;
+                const char *extension = strrchr(find.cFileName, '.');
+
+                if ((find.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+                    || extension == NULL
+                    || (lstrcmpi(extension, ".gltf") != 0
+                        && lstrcmpi(extension, ".ply") != 0))
+                {
+                    continue;
+                }
 
                 lstrcpyn(stem, find.cFileName, sizeof(stem));
                 dot = strrchr(stem, '.');
