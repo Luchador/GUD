@@ -1024,13 +1024,13 @@ struct player
   /**
    * Offset 0x19f8
   */
-  Gfx watch_body_armor_bar_gdl[230]; /* 0x730-byte gauge-bar DL staging (armor); written by buildGaugeBarDL, replayed via gSPDisplayList */
+  Gfx watch_body_armor_bar_gdl[230]; /* 0x730-byte gauge-bar DL staging (armor); written by hudBuildGaugeBar, replayed via gSPDisplayList */
 
 
   /**
    * Offset 0x2128
   */
-  Gfx watch_health_bar_gdl[230]; /* 0x730-byte gauge-bar DL staging (health); written by buildGaugeBarDL, replayed via gSPDisplayList */
+  Gfx watch_health_bar_gdl[230]; /* 0x730-byte gauge-bar DL staging (health); written by hudBuildGaugeBar, replayed via gSPDisplayList */
 
 
   /**

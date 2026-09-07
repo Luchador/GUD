@@ -12,6 +12,8 @@
 #include <windows.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
+#include <math.h>
 
 #include "bgdocument.h"
 
@@ -864,6 +866,165 @@ BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
         *deletedout = deleted;
     }
     return TRUE;
+}
+
+
+typedef struct BgDocumentVertexRef {
+    DWORD room;
+    DWORD index;
+} BgDocumentVertexRef;
+
+static int BgDocumentCompareVertexRefs(const void *left, const void *right)
+{
+    const BgDocumentVertexRef *a = (const BgDocumentVertexRef *)left;
+    const BgDocumentVertexRef *b = (const BgDocumentVertexRef *)right;
+
+    if (a->room != b->room) { return a->room < b->room ? -1 : 1; }
+    if (a->index != b->index) { return a->index < b->index ? -1 : 1; }
+    return 0;
+}
+
+
+BOOL BgDocumentTranslateFaces(BgDocument *document, const BgFaceRef *refs,
+                              DWORD refcount, const double offset[3],
+                              double appliedoffset[3], DWORD *movedout,
+                              const char **reasonout)
+{
+    BgDocumentVertexRef *vertices = NULL;
+    size_t vertexcount = 0;
+    size_t unique = 0;
+    size_t i;
+    DWORD refindex;
+    int delta[3];
+    int axis;
+    const char *reason = "";
+
+    if (movedout != NULL) { *movedout = 0; }
+    if (reasonout != NULL) { *reasonout = ""; }
+
+    if (document == NULL || document->rooms == NULL
+        || refs == NULL || refcount == 0 || offset == NULL)
+    {
+        reason = "There are no background faces to move.";
+        goto fail;
+    }
+    if (!isfinite(document->levelscale) || document->levelscale <= 0.0f)
+    {
+        reason = "The background has an invalid world scale.";
+        goto fail;
+    }
+
+    /* Round the displacement once, uniformly for every selected vertex.
+       The largest possible displacement between two signed 16-bit positions
+       is 65535; reject larger values before converting them to integers. */
+    for (axis = 0; axis < 3; axis++)
+    {
+        double localoffset = round(offset[axis] * document->levelscale);
+
+        if (!isfinite(offset[axis]) || !isfinite(localoffset)
+            || localoffset < -65535.0 || localoffset > 65535.0)
+        {
+            reason = "The move exceeds the background coordinate range.";
+            goto fail;
+        }
+        delta[axis] = (int)localoffset;
+    }
+
+    if (refcount > (DWORD)-1 / (3 * sizeof(*vertices)))
+    {
+        reason = "Too many background faces to move.";
+        goto fail;
+    }
+    vertices = (BgDocumentVertexRef *)malloc(
+        (size_t)refcount * 3 * sizeof(*vertices));
+    if (vertices == NULL)
+    {
+        reason = "Out of memory collecting the selected vertices.";
+        goto fail;
+    }
+
+    for (refindex = 0; refindex < refcount; refindex++)
+    {
+        const BgDocumentRoom *room;
+        const BgDocumentFace *face = BgDocumentFindFace(
+            document, &refs[refindex], &room);
+        int corner;
+
+        if (face == NULL)
+        {
+            reason = "A selected background face no longer exists.";
+            goto fail;
+        }
+        for (corner = 0; corner < 3; corner++)
+        {
+            if (room->vertices == NULL
+                || face->vertexindices[corner] >= room->vertexcount)
+            {
+                reason = "A selected background face has an invalid vertex.";
+                goto fail;
+            }
+            vertices[vertexcount].room = refs[refindex].room;
+            vertices[vertexcount++].index = face->vertexindices[corner];
+        }
+    }
+
+    qsort(vertices, vertexcount, sizeof(*vertices), BgDocumentCompareVertexRefs);
+    for (i = 0; i < vertexcount; i++)
+    {
+        if (unique == 0
+            || BgDocumentCompareVertexRefs(&vertices[i], &vertices[unique - 1]) != 0)
+        {
+            vertices[unique++] = vertices[i];
+        }
+    }
+
+    /* Validate every destination first, including vertices in other rooms. */
+    for (i = 0; i < unique; i++)
+    {
+        const BgDocumentVertex *vertex =
+            &document->rooms[vertices[i].room].vertices[vertices[i].index];
+        int position[3] = { vertex->x, vertex->y, vertex->z };
+
+        for (axis = 0; axis < 3; axis++)
+        {
+            int value = position[axis] + delta[axis];
+
+            if (value < SHRT_MIN || value > SHRT_MAX)
+            {
+                reason = "A moved vertex would exceed its room's coordinate range."
+                         " Use a smaller offset.";
+                goto fail;
+            }
+        }
+    }
+
+    if (delta[0] != 0 || delta[1] != 0 || delta[2] != 0)
+    {
+        for (i = 0; i < unique; i++)
+        {
+            BgDocumentVertex *vertex =
+                &document->rooms[vertices[i].room].vertices[vertices[i].index];
+
+            vertex->x = (short)(vertex->x + delta[0]);
+            vertex->y = (short)(vertex->y + delta[1]);
+            vertex->z = (short)(vertex->z + delta[2]);
+        }
+        if (movedout != NULL) { *movedout = (DWORD)unique; }
+    }
+    if (appliedoffset != NULL)
+    {
+        for (axis = 0; axis < 3; axis++)
+        {
+            appliedoffset[axis] = delta[axis] / (double)document->levelscale;
+        }
+    }
+    free(vertices);
+    return TRUE;
+
+fail:
+    free(vertices);
+    if (reasonout != NULL) { *reasonout = reason; }
+    return FALSE;
 }
 
 

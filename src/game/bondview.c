@@ -38,6 +38,7 @@
 #include "mpmenu.h"
 #include "objecthandler.h"
 #include "objective_status.h"
+#include "options.h"
 #include "os_extension.h"
 #include "player.h"
 #include "propobj.h"
@@ -3712,10 +3713,10 @@ void trigger_solo_watch_menu(s32 arg0)
             bondviewTriggerWatchZoomDefault();
 
             hudMakeDamageSegments(&g_CurrentPlayer->armor_display_values, 23*2, 1, currentPlayerGetArmor());
-            buildGaugeBarDL(g_CurrentPlayer->watch_body_armor_bar_gdl, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->armor_display_values), 0x2E);
+            hudBuildGaugeBar(g_CurrentPlayer->watch_body_armor_bar_gdl, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->armor_display_values), 0x2E);
 
             hudMakeDamageSegments(&g_CurrentPlayer->health_display_values, 23*2, -1, currentPlayerGetHealth());
-            buildGaugeBarDL(g_CurrentPlayer->watch_health_bar_gdl, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->health_display_values), 0x2E);
+            hudBuildGaugeBar(g_CurrentPlayer->watch_health_bar_gdl, OS_K0_TO_PHYSICAL(&g_CurrentPlayer->health_display_values), 0x2E);
 
             watchReset();
 
@@ -3731,7 +3732,7 @@ void trigger_solo_watch_menu(s32 arg0)
             {
                 // Note: colors are set here but overwritten in watch.c set_page_rectangle_colors
                 ptr_copy = ptr_a;
-                ptr_a = setup_watch_rectangles(ptr_a, i, 0, 0x64, 0x14, -0x12B, 0x136);
+                ptr_a = watchSetUpSelectionRectangles(ptr_a, i, 0, 0x64, 0x14, -0x12B, 0x136);
                 ptr_b = watchDrawQuad4Vtx(ptr_b, OS_K0_TO_PHYSICAL(ptr_copy));
             }
 
@@ -3749,7 +3750,7 @@ void trigger_solo_watch_menu(s32 arg0)
             ptr_b = g_CurrentPlayer->buffer_for_watch_static_DL; // Gfx
 
             ptr_copy = &g_CurrentPlayer->buffer_for_watch_static_vertices->vtx[0];
-            next = setup_watch_rectangles(ptr_a, 0, 0, 0x398, 0x14, -0x1CC, 0);
+            next = watchSetUpSelectionRectangles(ptr_a, 0, 0, 0x398, 0x14, -0x1CC, 0);
             ptr_b = watchDrawQuad4Vtx(ptr_b, OS_K0_TO_PHYSICAL(ptr_copy));
 
             gSPEndDisplayList(ptr_b);
@@ -8316,11 +8317,11 @@ Gfx *bondviewRenderGaugeBars(Gfx *gdl)
 
     //Set up armor bars.
     hudMakeDamageSegments(&g_CurrentPlayer->armor_display_values[0].items[0], 0x2e, 1, g_CurrentPlayer->apparentarmour);
-    buildGaugeBarDL(g_CurrentPlayer->watch_body_armor_bar_gdl, OS_PHYSICAL_TO_K0(&g_CurrentPlayer->armor_display_values[0].items[0]), 0x2e);
+    hudBuildGaugeBar(g_CurrentPlayer->watch_body_armor_bar_gdl, OS_PHYSICAL_TO_K0(&g_CurrentPlayer->armor_display_values[0].items[0]), 0x2e);
 
     // Set up health bars.
     hudMakeDamageSegments(&g_CurrentPlayer->health_display_values[0].items[0], 0x2e, -1, g_CurrentPlayer->apparenthealth);
-    buildGaugeBarDL(g_CurrentPlayer->watch_health_bar_gdl, OS_PHYSICAL_TO_K0(&g_CurrentPlayer->health_display_values[0].items[0]), 0x2e);
+    hudBuildGaugeBar(g_CurrentPlayer->watch_health_bar_gdl, OS_PHYSICAL_TO_K0(&g_CurrentPlayer->health_display_values[0].items[0]), 0x2e);
 
     // Create an orthographic render state for the gauge.
     lookatmtx = dynAllocateMatrix();

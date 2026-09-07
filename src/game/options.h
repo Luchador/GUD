@@ -95,6 +95,7 @@ struct game_options {
 };
 
 extern struct game_options g_GameOptionEntries[];
+struct WatchVertex *watchSetUpSelectionRectangles(struct WatchVertex *vtx, s32 startx, s32 startz, s32 width, s32 height, s32 horizontal_offset, s32 vertical_offset);
 void watchResetControllerOptionsIndex(void);
 void watchResetGameOptionsIndex(void);
 void watchSetAbortIsConfirmSelectedFalse(void);

@@ -574,6 +574,164 @@ void watchPlayStaticSound(void)
 }
 
 
+void watchBuildBackgroundVerts(struct WatchVertex *vtx, s32 numverts, f32 scale, s32 arg3)
+{
+    f32 angle;
+    s32 i;
+    s16 sinval;
+    s16 cosval;
+
+    if (arg3)
+    {
+        vtx->coord1.x = 1;
+        vtx->coord1.y = 0;
+        vtx->coord1.z = 0;
+        vtx->coord2.x = 0;
+        vtx->coord2.y = 0;
+        vtx->coord2.z = 0;
+        vtx->color.r = 0;
+        vtx->color.g = 0x2c;
+        vtx->color.b = 0;
+        vtx->color.a = 0xb0;
+
+        vtx++;
+    }
+
+    for (i = 7; i <= (numverts - 7); i += 2)
+    {
+        angle = ((f32)i * M_PI_F) / numverts;
+        sinval = sinf(angle) * 520.0f * scale;
+        cosval = cosf(angle) * 520.0f * scale;
+
+        vtx->coord1.x = 1 + sinval;
+        vtx->coord1.y = 0;
+        vtx->coord1.z = -cosval;
+        vtx->coord2.x = 0;
+        vtx->coord2.y = 0;
+        vtx->coord2.z = 0;
+        vtx->color.r = 0 - (cosf(angle) * 0);
+        vtx->color.g = 44.0f - (cosf(angle) * 20.0f);
+        vtx->color.b = 0 - (cosf(angle) * 0);
+        vtx->color.a = 0xb0;
+
+        vtx++;
+
+        if ((i != 0) && (i < numverts))
+        {
+            vtx->coord1.x = 1 + -sinval;
+            vtx->coord1.y = 0;
+            vtx->coord1.z = -cosval;
+            vtx->coord2.x = 0;
+            vtx->coord2.y = 0;
+            vtx->coord2.z = 0;
+
+            vtx->color.r = 0xFF;
+            vtx->color.g = 0xFF;
+            vtx->color.b = 0xFF;
+
+            vtx->color.r = 0 - (cosf(angle) * 0);
+            vtx->color.g = 44.0f - (cosf(angle) * 20.0f);
+            vtx->color.b = 0 - (cosf(angle) * 0);
+            vtx->color.a = 0xb0;
+
+            vtx++;
+        }
+    }
+}
+
+
+Gfx *watchDrawBackground(Gfx *gdl, struct WatchVertex *watch_verts, s32 unused_arg2, s32 drawFan)
+{
+    s8 i;
+    struct WatchVertex *orig;
+
+    if (drawFan) 
+    {
+        struct WatchVertex *vtx;
+
+        orig = watch_verts;
+        watch_verts++;
+        vtx = watch_verts;
+
+        i = 7;
+
+        gSPVertex(gdl++, &vtx[14], 4, 0);
+        gSPVertex(gdl++, orig, 1, 4);
+        gSP2Triangles(gdl++, 2, 4, 3, 0, 0, 0, 0, 0);
+
+        for (; i >= 0; i--) {
+            gSPVertex(gdl++, &vtx[2 * i], 4, 0);
+            gSPVertex(gdl++, orig, 1, 4);
+            gSP2Triangles(gdl++, 0, 4, 2, 0, 1, 3, 4, 0);
+        }
+
+        gSP2Triangles(gdl++, 0, 1, 4, 0, 0, 0, 0, 0);
+    } 
+    else 
+    {
+        for (i = 0; i < 8; i++)
+        {
+            gSPVertex(gdl++, watch_verts, 4, 0);
+            gSP2Triangles(gdl++, 0, 1, 2, 0, 1, 2, 3, 0);
+            watch_verts += 2;
+        }
+    }
+
+    gSPEndDisplayList(gdl++);
+
+    return gdl;
+}
+
+
+/**
+ * Setup watch rectangles in the usual manner.
+ * This is called to setup the screen select rectangles, but note
+ * that the colors are overwritten in set_page_rectangle_colors.
+ * Also used to initialize watch static.
+ * @param vtx: Pointer to first vertex in a {@code struct WatchRectangle}.
+ * @param startx:
+ * @param startz:
+ * @param width:
+ * @param height:
+ * @param horizontal_offset:
+ * @param vertical_offset:
+*/
+struct WatchVertex *watchSetUpSelectionRectangles(struct WatchVertex *vtx, s32 startx, s32 startz, s32 width, s32 height, s32 horizontal_offset, s32 vertical_offset)
+{
+    s32 i;
+    s32 j;
+    s32 xval;
+    s32 zval;
+
+    i = 0;
+    j = 0;
+    xval = startx + horizontal_offset;
+
+    for (i = 0; i < 2; i++, xval += width)
+    {
+        for (j = 0, zval = startz + vertical_offset; j < 2; j++, zval += height)
+        {
+            vtx->coord1.AsArray[0] = xval;
+            vtx->coord1.AsArray[1] = 0;
+            vtx->coord1.AsArray[2] = zval;
+
+            vtx->coord2.AsArray[0] = 0;
+            vtx->coord2.AsArray[1] = 0;
+            vtx->coord2.AsArray[2] = 0;
+
+            vtx->color.rgba[0] = 0x20;
+            vtx->color.rgba[1] = 0x70;
+            vtx->color.rgba[2] = 0x20;
+            vtx->color.rgba[3] = 0xF0;
+
+            vtx++;
+        }
+    }
+
+    return vtx;
+}
+
+
 void watchChangeScreen(void)
 {
     watchSetStickXDisabled();
@@ -1597,8 +1755,8 @@ Gfx *draw_background_health_and_armor(Gfx *gdl, Mtx *arg1, s32 zoom_squish)
      * End health bar zoom section
     */
 
-    sub_GAME_7F0A33F8(sp44, WATCH_BACKGROUND_VERTEX_COUNT, 0.92f, 0);
-    draw_watch_background(sp3C, OS_PHYSICAL_TO_K0(sp44), WATCH_BACKGROUND_VERTEX_COUNT, 0);
+    watchBuildBackgroundVerts(sp44, WATCH_BACKGROUND_VERTEX_COUNT, 0.92f, 0);
+    watchDrawBackground(sp3C, OS_PHYSICAL_TO_K0(sp44), WATCH_BACKGROUND_VERTEX_COUNT, 0);
 
     gDPPipeSync(gdl++);
     gDPSetRenderMode(gdl++, G_RM_XLU_SURF, G_RM_XLU_SURF2);
@@ -1612,15 +1770,15 @@ Gfx *draw_background_health_and_armor(Gfx *gdl, Mtx *arg1, s32 zoom_squish)
     */
     if (g_WatchBackgroundGreen < 0xE0)
     {
-        sub_GAME_7F0A33F8(sp48, WATCH_BACKGROUND_VERTEX_COUNT, 0.899999976158f, 0);
-        draw_watch_background(sp40, OS_PHYSICAL_TO_K0(sp48), WATCH_BACKGROUND_VERTEX_COUNT, 0);
+        watchBuildBackgroundVerts(sp48, WATCH_BACKGROUND_VERTEX_COUNT, 0.899999976158f, 0);
+        watchDrawBackground(sp40, OS_PHYSICAL_TO_K0(sp48), WATCH_BACKGROUND_VERTEX_COUNT, 0);
 
         gDPSetRenderMode(gdl++, G_RM_AA_PCL_SURF, G_RM_AA_PCL_SURF2);
     }
     else
     {
-        sub_GAME_7F0A33F8(sp48, WATCH_BACKGROUND_VERTEX_COUNT, 0.899999976158f, 1);
-        draw_watch_background(sp40, OS_PHYSICAL_TO_K0(sp48), WATCH_BACKGROUND_VERTEX_COUNT, 1);
+        watchBuildBackgroundVerts(sp48, WATCH_BACKGROUND_VERTEX_COUNT, 0.899999976158f, 1);
+        watchDrawBackground(sp40, OS_PHYSICAL_TO_K0(sp48), WATCH_BACKGROUND_VERTEX_COUNT, 1);
 
         gDPSetRenderMode(gdl++, G_RM_AA_XLU_SURF, G_RM_AA_XLU_SURF2);
     }
@@ -2296,13 +2454,13 @@ Gfx *watchDrawFXVolumeSlider(Gfx *gdl)
     gDPSetRenderMode(cmd, G_RM_XLU_SURF, G_RM_XLU_SURF2);
 
     gdl = watchDrawQuad4Vtx(gdl, OS_K0_TO_PHYSICAL(vtx1));
-    vtx = setup_watch_rectangles(vtx1, 0, 0, 600, 20, -299, -205);
+    vtx = watchSetUpSelectionRectangles(vtx1, 0, 0, 600, 20, -299, -205);
 
     gdl = watchDrawQuad4Vtx(gdl, OS_K0_TO_PHYSICAL(vtx));
-    vtx = setup_watch_rectangles(vtx, 0, 0, 600, 20, -299, -205);
+    vtx = watchSetUpSelectionRectangles(vtx, 0, 0, 600, 20, -299, -205);
 
     gdl = watchDrawQuad4Vtx(gdl, OS_K0_TO_PHYSICAL(vtx));
-    setup_watch_rectangles(vtx, 0, 0, 600, 20, -299, -205);
+    watchSetUpSelectionRectangles(vtx, 0, 0, 600, 20, -299, -205);
 
     update_volume_slider_verts(vtx1, fvolume, 30);
 
@@ -2339,14 +2497,14 @@ Gfx *watchDrawMusicVolumeSlider(Gfx *gdl)
     gDPSetRenderMode(cmd, G_RM_XLU_SURF, G_RM_XLU_SURF2);
 
     gdl = watchDrawQuad4Vtx(gdl, OS_K0_TO_PHYSICAL(vtx1));
-    vtx = setup_watch_rectangles(vtx1, 0, 0, 600, 20, -299, -275);
+    vtx = watchSetUpSelectionRectangles(vtx1, 0, 0, 600, 20, -299, -275);
 
 
     gdl = watchDrawQuad4Vtx(gdl, OS_K0_TO_PHYSICAL(vtx));
-    vtx = setup_watch_rectangles(vtx, 0, 0, 600, 20, -299, -275);
+    vtx = watchSetUpSelectionRectangles(vtx, 0, 0, 600, 20, -299, -275);
 
     gdl = watchDrawQuad4Vtx(gdl, OS_K0_TO_PHYSICAL(vtx));
-    setup_watch_rectangles(vtx, 0, 0, 600, 20, -299, -275);
+    watchSetUpSelectionRectangles(vtx, 0, 0, 600, 20, -299, -275);
 
     update_volume_slider_verts(vtx1, fvolume, 30);
 

@@ -134,6 +134,33 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
 }
 
 
+static void GEditorRefreshSelectionDetails(void)
+{
+    BgFaceRef selected;
+    DWORD selectedobject;
+    int count = ViewportGetSelectedBgFaceCount(g_Viewport);
+    BOOL objectselected = ViewportGetSelectedObject(g_Viewport, &selectedobject);
+    BOOL cantranslate = !objectselected && count > 0
+                     && g_CurrentBgDocument.levelscale > 0.0f;
+
+    RightPanelSetTransformState(g_RightPanel, cantranslate,
+        cantranslate ? 1.0 / g_CurrentBgDocument.levelscale : 0.0);
+    if (objectselected && selectedobject < g_CurrentSetup.objectcount)
+    {
+        RightPanelSetSetupObject(g_RightPanel,
+            &g_CurrentSetup.objects[selectedobject], selectedobject);
+    }
+    else if (count == 1 && ViewportGetSingleSelectedBgFace(g_Viewport, &selected))
+    {
+        RightPanelSetBgTriangle(g_RightPanel, &g_CurrentBgDocument, &selected);
+    }
+    else
+    {
+        RightPanelSetBgSelectionCount(g_RightPanel, count);
+    }
+}
+
+
 static BOOL GEditorRebuildCurrentViewportWithObjects(
     const SetupObjectGeometry *objects, const char **reasonout)
 {
@@ -170,7 +197,7 @@ static BOOL GEditorRebuildCurrentViewportWithObjects(
         g_CurrentBgDocument.levelscale,
         objects->occupiedpads,
         objects->occupiedboundpads);
-    RightPanelSetBgSelectionCount(g_RightPanel, 0);
+    GEditorRefreshSelectionDetails();
     return TRUE;
 }
 
@@ -318,7 +345,7 @@ static void GEditorCloseProject(HWND hwnd)
     BrowserSetImages(g_Browser, NULL, 0, NULL);
     BrowserSetModels(g_Browser, NULL, 0);
     ViewportSetScene(g_Viewport, NULL, NULL, NULL, NULL, 0, 0, NULL, FALSE);
-    RightPanelSetBgSelectionCount(g_RightPanel, 0);
+    GEditorRefreshSelectionDetails();
     GEditorRefreshHistoryMenu(hwnd);
     GEditorSetTitleForProject(hwnd);
 }
@@ -1356,6 +1383,78 @@ static void GEditorDeleteSelectedBgFaces(HWND hwnd)
 }
 
 
+/* The Transform panel supplies a displacement; this frame owns dispatch
+   to the active asset, the transaction, and its viewport presentation. */
+static BOOL GEditorTranslateSelectedBgFaces(HWND hwnd,
+                                            RightPanelTranslation *translation)
+{
+    EditHistoryTransaction transaction;
+    BgFaceRef *selected;
+    const char *why = "";
+    const char *restorewhy = "";
+    double applied[3];
+    DWORD moved = 0;
+    int count = ViewportGetSelectedBgFaceCount(g_Viewport);
+    int axis;
+    const char *action = count == 1 ? "Move BG Face" : "Move BG Faces";
+
+    if (translation == NULL || count <= 0)
+    {
+        return FALSE;
+    }
+    selected = (BgFaceRef *)malloc((size_t)count * sizeof(*selected));
+    if (selected == NULL)
+    {
+        MessageBox(hwnd, "Out of memory reading the BG selection.",
+                   GEDITOR_TITLE, MB_ICONERROR);
+        return FALSE;
+    }
+    if (!ViewportGetSelectedBgFaces(g_Viewport, selected, count)
+        || !EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+                                   action, &transaction, &why))
+    {
+        free(selected);
+        MessageBox(hwnd, why[0] != '\0' ? why : "The selected BG faces could not be read.",
+                   GEDITOR_TITLE, MB_ICONERROR);
+        return FALSE;
+    }
+
+    if (!BgDocumentTranslateFaces(&g_CurrentBgDocument, selected, (DWORD)count,
+                                  translation->offset, applied, &moved, &why))
+    {
+        /* Validation failed before any vertex was changed. */
+        EditHistoryCancelEdit(&transaction);
+        free(selected);
+        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+        return FALSE;
+    }
+    free(selected);
+
+    if (moved == 0)
+    {
+        /* A zero or sub-grid displacement must preserve redo and dirty state. */
+        EditHistoryCancelEdit(&transaction);
+    }
+    else if (!GEditorRebuildCurrentViewport(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
+                                  &g_CurrentSetup, &transaction, &why))
+    {
+        EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup);
+        GEditorRebuildCurrentViewport(&restorewhy);
+        GEditorRefreshHistoryMenu(hwnd);
+        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+        return FALSE;
+    }
+
+    for (axis = 0; axis < 3; axis++)
+    {
+        translation->applied[axis] = applied[axis];
+    }
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+}
+
+
 static void GEditorDeleteSelectedObject(HWND hwnd, DWORD objectindex)
 {
     EditHistoryTransaction transaction;
@@ -1439,29 +1538,12 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     }
 
     case VIEWPORT_WM_SELECTION_CHANGED:
-    {
-        BgFaceRef selected;
-        DWORD selectedobject;
-        int count = ViewportGetSelectedBgFaceCount(g_Viewport);
-
-        if (ViewportGetSelectedObject(g_Viewport, &selectedobject)
-            && selectedobject < g_CurrentSetup.objectcount)
-        {
-            RightPanelSetSetupObject(g_RightPanel,
-                &g_CurrentSetup.objects[selectedobject], selectedobject);
-        }
-        else if (count == 1
-            && ViewportGetSingleSelectedBgFace(g_Viewport, &selected))
-        {
-            RightPanelSetBgTriangle(g_RightPanel, &g_CurrentBgDocument,
-                                    &selected);
-        }
-        else
-        {
-            RightPanelSetBgSelectionCount(g_RightPanel, count);
-        }
+        GEditorRefreshSelectionDetails();
         return 0;
-    }
+
+    case RIGHTPANEL_WM_TRANSLATE_SELECTION:
+        return GEditorTranslateSelectedBgFaces(hwnd,
+            (RightPanelTranslation *)lparam);
 
     case VIEWPORT_WM_DELETE_SELECTION:
     {
@@ -1582,7 +1664,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         g_CurrentBg = bg;
         BgDocumentFree(&g_CurrentBgDocument);
         g_CurrentBgDocument = document;
-        RightPanelSetBgSelectionCount(g_RightPanel, 0);
+        GEditorRefreshSelectionDetails();
 
         BgPortalFileFree(&g_CurrentPortals);
         if (portalsLoaded)
@@ -1670,6 +1752,12 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         if (PtInRect(&rc, p))
         {
             SendMessage(g_Browser, WM_MOUSEWHEEL, wparam, lparam);
+            return 0;
+        }
+        GetWindowRect(g_RightPanel, &rc);
+        if (PtInRect(&rc, p))
+        {
+            SendMessage(g_RightPanel, WM_MOUSEWHEEL, wparam, lparam);
             return 0;
         }
         break;
@@ -1984,8 +2072,9 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     CoUninitialize();
                     return (int)msg.wParam;
                 }
-                if (accelerators == NULL
-                    || !TranslateAccelerator(hwnd, accelerators, &msg))
+                if (!RightPanelHandleMessage(g_RightPanel, &msg)
+                    && (accelerators == NULL
+                        || !TranslateAccelerator(hwnd, accelerators, &msg)))
                 {
                     TranslateMessage(&msg);
                     DispatchMessage(&msg);
@@ -2001,8 +2090,9 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             {
                 break;
             }
-            if (accelerators == NULL
-                || !TranslateAccelerator(hwnd, accelerators, &msg))
+            if (!RightPanelHandleMessage(g_RightPanel, &msg)
+                && (accelerators == NULL
+                    || !TranslateAccelerator(hwnd, accelerators, &msg)))
             {
                 TranslateMessage(&msg);
                 DispatchMessage(&msg);

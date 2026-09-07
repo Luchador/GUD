@@ -1821,6 +1821,19 @@ static int ViewportTriKeyCompare(const void *a, const void *b)
     return d != 0 ? d : ka->tri - kb->tri;
 }
 
+/* Stable IDs let a geometry rebuild keep surviving selected faces even
+   when their texture-sorted display order changes. */
+static int ViewportCompareFaceRefs(const void *left, const void *right)
+{
+    const BgFaceRef *a = (const BgFaceRef *)left;
+    const BgFaceRef *b = (const BgFaceRef *)right;
+
+    if (a->room != b->room) { return a->room < b->room ? -1 : 1; }
+    if (a->layer != b->layer) { return a->layer < b->layer ? -1 : 1; }
+    if (a->faceid != b->faceid) { return a->faceid < b->faceid ? -1 : 1; }
+    return 0;
+}
+
 BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const unsigned short *tritags,
                       const BgFaceRef *facerefs,
@@ -1835,6 +1848,9 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     GLuint *textures = NULL;
     unsigned char *selectedtris = NULL;
     BgFaceRef *scenefacerefs = NULL;
+    BgFaceRef *selectedrefs = NULL;
+    int savedselectioncount = 0;
+    int selectedcount = 0;
     DWORD *sceneobjectindices = NULL;
     TriKey *order = NULL;
     TexPixel *decode = NULL;
@@ -1853,6 +1869,23 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
 
     if (tris != NULL && tricount > 0)
     {
+        if (!framecamera)
+        {
+            savedselectioncount = ViewportGetSelectedBgFaceCount(hwnd);
+            if (savedselectioncount > 0)
+            {
+                selectedrefs = (BgFaceRef *)malloc(
+                    (size_t)savedselectioncount * sizeof(*selectedrefs));
+                if (selectedrefs == NULL
+                    || !ViewportGetSelectedBgFaces(hwnd, selectedrefs, savedselectioncount))
+                {
+                    free(selectedrefs);
+                    return FALSE;
+                }
+                qsort(selectedrefs, (size_t)savedselectioncount,
+                      sizeof(*selectedrefs), ViewportCompareFaceRefs);
+            }
+        }
         scene = (Vertex *)malloc((size_t)tricount * 3 * sizeof(Vertex));
         scenecolors = (VertexColor *)malloc((size_t)tricount * 3
                                             * sizeof(*scenecolors));
@@ -1876,6 +1909,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
             free(textures); free(selectedtris); free(scenefacerefs);
             free(sceneobjectindices);
             free(decode);
+            free(selectedrefs);
             return FALSE; /* keep whatever we had */
         }
 
@@ -1903,6 +1937,15 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
             if (facerefs != NULL)
             {
                 scenefacerefs[i] = facerefs[order[i].tri];
+                if (savedselectioncount > 0
+                    && scenefacerefs[i].faceid != BG_FACE_ID_NONE
+                    && bsearch(&scenefacerefs[i], selectedrefs,
+                               (size_t)savedselectioncount, sizeof(*selectedrefs),
+                               ViewportCompareFaceRefs) != NULL)
+                {
+                    selectedtris[i] = 1;
+                    selectedcount++;
+                }
             }
             if (objectindices != NULL
                 && order[i].tri >= objectfirsttriangle)
@@ -2011,6 +2054,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
 
         free(order);
         free(decode);
+        free(selectedrefs);
     }
 
     ViewportFreeScene(state);
@@ -2020,6 +2064,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     state->batches = batches;
     state->batchcount = scene != NULL ? batchcount : 0;
     state->selectedtris = selectedtris;
+    state->selectedtricount = selectedcount;
     state->scenefacerefs = scenefacerefs;
     state->sceneobjectindices = sceneobjectindices;
     state->textures = textures;
@@ -2041,6 +2086,14 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
         state->scenecolors = NULL;
         state->batchcount = 0;
         state->texturecount = 0;
+    }
+
+    for (i = 0; scene != NULL && i < tricount; i++)
+    {
+        if (selectedtris[i])
+        {
+            ViewportSetTriangleColor(state, i, TRUE);
+        }
     }
 
     if (scene != NULL && framecamera)

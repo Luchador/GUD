@@ -33,7 +33,8 @@ void ViewportFlyFrame(HWND viewport);
  * Replaces the viewport's scene with a triangle soup. All supplied arrays
  * are copied and remain caller-owned. NULL/0 restores the built-in test
  * scene. Set framecamera when opening a level; clear it when rebuilding an
- * edited level so undo and redo do not move the user's viewpoint. Object
+ * edited level so undo and redo do not move the user's viewpoint. Surviving
+ * selected BG faces are retained when framecamera is FALSE. Object
  * indices parallel the triangle suffix beginning at objectfirsttriangle.
  */
 BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,

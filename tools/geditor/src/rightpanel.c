@@ -1,25 +1,28 @@
 /*
  * GEditor right-hand tool panel.
  *
- * The upper and lower panes share one child window and are separated
- * by a draggable horizontal splitter. The lower pane is intentionally a
- * generic properties surface even though background triangles are its first
- * supported selection type.
+ * Visibility and Transform sit above a draggable Properties splitter. The
+ * transform controls send generic displacement requests to the frame, which
+ * owns selection dispatch, document edits, and undo history.
  */
 
 #include <windows.h>
 #include <windowsx.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <ctype.h>
+#include <errno.h>
+#include <math.h>
 
 #include "rightpanel.h"
 
 #define RIGHTPANEL_CLASS "GEditorRightPanel"
 
 #define RIGHTPANEL_SPLITTER_H 5
-#define RIGHTPANEL_TOP_MIN 142
+#define RIGHTPANEL_TOP_MIN 356
+#define RIGHTPANEL_TRANSFORM_TOP 148
 #define RIGHTPANEL_BOTTOM_MIN 160
-#define RIGHTPANEL_INITIAL_TOP_H 160
+#define RIGHTPANEL_INITIAL_TOP_H 364
 #define RIGHTPANEL_MARGIN 12
 #define RIGHTPANEL_CHECK_H 22
 #define RIGHTPANEL_CHECK_GAP 4
@@ -28,7 +31,11 @@ enum {
     RIGHTPANEL_ID_BG_PRIMARY = 2001,
     RIGHTPANEL_ID_BG_SECONDARY,
     RIGHTPANEL_ID_STAN,
-    RIGHTPANEL_ID_PORTALS
+    RIGHTPANEL_ID_PORTALS,
+    RIGHTPANEL_ID_MOVE_X,
+    RIGHTPANEL_ID_MOVE_Y,
+    RIGHTPANEL_ID_MOVE_Z,
+    RIGHTPANEL_ID_MOVE
 };
 
 typedef struct RightPanelState {
@@ -36,6 +43,12 @@ typedef struct RightPanelState {
     HWND bgsecondary;
     HWND stan;
     HWND portals;
+    HWND offsets[3];
+    HWND move;
+    HWND details;
+    BOOL transformenabled;
+    int wheelremainder;
+    char transformhint[128];
     int topheight;
     BOOL draggingsplitter;
     char detailtitle[64];
@@ -49,31 +62,19 @@ static RightPanelState *RightPanelGetState(HWND hwnd)
 
 static void RightPanelClampTopHeight(RightPanelState *state, int height)
 {
-    int maxheight = height - RIGHTPANEL_SPLITTER_H - RIGHTPANEL_BOTTOM_MIN;
+    int available = height - RIGHTPANEL_SPLITTER_H;
+    int minimum;
+    int maximum;
 
-    if (height < RIGHTPANEL_TOP_MIN + RIGHTPANEL_SPLITTER_H
-               + RIGHTPANEL_BOTTOM_MIN)
-    {
-        /* There is not enough room to honor both pane minimums. Keep
-           the visibility controls usable and leave no negative or
-           off-client dimensions for the properties pane. */
-        state->topheight = height - RIGHTPANEL_SPLITTER_H;
-        if (state->topheight < 0)
-        {
-            state->topheight = 0;
-        }
-        return;
-    }
+    if (available < 0) { available = 0; }
+    minimum = available < RIGHTPANEL_TOP_MIN ? available : RIGHTPANEL_TOP_MIN;
+    maximum = available - RIGHTPANEL_BOTTOM_MIN;
+    if (maximum < minimum) { maximum = minimum; }
 
-    if (state->topheight > maxheight)
-    {
-        state->topheight = maxheight;
-    }
-
-    if (state->topheight < RIGHTPANEL_TOP_MIN)
-    {
-        state->topheight = RIGHTPANEL_TOP_MIN;
-    }
+    /* On shorter windows, leave whatever space remains to the scrollable
+       properties view after accommodating Visibility and Transform. */
+    if (state->topheight > maximum) { state->topheight = maximum; }
+    if (state->topheight < minimum) { state->topheight = minimum; }
 }
 
 static void RightPanelLayout(HWND hwnd, RightPanelState *state)
@@ -81,6 +82,9 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
     RECT client;
     int width;
     int y = 32;
+    int axis;
+    int detailtop;
+    int detailheight;
 
     GetClientRect(hwnd, &client);
     width = client.right - RIGHTPANEL_MARGIN * 2;
@@ -100,6 +104,20 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
     y += RIGHTPANEL_CHECK_H + RIGHTPANEL_CHECK_GAP;
     MoveWindow(state->portals, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
 
+    for (axis = 0; axis < 3; axis++)
+    {
+        MoveWindow(state->offsets[axis], RIGHTPANEL_MARGIN + 24,
+                   RIGHTPANEL_TRANSFORM_TOP + 54 + axis * 28,
+                   width > 24 ? width - 24 : 1, 23, TRUE);
+    }
+    MoveWindow(state->move, RIGHTPANEL_MARGIN + 24,
+               RIGHTPANEL_TRANSFORM_TOP + 138,
+               width > 24 ? width - 24 : 1, 26, TRUE);
+    detailtop = state->topheight + RIGHTPANEL_SPLITTER_H + 56;
+    detailheight = client.bottom - RIGHTPANEL_MARGIN - detailtop;
+    MoveWindow(state->details, RIGHTPANEL_MARGIN, detailtop, width,
+               detailheight > 0 ? detailheight : 0, TRUE);
+    ShowWindow(state->details, detailheight > 0 ? SW_SHOW : SW_HIDE);
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
@@ -143,6 +161,52 @@ static void RightPanelNotifyVisibility(HWND hwnd, RightPanelState *state)
                 (WPARAM)RightPanelGetVisibility(state), 0);
 }
 
+static void RightPanelTranslate(HWND hwnd, RightPanelState *state)
+{
+    RightPanelTranslation translation;
+    int axis;
+
+    if (!state->transformenabled) { return; }
+    ZeroMemory(&translation, sizeof(translation));
+    for (axis = 0; axis < 3; axis++)
+    {
+        char text[64];
+        char *end;
+        double value;
+
+        GetWindowText(state->offsets[axis], text, sizeof(text));
+        errno = 0;
+        value = strtod(text, &end);
+        if (end != text)
+        {
+            while (isspace((unsigned char)*end)) { end++; }
+        }
+        if (end == text || *end != '\0' || errno == ERANGE || !isfinite(value))
+        {
+            MessageBox(hwnd, "Enter a finite number for each X, Y and Z offset.",
+                       "Transform", MB_ICONWARNING);
+            SetFocus(state->offsets[axis]);
+            SendMessage(state->offsets[axis], EM_SETSEL, 0, -1);
+            return;
+        }
+        translation.offset[axis] = value;
+    }
+
+    if (SendMessage(GetParent(hwnd), RIGHTPANEL_WM_TRANSLATE_SELECTION,
+                    0, (LPARAM)&translation))
+    {
+        /* Show the snapped displacement, keeping it ready for another move. */
+        for (axis = 0; axis < 3; axis++)
+        {
+            char text[64];
+
+            snprintf(text, sizeof(text), "%.9g", translation.applied[axis]);
+            SetWindowText(state->offsets[axis], text);
+        }
+    }
+}
+
+
 static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
 {
     RECT client;
@@ -151,7 +215,8 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     RECT line;
     RECT detailtitle;
     RECT detailtype;
-    RECT detailtext;
+    RECT transform;
+    int axis;
     HFONT font;
     HFONT oldfont;
 
@@ -183,6 +248,37 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     line.bottom = splitter.bottom;
     FillRect(hdc, &line, GetSysColorBrush(COLOR_BTNHIGHLIGHT));
 
+    line.left = 0;
+    line.right = client.right;
+    line.top = RIGHTPANEL_TRANSFORM_TOP - 6;
+    line.bottom = line.top + 1;
+    FillRect(hdc, &line, GetSysColorBrush(COLOR_BTNSHADOW));
+
+    transform.left = RIGHTPANEL_MARGIN;
+    transform.right = client.right - RIGHTPANEL_MARGIN;
+    transform.top = RIGHTPANEL_TRANSFORM_TOP;
+    transform.bottom = transform.top + 20;
+    DrawText(hdc, "Transform", -1, &transform, DT_SINGLELINE | DT_LEFT | DT_NOPREFIX);
+    transform.top += 26;
+    transform.bottom += 26;
+    DrawText(hdc, "Move by (world units)", -1, &transform,
+             DT_SINGLELINE | DT_LEFT | DT_NOPREFIX);
+    for (axis = 0; axis < 3; axis++)
+    {
+        char label[2] = { (char)('X' + axis), '\0' };
+
+        transform.top = RIGHTPANEL_TRANSFORM_TOP + 54 + axis * 28;
+        transform.bottom = transform.top + 23;
+        DrawText(hdc, label, -1, &transform,
+                 DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX);
+    }
+    transform.top = RIGHTPANEL_TRANSFORM_TOP + 174;
+    transform.bottom = transform.top + 32;
+    SetTextColor(hdc, GetSysColor(COLOR_GRAYTEXT));
+    DrawText(hdc, state->transformhint, -1, &transform,
+             DT_LEFT | DT_TOP | DT_WORDBREAK | DT_NOPREFIX);
+    SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
+
     detailtitle.left = RIGHTPANEL_MARGIN;
     detailtitle.right = client.right - RIGHTPANEL_MARGIN;
     detailtitle.top = splitter.bottom + 8;
@@ -196,14 +292,6 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     SetTextColor(hdc, GetSysColor(COLOR_GRAYTEXT));
     DrawText(hdc, state->detailtitle, -1, &detailtype,
              DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX);
-
-    detailtext.left = RIGHTPANEL_MARGIN;
-    detailtext.right = client.right - RIGHTPANEL_MARGIN;
-    detailtext.top = detailtype.bottom + 6;
-    detailtext.bottom = client.bottom - RIGHTPANEL_MARGIN;
-    SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
-    DrawText(hdc, state->detailtext, -1, &detailtext,
-             DT_LEFT | DT_TOP | DT_WORDBREAK | DT_NOPREFIX);
 
     SelectObject(hdc, oldfont);
 }
@@ -219,6 +307,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
     {
         CREATESTRUCT *cs = (CREATESTRUCT *)lparam;
         HFONT font = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        int axis;
 
         state = (RightPanelState *)calloc(1, sizeof(*state));
         if (state == NULL)
@@ -227,6 +316,8 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         }
 
         state->topheight = RIGHTPANEL_INITIAL_TOP_H;
+        lstrcpyn(state->transformhint, "Select background faces to move.",
+                 sizeof(state->transformhint));
         lstrcpyn(state->detailtitle, "Selection",
                  sizeof(state->detailtitle));
         lstrcpyn(state->detailtext, "No scene item selected.",
@@ -254,8 +345,31 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_PORTALS,
             cs->hInstance, NULL);
 
+        for (axis = 0; axis < 3; axis++)
+        {
+            state->offsets[axis] = CreateWindowEx(
+                WS_EX_CLIENTEDGE, "EDIT", "0",
+                WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_DISABLED | ES_AUTOHSCROLL,
+                0, 0, 1, 1, hwnd,
+                (HMENU)(INT_PTR)(RIGHTPANEL_ID_MOVE_X + axis), cs->hInstance, NULL);
+            SendMessage(state->offsets[axis], WM_SETFONT, (WPARAM)font, TRUE);
+            SendMessage(state->offsets[axis], EM_SETLIMITTEXT, 63, 0);
+        }
+        state->move = CreateWindowEx(
+            0, "BUTTON", "Move Selection",
+            WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_DISABLED | BS_PUSHBUTTON,
+            0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_MOVE, cs->hInstance, NULL);
+        state->details = CreateWindowEx(
+            0, "EDIT", state->detailtext,
+            WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
+            0, 0, 1, 1, hwnd, NULL, cs->hInstance, NULL);
+        SendMessage(state->move, WM_SETFONT, (WPARAM)font, TRUE);
+        SendMessage(state->details, WM_SETFONT, (WPARAM)font, TRUE);
+
         if (state->bgprimary == NULL || state->bgsecondary == NULL
-            || state->stan == NULL || state->portals == NULL)
+            || state->stan == NULL || state->portals == NULL
+            || state->offsets[0] == NULL || state->offsets[1] == NULL
+            || state->offsets[2] == NULL || state->move == NULL || state->details == NULL)
         {
             free(state);
             SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
@@ -284,6 +398,9 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         {
             switch (LOWORD(wparam))
             {
+            case RIGHTPANEL_ID_MOVE:
+                RightPanelTranslate(hwnd, state);
+                return 0;
             case RIGHTPANEL_ID_BG_PRIMARY:
             case RIGHTPANEL_ID_BG_SECONDARY:
             case RIGHTPANEL_ID_STAN:
@@ -346,6 +463,28 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         }
         return 0;
 
+    case WM_MOUSEWHEEL:
+        if (state != NULL)
+        {
+            POINT point;
+            RECT bounds;
+
+            point.x = GET_X_LPARAM(lparam);
+            point.y = GET_Y_LPARAM(lparam);
+            GetWindowRect(state->details, &bounds);
+            if (PtInRect(&bounds, point))
+            {
+                int lines;
+
+                state->wheelremainder += GET_WHEEL_DELTA_WPARAM(wparam);
+                lines = -3 * (state->wheelremainder / WHEEL_DELTA);
+                state->wheelremainder %= WHEEL_DELTA;
+                SendMessage(state->details, EM_LINESCROLL, 0, lines);
+            }
+        }
+        return 0;
+
+    case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORBTN:
         SetBkColor((HDC)wparam, GetSysColor(COLOR_WINDOW));
         SetBkMode((HDC)wparam, TRANSPARENT);
@@ -393,12 +532,72 @@ BOOL RightPanelRegisterClass(HINSTANCE hinstance)
 HWND RightPanelCreate(HWND parent, HINSTANCE hinstance)
 {
     return CreateWindowEx(
-        0,
+        WS_EX_CONTROLPARENT,
         RIGHTPANEL_CLASS,
         NULL,
-        WS_CHILD | WS_VISIBLE,
+        WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN,
         0, 0, 16, 16,
         parent, NULL, hinstance, NULL);
+}
+
+
+void RightPanelSetTransformState(HWND panel, BOOL enabled, double gridstep)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    int axis;
+
+    if (state == NULL) { return; }
+    if (state->transformenabled != enabled)
+    {
+        state->transformenabled = enabled;
+        for (axis = 0; axis < 3; axis++)
+        {
+            EnableWindow(state->offsets[axis], enabled);
+        }
+        EnableWindow(state->move, enabled);
+    }
+    if (enabled)
+    {
+        snprintf(state->transformhint, sizeof(state->transformhint),
+                 "Grid step: %.6g world units.", gridstep);
+    }
+    else
+    {
+        lstrcpyn(state->transformhint, "Select background faces to move.",
+                 sizeof(state->transformhint));
+    }
+    InvalidateRect(panel, NULL, FALSE);
+}
+
+
+BOOL RightPanelHandleMessage(HWND panel, MSG *message)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    HWND focus = GetFocus();
+    BOOL isoffset;
+
+    if (state == NULL || !IsChild(panel, focus) || message->message != WM_KEYDOWN)
+    {
+        return FALSE;
+    }
+    isoffset = focus == state->offsets[0] || focus == state->offsets[1]
+            || focus == state->offsets[2];
+    if (message->wParam == VK_TAB)
+    {
+        return IsDialogMessage(panel, message);
+    }
+    if (message->wParam == VK_RETURN && (isoffset || focus == state->move))
+    {
+        RightPanelTranslate(panel, state);
+        return TRUE;
+    }
+    if (isoffset && message->wParam == 'Z' && (GetKeyState(VK_CONTROL) & 0x8000)
+        && SendMessage(focus, EM_CANUNDO, 0, 0))
+    {
+        SendMessage(focus, WM_UNDO, 0, 0);
+        return TRUE;
+    }
+    return FALSE;
 }
 
 
@@ -428,6 +627,7 @@ void RightPanelSetBgSelectionCount(HWND panel, int count)
                  sizeof(state->detailtext));
     }
 
+    SetWindowText(state->details, state->detailtext);
     InvalidateRect(panel, NULL, FALSE);
 }
 
@@ -458,6 +658,7 @@ void RightPanelSetSetupObject(HWND panel, const SetupObject *object,
         (unsigned long)object->flags, (unsigned long)object->flags2);
     state->detailtext[sizeof(state->detailtext) - 1] = '\0';
 
+    SetWindowText(state->details, state->detailtext);
     InvalidateRect(panel, NULL, FALSE);
 }
 
@@ -565,5 +766,6 @@ void RightPanelSetBgTriangle(HWND panel, const BgDocument *document,
         (unsigned int)vertices[2]->b, (unsigned int)vertices[2]->a);
     state->detailtext[sizeof(state->detailtext) - 1] = '\0';
 
+    SetWindowText(state->details, state->detailtext);
     InvalidateRect(panel, NULL, FALSE);
 }

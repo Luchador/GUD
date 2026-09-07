@@ -103,6 +103,16 @@ BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
                            DWORD refcount, DWORD *deletedout,
                            const char **reasonout);
 
+/* Translates the unique vertices referenced by the selected faces. Shared
+ * vertices retain their identity, so adjacent faces using them follow too.
+ * World offsets snap to integral room-local coordinates; all references and
+ * coordinate limits are checked before anything changes. A zero snapped move
+ * succeeds with movedout == 0 and should not create a history entry. */
+BOOL BgDocumentTranslateFaces(BgDocument *document, const BgFaceRef *refs,
+                              DWORD refcount, const double offset[3],
+                              double appliedoffset[3], DWORD *movedout,
+                              const char **reasonout);
+
 /* Rebuilds every room stream while preserving the source file's header,
  * portals, visibility data, and opaque display-list state. */
 BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
