@@ -3642,43 +3642,45 @@ s32 chrobjTestPolygonsTouchingOrOverlap2D(struct rect4f *arg0, s32 arg1, struct 
 */
 s32 chrobjTestPointPolygonCollision(struct coord3d *point, f32 collision_radius, struct rect4f *polygon, s32 edges)
 {
-    f32 temp_f0;
-    f32 temp_f26;
-    f32 px;
-    f32 pz;
-    f32 temp_f30;
+    f32 lineDistance;
+    f32 px = point->x;
+    f32 pz = point->z;
     s32 i;
-    struct coord2d *temp_s0;
+    s32 next;
+    struct coord2d *edgeStart;
+    struct coord2d *edgeEnd;
 
-    px = point->f[0];
-    pz = point->f[2];
-
-    for (i=0; i<edges; i++)
+    for (i = 0; i < edges; i++)
     {
-        temp_s0 = &polygon->points[(i+1) % edges];
-
-        temp_f0 = stanGetSignedPointLineDistance(polygon->points[i].f[0], polygon->points[i].f[1], temp_s0->f[0], temp_s0->f[1], px, pz);
-
-        if (temp_f0 < 0.0f)
+        next = i + 1;
+        if (next == edges)
         {
-            temp_f0 = -temp_f0;
+            next = 0;
         }
 
-        temp_f26 = distBetweenPoints2d(polygon->points[i].f[0], polygon->points[i].f[1], px, pz);
-        temp_f30 = distBetweenPoints2d(temp_s0->f[0], temp_s0->f[1], px, pz);
+        edgeStart = &polygon->points[i];
+        edgeEnd = &polygon->points[next];
+        lineDistance = stanGetSignedPointLineDistance(
+            edgeStart->x, edgeStart->y, edgeEnd->x, edgeEnd->y, px, pz);
 
-        if ((temp_f0 < collision_radius)
-            && ((temp_f26 < collision_radius)
-                || (temp_f30 < collision_radius)
-                || stanPointProjectsOntoEdge(polygon->points[i].f[0], polygon->points[i].f[1], temp_s0->f[0], temp_s0->f[1], px, pz)
-            )
-        )
+        if (lineDistance < 0.0f)
         {
-            return 1;
+            lineDistance = -lineDistance;
+        }
+
+        /* Endpoint distances need square roots. Only calculate them when
+         * the point is close enough to the edge's line, stopping at a hit. */
+        if (lineDistance < collision_radius
+            && (distBetweenPoints2d(edgeStart->x, edgeStart->y, px, pz) < collision_radius
+                || distBetweenPoints2d(edgeEnd->x, edgeEnd->y, px, pz) < collision_radius
+                || stanPointProjectsOntoEdge(edgeStart->x, edgeStart->y,
+                    edgeEnd->x, edgeEnd->y, px, pz)))
+        {
+            return TRUE;
         }
     }
 
-    return 0;
+    return FALSE;
 }
 
 
@@ -4354,11 +4356,6 @@ void objTickAutogun(PropRecord *prop)
 
                 bviewSetPlayerSolid(playerProp, TRUE);
             }
-        }
-
-        if (hasTrackingTarget)
-        {
-            aimTolerance = chrlvGetAimLimitAngle(aimDistanceSq);
         }
 
         if (autogun->isActive)
@@ -7281,6 +7278,12 @@ static s32 objCalcScreenFadeAlpha(PropRecord *prop, f32 diameter)
     f32 viewdepth;
     f32 px;
 
+    /* Skip projection work when this level disables screen-size fading. */
+    if (g_PropFadeStartPx < 0.0f)
+    {
+        return 255;
+    }
+
     if (diameter < OBJFADE_MIN_DIAMETER)
     {
         diameter = OBJFADE_MIN_DIAMETER;
@@ -7299,10 +7302,6 @@ static s32 objCalcScreenFadeAlpha(PropRecord *prop, f32 diameter)
     px = (diameter * g_CurrentPlayer->c_recipscaley) / viewdepth;
 
     /* GUD: per-level override from the environment tables */
-    if (g_PropFadeStartPx < 0.0f)
-    {
-        return 255;
-    }
     if (g_PropFadeStartPx > 0.0f)
     {
         startpx = g_PropFadeStartPx;
@@ -7334,13 +7333,12 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
     s32 sp44;
     ObjectRecord *obj;
     s32 objAlpha;
+    f32 modelSize;
     f32 temp_f0;
     s32 temp_v0_4;
     s32 phi_a0;
 
     obj = prop->obj;
-
-    modrendata = g_DefaultPropRenderData;
 
     objAlpha = 0xFF;
     spAC = envGetPropDistColor(prop, &spB0);
@@ -7352,7 +7350,8 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
 
     if ((u8) obj->type != PROPDEF_TINTED_GLASS)
     {
-        temp_f0 = chrobjFogVisRangeRelated(prop, modelGetInstSize(obj->model));
+        modelSize = modelGetInstSize(obj->model);
+        temp_f0 = chrobjFogVisRangeRelated(prop, modelSize);
 
         if (((s32) prop->timetoregen > 0) && ((s32) prop->timetoregen < CHROBJ_TIMETOREGEN))
         {
@@ -7362,7 +7361,7 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
         objAlpha = (s32) (temp_f0 * 255.0f);
 
         /* GUD screen-size fade (see objCalcScreenFadeAlpha above) */
-        objAlpha = (objAlpha * objCalcScreenFadeAlpha(prop, 2.0f * modelGetInstSize(obj->model))) / 255;
+        objAlpha = (objAlpha * objCalcScreenFadeAlpha(prop, 2.0f * modelSize)) / 255;
 
         if (objAlpha <= 0)
         {
@@ -7385,7 +7384,7 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
         sp44 = (withalpha == 0) ? 1 : 2;
     }
 
-    if ((getPropCombinedRoomsBBox2D(prop, &sp58) > 0) && !(obj->flags2 & PROPFLAG2_FORCEONSCREEN))
+    if (!(obj->flags2 & PROPFLAG2_FORCEONSCREEN) && getPropCombinedRoomsBBox2D(prop, &sp58) > 0)
     {
         gdl = bgScissorCurrentPlayerViewF(gdl, sp58.left, sp58.top, sp58.width, sp58.height);
     }
@@ -7394,6 +7393,7 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
         gdl = bgScissorCurrentPlayerViewDefault(gdl);
     }
 
+    modrendata = g_DefaultPropRenderData;
     modrendata.flags = sp44;
     modrendata.zbufferenabled = (obj->flags2 & PROPFLAG2_DISABLE_ZBUFFER) == 0;
 
@@ -10525,6 +10525,11 @@ extern s32 check_cur_player_ammo_amount_in_inventory(AMMOTYPE type);
 TICKOP objTickPlayer(struct PropRecord* prop)
 {
     struct ObjectRecord* obj;
+    PropRecord *playerProp;
+    f32 deltaX;
+    f32 deltaY;
+    f32 deltaZ;
+    bool inPickupRange;
 
     obj = prop->obj;
 
@@ -10554,6 +10559,34 @@ TICKOP objTickPlayer(struct PropRecord* prop)
         {
             return TICKOP_NONE;
         }
+    }
+
+    /* Most active pickups are out of reach. Reject them before scanning
+     * inventory, ammo slots or safe links. Preserve the watch magnet range. */
+    playerProp = getCurrentPlayerProp();
+    deltaX = obj->position.x - playerProp->pos.x;
+    deltaY = obj->position.y - playerProp->pos.y;
+    deltaZ = obj->position.z - playerProp->pos.z;
+
+    if (g_CurrentPlayer->magnetattracttime >= 0x3C)
+    {
+        inPickupRange = ((deltaX * deltaX) + (deltaZ * deltaZ) <= 122500.0f)
+            && deltaY >= -500.0f && deltaY <= 500.0f;
+    }
+    else
+    {
+        inPickupRange = ((deltaX * deltaX) + (deltaZ * deltaZ) <= 10000.0f)
+            && deltaY >= -200.0f && deltaY <= 200.0f;
+    }
+
+    if (!inPickupRange)
+    {
+        return TICKOP_NONE;
+    }
+
+    if ((bondviewGetPlayerPitchRadians() < -0.7853982f) && (g_CurrentPlayer->magnetattracttime < 0))
+    {
+        return TICKOP_NONE;
     }
 
     if (objCanPickupFromSafe(obj) == 0) 
@@ -10715,55 +10748,21 @@ TICKOP objTickPlayer(struct PropRecord* prop)
         }
     }
 
-    if ((bondviewGetPlayerPitchRadians() < -0.7853982f) && (g_CurrentPlayer->magnetattracttime < 0))
+    /* Keep the obstruction test after all pickup eligibility checks. */
+    if (!(obj->flags2 & PROPFLAG2_PICKUP_THROUGH_WALLS))
     {
-        return TICKOP_NONE;
+        StandTile *stan = playerProp->stan;
+
+        if (stanTestLineUnobstructed(&stan,
+                playerProp->pos.x, playerProp->pos.z, prop->pos.x, prop->pos.z,
+                2, 30.0f, 30.0f, 0.0f, 1.0f) == 0
+            || stan != prop->stan)
+        {
+            return TICKOP_NONE;
+        }
     }
 
-    {
-        f32 temp_f0;
-        f32 temp_f12;
-        f32 temp_f2;
-        s32 var_v0;
-        struct PropRecord* temp_v0_5;
-        s32 pickup;
-
-        temp_v0_5 = getCurrentPlayerProp();
-
-        temp_f0 = obj->position.x - temp_v0_5->pos.x;
-        temp_f12 = obj->position.y - temp_v0_5->pos.y;
-        temp_f2 = obj->position.z - temp_v0_5->pos.z;
-
-        if (g_CurrentPlayer->magnetattracttime >= 0x3C) 
-        {
-            pickup = (((temp_f0 * temp_f0) + (temp_f2 * temp_f2)) <= 122500.0f)
-                && (temp_f12 >= -500.0f)
-                && (temp_f12 <= 500.0f);
-        } 
-        else 
-        {
-            pickup = (((temp_f0 * temp_f0) + (temp_f2 * temp_f2)) <= 10000.0f)
-                && (temp_f12 >= -200.0f)
-                && (temp_f12 <= 200.0f);
-        }
-
-        if ((pickup) && !(obj->flags2 & PROPFLAG2_PICKUP_THROUGH_WALLS)) 
-        {
-            struct StandTile* stan = temp_v0_5->stan;
-
-            if ((stanTestLineUnobstructed(&stan, temp_v0_5->pos.x, temp_v0_5->pos.z, prop->pos.x, prop->pos.z, 2, 30.0f, 30.0f, 0.0f, 1.0f) == 0) || (stan != prop->stan))
-            {
-                pickup = 0;
-            }
-        }
-
-        if (pickup) 
-        {
-            return propPickupByPlayer(prop, TRUE);
-        }
-
-        return TICKOP_NONE;
-    }
+    return propPickupByPlayer(prop, TRUE);
 }
 
 
