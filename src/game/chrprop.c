@@ -739,7 +739,8 @@ static void chrpropCreateBgShotImpact(ShotData *shot, HitThing *hit, s32 room)
  * Background geometry limits prop testing by view-space depth. Prop hits can
  * shorten that limit further through blocking and weapon penetration rules.
  * Only an actual triangle hit still reachable by the shot produces background
- * impact effects; a stan boundary or a shot into the sky is not a surface hit.
+ * impact effects. Shots that doesn't hit anything can't create bullet impacts,
+ * a fix over the original game.
  */
 void chraiDefaultWeaponFireHandler(s32 hand)
 {
@@ -807,9 +808,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
             continue;
         }
 
-        if (prop->type == PROP_TYPE_CHR
-            || (prop->type == PROP_TYPE_VIEWER && prop->chr != NULL
-                && getPlayerPointerIndex(prop) != get_cur_playernum()))
+        if (prop->type == PROP_TYPE_CHR || (prop->type == PROP_TYPE_VIEWER && prop->chr != NULL && getPlayerPointerIndex(prop) != get_cur_playernum()))
         {
             chrTestHit(prop, &shot);
         }
@@ -846,8 +845,7 @@ void chraiDefaultWeaponFireHandler(s32 hand)
 
     // maxdist also accounts for bulletproof glass and the watch laser's range,
     // even when no prop hit counts against the weapon's penetration limit.
-    if (backgroundRoom > 0 && backgroundDepth <= shot.maxdist
-        && penetratedObjects < penetrationLimit)
+    if (backgroundRoom > 0 && backgroundDepth <= shot.maxdist  && penetratedObjects < penetrationLimit)
     {
         chrpropCreateBgShotImpact(&shot, &backgroundHit, backgroundRoom);
     }

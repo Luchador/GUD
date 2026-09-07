@@ -5,6 +5,7 @@
 - Added three more intro cameras to Silo taken from the PAL version.
 
 ### Fixed
+- Fix player bullets sometimes not colliding with the ground or other surfaces.
 - Silo X track now loops. Previously when it was randomly selected in multiplayer matches the music would stop for good when the track finished.
 - Fix Xenia not always giving extra time in Train.
 - Fix one of Frigate's intro cameras clipping through the wall on widescreen.
