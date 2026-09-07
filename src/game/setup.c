@@ -712,8 +712,8 @@ void setupAutogun(s32 stageID, AutogunRecord *autogun, s32 cmdindex)
     autogun->unk9C = 0.0f;
     autogun->unkA0 = 0.0f;
     autogun->unk98 = 0.0f;
-    autogun->unkB0 = 0.0f;
-    autogun->unkB4 = 0.0f;
+    autogun->barrelSpinSpeed = 0.0f;
+    autogun->barrelSpinAngle = 0.0f;
     autogun->speed = ((*((s32 *) (&autogun->speed))) * M_TAU_F) / 65536.0f;
     autogun->aimdist = ((*((s32 *) (&autogun->aimdist))) * 100.0f) / 65536.0f;
     autogun->unk88 = ((*((s32 *) (&autogun->unk88))) * M_TAU_F) / 65536.0f;
@@ -723,7 +723,7 @@ void setupAutogun(s32 stageID, AutogunRecord *autogun, s32 cmdindex)
     autogun->beam = beam;
     *beam = -1;
 
-    autogun->is_active = FALSE;
+    autogun->isActive = FALSE;
     autogun->unkD4 = 0.0f;
 
     if (autogun->padID >= 0)
@@ -1369,10 +1369,12 @@ void setupLoadFiles(enum LEVELID stageId)
 
             /**
              * Complete the skip loading mask started on the line above. Checks for:
-             * - don't load on 2 players
-             * - don't load on 3 players
-             * - don't load on 4 players
+             * - don't load on 2 players - PROPFLAG2_NOLOAD2P
+             * - don't load on 3 players - PROPFLAG2_NOLOAD3P
+             * - don't load on 4 players - PROPFLAG2_NOLOAD4P
              * - don't load in multiplayer
+             * 
+             * This is calculated directly from the player counter rather than the named enums.
              */
             if (getPlayerCount() >= 2)
             {

@@ -356,14 +356,14 @@ typedef enum PROPFLAG2
     PROPFLAG2_00080000            = 0x00080000, // Invincible Except to Explosions
     PROPFLAG2_00100000            = 0x00100000, // Bulletproof Glass
     PROPFLAG2_00200000            = 0x00200000, // Immune to Explosions
-    PROPFLAG2_00400000            = 0x00400000, // Don't load on 2P
-    PROPFLAG2_00800000            = 0x00800000, // Don't load on 3P
-    PROPFLAG2_01000000            = 0x01000000, // Don't load on 4P
+    PROPFLAG2_NOLOAD2P            = 0x00400000, // Don't load on 2P
+    PROPFLAG2_NOLOAD3P            = 0x00800000, // Don't load on 3P
+    PROPFLAG2_NOLOAD4P            = 0x01000000, // Don't load on 4P
     PROPFLAG2_THROWTHROUGH        = 0x02000000, // Rockets/Mines/Grenades Pass Through
-    PROPFLAG2_04000000            = 0x04000000, // unknown
-    PROPFLAG2_08000000            = 0x08000000, // One-Way Lock (Front)
-    PROPFLAG2_10000000            = 0x10000000, // One-Way Lock (Back)
-    PROPFLAG2_20000000            = 0x20000000, // Character AI Cannot Operate
+    PROPFLAG2_FORCEONSCREEN       = 0x04000000, // Bypass the room-based scissor rectangle.
+    PROPFLAG2_LOCKEDFRONT         = 0x08000000, // One-Way Lock (Front)
+    PROPFLAG2_LOCKEDBACK          = 0x10000000, // One-Way Lock (Back)
+    PROPFLAG2_LOCKEDTOAI          = 0x20000000, // Character AI Cannot Operate
     PROPFLAG2_40000000            = 0x40000000, // Deactivate Special Feature
     PROPFLAG2_DOOR_ALTCOORDSYSTEM = 0x80000000  // Massive Explosion (08 Type)/Rotating Disabled Drone Gun (0D Type)
 } PROPFLAG2;

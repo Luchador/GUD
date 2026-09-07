@@ -2795,11 +2795,8 @@ typedef union
         f32 aimdist; // 0xA8
         s32 unkAC;
 
-        // changes when active/firing
-        f32 unkB0;
-
-        // changes when active/firing
-        f32 unkB4;
+        f32 barrelSpinSpeed; // In radians per game tick.
+        f32 barrelSpinAngle; // Accumulated angle in radians.
         s32 unkB8;
         s32 unkBC;
         s32  unkC0;
@@ -2811,7 +2808,7 @@ typedef union
          * Offset 0xd0.
          * Used in objTick, setting to zero won't disable.
         */
-        s32 is_active; // 0xD0
+        s32 isActive; // 0xD0
 
         // changes when active/firing
         f32 unkD4;

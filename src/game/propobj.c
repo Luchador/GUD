@@ -1459,7 +1459,7 @@ bool projectileFindCollidingProp(PropRecord *ignoreProp, coord3d *worldRayStart,
                     if ((obj->runtime_bitflags & RUNTIMEBITFLAG_ISRETICK) == 0 && (obj->flags2 & PROPFLAG2_THROWTHROUGH) == 0) {
                         if (iterprop->type == PROP_TYPE_DOOR)
                         {
-                            if ((cdtypes & CDTYPE_DOORS) == 0 && (propDoorGetCdTypes(iterprop) & cdtypes) == 0)
+                            if ((cdtypes & CDTYPE_DOORS) == 0 && (doorGetCDTypes(iterprop) & cdtypes) == 0)
                             {
                                 continue;
                             }
@@ -4213,8 +4213,8 @@ void objTickCctv(PropRecord *prop)
 void objTickAutogun(PropRecord *prop)
 {
     ObjectRecord *obj = prop->obj;
-    AutogunRecord *poAGun;
-    PropRecord *playerProp2;
+    AutogunRecord *autogun;
+    PropRecord *playerProp;
     StandTile *collisionTile;
     coord3d playerDirVec;
     f32 var_f0_2;
@@ -4232,42 +4232,44 @@ void objTickAutogun(PropRecord *prop)
     f32 sp494;
     f32 temp_f12_5;
     f32 angleDelta_6;
-    s32 AutogunSeesPlayer;
+    bool autogunSeesPlayer;
     s32 isTracking;
     s32 hasLineOfSight;
     s32 var_v0_3;
 
-    poAGun = (struct AutogunRecord *) prop->obj;
-    playerProp2 = getCurrentPlayerProp();
-    AutogunSeesPlayer = 0;
+    autogun = (struct AutogunRecord *) prop->obj;
+    playerProp = getCurrentPlayerProp();
+    autogunSeesPlayer = FALSE;
     isTracking = 0;
     hasLineOfSight = 0;
+
     if (obj->flags2 & PROPFLAG_IS_DOUBLE)
     {
         if (obj->flags2 & PROPFLAG2_40000000)
         {
-            poAGun->unk98 = poAGun->unk9C;
-            poAGun->rot_related = poAGun->unk90;
+            autogun->unk98 = autogun->unk9C;
+            autogun->rot_related = autogun->unk90;
         }
-        else if ((poAGun->unk90 == poAGun->rot_related) && (poAGun->unk9C == poAGun->unk98))
+        else if ((autogun->unk90 == autogun->rot_related) && (autogun->unk9C == autogun->unk98))
         {
-            poAGun->unk98 = (((U32_TO_F32(randomGetNext()) * 39.0f) + 1.0f) * M_TAU_F) / 360.0f; //degtorad
-            poAGun->rot_related = U32_TO_F32(randomGetNext()) * M_TAU_F;
+            autogun->unk98 = (((U32_TO_F32(randomGetNext()) * 39.0f) + 1.0f) * M_TAU_F) / 360.0f; //degtorad
+            autogun->rot_related = U32_TO_F32(randomGetNext()) * M_TAU_F;
         }
 
-        chrobjCallsApplySpeed(&poAGun->unk90, poAGun->rot_related, &poAGun->unk94, AUTOGUN_YAW_ACCEL_PER_FRAME, AUTOGUN_YAW_ACCEL_PER_FRAME, AUTOGUN_YAW_MAX_SPEED);
-        chrobjCallsApplySpeed(&poAGun->unk9C, poAGun->unk98, &poAGun->unkA0, AUTOGUN_PITCH_ACCEL_PER_FRAME, AUTOGUN_PITCH_ACCEL_PER_FRAME, AUTOGUN_PITCH_MAX_SPEED);
+        chrobjCallsApplySpeed(&autogun->unk90, autogun->rot_related, &autogun->unk94, AUTOGUN_YAW_ACCEL_PER_FRAME, AUTOGUN_YAW_ACCEL_PER_FRAME, AUTOGUN_YAW_MAX_SPEED);
+        chrobjCallsApplySpeed(&autogun->unk9C, autogun->unk98, &autogun->unkA0, AUTOGUN_PITCH_ACCEL_PER_FRAME, AUTOGUN_PITCH_ACCEL_PER_FRAME, AUTOGUN_PITCH_MAX_SPEED);
     }
     else
     {
-        var_f0_2 = playerProp2->pos.f[0] - obj->position.f[0];
-        playerDirVec.f[1] = (playerProp2->pos.f[1] - obj->position.f[1]) - 20.0f;//Aim 20 units below player’s head
-        temp_f2_23 = playerProp2->pos.f[2] - obj->position.f[2];
+        var_f0_2 = playerProp->pos.f[0] - obj->position.f[0];
+        playerDirVec.y = playerProp->pos.y - obj->position.y - 20.0f; // Aim 20 units below player’s head.
+        temp_f2_23 = playerProp->pos.f[2] - obj->position.f[2];
         horizontalDistSq = (var_f0_2 * var_f0_2) + (temp_f2_23 * temp_f2_23);
         playerDirVec.f[2] = var_f0_2;
         playerDirVec.f[0] = temp_f2_23;
         horizontalDist = sqrtf(horizontalDistSq);
         distanceToPlayer = horizontalDist;
+
         if (obj->flags & PROPFLAG_DOOR_TWOWAY)
         {
             horizontalDistSq += playerDirVec.f[1] * playerDirVec.f[1];
@@ -4275,20 +4277,21 @@ void objTickAutogun(PropRecord *prop)
         }
 
         sp4A0 = chrlvGetAimLimitAngle(horizontalDistSq);
-        sp4D8 = poAGun->rot_related;
-        targetPitch = poAGun->unk98;
-        if (distanceToPlayer <= poAGun->aimdist)
+        sp4D8 = autogun->rot_related;
+        targetPitch = autogun->unk98;
+        if (distanceToPlayer <= autogun->aimdist)
         {
             if (sp4A0);
             playerYaw = atan2f(playerDirVec.f[2], playerDirVec.f[0]);
             playerPitch = atan2f(playerDirVec.f[1], horizontalDist);
+
             if ((obj->flags & PROPFLAG_NO_AMMO) || (obj->flags & PROPFLAG_INMOTION))
             {
-                AutogunSeesPlayer = 1;
+                autogunSeesPlayer = TRUE;
             }
             else
             {
-                yawError = playerYaw - poAGun->unk90;
+                yawError = playerYaw - autogun->unk90;
                 if (yawError < 0.0f)
                 {
                     yawError += M_TAU_F;
@@ -4299,7 +4302,7 @@ void objTickAutogun(PropRecord *prop)
                     yawError -= M_TAU_F;
                 }
 
-                var_f2_6 = playerPitch - poAGun->unk9C;
+                var_f2_6 = playerPitch - autogun->unk9C;
                 if (var_f2_6 < 0.0f)
                 {
                     if (horizontalDist)
@@ -4310,13 +4313,13 @@ void objTickAutogun(PropRecord *prop)
 
                 if ((yawError < DegToRad(70)) && (yawError > DegToRad(-70)))
                 {
-                    AutogunSeesPlayer = 1;
+                    autogunSeesPlayer = TRUE;
                 }
             }
 
-            if (AutogunSeesPlayer != 0)
+            if (autogunSeesPlayer)
             {
-                sp494 = playerYaw - poAGun->rot_related;
+                sp494 = playerYaw - autogun->rot_related;
                 collisionTile = prop->stan;
                 if (sp494 < (-M_PI_F))
                 {
@@ -4327,37 +4330,39 @@ void objTickAutogun(PropRecord *prop)
                     sp494 -= M_TAU_F;
                 }
 
-                bviewSetPlayerSolid(playerProp2, 0);
-                if ((((sp494 <= poAGun->unk88) && (poAGun->unk8C <= sp494)) && (stanTestLineUnobstructed(&collisionTile, prop->pos.f[0], prop->pos.f[2], playerProp2->pos.f[0], playerProp2->pos.f[2], 0x1B, prop->pos.f[1], prop->pos.f[1], playerProp2->pos.f[1], playerProp2->pos.f[1]) != 0)) && ((collisionTile) == playerProp2->stan))
+                bviewSetPlayerSolid(playerProp, 0);
+        
+                if ((((sp494 <= autogun->unk88) && (autogun->unk8C <= sp494)) && (stanTestLineUnobstructed(&collisionTile, prop->pos.f[0], prop->pos.f[2], playerProp->pos.f[0], playerProp->pos.f[2], 0x1B, prop->pos.f[1], prop->pos.f[1], playerProp->pos.f[1], playerProp->pos.f[1]) != 0)) && ((collisionTile) == playerProp->stan))
                 {
                     obj->flags |= PROPFLAG_INMOTION;
                     hasLineOfSight = 1;
                     sp4D8 = playerYaw;
                     targetPitch = playerPitch;
                 }
-                else if ((poAGun->unkB8 >= 0) && ((g_GlobalTimer - AUTOGUN_TRACKING_FRAMES) < poAGun->unkB8)) //cooldown 2 seconds
+                else if ((autogun->unkB8 >= 0) && ((g_GlobalTimer - AUTOGUN_TRACKING_FRAMES) < autogun->unkB8)) //cooldown 2 seconds
                 {
-                    sp4D8 = poAGun->unk90;
-                    targetPitch = poAGun->unk9C;
+                    sp4D8 = autogun->unk90;
+                    targetPitch = autogun->unk9C;
                 }
                 else
                 {
-                    AutogunSeesPlayer = 0;
+                    autogunSeesPlayer = FALSE;
                 }
 
-                bviewSetPlayerSolid(playerProp2, 1);
+                bviewSetPlayerSolid(playerProp, 1);
             }
         }
 
-        if (AutogunSeesPlayer != 0)
+        if (autogunSeesPlayer)
         {
             sp4A0 = chrlvGetAimLimitAngle(horizontalDistSq);
         }
 
-        if (poAGun->is_active != 0)
+        if (autogun->isActive)
         {
-            //Sway once every 2 seconds while firing
+            // Reverse pivot once every 2 seconds while firing.
             sp4D8 += (sp4A0 * 0.8f) * sinf((((f32) (((s32) g_GlobalTimer) % AUTOGUN_TRACKING_FRAMES)) * M_TAU_F) / (f32) AUTOGUN_TRACKING_FRAMES);
+
             if (sp4D8 < 0.0f)
             {
                 sp4D8 += M_TAU_F;
@@ -4369,7 +4374,8 @@ void objTickAutogun(PropRecord *prop)
             }
         }
 
-        var_f0_2 = sp4D8 - poAGun->rot_related;
+        var_f0_2 = sp4D8 - autogun->rot_related;
+
         if (var_f0_2 < (-M_PI_F))
         {
             var_f0_2 += M_TAU_F;
@@ -4379,13 +4385,13 @@ void objTickAutogun(PropRecord *prop)
             var_f0_2 -= M_TAU_F;
         }
 
-        if (poAGun->unk88 < var_f0_2)
+        if (autogun->unk88 < var_f0_2)
         {
-            sp4D8 = poAGun->rot_related + poAGun->unk88;
+            sp4D8 = autogun->rot_related + autogun->unk88;
         }
-        else if (var_f0_2 < poAGun->unk8C)
+        else if (var_f0_2 < autogun->unk8C)
         {
-            sp4D8 = poAGun->rot_related + poAGun->unk8C;
+            sp4D8 = autogun->rot_related + autogun->unk8C;
         }
 
         if (sp4D8 < 0.0f)
@@ -4398,9 +4404,11 @@ void objTickAutogun(PropRecord *prop)
             sp4D8 -= M_TAU_F;
         }
 
-        chrobjCallsApplySpeed(&poAGun->unk90, sp4D8, &poAGun->unk94, AUTOGUN_ALERT_ACCEL_PER_FRAME  , AUTOGUN_ALERT_ACCEL_PER_FRAME  , poAGun->speed);
-        chrobjCallsApplySpeed(&poAGun->unk9C, targetPitch, &poAGun->unkA0, AUTOGUN_ALERT_ACCEL_PER_FRAME  , AUTOGUN_ALERT_ACCEL_PER_FRAME  , poAGun->speed);
-        temp_f12_5 = sp4D8 - poAGun->unk90;
+        chrobjCallsApplySpeed(&autogun->unk90, sp4D8, &autogun->unk94, AUTOGUN_ALERT_ACCEL_PER_FRAME  , AUTOGUN_ALERT_ACCEL_PER_FRAME  , autogun->speed);
+        chrobjCallsApplySpeed(&autogun->unk9C, targetPitch, &autogun->unkA0, AUTOGUN_ALERT_ACCEL_PER_FRAME  , AUTOGUN_ALERT_ACCEL_PER_FRAME  , autogun->speed);
+
+        temp_f12_5 = sp4D8 - autogun->unk90;
+
         if (temp_f12_5 < 0.0f)
         {
             temp_f12_5 += M_TAU_F;
@@ -4411,7 +4419,7 @@ void objTickAutogun(PropRecord *prop)
             temp_f12_5 -= M_TAU_F;
         }
 
-        var_f2_6 = targetPitch - poAGun->unk9C; yawError = targetPitch;
+        var_f2_6 = targetPitch - autogun->unk9C; yawError = targetPitch;
         if (var_f2_6 < 0.0f)
         {
             var_f2_6 += M_TAU_F;
@@ -4422,17 +4430,19 @@ void objTickAutogun(PropRecord *prop)
             var_f2_6 -= M_TAU_F;
         }
 
-        poAGun->is_active = 0;
-        if (AutogunSeesPlayer != 0)
+        autogun->isActive = 0;
+
+        if (autogunSeesPlayer)
         {
             if ((((temp_f12_5 < sp4A0) && ((-sp4A0) < temp_f12_5)) && (var_f2_6 < sp4A0)) && ((-sp4A0) < var_f2_6))
             {
-                poAGun->is_active = 1;
+                autogun->isActive = 1;
                 isTracking = 1;
-                if (hasLineOfSight != 0)
+
+                if (hasLineOfSight)
                 {
-                    poAGun->unkB8 = (s32) g_GlobalTimer;
-                    poAGun->unkBC = (s32) g_GlobalTimer;
+                    autogun->unkB8 = (s32) g_GlobalTimer;
+                    autogun->unkBC = (s32) g_GlobalTimer;
                 }
             }
             else
@@ -4440,49 +4450,52 @@ void objTickAutogun(PropRecord *prop)
                 angleDelta_6 = 2.0f * sp4A0;
                 if ((((temp_f12_5 < angleDelta_6) && ((-angleDelta_6) < temp_f12_5)) && (var_f2_6 < angleDelta_6)) && ((-angleDelta_6) < var_f2_6))
                 {
-                    poAGun->is_active = 1;
+                    autogun->isActive = 1;
                     isTracking = 1;
-                    if (hasLineOfSight != 0)
+    
+                    if (hasLineOfSight)
                     {
-                        poAGun->unkB8 = (s32) g_GlobalTimer;
+                        autogun->unkB8 = (s32) g_GlobalTimer;
                     }
                 }
-                else if ((poAGun->unkB8 >= 0) && ((g_GlobalTimer - AUTOGUN_TRACKING_FRAMES) < poAGun->unkB8))
+                else if ((autogun->unkB8 >= 0) && ((g_GlobalTimer - AUTOGUN_TRACKING_FRAMES) < autogun->unkB8))
                 {
-                    poAGun->is_active = 1;
+                    autogun->isActive = 1;
                     isTracking = 1;
                 }
             }
         }
 
-        if (isTracking != 0) //firing
+        if (isTracking) // Firing.
         {
-            poAGun->unkB0 += AUTOGUN_SPIN_ACCEL_PER_FRAME * g_GlobalTimerDelta;
-            if (poAGun->unkB0 > AUTOGUN_SPIN_MAX_SPEED)
+            autogun->barrelSpinSpeed += AUTOGUN_SPIN_ACCEL_PER_FRAME * g_GlobalTimerDelta;
+
+            if (autogun->barrelSpinSpeed > AUTOGUN_SPIN_MAX_SPEED)
             {
-                poAGun->unkB0 = AUTOGUN_SPIN_MAX_SPEED;
+                autogun->barrelSpinSpeed = AUTOGUN_SPIN_MAX_SPEED;
             }
         }
-        else if (poAGun->unkB0 > 0.0f)
+        else if (autogun->barrelSpinSpeed > 0.0f)
         {
             for (var_v0_3 = 0; var_v0_3 < g_ClockTimer; var_v0_3++)
             {
-                poAGun->unkB0 *= 0.99f; //barrel loses 45% of its spin per second when idle
+                autogun->barrelSpinSpeed *= 0.99f; // The barrel loses 45% of its spin per second when idle.
             }
 
 
-            if (poAGun->unkB0 <= 0.0001f)
+            if (autogun->barrelSpinSpeed <= 0.0001f)
             {
-                poAGun->unkB0 = 0.0f;
+                autogun->barrelSpinSpeed = 0.0f;
             }
         }
 
-        if (poAGun->unkB0 > 0.0f)
+        if (autogun->barrelSpinSpeed > 0.0f)
         {
-            poAGun->unkB4 += poAGun->unkB0 * g_GlobalTimerDelta;
-            while (poAGun->unkB4 >= M_TAU_F)
+            autogun->barrelSpinAngle += autogun->barrelSpinSpeed * g_GlobalTimerDelta;
+
+            while (autogun->barrelSpinAngle >= M_TAU_F)
             {
-                poAGun->unkB4 -= M_TAU_F;
+                autogun->barrelSpinAngle -= M_TAU_F;
             }
 
         }
@@ -5047,7 +5060,7 @@ void objTickBuildAutogunMatrices(PropRecord *prop, Mtxf *mtxs, Mtxf *tempMatrix2
     {
         sp2FC = modelFindNodeMtx(model, model->obj->Switches[3], 0);
         temp_s0_13 = (struct coord3d *) model->obj->Switches[3]->Data;
-        matrix_4x4_set_rotation_around_x(sp318->unkB4, sp2FC);
+        matrix_4x4_set_rotation_around_x(sp318->barrelSpinAngle, sp2FC);
         matrix_4x4_set_position(temp_s0_13, sp2FC);
         matrix_4x4_multiply_homogeneous_in_place(&mtxs[2], sp2FC);
     }
@@ -5064,7 +5077,7 @@ void objTickBuildAutogunMatrices(PropRecord *prop, Mtxf *mtxs, Mtxf *tempMatrix2
     {
         sp2FC = modelFindNodeMtx(model, model->obj->Switches[6], 0);
         temp_s0_13 = (struct coord3d *) model->obj->Switches[6]->Data;
-        matrix_4x4_set_rotation_around_x(sp318->unkB4, sp2FC);
+        matrix_4x4_set_rotation_around_x(sp318->barrelSpinAngle, sp2FC);
         matrix_4x4_set_position(temp_s0_13, sp2FC);
         matrix_4x4_multiply_homogeneous_in_place(&mtxs[2], sp2FC);
     }
@@ -6008,7 +6021,7 @@ void objTickAutogunFire(PropRecord *prop)
     sp13C = 0;
     sp138 = 0;
 
-    if ((autogun->is_active != 0) && (!(obj->flags & PROPFLAG_IS_DRONE_GUN)))
+    if ((autogun->isActive != 0) && (!(obj->flags & PROPFLAG_IS_DRONE_GUN)))
     {
         autogun->unkAC = autogun->unkAC + 1;
         sp13C = (autogun->unkAC & 1) == 0;
@@ -6318,7 +6331,7 @@ s32 objTick(struct PropRecord *prop, s32 playerCount, bool isSimOwner)
 		applyFogCull = objTickUpdateOpacityAndPortal(prop, playerCount);
 	}
 
-	if (obj->flags2 & PROPFLAG2_04000000)
+	if (obj->flags2 & PROPFLAG2_FORCEONSCREEN)
 	{
 		isOnScreen = TRUE;
 	}
@@ -7369,7 +7382,7 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
         sp44 = (withalpha == 0) ? 1 : 2;
     }
 
-    if ((getPropCombinedRoomsBBox2D(prop, &sp58) > 0) && (((s32)obj->flags2 << 5) >= 0))
+    if ((getPropCombinedRoomsBBox2D(prop, &sp58) > 0) && !(obj->flags2 & PROPFLAG2_FORCEONSCREEN))
     {
         gdl = bgScissorCurrentPlayerViewF(gdl, sp58.left, sp58.top, sp58.width, sp58.height);
     }
@@ -13465,44 +13478,50 @@ void doorsChooseSwingDirection(PropRecord *chrprop, DoorRecord *door)
 }
 
 
-TICKOP propdoorInteract(PropRecord* doorprop)
+/**
+ * Does a series of checks to see if the player is allowed to activate (open) a door.
+ */
+TICKOP doorInteract(PropRecord* doorprop)
 {
-    s32 unused;
-    s32 sp28;
+    bool canActivateDoor;
     PropRecord* playerprop;
     DoorRecord* door;
     textoverride* txt;
 
     door = doorprop->door;
-    sp28 = 0;
+    canActivateDoor = FALSE;
     playerprop = getCurrentPlayerProp();
 
+    // True if the door has no key.
     if (door->keyflags == 0)
     {
-        sp28 = 1;
+        canActivateDoor = TRUE;
     }
+    // True if the player has the required key.
     else if (bondinvCheckHasKeyFlags(door->keyflags) != 0)
     {
-        sp28 = 1;
+        canActivateDoor = TRUE;
     }
+    // True if the player is on the correct side of a one-way lock.
     else if (posIsInFrontOfDoor(playerprop, door) != 0)
     {
-        if ((door->flags2 & PROPFLAG2_10000000) && !(door->flags2 & PROPFLAG2_08000000))
+        if ((door->flags2 & PROPFLAG2_LOCKEDBACK) && !(door->flags2 & PROPFLAG2_LOCKEDFRONT))
         {
-            sp28 = 1;
+            canActivateDoor = TRUE;
         }
     }
-    else if (!(door->flags2 & PROPFLAG2_10000000) && (door->flags2 & PROPFLAG2_08000000))
+    else if (!(door->flags2 & PROPFLAG2_LOCKEDBACK) && (door->flags2 & PROPFLAG2_LOCKEDFRONT))
     {
-        sp28 = 1;
+        canActivateDoor = TRUE;
     }
 
+    // If there is a padlock the previous checks are overridden and the door cannot be activated.
     if (doorIsPadlockFree(door) == 0)
     {
-        sp28 = 0;
+        canActivateDoor = FALSE;
     }
 
-    if (sp28 != 0)
+    if (canActivateDoor)
     {
         doorsChooseSwingDirection(playerprop, door);
         doorActivateWrapper(doorprop);
@@ -13512,6 +13531,7 @@ TICKOP propdoorInteract(PropRecord* doorprop)
         if (!(door->flags2 & PROPFLAG2_00000004))
         {
             txt = bondinvGetTextbyObj((ObjectRecord*)door);
+
             if ((txt != NULL) && (txt->pickuptext != 0))
             {
                 hudmsgBottomShow(langGet((s32) txt->pickuptext));

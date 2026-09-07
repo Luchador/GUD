@@ -287,5 +287,6 @@ void        chrCreateBloodStain(Model *arg0, s32 arg1, ModelNode *arg2, struct c
 void        chrpropAddBulletHit(struct ShotData *shotdata, PropRecord *prop, f32 dist, s32 hitpart, ModelNode *node, struct HitThing *hitthing, s32 room, s32 unk44, Model *model, bool countsAsPenetration, s32 blocksFurtherHits);
 void        chrTestHit(PropRecord *prop, ShotData *shotdata);
 void        sub_GAME_7F03E134(PropRecord* p);
+CDTYPE      doorGetCDTypes(PropRecord* prop);
 
 #endif

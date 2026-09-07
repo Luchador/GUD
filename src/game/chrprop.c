@@ -1529,7 +1529,7 @@ bool chrpropInteract(void)
                 tickop = propobjInteract(prop);
                 break;
             case PROP_TYPE_DOOR:
-                tickop = propdoorInteract(prop);
+                tickop = doorInteract(prop);
                 break;
             case PROP_TYPE_CHR:
             case PROP_TYPE_PLAYER:
@@ -2370,27 +2370,25 @@ void chrpropUpdateAutoaimTarget(void)
 }
 
 
-s32 propDoorGetCdTypes(PropRecord* prop)
+CDTYPE doorGetCDTypes(PropRecord* prop)
 {
-    s32 var_v1;
+    CDTYPE cdtype;
 
     if (prop->door->openPosition <= 0.0f)
     {
-        var_v1 = CDTYPE_CLOSEDDOORS;
+        cdtype = CDTYPE_CLOSEDDOORS;
     }
     else
     {
-        var_v1 = (prop->door->maxFrac <= prop->door->openPosition)
-            ? CDTYPE_OPENDOORS
-            : CDTYPE_AJARDOORS;
+        cdtype = (prop->door->maxFrac <= prop->door->openPosition) ? CDTYPE_OPENDOORS : CDTYPE_AJARDOORS;
     }
 
-    if (((s32)prop->door->flags2 * 4) < 0)
+    if (prop->door->flags2 & PROPFLAG2_LOCKEDTOAI)
     {
-        var_v1 |= CDTYPE_DOORSLOCKEDTOAI;
+        cdtype |= CDTYPE_DOORSLOCKEDTOAI;
     }
 
-    return var_v1;
+    return cdtype;
 }
 
 
@@ -2414,7 +2412,7 @@ s32 propIsOfCdType(PropRecord* prop, s32 cdtypes)
 
         if (!(cdtypes & CDTYPE_DOORS))
         {
-            if (!(propDoorGetCdTypes(prop) & cdtypes))
+            if (!(doorGetCDTypes(prop) & cdtypes))
             {
                 ret = 0;
             }
