@@ -183,7 +183,7 @@ void save_ptr_monitor_ani_code_to_obj_ani_slot(MonitorRecord *mon, void *image);
 AmmoCrateRecord *ammocrateAllocate(void);
 ModelNode* sub_GAME_7F04B478(ObjectRecord* obj);
 bool sub_GAME_7F04B590(ModelFileHeader* arg0, ModelNode* arg1);
-void detonate_proxmine_In_range(coord3d *pos);
+void objDetonateProxMineInRange(coord3d *pos);
 void doorDeactivatePortal(DoorRecord *door);
 void doorSetOpenState(DoorRecord *door, s32 state);
 s32  sndCalculateVolumeAtPosition(coord3d *pos, f32 low, f32 high);
@@ -4688,7 +4688,7 @@ void objTickVehicle(PropRecord *prop)
             {
                 sub_GAME_7F044B38(poTruck);
                 objSetShading(prop, &poTruck->nextcol);
-                detonate_proxmine_In_range(&poTruck->position);
+                objDetonateProxMineInRange(&poTruck->position);
                 if ((waypointPosition != NULL) && (chrlvIsArrivingLaterallyAtPos(&sp450, &ProjPos, waypointPosition, 100.0f) != 0))
                 {
                     poTruck->nextstep++;
@@ -5985,7 +5985,7 @@ TICKOP objTickProjectile(PropRecord *prop)
         objUpdateCollisionVolume(obj);
         setupUpdateObjectRoomPosition(obj);
         objSetShading(obj->prop, &obj->nextcol);
-        detonate_proxmine_In_range((struct coord3d *) objectMatrix);
+        objDetonateProxMineInRange((struct coord3d *) objectMatrix);
     }
 
     return tickop;
@@ -11328,8 +11328,10 @@ void remove_obj_from_temp_proxmine_table(WeaponObjRecord* proxy)
             g_ProxyMineTable[i] = NULL;
             return;
         }
+
         i++;
-        if (i == 30)
+
+        if (i == MAX_PROXY_MINES)
         {
             return;
         }
@@ -11337,10 +11339,11 @@ void remove_obj_from_temp_proxmine_table(WeaponObjRecord* proxy)
 }
 
 
-void detonate_proxmine_In_range(coord3d* pos)
+void objDetonateProxMineInRange(coord3d* pos)
 {
     s32 i;
-    for (i = 0; i < 30; i++)
+
+    for (i = 0; i < MAX_PROXY_MINES; i++)
     {
         WeaponObjRecord* obj = g_ProxyMineTable[i];
 
@@ -11350,6 +11353,7 @@ void detonate_proxmine_In_range(coord3d* pos)
             f32 diff_z;
             f32 diff_y;
             f32 dist_sqr;
+
             diff_x = pos->x - obj->position.x;
             diff_y = pos->y - obj->position.y;
             diff_z = pos->z - obj->position.z;
@@ -11364,28 +11368,46 @@ void detonate_proxmine_In_range(coord3d* pos)
 }
 
 
-void check_guard_detonate_proxmine(void)
+void objCheckProxMinesForChrs(void)
 {
     ChrRecord* guard;
     s32 numslots;
     s32 i;
 
-    numslots = get_numguards();
+    /* Guard positions are only needed where there is at least one mine in the level and that mine is ready to be triggered. */
+    for(i = 0; i < MAX_PROXY_MINES; i++)
+    {
+        WeaponObjRecord *proxy = g_ProxyMineTable[i];
+
+        if(proxy != NULL && proxy->timer == 1)
+        {
+            break;
+        }
+    }
+
+    if(i == MAX_PROXY_MINES)
+    {
+        return;
+    }
+
+    numslots = chrGetNumChrs();
 
     for (i = 0; i < numslots; i++)
     {
         guard = &g_ChrSlots[i];
+
         if ((guard->model != NULL) && (guard->hidden & CHRHIDDEN_BACKGROUND_AI))
         {
             coord3d pos;
+
             chrlvGetPatrolPercentOrPosition(guard, &pos);
-            detonate_proxmine_In_range(&pos);
+            objDetonateProxMineInRange(&pos);
         }
     }
 }
 
 
-void propweaponSetDual(WeaponObjRecord *leftweapon, WeaponObjRecord *rightweapon) //#MATCH
+void propweaponSetDual(WeaponObjRecord *leftweapon, WeaponObjRecord *rightweapon)
 {
     leftweapon->LinkedWeaponType  = rightweapon->weaponnum;
     leftweapon->dualweapon        = rightweapon;
@@ -13782,7 +13804,7 @@ Gfx *countdownTimerRender(Gfx *DL)
 
 void handle_alarm_gas_timer_calldamage(void)
 {
-    if (alarmIsActive() != 0)
+    if (alarmIsActive())
     {
         if ((ptr_alarm_sfx == 0) && (lvGetControlsLockedFlag() == 0))
         {
@@ -13799,7 +13821,8 @@ void handle_alarm_gas_timer_calldamage(void)
 
     handle_gas_damage();
     if_enabled_reset_clock();
-    check_guard_detonate_proxmine();
+    objCheckProxMinesForChrs();
+
     g_RemoteMineOwnerTriggerFlag = 0;
 
     return;

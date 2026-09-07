@@ -4982,7 +4982,7 @@ void chrlvIterateGuardSeeShotDie(ChrRecord *self, s32 flag)
     s32 i = 0;
     s32 alert_count = 0;
 
-    numguards = get_numguards();
+    numguards = chrGetNumChrs();
 
     /*
      * Maybe there's removed code in these if,elseif blocks?
@@ -8877,7 +8877,7 @@ void chrlvAllChrTick(void)
     s32 max;
     ChrRecord *guard;
 
-    max = get_numguards();
+    max = chrGetNumChrs();
 
     for (i=0; i<g_ActiveChrsCount; i++)
     {
@@ -9866,7 +9866,7 @@ bool sub_GAME_7F033B38(ChrRecord *self, f32 distance)
     s32 myroom;
     s32 i;
 
-    numguards = get_numguards();
+    numguards = chrGetNumChrs();
     myprop    = self->prop;
     myroom    = myprop->stan->room;
 

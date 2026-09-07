@@ -1587,7 +1587,7 @@ void cheatButtonSetDkMode(CHEAT_ID cheat_id)
     Model *model;
     ChrRecord* guard = g_ChrSlots;
 
-    numslots = get_numguards();
+    numslots = chrGetNumChrs();
 
     if (cheat_id)
     {

@@ -1153,7 +1153,7 @@ point2d D_800309E0 = {0, 0};
 point2d D_800309E8 = {0, 0};
 
 
-s32 get_numguards(void)
+s32 chrGetNumChrs(void)
 {
   return g_NumChrSlots;
 }

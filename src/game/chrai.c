@@ -4024,7 +4024,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 case AI_HideAllChrs:
                 {
                     s32 num;
-                    for (num = get_numguards() - 1; num >= 0; num--)
+                    for (num = chrGetNumChrs() - 1; num >= 0; num--)
                     {
                         if (g_ChrSlots[num].model != NULL)
                         {
@@ -4037,7 +4037,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 case AI_ShowAllChrs:
                 {
                     s32 num;
-                    for (num = get_numguards() - 1; num >= 0; num--)
+                    for (num = chrGetNumChrs() - 1; num >= 0; num--)
                     {
                         g_ChrSlots[num].chrflags &= ~CHRFLAG_HIDDEN;
                     }

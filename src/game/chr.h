@@ -270,7 +270,7 @@ PropRecord *chrGetEquippedWeaponPropWithCheck(ChrRecord *ChrRecord, GUNHAND arg1
 void        chrUpdateCollisionBounds(PropRecord *arg0, struct rect4f **arg1, s32 *arg2, f32 *y_out, f32 *ground);
 void        chrGetChrWidthHeight(PropRecord *prop, f32 *width, f32 *height);
 void        chrDropItems(struct ChrRecord *arg0);
-s32         get_numguards(void);
+s32         chrGetNumChrs(void);
 Vertex     *chrAllocateVertices(s32 numVertices);
 Gfx        *chrRenderChr(PropRecord *arg0, Gfx *arg1, s32 arg2);
 
