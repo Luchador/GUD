@@ -12,6 +12,7 @@
 typedef struct SetupObjectGeometry {
     BgVertex *tris;
     unsigned short *tritags;
+    DWORD *objectindices;       /* setup object index for every triangle */
     DWORD tricount;
     unsigned char *occupiedpads;
     unsigned char *occupiedboundpads;

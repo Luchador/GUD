@@ -34,6 +34,7 @@ typedef struct ModelCacheEntry {
 typedef struct ObjectBuilder {
     BgVertex *tris;
     unsigned short *tritags;
+    DWORD *objectindices;
     DWORD tricount;
     DWORD capacity;
     BOOL failed;
@@ -133,6 +134,7 @@ static BOOL ObjectBuilderReserve(ObjectBuilder *builder, DWORD add)
     DWORD capacity;
     BgVertex *tris;
     unsigned short *tags;
+    DWORD *objectindices;
 
     if (builder->failed || add > 0xffffffffu - builder->tricount)
     {
@@ -174,6 +176,15 @@ static BOOL ObjectBuilderReserve(ObjectBuilder *builder, DWORD add)
         return FALSE;
     }
     builder->tritags = tags;
+
+    objectindices = (DWORD *)realloc(builder->objectindices,
+        (size_t)capacity * sizeof(*builder->objectindices));
+    if (objectindices == NULL)
+    {
+        builder->failed = TRUE;
+        return FALSE;
+    }
+    builder->objectindices = objectindices;
     builder->capacity = capacity;
     return TRUE;
 }
@@ -182,7 +193,8 @@ static void ObjectPlaceModel(ObjectBuilder *builder,
                              const ModelCacheEntry *model,
                              const ObjectBasis *basis,
                              const float scale[3], BOOL door,
-                             const float modelcenter[3])
+                             const float modelcenter[3],
+                             DWORD objectindex)
 {
     DWORD outfirst;
     DWORD tri;
@@ -200,6 +212,7 @@ static void ObjectPlaceModel(ObjectBuilder *builder,
 
         builder->tritags[outfirst + tri] =
             (unsigned short)(model->tritags[tri] | BG_TRI_OBJECT);
+        builder->objectindices[outfirst + tri] = objectindex;
 
         for (corner = 0; corner < 3; corner++)
         {
@@ -426,7 +439,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
             }
         }
 
-        ObjectPlaceModel(&builder, model, &basis, scale, isdoor, center);
+        ObjectPlaceModel(&builder, model, &basis, scale, isdoor, center, i);
         if (builder.failed)
         {
             *reasonout = "out of memory building setup object geometry.";
@@ -452,6 +465,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
 
     out->tris = builder.tris;
     out->tritags = builder.tritags;
+    out->objectindices = builder.objectindices;
     out->tricount = builder.tricount;
     return TRUE;
 
@@ -463,6 +477,7 @@ fail:
     }
     free(builder.tris);
     free(builder.tritags);
+    free(builder.objectindices);
     ObjectGeometryFree(out);
     return FALSE;
 }
@@ -472,6 +487,7 @@ void ObjectGeometryFree(SetupObjectGeometry *geometry)
     free(geometry->occupiedboundpads);
     free(geometry->occupiedpads);
     free(geometry->tritags);
+    free(geometry->objectindices);
     free(geometry->tris);
     ZeroMemory(geometry, sizeof(*geometry));
 }

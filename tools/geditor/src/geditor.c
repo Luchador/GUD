@@ -136,17 +136,21 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
 static BOOL GEditorRebuildCurrentViewport(const char **reasonout)
 {
     BgDocumentRenderMesh mesh;
+    DWORD objectfirsttriangle;
 
     if (!BgDocumentBuildRenderMesh(&g_CurrentBgDocument, &mesh, reasonout))
     {
         return FALSE;
     }
+    objectfirsttriangle = mesh.facecount;
     if (!GEditorAppendObjectGeometry(&mesh, &g_CurrentObjects, reasonout))
     {
         BgDocumentRenderMeshFree(&mesh);
         return FALSE;
     }
     if (!ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags, mesh.facerefs,
+                          g_CurrentObjects.objectindices,
+                          (int)objectfirsttriangle,
                           (int)mesh.facecount, g_Project.dir, FALSE))
     {
         BgDocumentRenderMeshFree(&mesh);
@@ -279,7 +283,7 @@ static void GEditorCloseProject(HWND hwnd)
     BrowserSetLevels(g_Browser, NULL, 0);
     BrowserSetImages(g_Browser, NULL, 0, NULL);
     BrowserSetModels(g_Browser, NULL, 0);
-    ViewportSetScene(g_Viewport, NULL, NULL, NULL, 0, NULL, FALSE);
+    ViewportSetScene(g_Viewport, NULL, NULL, NULL, NULL, 0, 0, NULL, FALSE);
     RightPanelSetBgSelectionCount(g_RightPanel, 0);
     GEditorRefreshHistoryMenu(hwnd);
     GEditorSetTitleForProject(hwnd);
@@ -1340,9 +1344,16 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     case VIEWPORT_WM_SELECTION_CHANGED:
     {
         BgFaceRef selected;
+        DWORD selectedobject;
         int count = ViewportGetSelectedBgFaceCount(g_Viewport);
 
-        if (count == 1
+        if (ViewportGetSelectedObject(g_Viewport, &selectedobject)
+            && selectedobject < g_CurrentSetup.objectcount)
+        {
+            RightPanelSetSetupObject(g_RightPanel,
+                &g_CurrentSetup.objects[selectedobject], selectedobject);
+        }
+        else if (count == 1
             && ViewportGetSingleSelectedBgFace(g_Viewport, &selected))
         {
             RightPanelSetBgTriangle(g_RightPanel, &g_CurrentBgDocument,
@@ -1379,6 +1390,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         BOOL objectsLoaded = FALSE;
         BOOL stanLoaded;
         BOOL portalsLoaded;
+        DWORD objectfirsttriangle;
         char title[256];
 
         if (index >= g_Project.levelcount)
@@ -1411,6 +1423,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             MessageBox(hwnd, bgwhy, GEDITOR_TITLE, MB_ICONERROR);
             return 0;
         }
+        objectfirsttriangle = mesh.facecount;
 
         portalsLoaded = BgLoadPortals(bg.data, bg.size, level->levelscale,
                                       &portals, &portalwhy);
@@ -1438,7 +1451,10 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                                          &stanwhy);
 
         if (!ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags,
-                              mesh.facerefs, (int)mesh.facecount,
+                              mesh.facerefs,
+                              objectsLoaded ? objects.objectindices : NULL,
+                              (int)objectfirsttriangle,
+                              (int)mesh.facecount,
                               g_Project.dir, TRUE))
         {
             BgDocumentRenderMeshFree(&mesh);

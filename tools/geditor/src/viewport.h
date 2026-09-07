@@ -8,8 +8,8 @@
 #include "stanload.h"
 #include "texload.h"
 
-/* Sent to the frame after mouse picking changes the background-triangle
-   selection. The frame can query the stable document face references below. */
+/* Sent to the frame after mouse picking changes the scene selection. The
+   frame can query the selected background face or setup object below. */
 #define VIEWPORT_WM_SELECTION_CHANGED (WM_APP + 3)
 /* Sent only while the viewport owns keyboard focus, so Delete in future
    property editors cannot accidentally remove scene geometry. */
@@ -33,18 +33,23 @@ void ViewportFlyFrame(HWND viewport);
  * Replaces the viewport's scene with a triangle soup. All supplied arrays
  * are copied and remain caller-owned. NULL/0 restores the built-in test
  * scene. Set framecamera when opening a level; clear it when rebuilding an
- * edited level so undo and redo do not move the user's viewpoint.
+ * edited level so undo and redo do not move the user's viewpoint. Object
+ * indices parallel the triangle suffix beginning at objectfirsttriangle.
  */
 BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const unsigned short *tritags,
-                      const BgFaceRef *facerefs, int tricount,
+                      const BgFaceRef *facerefs,
+                      const DWORD *objectindices, int objectfirsttriangle,
+                      int tricount,
                       const char *projectdir, BOOL framecamera);
 
-/* Selection is stored in texture-sorted viewport order. These accessors
-   expose document identities instead, so callers never depend on draw order. */
+/* Background selection is stored in texture-sorted viewport order. These
+   accessors expose stable source identities so callers never depend on draw
+   order. A setup object and background faces are mutually exclusive. */
 int ViewportGetSelectedBgFaceCount(HWND hwnd);
 BOOL ViewportGetSelectedBgFaces(HWND hwnd, BgFaceRef *out, int count);
 BOOL ViewportGetSingleSelectedBgFace(HWND hwnd, BgFaceRef *out);
+BOOL ViewportGetSelectedObject(HWND hwnd, DWORD *setupobjectindex);
 
 /* Replaces the pad overlay. PadRecords are small green wireframe
    cubes; BoundPadRecords are red wireframes of their authored volume.

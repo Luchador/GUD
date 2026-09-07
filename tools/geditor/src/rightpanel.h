@@ -4,6 +4,7 @@
 #include <windows.h>
 
 #include "bgdocument.h"
+#include "setupload.h"
 
 /* Sent to the frame whenever a visibility checkbox changes. wparam is
    a bitwise combination of the RIGHTPANEL_SHOW_* flags below. */
@@ -22,5 +23,7 @@ HWND RightPanelCreate(HWND parent, HINSTANCE hinstance);
 void RightPanelSetBgTriangle(HWND panel, const BgDocument *document,
                              const BgFaceRef *ref);
 void RightPanelSetBgSelectionCount(HWND panel, int count);
+void RightPanelSetSetupObject(HWND panel, const SetupObject *object,
+                              DWORD objectindex);
 
 #endif /* GEDITOR_RIGHTPANEL_H */

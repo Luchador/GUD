@@ -229,7 +229,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         state->topheight = RIGHTPANEL_INITIAL_TOP_H;
         lstrcpyn(state->detailtitle, "Selection",
                  sizeof(state->detailtitle));
-        lstrcpyn(state->detailtext, "No background triangle selected.",
+        lstrcpyn(state->detailtext, "No scene item selected.",
                  sizeof(state->detailtext));
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
 
@@ -424,9 +424,39 @@ void RightPanelSetBgSelectionCount(HWND panel, int count)
     {
         lstrcpyn(state->detailtitle, "Selection",
                  sizeof(state->detailtitle));
-        lstrcpyn(state->detailtext, "No background triangle selected.",
+        lstrcpyn(state->detailtext, "No scene item selected.",
                  sizeof(state->detailtext));
     }
+
+    InvalidateRect(panel, NULL, FALSE);
+}
+
+
+void RightPanelSetSetupObject(HWND panel, const SetupObject *object,
+                              DWORD objectindex)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+
+    if (state == NULL || object == NULL)
+    {
+        return;
+    }
+
+    lstrcpyn(state->detailtitle, "Setup Object",
+             sizeof(state->detailtitle));
+    snprintf(state->detailtext, sizeof(state->detailtext),
+        "Object index: %lu\r\n"
+        "Type: %u\r\n"
+        "Model ID: %d\r\n"
+        "Pad: %d\r\n"
+        "Extra scale: %.3f\r\n"
+        "Flags: 0x%08lX\r\n"
+        "Flags 2: 0x%08lX",
+        (unsigned long)objectindex, (unsigned int)object->type,
+        (int)object->modelid, (int)object->pad,
+        (float)object->extrascale / 256.0f,
+        (unsigned long)object->flags, (unsigned long)object->flags2);
+    state->detailtext[sizeof(state->detailtext) - 1] = '\0';
 
     InvalidateRect(panel, NULL, FALSE);
 }

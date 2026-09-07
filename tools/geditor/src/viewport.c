@@ -45,6 +45,7 @@
 #define VIEWPORT_PICK_BARY_EPSILON 1.0e-8
 #define VIEWPORT_PICK_COPLANAR_EPSILON 1.0e-3
 #define VIEWPORT_PICK_COPLANAR_RELATIVE_EPSILON 1.0e-6
+#define VIEWPORT_OBJECT_NONE 0xffffffffu
 
 /* A contiguous run of scene vertices sharing one texture. */
 typedef struct SceneBatch {
@@ -88,7 +89,11 @@ typedef struct ViewportState {
     int batchcount;
     unsigned char *selectedtris; /* one byte per texture-sorted triangle */
     BgFaceRef *scenefacerefs;    /* stable document identity in the same order */
+    DWORD *sceneobjectindices;   /* setup object identity in the same order */
     int selectedtricount;
+    DWORD selectedobject;
+    Vertex objectselectionbox[VIEWPORT_BOX_VERTICES];
+    GLsizei objectselectionboxcount;
     GLuint *textures;    /* GL texture names owned by the scene */
     int texturecount;
     Vertex *stanfill;    /* translucent GL_TRIANGLES tile overlay */
@@ -438,6 +443,30 @@ static void ViewportPaintGL(ViewportState *state)
         glLineWidth(2.0f);
         glDrawArrays(GL_LINES, 0, state->padmarkercount);
         glLineWidth(1.0f);
+    }
+
+    if (state->objectselectionboxcount > 0)
+    {
+        /* A selected object keeps its normal shading. The white bounds are
+           a separate depth-tested overlay, so selection never mutates model
+           colors or leaks into exported geometry. */
+        glDisable(GL_TEXTURE_2D);
+        glDisable(GL_ALPHA_TEST);
+        glDisable(GL_BLEND);
+        glDisable(GL_CULL_FACE);
+        glDepthMask(GL_FALSE);
+        glDepthFunc(GL_LEQUAL);
+
+        glVertexPointer(3, GL_FLOAT, sizeof(Vertex),
+                        &state->objectselectionbox[0].x);
+        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex),
+                       &state->objectselectionbox[0].r);
+        glLineWidth(2.0f);
+        glDrawArrays(GL_LINES, 0, state->objectselectionboxcount);
+        glLineWidth(1.0f);
+
+        glDepthMask(GL_TRUE);
+        glDepthFunc(GL_LESS);
     }
 
     SwapBuffers(state->hdc);
@@ -825,12 +854,11 @@ static double ViewportCoplanarPickTolerance(double distance)
 }
 
 
-static int ViewportFindPickedTriangle(HWND hwnd, const ViewportState *state,
-                                      int mousex, int mousey,
+static int ViewportFindPickedTriangle(const ViewportState *state,
+                                      const ViewportPickRay *ray,
                                       BOOL addtoselection, BOOL deselect,
-                                      BOOL *hitanything)
+                                      double *distanceout)
 {
-    ViewportPickRay ray;
     double nearestdistance = DBL_MAX;
     double coplanartolerance;
     int firsttriangle = -1;
@@ -842,9 +870,9 @@ static int ViewportFindPickedTriangle(HWND hwnd, const ViewportState *state,
     int batchindex;
     int secondary;
 
-    *hitanything = FALSE;
+    *distanceout = DBL_MAX;
 
-    if (state->scene == NULL || state->selectedtris == NULL || !ViewportBuildPickRay(hwnd, state, mousex, mousey, &ray))
+    if (state->scene == NULL || state->selectedtris == NULL)
     {
         return -1;
     }
@@ -868,7 +896,7 @@ static int ViewportFindPickedTriangle(HWND hwnd, const ViewportState *state,
         {
             double distance;
 
-            if (ViewportRayTriangleDistance(&ray, &state->scene[vertex],
+            if (ViewportRayTriangleDistance(ray, &state->scene[vertex],
                                             cullbackfaces, &distance)
                 && distance < nearestdistance)
             {
@@ -882,7 +910,7 @@ static int ViewportFindPickedTriangle(HWND hwnd, const ViewportState *state,
         return -1;
     }
 
-    *hitanything = TRUE;
+    *distanceout = nearestdistance;
     coplanartolerance = ViewportCoplanarPickTolerance(nearestdistance);
 
     /* Primary geometry writes the depth buffer before the secondary pass.
@@ -915,7 +943,7 @@ static int ViewportFindPickedTriangle(HWND hwnd, const ViewportState *state,
                 double distance;
                 int triangle = vertex / 3;
 
-                if (!ViewportRayTriangleDistance(&ray, &state->scene[vertex],
+                if (!ViewportRayTriangleDistance(ray, &state->scene[vertex],
                                                  cullbackfaces, &distance)
                     || fabs(distance - nearestdistance) > coplanartolerance)
                 {
@@ -970,6 +998,56 @@ static int ViewportFindPickedTriangle(HWND hwnd, const ViewportState *state,
 }
 
 
+static DWORD ViewportFindPickedObject(const ViewportState *state,
+                                      const ViewportPickRay *ray,
+                                      double *distanceout)
+{
+    double nearestdistance = DBL_MAX;
+    DWORD nearestobject = VIEWPORT_OBJECT_NONE;
+    int batchindex;
+
+    *distanceout = DBL_MAX;
+    if (state->scene == NULL || state->sceneobjectindices == NULL)
+    {
+        return VIEWPORT_OBJECT_NONE;
+    }
+
+    for (batchindex = 0; batchindex < state->batchcount; batchindex++)
+    {
+        const SceneBatch *batch = &state->batches[batchindex];
+        BOOL cullbackfaces;
+        int vertex;
+        int end;
+
+        if (!batch->object)
+        {
+            continue;
+        }
+
+        cullbackfaces = state->cullbackfaces && batch->cullbackfaces;
+        end = batch->first + batch->count;
+
+        for (vertex = batch->first; vertex + 2 < end; vertex += 3)
+        {
+            double distance;
+            int triangle = vertex / 3;
+
+            if (state->sceneobjectindices[triangle] != VIEWPORT_OBJECT_NONE
+                && ViewportRayTriangleDistance(ray, &state->scene[vertex],
+                                               cullbackfaces, &distance)
+                && distance < nearestdistance)
+            {
+                nearestdistance = distance;
+                nearestobject = state->sceneobjectindices[triangle];
+            }
+        }
+    }
+
+    *distanceout = nearestdistance;
+    return nearestobject;
+}
+
+
 static void ViewportSetTriangleColor(ViewportState *state, int triangle,
                                      BOOL selected)
 {
@@ -994,7 +1072,119 @@ static void ViewportSetTriangleColor(ViewportState *state, int triangle,
 }
 
 
-static void ViewportClearSelection(ViewportState *state)
+static void ViewportBuildObjectSelectionBox(ViewportState *state)
+{
+    static const unsigned char edges[VIEWPORT_BOX_VERTICES] = {
+        0, 1, 1, 2, 2, 3, 3, 0,
+        4, 5, 5, 6, 6, 7, 7, 4,
+        0, 4, 1, 5, 2, 6, 3, 7
+    };
+    float corners[8][3];
+    float min[3] = { 0.0f, 0.0f, 0.0f };
+    float max[3] = { 0.0f, 0.0f, 0.0f };
+    float padding;
+    BOOL found = FALSE;
+    int trianglecount = state->scenecount / 3;
+    int triangle;
+    int axis;
+    int vertex;
+
+    state->objectselectionboxcount = 0;
+    if (state->selectedobject == VIEWPORT_OBJECT_NONE
+        || state->scene == NULL || state->sceneobjectindices == NULL)
+    {
+        return;
+    }
+
+    for (triangle = 0; triangle < trianglecount; triangle++)
+    {
+        if (state->sceneobjectindices[triangle] != state->selectedobject)
+        {
+            continue;
+        }
+
+        for (vertex = triangle * 3; vertex < triangle * 3 + 3; vertex++)
+        {
+            const Vertex *source = &state->scene[vertex];
+
+            for (axis = 0; axis < 3; axis++)
+            {
+                float value = (&source->x)[axis];
+
+                if (!found)
+                {
+                    min[axis] = max[axis] = value;
+                }
+                else
+                {
+                    if (value < min[axis]) min[axis] = value;
+                    if (value > max[axis]) max[axis] = value;
+                }
+            }
+            found = TRUE;
+        }
+    }
+
+    if (!found)
+    {
+        state->selectedobject = VIEWPORT_OBJECT_NONE;
+        return;
+    }
+
+    padding = max[0] - min[0];
+    if (max[1] - min[1] > padding) padding = max[1] - min[1];
+    if (max[2] - min[2] > padding) padding = max[2] - min[2];
+    padding *= 0.01f;
+    if (padding < 0.5f) padding = 0.5f;
+
+    for (axis = 0; axis < 3; axis++)
+    {
+        min[axis] -= padding;
+        max[axis] += padding;
+    }
+
+    for (vertex = 0; vertex < 8; vertex++)
+    {
+        corners[vertex][0] = (vertex == 1 || vertex == 2
+                           || vertex == 5 || vertex == 6)
+            ? max[0] : min[0];
+        corners[vertex][1] = (vertex == 2 || vertex == 3
+                           || vertex == 6 || vertex == 7)
+            ? max[1] : min[1];
+        corners[vertex][2] = vertex >= 4 ? max[2] : min[2];
+    }
+
+    for (vertex = 0; vertex < VIEWPORT_BOX_VERTICES; vertex++)
+    {
+        Vertex *destination = &state->objectselectionbox[vertex];
+        const float *source = corners[edges[vertex]];
+
+        destination->x = source[0];
+        destination->y = source[1];
+        destination->z = source[2];
+        destination->r = destination->g = destination->b = 255;
+        destination->a = 255;
+        destination->s = destination->t = 0.0f;
+    }
+    state->objectselectionboxcount = VIEWPORT_BOX_VERTICES;
+}
+
+
+static void ViewportSelectObject(ViewportState *state, DWORD objectindex)
+{
+    state->selectedobject = objectindex;
+    ViewportBuildObjectSelectionBox(state);
+}
+
+
+static void ViewportClearObjectSelection(ViewportState *state)
+{
+    state->selectedobject = VIEWPORT_OBJECT_NONE;
+    state->objectselectionboxcount = 0;
+}
+
+
+static void ViewportClearBgSelection(ViewportState *state)
 {
     int triangle;
     int trianglecount = state->scenecount / 3;
@@ -1017,11 +1207,21 @@ static void ViewportClearSelection(ViewportState *state)
 }
 
 
+static void ViewportClearAllSelection(ViewportState *state)
+{
+    ViewportClearBgSelection(state);
+    ViewportClearObjectSelection(state);
+}
+
+
 static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex,
                            int mousey, BOOL addtoselection, BOOL deselect)
 {
-    BOOL hitanything;
+    ViewportPickRay ray;
+    double bgdistance;
+    double objectdistance;
     int triangle;
+    DWORD objectindex;
 
     if (state == NULL || state->selectedtris == NULL
         || state->scenecolors == NULL || state->flying)
@@ -1034,40 +1234,64 @@ static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex,
         addtoselection = FALSE;
     }
 
-    triangle = ViewportFindPickedTriangle(hwnd, state, mousex, mousey,
-                                          addtoselection, deselect,
-                                          &hitanything);
-
-    if (deselect)
+    if (!ViewportBuildPickRay(hwnd, state, mousex, mousey, &ray))
     {
-        if (triangle >= 0)
-        {
-            state->selectedtris[triangle] = 0;
-            state->selectedtricount--;
-            ViewportSetTriangleColor(state, triangle, FALSE);
-        }
-        else if (!hitanything)
-        {
-            ViewportClearSelection(state);
-        }
-
-        InvalidateRect(hwnd, NULL, FALSE);
-        SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
         return;
     }
 
-    /* A miss always clears, even with the additive-selection modifier.
-       A normal hit also replaces the old selection. */
-    if (triangle < 0 || !addtoselection)
-    {
-        ViewportClearSelection(state);
-    }
+    triangle = ViewportFindPickedTriangle(state, &ray, addtoselection,
+                                          deselect, &bgdistance);
+    objectindex = ViewportFindPickedObject(state, &ray, &objectdistance);
 
-    if (triangle >= 0 && !state->selectedtris[triangle])
+    /* Both geometry types share the exact same ray and distance metric.
+       This prevents draw order and texture batching from affecting which
+       item wins when an object is in front of a background face. */
+    if (objectindex != VIEWPORT_OBJECT_NONE
+        && (bgdistance == DBL_MAX || objectdistance < bgdistance))
     {
-        state->selectedtris[triangle] = 1;
-        state->selectedtricount++;
-        ViewportSetTriangleColor(state, triangle, TRUE);
+        ViewportClearBgSelection(state);
+        if (deselect && state->selectedobject == objectindex)
+        {
+            ViewportClearObjectSelection(state);
+        }
+        else
+        {
+            ViewportSelectObject(state, objectindex);
+        }
+    }
+    else if (bgdistance != DBL_MAX)
+    {
+        ViewportClearObjectSelection(state);
+
+        if (deselect)
+        {
+            if (triangle >= 0)
+            {
+                state->selectedtris[triangle] = 0;
+                state->selectedtricount--;
+                ViewportSetTriangleColor(state, triangle, FALSE);
+            }
+        }
+        else
+        {
+            if (!addtoselection)
+            {
+                ViewportClearBgSelection(state);
+            }
+
+            if (triangle >= 0 && !state->selectedtris[triangle])
+            {
+                state->selectedtris[triangle] = 1;
+                state->selectedtricount++;
+                ViewportSetTriangleColor(state, triangle, TRUE);
+            }
+        }
+    }
+    else
+    {
+        /* Clicking empty space clears either kind of selection, including
+           while Shift or Control is held. */
+        ViewportClearAllSelection(state);
     }
 
     InvalidateRect(hwnd, NULL, FALSE);
@@ -1098,6 +1322,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         state->showstan = FALSE;
         state->showportals = FALSE;
         state->cullbackfaces = TRUE;
+        state->selectedobject = VIEWPORT_OBJECT_NONE;
 
         if (!ViewportInitGL(hwnd, state))
         {
@@ -1146,6 +1371,12 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         if (wparam == VK_DELETE)
         {
             SendMessage(GetParent(hwnd), VIEWPORT_WM_DELETE_SELECTION, 0, 0);
+        }
+        else if (wparam == VK_ESCAPE && state != NULL)
+        {
+            ViewportClearAllSelection(state);
+            InvalidateRect(hwnd, NULL, FALSE);
+            SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
         }
         else
         {
@@ -1285,6 +1516,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
     free(state->batches);
     free(state->selectedtris);
     free(state->scenefacerefs);
+    free(state->sceneobjectindices);
     free(state->scenecolors);
     free(state->stanedges);
     free(state->stanfill);
@@ -1296,6 +1528,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
     state->batches = NULL;
     state->selectedtris = NULL;
     state->scenefacerefs = NULL;
+    state->sceneobjectindices = NULL;
     state->scenecolors = NULL;
     state->stanedges = NULL;
     state->stanfill = NULL;
@@ -1306,6 +1539,8 @@ static void ViewportFreeScene(struct ViewportState *state_)
     state->texturecount = 0;
     state->batchcount = 0;
     state->selectedtricount = 0;
+    state->selectedobject = VIEWPORT_OBJECT_NONE;
+    state->objectselectionboxcount = 0;
     state->stanedgecount = 0;
     state->stanfillcount = 0;
     state->portaledgecount = 0;
@@ -1588,7 +1823,9 @@ static int ViewportTriKeyCompare(const void *a, const void *b)
 
 BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const unsigned short *tritags,
-                      const BgFaceRef *facerefs, int tricount,
+                      const BgFaceRef *facerefs,
+                      const DWORD *objectindices, int objectfirsttriangle,
+                      int tricount,
                       const char *projectdir, BOOL framecamera)
 {
     ViewportState *state = (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
@@ -1598,6 +1835,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     GLuint *textures = NULL;
     unsigned char *selectedtris = NULL;
     BgFaceRef *scenefacerefs = NULL;
+    DWORD *sceneobjectindices = NULL;
     TriKey *order = NULL;
     TexPixel *decode = NULL;
     int batchcount = 0;
@@ -1605,7 +1843,10 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     float minx = 0, miny = 0, minz = 0, maxx = 0, maxy = 0, maxz = 0;
     int i;
 
-    if (state == NULL)
+    if (state == NULL
+        || (objectindices != NULL
+            && (objectfirsttriangle < 0
+                || objectfirsttriangle > tricount)))
     {
         return FALSE;
     }
@@ -1622,14 +1863,18 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                                                sizeof(*selectedtris));
         scenefacerefs = (BgFaceRef *)calloc((size_t)tricount,
                                             sizeof(*scenefacerefs));
+        sceneobjectindices = (DWORD *)malloc((size_t)tricount
+                                             * sizeof(*sceneobjectindices));
         decode = (TexPixel *)malloc(256 * 256 * sizeof(TexPixel));
 
         if (scene == NULL || scenecolors == NULL || order == NULL || batches == NULL
             || textures == NULL || selectedtris == NULL
-            || scenefacerefs == NULL || decode == NULL)
+            || scenefacerefs == NULL || sceneobjectindices == NULL
+            || decode == NULL)
         {
             free(scene); free(scenecolors); free(order); free(batches);
             free(textures); free(selectedtris); free(scenefacerefs);
+            free(sceneobjectindices);
             free(decode);
             return FALSE; /* keep whatever we had */
         }
@@ -1640,6 +1885,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
         {
             order[i].tag = tritags != NULL ? tritags[i] : BG_TEX_NONE;
             order[i].tri = i;
+            sceneobjectindices[i] = VIEWPORT_OBJECT_NONE;
         }
 
         qsort(order, (size_t)tricount, sizeof(TriKey), ViewportTriKeyCompare);
@@ -1657,6 +1903,12 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
             if (facerefs != NULL)
             {
                 scenefacerefs[i] = facerefs[order[i].tri];
+            }
+            if (objectindices != NULL
+                && order[i].tri >= objectfirsttriangle)
+            {
+                sceneobjectindices[i] =
+                    objectindices[order[i].tri - objectfirsttriangle];
             }
 
             if (i == 0 || order[i].tag != order[i - 1].tag)
@@ -1769,6 +2021,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     state->batchcount = scene != NULL ? batchcount : 0;
     state->selectedtris = selectedtris;
     state->scenefacerefs = scenefacerefs;
+    state->sceneobjectindices = sceneobjectindices;
     state->textures = textures;
     state->texturecount = scene != NULL ? texturecount : 0;
 
@@ -1778,11 +2031,13 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
         free(textures);
         free(selectedtris);
         free(scenefacerefs);
+        free(sceneobjectindices);
         free(scenecolors);
         state->batches = NULL;
         state->textures = NULL;
         state->selectedtris = NULL;
         state->scenefacerefs = NULL;
+        state->sceneobjectindices = NULL;
         state->scenecolors = NULL;
         state->batchcount = 0;
         state->texturecount = 0;
@@ -1909,6 +2164,21 @@ BOOL ViewportGetSingleSelectedBgFace(HWND hwnd, BgFaceRef *out)
     }
 
     *out = *found;
+    return TRUE;
+}
+
+
+BOOL ViewportGetSelectedObject(HWND hwnd, DWORD *setupobjectindex)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+
+    if (state == NULL || setupobjectindex == NULL
+        || state->selectedobject == VIEWPORT_OBJECT_NONE)
+    {
+        return FALSE;
+    }
+
+    *setupobjectindex = state->selectedobject;
     return TRUE;
 }
 
