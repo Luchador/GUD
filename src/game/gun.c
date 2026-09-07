@@ -13,7 +13,7 @@
 #include "game/objective_status.h"
 #include "quaternion.h"
 #include "image_bank.h"
-#include "bondwalk2.h"
+#include "hud.h"
 #include "player.h"
 #include "lv.h"
 #include "random.h"

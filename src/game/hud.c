@@ -16,8 +16,136 @@
 #include "random.h"
 
 
+#define G_CC_MODULATEIA_ENV COMBINED, 0, ENVIRONMENT, 0, COMBINED, 0, ENVIRONMENT, 0
+
 #define GAUGE_BAR_VERTEX_PAIR_STRIDE (2 * sizeof(struct WatchVertex))
 
+
+/**
+ * Draws a tinted image using the texture already selected by the caller.
+ * position is the screen-space center; halfSize contains its half-width and
+ * half-height in pixels. textureWidth and textureHeight are measured in texels.
+ * swapAxes exchanges the texture axes; flipS and flipT mirror those axes.
+ * mipmapped selects the trilinear combiner, taking precedence over highlight.
+ * Advances *gdlptr and restores perspective texturing after the rectangle.
+ */
+void hudDrawImage(Gfx **gdlptr, f32 *position, f32 *halfSize, s32 textureWidth, s32 textureHeight,
+    s32 swapAxes, s32 flipS, s32 flipT, s32 red, s32 green, s32 blue, s32 alpha,
+    s32 mipmapped, s32 highlight)
+{
+    // Empty or inverted rectangles emit no commands.
+    if (halfSize[0] > 0.0f && halfSize[1] > 0.0f)
+    {
+        Gfx *gdl = *gdlptr;
+        s32 xl;
+        s32 yl;
+        s32 xh;
+        s32 yh;
+        s32 s = 0;
+        s32 t = 0;
+        s32 dsdx;
+        s32 dtdy;
+
+        gDPSetEnvColor(gdl++, red, green, blue, alpha);
+
+        if (mipmapped)
+        {
+            gDPSetCombineMode(gdl++, G_CC_TRILERP, G_CC_MODULATEIA_ENV);
+        }
+        else if (highlight)
+        {
+            gDPSetCombineMode(gdl++, G_CC_FADEA, G_CC_PASS2);
+        }
+        else
+        {
+            gDPSetCombineMode(gdl++, G_CC_FADEA, G_CC_FADEA);
+        }
+
+        // Disable texture perspective correction
+        gDPSetTexturePersp(gdl++, G_TP_NONE);
+
+        // Compute rectangle coordinates
+        xl = (position[0] - halfSize[0]) * 4.0f;
+        yl = (position[1] - halfSize[1]) * 4.0f;
+        xh = (position[0] + halfSize[0]) * 4.0f;
+        yh = (position[1] + halfSize[1]) * 4.0f;
+
+        // Skip rectangles entirely above or to the left of the screen.
+        if (xh >= 0 && yh >= 0)
+        {
+            // Clip the left edge and advance the matching texture coordinate.
+            if (xl < 0)
+            {
+                if (swapAxes)
+                {
+                    t += ((-xl * textureHeight) << 5) / (xh - xl);
+                }
+                else
+                {
+                    s += ((-xl * textureWidth) << 5) / (xh - xl);
+                }
+
+                xl = 0;
+            }
+
+            // Clip the top edge and advance the matching texture coordinate.
+            if (yl < 0)
+            {
+                if (swapAxes)
+                {
+                    s += ((-yl * textureWidth) << 5) / (yh - yl);
+                }
+                else
+                {
+                    t += ((-yl * textureHeight) << 5) / (yh - yl);
+                }
+
+                yl = 0;
+            }
+
+            // Swapping axes maps S vertically and T horizontally.
+            if (swapAxes)
+            {
+                dsdx = textureWidth / (2.0f * halfSize[1]) * 1024.0f;
+                dtdy = textureHeight / (2.0f * halfSize[0]) * 1024.0f;
+            }
+            else
+            {
+                dsdx = textureWidth / (2.0f * halfSize[0]) * 1024.0f;
+                dtdy = textureHeight / (2.0f * halfSize[1]) * 1024.0f;
+            }
+
+            // Mirror along the texture S axis.
+            if (flipS)
+            {
+                dsdx = 0x10000 - dsdx;
+                s = ((textureWidth - 1) << 5) - s;
+            }
+
+            // Mirror along the texture T axis.
+            if (flipT)
+            {
+                dtdy = 0x10000 - dtdy;
+                t = ((textureHeight - 1) << 5) - t;
+            }
+
+            // Draw the textured rectangle with optional flipping
+            if (swapAxes)
+            {
+                gSPTextureRectangleFlip(gdl++, xl, yl, xh, yh, G_TX_RENDERTILE, s, t, dsdx, dtdy);
+            }
+            else
+            {
+                gSPTextureRectangle(gdl++, xl, yl, xh, yh, G_TX_RENDERTILE, s, t, dsdx, dtdy);
+            }
+        }
+
+        // Re-enable texture perspective correction
+        gDPSetTexturePersp(gdl++, G_TP_PERSP);
+
+        *gdlptr = gdl;
+    }
+}
 
 /*
   Render Health Bars

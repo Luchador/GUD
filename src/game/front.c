@@ -4,7 +4,7 @@
 #include <bondgame.h>
 #include <bondconstants.h>
 #include <boss.h>
-#include "game/bondwalk2.h"
+#include "game/hud.h"
 #include "game/file2.h"
 #include <fr.h>
 #include <joy.h>
@@ -940,7 +940,7 @@ Gfx *frontDrawCursor(Gfx *DL)
     halfedxy[0] = image->width * 0.5f;
     halfedxy[1] = image->height * 0.5f;
 
-    display_image_at_position(&DL, &xypos, &halfedxy, image->width, image->height, 0, 0, 1, 255, 255, 255, 220, (image->level > 0), 0);
+    hudDrawImage(&DL, &xypos, &halfedxy, image->width, image->height, 0, 0, 1, 255, 255, 255, 220, (image->level > 0), 0);
 
     return DL;
 }
@@ -2318,7 +2318,7 @@ Gfx *constructor_menu05_fileselect(Gfx *DL)
         copyhalfsize.f[1] = (f32) (mainfolderimages + IMG_COPY)->height * 0.5f;
 
         texSelect(&DL, mainfolderimages, 4, 0, 0);
-        display_image_at_position(&DL, &copypos.f[0], &copyhalfsize.f[0], mainfolderimages->width, mainfolderimages->height, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, (s32) mainfolderimages->level > 0, 0);
+        hudDrawImage(&DL, &copypos.f[0], &copyhalfsize.f[0], mainfolderimages->width, mainfolderimages->height, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, (s32) mainfolderimages->level > 0, 0);
 
         folder_option_COPY_bound.left = copypos.f[0] - copyhalfsize.f[0];
         folder_option_COPY_bound.up = copypos.f[1] - copyhalfsize.f[1];
@@ -2331,7 +2331,7 @@ Gfx *constructor_menu05_fileselect(Gfx *DL)
         erasehalfsize.f[1] = (mainfolderimages + IMG_DEL)->height * 0.5f;
 
         texSelect(&DL, mainfolderimages + IMG_DEL, 4, 0, 0);
-        display_image_at_position(&DL, &erasepos.f[0], &erasehalfsize.f[0], (mainfolderimages + IMG_DEL)->width, (mainfolderimages + IMG_DEL)->height, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, (s32) (mainfolderimages + IMG_DEL)->level > 0, 0);
+        hudDrawImage(&DL, &erasepos.f[0], &erasehalfsize.f[0], (mainfolderimages + IMG_DEL)->width, (mainfolderimages + IMG_DEL)->height, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, (s32) (mainfolderimages + IMG_DEL)->level > 0, 0);
 
         folder_option_ERASE_bound.left = (f32) (erasepos.f[0] - erasehalfsize.f[0]);
         folder_option_ERASE_bound.up = (f32) (erasepos.f[1] - erasehalfsize.f[1]);
@@ -2344,7 +2344,7 @@ Gfx *constructor_menu05_fileselect(Gfx *DL)
         selecthalfsize.f[1] = (mainfolderimages + IMG_SEL)->height * 0.5f;
 
         texSelect(&DL, mainfolderimages + IMG_SEL, 4, 0, 0);
-        display_image_at_position(&DL, &selectpos.f[0], &selecthalfsize.f[0], (mainfolderimages + IMG_SEL)->width, (mainfolderimages + IMG_SEL)->height, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, (s32) (mainfolderimages + IMG_SEL)->level > 0, 0);
+        hudDrawImage(&DL, &selectpos.f[0], &selecthalfsize.f[0], (mainfolderimages + IMG_SEL)->width, (mainfolderimages + IMG_SEL)->height, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, (s32) (mainfolderimages + IMG_SEL)->level > 0, 0);
     }
 
     if (folder_selected_for_deletion < 0)
@@ -3259,7 +3259,7 @@ Gfx *constructor_menu08_difficulty(Gfx *DL)
             halfedxy[1] = image->height * 0.5f;
 
             texSelect(&DL, image, 4, 0, 0);
-            display_image_at_position(&DL, &xypos, &halfedxy, image->width, image->height, 0, 0, 1, 0xB4, 0, 0, 0xFF, image->level > 0, 0);
+            hudDrawImage(&DL, &xypos, &halfedxy, image->width, image->height, 0, 0, 1, 0xB4, 0, 0, 0xFF, image->level > 0, 0);
         }
     }
 
@@ -5464,9 +5464,9 @@ Gfx * constructor_menu12_mpstage(Gfx *DL)
 
     for (i_2 = 0; i_2 < 3; i_2++)
     {
-        display_image_at_position(&DL, &sp100.f[0], &spF8.f[0], 0x2F0, 0x12, 0, 0, 1, 0x6B, 0x67, 0x53, 0xFF, simage->level > 0, 0);
+        hudDrawImage(&DL, &sp100.f[0], &spF8.f[0], 0x2F0, 0x12, 0, 0, 1, 0x6B, 0x67, 0x53, 0xFF, simage->level > 0, 0);
         sp100.f[1] += 60.0f;
-        display_image_at_position(&DL, &sp100.f[0], &spF8.f[0], 0x2F0, 0x12, 0, 0, 1, 0x6B, 0x67, 0x53, 0xFF, simage->level > 0, 0);
+        hudDrawImage(&DL, &sp100.f[0], &spF8.f[0], 0x2F0, 0x12, 0, 0, 1, 0x6B, 0x67, 0x53, 0xFF, simage->level > 0, 0);
         sp100.f[1] -= 60.0f;
         sp100.f[1] += 70.0f;
     }
@@ -5495,15 +5495,15 @@ Gfx * constructor_menu12_mpstage(Gfx *DL)
                     gDPSetFogColor(DL++, 0xff, 0xff, 0xff, 0x0a);
                     gDPSetRenderMode(DL++, G_RM_FOG_PRIM_A, G_RM_AA_OPA_SURF2);
 
-                    display_image_at_position(&DL, &spD8.f[0], &spD0.f[0], 0x44, 0x2C, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, simage->level > 0, 1);
+                    hudDrawImage(&DL, &spD8.f[0], &spD0.f[0], 0x44, 0x2C, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF, simage->level > 0, 1);
                 }
                 else if (check_if_mp_stage_unlocked(count) != 0)
                 {
-                    display_image_at_position(&DL, &spD8.f[0], &spD0.f[0], 0x44, 0x2C, 0, 0, 1, 0x6E, 0x6E, 0x6E, 0xFF, simage->level > 0, 0);
+                    hudDrawImage(&DL, &spD8.f[0], &spD0.f[0], 0x44, 0x2C, 0, 0, 1, 0x6E, 0x6E, 0x6E, 0xFF, simage->level > 0, 0);
                 }
                 else
                 {
-                    display_image_at_position(&DL, &spD8.f[0], &spD0.f[0], 0x44, 0x2C, 0, 0, 1, 0xF, 0xF, 0xF, 0xFF, simage->level > 0, 0);
+                    hudDrawImage(&DL, &spD8.f[0], &spD0.f[0], 0x44, 0x2C, 0, 0, 1, 0xF, 0xF, 0xF, 0xFF, simage->level > 0, 0);
                 }
             }
 

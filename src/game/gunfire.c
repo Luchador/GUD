@@ -8,7 +8,7 @@
 #include "assets/obseg/text/LgunE.h"
 #include "bondview.h"
 #include "bondinv.h"
-#include "bondwalk2.h"
+#include "hud.h"
 #include "chrai.h"
 #include "chrobjdata.h"
 #include "fr.h"
@@ -4921,7 +4921,7 @@ Gfx *microcode_generation_ammo_related(Gfx *gdl, struct sImageTableEntry *tconfi
     gDPFillRectangle(gdl++, ((s32)(xy[0] - halfed[0])) - 1, ((s32)(xy[1] - halfed[1])) - 1, ((s32)(xy[0] + halfed[0])) + 1, ((s32)(xy[1] + halfed[1])) + 1);
  
     texSelect(&gdl, tconfig, (arg7 != 0) ? (2) : (1), 0, 0);
-    display_image_at_position(&gdl, xy, halfed, tconfig->width, tconfig->height, 0, 0, 1, red, green, blue, alpha, 0 < tconfig->level, 0);
+    hudDrawImage(&gdl, xy, halfed, tconfig->width, tconfig->height, 0, 0, 1, red, green, blue, alpha, 0 < tconfig->level, 0);
  
     gDPPipeSync(gdl++);
     gDPSetColorDither(gdl++, G_CD_BAYER);
@@ -5266,7 +5266,7 @@ void gunDrawSight(s32 *gdl)
             halfedxy[0] = halfedxy[0] * 0.75f;
         }
 
-        display_image_at_position(&sp54, &xypos, &halfedxy, 0x20, 0x20, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0x6E, (crosshairimage->level > 0), 0);
+        hudDrawImage(&sp54, &xypos, &halfedxy, 0x20, 0x20, 0, 0, 1, 0xFF, 0xFF, 0xFF, 0x6E, (crosshairimage->level > 0), 0);
         *gdl = sp54;
     }
 }
