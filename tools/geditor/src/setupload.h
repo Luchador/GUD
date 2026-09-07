@@ -10,6 +10,8 @@ typedef struct SetupPad {
     float pos[3];
     float up[3];
     float look[3];
+    /* Authored plink tile name. Resolving it must not move the pad itself. */
+    char stanname[16];
 } SetupPad;
 
 typedef struct SetupBoundPad {
@@ -31,6 +33,7 @@ typedef struct SetupObject {
     DWORD flags2;
     DWORD sourceoffset;         /* byte offset of the complete raw command */
     BOOL deleted;               /* retained command-index tombstone */
+    BOOL nonsolid;              /* authored PROPSTATE_NONSOLID */
 } SetupObject;
 
 /* Builds an oriented box in gameplay world coordinates. The local

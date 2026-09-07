@@ -239,6 +239,7 @@ static BOOL SetupParseObjects(SetupFile *setup, const char **reasonout)
             object->flags = SetupRead32(record + 8);
             object->flags2 = SetupRead32(record + 12);
             object->sourceoffset = at;
+            object->nonsolid = (record[2] & 0x20) != 0; /* PROPSTATE_NONSOLID */
             object->deleted =
                 (object->flags2 & SETUP_OBJECT_DELETED_FLAGS2)
                     == SETUP_OBJECT_DELETED_FLAGS2;
@@ -302,9 +303,24 @@ static BOOL SetupCountPadList(const SetupFile *setup, DWORD offset,
     return FALSE;
 }
 
-static BOOL SetupReadPad(const unsigned char *record, SetupPad *pad)
+static BOOL SetupReadPad(const SetupFile *setup, const unsigned char *record,
+                          SetupPad *pad)
 {
     int axis;
+    DWORD link = SetupRead32(record + SETUP_PAD_LINK);
+    const unsigned char *end;
+
+    if (link >= setup->size) { return FALSE; }
+    end = (const unsigned char *)memchr(setup->data + link, 0, setup->size - link);
+    if (end == NULL) { return FALSE; }
+    ZeroMemory(pad->stanname, sizeof(pad->stanname));
+    /* Valid stan names fit in nine bytes. Oversized/invalid names use the
+       same nearest-walkable fallback as an empty plink string in the game. */
+    if ((size_t)(end - (setup->data + link)) < sizeof(pad->stanname))
+    {
+        memcpy(pad->stanname, setup->data + link,
+               (size_t)(end - (setup->data + link)));
+    }
 
     for (axis = 0; axis < 3; axis++)
     {
@@ -370,9 +386,9 @@ static BOOL SetupParsePads(SetupFile *setup, const char **reasonout)
         const unsigned char *record = setup->data + padoffset
                                     + i * SETUP_PAD_SIZE;
 
-        if (!SetupReadPad(record, &setup->pads[i]))
+        if (!SetupReadPad(setup, record, &setup->pads[i]))
         {
-            *reasonout = "a PadRecord contains an invalid coordinate.";
+            *reasonout = "a PadRecord contains an invalid coordinate or stan link.";
             return FALSE;
         }
     }
@@ -383,7 +399,7 @@ static BOOL SetupParsePads(SetupFile *setup, const char **reasonout)
                                     + i * SETUP_BOUNDPAD_SIZE;
         SetupBoundPad *pad = &setup->boundpads[i];
 
-        if (!SetupReadPad(record, &pad->pad)
+        if (!SetupReadPad(setup, record, &pad->pad)
             || !SetupReadFloat(record + SETUP_BOUNDPAD_BBOX + 0, &pad->xmin)
             || !SetupReadFloat(record + SETUP_BOUNDPAD_BBOX + 4, &pad->xmax)
             || !SetupReadFloat(record + SETUP_BOUNDPAD_BBOX + 8, &pad->ymin)
@@ -391,7 +407,7 @@ static BOOL SetupParsePads(SetupFile *setup, const char **reasonout)
             || !SetupReadFloat(record + SETUP_BOUNDPAD_BBOX + 16, &pad->zmin)
             || !SetupReadFloat(record + SETUP_BOUNDPAD_BBOX + 20, &pad->zmax))
         {
-            *reasonout = "a BoundPadRecord contains an invalid coordinate.";
+            *reasonout = "a BoundPadRecord contains an invalid coordinate, bound or stan link.";
             return FALSE;
         }
     }

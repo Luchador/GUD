@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "stanload.h"
 
@@ -164,7 +165,7 @@ static BOOL StanParseTiles(StanFile *stan, float levelscale,
     DWORD i;
     float worldscale;
 
-    if (!(levelscale > 0.0f))
+    if (!(levelscale > 0.0f) || !isfinite(levelscale))
     {
         *reasonout = "level scale must be greater than zero.";
         return FALSE;
@@ -184,6 +185,7 @@ static BOOL StanParseTiles(StanFile *stan, float levelscale,
     }
 
     worldscale = 1.0f / levelscale;
+    stan->levelscale = levelscale;
     offset = firstoffset;
 
     for (i = 0; i < stan->tilecount; i++)
@@ -195,6 +197,7 @@ static BOOL StanParseTiles(StanFile *stan, float levelscale,
         unsigned int point;
 
         tile->id = idroom >> 8;
+        tile->sourceoffset = offset;
         tile->room = (unsigned char)idroom;
         tile->special = (unsigned char)(mid >> 12);
         tile->red = (unsigned char)(((mid >> 8) & 0xf) * 17);
@@ -204,6 +207,14 @@ static BOOL StanParseTiles(StanFile *stan, float levelscale,
         tile->extreme[0] = (unsigned char)((tail >> 8) & 0xf);
         tile->extreme[1] = (unsigned char)((tail >> 4) & 0xf);
         tile->extreme[2] = (unsigned char)(tail & 0xf);
+
+        if (tile->extreme[0] >= tile->pointcount
+            || tile->extreme[1] >= tile->pointcount
+            || tile->extreme[2] >= tile->pointcount)
+        {
+            *reasonout = "a stan tile has an invalid representative triangle.";
+            return FALSE;
+        }
 
         for (point = 0; point < tile->pointcount; point++)
         {

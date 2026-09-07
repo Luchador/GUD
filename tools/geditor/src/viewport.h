@@ -60,6 +60,8 @@ BOOL ViewportGetSelectedObject(HWND hwnd, DWORD *setupobjectindex);
 
 /* Replaces the pad overlay. PadRecords are small green wireframe
    cubes; BoundPadRecords are red wireframes of their authored volume.
+   Pads retain their authored positions, just as setupLoadFiles does;
+   stan grounding belongs to the objects placed at those pads.
    A nonzero occupied entry suppresses the corresponding marker because
    the setup object's model is already visible at that pad. */
 void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup,

@@ -6,6 +6,7 @@
 #include "rom.h"
 
 #define STAN_TILE_MAX_POINTS 10
+#define STAN_TILE_NONE ((DWORD)-1)
 
 /* Host-native form of one point from a variable-length stan tile.
    Positions are converted to gameplay world units while the authored
@@ -19,6 +20,7 @@ typedef struct StanPoint {
    the file's four-bit channels to ordinary eight-bit editor colors. */
 typedef struct StanTile {
     DWORD id;
+    DWORD sourceoffset; /* byte offset for resolving authored edge links */
     unsigned char room;
     unsigned char special;
     unsigned char red, green, blue;
@@ -34,6 +36,7 @@ typedef struct StanFile {
     char name[64];
     StanTile *tiles;
     DWORD tilecount;
+    float levelscale; /* restores file-space arithmetic for runtime queries */
 } StanFile;
 
 /* Copies every Tbg_*_stanZ resource into <projectdir>\stan as a
@@ -52,5 +55,15 @@ BOOL StanSaveProjectFile(const char *projectdir, const StanFile *stan,
                          const char **reasonout);
 
 void StanFileFree(StanFile *stan);
+
+/* Runtime placement queries. Positions/heights are gameplay world units.
+   The named tile takes priority; fallback matches padAssignStanTile's
+   nearest-walkable sample search and linked walk, without altering pos. */
+DWORD StanResolvePadTile(const StanFile *stan, const char *name,
+                         const float pos[3]);
+BOOL StanWalkTiles(const StanFile *stan, DWORD *tile,
+                   float startx, float startz, float endx, float endz);
+BOOL StanGetTileHeight(const StanFile *stan, DWORD tile,
+                       float x, float z, float *height);
 
 #endif /* GEDITOR_STANLOAD_H */

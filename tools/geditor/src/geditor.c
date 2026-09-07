@@ -219,6 +219,7 @@ static BOOL GEditorReloadCurrentObjectsAndViewport(const char **reasonout)
     ZeroMemory(&objects, sizeof(objects));
     if (g_CurrentSetup.data != NULL
         && !ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup,
+                                    &g_CurrentStan,
                                     g_CurrentBgDocument.levelscale,
                                     &objects, reasonout))
     {
@@ -1650,12 +1651,17 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
         setupLoaded = SetupLoadProjectFile(g_Project.dir, level->setupname,
                                            &setup, &setupwhy);
+        /* Placement needs the collision tiles before object geometry is
+           built, regardless of whether the stan overlay is visible. */
+        stanLoaded = StanLoadProjectFile(g_Project.dir, level->stanname,
+                                         level->levelscale, &stan,
+                                         &stanwhy);
         ZeroMemory(&objects, sizeof(objects));
 
         if (setupLoaded)
         {
             objectsLoaded = ObjectLoadSetupGeometry(g_Project.dir, &setup,
-                level->levelscale, &objects, &objectwhy);
+                stanLoaded ? &stan : NULL, level->levelscale, &objects, &objectwhy);
 
             if (objectsLoaded && objects.tricount > 0)
             {
@@ -1665,10 +1671,6 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 }
             }
         }
-
-        stanLoaded = StanLoadProjectFile(g_Project.dir, level->stanname,
-                                         level->levelscale, &stan,
-                                         &stanwhy);
 
         if (!ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags,
                               mesh.facerefs,

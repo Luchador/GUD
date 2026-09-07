@@ -6,11 +6,13 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include <src/propconstants.h>
 
 #include "modelload.h"
 #include "objectload.h"
+#include "romexport.h"
 
 #define OBJECT_MODEL_CACHE_COUNT 512
 
@@ -22,6 +24,7 @@ typedef struct ModelCacheEntry {
     unsigned short *tritags;
     DWORD tricount;
     float scale;
+    float min[3], max[3];
 } ModelCacheEntry;
 
 typedef struct ObjectBuilder {
@@ -39,6 +42,15 @@ typedef struct ObjectBasis {
     float look[3];
     float pos[3];
 } ObjectBasis;
+
+/* Previously activated solid objects can support later objects in the
+   same stan room. The game tests their projected collision boxes. */
+typedef struct ObjectSupport {
+    float points[8][2];
+    int pointcount;
+    float bottom, top;
+    unsigned char room;
+} ObjectSupport;
 
 static BOOL ObjectNormalize(float vector[3])
 {
@@ -110,12 +122,7 @@ static void ObjectApplyPlacementFlags(DWORD flags, const SetupBoundPad *bound,
 {
     int axis;
 
-    if (!(flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)))
-    {
-        return;
-    }
-
-    /* These placement modes anchor to the lower Y face of a bound pad,
+    /* Placement anchors to the lower Y face of a bound pad,
        or the authored pad position when there are no bounds. */
     if (bound != NULL)
     {
@@ -304,7 +311,7 @@ static void ObjectPlaceModel(ObjectBuilder *builder,
 }
 
 static ModelCacheEntry *ObjectGetModel(ModelCacheEntry *cache, int modelid,
-                                       const char *projectdir)
+                                       const char *projectdir, const RomFile *rom)
 {
     ModelCacheEntry *entry;
     const char *why = "";
@@ -320,23 +327,147 @@ static ModelCacheEntry *ObjectGetModel(ModelCacheEntry *cache, int modelid,
         entry->attempted = TRUE;
         entry->tris = ModelLoadProjectGeometry(projectdir, modelid,
             &entry->tricount, &entry->tritags, &entry->scale, &why);
+        if (entry->tris != NULL && entry->tricount > 0)
+        {
+            const char *name;
+            DWORD offset, size;
+
+            ObjectModelBounds(entry->tris, entry->tricount, entry->min, entry->max);
+            /* Project glTFs currently retain render geometry, not gameplay
+               boxes. Read the original box from the retained import ROM;
+               older projects without it keep mesh bounds as a fallback. */
+            if (rom->data != NULL && ModelGetPropDefinition(modelid, &name, NULL)
+                && RomFindFile(rom, name, &offset, &size, &why))
+            {
+                float min[3], max[3];
+
+                if (ModelReadPlacementBounds(rom->data + offset, size, min, max))
+                {
+                    memcpy(entry->min, min, sizeof(min));
+                    memcpy(entry->max, max, sizeof(max));
+                }
+            }
+        }
     }
 
-    return entry->tris != NULL ? entry : NULL;
+    return entry->tris != NULL && entry->tricount > 0 ? entry : NULL;
+}
+
+static float ObjectCross2D(const float a[2], const float b[2], const float c[2])
+{
+    return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+}
+
+static int ObjectComparePoints(const void *left, const void *right)
+{
+    const float *a = (const float *)left, *b = (const float *)right;
+
+    if (a[0] != b[0]) { return a[0] < b[0] ? -1 : 1; }
+    return a[1] < b[1] ? -1 : a[1] > b[1];
+}
+
+static void ObjectBuildSupport(ObjectSupport *support, const ObjectBasis *basis,
+                                const float scale[3], const float center[3],
+                                const float min[3], const float max[3],
+                                unsigned char room, BOOL aircraft)
+{
+    float points[8][2], hull[16][2];
+    int corner, count = 0, lowercount;
+
+    support->room = room;
+    for (corner = 0; corner < 8; corner++)
+    {
+        float local[3], world[3];
+        int axis;
+
+        for (axis = 0; axis < 3; axis++)
+        {
+            local[axis] = (((corner >> axis) & 1 ? max[axis] : min[axis]) - center[axis]) * scale[axis];
+        }
+        for (axis = 0; axis < 3; axis++)
+        {
+            world[axis] = basis->pos[axis] + basis->side[axis] * local[0]
+                        + basis->up[axis] * local[1] + basis->look[axis] * local[2];
+        }
+        points[corner][0] = world[0]; points[corner][1] = world[2];
+        if (corner == 0 || world[1] < support->bottom) { support->bottom = world[1]; }
+        if (corner == 0 || world[1] > support->top) { support->top = world[1]; }
+    }
+    if (aircraft) { support->bottom -= 200.0f; }
+    /* Convex hull of the eight projected corners, as in the runtime's
+       collisionCalcFootprintFromBBox; retain sloped/rotated boxes too. */
+    qsort(points, 8, sizeof(points[0]), ObjectComparePoints);
+    for (corner = 0; corner < 8; corner++)
+    {
+        while (count >= 2 && ObjectCross2D(hull[count - 2], hull[count - 1], points[corner]) <= 0.0f) { count--; }
+        memcpy(hull[count++], points[corner], sizeof(points[corner]));
+    }
+    lowercount = count + 1;
+    for (corner = 6; corner >= 0; corner--)
+    {
+        while (count >= lowercount && ObjectCross2D(hull[count - 2], hull[count - 1], points[corner]) <= 0.0f) { count--; }
+        memcpy(hull[count++], points[corner], sizeof(points[corner]));
+    }
+    support->pointcount = count > 3 ? count - 1 : 0;
+    memcpy(support->points, hull, (size_t)support->pointcount * sizeof(hull[0]));
+}
+
+static float ObjectFindSupportHeight(const ObjectSupport *supports, DWORD count,
+                                      unsigned char room, const float reference[3],
+                                      float ground, float height)
+{
+    float point[2] = { reference[0], reference[2] };
+
+    /* chrpropFindObjectContainingPointInRoom walks active props newest first
+       and stops at the first containing polygon, even if its Y test fails. */
+    while (count > 0)
+    {
+        const ObjectSupport *support = &supports[--count];
+        int edge;
+
+        if (support->room != room || support->pointcount < 3) { continue; }
+        for (edge = 0; edge < support->pointcount; edge++)
+        {
+            if (ObjectCross2D(support->points[edge],
+                              support->points[(edge + 1) % support->pointcount], point) < 0.0f)
+            {
+                break;
+            }
+        }
+        if (edge == support->pointcount)
+        {
+            if (ground < support->top && support->bottom < ground + height + 4.0f)
+            {
+                return support->top;
+            }
+            break;
+        }
+    }
+    return ground + 4.0f;
 }
 
 BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
-                             float levelscale, SetupObjectGeometry *out,
+                             const StanFile *stan, float levelscale,
+                             SetupObjectGeometry *out,
                              const char **reasonout)
 {
     ModelCacheEntry cache[OBJECT_MODEL_CACHE_COUNT];
     ObjectBuilder builder;
     float worldscale;
+    RomFile rom;
+    char basepath[MAX_PATH];
+    int pathlength;
+    const char *basewhy = "";
+    ObjectSupport *supports = NULL;
+    DWORD supportcount = 0;
+    DWORD *padtiles = NULL;
+    BOOL hasstan = stan != NULL && stan->tiles != NULL && stan->tilecount > 0;
     DWORD i;
 
     ZeroMemory(out, sizeof(*out));
     ZeroMemory(cache, sizeof(cache));
     ZeroMemory(&builder, sizeof(builder));
+    ZeroMemory(&rom, sizeof(rom));
     *reasonout = "";
 
     if (setup == NULL || projectdir == NULL || !(levelscale > 0.0f))
@@ -362,6 +493,34 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
 
     worldscale = 1.0f / levelscale;
 
+    if (setup->objectcount > 0)
+    {
+        supports = (ObjectSupport *)calloc(setup->objectcount, sizeof(*supports));
+        if (supports == NULL)
+        {
+            *reasonout = "out of memory tracking object support surfaces.";
+            goto fail;
+        }
+    }
+    if (hasstan && setup->padcount + setup->boundpadcount > 0)
+    {
+        DWORD count = setup->padcount + setup->boundpadcount;
+
+        padtiles = (DWORD *)malloc((size_t)count * sizeof(*padtiles));
+        if (padtiles == NULL)
+        {
+            *reasonout = "out of memory resolving object pads.";
+            goto fail;
+        }
+        for (i = 0; i < count; i++) { padtiles[i] = (DWORD)-2; }
+    }
+    pathlength = snprintf(basepath, sizeof(basepath), "%s\\%s", projectdir,
+                           ROM_EXPORT_BASE_FILENAME);
+    if (pathlength >= 0 && pathlength < (int)sizeof(basepath))
+    {
+        RomLoad(basepath, &rom, &basewhy);
+    }
+
     for (i = 0; i < setup->objectcount; i++)
     {
         const SetupObject *object = &setup->objects[i];
@@ -371,6 +530,8 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         ObjectBasis basis;
         float min[3], max[3], center[3] = { 0.0f, 0.0f, 0.0f };
         float scale[3];
+        float reference[3];
+        DWORD referencetile = STAN_TILE_NONE, placedtile;
         int padindex;
         BOOL isbound;
         BOOL isdoor = object->type == PROPDEF_DOOR;
@@ -407,13 +568,25 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
 
         bound = isbound ? &setup->boundpads[padindex] : NULL;
         pad = isbound ? &bound->pad : &setup->pads[padindex];
-        model = ObjectGetModel(cache, object->modelid, projectdir);
+        model = ObjectGetModel(cache, object->modelid, projectdir, &rom);
         if (model == NULL || !ObjectMakeBasis(pad, worldscale, &basis))
         {
             continue;
         }
 
-        ObjectModelBounds(model->tris, model->tricount, min, max);
+        memcpy(min, model->min, sizeof(min));
+        memcpy(max, model->max, sizeof(max));
+        memcpy(reference, basis.pos, sizeof(reference));
+        if (hasstan)
+        {
+            DWORD *tile = &padtiles[isbound ? setup->padcount + padindex : (DWORD)padindex];
+
+            if (*tile == (DWORD)-2) { *tile = StanResolvePadTile(stan, pad->stanname, reference); }
+            referencetile = *tile;
+            /* getposstan(radius=0) only validates the resolved tile. Invalid
+               pads keep their authored marker, but create no game object. */
+            if (referencetile == STAN_TILE_NONE) { continue; }
+        }
         scale[0] = scale[1] = scale[2] = model->scale
             * ((float)object->extrascale / 256.0f);
 
@@ -488,16 +661,62 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
 
             for (axis = 0; axis < 3; axis++)
             {
-                basis.pos[axis] += basis.side[axis] * localcenter[0]
-                                 + basis.up[axis] * localcenter[1]
-                                 + basis.look[axis] * localcenter[2];
+                float side = pad->up[(axis + 1) % 3] * pad->look[(axis + 2) % 3]
+                           - pad->up[(axis + 2) % 3] * pad->look[(axis + 1) % 3];
+
+                basis.pos[axis] += side * localcenter[0]
+                                 + pad->up[axis] * localcenter[1]
+                                 + pad->look[axis] * localcenter[2];
+            }
+            if (!isdoor && !(object->flags2 & PROPFLAG2_DRONEGUN))
+            {
+                DWORD centerstan = referencetile;
+
+                if (!hasstan || StanWalkTiles(stan, &centerstan,
+                        reference[0], reference[2], basis.pos[0], basis.pos[2]))
+                {
+                    referencetile = centerstan;
+                    memcpy(reference, basis.pos, sizeof(reference));
+                }
             }
         }
 
+        placedtile = referencetile;
         if (!isdoor)
         {
             ObjectApplyPlacementFlags(object->flags, bound, worldscale,
                                       min, max, &basis, center);
+            if (hasstan)
+            {
+                float desired[3];
+                int axis;
+
+                if (!(object->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)))
+                {
+                    float ground;
+
+                    if (!StanGetTileHeight(stan, referencetile, reference[0], reference[2], &ground)) { continue; }
+                    basis.pos[1] = ObjectFindSupportHeight(supports, supportcount,
+                        stan->tiles[referencetile].room, reference, ground,
+                        basis.up[1] * scale[1] * (max[1] - min[1]));
+                }
+                for (axis = 0; axis < 3; axis++)
+                {
+                    desired[axis] = basis.pos[axis] - basis.side[axis] * center[0] * scale[0]
+                        - basis.up[axis] * center[1] * scale[1] - basis.look[axis] * center[2] * scale[2];
+                }
+                if ((object->flags2 & PROPFLAG2_DRONEGUN)
+                    || !StanWalkTiles(stan, &placedtile, reference[0], reference[2], desired[0], desired[2]))
+                {
+                    placedtile = referencetile;
+                    if (!(object->flags & (PROPFLAG_ONSIDE | PROPFLAG_ABSOLUTEPOSITION))
+                        && !(object->flags2 & PROPFLAG2_DRONEGUN))
+                    {
+                        memcpy(basis.pos, reference, sizeof(reference));
+                        ZeroMemory(center, sizeof(center));
+                    }
+                }
+            }
         }
 
         ObjectPlaceModel(&builder, model, &basis, scale, isdoor, center, i);
@@ -505,6 +724,13 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         {
             *reasonout = "out of memory building setup object geometry.";
             goto fail;
+        }
+
+        if (hasstan && !isdoor && object->type != PROPDEF_COLLECTABLE
+            && (object->flags & PROPFLAG_FORCE_COLLISIONS) && !object->nonsolid)
+        {
+            ObjectBuildSupport(&supports[supportcount++], &basis, scale, center,
+                min, max, stan->tiles[placedtile].room, object->type == PROPDEF_AIRCRAFT);
         }
 
         if (isbound)
@@ -528,9 +754,15 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
     out->tritags = builder.tritags;
     out->objectindices = builder.objectindices;
     out->tricount = builder.tricount;
+    free(supports);
+    free(padtiles);
+    RomFree(&rom);
     return TRUE;
 
 fail:
+    free(supports);
+    free(padtiles);
+    RomFree(&rom);
     for (i = 0; i < OBJECT_MODEL_CACHE_COUNT; i++)
     {
         free(cache[i].tris);

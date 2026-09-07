@@ -5,6 +5,7 @@
 
 #include "bgload.h"
 #include "setupload.h"
+#include "stanload.h"
 
 /* One level's placed non-character setup models. The occupied arrays
    parallel SetupFile's pad arrays and tell the overlay not to draw a
@@ -19,8 +20,13 @@ typedef struct SetupObjectGeometry {
     DWORD objectcount;
 } SetupObjectGeometry;
 
+/* Recreates initial setup placement using stan links, authored model boxes,
+   placement flags, and previously placed solid props. NULL stan retains a
+   pad-based preview for projects with missing collision data. All placement
+   is derived: the setup's authored pads and raw project bytes stay intact. */
 BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
-                             float levelscale, SetupObjectGeometry *out,
+                             const StanFile *stan, float levelscale,
+                             SetupObjectGeometry *out,
                              const char **reasonout);
 void ObjectGeometryFree(SetupObjectGeometry *geometry);
 

@@ -25,6 +25,11 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
 BOOL ModelGetPropDefinition(int modelid, const char **nameout,
                             float *scaleout);
 
+/* Read the authored collision/placement box selected by
+   chrobjGetBboxFromObjFile. It can differ from the visible mesh bounds. */
+BOOL ModelReadPlacementBounds(const unsigned char *data, DWORD size,
+                               float min[3], float max[3]);
+
 /* Loads one previously extracted object-model glTF. The legacy PLY reader is
    retained so projects created by older GEditor builds still open. Caller
    frees both returned arrays. */

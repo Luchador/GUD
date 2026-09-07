@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "gltf.h"
 #include "modelload.h"
@@ -267,6 +268,70 @@ static void MdlNodeMeshes(MdlBuilder *b, const unsigned char *data,
     }
 }
 
+/* Raw model files have no ModelFileHeader. Both readers use the same
+   segment-5 root-node discovery as the existing mesh extraction path. */
+static DWORD ModelFindRootNode(const unsigned char *data, DWORD size)
+{
+    DWORD probe;
+
+    for (probe = 0; probe + 24 <= size && probe < 0x200; probe += 4)
+    {
+        DWORD opcode = (unsigned short)md16(data + probe);
+        DWORD dataptr = md32(data + probe + 4);
+
+        if (opcode >= 1 && opcode <= 0x20 && (dataptr >> 24) == 0x05
+            && mdoff(dataptr) < size && md32(data + probe + 8) == 0)
+        {
+            return probe;
+        }
+    }
+    return 0;
+}
+
+BOOL ModelReadPlacementBounds(const unsigned char *data, DWORD size,
+                               float min[3], float max[3])
+{
+    DWORD root, first, node;
+    int depth, visited = 0;
+
+    if (data == NULL || size < 40) { return FALSE; }
+    root = ModelFindRootNode(data, size);
+    if (root == 0) { return FALSE; }
+    first = mdoff(md32(data + root + 20));
+    /* Game lookup: root child siblings, then first child's child siblings. */
+    for (depth = 0; depth < 2; depth++)
+    {
+        for (node = first; node != 0 && node <= size - 24 && visited++ < MDL_MAX_NODES;
+             node = mdoff(md32(data + node + 12)))
+        {
+            if ((unsigned short)md16(data + node) == 0x0a) /* MODELNODE_OPCODE_BBOX */
+            {
+                DWORD offset = mdoff(md32(data + node + 4));
+                int axis;
+
+                if (offset == 0 || size < 28 || offset > size - 28) { return FALSE; }
+                for (axis = 0; axis < 3; axis++)
+                {
+                    union { DWORD bits; float value; } lo, hi;
+
+                    lo.bits = md32(data + offset + 4 + axis * 8);
+                    hi.bits = md32(data + offset + 8 + axis * 8);
+                    if (!isfinite(lo.value) || !isfinite(hi.value) || lo.value > hi.value)
+                    {
+                        return FALSE;
+                    }
+                    min[axis] = lo.value;
+                    max[axis] = hi.value;
+                }
+                return TRUE;
+            }
+        }
+        if (first == 0 || first > size - 24) { break; }
+        first = mdoff(md32(data + first + 20));
+    }
+    return FALSE;
+}
+
 BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
                             DWORD *tricount, unsigned short **texids,
                             const char **reasonout)
@@ -296,26 +361,7 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
      * u16 opcode, a segment-5 Data pointer, and a NULL Parent, which
      * the root uniquely has.
      */
-    rootoff = 0;
-
-    {
-        DWORD probe;
-
-        for (probe = 0; probe + 24 <= maxlen && probe < 0x200; probe += 4)
-        {
-            DWORD op = md16(data + probe) & 0xFFFF;
-            DWORD dp = md32(data + probe + 4);
-            DWORD parent = md32(data + probe + 8);
-
-            if (op >= 1 && op <= 0x20
-                && (dp >> 24) == 0x05 && mdoff(dp) < maxlen
-                && parent == 0)
-            {
-                rootoff = probe;
-                break;
-            }
-        }
-    }
+    rootoff = ModelFindRootNode(data, maxlen);
 
     if (rootoff == 0)
     {
