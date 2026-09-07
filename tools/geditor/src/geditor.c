@@ -13,6 +13,7 @@
 #include "viewport.h"
 #include "browser.h"
 #include "rightpanel.h"
+#include "tooltoolbar.h"
 #include "rom.h"
 #include "romexport.h"
 #include "bgload.h"
@@ -31,6 +32,7 @@
 #define GEDITOR_NO_LEVEL ((DWORD)-1)
 
 static HWND g_Viewport;
+static HWND g_ToolToolbar;
 static HWND g_Browser;
 static HWND g_RightPanel;
 
@@ -141,6 +143,7 @@ static void GEditorRefreshSelectionDetails(void)
     int count = ViewportGetSelectedBgFaceCount(g_Viewport);
     BOOL objectselected = ViewportGetSelectedObject(g_Viewport, &selectedobject);
     BOOL cantranslate = !objectselected && count > 0
+                     && ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT
                      && g_CurrentBgDocument.levelscale > 0.0f;
 
     RightPanelSetTransformState(g_RightPanel, cantranslate,
@@ -1181,6 +1184,8 @@ static void GEditorLayout(HWND hwnd)
     int viewportleft;
     int viewportright;
     int panelleft;
+    int toolbarheight;
+    int viewportwidth;
 
     GetClientRect(hwnd, &rc);
 
@@ -1235,16 +1240,24 @@ static void GEditorLayout(HWND hwnd)
     viewportleft = g_BrowserWidth + GEDITOR_SPLITTER_W;
     panelleft = rc.right - g_RightPanelWidth;
     viewportright = panelleft - GEDITOR_SPLITTER_W;
+    viewportwidth = viewportright > viewportleft ? viewportright - viewportleft : 0;
+    toolbarheight = rc.bottom < TOOLTOOLBAR_HEIGHT ? rc.bottom : TOOLTOOLBAR_HEIGHT;
 
     if (g_Browser != NULL)
     {
         MoveWindow(g_Browser, 0, 0, g_BrowserWidth, rc.bottom, TRUE);
     }
 
+    if (g_ToolToolbar != NULL)
+    {
+        MoveWindow(g_ToolToolbar, viewportleft, 0,
+                   viewportwidth, toolbarheight, TRUE);
+    }
+
     if (g_Viewport != NULL)
     {
-        MoveWindow(g_Viewport, viewportleft, 0,
-                   viewportright - viewportleft, rc.bottom, TRUE);
+        MoveWindow(g_Viewport, viewportleft, toolbarheight,
+                   viewportwidth, rc.bottom - toolbarheight, TRUE);
     }
 
     if (g_RightPanel != NULL)
@@ -1398,7 +1411,8 @@ static BOOL GEditorTranslateSelectedBgFaces(HWND hwnd,
     int axis;
     const char *action = count == 1 ? "Move BG Face" : "Move BG Faces";
 
-    if (translation == NULL || count <= 0)
+    if (translation == NULL || count <= 0
+        || ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT)
     {
         return FALSE;
     }
@@ -1516,6 +1530,12 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         {
             return -1;
         }
+        g_ToolToolbar = ToolToolbarCreate(hwnd, cs->hInstance);
+        if (g_ToolToolbar == NULL)
+        {
+            return -1;
+        }
+        ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
         GEditorRefreshHistoryMenu(hwnd);
         return 0;
     }
@@ -1541,6 +1561,15 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         GEditorRefreshSelectionDetails();
         return 0;
 
+    case EDITTOOL_WM_SELECT:
+        if (wparam < EDITOR_TOOL_COUNT)
+        {
+            ViewportSetTool(g_Viewport, (EditorTool)wparam);
+            ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
+            SetFocus(g_Viewport);
+        }
+        return 0;
+
     case RIGHTPANEL_WM_TRANSLATE_SELECTION:
         return GEditorTranslateSelectedBgFaces(hwnd,
             (RightPanelTranslation *)lparam);
@@ -1549,6 +1578,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     {
         DWORD selectedobject;
 
+        if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT) { return 0; }
         if (ViewportGetSelectedObject(g_Viewport, &selectedobject))
         {
             GEditorDeleteSelectedObject(hwnd, selectedobject);
@@ -2033,6 +2063,12 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
         return 1;
     }
 
+    if (!ToolToolbarRegisterClass(hinstance))
+    {
+        MessageBox(NULL, "ToolToolbarRegisterClass failed", GEDITOR_TITLE, MB_ICONERROR);
+        return 1;
+    }
+
     menubar = GEditorCreateMenuBar();
 
     hwnd = CreateWindowEx(0, GEDITOR_CLASS, GEDITOR_TITLE, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, GEDITOR_WIDTH, GEDITOR_HEIGHT, NULL, menubar, hinstance, NULL);
@@ -2073,6 +2109,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     return (int)msg.wParam;
                 }
                 if (!RightPanelHandleMessage(g_RightPanel, &msg)
+                    && !ToolToolbarHandleMessage(g_ToolToolbar, &msg)
                     && (accelerators == NULL
                         || !TranslateAccelerator(hwnd, accelerators, &msg)))
                 {
@@ -2091,6 +2128,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 break;
             }
             if (!RightPanelHandleMessage(g_RightPanel, &msg)
+                && !ToolToolbarHandleMessage(g_ToolToolbar, &msg)
                 && (accelerators == NULL
                     || !TranslateAccelerator(hwnd, accelerators, &msg)))
             {

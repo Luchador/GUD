@@ -75,6 +75,7 @@ typedef struct VertexColor {
 typedef struct ViewportState {
     HDC hdc;      /* private DC - stable for the window's lifetime (CS_OWNDC) */
     HGLRC hglrc;  /* the GL context rendering into it */
+    EditorTool tool;
 
     /* Fly Camera */
     float posx, posy, posz;
@@ -1224,7 +1225,8 @@ static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex,
     DWORD objectindex;
 
     if (state == NULL || state->selectedtris == NULL
-        || state->scenecolors == NULL || state->flying)
+        || state->scenecolors == NULL || state->flying
+        || state->tool != EDITOR_TOOL_FACE_SELECT)
     {
         return;
     }
@@ -1323,6 +1325,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         state->showportals = FALSE;
         state->cullbackfaces = TRUE;
         state->selectedobject = VIEWPORT_OBJECT_NONE;
+        state->tool = EDITOR_TOOL_FACE_SELECT;
 
         if (!ViewportInitGL(hwnd, state))
         {
@@ -1368,7 +1371,8 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 0;
 
     case WM_KEYDOWN:
-        if (wparam == VK_DELETE)
+        if (wparam == VK_DELETE && state != NULL
+            && state->tool == EDITOR_TOOL_FACE_SELECT)
         {
             SendMessage(GetParent(hwnd), VIEWPORT_WM_DELETE_SELECTION, 0, 0);
         }
@@ -1497,6 +1501,31 @@ void ViewportRedraw(HWND viewport)
 {
     /* FALSE: no GDI erase - WM_ERASEBKGND is suppressed anyway. */
     InvalidateRect(viewport, NULL, FALSE);
+}
+
+
+EditorTool ViewportGetTool(HWND viewport)
+{
+    ViewportState *state = ViewportGetState(viewport);
+
+    return state != NULL ? state->tool : EDITOR_TOOL_FACE_SELECT;
+}
+
+
+void ViewportSetTool(HWND viewport, EditorTool tool)
+{
+    ViewportState *state = ViewportGetState(viewport);
+
+    if (state == NULL || tool < 0 || tool >= EDITOR_TOOL_COUNT || tool == state->tool)
+    {
+        return;
+    }
+    state->tool = tool;
+    /* Future vertex/edge/paint tools must not inherit a face or object
+       selection that Delete or Transform could inadvertently edit. */
+    ViewportClearAllSelection(state);
+    ViewportRedraw(viewport);
+    SendMessage(GetParent(viewport), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
 }
 
 

@@ -1,0 +1,680 @@
+diff --git a/tools/geditor/src/Makefile b/tools/geditor/src/Makefile
+index d880f33..6d69530 100644
+--- a/tools/geditor/src/Makefile
++++ b/tools/geditor/src/Makefile
+@@ -9,22 +9,25 @@ WIN_DIR := /mnt/c/Users/lucha/Documents/N64/GEditor
+ CC      := x86_64-w64-mingw32-gcc
+ RC      := x86_64-w64-mingw32-windres
+ CFLAGS  := -O2 -Wall -Wextra -Wno-unused-parameter -std=c99 -I../../..
+-LDFLAGS := -mwindows -lgdi32 -lcomdlg32 -lopengl32 -lole32 -luuid -lshell32
++LDFLAGS := -mwindows -lgdi32 -lcomdlg32 -lopengl32 -lole32 -luuid -lshell32 -lcomctl32 -lwindowscodecs
+ 
+ BIN_DIR := ..
+ TARGET  := $(BIN_DIR)/GEditor.exe
+ SOURCES := $(wildcard *.c)
++HEADERS := $(wildcard *.h)
+ SHARED_HEADERS := ../../../src/propconstants.h
+ PROP_RECORDS := ../../../assets/obseg/prop/propItemModelFileRecord.inc.c \
+                 $(wildcard ../../../assets/obseg/prop/*/propFileRecord.inc.c)
+ RCFILE  := geditor.rc
+ RCOBJ   := geditor_rc.o
++TOOL_IMAGES := $(wildcard ../geditorassets/*_select_*.png) \
++               $(wildcard ../geditorassets/vertex_paint_*.png)
+ 
+-$(TARGET): $(SOURCES) $(SHARED_HEADERS) $(PROP_RECORDS) $(RCOBJ)
++$(TARGET): $(SOURCES) $(HEADERS) $(SHARED_HEADERS) $(PROP_RECORDS) $(RCOBJ)
+ 	$(CC) $(CFLAGS) -o $@ $(SOURCES) $(RCOBJ) $(LDFLAGS)
+ 
+-# Resource script -> linkable object (dialog templates, later icons/version info)
+-$(RCOBJ): $(RCFILE) resource.h icon.ico
++# Resource script -> linkable object (dialogs, icon, and tool button artwork)
++$(RCOBJ): $(RCFILE) resource.h icon.ico $(TOOL_IMAGES)
+ 	$(RC) -i $(RCFILE) -o $@
+ 
+ clean:
+diff --git a/tools/geditor/src/edittool.h b/tools/geditor/src/edittool.h
+new file mode 100644
+index 0000000..fcb0942
+--- /dev/null
++++ b/tools/geditor/src/edittool.h
+@@ -0,0 +1,19 @@
++#ifndef GEDITOR_EDITTOOL_H
++#define GEDITOR_EDITTOOL_H
++
++#include <windows.h>
++
++/* Shared by the toolbar, frame, and viewport. Only face selection has
++   editing behavior today; the other tools reserve their own input modes. */
++typedef enum EditorTool {
++    EDITOR_TOOL_VERTEX_SELECT,
++    EDITOR_TOOL_EDGE_SELECT,
++    EDITOR_TOOL_FACE_SELECT,
++    EDITOR_TOOL_VERTEX_PAINT,
++    EDITOR_TOOL_COUNT
++} EditorTool;
++
++/* Request a tool change from the frame; wparam is an EditorTool. */
++#define EDITTOOL_WM_SELECT (WM_APP + 6)
++
++#endif
+diff --git a/tools/geditor/src/geditor.c b/tools/geditor/src/geditor.c
+index 2be10b1..7476d9a 100644
+--- a/tools/geditor/src/geditor.c
++++ b/tools/geditor/src/geditor.c
+@@ -13,6 +13,7 @@
+ #include "viewport.h"
+ #include "browser.h"
+ #include "rightpanel.h"
++#include "tooltoolbar.h"
+ #include "rom.h"
+ #include "romexport.h"
+ #include "bgload.h"
+@@ -31,6 +32,7 @@
+ #define GEDITOR_NO_LEVEL ((DWORD)-1)
+ 
+ static HWND g_Viewport;
++static HWND g_ToolToolbar;
+ static HWND g_Browser;
+ static HWND g_RightPanel;
+ 
+@@ -141,6 +143,7 @@ static void GEditorRefreshSelectionDetails(void)
+     int count = ViewportGetSelectedBgFaceCount(g_Viewport);
+     BOOL objectselected = ViewportGetSelectedObject(g_Viewport, &selectedobject);
+     BOOL cantranslate = !objectselected && count > 0
++                     && ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT
+                      && g_CurrentBgDocument.levelscale > 0.0f;
+ 
+     RightPanelSetTransformState(g_RightPanel, cantranslate,
+@@ -1181,6 +1184,8 @@ static void GEditorLayout(HWND hwnd)
+     int viewportleft;
+     int viewportright;
+     int panelleft;
++    int toolbarheight;
++    int viewportwidth;
+ 
+     GetClientRect(hwnd, &rc);
+ 
+@@ -1235,16 +1240,24 @@ static void GEditorLayout(HWND hwnd)
+     viewportleft = g_BrowserWidth + GEDITOR_SPLITTER_W;
+     panelleft = rc.right - g_RightPanelWidth;
+     viewportright = panelleft - GEDITOR_SPLITTER_W;
++    viewportwidth = viewportright > viewportleft ? viewportright - viewportleft : 0;
++    toolbarheight = rc.bottom < TOOLTOOLBAR_HEIGHT ? rc.bottom : TOOLTOOLBAR_HEIGHT;
+ 
+     if (g_Browser != NULL)
+     {
+         MoveWindow(g_Browser, 0, 0, g_BrowserWidth, rc.bottom, TRUE);
+     }
+ 
++    if (g_ToolToolbar != NULL)
++    {
++        MoveWindow(g_ToolToolbar, viewportleft, 0,
++                   viewportwidth, toolbarheight, TRUE);
++    }
++
+     if (g_Viewport != NULL)
+     {
+-        MoveWindow(g_Viewport, viewportleft, 0,
+-                   viewportright - viewportleft, rc.bottom, TRUE);
++        MoveWindow(g_Viewport, viewportleft, toolbarheight,
++                   viewportwidth, rc.bottom - toolbarheight, TRUE);
+     }
+ 
+     if (g_RightPanel != NULL)
+@@ -1398,7 +1411,8 @@ static BOOL GEditorTranslateSelectedBgFaces(HWND hwnd,
+     int axis;
+     const char *action = count == 1 ? "Move BG Face" : "Move BG Faces";
+ 
+-    if (translation == NULL || count <= 0)
++    if (translation == NULL || count <= 0
++        || ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT)
+     {
+         return FALSE;
+     }
+@@ -1516,6 +1530,12 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
+         {
+             return -1;
+         }
++        g_ToolToolbar = ToolToolbarCreate(hwnd, cs->hInstance);
++        if (g_ToolToolbar == NULL)
++        {
++            return -1;
++        }
++        ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
+         GEditorRefreshHistoryMenu(hwnd);
+         return 0;
+     }
+@@ -1541,6 +1561,15 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
+         GEditorRefreshSelectionDetails();
+         return 0;
+ 
++    case EDITTOOL_WM_SELECT:
++        if (wparam < EDITOR_TOOL_COUNT)
++        {
++            ViewportSetTool(g_Viewport, (EditorTool)wparam);
++            ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
++            SetFocus(g_Viewport);
++        }
++        return 0;
++
+     case RIGHTPANEL_WM_TRANSLATE_SELECTION:
+         return GEditorTranslateSelectedBgFaces(hwnd,
+             (RightPanelTranslation *)lparam);
+@@ -1549,6 +1578,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
+     {
+         DWORD selectedobject;
+ 
++        if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT) { return 0; }
+         if (ViewportGetSelectedObject(g_Viewport, &selectedobject))
+         {
+             GEditorDeleteSelectedObject(hwnd, selectedobject);
+@@ -2033,6 +2063,12 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
+         return 1;
+     }
+ 
++    if (!ToolToolbarRegisterClass(hinstance))
++    {
++        MessageBox(NULL, "ToolToolbarRegisterClass failed", GEDITOR_TITLE, MB_ICONERROR);
++        return 1;
++    }
++
+     menubar = GEditorCreateMenuBar();
+ 
+     hwnd = CreateWindowEx(0, GEDITOR_CLASS, GEDITOR_TITLE, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, GEDITOR_WIDTH, GEDITOR_HEIGHT, NULL, menubar, hinstance, NULL);
+@@ -2073,6 +2109,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
+                     return (int)msg.wParam;
+                 }
+                 if (!RightPanelHandleMessage(g_RightPanel, &msg)
++                    && !ToolToolbarHandleMessage(g_ToolToolbar, &msg)
+                     && (accelerators == NULL
+                         || !TranslateAccelerator(hwnd, accelerators, &msg)))
+                 {
+@@ -2091,6 +2128,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
+                 break;
+             }
+             if (!RightPanelHandleMessage(g_RightPanel, &msg)
++                && !ToolToolbarHandleMessage(g_ToolToolbar, &msg)
+                 && (accelerators == NULL
+                     || !TranslateAccelerator(hwnd, accelerators, &msg)))
+             {
+diff --git a/tools/geditor/src/geditor.rc b/tools/geditor/src/geditor.rc
+index 97b2ae4..2e0ca75 100644
+--- a/tools/geditor/src/geditor.rc
++++ b/tools/geditor/src/geditor.rc
+@@ -3,6 +3,15 @@
+ 
+ IDI_GEDITOR ICON "icon.ico"
+ 
++IDR_VERTEX_SELECT_OFF RCDATA "../geditorassets/verts_select_off.png"
++IDR_VERTEX_SELECT_ON  RCDATA "../geditorassets/verts_select_on.png"
++IDR_EDGE_SELECT_OFF   RCDATA "../geditorassets/edges_select_off.png"
++IDR_EDGE_SELECT_ON    RCDATA "../geditorassets/edges_select_on.png"
++IDR_FACE_SELECT_OFF   RCDATA "../geditorassets/faces_select_off.png"
++IDR_FACE_SELECT_ON    RCDATA "../geditorassets/faces_select_on.png"
++IDR_VERTEX_PAINT_OFF  RCDATA "../geditorassets/vertex_paint_off.png"
++IDR_VERTEX_PAINT_ON   RCDATA "../geditorassets/vertex_paint_on.png"
++
+ /*
+  * New Project dialog. Units here are dialog units, not pixels: they
+  * scale with the system font, which is what keeps the layout correct
+diff --git a/tools/geditor/src/resource.h b/tools/geditor/src/resource.h
+index a1515e9..d4077bc 100644
+--- a/tools/geditor/src/resource.h
++++ b/tools/geditor/src/resource.h
+@@ -8,6 +8,16 @@
+ /* Icons */
+ #define IDI_GEDITOR           201
+ 
++/* Viewport tool buttons (embedded PNGs). */
++#define IDR_VERTEX_SELECT_OFF 301
++#define IDR_VERTEX_SELECT_ON  302
++#define IDR_EDGE_SELECT_OFF   303
++#define IDR_EDGE_SELECT_ON    304
++#define IDR_FACE_SELECT_OFF   305
++#define IDR_FACE_SELECT_ON    306
++#define IDR_VERTEX_PAINT_OFF  307
++#define IDR_VERTEX_PAINT_ON   308
++
+ /* Controls inside IDD_NEW_PROJECT */
+ #define IDC_PROJECT_NAME     1001
+ #define IDC_NAME_WARNING     1002
+diff --git a/tools/geditor/src/tooltoolbar.c b/tools/geditor/src/tooltoolbar.c
+new file mode 100644
+index 0000000..b9147e0
+--- /dev/null
++++ b/tools/geditor/src/tooltoolbar.c
+@@ -0,0 +1,316 @@
++#define COBJMACROS
++#include <windows.h>
++#include <commctrl.h>
++#include <wincodec.h>
++#include <stdlib.h>
++
++#include "resource.h"
++#include "tooltoolbar.h"
++
++#define TOOLTOOLBAR_CLASS "GEditorToolToolbar"
++#define TOOLTOOLBAR_BUTTON_SIZE 48
++#define TOOLTOOLBAR_MARGIN 4
++#define TOOLTOOLBAR_FIRST_ID 3001
++
++static const struct {
++    const char *name;
++    int images[2]; /* off, on */
++} g_Tools[EDITOR_TOOL_COUNT] = {
++    { "Vertex Select (1)", { IDR_VERTEX_SELECT_OFF, IDR_VERTEX_SELECT_ON } },
++    { "Edge Select (2)",   { IDR_EDGE_SELECT_OFF, IDR_EDGE_SELECT_ON } },
++    { "Face Select (3)",   { IDR_FACE_SELECT_OFF, IDR_FACE_SELECT_ON } },
++    { "Vertex Paint (4)",  { IDR_VERTEX_PAINT_OFF, IDR_VERTEX_PAINT_ON } }
++};
++
++typedef struct ToolToolbarState {
++    EditorTool tool;
++    HWND buttons[EDITOR_TOOL_COUNT];
++    HWND tooltip;
++    HBITMAP images[EDITOR_TOOL_COUNT][2];
++} ToolToolbarState;
++
++/* Decode embedded PNGs once at creation, so installed copies of the exe
++   never need to locate the source asset folder. The supplied buttons are
++   opaque; a top-down BGR DIB can be drawn directly by GDI. */
++static HBITMAP ToolToolbarLoadImage(HINSTANCE instance,
++                                   IWICImagingFactory *factory, int id)
++{
++    HRSRC resource = FindResource(instance, MAKEINTRESOURCE(id), RT_RCDATA);
++    HGLOBAL data;
++    BYTE *bytes;
++    DWORD size;
++    IWICStream *stream = NULL;
++    IWICBitmapDecoder *decoder = NULL;
++    IWICBitmapFrameDecode *frame = NULL;
++    IWICFormatConverter *converter = NULL;
++    HBITMAP bitmap = NULL;
++    BITMAPINFO info;
++    void *pixels;
++    UINT width, height;
++    BOOL success = FALSE;
++
++    if (resource == NULL) { return NULL; }
++    data = LoadResource(instance, resource);
++    bytes = (BYTE *)LockResource(data);
++    size = SizeofResource(instance, resource);
++    if (bytes == NULL || size == 0) { return NULL; }
++
++    if (FAILED(IWICImagingFactory_CreateStream(factory, &stream))
++        || FAILED(IWICStream_InitializeFromMemory(stream, bytes, size))
++        || FAILED(IWICImagingFactory_CreateDecoderFromStream(factory,
++            (IStream *)stream, NULL, WICDecodeMetadataCacheOnLoad, &decoder))
++        || FAILED(IWICBitmapDecoder_GetFrame(decoder, 0, &frame))
++        || FAILED(IWICBitmapFrameDecode_GetSize(frame, &width, &height))
++        || width != TOOLTOOLBAR_BUTTON_SIZE || height != TOOLTOOLBAR_BUTTON_SIZE
++        || FAILED(IWICImagingFactory_CreateFormatConverter(factory, &converter))
++        || FAILED(IWICFormatConverter_Initialize(converter,
++            (IWICBitmapSource *)frame, &GUID_WICPixelFormat32bppBGR,
++            WICBitmapDitherTypeNone, NULL, 0.0, WICBitmapPaletteTypeCustom)))
++    {
++        goto done;
++    }
++
++    ZeroMemory(&info, sizeof(info));
++    info.bmiHeader.biSize = sizeof(info.bmiHeader);
++    info.bmiHeader.biWidth = (LONG)width;
++    info.bmiHeader.biHeight = -(LONG)height;
++    info.bmiHeader.biPlanes = 1;
++    info.bmiHeader.biBitCount = 32;
++    info.bmiHeader.biCompression = BI_RGB;
++    bitmap = CreateDIBSection(NULL, &info, DIB_RGB_COLORS, &pixels, NULL, 0);
++    success = bitmap != NULL
++        && SUCCEEDED(IWICFormatConverter_CopyPixels(converter, NULL,
++                         width * 4, width * height * 4, (BYTE *)pixels));
++
++done:
++    if (converter != NULL) { IWICFormatConverter_Release(converter); }
++    if (frame != NULL) { IWICBitmapFrameDecode_Release(frame); }
++    if (decoder != NULL) { IWICBitmapDecoder_Release(decoder); }
++    if (stream != NULL) { IWICStream_Release(stream); }
++    if (!success && bitmap != NULL) { DeleteObject(bitmap); bitmap = NULL; }
++    return bitmap;
++}
++
++static BOOL ToolToolbarLoadImages(HINSTANCE instance, ToolToolbarState *state)
++{
++    IWICImagingFactory *factory = NULL;
++    HRESULT initialized = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
++    BOOL success = FALSE;
++    int tool, active;
++
++    if (FAILED(initialized) && initialized != RPC_E_CHANGED_MODE)
++    {
++        return FALSE;
++    }
++    if (SUCCEEDED(CoCreateInstance(&CLSID_WICImagingFactory, NULL,
++                      CLSCTX_INPROC_SERVER, &IID_IWICImagingFactory,
++                      (void **)&factory)))
++    {
++        success = TRUE;
++        for (tool = 0; tool < EDITOR_TOOL_COUNT; tool++)
++        {
++            for (active = 0; active < 2; active++)
++            {
++                state->images[tool][active] = ToolToolbarLoadImage(
++                    instance, factory, g_Tools[tool].images[active]);
++                if (state->images[tool][active] == NULL) { success = FALSE; }
++            }
++        }
++        IWICImagingFactory_Release(factory);
++    }
++    if (SUCCEEDED(initialized)) { CoUninitialize(); }
++    return success;
++}
++
++static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
++                                           WPARAM wparam, LPARAM lparam)
++{
++    ToolToolbarState *state = (ToolToolbarState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
++    int tool;
++
++    switch (message)
++    {
++    case WM_CREATE:
++    {
++        HINSTANCE instance = ((CREATESTRUCT *)lparam)->hInstance;
++
++        state = (ToolToolbarState *)calloc(1, sizeof(*state));
++        if (state == NULL) { return -1; }
++        SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
++        state->tool = EDITOR_TOOL_FACE_SELECT;
++        if (!ToolToolbarLoadImages(instance, state))
++        {
++            MessageBox(hwnd, "Could not load the toolbar button graphics.",
++                       "GEditor", MB_ICONERROR);
++            return -1;
++        }
++
++        state->tooltip = CreateWindowEx(WS_EX_TOPMOST, TOOLTIPS_CLASS, NULL,
++            WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX,
++            CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
++            hwnd, NULL, instance, NULL);
++        for (tool = 0; tool < EDITOR_TOOL_COUNT; tool++)
++        {
++            TOOLINFO tip;
++
++            state->buttons[tool] = CreateWindowEx(0, "BUTTON", g_Tools[tool].name,
++                WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW,
++                TOOLTOOLBAR_MARGIN + tool * (TOOLTOOLBAR_BUTTON_SIZE + TOOLTOOLBAR_MARGIN),
++                TOOLTOOLBAR_MARGIN, TOOLTOOLBAR_BUTTON_SIZE, TOOLTOOLBAR_BUTTON_SIZE,
++                hwnd, (HMENU)(INT_PTR)(TOOLTOOLBAR_FIRST_ID + tool), instance, NULL);
++            if (state->buttons[tool] == NULL) { return -1; }
++            ZeroMemory(&tip, sizeof(tip));
++            tip.cbSize = sizeof(tip);
++            tip.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
++            tip.hwnd = hwnd;
++            tip.uId = (UINT_PTR)state->buttons[tool];
++            tip.lpszText = (char *)g_Tools[tool].name;
++            SendMessage(state->tooltip, TTM_ADDTOOL, 0, (LPARAM)&tip);
++        }
++        return 0;
++    }
++
++    case WM_COMMAND:
++        tool = LOWORD(wparam) - TOOLTOOLBAR_FIRST_ID;
++        if (HIWORD(wparam) == BN_CLICKED && tool >= 0 && tool < EDITOR_TOOL_COUNT)
++        {
++            SendMessage(GetParent(hwnd), EDITTOOL_WM_SELECT, (WPARAM)tool, 0);
++            return 0;
++        }
++        break;
++
++    case WM_DRAWITEM:
++        if (state != NULL)
++        {
++            const DRAWITEMSTRUCT *draw = (const DRAWITEMSTRUCT *)lparam;
++
++            tool = (int)draw->CtlID - TOOLTOOLBAR_FIRST_ID;
++            if (draw->CtlType == ODT_BUTTON && tool >= 0 && tool < EDITOR_TOOL_COUNT)
++            {
++                HDC source = CreateCompatibleDC(draw->hDC);
++                HGDIOBJ previous;
++
++                if (source == NULL) { return FALSE; }
++                previous = SelectObject(source, state->images[tool][state->tool == (EditorTool)tool]);
++                BitBlt(draw->hDC, draw->rcItem.left, draw->rcItem.top,
++                    TOOLTOOLBAR_BUTTON_SIZE, TOOLTOOLBAR_BUTTON_SIZE, source, 0, 0, SRCCOPY);
++                SelectObject(source, previous);
++                DeleteDC(source);
++                if ((draw->itemState & (ODS_FOCUS | ODS_NOFOCUSRECT)) == ODS_FOCUS)
++                {
++                    RECT focus = draw->rcItem;
++
++                    InflateRect(&focus, -3, -3);
++                    DrawFocusRect(draw->hDC, &focus);
++                }
++                return TRUE;
++            }
++        }
++        break;
++
++    case WM_NCDESTROY:
++        if (state != NULL)
++        {
++            int active;
++
++            if (state->tooltip != NULL) { DestroyWindow(state->tooltip); }
++            for (tool = 0; tool < EDITOR_TOOL_COUNT; tool++)
++            {
++                for (active = 0; active < 2; active++)
++                {
++                    if (state->images[tool][active] != NULL)
++                    {
++                        DeleteObject(state->images[tool][active]);
++                    }
++                }
++            }
++            free(state);
++            SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
++        }
++        break;
++    }
++    return DefWindowProc(hwnd, message, wparam, lparam);
++}
++
++BOOL ToolToolbarRegisterClass(HINSTANCE hinstance)
++{
++    WNDCLASS wc;
++    INITCOMMONCONTROLSEX controls = { sizeof(controls), ICC_WIN95_CLASSES };
++
++    if (!InitCommonControlsEx(&controls)) { return FALSE; }
++    ZeroMemory(&wc, sizeof(wc));
++    wc.lpfnWndProc = ToolToolbarWndProc;
++    wc.hInstance = hinstance;
++    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
++    wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
++    wc.lpszClassName = TOOLTOOLBAR_CLASS;
++    return RegisterClass(&wc) != 0;
++}
++
++HWND ToolToolbarCreate(HWND parent, HINSTANCE hinstance)
++{
++    return CreateWindowEx(WS_EX_CONTROLPARENT, TOOLTOOLBAR_CLASS, "Tools",
++        WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN,
++        0, 0, 16, TOOLTOOLBAR_HEIGHT, parent, NULL, hinstance, NULL);
++}
++
++void ToolToolbarSetTool(HWND toolbar, EditorTool tool)
++{
++    ToolToolbarState *state = (ToolToolbarState *)GetWindowLongPtr(toolbar, GWLP_USERDATA);
++    int index;
++
++    if (state == NULL || tool < 0 || tool >= EDITOR_TOOL_COUNT || tool == state->tool)
++    {
++        return;
++    }
++    state->tool = tool;
++    for (index = 0; index < EDITOR_TOOL_COUNT; index++)
++    {
++        InvalidateRect(state->buttons[index], NULL, FALSE);
++    }
++}
++
++BOOL ToolToolbarHandleMessage(HWND toolbar, MSG *message)
++{
++    HWND frame;
++
++    if (toolbar == NULL || message == NULL) { return FALSE; }
++    frame = GetParent(toolbar);
++    if (message->hwnd != frame && !IsChild(frame, message->hwnd)) { return FALSE; }
++
++    if (message->message == WM_KEYDOWN
++        && !(GetKeyState(VK_CONTROL) & 0x8000)
++        && !(GetKeyState(VK_MENU) & 0x8000)
++        && !(GetKeyState(VK_SHIFT) & 0x8000))
++    {
++        char classname[32] = "";
++        int tool = -1;
++
++        /* The Transform fields must still accept numbers, as must any
++           other native edit controls added to the editor in future. */
++        GetClassName(message->hwnd, classname, sizeof(classname));
++        if (lstrcmpi(classname, "Edit") == 0) { return FALSE; }
++        if (message->wParam >= '1' && message->wParam <= '4')
++        {
++            tool = (int)(message->wParam - '1');
++        }
++        else if (message->wParam >= VK_NUMPAD1 && message->wParam <= VK_NUMPAD4)
++        {
++            tool = (int)(message->wParam - VK_NUMPAD1);
++        }
++        if (tool >= 0)
++        {
++            SendMessage(frame, EDITTOOL_WM_SELECT, (WPARAM)tool, 0);
++            return TRUE;
++        }
++    }
++
++    if (message->message == WM_KEYDOWN && message->wParam == VK_RETURN
++        && IsChild(toolbar, message->hwnd))
++    {
++        SendMessage(message->hwnd, BM_CLICK, 0, 0);
++        return TRUE;
++    }
++    return (message->hwnd == toolbar || IsChild(toolbar, message->hwnd))
++        && IsDialogMessage(toolbar, message);
++}
+diff --git a/tools/geditor/src/tooltoolbar.h b/tools/geditor/src/tooltoolbar.h
+new file mode 100644
+index 0000000..d7019ee
+--- /dev/null
++++ b/tools/geditor/src/tooltoolbar.h
+@@ -0,0 +1,16 @@
++#ifndef GEDITOR_TOOLTOOLBAR_H
++#define GEDITOR_TOOLTOOLBAR_H
++
++#include "edittool.h"
++
++/* The supplied artwork is 48px square, with a 4px margin on each side. */
++#define TOOLTOOLBAR_HEIGHT 56
++
++BOOL ToolToolbarRegisterClass(HINSTANCE hinstance);
++HWND ToolToolbarCreate(HWND parent, HINSTANCE hinstance);
++void ToolToolbarSetTool(HWND toolbar, EditorTool tool);
++/* Call from both frame message loops. Number shortcuts leave text input
++   alone; Tab/Space/Enter also support the toolbar's native buttons. */
++BOOL ToolToolbarHandleMessage(HWND toolbar, MSG *message);
++
++#endif
+diff --git a/tools/geditor/src/viewport.c b/tools/geditor/src/viewport.c
+index 278bfcd..5d0ab20 100644
+--- a/tools/geditor/src/viewport.c
++++ b/tools/geditor/src/viewport.c
+@@ -75,6 +75,7 @@ typedef struct VertexColor {
+ typedef struct ViewportState {
+     HDC hdc;      /* private DC - stable for the window's lifetime (CS_OWNDC) */
+     HGLRC hglrc;  /* the GL context rendering into it */
++    EditorTool tool;
+ 
+     /* Fly Camera */
+     float posx, posy, posz;
+@@ -1224,7 +1225,8 @@ static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex,
+     DWORD objectindex;
+ 
+     if (state == NULL || state->selectedtris == NULL
+-        || state->scenecolors == NULL || state->flying)
++        || state->scenecolors == NULL || state->flying
++        || state->tool != EDITOR_TOOL_FACE_SELECT)
+     {
+         return;
+     }
+@@ -1323,6 +1325,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
+         state->showportals = FALSE;
+         state->cullbackfaces = TRUE;
+         state->selectedobject = VIEWPORT_OBJECT_NONE;
++        state->tool = EDITOR_TOOL_FACE_SELECT;
+ 
+         if (!ViewportInitGL(hwnd, state))
+         {
+@@ -1368,7 +1371,8 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
+         return 0;
+ 
+     case WM_KEYDOWN:
+-        if (wparam == VK_DELETE)
++        if (wparam == VK_DELETE && state != NULL
++            && state->tool == EDITOR_TOOL_FACE_SELECT)
+         {
+             SendMessage(GetParent(hwnd), VIEWPORT_WM_DELETE_SELECTION, 0, 0);
+         }
+@@ -1500,6 +1504,31 @@ void ViewportRedraw(HWND viewport)
+ }
+ 
+ 
++EditorTool ViewportGetTool(HWND viewport)
++{
++    ViewportState *state = ViewportGetState(viewport);
++
++    return state != NULL ? state->tool : EDITOR_TOOL_FACE_SELECT;
++}
++
++
++void ViewportSetTool(HWND viewport, EditorTool tool)
++{
++    ViewportState *state = ViewportGetState(viewport);
++
++    if (state == NULL || tool < 0 || tool >= EDITOR_TOOL_COUNT || tool == state->tool)
++    {
++        return;
++    }
++    state->tool = tool;
++    /* Future vertex/edge/paint tools must not inherit a face or object
++       selection that Delete or Transform could inadvertently edit. */
++    ViewportClearAllSelection(state);
++    ViewportRedraw(viewport);
++    SendMessage(GetParent(viewport), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
++}
++
++
+ /* Frees the scene's GL textures, geometry, and editor overlays. Needs the
+    GL context current for glDeleteTextures. */
+ static void ViewportFreeScene(struct ViewportState *state_)
+diff --git a/tools/geditor/src/viewport.h b/tools/geditor/src/viewport.h
+index 38e7064..40187ac 100644
+--- a/tools/geditor/src/viewport.h
++++ b/tools/geditor/src/viewport.h
+@@ -4,6 +4,7 @@
+ #include <windows.h>
+ 
+ #include "bgdocument.h"
++#include "edittool.h"
+ #include "setupload.h"
+ #include "stanload.h"
+ #include "texload.h"
+@@ -22,6 +23,11 @@ BOOL ViewportRegisterClass(HINSTANCE hinstance);
+ HWND ViewportCreate(HWND parent, HINSTANCE hinstance);
+ void ViewportRedraw(HWND viewport);
+ 
++/* Face selection is the initial tool. Changing tools clears the current
++   selection without editing assets or adding an undo history entry. */
++EditorTool ViewportGetTool(HWND viewport);
++void ViewportSetTool(HWND viewport, EditorTool tool);
++
+ /**
+  * Frame loop hooks. The main loop asks whether a viewport is flying
+  * and if so drives one flight frame per pass instead of waiting for paint or timer messages.

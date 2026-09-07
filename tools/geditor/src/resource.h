@@ -8,6 +8,16 @@
 /* Icons */
 #define IDI_GEDITOR           201
 
+/* Viewport tool buttons (embedded PNGs). */
+#define IDR_VERTEX_SELECT_OFF 301
+#define IDR_VERTEX_SELECT_ON  302
+#define IDR_EDGE_SELECT_OFF   303
+#define IDR_EDGE_SELECT_ON    304
+#define IDR_FACE_SELECT_OFF   305
+#define IDR_FACE_SELECT_ON    306
+#define IDR_VERTEX_PAINT_OFF  307
+#define IDR_VERTEX_PAINT_ON   308
+
 /* Controls inside IDD_NEW_PROJECT */
 #define IDC_PROJECT_NAME     1001
 #define IDC_NAME_WARNING     1002

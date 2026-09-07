@@ -4,6 +4,7 @@
 #include <windows.h>
 
 #include "bgdocument.h"
+#include "edittool.h"
 #include "setupload.h"
 #include "stanload.h"
 #include "texload.h"
@@ -21,6 +22,11 @@
 BOOL ViewportRegisterClass(HINSTANCE hinstance);
 HWND ViewportCreate(HWND parent, HINSTANCE hinstance);
 void ViewportRedraw(HWND viewport);
+
+/* Face selection is the initial tool. Changing tools clears the current
+   selection without editing assets or adding an undo history entry. */
+EditorTool ViewportGetTool(HWND viewport);
+void ViewportSetTool(HWND viewport, EditorTool tool);
 
 /**
  * Frame loop hooks. The main loop asks whether a viewport is flying
