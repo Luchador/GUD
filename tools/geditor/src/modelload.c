@@ -439,7 +439,8 @@ DWORD ModelExtractAll(const RomFile *rom, const char *projectdir,
         {
             wsprintf(path, "%s\\models\\%s\\%s.gltf", projectdir, cls, name);
 
-            if (GltfWriteModel(path, tris, texids, tricount, &why))
+            if (GltfWriteModel(path, projectdir, tris, texids,
+                               tricount, &why))
             {
                 written++;
             }
@@ -522,7 +523,8 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
     if (file != NULL)
     {
         fclose(file);
-        return GltfLoadModel(path, tricount, tritags, reasonout);
+        return GltfLoadModel(path, projectdir, tricount,
+                             tritags, reasonout);
     }
 
     pathlength = snprintf(path, sizeof(path),

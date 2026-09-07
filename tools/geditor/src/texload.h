@@ -32,6 +32,11 @@ typedef struct TexPixel { unsigned char r, g, b, a; } TexPixel;
 BOOL TexLoadProjectImage(const char *projectdir, DWORD id,
                          TexPixel *out, int *w, int *h);
 
+/* Reads only the dimensions from an extracted project BMP. This is used when
+ * converting between GoldenEye's texel-space UVs and normalized model UVs. */
+BOOL TexGetProjectImageSize(const char *projectdir, DWORD id,
+                            int *w, int *h);
+
 /*
  * One browser thumbnail: a small top-down BGRA image (GDI-native, ready for StretchDIBits) plus its label
  * (the texture ID, i.e. the file stem).

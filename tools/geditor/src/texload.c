@@ -674,3 +674,59 @@ BOOL TexLoadProjectImage(const char *projectdir, DWORD id,
     CloseHandle(file);
     return ok;
 }
+
+
+BOOL TexGetProjectImageSize(const char *projectdir, DWORD id,
+                            int *w, int *h)
+{
+    char path[MAX_PATH];
+    unsigned char header[54];
+    HANDLE file;
+    DWORD got;
+    LONG width;
+    LONG rawheight;
+    int written;
+
+    *w = 0;
+    *h = 0;
+
+    written = snprintf(path, sizeof(path), "%s\\images\\%04lX.bmp",
+                       projectdir, (unsigned long)id);
+    if (written < 0 || written >= (int)sizeof(path))
+    {
+        return FALSE;
+    }
+
+    file = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL,
+                      OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE)
+    {
+        return FALSE;
+    }
+
+    if (!ReadFile(file, header, sizeof(header), &got, NULL)
+        || got != sizeof(header)
+        || header[0] != 'B' || header[1] != 'M'
+        || texle32(header + 14) < 40
+        || texle16(header + 26) != 1
+        || texle16(header + 28) != 32
+        || texle32(header + 30) != BI_RGB)
+    {
+        CloseHandle(file);
+        return FALSE;
+    }
+
+    width = (LONG)texle32(header + 18);
+    rawheight = (LONG)texle32(header + 22);
+    CloseHandle(file);
+
+    if (width <= 0 || width > 256
+        || rawheight == 0 || rawheight < -256 || rawheight > 256)
+    {
+        return FALSE;
+    }
+
+    *w = (int)width;
+    *h = rawheight < 0 ? (int)-rawheight : (int)rawheight;
+    return TRUE;
+}

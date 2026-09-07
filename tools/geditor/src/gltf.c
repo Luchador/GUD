@@ -16,6 +16,7 @@
 #include <string.h>
 
 #include "gltf.h"
+#include "texload.h"
 
 #define GLTF_COMPONENT_BYTE           5120
 #define GLTF_COMPONENT_UNSIGNED_BYTE  5121
@@ -71,6 +72,8 @@ typedef struct GltfBuilder {
 
 typedef struct GltfGroup {
     unsigned short tag;
+    int texturewidth;
+    int textureheight;
     DWORD tricount;
     DWORD firstvertex;
     DWORD written;
@@ -1147,10 +1150,113 @@ static BOOL GltfPrimitiveTag(const char *json,
 }
 
 
+static BOOL GltfUsesNormalizedUvs(const char *json,
+                                  const GltfJsonToken *tokens,
+                                  int tokencount, int root)
+{
+    int extras = GltfJsonObjectGet(json, tokens, tokencount,
+                                   root, "extras");
+    int units = GltfJsonObjectGet(json, tokens, tokencount,
+                                  extras, "goldeneyeUvUnits");
+    int asset;
+    int generator;
+
+    if (units >= 0)
+    {
+        return GltfJsonTokenEquals(json, &tokens[units], "normalized");
+    }
+
+    asset = GltfJsonObjectGet(json, tokens, tokencount, root, "asset");
+    extras = GltfJsonObjectGet(json, tokens, tokencount,
+                               asset, "extras");
+    units = GltfJsonObjectGet(json, tokens, tokencount,
+                              extras, "goldeneyeUvUnits");
+    if (units >= 0)
+    {
+        return GltfJsonTokenEquals(json, &tokens[units], "normalized");
+    }
+
+    /* The first GEditor glTF exporter wrote texel-space values directly.
+       Other glTF producers use normalized texture coordinates by default. */
+    generator = GltfJsonObjectGet(json, tokens, tokencount,
+                                  asset, "generator");
+    return generator < 0
+        || !GltfJsonTokenEquals(json, &tokens[generator], "GEditor");
+}
+
+
+static BOOL GltfReadTextureSize(const char *json,
+                                const GltfJsonToken *tokens,
+                                int tokencount, int extras,
+                                int *widthout, int *heightout)
+{
+    int size = GltfJsonObjectGet(json, tokens, tokencount,
+                                 extras, "goldeneyeTextureSize");
+    int width = GltfJsonArrayGet(tokens, tokencount, size, 0);
+    int height = GltfJsonArrayGet(tokens, tokencount, size, 1);
+    DWORD w;
+    DWORD h;
+
+    if (width < 0 || height < 0
+        || !GltfJsonUnsigned(json, &tokens[width], &w)
+        || !GltfJsonUnsigned(json, &tokens[height], &h)
+        || w == 0 || h == 0 || w > 0xffffu || h > 0xffffu)
+    {
+        return FALSE;
+    }
+
+    *widthout = (int)w;
+    *heightout = (int)h;
+    return TRUE;
+}
+
+
+static void GltfPrimitiveTextureSize(const char *json,
+                                     const GltfJsonToken *tokens,
+                                     int tokencount, int root,
+                                     int primitive,
+                                     int *widthout, int *heightout)
+{
+    int extras = GltfJsonObjectGet(json, tokens, tokencount,
+                                   primitive, "extras");
+    DWORD materialindex;
+    int materialtoken;
+    int materials;
+    int material;
+
+    *widthout = 1;
+    *heightout = 1;
+    if (GltfReadTextureSize(json, tokens, tokencount, extras,
+                            widthout, heightout))
+    {
+        return;
+    }
+
+    materialtoken = GltfJsonObjectGet(json, tokens, tokencount,
+                                      primitive, "material");
+    if (materialtoken < 0
+        || !GltfJsonUnsigned(json, &tokens[materialtoken],
+                             &materialindex))
+    {
+        return;
+    }
+
+    materials = GltfJsonObjectGet(json, tokens, tokencount,
+                                  root, "materials");
+    material = GltfJsonArrayGet(tokens, tokencount,
+                                materials, materialindex);
+    extras = GltfJsonObjectGet(json, tokens, tokencount,
+                               material, "extras");
+    GltfReadTextureSize(json, tokens, tokencount, extras,
+                        widthout, heightout);
+}
+
+
 static BOOL GltfLoadPrimitive(const char *json,
                               const GltfJsonToken *tokens, int tokencount,
                               int root, int primitive,
                               const GltfBuffer *buffers, DWORD buffercount,
+                              const char *projectdir, BOOL normalizeduvs,
                               GltfBuilder *builder, const char **reasonout)
 {
     int attributes;
@@ -1171,6 +1277,8 @@ static BOOL GltfLoadPrimitive(const char *json,
     BOOL hastexcoords = FALSE;
     BOOL hasindices = FALSE;
     unsigned short tag;
+    int texturewidth = 1;
+    int textureheight = 1;
 
     if (primitive < 0 || tokens[primitive].type != GLTF_JSON_OBJECT)
     {
@@ -1278,6 +1386,25 @@ static BOOL GltfLoadPrimitive(const char *json,
         return FALSE;
     }
 
+    if (normalizeduvs && hastexcoords)
+    {
+        GltfPrimitiveTextureSize(json, tokens, tokencount, root,
+                                 primitive, &texturewidth, &textureheight);
+
+        if (projectdir != NULL && BG_TEX_ID(tag) != BG_TEX_NONE)
+        {
+            int projectwidth;
+            int projectheight;
+
+            if (TexGetProjectImageSize(projectdir, BG_TEX_ID(tag),
+                                       &projectwidth, &projectheight))
+            {
+                texturewidth = projectwidth;
+                textureheight = projectheight;
+            }
+        }
+    }
+
     for (outputindex = 0; outputindex < elementcount; outputindex++)
     {
         DWORD sourceindex = outputindex;
@@ -1309,8 +1436,8 @@ static BOOL GltfLoadPrimitive(const char *json,
                 *reasonout = "a glTF triangle references invalid texture coordinates.";
                 return FALSE;
             }
-            vertex->s = values[0];
-            vertex->t = values[1];
+            vertex->s = values[0] * (float)texturewidth;
+            vertex->t = values[1] * (float)textureheight;
         }
 
         if (hascolors)
@@ -1338,7 +1465,8 @@ static BOOL GltfLoadPrimitive(const char *json,
 }
 
 
-BgVertex *GltfLoadModel(const char *path, DWORD *tricount,
+BgVertex *GltfLoadModel(const char *path, const char *projectdir,
+                        DWORD *tricount,
                         unsigned short **tritags,
                         const char **reasonout)
 {
@@ -1354,6 +1482,7 @@ BgVertex *GltfLoadModel(const char *path, DWORD *tricount,
     int meshes;
     DWORD meshcount;
     DWORD meshindex;
+    BOOL normalizeduvs;
 
     ZeroMemory(&builder, sizeof(builder));
     *tricount = 0;
@@ -1388,6 +1517,8 @@ BgVertex *GltfLoadModel(const char *path, DWORD *tricount,
         goto fail;
     }
 
+    normalizeduvs = GltfUsesNormalizedUvs(json, tokens, tokencount, 0);
+
     meshes = GltfJsonObjectGet(json, tokens, tokencount, 0, "meshes");
     meshcount = GltfJsonArrayCount(tokens, tokencount, meshes);
     for (meshindex = 0; meshindex < meshcount; meshindex++)
@@ -1406,7 +1537,8 @@ BgVertex *GltfLoadModel(const char *path, DWORD *tricount,
                                              primitives, primitiveindex);
 
             if (!GltfLoadPrimitive(json, tokens, tokencount, 0, primitive,
-                                   buffers, buffercount, &builder, reasonout))
+                                   buffers, buffercount, projectdir,
+                                   normalizeduvs, &builder, reasonout))
             {
                 goto fail;
             }
@@ -1454,13 +1586,14 @@ static void GltfWriteFloat(unsigned char *data, float value)
 }
 
 
-static void GltfPackVertex(unsigned char *data, const BgVertex *vertex)
+static void GltfPackVertex(unsigned char *data, const BgVertex *vertex,
+                           int texturewidth, int textureheight)
 {
     GltfWriteFloat(data + 0, vertex->x);
     GltfWriteFloat(data + 4, vertex->y);
     GltfWriteFloat(data + 8, vertex->z);
-    GltfWriteFloat(data + 12, vertex->s);
-    GltfWriteFloat(data + 16, vertex->t);
+    GltfWriteFloat(data + 12, vertex->s / (float)texturewidth);
+    GltfWriteFloat(data + 16, vertex->t / (float)textureheight);
     data[20] = vertex->r;
     data[21] = vertex->g;
     data[22] = vertex->b;
@@ -1512,6 +1645,7 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
     if (fprintf(file,
         "{\n"
         "  \"asset\": {\"version\": \"2.0\", \"generator\": \"GEditor\"},\n"
+        "  \"extras\": {\"goldeneyeUvUnits\": \"normalized\"},\n"
         "  \"scene\": 0,\n"
         "  \"scenes\": [{\"nodes\": [0]}],\n"
         "  \"nodes\": [{\"mesh\": 0, \"name\": \"GoldenEye model\"}],\n"
@@ -1560,8 +1694,9 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
         const char *comma = group + 1 < groupcount ? "," : "";
 
         if (fprintf(file,
-            "    {\"name\": \"GUD Texture Tag 0x%04X\", \"doubleSided\": true%s, \"extras\": {\"goldeneyeTextureTag\": %u}}%s\n",
-            item->tag, alpha, item->tag, comma) < 0)
+            "    {\"name\": \"GUD Texture Tag 0x%04X\", \"doubleSided\": true%s, \"extras\": {\"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
+            item->tag, alpha, item->tag,
+            item->texturewidth, item->textureheight, comma) < 0)
         {
             ok = FALSE;
         }
@@ -1576,11 +1711,13 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
         const char *comma = group + 1 < groupcount ? "," : "";
 
         if (fprintf(file,
-            "    {\"attributes\": {\"POSITION\": %lu, \"TEXCOORD_0\": %lu, \"COLOR_0\": %lu}, \"material\": %lu, \"mode\": 4, \"extras\": {\"goldeneyeTextureTag\": %u}}%s\n",
+            "    {\"attributes\": {\"POSITION\": %lu, \"TEXCOORD_0\": %lu, \"COLOR_0\": %lu}, \"material\": %lu, \"mode\": 4, \"extras\": {\"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
             (unsigned long)(group * 3),
             (unsigned long)(group * 3 + 1),
             (unsigned long)(group * 3 + 2),
-            (unsigned long)group, groups[group].tag, comma) < 0)
+            (unsigned long)group, groups[group].tag,
+            groups[group].texturewidth, groups[group].textureheight,
+            comma) < 0)
         {
             ok = FALSE;
         }
@@ -1602,7 +1739,8 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
 }
 
 
-BOOL GltfWriteModel(const char *path, const BgVertex *vertices,
+BOOL GltfWriteModel(const char *path, const char *projectdir,
+                    const BgVertex *vertices,
                     const unsigned short *tritags, DWORD tricount,
                     const char **reasonout)
 {
@@ -1653,6 +1791,23 @@ BOOL GltfWriteModel(const char *path, const BgVertex *vertices,
 
     for (triangle = 0; triangle < groupcount; triangle++)
     {
+        DWORD textureid = BG_TEX_ID(groups[triangle].tag);
+
+        groups[triangle].texturewidth = 1;
+        groups[triangle].textureheight = 1;
+        if (projectdir != NULL && textureid != BG_TEX_NONE)
+        {
+            TexGetProjectImageSize(projectdir, textureid,
+                                   &groups[triangle].texturewidth,
+                                   &groups[triangle].textureheight);
+        }
+        if (groups[triangle].texturewidth <= 0
+            || groups[triangle].textureheight <= 0)
+        {
+            groups[triangle].texturewidth = 1;
+            groups[triangle].textureheight = 1;
+        }
+
         groups[triangle].firstvertex = firstvertex;
         firstvertex += groups[triangle].tricount * 3;
     }
@@ -1671,7 +1826,8 @@ BOOL GltfWriteModel(const char *path, const BgVertex *vertices,
             int axis;
 
             GltfPackVertex(binary + (destination + corner)
-                           * GLTF_VERTEX_STRIDE, vertex);
+                           * GLTF_VERTEX_STRIDE, vertex,
+                           group->texturewidth, group->textureheight);
 
             for (axis = 0; axis < 3; axis++)
             {
