@@ -99,7 +99,7 @@ static BOOL ObjectMakeBasis(const SetupPad *pad, float worldscale,
     return ObjectNormalize(basis->up);
 }
 
-/* Apply the authored placement used by sub_GAME_7F040BA0/objPlaceAtPad.
+/* Apply the authored placement used by objPlaceOnSideAtPad/objPlaceAtPad.
    Run after finding the bound-pad center: its anchor uses the original pad
    axes, while the model axes below may be rotated. Doors use setupDoor's
    separate transform and must not pass through here. */
@@ -110,7 +110,7 @@ static void ObjectApplyPlacementFlags(DWORD flags, const SetupBoundPad *bound,
 {
     int axis;
 
-    if (!(flags & (PROPFLAG_ONSCREEN | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)))
+    if (!(flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)))
     {
         return;
     }
@@ -127,7 +127,7 @@ static void ObjectApplyPlacementFlags(DWORD flags, const SetupBoundPad *bound,
         }
     }
 
-    if (flags & PROPFLAG_ONSCREEN)
+    if (flags & PROPFLAG_ONSIDE)
     {
         /* The setup meaning of this flag is rotate X by 270 degrees, then
            Y by 180 degrees: model X/Y/Z map to -side/look/up. The Y/Z
@@ -456,10 +456,10 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
 
             if (modeldim[0] > 0.000001f) fitted[0] = padx / modeldim[0];
             if (modeldim[1] > 0.000001f)
-                fitted[1] = ((object->flags & PROPFLAG_ONSCREEN) ? padz : pady)
+                fitted[1] = ((object->flags & PROPFLAG_ONSIDE) ? padz : pady)
                           / modeldim[1];
             if (modeldim[2] > 0.000001f)
-                fitted[2] = ((object->flags & PROPFLAG_ONSCREEN) ? pady : padz)
+                fitted[2] = ((object->flags & PROPFLAG_ONSIDE) ? pady : padz)
                           / modeldim[2];
 
             if (object->flags & PROPFLAG_SCALE_TO_PAD_BOUNDS)

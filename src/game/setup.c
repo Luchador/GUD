@@ -262,7 +262,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
             spD0.f[1] = padRecord->pos.f[1];
             spD0.f[2] = padRecord->pos.f[2];
 
-            if (objectRecord->flags & PROPFLAG_ONSCREEN)
+            if (objectRecord->flags & PROPFLAG_ONSIDE)
             {
                 sp80.f[0] = padRecord->pos.f[0];
                 sp80.f[1] = padRecord->pos.f[1];
@@ -345,7 +345,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
                     {
                         if (bboxRecord->Bounds.xmin < bboxRecord->Bounds.xmax)
                         {
-                            if (objectRecord->flags & PROPFLAG_ONSCREEN)
+                            if (objectRecord->flags & PROPFLAG_ONSIDE)
                             {
                                 sp58 = (boundPadRecord->bbox.xmax - boundPadRecord->bbox.xmin) / ((bboxRecord->Bounds.xmax - bboxRecord->Bounds.xmin) * objectRecord->model->scale);
                             }
@@ -360,7 +360,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
                     {
                         if (bboxRecord->Bounds.ymin < bboxRecord->Bounds.ymax)
                         {
-                            if (objectRecord->flags & PROPFLAG_ONSCREEN)
+                            if (objectRecord->flags & PROPFLAG_ONSIDE)
                             {
                                 sp50 = (boundPadRecord->bbox.zmax - boundPadRecord->bbox.zmin) / ((bboxRecord->Bounds.ymax - bboxRecord->Bounds.ymin) * objectRecord->model->scale);
                             }
@@ -375,7 +375,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
                     {
                         if (bboxRecord->Bounds.zmin < bboxRecord->Bounds.zmax)
                         {
-                            if (objectRecord->flags & PROPFLAG_ONSCREEN)
+                            if (objectRecord->flags & PROPFLAG_ONSIDE)
                             {
                                 sp54 = (boundPadRecord->bbox.ymax - boundPadRecord->bbox.ymin) / ((bboxRecord->Bounds.zmax - bboxRecord->Bounds.zmin) * objectRecord->model->scale);
                             }
@@ -420,7 +420,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
                     {
                         if (!(objectRecord->flags & PROPFLAG_SCALE_TO_X_BOUNDS))
                         {
-                            if (objectRecord->flags & PROPFLAG_ONSCREEN)
+                            if (objectRecord->flags & PROPFLAG_ONSIDE)
                             {
                                 if (bboxRecord->Bounds.xmax == bboxRecord->Bounds.xmin)
                                 {
@@ -435,7 +435,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
 
                         if (!(objectRecord->flags & PROPFLAG_SCALE_TO_Y_BOUNDS))
                         {
-                            if (objectRecord->flags & PROPFLAG_ONSCREEN)
+                            if (objectRecord->flags & PROPFLAG_ONSIDE)
                             {
                                 if (bboxRecord->Bounds.ymax == bboxRecord->Bounds.ymin)
                                 {
@@ -450,7 +450,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
 
                         if (!(objectRecord->flags & PROPFLAG_SCALE_TO_Z_BOUNDS))
                         {
-                            if (objectRecord->flags & PROPFLAG_ONSCREEN)
+                            if (objectRecord->flags & PROPFLAG_ONSIDE)
                             {
                                 if (bboxRecord->Bounds.zmax == bboxRecord->Bounds.zmin)
                                 {
@@ -489,9 +489,9 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
             modelSetScale(objectRecord->model, objectRecord->model->scale * sp78);
             matrix_scalar_multiply(objectRecord->model->scale, sp8C.m[0]);
 
-            if (objectRecord->flags & PROPFLAG_ONSCREEN)
+            if (objectRecord->flags & PROPFLAG_ONSIDE)
             {
-                sub_GAME_7F040BA0(objectRecord, &spE0, &sp8C, spDC, &sp80);
+                objPlaceOnSideAtPad(objectRecord, &spE0, &sp8C, spDC, &sp80);
             }
             else
             {

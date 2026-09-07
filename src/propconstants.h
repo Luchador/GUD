@@ -8,7 +8,8 @@
 typedef enum PROPFLAG
 {
     PROPFLAG_RENDERPOSTBG                      = 0x00000001, // Fall to Ground
-    PROPFLAG_ONSCREEN                          = 0x00000002, // In Air Rotated 90 Deg Upside-Down
+    PROPFLAG_ONSCREEN                          = 0x00000002, // PropRecord.flags: runtime visibility.
+    PROPFLAG_ONSIDE                            = 0x00000002, // ObjectRecord.flags: sideways placement, anchored at the model's Z-min face.
     PROPFLAG_ENABLED                           = 0x00000004, // In Air Upside-Down
     PROPFLAG_UPSIDEDOWN                        = 0x00000004,
     PROPFLAG_00000008                          = 0x00000008, // In Air

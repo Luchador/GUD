@@ -770,43 +770,48 @@ void objPlaceAtPad(ObjectRecord *baseobj, struct coord3d *pos, Mtxf *matrix, Sta
 }
 
 
-void sub_GAME_7F040BA0(ObjectRecord *obj, coord3d *pos, Mtxf *arg2, StandTile *stan2, coord3d *pos2)
+/**
+  * Place a PROPFLAG_ONSIDE object with its local Z-min face at anchorPos.
+  * padMatrix already includes the object's scale and any fitting to pad bounds.
+  * referencePos/referenceStan provide a valid tile reference for placement. 
+  */
+void objPlaceOnSideAtPad(ObjectRecord *obj, coord3d *referencePos, Mtxf *padMatrix, StandTile *referenceStan, coord3d *anchorPos)
 {
-    Mtxf *sp6C_ptr;
-    f32 (*sp6Cm_ptr)[4];
-    f32 spBC;
-    coord3d posdiff;
-    StandTile *stan;
-    Mtxf matrix;
-    Mtxf sp2C;
+    f32 modelZmin;
+    coord3d placedPos;
+    StandTile *placementStan;
+    Mtxf placementMatrix;
+    Mtxf yawFlipMatrix;
 
-    spBC = chrpropBBOXGetZmin(chrobjGetBboxFromObjFile(obj->model->obj));
-    stan = stan2;
-    sp6C_ptr = &matrix;
+    modelZmin = chrpropBBOXGetZmin(chrobjGetBboxFromObjFile(obj->model->obj));
+    placementStan = referenceStan;
 
-    matrix_4x4_set_rotation_around_x(4.712389f, sp6C_ptr);
+    /* Rotate 270 degrees about X, then 180 degrees about Y, before applying
+     * the pad orientation and scale. */
+    matrix_4x4_set_rotation_around_x(4.712389f, &placementMatrix);
+    matrix_4x4_set_rotation_around_y(M_PI_F, &yawFlipMatrix);
+    matrix_4x4_multiply_in_place(&yawFlipMatrix, &placementMatrix);
+    matrix_4x4_multiply_in_place(padMatrix, &placementMatrix);
 
-    sp6Cm_ptr = matrix.m;
+    placedPos.x = anchorPos->x - (placementMatrix.m[2][0] * modelZmin);
+    placedPos.y = anchorPos->y - (placementMatrix.m[2][1] * modelZmin);
+    placedPos.z = anchorPos->z - (placementMatrix.m[2][2] * modelZmin);
 
-    matrix_4x4_set_rotation_around_y(M_PI_F, &sp2C);
-    matrix_4x4_multiply_in_place(&sp2C, sp6C_ptr);
-    matrix_4x4_multiply_in_place(arg2, &matrix);
-
-    posdiff.x = pos2->x - (sp6Cm_ptr[2][0] * spBC);
-    posdiff.y = pos2->y - (sp6Cm_ptr[2][1] * spBC);
-    posdiff.z = pos2->z - (sp6Cm_ptr[2][2] * spBC);
-
-    if (!(obj->flags2 & PROPFLAG2_DRONEGUN)
-        && walkTilesBetweenPoints_NoCallback(&stan, pos->x, pos->z, posdiff.x, posdiff.z) != 0)
+    if (!(obj->flags2 & PROPFLAG2_DRONEGUN) && walkTilesBetweenPoints_NoCallback(&placementStan, referencePos->x, referencePos->z, placedPos.x, placedPos.z) != 0)
     {
-        objChangeShading(obj, &posdiff, &matrix, stan);
+        objChangeShading(obj, &placedPos, &placementMatrix, placementStan);
     }
     else
     {
-        objChangeShading(obj, pos, &matrix, stan2);
-        obj->position.x = posdiff.x;
-        obj->position.y = posdiff.y;
-        obj->position.z = posdiff.z;
+        /**
+         * Keep the prop's tile reference at the known valid position while
+         * placing the object's geometry at the requested anchor. 
+         */
+        objChangeShading(obj, referencePos, &placementMatrix, referenceStan);
+
+        obj->position.x = placedPos.x;
+        obj->position.y = placedPos.y;
+        obj->position.z = placedPos.z;
     }
 
     objUpdateCollisionVolume(obj);
@@ -824,19 +829,10 @@ void objFreeEmbedmentOrProjectile(PropRecord *prop)
             {
                 projectileFree(obj->embedment->projectile);
             }
-            #ifdef DEBUG
-            else
-            {
-                osSyncPrintf("ERROR: PROPHIDD_ATTACHED was, but move.attach was NULL\a\n");
-            osSyncPrintf("po->obj=%d\n", obj->obj);
-                osSyncPrintf("p->flags=%08x\n", prop->flags);
-                osSyncPrintf("po->flags2=%08x\n", obj->flags2);
-                osSyncPrintf("p->timetoregen=%d\n", prop->timetoregen);
-            }
-            #endif
 
             embedmentFree(obj->embedment);
         }
+
         obj->embedment = NULL;
         obj->runtime_bitflags &= ~RUNTIMEBITFLAG_EMBEDDED;
     }
@@ -3228,7 +3224,7 @@ void propExplode(PropRecord *prop, s32 /* enum EXPLOSION_DEF */ explosionType)
             && walkTilesBetweenPoints_NoCallback(&stan, parent->pos.f[0], parent->pos.f[2], pos.x, pos.z))
         {
             explosionCreate(0, &pos, stan, (s16) explosionType,
-                (prop_obj->flags & (PROPFLAG_ONSCREEN | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0,
+                (prop_obj->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0,
                 playernum, parent->rooms, 0);
         }
         else
@@ -3239,7 +3235,7 @@ void propExplode(PropRecord *prop, s32 /* enum EXPLOSION_DEF */ explosionType)
     else
     {
         explosionCreate(0, &prop_obj->position, prop->stan, (s16) explosionType,
-            (prop_obj->flags & (PROPFLAG_ONSCREEN | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0
+            (prop_obj->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0
                 && (prop->flags & PROPFLAG_00000008) == 0,
             playernum, prop->rooms, (prop->flags & PROPFLAG_00000008) != 0);
     }
@@ -8187,7 +8183,7 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
             if ((!(tailprop->flags & PROPFLAG_00000008)) && walkTilesBetweenPoints_NoCallback(&stan, tailprop->pos.x, tailprop->pos.z, target_pos->x, target_pos->z))
             {
                 explosionCreate(prop, target_pos, stan, explosion_type,
-                    (obj->flags & (PROPFLAG_ONSCREEN | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0,
+                    (obj->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0,
                     playernum, tailprop->rooms, 0);
             }
             else
@@ -8237,7 +8233,7 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
             if ((!(tailprop->flags & PROPFLAG_00000008)) && walkTilesBetweenPoints_NoCallback(&stan, tailprop->pos.x, tailprop->pos.z, target_pos->x, target_pos->z))
             {
                 explosionCreate(prop, target_pos, stan, 0x10,
-                    (obj->flags & (PROPFLAG_ONSCREEN | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0,
+                    (obj->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0,
                     playernum, tailprop->rooms, 0);
             }
             else
