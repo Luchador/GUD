@@ -4968,6 +4968,18 @@ void objTickBuildDoorMatrices(PropRecord *prop, Mtxf *mtxs, f32 previousOpenPosi
             }
         }
 
+        /* All six blade pairs use the same two rotations. Initialize every
+         * pair before applying positions and parent transforms, so the first
+         * pair can serve as the templates without extra matrix storage. */
+        matrix_4x4_set_rotation_around_z(sp380, &mtxs[1]);
+        matrix_4x4_set_rotation_around_z(sp384, &mtxs[2]);
+
+        for (sp38C = 1; sp38C < 6; sp38C++)
+        {
+            matrix_4x4_copy(&mtxs[1], &mtxs[sp38C * 2 + 1]);
+            matrix_4x4_copy(&mtxs[2], &mtxs[sp38C * 2 + 2]);
+        }
+
         sp38C = 0;
 
         do
@@ -4975,11 +4987,9 @@ void objTickBuildDoorMatrices(PropRecord *prop, Mtxf *mtxs, f32 previousOpenPosi
             temp_v0_32 = sp38C << 1;
             var_v1_5 = temp_v0_32 + 2;
             sp390 = (Mtxf *) model->obj->Switches[temp_v0_32 + 1]->Data;
-            matrix_4x4_set_rotation_around_z(sp380, (Mtxf *) ((((u8 *) mtxs) + (temp_v0_32 * (sizeof(Mtxf)))) + (sizeof(Mtxf))));
             matrix_4x4_set_position((struct coord3d *) sp390, (Mtxf *) ((((u8 *) mtxs) + (temp_v0_32 * (sizeof(Mtxf)))) + (sizeof(Mtxf))));
             matrix_4x4_multiply_in_place(mtxs, (Mtxf *) ((((u8 *) mtxs) + (temp_v0_32 * (sizeof(Mtxf)))) + (sizeof(Mtxf))));
             sp390 = (Mtxf *) model->obj->Switches[var_v1_5]->Data;
-            matrix_4x4_set_rotation_around_z(sp384, (Mtxf *) (((u8 *) mtxs) + (var_v1_5 << 6)));
             matrix_4x4_set_position((struct coord3d *) sp390, &mtxs[var_v1_5]);
             matrix_4x4_multiply_in_place((Mtxf *) ((((u8 *) mtxs) + (temp_v0_32 * (sizeof(Mtxf)))) + (sizeof(Mtxf))), &mtxs[var_v1_5]);
             sp38C++;
@@ -7149,24 +7159,28 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
     }
     else
     {
-        ModelNode *collisionNode = sub_GAME_7F04B478(obj);
         bool hasDeformedVertices = FALSE;
-        s32 destroyedLevel;
+        s32 destroyedLevel = objGetDestroyedLevel(obj);
 
-        if (collisionNode != NULL)
+        /* Healthy props cannot use the deformation render path. subdraw
+         * still applies their normal LOD, switch and head relations. */
+        if (destroyedLevel > 0)
         {
-            union ModelRoData *collisionData = collisionNode->Data;
+            ModelNode *collisionNode = sub_GAME_7F04B478(obj);
 
-            if (collisionData != NULL)
+            if (collisionNode != NULL)
             {
-                s32 rwdataIndex = collisionData->DisplayListCollisions.RwDataIndex;
+                union ModelRoData *collisionData = collisionNode->Data;
 
-                hasDeformedVertices = collisionData->DisplayListCollisions.Vertices
-                        != (Vertex *)model->datas[rwdataIndex];
+                if (collisionData != NULL)
+                {
+                    s32 rwdataIndex = collisionData->DisplayListCollisions.RwDataIndex;
+
+                    hasDeformedVertices = collisionData->DisplayListCollisions.Vertices
+                            != (Vertex *)model->datas[rwdataIndex];
+                }
             }
         }
-
-        destroyedLevel = objGetDestroyedLevel(obj);
 
         if (destroyedLevel > 0 && hasDeformedVertices)
         {
@@ -8297,13 +8311,13 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
     BoundVec bboxMin2;
     BoundVec bboxMax2;
     Gfx *cmdStart;
+    Gfx *hitCmdStart = NULL;
     Gfx *tcmd;
     Vertex *v;
     coord3d zero2;
     s32 s2;
     s32 i;
     s32 op;
-    s32 texnum;
     
     bestDist = M_U32_MAX_VALUE_F;
     result[0] = 0;
@@ -8389,31 +8403,6 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
                     dx = (f32) (((s32) hitbuf.hitpos.x) - ((s32) arg0->x));
                     dy = (f32) (((s32) hitbuf.hitpos.y) - ((s32) arg0->y));
                     dz = (f32) (((s32) hitbuf.hitpos.z) - ((s32) arg0->z));
-                    tcmd = gdl;
-                    if (((*((u8 *) gdl)) != 253) && (cmdStart < gdl))
-                    {
-                        do
-                        {
-                            tcmd--;
-
-                            if ((*((u8 *) tcmd)) == 253)
-                            {
-                                break;
-                            }
-                        } while (cmdStart < tcmd);
-
-                    }
-
-                    if (tcmd == cmdStart)
-                    {
-                        texnum = -1;
-                    }
-                    else
-                    {
-                        padC = ((u32 *) tcmd)[1] - 8;
-                        texnum = *((u16 *) (padC | 0x80000000));
-                    }
-
                     d = ((dx * dx) + (dy * dy)) + (dz * dz);
 
                     if (d < bestDist)
@@ -8428,7 +8417,7 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
                         hitthing->vtx0 = &vtxbase[idx[0]];
                         hitthing->vtx1 = &vtxbase[idx[1]];
                         hitthing->vtx2 = &vtxbase[idx[2]];
-                        hitthing->texturenum = texnum;
+                        hitCmdStart = cmdStart;
                         hitthing->tricmd = gdl;
                         hitthing->unk28 = 0;
                         result[0] = 1;
@@ -8510,31 +8499,6 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
                         dx = (f32) (((s32) hitbuf.hitpos.x) - ((s32) arg0->x));
                         dy = (f32) (((s32) hitbuf.hitpos.y) - ((s32) arg0->y));
                         dz = (f32) (((s32) hitbuf.hitpos.z) - ((s32) arg0->z));
-                        tcmd = gdl;
-
-                        if (((*((u8 *) gdl)) != G_SETTIMG) && (cmdStart < gdl))
-                        {
-                            do
-                            {
-                                tcmd--;
-                                if ((*((u8 *) tcmd)) == G_SETTIMG)
-                                {
-                                    break;
-                                }
-                            } while (cmdStart < tcmd);
-
-                        }
-
-                        if (tcmd == cmdStart)
-                        {
-                            texnum = -1;
-                        }
-                        else
-                        {
-                            padC = ((u32 *) tcmd)[1] - 8;
-                            texnum = *((u16 *) (padC | 0x80000000));
-                        }
-
                         d = ((dx * dx) + (dy * dy)) + (dz * dz);
 
                         if (d < bestDist)
@@ -8549,7 +8513,7 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
                             hitthing->vtx0 = &vtxbase[idx2[0]];
                             hitthing->vtx1 = &vtxbase[idx2[1]];
                             hitthing->vtx2 = &vtxbase[idx2[2]];
-                            hitthing->texturenum = texnum;
+                            hitCmdStart = cmdStart;
                             hitthing->tricmd = gdl;
                             hitthing->unk28 = s2 + 1;
                             result[0] = 1;
@@ -8562,6 +8526,34 @@ bool bgTestHitOnObj(coord3d *arg0, coord3d *arg1, coord3d *arg2, Gfx *gdl, Gfx *
         gdl++;
     }
  
+    /* Only the nearest hit needs a texture. Keep the winning list's start:
+     * a hit in the primary list must not search back from the secondary. */
+    if (result[0])
+    {
+        tcmd = hitthing->tricmd;
+
+        while (tcmd > hitCmdStart)
+        {
+            tcmd--;
+
+            if (*((u8 *) tcmd) == G_SETTIMG)
+            {
+                break;
+            }
+        }
+
+        /* Preserve the original list-start sentinel behavior. */
+        if (tcmd == hitCmdStart)
+        {
+            hitthing->texturenum = -1;
+        }
+        else
+        {
+            padC = ((u32 *) tcmd)[1] - 8;
+            hitthing->texturenum = *((u16 *) (padC | 0x80000000));
+        }
+    }
+
     return result[0];
 }
 
@@ -9258,11 +9250,11 @@ void objTestHit(PropRecord* prop, struct ShotData* shotdata)
     struct ModelRoData_BoundingBoxRecord *bbox;
 
     obj = prop->obj;
-    model = obj->model;
-    bbox = chrobjGetBboxFromObjectRecord(obj);
 
     if ((prop->flags & PROPFLAG_ONSCREEN) && (obj->runtime_bitflags & RUNTIMEBITFLAG_FULLY_DESTROYED) == 0 && (obj->flags2 & PROPFLAG2_SHOOTTHROUGH) == 0)
     {
+        model = obj->model;
+        bbox = chrobjGetBboxFromObjectRecord(obj);
         tmp = -(model->render_pos->pos.m[3][2] + chrpropSumMatrixNegZ(bbox, (Mtxf*)model->render_pos));
 
         if (tmp <= shotdata->maxdist)
