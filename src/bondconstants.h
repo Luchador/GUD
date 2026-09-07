@@ -319,6 +319,7 @@ typedef enum PROPFLAG
     PROPFLAG_FIXED_MONITOR                     = 0x10000000, // Monitor Fixed
     PROPFLAG_CCTV_DISABLED                     = 0x10000000, // Disable security camera
     PROPFLAG_IS_DRONE_GUN                      = 0x10000000, // drone gun
+    PROPFLAG_AMMO_DETONATE                     = 0x10000000, // Explosive ammo pickup detonates on its next weapon tick.
     PROPFLAG_DOOR_OPENTOFRONT                  = 0x20000000, // Open Backwards
     PROPFLAG_SPECIAL_FUNC                      = 0x20000000, // Special Function
     PROPFLAG_INMOTION                          = 0x20000000, // projectile/prop is in motion

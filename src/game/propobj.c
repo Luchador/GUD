@@ -583,7 +583,7 @@ PropRecord* objInit(ObjectRecord* obj, ModelFileHeader* model_header, PropRecord
         obj->model = model;
         obj->collisionBlock = NULL;
 
-        if (obj->flags & 0x100)
+        if (obj->flags & PROPFLAG_FORCE_COLLISIONS)
         {
             obj->collisionBlock = mempAllocBytesInBank(0x50U, MEMPOOL_STAGE);
             obj->state = (u8) (obj->state | PROPSTATE_EXT_COLISION_BLOCK);
@@ -790,7 +790,8 @@ void sub_GAME_7F040BA0(ObjectRecord *obj, coord3d *pos, Mtxf *arg2, StandTile *s
     posdiff.y = pos2->y - (sp6Cm_ptr[2][1] * spBC);
     posdiff.z = pos2->z - (sp6Cm_ptr[2][2] * spBC);
 
-    if ((!(((s32) obj->flags2) & 1)) && (walkTilesBetweenPoints_NoCallback(&stan, pos->x, pos->z, posdiff.x, posdiff.z) != 0))
+    if (!(obj->flags2 & PROPFLAG2_DRONEGUN)
+        && walkTilesBetweenPoints_NoCallback(&stan, pos->x, pos->z, posdiff.x, posdiff.z) != 0)
     {
         objChangeShading(obj, &posdiff, &matrix, stan);
     }
@@ -3220,7 +3221,9 @@ void propExplode(PropRecord *prop, s32 /* enum EXPLOSION_DEF */ explosionType)
         if ((parent->flags & PROPFLAG_00000008) == 0
             && walkTilesBetweenPoints_NoCallback(&stan, parent->pos.f[0], parent->pos.f[2], pos.x, pos.z))
         {
-            explosionCreate(0, &pos, stan, (s16) explosionType, (prop_obj->flags & 0xE) == 0, playernum, parent->rooms, 0);
+            explosionCreate(0, &pos, stan, (s16) explosionType,
+                (prop_obj->flags & (PROPFLAG_ONSCREEN | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0,
+                playernum, parent->rooms, 0);
         }
         else
         {
@@ -3229,7 +3232,10 @@ void propExplode(PropRecord *prop, s32 /* enum EXPLOSION_DEF */ explosionType)
     }
     else
     {
-        explosionCreate(0, &prop_obj->position, prop->stan, (s16) explosionType, (prop_obj->flags & 0xE) == 0 && (prop->flags & PROPFLAG_00000008) == 0, playernum, prop->rooms, (prop->flags & PROPFLAG_00000008) != 0);
+        explosionCreate(0, &prop_obj->position, prop->stan, (s16) explosionType,
+            (prop_obj->flags & (PROPFLAG_ONSCREEN | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0
+                && (prop->flags & PROPFLAG_00000008) == 0,
+            playernum, prop->rooms, (prop->flags & PROPFLAG_00000008) != 0);
     }
 }
 
@@ -3262,7 +3268,7 @@ void chrobjWeaponTick(struct PropRecord* prop)
 
     if (obj->type == PROP_TYPE_EXPLOSION)
     {
-        if (obj->flags & PROPFLAG_IS_DRONE_GUN)
+        if (obj->flags & PROPFLAG_AMMO_DETONATE)
         {
             propExplode(prop, EXPLOSION_DEF_DRONE);
             obj->runtime_bitflags |= RUNTIMEBITFLAG_REMOVE;
@@ -6278,7 +6284,7 @@ s32 objTick(struct PropRecord *prop, s32 playerCount, bool isSimOwner)
 	}
 	else if (obj->runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE)
 	{
-		prop->flags &= 0xFFFD;
+		prop->flags &= ~PROPFLAG_ONSCREEN;
 		obj->runtime_bitflags |= RUNTIMEBITFLAG_ISRETICK;
 		return TICKOP_RETICK;
 	}
@@ -8197,7 +8203,9 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
         {
             if ((!(tailprop->flags & PROPFLAG_00000008)) && walkTilesBetweenPoints_NoCallback(&stan, tailprop->pos.x, tailprop->pos.z, target_pos->x, target_pos->z))
             {
-                explosionCreate(prop, target_pos, stan, explosion_type, (obj->flags & 0xe) == 0, playernum, tailprop->rooms, 0);
+                explosionCreate(prop, target_pos, stan, explosion_type,
+                    (obj->flags & (PROPFLAG_ONSCREEN | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0,
+                    playernum, tailprop->rooms, 0);
             }
             else
             {
@@ -8245,7 +8253,9 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
         {
             if ((!(tailprop->flags & PROPFLAG_00000008)) && walkTilesBetweenPoints_NoCallback(&stan, tailprop->pos.x, tailprop->pos.z, target_pos->x, target_pos->z))
             {
-                explosionCreate(prop, target_pos, stan, 0x10, (obj->flags & (PROPFLAG_ONSCREEN | PROPFLAG_ENABLED | PROPFLAG_00000008)) == 0, playernum, tailprop->rooms, 0);
+                explosionCreate(prop, target_pos, stan, 0x10,
+                    (obj->flags & (PROPFLAG_ONSCREEN | PROPFLAG_UPSIDEDOWN | PROPFLAG_INAIR)) == 0,
+                    playernum, tailprop->rooms, 0);
             }
             else
             {
@@ -8878,7 +8888,7 @@ ObjectRecord blank_07_object = {
     0x07, //type
     0, //obj
     0xFFFF, //pad
-    0x00000001, //flags
+    PROPFLAG_RENDERPOSTBG, //flags
     0, //flags2
     NULL, //prop
     NULL, //model
@@ -8938,7 +8948,7 @@ void objApplyDamage(ObjectRecord *obj, f32 damage, coord3d *pos, ITEM_IDS itemnu
             goto apply_damage;
         }
 
-        (obj->flags & PROPFLAG_EMBEDDED)
+        if (obj->flags & PROPFLAG_EMBEDDED)
         {
             return;
         }
@@ -8991,7 +9001,7 @@ void objApplyDamage(ObjectRecord *obj, f32 damage, coord3d *pos, ITEM_IDS itemnu
                 || ammotype == AMMO_BOMBCASE
                 || ammotype == AMMO_DYNAMITE)
         {
-            obj->flags = flags | 0x10000000;
+            obj->flags = flags | PROPFLAG_AMMO_DETONATE;
         }
 
         return;
@@ -9242,7 +9252,7 @@ void objTestAndAddShotHit(PropRecord *prop, struct ShotData *hitinfo)
             {
                 penetrates = TRUE;
 
-                if ((obj->flags & PROPFLAG2_USESTANROOM) == FALSE)
+                if ((obj->flags & PROPFLAG_INVINCIBLE) == FALSE)
                 {
                     if ((obj->type == PROPDEF_GLASS) || (obj->type == PROPDEF_TINTED_GLASS))
                     {
@@ -10601,7 +10611,7 @@ TICKOP objTickPlayer(struct PropRecord* prop)
                             obj_2 = var_a1;
                         }
 
-                        if (weaponObj->flags & 0x10000000) 
+                        if (weaponObj->flags & PROPFLAG_WEAPON_LEFTHANDED)
                         {
                             var_a1 = weaponObj->weaponnum;
                         } 
@@ -10918,7 +10928,7 @@ PropRecord *hatCreateForChr(ChrRecord *chr, s32 modelnum, u32 flags)
             0x11,   // type
             0,      // obj
             0,      // pad
-            0x00004000, // flags
+            PROPFLAG_ASSIGNEDTOCHR, // flags
             0,      // flags2
             NULL,   // prop
             NULL,   // model
@@ -11196,7 +11206,7 @@ AmmoCrateRecord *ammocrateAllocate(void)
         if ((g_AmmoCrates[i].runtime_bitflags & RUNTIMEBITFLAG_HASPROJECTILE) == 0
                 && (g_AmmoCrates[i].state & PROPSTATE_RESPAWN) == 0
                 && g_AmmoCrates[i].prop->parent == NULL
-                && (g_AmmoCrates[i].prop->flags & 0x02) == 0)
+                && (g_AmmoCrates[i].prop->flags & PROPFLAG_ONSCREEN) == 0)
         {
             objFreePermanently(&g_AmmoCrates[i], TRUE);
             return (g_AmmoCrates + i);
@@ -11501,7 +11511,7 @@ WeaponObjRecord blank_08_object_preset_1 = {
     0x08, //type
     0, //obj
     1, //pad
-    0x00000000, //flags
+    0, //flags
     0, //flags2
     NULL, // prop
     NULL, // model
@@ -11604,7 +11614,7 @@ WeaponObjRecord blank_08_object_preset_4001 = {
     0x08, //type
     0, //obj
     0x4001, //pad
-    0x00000000, //flags
+    0, //flags
     0, //flags2
     NULL, //prop
     NULL, //model
@@ -11628,9 +11638,7 @@ WeaponObjRecord blank_08_object_preset_4001 = {
     NULL //dualweapon
 };
 
-/**
- * NTSC address 0x7F052214.
-*/
+
 PropRecord *something_with_generating_object(ChrRecord *self, s32 propid, ITEM_IDS itemid, s32 flags, WeaponObjRecord *weapon, ItemModelFileRecord *prop_header)
 {
     Model *objinst;
@@ -11667,7 +11675,7 @@ PropRecord *something_with_generating_object(ChrRecord *self, s32 propid, ITEM_I
 
         weapon->weaponnum = itemid;
         weapon->obj = propid;
-        weapon->flags = flags | 0x4000;
+        weapon->flags = flags | PROPFLAG_ASSIGNEDTOCHR;
 
         // pad = chrnum ???
         weapon->pad = self->chrnum;
@@ -11739,7 +11747,7 @@ void chrRenderHeldWeapon(void *renderContext, GUNHAND hand, Gfx **gdl)
 
         if (!(weaponObj->runtime_bitflags & RUNTIMEBITFLAG_00000800))
         {
-            if ((s32)(weaponObj->flags2 << 12) >= 0) 
+            if (!(weaponObj->flags2 & PROPFLAG2_ONLYEXPLOSIONDAMAGE))
             {
                 heldModel = weaponObj->model;
                 renderData = D_800322A4;
@@ -11812,9 +11820,10 @@ void weaponSetGunfireVisible(PropRecord *prop, s32 firing)
 /*
 * Alternative name: getHatType
 */
-HATTYPE get_hat_model(PropRecord *prop) //#MATCH
+HATTYPE get_hat_model(PropRecord *prop)
 {
     ObjectRecord *objinst = prop->obj;
+
     switch (objinst->obj)
     {
         case PROP_HATFURRY:
@@ -13187,7 +13196,7 @@ void door7F05522C(DoorRecord *door, f32 *arg1, f32 *arg2, s32 altcoordsystem)
     {
         angle2 = (door->openPosition * M_TAU_F) / 360.0f;
 
-        if (door->flags & 0x20000000)
+        if (door->flags & PROPFLAG_DOOR_OPENTOFRONT)
         {
             angle2 = M_TAU_F - angle2;
         }
@@ -13391,7 +13400,7 @@ void doorActivateWrapper(PropRecord *prop)
     }
 
     door->runtime_bitflags |= RUNTIMEBITFLAG_ACTIVATED;
-    door->flags2 &= ~8;
+    door->flags2 &= ~PROPFLAG2_NO_LOAD_MP;
     propActivateLinkedDoors(prop);
 }
 
@@ -13458,8 +13467,8 @@ void doorsChooseSwingDirection(PropRecord *chrprop, DoorRecord *door)
             }
         }
 
-        // If flags are different
-        if ((s32)((door->flags ^ wantflag) << 2) < 0)
+        // If the current swing direction differs from the requested direction.
+        if ((door->flags ^ wantflag) & PROPFLAG_DOOR_OPENTOFRONT)
         {
             // Toggle direction on door and siblings
             DoorRecord *sibling = door;
@@ -13809,7 +13818,7 @@ void sub_GAME_7F056690(void)
     s2 = chrpropGetActiveTail();
     for (; s2 != NULL; s2 = s2->prev)
     {
-        if ((s2->type == 1) && ((s2->flags & 2) == 0))
+        if ((s2->type == 1) && ((s2->flags & PROPFLAG_ONSCREEN) == 0))
         {
             s1 = s2->obj;
             if (s1->state & 0x80)
@@ -13859,7 +13868,7 @@ void drop_inventory(void)
 
         if ((propid >= 0) && (bondinvHasInvItem(item) != 0))
         {
-            prop = something_with_generating_object(playerchr, propid, item, 0x20000000, NULL, NULL);
+            prop = something_with_generating_object(playerchr, propid, item, PROPFLAG_CONCEAL_GUN, NULL, NULL);
 
             if (prop != NULL)
             {
