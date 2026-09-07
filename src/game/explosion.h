@@ -3,9 +3,6 @@
 #include <ultra64.h>
 #include <bondtypes.h>
 
-// Not sure what this was originally, but it looks like there was a multiplier
-// applied that compiler factors out.
-#define EXPLOSION_DAMAGE_SCALER 1.0f
 
 #define EXPLOSION_BUFFER_LEN 6
 #define EXPLOSION_PARTS_LEN 40
@@ -25,10 +22,8 @@ typedef struct s_smoketype {
     u8 r;
     u8 g;
     u8 b;
-    //u8 a;
     f32 fg_rotrate;
     s16 propagated_clouds;
-    //u16 field_0x16;
 } s_smoketype;
 
 typedef struct ExplosionType {
@@ -75,12 +70,10 @@ struct Explosion {
     struct ExplosionPart parts[EXPLOSION_PARTS_LEN];
     s16 age; // some kind of current tick + total elapsed?
     s16 nextDamageAge; // Apply damage again when age reaches this value.
-
     s8 explosion_type;
     s8 unk3CD;
     s8 player;
     s8 unk3CF;
-
     struct coord3d pos;
     s16 room;
     s16 unk3DE;
@@ -88,32 +81,30 @@ struct Explosion {
 
 struct SmokePart
 {
-    coord3d pos;         /*0x00*/
-    f32 size;                   /*0x0c*/
-    f32 rot;                    /*0x10*/
-    f32 deltarot;               /*0x14*/
-    f32 offset1;                /*0x18*/
-    f32 offset2;                /*0x1c*/
-    f32 alpha;                  /*0x20*/
-    s16 count;                  /*0x24*/
+    coord3d pos;
+    f32 size;
+    f32 rot;
+    f32 deltarot;
+    f32 offset1;
+    f32 offset2;
+    f32 alpha;
+    s16 count;
 };
 
 struct Smoke {
     PropRecord *prop;
     s16 duration;
     s16 smoke_type;
-    struct SmokePart parts[SMOKE_PARTS_LEN]; /*0x008*/
+    struct SmokePart parts[SMOKE_PARTS_LEN];
 };
 
 struct Scorch {
     s16 roomid;
     u8 unk02;
     s8 unk03;
-
     struct coord3d pos;
     f32 explosion_size;
     struct Model *model;
-
     Vtx vertex_list[4];
 };
 
@@ -121,7 +112,7 @@ struct BulletImpact {
     s16 room;
     s16 impact_type;
     u32 unk04;
-    Vtx vertex_list[4];//cannonically vlist
+    Vtx vertex_list[4];
     PropRecord* prop;
     s8 model_render_pos_index;
     s8 room_clear_flag;
@@ -130,14 +121,11 @@ struct BulletImpact {
 
 struct Cornflakes {
     s32 unk00;
-
-    struct coord3d position; // 0x04
-    struct coord3d rotation; // 0x10
-    struct coord3d position_drift; // 0x1c
-    struct coord3d rotation_drift; // 0x28
-
+    struct coord3d position;
+    struct coord3d rotation;
+    struct coord3d position_drift;
+    struct coord3d rotation_drift;
     s32 unk34;
-
     Vtx vertex_list[4];
 };
 
@@ -163,25 +151,19 @@ extern s32 g_NumImpactEntries;
 
 void explosionInitScaleMtx(void);
 s32 explosionSmokeTick(PropRecord *arg0);
-void sub_GAME_7F09FD3C(void);
-Gfx * explosionRenderFlyingParticles(Gfx *arg0);
-Gfx * explosionCallRenderBulletImpactOnProp(Gfx *arg0);
+Gfx *explosionRenderCornflakes(Gfx *gdl);
+Gfx *explosionCallRenderBulletImpactOnProp(Gfx *gdl);
 Gfx *explosionRenderScorchBuffer(Gfx *arg0);
-Gfx *explosionRenderPropExplosion(PropRecord *prop, Gfx *gdl, s32 withalpha);
+Gfx *explosionRender(PropRecord *prop, Gfx *gdl, s32 withalpha);
 Gfx *explosionRenderPropSmoke(PropRecord *arg0, Gfx *arg1, s32 withalpha);
-
-
 Gfx *explosionRenderBulletImpactOnProp(Gfx *arg0, PropRecord *arg1, s32 arg2);
-
 void explosionCreateSmoke(coord3d *pos, StandTile *stan, s16 smoke_type, u8 *rooms, s32 flags);
-void explosionUpdateFlyingParticles(void);
+void explosionUpdateCornflakes(void);
 u8 explosionChrpropSmokeTick(PropRecord* prop);
 u8 explosionChrpropExplosionTick(PropRecord* prop);
 void explosionScreenShake(coord3d* source_pos, coord3d* source_mag, coord3d* result);
 void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16 impact_type, s16 room, PropRecord *prop, s8 model_render_pos_index, s8 room_clear_flag);
 s32 explosionTick(PropRecord* arg0);
 void explosionCreate(PropRecord *arg0, struct coord3d *target_pos, StandTile *target_stan, s16 /* enum EXPLOSION_DEF */ explosion_type, s32 arg4, s32 player, u8 *rooms, s32 arg7);
-void sub_GAME_7F09C250(s32 arg0, struct coord3d *pos, struct StandTile *stan, s16 arg3, s32 flag4, s32 playernum, u8 *rooms, s32 flag7);
-
 
 #endif

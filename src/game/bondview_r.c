@@ -19,7 +19,7 @@
 
 #define FLOAT_INIT 0
 #define FIELD_6C_FACTOR 0.170000016689f
-#define FIELD_3B8_FACTOR 0.100000023842f
+#define CAMERA_POSITION_ACCUMULATOR_SCALE 0.100000023842f
 
 struct coord3d default_start_position = { 0 };
 
@@ -390,10 +390,10 @@ void bondviewLoadSetupIntroSection(void)
     g_CurrentPlayer->vv_theta = (start_look_angle * 360.0f) / M_TAU_F;
     g_CurrentPlayer->stanHeight = stan_height;
     g_CurrentPlayer->field_6C = stan_height / FIELD_6C_FACTOR;
-    change_player_pos_to_target(&g_CurrentPlayer->field_488, &start_pos, start_stan);
-    g_CurrentPlayer->field_488.facingDirection.f[0] = -sinf(start_look_angle);
-    g_CurrentPlayer->field_488.facingDirection.f[1] = FLOAT_INIT;
-    g_CurrentPlayer->field_488.facingDirection.f[2] = cosf(start_look_angle);
+    change_player_pos_to_target(&g_CurrentPlayer->spatialState, &start_pos, start_stan);
+    g_CurrentPlayer->spatialState.facingDirection.f[0] = -sinf(start_look_angle);
+    g_CurrentPlayer->spatialState.facingDirection.f[1] = FLOAT_INIT;
+    g_CurrentPlayer->spatialState.facingDirection.f[2] = cosf(start_look_angle);
     sub_GAME_7F089718(D_800364D0);
 
     bondviewResetIntroCameraMessageDialogs();
@@ -415,9 +415,9 @@ void bondviewLoadSetupIntroSection(void)
 
     chrpropActivate(g_CurrentPlayer->prop);
     chrpropEnable(g_CurrentPlayer->prop);
-    g_CurrentPlayer->field_3B8.f[0] = (g_CurrentPlayer->field_488.cameraPosition.f[0] / FIELD_3B8_FACTOR);
-    g_CurrentPlayer->field_3B8.f[1] = (g_CurrentPlayer->field_488.cameraPosition.f[1] / FIELD_3B8_FACTOR);
-    g_CurrentPlayer->field_3B8.f[2] = (g_CurrentPlayer->field_488.cameraPosition.f[2] / FIELD_3B8_FACTOR);
+    g_CurrentPlayer->cameraPositionAccumulator.x = (g_CurrentPlayer->spatialState.cameraPosition.f[0] / CAMERA_POSITION_ACCUMULATOR_SCALE);
+    g_CurrentPlayer->cameraPositionAccumulator.y = (g_CurrentPlayer->spatialState.cameraPosition.f[1] / CAMERA_POSITION_ACCUMULATOR_SCALE);
+    g_CurrentPlayer->cameraPositionAccumulator.z = (g_CurrentPlayer->spatialState.cameraPosition.f[2] / CAMERA_POSITION_ACCUMULATOR_SCALE);
 
     if (getPlayerCount() == 1)
     {

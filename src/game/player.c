@@ -8,7 +8,7 @@
 #include "lv.h"
 
 
-#define DEFAULT_FIELD_3B8_Z     9.999998f
+#define DEFAULT_CAMERA_POSITION_ACCUMULATOR_Z     9.999998f
 #define DEFAULT_HEADDAMP        0.93f
 #define DEFAULT_HEADLOOKSUM_VAL 14.285716f
 #define DEFAULT_VIEWPORT_V_VAL  0x1E0
@@ -349,12 +349,12 @@ void playerInitData(s32 player_num)
     g_playerPointers[player_num]->pause_animation_counter = 0.0f;
     g_playerPointers[player_num]->buttons_pressed = 0;
     g_playerPointers[player_num]->prev_buttons_pressed = 0;
-    g_playerPointers[player_num]->field_3B8.x = 0.0f;
-    g_playerPointers[player_num]->field_3B8.y = 0.0f;
-    g_playerPointers[player_num]->field_3B8.z = DEFAULT_FIELD_3B8_Z;
-    g_playerPointers[player_num]->field_3C4 = 0.0f;
-    g_playerPointers[player_num]->field_3C8 = 0.0f;
-    g_playerPointers[player_num]->field_3CC = 1.0f;
+    g_playerPointers[player_num]->cameraPositionAccumulator.x = 0.0f;
+    g_playerPointers[player_num]->cameraPositionAccumulator.y = 0.0f;
+    g_playerPointers[player_num]->cameraPositionAccumulator.z = DEFAULT_CAMERA_POSITION_ACCUMULATOR_Z;
+    g_playerPointers[player_num]->smoothedCameraPosition.x = 0.0f;
+    g_playerPointers[player_num]->smoothedCameraPosition.y = 0.0f;
+    g_playerPointers[player_num]->smoothedCameraPosition.z = 1.0f;
     g_playerPointers[player_num]->colourscreenred = 0xFF;
     g_playerPointers[player_num]->colourscreengreen = 0xFF;
     g_playerPointers[player_num]->colourscreenblue = 0xFF;

@@ -3967,12 +3967,12 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                             chrDetectRooms(chr);
                             if (chr->prop == g_CurrentPlayer->prop)
                             {
-                                g_CurrentPlayer->field_488.collisionPosition.x = pos.x;
-                                g_CurrentPlayer->field_488.collisionPosition.y = pos.y;
-                                g_CurrentPlayer->field_488.collisionPosition.z = pos.z;
+                                g_CurrentPlayer->spatialState.collisionPosition.x = pos.x;
+                                g_CurrentPlayer->spatialState.collisionPosition.y = pos.y;
+                                g_CurrentPlayer->spatialState.collisionPosition.z = pos.z;
 
                                 // g_CurrentPlayer->pos = pos;
-                                g_CurrentPlayer->field_488.collisionTile = stan;
+                                g_CurrentPlayer->spatialState.collisionTile = stan;
                             }
                             pass = TRUE;
                         }

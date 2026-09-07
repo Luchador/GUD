@@ -649,11 +649,11 @@ struct player
   u16 buttons_pressed;
   u16 prev_buttons_pressed;
 
-  struct coord3d field_3B8;
+  /* Accumulates camera position for exponential smoothing. */
+  struct coord3d cameraPositionAccumulator;
 
-  f32 field_3C4;
-  f32 field_3C8;
-  f32 field_3CC;
+  /* Smoothed world-space camera position used by cinematic cameras. */
+  struct coord3d smoothedCameraPosition;
 
   /**
    * Canonical names from here up through deathanimfinished.
@@ -703,7 +703,7 @@ struct player
   s32 controldef; //0x430 canonical name
 
   struct PlayerSpatialState previous_collision_info; // canonical "periminfo" ?
-  struct PlayerSpatialState field_488;
+  struct PlayerSpatialState spatialState;
 
   /**
    * Canonical names from here up to standcnt.

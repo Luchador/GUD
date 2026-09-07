@@ -567,7 +567,7 @@ Gfx* lvRender(Gfx* gdl)
             fxRenderAllSparks(&gdl, ZBUF_SURFACE);
 
             gdl = glassRenderShards(gdl);
-            gdl = explosionRenderFlyingParticles(gdl);
+            gdl = explosionRenderCornflakes(gdl);
 
             if (cheatIsActive(CHEAT_INFINITE_AMMO))
             {
@@ -817,7 +817,7 @@ void lvTick(void)
         fxUpdateAllSparks();
         update_bullet_casings();
         update_broken_windows();
-        explosionUpdateFlyingParticles();
+        explosionUpdateCornflakes();
         chrpropTick();
         reset_all_music_slots();
     }

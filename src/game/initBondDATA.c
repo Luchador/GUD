@@ -218,9 +218,9 @@ void init_player_BONDdata(void)
     g_CurrentPlayer->pos3.f[1] = 0.0f;
     g_CurrentPlayer->pos3.f[2] = 0.0f;
     g_CurrentPlayer->cameratile = 0;
-    g_CurrentPlayer->field_3C4 = 0.0f;
-    g_CurrentPlayer->field_3C8 = 0.0f;
-    g_CurrentPlayer->field_3CC = 1.0f;
+    g_CurrentPlayer->smoothedCameraPosition.x = 0.0f;
+    g_CurrentPlayer->smoothedCameraPosition.y = 0.0f;
+    g_CurrentPlayer->smoothedCameraPosition.z = 1.0f;
     g_CurrentPlayer->field_84 = 0.0f;
     g_CurrentPlayer->field_88 = 0.0f;
     g_CurrentPlayer->field_8C = 0;

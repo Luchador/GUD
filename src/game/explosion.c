@@ -134,9 +134,8 @@ Vtx g_BulletImpactDefaultVertex = {0, 0, 0, 0, 0, 0, 0x0, 0x0, 0x0, 0xDC };
 
 // Begin forward declarations.
 
-void explosionInitFlyingParticles(coord3d *spawnpos, f32 spawn_rand_scale, f32 spawn_horiz_drift_scale, f32 spawn_vert_drift_scale, f32 spawn_tex_scale);
+void explosionInitCornflakes(coord3d *spawnpos, f32 spawn_rand_scale, f32 spawn_horiz_drift_scale, f32 spawn_vert_drift_scale, f32 spawn_tex_scale);
 s32 explosionRoundFloat(f32 arg0);
-void explosionSetBulletImpactAlpha(s32 arg0);
 void explosionScorchTick(struct coord3d *pos, f32 explosion_size, s16 room);
 Gfx *explosionRenderPart(struct ExplosionPart *arg0, Gfx *gdl, struct coord3d *coord);
 
@@ -253,7 +252,7 @@ void explosionCreate(PropRecord *arg0, struct coord3d *target_pos, StandTile *ta
 
             for (var_v0 = 0; var_v0 < sp44->numshrapnelbits; var_v0++)
             {
-                explosionInitFlyingParticles(target_pos, sp44->shrapnel_scatter_dist, sp44->shrapnel_hvel, sp44->shrapnel_vvel, sp44->shrapnel_size);
+                explosionInitCornflakes(target_pos, sp44->shrapnel_scatter_dist, sp44->shrapnel_hvel, sp44->shrapnel_vvel, sp44->shrapnel_size);
             }
 
             if (getPlayerCount() >= 2)
@@ -451,7 +450,7 @@ void explosionInflictDamage(PropRecord *explosionProp, f32 horizontalRange, f32 
             damageFraction *= damageFraction;
         }
 
-        damage = damageFraction * EXPLOSION_DAMAGE_SCALER * explosionType->damage;
+        damage = damageFraction * explosionType->damage;
 
         if (targetObject != NULL)
         {
@@ -670,26 +669,20 @@ u8 explosionChrpropExplosionTick(PropRecord* prop)
 }
 
 
-/***
- * Perfect Dark Gfx *explosionRender(struct prop *prop, Gfx *gdl, bool xlupass)
- *
- * NTSC address 0x7F09D5A0.
-*/
-Gfx *explosionRenderPropExplosion(PropRecord *prop, Gfx *gdl, s32 withalpha)
+Gfx *explosionRender(PropRecord *prop, Gfx *gdl, s32 withalpha)
 {
     s32 temp_s1;
-    struct Explosion *temp_s5;
+    struct Explosion *explosion;
     struct coord3d *temp_s6;
     s32 var_s2;
-
     struct bbox2d sp70;
-
     s32 temp_f10;
-
     s32 i;
 
+    return gdl;
+
     temp_s1 = prop->rooms[0];
-    temp_s5 = prop->explosion;
+    explosion = prop->explosion;
     temp_s6 = getRoomPositionByIndex((s32) temp_s1);
 
     if (withalpha == 0)
@@ -714,31 +707,28 @@ Gfx *explosionRenderPropExplosion(PropRecord *prop, Gfx *gdl, s32 withalpha)
 
         gSPSegment(gdl++, SPSEGMENT_GETITLE, osVirtualToPhysical(pGlobalimagetable));
 
-        for (var_s2 = 14;
-            var_s2 >= 0;
-            var_s2--)
+        for (var_s2 = 14; var_s2 >= 0; var_s2--)
         {
             gSPDisplayList(gdl++, g_ExplosionDisplayLists[var_s2]);
 
             for (i = 0; i < EXPLOSION_PARTS_LEN; i++)
             {
-                if (temp_s5->parts[i].frame > 0
-                    && var_s2 == (s32)( (f32)(temp_s5->parts[i].frame - 1) / g_ExplosionTypes[temp_s5->explosion_type].flareanimspeed ) )
+                if (explosion->parts[i].frame > 0 && var_s2 == (s32)( (f32)(explosion->parts[i].frame - 1) / g_ExplosionTypes[explosion->explosion_type].flareanimspeed ) )
                 {
-                    gdl = explosionRenderPart(&temp_s5->parts[i], gdl, temp_s6);
+                    gdl = explosionRenderPart(&explosion->parts[i], gdl, temp_s6);
                 }
             }
         }
 
         gSPMatrix(gdl++, osVirtualToPhysical((void*)camGetPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
 
-        temp_f10 = (s32) (g_ExplosionTypes[temp_s5->explosion_type].flareanimspeed * 15.0f);
+        temp_f10 = (s32) (g_ExplosionTypes[explosion->explosion_type].flareanimspeed * 15.0f);
 
         for (i = 0; i < EXPLOSION_PARTS_LEN; i++)
         {
-            if (temp_f10 < temp_s5->parts[i].frame)
+            if (temp_f10 < explosion->parts[i].frame)
             {
-                temp_s5->parts[i].frame = 0;
+                explosion->parts[i].frame = 0;
             }
         }
     }
@@ -747,52 +737,41 @@ Gfx *explosionRenderPropExplosion(PropRecord *prop, Gfx *gdl, s32 withalpha)
 }
 
 
-
-/***
- * Perfect Dark Gfx *explosionRenderPart(struct explosion *exp, struct explosionpart *part, Gfx *gdl, struct coord *coord, s32 arg4)
- *
- * NTSC address 0x7F09D82C.
-*/
-Gfx *explosionRenderPart(struct ExplosionPart *arg0, Gfx *gdl, struct coord3d *coord)
+Gfx *explosionRenderPart(struct ExplosionPart *exppart, Gfx *gdl, struct coord3d *coord)
 {
-    s32 padding1;
     f32 f2;
-
     Vtx spA0;
-    Mtxf *sp9C;
-    struct coord3d *sp98;
+    Mtxf *playerViewToWorldMtx;
+    struct coord3d *playerpos;
     struct coord3d sp8C;
     struct coord3d sp80;
     struct coord3d sp74;
     struct coord3d sp68;
-
     f32 sp64;
     f32 sp60;
     f32 sp5C;
-
     Vtx *vertices;
-
     f32 sp54;
     f32 sp50;
-
     f32 sp4c;
     f32 sp48;
     f32 sp44;
-
     f32 temp_f0;
     f32 var_f12;
 
     spA0 = g_ExplosionRenderPartDefaultVertex;
 
-    sp9C = currentPlayerGetViewToWorldMtxf();
-    sp98 = bondviewGetPlayerPosition();
+    playerViewToWorldMtx = currentPlayerGetViewToWorldMtxf();
+    playerpos = bondviewGetPlayerPosition();
 
-    sp64 = arg0->pos.f[0] - sp98->f[0];
-    sp60 = arg0->pos.f[1] - sp98->f[1];
-    sp5C = arg0->pos.f[2] - sp98->f[2];
+    sp64 = exppart->pos.f[0] - playerpos->f[0];
+    sp60 = exppart->pos.f[1] - playerpos->f[1];
+    sp5C = exppart->pos.f[2] - playerpos->f[2];
 
     temp_f0 = sqrtf((sp64 * sp64) + (sp60 * sp60) + (sp5C * sp5C));
+
     var_f12 = temp_f0 * 0.5f;
+
     if (var_f12 > 100.0f)
     {
         var_f12 = 100.0f;
@@ -807,12 +786,12 @@ Gfx *explosionRenderPart(struct ExplosionPart *arg0, Gfx *gdl, struct coord3d *c
         f2 = (temp_f0 - var_f12) / temp_f0;
     }
 
-    sp54 = arg0->size * f2;
-    sp50 = arg0->rot * f2;
+    sp54 = exppart->size * f2;
+    sp50 = exppart->rot * f2;
 
-    sp4c = sp98->f[0] + (sp64 * f2);
-    sp48 = sp98->f[1] + (sp60 * f2);
-    sp44 = sp98->f[2] + (sp5C * f2);
+    sp4c = playerpos->f[0] + (sp64 * f2);
+    sp48 = playerpos->f[1] + (sp60 * f2);
+    sp44 = playerpos->f[2] + (sp5C * f2);
 
     vertices = dynAllocateVertices(4);
 
@@ -822,21 +801,21 @@ Gfx *explosionRenderPart(struct ExplosionPart *arg0, Gfx *gdl, struct coord3d *c
     vertices[3] = spA0;
     vertices[4] = spA0;
 
-    sp8C.f[0] = sp9C->m[0][0] * sp54;
-    sp8C.f[1] = sp9C->m[0][1] * sp54;
-    sp8C.f[2] = sp9C->m[0][2] * sp54;
+    sp8C.f[0] = playerViewToWorldMtx->m[0][0] * sp54;
+    sp8C.f[1] = playerViewToWorldMtx->m[0][1] * sp54;
+    sp8C.f[2] = playerViewToWorldMtx->m[0][2] * sp54;
 
-    sp80.f[0] = sp9C->m[0][0] * sp50;
-    sp80.f[1] = sp9C->m[0][1] * sp50;
-    sp80.f[2] = sp9C->m[0][2] * sp50;
+    sp80.f[0] = playerViewToWorldMtx->m[0][0] * sp50;
+    sp80.f[1] = playerViewToWorldMtx->m[0][1] * sp50;
+    sp80.f[2] = playerViewToWorldMtx->m[0][2] * sp50;
 
-    sp74.f[0] = sp9C->m[1][0] * sp54;
-    sp74.f[1] = sp9C->m[1][1] * sp54;
-    sp74.f[2] = sp9C->m[1][2] * sp54;
+    sp74.f[0] = playerViewToWorldMtx->m[1][0] * sp54;
+    sp74.f[1] = playerViewToWorldMtx->m[1][1] * sp54;
+    sp74.f[2] = playerViewToWorldMtx->m[1][2] * sp54;
 
-    sp68.f[0] = sp9C->m[1][0] * sp50;
-    sp68.f[1] = sp9C->m[1][1] * sp50;
-    sp68.f[2] = sp9C->m[1][2] * sp50;
+    sp68.f[0] = playerViewToWorldMtx->m[1][0] * sp50;
+    sp68.f[1] = playerViewToWorldMtx->m[1][1] * sp50;
+    sp68.f[2] = playerViewToWorldMtx->m[1][2] * sp50;
 
     vertices[0].v.ob[0] = (sp4c - sp8C.f[0] - sp68.f[0]) * bgGetRoomScale() - coord->f[0];
 	vertices[0].v.ob[1] = (sp48 - sp8C.f[1] - sp68.f[1]) * bgGetRoomScale() - coord->f[1];
@@ -870,12 +849,6 @@ Gfx *explosionRenderPart(struct ExplosionPart *arg0, Gfx *gdl, struct coord3d *c
 }
 
 
-
-/***
- * Perfect Dark Gfx *smokeRenderPart(struct smoke *smoke, struct smokepart *part, Gfx *gdl, struct coord *coord, f32 size)
- *
- * NTSC address 0x7F09DDA4.
-*/
 Gfx *explosionSmokeRenderPart(struct Smoke *smoke, struct SmokePart *smoke_part, Gfx *gdl, struct coord3d *arg3)
 {
     Vtx *vertices;
@@ -1095,11 +1068,6 @@ void explosionCreateSmoke(coord3d *pos, StandTile *stan, s16 smoke_type, u8 *roo
 }
 
 
-/***
- * Perfect Dark u32 smokeTick(struct prop *prop)
- *
- * NTSC address 0x7F09E8AC.
-*/
 s32 explosionSmokeTick(PropRecord *arg0)
 {
     f32 temp_f2;
@@ -1264,9 +1232,6 @@ s32 explosionSmokeTick(PropRecord *arg0)
 }
 
 
-/*
-* Address: 0x7F09EF9C
-*/
 u8 explosionChrpropSmokeTick(PropRecord* prop)
 {
     Mtxf* player_matrix;
@@ -1289,9 +1254,7 @@ u8 explosionChrpropSmokeTick(PropRecord* prop)
 
 extern Gfx globalDL_0x000;
 
-/***
- * NTSC address 0x7F09F03C.
-*/
+
 Gfx *explosionRenderPropSmoke(PropRecord *arg0, Gfx *gdl, s32 withalpha)
 {
     struct Smoke *smoke;
@@ -1299,7 +1262,6 @@ Gfx *explosionRenderPropSmoke(PropRecord *arg0, Gfx *gdl, s32 withalpha)
     struct bbox2d sp78;
     struct coord3d *temp_s5;
     s32 temp_s1;
-
 
     temp_s1 = arg0->rooms[0];
     smoke = arg0->smoke;
@@ -1320,17 +1282,11 @@ Gfx *explosionRenderPropSmoke(PropRecord *arg0, Gfx *gdl, s32 withalpha)
     }
 
     gSPClearGeometryMode(gdl++, G_CULL_BOTH | G_FOG);
-
     gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
-
     gdl = applyRoomMatrixToDisplayList(gdl, temp_s1);
-
     gSPMatrix(gdl++, osVirtualToPhysical((void*)&g_ExplosionScaleMtx), G_MTX_NOPUSH | G_MTX_MUL | G_MTX_MODELVIEW);
-
     gSPSegment(gdl++, SPSEGMENT_GETITLE, osVirtualToPhysical((void*)pGlobalimagetable));
-
     gSPDisplayList(gdl++, &globalDL_0x000);
-
     gDPSetColorDither(gdl++, G_CD_NOISE);
 
     for (i = 0; i < SMOKE_PARTS_LEN; i++)
@@ -1346,19 +1302,17 @@ Gfx *explosionRenderPropSmoke(PropRecord *arg0, Gfx *gdl, s32 withalpha)
     }
 
     gDPSetColorDither(gdl++, G_CD_BAYER);
-
     gSPMatrix(gdl++, osVirtualToPhysical((void*)camGetPlayerProjMtx()), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
 
     return gdl;
 }
 
 
-// https://decomp.me/scratch/RT8eu
-void explosionInitFlyingParticles(coord3d *spawnpos, f32 spawn_rand_scale, f32 spawn_horiz_drift_scale, f32 spawn_vert_drift_scale, f32 spawn_tex_scale)
+/**
+ * Cornflakes are the little square bits of debris that fly out of explosions and bullet impacts.
+ */
+void explosionInitCornflakes(coord3d *spawnpos, f32 spawn_rand_scale, f32 spawn_horiz_drift_scale, f32 spawn_vert_drift_scale, f32 spawn_tex_scale)
 {
-    // these are gray rectangles of dust created from shooting walls with guns that fall down with gravity
-    // a bullet will create a group of them flying off the wall
-
     f32 rand1;
     f32 rand2;
     f32 rand3;
@@ -1384,23 +1338,18 @@ void explosionInitFlyingParticles(coord3d *spawnpos, f32 spawn_rand_scale, f32 s
     g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[0].v.ob[1] = 0;
     g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[0].v.ob[2] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * spawn_tex_scale));
 
-    if (1)
-    {
-        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.ob[0] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * spawn_tex_scale));
-        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.ob[1] = 0;
-        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.ob[2] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * (-spawn_tex_scale)));
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.ob[0] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * spawn_tex_scale));
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.ob[1] = 0;
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[1].v.ob[2] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * (-spawn_tex_scale)));
 
-        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.ob[0] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * (-spawn_tex_scale)));
-        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.ob[1] = 0;
-        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.ob[2] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * (-spawn_tex_scale)));
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.ob[0] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * (-spawn_tex_scale)));
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.ob[1] = 0;
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[2].v.ob[2] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * (-spawn_tex_scale)));
 
-        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.ob[0] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * (-spawn_tex_scale)));
-        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.ob[1] = 0;
-        g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.ob[2] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * spawn_tex_scale));
-    }
-
-    if (1) {}
-
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.ob[0] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * (-spawn_tex_scale)));
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.ob[1] = 0;
+    g_CornflakeBuffer[g_NumCornflakeEntries].vertex_list[3].v.ob[2] = (s16) ((s32) ((((((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.75f) + 0.75f) * spawn_tex_scale));
+    
     unk08_upper = (randomGetNext() & 3) << 8;
     unk0A_upper = (randomGetNext() & 3) << 8;
 
@@ -1466,6 +1415,7 @@ void explosionInitFlyingParticles(coord3d *spawnpos, f32 spawn_rand_scale, f32 s
     g_CornflakeBuffer[g_NumCornflakeEntries].rotation_drift.f[2] = (((f32) randomGetNext()) * (1.0f / (f32)UINT_MAX)) * 0.1f;
 
     g_NumCornflakeEntries++;
+
     if (g_NumCornflakeEntries >= g_MaxCornflakes)
     {
         g_NumCornflakeEntries = 0;
@@ -1473,7 +1423,7 @@ void explosionInitFlyingParticles(coord3d *spawnpos, f32 spawn_rand_scale, f32 s
 }
 
 
-void explosionUpdateFlyingParticles(void)
+void explosionUpdateCornflakes(void)
 {
     f32 scalar;
     s32 i;
@@ -1487,7 +1437,6 @@ void explosionUpdateFlyingParticles(void)
     {
         scalar = 15.0f;
     }
-
 
     for (i = 0; i < g_MaxCornflakes; i++)
     {
@@ -1504,17 +1453,17 @@ void explosionUpdateFlyingParticles(void)
 
             for (j = 0; j < (s32)scalar; j++)
             {
-                // initially sends particles flying up
+                // Initially sends particles flying up.
                 g_CornflakeBuffer[i].position.f[1] += g_CornflakeBuffer[i].position_drift.f[1];
 
-                // applies gravity so particles fall down
+                // Applies gravity so particles fall down.
                 if (g_CornflakeBuffer[i].position_drift.f[1] > -3.75f)
                 {
                     g_CornflakeBuffer[i].position_drift.f[1] -= 0.2f;
                 }
             }
 
-            // handles particles life time
+
             if ((g_CornflakeBuffer[i].unk00 >= 0x65) && (!(randomGetNext() & 0x1F) || (g_CornflakeBuffer[i].unk00 == 0x12C)))
             {
                 g_CornflakeBuffer[i].unk00 = 0;
@@ -1532,10 +1481,7 @@ void explosionUpdateFlyingParticles(void)
 
 extern Gfx globalDL_0xa50;
 
-/***
- * NTSC address 0x7F0A0034.
-*/
-Gfx *explosionRenderFlyingParticles(Gfx *gdl)
+Gfx *explosionRenderCornflakes(Gfx *gdl)
 {
     Mtxf sp80;
     s32 i;
@@ -1578,11 +1524,6 @@ Gfx *explosionRenderFlyingParticles(Gfx *gdl)
 }
 
 
-
-
-/***
- * NTSC address 0x7F0A027C.
-*/
 void explosionScorchTick(struct coord3d *pos, f32 explosion_size, s16 room)
 {
     Vtx sp58;
@@ -1766,7 +1707,7 @@ void explosionClearBulletImpactRoom(PropRecord* arg0)
 }
 
 
-void explosionSetBulletImpactAlpha(s32 arg0)
+void explosionSetBulletImpactAlpha(s32 numImpactEntries)
 {
     u32 val;
     s32 i;
@@ -1775,22 +1716,25 @@ void explosionSetBulletImpactAlpha(s32 arg0)
     {
         val = (u32) (((f32) i / 10.0f) * 255.0f);
 
-        g_BulletImpactBuffer[arg0].vertex_list[3].v.cn[3] = val; // alpha
-        g_BulletImpactBuffer[arg0].vertex_list[2].v.cn[3] = val; // alpha
-        g_BulletImpactBuffer[arg0].vertex_list[1].v.cn[3] = val; // alpha
-        g_BulletImpactBuffer[arg0].vertex_list[0].v.cn[3] = val; // alpha
+        g_BulletImpactBuffer[numImpactEntries].vertex_list[3].v.cn[3] = val; // alpha
+        g_BulletImpactBuffer[numImpactEntries].vertex_list[2].v.cn[3] = val; // alpha
+        g_BulletImpactBuffer[numImpactEntries].vertex_list[1].v.cn[3] = val; // alpha
+        g_BulletImpactBuffer[numImpactEntries].vertex_list[0].v.cn[3] = val; // alpha
 
-        if (++arg0 >= BULLET_IMPACT_BUFFER_LEN)
+        if (++numImpactEntries >= BULLET_IMPACT_BUFFER_LEN)
         {
-            arg0 = 0;
+            numImpactEntries = 0;
         }
     }
 }
 
 
+/**
+ * Creates the impact decal on backgrounds.
+ */
 void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16 impact_type, s16 room, PropRecord *prop, s8 model_render_pos_index, s8 room_clear_flag)
 {
-    Vtx spE0;
+    Vtx defaultVertexProperties;
     f32 spDC;
     f32 spD8;
     f32 spD4;
@@ -1798,7 +1742,7 @@ void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16 
     f32 temp_f2_2;
     f32 temp_f12;
     f32 spC4;
-    struct coord3d *temp_s0_2;
+    struct coord3d *roomPosition;
     f32 spBC;
     f32 spB8;
     f32 spB4;
@@ -1820,7 +1764,7 @@ void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16 
     u8 sp62;
     u8 sp61;
 
-    spE0 = g_BulletImpactDefaultVertex;
+    defaultVertexProperties = g_BulletImpactDefaultVertex;
 
     if (cheatIsActive(CHEAT_PAINTBALL))
     {
@@ -1897,10 +1841,10 @@ void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16 
     }
     else
     {
-        temp_s0_2 = getRoomPositionByIndex((s32) room);
-        spA0.f[0] = (spA0.f[0] * bgGetRoomScale()) - temp_s0_2->f[0];
-        spA0.f[1] = (spA0.f[1] * bgGetRoomScale()) - temp_s0_2->f[1];
-        spA0.f[2] = (spA0.f[2] * bgGetRoomScale()) - temp_s0_2->f[2];
+        roomPosition = getRoomPositionByIndex((s32) room);
+        spA0.f[0] = (spA0.f[0] * bgGetRoomScale()) - roomPosition->f[0];
+        spA0.f[1] = (spA0.f[1] * bgGetRoomScale()) - roomPosition->f[1];
+        spA0.f[2] = (spA0.f[2] * bgGetRoomScale()) - roomPosition->f[2];
         sp9C *= bgGetRoomScale();
         sp98 *= bgGetRoomScale();
     }
@@ -1911,10 +1855,10 @@ void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16 
     g_BulletImpactBuffer[g_NumImpactEntries].room = room;
     g_BulletImpactBuffer[g_NumImpactEntries].impact_type = impact_type;
 
-    g_BulletImpactBuffer[g_NumImpactEntries].vertex_list[0] = spE0;
-    g_BulletImpactBuffer[g_NumImpactEntries].vertex_list[1] = spE0;
-    g_BulletImpactBuffer[g_NumImpactEntries].vertex_list[2] = spE0;
-    g_BulletImpactBuffer[g_NumImpactEntries].vertex_list[3] = spE0;
+    g_BulletImpactBuffer[g_NumImpactEntries].vertex_list[0] = defaultVertexProperties;
+    g_BulletImpactBuffer[g_NumImpactEntries].vertex_list[1] = defaultVertexProperties;
+    g_BulletImpactBuffer[g_NumImpactEntries].vertex_list[2] = defaultVertexProperties;
+    g_BulletImpactBuffer[g_NumImpactEntries].vertex_list[3] = defaultVertexProperties;
 
     g_BulletImpactBuffer[g_NumImpactEntries].vertex_list[0].v.ob[0] = explosionRoundFloat((spA0.f[0] - (sp9C * spC4)) - (sp98 * spB8));
     g_BulletImpactBuffer[g_NumImpactEntries].vertex_list[0].v.ob[1] = explosionRoundFloat((spA0.f[1] - zero) - (sp98 * spB4));
@@ -1992,16 +1936,11 @@ void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16 
 */
 Gfx *explosionRenderBulletImpactOnProp(Gfx *gdl, PropRecord *arg1, s32 arg2)
 {
-    s32 padding1;
-    s32 padding2;
-
-    s32 i; // var_s4
+    s32 i;
     s32 sp50;
     struct Scorch *sp4C;
     s32 sp48;
     union RenderPosView *render_pos;
-    s32 padding3;
-
     s16 var_s5;
     s32 impact_type;
     s32 var_v0;
@@ -2085,7 +2024,7 @@ Gfx *explosionRenderBulletImpactOnProp(Gfx *gdl, PropRecord *arg1, s32 arg2)
 }
 
 
-Gfx * explosionCallRenderBulletImpactOnProp(Gfx *arg0)
+Gfx * explosionCallRenderBulletImpactOnProp(Gfx *gdl)
 {
-    return explosionRenderBulletImpactOnProp(arg0, NULL, 0);
+    return explosionRenderBulletImpactOnProp(gdl, NULL, 0);
 }

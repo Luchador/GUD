@@ -445,7 +445,7 @@ Gfx *chrpropRender(Gfx * gdl, PropRecord *prop, s32 withalpha)
     }
     else if (type == PROP_TYPE_EXPLOSION)
     {
-        gdl = explosionRenderPropExplosion(prop, gdl, withalpha);
+        gdl = explosionRender(prop, gdl, withalpha);
     }
     else if (type == PROP_TYPE_SMOKE)
     {
