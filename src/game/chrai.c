@@ -3754,7 +3754,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 case AI_IFCameraIsInIntro:
                 {
                     AiIFCameraIsInIntroRecord *ai = AiListp + Offset;
-                    if ((bondviewGetCameraMode() == 1) || (bondviewGetCameraMode() == 2))
+                    if ((bviewGetCameraMode() == 1) || (bviewGetCameraMode() == 2))
                     {
                         Offset = chraiGoToLabel(AiListp, Offset, ai->GOTOLABEL);
                     }
@@ -3767,7 +3767,7 @@ void                   ai(PropDefHeaderRecord *Entityp, PROP_TYPE EntityType)
                 case AI_IFCameraIsInBondSwirl:
                 {
                     AiIFCameraIsInBondSwirlRecord *ai = AiListp + Offset;
-                    if (bondviewGetCameraMode() == 3)
+                    if (bviewGetCameraMode() == 3)
                     {
                         Offset = chraiGoToLabel(AiListp, Offset, ai->GOTOLABEL);
                     }

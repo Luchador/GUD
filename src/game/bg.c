@@ -761,7 +761,7 @@ void bgTick(void)
         bgRoomsTickUnload();
     }
 
-    cammode = bondviewGetCameraMode();
+    cammode = bviewGetCameraMode();
 
     g_RoomLoadBudget = 3;
 

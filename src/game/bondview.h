@@ -1265,7 +1265,7 @@ bool currentPlayerGetYAutoAimEnabled(void);
 bool currentPlayerGetYAutoAimEnabledRedirect(void);
 void currentPlayerSetLookAheadSetting(bool enabled);
 
-u32 bondviewGetCameraMode(void);
+u32 bviewGetCameraMode(void);
 
 void bondviewTriggerWatchZoom(f32 zoominfovy);
 

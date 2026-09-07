@@ -60,8 +60,8 @@
 #define BONDVIEW_UPPER_TEXT_TIMER_B 0x3c
 #define BONDVIEW_UPPER_TEXT_TIMER_C 0xf0
 
-    #define BONDVIEW_2ND_FONTTABLE(_param) copy_2ndfonttable
-    #define BONDVIEW_1ST_FONTTABLE(_param) copy_1stfonttable
+#define BONDVIEW_2ND_FONTTABLE(_param) copy_2ndfonttable
+#define BONDVIEW_1ST_FONTTABLE(_param) copy_1stfonttable
 
 #define BONDVIEW_VIEW_TOP_OFFSET_1 0x0C
 #define BONDVIEW_VIEW_TOP_OFFSET_2 0x28
@@ -103,11 +103,12 @@ struct coord3d g_TankModelPositionOffset;
 s32 g_TankEngineSfxVolume;
 
 /**
- * State 0: begin.
+ * State 0: Begin.
  * State 1: Finished sitting down/turning, queue audio.
- * State 2: complete
+ * State 2: Complete.
 */
 s32 g_EnterTankAudioState;
+
 f32 g_TankEnteringSitHeight;
 f32 g_TankEnteringSitHeightRemain;
 f32 g_TankEnterBondHorizAngleDeg;
@@ -116,8 +117,13 @@ ALSoundState * g_TankSfxState[2] = { NULL, NULL };
 struct coord3d g_EnterTankCoord;
 ITEM_IDS g_StartingWeapons[2];
 struct coord3d flt_CODE_bss_800799E8;
-struct PropRecord* dword_CODE_bss_800799F4;
-PadRecord * g_CameraLookAtBondPad;
+
+/**
+ * Either the player's body prop or the tank prop, depending on if they died in the tank.
+ */
+struct PropRecord* g_DeathProp;
+
+PadRecord *g_CameraLookAtBondPad;
 CutsceneRecord *gBondViewCutscene;
 f32 flt_CODE_bss_80079A00;
 f32 flt_CODE_bss_80079A04;
@@ -791,12 +797,16 @@ void bondviewRemovePlayerBody(void)
 }
 
 
-u32 bondviewGetCameraMode(void) {
+u32 bviewGetCameraMode(void)
+{
     return g_CameraMode;
 }
 
 
-s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, coord3d *collision_pos, StandTile *tile, f32 camera_dist)
+/**
+ * @param: playerOrTankProp - The player or the tank's prop, depending on whether the player died in the tank.
+ */
+s32 bviewPickDeathCameraAngles(PropRecord *playerOrTankProp, coord3d *pos, PropRecord *prop2, coord3d *collision_pos, StandTile *tile, f32 camera_dist)
 {
     s32 found;
     s32 outertries;
@@ -812,7 +822,7 @@ s32 pickDeathCameraAngles(PropRecord *prop1, coord3d *pos, PropRecord *prop2, co
     s32 lineok;
     s32 angletries;
 
-    dword_CODE_bss_800799F4 = prop1;
+    g_DeathProp = playerOrTankProp;
 
     found = 0;
     outertries = 0;
@@ -1121,7 +1131,7 @@ void bviewSetCameraMode(CAMERAMODE cameraMode)
             var_v1 = g_CurrentPlayer->field_488.collisionTile;
         }
 
-        if (pickDeathCameraAngles(sp64, &sp58, var_a2, &sp48, var_v1, var_f0) != 0)
+        if (bviewPickDeathCameraAngles(sp64, &sp58, var_a2, &sp48, var_v1, var_f0) != 0)
         {
             if (camera_mode == 0)
             {
@@ -1136,7 +1146,7 @@ void bviewSetCameraMode(CAMERAMODE cameraMode)
         }
         else
         {
-            // pickDeathCameraAngles has returned 0. This happens when no possible angles were found
+            // bviewPickDeathCameraAngles has returned 0. This happens when no possible angles were found
             // to place the camera at the requested distance or when the three death replays are finished.
             bossRunTitleStage();
         }
@@ -1408,9 +1418,6 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
     }
     else if (g_CameraMode == CAMERAMODE_MP)
     {
-        /**
-        * CAMERAMODE_MP: Perfect Dark method playerTickMpSwirl
-        */
         if (get_player_position_in_shuffled(get_cur_playernum()) == 0)
         {
             for (i2 = 0; i2 < g_ClockTimer; i2++)
@@ -1508,9 +1515,9 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
             currentPlayerStartChrFade(30.0f, 0.0f);
         }
 
-        if (camera_fade_active != 0)
+        if (camera_fade_active)
         {
-            if (currentPlayerIsFadeComplete() != 0)
+            if (currentPlayerIsFadeComplete())
             {
                 g_CameraAfterCinema = CAMERAMODE_INTRO;
             }
@@ -1518,8 +1525,7 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
 
         if ((sp30 > 60.0f) && (camera_fade_active == 0))
         {
-            if ((lvGetControlsLockedFlag() == 0)
-                && (buttons & ~oldbuttons & (A_BUTTON | B_BUTTON | Z_TRIG | START_BUTTON | L_TRIG | R_TRIG)))
+            if ((lvGetControlsLockedFlag() == 0) && (buttons & ~oldbuttons & (A_BUTTON | B_BUTTON | Z_TRIG | START_BUTTON | L_TRIG | R_TRIG)))
             {
                 camera_fade_active = 1;
                 currentPlayerSetFadeColour(0, 0, 0, g_CurrentPlayer->colourscreenfrac);
@@ -1605,7 +1611,7 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
         pos->f[1] = flt_CODE_bss_800799E8.f[1];
         pos->f[2] = flt_CODE_bss_800799E8.f[2];
 
-        if (dword_CODE_bss_800799F4 == g_CurrentPlayer->prop)
+        if (g_DeathProp == g_CurrentPlayer->prop)
         {
             pos2->f[0] = g_CurrentPlayer->field_3C4;
             pos2->f[1] = g_CurrentPlayer->field_3C8;
@@ -1613,9 +1619,9 @@ void bondviewFrozenCameraTick(u16 buttons, u16 oldbuttons, struct coord3d *pos, 
         }
         else
         {
-            pos2->f[0] = dword_CODE_bss_800799F4->pos.f[0];
-            pos2->f[1] = dword_CODE_bss_800799F4->pos.f[1];
-            pos2->f[2] = dword_CODE_bss_800799F4->pos.f[2];
+            pos2->f[0] = g_DeathProp->pos.f[0];
+            pos2->f[1] = g_DeathProp->pos.f[1];
+            pos2->f[2] = g_DeathProp->pos.f[2];
         }
 
         *stan = g_CurrentPlayer->field_488.collisionTile;
