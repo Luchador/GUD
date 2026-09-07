@@ -2508,7 +2508,8 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
     Gfx *gdl;
     HitThing hitbuf;
     Gfx *tcmd;
-    s32 bestScore;
+    // Squared BG distances can exceed the range of a signed 32-bit integer.
+    f32 bestScore;
     s32 idx[3];
     s32 vtxoff;
     BoundVec bboxMin;
@@ -2517,12 +2518,12 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
     s32 i;
     s32 s2;
     s32 texnum;
-    s32 dx;
-    s32 dy;
-    s32 dz;
-    s32 dist;
+    f32 dx;
+    f32 dy;
+    f32 dz;
+    f32 dist;
     s32 idx2[3];
-    s32 score;
+    f32 score;
     BoundVec bboxMin2;
     BoundVec bboxMax2;
     RoomInfo *roominfo;
@@ -2533,7 +2534,7 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
     temp.vertices = (Vertex *)g_BgRoomInfo[roomnum].vertices;
     vtxbase = (Vertex *)((s32)temp.vertices + (((u32 *)gdl)[1] & 0x00ffffff));
     temp.roominfo = &g_BgRoomInfo[roomnum];
-    bestScore = 0x7FFFFFFF;
+    bestScore = 0.0f;
     found = 0;
     gdl++;
     op = *((s8 *) gdl);
@@ -2548,7 +2549,6 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
             {
                 bboxMin = D_80044868;
                 bboxMax = D_80044874;
-                score = dist;
                 idx[0] = (((u8 *) gdl)[5] / 10) - vtxoff;
                 idx[1] = (((u8 *) gdl)[6] / 10) - vtxoff;
                 idx[2] = (((u8 *) gdl)[7] / 10) - vtxoff;
@@ -2602,12 +2602,11 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                     if (intersectRayTriangle((Vertex *)((s32)vtxbase - (0 - (idx[0] << 4))), (Vertex *)((s32)vtxbase - (0 - (idx[1] << 4))), (Vertex *)((s32)vtxbase - (0 - (idx[2] << 4))), (coord3d *) (((roomnum * 24) + ((s32) ptr_bgdata_room_fileposition_list)) + 12), from, to, dir, &hitbuf))
                     {
                         tcmd = gdl;
-                        dx = ((s32) hitbuf.hitpos.x) - ((s32) from->x);
-                        dy = ((s32) hitbuf.hitpos.y) - ((s32) from->y);
-                        dz = ((s32) hitbuf.hitpos.z) - ((s32) from->z);
+                        dx = hitbuf.hitpos.x - from->x;
+                        dy = hitbuf.hitpos.y - from->y;
+                        dz = hitbuf.hitpos.z - from->z;
                         dist = ((dx * dx) + (dy * dy)) + (dz * dz);
                         score = dist;
-                        found = 1;
 
                         if (((*((u8 *) gdl)) != G_SETTIMG) && (dist || vtxbase || 1) && (roominfo->primaryGdl < gdl))
                         {
@@ -2640,8 +2639,9 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                         if (dist);
 
                         // Texture 0x4FD is used for the light shafts that come through windows in Archives.
-                        if ((score < bestScore) && (texnum != 0x4FD))
+                        if (texnum != 0x4FD && (!found || score < bestScore))
                         {
+                            found = TRUE;
                             bestScore = score;
                             hitthing->hitpos.x = hitbuf.hitpos.x;
                             hitthing->hitpos.y = hitbuf.hitpos.y;
@@ -2740,12 +2740,11 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
                             if (intersectRayTriangle((Vertex *)((s32)vtxbase - (0 - (idx2[0] << 4))), (Vertex *)((s32)vtxbase - (0 - (idx2[1] << 4))), (Vertex *)((s32)vtxbase - (0 - (idx2[2] << 4))), (coord3d *) (((roomnum * 24) + ((s32) ptr_bgdata_room_fileposition_list)) + 12), from, to, dir, &hitbuf))
                             {
                                 tcmd = gdl;
-                                dx = ((s32) hitbuf.hitpos.x) - ((s32) from->x);
-                                dy = ((s32) hitbuf.hitpos.y) - ((s32) from->y);
-                                dz = ((s32) hitbuf.hitpos.z) - ((s32) from->z);
+                                dx = hitbuf.hitpos.x - from->x;
+                                dy = hitbuf.hitpos.y - from->y;
+                                dz = hitbuf.hitpos.z - from->z;
                                 dist = ((dx * dx) + (dy * dy)) + (dz * dz);
                                 score = dist;
-                                found = 1;
 
                                 if (((*((u8 *) gdl)) != G_SETTIMG) && (dist || vtxbase || 1) && (roominfo->primaryGdl < gdl))
                                 {
@@ -2777,8 +2776,9 @@ bool bgTestRayIntersectionInRoom(coord3d *from, coord3d *to, coord3d *dir, RoomV
 
                                 if ((score || dist));
 
-                                if ((score < bestScore) && (texnum != 0x4FD))
+                                if (texnum != 0x4FD && (!found || score < bestScore))
                                 {
+                                    found = TRUE;
                                     bestScore = score;
                                     hitthing->hitpos.x = hitbuf.hitpos.x;
                                     hitthing->hitpos.y = hitbuf.hitpos.y;
@@ -2840,16 +2840,16 @@ bool bgTestBulletHitBackground(coord3d *from, coord3d *to, s32 roomnum, struct H
     s32 i;
     struct HitThingSub tmp;
     f32 scale;
-    s32 bestdist;
-    s32 dist;
+    f32 bestdist;
+    f32 dist;
     bool found;
-    s32 score;
-    s32 dx;
-    s32 dy;
-    s32 dz;
+    f32 score;
+    f32 dx;
+    f32 dy;
+    f32 dz;
 
     found = FALSE;
-    bestdist = 0x7fffffff;
+    bestdist = 0.0f;
 
     scale = g_LevelScale;
     fromscaled.x = from->x * scale;
@@ -2887,15 +2887,15 @@ bool bgTestBulletHitBackground(coord3d *from, coord3d *to, s32 roomnum, struct H
         dy = tmp.hitpos.y - fromscaled.y;
         dz = tmp.hitpos.z - fromscaled.z;
         dist = score = dx * dx + dy * dy + dz * dz;
-        found = TRUE;
 
         if (check_if_imageID_is_light(tmp.texturenum)) 
         {
             score = dist - 4;
         }
 
-        if (score < bestdist) 
+        if (!found || score < bestdist)
         {
+            found = TRUE;
             bestdist = score;
             hit->hitpos.x = tmp.hitpos.x;
             hit->hitpos.y = tmp.hitpos.y;

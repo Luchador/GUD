@@ -24,6 +24,7 @@
 #include "hud.h"
 #include "initanitable.h"
 #include "language.h"
+#include "lightfixture.h"
 #include "loadobjectmodel.h"
 #include "lv.h"
 #include "math.h"
@@ -572,530 +573,283 @@ s32 chrpropRayIntersectsRoomBbox(s32 room, coord3d* start, coord3d* dir)
 
 
 /**
- * Refines an existing background bullet hit by checking currently visible rooms
- * that have not already been tested.
+ * Finds the nearest solid background hit on the shot's 3D path. The room bounds
+ * and triangle tests use BG coordinates; the returned hit position is in world
+ * coordinates, like the shot origin and endpoint.
  *
- * The function scans the visible room list, marks each tested room in visited,
- * performs a room bbox test first, then tests the room geometry. If no previous hit exists,
- * the first visible room hit is accepted.
- * Otherwise, a hit is accepted only if it lies between from and the current
- * best hit on all three axes, making it closer along the shot ray.
- *
- * @return Returns the room number of the accepted hit, or the bestroom if no
- * closer visible room hit is found.
+ * Test every loaded room whose bounds intersect the ray. A horizontal stan walk
+ * cannot choose the correct room when a shot crosses a floor or ceiling before
+ * reaching a portal, and room traversal order does not imply hit distance.
  */
-s32 chrpropFindCloserBgHitInVisibleRooms(coord3d *from, coord3d *to, coord3d *dir, coord3d *scaledDir, u8 *visited, struct HitThing *besthit, s32 bestroom)
+static s32 chrpropFindNearestBgHit(coord3d *origin, coord3d *endpoint, HitThing *nearestHit)
 {
-    s32 rooms[100];
-    s32 *roomptr;
-    s32 *end;
-    s32 numrooms;
-    struct HitThing hit;
-    f32 scale;
+    coord3d direction;
+    coord3d scaledOrigin;
+    coord3d offset;
+    HitThing candidate;
+    f32 roomScale;
+    f32 inverseRoomScale;
+    f32 maxDistanceSquared;
+    f32 distanceSquared;
+    f32 score;
+    f32 nearestScore;
+    s32 nearestRoom;
+    s32 roomCount;
     s32 room;
 
-    scale = bgGetRoomInverseScale();
+    direction.x = endpoint->x - origin->x;
+    direction.y = endpoint->y - origin->y;
+    direction.z = endpoint->z - origin->z;
+    maxDistanceSquared = SQ(direction.x) + SQ(direction.y) + SQ(direction.z);
 
-    // Get up to 100 currently visible rooms.
-    numrooms = bgCopyGlobalVisAddedRooms(&rooms[0], 100);
+    roomScale = bgGetRoomScale();
+    inverseRoomScale = bgGetRoomInverseScale();
+    scaledOrigin.x = origin->x * roomScale;
+    scaledOrigin.y = origin->y * roomScale;
+    scaledOrigin.z = origin->z * roomScale;
 
-    if (numrooms > 0)
+    nearestRoom = 0;
+    nearestScore = 0.0f;
+    roomCount = bgGetMaxNumRooms();
+
+    for (room = 1; room < roomCount; room++)
     {
-        roomptr = rooms;
-        // The bitwise AND is just a matching trick and effectively does nothing.
-        end = roomptr + (numrooms & 0xFFFFFFFF);
-
-        do
+        // A positive uniform scale does not change the ray's direction.
+        if (!chrpropRayIntersectsRoomBbox(room, &scaledOrigin, &direction))
         {
-            // Only check rooms that have not been visited.
-            if (visited[*roomptr] == 0)
-            {
-                visited[*roomptr] = 1;
-
-                if (chrpropRayIntersectsRoomBbox(*roomptr, scaledDir, dir))
-                {
-                    if (bgTestBulletHitBackground(from, to, *roomptr, &hit))
-                    {
-                        room = *roomptr;
-                        hit.hitpos.x *= scale;
-                        hit.hitpos.y *= scale;
-                        hit.hitpos.z *= scale;
-
-                        if ((bestroom <= 0)
-                                || (((((from->x <= besthit->hitpos.x)
-                                            && (from->x <= hit.hitpos.x))
-                                            && (hit.hitpos.x < besthit->hitpos.x))
-                                        || (((besthit->hitpos.x <= from->x)
-                                            && (hit.hitpos.x <= from->x))
-                                            && (besthit->hitpos.x < hit.hitpos.x)))
-                                    && ((((from->y <= besthit->hitpos.y)
-                                            && (from->y <= hit.hitpos.y))
-                                            && (hit.hitpos.y < besthit->hitpos.y))
-                                        || (((besthit->hitpos.y <= from->y)
-                                            && (hit.hitpos.y <= from->y))
-                                            && (besthit->hitpos.y < hit.hitpos.y)))
-                                    && ((((from->z <= besthit->hitpos.z)
-                                            && (from->z <= hit.hitpos.z))
-                                            && (hit.hitpos.z < besthit->hitpos.z))
-                                        || (((besthit->hitpos.z <= from->z)
-                                            && (hit.hitpos.z <= from->z))
-                                            && (besthit->hitpos.z < hit.hitpos.z)))))
-                        {
-                            bestroom = room;
-                            *besthit = hit;
-                        }
-                    }
-                }
-            }
-
-            roomptr++;
+            continue;
         }
-        while (roomptr < end);
 
-        if (rooms);
+        if (!bgTestBulletHitBackground(origin, endpoint, room, &candidate))
+        {
+            continue;
+        }
+
+        candidate.hitpos.x *= inverseRoomScale;
+        candidate.hitpos.y *= inverseRoomScale;
+        candidate.hitpos.z *= inverseRoomScale;
+        offset.x = candidate.hitpos.x - origin->x;
+        offset.y = candidate.hitpos.y - origin->y;
+        offset.z = candidate.hitpos.z - origin->z;
+        distanceSquared = SQ(offset.x) + SQ(offset.y) + SQ(offset.z);
+
+        // The lower-level triangle test accepts an infinite forward ray.
+        if (distanceSquared > maxDistanceSquared)
+        {
+            continue;
+        }
+
+        score = distanceSquared;
+
+        // Preserve the small bias that lets lights win against their backing wall.
+        if (check_if_imageID_is_light(candidate.texturenum))
+        {
+            score -= 4.0f;
+        }
+
+        if (nearestRoom == 0 || score < nearestScore)
+        {
+            nearestRoom = room;
+            nearestScore = score;
+            *nearestHit = candidate;
+        }
     }
 
-    return bestroom;
+    return nearestRoom;
 }
 
 
 /**
- * Beginning at startroom, walk connected rooms looking for a background
- * bullet hit.
- *
- * Rooms are skipped if already marked in visited, and newly processed rooms are
- * marked visited.
- * @return Return 0 if no hit is found, otherwise the room number of the first room whose bbox and
- * background geometry intersect the bullet ray.
+ * Creates background impact effects for an accepted hit within weapon range.
+ * Keep the original surface position for decals and smoke, then pull the beam
+ * target and sparks slightly towards the shooter to avoid clipping into it.
  */
-s32 chrpropFindFirstBgHitInConnectedRooms(s32 startroom, coord3d *from, coord3d *to, coord3d *dir, coord3d *scaledDir, u8 *visited, struct HitThing *hit)
+static void chrpropCreateBgShotImpact(ShotData *shot, HitThing *hit, s32 room)
 {
-    u8 rooms[256];
-    s32 pad;
-    s32 neighbours[100];
-    s32 numneighbours;
-    s32 i;
-    s32 j;
-    s32 count;
-    s32 curindex;
-    s32 room;
-
-    rooms[0] = startroom;
-    count = 1;
-
-    for (curindex = 0; curindex < count; curindex++)
-    {
-        room = rooms[curindex];
-
-        if (visited[room] == 0)
-        {
-            visited[room] = 1;
-
-            if (chrpropRayIntersectsRoomBbox(room, scaledDir, dir))
-            {
-                if (bgTestBulletHitBackground(from, to, room, hit))
-                {
-                    return room;
-                }
-            }
-        }
-
-        numneighbours = bgGetConnectedRooms(room, neighbours, 100);
-
-        for (i = 0; i < numneighbours; i++)
-        {
-            for (j = 0; j < count; j++)
-            {
-                if (rooms[j] == neighbours[i])
-                {
-                    break;
-                }
-            }
-
-            if (j == count)
-            {
-                rooms[count] = neighbours[i];
-                count++;
-            }
-        }
-    }
-
-    return 0;
-}
-
-
-/**
- * Finds the closest bg bullet collision among rooms not already visited by the shot traversal.
- * It first does a cheap bounding box test, then a precise test for rooms whose bounding boxes are intersected.
- * This seems to be a brute force/fallback version of the function above, chrpropFindFirstBgHitInConnectedRooms.
- * @return 0 if no bg hit in any unvisited room, otherwise the room number containing the closest bg hit.
- */
-s32 chrpropFindClosestBgHitRoom(s32 unused, coord3d *from, coord3d *to, coord3d *dir, coord3d *scaledDir, u8 *visited, struct HitThing *besthit)
-{
-    f32 dx;
-    f32 dy;
-    struct HitThing hit;
-    f32 scale;
-    f32 dist;
-    f32 adjusteddist;
-    f32 bestdist;
-    s32 bestroom;
-    f32 tmp;
-    s32 room;
-
-    bestdist = M_U32_MAX_VALUE_F;
-    bestroom = 0;
-
-    scale = bgGetRoomInverseScale();
-
-    room = 1;
-
-    if (bgGetMaxNumRooms() >= 2)
-    {
-        do
-        {
-            if (visited[room] == 0)
-            {
-                visited[room] = 1;
-
-                if (chrpropRayIntersectsRoomBbox(room, scaledDir, dir))
-                {
-                    if (bgTestBulletHitBackground(from, to, room, &hit))
-                    {
-                        dx = (hit.hitpos.x * scale) - from->x;
-                        dy = ((hit.hitpos.y * scale) - from->y) * 1.0f;
-                        dist = (hit.hitpos.z * scale) - from->z;
-                        dist = (tmp = ((dx * dx) + (dy * dy)) + (dist * dist));
-                        adjusteddist = tmp;
-
-                        if (check_if_imageID_is_light(hit.texturenum))
-                        {
-                            adjusteddist = tmp - 4.0f;
-                        }
-
-                        if (adjusteddist < bestdist)
-                        {
-                            besthit->hitpos.x = hit.hitpos.x;
-                            besthit->hitpos.y = hit.hitpos.y;
-                            besthit->hitpos.z = hit.hitpos.z;
-
-                            bestdist = adjusteddist;
-                            bestroom = room;
-
-                            besthit->normal.x = hit.normal.x;
-                            besthit->normal.y = hit.normal.y;
-                            besthit->normal.z = hit.normal.z;
-
-                            besthit->vtx0 = hit.vtx0;
-                            besthit->vtx1 = hit.vtx1;
-                            besthit->vtx2 = hit.vtx2;
-
-                            besthit->texturenum = hit.texturenum;
-                            besthit->tricmd = hit.tricmd;
-                            besthit->unk28 = hit.unk28;
-                        }
-                    }
-                }
-            }
-
-            room++;
-        }
-        while (room < bgGetMaxNumRooms());
-    }
-
-    return bestroom;
-}
-
-/*
-* This function has a bunch of issues. It allows the player to shoot through walls
-* and even creates sparks in the distance when they shoot at the sky. Some of these
-* issues arise because it traces over the stan tiles to find the first room to test.
-* This leads to the player being able to shoot through floors if they have a portal
-* in front of them (because it's a room boundary which leads to another room) as
-* the code tracing over stan tiles only cares about the furthest stan's room. Luckily,
-* none of those bugs affect props, so prop hits are always the best candidate.
-*/
-void chraiDefaultWeaponFireHandler(s32 hand)
-{
-    coord3d *playerpos;
-    s32 hitbgstan;
-    coord3d stanhit;
-    StandTile *hittile;
-    s32 createSpark;
-    s32 gotbghit;
-    coord3d visiblehitpos;
-    s32 bestroom;
-    s32 besttexture;
-    HitThing bghit;
-    f32 negz;
-    coord3d besthitpos;
-    StandTile *fromtile;
-    coord3d dest;
-    ShotData shotdata;
-    coord3d *finalpos;
-    s32 numhits;
-    u8 visited[256];
-    struct image_sound *impact_sounds;
-    coord3d scaleddir;
-    coord3d hitdir;
-    f32 distscale;
-    PropRecord *playerprop;
-    PropRecord *prop;
-    PropRecord **pp;
-    s32 startroom;
-    s32 k;
-    s32 i;
+    coord3d sparkPosition;
+    struct image_sound *impactEffects;
+    s32 texture;
+    s32 hitType;
+    s32 sparkType;
     u8 rooms[2];
 
-    hitbgstan = 0;
-    hittile = 0;
-    gotbghit = 0;
-    bestroom = 0;
-    playerprop = getCurrentPlayerProp();
-    fromtile = playerprop->stan;
-    numhits = 0;
-    gunCalcBulletPath(&shotdata.viewOrigin, &shotdata.viewDir, hand);
-    shotdata.weapon = getCurrentPlayerWeaponId(hand);
-    shotdata.maxdist = M_U32_MAX_VALUE_F;
+    texture = hit->texturenum;
+    hitType = HIT_DEFAULT;
 
-    for (k = 0; k < 10; k++)
+    if ((u32)texture < NUM_TEXTURES)
     {
-        shotdata.hits[k].prop = 0;
-        shotdata.hits[k].hitpart = 0;
-        shotdata.hits[k].node = 0;
+        hitType = g_Textures[texture].hitTexture;
+    }
+    else
+    {
+        // Untextured geometry has no material entry for either sound or smoke.
+        texture = -1;
     }
 
-    shotdata.gunpos.x = shotdata.viewOrigin.x;
-    shotdata.gunpos.y = shotdata.viewOrigin.y;
-    shotdata.gunpos.z = shotdata.viewOrigin.z;
+    impactEffects = g_HitTypeSounds[hitType];
 
-    mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), &shotdata.gunpos);
-
-    shotdata.dir.x = shotdata.viewDir.x;
-    shotdata.dir.y = shotdata.viewDir.y;
-    shotdata.dir.z = shotdata.viewDir.z;
-
-    mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), &shotdata.dir);
-
-    dest.x = (shotdata.dir.x * M_U16_MAX_VALUE_F) + shotdata.gunpos.x;
-    dest.y = (shotdata.dir.y * M_U16_MAX_VALUE_F) + shotdata.gunpos.y;
-    dest.z = (shotdata.dir.z * M_U16_MAX_VALUE_F) + shotdata.gunpos.z;
-
-    if (walkTilesBetweenPoints_NoCallback(&fromtile, playerprop->pos.x, playerprop->pos.z, shotdata.gunpos.x, shotdata.gunpos.z))
+    if (impactEffects->thing2_len > 0 && shot->weapon != ITEM_WATCHLASER)
     {
-        distscale = bgGetRoomScale() * bgGetLevelRenderScale();
-        playerpos = bondviewGetPlayerPosition();
-
-        stanResetHits();
-
-        if (!walkTilesBetweenPoints_NoCallback(&fromtile, shotdata.gunpos.x, shotdata.gunpos.z, dest.x, dest.z))
-        {
-            chrlvStanLineDirIntersection(&shotdata.gunpos, &shotdata.dir, &stanhit);
-            hitbgstan = 1;
-        }
-        else
-        {
-            stanhit.x = dest.x;
-            stanhit.y = dest.y;
-            stanhit.z = dest.z;
-        }
-
-        hitdir.x = stanhit.x - playerpos->x;
-        hitdir.y = stanhit.y - playerpos->y;
-        hitdir.z = stanhit.z - playerpos->z;
-        scaleddir.x = playerpos->x * distscale;
-        scaleddir.y = playerpos->y * distscale;
-        scaleddir.z = playerpos->z * distscale;
-        hittile = fromtile;
-        startroom = getTileRoom(fromtile);
-
-        for (i = 0; i < 256; i++)
-        {
-            visited[i] = 0;
-        }
-
-        if (bgTestBulletHitBackground(playerpos, &stanhit, startroom, &bghit))
-        {
-            bestroom = startroom;
-        }
-
-        visited[startroom] = 1;
-
-        if (bestroom <= 0)
-        {
-            if (g_BgPortals[0].portal != 0)
-            {
-                bestroom = chrpropFindFirstBgHitInConnectedRooms(getTileRoom(getCurrentPlayerProp()->stan), playerpos, &stanhit, &hitdir, &scaleddir, visited, &bghit);
-            }
-            else
-            {
-                bestroom = chrpropFindClosestBgHitRoom(getTileRoom(getCurrentPlayerProp()->stan), playerpos, &stanhit, &hitdir, &scaleddir, visited, &bghit);
-            }
-        }
-
-        if (bestroom > 0)
-        {
-            distscale = bgGetRoomInverseScale();
-            bghit.hitpos.x *= distscale;
-            bghit.hitpos.y *= distscale;
-            bghit.hitpos.z *= distscale;
-        }
-
-        bestroom = chrpropFindCloserBgHitInVisibleRooms(playerpos, &stanhit, &hitdir, &scaleddir, visited, &bghit, bestroom);
-
-        if (bestroom > 0)
-        {
-            gotbghit = 1;
-            besttexture = bghit.texturenum;
-            besthitpos.f[0] = (visiblehitpos.f[0] = bghit.hitpos.f[0]);
-            besthitpos.f[1] = (visiblehitpos.f[1] = bghit.hitpos.f[1]);
-            besthitpos.f[2] = (visiblehitpos.f[2] = bghit.hitpos.f[2]);
-        }
-        else
-        {
-            bestroom = startroom;
-            besttexture = -1;
-            besthitpos.x = dest.x;
-            besthitpos.y = dest.y;
-            besthitpos.z = dest.z;
-        }
-
-        if (hitbgstan || gotbghit)
-        {
-            mtx4TransformVecInPlace(camGetWorldToScreenMtxf(), &besthitpos);
-            negz = -besthitpos.f[2];
-            shotdata.maxdist = negz;
-        }
+        explosionCreateBulletImpact(&hit->hitpos, &hit->normal,
+            impactEffects->thing2[randomGetNext() % impactEffects->thing2_len], room, 0, -1, 0);
     }
 
-    if ((shotdata.weapon == ITEM_WATCHLASER) && (shotdata.maxdist > WATCH_LASER_DISTANCE))
+    if (check_if_imageID_is_light(texture))
     {
-        shotdata.maxdist = WATCH_LASER_DISTANCE;
+        lightFixtureBreak(hit->tricmd, hit->unk28, room);
     }
 
-    for (pp = g_LastOnScreenProp; (--pp) >= g_OnScreenPropList;)
-    {
-        prop = *pp;
+    gunfirePlaySfxRicochetSounds(shot->weapon, &hit->hitpos, texture);
 
-        if (prop != 0)
+    if (hitType != HIT_WATER && hitType != HIT_SNOW)
+    {
+        rooms[0] = room;
+        rooms[1] = 0xff;
+
+        // Retain a stan for prop visibility, but seed room updates from the real
+        // hit room. The player's stan need not be on the floor beneath the hit.
+        explosionCreate(NULL, &hit->hitpos, getCurrentPlayerProp()->stan,
+            EXPLOSION_DEF_01, 0, get_cur_playernum(), rooms, TRUE);
+    }
+
+    sparkPosition.x = hit->hitpos.x - 26.0f * shot->dir.x;
+    sparkPosition.y = hit->hitpos.y - 26.0f * shot->dir.y;
+    sparkPosition.z = hit->hitpos.z - 26.0f * shot->dir.z;
+    gunSetBeamTarget(&sparkPosition);
+
+    if (shot->weapon == ITEM_LASER)
+    {
+        sparkType = SPARK_LASER;
+    }
+    else if (shot->weapon == ITEM_WATCHLASER)
+    {
+        sparkType = SPARK_WATCHLASER;
+    }
+    else
+    {
+        sparkType = SPARK_STANDARD;
+    }
+
+    fxCreateBulletSpark(&sparkPosition, sparkType, room);
+}
+
+
+/**
+ * Resolves one player hitscan shot (or one shotgun pellet).
+ * Background geometry limits prop testing by view-space depth. Prop hits can
+ * shorten that limit further through blocking and weapon penetration rules.
+ * Only an actual triangle hit still reachable by the shot produces background
+ * impact effects; a stan boundary or a shot into the sky is not a surface hit.
+ */
+void chraiDefaultWeaponFireHandler(s32 hand)
+{
+    ShotData shot;
+    HitThing backgroundHit;
+    coord3d endpoint;
+    coord3d hitViewPosition;
+    PropRecord **propIterator;
+    PropRecord *prop;
+    BulletHit *hit;
+    f32 backgroundDepth;
+    s32 backgroundRoom;
+    s32 penetratedObjects;
+    s32 penetrationLimit;
+    s32 hitIndex;
+
+    gunCalcBulletPath(&shot.viewOrigin, &shot.viewDir, hand);
+    shot.weapon = getCurrentPlayerWeaponId(hand);
+    shot.maxdist = M_U32_MAX_VALUE_F;
+    penetratedObjects = 0;
+    penetrationLimit = bondwalkItemGetObjectsShootThrough(shot.weapon);
+
+    for (hitIndex = 0; hitIndex < ARRAYCOUNT(shot.hits); hitIndex++)
+    {
+        shot.hits[hitIndex].prop = NULL;
+        shot.hits[hitIndex].hitpart = 0;
+        shot.hits[hitIndex].node = NULL;
+    }
+
+    shot.gunpos = shot.viewOrigin;
+    mtx4TransformVecInPlace(currentPlayerGetViewToWorldMtxf(), &shot.gunpos);
+    shot.dir = shot.viewDir;
+    mtx4RotateVecInPlace(currentPlayerGetViewToWorldMtxf(), &shot.dir);
+
+    endpoint.x = shot.gunpos.x + shot.dir.x * M_U16_MAX_VALUE_F;
+    endpoint.y = shot.gunpos.y + shot.dir.y * M_U16_MAX_VALUE_F;
+    endpoint.z = shot.gunpos.z + shot.dir.z * M_U16_MAX_VALUE_F;
+
+    // A miss still aims the tracer along this shot, without creating an impact.
+    // Character, object and background hits can replace this target below.
+    gunSetBeamTarget(&endpoint);
+
+    backgroundDepth = M_U32_MAX_VALUE_F;
+    backgroundRoom = chrpropFindNearestBgHit(&shot.gunpos, &endpoint, &backgroundHit);
+
+    if (backgroundRoom > 0)
+    {
+        hitViewPosition = backgroundHit.hitpos;
+        mtx4TransformVecInPlace(camGetWorldToScreenMtxf(), &hitViewPosition);
+        backgroundDepth = shot.viewOrigin.z - hitViewPosition.z;
+        shot.maxdist = backgroundDepth;
+    }
+
+    if (shot.weapon == ITEM_WATCHLASER && shot.maxdist > WATCH_LASER_DISTANCE)
+    {
+        shot.maxdist = WATCH_LASER_DISTANCE;
+    }
+
+    for (propIterator = g_LastOnScreenProp; propIterator != g_OnScreenPropList;)
+    {
+        prop = *--propIterator;
+
+        if (prop == NULL)
         {
-            if ((prop->type == PROP_TYPE_CHR) || (((prop->type == PROP_TYPE_VIEWER) && (prop->chr != 0)) && (getPlayerPointerIndex(prop) != get_cur_playernum())))
-            {
-                chrTestHit(prop, &shotdata);
-            }
-            else if (((prop->type == PROP_TYPE_OBJ) || (prop->type == PROP_TYPE_WEAPON)) || (prop->type == PROP_TYPE_DOOR))
-            {
-                objTestHit(prop, &shotdata);
-            }
+            continue;
         }
-    }
 
-    for (k = 0; k < 10; k++)
-    {
-        if (shotdata.hits[k].prop != 0)
+        if (prop->type == PROP_TYPE_CHR
+            || (prop->type == PROP_TYPE_VIEWER && prop->chr != NULL
+                && getPlayerPointerIndex(prop) != get_cur_playernum()))
         {
-            if ((shotdata.hits[k].prop->type == PROP_TYPE_CHR) || (shotdata.hits[k].prop->type == PROP_TYPE_VIEWER))
-            {
-                chrHandleBulletHit(&shotdata, &shotdata.hits[k]);
-            }
-            else if (((shotdata.hits[k].prop->type == PROP_TYPE_OBJ) || (shotdata.hits[k].prop->type == PROP_TYPE_WEAPON)) || (shotdata.hits[k].prop->type == PROP_TYPE_DOOR))
-            {
-                objHit(&shotdata, &shotdata.hits[k]);
-            }
-
-            if (shotdata.hits[k].countsAsPenetration)
-            {
-                numhits++;
-
-                if (numhits >= bondwalkItemGetObjectsShootThrough(shotdata.weapon))
-                {
-                    gotbghit = 0;
-                    hitbgstan = 0;
-                }
-            }
+            chrTestHit(prop, &shot);
+        }
+        else if (prop->type == PROP_TYPE_OBJ || prop->type == PROP_TYPE_WEAPON || prop->type == PROP_TYPE_DOOR)
+        {
+            objTestHit(prop, &shot);
         }
     }
 
-    if (gotbghit || hitbgstan)
+    for (hitIndex = 0; hitIndex < ARRAYCOUNT(shot.hits); hitIndex++)
     {
-        finalpos = 0;
-        createSpark = 1;
+        hit = &shot.hits[hitIndex];
+        prop = hit->prop;
 
-        if ((shotdata.weapon == ITEM_WATCHLASER) && (negz > WATCH_LASER_DISTANCE))
+        if (prop == NULL)
         {
-            createSpark = 0;
+            continue;
         }
 
-        if (gotbghit)
+        if (prop->type == PROP_TYPE_CHR || prop->type == PROP_TYPE_VIEWER)
         {
-            if (bghit.texturenum < 0)
-            {
-                impact_sounds = g_HitTypeSounds[0];
-            }
-            else
-            {
-                impact_sounds = g_HitTypeSounds[((u8 *) (&g_Textures[bghit.texturenum]))[0] & 0xf];
-            }
-
-            if (createSpark)
-            {
-                if ((impact_sounds->thing2_len > 0) && (shotdata.weapon != ITEM_WATCHLASER))
-                {
-                    explosionCreateBulletImpact(&visiblehitpos, &bghit.normal, impact_sounds->thing2[randomGetNext() % impact_sounds->thing2_len], bestroom, 0, -1, 0);
-                }
-
-                if (check_if_imageID_is_light(bghit.texturenum))
-                {
-                    lightFixtureBreak(bghit.tricmd, bghit.unk28, bestroom);
-                }
-            }
-
-            finalpos = &visiblehitpos;
+            chrHandleBulletHit(&shot, hit);
         }
-        else if (hitbgstan)
+        else if (prop->type == PROP_TYPE_OBJ || prop->type == PROP_TYPE_WEAPON || prop->type == PROP_TYPE_DOOR)
         {
-            stanhit.x = (shotdata.dir.x * M_U16_MAX_VALUE_F) + shotdata.gunpos.x;
-            stanhit.y = (shotdata.dir.y * M_U16_MAX_VALUE_F) + shotdata.gunpos.y;
-            stanhit.z = (shotdata.dir.z * M_U16_MAX_VALUE_F) + shotdata.gunpos.z;
-            finalpos = &stanhit;
+            objHit(&shot, hit);
         }
 
-        if (finalpos != 0)
+        if (hit->countsAsPenetration)
         {
-            if (createSpark)
-            {
-                gunfirePlaySfxRicochetSounds(shotdata.weapon, finalpos, besttexture);
-
-                if (((0xf & ((u8 *) g_Textures)[besttexture * 8]) != 5) && ((((u8 *) g_Textures)[besttexture * 8] & 0xf) != 6))
-                {
-                    rooms[0] = bestroom;
-                    rooms[1] = 255;
-                    explosionCreate(0, finalpos, hittile, 1, 0, get_cur_playernum(), rooms, 0);
-                }
-            }
-
-            finalpos->x -= 26.0f * shotdata.dir.x;
-            finalpos->y -= 26.0f * shotdata.dir.y;
-            finalpos->z -= 26.0f * shotdata.dir.z;
-
-            gunSetBeamTarget(finalpos);
-
-            if (createSpark)
-            {
-                if (shotdata.weapon == ITEM_LASER)
-                {
-                    fxCreateBulletSpark(finalpos, SPARK_LASER, bestroom);
-                }
-                else if (shotdata.weapon == ITEM_WATCHLASER)
-                {
-                    fxCreateBulletSpark(finalpos, SPARK_WATCHLASER, bestroom);
-                }
-                else
-                {
-                    fxCreateBulletSpark(finalpos, SPARK_STANDARD, bestroom);
-                }
-            }
+            penetratedObjects++;
         }
+    }
+
+    // maxdist also accounts for bulletproof glass and the watch laser's range,
+    // even when no prop hit counts against the weapon's penetration limit.
+    if (backgroundRoom > 0 && backgroundDepth <= shot.maxdist
+        && penetratedObjects < penetrationLimit)
+    {
+        chrpropCreateBgShotImpact(&shot, &backgroundHit, backgroundRoom);
     }
 }
 
