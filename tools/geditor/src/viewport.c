@@ -1073,6 +1073,56 @@ static void ViewportSetTriangleColor(ViewportState *state, int triangle,
 }
 
 
+void ViewportRefreshBgVertexColor(HWND viewport, const BgDocument *document,
+                                   const ViewportBgVertexHit *hit)
+{
+    ViewportState *state = ViewportGetState(viewport);
+    const BgDocumentRoom *room;
+    const BgDocumentFace *paintedface;
+    const BgDocumentVertex *source;
+    DWORD vertexindex;
+    int triangle;
+
+    if (state == NULL || state->scene == NULL || state->scenefacerefs == NULL
+        || state->scenecolors == NULL || hit == NULL || hit->corner >= 3)
+    {
+        return;
+    }
+    paintedface = BgDocumentFindFace(document, &hit->face, &room);
+    if (paintedface == NULL || paintedface->vertexindices[hit->corner] >= room->vertexcount)
+    {
+        return;
+    }
+    vertexindex = paintedface->vertexindices[hit->corner];
+    source = &room->vertices[vertexindex];
+    for (triangle = 0; triangle < state->scenecount / 3; triangle++)
+    {
+        const BgFaceRef *ref = &state->scenefacerefs[triangle];
+        const BgDocumentFace *face;
+        unsigned int corner;
+
+        if (ref->faceid == BG_FACE_ID_NONE || ref->room != hit->face.room)
+        {
+            continue;
+        }
+        face = BgDocumentFindFace(document, ref, NULL);
+        if (face == NULL) { continue; }
+        for (corner = 0; corner < 3; corner++)
+        {
+            int vertex = triangle * 3 + corner;
+            if (face->vertexindices[corner] != vertexindex) { continue; }
+            state->scenecolors[vertex].r = source->r;
+            state->scenecolors[vertex].g = source->g;
+            state->scenecolors[vertex].b = source->b;
+            state->scene[vertex].a = source->a;
+        }
+        ViewportSetTriangleColor(state, triangle,
+            state->selectedtris != NULL && state->selectedtris[triangle]);
+    }
+    ViewportRedraw(viewport);
+}
+
+
 static void ViewportBuildObjectSelectionBox(ViewportState *state)
 {
     static const unsigned char edges[VIEWPORT_BOX_VERTICES] = {
@@ -1212,6 +1262,102 @@ static void ViewportClearAllSelection(ViewportState *state)
 {
     ViewportClearBgSelection(state);
     ViewportClearObjectSelection(state);
+}
+
+
+/* Painting never cycles through the face-selection hit stack. Resolve the
+   closest visible BG face, then the corner nearest its world-space hit point.
+   Primary wins exact depth ties, matching the viewport's GL_LESS draw order. */
+static BOOL ViewportFindPaintTarget(const ViewportState *state,
+                                     const ViewportPickRay *ray,
+                                     ViewportBgVertexHit *hit)
+{
+    double nearestdistance = DBL_MAX;
+    double objectdistance;
+    double cornerdistance = DBL_MAX;
+    double position[3];
+    int triangle = -1;
+    int secondary;
+    int batchindex;
+    unsigned int corner;
+
+    if (state->scene == NULL || state->scenefacerefs == NULL)
+    {
+        return FALSE;
+    }
+    for (secondary = 0; secondary <= 1; secondary++)
+    {
+        for (batchindex = 0; batchindex < state->batchcount; batchindex++)
+        {
+            const SceneBatch *batch = &state->batches[batchindex];
+            int vertex;
+
+            if (!ViewportBatchIsPickable(state, batch) || batch->secondary != secondary)
+            {
+                continue;
+            }
+            for (vertex = batch->first; vertex + 2 < batch->first + batch->count; vertex += 3)
+            {
+                double distance;
+
+                if (ViewportRayTriangleDistance(ray, &state->scene[vertex],
+                        state->cullbackfaces && batch->cullbackfaces, &distance)
+                    && distance < nearestdistance)
+                {
+                    nearestdistance = distance;
+                    triangle = vertex / 3;
+                }
+            }
+        }
+    }
+    if (triangle < 0 || state->scenefacerefs[triangle].faceid == BG_FACE_ID_NONE)
+    {
+        return FALSE;
+    }
+    /* A visible object in front of the wall blocks painting through it. */
+    if (ViewportFindPickedObject(state, ray, &objectdistance) != VIEWPORT_OBJECT_NONE
+        && objectdistance < nearestdistance)
+    {
+        return FALSE;
+    }
+    position[0] = ray->origin[0] + ray->direction[0] * nearestdistance;
+    position[1] = ray->origin[1] + ray->direction[1] * nearestdistance;
+    position[2] = ray->origin[2] + ray->direction[2] * nearestdistance;
+    hit->face = state->scenefacerefs[triangle];
+    hit->corner = 0;
+    for (corner = 0; corner < 3; corner++)
+    {
+        const Vertex *vertex = &state->scene[triangle * 3 + corner];
+        double x = vertex->x - position[0];
+        double y = vertex->y - position[1];
+        double z = vertex->z - position[2];
+        double distance = x * x + y * y + z * z;
+
+        if (distance < cornerdistance)
+        {
+            cornerdistance = distance;
+            hit->corner = corner;
+        }
+    }
+    return TRUE;
+}
+
+
+static void ViewportPaintAt(HWND hwnd, ViewportState *state, int mousex, int mousey)
+{
+    ViewportPickRay ray;
+    ViewportBgVertexHit hit;
+
+    if (state == NULL || state->flying || state->tool != EDITOR_TOOL_VERTEX_PAINT)
+    {
+        return;
+    }
+    if (ViewportBuildPickRay(hwnd, state, mousex, mousey, &ray)
+        && ViewportFindPaintTarget(state, &ray, &hit))
+    {
+        /* The handler can replace all scene arrays; retain no pointers to them. */
+        SendMessage(GetParent(hwnd), VIEWPORT_WM_PAINT_VERTEX, 0, (LPARAM)&hit);
+    }
 }
 
 
@@ -1362,9 +1508,16 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
     case WM_LBUTTONDOWN:
         SetFocus(hwnd);
-        ViewportPickAt(hwnd, state, GET_X_LPARAM(lparam),
-                       GET_Y_LPARAM(lparam), (wparam & MK_SHIFT) != 0,
-                       (wparam & MK_CONTROL) != 0);
+        if (state != NULL && state->tool == EDITOR_TOOL_VERTEX_PAINT)
+        {
+            ViewportPaintAt(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+        }
+        else
+        {
+            ViewportPickAt(hwnd, state, GET_X_LPARAM(lparam),
+                           GET_Y_LPARAM(lparam), (wparam & MK_SHIFT) != 0,
+                           (wparam & MK_CONTROL) != 0);
+        }
         return 0;
 
     case WM_MOUSEMOVE: ViewportFlyLook(hwnd, state);
@@ -1521,7 +1674,7 @@ void ViewportSetTool(HWND viewport, EditorTool tool)
         return;
     }
     state->tool = tool;
-    /* Future vertex/edge/paint tools must not inherit a face or object
+    /* Vertex/edge/paint tools must not inherit a face or object
        selection that Delete or Transform could inadvertently edit. */
     ViewportClearAllSelection(state);
     ViewportRedraw(viewport);

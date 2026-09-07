@@ -3,8 +3,8 @@
 
 #include <windows.h>
 
-/* Shared by the toolbar, frame, and viewport. Only face selection has
-   editing behavior today; the other tools reserve their own input modes. */
+/* Shared by the toolbar, frame, and viewport. Vertex and edge selection
+   reserve input modes for future editing tools. */
 typedef enum EditorTool {
     EDITOR_TOOL_VERTEX_SELECT,
     EDITOR_TOOL_EDGE_SELECT,

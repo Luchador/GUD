@@ -146,6 +146,8 @@ static void GEditorRefreshSelectionDetails(void)
                      && ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT
                      && g_CurrentBgDocument.levelscale > 0.0f;
 
+    RightPanelSetVertexPaintMode(g_RightPanel,
+        ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT);
     RightPanelSetTransformState(g_RightPanel, cantranslate,
         cantranslate ? 1.0 / g_CurrentBgDocument.levelscale : 0.0);
     if (objectselected && selectedobject < g_CurrentSetup.objectcount)
@@ -1470,6 +1472,53 @@ static BOOL GEditorTranslateSelectedBgFaces(HWND hwnd,
 }
 
 
+static BOOL GEditorPaintBgVertex(HWND hwnd, const ViewportBgVertexHit *request)
+{
+    EditHistoryTransaction transaction;
+    ViewportBgVertexHit hit;
+    unsigned char rgba[4];
+    BOOL changed;
+    const char *why = "";
+
+    if (request == NULL || ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT)
+    {
+        return FALSE;
+    }
+    hit = *request;
+    RightPanelGetPaintColor(g_RightPanel, rgba);
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+                                "Paint BG Vertex", &transaction, &why))
+    {
+        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+        return FALSE;
+    }
+    if (!BgDocumentPaintVertex(&g_CurrentBgDocument, &hit.face, hit.corner,
+                               rgba, &changed, &why))
+    {
+        EditHistoryCancelEdit(&transaction);
+        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+        return FALSE;
+    }
+    if (!changed)
+    {
+        /* Repainting the same color must preserve redo and the saved state. */
+        EditHistoryCancelEdit(&transaction);
+        return TRUE;
+    }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
+                               &g_CurrentSetup, &transaction, &why))
+    {
+        EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup);
+        GEditorRefreshHistoryMenu(hwnd);
+        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+        return FALSE;
+    }
+    ViewportRefreshBgVertexColor(g_Viewport, &g_CurrentBgDocument, &hit);
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+}
+
+
 static void GEditorDeleteSelectedObject(HWND hwnd, DWORD objectindex)
 {
     EditHistoryTransaction transaction;
@@ -1574,6 +1623,9 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     case RIGHTPANEL_WM_TRANSLATE_SELECTION:
         return GEditorTranslateSelectedBgFaces(hwnd,
             (RightPanelTranslation *)lparam);
+
+    case VIEWPORT_WM_PAINT_VERTEX:
+        return GEditorPaintBgVertex(hwnd, (const ViewportBgVertexHit *)lparam);
 
     case VIEWPORT_WM_DELETE_SELECTION:
     {

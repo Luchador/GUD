@@ -103,6 +103,13 @@ BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
                            DWORD refcount, DWORD *deletedout,
                            const char **reasonout);
 
+/* Paints the existing vertex at one face corner. Every face sharing that
+ * vertex sees the edit; coincident vertices with different identities do not.
+ * An identical RGBA value succeeds without dirtying the document. */
+BOOL BgDocumentPaintVertex(BgDocument *document, const BgFaceRef *ref,
+                           unsigned int corner, const unsigned char rgba[4],
+                           BOOL *changedout, const char **reasonout);
+
 /* Translates the unique vertices referenced by the selected faces. Shared
  * vertices retain their identity, so adjacent faces using them follow too.
  * World offsets snap to integral room-local coordinates; all references and

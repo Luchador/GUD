@@ -1,9 +1,10 @@
 /*
  * GEditor right-hand tool panel.
  *
- * Visibility and Transform sit above a draggable Properties splitter. The
+ * Visibility and Transform sit above a draggable Properties/Color splitter. The
  * transform controls send generic displacement requests to the frame, which
- * owns selection dispatch, document edits, and undo history.
+ * owns selection dispatch, document edits, and undo history. Vertex paint
+ * replaces the lower properties view with a persistent RGBA color picker.
  */
 
 #include <windows.h>
@@ -15,6 +16,7 @@
 #include <math.h>
 
 #include "rightpanel.h"
+#include "colorpicker.h"
 
 #define RIGHTPANEL_CLASS "GEditorRightPanel"
 
@@ -46,6 +48,8 @@ typedef struct RightPanelState {
     HWND offsets[3];
     HWND move;
     HWND details;
+    HWND colorpicker;
+    BOOL vertexpaint;
     BOOL transformenabled;
     int wheelremainder;
     char transformhint[128];
@@ -117,7 +121,12 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
     detailheight = client.bottom - RIGHTPANEL_MARGIN - detailtop;
     MoveWindow(state->details, RIGHTPANEL_MARGIN, detailtop, width,
                detailheight > 0 ? detailheight : 0, TRUE);
-    ShowWindow(state->details, detailheight > 0 ? SW_SHOW : SW_HIDE);
+    ShowWindow(state->details, detailheight > 0 && !state->vertexpaint ? SW_SHOW : SW_HIDE);
+    detailtop = state->topheight + RIGHTPANEL_SPLITTER_H + 32;
+    detailheight = client.bottom - detailtop;
+    MoveWindow(state->colorpicker, 4, detailtop, client.right > 8 ? client.right - 8 : 1,
+               detailheight > 0 ? detailheight : 0, TRUE);
+    ShowWindow(state->colorpicker, detailheight > 0 && state->vertexpaint ? SW_SHOW : SW_HIDE);
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
@@ -283,9 +292,14 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     detailtitle.right = client.right - RIGHTPANEL_MARGIN;
     detailtitle.top = splitter.bottom + 8;
     detailtitle.bottom = detailtitle.top + 20;
-    DrawText(hdc, "Properties", -1, &detailtitle,
+    DrawText(hdc, state->vertexpaint ? "Vertex Color" : "Properties", -1, &detailtitle,
              DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX);
 
+    if (state->vertexpaint)
+    {
+        SelectObject(hdc, oldfont);
+        return;
+    }
     detailtype = detailtitle;
     detailtype.top = detailtitle.bottom + 2;
     detailtype.bottom = detailtype.top + 20;
@@ -363,13 +377,15 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             0, "EDIT", state->detailtext,
             WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
             0, 0, 1, 1, hwnd, NULL, cs->hInstance, NULL);
+        state->colorpicker = ColorPickerCreate(hwnd, cs->hInstance);
         SendMessage(state->move, WM_SETFONT, (WPARAM)font, TRUE);
         SendMessage(state->details, WM_SETFONT, (WPARAM)font, TRUE);
 
         if (state->bgprimary == NULL || state->bgsecondary == NULL
             || state->stan == NULL || state->portals == NULL
             || state->offsets[0] == NULL || state->offsets[1] == NULL
-            || state->offsets[2] == NULL || state->move == NULL || state->details == NULL)
+            || state->offsets[2] == NULL || state->move == NULL || state->details == NULL
+            || state->colorpicker == NULL)
         {
             free(state);
             SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
@@ -471,6 +487,15 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
 
             point.x = GET_X_LPARAM(lparam);
             point.y = GET_Y_LPARAM(lparam);
+            if (state->vertexpaint)
+            {
+                GetWindowRect(state->colorpicker, &bounds);
+                if (PtInRect(&bounds, point))
+                {
+                    SendMessage(state->colorpicker, WM_MOUSEWHEEL, wparam, lparam);
+                }
+                return 0;
+            }
             GetWindowRect(state->details, &bounds);
             if (PtInRect(&bounds, point))
             {
@@ -519,6 +544,7 @@ BOOL RightPanelRegisterClass(HINSTANCE hinstance)
 {
     WNDCLASS wc;
 
+    if (!ColorPickerRegisterClass(hinstance)) { return FALSE; }
     ZeroMemory(&wc, sizeof(wc));
     wc.lpfnWndProc = RightPanelWndProc;
     wc.hInstance = hinstance;
@@ -580,6 +606,10 @@ BOOL RightPanelHandleMessage(HWND panel, MSG *message)
     {
         return FALSE;
     }
+    if (state->vertexpaint && ColorPickerHandleMessage(state->colorpicker, message))
+    {
+        return TRUE;
+    }
     isoffset = focus == state->offsets[0] || focus == state->offsets[1]
             || focus == state->offsets[2];
     if (message->wParam == VK_TAB)
@@ -598,6 +628,22 @@ BOOL RightPanelHandleMessage(HWND panel, MSG *message)
         return TRUE;
     }
     return FALSE;
+}
+
+
+void RightPanelSetVertexPaintMode(HWND panel, BOOL enabled)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    if (state == NULL || state->vertexpaint == enabled) { return; }
+    state->vertexpaint = enabled;
+    RightPanelLayout(panel, state);
+}
+
+
+void RightPanelGetPaintColor(HWND panel, unsigned char rgba[4])
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    ColorPickerGetColor(state != NULL ? state->colorpicker : NULL, rgba);
 }
 
 

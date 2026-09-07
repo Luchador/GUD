@@ -1041,6 +1041,40 @@ void BgDocumentGetWorldPosition(const BgDocument *document,
 }
 
 
+BOOL BgDocumentPaintVertex(BgDocument *document, const BgFaceRef *ref,
+                           unsigned int corner, const unsigned char rgba[4],
+                           BOOL *changedout, const char **reasonout)
+{
+    const BgDocumentRoom *room;
+    const BgDocumentFace *face;
+    BgDocumentVertex *vertex;
+
+    *changedout = FALSE;
+    *reasonout = "";
+    face = BgDocumentFindFace(document, ref, &room);
+    if (face == NULL || corner >= 3 || rgba == NULL
+        || room->vertices == NULL || face->vertexindices[corner] >= room->vertexcount)
+    {
+        *reasonout = "the background vertex to paint is no longer available.";
+        return FALSE;
+    }
+
+    vertex = &document->rooms[ref->room].vertices[face->vertexindices[corner]];
+    if (vertex->r == rgba[0] && vertex->g == rgba[1]
+        && vertex->b == rgba[2] && vertex->a == rgba[3])
+    {
+        return TRUE;
+    }
+    vertex->r = rgba[0];
+    vertex->g = rgba[1];
+    vertex->b = rgba[2];
+    vertex->a = rgba[3];
+    document->dirty = TRUE;
+    *changedout = TRUE;
+    return TRUE;
+}
+
+
 BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
                                BgDocumentRenderMesh *out,
                                const char **reasonout)

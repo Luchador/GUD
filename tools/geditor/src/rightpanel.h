@@ -29,6 +29,8 @@ BOOL RightPanelRegisterClass(HINSTANCE hinstance);
 HWND RightPanelCreate(HWND parent, HINSTANCE hinstance);
 void RightPanelSetTransformState(HWND panel, BOOL enabled, double gridstep);
 BOOL RightPanelHandleMessage(HWND panel, MSG *message);
+void RightPanelSetVertexPaintMode(HWND panel, BOOL enabled);
+void RightPanelGetPaintColor(HWND panel, unsigned char rgba[4]);
 
 /* The lower pane is a generic properties surface. Background triangles are
    its first supported selection type. */

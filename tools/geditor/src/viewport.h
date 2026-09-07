@@ -16,6 +16,14 @@
    property editors cannot accidentally remove scene geometry. */
 #define VIEWPORT_WM_DELETE_SELECTION  (WM_APP + 4)
 
+/* Synchronous paint request. lparam points to a stack-owned hit, copied
+   before the frame edits the document and rebuilds the viewport. */
+#define VIEWPORT_WM_PAINT_VERTEX (WM_APP + 7)
+typedef struct ViewportBgVertexHit {
+    BgFaceRef face;
+    unsigned int corner;
+} ViewportBgVertexHit;
+
 /**
  * Main 3D viewport functions. Create a child window with OpenGL context.
  */
@@ -27,6 +35,11 @@ void ViewportRedraw(HWND viewport);
    selection without editing assets or adding an undo history entry. */
 EditorTool ViewportGetTool(HWND viewport);
 void ViewportSetTool(HWND viewport, EditorTool tool);
+
+/* Refreshes every rendered corner sharing this vertex after a color-only
+   document edit. Keeps geometry, camera, and textures resident. */
+void ViewportRefreshBgVertexColor(HWND viewport, const BgDocument *document,
+                                   const ViewportBgVertexHit *hit);
 
 /**
  * Frame loop hooks. The main loop asks whether a viewport is flying
