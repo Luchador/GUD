@@ -6415,12 +6415,7 @@ void chrlvFireWeaponRelated(ChrRecord *self, s32 hand)
                                 }
                                 else if ((g_StanLastCollisionProp->type == PROP_TYPE_OBJ) || (g_StanLastCollisionProp->type == PROP_TYPE_WEAPON))
                                 {
-                                    chrobjMaybeDetonateObjectIfFlags(
-                                        g_StanLastCollisionProp->obj,
-                                        gunItemGetDestructionAmount(prop_selfchr->act_attack.attack_item),
-                                        &sp258,
-                                        prop_selfchr->act_attack.attack_item,
-                                        get_cur_playernum());
+                                    objApplyDamgeIfAllowed(g_StanLastCollisionProp->obj, gunItemGetDestructionAmount(prop_selfchr->act_attack.attack_item), &sp258, prop_selfchr->act_attack.attack_item, get_cur_playernum());
                                 }
                             }
                             else

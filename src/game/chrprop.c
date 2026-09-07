@@ -497,13 +497,13 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
             {
                 if ((renderpass == 0)
                         && ((prop->flags
-                            & (PROPFLAG_00000020 | PROPFLAG_RENDERPOSTBG)) == 0))
+                            & (PROPFLAG_SCALE_TO_X_BOUNDS | PROPFLAG_RENDERPOSTBG)) == 0))
                 {
                     gdl = chrpropRender(gdl, prop, FALSE);
                 }
                 else if ((renderpass == 2)
                         && ((prop->flags
-                            & (PROPFLAG_00000020 | PROPFLAG_RENDERPOSTBG))
+                            & (PROPFLAG_SCALE_TO_X_BOUNDS | PROPFLAG_RENDERPOSTBG))
                             == PROPFLAG_RENDERPOSTBG))
                 {
                     gdl = chrpropRender(gdl, prop, FALSE);
@@ -525,7 +525,7 @@ Gfx *chrpropsRenderPass(Gfx *gdl, s32 roomid, s32 renderpass)
 
             if (prop != NULL)
             {
-                if (prop->flags & PROPFLAG_00000020)
+                if (prop->flags & PROPFLAG_SCALE_TO_X_BOUNDS)
                 {
                     gdl = chrpropRender(gdl, prop, FALSE);
                 }
@@ -2404,7 +2404,7 @@ s32 propIsOfCdType(PropRecord* prop, s32 cdtypes)
         {
             obj = prop->obj;
 
-            if (obj->flags & PROPFLAG_04000000)
+            if (obj->flags & PROPFLAG_TRANSPARENT_TO_AI)
             {
                 ret = 0;
             }
@@ -2436,7 +2436,7 @@ s32 propIsOfCdType(PropRecord* prop, s32 cdtypes)
     {
         obj = prop->obj;
 
-        if ((cdtypes & CDTYPE_AIOPAQUE) && (obj->flags & PROPFLAG_04000000))
+        if ((cdtypes & CDTYPE_AIOPAQUE) && (obj->flags & PROPFLAG_TRANSPARENT_TO_AI))
         {
             ret = 0;
         }
@@ -2446,7 +2446,7 @@ s32 propIsOfCdType(PropRecord* prop, s32 cdtypes)
             ret = 0;
         }
 
-        if (obj->flags & PROPFLAG_00000800)
+        if (obj->flags & PROPFLAG_FREE_STANDING_GLASS)
         {
             if (!(cdtypes & CDTYPE_PATHBLOCKER))
             {
@@ -2688,7 +2688,7 @@ void chrpropDeregisterRooms(PropRecord *prop)
         roomIter += 1;
         room = *roomIter;
     }
-    if (!(prop->flags & PROPFLAG_00000010))
+    if (!(prop->flags & PROPFLAG_SCALE_TO_PAD_BOUNDS))
     {
         prop->rooms[0] = -1; //hide room
     }

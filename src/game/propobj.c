@@ -4549,7 +4549,7 @@ void objTickVehicle(PropRecord *prop)
 
     truckShouldPlayEngineSound = 0;
 
-    if (((!(obj->flags2 & PROPFLAG2_00080000)) && (objIsHealthy(obj) != 0)) && ((poTruck->speed > 0.0f) || (poTruck->speedaim > 0.0f)))
+    if (((!(obj->flags2 & PROPFLAG2_ONLYEXPLOSIONDAMAGE)) && (objIsHealthy(obj) != 0)) && ((poTruck->speed > 0.0f) || (poTruck->speedaim > 0.0f)))
     {
         truckShouldPlayEngineSound = sndCalculateVolumeAtPosition(&poTruck->position, 2000.0f, 3000.0f);
     }
@@ -4829,7 +4829,7 @@ void objTickAircraft(PropRecord *prop)
     }
 
     truckShouldPlayEngineSound = 0;
-    if ((((!(render_pad2F4->flags2 & PROPFLAG2_00080000)) && (objIsHealthy(obj) != 0)) && (render_pad2F4->rotaryspeed != 0.0f)) && (!(render_pad2F4->flags & PROPFLAG_INMOTION)))
+    if ((((!(render_pad2F4->flags2 & PROPFLAG2_ONLYEXPLOSIONDAMAGE)) && (objIsHealthy(obj) != 0)) && (render_pad2F4->rotaryspeed != 0.0f)) && (!(render_pad2F4->flags & PROPFLAG_INMOTION)))
     {
         truckShouldPlayEngineSound = sndCalculateVolumeAtPosition(&render_pad2F4->position, 5000.0f, 6000.0f);
     }
@@ -5608,7 +5608,7 @@ TICKOP objTickProjectile(PropRecord *prop)
                     obj->runtime_bitflags &= ~RUNTIMEBITFLAG_HASPROJECTILE;
                     if (prop->flags & PROPFLAG_00000008)
                     {
-                        prop->flags |= PROPFLAG_00000010;
+                        prop->flags |= PROPFLAG_SCALE_TO_PAD_BOUNDS;
                     }
 
                     chrobjSndCreatePostEventDefault(sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, ATTACH_MINE_SFX, NULL), &prop->pos);
@@ -5961,7 +5961,7 @@ TICKOP objTickProjectile(PropRecord *prop)
 
                 if (prop->flags & PROPFLAG_00000008)
                 {
-                    prop->flags |= PROPFLAG_00000010;
+                    prop->flags |= PROPFLAG_SCALE_TO_PAD_BOUNDS;
                 }
 
                 if (obj->type == PROPDEF_COLLECTABLE)
@@ -6334,7 +6334,7 @@ s32 objTick(struct PropRecord *prop, s32 playerCount, bool isSimOwner)
 	}
 	else
 	{
-		isOnScreen = !(obj->runtime_bitflags & RUNTIMEBITFLAG_00000800) && !(obj->flags2 & PROPFLAG2_00080000) && camIsPosOnScreen(prop, &obj->position, modelGetInstSize(model), applyFogCull);
+		isOnScreen = !(obj->runtime_bitflags & RUNTIMEBITFLAG_00000800) && !(obj->flags2 & PROPFLAG2_ONLYEXPLOSIONDAMAGE) && camIsPosOnScreen(prop, &obj->position, modelGetInstSize(model), applyFogCull);
 	}
 
 	if (isOnScreen)
@@ -7108,7 +7108,7 @@ void objRenderPropModel(PropRecord *prop, ModelRenderData *renderData, bool tran
 
     if ((obj->type == PROPDEF_MONITOR || obj->type == PROPDEF_MULTI_MONITOR) && (renderData->flags & 1))
     {
-        if (obj->flags2 & PROPFLAG2_00010000)
+        if (obj->flags2 & PROPFLAG2_DISABLE_ZBUFFER)
         {
             monitorZBufferMode = MONITOR_ZBUFFER_DISABLED;
         }
@@ -7364,7 +7364,7 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
         }
     }
 
-    if ((objAlpha < 0xFF) || (obj->flags2 & 0x10000))
+    if ((objAlpha < 0xFF) || (obj->flags2 & PROPFLAG2_DISABLE_ZBUFFER))
     {
         if (withalpha == 0)
         {
@@ -7389,7 +7389,7 @@ Gfx *objRenderProp(PropRecord *prop, Gfx *gdl, s32 withalpha)
     }
 
     modrendata.flags = sp44;
-    modrendata.zbufferenabled = (obj->flags2 & 0x10000) == 0;
+    modrendata.zbufferenabled = (obj->flags2 & PROPFLAG2_DISABLE_ZBUFFER) == 0;
 
     modrendata.gdl = gdl;
 
@@ -8205,7 +8205,7 @@ void objExplode(ObjectRecord *obj, coord3d *target_pos, s32 playernum)
             }
         }
 
-        if (obj->flags2 & PROPFLAG2_00002000)
+        if (obj->flags2 & PROPFLAG2_REMOVE_WHEN_DESTROYED)
         {
             obj->runtime_bitflags |= RUNTIMEBITFLAG_REMOVE;
             return;
@@ -8863,9 +8863,9 @@ bool objIsMortal(ObjectRecord* obj)
 }
 
 
-void chrobjMaybeDetonateObjectIfFlags(ObjectRecord *obj, f32 damage, coord3d *pos, ITEM_IDS item, s32 owner)
+void objApplyDamgeIfAllowed(ObjectRecord *obj, f32 damage, coord3d *pos, ITEM_IDS item, s32 owner)
 {
-    if ((obj->flags2 & 0x4000) == 0)
+    if ((obj->flags2 & PROPFLAG2_GUNFIRE_IMMUNE) == 0)
     {
         objApplyDamage(obj, damage, pos, item, owner);
     }
@@ -8931,16 +8931,14 @@ void objApplyDamage(ObjectRecord *obj, f32 damage, coord3d *pos, ITEM_IDS itemnu
     {
         if (objIsCollectable((PropDefHeaderRecord *)obj))
         {
-            // Equivalent to: if (!(obj->flags & PROPFLAG_00800000)) keep like this for matching
-            if ((s32)(obj->flags << 8) >= 0)
+            if (!(obj->flags & PROPFLAG_COLLECTABLE_ALLOW_UNARMED_DAMAGE))
             {
                 return;
             }
             goto apply_damage;
         }
 
-        // Equivalent to: if (obj->flags & PROPFLAG_01000000) keep like this for matching
-        if ((s32)(obj->flags << 7) < 0)
+        (obj->flags & PROPFLAG_EMBEDDED)
         {
             return;
         }
@@ -9256,7 +9254,7 @@ void objTestAndAddShotHit(PropRecord *prop, struct ShotData *hitinfo)
                     }
                 }
 
-                chrpropAddBulletHit(hitinfo, prop, -pos.z, hitpart, node, &hit, mtxindex, (s32) hitnode, model, penetrates, (obj->flags2 & PROPFLAG2_00100000) != FALSE);
+                chrpropAddBulletHit(hitinfo, prop, -pos.z, hitpart, node, &hit, mtxindex, (s32) hitnode, model, penetrates, (obj->flags2 & PROPFLAG2_BULLETPROOFGLASS) != FALSE);
             }
         }
     }
@@ -9419,7 +9417,7 @@ void objHit(ShotData *shotdata, BulletHit *hit)
             damage *= g_CctvTakenDamageMult;
         }
 
-        chrobjMaybeDetonateObjectIfFlags(obj, damage, &pos, shotdata->weapon, get_cur_playernum());
+        objApplyDamgeIfAllowed(obj, damage, &pos, shotdata->weapon, get_cur_playernum());
     }
 
     if ((obj->model->obj->Skeleton == &skeleton_door) && (hit->countsAsPenetration == 0))
@@ -9446,7 +9444,7 @@ void objHit(ShotData *shotdata, BulletHit *hit)
                 do_bounce = TRUE;
             }
         }
-        else if (obj->flags & PROPFLAG_00200000)
+        else if (obj->flags & PROPFLAG_BOUND_AND_DESTROY)
         {
             do_bounce = TRUE;
         }
@@ -9496,7 +9494,7 @@ bool objTestForInteract(PropRecord* prop)
 
     obj = prop->obj;
 
-    if (((obj->type == PROP_TYPE_PLAYER) || (obj->flags & PROPFLAG_00080000) || (obj->runtime_bitflags & (RUNTIMEBITFLAG_00000001 | RUNTIMEBITFLAG_00000002 | RUNTIMEBITFLAG_TAGGED))))
+    if (((obj->type == PROP_TYPE_PLAYER) || (obj->flags & PROPFLAG_COLLECT_BY_INTERACT) || (obj->runtime_bitflags & (RUNTIMEBITFLAG_00000001 | RUNTIMEBITFLAG_00000002 | RUNTIMEBITFLAG_TAGGED))))
     {
         if ((prop->flags & PROPFLAG_ONSCREEN)
                 && (objIsHealthy(obj) != 0)
@@ -9578,7 +9576,7 @@ TICKOP propobjInteract(PropRecord *prop)
         }
     }
 
-    if (obj->flags & PROPFLAG_00080000)
+    if (obj->flags & PROPFLAG_COLLECT_BY_INTERACT)
     {
         op = propPickupByPlayer(prop, TRUE);
     }
@@ -10529,13 +10527,13 @@ TICKOP objTickPlayer(struct PropRecord* prop)
     } 
     else 
     {
-        if (!(obj->flags & PROPFLAG_00040000))
+        if (!(obj->flags & PROPFLAG_ALLOW_PICKUP))
         {
             return TICKOP_NONE;
         }
     }
 
-    if (obj->flags & PROPFLAG_00080000)
+    if (obj->flags & PROPFLAG_COLLECT_BY_INTERACT)
     {
         return TICKOP_NONE;
     }
@@ -10739,7 +10737,7 @@ TICKOP objTickPlayer(struct PropRecord* prop)
                 && (temp_f12 <= 200.0f);
         }
 
-        if ((pickup != 0) && !(obj->flags2 & 0x1000)) 
+        if ((pickup) && !(obj->flags2 & PROPFLAG2_PICKUP_THROUGH_WALLS)) 
         {
             struct StandTile* stan = temp_v0_5->stan;
 
@@ -10749,7 +10747,7 @@ TICKOP objTickPlayer(struct PropRecord* prop)
             }
         }
 
-        if (pickup != 0) 
+        if (pickup) 
         {
             return propPickupByPlayer(prop, TRUE);
         }
@@ -13526,7 +13524,7 @@ TICKOP doorInteract(PropRecord* doorprop)
     }
     else if ((door->openstate == DOORSTATE_STATIONARY) && (door->openPosition < 0.5f))
     {
-        if (!(door->flags2 & PROPFLAG2_00000004))
+        if (!(door->flags2 & PROPFLAG2_DOOR_HIDE_LOCKED_MSG))
         {
             txt = bondinvGetTextbyObj((ObjectRecord*)door);
 
@@ -13541,7 +13539,7 @@ TICKOP doorInteract(PropRecord* doorprop)
         }
 
         door->runtime_bitflags |= RUNTIMEBITFLAG_ACTIVATED;
-        door->flags2 |= PROPFLAG2_00000008;
+        door->flags2 |= PROPFLAG2_NO_LOAD_MP;
     }
 
     return TICKOP_NONE;

@@ -341,7 +341,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
                     sp54 = 1.0f;
                     sp50 = 1.0f;
 
-                    if (objectRecord->flags & (PROPFLAG_00000010 | PROPFLAG_00000020))
+                    if (objectRecord->flags & (PROPFLAG_SCALE_TO_PAD_BOUNDS | PROPFLAG_SCALE_TO_X_BOUNDS))
                     {
                         if (bboxRecord->Bounds.xmin < bboxRecord->Bounds.xmax)
                         {
@@ -356,7 +356,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
                         }
                     }
 
-                    if (objectRecord->flags & (PROPFLAG_00000010 | PROPFLAG_00000040))
+                    if (objectRecord->flags & (PROPFLAG_SCALE_TO_PAD_BOUNDS | PROPFLAG_SCALE_TO_Y_BOUNDS))
                     {
                         if (bboxRecord->Bounds.ymin < bboxRecord->Bounds.ymax)
                         {
@@ -371,7 +371,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
                         }
                     }
 
-                    if (objectRecord->flags & (PROPFLAG_00000010 | PROPFLAG_00000080))
+                    if (objectRecord->flags & (PROPFLAG_SCALE_TO_PAD_BOUNDS | PROPFLAG_SCALE_TO_Z_BOUNDS))
                     {
                         if (bboxRecord->Bounds.zmin < bboxRecord->Bounds.zmax)
                         {
@@ -410,7 +410,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
                         sp48 = sp50;
                     }
 
-                    if (objectRecord->flags & PROPFLAG_00000010)
+                    if (objectRecord->flags & PROPFLAG_SCALE_TO_PAD_BOUNDS)
                     {
                         sp50 = var_f0;
                         sp54 = var_f0;
@@ -418,7 +418,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
                     }
                     else
                     {
-                        if (!(objectRecord->flags & PROPFLAG_00000020))
+                        if (!(objectRecord->flags & PROPFLAG_SCALE_TO_X_BOUNDS))
                         {
                             if (objectRecord->flags & PROPFLAG_ONSCREEN)
                             {
@@ -433,7 +433,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
                             }
                         }
 
-                        if (!(objectRecord->flags & PROPFLAG_00000040))
+                        if (!(objectRecord->flags & PROPFLAG_SCALE_TO_Y_BOUNDS))
                         {
                             if (objectRecord->flags & PROPFLAG_ONSCREEN)
                             {
@@ -448,7 +448,7 @@ void domakedefaultobj(s32 arg0, ObjectRecord *objectRecord, s32 cmdindex)
                             }
                         }
 
-                        if (!(objectRecord->flags & PROPFLAG_00000080))
+                        if (!(objectRecord->flags & PROPFLAG_SCALE_TO_Z_BOUNDS))
                         {
                             if (objectRecord->flags & PROPFLAG_ONSCREEN)
                             {
@@ -1364,7 +1364,7 @@ void setupLoadFiles(enum LEVELID stageId)
             s32 exclusionFlags;
             s32 commandIndex;
 
-            // PROPFLAG2_00000010/20/40 exclude objects on Agent, Secret Agent, and 00 Agent.
+            // 0x10/20/40 exclude objects on Agent, Secret Agent, and 00 Agent.
             exclusionFlags = 1 << (lvGetSelectedDifficulty() + 4);
 
             /**

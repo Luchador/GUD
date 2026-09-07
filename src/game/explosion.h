@@ -31,7 +31,7 @@ typedef struct s_smoketype {
     //u16 field_0x16;
 } s_smoketype;
 
-typedef struct s_explosiontype {
+typedef struct ExplosionType {
     f32 hrange;
     f32 vrange;
     f32 hchange;
@@ -43,16 +43,14 @@ typedef struct s_explosiontype {
     s16 propagationrate;
     f32 flareanimspeed;
     s16 numshrapnelbits;
-    //u16 field_0x26;
     f32 shrapnel_size;
     f32 shrapnel_scatter_dist;
     f32 shrapnel_hvel;
     f32 shrapnel_vvel;
     u8 smoketype;
     u8 sndID;
-    //u16 field_0x3a;
     f32 damage;
-} s_explosiontype;
+} ExplosionType;
 
 typedef struct s_impacttype {
     f32 width;
@@ -76,7 +74,7 @@ struct Explosion {
     PropRecord *source; // maybe source prop (e.g., crate)
     struct ExplosionPart parts[EXPLOSION_PARTS_LEN];
     s16 age; // some kind of current tick + total elapsed?
-    s16 unk3CA; // total elapsed? Or "next tick" age?
+    s16 nextDamageAge; // Apply damage again when age reaches this value.
 
     s8 explosion_type;
     s8 unk3CD;

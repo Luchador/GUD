@@ -855,7 +855,7 @@ s32 bondinvCountTotalItemsInInv(void)
             }
             else if (prop->type == PROP_TYPE_OBJ)
             {
-                if ((prop->obj->flags2 & 0x40000) == 0)
+                if ((prop->obj->flags2 & PROPFLAG2_HIDE_FROM_INVENTORY) == 0)
                 {
                     numitems = numitems + 1;
                 }
@@ -918,7 +918,7 @@ InvItem *bondinvGetItemByIndex(s32 index)
             }
             else if (prop->type == PROP_TYPE_OBJ)
             {
-                if ((prop->obj->flags2 & 0x40000) == 0)
+                if ((prop->obj->flags2 & PROPFLAG2_HIDE_FROM_INVENTORY) == FALSE)
                 {
                     if (index == 0)
                     {

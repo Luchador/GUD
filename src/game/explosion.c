@@ -55,7 +55,7 @@ s_smoketype g_SmokeTypes[] = {
     { 900,   60,  70, 900,  0.01f,  64,  64,  64,   0.3f,     180}
 };
 
-s_explosiontype g_ExplosionTypes[] = {
+ExplosionType g_ExplosionTypes[] = {
    //hrange, vrange,    hchg,  vchg,  expsize, exprang, dmgrang,   dur, proprate, flarespd, nbits,  bitsize, bitdist, bithvel, bitvvel, smoketype,             sndid, damage
     {  0.1f,   0.1f,    0.0f,  0.0f,     0.1f,    0.0f,    0.0f,     1,        1,     1.0f,     0,     0.1f,    0.0f,    0.0f,    0.0f,         0,       NOTHING_SFX,   0.0f},
     {  1.0f,   1.0f,    0.0f,  0.0f,     1.0f,    0.0f,    0.0f,    30,        1,     1.0f,    10,     5.0f,    0.0f,    2.0f,    6.0f,         7,       NOTHING_SFX,   0.0f},
@@ -137,8 +137,6 @@ Vtx g_BulletImpactDefaultVertex = {0, 0, 0, 0, 0, 0, 0x0, 0x0, 0x0, 0xDC };
 void explosionInitFlyingParticles(coord3d *spawnpos, f32 spawn_rand_scale, f32 spawn_horiz_drift_scale, f32 spawn_vert_drift_scale, f32 spawn_tex_scale);
 s32 explosionRoundFloat(f32 arg0);
 void explosionSetBulletImpactAlpha(s32 arg0);
-void explosionInflictDamage(PropRecord *arg0, f32 arg1, f32 arg2);
-void explosionInflictDamage(struct PropRecord *arg0, f32 arg1, f32 arg2);
 void explosionScorchTick(struct coord3d *pos, f32 explosion_size, s16 room);
 Gfx *explosionRenderPart(struct ExplosionPart *arg0, Gfx *gdl, struct coord3d *coord);
 
@@ -153,7 +151,7 @@ void explosionInitScaleMtx(void)
 
 void explosionCreate(PropRecord *arg0, struct coord3d *target_pos, StandTile *target_stan, s16 explosion_type, s32 arg4, s32 player, u8 *rooms, s32 arg7)
 {
-    s_explosiontype *sp44;
+    ExplosionType *sp44;
     struct Explosion *sp40;
     f32 sp3C;
     f32 sp38;
@@ -215,7 +213,7 @@ void explosionCreate(PropRecord *arg0, struct coord3d *target_pos, StandTile *ta
 
             sp40->explosion_type = explosion_type;
             sp40->age = 0;
-            sp40->unk3CA = -1;
+            sp40->nextDamageAge = -1;
             sp40->unk3CD = (u8) arg4;
             sp40->prop = sp30;
             sp40->source = arg0;
@@ -350,194 +348,153 @@ void explosionScreenShake(coord3d* source_pos, coord3d* source_mag, coord3d* res
 }
 
 
-void explosionInflictDamage(PropRecord *arg0, f32 horiz_range, f32 vert_range)
+/** 
+ * Apply periodic damage to props in the explosion's rooms. 
+ * The blast uses axis-aligned ranges, with falloff set by the weakest of the three axes. 
+ */
+void explosionInflictDamage(PropRecord *explosionProp, f32 horizontalRange, f32 verticalRange)
 {
-    s32 spE0[8];
-    PropRecord *temp_s0;
-    s16 *var_s3;
-    s_explosiontype *temp_s6;
-    struct Explosion *temp_s2;
+    s32 roomIds[8];
+    s16 *propIndex;
+    struct Explosion *explosion = explosionProp->explosion;
+    ExplosionType *explosionType = &g_ExplosionTypes[explosion->explosion_type];
 
-    temp_s2 = arg0->explosion;
-    temp_s6 = &g_ExplosionTypes[temp_s2->explosion_type];
-
-    if (temp_s2->age >= temp_s2->unk3CA)
+    if (explosion->age < explosion->nextDamageAge)
     {
-        chraiGetPropRoomIds(arg0, &spE0[0]);
-        roomGetProps(&spE0[0]);
+        return;
+    }
 
-        for (var_s3 = g_RoomPropQueryIndices; *var_s3 >= 0; var_s3++)
+    chraiGetPropRoomIds(explosionProp, roomIds);
+    roomGetProps(roomIds);
+
+    for (propIndex = g_RoomPropQueryIndices; *propIndex >= 0; propIndex++)
+    {
+        PropRecord *targetProp = &g_Props[*propIndex];
+        ObjectRecord *targetObject = NULL;
+        coord3d *targetPosition;
+        f32 deltaX;
+        f32 deltaY;
+        f32 deltaZ;
+        f32 falloffX;
+        f32 falloffY;
+        f32 falloffZ;
+        f32 damageFraction;
+        f32 damage;
+
+        if (targetProp == explosion->source || targetProp->timetoregen != 0)
         {
-            temp_s0 = &g_Props[*var_s3];
-
-            if ((temp_s0 != temp_s2->source) && (temp_s0->timetoregen == 0))
-            {
-                if (temp_s0->type == PROP_TYPE_OBJ || temp_s0->type == PROP_TYPE_WEAPON || temp_s0->type == PROP_TYPE_DOOR)
-                {
-                    struct ObjectRecord *spCC;
-                    f32 xdist;
-                    f32 ydist;
-                    f32 zdist;
-
-                    spCC = temp_s0->obj;
-                    xdist = spCC->position.f[0] - arg0->pos.f[0];
-                    ydist = spCC->position.f[1] - arg0->pos.f[1];
-                    zdist = spCC->position.f[2] - arg0->pos.f[2];
-
-                    if ((xdist <= horiz_range)
-                        && (-horiz_range <= xdist)
-                        && (ydist <= vert_range)
-                        && (-vert_range <= ydist)
-                        && (zdist <= horiz_range)
-                        && (-horiz_range <= zdist))
-                    {
-                        f32 xfrac;
-                        f32 yfrac;
-                        f32 zfrac;
-                        f32 minfrac;
-
-                        xfrac = xdist / horiz_range;
-                        yfrac = ydist / vert_range;
-                        zfrac = zdist / horiz_range;
-
-                        if (xfrac < 0.0f)
-                        {
-                            xfrac = -xfrac;
-                        }
-
-                        if (yfrac < 0.0f)
-                        {
-                            yfrac = -yfrac;
-                        }
-
-                        if (zfrac < 0.0f)
-                        {
-                            zfrac = -zfrac;
-                        }
-
-                        xfrac = 1.0f - xfrac;
-                        yfrac = 1.0f - yfrac;
-                        zfrac = 1.0f - zfrac;
-
-                        minfrac = xfrac;
-
-                        if (yfrac < minfrac)
-                        {
-                            minfrac = yfrac;
-                        }
-
-                        if (zfrac < minfrac)
-                        {
-                            minfrac = zfrac;
-                        }
-
-                        minfrac = minfrac * EXPLOSION_DAMAGE_SCALER * temp_s6->damage;
-
-                        if (!(spCC->runtime_bitflags & 0x1000) && !(spCC->flags2 & (PROPFLAG2_EXPLOSION_IMMUNE | PROPFLAG2_LINKEDTOSAFE)))
-                        {
-                            maybe_detonate_object_and_its_children(temp_s0, ((RANDOMFRAC() * 0.5f) + 1.0f) * minfrac, &spCC->position, 0x1D, (s32) temp_s2->player);
-                        }
-                    }
-
-                }
-                else if (temp_s0->type == PROP_TYPE_CHR || temp_s0->type == PROP_TYPE_VIEWER)
-                {
-                    f32 xdist;
-                    f32 ydist;
-                    f32 zdist;
-
-                    xdist = temp_s0->pos.f[0] - arg0->pos.f[0];
-                    ydist = temp_s0->pos.f[1] - arg0->pos.f[1];
-                    zdist = temp_s0->pos.f[2] - arg0->pos.f[2];
-
-                    if ((xdist <= horiz_range)
-                        && (-horiz_range <= xdist)
-                        && (ydist <= vert_range)
-                        && (-vert_range <= ydist)
-                        && (zdist <= horiz_range)
-                        && (-horiz_range <= zdist))
-                    {
-                        f32 xfrac;
-                        f32 yfrac;
-                        f32 zfrac;
-                        f32 minfrac;
-
-                        xfrac = xdist / horiz_range;
-                        yfrac = ydist / vert_range;
-                        zfrac = zdist / horiz_range;
-
-                        if (xfrac < 0.0f)
-                        {
-                            xfrac = -xfrac;
-                        }
-
-                        if (yfrac < 0.0f)
-                        {
-                            yfrac = -yfrac;
-                        }
-
-                        if (zfrac < 0.0f)
-                        {
-                            zfrac = -zfrac;
-                        }
-
-                        xfrac = 1.0f - xfrac;
-                        yfrac = 1.0f - yfrac;
-                        zfrac = 1.0f - zfrac;
-
-                        minfrac = xfrac;
-
-                        if (yfrac < minfrac)
-                        {
-                            minfrac = yfrac;
-                        }
-
-                        if (zfrac < minfrac)
-                        {
-                            minfrac = zfrac;
-                        }
-
-                        minfrac *= minfrac;
-                        minfrac = minfrac * EXPLOSION_DAMAGE_SCALER * temp_s6->damage;
-
-                        if (temp_s0->type == PROP_TYPE_CHR)
-                        {
-                            chrlvExplosionDamage(temp_s0->chr, &arg0->pos, minfrac, 1);
-                        }
-                        else
-                        {
-                            s32 sp90;
-
-                            if ((xdist != 0.0f) || (zdist != 0.0f))
-                            {
-                                f32 temp_f2_3 = sqrtf((xdist * xdist) + (zdist * zdist));
-                                xdist *= 1.0f / temp_f2_3;
-                                zdist *= 1.0f / temp_f2_3;
-                            }
-
-                            sp90 = get_cur_playernum();
-                            set_cur_player(getPlayerPointerIndex(temp_s0));
-
-                            if (getPlayerCount() == 1)
-                            {
-                                minfrac *= g_SpExplosionDamageMult;
-                            }
-
-                            if (isBondInTank() == 1)
-                            {
-                                minfrac *= 2.0f;
-                            }
-
-                            record_damage_kills(minfrac, xdist, zdist, (s32) temp_s2->player, 1);
-                            set_cur_player(sp90);
-                        }
-                    }
-                }
-            }
+            continue;
         }
 
-        temp_s2->unk3CA = temp_s2->age + (temp_s6->duration >> 2);
+        switch (targetProp->type)
+        {
+            case PROP_TYPE_OBJ:
+            case PROP_TYPE_WEAPON:
+            case PROP_TYPE_DOOR:
+                targetObject = targetProp->obj;
+                targetPosition = &targetObject->position;
+                break;
+            case PROP_TYPE_CHR:
+            case PROP_TYPE_VIEWER:
+                targetPosition = &targetProp->pos;
+                break;
+            default:
+                continue;
+        }
+
+        deltaX = targetPosition->x - explosionProp->pos.x;
+        deltaY = targetPosition->y - explosionProp->pos.y;
+        deltaZ = targetPosition->z - explosionProp->pos.z;
+
+        if (!(deltaX <= horizontalRange && -horizontalRange <= deltaX && deltaY <= verticalRange && -verticalRange <= deltaY && deltaZ <= horizontalRange && -horizontalRange <= deltaZ))
+        {
+            continue;
+        }
+
+        falloffX = deltaX / horizontalRange;
+        falloffY = deltaY / verticalRange;
+        falloffZ = deltaZ / horizontalRange;
+
+        if (falloffX < 0.0f)
+        {
+            falloffX = -falloffX;
+        }
+
+        if (falloffY < 0.0f)
+        {
+            falloffY = -falloffY;
+        }
+
+        if (falloffZ < 0.0f)
+        {
+            falloffZ = -falloffZ;
+        }
+
+        falloffX = 1.0f - falloffX;
+        falloffY = 1.0f - falloffY;
+        falloffZ = 1.0f - falloffZ;
+        damageFraction = falloffX;
+
+        if (falloffY < damageFraction)
+        {
+            damageFraction = falloffY;
+        }
+
+        if (falloffZ < damageFraction)
+        {
+            damageFraction = falloffZ;
+        }
+
+        /* Characters and players use squared falloff; objects use linear falloff. */
+        if (targetObject == NULL)
+        {
+            damageFraction *= damageFraction;
+        }
+
+        damage = damageFraction * EXPLOSION_DAMAGE_SCALER * explosionType->damage;
+
+        if (targetObject != NULL)
+        {
+            if (!(targetObject->runtime_bitflags & RUNTIMEBITFLAG_FULLY_DESTROYED) && !(targetObject->flags2 & (PROPFLAG2_EXPLOSION_IMMUNE | PROPFLAG2_LINKEDTOSAFE)))
+            {
+                maybe_detonate_object_and_its_children(targetProp, ((RANDOMFRAC() * 0.5f) + 1.0f) * damage, &targetObject->position, ITEM_REMOTEMINE, (s32) explosion->player);
+            }
+        }
+        else if (targetProp->type == PROP_TYPE_CHR)
+        {
+            chrlvExplosionDamage(targetProp->chr, &explosionProp->pos, damage, TRUE);
+        }
+        else
+        {
+            s32 previousPlayerNum;
+
+            /* The player damage routine takes a horizontal direction away from the blast. */
+            if (deltaX != 0.0f || deltaZ != 0.0f)
+            {
+                f32 horizontalDistance = sqrtf((deltaX * deltaX) + (deltaZ * deltaZ));
+                deltaX *= 1.0f / horizontalDistance;
+                deltaZ *= 1.0f / horizontalDistance;
+            }
+
+            previousPlayerNum = get_cur_playernum();
+            set_cur_player(getPlayerPointerIndex(targetProp));
+
+            if (getPlayerCount() == 1)
+            {
+                damage *= g_SpExplosionDamageMult;
+            }
+
+            if (isBondInTank() == 1)
+            {
+                damage *= 2.0f;
+            }
+
+            record_damage_kills(damage, deltaX, deltaZ, (s32) explosion->player, TRUE);
+            set_cur_player(previousPlayerNum);
+        }
     }
+
+    explosion->nextDamageAge = explosion->age + (explosionType->duration >> 2);
 }
 
 
@@ -551,7 +508,7 @@ s32 explosionTick(PropRecord* arg0)
     f32 temp_f20;
     f32 temp_f12;
     struct Explosion *exp;
-    s_explosiontype *explosiontype;
+    ExplosionType *explosiontype;
     f32 lvupdate;
     s32 sp9C;
     struct coord3d sp90;
