@@ -433,14 +433,9 @@ void explosionInflictDamage(PropRecord *arg0, f32 horiz_range, f32 vert_range)
 
                         minfrac = minfrac * EXPLOSION_DAMAGE_SCALER * temp_s6->damage;
 
-                        if (!(spCC->runtime_bitflags & 0x1000) && !(spCC->flags2 & 0x200400))
+                        if (!(spCC->runtime_bitflags & 0x1000) && !(spCC->flags2 & (PROPFLAG2_EXPLOSION_IMMUNE | PROPFLAG2_LINKEDTOSAFE)))
                         {
-                            maybe_detonate_object_and_its_children(
-                                temp_s0,
-                                ((RANDOMFRAC() * 0.5f) + 1.0f) * minfrac,
-                                &spCC->position,
-                                0x1D,
-                                (s32) temp_s2->player);
+                            maybe_detonate_object_and_its_children(temp_s0, ((RANDOMFRAC() * 0.5f) + 1.0f) * minfrac, &spCC->position, 0x1D, (s32) temp_s2->player);
                         }
                     }
 

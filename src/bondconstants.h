@@ -328,7 +328,7 @@ typedef enum PROPFLAG
     PROPFLAG_NO_PORTAL_CLOSE             = 0x40000000, // Area Behind Door Visible
     PROPFLAG_NO_AMMO                     = 0x40000000, // No Ammo on pickup
     PROPFLAG_STARTOPEN                   = 0x80000000, // Door open By Default
-    PROPFLAG_IS_DOUBLE                   = 0x80000000 // Weapon paired for player
+    PROPFLAG_IS_DOUBLE                   = 0x80000000  // Weapon paired for player
 }PROPFLAG;
 
 // prop definition flags
@@ -355,7 +355,7 @@ typedef enum PROPFLAG2
     PROPFLAG2_00040000            = 0x00040000, // Hide inventory item (for tagged armor/ammo/magazine)
     PROPFLAG2_00080000            = 0x00080000, // Invincible Except to Explosions
     PROPFLAG2_00100000            = 0x00100000, // Bulletproof Glass
-    PROPFLAG2_00200000            = 0x00200000, // Immune to Explosions
+    PROPFLAG2_EXPLOSION_IMMUNE    = 0x00200000, // Immune to Explosions
     PROPFLAG2_NOLOAD2P            = 0x00400000, // Don't load on 2P
     PROPFLAG2_NOLOAD3P            = 0x00800000, // Don't load on 3P
     PROPFLAG2_NOLOAD4P            = 0x01000000, // Don't load on 4P
@@ -364,8 +364,10 @@ typedef enum PROPFLAG2
     PROPFLAG2_LOCKEDFRONT         = 0x08000000, // One-Way Lock (Front)
     PROPFLAG2_LOCKEDBACK          = 0x10000000, // One-Way Lock (Back)
     PROPFLAG2_LOCKEDTOAI          = 0x20000000, // Character AI Cannot Operate
-    PROPFLAG2_40000000            = 0x40000000, // Deactivate Special Feature
-    PROPFLAG2_DOOR_ALTCOORDSYSTEM = 0x80000000  // Massive Explosion (08 Type)/Rotating Disabled Drone Gun (0D Type)
+    PROPFLAG2_AUTOGUN_STOP_SCAN   = 0x40000000, // Hold the current yaw and pitch during random scanning.
+    PROPFLAG2_DOOR_INTERLOCK      = 0x40000000, // Close linked doors before opening this door.
+    PROPFLAG2_DOOR_ALTCOORDSYSTEM = 0x80000000, // Massive Explosion (08 Type)/Rotating Disabled Drone Gun (0D Type)
+    PROPFLAG2_RANDOM_SCAN         = 0x80000000  // Turn towards a random yaw and pitch, used by the Surface communications dish.
 } PROPFLAG2;
 
 // Flags on DoorRecord.doorFlags (u16, offset 0x98)

@@ -849,14 +849,14 @@ void objFree(ObjectRecord* obj, s32 freeprop, s32 canregen)
     if (obj->type == PROPDEF_AUTOGUN)
     {
         AutogunRecord* record = (AutogunRecord*)obj;
-        if ((record->unkC4 != NULL) && (sndGetPlayingState(record->unkC4) != 0))
+        if ((record->fireSoundPrimary != NULL) && (sndGetPlayingState(record->fireSoundPrimary) != 0))
         {
-            sndDeactivate(record->unkC4);
+            sndDeactivate(record->fireSoundPrimary);
         }
 
-        if ((record->unkC8 != NULL) && (sndGetPlayingState(record->unkC8) != 0))
+        if ((record->fireSoundSecondary != NULL) && (sndGetPlayingState(record->fireSoundSecondary) != 0))
         {
-            sndDeactivate(record->unkC8);
+            sndDeactivate(record->fireSoundSecondary);
         }
     }
     else if (obj->type == PROPDEF_COLLECTABLE)
@@ -4216,82 +4216,86 @@ void objTickAutogun(PropRecord *prop)
     AutogunRecord *autogun;
     PropRecord *playerProp;
     StandTile *collisionTile;
-    coord3d playerDirVec;
-    f32 var_f0_2;
-    f32 temp_f2_23;
-    f32 horizontalDistSq;
+    coord3d toPlayer;
+    f32 deltaX;
+    f32 deltaZ;
+    f32 targetYawOffset;
+    f32 aimDistanceSq;
     f32 horizontalDist;
     f32 distanceToPlayer;
-    f32 sp4A0;
-    f32 sp4D8;
+    f32 aimTolerance;
+    f32 targetYaw;
     f32 targetPitch;
     f32 playerYaw;
     f32 playerPitch;
     f32 yawError;
-    f32 var_f2_6;
-    f32 sp494;
-    f32 temp_f12_5;
-    f32 angleDelta_6;
-    bool autogunSeesPlayer;
-    s32 isTracking;
-    s32 hasLineOfSight;
-    s32 var_v0_3;
+    f32 pitchError;
+    f32 playerYawOffset;
+    f32 targetYawError;
+    f32 trackingTolerance;
+    bool hasTrackingTarget;
+    bool spinBarrel;
+    bool hasLineOfSight;
+    s32 idleTick;
 
-    autogun = (struct AutogunRecord *) prop->obj;
+    autogun = (AutogunRecord*) obj;
     playerProp = getCurrentPlayerProp();
-    autogunSeesPlayer = FALSE;
-    isTracking = 0;
-    hasLineOfSight = 0;
+    hasTrackingTarget = FALSE;
+    spinBarrel = FALSE;
+    hasLineOfSight = FALSE;
 
-    if (obj->flags2 & PROPFLAG_IS_DOUBLE)
+    /* This flags2 bit selects random scanning instead of player tracking. This is used be the communications dish in Surface. */
+    if (obj->flags2 & PROPFLAG2_RANDOM_SCAN)
     {
-        if (obj->flags2 & PROPFLAG2_40000000)
+        if (obj->flags2 & PROPFLAG2_AUTOGUN_STOP_SCAN)
         {
-            autogun->unk98 = autogun->unk9C;
-            autogun->rot_related = autogun->unk90;
+            autogun->restPitch = autogun->pitch;
+            autogun->restYaw = autogun->yaw;
         }
-        else if ((autogun->unk90 == autogun->rot_related) && (autogun->unk9C == autogun->unk98))
+        else if ((autogun->yaw == autogun->restYaw) && (autogun->pitch == autogun->restPitch))
         {
-            autogun->unk98 = (((U32_TO_F32(randomGetNext()) * 39.0f) + 1.0f) * M_TAU_F) / 360.0f; //degtorad
-            autogun->rot_related = U32_TO_F32(randomGetNext()) * M_TAU_F;
+            /* Choose a pitch between 1 and 40 degrees, then a full-circle yaw. */
+            autogun->restPitch = (((U32_TO_F32(randomGetNext()) * 39.0f) + 1.0f) * M_TAU_F) / 360.0f;
+            autogun->restYaw = U32_TO_F32(randomGetNext()) * M_TAU_F;
         }
 
-        chrobjCallsApplySpeed(&autogun->unk90, autogun->rot_related, &autogun->unk94, AUTOGUN_YAW_ACCEL_PER_FRAME, AUTOGUN_YAW_ACCEL_PER_FRAME, AUTOGUN_YAW_MAX_SPEED);
-        chrobjCallsApplySpeed(&autogun->unk9C, autogun->unk98, &autogun->unkA0, AUTOGUN_PITCH_ACCEL_PER_FRAME, AUTOGUN_PITCH_ACCEL_PER_FRAME, AUTOGUN_PITCH_MAX_SPEED);
+        chrobjCallsApplySpeed(&autogun->yaw, autogun->restYaw, &autogun->yawSpeed, AUTOGUN_YAW_ACCEL_PER_FRAME, AUTOGUN_YAW_ACCEL_PER_FRAME, AUTOGUN_YAW_MAX_SPEED);
+        chrobjCallsApplySpeed(&autogun->pitch, autogun->restPitch, &autogun->pitchSpeed, AUTOGUN_PITCH_ACCEL_PER_FRAME, AUTOGUN_PITCH_ACCEL_PER_FRAME, AUTOGUN_PITCH_MAX_SPEED);
     }
     else
     {
-        var_f0_2 = playerProp->pos.f[0] - obj->position.f[0];
-        playerDirVec.y = playerProp->pos.y - obj->position.y - 20.0f; // Aim 20 units below player’s head.
-        temp_f2_23 = playerProp->pos.f[2] - obj->position.f[2];
-        horizontalDistSq = (var_f0_2 * var_f0_2) + (temp_f2_23 * temp_f2_23);
-        playerDirVec.f[2] = var_f0_2;
-        playerDirVec.f[0] = temp_f2_23;
-        horizontalDist = sqrtf(horizontalDistSq);
+        deltaX = playerProp->pos.x - obj->position.x;
+        toPlayer.y = playerProp->pos.y - obj->position.y - 20.0f; // Aim 20 units below player’s head.
+        deltaZ = playerProp->pos.z - obj->position.z;
+        aimDistanceSq = (deltaX * deltaX) + (deltaZ * deltaZ);
+        toPlayer.x = deltaX;
+        toPlayer.z = deltaZ;
+        horizontalDist = sqrtf(aimDistanceSq);
         distanceToPlayer = horizontalDist;
 
+        /* For autoguns this flag selects 3D range. Pitch still uses horizontalDist. */
         if (obj->flags & PROPFLAG_DOOR_TWOWAY)
         {
-            horizontalDistSq += playerDirVec.f[1] * playerDirVec.f[1];
-            distanceToPlayer = sqrtf(horizontalDistSq);
+            aimDistanceSq += toPlayer.y * toPlayer.y;
+            distanceToPlayer = sqrtf(aimDistanceSq);
         }
 
-        sp4A0 = chrlvGetAimLimitAngle(horizontalDistSq);
-        sp4D8 = autogun->rot_related;
-        targetPitch = autogun->unk98;
-        if (distanceToPlayer <= autogun->aimdist)
+        aimTolerance = chrlvGetAimLimitAngle(aimDistanceSq);
+        targetYaw = autogun->restYaw;
+        targetPitch = autogun->restPitch;
+
+        if (distanceToPlayer <= autogun->maxAimDistance)
         {
-            if (sp4A0);
-            playerYaw = atan2f(playerDirVec.f[2], playerDirVec.f[0]);
-            playerPitch = atan2f(playerDirVec.f[1], horizontalDist);
+            playerYaw = atan2f(toPlayer.x, toPlayer.z);
+            playerPitch = atan2f(toPlayer.y, horizontalDist);
 
             if ((obj->flags & PROPFLAG_NO_AMMO) || (obj->flags & PROPFLAG_INMOTION))
             {
-                autogunSeesPlayer = TRUE;
+                hasTrackingTarget = TRUE;
             }
             else
             {
-                yawError = playerYaw - autogun->unk90;
+                yawError = playerYaw - autogun->yaw;
                 if (yawError < 0.0f)
                 {
                     yawError += M_TAU_F;
@@ -4302,171 +4306,166 @@ void objTickAutogun(PropRecord *prop)
                     yawError -= M_TAU_F;
                 }
 
-                var_f2_6 = playerPitch - autogun->unk9C;
-                if (var_f2_6 < 0.0f)
-                {
-                    if (horizontalDist)
-                    {
-                        horizontalDist = (horizontalDist) ? (horizontalDist) : (horizontalDist);
-                    }
-                }
-
                 if ((yawError < DegToRad(70)) && (yawError > DegToRad(-70)))
                 {
-                    autogunSeesPlayer = TRUE;
+                    hasTrackingTarget = TRUE;
                 }
             }
 
-            if (autogunSeesPlayer)
+            if (hasTrackingTarget)
             {
-                sp494 = playerYaw - autogun->rot_related;
+                playerYawOffset = playerYaw - autogun->restYaw;
                 collisionTile = prop->stan;
-                if (sp494 < (-M_PI_F))
+
+                if (playerYawOffset < (-M_PI_F))
                 {
-                    sp494 += M_TAU_F;
+                    playerYawOffset += M_TAU_F;
                 }
-                else if (sp494 >= M_PI_F)
+                else if (playerYawOffset >= M_PI_F)
                 {
-                    sp494 -= M_TAU_F;
+                    playerYawOffset -= M_TAU_F;
                 }
 
-                bviewSetPlayerSolid(playerProp, 0);
-        
-                if ((((sp494 <= autogun->unk88) && (autogun->unk8C <= sp494)) && (stanTestLineUnobstructed(&collisionTile, prop->pos.f[0], prop->pos.f[2], playerProp->pos.f[0], playerProp->pos.f[2], 0x1B, prop->pos.f[1], prop->pos.f[1], playerProp->pos.f[1], playerProp->pos.f[1]) != 0)) && ((collisionTile) == playerProp->stan))
+                bviewSetPlayerSolid(playerProp, FALSE);
+
+                if (playerYawOffset <= autogun->maxYawOffset && autogun->minYawOffset <= playerYawOffset && stanTestLineUnobstructed(&collisionTile, prop->pos.x, prop->pos.z, playerProp->pos.x, playerProp->pos.z, 0x1B, prop->pos.y, prop->pos.y, playerProp->pos.y, playerProp->pos.y) && collisionTile == playerProp->stan)
                 {
                     obj->flags |= PROPFLAG_INMOTION;
-                    hasLineOfSight = 1;
-                    sp4D8 = playerYaw;
+                    hasLineOfSight = TRUE;
+                    targetYaw = playerYaw;
                     targetPitch = playerPitch;
                 }
-                else if ((autogun->unkB8 >= 0) && ((g_GlobalTimer - AUTOGUN_TRACKING_FRAMES) < autogun->unkB8)) //cooldown 2 seconds
+                else if (autogun->lastTrackFrame >= 0 && g_GlobalTimer - AUTOGUN_TRACKING_FRAMES < autogun->lastTrackFrame)
                 {
-                    sp4D8 = autogun->unk90;
-                    targetPitch = autogun->unk9C;
+                    /* Hold the current aim briefly after losing sight. */
+                    targetYaw = autogun->yaw;
+                    targetPitch = autogun->pitch;
                 }
                 else
                 {
-                    autogunSeesPlayer = FALSE;
+                    hasTrackingTarget = FALSE;
                 }
 
-                bviewSetPlayerSolid(playerProp, 1);
+                bviewSetPlayerSolid(playerProp, TRUE);
             }
         }
 
-        if (autogunSeesPlayer)
+        if (hasTrackingTarget)
         {
-            sp4A0 = chrlvGetAimLimitAngle(horizontalDistSq);
+            aimTolerance = chrlvGetAimLimitAngle(aimDistanceSq);
         }
 
         if (autogun->isActive)
         {
-            // Reverse pivot once every 2 seconds while firing.
-            sp4D8 += (sp4A0 * 0.8f) * sinf((((f32) (((s32) g_GlobalTimer) % AUTOGUN_TRACKING_FRAMES)) * M_TAU_F) / (f32) AUTOGUN_TRACKING_FRAMES);
+            /* Sweep the aim slightly from side to side while active. */
+            targetYaw += (aimTolerance * 0.8f) * sinf((((f32) (((s32) g_GlobalTimer) % AUTOGUN_TRACKING_FRAMES)) * M_TAU_F) / (f32) AUTOGUN_TRACKING_FRAMES);
 
-            if (sp4D8 < 0.0f)
+            if (targetYaw < 0.0f)
             {
-                sp4D8 += M_TAU_F;
+                targetYaw += M_TAU_F;
             }
 
-            if (sp4D8 >= M_TAU_F)
+            if (targetYaw >= M_TAU_F)
             {
-                sp4D8 -= M_TAU_F;
+                targetYaw -= M_TAU_F;
             }
         }
 
-        var_f0_2 = sp4D8 - autogun->rot_related;
+        targetYawOffset = targetYaw - autogun->restYaw;
 
-        if (var_f0_2 < (-M_PI_F))
+        if (targetYawOffset < (-M_PI_F))
         {
-            var_f0_2 += M_TAU_F;
+            targetYawOffset += M_TAU_F;
         }
-        else if (var_f0_2 >= M_PI_F)
+        else if (targetYawOffset >= M_PI_F)
         {
-            var_f0_2 -= M_TAU_F;
-        }
-
-        if (autogun->unk88 < var_f0_2)
-        {
-            sp4D8 = autogun->rot_related + autogun->unk88;
-        }
-        else if (var_f0_2 < autogun->unk8C)
-        {
-            sp4D8 = autogun->rot_related + autogun->unk8C;
+            targetYawOffset -= M_TAU_F;
         }
 
-        if (sp4D8 < 0.0f)
+        if (autogun->maxYawOffset < targetYawOffset)
         {
-            sp4D8 += M_TAU_F;
+            targetYaw = autogun->restYaw + autogun->maxYawOffset;
+        }
+        else if (targetYawOffset < autogun->minYawOffset)
+        {
+            targetYaw = autogun->restYaw + autogun->minYawOffset;
         }
 
-        if (sp4D8 >= M_TAU_F)
+        if (targetYaw < 0.0f)
         {
-            sp4D8 -= M_TAU_F;
+            targetYaw += M_TAU_F;
         }
 
-        chrobjCallsApplySpeed(&autogun->unk90, sp4D8, &autogun->unk94, AUTOGUN_ALERT_ACCEL_PER_FRAME  , AUTOGUN_ALERT_ACCEL_PER_FRAME  , autogun->speed);
-        chrobjCallsApplySpeed(&autogun->unk9C, targetPitch, &autogun->unkA0, AUTOGUN_ALERT_ACCEL_PER_FRAME  , AUTOGUN_ALERT_ACCEL_PER_FRAME  , autogun->speed);
-
-        temp_f12_5 = sp4D8 - autogun->unk90;
-
-        if (temp_f12_5 < 0.0f)
+        if (targetYaw >= M_TAU_F)
         {
-            temp_f12_5 += M_TAU_F;
+            targetYaw -= M_TAU_F;
         }
 
-        if (temp_f12_5 > M_PI_F)
+        chrobjCallsApplySpeed(&autogun->yaw, targetYaw, &autogun->yawSpeed, AUTOGUN_ALERT_ACCEL_PER_FRAME, AUTOGUN_ALERT_ACCEL_PER_FRAME, autogun->maxTurnSpeed);
+        chrobjCallsApplySpeed(&autogun->pitch, targetPitch, &autogun->pitchSpeed, AUTOGUN_ALERT_ACCEL_PER_FRAME, AUTOGUN_ALERT_ACCEL_PER_FRAME, autogun->maxTurnSpeed);
+
+        targetYawError = targetYaw - autogun->yaw;
+
+        if (targetYawError < 0.0f)
         {
-            temp_f12_5 -= M_TAU_F;
+            targetYawError += M_TAU_F;
         }
 
-        var_f2_6 = targetPitch - autogun->unk9C; yawError = targetPitch;
-        if (var_f2_6 < 0.0f)
+        if (targetYawError > M_PI_F)
         {
-            var_f2_6 += M_TAU_F;
+            targetYawError -= M_TAU_F;
         }
 
-        if (var_f2_6 > M_PI_F)
+        pitchError = targetPitch - autogun->pitch;
+        if (pitchError < 0.0f)
         {
-            var_f2_6 -= M_TAU_F;
+            pitchError += M_TAU_F;
         }
 
-        autogun->isActive = 0;
-
-        if (autogunSeesPlayer)
+        if (pitchError > M_PI_F)
         {
-            if ((((temp_f12_5 < sp4A0) && ((-sp4A0) < temp_f12_5)) && (var_f2_6 < sp4A0)) && ((-sp4A0) < var_f2_6))
+            pitchError -= M_TAU_F;
+        }
+
+        autogun->isActive = FALSE;
+
+        if (hasTrackingTarget)
+        {
+            if (targetYawError < aimTolerance && -aimTolerance < targetYawError
+                && pitchError < aimTolerance && -aimTolerance < pitchError)
             {
-                autogun->isActive = 1;
-                isTracking = 1;
+                autogun->isActive = TRUE;
+                spinBarrel = TRUE;
 
                 if (hasLineOfSight)
                 {
-                    autogun->unkB8 = (s32) g_GlobalTimer;
-                    autogun->unkBC = (s32) g_GlobalTimer;
+                    autogun->lastTrackFrame = (s32) g_GlobalTimer;
+                    autogun->lastAimFrame = (s32) g_GlobalTimer;
                 }
             }
             else
             {
-                angleDelta_6 = 2.0f * sp4A0;
-                if ((((temp_f12_5 < angleDelta_6) && ((-angleDelta_6) < temp_f12_5)) && (var_f2_6 < angleDelta_6)) && ((-angleDelta_6) < var_f2_6))
-                {
-                    autogun->isActive = 1;
-                    isTracking = 1;
+                trackingTolerance = 2.0f * aimTolerance;
     
+                if (targetYawError < trackingTolerance && -trackingTolerance < targetYawError && pitchError < trackingTolerance && -trackingTolerance < pitchError)
+                {
+                    autogun->isActive = TRUE;
+                    spinBarrel = TRUE;
+
                     if (hasLineOfSight)
                     {
-                        autogun->unkB8 = (s32) g_GlobalTimer;
+                        autogun->lastTrackFrame = (s32) g_GlobalTimer;
                     }
                 }
-                else if ((autogun->unkB8 >= 0) && ((g_GlobalTimer - AUTOGUN_TRACKING_FRAMES) < autogun->unkB8))
+                else if (autogun->lastTrackFrame >= 0 && g_GlobalTimer - AUTOGUN_TRACKING_FRAMES < autogun->lastTrackFrame)
                 {
-                    autogun->isActive = 1;
-                    isTracking = 1;
+                    autogun->isActive = TRUE;
+                    spinBarrel = TRUE;
                 }
             }
         }
 
-        if (isTracking) // Firing.
+        if (spinBarrel)
         {
             autogun->barrelSpinSpeed += AUTOGUN_SPIN_ACCEL_PER_FRAME * g_GlobalTimerDelta;
 
@@ -4477,11 +4476,10 @@ void objTickAutogun(PropRecord *prop)
         }
         else if (autogun->barrelSpinSpeed > 0.0f)
         {
-            for (var_v0_3 = 0; var_v0_3 < g_ClockTimer; var_v0_3++)
+            for (idleTick = 0; idleTick < g_ClockTimer; idleTick++)
             {
                 autogun->barrelSpinSpeed *= 0.99f; // The barrel loses 45% of its spin per second when idle.
             }
-
 
             if (autogun->barrelSpinSpeed <= 0.0001f)
             {
@@ -4497,7 +4495,6 @@ void objTickAutogun(PropRecord *prop)
             {
                 autogun->barrelSpinAngle -= M_TAU_F;
             }
-
         }
     }
 }
@@ -5033,8 +5030,8 @@ void objTickBuildAutogunMatrices(PropRecord *prop, Mtxf *mtxs, Mtxf *tempMatrix2
     f32 sp300;
 
     sp318 = (struct AutogunRecord *) prop->obj;
-    sp304 = sp318->unk90 + M_PI_2F;
-    sp300 = -sp318->unk9C;
+    sp304 = sp318->yaw + M_PI_2F;
+    sp300 = -sp318->pitch;
 
     if (sp304 >= M_TAU_F)
     {
@@ -6023,38 +6020,38 @@ void objTickAutogunFire(PropRecord *prop)
 
     if ((autogun->isActive != 0) && (!(obj->flags & PROPFLAG_IS_DRONE_GUN)))
     {
-        autogun->unkAC = autogun->unkAC + 1;
-        sp13C = (autogun->unkAC & 1) == 0;
+        autogun->firingCycle = autogun->firingCycle + 1;
+        sp13C = (autogun->firingCycle & 1) == 0;
 
         if (model->obj->Switches[5] != 0)
         {
-            sp138 = (autogun->unkAC & 1) == 1;
+            sp138 = (autogun->firingCycle & 1) == 1;
         }
 
-        if (autogun->unkC0 < g_GlobalTimer)
+        if (autogun->fireSoundCooldownFrame < g_GlobalTimer)
         {
-            if ((autogun->unkC4 != NULL) && (sndGetPlayingState(autogun->unkC4) != 0))
+            if ((autogun->fireSoundPrimary != NULL) && (sndGetPlayingState(autogun->fireSoundPrimary) != 0))
             {
-                sndDeactivate(autogun->unkC4);
+                sndDeactivate(autogun->fireSoundPrimary);
             }
 
-            if ((autogun->unkC8 != NULL) && (sndGetPlayingState(autogun->unkC8) != 0))
+            if ((autogun->fireSoundSecondary != NULL) && (sndGetPlayingState(autogun->fireSoundSecondary) != 0))
             {
-                sndDeactivate(autogun->unkC8);
+                sndDeactivate(autogun->fireSoundSecondary);
             }
 
-            if (autogun->unkC4 == NULL)
+            if (autogun->fireSoundPrimary == NULL)
             {
-                sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, GUN_B9_CANNON_SHORT_SFX, &autogun->unkC4);
-                chrobjSndCreatePostEventDefault(autogun->unkC4, &prop->pos);
+                sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, GUN_B9_CANNON_SHORT_SFX, &autogun->fireSoundPrimary);
+                chrobjSndCreatePostEventDefault(autogun->fireSoundPrimary, &prop->pos);
             }
-            else if (autogun->unkC8 == NULL)
+            else if (autogun->fireSoundSecondary == NULL)
             {
-                sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, GUN_B9_CANNON_SHORT_SFX, &autogun->unkC8);
-                chrobjSndCreatePostEventDefault(autogun->unkC8, &prop->pos);
+                sndPlaySfx((struct ALBankAlt_s *) g_musicSfxBufferPtr, GUN_B9_CANNON_SHORT_SFX, &autogun->fireSoundSecondary);
+                chrobjSndCreatePostEventDefault(autogun->fireSoundSecondary, &prop->pos);
             }
 
-            autogun->unkC0 = (s32) (g_GlobalTimer + 2);
+            autogun->fireSoundCooldownFrame = (s32) (g_GlobalTimer + 2);
         }
 
         if ((sp13C != 0) || (sp138 != 0))
@@ -6062,11 +6059,11 @@ void objTickAutogunFire(PropRecord *prop)
             sp11C = 1;
             sp10C = NULL;
             sp108 = prop->stan;
-            sp104 = (autogun->unkAC & 3) == 0;
+            sp104 = (autogun->firingCycle & 3) == 0;
             sp100 = getCurrentPlayerProp();
             var_a0_6 = 5;
 
-            if ((model->obj->Switches[7] != 0) && (!(autogun->unkAC & 7)))
+            if ((model->obj->Switches[7] != 0) && (!(autogun->firingCycle & 7)))
             {
                 var_a0_6 = 7;
             }
@@ -6094,9 +6091,9 @@ void objTickAutogunFire(PropRecord *prop)
                 sp12C.f[2] = prop->pos.f[2];
             }
 
-            sp120.f[0] = cosf(autogun->unk9C) * sinf(autogun->unk90);
-            sp120.f[1] = sinf(autogun->unk9C);
-            sp120.f[2] = cosf(autogun->unk9C) * cosf(autogun->unk90);
+            sp120.f[0] = cosf(autogun->pitch) * sinf(autogun->yaw);
+            sp120.f[1] = sinf(autogun->pitch);
+            sp120.f[2] = cosf(autogun->pitch) * cosf(autogun->yaw);
             sp110.f[0] = sp12C.f[0] + (sp120.f[0] * 65536.0f);
             sp110.f[1] = sp12C.f[1] + (sp120.f[1] * 65536.0f);
             sp110.f[2] = sp12C.f[2] + (sp120.f[2] * 65536.0f);
@@ -6112,7 +6109,7 @@ void objTickAutogunFire(PropRecord *prop)
                 sp110.f[2] -= 26.0f * sp120.f[2];
             }
 
-            if (g_GlobalTimer == ((s32) autogun->unkBC))
+            if (g_GlobalTimer == ((s32) autogun->lastAimFrame))
             {
                 beam_xdiff = sp100->pos.f[0] - sp12C.f[0];
                 beam_ydiff = sp100->pos.f[1] - sp12C.f[1];
@@ -6131,11 +6128,11 @@ void objTickAutogunFire(PropRecord *prop)
                         var_f2_7 *= 200.0f / temp_f0_35;
                     }
 
-                    autogun->unkD4 += var_f2_7;
-                    if (autogun->unkD4 >= 1.0f)
+                    autogun->damageAccumulator += var_f2_7;
+                    if (autogun->damageAccumulator >= 1.0f)
                     {
-                        bondviewCallRecordDamageKills((gunItemGetDestructionAmount(14) * 0.125f) * g_AutogunDamageScalar, autogun->unk90, -1, 1);
-                        autogun->unkD4 = 0.0f;
+                        bondviewCallRecordDamageKills((gunItemGetDestructionAmount(14) * 0.125f) * g_AutogunDamageScalar, autogun->yaw, -1, 1);
+                        autogun->damageAccumulator = 0.0f;
                         if (bondviewGetIfCurrentPlayerDamageShowTime() != 0)
                         {
                             sp11C = 0;
@@ -12832,7 +12829,7 @@ void doorActivate(DoorRecord *door, DOORSTATE State)
     DoorRecord *linkeddoor;
     DOORSTATE   LinkedState = State;
 
-    if (door->flags2 & 0x40000000) // Close first door before opening second
+    if (door->flags2 & PROPFLAG2_DOOR_INTERLOCK) // Close first door before opening second.
     {
         if (State == DOORSTATE_OPENING)
         {
@@ -13371,7 +13368,7 @@ bool doorTestForInteract(PropRecord *prop)
 }
 
 
-void doorActivateWrapper(PropRecord *prop) //#MATCH
+void doorActivateWrapper(PropRecord *prop)
 {
     DoorRecord *door = prop->door;
 
@@ -13394,6 +13391,7 @@ void doorActivateWrapper(PropRecord *prop) //#MATCH
             doorActivate(door, DOORSTATE_OPENING);
         }
     }
+
     door->runtime_bitflags |= RUNTIMEBITFLAG_ACTIVATED;
     door->flags2 &= ~8;
     propActivateLinkedDoors(prop);

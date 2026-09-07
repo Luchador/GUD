@@ -700,33 +700,33 @@ void setupAutogun(s32 stageID, AutogunRecord *autogun, s32 cmdindex)
 
     domakedefaultobj(stageID, (ObjectRecord *) autogun, cmdindex);
 
-    autogun->unkAC = 0;
-    autogun->unkB8 = -1;
-    autogun->unkBC = -1;
-    autogun->unkC0 = -1;
-    autogun->unkC4 = 0;
-    autogun->unkC8 = 0;
-    autogun->unk90 = 0.0f;
-    autogun->unk94 = 0.0f;
-    autogun->rot_related = 0.0f;
-    autogun->unk9C = 0.0f;
-    autogun->unkA0 = 0.0f;
-    autogun->unk98 = 0.0f;
+    autogun->firingCycle = 0;
+    autogun->lastTrackFrame = -1;
+    autogun->lastAimFrame = -1;
+    autogun->fireSoundCooldownFrame = -1;
+    autogun->fireSoundPrimary = 0;
+    autogun->fireSoundSecondary = 0;
+    autogun->yaw = 0.0f;
+    autogun->yawSpeed = 0.0f;
+    autogun->restYaw = 0.0f;
+    autogun->pitch = 0.0f;
+    autogun->pitchSpeed = 0.0f;
+    autogun->restPitch = 0.0f;
     autogun->barrelSpinSpeed = 0.0f;
     autogun->barrelSpinAngle = 0.0f;
-    autogun->speed = ((*((s32 *) (&autogun->speed))) * M_TAU_F) / 65536.0f;
-    autogun->aimdist = ((*((s32 *) (&autogun->aimdist))) * 100.0f) / 65536.0f;
-    autogun->unk88 = ((*((s32 *) (&autogun->unk88))) * M_TAU_F) / 65536.0f;
-    autogun->unk8C = ((*((s32 *) (&autogun->unk8C))) * M_TAU_F) / 65536.0f;
+    autogun->maxTurnSpeed = ((*((s32 *) (&autogun->maxTurnSpeed))) * M_TAU_F) / 65536.0f;
+    autogun->maxAimDistance = ((*((s32 *) (&autogun->maxAimDistance))) * 100.0f) / 65536.0f;
+    autogun->maxYawOffset = ((*((s32 *) (&autogun->maxYawOffset))) * M_TAU_F) / 65536.0f;
+    autogun->minYawOffset = ((*((s32 *) (&autogun->minYawOffset))) * M_TAU_F) / 65536.0f;
 
     beam = mempAllocBytesInBank(0x30U, MEMPOOL_STAGE);
     autogun->beam = beam;
     *beam = -1;
 
     autogun->isActive = FALSE;
-    autogun->unkD4 = 0.0f;
+    autogun->damageAccumulator = 0.0f;
 
-    if (autogun->padID >= 0)
+    if (autogun->aimPadId >= 0)
     {
         f32 xdiff;
         f32 ydiff;
@@ -734,13 +734,13 @@ void setupAutogun(s32 stageID, AutogunRecord *autogun, s32 cmdindex)
         PadRecord *pad;
         PropRecord *prop;
 
-        if (autogun->padID < 0x2710)
+        if (autogun->aimPadId < 0x2710)
         {
-            pad = &g_CurrentSetup.pads[autogun->padID];
+            pad = &g_CurrentSetup.pads[autogun->aimPadId];
         }
         else
         {
-            pad = &g_CurrentSetup.boundpads[getBoundPadNum(autogun->padID)];
+            pad = &g_CurrentSetup.boundpads[getBoundPadNum(autogun->aimPadId)];
         }
 
         prop = autogun->prop;
@@ -749,8 +749,8 @@ void setupAutogun(s32 stageID, AutogunRecord *autogun, s32 cmdindex)
         ydiff = pad->pos.y - prop->pos.y;
         zdiff = pad->pos.z - prop->pos.z;
 
-        autogun->rot_related = atan2f(xdiff, zdiff);
-        autogun->unk98 = atan2f(ydiff, sqrtf((xdiff * xdiff) + (zdiff * zdiff)));
+        autogun->restYaw = atan2f(xdiff, zdiff);
+        autogun->restPitch = atan2f(ydiff, sqrtf((xdiff * xdiff) + (zdiff * zdiff)));
     }
 }
 

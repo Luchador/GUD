@@ -2757,61 +2757,34 @@ typedef union
         /*0x28*/ f32 dist;
     };
 
+    /* Preserve field order and types: setup commands use this binary layout.
+     * setupAutogun converts the encoded turn speed, aim distance and yaw
+     * limits to floats. All angles below are runtime radians. */
     typedef struct AutogunRecord
     {
         inherits ObjectRecord;
-        s32 padID; // 0x80
-
-        // Units seem to be radians.
-        f32 rot_related; // 0x84
-
-        // Units seem to be radians.
-        f32 unk88;
-
-        // yzero or limit related. Units might be radians.
-        f32 unk8C;
-
-        // Units seem to be radians. Changes when active/firing.
-        f32 unk90;
-
-        // changes when active/firing
-        f32 unk94;
-        f32 unk98;
-
-        // changes when active/firing
-        f32 unk9C;
-
-        // Units seem to be radians. Changes when active/firing
-        f32 unkA0;
-
-        // How fast the gun turns. Runway default is around 0.01f.
-        f32 speed; // 0xA4
-
-        /**
-         * Distance before deactivating.
-         * Default (on Runway at least): 7500.0f
-         * Offset 0xa0.
-        */
-        f32 aimdist; // 0xA8
-        s32 unkAC;
-
-        f32 barrelSpinSpeed; // In radians per game tick.
-        f32 barrelSpinAngle; // Accumulated angle in radians.
-        s32 unkB8;
-        s32 unkBC;
-        s32  unkC0;
-        ALSoundState *unkC4;
-        ALSoundState *unkC8;
-        struct beam *beam;
-
-        /**
-         * Offset 0xd0.
-         * Used in objTick, setting to zero won't disable.
-        */
-        s32 isActive; // 0xD0
-
-        // changes when active/firing
-        f32 unkD4;
+        s32 aimPadId;             // 0x80: pad defining the resting aim direction
+        f32 restYaw;              // 0x84: also the yaw target during random scanning
+        f32 maxYawOffset;         // 0x88: upper yaw limit relative to restYaw
+        f32 minYawOffset;         // 0x8C: lower yaw limit relative to restYaw
+        f32 yaw;                  // 0x90: current world yaw
+        f32 yawSpeed;             // 0x94: signed yaw speed per game tick
+        f32 restPitch;            // 0x98: also the pitch target during random scanning
+        f32 pitch;                // 0x9C: current elevation angle
+        f32 pitchSpeed;           // 0xA0: signed pitch speed per game tick
+        f32 maxTurnSpeed;         // 0xA4: tracking speed limit for both axes
+        f32 maxAimDistance;       // 0xA8: player acquisition distance
+        s32 firingCycle;          // 0xAC: alternates barrels and schedules firing effects
+        f32 barrelSpinSpeed;      // 0xB0: radians per game tick
+        f32 barrelSpinAngle;      // 0xB4: accumulated angle in radians
+        s32 lastTrackFrame;       // 0xB8: last visible target within the wider aim cone
+        s32 lastAimFrame;         // 0xBC: last visible target within the accurate aim cone
+        s32 fireSoundCooldownFrame; // 0xC0: restart firing audio after this frame
+        ALSoundState *fireSoundPrimary;   // 0xC4: alternating firing sound handles
+        ALSoundState *fireSoundSecondary; // 0xC8
+        struct beam *beam;        // 0xCC: tracer state
+        s32 isActive;             // 0xD0: recomputed tracking/firing state
+        f32 damageAccumulator;    // 0xD4: applies a damage event when it reaches 1
     } AutogunRecord;
 
     // PROPDEF_CCTV (6)
