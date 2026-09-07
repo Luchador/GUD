@@ -7,21 +7,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <src/propconstants.h>
+
 #include "modelload.h"
 #include "objectload.h"
 
 #define OBJECT_MODEL_CACHE_COUNT 512
 
-#define PROPDEF_DOOR 1
 #define PAD_BOUND_BASE 10000
-
-#define PROPFLAG_SCALE_UNIFORM    0x00000010u
-#define PROPFLAG_SCALE_X          0x00000020u
-#define PROPFLAG_SCALE_Y          0x00000040u
-#define PROPFLAG_SCALE_Z          0x00000080u
-#define PROPFLAG_ONSCREEN         0x00000002u
-#define PROPFLAG_ASSIGNED_TO_CHR  0x00004000u
-#define PROPFLAG_INSIDE_OBJECT    0x00008000u
 
 typedef struct ModelCacheEntry {
     BOOL attempted;
@@ -324,8 +317,8 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         BOOL isdoor = object->type == PROPDEF_DOOR;
 
         if (object->deleted
-            || (object->flags & (PROPFLAG_ASSIGNED_TO_CHR
-                              | PROPFLAG_INSIDE_OBJECT)) != 0
+            || (object->flags & (PROPFLAG_ASSIGNEDTOCHR
+                              | PROPFLAG_INSIDEANOTHEROBJ)) != 0
             || object->pad < 0)
         {
             continue;
@@ -408,7 +401,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
                 fitted[2] = ((object->flags & PROPFLAG_ONSCREEN) ? pady : padz)
                           / modeldim[2];
 
-            if (object->flags & PROPFLAG_SCALE_UNIFORM)
+            if (object->flags & PROPFLAG_SCALE_TO_PAD_BOUNDS)
             {
                 float uniform = fitted[0];
                 if (fitted[1] < uniform) uniform = fitted[1];
@@ -417,9 +410,9 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
             }
             else
             {
-                if (object->flags & PROPFLAG_SCALE_X) scale[0] = fitted[0] * extra;
-                if (object->flags & PROPFLAG_SCALE_Y) scale[1] = fitted[1] * extra;
-                if (object->flags & PROPFLAG_SCALE_Z) scale[2] = fitted[2] * extra;
+                if (object->flags & PROPFLAG_SCALE_TO_X_BOUNDS) scale[0] = fitted[0] * extra;
+                if (object->flags & PROPFLAG_SCALE_TO_Y_BOUNDS) scale[1] = fitted[1] * extra;
+                if (object->flags & PROPFLAG_SCALE_TO_Z_BOUNDS) scale[2] = fitted[2] * extra;
             }
         }
 

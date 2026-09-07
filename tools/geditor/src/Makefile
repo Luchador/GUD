@@ -14,12 +14,13 @@ LDFLAGS := -mwindows -lgdi32 -lcomdlg32 -lopengl32 -lole32 -luuid -lshell32
 BIN_DIR := ..
 TARGET  := $(BIN_DIR)/GEditor.exe
 SOURCES := $(wildcard *.c)
+SHARED_HEADERS := ../../../src/propconstants.h
 PROP_RECORDS := ../../../assets/obseg/prop/propItemModelFileRecord.inc.c \
                 $(wildcard ../../../assets/obseg/prop/*/propFileRecord.inc.c)
 RCFILE  := geditor.rc
 RCOBJ   := geditor_rc.o
 
-$(TARGET): $(SOURCES) $(PROP_RECORDS) $(RCOBJ)
+$(TARGET): $(SOURCES) $(SHARED_HEADERS) $(PROP_RECORDS) $(RCOBJ)
 	$(CC) $(CFLAGS) -o $@ $(SOURCES) $(RCOBJ) $(LDFLAGS)
 
 # Resource script -> linkable object (dialog templates, later icons/version info)
