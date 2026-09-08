@@ -37,6 +37,11 @@ typedef struct BrowserSection {
 #define BROWSER_SECTION_IMAGES 1
 #define BROWSER_SECTION_MODELS 2
 #define BROWSER_MAX_MODELS 512
+#define BROWSER_MODEL_TAB_H 24
+#define BROWSER_MODEL_TAB_COUNT 3
+#define BROWSER_MODEL_CHARACTERS 0
+#define BROWSER_MODEL_ITEMS 1
+#define BROWSER_MODEL_PROPS 2
 #define BROWSER_IMAGE_CELL_W (TEX_THUMB_MAX + 40) /* room for "No Texture" */
 #define BROWSER_IMAGE_LABEL_H 16
 #define BROWSER_IMAGE_CELL_H (TEX_THUMB_MAX + BROWSER_IMAGE_LABEL_H + 8)
@@ -55,6 +60,9 @@ typedef struct BrowserState {
     unsigned char notexturepixels[TEX_THUMB_MAX * TEX_THUMB_MAX * 4];
     BrowserLevelItem models[BROWSER_MAX_MODELS];
     int modelcount;
+    int modeltab;                        /* Characters is the default */
+    int modelcounts[BROWSER_MODEL_TAB_COUNT];
+    int modelscroll[BROWSER_MODEL_TAB_COUNT];
     int scroll[BROWSER_SECTION_COUNT];   /* pixels scrolled per body */
     int selectedlevel;
     int dragsection;                     /* thumb being dragged, or -1 */
@@ -65,6 +73,63 @@ typedef struct BrowserState {
 } BrowserState;
 
 #define BROWSER_SCROLLBAR_W 8
+
+/* Classify by the model name, independently of its project folder. */
+static int BrowserModelCategory(const char *name)
+{
+    switch (name[0])
+    {
+    case 'C': case 'c': return BROWSER_MODEL_CHARACTERS;
+    case 'G': case 'g': return BROWSER_MODEL_ITEMS;
+    case 'P': case 'p': return BROWSER_MODEL_PROPS;
+    }
+    return -1;
+}
+
+/* Models reserve a fixed strip above their scrolling rows for the tabs. All
+ * scrollbar calculations and content clipping use this same rectangle. */
+static RECT BrowserContentRect(const BrowserState *state, int section)
+{
+    RECT rect = state->sections[section].bodyrc;
+
+    if (section == BROWSER_SECTION_MODELS)
+    {
+        rect.top += BROWSER_MODEL_TAB_H;
+        if (rect.top > rect.bottom) { rect.top = rect.bottom; }
+    }
+    return rect;
+}
+
+static RECT BrowserModelTabRect(const BrowserState *state, int tab)
+{
+    /* Give the longer Characters label half the strip; the other two share
+     * the remaining half. Use the same rounded boundaries for hits and paint. */
+    static const int boundaries[] = {0, 2, 3, 4};
+    RECT rect = state->sections[BROWSER_SECTION_MODELS].bodyrc;
+    int width = rect.right - rect.left;
+
+    rect.right = rect.left + width * boundaries[tab + 1] / 4;
+    rect.left += width * boundaries[tab] / 4;
+    if (rect.bottom > rect.top + BROWSER_MODEL_TAB_H)
+    {
+        rect.bottom = rect.top + BROWSER_MODEL_TAB_H;
+    }
+    return rect;
+}
+
+static int BrowserHitModelTab(const BrowserState *state, POINT point)
+{
+    int tab;
+
+    if (!state->sections[BROWSER_SECTION_MODELS].expanded) { return -1; }
+    for (tab = 0; tab < BROWSER_MODEL_TAB_COUNT; tab++)
+    {
+        RECT rect = BrowserModelTabRect(state, tab);
+
+        if (PtInRect(&rect, point)) { return tab; }
+    }
+    return -1;
+}
 
 /* Reserve the scrollbar gutter even when all images fit, so showing the
    scrollbar cannot itself change the number of columns. */
@@ -85,7 +150,7 @@ static int BrowserImageColumns(const RECT *body)
 
 /*
  * Pixel height of a section's content. The image grid wraps to body width.
- * Images and Models report 0 until they have content to show.
+ * Models report the height of the active category only.
  */
 static int BrowserContentHeight(const BrowserState *state, int section)
 {
@@ -105,7 +170,9 @@ static int BrowserContentHeight(const BrowserState *state, int section)
 
     if (section == BROWSER_SECTION_MODELS)
     {
-        return state->modelcount > 0 ? state->modelcount * BROWSER_ROW_H + 8 : 0;
+        int count = state->modelcounts[state->modeltab];
+
+        return count > 0 ? count * BROWSER_ROW_H + 8 : 0;
     }
 
     return 0;
@@ -113,8 +180,8 @@ static int BrowserContentHeight(const BrowserState *state, int section)
 
 static int BrowserMaxScroll(const BrowserState *state, int section)
 {
-    const BrowserSection *sec = &state->sections[section];
-    int body = sec->bodyrc.bottom - sec->bodyrc.top;
+    RECT rect = BrowserContentRect(state, section);
+    int body = rect.bottom - rect.top;
     int content = BrowserContentHeight(state, section);
 
     return content > body ? content - body : 0;
@@ -127,14 +194,15 @@ static int BrowserMaxScroll(const BrowserState *state, int section)
 static BOOL BrowserThumbRect(const BrowserState *state, int section, RECT *out)
 {
     const BrowserSection *sec = &state->sections[section];
-    int body = sec->bodyrc.bottom - sec->bodyrc.top;
+    RECT rect = BrowserContentRect(state, section);
+    int body = rect.bottom - rect.top;
     int content = BrowserContentHeight(state, section);
     int track;
     int thumb;
     int maxscroll;
     int y;
 
-    if (!sec->expanded || content <= body || body <= 0)
+    if (!sec->expanded || content <= body || body <= 4)
     {
         return FALSE;
     }
@@ -151,11 +219,11 @@ static BOOL BrowserThumbRect(const BrowserState *state, int section, RECT *out)
     }
 
     maxscroll = content - body;
-    y = sec->bodyrc.top + 2
+    y = rect.top + 2
       + (maxscroll > 0 ? (track - thumb) * state->scroll[section] / maxscroll : 0);
 
-    out->left = sec->bodyrc.right - BROWSER_SCROLLBAR_W - 2;
-    out->right = sec->bodyrc.right - 2;
+    out->left = rect.right - BROWSER_SCROLLBAR_W - 2;
+    out->right = rect.right - 2;
     out->top = y;
     out->bottom = y + thumb;
 
@@ -174,6 +242,16 @@ static void BrowserClampScroll(BrowserState *state, int section)
     {
         state->scroll[section] = 0;
     }
+}
+
+static void BrowserSelectModelTab(HWND hwnd, BrowserState *state, int tab)
+{
+    if (tab == state->modeltab) { return; }
+    state->modelscroll[state->modeltab] = state->scroll[BROWSER_SECTION_MODELS];
+    state->modeltab = tab;
+    state->scroll[BROWSER_SECTION_MODELS] = state->modelscroll[tab];
+    BrowserClampScroll(state, BROWSER_SECTION_MODELS);
+    InvalidateRect(hwnd, &state->sections[BROWSER_SECTION_MODELS].bodyrc, FALSE);
 }
 
 static BrowserState *BrowserGetState(HWND hwnd)
@@ -484,7 +562,28 @@ static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body
     }
 }
 
-/* Model rows: plain labels, same geometry as level rows. */
+static void BrowserPaintModelTabs(const BrowserState *state, HDC hdc)
+{
+    static const char *names[BROWSER_MODEL_TAB_COUNT] = {"Characters", "Items", "Props"};
+    int tab;
+
+    SetTextColor(hdc, GetSysColor(COLOR_BTNTEXT));
+    for (tab = 0; tab < BROWSER_MODEL_TAB_COUNT; tab++)
+    {
+        RECT rect = BrowserModelTabRect(state, tab);
+        BOOL active = tab == state->modeltab;
+
+        FillRect(hdc, &rect, GetSysColorBrush(active ? COLOR_WINDOW : COLOR_BTNFACE));
+        DrawEdge(hdc, &rect, BDR_RAISEDOUTER,
+                 BF_LEFT | BF_TOP | BF_RIGHT | (active ? 0 : BF_BOTTOM));
+        rect.left += 3;
+        rect.right -= 3;
+        DrawText(hdc, names[tab], -1, &rect,
+                 DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+    }
+}
+
+/* Filtered model rows, clipped below the fixed tab strip. */
 static void BrowserPaintModelRows(BrowserState *state, HDC hdc, const RECT *body)
 {
     int y = body->top + 4 - state->scroll[BROWSER_SECTION_MODELS];
@@ -492,20 +591,24 @@ static void BrowserPaintModelRows(BrowserState *state, HDC hdc, const RECT *body
 
     SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
 
-    for (i = 0; i < state->modelcount; i++, y += BROWSER_ROW_H)
+    for (i = 0; i < state->modelcount; i++)
     {
         RECT rc;
 
-        if (y + BROWSER_ROW_H < body->top || y > body->bottom)
+        if (BrowserModelCategory(state->models[i].label) != state->modeltab)
+        {
+            continue;
+        }
+        rc.top = y;
+        rc.bottom = y + BROWSER_ROW_H;
+        y += BROWSER_ROW_H;
+        if (rc.bottom < body->top || rc.top > body->bottom)
         {
             continue;
         }
 
         rc.left = 26;
         rc.right = body->right - BROWSER_SCROLLBAR_W - 6;
-        rc.top = y;
-        rc.bottom = y + BROWSER_ROW_H;
-
         DrawText(hdc, state->models[i].label, -1, &rc,
                  DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_END_ELLIPSIS | DT_NOPREFIX);
     }
@@ -522,7 +625,7 @@ static void BrowserPaintScrollbar(BrowserState *state, HDC hdc, int section)
         return;
     }
 
-    track = state->sections[section].bodyrc;
+    track = BrowserContentRect(state, section);
     track.left = thumb.left;
     track.right = thumb.right;
 
@@ -568,27 +671,30 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
 
         if (sec->expanded && sec->bodyrc.bottom > sec->bodyrc.top)
         {
+            RECT body = BrowserContentRect(state, i);
+
+            if (i == BROWSER_SECTION_MODELS) { BrowserPaintModelTabs(state, hdc); }
+            if (body.bottom <= body.top) { continue; }
             if ((i == BROWSER_SECTION_LEVELS && state->levelcount > 0)
                 || i == BROWSER_SECTION_IMAGES
-                || (i == BROWSER_SECTION_MODELS && state->modelcount > 0))
+                || (i == BROWSER_SECTION_MODELS && state->modelcounts[state->modeltab] > 0))
             {
                 int saved = SaveDC(hdc);
 
                 BrowserClampScroll(state, i);
-                IntersectClipRect(hdc, sec->bodyrc.left, sec->bodyrc.top,
-                                  sec->bodyrc.right, sec->bodyrc.bottom);
+                IntersectClipRect(hdc, body.left, body.top, body.right, body.bottom);
 
                 if (i == BROWSER_SECTION_LEVELS)
                 {
-                    BrowserPaintLevelRows(state, hdc, &sec->bodyrc);
+                    BrowserPaintLevelRows(state, hdc, &body);
                 }
                 else if (i == BROWSER_SECTION_IMAGES)
                 {
-                    BrowserPaintImageGrid(state, hdc, &sec->bodyrc);
+                    BrowserPaintImageGrid(state, hdc, &body);
                 }
                 else
                 {
-                    BrowserPaintModelRows(state, hdc, &sec->bodyrc);
+                    BrowserPaintModelRows(state, hdc, &body);
                 }
 
                 RestoreDC(hdc, saved);
@@ -597,7 +703,7 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
             }
             else
             {
-                RECT hint = sec->bodyrc;
+                RECT hint = body;
 
                 hint.left += 26;
                 hint.top += 6;
@@ -796,7 +902,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             return 0;
         }
 
-        /* A fast second drag from the same image is still a drag. */
+        /* Accept rapid image drags and tab clicks as ordinary clicks. */
         if (state != NULL)
         {
             RECT client;
@@ -804,7 +910,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
             GetClientRect(hwnd, &client);
             BrowserLayoutSections(state, &client);
-            if (BrowserHitImage(state, point) >= 0)
+            if (BrowserHitImage(state, point) >= 0 || BrowserHitModelTab(state, point) >= 0)
             {
                 return SendMessage(hwnd, WM_LBUTTONDOWN, wparam, lparam);
             }
@@ -841,11 +947,19 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             p.x = x;
             p.y = y;
 
+            hit = BrowserHitModelTab(state, p);
+            if (hit >= 0)
+            {
+                BrowserSelectModelTab(hwnd, state, hit);
+                return 0;
+            }
+
             /* Scrollbar first: the thumb and track live inside body
                rects, and a click there must not fall through. */
             for (i = 0; i < BROWSER_SECTION_COUNT; i++)
             {
                 RECT thumb;
+                RECT body = BrowserContentRect(state, i);
 
                 if (!BrowserThumbRect(state, i, &thumb))
                 {
@@ -863,13 +977,11 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
                 /* The track above/below the thumb pages the view. */
                 if (x >= thumb.left && x < thumb.right
-                    && y >= state->sections[i].bodyrc.top
-                    && y < state->sections[i].bodyrc.bottom)
+                    && y >= body.top && y < body.bottom)
                 {
-                    int body = state->sections[i].bodyrc.bottom
-                             - state->sections[i].bodyrc.top;
+                    int page = body.bottom - body.top;
 
-                    state->scroll[i] += (y < thumb.top) ? -body : body;
+                    state->scroll[i] += (y < thumb.top) ? -page : page;
                     BrowserClampScroll(state, i);
                     InvalidateRect(hwnd, NULL, FALSE);
                     return 0;
@@ -909,7 +1021,8 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         if (state != NULL && state->dragsection >= 0)
         {
             int i = state->dragsection;
-            int body = state->sections[i].bodyrc.bottom - state->sections[i].bodyrc.top;
+            RECT rect = BrowserContentRect(state, i);
+            int body = rect.bottom - rect.top;
             int content = BrowserContentHeight(state, i);
             int track = body - 4;
             int thumb = content > 0 ? track * body / content : track;
@@ -1019,7 +1132,8 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
         GetCursorPos(&p);
         ScreenToClient(hwnd, &p);
-        if (BrowserHitHeader(hwnd, p.x, p.y) >= 0)
+        if (BrowserHitHeader(hwnd, p.x, p.y) >= 0
+            || (state != NULL && BrowserHitModelTab(state, p) >= 0))
         {
             SetCursor(LoadCursor(NULL, IDC_HAND));
             return TRUE;
@@ -1192,14 +1306,19 @@ void BrowserSetModels(HWND browser, const BrowserLevelItem *items, int count)
     {
         count = BROWSER_MAX_MODELS;
     }
-    if (items == NULL)
+    if (items == NULL || count < 0)
     {
         count = 0;
     }
 
+    ZeroMemory(state->modelcounts, sizeof(state->modelcounts));
+    ZeroMemory(state->modelscroll, sizeof(state->modelscroll));
     for (i = 0; i < count; i++)
     {
+        int category = BrowserModelCategory(items[i].label);
+
         state->models[i] = items[i];
+        if (category >= 0) { state->modelcounts[category]++; }
     }
 
     state->modelcount = count;

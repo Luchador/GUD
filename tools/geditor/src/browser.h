@@ -43,7 +43,8 @@ typedef struct BrowserLevelItem {
  */
 void BrowserSetLevels(HWND browser, const BrowserLevelItem *items, int count);
 
-/* Same contract for the Models section (labels only, copied). */
+/* Same contract for Models (labels only, copied). Rows are grouped into the
+ * Characters, Items, and Props tabs by their C/G/P model-name prefixes. */
 void BrowserSetModels(HWND browser, const BrowserLevelItem *items, int count);
 
 #endif
