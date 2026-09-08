@@ -615,11 +615,29 @@ static int BrowserHitImage(const BrowserState *state, POINT point)
 }
 
 
+/* Image-list drag coordinates are relative to the drawing window's outer
+ * rectangle, including its caption and borders. Use the editor frame as the
+ * surface so desktop/monitor origins cannot offset the preview. Both starting
+ * and moving the preview must use this same conversion. */
+static BOOL BrowserImageDragPoint(HWND hwnd, POINT *point)
+{
+    RECT frame;
+
+    if (!ClientToScreen(hwnd, point) || !GetWindowRect(GetParent(hwnd), &frame))
+    {
+        return FALSE;
+    }
+    point->x += 12 - frame.left;
+    point->y += 18 - frame.top;
+    return TRUE;
+}
+
+
 static void BrowserEndImageDrag(HWND hwnd, BrowserState *state)
 {
     if (state->dragimage != NULL)
     {
-        ImageList_DragLeave(GetDesktopWindow());
+        ImageList_DragLeave(GetParent(hwnd));
         ImageList_EndDrag();
         ImageList_Destroy(state->dragimage);
         state->dragimage = NULL;
@@ -694,8 +712,8 @@ static void BrowserBeginImageDrag(HWND hwnd, BrowserState *state, int index, POI
         ImageList_Destroy(images);
         return;
     }
-    ClientToScreen(hwnd, &point);
-    if (!ImageList_DragEnter(GetDesktopWindow(), point.x + 12, point.y + 18))
+    if (!BrowserImageDragPoint(hwnd, &point)
+        || !ImageList_DragEnter(GetParent(hwnd), point.x, point.y))
     {
         ImageList_EndDrag();
         ImageList_Destroy(images);
@@ -855,8 +873,10 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         {
             POINT point = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
 
-            ClientToScreen(hwnd, &point);
-            ImageList_DragMove(point.x + 12, point.y + 18);
+            if (BrowserImageDragPoint(hwnd, &point))
+            {
+                ImageList_DragMove(point.x, point.y);
+            }
             SetCursor(LoadCursor(NULL, IDC_ARROW));
             return 0;
         }
