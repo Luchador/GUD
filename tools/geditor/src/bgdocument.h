@@ -1,6 +1,7 @@
 #ifndef GEDITOR_BGDOCUMENT_H
 #define GEDITOR_BGDOCUMENT_H
 
+#include "rotation.h"
 #include <windows.h>
 
 #include "bgload.h"
@@ -160,5 +161,9 @@ void BgDocumentGetWorldPosition(const BgDocument *document,
                                 const BgDocumentRoom *room,
                                 const BgDocumentVertex *vertex,
                                 float position[3]);
+
+BOOL BgDocumentRotateVertices(BgDocument *document, const BgDocumentVertexRef *refs,
+    DWORD count, const Rotation *rotation, const double pivot[3], DWORD *changed,
+    const char **reasonout);
 
 #endif /* GEDITOR_BGDOCUMENT_H */

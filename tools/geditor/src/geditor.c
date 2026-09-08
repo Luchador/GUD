@@ -166,8 +166,45 @@ static void GEditorRefreshTransformFields(void)
     BOOL editable = hasposition && (object ? GEditorCanMoveSetupModel(objectindex) : scale > 0);
     double precision = editable && !object && !pad ? 1.0 / scale : 0;
 
-    RightPanelSetTransformState(g_RightPanel, hasposition ? position : NULL,
-                                count, editable, precision);
+    Rotation frame;
+    double degrees[3], pivot[3];
+    unsigned int axes = 0;
+    if (!ViewportIsTransforming(g_Viewport))
+    {
+        BOOL valid = FALSE;
+        if (editable && ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT)
+        {
+            if (object)
+            {
+                valid = ObjectGetSetupModelRotation(&g_CurrentSetup, objectindex, &frame);
+                axes = (objectindex & SETUP_CHARACTER_SELECTION_BIT) ? 2 : 7;
+            }
+            else if (pad)
+            {
+                valid = SetupFilePadRotation(&g_CurrentSetup, &padref, &frame);
+                axes = 7;
+            }
+            else
+            {
+                valid = ViewportGetGeometryRotation(g_Viewport, &frame);
+                axes = 7;
+            }
+        }
+        ViewportSetRotationFrame(g_Viewport, valid ? &frame : NULL, valid ? axes : 0);
+    }
+    axes = object && (objectindex & SETUP_CHARACTER_SELECTION_BIT) ? 2 : 7;
+    if (ViewportIsRotating(g_Viewport))
+    {
+        BOOL valid = ViewportGetRotation(g_Viewport, &frame, degrees, pivot);
+        RightPanelSetRotationAxes(g_RightPanel, valid ? axes : 0);
+        RightPanelSetTransformState(g_RightPanel, valid ? degrees : NULL, count, valid, 0);
+        RightPanelSetRotationAxes(g_RightPanel, valid ? axes : 0);
+    }
+    else
+    {
+        RightPanelSetTransformState(g_RightPanel, hasposition ? position : NULL, count, editable,
+                                    precision);
+    }
 }
 
 
@@ -1550,6 +1587,163 @@ fail:
 }
 
 
+static BOOL GEditorRotateSelection(HWND hwnd, const ViewportRotation *request)
+{
+    EditHistoryTransaction transaction;
+    const Rotation *rotation = &request->rotation;
+    const double *pivot = request->pivot;
+    SetupObjectGeometry objects;
+    BgDocumentVertexRef *vertices = NULL;
+    StanPointRef *stanpoints = NULL;
+    DWORD count = 0, moved = 0, objectindex;
+    SetupPadRef padref;
+    BOOL pad = ViewportGetSelectedPad(g_Viewport, &padref);
+    BOOL stan = ViewportGetStanSelectionCount(g_Viewport, NULL) > 0;
+    BOOL object = ViewportGetSelectedObject(g_Viewport, &objectindex);
+    BOOL character = object && (objectindex & SETUP_CHARACTER_SELECTION_BIT);
+    EditorTool tool = ViewportGetTool(g_Viewport);
+    const char *why = "", *restorewhy = "";
+    const char *action = pad         ? "Rotate Pad"
+                         : stan      ? "Rotate Stan Faces"
+                         : character ? "Rotate Character"
+                         : object    ? "Rotate Object"
+                                     : "Rotate BG Faces";
+    ZeroMemory(&transaction, sizeof(transaction));
+    ZeroMemory(&objects, sizeof(objects));
+    if (tool != EDITOR_TOOL_FACE_SELECT || !RotationValid(rotation) ||
+        (object && !GEditorCanMoveSetupModel(objectindex)))
+    {
+        return FALSE;
+    }
+    {
+        int i, j;
+        double difference = 0;
+        for (i = 0; i < 3; i++)
+        {
+            for (j = 0; j < 3; j++)
+            {
+                difference += fabs(rotation->m[i][j] - (i == j));
+            }
+        }
+        if (difference < 1e-8)
+        {
+            return TRUE;
+        }
+    }
+    if (pad)
+    {
+        BOOL changed;
+        if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup, action, &transaction, &why))
+        {
+            goto fail;
+        }
+        if (!SetupFileRotatePad(&g_CurrentSetup, &padref, rotation, &changed, &why))
+        {
+            goto rollback;
+        }
+        moved = changed ? 1 : 0;
+        if (changed && !ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
+                                                g_CurrentBgDocument.levelscale, &objects, &why))
+        {
+            goto rollback;
+        }
+    }
+    else if (stan)
+    {
+        stanpoints = ViewportGetMoveStanPoints(g_Viewport, &count);
+        if (stanpoints == NULL)
+        {
+            why = "There are no editable selected stan points.";
+            goto fail;
+        }
+        if (!EditHistoryBeginStanEdit(&g_EditHistory, &g_CurrentStan, action, &transaction, &why))
+        {
+            goto fail;
+        }
+        if (!StanRotatePoints(&g_CurrentStan, stanpoints, count, rotation, pivot, &moved, &why))
+        {
+            goto rollback;
+        }
+    }
+    else if (object)
+    {
+        if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup, action, &transaction, &why))
+        {
+            goto fail;
+        }
+        if (!ObjectRotateSetupModel(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
+                                    g_CurrentBgDocument.levelscale, &g_CurrentObjects, objectindex,
+                                    rotation, pivot, &objects, &why))
+        {
+            goto rollback;
+        }
+        moved = 1;
+    }
+    else
+    {
+        vertices = ViewportGetMoveVertices(g_Viewport, &count);
+        if (vertices == NULL)
+        {
+            why = "There are no editable selected vertices.";
+            goto fail;
+        }
+        if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument, action, &transaction,
+                                    &why))
+        {
+            goto fail;
+        }
+        if (!BgDocumentRotateVertices(&g_CurrentBgDocument, vertices, count, rotation, pivot,
+                                      &moved, &why))
+        {
+            goto rollback;
+        }
+    }
+    if (moved == 0)
+    {
+        EditHistoryCancelEdit(&transaction);
+        free(vertices);
+        free(stanpoints);
+        return TRUE;
+    }
+    if (!(stan              ? GEditorReloadCurrentObjectsAndViewport(&why)
+          : (object || pad) ? GEditorRebuildCurrentViewportWithObjects(&objects, &why)
+                            : GEditorRebuildCurrentViewport(&why)) ||
+        !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+                               &g_CurrentStan, &transaction, &why))
+    {
+        goto rollback;
+    }
+    if (object || pad)
+    {
+        ObjectGeometryFree(&g_CurrentObjects);
+        g_CurrentObjects = objects;
+    }
+    free(vertices);
+    free(stanpoints);
+    GEditorRefreshSelectionDetails();
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    if (stan)
+    {
+        GEditorReloadCurrentObjectsAndViewport(&restorewhy);
+    }
+    else
+    {
+        GEditorRebuildCurrentViewport(&restorewhy);
+    }
+fail:
+    EditHistoryCancelEdit(&transaction);
+    ObjectGeometryFree(&objects);
+    free(vertices);
+    free(stanpoints);
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
+
 static BOOL GEditorDropBgTexture(HWND hwnd, const BrowserImageDrop *request)
 {
     EditHistoryTransaction transaction;
@@ -1822,6 +2016,32 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             SetFocus(g_Viewport);
         }
         return 0;
+
+    case RIGHTPANEL_WM_ROTATION_MODE:
+        ViewportSetRotationMode(g_Viewport,wparam!=0);
+        GEditorRefreshTransformFields();
+        SetFocus(g_Viewport);
+        return 0;
+
+    case RIGHTPANEL_WM_SET_ROTATION:
+    {
+        const RightPanelPosition *input=(const RightPanelPosition *)lparam;
+        Rotation old,target;ViewportRotation request;double degrees[3];BOOL ok=FALSE;int axis;
+        if(input && input->axismask && !(input->axismask&~7u)
+            && ViewportGetRotation(g_Viewport,&old,degrees,request.pivot)){
+            for(axis=0;axis<3;axis++)if(input->axismask&(1u<<axis))degrees[axis]=input->position[axis];
+            if(isfinite(degrees[0])&&isfinite(degrees[1])&&isfinite(degrees[2])){
+                RotationEuler(&target,degrees);RotationDifference(&request.rotation,&target,&old);
+                ok=GEditorRotateSelection(hwnd,&request);
+            }
+        }
+        GEditorRefreshTransformFields();return ok;
+    }
+    case VIEWPORT_WM_ROTATE_SELECTION:
+    {
+        BOOL ok=lparam && GEditorRotateSelection(hwnd,(const ViewportRotation *)lparam);
+        GEditorRefreshTransformFields();return ok;
+    }
 
     case RIGHTPANEL_WM_SET_POSITION:
     {

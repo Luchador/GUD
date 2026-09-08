@@ -231,3 +231,118 @@ BOOL StanPaintTile(StanFile *stan, DWORD index, const unsigned char rgba[4],
     *changedout = TRUE;
     return TRUE;
 }
+
+BOOL StanRotatePoints(StanFile *stan, const StanPointRef *points, DWORD count,
+                      const Rotation *rotation, const double pivot[3], DWORD *movedout,
+                      const char **reasonout)
+{
+    DWORD *map = NULL, i, tile;
+    unsigned char *selected = NULL;
+    int axis;
+    *movedout = 0;
+    *reasonout = "";
+    if (stan == NULL || stan->data == NULL || points == NULL || count == 0 ||
+        !(stan->levelscale > 0) || !isfinite(stan->levelscale))
+    {
+        *reasonout = "there are no editable selected stan points.";
+        return FALSE;
+    }
+    if (!pivot || !RotationValid(rotation))
+    {
+        *reasonout = "Invalid stan rotation.";
+        return FALSE;
+    }
+    map = StanBuildPointMap(stan, reasonout);
+    if (map == NULL)
+    {
+        return FALSE;
+    }
+    selected = calloc((size_t)stan->tilecount * STAN_TILE_MAX_POINTS, 1);
+    if (selected == NULL)
+    {
+        *reasonout = "out of memory collecting stan points to move.";
+        goto fail;
+    }
+    for (i = 0; i < count; i++)
+    {
+        if (points[i].tile >= stan->tilecount ||
+            points[i].point >= stan->tiles[points[i].tile].pointcount)
+        {
+            *reasonout = "a selected stan point no longer exists.";
+            goto fail;
+        }
+        selected[map[points[i].tile * STAN_TILE_MAX_POINTS + points[i].point]] = 1;
+    }
+    /* Validate the complete linked selection before writing any bytes. */
+    for (tile = 0; tile < stan->tilecount; tile++)
+    {
+        for (i = 0; i < stan->tiles[tile].pointcount; i++)
+        {
+            const unsigned char *raw = stan->data + stan->tiles[tile].sourceoffset + 8 + i * 8;
+            if (!selected[map[tile * STAN_TILE_MAX_POINTS + i]])
+            {
+                continue;
+            }
+            double source[3], destination[3];
+            for (axis = 0; axis < 3; axis++)
+            {
+                source[axis] = StanEditRead16(raw + axis * 2) / stan->levelscale;
+            }
+            RotationPoint(rotation, pivot, source, destination);
+            for (axis = 0; axis < 3; axis++)
+            {
+                double value = round(destination[axis] * stan->levelscale);
+                if (!isfinite(value) || value < SHRT_MIN || value > SHRT_MAX)
+                {
+                    *reasonout = "the move would place a stan point outside its signed 16-bit "
+                                 "coordinate range.";
+                    goto fail;
+                }
+            }
+        }
+    }
+    for (tile = 0; tile < stan->tilecount; tile++)
+    {
+        unsigned int movedpoints = 0;
+        for (i = 0; i < stan->tiles[tile].pointcount; i++)
+        {
+            unsigned char *raw = stan->data + stan->tiles[tile].sourceoffset + 8 + i * 8;
+            StanPoint *point = &stan->tiles[tile].points[i];
+            float position[3];
+            double source[3], destination[3];
+            if (!selected[map[tile * STAN_TILE_MAX_POINTS + i]])
+            {
+                continue;
+            }
+            for (axis = 0; axis < 3; axis++)
+            {
+                source[axis] = StanEditRead16(raw + axis * 2) / stan->levelscale;
+            }
+            RotationPoint(rotation, pivot, source, destination);
+            for (axis = 0; axis < 3; axis++)
+            {
+                short value = (short)round(destination[axis] * stan->levelscale);
+                StanEditWrite16(raw + axis * 2, (unsigned short)value);
+                position[axis] = value * (1.0f / stan->levelscale);
+            }
+            point->x = position[0];
+            point->y = position[1];
+            point->z = position[2];
+            movedpoints++;
+            (*movedout)++;
+        }
+        /* Rotation changes which triple best represents the tile in XZ. */
+        if (movedpoints > 0)
+        {
+            StanUpdateRepresentativeTriangle(stan, tile);
+        }
+    }
+    stan->dirty = *movedout != 0 || stan->dirty;
+    free(selected);
+    free(map);
+    return TRUE;
+fail:
+    free(selected);
+    free(map);
+    return FALSE;
+}

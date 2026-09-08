@@ -37,4 +37,12 @@ BOOL ObjectTranslateSetupModel(const char *projectdir, SetupFile *setup,
 
 void ObjectGeometryFree(SetupObjectGeometry *geometry);
 
+/* Rotate one model through its private placement pad; caller owns rollback. */
+BOOL ObjectRotateSetupModel(const char *projectdir, SetupFile *setup,
+    const StanFile *stan, float levelscale, const SetupObjectGeometry *before,
+    DWORD index, const Rotation *rotation, const double pivot[3], SetupObjectGeometry *out,
+    const char **reasonout);
+
+BOOL ObjectGetSetupModelRotation(const SetupFile *setup, DWORD selection, Rotation *out);
+
 #endif /* GEDITOR_OBJECTLOAD_H */

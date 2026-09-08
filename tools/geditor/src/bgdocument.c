@@ -1283,3 +1283,86 @@ const BgDocumentFace *BgDocumentFindFace(const BgDocument *document,
 
     return NULL;
 }
+
+/* Resolve and validate every destination before mutating shared vertex records. */
+BOOL BgDocumentRotateVertices(BgDocument *document, const BgDocumentVertexRef *refs, DWORD count,
+                              const Rotation *rotation, const double pivot[3], DWORD *changed,
+                              const char **reasonout)
+{
+    BgDocumentVertexRef *unique = NULL;
+    short (*positions)[3] = NULL;
+    DWORD i, n = 0;
+    int axis;
+    *changed = 0;
+    *reasonout = "Invalid background rotation.";
+    if (!document || !document->rooms || !refs || !count || !pivot || !RotationValid(rotation) ||
+        !isfinite(document->levelscale) || document->levelscale <= 0)
+    {
+        return FALSE;
+    }
+    unique = malloc((size_t)count * sizeof(*unique));
+    positions = malloc((size_t)count * sizeof(*positions));
+    if (!unique || !positions)
+    {
+        *reasonout = "Out of memory rotating background vertices.";
+        goto fail;
+    }
+    memcpy(unique, refs, (size_t)count * sizeof(*unique));
+    qsort(unique, count, sizeof(*unique), BgDocumentCompareVertexRefs);
+    for (i = 0; i < count; i++)
+    {
+        if (!n || BgDocumentCompareVertexRefs(&unique[i], &unique[n - 1]))
+        {
+            unique[n++] = unique[i];
+        }
+    }
+    for (i = 0; i < n; i++)
+    {
+        const BgDocumentRoom *room = BgDocumentGetRoom(document, unique[i].room);
+        const BgDocumentVertex *v;
+        double point[3], rotated[3];
+        if (!room || !room->vertices || unique[i].index >= room->vertexcount)
+        {
+            goto fail;
+        }
+        v = &room->vertices[unique[i].index];
+        point[0] = v->x;
+        point[1] = v->y;
+        point[2] = v->z;
+        for (axis = 0; axis < 3; axis++)
+        {
+            point[axis] = (point[axis] + room->origin[axis]) / document->levelscale;
+        }
+        RotationPoint(rotation, pivot, point, rotated);
+        for (axis = 0; axis < 3; axis++)
+        {
+            double value = round(rotated[axis] * document->levelscale - room->origin[axis]);
+            if (!isfinite(value) || value < SHRT_MIN || value > SHRT_MAX)
+            {
+                *reasonout = "Rotation exceeds a room's coordinate range.";
+                goto fail;
+            }
+            positions[i][axis] = (short)value;
+        }
+    }
+    for (i = 0; i < n; i++)
+    {
+        BgDocumentVertex *v = &document->rooms[unique[i].room].vertices[unique[i].index];
+        if (v->x != positions[i][0] || v->y != positions[i][1] || v->z != positions[i][2])
+        {
+            (*changed)++;
+        }
+        v->x = positions[i][0];
+        v->y = positions[i][1];
+        v->z = positions[i][2];
+    }
+    document->dirty |= *changed != 0;
+    free(unique);
+    free(positions);
+    *reasonout = "";
+    return TRUE;
+fail:
+    free(unique);
+    free(positions);
+    return FALSE;
+}

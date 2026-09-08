@@ -126,4 +126,13 @@ void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
 BOOL ViewportGetBackfaceCulling(HWND hwnd);
 void ViewportSetBackfaceCulling(HWND hwnd, BOOL enabled);
 
+#define VIEWPORT_WM_ROTATE_SELECTION (WM_APP + 16)
+typedef struct ViewportRotation { Rotation rotation; double pivot[3]; } ViewportRotation;
+void ViewportSetRotationMode(HWND hwnd, BOOL rotate);
+BOOL ViewportIsRotating(HWND hwnd);
+BOOL ViewportIsTransforming(HWND hwnd);
+BOOL ViewportGetGeometryRotation(HWND hwnd, Rotation *frame);
+void ViewportSetRotationFrame(HWND hwnd, const Rotation *frame, unsigned int axes);
+BOOL ViewportGetRotation(HWND hwnd, Rotation *frame, double degrees[3], double pivot[3]);
+
 #endif

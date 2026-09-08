@@ -1,6 +1,7 @@
 #ifndef GEDITOR_SETUPLOAD_H
 #define GEDITOR_SETUPLOAD_H
 
+#include "rotation.h"
 #include <windows.h>
 
 #include "rom.h"
@@ -125,5 +126,10 @@ BOOL SetupSaveProjectFile(const char *projectdir, const SetupFile *setup,
 
 /* Releases a SetupFile and returns it to the empty state. */
 void SetupFileFree(SetupFile *setup);
+
+BOOL SetupFileGetModelPad(const SetupFile *setup, DWORD selection, SetupPadRef *ref);
+BOOL SetupFilePadRotation(const SetupFile *setup, const SetupPadRef *ref, Rotation *out);
+BOOL SetupFileRotatePad(SetupFile *setup, const SetupPadRef *ref, const Rotation *rotation,
+                       BOOL *changed, const char **reasonout);
 
 #endif /* GEDITOR_SETUPLOAD_H */

@@ -2,6 +2,7 @@
 #include "resource.h"
 
 IDI_GEDITOR ICON "icon.ico"
+IDR_GIZMO_CYLINDER RCDATA "../geditorassets/gizmo_cylinder.glb"
 IDR_GIZMO_ARROW RCDATA "../geditorassets/gizmo_arrow.glb"
 IDR_NO_TEXTURE RCDATA "../geditorassets/no_texture.png"
 

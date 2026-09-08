@@ -17,6 +17,8 @@
 /* Synchronous absolute-position request. axismask marks edited X/Y/Z fields;
    the frame translates the selection's average position, then refreshes it. */
 #define RIGHTPANEL_WM_SET_POSITION (WM_APP + 5)
+#define RIGHTPANEL_WM_ROTATION_MODE (WM_APP + 17)
+#define RIGHTPANEL_WM_SET_ROTATION (WM_APP + 18)
 typedef struct RightPanelPosition {
     double position[3];
     unsigned int axismask;
@@ -33,6 +35,7 @@ HWND RightPanelCreate(HWND parent, HINSTANCE hinstance);
 /* A NULL position clears the fields; a noneditable position remains visible. */
 void RightPanelSetTransformState(HWND panel, const double position[3],
                                  DWORD count, BOOL editable, double gridstep);
+void RightPanelSetRotationAxes(HWND panel, unsigned int axes);
 BOOL RightPanelHandleMessage(HWND panel, MSG *message);
 void RightPanelSetVertexPaintMode(HWND panel, BOOL enabled);
 void RightPanelGetPaintColor(HWND panel, unsigned char rgba[4]);

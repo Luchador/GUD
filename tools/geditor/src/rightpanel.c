@@ -40,7 +40,9 @@ enum {
     RIGHTPANEL_ID_POSITION_X,
     RIGHTPANEL_ID_POSITION_Y,
     RIGHTPANEL_ID_POSITION_Z,
-    RIGHTPANEL_ID_STAN_OPACITY
+    RIGHTPANEL_ID_STAN_OPACITY,
+    RIGHTPANEL_ID_MOVE_MODE,
+    RIGHTPANEL_ID_ROTATE_MODE
 };
 
 typedef struct RightPanelState {
@@ -51,6 +53,9 @@ typedef struct RightPanelState {
     HWND stanopacitylabel;
     HWND portals;
     HWND positions[3];
+    HWND movemode, rotatemode;
+    BOOL rotationmode;
+    unsigned int rotationaxes;
     HWND objects;
     HWND details;
     HWND colorpicker;
@@ -122,6 +127,8 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
     y += RIGHTPANEL_CHECK_H + RIGHTPANEL_CHECK_GAP;
     MoveWindow(state->objects, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
 
+    MoveWindow(state->movemode, RIGHTPANEL_MARGIN+68, RIGHTPANEL_TRANSFORM_TOP-2, 62, 23, TRUE);
+    MoveWindow(state->rotatemode, RIGHTPANEL_MARGIN+132, RIGHTPANEL_TRANSFORM_TOP-2, 62, 23, TRUE);
     for (axis = 0; axis < 3; axis++)
     {
         MoveWindow(state->positions[axis], RIGHTPANEL_MARGIN + 24,
@@ -211,7 +218,7 @@ static void RightPanelSetPosition(HWND hwnd, RightPanelState *state)
         }
         if (end == text || *end != '\0' || errno == ERANGE || !isfinite(value))
         {
-            MessageBox(hwnd, "Enter a finite number for the world coordinate.",
+            MessageBox(hwnd, state->rotationmode ? "Enter a finite angle in degrees." : "Enter a finite number for the world coordinate.",
                        "Transform", MB_ICONWARNING);
             SetFocus(state->positions[axis]);
             SendMessage(state->positions[axis], EM_SETSEL, 0, -1);
@@ -222,7 +229,7 @@ static void RightPanelSetPosition(HWND hwnd, RightPanelState *state)
 
     /* The frame refreshes these fields from the resulting geometry, including
        native asset rounding. All edited axes form one undoable move. */
-    SendMessage(GetParent(hwnd), RIGHTPANEL_WM_SET_POSITION, 0, (LPARAM)&request);
+    SendMessage(GetParent(hwnd), state->rotationmode ? RIGHTPANEL_WM_SET_ROTATION : RIGHTPANEL_WM_SET_POSITION, 0, (LPARAM)&request);
 }
 
 static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
@@ -279,7 +286,7 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     DrawText(hdc, "Transform", -1, &transform, DT_SINGLELINE | DT_LEFT | DT_NOPREFIX);
     transform.top += 26;
     transform.bottom += 26;
-    DrawText(hdc, state->selectioncount > 1 ? "Average world position" : "World position",
+    DrawText(hdc, state->rotationmode ? "Rotation (degrees)" : state->selectioncount > 1 ? "Average world position" : "World position",
              -1, &transform,
              DT_SINGLELINE | DT_LEFT | DT_NOPREFIX);
     for (axis = 0; axis < 3; axis++)
@@ -383,6 +390,13 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_OBJECTS,
             cs->hInstance, NULL);
 
+        state->movemode=CreateWindowEx(0,"BUTTON","Move",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_RADIOBUTTON,
+            0,0,1,1,hwnd,(HMENU)(INT_PTR)RIGHTPANEL_ID_MOVE_MODE,cs->hInstance,NULL);
+        state->rotatemode=CreateWindowEx(0,"BUTTON","Rotate",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_RADIOBUTTON,
+            0,0,1,1,hwnd,(HMENU)(INT_PTR)RIGHTPANEL_ID_ROTATE_MODE,cs->hInstance,NULL);
+        SendMessage(state->movemode,WM_SETFONT,(WPARAM)font,TRUE);
+        SendMessage(state->rotatemode,WM_SETFONT,(WPARAM)font,TRUE);
+        SendMessage(state->movemode,BM_SETCHECK,BST_CHECKED,0);
         for (axis = 0; axis < 3; axis++)
         {
             state->positions[axis] = CreateWindowEx(
@@ -446,6 +460,13 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         {
             switch (LOWORD(wparam))
             {
+            case RIGHTPANEL_ID_MOVE_MODE:
+            case RIGHTPANEL_ID_ROTATE_MODE:
+                state->rotationmode=LOWORD(wparam)==RIGHTPANEL_ID_ROTATE_MODE;
+                SendMessage(state->movemode,BM_SETCHECK,state->rotationmode?BST_UNCHECKED:BST_CHECKED,0);
+                SendMessage(state->rotatemode,BM_SETCHECK,state->rotationmode?BST_CHECKED:BST_UNCHECKED,0);
+                SendMessage(GetParent(hwnd),RIGHTPANEL_WM_ROTATION_MODE,state->rotationmode,0);
+                return 0;
             case RIGHTPANEL_ID_BG_PRIMARY:
             case RIGHTPANEL_ID_BG_SECONDARY:
             case RIGHTPANEL_ID_STAN:
@@ -632,7 +653,13 @@ void RightPanelSetTransformState(HWND panel, const double position[3],
     }
     state->editedaxes = 0;
     state->updatingposition = FALSE;
-    if (state->transformenabled && gridstep > 0)
+    if(state->rotationmode){
+        const char *hint=position==NULL?"Select faces, an object, character or pad."
+            :state->rotationaxes==2?"Heading in degrees. Characters stay upright."
+            :"Press Enter to set angles. World axes; XYZ Euler order.";
+        lstrcpyn(state->transformhint,hint,sizeof(state->transformhint));
+    }
+    else if (state->transformenabled && gridstep > 0)
     {
         snprintf(state->transformhint, sizeof(state->transformhint),
                  "Press Enter to set position.\r\nAsset precision: %.6g units.", gridstep);
@@ -959,4 +986,24 @@ void RightPanelSetBgTriangle(HWND panel, const BgDocument *document,
 
     SetWindowText(state->details, state->detailtext);
     InvalidateRect(panel, NULL, FALSE);
+}
+
+void RightPanelSetRotationAxes(HWND panel, unsigned int axes)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    int axis;
+    if (!state)
+    {
+        return;
+    }
+    state->rotationaxes = axes;
+    if (!state->rotationmode)
+    {
+        return;
+    }
+    for (axis = 0; axis < 3; axis++)
+    {
+        EnableWindow(state->positions[axis], (axes & (1u << axis)) != 0);
+        SendMessage(state->positions[axis], EM_SETREADONLY, !(axes & (1u << axis)), 0);
+    }
 }

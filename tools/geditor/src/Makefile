@@ -28,7 +28,7 @@ $(TARGET): $(SOURCES) $(HEADERS) $(SHARED_HEADERS) $(PROP_RECORDS) $(RCOBJ)
 	$(CC) $(CFLAGS) -o $@ $(SOURCES) $(RCOBJ) $(LDFLAGS)
 
 # Resource script -> linkable object (dialogs, icon, and tool button artwork)
-$(RCOBJ): $(RCFILE) resource.h icon.ico $(TOOL_IMAGES) ../geditorassets/gizmo_arrow.glb
+$(RCOBJ): $(RCFILE) resource.h icon.ico $(TOOL_IMAGES) ../geditorassets/gizmo_arrow.glb ../geditorassets/gizmo_cylinder.glb
 	$(RC) -i $(RCFILE) -o $@
 
 clean:

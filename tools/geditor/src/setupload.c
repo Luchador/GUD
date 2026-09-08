@@ -1053,3 +1053,112 @@ void SetupFileFree(SetupFile *setup)
     free(setup->data);
     ZeroMemory(setup, sizeof(*setup));
 }
+
+BOOL SetupFileGetModelPad(const SetupFile *setup, DWORD selection, SetupPadRef *ref)
+{
+    DWORD index = selection & ~SETUP_CHARACTER_SELECTION_BIT;
+    if (!setup || !ref)
+    {
+        return FALSE;
+    }
+    if (selection & SETUP_CHARACTER_SELECTION_BIT)
+    {
+        if (index >= setup->charactercount)
+        {
+            return FALSE;
+        }
+        ref->bound = FALSE;
+        ref->index = setup->characters[index].pad;
+    }
+    else
+    {
+        const SetupObject *object;
+        if (index >= setup->objectcount)
+        {
+            return FALSE;
+        }
+        object = &setup->objects[index];
+        if (object->deleted || object->pad < 0)
+        {
+            return FALSE;
+        }
+        ref->bound = object->type == PROPDEF_DOOR || object->pad >= 10000;
+        ref->index = object->pad - (ref->bound && object->type != PROPDEF_DOOR ? 10000 : 0);
+    }
+    return ref->index < (ref->bound ? setup->boundpadcount : setup->padcount);
+}
+BOOL SetupFilePadRotation(const SetupFile *setup, const SetupPadRef *ref, Rotation *out)
+{
+    const SetupPad *pad;
+    double up[3], look[3];
+    int axis;
+    if (!setup || !ref || ref->index >= (ref->bound ? setup->boundpadcount : setup->padcount))
+    {
+        return FALSE;
+    }
+    pad = ref->bound ? &setup->boundpads[ref->index].pad : &setup->pads[ref->index];
+    for (axis = 0; axis < 3; axis++)
+    {
+        up[axis] = pad->up[axis];
+        look[axis] = pad->look[axis];
+    }
+    return RotationBasis(out, up, look);
+}
+BOOL SetupFileRotatePad(SetupFile *setup, const SetupPadRef *ref, const Rotation *rotation,
+                        BOOL *changed, const char **reasonout)
+{
+    SetupPad *pad;
+    DWORD table, stride, record;
+    double up[3], look[3];
+    int axis;
+    *changed = FALSE;
+    *reasonout = "Invalid pad rotation.";
+    if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE || !ref ||
+        !RotationValid(rotation) ||
+        ref->index >= (ref->bound ? setup->boundpadcount : setup->padcount))
+    {
+        return FALSE;
+    }
+    stride = ref->bound ? SETUP_BOUNDPAD_SIZE : SETUP_PAD_SIZE;
+    table = SetupRead32(setup->data + (ref->bound ? SETUP_BOUNDPAD_POINTER : SETUP_PAD_POINTER));
+    if (table < SETUP_HEADER_SIZE || table > setup->size ||
+        ref->index >= (setup->size - table) / stride)
+    {
+        return FALSE;
+    }
+    record = table + ref->index * stride;
+    pad = ref->bound ? &setup->boundpads[ref->index].pad : &setup->pads[ref->index];
+    for (axis = 0; axis < 3; axis++)
+    {
+        up[axis] = pad->up[axis];
+        look[axis] = pad->look[axis];
+    }
+    RotationVector(rotation, up, up);
+    RotationVector(rotation, look, look);
+    for (axis = 0; axis < 3; axis++)
+    {
+        if (!isfinite((float)up[axis]) || !isfinite((float)look[axis]))
+        {
+            return FALSE;
+        }
+    }
+    for (axis = 0; axis < 3; axis++)
+    {
+        union
+        {
+            float f;
+            DWORD u;
+        } value;
+        value.f = (float)up[axis];
+        *changed |= value.f != pad->up[axis];
+        pad->up[axis] = value.f;
+        SetupWrite32(setup->data + record + 12 + axis * 4, value.u);
+        value.f = (float)look[axis];
+        *changed |= value.f != pad->look[axis];
+        pad->look[axis] = value.f;
+        SetupWrite32(setup->data + record + 24 + axis * 4, value.u);
+    }
+    setup->dirty |= *changed;
+    *reasonout = "";
+    return TRUE;
+}

@@ -19,6 +19,7 @@
 #define IDR_VERTEX_PAINT_ON   308
 #define IDR_GIZMO_ARROW       309
 #define IDR_NO_TEXTURE        310
+#define IDR_GIZMO_CYLINDER    311
 
 /* Controls inside IDD_NEW_PROJECT */
 #define IDC_PROJECT_NAME     1001

@@ -113,6 +113,13 @@ typedef struct ViewportState {
     int width, height;
     BgVertex *arrow;
     DWORD arrowtris;
+    BgVertex *cylinder;
+    DWORD cylindertris;
+    BOOL rotationmode, dragrotation;
+    Rotation rotationframe;
+    unsigned int rotationaxes;
+    double rotationlast, rotationtotal, rotationmouse[2], rotationtangent[2];
+    double gizmohit[3];
     BOOL gizmovisible;
     double gizmoposition[3];
     int hoveraxis, dragaxis;
@@ -222,7 +229,7 @@ static BOOL ViewportPadSelectionPosition(const ViewportState *state, double posi
     for (axis = 0; axis < 3; axis++)
     {
         position[axis] = state->pads[index].position[axis];
-        if (state->dragpad && state->dragaxis == axis) { position[axis] += state->dragdelta; }
+        if (state->dragpad && !state->dragrotation && state->dragaxis == axis) { position[axis] += state->dragdelta; }
     }
     return TRUE;
 }
@@ -2560,28 +2567,51 @@ static BOOL ViewportTryPickStan(HWND hwnd, ViewportState *state, int x, int y, B
     return TRUE;
 }
 
-static void ViewportLoadGizmo(ViewportState *state)
+static BgVertex *ViewportLoadHandle(int id, DWORD *count, BOOL radial)
 {
     HINSTANCE instance = GetModuleHandle(NULL);
-    HRSRC resource = FindResource(instance,MAKEINTRESOURCE(IDR_GIZMO_ARROW),RT_RCDATA);
-    HGLOBAL loaded = resource != NULL ? LoadResource(instance,resource) : NULL;
+    HRSRC resource = FindResource(instance, MAKEINTRESOURCE(id), RT_RCDATA);
+    HGLOBAL loaded = resource ? LoadResource(instance, resource) : NULL;
+    BgVertex *vertices;
     const char *reason;
     DWORD i;
-    float length=0;
-    if (loaded == NULL) { return; }
-    state->arrow=GltfLoadGlbMesh(LockResource(loaded),SizeofResource(instance,resource),
-                                &state->arrowtris,&reason);
-    if (state->arrow == NULL) { return; }
-    for (i=0; i<state->arrowtris*3; i++)
+    double size = 0;
+    if (!loaded)
     {
-        if (state->arrow[i].x>length) { length=state->arrow[i].x; }
+        return NULL;
     }
-    if (!(length > 0)) { free(state->arrow); state->arrow=NULL; state->arrowtris=0; return; }
-    /* Normalize length while preserving the artist's gap at the base. */
-    for (i=0; i<state->arrowtris*3; i++)
+    vertices =
+        GltfLoadGlbMesh(LockResource(loaded), SizeofResource(instance, resource), count, &reason);
+    if (!vertices)
     {
-        state->arrow[i].x/=length; state->arrow[i].y/=length; state->arrow[i].z/=length;
+        return NULL;
     }
+    for (i = 0; i < *count * 3; i++)
+    {
+        double extent = radial ? hypot(vertices[i].y, vertices[i].z) : vertices[i].x;
+        if (extent > size)
+        {
+            size = extent;
+        }
+    }
+    if (!(size > 0))
+    {
+        free(vertices);
+        *count = 0;
+        return NULL;
+    }
+    for (i = 0; i < *count * 3; i++)
+    {
+        vertices[i].x /= size;
+        vertices[i].y /= size;
+        vertices[i].z /= size;
+    }
+    return vertices;
+}
+static void ViewportLoadGizmo(ViewportState *state)
+{
+    state->arrow = ViewportLoadHandle(IDR_GIZMO_ARROW, &state->arrowtris, FALSE);
+    state->cylinder = ViewportLoadHandle(IDR_GIZMO_CYLINDER, &state->cylindertris, TRUE);
 }
 
 static double ViewportGizmoScale(const ViewportState *state)
@@ -2590,7 +2620,9 @@ static double ViewportGizmoScale(const ViewportState *state)
     double depth;
     /* Keep the selection's handles visible and sized to the current camera,
        including while flying. Only picking is disabled during navigation. */
-    if (!state->gizmovisible || state->arrow == NULL || state->height <= 0) { return 0; }
+    if (!state->gizmovisible || state->height <= 0
+        || (state->rotationmode ? state->cylinder == NULL || !state->rotationaxes
+            || state->tool != EDITOR_TOOL_FACE_SELECT : state->arrow == NULL)) { return 0; }
     ViewportGetBasis(state,forward,right);
     depth=(state->gizmoposition[0]-state->posx)*forward[0]
         +(state->gizmoposition[1]-state->posy)*forward[1]
@@ -2602,7 +2634,7 @@ static double ViewportGizmoScale(const ViewportState *state)
 static void ViewportArrowVertex(const ViewportState *state, int axis,
                                 DWORD index, double scale, Vertex *out)
 {
-    const BgVertex *source=&state->arrow[index];
+    const BgVertex *source=state->rotationmode?&state->cylinder[index]:&state->arrow[index];
     double p[3] = {source->x,source->y,source->z};
     if (axis==1) { p[0]=-source->y; p[1]=source->x; }
     if (axis==2) { p[0]=-source->z; p[2]=source->x; }
@@ -2688,12 +2720,13 @@ static void ViewportDrawTransformTools(const ViewportState *state)
         for (axis=0; axis<3; axis++)
         {
             DWORD vertex;
+            if(state->rotationmode && !(state->rotationaxes & (1u<<axis)))continue;
             if (axis==state->dragaxis || axis==state->hoveraxis) { glColor3ub(255,205,0); }
             else if (axis==0) { glColor3ub(240,40,40); }
             else if (axis==1) { glColor3ub(40,220,60); }
             else { glColor3ub(40,100,255); }
             glBegin(GL_TRIANGLES);
-            for (vertex=0; vertex<state->arrowtris*3; vertex++)
+            for (vertex=0; vertex<(state->rotationmode?state->cylindertris:state->arrowtris)*3; vertex++)
             {
                 Vertex v;
                 ViewportArrowVertex(state,axis,vertex,scale,&v);
@@ -2705,7 +2738,7 @@ static void ViewportDrawTransformTools(const ViewportState *state)
     glPopAttrib();
 }
 
-static int ViewportPickGizmo(HWND hwnd, const ViewportState *state, int x, int y)
+static int ViewportPickGizmo(HWND hwnd, ViewportState *state, int x, int y)
 {
     ViewportPickRay ray;
     double scale=ViewportGizmoScale(state), nearest=DBL_MAX;
@@ -2714,13 +2747,15 @@ static int ViewportPickGizmo(HWND hwnd, const ViewportState *state, int x, int y
     for (axis=0; axis<3; axis++)
     {
         DWORD tri;
-        for (tri=0; tri<state->arrowtris; tri++)
+        if(state->rotationmode && !(state->rotationaxes & (1u<<axis)))continue;
+        for (tri=0; tri<(state->rotationmode?state->cylindertris:state->arrowtris); tri++)
         {
             Vertex v[3]; double distance; int corner;
             for (corner=0; corner<3; corner++) { ViewportArrowVertex(state,axis,tri*3+corner,scale,&v[corner]); }
             if (ViewportRayTriangleDistance(&ray,v,FALSE,&distance) && distance<nearest)
             {
-                nearest=distance; picked=axis;
+                int i;nearest=distance; picked=axis;
+                for(i=0;i<3;i++)state->gizmohit[i]=ray.origin[i]+ray.direction[i]*distance;
             }
         }
     }
@@ -2741,24 +2776,56 @@ static double ViewportDragParameter(const ViewportState *state, const ViewportPi
     return ray->origin[state->dragaxis]+ray->direction[state->dragaxis]*numerator/denominator;
 }
 
+static double ViewportRotationParameter(const ViewportState *state, const ViewportPickRay *ray,
+                                        int x, int y)
+{
+    int axis = state->dragaxis, a = (axis + 1) % 3, b = (axis + 2) % 3;
+    double distance;
+    if (state->dragvertical)
+    {
+        return ((x - state->rotationmouse[0]) * state->rotationtangent[0] +
+                (y - state->rotationmouse[1]) * state->rotationtangent[1]) *
+               180.0 / (90.0 * 3.14159265358979323846);
+    }
+    if (fabs(ray->direction[axis]) < 1e-5)
+    {
+        return state->rotationlast;
+    }
+    distance = (state->dragorigin[axis] - ray->origin[axis]) / ray->direction[axis];
+    if (distance <= 0)
+    {
+        return state->rotationlast;
+    }
+    return atan2(ray->origin[b] + distance * ray->direction[b] - state->dragorigin[b],
+                 ray->origin[a] + distance * ray->direction[a] - state->dragorigin[a]) *
+           180.0 / 3.14159265358979323846;
+}
+
 static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y)
 {
     ViewportPickRay ray;
-    BgDocumentVertexRef *refs=NULL;
-    DWORD refcount=0;
-    int axis=ViewportPickGizmo(hwnd,state,x,y), i, vertexcount;
-    double length=0;
-    if (axis<0) { return FALSE; }
-    state->dragpad = ViewportSelectedPadIndex(state) >= 0;
-    state->dragstan=ViewportGetStanSelectionCount(hwnd,NULL)>0;
-    vertexcount=state->dragpad ? VIEWPORT_BOX_VERTICES
-        : state->dragstan ? (int)(state->stan.tilecount*STAN_TILE_MAX_POINTS) : state->scenecount;
-    state->dragvertices=malloc((size_t)vertexcount*sizeof(*state->dragvertices));
-    state->dragmask=calloc((size_t)vertexcount,1);
-    if (state->dragvertices==NULL || state->dragmask==NULL)
+    BgDocumentVertexRef *refs = NULL;
+    DWORD refcount = 0;
+    int axis = ViewportPickGizmo(hwnd, state, x, y), i, vertexcount;
+    double length = 0;
+    if (axis < 0)
     {
-        free(state->dragvertices); free(state->dragmask);
-        state->dragvertices=NULL; state->dragmask=NULL;
+        return FALSE;
+    }
+    state->dragrotation = state->rotationmode;
+    state->dragpad = ViewportSelectedPadIndex(state) >= 0;
+    state->dragstan = ViewportGetStanSelectionCount(hwnd, NULL) > 0;
+    vertexcount = state->dragpad    ? VIEWPORT_BOX_VERTICES
+                  : state->dragstan ? (int)(state->stan.tilecount * STAN_TILE_MAX_POINTS)
+                                    : state->scenecount;
+    state->dragvertices = malloc((size_t)vertexcount * sizeof(*state->dragvertices));
+    state->dragmask = calloc((size_t)vertexcount, 1);
+    if (state->dragvertices == NULL || state->dragmask == NULL)
+    {
+        free(state->dragvertices);
+        free(state->dragmask);
+        state->dragvertices = NULL;
+        state->dragmask = NULL;
         return TRUE;
     }
     if (state->dragpad)
@@ -2767,61 +2834,108 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
         for (i = 0; i < vertexcount; i++)
         {
             const Vertex *v = &state->padmarkers[first + i];
-            state->dragvertices[i][0] = v->x; state->dragvertices[i][1] = v->y; state->dragvertices[i][2] = v->z;
+            state->dragvertices[i][0] = v->x;
+            state->dragvertices[i][1] = v->y;
+            state->dragvertices[i][2] = v->z;
             state->dragmask[i] = 1;
         }
     }
     else if (state->dragstan)
     {
-        StanPointRef *stanrefs=ViewportGetMoveStanPoints(hwnd,&refcount);
-        if (stanrefs==NULL)
+        StanPointRef *stanrefs = ViewportGetMoveStanPoints(hwnd, &refcount);
+        if (stanrefs == NULL)
         {
-            free(state->dragvertices); free(state->dragmask);
-            state->dragvertices=NULL; state->dragmask=NULL;
+            free(state->dragvertices);
+            free(state->dragmask);
+            state->dragvertices = NULL;
+            state->dragmask = NULL;
             return TRUE;
         }
-        for (i=0; i<vertexcount; i++)
+        for (i = 0; i < vertexcount; i++)
         {
-            DWORD tile=(DWORD)i/STAN_TILE_MAX_POINTS, point=(DWORD)i%STAN_TILE_MAX_POINTS;
-            const StanPoint *v=&state->stan.tiles[tile].points[point];
-            StanPointRef ref=ViewportStanPointRef(state,tile,point);
-            state->dragvertices[i][0]=v->x; state->dragvertices[i][1]=v->y; state->dragvertices[i][2]=v->z;
-            state->dragmask[i]=point<state->stan.tiles[tile].pointcount
-                && bsearch(&ref,stanrefs,refcount,sizeof(*stanrefs),ViewportCompareStanRefs)!=NULL;
+            DWORD tile = (DWORD)i / STAN_TILE_MAX_POINTS, point = (DWORD)i % STAN_TILE_MAX_POINTS;
+            const StanPoint *v = &state->stan.tiles[tile].points[point];
+            StanPointRef ref = ViewportStanPointRef(state, tile, point);
+            state->dragvertices[i][0] = v->x;
+            state->dragvertices[i][1] = v->y;
+            state->dragvertices[i][2] = v->z;
+            state->dragmask[i] = point < state->stan.tiles[tile].pointcount &&
+                                 bsearch(&ref, stanrefs, refcount, sizeof(*stanrefs),
+                                         ViewportCompareStanRefs) != NULL;
         }
         free(stanrefs);
     }
     else
     {
-        if (state->selectedobject==VIEWPORT_OBJECT_NONE)
+        if (state->selectedobject == VIEWPORT_OBJECT_NONE)
         {
-            refs=ViewportGetMoveVertices(hwnd,&refcount);
-            if (refs==NULL) { free(state->dragvertices); free(state->dragmask); state->dragvertices=NULL; state->dragmask=NULL; return TRUE; }
+            refs = ViewportGetMoveVertices(hwnd, &refcount);
+            if (refs == NULL)
+            {
+                free(state->dragvertices);
+                free(state->dragmask);
+                state->dragvertices = NULL;
+                state->dragmask = NULL;
+                return TRUE;
+            }
         }
-        for (i=0; i<state->scenecount; i++)
+        for (i = 0; i < state->scenecount; i++)
         {
-            state->dragvertices[i][0]=state->scene[i].x;
-            state->dragvertices[i][1]=state->scene[i].y;
-            state->dragvertices[i][2]=state->scene[i].z;
-            state->dragmask[i]=state->selectedobject!=VIEWPORT_OBJECT_NONE
-                ? state->sceneobjectindices[i/3]==state->selectedobject
-                : bsearch(&state->scenevertexrefs[i],refs,refcount,sizeof(*refs),ViewportCompareVertexRefs)!=NULL;
+            state->dragvertices[i][0] = state->scene[i].x;
+            state->dragvertices[i][1] = state->scene[i].y;
+            state->dragvertices[i][2] = state->scene[i].z;
+            state->dragmask[i] = state->selectedobject != VIEWPORT_OBJECT_NONE
+                                     ? state->sceneobjectindices[i / 3] == state->selectedobject
+                                     : bsearch(&state->scenevertexrefs[i], refs, refcount,
+                                               sizeof(*refs), ViewportCompareVertexRefs) != NULL;
         }
         free(refs);
     }
-    ViewportBuildPickRay(hwnd,state,x,y,&ray);
-    state->dragaxis=axis; state->hoveraxis=axis; state->dragdelta=0;
-    state->dragscale=ViewportGizmoScale(state);
-    for (i=0; i<3; i++)
+    ViewportBuildPickRay(hwnd, state, x, y, &ray);
+    state->dragaxis = axis;
+    state->hoveraxis = axis;
+    state->dragdelta = 0;
+    state->dragscale = ViewportGizmoScale(state);
+    for (i = 0; i < 3; i++)
     {
-        state->dragorigin[i]=state->gizmoposition[i];
-        state->dragplane[i]=i==axis ? 0 : ray.direction[i];
-        length+=state->dragplane[i]*state->dragplane[i];
+        state->dragorigin[i] = state->gizmoposition[i];
+        state->dragplane[i] = i == axis ? 0 : ray.direction[i];
+        length += state->dragplane[i] * state->dragplane[i];
     }
-    state->dragvertical=length<0.0025;
-    state->dragparameter=ViewportDragParameter(state,&ray,y);
+    state->dragvertical = length < 0.0025;
+    state->dragparameter = ViewportDragParameter(state, &ray, y);
+    if (state->dragrotation)
+    {
+        int a = (axis + 1) % 3, b = (axis + 2) % 3;
+        double tangent[3] = {0}, screen[2], other[2], norm;
+        Vertex point = {0}, end = {0};
+        state->dragvertical =
+            fabs(ray.direction[axis]) < 0.15 ||
+            hypot(state->gizmohit[a] - state->dragorigin[a],
+                  state->gizmohit[b] - state->dragorigin[b]) < state->dragscale * .05;
+        state->rotationmouse[0] = x;
+        state->rotationmouse[1] = y;
+        tangent[a] = -(state->gizmohit[b] - state->dragorigin[b]);
+        tangent[b] = state->gizmohit[a] - state->dragorigin[a];
+        point.x = state->gizmohit[0];
+        point.y = state->gizmohit[1];
+        point.z = state->gizmohit[2];
+        end.x = point.x + tangent[0];
+        end.y = point.y + tangent[1];
+        end.z = point.z + tangent[2];
+        state->rotationtangent[0] = 1;
+        state->rotationtangent[1] = 0;
+        if (ViewportProject(state, &point, screen) && ViewportProject(state, &end, other) &&
+            (norm = hypot(other[0] - screen[0], other[1] - screen[1])) > 1e-5)
+        {
+            state->rotationtangent[0] = (other[0] - screen[0]) / norm;
+            state->rotationtangent[1] = (other[1] - screen[1]) / norm;
+        }
+        state->rotationtotal = 0;
+        state->rotationlast = ViewportRotationParameter(state, &ray, x, y);
+    }
     SetCapture(hwnd);
-    InvalidateRect(hwnd,NULL,FALSE);
+    InvalidateRect(hwnd, NULL, FALSE);
     return TRUE;
 }
 
@@ -2830,91 +2944,190 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
     ViewportPickRay ray;
     double delta;
     int i;
-    if (!ViewportBuildPickRay(hwnd,state,x,y,&ray)) { return; }
+    Rotation rotation;
+    if (!ViewportBuildPickRay(hwnd, state, x, y, &ray))
+    {
+        return;
+    }
     /* Snap the displacement, preserving the selection's relative shape and
        any authored fractional origin. Calculate from press, never last tick. */
-    delta=round(ViewportDragParameter(state,&ray,y)-state->dragparameter);
-    if (!isfinite(delta) || fabs(delta)>1000000 || delta==state->dragdelta) { return; }
-    state->dragdelta=delta;
-    for (i=0; i<(state->dragpad ? VIEWPORT_BOX_VERTICES : state->dragstan ? (int)(state->stan.tilecount*STAN_TILE_MAX_POINTS) : state->scenecount); i++)
+    if (state->dragrotation)
     {
-        if (!state->dragmask[i]) { continue; }
-        if (state->dragpad)
+        double angle = ViewportRotationParameter(state, &ray, x, y);
+        state->rotationtotal += state->dragvertical ? angle - state->rotationlast
+                                                    : remainder(angle - state->rotationlast, 360.0);
+        state->rotationlast = angle;
+        delta = round(state->rotationtotal);
+        RotationAxis(&rotation, state->dragaxis, delta);
+    }
+    else
+    {
+        delta = round(ViewportDragParameter(state, &ray, y) - state->dragparameter);
+    }
+    if (!isfinite(delta) || fabs(delta) > 1000000 || delta == state->dragdelta)
+    {
+        return;
+    }
+    state->dragdelta = delta;
+    for (i = 0; i < (state->dragpad    ? VIEWPORT_BOX_VERTICES
+                     : state->dragstan ? (int)(state->stan.tilecount * STAN_TILE_MAX_POINTS)
+                                       : state->scenecount);
+         i++)
+    {
+        if (!state->dragmask[i])
         {
-            Vertex *point = &state->padmarkers[ViewportSelectedPadIndex(state) * VIEWPORT_BOX_VERTICES + i];
+            continue;
+        }
+        if (state->dragrotation)
+        {
+            double source[3] = {state->dragvertices[i][0], state->dragvertices[i][1],
+                                state->dragvertices[i][2]},
+                   point[3];
+            RotationPoint(&rotation, state->dragorigin, source, point);
+            if (state->dragpad)
+            {
+                Vertex *v =
+                    &state->padmarkers[ViewportSelectedPadIndex(state) * VIEWPORT_BOX_VERTICES + i];
+                v->x = point[0];
+                v->y = point[1];
+                v->z = point[2];
+            }
+            else if (state->dragstan)
+            {
+                StanPoint *v =
+                    &state->stan.tiles[i / STAN_TILE_MAX_POINTS].points[i % STAN_TILE_MAX_POINTS];
+                v->x = point[0];
+                v->y = point[1];
+                v->z = point[2];
+            }
+            else
+            {
+                state->scene[i].x = point[0];
+                state->scene[i].y = point[1];
+                state->scene[i].z = point[2];
+            }
+        }
+        else if (state->dragpad)
+        {
+            Vertex *point =
+                &state->padmarkers[ViewportSelectedPadIndex(state) * VIEWPORT_BOX_VERTICES + i];
             point->x = state->dragvertices[i][0] + (state->dragaxis == 0 ? delta : 0);
             point->y = state->dragvertices[i][1] + (state->dragaxis == 1 ? delta : 0);
             point->z = state->dragvertices[i][2] + (state->dragaxis == 2 ? delta : 0);
         }
         else if (state->dragstan)
         {
-            StanPoint *point=&state->stan.tiles[i/STAN_TILE_MAX_POINTS].points[i%STAN_TILE_MAX_POINTS];
-            point->x=state->dragvertices[i][0]+(state->dragaxis==0 ? delta : 0);
-            point->y=state->dragvertices[i][1]+(state->dragaxis==1 ? delta : 0);
-            point->z=state->dragvertices[i][2]+(state->dragaxis==2 ? delta : 0);
+            StanPoint *point =
+                &state->stan.tiles[i / STAN_TILE_MAX_POINTS].points[i % STAN_TILE_MAX_POINTS];
+            point->x = state->dragvertices[i][0] + (state->dragaxis == 0 ? delta : 0);
+            point->y = state->dragvertices[i][1] + (state->dragaxis == 1 ? delta : 0);
+            point->z = state->dragvertices[i][2] + (state->dragaxis == 2 ? delta : 0);
         }
         else
         {
-            state->scene[i].x=state->dragvertices[i][0]+(state->dragaxis==0 ? delta : 0);
-            state->scene[i].y=state->dragvertices[i][1]+(state->dragaxis==1 ? delta : 0);
-            state->scene[i].z=state->dragvertices[i][2]+(state->dragaxis==2 ? delta : 0);
+            state->scene[i].x = state->dragvertices[i][0] + (state->dragaxis == 0 ? delta : 0);
+            state->scene[i].y = state->dragvertices[i][1] + (state->dragaxis == 1 ? delta : 0);
+            state->scene[i].z = state->dragvertices[i][2] + (state->dragaxis == 2 ? delta : 0);
         }
     }
-    state->gizmoposition[state->dragaxis]=state->dragorigin[state->dragaxis]+delta;
-    if (state->dragstan) { ViewportRefreshStanOverlay(state); }
+    if (!state->dragrotation)
+    {
+        state->gizmoposition[state->dragaxis] = state->dragorigin[state->dragaxis] + delta;
+    }
+    if (state->dragstan)
+    {
+        ViewportRefreshStanOverlay(state);
+    }
     ViewportBuildObjectSelectionBox(state);
-    InvalidateRect(hwnd,NULL,FALSE);
+    InvalidateRect(hwnd, NULL, FALSE);
     SendMessage(GetParent(hwnd), VIEWPORT_WM_TRANSFORM_PREVIEW, 0, 0);
 }
 
 void ViewportCancelTransform(HWND hwnd)
 {
-    ViewportState *state=ViewportGetState(hwnd);
+    ViewportState *state = ViewportGetState(hwnd);
     int i;
-    if (state==NULL || state->dragaxis<0) { return; }
-    for (i=0; i<(state->dragpad ? VIEWPORT_BOX_VERTICES : state->dragstan ? (int)(state->stan.tilecount*STAN_TILE_MAX_POINTS) : state->scenecount); i++)
+    if (state == NULL || state->dragaxis < 0)
     {
-        if (!state->dragmask[i]) { continue; }
+        return;
+    }
+    for (i = 0; i < (state->dragpad    ? VIEWPORT_BOX_VERTICES
+                     : state->dragstan ? (int)(state->stan.tilecount * STAN_TILE_MAX_POINTS)
+                                       : state->scenecount);
+         i++)
+    {
+        if (!state->dragmask[i])
+        {
+            continue;
+        }
         if (state->dragpad)
         {
-            Vertex *point = &state->padmarkers[ViewportSelectedPadIndex(state) * VIEWPORT_BOX_VERTICES + i];
-            point->x = state->dragvertices[i][0]; point->y = state->dragvertices[i][1]; point->z = state->dragvertices[i][2];
+            Vertex *point =
+                &state->padmarkers[ViewportSelectedPadIndex(state) * VIEWPORT_BOX_VERTICES + i];
+            point->x = state->dragvertices[i][0];
+            point->y = state->dragvertices[i][1];
+            point->z = state->dragvertices[i][2];
         }
         else if (state->dragstan)
         {
-            StanPoint *point=&state->stan.tiles[i/STAN_TILE_MAX_POINTS].points[i%STAN_TILE_MAX_POINTS];
-            point->x=state->dragvertices[i][0];
-            point->y=state->dragvertices[i][1];
-            point->z=state->dragvertices[i][2];
+            StanPoint *point =
+                &state->stan.tiles[i / STAN_TILE_MAX_POINTS].points[i % STAN_TILE_MAX_POINTS];
+            point->x = state->dragvertices[i][0];
+            point->y = state->dragvertices[i][1];
+            point->z = state->dragvertices[i][2];
         }
         else
         {
-            state->scene[i].x=state->dragvertices[i][0];
-            state->scene[i].y=state->dragvertices[i][1];
-            state->scene[i].z=state->dragvertices[i][2];
+            state->scene[i].x = state->dragvertices[i][0];
+            state->scene[i].y = state->dragvertices[i][1];
+            state->scene[i].z = state->dragvertices[i][2];
         }
     }
-    state->dragaxis=-1;
-    free(state->dragvertices); free(state->dragmask);
-    state->dragvertices=NULL; state->dragmask=NULL;
-    if (GetCapture()==hwnd) { ReleaseCapture(); }
-    if (state->dragstan) { ViewportRefreshStanOverlay(state); }
+    state->dragaxis = -1;
+    free(state->dragvertices);
+    free(state->dragmask);
+    state->dragvertices = NULL;
+    state->dragmask = NULL;
+    if (GetCapture() == hwnd)
+    {
+        ReleaseCapture();
+    }
+    if (state->dragstan)
+    {
+        ViewportRefreshStanOverlay(state);
+    }
     ViewportBuildObjectSelectionBox(state);
     ViewportUpdateGizmo(state);
-    InvalidateRect(hwnd,NULL,FALSE);
+    InvalidateRect(hwnd, NULL, FALSE);
     SendMessage(GetParent(hwnd), VIEWPORT_WM_TRANSFORM_PREVIEW, 0, 0);
 }
 
 static void ViewportEndTransform(HWND hwnd, ViewportState *state)
 {
     ViewportTranslation request;
-    if (state==NULL || state->dragaxis<0) { return; }
-    ZeroMemory(&request,sizeof(request));
-    request.offset[state->dragaxis]=state->dragdelta;
-    ViewportCancelTransform(hwnd);
-    if (request.offset[0]!=0 || request.offset[1]!=0 || request.offset[2]!=0)
+    if (state == NULL || state->dragaxis < 0)
     {
-        SendMessage(GetParent(hwnd),VIEWPORT_WM_TRANSLATE_SELECTION,0,(LPARAM)&request);
+        return;
+    }
+    if (state->dragrotation)
+    {
+        ViewportRotation rotation;
+        double angle = state->dragdelta;
+        RotationAxis(&rotation.rotation, state->dragaxis, angle);
+        memcpy(rotation.pivot, state->dragorigin, sizeof(rotation.pivot));
+        ViewportCancelTransform(hwnd);
+        if (angle != 0)
+        {
+            SendMessage(GetParent(hwnd), VIEWPORT_WM_ROTATE_SELECTION, 0, (LPARAM)&rotation);
+        }
+        return;
+    }
+    ZeroMemory(&request, sizeof(request));
+    request.offset[state->dragaxis] = state->dragdelta;
+    ViewportCancelTransform(hwnd);
+    if (request.offset[0] != 0 || request.offset[1] != 0 || request.offset[2] != 0)
+    {
+        SendMessage(GetParent(hwnd), VIEWPORT_WM_TRANSLATE_SELECTION, 0, (LPARAM)&request);
     }
 }
 
@@ -3140,6 +3353,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
             {
                 wglDeleteContext(state->hglrc);
             }
+            free(state->cylinder);
             free(state->arrow);
             free(state->components);
             free(state);
@@ -4186,4 +4400,135 @@ void ViewportSetBackfaceCulling(HWND hwnd, BOOL enabled)
 
     state->cullbackfaces = enabled;
     InvalidateRect(hwnd, NULL, FALSE);
+}
+
+static BOOL ViewportTriangleRotation(const Vertex triangle[3], Rotation *frame)
+{
+    double up[3], look[3], side[3];
+    int axis;
+    look[0] = triangle[1].x - triangle[0].x;
+    look[1] = triangle[1].y - triangle[0].y;
+    look[2] = triangle[1].z - triangle[0].z;
+    side[0] = triangle[2].x - triangle[0].x;
+    side[1] = triangle[2].y - triangle[0].y;
+    side[2] = triangle[2].z - triangle[0].z;
+    for (axis = 0; axis < 3; axis++)
+    {
+        up[axis] = look[(axis + 1) % 3] * side[(axis + 2) % 3] -
+                   look[(axis + 2) % 3] * side[(axis + 1) % 3];
+    }
+    return RotationBasis(frame, up, look);
+}
+/* A stable reference face supplies the Euler frame. Its normal is local Y,
+   and its first edge is local Z. Texture sorting must not change the frame. */
+BOOL ViewportGetGeometryRotation(HWND hwnd, Rotation *frame)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    Vertex triangle[3];
+    int i, best = -1;
+    if (!state || state->tool != EDITOR_TOOL_FACE_SELECT)
+    {
+        return FALSE;
+    }
+    if (ViewportGetStanSelectionCount(hwnd, NULL) > 0)
+    {
+        DWORD tile;
+        for (tile = 0; tile < state->stan.tilecount; tile++)
+        {
+            if (state->stanselected[tile])
+            {
+                const StanTile *polygon = &state->stan.tiles[tile];
+                unsigned int point;
+                triangle[0] = ViewportStanPointVertex(&polygon->points[0]);
+                /* Do not use the collision triple, which can change with XZ area
+                   after rotation even when the polygon's shape is unchanged. */
+                for (point = 1; point + 1 < polygon->pointcount; point++)
+                {
+                    triangle[1] = ViewportStanPointVertex(&polygon->points[point]);
+                    triangle[2] = ViewportStanPointVertex(&polygon->points[point + 1]);
+                    if (ViewportTriangleRotation(triangle, frame))
+                    {
+                        return TRUE;
+                    }
+                }
+            }
+        }
+        return FALSE;
+    }
+    if (state->scenefacerefs && state->selectedtris)
+    {
+        for (i = 0; i < state->scenecount / 3; i++)
+        {
+            if (state->selectedtris[i] &&
+                (best < 0 || state->scenefacerefs[i].faceid < state->scenefacerefs[best].faceid))
+            {
+                best = i;
+            }
+        }
+    }
+    if (best < 0)
+    {
+        return FALSE;
+    }
+    memcpy(triangle, &state->scene[best * 3], sizeof(triangle));
+    return ViewportTriangleRotation(triangle, frame);
+}
+BOOL ViewportIsTransforming(HWND hwnd)
+{
+    ViewportState *s = ViewportGetState(hwnd);
+    return s && s->dragaxis >= 0;
+}
+BOOL ViewportIsRotating(HWND hwnd)
+{
+    ViewportState *s = ViewportGetState(hwnd);
+    return s && s->rotationmode;
+}
+void ViewportSetRotationMode(HWND hwnd, BOOL rotate)
+{
+    ViewportState *s = ViewportGetState(hwnd);
+    if (!s)
+    {
+        return;
+    }
+    ViewportCancelTransform(hwnd);
+    s->rotationmode = rotate;
+    s->hoveraxis = -1;
+    InvalidateRect(hwnd, NULL, FALSE);
+}
+void ViewportSetRotationFrame(HWND hwnd, const Rotation *frame, unsigned int axes)
+{
+    ViewportState *s = ViewportGetState(hwnd);
+    if (!s || s->dragaxis >= 0)
+    {
+        return;
+    }
+    s->rotationaxes = frame ? axes : 0;
+    if (frame)
+    {
+        s->rotationframe = *frame;
+    }
+    InvalidateRect(hwnd, NULL, FALSE);
+}
+BOOL ViewportGetRotation(HWND hwnd, Rotation *frame, double degrees[3], double pivot[3])
+{
+    ViewportState *s = ViewportGetState(hwnd);
+    Rotation delta;
+    if (!s || !s->rotationaxes || !s->gizmovisible || s->tool != EDITOR_TOOL_FACE_SELECT)
+    {
+        return FALSE;
+    }
+    *frame = s->rotationframe;
+    if (s->dragaxis >= 0 && s->dragrotation)
+    {
+        RotationAxis(&delta, s->dragaxis, s->dragdelta);
+        RotationMultiply(frame, &delta, frame);
+    }
+    RotationDegrees(frame, degrees);
+    if (s->rotationaxes == 2)
+    {
+        degrees[0] = degrees[2] = 0;
+        degrees[1] = atan2(frame->m[0][2], frame->m[2][2]) * 180.0 / 3.14159265358979323846;
+    }
+    memcpy(pivot, s->gizmoposition, sizeof(s->gizmoposition));
+    return TRUE;
 }

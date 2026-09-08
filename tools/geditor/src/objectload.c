@@ -913,3 +913,181 @@ invalid:
     *reasonout = "The setup placement rules cannot reproduce this translation.";
     return FALSE;
 }
+
+BOOL ObjectRotateSetupModel(const char *projectdir, SetupFile *setup, const StanFile *stan,
+                            float levelscale, const SetupObjectGeometry *before, DWORD index,
+                            const Rotation *rotation, const double pivot[3],
+                            SetupObjectGeometry *out, const char **reasonout)
+{
+    const BgVertex *old = ObjectFirstVertex(before, index), *placed;
+    SetupObjectGeometry provisional = {0};
+    SetupPadRef ref;
+    BOOL changed;
+    double padmove[3] = {0}, source[3], expected[3], correction[3], groundoffset = 0;
+    DWORD a = 0, b = 0;
+    int axis;
+    ZeroMemory(out, sizeof(*out));
+    if (!old || !pivot || !RotationValid(rotation))
+    {
+        *reasonout = "Invalid model rotation.";
+        return FALSE;
+    }
+    /* Guard records only represent yaw. Reject a pitch/roll even if called
+       outside the UI, rather than silently discarding it on ROM export. */
+    if ((index & SETUP_CHARACTER_SELECTION_BIT) &&
+        (fabs(rotation->m[1][1] - 1) > 1e-6 || fabs(rotation->m[0][1]) > 1e-6 ||
+         fabs(rotation->m[2][1]) > 1e-6))
+    {
+        *reasonout = "Characters support Y-axis rotation only.";
+        return FALSE;
+    }
+    source[0] = old->x;
+    source[1] = old->y;
+    source[2] = old->z;
+    RotationPoint(rotation, pivot, source, expected);
+    if (index & SETUP_CHARACTER_SELECTION_BIT)
+    {
+        const SetupPad *pad;
+        float feet[3];
+        if (!SetupFileGetModelPad(setup, index, &ref))
+        {
+            return FALSE;
+        }
+        pad = &setup->pads[ref.index];
+        if (!CharacterGetPadPosition(pad, stan, levelscale, feet))
+        {
+            *reasonout = "The character's current stan floor could not be resolved.";
+            return FALSE;
+        }
+        for (axis = 0; axis < 3; axis++)
+        {
+            padmove[axis] = (double)feet[axis] - pad->pos[axis] / levelscale;
+        }
+    }
+    if (!SetupFileTranslateModel(setup, index, levelscale, padmove, reasonout) ||
+        !SetupFileGetModelPad(setup, index, &ref) ||
+        !SetupFileRotatePad(setup, &ref, rotation, &changed, reasonout) ||
+        !ObjectLoadSetupGeometry(projectdir, setup, stan, levelscale, &provisional, reasonout))
+    {
+        goto fail;
+    }
+    placed = ObjectFirstVertex(&provisional, index);
+    if (!placed)
+    {
+        *reasonout = "The rotated model cannot be placed here.";
+        goto fail;
+    }
+    correction[0] = expected[0] - placed->x;
+    correction[1] = expected[1] - placed->y;
+    correction[2] = expected[2] - placed->z;
+    ObjectGeometryFree(&provisional);
+    if (!SetupFileTranslateModel(setup, index, levelscale, correction, reasonout) ||
+        !ObjectLoadSetupGeometry(projectdir, setup, stan, levelscale, out, reasonout))
+    {
+        goto fail;
+    }
+    if (index & SETUP_CHARACTER_SELECTION_BIT)
+    {
+        placed = ObjectFirstVertex(out, index);
+        if (!placed)
+        {
+            *reasonout = "The character cannot be placed on a stan floor here.";
+            goto fail;
+        }
+        /* Yaw keeps characters upright; a shifted foot position follows the
+           destination slope, as it does for the translation tool. */
+        groundoffset = placed->y - expected[1];
+    }
+    /* Verify the game placement rules reproduce the rigid rotation. */
+    for (;;)
+    {
+        int corner;
+        while (a < before->tricount && before->objectindices[a] != index)
+        {
+            a++;
+        }
+        while (b < out->tricount && out->objectindices[b] != index)
+        {
+            b++;
+        }
+        if (a == before->tricount || b == out->tricount)
+        {
+            break;
+        }
+        for (corner = 0; corner < 3; corner++)
+        {
+            const BgVertex *v = &before->tris[a * 3 + corner], *w = &out->tris[b * 3 + corner];
+            double actual[3] = {w->x, w->y, w->z};
+            source[0] = v->x;
+            source[1] = v->y;
+            source[2] = v->z;
+            RotationPoint(rotation, pivot, source, expected);
+            for (axis = 0; axis < 3; axis++)
+            {
+                if (fabs(expected[axis] + (axis == 1 ? groundoffset : 0) - actual[axis]) > .03)
+                {
+                    goto invalid;
+                }
+            }
+        }
+        a++;
+        b++;
+    }
+    if (a == before->tricount && b == out->tricount)
+    {
+        return TRUE;
+    }
+invalid:
+    *reasonout = "The setup placement rules cannot reproduce this rotation at this location.";
+fail:
+    ObjectGeometryFree(&provisional);
+    ObjectGeometryFree(out);
+    return FALSE;
+}
+
+/* The panel reports the visible model basis, including setup placement flags
+   and the door's axis permutation, rather than just the underlying pad. */
+BOOL ObjectGetSetupModelRotation(const SetupFile *setup, DWORD selection, Rotation *out)
+{
+    SetupPadRef ref;
+    const SetupPad *pad;
+    ObjectBasis basis;
+    int axis;
+    if (!SetupFileGetModelPad(setup, selection, &ref))
+    {
+        return FALSE;
+    }
+    pad = ref.bound ? &setup->boundpads[ref.index].pad : &setup->pads[ref.index];
+    if (selection & SETUP_CHARACTER_SELECTION_BIT)
+    {
+        double heading = atan2(pad->look[0], pad->look[2]) * 180.0 / 3.14159265358979323846;
+        RotationAxis(out, 1, heading);
+        return RotationValid(out);
+    }
+    if (!ObjectMakeBasis(pad, 1, &basis))
+    {
+        return FALSE;
+    }
+    if (setup->objects[selection].type == PROPDEF_DOOR)
+    {
+        for (axis = 0; axis < 3; axis++)
+        {
+            out->m[axis][0] = basis.up[axis];
+            out->m[axis][1] = basis.look[axis];
+            out->m[axis][2] = basis.side[axis];
+        }
+    }
+    else
+    {
+        float zero[3] = {0}, center[3] = {0};
+        ObjectApplyPlacementFlags(setup->objects[selection].flags, NULL, 1, zero, zero, &basis,
+                                  center);
+        for (axis = 0; axis < 3; axis++)
+        {
+            out->m[axis][0] = basis.side[axis];
+            out->m[axis][1] = basis.up[axis];
+            out->m[axis][2] = basis.look[axis];
+        }
+    }
+    return RotationValid(out);
+}

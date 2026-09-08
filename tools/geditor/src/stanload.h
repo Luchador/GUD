@@ -1,6 +1,7 @@
 #ifndef GEDITOR_STANLOAD_H
 #define GEDITOR_STANLOAD_H
 
+#include "rotation.h"
 #include <windows.h>
 
 #include "rom.h"
@@ -79,5 +80,8 @@ BOOL StanWalkTiles(const StanFile *stan, DWORD *tile,
                    float startx, float startz, float endx, float endz);
 BOOL StanGetTileHeight(const StanFile *stan, DWORD tile,
                        float x, float z, float *height);
+
+BOOL StanRotatePoints(StanFile *stan, const StanPointRef *points, DWORD count,
+    const Rotation *rotation, const double pivot[3], DWORD *movedout, const char **reasonout);
 
 #endif /* GEDITOR_STANLOAD_H */
