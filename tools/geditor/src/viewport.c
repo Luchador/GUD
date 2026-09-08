@@ -37,6 +37,7 @@
 #define VIEWPORT_DEG_TO_RAD (3.14159265358979323846f / 180.0f)
 #define VIEWPORT_PAD_HALF_SIZE 5.0f
 #define VIEWPORT_BOX_VERTICES  24
+#define VIEWPORT_VERTEX_MARKER_SIZE 5.0f /* screen pixels */
 #define VIEWPORT_STAN_FILL_ALPHA 112
 #define VIEWPORT_STAN_EDGE_ALPHA 224
 #define VIEWPORT_PORTAL_FILL_ALPHA 64
@@ -222,6 +223,70 @@ static void ViewportResizeGL(ViewportState *state, int width, int height)
     glLoadIdentity();
     glFrustum(-halfwidth, halfwidth, -halfheight, halfheight, VIEWPORT_NEAR_Z, VIEWPORT_FAR_Z);
     glMatrixMode(GL_MODELVIEW);
+}
+
+
+/* Draw over the shaded scene without changing document/selection colors.
+   Polygon point mode gives camera-facing, fixed-pixel-size square markers
+   while retaining the same triangle clipping and backface culling as BG. */
+static void ViewportDrawBgToolOverlay(const ViewportState *state)
+{
+    BOOL vertices = state->tool == EDITOR_TOOL_VERTEX_SELECT;
+    int batchindex;
+
+    if (state->scene == NULL || state->batchcount <= 0
+        || (!vertices && state->tool != EDITOR_TOOL_EDGE_SELECT))
+    {
+        return;
+    }
+
+    glPushAttrib(GL_CURRENT_BIT | GL_ENABLE_BIT | GL_POLYGON_BIT
+                 | GL_POINT_BIT | GL_LINE_BIT | GL_DEPTH_BUFFER_BIT);
+    glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_ALPHA_TEST);
+    glDisable(GL_BLEND);
+    glDisable(GL_POINT_SMOOTH);
+    glDisable(GL_LINE_SMOOTH);
+    glDisableClientState(GL_COLOR_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glColor4ub(255, 255, 255, 255);
+    glVertexPointer(3, GL_FLOAT, sizeof(Vertex), &state->scene[0].x);
+
+    /* Keep hidden geometry occluded, with a small bias to lift the overlay
+       off its own face. Points need clearance across their square footprint. */
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_FALSE);
+    glPolygonMode(GL_FRONT_AND_BACK, vertices ? GL_POINT : GL_LINE);
+    glEnable(vertices ? GL_POLYGON_OFFSET_POINT : GL_POLYGON_OFFSET_LINE);
+    glPolygonOffset(vertices ? -VIEWPORT_VERTEX_MARKER_SIZE : -1.0f, -1.0f);
+    glPointSize(VIEWPORT_VERTEX_MARKER_SIZE);
+    glLineWidth(1.0f);
+
+    for (batchindex = 0; batchindex < state->batchcount; batchindex++)
+    {
+        const SceneBatch *batch = &state->batches[batchindex];
+
+        if (batch->object
+            || (batch->secondary ? !state->showbgsecondary : !state->showbgprimary))
+        {
+            continue;
+        }
+        if (state->cullbackfaces && batch->cullbackfaces)
+        {
+            glEnable(GL_CULL_FACE);
+        }
+        else
+        {
+            glDisable(GL_CULL_FACE);
+        }
+        glDrawArrays(GL_TRIANGLES, batch->first, batch->count);
+    }
+
+    glPopClientAttrib();
+    glPopAttrib();
 }
 
 
@@ -470,6 +535,7 @@ static void ViewportPaintGL(ViewportState *state)
         glDepthFunc(GL_LESS);
     }
 
+    ViewportDrawBgToolOverlay(state);
     SwapBuffers(state->hdc);
 }
 

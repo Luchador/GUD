@@ -1,8 +1,7 @@
 /*
  * Model file layout (bondtypes.h is the spec):
- *   header (40 bytes): RootNode*, Skeleton*, Switches**, counts,
- *   bounding radius, texture table - all pointers are 0x05-segment
- *   addresses whose low 24 bits are file offsets.
+ *   The ModelFileHeader lives in the game's static tables, not this file.
+ *   Pointers are 0x05-segment addresses; low 24 bits are file offsets.
  *   Nodes are 24 bytes: u16 opcode, Data*, Parent*, Next*, Prev*,
  *   Child*. The tree walks Child-first, then Next.
  *   Mesh data lives in two opcodes:
@@ -44,6 +43,7 @@ typedef struct PropModelDefinition {
     ((int)(sizeof(g_PropModelDefinitions) \
          / sizeof(g_PropModelDefinitions[0])) - 1)
 
+#define MDL_G_MTX   0x01
 #define MDL_G_NOOP  0xC0
 #define MDL_G_VTX   0x04
 #define MDL_G_TRI4  0xB1
@@ -51,13 +51,24 @@ typedef struct PropModelDefinition {
 #define MDL_G_TRI1  0xBF
 
 #define MDL_MAX_NODES 512
+#define MDL_MAX_MATRICES (MDL_MAX_NODES * 3)
+
+typedef struct MdlTranslation {
+    float xyz[3];
+    BOOL valid;
+} MdlTranslation;
+
+typedef struct MdlPose {
+    MdlTranslation matrices[MDL_MAX_MATRICES];
+    BOOL hasmatrices;
+} MdlPose;
 
 typedef struct MdlBuilder {
     BgVertex       *verts;
     unsigned short *texids;
     DWORD           count;
     DWORD           capacity;
-    BOOL            failed;
+    const char     *error;
 } MdlBuilder;
 
 static DWORD md32(const unsigned char *p)
@@ -78,7 +89,7 @@ static DWORD mdoff(DWORD segptr)
 
 static void MdlPush(MdlBuilder *b, const BgVertex *v)
 {
-    if (b->failed)
+    if (b->error)
     {
         return;
     }
@@ -94,7 +105,7 @@ static void MdlPush(MdlBuilder *b, const BgVertex *v)
         if (gt != NULL) { b->texids = gt; }
         if (g == NULL || gt == NULL)
         {
-            b->failed = TRUE;
+            b->error = "out of memory building model geometry.";
             return;
         }
 
@@ -102,6 +113,95 @@ static void MdlPush(MdlBuilder *b, const BgVertex *v)
     }
 
     b->verts[b->count++] = *v;
+}
+
+/* In the unanimated pose, GROUP/OP03/GROUPSIMPLE contribute translations.
+   Keep the root at the origin: objTickBuildMatrices supplies its placement
+   matrix directly, and setsuboffset replaces its authored offset for animated
+   models. Follow Parent through non-transform nodes as modelFindNodeMtx does. */
+static BOOL MdlNodeTranslation(const unsigned char *data, DWORD size,
+                               DWORD node, float out[3])
+{
+    int visited = 0;
+    DWORD offsets[MDL_MAX_NODES];
+    int count = 0;
+    int i, axis;
+
+    out[0] = out[1] = out[2] = 0.0f;
+    while (node != 0)
+    {
+        DWORD opcode, offset;
+
+        if (node > size - 24 || visited++ >= MDL_MAX_NODES) { return FALSE; }
+        opcode = (unsigned short)md16(data + node) & 0xff;
+        offset = mdoff(md32(data + node + 4));
+        if ((opcode == 0x02 || opcode == 0x03 || opcode == 0x15)
+            && md32(data + node + 8) != 0)
+        {
+            if (offset == 0 || offset > size - 12) { return FALSE; }
+            offsets[count++] = offset;
+        }
+        node = mdoff(md32(data + node + 8));
+    }
+    /* Match the game's parent-before-child floating-point addition order. */
+    for (i = count - 1; i >= 0; i--)
+    {
+        for (axis = 0; axis < 3; axis++)
+        {
+            union { DWORD bits; float value; } coordinate;
+
+            coordinate.bits = md32(data + offsets[i] + axis * 4);
+            out[axis] += coordinate.value;
+            if (!isfinite(out[axis])) { return FALSE; }
+        }
+    }
+    return TRUE;
+}
+
+/* Build every matrix before reading any display lists: a G_MTX can refer to
+   a joint later in the tree. Matrix 1/2 (when enabled by the node's upper
+   opcode bits) have the same translation as matrix 0 at zero rotation. */
+static BOOL MdlAddNodeMatrices(MdlPose *pose, const unsigned char *data,
+                               DWORD size, DWORD node)
+{
+    unsigned short flags = (unsigned short)md16(data + node);
+    DWORD opcode = flags & 0xff;
+    DWORD offset = mdoff(md32(data + node + 4));
+    DWORD needed;
+    int slots[3] = { -1, -1, -1 };
+    float translation[3];
+    int i;
+
+    switch (opcode)
+    {
+    case 0x01: needed = 4; break;  /* HEADER: MatrixIndex at +2 */
+    case 0x02:
+    case 0x03: needed = 20; break; /* GROUP: MatrixIDs at +14 */
+    case 0x15: needed = 14; break; /* GROUPSIMPLE: Group1 at +12 */
+    default: return TRUE;
+    }
+    if (offset == 0 || offset > size - needed
+        || !MdlNodeTranslation(data, size, node, translation))
+    {
+        return FALSE;
+    }
+    if (opcode == 0x01) { slots[0] = md16(data + offset + 2); }
+    else if (opcode == 0x15) { slots[0] = md16(data + offset + 12); }
+    else
+    {
+        slots[0] = md16(data + offset + 14);
+        if (flags & 0x100) { slots[1] = md16(data + offset + 16); }
+        if (flags & 0x200) { slots[2] = md16(data + offset + 18); }
+    }
+    for (i = 0; i < 3; i++)
+    {
+        if (slots[i] < 0) { continue; }
+        if (slots[i] >= MDL_MAX_MATRICES) { return FALSE; }
+        memcpy(pose->matrices[slots[i]].xyz, translation, sizeof(translation));
+        pose->matrices[slots[i]].valid = TRUE;
+        pose->hasmatrices = TRUE;
+    }
+    return TRUE;
 }
 
 /*
@@ -112,12 +212,13 @@ static void MdlPush(MdlBuilder *b, const BgVertex *v)
  * proof, loading 0x04000000 then 0x040000F0 against Vertices=0x98.
  */
 static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
-                       DWORD gdloffset, DWORD vtxbase, unsigned short layerflag)
+                       DWORD gdloffset, DWORD vtxbase, unsigned short layerflag,
+                       const MdlPose *pose, const float origin[3])
 {
     DWORD pc;
-    DWORD batchoff = 0;
-    DWORD batchcount = 0;
-    int batchv0 = 0;
+    BgVertex cache[16];
+    unsigned int valid = 0;
+    const float *translation = origin;
     unsigned short curtex = BG_TEX_NONE;
 
     for (pc = gdloffset; pc + 8 <= maxlen; pc += 8)
@@ -135,28 +236,57 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
             continue;
         }
 
+        if (cmd[0] == MDL_G_MTX && pose != NULL)
+        {
+            DWORD raw = md32(cmd + 4);
+            DWORD index = mdoff(raw) / 64; /* Segment 3: packed N64 Mtx array. */
+
+            if (cmd[1] != 0x02 || (raw >> 24) != 0x03
+                || (mdoff(raw) % 64) != 0 || index >= MDL_MAX_MATRICES
+                || !pose->matrices[index].valid)
+            {
+                b->error = "model display list references an unsupported matrix.";
+                return;
+            }
+            translation = pose->matrices[index].xyz;
+            continue;
+        }
+
         if (cmd[0] == MDL_G_VTX)
         {
             DWORD raw = md32(cmd + 4);
             DWORD addr = (raw >> 24) == 0x05 ? mdoff(raw)
                                              : vtxbase + mdoff(raw);
+            int count = (cmd[1] >> 4) + 1;
+            int first = cmd[1] & 0xf;
+            int i;
 
-            batchcount = ((cmd[1] >> 4) & 0xF) + 1;
-            batchv0 = cmd[1] & 0xF;
-
-            if (addr + batchcount * 16 > maxlen)
+            /* The old extractor remembered only the last batch. Retain that
+               behavior only when identifying an untouched legacy export. */
+            if (pose == NULL) { valid = 0; }
+            if (first + count > 16 || addr > maxlen
+                || (DWORD)count * 16 > maxlen - addr)
             {
-                batchoff = 0;
-                batchcount = 0;
+                valid = 0;
+                continue;
             }
-            else
+            for (i = 0; i < count; i++)
             {
-                batchoff = addr;
+                const unsigned char *v = data + addr + i * 16;
+                BgVertex *out = &cache[first + i];
+
+                out->x = md16(v + 0) + (pose != NULL ? translation[0] : 0.0f);
+                out->y = md16(v + 2) + (pose != NULL ? translation[1] : 0.0f);
+                out->z = md16(v + 4) + (pose != NULL ? translation[2] : 0.0f);
+                out->s = (float)md16(v + 8) / 32.0f;
+                out->t = (float)md16(v + 10) / 32.0f;
+                out->r = v[12]; out->g = v[13]; out->b = v[14]; out->a = v[15];
+                valid |= 1u << (first + i);
             }
             continue;
         }
 
-        if ((cmd[0] == MDL_G_TRI1 || cmd[0] == MDL_G_TRI4) && batchoff != 0)
+        if (cmd[0] == MDL_G_TRI1 || cmd[0] == MDL_G_TRI4)
         {
             int tri;
             int tricount = (cmd[0] == MDL_G_TRI1) ? 1 : 4;
@@ -194,38 +324,22 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                     continue;
                 }
 
-                for (k = 0; k < 3; k++)
-                {
-                    idx[k] -= batchv0;
-                }
-
-                if (idx[0] < 0 || idx[1] < 0 || idx[2] < 0
-                    || idx[0] >= (int)batchcount
-                    || idx[1] >= (int)batchcount
-                    || idx[2] >= (int)batchcount)
+                if (idx[0] >= 16 || idx[1] >= 16 || idx[2] >= 16
+                    || !(valid & (1u << idx[0]))
+                    || !(valid & (1u << idx[1]))
+                    || !(valid & (1u << idx[2])))
                 {
                     continue;
                 }
 
+                /* N64 transforms vertices at G_VTX time, not G_TRI time.
+                   Cached vertices can therefore belong to different joints. */
                 for (k = 0; k < 3; k++)
                 {
-                    const unsigned char *v = data + batchoff + idx[k] * 16;
-                    BgVertex out;
-
-                    out.x = md16(v + 0);
-                    out.y = md16(v + 2);
-                    out.z = md16(v + 4);
-                    out.s = (float)md16(v + 8) / 32.0f;
-                    out.t = (float)md16(v + 10) / 32.0f;
-                    out.r = v[12];
-                    out.g = v[13];
-                    out.b = v[14];
-                    out.a = v[15];
-
-                    MdlPush(b, &out);
+                    MdlPush(b, &cache[idx[k]]);
                 }
 
-                if (!b->failed)
+                if (!b->error)
                 {
                     b->texids[b->count / 3 - 1] = (unsigned short)(curtex | layerflag);
                 }
@@ -236,7 +350,8 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
 
 /* Emits the mesh data of one node, if it has any. */
 static void MdlNodeMeshes(MdlBuilder *b, const unsigned char *data,
-                          DWORD maxlen, DWORD opcode, DWORD dataoff)
+                          DWORD maxlen, DWORD opcode, DWORD dataoff,
+                          const MdlPose *pose, const float origin[3])
 {
     DWORD prioff = 0;
     DWORD secoff = 0;
@@ -259,12 +374,12 @@ static void MdlNodeMeshes(MdlBuilder *b, const unsigned char *data,
 
     if (prioff != 0 && prioff < maxlen)
     {
-        MdlWalkGdl(b, data, maxlen, prioff, vtxbase, 0);
+        MdlWalkGdl(b, data, maxlen, prioff, vtxbase, 0, pose, origin);
     }
 
     if (secoff != 0 && secoff < maxlen)
     {
-        MdlWalkGdl(b, data, maxlen, secoff, vtxbase, BG_TRI_SECONDARY);
+        MdlWalkGdl(b, data, maxlen, secoff, vtxbase, BG_TRI_SECONDARY, pose, origin);
     }
 }
 
@@ -276,7 +391,7 @@ static DWORD ModelFindRootNode(const unsigned char *data, DWORD size)
 
     for (probe = 0; probe + 24 <= size && probe < 0x200; probe += 4)
     {
-        DWORD opcode = (unsigned short)md16(data + probe);
+        DWORD opcode = (unsigned short)md16(data + probe) & 0xff;
         DWORD dataptr = md32(data + probe + 4);
 
         if (opcode >= 1 && opcode <= 0x20 && (dataptr >> 24) == 0x05
@@ -332,11 +447,15 @@ BOOL ModelReadPlacementBounds(const unsigned char *data, DWORD size,
     return FALSE;
 }
 
-BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
+static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
                             DWORD *tricount, unsigned short **texids,
-                            const char **reasonout)
+                            const char **reasonout, BOOL assemble)
 {
     MdlBuilder b;
+    MdlPose pose;
+    DWORD nodes[MDL_MAX_NODES];
+    int nodecount = 0;
+    int i;
     DWORD stack[MDL_MAX_NODES];
     int sp = 0;
     int visited = 0;
@@ -346,9 +465,9 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
     *texids = NULL;
     *reasonout = "";
 
-    if (maxlen < 40)
+    if (data == NULL || maxlen < 40)
     {
-        *reasonout = "model file too small for a header.";
+        *reasonout = "model file too small for a node tree.";
         return NULL;
     }
 
@@ -370,13 +489,13 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
     }
 
     ZeroMemory(&b, sizeof(b));
+    ZeroMemory(&pose, sizeof(pose));
     stack[sp++] = rootoff;
 
     while (sp > 0 && visited < MDL_MAX_NODES)
     {
         DWORD node = stack[--sp];
-        DWORD opcode;
-        DWORD dataoff;
+
         DWORD childoff;
         DWORD nextoff;
 
@@ -386,13 +505,20 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
         }
 
         visited++;
-
-        opcode = md16(data + node) & 0xFFFF;
-        dataoff = mdoff(md32(data + node + 4));
+        for (i = 0; i < nodecount; i++)
+        {
+            if (nodes[i] == node) { break; }
+        }
+        if (i < nodecount) { continue; }
+        nodes[nodecount++] = node;
         nextoff = mdoff(md32(data + node + 12));
         childoff = mdoff(md32(data + node + 20));
 
-        MdlNodeMeshes(&b, data, maxlen, opcode, dataoff);
+        if (assemble && !MdlAddNodeMatrices(&pose, data, maxlen, node))
+        {
+            b.error = "model has an invalid node transform.";
+            break;
+        }
 
         if (sp + 2 <= MDL_MAX_NODES)
         {
@@ -401,11 +527,34 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
         }
     }
 
-    if (b.failed || b.count == 0)
+    if (sp > 0 && b.error == NULL)
+    {
+        b.error = "model node tree exceeds the extraction limit.";
+    }
+    /* Detached heads borrow matrix 0 from their character in-game. Export
+       these standalone models at the origin until attached to a body. */
+    if (!pose.hasmatrices) { pose.matrices[0].valid = TRUE; }
+    for (i = 0; i < nodecount && b.error == NULL; i++)
+    {
+        DWORD node = nodes[i];
+        DWORD flags = (unsigned short)md16(data + node);
+        DWORD dataoff = mdoff(md32(data + node + 4));
+        float origin[3] = { 0.0f, 0.0f, 0.0f };
+
+        if (assemble && !MdlNodeTranslation(data, maxlen, node, origin))
+        {
+            b.error = "model has an invalid node transform.";
+            break;
+        }
+        MdlNodeMeshes(&b, data, maxlen, assemble ? flags & 0xff : flags,
+                       dataoff, assemble ? &pose : NULL, origin);
+    }
+
+    if (b.error || b.count == 0)
     {
         free(b.verts);
         free(b.texids);
-        *reasonout = b.failed ? "out of memory building model geometry."
+        *reasonout = b.error ? b.error
                               : "model produced no triangles.";
         return NULL;
     }
@@ -413,6 +562,110 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
     *tricount = b.count / 3;
     *texids = b.texids;
     return b.verts;
+}
+
+BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
+                            DWORD *tricount, unsigned short **texids,
+                            const char **reasonout)
+{
+    return MdlLoadGeometry(data, maxlen, tricount, texids, reasonout, TRUE);
+}
+
+/* Legacy exports grouped faces by material and discarded node identity.
+   Compare complete triangles, independent of their material-group order,
+   before substituting geometry assembled from the retained import ROM. */
+typedef struct MdlCompareTriangle {
+    BgVertex vertices[3];
+    unsigned short tag;
+} MdlCompareTriangle;
+
+static int MdlCompareTriangles(const void *left, const void *right)
+{
+    const MdlCompareTriangle *a = (const MdlCompareTriangle *)left;
+    const MdlCompareTriangle *b = (const MdlCompareTriangle *)right;
+    int i;
+
+    if (a->tag != b->tag) { return a->tag < b->tag ? -1 : 1; }
+    for (i = 0; i < 3; i++)
+    {
+        const BgVertex *va = &a->vertices[i], *vb = &b->vertices[i];
+        const float av[] = { va->x, va->y, va->z, va->s, va->t };
+        const float bv[] = { vb->x, vb->y, vb->z, vb->s, vb->t };
+        int j;
+
+        for (j = 0; j < 5; j++)
+        {
+            if (av[j] != bv[j]) { return av[j] < bv[j] ? -1 : 1; }
+        }
+        if (va->r != vb->r) { return va->r < vb->r ? -1 : 1; }
+        if (va->g != vb->g) { return va->g < vb->g ? -1 : 1; }
+        if (va->b != vb->b) { return va->b < vb->b ? -1 : 1; }
+        if (va->a != vb->a) { return va->a < vb->a ? -1 : 1; }
+    }
+    return 0;
+}
+
+static MdlCompareTriangle *MdlSortedTriangles(const BgVertex *vertices,
+                                              const unsigned short *tags,
+                                              DWORD count)
+{
+    MdlCompareTriangle *triangles;
+    size_t bytes = (size_t)count * sizeof(*triangles);
+    DWORD i;
+
+    if (count != 0 && bytes / count != sizeof(*triangles)) { return NULL; }
+    triangles = (MdlCompareTriangle *)malloc(bytes);
+    if (triangles == NULL) { return NULL; }
+    for (i = 0; i < count; i++)
+    {
+        memcpy(triangles[i].vertices, vertices + i * 3, sizeof(triangles[i].vertices));
+        triangles[i].tag = tags[i];
+    }
+    qsort(triangles, count, sizeof(*triangles), MdlCompareTriangles);
+    return triangles;
+}
+
+void ModelUpgradeLegacyGeometry(const unsigned char *data, DWORD size,
+                                 BgVertex **vertices, DWORD *tricount,
+                                 unsigned short **tags)
+{
+    BgVertex *legacy, *assembled;
+    unsigned short *legacytags, *assembledtags;
+    DWORD legacycount, assembledcount, i;
+    const char *why;
+    MdlCompareTriangle *expected = NULL, *actual = NULL;
+    BOOL matches = FALSE;
+
+    if (*vertices == NULL || *tags == NULL || *tricount == 0) { return; }
+    legacy = MdlLoadGeometry(data, size, &legacycount, &legacytags, &why, FALSE);
+    if (legacy == NULL) { return; }
+    if (legacycount == *tricount)
+    {
+        expected = MdlSortedTriangles(legacy, legacytags, legacycount);
+        actual = MdlSortedTriangles(*vertices, *tags, *tricount);
+        if (expected != NULL && actual != NULL)
+        {
+            matches = TRUE;
+            for (i = 0; i < legacycount; i++)
+            {
+                if (MdlCompareTriangles(&expected[i], &actual[i]) != 0)
+                {
+                    matches = FALSE;
+                    break;
+                }
+            }
+        }
+    }
+    free(expected); free(actual);
+    free(legacy); free(legacytags);
+    if (!matches) { return; }
+
+    assembled = ModelLoadGeometry(data, size, &assembledcount, &assembledtags, &why);
+    if (assembled == NULL) { return; }
+    free(*vertices); free(*tags);
+    *vertices = assembled;
+    *tags = assembledtags;
+    *tricount = assembledcount;
 }
 
 static const char *MdlClassFolder(const char *name)

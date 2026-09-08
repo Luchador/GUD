@@ -11,13 +11,21 @@
  *
  * Parses a raw model file's node tree, collects every mesh node's
  * display lists, and emits the same textured/colored triangle soup
- * bgload produces. Part transforms and skeletons are NOT applied yet:
- * multi-part models (characters especially) come out with each part
- * in its own local space.
+ * bgload produces. The unanimated pose accumulates parent node offsets
+ * and applies display-list matrix selection when vertices are loaded.
+ * Positions are baked relative to the root; setup placement/scale is separate.
+ * Runtime joint animation and attachment to other models are not evaluated.
  */
 BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
                             DWORD *tricount, unsigned short **texids,
                             const char **reasonout);
+
+/* If project geometry exactly matches the old extraction of this ROM model,
+   replace the caller-owned arrays with its assembled pose. Edited models
+   and failed conversions are left alone. Does not write project files. */
+void ModelUpgradeLegacyGeometry(const unsigned char *data, DWORD size,
+                                 BgVertex **vertices, DWORD *tricount,
+                                 unsigned short **tags);
 
 /* Looks up a setup ObjectRecord's model ID in GoldenEye's canonical
    PitemZ_entries table. The returned name is the extracted P...Z
