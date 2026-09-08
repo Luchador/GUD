@@ -82,7 +82,6 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
     BgVertex *combinedtris;
     unsigned short *combinedtags;
     unsigned char *combinedflags;
-    DWORD triangle;
     BgFaceRef *combinedrefs;
     BgDocumentVertexRef *combinedvertices;
 
@@ -139,11 +138,7 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
     memcpy(combinedtags + mesh->facecount, objects->tritags,
            (size_t)objects->tricount * sizeof(*combinedtags));
 
-    for (triangle = 0; triangle < objects->tricount; triangle++)
-    {
-        combinedflags[mesh->facecount + triangle] =
-            BgRenderDefaultFlags(BG_TRI_IS_SECONDARY(objects->tritags[triangle]));
-    }
+    memcpy(combinedflags + mesh->facecount, objects->renderflags, objects->tricount);
     BgDocumentRenderMeshFree(mesh);
     mesh->renderflags = combinedflags;
     mesh->vertices = combinedtris;

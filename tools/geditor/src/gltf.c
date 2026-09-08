@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include "gltf.h"
+#include "bgrender.h"
 #include "texload.h"
 
 #define GLTF_COMPONENT_BYTE           5120
@@ -68,12 +69,14 @@ typedef struct GltfAccessor {
 typedef struct GltfBuilder {
     BgVertex *vertices;
     unsigned short *tags;
+    unsigned char *renderflags;
     DWORD tricount;
     DWORD capacity;
 } GltfBuilder;
 
 typedef struct GltfGroup {
     unsigned short tag;
+    unsigned char renderflags;
     int texturewidth;
     int textureheight;
     DWORD tricount;
@@ -1037,6 +1040,7 @@ static BOOL GltfBuilderReserve(GltfBuilder *builder, DWORD add)
     DWORD capacity;
     BgVertex *vertices;
     unsigned short *tags;
+    unsigned char *renderflags;
 
     if (add > GLTF_MAX_FACES - builder->tricount)
     {
@@ -1074,6 +1078,9 @@ static BOOL GltfBuilderReserve(GltfBuilder *builder, DWORD add)
         return FALSE;
     }
     builder->tags = tags;
+    renderflags = (unsigned char *)realloc(builder->renderflags, capacity);
+    if (renderflags == NULL) { return FALSE; }
+    builder->renderflags = renderflags;
     builder->capacity = capacity;
     return TRUE;
 }
@@ -1254,6 +1261,73 @@ static void GltfPrimitiveTextureSize(const char *json,
 }
 
 
+/* Native extras retain modes glTF cannot express, especially decals inside
+ * a primary list. Files without these extras still honor glTF alphaMode,
+ * with the old GoldenEye layer tag as the legacy fallback. */
+static BOOL GltfPrimitiveRenderFlags(const char *json, const GltfJsonToken *tokens, int tokencount,
+                                     int root, int primitive, unsigned short tag,
+                                     unsigned char *out)
+{
+    int token = GltfJsonObjectGet(json, tokens, tokencount, primitive, "material");
+    DWORD index, flags;
+    int materials, material, extras;
+
+    *out = BgRenderDefaultFlags(BG_TRI_IS_SECONDARY(tag));
+    if (token < 0)
+    {
+        return TRUE;
+    }
+    if (!GltfJsonUnsigned(json, &tokens[token], &index))
+    {
+        return FALSE;
+    }
+    materials = GltfJsonObjectGet(json, tokens, tokencount, root, "materials");
+    material = GltfJsonArrayGet(tokens, tokencount, materials, index);
+    if (material < 0)
+    {
+        return FALSE;
+    }
+    extras = GltfJsonObjectGet(json, tokens, tokencount, material, "extras");
+    token = GltfJsonObjectGet(json, tokens, tokencount, extras, "goldeneyeRenderFlags");
+    if (token >= 0)
+    {
+        if (!GltfJsonUnsigned(json, &tokens[token], &flags) ||
+            (flags & ~(BG_RENDER_DEPTH_TEST | BG_RENDER_DEPTH_WRITE | BG_RENDER_DECAL |
+                       BG_RENDER_BLEND | BG_RENDER_ALPHA_TEST | BG_RENDER_IGNORE_TEXTURE_ALPHA)))
+        {
+            return FALSE;
+        }
+        *out = (unsigned char)flags;
+        return TRUE;
+    }
+    token = GltfJsonObjectGet(json, tokens, tokencount, material, "alphaMode");
+    if (token >= 0)
+    {
+        if (tokens[token].type != GLTF_JSON_STRING)
+        {
+            return FALSE;
+        }
+        *out = BG_RENDER_DEPTH_TEST;
+        if (GltfJsonTokenEquals(json, &tokens[token], "BLEND"))
+        {
+            *out |= BG_RENDER_BLEND;
+        }
+        else if (GltfJsonTokenEquals(json, &tokens[token], "MASK"))
+        {
+            *out |= BG_RENDER_DEPTH_WRITE | BG_RENDER_ALPHA_TEST;
+        }
+        else if (GltfJsonTokenEquals(json, &tokens[token], "OPAQUE"))
+        {
+            *out |= BG_RENDER_DEPTH_WRITE;
+        }
+        else
+        {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
 static BOOL GltfLoadPrimitive(const char *json,
                               const GltfJsonToken *tokens, int tokencount,
                               int root, int primitive,
@@ -1279,6 +1353,7 @@ static BOOL GltfLoadPrimitive(const char *json,
     BOOL hastexcoords = FALSE;
     BOOL hasindices = FALSE;
     unsigned short tag;
+    unsigned char renderflags;
     int texturewidth = 1;
     int textureheight = 1;
 
@@ -1388,6 +1463,12 @@ static BOOL GltfLoadPrimitive(const char *json,
         return FALSE;
     }
 
+    if (!GltfPrimitiveRenderFlags(json, tokens, tokencount, root, primitive, tag, &renderflags))
+    {
+        *reasonout = "a glTF primitive has invalid material render settings.";
+        return FALSE;
+    }
+
     if (normalizeduvs && hastexcoords)
     {
         GltfPrimitiveTextureSize(json, tokens, tokencount, root,
@@ -1461,6 +1542,7 @@ static BOOL GltfLoadPrimitive(const char *json,
     for (outputindex = 0; outputindex < trianglecount; outputindex++)
     {
         builder->tags[builder->tricount + outputindex] = tag;
+        builder->renderflags[builder->tricount + outputindex] = renderflags;
     }
     builder->tricount += trianglecount;
     return TRUE;
@@ -1470,6 +1552,7 @@ static BOOL GltfLoadPrimitive(const char *json,
 BgVertex *GltfLoadModel(const char *path, const char *projectdir,
                         DWORD *tricount,
                         unsigned short **tritags,
+                        unsigned char **renderflags,
                         const char **reasonout)
 {
     char *json = NULL;
@@ -1489,6 +1572,7 @@ BgVertex *GltfLoadModel(const char *path, const char *projectdir,
     ZeroMemory(&builder, sizeof(builder));
     *tricount = 0;
     *tritags = NULL;
+    *renderflags = NULL;
     *reasonout = "";
 
     json = GltfReadTextFile(path, &jsonsize);
@@ -1558,6 +1642,7 @@ BgVertex *GltfLoadModel(const char *path, const char *projectdir,
     GltfFreeBuffers(buffers, buffercount);
     *tricount = builder.tricount;
     *tritags = builder.tags;
+    *renderflags = builder.renderflags;
     return builder.vertices;
 
 fail:
@@ -1566,6 +1651,7 @@ fail:
     GltfFreeBuffers(buffers, buffercount);
     free(builder.vertices);
     free(builder.tags);
+    free(builder.renderflags);
     return NULL;
 }
 
@@ -1723,11 +1809,11 @@ BgVertex *GltfLoadGlbMesh(const unsigned char *data, DWORD size,
                                 &builder,0,&visited,reasonout)) { goto fail; }
     }
     if (builder.tricount==0) { goto fail; }
-    free(tokens); free(json); free(builder.tags);
+    free(tokens); free(json); free(builder.tags); free(builder.renderflags);
     *tricount=builder.tricount; *reasonout="";
     return builder.vertices;
 fail:
-    free(tokens); free(json); free(builder.vertices); free(builder.tags);
+    free(tokens); free(json); free(builder.vertices); free(builder.tags); free(builder.renderflags);
     if (**reasonout=='\0') { *reasonout="The embedded GLB mesh is invalid."; }
     return NULL;
 }
@@ -1853,13 +1939,14 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
     for (group = 0; ok && group < groupcount; group++)
     {
         const GltfGroup *item = &groups[group];
-        const char *alpha = BG_TRI_IS_SECONDARY(item->tag)
-            ? ", \"alphaMode\": \"BLEND\"" : "";
+        const char *alpha = (item->renderflags & BG_RENDER_ALPHA_TEST)
+            ? ", \"alphaMode\": \"MASK\""
+            : (item->renderflags & BG_RENDER_BLEND) ? ", \"alphaMode\": \"BLEND\"" : "";
         const char *comma = group + 1 < groupcount ? "," : "";
 
         if (fprintf(file,
-            "    {\"name\": \"GUD Texture Tag 0x%04X\", \"doubleSided\": true%s, \"extras\": {\"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
-            item->tag, alpha, item->tag,
+            "    {\"name\": \"GUD Texture Tag 0x%04X\", \"doubleSided\": true%s, \"extras\": {\"goldeneyeRenderFlags\": %u, \"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
+            item->tag, alpha, item->renderflags, item->tag,
             item->texturewidth, item->textureheight, comma) < 0)
         {
             ok = FALSE;
@@ -1905,11 +1992,12 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
 
 BOOL GltfWriteModel(const char *path, const char *projectdir,
                     const BgVertex *vertices,
-                    const unsigned short *tritags, DWORD tricount,
+                    const unsigned short *tritags,
+                    const unsigned char *renderflags, DWORD tricount,
                     const char **reasonout)
 {
     GltfGroup *groups = NULL;
-    int *groupbytag = NULL;
+    DWORD groupindex = 0;
     unsigned char *binary = NULL;
     DWORD groupcount = 0;
     DWORD firstvertex = 0;
@@ -1928,29 +2016,31 @@ BOOL GltfWriteModel(const char *path, const char *projectdir,
     }
 
     groups = (GltfGroup *)calloc(tricount, sizeof(*groups));
-    groupbytag = (int *)malloc(0x10000u * sizeof(*groupbytag));
     binarysize = tricount * 3u * GLTF_VERTEX_STRIDE;
     binary = (unsigned char *)malloc(binarysize);
-    if (groups == NULL || groupbytag == NULL || binary == NULL)
+    if (groups == NULL || binary == NULL)
     {
         *reasonout = "out of memory converting a model to glTF.";
         goto done;
     }
-    memset(groupbytag, 0xff, 0x10000u * sizeof(*groupbytag));
 
     for (triangle = 0; triangle < tricount; triangle++)
     {
         unsigned short tag = tritags != NULL
             ? tritags[triangle] : BG_TEX_NONE;
-        int group = groupbytag[tag];
+        unsigned char flags = renderflags != NULL ? renderflags[triangle]
+            : BgRenderDefaultFlags(BG_TRI_IS_SECONDARY(tag));
 
-        if (group < 0)
+        /* Keep authored draw order, including repeated texture tags separated
+           by other materials. The same image can be opaque and translucent. */
+        if (groupcount == 0 || groups[groupcount - 1].tag != tag
+            || groups[groupcount - 1].renderflags != flags)
         {
-            group = (int)groupcount++;
-            groupbytag[tag] = group;
-            groups[group].tag = tag;
+            groups[groupcount].tag = tag;
+            groups[groupcount].renderflags = flags;
+            groupcount++;
         }
-        groups[group].tricount++;
+        groups[groupcount - 1].tricount++;
     }
 
     for (triangle = 0; triangle < groupcount; triangle++)
@@ -1978,9 +2068,9 @@ BOOL GltfWriteModel(const char *path, const char *projectdir,
 
     for (triangle = 0; triangle < tricount; triangle++)
     {
-        unsigned short tag = tritags != NULL
-            ? tritags[triangle] : BG_TEX_NONE;
-        GltfGroup *group = &groups[groupbytag[tag]];
+        GltfGroup *group;
+        if (groups[groupindex].written == groups[groupindex].tricount) { groupindex++; }
+        group = &groups[groupindex];
         DWORD destination = group->firstvertex + group->written * 3;
         int corner;
 
@@ -2019,7 +2109,6 @@ BOOL GltfWriteModel(const char *path, const char *projectdir,
 
 done:
     free(groups);
-    free(groupbytag);
     free(binary);
     return ok;
 }

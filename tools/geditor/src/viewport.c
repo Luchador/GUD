@@ -3805,12 +3805,9 @@ static int ViewportTriKeyCompare(const void *a, const void *b)
     {
         d = (int)BG_TRI_IS_OBJECT(ka->tag) - (int)BG_TRI_IS_OBJECT(kb->tag);
     }
-    /* BG render-state changes and decals depend on authored order. Only
-     * setup models, whose preview has no BG draw groups, are texture sorted. */
-    if (!d && BG_TRI_IS_OBJECT(ka->tag))
-    {
-        d = (int)ka->tag - (int)kb->tag;
-    }
+    /* Both backgrounds and models contain ordered, coplanar decals.
+     * Only batch adjacent matching materials; texture sorting changes which
+     * surface is visible (and therefore which surface picking should hit). */
     return d ? d : ka->tri - kb->tri;
 }
 

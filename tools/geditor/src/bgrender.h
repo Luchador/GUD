@@ -31,6 +31,7 @@ typedef struct BgRenderAlpha
     BOOL shade, texture;
 } BgRenderAlpha;
 
+BgRenderAlpha BgRenderGetMaterialAlpha(const BgRenderState *state, const BgMaterial *material);
 BgRenderAlpha BgRenderGetAlpha(const BgRenderState *state, const BgMaterial *material);
 unsigned char BgRenderVertexAlpha(BgRenderAlpha alpha, unsigned char vertexalpha);
 

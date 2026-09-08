@@ -39,6 +39,7 @@ typedef struct CharacterPart {
     BOOL attempted;
     BgVertex *vertices;
     unsigned short *tags;
+    unsigned char *renderflags;
     DWORD tricount;
     float bottom;
     float headposition[3];
@@ -48,6 +49,7 @@ typedef struct CharacterPart {
 typedef struct CharacterBuilder {
     BgVertex *vertices;
     unsigned short *tags;
+    unsigned char *renderflags;
     DWORD *indices;
     DWORD count;
     DWORD capacity;
@@ -118,7 +120,7 @@ static CharacterPart *CharacterGetPart(CharacterPart *cache, int modelid,
                             projectdir, definition->filename);
         if (written < 0 || written >= (int)sizeof(path)) { return NULL; }
         part->vertices = GltfLoadModel(path, projectdir, &part->tricount,
-                                       &part->tags, &why);
+                                       &part->tags, &part->renderflags, &why);
         if (part->vertices == NULL) { return NULL; }
         part->bottom = part->vertices[0].y;
         for (i = 1; i < part->tricount * 3; i++)
@@ -142,6 +144,7 @@ static BOOL CharacterReserve(CharacterBuilder *builder, DWORD add)
     DWORD needed, capacity;
     BgVertex *vertices;
     unsigned short *tags;
+    unsigned char *renderflags;
     DWORD *indices;
 
     if (add > 1000000u - builder->count) { return FALSE; }
@@ -155,6 +158,9 @@ static BOOL CharacterReserve(CharacterBuilder *builder, DWORD add)
     tags = (unsigned short *)realloc(builder->tags, (size_t)capacity * sizeof(*tags));
     if (tags == NULL) { return FALSE; }
     builder->tags = tags;
+    renderflags = (unsigned char *)realloc(builder->renderflags, capacity);
+    if (renderflags == NULL) { return FALSE; }
+    builder->renderflags = renderflags;
     indices = (DWORD *)realloc(builder->indices, (size_t)capacity * sizeof(*indices));
     if (indices == NULL) { return FALSE; }
     builder->indices = indices;
@@ -175,6 +181,7 @@ static BOOL CharacterPlacePart(CharacterBuilder *builder, const CharacterPart *p
         int corner;
 
         builder->tags[output] = (unsigned short)(part->tags[tri] | BG_TRI_OBJECT);
+        builder->renderflags[output] = part->renderflags[tri];
         builder->indices[output] = SETUP_CHARACTER_SELECTION_BIT | index;
         for (corner = 0; corner < 3; corner++)
         {
@@ -285,6 +292,7 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
     }
     out->tris = builder.vertices;
     out->tritags = builder.tags;
+    out->renderflags = builder.renderflags;
     out->objectindices = builder.indices;
     out->tricount = builder.count;
     ok = TRUE;
@@ -294,10 +302,11 @@ done:
     {
         free(cache[i].vertices);
         free(cache[i].tags);
+        free(cache[i].renderflags);
     }
     if (!ok)
     {
-        free(builder.vertices); free(builder.tags); free(builder.indices);
+        free(builder.vertices); free(builder.tags); free(builder.renderflags); free(builder.indices);
         ObjectGeometryFree(out);
         *reasonout = "out of memory building setup character geometry.";
     }

@@ -18,11 +18,13 @@
  */
 BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
                             DWORD *tricount, unsigned short **texids,
+                            unsigned char **renderflags,
                             const char **reasonout);
 
 /* Character exports retain only the closest LOD of each body part. */
 BgVertex *ModelLoadCharacterGeometry(const unsigned char *data, DWORD maxlen,
                                      DWORD *tricount, unsigned short **texids,
+                                     unsigned char **renderflags,
                                      const char **reasonout);
 
 /* Model-space position of MODELNODE_OPCODE_HEAD in the unanimated body. */
@@ -42,10 +44,11 @@ BOOL ModelReadPlacementBounds(const unsigned char *data, DWORD size,
 
 /* Loads one previously extracted object-model glTF. The legacy PLY reader is
    retained so projects created by older GEditor builds still open. Caller
-   frees both returned arrays. */
+   frees the returned vertex, tag and preview render-flag arrays. */
 BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
                                    DWORD *tricount,
                                    unsigned short **tritags,
+                                   unsigned char **renderflags,
                                    float *modelscale,
                                    const char **reasonout);
 
@@ -53,7 +56,7 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
  * Extracts every model in the ROM's file table into
  * <projectdir>\models\{characters,guns,objects,casings}\<name>.gltf.
  * Files are self-contained glTF 2.0 assets with positions, UVs, vertex colors,
- * and GoldenEye texture tags. Returns models written; 0 with *reasonout set
+ * and GoldenEye texture/depth/blending metadata. Returns models written; 0 with *reasonout set
  * on total failure. Unparseable models are skipped.
  */
 DWORD ModelExtractAll(const RomFile *rom, const char *projectdir,

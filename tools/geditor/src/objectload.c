@@ -22,6 +22,7 @@ typedef struct ModelCacheEntry {
     BOOL attempted;
     BgVertex *tris;
     unsigned short *tritags;
+    unsigned char *renderflags;
     DWORD tricount;
     float scale;
     float min[3], max[3];
@@ -30,6 +31,7 @@ typedef struct ModelCacheEntry {
 typedef struct ObjectBuilder {
     BgVertex *tris;
     unsigned short *tritags;
+    unsigned char *renderflags;
     DWORD *objectindices;
     DWORD tricount;
     DWORD capacity;
@@ -193,6 +195,7 @@ static BOOL ObjectBuilderReserve(ObjectBuilder *builder, DWORD add)
     DWORD capacity;
     BgVertex *tris;
     unsigned short *tags;
+    unsigned char *renderflags;
     DWORD *objectindices;
 
     if (builder->failed || add > 0xffffffffu - builder->tricount)
@@ -235,6 +238,9 @@ static BOOL ObjectBuilderReserve(ObjectBuilder *builder, DWORD add)
         return FALSE;
     }
     builder->tritags = tags;
+    renderflags = (unsigned char *)realloc(builder->renderflags, capacity);
+    if (renderflags == NULL) { builder->failed = TRUE; return FALSE; }
+    builder->renderflags = renderflags;
 
     objectindices = (DWORD *)realloc(builder->objectindices,
         (size_t)capacity * sizeof(*builder->objectindices));
@@ -271,6 +277,7 @@ static void ObjectPlaceModel(ObjectBuilder *builder,
 
         builder->tritags[outfirst + tri] =
             (unsigned short)(model->tritags[tri] | BG_TRI_OBJECT);
+        builder->renderflags[outfirst + tri] = model->renderflags[tri];
         builder->objectindices[outfirst + tri] = objectindex;
 
         for (corner = 0; corner < 3; corner++)
@@ -326,7 +333,7 @@ static ModelCacheEntry *ObjectGetModel(ModelCacheEntry *cache, int modelid,
     {
         entry->attempted = TRUE;
         entry->tris = ModelLoadProjectGeometry(projectdir, modelid,
-            &entry->tricount, &entry->tritags, &entry->scale, &why);
+            &entry->tricount, &entry->tritags, &entry->renderflags, &entry->scale, &why);
         if (entry->tris != NULL && entry->tricount > 0)
         {
             const char *name;
@@ -759,6 +766,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
             (size_t)characters.tricount * 3 * sizeof(*builder.tris));
         memcpy(builder.tritags + builder.tricount, characters.tritags,
             (size_t)characters.tricount * sizeof(*builder.tritags));
+        memcpy(builder.renderflags + builder.tricount, characters.renderflags, characters.tricount);
         memcpy(builder.objectindices + builder.tricount, characters.objectindices,
             (size_t)characters.tricount * sizeof(*builder.objectindices));
         builder.tricount += characters.tricount;
@@ -774,10 +782,12 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
     {
         free(cache[i].tris);
         free(cache[i].tritags);
+        free(cache[i].renderflags);
     }
 
     out->tris = builder.tris;
     out->tritags = builder.tritags;
+    out->renderflags = builder.renderflags;
     out->objectindices = builder.objectindices;
     out->tricount = builder.tricount;
     free(supports);
@@ -794,9 +804,11 @@ fail:
     {
         free(cache[i].tris);
         free(cache[i].tritags);
+        free(cache[i].renderflags);
     }
     free(builder.tris);
     free(builder.tritags);
+    free(builder.renderflags);
     free(builder.objectindices);
     ObjectGeometryFree(out);
     return FALSE;
@@ -807,6 +819,7 @@ void ObjectGeometryFree(SetupObjectGeometry *geometry)
     free(geometry->occupiedboundpads);
     free(geometry->occupiedpads);
     free(geometry->tritags);
+    free(geometry->renderflags);
     free(geometry->objectindices);
     free(geometry->tris);
     ZeroMemory(geometry, sizeof(*geometry));

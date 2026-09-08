@@ -132,23 +132,29 @@ BgRenderAlpha BgRenderGetAlpha(const BgRenderState *state, const BgMaterial *mat
         {0xFCFFFFFFu, 0xFFFE7838u, FALSE}, /* SHADE, PASS2 */
         {0xFCFFFFFFu, 0xFFFE793Cu, FALSE}  /* SHADE, SHADE */
     };
-    BgRenderAlpha alpha = {255, TRUE, TRUE};
     DWORD w0 = material->combineword0, w1 = material->combineword1;
     unsigned int i;
-    unsigned int a = (w1 >> 21) & 7, b = (w1 >> 3) & 7;
-    unsigned int c = (w1 >> 18) & 7, d = w1 & 7;
-    int source = -1;
 
     for (i = 0; i < sizeof(remapped) / sizeof(remapped[0]); i++)
     {
         if (w0 == remapped[i].word0 && w1 == remapped[i].word1)
         {
-            alpha.constant = state->environmentalpha;
-            alpha.shade = FALSE;
-            alpha.texture = remapped[i].texture;
+            BgRenderAlpha alpha = {state->environmentalpha, FALSE, remapped[i].texture};
             return alpha;
         }
     }
+    return BgRenderGetMaterialAlpha(state, material);
+}
+
+/* Models use their authored alpha combiner, without bg.c's LUT rewrite. */
+BgRenderAlpha BgRenderGetMaterialAlpha(const BgRenderState *state, const BgMaterial *material)
+{
+    BgRenderAlpha alpha = {255, TRUE, TRUE};
+    DWORD w0 = material->combineword0, w1 = material->combineword1;
+    unsigned int a = (w1 >> 21) & 7, b = (w1 >> 3) & 7;
+    unsigned int c = (w1 >> 18) & 7, d = w1 & 7;
+    int source = -1;
+
     /* Also accept explicit one-source and texture-product alpha equations.
      * TEXEL0/TEXEL1 use the same base image in this non-mipmapped preview.
      * Unrecognized custom equations retain the previous shade*texture preview. */

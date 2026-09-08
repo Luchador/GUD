@@ -13,6 +13,7 @@
 typedef struct SetupObjectGeometry {
     BgVertex *tris;
     unsigned short *tritags;
+    unsigned char *renderflags;
     DWORD *objectindices;       /* prop index, or SETUP_CHARACTER_SELECTION_BIT | character index */
     DWORD tricount;
     unsigned char *occupiedpads;
