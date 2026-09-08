@@ -1991,7 +1991,9 @@ static double ViewportGizmoScale(const ViewportState *state)
 {
     float forward[3], right[3];
     double depth;
-    if (!state->gizmovisible || state->arrow == NULL || state->height <= 0 || state->flying) { return 0; }
+    /* Keep the selection's handles visible and sized to the current camera,
+       including while flying. Only picking is disabled during navigation. */
+    if (!state->gizmovisible || state->arrow == NULL || state->height <= 0) { return 0; }
     ViewportGetBasis(state,forward,right);
     depth=(state->gizmoposition[0]-state->posx)*forward[0]
         +(state->gizmoposition[1]-state->posy)*forward[1]
@@ -2073,7 +2075,7 @@ static int ViewportPickGizmo(HWND hwnd, const ViewportState *state, int x, int y
     ViewportPickRay ray;
     double scale=ViewportGizmoScale(state), nearest=DBL_MAX;
     int axis, picked=-1;
-    if (!(scale>0) || !ViewportBuildPickRay(hwnd,state,x,y,&ray)) { return -1; }
+    if (state->flying || !(scale>0) || !ViewportBuildPickRay(hwnd,state,x,y,&ray)) { return -1; }
     for (axis=0; axis<3; axis++)
     {
         DWORD tri;
