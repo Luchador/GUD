@@ -13,7 +13,9 @@
  * Pixel rows are padded to the RDP's per-format alignment.
  */
 
+#define COBJMACROS
 #include <windows.h>
+#include <wincodec.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -465,6 +467,75 @@ static BOOL TexReadBmpThumb(const char *path, unsigned char *dst,
     free(pix);
     CloseHandle(f);
     return ok;
+}
+
+/* Decode a built-in browser image using the same fixed-stride BGRA layout
+ * as project thumbnails. The executable owns the PNG; no project copy is
+ * needed, including when the Images folder is empty. */
+BOOL TexLoadResourceThumbnail(HINSTANCE instance, int resourceid,
+                              TexThumb *thumb, unsigned char *pixels)
+{
+    HRESULT initialized = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    IWICImagingFactory *factory = NULL;
+    IWICStream *stream = NULL;
+    IWICBitmapDecoder *decoder = NULL;
+    IWICBitmapFrameDecode *frame = NULL;
+    IWICBitmapScaler *scaler = NULL;
+    IWICFormatConverter *converter = NULL;
+    HRSRC resource;
+    HGLOBAL data;
+    BYTE *bytes;
+    DWORD size;
+    UINT width, height, longest;
+    BOOL success = FALSE;
+
+    if (FAILED(initialized) && initialized != RPC_E_CHANGED_MODE) { return FALSE; }
+    resource = FindResource(instance, MAKEINTRESOURCE(resourceid), RT_RCDATA);
+    if (resource == NULL) { goto done; }
+    data = LoadResource(instance, resource);
+    bytes = (BYTE *)LockResource(data);
+    size = SizeofResource(instance, resource);
+    if (bytes == NULL || size == 0) { goto done; }
+    if (FAILED(CoCreateInstance(&CLSID_WICImagingFactory, NULL,
+            CLSCTX_INPROC_SERVER, &IID_IWICImagingFactory, (void **)&factory))
+        || FAILED(IWICImagingFactory_CreateStream(factory, &stream))
+        || FAILED(IWICStream_InitializeFromMemory(stream, bytes, size))
+        || FAILED(IWICImagingFactory_CreateDecoderFromStream(factory,
+            (IStream *)stream, NULL, WICDecodeMetadataCacheOnLoad, &decoder))
+        || FAILED(IWICBitmapDecoder_GetFrame(decoder, 0, &frame))
+        || FAILED(IWICBitmapFrameDecode_GetSize(frame, &width, &height))
+        || width == 0 || height == 0) { goto done; }
+
+    longest = width > height ? width : height;
+    if (longest > TEX_THUMB_MAX)
+    {
+        width = (UINT)((ULONGLONG)width * TEX_THUMB_MAX / longest);
+        height = (UINT)((ULONGLONG)height * TEX_THUMB_MAX / longest);
+        if (width == 0) { width = 1; }
+        if (height == 0) { height = 1; }
+    }
+    if (FAILED(IWICImagingFactory_CreateBitmapScaler(factory, &scaler))
+        || FAILED(IWICBitmapScaler_Initialize(scaler, (IWICBitmapSource *)frame,
+            width, height, WICBitmapInterpolationModeNearestNeighbor))
+        || FAILED(IWICImagingFactory_CreateFormatConverter(factory, &converter))
+        || FAILED(IWICFormatConverter_Initialize(converter, (IWICBitmapSource *)scaler,
+            &GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone,
+            NULL, 0.0, WICBitmapPaletteTypeCustom))) { goto done; }
+
+    ZeroMemory(pixels, TEX_THUMB_MAX * TEX_THUMB_MAX * 4);
+    success = SUCCEEDED(IWICFormatConverter_CopyPixels(converter, NULL,
+        TEX_THUMB_MAX * 4, TEX_THUMB_MAX * TEX_THUMB_MAX * 4, pixels));
+    if (success) { thumb->w = (int)width; thumb->h = (int)height; thumb->pixeloffset = 0; }
+
+done:
+    if (converter != NULL) { IWICFormatConverter_Release(converter); }
+    if (scaler != NULL) { IWICBitmapScaler_Release(scaler); }
+    if (frame != NULL) { IWICBitmapFrameDecode_Release(frame); }
+    if (decoder != NULL) { IWICBitmapDecoder_Release(decoder); }
+    if (stream != NULL) { IWICStream_Release(stream); }
+    if (factory != NULL) { IWICImagingFactory_Release(factory); }
+    if (SUCCEEDED(initialized)) { CoUninitialize(); }
+    return success;
 }
 
 static int TexThumbCompare(const void *a, const void *b)

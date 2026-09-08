@@ -24,13 +24,13 @@
 #include <string.h>
 
 #include "bgload.h"
+#include "bgmaterial.h"
 
 #define BG_ROOM_RECORD_SIZE 24
 #define BG_MAX_ROOMS        256
 #define BG_PORTAL_RECORD_SIZE 8
 #define BG_MAX_PORTALS      200
 
-#define G_NOOP  0xC0   /* F3DEX G_NOOP; in raw GE DLs a texture reference, ID in w1 & 0xFFF */
 #define G_VTX   0x04
 #define G_TRI4  0xB1
 #define G_CLEARGEOMETRYMODE 0xB6
@@ -226,11 +226,12 @@ static void BgWalkGdl(BgBuilder *b,
 {
     DWORD pc;
     const unsigned char *vertexcache[16];
-    unsigned short curtex = BG_TEX_NONE;
+    BgMaterial material;
     /* Valid room streams establish this state before their first tri.
        False is the safest fallback for malformed or future data. */
     BOOL cullbackfaces = FALSE;
 
+    BgMaterialInit(&material);
     ZeroMemory(vertexcache, sizeof(vertexcache));
     /* every triangle this walk emits carries the layer flag */
 
@@ -243,12 +244,8 @@ static void BgWalkGdl(BgBuilder *b,
             return;
         }
 
-        if (cmd[0] == G_NOOP)
+        if (BgMaterialReadCommand(&material, bg32(cmd), bg32(cmd + 4)))
         {
-            /* The raw file marks texture changes with G_NOOP commands;
-               the game rewrites them into SETTIMG/SETTILE sequences at
-               load (texLoadFromGdl). The ID is the low 12 bits. */
-            curtex = (unsigned short)(bg32(cmd + 4) & 0xFFF);
             continue;
         }
 
@@ -378,7 +375,7 @@ static void BgWalkGdl(BgBuilder *b,
                     unsigned short cullflag = cullbackfaces ? BG_TRI_CULL_BACK : 0;
 
                     b->tags[b->count / 3 - 1] =
-                        (unsigned short)(curtex | layerflag | cullflag);
+                        (unsigned short)(BgMaterialTextureId(&material) | layerflag | cullflag);
                 }
             }
         }

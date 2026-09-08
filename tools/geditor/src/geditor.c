@@ -1531,14 +1531,15 @@ static BOOL GEditorDropBgTexture(HWND hwnd, const BrowserImageDrop *request)
     const char *restorewhy = "";
     const char *action;
 
-    if (request == NULL || request->textureid >= BG_TEX_NONE
+    if (request == NULL || request->textureid > BG_TEX_NONE
         || g_CurrentBgDocument.rooms == NULL
         || WindowFromPoint(request->screen) != g_Viewport
         || !ViewportGetTextureDropFace(g_Viewport, request->screen, &hit, &selected))
     {
         return FALSE;
     }
-    if (!TexGetProjectImageSize(g_Project.dir, request->textureid, &width, &height))
+    if (request->textureid != BG_TEX_NONE
+        && !TexGetProjectImageSize(g_Project.dir, request->textureid, &width, &height))
     {
         why = "The dragged image is no longer available in this project.";
         goto fail;
@@ -1561,7 +1562,9 @@ static BOOL GEditorDropBgTexture(HWND hwnd, const BrowserImageDrop *request)
     }
     else { faces[0] = hit; }
 
-    action = count == 1 ? "Apply BG Texture" : "Apply BG Textures";
+    action = request->textureid == BG_TEX_NONE
+        ? (count == 1 ? "Remove BG Texture" : "Remove BG Textures")
+        : (count == 1 ? "Apply BG Texture" : "Apply BG Textures");
     if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
                                 action, &transaction, &why)) { goto fail; }
     if (!BgDocumentSetFaceTexture(&g_CurrentBgDocument, faces, (DWORD)count,

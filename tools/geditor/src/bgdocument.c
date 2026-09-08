@@ -19,7 +19,6 @@
 
 #define BGDOC_ROOM_RECORD_SIZE 24u
 #define BGDOC_MAX_ROOMS        256u
-#define BGDOC_G_NOOP              0xC0
 #define BGDOC_G_VTX               0x04
 #define BGDOC_G_TRI4              0xB1
 #define BGDOC_G_CLEARGEOMETRYMODE 0xB6
@@ -78,7 +77,7 @@ static BOOL BgDocumentAppendFace(BgDocument *document,
                                  const DWORD vertexindices[3],
                                  DWORD drawgroup,
                                  BgGeometryLayer layer,
-                                 DWORD textureword0, DWORD textureword1,
+                                 const BgMaterial *material,
                                  BOOL cullbackfaces)
 {
     BgDocumentFace *face;
@@ -118,10 +117,8 @@ static BOOL BgDocumentAppendFace(BgDocument *document,
     face->drawgroup = drawgroup;
     face->layer = (unsigned char)layer;
     face->cullbackfaces = (unsigned char)cullbackfaces;
-    face->textureword0 = textureword0;
-    face->textureword1 = textureword1;
-    face->textureid = textureword0 == 0 && textureword1 == 0
-        ? BG_TEX_NONE : (unsigned short)(textureword1 & BG_TEX_ID_MASK);
+    face->material = *material;
+    face->textureid = BgMaterialTextureId(material);
 
     for (corner = 0; corner < 3; corner++)
     {
@@ -268,12 +265,12 @@ static BOOL BgDocumentWalkDisplayList(BgDocument *document,
     DWORD pc;
     DWORD cachevertices[16];
     BOOL cachevalid[16];
-    DWORD textureword0 = 0;
-    DWORD textureword1 = 0;
+    BgMaterial material;
     BOOL cullbackfaces = FALSE;
     DWORD drawgroup = 0;
     BOOL grouphasfaces = FALSE;
 
+    BgMaterialInit(&material);
     ZeroMemory(cachevertices, sizeof(cachevertices));
     ZeroMemory(cachevalid, sizeof(cachevalid));
     layerdata->sourcepresent = TRUE;
@@ -361,8 +358,7 @@ static BOOL BgDocumentWalkDisplayList(BgDocument *document,
                     && !BgDocumentAppendFace(document, room, roomnumber,
                                              vertexindices,
                                              drawgroup,
-                                             layer, textureword0,
-                                             textureword1,
+                                             layer, &material,
                                              cullbackfaces))
                 {
                     return FALSE;
@@ -395,12 +391,9 @@ static BOOL BgDocumentWalkDisplayList(BgDocument *document,
             return FALSE;
         }
 
-        if (command[0] == BGDOC_G_NOOP)
-        {
-            textureword0 = BgDocumentRead32(command);
-            textureword1 = BgDocumentRead32(command + 4);
-        }
-        else if (command[0] == BGDOC_G_SETGEOMETRYMODE
+        BgMaterialReadCommand(&material, BgDocumentRead32(command),
+                               BgDocumentRead32(command + 4));
+        if (command[0] == BGDOC_G_SETGEOMETRYMODE
                  && (BgDocumentRead32(command + 4) & BGDOC_G_CULL_BACK))
         {
             cullbackfaces = TRUE;
@@ -1057,7 +1050,7 @@ BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
 
     *changedout = FALSE;
     *reasonout = "";
-    if (refs == NULL || refcount == 0 || textureid >= BG_TEX_NONE)
+    if (refs == NULL || refcount == 0 || textureid > BG_TEX_NONE)
     {
         *reasonout = "The background texture assignment is invalid.";
         return FALSE;
@@ -1072,21 +1065,17 @@ BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
             *reasonout = "A background face to texture is no longer available.";
             return FALSE;
         }
-        if ((face->textureword0 >> 24) != BGDOC_G_NOOP)
-        {
-            *reasonout = "A selected face has no GoldenEye texture command to replace.";
-            return FALSE;
-        }
     }
     for (i = 0; i < refcount; i++)
     {
         BgDocumentFace *face = (BgDocumentFace *)BgDocumentFindFace(document, &refs[i], NULL);
-        DWORD word = (face->textureword1 & ~(DWORD)BG_TEX_ID_MASK) | textureid;
+        BgMaterial material = face->material;
 
-        if (face->textureid != textureid || face->textureword1 != word)
+        BgMaterialSetTexture(&material, textureid);
+        if (face->textureid != textureid || !BgMaterialEqual(&face->material, &material))
         {
             face->textureid = (unsigned short)textureid;
-            face->textureword1 = word;
+            face->material = material;
             *changedout = TRUE;
         }
     }

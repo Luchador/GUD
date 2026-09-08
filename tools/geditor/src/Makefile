@@ -21,7 +21,8 @@ PROP_RECORDS := ../../../assets/obseg/prop/propItemModelFileRecord.inc.c \
 RCFILE  := geditor.rc
 RCOBJ   := geditor_rc.o
 TOOL_IMAGES := $(wildcard ../geditorassets/*_select_*.png) \
-               $(wildcard ../geditorassets/vertex_paint_*.png)
+               $(wildcard ../geditorassets/vertex_paint_*.png) \
+               ../geditorassets/no_texture.png
 
 $(TARGET): $(SOURCES) $(HEADERS) $(SHARED_HEADERS) $(PROP_RECORDS) $(RCOBJ)
 	$(CC) $(CFLAGS) -o $@ $(SOURCES) $(RCOBJ) $(LDFLAGS)

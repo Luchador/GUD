@@ -20,6 +20,7 @@
 
 #include "browser.h"
 #include "bgload.h"
+#include "resource.h"
 
 #define BROWSER_CLASS    "GEditorBrowser"
 #define BROWSER_HEADER_H 26
@@ -36,7 +37,7 @@ typedef struct BrowserSection {
 #define BROWSER_SECTION_IMAGES 1
 #define BROWSER_SECTION_MODELS 2
 #define BROWSER_MAX_MODELS 512
-#define BROWSER_IMAGE_CELL_W (TEX_THUMB_MAX + 24)
+#define BROWSER_IMAGE_CELL_W (TEX_THUMB_MAX + 40) /* room for "No Texture" */
 #define BROWSER_IMAGE_LABEL_H 16
 #define BROWSER_IMAGE_CELL_H (TEX_THUMB_MAX + BROWSER_IMAGE_LABEL_H + 8)
 #define BROWSER_IMAGE_MARGIN 4
@@ -50,6 +51,8 @@ typedef struct BrowserState {
     TexThumb *images;             /* owned; freed on replace/destroy */
     unsigned char *imagepixels;   /* owned shared pixel block */
     int imagecount;
+    TexThumb notexture; /* permanent item zero, independent of project images */
+    unsigned char notexturepixels[TEX_THUMB_MAX * TEX_THUMB_MAX * 4];
     BrowserLevelItem models[BROWSER_MAX_MODELS];
     int modelcount;
     int scroll[BROWSER_SECTION_COUNT];   /* pixels scrolled per body */
@@ -94,7 +97,8 @@ static int BrowserContentHeight(const BrowserState *state, int section)
     if (section == BROWSER_SECTION_IMAGES)
     {
         int columns = BrowserImageColumns(&state->sections[section].bodyrc);
-        int rows = state->imagecount / columns + (state->imagecount % columns != 0);
+        int count = state->imagecount + 1; /* include the permanent No Texture item */
+        int rows = count / columns + (count % columns != 0);
 
         return rows > 0 ? rows * BROWSER_IMAGE_CELL_H + BROWSER_IMAGE_MARGIN * 2 : 0;
     }
@@ -407,6 +411,18 @@ static void BrowserPaintLevelRows(BrowserState *state, HDC hdc, const RECT *body
  * the shared block; StretchDIBits takes them straight from memory via
  * a negative-height BITMAPINFO, so no per-item GDI bitmaps ever exist.
  */
+static const TexThumb *BrowserImageAt(const BrowserState *state, int index,
+                                     const unsigned char **pixels)
+{
+    if (index == 0)
+    {
+        *pixels = state->notexturepixels;
+        return &state->notexture;
+    }
+    *pixels = state->imagepixels + state->images[index - 1].pixeloffset;
+    return &state->images[index - 1];
+}
+
 static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body)
 {
     int columns = BrowserImageColumns(body);
@@ -425,9 +441,10 @@ static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body
 
     SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
 
-    for (i = firstrow * columns; i < state->imagecount; i++)
+    for (i = firstrow * columns; i < state->imagecount + 1; i++)
     {
         const TexThumb *t;
+        const unsigned char *pixels;
         RECT rc;
         int column = i % columns;
         int y = body->top + BROWSER_IMAGE_MARGIN
@@ -438,7 +455,7 @@ static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body
             break;
         }
 
-        t = &state->images[i];
+        t = BrowserImageAt(state, i, &pixels);
         /* Share leftover width between columns, including rounding pixels. */
         rc.left = body->left + BROWSER_IMAGE_MARGIN + column * width / columns;
         rc.right = body->left + BROWSER_IMAGE_MARGIN + (column + 1) * width / columns;
@@ -455,7 +472,7 @@ static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body
                           y + (TEX_THUMB_MAX - t->h) / 2,
                           t->w, t->h,
                           0, 0, t->w, t->h,
-                          state->imagepixels + t->pixeloffset,
+                          pixels,
                           &bmi, DIB_RGB_COLORS, SRCCOPY);
         }
 
@@ -552,7 +569,7 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
         if (sec->expanded && sec->bodyrc.bottom > sec->bodyrc.top)
         {
             if ((i == BROWSER_SECTION_LEVELS && state->levelcount > 0)
-                || (i == BROWSER_SECTION_IMAGES && state->imagecount > 0)
+                || i == BROWSER_SECTION_IMAGES
                 || (i == BROWSER_SECTION_MODELS && state->modelcount > 0))
             {
                 int saved = SaveDC(hdc);
@@ -611,7 +628,7 @@ static int BrowserHitImage(const BrowserState *state, POINT point)
     /* Invert the painter's rounded column boundaries exactly. */
     image = (y / BROWSER_IMAGE_CELL_H) * columns
           + ((x + 1) * columns - 1) / width;
-    return image < state->imagecount ? image : -1;
+    return image < state->imagecount + 1 ? image : -1;
 }
 
 
@@ -648,17 +665,18 @@ static void BrowserEndImageDrag(HWND hwnd, BrowserState *state)
 
 static void BrowserBeginImageDrag(HWND hwnd, BrowserState *state, int index, POINT point)
 {
-    const TexThumb *thumb = &state->images[index];
+    const unsigned char *thumbpixels;
+    const TexThumb *thumb = BrowserImageAt(state, index, &thumbpixels);
     BITMAPINFO bmi;
     HBITMAP bitmap;
     HIMAGELIST images;
     unsigned char *pixels;
-    char *end;
-    unsigned long textureid = strtoul(thumb->label, &end, 16);
+    char *end = NULL;
+    unsigned long textureid = index == 0 ? BG_TEX_NONE : strtoul(thumb->label, &end, 16);
     int x, y;
 
-    if (end == thumb->label || *end != '\0' || textureid >= BG_TEX_NONE
-        || state->imagepixels == NULL || thumb->w <= 0 || thumb->h <= 0
+    if ((index != 0 && (end == thumb->label || *end != '\0' || textureid >= BG_TEX_NONE))
+        || thumbpixels == NULL || thumb->w <= 0 || thumb->h <= 0
         || thumb->w > TEX_THUMB_MAX || thumb->h > TEX_THUMB_MAX
         || !SendMessage(GetParent(hwnd), BROWSER_WM_IMAGE_DRAG_BEGIN, textureid, 0))
     {
@@ -689,8 +707,7 @@ static void BrowserBeginImageDrag(HWND hwnd, BrowserState *state, int index, POI
             dst[3] = 255;
             if (sx >= 0 && sx < thumb->w && sy >= 0 && sy < thumb->h)
             {
-                const unsigned char *src = state->imagepixels + thumb->pixeloffset
-                                        + (sy * thumb->w + sx) * 4;
+                const unsigned char *src = thumbpixels + (sy * TEX_THUMB_MAX + sx) * 4;
                 for (channel = 0; channel < 3; channel++)
                 {
                     dst[channel] = (unsigned char)((src[channel] * src[3]
@@ -749,6 +766,15 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         state->sections[2].expanded = TRUE;
         state->dragsection = -1;
         state->selectedlevel = -1;
+
+        lstrcpyn(state->notexture.label, "No Texture", sizeof(state->notexture.label));
+        if (!TexLoadResourceThumbnail(((CREATESTRUCT *)lparam)->hInstance,
+                IDR_NO_TEXTURE, &state->notexture, state->notexturepixels))
+        {
+            free(state);
+            MessageBox(hwnd, "The No Texture thumbnail could not be loaded.", "GEditor", MB_ICONERROR);
+            return -1;
+        }
 
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         return 0;

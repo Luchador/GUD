@@ -49,6 +49,11 @@ typedef struct TexThumb {
 
 #define TEX_THUMB_MAX 32
 
+/* Decode an embedded PNG to a TEX_THUMB_MAX-square, fixed-stride BGRA block.
+ * Caller supplies that block and the thumbnail; its label is left intact. */
+BOOL TexLoadResourceThumbnail(HINSTANCE instance, int resourceid,
+                              TexThumb *thumb, unsigned char *pixels);
+
 /*
  * Scans <projectdir>\images for the extracted BMPs and builds
  * thumbnails for all of them, sorted by name. On success returns the

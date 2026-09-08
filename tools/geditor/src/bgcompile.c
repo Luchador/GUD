@@ -3,8 +3,8 @@
  *
  * The header, portal table, visibility data, and other unknown data before
  * the room streams are copied byte-for-byte. Room vertex streams and Fast3D
- * display lists are regenerated from BgDocument, while non-geometry commands
- * captured by the parser retain the authored material and render state.
+ * display lists and per-face materials are regenerated from BgDocument.
+ * Other commands captured by the parser retain the authored render state.
  */
 
 #include <windows.h>
@@ -17,7 +17,6 @@
 #define BGCOMPILE_SEGMENT          0x0F000000u
 #define BGCOMPILE_VERTEX_SEGMENT   0x0E000000u
 
-#define BGCOMPILE_G_NOOP              0xC0
 #define BGCOMPILE_G_VTX               0x04
 #define BGCOMPILE_G_TRI4              0xB1
 #define BGCOMPILE_G_CLEARGEOMETRYMODE 0xB6
@@ -32,6 +31,7 @@ typedef struct BgCompileBuffer {
     DWORD size;
     DWORD capacity;
     BOOL failed;
+    BOOL pipesynced;
 } BgCompileBuffer;
 
 
@@ -140,8 +140,16 @@ static BOOL BgCompileAlign(BgCompileBuffer *buffer, DWORD alignment)
 static BOOL BgCompileWriteCommand(BgCompileBuffer *buffer,
                                   DWORD word0, DWORD word1)
 {
-    return BgCompileWrite32(buffer, word0)
-        && BgCompileWrite32(buffer, word1);
+    DWORD opcode = word0 >> 24;
+
+    if (!BgCompileWrite32(buffer, word0)
+        || !BgCompileWrite32(buffer, word1)) { return FALSE; }
+    if (opcode == BG_G_PIPESYNC) { buffer->pipesynced = TRUE; }
+    else if (opcode == BGCOMPILE_G_TRI1 || opcode == BGCOMPILE_G_TRI4)
+    {
+        buffer->pipesynced = FALSE;
+    }
+    return TRUE;
 }
 
 
@@ -185,34 +193,38 @@ static BOOL BgCompileAppendStream(BgCompileBuffer *output,
 }
 
 
-static void BgCompileScanState(const unsigned char *commands, DWORD size,
-                               DWORD *textureword0, DWORD *textureword1,
-                               BOOL *cullbackfaces)
+/* Material commands now belong to faces. Replaying an old C0 marker here
+ * would load an image even if every face using it was made untextured. */
+static BOOL BgCompileWriteGroupState(BgCompileBuffer *gdl,
+                                     const unsigned char *commands, DWORD size,
+                                     BOOL *cullbackfaces)
 {
     DWORD offset;
 
     for (offset = 0; offset + 8 <= size; offset += 8)
     {
         const unsigned char *command = commands + offset;
+        DWORD word0 = BgCompileRead32(command);
+        DWORD word1 = BgCompileRead32(command + 4);
 
-        if (command[0] == BGCOMPILE_G_NOOP)
+        if (command[0] == BG_G_SETTEXTURE || command[0] == BG_G_TEXTURE
+            || command[0] == BG_G_SETCOMBINE)
         {
-            *textureword0 = BgCompileRead32(command);
-            *textureword1 = BgCompileRead32(command + 4);
+            continue;
         }
-        else if (command[0] == BGCOMPILE_G_SETGEOMETRYMODE
-                 && (BgCompileRead32(command + 4)
-                     & BGCOMPILE_G_CULL_BACK))
+        if (!BgCompileWriteCommand(gdl, word0, word1)) { return FALSE; }
+        if (command[0] == BGCOMPILE_G_SETGEOMETRYMODE
+            && (word1 & BGCOMPILE_G_CULL_BACK))
         {
             *cullbackfaces = TRUE;
         }
         else if (command[0] == BGCOMPILE_G_CLEARGEOMETRYMODE
-                 && (BgCompileRead32(command + 4)
-                     & BGCOMPILE_G_CULL_BACK))
+                 && (word1 & BGCOMPILE_G_CULL_BACK))
         {
             *cullbackfaces = FALSE;
         }
     }
+    return TRUE;
 }
 
 
@@ -285,47 +297,70 @@ static BOOL BgCompileEmitVertexLoads(BgCompileBuffer *gdl,
 
 static BOOL BgCompileEmitFaceState(BgCompileBuffer *gdl,
                                    const BgDocumentFace *face,
-                                   DWORD *textureword0,
-                                   DWORD *textureword1,
+                                   BgMaterial *current,
                                    BOOL *cullbackfaces,
                                    const char **reasonout)
 {
-    if (face->textureword0 != *textureword0
-        || face->textureword1 != *textureword1)
-    {
-        if (face->textureword0 == 0 && face->textureword1 == 0)
-        {
-            *reasonout = "a bg face requests no texture after a textured draw group.";
-            return FALSE;
-        }
-        if ((face->textureword0 >> 24) != BGCOMPILE_G_NOOP)
-        {
-            *reasonout = "a bg face contains an invalid texture command.";
-            return FALSE;
-        }
-        if (!BgCompileWriteCommand(gdl, face->textureword0,
-                                   face->textureword1))
-        {
-            return FALSE;
-        }
-        *textureword0 = face->textureword0;
-        *textureword1 = face->textureword1;
-    }
+    const BgMaterial *material = &face->material;
+    BOOL modechanged = material->modeword0 != current->modeword0
+                    || material->modeword1 != current->modeword1;
+    BOOL combinechanged = material->combineword0 != current->combineword0
+                       || material->combineword1 != current->combineword1;
+    BOOL textured = face->textureid != BG_TEX_NONE;
 
+    if ((material->modeword0 >> 24) != BG_G_TEXTURE
+        || (material->combineword0 >> 24) != BG_G_SETCOMBINE
+        || face->textureid != BgMaterialTextureId(material))
+    {
+        *reasonout = "a bg face contains invalid material state.";
+        return FALSE;
+    }
+    /* Reuse a preserved sync until more triangles are drawn. Otherwise each
+     * save/reload would retain the old sync and insert another before it. */
+    if (combinechanged && !gdl->pipesynced
+        && !BgCompileWriteCommand(gdl, BG_G_PIPESYNC << 24, 0)) { return FALSE; }
+    if (modechanged)
+    {
+        /* Establish texturing before vertex loads. When turning it back on,
+         * write G_TEXTURE before C0 so texLoadFromGdl updates this command's
+         * LOD, instead of reusing the preceding G_OFF command. */
+        if (!BgCompileWriteCommand(gdl, material->modeword0, material->modeword1))
+        {
+            return FALSE;
+        }
+        current->modeword0 = material->modeword0;
+        current->modeword1 = material->modeword1;
+    }
+    if (textured && (modechanged
+        || material->textureword0 != current->textureword0
+        || material->textureword1 != current->textureword1))
+    {
+        if (!BgCompileWriteCommand(gdl, material->textureword0, material->textureword1))
+        {
+            return FALSE;
+        }
+        current->textureword0 = material->textureword0;
+        current->textureword1 = material->textureword1;
+    }
+    if (combinechanged)
+    {
+        if (!BgCompileWriteCommand(gdl, material->combineword0, material->combineword1))
+        {
+            return FALSE;
+        }
+        current->combineword0 = material->combineword0;
+        current->combineword1 = material->combineword1;
+    }
     if ((BOOL)face->cullbackfaces != *cullbackfaces)
     {
         DWORD opcode = face->cullbackfaces
-            ? BGCOMPILE_G_SETGEOMETRYMODE
-            : BGCOMPILE_G_CLEARGEOMETRYMODE;
-
-        if (!BgCompileWriteCommand(gdl, opcode << 24,
-                                   BGCOMPILE_G_CULL_BACK))
+            ? BGCOMPILE_G_SETGEOMETRYMODE : BGCOMPILE_G_CLEARGEOMETRYMODE;
+        if (!BgCompileWriteCommand(gdl, opcode << 24, BGCOMPILE_G_CULL_BACK))
         {
             return FALSE;
         }
         *cullbackfaces = face->cullbackfaces;
     }
-
     return TRUE;
 }
 
@@ -333,8 +368,7 @@ static BOOL BgCompileEmitFaceState(BgCompileBuffer *gdl,
 static BOOL BgCompileSameFaceState(const BgDocumentFace *a,
                                    const BgDocumentFace *b)
 {
-    return a->textureword0 == b->textureword0
-        && a->textureword1 == b->textureword1
+    return BgMaterialEqual(&a->material, &b->material)
         && a->cullbackfaces == b->cullbackfaces;
 }
 
@@ -350,7 +384,7 @@ static BOOL BgCompileEmitTriangles(BgCompileBuffer *gdl,
                                    const BgDocumentRoom *room,
                                    const DWORD *faceindices, DWORD facecount,
                                    const DWORD vertices[16], DWORD vertexcount,
-                                   DWORD *textureword0, DWORD *textureword1,
+                                   BgMaterial *material,
                                    BOOL *cullbackfaces,
                                    const char **reasonout)
 {
@@ -364,8 +398,7 @@ static BOOL BgCompileEmitTriangles(BgCompileBuffer *gdl,
         DWORD triangle;
         int corner;
 
-        if (!BgCompileEmitFaceState(gdl, firstface, textureword0,
-                                    textureword1, cullbackfaces, reasonout))
+        if (!BgCompileEmitFaceState(gdl, firstface, material, cullbackfaces, reasonout))
         {
             return FALSE;
         }
@@ -445,8 +478,7 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
                                     const BgDocumentRoom *room,
                                     const DWORD *faceindices,
                                     DWORD facecount,
-                                    DWORD *textureword0,
-                                    DWORD *textureword1,
+                                    BgMaterial *material,
                                     BOOL *cullbackfaces,
                                     const char **reasonout)
 {
@@ -464,7 +496,16 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
             DWORD additions[3];
             DWORD additioncount = 0;
             int corner;
+            const BgMaterial *firstmaterial = &room->faces[faceindices[batchstart]].material;
 
+            /* G_TEXTURE scale/enable affects vertex processing. Reload the
+             * shared vertices when it changes, even if they fit in the cache. */
+            if (batchend > batchstart
+                && (face->material.modeword0 != firstmaterial->modeword0
+                    || face->material.modeword1 != firstmaterial->modeword1))
+            {
+                break;
+            }
             for (corner = 0; corner < 3; corner++)
             {
                 DWORD vertex = face->vertexindices[corner];
@@ -500,10 +541,12 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
         }
 
         BgCompileSortVertices(vertices, vertexcount);
-        if (!BgCompileEmitVertexLoads(gdl, vertices, vertexcount)
+        if (!BgCompileEmitFaceState(gdl, &room->faces[faceindices[batchstart]],
+                                     material, cullbackfaces, reasonout)
+            || !BgCompileEmitVertexLoads(gdl, vertices, vertexcount)
             || !BgCompileEmitTriangles(gdl, room,
                     faceindices + batchstart, batchend - batchstart,
-                    vertices, vertexcount, textureword0, textureword1,
+                    vertices, vertexcount, material,
                     cullbackfaces, reasonout))
         {
             return FALSE;
@@ -522,8 +565,7 @@ static BOOL BgCompileLayer(const BgDocumentRoom *room,
                            const char **reasonout)
 {
     const BgDocumentLayerData *layerdata = &room->layers[layer];
-    DWORD textureword0 = 0;
-    DWORD textureword1 = 0;
+    BgMaterial material = {0};
     BOOL cullbackfaces = FALSE;
     DWORD groupcount = layerdata->groupcount ? layerdata->groupcount : 1;
     DWORD groupindex;
@@ -550,13 +592,11 @@ static BOOL BgCompileLayer(const BgDocumentRoom *room,
                 *reasonout = "a bg draw group contains malformed display-list state.";
                 return FALSE;
             }
-            if (!BgCompileAppend(gdl, group->commands, group->commandsize))
+            if (!BgCompileWriteGroupState(gdl, group->commands, group->commandsize,
+                                           &cullbackfaces))
             {
                 return FALSE;
             }
-            BgCompileScanState(group->commands, group->commandsize,
-                               &textureword0, &textureword1,
-                               &cullbackfaces);
         }
 
         if (room->facecount != 0)
@@ -591,7 +631,7 @@ static BOOL BgCompileLayer(const BgDocumentRoom *room,
         }
 
         if (!BgCompileEmitGroupFaces(gdl, room, faceindices, facecount,
-                                     &textureword0, &textureword1,
+                                     &material,
                                      &cullbackfaces, reasonout))
         {
             free(faceindices);

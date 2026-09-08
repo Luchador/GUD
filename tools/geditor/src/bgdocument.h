@@ -4,6 +4,7 @@
 #include <windows.h>
 
 #include "bgload.h"
+#include "bgmaterial.h"
 
 /* Stable identity used between the editable document and presentation
  * layers. A face remains identifiable even when the viewport sorts its
@@ -60,10 +61,9 @@ typedef struct BgDocumentFace {
     unsigned char layer;
     unsigned char cullbackfaces;
 
-    /* Keep the complete source marker. The low 12 bits identify the image,
-     * while the remaining bits select GoldenEye texture-loading behavior. */
-    DWORD textureword0;
-    DWORD textureword1;
+    /* Complete material state, including texture enable and color combiner,
+     * so textured/untextured faces can share an authored draw group. */
+    BgMaterial material;
 } BgDocumentFace;
 
 typedef struct BgDocumentRoom {
@@ -111,9 +111,11 @@ BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
                            DWORD refcount, DWORD *deletedout,
                            const char **reasonout);
 
-/* Replaces the image in each face's GoldenEye texture command, preserving
- * UVs, shared vertices, and all other texture/render settings. Validates the
- * whole selection before editing; assigning the same image is a no-op. */
+/* Replaces the image on each face, preserving UVs and shared vertices.
+ * Existing textured faces retain their other material settings; untextured
+ * faces receive a standard shaded texture material. BG_TEX_NONE disables
+ * texturing and uses vertex RGBA in both cycles. Validates the whole selection
+ * before editing; assigning the same image is a no-op. */
 BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
                               DWORD refcount, DWORD textureid,
                               BOOL *changedout, const char **reasonout);

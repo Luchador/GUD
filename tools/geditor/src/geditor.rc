@@ -3,6 +3,7 @@
 
 IDI_GEDITOR ICON "icon.ico"
 IDR_GIZMO_ARROW RCDATA "../geditorassets/gizmo_arrow.glb"
+IDR_NO_TEXTURE RCDATA "../geditorassets/no_texture.png"
 
 IDR_VERTEX_SELECT_OFF RCDATA "../geditorassets/verts_select_off.png"
 IDR_VERTEX_SELECT_ON  RCDATA "../geditorassets/verts_select_on.png"
