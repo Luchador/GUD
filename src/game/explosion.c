@@ -671,17 +671,17 @@ u8 explosionChrpropExplosionTick(PropRecord* prop)
 
 Gfx *explosionRender(PropRecord *prop, Gfx *gdl, s32 withalpha)
 {
-    s32 temp_s1;
+    s32 propHomeRoom;
     struct Explosion *explosion;
-    struct coord3d *temp_s6;
-    s32 var_s2;
-    struct bbox2d sp70;
-    s32 temp_f10;
+    struct coord3d *propHomRoomPos;
+    s32 animationFrame;
+    struct bbox2d scissorBox;
+    s32 maxPartAge;
     s32 i;
 
-    temp_s1 = prop->rooms[0];
+    propHomeRoom = prop->rooms[0];
     explosion = prop->explosion;
-    temp_s6 = getRoomPositionByIndex((s32) temp_s1);
+    propHomRoomPos = getRoomPositionByID((s32) propHomeRoom);
 
     if (withalpha == 0)
     {
@@ -689,9 +689,9 @@ Gfx *explosionRender(PropRecord *prop, Gfx *gdl, s32 withalpha)
     }
     else
     {
-        if (getPropCombinedRoomsBBox2D(prop, &sp70) > 0)
+        if (getPropCombinedRoomsBBox2D(prop, &scissorBox) > 0)
         {
-            gdl = bgScissorCurrentPlayerViewF(gdl, sp70.min.f[0], sp70.min.f[1], sp70.max.f[0], sp70.max.f[1]);
+            gdl = bgScissorCurrentPlayerViewF(gdl, scissorBox.min.f[0], scissorBox.min.f[1], scissorBox.max.f[0], scissorBox.max.f[1]);
         }
         else
         {
@@ -701,30 +701,30 @@ Gfx *explosionRender(PropRecord *prop, Gfx *gdl, s32 withalpha)
         gSPClearGeometryMode(gdl++, G_CULL_BOTH | G_FOG);
         gSPMatrix(gdl++, osVirtualToPhysical(camGetPlayerProjViewMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
 
-        gdl = applyRoomMatrixToDisplayList(gdl, temp_s1);
+        gdl = applyRoomMatrixToDisplayList(gdl, propHomeRoom);
 
         gSPSegment(gdl++, SPSEGMENT_GETITLE, osVirtualToPhysical(pGlobalimagetable));
 
-        for (var_s2 = 14; var_s2 >= 0; var_s2--)
+        for (animationFrame = ARRAYCOUNT(g_ExplosionDisplayLists) - 1; animationFrame >= 0; animationFrame--)
         {
-            gSPDisplayList(gdl++, g_ExplosionDisplayLists[var_s2]);
+            gSPDisplayList(gdl++, g_ExplosionDisplayLists[animationFrame]);
 
             for (i = 0; i < EXPLOSION_PARTS_LEN; i++)
             {
-                if (explosion->parts[i].frame > 0 && var_s2 == (s32)( (f32)(explosion->parts[i].frame - 1) / g_ExplosionTypes[explosion->explosion_type].flareanimspeed ) )
+                if (explosion->parts[i].frame > 0 && animationFrame == (s32)( (f32)(explosion->parts[i].frame - 1) / g_ExplosionTypes[explosion->explosion_type].flareanimspeed ) )
                 {
-                    gdl = explosionRenderPart(&explosion->parts[i], gdl, temp_s6);
+                    gdl = explosionRenderPart(&explosion->parts[i], gdl, propHomRoomPos);
                 }
             }
         }
 
         gSPMatrix(gdl++, osVirtualToPhysical((void*)camGetPlayerProjMtx()), (G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION));
 
-        temp_f10 = (s32) (g_ExplosionTypes[explosion->explosion_type].flareanimspeed * 15.0f);
+        maxPartAge = (s32) (g_ExplosionTypes[explosion->explosion_type].flareanimspeed * (f32)ARRAYCOUNT(g_ExplosionDisplayLists));
 
         for (i = 0; i < EXPLOSION_PARTS_LEN; i++)
         {
-            if (temp_f10 < explosion->parts[i].frame)
+            if (maxPartAge < explosion->parts[i].frame)
             {
                 explosion->parts[i].frame = 0;
             }
@@ -1263,7 +1263,7 @@ Gfx *explosionRenderPropSmoke(PropRecord *arg0, Gfx *gdl, s32 withalpha)
 
     temp_s1 = arg0->rooms[0];
     smoke = arg0->smoke;
-    temp_s5 = getRoomPositionByIndex(temp_s1);
+    temp_s5 = getRoomPositionByID(temp_s1);
 
     if (withalpha == 0)
     {
@@ -1537,7 +1537,7 @@ void explosionScorchTick(struct coord3d *pos, f32 explosion_size, s16 room)
     sp54 = RANDOMFRAC() * M_TAU_F;
     sp4B = 0xFF - (randomGetNext() % 80U);
 
-    temp_s0 = getRoomPositionByIndex((s32) room);
+    temp_s0 = getRoomPositionByID((s32) room);
 
     if (getPlayerCount() < 2)
     {
@@ -1839,7 +1839,7 @@ void explosionCreateBulletImpact(struct coord3d *pos, struct coord3d *arg1, s16 
     }
     else
     {
-        roomPosition = getRoomPositionByIndex((s32) room);
+        roomPosition = getRoomPositionByID((s32) room);
         spA0.f[0] = (spA0.f[0] * bgGetRoomScale()) - roomPosition->f[0];
         spA0.f[1] = (spA0.f[1] * bgGetRoomScale()) - roomPosition->f[1];
         spA0.f[2] = (spA0.f[2] * bgGetRoomScale()) - roomPosition->f[2];

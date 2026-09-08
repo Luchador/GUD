@@ -1,6 +1,5 @@
-/* Builds the editor's placed-object layer from setup records and the
-   model glTF files stored in a project. Character records are deliberately
-   excluded: their skeleton assembly is a separate concern. */
+/* Builds the editor's placed-model layer from setup records and project
+   glTF files. Character body/head assembly is handled by characterload. */
 
 #include <windows.h>
 #include <math.h>
@@ -12,6 +11,7 @@
 
 #include "modelload.h"
 #include "objectload.h"
+#include "characterload.h"
 #include "romexport.h"
 
 #define OBJECT_MODEL_CACHE_COUNT 512
@@ -453,6 +453,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
 {
     ModelCacheEntry cache[OBJECT_MODEL_CACHE_COUNT];
     ObjectBuilder builder;
+    SetupObjectGeometry characters;
     float worldscale;
     RomFile rom;
     char basepath[MAX_PATH];
@@ -467,6 +468,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
     ZeroMemory(out, sizeof(*out));
     ZeroMemory(cache, sizeof(cache));
     ZeroMemory(&builder, sizeof(builder));
+    ZeroMemory(&characters, sizeof(characters));
     ZeroMemory(&rom, sizeof(rom));
     *reasonout = "";
 
@@ -744,6 +746,30 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         out->objectcount++;
     }
 
+    if (!CharacterLoadSetupGeometry(projectdir, setup, stan, &rom, levelscale,
+                                     &characters, reasonout)) { goto fail; }
+    if (characters.tricount > 0)
+    {
+        if (!ObjectBuilderReserve(&builder, characters.tricount))
+        {
+            *reasonout = "out of memory adding characters to the scene.";
+            goto fail;
+        }
+        memcpy(builder.tris + builder.tricount * 3, characters.tris,
+            (size_t)characters.tricount * 3 * sizeof(*builder.tris));
+        memcpy(builder.tritags + builder.tricount, characters.tritags,
+            (size_t)characters.tricount * sizeof(*builder.tritags));
+        memcpy(builder.objectindices + builder.tricount, characters.objectindices,
+            (size_t)characters.tricount * sizeof(*builder.objectindices));
+        builder.tricount += characters.tricount;
+        for (i = 0; i < setup->padcount; i++)
+        {
+            out->occupiedpads[i] |= characters.occupiedpads[i];
+        }
+        out->objectcount += characters.objectcount;
+    }
+    ObjectGeometryFree(&characters);
+
     for (i = 0; i < OBJECT_MODEL_CACHE_COUNT; i++)
     {
         free(cache[i].tris);
@@ -760,6 +786,7 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
     return TRUE;
 
 fail:
+    ObjectGeometryFree(&characters);
     free(supports);
     free(padtiles);
     RomFree(&rom);

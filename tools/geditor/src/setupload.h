@@ -36,6 +36,22 @@ typedef struct SetupObject {
     BOOL nonsolid;              /* authored PROPSTATE_NONSOLID */
 } SetupObject;
 
+/* GuardRecord uses a different layout from ObjectRecord. Keep its source
+   values separate so prop editing cannot overwrite character commands. */
+typedef struct SetupCharacter {
+    unsigned short chrnum;
+    unsigned short pad;
+    unsigned short bodyid;
+    short headid;              /* negative: choose a head for this body */
+    unsigned short ailistid;
+    unsigned short flags;
+    DWORD sourceoffset;
+} SetupCharacter;
+
+/* The viewport shares picking and selection boxes for placed models. The
+   high bit distinguishes character indices from the existing prop indices. */
+#define SETUP_CHARACTER_SELECTION_BIT 0x80000000u
+
 /* Builds an oriented box in gameplay world coordinates. The local
    axes are the same ones GoldenEye uses for bound-pad volume tests. */
 void SetupPadGetBoxCorners(const SetupPad *pad,
@@ -57,6 +73,8 @@ typedef struct SetupFile {
     DWORD boundpadcount;
     SetupObject *objects;
     DWORD objectcount;
+    SetupCharacter *characters;
+    DWORD charactercount;
     BOOL dirty;
 } SetupFile;
 

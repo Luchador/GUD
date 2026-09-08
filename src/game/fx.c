@@ -238,7 +238,7 @@ static void fxRenderBulletSpark(BulletSpark *spark, Gfx **gdl, s32 zbufferMode)
     viewToWorld = currentPlayerGetViewToWorldMtxf();
     displayList = *gdl;
     vertices = dynAllocateVertices(4);
-    roomPosition = getRoomPositionByIndex(spark->room);
+    roomPosition = getRoomPositionByID(spark->room);
     roomScale = bgGetRoomScale();
 
     vertexTemplate.v.cn[0] = spark->color.r;

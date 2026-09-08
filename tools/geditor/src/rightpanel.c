@@ -17,6 +17,7 @@
 
 #include "rightpanel.h"
 #include "colorpicker.h"
+#include "characterload.h"
 
 #define RIGHTPANEL_CLASS "GEditorRightPanel"
 
@@ -704,6 +705,39 @@ void RightPanelSetSetupObject(HWND panel, const SetupObject *object,
         (unsigned long)object->flags, (unsigned long)object->flags2);
     state->detailtext[sizeof(state->detailtext) - 1] = '\0';
 
+    SetWindowText(state->details, state->detailtext);
+    InvalidateRect(panel, NULL, FALSE);
+}
+
+
+void RightPanelSetSetupCharacter(HWND panel, const SetupCharacter *character)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    CharacterModelDefinition body, head;
+    int bodyid, headid;
+    const char *headname = "Included in body";
+
+    if (state == NULL || character == NULL
+        || !CharacterResolveModels(character, &bodyid, &headid)
+        || !CharacterGetModelDefinition(bodyid, &body)) { return; }
+    if (headid >= 0 && CharacterGetModelDefinition(headid, &head))
+    {
+        headname = head.filename;
+    }
+    lstrcpyn(state->detailtitle, "Setup Character", sizeof(state->detailtitle));
+    snprintf(state->detailtext, sizeof(state->detailtext),
+        "Character ID: %u\r\n"
+        "Body: %s\r\n"
+        "Head: %s%s\r\n"
+        "Pad: %u\r\n"
+        "AI list: 0x%04X\r\n"
+        "Flags: 0x%04X\r\n"
+        "\r\nCharacter preview (read-only)",
+        (unsigned int)character->chrnum, body.filename, headname,
+        headid >= 0 && character->headid < 0 ? " (random preview)" : "",
+        (unsigned int)character->pad, (unsigned int)character->ailistid,
+        (unsigned int)character->flags);
+    state->detailtext[sizeof(state->detailtext) - 1] = '\0';
     SetWindowText(state->details, state->detailtext);
     InvalidateRect(panel, NULL, FALSE);
 }

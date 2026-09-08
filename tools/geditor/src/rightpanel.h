@@ -39,5 +39,6 @@ void RightPanelSetBgTriangle(HWND panel, const BgDocument *document,
 void RightPanelSetBgSelectionCount(HWND panel, int count);
 void RightPanelSetSetupObject(HWND panel, const SetupObject *object,
                               DWORD objectindex);
+void RightPanelSetSetupCharacter(HWND panel, const SetupCharacter *character);
 
 #endif /* GEDITOR_RIGHTPANEL_H */

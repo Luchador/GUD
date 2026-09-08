@@ -20,6 +20,15 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
                             DWORD *tricount, unsigned short **texids,
                             const char **reasonout);
 
+/* Character exports retain only the closest LOD of each body part. */
+BgVertex *ModelLoadCharacterGeometry(const unsigned char *data, DWORD maxlen,
+                                     DWORD *tricount, unsigned short **texids,
+                                     const char **reasonout);
+
+/* Model-space position of MODELNODE_OPCODE_HEAD in the unanimated body. */
+BOOL ModelReadHeadAttachment(const unsigned char *data, DWORD size,
+                             float position[3]);
+
 /* Looks up a setup ObjectRecord's model ID in GoldenEye's canonical
    PitemZ_entries table. The returned name is the extracted P...Z
    resource filename and scale is the model's authored base scale. */

@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <src/propconstants.h>
 
 #include "setupload.h"
 
@@ -146,6 +147,8 @@ static BOOL SetupParseObjects(SetupFile *setup, const char **reasonout)
     DWORD commandcount;
     DWORD objectcount = 0;
     DWORD objectat = 0;
+    DWORD charactercount = 0;
+    DWORD characterat = 0;
 
     offset = SetupRead32(setup->data + SETUP_OBJECT_POINTER);
 
@@ -163,8 +166,8 @@ static BOOL SetupParseObjects(SetupFile *setup, const char **reasonout)
 
     at = offset;
 
-    /* First validate the complete variable-sized list and count only
-       records which actually create a visible non-character object. */
+    /* Validate the complete variable-sized list before decoding props and
+       characters into their separate host-native record arrays. */
     for (commandcount = 0; commandcount < SETUP_OBJECT_MAX; commandcount++)
     {
         unsigned char type;
@@ -199,6 +202,10 @@ static BOOL SetupParseObjects(SetupFile *setup, const char **reasonout)
             }
             objectcount++;
         }
+        else if (type == PROPDEF_GUARD)
+        {
+            charactercount++;
+        }
 
         at += bytes;
     }
@@ -209,13 +216,22 @@ static BOOL SetupParseObjects(SetupFile *setup, const char **reasonout)
         return FALSE;
     }
 
-    if (objectcount == 0)
+    if (objectcount == 0 && charactercount == 0)
     {
         return TRUE;
     }
 
-    setup->objects = (SetupObject *)malloc(objectcount * sizeof(*setup->objects));
-    if (setup->objects == NULL)
+    if (objectcount > 0)
+    {
+        setup->objects = (SetupObject *)malloc(objectcount * sizeof(*setup->objects));
+    }
+    if (charactercount > 0)
+    {
+        setup->characters = (SetupCharacter *)malloc(
+            charactercount * sizeof(*setup->characters));
+    }
+    if ((objectcount > 0 && setup->objects == NULL)
+        || (charactercount > 0 && setup->characters == NULL))
     {
         *reasonout = "out of memory decoding the setup's objects.";
         return FALSE;
@@ -244,11 +260,24 @@ static BOOL SetupParseObjects(SetupFile *setup, const char **reasonout)
                 (object->flags2 & SETUP_OBJECT_DELETED_FLAGS2)
                     == SETUP_OBJECT_DELETED_FLAGS2;
         }
+        else if (type == PROPDEF_GUARD)
+        {
+            SetupCharacter *character = &setup->characters[characterat++];
+
+            character->chrnum = (unsigned short)SetupRead16(record + 4);
+            character->pad = (unsigned short)SetupRead16(record + 6);
+            character->bodyid = (unsigned short)SetupRead16(record + 8);
+            character->ailistid = (unsigned short)SetupRead16(record + 10);
+            character->flags = (unsigned short)SetupRead16(record + 20);
+            character->headid = SetupRead16(record + 22);
+            character->sourceoffset = at;
+        }
 
         at += bytes;
     }
 
     setup->objectcount = objectat;
+    setup->charactercount = characterat;
     return TRUE;
 }
 
@@ -698,7 +727,8 @@ BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
     if ((source->size > 0 && source->data == NULL)
         || (source->padcount > 0 && source->pads == NULL)
         || (source->boundpadcount > 0 && source->boundpads == NULL)
-        || (source->objectcount > 0 && source->objects == NULL))
+        || (source->objectcount > 0 && source->objects == NULL)
+        || (source->charactercount > 0 && source->characters == NULL))
     {
         *reasonout = "the setup document is incomplete.";
         return FALSE;
@@ -723,11 +753,17 @@ BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
         out->objects = (SetupObject *)malloc(
             (size_t)source->objectcount * sizeof(*out->objects));
     }
+    if (source->charactercount > 0)
+    {
+        out->characters = (SetupCharacter *)malloc(
+            (size_t)source->charactercount * sizeof(*out->characters));
+    }
 
     if ((source->size > 0 && out->data == NULL)
         || (source->padcount > 0 && out->pads == NULL)
         || (source->boundpadcount > 0 && out->boundpads == NULL)
-        || (source->objectcount > 0 && out->objects == NULL))
+        || (source->objectcount > 0 && out->objects == NULL)
+        || (source->charactercount > 0 && out->characters == NULL))
     {
         SetupFileFree(out);
         *reasonout = "out of memory copying the setup document.";
@@ -753,11 +789,17 @@ BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
         memcpy(out->objects, source->objects,
                (size_t)source->objectcount * sizeof(*out->objects));
     }
+    if (source->charactercount > 0)
+    {
+        memcpy(out->characters, source->characters,
+               (size_t)source->charactercount * sizeof(*out->characters));
+    }
 
     out->size = source->size;
     out->padcount = source->padcount;
     out->boundpadcount = source->boundpadcount;
     out->objectcount = source->objectcount;
+    out->charactercount = source->charactercount;
     out->dirty = source->dirty;
     lstrcpyn(out->name, source->name, sizeof(out->name));
     return TRUE;
@@ -801,6 +843,7 @@ BOOL SetupFileDeleteObject(SetupFile *setup, DWORD objectindex,
 
 void SetupFileFree(SetupFile *setup)
 {
+    free(setup->characters);
     free(setup->objects);
     free(setup->boundpads);
     free(setup->pads);

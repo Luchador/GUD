@@ -444,9 +444,69 @@ BOOL ModelReadPlacementBounds(const unsigned char *data, DWORD size,
     return FALSE;
 }
 
-BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
+/* Character assets contain several distance variants of the same body part.
+   Export the distance-zero branch so flattened glTFs contain one visible
+   surface per part, rather than overlapping near and far meshes. */
+static BOOL MdlNodeInClosestLod(const unsigned char *data, DWORD size, DWORD node)
+{
+    int visited = 0;
+
+    while (node != 0)
+    {
+        if (node > size - 24 || visited++ >= MDL_MAX_NODES) { return FALSE; }
+        if (((unsigned short)md16(data + node) & 0xff) == 0x08)
+        {
+            DWORD offset = mdoff(md32(data + node + 4));
+            union { DWORD bits; float value; } minimum, maximum;
+
+            if (offset == 0 || offset > size - 8) { return FALSE; }
+            minimum.bits = md32(data + offset);
+            maximum.bits = md32(data + offset + 4);
+            if (!isfinite(minimum.value) || !isfinite(maximum.value)
+                || minimum.value > 0.0f || maximum.value < 0.0f)
+            {
+                return FALSE;
+            }
+        }
+        node = mdoff(md32(data + node + 8));
+    }
+    return TRUE;
+}
+
+BOOL ModelReadHeadAttachment(const unsigned char *data, DWORD size, float position[3])
+{
+    DWORD stack[MDL_MAX_NODES];
+    DWORD root;
+    int count = 0, visited = 0;
+
+    if (data == NULL || size < 40) { return FALSE; }
+    root = ModelFindRootNode(data, size);
+    if (root == 0) { return FALSE; }
+    stack[count++] = root;
+    while (count > 0 && visited++ < MDL_MAX_NODES)
+    {
+        DWORD node = stack[--count];
+        DWORD next, child;
+
+        if (node == 0 || node > size - 24) { continue; }
+        if (((unsigned short)md16(data + node) & 0xff) == 0x17)
+        {
+            return MdlNodeTranslation(data, size, node, position);
+        }
+        next = mdoff(md32(data + node + 12));
+        child = mdoff(md32(data + node + 20));
+        if (count + 2 <= MDL_MAX_NODES)
+        {
+            if (next != 0) { stack[count++] = next; }
+            if (child != 0) { stack[count++] = child; }
+        }
+    }
+    return FALSE;
+}
+
+static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
                             DWORD *tricount, unsigned short **texids,
-                            const char **reasonout)
+                            const char **reasonout, BOOL closestlod)
 {
     MdlBuilder b;
     MdlPose pose;
@@ -543,7 +603,10 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
             b.error = "model has an invalid node transform.";
             break;
         }
-        MdlNodeMeshes(&b, data, maxlen, flags & 0xff, dataoff, &pose, origin);
+        if (!closestlod || MdlNodeInClosestLod(data, maxlen, node))
+        {
+            MdlNodeMeshes(&b, data, maxlen, flags & 0xff, dataoff, &pose, origin);
+        }
     }
 
     if (b.error || b.count == 0)
@@ -558,6 +621,20 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
     *tricount = b.count / 3;
     *texids = b.texids;
     return b.verts;
+}
+
+BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
+                            DWORD *tricount, unsigned short **texids,
+                            const char **reasonout)
+{
+    return MdlLoadGeometry(data, maxlen, tricount, texids, reasonout, FALSE);
+}
+
+BgVertex *ModelLoadCharacterGeometry(const unsigned char *data, DWORD maxlen,
+                                     DWORD *tricount, unsigned short **texids,
+                                     const char **reasonout)
+{
+    return MdlLoadGeometry(data, maxlen, tricount, texids, reasonout, TRUE);
 }
 
 static const char *MdlClassFolder(const char *name)
@@ -623,7 +700,10 @@ DWORD ModelExtractAll(const RomFile *rom, const char *projectdir,
             continue;
         }
 
-        tris = ModelLoadGeometry(rom->data + offset, maxlen,
+        tris = name[0] == 'C'
+            ? ModelLoadCharacterGeometry(rom->data + offset, maxlen,
+                                         &tricount, &texids, &why)
+            : ModelLoadGeometry(rom->data + offset, maxlen,
                                  &tricount, &texids, &why);
 
         if (tris != NULL)

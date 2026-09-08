@@ -198,7 +198,7 @@ Gfx * applyRoomMatrixToDisplayList(Gfx *gdl, s32 roomID)
 /**
  * Returns the position of a room by its roomID.
  */
-struct coord3d* getRoomPositionByIndex(s32 roomID)
+struct coord3d* getRoomPositionByID(s32 roomID)
 {
     return &ptr_bgdata_room_fileposition_list[roomID].pos;
 }

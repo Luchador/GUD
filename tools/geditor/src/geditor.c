@@ -155,6 +155,12 @@ static void GEditorRefreshSelectionDetails(void)
         RightPanelSetSetupObject(g_RightPanel,
             &g_CurrentSetup.objects[selectedobject], selectedobject);
     }
+    else if (objectselected && (selectedobject & SETUP_CHARACTER_SELECTION_BIT)
+        && (selectedobject & ~SETUP_CHARACTER_SELECTION_BIT) < g_CurrentSetup.charactercount)
+    {
+        DWORD index = selectedobject & ~SETUP_CHARACTER_SELECTION_BIT;
+        RightPanelSetSetupCharacter(g_RightPanel, &g_CurrentSetup.characters[index]);
+    }
     else if (count == 1 && ViewportGetSingleSelectedBgFace(g_Viewport, &selected))
     {
         RightPanelSetBgTriangle(g_RightPanel, &g_CurrentBgDocument, &selected);
