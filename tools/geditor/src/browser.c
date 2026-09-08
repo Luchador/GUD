@@ -34,7 +34,10 @@ typedef struct BrowserSection {
 #define BROWSER_SECTION_IMAGES 1
 #define BROWSER_SECTION_MODELS 2
 #define BROWSER_MAX_MODELS 512
-#define BROWSER_IMAGE_ROW_H 36
+#define BROWSER_IMAGE_CELL_W (TEX_THUMB_MAX + 24)
+#define BROWSER_IMAGE_LABEL_H 16
+#define BROWSER_IMAGE_CELL_H (TEX_THUMB_MAX + BROWSER_IMAGE_LABEL_H + 8)
+#define BROWSER_IMAGE_MARGIN 4
 #define BROWSER_MAX_LEVELS 64
 #define BROWSER_ROW_H 16
 
@@ -56,8 +59,25 @@ typedef struct BrowserState {
 
 #define BROWSER_SCROLLBAR_W 8
 
+/* Reserve the scrollbar gutter even when all images fit, so showing the
+   scrollbar cannot itself change the number of columns. */
+static int BrowserImageGridWidth(const RECT *body)
+{
+    int width = body->right - body->left
+              - BROWSER_IMAGE_MARGIN * 2 - BROWSER_SCROLLBAR_W - 2;
+
+    return width > 0 ? width : 1;
+}
+
+static int BrowserImageColumns(const RECT *body)
+{
+    int columns = BrowserImageGridWidth(body) / BROWSER_IMAGE_CELL_W;
+
+    return columns > 0 ? columns : 1;
+}
+
 /*
- * Pixel height of a section's content, independent of the body rect.
+ * Pixel height of a section's content. The image grid wraps to body width.
  * Images and Models report 0 until they have content to show.
  */
 static int BrowserContentHeight(const BrowserState *state, int section)
@@ -69,7 +89,10 @@ static int BrowserContentHeight(const BrowserState *state, int section)
 
     if (section == BROWSER_SECTION_IMAGES)
     {
-        return state->imagecount > 0 ? state->imagecount * BROWSER_IMAGE_ROW_H + 8 : 0;
+        int columns = BrowserImageColumns(&state->sections[section].bodyrc);
+        int rows = state->imagecount / columns + (state->imagecount % columns != 0);
+
+        return rows > 0 ? rows * BROWSER_IMAGE_CELL_H + BROWSER_IMAGE_MARGIN * 2 : 0;
     }
 
     if (section == BROWSER_SECTION_MODELS)
@@ -198,6 +221,10 @@ static void BrowserLayoutSections(BrowserState *state, const RECT *client)
         sec->headerrc.bottom = y + BROWSER_HEADER_H;
         y = sec->headerrc.bottom;
 
+        sec->bodyrc.left = 0;
+        sec->bodyrc.right = client->right;
+        sec->bodyrc.top = y;
+        sec->bodyrc.bottom = y;
         if (sec->expanded)
         {
             int h = perbody;
@@ -209,9 +236,6 @@ static void BrowserLayoutSections(BrowserState *state, const RECT *client)
                 h = bodyspace - perbody * (expandedcount - 1);
             }
 
-            sec->bodyrc.left = 0;
-            sec->bodyrc.right = client->right;
-            sec->bodyrc.top = y;
             sec->bodyrc.bottom = y + h;
             y = sec->bodyrc.bottom;
         }
@@ -375,13 +399,17 @@ static void BrowserPaintLevelRows(BrowserState *state, HDC hdc, const RECT *body
 }
 
 /*
- * Image rows: thumbnail left, label right. Thumbs are top-down RGBA in
+ * Image grid: centered thumbnails with their IDs below. Thumbs are top-down BGRA in
  * the shared block; StretchDIBits takes them straight from memory via
  * a negative-height BITMAPINFO, so no per-item GDI bitmaps ever exist.
  */
-static void BrowserPaintImageRows(BrowserState *state, HDC hdc, const RECT *body)
+static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body)
 {
-    int y = body->top + 4 - state->scroll[BROWSER_SECTION_IMAGES];
+    int columns = BrowserImageColumns(body);
+    int width = BrowserImageGridWidth(body);
+    int scroll = state->scroll[BROWSER_SECTION_IMAGES];
+    int firstrow = scroll > BROWSER_IMAGE_MARGIN
+        ? (scroll - BROWSER_IMAGE_MARGIN) / BROWSER_IMAGE_CELL_H : 0;
     int i;
     BITMAPINFO bmi;
 
@@ -393,17 +421,23 @@ static void BrowserPaintImageRows(BrowserState *state, HDC hdc, const RECT *body
 
     SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT));
 
-    for (i = 0; i < state->imagecount; i++, y += BROWSER_IMAGE_ROW_H)
+    for (i = firstrow * columns; i < state->imagecount; i++)
     {
         const TexThumb *t;
         RECT rc;
+        int column = i % columns;
+        int y = body->top + BROWSER_IMAGE_MARGIN
+              + (i / columns) * BROWSER_IMAGE_CELL_H - scroll;
 
-        if (y + BROWSER_IMAGE_ROW_H < body->top || y > body->bottom)
+        if (y >= body->bottom)
         {
-            continue;
+            break;
         }
 
         t = &state->images[i];
+        /* Share leftover width between columns, including rounding pixels. */
+        rc.left = body->left + BROWSER_IMAGE_MARGIN + column * width / columns;
+        rc.right = body->left + BROWSER_IMAGE_MARGIN + (column + 1) * width / columns;
 
         if (t->w > 0 && t->h > 0)
         {
@@ -413,20 +447,19 @@ static void BrowserPaintImageRows(BrowserState *state, HDC hdc, const RECT *body
             bmi.bmiHeader.biHeight = -t->h; /* negative: top-down */
 
             StretchDIBits(hdc,
-                          26, y + (BROWSER_IMAGE_ROW_H - 4 - t->h) / 2 + 2,
+                          rc.left + (rc.right - rc.left - t->w) / 2,
+                          y + (TEX_THUMB_MAX - t->h) / 2,
                           t->w, t->h,
                           0, 0, t->w, t->h,
                           state->imagepixels + t->pixeloffset,
                           &bmi, DIB_RGB_COLORS, SRCCOPY);
         }
 
-        rc.left = 26 + TEX_THUMB_MAX + 8;
-        rc.right = body->right - BROWSER_SCROLLBAR_W - 6;
-        rc.top = y;
-        rc.bottom = y + BROWSER_IMAGE_ROW_H;
+        rc.top = y + TEX_THUMB_MAX + 4;
+        rc.bottom = rc.top + BROWSER_IMAGE_LABEL_H;
 
         DrawText(hdc, t->label, -1, &rc,
-                 DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_END_ELLIPSIS | DT_NOPREFIX);
+                 DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
     }
 }
 
@@ -530,7 +563,7 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
                 }
                 else if (i == BROWSER_SECTION_IMAGES)
                 {
-                    BrowserPaintImageRows(state, hdc, &sec->bodyrc);
+                    BrowserPaintImageGrid(state, hdc, &sec->bodyrc);
                 }
                 else
                 {
@@ -742,8 +775,10 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 if (sec->expanded && PtInRect(&sec->bodyrc, p))
                 {
                     int notches = GET_WHEEL_DELTA_WPARAM(wparam) / WHEEL_DELTA;
+                    int step = i == BROWSER_SECTION_IMAGES
+                        ? BROWSER_IMAGE_CELL_H : 3 * BROWSER_ROW_H;
 
-                    state->scroll[i] -= notches * 3 * BROWSER_ROW_H;
+                    state->scroll[i] -= notches * step;
                     BrowserClampScroll(state, i);
                     InvalidateRect(hwnd, NULL, FALSE);
                     break;
@@ -767,8 +802,33 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     }
 
     case WM_SIZE:
-        /* Rects are derived from the client size at paint time; all a
-           resize needs is a repaint. */
+        if (state != NULL)
+        {
+            RECT client;
+            const RECT *body = &state->sections[BROWSER_SECTION_IMAGES].bodyrc;
+            int oldcolumns = BrowserImageColumns(body);
+            int scroll = state->scroll[BROWSER_SECTION_IMAGES];
+            int row = scroll > BROWSER_IMAGE_MARGIN
+                ? (scroll - BROWSER_IMAGE_MARGIN) / BROWSER_IMAGE_CELL_H : 0;
+            int columns;
+            int i;
+
+            GetClientRect(hwnd, &client);
+            BrowserLayoutSections(state, &client);
+            columns = BrowserImageColumns(body);
+            if (columns != oldcolumns)
+            {
+                /* Keep the previous top image's new row at the same vertical
+                   offset, then clamp if the wider grid now fits entirely. */
+                state->scroll[BROWSER_SECTION_IMAGES] =
+                    (row * oldcolumns / columns) * BROWSER_IMAGE_CELL_H
+                    + scroll - row * BROWSER_IMAGE_CELL_H;
+            }
+            for (i = 0; i < BROWSER_SECTION_COUNT; i++)
+            {
+                BrowserClampScroll(state, i);
+            }
+        }
         InvalidateRect(hwnd, NULL, FALSE);
         return 0;
 
