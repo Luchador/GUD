@@ -1392,25 +1392,21 @@ static void ViewportClearAllSelection(ViewportState *state)
 }
 
 
-/* Painting never cycles through the face-selection hit stack. Resolve the
-   closest visible BG face, then the corner nearest its world-space hit point.
+/* Editing never cycles through the face-selection hit stack.
    Primary wins exact depth ties, matching the viewport's GL_LESS draw order. */
-static BOOL ViewportFindPaintTarget(const ViewportState *state,
-                                     const ViewportPickRay *ray,
-                                     ViewportBgVertexHit *hit)
+static int ViewportFindNearestBgTriangle(const ViewportState *state,
+                                         const ViewportPickRay *ray,
+                                         double *distanceout)
 {
     double nearestdistance = DBL_MAX;
     double objectdistance;
-    double cornerdistance = DBL_MAX;
-    double position[3];
     int triangle = -1;
     int secondary;
     int batchindex;
-    unsigned int corner;
 
     if (state->scene == NULL || state->scenefacerefs == NULL)
     {
-        return FALSE;
+        return -1;
     }
     for (secondary = 0; secondary <= 1; secondary++)
     {
@@ -1439,14 +1435,65 @@ static BOOL ViewportFindPaintTarget(const ViewportState *state,
     }
     if (triangle < 0 || state->scenefacerefs[triangle].faceid == BG_FACE_ID_NONE)
     {
-        return FALSE;
+        return -1;
     }
     /* A visible object in front of the wall blocks painting through it. */
     if (ViewportFindPickedObject(state, ray, &objectdistance) != VIEWPORT_OBJECT_NONE
         && objectdistance < nearestdistance)
     {
+        return -1;
+    }
+    *distanceout = nearestdistance;
+    return triangle;
+}
+
+
+BOOL ViewportGetTextureDropFace(HWND hwnd, POINT screen,
+                                BgFaceRef *out, BOOL *selectedout)
+{
+    ViewportState *state = (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+    ViewportPickRay ray;
+    RECT client;
+    double distance, standistance;
+    int triangle;
+
+    if (state == NULL || state->flying || state->dragaxis >= 0
+        || state->tool != EDITOR_TOOL_FACE_SELECT || out == NULL || selectedout == NULL)
+    {
         return FALSE;
     }
+    ScreenToClient(hwnd, &screen);
+    GetClientRect(hwnd, &client);
+    if (!PtInRect(&client, screen)
+        || !ViewportBuildPickRay(hwnd, state, screen.x, screen.y, &ray))
+    {
+        return FALSE;
+    }
+    triangle = ViewportFindNearestBgTriangle(state, &ray, &distance);
+    if (triangle < 0) { return FALSE; }
+    if (ViewportFindPickedStan(state, &ray, &standistance) != STAN_TILE_NONE
+        && standistance <= distance + ViewportCoplanarPickTolerance(distance))
+    {
+        return FALSE;
+    }
+    *out = state->scenefacerefs[triangle];
+    *selectedout = state->selectedtris != NULL && state->selectedtris[triangle];
+    return TRUE;
+}
+
+
+/* Resolve the corner nearest the world-space hit on the closest BG face. */
+static BOOL ViewportFindPaintTarget(const ViewportState *state,
+                                     const ViewportPickRay *ray,
+                                     ViewportBgVertexHit *hit)
+{
+    double nearestdistance;
+    double cornerdistance = DBL_MAX;
+    double position[3];
+    unsigned int corner;
+    int triangle = ViewportFindNearestBgTriangle(state, ray, &nearestdistance);
+
+    if (triangle < 0) { return FALSE; }
     position[0] = ray->origin[0] + ray->direction[0] * nearestdistance;
     position[1] = ray->origin[1] + ray->direction[1] * nearestdistance;
     position[2] = ray->origin[2] + ray->direction[2] * nearestdistance;

@@ -15,9 +15,11 @@
 
 #include <windows.h>
 #include <windowsx.h>  /* GET_X_LPARAM / GET_Y_LPARAM */
+#include <commctrl.h>
 #include <stdlib.h>
 
 #include "browser.h"
+#include "bgload.h"
 
 #define BROWSER_CLASS    "GEditorBrowser"
 #define BROWSER_HEADER_H 26
@@ -55,6 +57,8 @@ typedef struct BrowserState {
     int dragsection;                     /* thumb being dragged, or -1 */
     int dragstarty;
     int dragstartscroll;
+    HIMAGELIST dragimage;
+    DWORD dragtextureid;
 } BrowserState;
 
 #define BROWSER_SCROLLBAR_W 8
@@ -589,6 +593,122 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
     SelectObject(hdc, oldfont);
 }
 
+static int BrowserHitImage(const BrowserState *state, POINT point)
+{
+    const BrowserSection *section = &state->sections[BROWSER_SECTION_IMAGES];
+    int width = BrowserImageGridWidth(&section->bodyrc);
+    int columns = BrowserImageColumns(&section->bodyrc);
+    int x = point.x - section->bodyrc.left - BROWSER_IMAGE_MARGIN;
+    int y = point.y - section->bodyrc.top - BROWSER_IMAGE_MARGIN
+          + state->scroll[BROWSER_SECTION_IMAGES];
+    int image;
+
+    if (!section->expanded || !PtInRect(&section->bodyrc, point)
+        || x < 0 || x >= width || y < 0)
+    {
+        return -1;
+    }
+    /* Invert the painter's rounded column boundaries exactly. */
+    image = (y / BROWSER_IMAGE_CELL_H) * columns
+          + ((x + 1) * columns - 1) / width;
+    return image < state->imagecount ? image : -1;
+}
+
+
+static void BrowserEndImageDrag(HWND hwnd, BrowserState *state)
+{
+    if (state->dragimage != NULL)
+    {
+        ImageList_DragLeave(GetDesktopWindow());
+        ImageList_EndDrag();
+        ImageList_Destroy(state->dragimage);
+        state->dragimage = NULL;
+        if (GetCapture() == hwnd) { ReleaseCapture(); }
+    }
+}
+
+
+static void BrowserBeginImageDrag(HWND hwnd, BrowserState *state, int index, POINT point)
+{
+    const TexThumb *thumb = &state->images[index];
+    BITMAPINFO bmi;
+    HBITMAP bitmap;
+    HIMAGELIST images;
+    unsigned char *pixels;
+    char *end;
+    unsigned long textureid = strtoul(thumb->label, &end, 16);
+    int x, y;
+
+    if (end == thumb->label || *end != '\0' || textureid >= BG_TEX_NONE
+        || state->imagepixels == NULL || thumb->w <= 0 || thumb->h <= 0
+        || thumb->w > TEX_THUMB_MAX || thumb->h > TEX_THUMB_MAX
+        || !SendMessage(GetParent(hwnd), BROWSER_WM_IMAGE_DRAG_BEGIN, textureid, 0))
+    {
+        return;
+    }
+    ZeroMemory(&bmi, sizeof(bmi));
+    bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
+    bmi.bmiHeader.biWidth = TEX_THUMB_MAX;
+    bmi.bmiHeader.biHeight = -TEX_THUMB_MAX;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+    bitmap = CreateDIBSection(NULL, &bmi, DIB_RGB_COLORS, (void **)&pixels, NULL, 0);
+    if (bitmap == NULL) { return; }
+
+    /* A checkerboard keeps transparent images visible on any scene color. */
+    for (y = 0; y < TEX_THUMB_MAX; y++)
+    {
+        for (x = 0; x < TEX_THUMB_MAX; x++)
+        {
+            unsigned char *dst = pixels + (y * TEX_THUMB_MAX + x) * 4;
+            int sx = x - (TEX_THUMB_MAX - thumb->w) / 2;
+            int sy = y - (TEX_THUMB_MAX - thumb->h) / 2;
+            int background = ((x / 4 + y / 4) & 1) ? 192 : 240;
+            int channel;
+
+            dst[0] = dst[1] = dst[2] = (unsigned char)background;
+            dst[3] = 255;
+            if (sx >= 0 && sx < thumb->w && sy >= 0 && sy < thumb->h)
+            {
+                const unsigned char *src = state->imagepixels + thumb->pixeloffset
+                                        + (sy * thumb->w + sx) * 4;
+                for (channel = 0; channel < 3; channel++)
+                {
+                    dst[channel] = (unsigned char)((src[channel] * src[3]
+                        + background * (255 - src[3]) + 127) / 255);
+                }
+            }
+        }
+    }
+    images = ImageList_Create(TEX_THUMB_MAX, TEX_THUMB_MAX, ILC_COLOR32, 1, 0);
+    if (images == NULL || ImageList_Add(images, bitmap, NULL) < 0)
+    {
+        DeleteObject(bitmap);
+        if (images != NULL) { ImageList_Destroy(images); }
+        return;
+    }
+    DeleteObject(bitmap);
+    if (!ImageList_BeginDrag(images, 0, 0, 0))
+    {
+        ImageList_Destroy(images);
+        return;
+    }
+    ClientToScreen(hwnd, &point);
+    if (!ImageList_DragEnter(GetDesktopWindow(), point.x + 12, point.y + 18))
+    {
+        ImageList_EndDrag();
+        ImageList_Destroy(images);
+        return;
+    }
+    state->dragimage = images;
+    state->dragtextureid = (DWORD)textureid;
+    SetFocus(hwnd); /* Escape cancels while this window owns the mouse. */
+    SetCapture(hwnd);
+    SetCursor(LoadCursor(NULL, IDC_ARROW));
+}
+
+
 static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     BrowserState *state = BrowserGetState(hwnd);
@@ -630,6 +750,20 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                is only valid for the duration of this SendMessage. */
             SendMessage(GetParent(hwnd), BROWSER_WM_LEVEL_OPEN, (WPARAM)row, (LPARAM)state->levels[row].label);
             return 0;
+        }
+
+        /* A fast second drag from the same image is still a drag. */
+        if (state != NULL)
+        {
+            RECT client;
+            POINT point = {x, y};
+
+            GetClientRect(hwnd, &client);
+            BrowserLayoutSections(state, &client);
+            if (BrowserHitImage(state, point) >= 0)
+            {
+                return SendMessage(hwnd, WM_LBUTTONDOWN, wparam, lparam);
+            }
         }
 
         /* A double-click on a header behaves like a second click, so
@@ -697,6 +831,13 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                     return 0;
                 }
             }
+
+            hit = BrowserHitImage(state, p);
+            if (hit >= 0)
+            {
+                BrowserBeginImageDrag(hwnd, state, hit, p);
+                return 0;
+            }
         }
 
         hit = BrowserHitHeader(hwnd, x, y);
@@ -710,6 +851,15 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     }
 
     case WM_MOUSEMOVE:
+        if (state != NULL && state->dragimage != NULL)
+        {
+            POINT point = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+
+            ClientToScreen(hwnd, &point);
+            ImageList_DragMove(point.x + 12, point.y + 18);
+            SetCursor(LoadCursor(NULL, IDC_ARROW));
+            return 0;
+        }
         if (state != NULL && state->dragsection >= 0)
         {
             int i = state->dragsection;
@@ -741,19 +891,49 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         return 0;
 
     case WM_LBUTTONUP:
+        if (state != NULL && state->dragimage != NULL)
+        {
+            BrowserImageDrop drop;
+
+            drop.textureid = state->dragtextureid;
+            drop.screen.x = GET_X_LPARAM(lparam);
+            drop.screen.y = GET_Y_LPARAM(lparam);
+            ClientToScreen(hwnd, &drop.screen);
+            /* Remove the preview and capture before hit testing or rebuilding
+               the viewport. The frame receives a value, not a thumbnail pointer. */
+            BrowserEndImageDrag(hwnd, state);
+            SendMessage(GetParent(hwnd), BROWSER_WM_IMAGE_DROP, 0, (LPARAM)&drop);
+            return 0;
+        }
+        /* fall through */
     case WM_CAPTURECHANGED:
+    case WM_CANCELMODE:
+        if (state != NULL) { BrowserEndImageDrag(hwnd, state); }
         if (state != NULL && state->dragsection >= 0)
         {
             state->dragsection = -1;
 
-            if (msg == WM_LBUTTONUP)
+            if (GetCapture() == hwnd)
             {
                 ReleaseCapture();
             }
         }
         return 0;
 
+    case WM_KEYDOWN:
+        if (wparam == VK_ESCAPE && state != NULL && state->dragimage != NULL)
+        {
+            BrowserEndImageDrag(hwnd, state);
+            return 0;
+        }
+        break;
+
+    case WM_KILLFOCUS:
+        if (state != NULL) { BrowserEndImageDrag(hwnd, state); }
+        break;
+
     case WM_MOUSEWHEEL:
+        if (state != NULL && state->dragimage != NULL) { return 0; }
         if (state != NULL)
         {
             RECT client;
@@ -835,10 +1015,14 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     case WM_PAINT:
     {
         PAINTSTRUCT ps;
-        HDC hdc = BeginPaint(hwnd, &ps);
+        HDC hdc;
+        BOOL dragging = state != NULL && state->dragimage != NULL;
 
+        if (dragging) { ImageList_DragShowNolock(FALSE); }
+        hdc = BeginPaint(hwnd, &ps);
         BrowserPaint(hwnd, hdc);
         EndPaint(hwnd, &ps);
+        if (dragging) { ImageList_DragShowNolock(TRUE); }
         return 0;
     }
 
@@ -848,6 +1032,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     case WM_DESTROY:
         if (state != NULL)
         {
+            BrowserEndImageDrag(hwnd, state);
             free(state->images);
             free(state->imagepixels);
         }
@@ -934,6 +1119,7 @@ void BrowserSetImages(HWND browser, TexThumb *items, int count,
         return;
     }
 
+    BrowserEndImageDrag(browser, state);
     free(state->images);
     free(state->imagepixels);
 

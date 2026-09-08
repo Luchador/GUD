@@ -10,6 +10,15 @@
  */
 #define BROWSER_WM_LEVEL_OPEN (WM_APP + 1)
 
+/* The parent accepts a drag only when the current tool/level supports it.
+ * DROP is synchronous; lparam points to a request valid during SendMessage. */
+#define BROWSER_WM_IMAGE_DRAG_BEGIN (WM_APP + 12)
+#define BROWSER_WM_IMAGE_DROP       (WM_APP + 13)
+typedef struct BrowserImageDrop {
+    DWORD textureid;
+    POINT screen;
+} BrowserImageDrop;
+
 BOOL BrowserRegisterClass(HINSTANCE hinstance);
 HWND BrowserCreate(HWND parent, HINSTANCE hinstance);
 

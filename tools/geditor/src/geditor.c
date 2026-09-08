@@ -1520,6 +1520,88 @@ fail:
 }
 
 
+static BOOL GEditorDropBgTexture(HWND hwnd, const BrowserImageDrop *request)
+{
+    EditHistoryTransaction transaction;
+    BgFaceRef hit;
+    BgFaceRef *faces = NULL;
+    BOOL selected, changed;
+    int count, width, height;
+    const char *why = "";
+    const char *restorewhy = "";
+    const char *action;
+
+    if (request == NULL || request->textureid >= BG_TEX_NONE
+        || g_CurrentBgDocument.rooms == NULL
+        || WindowFromPoint(request->screen) != g_Viewport
+        || !ViewportGetTextureDropFace(g_Viewport, request->screen, &hit, &selected))
+    {
+        return FALSE;
+    }
+    if (!TexGetProjectImageSize(g_Project.dir, request->textureid, &width, &height))
+    {
+        why = "The dragged image is no longer available in this project.";
+        goto fail;
+    }
+    count = selected ? ViewportGetSelectedBgFaceCount(g_Viewport) : 1;
+    if (count <= 0) { return FALSE; }
+    faces = (BgFaceRef *)malloc((size_t)count * sizeof(*faces));
+    if (faces == NULL)
+    {
+        why = "Out of memory reading the BG selection.";
+        goto fail;
+    }
+    if (selected)
+    {
+        if (!ViewportGetSelectedBgFaces(g_Viewport, faces, count))
+        {
+            why = "The selected BG faces could not be read.";
+            goto fail;
+        }
+    }
+    else { faces[0] = hit; }
+
+    action = count == 1 ? "Apply BG Texture" : "Apply BG Textures";
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+                                action, &transaction, &why)) { goto fail; }
+    if (!BgDocumentSetFaceTexture(&g_CurrentBgDocument, faces, (DWORD)count,
+                                  request->textureid, &changed, &why))
+    {
+        EditHistoryCancelEdit(&transaction); /* validation precedes mutation */
+        goto fail;
+    }
+    free(faces);
+    faces = NULL;
+    if (!changed)
+    {
+        EditHistoryCancelEdit(&transaction);
+        SetFocus(g_Viewport);
+        return TRUE;
+    }
+    /* Rebatch by the new texture IDs, preserving stable face selection and
+       camera position. The existing BG compiler writes the edited markers
+       into the saved room streams, also used by Create ROM. */
+    if (!GEditorRebuildCurrentViewport(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
+                                  &g_CurrentSetup, &g_CurrentStan, &transaction, &why))
+    {
+        EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument,
+                                &g_CurrentSetup, &g_CurrentStan);
+        GEditorRebuildCurrentViewport(&restorewhy);
+        goto fail;
+    }
+    GEditorRefreshHistoryMenu(hwnd);
+    SetFocus(g_Viewport);
+    return TRUE;
+
+fail:
+    free(faces);
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
+
 static BOOL GEditorPaintBgVertex(HWND hwnd, const ViewportBgVertexHit *request)
 {
     EditHistoryTransaction transaction;
@@ -1761,6 +1843,18 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
         return 0;
     }
+
+    case BROWSER_WM_IMAGE_DRAG_BEGIN:
+        if (g_CurrentBgDocument.rooms == NULL
+            || ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT)
+        {
+            return FALSE;
+        }
+        ViewportCancelTransform(g_Viewport);
+        return TRUE;
+
+    case BROWSER_WM_IMAGE_DROP:
+        return GEditorDropBgTexture(hwnd, (const BrowserImageDrop *)lparam);
 
     case BROWSER_WM_LEVEL_OPEN:
     {

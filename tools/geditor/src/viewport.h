@@ -86,6 +86,12 @@ BOOL ViewportGetSelectedBgFaces(HWND hwnd, BgFaceRef *out, int count);
 BOOL ViewportGetSingleSelectedBgFace(HWND hwnd, BgFaceRef *out);
 BOOL ViewportGetSelectedObject(HWND hwnd, DWORD *setupobjectindex);
 
+/* Non-selecting face-mode drop query in screen coordinates. Uses the nearest
+ * visible surface without cycling the selection stack. Objects and stan tiles
+ * in front block a BG drop. selectedout identifies drops onto the selection. */
+BOOL ViewportGetTextureDropFace(HWND hwnd, POINT screen,
+                                BgFaceRef *out, BOOL *selectedout);
+
 /* Replaces the pad overlay. PadRecords are small green wireframe
    cubes; BoundPadRecords are red wireframes of their authored volume.
    Pads retain their authored positions, just as setupLoadFiles does;

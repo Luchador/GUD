@@ -111,6 +111,13 @@ BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
                            DWORD refcount, DWORD *deletedout,
                            const char **reasonout);
 
+/* Replaces the image in each face's GoldenEye texture command, preserving
+ * UVs, shared vertices, and all other texture/render settings. Validates the
+ * whole selection before editing; assigning the same image is a no-op. */
+BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
+                              DWORD refcount, DWORD textureid,
+                              BOOL *changedout, const char **reasonout);
+
 /* Paints the existing vertex at one face corner. Every face sharing that
  * vertex sees the edit; coincident vertices with different identities do not.
  * An identical RGBA value succeeds without dirtying the document. */

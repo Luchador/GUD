@@ -1049,6 +1049,52 @@ void BgDocumentGetWorldPosition(const BgDocument *document,
 }
 
 
+BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
+                              DWORD refcount, DWORD textureid,
+                              BOOL *changedout, const char **reasonout)
+{
+    DWORD i;
+
+    *changedout = FALSE;
+    *reasonout = "";
+    if (refs == NULL || refcount == 0 || textureid >= BG_TEX_NONE)
+    {
+        *reasonout = "The background texture assignment is invalid.";
+        return FALSE;
+    }
+    /* Do not partially edit a group if one reference is stale or unsupported. */
+    for (i = 0; i < refcount; i++)
+    {
+        const BgDocumentFace *face = BgDocumentFindFace(document, &refs[i], NULL);
+
+        if (face == NULL)
+        {
+            *reasonout = "A background face to texture is no longer available.";
+            return FALSE;
+        }
+        if ((face->textureword0 >> 24) != BGDOC_G_NOOP)
+        {
+            *reasonout = "A selected face has no GoldenEye texture command to replace.";
+            return FALSE;
+        }
+    }
+    for (i = 0; i < refcount; i++)
+    {
+        BgDocumentFace *face = (BgDocumentFace *)BgDocumentFindFace(document, &refs[i], NULL);
+        DWORD word = (face->textureword1 & ~(DWORD)BG_TEX_ID_MASK) | textureid;
+
+        if (face->textureid != textureid || face->textureword1 != word)
+        {
+            face->textureid = (unsigned short)textureid;
+            face->textureword1 = word;
+            *changedout = TRUE;
+        }
+    }
+    if (*changedout) { document->dirty = TRUE; }
+    return TRUE;
+}
+
+
 BOOL BgDocumentPaintVertex(BgDocument *document, const BgFaceRef *ref,
                            unsigned int corner, const unsigned char rgba[4],
                            BOOL *changedout, const char **reasonout)
