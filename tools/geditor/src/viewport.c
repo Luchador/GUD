@@ -2630,7 +2630,7 @@ static double ViewportGizmoScale(const ViewportState *state)
        including while flying. Only picking is disabled during navigation. */
     if (!state->gizmovisible || state->height <= 0
         || (state->rotationmode ? state->cylinder == NULL || !state->rotationaxes
-            || state->tool != EDITOR_TOOL_FACE_SELECT : state->arrow == NULL)) { return 0; }
+            || state->tool == EDITOR_TOOL_VERTEX_PAINT : state->arrow == NULL)) { return 0; }
     ViewportGetBasis(state,forward,right);
     depth=(state->gizmoposition[0]-state->posx)*forward[0]
         +(state->gizmoposition[1]-state->posy)*forward[1]
@@ -4427,6 +4427,79 @@ static BOOL ViewportTriangleRotation(const Vertex triangle[3], Rotation *frame)
     }
     return RotationBasis(frame, up, look);
 }
+/* Components have no stored orientation. Derive a frame from selected
+   positions in selection order, using only vertices that will actually rotate.
+   A non-collinear third point supplies roll; a line uses a canonical up axis.
+   Shared identities still come from GetMoveVertices/GetMoveStanPoints at commit. */
+static BOOL ViewportGetComponentRotation(HWND hwnd, const ViewportState *state,
+                                         Rotation *frame)
+{
+    BOOL stan = ViewportGetStanSelectionCount(hwnd, NULL) > 0;
+    int count = stan ? state->stancomponentcount : state->componentcount;
+    int ends = state->tool == EDITOR_TOOL_EDGE_SELECT ? 2 : 1;
+    double origin[3] = {0}, look[3] = {0}, up[3];
+    double looklength = 0;
+    BOOL haveorigin = FALSE;
+    int i, end, axis;
+
+    for (i = 0; i < count; i++)
+    for (end = 0; end < ends; end++)
+    {
+        double point[3], delta[3], length = 0, crosslength = 0;
+        if (stan)
+        {
+            const StanPointRef *ref = &state->stancomponents[i].refs[end];
+            const StanPoint *vertex;
+            if (ref->tile >= state->stan.tilecount
+                || ref->point >= state->stan.tiles[ref->tile].pointcount) { return FALSE; }
+            vertex = &state->stan.tiles[ref->tile].points[ref->point];
+            point[0] = vertex->x; point[1] = vertex->y; point[2] = vertex->z;
+        }
+        else
+        {
+            int corner = state->components[i].corners[end];
+            const Vertex *vertex;
+            if (!ViewportCornerVisible(state, corner)) { continue; }
+            vertex = &state->scene[corner];
+            point[0] = vertex->x; point[1] = vertex->y; point[2] = vertex->z;
+        }
+        if (!haveorigin)
+        {
+            memcpy(origin, point, sizeof(origin));
+            haveorigin = TRUE;
+            continue;
+        }
+        for (axis = 0; axis < 3; axis++)
+        {
+            delta[axis] = point[axis] - origin[axis];
+            length += delta[axis] * delta[axis];
+        }
+        if (!(length > 1e-12)) { continue; }
+        if (!(looklength > 0))
+        {
+            memcpy(look, delta, sizeof(look));
+            looklength = length;
+            continue;
+        }
+        for (axis = 0; axis < 3; axis++)
+        {
+            up[axis] = look[(axis+1)%3]*delta[(axis+2)%3]
+                     - look[(axis+2)%3]*delta[(axis+1)%3];
+            crosslength += up[axis] * up[axis];
+        }
+        if (crosslength > looklength * length * 1e-12)
+        {
+            return RotationBasis(frame, up, look);
+        }
+    }
+    /* This also excludes single vertices, duplicate corners of one vertex,
+       and zero-length selections for which rotation cannot move anything. */
+    if (!(looklength > 0)) { return FALSE; }
+    up[0] = up[1] = up[2] = 0;
+    up[look[1]*look[1] < looklength * 0.99 ? 1 : 0] = 1;
+    return RotationBasis(frame, up, look);
+}
+
 /* A stable reference face supplies the Euler frame. Its normal is local Y,
    and its first edge is local Z. Texture sorting must not change the frame. */
 BOOL ViewportGetGeometryRotation(HWND hwnd, Rotation *frame)
@@ -4434,9 +4507,13 @@ BOOL ViewportGetGeometryRotation(HWND hwnd, Rotation *frame)
     const ViewportState *state = ViewportGetState(hwnd);
     Vertex triangle[3];
     int i, best = -1;
-    if (!state || state->tool != EDITOR_TOOL_FACE_SELECT)
+    if (!state || state->tool == EDITOR_TOOL_VERTEX_PAINT)
     {
         return FALSE;
+    }
+    if (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT)
+    {
+        return ViewportGetComponentRotation(hwnd, state, frame);
     }
     if (ViewportGetStanSelectionCount(hwnd, NULL) > 0)
     {
@@ -4521,7 +4598,7 @@ BOOL ViewportGetRotation(HWND hwnd, Rotation *frame, double degrees[3], double p
 {
     ViewportState *s = ViewportGetState(hwnd);
     Rotation delta;
-    if (!s || !s->rotationaxes || !s->gizmovisible || s->tool != EDITOR_TOOL_FACE_SELECT)
+    if (!s || !s->rotationaxes || !s->gizmovisible || s->tool == EDITOR_TOOL_VERTEX_PAINT)
     {
         return FALSE;
     }

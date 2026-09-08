@@ -652,7 +652,7 @@ void RightPanelSetTransformState(HWND panel, const double position[3],
     state->editedaxes = 0;
     state->updatingposition = FALSE;
     if(state->rotationmode){
-        const char *hint=position==NULL?"Select faces, an object, character or pad."
+        const char *hint=position==NULL?"Select geometry or a model. Vertices need a group."
             :state->rotationaxes==2?"Heading in degrees. Characters stay upright."
             :"Press Enter to set angles. World axes; XYZ Euler order.";
         lstrcpyn(state->transformhint,hint,sizeof(state->transformhint));

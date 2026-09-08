@@ -172,7 +172,7 @@ static void GEditorRefreshTransformFields(void)
     if (!ViewportIsTransforming(g_Viewport))
     {
         BOOL valid = FALSE;
-        if (editable && ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT)
+        if (editable && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT)
         {
             if (object)
             {
@@ -1603,14 +1603,15 @@ static BOOL GEditorRotateSelection(HWND hwnd, const ViewportRotation *request)
     BOOL character = object && (objectindex & SETUP_CHARACTER_SELECTION_BIT);
     EditorTool tool = ViewportGetTool(g_Viewport);
     const char *why = "", *restorewhy = "";
-    const char *action = pad         ? "Rotate Pad"
-                         : stan      ? "Rotate Stan Faces"
-                         : character ? "Rotate Character"
-                         : object    ? "Rotate Object"
-                                     : "Rotate BG Faces";
+    const char *action = pad ? "Rotate Pad"
+        : stan ? (tool == EDITOR_TOOL_VERTEX_SELECT ? "Rotate Stan Vertices"
+            : tool == EDITOR_TOOL_EDGE_SELECT ? "Rotate Stan Edges" : "Rotate Stan Faces")
+        : character ? "Rotate Character" : object ? "Rotate Object"
+        : tool == EDITOR_TOOL_VERTEX_SELECT ? "Rotate BG Vertices"
+        : tool == EDITOR_TOOL_EDGE_SELECT ? "Rotate BG Edges" : "Rotate BG Faces";
     ZeroMemory(&transaction, sizeof(transaction));
     ZeroMemory(&objects, sizeof(objects));
-    if (tool != EDITOR_TOOL_FACE_SELECT || !RotationValid(rotation) ||
+    if (tool == EDITOR_TOOL_VERTEX_PAINT || !RotationValid(rotation) ||
         (object && !GEditorCanMoveSetupModel(objectindex)))
     {
         return FALSE;
@@ -1656,6 +1657,11 @@ static BOOL GEditorRotateSelection(HWND hwnd, const ViewportRotation *request)
             why = "There are no editable selected stan points.";
             goto fail;
         }
+        if (tool == EDITOR_TOOL_VERTEX_SELECT && count < 2)
+        {
+            why = "Select at least two vertices to rotate.";
+            goto fail;
+        }
         if (!EditHistoryBeginStanEdit(&g_EditHistory, &g_CurrentStan, action, &transaction, &why))
         {
             goto fail;
@@ -1685,6 +1691,11 @@ static BOOL GEditorRotateSelection(HWND hwnd, const ViewportRotation *request)
         if (vertices == NULL)
         {
             why = "There are no editable selected vertices.";
+            goto fail;
+        }
+        if (tool == EDITOR_TOOL_VERTEX_SELECT && count < 2)
+        {
+            why = "Select at least two vertices to rotate.";
             goto fail;
         }
         if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument, action, &transaction,

@@ -309,6 +309,8 @@ BOOL StanRotatePoints(StanFile *stan, const StanPointRef *points, DWORD count,
             unsigned char *raw = stan->data + stan->tiles[tile].sourceoffset + 8 + i * 8;
             StanPoint *point = &stan->tiles[tile].points[i];
             float position[3];
+            short coordinates[3];
+            BOOL changed = FALSE;
             double source[3], destination[3];
             if (!selected[map[tile * STAN_TILE_MAX_POINTS + i]])
             {
@@ -321,9 +323,14 @@ BOOL StanRotatePoints(StanFile *stan, const StanPointRef *points, DWORD count,
             RotationPoint(rotation, pivot, source, destination);
             for (axis = 0; axis < 3; axis++)
             {
-                short value = (short)round(destination[axis] * stan->levelscale);
-                StanEditWrite16(raw + axis * 2, (unsigned short)value);
-                position[axis] = value * (1.0f / stan->levelscale);
+                coordinates[axis] = (short)round(destination[axis] * stan->levelscale);
+                changed |= coordinates[axis] != StanEditRead16(raw + axis * 2);
+            }
+            if (!changed) { continue; }
+            for (axis = 0; axis < 3; axis++)
+            {
+                StanEditWrite16(raw + axis * 2, (unsigned short)coordinates[axis]);
+                position[axis] = coordinates[axis] * (1.0f / stan->levelscale);
             }
             point->x = position[0];
             point->y = position[1];

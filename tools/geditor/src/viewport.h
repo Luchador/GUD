@@ -131,6 +131,8 @@ typedef struct ViewportRotation { Rotation rotation; double pivot[3]; } Viewport
 void ViewportSetRotationMode(HWND hwnd, BOOL rotate);
 BOOL ViewportIsRotating(HWND hwnd);
 BOOL ViewportIsTransforming(HWND hwnd);
+/* Faces use a reference face; components use their selected positions.
+   Single vertices and coincident/zero-length component selections return FALSE. */
 BOOL ViewportGetGeometryRotation(HWND hwnd, Rotation *frame);
 void ViewportSetRotationFrame(HWND hwnd, const Rotation *frame, unsigned int axes);
 BOOL ViewportGetRotation(HWND hwnd, Rotation *frame, double degrees[3], double pivot[3]);
