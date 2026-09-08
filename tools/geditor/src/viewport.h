@@ -20,12 +20,17 @@
    before the frame edits the document and rebuilds the viewport. */
 #define VIEWPORT_WM_PAINT_VERTEX (WM_APP + 7)
 #define VIEWPORT_WM_TRANSLATE_SELECTION (WM_APP + 8)
+/* Refresh coordinate fields after transient drag movement or cancellation. */
+#define VIEWPORT_WM_TRANSFORM_PREVIEW (WM_APP + 9)
 typedef struct ViewportTranslation { double offset[3]; } ViewportTranslation;
 
 /* Cancels the transient drag before history, saving, or changing tools. */
 void ViewportCancelTransform(HWND hwnd);
 BgDocumentVertexRef *ViewportGetMoveVertices(HWND hwnd, DWORD *countout);
 int ViewportGetSelectedComponentCount(HWND hwnd);
+/* Mean vertex positions, edge midpoints or face centers; a model uses its
+   surface centroid. Includes the live drag preview, excludes hidden items. */
+BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout);
 typedef struct ViewportBgVertexHit {
     BgFaceRef face;
     unsigned int corner;
@@ -98,11 +103,11 @@ void ViewportSetStanTiles(HWND hwnd, const StanFile *stan);
    once even when several authored table entries refer to them. */
 void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals);
 
-/* Controls the four independently previewable world-geometry layers.
+/* Controls background, stan, portal and object/character visibility.
    The loaded scene remains resident while a layer is hidden. */
 void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
                                    BOOL bgsecondary, BOOL stan,
-                                   BOOL portals);
+                                   BOOL portals, BOOL objects);
 
 /* Master culling toggle. Enabled honors the BG's per-triangle state;
    disabled renders every triangle double-sided. */

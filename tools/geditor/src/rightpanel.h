@@ -10,24 +10,25 @@
    a bitwise combination of the RIGHTPANEL_SHOW_* flags below. */
 #define RIGHTPANEL_WM_VISIBILITY_CHANGED (WM_APP + 2)
 
-/* Synchronous request: lparam points to RightPanelTranslation. The frame
-   applies it to the active selection and returns TRUE on success, filling
-   applied with the actual displacement (for grids that require snapping).
-   This request intentionally carries no BG-specific selection data. */
-#define RIGHTPANEL_WM_TRANSLATE_SELECTION (WM_APP + 5)
-typedef struct RightPanelTranslation {
-    double offset[3];
-    double applied[3];
-} RightPanelTranslation;
+/* Synchronous absolute-position request. axismask marks edited X/Y/Z fields;
+   the frame translates the selection's average position, then refreshes it. */
+#define RIGHTPANEL_WM_SET_POSITION (WM_APP + 5)
+typedef struct RightPanelPosition {
+    double position[3];
+    unsigned int axismask;
+} RightPanelPosition;
 
 #define RIGHTPANEL_SHOW_BG_PRIMARY   0x01
 #define RIGHTPANEL_SHOW_BG_SECONDARY 0x02
 #define RIGHTPANEL_SHOW_STAN         0x04
 #define RIGHTPANEL_SHOW_PORTALS      0x08
+#define RIGHTPANEL_SHOW_OBJECTS      0x10
 
 BOOL RightPanelRegisterClass(HINSTANCE hinstance);
 HWND RightPanelCreate(HWND parent, HINSTANCE hinstance);
-void RightPanelSetTransformState(HWND panel, BOOL enabled, double gridstep);
+/* A NULL position clears the fields; a noneditable position remains visible. */
+void RightPanelSetTransformState(HWND panel, const double position[3],
+                                 DWORD count, BOOL editable, double gridstep);
 BOOL RightPanelHandleMessage(HWND panel, MSG *message);
 void RightPanelSetVertexPaintMode(HWND panel, BOOL enabled);
 void RightPanelGetPaintColor(HWND panel, unsigned char rgba[4]);

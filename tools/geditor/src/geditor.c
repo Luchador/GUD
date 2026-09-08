@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 
 #include "project.h"
 #include "resource.h"
@@ -143,6 +144,21 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
 }
 
 
+static void GEditorRefreshTransformFields(void)
+{
+    double position[3];
+    DWORD count, objectindex;
+    BOOL hasposition = ViewportGetSelectionPosition(g_Viewport, position, &count);
+    BOOL object = ViewportGetSelectedObject(g_Viewport, &objectindex);
+    BOOL editable = hasposition && (object ? objectindex < g_CurrentSetup.objectcount
+                                          : g_CurrentBgDocument.levelscale > 0.0f);
+    double precision = editable && !object ? 1.0 / g_CurrentBgDocument.levelscale : 0;
+
+    RightPanelSetTransformState(g_RightPanel, hasposition ? position : NULL,
+                                count, editable, precision);
+}
+
+
 static void GEditorRefreshSelectionDetails(void)
 {
     BgFaceRef selected;
@@ -150,15 +166,9 @@ static void GEditorRefreshSelectionDetails(void)
     int count = ViewportGetSelectedBgFaceCount(g_Viewport);
     BOOL objectselected = ViewportGetSelectedObject(g_Viewport, &selectedobject);
     int components = ViewportGetSelectedComponentCount(g_Viewport);
-    BOOL cantranslate = (objectselected ? selectedobject < g_CurrentSetup.objectcount
-                                       : (count > 0 || components > 0))
-                     && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT
-                     && g_CurrentBgDocument.levelscale > 0.0f;
-
     RightPanelSetVertexPaintMode(g_RightPanel,
         ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT);
-    RightPanelSetTransformState(g_RightPanel, cantranslate,
-        cantranslate ? (objectselected ? 1.0 : 1.0 / g_CurrentBgDocument.levelscale) : 0.0);
+    GEditorRefreshTransformFields();
     if (objectselected && selectedobject < g_CurrentSetup.objectcount)
     {
         RightPanelSetSetupObject(g_RightPanel,
@@ -1421,9 +1431,10 @@ static void GEditorDeleteSelectedBgFaces(HWND hwnd)
 
 /* Both the panel and gizmo commit through the same asset/history path. Drag
  * previews live only in the viewport; there is exactly one edit on release. */
-static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3], double applied[3])
+static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3])
 {
     EditHistoryTransaction transaction;
+    double applied[3];
     SetupObjectGeometry objects;
     BgDocumentVertexRef *vertices = NULL;
     DWORD count = 0, moved = 0, objectindex;
@@ -1616,9 +1627,14 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             (visibility & RIGHTPANEL_SHOW_BG_PRIMARY) != 0,
             (visibility & RIGHTPANEL_SHOW_BG_SECONDARY) != 0,
             (visibility & RIGHTPANEL_SHOW_STAN) != 0,
-            (visibility & RIGHTPANEL_SHOW_PORTALS) != 0);
+            (visibility & RIGHTPANEL_SHOW_PORTALS) != 0,
+            (visibility & RIGHTPANEL_SHOW_OBJECTS) != 0);
         return 0;
     }
+
+    case VIEWPORT_WM_TRANSFORM_PREVIEW:
+        GEditorRefreshTransformFields();
+        return 0;
 
     case VIEWPORT_WM_SELECTION_CHANGED:
         GEditorRefreshSelectionDetails();
@@ -1633,17 +1649,36 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
         return 0;
 
-    case RIGHTPANEL_WM_TRANSLATE_SELECTION:
+    case RIGHTPANEL_WM_SET_POSITION:
     {
-        RightPanelTranslation *request = (RightPanelTranslation *)lparam;
-        return request != NULL && GEditorTranslateSelection(hwnd,request->offset,request->applied);
+        const RightPanelPosition *request = (const RightPanelPosition *)lparam;
+        double position[3], offset[3] = {0, 0, 0};
+        DWORD count;
+        BOOL result = FALSE;
+        int axis;
+
+        if (request != NULL && !(request->axismask & ~7u)
+            && ViewportGetSelectionPosition(g_Viewport, position, &count))
+        {
+            for (axis = 0; axis < 3; axis++)
+            {
+                if (request->axismask & (1u << axis))
+                {
+                    offset[axis] = request->position[axis] - position[axis];
+                    if (!isfinite(offset[axis])) { break; }
+                }
+            }
+            if (axis == 3) { result = GEditorTranslateSelection(hwnd, offset); }
+        }
+        /* Refresh even for a no-op or rejected edit: display actual asset coordinates. */
+        GEditorRefreshTransformFields();
+        return result;
     }
 
     case VIEWPORT_WM_TRANSLATE_SELECTION:
     {
         const ViewportTranslation *request = (const ViewportTranslation *)lparam;
-        double applied[3];
-        return request != NULL && GEditorTranslateSelection(hwnd,request->offset,applied);
+        return request != NULL && GEditorTranslateSelection(hwnd,request->offset);
     }
 
     case VIEWPORT_WM_PAINT_VERTEX:

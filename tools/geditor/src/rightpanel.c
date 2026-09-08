@@ -2,7 +2,7 @@
  * GEditor right-hand tool panel.
  *
  * Visibility and Transform sit above a draggable Properties/Color splitter. The
- * transform controls send generic displacement requests to the frame, which
+ * transform controls send absolute world-position requests to the frame, which
  * owns selection dispatch, document edits, and undo history. Vertex paint
  * replaces the lower properties view with a persistent RGBA color picker.
  */
@@ -23,7 +23,7 @@
 
 #define RIGHTPANEL_SPLITTER_H 5
 #define RIGHTPANEL_TOP_MIN 356
-#define RIGHTPANEL_TRANSFORM_TOP 148
+#define RIGHTPANEL_TRANSFORM_TOP 174
 #define RIGHTPANEL_BOTTOM_MIN 160
 #define RIGHTPANEL_INITIAL_TOP_H 364
 #define RIGHTPANEL_MARGIN 12
@@ -35,10 +35,10 @@ enum {
     RIGHTPANEL_ID_BG_SECONDARY,
     RIGHTPANEL_ID_STAN,
     RIGHTPANEL_ID_PORTALS,
-    RIGHTPANEL_ID_MOVE_X,
-    RIGHTPANEL_ID_MOVE_Y,
-    RIGHTPANEL_ID_MOVE_Z,
-    RIGHTPANEL_ID_MOVE
+    RIGHTPANEL_ID_OBJECTS,
+    RIGHTPANEL_ID_POSITION_X,
+    RIGHTPANEL_ID_POSITION_Y,
+    RIGHTPANEL_ID_POSITION_Z
 };
 
 typedef struct RightPanelState {
@@ -46,12 +46,15 @@ typedef struct RightPanelState {
     HWND bgsecondary;
     HWND stan;
     HWND portals;
-    HWND offsets[3];
-    HWND move;
+    HWND positions[3];
+    HWND objects;
     HWND details;
     HWND colorpicker;
     BOOL vertexpaint;
     BOOL transformenabled;
+    BOOL updatingposition;
+    unsigned int editedaxes;
+    DWORD selectioncount;
     int wheelremainder;
     char transformhint[128];
     int topheight;
@@ -108,16 +111,15 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
     MoveWindow(state->stan, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
     y += RIGHTPANEL_CHECK_H + RIGHTPANEL_CHECK_GAP;
     MoveWindow(state->portals, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
+    y += RIGHTPANEL_CHECK_H + RIGHTPANEL_CHECK_GAP;
+    MoveWindow(state->objects, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
 
     for (axis = 0; axis < 3; axis++)
     {
-        MoveWindow(state->offsets[axis], RIGHTPANEL_MARGIN + 24,
+        MoveWindow(state->positions[axis], RIGHTPANEL_MARGIN + 24,
                    RIGHTPANEL_TRANSFORM_TOP + 54 + axis * 28,
                    width > 24 ? width - 24 : 1, 23, TRUE);
     }
-    MoveWindow(state->move, RIGHTPANEL_MARGIN + 24,
-               RIGHTPANEL_TRANSFORM_TOP + 138,
-               width > 24 ? width - 24 : 1, 26, TRUE);
     detailtop = state->topheight + RIGHTPANEL_SPLITTER_H + 56;
     detailheight = client.bottom - RIGHTPANEL_MARGIN - detailtop;
     MoveWindow(state->details, RIGHTPANEL_MARGIN, detailtop, width,
@@ -162,6 +164,11 @@ static DWORD RightPanelGetVisibility(const RightPanelState *state)
         visibility |= RIGHTPANEL_SHOW_PORTALS;
     }
 
+    if (SendMessage(state->objects, BM_GETCHECK, 0, 0) == BST_CHECKED)
+    {
+        visibility |= RIGHTPANEL_SHOW_OBJECTS;
+    }
+
     return visibility;
 }
 
@@ -171,20 +178,23 @@ static void RightPanelNotifyVisibility(HWND hwnd, RightPanelState *state)
                 (WPARAM)RightPanelGetVisibility(state), 0);
 }
 
-static void RightPanelTranslate(HWND hwnd, RightPanelState *state)
+static void RightPanelSetPosition(HWND hwnd, RightPanelState *state)
 {
-    RightPanelTranslation translation;
+    RightPanelPosition request;
     int axis;
 
-    if (!state->transformenabled) { return; }
-    ZeroMemory(&translation, sizeof(translation));
+    if (!state->transformenabled || state->editedaxes == 0) { return; }
+    ZeroMemory(&request, sizeof(request));
+    request.axismask = state->editedaxes;
     for (axis = 0; axis < 3; axis++)
     {
         char text[64];
         char *end;
         double value;
 
-        GetWindowText(state->offsets[axis], text, sizeof(text));
+        /* Untouched fields must not move an axis through display rounding. */
+        if (!(request.axismask & (1u << axis))) { continue; }
+        GetWindowText(state->positions[axis], text, sizeof(text));
         errno = 0;
         value = strtod(text, &end);
         if (end != text)
@@ -193,29 +203,19 @@ static void RightPanelTranslate(HWND hwnd, RightPanelState *state)
         }
         if (end == text || *end != '\0' || errno == ERANGE || !isfinite(value))
         {
-            MessageBox(hwnd, "Enter a finite number for each X, Y and Z offset.",
+            MessageBox(hwnd, "Enter a finite number for the world coordinate.",
                        "Transform", MB_ICONWARNING);
-            SetFocus(state->offsets[axis]);
-            SendMessage(state->offsets[axis], EM_SETSEL, 0, -1);
+            SetFocus(state->positions[axis]);
+            SendMessage(state->positions[axis], EM_SETSEL, 0, -1);
             return;
         }
-        translation.offset[axis] = value;
+        request.position[axis] = value;
     }
 
-    if (SendMessage(GetParent(hwnd), RIGHTPANEL_WM_TRANSLATE_SELECTION,
-                    0, (LPARAM)&translation))
-    {
-        /* Show the snapped displacement, keeping it ready for another move. */
-        for (axis = 0; axis < 3; axis++)
-        {
-            char text[64];
-
-            snprintf(text, sizeof(text), "%.9g", translation.applied[axis]);
-            SetWindowText(state->offsets[axis], text);
-        }
-    }
+    /* The frame refreshes these fields from the resulting geometry, including
+       native asset rounding. All edited axes form one undoable move. */
+    SendMessage(GetParent(hwnd), RIGHTPANEL_WM_SET_POSITION, 0, (LPARAM)&request);
 }
-
 
 static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
 {
@@ -271,7 +271,8 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     DrawText(hdc, "Transform", -1, &transform, DT_SINGLELINE | DT_LEFT | DT_NOPREFIX);
     transform.top += 26;
     transform.bottom += 26;
-    DrawText(hdc, "Move by (world units)", -1, &transform,
+    DrawText(hdc, state->selectioncount > 1 ? "Average world position" : "World position",
+             -1, &transform,
              DT_SINGLELINE | DT_LEFT | DT_NOPREFIX);
     for (axis = 0; axis < 3; axis++)
     {
@@ -282,7 +283,7 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
         DrawText(hdc, label, -1, &transform,
                  DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX);
     }
-    transform.top = RIGHTPANEL_TRANSFORM_TOP + 174;
+    transform.top = RIGHTPANEL_TRANSFORM_TOP + 142;
     transform.bottom = transform.top + 32;
     SetTextColor(hdc, GetSysColor(COLOR_GRAYTEXT));
     DrawText(hdc, state->transformhint, -1, &transform,
@@ -359,33 +360,33 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX,
             0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_PORTALS,
             cs->hInstance, NULL);
+        state->objects = CreateWindowEx(
+            0, "BUTTON", "Objects / Characters",
+            WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX,
+            0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_OBJECTS,
+            cs->hInstance, NULL);
 
         for (axis = 0; axis < 3; axis++)
         {
-            state->offsets[axis] = CreateWindowEx(
-                WS_EX_CLIENTEDGE, "EDIT", "0",
+            state->positions[axis] = CreateWindowEx(
+                WS_EX_CLIENTEDGE, "EDIT", "",
                 WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_DISABLED | ES_AUTOHSCROLL,
                 0, 0, 1, 1, hwnd,
-                (HMENU)(INT_PTR)(RIGHTPANEL_ID_MOVE_X + axis), cs->hInstance, NULL);
-            SendMessage(state->offsets[axis], WM_SETFONT, (WPARAM)font, TRUE);
-            SendMessage(state->offsets[axis], EM_SETLIMITTEXT, 63, 0);
+                (HMENU)(INT_PTR)(RIGHTPANEL_ID_POSITION_X + axis), cs->hInstance, NULL);
+            SendMessage(state->positions[axis], WM_SETFONT, (WPARAM)font, TRUE);
+            SendMessage(state->positions[axis], EM_SETLIMITTEXT, 63, 0);
         }
-        state->move = CreateWindowEx(
-            0, "BUTTON", "Move Selection",
-            WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_DISABLED | BS_PUSHBUTTON,
-            0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_MOVE, cs->hInstance, NULL);
         state->details = CreateWindowEx(
             0, "EDIT", state->detailtext,
             WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
             0, 0, 1, 1, hwnd, NULL, cs->hInstance, NULL);
         state->colorpicker = ColorPickerCreate(hwnd, cs->hInstance);
-        SendMessage(state->move, WM_SETFONT, (WPARAM)font, TRUE);
         SendMessage(state->details, WM_SETFONT, (WPARAM)font, TRUE);
 
         if (state->bgprimary == NULL || state->bgsecondary == NULL
             || state->stan == NULL || state->portals == NULL
-            || state->offsets[0] == NULL || state->offsets[1] == NULL
-            || state->offsets[2] == NULL || state->move == NULL || state->details == NULL
+            || state->positions[0] == NULL || state->positions[1] == NULL
+            || state->positions[2] == NULL || state->objects == NULL || state->details == NULL
             || state->colorpicker == NULL)
         {
             free(state);
@@ -397,6 +398,8 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         SendMessage(state->bgsecondary, WM_SETFONT, (WPARAM)font, TRUE);
         SendMessage(state->stan, WM_SETFONT, (WPARAM)font, TRUE);
         SendMessage(state->portals, WM_SETFONT, (WPARAM)font, TRUE);
+        SendMessage(state->objects, WM_SETFONT, (WPARAM)font, TRUE);
+        SendMessage(state->objects, BM_SETCHECK, BST_CHECKED, 0);
         SendMessage(state->bgprimary, BM_SETCHECK, BST_CHECKED, 0);
         SendMessage(state->bgsecondary, BM_SETCHECK, BST_CHECKED, 0);
 
@@ -411,17 +414,25 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         return 0;
 
     case WM_COMMAND:
+        if (state != NULL && HIWORD(wparam) == EN_CHANGE
+            && LOWORD(wparam) >= RIGHTPANEL_ID_POSITION_X
+            && LOWORD(wparam) <= RIGHTPANEL_ID_POSITION_Z)
+        {
+            if (!state->updatingposition)
+            {
+                state->editedaxes |= 1u << (LOWORD(wparam) - RIGHTPANEL_ID_POSITION_X);
+            }
+            return 0;
+        }
         if (state != NULL && HIWORD(wparam) == BN_CLICKED)
         {
             switch (LOWORD(wparam))
             {
-            case RIGHTPANEL_ID_MOVE:
-                RightPanelTranslate(hwnd, state);
-                return 0;
             case RIGHTPANEL_ID_BG_PRIMARY:
             case RIGHTPANEL_ID_BG_SECONDARY:
             case RIGHTPANEL_ID_STAN:
             case RIGHTPANEL_ID_PORTALS:
+            case RIGHTPANEL_ID_OBJECTS:
                 RightPanelNotifyVisibility(hwnd, state);
                 return 0;
             }
@@ -568,40 +579,45 @@ HWND RightPanelCreate(HWND parent, HINSTANCE hinstance)
 }
 
 
-void RightPanelSetTransformState(HWND panel, BOOL enabled, double gridstep)
+void RightPanelSetTransformState(HWND panel, const double position[3],
+                                 DWORD count, BOOL editable, double gridstep)
 {
     RightPanelState *state = RightPanelGetState(panel);
     int axis;
 
     if (state == NULL) { return; }
-    if (state->transformenabled != enabled)
+    state->transformenabled = position != NULL && editable;
+    state->selectioncount = position != NULL ? count : 0;
+    state->updatingposition = TRUE;
+    for (axis = 0; axis < 3; axis++)
     {
-        state->transformenabled = enabled;
-        for (axis = 0; axis < 3; axis++)
-        {
-            EnableWindow(state->offsets[axis], enabled);
-        }
-        EnableWindow(state->move, enabled);
+        char text[64] = "";
+        if (position != NULL) { snprintf(text, sizeof(text), "%.9g", position[axis]); }
+        SetWindowText(state->positions[axis], text);
+        EnableWindow(state->positions[axis], position != NULL);
+        SendMessage(state->positions[axis], EM_SETREADONLY, !editable, 0);
     }
-    if (enabled)
+    state->editedaxes = 0;
+    state->updatingposition = FALSE;
+    if (state->transformenabled && gridstep > 0)
     {
         snprintf(state->transformhint, sizeof(state->transformhint),
-                 "Drag step: 1 world unit.\r\nAsset precision: %.6g units.", gridstep);
+                 "Press Enter to set position.\r\nAsset precision: %.6g units.", gridstep);
     }
     else
     {
-        lstrcpyn(state->transformhint, "Select vertices, edges, faces or an object.",
-                 sizeof(state->transformhint));
+        const char *hint = position == NULL ? "Select vertices, edges, faces or an object."
+            : editable ? "Press Enter to set position." : "Character preview (read-only).";
+        lstrcpyn(state->transformhint, hint, sizeof(state->transformhint));
     }
     InvalidateRect(panel, NULL, FALSE);
 }
-
 
 BOOL RightPanelHandleMessage(HWND panel, MSG *message)
 {
     RightPanelState *state = RightPanelGetState(panel);
     HWND focus = GetFocus();
-    BOOL isoffset;
+    BOOL isposition;
 
     if (state == NULL || !IsChild(panel, focus) || message->message != WM_KEYDOWN)
     {
@@ -611,18 +627,18 @@ BOOL RightPanelHandleMessage(HWND panel, MSG *message)
     {
         return TRUE;
     }
-    isoffset = focus == state->offsets[0] || focus == state->offsets[1]
-            || focus == state->offsets[2];
+    isposition = focus == state->positions[0] || focus == state->positions[1]
+            || focus == state->positions[2];
     if (message->wParam == VK_TAB)
     {
         return IsDialogMessage(panel, message);
     }
-    if (message->wParam == VK_RETURN && (isoffset || focus == state->move))
+    if (message->wParam == VK_RETURN && isposition)
     {
-        RightPanelTranslate(panel, state);
+        RightPanelSetPosition(panel, state);
         return TRUE;
     }
-    if (isoffset && message->wParam == 'Z' && (GetKeyState(VK_CONTROL) & 0x8000)
+    if (isposition && message->wParam == 'Z' && (GetKeyState(VK_CONTROL) & 0x8000)
         && SendMessage(focus, EM_CANUNDO, 0, 0))
     {
         SendMessage(focus, WM_UNDO, 0, 0);

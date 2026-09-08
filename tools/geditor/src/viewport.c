@@ -132,6 +132,7 @@ typedef struct ViewportState {
     BOOL showbgsecondary;
     BOOL showstan;
     BOOL showportals;
+    BOOL showobjects;
     BOOL cullbackfaces;  /* master toggle for authored backface culling */
     BOOL keyw, keya, keys, keyd, keyq, keye;
     POINT lastmouse;
@@ -256,7 +257,7 @@ static void ViewportResizeGL(ViewportState *state, int width, int height)
 static void ViewportDrawBgToolOverlay(const ViewportState *state)
 {
     BOOL vertices = state->tool == EDITOR_TOOL_VERTEX_SELECT;
-    int batchindex;
+    int batchindex, pass;
 
     if (state->scene == NULL || state->batchcount <= 0
         || (!vertices && state->tool != EDITOR_TOOL_EDGE_SELECT))
@@ -283,30 +284,38 @@ static void ViewportDrawBgToolOverlay(const ViewportState *state)
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
     glDepthMask(GL_FALSE);
-    glPolygonMode(GL_FRONT_AND_BACK, vertices ? GL_POINT : GL_LINE);
-    glEnable(vertices ? GL_POLYGON_OFFSET_POINT : GL_POLYGON_OFFSET_LINE);
-    glPolygonOffset(vertices ? -VIEWPORT_VERTEX_MARKER_SIZE : -1.0f, -1.0f);
     glPointSize(VIEWPORT_VERTEX_MARKER_SIZE);
     glLineWidth(1.0f);
 
-    for (batchindex = 0; batchindex < state->batchcount; batchindex++)
+    /* Vertex mode adds its squares over the same non-selectable edge overlay. */
+    for (pass = 0; pass < (vertices ? 2 : 1); pass++)
     {
-        const SceneBatch *batch = &state->batches[batchindex];
+        BOOL points = pass == 1;
+        glPolygonMode(GL_FRONT_AND_BACK, points ? GL_POINT : GL_LINE);
+        glDisable(GL_POLYGON_OFFSET_POINT);
+        glDisable(GL_POLYGON_OFFSET_LINE);
+        glEnable(points ? GL_POLYGON_OFFSET_POINT : GL_POLYGON_OFFSET_LINE);
+        glPolygonOffset(points ? -VIEWPORT_VERTEX_MARKER_SIZE : -1.0f, -1.0f);
 
-        if (batch->object
-            || (batch->secondary ? !state->showbgsecondary : !state->showbgprimary))
+        for (batchindex = 0; batchindex < state->batchcount; batchindex++)
         {
-            continue;
+            const SceneBatch *batch = &state->batches[batchindex];
+
+            if (batch->object
+                || (batch->secondary ? !state->showbgsecondary : !state->showbgprimary))
+            {
+                continue;
+            }
+            if (state->cullbackfaces && batch->cullbackfaces)
+            {
+                glEnable(GL_CULL_FACE);
+            }
+            else
+            {
+                glDisable(GL_CULL_FACE);
+            }
+            glDrawArrays(GL_TRIANGLES, batch->first, batch->count);
         }
-        if (state->cullbackfaces && batch->cullbackfaces)
-        {
-            glEnable(GL_CULL_FACE);
-        }
-        else
-        {
-            glDisable(GL_CULL_FACE);
-        }
-        glDrawArrays(GL_TRIANGLES, batch->first, batch->count);
     }
 
     glPopClientAttrib();
@@ -365,7 +374,8 @@ static void ViewportPaintGL(ViewportState *state)
                 const SceneBatch *batch = &state->batches[i];
                 BOOL wantcullback;
 
-                if (!batch->object && ((!batch->secondary && !state->showbgprimary) || (batch->secondary && !state->showbgsecondary)))
+                if (batch->object ? !state->showobjects
+                    : (batch->secondary ? !state->showbgsecondary : !state->showbgprimary))
                 {
                     continue;
                 }
@@ -535,7 +545,7 @@ static void ViewportPaintGL(ViewportState *state)
         glLineWidth(1.0f);
     }
 
-    if (state->objectselectionboxcount > 0)
+    if (state->showobjects && state->objectselectionboxcount > 0)
     {
         /* A selected object keeps its normal shading. The white bounds are
            a separate depth-tested overlay, so selection never mutates model
@@ -1100,7 +1110,7 @@ static DWORD ViewportFindPickedObject(const ViewportState *state,
     int batchindex;
 
     *distanceout = DBL_MAX;
-    if (state->scene == NULL || state->sceneobjectindices == NULL)
+    if (!state->showobjects || state->scene == NULL || state->sceneobjectindices == NULL)
     {
         return VIEWPORT_OBJECT_NONE;
     }
@@ -1233,7 +1243,7 @@ static void ViewportBuildObjectSelectionBox(ViewportState *state)
     int vertex;
 
     state->objectselectionboxcount = 0;
-    if (state->selectedobject == VIEWPORT_OBJECT_NONE
+    if (!state->showobjects || state->selectedobject == VIEWPORT_OBJECT_NONE
         || state->scene == NULL || state->sceneobjectindices == NULL)
     {
         return;
@@ -1630,6 +1640,74 @@ int ViewportGetSelectedComponentCount(HWND hwnd)
     return state != NULL ? state->componentcount : 0;
 }
 
+/* Panel coordinates average the selected items equally. This is deliberately
+ * separate from the gizmo's first-vertex anchor and length/area-weighted pivot. */
+BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    double sum[3] = {0, 0, 0}, weight = 0;
+    DWORD count = 0;
+    BOOL object;
+    int i, axis;
+
+    *countout = 0;
+    if (state == NULL || state->scene == NULL || state->tool == EDITOR_TOOL_VERTEX_PAINT)
+    {
+        return FALSE;
+    }
+    object = state->selectedobject != VIEWPORT_OBJECT_NONE;
+    if (object && (!state->showobjects || state->sceneobjectindices == NULL)) { return FALSE; }
+    if (!object && (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT))
+    {
+        for (i = 0; i < state->componentcount; i++)
+        {
+            const ViewportComponent *component = &state->components[i];
+            int ends = state->tool == EDITOR_TOOL_EDGE_SELECT ? 2 : 1;
+            int end;
+            if (!ViewportCornerVisible(state, component->corners[0])
+                || (ends == 2 && !ViewportCornerVisible(state, component->corners[1]))) { continue; }
+            for (end = 0; end < ends; end++)
+            {
+                const Vertex *v = &state->scene[component->corners[end]];
+                sum[0] += (double)v->x / ends;
+                sum[1] += (double)v->y / ends;
+                sum[2] += (double)v->z / ends;
+            }
+            count++;
+        }
+        weight = count;
+    }
+    else
+    {
+        for (i = 0; i < state->scenecount; i += 3)
+        {
+            const Vertex *v = &state->scene[i];
+            double triangleweight = 1;
+            if (object)
+            {
+                double a[3], b[3], cross[3];
+                if (state->sceneobjectindices[i / 3] != state->selectedobject) { continue; }
+                /* A model's geometric center matches its surface-centroid gizmo. */
+                a[0]=(double)v[1].x-v[0].x; a[1]=(double)v[1].y-v[0].y; a[2]=(double)v[1].z-v[0].z;
+                b[0]=(double)v[2].x-v[0].x; b[1]=(double)v[2].y-v[0].y; b[2]=(double)v[2].z-v[0].z;
+                cross[0]=a[1]*b[2]-a[2]*b[1]; cross[1]=a[2]*b[0]-a[0]*b[2]; cross[2]=a[0]*b[1]-a[1]*b[0];
+                triangleweight = sqrt(cross[0]*cross[0]+cross[1]*cross[1]+cross[2]*cross[2]);
+            }
+            else if (state->selectedtris == NULL || !state->selectedtris[i / 3]
+                || !ViewportCornerVisible(state, i)) { continue; }
+            sum[0] += ((double)v[0].x + v[1].x + v[2].x) * triangleweight / 3;
+            sum[1] += ((double)v[0].y + v[1].y + v[2].y) * triangleweight / 3;
+            sum[2] += ((double)v[0].z + v[1].z + v[2].z) * triangleweight / 3;
+            weight += triangleweight;
+            count++;
+        }
+    }
+    if (!(weight > 0)) { return FALSE; }
+    for (axis = 0; axis < 3; axis++) { position[axis] = sum[axis] / weight; }
+    *countout = object ? 1 : count;
+    return TRUE;
+}
+
 static void ViewportUpdateGizmo(ViewportState *state)
 {
     double sum[3] = {0,0,0}, weight = 0;
@@ -1638,7 +1716,7 @@ static void ViewportUpdateGizmo(ViewportState *state)
     state->hoveraxis = -1;
     if (state->scene == NULL || state->tool == EDITOR_TOOL_VERTEX_PAINT) { return; }
     if (state->selectedobject != VIEWPORT_OBJECT_NONE
-        && (state->selectedobject & SETUP_CHARACTER_SELECTION_BIT)) { return; }
+        && (!state->showobjects || (state->selectedobject & SETUP_CHARACTER_SELECTION_BIT))) { return; }
     if (state->tool == EDITOR_TOOL_VERTEX_SELECT && state->componentcount > 0)
     {
         int corner = state->components[0].corners[0];
@@ -1746,7 +1824,7 @@ static BOOL ViewportComponentVisible(const ViewportState *state, int triangle,
     {
         const SceneBatch *batch=&state->batches[batchindex];
         int corner;
-        if (!ViewportBatchIsPickable(state,batch) && !batch->object) { continue; }
+        if (!ViewportBatchIsPickable(state,batch) && !(batch->object && state->showobjects)) { continue; }
         for (corner=batch->first; corner<batch->first+batch->count; corner+=3)
         {
             if (ViewportRayTriangleDistance(&ray,&state->scene[corner],
@@ -2094,6 +2172,7 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
     state->gizmoposition[state->dragaxis]=state->dragorigin[state->dragaxis]+delta;
     ViewportBuildObjectSelectionBox(state);
     InvalidateRect(hwnd,NULL,FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_TRANSFORM_PREVIEW, 0, 0);
 }
 
 void ViewportCancelTransform(HWND hwnd)
@@ -2115,6 +2194,7 @@ void ViewportCancelTransform(HWND hwnd)
     ViewportBuildObjectSelectionBox(state);
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd,NULL,FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_TRANSFORM_PREVIEW, 0, 0);
 }
 
 static void ViewportEndTransform(HWND hwnd, ViewportState *state)
@@ -2152,6 +2232,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         state->showbgsecondary = TRUE;
         state->showstan = FALSE;
         state->showportals = FALSE;
+        state->showobjects = TRUE;
         state->cullbackfaces = TRUE;
         state->selectedobject = VIEWPORT_OBJECT_NONE;
         state->hoveraxis = state->dragaxis = -1;
@@ -2693,7 +2774,7 @@ void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals)
 
 void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
                                    BOOL bgsecondary, BOOL stan,
-                                   BOOL portals)
+                                   BOOL portals, BOOL objects)
 {
     ViewportState *state = ViewportGetState(hwnd);
 
@@ -2707,8 +2788,12 @@ void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
     state->showbgsecondary = bgsecondary;
     state->showstan = stan;
     state->showportals = portals;
+    state->showobjects = objects;
+    if (!objects) { state->selectedobject = VIEWPORT_OBJECT_NONE; }
+    ViewportBuildObjectSelectionBox(state);
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
 }
 
 /* qsort helper: keep the transparent pass last, then group triangles
@@ -3165,7 +3250,7 @@ BOOL ViewportGetSelectedObject(HWND hwnd, DWORD *setupobjectindex)
 {
     const ViewportState *state = ViewportGetState(hwnd);
 
-    if (state == NULL || setupobjectindex == NULL
+    if (state == NULL || !state->showobjects || setupobjectindex == NULL
         || state->selectedobject == VIEWPORT_OBJECT_NONE)
     {
         return FALSE;
