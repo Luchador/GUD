@@ -35,6 +35,7 @@ HWND RightPanelCreate(HWND parent, HINSTANCE hinstance);
 /* A NULL position clears the fields; a noneditable position remains visible. */
 void RightPanelSetTransformState(HWND panel, const double position[3],
                                  DWORD count, BOOL editable, double gridstep);
+void RightPanelSetRotationMode(HWND panel, BOOL rotate);
 void RightPanelSetRotationAxes(HWND panel, unsigned int axes);
 BOOL RightPanelHandleMessage(HWND panel, MSG *message);
 void RightPanelSetVertexPaintMode(HWND panel, BOOL enabled);

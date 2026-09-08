@@ -2019,6 +2019,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
     case RIGHTPANEL_WM_ROTATION_MODE:
         ViewportSetRotationMode(g_Viewport,wparam!=0);
+        RightPanelSetRotationMode(g_RightPanel, wparam != 0);
         GEditorRefreshTransformFields();
         SetFocus(g_Viewport);
         return 0;
@@ -2544,6 +2545,33 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
+/* W/E are editor shortcuts only outside camera flight. Native edit fields
+   retain their text input, including the E in scientific notation. */
+static BOOL GEditorHandleTransformHotkey(HWND frame, const MSG *message)
+{
+    char classname[32] = "";
+    BOOL rotate;
+
+    if (message == NULL || g_Viewport == NULL || message->message != WM_KEYDOWN
+        || (message->wParam != 'W' && message->wParam != 'E')
+        || ViewportIsFlying(g_Viewport)
+        || (message->hwnd != frame && !IsChild(frame, message->hwnd))
+        || (GetKeyState(VK_CONTROL) & 0x8000)
+        || (GetKeyState(VK_MENU) & 0x8000)
+        || (GetKeyState(VK_SHIFT) & 0x8000)) { return FALSE; }
+    GetClassName(message->hwnd, classname, sizeof(classname));
+    if (lstrcmpi(classname, "Edit") == 0) { return FALSE; }
+
+    /* Do not repeatedly cancel/restart previews while a key is held. */
+    if (message->lParam & ((LPARAM)1 << 30)) { return TRUE; }
+    rotate = message->wParam == 'E';
+    if (ViewportIsRotating(g_Viewport) != rotate)
+    {
+        SendMessage(frame, RIGHTPANEL_WM_ROTATION_MODE, rotate, 0);
+    }
+    return TRUE;
+}
+
 int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int showcmd)
 {
     WNDCLASS wc;
@@ -2629,7 +2657,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     CoUninitialize();
                     return (int)msg.wParam;
                 }
-                if (!RightPanelHandleMessage(g_RightPanel, &msg)
+                if (!GEditorHandleTransformHotkey(hwnd, &msg)
+                    && !RightPanelHandleMessage(g_RightPanel, &msg)
                     && !ToolToolbarHandleMessage(g_ToolToolbar, &msg)
                     && (accelerators == NULL
                         || !TranslateAccelerator(hwnd, accelerators, &msg)))
@@ -2648,7 +2677,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             {
                 break;
             }
-            if (!RightPanelHandleMessage(g_RightPanel, &msg)
+            if (!GEditorHandleTransformHotkey(hwnd, &msg)
+                && !RightPanelHandleMessage(g_RightPanel, &msg)
                 && !ToolToolbarHandleMessage(g_ToolToolbar, &msg)
                 && (accelerators == NULL
                     || !TranslateAccelerator(hwnd, accelerators, &msg)))

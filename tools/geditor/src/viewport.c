@@ -695,6 +695,14 @@ static void ViewportBeginFly(HWND hwnd, ViewportState *state)
     ShowCursor(FALSE);
 
     state->flying = TRUE;
+    /* W/E may already be held after selecting a transform mode. Seed the
+       movement state here because repeated key-down messages are ignored. */
+    state->keyw = (GetKeyState('W') & 0x8000) != 0;
+    state->keya = (GetKeyState('A') & 0x8000) != 0;
+    state->keys = (GetKeyState('S') & 0x8000) != 0;
+    state->keyd = (GetKeyState('D') & 0x8000) != 0;
+    state->keyq = (GetKeyState('Q') & 0x8000) != 0;
+    state->keye = (GetKeyState('E') & 0x8000) != 0;
     QueryPerformanceCounter((LARGE_INTEGER *)&state->lastqpc);
 }
 

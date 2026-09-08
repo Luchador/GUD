@@ -462,10 +462,8 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             {
             case RIGHTPANEL_ID_MOVE_MODE:
             case RIGHTPANEL_ID_ROTATE_MODE:
-                state->rotationmode=LOWORD(wparam)==RIGHTPANEL_ID_ROTATE_MODE;
-                SendMessage(state->movemode,BM_SETCHECK,state->rotationmode?BST_UNCHECKED:BST_CHECKED,0);
-                SendMessage(state->rotatemode,BM_SETCHECK,state->rotationmode?BST_CHECKED:BST_UNCHECKED,0);
-                SendMessage(GetParent(hwnd),RIGHTPANEL_WM_ROTATION_MODE,state->rotationmode,0);
+                SendMessage(GetParent(hwnd), RIGHTPANEL_WM_ROTATION_MODE,
+                            LOWORD(wparam) == RIGHTPANEL_ID_ROTATE_MODE, 0);
                 return 0;
             case RIGHTPANEL_ID_BG_PRIMARY:
             case RIGHTPANEL_ID_BG_SECONDARY:
@@ -1006,4 +1004,15 @@ void RightPanelSetRotationAxes(HWND panel, unsigned int axes)
         EnableWindow(state->positions[axis], (axes & (1u << axis)) != 0);
         SendMessage(state->positions[axis], EM_SETREADONLY, !(axes & (1u << axis)), 0);
     }
+}
+
+/* The frame applies panel clicks and keyboard shortcuts through one path. */
+void RightPanelSetRotationMode(HWND panel, BOOL rotate)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    if (state == NULL) { return; }
+    state->rotationmode = rotate;
+    SendMessage(state->movemode, BM_SETCHECK, rotate ? BST_UNCHECKED : BST_CHECKED, 0);
+    SendMessage(state->rotatemode, BM_SETCHECK, rotate ? BST_CHECKED : BST_UNCHECKED, 0);
+    InvalidateRect(panel, NULL, FALSE);
 }
