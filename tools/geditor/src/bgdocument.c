@@ -1118,12 +1118,13 @@ BOOL BgDocumentPaintVertex(BgDocument *document, const BgFaceRef *ref,
 }
 
 
-static unsigned char *BgDocumentGroupRenderFlags(const BgDocumentLayerData *layer, BOOL secondary)
+static BgRenderState *BgDocumentGroupRenderStates(const BgDocumentLayerData *layer, BOOL secondary)
 {
-    unsigned char *flags = (unsigned char *)malloc(layer->groupcount ? layer->groupcount : 1);
+    BgRenderState *states =
+        (BgRenderState *)malloc((layer->groupcount ? layer->groupcount : 1) * sizeof(*states));
     BgRenderState state;
     DWORD group;
-    if (!flags)
+    if (!states)
     {
         return NULL;
     }
@@ -1137,9 +1138,32 @@ static unsigned char *BgDocumentGroupRenderFlags(const BgDocumentLayerData *laye
             BgRenderStateRead(&state, BgDocumentRead32(source->commands + offset),
                               BgDocumentRead32(source->commands + offset + 4));
         }
-        flags[group] = BgRenderStateFlags(&state);
+        states[group] = state;
     }
-    return flags;
+    return states;
+}
+
+unsigned char BgDocumentPreviewVertexAlpha(const BgDocumentRoom *room, const BgDocumentFace *face,
+                                           unsigned char vertexalpha)
+{
+    BgRenderState state;
+    DWORD group;
+    if (face->layer > 1 || face->drawgroup >= room->layers[face->layer].groupcount)
+    {
+        return vertexalpha;
+    }
+    BgRenderStateInit(&state, face->layer == BG_GEOMETRY_SECONDARY);
+    for (group = 0; group <= face->drawgroup; group++)
+    {
+        const BgDocumentDrawGroup *source = &room->layers[face->layer].groups[group];
+        DWORD offset;
+        for (offset = 0; offset + 8 <= source->commandsize; offset += 8)
+        {
+            BgRenderStateRead(&state, BgDocumentRead32(source->commands + offset),
+                              BgDocumentRead32(source->commands + offset + 4));
+        }
+    }
+    return BgRenderVertexAlpha(BgRenderGetAlpha(&state, &face->material), vertexalpha);
 }
 
 BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
@@ -1189,13 +1213,13 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
     for (roomindex = 1; roomindex <= document->roomcount; roomindex++)
     {
         const BgDocumentRoom *room = &document->rooms[roomindex];
-        unsigned char *groupflags[2];
+        BgRenderState *groupstates[2];
         DWORD faceindex;
-        groupflags[0] = BgDocumentGroupRenderFlags(&room->layers[0], FALSE);
-        groupflags[1] = BgDocumentGroupRenderFlags(&room->layers[1], TRUE);
-        if (!groupflags[0] || !groupflags[1])
+        groupstates[0] = BgDocumentGroupRenderStates(&room->layers[0], FALSE);
+        groupstates[1] = BgDocumentGroupRenderStates(&room->layers[1], TRUE);
+        if (!groupstates[0] || !groupstates[1])
         {
-            free(groupflags[0]); free(groupflags[1]);
+            free(groupstates[0]); free(groupstates[1]);
             BgDocumentRenderMeshFree(out);
             *reasonout = "out of memory decoding bg render state.";
             return FALSE;
@@ -1205,6 +1229,7 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
         {
             const BgDocumentFace *face = &room->faces[faceindex];
             unsigned short tag = face->textureid;
+            BgRenderAlpha alpha;
             int corner;
 
             if (face->layer == BG_GEOMETRY_SECONDARY)
@@ -1218,12 +1243,15 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
 
             if (face->layer > 1 || face->drawgroup >= room->layers[face->layer].groupcount)
             {
-                free(groupflags[0]); free(groupflags[1]);
+                free(groupstates[0]); free(groupstates[1]);
                 BgDocumentRenderMeshFree(out);
                 *reasonout = "a bg face has an invalid draw group.";
                 return FALSE;
             }
-            out->renderflags[outputface] = groupflags[face->layer][face->drawgroup];
+            const BgRenderState *renderstate = &groupstates[face->layer][face->drawgroup];
+            alpha = BgRenderGetAlpha(renderstate, &face->material);
+            out->renderflags[outputface] = BgRenderStateFlags(renderstate);
+            if (!alpha.texture) { out->renderflags[outputface] |= BG_RENDER_IGNORE_TEXTURE_ALPHA; }
             out->tags[outputface] = tag;
             out->facerefs[outputface].faceid = face->id;
             out->facerefs[outputface].room = face->room;
@@ -1248,12 +1276,12 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
                 target->r = source->r;
                 target->g = source->g;
                 target->b = source->b;
-                target->a = source->a;
+                target->a = BgRenderVertexAlpha(alpha, source->a);
             }
 
             outputface++;
         }
-        free(groupflags[0]); free(groupflags[1]);
+        free(groupstates[0]); free(groupstates[1]);
     }
 
     out->facecount = outputface;

@@ -49,8 +49,9 @@
 #define VIEWPORT_OBJECT_NONE 0xffffffffu
 #define VIEWPORT_BLEND_ALPHA_THRESHOLD 0.01f
 #define VIEWPORT_CUTOUT_ALPHA_THRESHOLD 0.5f
+#define VIEWPORT_TEXTURE_VARIANT_COUNT ((BG_TEX_NONE + 1) * 2)
 
-/* Cached by texture ID: authored draw order can revisit a texture many times.
+/* Cached by texture ID and alpha use: authored order can revisit a texture many times.
  * Keep alpha for CPU picking through transparent areas of decals. */
 typedef struct ViewportTexture {
     GLuint name;
@@ -146,7 +147,7 @@ typedef struct ViewportState {
     DWORD selectedobject;
     Vertex objectselectionbox[VIEWPORT_BOX_VERTICES];
     GLsizei objectselectionboxcount;
-    ViewportTexture *texturecache; /* BG_TEX_NONE + 1 entries */
+    ViewportTexture *texturecache; /* VIEWPORT_TEXTURE_VARIANT_COUNT entries */
     GLuint *textures;    /* GL texture names owned by the scene */
     int texturecount;
     StanFile stan; /* owned preview; edits are committed to the frame's document */
@@ -1117,6 +1118,11 @@ static double ViewportCoplanarPickTolerance(double distance)
 }
 
 
+static unsigned int ViewportTextureKey(unsigned short textureid, unsigned char flags)
+{
+    return textureid + ((flags & BG_RENDER_IGNORE_TEXTURE_ALPHA) ? BG_TEX_NONE + 1 : 0);
+}
+
 /* CPU equivalent of GL_LINEAR + GL_REPEAT alpha at a ray/triangle hit.
  * Vertex colors remain affine on the triangle; ray intersection supplies
  * the same perspective-correct surface point used by rasterization. */
@@ -1126,7 +1132,7 @@ static BOOL ViewportRayBatchTriangleDistance(const ViewportState *state, const S
 {
     const Vertex *v = &state->scene[corner];
     const ViewportTexture *texture =
-        state->texturecache ? &state->texturecache[batch->textureid] : NULL;
+        state->texturecache ? &state->texturecache[ViewportTextureKey(batch->textureid, batch->renderflags)] : NULL;
     double edge[2][3], delta[3], aa = 0, ab = 0, bb = 0, ap = 0, bp = 0;
     double u, w, denominator, alpha, threshold;
     int axis;
@@ -1373,6 +1379,7 @@ void ViewportRefreshBgVertexColor(HWND viewport, const BgDocument *document,
     {
         const BgFaceRef *ref = &state->scenefacerefs[triangle];
         const BgDocumentFace *face;
+        unsigned char previewalpha;
         unsigned int corner;
 
         if (ref->faceid == BG_FACE_ID_NONE || ref->room != hit->face.room)
@@ -1380,7 +1387,9 @@ void ViewportRefreshBgVertexColor(HWND viewport, const BgDocument *document,
             continue;
         }
         face = BgDocumentFindFace(document, ref, NULL);
-        if (face == NULL) { continue; }
+        if (face == NULL || (face->vertexindices[0] != vertexindex
+            && face->vertexindices[1] != vertexindex && face->vertexindices[2] != vertexindex)) { continue; }
+        previewalpha = BgDocumentPreviewVertexAlpha(room, face, source->a);
         for (corner = 0; corner < 3; corner++)
         {
             int vertex = triangle * 3 + corner;
@@ -1388,7 +1397,7 @@ void ViewportRefreshBgVertexColor(HWND viewport, const BgDocument *document,
             state->scenecolors[vertex].r = source->r;
             state->scenecolors[vertex].g = source->g;
             state->scenecolors[vertex].b = source->b;
-            state->scene[vertex].a = source->a;
+            state->scene[vertex].a = previewalpha;
         }
         ViewportSetTriangleColor(state, triangle,
             state->selectedtris != NULL && state->selectedtris[triangle]);
@@ -3444,7 +3453,7 @@ static void ViewportFreeTextureCache(ViewportTexture *cache)
     {
         return;
     }
-    for (id = 0; id <= BG_TEX_NONE; id++)
+    for (id = 0; id < VIEWPORT_TEXTURE_VARIANT_COUNT; id++)
     {
         free(cache[id].alpha);
     }
@@ -3893,7 +3902,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                                              * sizeof(*sceneobjectindices));
         scenevertexrefs = (BgDocumentVertexRef *)calloc((size_t)tricount * 3, sizeof(*scenevertexrefs));
         decode = (TexPixel *)malloc(256 * 256 * sizeof(TexPixel));
-        texturecache = (ViewportTexture *)calloc(BG_TEX_NONE + 1, sizeof(*texturecache));
+        texturecache = (ViewportTexture *)calloc(VIEWPORT_TEXTURE_VARIANT_COUNT, sizeof(*texturecache));
 
         if (scene == NULL || scenecolors == NULL || order == NULL || batches == NULL
             || textures == NULL || selectedtris == NULL
@@ -3924,9 +3933,9 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
             float invh = 0.0f;
             int k;
             unsigned short textureid = BG_TEX_ID(order[i].tag);
-            ViewportTexture *texture = &texturecache[textureid];
             unsigned char flags = renderflags ? renderflags[order[i].tri]
                 : BgRenderDefaultFlags(BG_TRI_IS_SECONDARY(order[i].tag));
+            ViewportTexture *texture = &texturecache[ViewportTextureKey(textureid, flags)];
 
             if (vertexrefs != NULL)
             {
@@ -3961,17 +3970,23 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                     && tw > 0 && tw <= 256 && th > 0 && th <= 256)
                 {
                     int pixel;
-                    texture->alpha = (unsigned char *)malloc((size_t)tw * th);
-                    if (!texture->alpha) { goto scene_failed; }
                     texture->width = tw; texture->height = th;
-                    for (pixel = 0; pixel < tw * th; pixel++) { texture->alpha[pixel] = decode[pixel].a; }
+                    if (!(flags & BG_RENDER_IGNORE_TEXTURE_ALPHA))
+                    {
+                        texture->alpha = (unsigned char *)malloc((size_t)tw * th);
+                        if (!texture->alpha) { goto scene_failed; }
+                        for (pixel = 0; pixel < tw * th; pixel++) { texture->alpha[pixel] = decode[pixel].a; }
+                    }
                     glGenTextures(1, &texture->name);
                     glBindTexture(GL_TEXTURE_2D, texture->name);
                     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
                     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
                     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
                     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0,
+                    /* RGB storage supplies alpha=1 for ENVIRONMENT-only
+                     * combiners; retain texture RGB and normal modulation. */
+                    glTexImage2D(GL_TEXTURE_2D, 0,
+                                 (flags & BG_RENDER_IGNORE_TEXTURE_ALPHA) ? GL_RGB : GL_RGBA, tw, th, 0,
                                  GL_RGBA, GL_UNSIGNED_BYTE, decode);
                     textures[texturecount++] = texture->name;
                 }

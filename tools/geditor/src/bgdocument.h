@@ -149,6 +149,11 @@ BOOL BgDocumentTranslateVertices(BgDocument *document,
 BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
                        BgFile *out, const char **reasonout);
 
+/* Resolve a painted corner's preview alpha from the same inherited draw
+ * state and per-face material as a full rebuild. Raw vertex RGBA stays intact. */
+unsigned char BgDocumentPreviewVertexAlpha(const BgDocumentRoom *room,
+    const BgDocumentFace *face, unsigned char vertexalpha);
+
 BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
                                BgDocumentRenderMesh *out,
                                const char **reasonout);
