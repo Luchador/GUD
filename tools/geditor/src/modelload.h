@@ -20,13 +20,6 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
                             DWORD *tricount, unsigned short **texids,
                             const char **reasonout);
 
-/* If project geometry exactly matches the old extraction of this ROM model,
-   replace the caller-owned arrays with its assembled pose. Edited models
-   and failed conversions are left alone. Does not write project files. */
-void ModelUpgradeLegacyGeometry(const unsigned char *data, DWORD size,
-                                 BgVertex **vertices, DWORD *tricount,
-                                 unsigned short **tags);
-
 /* Looks up a setup ObjectRecord's model ID in GoldenEye's canonical
    PitemZ_entries table. The returned name is the extracted P...Z
    resource filename and scale is the model's authored base scale. */

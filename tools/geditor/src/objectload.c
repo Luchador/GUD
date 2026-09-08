@@ -332,22 +332,12 @@ static ModelCacheEntry *ObjectGetModel(ModelCacheEntry *cache, int modelid,
             const char *name;
             DWORD offset, size;
 
-            BOOL hasrommodel = rom->data != NULL
-                && ModelGetPropDefinition(modelid, &name, NULL)
-                && RomFindFile(rom, name, &offset, &size, &why);
-
-            /* Old exports lost part offsets. Upgrade only exact, untouched
-               extractions, in memory, so existing projects benefit too. */
-            if (hasrommodel)
-            {
-                ModelUpgradeLegacyGeometry(rom->data + offset, size,
-                    &entry->tris, &entry->tricount, &entry->tritags);
-            }
             ObjectModelBounds(entry->tris, entry->tricount, entry->min, entry->max);
             /* Project glTFs currently retain render geometry, not gameplay
                boxes. Read the original box from the retained import ROM;
                older projects without it keep mesh bounds as a fallback. */
-            if (hasrommodel)
+            if (rom->data != NULL && ModelGetPropDefinition(modelid, &name, NULL)
+                && RomFindFile(rom, name, &offset, &size, &why))
             {
                 float min[3], max[3];
 

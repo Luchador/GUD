@@ -236,7 +236,7 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
             continue;
         }
 
-        if (cmd[0] == MDL_G_MTX && pose != NULL)
+        if (cmd[0] == MDL_G_MTX)
         {
             DWORD raw = md32(cmd + 4);
             DWORD index = mdoff(raw) / 64; /* Segment 3: packed N64 Mtx array. */
@@ -261,9 +261,6 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
             int first = cmd[1] & 0xf;
             int i;
 
-            /* The old extractor remembered only the last batch. Retain that
-               behavior only when identifying an untouched legacy export. */
-            if (pose == NULL) { valid = 0; }
             if (first + count > 16 || addr > maxlen
                 || (DWORD)count * 16 > maxlen - addr)
             {
@@ -275,9 +272,9 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                 const unsigned char *v = data + addr + i * 16;
                 BgVertex *out = &cache[first + i];
 
-                out->x = md16(v + 0) + (pose != NULL ? translation[0] : 0.0f);
-                out->y = md16(v + 2) + (pose != NULL ? translation[1] : 0.0f);
-                out->z = md16(v + 4) + (pose != NULL ? translation[2] : 0.0f);
+                out->x = md16(v + 0) + translation[0];
+                out->y = md16(v + 2) + translation[1];
+                out->z = md16(v + 4) + translation[2];
                 out->s = (float)md16(v + 8) / 32.0f;
                 out->t = (float)md16(v + 10) / 32.0f;
                 out->r = v[12]; out->g = v[13]; out->b = v[14]; out->a = v[15];
@@ -447,9 +444,9 @@ BOOL ModelReadPlacementBounds(const unsigned char *data, DWORD size,
     return FALSE;
 }
 
-static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
+BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
                             DWORD *tricount, unsigned short **texids,
-                            const char **reasonout, BOOL assemble)
+                            const char **reasonout)
 {
     MdlBuilder b;
     MdlPose pose;
@@ -514,7 +511,7 @@ static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
         nextoff = mdoff(md32(data + node + 12));
         childoff = mdoff(md32(data + node + 20));
 
-        if (assemble && !MdlAddNodeMatrices(&pose, data, maxlen, node))
+        if (!MdlAddNodeMatrices(&pose, data, maxlen, node))
         {
             b.error = "model has an invalid node transform.";
             break;
@@ -541,13 +538,12 @@ static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
         DWORD dataoff = mdoff(md32(data + node + 4));
         float origin[3] = { 0.0f, 0.0f, 0.0f };
 
-        if (assemble && !MdlNodeTranslation(data, maxlen, node, origin))
+        if (!MdlNodeTranslation(data, maxlen, node, origin))
         {
             b.error = "model has an invalid node transform.";
             break;
         }
-        MdlNodeMeshes(&b, data, maxlen, assemble ? flags & 0xff : flags,
-                       dataoff, assemble ? &pose : NULL, origin);
+        MdlNodeMeshes(&b, data, maxlen, flags & 0xff, dataoff, &pose, origin);
     }
 
     if (b.error || b.count == 0)
@@ -562,110 +558,6 @@ static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
     *tricount = b.count / 3;
     *texids = b.texids;
     return b.verts;
-}
-
-BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
-                            DWORD *tricount, unsigned short **texids,
-                            const char **reasonout)
-{
-    return MdlLoadGeometry(data, maxlen, tricount, texids, reasonout, TRUE);
-}
-
-/* Legacy exports grouped faces by material and discarded node identity.
-   Compare complete triangles, independent of their material-group order,
-   before substituting geometry assembled from the retained import ROM. */
-typedef struct MdlCompareTriangle {
-    BgVertex vertices[3];
-    unsigned short tag;
-} MdlCompareTriangle;
-
-static int MdlCompareTriangles(const void *left, const void *right)
-{
-    const MdlCompareTriangle *a = (const MdlCompareTriangle *)left;
-    const MdlCompareTriangle *b = (const MdlCompareTriangle *)right;
-    int i;
-
-    if (a->tag != b->tag) { return a->tag < b->tag ? -1 : 1; }
-    for (i = 0; i < 3; i++)
-    {
-        const BgVertex *va = &a->vertices[i], *vb = &b->vertices[i];
-        const float av[] = { va->x, va->y, va->z, va->s, va->t };
-        const float bv[] = { vb->x, vb->y, vb->z, vb->s, vb->t };
-        int j;
-
-        for (j = 0; j < 5; j++)
-        {
-            if (av[j] != bv[j]) { return av[j] < bv[j] ? -1 : 1; }
-        }
-        if (va->r != vb->r) { return va->r < vb->r ? -1 : 1; }
-        if (va->g != vb->g) { return va->g < vb->g ? -1 : 1; }
-        if (va->b != vb->b) { return va->b < vb->b ? -1 : 1; }
-        if (va->a != vb->a) { return va->a < vb->a ? -1 : 1; }
-    }
-    return 0;
-}
-
-static MdlCompareTriangle *MdlSortedTriangles(const BgVertex *vertices,
-                                              const unsigned short *tags,
-                                              DWORD count)
-{
-    MdlCompareTriangle *triangles;
-    size_t bytes = (size_t)count * sizeof(*triangles);
-    DWORD i;
-
-    if (count != 0 && bytes / count != sizeof(*triangles)) { return NULL; }
-    triangles = (MdlCompareTriangle *)malloc(bytes);
-    if (triangles == NULL) { return NULL; }
-    for (i = 0; i < count; i++)
-    {
-        memcpy(triangles[i].vertices, vertices + i * 3, sizeof(triangles[i].vertices));
-        triangles[i].tag = tags[i];
-    }
-    qsort(triangles, count, sizeof(*triangles), MdlCompareTriangles);
-    return triangles;
-}
-
-void ModelUpgradeLegacyGeometry(const unsigned char *data, DWORD size,
-                                 BgVertex **vertices, DWORD *tricount,
-                                 unsigned short **tags)
-{
-    BgVertex *legacy, *assembled;
-    unsigned short *legacytags, *assembledtags;
-    DWORD legacycount, assembledcount, i;
-    const char *why;
-    MdlCompareTriangle *expected = NULL, *actual = NULL;
-    BOOL matches = FALSE;
-
-    if (*vertices == NULL || *tags == NULL || *tricount == 0) { return; }
-    legacy = MdlLoadGeometry(data, size, &legacycount, &legacytags, &why, FALSE);
-    if (legacy == NULL) { return; }
-    if (legacycount == *tricount)
-    {
-        expected = MdlSortedTriangles(legacy, legacytags, legacycount);
-        actual = MdlSortedTriangles(*vertices, *tags, *tricount);
-        if (expected != NULL && actual != NULL)
-        {
-            matches = TRUE;
-            for (i = 0; i < legacycount; i++)
-            {
-                if (MdlCompareTriangles(&expected[i], &actual[i]) != 0)
-                {
-                    matches = FALSE;
-                    break;
-                }
-            }
-        }
-    }
-    free(expected); free(actual);
-    free(legacy); free(legacytags);
-    if (!matches) { return; }
-
-    assembled = ModelLoadGeometry(data, size, &assembledcount, &assembledtags, &why);
-    if (assembled == NULL) { return; }
-    free(*vertices); free(*tags);
-    *vertices = assembled;
-    *tags = assembledtags;
-    *tricount = assembledcount;
 }
 
 static const char *MdlClassFolder(const char *name)
