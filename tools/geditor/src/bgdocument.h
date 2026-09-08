@@ -6,6 +6,7 @@
 
 #include "bgload.h"
 #include "bgmaterial.h"
+#include "bgrender.h"
 
 /* Stable identity used between the editable document and presentation
  * layers. A face remains identifiable even when the viewport sorts its
@@ -97,6 +98,7 @@ typedef struct BgDocumentVertexRef {
 typedef struct BgDocumentRenderMesh {
     BgVertex *vertices;       /* facecount * 3 world-space vertices */
     unsigned short *tags;     /* one BG_* tag per face */
+    unsigned char *renderflags; /* decoded depth/decal/blend state per face */
     BgFaceRef *facerefs;      /* one stable document identity per face */
     BgDocumentVertexRef *vertexrefs; /* one identity per rendered corner */
     DWORD facecount;

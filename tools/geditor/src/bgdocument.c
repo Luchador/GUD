@@ -1118,6 +1118,30 @@ BOOL BgDocumentPaintVertex(BgDocument *document, const BgFaceRef *ref,
 }
 
 
+static unsigned char *BgDocumentGroupRenderFlags(const BgDocumentLayerData *layer, BOOL secondary)
+{
+    unsigned char *flags = (unsigned char *)malloc(layer->groupcount ? layer->groupcount : 1);
+    BgRenderState state;
+    DWORD group;
+    if (!flags)
+    {
+        return NULL;
+    }
+    BgRenderStateInit(&state, secondary);
+    for (group = 0; group < layer->groupcount; group++)
+    {
+        const BgDocumentDrawGroup *source = &layer->groups[group];
+        DWORD offset;
+        for (offset = 0; offset + 8 <= source->commandsize; offset += 8)
+        {
+            BgRenderStateRead(&state, BgDocumentRead32(source->commands + offset),
+                              BgDocumentRead32(source->commands + offset + 4));
+        }
+        flags[group] = BgRenderStateFlags(&state);
+    }
+    return flags;
+}
+
 BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
                                BgDocumentRenderMesh *out,
                                const char **reasonout)
@@ -1147,13 +1171,14 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
 
     out->vertices = (BgVertex *)malloc((size_t)document->facecount * 3
                                       * sizeof(*out->vertices));
+    out->renderflags = (unsigned char *)malloc((size_t)document->facecount);
     out->tags = (unsigned short *)malloc((size_t)document->facecount
                                          * sizeof(*out->tags));
     out->facerefs = (BgFaceRef *)malloc((size_t)document->facecount
                                        * sizeof(*out->facerefs));
     out->vertexrefs = (BgDocumentVertexRef *)malloc((size_t)document->facecount * 3
         * sizeof(*out->vertexrefs));
-    if (out->vertices == NULL || out->tags == NULL || out->facerefs == NULL
+    if (out->vertices == NULL || out->tags == NULL || out->renderflags == NULL || out->facerefs == NULL
         || out->vertexrefs == NULL)
     {
         BgDocumentRenderMeshFree(out);
@@ -1164,7 +1189,17 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
     for (roomindex = 1; roomindex <= document->roomcount; roomindex++)
     {
         const BgDocumentRoom *room = &document->rooms[roomindex];
+        unsigned char *groupflags[2];
         DWORD faceindex;
+        groupflags[0] = BgDocumentGroupRenderFlags(&room->layers[0], FALSE);
+        groupflags[1] = BgDocumentGroupRenderFlags(&room->layers[1], TRUE);
+        if (!groupflags[0] || !groupflags[1])
+        {
+            free(groupflags[0]); free(groupflags[1]);
+            BgDocumentRenderMeshFree(out);
+            *reasonout = "out of memory decoding bg render state.";
+            return FALSE;
+        }
 
         for (faceindex = 0; faceindex < room->facecount; faceindex++)
         {
@@ -1181,6 +1216,14 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
                 tag |= BG_TRI_CULL_BACK;
             }
 
+            if (face->layer > 1 || face->drawgroup >= room->layers[face->layer].groupcount)
+            {
+                free(groupflags[0]); free(groupflags[1]);
+                BgDocumentRenderMeshFree(out);
+                *reasonout = "a bg face has an invalid draw group.";
+                return FALSE;
+            }
+            out->renderflags[outputface] = groupflags[face->layer][face->drawgroup];
             out->tags[outputface] = tag;
             out->facerefs[outputface].faceid = face->id;
             out->facerefs[outputface].room = face->room;
@@ -1210,6 +1253,7 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
 
             outputface++;
         }
+        free(groupflags[0]); free(groupflags[1]);
     }
 
     out->facecount = outputface;
@@ -1226,6 +1270,7 @@ void BgDocumentRenderMeshFree(BgDocumentRenderMesh *mesh)
 
     free(mesh->vertices);
     free(mesh->tags);
+    free(mesh->renderflags);
     free(mesh->facerefs);
     free(mesh->vertexrefs);
     ZeroMemory(mesh, sizeof(*mesh));

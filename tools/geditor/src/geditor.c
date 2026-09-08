@@ -81,6 +81,8 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
     DWORD total;
     BgVertex *combinedtris;
     unsigned short *combinedtags;
+    unsigned char *combinedflags;
+    DWORD triangle;
     BgFaceRef *combinedrefs;
     BgDocumentVertexRef *combinedvertices;
 
@@ -97,6 +99,7 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
         return FALSE;
     }
 
+    combinedflags = (unsigned char *)malloc((size_t)total);
     combinedtris = (BgVertex *)malloc(
         (size_t)total * 3 * sizeof(*combinedtris));
     combinedtags = (unsigned short *)malloc(
@@ -107,11 +110,12 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
                                        sizeof(*combinedrefs));
 
     combinedvertices = (BgDocumentVertexRef *)calloc((size_t)total * 3, sizeof(*combinedvertices));
-    if (combinedtris == NULL || combinedtags == NULL || combinedrefs == NULL
+    if (combinedtris == NULL || combinedtags == NULL || combinedflags == NULL || combinedrefs == NULL
         || combinedvertices == NULL)
     {
         free(combinedtris);
         free(combinedtags);
+        free(combinedflags);
         free(combinedrefs);
         free(combinedvertices);
         *reasonout = "out of memory adding setup objects to the viewport.";
@@ -120,6 +124,7 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
 
     if (mesh->facecount > 0)
     {
+        memcpy(combinedflags, mesh->renderflags, mesh->facecount);
         memcpy(combinedvertices, mesh->vertexrefs,
                (size_t)mesh->facecount * 3 * sizeof(*combinedvertices));
         memcpy(combinedtris, mesh->vertices,
@@ -134,7 +139,13 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
     memcpy(combinedtags + mesh->facecount, objects->tritags,
            (size_t)objects->tricount * sizeof(*combinedtags));
 
+    for (triangle = 0; triangle < objects->tricount; triangle++)
+    {
+        combinedflags[mesh->facecount + triangle] =
+            BgRenderDefaultFlags(BG_TRI_IS_SECONDARY(objects->tritags[triangle]));
+    }
     BgDocumentRenderMeshFree(mesh);
+    mesh->renderflags = combinedflags;
     mesh->vertices = combinedtris;
     mesh->tags = combinedtags;
     mesh->facerefs = combinedrefs;
@@ -271,7 +282,7 @@ static BOOL GEditorRebuildCurrentViewportWithObjects(
         BgDocumentRenderMeshFree(&mesh);
         return FALSE;
     }
-    if (!ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags, mesh.facerefs, mesh.vertexrefs,
+    if (!ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags, mesh.renderflags, mesh.facerefs, mesh.vertexrefs,
                           objects->objectindices,
                           (int)objectfirsttriangle,
                           (int)mesh.facecount, g_Project.dir, FALSE))
@@ -443,7 +454,7 @@ static void GEditorCloseProject(HWND hwnd)
     BrowserSetLevels(g_Browser, NULL, 0);
     BrowserSetImages(g_Browser, NULL, 0, NULL);
     BrowserSetModels(g_Browser, NULL, 0);
-    ViewportSetScene(g_Viewport, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, FALSE);
+    ViewportSetScene(g_Viewport, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, FALSE);
     GEditorRefreshSelectionDetails();
     GEditorRefreshHistoryMenu(hwnd);
     GEditorSetTitleForProject(hwnd);
@@ -2202,7 +2213,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             }
         }
 
-        if (!ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags,
+        if (!ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags, mesh.renderflags,
                               mesh.facerefs, mesh.vertexrefs,
                               objectsLoaded ? objects.objectindices : NULL,
                               (int)objectfirsttriangle,

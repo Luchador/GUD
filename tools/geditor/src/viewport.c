@@ -47,13 +47,26 @@
 #define VIEWPORT_PICK_COPLANAR_EPSILON 1.0e-3
 #define VIEWPORT_PICK_COPLANAR_RELATIVE_EPSILON 1.0e-6
 #define VIEWPORT_OBJECT_NONE 0xffffffffu
+#define VIEWPORT_BLEND_ALPHA_THRESHOLD 0.01f
+#define VIEWPORT_CUTOUT_ALPHA_THRESHOLD 0.5f
 
-/* A contiguous run of scene vertices sharing one texture. */
+/* Cached by texture ID: authored draw order can revisit a texture many times.
+ * Keep alpha for CPU picking through transparent areas of decals. */
+typedef struct ViewportTexture {
+    GLuint name;
+    int width, height;
+    BOOL attempted;
+    unsigned char *alpha;
+} ViewportTexture;
+
+/* A contiguous run sharing texture, depth/blend state and culling. */
 typedef struct SceneBatch {
     GLuint  gltex;      /* 0 = untextured, vertex colors only */
     GLsizei first;
     GLsizei count;
-    BOOL    secondary;  /* transparent layer: blended, no depth write */
+    BOOL    secondary;  /* authored room layer / visibility toggle */
+    unsigned short textureid;
+    unsigned char renderflags;
     BOOL    cullbackfaces;
     BOOL    object;     /* setup model, independent of BG visibility */
 } SceneBatch;
@@ -102,9 +115,9 @@ typedef struct ViewportState {
     Vertex *scene;       /* malloc'd level geometry, or NULL for the test scene */
     VertexColor *scenecolors; /* original RGB restored when faces are deselected */
     GLsizei scenecount;  /* vertices in scene */
-    struct SceneBatch *batches;  /* texture-sorted draw ranges */
+    struct SceneBatch *batches;  /* draw-ordered draw ranges */
     int batchcount;
-    unsigned char *selectedtris; /* one byte per texture-sorted triangle */
+    unsigned char *selectedtris; /* one byte per draw-ordered triangle */
     BgFaceRef *scenefacerefs;    /* stable document identity in the same order */
     DWORD *sceneobjectindices;   /* setup object identity in the same order */
     BgDocumentVertexRef *scenevertexrefs;
@@ -133,6 +146,7 @@ typedef struct ViewportState {
     DWORD selectedobject;
     Vertex objectselectionbox[VIEWPORT_BOX_VERTICES];
     GLsizei objectselectionboxcount;
+    ViewportTexture *texturecache; /* BG_TEX_NONE + 1 entries */
     GLuint *textures;    /* GL texture names owned by the scene */
     int texturecount;
     StanFile stan; /* owned preview; edits are committed to the frame's document */
@@ -413,6 +427,46 @@ static void ViewportDrawBgToolOverlay(const ViewportState *state)
 }
 
 
+static void ViewportApplyRenderFlags(unsigned char flags)
+{
+    /* GL_ALWAYS allows independent depth writes when N64 Z_CMP is disabled. */
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(!(flags & BG_RENDER_DEPTH_TEST) ? GL_ALWAYS
+                : (flags & BG_RENDER_DECAL)     ? GL_LEQUAL
+                                                : GL_LESS);
+    glDepthMask((flags & BG_RENDER_DEPTH_WRITE) != 0);
+    if (flags & BG_RENDER_DECAL)
+    {
+        /* All decals share the same bias and leave the supporting depth
+         * intact, so later decals cover earlier ones in authored order. */
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(-1.0f, -1.0f);
+    }
+    else
+    {
+        glDisable(GL_POLYGON_OFFSET_FILL);
+    }
+    if (flags & BG_RENDER_BLEND)
+    {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
+    else
+    {
+        glDisable(GL_BLEND);
+    }
+    if (flags & (BG_RENDER_BLEND | BG_RENDER_ALPHA_TEST))
+    {
+        glEnable(GL_ALPHA_TEST);
+        glAlphaFunc(GL_GREATER, (flags & BG_RENDER_ALPHA_TEST) ? VIEWPORT_CUTOUT_ALPHA_THRESHOLD
+                                                               : VIEWPORT_BLEND_ALPHA_THRESHOLD);
+    }
+    else
+    {
+        glDisable(GL_ALPHA_TEST);
+    }
+}
+
 static void ViewportPaintGL(ViewportState *state)
 {
     wglMakeCurrent(state->hdc, state->hglrc);
@@ -454,8 +508,8 @@ static void ViewportPaintGL(ViewportState *state)
         if (state->scene != NULL && state->batchcount > 0)
         {
             int i;
-            BOOL insecondary = FALSE;
             BOOL incullback = FALSE;
+            int activerenderflags = -1;
 
             glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
@@ -472,21 +526,10 @@ static void ViewportPaintGL(ViewportState *state)
 
                 wantcullback = state->cullbackfaces && batch->cullbackfaces;
 
-                if (batch->secondary && !insecondary)
+                if (activerenderflags != batch->renderflags)
                 {
-                    /*
-                     * Secondary pass: blended glass and decals. Depth
-                     * WRITES stop - transparent surfaces must not
-                     * occlude each other or later batches - but depth
-                     * TESTING continues, so walls still hide windows
-                     * behind them. No per-triangle sorting yet;
-                     * overlapping transparencies may pick the wrong
-                     * winner, which matches the console's own habits.
-                     */
-                    glEnable(GL_BLEND);
-                    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-                    glDepthMask(GL_FALSE);
-                    insecondary = TRUE;
+                    ViewportApplyRenderFlags(batch->renderflags);
+                    activerenderflags = batch->renderflags;
                 }
 
                 if (wantcullback != incullback)
@@ -519,6 +562,9 @@ static void ViewportPaintGL(ViewportState *state)
             glDisable(GL_TEXTURE_2D);
             glDisable(GL_ALPHA_TEST);
             glDisable(GL_BLEND);
+            glDisable(GL_POLYGON_OFFSET_FILL);
+            glEnable(GL_DEPTH_TEST);
+            glDepthFunc(GL_LESS);
             glDepthMask(GL_TRUE);
         }
         else
@@ -1071,122 +1117,170 @@ static double ViewportCoplanarPickTolerance(double distance)
 }
 
 
-static int ViewportFindPickedTriangle(const ViewportState *state,
-                                      const ViewportPickRay *ray,
-                                      BOOL addtoselection, BOOL deselect,
-                                      double *distanceout)
+/* CPU equivalent of GL_LINEAR + GL_REPEAT alpha at a ray/triangle hit.
+ * Vertex colors remain affine on the triangle; ray intersection supplies
+ * the same perspective-correct surface point used by rasterization. */
+static BOOL ViewportRayBatchTriangleDistance(const ViewportState *state, const SceneBatch *batch,
+                                             const ViewportPickRay *ray, int corner,
+                                             double *distance)
 {
-    double nearestdistance = DBL_MAX;
-    double coplanartolerance;
-    int firsttriangle = -1;
-    int firstselected = -1;
-    int firstunselected = -1;
-    int nextafterselected = -1;
-    int selectedhits = 0;
-    BOOL passedselected = FALSE;
-    int batchindex;
-    int secondary;
+    const Vertex *v = &state->scene[corner];
+    const ViewportTexture *texture =
+        state->texturecache ? &state->texturecache[batch->textureid] : NULL;
+    double edge[2][3], delta[3], aa = 0, ab = 0, bb = 0, ap = 0, bp = 0;
+    double u, w, denominator, alpha, threshold;
+    int axis;
+    if (!ViewportRayTriangleDistance(ray, v, state->cullbackfaces && batch->cullbackfaces,
+                                     distance))
+    {
+        return FALSE;
+    }
+    if (!(batch->renderflags & (BG_RENDER_BLEND | BG_RENDER_ALPHA_TEST)))
+    {
+        return TRUE;
+    }
+    for (axis = 0; axis < 3; axis++)
+    {
+        edge[0][axis] = (&v[1].x)[axis] - (&v[0].x)[axis];
+        edge[1][axis] = (&v[2].x)[axis] - (&v[0].x)[axis];
+        delta[axis] = ray->origin[axis] + ray->direction[axis] * *distance - (&v[0].x)[axis];
+        aa += edge[0][axis] * edge[0][axis];
+        ab += edge[0][axis] * edge[1][axis];
+        bb += edge[1][axis] * edge[1][axis];
+        ap += edge[0][axis] * delta[axis];
+        bp += edge[1][axis] * delta[axis];
+    }
+    denominator = aa * bb - ab * ab;
+    if (!(denominator > 0))
+    {
+        return FALSE;
+    }
+    u = (bb * ap - ab * bp) / denominator;
+    w = (aa * bp - ab * ap) / denominator;
+    alpha = ((1 - u - w) * v[0].a + u * v[1].a + w * v[2].a) / 255.0;
+    if (texture && texture->name && texture->alpha)
+    {
+        double tx = (1 - u - w) * v[0].s + u * v[1].s + w * v[2].s;
+        double ty = (1 - u - w) * v[0].t + u * v[1].t + w * v[2].t;
+        double x = (tx - floor(tx)) * texture->width - 0.5;
+        double y = (ty - floor(ty)) * texture->height - 0.5;
+        double fx = x - floor(x), fy = y - floor(y), sample = 0;
+        int ix, iy;
+        for (iy = 0; iy < 2; iy++)
+        {
+            for (ix = 0; ix < 2; ix++)
+            {
+                int px = ((int)floor(x) + ix + texture->width) % texture->width;
+                int py = ((int)floor(y) + iy + texture->height) % texture->height;
+                sample += texture->alpha[py * texture->width + px] * (ix ? fx : 1 - fx) *
+                          (iy ? fy : 1 - fy);
+            }
+        }
+        alpha *= sample / 255.0;
+    }
+    threshold = (batch->renderflags & BG_RENDER_ALPHA_TEST) ? VIEWPORT_CUTOUT_ALPHA_THRESHOLD
+                                                                 : VIEWPORT_BLEND_ALPHA_THRESHOLD;
+    return alpha > threshold;
+}
 
+/* Replay depth tests in actual draw order at one surface point. Decals use
+ * a small coplanar tolerance to model the GL bias; they never replace the
+ * supporting depth. Ordinary depth-writing ties keep the first surface. */
+static int ViewportFindVisibleSceneTriangle(const ViewportState *state, const ViewportPickRay *ray,
+                                            double *distanceout)
+{
+    double depth = DBL_MAX;
+    int winner = -1, i;
     *distanceout = DBL_MAX;
-
-    if (state->scene == NULL || state->selectedtris == NULL)
+    if (!state->scene)
     {
         return -1;
     }
-
-    for (batchindex = 0; batchindex < state->batchcount; batchindex++)
+    for (i = 0; i < state->batchcount; i++)
     {
-        const SceneBatch *batch = &state->batches[batchindex];
-        BOOL cullbackfaces;
-        int vertex;
-        int end;
-
-        if (!ViewportBatchIsPickable(state, batch))
+        const SceneBatch *batch = &state->batches[i];
+        int corner;
+        if (!ViewportBatchIsPickable(state, batch) && !(batch->object && state->showobjects))
         {
             continue;
         }
-
-        cullbackfaces = state->cullbackfaces && batch->cullbackfaces;
-        end = batch->first + batch->count;
-
-        for (vertex = batch->first; vertex + 2 < end; vertex += 3)
+        for (corner = batch->first; corner < batch->first + batch->count; corner += 3)
         {
-            double distance;
-
-            if (ViewportRayTriangleDistance(ray, &state->scene[vertex],
-                                            cullbackfaces, &distance)
-                && distance < nearestdistance)
-            {
-                nearestdistance = distance;
-            }
-        }
-    }
-
-    if (nearestdistance == DBL_MAX)
-    {
-        return -1;
-    }
-
-    *distanceout = nearestdistance;
-    coplanartolerance = ViewportCoplanarPickTolerance(nearestdistance);
-
-    /* Primary geometry writes the depth buffer before the secondary pass.
-       With GL_LESS, an exactly coplanar secondary face is therefore hidden
-       by its primary counterpart. Several levels (notably Depot) contain
-       many such deliberate duplicates. Keep the visible primary face first
-       in the coplanar hit stack; repeated clicks can still cycle through to
-       the secondary face. A secondary face which is closer by more than the
-       coplanar tolerance remains first because the primary is excluded. */
-    for (secondary = 0; secondary <= 1; secondary++)
-    {
-        for (batchindex = 0; batchindex < state->batchcount; batchindex++)
-        {
-            const SceneBatch *batch = &state->batches[batchindex];
-            BOOL cullbackfaces;
-            int vertex;
-            int end;
-
-            if (!ViewportBatchIsPickable(state, batch)
-                || batch->secondary != secondary)
+            double distance, tolerance;
+            if (!ViewportRayBatchTriangleDistance(state, batch, ray, corner, &distance))
             {
                 continue;
             }
-
-            cullbackfaces = state->cullbackfaces && batch->cullbackfaces;
-            end = batch->first + batch->count;
-
-            for (vertex = batch->first; vertex + 2 < end; vertex += 3)
+            tolerance = ViewportCoplanarPickTolerance(distance);
+            if ((batch->renderflags & BG_RENDER_DEPTH_TEST) && depth != DBL_MAX &&
+                ((batch->renderflags & BG_RENDER_DECAL) ? distance > depth + tolerance
+                                                        : distance >= depth - tolerance))
             {
-                double distance;
-                int triangle = vertex / 3;
+                continue;
+            }
+            winner = corner / 3;
+            *distanceout = distance;
+            if (batch->renderflags & BG_RENDER_DEPTH_WRITE)
+            {
+                depth = distance;
+            }
+        }
+    }
+    return winner;
+}
 
-                if (!ViewportRayTriangleDistance(ray, &state->scene[vertex],
-                                                 cullbackfaces, &distance)
-                    || fabs(distance - nearestdistance) > coplanartolerance)
+static int ViewportFindPickedTriangle(const ViewportState *state, const ViewportPickRay *ray,
+                                      BOOL addtoselection, BOOL deselect, double *distanceout)
+{
+    double distance;
+    int visible = ViewportFindVisibleSceneTriangle(state, ray, distanceout);
+    int firsttriangle = -1, firstselected = -1, firstunselected = -1;
+    int nextafterselected = -1, selectedhits = 0;
+    BOOL passedselected = FALSE;
+    int pass, batchindex;
+    if (visible < 0 || !state->selectedtris || !state->scenefacerefs ||
+        state->scenefacerefs[visible].faceid == BG_FACE_ID_NONE)
+    {
+        *distanceout = DBL_MAX;
+        return -1;
+    }
+    /* The rendered winner comes first. Cycle down through the remaining
+     * coplanar faces in reverse authored order, without painting hidden ones. */
+    for (pass = 0; pass < 2; pass++)
+    {
+        for (batchindex = state->batchcount - 1; batchindex >= 0; batchindex--)
+        {
+            const SceneBatch *batch = &state->batches[batchindex];
+            int vertex;
+            if (!ViewportBatchIsPickable(state, batch))
+            {
+                continue;
+            }
+            for (vertex = batch->first + batch->count - 3; vertex >= batch->first; vertex -= 3)
+            {
+                int triangle = vertex / 3;
+                if ((pass == 0) != (triangle == visible) ||
+                    !ViewportRayBatchTriangleDistance(state, batch, ray, vertex, &distance) ||
+                    fabs(distance - *distanceout) > ViewportCoplanarPickTolerance(*distanceout))
                 {
                     continue;
                 }
-
                 if (firsttriangle < 0)
                 {
                     firsttriangle = triangle;
                 }
-
                 if (!state->selectedtris[triangle] && firstunselected < 0)
                 {
                     firstunselected = triangle;
                 }
-
                 if (state->selectedtris[triangle] && firstselected < 0)
                 {
                     firstselected = triangle;
                 }
-
                 if (passedselected && nextafterselected < 0)
                 {
                     nextafterselected = triangle;
                 }
-
                 if (state->selectedtris[triangle])
                 {
                     selectedhits++;
@@ -1215,53 +1309,17 @@ static int ViewportFindPickedTriangle(const ViewportState *state,
 }
 
 
-static DWORD ViewportFindPickedObject(const ViewportState *state,
-                                      const ViewportPickRay *ray,
+static DWORD ViewportFindPickedObject(const ViewportState *state, const ViewportPickRay *ray,
                                       double *distanceout)
 {
-    double nearestdistance = DBL_MAX;
-    DWORD nearestobject = VIEWPORT_OBJECT_NONE;
-    int batchindex;
-
+    int triangle = ViewportFindVisibleSceneTriangle(state, ray, distanceout);
+    if (triangle >= 0 && state->sceneobjectindices &&
+        state->sceneobjectindices[triangle] != VIEWPORT_OBJECT_NONE)
+    {
+        return state->sceneobjectindices[triangle];
+    }
     *distanceout = DBL_MAX;
-    if (!state->showobjects || state->scene == NULL || state->sceneobjectindices == NULL)
-    {
-        return VIEWPORT_OBJECT_NONE;
-    }
-
-    for (batchindex = 0; batchindex < state->batchcount; batchindex++)
-    {
-        const SceneBatch *batch = &state->batches[batchindex];
-        BOOL cullbackfaces;
-        int vertex;
-        int end;
-
-        if (!batch->object)
-        {
-            continue;
-        }
-
-        cullbackfaces = state->cullbackfaces && batch->cullbackfaces;
-        end = batch->first + batch->count;
-
-        for (vertex = batch->first; vertex + 2 < end; vertex += 3)
-        {
-            double distance;
-            int triangle = vertex / 3;
-
-            if (state->sceneobjectindices[triangle] != VIEWPORT_OBJECT_NONE
-                && ViewportRayTriangleDistance(ray, &state->scene[vertex],
-                                               cullbackfaces, &distance)
-                && distance < nearestdistance)
-            {
-                nearestdistance = distance;
-                nearestobject = state->sceneobjectindices[triangle];
-            }
-        }
-    }
-
-    *distanceout = nearestdistance;
-    return nearestobject;
+    return VIEWPORT_OBJECT_NONE;
 }
 
 
@@ -1486,58 +1544,17 @@ static void ViewportClearAllSelection(ViewportState *state)
 }
 
 
-/* Editing never cycles through the face-selection hit stack.
-   Primary wins exact depth ties, matching the viewport's GL_LESS draw order. */
-static int ViewportFindNearestBgTriangle(const ViewportState *state,
-                                         const ViewportPickRay *ray,
+/* Painting and texture drops always target the rendered winner, without cycling. */
+static int ViewportFindNearestBgTriangle(const ViewportState *state, const ViewportPickRay *ray,
                                          double *distanceout)
 {
-    double nearestdistance = DBL_MAX;
-    double objectdistance;
-    int triangle = -1;
-    int secondary;
-    int batchindex;
-
-    if (state->scene == NULL || state->scenefacerefs == NULL)
+    int triangle = ViewportFindVisibleSceneTriangle(state, ray, distanceout);
+    if (triangle < 0 || !state->scenefacerefs ||
+        state->scenefacerefs[triangle].faceid == BG_FACE_ID_NONE)
     {
+        *distanceout = DBL_MAX;
         return -1;
     }
-    for (secondary = 0; secondary <= 1; secondary++)
-    {
-        for (batchindex = 0; batchindex < state->batchcount; batchindex++)
-        {
-            const SceneBatch *batch = &state->batches[batchindex];
-            int vertex;
-
-            if (!ViewportBatchIsPickable(state, batch) || batch->secondary != secondary)
-            {
-                continue;
-            }
-            for (vertex = batch->first; vertex + 2 < batch->first + batch->count; vertex += 3)
-            {
-                double distance;
-
-                if (ViewportRayTriangleDistance(ray, &state->scene[vertex],
-                        state->cullbackfaces && batch->cullbackfaces, &distance)
-                    && distance < nearestdistance)
-                {
-                    nearestdistance = distance;
-                    triangle = vertex / 3;
-                }
-            }
-        }
-    }
-    if (triangle < 0 || state->scenefacerefs[triangle].faceid == BG_FACE_ID_NONE)
-    {
-        return -1;
-    }
-    /* A visible object in front of the wall blocks painting through it. */
-    if (ViewportFindPickedObject(state, ray, &objectdistance) != VIEWPORT_OBJECT_NONE
-        && objectdistance < nearestdistance)
-    {
-        return -1;
-    }
-    *distanceout = nearestdistance;
     return triangle;
 }
 
@@ -2017,8 +2034,7 @@ static BOOL ViewportComponentVisible(const ViewportState *state, int triangle,
         if (!ViewportBatchIsPickable(state,batch) && !(batch->object && state->showobjects)) { continue; }
         for (corner=batch->first; corner<batch->first+batch->count; corner+=3)
         {
-            if (ViewportRayTriangleDistance(&ray,&state->scene[corner],
-                    state->cullbackfaces && batch->cullbackfaces,&distance)
+            if (ViewportRayBatchTriangleDistance(state, batch, &ray, corner, &distance)
                 && distance < length-tolerance) { return FALSE; }
         }
     }
@@ -2043,8 +2059,7 @@ static void ViewportPickComponent(HWND hwnd, ViewportState *state,
         for (corner=batch->first; corner<batch->first+batch->count; corner+=3)
         {
             double distance;
-            if (ViewportRayTriangleDistance(&ray,&state->scene[corner],
-                    state->cullbackfaces && batch->cullbackfaces,&distance) && distance < nearest)
+            if (ViewportRayBatchTriangleDistance(state, batch, &ray, corner, &distance) && distance < nearest)
             {
                 nearest=distance; triangle=corner/3;
             }
@@ -2360,24 +2375,9 @@ static DWORD ViewportFindPickedStan(const ViewportState *state, const ViewportPi
 
 static double ViewportSceneHitDistance(const ViewportState *state, const ViewportPickRay *ray)
 {
-    double nearest = DBL_MAX;
-    int i;
-    for (i = 0; i < state->batchcount; i++)
-    {
-        const SceneBatch *batch = &state->batches[i];
-        int corner;
-        if (!ViewportBatchIsPickable(state, batch) && !(batch->object && state->showobjects)) { continue; }
-        for (corner = batch->first; corner < batch->first+batch->count; corner += 3)
-        {
-            double distance;
-            if (ViewportRayTriangleDistance(ray, &state->scene[corner],
-                state->cullbackfaces && batch->cullbackfaces, &distance) && distance < nearest)
-            {
-                nearest = distance;
-            }
-        }
-    }
-    return nearest;
+    double distance;
+    ViewportFindVisibleSceneTriangle(state, ray, &distance);
+    return distance;
 }
 
 static BOOL ViewportStanComponentVisible(const ViewportState *state, const Vertex *point)
@@ -3436,8 +3436,22 @@ void ViewportSetTool(HWND viewport, EditorTool tool)
 }
 
 
-/* Frees the scene's GL textures, geometry, and editor overlays. Needs the
-   GL context current for glDeleteTextures. */
+/* CPU alpha copies share the lifetime of the GL textures. */
+static void ViewportFreeTextureCache(ViewportTexture *cache)
+{
+    int id;
+    if (!cache)
+    {
+        return;
+    }
+    for (id = 0; id <= BG_TEX_NONE; id++)
+    {
+        free(cache[id].alpha);
+    }
+    free(cache);
+}
+
+/* Releases GL textures, geometry and editor overlays in the scene context. */
 static void ViewportFreeScene(struct ViewportState *state_)
 {
     ViewportState *state = (ViewportState *)state_;
@@ -3448,6 +3462,8 @@ static void ViewportFreeScene(struct ViewportState *state_)
         glDeleteTextures(state->texturecount, state->textures);
     }
 
+    ViewportFreeTextureCache(state->texturecache);
+    state->texturecache = NULL;
     free(state->textures);
     free(state->batches);
     free(state->selectedtris);
@@ -3768,39 +3784,29 @@ void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
     SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
 }
 
-/* qsort helper: keep the transparent pass last, then group triangles
-   by texture and authored culling state. */
+/* Keep room-layer passes ordered; never texture-sort background decals. */
 typedef struct TriKey { unsigned short tag; int tri; } TriKey;
 
 static int ViewportTriKeyCompare(const void *a, const void *b)
 {
     const TriKey *ka = (const TriKey *)a;
     const TriKey *kb = (const TriKey *)b;
-    int d = (int)BG_TRI_IS_SECONDARY(ka->tag)
-          - (int)BG_TRI_IS_SECONDARY(kb->tag);
-
-    if (d == 0)
+    int d = (int)BG_TRI_IS_SECONDARY(ka->tag) - (int)BG_TRI_IS_SECONDARY(kb->tag);
+    if (!d)
     {
-        d = (int)BG_TRI_IS_OBJECT(ka->tag)
-          - (int)BG_TRI_IS_OBJECT(kb->tag);
+        d = (int)BG_TRI_IS_OBJECT(ka->tag) - (int)BG_TRI_IS_OBJECT(kb->tag);
     }
-
-    if (d == 0)
+    /* BG render-state changes and decals depend on authored order. Only
+     * setup models, whose preview has no BG draw groups, are texture sorted. */
+    if (!d && BG_TRI_IS_OBJECT(ka->tag))
     {
-        d = (int)BG_TEX_ID(ka->tag) - (int)BG_TEX_ID(kb->tag);
+        d = (int)ka->tag - (int)kb->tag;
     }
-
-    if (d == 0)
-    {
-        d = (int)BG_TRI_CULLS_BACK(ka->tag)
-          - (int)BG_TRI_CULLS_BACK(kb->tag);
-    }
-
-    return d != 0 ? d : ka->tri - kb->tri;
+    return d ? d : ka->tri - kb->tri;
 }
 
 /* Stable IDs let a geometry rebuild keep surviving selected faces even
-   when their texture-sorted display order changes. */
+   when their draw-ordered display order changes. */
 static int ViewportCompareFaceRefs(const void *left, const void *right)
 {
     const BgFaceRef *a = (const BgFaceRef *)left;
@@ -3814,6 +3820,7 @@ static int ViewportCompareFaceRefs(const void *left, const void *right)
 
 BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const unsigned short *tritags,
+                      const unsigned char *renderflags,
                       const BgFaceRef *facerefs,
                       const BgDocumentVertexRef *vertexrefs,
                       const DWORD *objectindices, int objectfirsttriangle,
@@ -3825,6 +3832,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     VertexColor *scenecolors = NULL;
     SceneBatch *batches = NULL;
     GLuint *textures = NULL;
+    ViewportTexture *texturecache = NULL;
     unsigned char *selectedtris = NULL;
     BgDocumentVertexRef *scenevertexrefs = NULL;
     DWORD savedobject = VIEWPORT_OBJECT_NONE;
@@ -3885,23 +3893,18 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                                              * sizeof(*sceneobjectindices));
         scenevertexrefs = (BgDocumentVertexRef *)calloc((size_t)tricount * 3, sizeof(*scenevertexrefs));
         decode = (TexPixel *)malloc(256 * 256 * sizeof(TexPixel));
+        texturecache = (ViewportTexture *)calloc(BG_TEX_NONE + 1, sizeof(*texturecache));
 
         if (scene == NULL || scenecolors == NULL || order == NULL || batches == NULL
             || textures == NULL || selectedtris == NULL
             || scenefacerefs == NULL || sceneobjectindices == NULL
-            || decode == NULL || scenevertexrefs == NULL)
+            || decode == NULL || texturecache == NULL || scenevertexrefs == NULL)
         {
-            free(scene); free(scenecolors); free(order); free(batches);
-            free(textures); free(selectedtris); free(scenefacerefs);
-            free(sceneobjectindices);
-            free(scenevertexrefs);
-            free(decode);
-            free(selectedrefs);
-            return FALSE; /* keep whatever we had */
+            goto scene_failed;
         }
 
-        /* Keep primary geometry before secondary geometry, then group
-           by texture and culling state to minimize GL state changes. */
+        /* Preserve authored BG order within each layer. Batch only adjacent
+           compatible triangles; the texture cache avoids duplicate uploads. */
         for (i = 0; i < tricount; i++)
         {
             order[i].tag = tritags != NULL ? tritags[i] : BG_TEX_NONE;
@@ -3920,6 +3923,10 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
             float invw = 0.0f;
             float invh = 0.0f;
             int k;
+            unsigned short textureid = BG_TEX_ID(order[i].tag);
+            ViewportTexture *texture = &texturecache[textureid];
+            unsigned char flags = renderflags ? renderflags[order[i].tri]
+                : BgRenderDefaultFlags(BG_TRI_IS_SECONDARY(order[i].tag));
 
             if (vertexrefs != NULL)
             {
@@ -3946,69 +3953,47 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                     objectindices[order[i].tri - objectfirsttriangle];
             }
 
-            if (i == 0 || order[i].tag != order[i - 1].tag)
+            if (!texture->attempted && textureid != BG_TEX_NONE && projectdir)
+            {
+                int tw = 0, th = 0;
+                texture->attempted = TRUE;
+                if (TexLoadProjectImage(projectdir, textureid, decode, &tw, &th)
+                    && tw > 0 && tw <= 256 && th > 0 && th <= 256)
+                {
+                    int pixel;
+                    texture->alpha = (unsigned char *)malloc((size_t)tw * th);
+                    if (!texture->alpha) { goto scene_failed; }
+                    texture->width = tw; texture->height = th;
+                    for (pixel = 0; pixel < tw * th; pixel++) { texture->alpha[pixel] = decode[pixel].a; }
+                    glGenTextures(1, &texture->name);
+                    glBindTexture(GL_TEXTURE_2D, texture->name);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0,
+                                 GL_RGBA, GL_UNSIGNED_BYTE, decode);
+                    textures[texturecount++] = texture->name;
+                }
+            }
+            if (i == 0 || order[i].tag != order[i - 1].tag
+                || flags != batches[batchcount - 1].renderflags)
             {
                 SceneBatch *batch = &batches[batchcount++];
-
-                batch->gltex = 0;
+                batch->gltex = texture->name;
+                batch->textureid = textureid;
+                batch->renderflags = flags;
                 batch->first = i * 3;
                 batch->count = 0;
                 batch->secondary = BG_TRI_IS_SECONDARY(order[i].tag);
                 batch->cullbackfaces = BG_TRI_CULLS_BACK(order[i].tag);
                 batch->object = BG_TRI_IS_OBJECT(order[i].tag);
-
-                /* Culling can split one texture into two adjacent
-                   batches. Share the existing GL texture instead of
-                   decoding and uploading it again. */
-                if (i > 0
-                    && BG_TEX_ID(order[i].tag) == BG_TEX_ID(order[i - 1].tag))
-                {
-                    batch->gltex = batches[batchcount - 2].gltex;
-                }
-                else if (BG_TEX_ID(order[i].tag) != BG_TEX_NONE
-                         && projectdir != NULL)
-                {
-                    int tw = 0;
-                    int th = 0;
-
-                    if (TexLoadProjectImage(projectdir,
-                                            BG_TEX_ID(order[i].tag),
-                                            decode, &tw, &th))
-                    {
-                        GLuint name = 0;
-
-                        glGenTextures(1, &name);
-                        glBindTexture(GL_TEXTURE_2D, name);
-                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0,
-                                     GL_RGBA, GL_UNSIGNED_BYTE, decode);
-
-                        batch->gltex = name;
-                        textures[texturecount++] = name;
-                    }
-                }
             }
-
+            batches[batchcount - 1].count += 3;
+            if (texture->name)
             {
-                SceneBatch *batch = &batches[batchcount - 1];
-
-                batch->count += 3;
-
-                if (batch->gltex != 0)
-                {
-                    GLint tw = 0;
-                    GLint th = 0;
-
-                    glBindTexture(GL_TEXTURE_2D, batch->gltex);
-                    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &tw);
-                    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &th);
-
-                    if (tw > 0) { invw = 1.0f / (float)tw; }
-                    if (th > 0) { invh = 1.0f / (float)th; }
-                }
+                invw = 1.0f / texture->width;
+                invh = 1.0f / texture->height;
             }
 
             for (k = 0; k < 3; k++)
@@ -4062,6 +4047,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     state->sceneobjectindices = sceneobjectindices;
     state->scenevertexrefs = scenevertexrefs;
     state->textures = textures;
+    state->texturecache = texturecache;
     state->texturecount = scene != NULL ? texturecount : 0;
 
     if (scene == NULL)
@@ -4118,6 +4104,14 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
     return TRUE;
+
+scene_failed:
+    if (texturecount) { glDeleteTextures(texturecount, textures); }
+    ViewportFreeTextureCache(texturecache);
+    free(scene); free(scenecolors); free(order); free(batches);
+    free(textures); free(selectedtris); free(scenefacerefs);
+    free(sceneobjectindices); free(scenevertexrefs); free(decode); free(selectedrefs);
+    return FALSE;
 }
 
 
