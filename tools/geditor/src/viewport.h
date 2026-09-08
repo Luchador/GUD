@@ -22,6 +22,8 @@
 #define VIEWPORT_WM_TRANSLATE_SELECTION (WM_APP + 8)
 /* Refresh coordinate fields after transient drag movement or cancellation. */
 #define VIEWPORT_WM_TRANSFORM_PREVIEW (WM_APP + 9)
+/* wparam is the document tile index; painting changes its complete RGB. */
+#define VIEWPORT_WM_PAINT_STAN (WM_APP + 11)
 typedef struct ViewportTranslation { double offset[3]; } ViewportTranslation;
 
 /* Cancels the transient drag before history, saving, or changing tools. */
@@ -97,7 +99,10 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup,
 
 /* Replaces the colored stan overlay. Stan positions have already been
    converted to gameplay world coordinates by StanLoadProjectFile. */
-void ViewportSetStanTiles(HWND hwnd, const StanFile *stan);
+BOOL ViewportSetStanTiles(HWND hwnd, const StanFile *stan);
+void ViewportSetStanOpacity(HWND hwnd, int percent);
+DWORD ViewportGetStanSelectionCount(HWND hwnd, DWORD *singletile);
+StanPointRef *ViewportGetMoveStanPoints(HWND hwnd, DWORD *countout);
 
 /* Replaces the BG portal overlay. Shared portal polygons are rendered
    once even when several authored table entries refer to them. */

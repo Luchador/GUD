@@ -37,6 +37,7 @@ typedef struct StanFile {
     StanTile *tiles;
     DWORD tilecount;
     float levelscale; /* restores file-space arithmetic for runtime queries */
+    BOOL dirty;
 } StanFile;
 
 /* Copies every Tbg_*_stanZ resource into <projectdir>\stan as a
@@ -55,6 +56,19 @@ BOOL StanSaveProjectFile(const char *projectdir, const StanFile *stan,
                          const char **reasonout);
 
 void StanFileFree(StanFile *stan);
+BOOL StanFileClone(const StanFile *source, StanFile *out, const char **reasonout);
+
+/* A point identity is local to its tile. The point map joins coincident
+   endpoints only through authored tile links, never unrelated stacked floors. */
+typedef struct StanPointRef { DWORD tile, point; } StanPointRef;
+DWORD StanLinkedTile(const StanFile *stan, unsigned short link);
+DWORD *StanBuildPointMap(const StanFile *stan, const char **reasonout);
+BOOL StanTranslatePoints(StanFile *stan, const StanPointRef *points, DWORD count,
+                          const double offset[3], DWORD *movedout,
+                          const char **reasonout);
+/* RGB is quantized to the format's 4-bit channels; stan has no stored alpha. */
+BOOL StanPaintTile(StanFile *stan, DWORD tile, const unsigned char rgba[4],
+                   BOOL *changedout, const char **reasonout);
 
 /* Runtime placement queries. Positions/heights are gameplay world units.
    The named tile takes priority; fallback matches padAssignStanTile's

@@ -5,6 +5,7 @@
 
 #include "bgdocument.h"
 #include "setupload.h"
+#include "stanload.h"
 
 #define EDIT_HISTORY_ACTION_MAX 64
 #define EDIT_HISTORY_LIMIT 64
@@ -12,7 +13,8 @@
 typedef enum EditHistoryAsset {
     EDIT_HISTORY_ASSET_NONE = 0,
     EDIT_HISTORY_ASSET_BG,
-    EDIT_HISTORY_ASSET_SETUP
+    EDIT_HISTORY_ASSET_SETUP,
+    EDIT_HISTORY_ASSET_STAN
 } EditHistoryAsset;
 
 /* Only the document selected by asset owns allocated data in an entry. */
@@ -20,6 +22,7 @@ typedef struct EditHistoryEntry {
     EditHistoryAsset asset;
     BgDocument bgdocument;
     SetupFile setup;
+    StanFile stan;
     ULONGLONG staterevision;
     ULONGLONG assetrevision;
     char action[EDIT_HISTORY_ACTION_MAX];
@@ -38,8 +41,10 @@ typedef struct EditHistory {
     ULONGLONG currentstaterevision;
     ULONGLONG currentbgrevision;
     ULONGLONG currentsetuprevision;
+    ULONGLONG currentstanrevision;
     ULONGLONG savedbgrevision;
     ULONGLONG savedsetuprevision;
+    ULONGLONG savedstanrevision;
     ULONGLONG nextrevision;
 } EditHistory;
 
@@ -47,6 +52,7 @@ typedef struct EditHistoryTransaction {
     EditHistoryAsset asset;
     BgDocument beforebg;
     SetupFile beforesetup;
+    StanFile beforestan;
     ULONGLONG staterevision;
     ULONGLONG assetrevision;
     char action[EDIT_HISTORY_ACTION_MAX];
@@ -54,7 +60,7 @@ typedef struct EditHistoryTransaction {
 } EditHistoryTransaction;
 
 void EditHistoryReset(EditHistory *history, BgDocument *bgdocument,
-                      SetupFile *setup);
+                      SetupFile *setup, StanFile *stan);
 void EditHistoryFree(EditHistory *history);
 
 BOOL EditHistoryBeginBgEdit(const EditHistory *history,
@@ -65,26 +71,31 @@ BOOL EditHistoryBeginSetupEdit(const EditHistory *history,
                                const SetupFile *setup, const char *action,
                                EditHistoryTransaction *transaction,
                                const char **reasonout);
+BOOL EditHistoryBeginStanEdit(const EditHistory *history,
+                              const StanFile *stan, const char *action,
+                              EditHistoryTransaction *transaction,
+                              const char **reasonout);
 BOOL EditHistoryCommitEdit(EditHistory *history, BgDocument *bgdocument,
-                           SetupFile *setup,
+                           SetupFile *setup, StanFile *stan,
                            EditHistoryTransaction *transaction,
                            const char **reasonout);
 void EditHistoryCancelEdit(EditHistoryTransaction *transaction);
 void EditHistoryRollbackEdit(EditHistoryTransaction *transaction,
-                             BgDocument *bgdocument, SetupFile *setup);
+                             BgDocument *bgdocument, SetupFile *setup, StanFile *stan);
 
 BOOL EditHistoryCanUndo(const EditHistory *history);
 BOOL EditHistoryCanRedo(const EditHistory *history);
 const char *EditHistoryGetUndoAction(const EditHistory *history);
 const char *EditHistoryGetRedoAction(const EditHistory *history);
 BOOL EditHistoryUndo(EditHistory *history, BgDocument *bgdocument,
-                     SetupFile *setup, EditHistoryAsset *assetout,
+                     SetupFile *setup, StanFile *stan, EditHistoryAsset *assetout,
                      const char **reasonout);
 BOOL EditHistoryRedo(EditHistory *history, BgDocument *bgdocument,
-                     SetupFile *setup, EditHistoryAsset *assetout,
+                     SetupFile *setup, StanFile *stan, EditHistoryAsset *assetout,
                      const char **reasonout);
 
 void EditHistoryMarkBgSaved(EditHistory *history, BgDocument *document);
 void EditHistoryMarkSetupSaved(EditHistory *history, SetupFile *setup);
+void EditHistoryMarkStanSaved(EditHistory *history, StanFile *stan);
 
 #endif /* GEDITOR_BGHISTORY_H */

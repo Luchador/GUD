@@ -433,3 +433,27 @@ void StanFileFree(StanFile *stan)
     free(stan->data);
     ZeroMemory(stan, sizeof(*stan));
 }
+
+
+BOOL StanFileClone(const StanFile *source, StanFile *out, const char **reasonout)
+{
+    ZeroMemory(out, sizeof(*out));
+    *reasonout = "";
+    if (source == NULL || source->data == NULL || source->tiles == NULL)
+    {
+        *reasonout = "there is no stan document to copy.";
+        return FALSE;
+    }
+    *out = *source;
+    out->data = malloc(source->size);
+    out->tiles = malloc((size_t)source->tilecount * sizeof(*out->tiles));
+    if (out->data == NULL || out->tiles == NULL)
+    {
+        StanFileFree(out);
+        *reasonout = "out of memory copying the stan document.";
+        return FALSE;
+    }
+    memcpy(out->data, source->data, source->size);
+    memcpy(out->tiles, source->tiles, (size_t)source->tilecount * sizeof(*out->tiles));
+    return TRUE;
+}

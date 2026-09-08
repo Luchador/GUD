@@ -61,7 +61,7 @@ static EditHistory g_EditHistory;
 /* Setup for the selected level, including host-native parsed views.
    Editor tools can consume it without retaining the source ROM. */
 static SetupFile g_CurrentSetup;
-/* Decoded stan for the selected level. Kept beside the setup so later
+/* Editable stan document for the selected level. Kept beside the setup so
    editing tools can inspect tile IDs, rooms, links, and special types. */
 static StanFile g_CurrentStan;
 /* Portal records decoded from the selected level's saved BG segment. */
@@ -150,9 +150,10 @@ static void GEditorRefreshTransformFields(void)
     DWORD count, objectindex;
     BOOL hasposition = ViewportGetSelectionPosition(g_Viewport, position, &count);
     BOOL object = ViewportGetSelectedObject(g_Viewport, &objectindex);
-    BOOL editable = hasposition && (object ? objectindex < g_CurrentSetup.objectcount
-                                          : g_CurrentBgDocument.levelscale > 0.0f);
-    double precision = editable && !object ? 1.0 / g_CurrentBgDocument.levelscale : 0;
+    BOOL stan = ViewportGetStanSelectionCount(g_Viewport, NULL) > 0;
+    double scale = stan ? g_CurrentStan.levelscale : g_CurrentBgDocument.levelscale;
+    BOOL editable = hasposition && (object ? objectindex < g_CurrentSetup.objectcount : scale > 0);
+    double precision = editable && !object ? 1.0 / scale : 0;
 
     RightPanelSetTransformState(g_RightPanel, hasposition ? position : NULL,
                                 count, editable, precision);
@@ -166,10 +167,15 @@ static void GEditorRefreshSelectionDetails(void)
     int count = ViewportGetSelectedBgFaceCount(g_Viewport);
     BOOL objectselected = ViewportGetSelectedObject(g_Viewport, &selectedobject);
     int components = ViewportGetSelectedComponentCount(g_Viewport);
+    DWORD stantile, stancount = ViewportGetStanSelectionCount(g_Viewport, &stantile);
     RightPanelSetVertexPaintMode(g_RightPanel,
         ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT);
     GEditorRefreshTransformFields();
-    if (objectselected && selectedobject < g_CurrentSetup.objectcount)
+    if (stancount > 0)
+    {
+        RightPanelSetStanSelection(g_RightPanel, &g_CurrentStan, ViewportGetTool(g_Viewport), stancount, stantile);
+    }
+    else if (objectselected && selectedobject < g_CurrentSetup.objectcount)
     {
         RightPanelSetSetupObject(g_RightPanel,
             &g_CurrentSetup.objects[selectedobject], selectedobject);
@@ -225,8 +231,12 @@ static BOOL GEditorRebuildCurrentViewportWithObjects(
 
     ViewportSetPortals(g_Viewport,
         g_CurrentPortals.portals != NULL ? &g_CurrentPortals : NULL);
-    ViewportSetStanTiles(g_Viewport,
-        g_CurrentStan.data != NULL ? &g_CurrentStan : NULL);
+    if (!ViewportSetStanTiles(g_Viewport,
+        g_CurrentStan.data != NULL ? &g_CurrentStan : NULL))
+    {
+        *reasonout = "out of memory rebuilding the stan viewport.";
+        return FALSE;
+    }
     ViewportSetSetupPads(g_Viewport,
         g_CurrentSetup.data != NULL ? &g_CurrentSetup : NULL,
         g_CurrentBgDocument.levelscale,
@@ -982,6 +992,7 @@ static BOOL GEditorSaveProject(HWND hwnd)
             return FALSE;
         }
 
+        EditHistoryMarkStanSaved(&g_EditHistory, &g_CurrentStan);
         GEditorRefreshHistoryMenu(hwnd);
     }
 
@@ -1329,16 +1340,16 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
 
     changed = redo
         ? EditHistoryRedo(&g_EditHistory, &g_CurrentBgDocument,
-                          &g_CurrentSetup, &asset, &why)
+                          &g_CurrentSetup, &g_CurrentStan, &asset, &why)
         : EditHistoryUndo(&g_EditHistory, &g_CurrentBgDocument,
-                          &g_CurrentSetup, &asset, &why);
+                          &g_CurrentSetup, &g_CurrentStan, &asset, &why);
 
     if (!changed)
     {
         return;
     }
 
-    if (!(asset == EDIT_HISTORY_ASSET_SETUP
+    if (!((asset == EDIT_HISTORY_ASSET_SETUP || asset == EDIT_HISTORY_ASSET_STAN)
             ? GEditorReloadCurrentObjectsAndViewport(&why)
             : GEditorRebuildCurrentViewport(&why)))
     {
@@ -1348,15 +1359,15 @@ static void GEditorApplyHistoryStep(HWND hwnd, BOOL redo)
         if (redo)
         {
             EditHistoryUndo(&g_EditHistory, &g_CurrentBgDocument,
-                            &g_CurrentSetup, &restoreasset, &restorewhy);
+                            &g_CurrentSetup, &g_CurrentStan, &restoreasset, &restorewhy);
         }
         else
         {
             EditHistoryRedo(&g_EditHistory, &g_CurrentBgDocument,
-                            &g_CurrentSetup, &restoreasset, &restorewhy);
+                            &g_CurrentSetup, &g_CurrentStan, &restoreasset, &restorewhy);
         }
 
-        if (restoreasset == EDIT_HISTORY_ASSET_SETUP)
+        if (restoreasset == EDIT_HISTORY_ASSET_SETUP || restoreasset == EDIT_HISTORY_ASSET_STAN)
         {
             GEditorReloadCurrentObjectsAndViewport(&restorewhy);
         }
@@ -1413,10 +1424,10 @@ static void GEditorDeleteSelectedBgFaces(HWND hwnd)
         || deleted != (DWORD)count
         || !GEditorRebuildCurrentViewport(&why)
         || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
-                                  &g_CurrentSetup, &transaction, &why))
+                                  &g_CurrentSetup, &g_CurrentStan, &transaction, &why))
     {
         EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument,
-                                &g_CurrentSetup);
+                                &g_CurrentSetup, &g_CurrentStan);
         GEditorRebuildCurrentViewport(&restorewhy);
         free(selected);
         MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
@@ -1437,11 +1448,15 @@ static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3])
     double applied[3];
     SetupObjectGeometry objects;
     BgDocumentVertexRef *vertices = NULL;
+    StanPointRef *stanpoints = NULL;
     DWORD count = 0, moved = 0, objectindex;
+    BOOL stan = ViewportGetStanSelectionCount(g_Viewport, NULL) > 0;
     BOOL object = ViewportGetSelectedObject(g_Viewport, &objectindex);
     EditorTool tool = ViewportGetTool(g_Viewport);
     const char *why = "", *restorewhy = "";
-    const char *action = object ? "Move Object" : tool == EDITOR_TOOL_VERTEX_SELECT
+    const char *action = stan ? (tool == EDITOR_TOOL_VERTEX_SELECT ? "Move Stan Vertices"
+        : tool == EDITOR_TOOL_EDGE_SELECT ? "Move Stan Edges" : "Move Stan Tiles")
+        : object ? "Move Object" : tool == EDITOR_TOOL_VERTEX_SELECT
         ? "Move BG Vertices" : tool == EDITOR_TOOL_EDGE_SELECT ? "Move BG Edges" : "Move BG Faces";
     int axis;
     ZeroMemory(&transaction, sizeof(transaction));
@@ -1449,7 +1464,14 @@ static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3])
     for (axis=0; axis<3; axis++) { applied[axis]=0; }
     if (tool == EDITOR_TOOL_VERTEX_PAINT || (object && objectindex >= g_CurrentSetup.objectcount)) { return FALSE; }
     if (offset[0]==0 && offset[1]==0 && offset[2]==0) { return TRUE; }
-    if (object)
+    if (stan)
+    {
+        stanpoints = ViewportGetMoveStanPoints(g_Viewport, &count);
+        if (stanpoints == NULL) { why="There are no editable selected stan points."; goto fail; }
+        if (!EditHistoryBeginStanEdit(&g_EditHistory,&g_CurrentStan,action,&transaction,&why)) { goto fail; }
+        if (!StanTranslatePoints(&g_CurrentStan,stanpoints,count,offset,&moved,&why)) { goto rollback; }
+    }
+    else if (object)
     {
         if (!EditHistoryBeginSetupEdit(&g_EditHistory,&g_CurrentSetup,action,&transaction,&why)) { goto fail; }
         if (!ObjectTranslateSetupObject(g_Project.dir,&g_CurrentSetup,&g_CurrentStan,
@@ -1467,29 +1489,31 @@ static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3])
     if (moved == 0)
     {
         EditHistoryCancelEdit(&transaction);
-        free(vertices);
+        free(vertices); free(stanpoints);
         return TRUE;
     }
-    if (!(object ? GEditorRebuildCurrentViewportWithObjects(&objects,&why)
+    if (!(stan ? GEditorReloadCurrentObjectsAndViewport(&why)
+        : object ? GEditorRebuildCurrentViewportWithObjects(&objects,&why)
                  : GEditorRebuildCurrentViewport(&why))
         || !EditHistoryCommitEdit(&g_EditHistory,&g_CurrentBgDocument,
-                                  &g_CurrentSetup,&transaction,&why)) { goto rollback; }
+                                  &g_CurrentSetup, &g_CurrentStan,&transaction,&why)) { goto rollback; }
     if (object)
     {
         ObjectGeometryFree(&g_CurrentObjects);
         g_CurrentObjects=objects;
     }
-    free(vertices);
+    free(vertices); free(stanpoints);
     GEditorRefreshSelectionDetails();
     GEditorRefreshHistoryMenu(hwnd);
     return TRUE;
 rollback:
-    EditHistoryRollbackEdit(&transaction,&g_CurrentBgDocument,&g_CurrentSetup);
-    GEditorRebuildCurrentViewport(&restorewhy);
+    EditHistoryRollbackEdit(&transaction,&g_CurrentBgDocument,&g_CurrentSetup, &g_CurrentStan);
+    if (stan) { GEditorReloadCurrentObjectsAndViewport(&restorewhy); }
+    else { GEditorRebuildCurrentViewport(&restorewhy); }
 fail:
     EditHistoryCancelEdit(&transaction);
     ObjectGeometryFree(&objects);
-    free(vertices);
+    free(vertices); free(stanpoints);
     GEditorRefreshHistoryMenu(hwnd);
     MessageBox(hwnd,why,GEDITOR_TITLE,MB_ICONERROR);
     return FALSE;
@@ -1530,9 +1554,9 @@ static BOOL GEditorPaintBgVertex(HWND hwnd, const ViewportBgVertexHit *request)
         return TRUE;
     }
     if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
-                               &g_CurrentSetup, &transaction, &why))
+                               &g_CurrentSetup, &g_CurrentStan, &transaction, &why))
     {
-        EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup);
+        EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
         GEditorRefreshHistoryMenu(hwnd);
         MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
         return FALSE;
@@ -1540,6 +1564,37 @@ static BOOL GEditorPaintBgVertex(HWND hwnd, const ViewportBgVertexHit *request)
     ViewportRefreshBgVertexColor(g_Viewport, &g_CurrentBgDocument, &hit);
     GEditorRefreshHistoryMenu(hwnd);
     return TRUE;
+}
+
+
+static BOOL GEditorPaintStanTile(HWND hwnd, DWORD tile)
+{
+    EditHistoryTransaction transaction;
+    unsigned char rgba[4];
+    BOOL changed;
+    const char *why = "";
+    if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT) { return FALSE; }
+    RightPanelGetPaintColor(g_RightPanel, rgba);
+    if (!EditHistoryBeginStanEdit(&g_EditHistory,&g_CurrentStan,"Paint Stan Tile",&transaction,&why)) { goto fail; }
+    if (!StanPaintTile(&g_CurrentStan,tile,rgba,&changed,&why)) { goto rollback; }
+    if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
+    if (!ViewportSetStanTiles(g_Viewport,&g_CurrentStan))
+    {
+        why="out of memory updating the stan viewport.";
+        goto rollback;
+    }
+    if (!EditHistoryCommitEdit(&g_EditHistory,&g_CurrentBgDocument,&g_CurrentSetup,
+                              &g_CurrentStan,&transaction,&why)) { goto rollback; }
+    GEditorRefreshSelectionDetails();
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction,&g_CurrentBgDocument,&g_CurrentSetup,&g_CurrentStan);
+    ViewportSetStanTiles(g_Viewport,&g_CurrentStan);
+fail:
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd,why,GEDITOR_TITLE,MB_ICONERROR);
+    return FALSE;
 }
 
 
@@ -1565,10 +1620,10 @@ static void GEditorDeleteSelectedObject(HWND hwnd, DWORD objectindex)
     if (!SetupFileDeleteObject(&g_CurrentSetup, objectindex, &why)
         || !GEditorReloadCurrentObjectsAndViewport(&why)
         || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
-                                  &g_CurrentSetup, &transaction, &why))
+                                  &g_CurrentSetup, &g_CurrentStan, &transaction, &why))
     {
         EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument,
-                                &g_CurrentSetup);
+                                &g_CurrentSetup, &g_CurrentStan);
         GEditorReloadCurrentObjectsAndViewport(&restorewhy);
         MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
         GEditorRefreshHistoryMenu(hwnd);
@@ -1632,6 +1687,10 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         return 0;
     }
 
+    case RIGHTPANEL_WM_STAN_OPACITY:
+        ViewportSetStanOpacity(g_Viewport, (int)wparam);
+        return 0;
+
     case VIEWPORT_WM_TRANSFORM_PREVIEW:
         GEditorRefreshTransformFields();
         return 0;
@@ -1680,6 +1739,9 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         const ViewportTranslation *request = (const ViewportTranslation *)lparam;
         return request != NULL && GEditorTranslateSelection(hwnd,request->offset);
     }
+
+    case VIEWPORT_WM_PAINT_STAN:
+        return GEditorPaintStanTile(hwnd, (DWORD)wparam);
 
     case VIEWPORT_WM_PAINT_VERTEX:
         return GEditorPaintBgVertex(hwnd, (const ViewportBgVertexHit *)lparam);
@@ -1866,7 +1928,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         ObjectGeometryFree(&objects);
 
         EditHistoryReset(&g_EditHistory, &g_CurrentBgDocument,
-                         &g_CurrentSetup);
+                         &g_CurrentSetup, &g_CurrentStan);
         GEditorRefreshHistoryMenu(hwnd);
         g_CurrentLevelIndex = index;
 

@@ -35,6 +35,10 @@ static void EditHistoryFreeEntry(EditHistoryEntry *entry)
     {
         SetupFileFree(&entry->setup);
     }
+    else if (entry->asset == EDIT_HISTORY_ASSET_STAN)
+    {
+        StanFileFree(&entry->stan);
+    }
     ZeroMemory(entry, sizeof(*entry));
 }
 
@@ -116,7 +120,7 @@ static void EditHistoryDiscardOldest(EditHistoryEntry *entries,
 
 
 static void EditHistoryUpdateDirty(const EditHistory *history,
-                                   BgDocument *bgdocument, SetupFile *setup)
+                                   BgDocument *bgdocument, SetupFile *setup, StanFile *stan)
 {
     if (bgdocument != NULL)
     {
@@ -128,20 +132,26 @@ static void EditHistoryUpdateDirty(const EditHistory *history,
         setup->dirty = history->currentsetuprevision
                     != history->savedsetuprevision;
     }
+    if (stan != NULL)
+    {
+        stan->dirty = history->currentstanrevision != history->savedstanrevision;
+    }
 }
 
 
 void EditHistoryReset(EditHistory *history, BgDocument *bgdocument,
-                      SetupFile *setup)
+                      SetupFile *setup, StanFile *stan)
 {
     EditHistoryFree(history);
     history->currentstaterevision = 1;
     history->currentbgrevision = 1;
     history->currentsetuprevision = 1;
+    history->currentstanrevision = 1;
     history->savedbgrevision = 1;
     history->savedsetuprevision = 1;
+    history->savedstanrevision = 1;
     history->nextrevision = 2;
-    EditHistoryUpdateDirty(history, bgdocument, setup);
+    EditHistoryUpdateDirty(history, bgdocument, setup, stan);
 }
 
 
@@ -175,7 +185,8 @@ static BOOL EditHistoryBegin(const EditHistory *history,
     transaction->asset = asset;
     transaction->staterevision = history->currentstaterevision;
     transaction->assetrevision = asset == EDIT_HISTORY_ASSET_BG
-        ? history->currentbgrevision : history->currentsetuprevision;
+        ? history->currentbgrevision : asset == EDIT_HISTORY_ASSET_STAN
+        ? history->currentstanrevision : history->currentsetuprevision;
     EditHistoryCopyAction(transaction->action, action);
     return TRUE;
 }
@@ -223,8 +234,29 @@ BOOL EditHistoryBeginSetupEdit(const EditHistory *history,
 }
 
 
+BOOL EditHistoryBeginStanEdit(const EditHistory *history,
+                               const StanFile *stan, const char *action,
+                               EditHistoryTransaction *transaction,
+                               const char **reasonout)
+{
+    if (!EditHistoryBegin(history, EDIT_HISTORY_ASSET_STAN, action,
+                          transaction, reasonout))
+    {
+        return FALSE;
+    }
+    if (!StanFileClone(stan, &transaction->beforestan, reasonout))
+    {
+        ZeroMemory(transaction, sizeof(*transaction));
+        return FALSE;
+    }
+
+    transaction->active = TRUE;
+    return TRUE;
+}
+
+
 BOOL EditHistoryCommitEdit(EditHistory *history, BgDocument *bgdocument,
-                           SetupFile *setup,
+                           SetupFile *setup, StanFile *stan,
                            EditHistoryTransaction *transaction,
                            const char **reasonout)
 {
@@ -236,14 +268,16 @@ BOOL EditHistoryCommitEdit(EditHistory *history, BgDocument *bgdocument,
     *reasonout = "";
     if (history == NULL || transaction == NULL || !transaction->active
         || (transaction->asset != EDIT_HISTORY_ASSET_BG
-            && transaction->asset != EDIT_HISTORY_ASSET_SETUP))
+            && transaction->asset != EDIT_HISTORY_ASSET_SETUP
+            && transaction->asset != EDIT_HISTORY_ASSET_STAN))
     {
         *reasonout = "there is no edit transaction to commit.";
         return FALSE;
     }
 
     currentassetrevision = transaction->asset == EDIT_HISTORY_ASSET_BG
-        ? history->currentbgrevision : history->currentsetuprevision;
+        ? history->currentbgrevision : transaction->asset == EDIT_HISTORY_ASSET_STAN
+        ? history->currentstanrevision : history->currentsetuprevision;
     if (transaction->staterevision != history->currentstaterevision
         || transaction->assetrevision != currentassetrevision)
     {
@@ -277,6 +311,10 @@ BOOL EditHistoryCommitEdit(EditHistory *history, BgDocument *bgdocument,
     {
         entry->bgdocument = transaction->beforebg;
     }
+    else if (entry->asset == EDIT_HISTORY_ASSET_STAN)
+    {
+        entry->stan = transaction->beforestan;
+    }
     else
     {
         entry->setup = transaction->beforesetup;
@@ -290,11 +328,15 @@ BOOL EditHistoryCommitEdit(EditHistory *history, BgDocument *bgdocument,
     {
         history->currentbgrevision = newrevision;
     }
+    else if (entry->asset == EDIT_HISTORY_ASSET_STAN)
+    {
+        history->currentstanrevision = newrevision;
+    }
     else
     {
         history->currentsetuprevision = newrevision;
     }
-    EditHistoryUpdateDirty(history, bgdocument, setup);
+    EditHistoryUpdateDirty(history, bgdocument, setup, stan);
     return TRUE;
 }
 
@@ -316,13 +358,17 @@ void EditHistoryCancelEdit(EditHistoryTransaction *transaction)
         {
             SetupFileFree(&transaction->beforesetup);
         }
+        else if (transaction->asset == EDIT_HISTORY_ASSET_STAN)
+        {
+            StanFileFree(&transaction->beforestan);
+        }
     }
     ZeroMemory(transaction, sizeof(*transaction));
 }
 
 
 void EditHistoryRollbackEdit(EditHistoryTransaction *transaction,
-                             BgDocument *bgdocument, SetupFile *setup)
+                             BgDocument *bgdocument, SetupFile *setup, StanFile *stan)
 {
     if (transaction == NULL || !transaction->active)
     {
@@ -338,6 +384,11 @@ void EditHistoryRollbackEdit(EditHistoryTransaction *transaction,
     {
         SetupFileFree(setup);
         *setup = transaction->beforesetup;
+    }
+    else if (transaction->asset == EDIT_HISTORY_ASSET_STAN && stan != NULL)
+    {
+        StanFileFree(stan);
+        *stan = transaction->beforestan;
     }
     else
     {
@@ -378,12 +429,16 @@ const char *EditHistoryGetRedoAction(const EditHistory *history)
 static void EditHistoryMoveLiveToEntry(EditHistoryEntry *entry,
                                        EditHistoryAsset asset,
                                        BgDocument *bgdocument,
-                                       SetupFile *setup)
+                                       SetupFile *setup, StanFile *stan)
 {
     entry->asset = asset;
     if (asset == EDIT_HISTORY_ASSET_BG)
     {
         entry->bgdocument = *bgdocument;
+    }
+    else if (asset == EDIT_HISTORY_ASSET_STAN)
+    {
+        entry->stan = *stan;
     }
     else
     {
@@ -394,12 +449,17 @@ static void EditHistoryMoveLiveToEntry(EditHistoryEntry *entry,
 
 static void EditHistoryMoveEntryToLive(EditHistoryEntry *entry,
                                        BgDocument *bgdocument,
-                                       SetupFile *setup)
+                                       SetupFile *setup, StanFile *stan)
 {
     if (entry->asset == EDIT_HISTORY_ASSET_BG)
     {
         *bgdocument = entry->bgdocument;
         ZeroMemory(&entry->bgdocument, sizeof(entry->bgdocument));
+    }
+    else if (entry->asset == EDIT_HISTORY_ASSET_STAN)
+    {
+        *stan = entry->stan;
+        ZeroMemory(&entry->stan, sizeof(entry->stan));
     }
     else
     {
@@ -413,7 +473,7 @@ static BOOL EditHistoryStep(EditHistory *history,
                             EditHistoryEntry *fromentries, DWORD *fromcount,
                             EditHistoryEntry **toentries, DWORD *tocount,
                             DWORD *tocapacity,
-                            BgDocument *bgdocument, SetupFile *setup,
+                            BgDocument *bgdocument, SetupFile *setup, StanFile *stan,
                             EditHistoryAsset *assetout,
                             const char **reasonout)
 {
@@ -423,7 +483,7 @@ static BOOL EditHistoryStep(EditHistory *history,
 
     *reasonout = "";
     if (history == NULL || *fromcount == 0
-        || bgdocument == NULL || setup == NULL)
+        || bgdocument == NULL || setup == NULL || stan == NULL)
     {
         *reasonout = "there is no edit history step available.";
         return FALSE;
@@ -437,26 +497,31 @@ static BOOL EditHistoryStep(EditHistory *history,
     previous = fromentries[--(*fromcount)];
     ZeroMemory(&fromentries[*fromcount], sizeof(fromentries[*fromcount]));
     currentassetrevision = previous.asset == EDIT_HISTORY_ASSET_BG
-        ? history->currentbgrevision : history->currentsetuprevision;
+        ? history->currentbgrevision : previous.asset == EDIT_HISTORY_ASSET_STAN
+        ? history->currentstanrevision : history->currentsetuprevision;
 
     current = &(*toentries)[(*tocount)++];
     ZeroMemory(current, sizeof(*current));
-    EditHistoryMoveLiveToEntry(current, previous.asset, bgdocument, setup);
+    EditHistoryMoveLiveToEntry(current, previous.asset, bgdocument, setup, stan);
     current->staterevision = history->currentstaterevision;
     current->assetrevision = currentassetrevision;
     EditHistoryCopyAction(current->action, previous.action);
 
-    EditHistoryMoveEntryToLive(&previous, bgdocument, setup);
+    EditHistoryMoveEntryToLive(&previous, bgdocument, setup, stan);
     history->currentstaterevision = previous.staterevision;
     if (previous.asset == EDIT_HISTORY_ASSET_BG)
     {
         history->currentbgrevision = previous.assetrevision;
     }
+    else if (previous.asset == EDIT_HISTORY_ASSET_STAN)
+    {
+        history->currentstanrevision = previous.assetrevision;
+    }
     else
     {
         history->currentsetuprevision = previous.assetrevision;
     }
-    EditHistoryUpdateDirty(history, bgdocument, setup);
+    EditHistoryUpdateDirty(history, bgdocument, setup, stan);
 
     if (assetout != NULL)
     {
@@ -467,7 +532,7 @@ static BOOL EditHistoryStep(EditHistory *history,
 
 
 BOOL EditHistoryUndo(EditHistory *history, BgDocument *bgdocument,
-                     SetupFile *setup, EditHistoryAsset *assetout,
+                     SetupFile *setup, StanFile *stan, EditHistoryAsset *assetout,
                      const char **reasonout)
 {
     if (assetout != NULL)
@@ -484,12 +549,12 @@ BOOL EditHistoryUndo(EditHistory *history, BgDocument *bgdocument,
         history->undoentries, &history->undocount,
         &history->redoentries, &history->redocount,
         &history->redocapacity,
-        bgdocument, setup, assetout, reasonout);
+        bgdocument, setup, stan, assetout, reasonout);
 }
 
 
 BOOL EditHistoryRedo(EditHistory *history, BgDocument *bgdocument,
-                     SetupFile *setup, EditHistoryAsset *assetout,
+                     SetupFile *setup, StanFile *stan, EditHistoryAsset *assetout,
                      const char **reasonout)
 {
     if (assetout != NULL)
@@ -506,7 +571,7 @@ BOOL EditHistoryRedo(EditHistory *history, BgDocument *bgdocument,
         history->redoentries, &history->redocount,
         &history->undoentries, &history->undocount,
         &history->undocapacity,
-        bgdocument, setup, assetout, reasonout);
+        bgdocument, setup, stan, assetout, reasonout);
 }
 
 
@@ -537,4 +602,12 @@ void EditHistoryMarkSetupSaved(EditHistory *history, SetupFile *setup)
     {
         setup->dirty = FALSE;
     }
+}
+
+
+void EditHistoryMarkStanSaved(EditHistory *history, StanFile *stan)
+{
+    if (history == NULL || history->currentstaterevision == 0) { return; }
+    history->savedstanrevision = history->currentstanrevision;
+    if (stan != NULL) { stan->dirty = FALSE; }
 }

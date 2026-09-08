@@ -5,10 +5,14 @@
 
 #include "bgdocument.h"
 #include "setupload.h"
+#include "stanload.h"
+#include "edittool.h"
 
 /* Sent to the frame whenever a visibility checkbox changes. wparam is
    a bitwise combination of the RIGHTPANEL_SHOW_* flags below. */
 #define RIGHTPANEL_WM_VISIBILITY_CHANGED (WM_APP + 2)
+/* wparam is opacity percent, 0-100; this changes only the preview. */
+#define RIGHTPANEL_WM_STAN_OPACITY (WM_APP + 10)
 
 /* Synchronous absolute-position request. axismask marks edited X/Y/Z fields;
    the frame translates the selection's average position, then refreshes it. */
@@ -37,6 +41,8 @@ void RightPanelGetPaintColor(HWND panel, unsigned char rgba[4]);
    its first supported selection type. */
 void RightPanelSetBgTriangle(HWND panel, const BgDocument *document,
                              const BgFaceRef *ref);
+void RightPanelSetStanSelection(HWND panel, const StanFile *stan, EditorTool tool,
+                                 DWORD count, DWORD singletile);
 void RightPanelSetBgComponentSelection(HWND panel, BOOL edges, int count);
 void RightPanelSetBgSelectionCount(HWND panel, int count);
 void RightPanelSetSetupObject(HWND panel, const SetupObject *object,

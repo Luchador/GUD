@@ -26,7 +26,7 @@ static void StanQueryTile(const StanFile *stan, DWORD index, StanTile *tile)
     }
 }
 
-static DWORD StanLinkedTile(const StanFile *stan, unsigned short link)
+DWORD StanLinkedTile(const StanFile *stan, unsigned short link)
 {
     DWORD offset, low = 0, high = stan->tilecount;
 

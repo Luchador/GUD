@@ -9,6 +9,7 @@
 
 #include <windows.h>
 #include <windowsx.h>
+#include <commctrl.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -22,10 +23,10 @@
 #define RIGHTPANEL_CLASS "GEditorRightPanel"
 
 #define RIGHTPANEL_SPLITTER_H 5
-#define RIGHTPANEL_TOP_MIN 356
-#define RIGHTPANEL_TRANSFORM_TOP 174
+#define RIGHTPANEL_TOP_MIN 390
+#define RIGHTPANEL_TRANSFORM_TOP 208
 #define RIGHTPANEL_BOTTOM_MIN 160
-#define RIGHTPANEL_INITIAL_TOP_H 364
+#define RIGHTPANEL_INITIAL_TOP_H 398
 #define RIGHTPANEL_MARGIN 12
 #define RIGHTPANEL_CHECK_H 22
 #define RIGHTPANEL_CHECK_GAP 4
@@ -38,13 +39,16 @@ enum {
     RIGHTPANEL_ID_OBJECTS,
     RIGHTPANEL_ID_POSITION_X,
     RIGHTPANEL_ID_POSITION_Y,
-    RIGHTPANEL_ID_POSITION_Z
+    RIGHTPANEL_ID_POSITION_Z,
+    RIGHTPANEL_ID_STAN_OPACITY
 };
 
 typedef struct RightPanelState {
     HWND bgprimary;
     HWND bgsecondary;
     HWND stan;
+    HWND stanopacity;
+    HWND stanopacitylabel;
     HWND portals;
     HWND positions[3];
     HWND objects;
@@ -110,6 +114,10 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
     y += RIGHTPANEL_CHECK_H + RIGHTPANEL_CHECK_GAP;
     MoveWindow(state->stan, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
     y += RIGHTPANEL_CHECK_H + RIGHTPANEL_CHECK_GAP;
+    MoveWindow(state->stanopacitylabel, RIGHTPANEL_MARGIN + 24, y + 4, 90, 20, TRUE);
+    MoveWindow(state->stanopacity, RIGHTPANEL_MARGIN + 114, y,
+               width > 114 ? width - 114 : 1, 26, TRUE);
+    y += 34;
     MoveWindow(state->portals, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
     y += RIGHTPANEL_CHECK_H + RIGHTPANEL_CHECK_GAP;
     MoveWindow(state->objects, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
@@ -294,7 +302,7 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     detailtitle.right = client.right - RIGHTPANEL_MARGIN;
     detailtitle.top = splitter.bottom + 8;
     detailtitle.bottom = detailtitle.top + 20;
-    DrawText(hdc, state->vertexpaint ? "Vertex Color" : "Properties", -1, &detailtitle,
+    DrawText(hdc, state->vertexpaint ? "Paint Color" : "Properties", -1, &detailtitle,
              DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX);
 
     if (state->vertexpaint)
@@ -355,6 +363,15 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX,
             0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_STAN,
             cs->hInstance, NULL);
+        state->stanopacitylabel = CreateWindowEx(
+            0, "STATIC", "Opacity: 44%", WS_CHILD | WS_VISIBLE,
+            0, 0, 1, 1, hwnd, NULL, cs->hInstance, NULL);
+        state->stanopacity = CreateWindowEx(
+            0, TRACKBAR_CLASS, "", WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_DISABLED | TBS_HORZ | TBS_NOTICKS,
+            0, 0, 1, 1, hwnd, (HMENU)(INT_PTR)RIGHTPANEL_ID_STAN_OPACITY, cs->hInstance, NULL);
+        SendMessage(state->stanopacity, TBM_SETRANGE, FALSE, MAKELPARAM(0, 100));
+        SendMessage(state->stanopacity, TBM_SETPOS, TRUE, 44);
+        SendMessage(state->stanopacitylabel, WM_SETFONT, (WPARAM)font, TRUE);
         state->portals = CreateWindowEx(
             0, "BUTTON", "Portals",
             WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX,
@@ -384,7 +401,8 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         SendMessage(state->details, WM_SETFONT, (WPARAM)font, TRUE);
 
         if (state->bgprimary == NULL || state->bgsecondary == NULL
-            || state->stan == NULL || state->portals == NULL
+            || state->stan == NULL || state->stanopacity == NULL || state->stanopacitylabel == NULL
+            || state->portals == NULL
             || state->positions[0] == NULL || state->positions[1] == NULL
             || state->positions[2] == NULL || state->objects == NULL || state->details == NULL
             || state->colorpicker == NULL)
@@ -433,9 +451,22 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             case RIGHTPANEL_ID_STAN:
             case RIGHTPANEL_ID_PORTALS:
             case RIGHTPANEL_ID_OBJECTS:
+                EnableWindow(state->stanopacity, (RightPanelGetVisibility(state) & RIGHTPANEL_SHOW_STAN) != 0);
                 RightPanelNotifyVisibility(hwnd, state);
                 return 0;
             }
+        }
+        break;
+
+    case WM_HSCROLL:
+        if (state != NULL && (HWND)lparam == state->stanopacity)
+        {
+            int percent = (int)SendMessage(state->stanopacity, TBM_GETPOS, 0, 0);
+            char label[32];
+            snprintf(label, sizeof(label), "Opacity: %d%%", percent);
+            SetWindowText(state->stanopacitylabel, label);
+            SendMessage(GetParent(hwnd), RIGHTPANEL_WM_STAN_OPACITY, percent, 0);
+            return 0;
         }
         break;
 
@@ -555,7 +586,9 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
 BOOL RightPanelRegisterClass(HINSTANCE hinstance)
 {
     WNDCLASS wc;
+    INITCOMMONCONTROLSEX controls = {sizeof(controls), ICC_BAR_CLASSES};
 
+    if (!InitCommonControlsEx(&controls)) { return FALSE; }
     if (!ColorPickerRegisterClass(hinstance)) { return FALSE; }
     ZeroMemory(&wc, sizeof(wc));
     wc.lpfnWndProc = RightPanelWndProc;
@@ -606,7 +639,8 @@ void RightPanelSetTransformState(HWND panel, const double position[3],
     }
     else
     {
-        const char *hint = position == NULL ? "Select vertices, edges, faces or an object."
+        const char *hint = state->vertexpaint ? "BG: vertex RGBA. Stan: whole-tile RGB."
+            : position == NULL ? "Select vertices, edges, faces or an object."
             : editable ? "Press Enter to set position." : "Character preview (read-only).";
         lstrcpyn(state->transformhint, hint, sizeof(state->transformhint));
     }
@@ -663,6 +697,32 @@ void RightPanelGetPaintColor(HWND panel, unsigned char rgba[4])
     ColorPickerGetColor(state != NULL ? state->colorpicker : NULL, rgba);
 }
 
+
+void RightPanelSetStanSelection(HWND panel, const StanFile *stan, EditorTool tool,
+                                 DWORD count, DWORD singletile)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    const char *kind = tool == EDITOR_TOOL_VERTEX_SELECT ? "vertices"
+        : tool == EDITOR_TOOL_EDGE_SELECT ? "edges" : "tiles";
+    if (state == NULL) { return; }
+    lstrcpyn(state->detailtitle, "Stan Selection", sizeof(state->detailtitle));
+    if (tool == EDITOR_TOOL_FACE_SELECT && count == 1 && singletile < stan->tilecount)
+    {
+        const StanTile *tile = &stan->tiles[singletile];
+        snprintf(state->detailtext, sizeof(state->detailtext),
+            "Tile: %06lX\r\nRoom: %u\r\nPoints: %u\r\nSpecial: 0x%X\r\nRGB: %u, %u, %u\r\n\r\nDrag an arrow or enter a world position.",
+            (unsigned long)tile->id, tile->room, tile->pointcount, tile->special,
+            tile->red, tile->green, tile->blue);
+    }
+    else
+    {
+        snprintf(state->detailtext, sizeof(state->detailtext),
+            "%lu stan %s selected.\r\n\r\nShift-click to add.\r\nControl-click to remove.\r\nDrag an arrow or enter a world position.",
+            (unsigned long)count, kind);
+    }
+    SetWindowText(state->details, state->detailtext);
+    InvalidateRect(panel, NULL, FALSE);
+}
 
 void RightPanelSetBgComponentSelection(HWND panel, BOOL edges, int count)
 {

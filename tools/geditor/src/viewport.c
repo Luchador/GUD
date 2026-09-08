@@ -40,8 +40,6 @@
 #define VIEWPORT_PAD_HALF_SIZE 5.0f
 #define VIEWPORT_BOX_VERTICES  24
 #define VIEWPORT_VERTEX_MARKER_SIZE 5.0f /* screen pixels */
-#define VIEWPORT_STAN_FILL_ALPHA 112
-#define VIEWPORT_STAN_EDGE_ALPHA 224
 #define VIEWPORT_PORTAL_FILL_ALPHA 64
 #define VIEWPORT_PORTAL_EDGE_ALPHA 255
 #define VIEWPORT_PICK_EPSILON 1.0e-10
@@ -78,6 +76,10 @@ typedef struct ViewportComponent {
     int corners[2];
 } ViewportComponent;
 
+typedef struct ViewportStanComponent {
+    StanPointRef refs[2];
+} ViewportStanComponent;
+
 /* Per-viewport state, allocated at WM_CREATE, freed at WM_DESTROY,
    reachable from the window via GWLP_USERDATA. */
 typedef struct ViewportState {
@@ -110,6 +112,7 @@ typedef struct ViewportState {
     int hoveraxis, dragaxis;
     double dragorigin[3], dragplane[3], dragparameter, dragdelta, dragscale;
     BOOL dragvertical;
+    BOOL dragstan;
     float (*dragvertices)[3];
     unsigned char *dragmask;
     int selectedtricount;
@@ -118,6 +121,12 @@ typedef struct ViewportState {
     GLsizei objectselectionboxcount;
     GLuint *textures;    /* GL texture names owned by the scene */
     int texturecount;
+    StanFile stan; /* owned preview; edits are committed to the frame's document */
+    DWORD *stanpointmap;
+    unsigned char *stanselected;
+    ViewportStanComponent *stancomponents;
+    int stancomponentcount, stancomponentcapacity;
+    int stanopacity; /* percent, independent of the tile's stored RGB */
     Vertex *stanfill;    /* translucent GL_TRIANGLES tile overlay */
     GLsizei stanfillcount;
     Vertex *stanedges;   /* colored GL_LINES around each tile */
@@ -140,6 +149,14 @@ typedef struct ViewportState {
 } ViewportState;
 
 
+static void ViewportRefreshStanOverlay(ViewportState *state);
+static BOOL ViewportStanVisible(const ViewportState *state);
+static void ViewportClearStanSelection(ViewportState *state);
+static BOOL ViewportStanSelectionPosition(const ViewportState *state, BOOL gizmo,
+                                           double position[3], DWORD *countout);
+static Vertex ViewportStanPointVertex(const StanPoint *point);
+static int ViewportCompareStanRefs(const void *left, const void *right);
+static StanPointRef ViewportStanPointRef(const ViewportState *state, DWORD tile, DWORD point);
 static void ViewportDrawTransformTools(const ViewportState *state);
 static void ViewportUpdateGizmo(ViewportState *state);
 static void ViewportRestoreComponents(ViewportState *state);
@@ -439,7 +456,7 @@ static void ViewportPaintGL(ViewportState *state)
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     }
 
-    if (state->showstan && state->stanfill != NULL && state->stanfillcount > 0)
+    if (ViewportStanVisible(state) && state->stanfill != NULL && state->stanfillcount > 0)
     {
         /* Stan polygons commonly lie directly on their matching BG
            floors. Pull the overlay infinitesimally toward the camera
@@ -464,7 +481,7 @@ static void ViewportPaintGL(ViewportState *state)
         glDepthFunc(GL_LESS);
     }
 
-    if (state->showstan && state->stanedges != NULL && state->stanedgecount > 0)
+    if (ViewportStanVisible(state) && state->stanedges != NULL && state->stanedgecount > 0)
     {
         /* Tile outlines make adjacent polygons readable even when they
            share the same authored RGB value. */
@@ -771,6 +788,10 @@ typedef struct ViewportPickRay {
     double mindistance;
     double maxdistance;
 } ViewportPickRay;
+static DWORD ViewportFindPickedStan(const ViewportState *state, const ViewportPickRay *ray,
+                                     double *distanceout);
+static BOOL ViewportTryPickStan(HWND hwnd, ViewportState *state, int x, int y, BOOL add, BOOL remove);
+
 
 
 static BOOL ViewportBuildPickRay(HWND hwnd, const ViewportState *state,
@@ -1364,6 +1385,7 @@ static void ViewportClearAllSelection(ViewportState *state)
 {
     ViewportClearBgSelection(state);
     ViewportClearObjectSelection(state);
+    ViewportClearStanSelection(state);
     state->componentcount = 0;
     state->gizmovisible = FALSE;
     state->hoveraxis = -1;
@@ -1495,6 +1517,7 @@ static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex,
     triangle = ViewportFindPickedTriangle(state, &ray, addtoselection,
                                           deselect, &bgdistance);
     objectindex = ViewportFindPickedObject(state, &ray, &objectdistance);
+    if (objectindex != VIEWPORT_OBJECT_NONE || bgdistance != DBL_MAX) { ViewportClearStanSelection(state); }
 
     /* Both geometry types share the exact same ray and distance metric.
        This prevents draw order and texture batching from affecting which
@@ -1651,6 +1674,7 @@ BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout
     int i, axis;
 
     *countout = 0;
+    if (state != NULL && ViewportStanSelectionPosition(state, FALSE, position, countout)) { return TRUE; }
     if (state == NULL || state->scene == NULL || state->tool == EDITOR_TOOL_VERTEX_PAINT)
     {
         return FALSE;
@@ -1714,6 +1738,14 @@ static void ViewportUpdateGizmo(ViewportState *state)
     int i, axis;
     state->gizmovisible = FALSE;
     state->hoveraxis = -1;
+    {
+        DWORD count;
+        if (ViewportStanSelectionPosition(state, TRUE, state->gizmoposition, &count))
+        {
+            state->gizmovisible = TRUE;
+            return;
+        }
+    }
     if (state->scene == NULL || state->tool == EDITOR_TOOL_VERTEX_PAINT) { return; }
     if (state->selectedobject != VIEWPORT_OBJECT_NONE
         && (!state->showobjects || (state->selectedobject & SETUP_CHARACTER_SELECTION_BIT))) { return; }
@@ -1820,6 +1852,8 @@ static BOOL ViewportComponentVisible(const ViewportState *state, int triangle,
     ray.mindistance=0; ray.maxdistance=DBL_MAX;
     if (!ViewportRayTriangleDistance(&ray,&state->scene[triangle*3],cull,&distance)) { return FALSE; }
     tolerance=ViewportCoplanarPickTolerance(length);
+    if (ViewportFindPickedStan(state, &ray, &distance) != STAN_TILE_NONE
+        && distance <= length+tolerance) { return FALSE; }
     for (batchindex=0; batchindex<state->batchcount; batchindex++)
     {
         const SceneBatch *batch=&state->batches[batchindex];
@@ -1915,6 +1949,7 @@ static void ViewportPickComponent(HWND hwnd, ViewportState *state,
     }
     else
     {
+        ViewportClearStanSelection(state);
         endcount=state->tool == EDITOR_TOOL_EDGE_SELECT ? 2 : 1;
         ZeroMemory(&component,sizeof(component));
         for (i=0; i<endcount; i++)
@@ -1961,6 +1996,370 @@ static void ViewportPickComponent(HWND hwnd, ViewportState *state,
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd,NULL,FALSE);
     SendMessage(GetParent(hwnd),VIEWPORT_WM_SELECTION_CHANGED,0,0);
+}
+
+static BOOL ViewportStanVisible(const ViewportState *state)
+{
+    return state->showstan && state->stanopacity > 0 && state->stan.tiles != NULL;
+}
+
+static Vertex ViewportStanPointVertex(const StanPoint *point)
+{
+    Vertex vertex = {0};
+    vertex.x = point->x; vertex.y = point->y; vertex.z = point->z;
+    return vertex;
+}
+
+static int ViewportCompareStanRefs(const void *left, const void *right)
+{
+    const StanPointRef *a = left, *b = right;
+    if (a->tile != b->tile) { return a->tile < b->tile ? -1 : 1; }
+    return a->point < b->point ? -1 : a->point > b->point;
+}
+
+static StanPointRef ViewportStanPointRef(const ViewportState *state, DWORD tile, DWORD point)
+{
+    DWORD root = state->stanpointmap[tile * STAN_TILE_MAX_POINTS + point];
+    StanPointRef ref = {root / STAN_TILE_MAX_POINTS, root % STAN_TILE_MAX_POINTS};
+    return ref;
+}
+
+static void ViewportClearStanSelection(ViewportState *state)
+{
+    if (state->stanselected != NULL) { memset(state->stanselected, 0, state->stan.tilecount); }
+    state->stancomponentcount = 0;
+    ViewportRefreshStanOverlay(state);
+}
+
+DWORD ViewportGetStanSelectionCount(HWND hwnd, DWORD *singletile)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    DWORD count = 0, tile;
+    if (singletile != NULL) { *singletile = STAN_TILE_NONE; }
+    if (state == NULL || !ViewportStanVisible(state)) { return 0; }
+    if (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT)
+    {
+        return state->stancomponentcount;
+    }
+    if (state->tool != EDITOR_TOOL_FACE_SELECT) { return 0; }
+    for (tile = 0; tile < state->stan.tilecount; tile++)
+    {
+        if (state->stanselected[tile])
+        {
+            count++;
+            if (singletile != NULL) { *singletile = tile; }
+        }
+    }
+    if (count != 1 && singletile != NULL) { *singletile = STAN_TILE_NONE; }
+    return count;
+}
+
+StanPointRef *ViewportGetMoveStanPoints(HWND hwnd, DWORD *countout)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    StanPointRef *refs;
+    DWORD count = 0, unique = 0, tile, i;
+    *countout = 0;
+    if (ViewportGetStanSelectionCount(hwnd, NULL) == 0) { return NULL; }
+    refs = malloc(((size_t)state->stan.tilecount * STAN_TILE_MAX_POINTS
+        + (size_t)state->stancomponentcount * 2) * sizeof(*refs));
+    if (refs == NULL) { return NULL; }
+    if (state->tool == EDITOR_TOOL_FACE_SELECT)
+    {
+        for (tile = 0; tile < state->stan.tilecount; tile++)
+        {
+            if (!state->stanselected[tile]) { continue; }
+            for (i = 0; i < state->stan.tiles[tile].pointcount; i++)
+            {
+                refs[count++] = ViewportStanPointRef(state, tile, i);
+            }
+        }
+    }
+    else
+    {
+        for (i = 0; i < (DWORD)state->stancomponentcount; i++)
+        {
+            refs[count++] = state->stancomponents[i].refs[0];
+            if (state->tool == EDITOR_TOOL_EDGE_SELECT) { refs[count++] = state->stancomponents[i].refs[1]; }
+        }
+    }
+    qsort(refs, count, sizeof(*refs), ViewportCompareStanRefs);
+    for (i = 0; i < count; i++)
+    {
+        if (unique == 0 || ViewportCompareStanRefs(&refs[i], &refs[unique - 1]) != 0)
+        {
+            refs[unique++] = refs[i];
+        }
+    }
+    *countout = unique;
+    return refs;
+}
+
+static double ViewportStanTileCenter(const StanTile *tile, double center[3])
+{
+    double total = 0;
+    unsigned int point;
+    center[0] = center[1] = center[2] = 0;
+    for (point = 1; point + 1 < tile->pointcount; point++)
+    {
+        const StanPoint *a = &tile->points[0], *b = &tile->points[point], *c = &tile->points[point + 1];
+        double abx = (double)b->x-a->x, aby = (double)b->y-a->y, abz = (double)b->z-a->z;
+        double acx = (double)c->x-a->x, acy = (double)c->y-a->y, acz = (double)c->z-a->z;
+        double nx = aby*acz-abz*acy, ny = abz*acx-abx*acz, nz = abx*acy-aby*acx;
+        double area = sqrt(nx*nx+ny*ny+nz*nz);
+        center[0] += ((double)a->x+b->x+c->x)*area/3;
+        center[1] += ((double)a->y+b->y+c->y)*area/3;
+        center[2] += ((double)a->z+b->z+c->z)*area/3;
+        total += area;
+    }
+    if (total > 0)
+    {
+        center[0] /= total; center[1] /= total; center[2] /= total;
+    }
+    else
+    {
+        for (point = 0; point < tile->pointcount; point++)
+        {
+            center[0] += (double)tile->points[point].x/tile->pointcount;
+            center[1] += (double)tile->points[point].y/tile->pointcount;
+            center[2] += (double)tile->points[point].z/tile->pointcount;
+        }
+    }
+    return total;
+}
+
+static BOOL ViewportStanSelectionPosition(const ViewportState *state, BOOL gizmo,
+                                           double position[3], DWORD *countout)
+{
+    double total = 0;
+    DWORD count = 0, tile;
+    int i, axis;
+    position[0] = position[1] = position[2] = 0;
+    if (!ViewportStanVisible(state)) { return FALSE; }
+    if (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT)
+    {
+        for (i = 0; i < state->stancomponentcount; i++)
+        {
+            const StanPointRef *refs = state->stancomponents[i].refs;
+            const StanPoint *a = &state->stan.tiles[refs[0].tile].points[refs[0].point];
+            const StanPoint *b = state->tool == EDITOR_TOOL_EDGE_SELECT
+                ? &state->stan.tiles[refs[1].tile].points[refs[1].point] : a;
+            double weight = 1;
+            if (gizmo && state->tool == EDITOR_TOOL_EDGE_SELECT)
+            {
+                double x = (double)a->x-b->x, y = (double)a->y-b->y, z = (double)a->z-b->z;
+                weight = sqrt(x*x+y*y+z*z);
+            }
+            position[0] += ((double)a->x+b->x)*0.5*weight;
+            position[1] += ((double)a->y+b->y)*0.5*weight;
+            position[2] += ((double)a->z+b->z)*0.5*weight;
+            total += weight; count++;
+            if (gizmo && state->tool == EDITOR_TOOL_VERTEX_SELECT) { break; }
+        }
+    }
+    else if (state->tool == EDITOR_TOOL_FACE_SELECT)
+    {
+        for (tile = 0; tile < state->stan.tilecount; tile++)
+        {
+            double center[3], area, weight;
+            if (!state->stanselected[tile]) { continue; }
+            area = ViewportStanTileCenter(&state->stan.tiles[tile], center);
+            weight = gizmo ? area : 1;
+            for (axis = 0; axis < 3; axis++) { position[axis] += center[axis]*weight; }
+            total += weight; count++;
+        }
+    }
+    if (!(total > 0)) { return FALSE; }
+    for (axis = 0; axis < 3; axis++) { position[axis] /= total; }
+    *countout = count;
+    return TRUE;
+}
+
+static DWORD ViewportFindPickedStan(const ViewportState *state, const ViewportPickRay *ray,
+                                     double *distanceout)
+{
+    DWORD tile, nearest = STAN_TILE_NONE;
+    *distanceout = DBL_MAX;
+    if (!ViewportStanVisible(state)) { return nearest; }
+    for (tile = 0; tile < state->stan.tilecount; tile++)
+    {
+        const StanTile *polygon = &state->stan.tiles[tile];
+        unsigned int point;
+        Vertex triangle[3];
+        triangle[0] = ViewportStanPointVertex(&polygon->points[0]);
+        for (point = 1; point + 1 < polygon->pointcount; point++)
+        {
+            double distance;
+            triangle[1] = ViewportStanPointVertex(&polygon->points[point]);
+            triangle[2] = ViewportStanPointVertex(&polygon->points[point + 1]);
+            if (ViewportRayTriangleDistance(ray, triangle, FALSE, &distance) && distance < *distanceout)
+            {
+                *distanceout = distance;
+                nearest = tile;
+            }
+        }
+    }
+    return nearest;
+}
+
+static double ViewportSceneHitDistance(const ViewportState *state, const ViewportPickRay *ray)
+{
+    double nearest = DBL_MAX;
+    int i;
+    for (i = 0; i < state->batchcount; i++)
+    {
+        const SceneBatch *batch = &state->batches[i];
+        int corner;
+        if (!ViewportBatchIsPickable(state, batch) && !(batch->object && state->showobjects)) { continue; }
+        for (corner = batch->first; corner < batch->first+batch->count; corner += 3)
+        {
+            double distance;
+            if (ViewportRayTriangleDistance(ray, &state->scene[corner],
+                state->cullbackfaces && batch->cullbackfaces, &distance) && distance < nearest)
+            {
+                nearest = distance;
+            }
+        }
+    }
+    return nearest;
+}
+
+static BOOL ViewportStanComponentVisible(const ViewportState *state, const Vertex *point)
+{
+    ViewportPickRay ray;
+    double length, stan, scene;
+    ray.origin[0] = state->posx; ray.origin[1] = state->posy; ray.origin[2] = state->posz;
+    ray.direction[0] = point->x-state->posx;
+    ray.direction[1] = point->y-state->posy;
+    ray.direction[2] = point->z-state->posz;
+    length = sqrt(ray.direction[0]*ray.direction[0]+ray.direction[1]*ray.direction[1]+ray.direction[2]*ray.direction[2]);
+    if (!(length > 0)) { return FALSE; }
+    ray.direction[0] /= length; ray.direction[1] /= length; ray.direction[2] /= length;
+    ray.mindistance = 0; ray.maxdistance = DBL_MAX;
+    scene = ViewportSceneHitDistance(state, &ray);
+    ViewportFindPickedStan(state, &ray, &stan);
+    return scene >= length-ViewportCoplanarPickTolerance(length)
+        && stan >= length-ViewportCoplanarPickTolerance(length);
+}
+
+/* Returns TRUE when the visible stan layer owns this click. Polygon edges
+ * come from the perimeter, so triangulation diagonals are never selectable. */
+static BOOL ViewportTryPickStan(HWND hwnd, ViewportState *state, int x, int y, BOOL add, BOOL remove)
+{
+    ViewportPickRay ray;
+    DWORD tile, hit;
+    double distance, nearestscene, best = 100;
+    ViewportStanComponent component;
+    BOOL found = FALSE, hitstan;
+    int index = -1, i, ends = state->tool == EDITOR_TOOL_EDGE_SELECT ? 2 : 1;
+    if (state->flying || !ViewportStanVisible(state) || !ViewportBuildPickRay(hwnd, state, x, y, &ray)) { return FALSE; }
+    hit = ViewportFindPickedStan(state, &ray, &distance);
+    nearestscene = ViewportSceneHitDistance(state, &ray);
+    hitstan = hit != STAN_TILE_NONE && distance <= nearestscene+ViewportCoplanarPickTolerance(distance);
+    if (state->tool == EDITOR_TOOL_VERTEX_PAINT)
+    {
+        if (!hitstan) { return FALSE; }
+        SendMessage(GetParent(hwnd), VIEWPORT_WM_PAINT_STAN, hit, 0);
+        return TRUE;
+    }
+    if (state->tool == EDITOR_TOOL_FACE_SELECT)
+    {
+        if (!hitstan) { return FALSE; }
+        ViewportClearBgSelection(state); ViewportClearObjectSelection(state); state->componentcount = 0;
+        if (remove) { state->stanselected[hit] = 0; }
+        else
+        {
+            if (!add) { ViewportClearStanSelection(state); }
+            state->stanselected[hit] = 1;
+        }
+    }
+    else
+    {
+        for (tile = 0; tile < state->stan.tilecount; tile++)
+        {
+            const StanTile *polygon = &state->stan.tiles[tile];
+            unsigned int point;
+            for (point = 0; point < polygon->pointcount; point++)
+            {
+                Vertex a = ViewportStanPointVertex(&polygon->points[point]);
+                Vertex candidate = a;
+                double screen[2], dx, dy, squared;
+                if (!ViewportProject(state, &a, screen)) { continue; }
+                if (ends == 2)
+                {
+                    Vertex b = ViewportStanPointVertex(&polygon->points[(point+1)%polygon->pointcount]);
+                    double other[2], length, t, da, db, worldt;
+                    float forward[3], right[3];
+                    if (!ViewportProject(state, &b, other)) { continue; }
+                    dx = other[0]-screen[0]; dy = other[1]-screen[1]; length = dx*dx+dy*dy;
+                    t = length > 0 ? ((x-screen[0])*dx+(y-screen[1])*dy)/length : 0;
+                    if (t < 0) t = 0;
+                    if (t > 1) t = 1;
+                    screen[0] += t*dx; screen[1] += t*dy;
+                    ViewportGetBasis(state, forward, right);
+                    da = (a.x-state->posx)*forward[0]+(a.y-state->posy)*forward[1]+(a.z-state->posz)*forward[2];
+                    db = (b.x-state->posx)*forward[0]+(b.y-state->posy)*forward[1]+(b.z-state->posz)*forward[2];
+                    worldt = t*da/(t*da+(1-t)*db);
+                    candidate.x += (b.x-a.x)*worldt; candidate.y += (b.y-a.y)*worldt; candidate.z += (b.z-a.z)*worldt;
+                }
+                dx = x-screen[0]; dy = y-screen[1]; squared = dx*dx+dy*dy;
+                if (squared < best && ViewportStanComponentVisible(state, &candidate))
+                {
+                    best = squared; found = TRUE;
+                    component.refs[0] = ViewportStanPointRef(state, tile, point);
+                    component.refs[1] = ViewportStanPointRef(state, tile, (point+1)%polygon->pointcount);
+                }
+            }
+        }
+        if (!found)
+        {
+            if (!hitstan) { return FALSE; }
+            if (!add && !remove) { ViewportClearAllSelection(state); }
+        }
+        else
+        {
+            if (ends == 2 && ViewportCompareStanRefs(&component.refs[0], &component.refs[1]) > 0)
+            {
+                StanPointRef swap = component.refs[0]; component.refs[0] = component.refs[1]; component.refs[1] = swap;
+            }
+            for (i = 0; i < state->stancomponentcount; i++)
+            {
+                if (!ViewportCompareStanRefs(&component.refs[0], &state->stancomponents[i].refs[0])
+                    && (ends == 1 || !ViewportCompareStanRefs(&component.refs[1], &state->stancomponents[i].refs[1]))) { index = i; break; }
+            }
+            if (remove)
+            {
+                if (index >= 0)
+                {
+                    memmove(state->stancomponents+index, state->stancomponents+index+1,
+                        (size_t)(state->stancomponentcount-index-1)*sizeof(component));
+                    state->stancomponentcount--;
+                }
+            }
+            else
+            {
+                /* Switching asset types clears the other selection, even with Shift. */
+                if (!add) { ViewportClearStanSelection(state); index = -1; }
+                if (index < 0)
+                {
+                    if (state->stancomponentcount == state->stancomponentcapacity)
+                    {
+                        int capacity = state->stancomponentcapacity ? state->stancomponentcapacity*2 : 32;
+                        ViewportStanComponent *grown = realloc(state->stancomponents, (size_t)capacity*sizeof(*grown));
+                        if (grown == NULL) { return TRUE; }
+                        state->stancomponents = grown; state->stancomponentcapacity = capacity;
+                    }
+                    state->stancomponents[state->stancomponentcount++] = component;
+                }
+                ViewportClearBgSelection(state); ViewportClearObjectSelection(state); state->componentcount = 0;
+            }
+        }
+    }
+    ViewportRefreshStanOverlay(state);
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    return TRUE;
 }
 
 static void ViewportLoadGizmo(ViewportState *state)
@@ -2020,6 +2419,7 @@ static void ViewportDrawTransformTools(const ViewportState *state)
     int i, axis;
     glPushAttrib(GL_CURRENT_BIT|GL_ENABLE_BIT|GL_DEPTH_BUFFER_BIT|GL_LINE_BIT|GL_POINT_BIT|GL_POLYGON_BIT);
     glDisable(GL_TEXTURE_2D); glDisable(GL_ALPHA_TEST); glDisable(GL_BLEND); glDisable(GL_CULL_FACE);
+    glDisable(GL_POINT_SMOOTH);
     glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
     glDepthMask(GL_FALSE); glDepthFunc(GL_LEQUAL);
     glColor3ub(255,210,0); glPointSize(8); glLineWidth(3);
@@ -2041,6 +2441,43 @@ static void ViewportDrawTransformTools(const ViewportState *state)
             }
         }
         glEnd();
+    }
+    if (ViewportStanVisible(state))
+    {
+        if (state->tool == EDITOR_TOOL_VERTEX_SELECT)
+        {
+            DWORD tile;
+            glColor4ub(255,255,255,(GLubyte)(state->stanopacity*255/100));
+            glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+            glPointSize(VIEWPORT_VERTEX_MARKER_SIZE);
+            glBegin(GL_POINTS);
+            for (tile=0; tile<state->stan.tilecount; tile++)
+            {
+                unsigned int point;
+                for (point=0; point<state->stan.tiles[tile].pointcount; point++)
+                {
+                    const StanPoint *v=&state->stan.tiles[tile].points[point];
+                    glVertex3f(v->x,v->y,v->z);
+                }
+            }
+            glEnd(); glDisable(GL_BLEND);
+        }
+        if (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT)
+        {
+            glColor3ub(255,210,0); glPointSize(8); glLineWidth(3);
+            glBegin(state->tool == EDITOR_TOOL_VERTEX_SELECT ? GL_POINTS : GL_LINES);
+            for (i=0; i<state->stancomponentcount; i++)
+            {
+                int end, ends=state->tool == EDITOR_TOOL_EDGE_SELECT ? 2 : 1;
+                for (end=0; end<ends; end++)
+                {
+                    const StanPointRef *ref=&state->stancomponents[i].refs[end];
+                    const StanPoint *v=&state->stan.tiles[ref->tile].points[ref->point];
+                    glVertex3f(v->x,v->y,v->z);
+                }
+            }
+            glEnd();
+        }
     }
     /* Handles remain visible and clickable over the selection. Depth is
        local to the three arrows; scene depth must not hide a handle. */
@@ -2111,32 +2548,57 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     ViewportPickRay ray;
     BgDocumentVertexRef *refs=NULL;
     DWORD refcount=0;
-    int axis=ViewportPickGizmo(hwnd,state,x,y), i;
+    int axis=ViewportPickGizmo(hwnd,state,x,y), i, vertexcount;
     double length=0;
     if (axis<0) { return FALSE; }
-    state->dragvertices=malloc((size_t)state->scenecount*sizeof(*state->dragvertices));
-    state->dragmask=calloc((size_t)state->scenecount,1);
+    state->dragstan=ViewportGetStanSelectionCount(hwnd,NULL)>0;
+    vertexcount=state->dragstan ? (int)(state->stan.tilecount*STAN_TILE_MAX_POINTS) : state->scenecount;
+    state->dragvertices=malloc((size_t)vertexcount*sizeof(*state->dragvertices));
+    state->dragmask=calloc((size_t)vertexcount,1);
     if (state->dragvertices==NULL || state->dragmask==NULL)
     {
         free(state->dragvertices); free(state->dragmask);
         state->dragvertices=NULL; state->dragmask=NULL;
         return TRUE;
     }
-    if (state->selectedobject==VIEWPORT_OBJECT_NONE)
+    if (state->dragstan)
     {
-        refs=ViewportGetMoveVertices(hwnd,&refcount);
-        if (refs==NULL) { free(state->dragvertices); free(state->dragmask); state->dragvertices=NULL; state->dragmask=NULL; return TRUE; }
+        StanPointRef *stanrefs=ViewportGetMoveStanPoints(hwnd,&refcount);
+        if (stanrefs==NULL)
+        {
+            free(state->dragvertices); free(state->dragmask);
+            state->dragvertices=NULL; state->dragmask=NULL;
+            return TRUE;
+        }
+        for (i=0; i<vertexcount; i++)
+        {
+            DWORD tile=(DWORD)i/STAN_TILE_MAX_POINTS, point=(DWORD)i%STAN_TILE_MAX_POINTS;
+            const StanPoint *v=&state->stan.tiles[tile].points[point];
+            StanPointRef ref=ViewportStanPointRef(state,tile,point);
+            state->dragvertices[i][0]=v->x; state->dragvertices[i][1]=v->y; state->dragvertices[i][2]=v->z;
+            state->dragmask[i]=point<state->stan.tiles[tile].pointcount
+                && bsearch(&ref,stanrefs,refcount,sizeof(*stanrefs),ViewportCompareStanRefs)!=NULL;
+        }
+        free(stanrefs);
     }
-    for (i=0; i<state->scenecount; i++)
+    else
     {
-        state->dragvertices[i][0]=state->scene[i].x;
-        state->dragvertices[i][1]=state->scene[i].y;
-        state->dragvertices[i][2]=state->scene[i].z;
-        state->dragmask[i]=state->selectedobject!=VIEWPORT_OBJECT_NONE
-            ? state->sceneobjectindices[i/3]==state->selectedobject
-            : bsearch(&state->scenevertexrefs[i],refs,refcount,sizeof(*refs),ViewportCompareVertexRefs)!=NULL;
+        if (state->selectedobject==VIEWPORT_OBJECT_NONE)
+        {
+            refs=ViewportGetMoveVertices(hwnd,&refcount);
+            if (refs==NULL) { free(state->dragvertices); free(state->dragmask); state->dragvertices=NULL; state->dragmask=NULL; return TRUE; }
+        }
+        for (i=0; i<state->scenecount; i++)
+        {
+            state->dragvertices[i][0]=state->scene[i].x;
+            state->dragvertices[i][1]=state->scene[i].y;
+            state->dragvertices[i][2]=state->scene[i].z;
+            state->dragmask[i]=state->selectedobject!=VIEWPORT_OBJECT_NONE
+                ? state->sceneobjectindices[i/3]==state->selectedobject
+                : bsearch(&state->scenevertexrefs[i],refs,refcount,sizeof(*refs),ViewportCompareVertexRefs)!=NULL;
+        }
+        free(refs);
     }
-    free(refs);
     ViewportBuildPickRay(hwnd,state,x,y,&ray);
     state->dragaxis=axis; state->hoveraxis=axis; state->dragdelta=0;
     state->dragscale=ViewportGizmoScale(state);
@@ -2164,14 +2626,25 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
     delta=round(ViewportDragParameter(state,&ray,y)-state->dragparameter);
     if (!isfinite(delta) || fabs(delta)>1000000 || delta==state->dragdelta) { return; }
     state->dragdelta=delta;
-    for (i=0; i<state->scenecount; i++)
+    for (i=0; i<(state->dragstan ? (int)(state->stan.tilecount*STAN_TILE_MAX_POINTS) : state->scenecount); i++)
     {
         if (!state->dragmask[i]) { continue; }
-        state->scene[i].x=state->dragvertices[i][0]+(state->dragaxis==0 ? delta : 0);
-        state->scene[i].y=state->dragvertices[i][1]+(state->dragaxis==1 ? delta : 0);
-        state->scene[i].z=state->dragvertices[i][2]+(state->dragaxis==2 ? delta : 0);
+        if (state->dragstan)
+        {
+            StanPoint *point=&state->stan.tiles[i/STAN_TILE_MAX_POINTS].points[i%STAN_TILE_MAX_POINTS];
+            point->x=state->dragvertices[i][0]+(state->dragaxis==0 ? delta : 0);
+            point->y=state->dragvertices[i][1]+(state->dragaxis==1 ? delta : 0);
+            point->z=state->dragvertices[i][2]+(state->dragaxis==2 ? delta : 0);
+        }
+        else
+        {
+            state->scene[i].x=state->dragvertices[i][0]+(state->dragaxis==0 ? delta : 0);
+            state->scene[i].y=state->dragvertices[i][1]+(state->dragaxis==1 ? delta : 0);
+            state->scene[i].z=state->dragvertices[i][2]+(state->dragaxis==2 ? delta : 0);
+        }
     }
     state->gizmoposition[state->dragaxis]=state->dragorigin[state->dragaxis]+delta;
+    if (state->dragstan) { ViewportRefreshStanOverlay(state); }
     ViewportBuildObjectSelectionBox(state);
     InvalidateRect(hwnd,NULL,FALSE);
     SendMessage(GetParent(hwnd), VIEWPORT_WM_TRANSFORM_PREVIEW, 0, 0);
@@ -2182,17 +2655,28 @@ void ViewportCancelTransform(HWND hwnd)
     ViewportState *state=ViewportGetState(hwnd);
     int i;
     if (state==NULL || state->dragaxis<0) { return; }
-    for (i=0; i<state->scenecount; i++)
+    for (i=0; i<(state->dragstan ? (int)(state->stan.tilecount*STAN_TILE_MAX_POINTS) : state->scenecount); i++)
     {
         if (!state->dragmask[i]) { continue; }
-        state->scene[i].x=state->dragvertices[i][0];
-        state->scene[i].y=state->dragvertices[i][1];
-        state->scene[i].z=state->dragvertices[i][2];
+        if (state->dragstan)
+        {
+            StanPoint *point=&state->stan.tiles[i/STAN_TILE_MAX_POINTS].points[i%STAN_TILE_MAX_POINTS];
+            point->x=state->dragvertices[i][0];
+            point->y=state->dragvertices[i][1];
+            point->z=state->dragvertices[i][2];
+        }
+        else
+        {
+            state->scene[i].x=state->dragvertices[i][0];
+            state->scene[i].y=state->dragvertices[i][1];
+            state->scene[i].z=state->dragvertices[i][2];
+        }
     }
     state->dragaxis=-1;
     free(state->dragvertices); free(state->dragmask);
     state->dragvertices=NULL; state->dragmask=NULL;
     if (GetCapture()==hwnd) { ReleaseCapture(); }
+    if (state->dragstan) { ViewportRefreshStanOverlay(state); }
     ViewportBuildObjectSelectionBox(state);
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd,NULL,FALSE);
@@ -2233,6 +2717,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         state->showbgprimary = TRUE;
         state->showbgsecondary = TRUE;
         state->showstan = FALSE;
+        state->stanopacity = 44;
         state->showportals = FALSE;
         state->showobjects = TRUE;
         state->cullbackfaces = TRUE;
@@ -2283,6 +2768,8 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         {
             return 0;
         }
+        if (state != NULL && ViewportTryPickStan(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam),
+                (wparam & MK_SHIFT)!=0,(wparam & MK_CONTROL)!=0)) { return 0; }
         if (state != NULL && !state->flying
             && (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT))
         {
@@ -2416,6 +2903,8 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         ViewportCancelTransform(hwnd);
         if (state != NULL)
         {
+            ViewportSetStanTiles(hwnd, NULL);
+            free(state->stancomponents);
             ViewportFreeScene(state);
         }
         ViewportEndFly(hwnd, state); // Never leave the cursor hidden.
@@ -2519,8 +3008,6 @@ static void ViewportFreeScene(struct ViewportState *state_)
     free(state->sceneobjectindices);
     free(state->scenevertexrefs);
     free(state->scenecolors);
-    free(state->stanedges);
-    free(state->stanfill);
     free(state->portaledges);
     free(state->portalfill);
     free(state->padmarkers);
@@ -2532,8 +3019,6 @@ static void ViewportFreeScene(struct ViewportState *state_)
     state->sceneobjectindices = NULL;
     state->scenevertexrefs = NULL;
     state->scenecolors = NULL;
-    state->stanedges = NULL;
-    state->stanfill = NULL;
     state->portaledges = NULL;
     state->portalfill = NULL;
     state->padmarkers = NULL;
@@ -2543,8 +3028,6 @@ static void ViewportFreeScene(struct ViewportState *state_)
     state->selectedtricount = 0;
     state->selectedobject = VIEWPORT_OBJECT_NONE;
     state->objectselectionboxcount = 0;
-    state->stanedgecount = 0;
-    state->stanfillcount = 0;
     state->portaledgecount = 0;
     state->portalfillcount = 0;
     state->padmarkercount = 0;
@@ -2568,84 +3051,119 @@ static void ViewportSetStanVertex(Vertex *vertex, const StanPoint *point,
 }
 
 
-void ViewportSetStanTiles(HWND hwnd, const StanFile *stan)
+static void ViewportRefreshStanOverlay(ViewportState *state)
 {
-    ViewportState *state = ViewportGetState(hwnd);
-    Vertex *fill = NULL;
-    Vertex *edges = NULL;
-    size_t fillcount = 0;
-    size_t edgecount = 0;
-    size_t fillat = 0;
-    size_t edgeat = 0;
-    DWORD i;
-
-    if (state == NULL)
+    DWORD tile;
+    size_t fillat=0, edgeat=0;
+    unsigned char alpha=(unsigned char)(state->stanopacity*255/100);
+    if (state->stanfill == NULL || state->stanedges == NULL) { return; }
+    for (tile=0; tile<state->stan.tilecount; tile++)
     {
-        return;
-    }
-
-    free(state->stanfill);
-    free(state->stanedges);
-    state->stanfill = NULL;
-    state->stanedges = NULL;
-    state->stanfillcount = 0;
-    state->stanedgecount = 0;
-
-    if (stan == NULL || stan->tiles == NULL || stan->tilecount == 0)
-    {
-        InvalidateRect(hwnd, NULL, FALSE);
-        return;
-    }
-
-    for (i = 0; i < stan->tilecount; i++)
-    {
-        fillcount += (stan->tiles[i].pointcount - 2) * 3;
-        edgecount += stan->tiles[i].pointcount * 2;
-    }
-
-    fill = (Vertex *)malloc(fillcount * sizeof(*fill));
-    edges = (Vertex *)malloc(edgecount * sizeof(*edges));
-    if (fill == NULL || edges == NULL)
-    {
-        free(fill);
-        free(edges);
-        InvalidateRect(hwnd, NULL, FALSE);
-        return;
-    }
-
-    for (i = 0; i < stan->tilecount; i++)
-    {
-        const StanTile *tile = &stan->tiles[i];
+        StanTile color=state->stan.tiles[tile];
         unsigned int point;
-
-        /* Stan polygons are authored in perimeter order and are convex
-           for the game's point-in-tile tests, so a fan preserves the
-           original 3-10 sided face without inventing new positions. */
-        for (point = 1; point + 1 < tile->pointcount; point++)
+        if (state->stanselected[tile]) { color.red=0; color.green=255; color.blue=255; }
+        for (point=1; point+1<color.pointcount; point++)
         {
-            ViewportSetStanVertex(&fill[fillat++], &tile->points[0],
-                                  tile, VIEWPORT_STAN_FILL_ALPHA);
-            ViewportSetStanVertex(&fill[fillat++], &tile->points[point],
-                                  tile, VIEWPORT_STAN_FILL_ALPHA);
-            ViewportSetStanVertex(&fill[fillat++], &tile->points[point + 1],
-                                  tile, VIEWPORT_STAN_FILL_ALPHA);
+            ViewportSetStanVertex(&state->stanfill[fillat++], &color.points[0], &color, alpha);
+            ViewportSetStanVertex(&state->stanfill[fillat++], &color.points[point], &color, alpha);
+            ViewportSetStanVertex(&state->stanfill[fillat++], &color.points[point+1], &color, alpha);
         }
-
-        for (point = 0; point < tile->pointcount; point++)
+        if (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT)
         {
-            ViewportSetStanVertex(&edges[edgeat++], &tile->points[point],
-                                  tile, VIEWPORT_STAN_EDGE_ALPHA);
-            ViewportSetStanVertex(&edges[edgeat++],
-                                  &tile->points[(point + 1) % tile->pointcount],
-                                  tile, VIEWPORT_STAN_EDGE_ALPHA);
+            color.red=color.green=color.blue=255;
+        }
+        for (point=0; point<color.pointcount; point++)
+        {
+            ViewportSetStanVertex(&state->stanedges[edgeat++], &color.points[point], &color, alpha);
+            ViewportSetStanVertex(&state->stanedges[edgeat++], &color.points[(point+1)%color.pointcount], &color, alpha);
         }
     }
+}
 
-    state->stanfill = fill;
-    state->stanedges = edges;
-    state->stanfillcount = (GLsizei)fillat;
-    state->stanedgecount = (GLsizei)edgeat;
-    InvalidateRect(hwnd, NULL, FALSE);
+BOOL ViewportSetStanTiles(HWND hwnd, const StanFile *stan)
+{
+    ViewportState *state=ViewportGetState(hwnd);
+    StanFile copy={0};
+    Vertex *fill=NULL, *edges=NULL;
+    DWORD *map=NULL;
+    unsigned char *selected=NULL;
+    size_t fillcount=0, edgecount=0;
+    DWORD tile;
+    BOOL keep=FALSE;
+    const char *reason;
+    if (state == NULL) { return FALSE; }
+    ViewportCancelTransform(hwnd);
+    if (stan != NULL && stan->tiles != NULL && stan->tilecount > 0)
+    {
+        if (!StanFileClone(stan,&copy,&reason)) { return FALSE; }
+        map=StanBuildPointMap(&copy,&reason);
+        selected=calloc(copy.tilecount,1);
+        for (tile=0; tile<copy.tilecount; tile++)
+        {
+            fillcount+=(copy.tiles[tile].pointcount-2)*3;
+            edgecount+=copy.tiles[tile].pointcount*2;
+        }
+        fill=malloc(fillcount*sizeof(*fill)); edges=malloc(edgecount*sizeof(*edges));
+        if (map==NULL || selected==NULL || fill==NULL || edges==NULL)
+        {
+            free(map); free(selected); free(fill); free(edges); StanFileFree(&copy);
+            return FALSE;
+        }
+        keep=state->stan.tilecount==copy.tilecount && strcmp(state->stan.name,copy.name)==0;
+        if (keep) { memcpy(selected,state->stanselected,copy.tilecount); }
+    }
+    StanFileFree(&state->stan); free(state->stanpointmap); free(state->stanselected);
+    free(state->stanfill); free(state->stanedges);
+    state->stan=copy; state->stanpointmap=map; state->stanselected=selected;
+    state->stanfill=fill; state->stanedges=edges;
+    state->stanfillcount=(GLsizei)fillcount; state->stanedgecount=(GLsizei)edgecount;
+    if (!keep) { state->stancomponentcount=0; }
+    else
+    {
+        int i, kept=0, ends=state->tool == EDITOR_TOOL_EDGE_SELECT ? 2 : 1;
+        for (i=0; i<state->stancomponentcount; i++)
+        {
+            ViewportStanComponent component=state->stancomponents[i];
+            int end, previous;
+            for (end=0; end<ends; end++)
+            {
+                StanPointRef *ref=&component.refs[end];
+                if (ref->tile>=copy.tilecount || ref->point>=copy.tiles[ref->tile].pointcount) { break; }
+                *ref=ViewportStanPointRef(state,ref->tile,ref->point);
+            }
+            if (end<ends) { continue; }
+            if (ends==2 && ViewportCompareStanRefs(&component.refs[0],&component.refs[1])>0)
+            {
+                StanPointRef swap=component.refs[0]; component.refs[0]=component.refs[1]; component.refs[1]=swap;
+            }
+            for (previous=0; previous<kept; previous++)
+            {
+                if (!ViewportCompareStanRefs(&component.refs[0],&state->stancomponents[previous].refs[0])
+                    && (ends==1 || !ViewportCompareStanRefs(&component.refs[1],&state->stancomponents[previous].refs[1]))) { break; }
+            }
+            if (previous==kept) { state->stancomponents[kept++]=component; }
+        }
+        state->stancomponentcount=kept;
+    }
+    ViewportRefreshStanOverlay(state);
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd,NULL,FALSE);
+    return TRUE;
+}
+
+void ViewportSetStanOpacity(HWND hwnd, int percent)
+{
+    ViewportState *state=ViewportGetState(hwnd);
+    if (state == NULL) { return; }
+    if (percent < 0) percent=0;
+    if (percent > 100) percent=100;
+    ViewportCancelTransform(hwnd);
+    state->stanopacity=percent;
+    if (percent==0) { ViewportClearStanSelection(state); }
+    ViewportRefreshStanOverlay(state);
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd,NULL,FALSE);
+    SendMessage(GetParent(hwnd),VIEWPORT_WM_SELECTION_CHANGED,0,0);
 }
 
 
@@ -2789,6 +3307,7 @@ void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
     state->showbgprimary = bgprimary;
     state->showbgsecondary = bgsecondary;
     state->showstan = stan;
+    if (!stan) { ViewportClearStanSelection(state); }
     state->showportals = portals;
     state->showobjects = objects;
     if (!objects) { state->selectedobject = VIEWPORT_OBJECT_NONE; }
@@ -3135,7 +3654,11 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
         state->pitch = 0.0f;
     }
 
-    if (framecamera || scene == NULL) { state->componentcount = 0; }
+    if (framecamera || scene == NULL)
+    {
+        state->componentcount = 0;
+        ViewportSetStanTiles(hwnd, NULL);
+    }
     ViewportRestoreComponents(state);
     if (scene != NULL && savedobject != VIEWPORT_OBJECT_NONE) { ViewportSelectObject(state, savedobject); }
     ViewportUpdateGizmo(state);
