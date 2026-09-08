@@ -48,5 +48,6 @@ void RightPanelSetBgSelectionCount(HWND panel, int count);
 void RightPanelSetSetupObject(HWND panel, const SetupObject *object,
                               DWORD objectindex);
 void RightPanelSetSetupCharacter(HWND panel, const SetupCharacter *character);
+void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef *ref);
 
 #endif /* GEDITOR_RIGHTPANEL_H */

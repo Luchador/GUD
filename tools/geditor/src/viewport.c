@@ -80,6 +80,12 @@ typedef struct ViewportStanComponent {
     StanPointRef refs[2];
 } ViewportStanComponent;
 
+typedef struct ViewportPad {
+    SetupPadRef ref;
+    float position[3]; /* authored origin in world units */
+    BOOL occupied;
+} ViewportPad;
+
 /* Per-viewport state, allocated at WM_CREATE, freed at WM_DESTROY,
    reachable from the window via GWLP_USERDATA. */
 typedef struct ViewportState {
@@ -113,6 +119,7 @@ typedef struct ViewportState {
     double dragorigin[3], dragplane[3], dragparameter, dragdelta, dragscale;
     BOOL dragvertical;
     BOOL dragstan;
+    BOOL dragpad;
     float (*dragvertices)[3];
     unsigned char *dragmask;
     int selectedtricount;
@@ -137,6 +144,9 @@ typedef struct ViewportState {
     GLsizei portaledgecount;
     Vertex *padmarkers;  /* GL_LINES: 24 vertices per wireframe box */
     GLsizei padmarkercount;
+    ViewportPad *pads; /* parallels the 24-vertex marker boxes */
+    DWORD padcount;
+    SetupPadRef selectedpad;
     BOOL showbgprimary;
     BOOL showbgsecondary;
     BOOL showstan;
@@ -160,6 +170,62 @@ static StanPointRef ViewportStanPointRef(const ViewportState *state, DWORD tile,
 static void ViewportDrawTransformTools(const ViewportState *state);
 static void ViewportUpdateGizmo(ViewportState *state);
 static void ViewportRestoreComponents(ViewportState *state);
+
+static int ViewportSelectedPadIndex(const ViewportState *state)
+{
+    DWORD i;
+    if (state->selectedpad.index == SETUP_PAD_INDEX_NONE) { return -1; }
+    for (i = 0; i < state->padcount; i++)
+    {
+        if (state->pads[i].ref.index == state->selectedpad.index
+            && state->pads[i].ref.bound == state->selectedpad.bound) { return (int)i; }
+    }
+    return -1;
+}
+
+static BOOL ViewportPadVisible(const ViewportState *state, DWORD index)
+{
+    const ViewportPad *pad = &state->pads[index];
+    return !pad->occupied || !state->showobjects
+        || (pad->ref.index == state->selectedpad.index && pad->ref.bound == state->selectedpad.bound);
+}
+
+static void ViewportRefreshPadColors(ViewportState *state)
+{
+    int selected = ViewportSelectedPadIndex(state);
+    DWORD i;
+    for (i = 0; i < state->padcount; i++)
+    {
+        int vertex;
+        BOOL white = (int)i == selected, bound = state->pads[i].ref.bound;
+        for (vertex = 0; vertex < VIEWPORT_BOX_VERTICES; vertex++)
+        {
+            Vertex *v = &state->padmarkers[i * VIEWPORT_BOX_VERTICES + vertex];
+            v->r = white || bound ? 255 : 32;
+            v->g = white || !bound ? 255 : 48;
+            v->b = white ? 255 : bound ? 48 : 64;
+        }
+    }
+}
+
+static void ViewportClearPadSelection(ViewportState *state)
+{
+    if (state->selectedpad.index == SETUP_PAD_INDEX_NONE) { return; }
+    state->selectedpad.index = SETUP_PAD_INDEX_NONE;
+    ViewportRefreshPadColors(state);
+}
+
+static BOOL ViewportPadSelectionPosition(const ViewportState *state, double position[3])
+{
+    int index = ViewportSelectedPadIndex(state), axis;
+    if (index < 0 || state->tool != EDITOR_TOOL_FACE_SELECT) { return FALSE; }
+    for (axis = 0; axis < 3; axis++)
+    {
+        position[axis] = state->pads[index].position[axis];
+        if (state->dragpad && state->dragaxis == axis) { position[axis] += state->dragdelta; }
+    }
+    return TRUE;
+}
 
 static const Vertex g_TestScene[6] = {
     {    0.0f,  160.0f, 0.0f,   255,  40,  40, 255 , 1.0f, 0.0f},
@@ -546,6 +612,7 @@ static void ViewportPaintGL(ViewportState *state)
 
     if (state->padmarkers != NULL && state->padmarkercount > 0)
     {
+        DWORD first = 0;
         /* Editor overlays remain depth-tested, so pads hidden behind a
            wall do not turn the whole level into an unreadable lattice. */
         glDisable(GL_TEXTURE_2D);
@@ -558,7 +625,18 @@ static void ViewportPaintGL(ViewportState *state)
         glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(Vertex),
                        &state->padmarkers[0].r);
         glLineWidth(2.0f);
-        glDrawArrays(GL_LINES, 0, state->padmarkercount);
+        /* Batch adjacent visible boxes while exposing occupied pads when
+         * their models are hidden. Selected pads remain available. */
+        while (first < state->padcount)
+        {
+            DWORD end;
+            if (!ViewportPadVisible(state, first)) { first++; continue; }
+            end = first + 1;
+            while (end < state->padcount && ViewportPadVisible(state, end)) { end++; }
+            glDrawArrays(GL_LINES, first * VIEWPORT_BOX_VERTICES,
+                         (end - first) * VIEWPORT_BOX_VERTICES);
+            first = end;
+        }
         glLineWidth(1.0f);
     }
 
@@ -1383,6 +1461,7 @@ static void ViewportClearBgSelection(ViewportState *state)
 
 static void ViewportClearAllSelection(ViewportState *state)
 {
+    ViewportClearPadSelection(state);
     ViewportClearBgSelection(state);
     ViewportClearObjectSelection(state);
     ViewportClearStanSelection(state);
@@ -1544,10 +1623,18 @@ static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex,
     int triangle;
     DWORD objectindex;
 
-    if (state == NULL || state->selectedtris == NULL
-        || state->scenecolors == NULL || state->flying
+    if (state == NULL || state->flying
         || state->tool != EDITOR_TOOL_FACE_SELECT)
     {
+        return;
+    }
+
+    if (state->selectedtris == NULL || state->scenecolors == NULL)
+    {
+        ViewportClearAllSelection(state);
+        ViewportUpdateGizmo(state);
+        InvalidateRect(hwnd, NULL, FALSE);
+        SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
         return;
     }
 
@@ -1564,6 +1651,7 @@ static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex,
     triangle = ViewportFindPickedTriangle(state, &ray, addtoselection,
                                           deselect, &bgdistance);
     objectindex = ViewportFindPickedObject(state, &ray, &objectdistance);
+    ViewportClearPadSelection(state);
     if (objectindex != VIEWPORT_OBJECT_NONE || bgdistance != DBL_MAX) { ViewportClearStanSelection(state); }
 
     /* Both geometry types share the exact same ray and distance metric.
@@ -1721,6 +1809,7 @@ BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout
     int i, axis;
 
     *countout = 0;
+    if (state != NULL && ViewportPadSelectionPosition(state, position)) { *countout = 1; return TRUE; }
     if (state != NULL && ViewportStanSelectionPosition(state, FALSE, position, countout)) { return TRUE; }
     if (state == NULL || state->scene == NULL || state->tool == EDITOR_TOOL_VERTEX_PAINT)
     {
@@ -1785,6 +1874,11 @@ static void ViewportUpdateGizmo(ViewportState *state)
     int i, axis;
     state->gizmovisible = FALSE;
     state->hoveraxis = -1;
+    if (ViewportPadSelectionPosition(state, state->gizmoposition))
+    {
+        state->gizmovisible = TRUE;
+        return;
+    }
     {
         DWORD count;
         if (ViewportStanSelectionPosition(state, TRUE, state->gizmoposition, &count))
@@ -2289,6 +2383,62 @@ static BOOL ViewportStanComponentVisible(const ViewportState *state, const Verte
         && stan >= length-ViewportCoplanarPickTolerance(length);
 }
 
+/* Pick visible wire edges, not the empty interiors of large bound pads.
+ * Visibility is checked at the perspective-correct point on the edge, using
+ * the same scene/stan occlusion test as the other editor overlays. */
+static BOOL ViewportTryPickPad(HWND hwnd, ViewportState *state, int x, int y, BOOL remove)
+{
+    double nearest = DBL_MAX;
+    int hit = -1;
+    DWORD i;
+    float forward[3], right[3];
+
+    if (state->flying || state->tool != EDITOR_TOOL_FACE_SELECT) { return FALSE; }
+    ViewportGetBasis(state, forward, right);
+    for (i = 0; i < state->padcount; i++)
+    {
+        int edge;
+        if (!ViewportPadVisible(state, i)) { continue; }
+        for (edge = 0; edge < VIEWPORT_BOX_VERTICES; edge += 2)
+        {
+            const Vertex *a = &state->padmarkers[i * VIEWPORT_BOX_VERTICES + edge], *b = a + 1;
+            double screen[2], other[2], dx, dy, length, t, deptha, depthb, worldt, distance;
+            Vertex point = *a;
+            if (!ViewportProject(state, a, screen) || !ViewportProject(state, b, other)) { continue; }
+            dx = other[0] - screen[0]; dy = other[1] - screen[1]; length = dx * dx + dy * dy;
+            t = length > 0 ? ((x - screen[0]) * dx + (y - screen[1]) * dy) / length : 0;
+            if (t < 0) { t = 0; }
+            if (t > 1) { t = 1; }
+            dx = x - screen[0] - t * dx; dy = y - screen[1] - t * dy;
+            if (dx * dx + dy * dy > 36) { continue; }
+            deptha = (a->x-state->posx)*forward[0] + (a->y-state->posy)*forward[1] + (a->z-state->posz)*forward[2];
+            depthb = (b->x-state->posx)*forward[0] + (b->y-state->posy)*forward[1] + (b->z-state->posz)*forward[2];
+            worldt = t * deptha / (t * deptha + (1 - t) * depthb);
+            point.x = a->x + (b->x-a->x)*worldt;
+            point.y = a->y + (b->y-a->y)*worldt;
+            point.z = a->z + (b->z-a->z)*worldt;
+            distance = (point.x-state->posx)*(double)(point.x-state->posx)
+                     + (point.y-state->posy)*(double)(point.y-state->posy)
+                     + (point.z-state->posz)*(double)(point.z-state->posz);
+            if (distance < nearest && ViewportStanComponentVisible(state, &point))
+            {
+                nearest = distance; hit = (int)i;
+            }
+        }
+    }
+    if (hit < 0) { return FALSE; }
+    {
+        BOOL deselect = remove && ViewportSelectedPadIndex(state) == hit;
+        ViewportClearAllSelection(state);
+        if (!deselect) { state->selectedpad = state->pads[hit].ref; }
+    }
+    ViewportRefreshPadColors(state);
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    return TRUE;
+}
+
 /* Returns TRUE when the visible stan layer owns this click. Polygon edges
  * come from the perimeter, so triangulation diagonals are never selectable. */
 static BOOL ViewportTryPickStan(HWND hwnd, ViewportState *state, int x, int y, BOOL add, BOOL remove)
@@ -2312,6 +2462,7 @@ static BOOL ViewportTryPickStan(HWND hwnd, ViewportState *state, int x, int y, B
     if (state->tool == EDITOR_TOOL_FACE_SELECT)
     {
         if (!hitstan) { return FALSE; }
+        ViewportClearPadSelection(state);
         ViewportClearBgSelection(state); ViewportClearObjectSelection(state); state->componentcount = 0;
         if (remove) { state->stanselected[hit] = 0; }
         else
@@ -2598,8 +2749,10 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     int axis=ViewportPickGizmo(hwnd,state,x,y), i, vertexcount;
     double length=0;
     if (axis<0) { return FALSE; }
+    state->dragpad = ViewportSelectedPadIndex(state) >= 0;
     state->dragstan=ViewportGetStanSelectionCount(hwnd,NULL)>0;
-    vertexcount=state->dragstan ? (int)(state->stan.tilecount*STAN_TILE_MAX_POINTS) : state->scenecount;
+    vertexcount=state->dragpad ? VIEWPORT_BOX_VERTICES
+        : state->dragstan ? (int)(state->stan.tilecount*STAN_TILE_MAX_POINTS) : state->scenecount;
     state->dragvertices=malloc((size_t)vertexcount*sizeof(*state->dragvertices));
     state->dragmask=calloc((size_t)vertexcount,1);
     if (state->dragvertices==NULL || state->dragmask==NULL)
@@ -2608,7 +2761,17 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
         state->dragvertices=NULL; state->dragmask=NULL;
         return TRUE;
     }
-    if (state->dragstan)
+    if (state->dragpad)
+    {
+        int first = ViewportSelectedPadIndex(state) * VIEWPORT_BOX_VERTICES;
+        for (i = 0; i < vertexcount; i++)
+        {
+            const Vertex *v = &state->padmarkers[first + i];
+            state->dragvertices[i][0] = v->x; state->dragvertices[i][1] = v->y; state->dragvertices[i][2] = v->z;
+            state->dragmask[i] = 1;
+        }
+    }
+    else if (state->dragstan)
     {
         StanPointRef *stanrefs=ViewportGetMoveStanPoints(hwnd,&refcount);
         if (stanrefs==NULL)
@@ -2673,10 +2836,17 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
     delta=round(ViewportDragParameter(state,&ray,y)-state->dragparameter);
     if (!isfinite(delta) || fabs(delta)>1000000 || delta==state->dragdelta) { return; }
     state->dragdelta=delta;
-    for (i=0; i<(state->dragstan ? (int)(state->stan.tilecount*STAN_TILE_MAX_POINTS) : state->scenecount); i++)
+    for (i=0; i<(state->dragpad ? VIEWPORT_BOX_VERTICES : state->dragstan ? (int)(state->stan.tilecount*STAN_TILE_MAX_POINTS) : state->scenecount); i++)
     {
         if (!state->dragmask[i]) { continue; }
-        if (state->dragstan)
+        if (state->dragpad)
+        {
+            Vertex *point = &state->padmarkers[ViewportSelectedPadIndex(state) * VIEWPORT_BOX_VERTICES + i];
+            point->x = state->dragvertices[i][0] + (state->dragaxis == 0 ? delta : 0);
+            point->y = state->dragvertices[i][1] + (state->dragaxis == 1 ? delta : 0);
+            point->z = state->dragvertices[i][2] + (state->dragaxis == 2 ? delta : 0);
+        }
+        else if (state->dragstan)
         {
             StanPoint *point=&state->stan.tiles[i/STAN_TILE_MAX_POINTS].points[i%STAN_TILE_MAX_POINTS];
             point->x=state->dragvertices[i][0]+(state->dragaxis==0 ? delta : 0);
@@ -2702,10 +2872,15 @@ void ViewportCancelTransform(HWND hwnd)
     ViewportState *state=ViewportGetState(hwnd);
     int i;
     if (state==NULL || state->dragaxis<0) { return; }
-    for (i=0; i<(state->dragstan ? (int)(state->stan.tilecount*STAN_TILE_MAX_POINTS) : state->scenecount); i++)
+    for (i=0; i<(state->dragpad ? VIEWPORT_BOX_VERTICES : state->dragstan ? (int)(state->stan.tilecount*STAN_TILE_MAX_POINTS) : state->scenecount); i++)
     {
         if (!state->dragmask[i]) { continue; }
-        if (state->dragstan)
+        if (state->dragpad)
+        {
+            Vertex *point = &state->padmarkers[ViewportSelectedPadIndex(state) * VIEWPORT_BOX_VERTICES + i];
+            point->x = state->dragvertices[i][0]; point->y = state->dragvertices[i][1]; point->z = state->dragvertices[i][2];
+        }
+        else if (state->dragstan)
         {
             StanPoint *point=&state->stan.tiles[i/STAN_TILE_MAX_POINTS].points[i%STAN_TILE_MAX_POINTS];
             point->x=state->dragvertices[i][0];
@@ -2769,6 +2944,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         state->showobjects = TRUE;
         state->cullbackfaces = TRUE;
         state->selectedobject = VIEWPORT_OBJECT_NONE;
+        state->selectedpad.index = SETUP_PAD_INDEX_NONE;
         state->hoveraxis = state->dragaxis = -1;
         ViewportLoadGizmo(state);
         state->tool = EDITOR_TOOL_FACE_SELECT;
@@ -2815,6 +2991,8 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         {
             return 0;
         }
+        if (state != NULL && ViewportTryPickPad(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam),
+                (wparam & MK_CONTROL)!=0)) { return 0; }
         if (state != NULL && ViewportTryPickStan(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam),
                 (wparam & MK_SHIFT)!=0,(wparam & MK_CONTROL)!=0)) { return 0; }
         if (state != NULL && !state->flying
@@ -3058,6 +3236,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
     free(state->portaledges);
     free(state->portalfill);
     free(state->padmarkers);
+    free(state->pads);
     free(state->scene);
     state->textures = NULL;
     state->batches = NULL;
@@ -3069,6 +3248,9 @@ static void ViewportFreeScene(struct ViewportState *state_)
     state->portaledges = NULL;
     state->portalfill = NULL;
     state->padmarkers = NULL;
+    state->pads = NULL;
+    state->padcount = 0;
+    state->selectedpad.index = SETUP_PAD_INDEX_NONE;
     state->scene = NULL;
     state->texturecount = 0;
     state->batchcount = 0;
@@ -3424,6 +3606,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     unsigned char *selectedtris = NULL;
     BgDocumentVertexRef *scenevertexrefs = NULL;
     DWORD savedobject = VIEWPORT_OBJECT_NONE;
+    SetupPadRef savedpad = {SETUP_PAD_INDEX_NONE, FALSE};
     BgFaceRef *scenefacerefs = NULL;
     BgFaceRef *selectedrefs = NULL;
     int savedselectioncount = 0;
@@ -3438,6 +3621,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
 
     ViewportCancelTransform(hwnd);
     if (state != NULL && !framecamera) { savedobject = state->selectedobject; }
+    if (state != NULL && !framecamera) { savedpad = state->selectedpad; }
     if (state == NULL
         || (objectindices != NULL
             && (objectfirsttriangle < 0
@@ -3644,6 +3828,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     }
 
     ViewportFreeScene(state);
+    state->selectedpad = savedpad; /* resolved when the pad overlay is rebuilt */
     state->scene = scene;
     state->scenecolors = scenecolors;
     state->scenecount = scene != NULL ? (GLsizei)(tricount * 3) : 0;
@@ -3849,6 +4034,14 @@ static void ViewportSetMarkerVertex(Vertex *vertex, const float point[3],
 }
 
 
+BOOL ViewportGetSelectedPad(HWND hwnd, SetupPadRef *out)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    if (state == NULL || out == NULL || ViewportSelectedPadIndex(state) < 0) { return FALSE; }
+    *out = state->selectedpad;
+    return TRUE;
+}
+
 /* Appends the twelve edges of an oriented pad box. */
 static void ViewportAppendPadBox(Vertex *vertices, int *vertexcount,
                                  const SetupPad *pad,
@@ -3886,6 +4079,7 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
 {
     ViewportState *state = ViewportGetState(hwnd);
     Vertex *markers = NULL;
+    ViewportPad *pads = NULL;
     DWORD boxcount = 0;
     int vertexcount = 0;
     float worldscale;
@@ -3896,12 +4090,18 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
         return;
     }
 
+    ViewportCancelTransform(hwnd);
     free(state->padmarkers);
+    free(state->pads);
     state->padmarkers = NULL;
     state->padmarkercount = 0;
+    state->pads = NULL;
+    state->padcount = 0;
 
     if (setup == NULL || !(levelscale > 0.0f))
     {
+        state->selectedpad.index = SETUP_PAD_INDEX_NONE;
+        ViewportUpdateGizmo(state);
         InvalidateRect(hwnd, NULL, FALSE);
         return;
     }
@@ -3909,14 +4109,20 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
     boxcount = setup->padcount + setup->boundpadcount;
     if (boxcount == 0)
     {
+        state->selectedpad.index = SETUP_PAD_INDEX_NONE;
+        ViewportUpdateGizmo(state);
         InvalidateRect(hwnd, NULL, FALSE);
         return;
     }
 
     markers = (Vertex *)malloc((size_t)boxcount * VIEWPORT_BOX_VERTICES
                               * sizeof(*markers));
-    if (markers == NULL)
+    pads = (ViewportPad *)malloc((size_t)boxcount * sizeof(*pads));
+    if (markers == NULL || pads == NULL)
     {
+        free(markers); free(pads);
+        state->selectedpad.index = SETUP_PAD_INDEX_NONE;
+        ViewportUpdateGizmo(state);
         InvalidateRect(hwnd, NULL, FALSE);
         return;
     }
@@ -3925,10 +4131,10 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
 
     for (i = 0; i < setup->padcount; i++)
     {
-        if (occupiedpads != NULL && occupiedpads[i])
-        {
-            continue;
-        }
+        int axis;
+        pads[i].ref.index = i; pads[i].ref.bound = FALSE;
+        pads[i].occupied = occupiedpads != NULL && occupiedpads[i];
+        for (axis = 0; axis < 3; axis++) { pads[i].position[axis] = setup->pads[i].pos[axis] * worldscale; }
 
         ViewportAppendPadBox(markers, &vertexcount, &setup->pads[i],
             -VIEWPORT_PAD_HALF_SIZE, VIEWPORT_PAD_HALF_SIZE,
@@ -3940,11 +4146,11 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
     for (i = 0; i < setup->boundpadcount; i++)
     {
         const SetupBoundPad *pad = &setup->boundpads[i];
-
-        if (occupiedboundpads != NULL && occupiedboundpads[i])
-        {
-            continue;
-        }
+        ViewportPad *preview = &pads[setup->padcount + i];
+        int axis;
+        preview->ref.index = i; preview->ref.bound = TRUE;
+        preview->occupied = occupiedboundpads != NULL && occupiedboundpads[i];
+        for (axis = 0; axis < 3; axis++) { preview->position[axis] = pad->pad.pos[axis] * worldscale; }
 
         ViewportAppendPadBox(markers, &vertexcount, &pad->pad,
             pad->xmin, pad->xmax, pad->ymin, pad->ymax,
@@ -3953,6 +4159,11 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
 
     state->padmarkers = markers;
     state->padmarkercount = vertexcount;
+    state->pads = pads;
+    state->padcount = boxcount;
+    if (ViewportSelectedPadIndex(state) < 0) { state->selectedpad.index = SETUP_PAD_INDEX_NONE; }
+    ViewportRefreshPadColors(state);
+    ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
 }
 

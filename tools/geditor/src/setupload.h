@@ -21,6 +21,13 @@ typedef struct SetupBoundPad {
     float zmin, zmax;
 } SetupBoundPad;
 
+/* Pad tables have independent indices (doors use bound-pad indices directly). */
+typedef struct SetupPadRef {
+    DWORD index;
+    BOOL bound;
+} SetupPadRef;
+#define SETUP_PAD_INDEX_NONE ((DWORD)-1)
+
 /* The placement fields shared by setup records which create a
    non-character object. Runtime pointers later overwrite much of the
    source record, so GEditor keeps only the authored values it needs. */
@@ -105,6 +112,12 @@ BOOL SetupFileDeleteObject(SetupFile *setup, DWORD objectindex,
 BOOL SetupFileTranslateModel(SetupFile *setup, DWORD selection,
                               float levelscale, const double offset[3],
                               const char **reasonout);
+
+/* Moves the authored pad in place, retaining all references and bounds.
+   Invalidates only this pad's stan link so it resolves at its new position. */
+BOOL SetupFileTranslatePad(SetupFile *setup, const SetupPadRef *ref,
+                            float levelscale, const double offset[3],
+                            BOOL *changedout, const char **reasonout);
 
 /* Overwrites the project copy with the raw setup retained in memory. */
 BOOL SetupSaveProjectFile(const char *projectdir, const SetupFile *setup,

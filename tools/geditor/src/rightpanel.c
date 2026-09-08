@@ -340,7 +340,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         }
 
         state->topheight = RIGHTPANEL_INITIAL_TOP_H;
-        lstrcpyn(state->transformhint, "Select geometry, an object or a character.",
+        lstrcpyn(state->transformhint, "Select geometry, a model or a pad.",
                  sizeof(state->transformhint));
         lstrcpyn(state->detailtitle, "Selection",
                  sizeof(state->detailtitle));
@@ -640,7 +640,7 @@ void RightPanelSetTransformState(HWND panel, const double position[3],
     else
     {
         const char *hint = state->vertexpaint ? "BG: vertex RGBA. Stan: whole-tile RGB."
-            : position == NULL ? "Select geometry, an object or a character."
+            : position == NULL ? "Select geometry, a model or a pad."
             : editable ? "Press Enter to set position." : "This selection cannot be moved.";
         lstrcpyn(state->transformhint, hint, sizeof(state->transformhint));
     }
@@ -797,6 +797,28 @@ void RightPanelSetSetupObject(HWND panel, const SetupObject *object,
     InvalidateRect(panel, NULL, FALSE);
 }
 
+
+void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef *ref)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    const SetupPad *pad;
+
+    if (state == NULL || setup == NULL || ref == NULL
+        || ref->index >= (ref->bound ? setup->boundpadcount : setup->padcount)) { return; }
+    pad = ref->bound ? &setup->boundpads[ref->index].pad : &setup->pads[ref->index];
+    lstrcpyn(state->detailtitle, ref->bound ? "Bound Pad" : "Pad", sizeof(state->detailtitle));
+    snprintf(state->detailtext, sizeof(state->detailtext),
+        "Pad index: %lu\r\n"
+        "Stan link: %s\r\n"
+        "Up: %.4g, %.4g, %.4g\r\n"
+        "Look: %.4g, %.4g, %.4g\r\n\r\n"
+        "Drag an arrow or enter a world position.\r\n"
+        "Moving a pad updates all references to it.",
+        (unsigned long)ref->index, pad->stanname[0] ? pad->stanname : "Automatic",
+        pad->up[0], pad->up[1], pad->up[2], pad->look[0], pad->look[1], pad->look[2]);
+    SetWindowText(state->details, state->detailtext);
+    InvalidateRect(panel, NULL, FALSE);
+}
 
 void RightPanelSetSetupCharacter(HWND panel, const SetupCharacter *character)
 {

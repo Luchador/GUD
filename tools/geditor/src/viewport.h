@@ -85,6 +85,7 @@ int ViewportGetSelectedBgFaceCount(HWND hwnd);
 BOOL ViewportGetSelectedBgFaces(HWND hwnd, BgFaceRef *out, int count);
 BOOL ViewportGetSingleSelectedBgFace(HWND hwnd, BgFaceRef *out);
 BOOL ViewportGetSelectedObject(HWND hwnd, DWORD *setupobjectindex);
+BOOL ViewportGetSelectedPad(HWND hwnd, SetupPadRef *out);
 
 /* Non-selecting face-mode drop query in screen coordinates. Uses the nearest
  * visible surface without cycling the selection stack. Objects and stan tiles
@@ -96,8 +97,8 @@ BOOL ViewportGetTextureDropFace(HWND hwnd, POINT screen,
    cubes; BoundPadRecords are red wireframes of their authored volume.
    Pads retain their authored positions, just as setupLoadFiles does;
    stan grounding belongs to the objects placed at those pads.
-   A nonzero occupied entry suppresses the corresponding marker because
-   the setup object's model is already visible at that pad. */
+   Occupied markers appear when objects are hidden, or the pad is selected.
+   Face mode selects whole pad markers; pads are independent setup identities. */
 void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup,
                           float levelscale,
                           const unsigned char *occupiedpads,

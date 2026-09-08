@@ -156,13 +156,15 @@ static BOOL GEditorCanMoveSetupModel(DWORD selection)
 static void GEditorRefreshTransformFields(void)
 {
     double position[3];
+    SetupPadRef padref;
     DWORD count, objectindex;
     BOOL hasposition = ViewportGetSelectionPosition(g_Viewport, position, &count);
     BOOL object = ViewportGetSelectedObject(g_Viewport, &objectindex);
+    BOOL pad = ViewportGetSelectedPad(g_Viewport, &padref);
     BOOL stan = ViewportGetStanSelectionCount(g_Viewport, NULL) > 0;
     double scale = stan ? g_CurrentStan.levelscale : g_CurrentBgDocument.levelscale;
     BOOL editable = hasposition && (object ? GEditorCanMoveSetupModel(objectindex) : scale > 0);
-    double precision = editable && !object ? 1.0 / scale : 0;
+    double precision = editable && !object && !pad ? 1.0 / scale : 0;
 
     RightPanelSetTransformState(g_RightPanel, hasposition ? position : NULL,
                                 count, editable, precision);
@@ -172,6 +174,7 @@ static void GEditorRefreshTransformFields(void)
 static void GEditorRefreshSelectionDetails(void)
 {
     BgFaceRef selected;
+    SetupPadRef padref;
     DWORD selectedobject;
     int count = ViewportGetSelectedBgFaceCount(g_Viewport);
     BOOL objectselected = ViewportGetSelectedObject(g_Viewport, &selectedobject);
@@ -180,7 +183,11 @@ static void GEditorRefreshSelectionDetails(void)
     RightPanelSetVertexPaintMode(g_RightPanel,
         ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT);
     GEditorRefreshTransformFields();
-    if (stancount > 0)
+    if (ViewportGetSelectedPad(g_Viewport, &padref))
+    {
+        RightPanelSetSetupPad(g_RightPanel, &g_CurrentSetup, &padref);
+    }
+    else if (stancount > 0)
     {
         RightPanelSetStanSelection(g_RightPanel, &g_CurrentStan, ViewportGetTool(g_Viewport), stancount, stantile);
     }
@@ -1459,12 +1466,15 @@ static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3])
     BgDocumentVertexRef *vertices = NULL;
     StanPointRef *stanpoints = NULL;
     DWORD count = 0, moved = 0, objectindex;
+    SetupPadRef padref;
+    BOOL pad = ViewportGetSelectedPad(g_Viewport, &padref);
     BOOL stan = ViewportGetStanSelectionCount(g_Viewport, NULL) > 0;
     BOOL object = ViewportGetSelectedObject(g_Viewport, &objectindex);
     BOOL character = object && (objectindex & SETUP_CHARACTER_SELECTION_BIT);
     EditorTool tool = ViewportGetTool(g_Viewport);
     const char *why = "", *restorewhy = "";
-    const char *action = stan ? (tool == EDITOR_TOOL_VERTEX_SELECT ? "Move Stan Vertices"
+    const char *action = pad ? (padref.bound ? "Move Bound Pad" : "Move Pad")
+        : stan ? (tool == EDITOR_TOOL_VERTEX_SELECT ? "Move Stan Vertices"
         : tool == EDITOR_TOOL_EDGE_SELECT ? "Move Stan Edges" : "Move Stan Tiles")
         : object ? (character ? "Move Character" : "Move Object") : tool == EDITOR_TOOL_VERTEX_SELECT
         ? "Move BG Vertices" : tool == EDITOR_TOOL_EDGE_SELECT ? "Move BG Edges" : "Move BG Faces";
@@ -1474,7 +1484,17 @@ static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3])
     for (axis=0; axis<3; axis++) { applied[axis]=0; }
     if (tool == EDITOR_TOOL_VERTEX_PAINT || (object && !GEditorCanMoveSetupModel(objectindex))) { return FALSE; }
     if (offset[0]==0 && offset[1]==0 && offset[2]==0) { return TRUE; }
-    if (stan)
+    if (pad)
+    {
+        BOOL changed;
+        if (!EditHistoryBeginSetupEdit(&g_EditHistory,&g_CurrentSetup,action,&transaction,&why)) { goto fail; }
+        if (!SetupFileTranslatePad(&g_CurrentSetup,&padref,g_CurrentBgDocument.levelscale,
+                                   offset,&changed,&why)) { goto rollback; }
+        moved = changed ? 1 : 0;
+        if (changed && !ObjectLoadSetupGeometry(g_Project.dir,&g_CurrentSetup,&g_CurrentStan,
+                    g_CurrentBgDocument.levelscale,&objects,&why)) { goto rollback; }
+    }
+    else if (stan)
     {
         stanpoints = ViewportGetMoveStanPoints(g_Viewport, &count);
         if (stanpoints == NULL) { why="There are no editable selected stan points."; goto fail; }
@@ -1503,11 +1523,11 @@ static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3])
         return TRUE;
     }
     if (!(stan ? GEditorReloadCurrentObjectsAndViewport(&why)
-        : object ? GEditorRebuildCurrentViewportWithObjects(&objects,&why)
+        : (object || pad) ? GEditorRebuildCurrentViewportWithObjects(&objects,&why)
                  : GEditorRebuildCurrentViewport(&why))
         || !EditHistoryCommitEdit(&g_EditHistory,&g_CurrentBgDocument,
                                   &g_CurrentSetup, &g_CurrentStan,&transaction,&why)) { goto rollback; }
-    if (object)
+    if (object || pad)
     {
         ObjectGeometryFree(&g_CurrentObjects);
         g_CurrentObjects=objects;

@@ -842,6 +842,62 @@ BOOL SetupFileDeleteObject(SetupFile *setup, DWORD objectindex,
     return TRUE;
 }
 
+BOOL SetupFileTranslatePad(SetupFile *setup, const SetupPadRef *ref,
+                            float levelscale, const double offset[3],
+                            BOOL *changedout, const char **reasonout)
+{
+    DWORD table, stride, count, record, terminator;
+    SetupPad *pad;
+    float position[3];
+    int axis;
+
+    *changedout = FALSE;
+    *reasonout = "The selected pad is invalid.";
+    if (setup == NULL || ref == NULL || offset == NULL || setup->data == NULL
+        || setup->size < SETUP_HEADER_SIZE || !isfinite(levelscale) || levelscale <= 0) { return FALSE; }
+    count = ref->bound ? setup->boundpadcount : setup->padcount;
+    stride = ref->bound ? SETUP_BOUNDPAD_SIZE : SETUP_PAD_SIZE;
+    table = SetupRead32(setup->data + (ref->bound ? SETUP_BOUNDPAD_POINTER : SETUP_PAD_POINTER));
+    if (ref->index >= count || count > SETUP_PAD_MAX || table < SETUP_HEADER_SIZE
+        || table > setup->size || count + 1 > (setup->size - table) / stride
+        || (ref->bound ? setup->boundpads == NULL : setup->pads == NULL)) { return FALSE; }
+    record = table + ref->index * stride;
+    terminator = table + count * stride;
+    if (SetupRead32(setup->data + terminator + SETUP_PAD_LINK) != 0) { return FALSE; }
+    pad = ref->bound ? &setup->boundpads[ref->index].pad : &setup->pads[ref->index];
+    for (axis = 0; axis < 3; axis++)
+    {
+        double value = pad->pos[axis] + offset[axis] * levelscale;
+        if (!isfinite(value) || fabs(value) > 100000000.0)
+        {
+            *reasonout = "The move exceeds the setup coordinate range.";
+            return FALSE;
+        }
+        position[axis] = (float)value;
+    }
+    for (axis = 0; axis < 3; axis++)
+    {
+        if (position[axis] != pad->pos[axis]) { *changedout = TRUE; }
+    }
+    if (*changedout)
+    {
+        for (axis = 0; axis < 3; axis++)
+        {
+            union { float f; DWORD u; } value;
+            value.f = position[axis];
+            pad->pos[axis] = value.f;
+            SetupWrite32(setup->data + record + axis * 4, value.u);
+        }
+        /* Point to an existing null byte without editing a stan-name string
+         * that other pads may share. A non-null plink keeps this record alive. */
+        SetupWrite32(setup->data + record + SETUP_PAD_LINK, terminator + SETUP_PAD_LINK);
+        pad->stanname[0] = '\0';
+        setup->dirty = TRUE;
+    }
+    *reasonout = "";
+    return TRUE;
+}
+
 /* Give an explicitly moved model its own pad. Appending a replacement pad
  * table keeps every existing setup command index and embedded pointer valid.
  * An editor-created final pad/table can be reused on subsequent drags. */
