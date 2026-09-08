@@ -36,6 +36,7 @@ void RightPanelGetPaintColor(HWND panel, unsigned char rgba[4]);
    its first supported selection type. */
 void RightPanelSetBgTriangle(HWND panel, const BgDocument *document,
                              const BgFaceRef *ref);
+void RightPanelSetBgComponentSelection(HWND panel, BOOL edges, int count);
 void RightPanelSetBgSelectionCount(HWND panel, int count);
 void RightPanelSetSetupObject(HWND panel, const SetupObject *object,
                               DWORD objectindex);

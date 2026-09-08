@@ -17,6 +17,7 @@
 #define IDR_FACE_SELECT_ON    306
 #define IDR_VERTEX_PAINT_OFF  307
 #define IDR_VERTEX_PAINT_ON   308
+#define IDR_GIZMO_ARROW       309
 
 /* Controls inside IDD_NEW_PROJECT */
 #define IDC_PROJECT_NAME     1001

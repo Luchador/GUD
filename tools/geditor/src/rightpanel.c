@@ -331,7 +331,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         }
 
         state->topheight = RIGHTPANEL_INITIAL_TOP_H;
-        lstrcpyn(state->transformhint, "Select background faces to move.",
+        lstrcpyn(state->transformhint, "Select vertices, edges, faces or an object.",
                  sizeof(state->transformhint));
         lstrcpyn(state->detailtitle, "Selection",
                  sizeof(state->detailtitle));
@@ -586,11 +586,11 @@ void RightPanelSetTransformState(HWND panel, BOOL enabled, double gridstep)
     if (enabled)
     {
         snprintf(state->transformhint, sizeof(state->transformhint),
-                 "Grid step: %.6g world units.", gridstep);
+                 "Drag step: 1 world unit.\r\nAsset precision: %.6g units.", gridstep);
     }
     else
     {
-        lstrcpyn(state->transformhint, "Select background faces to move.",
+        lstrcpyn(state->transformhint, "Select vertices, edges, faces or an object.",
                  sizeof(state->transformhint));
     }
     InvalidateRect(panel, NULL, FALSE);
@@ -647,6 +647,18 @@ void RightPanelGetPaintColor(HWND panel, unsigned char rgba[4])
     ColorPickerGetColor(state != NULL ? state->colorpicker : NULL, rgba);
 }
 
+
+void RightPanelSetBgComponentSelection(HWND panel, BOOL edges, int count)
+{
+    RightPanelState *state=RightPanelGetState(panel);
+    if (state==NULL) { return; }
+    lstrcpyn(state->detailtitle,edges ? "Background Edges" : "Background Vertices",sizeof(state->detailtitle));
+    snprintf(state->detailtext,sizeof(state->detailtext),
+        "%d %s selected.\r\n\r\nShift-click to add.\r\nControl-click to remove.\r\nDrag an arrow to move.\r\nEscape cancels a drag.",
+        count,edges ? "edges" : "vertices");
+    SetWindowText(state->details,state->detailtext);
+    InvalidateRect(panel,NULL,FALSE);
+}
 
 void RightPanelSetBgSelectionCount(HWND panel, int count)
 {

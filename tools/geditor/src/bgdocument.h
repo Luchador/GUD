@@ -86,10 +86,18 @@ typedef struct BgDocument {
     BOOL dirty;
 } BgDocument;
 
+/* Room vertex arrays retain their indices through edits and history. Room 0
+ * denotes a rendered corner that is not part of the BG document. */
+typedef struct BgDocumentVertexRef {
+    DWORD room;
+    DWORD index;
+} BgDocumentVertexRef;
+
 typedef struct BgDocumentRenderMesh {
     BgVertex *vertices;       /* facecount * 3 world-space vertices */
     unsigned short *tags;     /* one BG_* tag per face */
     BgFaceRef *facerefs;      /* one stable document identity per face */
+    BgDocumentVertexRef *vertexrefs; /* one identity per rendered corner */
     DWORD facecount;
 } BgDocumentRenderMesh;
 
@@ -119,6 +127,10 @@ BOOL BgDocumentTranslateFaces(BgDocument *document, const BgFaceRef *refs,
                               DWORD refcount, const double offset[3],
                               double appliedoffset[3], DWORD *movedout,
                               const char **reasonout);
+
+BOOL BgDocumentTranslateVertices(BgDocument *document,
+    const BgDocumentVertexRef *refs, DWORD count, const double offset[3],
+    double applied[3], DWORD *movedout, const char **reasonout);
 
 /* Rebuilds every room stream while preserving the source file's header,
  * portals, visibility data, and opaque display-list state. */

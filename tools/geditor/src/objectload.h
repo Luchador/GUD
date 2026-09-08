@@ -28,6 +28,11 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
                              const StanFile *stan, float levelscale,
                              SetupObjectGeometry *out,
                              const char **reasonout);
+BOOL ObjectTranslateSetupObject(const char *projectdir, SetupFile *setup,
+    const StanFile *stan, float levelscale, const SetupObjectGeometry *before,
+    DWORD index, const double offset[3], SetupObjectGeometry *out,
+    const char **reasonout);
+
 void ObjectGeometryFree(SetupObjectGeometry *geometry);
 
 #endif /* GEDITOR_OBJECTLOAD_H */

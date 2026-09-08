@@ -869,11 +869,6 @@ BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
 }
 
 
-typedef struct BgDocumentVertexRef {
-    DWORD room;
-    DWORD index;
-} BgDocumentVertexRef;
-
 static int BgDocumentCompareVertexRefs(const void *left, const void *right)
 {
     const BgDocumentVertexRef *a = (const BgDocumentVertexRef *)left;
@@ -885,7 +880,7 @@ static int BgDocumentCompareVertexRefs(const void *left, const void *right)
 }
 
 
-BOOL BgDocumentTranslateFaces(BgDocument *document, const BgFaceRef *refs,
+BOOL BgDocumentTranslateVertices(BgDocument *document, const BgDocumentVertexRef *refs,
                               DWORD refcount, const double offset[3],
                               double appliedoffset[3], DWORD *movedout,
                               const char **reasonout)
@@ -894,7 +889,6 @@ BOOL BgDocumentTranslateFaces(BgDocument *document, const BgFaceRef *refs,
     size_t vertexcount = 0;
     size_t unique = 0;
     size_t i;
-    DWORD refindex;
     int delta[3];
     int axis;
     const char *reason = "";
@@ -905,7 +899,7 @@ BOOL BgDocumentTranslateFaces(BgDocument *document, const BgFaceRef *refs,
     if (document == NULL || document->rooms == NULL
         || refs == NULL || refcount == 0 || offset == NULL)
     {
-        reason = "There are no background faces to move.";
+        reason = "There are no background vertices to move.";
         goto fail;
     }
     if (!isfinite(document->levelscale) || document->levelscale <= 0.0f)
@@ -930,41 +924,22 @@ BOOL BgDocumentTranslateFaces(BgDocument *document, const BgFaceRef *refs,
         delta[axis] = (int)localoffset;
     }
 
-    if (refcount > (DWORD)-1 / (3 * sizeof(*vertices)))
+    if (refcount > (DWORD)-1 / sizeof(*vertices))
     {
-        reason = "Too many background faces to move.";
+        reason = "Too many vertices to move.";
         goto fail;
     }
-    vertices = (BgDocumentVertexRef *)malloc(
-        (size_t)refcount * 3 * sizeof(*vertices));
-    if (vertices == NULL)
+    vertices = (BgDocumentVertexRef *)malloc((size_t)refcount * sizeof(*vertices));
+    if (vertices == NULL) { reason = "Out of memory collecting vertices."; goto fail; }
+    memcpy(vertices, refs, (size_t)refcount * sizeof(*vertices));
+    vertexcount = refcount;
+    for (i = 0; i < vertexcount; i++)
     {
-        reason = "Out of memory collecting the selected vertices.";
-        goto fail;
-    }
-
-    for (refindex = 0; refindex < refcount; refindex++)
-    {
-        const BgDocumentRoom *room;
-        const BgDocumentFace *face = BgDocumentFindFace(
-            document, &refs[refindex], &room);
-        int corner;
-
-        if (face == NULL)
+        const BgDocumentRoom *room = BgDocumentGetRoom(document, vertices[i].room);
+        if (room == NULL || room->vertices == NULL || vertices[i].index >= room->vertexcount)
         {
-            reason = "A selected background face no longer exists.";
+            reason = "A selected background vertex no longer exists.";
             goto fail;
-        }
-        for (corner = 0; corner < 3; corner++)
-        {
-            if (room->vertices == NULL
-                || face->vertexindices[corner] >= room->vertexcount)
-            {
-                reason = "A selected background face has an invalid vertex.";
-                goto fail;
-            }
-            vertices[vertexcount].room = refs[refindex].room;
-            vertices[vertexcount++].index = face->vertexindices[corner];
         }
     }
 
@@ -1025,6 +1000,39 @@ fail:
     free(vertices);
     if (reasonout != NULL) { *reasonout = reason; }
     return FALSE;
+}
+
+
+BOOL BgDocumentTranslateFaces(BgDocument *document, const BgFaceRef *refs,
+                              DWORD refcount, const double offset[3],
+                              double appliedoffset[3], DWORD *movedout,
+                              const char **reasonout)
+{
+    BgDocumentVertexRef *vertices;
+    DWORD i;
+    BOOL ok;
+    const char *ignored;
+    if (reasonout == NULL) { reasonout = &ignored; }
+    *reasonout = "There are no valid background faces to move.";
+    if (movedout != NULL) { *movedout = 0; }
+    if (refs == NULL || refcount == 0 || refcount > (DWORD)-1 / (3 * sizeof(*vertices))) { return FALSE; }
+    vertices = (BgDocumentVertexRef *)malloc((size_t)refcount * 3 * sizeof(*vertices));
+    if (vertices == NULL) { *reasonout = "Out of memory collecting vertices."; return FALSE; }
+    for (i = 0; i < refcount; i++)
+    {
+        const BgDocumentFace *face = BgDocumentFindFace(document, &refs[i], NULL);
+        int corner;
+        if (face == NULL) { free(vertices); return FALSE; }
+        for (corner = 0; corner < 3; corner++)
+        {
+            vertices[i * 3 + corner].room = refs[i].room;
+            vertices[i * 3 + corner].index = face->vertexindices[corner];
+        }
+    }
+    ok = BgDocumentTranslateVertices(document, vertices, refcount * 3, offset,
+                                     appliedoffset, movedout, reasonout);
+    free(vertices);
+    return ok;
 }
 
 
@@ -1108,7 +1116,10 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
                                          * sizeof(*out->tags));
     out->facerefs = (BgFaceRef *)malloc((size_t)document->facecount
                                        * sizeof(*out->facerefs));
-    if (out->vertices == NULL || out->tags == NULL || out->facerefs == NULL)
+    out->vertexrefs = (BgDocumentVertexRef *)malloc((size_t)document->facecount * 3
+        * sizeof(*out->vertexrefs));
+    if (out->vertices == NULL || out->tags == NULL || out->facerefs == NULL
+        || out->vertexrefs == NULL)
     {
         BgDocumentRenderMeshFree(out);
         *reasonout = "out of memory building the editable bg preview.";
@@ -1149,6 +1160,8 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
                 float position[3];
 
                 BgDocumentGetWorldPosition(document, room, source, position);
+                out->vertexrefs[outputface * 3 + corner].room = roomindex;
+                out->vertexrefs[outputface * 3 + corner].index = face->vertexindices[corner];
                 target->x = position[0];
                 target->y = position[1];
                 target->z = position[2];
@@ -1179,6 +1192,7 @@ void BgDocumentRenderMeshFree(BgDocumentRenderMesh *mesh)
     free(mesh->vertices);
     free(mesh->tags);
     free(mesh->facerefs);
+    free(mesh->vertexrefs);
     ZeroMemory(mesh, sizeof(*mesh));
 }
 

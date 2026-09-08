@@ -22,4 +22,8 @@ BgVertex *GltfLoadModel(const char *path, const char *projectdir,
                         unsigned short **tritags,
                         const char **reasonout);
 
+/* Loads an embedded GLB scene, applying its node transforms. */
+BgVertex *GltfLoadGlbMesh(const unsigned char *data, DWORD size,
+                         DWORD *tricount, const char **reasonout);
+
 #endif /* GEDITOR_GLTF_H */

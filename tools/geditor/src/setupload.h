@@ -98,6 +98,12 @@ BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
 BOOL SetupFileDeleteObject(SetupFile *setup, DWORD objectindex,
                            const char **reasonout);
 
+/* Used within an edit transaction. Allocates a private pad and enables
+   explicit placement; preserves every existing command and pad index. */
+BOOL SetupFileTranslateObject(SetupFile *setup, DWORD objectindex,
+                              float levelscale, const double offset[3],
+                              const char **reasonout);
+
 /* Overwrites the project copy with the raw setup retained in memory. */
 BOOL SetupSaveProjectFile(const char *projectdir, const SetupFile *setup,
                           const char **reasonout);

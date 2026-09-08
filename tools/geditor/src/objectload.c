@@ -811,3 +811,67 @@ void ObjectGeometryFree(SetupObjectGeometry *geometry)
     free(geometry->tris);
     ZeroMemory(geometry, sizeof(*geometry));
 }
+
+static const BgVertex *ObjectFirstVertex(const SetupObjectGeometry *geometry, DWORD index)
+{
+    DWORD i;
+    for (i = 0; i < geometry->tricount; i++)
+    {
+        if (geometry->objectindices[i] == index) { return &geometry->tris[i * 3]; }
+    }
+    return NULL;
+}
+
+/* The caller holds an EditHistory transaction. Rebuild with explicit pad
+ * placement, then compensate for the old floor/support offset. Comparing
+ * actual transformed vertices also covers bound pads and rotated props. */
+BOOL ObjectTranslateSetupObject(const char *projectdir, SetupFile *setup,
+    const StanFile *stan, float levelscale, const SetupObjectGeometry *before,
+    DWORD index, const double offset[3], SetupObjectGeometry *out,
+    const char **reasonout)
+{
+    const BgVertex *old = ObjectFirstVertex(before, index), *placed;
+    SetupObjectGeometry provisional;
+    double correction[3];
+    DWORD a = 0, b = 0;
+    ZeroMemory(out, sizeof(*out));
+    ZeroMemory(&provisional, sizeof(provisional));
+    if (old == NULL) { *reasonout = "The object has no rendered geometry."; return FALSE; }
+    if (!SetupFileTranslateObject(setup,index,levelscale,offset,reasonout)
+        || !ObjectLoadSetupGeometry(projectdir,setup,stan,levelscale,&provisional,reasonout)) { return FALSE; }
+    placed = ObjectFirstVertex(&provisional, index);
+    if (placed == NULL)
+    {
+        ObjectGeometryFree(&provisional);
+        *reasonout = "The object cannot be placed at this location.";
+        return FALSE;
+    }
+    correction[0] = (double)old->x + offset[0] - placed->x;
+    correction[1] = (double)old->y + offset[1] - placed->y;
+    correction[2] = (double)old->z + offset[2] - placed->z;
+    ObjectGeometryFree(&provisional);
+    if (!SetupFileTranslateObject(setup,index,levelscale,correction,reasonout)
+        || !ObjectLoadSetupGeometry(projectdir,setup,stan,levelscale,out,reasonout)) { return FALSE; }
+    /* Placement must be a translation, never an accidental change of scale
+       or orientation. Reject locations that cannot reproduce the preview. */
+    for (;;)
+    {
+        int corner;
+        while (a < before->tricount && before->objectindices[a] != index) { a++; }
+        while (b < out->tricount && out->objectindices[b] != index) { b++; }
+        if (a == before->tricount || b == out->tricount) { break; }
+        for (corner=0; corner<3; corner++)
+        {
+            const BgVertex *v=&before->tris[a*3+corner], *w=&out->tris[b*3+corner];
+            if (fabs((double)w->x-v->x-offset[0]) > 0.02
+                || fabs((double)w->y-v->y-offset[1]) > 0.02
+                || fabs((double)w->z-v->z-offset[2]) > 0.02) { goto invalid; }
+        }
+        a++; b++;
+    }
+    if (a == before->tricount && b == out->tricount) { return TRUE; }
+invalid:
+    ObjectGeometryFree(out);
+    *reasonout = "The setup placement rules cannot reproduce this translation.";
+    return FALSE;
+}

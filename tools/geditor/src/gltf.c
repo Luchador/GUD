@@ -11,6 +11,8 @@
 #include <windows.h>
 #include <ctype.h>
 #include <limits.h>
+#include <math.h>
+#include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1567,6 +1569,168 @@ fail:
     return NULL;
 }
 
+
+/* Embedded UI meshes use GLB's BIN chunk and the selected scene's node
+ * hierarchy. This path is separate from the flattened project model reader. */
+static BOOL GltfNodeArray(const char *json, const GltfJsonToken *tokens,
+                          int tokencount, int node, const char *name,
+                          double *values, int count)
+{
+    int array = GltfJsonObjectGet(json, tokens, tokencount, node, name);
+    int i;
+    if (array < 0) { return TRUE; }
+    if (GltfJsonArrayCount(tokens, tokencount, array) != (DWORD)count) { return FALSE; }
+    for (i = 0; i < count; i++)
+    {
+        int token = GltfJsonArrayGet(tokens, tokencount, array, i);
+        char *end;
+        values[i] = strtod(json + tokens[token].start, &end);
+        if (end != json + tokens[token].end || !isfinite(values[i])) { return FALSE; }
+    }
+    return TRUE;
+}
+
+static BOOL GltfLoadGlbNode(const char *json, const GltfJsonToken *tokens,
+    int tokencount, DWORD nodeindex, const GltfBuffer *buffer,
+    const double parent[16], GltfBuilder *builder, int depth, int *visited,
+    const char **reasonout)
+{
+    int nodes = GltfJsonObjectGet(json, tokens, tokencount, 0, "nodes");
+    int node = GltfJsonArrayGet(tokens, tokencount, nodes, nodeindex);
+    int mesh, children, token, axis, row, col, k;
+    DWORD index, i, first = builder->tricount;
+    double local[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1}, world[16];
+    double t[3] = {0,0,0}, s[3] = {1,1,1}, q[4] = {0,0,0,1};
+    if (node < 0 || depth > 64 || ++*visited > 4096) { return FALSE; }
+    token = GltfJsonObjectGet(json, tokens, tokencount, node, "matrix");
+    if (token >= 0)
+    {
+        if (!GltfNodeArray(json,tokens,tokencount,node,"matrix",local,16)) { return FALSE; }
+    }
+    else
+    {
+        double x, y, z, w, length;
+        if (!GltfNodeArray(json,tokens,tokencount,node,"translation",t,3)
+            || !GltfNodeArray(json,tokens,tokencount,node,"scale",s,3)
+            || !GltfNodeArray(json,tokens,tokencount,node,"rotation",q,4)) { return FALSE; }
+        length = sqrt(q[0]*q[0]+q[1]*q[1]+q[2]*q[2]+q[3]*q[3]);
+        if (!(length > 0)) { return FALSE; }
+        x=q[0]/length; y=q[1]/length; z=q[2]/length; w=q[3]/length;
+        local[0]=1-2*(y*y+z*z); local[1]=2*(x*y+z*w); local[2]=2*(x*z-y*w);
+        local[4]=2*(x*y-z*w); local[5]=1-2*(x*x+z*z); local[6]=2*(y*z+x*w);
+        local[8]=2*(x*z+y*w); local[9]=2*(y*z-x*w); local[10]=1-2*(x*x+y*y);
+        for (axis=0; axis<3; axis++)
+        {
+            for (row=0; row<3; row++) { local[axis*4+row] *= s[axis]; }
+            local[12+axis]=t[axis];
+        }
+    }
+    for (col=0; col<4; col++) for (row=0; row<4; row++)
+    {
+        world[col*4+row]=0;
+        for (k=0; k<4; k++) { world[col*4+row] += parent[k*4+row]*local[col*4+k]; }
+        if (!isfinite(world[col*4+row])) { return FALSE; }
+    }
+    token = GltfJsonObjectGet(json, tokens, tokencount, node, "mesh");
+    if (token >= 0)
+    {
+        int meshes = GltfJsonObjectGet(json, tokens, tokencount, 0, "meshes");
+        int primitives;
+        DWORD count;
+        if (!GltfJsonUnsigned(json, &tokens[token], &index)) { return FALSE; }
+        mesh = GltfJsonArrayGet(tokens, tokencount, meshes, index);
+        if (mesh < 0) { return FALSE; }
+        primitives = GltfJsonObjectGet(json, tokens, tokencount, mesh, "primitives");
+        count = GltfJsonArrayCount(tokens, tokencount, primitives);
+        for (i=0; i<count; i++)
+        {
+            int primitive = GltfJsonArrayGet(tokens,tokencount,primitives,i);
+            if (!GltfLoadPrimitive(json,tokens,tokencount,0,primitive,buffer,1,
+                                   NULL,FALSE,builder,reasonout)) { return FALSE; }
+        }
+        for (i=first*3; i<builder->tricount*3; i++)
+        {
+            BgVertex *v = &builder->vertices[i];
+            double p[3] = {v->x,v->y,v->z};
+            float result[3];
+            for (axis=0; axis<3; axis++)
+            {
+                double value = world[12+axis];
+                for (k=0; k<3; k++) { value += world[k*4+axis]*p[k]; }
+                if (!isfinite(value) || fabs(value)>FLT_MAX) { return FALSE; }
+                result[axis]=(float)value;
+            }
+            v->x=result[0]; v->y=result[1]; v->z=result[2];
+        }
+    }
+    children = GltfJsonObjectGet(json,tokens,tokencount,node,"children");
+    for (i=0; i<GltfJsonArrayCount(tokens,tokencount,children); i++)
+    {
+        token=GltfJsonArrayGet(tokens,tokencount,children,i);
+        if (!GltfJsonUnsigned(json,&tokens[token],&index)
+            || !GltfLoadGlbNode(json,tokens,tokencount,index,buffer,world,
+                                builder,depth+1,visited,reasonout)) { return FALSE; }
+    }
+    return TRUE;
+}
+
+BgVertex *GltfLoadGlbMesh(const unsigned char *data, DWORD size,
+                         DWORD *tricount, const char **reasonout)
+{
+    char *json = NULL;
+    GltfJsonToken *tokens = NULL;
+    GltfBuffer buffer = {NULL,0};
+    GltfBuilder builder;
+    int tokencount = 0, visited = 0, scenes, scene, nodes, token;
+    DWORD offset=12, jsonsize=0, sceneindex=0, i;
+    const double identity[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
+    ZeroMemory(&builder,sizeof(builder));
+    *tricount=0; *reasonout="The embedded GLB mesh is invalid.";
+    if (data==NULL || size<20 || GltfReadU32(data)!=0x46546c67
+        || GltfReadU32(data+4)!=2 || GltfReadU32(data+8)!=size) { return NULL; }
+    while (offset+8<=size)
+    {
+        DWORD length=GltfReadU32(data+offset), type=GltfReadU32(data+offset+4);
+        offset+=8;
+        if (length>size-offset || (length&3)) { goto fail; }
+        if (type==0x4e4f534a)
+        {
+            if (json!=NULL) { goto fail; }
+            json=(char *)malloc((size_t)length+1);
+            if (json==NULL) { goto fail; }
+            memcpy(json,data+offset,length); json[length]=0; jsonsize=length;
+        }
+        else if (type==0x004e4942)
+        {
+            if (buffer.data!=NULL) { goto fail; }
+            buffer.data=(unsigned char *)data+offset; buffer.size=length;
+        }
+        offset+=length;
+    }
+    if (offset!=size || json==NULL || buffer.data==NULL
+        || !GltfJsonParse(json,jsonsize,&tokens,&tokencount,reasonout)) { goto fail; }
+    token=GltfJsonObjectGet(json,tokens,tokencount,0,"scene");
+    if (token>=0 && !GltfJsonUnsigned(json,&tokens[token],&sceneindex)) { goto fail; }
+    scenes=GltfJsonObjectGet(json,tokens,tokencount,0,"scenes");
+    scene=GltfJsonArrayGet(tokens,tokencount,scenes,sceneindex);
+    nodes=GltfJsonObjectGet(json,tokens,tokencount,scene,"nodes");
+    for (i=0; i<GltfJsonArrayCount(tokens,tokencount,nodes); i++)
+    {
+        DWORD index;
+        token=GltfJsonArrayGet(tokens,tokencount,nodes,i);
+        if (!GltfJsonUnsigned(json,&tokens[token],&index)
+            || !GltfLoadGlbNode(json,tokens,tokencount,index,&buffer,identity,
+                                &builder,0,&visited,reasonout)) { goto fail; }
+    }
+    if (builder.tricount==0) { goto fail; }
+    free(tokens); free(json); free(builder.tags);
+    *tricount=builder.tricount; *reasonout="";
+    return builder.vertices;
+fail:
+    free(tokens); free(json); free(builder.vertices); free(builder.tags);
+    if (**reasonout=='\0') { *reasonout="The embedded GLB mesh is invalid."; }
+    return NULL;
+}
 
 static void GltfWriteU32(unsigned char *data, DWORD value)
 {

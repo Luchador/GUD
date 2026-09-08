@@ -15,6 +15,8 @@
 #include <float.h>
 #include "browser.h"
 #include "viewport.h"
+#include "gltf.h"
+#include "resource.h"
 
 #define VIEWPORT_CLASS "GEditorViewport"
 
@@ -71,6 +73,11 @@ typedef struct VertexColor {
     GLubyte r, g, b;
 } VertexColor;
 
+typedef struct ViewportComponent {
+    BgDocumentVertexRef refs[2];
+    int corners[2];
+} ViewportComponent;
+
 /* Per-viewport state, allocated at WM_CREATE, freed at WM_DESTROY,
    reachable from the window via GWLP_USERDATA. */
 typedef struct ViewportState {
@@ -92,6 +99,19 @@ typedef struct ViewportState {
     unsigned char *selectedtris; /* one byte per texture-sorted triangle */
     BgFaceRef *scenefacerefs;    /* stable document identity in the same order */
     DWORD *sceneobjectindices;   /* setup object identity in the same order */
+    BgDocumentVertexRef *scenevertexrefs;
+    ViewportComponent *components; /* insertion order preserves the vertex anchor */
+    int componentcount, componentcapacity;
+    int width, height;
+    BgVertex *arrow;
+    DWORD arrowtris;
+    BOOL gizmovisible;
+    double gizmoposition[3];
+    int hoveraxis, dragaxis;
+    double dragorigin[3], dragplane[3], dragparameter, dragdelta, dragscale;
+    BOOL dragvertical;
+    float (*dragvertices)[3];
+    unsigned char *dragmask;
     int selectedtricount;
     DWORD selectedobject;
     Vertex objectselectionbox[VIEWPORT_BOX_VERTICES];
@@ -118,6 +138,10 @@ typedef struct ViewportState {
     LONGLONG lastqpc;   /* QueryPerformanceCounter at the previous frame */
 } ViewportState;
 
+
+static void ViewportDrawTransformTools(const ViewportState *state);
+static void ViewportUpdateGizmo(ViewportState *state);
+static void ViewportRestoreComponents(ViewportState *state);
 
 static const Vertex g_TestScene[6] = {
     {    0.0f,  160.0f, 0.0f,   255,  40,  40, 255 , 1.0f, 0.0f},
@@ -536,6 +560,7 @@ static void ViewportPaintGL(ViewportState *state)
     }
 
     ViewportDrawBgToolOverlay(state);
+    ViewportDrawTransformTools(state);
     SwapBuffers(state->hdc);
 }
 
@@ -550,6 +575,7 @@ static void ViewportBeginFly(HWND hwnd, ViewportState *state)
         return;
     }
 
+    state->hoveraxis = -1;
     SetFocus(hwnd); // Give keyboard inputs to the viewport.
     SetCapture(hwnd); // All mouse inputs go to the viewport.
 
@@ -766,8 +792,8 @@ static BOOL ViewportBuildPickRay(HWND hwnd, const ViewportState *state,
     height = client.bottom - client.top;
 
     if (width < 1 || height < 1
-        || mousex < 0 || mousex >= width
-        || mousey < 0 || mousey >= height)
+        || (state->dragaxis < 0 && (mousex < 0 || mousex >= width
+        || mousey < 0 || mousey >= height)))
     {
         return FALSE;
     }
@@ -1328,6 +1354,9 @@ static void ViewportClearAllSelection(ViewportState *state)
 {
     ViewportClearBgSelection(state);
     ViewportClearObjectSelection(state);
+    state->componentcount = 0;
+    state->gizmovisible = FALSE;
+    state->hoveraxis = -1;
 }
 
 
@@ -1508,10 +1537,598 @@ static void ViewportPickAt(HWND hwnd, ViewportState *state, int mousex,
         ViewportClearAllSelection(state);
     }
 
+    ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
     SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
 }
 
+
+static int ViewportCompareVertexRefs(const void *left, const void *right)
+{
+    const BgDocumentVertexRef *a = left, *b = right;
+    if (a->room != b->room) { return a->room < b->room ? -1 : 1; }
+    return a->index < b->index ? -1 : a->index > b->index;
+}
+
+static BOOL ViewportCornerVisible(const ViewportState *state, int corner)
+{
+    int i;
+    if (corner < 0 || corner >= state->scenecount) { return FALSE; }
+    for (i = 0; i < state->batchcount; i++)
+    {
+        const SceneBatch *batch = &state->batches[i];
+        if (corner >= batch->first && corner < batch->first + batch->count)
+        {
+            return !batch->object && (batch->secondary ? state->showbgsecondary : state->showbgprimary);
+        }
+    }
+    return FALSE;
+}
+
+static int ViewportFindVertexCorner(const ViewportState *state, const BgDocumentVertexRef *ref)
+{
+    int i;
+    if (ref->room == 0 || state->scenevertexrefs == NULL) { return -1; }
+    for (i = 0; i < state->scenecount; i++)
+    {
+        if (ViewportCompareVertexRefs(ref, &state->scenevertexrefs[i]) == 0) { return i; }
+    }
+    return -1;
+}
+
+/* Returns unique identities, never welded by position. Two corners at a UV
+ * seam move together only if they share the document's actual vertex. */
+BgDocumentVertexRef *ViewportGetMoveVertices(HWND hwnd, DWORD *countout)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    BgDocumentVertexRef *refs;
+    DWORD count = 0, unique = 0, i;
+    *countout = 0;
+    if (state == NULL || state->scenevertexrefs == NULL || state->scenecount == 0
+        || state->selectedobject != VIEWPORT_OBJECT_NONE) { return NULL; }
+    refs = malloc(((size_t)state->scenecount + (size_t)state->componentcount * 2) * sizeof(*refs));
+    if (refs == NULL) { return NULL; }
+    if (state->tool == EDITOR_TOOL_FACE_SELECT)
+    {
+        for (i = 0; i < (DWORD)state->scenecount; i++)
+        {
+            if (state->selectedtris[i / 3] && ViewportCornerVisible(state, i)
+                && state->scenevertexrefs[i].room != 0) { refs[count++] = state->scenevertexrefs[i]; }
+        }
+    }
+    else if (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT)
+    {
+        for (i = 0; i < (DWORD)state->componentcount; i++)
+        {
+            const ViewportComponent *component = &state->components[i];
+            int end, ends = state->tool == EDITOR_TOOL_EDGE_SELECT ? 2 : 1;
+            for (end = 0; end < ends; end++)
+            {
+                if (ViewportCornerVisible(state, component->corners[end]))
+                {
+                    refs[count++] = component->refs[end];
+                }
+            }
+        }
+    }
+    qsort(refs, count, sizeof(*refs), ViewportCompareVertexRefs);
+    for (i = 0; i < count; i++)
+    {
+        if (unique == 0 || ViewportCompareVertexRefs(&refs[i], &refs[unique - 1]) != 0)
+        {
+            refs[unique++] = refs[i];
+        }
+    }
+    if (unique == 0) { free(refs); return NULL; }
+    *countout = unique;
+    return refs;
+}
+
+int ViewportGetSelectedComponentCount(HWND hwnd)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    return state != NULL ? state->componentcount : 0;
+}
+
+static void ViewportUpdateGizmo(ViewportState *state)
+{
+    double sum[3] = {0,0,0}, weight = 0;
+    int i, axis;
+    state->gizmovisible = FALSE;
+    state->hoveraxis = -1;
+    if (state->scene == NULL || state->tool == EDITOR_TOOL_VERTEX_PAINT) { return; }
+    if (state->selectedobject != VIEWPORT_OBJECT_NONE
+        && (state->selectedobject & SETUP_CHARACTER_SELECTION_BIT)) { return; }
+    if (state->tool == EDITOR_TOOL_VERTEX_SELECT && state->componentcount > 0)
+    {
+        int corner = state->components[0].corners[0];
+        if (!ViewportCornerVisible(state, corner)) { return; }
+        state->gizmoposition[0] = state->scene[corner].x;
+        state->gizmoposition[1] = state->scene[corner].y;
+        state->gizmoposition[2] = state->scene[corner].z;
+        state->gizmovisible = TRUE;
+        return;
+    }
+    if (state->tool == EDITOR_TOOL_EDGE_SELECT)
+    {
+        for (i = 0; i < state->componentcount; i++)
+        {
+            const ViewportComponent *c = &state->components[i];
+            const Vertex *a, *b;
+            double length;
+            if (!ViewportCornerVisible(state, c->corners[0])
+                || !ViewportCornerVisible(state, c->corners[1])) { continue; }
+            a = &state->scene[c->corners[0]]; b = &state->scene[c->corners[1]];
+            length = sqrt((a->x-b->x)*(double)(a->x-b->x)
+                + (a->y-b->y)*(double)(a->y-b->y) + (a->z-b->z)*(double)(a->z-b->z));
+            sum[0] += (a->x+b->x)*0.5*length;
+            sum[1] += (a->y+b->y)*0.5*length;
+            sum[2] += (a->z+b->z)*0.5*length;
+            weight += length;
+        }
+    }
+    else
+    {
+        /* Surface centroid: independent of triangle density or UV seams. */
+        for (i = 0; i < state->scenecount; i += 3)
+        {
+            const Vertex *v = &state->scene[i];
+            double a[3], b[3], cross[3], area;
+            if (state->selectedobject != VIEWPORT_OBJECT_NONE)
+            {
+                if (state->sceneobjectindices[i/3] != state->selectedobject) { continue; }
+            }
+            else if (!state->selectedtris[i/3] || !ViewportCornerVisible(state, i)) { continue; }
+            a[0]=v[1].x-v[0].x; a[1]=v[1].y-v[0].y; a[2]=v[1].z-v[0].z;
+            b[0]=v[2].x-v[0].x; b[1]=v[2].y-v[0].y; b[2]=v[2].z-v[0].z;
+            cross[0]=a[1]*b[2]-a[2]*b[1]; cross[1]=a[2]*b[0]-a[0]*b[2]; cross[2]=a[0]*b[1]-a[1]*b[0];
+            area = sqrt(cross[0]*cross[0]+cross[1]*cross[1]+cross[2]*cross[2]);
+            sum[0] += ((double)v[0].x+v[1].x+v[2].x)*area/3;
+            sum[1] += ((double)v[0].y+v[1].y+v[2].y)*area/3;
+            sum[2] += ((double)v[0].z+v[1].z+v[2].z)*area/3;
+            weight += area;
+        }
+    }
+    if (weight > 0)
+    {
+        for (axis = 0; axis < 3; axis++) { state->gizmoposition[axis] = sum[axis] / weight; }
+        state->gizmovisible = TRUE;
+    }
+}
+
+static void ViewportRestoreComponents(ViewportState *state)
+{
+    int i, kept = 0;
+    for (i = 0; i < state->componentcount; i++)
+    {
+        ViewportComponent c = state->components[i];
+        c.corners[0] = ViewportFindVertexCorner(state, &c.refs[0]);
+        c.corners[1] = state->tool == EDITOR_TOOL_EDGE_SELECT
+            ? ViewportFindVertexCorner(state, &c.refs[1]) : c.corners[0];
+        if (c.corners[0] >= 0 && c.corners[1] >= 0) { state->components[kept++] = c; }
+    }
+    state->componentcount = kept;
+}
+
+static BOOL ViewportProject(const ViewportState *state, const Vertex *point, double screen[2])
+{
+    float f[3], r[3];
+    double p[3] = {point->x-state->posx, point->y-state->posy, point->z-state->posz};
+    double up[3], depth, focal;
+    if (state->height <= 0 || state->width <= 0) { return FALSE; }
+    ViewportGetBasis(state, f, r);
+    up[0]=r[1]*f[2]-r[2]*f[1]; up[1]=r[2]*f[0]-r[0]*f[2]; up[2]=r[0]*f[1]-r[1]*f[0];
+    depth=p[0]*f[0]+p[1]*f[1]+p[2]*f[2];
+    if (depth < VIEWPORT_NEAR_Z || depth > VIEWPORT_FAR_Z) { return FALSE; }
+    focal=state->height/(2.0*tan(VIEWPORT_FOV_Y*0.5*VIEWPORT_DEG_TO_RAD));
+    screen[0]=state->width*0.5+focal*(p[0]*r[0]+p[1]*r[1]+p[2]*r[2])/depth;
+    screen[1]=state->height*0.5-focal*(p[0]*up[0]+p[1]*up[1]+p[2]*up[2])/depth;
+    return TRUE;
+}
+
+static BOOL ViewportComponentVisible(const ViewportState *state, int triangle,
+                                      const Vertex *point, BOOL cull)
+{
+    ViewportPickRay ray;
+    double length, distance, tolerance;
+    int batchindex;
+    ray.origin[0]=state->posx; ray.origin[1]=state->posy; ray.origin[2]=state->posz;
+    ray.direction[0]=point->x-state->posx;
+    ray.direction[1]=point->y-state->posy;
+    ray.direction[2]=point->z-state->posz;
+    length=sqrt(ray.direction[0]*ray.direction[0]+ray.direction[1]*ray.direction[1]+ray.direction[2]*ray.direction[2]);
+    if (!(length>0)) { return FALSE; }
+    ray.direction[0]/=length; ray.direction[1]/=length; ray.direction[2]/=length;
+    ray.mindistance=0; ray.maxdistance=DBL_MAX;
+    if (!ViewportRayTriangleDistance(&ray,&state->scene[triangle*3],cull,&distance)) { return FALSE; }
+    tolerance=ViewportCoplanarPickTolerance(length);
+    for (batchindex=0; batchindex<state->batchcount; batchindex++)
+    {
+        const SceneBatch *batch=&state->batches[batchindex];
+        int corner;
+        if (!ViewportBatchIsPickable(state,batch) && !batch->object) { continue; }
+        for (corner=batch->first; corner<batch->first+batch->count; corner+=3)
+        {
+            if (ViewportRayTriangleDistance(&ray,&state->scene[corner],
+                    state->cullbackfaces && batch->cullbackfaces,&distance)
+                && distance < length-tolerance) { return FALSE; }
+        }
+    }
+    return TRUE;
+}
+
+static void ViewportPickComponent(HWND hwnd, ViewportState *state,
+                                    int x, int y, BOOL add, BOOL remove)
+{
+    ViewportPickRay ray;
+    double nearest = DBL_MAX, objectdistance, best = 100.0;
+    int i, triangle = -1, chosen = -1, endcount, found = -1;
+    ViewportComponent component;
+    if (!ViewportBuildPickRay(hwnd,state,x,y,&ray)) { return; }
+    /* Only offer components of the nearest visible face. The 10px target
+       radius also allows choosing the vertex square or an edge itself. */
+    for (i = 0; i < state->batchcount; i++)
+    {
+        const SceneBatch *batch = &state->batches[i];
+        int corner;
+        if (!ViewportBatchIsPickable(state,batch)) { continue; }
+        for (corner=batch->first; corner<batch->first+batch->count; corner+=3)
+        {
+            double distance;
+            if (ViewportRayTriangleDistance(&ray,&state->scene[corner],
+                    state->cullbackfaces && batch->cullbackfaces,&distance) && distance < nearest)
+            {
+                nearest=distance; triangle=corner/3;
+            }
+        }
+    }
+    if (ViewportFindPickedObject(state,&ray,&objectdistance) != VIEWPORT_OBJECT_NONE
+        && objectdistance < nearest) { triangle = -1; }
+    /* Search the full marker footprint, including pixels just outside the
+       triangle silhouette. Visibility is checked at the candidate component,
+       so a nearby hidden/back-facing vertex cannot steal the click. */
+    for (i=0; i<state->batchcount; i++)
+    {
+        const SceneBatch *batch=&state->batches[i];
+        int first;
+        if (!ViewportBatchIsPickable(state,batch)) { continue; }
+        for (first=batch->first; first<batch->first+batch->count; first+=3)
+        {
+            int corner;
+            for (corner=0; corner<3; corner++)
+            {
+                const Vertex *v=&state->scene[first+corner];
+                Vertex point=*v;
+                double a[2], b[2], dx, dy, distance;
+                if (!ViewportProject(state,v,a)) { continue; }
+                if (state->tool==EDITOR_TOOL_EDGE_SELECT)
+                {
+                    const Vertex *w=&state->scene[first+(corner+1)%3];
+                    float forward[3], right[3];
+                    double length, t, deptha, depthb, worldt;
+                    if (!ViewportProject(state,w,b)) { continue; }
+                    dx=b[0]-a[0]; dy=b[1]-a[1]; length=dx*dx+dy*dy;
+                    t=length>0 ? ((x-a[0])*dx+(y-a[1])*dy)/length : 0;
+                    if (t<0) t=0;
+                    if (t>1) t=1;
+                    a[0]+=t*dx; a[1]+=t*dy;
+                    ViewportGetBasis(state,forward,right);
+                    deptha=(v->x-state->posx)*forward[0]+(v->y-state->posy)*forward[1]+(v->z-state->posz)*forward[2];
+                    depthb=(w->x-state->posx)*forward[0]+(w->y-state->posy)*forward[1]+(w->z-state->posz)*forward[2];
+                    worldt=t*deptha/(t*deptha+(1-t)*depthb);
+                    point.x=v->x+(w->x-v->x)*worldt;
+                    point.y=v->y+(w->y-v->y)*worldt;
+                    point.z=v->z+(w->z-v->z)*worldt;
+                }
+                dx=x-a[0]; dy=y-a[1]; distance=dx*dx+dy*dy;
+                if (distance<best && state->scenevertexrefs[first+corner].room!=0
+                    && ViewportComponentVisible(state,first/3,&point,state->cullbackfaces && batch->cullbackfaces))
+                {
+                    best=distance; chosen=corner; triangle=first/3;
+                }
+            }
+        }
+    }
+    if (chosen < 0)
+    {
+        if (!add && !remove) { ViewportClearAllSelection(state); }
+        /* A true void click always clears selection. */
+        if (triangle < 0) { ViewportClearAllSelection(state); }
+    }
+    else
+    {
+        endcount=state->tool == EDITOR_TOOL_EDGE_SELECT ? 2 : 1;
+        ZeroMemory(&component,sizeof(component));
+        for (i=0; i<endcount; i++)
+        {
+            component.corners[i]=triangle*3+(chosen+i)%3;
+            component.refs[i]=state->scenevertexrefs[component.corners[i]];
+        }
+        if (endcount == 2 && ViewportCompareVertexRefs(&component.refs[0],&component.refs[1])>0)
+        {
+            BgDocumentVertexRef ref=component.refs[0]; int corner=component.corners[0];
+            component.refs[0]=component.refs[1]; component.refs[1]=ref;
+            component.corners[0]=component.corners[1]; component.corners[1]=corner;
+        }
+        for (i=0; i<state->componentcount; i++)
+        {
+            if (ViewportCompareVertexRefs(&component.refs[0],&state->components[i].refs[0])==0
+                && (endcount==1 || ViewportCompareVertexRefs(&component.refs[1],&state->components[i].refs[1])==0)) { found=i; break; }
+        }
+        if (remove)
+        {
+            if (found >= 0)
+            {
+                memmove(state->components+found,state->components+found+1,
+                    (size_t)(state->componentcount-found-1)*sizeof(component));
+                state->componentcount--;
+            }
+        }
+        else
+        {
+            if (!add) { ViewportClearAllSelection(state); found=-1; }
+            if (found < 0)
+            {
+                if (state->componentcount == state->componentcapacity)
+                {
+                    int capacity=state->componentcapacity ? state->componentcapacity*2 : 32;
+                    ViewportComponent *grown=realloc(state->components,(size_t)capacity*sizeof(component));
+                    if (grown == NULL) { return; }
+                    state->components=grown; state->componentcapacity=capacity;
+                }
+                state->components[state->componentcount++]=component;
+            }
+        }
+    }
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd,NULL,FALSE);
+    SendMessage(GetParent(hwnd),VIEWPORT_WM_SELECTION_CHANGED,0,0);
+}
+
+static void ViewportLoadGizmo(ViewportState *state)
+{
+    HINSTANCE instance = GetModuleHandle(NULL);
+    HRSRC resource = FindResource(instance,MAKEINTRESOURCE(IDR_GIZMO_ARROW),RT_RCDATA);
+    HGLOBAL loaded = resource != NULL ? LoadResource(instance,resource) : NULL;
+    const char *reason;
+    DWORD i;
+    float length=0;
+    if (loaded == NULL) { return; }
+    state->arrow=GltfLoadGlbMesh(LockResource(loaded),SizeofResource(instance,resource),
+                                &state->arrowtris,&reason);
+    if (state->arrow == NULL) { return; }
+    for (i=0; i<state->arrowtris*3; i++)
+    {
+        if (state->arrow[i].x>length) { length=state->arrow[i].x; }
+    }
+    if (!(length > 0)) { free(state->arrow); state->arrow=NULL; state->arrowtris=0; return; }
+    /* Normalize length while preserving the artist's gap at the base. */
+    for (i=0; i<state->arrowtris*3; i++)
+    {
+        state->arrow[i].x/=length; state->arrow[i].y/=length; state->arrow[i].z/=length;
+    }
+}
+
+static double ViewportGizmoScale(const ViewportState *state)
+{
+    float forward[3], right[3];
+    double depth;
+    if (!state->gizmovisible || state->arrow == NULL || state->height <= 0 || state->flying) { return 0; }
+    ViewportGetBasis(state,forward,right);
+    depth=(state->gizmoposition[0]-state->posx)*forward[0]
+        +(state->gizmoposition[1]-state->posy)*forward[1]
+        +(state->gizmoposition[2]-state->posz)*forward[2];
+    if (depth < VIEWPORT_NEAR_Z*2 || depth > VIEWPORT_FAR_Z*0.95) { return 0; }
+    return 90.0*depth*2.0*tan(VIEWPORT_FOV_Y*0.5*VIEWPORT_DEG_TO_RAD)/state->height;
+}
+
+static void ViewportArrowVertex(const ViewportState *state, int axis,
+                                DWORD index, double scale, Vertex *out)
+{
+    const BgVertex *source=&state->arrow[index];
+    double p[3] = {source->x,source->y,source->z};
+    if (axis==1) { p[0]=-source->y; p[1]=source->x; }
+    if (axis==2) { p[0]=-source->z; p[2]=source->x; }
+    out->x=(float)(state->gizmoposition[0]+p[0]*scale);
+    out->y=(float)(state->gizmoposition[1]+p[1]*scale);
+    out->z=(float)(state->gizmoposition[2]+p[2]*scale);
+}
+
+static void ViewportDrawTransformTools(const ViewportState *state)
+{
+    double scale=ViewportGizmoScale(state);
+    int i, axis;
+    glPushAttrib(GL_CURRENT_BIT|GL_ENABLE_BIT|GL_DEPTH_BUFFER_BIT|GL_LINE_BIT|GL_POINT_BIT|GL_POLYGON_BIT);
+    glDisable(GL_TEXTURE_2D); glDisable(GL_ALPHA_TEST); glDisable(GL_BLEND); glDisable(GL_CULL_FACE);
+    glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
+    glDepthMask(GL_FALSE); glDepthFunc(GL_LEQUAL);
+    glColor3ub(255,210,0); glPointSize(8); glLineWidth(3);
+    glDepthRange(0.0, 0.99999);
+    if (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT)
+    {
+        glBegin(state->tool == EDITOR_TOOL_VERTEX_SELECT ? GL_POINTS : GL_LINES);
+        for (i=0; i<state->componentcount; i++)
+        {
+            const ViewportComponent *component=&state->components[i];
+            int end, count=state->tool == EDITOR_TOOL_VERTEX_SELECT ? 1 : 2;
+            for (end=0; end<count; end++)
+            {
+                if (ViewportCornerVisible(state,component->corners[end]))
+                {
+                    const Vertex *v=&state->scene[component->corners[end]];
+                    glVertex3f(v->x,v->y,v->z);
+                }
+            }
+        }
+        glEnd();
+    }
+    /* Handles remain visible and clickable over the selection. Depth is
+       local to the three arrows; scene depth must not hide a handle. */
+    glDepthRange(0.0, 1.0);
+    if (scale > 0)
+    {
+        glDepthMask(GL_TRUE);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        glEnable(GL_DEPTH_TEST); glDepthFunc(GL_LESS);
+        for (axis=0; axis<3; axis++)
+        {
+            DWORD vertex;
+            if (axis==state->dragaxis || axis==state->hoveraxis) { glColor3ub(255,205,0); }
+            else if (axis==0) { glColor3ub(240,40,40); }
+            else if (axis==1) { glColor3ub(40,220,60); }
+            else { glColor3ub(40,100,255); }
+            glBegin(GL_TRIANGLES);
+            for (vertex=0; vertex<state->arrowtris*3; vertex++)
+            {
+                Vertex v;
+                ViewportArrowVertex(state,axis,vertex,scale,&v);
+                glVertex3f(v.x,v.y,v.z);
+            }
+            glEnd();
+        }
+    }
+    glPopAttrib();
+}
+
+static int ViewportPickGizmo(HWND hwnd, const ViewportState *state, int x, int y)
+{
+    ViewportPickRay ray;
+    double scale=ViewportGizmoScale(state), nearest=DBL_MAX;
+    int axis, picked=-1;
+    if (!(scale>0) || !ViewportBuildPickRay(hwnd,state,x,y,&ray)) { return -1; }
+    for (axis=0; axis<3; axis++)
+    {
+        DWORD tri;
+        for (tri=0; tri<state->arrowtris; tri++)
+        {
+            Vertex v[3]; double distance; int corner;
+            for (corner=0; corner<3; corner++) { ViewportArrowVertex(state,axis,tri*3+corner,scale,&v[corner]); }
+            if (ViewportRayTriangleDistance(&ray,v,FALSE,&distance) && distance<nearest)
+            {
+                nearest=distance; picked=axis;
+            }
+        }
+    }
+    return picked;
+}
+
+static double ViewportDragParameter(const ViewportState *state, const ViewportPickRay *ray, int mousey)
+{
+    double denominator=0, numerator=0;
+    int i;
+    if (state->dragvertical) { return -mousey*state->dragscale/90.0; }
+    for (i=0; i<3; i++)
+    {
+        denominator+=ray->direction[i]*state->dragplane[i];
+        numerator+=(state->dragorigin[i]-ray->origin[i])*state->dragplane[i];
+    }
+    if (fabs(denominator)<1e-6 || numerator/denominator<0) { return state->dragparameter; }
+    return ray->origin[state->dragaxis]+ray->direction[state->dragaxis]*numerator/denominator;
+}
+
+static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y)
+{
+    ViewportPickRay ray;
+    BgDocumentVertexRef *refs=NULL;
+    DWORD refcount=0;
+    int axis=ViewportPickGizmo(hwnd,state,x,y), i;
+    double length=0;
+    if (axis<0) { return FALSE; }
+    state->dragvertices=malloc((size_t)state->scenecount*sizeof(*state->dragvertices));
+    state->dragmask=calloc((size_t)state->scenecount,1);
+    if (state->dragvertices==NULL || state->dragmask==NULL)
+    {
+        free(state->dragvertices); free(state->dragmask);
+        state->dragvertices=NULL; state->dragmask=NULL;
+        return TRUE;
+    }
+    if (state->selectedobject==VIEWPORT_OBJECT_NONE)
+    {
+        refs=ViewportGetMoveVertices(hwnd,&refcount);
+        if (refs==NULL) { free(state->dragvertices); free(state->dragmask); state->dragvertices=NULL; state->dragmask=NULL; return TRUE; }
+    }
+    for (i=0; i<state->scenecount; i++)
+    {
+        state->dragvertices[i][0]=state->scene[i].x;
+        state->dragvertices[i][1]=state->scene[i].y;
+        state->dragvertices[i][2]=state->scene[i].z;
+        state->dragmask[i]=state->selectedobject!=VIEWPORT_OBJECT_NONE
+            ? state->sceneobjectindices[i/3]==state->selectedobject
+            : bsearch(&state->scenevertexrefs[i],refs,refcount,sizeof(*refs),ViewportCompareVertexRefs)!=NULL;
+    }
+    free(refs);
+    ViewportBuildPickRay(hwnd,state,x,y,&ray);
+    state->dragaxis=axis; state->hoveraxis=axis; state->dragdelta=0;
+    state->dragscale=ViewportGizmoScale(state);
+    for (i=0; i<3; i++)
+    {
+        state->dragorigin[i]=state->gizmoposition[i];
+        state->dragplane[i]=i==axis ? 0 : ray.direction[i];
+        length+=state->dragplane[i]*state->dragplane[i];
+    }
+    state->dragvertical=length<0.0025;
+    state->dragparameter=ViewportDragParameter(state,&ray,y);
+    SetCapture(hwnd);
+    InvalidateRect(hwnd,NULL,FALSE);
+    return TRUE;
+}
+
+static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
+{
+    ViewportPickRay ray;
+    double delta;
+    int i;
+    if (!ViewportBuildPickRay(hwnd,state,x,y,&ray)) { return; }
+    /* Snap the displacement, preserving the selection's relative shape and
+       any authored fractional origin. Calculate from press, never last tick. */
+    delta=round(ViewportDragParameter(state,&ray,y)-state->dragparameter);
+    if (!isfinite(delta) || fabs(delta)>1000000 || delta==state->dragdelta) { return; }
+    state->dragdelta=delta;
+    for (i=0; i<state->scenecount; i++)
+    {
+        if (!state->dragmask[i]) { continue; }
+        state->scene[i].x=state->dragvertices[i][0]+(state->dragaxis==0 ? delta : 0);
+        state->scene[i].y=state->dragvertices[i][1]+(state->dragaxis==1 ? delta : 0);
+        state->scene[i].z=state->dragvertices[i][2]+(state->dragaxis==2 ? delta : 0);
+    }
+    state->gizmoposition[state->dragaxis]=state->dragorigin[state->dragaxis]+delta;
+    ViewportBuildObjectSelectionBox(state);
+    InvalidateRect(hwnd,NULL,FALSE);
+}
+
+void ViewportCancelTransform(HWND hwnd)
+{
+    ViewportState *state=ViewportGetState(hwnd);
+    int i;
+    if (state==NULL || state->dragaxis<0) { return; }
+    for (i=0; i<state->scenecount; i++)
+    {
+        if (!state->dragmask[i]) { continue; }
+        state->scene[i].x=state->dragvertices[i][0];
+        state->scene[i].y=state->dragvertices[i][1];
+        state->scene[i].z=state->dragvertices[i][2];
+    }
+    state->dragaxis=-1;
+    free(state->dragvertices); free(state->dragmask);
+    state->dragvertices=NULL; state->dragmask=NULL;
+    if (GetCapture()==hwnd) { ReleaseCapture(); }
+    ViewportBuildObjectSelectionBox(state);
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd,NULL,FALSE);
+}
+
+static void ViewportEndTransform(HWND hwnd, ViewportState *state)
+{
+    ViewportTranslation request;
+    if (state==NULL || state->dragaxis<0) { return; }
+    ZeroMemory(&request,sizeof(request));
+    request.offset[state->dragaxis]=state->dragdelta;
+    ViewportCancelTransform(hwnd);
+    if (request.offset[0]!=0 || request.offset[1]!=0 || request.offset[2]!=0)
+    {
+        SendMessage(GetParent(hwnd),VIEWPORT_WM_TRANSLATE_SELECTION,0,(LPARAM)&request);
+    }
+}
 
 static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -1537,6 +2154,8 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         state->showportals = FALSE;
         state->cullbackfaces = TRUE;
         state->selectedobject = VIEWPORT_OBJECT_NONE;
+        state->hoveraxis = state->dragaxis = -1;
+        ViewportLoadGizmo(state);
         state->tool = EDITOR_TOOL_FACE_SELECT;
 
         if (!ViewportInitGL(hwnd, state))
@@ -1549,6 +2168,8 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
     case WM_SIZE:
         if (state != NULL)
         {
+            ViewportCancelTransform(hwnd);
+            state->width = LOWORD(lparam); state->height = HIWORD(lparam);
             ViewportResizeGL(state, LOWORD(lparam), HIWORD(lparam));
         }
         return 0;
@@ -1566,7 +2187,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 0;
     }
 
-    case WM_RBUTTONDOWN: ViewportBeginFly(hwnd, state);
+    case WM_RBUTTONDOWN: ViewportCancelTransform(hwnd); ViewportBeginFly(hwnd, state);
         return 0;
 
     case WM_RBUTTONUP: ViewportEndFly(hwnd, state);
@@ -1574,7 +2195,18 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
     case WM_LBUTTONDOWN:
         SetFocus(hwnd);
-        if (state != NULL && state->tool == EDITOR_TOOL_VERTEX_PAINT)
+        if (state != NULL && !state->flying
+            && ViewportBeginTransform(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam)))
+        {
+            return 0;
+        }
+        if (state != NULL && !state->flying
+            && (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT))
+        {
+            ViewportPickComponent(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam),
+                (wparam & MK_SHIFT)!=0,(wparam & MK_CONTROL)!=0);
+        }
+        else if (state != NULL && state->tool == EDITOR_TOOL_VERTEX_PAINT)
         {
             ViewportPaintAt(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
         }
@@ -1586,10 +2218,41 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         }
         return 0;
 
-    case WM_MOUSEMOVE: ViewportFlyLook(hwnd, state);
+    case WM_LBUTTONUP:
+        if (state != NULL && state->dragaxis >= 0)
+        {
+            ViewportDragTransform(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam));
+            ViewportEndTransform(hwnd,state);
+            state->hoveraxis=ViewportPickGizmo(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam));
+            InvalidateRect(hwnd,NULL,FALSE);
+        }
+        return 0;
+
+    case WM_MOUSEMOVE:
+        if (state != NULL && state->dragaxis >= 0)
+        {
+            ViewportDragTransform(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam));
+        }
+        else if (state != NULL && !state->flying)
+        {
+            int axis=ViewportPickGizmo(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam));
+            TRACKMOUSEEVENT tracking={sizeof(tracking),TME_LEAVE,hwnd,0};
+            TrackMouseEvent(&tracking);
+            if (axis != state->hoveraxis) { state->hoveraxis=axis; InvalidateRect(hwnd,NULL,FALSE); }
+        }
+        else { ViewportFlyLook(hwnd, state); }
+        return 0;
+
+    case WM_MOUSELEAVE:
+        if (state != NULL && state->dragaxis < 0) { state->hoveraxis=-1; InvalidateRect(hwnd,NULL,FALSE); }
         return 0;
 
     case WM_KEYDOWN:
+        if (state != NULL && state->dragaxis >= 0)
+        {
+            if (wparam == VK_ESCAPE) { ViewportCancelTransform(hwnd); }
+            return 0;
+        }
         if (wparam == VK_DELETE && state != NULL
             && state->tool == EDITOR_TOOL_FACE_SELECT)
         {
@@ -1611,6 +2274,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 0;
 
     case WM_CAPTURECHANGED:
+        ViewportCancelTransform(hwnd);
         /**
          * If capture is taken away, act as if right mouse was released so the camera doesn't keep flying with a hidden cursor.
          */
@@ -1618,6 +2282,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 0;
 
     case WM_KILLFOCUS:
+        ViewportCancelTransform(hwnd);
         if(state != NULL)   
         {
             state->keyw = state->keya = state->keys = state->keyd = state->keyq = state->keye = FALSE;
@@ -1665,6 +2330,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 1;
 
     case WM_DESTROY:
+        ViewportCancelTransform(hwnd);
         if (state != NULL)
         {
             ViewportFreeScene(state);
@@ -1677,6 +2343,8 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
             {
                 wglDeleteContext(state->hglrc);
             }
+            free(state->arrow);
+            free(state->components);
             free(state);
             SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
         }
@@ -1742,6 +2410,7 @@ void ViewportSetTool(HWND viewport, EditorTool tool)
     state->tool = tool;
     /* Vertex/edge/paint tools must not inherit a face or object
        selection that Delete or Transform could inadvertently edit. */
+    ViewportCancelTransform(viewport);
     ViewportClearAllSelection(state);
     ViewportRedraw(viewport);
     SendMessage(GetParent(viewport), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
@@ -1765,6 +2434,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
     free(state->selectedtris);
     free(state->scenefacerefs);
     free(state->sceneobjectindices);
+    free(state->scenevertexrefs);
     free(state->scenecolors);
     free(state->stanedges);
     free(state->stanfill);
@@ -1777,6 +2447,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
     state->selectedtris = NULL;
     state->scenefacerefs = NULL;
     state->sceneobjectindices = NULL;
+    state->scenevertexrefs = NULL;
     state->scenecolors = NULL;
     state->stanedges = NULL;
     state->stanfill = NULL;
@@ -2031,10 +2702,12 @@ void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
         return;
     }
 
+    ViewportCancelTransform(hwnd);
     state->showbgprimary = bgprimary;
     state->showbgsecondary = bgsecondary;
     state->showstan = stan;
     state->showportals = portals;
+    ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
@@ -2085,6 +2758,7 @@ static int ViewportCompareFaceRefs(const void *left, const void *right)
 BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const unsigned short *tritags,
                       const BgFaceRef *facerefs,
+                      const BgDocumentVertexRef *vertexrefs,
                       const DWORD *objectindices, int objectfirsttriangle,
                       int tricount,
                       const char *projectdir, BOOL framecamera)
@@ -2095,6 +2769,8 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     SceneBatch *batches = NULL;
     GLuint *textures = NULL;
     unsigned char *selectedtris = NULL;
+    BgDocumentVertexRef *scenevertexrefs = NULL;
+    DWORD savedobject = VIEWPORT_OBJECT_NONE;
     BgFaceRef *scenefacerefs = NULL;
     BgFaceRef *selectedrefs = NULL;
     int savedselectioncount = 0;
@@ -2107,6 +2783,8 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     float minx = 0, miny = 0, minz = 0, maxx = 0, maxy = 0, maxz = 0;
     int i;
 
+    ViewportCancelTransform(hwnd);
+    if (state != NULL && !framecamera) { savedobject = state->selectedobject; }
     if (state == NULL
         || (objectindices != NULL
             && (objectfirsttriangle < 0
@@ -2146,16 +2824,18 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                                             sizeof(*scenefacerefs));
         sceneobjectindices = (DWORD *)malloc((size_t)tricount
                                              * sizeof(*sceneobjectindices));
+        scenevertexrefs = (BgDocumentVertexRef *)calloc((size_t)tricount * 3, sizeof(*scenevertexrefs));
         decode = (TexPixel *)malloc(256 * 256 * sizeof(TexPixel));
 
         if (scene == NULL || scenecolors == NULL || order == NULL || batches == NULL
             || textures == NULL || selectedtris == NULL
             || scenefacerefs == NULL || sceneobjectindices == NULL
-            || decode == NULL)
+            || decode == NULL || scenevertexrefs == NULL)
         {
             free(scene); free(scenecolors); free(order); free(batches);
             free(textures); free(selectedtris); free(scenefacerefs);
             free(sceneobjectindices);
+            free(scenevertexrefs);
             free(decode);
             free(selectedrefs);
             return FALSE; /* keep whatever we had */
@@ -2182,6 +2862,11 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
             float invh = 0.0f;
             int k;
 
+            if (vertexrefs != NULL)
+            {
+                memcpy(scenevertexrefs + i * 3, vertexrefs + order[i].tri * 3,
+                       3 * sizeof(*scenevertexrefs));
+            }
             if (facerefs != NULL)
             {
                 scenefacerefs[i] = facerefs[order[i].tri];
@@ -2315,6 +3000,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     state->selectedtricount = selectedcount;
     state->scenefacerefs = scenefacerefs;
     state->sceneobjectindices = sceneobjectindices;
+    state->scenevertexrefs = scenevertexrefs;
     state->textures = textures;
     state->texturecount = scene != NULL ? texturecount : 0;
 
@@ -2325,12 +3011,14 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
         free(selectedtris);
         free(scenefacerefs);
         free(sceneobjectindices);
+        free(scenevertexrefs);
         free(scenecolors);
         state->batches = NULL;
         state->textures = NULL;
         state->selectedtris = NULL;
         state->scenefacerefs = NULL;
         state->sceneobjectindices = NULL;
+        state->scenevertexrefs = NULL;
         state->scenecolors = NULL;
         state->batchcount = 0;
         state->texturecount = 0;
@@ -2360,6 +3048,10 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
         state->pitch = 0.0f;
     }
 
+    if (framecamera || scene == NULL) { state->componentcount = 0; }
+    ViewportRestoreComponents(state);
+    if (scene != NULL && savedobject != VIEWPORT_OBJECT_NONE) { ViewportSelectObject(state, savedobject); }
+    ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
     return TRUE;
 }

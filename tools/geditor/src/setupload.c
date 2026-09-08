@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <src/propconstants.h>
 
 #include "setupload.h"
@@ -838,6 +839,128 @@ BOOL SetupFileDeleteObject(SetupFile *setup, DWORD objectindex,
     object->flags2 = flags2;
     object->deleted = TRUE;
     setup->dirty = TRUE;
+    return TRUE;
+}
+
+/* Give an explicitly moved object its own pad. Appending a replacement pad
+ * table keeps every existing setup command index and embedded pointer valid.
+ * An editor-created final pad/table can be reused on subsequent drags. */
+BOOL SetupFileTranslateObject(SetupFile *setup, DWORD objectindex,
+                              float levelscale, const double offset[3],
+                              const char **reasonout)
+{
+    SetupObject *object;
+    SetupPad *pad;
+    DWORD header, stride, count, table, index, record, end, i;
+    BOOL bound, door, reuse;
+    float position[3];
+    int axis;
+    *reasonout = "The selected object has no editable placement pad.";
+    if (setup == NULL || setup->data == NULL || setup->size < SETUP_HEADER_SIZE
+        || objectindex >= setup->objectcount || !isfinite(levelscale) || levelscale <= 0) { return FALSE; }
+    object = &setup->objects[objectindex];
+    if (object->deleted || object->pad < 0 || object->sourceoffset > setup->size - 16) { return FALSE; }
+    door = object->type == PROPDEF_DOOR;
+    bound = door || object->pad >= 10000;
+    index = (DWORD)object->pad - (bound && !door ? 10000 : 0);
+    count = bound ? setup->boundpadcount : setup->padcount;
+    header = bound ? SETUP_BOUNDPAD_POINTER : SETUP_PAD_POINTER;
+    stride = bound ? SETUP_BOUNDPAD_SIZE : SETUP_PAD_SIZE;
+    table = SetupRead32(setup->data + header);
+    if (index >= count || count >= SETUP_PAD_MAX || table > setup->size
+        || (count + 1) > (setup->size - table) / stride) { return FALSE; }
+    record = table + index * stride;
+    end = table + count * stride;
+    pad = bound ? &setup->boundpads[index].pad : &setup->pads[index];
+    for (axis = 0; axis < 3; axis++)
+    {
+        double value = pad->pos[axis] + offset[axis] * levelscale;
+        if (!isfinite(value) || fabs(value) > 100000000.0)
+        {
+            *reasonout = "The move exceeds the setup coordinate range.";
+            return FALSE;
+        }
+        position[axis] = (float)value;
+    }
+    /* The private pad's empty plink points at its own terminator's null
+       link. This both identifies our tail table and requests the game's
+       nearest-stan lookup at the new location, rather than a stale link. */
+    reuse = index == count - 1 && end + stride == setup->size
+         && SetupRead32(setup->data + record + SETUP_PAD_LINK) == end + SETUP_PAD_LINK;
+    for (i = 0; reuse && i < setup->objectcount; i++)
+    {
+        const SetupObject *other = &setup->objects[i];
+        BOOL otherbound = other->type == PROPDEF_DOOR || other->pad >= 10000;
+        int otherindex = other->pad - (otherbound && other->type != PROPDEF_DOOR ? 10000 : 0);
+        if (i != objectindex && otherbound == bound && otherindex == (int)index) { reuse = FALSE; }
+    }
+    for (i = 0; reuse && !bound && i < setup->charactercount; i++)
+    {
+        if (setup->characters[i].pad == index) { reuse = FALSE; }
+    }
+    if (!reuse)
+    {
+        DWORD newtable = (setup->size + 3) & ~3u;
+        DWORD newsize = newtable + (count + 2) * stride;
+        unsigned char *data;
+        void *pads;
+        DWORD encoded = count + (bound && !door ? 10000 : 0);
+        if ((!bound && count >= 10000) || encoded > 32767 || newsize > SETUP_FILE_MAX)
+        {
+            *reasonout = "The setup has no room for another placement pad.";
+            return FALSE;
+        }
+        data = calloc(newsize, 1);
+        pads = malloc((size_t)(count + 1) * (bound ? sizeof(SetupBoundPad) : sizeof(SetupPad)));
+        if (data == NULL || pads == NULL)
+        {
+            free(data); free(pads); *reasonout = "Out of memory copying the object's pad."; return FALSE;
+        }
+        memcpy(data, setup->data, setup->size);
+        memcpy(data + newtable, setup->data + table, (size_t)count * stride);
+        memcpy(data + newtable + count * stride, setup->data + record, stride);
+        if (bound)
+        {
+            SetupBoundPad *list = pads;
+            memcpy(list, setup->boundpads, (size_t)count * sizeof(*list));
+            list[count] = setup->boundpads[index];
+            free(setup->boundpads); setup->boundpads = list; setup->boundpadcount++;
+        }
+        else
+        {
+            SetupPad *list = pads;
+            memcpy(list, setup->pads, (size_t)count * sizeof(*list));
+            list[count] = setup->pads[index];
+            free(setup->pads); setup->pads = list; setup->padcount++;
+        }
+        free(setup->data); setup->data = data; setup->size = newsize;
+        SetupWrite32(data + header, newtable);
+        object->pad = (short)encoded;
+        data[object->sourceoffset + 6] = (unsigned char)(encoded >> 8);
+        data[object->sourceoffset + 7] = (unsigned char)encoded;
+        record = newtable + count * stride;
+        end = record + stride;
+        SetupWrite32(data + record + SETUP_PAD_LINK, end + SETUP_PAD_LINK);
+        index = count;
+    }
+    pad = bound ? &setup->boundpads[index].pad : &setup->pads[index];
+    pad->stanname[0] = '\0';
+    for (axis = 0; axis < 3; axis++)
+    {
+        union { float f; DWORD u; } value;
+        value.f = position[axis]; pad->pos[axis] = value.f;
+        SetupWrite32(setup->data + record + axis * 4, value.u);
+    }
+    /* Explicit world-space placement must survive the game's grounding
+       step. Sideways/upside-down props already use their authored height. */
+    if (!door)
+    {
+        object->flags |= PROPFLAG_ABSOLUTEPOSITION;
+        if (!(object->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN))) { object->flags |= PROPFLAG_INAIR; }
+        SetupWrite32(setup->data + object->sourceoffset + 8, object->flags);
+    }
+    setup->dirty = TRUE;
+    *reasonout = "";
     return TRUE;
 }
 

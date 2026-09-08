@@ -81,6 +81,7 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
     BgVertex *combinedtris;
     unsigned short *combinedtags;
     BgFaceRef *combinedrefs;
+    BgDocumentVertexRef *combinedvertices;
 
     *reasonout = "";
     if (objects == NULL || objects->tricount == 0)
@@ -104,17 +105,22 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
     combinedrefs = (BgFaceRef *)calloc((size_t)total,
                                        sizeof(*combinedrefs));
 
-    if (combinedtris == NULL || combinedtags == NULL || combinedrefs == NULL)
+    combinedvertices = (BgDocumentVertexRef *)calloc((size_t)total * 3, sizeof(*combinedvertices));
+    if (combinedtris == NULL || combinedtags == NULL || combinedrefs == NULL
+        || combinedvertices == NULL)
     {
         free(combinedtris);
         free(combinedtags);
         free(combinedrefs);
+        free(combinedvertices);
         *reasonout = "out of memory adding setup objects to the viewport.";
         return FALSE;
     }
 
     if (mesh->facecount > 0)
     {
+        memcpy(combinedvertices, mesh->vertexrefs,
+               (size_t)mesh->facecount * 3 * sizeof(*combinedvertices));
         memcpy(combinedtris, mesh->vertices,
                (size_t)mesh->facecount * 3 * sizeof(*combinedtris));
         memcpy(combinedtags, mesh->tags,
@@ -131,6 +137,7 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
     mesh->vertices = combinedtris;
     mesh->tags = combinedtags;
     mesh->facerefs = combinedrefs;
+    mesh->vertexrefs = combinedvertices;
     mesh->facecount = total;
     return TRUE;
 }
@@ -142,14 +149,16 @@ static void GEditorRefreshSelectionDetails(void)
     DWORD selectedobject;
     int count = ViewportGetSelectedBgFaceCount(g_Viewport);
     BOOL objectselected = ViewportGetSelectedObject(g_Viewport, &selectedobject);
-    BOOL cantranslate = !objectselected && count > 0
-                     && ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT
+    int components = ViewportGetSelectedComponentCount(g_Viewport);
+    BOOL cantranslate = (objectselected ? selectedobject < g_CurrentSetup.objectcount
+                                       : (count > 0 || components > 0))
+                     && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT
                      && g_CurrentBgDocument.levelscale > 0.0f;
 
     RightPanelSetVertexPaintMode(g_RightPanel,
         ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT);
     RightPanelSetTransformState(g_RightPanel, cantranslate,
-        cantranslate ? 1.0 / g_CurrentBgDocument.levelscale : 0.0);
+        cantranslate ? (objectselected ? 1.0 : 1.0 / g_CurrentBgDocument.levelscale) : 0.0);
     if (objectselected && selectedobject < g_CurrentSetup.objectcount)
     {
         RightPanelSetSetupObject(g_RightPanel,
@@ -160,6 +169,11 @@ static void GEditorRefreshSelectionDetails(void)
     {
         DWORD index = selectedobject & ~SETUP_CHARACTER_SELECTION_BIT;
         RightPanelSetSetupCharacter(g_RightPanel, &g_CurrentSetup.characters[index]);
+    }
+    else if (components > 0)
+    {
+        RightPanelSetBgComponentSelection(g_RightPanel,
+            ViewportGetTool(g_Viewport) == EDITOR_TOOL_EDGE_SELECT, components);
     }
     else if (count == 1 && ViewportGetSingleSelectedBgFace(g_Viewport, &selected))
     {
@@ -188,7 +202,7 @@ static BOOL GEditorRebuildCurrentViewportWithObjects(
         BgDocumentRenderMeshFree(&mesh);
         return FALSE;
     }
-    if (!ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags, mesh.facerefs,
+    if (!ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags, mesh.facerefs, mesh.vertexrefs,
                           objects->objectindices,
                           (int)objectfirsttriangle,
                           (int)mesh.facecount, g_Project.dir, FALSE))
@@ -356,7 +370,7 @@ static void GEditorCloseProject(HWND hwnd)
     BrowserSetLevels(g_Browser, NULL, 0);
     BrowserSetImages(g_Browser, NULL, 0, NULL);
     BrowserSetModels(g_Browser, NULL, 0);
-    ViewportSetScene(g_Viewport, NULL, NULL, NULL, NULL, 0, 0, NULL, FALSE);
+    ViewportSetScene(g_Viewport, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, FALSE);
     GEditorRefreshSelectionDetails();
     GEditorRefreshHistoryMenu(hwnd);
     GEditorSetTitleForProject(hwnd);
@@ -1405,76 +1419,69 @@ static void GEditorDeleteSelectedBgFaces(HWND hwnd)
 }
 
 
-/* The Transform panel supplies a displacement; this frame owns dispatch
-   to the active asset, the transaction, and its viewport presentation. */
-static BOOL GEditorTranslateSelectedBgFaces(HWND hwnd,
-                                            RightPanelTranslation *translation)
+/* Both the panel and gizmo commit through the same asset/history path. Drag
+ * previews live only in the viewport; there is exactly one edit on release. */
+static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3], double applied[3])
 {
     EditHistoryTransaction transaction;
-    BgFaceRef *selected;
-    const char *why = "";
-    const char *restorewhy = "";
-    double applied[3];
-    DWORD moved = 0;
-    int count = ViewportGetSelectedBgFaceCount(g_Viewport);
+    SetupObjectGeometry objects;
+    BgDocumentVertexRef *vertices = NULL;
+    DWORD count = 0, moved = 0, objectindex;
+    BOOL object = ViewportGetSelectedObject(g_Viewport, &objectindex);
+    EditorTool tool = ViewportGetTool(g_Viewport);
+    const char *why = "", *restorewhy = "";
+    const char *action = object ? "Move Object" : tool == EDITOR_TOOL_VERTEX_SELECT
+        ? "Move BG Vertices" : tool == EDITOR_TOOL_EDGE_SELECT ? "Move BG Edges" : "Move BG Faces";
     int axis;
-    const char *action = count == 1 ? "Move BG Face" : "Move BG Faces";
-
-    if (translation == NULL || count <= 0
-        || ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT)
+    ZeroMemory(&transaction, sizeof(transaction));
+    ZeroMemory(&objects, sizeof(objects));
+    for (axis=0; axis<3; axis++) { applied[axis]=0; }
+    if (tool == EDITOR_TOOL_VERTEX_PAINT || (object && objectindex >= g_CurrentSetup.objectcount)) { return FALSE; }
+    if (offset[0]==0 && offset[1]==0 && offset[2]==0) { return TRUE; }
+    if (object)
     {
-        return FALSE;
+        if (!EditHistoryBeginSetupEdit(&g_EditHistory,&g_CurrentSetup,action,&transaction,&why)) { goto fail; }
+        if (!ObjectTranslateSetupObject(g_Project.dir,&g_CurrentSetup,&g_CurrentStan,
+                g_CurrentBgDocument.levelscale,&g_CurrentObjects,objectindex,offset,&objects,&why)) { goto rollback; }
+        moved = 1;
+        for (axis=0; axis<3; axis++) { applied[axis]=offset[axis]; }
     }
-    selected = (BgFaceRef *)malloc((size_t)count * sizeof(*selected));
-    if (selected == NULL)
+    else
     {
-        MessageBox(hwnd, "Out of memory reading the BG selection.",
-                   GEDITOR_TITLE, MB_ICONERROR);
-        return FALSE;
+        vertices=ViewportGetMoveVertices(g_Viewport,&count);
+        if (vertices == NULL) { why="There are no editable selected vertices."; goto fail; }
+        if (!EditHistoryBeginBgEdit(&g_EditHistory,&g_CurrentBgDocument,action,&transaction,&why)) { goto fail; }
+        if (!BgDocumentTranslateVertices(&g_CurrentBgDocument,vertices,count,offset,applied,&moved,&why)) { goto rollback; }
     }
-    if (!ViewportGetSelectedBgFaces(g_Viewport, selected, count)
-        || !EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
-                                   action, &transaction, &why))
-    {
-        free(selected);
-        MessageBox(hwnd, why[0] != '\0' ? why : "The selected BG faces could not be read.",
-                   GEDITOR_TITLE, MB_ICONERROR);
-        return FALSE;
-    }
-
-    if (!BgDocumentTranslateFaces(&g_CurrentBgDocument, selected, (DWORD)count,
-                                  translation->offset, applied, &moved, &why))
-    {
-        /* Validation failed before any vertex was changed. */
-        EditHistoryCancelEdit(&transaction);
-        free(selected);
-        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
-        return FALSE;
-    }
-    free(selected);
-
     if (moved == 0)
     {
-        /* A zero or sub-grid displacement must preserve redo and dirty state. */
         EditHistoryCancelEdit(&transaction);
+        free(vertices);
+        return TRUE;
     }
-    else if (!GEditorRebuildCurrentViewport(&why)
-        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
-                                  &g_CurrentSetup, &transaction, &why))
+    if (!(object ? GEditorRebuildCurrentViewportWithObjects(&objects,&why)
+                 : GEditorRebuildCurrentViewport(&why))
+        || !EditHistoryCommitEdit(&g_EditHistory,&g_CurrentBgDocument,
+                                  &g_CurrentSetup,&transaction,&why)) { goto rollback; }
+    if (object)
     {
-        EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup);
-        GEditorRebuildCurrentViewport(&restorewhy);
-        GEditorRefreshHistoryMenu(hwnd);
-        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
-        return FALSE;
+        ObjectGeometryFree(&g_CurrentObjects);
+        g_CurrentObjects=objects;
     }
-
-    for (axis = 0; axis < 3; axis++)
-    {
-        translation->applied[axis] = applied[axis];
-    }
+    free(vertices);
+    GEditorRefreshSelectionDetails();
     GEditorRefreshHistoryMenu(hwnd);
     return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction,&g_CurrentBgDocument,&g_CurrentSetup);
+    GEditorRebuildCurrentViewport(&restorewhy);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    ObjectGeometryFree(&objects);
+    free(vertices);
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd,why,GEDITOR_TITLE,MB_ICONERROR);
+    return FALSE;
 }
 
 
@@ -1627,8 +1634,17 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         return 0;
 
     case RIGHTPANEL_WM_TRANSLATE_SELECTION:
-        return GEditorTranslateSelectedBgFaces(hwnd,
-            (RightPanelTranslation *)lparam);
+    {
+        RightPanelTranslation *request = (RightPanelTranslation *)lparam;
+        return request != NULL && GEditorTranslateSelection(hwnd,request->offset,request->applied);
+    }
+
+    case VIEWPORT_WM_TRANSLATE_SELECTION:
+    {
+        const ViewportTranslation *request = (const ViewportTranslation *)lparam;
+        double applied[3];
+        return request != NULL && GEditorTranslateSelection(hwnd,request->offset,applied);
+    }
 
     case VIEWPORT_WM_PAINT_VERTEX:
         return GEditorPaintBgVertex(hwnd, (const ViewportBgVertexHit *)lparam);
@@ -1731,7 +1747,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
 
         if (!ViewportSetScene(g_Viewport, mesh.vertices, mesh.tags,
-                              mesh.facerefs,
+                              mesh.facerefs, mesh.vertexrefs,
                               objectsLoaded ? objects.objectindices : NULL,
                               (int)objectfirsttriangle,
                               (int)mesh.facecount,
@@ -1930,6 +1946,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         return 0;
 
     case WM_COMMAND:
+        ViewportCancelTransform(g_Viewport);
         switch (LOWORD(wparam))
         {
             /**

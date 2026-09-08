@@ -19,6 +19,13 @@
 /* Synchronous paint request. lparam points to a stack-owned hit, copied
    before the frame edits the document and rebuilds the viewport. */
 #define VIEWPORT_WM_PAINT_VERTEX (WM_APP + 7)
+#define VIEWPORT_WM_TRANSLATE_SELECTION (WM_APP + 8)
+typedef struct ViewportTranslation { double offset[3]; } ViewportTranslation;
+
+/* Cancels the transient drag before history, saving, or changing tools. */
+void ViewportCancelTransform(HWND hwnd);
+BgDocumentVertexRef *ViewportGetMoveVertices(HWND hwnd, DWORD *countout);
+int ViewportGetSelectedComponentCount(HWND hwnd);
 typedef struct ViewportBgVertexHit {
     BgFaceRef face;
     unsigned int corner;
@@ -59,6 +66,7 @@ void ViewportFlyFrame(HWND viewport);
 BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const unsigned short *tritags,
                       const BgFaceRef *facerefs,
+                      const BgDocumentVertexRef *vertexrefs,
                       const DWORD *objectindices, int objectfirsttriangle,
                       int tricount,
                       const char *projectdir, BOOL framecamera);
