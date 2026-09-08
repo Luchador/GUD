@@ -196,6 +196,26 @@ static BOOL CharacterPlacePart(CharacterBuilder *builder, const CharacterPart *p
     return TRUE;
 }
 
+BOOL CharacterGetPadPosition(const SetupPad *pad, const StanFile *stan,
+                              float levelscale, float position[3])
+{
+    int axis;
+
+    if (pad == NULL || !isfinite(levelscale) || levelscale <= 0.0f) { return FALSE; }
+    for (axis = 0; axis < 3; axis++) { position[axis] = pad->pos[axis] / levelscale; }
+    if (stan != NULL && stan->tiles != NULL && stan->tilecount > 0)
+    {
+        DWORD tile = StanResolvePadTile(stan, pad->stanname, position);
+
+        if (tile == STAN_TILE_NONE
+            || !StanGetTileHeight(stan, tile, position[0], position[2], &position[1]))
+        {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
 BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
                                  const StanFile *stan, const RomFile *rom,
                                  float levelscale, SetupObjectGeometry *out,
@@ -205,7 +225,6 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
     CharacterBuilder builder;
     DWORD i;
     BOOL ok = FALSE;
-    BOOL hasstan = stan != NULL && stan->tiles != NULL && stan->tilecount > 0;
 
     ZeroMemory(out, sizeof(*out));
     ZeroMemory(cache, sizeof(cache));
@@ -235,16 +254,7 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         if (character->pad >= setup->padcount
             || !CharacterResolveModels(character, &bodyid, &headid)) { continue; }
         pad = &setup->pads[character->pad];
-        for (axis = 0; axis < 3; axis++) { position[axis] = pad->pos[axis] / levelscale; }
-        if (hasstan)
-        {
-            DWORD tile = StanResolvePadTile(stan, pad->stanname, position);
-            if (tile == STAN_TILE_NONE
-                || !StanGetTileHeight(stan, tile, position[0], position[2], &position[1]))
-            {
-                continue;
-            }
-        }
+        if (!CharacterGetPadPosition(pad, stan, levelscale, position)) { continue; }
         body = CharacterGetPart(cache, bodyid, projectdir, rom);
         if (body == NULL) { continue; }
         if (headid >= 0)

@@ -144,6 +144,15 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
 }
 
 
+static BOOL GEditorCanMoveSetupModel(DWORD selection)
+{
+    if (selection & SETUP_CHARACTER_SELECTION_BIT)
+    {
+        return (selection & ~SETUP_CHARACTER_SELECTION_BIT) < g_CurrentSetup.charactercount;
+    }
+    return selection < g_CurrentSetup.objectcount && !g_CurrentSetup.objects[selection].deleted;
+}
+
 static void GEditorRefreshTransformFields(void)
 {
     double position[3];
@@ -152,7 +161,7 @@ static void GEditorRefreshTransformFields(void)
     BOOL object = ViewportGetSelectedObject(g_Viewport, &objectindex);
     BOOL stan = ViewportGetStanSelectionCount(g_Viewport, NULL) > 0;
     double scale = stan ? g_CurrentStan.levelscale : g_CurrentBgDocument.levelscale;
-    BOOL editable = hasposition && (object ? objectindex < g_CurrentSetup.objectcount : scale > 0);
+    BOOL editable = hasposition && (object ? GEditorCanMoveSetupModel(objectindex) : scale > 0);
     double precision = editable && !object ? 1.0 / scale : 0;
 
     RightPanelSetTransformState(g_RightPanel, hasposition ? position : NULL,
@@ -1452,17 +1461,18 @@ static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3])
     DWORD count = 0, moved = 0, objectindex;
     BOOL stan = ViewportGetStanSelectionCount(g_Viewport, NULL) > 0;
     BOOL object = ViewportGetSelectedObject(g_Viewport, &objectindex);
+    BOOL character = object && (objectindex & SETUP_CHARACTER_SELECTION_BIT);
     EditorTool tool = ViewportGetTool(g_Viewport);
     const char *why = "", *restorewhy = "";
     const char *action = stan ? (tool == EDITOR_TOOL_VERTEX_SELECT ? "Move Stan Vertices"
         : tool == EDITOR_TOOL_EDGE_SELECT ? "Move Stan Edges" : "Move Stan Tiles")
-        : object ? "Move Object" : tool == EDITOR_TOOL_VERTEX_SELECT
+        : object ? (character ? "Move Character" : "Move Object") : tool == EDITOR_TOOL_VERTEX_SELECT
         ? "Move BG Vertices" : tool == EDITOR_TOOL_EDGE_SELECT ? "Move BG Edges" : "Move BG Faces";
     int axis;
     ZeroMemory(&transaction, sizeof(transaction));
     ZeroMemory(&objects, sizeof(objects));
     for (axis=0; axis<3; axis++) { applied[axis]=0; }
-    if (tool == EDITOR_TOOL_VERTEX_PAINT || (object && objectindex >= g_CurrentSetup.objectcount)) { return FALSE; }
+    if (tool == EDITOR_TOOL_VERTEX_PAINT || (object && !GEditorCanMoveSetupModel(objectindex))) { return FALSE; }
     if (offset[0]==0 && offset[1]==0 && offset[2]==0) { return TRUE; }
     if (stan)
     {
@@ -1474,7 +1484,7 @@ static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3])
     else if (object)
     {
         if (!EditHistoryBeginSetupEdit(&g_EditHistory,&g_CurrentSetup,action,&transaction,&why)) { goto fail; }
-        if (!ObjectTranslateSetupObject(g_Project.dir,&g_CurrentSetup,&g_CurrentStan,
+        if (!ObjectTranslateSetupModel(g_Project.dir,&g_CurrentSetup,&g_CurrentStan,
                 g_CurrentBgDocument.levelscale,&g_CurrentObjects,objectindex,offset,&objects,&why)) { goto rollback; }
         moved = 1;
         for (axis=0; axis<3; axis++) { applied[axis]=offset[axis]; }

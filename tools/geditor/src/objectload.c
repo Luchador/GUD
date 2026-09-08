@@ -822,36 +822,74 @@ static const BgVertex *ObjectFirstVertex(const SetupObjectGeometry *geometry, DW
     return NULL;
 }
 
-/* The caller holds an EditHistory transaction. Rebuild with explicit pad
- * placement, then compensate for the old floor/support offset. Comparing
- * actual transformed vertices also covers bound pads and rotated props. */
-BOOL ObjectTranslateSetupObject(const char *projectdir, SetupFile *setup,
+/* The caller holds an EditHistory transaction. Props use explicit placement
+ * with their old floor/support offset compensated. Characters keep the game's
+ * grounding rules, using their visible feet as the starting pad position. */
+BOOL ObjectTranslateSetupModel(const char *projectdir, SetupFile *setup,
     const StanFile *stan, float levelscale, const SetupObjectGeometry *before,
     DWORD index, const double offset[3], SetupObjectGeometry *out,
     const char **reasonout)
 {
     const BgVertex *old = ObjectFirstVertex(before, index), *placed;
     SetupObjectGeometry provisional;
-    double correction[3];
+    double correction[3], padmove[3], expected[3];
+    BOOL character = (index & SETUP_CHARACTER_SELECTION_BIT) != 0;
     DWORD a = 0, b = 0;
+    int axis;
     ZeroMemory(out, sizeof(*out));
     ZeroMemory(&provisional, sizeof(provisional));
-    if (old == NULL) { *reasonout = "The object has no rendered geometry."; return FALSE; }
-    if (!SetupFileTranslateObject(setup,index,levelscale,offset,reasonout)
+    if (old == NULL) { *reasonout = "The model has no rendered geometry."; return FALSE; }
+    for (axis = 0; axis < 3; axis++) { padmove[axis] = expected[axis] = offset[axis]; }
+    if (character)
+    {
+        DWORD chrindex = index & ~SETUP_CHARACTER_SELECTION_BIT;
+        const SetupPad *pad;
+        float feet[3];
+
+        if (setup == NULL || setup->characters == NULL || setup->pads == NULL
+            || chrindex >= setup->charactercount
+            || setup->characters[chrindex].pad >= setup->padcount)
+        {
+            *reasonout = "The character has no editable placement pad.";
+            return FALSE;
+        }
+        pad = &setup->pads[setup->characters[chrindex].pad];
+        if (!CharacterGetPadPosition(pad, stan, levelscale, feet))
+        {
+            *reasonout = "The character's current stan floor could not be resolved.";
+            return FALSE;
+        }
+        /* Authored pads can sit well above their character. Move from the
+         * displayed feet so the requested height chooses the intended floor. */
+        for (axis = 0; axis < 3; axis++)
+        {
+            padmove[axis] += (double)feet[axis] - pad->pos[axis] / levelscale;
+        }
+    }
+    if (!SetupFileTranslateModel(setup,index,levelscale,padmove,reasonout)
         || !ObjectLoadSetupGeometry(projectdir,setup,stan,levelscale,&provisional,reasonout)) { return FALSE; }
     placed = ObjectFirstVertex(&provisional, index);
     if (placed == NULL)
     {
         ObjectGeometryFree(&provisional);
-        *reasonout = "The object cannot be placed at this location.";
+        *reasonout = character ? "The character cannot be placed on a stan floor at this location."
+                               : "The object cannot be placed at this location.";
         return FALSE;
     }
-    correction[0] = (double)old->x + offset[0] - placed->x;
-    correction[1] = (double)old->y + offset[1] - placed->y;
-    correction[2] = (double)old->z + offset[2] - placed->z;
-    ObjectGeometryFree(&provisional);
-    if (!SetupFileTranslateObject(setup,index,levelscale,correction,reasonout)
-        || !ObjectLoadSetupGeometry(projectdir,setup,stan,levelscale,out,reasonout)) { return FALSE; }
+    if (character)
+    {
+        expected[1] = (double)placed->y - old->y;
+        *out = provisional;
+    }
+    else
+    {
+        correction[0] = (double)old->x + offset[0] - placed->x;
+        correction[1] = (double)old->y + offset[1] - placed->y;
+        correction[2] = (double)old->z + offset[2] - placed->z;
+        ObjectGeometryFree(&provisional);
+        if (!SetupFileTranslateModel(setup,index,levelscale,correction,reasonout)
+            || !ObjectLoadSetupGeometry(projectdir,setup,stan,levelscale,out,reasonout)) { return FALSE; }
+    }
     /* Placement must be a translation, never an accidental change of scale
        or orientation. Reject locations that cannot reproduce the preview. */
     for (;;)
@@ -863,9 +901,9 @@ BOOL ObjectTranslateSetupObject(const char *projectdir, SetupFile *setup,
         for (corner=0; corner<3; corner++)
         {
             const BgVertex *v=&before->tris[a*3+corner], *w=&out->tris[b*3+corner];
-            if (fabs((double)w->x-v->x-offset[0]) > 0.02
-                || fabs((double)w->y-v->y-offset[1]) > 0.02
-                || fabs((double)w->z-v->z-offset[2]) > 0.02) { goto invalid; }
+            if (fabs((double)w->x-v->x-expected[0]) > 0.02
+                || fabs((double)w->y-v->y-expected[1]) > 0.02
+                || fabs((double)w->z-v->z-expected[2]) > 0.02) { goto invalid; }
         }
         a++; b++;
     }

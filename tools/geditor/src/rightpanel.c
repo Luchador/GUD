@@ -340,7 +340,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         }
 
         state->topheight = RIGHTPANEL_INITIAL_TOP_H;
-        lstrcpyn(state->transformhint, "Select vertices, edges, faces or an object.",
+        lstrcpyn(state->transformhint, "Select geometry, an object or a character.",
                  sizeof(state->transformhint));
         lstrcpyn(state->detailtitle, "Selection",
                  sizeof(state->detailtitle));
@@ -640,8 +640,8 @@ void RightPanelSetTransformState(HWND panel, const double position[3],
     else
     {
         const char *hint = state->vertexpaint ? "BG: vertex RGBA. Stan: whole-tile RGB."
-            : position == NULL ? "Select vertices, edges, faces or an object."
-            : editable ? "Press Enter to set position." : "Character preview (read-only).";
+            : position == NULL ? "Select geometry, an object or a character."
+            : editable ? "Press Enter to set position." : "This selection cannot be moved.";
         lstrcpyn(state->transformhint, hint, sizeof(state->transformhint));
     }
     InvalidateRect(panel, NULL, FALSE);
@@ -820,7 +820,8 @@ void RightPanelSetSetupCharacter(HWND panel, const SetupCharacter *character)
         "Pad: %u\r\n"
         "AI list: 0x%04X\r\n"
         "Flags: 0x%04X\r\n"
-        "\r\nCharacter preview (read-only)",
+        "\r\nDrag an arrow or enter a world position.\r\n"
+        "Characters settle onto a stan floor when placed.",
         (unsigned int)character->chrnum, body.filename, headname,
         headid >= 0 && character->headid < 0 ? " (random preview)" : "",
         (unsigned int)character->pad, (unsigned int)character->ailistid,

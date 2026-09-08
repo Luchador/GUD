@@ -842,32 +842,53 @@ BOOL SetupFileDeleteObject(SetupFile *setup, DWORD objectindex,
     return TRUE;
 }
 
-/* Give an explicitly moved object its own pad. Appending a replacement pad
+/* Give an explicitly moved model its own pad. Appending a replacement pad
  * table keeps every existing setup command index and embedded pointer valid.
  * An editor-created final pad/table can be reused on subsequent drags. */
-BOOL SetupFileTranslateObject(SetupFile *setup, DWORD objectindex,
+BOOL SetupFileTranslateModel(SetupFile *setup, DWORD selection,
                               float levelscale, const double offset[3],
                               const char **reasonout)
 {
-    SetupObject *object;
+    SetupObject *object = NULL;
+    SetupCharacter *character = NULL;
     SetupPad *pad;
     DWORD header, stride, count, table, index, record, end, i;
+    DWORD owner = selection & ~SETUP_CHARACTER_SELECTION_BIT;
+    DWORD sourceoffset, maxindex;
     BOOL bound, door, reuse;
     float position[3];
     int axis;
-    *reasonout = "The selected object has no editable placement pad.";
+    *reasonout = "The selected model has no editable placement pad.";
     if (setup == NULL || setup->data == NULL || setup->size < SETUP_HEADER_SIZE
-        || objectindex >= setup->objectcount || !isfinite(levelscale) || levelscale <= 0) { return FALSE; }
-    object = &setup->objects[objectindex];
-    if (object->deleted || object->pad < 0 || object->sourceoffset > setup->size - 16) { return FALSE; }
-    door = object->type == PROPDEF_DOOR;
-    bound = door || object->pad >= 10000;
-    index = (DWORD)object->pad - (bound && !door ? 10000 : 0);
+        || offset == NULL || !isfinite(levelscale) || levelscale <= 0) { return FALSE; }
+    if (selection & SETUP_CHARACTER_SELECTION_BIT)
+    {
+        if (setup->characters == NULL || owner >= setup->charactercount) { return FALSE; }
+        character = &setup->characters[owner];
+        if (character->sourceoffset > setup->size - 28
+            || setup->data[character->sourceoffset + 3] != PROPDEF_GUARD) { return FALSE; }
+        sourceoffset = character->sourceoffset;
+        door = bound = FALSE;
+        index = character->pad;
+        maxindex = 65535; /* GuardRecord.PadID is an unsigned ordinary-pad index. */
+    }
+    else
+    {
+        if (setup->objects == NULL || owner >= setup->objectcount) { return FALSE; }
+        object = &setup->objects[owner];
+        if (object->deleted || object->pad < 0 || object->sourceoffset > setup->size - 16) { return FALSE; }
+        sourceoffset = object->sourceoffset;
+        door = object->type == PROPDEF_DOOR;
+        bound = door || object->pad >= 10000;
+        index = (DWORD)object->pad - (bound && !door ? 10000 : 0);
+        maxindex = bound ? (door ? 32767 : 22767) : 9999;
+    }
     count = bound ? setup->boundpadcount : setup->padcount;
     header = bound ? SETUP_BOUNDPAD_POINTER : SETUP_PAD_POINTER;
     stride = bound ? SETUP_BOUNDPAD_SIZE : SETUP_PAD_SIZE;
     table = SetupRead32(setup->data + header);
-    if (index >= count || count >= SETUP_PAD_MAX || table > setup->size
+    if (index >= count || count > SETUP_PAD_MAX || table > setup->size
+        || (bound ? setup->boundpads == NULL : setup->pads == NULL)
         || (count + 1) > (setup->size - table) / stride) { return FALSE; }
     record = table + index * stride;
     end = table + count * stride;
@@ -892,11 +913,13 @@ BOOL SetupFileTranslateObject(SetupFile *setup, DWORD objectindex,
         const SetupObject *other = &setup->objects[i];
         BOOL otherbound = other->type == PROPDEF_DOOR || other->pad >= 10000;
         int otherindex = other->pad - (otherbound && other->type != PROPDEF_DOOR ? 10000 : 0);
-        if (i != objectindex && otherbound == bound && otherindex == (int)index) { reuse = FALSE; }
+        if ((character != NULL || i != owner)
+            && otherbound == bound && otherindex == (int)index) { reuse = FALSE; }
     }
     for (i = 0; reuse && !bound && i < setup->charactercount; i++)
     {
-        if (setup->characters[i].pad == index) { reuse = FALSE; }
+        if ((character == NULL || i != owner)
+            && setup->characters[i].pad == index) { reuse = FALSE; }
     }
     if (!reuse)
     {
@@ -905,7 +928,7 @@ BOOL SetupFileTranslateObject(SetupFile *setup, DWORD objectindex,
         unsigned char *data;
         void *pads;
         DWORD encoded = count + (bound && !door ? 10000 : 0);
-        if ((!bound && count >= 10000) || encoded > 32767 || newsize > SETUP_FILE_MAX)
+        if (count > maxindex || newsize > SETUP_FILE_MAX)
         {
             *reasonout = "The setup has no room for another placement pad.";
             return FALSE;
@@ -914,7 +937,7 @@ BOOL SetupFileTranslateObject(SetupFile *setup, DWORD objectindex,
         pads = malloc((size_t)(count + 1) * (bound ? sizeof(SetupBoundPad) : sizeof(SetupPad)));
         if (data == NULL || pads == NULL)
         {
-            free(data); free(pads); *reasonout = "Out of memory copying the object's pad."; return FALSE;
+            free(data); free(pads); *reasonout = "Out of memory copying the model's pad."; return FALSE;
         }
         memcpy(data, setup->data, setup->size);
         memcpy(data + newtable, setup->data + table, (size_t)count * stride);
@@ -935,9 +958,10 @@ BOOL SetupFileTranslateObject(SetupFile *setup, DWORD objectindex,
         }
         free(setup->data); setup->data = data; setup->size = newsize;
         SetupWrite32(data + header, newtable);
-        object->pad = (short)encoded;
-        data[object->sourceoffset + 6] = (unsigned char)(encoded >> 8);
-        data[object->sourceoffset + 7] = (unsigned char)encoded;
+        if (character != NULL) { character->pad = (unsigned short)encoded; }
+        else { object->pad = (short)encoded; }
+        data[sourceoffset + 6] = (unsigned char)(encoded >> 8);
+        data[sourceoffset + 7] = (unsigned char)encoded;
         record = newtable + count * stride;
         end = record + stride;
         SetupWrite32(data + record + SETUP_PAD_LINK, end + SETUP_PAD_LINK);
@@ -953,7 +977,7 @@ BOOL SetupFileTranslateObject(SetupFile *setup, DWORD objectindex,
     }
     /* Explicit world-space placement must survive the game's grounding
        step. Sideways/upside-down props already use their authored height. */
-    if (!door)
+    if (object != NULL && !door)
     {
         object->flags |= PROPFLAG_ABSOLUTEPOSITION;
         if (!(object->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN))) { object->flags |= PROPFLAG_INAIR; }

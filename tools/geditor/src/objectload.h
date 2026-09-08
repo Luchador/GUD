@@ -28,7 +28,9 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
                              const StanFile *stan, float levelscale,
                              SetupObjectGeometry *out,
                              const char **reasonout);
-BOOL ObjectTranslateSetupObject(const char *projectdir, SetupFile *setup,
+/* Moves a selected prop or tagged character as one model. Character pad
+   height selects a floor; the rendered feet follow that floor's height. */
+BOOL ObjectTranslateSetupModel(const char *projectdir, SetupFile *setup,
     const StanFile *stan, float levelscale, const SetupObjectGeometry *before,
     DWORD index, const double offset[3], SetupObjectGeometry *out,
     const char **reasonout);

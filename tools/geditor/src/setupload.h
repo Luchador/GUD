@@ -98,9 +98,11 @@ BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
 BOOL SetupFileDeleteObject(SetupFile *setup, DWORD objectindex,
                            const char **reasonout);
 
-/* Used within an edit transaction. Allocates a private pad and enables
-   explicit placement; preserves every existing command and pad index. */
-BOOL SetupFileTranslateObject(SetupFile *setup, DWORD objectindex,
+/* Used within an edit transaction. Accepts a prop index or a character index
+   tagged with SETUP_CHARACTER_SELECTION_BIT. Allocates a private pad without
+   changing existing command/pad indices. Props gain explicit placement flags;
+   characters retain their flags and the game's stan-grounded placement. */
+BOOL SetupFileTranslateModel(SetupFile *setup, DWORD selection,
                               float levelscale, const double offset[3],
                               const char **reasonout);
 

@@ -1795,7 +1795,7 @@ static void ViewportUpdateGizmo(ViewportState *state)
     }
     if (state->scene == NULL || state->tool == EDITOR_TOOL_VERTEX_PAINT) { return; }
     if (state->selectedobject != VIEWPORT_OBJECT_NONE
-        && (!state->showobjects || (state->selectedobject & SETUP_CHARACTER_SELECTION_BIT))) { return; }
+        && (!state->showobjects || state->sceneobjectindices == NULL)) { return; }
     if (state->tool == EDITOR_TOOL_VERTEX_SELECT && state->componentcount > 0)
     {
         int corner = state->components[0].corners[0];

@@ -15,6 +15,12 @@ BOOL CharacterGetModelDefinition(int modelid, CharacterModelDefinition *out);
 BOOL CharacterResolveModels(const SetupCharacter *character,
                              int *bodyid, int *headid);
 
+/* Returns the feet position used by the preview. Pad height selects a stan
+   floor; it does not suspend a character above that floor. Without stan data
+   the preview uses the pad's world position directly. */
+BOOL CharacterGetPadPosition(const SetupPad *pad, const StanFile *stan,
+                              float levelscale, float position[3]);
+
 /* Loads project character glTFs, attaches separate heads using the authored
    body node, and places a stationary preview on the setup's stan floor.
    Authored setup bytes and random head IDs are never changed. */
