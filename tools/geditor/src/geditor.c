@@ -358,7 +358,7 @@ static void GEditorRefreshProjectAssets(void)
                     *dot = '\0';
                 }
 
-                wsprintf(models[modelcount].label, "%s  (%s)", stem, classes[c]);
+                lstrcpyn(models[modelcount].label, stem, sizeof(models[modelcount].label));
                 modelcount++;
             }
             while (modelcount < 512 && FindNextFile(search, &find));
