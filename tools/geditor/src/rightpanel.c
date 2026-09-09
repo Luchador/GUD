@@ -206,6 +206,33 @@ void RightPanelShowObjects(HWND panel)
     RightPanelNotifyVisibility(panel, state);
 }
 
+/* Position fields accept sums/differences of signed numbers. Let strtod
+   consume each complete number, including exponent signs such as 1e-3.
+   Rotation and scale retain their existing single-number input. */
+static BOOL RightPanelParseTransformValue(const char *text, BOOL arithmetic, double *out)
+{
+    const char *cursor = text;
+    double result = 0;
+    char operation = '\0';
+    for (;;)
+    {
+        char *end;
+        double operand;
+        errno = 0;
+        operand = strtod(cursor, &end);
+        if (end == cursor || errno == ERANGE || !isfinite(operand)) { return FALSE; }
+        if (operation == '+') { result += operand; }
+        else if (operation == '-') { result -= operand; }
+        else { result = operand; }
+        if (!isfinite(result)) { return FALSE; }
+        while (isspace((unsigned char)*end)) { end++; }
+        if (*end == '\0') { *out = result; return TRUE; }
+        if (!arithmetic || (*end != '+' && *end != '-')) { return FALSE; }
+        operation = *end;
+        cursor = end + 1;
+    }
+}
+
 static void RightPanelSetPosition(HWND hwnd, RightPanelState *state)
 {
     RightPanelPosition request;
@@ -217,22 +244,15 @@ static void RightPanelSetPosition(HWND hwnd, RightPanelState *state)
     for (axis = 0; axis < 3; axis++)
     {
         char text[64];
-        char *end;
         double value;
 
         /* Untouched fields must not move an axis through display rounding. */
         if (!(request.axismask & (1u << axis))) { continue; }
         GetWindowText(state->positions[axis], text, sizeof(text));
-        errno = 0;
-        value = strtod(text, &end);
-        if (end != text)
-        {
-            while (isspace((unsigned char)*end)) { end++; }
-        }
-        if (end == text || *end != '\0' || errno == ERANGE || !isfinite(value)
+        if (!RightPanelParseTransformValue(text, !state->rotationmode && !state->scalemode, &value)
             || (state->scalemode && (value <= 0 || value > 1000000)))
         {
-            MessageBox(hwnd, state->scalemode ? "Enter a scale factor greater than zero and no larger than 1000000." : state->rotationmode ? "Enter a finite angle in degrees." : "Enter a finite number for the world coordinate.",
+            MessageBox(hwnd, state->scalemode ? "Enter a scale factor greater than zero and no larger than 1000000." : state->rotationmode ? "Enter a finite angle in degrees." : "Enter a finite position or an addition/subtraction expression, such as 250 + 100.",
                        "Transform", MB_ICONWARNING);
             SetFocus(state->positions[axis]);
             SendMessage(state->positions[axis], EM_SETSEL, 0, -1);
@@ -686,13 +706,13 @@ void RightPanelSetTransformState(HWND panel, const double position[3],
     else if (state->transformenabled && gridstep > 0)
     {
         snprintf(state->transformhint, sizeof(state->transformhint),
-                 "Press Enter to set position.\r\nAsset precision: %.6g units.", gridstep);
+                 "Enter sets position; + and - allowed.\r\nAsset precision: %.6g units.", gridstep);
     }
     else
     {
         const char *hint = state->vertexpaint ? "BG: vertex RGBA. Stan: whole-tile RGB."
             : position == NULL ? "Select geometry, a model or a pad."
-            : editable ? "Press Enter to set position." : "This selection cannot be moved.";
+            : editable ? "Enter sets position; + and - allowed." : "This selection cannot be moved.";
         lstrcpyn(state->transformhint, hint, sizeof(state->transformhint));
     }
     InvalidateRect(panel, NULL, FALSE);
