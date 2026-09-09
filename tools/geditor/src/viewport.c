@@ -15,6 +15,7 @@
 #include <float.h>
 #include <limits.h>
 #include <stdint.h>
+#include <stdio.h>
 #include "browser.h"
 #include "viewport.h"
 #include "gltf.h"
@@ -59,6 +60,7 @@
 #define GL_MIRRORED_REPEAT 0x8370
 #endif
 #define VIEWPORT_TEXTURE_VARIANT_COUNT ((BG_TEX_NONE + 1) * 2)
+#define VIEWPORT_STATS_FONT_GLYPHS 128
 
 /* Cached by texture ID and alpha use: authored order can revisit a texture many times.
  * Keep alpha for CPU picking through transparent areas of decals. */
@@ -118,6 +120,9 @@ typedef struct ViewportState {
     HGLRC hglrc;  /* the GL context rendering into it */
     EditorTool tool;
     BOOL vertexsnap;
+    BOOL showbgstatistics;
+    GLuint statisticsfont; /* ASCII bitmap display lists, owned by the GL context */
+    DWORD bgprimarytris, bgsecondarytris, bgtexturecount; /* cached on scene rebuild */
 
     /* Fly Camera */
     float posx, posy, posz;
@@ -281,6 +286,104 @@ static ViewportState *ViewportGetState(HWND hwnd)
     return (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 }
 
+/* Count authored BG batches once per scene rebuild, not per frame. Texture
+ * IDs are shared across rooms, layers and GL variants; missing images still
+ * count as used, but untextured faces and all setup models do not. */
+static void ViewportUpdateBgStatistics(ViewportState *state)
+{
+    unsigned char used[BG_TEX_NONE] = {0};
+    int i;
+
+    state->bgprimarytris = state->bgsecondarytris = state->bgtexturecount = 0;
+    for (i = 0; i < state->batchcount; i++)
+    {
+        const SceneBatch *batch = &state->batches[i];
+        if (batch->object || batch->count <= 0) { continue; }
+        if (batch->secondary) { state->bgsecondarytris += batch->count / 3; }
+        else { state->bgprimarytris += batch->count / 3; }
+        if (batch->textureid < BG_TEX_NONE && !used[batch->textureid])
+        {
+            used[batch->textureid] = 1;
+            state->bgtexturecount++;
+        }
+    }
+}
+
+static BOOL ViewportCreateStatisticsFont(ViewportState *state)
+{
+    HFONT font = CreateFontA(-14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, NONANTIALIASED_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+    HGDIOBJ previous;
+    GLuint lists;
+    BOOL ok = FALSE;
+
+    if (font == NULL) { return FALSE; }
+    lists = glGenLists(VIEWPORT_STATS_FONT_GLYPHS);
+    if (lists != 0)
+    {
+        previous = SelectObject(state->hdc, font);
+        if (previous != NULL && previous != HGDI_ERROR)
+        {
+            ok = wglUseFontBitmapsA(state->hdc, 0, VIEWPORT_STATS_FONT_GLYPHS, lists);
+            SelectObject(state->hdc, previous);
+        }
+        if (!ok) { glDeleteLists(lists, VIEWPORT_STATS_FONT_GLYPHS); }
+    }
+    DeleteObject(font);
+    state->statisticsfont = ok ? lists : 0;
+    return ok;
+}
+
+static void ViewportDrawBgStatistics(const ViewportState *state)
+{
+    char lines[4][64];
+    int line;
+
+    if (!state->showbgstatistics || !state->statisticsfont
+        || state->width <= 0 || state->height <= 0) { return; }
+    snprintf(lines[0], sizeof(lines[0]), "Primary tris: %lu", (unsigned long)state->bgprimarytris);
+    snprintf(lines[1], sizeof(lines[1]), "Secondary tris: %lu", (unsigned long)state->bgsecondarytris);
+    snprintf(lines[2], sizeof(lines[2]), "Total tris: %lu",
+             (unsigned long)(state->bgprimarytris + state->bgsecondarytris));
+    snprintf(lines[3], sizeof(lines[3]), "Unique textures: %lu", (unsigned long)state->bgtexturecount);
+
+    /* Draw into the back buffer so text stays steady during camera flight.
+       A one-pixel shadow keeps it legible over bright geometry. */
+    glPushAttrib(GL_CURRENT_BIT | GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT
+                 | GL_TRANSFORM_BIT | GL_LIST_BIT);
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_ALPHA_TEST);
+    glDisable(GL_BLEND);
+    glDisable(GL_LIGHTING);
+    glDisable(GL_FOG);
+    glDepthMask(GL_FALSE);
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0, state->width, state->height, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    glListBase(state->statisticsfont);
+    for (line = 0; line < 4; line++)
+    {
+        GLsizei length = (GLsizei)strlen(lines[line]);
+        int baseline = 24 + line * 20;
+        glColor4ub(0, 0, 0, 255);
+        glRasterPos2i(13, baseline + 1);
+        glCallLists(length, GL_UNSIGNED_BYTE, lines[line]);
+        glColor4ub(255, 255, 255, 255);
+        glRasterPos2i(12, baseline);
+        glCallLists(length, GL_UNSIGNED_BYTE, lines[line]);
+    }
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glPopAttrib();
+}
+
 
 /*
  * Chooses a pixel format and creates the GL context. Returns FALSE if
@@ -343,7 +446,7 @@ static BOOL ViewportInitGL(HWND hwnd, ViewportState *state)
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
 
-    return TRUE;
+    return ViewportCreateStatisticsFont(state);
 }
 
 
@@ -827,6 +930,7 @@ static void ViewportPaintGL(ViewportState *state)
     ViewportDrawBgToolOverlay(state);
     ViewportDrawTransformTools(state);
     ViewportDrawBoxSelection(state);
+    ViewportDrawBgStatistics(state);
     SwapBuffers(state->hdc);
 }
 
@@ -3782,6 +3886,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         state->showportals = FALSE;
         state->showobjects = TRUE;
         state->cullbackfaces = TRUE;
+        state->showbgstatistics = TRUE;
         state->selectedobject = VIEWPORT_OBJECT_NONE;
         state->selectedpad.index = SETUP_PAD_INDEX_NONE;
         state->hoveraxis = state->dragaxis = -1;
@@ -3790,7 +3895,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
         if (!ViewportInitGL(hwnd, state))
         {
-            MessageBox(hwnd, "Could not create an OpenGL context.", "GEditor", MB_ICONERROR);
+            MessageBox(hwnd, "Could not initialize the OpenGL viewport.", "GEditor", MB_ICONERROR);
             return -1;
         }
         return 0;
@@ -3994,6 +4099,11 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         ViewportEndFly(hwnd, state); // Never leave the cursor hidden.
         if (state != NULL)
         {
+            if (state->statisticsfont != 0)
+            {
+                wglMakeCurrent(state->hdc, state->hglrc);
+                glDeleteLists(state->statisticsfont, VIEWPORT_STATS_FONT_GLYPHS);
+            }
             wglMakeCurrent(NULL, NULL);
             if (state->hglrc != NULL)
             {
@@ -4159,6 +4269,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
     state->portalfillcount = 0;
     state->padmarkercount = 0;
     state->scenecount = 0;
+    state->bgprimarytris = state->bgsecondarytris = state->bgtexturecount = 0;
 }
 
 
@@ -4767,6 +4878,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     }
     ViewportRestoreComponents(state);
     if (scene != NULL && savedobject != VIEWPORT_OBJECT_NONE) { ViewportSelectObject(state, savedobject); }
+    ViewportUpdateBgStatistics(state);
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
     return TRUE;
@@ -5083,6 +5195,20 @@ void ViewportSetBackfaceCulling(HWND hwnd, BOOL enabled)
     }
 
     state->cullbackfaces = enabled;
+    InvalidateRect(hwnd, NULL, FALSE);
+}
+
+BOOL ViewportGetBgStatisticsVisible(HWND hwnd)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    return state != NULL && state->showbgstatistics;
+}
+
+void ViewportSetBgStatisticsVisible(HWND hwnd, BOOL enabled)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    if (state == NULL || state->showbgstatistics == enabled) { return; }
+    state->showbgstatistics = enabled;
     InvalidateRect(hwnd, NULL, FALSE);
 }
 

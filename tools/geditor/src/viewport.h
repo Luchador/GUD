@@ -138,6 +138,9 @@ void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
    disabled renders every triangle double-sided. */
 BOOL ViewportGetBackfaceCulling(HWND hwnd);
 void ViewportSetBackfaceCulling(HWND hwnd, BOOL enabled);
+/* Counts the complete loaded BG, regardless of layer visibility. */
+BOOL ViewportGetBgStatisticsVisible(HWND hwnd);
+void ViewportSetBgStatisticsVisible(HWND hwnd, BOOL enabled);
 
 #define VIEWPORT_WM_ROTATE_SELECTION (WM_APP + 16)
 typedef struct ViewportRotation { Rotation rotation; double pivot[3]; } ViewportRotation;

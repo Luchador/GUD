@@ -471,6 +471,7 @@ enum {
     ID_EDIT_UNDO,
     ID_EDIT_REDO,
     ID_VIEW_BACKFACE_CULLING,
+    ID_VIEW_BG_STATISTICS,
 
     ID_TOOLS_CREATE_ROM
 };
@@ -514,6 +515,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(editmenu, MF_STRING, ID_EDIT_REDO, "&Redo\tCtrl+Y");
 
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_BACKFACE_CULLING, "&Backface Culling");
+    AppendMenu(viewmenu, MF_STRING | MF_CHECKED, ID_VIEW_BG_STATISTICS, "Background &Statistics");
 
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CREATE_ROM, "&Create ROM...");
 
@@ -2539,6 +2541,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CREATE_ROM, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         GEditorUpdateHistoryMenu((HMENU)wparam);
         CheckMenuItem((HMENU)wparam, ID_VIEW_BACKFACE_CULLING, MF_BYCOMMAND | (ViewportGetBackfaceCulling(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
+        CheckMenuItem((HMENU)wparam, ID_VIEW_BG_STATISTICS, MF_BYCOMMAND | (ViewportGetBgStatisticsVisible(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
         return 0;
 
     case WM_COMMAND:
@@ -2663,6 +2666,11 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             case ID_VIEW_BACKFACE_CULLING:
                 ViewportSetBackfaceCulling(g_Viewport,
                     !ViewportGetBackfaceCulling(g_Viewport));
+                return 0;
+
+            case ID_VIEW_BG_STATISTICS:
+                ViewportSetBgStatisticsVisible(g_Viewport,
+                    !ViewportGetBgStatisticsVisible(g_Viewport));
                 return 0;
 
             case ID_TOOLS_CREATE_ROM:
