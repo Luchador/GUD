@@ -157,7 +157,8 @@ static BOOL GEditorCanMoveSetupModel(DWORD selection)
 {
     if (selection & SETUP_CHARACTER_SELECTION_BIT)
     {
-        return (selection & ~SETUP_CHARACTER_SELECTION_BIT) < g_CurrentSetup.charactercount;
+        DWORD index = selection & ~SETUP_CHARACTER_SELECTION_BIT;
+        return index < g_CurrentSetup.charactercount && !g_CurrentSetup.characters[index].deleted;
     }
     return selection < g_CurrentSetup.objectcount && !g_CurrentSetup.objects[selection].deleted;
 }
@@ -2101,21 +2102,22 @@ static void GEditorDeleteSelectedObject(HWND hwnd, DWORD objectindex)
     EditHistoryTransaction transaction;
     const char *why = "";
     const char *restorewhy = "";
+    BOOL character = (objectindex & SETUP_CHARACTER_SELECTION_BIT) != 0;
 
-    if (objectindex >= g_CurrentSetup.objectcount
-        || g_CurrentSetup.objects[objectindex].deleted)
+    if (!GEditorCanMoveSetupModel(objectindex))
     {
         return;
     }
 
     if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
-                                   "Delete Object", &transaction, &why))
+                                   character ? "Delete Character" : "Delete Object", &transaction, &why))
     {
         MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
         return;
     }
 
-    if (!SetupFileDeleteObject(&g_CurrentSetup, objectindex, &why)
+    if (!(character ? SetupFileDeleteCharacter(&g_CurrentSetup, objectindex & ~SETUP_CHARACTER_SELECTION_BIT, &why)
+                    : SetupFileDeleteObject(&g_CurrentSetup, objectindex, &why))
         || !GEditorReloadCurrentObjectsAndViewport(&why)
         || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
                                   &g_CurrentSetup, &g_CurrentStan, &transaction, &why))
@@ -2391,12 +2393,12 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     {
         DWORD selectedobject;
 
-        if (ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT) { return 0; }
+        if (ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT) { return 0; }
         if (ViewportGetSelectedObject(g_Viewport, &selectedobject))
         {
             GEditorDeleteSelectedObject(hwnd, selectedobject);
         }
-        else
+        else if (ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT)
         {
             GEditorDeleteSelectedBgFaces(hwnd);
         }

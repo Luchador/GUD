@@ -2218,7 +2218,7 @@ static void ViewportUpdateGizmo(ViewportState *state)
             state->gizmovisible = TRUE;
             return;
         }
-        if (state->tool == EDITOR_TOOL_VERTEX_SELECT)
+        if (state->tool == EDITOR_TOOL_VERTEX_SELECT && state->selectedobject == VIEWPORT_OBJECT_NONE)
         {
             DWORD count;
             if (ViewportStanSelectionPosition(state, FALSE, state->gizmoposition, &count))
@@ -2270,7 +2270,7 @@ static void ViewportUpdateGizmo(ViewportState *state)
         state->gizmovisible = TRUE;
         return;
     }
-    if (state->tool == EDITOR_TOOL_EDGE_SELECT)
+    if (state->tool == EDITOR_TOOL_EDGE_SELECT && state->selectedobject == VIEWPORT_OBJECT_NONE)
     {
         for (i = 0; i < state->componentcount; i++)
         {
@@ -2379,6 +2379,29 @@ static BOOL ViewportComponentVisible(const ViewportState *state, int triangle,
     return TRUE;
 }
 
+/* Vertex and edge modes still pick placed models as a whole. Use the same
+ * visible-surface test as face mode, so hidden models cannot steal clicks. */
+static BOOL ViewportTryPickObject(HWND hwnd, ViewportState *state, int x, int y, BOOL remove)
+{
+    ViewportPickRay ray;
+    double distance, standistance;
+    DWORD object;
+    BOOL deselect;
+    if (state == NULL || state->flying || state->vertexsnap
+        || !ViewportBuildPickRay(hwnd, state, x, y, &ray)) { return FALSE; }
+    object = ViewportFindPickedObject(state, &ray, &distance);
+    if (object == VIEWPORT_OBJECT_NONE) { return FALSE; }
+    if (ViewportFindPickedStan(state, &ray, &standistance) != STAN_TILE_NONE
+        && standistance <= distance + ViewportCoplanarPickTolerance(distance)) { return FALSE; }
+    deselect = remove && state->selectedobject == object;
+    ViewportClearAllSelection(state);
+    if (!deselect) { ViewportSelectObject(state, object); }
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    return TRUE;
+}
+
 static void ViewportPickComponent(HWND hwnd, ViewportState *state,
                                     int x, int y, BOOL add, BOOL remove)
 {
@@ -2386,6 +2409,7 @@ static void ViewportPickComponent(HWND hwnd, ViewportState *state,
     double nearest = DBL_MAX, objectdistance, best = 100.0;
     int i, triangle = -1, chosen = -1, endcount, found = -1;
     ViewportComponent component;
+    if (ViewportTryPickObject(hwnd, state, x, y, remove)) { return; }
     if (!ViewportBuildPickRay(hwnd,state,x,y,&ray)) { return; }
     /* Only offer components of the nearest visible face. The 10px target
        radius also allows choosing the vertex square or an edge itself. */
@@ -2459,6 +2483,8 @@ static void ViewportPickComponent(HWND hwnd, ViewportState *state,
     else
     {
         ViewportClearStanSelection(state);
+        ViewportClearObjectSelection(state);
+        ViewportClearPadSelection(state);
         endcount=state->tool == EDITOR_TOOL_EDGE_SELECT ? 2 : 1;
         ZeroMemory(&component,sizeof(component));
         for (i=0; i<endcount; i++)
@@ -4125,7 +4151,9 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
             return 0;
         }
         if (wparam == VK_DELETE && state != NULL
-            && state->tool == EDITOR_TOOL_FACE_SELECT)
+            && (state->tool == EDITOR_TOOL_FACE_SELECT
+                || ((state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT)
+                    && state->selectedobject != VIEWPORT_OBJECT_NONE)))
         {
             SendMessage(GetParent(hwnd), VIEWPORT_WM_DELETE_SELECTION, 0, 0);
         }
@@ -4290,8 +4318,7 @@ void ViewportSetTool(HWND viewport, EditorTool tool)
     }
     state->tool = tool;
     state->vertexsnap = FALSE;
-    /* Vertex/edge/paint tools must not inherit a face or object
-       selection that Delete or Transform could inadvertently edit. */
+    /* Clear the previous tool's selection before starting a new one. */
     ViewportCancelTransform(viewport);
     ViewportClearAllSelection(state);
     ViewportRedraw(viewport);

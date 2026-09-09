@@ -56,6 +56,7 @@ typedef struct SetupCharacter {
     unsigned short ailistid;
     unsigned short flags;
     DWORD sourceoffset;
+    BOOL deleted;             /* retained command-index tombstone */
 } SetupCharacter;
 
 /* The viewport shares picking and selection boxes for placed models. The
@@ -107,6 +108,8 @@ BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
 /* Logically removes an object without changing setup command indices. */
 BOOL SetupFileDeleteObject(SetupFile *setup, DWORD objectindex,
                            const char **reasonout);
+BOOL SetupFileDeleteCharacter(SetupFile *setup, DWORD characterindex,
+                              const char **reasonout);
 
 /* Appends an ordinary prop or an unarmed, idle character and its private pad.
    Position is in world units; placement follows the normal stan-grounded rules.

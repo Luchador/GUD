@@ -36,6 +36,13 @@
  * size and index for relative setup references. */
 #define SETUP_OBJECT_DELETED_FLAGS2 0x000000f8u
 
+/* Guards have no spawn-exclusion flags. An unreferenced CameraPos command
+ * occupies the same seven words and creates no entity in the game. Its
+ * header is otherwise unused. "GED" identifies our deleted-guard payload,
+ * retaining character IDs and command indices through saving and reparsing.
+ * The game only converts its unused camera coordinates during setup load. */
+#define SETUP_DELETED_CHARACTER_HEADER (0x47454400u | PROPDEF_CAMERAPOS)
+
 static DWORD SetupRead32(const unsigned char *p)
 {
     return ((DWORD)p[0] << 24) | ((DWORD)p[1] << 16)
@@ -203,7 +210,7 @@ static BOOL SetupParseObjects(SetupFile *setup, const char **reasonout)
             }
             objectcount++;
         }
-        else if (type == PROPDEF_GUARD)
+        else if (type == PROPDEF_GUARD || SetupRead32(setup->data + at) == SETUP_DELETED_CHARACTER_HEADER)
         {
             charactercount++;
         }
@@ -261,7 +268,7 @@ static BOOL SetupParseObjects(SetupFile *setup, const char **reasonout)
                 (object->flags2 & SETUP_OBJECT_DELETED_FLAGS2)
                     == SETUP_OBJECT_DELETED_FLAGS2;
         }
-        else if (type == PROPDEF_GUARD)
+        else if (type == PROPDEF_GUARD || SetupRead32(record) == SETUP_DELETED_CHARACTER_HEADER)
         {
             SetupCharacter *character = &setup->characters[characterat++];
 
@@ -272,6 +279,7 @@ static BOOL SetupParseObjects(SetupFile *setup, const char **reasonout)
             character->flags = (unsigned short)SetupRead16(record + 20);
             character->headid = SetupRead16(record + 22);
             character->sourceoffset = at;
+            character->deleted = type != PROPDEF_GUARD;
         }
 
         at += bytes;
@@ -1021,6 +1029,26 @@ BOOL SetupFileDeleteObject(SetupFile *setup, DWORD objectindex,
     return TRUE;
 }
 
+BOOL SetupFileDeleteCharacter(SetupFile *setup, DWORD characterindex,
+                              const char **reasonout)
+{
+    SetupCharacter *character;
+    *reasonout = "The selected setup character is invalid.";
+    if (setup == NULL || setup->data == NULL || setup->characters == NULL
+        || characterindex >= setup->charactercount) { return FALSE; }
+    character = &setup->characters[characterindex];
+    if (character->deleted)
+    { *reasonout = "The selected setup character is already deleted."; return FALSE; }
+    if (character->sourceoffset > setup->size || setup->size - character->sourceoffset < 28
+        || setup->data[character->sourceoffset + 3] != PROPDEF_GUARD)
+    { *reasonout = "The selected setup character's source record is invalid."; return FALSE; }
+    SetupWrite32(setup->data + character->sourceoffset, SETUP_DELETED_CHARACTER_HEADER);
+    character->deleted = TRUE;
+    setup->dirty = TRUE;
+    *reasonout = "";
+    return TRUE;
+}
+
 BOOL SetupFileTranslatePad(SetupFile *setup, const SetupPadRef *ref,
                             float levelscale, const double offset[3],
                             BOOL *changedout, const char **reasonout)
@@ -1100,7 +1128,7 @@ BOOL SetupFileTranslateModel(SetupFile *setup, DWORD selection,
     {
         if (setup->characters == NULL || owner >= setup->charactercount) { return FALSE; }
         character = &setup->characters[owner];
-        if (character->sourceoffset > setup->size - 28
+        if (character->deleted || character->sourceoffset > setup->size - 28
             || setup->data[character->sourceoffset + 3] != PROPDEF_GUARD) { return FALSE; }
         sourceoffset = character->sourceoffset;
         door = bound = FALSE;
@@ -1242,7 +1270,7 @@ BOOL SetupFileGetModelPad(const SetupFile *setup, DWORD selection, SetupPadRef *
     }
     if (selection & SETUP_CHARACTER_SELECTION_BIT)
     {
-        if (index >= setup->charactercount)
+        if (index >= setup->charactercount || setup->characters[index].deleted)
         {
             return FALSE;
         }

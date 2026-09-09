@@ -263,7 +263,7 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         float headoffset[3], length, facingx, facingz;
         int bodyid, headid, axis;
 
-        if (character->pad >= setup->padcount
+        if (character->deleted || character->pad >= setup->padcount
             || !CharacterResolveModels(character, &bodyid, &headid)) { continue; }
         pad = &setup->pads[character->pad];
         if (!CharacterGetPadPosition(pad, stan, levelscale, position)) { continue; }
