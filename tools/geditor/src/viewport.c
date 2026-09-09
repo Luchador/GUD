@@ -117,6 +117,7 @@ typedef struct ViewportState {
     HDC hdc;      /* private DC - stable for the window's lifetime (CS_OWNDC) */
     HGLRC hglrc;  /* the GL context rendering into it */
     EditorTool tool;
+    BOOL vertexsnap;
 
     /* Fly Camera */
     float posx, posy, posz;
@@ -2073,6 +2074,7 @@ static void ViewportUpdateGizmo(ViewportState *state)
     int i, axis;
     state->gizmovisible = FALSE;
     state->hoveraxis = -1;
+    if (state->vertexsnap) { return; }
     if (ViewportPadSelectionPosition(state, state->gizmoposition))
     {
         state->gizmovisible = TRUE;
@@ -2740,6 +2742,57 @@ static BOOL ViewportTryPickStan(HWND hwnd, ViewportState *state, int x, int y, B
     InvalidateRect(hwnd, NULL, FALSE);
     SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
     return TRUE;
+}
+
+/* Reuse normal vertex picking, including visibility and shared-point identity.
+ * Snapshot the source before picking the destination: picking replaces the
+ * selection, and committing the edit may rebuild all viewport geometry. */
+static void ViewportSnapVertexAt(HWND hwnd, ViewportState *state, int x, int y)
+{
+    ViewportComponent sourcebg = {0};
+    ViewportStanComponent sourcestan = {0};
+    double source[3], target[3];
+    DWORD count;
+    BOOL stan = state->stancomponentcount == 1;
+    BOOL pending = state->componentcount + state->stancomponentcount == 1
+        && ViewportGetSelectionPosition(hwnd, source, &count);
+
+    if (pending)
+    {
+        if (stan) { sourcestan = state->stancomponents[0]; }
+        else { sourcebg = state->components[0]; }
+    }
+    ViewportClearAllSelection(state);
+    /* Shift/Ctrl cannot extend or subtract from this one-vertex selection. */
+    if (!ViewportTryPickStan(hwnd, state, x, y, FALSE, FALSE))
+    {
+        ViewportPickComponent(hwnd, state, x, y, FALSE, FALSE);
+    }
+    if (pending && ViewportGetSelectionPosition(hwnd, target, &count))
+    {
+        ViewportTranslation request;
+        int axis;
+
+        ViewportClearAllSelection(state);
+        /* The source's allocation still exists, even after picking a vertex
+           in the other asset type. Only the source is passed to history. */
+        if (stan)
+        {
+            state->stancomponents[0] = sourcestan;
+            state->stancomponentcount = 1;
+        }
+        else
+        {
+            state->components[0] = sourcebg;
+            state->componentcount = 1;
+        }
+        for (axis = 0; axis < 3; axis++) { request.offset[axis] = target[axis] - source[axis]; }
+        SendMessage(GetParent(hwnd), VIEWPORT_WM_SNAP_VERTEX, 0, (LPARAM)&request);
+        ViewportClearAllSelection(state);
+    }
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
 }
 
 /* A marquee holds the click until mouse-up, so a drag never changes the
@@ -3769,6 +3822,11 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
     case WM_LBUTTONDOWN:
         SetFocus(hwnd);
+        if (state != NULL && !state->flying && state->vertexsnap)
+        {
+            ViewportSnapVertexAt(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+            return 0;
+        }
         if (state != NULL && !state->flying
             && ViewportBeginTransform(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam)))
         {
@@ -4004,6 +4062,7 @@ void ViewportSetTool(HWND viewport, EditorTool tool)
         return;
     }
     state->tool = tool;
+    state->vertexsnap = FALSE;
     /* Vertex/edge/paint tools must not inherit a face or object
        selection that Delete or Transform could inadvertently edit. */
     ViewportCancelTransform(viewport);
@@ -4012,6 +4071,27 @@ void ViewportSetTool(HWND viewport, EditorTool tool)
     SendMessage(GetParent(viewport), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
 }
 
+
+BOOL ViewportGetVertexSnap(HWND viewport)
+{
+    const ViewportState *state = ViewportGetState(viewport);
+    return state != NULL && state->vertexsnap;
+}
+
+void ViewportSetVertexSnap(HWND viewport, BOOL enabled)
+{
+    ViewportState *state = ViewportGetState(viewport);
+
+    if (state == NULL) { return; }
+    enabled = enabled && state->tool == EDITOR_TOOL_VERTEX_SELECT;
+    if (state->vertexsnap == enabled) { return; }
+    ViewportCancelTransform(viewport);
+    state->vertexsnap = enabled;
+    /* Starting and ending a snap session both discard the pending source. */
+    ViewportClearAllSelection(state);
+    ViewportRedraw(viewport);
+    SendMessage(GetParent(viewport), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+}
 
 /* CPU alpha copies share the lifetime of the GL textures. */
 static void ViewportFreeTextureCache(ViewportTexture *cache)

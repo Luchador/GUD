@@ -14,6 +14,8 @@ IDR_FACE_SELECT_OFF   RCDATA "../geditorassets/faces_select_off.png"
 IDR_FACE_SELECT_ON    RCDATA "../geditorassets/faces_select_on.png"
 IDR_VERTEX_PAINT_OFF  RCDATA "../geditorassets/vertex_paint_off.png"
 IDR_VERTEX_PAINT_ON   RCDATA "../geditorassets/vertex_paint_on.png"
+IDR_VERTEX_SNAP_OFF   RCDATA "../geditorassets/vertex_snap_off.png"
+IDR_VERTEX_SNAP_ON    RCDATA "../geditorassets/vertex_snap_on.png"
 
 /*
  * New Project dialog. Units here are dialog units, not pixels: they

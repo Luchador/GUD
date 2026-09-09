@@ -20,6 +20,8 @@
    before the frame edits the document and rebuilds the viewport. */
 #define VIEWPORT_WM_PAINT_VERTEX (WM_APP + 7)
 #define VIEWPORT_WM_TRANSLATE_SELECTION (WM_APP + 8)
+/* Same ViewportTranslation payload; commits one snap through edit history. */
+#define VIEWPORT_WM_SNAP_VERTEX (WM_APP + 22)
 /* Refresh coordinate fields after transient drag movement or cancellation. */
 #define VIEWPORT_WM_TRANSFORM_PREVIEW (WM_APP + 9)
 /* wparam is the document tile index; painting changes its complete RGB. */
@@ -51,6 +53,8 @@ void ViewportRedraw(HWND viewport);
    selection without editing assets or adding an undo history entry. */
 EditorTool ViewportGetTool(HWND viewport);
 void ViewportSetTool(HWND viewport, EditorTool tool);
+BOOL ViewportGetVertexSnap(HWND viewport);
+void ViewportSetVertexSnap(HWND viewport, BOOL enabled);
 
 /* Refreshes every rendered corner sharing this vertex after a color-only
    document edit. Keeps geometry, camera, and textures resident. */

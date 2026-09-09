@@ -11,22 +11,26 @@
 #define TOOLTOOLBAR_BUTTON_SIZE 48
 #define TOOLTOOLBAR_MARGIN 4
 #define TOOLTOOLBAR_FIRST_ID 3001
+#define TOOLTOOLBAR_SNAP_INDEX EDITOR_TOOL_COUNT
+#define TOOLTOOLBAR_BUTTON_COUNT (EDITOR_TOOL_COUNT + 1)
 
 static const struct {
     const char *name;
     int images[2]; /* off, on */
-} g_Tools[EDITOR_TOOL_COUNT] = {
+} g_Tools[TOOLTOOLBAR_BUTTON_COUNT] = {
     { "Vertex Select (1)", { IDR_VERTEX_SELECT_OFF, IDR_VERTEX_SELECT_ON } },
     { "Edge Select (2)",   { IDR_EDGE_SELECT_OFF, IDR_EDGE_SELECT_ON } },
     { "Face Select (3)",   { IDR_FACE_SELECT_OFF, IDR_FACE_SELECT_ON } },
-    { "Vertex Paint (4)",  { IDR_VERTEX_PAINT_OFF, IDR_VERTEX_PAINT_ON } }
+    { "Vertex Paint (4)",  { IDR_VERTEX_PAINT_OFF, IDR_VERTEX_PAINT_ON } },
+    { "Vertex Snap (V; vertex mode only)", { IDR_VERTEX_SNAP_OFF, IDR_VERTEX_SNAP_ON } }
 };
 
 typedef struct ToolToolbarState {
     EditorTool tool;
-    HWND buttons[EDITOR_TOOL_COUNT];
+    BOOL vertexsnap;
+    HWND buttons[TOOLTOOLBAR_BUTTON_COUNT];
     HWND tooltip;
-    HBITMAP images[EDITOR_TOOL_COUNT][2];
+    HBITMAP images[TOOLTOOLBAR_BUTTON_COUNT][2];
 } ToolToolbarState;
 
 /* Decode embedded PNGs once at creation, so installed copies of the exe
@@ -107,7 +111,7 @@ static BOOL ToolToolbarLoadImages(HINSTANCE instance, ToolToolbarState *state)
                       (void **)&factory)))
     {
         success = TRUE;
-        for (tool = 0; tool < EDITOR_TOOL_COUNT; tool++)
+        for (tool = 0; tool < TOOLTOOLBAR_BUTTON_COUNT; tool++)
         {
             for (active = 0; active < 2; active++)
             {
@@ -149,7 +153,7 @@ static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
             WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX,
             CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
             hwnd, NULL, instance, NULL);
-        for (tool = 0; tool < EDITOR_TOOL_COUNT; tool++)
+        for (tool = 0; tool < TOOLTOOLBAR_BUTTON_COUNT; tool++)
         {
             TOOLINFO tip;
 
@@ -159,6 +163,7 @@ static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
                 TOOLTOOLBAR_MARGIN, TOOLTOOLBAR_BUTTON_SIZE, TOOLTOOLBAR_BUTTON_SIZE,
                 hwnd, (HMENU)(INT_PTR)(TOOLTOOLBAR_FIRST_ID + tool), instance, NULL);
             if (state->buttons[tool] == NULL) { return -1; }
+            if (tool == TOOLTOOLBAR_SNAP_INDEX) { EnableWindow(state->buttons[tool], FALSE); }
             ZeroMemory(&tip, sizeof(tip));
             tip.cbSize = sizeof(tip);
             tip.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
@@ -172,9 +177,16 @@ static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
 
     case WM_COMMAND:
         tool = LOWORD(wparam) - TOOLTOOLBAR_FIRST_ID;
-        if (HIWORD(wparam) == BN_CLICKED && tool >= 0 && tool < EDITOR_TOOL_COUNT)
+        if (HIWORD(wparam) == BN_CLICKED && tool >= 0 && tool < TOOLTOOLBAR_BUTTON_COUNT)
         {
-            SendMessage(GetParent(hwnd), EDITTOOL_WM_SELECT, (WPARAM)tool, 0);
+            if (tool == TOOLTOOLBAR_SNAP_INDEX)
+            {
+                SendMessage(GetParent(hwnd), EDITTOOL_WM_TOGGLE_VERTEX_SNAP, 0, 0);
+            }
+            else
+            {
+                SendMessage(GetParent(hwnd), EDITTOOL_WM_SELECT, (WPARAM)tool, 0);
+            }
             return 0;
         }
         break;
@@ -185,13 +197,14 @@ static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
             const DRAWITEMSTRUCT *draw = (const DRAWITEMSTRUCT *)lparam;
 
             tool = (int)draw->CtlID - TOOLTOOLBAR_FIRST_ID;
-            if (draw->CtlType == ODT_BUTTON && tool >= 0 && tool < EDITOR_TOOL_COUNT)
+            if (draw->CtlType == ODT_BUTTON && tool >= 0 && tool < TOOLTOOLBAR_BUTTON_COUNT)
             {
                 HDC source = CreateCompatibleDC(draw->hDC);
                 HGDIOBJ previous;
 
                 if (source == NULL) { return FALSE; }
-                previous = SelectObject(source, state->images[tool][state->tool == (EditorTool)tool]);
+                previous = SelectObject(source, state->images[tool][tool == TOOLTOOLBAR_SNAP_INDEX
+                    ? state->vertexsnap : state->tool == (EditorTool)tool]);
                 BitBlt(draw->hDC, draw->rcItem.left, draw->rcItem.top,
                     TOOLTOOLBAR_BUTTON_SIZE, TOOLTOOLBAR_BUTTON_SIZE, source, 0, 0, SRCCOPY);
                 SelectObject(source, previous);
@@ -214,7 +227,7 @@ static LRESULT CALLBACK ToolToolbarWndProc(HWND hwnd, UINT message,
             int active;
 
             if (state->tooltip != NULL) { DestroyWindow(state->tooltip); }
-            for (tool = 0; tool < EDITOR_TOOL_COUNT; tool++)
+            for (tool = 0; tool < TOOLTOOLBAR_BUTTON_COUNT; tool++)
             {
                 for (active = 0; active < 2; active++)
                 {
@@ -264,10 +277,21 @@ void ToolToolbarSetTool(HWND toolbar, EditorTool tool)
         return;
     }
     state->tool = tool;
-    for (index = 0; index < EDITOR_TOOL_COUNT; index++)
+    if (tool != EDITOR_TOOL_VERTEX_SELECT) { state->vertexsnap = FALSE; }
+    EnableWindow(state->buttons[TOOLTOOLBAR_SNAP_INDEX], tool == EDITOR_TOOL_VERTEX_SELECT);
+    for (index = 0; index < TOOLTOOLBAR_BUTTON_COUNT; index++)
     {
         InvalidateRect(state->buttons[index], NULL, FALSE);
     }
+}
+
+void ToolToolbarSetVertexSnap(HWND toolbar, BOOL enabled)
+{
+    ToolToolbarState *state = (ToolToolbarState *)GetWindowLongPtr(toolbar, GWLP_USERDATA);
+
+    if (state == NULL) { return; }
+    state->vertexsnap = enabled && state->tool == EDITOR_TOOL_VERTEX_SELECT;
+    InvalidateRect(state->buttons[TOOLTOOLBAR_SNAP_INDEX], NULL, FALSE);
 }
 
 BOOL ToolToolbarHandleMessage(HWND toolbar, MSG *message)
@@ -290,6 +314,15 @@ BOOL ToolToolbarHandleMessage(HWND toolbar, MSG *message)
            other native edit controls added to the editor in future. */
         GetClassName(message->hwnd, classname, sizeof(classname));
         if (lstrcmpi(classname, "Edit") == 0) { return FALSE; }
+        if (message->wParam == 'V')
+        {
+            /* Holding V must not repeatedly toggle the mode. */
+            if (!(message->lParam & (1L << 30)))
+            {
+                SendMessage(frame, EDITTOOL_WM_TOGGLE_VERTEX_SNAP, 0, 0);
+            }
+            return TRUE;
+        }
         if (message->wParam >= '1' && message->wParam <= '4')
         {
             tool = (int)(message->wParam - '1');

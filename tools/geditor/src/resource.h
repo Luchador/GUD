@@ -20,6 +20,8 @@
 #define IDR_GIZMO_ARROW       309
 #define IDR_NO_TEXTURE        310
 #define IDR_GIZMO_CYLINDER    311
+#define IDR_VERTEX_SNAP_OFF   312
+#define IDR_VERTEX_SNAP_ON    313
 
 /* Controls inside IDD_NEW_PROJECT */
 #define IDC_PROJECT_NAME     1001

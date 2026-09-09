@@ -1500,9 +1500,9 @@ static void GEditorDeleteSelectedBgFaces(HWND hwnd)
 }
 
 
-/* Both the panel and gizmo commit through the same asset/history path. Drag
+/* The panel, gizmo and vertex snaps share the same asset/history path. Drag
  * previews live only in the viewport; there is exactly one edit on release. */
-static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3])
+static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3], BOOL snap)
 {
     EditHistoryTransaction transaction;
     double applied[3];
@@ -1523,6 +1523,7 @@ static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3])
         : object ? (character ? "Move Character" : "Move Object") : tool == EDITOR_TOOL_VERTEX_SELECT
         ? "Move BG Vertices" : tool == EDITOR_TOOL_EDGE_SELECT ? "Move BG Edges" : "Move BG Faces";
     int axis;
+    if (snap) { action = stan ? "Snap Stan Vertex" : "Snap BG Vertex"; }
     ZeroMemory(&transaction, sizeof(transaction));
     ZeroMemory(&objects, sizeof(objects));
     for (axis=0; axis<3; axis++) { applied[axis]=0; }
@@ -2107,6 +2108,15 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
         return 0;
 
+    case EDITTOOL_WM_TOGGLE_VERTEX_SNAP:
+        if (ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_SELECT)
+        {
+            ViewportSetVertexSnap(g_Viewport, !ViewportGetVertexSnap(g_Viewport));
+            ToolToolbarSetVertexSnap(g_ToolToolbar, ViewportGetVertexSnap(g_Viewport));
+            SetFocus(g_Viewport);
+        }
+        return 0;
+
     case RIGHTPANEL_WM_ROTATION_MODE:
         ViewportSetRotationMode(g_Viewport,wparam!=0);
         RightPanelSetRotationMode(g_RightPanel, wparam != 0);
@@ -2153,7 +2163,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                     if (!isfinite(offset[axis])) { break; }
                 }
             }
-            if (axis == 3) { result = GEditorTranslateSelection(hwnd, offset); }
+            if (axis == 3) { result = GEditorTranslateSelection(hwnd, offset, FALSE); }
         }
         /* Refresh even for a no-op or rejected edit: display actual asset coordinates. */
         GEditorRefreshTransformFields();
@@ -2161,9 +2171,11 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     }
 
     case VIEWPORT_WM_TRANSLATE_SELECTION:
+    case VIEWPORT_WM_SNAP_VERTEX:
     {
         const ViewportTranslation *request = (const ViewportTranslation *)lparam;
-        return request != NULL && GEditorTranslateSelection(hwnd,request->offset);
+        return request != NULL && GEditorTranslateSelection(hwnd, request->offset,
+                                                            msg == VIEWPORT_WM_SNAP_VERTEX);
     }
 
     case VIEWPORT_WM_PAINT_STAN:
