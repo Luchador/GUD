@@ -66,8 +66,8 @@ void ViewportFlyFrame(HWND viewport);
 
 /*
  * Replaces the viewport's scene with a triangle soup. All supplied arrays
- * are copied and remain caller-owned. renderflags supplies decoded BG depth
- * state; NULL uses primary/secondary defaults. NULL/0 restores the built-in test
+ * are copied and remain caller-owned. renderflags supplies decoded render
+ * state and S/T wrapping; NULL uses primary/secondary defaults. NULL/0 restores the built-in test
  * scene. Set framecamera when opening a level; clear it when rebuilding an
  * edited level so undo and redo do not move the user's viewpoint. Surviving
  * selected BG faces are retained when framecamera is FALSE. Object
@@ -75,7 +75,7 @@ void ViewportFlyFrame(HWND viewport);
  */
 BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const unsigned short *tritags,
-                      const unsigned char *renderflags,
+                      const BgRenderFlags *renderflags,
                       const BgFaceRef *facerefs,
                       const BgDocumentVertexRef *vertexrefs,
                       const DWORD *objectindices, int objectfirsttriangle,

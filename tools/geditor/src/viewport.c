@@ -51,6 +51,13 @@
 #define VIEWPORT_OBJECT_NONE 0xffffffffu
 #define VIEWPORT_BLEND_ALPHA_THRESHOLD 0.01f
 #define VIEWPORT_CUTOUT_ALPHA_THRESHOLD 0.5f
+/* Windows' OpenGL 1.1 header omits these core 1.2 / 1.4 sampler tokens. */
+#ifndef GL_CLAMP_TO_EDGE
+#define GL_CLAMP_TO_EDGE 0x812F
+#endif
+#ifndef GL_MIRRORED_REPEAT
+#define GL_MIRRORED_REPEAT 0x8370
+#endif
 #define VIEWPORT_TEXTURE_VARIANT_COUNT ((BG_TEX_NONE + 1) * 2)
 
 /* Cached by texture ID and alpha use: authored order can revisit a texture many times.
@@ -60,6 +67,7 @@ typedef struct ViewportTexture {
     int width, height;
     BOOL attempted;
     unsigned char *alpha;
+    BgRenderFlags wrapflags; /* current GL sampler state for this texture */
 } ViewportTexture;
 
 /* A contiguous run sharing texture, depth/blend state and culling. */
@@ -69,7 +77,7 @@ typedef struct SceneBatch {
     GLsizei count;
     BOOL    secondary;  /* authored room layer / visibility toggle */
     unsigned short textureid;
-    unsigned char renderflags;
+    BgRenderFlags renderflags;
     BOOL    cullbackfaces;
     BOOL    object;     /* setup model, independent of BG visibility */
 } SceneBatch;
@@ -433,7 +441,38 @@ static void ViewportDrawBgToolOverlay(const ViewportState *state)
 }
 
 
-static void ViewportApplyRenderFlags(unsigned char flags)
+static unsigned int ViewportTextureKey(unsigned short textureid, BgRenderFlags flags)
+{
+    return textureid + ((flags & BG_RENDER_IGNORE_TEXTURE_ALPHA) ? BG_TEX_NONE + 1 : 0);
+}
+
+
+/* Wrapping belongs to the draw's material, not the image ID. Reuse texture
+   storage and change its sampler only when an adjacent use needs new modes. */
+static void ViewportApplyTextureWrap(ViewportState *state, const SceneBatch *batch)
+{
+    ViewportTexture *texture =
+        &state->texturecache[ViewportTextureKey(batch->textureid, batch->renderflags)];
+    BgRenderFlags wrap = batch->renderflags & BG_RENDER_WRAP_MASK;
+    BgRenderFlags changed = wrap ^ texture->wrapflags;
+    if (changed & (BG_RENDER_CLAMP_S | BG_RENDER_MIRROR_S))
+    {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                        (wrap & BG_RENDER_CLAMP_S)    ? GL_CLAMP_TO_EDGE
+                        : (wrap & BG_RENDER_MIRROR_S) ? GL_MIRRORED_REPEAT
+                                                      : GL_REPEAT);
+    }
+    if (changed & (BG_RENDER_CLAMP_T | BG_RENDER_MIRROR_T))
+    {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
+                        (wrap & BG_RENDER_CLAMP_T)    ? GL_CLAMP_TO_EDGE
+                        : (wrap & BG_RENDER_MIRROR_T) ? GL_MIRRORED_REPEAT
+                                                      : GL_REPEAT);
+    }
+    texture->wrapflags = wrap;
+}
+
+static void ViewportApplyRenderFlags(BgRenderFlags flags)
 {
     /* GL_ALWAYS allows independent depth writes when N64 Z_CMP is disabled. */
     glEnable(GL_DEPTH_TEST);
@@ -556,6 +595,7 @@ static void ViewportPaintGL(ViewportState *state)
                 {
                     glEnable(GL_TEXTURE_2D);
                     glBindTexture(GL_TEXTURE_2D, batch->gltex);
+                    ViewportApplyTextureWrap(state, batch);
                 }
                 else
                 {
@@ -1123,13 +1163,7 @@ static double ViewportCoplanarPickTolerance(double distance)
         ? relative : VIEWPORT_PICK_COPLANAR_EPSILON;
 }
 
-
-static unsigned int ViewportTextureKey(unsigned short textureid, unsigned char flags)
-{
-    return textureid + ((flags & BG_RENDER_IGNORE_TEXTURE_ALPHA) ? BG_TEX_NONE + 1 : 0);
-}
-
-/* CPU equivalent of GL_LINEAR + GL_REPEAT alpha at a ray/triangle hit.
+/* CPU equivalent of GL_LINEAR and the material's wrap modes at a triangle hit.
  * Vertex colors remain affine on the triangle; ray intersection supplies
  * the same perspective-correct surface point used by rasterization. */
 static BOOL ViewportRayBatchTriangleDistance(const ViewportState *state, const SceneBatch *batch,
@@ -1174,16 +1208,16 @@ static BOOL ViewportRayBatchTriangleDistance(const ViewportState *state, const S
     {
         double tx = (1 - u - w) * v[0].s + u * v[1].s + w * v[2].s;
         double ty = (1 - u - w) * v[0].t + u * v[1].t + w * v[2].t;
-        double x = (tx - floor(tx)) * texture->width - 0.5;
-        double y = (ty - floor(ty)) * texture->height - 0.5;
+        double x = BgRenderWrapCoordinate(tx, batch->renderflags, FALSE) * texture->width - 0.5;
+        double y = BgRenderWrapCoordinate(ty, batch->renderflags, TRUE) * texture->height - 0.5;
         double fx = x - floor(x), fy = y - floor(y), sample = 0;
         int ix, iy;
         for (iy = 0; iy < 2; iy++)
         {
             for (ix = 0; ix < 2; ix++)
             {
-                int px = ((int)floor(x) + ix + texture->width) % texture->width;
-                int py = ((int)floor(y) + iy + texture->height) % texture->height;
+                int px = BgRenderWrapTexel((int)floor(x) + ix, texture->width, batch->renderflags, FALSE);
+                int py = BgRenderWrapTexel((int)floor(y) + iy, texture->height, batch->renderflags, TRUE);
                 sample += texture->alpha[py * texture->width + px] * (ix ? fx : 1 - fx) *
                           (iy ? fy : 1 - fy);
             }
@@ -4278,7 +4312,7 @@ static int ViewportCompareFaceRefs(const void *left, const void *right)
 
 BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const unsigned short *tritags,
-                      const unsigned char *renderflags,
+                      const BgRenderFlags *renderflags,
                       const BgFaceRef *facerefs,
                       const BgDocumentVertexRef *vertexrefs,
                       const DWORD *objectindices, int objectfirsttriangle,
@@ -4382,7 +4416,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
             float invh = 0.0f;
             int k;
             unsigned short textureid = BG_TEX_ID(order[i].tag);
-            unsigned char flags = renderflags ? renderflags[order[i].tri]
+            BgRenderFlags flags = renderflags ? renderflags[order[i].tri]
                 : BgRenderDefaultFlags(BG_TRI_IS_SECONDARY(order[i].tag));
             ViewportTexture *texture = &texturecache[ViewportTextureKey(textureid, flags)];
 

@@ -39,7 +39,7 @@ typedef struct CharacterPart {
     BOOL attempted;
     BgVertex *vertices;
     unsigned short *tags;
-    unsigned char *renderflags;
+    BgRenderFlags *renderflags;
     DWORD tricount;
     float bottom;
     float headposition[3];
@@ -49,7 +49,7 @@ typedef struct CharacterPart {
 typedef struct CharacterBuilder {
     BgVertex *vertices;
     unsigned short *tags;
-    unsigned char *renderflags;
+    BgRenderFlags *renderflags;
     DWORD *indices;
     DWORD count;
     DWORD capacity;
@@ -144,7 +144,7 @@ static BOOL CharacterReserve(CharacterBuilder *builder, DWORD add)
     DWORD needed, capacity;
     BgVertex *vertices;
     unsigned short *tags;
-    unsigned char *renderflags;
+    BgRenderFlags *renderflags;
     DWORD *indices;
 
     if (add > 1000000u - builder->count) { return FALSE; }
@@ -158,7 +158,8 @@ static BOOL CharacterReserve(CharacterBuilder *builder, DWORD add)
     tags = (unsigned short *)realloc(builder->tags, (size_t)capacity * sizeof(*tags));
     if (tags == NULL) { return FALSE; }
     builder->tags = tags;
-    renderflags = (unsigned char *)realloc(builder->renderflags, capacity);
+    renderflags = (BgRenderFlags *)realloc(
+        builder->renderflags, (size_t)capacity * sizeof(*renderflags));
     if (renderflags == NULL) { return FALSE; }
     builder->renderflags = renderflags;
     indices = (DWORD *)realloc(builder->indices, (size_t)capacity * sizeof(*indices));

@@ -5,6 +5,7 @@
 
 #include "rom.h"
 #include "bgload.h"
+#include "bgrender.h"
 
 /*
  * GoldenEye model (P/C/G file) geometry extraction.
@@ -18,13 +19,13 @@
  */
 BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
                             DWORD *tricount, unsigned short **texids,
-                            unsigned char **renderflags,
+                            BgRenderFlags **renderflags,
                             const char **reasonout);
 
 /* Character exports retain only the closest LOD of each body part. */
 BgVertex *ModelLoadCharacterGeometry(const unsigned char *data, DWORD maxlen,
                                      DWORD *tricount, unsigned short **texids,
-                                     unsigned char **renderflags,
+                                     BgRenderFlags **renderflags,
                                      const char **reasonout);
 
 /* Model-space position of MODELNODE_OPCODE_HEAD in the unanimated body. */
@@ -48,7 +49,7 @@ BOOL ModelReadPlacementBounds(const unsigned char *data, DWORD size,
 BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
                                    DWORD *tricount,
                                    unsigned short **tritags,
-                                   unsigned char **renderflags,
+                                   BgRenderFlags **renderflags,
                                    float *modelscale,
                                    const char **reasonout);
 

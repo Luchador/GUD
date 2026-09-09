@@ -98,7 +98,7 @@ typedef struct BgDocumentVertexRef {
 typedef struct BgDocumentRenderMesh {
     BgVertex *vertices;       /* facecount * 3 world-space vertices */
     unsigned short *tags;     /* one BG_* tag per face */
-    unsigned char *renderflags; /* decoded depth/decal/blend state per face */
+    BgRenderFlags *renderflags; /* decoded render state and S/T wrapping per face */
     BgFaceRef *facerefs;      /* one stable document identity per face */
     BgDocumentVertexRef *vertexrefs; /* one identity per rendered corner */
     DWORD facecount;

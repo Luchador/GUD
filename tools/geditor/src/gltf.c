@@ -27,6 +27,9 @@
 #define GLTF_COMPONENT_UNSIGNED_SHORT 5123
 #define GLTF_COMPONENT_UNSIGNED_INT   5125
 #define GLTF_COMPONENT_FLOAT          5126
+#define GLTF_WRAP_REPEAT             10497
+#define GLTF_WRAP_CLAMP_TO_EDGE      33071
+#define GLTF_WRAP_MIRRORED_REPEAT    33648
 #define GLTF_MODE_TRIANGLES              4
 #define GLTF_VERTEX_STRIDE               24u
 #define GLTF_MAX_FACES              1000000u
@@ -69,14 +72,14 @@ typedef struct GltfAccessor {
 typedef struct GltfBuilder {
     BgVertex *vertices;
     unsigned short *tags;
-    unsigned char *renderflags;
+    BgRenderFlags *renderflags;
     DWORD tricount;
     DWORD capacity;
 } GltfBuilder;
 
 typedef struct GltfGroup {
     unsigned short tag;
-    unsigned char renderflags;
+    BgRenderFlags renderflags;
     int texturewidth;
     int textureheight;
     DWORD tricount;
@@ -1040,7 +1043,7 @@ static BOOL GltfBuilderReserve(GltfBuilder *builder, DWORD add)
     DWORD capacity;
     BgVertex *vertices;
     unsigned short *tags;
-    unsigned char *renderflags;
+    BgRenderFlags *renderflags;
 
     if (add > GLTF_MAX_FACES - builder->tricount)
     {
@@ -1078,7 +1081,8 @@ static BOOL GltfBuilderReserve(GltfBuilder *builder, DWORD add)
         return FALSE;
     }
     builder->tags = tags;
-    renderflags = (unsigned char *)realloc(builder->renderflags, capacity);
+    renderflags = (BgRenderFlags *)realloc(
+        builder->renderflags, (size_t)capacity * sizeof(*renderflags));
     if (renderflags == NULL) { return FALSE; }
     builder->renderflags = renderflags;
     builder->capacity = capacity;
@@ -1266,7 +1270,7 @@ static void GltfPrimitiveTextureSize(const char *json,
  * with the old GoldenEye layer tag as the legacy fallback. */
 static BOOL GltfPrimitiveRenderFlags(const char *json, const GltfJsonToken *tokens, int tokencount,
                                      int root, int primitive, unsigned short tag,
-                                     unsigned char *out)
+                                     BgRenderFlags *out)
 {
     int token = GltfJsonObjectGet(json, tokens, tokencount, primitive, "material");
     DWORD index, flags;
@@ -1292,12 +1296,17 @@ static BOOL GltfPrimitiveRenderFlags(const char *json, const GltfJsonToken *toke
     if (token >= 0)
     {
         if (!GltfJsonUnsigned(json, &tokens[token], &flags) ||
-            (flags & ~(BG_RENDER_DEPTH_TEST | BG_RENDER_DEPTH_WRITE | BG_RENDER_DECAL |
-                       BG_RENDER_BLEND | BG_RENDER_ALPHA_TEST | BG_RENDER_IGNORE_TEXTURE_ALPHA)))
+            (flags &
+             ~(BG_RENDER_DEPTH_TEST | BG_RENDER_DEPTH_WRITE | BG_RENDER_DECAL | BG_RENDER_BLEND |
+               BG_RENDER_ALPHA_TEST | BG_RENDER_IGNORE_TEXTURE_ALPHA | BG_RENDER_WRAP_MASK)) ||
+            (flags & (BG_RENDER_CLAMP_S | BG_RENDER_MIRROR_S)) ==
+                (BG_RENDER_CLAMP_S | BG_RENDER_MIRROR_S) ||
+            (flags & (BG_RENDER_CLAMP_T | BG_RENDER_MIRROR_T)) ==
+                (BG_RENDER_CLAMP_T | BG_RENDER_MIRROR_T))
         {
             return FALSE;
         }
-        *out = (unsigned char)flags;
+        *out = (BgRenderFlags)flags;
         return TRUE;
     }
     token = GltfJsonObjectGet(json, tokens, tokencount, material, "alphaMode");
@@ -1328,6 +1337,93 @@ static BOOL GltfPrimitiveRenderFlags(const char *json, const GltfJsonToken *toke
     return TRUE;
 }
 
+/* An externally edited glTF may use standard base-color texture samplers.
+   If present they take precedence over the native wrap extras; absent texture
+   bindings retain GEditor's metadata (legacy exports default to repeat). */
+static BOOL GltfPrimitiveWrapFlags(const char *json, const GltfJsonToken *tokens, int tokencount,
+                                   int root, int primitive, BgRenderFlags *flags)
+{
+    DWORD index;
+    int token, material, pbr, info, texture, sampler, axis;
+    token = GltfJsonObjectGet(json, tokens, tokencount, primitive, "material");
+    if (token < 0)
+    {
+        return TRUE;
+    }
+    if (!GltfJsonUnsigned(json, &tokens[token], &index))
+    {
+        return FALSE;
+    }
+    token = GltfJsonObjectGet(json, tokens, tokencount, root, "materials");
+    material = GltfJsonArrayGet(tokens, tokencount, token, index);
+    if (material < 0)
+    {
+        return FALSE;
+    }
+    pbr = GltfJsonObjectGet(json, tokens, tokencount, material, "pbrMetallicRoughness");
+    info = GltfJsonObjectGet(json, tokens, tokencount, pbr, "baseColorTexture");
+    if (info < 0)
+    {
+        return TRUE;
+    }
+    token = GltfJsonObjectGet(json, tokens, tokencount, info, "index");
+    if (token < 0 || !GltfJsonUnsigned(json, &tokens[token], &index))
+    {
+        return FALSE;
+    }
+    token = GltfJsonObjectGet(json, tokens, tokencount, root, "textures");
+    texture = GltfJsonArrayGet(tokens, tokencount, token, index);
+    if (texture < 0)
+    {
+        return FALSE;
+    }
+    *flags &= ~BG_RENDER_WRAP_MASK;
+    token = GltfJsonObjectGet(json, tokens, tokencount, texture, "sampler");
+    if (token < 0)
+    {
+        /* glTF's default sampler repeats both axes. */
+        return TRUE;
+    }
+    if (!GltfJsonUnsigned(json, &tokens[token], &index))
+    {
+        return FALSE;
+    }
+    token = GltfJsonObjectGet(json, tokens, tokencount, root, "samplers");
+    sampler = GltfJsonArrayGet(tokens, tokencount, token, index);
+    if (sampler < 0)
+    {
+        return FALSE;
+    }
+    for (axis = 0; axis < 2; axis++)
+    {
+        DWORD mode;
+        token = GltfJsonObjectGet(json, tokens, tokencount, sampler, axis ? "wrapT" : "wrapS");
+        if (token < 0)
+        {
+            continue;
+        }
+        if (!GltfJsonUnsigned(json, &tokens[token], &mode))
+        {
+            return FALSE;
+        }
+        switch (mode)
+        {
+        case GLTF_WRAP_REPEAT:
+            break;
+        case GLTF_WRAP_CLAMP_TO_EDGE:
+            *flags |= axis ? BG_RENDER_CLAMP_T : BG_RENDER_CLAMP_S;
+            break;
+        case GLTF_WRAP_MIRRORED_REPEAT:
+            *flags |= axis ? BG_RENDER_MIRROR_T : BG_RENDER_MIRROR_S;
+            break;
+        default:
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+
 static BOOL GltfLoadPrimitive(const char *json,
                               const GltfJsonToken *tokens, int tokencount,
                               int root, int primitive,
@@ -1353,7 +1449,7 @@ static BOOL GltfLoadPrimitive(const char *json,
     BOOL hastexcoords = FALSE;
     BOOL hasindices = FALSE;
     unsigned short tag;
-    unsigned char renderflags;
+    BgRenderFlags renderflags;
     int texturewidth = 1;
     int textureheight = 1;
 
@@ -1463,7 +1559,8 @@ static BOOL GltfLoadPrimitive(const char *json,
         return FALSE;
     }
 
-    if (!GltfPrimitiveRenderFlags(json, tokens, tokencount, root, primitive, tag, &renderflags))
+    if (!GltfPrimitiveRenderFlags(json, tokens, tokencount, root, primitive, tag, &renderflags)
+        || !GltfPrimitiveWrapFlags(json, tokens, tokencount, root, primitive, &renderflags))
     {
         *reasonout = "a glTF primitive has invalid material render settings.";
         return FALSE;
@@ -1552,7 +1649,7 @@ static BOOL GltfLoadPrimitive(const char *json,
 BgVertex *GltfLoadModel(const char *path, const char *projectdir,
                         DWORD *tricount,
                         unsigned short **tritags,
-                        unsigned char **renderflags,
+                        BgRenderFlags **renderflags,
                         const char **reasonout)
 {
     char *json = NULL;
@@ -1993,7 +2090,7 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
 BOOL GltfWriteModel(const char *path, const char *projectdir,
                     const BgVertex *vertices,
                     const unsigned short *tritags,
-                    const unsigned char *renderflags, DWORD tricount,
+                    const BgRenderFlags *renderflags, DWORD tricount,
                     const char **reasonout)
 {
     GltfGroup *groups = NULL;
@@ -2028,7 +2125,7 @@ BOOL GltfWriteModel(const char *path, const char *projectdir,
     {
         unsigned short tag = tritags != NULL
             ? tritags[triangle] : BG_TEX_NONE;
-        unsigned char flags = renderflags != NULL ? renderflags[triangle]
+        BgRenderFlags flags = renderflags != NULL ? renderflags[triangle]
             : BgRenderDefaultFlags(BG_TRI_IS_SECONDARY(tag));
 
         /* Keep authored draw order, including repeated texture tags separated

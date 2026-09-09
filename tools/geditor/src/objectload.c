@@ -59,7 +59,7 @@ typedef struct ModelCacheEntry {
     BOOL attempted;
     BgVertex *tris;
     unsigned short *tritags;
-    unsigned char *renderflags;
+    BgRenderFlags *renderflags;
     DWORD tricount;
     float scale;
     float min[3], max[3];
@@ -68,7 +68,7 @@ typedef struct ModelCacheEntry {
 typedef struct ObjectBuilder {
     BgVertex *tris;
     unsigned short *tritags;
-    unsigned char *renderflags;
+    BgRenderFlags *renderflags;
     DWORD *objectindices;
     DWORD tricount;
     DWORD capacity;
@@ -232,7 +232,7 @@ static BOOL ObjectBuilderReserve(ObjectBuilder *builder, DWORD add)
     DWORD capacity;
     BgVertex *tris;
     unsigned short *tags;
-    unsigned char *renderflags;
+    BgRenderFlags *renderflags;
     DWORD *objectindices;
 
     if (builder->failed || add > 0xffffffffu - builder->tricount)
@@ -275,7 +275,8 @@ static BOOL ObjectBuilderReserve(ObjectBuilder *builder, DWORD add)
         return FALSE;
     }
     builder->tritags = tags;
-    renderflags = (unsigned char *)realloc(builder->renderflags, capacity);
+    renderflags = (BgRenderFlags *)realloc(
+        builder->renderflags, (size_t)capacity * sizeof(*renderflags));
     if (renderflags == NULL) { builder->failed = TRUE; return FALSE; }
     builder->renderflags = renderflags;
 
@@ -803,7 +804,8 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
             (size_t)characters.tricount * 3 * sizeof(*builder.tris));
         memcpy(builder.tritags + builder.tricount, characters.tritags,
             (size_t)characters.tricount * sizeof(*builder.tritags));
-        memcpy(builder.renderflags + builder.tricount, characters.renderflags, characters.tricount);
+        memcpy(builder.renderflags + builder.tricount, characters.renderflags,
+               characters.tricount * sizeof(*builder.renderflags));
         memcpy(builder.objectindices + builder.tricount, characters.objectindices,
             (size_t)characters.tricount * sizeof(*builder.objectindices));
         builder.tricount += characters.tricount;

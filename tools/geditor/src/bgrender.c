@@ -1,4 +1,5 @@
 #include "bgrender.h"
+#include <math.h>
 
 /* Fast3D / RDP encodings from include/PR/gbi.h, without its N64 ABI types. */
 #define BG_G_SETENVCOLOR 0xFBu
@@ -67,9 +68,9 @@ void BgRenderStateRead(BgRenderState *state, DWORD word0, DWORD word1)
     }
 }
 
-unsigned char BgRenderStateFlags(const BgRenderState *state)
+BgRenderFlags BgRenderStateFlags(const BgRenderState *state)
 {
-    unsigned char flags = 0;
+    BgRenderFlags flags = 0;
     BOOL decal = (state->othermode & BG_ZMODE_MASK) == BG_ZMODE_DEC;
     if (state->zbuffer && (state->othermode & BG_Z_CMP))
     {
@@ -94,7 +95,7 @@ unsigned char BgRenderStateFlags(const BgRenderState *state)
     return flags;
 }
 
-unsigned char BgRenderDefaultFlags(BOOL secondary)
+BgRenderFlags BgRenderDefaultFlags(BOOL secondary)
 {
     BgRenderState state;
     BgRenderStateInit(&state, secondary);
@@ -206,4 +207,63 @@ BgRenderAlpha BgRenderGetMaterialAlpha(const BgRenderState *state, const BgMater
 unsigned char BgRenderVertexAlpha(BgRenderAlpha alpha, unsigned char vertexalpha)
 {
     return (unsigned char)(((alpha.shade ? vertexalpha : 255u) * alpha.constant + 127u) / 255u);
+}
+
+/* C0 is GoldenEye's texture marker. Its mode numbers differ from the raw
+   RDP G_TX_* bits: 1 clamps, 2 mirrors, and 0/3 repeat. */
+BgRenderFlags BgRenderMaterialWrap(const BgMaterial *material)
+{
+    DWORD s, t;
+    BgRenderFlags flags = 0;
+    if ((material->textureword0 >> 24) != BG_G_SETTEXTURE)
+    {
+        return 0;
+    }
+    s = (material->textureword0 >> 22) & 3;
+    t = (material->textureword0 >> 20) & 3;
+    if (s == 1)
+    {
+        flags |= BG_RENDER_CLAMP_S;
+    }
+    if (s == 2)
+    {
+        flags |= BG_RENDER_MIRROR_S;
+    }
+    if (t == 1)
+    {
+        flags |= BG_RENDER_CLAMP_T;
+    }
+    if (t == 2)
+    {
+        flags |= BG_RENDER_MIRROR_T;
+    }
+    return flags;
+}
+
+double BgRenderWrapCoordinate(double coordinate, BgRenderFlags flags, BOOL t)
+{
+    if (flags & (t ? BG_RENDER_CLAMP_T : BG_RENDER_CLAMP_S))
+    {
+        return coordinate < 0 ? 0 : coordinate > 1 ? 1 : coordinate;
+    }
+    if (flags & (t ? BG_RENDER_MIRROR_T : BG_RENDER_MIRROR_S))
+    {
+        coordinate = fmod(coordinate, 2.0);
+        if (coordinate < 0)
+        {
+            coordinate += 2.0;
+        }
+        return coordinate <= 1.0 ? coordinate : 2.0 - coordinate;
+    }
+    return coordinate - floor(coordinate);
+}
+
+int BgRenderWrapTexel(int texel, int size, BgRenderFlags flags, BOOL t)
+{
+    if (flags &
+        (t ? BG_RENDER_CLAMP_T | BG_RENDER_MIRROR_T : BG_RENDER_CLAMP_S | BG_RENDER_MIRROR_S))
+    {
+        return texel < 0 ? 0 : texel >= size ? size - 1 : texel;
+    }
+    return (texel % size + size) % size;
 }

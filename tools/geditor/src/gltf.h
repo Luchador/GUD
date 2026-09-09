@@ -2,18 +2,20 @@
 #define GEDITOR_GLTF_H
 
 #include "bgload.h"
+#include "bgrender.h"
 
 /* Writes a self-contained glTF 2.0 model. Adjacent triangles with matching
  * texture tags and preview render flags share a primitive. Ordered material
- * extras preserve native depth, decal and alpha behavior in GEditor.
+ * extras preserve native depth, decal, alpha and S/T wrapping behavior in GEditor.
  * Project image dimensions convert GoldenEye texel UVs to normalized UVs. */
 BOOL GltfWriteModel(const char *path, const char *projectdir,
                     const BgVertex *vertices,
                     const unsigned short *tritags,
-                    const unsigned char *renderflags, DWORD tricount,
+                    const BgRenderFlags *renderflags, DWORD tricount,
                     const char **reasonout);
 
-/* Loads triangle primitives from a glTF 2.0 JSON file. The loader accepts
+/* Loads triangle primitives from a glTF 2.0 JSON file. Standard base-color
+ * texture samplers override native wrapping extras when present. The loader accepts
  * embedded or external buffers, indexed or non-indexed primitives, and the
  * standard POSITION, COLOR_0, and TEXCOORD_0 accessor encodings used by DCC
  * tools. Normalized UVs are restored to GEditor's texel units using project
@@ -21,7 +23,7 @@ BOOL GltfWriteModel(const char *path, const char *projectdir,
 BgVertex *GltfLoadModel(const char *path, const char *projectdir,
                         DWORD *tricount,
                         unsigned short **tritags,
-                        unsigned char **renderflags,
+                        BgRenderFlags **renderflags,
                         const char **reasonout);
 
 /* Loads an embedded GLB scene, applying its node transforms. */

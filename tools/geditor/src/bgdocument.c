@@ -1195,7 +1195,8 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
 
     out->vertices = (BgVertex *)malloc((size_t)document->facecount * 3
                                       * sizeof(*out->vertices));
-    out->renderflags = (unsigned char *)malloc((size_t)document->facecount);
+    out->renderflags = (BgRenderFlags *)malloc(
+        (size_t)document->facecount * sizeof(*out->renderflags));
     out->tags = (unsigned short *)malloc((size_t)document->facecount
                                          * sizeof(*out->tags));
     out->facerefs = (BgFaceRef *)malloc((size_t)document->facecount
@@ -1250,7 +1251,8 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
             }
             const BgRenderState *renderstate = &groupstates[face->layer][face->drawgroup];
             alpha = BgRenderGetAlpha(renderstate, &face->material);
-            out->renderflags[outputface] = BgRenderStateFlags(renderstate);
+            out->renderflags[outputface] = BgRenderStateFlags(renderstate)
+                | BgRenderMaterialWrap(&face->material);
             if (!alpha.texture) { out->renderflags[outputface] |= BG_RENDER_IGNORE_TEXTURE_ALPHA; }
             out->tags[outputface] = tag;
             out->facerefs[outputface].faceid = face->id;

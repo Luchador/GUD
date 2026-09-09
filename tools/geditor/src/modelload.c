@@ -67,7 +67,7 @@ typedef struct MdlPose {
 typedef struct MdlBuilder {
     BgVertex       *verts;
     unsigned short *texids;
-    unsigned char *renderflags;
+    BgRenderFlags *renderflags;
     DWORD           count;
     DWORD           capacity;
     const char     *error;
@@ -103,7 +103,8 @@ static void MdlPush(MdlBuilder *b, const BgVertex *v)
         unsigned short *gt = (unsigned short *)realloc(b->texids,
                                  (next / 3) * sizeof(unsigned short));
 
-        unsigned char *flags = (unsigned char *)realloc(b->renderflags, next / 3);
+        BgRenderFlags *flags = (BgRenderFlags *)realloc(
+            b->renderflags, (size_t)(next / 3) * sizeof(*flags));
 
         if (flags != NULL) { b->renderflags = flags; }
         if (g != NULL) { b->verts = g; }
@@ -246,6 +247,8 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
         if (cmd[0] == MDL_G_NOOP)
         {
             curtex = (unsigned short)(md32(cmd + 4) & 0xFFF);
+            material->textureword0 = md32(cmd);
+            material->textureword1 = md32(cmd + 4);
             continue;
         }
 
@@ -356,7 +359,8 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                 {
                     b->texids[b->count / 3 - 1] = (unsigned short)(curtex | layerflag);
                     b->renderflags[b->count / 3 - 1] = BgRenderStateFlags(state)
-                        | (alpha.texture ? 0 : BG_RENDER_IGNORE_TEXTURE_ALPHA);
+                        | (alpha.texture ? 0 : BG_RENDER_IGNORE_TEXTURE_ALPHA)
+                        | BgRenderMaterialWrap(material);
                 }
             }
         }
@@ -551,7 +555,7 @@ BOOL ModelReadHeadAttachment(const unsigned char *data, DWORD size, float positi
 
 static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
                             DWORD *tricount, unsigned short **texids,
-                            unsigned char **renderflags,
+                            BgRenderFlags **renderflags,
                             const char **reasonout, BOOL closestlod)
 {
     MdlBuilder b;
@@ -674,7 +678,7 @@ static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
 
 BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
                             DWORD *tricount, unsigned short **texids,
-                            unsigned char **renderflags,
+                            BgRenderFlags **renderflags,
                             const char **reasonout)
 {
     return MdlLoadGeometry(data, maxlen, tricount, texids, renderflags, reasonout, FALSE);
@@ -682,7 +686,7 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
 
 BgVertex *ModelLoadCharacterGeometry(const unsigned char *data, DWORD maxlen,
                                      DWORD *tricount, unsigned short **texids,
-                                     unsigned char **renderflags,
+                                     BgRenderFlags **renderflags,
                                      const char **reasonout)
 {
     return MdlLoadGeometry(data, maxlen, tricount, texids, renderflags, reasonout, TRUE);
@@ -738,7 +742,7 @@ DWORD ModelExtractAll(const RomFile *rom, const char *projectdir,
         DWORD maxlen;
         DWORD tricount = 0;
         unsigned short *texids = NULL;
-        unsigned char *renderflags = NULL;
+        BgRenderFlags *renderflags = NULL;
         BgVertex *tris;
         const char *why = "";
 
@@ -805,7 +809,7 @@ BOOL ModelGetPropDefinition(int modelid, const char **nameout,
 BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
                                    DWORD *tricount,
                                    unsigned short **tritags,
-                                   unsigned char **renderflags,
+                                   BgRenderFlags **renderflags,
                                    float *modelscale,
                                    const char **reasonout)
 {
@@ -821,7 +825,7 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
     BgVertex *source = NULL;
     BgVertex *result = NULL;
     unsigned short *tags = NULL;
-    unsigned char *flags = NULL;
+    BgRenderFlags *flags = NULL;
     int pathlength;
 
     *tricount = 0;
@@ -910,7 +914,7 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
     source = (BgVertex *)malloc((size_t)vertexcount * sizeof(*source));
     result = (BgVertex *)malloc((size_t)facecount * 3 * sizeof(*result));
     tags = (unsigned short *)malloc((size_t)facecount * sizeof(*tags));
-    flags = (unsigned char *)malloc(facecount);
+    flags = (BgRenderFlags *)malloc((size_t)facecount * sizeof(*flags));
     if (source == NULL || result == NULL || tags == NULL || flags == NULL)
     {
         *reasonout = "out of memory loading an object model.";

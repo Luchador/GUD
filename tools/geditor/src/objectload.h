@@ -4,6 +4,7 @@
 #include <windows.h>
 
 #include "bgload.h"
+#include "bgrender.h"
 #include "setupload.h"
 #include "stanload.h"
 
@@ -13,7 +14,7 @@
 typedef struct SetupObjectGeometry {
     BgVertex *tris;
     unsigned short *tritags;
-    unsigned char *renderflags;
+    BgRenderFlags *renderflags;
     DWORD *objectindices;       /* prop index, or SETUP_CHARACTER_SELECTION_BIT | character index */
     DWORD tricount;
     unsigned char *occupiedpads;

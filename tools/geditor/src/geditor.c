@@ -81,7 +81,7 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
     DWORD total;
     BgVertex *combinedtris;
     unsigned short *combinedtags;
-    unsigned char *combinedflags;
+    BgRenderFlags *combinedflags;
     BgFaceRef *combinedrefs;
     BgDocumentVertexRef *combinedvertices;
 
@@ -98,7 +98,7 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
         return FALSE;
     }
 
-    combinedflags = (unsigned char *)malloc((size_t)total);
+    combinedflags = (BgRenderFlags *)malloc((size_t)total * sizeof(*combinedflags));
     combinedtris = (BgVertex *)malloc(
         (size_t)total * 3 * sizeof(*combinedtris));
     combinedtags = (unsigned short *)malloc(
@@ -123,7 +123,7 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
 
     if (mesh->facecount > 0)
     {
-        memcpy(combinedflags, mesh->renderflags, mesh->facecount);
+        memcpy(combinedflags, mesh->renderflags, mesh->facecount * sizeof(*combinedflags));
         memcpy(combinedvertices, mesh->vertexrefs,
                (size_t)mesh->facecount * 3 * sizeof(*combinedvertices));
         memcpy(combinedtris, mesh->vertices,
@@ -138,7 +138,8 @@ static BOOL GEditorAppendObjectGeometry(BgDocumentRenderMesh *mesh,
     memcpy(combinedtags + mesh->facecount, objects->tritags,
            (size_t)objects->tricount * sizeof(*combinedtags));
 
-    memcpy(combinedflags + mesh->facecount, objects->renderflags, objects->tricount);
+    memcpy(combinedflags + mesh->facecount, objects->renderflags,
+           (size_t)objects->tricount * sizeof(*combinedflags));
     BgDocumentRenderMeshFree(mesh);
     mesh->renderflags = combinedflags;
     mesh->vertices = combinedtris;
