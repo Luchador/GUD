@@ -21,8 +21,9 @@ BOOL CharacterResolveModels(const SetupCharacter *character,
 BOOL CharacterGetPadPosition(const SetupPad *pad, const StanFile *stan,
                               float levelscale, float position[3]);
 
-/* Loads project character glTFs, attaches separate heads using the authored
-   body node, and places a stationary preview on the setup's stan floor.
+/* Loads project glTFs, attaches heads and setup-authored visible equipment
+   using the body's nodes, and places a stationary preview on the stan floor.
+   Equipment shares its owner's selection ID, so it moves/deletes with them.
    Authored setup bytes and random head IDs are never changed. */
 BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
                                  const StanFile *stan, const RomFile *rom,

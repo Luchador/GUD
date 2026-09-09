@@ -1,20 +1,22 @@
-/* Setup-character preview. Runtime AI, animation and equipment are separate
-   from the body/head assembly represented here. */
+/* Setup-character preview with authored heads and visible held equipment.
+   Runtime AI and animation are not simulated. */
 #include <windows.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include <src/propconstants.h>
+
 #include "characterload.h"
 #include "gltf.h"
 #include "modelload.h"
 
 /* Reuse the game's complete CitemZ_entries order and metadata. The included
-   model headers supply local placeholders for the table's header pointers;
+   model headers supply switch counts through local header placeholders;
    no N64 structs, skeletons or runtime symbols enter the editor build. */
 #define MODELFILEHEADER(NAME, ROOT, SKELETON, SWITCHES, NUMSWITCHES, NUMMATRICES, RADIUS, RECORDS, TEXTURES) \
-    static const int NAME ## _header = 0;
+    static const int NAME ## _header = NUMSWITCHES;
 #include <assets/obseg/chr/chrModelFileHeaders.inc.c>
 #undef MODELFILEHEADER
 
@@ -44,7 +46,16 @@ typedef struct CharacterPart {
     float bottom;
     float headposition[3];
     BOOL hasheadposition;
+    float handposition[2][3]; /* right, left: chrEquipWeapon Switches[3/5] */
+    BOOL hashandposition[2];
 } CharacterPart;
+
+typedef struct CharacterEquipment {
+    CharacterPart part;
+    float origin[3];
+    float scale;
+    BOOL usesmodelscale;
+} CharacterEquipment;
 
 typedef struct CharacterBuilder {
     BgVertex *vertices;
@@ -127,16 +138,49 @@ static CharacterPart *CharacterGetPart(CharacterPart *cache, int modelid,
         {
             if (part->vertices[i].y < part->bottom) { part->bottom = part->vertices[i].y; }
         }
-        /* Flattened glTFs retain edited surfaces. Read only the attachment
-           point from the import ROM, as props do for authored placement boxes. */
-        if (!definition->hashead && rom != NULL && rom->data != NULL
+        /* Flattened glTFs retain edited surfaces. Read attachment points
+           from the import ROM, as props do for authored placement boxes. */
+        if (rom != NULL && rom->data != NULL
             && RomFindFile(rom, definition->filename, &offset, &size, &why))
         {
-            part->hasheadposition = ModelReadHeadAttachment(rom->data + offset,
-                size, part->headposition);
+            if (!definition->hashead)
+            {
+                part->hasheadposition = ModelReadHeadAttachment(rom->data + offset,
+                    size, part->headposition);
+            }
+            part->hashandposition[0] = ModelReadSwitchAttachment(rom->data + offset,
+                size, *definition->header, 3, part->handposition[0]);
+            part->hashandposition[1] = ModelReadSwitchAttachment(rom->data + offset,
+                size, *definition->header, 5, part->handposition[1]);
         }
     }
     return part->vertices != NULL ? part : NULL;
+}
+
+static CharacterEquipment *CharacterGetEquipment(CharacterEquipment *cache,
+    int count, int modelid, const char *projectdir, const RomFile *rom)
+{
+    CharacterEquipment *entry;
+    const char *name, *why;
+    DWORD offset, size;
+
+    if (modelid < 0 || modelid >= count) { return NULL; }
+    entry = &cache[modelid];
+    if (!entry->part.attempted)
+    {
+        entry->part.attempted = TRUE;
+        /* chrRenderHeldWeapon evaluates the root against the hand matrix.
+           Restore that root's offset without baking it into the project asset. */
+        if (rom == NULL || rom->data == NULL
+            || !ModelGetPropDefinition(modelid, &name, NULL)
+            || !RomFindFile(rom, name, &offset, &size, &why)
+            || !ModelReadHeldPlacement(rom->data + offset, size,
+                entry->origin, &entry->usesmodelscale)) { return NULL; }
+        entry->part.vertices = ModelLoadProjectGeometry(projectdir, modelid,
+            &entry->part.tricount, &entry->part.tags, &entry->part.renderflags,
+            &entry->scale, &why);
+    }
+    return entry->part.vertices != NULL && entry->part.tricount > 0 ? entry : NULL;
 }
 
 static BOOL CharacterReserve(CharacterBuilder *builder, DWORD add)
@@ -171,9 +215,11 @@ static BOOL CharacterReserve(CharacterBuilder *builder, DWORD add)
 
 static BOOL CharacterPlacePart(CharacterBuilder *builder, const CharacterPart *part,
                                  const float offset[3], const float position[3],
-                                 float scale, float facingx, float facingz, DWORD index)
+                                 float scale, float partscale, BOOL lefthand,
+                                 float facingx, float facingz, DWORD index)
 {
     DWORD tri;
+    float sign = lefthand ? -1.0f : 1.0f;
 
     if (!CharacterReserve(builder, part->tricount)) { return FALSE; }
     for (tri = 0; tri < part->tricount; tri++)
@@ -188,9 +234,9 @@ static BOOL CharacterPlacePart(CharacterBuilder *builder, const CharacterPart *p
         {
             const BgVertex *source = &part->vertices[tri * 3 + corner];
             BgVertex *dest = &builder->vertices[output * 3 + corner];
-            float x = (source->x + offset[0]) * scale;
-            float y = (source->y + offset[1]) * scale;
-            float z = (source->z + offset[2]) * scale;
+            float x = (sign * partscale * source->x + offset[0]) * scale;
+            float y = (sign * partscale * source->y + offset[1]) * scale;
+            float z = (partscale * source->z + offset[2]) * scale;
 
             *dest = *source;
             /* process_01_group_heading rotates only about world Y, using
@@ -198,13 +244,65 @@ static BOOL CharacterPlacePart(CharacterBuilder *builder, const CharacterPart *p
             dest->x = position[0] + facingz * x + facingx * z;
             dest->y = position[1] + y;
             dest->z = position[2] - facingx * x + facingz * z;
-            dest->environment.normal[0] = facingz * source->environment.normal[0]
+            /* Left-hand equipment rotates 180 degrees about local Z. */
+            dest->environment.normal[0] = facingz * sign * source->environment.normal[0]
                 + facingx * source->environment.normal[2];
-            dest->environment.normal[2] = -facingx * source->environment.normal[0]
+            dest->environment.normal[1] = sign * source->environment.normal[1];
+            dest->environment.normal[2] = -facingx * sign * source->environment.normal[0]
                 + facingz * source->environment.normal[2];
         }
     }
     builder->count += part->tricount;
+    return TRUE;
+}
+
+static BOOL CharacterPlaceEquipment(CharacterBuilder *builder,
+    CharacterEquipment *cache, int count, const SetupFile *setup, DWORD index,
+    const char *projectdir, const RomFile *rom, const CharacterPart *body,
+    const float bodyoffset[3], const float position[3], float scale,
+    float facingx, float facingz)
+{
+    const SetupCharacter *character = &setup->characters[index];
+    BOOL occupied[2] = { FALSE, FALSE };
+    DWORD i;
+
+    for (i = 0; i < setup->objectcount; i++)
+    {
+        const SetupObject *object = &setup->objects[i];
+        CharacterEquipment *equipment;
+        float offset[3], partscale;
+        int hand, axis;
+
+        /* weaponAssignToHome uses a literal character ID in the pad field.
+           Only collectables are hand attachments; keys/other inventory and
+           concealed weapons must not claim a visible hand. Setup order decides
+           which weapon occupies it, as in chrEquipWeapon. */
+        if (object->deleted || object->type != PROPDEF_COLLECTABLE
+            || !(object->flags & PROPFLAG_ASSIGNEDTOCHR)
+            || (object->flags & PROPFLAG_CONCEAL_GUN)
+            || object->pad < 0 || (unsigned short)object->pad != character->chrnum
+            || object->sourceoffset <= character->sourceoffset) { continue; }
+        hand = (object->flags & PROPFLAG_WEAPON_LEFTHANDED) ? 1 : 0;
+        if (occupied[hand]) { continue; }
+        occupied[hand] = TRUE;
+        if (!body->hashandposition[hand]
+            || (object->flags2 & PROPFLAG2_ONLYEXPLOSIONDAMAGE)) { continue; }
+        equipment = CharacterGetEquipment(cache, count, object->modelid, projectdir, rom);
+        if (equipment == NULL) { continue; }
+        for (axis = 0; axis < 3; axis++)
+        {
+            float sign = hand == 1 && axis < 2 ? -1.0f : 1.0f;
+
+            offset[axis] = bodyoffset[axis] + body->handposition[hand][axis]
+                + sign * equipment->origin[axis];
+        }
+        /* GROUP/GROUPSIMPLE roots inherit scale from the hand. Applying the
+           pickup's model scale again would shrink ordinary guns by 10x. */
+        partscale = equipment->usesmodelscale
+            ? equipment->scale * ((float)object->extrascale / 256.0f) : 1.0f;
+        if (!CharacterPlacePart(builder, &equipment->part, offset, position,
+            scale, partscale, hand == 1, facingx, facingz, index)) { return FALSE; }
+    }
     return TRUE;
 }
 
@@ -234,6 +332,8 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
                                  const char **reasonout)
 {
     CharacterPart cache[CHARACTER_MODEL_COUNT];
+    CharacterEquipment *equipment = NULL;
+    int equipmentcount = 0;
     CharacterBuilder builder;
     DWORD i;
     BOOL ok = FALSE;
@@ -247,6 +347,12 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
     {
         *reasonout = "the character preview has an invalid project or level scale.";
         return FALSE;
+    }
+    if (setup->objectcount > 0)
+    {
+        while (ModelGetPropDefinition(equipmentcount, NULL, NULL)) { equipmentcount++; }
+        equipment = (CharacterEquipment *)calloc((size_t)equipmentcount, sizeof(*equipment));
+        if (equipment == NULL) { goto done; }
     }
     if (setup->padcount > 0)
     {
@@ -282,7 +388,7 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
         facingx = length > 0.000001f ? pad->look[0] / length : 0.0f;
         facingz = length > 0.000001f ? pad->look[2] / length : 1.0f;
         if (!CharacterPlacePart(&builder, body, bodyoffset, position,
-                                 definition.scale, facingx, facingz, i)) { goto done; }
+                                 definition.scale, 1.0f, FALSE, facingx, facingz, i)) { goto done; }
         if (head != NULL)
         {
             for (axis = 0; axis < 3; axis++)
@@ -290,8 +396,11 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
                 headoffset[axis] = body->headposition[axis] + bodyoffset[axis];
             }
             if (!CharacterPlacePart(&builder, head, headoffset, position,
-                                     definition.scale, facingx, facingz, i)) { goto done; }
+                                     definition.scale, 1.0f, FALSE, facingx, facingz, i)) { goto done; }
         }
+        if (!CharacterPlaceEquipment(&builder, equipment, equipmentcount, setup, i,
+            projectdir, rom, body, bodyoffset, position, definition.scale,
+            facingx, facingz)) { goto done; }
         out->occupiedpads[character->pad] = 1;
         out->objectcount++;
     }
@@ -303,6 +412,16 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
     ok = TRUE;
 
 done:
+    if (equipment != NULL)
+    {
+        for (i = 0; i < (DWORD)equipmentcount; i++)
+        {
+            free(equipment[i].part.vertices);
+            free(equipment[i].part.tags);
+            free(equipment[i].part.renderflags);
+        }
+        free(equipment);
+    }
     for (i = 0; i < CHARACTER_MODEL_COUNT; i++)
     {
         free(cache[i].vertices);

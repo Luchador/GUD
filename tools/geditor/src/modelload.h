@@ -32,6 +32,17 @@ BgVertex *ModelLoadCharacterGeometry(const unsigned char *data, DWORD maxlen,
 BOOL ModelReadHeadAttachment(const unsigned char *data, DWORD size,
                              float position[3]);
 
+/* Switch-table node position in the unanimated model. The switch count
+   comes from its static ModelFileHeader, not the raw model file. */
+BOOL ModelReadSwitchAttachment(const unsigned char *data, DWORD size,
+                                int switchcount, int index, float position[3]);
+
+/* Held models use their authored root offset, which flattened project
+   geometry omits for ordinary object placement. GROUP roots inherit the
+   hand's scale directly; only HEADER roots also apply their own model scale. */
+BOOL ModelReadHeldPlacement(const unsigned char *data, DWORD size,
+                             float origin[3], BOOL *usesmodelscale);
+
 /* Looks up a setup ObjectRecord's model ID in GoldenEye's canonical
    PitemZ_entries table. The returned name is the extracted P...Z
    resource filename and scale is the model's authored base scale. */

@@ -438,8 +438,8 @@ static void MdlNodeMeshes(MdlBuilder *b, const unsigned char *data,
     }
 }
 
-/* Raw model files have no ModelFileHeader. Both readers use the same
-   segment-5 root-node discovery as the existing mesh extraction path. */
+/* Raw model files have no ModelFileHeader. Reuse the mesh extraction path's
+   segment-5 root-node discovery for placement and attachment data. */
 static DWORD ModelFindRootNode(const unsigned char *data, DWORD size)
 {
     DWORD probe;
@@ -560,6 +560,49 @@ BOOL ModelReadHeadAttachment(const unsigned char *data, DWORD size, float positi
         }
     }
     return FALSE;
+}
+
+BOOL ModelReadSwitchAttachment(const unsigned char *data, DWORD size,
+                                int switchcount, int index, float position[3])
+{
+    DWORD pointer, node;
+
+    if (data == NULL || size < 24 || switchcount <= 0
+        || (DWORD)switchcount > size / 4 || index < 0 || index >= switchcount)
+    {
+        return FALSE;
+    }
+    pointer = md32(data + (DWORD)index * 4);
+    node = mdoff(pointer);
+    if ((pointer >> 24) != 5 || node == 0 || node > size - 24) { return FALSE; }
+    return MdlNodeTranslation(data, size, node, position);
+}
+
+BOOL ModelReadHeldPlacement(const unsigned char *data, DWORD size,
+                             float origin[3], BOOL *usesmodelscale)
+{
+    DWORD root, opcode, offset;
+    int axis;
+
+    if (data == NULL || size < 40) { return FALSE; }
+    root = ModelFindRootNode(data, size);
+    if (root == 0) { return FALSE; }
+    opcode = (unsigned short)md16(data + root) & 0xff;
+    *usesmodelscale = opcode == 0x01;
+    origin[0] = origin[1] = origin[2] = 0.0f;
+    if (*usesmodelscale) { return TRUE; }
+    if (opcode != 0x02 && opcode != 0x03 && opcode != 0x15) { return FALSE; }
+    offset = mdoff(md32(data + root + 4));
+    if (offset == 0 || offset > size - 12) { return FALSE; }
+    for (axis = 0; axis < 3; axis++)
+    {
+        union { DWORD bits; float value; } coordinate;
+
+        coordinate.bits = md32(data + offset + axis * 4);
+        if (!isfinite(coordinate.value)) { return FALSE; }
+        origin[axis] = coordinate.value;
+    }
+    return TRUE;
 }
 
 static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
