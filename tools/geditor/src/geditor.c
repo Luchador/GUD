@@ -16,6 +16,7 @@
 #include "rightpanel.h"
 #include "tooltoolbar.h"
 #include "uveditor.h"
+#include "uvcanvas.h"
 #include "rom.h"
 #include "romexport.h"
 #include "bgload.h"
@@ -1528,6 +1529,42 @@ static void GEditorDeleteSelectedBgFaces(HWND hwnd)
 }
 
 
+/* Commit one completed UV drag or coordinate entry through BG history.
+   The canvas owns its preview; only this path changes the saved document. */
+static BOOL GEditorApplyUVEdit(HWND hwnd, const UVCanvasEdit *request)
+{
+    EditHistoryTransaction transaction;
+    const char *why = "", *restorewhy = "";
+    DWORD changed;
+    ZeroMemory(&transaction, sizeof(transaction));
+    if (request == NULL || request->vertices == NULL || request->count == 0
+        || ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT) { return FALSE; }
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+        request->count == 1 ? "Move UV Vertex" : "Move UV Vertices", &transaction, &why)) { goto fail; }
+    if (!BgDocumentSetVertexUVs(&g_CurrentBgDocument, request->vertices, request->count,
+                               &changed, &why)) { goto rollback; }
+    if (changed == 0)
+    {
+        EditHistoryCancelEdit(&transaction);
+        UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument);
+        return TRUE;
+    }
+    if (!GEditorRebuildCurrentViewport(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+                                  &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+fail:
+    EditHistoryCancelEdit(&transaction);
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
+
 /* The panel, gizmo and vertex snaps share the same asset/history path. Drag
  * previews live only in the viewport; there is exactly one edit on release. */
 static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3], BOOL snap)
@@ -2229,6 +2266,13 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
     case VIEWPORT_WM_SELECTION_CHANGED:
         GEditorRefreshSelectionDetails();
+        return 0;
+
+    case UVEDITOR_WM_APPLY:
+        return GEditorApplyUVEdit(hwnd, (const UVCanvasEdit *)lparam);
+
+    case UVEDITOR_WM_HISTORY:
+        GEditorApplyHistoryStep(hwnd, (BOOL)wparam);
         return 0;
 
     case EDITTOOL_WM_SELECT:

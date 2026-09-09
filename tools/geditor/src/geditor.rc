@@ -68,11 +68,20 @@ BEGIN
 END
 
 /* Modeless, resizable workspace for the face UV editing tools. */
-IDD_UV_EDITOR DIALOGEX 0, 0, 420, 320
+IDD_UV_EDITOR DIALOGEX 0, 0, 520, 360
 STYLE DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_CLIPCHILDREN
 EXSTYLE WS_EX_TOOLWINDOW
 CAPTION "UV Editor"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    PUSHBUTTON      "&Close", IDCANCEL, 362, 296, 50, 16
+    CONTROL         "Move (W)", IDC_UV_MOVE, "BUTTON", BS_AUTORADIOBUTTON | BS_PUSHLIKE | WS_GROUP | WS_TABSTOP, 8, 6, 62, 20
+    LTEXT           "Drag a box to select UV vertices.", IDC_UV_TOOL_HINT, 78, 12, 180, 10
+    LTEXT           "Transform", IDC_UV_TRANSFORM, 388, 10, 120, 10
+    LTEXT           "No UV vertices selected", IDC_UV_SELECTION, 388, 30, 120, 22
+    LTEXT           "U", IDC_UV_U_LABEL, 388, 64, 12, 10
+    EDITTEXT        IDC_UV_U, 406, 60, 102, 16, ES_AUTOHSCROLL
+    LTEXT           "V", IDC_UV_V_LABEL, 388, 88, 12, 10
+    EDITTEXT        IDC_UV_V, 406, 84, 102, 16, ES_AUTOHSCROLL
+    LTEXT           "Select one UV vertex to set its coordinates.", IDC_UV_HINT, 388, 112, 120, 42
+    PUSHBUTTON      "&Close", IDCANCEL, 458, 336, 50, 16
 END

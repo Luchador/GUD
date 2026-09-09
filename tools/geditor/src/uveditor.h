@@ -12,6 +12,11 @@ BOOL UVEditorShow(HWND owner, HINSTANCE instance);
    document/viewport pointers are retained, and a closed window is a no-op. */
 void UVEditorRefreshSelection(HWND viewport, const BgDocument *document);
 
+/* Synchronous owner requests. APPLY lparam points to a UVCanvasEdit;
+   HISTORY wparam is TRUE for redo. */
+#define UVEDITOR_WM_APPLY (WM_APP + 42)
+#define UVEDITOR_WM_HISTORY (WM_APP + 43)
+
 /* Route wheel input by hover position, and this window's other messages
    before the main editor's keyboard shortcuts.
    Returns TRUE when the message has been handled or dispatched here. */

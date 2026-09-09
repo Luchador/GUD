@@ -96,6 +96,17 @@ typedef struct BgDocumentVertexRef {
     DWORD index;
 } BgDocumentVertexRef;
 
+typedef struct BgDocumentUVEdit {
+    BgDocumentVertexRef vertex;
+    DWORD vertexid; /* rejects references left over from another document */
+    int s, t;       /* signed N64 S/T units (1/32 texel) */
+} BgDocumentUVEdit;
+
+/* Validates the complete edit before changing any vertex. Shared source
+   vertices are edited once; conflicting duplicate edits are rejected. */
+BOOL BgDocumentSetVertexUVs(BgDocument *document, const BgDocumentUVEdit *edits,
+                           DWORD count, DWORD *changed, const char **reason);
+
 typedef struct BgDocumentRenderMesh {
     BgVertex *vertices;       /* facecount * 3 world-space vertices */
     unsigned short *tags;     /* one BG_* tag per face */

@@ -5,29 +5,99 @@
 
 #include <windowsx.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <ctype.h>
+#include <errno.h>
+#include <math.h>
 
 static HWND g_UVEditor;
 static HWND g_UVCanvas;
 
+static void UVEditorUpdateFields(void)
+{
+    double uv[2];
+    int count = UVCanvasGetSelection(g_UVCanvas, uv), axis;
+    char text[96];
+    if (g_UVEditor == NULL) { return; }
+    if (count == 0) { lstrcpy(text, "No UV vertices selected"); }
+    else { snprintf(text, sizeof(text), "%d UV %s selected", count, count == 1 ? "vertex" : "vertices"); }
+    SetDlgItemText(g_UVEditor, IDC_UV_SELECTION, text);
+    for (axis = 0; axis < 2; axis++)
+    {
+        int id = axis ? IDC_UV_V : IDC_UV_U;
+        text[0] = '\0';
+        if (count == 1) { snprintf(text, sizeof(text), "%.9g", uv[axis]); }
+        EnableWindow(GetDlgItem(g_UVEditor, id), count == 1);
+        SetDlgItemText(g_UVEditor, id, text);
+    }
+    SetDlgItemText(g_UVEditor, IDC_UV_HINT, count == 1
+        ? "Press Enter to set U and V.\r\nDrag U, V, or the center handle to move."
+        : "Select one UV vertex to set its coordinates.\r\nDrag handles to move a group.");
+}
+
+static BOOL UVEditorReadCoordinate(int id, double *value)
+{
+    char text[64], *end;
+    GetDlgItemText(g_UVEditor, id, text, sizeof(text));
+    errno = 0;
+    *value = strtod(text, &end);
+    if (end == text || errno == ERANGE || !isfinite(*value)) { return FALSE; }
+    while (isspace((unsigned char)*end)) { end++; }
+    return *end == '\0';
+}
+
+static void UVEditorApplyFields(void)
+{
+    double uv[2];
+    const char *reason = "";
+    int axis;
+    for (axis = 0; axis < 2; axis++)
+    {
+        int id = axis ? IDC_UV_V : IDC_UV_U;
+        if (!UVEditorReadCoordinate(id, &uv[axis]))
+        {
+            MessageBox(g_UVEditor, "Enter a finite number for each UV coordinate.", "UV Editor", MB_ICONERROR);
+            SetFocus(GetDlgItem(g_UVEditor, id));
+            return;
+        }
+    }
+    if (!UVCanvasSetPosition(g_UVCanvas, uv, &reason) && reason[0] != '\0')
+    {
+        MessageBox(g_UVEditor, reason, "UV Editor", MB_ICONERROR);
+    }
+    UVEditorUpdateFields();
+}
+
 static void UVEditorLayout(HWND hwnd)
 {
     RECT client;
-    RECT units = { 8, 8, 50, 16 };
+    RECT units = { 8, 32, 140, 16 };
     HWND closebutton = GetDlgItem(hwnd, IDCANCEL);
 
     if (closebutton == NULL) { return; }
     GetClientRect(hwnd, &client);
     MapDialogRect(hwnd, &units);
+    int margin = units.left, row = units.bottom;
+    int panelleft = max(0, client.right - units.right);
+    int panelwidth = client.right - panelleft;
+    int editwidth = max(0, panelwidth - margin * 4);
     if (g_UVCanvas != NULL)
     {
-        int canvasheight = client.bottom - units.top * 2 - units.bottom;
+        int canvasheight = client.bottom - units.top;
         if (canvasheight < 0) { canvasheight = 0; }
-        MoveWindow(g_UVCanvas, 0, 0, client.right, canvasheight, TRUE);
+        MoveWindow(g_UVCanvas, 0, units.top, panelleft, canvasheight, TRUE);
     }
-    MoveWindow(closebutton,
-               client.right - units.left - units.right,
-               client.bottom - units.top - units.bottom,
-               units.right, units.bottom, TRUE);
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_MOVE), margin, margin / 2, margin * 8, row + margin / 2, TRUE);
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_TOOL_HINT), margin * 10, margin, max(0, panelleft - margin * 11), row, TRUE);
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_TRANSFORM), panelleft + margin, margin, panelwidth - margin * 2, row, TRUE);
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_SELECTION), panelleft + margin, row + margin * 2, panelwidth - margin * 2, row * 2, TRUE);
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_U_LABEL), panelleft + margin, row * 3 + margin * 3, margin, row, TRUE);
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_U), panelleft + margin * 3, row * 3 + margin * 3, editwidth, row, TRUE);
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_V_LABEL), panelleft + margin, row * 4 + margin * 4, margin, row, TRUE);
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_V), panelleft + margin * 3, row * 4 + margin * 4, editwidth, row, TRUE);
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_HINT), panelleft + margin, row * 6 + margin * 4, panelwidth - margin * 2, row * 3, TRUE);
+    MoveWindow(closebutton, panelleft + margin, client.bottom - margin - row,
+               panelwidth - margin * 2, row, TRUE);
 }
 
 static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
@@ -37,6 +107,10 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
     {
     case WM_INITDIALOG:
         g_UVEditor = hwnd;
+        CheckDlgButton(hwnd, IDC_UV_MOVE, BST_CHECKED);
+        SendDlgItemMessage(hwnd, IDC_UV_U, EM_LIMITTEXT, 63, 0);
+        SendDlgItemMessage(hwnd, IDC_UV_V, EM_LIMITTEXT, 63, 0);
+        UVEditorUpdateFields();
         UVEditorLayout(hwnd);
         return TRUE;
 
@@ -44,14 +118,21 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
         UVEditorLayout(hwnd);
         return TRUE;
 
-    case WM_CTLCOLORDLG:
-        SetDCBrushColor((HDC)wparam, UVCANVAS_BACKGROUND);
-        return (INT_PTR)GetStockObject(DC_BRUSH);
+    case UVCANVAS_WM_SELECTION_CHANGED:
+        UVEditorUpdateFields();
+        return TRUE;
+
+    case UVCANVAS_WM_COMMIT:
+    {
+        LRESULT result = SendMessage(GetWindow(hwnd, GW_OWNER), UVEDITOR_WM_APPLY, 0, lparam);
+        SetWindowLongPtr(hwnd, DWLP_MSGRESULT, result);
+        return TRUE;
+    }
 
     case WM_GETMINMAXINFO:
     {
         MINMAXINFO *limits = (MINMAXINFO *)lparam;
-        RECT minimum = { 0, 0, 220, 160 };
+        RECT minimum = { 0, 0, 340, 240 };
 
         MapDialogRect(hwnd, &minimum);
         AdjustWindowRectEx(&minimum, (DWORD)GetWindowLongPtr(hwnd, GWL_STYLE),
@@ -62,6 +143,18 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
     }
 
     case WM_COMMAND:
+        if (LOWORD(wparam) == IDC_UV_MOVE)
+        {
+            CheckDlgButton(hwnd, IDC_UV_MOVE, BST_CHECKED);
+            SetFocus(g_UVCanvas);
+            return TRUE;
+        }
+        if (LOWORD(wparam) == IDOK)
+        {
+            if (GetFocus() == GetDlgItem(hwnd, IDC_UV_U) || GetFocus() == GetDlgItem(hwnd, IDC_UV_V))
+            { UVEditorApplyFields(); }
+            return TRUE;
+        }
         if (LOWORD(wparam) == IDCANCEL)
         {
             DestroyWindow(hwnd);
@@ -116,10 +209,10 @@ void UVEditorRefreshSelection(HWND viewport, const BgDocument *document)
     int count, index, output = 0;
 
     if (g_UVCanvas == NULL) { return; }
-    UVCanvasSetTriangles(g_UVCanvas, NULL, 0);
-    if (ViewportGetTool(viewport) != EDITOR_TOOL_FACE_SELECT) { return; }
+    if (ViewportGetTool(viewport) != EDITOR_TOOL_FACE_SELECT)
+    { UVCanvasSetTriangles(g_UVCanvas, NULL, 0); return; }
     count = ViewportGetSelectedBgFaceCount(viewport);
-    if (count <= 0) { return; }
+    if (count <= 0) { UVCanvasSetTriangles(g_UVCanvas, NULL, 0); return; }
 
     refs = (BgFaceRef *)malloc((size_t)count * sizeof(*refs));
     triangles = (UVCanvasTriangle *)malloc((size_t)count * sizeof(*triangles));
@@ -127,6 +220,7 @@ void UVEditorRefreshSelection(HWND viewport, const BgDocument *document)
     {
         free(refs);
         free(triangles);
+        UVCanvasSetTriangles(g_UVCanvas, NULL, 0);
         MessageBox(g_UVEditor, "Out of memory displaying the selected UVs.",
                    "UV Editor", MB_ICONERROR);
         return;
@@ -135,6 +229,7 @@ void UVEditorRefreshSelection(HWND viewport, const BgDocument *document)
     {
         free(refs);
         free(triangles);
+        UVCanvasSetTriangles(g_UVCanvas, NULL, 0);
         return;
     }
 
@@ -151,9 +246,16 @@ void UVEditorRefreshSelection(HWND viewport, const BgDocument *document)
             continue;
         }
         ViewportGetTextureSize(viewport, face->textureid, &width, &height);
+        triangles[output].width = width;
+        triangles[output].height = height;
         for (corner = 0; corner < 3; corner++)
         {
             const BgDocumentVertex *vertex = &room->vertices[face->vertexindices[corner]];
+            triangles[output].source[corner].vertex.room = refs[index].room;
+            triangles[output].source[corner].vertex.index = face->vertexindices[corner];
+            triangles[output].source[corner].vertexid = vertex->id;
+            triangles[output].source[corner].s = vertex->s;
+            triangles[output].source[corner].t = vertex->t;
             /* Authored S/T is in 1/32 texels. Read the source document:
                environment mapping rewrites the viewport's preview UVs. */
             triangles[output].uv[corner][0] = vertex->s / (32.0 * width);
@@ -162,7 +264,8 @@ void UVEditorRefreshSelection(HWND viewport, const BgDocument *document)
         output++;
     }
     free(refs);
-    UVCanvasSetTriangles(g_UVCanvas, triangles, output);
+    if (!UVCanvasSetTriangles(g_UVCanvas, triangles, output))
+    { MessageBox(g_UVEditor, "Out of memory displaying the selected UVs.", "UV Editor", MB_ICONERROR); }
 }
 
 BOOL UVEditorHandleMessage(MSG *message)
@@ -196,6 +299,36 @@ BOOL UVEditorHandleMessage(MSG *message)
         }
     }
     if (!uvmessage) { return FALSE; }
+
+    if (message->message == WM_KEYDOWN)
+    {
+        char classname[32] = "";
+        BOOL edit;
+        GetClassName(message->hwnd, classname, sizeof(classname));
+        edit = lstrcmpi(classname, "Edit") == 0;
+        if (message->wParam == VK_ESCAPE)
+        {
+            if (UVCanvasCancelInteraction(g_UVCanvas)) { return TRUE; }
+            if (edit) { UVEditorUpdateFields(); return TRUE; }
+        }
+        if (edit && message->wParam == VK_RETURN)
+        { UVEditorApplyFields(); return TRUE; }
+        if (!edit && message->wParam == 'W'
+            && !(GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000))
+        {
+            CheckDlgButton(g_UVEditor, IDC_UV_MOVE, BST_CHECKED);
+            SetFocus(g_UVCanvas);
+            return TRUE;
+        }
+        if (!edit && (GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000)
+            && (message->wParam == 'Z' || message->wParam == 'Y'))
+        {
+            UVCanvasCancelInteraction(g_UVCanvas);
+            SendMessage(GetWindow(g_UVEditor, GW_OWNER), UVEDITOR_WM_HISTORY,
+                        message->wParam == 'Y' || (GetKeyState(VK_SHIFT) & 0x8000), 0);
+            return TRUE;
+        }
+    }
 
     /* Keep Tab, Escape, and Alt+F4 local to this window. Dispatch any other
        input here so the main editor's accelerators cannot consume it. */

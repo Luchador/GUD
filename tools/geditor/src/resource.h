@@ -41,6 +41,17 @@
 #define IDC_ROM_WARNING       1013
 #define IDC_CREATE_ROM        1014
 
+/* UV Editor toolbar and transform panel. */
+#define IDC_UV_MOVE           1020
+#define IDC_UV_TOOL_HINT      1021
+#define IDC_UV_TRANSFORM      1022
+#define IDC_UV_SELECTION      1023
+#define IDC_UV_U_LABEL        1024
+#define IDC_UV_V_LABEL        1025
+#define IDC_UV_U              1026
+#define IDC_UV_V              1027
+#define IDC_UV_HINT           1028
+
 /* Longest project name we accept, including the terminator. */
 #define GEDITOR_NAME_MAX       64
 
