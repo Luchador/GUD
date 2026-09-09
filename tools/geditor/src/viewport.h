@@ -92,6 +92,9 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
 int ViewportGetSelectedBgFaceCount(HWND hwnd);
 BOOL ViewportGetSelectedBgFaces(HWND hwnd, BgFaceRef *out, int count);
 BOOL ViewportGetSingleSelectedBgFace(HWND hwnd, BgFaceRef *out);
+/* Native image dimensions already loaded by the scene. Missing/untextured
+   images return FALSE and a 1x1 fallback, as in model UV export. */
+BOOL ViewportGetTextureSize(HWND hwnd, unsigned short textureid, int *width, int *height);
 BOOL ViewportGetSelectedObject(HWND hwnd, DWORD *setupobjectindex);
 
 /* Drop onto the nearest rendered BG/model or visible stan surface. A void

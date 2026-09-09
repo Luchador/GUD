@@ -2,10 +2,15 @@
 #define GEDITOR_UVEDITOR_H
 
 #include <windows.h>
+#include "bgdocument.h"
 
 /* Open the modeless owned window, or activate it if it is already open.
    Closing it leaves GEditor running; closing its owner destroys it too. */
 BOOL UVEditorShow(HWND owner, HINSTANCE instance);
+
+/* Snapshot the selected BG faces' authored UVs while in face mode. No
+   document/viewport pointers are retained, and a closed window is a no-op. */
+void UVEditorRefreshSelection(HWND viewport, const BgDocument *document);
 
 /* Route wheel input by hover position, and this window's other messages
    before the main editor's keyboard shortcuts.

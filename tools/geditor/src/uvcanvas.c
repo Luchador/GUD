@@ -7,6 +7,8 @@
 #define UVCANVAS_CLASS "GEditorUVCanvas"
 #define UVCANVAS_UNIT_FILL RGB(48, 48, 48)
 #define UVCANVAS_UNIT_EDGE RGB(160, 160, 160)
+#define UVCANVAS_FACE_EDGE RGB(128, 128, 128)
+#define UVCANVAS_VERTEX_RADIUS 2 /* a filled 5x5 screen-pixel square */
 #define UVCANVAS_MIN_SCALE 4.0
 #define UVCANVAS_MAX_SCALE 1000000.0
 
@@ -18,6 +20,8 @@ typedef struct UVCanvasState {
     int width, height;
     BOOL panning;
     POINT lastmouse;
+    UVCanvasTriangle *triangles;
+    int trianglecount;
 } UVCanvasState;
 
 static UVCanvasState *UVCanvasGetState(HWND hwnd)
@@ -52,6 +56,94 @@ static int UVCanvasClipCoordinate(double coordinate, int extent)
     return (int)floor(coordinate + 0.5);
 }
 
+static void UVCanvasProject(const UVCanvasState *state, const double uv[2], double screen[2])
+{
+    screen[0] = state->width * 0.5 + (uv[0] - state->centeru) * state->pixelsperunit;
+    screen[1] = state->height * 0.5 - (uv[1] - state->centerv) * state->pixelsperunit;
+}
+
+/* Clip a line parametrically before converting to screen integers. Merely
+   clamping its endpoints would bend diagonal UV edges at high zoom. */
+static BOOL UVCanvasClipEdge(double direction, double distance, double *start, double *end)
+{
+    double position;
+    if (direction == 0.0) { return distance >= 0.0; }
+    position = distance / direction;
+    if (direction < 0.0)
+    {
+        if (position > *end) { return FALSE; }
+        if (position > *start) { *start = position; }
+    }
+    else
+    {
+        if (position < *start) { return FALSE; }
+        if (position < *end) { *end = position; }
+    }
+    return TRUE;
+}
+
+static void UVCanvasDrawEdge(HDC dc, const UVCanvasState *state,
+                             const double a[2], const double b[2])
+{
+    double dx = b[0] - a[0], dy = b[1] - a[1];
+    double start = 0.0, end = 1.0;
+    if (!UVCanvasClipEdge(-dx, a[0], &start, &end)
+        || !UVCanvasClipEdge(dx, state->width - 1.0 - a[0], &start, &end)
+        || !UVCanvasClipEdge(-dy, a[1], &start, &end)
+        || !UVCanvasClipEdge(dy, state->height - 1.0 - a[1], &start, &end))
+    {
+        return;
+    }
+    MoveToEx(dc, (int)floor(a[0] + start * dx + 0.5),
+                 (int)floor(a[1] + start * dy + 0.5), NULL);
+    LineTo(dc, (int)floor(a[0] + end * dx + 0.5),
+               (int)floor(a[1] + end * dy + 0.5));
+}
+
+static void UVCanvasDrawTriangles(HDC dc, const UVCanvasState *state)
+{
+    int triangle, corner;
+
+    SetDCPenColor(dc, UVCANVAS_FACE_EDGE);
+    for (triangle = 0; triangle < state->trianglecount; triangle++)
+    {
+        double screen[3][2];
+        for (corner = 0; corner < 3; corner++)
+        {
+            UVCanvasProject(state, state->triangles[triangle].uv[corner], screen[corner]);
+        }
+        for (corner = 0; corner < 3; corner++)
+        {
+            UVCanvasDrawEdge(dc, state, screen[corner], screen[(corner + 1) % 3]);
+        }
+    }
+
+    /* Draw all markers last so crossing edges cannot paint over them.
+       Markers keep their screen size while their UV positions follow the camera. */
+    for (triangle = 0; triangle < state->trianglecount; triangle++)
+    {
+        for (corner = 0; corner < 3; corner++)
+        {
+            double screen[2];
+            int x, y;
+            RECT marker;
+            UVCanvasProject(state, state->triangles[triangle].uv[corner], screen);
+            if (screen[0] < -UVCANVAS_VERTEX_RADIUS - 1.0
+                || screen[0] > state->width + UVCANVAS_VERTEX_RADIUS
+                || screen[1] < -UVCANVAS_VERTEX_RADIUS - 1.0
+                || screen[1] > state->height + UVCANVAS_VERTEX_RADIUS)
+            {
+                continue;
+            }
+            x = (int)floor(screen[0] + 0.5);
+            y = (int)floor(screen[1] + 0.5);
+            SetRect(&marker, x - UVCANVAS_VERTEX_RADIUS, y - UVCANVAS_VERTEX_RADIUS,
+                    x + UVCANVAS_VERTEX_RADIUS + 1, y + UVCANVAS_VERTEX_RADIUS + 1);
+            FillRect(dc, &marker, (HBRUSH)GetStockObject(BLACK_BRUSH));
+        }
+    }
+}
+
 static void UVCanvasDraw(HDC dc, const UVCanvasState *state)
 {
     RECT client = { 0, 0, state->width, state->height };
@@ -65,19 +157,19 @@ static void UVCanvasDraw(HDC dc, const UVCanvasState *state)
     top = state->height * 0.5 + (state->centerv - 1.0) * state->pixelsperunit;
     right = left + state->pixelsperunit;
     bottom = top + state->pixelsperunit;
-    if (right < 0.0 || bottom < 0.0 || left >= state->width || top >= state->height)
-    {
-        return;
-    }
-
     oldbrush = SelectObject(dc, GetStockObject(DC_BRUSH));
     oldpen = SelectObject(dc, GetStockObject(DC_PEN));
-    SetDCBrushColor(dc, UVCANVAS_UNIT_FILL);
-    SetDCPenColor(dc, UVCANVAS_UNIT_EDGE);
-    Rectangle(dc, UVCanvasClipCoordinate(left, state->width),
-              UVCanvasClipCoordinate(top, state->height),
-              UVCanvasClipCoordinate(right, state->width) + 1,
-              UVCanvasClipCoordinate(bottom, state->height) + 1);
+    if (right >= 0.0 && bottom >= 0.0 && left < state->width && top < state->height)
+    {
+        SetDCBrushColor(dc, UVCANVAS_UNIT_FILL);
+        SetDCPenColor(dc, UVCANVAS_UNIT_EDGE);
+        Rectangle(dc, UVCanvasClipCoordinate(left, state->width),
+                  UVCanvasClipCoordinate(top, state->height),
+                  UVCanvasClipCoordinate(right, state->width) + 1,
+                  UVCanvasClipCoordinate(bottom, state->height) + 1);
+    }
+    /* UVs may lie outside 0-1, even with the entire unit square offscreen. */
+    UVCanvasDrawTriangles(dc, state);
     SelectObject(dc, oldpen);
     SelectObject(dc, oldbrush);
 }
@@ -233,6 +325,7 @@ static LRESULT CALLBACK UVCanvasWndProc(HWND hwnd, UINT message,
 
     case WM_NCDESTROY:
         SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
+        if (state != NULL) { free(state->triangles); }
         free(state);
         break;
     }
@@ -254,4 +347,14 @@ HWND UVCanvasCreate(HWND parent, HINSTANCE instance)
     return CreateWindowEx(0, UVCANVAS_CLASS, NULL,
         WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, 0, 0, 0,
         parent, NULL, instance, NULL);
+}
+
+void UVCanvasSetTriangles(HWND canvas, UVCanvasTriangle *triangles, int count)
+{
+    UVCanvasState *state = UVCanvasGetState(canvas);
+    if (state == NULL) { free(triangles); return; }
+    free(state->triangles);
+    state->triangles = triangles;
+    state->trianglecount = triangles != NULL && count > 0 ? count : 0;
+    InvalidateRect(canvas, NULL, FALSE);
 }

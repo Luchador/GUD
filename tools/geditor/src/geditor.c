@@ -247,6 +247,7 @@ static void GEditorRefreshSelectionDetails(void)
     BOOL objectselected = ViewportGetSelectedObject(g_Viewport, &selectedobject);
     int components = ViewportGetSelectedComponentCount(g_Viewport);
     DWORD stantile, stancount = ViewportGetStanSelectionCount(g_Viewport, &stantile);
+    UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument);
     RightPanelSetVertexPaintMode(g_RightPanel,
         ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT);
     GEditorRefreshTransformFields();
@@ -2798,6 +2799,10 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 {
                     MessageBox(hwnd, "Could not open the UV Editor window.",
                                GEDITOR_TITLE, MB_ICONERROR);
+                }
+                else
+                {
+                    UVEditorRefreshSelection(g_Viewport, &g_CurrentBgDocument);
                 }
                 return 0;
 

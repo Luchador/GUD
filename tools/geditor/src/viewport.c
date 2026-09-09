@@ -5007,6 +5007,31 @@ scene_failed:
 }
 
 
+BOOL ViewportGetTextureSize(HWND hwnd, unsigned short textureid, int *width, int *height)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    int variant;
+
+    *width = *height = 1;
+    if (state == NULL || state->texturecache == NULL || textureid >= BG_TEX_NONE)
+    {
+        return FALSE;
+    }
+    for (variant = 0; variant < 2; variant++)
+    {
+        const ViewportTexture *texture =
+            &state->texturecache[textureid + variant * (BG_TEX_NONE + 1)];
+        if (texture->width > 0 && texture->height > 0)
+        {
+            *width = texture->width;
+            *height = texture->height;
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+
 int ViewportGetSelectedBgFaceCount(HWND hwnd)
 {
     const ViewportState *state = ViewportGetState(hwnd);

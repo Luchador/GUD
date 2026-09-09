@@ -1,8 +1,10 @@
 #include "uveditor.h"
 #include "uvcanvas.h"
+#include "viewport.h"
 #include "resource.h"
 
 #include <windowsx.h>
+#include <stdlib.h>
 
 static HWND g_UVEditor;
 static HWND g_UVCanvas;
@@ -105,6 +107,62 @@ BOOL UVEditorShow(HWND owner, HINSTANCE instance)
     ShowWindow(g_UVEditor, SW_SHOWNORMAL);
     SetForegroundWindow(g_UVEditor);
     return TRUE;
+}
+
+void UVEditorRefreshSelection(HWND viewport, const BgDocument *document)
+{
+    BgFaceRef *refs;
+    UVCanvasTriangle *triangles;
+    int count, index, output = 0;
+
+    if (g_UVCanvas == NULL) { return; }
+    UVCanvasSetTriangles(g_UVCanvas, NULL, 0);
+    if (ViewportGetTool(viewport) != EDITOR_TOOL_FACE_SELECT) { return; }
+    count = ViewportGetSelectedBgFaceCount(viewport);
+    if (count <= 0) { return; }
+
+    refs = (BgFaceRef *)malloc((size_t)count * sizeof(*refs));
+    triangles = (UVCanvasTriangle *)malloc((size_t)count * sizeof(*triangles));
+    if (refs == NULL || triangles == NULL)
+    {
+        free(refs);
+        free(triangles);
+        MessageBox(g_UVEditor, "Out of memory displaying the selected UVs.",
+                   "UV Editor", MB_ICONERROR);
+        return;
+    }
+    if (!ViewportGetSelectedBgFaces(viewport, refs, count))
+    {
+        free(refs);
+        free(triangles);
+        return;
+    }
+
+    for (index = 0; index < count; index++)
+    {
+        const BgDocumentRoom *room;
+        const BgDocumentFace *face = BgDocumentFindFace(document, &refs[index], &room);
+        int corner, width, height;
+        if (face == NULL || room == NULL || room->vertices == NULL
+            || face->vertexindices[0] >= room->vertexcount
+            || face->vertexindices[1] >= room->vertexcount
+            || face->vertexindices[2] >= room->vertexcount)
+        {
+            continue;
+        }
+        ViewportGetTextureSize(viewport, face->textureid, &width, &height);
+        for (corner = 0; corner < 3; corner++)
+        {
+            const BgDocumentVertex *vertex = &room->vertices[face->vertexindices[corner]];
+            /* Authored S/T is in 1/32 texels. Read the source document:
+               environment mapping rewrites the viewport's preview UVs. */
+            triangles[output].uv[corner][0] = vertex->s / (32.0 * width);
+            triangles[output].uv[corner][1] = vertex->t / (32.0 * height);
+        }
+        output++;
+    }
+    free(refs);
+    UVCanvasSetTriangles(g_UVCanvas, triangles, output);
 }
 
 BOOL UVEditorHandleMessage(MSG *message)
