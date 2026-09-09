@@ -18,6 +18,43 @@
 
 #define PAD_BOUND_BASE 10000
 
+BOOL ObjectResolvePlaceableModel(const char *name, BOOL *character, int *modelid)
+{
+    int i;
+    if (name == NULL || character == NULL || modelid == NULL)
+    {
+        return FALSE;
+    }
+    if (name[0] == 'P')
+    {
+        const char *filename;
+        for (i = 0; ModelGetPropDefinition(i, &filename, NULL); i++)
+        {
+            if (strcmp(name, filename) == 0)
+            {
+                *character = FALSE;
+                *modelid = i;
+                return TRUE;
+            }
+        }
+    }
+    else if (name[0] == 'C' && strncmp(name, "Chead", 5) != 0 &&
+             strcmp(name, "Csuit_lf_handZ") != 0)
+    {
+        CharacterModelDefinition definition;
+        for (i = 0; CharacterGetModelDefinition(i, &definition); i++)
+        {
+            if (strcmp(name, definition.filename) == 0)
+            {
+                *character = TRUE;
+                *modelid = i;
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
 typedef struct ModelCacheEntry {
     BOOL attempted;
     BgVertex *tris;

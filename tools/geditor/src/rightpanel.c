@@ -193,6 +193,17 @@ static void RightPanelNotifyVisibility(HWND hwnd, RightPanelState *state)
                 (WPARAM)RightPanelGetVisibility(state), 0);
 }
 
+void RightPanelShowObjects(HWND panel)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    if (state == NULL)
+    {
+        return;
+    }
+    SendMessage(state->objects, BM_SETCHECK, BST_CHECKED, 0);
+    RightPanelNotifyVisibility(panel, state);
+}
+
 static void RightPanelSetPosition(HWND hwnd, RightPanelState *state)
 {
     RightPanelPosition request;

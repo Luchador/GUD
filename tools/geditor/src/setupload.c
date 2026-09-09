@@ -445,6 +445,185 @@ static BOOL SetupParsePads(SetupFile *setup, const char **reasonout)
     return TRUE;
 }
 
+/* Copy the command stream before appending: growing it in place would overwrite
+   another setup section. Internal links are file-relative offsets or command
+   indices, so retaining the old data and command order preserves both. */
+BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid, float levelscale,
+                       const double position[3], DWORD *selectionout, const char **reasonout)
+{
+    SetupFile added = {0};
+    DWORD oldcommands, commandend, commandsize, commandcount = 0;
+    DWORD oldpads, newcommands, newrecord, newpads, newpad, chrnum = 0, i;
+    unsigned char type = character ? PROPDEF_GUARD : PROPDEF_PROP;
+    DWORD recordsize = SetupObjectWordCount(type) * 4;
+    float authored[3];
+
+    if (setup == NULL || setup->data == NULL || setup->size < SETUP_HEADER_SIZE ||
+        setup->size > SETUP_FILE_MAX || position == NULL || selectionout == NULL || modelid < 0 ||
+        modelid > 32767 || !isfinite(levelscale) || levelscale <= 0 ||
+        (setup->charactercount > 0 && setup->characters == NULL))
+    {
+        *reasonout = "The setup, model or level scale is invalid.";
+        return FALSE;
+    }
+    /* Ordinary props reserve pad numbers 10000 and above for bound pads.
+       Characters can address the entire unsigned 16-bit normal-pad range. */
+    if (setup->padcount >= (character ? SETUP_PAD_MAX : 10000u))
+    {
+        *reasonout = "There are no more pad indices available for this model.";
+        return FALSE;
+    }
+    for (i = 0; i < 3; i++)
+    {
+        double value = position[i] * levelscale;
+        if (!isfinite(value) || fabs(value) > 100000000.0)
+        {
+            *reasonout = "The drop exceeds the setup coordinate range.";
+            return FALSE;
+        }
+        authored[i] = (float)value;
+    }
+    if (character)
+    {
+        /* Append IDs after authored characters instead of filling holes that
+           level scripts may intentionally reference. 248..255 are special AI
+           IDs; 5000+ and 10000+ belong to spawned characters and clones. */
+        for (i = 0; i < setup->charactercount; i++)
+        {
+            DWORD existing = setup->characters[i].chrnum;
+            if (existing < 5000 && existing >= chrnum)
+            {
+                chrnum = existing + 1;
+            }
+        }
+        if (chrnum >= 248 && chrnum <= 255)
+        {
+            chrnum = 256;
+        }
+        if (chrnum >= 5000)
+        {
+            *reasonout = "There are no more authored character IDs available.";
+            return FALSE;
+        }
+    }
+
+    oldcommands = SetupRead32(setup->data + SETUP_OBJECT_POINTER);
+    commandend = oldcommands;
+    if (oldcommands != 0)
+    {
+        if (oldcommands < SETUP_HEADER_SIZE)
+        {
+            goto malformed;
+        }
+        for (;;)
+        {
+            DWORD bytes;
+            if (commandend > setup->size || setup->size - commandend < 4)
+            {
+                goto malformed;
+            }
+            if (setup->data[commandend + 3] == SETUP_PROP_END)
+            {
+                break;
+            }
+            if (++commandcount >= SETUP_OBJECT_MAX - 1)
+            {
+                *reasonout = "The setup command limit has been reached.";
+                return FALSE;
+            }
+            bytes = SetupObjectWordCount(setup->data[commandend + 3]) * 4;
+            if (bytes > setup->size - commandend)
+            {
+                goto malformed;
+            }
+            commandend += bytes;
+        }
+    }
+    commandsize = commandend - oldcommands;
+    oldpads = SetupRead32(setup->data + SETUP_PAD_POINTER);
+    if (oldpads < SETUP_HEADER_SIZE || oldpads > setup->size ||
+        setup->padcount > (setup->size - oldpads) / SETUP_PAD_SIZE)
+    {
+        goto malformed;
+    }
+
+    newcommands = (setup->size + 3u) & ~3u;
+    newrecord = newcommands + commandsize;
+    newpads = newrecord + recordsize + 4;
+    newpad = newpads + setup->padcount * SETUP_PAD_SIZE;
+    added.size = newpad + 2 * SETUP_PAD_SIZE;
+    if (added.size > SETUP_FILE_MAX)
+    {
+        *reasonout = "Adding this model would exceed the setup size limit.";
+        return FALSE;
+    }
+    added.data = (unsigned char *)calloc(added.size, 1);
+    if (added.data == NULL)
+    {
+        *reasonout = "Out of memory adding the setup model.";
+        return FALSE;
+    }
+    memcpy(added.name, setup->name, sizeof(added.name));
+    memcpy(added.data, setup->data, setup->size);
+    memcpy(added.data + newcommands, setup->data + oldcommands, commandsize);
+    memcpy(added.data + newpads, setup->data + oldpads, setup->padcount * SETUP_PAD_SIZE);
+    SetupWrite32(added.data + SETUP_OBJECT_POINTER, newcommands);
+    SetupWrite32(added.data + SETUP_PAD_POINTER, newpads);
+    SetupWrite32(added.data + newrecord + recordsize, SETUP_PROP_END);
+    for (i = 0; i < 3; i++)
+    {
+        union
+        {
+            float f;
+            DWORD u;
+        } value;
+        value.f = authored[i];
+        SetupWrite32(added.data + newpad + i * 4, value.u);
+    }
+    SetupWrite32(added.data + newpad + 16, 0x3f800000u); /* up = +Y */
+    SetupWrite32(added.data + newpad + 32, 0x3f800000u); /* look = +Z */
+    /* Non-null pointer to an empty plink string; the game resolves the stan
+       at the new position. The following pad remains the null terminator. */
+    SetupWrite32(added.data + newpad + SETUP_PAD_LINK, newpad + SETUP_PAD_SIZE + SETUP_PAD_LINK);
+
+    if (character)
+    {
+        SetupWrite32(added.data + newrecord, type);
+        SetupWrite32(added.data + newrecord + 4, (chrnum << 16) | setup->padcount);
+        /* GAILIST_DEAD_AI (1) yields forever. No weapons or patrol/mission
+           behavior is implicitly assigned to a newly placed character. */
+        SetupWrite32(added.data + newrecord + 8, ((DWORD)modelid << 16) | 1u);
+        SetupWrite32(added.data + newrecord + 12, 0xffffffffu);          /* no presets */
+        SetupWrite32(added.data + newrecord + 16, (1000u << 16) | 100u); /* hearing/vision */
+        SetupWrite32(added.data + newrecord + 20, 0x0000ffffu);          /* random head */
+    }
+    else
+    {
+        SetupWrite32(added.data + newrecord, (256u << 16) | type); /* scale 1 */
+        SetupWrite32(added.data + newrecord + 4, ((DWORD)modelid << 16) | setup->padcount);
+        SetupWrite32(added.data + newrecord + 8,
+                     PROPFLAG_FORCE_COLLISIONS | PROPFLAG_ABSOLUTEPOSITION);
+        /* ObjectRecord.damage is authored as signed 16.16 durability and
+           converted by domakedefaultobj. maxdamage starts at zero. */
+        SetupWrite32(added.data + newrecord + 0x74, 1000u << 16);
+    }
+    if (!SetupParsePads(&added, reasonout) || !SetupParseObjects(&added, reasonout))
+    {
+        SetupFileFree(&added);
+        return FALSE;
+    }
+    *selectionout =
+        character ? (SETUP_CHARACTER_SELECTION_BIT | setup->charactercount) : setup->objectcount;
+    added.dirty = TRUE;
+    SetupFileFree(setup);
+    *setup = added;
+    return TRUE;
+
+malformed:
+    *reasonout = "The setup command or pad list is malformed.";
+    return FALSE;
+}
+
 void SetupPadGetBoxCorners(const SetupPad *pad,
                            float xmin, float xmax,
                            float ymin, float ymax,

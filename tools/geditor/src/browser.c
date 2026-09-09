@@ -70,6 +70,7 @@ typedef struct BrowserState {
     int dragstartscroll;
     HIMAGELIST dragimage;
     DWORD dragtextureid;
+    char dragmodel[64]; /* empty for image drags */
 } BrowserState;
 
 #define BROWSER_SCROLLBAR_W 8
@@ -756,7 +757,7 @@ static BOOL BrowserImageDragPoint(HWND hwnd, POINT *point)
 }
 
 
-static void BrowserEndImageDrag(HWND hwnd, BrowserState *state)
+static void BrowserEndAssetDrag(HWND hwnd, BrowserState *state)
 {
     if (state->dragimage != NULL)
     {
@@ -764,10 +765,127 @@ static void BrowserEndImageDrag(HWND hwnd, BrowserState *state)
         ImageList_EndDrag();
         ImageList_Destroy(state->dragimage);
         state->dragimage = NULL;
+        state->dragmodel[0] = '\0';
         if (GetCapture() == hwnd) { ReleaseCapture(); }
     }
 }
 
+
+/* Invert the filtered, scrolled row layout; tabs and scrollbar are not rows. */
+static int BrowserHitModel(const BrowserState *state, POINT point)
+{
+    RECT body = BrowserContentRect(state, BROWSER_SECTION_MODELS);
+    int row, i;
+    if (!state->sections[BROWSER_SECTION_MODELS].expanded || !PtInRect(&body, point) ||
+        point.x >= body.right - BROWSER_SCROLLBAR_W - 6)
+    {
+        return -1;
+    }
+    row = point.y - body.top - 4 + state->scroll[BROWSER_SECTION_MODELS];
+    if (row < 0)
+    {
+        return -1;
+    }
+    row /= BROWSER_ROW_H;
+    for (i = 0; i < state->modelcount; i++)
+    {
+        if (BrowserModelCategory(state->models[i].label) == state->modeltab && row-- == 0)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* Both asset drags share capture, cancellation and multi-monitor coordinates.
+   Takes ownership of bitmap even when the drag cannot start. */
+static BOOL BrowserStartAssetDrag(HWND hwnd, BrowserState *state, HBITMAP bitmap, int width,
+                                  int height, POINT point)
+{
+    HIMAGELIST images = ImageList_Create(width, height, ILC_COLOR32, 1, 0);
+    if (images == NULL || ImageList_Add(images, bitmap, NULL) < 0)
+    {
+        DeleteObject(bitmap);
+        if (images != NULL)
+        {
+            ImageList_Destroy(images);
+        }
+        return FALSE;
+    }
+    DeleteObject(bitmap);
+    if (!ImageList_BeginDrag(images, 0, 0, 0))
+    {
+        ImageList_Destroy(images);
+        return FALSE;
+    }
+    if (!BrowserImageDragPoint(hwnd, &point) ||
+        !ImageList_DragEnter(GetParent(hwnd), point.x, point.y))
+    {
+        ImageList_EndDrag();
+        ImageList_Destroy(images);
+        return FALSE;
+    }
+    state->dragimage = images;
+    SetFocus(hwnd);
+    SetCapture(hwnd);
+    SetCursor(LoadCursor(NULL, IDC_ARROW));
+    return TRUE;
+}
+
+static void BrowserBeginModelDrag(HWND hwnd, BrowserState *state, int index, POINT point)
+{
+    const char *name = state->models[index].label;
+    BITMAPINFO bmi = {0};
+    HBITMAP bitmap;
+    HDC dc;
+    HGDIOBJ oldbitmap, oldfont;
+    unsigned char *pixels;
+    RECT rect = {0, 0, 200, 24};
+    int i;
+
+    if (state->modeltab == BROWSER_MODEL_ITEMS ||
+        !SendMessage(GetParent(hwnd), BROWSER_WM_MODEL_DRAG_BEGIN, 0, (LPARAM)name))
+    {
+        return;
+    }
+    bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
+    bmi.bmiHeader.biWidth = rect.right;
+    bmi.bmiHeader.biHeight = -rect.bottom;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+    bitmap = CreateDIBSection(NULL, &bmi, DIB_RGB_COLORS, (void **)&pixels, NULL, 0);
+    if (bitmap == NULL)
+    {
+        return;
+    }
+    dc = CreateCompatibleDC(NULL);
+    if (dc == NULL)
+    {
+        DeleteObject(bitmap);
+        return;
+    }
+    oldbitmap = SelectObject(dc, bitmap);
+    oldfont = SelectObject(dc, GetStockObject(DEFAULT_GUI_FONT));
+    FillRect(dc, &rect, GetSysColorBrush(COLOR_HIGHLIGHT));
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, GetSysColor(COLOR_HIGHLIGHTTEXT));
+    rect.left = 6;
+    rect.right -= 6;
+    DrawText(dc, name, -1, &rect, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
+    SelectObject(dc, oldfont);
+    SelectObject(dc, oldbitmap);
+    DeleteDC(dc);
+    /* GDI does not write alpha for its text/fill pixels. */
+    for (i = 0; i < 200 * 24; i++)
+    {
+        pixels[i * 4 + 3] = 255;
+    }
+    if (BrowserStartAssetDrag(hwnd, state, bitmap, 200, 24, point))
+    {
+        lstrcpyn(state->dragmodel, name, sizeof(state->dragmodel));
+    }
+}
 
 static void BrowserBeginImageDrag(HWND hwnd, BrowserState *state, int index, POINT point)
 {
@@ -775,7 +893,6 @@ static void BrowserBeginImageDrag(HWND hwnd, BrowserState *state, int index, POI
     const TexThumb *thumb = BrowserImageAt(state, index, &thumbpixels);
     BITMAPINFO bmi;
     HBITMAP bitmap;
-    HIMAGELIST images;
     unsigned char *pixels;
     char *end = NULL;
     unsigned long textureid = index == 0 ? BG_TEX_NONE : strtoul(thumb->label, &end, 16);
@@ -822,31 +939,11 @@ static void BrowserBeginImageDrag(HWND hwnd, BrowserState *state, int index, POI
             }
         }
     }
-    images = ImageList_Create(TEX_THUMB_MAX, TEX_THUMB_MAX, ILC_COLOR32, 1, 0);
-    if (images == NULL || ImageList_Add(images, bitmap, NULL) < 0)
+    if (BrowserStartAssetDrag(hwnd, state, bitmap, TEX_THUMB_MAX, TEX_THUMB_MAX, point))
     {
-        DeleteObject(bitmap);
-        if (images != NULL) { ImageList_Destroy(images); }
-        return;
+        state->dragtextureid = (DWORD)textureid;
+        state->dragmodel[0] = '\0';
     }
-    DeleteObject(bitmap);
-    if (!ImageList_BeginDrag(images, 0, 0, 0))
-    {
-        ImageList_Destroy(images);
-        return;
-    }
-    if (!BrowserImageDragPoint(hwnd, &point)
-        || !ImageList_DragEnter(GetParent(hwnd), point.x, point.y))
-    {
-        ImageList_EndDrag();
-        ImageList_Destroy(images);
-        return;
-    }
-    state->dragimage = images;
-    state->dragtextureid = (DWORD)textureid;
-    SetFocus(hwnd); /* Escape cancels while this window owns the mouse. */
-    SetCapture(hwnd);
-    SetCursor(LoadCursor(NULL, IDC_ARROW));
 }
 
 
@@ -910,7 +1007,8 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
             GetClientRect(hwnd, &client);
             BrowserLayoutSections(state, &client);
-            if (BrowserHitImage(state, point) >= 0 || BrowserHitModelTab(state, point) >= 0)
+            if (BrowserHitImage(state, point) >= 0 || BrowserHitModelTab(state, point) >= 0
+                || BrowserHitModel(state, point) >= 0)
             {
                 return SendMessage(hwnd, WM_LBUTTONDOWN, wparam, lparam);
             }
@@ -994,6 +1092,12 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 BrowserBeginImageDrag(hwnd, state, hit, p);
                 return 0;
             }
+            hit = BrowserHitModel(state, p);
+            if (hit >= 0)
+            {
+                BrowserBeginModelDrag(hwnd, state, hit, p);
+                return 0;
+            }
         }
 
         hit = BrowserHitHeader(hwnd, x, y);
@@ -1053,21 +1157,28 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         if (state != NULL && state->dragimage != NULL)
         {
             BrowserImageDrop drop;
+            BrowserModelDrop modeldrop;
 
+            lstrcpyn(modeldrop.name, state->dragmodel, sizeof(modeldrop.name));
             drop.textureid = state->dragtextureid;
             drop.screen.x = GET_X_LPARAM(lparam);
             drop.screen.y = GET_Y_LPARAM(lparam);
             ClientToScreen(hwnd, &drop.screen);
             /* Remove the preview and capture before hit testing or rebuilding
                the viewport. The frame receives a value, not a thumbnail pointer. */
-            BrowserEndImageDrag(hwnd, state);
-            SendMessage(GetParent(hwnd), BROWSER_WM_IMAGE_DROP, 0, (LPARAM)&drop);
+            BrowserEndAssetDrag(hwnd, state);
+            if (modeldrop.name[0] != '\0')
+            {
+                modeldrop.screen = drop.screen;
+                SendMessage(GetParent(hwnd), BROWSER_WM_MODEL_DROP, 0, (LPARAM)&modeldrop);
+            }
+            else { SendMessage(GetParent(hwnd), BROWSER_WM_IMAGE_DROP, 0, (LPARAM)&drop); }
             return 0;
         }
         /* fall through */
     case WM_CAPTURECHANGED:
     case WM_CANCELMODE:
-        if (state != NULL) { BrowserEndImageDrag(hwnd, state); }
+        if (state != NULL) { BrowserEndAssetDrag(hwnd, state); }
         if (state != NULL && state->dragsection >= 0)
         {
             state->dragsection = -1;
@@ -1082,13 +1193,13 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     case WM_KEYDOWN:
         if (wparam == VK_ESCAPE && state != NULL && state->dragimage != NULL)
         {
-            BrowserEndImageDrag(hwnd, state);
+            BrowserEndAssetDrag(hwnd, state);
             return 0;
         }
         break;
 
     case WM_KILLFOCUS:
-        if (state != NULL) { BrowserEndImageDrag(hwnd, state); }
+        if (state != NULL) { BrowserEndAssetDrag(hwnd, state); }
         break;
 
     case WM_MOUSEWHEEL:
@@ -1192,7 +1303,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     case WM_DESTROY:
         if (state != NULL)
         {
-            BrowserEndImageDrag(hwnd, state);
+            BrowserEndAssetDrag(hwnd, state);
             free(state->images);
             free(state->imagepixels);
         }
@@ -1279,7 +1390,7 @@ void BrowserSetImages(HWND browser, TexThumb *items, int count,
         return;
     }
 
-    BrowserEndImageDrag(browser, state);
+    BrowserEndAssetDrag(browser, state);
     free(state->images);
     free(state->imagepixels);
 
@@ -1301,6 +1412,8 @@ void BrowserSetModels(HWND browser, const BrowserLevelItem *items, int count)
     {
         return;
     }
+
+    BrowserEndAssetDrag(browser, state);
 
     if (count > BROWSER_MAX_MODELS)
     {

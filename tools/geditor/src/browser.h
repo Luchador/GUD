@@ -19,6 +19,15 @@ typedef struct BrowserImageDrop {
     POINT screen;
 } BrowserImageDrop;
 
+/* BEGIN lparam is the model name; DROP points to the copied name and screen
+   position. Items remain browse-only. Both messages are synchronous. */
+#define BROWSER_WM_MODEL_DRAG_BEGIN (WM_APP + 19)
+#define BROWSER_WM_MODEL_DROP       (WM_APP + 20)
+typedef struct BrowserModelDrop {
+    char name[64];
+    POINT screen;
+} BrowserModelDrop;
+
 BOOL BrowserRegisterClass(HINSTANCE hinstance);
 HWND BrowserCreate(HWND parent, HINSTANCE hinstance);
 

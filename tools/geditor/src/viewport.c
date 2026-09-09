@@ -1608,6 +1608,42 @@ BOOL ViewportGetTextureDropFace(HWND hwnd, POINT screen,
 }
 
 
+BOOL ViewportGetModelDropPosition(HWND hwnd, POINT screen, double position[3])
+{
+    ViewportState *state = (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+    ViewportPickRay ray;
+    RECT client;
+    double distance, standistance;
+    int axis;
+
+    if (state == NULL || state->flying || state->dragaxis >= 0 || position == NULL)
+    {
+        return FALSE;
+    }
+    ScreenToClient(hwnd, &screen);
+    GetClientRect(hwnd, &client);
+    if (!PtInRect(&client, screen) || !ViewportBuildPickRay(hwnd, state, screen.x, screen.y, &ray))
+    {
+        return FALSE;
+    }
+    ViewportFindVisibleSceneTriangle(state, &ray, &distance);
+    if (ViewportFindPickedStan(state, &ray, &standistance) != STAN_TILE_NONE &&
+        standistance < distance)
+    {
+        distance = standistance;
+    }
+    if (distance == DBL_MAX)
+    {
+        return FALSE;
+    }
+    for (axis = 0; axis < 3; axis++)
+    {
+        position[axis] = ray.origin[axis] + ray.direction[axis] * distance;
+    }
+    return TRUE;
+}
+
+
 /* Resolve the corner nearest the world-space hit on the closest BG face. */
 static BOOL ViewportFindPaintTarget(const ViewportState *state,
                                      const ViewportPickRay *ray,
@@ -4659,6 +4695,22 @@ BOOL ViewportGetSelectedObject(HWND hwnd, DWORD *setupobjectindex)
 
     *setupobjectindex = state->selectedobject;
     return TRUE;
+}
+
+
+void ViewportSelectSetupModel(HWND hwnd, DWORD selection)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    if (state == NULL)
+    {
+        return;
+    }
+    ViewportCancelTransform(hwnd);
+    ViewportClearAllSelection(state);
+    ViewportSelectObject(state, selection);
+    ViewportUpdateGizmo(state);
+    ViewportRedraw(hwnd);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
 }
 
 

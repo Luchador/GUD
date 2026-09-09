@@ -32,6 +32,8 @@ typedef struct RightPanelPosition {
 
 BOOL RightPanelRegisterClass(HINSTANCE hinstance);
 HWND RightPanelCreate(HWND parent, HINSTANCE hinstance);
+/* Reveal a newly placed model and keep the visibility checkbox in sync. */
+void RightPanelShowObjects(HWND panel);
 /* A NULL position clears the fields; a noneditable position remains visible. */
 void RightPanelSetTransformState(HWND panel, const double position[3],
                                  DWORD count, BOOL editable, double gridstep);

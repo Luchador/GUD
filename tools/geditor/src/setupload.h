@@ -106,6 +106,14 @@ BOOL SetupFileClone(const SetupFile *source, SetupFile *out,
 BOOL SetupFileDeleteObject(SetupFile *setup, DWORD objectindex,
                            const char **reasonout);
 
+/* Appends an ordinary prop or an unarmed, idle character and its private pad.
+   Position is in world units; placement follows the normal stan-grounded rules.
+   Existing command indices, pad indices and file-relative links are retained.
+   On failure the setup is unchanged. Returns the new viewport selection ID. */
+BOOL SetupFileAddModel(SetupFile *setup, BOOL character, int modelid,
+                      float levelscale, const double position[3],
+                      DWORD *selectionout, const char **reasonout);
+
 /* Used within an edit transaction. Accepts a prop index or a character index
    tagged with SETUP_CHARACTER_SELECTION_BIT. Allocates a private pad without
    changing existing command/pad indices. Props gain explicit placement flags;

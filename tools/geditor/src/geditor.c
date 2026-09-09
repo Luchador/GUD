@@ -1960,6 +1960,78 @@ static void GEditorDeleteSelectedObject(HWND hwnd, DWORD objectindex)
 }
 
 
+static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request)
+{
+    EditHistoryTransaction transaction;
+    SetupObjectGeometry objects = {0};
+    const char *why = "", *restorewhy = "";
+    double position[3];
+    DWORD selection, triangle;
+    BOOL character, found = FALSE;
+    int modelid;
+
+    if (request == NULL || g_CurrentLevelIndex == GEDITOR_NO_LEVEL || g_CurrentSetup.data == NULL ||
+        WindowFromPoint(request->screen) != g_Viewport ||
+        !ObjectResolvePlaceableModel(request->name, &character, &modelid) ||
+        !ViewportGetModelDropPosition(g_Viewport, request->screen, position))
+    {
+        return FALSE;
+    }
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup,
+                                   character ? "Add Character" : "Add Prop", &transaction, &why))
+    {
+        goto fail;
+    }
+    if (!SetupFileAddModel(&g_CurrentSetup, character, modelid, g_CurrentBgDocument.levelscale,
+                           position, &selection, &why) ||
+        !ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
+                                 g_CurrentBgDocument.levelscale, &objects, &why))
+    {
+        goto rollback;
+    }
+    /* The loader can skip unavailable models or invalid stan placements.
+       Never commit an invisible instance that the user cannot manipulate. */
+    for (triangle = 0; triangle < objects.tricount; triangle++)
+    {
+        if (objects.objectindices[triangle] == selection)
+        {
+            found = TRUE;
+            break;
+        }
+    }
+    if (!found)
+    {
+        why = "The model could not be placed here. Choose a surface over walkable stan "
+              "and ensure its project model files are available.";
+        goto rollback;
+    }
+    if (!GEditorRebuildCurrentViewportWithObjects(&objects, &why) ||
+        !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+                               &g_CurrentStan, &transaction, &why))
+    {
+        goto rollback;
+    }
+    ObjectGeometryFree(&g_CurrentObjects);
+    g_CurrentObjects = objects;
+    RightPanelShowObjects(g_RightPanel);
+    ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
+    ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
+    ViewportSelectSetupModel(g_Viewport, selection);
+    GEditorRefreshHistoryMenu(hwnd);
+    SetFocus(g_Viewport);
+    return TRUE;
+
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    ObjectGeometryFree(&objects);
+    GEditorReloadCurrentObjectsAndViewport(&restorewhy);
+fail:
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    GEditorRefreshHistoryMenu(hwnd);
+    return FALSE;
+}
+
+
 static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     switch (msg)
@@ -2114,6 +2186,20 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
         return 0;
     }
+
+    case BROWSER_WM_MODEL_DRAG_BEGIN:
+    {
+        BOOL character;
+        int modelid;
+        if (g_CurrentLevelIndex == GEDITOR_NO_LEVEL || g_CurrentSetup.data == NULL
+            || !ObjectResolvePlaceableModel((const char *)lparam, &character, &modelid))
+        { return FALSE; }
+        ViewportCancelTransform(g_Viewport);
+        return TRUE;
+    }
+
+    case BROWSER_WM_MODEL_DROP:
+        return GEditorDropModel(hwnd, (const BrowserModelDrop *)lparam);
 
     case BROWSER_WM_IMAGE_DRAG_BEGIN:
         if (g_CurrentBgDocument.rooms == NULL

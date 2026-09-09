@@ -89,6 +89,11 @@ int ViewportGetSelectedBgFaceCount(HWND hwnd);
 BOOL ViewportGetSelectedBgFaces(HWND hwnd, BgFaceRef *out, int count);
 BOOL ViewportGetSingleSelectedBgFace(HWND hwnd, BgFaceRef *out);
 BOOL ViewportGetSelectedObject(HWND hwnd, DWORD *setupobjectindex);
+
+/* Drop onto the nearest rendered BG/model or visible stan surface. A void
+   drop fails. Selecting a new instance clears other selections. */
+BOOL ViewportGetModelDropPosition(HWND hwnd, POINT screen, double position[3]);
+void ViewportSelectSetupModel(HWND hwnd, DWORD selection);
 BOOL ViewportGetSelectedPad(HWND hwnd, SetupPadRef *out);
 
 /* Non-selecting face-mode drop query in screen coordinates. Uses the nearest
