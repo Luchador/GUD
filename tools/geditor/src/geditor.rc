@@ -67,6 +67,18 @@ BEGIN
     PUSHBUTTON      "Cancel", IDCANCEL, 180, 102, 50, 16
 END
 
+/* Closing this prompt or pressing Escape cancels exiting. */
+IDD_EXIT_UNSAVED DIALOGEX 0, 0, 344, 84
+STYLE DS_MODALFRAME | DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Unsaved Changes"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT           "This project has unsaved changes.\nWhat would you like to do?", -1, 10, 12, 324, 30
+    DEFPUSHBUTTON   "Save changes and &exit", IDYES, 10, 56, 106, 18
+    PUSHBUTTON      "Exit &without saving", IDNO, 124, 56, 110, 18
+    PUSHBUTTON      "&Cancel exiting", IDCANCEL, 242, 56, 92, 18
+END
+
 /* Modeless, resizable workspace for the face UV editing tools. */
 IDD_UV_EDITOR DIALOGEX 0, 0, 780, 540
 STYLE DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_CLIPCHILDREN

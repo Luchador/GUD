@@ -51,6 +51,8 @@ static int  g_RightPanelWidth = 260;
 static BOOL g_DraggingBrowserSplitter = FALSE;
 static BOOL g_DraggingRightSplitter = FALSE;
 static GEditorProject g_Project;
+/* Retain a failed metadata save even if all level assets were written. */
+static BOOL g_ProjectMetadataDirty;
 static DWORD g_CurrentLevelIndex = GEDITOR_NO_LEVEL;
 /* Complete source segment for the selected level. Parsed viewport
    geometry is deliberately separate so selection colors and other
@@ -372,11 +374,6 @@ static BOOL GEditorReloadCurrentObjectsAndViewport(const char **reasonout)
 }
 
 
-/**
-  * The one place a project gets closed, however the user asks for it:
-  * the Close Project menu item, or implicitly when creating or opening
-  * another project.
-  */
 /*
  * (Re)loads the browser from the project file and extracted asset
  * folders. Works for both freshly created and reopened projects: the
@@ -461,6 +458,7 @@ static void GEditorRefreshProjectAssets(void)
     }
 }
 
+/* Creating or opening another project implicitly closes the current one. */
 static void GEditorCloseProject(HWND hwnd)
 {
     if (g_Project.name[0] == '\0')
@@ -477,6 +475,7 @@ static void GEditorCloseProject(HWND hwnd)
     BgFileFree(&g_CurrentBg);
     g_CurrentLevelIndex = GEDITOR_NO_LEVEL;
     ProjectClose(&g_Project);
+    g_ProjectMetadataDirty = FALSE;
 
     BrowserSetLevels(g_Browser, NULL, 0);
     BrowserSetImages(g_Browser, NULL, 0, NULL);
@@ -484,7 +483,6 @@ static void GEditorCloseProject(HWND hwnd)
     ViewportSetScene(g_Viewport, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, FALSE);
     GEditorRefreshSelectionDetails();
     GEditorRefreshHistoryMenu(hwnd);
-    GEditorSetTitleForProject(hwnd);
 }
 
 
@@ -496,7 +494,6 @@ enum {
     ID_FILE_NEW_PROJECT = 40001,
     ID_FILE_OPEN_PROJECT,
     ID_FILE_SAVE_PROJECT,
-    ID_FILE_CLOSE_PROJECT,
     ID_FILE_EXIT,
 
     ID_EDIT_UNDO,
@@ -541,7 +538,6 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(filemenu, MF_STRING, ID_FILE_NEW_PROJECT, "&New Project");
     AppendMenu(filemenu, MF_STRING, ID_FILE_OPEN_PROJECT, "&Open Project");
     AppendMenu(filemenu, MF_STRING, ID_FILE_SAVE_PROJECT, "&Save Project");
-    AppendMenu(filemenu, MF_STRING, ID_FILE_CLOSE_PROJECT, "&Close Project");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_STRING, ID_FILE_EXIT, "E&xit");
 
@@ -628,9 +624,13 @@ static void GEditorUpdateHistoryMenu(HMENU menu)
 
 static void GEditorRefreshHistoryMenu(HWND hwnd)
 {
-    HMENU menubar = GetMenu(hwnd);
+    HMENU menubar;
     HMENU editmenu;
 
+    /* Saving from an owned dialog (Create ROM) still updates the main frame. */
+    hwnd = GetAncestor(hwnd, GA_ROOTOWNER);
+    GEditorSetTitleForProject(hwnd);
+    menubar = GetMenu(hwnd);
     if (menubar == NULL)
     {
         return;
@@ -1007,13 +1007,29 @@ static BOOL GEditorPromptForProject(HWND hwnd, char *pathout, DWORD pathmax)
 }
 
 
+static BOOL GEditorHasUnsavedChanges(void)
+{
+    return g_Project.name[0] != '\0'
+        && (g_CurrentBgDocument.dirty || g_CurrentSetup.dirty
+            || g_CurrentStan.dirty || g_ProjectMetadataDirty);
+}
+
+
 static void GEditorSetTitleForProject(HWND hwnd)
 {
     char title[GEDITOR_NAME_MAX + 32];
-    
-    if (g_Project.name[0] != '\0')
+    const char *name = g_Project.name;
+
+    if (g_CurrentLevelIndex < g_Project.levelcount
+        && g_Project.levels[g_CurrentLevelIndex].name[0] != '\0')
     {
-        snprintf(title, sizeof(title), "%s - %s", GEDITOR_TITLE, g_Project.name);
+        name = g_Project.levels[g_CurrentLevelIndex].name;
+    }
+
+    if (name[0] != '\0')
+    {
+        snprintf(title, sizeof(title), "%s - %s%s", GEDITOR_TITLE, name,
+                 GEditorHasUnsavedChanges() ? " *" : "");
     }
     else
     {
@@ -1032,6 +1048,7 @@ static void GEditorSetTitleForProject(HWND hwnd)
 static BOOL GEditorSaveProject(HWND hwnd)
 {
     const char *why = "";
+    BOOL saved = FALSE;
 
     if (g_Project.name[0] == '\0')
     {
@@ -1051,7 +1068,7 @@ static BOOL GEditorSaveProject(HWND hwnd)
                                    &compiled, &why))
             {
                 MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
-                return FALSE;
+                goto done;
             }
             bgtosave = &compiled;
         }
@@ -1062,7 +1079,7 @@ static BOOL GEditorSaveProject(HWND hwnd)
         {
             BgFileFree(&compiled);
             MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
-            return FALSE;
+            goto done;
         }
 
         if (compiled.data != NULL)
@@ -1078,8 +1095,7 @@ static BOOL GEditorSaveProject(HWND hwnd)
             if (!SetupSaveProjectFile(g_Project.dir, &g_CurrentSetup, &why))
             {
                 MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
-                GEditorRefreshHistoryMenu(hwnd);
-                return FALSE;
+                goto done;
             }
             EditHistoryMarkSetupSaved(&g_EditHistory, &g_CurrentSetup);
         }
@@ -1088,21 +1104,81 @@ static BOOL GEditorSaveProject(HWND hwnd)
             && !StanSaveProjectFile(g_Project.dir, &g_CurrentStan, &why))
         {
             MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
-            GEditorRefreshHistoryMenu(hwnd);
-            return FALSE;
+            goto done;
         }
 
         EditHistoryMarkStanSaved(&g_EditHistory, &g_CurrentStan);
-        GEditorRefreshHistoryMenu(hwnd);
     }
 
     if (!ProjectSave(&g_Project, &why))
     {
+        g_ProjectMetadataDirty = TRUE;
         MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
-        return FALSE;
+        goto done;
     }
 
-    return TRUE;
+    g_ProjectMetadataDirty = FALSE;
+    saved = TRUE;
+
+done:
+    GEditorRefreshHistoryMenu(hwnd);
+    return saved;
+}
+
+
+static INT_PTR CALLBACK GEditorExitDialogProc(HWND hdlg, UINT msg,
+                                             WPARAM wparam, LPARAM lparam)
+{
+    switch (msg)
+    {
+    case WM_INITDIALOG:
+        return TRUE;
+
+    case WM_COMMAND:
+        switch (LOWORD(wparam))
+        {
+        case IDYES:
+        case IDNO:
+        case IDCANCEL:
+            EndDialog(hdlg, LOWORD(wparam));
+            return TRUE;
+        }
+        break;
+
+    case WM_CLOSE:
+        EndDialog(hdlg, IDCANCEL);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+
+static BOOL GEditorConfirmExit(HWND hwnd)
+{
+    INT_PTR choice;
+
+    if (!GEditorHasUnsavedChanges())
+    {
+        return TRUE;
+    }
+
+    choice = DialogBoxParam((HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE),
+        MAKEINTRESOURCE(IDD_EXIT_UNSAVED), hwnd, GEditorExitDialogProc, 0);
+    if (choice == IDYES)
+    {
+        /* Any failed write keeps the editor open so the user can retry. */
+        return GEditorSaveProject(hwnd);
+    }
+    if (choice == IDNO)
+    {
+        return TRUE;
+    }
+    if (choice == -1)
+    {
+        MessageBox(hwnd, "Could not open the unsaved changes dialog.",
+                   GEDITOR_TITLE, MB_ICONERROR);
+    }
+    return FALSE;
 }
 
 
@@ -2526,7 +2602,6 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         BOOL stanLoaded;
         BOOL portalsLoaded;
         DWORD objectfirsttriangle;
-        char title[256];
 
         if (index >= g_Project.levelcount)
         {
@@ -2672,11 +2747,8 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
         EditHistoryReset(&g_EditHistory, &g_CurrentBgDocument,
                          &g_CurrentSetup, &g_CurrentStan);
-        GEditorRefreshHistoryMenu(hwnd);
         g_CurrentLevelIndex = index;
-
-        wsprintf(title, "%s - %s", GEDITOR_TITLE, (const char *)lparam);
-        SetWindowText(hwnd, title);
+        GEditorRefreshHistoryMenu(hwnd);
         return 0;
     }
 
@@ -2776,10 +2848,9 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
     case WM_INITMENUPOPUP:
         /* Sent just before a drop-down opens - the one moment the item
-           states matter, so they can never be stale. Save and Close
-           are only clickable while a project is open. */
+           states matter, so they can never be stale. Saving requires
+           an open project. */
         EnableMenuItem((HMENU)wparam, ID_FILE_SAVE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
-        EnableMenuItem((HMENU)wparam, ID_FILE_CLOSE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CREATE_ROM, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         GEditorUpdateHistoryMenu((HMENU)wparam);
         CheckMenuItem((HMENU)wparam, ID_VIEW_BACKFACE_CULLING, MF_BYCOMMAND | (ViewportGetBackfaceCulling(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
@@ -2894,10 +2965,6 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 return 0;
             }
 
-            case ID_FILE_CLOSE_PROJECT:
-                GEditorCloseProject(hwnd);
-                return 0;
-
             case ID_FILE_SAVE_PROJECT:
                 GEditorSaveProject(hwnd);
                 return 0;
@@ -2954,6 +3021,14 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             }
 
         break; /* anything else falls through to DefWindowProc */
+
+    case WM_CLOSE:
+        ViewportCancelTransform(g_Viewport);
+        if (GEditorConfirmExit(hwnd))
+        {
+            DestroyWindow(hwnd);
+        }
+        return 0;
 
     case WM_DESTROY:
         /* The window is gone; ask the message loop to stop. Without
