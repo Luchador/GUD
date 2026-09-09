@@ -32,6 +32,10 @@ typedef struct TexPixel { unsigned char r, g, b, a; } TexPixel;
 BOOL TexLoadProjectImage(const char *projectdir, DWORD id,
                          TexPixel *out, int *w, int *h);
 
+/* Encode native-order RGBA rows as a PNG for glTF. Caller frees *dataout. */
+BOOL TexEncodePng(const TexPixel *pixels, int width, int height,
+                   unsigned char **dataout, DWORD *sizeout);
+
 /* Reads only the dimensions from an extracted project BMP. This is used when
  * converting between GoldenEye's texel-space UVs and normalized model UVs. */
 BOOL TexGetProjectImageSize(const char *projectdir, DWORD id,

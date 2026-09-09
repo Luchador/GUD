@@ -746,6 +746,78 @@ BOOL TexLoadProjectImage(const char *projectdir, DWORD id,
 }
 
 
+BOOL TexEncodePng(const TexPixel *pixels, int width, int height,
+                   unsigned char **dataout, DWORD *sizeout)
+{
+    HRESULT initialized;
+    IWICImagingFactory *factory = NULL;
+    IWICBitmapEncoder *encoder = NULL;
+    IWICBitmapFrameEncode *frame = NULL;
+    IStream *stream = NULL;
+    WICPixelFormatGUID format = GUID_WICPixelFormat32bppBGRA;
+    STATSTG stat;
+    LARGE_INTEGER start;
+    unsigned char *data = NULL;
+    unsigned char *bgra = NULL;
+    int pixel;
+    ULONG read = 0;
+    BOOL ok = FALSE;
+
+    *dataout = NULL;
+    *sizeout = 0;
+    if (pixels == NULL || width <= 0 || height <= 0 || width > 256 || height > 256)
+    { return FALSE; }
+    initialized = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    if (FAILED(initialized) && initialized != RPC_E_CHANGED_MODE) { return FALSE; }
+    /* WIC's native PNG encoder accepts BGRA; keep rows and straight alpha. */
+    bgra = (unsigned char *)malloc((size_t)width * height * 4);
+    if (bgra == NULL) { goto done; }
+    for (pixel = 0; pixel < width * height; pixel++)
+    {
+        bgra[pixel * 4] = pixels[pixel].b;
+        bgra[pixel * 4 + 1] = pixels[pixel].g;
+        bgra[pixel * 4 + 2] = pixels[pixel].r;
+        bgra[pixel * 4 + 3] = pixels[pixel].a;
+    }
+    start.QuadPart = 0;
+    if (FAILED(CoCreateInstance(&CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER,
+                                &IID_IWICImagingFactory, (void **)&factory))
+        || FAILED(CreateStreamOnHGlobal(NULL, TRUE, &stream))
+        || FAILED(IWICImagingFactory_CreateEncoder(factory, &GUID_ContainerFormatPng, NULL, &encoder))
+        || FAILED(IWICBitmapEncoder_Initialize(encoder, stream, WICBitmapEncoderNoCache))
+        || FAILED(IWICBitmapEncoder_CreateNewFrame(encoder, &frame, NULL))
+        || FAILED(IWICBitmapFrameEncode_Initialize(frame, NULL))
+        || FAILED(IWICBitmapFrameEncode_SetSize(frame, width, height))
+        || FAILED(IWICBitmapFrameEncode_SetPixelFormat(frame, &format))
+        || !IsEqualGUID(&format, &GUID_WICPixelFormat32bppBGRA)
+        || FAILED(IWICBitmapFrameEncode_WritePixels(frame, height, width * 4,
+                                                    width * height * 4, bgra))
+        || FAILED(IWICBitmapFrameEncode_Commit(frame))
+        || FAILED(IWICBitmapEncoder_Commit(encoder))
+        || FAILED(IStream_Stat(stream, &stat, STATFLAG_NONAME))
+        || stat.cbSize.QuadPart == 0 || stat.cbSize.QuadPart > 0xffffffffu)
+    { goto done; }
+
+    data = (unsigned char *)malloc((size_t)stat.cbSize.QuadPart);
+    if (data == NULL || FAILED(IStream_Seek(stream, start, STREAM_SEEK_SET, NULL))
+        || FAILED(IStream_Read(stream, data, (ULONG)stat.cbSize.QuadPart, &read))
+        || read != stat.cbSize.QuadPart) { goto done; }
+    *dataout = data;
+    *sizeout = read;
+    data = NULL;
+    ok = TRUE;
+done:
+    free(bgra);
+    free(data);
+    if (frame != NULL) { IWICBitmapFrameEncode_Release(frame); }
+    if (encoder != NULL) { IWICBitmapEncoder_Release(encoder); }
+    if (stream != NULL) { IStream_Release(stream); }
+    if (factory != NULL) { IWICImagingFactory_Release(factory); }
+    if (SUCCEEDED(initialized)) { CoUninitialize(); }
+    return ok;
+}
+
+
 BOOL TexGetProjectImageSize(const char *projectdir, DWORD id,
                             int *w, int *h)
 {

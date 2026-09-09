@@ -1,8 +1,8 @@
 /*
  * Small glTF 2.0 bridge for GEditor's flattened GoldenEye model geometry.
  *
- * New project assets use JSON .gltf files with an embedded binary buffer so
- * every model remains a single editable file. The reader deliberately uses
+ * New project assets embed geometry and PNG textures with standard glTF
+ * material links, so every model remains a single editable file. The reader uses
  * standard buffers, buffer views, accessors, and mesh primitives rather than
  * depending on the writer's JSON layout. This also permits buffer repacking
  * and indexed triangle primitives emitted by common DCC tools.
@@ -82,12 +82,22 @@ typedef struct GltfGroup {
     BgRenderFlags renderflags;
     int texturewidth;
     int textureheight;
+    int imageindex;
+    int textureindex;
     DWORD tricount;
     DWORD firstvertex;
     DWORD written;
     float min[3];
     float max[3];
 } GltfGroup;
+
+typedef struct GltfImage {
+    unsigned short textureid;
+    BOOL ignorealpha;
+    int width, height;
+    unsigned char *png;
+    DWORD pngsize;
+} GltfImage;
 
 
 static BOOL GltfJsonPushToken(GltfJsonToken **tokens, int *count,
@@ -2019,9 +2029,130 @@ static BOOL GltfWriteBase64(FILE *file, const unsigned char *data,
 }
 
 
+static void GltfFreeImages(GltfImage *images, DWORD count)
+{
+    DWORD index;
+    for (index = 0; index < count; index++) { free(images[index].png); }
+    free(images);
+}
+
+static BOOL GltfLoadImages(const char *projectdir, GltfGroup *groups, DWORD groupcount,
+                           GltfImage **imagesout, DWORD *countout, const char **reasonout)
+{
+    GltfImage *images = NULL;
+    TexPixel *pixels = NULL;
+    int *lookup = NULL;
+    DWORD group, count = 0;
+    int textureindex = 0;
+    DWORD capacity = groupcount < BG_TEX_NONE * 2 ? groupcount : BG_TEX_NONE * 2;
+
+    *imagesout = NULL; *countout = 0;
+    images = (GltfImage *)calloc(capacity, sizeof(*images));
+    pixels = (TexPixel *)malloc(256 * 256 * sizeof(*pixels));
+    lookup = (int *)malloc(BG_TEX_NONE * 2 * sizeof(*lookup));
+    if (images == NULL || pixels == NULL || lookup == NULL)
+    {
+        *reasonout = "out of memory preparing model textures.";
+        goto fail;
+    }
+    for (group = 0; group < BG_TEX_NONE * 2; group++) { lookup[group] = -1; }
+    for (group = 0; group < groupcount; group++)
+    {
+        GltfGroup *item = &groups[group];
+        unsigned short textureid = BG_TEX_ID(item->tag);
+        BOOL ignorealpha = (item->renderflags & BG_RENDER_IGNORE_TEXTURE_ALPHA) != 0;
+        unsigned int key = textureid + (ignorealpha ? BG_TEX_NONE : 0);
+        int imageindex;
+
+        item->imageindex = item->textureindex = -1;
+        item->texturewidth = item->textureheight = 1;
+        if (textureid == BG_TEX_NONE) { continue; }
+        imageindex = lookup[key];
+        if (imageindex < 0)
+        {
+            GltfImage *image = &images[count];
+            int pixel;
+            if (projectdir == NULL || !TexLoadProjectImage(projectdir, textureid, pixels, &image->width, &image->height))
+            {
+                *reasonout = "a texture used by the model could not be loaded from the project's images folder.";
+                goto fail;
+            }
+            /* Keep native row order: glTF's (0,0) addresses the PNG's first
+               row, matching the existing normalized GE UVs. BMP thumbnails
+               have a display rotation which TexLoadProjectImage reverses. */
+            if (ignorealpha)
+            {
+                for (pixel = 0; pixel < image->width * image->height; pixel++) { pixels[pixel].a = 255; }
+            }
+            if (!TexEncodePng(pixels, image->width, image->height, &image->png, &image->pngsize))
+            {
+                *reasonout = "a model texture could not be encoded as PNG.";
+                goto fail;
+            }
+            image->textureid = textureid;
+            image->ignorealpha = ignorealpha;
+            imageindex = (int)count++;
+            lookup[key] = imageindex;
+        }
+        item->imageindex = imageindex;
+        item->textureindex = textureindex++;
+        item->texturewidth = images[imageindex].width;
+        item->textureheight = images[imageindex].height;
+    }
+    free(pixels); free(lookup);
+    *imagesout = images; *countout = count;
+    return TRUE;
+fail:
+    free(pixels); free(lookup);
+    GltfFreeImages(images, count);
+    return FALSE;
+}
+
+static int GltfWrapMode(BgRenderFlags flags, BOOL t)
+{
+    if (flags & (t ? BG_RENDER_CLAMP_T : BG_RENDER_CLAMP_S)) { return GLTF_WRAP_CLAMP_TO_EDGE; }
+    if (flags & (t ? BG_RENDER_MIRROR_T : BG_RENDER_MIRROR_S)) { return GLTF_WRAP_MIRRORED_REPEAT; }
+    return GLTF_WRAP_REPEAT;
+}
+
+static BOOL GltfWriteTextures(FILE *file, const GltfGroup *groups, DWORD groupcount,
+                              const GltfImage *images, DWORD imagecount)
+{
+    DWORD index;
+    BOOL first = TRUE;
+    if (imagecount == 0) { return TRUE; }
+    if (fprintf(file, "  \"images\": [\n") < 0) { return FALSE; }
+    for (index = 0; index < imagecount; index++)
+    {
+        if (fprintf(file, "    {\"name\": \"GUD Image %04X%s\", \"uri\": \"data:image/png;base64,",
+                    images[index].textureid, images[index].ignorealpha ? " opaque" : "") < 0
+            || !GltfWriteBase64(file, images[index].png, images[index].pngsize)
+            || fprintf(file, "\"}%s\n", index + 1 < imagecount ? "," : "") < 0) { return FALSE; }
+    }
+    if (fprintf(file, "  ],\n  \"samplers\": [\n") < 0) { return FALSE; }
+    for (index = 0; index < groupcount; index++)
+    {
+        if (groups[index].imageindex < 0) { continue; }
+        if (fprintf(file, "%s    {\"magFilter\": 9729, \"minFilter\": 9729, \"wrapS\": %d, \"wrapT\": %d}",
+                    first ? "" : ",\n", GltfWrapMode(groups[index].renderflags, FALSE),
+                    GltfWrapMode(groups[index].renderflags, TRUE)) < 0) { return FALSE; }
+        first = FALSE;
+    }
+    if (fprintf(file, "\n  ],\n  \"textures\": [\n") < 0) { return FALSE; }
+    first = TRUE;
+    for (index = 0; index < groupcount; index++)
+    {
+        if (groups[index].imageindex < 0) { continue; }
+        if (fprintf(file, "%s    {\"sampler\": %d, \"source\": %d}", first ? "" : ",\n",
+                    groups[index].textureindex, groups[index].imageindex) < 0) { return FALSE; }
+        first = FALSE;
+    }
+    return fprintf(file, "\n  ],\n") >= 0;
+}
+
 static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
                           DWORD binarysize, const GltfGroup *groups,
-                          DWORD groupcount)
+                          DWORD groupcount, const GltfImage *images, DWORD imagecount)
 {
     FILE *file = fopen(path, "wb");
     DWORD group;
@@ -2035,6 +2166,7 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
     if (fprintf(file,
         "{\n"
         "  \"asset\": {\"version\": \"2.0\", \"generator\": \"GEditor\"},\n"
+        "  \"extensionsUsed\": [\"KHR_materials_unlit\"],\n"
         "  \"extras\": {\"goldeneyeUvUnits\": \"normalized\"},\n"
         "  \"scene\": 0,\n"
         "  \"scenes\": [{\"nodes\": [0]}],\n"
@@ -2076,7 +2208,9 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
         }
     }
 
-    if (ok && fprintf(file, "  ],\n  \"materials\": [\n") < 0)
+    if (ok && (fprintf(file, "  ],\n") < 0
+        || !GltfWriteTextures(file, groups, groupcount, images, imagecount)
+        || fprintf(file, "  \"materials\": [\n") < 0))
     {
         ok = FALSE;
     }
@@ -2087,10 +2221,16 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
             ? ", \"alphaMode\": \"MASK\""
             : (item->renderflags & BG_RENDER_BLEND) ? ", \"alphaMode\": \"BLEND\"" : "";
         const char *comma = group + 1 < groupcount ? "," : "";
+        char texture[96] = "";
+
+        if (item->textureindex >= 0)
+        {
+            snprintf(texture, sizeof(texture), ", \"baseColorTexture\": {\"index\": %d, \"texCoord\": 0}", item->textureindex);
+        }
 
         if (fprintf(file,
-            "    {\"name\": \"GUD Texture Tag 0x%04X\", \"doubleSided\": true%s, \"extras\": {\"goldeneyeRenderFlags\": %u, \"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
-            item->tag, alpha, item->renderflags, item->tag,
+            "    {\"name\": \"GUD Texture Tag 0x%04X\", \"doubleSided\": true%s, \"pbrMetallicRoughness\": {\"baseColorFactor\": [1, 1, 1, 1], \"metallicFactor\": 0, \"roughnessFactor\": 1%s}, \"extensions\": {\"KHR_materials_unlit\": {}}, \"extras\": {\"goldeneyeRenderFlags\": %u, \"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
+            item->tag, alpha, texture, item->renderflags, item->tag,
             item->texturewidth, item->textureheight, comma) < 0)
         {
             ok = FALSE;
@@ -2148,6 +2288,8 @@ BOOL GltfWriteModel(const char *path, const char *projectdir,
                     const char **reasonout)
 {
     GltfGroup *groups = NULL;
+    GltfImage *images = NULL;
+    DWORD imagecount = 0;
     DWORD groupindex = 0;
     unsigned char *binary = NULL;
     DWORD groupcount = 0;
@@ -2194,25 +2336,11 @@ BOOL GltfWriteModel(const char *path, const char *projectdir,
         groups[groupcount - 1].tricount++;
     }
 
+    if (!GltfLoadImages(projectdir, groups, groupcount, &images, &imagecount, reasonout))
+    { goto done; }
+
     for (triangle = 0; triangle < groupcount; triangle++)
     {
-        DWORD textureid = BG_TEX_ID(groups[triangle].tag);
-
-        groups[triangle].texturewidth = 1;
-        groups[triangle].textureheight = 1;
-        if (projectdir != NULL && textureid != BG_TEX_NONE)
-        {
-            TexGetProjectImageSize(projectdir, textureid,
-                                   &groups[triangle].texturewidth,
-                                   &groups[triangle].textureheight);
-        }
-        if (groups[triangle].texturewidth <= 0
-            || groups[triangle].textureheight <= 0)
-        {
-            groups[triangle].texturewidth = 1;
-            groups[triangle].textureheight = 1;
-        }
-
         groups[triangle].firstvertex = firstvertex;
         firstvertex += groups[triangle].tricount * 3;
     }
@@ -2252,13 +2380,14 @@ BOOL GltfWriteModel(const char *path, const char *projectdir,
         group->written++;
     }
 
-    ok = GltfWriteJson(path, binary, binarysize, groups, groupcount);
+    ok = GltfWriteJson(path, binary, binarysize, groups, groupcount, images, imagecount);
     if (!ok)
     {
         *reasonout = "the glTF model file could not be completely written.";
     }
 
 done:
+    GltfFreeImages(images, imagecount);
     free(groups);
     free(binary);
     return ok;

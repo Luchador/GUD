@@ -9,7 +9,9 @@
  * extras preserve native depth, decal, alpha, wrapping and texture generation.
  * Reflective primitives carry NORMAL and _GUD_ENV_SCALE (VEC2, texel ranges)
  * attributes so camera-dependent UVs can be regenerated after reopening.
- * Project image dimensions convert GoldenEye texel UVs to normalized UVs. */
+ * Project image dimensions convert GoldenEye texel UVs to normalized UVs.
+ * Embedded PNG images and standard unlit base-color materials make textures
+ * available to Blender without the project folder or manual relinking. */
 BOOL GltfWriteModel(const char *path, const char *projectdir,
                     const BgVertex *vertices,
                     const unsigned short *tritags,
