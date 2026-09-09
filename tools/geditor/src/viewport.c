@@ -40,7 +40,7 @@
 #define VIEWPORT_PITCH_LIMIT 89.0f
 
 #define VIEWPORT_DEG_TO_RAD (3.14159265358979323846f / 180.0f)
-#define VIEWPORT_PAD_HALF_SIZE 5.0f
+#define VIEWPORT_PAD_HALF_SIZE SETUP_PAD_HALF_SIZE
 #define VIEWPORT_BOX_VERTICES  24
 #define VIEWPORT_VERTEX_MARKER_SIZE 5.0f /* screen pixels */
 #define VIEWPORT_PORTAL_FILL_ALPHA 64
@@ -148,6 +148,11 @@ typedef struct ViewportState {
     DWORD arrowtris;
     BgVertex *cylinder;
     DWORD cylindertris;
+    BOOL scalemode, dragscaling, scalevalid;
+    Rotation scaleaxes;
+    double dragdirection[3];
+    BgVertex *scalehandle;
+    DWORD scalehandletris;
     BOOL rotationmode, dragrotation;
     Rotation rotationframe;
     unsigned int rotationaxes;
@@ -265,7 +270,7 @@ static BOOL ViewportPadSelectionPosition(const ViewportState *state, double posi
     for (axis = 0; axis < 3; axis++)
     {
         position[axis] = state->pads[index].position[axis];
-        if (state->dragpad && !state->dragrotation && state->dragaxis == axis) { position[axis] += state->dragdelta; }
+        if (state->dragpad && !state->dragrotation && !state->dragscaling && state->dragaxis == axis) { position[axis] += state->dragdelta; }
     }
     return TRUE;
 }
@@ -647,6 +652,21 @@ static void ViewportEnvironmentCoordinates(const ViewportState *state, int index
         {
             environment.normal[axis] = (float)rotated[axis];
         }
+    }
+    if (state->dragscaling && state->selectedobject != VIEWPORT_OBJECT_NONE
+        && !state->dragstan && !state->dragpad && state->dragaxis >= 0
+        && state->dragmask && state->dragmask[index])
+    {
+        Scaling inverse = {0};
+        double normal[3] = {environment.normal[0], environment.normal[1], environment.normal[2]};
+        int axis;
+        inverse.axes = state->scaleaxes;
+        for (axis = 0; axis < 3; axis++)
+        {
+            inverse.factor[axis] = axis == state->dragaxis ? 1.0 / (1 + state->dragdelta) : 1;
+        }
+        ScalingPoint(&inverse, normal, normal);
+        for (axis = 0; axis < 3; axis++) { environment.normal[axis] = (float)normal[axis]; }
     }
     BgRenderEnvironmentCoordinates(&environment, flags, right, up, uv);
 }
@@ -2179,6 +2199,51 @@ static void ViewportUpdateGizmo(ViewportState *state)
     state->gizmovisible = FALSE;
     state->hoveraxis = -1;
     if (state->vertexsnap) { return; }
+    if (state->scalemode)
+    {
+        int padindex = ViewportSelectedPadIndex(state);
+        if (state->selectedobject != VIEWPORT_OBJECT_NONE
+            && (state->selectedobject & SETUP_CHARACTER_SELECTION_BIT)) { return; }
+        if (padindex >= 0)
+        {
+            /* The volume's center can differ from its authored pad origin. */
+            for (axis = 0; axis < 3; axis++) { state->gizmoposition[axis] = 0; }
+            for (i = 0; i < VIEWPORT_BOX_VERTICES; i++)
+            {
+                const Vertex *v = &state->padmarkers[padindex * VIEWPORT_BOX_VERTICES + i];
+                state->gizmoposition[0] += v->x / (double)VIEWPORT_BOX_VERTICES;
+                state->gizmoposition[1] += v->y / (double)VIEWPORT_BOX_VERTICES;
+                state->gizmoposition[2] += v->z / (double)VIEWPORT_BOX_VERTICES;
+            }
+            state->gizmovisible = TRUE;
+            return;
+        }
+        if (state->tool == EDITOR_TOOL_VERTEX_SELECT)
+        {
+            DWORD count;
+            if (ViewportStanSelectionPosition(state, FALSE, state->gizmoposition, &count))
+            {
+                state->gizmovisible = count >= 2;
+                return;
+            }
+            for (i = 0; i < state->componentcount; i++)
+            {
+                int corner = state->components[i].corners[0];
+                if (!ViewportCornerVisible(state, corner)) { continue; }
+                sum[0] += state->scene[corner].x;
+                sum[1] += state->scene[corner].y;
+                sum[2] += state->scene[corner].z;
+                weight++;
+            }
+            if (weight >= 2)
+            {
+                for (axis = 0; axis < 3; axis++) { state->gizmoposition[axis] = sum[axis] / weight; }
+                state->gizmovisible = TRUE;
+            }
+            return;
+        }
+    }
+
     if (ViewportPadSelectionPosition(state, state->gizmoposition))
     {
         state->gizmovisible = TRUE;
@@ -3341,6 +3406,7 @@ static void ViewportLoadGizmo(ViewportState *state)
 {
     state->arrow = ViewportLoadHandle(IDR_GIZMO_ARROW, &state->arrowtris, FALSE);
     state->cylinder = ViewportLoadHandle(IDR_GIZMO_CYLINDER, &state->cylindertris, TRUE);
+    state->scalehandle = ViewportLoadHandle(IDR_GIZMO_SCALE, &state->scalehandletris, FALSE);
 }
 
 static double ViewportGizmoScale(const ViewportState *state)
@@ -3350,8 +3416,9 @@ static double ViewportGizmoScale(const ViewportState *state)
     /* Keep the selection's handles visible and sized to the current camera,
        including while flying. Only picking is disabled during navigation. */
     if (!state->gizmovisible || state->height <= 0
+        || (state->scalemode && (!state->scalehandle || !state->scalevalid))
         || (state->rotationmode ? state->cylinder == NULL || !state->rotationaxes
-            || state->tool == EDITOR_TOOL_VERTEX_PAINT : state->arrow == NULL)) { return 0; }
+            || state->tool == EDITOR_TOOL_VERTEX_PAINT : !state->scalemode && state->arrow == NULL)) { return 0; }
     ViewportGetBasis(state,forward,right);
     depth=(state->gizmoposition[0]-state->posx)*forward[0]
         +(state->gizmoposition[1]-state->posy)*forward[1]
@@ -3363,10 +3430,12 @@ static double ViewportGizmoScale(const ViewportState *state)
 static void ViewportArrowVertex(const ViewportState *state, int axis,
                                 DWORD index, double scale, Vertex *out)
 {
-    const BgVertex *source=state->rotationmode?&state->cylinder[index]:&state->arrow[index];
+    const BgVertex *source = state->rotationmode ? &state->cylinder[index]
+        : state->scalemode ? &state->scalehandle[index] : &state->arrow[index];
     double p[3] = {source->x,source->y,source->z};
     if (axis==1) { p[0]=-source->y; p[1]=source->x; }
     if (axis==2) { p[0]=-source->z; p[2]=source->x; }
+    if (state->scalemode) { RotationVector(&state->scaleaxes, p, p); }
     out->x=(float)(state->gizmoposition[0]+p[0]*scale);
     out->y=(float)(state->gizmoposition[1]+p[1]*scale);
     out->z=(float)(state->gizmoposition[2]+p[2]*scale);
@@ -3455,7 +3524,7 @@ static void ViewportDrawTransformTools(const ViewportState *state)
             else if (axis==1) { glColor3ub(40,220,60); }
             else { glColor3ub(40,100,255); }
             glBegin(GL_TRIANGLES);
-            for (vertex=0; vertex<(state->rotationmode?state->cylindertris:state->arrowtris)*3; vertex++)
+            for (vertex=0; vertex<(state->rotationmode ? state->cylindertris : state->scalemode ? state->scalehandletris : state->arrowtris)*3; vertex++)
             {
                 Vertex v;
                 ViewportArrowVertex(state,axis,vertex,scale,&v);
@@ -3477,7 +3546,7 @@ static int ViewportPickGizmo(HWND hwnd, ViewportState *state, int x, int y)
     {
         DWORD tri;
         if(state->rotationmode && !(state->rotationaxes & (1u<<axis)))continue;
-        for (tri=0; tri<(state->rotationmode?state->cylindertris:state->arrowtris); tri++)
+        for (tri=0; tri<(state->rotationmode ? state->cylindertris : state->scalemode ? state->scalehandletris : state->arrowtris); tri++)
         {
             Vertex v[3]; double distance; int corner;
             for (corner=0; corner<3; corner++) { ViewportArrowVertex(state,axis,tri*3+corner,scale,&v[corner]); }
@@ -3502,7 +3571,15 @@ static double ViewportDragParameter(const ViewportState *state, const ViewportPi
         numerator+=(state->dragorigin[i]-ray->origin[i])*state->dragplane[i];
     }
     if (fabs(denominator)<1e-6 || numerator/denominator<0) { return state->dragparameter; }
-    return ray->origin[state->dragaxis]+ray->direction[state->dragaxis]*numerator/denominator;
+    {
+        double parameter = 0;
+        for (i = 0; i < 3; i++)
+        {
+            parameter += (ray->origin[i] + ray->direction[i] * numerator / denominator)
+                * state->dragdirection[i];
+        }
+        return parameter;
+    }
 }
 
 static double ViewportRotationParameter(const ViewportState *state, const ViewportPickRay *ray,
@@ -3542,6 +3619,7 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
         return FALSE;
     }
     state->dragrotation = state->rotationmode;
+    state->dragscaling = state->scalemode;
     state->dragpad = ViewportSelectedPadIndex(state) >= 0;
     state->dragstan = ViewportGetStanSelectionCount(hwnd, NULL) > 0;
     vertexcount = state->dragpad    ? VIEWPORT_BOX_VERTICES
@@ -3625,11 +3703,19 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     state->hoveraxis = axis;
     state->dragdelta = 0;
     state->dragscale = ViewportGizmoScale(state);
-    for (i = 0; i < 3; i++)
     {
-        state->dragorigin[i] = state->gizmoposition[i];
-        state->dragplane[i] = i == axis ? 0 : ray.direction[i];
-        length += state->dragplane[i] * state->dragplane[i];
+        double dot = 0;
+        for (i = 0; i < 3; i++)
+        {
+            state->dragdirection[i] = state->dragscaling ? state->scaleaxes.m[i][axis] : i == axis;
+            dot += ray.direction[i] * state->dragdirection[i];
+        }
+        for (i = 0; i < 3; i++)
+        {
+            state->dragorigin[i] = state->gizmoposition[i];
+            state->dragplane[i] = ray.direction[i] - dot * state->dragdirection[i];
+            length += state->dragplane[i] * state->dragplane[i];
+        }
     }
     state->dragvertical = length < 0.0025;
     state->dragparameter = ViewportDragParameter(state, &ray, y);
@@ -3674,6 +3760,7 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
     double delta;
     int i;
     Rotation rotation;
+    Scaling scale;
     if (!ViewportBuildPickRay(hwnd, state, x, y, &ray))
     {
         return;
@@ -3688,6 +3775,16 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
         state->rotationlast = angle;
         delta = round(state->rotationtotal);
         RotationAxis(&rotation, state->dragaxis, delta);
+    }
+    else if (state->dragscaling)
+    {
+        double movement = ViewportDragParameter(state, &ray, y) - state->dragparameter;
+        /* A handle-length drag doubles the selected dimension. One-percent
+           drag steps never cross zero or reflect/collapse the selection. */
+        delta = fmax(-.99, round(movement / state->dragscale * 100.0) / 100.0);
+        scale.axes = state->scaleaxes;
+        memcpy(scale.pivot, state->dragorigin, sizeof(scale.pivot));
+        for (i = 0; i < 3; i++) { scale.factor[i] = i == state->dragaxis ? 1 + delta : 1; }
     }
     else
     {
@@ -3707,12 +3804,13 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
         {
             continue;
         }
-        if (state->dragrotation)
+        if (state->dragrotation || state->dragscaling)
         {
             double source[3] = {state->dragvertices[i][0], state->dragvertices[i][1],
                                 state->dragvertices[i][2]},
                    point[3];
-            RotationPoint(&rotation, state->dragorigin, source, point);
+            if (state->dragscaling) { ScalingPoint(&scale, source, point); }
+            else { RotationPoint(&rotation, state->dragorigin, source, point); }
             if (state->dragpad)
             {
                 Vertex *v =
@@ -3759,7 +3857,7 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
             state->scene[i].z = state->dragvertices[i][2] + (state->dragaxis == 2 ? delta : 0);
         }
     }
-    if (!state->dragrotation)
+    if (!state->dragrotation && !state->dragscaling)
     {
         state->gizmoposition[state->dragaxis] = state->dragorigin[state->dragaxis] + delta;
     }
@@ -3837,6 +3935,21 @@ static void ViewportEndTransform(HWND hwnd, ViewportState *state)
     ViewportTranslation request;
     if (state == NULL || state->dragaxis < 0)
     {
+        return;
+    }
+    if (state->dragscaling)
+    {
+        Scaling scale;
+        int axis;
+        double delta = state->dragdelta;
+        scale.axes = state->scaleaxes;
+        memcpy(scale.pivot, state->dragorigin, sizeof(scale.pivot));
+        for (axis = 0; axis < 3; axis++) { scale.factor[axis] = axis == state->dragaxis ? 1 + delta : 1; }
+        ViewportCancelTransform(hwnd);
+        if (delta != 0)
+        {
+            SendMessage(GetParent(hwnd), VIEWPORT_WM_SCALE_SELECTION, 0, (LPARAM)&scale);
+        }
         return;
     }
     if (state->dragrotation)
@@ -4110,6 +4223,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
                 wglDeleteContext(state->hglrc);
             }
             free(state->cylinder);
+            free(state->scalehandle);
             free(state->arrow);
             free(state->components);
             free(state);
@@ -5370,7 +5484,7 @@ BOOL ViewportIsRotating(HWND hwnd)
     ViewportState *s = ViewportGetState(hwnd);
     return s && s->rotationmode;
 }
-void ViewportSetRotationMode(HWND hwnd, BOOL rotate)
+void ViewportSetTransformMode(HWND hwnd, TransformMode mode)
 {
     ViewportState *s = ViewportGetState(hwnd);
     if (!s)
@@ -5378,7 +5492,9 @@ void ViewportSetRotationMode(HWND hwnd, BOOL rotate)
         return;
     }
     ViewportCancelTransform(hwnd);
-    s->rotationmode = rotate;
+    s->rotationmode = mode == TRANSFORM_ROTATE;
+    s->scalemode = mode == TRANSFORM_SCALE;
+    ViewportUpdateGizmo(s);
     s->hoveraxis = -1;
     InvalidateRect(hwnd, NULL, FALSE);
 }
@@ -5418,4 +5534,59 @@ BOOL ViewportGetRotation(HWND hwnd, Rotation *frame, double degrees[3], double p
     }
     memcpy(pivot, s->gizmoposition, sizeof(s->gizmoposition));
     return TRUE;
+}
+
+TransformMode ViewportGetTransformMode(HWND hwnd)
+{
+    ViewportState *s = ViewportGetState(hwnd);
+    return s && s->scalemode      ? TRANSFORM_SCALE
+           : s && s->rotationmode ? TRANSFORM_ROTATE
+                                  : TRANSFORM_MOVE;
+}
+void ViewportSetScaleAxes(HWND hwnd, const Rotation *axes)
+{
+    ViewportState *s = ViewportGetState(hwnd);
+    if (!s || s->dragaxis >= 0)
+    {
+        return;
+    }
+    s->scalevalid = axes && RotationValid(axes);
+    if (s->scalevalid)
+    {
+        s->scaleaxes = *axes;
+    }
+    InvalidateRect(hwnd, NULL, FALSE);
+}
+BOOL ViewportGetScaling(HWND hwnd, Scaling *scale)
+{
+    ViewportState *s = ViewportGetState(hwnd);
+    int axis;
+    if (!s || !s->scalemode || !s->scalevalid || !s->gizmovisible || s->vertexsnap)
+    {
+        return FALSE;
+    }
+    scale->axes = s->scaleaxes;
+    memcpy(scale->pivot, s->gizmoposition, sizeof(scale->pivot));
+    for (axis = 0; axis < 3; axis++)
+    {
+        scale->factor[axis] = s->dragscaling && s->dragaxis == axis ? 1 + s->dragdelta : 1;
+    }
+    return TRUE;
+}
+/* Pad promotion keeps the new bound volume selected after the scene rebuild. */
+void ViewportSelectPad(HWND hwnd, const SetupPadRef *ref)
+{
+    ViewportState *s = ViewportGetState(hwnd);
+    if (!s || !ref)
+    {
+        return;
+    }
+    s->selectedpad = *ref;
+    if (ViewportSelectedPadIndex(s) < 0)
+    {
+        s->selectedpad.index = SETUP_PAD_INDEX_NONE;
+    }
+    ViewportRefreshPadColors(s);
+    ViewportUpdateGizmo(s);
+    InvalidateRect(hwnd, NULL, FALSE);
 }

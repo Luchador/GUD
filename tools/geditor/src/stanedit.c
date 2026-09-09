@@ -3,6 +3,7 @@
  * exactly the same document as the viewport and placement queries. */
 #include <limits.h>
 #include <math.h>
+#include "scaling.h"
 #include <stdlib.h>
 #include <string.h>
 #include "stanload.h"
@@ -232,9 +233,9 @@ BOOL StanPaintTile(StanFile *stan, DWORD index, const unsigned char rgba[4],
     return TRUE;
 }
 
-BOOL StanRotatePoints(StanFile *stan, const StanPointRef *points, DWORD count,
-                      const Rotation *rotation, const double pivot[3], DWORD *movedout,
-                      const char **reasonout)
+static BOOL StanTransformPoints(StanFile *stan, const StanPointRef *points, DWORD count,
+                                const Rotation *rotation, const Scaling *scale,
+                                const double pivot[3], DWORD *movedout, const char **reasonout)
 {
     DWORD *map = NULL, i, tile;
     unsigned char *selected = NULL;
@@ -247,9 +248,9 @@ BOOL StanRotatePoints(StanFile *stan, const StanPointRef *points, DWORD count,
         *reasonout = "there are no editable selected stan points.";
         return FALSE;
     }
-    if (!pivot || !RotationValid(rotation))
+    if (!pivot || (scale ? !ScalingValid(scale) : !RotationValid(rotation)))
     {
-        *reasonout = "Invalid stan rotation.";
+        *reasonout = "Invalid stan transform.";
         return FALSE;
     }
     map = StanBuildPointMap(stan, reasonout);
@@ -288,7 +289,14 @@ BOOL StanRotatePoints(StanFile *stan, const StanPointRef *points, DWORD count,
             {
                 source[axis] = StanEditRead16(raw + axis * 2) / stan->levelscale;
             }
-            RotationPoint(rotation, pivot, source, destination);
+            if (scale)
+            {
+                ScalingPoint(scale, source, destination);
+            }
+            else
+            {
+                RotationPoint(rotation, pivot, source, destination);
+            }
             for (axis = 0; axis < 3; axis++)
             {
                 double value = round(destination[axis] * stan->levelscale);
@@ -320,13 +328,23 @@ BOOL StanRotatePoints(StanFile *stan, const StanPointRef *points, DWORD count,
             {
                 source[axis] = StanEditRead16(raw + axis * 2) / stan->levelscale;
             }
-            RotationPoint(rotation, pivot, source, destination);
+            if (scale)
+            {
+                ScalingPoint(scale, source, destination);
+            }
+            else
+            {
+                RotationPoint(rotation, pivot, source, destination);
+            }
             for (axis = 0; axis < 3; axis++)
             {
                 coordinates[axis] = (short)round(destination[axis] * stan->levelscale);
                 changed |= coordinates[axis] != StanEditRead16(raw + axis * 2);
             }
-            if (!changed) { continue; }
+            if (!changed)
+            {
+                continue;
+            }
             for (axis = 0; axis < 3; axis++)
             {
                 StanEditWrite16(raw + axis * 2, (unsigned short)coordinates[axis]);
@@ -338,7 +356,7 @@ BOOL StanRotatePoints(StanFile *stan, const StanPointRef *points, DWORD count,
             movedpoints++;
             (*movedout)++;
         }
-        /* Rotation changes which triple best represents the tile in XZ. */
+        /* A transform changes which triple best represents the tile in XZ. */
         if (movedpoints > 0)
         {
             StanUpdateRepresentativeTriangle(stan, tile);
@@ -352,4 +370,17 @@ fail:
     free(selected);
     free(map);
     return FALSE;
+}
+
+BOOL StanRotatePoints(StanFile *stan, const StanPointRef *points, DWORD count,
+                      const Rotation *rotation, const double pivot[3], DWORD *movedout,
+                      const char **reasonout)
+{
+    return StanTransformPoints(stan, points, count, rotation, NULL, pivot, movedout, reasonout);
+}
+BOOL StanScalePoints(StanFile *stan, const StanPointRef *points, DWORD count, const Scaling *scale,
+                     DWORD *movedout, const char **reasonout)
+{
+    return StanTransformPoints(stan, points, count, NULL, scale, scale ? scale->pivot : NULL,
+                               movedout, reasonout);
 }

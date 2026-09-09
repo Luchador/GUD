@@ -199,6 +199,28 @@ static void GEditorRefreshTransformFields(void)
         }
         ViewportSetRotationFrame(g_Viewport, valid ? &frame : NULL, valid ? axes : 0);
     }
+    if (!ViewportIsTransforming(g_Viewport))
+    {
+        Rotation scaleaxes;
+        BOOL valid = editable && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT;
+        RotationAxis(&scaleaxes, 0, 0);
+        if (object)
+        {
+            valid = valid && !(objectindex & SETUP_CHARACTER_SELECTION_BIT)
+                && SetupFileGetModelPad(&g_CurrentSetup, objectindex, &padref)
+                && SetupFilePadRotation(&g_CurrentSetup, &padref, &scaleaxes);
+        }
+        else if (pad) { valid = valid && SetupFilePadRotation(&g_CurrentSetup, &padref, &scaleaxes); }
+        ViewportSetScaleAxes(g_Viewport, valid ? &scaleaxes : NULL);
+    }
+    if (ViewportGetTransformMode(g_Viewport) == TRANSFORM_SCALE)
+    {
+        Scaling scaling;
+        BOOL valid = ViewportGetScaling(g_Viewport, &scaling);
+        RightPanelSetScaleLocal(g_RightPanel, object || pad);
+        RightPanelSetTransformState(g_RightPanel, valid ? scaling.factor : NULL, count, valid, 0);
+        return;
+    }
     axes = object && (objectindex & SETUP_CHARACTER_SELECTION_BIT) ? 2 : 7;
     if (ViewportIsRotating(g_Viewport))
     {
@@ -1632,11 +1654,12 @@ fail:
 }
 
 
-static BOOL GEditorRotateSelection(HWND hwnd, const ViewportRotation *request)
+static BOOL GEditorTransformSelection(HWND hwnd, const ViewportRotation *request,
+                                      const Scaling *scaling)
 {
     EditHistoryTransaction transaction;
-    const Rotation *rotation = &request->rotation;
-    const double *pivot = request->pivot;
+    const Rotation *rotation = request ? &request->rotation : NULL;
+    const double *pivot = request ? request->pivot : scaling->pivot;
     SetupObjectGeometry objects;
     BgDocumentVertexRef *vertices = NULL;
     StanPointRef *stanpoints = NULL;
@@ -1648,19 +1671,33 @@ static BOOL GEditorRotateSelection(HWND hwnd, const ViewportRotation *request)
     BOOL character = object && (objectindex & SETUP_CHARACTER_SELECTION_BIT);
     EditorTool tool = ViewportGetTool(g_Viewport);
     const char *why = "", *restorewhy = "";
-    const char *action = pad ? "Rotate Pad"
-        : stan ? (tool == EDITOR_TOOL_VERTEX_SELECT ? "Rotate Stan Vertices"
-            : tool == EDITOR_TOOL_EDGE_SELECT ? "Rotate Stan Edges" : "Rotate Stan Faces")
-        : character ? "Rotate Character" : object ? "Rotate Object"
-        : tool == EDITOR_TOOL_VERTEX_SELECT ? "Rotate BG Vertices"
-        : tool == EDITOR_TOOL_EDGE_SELECT ? "Rotate BG Edges" : "Rotate BG Faces";
+    const char *target = pad         ? "Pad"
+                         : stan      ? (tool == EDITOR_TOOL_VERTEX_SELECT ? "Stan Vertices"
+                                        : tool == EDITOR_TOOL_EDGE_SELECT ? "Stan Edges"
+                                                                          : "Stan Faces")
+                         : character ? "Character"
+                         : object    ? "Object"
+                         : tool == EDITOR_TOOL_VERTEX_SELECT ? "BG Vertices"
+                         : tool == EDITOR_TOOL_EDGE_SELECT   ? "BG Edges"
+                                                             : "BG Faces";
+    char action[64];
+    snprintf(action, sizeof(action), "%s %s", scaling ? "Scale" : "Rotate", target);
     ZeroMemory(&transaction, sizeof(transaction));
     ZeroMemory(&objects, sizeof(objects));
-    if (tool == EDITOR_TOOL_VERTEX_PAINT || !RotationValid(rotation) ||
+    if (tool == EDITOR_TOOL_VERTEX_PAINT ||
+        (scaling ? !ScalingValid(scaling) : !RotationValid(rotation)) || (scaling && character) ||
         (object && !GEditorCanMoveSetupModel(objectindex)))
     {
         return FALSE;
     }
+    if (scaling)
+    {
+        if (scaling->factor[0] == 1 && scaling->factor[1] == 1 && scaling->factor[2] == 1)
+        {
+            return TRUE;
+        }
+    }
+    else
     {
         int i, j;
         double difference = 0;
@@ -1683,7 +1720,9 @@ static BOOL GEditorRotateSelection(HWND hwnd, const ViewportRotation *request)
         {
             goto fail;
         }
-        if (!SetupFileRotatePad(&g_CurrentSetup, &padref, rotation, &changed, &why))
+        changed = scaling != NULL;
+        if (!(scaling ? SetupFileScalePad(&g_CurrentSetup, &padref, scaling, &why)
+                      : SetupFileRotatePad(&g_CurrentSetup, &padref, rotation, &changed, &why)))
         {
             goto rollback;
         }
@@ -1704,14 +1743,16 @@ static BOOL GEditorRotateSelection(HWND hwnd, const ViewportRotation *request)
         }
         if (tool == EDITOR_TOOL_VERTEX_SELECT && count < 2)
         {
-            why = "Select at least two vertices to rotate.";
+            why = "Select at least two vertices to rotate or scale.";
             goto fail;
         }
         if (!EditHistoryBeginStanEdit(&g_EditHistory, &g_CurrentStan, action, &transaction, &why))
         {
             goto fail;
         }
-        if (!StanRotatePoints(&g_CurrentStan, stanpoints, count, rotation, pivot, &moved, &why))
+        if (!(scaling ? StanScalePoints(&g_CurrentStan, stanpoints, count, scaling, &moved, &why)
+                      : StanRotatePoints(&g_CurrentStan, stanpoints, count, rotation, pivot, &moved,
+                                         &why)))
         {
             goto rollback;
         }
@@ -1722,9 +1763,12 @@ static BOOL GEditorRotateSelection(HWND hwnd, const ViewportRotation *request)
         {
             goto fail;
         }
-        if (!ObjectRotateSetupModel(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
-                                    g_CurrentBgDocument.levelscale, &g_CurrentObjects, objectindex,
-                                    rotation, pivot, &objects, &why))
+        if (!(scaling ? ObjectScaleSetupModel(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
+                                              g_CurrentBgDocument.levelscale, &g_CurrentObjects,
+                                              objectindex, scaling, &objects, &why)
+                      : ObjectRotateSetupModel(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
+                                               g_CurrentBgDocument.levelscale, &g_CurrentObjects,
+                                               objectindex, rotation, pivot, &objects, &why)))
         {
             goto rollback;
         }
@@ -1740,7 +1784,7 @@ static BOOL GEditorRotateSelection(HWND hwnd, const ViewportRotation *request)
         }
         if (tool == EDITOR_TOOL_VERTEX_SELECT && count < 2)
         {
-            why = "Select at least two vertices to rotate.";
+            why = "Select at least two vertices to rotate or scale.";
             goto fail;
         }
         if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument, action, &transaction,
@@ -1748,8 +1792,10 @@ static BOOL GEditorRotateSelection(HWND hwnd, const ViewportRotation *request)
         {
             goto fail;
         }
-        if (!BgDocumentRotateVertices(&g_CurrentBgDocument, vertices, count, rotation, pivot,
-                                      &moved, &why))
+        if (!(scaling ? BgDocumentScaleVertices(&g_CurrentBgDocument, vertices, count, scaling,
+                                                &moved, &why)
+                      : BgDocumentRotateVertices(&g_CurrentBgDocument, vertices, count, rotation,
+                                                 pivot, &moved, &why)))
         {
             goto rollback;
         }
@@ -1760,6 +1806,47 @@ static BOOL GEditorRotateSelection(HWND hwnd, const ViewportRotation *request)
         free(vertices);
         free(stanpoints);
         return TRUE;
+    }
+    if (scaling && transaction.asset == EDIT_HISTORY_ASSET_BG)
+    {
+        BgFaceRef *collapsed = NULL;
+        DWORD collapsedcount, deleted;
+        BOOL ok;
+
+        /* Test the actual quantized positions before rebuilding the viewport.
+           Deletion belongs to this same transaction, so one Undo restores both. */
+        if (!BgDocumentFindCollapsedFaces(&transaction.beforebg, &g_CurrentBgDocument, &collapsed,
+                                          &collapsedcount, &why))
+        {
+            goto rollback;
+        }
+        if (collapsedcount > 0)
+        {
+            char warning[320];
+            snprintf(warning, sizeof(warning),
+                     "This scale would collapse %lu background triangle%s to a line or point.\n\n"
+                     "Click OK to scale and delete the collapsed triangle%s.\n"
+                     "Click Cancel to keep the geometry unchanged.",
+                     (unsigned long)collapsedcount, collapsedcount == 1 ? "" : "s",
+                     collapsedcount == 1 ? "" : "s");
+            if (MessageBox(hwnd, warning, GEDITOR_TITLE, MB_OKCANCEL | MB_ICONWARNING) != IDOK)
+            {
+                free(collapsed);
+                EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup,
+                                        &g_CurrentStan);
+                free(vertices);
+                free(stanpoints);
+                return FALSE;
+            }
+            ok = BgDocumentDeleteFaces(&g_CurrentBgDocument, collapsed, collapsedcount, &deleted,
+                                       &why);
+            free(collapsed);
+            if (!ok)
+            {
+                goto rollback;
+            }
+            lstrcpyn(transaction.action, "Scale BG and Delete Faces", sizeof(transaction.action));
+        }
     }
     if (!(stan              ? GEditorReloadCurrentObjectsAndViewport(&why)
           : (object || pad) ? GEditorRebuildCurrentViewportWithObjects(&objects, &why)
@@ -1776,6 +1863,10 @@ static BOOL GEditorRotateSelection(HWND hwnd, const ViewportRotation *request)
     }
     free(vertices);
     free(stanpoints);
+    if (pad && scaling)
+    {
+        ViewportSelectPad(g_Viewport, &padref);
+    }
     GEditorRefreshSelectionDetails();
     GEditorRefreshHistoryMenu(hwnd);
     return TRUE;
@@ -2154,12 +2245,38 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
         return 0;
 
-    case RIGHTPANEL_WM_ROTATION_MODE:
-        ViewportSetRotationMode(g_Viewport,wparam!=0);
-        RightPanelSetRotationMode(g_RightPanel, wparam != 0);
+    case RIGHTPANEL_WM_TRANSFORM_MODE:
+        if (wparam > TRANSFORM_SCALE) { return 0; }
+        ViewportSetTransformMode(g_Viewport, (TransformMode)wparam);
+        RightPanelSetTransformMode(g_RightPanel, (TransformMode)wparam);
         GEditorRefreshTransformFields();
         SetFocus(g_Viewport);
         return 0;
+
+    case RIGHTPANEL_WM_SET_SCALE:
+    {
+        const RightPanelPosition *input = (const RightPanelPosition *)lparam;
+        Scaling scaling;
+        BOOL ok = FALSE;
+        int axis;
+        if (input && input->axismask && !(input->axismask & ~7u)
+            && ViewportGetScaling(g_Viewport, &scaling))
+        {
+            for (axis = 0; axis < 3; axis++)
+            {
+                scaling.factor[axis] = input->axismask & (1u << axis) ? input->position[axis] : 1;
+            }
+            ok = GEditorTransformSelection(hwnd, NULL, &scaling);
+        }
+        GEditorRefreshTransformFields();
+        return ok;
+    }
+    case VIEWPORT_WM_SCALE_SELECTION:
+    {
+        BOOL ok = lparam && GEditorTransformSelection(hwnd, NULL, (const Scaling *)lparam);
+        GEditorRefreshTransformFields();
+        return ok;
+    }
 
     case RIGHTPANEL_WM_SET_ROTATION:
     {
@@ -2170,14 +2287,14 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             for(axis=0;axis<3;axis++)if(input->axismask&(1u<<axis))degrees[axis]=input->position[axis];
             if(isfinite(degrees[0])&&isfinite(degrees[1])&&isfinite(degrees[2])){
                 RotationEuler(&target,degrees);RotationDifference(&request.rotation,&target,&old);
-                ok=GEditorRotateSelection(hwnd,&request);
+                ok=GEditorTransformSelection(hwnd,&request,NULL);
             }
         }
         GEditorRefreshTransformFields();return ok;
     }
     case VIEWPORT_WM_ROTATE_SELECTION:
     {
-        BOOL ok=lparam && GEditorRotateSelection(hwnd,(const ViewportRotation *)lparam);
+        BOOL ok=lparam && GEditorTransformSelection(hwnd,(const ViewportRotation *)lparam,NULL);
         GEditorRefreshTransformFields();return ok;
     }
 
@@ -2704,15 +2821,15 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
-/* W/E are editor shortcuts only outside camera flight. Native edit fields
+/* W/E/R are editor shortcuts only outside camera flight. Native edit fields
    retain their text input, including the E in scientific notation. */
 static BOOL GEditorHandleTransformHotkey(HWND frame, const MSG *message)
 {
     char classname[32] = "";
-    BOOL rotate;
+    TransformMode mode;
 
     if (message == NULL || g_Viewport == NULL || message->message != WM_KEYDOWN
-        || (message->wParam != 'W' && message->wParam != 'E')
+        || (message->wParam != 'W' && message->wParam != 'E' && message->wParam != 'R')
         || ViewportIsFlying(g_Viewport)
         || (message->hwnd != frame && !IsChild(frame, message->hwnd))
         || (GetKeyState(VK_CONTROL) & 0x8000)
@@ -2723,10 +2840,10 @@ static BOOL GEditorHandleTransformHotkey(HWND frame, const MSG *message)
 
     /* Do not repeatedly cancel/restart previews while a key is held. */
     if (message->lParam & ((LPARAM)1 << 30)) { return TRUE; }
-    rotate = message->wParam == 'E';
-    if (ViewportIsRotating(g_Viewport) != rotate)
+    mode = message->wParam == 'E' ? TRANSFORM_ROTATE : message->wParam == 'R' ? TRANSFORM_SCALE : TRANSFORM_MOVE;
+    if (ViewportGetTransformMode(g_Viewport) != mode)
     {
-        SendMessage(frame, RIGHTPANEL_WM_ROTATION_MODE, rotate, 0);
+        SendMessage(frame, RIGHTPANEL_WM_TRANSFORM_MODE, mode, 0);
     }
     return TRUE;
 }

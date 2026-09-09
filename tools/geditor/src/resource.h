@@ -22,6 +22,7 @@
 #define IDR_GIZMO_CYLINDER    311
 #define IDR_VERTEX_SNAP_OFF   312
 #define IDR_VERTEX_SNAP_ON    313
+#define IDR_GIZMO_SCALE       314
 
 /* Controls inside IDD_NEW_PROJECT */
 #define IDC_PROJECT_NAME     1001

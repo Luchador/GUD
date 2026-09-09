@@ -2,6 +2,7 @@
 #define GEDITOR_SETUPLOAD_H
 
 #include "rotation.h"
+#include "scaling.h"
 #include <windows.h>
 
 #include "rom.h"
@@ -27,6 +28,7 @@ typedef struct SetupPadRef {
     DWORD index;
     BOOL bound;
 } SetupPadRef;
+#define SETUP_PAD_HALF_SIZE 5.0f /* ordinary-pad preview half extent, native units */
 #define SETUP_PAD_INDEX_NONE ((DWORD)-1)
 
 /* The placement fields shared by setup records which create a
@@ -139,5 +141,11 @@ BOOL SetupFileGetModelPad(const SetupFile *setup, DWORD selection, SetupPadRef *
 BOOL SetupFilePadRotation(const SetupFile *setup, const SetupPadRef *ref, Rotation *out);
 BOOL SetupFileRotatePad(SetupFile *setup, const SetupPadRef *ref, const Rotation *rotation,
                        BOOL *changed, const char **reasonout);
+
+/* Transactions own rollback when promotion or geometry rebuilding fails. */
+BOOL SetupFileScalePad(SetupFile *setup, SetupPadRef *ref, const Scaling *scale,
+                       const char **reasonout);
+BOOL SetupFileSetModelBounds(SetupFile *setup, DWORD selection, float levelscale,
+                             const double bounds[6], const char **reasonout);
 
 #endif /* GEDITOR_SETUPLOAD_H */

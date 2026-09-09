@@ -23,10 +23,10 @@
 #define RIGHTPANEL_CLASS "GEditorRightPanel"
 
 #define RIGHTPANEL_SPLITTER_H 5
-#define RIGHTPANEL_TOP_MIN 390
+#define RIGHTPANEL_TOP_MIN 416
 #define RIGHTPANEL_TRANSFORM_TOP 208
 #define RIGHTPANEL_BOTTOM_MIN 160
-#define RIGHTPANEL_INITIAL_TOP_H 398
+#define RIGHTPANEL_INITIAL_TOP_H 424
 #define RIGHTPANEL_MARGIN 12
 #define RIGHTPANEL_CHECK_H 22
 #define RIGHTPANEL_CHECK_GAP 4
@@ -42,7 +42,8 @@ enum {
     RIGHTPANEL_ID_POSITION_Z,
     RIGHTPANEL_ID_STAN_OPACITY,
     RIGHTPANEL_ID_MOVE_MODE,
-    RIGHTPANEL_ID_ROTATE_MODE
+    RIGHTPANEL_ID_ROTATE_MODE,
+    RIGHTPANEL_ID_SCALE_MODE
 };
 
 typedef struct RightPanelState {
@@ -53,8 +54,8 @@ typedef struct RightPanelState {
     HWND stanopacitylabel;
     HWND portals;
     HWND positions[3];
-    HWND movemode, rotatemode;
-    BOOL rotationmode;
+    HWND movemode, rotatemode, scalebutton;
+    BOOL rotationmode, scalemode, scaleislocal;
     unsigned int rotationaxes;
     HWND objects;
     HWND details;
@@ -127,12 +128,13 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
     y += RIGHTPANEL_CHECK_H + RIGHTPANEL_CHECK_GAP;
     MoveWindow(state->objects, RIGHTPANEL_MARGIN, y, width, RIGHTPANEL_CHECK_H, TRUE);
 
-    MoveWindow(state->movemode, RIGHTPANEL_MARGIN+68, RIGHTPANEL_TRANSFORM_TOP-2, 62, 23, TRUE);
-    MoveWindow(state->rotatemode, RIGHTPANEL_MARGIN+132, RIGHTPANEL_TRANSFORM_TOP-2, 62, 23, TRUE);
+    MoveWindow(state->movemode, RIGHTPANEL_MARGIN, RIGHTPANEL_TRANSFORM_TOP+22, width/3, 23, TRUE);
+    MoveWindow(state->rotatemode, RIGHTPANEL_MARGIN+width/3, RIGHTPANEL_TRANSFORM_TOP+22, width/3, 23, TRUE);
+    MoveWindow(state->scalebutton, RIGHTPANEL_MARGIN+width*2/3, RIGHTPANEL_TRANSFORM_TOP+22, width/3, 23, TRUE);
     for (axis = 0; axis < 3; axis++)
     {
         MoveWindow(state->positions[axis], RIGHTPANEL_MARGIN + 24,
-                   RIGHTPANEL_TRANSFORM_TOP + 54 + axis * 28,
+                   RIGHTPANEL_TRANSFORM_TOP + 80 + axis * 28,
                    width > 24 ? width - 24 : 1, 23, TRUE);
     }
     detailtop = state->topheight + RIGHTPANEL_SPLITTER_H + 56;
@@ -227,9 +229,10 @@ static void RightPanelSetPosition(HWND hwnd, RightPanelState *state)
         {
             while (isspace((unsigned char)*end)) { end++; }
         }
-        if (end == text || *end != '\0' || errno == ERANGE || !isfinite(value))
+        if (end == text || *end != '\0' || errno == ERANGE || !isfinite(value)
+            || (state->scalemode && (value <= 0 || value > 1000000)))
         {
-            MessageBox(hwnd, state->rotationmode ? "Enter a finite angle in degrees." : "Enter a finite number for the world coordinate.",
+            MessageBox(hwnd, state->scalemode ? "Enter a scale factor greater than zero and no larger than 1000000." : state->rotationmode ? "Enter a finite angle in degrees." : "Enter a finite number for the world coordinate.",
                        "Transform", MB_ICONWARNING);
             SetFocus(state->positions[axis]);
             SendMessage(state->positions[axis], EM_SETSEL, 0, -1);
@@ -240,7 +243,7 @@ static void RightPanelSetPosition(HWND hwnd, RightPanelState *state)
 
     /* The frame refreshes these fields from the resulting geometry, including
        native asset rounding. All edited axes form one undoable move. */
-    SendMessage(GetParent(hwnd), state->rotationmode ? RIGHTPANEL_WM_SET_ROTATION : RIGHTPANEL_WM_SET_POSITION, 0, (LPARAM)&request);
+    SendMessage(GetParent(hwnd), state->scalemode ? RIGHTPANEL_WM_SET_SCALE : state->rotationmode ? RIGHTPANEL_WM_SET_ROTATION : RIGHTPANEL_WM_SET_POSITION, 0, (LPARAM)&request);
 }
 
 static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
@@ -295,21 +298,21 @@ static void RightPanelPaint(HWND hwnd, RightPanelState *state, HDC hdc)
     transform.top = RIGHTPANEL_TRANSFORM_TOP;
     transform.bottom = transform.top + 20;
     DrawText(hdc, "Transform", -1, &transform, DT_SINGLELINE | DT_LEFT | DT_NOPREFIX);
-    transform.top += 26;
-    transform.bottom += 26;
-    DrawText(hdc, state->rotationmode ? "Rotation (degrees)" : state->selectioncount > 1 ? "Average world position" : "World position",
+    transform.top += 52;
+    transform.bottom += 52;
+    DrawText(hdc, state->scalemode ? (state->scaleislocal ? "Scale factors (pad axes)" : "Scale factors (world axes)") : state->rotationmode ? "Rotation (degrees)" : state->selectioncount > 1 ? "Average world position" : "World position",
              -1, &transform,
              DT_SINGLELINE | DT_LEFT | DT_NOPREFIX);
     for (axis = 0; axis < 3; axis++)
     {
         char label[2] = { (char)('X' + axis), '\0' };
 
-        transform.top = RIGHTPANEL_TRANSFORM_TOP + 54 + axis * 28;
+        transform.top = RIGHTPANEL_TRANSFORM_TOP + 80 + axis * 28;
         transform.bottom = transform.top + 23;
         DrawText(hdc, label, -1, &transform,
                  DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX);
     }
-    transform.top = RIGHTPANEL_TRANSFORM_TOP + 142;
+    transform.top = RIGHTPANEL_TRANSFORM_TOP + 168;
     transform.bottom = transform.top + 32;
     SetTextColor(hdc, GetSysColor(COLOR_GRAYTEXT));
     DrawText(hdc, state->transformhint, -1, &transform,
@@ -405,6 +408,9 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             0,0,1,1,hwnd,(HMENU)(INT_PTR)RIGHTPANEL_ID_MOVE_MODE,cs->hInstance,NULL);
         state->rotatemode=CreateWindowEx(0,"BUTTON","Rotate",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_RADIOBUTTON,
             0,0,1,1,hwnd,(HMENU)(INT_PTR)RIGHTPANEL_ID_ROTATE_MODE,cs->hInstance,NULL);
+        state->scalebutton=CreateWindowEx(0,"BUTTON","Scale",WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_RADIOBUTTON,
+            0,0,1,1,hwnd,(HMENU)(INT_PTR)RIGHTPANEL_ID_SCALE_MODE,cs->hInstance,NULL);
+        SendMessage(state->scalebutton,WM_SETFONT,(WPARAM)font,TRUE);
         SendMessage(state->movemode,WM_SETFONT,(WPARAM)font,TRUE);
         SendMessage(state->rotatemode,WM_SETFONT,(WPARAM)font,TRUE);
         SendMessage(state->movemode,BM_SETCHECK,BST_CHECKED,0);
@@ -430,6 +436,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             || state->portals == NULL
             || state->positions[0] == NULL || state->positions[1] == NULL
             || state->positions[2] == NULL || state->objects == NULL || state->details == NULL
+            || state->movemode == NULL || state->rotatemode == NULL || state->scalebutton == NULL
             || state->colorpicker == NULL)
         {
             free(state);
@@ -473,8 +480,10 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             {
             case RIGHTPANEL_ID_MOVE_MODE:
             case RIGHTPANEL_ID_ROTATE_MODE:
-                SendMessage(GetParent(hwnd), RIGHTPANEL_WM_ROTATION_MODE,
-                            LOWORD(wparam) == RIGHTPANEL_ID_ROTATE_MODE, 0);
+            case RIGHTPANEL_ID_SCALE_MODE:
+                SendMessage(GetParent(hwnd), RIGHTPANEL_WM_TRANSFORM_MODE,
+                    LOWORD(wparam) == RIGHTPANEL_ID_SCALE_MODE ? TRANSFORM_SCALE
+                    : LOWORD(wparam) == RIGHTPANEL_ID_ROTATE_MODE ? TRANSFORM_ROTATE : TRANSFORM_MOVE, 0);
                 return 0;
             case RIGHTPANEL_ID_BG_PRIMARY:
             case RIGHTPANEL_ID_BG_SECONDARY:
@@ -662,7 +671,13 @@ void RightPanelSetTransformState(HWND panel, const double position[3],
     }
     state->editedaxes = 0;
     state->updatingposition = FALSE;
-    if(state->rotationmode){
+    if (state->scalemode)
+    {
+        const char *hint = position == NULL ? "Select geometry, props or pads.\r\nVertices need a group; characters cannot scale."
+            : "Enter applies factors: 1 unchanged, 2 doubles. Drag in 1% steps.";
+        lstrcpyn(state->transformhint, hint, sizeof(state->transformhint));
+    }
+    else if(state->rotationmode){
         const char *hint=position==NULL?"Select geometry or a model. Vertices need a group."
             :state->rotationaxes==2?"Heading in degrees. Characters stay upright."
             :"Press Enter to set angles. World axes; XYZ Euler order.";
@@ -1018,12 +1033,20 @@ void RightPanelSetRotationAxes(HWND panel, unsigned int axes)
 }
 
 /* The frame applies panel clicks and keyboard shortcuts through one path. */
-void RightPanelSetRotationMode(HWND panel, BOOL rotate)
+void RightPanelSetTransformMode(HWND panel, TransformMode mode)
 {
     RightPanelState *state = RightPanelGetState(panel);
     if (state == NULL) { return; }
-    state->rotationmode = rotate;
-    SendMessage(state->movemode, BM_SETCHECK, rotate ? BST_UNCHECKED : BST_CHECKED, 0);
-    SendMessage(state->rotatemode, BM_SETCHECK, rotate ? BST_CHECKED : BST_UNCHECKED, 0);
+    state->rotationmode = mode == TRANSFORM_ROTATE;
+    state->scalemode = mode == TRANSFORM_SCALE;
+    SendMessage(state->movemode, BM_SETCHECK, mode == TRANSFORM_MOVE ? BST_CHECKED : BST_UNCHECKED, 0);
+    SendMessage(state->rotatemode, BM_SETCHECK, state->rotationmode ? BST_CHECKED : BST_UNCHECKED, 0);
+    SendMessage(state->scalebutton, BM_SETCHECK, state->scalemode ? BST_CHECKED : BST_UNCHECKED, 0);
     InvalidateRect(panel, NULL, FALSE);
+}
+
+void RightPanelSetScaleLocal(HWND panel, BOOL local)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    if (state) { state->scaleislocal = local; }
 }

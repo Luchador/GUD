@@ -4,6 +4,10 @@
 #include <windows.h>
 
 /* Shared by the toolbar, frame, and viewport. */
+typedef enum TransformMode {
+    TRANSFORM_MOVE, TRANSFORM_ROTATE, TRANSFORM_SCALE
+} TransformMode;
+
 typedef enum EditorTool {
     EDITOR_TOOL_VERTEX_SELECT,
     EDITOR_TOOL_EDGE_SELECT,

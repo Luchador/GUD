@@ -2,6 +2,7 @@
 #define GEDITOR_STANLOAD_H
 
 #include "rotation.h"
+#include "scaling.h"
 #include <windows.h>
 
 #include "rom.h"
@@ -83,5 +84,8 @@ BOOL StanGetTileHeight(const StanFile *stan, DWORD tile,
 
 BOOL StanRotatePoints(StanFile *stan, const StanPointRef *points, DWORD count,
     const Rotation *rotation, const double pivot[3], DWORD *movedout, const char **reasonout);
+
+BOOL StanScalePoints(StanFile *stan, const StanPointRef *points, DWORD count,
+    const Scaling *scale, DWORD *movedout, const char **reasonout);
 
 #endif /* GEDITOR_STANLOAD_H */

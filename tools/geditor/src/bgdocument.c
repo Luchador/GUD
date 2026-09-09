@@ -14,6 +14,7 @@
 #include <string.h>
 #include <limits.h>
 #include <math.h>
+#include "scaling.h"
 #include <stdint.h>
 
 #include "bgdocument.h"
@@ -1449,17 +1450,19 @@ const BgDocumentFace *BgDocumentFindFace(const BgDocument *document,
 }
 
 /* Resolve and validate every destination before mutating shared vertex records. */
-BOOL BgDocumentRotateVertices(BgDocument *document, const BgDocumentVertexRef *refs, DWORD count,
-                              const Rotation *rotation, const double pivot[3], DWORD *changed,
-                              const char **reasonout)
+static BOOL BgDocumentTransformVertices(BgDocument *document, const BgDocumentVertexRef *refs,
+                                        DWORD count, const Rotation *rotation, const Scaling *scale,
+                                        const double pivot[3], DWORD *changed,
+                                        const char **reasonout)
 {
     BgDocumentVertexRef *unique = NULL;
     short (*positions)[3] = NULL;
     DWORD i, n = 0;
     int axis;
     *changed = 0;
-    *reasonout = "Invalid background rotation.";
-    if (!document || !document->rooms || !refs || !count || !pivot || !RotationValid(rotation) ||
+    *reasonout = "Invalid background transform.";
+    if (!document || !document->rooms || !refs || !count || !pivot ||
+        (scale ? !ScalingValid(scale) : !RotationValid(rotation)) ||
         !isfinite(document->levelscale) || document->levelscale <= 0)
     {
         return FALSE;
@@ -1468,7 +1471,7 @@ BOOL BgDocumentRotateVertices(BgDocument *document, const BgDocumentVertexRef *r
     positions = malloc((size_t)count * sizeof(*positions));
     if (!unique || !positions)
     {
-        *reasonout = "Out of memory rotating background vertices.";
+        *reasonout = "Out of memory transforming background vertices.";
         goto fail;
     }
     memcpy(unique, refs, (size_t)count * sizeof(*unique));
@@ -1497,13 +1500,20 @@ BOOL BgDocumentRotateVertices(BgDocument *document, const BgDocumentVertexRef *r
         {
             point[axis] = (point[axis] + room->origin[axis]) / document->levelscale;
         }
-        RotationPoint(rotation, pivot, point, rotated);
+        if (scale)
+        {
+            ScalingPoint(scale, point, rotated);
+        }
+        else
+        {
+            RotationPoint(rotation, pivot, point, rotated);
+        }
         for (axis = 0; axis < 3; axis++)
         {
             double value = round(rotated[axis] * document->levelscale - room->origin[axis]);
             if (!isfinite(value) || value < SHRT_MIN || value > SHRT_MAX)
             {
-                *reasonout = "Rotation exceeds a room's coordinate range.";
+                *reasonout = "Transform exceeds a room's coordinate range.";
                 goto fail;
             }
             positions[i][axis] = (short)value;
@@ -1529,4 +1539,18 @@ fail:
     free(unique);
     free(positions);
     return FALSE;
+}
+
+BOOL BgDocumentRotateVertices(BgDocument *document, const BgDocumentVertexRef *refs, DWORD count,
+                              const Rotation *rotation, const double pivot[3], DWORD *changed,
+                              const char **reasonout)
+{
+    return BgDocumentTransformVertices(document, refs, count, rotation, NULL, pivot, changed,
+                                       reasonout);
+}
+BOOL BgDocumentScaleVertices(BgDocument *document, const BgDocumentVertexRef *refs, DWORD count,
+                             const Scaling *scale, DWORD *changed, const char **reasonout)
+{
+    return BgDocumentTransformVertices(document, refs, count, NULL, scale,
+                                       scale ? scale->pivot : NULL, changed, reasonout);
 }

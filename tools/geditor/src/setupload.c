@@ -1341,3 +1341,213 @@ BOOL SetupFileRotatePad(SetupFile *setup, const SetupPadRef *ref, const Rotation
     *reasonout = "";
     return TRUE;
 }
+
+/* Keep ordinary-pad indices alive: AI, paths and guards can reference them.
+   A promoted pad is appended to the bound table; prop references can then
+   point at its encoded bound index without renumbering any setup commands. */
+static BOOL SetupAppendBoundPad(SetupFile *setup, const SetupPadRef *source, SetupPadRef *out,
+                                const char **reasonout)
+{
+    DWORD count = setup->boundpadcount;
+    DWORD oldtable = SetupRead32(setup->data + SETUP_BOUNDPAD_POINTER);
+    DWORD table = (setup->size + 3) & ~3u;
+    DWORD size = table + (count + 2) * SETUP_BOUNDPAD_SIZE;
+    DWORD sourcetable =
+        SetupRead32(setup->data + (source->bound ? SETUP_BOUNDPAD_POINTER : SETUP_PAD_POINTER));
+    DWORD stride = source->bound ? SETUP_BOUNDPAD_SIZE : SETUP_PAD_SIZE;
+    unsigned char *data;
+    SetupBoundPad *pads;
+    if (count > 22767 || size > SETUP_FILE_MAX || oldtable > setup->size ||
+        count > (setup->size - oldtable) / SETUP_BOUNDPAD_SIZE ||
+        source->index >= (source->bound ? count : setup->padcount) || sourcetable > setup->size ||
+        source->index + 1 > (setup->size - sourcetable) / stride)
+    {
+        *reasonout = "The setup has no room for another bound pad.";
+        return FALSE;
+    }
+    data = calloc(size, 1);
+    pads = calloc(count + 1, sizeof(*pads));
+    if (!data || !pads)
+    {
+        free(data);
+        free(pads);
+        *reasonout = "Out of memory creating a bound pad.";
+        return FALSE;
+    }
+    memcpy(data, setup->data, setup->size);
+    if (count)
+    {
+        memcpy(data + table, setup->data + oldtable, count * SETUP_BOUNDPAD_SIZE);
+        memcpy(pads, setup->boundpads, count * sizeof(*pads));
+    }
+    memcpy(data + table + count * SETUP_BOUNDPAD_SIZE,
+           setup->data + sourcetable + source->index * stride, stride);
+    if (source->bound)
+    {
+        pads[count] = setup->boundpads[source->index];
+    }
+    else
+    {
+        pads[count].pad = setup->pads[source->index];
+    }
+    /* Empty stan link, with a non-null pointer so this remains a live record. */
+    SetupWrite32(data + table + count * SETUP_BOUNDPAD_SIZE + SETUP_PAD_LINK,
+                 table + (count + 1) * SETUP_BOUNDPAD_SIZE + SETUP_PAD_LINK);
+    pads[count].pad.stanname[0] = '\0';
+    SetupWrite32(data + SETUP_BOUNDPAD_POINTER, table);
+    free(setup->data);
+    free(setup->boundpads);
+    setup->data = data;
+    setup->size = size;
+    setup->boundpads = pads;
+    setup->boundpadcount = count + 1;
+    out->index = count;
+    out->bound = TRUE;
+    setup->dirty = TRUE;
+    return TRUE;
+}
+
+static BOOL SetupWriteBounds(SetupFile *setup, const SetupPadRef *ref, const double bounds[6],
+                             const char **reasonout)
+{
+    DWORD table = SetupRead32(setup->data + SETUP_BOUNDPAD_POINTER), record;
+    SetupBoundPad *pad;
+    float values[6];
+    int i;
+    for (i = 0; i < 6; i++)
+    {
+        if (!isfinite(bounds[i]) || fabs(bounds[i]) > 100000000)
+        {
+            *reasonout = "Scaling exceeds the setup coordinate range.";
+            return FALSE;
+        }
+        values[i] = (float)bounds[i];
+    }
+    if (!ref->bound || ref->index >= setup->boundpadcount || table > setup->size ||
+        ref->index + 1 > (setup->size - table) / SETUP_BOUNDPAD_SIZE)
+    {
+        *reasonout = "Invalid bound pad.";
+        return FALSE;
+    }
+    record = table + ref->index * SETUP_BOUNDPAD_SIZE;
+    pad = &setup->boundpads[ref->index];
+    pad->xmin = values[0];
+    pad->xmax = values[1];
+    pad->ymin = values[2];
+    pad->ymax = values[3];
+    pad->zmin = values[4];
+    pad->zmax = values[5];
+    for (i = 0; i < 6; i++)
+    {
+        union
+        {
+            float f;
+            DWORD u;
+        } value;
+        value.f = values[i];
+        SetupWrite32(setup->data + record + SETUP_BOUNDPAD_BBOX + i * 4, value.u);
+    }
+    setup->dirty = TRUE;
+    return TRUE;
+}
+
+BOOL SetupFileScalePad(SetupFile *setup, SetupPadRef *ref, const Scaling *scale,
+                       const char **reasonout)
+{
+    double bounds[6] = {-SETUP_PAD_HALF_SIZE, SETUP_PAD_HALF_SIZE,  -SETUP_PAD_HALF_SIZE,
+                        SETUP_PAD_HALF_SIZE,  -SETUP_PAD_HALF_SIZE, SETUP_PAD_HALF_SIZE};
+    DWORD i, oldindex;
+    int axis;
+    *reasonout = "Invalid pad scale.";
+    if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE || !ref || !ScalingValid(scale) ||
+        ref->index >= (ref->bound ? setup->boundpadcount : setup->padcount))
+    {
+        return FALSE;
+    }
+    if (ref->bound)
+    {
+        const SetupBoundPad *pad = &setup->boundpads[ref->index];
+        bounds[0] = pad->xmin;
+        bounds[1] = pad->xmax;
+        bounds[2] = pad->ymin;
+        bounds[3] = pad->ymax;
+        bounds[4] = pad->zmin;
+        bounds[5] = pad->zmax;
+    }
+    for (axis = 0; axis < 3; axis++)
+    {
+        double center = (bounds[axis * 2] + bounds[axis * 2 + 1]) * .5;
+        double half = (bounds[axis * 2 + 1] - bounds[axis * 2]) * .5 * scale->factor[axis];
+        bounds[axis * 2] = center - half;
+        bounds[axis * 2 + 1] = center + half;
+    }
+    if (!ref->bound)
+    {
+        oldindex = ref->index;
+        if (!SetupAppendBoundPad(setup, ref, ref, reasonout))
+        {
+            return FALSE;
+        }
+        /* Guards and AI retain the ordinary pad. Existing props use the new
+           volume with their authored placement/sizing flags. */
+        for (i = 0; i < setup->objectcount; i++)
+        {
+            SetupObject *object = &setup->objects[i];
+            if (object->type != PROPDEF_DOOR && object->pad >= 0 && object->pad < 10000 &&
+                (DWORD)object->pad == oldindex)
+            {
+                object->pad = (short)(ref->index + 10000);
+                setup->data[object->sourceoffset + 6] = (unsigned char)(object->pad >> 8);
+                setup->data[object->sourceoffset + 7] = (unsigned char)object->pad;
+            }
+        }
+    }
+    return SetupWriteBounds(setup, ref, bounds, reasonout);
+}
+
+/* Called inside the frame's setup transaction. Each scaled prop owns its
+   bound pad so another prop sharing the old pad is never resized with it. */
+BOOL SetupFileSetModelBounds(SetupFile *setup, DWORD selection, float levelscale,
+                             const double bounds[6], const char **reasonout)
+{
+    SetupPadRef ref;
+    SetupObject *object;
+    double zero[3] = {0};
+    if ((selection & SETUP_CHARACTER_SELECTION_BIT) ||
+        !SetupFileGetModelPad(setup, selection, &ref))
+    {
+        *reasonout = "Only props can be scaled.";
+        return FALSE;
+    }
+    if (ref.bound)
+    {
+        if (!SetupFileTranslateModel(setup, selection, levelscale, zero, reasonout) ||
+            !SetupFileGetModelPad(setup, selection, &ref))
+        {
+            return FALSE;
+        }
+    }
+    else if (!SetupAppendBoundPad(setup, &ref, &ref, reasonout))
+    {
+        return FALSE;
+    }
+    object = &setup->objects[selection];
+    object->pad = (short)(ref.index + (object->type == PROPDEF_DOOR ? 0 : 10000));
+    setup->data[object->sourceoffset + 6] = (unsigned char)(object->pad >> 8);
+    setup->data[object->sourceoffset + 7] = (unsigned char)object->pad;
+    if (object->type != PROPDEF_DOOR)
+    {
+        object->flags &= ~PROPFLAG_SCALE_TO_PAD_BOUNDS;
+        object->flags |= PROPFLAG_SCALE_TO_X_BOUNDS | PROPFLAG_SCALE_TO_Y_BOUNDS |
+                         PROPFLAG_SCALE_TO_Z_BOUNDS | PROPFLAG_ABSOLUTEPOSITION;
+        if (!(object->flags & (PROPFLAG_ONSIDE | PROPFLAG_UPSIDEDOWN)))
+        {
+            object->flags |= PROPFLAG_INAIR;
+        }
+        object->extrascale = 256;
+        setup->data[object->sourceoffset] = 1;
+        setup->data[object->sourceoffset + 1] = 0;
+        SetupWrite32(setup->data + object->sourceoffset + 8, object->flags);
+    }
+    return SetupWriteBounds(setup, &ref, bounds, reasonout);
+}

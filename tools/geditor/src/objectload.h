@@ -51,4 +51,8 @@ BOOL ObjectRotateSetupModel(const char *projectdir, SetupFile *setup,
 
 BOOL ObjectGetSetupModelRotation(const SetupFile *setup, DWORD selection, Rotation *out);
 
+BOOL ObjectScaleSetupModel(const char *projectdir, SetupFile *setup, const StanFile *stan,
+                           float levelscale, const SetupObjectGeometry *before, DWORD index,
+                           const Scaling *scale, SetupObjectGeometry *out, const char **reasonout);
+
 #endif /* GEDITOR_OBJECTLOAD_H */

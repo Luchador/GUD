@@ -2,6 +2,7 @@
 #define GEDITOR_BGDOCUMENT_H
 
 #include "rotation.h"
+#include "scaling.h"
 #include <windows.h>
 
 #include "bgload.h"
@@ -179,5 +180,8 @@ void BgDocumentGetWorldPosition(const BgDocument *document,
 BOOL BgDocumentRotateVertices(BgDocument *document, const BgDocumentVertexRef *refs,
     DWORD count, const Rotation *rotation, const double pivot[3], DWORD *changed,
     const char **reasonout);
+
+BOOL BgDocumentScaleVertices(BgDocument *document, const BgDocumentVertexRef *refs, DWORD count,
+    const Scaling *scale, DWORD *changed, const char **reasonout);
 
 #endif /* GEDITOR_BGDOCUMENT_H */

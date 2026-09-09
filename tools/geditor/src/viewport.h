@@ -144,7 +144,12 @@ void ViewportSetBgStatisticsVisible(HWND hwnd, BOOL enabled);
 
 #define VIEWPORT_WM_ROTATE_SELECTION (WM_APP + 16)
 typedef struct ViewportRotation { Rotation rotation; double pivot[3]; } ViewportRotation;
-void ViewportSetRotationMode(HWND hwnd, BOOL rotate);
+void ViewportSetTransformMode(HWND hwnd, TransformMode mode);
+TransformMode ViewportGetTransformMode(HWND hwnd);
+#define VIEWPORT_WM_SCALE_SELECTION (WM_APP + 23)
+void ViewportSetScaleAxes(HWND hwnd, const Rotation *axes);
+BOOL ViewportGetScaling(HWND hwnd, Scaling *scale);
+void ViewportSelectPad(HWND hwnd, const SetupPadRef *ref);
 BOOL ViewportIsRotating(HWND hwnd);
 BOOL ViewportIsTransforming(HWND hwnd);
 /* Faces use a reference face; components use their selected positions.

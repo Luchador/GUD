@@ -417,6 +417,76 @@ static ModelCacheEntry *ObjectGetModel(ModelCacheEntry *cache, int modelid,
     return entry->tris != NULL && entry->tricount > 0 ? entry : NULL;
 }
 
+/* Shared with scaling so the new bound pad starts at the visible size,
+   including uniform fitting, per-axis flags and the setup extra scale. */
+static BOOL ObjectPlacementScale(const ModelCacheEntry *model, const SetupObject *object,
+                                 const SetupBoundPad *bound, float worldscale, float scale[3])
+{
+    const float *min = model->min, *max = model->max;
+    BOOL isdoor = object->type == PROPDEF_DOOR;
+    scale[0] = scale[1] = scale[2] = model->scale * ((float)object->extrascale / 256.0f);
+
+    if (isdoor)
+    {
+        float padx = fabsf(bound->xmax - bound->xmin) * worldscale;
+        float pady = fabsf(bound->ymax - bound->ymin) * worldscale;
+        float padz = fabsf(bound->zmax - bound->zmin) * worldscale;
+        float modelx = max[0] - min[0];
+        float modely = max[1] - min[1];
+        float modelz = max[2] - min[2];
+
+        if (!(modelx > 0.000001f && modely > 0.000001f && modelz > 0.000001f))
+        {
+            return FALSE;
+        }
+
+        /* setupDoor maps model X/Y/Z to bound Y/Z/X and sizes the
+           three axes independently to fill the authored volume. */
+        scale[0] = pady / modelx;
+        scale[1] = padz / modely;
+        scale[2] = padx / modelz;
+    }
+    else if (bound != NULL)
+    {
+        float padx = fabsf(bound->xmax - bound->xmin) * worldscale;
+        float pady = fabsf(bound->ymax - bound->ymin) * worldscale;
+        float padz = fabsf(bound->zmax - bound->zmin) * worldscale;
+        float modeldim[3] = {max[0] - min[0], max[1] - min[1], max[2] - min[2]};
+        /* A degenerate model axis keeps the base scale. Apply the
+           setup's extra scale once, after choosing the fitted scale. */
+        float fitted[3] = {model->scale, model->scale, model->scale};
+        float extra = (float)object->extrascale / 256.0f;
+
+        if (modeldim[0] > 0.000001f)
+            fitted[0] = padx / modeldim[0];
+        if (modeldim[1] > 0.000001f)
+            fitted[1] = ((object->flags & PROPFLAG_ONSIDE) ? padz : pady) / modeldim[1];
+        if (modeldim[2] > 0.000001f)
+            fitted[2] = ((object->flags & PROPFLAG_ONSIDE) ? pady : padz) / modeldim[2];
+
+        if (object->flags & PROPFLAG_SCALE_TO_PAD_BOUNDS)
+        {
+            float uniform = fitted[0];
+            if (fitted[1] < uniform)
+                uniform = fitted[1];
+            if (fitted[2] < uniform)
+                uniform = fitted[2];
+            scale[0] = scale[1] = scale[2] = uniform * extra;
+        }
+        else
+        {
+            if (object->flags & PROPFLAG_SCALE_TO_X_BOUNDS)
+                scale[0] = fitted[0] * extra;
+            if (object->flags & PROPFLAG_SCALE_TO_Y_BOUNDS)
+                scale[1] = fitted[1] * extra;
+            if (object->flags & PROPFLAG_SCALE_TO_Z_BOUNDS)
+                scale[2] = fitted[2] * extra;
+        }
+    }
+
+    return TRUE;
+}
+
 static float ObjectCross2D(const float a[2], const float b[2], const float c[2])
 {
     return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
@@ -653,67 +723,12 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
                pads keep their authored marker, but create no game object. */
             if (referencetile == STAN_TILE_NONE) { continue; }
         }
-        scale[0] = scale[1] = scale[2] = model->scale
-            * ((float)object->extrascale / 256.0f);
-
+        if (!ObjectPlacementScale(model, object, bound, worldscale, scale)) { continue; }
         if (isdoor)
         {
-            float padx = fabsf(bound->xmax - bound->xmin) * worldscale;
-            float pady = fabsf(bound->ymax - bound->ymin) * worldscale;
-            float padz = fabsf(bound->zmax - bound->zmin) * worldscale;
-            float modelx = max[0] - min[0];
-            float modely = max[1] - min[1];
-            float modelz = max[2] - min[2];
-
-            if (!(modelx > 0.000001f && modely > 0.000001f
-                  && modelz > 0.000001f))
-            {
-                continue;
-            }
-
-            /* setupDoor maps model X/Y/Z to bound Y/Z/X and sizes the
-               three axes independently to fill the authored volume. */
-            scale[0] = pady / modelx;
-            scale[1] = padz / modely;
-            scale[2] = padx / modelz;
-            center[0] = (min[0] + max[0]) * 0.5f;
-            center[1] = (min[1] + max[1]) * 0.5f;
-            center[2] = (min[2] + max[2]) * 0.5f;
-        }
-        else if (bound != NULL)
-        {
-            float padx = fabsf(bound->xmax - bound->xmin) * worldscale;
-            float pady = fabsf(bound->ymax - bound->ymin) * worldscale;
-            float padz = fabsf(bound->zmax - bound->zmin) * worldscale;
-            float modeldim[3] = {
-                max[0] - min[0], max[1] - min[1], max[2] - min[2]
-            };
-            /* A degenerate model axis keeps the base scale. Apply the
-               setup's extra scale once, after choosing the fitted scale. */
-            float fitted[3] = { model->scale, model->scale, model->scale };
-            float extra = (float)object->extrascale / 256.0f;
-
-            if (modeldim[0] > 0.000001f) fitted[0] = padx / modeldim[0];
-            if (modeldim[1] > 0.000001f)
-                fitted[1] = ((object->flags & PROPFLAG_ONSIDE) ? padz : pady)
-                          / modeldim[1];
-            if (modeldim[2] > 0.000001f)
-                fitted[2] = ((object->flags & PROPFLAG_ONSIDE) ? pady : padz)
-                          / modeldim[2];
-
-            if (object->flags & PROPFLAG_SCALE_TO_PAD_BOUNDS)
-            {
-                float uniform = fitted[0];
-                if (fitted[1] < uniform) uniform = fitted[1];
-                if (fitted[2] < uniform) uniform = fitted[2];
-                scale[0] = scale[1] = scale[2] = uniform * extra;
-            }
-            else
-            {
-                if (object->flags & PROPFLAG_SCALE_TO_X_BOUNDS) scale[0] = fitted[0] * extra;
-                if (object->flags & PROPFLAG_SCALE_TO_Y_BOUNDS) scale[1] = fitted[1] * extra;
-                if (object->flags & PROPFLAG_SCALE_TO_Z_BOUNDS) scale[2] = fitted[2] * extra;
-            }
+            center[0] = (min[0] + max[0]) * .5f;
+            center[1] = (min[1] + max[1]) * .5f;
+            center[2] = (min[2] + max[2]) * .5f;
         }
 
         if (bound != NULL)
@@ -1161,4 +1176,148 @@ BOOL ObjectGetSetupModelRotation(const SetupFile *setup, DWORD selection, Rotati
         }
     }
     return RotationValid(out);
+}
+
+BOOL ObjectScaleSetupModel(const char *projectdir, SetupFile *setup, const StanFile *stan,
+                           float levelscale, const SetupObjectGeometry *before, DWORD index,
+                           const Scaling *scale, SetupObjectGeometry *out, const char **reasonout)
+{
+    ModelCacheEntry *cache = NULL, *model;
+    SetupObjectGeometry provisional = {0};
+    SetupPadRef ref;
+    RomFile rom = {0};
+    char basepath[MAX_PATH];
+    const BgVertex *oldvertex, *newvertex;
+    const SetupObject *object;
+    float modelscale[3];
+    double dimensions[3], bounds[6], source[3], expected[3], correction[3];
+    DWORD a = 0, b = 0;
+    int axis, corner;
+    BOOL ok = FALSE;
+    ZeroMemory(out, sizeof(*out));
+    *reasonout = "Only props with editable placement pads can be scaled.";
+    if (!setup || !before || !ScalingValid(scale) || !(levelscale > 0) ||
+        (index & SETUP_CHARACTER_SELECTION_BIT) || !SetupFileGetModelPad(setup, index, &ref) ||
+        !(oldvertex = ObjectFirstVertex(before, index)))
+    {
+        return FALSE;
+    }
+    cache = calloc(OBJECT_MODEL_CACHE_COUNT, sizeof(*cache));
+    if (!cache)
+    {
+        *reasonout = "Out of memory scaling the prop.";
+        goto done;
+    }
+    if (snprintf(basepath, sizeof(basepath), "%s\\%s", projectdir, ROM_EXPORT_BASE_FILENAME) <
+        (int)sizeof(basepath))
+    {
+        const char *ignored;
+        RomLoad(basepath, &rom, &ignored);
+    }
+    object = &setup->objects[index];
+    model = ObjectGetModel(cache, object->modelid, projectdir, &rom);
+    if (!model ||
+        !ObjectPlacementScale(model, object, ref.bound ? &setup->boundpads[ref.index] : NULL,
+                              1.0f / levelscale, modelscale))
+    {
+        *reasonout = "The model's placement bounds could not be loaded.";
+        goto done;
+    }
+    for (axis = 0; axis < 3; axis++)
+    {
+        int padaxis = object->type == PROPDEF_DOOR                     ? (axis + 1) % 3
+                      : (object->flags & PROPFLAG_ONSIDE) && axis != 0 ? 3 - axis
+                                                                       : axis;
+        dimensions[padaxis] = (model->max[axis] - model->min[axis]) * modelscale[axis] *
+                              levelscale * scale->factor[padaxis];
+    }
+    for (axis = 0; axis < 3; axis++)
+    {
+        bounds[axis * 2] = -dimensions[axis] * .5;
+        bounds[axis * 2 + 1] = dimensions[axis] * .5;
+    }
+    source[0] = oldvertex->x;
+    source[1] = oldvertex->y;
+    source[2] = oldvertex->z;
+    ScalingPoint(scale, source, expected);
+    if (!SetupFileSetModelBounds(setup, index, levelscale, bounds, reasonout) ||
+        !ObjectLoadSetupGeometry(projectdir, setup, stan, levelscale, &provisional, reasonout))
+    {
+        goto done;
+    }
+    newvertex = ObjectFirstVertex(&provisional, index);
+    if (!newvertex)
+    {
+        goto invalid;
+    }
+    correction[0] = expected[0] - newvertex->x;
+    correction[1] = expected[1] - newvertex->y;
+    correction[2] = expected[2] - newvertex->z;
+    if (!SetupFileTranslateModel(setup, index, levelscale, correction, reasonout) ||
+        !ObjectLoadSetupGeometry(projectdir, setup, stan, levelscale, out, reasonout))
+    {
+        goto done;
+    }
+    /* Check the actual rebuilt model, not just its bounding box: pad flags,
+       grounding and model-axis permutations must reproduce the preview. */
+    for (;;)
+    {
+        while (a < before->tricount && before->objectindices[a] != index)
+        {
+            a++;
+        }
+        while (b < out->tricount && out->objectindices[b] != index)
+        {
+            b++;
+        }
+        if (a == before->tricount || b == out->tricount)
+        {
+            break;
+        }
+        for (corner = 0; corner < 3; corner++)
+        {
+            const BgVertex *v = &before->tris[a * 3 + corner], *w = &out->tris[b * 3 + corner];
+            double actual[3] = {w->x, w->y, w->z};
+            source[0] = v->x;
+            source[1] = v->y;
+            source[2] = v->z;
+            ScalingPoint(scale, source, expected);
+            for (axis = 0; axis < 3; axis++)
+            {
+                if (fabs(expected[axis] - actual[axis]) > .03)
+                {
+                    goto invalid;
+                }
+            }
+        }
+        a++;
+        b++;
+    }
+    if (a != before->tricount || b != out->tricount)
+    {
+        goto invalid;
+    }
+    ok = TRUE;
+    *reasonout = "";
+    goto done;
+invalid:
+    *reasonout = "The setup placement rules cannot reproduce this scale at this location.";
+done:
+    if (cache)
+    {
+        for (axis = 0; axis < OBJECT_MODEL_CACHE_COUNT; axis++)
+        {
+            free(cache[axis].tris);
+            free(cache[axis].tritags);
+            free(cache[axis].renderflags);
+        }
+        free(cache);
+    }
+    RomFree(&rom);
+    ObjectGeometryFree(&provisional);
+    if (!ok)
+    {
+        ObjectGeometryFree(out);
+    }
+    return ok;
 }
