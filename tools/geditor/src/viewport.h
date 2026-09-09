@@ -74,7 +74,7 @@ void ViewportFlyFrame(HWND viewport);
  * state and S/T wrapping; NULL uses primary/secondary defaults. NULL/0 restores the built-in test
  * scene. Set framecamera when opening a level; clear it when rebuilding an
  * edited level so undo and redo do not move the user's viewpoint. Surviving
- * selected BG faces are retained when framecamera is FALSE. Object
+ * selected and hidden BG faces are retained when framecamera is FALSE. Object
  * indices parallel the triangle suffix beginning at objectfirsttriangle.
  */
 BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
@@ -92,6 +92,11 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
 int ViewportGetSelectedBgFaceCount(HWND hwnd);
 BOOL ViewportGetSelectedBgFaces(HWND hwnd, BgFaceRef *out, int count);
 BOOL ViewportGetSingleSelectedBgFace(HWND hwnd, BgFaceRef *out);
+/* Temporary viewport visibility only: never edits assets or history. Hidden
+   identities survive scene rebuilds; opening/closing a level resets them. */
+BOOL ViewportHideSelectedBgFaces(HWND hwnd);
+void ViewportUnhideAllBgFaces(HWND hwnd);
+BOOL ViewportHasHiddenBgFaces(HWND hwnd);
 /* Native image dimensions already loaded by the scene. Missing/untextured
    images return FALSE and a 1x1 fallback, as in model UV export. */
 BOOL ViewportGetTextureSize(HWND hwnd, unsigned short textureid, int *width, int *height);

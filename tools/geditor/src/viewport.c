@@ -136,6 +136,10 @@ typedef struct ViewportState {
     struct SceneBatch *batches;  /* draw-ordered draw ranges */
     int batchcount;
     unsigned char *selectedtris; /* one byte per draw-ordered triangle */
+    unsigned char *hiddentris;   /* derived from hiddenrefs in the current draw order */
+    BgFaceRef *hiddenrefs;       /* sorted level-local visibility; never document data */
+    int hiddenrefcount;
+    DWORD bghiddentris;          /* count of hidden faces currently in the scene */
     BgFaceRef *scenefacerefs;    /* stable document identity in the same order */
     DWORD *sceneobjectindices;   /* setup object identity in the same order */
     BgDocumentVertexRef *scenevertexrefs;
@@ -342,7 +346,7 @@ static BOOL ViewportCreateStatisticsFont(ViewportState *state)
 
 static void ViewportDrawBgStatistics(const ViewportState *state)
 {
-    char lines[4][64];
+    char lines[5][64];
     int line;
 
     if (!state->showbgstatistics || !state->statisticsfont
@@ -352,6 +356,7 @@ static void ViewportDrawBgStatistics(const ViewportState *state)
     snprintf(lines[2], sizeof(lines[2]), "Total tris: %lu",
              (unsigned long)(state->bgprimarytris + state->bgsecondarytris));
     snprintf(lines[3], sizeof(lines[3]), "Unique textures: %lu", (unsigned long)state->bgtexturecount);
+    snprintf(lines[4], sizeof(lines[4]), "Hidden faces: %lu", (unsigned long)state->bghiddentris);
 
     /* Draw into the back buffer so text stays steady during camera flight.
        A one-pixel shadow keeps it legible over bright geometry. */
@@ -372,7 +377,7 @@ static void ViewportDrawBgStatistics(const ViewportState *state)
     glPushMatrix();
     glLoadIdentity();
     glListBase(state->statisticsfont);
-    for (line = 0; line < 4; line++)
+    for (line = 0; line < 5; line++)
     {
         GLsizei length = (GLsizei)strlen(lines[line]);
         int baseline = 24 + line * 20;
@@ -480,6 +485,27 @@ static void ViewportResizeGL(ViewportState *state, int width, int height)
 }
 
 
+static BOOL ViewportTriangleHidden(const ViewportState *state, int triangle)
+{
+    return state->hiddentris != NULL && state->hiddentris[triangle] != 0;
+}
+
+/* Keep adjacent visible triangles batched, including the point/edge passes.
+   With no hidden faces the original single draw call is retained. */
+static void ViewportDrawVisibleBatch(const ViewportState *state, const SceneBatch *batch)
+{
+    int first = batch->first, end = first + batch->count, corner;
+    if (batch->object || state->bghiddentris == 0)
+    { glDrawArrays(GL_TRIANGLES, first, batch->count); return; }
+    for (corner = first; corner < end; corner += 3)
+    {
+        if (!ViewportTriangleHidden(state, corner / 3)) { continue; }
+        if (corner > first) { glDrawArrays(GL_TRIANGLES, first, corner - first); }
+        first = corner + 3;
+    }
+    if (first < end) { glDrawArrays(GL_TRIANGLES, first, end - first); }
+}
+
 /* Draw over the shaded scene without changing document/selection colors.
    Polygon point mode gives camera-facing, fixed-pixel-size square markers
    while retaining the same triangle clipping and backface culling as BG. */
@@ -543,7 +569,7 @@ static void ViewportDrawBgToolOverlay(const ViewportState *state)
             {
                 glDisable(GL_CULL_FACE);
             }
-            glDrawArrays(GL_TRIANGLES, batch->first, batch->count);
+            ViewportDrawVisibleBatch(state, batch);
         }
     }
 
@@ -786,7 +812,7 @@ static void ViewportPaintGL(ViewportState *state)
                     glDisable(GL_TEXTURE_2D);
                 }
 
-                glDrawArrays(GL_TRIANGLES, batch->first, batch->count);
+                ViewportDrawVisibleBatch(state, batch);
             }
 
             glDisable(GL_TEXTURE_2D);
@@ -1361,6 +1387,7 @@ static BOOL ViewportRayBatchTriangleDistance(const ViewportState *state, const S
     double edge[2][3], delta[3], aa = 0, ab = 0, bb = 0, ap = 0, bp = 0;
     double u, w, denominator, alpha, threshold;
     int axis;
+    if (ViewportTriangleHidden(state, corner / 3)) { return FALSE; }
     if (!ViewportRayTriangleDistance(ray, v, state->cullbackfaces && batch->cullbackfaces,
                                      distance))
     {
@@ -2046,6 +2073,7 @@ static BOOL ViewportCornerVisible(const ViewportState *state, int corner)
 {
     int i;
     if (corner < 0 || corner >= state->scenecount) { return FALSE; }
+    if (ViewportTriangleHidden(state, corner / 3)) { return FALSE; }
     for (i = 0; i < state->batchcount; i++)
     {
         const SceneBatch *batch = &state->batches[i];
@@ -2063,7 +2091,8 @@ static int ViewportFindVertexCorner(const ViewportState *state, const BgDocument
     if (ref->room == 0 || state->scenevertexrefs == NULL) { return -1; }
     for (i = 0; i < state->scenecount; i++)
     {
-        if (ViewportCompareVertexRefs(ref, &state->scenevertexrefs[i]) == 0) { return i; }
+        if (ViewportCompareVertexRefs(ref, &state->scenevertexrefs[i]) == 0
+            && ViewportCornerVisible(state, i)) { return i; }
     }
     return -1;
 }
@@ -2353,6 +2382,7 @@ static BOOL ViewportComponentVisible(const ViewportState *state, int triangle,
     ViewportPickRay ray;
     double length, distance, tolerance;
     int batchindex;
+    if (ViewportTriangleHidden(state, triangle)) { return FALSE; }
     ray.origin[0]=state->posx; ray.origin[1]=state->posy; ray.origin[2]=state->posz;
     ray.direction[0]=point->x-state->posx;
     ray.direction[1]=point->y-state->posy;
@@ -2440,6 +2470,7 @@ static void ViewportPickComponent(HWND hwnd, ViewportState *state,
         for (first=batch->first; first<batch->first+batch->count; first+=3)
         {
             int corner;
+            if (ViewportTriangleHidden(state, first / 3)) { continue; }
             for (corner=0; corner<3; corner++)
             {
                 const Vertex *v=&state->scene[first+corner];
@@ -3138,7 +3169,8 @@ static BOOL ViewportCollectBoxVertices(const ViewportState *state, const RECT *b
             for (corner = batch->first; corner < batch->first + batch->count; corner++)
             {
                 const BgDocumentVertexRef *ref = &state->scenevertexrefs[corner];
-                if (ref->room && ViewportVertexInBox(state, &state->scene[corner], box))
+                if (ref->room && !ViewportTriangleHidden(state, corner / 3)
+                    && ViewportVertexInBox(state, &state->scene[corner], box))
                 {
                     vertices[count++] = (ViewportBoxVertex){ref->room, ref->index, corner};
                 }
@@ -4254,6 +4286,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
             free(state->scalehandle);
             free(state->arrow);
             free(state->components);
+            free(state->hiddenrefs);
             free(state);
             SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
         }
@@ -4378,6 +4411,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
     free(state->textures);
     free(state->batches);
     free(state->selectedtris);
+    free(state->hiddentris);
     free(state->scenefacerefs);
     free(state->sceneobjectindices);
     free(state->scenevertexrefs);
@@ -4390,6 +4424,8 @@ static void ViewportFreeScene(struct ViewportState *state_)
     state->textures = NULL;
     state->batches = NULL;
     state->selectedtris = NULL;
+    state->hiddentris = NULL;
+    state->bghiddentris = 0;
     state->scenefacerefs = NULL;
     state->sceneobjectindices = NULL;
     state->scenevertexrefs = NULL;
@@ -4727,6 +4763,88 @@ static int ViewportCompareFaceRefs(const void *left, const void *right)
     return 0;
 }
 
+/* Rebuild only the display mask. Keep absent IDs until Unhide All or a level
+   change, so undoing a geometry edit also restores its temporary visibility. */
+static void ViewportRestoreHiddenFaces(ViewportState *state, BOOL reset)
+{
+    int triangle;
+    if (reset)
+    {
+        free(state->hiddenrefs);
+        state->hiddenrefs = NULL;
+        state->hiddenrefcount = 0;
+    }
+    state->bghiddentris = 0;
+    if (state->hiddentris == NULL) { return; }
+    memset(state->hiddentris, 0, (size_t)state->scenecount / 3);
+    if (state->scenefacerefs == NULL || state->hiddenrefcount == 0) { return; }
+    for (triangle = 0; triangle < state->scenecount / 3; triangle++)
+    {
+        const BgFaceRef *ref = &state->scenefacerefs[triangle];
+        if (ref->faceid == BG_FACE_ID_NONE
+            || (state->sceneobjectindices != NULL && state->sceneobjectindices[triangle] != VIEWPORT_OBJECT_NONE))
+        { continue; }
+        if (bsearch(ref, state->hiddenrefs, (size_t)state->hiddenrefcount,
+                    sizeof(*state->hiddenrefs), ViewportCompareFaceRefs) != NULL)
+        {
+            state->hiddentris[triangle] = 1;
+            state->bghiddentris++;
+        }
+    }
+}
+
+BOOL ViewportHideSelectedBgFaces(HWND hwnd)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    BgFaceRef *refs;
+    int count, total, i, unique = 0;
+    if (state == NULL || state->tool != EDITOR_TOOL_FACE_SELECT) { return TRUE; }
+    ViewportCancelTransform(hwnd);
+    count = ViewportGetSelectedBgFaceCount(hwnd);
+    if (count == 0) { return TRUE; }
+    if (state->hiddenrefcount > INT_MAX - count) { return FALSE; }
+    total = state->hiddenrefcount + count;
+    if ((size_t)total > SIZE_MAX / sizeof(*refs)) { return FALSE; }
+    refs = malloc((size_t)total * sizeof(*refs));
+    if (refs == NULL) { return FALSE; }
+    if (state->hiddenrefcount > 0)
+    { memcpy(refs, state->hiddenrefs, (size_t)state->hiddenrefcount * sizeof(*refs)); }
+    if (!ViewportGetSelectedBgFaces(hwnd, refs + state->hiddenrefcount, count))
+    { free(refs); return FALSE; }
+    qsort(refs, (size_t)total, sizeof(*refs), ViewportCompareFaceRefs);
+    for (i = 0; i < total; i++)
+    {
+        if (unique == 0 || ViewportCompareFaceRefs(&refs[i], &refs[unique - 1]))
+        { refs[unique++] = refs[i]; }
+    }
+    free(state->hiddenrefs);
+    state->hiddenrefs = refs;
+    state->hiddenrefcount = unique;
+    ViewportClearAllSelection(state);
+    ViewportRestoreHiddenFaces(state, FALSE);
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    return TRUE;
+}
+
+void ViewportUnhideAllBgFaces(HWND hwnd)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    if (state == NULL) { return; }
+    ViewportCancelTransform(hwnd);
+    ViewportRestoreHiddenFaces(state, TRUE);
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+}
+
+BOOL ViewportHasHiddenBgFaces(HWND hwnd)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    return state != NULL && state->hiddenrefcount > 0;
+}
+
 BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                       const unsigned short *tritags,
                       const BgRenderFlags *renderflags,
@@ -4743,6 +4861,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     GLuint *textures = NULL;
     ViewportTexture *texturecache = NULL;
     unsigned char *selectedtris = NULL;
+    unsigned char *hiddentris = NULL;
     BgDocumentVertexRef *scenevertexrefs = NULL;
     DWORD savedobject = VIEWPORT_OBJECT_NONE;
     SetupPadRef savedpad = {SETUP_PAD_INDEX_NONE, FALSE};
@@ -4796,6 +4915,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
         textures = (GLuint *)malloc((size_t)tricount * sizeof(GLuint));
         selectedtris = (unsigned char *)calloc((size_t)tricount,
                                                sizeof(*selectedtris));
+        hiddentris = (unsigned char *)calloc((size_t)tricount, sizeof(*hiddentris));
         scenefacerefs = (BgFaceRef *)calloc((size_t)tricount,
                                             sizeof(*scenefacerefs));
         sceneobjectindices = (DWORD *)malloc((size_t)tricount
@@ -4805,7 +4925,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
         texturecache = (ViewportTexture *)calloc(VIEWPORT_TEXTURE_VARIANT_COUNT, sizeof(*texturecache));
 
         if (scene == NULL || scenecolors == NULL || order == NULL || batches == NULL
-            || textures == NULL || selectedtris == NULL
+            || textures == NULL || selectedtris == NULL || hiddentris == NULL
             || scenefacerefs == NULL || sceneobjectindices == NULL
             || decode == NULL || texturecache == NULL || scenevertexrefs == NULL)
         {
@@ -4960,6 +5080,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     state->batches = batches;
     state->batchcount = scene != NULL ? batchcount : 0;
     state->selectedtris = selectedtris;
+    state->hiddentris = hiddentris;
     state->selectedtricount = selectedcount;
     state->scenefacerefs = scenefacerefs;
     state->sceneobjectindices = sceneobjectindices;
@@ -4967,12 +5088,14 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     state->textures = textures;
     state->texturecache = texturecache;
     state->texturecount = scene != NULL ? texturecount : 0;
+    ViewportRestoreHiddenFaces(state, framecamera || scene == NULL);
 
     if (scene == NULL)
     {
         free(batches);
         free(textures);
         free(selectedtris);
+        free(hiddentris);
         free(scenefacerefs);
         free(sceneobjectindices);
         free(scenevertexrefs);
@@ -4980,6 +5103,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
         state->batches = NULL;
         state->textures = NULL;
         state->selectedtris = NULL;
+        state->hiddentris = NULL;
         state->scenefacerefs = NULL;
         state->sceneobjectindices = NULL;
         state->scenevertexrefs = NULL;
@@ -5028,7 +5152,7 @@ scene_failed:
     if (texturecount) { glDeleteTextures(texturecount, textures); }
     ViewportFreeTextureCache(texturecache);
     free(scene); free(scenecolors); free(order); free(batches);
-    free(textures); free(selectedtris); free(scenefacerefs);
+    free(textures); free(selectedtris); free(hiddentris); free(scenefacerefs);
     free(sceneobjectindices); free(scenevertexrefs); free(decode); free(selectedrefs);
     return FALSE;
 }
@@ -5076,6 +5200,7 @@ int ViewportGetSelectedBgFaceCount(HWND hwnd)
     for (triangle = 0; triangle < trianglecount; triangle++)
     {
         if (state->selectedtris[triangle]
+            && !ViewportTriangleHidden(state, triangle)
             && state->scenefacerefs[triangle].faceid != BG_FACE_ID_NONE)
         {
             count++;
@@ -5103,6 +5228,7 @@ BOOL ViewportGetSelectedBgFaces(HWND hwnd, BgFaceRef *out, int count)
     for (triangle = 0; triangle < trianglecount; triangle++)
     {
         if (!state->selectedtris[triangle]
+            || ViewportTriangleHidden(state, triangle)
             || state->scenefacerefs[triangle].faceid == BG_FACE_ID_NONE)
         {
             continue;
@@ -5141,6 +5267,7 @@ BOOL ViewportGetSingleSelectedBgFace(HWND hwnd, BgFaceRef *out)
     for (triangle = 0; triangle < trianglecount; triangle++)
     {
         if (!state->selectedtris[triangle]
+            || ViewportTriangleHidden(state, triangle)
             || state->scenefacerefs[triangle].faceid == BG_FACE_ID_NONE)
         {
             continue;
