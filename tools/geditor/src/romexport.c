@@ -239,6 +239,40 @@ static BOOL RomExportProjectMatchesRom(const GEditorProject *project,
 }
 
 
+void RomExportRefreshProjectLevelNames(GEditorProject *project)
+{
+    char path[MAX_PATH];
+    RomFile rom;
+    const char *why = "";
+    DWORD i, j;
+    BOOL named = FALSE;
+    if (project == NULL || project->levelcount == 0
+        || !RomExportBasePath(project, path, sizeof(path), &why)
+        || !RomLoad(path, &rom, &why)) { return; }
+    for (i = 0; i < rom.info.entrycount; i++)
+    {
+        if (rom.info.entries[i].kind == ROM_KIND_STGT
+            && RomLevelTableRowSize(&rom.info.entries[i], rom.size) == 36) { named = TRUE; }
+    }
+    if (named && RomExportProjectMatchesRom(project, &rom, &why))
+    {
+        for (i = 0; i < project->levelcount; i++)
+        {
+            for (j = 0; j < rom.info.levelcount; j++)
+            {
+                if (project->levels[i].levelID == rom.info.levels[j].levelID)
+                {
+                    lstrcpyn(project->levels[i].name, rom.info.levels[j].name,
+                             sizeof(project->levels[i].name));
+                    break;
+                }
+            }
+        }
+    }
+    RomFree(&rom);
+}
+
+
 static BOOL RomExportWriteFile(const char *path, const unsigned char *data,
                                DWORD size, const char **reasonout)
 {
@@ -1057,6 +1091,7 @@ static BOOL RomExportUpdateLevelTable(const GEditorProject *project,
                                       const char **reasonout)
 {
     const RomManifestEntry *stgt = NULL;
+    DWORD stride, nameshift;
     DWORD i;
 
     for (i = 0; i < rom->info.entrycount; i++)
@@ -1068,12 +1103,13 @@ static BOOL RomExportUpdateLevelTable(const GEditorProject *project,
         }
     }
 
-    if (stgt == NULL || stgt->flags == 0
-        || stgt->romstart + stgt->flags * 32 > rom->size)
+    stride = RomLevelTableRowSize(stgt, rom->size);
+    if (stride == 0)
     {
         *reasonout = "the base ROM's level table is invalid.";
         return FALSE;
     }
+    nameshift = stride == 36 ? 4 : 0;
 
     for (i = 0; i < project->levelcount; i++)
     {
@@ -1090,7 +1126,7 @@ static BOOL RomExportUpdateLevelTable(const GEditorProject *project,
 
         for (j = 0; j < stgt->flags; j++)
         {
-            unsigned char *candidate = rom->data + stgt->romstart + j * 32;
+            unsigned char *candidate = rom->data + stgt->romstart + j * stride;
 
             if ((LONG)RomExportRead32(candidate) == level->levelID)
             {
@@ -1115,14 +1151,14 @@ static BOOL RomExportUpdateLevelTable(const GEditorProject *project,
             union { DWORD u; float f; } bits;
 
             bits.f = level->levelscale;
-            RomExportWrite32(row + 16, bits.u);
+            RomExportWrite32(row + 16 + nameshift, bits.u);
             bits.f = level->renderScale;
-            RomExportWrite32(row + 20, bits.u);
+            RomExportWrite32(row + 20 + nameshift, bits.u);
         }
 
-        RomExportWrite16(row + 24, (unsigned short)level->music);
-        RomExportWrite16(row + 26, (unsigned short)level->bgsound);
-        RomExportWrite16(row + 28, (unsigned short)level->xtrack);
+        RomExportWrite16(row + 24 + nameshift, (unsigned short)level->music);
+        RomExportWrite16(row + 26 + nameshift, (unsigned short)level->bgsound);
+        RomExportWrite16(row + 28 + nameshift, (unsigned short)level->xtrack);
     }
 
     return TRUE;

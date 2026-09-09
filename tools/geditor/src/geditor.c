@@ -391,11 +391,10 @@ static void GEditorRefreshProjectAssets(void)
     DWORD count;
     DWORD i;
 
+    RomExportRefreshProjectLevelNames(&g_Project);
     for (i = 0; i < g_Project.levelcount; i++)
     {
-        wsprintf(levels[i].label, "%s  (%s)",
-                 g_Project.levels[i].name,
-                 g_Project.levels[i].world);
+        lstrcpyn(levels[i].label, g_Project.levels[i].name, sizeof(levels[i].label));
     }
 
     BrowserSetLevels(g_Browser,

@@ -19,7 +19,7 @@
 
 #define ROM_MANIFEST_MAGIC     "GUDGEDITORMANIF"  /* + implicit NUL = 16 bytes */
 #define ROM_MANIFEST_MAGIC_LEN 16
-#define ROM_MANIFEST_VERSION   1
+#define ROM_MANIFEST_VERSION   2
 
 /* The ROM is big-endian; the PC is not. All multi-byte reads go
    through this. */
@@ -153,6 +153,17 @@ static void RomWorldStem(char *dst, DWORD dstmax, const char *bg)
     }
 }
 
+DWORD RomLevelTableRowSize(const RomManifestEntry *stgt, DWORD romsize)
+{
+    DWORD bytes, stride;
+    if (stgt == NULL || stgt->flags == 0 || stgt->flags > ROM_MAX_LEVELS
+        || stgt->romstart >= stgt->romend || stgt->romend > romsize) { return 0; }
+    bytes = stgt->romend - stgt->romstart;
+    if (bytes % stgt->flags != 0) { return 0; }
+    stride = bytes / stgt->flags;
+    return stride == 32 || stride == 36 ? stride : 0;
+}
+
 /*
  * Parses the STGT level table, chasing its name pointers through the
  * CMAP virtual-address mapping. Fills info->levels/levelcount.
@@ -164,10 +175,11 @@ static BOOL RomParseLevelTable(const unsigned char *data, DWORD size,
                                RomInfo *info, const char **reasonout)
 {
     DWORD rows = stgt->flags;
+    DWORD stride = RomLevelTableRowSize(stgt, size);
+    DWORD nameshift = stride == 36 ? 4 : 0;
     DWORD i;
 
-    if (rows < 1 || rows > ROM_MAX_LEVELS
-        || stgt->romstart + rows * 32 > size)
+    if (stride == 0)
     {
         *reasonout = "GUD level table is malformed.";
         return FALSE;
@@ -175,26 +187,28 @@ static BOOL RomParseLevelTable(const unsigned char *data, DWORD size,
 
     for (i = 0; i < rows; i++)
     {
-        const unsigned char *row = data + stgt->romstart + i * 32;
+        const unsigned char *row = data + stgt->romstart + i * stride;
         RomLevel *lvl = &info->levels[info->levelcount];
-        DWORD strs[3];
-        char *dsts[3];
-        DWORD dstmax[3];
+        DWORD strs[4];
+        char *dsts[4];
+        DWORD dstmax[4];
         DWORD s;
 
         lvl->levelID = (LONG)be32(row + 0);
-        strs[0] = be32(row + 4);   dsts[0] = lvl->setupname; dstmax[0] = sizeof(lvl->setupname);
-        strs[1] = be32(row + 8);   dsts[1] = lvl->bgname;    dstmax[1] = sizeof(lvl->bgname);
-        strs[2] = be32(row + 12);  dsts[2] = lvl->stanname;  dstmax[2] = sizeof(lvl->stanname);
+        strs[0] = be32(row + 4 + nameshift);  dsts[0] = lvl->setupname; dstmax[0] = sizeof(lvl->setupname);
+        strs[1] = be32(row + 8 + nameshift);  dsts[1] = lvl->bgname;    dstmax[1] = sizeof(lvl->bgname);
+        strs[2] = be32(row + 12 + nameshift); dsts[2] = lvl->stanname;  dstmax[2] = sizeof(lvl->stanname);
+        strs[3] = nameshift ? be32(row + 4) : 0;
+        dsts[3] = lvl->name; dstmax[3] = sizeof(lvl->name);
 
-        for (s = 0; s < 3; s++)
+        for (s = 0; s < 4; s++)
         {
             LONGLONG off;
 
             if (strs[s] == 0)
             {
                 /* NULL is a legal value here: the table's sentinel row
-                   carries no setup file. Resolve it to an empty string
+                   carries no name or setup file. Resolve it to an empty string
                    instead of refusing the whole ROM. */
                 dsts[s][0] = '\0';
                 continue;
@@ -224,15 +238,15 @@ static BOOL RomParseLevelTable(const unsigned char *data, DWORD size,
             /* floats arrive as big-endian bit patterns */
             union { DWORD u; float f; } cvt;
 
-            cvt.u = be32(row + 16); lvl->levelscale = cvt.f;
-            cvt.u = be32(row + 20); lvl->renderScale = cvt.f;
+            cvt.u = be32(row + 16 + nameshift); lvl->levelscale = cvt.f;
+            cvt.u = be32(row + 20 + nameshift); lvl->renderScale = cvt.f;
         }
 
-        lvl->music   = (short)((row[24] << 8) | row[25]);
-        lvl->bgsound = (short)((row[26] << 8) | row[27]);
-        lvl->xtrack  = (short)((row[28] << 8) | row[29]);
+        lvl->music   = (short)((row[24 + nameshift] << 8) | row[25 + nameshift]);
+        lvl->bgsound = (short)((row[26 + nameshift] << 8) | row[27 + nameshift]);
+        lvl->xtrack  = (short)((row[28 + nameshift] << 8) | row[29 + nameshift]);
 
-        RomSetupStem(lvl->name, sizeof(lvl->name), lvl->setupname);
+        if (lvl->name[0] == '\0') { RomSetupStem(lvl->name, sizeof(lvl->name), lvl->setupname); }
         RomWorldStem(lvl->world, sizeof(lvl->world), lvl->bgname);
 
         info->levelcount++;
