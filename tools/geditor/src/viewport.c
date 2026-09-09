@@ -13,6 +13,8 @@
 #include <string.h>
 #include <math.h>
 #include <float.h>
+#include <limits.h>
+#include <stdint.h>
 #include "browser.h"
 #include "viewport.h"
 #include "gltf.h"
@@ -125,6 +127,8 @@ typedef struct ViewportState {
     ViewportComponent *components; /* insertion order preserves the vertex anchor */
     int componentcount, componentcapacity;
     int width, height;
+    BOOL boxpending, boxdragging, boxadd, boxremove;
+    POINT boxstart, boxend; /* viewport client pixels, independent of monitor origin */
     BgVertex *arrow;
     DWORD arrowtris;
     BgVertex *cylinder;
@@ -192,6 +196,7 @@ static StanPointRef ViewportStanPointRef(const ViewportState *state, DWORD tile,
 static void ViewportDrawTransformTools(const ViewportState *state);
 static void ViewportUpdateGizmo(ViewportState *state);
 static void ViewportRestoreComponents(ViewportState *state);
+static void ViewportDrawBoxSelection(const ViewportState *state);
 
 static int ViewportSelectedPadIndex(const ViewportState *state)
 {
@@ -720,6 +725,7 @@ static void ViewportPaintGL(ViewportState *state)
 
     ViewportDrawBgToolOverlay(state);
     ViewportDrawTransformTools(state);
+    ViewportDrawBoxSelection(state);
     SwapBuffers(state->hdc);
 }
 
@@ -2584,6 +2590,400 @@ static BOOL ViewportTryPickStan(HWND hwnd, ViewportState *state, int x, int y, B
     return TRUE;
 }
 
+/* A marquee holds the click until mouse-up, so a drag never changes the
+ * existing selection before it commits (or is cancelled). */
+static void ViewportCancelBoxSelection(HWND hwnd, ViewportState *state)
+{
+    if (state == NULL || !state->boxpending)
+    {
+        return;
+    }
+    state->boxpending = state->boxdragging = FALSE;
+    if (GetCapture() == hwnd)
+    {
+        ReleaseCapture();
+    }
+    InvalidateRect(hwnd, NULL, FALSE);
+}
+
+static void ViewportBeginBoxSelection(HWND hwnd, ViewportState *state, int x, int y, BOOL add,
+                                      BOOL remove)
+{
+    state->boxstart.x = state->boxend.x = x;
+    state->boxstart.y = state->boxend.y = y;
+    state->boxadd = add;
+    state->boxremove = remove;
+    state->boxpending = TRUE;
+    state->boxdragging = FALSE;
+    state->hoveraxis = -1;
+    SetCapture(hwnd);
+    InvalidateRect(hwnd, NULL, FALSE);
+}
+
+static void ViewportUpdateBoxSelection(HWND hwnd, ViewportState *state, int x, int y)
+{
+    int thresholdx = GetSystemMetrics(SM_CXDRAG);
+    int thresholdy = GetSystemMetrics(SM_CYDRAG);
+    if (thresholdx < 1)
+    {
+        thresholdx = 1;
+    }
+    if (thresholdy < 1)
+    {
+        thresholdy = 1;
+    }
+    if (abs(x - state->boxstart.x) >= thresholdx || abs(y - state->boxstart.y) >= thresholdy)
+    {
+        state->boxdragging = TRUE;
+    }
+    state->boxend.x = x;
+    state->boxend.y = y;
+    InvalidateRect(hwnd, NULL, FALSE);
+}
+
+static RECT ViewportBoxRectangle(const ViewportState *state)
+{
+    RECT box;
+    box.left = min(state->boxstart.x, state->boxend.x);
+    box.right = max(state->boxstart.x, state->boxend.x);
+    box.top = min(state->boxstart.y, state->boxend.y);
+    box.bottom = max(state->boxstart.y, state->boxend.y);
+    /* Capture can deliver negative coordinates and releases outside the window. */
+    box.left = max(0, box.left);
+    box.top = max(0, box.top);
+    box.right = min(state->width - 1, box.right);
+    box.bottom = min(state->height - 1, box.bottom);
+    return box;
+}
+
+static BOOL ViewportVertexInBox(const ViewportState *state, const Vertex *vertex, const RECT *box)
+{
+    double screen[2];
+    /* Project performs near/far clipping. Deliberately do not raycast or test
+     * face winding: even completely occluded/back-facing vertices qualify. */
+    return ViewportProject(state, vertex, screen) && screen[0] >= box->left &&
+           screen[0] <= box->right && screen[1] >= box->top && screen[1] <= box->bottom;
+}
+
+typedef struct ViewportBoxVertex
+{
+    DWORD owner, index; /* BG room/vertex, or canonical stan tile/point */
+    int corner;         /* visible-layer BG corner used by transform tools */
+} ViewportBoxVertex;
+
+static int ViewportCompareBoxVertices(const void *left, const void *right)
+{
+    const ViewportBoxVertex *a = left, *b = right;
+    if (a->owner != b->owner)
+    {
+        return a->owner < b->owner ? -1 : 1;
+    }
+    return a->index < b->index ? -1 : a->index > b->index;
+}
+
+static BOOL ViewportCollectBoxVertices(const ViewportState *state, const RECT *box, BOOL stan,
+                                       ViewportBoxVertex **out, int *countout)
+{
+    size_t capacity =
+        stan ? (size_t)state->stan.tilecount * STAN_TILE_MAX_POINTS : (size_t)state->scenecount;
+    ViewportBoxVertex *vertices;
+    int count = 0, unique = 0, i;
+    *out = NULL;
+    *countout = 0;
+    if (capacity == 0 || (stan ? !ViewportStanVisible(state) || !state->stanpointmap
+                               : !state->scene || !state->scenevertexrefs))
+    {
+        return TRUE;
+    }
+    if (capacity > INT_MAX || capacity > SIZE_MAX / sizeof(*vertices))
+    {
+        return FALSE;
+    }
+    vertices = malloc(capacity * sizeof(*vertices));
+    if (vertices == NULL)
+    {
+        return FALSE;
+    }
+    if (stan)
+    {
+        DWORD tile;
+        for (tile = 0; tile < state->stan.tilecount; tile++)
+        {
+            const StanTile *polygon = &state->stan.tiles[tile];
+            unsigned int point;
+            for (point = 0; point < polygon->pointcount; point++)
+            {
+                Vertex vertex = ViewportStanPointVertex(&polygon->points[point]);
+                if (ViewportVertexInBox(state, &vertex, box))
+                {
+                    StanPointRef ref = ViewportStanPointRef(state, tile, point);
+                    vertices[count++] = (ViewportBoxVertex){ref.tile, ref.point, 0};
+                }
+            }
+        }
+    }
+    else
+    {
+        for (i = 0; i < state->batchcount; i++)
+        {
+            const SceneBatch *batch = &state->batches[i];
+            int corner;
+            if (!ViewportBatchIsPickable(state, batch))
+            {
+                continue;
+            }
+            for (corner = batch->first; corner < batch->first + batch->count; corner++)
+            {
+                const BgDocumentVertexRef *ref = &state->scenevertexrefs[corner];
+                if (ref->room && ViewportVertexInBox(state, &state->scene[corner], box))
+                {
+                    vertices[count++] = (ViewportBoxVertex){ref->room, ref->index, corner};
+                }
+            }
+        }
+    }
+    qsort(vertices, count, sizeof(*vertices), ViewportCompareBoxVertices);
+    for (i = 0; i < count; i++)
+    {
+        if (unique == 0 || ViewportCompareBoxVertices(&vertices[i], &vertices[unique - 1]))
+        {
+            vertices[unique++] = vertices[i];
+        }
+        else if (vertices[i].corner < vertices[unique - 1].corner)
+        {
+            vertices[unique - 1].corner = vertices[i].corner;
+        }
+    }
+    *out = vertices;
+    *countout = unique;
+    return TRUE;
+}
+
+/* Linear filtering with sorted membership lookups avoids scanning the entire
+ * selection for every triangle corner. Shared identities occur only once;
+ * distinct vertices at the same position remain distinct. */
+static BOOL ViewportApplyBoxVertices(ViewportState *state, const ViewportBoxVertex *hits,
+                                     int hitcount, BOOL stan, BOOL add, BOOL remove)
+{
+    int previous = stan ? state->stancomponentcount : state->componentcount;
+    int keep = add || remove ? previous : 0;
+    int capacity, count = 0, i;
+    ViewportBoxVertex *selected = NULL;
+    ViewportComponent *bg = NULL;
+    ViewportStanComponent *tiles = NULL;
+    if (hitcount == 0 && (add || remove))
+    {
+        return TRUE;
+    }
+    if (hitcount > INT_MAX - keep)
+    {
+        return FALSE;
+    }
+    capacity = keep + (remove ? 0 : hitcount);
+    if (capacity)
+    {
+        if (stan)
+        {
+            tiles = calloc((size_t)capacity, sizeof(*tiles));
+        }
+        else
+        {
+            bg = calloc((size_t)capacity, sizeof(*bg));
+        }
+        if (stan ? tiles == NULL : bg == NULL)
+        {
+            return FALSE;
+        }
+    }
+    if (add && !remove && keep)
+    {
+        selected = malloc((size_t)keep * sizeof(*selected));
+        if (selected == NULL)
+        {
+            free(bg);
+            free(tiles);
+            return FALSE;
+        }
+    }
+    for (i = 0; i < keep; i++)
+    {
+        ViewportBoxVertex key;
+        if (stan)
+        {
+            StanPointRef ref = state->stancomponents[i].refs[0];
+            key = (ViewportBoxVertex){ref.tile, ref.point, 0};
+        }
+        else
+        {
+            const ViewportComponent *component = &state->components[i];
+            key = (ViewportBoxVertex){component->refs[0].room, component->refs[0].index,
+                                      component->corners[0]};
+        }
+        if (selected)
+        {
+            selected[i] = key;
+        }
+        if (remove && bsearch(&key, hits, hitcount, sizeof(*hits), ViewportCompareBoxVertices))
+        {
+            continue;
+        }
+        if (stan)
+        {
+            tiles[count] = state->stancomponents[i];
+        }
+        else
+        {
+            bg[count] = state->components[i];
+        }
+        count++;
+    }
+    if (selected)
+    {
+        qsort(selected, keep, sizeof(*selected), ViewportCompareBoxVertices);
+    }
+    if (!remove)
+    {
+        for (i = 0; i < hitcount; i++)
+        {
+            if (selected &&
+                bsearch(&hits[i], selected, keep, sizeof(*selected), ViewportCompareBoxVertices))
+            {
+                continue;
+            }
+            if (stan)
+            {
+                tiles[count].refs[0] = (StanPointRef){hits[i].owner, hits[i].index};
+                tiles[count].refs[1] = tiles[count].refs[0];
+            }
+            else
+            {
+                bg[count].refs[0] = state->scenevertexrefs[hits[i].corner];
+                bg[count].refs[1] = bg[count].refs[0];
+                bg[count].corners[0] = bg[count].corners[1] = hits[i].corner;
+            }
+            count++;
+        }
+    }
+    free(selected);
+    /* Allocate first: cancellation or allocation failure cannot destroy the
+     * previous selection. Its insertion order also keeps the original anchor. */
+    ViewportClearAllSelection(state);
+    if (stan)
+    {
+        free(state->stancomponents);
+        state->stancomponents = tiles;
+        state->stancomponentcount = count;
+        state->stancomponentcapacity = capacity;
+        ViewportRefreshStanOverlay(state);
+    }
+    else
+    {
+        free(state->components);
+        state->components = bg;
+        state->componentcount = count;
+        state->componentcapacity = capacity;
+    }
+    return TRUE;
+}
+
+static void ViewportEndBoxSelection(HWND hwnd, ViewportState *state, int x, int y)
+{
+    BOOL add = state->boxadd, remove = state->boxremove;
+    BOOL dragged;
+    POINT start = state->boxstart;
+    RECT box;
+    ViewportUpdateBoxSelection(hwnd, state, x, y);
+    box = ViewportBoxRectangle(state);
+    dragged = state->boxdragging;
+    ViewportCancelBoxSelection(hwnd, state);
+    if (!dragged)
+    {
+        if (!ViewportTryPickStan(hwnd, state, start.x, start.y, add, remove))
+        {
+            ViewportPickComponent(hwnd, state, start.x, start.y, add, remove);
+        }
+        return;
+    }
+    {
+        ViewportBoxVertex *hits = NULL;
+        int count = 0;
+        BOOL stan = ViewportStanVisible(state) && state->stancomponentcount > 0;
+        BOOL ok = ViewportCollectBoxVertices(state, &box, stan, &hits, &count);
+        /* Component transforms edit one asset type at a time. Keep the current
+         * type; with no selection prefer BG, falling back to stan-only hits. */
+        if (ok && count == 0 && !stan && state->componentcount == 0 && ViewportStanVisible(state))
+        {
+            free(hits);
+            stan = TRUE;
+            ok = ViewportCollectBoxVertices(state, &box, stan, &hits, &count);
+        }
+        if (ok)
+        {
+            ok = ViewportApplyBoxVertices(state, hits, count, stan, add, remove);
+        }
+        free(hits);
+        if (!ok)
+        {
+            MessageBox(hwnd, "Not enough memory to select these vertices.", "GEditor",
+                       MB_ICONERROR);
+            return;
+        }
+    }
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+}
+
+static void ViewportDrawBoxSelection(const ViewportState *state)
+{
+    RECT box;
+    if (!state->boxpending || !state->boxdragging || state->width <= 0 || state->height <= 0)
+    {
+        return;
+    }
+    box = ViewportBoxRectangle(state);
+    glPushAttrib(GL_CURRENT_BIT | GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT |
+                 GL_LINE_BIT | GL_POLYGON_BIT | GL_TRANSFORM_BIT);
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_ALPHA_TEST);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_LINE_SMOOTH);
+    glDepthMask(GL_FALSE);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0, state->width, state->height, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glColor4ub(255, 255, 255, 24);
+    glBegin(GL_QUADS);
+    glVertex2f(box.left, box.top);
+    glVertex2f(box.right, box.top);
+    glVertex2f(box.right, box.bottom);
+    glVertex2f(box.left, box.bottom);
+    glEnd();
+    glDisable(GL_BLEND);
+    glEnable(GL_LINE_STIPPLE);
+    glLineStipple(1, 0xAAAA);
+    glLineWidth(1.0f);
+    glColor3ub(255, 255, 255);
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(box.left + 0.5f, box.top + 0.5f);
+    glVertex2f(box.right + 0.5f, box.top + 0.5f);
+    glVertex2f(box.right + 0.5f, box.bottom + 0.5f);
+    glVertex2f(box.left + 0.5f, box.bottom + 0.5f);
+    glEnd();
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glPopAttrib();
+}
+
 static BgVertex *ViewportLoadHandle(int id, DWORD *count, BOOL radial)
 {
     HINSTANCE instance = GetModuleHandle(NULL);
@@ -3064,6 +3464,7 @@ void ViewportCancelTransform(HWND hwnd)
 {
     ViewportState *state = ViewportGetState(hwnd);
     int i;
+    ViewportCancelBoxSelection(hwnd, state);
     if (state == NULL || state->dragaxis < 0)
     {
         return;
@@ -3221,6 +3622,12 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         {
             return 0;
         }
+        if (state != NULL && !state->flying && state->tool == EDITOR_TOOL_VERTEX_SELECT)
+        {
+            ViewportBeginBoxSelection(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
+                                      (wparam & MK_SHIFT) != 0, (wparam & MK_CONTROL) != 0);
+            return 0;
+        }
         if (state != NULL && ViewportTryPickPad(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam),
                 (wparam & MK_CONTROL)!=0)) { return 0; }
         if (state != NULL && ViewportTryPickStan(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam),
@@ -3244,7 +3651,11 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 0;
 
     case WM_LBUTTONUP:
-        if (state != NULL && state->dragaxis >= 0)
+        if (state != NULL && state->boxpending)
+        {
+            ViewportEndBoxSelection(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+        }
+        else if (state != NULL && state->dragaxis >= 0)
         {
             ViewportDragTransform(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam));
             ViewportEndTransform(hwnd,state);
@@ -3254,7 +3665,11 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 0;
 
     case WM_MOUSEMOVE:
-        if (state != NULL && state->dragaxis >= 0)
+        if (state != NULL && state->boxpending)
+        {
+            ViewportUpdateBoxSelection(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+        }
+        else if (state != NULL && state->dragaxis >= 0)
         {
             ViewportDragTransform(hwnd,state,GET_X_LPARAM(lparam),GET_Y_LPARAM(lparam));
         }
@@ -3273,7 +3688,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         return 0;
 
     case WM_KEYDOWN:
-        if (state != NULL && state->dragaxis >= 0)
+        if (state != NULL && (state->dragaxis >= 0 || state->boxpending))
         {
             if (wparam == VK_ESCAPE) { ViewportCancelTransform(hwnd); }
             return 0;
@@ -3298,6 +3713,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
     case WM_KEYUP: ViewportSetKey(state, wparam, lparam, 0);
         return 0;
 
+    case WM_CANCELMODE:
     case WM_CAPTURECHANGED:
         ViewportCancelTransform(hwnd);
         /**

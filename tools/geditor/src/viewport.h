@@ -26,7 +26,7 @@
 #define VIEWPORT_WM_PAINT_STAN (WM_APP + 11)
 typedef struct ViewportTranslation { double offset[3]; } ViewportTranslation;
 
-/* Cancels the transient drag before history, saving, or changing tools. */
+/* Cancels transient transform/marquee drags before history, saving, or changing tools. */
 void ViewportCancelTransform(HWND hwnd);
 BgDocumentVertexRef *ViewportGetMoveVertices(HWND hwnd, DWORD *countout);
 int ViewportGetSelectedComponentCount(HWND hwnd);
@@ -45,7 +45,9 @@ BOOL ViewportRegisterClass(HINSTANCE hinstance);
 HWND ViewportCreate(HWND parent, HINSTANCE hinstance);
 void ViewportRedraw(HWND viewport);
 
-/* Face selection is the initial tool. Changing tools clears the current
+/* Vertex mode: left-drag selects through geometry in the visible layers;
+   Shift adds and Control subtracts. BG and stan remain separate selections.
+   Face selection is the initial tool. Changing tools clears the current
    selection without editing assets or adding an undo history entry. */
 EditorTool ViewportGetTool(HWND viewport);
 void ViewportSetTool(HWND viewport, EditorTool tool);
