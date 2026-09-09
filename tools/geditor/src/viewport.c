@@ -19,6 +19,7 @@
 #include "browser.h"
 #include "viewport.h"
 #include "gltf.h"
+#include "orbitcamera.h"
 #include "resource.h"
 
 #define VIEWPORT_CLASS "GEditorViewport"
@@ -128,6 +129,10 @@ typedef struct ViewportState {
     float posx, posy, posz;
     float yaw, pitch;
     float speed;
+
+    BOOL orbit;
+    OrbitCamera orbitcamera;
+    unsigned int orbitbuttons;
 
     BOOL flying;
     Vertex *scene;       /* malloc'd level geometry, or NULL for the test scene */
@@ -466,6 +471,7 @@ static void ViewportResizeGL(ViewportState *state, int width, int height)
     GLdouble aspect;
     GLdouble halfheight;
     GLdouble halfwidth;
+    GLdouble nearz = VIEWPORT_NEAR_Z, farz = VIEWPORT_FAR_Z;
 
     if (width < 1)  width = 1;
     if (height < 1) height = 1;
@@ -475,12 +481,13 @@ static void ViewportResizeGL(ViewportState *state, int width, int height)
 
     aspect = (GLdouble)width / (GLdouble)height;
 
-    halfheight = tan(VIEWPORT_FOV_Y * 0.5 * VIEWPORT_DEG_TO_RAD) * VIEWPORT_NEAR_Z;
+    if (state->orbit) { OrbitCameraClip(&state->orbitcamera, &nearz, &farz); }
+    halfheight = tan(VIEWPORT_FOV_Y * 0.5 * VIEWPORT_DEG_TO_RAD) * nearz;
     halfwidth = halfheight * aspect;
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glFrustum(-halfwidth, halfwidth, -halfheight, halfheight, VIEWPORT_NEAR_Z, VIEWPORT_FAR_Z);
+    glFrustum(-halfwidth, halfwidth, -halfheight, halfheight, nearz, farz);
     glMatrixMode(GL_MODELVIEW);
 }
 
@@ -725,6 +732,12 @@ static void ViewportPaintGL(ViewportState *state)
     wglMakeCurrent(state->hdc, state->hglrc);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    if (state->orbit && state->scene == NULL)
+    {
+        SwapBuffers(state->hdc);
+        return;
+    }
 
     /* Fast3D and OpenGL both treat counter-clockwise faces as front. */
     glFrontFace(GL_CCW);
@@ -973,10 +986,13 @@ static void ViewportPaintGL(ViewportState *state)
         glDepthFunc(GL_LESS);
     }
 
-    ViewportDrawBgToolOverlay(state);
-    ViewportDrawTransformTools(state);
-    ViewportDrawBoxSelection(state);
-    ViewportDrawBgStatistics(state);
+    if (!state->orbit)
+    {
+        ViewportDrawBgToolOverlay(state);
+        ViewportDrawTransformTools(state);
+        ViewportDrawBoxSelection(state);
+        ViewportDrawBgStatistics(state);
+    }
     SwapBuffers(state->hdc);
 }
 
@@ -4032,9 +4048,71 @@ static void ViewportEndTransform(HWND hwnd, ViewportState *state)
     }
 }
 
+static void ViewportUpdateOrbit(ViewportState *state)
+{
+    double position[3];
+    OrbitCameraPosition(&state->orbitcamera, position);
+    state->posx = (float)position[0];
+    state->posy = (float)position[1];
+    state->posz = (float)position[2];
+    state->yaw = (float)state->orbitcamera.yaw;
+    state->pitch = (float)state->orbitcamera.pitch;
+    ViewportResizeGL(state, state->width, state->height);
+}
+
+/* Consume model-viewer input before level picking, transforms, or flight. */
+static BOOL ViewportOrbitInput(HWND hwnd, ViewportState *state,
+                               UINT msg, WPARAM wparam, LPARAM lparam)
+{
+    switch (msg)
+    {
+    case WM_LBUTTONDOWN:
+    case WM_RBUTTONDOWN:
+        SetFocus(hwnd);
+        SetCapture(hwnd);
+        state->orbitbuttons |= msg == WM_LBUTTONDOWN ? MK_LBUTTON : MK_RBUTTON;
+        state->lastmouse.x = GET_X_LPARAM(lparam);
+        state->lastmouse.y = GET_Y_LPARAM(lparam);
+        return TRUE;
+    case WM_LBUTTONUP:
+    case WM_RBUTTONUP:
+        state->orbitbuttons &= ~(msg == WM_LBUTTONUP ? MK_LBUTTON : MK_RBUTTON);
+        if (state->orbitbuttons == 0 && GetCapture() == hwnd) { ReleaseCapture(); }
+        return TRUE;
+    case WM_MOUSEMOVE:
+        if (state->orbitbuttons != 0)
+        {
+            int x = GET_X_LPARAM(lparam), y = GET_Y_LPARAM(lparam);
+            OrbitCameraRotate(&state->orbitcamera, x - state->lastmouse.x, y - state->lastmouse.y);
+            state->lastmouse.x = x; state->lastmouse.y = y;
+            ViewportUpdateOrbit(state);
+            InvalidateRect(hwnd, NULL, FALSE);
+        }
+        return TRUE;
+    case WM_MOUSEWHEEL:
+        OrbitCameraDolly(&state->orbitcamera, (double)GET_WHEEL_DELTA_WPARAM(wparam) / WHEEL_DELTA);
+        ViewportUpdateOrbit(state);
+        InvalidateRect(hwnd, NULL, FALSE);
+        return TRUE;
+    case WM_CANCELMODE:
+    case WM_CAPTURECHANGED:
+    case WM_KILLFOCUS:
+        state->orbitbuttons = 0;
+        if (GetCapture() == hwnd) { ReleaseCapture(); }
+        return TRUE;
+    case WM_KEYDOWN:
+    case WM_KEYUP:
+        return TRUE;
+    }
+    return FALSE;
+}
+
 static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     ViewportState *state = ViewportGetState(hwnd);
+
+    if (state != NULL && state->orbit && ViewportOrbitInput(hwnd, state, msg, wparam, lparam))
+    { return 0; }
 
     switch (msg)
     {
@@ -4048,6 +4126,12 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
 
+        state->orbit = ((CREATESTRUCT *)lparam)->lpCreateParams != NULL;
+        if (state->orbit)
+        {
+            const double min[3] = { -1, -1, -1 }, max[3] = { 1, 1, 1 };
+            OrbitCameraFrame(&state->orbitcamera, min, max, 1, VIEWPORT_FOV_Y);
+        }
         state->speed = VIEWPORT_FLY_SPEED;
         state->posz = 600.0f;
         state->showbgprimary = TRUE;
@@ -4057,11 +4141,11 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         state->showportals = FALSE;
         state->showobjects = TRUE;
         state->cullbackfaces = TRUE;
-        state->showbgstatistics = TRUE;
+        state->showbgstatistics = !state->orbit;
         state->selectedobject = VIEWPORT_OBJECT_NONE;
         state->selectedpad.index = SETUP_PAD_INDEX_NONE;
         state->hoveraxis = state->dragaxis = -1;
-        ViewportLoadGizmo(state);
+        if (!state->orbit) { ViewportLoadGizmo(state); }
         state->tool = EDITOR_TOOL_FACE_SELECT;
 
         if (!ViewportInitGL(hwnd, state))
@@ -4323,6 +4407,13 @@ HWND ViewportCreate(HWND parent, HINSTANCE hinstance)
         WS_CHILD | WS_VISIBLE,
         0, 0, 16, 16,
         parent, NULL, hinstance, NULL);
+}
+
+
+HWND ViewportCreateOrbit(HWND parent, HINSTANCE hinstance)
+{
+    return CreateWindowEx(0, VIEWPORT_CLASS, NULL, WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+                          0, 0, 16, 16, parent, NULL, hinstance, (void *)1);
 }
 
 
@@ -5120,7 +5211,14 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
         }
     }
 
-    if (scene != NULL && framecamera)
+    if (scene != NULL && framecamera && state->orbit)
+    {
+        const double min[3] = { minx, miny, minz }, max[3] = { maxx, maxy, maxz };
+        double aspect = (double)max(1, state->width) / max(1, state->height);
+        OrbitCameraFrame(&state->orbitcamera, min, max, aspect, VIEWPORT_FOV_Y);
+        ViewportUpdateOrbit(state);
+    }
+    else if (scene != NULL && framecamera)
     {
         /* Frame the level: eye at the bbox centre, pulled back along
            +Z by most of the larger horizontal extent. Free-fly from

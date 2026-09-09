@@ -6,6 +6,7 @@
 #define IDD_CREATE_ROM        102
 #define IDD_UV_EDITOR         103
 #define IDD_EXIT_UNSAVED      104
+#define IDD_MODEL_EDITOR      105
 
 /* Icons */
 #define IDI_GEDITOR           201
@@ -57,6 +58,15 @@
 #define IDC_UV_PROJECT_Y      1031
 #define IDC_UV_PROJECT_Z      1032
 #define IDC_UV_PROJECT_BEST   1033
+
+/* Model Editor selectors and footer. */
+#define IDC_MODEL_CHARACTERS       1040
+#define IDC_MODEL_ITEMS            1041
+#define IDC_MODEL_PROPS            1042
+#define IDC_MODEL_CHARACTERS_LABEL 1043
+#define IDC_MODEL_ITEMS_LABEL      1044
+#define IDC_MODEL_PROPS_LABEL      1045
+#define IDC_MODEL_STATUS           1046
 
 /* Longest project name we accept, including the terminator. */
 #define GEDITOR_NAME_MAX       64

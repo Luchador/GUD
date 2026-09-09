@@ -1175,6 +1175,26 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
                                    const char **reasonout)
 {
     const char *name;
+
+    *tricount = 0;
+    *tritags = NULL;
+    *renderflags = NULL;
+    *reasonout = "";
+    if (!ModelGetPropDefinition(modelid, &name, modelscale))
+    {
+        *reasonout = "the setup references an unknown prop model ID.";
+        return NULL;
+    }
+    return ModelLoadProjectNamedGeometry(projectdir, "objects", name, tricount,
+                                          tritags, renderflags, reasonout);
+}
+
+BgVertex *ModelLoadProjectNamedGeometry(const char *projectdir, const char *folder,
+                                        const char *name, DWORD *tricount,
+                                        unsigned short **tritags,
+                                        BgRenderFlags **renderflags,
+                                        const char **reasonout)
+{
     char path[MAX_PATH];
     FILE *file = NULL;
     char line[512];
@@ -1194,18 +1214,12 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
     *renderflags = NULL;
     *reasonout = "";
 
-    if (!ModelGetPropDefinition(modelid, &name, modelscale))
-    {
-        *reasonout = "the setup references an unknown prop model ID.";
-        return NULL;
-    }
-
     pathlength = snprintf(path, sizeof(path),
-                          "%s\\models\\objects\\%s.gltf",
-                          projectdir, name);
+                          "%s\\models\\%s\\%s.gltf",
+                          projectdir, folder, name);
     if (pathlength < 0 || pathlength >= (int)sizeof(path))
     {
-        *reasonout = "the object model path is too long.";
+        *reasonout = "the model path is too long.";
         return NULL;
     }
 
@@ -1220,24 +1234,24 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
     }
 
     pathlength = snprintf(path, sizeof(path),
-                          "%s\\models\\objects\\%s.ply",
-                          projectdir, name);
+                          "%s\\models\\%s\\%s.ply",
+                          projectdir, folder, name);
     if (pathlength < 0 || pathlength >= (int)sizeof(path))
     {
-        *reasonout = "the object model path is too long.";
+        *reasonout = "the model path is too long.";
         return NULL;
     }
 
     file = fopen(path, "r");
     if (file == NULL)
     {
-        *reasonout = "the object's extracted model file is missing.";
+        *reasonout = "the extracted model file is missing.";
         return NULL;
     }
 
     if (fgets(line, sizeof(line), file) == NULL || strcmp(line, "ply\n") != 0)
     {
-        *reasonout = "the object model is not an ASCII PLY file.";
+        *reasonout = "the model is not an ASCII PLY file.";
         goto fail;
     }
 
@@ -1268,7 +1282,7 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
     if (vertexcount == 0 || facecount == 0
         || vertexcount > 3000000u || facecount > 1000000u)
     {
-        *reasonout = "the object model has invalid PLY counts.";
+        *reasonout = "the model has invalid PLY counts.";
         goto fail;
     }
 
@@ -1278,7 +1292,7 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
     flags = (BgRenderFlags *)malloc((size_t)facecount * sizeof(*flags));
     if (source == NULL || result == NULL || tags == NULL || flags == NULL)
     {
-        *reasonout = "out of memory loading an object model.";
+        *reasonout = "out of memory loading a model.";
         goto fail;
     }
 
@@ -1292,7 +1306,7 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
                       &r, &g, &b, &a, &source[i].s, &source[i].t) != 9
             || r > 255 || g > 255 || b > 255 || a > 255)
         {
-            *reasonout = "the object model has invalid PLY vertices.";
+            *reasonout = "the model has invalid PLY vertices.";
             goto fail;
         }
 
@@ -1310,7 +1324,7 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
 
         if (fgets(line, sizeof(line), file) == NULL)
         {
-            *reasonout = "the object model ends inside its PLY faces.";
+            *reasonout = "the model ends inside its PLY faces.";
             goto fail;
         }
 
@@ -1319,7 +1333,7 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
             || c >= vertexcount || (hastexturetags && fields != 4)
             || tag > 0xffffu)
         {
-            *reasonout = "the object model has invalid PLY faces.";
+            *reasonout = "the model has invalid PLY faces.";
             goto fail;
         }
 

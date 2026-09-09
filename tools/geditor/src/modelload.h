@@ -88,6 +88,14 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
                                    float *modelscale,
                                    const char **reasonout);
 
+/* Load any extracted model by its class folder and filename stem. The viewer
+   uses the same glTF/legacy PLY path as placed props, without setup scaling. */
+BgVertex *ModelLoadProjectNamedGeometry(const char *projectdir, const char *folder,
+                                        const char *name, DWORD *tricount,
+                                        unsigned short **tritags,
+                                        BgRenderFlags **renderflags,
+                                        const char **reasonout);
+
 /*
  * Extracts every model in the ROM's file table into
  * <projectdir>\models\{characters,guns,objects,casings}\<name>.gltf.

@@ -18,6 +18,7 @@
 #include "faceproperties.h"
 #include "tooltoolbar.h"
 #include "uveditor.h"
+#include "modeleditor.h"
 #include "uvcanvas.h"
 #include "rom.h"
 #include "romexport.h"
@@ -459,6 +460,7 @@ static void GEditorRefreshProjectAssets(void)
 
         BrowserSetModels(g_Browser, modelcount > 0 ? models : NULL, modelcount);
     }
+    ModelEditorSetProject(g_Project.dir);
 }
 
 /* Creating or opening another project implicitly closes the current one. */
@@ -480,6 +482,7 @@ static void GEditorCloseProject(HWND hwnd)
     ProjectClose(&g_Project);
     g_ProjectMetadataDirty = FALSE;
 
+    ModelEditorSetProject(NULL);
     BrowserSetLevels(g_Browser, NULL, 0);
     BrowserSetImages(g_Browser, NULL, 0, NULL);
     BrowserSetModels(g_Browser, NULL, 0);
@@ -508,6 +511,7 @@ enum {
 
     ID_TOOLS_CREATE_ROM,
     ID_TOOLS_UV_EDITOR,
+    ID_TOOLS_MODEL_EDITOR,
 
     ID_FILE_RECENT_PROJECT_FIRST,
     ID_FILE_RECENT_PROJECT_LAST = ID_FILE_RECENT_PROJECT_FIRST + RECENT_PROJECTS_MAX - 1
@@ -640,6 +644,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_UNHIDE_ALL, "&Unhide All\tAlt+H");
 
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_UV_EDITOR, "&UV Editor");
+    AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_MODEL_EDITOR, "&Model Editor");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CREATE_ROM, "&Create ROM...");
 
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)filemenu, "&File");
@@ -3098,6 +3103,13 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 }
                 return 0;
 
+            case ID_TOOLS_MODEL_EDITOR:
+                if (!ModelEditorShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), g_Project.dir))
+                {
+                    MessageBox(hwnd, "Could not open the Model Editor window.", GEDITOR_TITLE, MB_ICONERROR);
+                }
+                return 0;
+
             case ID_TOOLS_CREATE_ROM:
                 if (GEditorEnsureProjectBaseRom(hwnd))
                 {
@@ -3271,7 +3283,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     CoUninitialize();
                     return (int)msg.wParam;
                 }
-                if (!UVEditorHandleMessage(&msg)
+                if (!ModelEditorHandleMessage(&msg)
+                    && !UVEditorHandleMessage(&msg)
                     && !GEditorHandleVisibilityHotkey(hwnd, &msg)
                     && !GEditorHandleTransformHotkey(hwnd, &msg)
                     && !RightPanelHandleMessage(g_RightPanel, &msg)
@@ -3293,7 +3306,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             {
                 break;
             }
-            if (!UVEditorHandleMessage(&msg)
+            if (!ModelEditorHandleMessage(&msg)
+                && !UVEditorHandleMessage(&msg)
                 && !GEditorHandleVisibilityHotkey(hwnd, &msg)
                 && !GEditorHandleTransformHotkey(hwnd, &msg)
                 && !RightPanelHandleMessage(g_RightPanel, &msg)
