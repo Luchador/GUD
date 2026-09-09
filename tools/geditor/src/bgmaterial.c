@@ -82,3 +82,22 @@ BOOL BgMaterialEqual(const BgMaterial *a, const BgMaterial *b)
         && a->modeword0 == b->modeword0 && a->modeword1 == b->modeword1
         && a->combineword0 == b->combineword0 && a->combineword1 == b->combineword1;
 }
+
+BgTextureWrap BgMaterialGetWrap(const BgMaterial *material, BOOL t)
+{
+    DWORD mode = (material->textureword0 >> (t ? 20 : 22)) & 3u;
+    /* texModeToGbiMode treats mode 3 as repeat as well. */
+    return (material->textureword0 >> 24) != BG_G_SETTEXTURE || mode == 3
+        ? BG_TEXTURE_REPEAT : (BgTextureWrap)mode;
+}
+
+void BgMaterialSetWrap(BgMaterial *material, BOOL t, BgTextureWrap wrap)
+{
+    unsigned int shift = t ? 20 : 22;
+    /* Preserve authored aliases and every unrelated marker bit on a no-op. */
+    if (BgMaterialGetWrap(material, t) != wrap)
+    {
+        material->textureword0 = (material->textureword0 & ~(3u << shift))
+                              | ((DWORD)wrap << shift);
+    }
+}

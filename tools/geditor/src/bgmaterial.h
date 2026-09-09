@@ -16,10 +16,19 @@ typedef struct BgMaterial {
     DWORD combineword0, combineword1;
 } BgMaterial;
 
+/* GoldenEye C0 texture-marker modes, before conversion to RDP tile flags. */
+typedef enum BgTextureWrap {
+    BG_TEXTURE_REPEAT = 0,
+    BG_TEXTURE_CLAMP = 1,
+    BG_TEXTURE_MIRROR = 2
+} BgTextureWrap;
+
 void BgMaterialInit(BgMaterial *material);
 BOOL BgMaterialReadCommand(BgMaterial *material, DWORD word0, DWORD word1);
 unsigned short BgMaterialTextureId(const BgMaterial *material);
 void BgMaterialSetTexture(BgMaterial *material, DWORD textureid);
 BOOL BgMaterialEqual(const BgMaterial *a, const BgMaterial *b);
+BgTextureWrap BgMaterialGetWrap(const BgMaterial *material, BOOL t);
+void BgMaterialSetWrap(BgMaterial *material, BOOL t, BgTextureWrap wrap);
 
 #endif

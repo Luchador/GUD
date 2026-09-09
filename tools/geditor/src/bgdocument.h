@@ -142,6 +142,21 @@ BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
                               DWORD refcount, DWORD textureid,
                               BOOL *changedout, const char **reasonout);
 
+#define BG_FACE_PROPERTY_CULL   1u
+#define BG_FACE_PROPERTY_WRAP_U 2u
+#define BG_FACE_PROPERTY_WRAP_V 4u
+typedef struct BgFacePropertiesEdit {
+    unsigned int fields; /* only explicitly changed controls are applied */
+    BOOL cullbackfaces;
+    BgTextureWrap wrapu, wrapv;
+} BgFacePropertiesEdit;
+
+/* Validates all faces before editing. Wrap changes require a texture on every
+ * selected face. Materials, shared vertices and unedited axes are preserved. */
+BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
+    DWORD count, const BgFacePropertiesEdit *edit, BOOL *changedout,
+    const char **reasonout);
+
 /* Paints the existing vertex at one face corner. Every face sharing that
  * vertex sees the edit; coincident vertices with different identities do not.
  * An identical RGBA value succeeds without dirtying the document. */

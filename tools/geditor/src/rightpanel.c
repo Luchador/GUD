@@ -18,6 +18,7 @@
 
 #include "rightpanel.h"
 #include "colorpicker.h"
+#include "faceproperties.h"
 #include "characterload.h"
 
 #define RIGHTPANEL_CLASS "GEditorRightPanel"
@@ -60,6 +61,8 @@ typedef struct RightPanelState {
     HWND objects;
     HWND details;
     HWND colorpicker;
+    HWND faceproperties;
+    BOOL showingfaces;
     BOOL vertexpaint;
     BOOL transformenabled;
     BOOL updatingposition;
@@ -141,13 +144,24 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
     detailheight = client.bottom - RIGHTPANEL_MARGIN - detailtop;
     MoveWindow(state->details, RIGHTPANEL_MARGIN, detailtop, width,
                detailheight > 0 ? detailheight : 0, TRUE);
-    ShowWindow(state->details, detailheight > 0 && !state->vertexpaint ? SW_SHOW : SW_HIDE);
+    ShowWindow(state->details, detailheight > 0 && !state->vertexpaint && !state->showingfaces ? SW_SHOW : SW_HIDE);
+    MoveWindow(state->faceproperties, RIGHTPANEL_MARGIN, detailtop, width,
+               detailheight > 0 ? detailheight : 0, TRUE);
+    ShowWindow(state->faceproperties, detailheight > 0 && !state->vertexpaint && state->showingfaces ? SW_SHOW : SW_HIDE);
     detailtop = state->topheight + RIGHTPANEL_SPLITTER_H + 32;
     detailheight = client.bottom - detailtop;
     MoveWindow(state->colorpicker, 4, detailtop, client.right > 8 ? client.right - 8 : 1,
                detailheight > 0 ? detailheight : 0, TRUE);
     ShowWindow(state->colorpicker, detailheight > 0 && state->vertexpaint ? SW_SHOW : SW_HIDE);
     InvalidateRect(hwnd, NULL, FALSE);
+}
+
+
+static void RightPanelShowFaceProperties(HWND panel, RightPanelState *state, BOOL show)
+{
+    if (state->showingfaces == show) { return; }
+    state->showingfaces = show;
+    RightPanelLayout(panel, state);
 }
 
 
@@ -449,6 +463,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
             0, 0, 1, 1, hwnd, NULL, cs->hInstance, NULL);
         state->colorpicker = ColorPickerCreate(hwnd, cs->hInstance);
+        state->faceproperties = FacePropertiesCreate(hwnd, cs->hInstance);
         SendMessage(state->details, WM_SETFONT, (WPARAM)font, TRUE);
 
         if (state->bgprimary == NULL || state->bgsecondary == NULL
@@ -457,7 +472,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             || state->positions[0] == NULL || state->positions[1] == NULL
             || state->positions[2] == NULL || state->objects == NULL || state->details == NULL
             || state->movemode == NULL || state->rotatemode == NULL || state->scalebutton == NULL
-            || state->colorpicker == NULL)
+            || state->colorpicker == NULL || state->faceproperties == NULL)
         {
             free(state);
             SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
@@ -482,6 +497,9 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             RightPanelLayout(hwnd, state);
         }
         return 0;
+
+    case FACEPROPERTIES_WM_CHANGED:
+        return SendMessage(GetParent(hwnd), msg, wparam, lparam);
 
     case WM_COMMAND:
         if (state != NULL && HIWORD(wparam) == EN_CHANGE
@@ -598,6 +616,15 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
                 }
                 return 0;
             }
+            if (state->showingfaces)
+            {
+                GetWindowRect(state->faceproperties, &bounds);
+                if (PtInRect(&bounds, point))
+                {
+                    SendMessage(state->faceproperties, WM_MOUSEWHEEL, wparam, lparam);
+                }
+                return 0;
+            }
             GetWindowRect(state->details, &bounds);
             if (PtInRect(&bounds, point))
             {
@@ -648,7 +675,7 @@ BOOL RightPanelRegisterClass(HINSTANCE hinstance)
     INITCOMMONCONTROLSEX controls = {sizeof(controls), ICC_BAR_CLASSES};
 
     if (!InitCommonControlsEx(&controls)) { return FALSE; }
-    if (!ColorPickerRegisterClass(hinstance)) { return FALSE; }
+    if (!ColorPickerRegisterClass(hinstance) || !FacePropertiesRegisterClass(hinstance)) { return FALSE; }
     ZeroMemory(&wc, sizeof(wc));
     wc.lpfnWndProc = RightPanelWndProc;
     wc.hInstance = hinstance;
@@ -791,6 +818,7 @@ void RightPanelSetStanSelection(HWND panel, const StanFile *stan, EditorTool too
             "%lu stan %s selected.\r\n\r\nShift-click to add.\r\nControl-click to remove.\r\nDrag an arrow or enter a world position.",
             (unsigned long)count, kind);
     }
+    RightPanelShowFaceProperties(panel, state, FALSE);
     SetWindowText(state->details, state->detailtext);
     InvalidateRect(panel, NULL, FALSE);
 }
@@ -803,6 +831,7 @@ void RightPanelSetBgComponentSelection(HWND panel, BOOL edges, int count)
     snprintf(state->detailtext,sizeof(state->detailtext),
         "%d %s selected.\r\n\r\nShift-click to add.\r\nControl-click to remove.\r\nDrag an arrow to move.\r\nEscape cancels a drag.",
         count,edges ? "edges" : "vertices");
+    RightPanelShowFaceProperties(panel, state, FALSE);
     SetWindowText(state->details,state->detailtext);
     InvalidateRect(panel,NULL,FALSE);
 }
@@ -816,13 +845,13 @@ void RightPanelSetBgSelectionCount(HWND panel, int count)
         return;
     }
 
-    if (count > 1)
+    if (count > 0)
     {
         lstrcpyn(state->detailtitle, "Background Triangles",
                  sizeof(state->detailtitle));
         snprintf(state->detailtext, sizeof(state->detailtext),
                  "%d background triangles selected.\r\n\r\n"
-                 "Select one triangle to inspect its properties.", count);
+                 "The face properties could not be read.", count);
         state->detailtext[sizeof(state->detailtext) - 1] = '\0';
     }
     else
@@ -833,6 +862,7 @@ void RightPanelSetBgSelectionCount(HWND panel, int count)
                  sizeof(state->detailtext));
     }
 
+    RightPanelShowFaceProperties(panel, state, FALSE);
     SetWindowText(state->details, state->detailtext);
     InvalidateRect(panel, NULL, FALSE);
 }
@@ -864,6 +894,7 @@ void RightPanelSetSetupObject(HWND panel, const SetupObject *object,
         (unsigned long)object->flags, (unsigned long)object->flags2);
     state->detailtext[sizeof(state->detailtext) - 1] = '\0';
 
+    RightPanelShowFaceProperties(panel, state, FALSE);
     SetWindowText(state->details, state->detailtext);
     InvalidateRect(panel, NULL, FALSE);
 }
@@ -887,6 +918,7 @@ void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef
         "Moving a pad updates all references to it.",
         (unsigned long)ref->index, pad->stanname[0] ? pad->stanname : "Automatic",
         pad->up[0], pad->up[1], pad->up[2], pad->look[0], pad->look[1], pad->look[2]);
+    RightPanelShowFaceProperties(panel, state, FALSE);
     SetWindowText(state->details, state->detailtext);
     InvalidateRect(panel, NULL, FALSE);
 }
@@ -920,117 +952,27 @@ void RightPanelSetSetupCharacter(HWND panel, const SetupCharacter *character)
         (unsigned int)character->pad, (unsigned int)character->ailistid,
         (unsigned int)character->flags);
     state->detailtext[sizeof(state->detailtext) - 1] = '\0';
+    RightPanelShowFaceProperties(panel, state, FALSE);
     SetWindowText(state->details, state->detailtext);
     InvalidateRect(panel, NULL, FALSE);
 }
 
 
-void RightPanelSetBgTriangle(HWND panel, const BgDocument *document,
-                             const BgFaceRef *ref)
+void RightPanelSetBgFaces(HWND panel, const BgDocument *document,
+                         const BgFaceRef *refs, DWORD count)
 {
     RightPanelState *state = RightPanelGetState(panel);
-    const BgDocumentRoom *room = NULL;
-    const BgDocumentFace *face;
-    const BgDocumentVertex *vertices[3];
-    float positions[3][3];
-    const char *layer;
-    char texture[48];
-    int corner;
-
-    if (state == NULL)
+    if (state == NULL) { return; }
+    if (!FacePropertiesSetSelection(state->faceproperties, document, refs, count))
     {
+        RightPanelSetBgSelectionCount(panel, (int)count);
         return;
     }
-
-    face = BgDocumentFindFace(document, ref, &room);
-    if (face == NULL || room == NULL)
-    {
-        RightPanelSetBgSelectionCount(panel, 0);
-        return;
-    }
-
-    for (corner = 0; corner < 3; corner++)
-    {
-        if (face->vertexindices[corner] >= room->vertexcount)
-        {
-            RightPanelSetBgSelectionCount(panel, 0);
-            return;
-        }
-        vertices[corner] = &room->vertices[face->vertexindices[corner]];
-        BgDocumentGetWorldPosition(document, room, vertices[corner],
-                                   positions[corner]);
-    }
-
-    layer = face->layer == BG_GEOMETRY_SECONDARY
-        ? "Secondary" : "Primary";
-    if (face->textureid == BG_TEX_NONE)
-    {
-        lstrcpyn(texture, "None", sizeof(texture));
-    }
-    else
-    {
-        snprintf(texture, sizeof(texture), "%u",
-                 (unsigned int)face->textureid);
-        texture[sizeof(texture) - 1] = '\0';
-    }
-
-    lstrcpyn(state->detailtitle, "Background Triangle",
-             sizeof(state->detailtitle));
-    snprintf(state->detailtext, sizeof(state->detailtext),
-        "Face ID: %lu\r\n"
-        "Room: %u\r\n"
-        "Layer: %s\r\n"
-        "Texture: %s\r\n"
-        "Backface culling: %s\r\n\r\n"
-        "Vertex 1  [ID %lu, index %lu]\r\n"
-        "Shared by: %lu faces\r\n"
-        "World: %.3f, %.3f, %.3f\r\n"
-        "Local: %d, %d, %d\r\n"
-        "UV: %.3f, %.3f texels\r\n"
-        "Color: %u, %u, %u, %u\r\n\r\n"
-        "Vertex 2  [ID %lu, index %lu]\r\n"
-        "Shared by: %lu faces\r\n"
-        "World: %.3f, %.3f, %.3f\r\n"
-        "Local: %d, %d, %d\r\n"
-        "UV: %.3f, %.3f texels\r\n"
-        "Color: %u, %u, %u, %u\r\n\r\n"
-        "Vertex 3  [ID %lu, index %lu]\r\n"
-        "Shared by: %lu faces\r\n"
-        "World: %.3f, %.3f, %.3f\r\n"
-        "Local: %d, %d, %d\r\n"
-        "UV: %.3f, %.3f texels\r\n"
-        "Color: %u, %u, %u, %u",
-        (unsigned long)face->id, (unsigned int)face->room, layer, texture,
-        face->cullbackfaces ? "On" : "Off",
-        (unsigned long)vertices[0]->id,
-        (unsigned long)face->vertexindices[0],
-        (unsigned long)vertices[0]->usecount,
-        positions[0][0], positions[0][1], positions[0][2],
-        (int)vertices[0]->x, (int)vertices[0]->y, (int)vertices[0]->z,
-        vertices[0]->s / 32.0f, vertices[0]->t / 32.0f,
-        (unsigned int)vertices[0]->r, (unsigned int)vertices[0]->g,
-        (unsigned int)vertices[0]->b, (unsigned int)vertices[0]->a,
-        (unsigned long)vertices[1]->id,
-        (unsigned long)face->vertexindices[1],
-        (unsigned long)vertices[1]->usecount,
-        positions[1][0], positions[1][1], positions[1][2],
-        (int)vertices[1]->x, (int)vertices[1]->y, (int)vertices[1]->z,
-        vertices[1]->s / 32.0f, vertices[1]->t / 32.0f,
-        (unsigned int)vertices[1]->r, (unsigned int)vertices[1]->g,
-        (unsigned int)vertices[1]->b, (unsigned int)vertices[1]->a,
-        (unsigned long)vertices[2]->id,
-        (unsigned long)face->vertexindices[2],
-        (unsigned long)vertices[2]->usecount,
-        positions[2][0], positions[2][1], positions[2][2],
-        (int)vertices[2]->x, (int)vertices[2]->y, (int)vertices[2]->z,
-        vertices[2]->s / 32.0f, vertices[2]->t / 32.0f,
-        (unsigned int)vertices[2]->r, (unsigned int)vertices[2]->g,
-        (unsigned int)vertices[2]->b, (unsigned int)vertices[2]->a);
-    state->detailtext[sizeof(state->detailtext) - 1] = '\0';
-
-    SetWindowText(state->details, state->detailtext);
+    lstrcpyn(state->detailtitle, "Background Face / Texture", sizeof(state->detailtitle));
+    RightPanelShowFaceProperties(panel, state, TRUE);
     InvalidateRect(panel, NULL, FALSE);
 }
+
 
 void RightPanelSetRotationAxes(HWND panel, unsigned int axes)
 {

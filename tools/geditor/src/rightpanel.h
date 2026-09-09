@@ -47,8 +47,8 @@ void RightPanelGetPaintColor(HWND panel, unsigned char rgba[4]);
 
 /* The lower pane is a generic properties surface. Background triangles are
    its first supported selection type. */
-void RightPanelSetBgTriangle(HWND panel, const BgDocument *document,
-                             const BgFaceRef *ref);
+void RightPanelSetBgFaces(HWND panel, const BgDocument *document,
+                         const BgFaceRef *refs, DWORD count);
 void RightPanelSetStanSelection(HWND panel, const StanFile *stan, EditorTool tool,
                                  DWORD count, DWORD singletile);
 void RightPanelSetBgComponentSelection(HWND panel, BOOL edges, int count);

@@ -1173,6 +1173,61 @@ BOOL BgDocumentSetFaceTexture(BgDocument *document, const BgFaceRef *refs,
 }
 
 
+BOOL BgDocumentSetFaceProperties(BgDocument *document, const BgFaceRef *refs,
+    DWORD count, const BgFacePropertiesEdit *edit, BOOL *changedout,
+    const char **reasonout)
+{
+    DWORD i;
+    *changedout = FALSE;
+    *reasonout = "";
+    if (document == NULL || refs == NULL || count == 0 || edit == NULL
+        || edit->fields == 0 || (edit->fields & ~7u)
+        || ((edit->fields & BG_FACE_PROPERTY_CULL)
+            && edit->cullbackfaces != FALSE && edit->cullbackfaces != TRUE)
+        || ((edit->fields & BG_FACE_PROPERTY_WRAP_U)
+            && (unsigned int)edit->wrapu > BG_TEXTURE_MIRROR)
+        || ((edit->fields & BG_FACE_PROPERTY_WRAP_V)
+            && (unsigned int)edit->wrapv > BG_TEXTURE_MIRROR))
+    {
+        *reasonout = "The background face property change is invalid.";
+        return FALSE;
+    }
+    for (i = 0; i < count; i++)
+    {
+        const BgDocumentFace *face = BgDocumentFindFace(document, &refs[i], NULL);
+        if (face == NULL)
+        {
+            *reasonout = "A selected background face is no longer available.";
+            return FALSE;
+        }
+        if ((edit->fields & (BG_FACE_PROPERTY_WRAP_U | BG_FACE_PROPERTY_WRAP_V))
+            && (face->textureid == BG_TEX_NONE
+                || BgMaterialTextureId(&face->material) != face->textureid))
+        {
+            *reasonout = "Assign a texture to every selected face before changing texture wrapping.";
+            return FALSE;
+        }
+    }
+    for (i = 0; i < count; i++)
+    {
+        BgDocumentFace *face = (BgDocumentFace *)BgDocumentFindFace(document, &refs[i], NULL);
+        BgMaterial material = face->material;
+        BOOL cull = (edit->fields & BG_FACE_PROPERTY_CULL)
+            ? edit->cullbackfaces : face->cullbackfaces;
+        if (edit->fields & BG_FACE_PROPERTY_WRAP_U) { BgMaterialSetWrap(&material, FALSE, edit->wrapu); }
+        if (edit->fields & BG_FACE_PROPERTY_WRAP_V) { BgMaterialSetWrap(&material, TRUE, edit->wrapv); }
+        if (face->cullbackfaces != cull || !BgMaterialEqual(&face->material, &material))
+        {
+            face->cullbackfaces = (unsigned char)cull;
+            face->material = material;
+            *changedout = TRUE;
+        }
+    }
+    if (*changedout) { document->dirty = TRUE; }
+    return TRUE;
+}
+
+
 BOOL BgDocumentPaintVertex(BgDocument *document, const BgFaceRef *ref,
                            unsigned int corner, const unsigned char rgba[4],
                            BOOL *changedout, const char **reasonout)

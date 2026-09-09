@@ -14,6 +14,7 @@
 #include "viewport.h"
 #include "browser.h"
 #include "rightpanel.h"
+#include "faceproperties.h"
 #include "tooltoolbar.h"
 #include "uveditor.h"
 #include "uvcanvas.h"
@@ -242,7 +243,6 @@ static void GEditorRefreshTransformFields(void)
 
 static void GEditorRefreshSelectionDetails(void)
 {
-    BgFaceRef selected;
     SetupPadRef padref;
     DWORD selectedobject;
     int count = ViewportGetSelectedBgFaceCount(g_Viewport);
@@ -277,9 +277,15 @@ static void GEditorRefreshSelectionDetails(void)
         RightPanelSetBgComponentSelection(g_RightPanel,
             ViewportGetTool(g_Viewport) == EDITOR_TOOL_EDGE_SELECT, components);
     }
-    else if (count == 1 && ViewportGetSingleSelectedBgFace(g_Viewport, &selected))
+    else if (count > 0 && ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT)
     {
-        RightPanelSetBgTriangle(g_RightPanel, &g_CurrentBgDocument, &selected);
+        BgFaceRef *faces = (BgFaceRef *)malloc((size_t)count * sizeof(*faces));
+        if (faces != NULL && ViewportGetSelectedBgFaces(g_Viewport, faces, count))
+        {
+            RightPanelSetBgFaces(g_RightPanel, &g_CurrentBgDocument, faces, (DWORD)count);
+        }
+        else { RightPanelSetBgSelectionCount(g_RightPanel, count); }
+        free(faces);
     }
     else
     {
@@ -1939,6 +1945,63 @@ fail:
 }
 
 
+static BOOL GEditorSetFaceProperties(HWND hwnd, const BgFacePropertiesEdit *edit)
+{
+    EditHistoryTransaction transaction = {0};
+    BgFaceRef *faces = NULL;
+    int count = ViewportGetSelectedBgFaceCount(g_Viewport);
+    BOOL changed;
+    const char *why = "", *restorewhy = "";
+    const char *action;
+    if (edit == NULL || edit->fields == 0 || count <= 0
+        || ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT
+        || ViewportIsTransforming(g_Viewport)) { return FALSE; }
+    faces = (BgFaceRef *)malloc((size_t)count * sizeof(*faces));
+    if (faces == NULL)
+    {
+        why = "Out of memory reading the BG selection.";
+        goto fail;
+    }
+    if (!ViewportGetSelectedBgFaces(g_Viewport, faces, count))
+    {
+        why = "The selected BG faces could not be read.";
+        goto fail;
+    }
+    action = edit->fields == BG_FACE_PROPERTY_CULL ? "Change BG Backface Culling"
+        : "Change BG Texture Wrapping";
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
+                                action, &transaction, &why)) { goto fail; }
+    if (!BgDocumentSetFaceProperties(&g_CurrentBgDocument, faces, (DWORD)count,
+                                     edit, &changed, &why)) { goto fail; }
+    free(faces);
+    faces = NULL;
+    if (!changed)
+    {
+        EditHistoryCancelEdit(&transaction);
+        return TRUE;
+    }
+    /* The existing mesh builder and compiler consume these per-face flags.
+       Rebuilding also preserves selection by stable face identity. */
+    if (!GEditorRebuildCurrentViewport(&why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument,
+                                  &g_CurrentSetup, &g_CurrentStan, &transaction, &why))
+    {
+        EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument,
+                                &g_CurrentSetup, &g_CurrentStan);
+        GEditorRebuildCurrentViewport(&restorewhy);
+        goto fail;
+    }
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+fail:
+    EditHistoryCancelEdit(&transaction);
+    free(faces);
+    GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
+
 static BOOL GEditorDropBgTexture(HWND hwnd, const BrowserImageDrop *request)
 {
     EditHistoryTransaction transaction;
@@ -2275,6 +2338,13 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     case VIEWPORT_WM_SELECTION_CHANGED:
         GEditorRefreshSelectionDetails();
         return 0;
+
+    case FACEPROPERTIES_WM_CHANGED:
+    {
+        BOOL ok = GEditorSetFaceProperties(hwnd, (const BgFacePropertiesEdit *)lparam);
+        GEditorRefreshSelectionDetails();
+        return ok;
+    }
 
     case UVEDITOR_WM_APPLY:
         return GEditorApplyUVEdit(hwnd, (const UVCanvasEdit *)lparam);
@@ -2918,7 +2988,8 @@ static BOOL GEditorHandleTransformHotkey(HWND frame, const MSG *message)
         || (GetKeyState(VK_MENU) & 0x8000)
         || (GetKeyState(VK_SHIFT) & 0x8000)) { return FALSE; }
     GetClassName(message->hwnd, classname, sizeof(classname));
-    if (lstrcmpi(classname, "Edit") == 0) { return FALSE; }
+    if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
+        || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
 
     /* Do not repeatedly cancel/restart previews while a key is held. */
     if (message->lParam & ((LPARAM)1 << 30)) { return TRUE; }
@@ -2943,7 +3014,8 @@ static BOOL GEditorHandleVisibilityHotkey(HWND frame, const MSG *message)
         || (GetKeyState(VK_CONTROL) & 0x8000)
         || (GetKeyState(VK_SHIFT) & 0x8000)) { return FALSE; }
     GetClassName(message->hwnd, classname, sizeof(classname));
-    if (lstrcmpi(classname, "Edit") == 0) { return FALSE; }
+    if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
+        || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
     unhide = (GetKeyState(VK_MENU) & 0x8000) != 0;
     SendMessage(frame, WM_COMMAND, unhide ? ID_VIEW_UNHIDE_ALL : ID_VIEW_HIDE_SELECTED, 0);
     return TRUE;
