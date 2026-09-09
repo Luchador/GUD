@@ -299,8 +299,7 @@ static BOOL TexWriteBmp(const char *path, const TexPixel *pixels,
     return ok;
 }
 
-DWORD TexExtractImages(const RomFile *rom, const char *projectdir,
-                       const char **reasonout)
+DWORD TexExtractImages(const RomFile *rom, const char *projectdir, const char **reasonout)
 {
     const RomManifestEntry *imgs = NULL;
     char dir[MAX_PATH];

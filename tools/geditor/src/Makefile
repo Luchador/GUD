@@ -9,7 +9,7 @@ WIN_DIR := /mnt/c/Users/lucha/Documents/N64/GEditor
 CC      := x86_64-w64-mingw32-gcc
 RC      := x86_64-w64-mingw32-windres
 CFLAGS  := -O2 -Wall -Wextra -Wno-unused-parameter -std=c99 -I../../..
-LDFLAGS := -mwindows -lgdi32 -lcomdlg32 -lopengl32 -lole32 -luuid -lshell32 -lcomctl32 -lwindowscodecs
+LDFLAGS := -mwindows -lgdi32 -lcomdlg32 -lopengl32 -lole32 -luuid -lshell32 -lcomctl32 -lwindowscodecs -ladvapi32
 
 BIN_DIR := ..
 TARGET  := $(BIN_DIR)/GEditor.exe

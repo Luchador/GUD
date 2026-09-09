@@ -10,6 +10,7 @@
 #include <math.h>
 
 #include "project.h"
+#include "recentprojects.h"
 #include "resource.h"
 #include "viewport.h"
 #include "browser.h"
@@ -51,6 +52,8 @@ static int  g_RightPanelWidth = 260;
 static BOOL g_DraggingBrowserSplitter = FALSE;
 static BOOL g_DraggingRightSplitter = FALSE;
 static GEditorProject g_Project;
+static RecentProjects g_RecentProjects;
+static HMENU g_RecentProjectsMenu;
 /* Retain a failed metadata save even if all level assets were written. */
 static BOOL g_ProjectMetadataDirty;
 static DWORD g_CurrentLevelIndex = GEDITOR_NO_LEVEL;
@@ -504,7 +507,10 @@ enum {
     ID_VIEW_UNHIDE_ALL,
 
     ID_TOOLS_CREATE_ROM,
-    ID_TOOLS_UV_EDITOR
+    ID_TOOLS_UV_EDITOR,
+
+    ID_FILE_RECENT_PROJECT_FIRST,
+    ID_FILE_RECENT_PROJECT_LAST = ID_FILE_RECENT_PROJECT_FIRST + RECENT_PROJECTS_MAX - 1
 };
 
 
@@ -517,9 +523,89 @@ typedef struct NewProjectInfo {
 } NewProjectInfo;
 
 
-/*
- * Builds the top menu bar.
- */
+static const char *GEditorRecentProjectFilename(const char *path)
+{
+    const char *name = strrchr(path, '\\');
+    return name != NULL ? name + 1 : path;
+}
+
+
+static void GEditorRefreshRecentProjectsMenu(void)
+{
+    DWORD index;
+
+    if (g_RecentProjectsMenu == NULL) { return; }
+    while (GetMenuItemCount(g_RecentProjectsMenu) > 0)
+    {
+        DeleteMenu(g_RecentProjectsMenu, 0, MF_BYPOSITION);
+    }
+    if (g_RecentProjects.count == 0)
+    {
+        AppendMenu(g_RecentProjectsMenu, MF_STRING | MF_GRAYED, 0,
+                   "No recent projects");
+    }
+    for (index = 0; index < g_RecentProjects.count; index++)
+    {
+        const char *name = GEditorRecentProjectFilename(g_RecentProjects.paths[index]);
+        const char *text = name;
+        char label[MAX_PATH * 2];
+        DWORD other;
+        size_t length = 0;
+
+        /* Identical filenames in different folders need their full paths. */
+        for (other = 0; other < g_RecentProjects.count; other++)
+        {
+            if (other != index && lstrcmpi(name,
+                GEditorRecentProjectFilename(g_RecentProjects.paths[other])) == 0)
+            {
+                text = g_RecentProjects.paths[index];
+                break;
+            }
+        }
+        /* Ampersands in filenames are literal, not menu mnemonics. */
+        while (*text != '\0')
+        {
+            if (*text == '&') { label[length++] = '&'; }
+            label[length++] = *text++;
+        }
+        label[length] = '\0';
+        AppendMenu(g_RecentProjectsMenu, MF_STRING,
+                   ID_FILE_RECENT_PROJECT_FIRST + index, label);
+    }
+}
+
+
+static void GEditorRememberProject(void)
+{
+    RecentProjectsRemember(&g_RecentProjects, g_Project.geppath);
+    GEditorRefreshRecentProjectsMenu();
+}
+
+
+/* Both Open Project and Recent Projects replace the current project only
+   after the chosen file has been read successfully. */
+static void GEditorOpenProject(HWND hwnd, const char *path)
+{
+    GEditorProject project;
+
+    if (!ProjectRead(path, &project))
+    {
+        char message[MAX_PATH + 128];
+        snprintf(message, sizeof(message),
+                 "That file is missing or is not a readable GEditor project.\n\n%s", path);
+        MessageBox(hwnd, message, GEDITOR_TITLE, MB_ICONERROR);
+        return;
+    }
+
+    GEditorCloseProject(hwnd);
+    g_Project = project;
+    GEditorRefreshProjectAssets();
+    GEditorSetTitleForProject(hwnd);
+    GEditorRememberProject();
+}
+
+
+/* Builds the top menu bar. */
 static HMENU GEditorCreateMenuBar(void)
 {
     HMENU menubar;
@@ -533,10 +619,13 @@ static HMENU GEditorCreateMenuBar(void)
     editmenu = CreatePopupMenu();
     viewmenu = CreatePopupMenu();
     toolsmenu = CreatePopupMenu();
+    g_RecentProjectsMenu = CreatePopupMenu();
+    GEditorRefreshRecentProjectsMenu();
 
     /* MF_STRING items carry a command ID. '&' marks the Alt mnemonic. */
     AppendMenu(filemenu, MF_STRING, ID_FILE_NEW_PROJECT, "&New Project");
     AppendMenu(filemenu, MF_STRING, ID_FILE_OPEN_PROJECT, "&Open Project");
+    AppendMenu(filemenu, MF_POPUP, (UINT_PTR)g_RecentProjectsMenu, "&Recent Projects");
     AppendMenu(filemenu, MF_STRING, ID_FILE_SAVE_PROJECT, "&Save Project");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_STRING, ID_FILE_EXIT, "E&xit");
@@ -2864,6 +2953,16 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
     case WM_COMMAND:
         ViewportCancelTransform(g_Viewport);
+        if (LOWORD(wparam) >= ID_FILE_RECENT_PROJECT_FIRST
+            && LOWORD(wparam) <= ID_FILE_RECENT_PROJECT_LAST)
+        {
+            DWORD index = LOWORD(wparam) - ID_FILE_RECENT_PROJECT_FIRST;
+            if (index < g_RecentProjects.count)
+            {
+                GEditorOpenProject(hwnd, g_RecentProjects.paths[index]);
+            }
+            return 0;
+        }
         switch (LOWORD(wparam))
         {
             /**
@@ -2935,6 +3034,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
                         GEditorRefreshProjectAssets();
                         GEditorSetTitleForProject(hwnd);
+                        GEditorRememberProject();
                     }
                     else
                     {
@@ -2950,17 +3050,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
  
                 if (GEditorPromptForProject(hwnd, path, sizeof(path)))
                 {
-                    GEditorCloseProject(hwnd); /* one project at a time */
-
-                    if (ProjectRead(path, &g_Project))
-                    {
-                        GEditorRefreshProjectAssets();
-                        GEditorSetTitleForProject(hwnd);
-                    }
-                    else
-                    {
-                        MessageBox(hwnd, "That file is not a readable GEditor project.", GEDITOR_TITLE, MB_ICONERROR);
-                    }
+                    GEditorOpenProject(hwnd, path);
                 }
                 return 0;
             }
@@ -3141,6 +3231,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
         return 1;
     }
 
+    RecentProjectsLoad(&g_RecentProjects);
     menubar = GEditorCreateMenuBar();
 
     hwnd = CreateWindowEx(0, GEDITOR_CLASS, GEDITOR_TITLE, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, GEDITOR_WIDTH, GEDITOR_HEIGHT, NULL, menubar, hinstance, NULL);
