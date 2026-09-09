@@ -15,6 +15,7 @@
 #include "browser.h"
 #include "rightpanel.h"
 #include "tooltoolbar.h"
+#include "uveditor.h"
 #include "rom.h"
 #include "romexport.h"
 #include "bgload.h"
@@ -495,7 +496,8 @@ enum {
     ID_VIEW_BACKFACE_CULLING,
     ID_VIEW_BG_STATISTICS,
 
-    ID_TOOLS_CREATE_ROM
+    ID_TOOLS_CREATE_ROM,
+    ID_TOOLS_UV_EDITOR
 };
 
 
@@ -539,6 +541,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_BACKFACE_CULLING, "&Backface Culling");
     AppendMenu(viewmenu, MF_STRING | MF_CHECKED, ID_VIEW_BG_STATISTICS, "Background &Statistics");
 
+    AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_UV_EDITOR, "&UV Editor");
     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CREATE_ROM, "&Create ROM...");
 
     AppendMenu(menubar, MF_POPUP, (UINT_PTR)filemenu, "&File");
@@ -2790,6 +2793,14 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                     !ViewportGetBgStatisticsVisible(g_Viewport));
                 return 0;
 
+            case ID_TOOLS_UV_EDITOR:
+                if (!UVEditorShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE)))
+                {
+                    MessageBox(hwnd, "Could not open the UV Editor window.",
+                               GEDITOR_TITLE, MB_ICONERROR);
+                }
+                return 0;
+
             case ID_TOOLS_CREATE_ROM:
                 if (GEditorEnsureProjectBaseRom(hwnd))
                 {
@@ -2933,7 +2944,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                     CoUninitialize();
                     return (int)msg.wParam;
                 }
-                if (!GEditorHandleTransformHotkey(hwnd, &msg)
+                if (!UVEditorHandleMessage(&msg)
+                    && !GEditorHandleTransformHotkey(hwnd, &msg)
                     && !RightPanelHandleMessage(g_RightPanel, &msg)
                     && !ToolToolbarHandleMessage(g_ToolToolbar, &msg)
                     && (accelerators == NULL
@@ -2953,7 +2965,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             {
                 break;
             }
-            if (!GEditorHandleTransformHotkey(hwnd, &msg)
+            if (!UVEditorHandleMessage(&msg)
+                && !GEditorHandleTransformHotkey(hwnd, &msg)
                 && !RightPanelHandleMessage(g_RightPanel, &msg)
                 && !ToolToolbarHandleMessage(g_ToolToolbar, &msg)
                 && (accelerators == NULL

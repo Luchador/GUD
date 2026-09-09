@@ -1,0 +1,222 @@
+diff --git a/tools/geditor/src/geditor.c b/tools/geditor/src/geditor.c
+index a769ad57..e9b49bef 100644
+--- a/tools/geditor/src/geditor.c
++++ b/tools/geditor/src/geditor.c
+@@ -15,6 +15,7 @@
+ #include "browser.h"
+ #include "rightpanel.h"
+ #include "tooltoolbar.h"
++#include "uveditor.h"
+ #include "rom.h"
+ #include "romexport.h"
+ #include "bgload.h"
+@@ -495,7 +496,8 @@ enum {
+     ID_VIEW_BACKFACE_CULLING,
+     ID_VIEW_BG_STATISTICS,
+ 
+-    ID_TOOLS_CREATE_ROM
++    ID_TOOLS_CREATE_ROM,
++    ID_TOOLS_UV_EDITOR
+ };
+ 
+ 
+@@ -539,6 +541,7 @@ static HMENU GEditorCreateMenuBar(void)
+     AppendMenu(viewmenu, MF_STRING, ID_VIEW_BACKFACE_CULLING, "&Backface Culling");
+     AppendMenu(viewmenu, MF_STRING | MF_CHECKED, ID_VIEW_BG_STATISTICS, "Background &Statistics");
+ 
++    AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_UV_EDITOR, "&UV Editor");
+     AppendMenu(toolsmenu, MF_STRING, ID_TOOLS_CREATE_ROM, "&Create ROM...");
+ 
+     AppendMenu(menubar, MF_POPUP, (UINT_PTR)filemenu, "&File");
+@@ -2790,6 +2793,14 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
+                     !ViewportGetBgStatisticsVisible(g_Viewport));
+                 return 0;
+ 
++            case ID_TOOLS_UV_EDITOR:
++                if (!UVEditorShow(hwnd, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE)))
++                {
++                    MessageBox(hwnd, "Could not open the UV Editor window.",
++                               GEDITOR_TITLE, MB_ICONERROR);
++                }
++                return 0;
++
+             case ID_TOOLS_CREATE_ROM:
+                 if (GEditorEnsureProjectBaseRom(hwnd))
+                 {
+@@ -2933,7 +2944,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
+                     CoUninitialize();
+                     return (int)msg.wParam;
+                 }
+-                if (!GEditorHandleTransformHotkey(hwnd, &msg)
++                if (!UVEditorHandleMessage(&msg)
++                    && !GEditorHandleTransformHotkey(hwnd, &msg)
+                     && !RightPanelHandleMessage(g_RightPanel, &msg)
+                     && !ToolToolbarHandleMessage(g_ToolToolbar, &msg)
+                     && (accelerators == NULL
+@@ -2953,7 +2965,8 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
+             {
+                 break;
+             }
+-            if (!GEditorHandleTransformHotkey(hwnd, &msg)
++            if (!UVEditorHandleMessage(&msg)
++                && !GEditorHandleTransformHotkey(hwnd, &msg)
+                 && !RightPanelHandleMessage(g_RightPanel, &msg)
+                 && !ToolToolbarHandleMessage(g_ToolToolbar, &msg)
+                 && (accelerators == NULL
+diff --git a/tools/geditor/src/geditor.rc b/tools/geditor/src/geditor.rc
+index bd6f5787..6a55169c 100644
+--- a/tools/geditor/src/geditor.rc
++++ b/tools/geditor/src/geditor.rc
+@@ -66,3 +66,13 @@ BEGIN
+     DEFPUSHBUTTON   "Create ROM", IDC_CREATE_ROM, 105, 102, 70, 16
+     PUSHBUTTON      "Cancel", IDCANCEL, 180, 102, 50, 16
+ END
++
++/* Modeless, resizable workspace for the face UV editing tools. */
++IDD_UV_EDITOR DIALOGEX 0, 0, 420, 320
++STYLE DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_CLIPCHILDREN
++EXSTYLE WS_EX_TOOLWINDOW
++CAPTION "UV Editor"
++FONT 8, "MS Shell Dlg"
++BEGIN
++    PUSHBUTTON      "&Close", IDCANCEL, 362, 296, 50, 16
++END
+diff --git a/tools/geditor/src/resource.h b/tools/geditor/src/resource.h
+index dee0cc74..79c6a7e3 100644
+--- a/tools/geditor/src/resource.h
++++ b/tools/geditor/src/resource.h
+@@ -4,6 +4,7 @@
+ /* Dialog templates */
+ #define IDD_NEW_PROJECT       101
+ #define IDD_CREATE_ROM        102
++#define IDD_UV_EDITOR         103
+ 
+ /* Icons */
+ #define IDI_GEDITOR           201
+diff --git a/tools/geditor/src/uveditor.c b/tools/geditor/src/uveditor.c
+new file mode 100644
+index 00000000..1f304989
+--- /dev/null
++++ b/tools/geditor/src/uveditor.c
+@@ -0,0 +1,101 @@
++#include "uveditor.h"
++#include "resource.h"
++
++static HWND g_UVEditor;
++
++static void UVEditorLayout(HWND hwnd)
++{
++    RECT client;
++    RECT units = { 8, 8, 50, 16 };
++    HWND closebutton = GetDlgItem(hwnd, IDCANCEL);
++
++    if (closebutton == NULL) { return; }
++    GetClientRect(hwnd, &client);
++    MapDialogRect(hwnd, &units);
++    MoveWindow(closebutton,
++               client.right - units.left - units.right,
++               client.bottom - units.top - units.bottom,
++               units.right, units.bottom, TRUE);
++}
++
++static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
++                                           WPARAM wparam, LPARAM lparam)
++{
++    switch (message)
++    {
++    case WM_INITDIALOG:
++        g_UVEditor = hwnd;
++        UVEditorLayout(hwnd);
++        return TRUE;
++
++    case WM_SIZE:
++        UVEditorLayout(hwnd);
++        return TRUE;
++
++    case WM_GETMINMAXINFO:
++    {
++        MINMAXINFO *limits = (MINMAXINFO *)lparam;
++        RECT minimum = { 0, 0, 220, 160 };
++
++        MapDialogRect(hwnd, &minimum);
++        AdjustWindowRectEx(&minimum, (DWORD)GetWindowLongPtr(hwnd, GWL_STYLE),
++                           FALSE, (DWORD)GetWindowLongPtr(hwnd, GWL_EXSTYLE));
++        limits->ptMinTrackSize.x = minimum.right - minimum.left;
++        limits->ptMinTrackSize.y = minimum.bottom - minimum.top;
++        return TRUE;
++    }
++
++    case WM_COMMAND:
++        if (LOWORD(wparam) == IDCANCEL)
++        {
++            DestroyWindow(hwnd);
++            return TRUE;
++        }
++        break;
++
++    case WM_CLOSE:
++        /* Modeless dialogs use DestroyWindow, not EndDialog or WM_QUIT. */
++        DestroyWindow(hwnd);
++        return TRUE;
++
++    case WM_NCDESTROY:
++        if (g_UVEditor == hwnd) { g_UVEditor = NULL; }
++        break;
++    }
++    return FALSE;
++}
++
++BOOL UVEditorShow(HWND owner, HINSTANCE instance)
++{
++    if (g_UVEditor == NULL)
++    {
++        /* A top-level owned window always stays above its owner and follows
++           its minimize/restore and destruction. CreateDialog keeps the main
++           editor usable while the UV Editor is open. */
++        g_UVEditor = CreateDialog(instance, MAKEINTRESOURCE(IDD_UV_EDITOR),
++                                  owner, UVEditorDialogProc);
++        if (g_UVEditor == NULL) { return FALSE; }
++    }
++
++    ShowWindow(g_UVEditor, SW_SHOWNORMAL);
++    SetForegroundWindow(g_UVEditor);
++    return TRUE;
++}
++
++BOOL UVEditorHandleMessage(MSG *message)
++{
++    if (g_UVEditor == NULL || message == NULL
++        || (message->hwnd != g_UVEditor && !IsChild(g_UVEditor, message->hwnd)))
++    {
++        return FALSE;
++    }
++
++    /* Keep Tab, Escape, and Alt+F4 local to this window. Dispatch any other
++       input here so the main editor's accelerators cannot consume it. */
++    if (!IsDialogMessage(g_UVEditor, message))
++    {
++        TranslateMessage(message);
++        DispatchMessage(message);
++    }
++    return TRUE;
++}
+diff --git a/tools/geditor/src/uveditor.h b/tools/geditor/src/uveditor.h
+new file mode 100644
+index 00000000..5e7f946a
+--- /dev/null
++++ b/tools/geditor/src/uveditor.h
+@@ -0,0 +1,14 @@
++#ifndef GEDITOR_UVEDITOR_H
++#define GEDITOR_UVEDITOR_H
++
++#include <windows.h>
++
++/* Open the modeless owned window, or activate it if it is already open.
++   Closing it leaves GEditor running; closing its owner destroys it too. */
++BOOL UVEditorShow(HWND owner, HINSTANCE instance);
++
++/* Route this window's messages before the main editor's keyboard shortcuts.
++   Returns TRUE when the message has been handled or dispatched here. */
++BOOL UVEditorHandleMessage(MSG *message);
++
++#endif /* GEDITOR_UVEDITOR_H */

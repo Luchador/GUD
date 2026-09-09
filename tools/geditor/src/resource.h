@@ -4,6 +4,7 @@
 /* Dialog templates */
 #define IDD_NEW_PROJECT       101
 #define IDD_CREATE_ROM        102
+#define IDD_UV_EDITOR         103
 
 /* Icons */
 #define IDI_GEDITOR           201
