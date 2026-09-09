@@ -8,6 +8,7 @@ __pycache__/*
 *.tmp
 *.o
 *.psd
+*.blend
 branchdiff.sh
 branchdiff_report.txt
 *.dump
