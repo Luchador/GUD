@@ -353,7 +353,7 @@ static void BgWalkGdl(BgBuilder *b,
                 for (k = 0; k < 3; k++)
                 {
                     const unsigned char *v = vertexcache[idx[k]];
-                    BgVertex out;
+                    BgVertex out = {0};
 
                     out.x = (roomx + bg16(v + 0)) * worldscale;
                     out.y = (roomy + bg16(v + 2)) * worldscale;

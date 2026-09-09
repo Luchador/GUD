@@ -20,6 +20,9 @@ enum BgRenderFlag
     BG_RENDER_MIRROR_S = 128,
     BG_RENDER_CLAMP_T = 256,
     BG_RENDER_MIRROR_T = 512,
+    BG_RENDER_ENVIRONMENT = 1024,
+    BG_RENDER_ENVIRONMENT_LINEAR = 2048,
+    BG_RENDER_ENVIRONMENT_MASK = BG_RENDER_ENVIRONMENT | BG_RENDER_ENVIRONMENT_LINEAR,
     BG_RENDER_WRAP_MASK = BG_RENDER_CLAMP_S | BG_RENDER_MIRROR_S
                        | BG_RENDER_CLAMP_T | BG_RENDER_MIRROR_T
 };
@@ -28,6 +31,7 @@ typedef struct BgRenderState
 {
     DWORD othermode;
     BOOL zbuffer;
+    DWORD geometrymode; /* lighting and texture generation, including partial clears */
     unsigned char environmentalpha, primitivealpha;
 } BgRenderState;
 
@@ -54,5 +58,12 @@ BgRenderFlags BgRenderMaterialWrap(const BgMaterial *material);
    clamped edge texels; repeat blends opposite edges at its seam. */
 double BgRenderWrapCoordinate(double coordinate, BgRenderFlags flags, BOOL t);
 int BgRenderWrapTexel(int texel, int size, BgRenderFlags flags, BOOL t);
+
+/* Decode signed normal bytes without changing the editable/source vertex.
+ * Generated surfaces use neutral RGB instead of treating normals as colors. */
+void BgRenderPrepareEnvironment(BgVertex *vertex, BgRenderFlags flags,
+                                 const BgMaterial *material);
+void BgRenderEnvironmentCoordinates(const BgEnvironmentVertex *vertex, BgRenderFlags flags,
+                                     const float right[3], const float up[3], float uv[2]);
 
 #endif

@@ -6,7 +6,9 @@
 
 /* Writes a self-contained glTF 2.0 model. Adjacent triangles with matching
  * texture tags and preview render flags share a primitive. Ordered material
- * extras preserve native depth, decal, alpha and S/T wrapping behavior in GEditor.
+ * extras preserve native depth, decal, alpha, wrapping and texture generation.
+ * Reflective primitives carry NORMAL and _GUD_ENV_SCALE (VEC2, texel ranges)
+ * attributes so camera-dependent UVs can be regenerated after reopening.
  * Project image dimensions convert GoldenEye texel UVs to normalized UVs. */
 BOOL GltfWriteModel(const char *path, const char *projectdir,
                     const BgVertex *vertices,

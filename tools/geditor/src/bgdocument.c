@@ -1279,6 +1279,7 @@ BOOL BgDocumentBuildRenderMesh(const BgDocument *document,
                 target->g = source->g;
                 target->b = source->b;
                 target->a = BgRenderVertexAlpha(alpha, source->a);
+                BgRenderPrepareEnvironment(target, out->renderflags[outputface], &face->material);
             }
 
             outputface++;

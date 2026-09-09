@@ -9,6 +9,9 @@
 #define BG_G_CLEARGEOMETRYMODE 0xB6u
 #define BG_G_SETGEOMETRYMODE 0xB7u
 #define BG_G_ZBUFFER 1u
+#define BG_G_LIGHTING 0x00020000u
+#define BG_G_TEXTURE_GEN 0x00040000u
+#define BG_G_TEXTURE_GEN_LINEAR 0x00080000u
 #define BG_Z_CMP 0x10u
 #define BG_Z_UPD 0x20u
 #define BG_ZMODE_MASK 0xC00u
@@ -22,6 +25,7 @@ void BgRenderStateInit(BgRenderState *state, BOOL secondary)
 {
     state->environmentalpha = state->primitivealpha = 255;
     state->zbuffer = TRUE;
+    state->geometrymode = BG_G_ZBUFFER;
     state->othermode = BG_Z_CMP | (secondary ? BG_ZMODE_XLU | BG_FORCE_BL : BG_Z_UPD);
 }
 
@@ -54,12 +58,14 @@ void BgRenderStateRead(BgRenderState *state, DWORD word0, DWORD word1)
         state->othermode = word1;
         break;
     case BG_G_CLEARGEOMETRYMODE:
+        state->geometrymode &= ~word1;
         if (word1 & BG_G_ZBUFFER)
         {
             state->zbuffer = FALSE;
         }
         break;
     case BG_G_SETGEOMETRYMODE:
+        state->geometrymode |= word1;
         if (word1 & BG_G_ZBUFFER)
         {
             state->zbuffer = TRUE;
@@ -91,6 +97,15 @@ BgRenderFlags BgRenderStateFlags(const BgRenderState *state)
     if (state->othermode & (BG_CVG_X_ALPHA | BG_ALPHA_COMPARE_MASK))
     {
         flags |= BG_RENDER_ALPHA_TEST;
+    }
+    if ((state->geometrymode & (BG_G_LIGHTING | BG_G_TEXTURE_GEN))
+        == (BG_G_LIGHTING | BG_G_TEXTURE_GEN))
+    {
+        flags |= BG_RENDER_ENVIRONMENT;
+        if (state->geometrymode & BG_G_TEXTURE_GEN_LINEAR)
+        {
+            flags |= BG_RENDER_ENVIRONMENT_LINEAR;
+        }
     }
     return flags;
 }
@@ -266,4 +281,75 @@ int BgRenderWrapTexel(int texel, int size, BgRenderFlags flags, BOOL t)
         return texel < 0 ? 0 : texel >= size ? size - 1 : texel;
     }
     return (texel % size + size) % size;
+}
+
+void BgRenderPrepareEnvironment(BgVertex *vertex, BgRenderFlags flags, const BgMaterial *material)
+{
+    unsigned char rgb[3] = {vertex->r, vertex->g, vertex->b};
+    double length = 0;
+    int axis;
+    ZeroMemory(&vertex->environment, sizeof(vertex->environment));
+    if (!(flags & BG_RENDER_ENVIRONMENT))
+    {
+        return;
+    }
+    for (axis = 0; axis < 3; axis++)
+    {
+        int value = rgb[axis] < 128 ? rgb[axis] : (int)rgb[axis] - 256;
+        vertex->environment.normal[axis] = (float)value;
+        length += value * value;
+    }
+    if (length > 0)
+    {
+        float inverse = (float)(1.0 / sqrt(length));
+        for (axis = 0; axis < 3; axis++)
+        {
+            vertex->environment.normal[axis] *= inverse;
+        }
+    }
+    else
+    {
+        vertex->environment.normal[2] = 1;
+    }
+    /* gSPTexture's unsigned 0.16 scale maps generated 0..1024 coordinates
+       into texels. texWriteTextureCmd preserves the authored scale word. */
+    vertex->environment.scale[0] = (float)(material->modeword1 >> 16) / 64.0f;
+    vertex->environment.scale[1] = (float)(material->modeword1 & 0xFFFFu) / 64.0f;
+    vertex->r = vertex->g = vertex->b = 255;
+}
+
+void BgRenderEnvironmentCoordinates(const BgEnvironmentVertex *vertex, BgRenderFlags flags,
+                                    const float right[3], const float up[3], float uv[2])
+{
+    double length = 0, inverse;
+    int axis, component;
+    for (component = 0; component < 3; component++)
+    {
+        length += (double)vertex->normal[component] * vertex->normal[component];
+    }
+    inverse = length > 0 ? 1.0 / sqrt(length) : 0;
+    for (axis = 0; axis < 2; axis++)
+    {
+        const float *direction = axis ? up : right;
+        double projection = 0;
+        for (component = 0; component < 3; component++)
+        {
+            projection += vertex->normal[component] * direction[component];
+        }
+        projection *= inverse;
+        if (projection < -1)
+        {
+            projection = -1;
+        }
+        if (projection > 1)
+        {
+            projection = 1;
+        }
+        /* N64 projects normals onto guLookAtReflect's right/up vectors;
+           this is not OpenGL's eye-vector-based GL_SPHERE_MAP equation. */
+        uv[axis] = (float)((flags & BG_RENDER_ENVIRONMENT_LINEAR)
+                               ? acos(projection) / 3.14159265358979323846
+                               : (projection + 1) * 0.5) *
+                   vertex->scale[axis];
+    }
 }

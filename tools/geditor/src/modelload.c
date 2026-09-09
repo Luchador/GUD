@@ -224,6 +224,7 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
 {
     DWORD pc;
     BgVertex cache[16];
+    BgRenderFlags cacheflags[16];
     unsigned int valid = 0;
     const float *translation = origin;
     unsigned short curtex = BG_TEX_NONE;
@@ -233,6 +234,11 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
         const unsigned char *cmd = data + pc;
 
         BgRenderStateRead(state, md32(cmd), md32(cmd + 4));
+        if (cmd[0] == BG_G_TEXTURE)
+        {
+            material->modeword0 = md32(cmd);
+            material->modeword1 = md32(cmd + 4);
+        }
         if (cmd[0] == 0xFC) /* gDPSetCombine: models have no BG LUT rewrite. */
         {
             material->combineword0 = md32(cmd);
@@ -294,6 +300,8 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                 out->s = (float)md16(v + 8) / 32.0f;
                 out->t = (float)md16(v + 10) / 32.0f;
                 out->r = v[12]; out->g = v[13]; out->b = v[14]; out->a = v[15];
+                cacheflags[first + i] = BgRenderStateFlags(state) & BG_RENDER_ENVIRONMENT_MASK;
+                BgRenderPrepareEnvironment(out, cacheflags[first + i], material);
                 valid |= 1u << (first + i);
             }
             continue;
@@ -358,7 +366,8 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                 if (!b->error)
                 {
                     b->texids[b->count / 3 - 1] = (unsigned short)(curtex | layerflag);
-                    b->renderflags[b->count / 3 - 1] = BgRenderStateFlags(state)
+                    b->renderflags[b->count / 3 - 1] = (BgRenderStateFlags(state) & ~BG_RENDER_ENVIRONMENT_MASK)
+                        | cacheflags[idx[0]]
                         | (alpha.texture ? 0 : BG_RENDER_IGNORE_TEXTURE_ALPHA)
                         | BgRenderMaterialWrap(material);
                 }
@@ -378,7 +387,7 @@ static void MdlNodeMeshes(MdlBuilder *b, const unsigned char *data,
     BgRenderState state;
     BgMaterial material;
 
-    ZeroMemory(&material, sizeof(material));
+    BgMaterialInit(&material);
     BgRenderStateInit(&state, FALSE);
     /* modelApplyRenderModeType2/3/4: TRILERP, MODULATEIA2. */
     material.combineword0 = 0xFC26A004u;
@@ -911,7 +920,7 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
         goto fail;
     }
 
-    source = (BgVertex *)malloc((size_t)vertexcount * sizeof(*source));
+    source = (BgVertex *)calloc((size_t)vertexcount, sizeof(*source));
     result = (BgVertex *)malloc((size_t)facecount * 3 * sizeof(*result));
     tags = (unsigned short *)malloc((size_t)facecount * sizeof(*tags));
     flags = (BgRenderFlags *)malloc((size_t)facecount * sizeof(*flags));

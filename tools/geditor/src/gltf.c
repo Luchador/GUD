@@ -31,7 +31,7 @@
 #define GLTF_WRAP_CLAMP_TO_EDGE      33071
 #define GLTF_WRAP_MIRRORED_REPEAT    33648
 #define GLTF_MODE_TRIANGLES              4
-#define GLTF_VERTEX_STRIDE               24u
+#define GLTF_VERTEX_STRIDE               44u
 #define GLTF_MAX_FACES              1000000u
 
 typedef enum GltfJsonType {
@@ -1298,11 +1298,16 @@ static BOOL GltfPrimitiveRenderFlags(const char *json, const GltfJsonToken *toke
         if (!GltfJsonUnsigned(json, &tokens[token], &flags) ||
             (flags &
              ~(BG_RENDER_DEPTH_TEST | BG_RENDER_DEPTH_WRITE | BG_RENDER_DECAL | BG_RENDER_BLEND |
-               BG_RENDER_ALPHA_TEST | BG_RENDER_IGNORE_TEXTURE_ALPHA | BG_RENDER_WRAP_MASK)) ||
+               BG_RENDER_ALPHA_TEST | BG_RENDER_IGNORE_TEXTURE_ALPHA | BG_RENDER_WRAP_MASK |
+               BG_RENDER_ENVIRONMENT_MASK)) ||
             (flags & (BG_RENDER_CLAMP_S | BG_RENDER_MIRROR_S)) ==
                 (BG_RENDER_CLAMP_S | BG_RENDER_MIRROR_S) ||
             (flags & (BG_RENDER_CLAMP_T | BG_RENDER_MIRROR_T)) ==
                 (BG_RENDER_CLAMP_T | BG_RENDER_MIRROR_T))
+        {
+            return FALSE;
+        }
+        if ((flags & BG_RENDER_ENVIRONMENT_LINEAR) && !(flags & BG_RENDER_ENVIRONMENT))
         {
             return FALSE;
         }
@@ -1445,6 +1450,7 @@ static BOOL GltfLoadPrimitive(const char *json,
     GltfAccessor colors;
     GltfAccessor texcoords;
     GltfAccessor indices;
+    GltfAccessor normals, environmentscales;
     BOOL hascolors = FALSE;
     BOOL hastexcoords = FALSE;
     BOOL hasindices = FALSE;
@@ -1585,6 +1591,27 @@ static BOOL GltfLoadPrimitive(const char *json,
         }
     }
 
+    if (renderflags & BG_RENDER_ENVIRONMENT)
+    {
+        int normal = GltfJsonObjectGet(json, tokens, tokencount, attributes, "NORMAL");
+        int scale = GltfJsonObjectGet(json, tokens, tokencount, attributes, "_GUD_ENV_SCALE");
+        if (normal < 0 || scale < 0
+            || !GltfJsonUnsigned(json, &tokens[normal], &accessorindex)
+            || !GltfResolveAccessor(json, tokens, tokencount, root, accessorindex, buffercount, &normals)
+            || normals.componenttype != GLTF_COMPONENT_FLOAT || normals.components != 3
+            || normals.count != positions.count
+            || !GltfJsonUnsigned(json, &tokens[scale], &accessorindex)
+            || !GltfResolveAccessor(json, tokens, tokencount, root, accessorindex,
+                                    buffercount, &environmentscales)
+            || environmentscales.componenttype != GLTF_COMPONENT_FLOAT
+            || environmentscales.components != 2
+            || environmentscales.count != positions.count)
+        {
+            *reasonout = "an environment-mapped glTF primitive needs normals and generation scales.";
+            return FALSE;
+        }
+    }
+
     for (outputindex = 0; outputindex < elementcount; outputindex++)
     {
         DWORD sourceindex = outputindex;
@@ -1620,6 +1647,17 @@ static BOOL GltfLoadPrimitive(const char *json,
             vertex->t = values[1] * (float)textureheight;
         }
 
+        if (renderflags & BG_RENDER_ENVIRONMENT)
+        {
+            if (!GltfAccessorFloats(&normals, buffers, sourceindex, vertex->environment.normal, 3)
+                || !GltfAccessorFloats(&environmentscales, buffers, sourceindex,
+                                       vertex->environment.scale, 2)
+                || vertex->environment.scale[0] < 0 || vertex->environment.scale[1] < 0)
+            {
+                *reasonout = "a glTF vertex has invalid environment-mapping inputs.";
+                return FALSE;
+            }
+        }
         if (hascolors)
         {
             values[3] = 1.0f;
@@ -1945,6 +1983,11 @@ static void GltfPackVertex(unsigned char *data, const BgVertex *vertex,
     data[21] = vertex->g;
     data[22] = vertex->b;
     data[23] = vertex->a;
+    GltfWriteFloat(data + 24, vertex->environment.normal[0]);
+    GltfWriteFloat(data + 28, vertex->environment.normal[1]);
+    GltfWriteFloat(data + 32, vertex->environment.normal[2]);
+    GltfWriteFloat(data + 36, vertex->environment.scale[0]);
+    GltfWriteFloat(data + 40, vertex->environment.scale[1]);
 }
 
 
@@ -2017,12 +2060,16 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
         if (fprintf(file,
             "    {\"bufferView\": 0, \"byteOffset\": %lu, \"componentType\": 5126, \"count\": %lu, \"type\": \"VEC3\", \"min\": [%.9g, %.9g, %.9g], \"max\": [%.9g, %.9g, %.9g]},\n"
             "    {\"bufferView\": 0, \"byteOffset\": %lu, \"componentType\": 5126, \"count\": %lu, \"type\": \"VEC2\"},\n"
-            "    {\"bufferView\": 0, \"byteOffset\": %lu, \"componentType\": 5121, \"normalized\": true, \"count\": %lu, \"type\": \"VEC4\"}%s\n",
+            "    {\"bufferView\": 0, \"byteOffset\": %lu, \"componentType\": 5121, \"normalized\": true, \"count\": %lu, \"type\": \"VEC4\"},\n"
+            "    {\"bufferView\": 0, \"byteOffset\": %lu, \"componentType\": 5126, \"count\": %lu, \"type\": \"VEC3\"},\n"
+            "    {\"bufferView\": 0, \"byteOffset\": %lu, \"componentType\": 5126, \"count\": %lu, \"type\": \"VEC2\"}%s\n",
             (unsigned long)byteoffset, (unsigned long)vertexcount,
             item->min[0], item->min[1], item->min[2],
             item->max[0], item->max[1], item->max[2],
             (unsigned long)(byteoffset + 12), (unsigned long)vertexcount,
             (unsigned long)(byteoffset + 20), (unsigned long)vertexcount,
+            (unsigned long)(byteoffset + 24), (unsigned long)vertexcount,
+            (unsigned long)(byteoffset + 36), (unsigned long)vertexcount,
             comma) < 0)
         {
             ok = FALSE;
@@ -2058,11 +2105,18 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
     {
         const char *comma = group + 1 < groupcount ? "," : "";
 
+        char environment[128] = "";
+        if (groups[group].renderflags & BG_RENDER_ENVIRONMENT)
+        {
+            snprintf(environment, sizeof(environment),
+                     ", \"NORMAL\": %lu, \"_GUD_ENV_SCALE\": %lu",
+                     (unsigned long)(group * 5 + 3), (unsigned long)(group * 5 + 4));
+        }
         if (fprintf(file,
-            "    {\"attributes\": {\"POSITION\": %lu, \"TEXCOORD_0\": %lu, \"COLOR_0\": %lu}, \"material\": %lu, \"mode\": 4, \"extras\": {\"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
-            (unsigned long)(group * 3),
-            (unsigned long)(group * 3 + 1),
-            (unsigned long)(group * 3 + 2),
+            "    {\"attributes\": {\"POSITION\": %lu, \"TEXCOORD_0\": %lu, \"COLOR_0\": %lu%s}, \"material\": %lu, \"mode\": 4, \"extras\": {\"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
+            (unsigned long)(group * 5),
+            (unsigned long)(group * 5 + 1),
+            (unsigned long)(group * 5 + 2), environment,
             (unsigned long)group, groups[group].tag,
             groups[group].texturewidth, groups[group].textureheight,
             comma) < 0)

@@ -89,6 +89,7 @@ typedef struct Vertex {
     GLfloat x, y, z;
     GLubyte r, g, b, a;
     GLfloat s, t;
+    BgEnvironmentVertex environment; /* world normal and normalized generation ranges */
 } Vertex;
 
 typedef struct VertexColor {
@@ -194,6 +195,7 @@ typedef struct ViewportState {
 
 
 static void ViewportRefreshStanOverlay(ViewportState *state);
+static void ViewportGetBasis(const ViewportState *state, float fwd[3], float right[3]);
 static BOOL ViewportStanVisible(const ViewportState *state);
 static void ViewportClearStanSelection(ViewportState *state);
 static BOOL ViewportStanSelectionPosition(const ViewportState *state, BOOL gizmo,
@@ -263,12 +265,12 @@ static BOOL ViewportPadSelectionPosition(const ViewportState *state, double posi
 }
 
 static const Vertex g_TestScene[6] = {
-    {    0.0f,  160.0f, 0.0f,   255,  40,  40, 255 , 1.0f, 0.0f},
-    { -160.0f, -120.0f, 0.0f,    40, 255,  40, 255 , 0.0f, 1.0f},
-    {  160.0f, -120.0f, 0.0f,    40,  40, 255, 255 , 0.0f, 0.0f},
-    {    -80.0f,  160.0f, -200.0f,   255,  255,  0, 255, 2.0f, 0.0f},
-    { -240.0f, -120.0f, -200.0f,    0, 255,  255, 255, 2.0f, 2.0f},
-    {  80.0f, -120.0f, -200.0f,    255,  0, 0, 255 , 0.0f, 0.0f},
+    {    0.0f,  160.0f, 0.0f,   255,  40,  40, 255 , 1.0f, 0.0f, {{0, 0, 0}, {0, 0}}},
+    { -160.0f, -120.0f, 0.0f,    40, 255,  40, 255 , 0.0f, 1.0f, {{0, 0, 0}, {0, 0}}},
+    {  160.0f, -120.0f, 0.0f,    40,  40, 255, 255 , 0.0f, 0.0f, {{0, 0, 0}, {0, 0}}},
+    {    -80.0f,  160.0f, -200.0f,   255,  255,  0, 255, 2.0f, 0.0f, {{0, 0, 0}, {0, 0}}},
+    { -240.0f, -120.0f, -200.0f,    0, 255,  255, 255, 2.0f, 2.0f, {{0, 0, 0}, {0, 0}}},
+    {  80.0f, -120.0f, -200.0f,    255,  0, 0, 255 , 0.0f, 0.0f, {{0, 0, 0}, {0, 0}}},
 };
 
 #define TESTSCENE_VERTS ((GLsizei)(sizeof(g_TestScene) / sizeof(g_TestScene[0])))
@@ -512,6 +514,62 @@ static void ViewportApplyRenderFlags(BgRenderFlags flags)
     }
 }
 
+/* Match guLookAtReflect: the world-space right and up axes rotate with the
+ * camera. CPU-generated vertex UVs feed both OpenGL and alpha-aware picking. */
+static void ViewportEnvironmentAxes(const ViewportState *state, float right[3], float up[3])
+{
+    float forward[3];
+    ViewportGetBasis(state, forward, right);
+    up[0] = right[1] * forward[2] - right[2] * forward[1];
+    up[1] = right[2] * forward[0] - right[0] * forward[2];
+    up[2] = right[0] * forward[1] - right[1] * forward[0];
+}
+
+static void ViewportEnvironmentCoordinates(const ViewportState *state, int index,
+                                           BgRenderFlags flags, const float right[3],
+                                           const float up[3], float uv[2])
+{
+    BgEnvironmentVertex environment = state->scene[index].environment;
+    if (state->dragrotation && !state->dragstan && !state->dragpad && state->dragmask &&
+        state->dragmask[index])
+    {
+        Rotation rotation;
+        double normal[3] = {environment.normal[0], environment.normal[1], environment.normal[2]};
+        double rotated[3];
+        int axis;
+        RotationAxis(&rotation, state->dragaxis, state->dragdelta);
+        RotationVector(&rotation, normal, rotated);
+        for (axis = 0; axis < 3; axis++)
+        {
+            environment.normal[axis] = (float)rotated[axis];
+        }
+    }
+    BgRenderEnvironmentCoordinates(&environment, flags, right, up, uv);
+}
+
+static void ViewportUpdateEnvironmentMapping(ViewportState *state)
+{
+    float right[3], up[3];
+    int batchindex;
+    ViewportEnvironmentAxes(state, right, up);
+    for (batchindex = 0; batchindex < state->batchcount; batchindex++)
+    {
+        const SceneBatch *batch = &state->batches[batchindex];
+        int index;
+        if (!(batch->renderflags & BG_RENDER_ENVIRONMENT))
+        {
+            continue;
+        }
+        for (index = batch->first; index < batch->first + batch->count; index++)
+        {
+            float uv[2];
+            ViewportEnvironmentCoordinates(state, index, batch->renderflags, right, up, uv);
+            state->scene[index].s = uv[0];
+            state->scene[index].t = uv[1];
+        }
+    }
+}
+
 static void ViewportPaintGL(ViewportState *state)
 {
     wglMakeCurrent(state->hdc, state->hglrc);
@@ -555,6 +613,8 @@ static void ViewportPaintGL(ViewportState *state)
             int i;
             BOOL incullback = FALSE;
             int activerenderflags = -1;
+
+            ViewportUpdateEnvironmentMapping(state);
 
             glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
@@ -1206,8 +1266,20 @@ static BOOL ViewportRayBatchTriangleDistance(const ViewportState *state, const S
     alpha = ((1 - u - w) * v[0].a + u * v[1].a + w * v[2].a) / 255.0;
     if (texture && texture->name && texture->alpha)
     {
-        double tx = (1 - u - w) * v[0].s + u * v[1].s + w * v[2].s;
-        double ty = (1 - u - w) * v[0].t + u * v[1].t + w * v[2].t;
+        float uv[3][2] = {{v[0].s, v[0].t}, {v[1].s, v[1].t}, {v[2].s, v[2].t}};
+        if (batch->renderflags & BG_RENDER_ENVIRONMENT)
+        {
+            float right[3], up[3];
+            int vertex;
+            ViewportEnvironmentAxes(state, right, up);
+            for (vertex = 0; vertex < 3; vertex++)
+            {
+                ViewportEnvironmentCoordinates(state, corner + vertex, batch->renderflags,
+                                               right, up, uv[vertex]);
+            }
+        }
+        double tx = (1 - u - w) * uv[0][0] + u * uv[1][0] + w * uv[2][0];
+        double ty = (1 - u - w) * uv[0][1] + u * uv[1][1] + w * uv[2][1];
         double x = BgRenderWrapCoordinate(tx, batch->renderflags, FALSE) * texture->width - 0.5;
         double y = BgRenderWrapCoordinate(ty, batch->renderflags, TRUE) * texture->height - 0.5;
         double fx = x - floor(x), fy = y - floor(y), sample = 0;
@@ -1401,7 +1473,7 @@ void ViewportRefreshBgVertexColor(HWND viewport, const BgDocument *document,
     const BgDocumentFace *paintedface;
     const BgDocumentVertex *source;
     DWORD vertexindex;
-    int triangle;
+    int triangle, batchindex = 0;
 
     if (state == NULL || state->scene == NULL || state->scenefacerefs == NULL
         || state->scenecolors == NULL || hit == NULL || hit->corner >= 3)
@@ -1430,13 +1502,23 @@ void ViewportRefreshBgVertexColor(HWND viewport, const BgDocument *document,
         if (face == NULL || (face->vertexindices[0] != vertexindex
             && face->vertexindices[1] != vertexindex && face->vertexindices[2] != vertexindex)) { continue; }
         previewalpha = BgDocumentPreviewVertexAlpha(room, face, source->a);
+        while (batchindex + 1 < state->batchcount
+               && triangle * 3 >= state->batches[batchindex].first + state->batches[batchindex].count)
+        {
+            batchindex++;
+        }
+        BgRenderFlags flags = state->batches[batchindex].renderflags;
+        BgVertex preview = {.r = source->r, .g = source->g, .b = source->b};
+        BgRenderPrepareEnvironment(&preview, flags, &face->material);
         for (corner = 0; corner < 3; corner++)
         {
             int vertex = triangle * 3 + corner;
             if (face->vertexindices[corner] != vertexindex) { continue; }
-            state->scenecolors[vertex].r = source->r;
-            state->scenecolors[vertex].g = source->g;
-            state->scenecolors[vertex].b = source->b;
+            state->scenecolors[vertex].r = preview.r;
+            state->scenecolors[vertex].g = preview.g;
+            state->scenecolors[vertex].b = preview.b;
+            memcpy(state->scene[vertex].environment.normal, preview.environment.normal,
+                   sizeof(preview.environment.normal));
             state->scene[vertex].a = previewalpha;
         }
         ViewportSetTriangleColor(state, triangle,
@@ -4501,6 +4583,9 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
                 dst[k].z = src[k].z;
                 dst[k].s = src[k].s * invw;   /* texels -> normalized */
                 dst[k].t = src[k].t * invh;
+                dst[k].environment = src[k].environment;
+                dst[k].environment.scale[0] *= invw;
+                dst[k].environment.scale[1] *= invh;
                 dst[k].r = src[k].r;
                 dst[k].g = src[k].g;
                 dst[k].b = src[k].b;

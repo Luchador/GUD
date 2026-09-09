@@ -14,10 +14,18 @@
  * both included.
  */
 
+/* Preview-only inputs for N64 normal-based texture generation. The normal is
+ * in the same space as the vertex; scale is the generated S/T range in texels. */
+typedef struct BgEnvironmentVertex {
+    float normal[3];
+    float scale[2];
+} BgEnvironmentVertex;
+
 typedef struct BgVertex {
     float x, y, z;
     float s, t;                 /* texel coordinates (already /32) */
     unsigned char r, g, b, a;
+    BgEnvironmentVertex environment;
 } BgVertex;
 
 /* Raw project background retained while a level is open. The compiler uses

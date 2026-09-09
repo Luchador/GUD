@@ -329,6 +329,25 @@ static void ObjectPlaceModel(ObjectBuilder *builder,
             local[1] = (source->y - modelcenter[1]) * scale[1];
             local[2] = (source->z - modelcenter[2]) * scale[2];
             *dest = *source;
+            if (model->renderflags[tri] & BG_RENDER_ENVIRONMENT)
+            {
+                float normal[3];
+                const float *xaxis = door ? basis->up : basis->side;
+                const float *yaxis = door ? basis->look : basis->up;
+                const float *zaxis = door ? basis->side : basis->look;
+                /* Normals use the inverse transpose, including fitted doors'
+                   non-uniform scale, and receive no position offset. */
+                for (axis = 0; axis < 3; axis++)
+                {
+                    normal[axis] = scale[axis] != 0
+                        ? source->environment.normal[axis] / scale[axis] : 0;
+                }
+                for (axis = 0; axis < 3; axis++)
+                {
+                    dest->environment.normal[axis] = xaxis[axis] * normal[0]
+                        + yaxis[axis] * normal[1] + zaxis[axis] * normal[2];
+                }
+            }
 
             for (axis = 0; axis < 3; axis++)
             {

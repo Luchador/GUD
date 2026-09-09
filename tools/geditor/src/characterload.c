@@ -198,6 +198,10 @@ static BOOL CharacterPlacePart(CharacterBuilder *builder, const CharacterPart *p
             dest->x = position[0] + facingz * x + facingx * z;
             dest->y = position[1] + y;
             dest->z = position[2] - facingx * x + facingz * z;
+            dest->environment.normal[0] = facingz * source->environment.normal[0]
+                + facingx * source->environment.normal[2];
+            dest->environment.normal[2] = -facingx * source->environment.normal[0]
+                + facingz * source->environment.normal[2];
         }
     }
     builder->count += part->tricount;
