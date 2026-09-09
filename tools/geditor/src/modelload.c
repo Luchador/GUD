@@ -59,9 +59,16 @@ typedef struct MdlTranslation {
     BOOL valid;
 } MdlTranslation;
 
+typedef struct MdlAnimatedPose {
+    ModelTransform matrices[MDL_MAX_MATRICES];
+    BOOL valid[MDL_MAX_MATRICES];
+} MdlAnimatedPose;
+
 typedef struct MdlPose {
     MdlTranslation matrices[MDL_MAX_MATRICES];
     BOOL hasmatrices;
+    const MdlAnimatedPose *animated;
+    int defaultmatrix;
 } MdlPose;
 
 typedef struct MdlBuilder {
@@ -227,6 +234,8 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
     BgRenderFlags cacheflags[16];
     unsigned int valid = 0;
     const float *translation = origin;
+    const ModelTransform *transform = pose->animated != NULL
+        ? &pose->animated->matrices[pose->defaultmatrix] : NULL;
     unsigned short curtex = BG_TEX_NONE;
 
     for (pc = gdloffset; pc + 8 <= maxlen; pc += 8)
@@ -271,6 +280,15 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                 return;
             }
             translation = pose->matrices[index].xyz;
+            if (pose->animated != NULL)
+            {
+                if (!pose->animated->valid[index])
+                {
+                    b->error = "model references an unposed matrix.";
+                    return;
+                }
+                transform = &pose->animated->matrices[index];
+            }
             continue;
         }
 
@@ -302,6 +320,13 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                 out->r = v[12]; out->g = v[13]; out->b = v[14]; out->a = v[15];
                 cacheflags[first + i] = BgRenderStateFlags(state) & BG_RENDER_ENVIRONMENT_MASK;
                 BgRenderPrepareEnvironment(out, cacheflags[first + i], material);
+                if (transform != NULL)
+                {
+                    out->x = md16(v + 0);
+                    out->y = md16(v + 2);
+                    out->z = md16(v + 4);
+                    ModelTransformVertex(transform, out);
+                }
                 valid |= 1u << (first + i);
             }
             continue;
@@ -605,10 +630,225 @@ BOOL ModelReadHeldPlacement(const unsigned char *data, DWORD size,
     return TRUE;
 }
 
+/* Keep guard channel assignments shared with the game, including mirroring. */
+typedef struct EditorModelJoint { unsigned short flags, base, mirrored; } EditorModelJoint;
+#define ModelJoint static const EditorModelJoint
+#define JOINTLIST(NAME) g_EditorGuardJoints
+#define MODELSKELETON(NAME, COUNT, CHANNELS)
+#include <assets/embedded/skeletons/guard.inc.c>
+#undef MODELSKELETON
+#undef JOINTLIST
+#undef ModelJoint
+
+void ModelTransformIdentity(ModelTransform *transform)
+{
+    ZeroMemory(transform, sizeof(*transform));
+    transform->m[0][0] = transform->m[1][1] = transform->m[2][2] = 1.0f;
+}
+
+void ModelTransformVertex(const ModelTransform *transform, BgVertex *vertex)
+{
+    float position[3] = { vertex->x, vertex->y, vertex->z };
+    float normal[3];
+    int axis;
+
+    memcpy(normal, vertex->environment.normal, sizeof(normal));
+    for (axis = 0; axis < 3; axis++)
+    {
+        float value = transform->m[3][axis]
+            + position[0] * transform->m[0][axis]
+            + position[1] * transform->m[1][axis]
+            + position[2] * transform->m[2][axis];
+        if (axis == 0) { vertex->x = value; }
+        else if (axis == 1) { vertex->y = value; }
+        else { vertex->z = value; }
+        vertex->environment.normal[axis] = normal[0] * transform->m[0][axis]
+            + normal[1] * transform->m[1][axis] + normal[2] * transform->m[2][axis];
+    }
+}
+
+/* modelFindNodeMtx walks through non-transform nodes to their nearest joint. */
+static int MdlNodeMatrix(const unsigned char *data, DWORD size, DWORD node)
+{
+    int visited = 0;
+    while (node != 0 && visited++ < MDL_MAX_NODES)
+    {
+        DWORD opcode, offset, field;
+        int index;
+
+        if (size < 24 || node > size - 24) { return -1; }
+        opcode = (unsigned short)md16(data + node) & 0xff;
+        offset = mdoff(md32(data + node + 4));
+        field = opcode == 0x01 ? 2 : opcode == 0x15 ? 12 : 14;
+        if (opcode == 0x01 || opcode == 0x02 || opcode == 0x03 || opcode == 0x15)
+        {
+            if (offset == 0 || offset > size - field - 2) { return -1; }
+            index = md16(data + offset + field);
+            return index >= 0 && index < MDL_MAX_MATRICES ? index : -1;
+        }
+        node = mdoff(md32(data + node + 8));
+    }
+    return -1;
+}
+
+/* Compose one animated GROUP with its parent's primary matrix. Half-rotation
+   matrices skin the elbow/knee seams, as in modelBuildGroupMatrices. */
+static void MdlComposeJoint(ModelTransform *parent, const float origin[3],
+                            const float rotation[3], BOOL half)
+{
+    float cx = cosf(rotation[0] * 0.5f), sx = sinf(rotation[0] * 0.5f);
+    float cy = cosf(rotation[1] * 0.5f), sy = sinf(rotation[1] * 0.5f);
+    float cz = cosf(rotation[2] * 0.5f), sz = sinf(rotation[2] * 0.5f);
+    float q[4] = { cx*cy*cz + sx*sy*sz, sx*cy*cz - cx*sy*sz,
+                   cx*sy*cz + sx*cy*sz, cx*cy*sz - sx*sy*cz };
+    float factor = 2.0f, x, y, z, local[3][3];
+    ModelTransform output;
+    int axis, row;
+
+    if (half)
+    {
+        factor = 1.0f / (1.0f + fabsf(q[0]));
+        q[0] += q[0] < 0.0f ? -1.0f : 1.0f;
+    }
+    x = q[1] * factor; y = q[2] * factor; z = q[3] * factor;
+    local[0][0] = 1.0f - q[2]*y - q[3]*z;
+    local[0][1] = q[1]*y + q[0]*z;
+    local[0][2] = q[1]*z - q[0]*y;
+    local[1][0] = q[1]*y - q[0]*z;
+    local[1][1] = 1.0f - q[1]*x - q[3]*z;
+    local[1][2] = q[2]*z + q[0]*x;
+    local[2][0] = q[1]*z + q[0]*y;
+    local[2][1] = q[2]*z - q[0]*x;
+    local[2][2] = 1.0f - q[1]*x - q[2]*y;
+    for (axis = 0; axis < 3; axis++)
+    {
+        for (row = 0; row < 3; row++)
+        {
+            output.m[row][axis] = local[row][0] * parent->m[0][axis]
+                + local[row][1] * parent->m[1][axis] + local[row][2] * parent->m[2][axis];
+        }
+        output.m[3][axis] = parent->m[3][axis] + origin[0] * parent->m[0][axis]
+            + origin[1] * parent->m[1][axis] + origin[2] * parent->m[2][axis];
+    }
+    *parent = output;
+}
+
+static BOOL MdlAnimatedNode(const unsigned char *data, DWORD size, DWORD node,
+                             const unsigned short angles[45], BOOL flip, BOOL half,
+                             ModelTransform *out)
+{
+    DWORD chain[MDL_MAX_NODES];
+    int count = 0, i;
+
+    while (node != 0)
+    {
+        if (node > size - 24 || count == MDL_MAX_NODES) { return FALSE; }
+        chain[count++] = node;
+        node = mdoff(md32(data + node + 8));
+    }
+    ModelTransformIdentity(out);
+    for (i = count - 1; i >= 0; i--)
+    {
+        DWORD flags = (unsigned short)md16(data + chain[i]);
+        DWORD opcode = flags & 0xff;
+        DWORD offset = mdoff(md32(data + chain[i] + 4));
+        float origin[3], rotation[3];
+        int joint, channel, axis;
+
+        /* Root translation and heading are supplied by setup placement. */
+        if (opcode == 0x01) { continue; }
+        if (opcode == 0x03 || opcode == 0x15) { return FALSE; }
+        if (opcode != 0x02) { continue; }
+        if ((flags & 0x200) || offset == 0 || offset > size - 20) { return FALSE; }
+        joint = md16(data + offset + 12);
+        if (joint < 0 || joint >= (int)(sizeof(g_EditorGuardJoints) / sizeof(g_EditorGuardJoints[0])))
+        {
+            return FALSE;
+        }
+        channel = flip ? g_EditorGuardJoints[joint].mirrored : g_EditorGuardJoints[joint].base;
+        if (channel > 42) { return FALSE; }
+        for (axis = 0; axis < 3; axis++)
+        {
+            union { DWORD bits; float value; } coordinate;
+            DWORD angle = angles[channel + axis];
+
+            coordinate.bits = md32(data + offset + axis * 4);
+            if (!isfinite(coordinate.value)) { return FALSE; }
+            origin[axis] = coordinate.value;
+            if (flip && axis != 0 && angle != 0) { angle = 0x10000u - angle; }
+            rotation[axis] = ((float)angle * 6.2831853071795864769f) / 65535.0f;
+        }
+        MdlComposeJoint(out, origin, rotation, half && i == 0);
+    }
+    return TRUE;
+}
+
+static BOOL MdlBuildIdleMatrices(const unsigned char *data, DWORD size,
+    int switchcount, const unsigned short angles[45], BOOL flip,
+    MdlAnimatedPose *pose, ModelCharacterAttachments *attachments)
+{
+    DWORD stack[MDL_MAX_NODES], root = ModelFindRootNode(data, size);
+    int count = 0, visited = 0, hand;
+
+    if (root == 0) { return FALSE; }
+    ZeroMemory(attachments, sizeof(*attachments));
+    stack[count++] = root;
+    while (count > 0 && visited++ < MDL_MAX_NODES)
+    {
+        DWORD node = stack[--count], flags, opcode, offset, next, child;
+        int index;
+        if (node == 0 || node > size - 24) { return FALSE; }
+        flags = (unsigned short)md16(data + node);
+        opcode = flags & 0xff;
+        offset = mdoff(md32(data + node + 4));
+        if (opcode == 0x01 || opcode == 0x02)
+        {
+            index = MdlNodeMatrix(data, size, node);
+            if (index < 0 || !MdlAnimatedNode(data, size, node, angles, flip, FALSE,
+                                             &pose->matrices[index])) { return FALSE; }
+            pose->valid[index] = TRUE;
+            if (opcode == 0x02 && (flags & 0x100))
+            {
+                if (offset == 0 || offset > size - 20) { return FALSE; }
+                index = md16(data + offset + 16);
+                if (index < 0 || index >= MDL_MAX_MATRICES
+                    || !MdlAnimatedNode(data, size, node, angles, flip, TRUE,
+                                         &pose->matrices[index])) { return FALSE; }
+                pose->valid[index] = TRUE;
+            }
+        }
+        if (opcode == 0x17 && !attachments->hashead)
+        {
+            attachments->hashead = MdlAnimatedNode(data, size, node, angles, flip,
+                                                     FALSE, &attachments->head);
+            if (!attachments->hashead) { return FALSE; }
+        }
+        next = mdoff(md32(data + node + 12));
+        child = mdoff(md32(data + node + 20));
+        if (count + 2 > MDL_MAX_NODES) { return FALSE; }
+        if (next != 0) { stack[count++] = next; }
+        if (child != 0) { stack[count++] = child; }
+    }
+    if (count > 0) { return FALSE; }
+    for (hand = 0; hand < 2; hand++)
+    {
+        int slot = hand == 0 ? 3 : 5;
+        float unused[3];
+        if (ModelReadSwitchAttachment(data, size, switchcount, slot, unused))
+        {
+            DWORD node = mdoff(md32(data + slot * 4));
+            attachments->hashands[hand] = MdlAnimatedNode(data, size, node, angles,
+                                                         flip, FALSE, &attachments->hands[hand]);
+            if (!attachments->hashands[hand]) { return FALSE; }
+        }
+    }
+    return TRUE;
+}
+
 static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
                             DWORD *tricount, unsigned short **texids,
                             BgRenderFlags **renderflags,
-                            const char **reasonout, BOOL closestlod)
+                            const char **reasonout, BOOL closestlod, const MdlAnimatedPose *animated)
 {
     MdlBuilder b;
     MdlPose pose;
@@ -650,6 +890,7 @@ static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
 
     ZeroMemory(&b, sizeof(b));
     ZeroMemory(&pose, sizeof(pose));
+    pose.animated = animated;
     stack[sp++] = rootoff;
 
     while (sp > 0 && visited < MDL_MAX_NODES)
@@ -708,6 +949,15 @@ static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
         }
         if (!closestlod || MdlNodeInClosestLod(data, maxlen, node))
         {
+            if (animated != NULL)
+            {
+                pose.defaultmatrix = MdlNodeMatrix(data, maxlen, node);
+                if (pose.defaultmatrix < 0 || !animated->valid[pose.defaultmatrix])
+                {
+                    b.error = "model has an invalid posed mesh attachment.";
+                    break;
+                }
+            }
             MdlNodeMeshes(&b, data, maxlen, flags & 0xff, dataoff, &pose, origin);
         }
     }
@@ -733,7 +983,7 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
                             BgRenderFlags **renderflags,
                             const char **reasonout)
 {
-    return MdlLoadGeometry(data, maxlen, tricount, texids, renderflags, reasonout, FALSE);
+    return MdlLoadGeometry(data, maxlen, tricount, texids, renderflags, reasonout, FALSE, NULL);
 }
 
 BgVertex *ModelLoadCharacterGeometry(const unsigned char *data, DWORD maxlen,
@@ -741,7 +991,66 @@ BgVertex *ModelLoadCharacterGeometry(const unsigned char *data, DWORD maxlen,
                                      BgRenderFlags **renderflags,
                                      const char **reasonout)
 {
-    return MdlLoadGeometry(data, maxlen, tricount, texids, renderflags, reasonout, TRUE);
+    return MdlLoadGeometry(data, maxlen, tricount, texids, renderflags, reasonout, TRUE, NULL);
+}
+
+BOOL ModelApplyCharacterPose(const unsigned char *data, DWORD size, int switchcount,
+                              const unsigned short angles[45], BOOL flip,
+                              BgVertex *vertices, DWORD tricount,
+                              ModelCharacterAttachments *attachments)
+{
+    MdlAnimatedPose *pose = NULL;
+    ModelCharacterAttachments posedattachments;
+    BgVertex *reference = NULL, *posed = NULL;
+    unsigned short *tags = NULL;
+    BgRenderFlags *flags = NULL;
+    DWORD count, i;
+    const char *why;
+    BOOL ok = FALSE;
+
+    if (data == NULL || size < 40 || angles == NULL || attachments == NULL
+        || vertices == NULL || tricount == 0) { return FALSE; }
+    /* The exporter preserves triangle/corner order. Verify the correspondence
+       before using ROM joint bindings; arbitrary DCC topology edits must not
+       stretch the wrong vertices. This also leaves custom normals untouched. */
+    reference = ModelLoadCharacterGeometry(data, size, &count, &tags, &flags, &why);
+    free(tags); free(flags); tags = NULL; flags = NULL;
+    if (reference == NULL || count != tricount) { goto done; }
+    for (i = 0; i < count * 3; i++)
+    {
+        int axis;
+        if (!(fabsf(reference[i].x - vertices[i].x) <= 0.002f)
+            || !(fabsf(reference[i].y - vertices[i].y) <= 0.002f)
+            || !(fabsf(reference[i].z - vertices[i].z) <= 0.002f)) { goto done; }
+        for (axis = 0; axis < 3; axis++)
+        {
+            if (!(fabsf(reference[i].environment.normal[axis]
+                        - vertices[i].environment.normal[axis]) <= 0.002f)) { goto done; }
+        }
+    }
+    pose = (MdlAnimatedPose *)calloc(1, sizeof(*pose));
+    if (pose == NULL || !MdlBuildIdleMatrices(data, size, switchcount, angles,
+                                            flip, pose, &posedattachments)) { goto done; }
+    posed = MdlLoadGeometry(data, size, &count, &tags, &flags, &why, TRUE, pose);
+    if (posed == NULL || count != tricount) { goto done; }
+    for (i = 0; i < count * 3; i++)
+    {
+        if (!isfinite(posed[i].x) || !isfinite(posed[i].y) || !isfinite(posed[i].z)) { goto done; }
+    }
+    for (i = 0; i < count * 3; i++)
+    {
+        vertices[i].x = posed[i].x;
+        vertices[i].y = posed[i].y;
+        vertices[i].z = posed[i].z;
+        memcpy(vertices[i].environment.normal, posed[i].environment.normal,
+               sizeof(vertices[i].environment.normal));
+    }
+    *attachments = posedattachments;
+    ok = TRUE;
+
+done:
+    free(reference); free(posed); free(tags); free(flags); free(pose);
+    return ok;
 }
 
 static const char *MdlClassFolder(const char *name)

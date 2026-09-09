@@ -1,5 +1,5 @@
 /* Setup-character preview with authored heads and visible held equipment.
-   Runtime AI and animation are not simulated. */
+   Idle frames are viewport-only; runtime AI and animation are not simulated. */
 #include <windows.h>
 #include <math.h>
 #include <stdio.h>
@@ -11,6 +11,13 @@
 #include "characterload.h"
 #include "gltf.h"
 #include "modelload.h"
+#include "idleposes.h"
+
+enum CharacterPreviewPose {
+    CHARACTER_POSE_NONE, CHARACTER_POSE_RELAXED,
+    CHARACTER_POSE_TWO_HANDED, CHARACTER_POSE_TWO_HANDED_LEFT,
+    CHARACTER_POSE_COUNT
+};
 
 /* Reuse the game's complete CitemZ_entries order and metadata. The included
    model headers supply switch counts through local header placeholders;
@@ -44,10 +51,7 @@ typedef struct CharacterPart {
     BgRenderFlags *renderflags;
     DWORD tricount;
     float bottom;
-    float headposition[3];
-    BOOL hasheadposition;
-    float handposition[2][3]; /* right, left: chrEquipWeapon Switches[3/5] */
-    BOOL hashandposition[2];
+    ModelCharacterAttachments attachments;
 } CharacterPart;
 
 typedef struct CharacterEquipment {
@@ -114,10 +118,10 @@ BOOL CharacterResolveModels(const SetupCharacter *character,
     return TRUE;
 }
 
-static CharacterPart *CharacterGetPart(CharacterPart *cache, int modelid,
+static CharacterPart *CharacterGetPart(CharacterPart *cache, int modelid, int poseid,
                                         const char *projectdir, const RomFile *rom)
 {
-    CharacterPart *part = &cache[modelid];
+    CharacterPart *part = &cache[modelid * CHARACTER_POSE_COUNT + poseid];
     const CharacterSourceDefinition *definition = &g_CharacterModels[modelid];
     const char *why;
     char path[MAX_PATH];
@@ -133,11 +137,9 @@ static CharacterPart *CharacterGetPart(CharacterPart *cache, int modelid,
         part->vertices = GltfLoadModel(path, projectdir, &part->tricount,
                                        &part->tags, &part->renderflags, &why);
         if (part->vertices == NULL) { return NULL; }
-        part->bottom = part->vertices[0].y;
-        for (i = 1; i < part->tricount * 3; i++)
-        {
-            if (part->vertices[i].y < part->bottom) { part->bottom = part->vertices[i].y; }
-        }
+        ModelTransformIdentity(&part->attachments.head);
+        ModelTransformIdentity(&part->attachments.hands[0]);
+        ModelTransformIdentity(&part->attachments.hands[1]);
         /* Flattened glTFs retain edited surfaces. Read attachment points
            from the import ROM, as props do for authored placement boxes. */
         if (rom != NULL && rom->data != NULL
@@ -145,13 +147,26 @@ static CharacterPart *CharacterGetPart(CharacterPart *cache, int modelid,
         {
             if (!definition->hashead)
             {
-                part->hasheadposition = ModelReadHeadAttachment(rom->data + offset,
-                    size, part->headposition);
+                part->attachments.hashead = ModelReadHeadAttachment(rom->data + offset,
+                    size, part->attachments.head.m[3]);
             }
-            part->hashandposition[0] = ModelReadSwitchAttachment(rom->data + offset,
-                size, *definition->header, 3, part->handposition[0]);
-            part->hashandposition[1] = ModelReadSwitchAttachment(rom->data + offset,
-                size, *definition->header, 5, part->handposition[1]);
+            part->attachments.hashands[0] = ModelReadSwitchAttachment(rom->data + offset,
+                size, *definition->header, 3, part->attachments.hands[0].m[3]);
+            part->attachments.hashands[1] = ModelReadSwitchAttachment(rom->data + offset,
+                size, *definition->header, 5, part->attachments.hands[1].m[3]);
+            if (poseid != CHARACTER_POSE_NONE)
+            {
+                const unsigned short *angles = poseid == CHARACTER_POSE_RELAXED
+                    ? g_EditorPose_idle_unarmed : g_EditorPose_idle;
+                ModelApplyCharacterPose(rom->data + offset, size, *definition->header,
+                    angles, poseid == CHARACTER_POSE_TWO_HANDED_LEFT,
+                    part->vertices, part->tricount, &part->attachments);
+            }
+        }
+        part->bottom = part->vertices[0].y;
+        for (i = 1; i < part->tricount * 3; i++)
+        {
+            if (part->vertices[i].y < part->bottom) { part->bottom = part->vertices[i].y; }
         }
     }
     return part->vertices != NULL ? part : NULL;
@@ -214,9 +229,8 @@ static BOOL CharacterReserve(CharacterBuilder *builder, DWORD add)
 }
 
 static BOOL CharacterPlacePart(CharacterBuilder *builder, const CharacterPart *part,
-                                 const float offset[3], const float position[3],
-                                 float scale, float partscale, BOOL lefthand,
-                                 float facingx, float facingz, DWORD index)
+    const ModelTransform *attachment, const float bodyoffset[3], const float position[3],
+    float scale, float partscale, BOOL lefthand, float facingx, float facingz, DWORD index)
 {
     DWORD tri;
     float sign = lefthand ? -1.0f : 1.0f;
@@ -234,73 +248,112 @@ static BOOL CharacterPlacePart(CharacterBuilder *builder, const CharacterPart *p
         {
             const BgVertex *source = &part->vertices[tri * 3 + corner];
             BgVertex *dest = &builder->vertices[output * 3 + corner];
-            float x = (sign * partscale * source->x + offset[0]) * scale;
-            float y = (sign * partscale * source->y + offset[1]) * scale;
-            float z = (partscale * source->z + offset[2]) * scale;
+            float x, y, z, nx, nz;
 
             *dest = *source;
-            /* process_01_group_heading rotates only about world Y, using
-               atan2(pad.look.x, pad.look.z); the pad's up vector is ignored. */
+            dest->x *= sign * partscale;
+            dest->y *= sign * partscale;
+            dest->z *= partscale;
+            dest->environment.normal[0] *= sign;
+            dest->environment.normal[1] *= sign;
+            if (attachment != NULL) { ModelTransformVertex(attachment, dest); }
+            x = (dest->x + bodyoffset[0]) * scale;
+            y = (dest->y + bodyoffset[1]) * scale;
+            z = (dest->z + bodyoffset[2]) * scale;
+            nx = dest->environment.normal[0];
+            nz = dest->environment.normal[2];
+            /* Apply pad heading after the local pose and attachment. */
             dest->x = position[0] + facingz * x + facingx * z;
             dest->y = position[1] + y;
             dest->z = position[2] - facingx * x + facingz * z;
-            /* Left-hand equipment rotates 180 degrees about local Z. */
-            dest->environment.normal[0] = facingz * sign * source->environment.normal[0]
-                + facingx * source->environment.normal[2];
-            dest->environment.normal[1] = sign * source->environment.normal[1];
-            dest->environment.normal[2] = -facingx * sign * source->environment.normal[0]
-                + facingz * source->environment.normal[2];
+            dest->environment.normal[0] = facingz * nx + facingx * nz;
+            dest->environment.normal[2] = -facingx * nx + facingz * nz;
         }
     }
     builder->count += part->tricount;
     return TRUE;
 }
 
-static BOOL CharacterPlaceEquipment(CharacterBuilder *builder,
-    CharacterEquipment *cache, int count, const SetupFile *setup, DWORD index,
-    const char *projectdir, const RomFile *rom, const CharacterPart *body,
-    const float bodyoffset[3], const float position[3], float scale,
-    float facingx, float facingz)
+/* Share the game's initial hand occupancy between pose choice and rendering. */
+static void CharacterFindEquipment(const SetupFile *setup, DWORD index,
+                                    const SetupObject *held[2])
 {
     const SetupCharacter *character = &setup->characters[index];
-    BOOL occupied[2] = { FALSE, FALSE };
     DWORD i;
 
+    held[0] = held[1] = NULL;
     for (i = 0; i < setup->objectcount; i++)
     {
         const SetupObject *object = &setup->objects[i];
-        CharacterEquipment *equipment;
-        float offset[3], partscale;
-        int hand, axis;
+        int hand;
 
-        /* weaponAssignToHome uses a literal character ID in the pad field.
-           Only collectables are hand attachments; keys/other inventory and
-           concealed weapons must not claim a visible hand. Setup order decides
-           which weapon occupies it, as in chrEquipWeapon. */
         if (object->deleted || object->type != PROPDEF_COLLECTABLE
             || !(object->flags & PROPFLAG_ASSIGNEDTOCHR)
             || (object->flags & PROPFLAG_CONCEAL_GUN)
             || object->pad < 0 || (unsigned short)object->pad != character->chrnum
             || object->sourceoffset <= character->sourceoffset) { continue; }
         hand = (object->flags & PROPFLAG_WEAPON_LEFTHANDED) ? 1 : 0;
-        if (occupied[hand]) { continue; }
-        occupied[hand] = TRUE;
-        if (!body->hashandposition[hand]
+        if (held[hand] == NULL) { held[hand] = object; }
+    }
+}
+
+static int CharacterChoosePose(const SetupFile *setup, const SetupObject *held[2])
+{
+    const SetupObject *weapon;
+    unsigned int item;
+    int hand;
+
+    /* chrlvIdleAnimationRelated uses the relaxed stance for empty hands,
+       one-handed items and dual wielding; otherwise it mirrors ANIM_DATA_idle. */
+    if ((held[0] == NULL) == (held[1] == NULL)) { return CHARACTER_POSE_RELAXED; }
+    hand = held[1] != NULL ? 1 : 0;
+    weapon = held[hand];
+    /* WeaponObjRecord.weaponnum is the first byte after its ObjectRecord. */
+    if (setup->data == NULL || setup->size < 136
+        || weapon->sourceoffset > setup->size - 136) { return CHARACTER_POSE_RELAXED; }
+    item = setup->data[weapon->sourceoffset + 128];
+    if (item >= sizeof(g_EditorItemOneHanded) || g_EditorItemOneHanded[item])
+    {
+        return CHARACTER_POSE_RELAXED;
+    }
+    return hand == 1 ? CHARACTER_POSE_TWO_HANDED_LEFT : CHARACTER_POSE_TWO_HANDED;
+}
+
+static BOOL CharacterPlaceEquipment(CharacterBuilder *builder,
+    CharacterEquipment *cache, int count, const SetupObject *held[2], DWORD index,
+    const char *projectdir, const RomFile *rom, const CharacterPart *body,
+    const float bodyoffset[3], const float position[3], float scale,
+    float facingx, float facingz)
+{
+    int hand;
+
+    for (hand = 0; hand < 2; hand++)
+    {
+        const SetupObject *object = held[hand];
+        CharacterEquipment *equipment;
+        ModelTransform attachment;
+        float partscale;
+        int axis, row;
+
+        if (object == NULL || !body->attachments.hashands[hand]
             || (object->flags2 & PROPFLAG2_ONLYEXPLOSIONDAMAGE)) { continue; }
         equipment = CharacterGetEquipment(cache, count, object->modelid, projectdir, rom);
         if (equipment == NULL) { continue; }
+        attachment = body->attachments.hands[hand];
+        /* The authored root offset and left-hand Z rotation both precede
+           the hand's animation matrix, as in chrRenderHeldWeapon. */
         for (axis = 0; axis < 3; axis++)
         {
-            float sign = hand == 1 && axis < 2 ? -1.0f : 1.0f;
-
-            offset[axis] = bodyoffset[axis] + body->handposition[hand][axis]
-                + sign * equipment->origin[axis];
+            for (row = 0; row < 3; row++)
+            {
+                float sign = hand == 1 && row < 2 ? -1.0f : 1.0f;
+                attachment.m[3][axis] += sign * equipment->origin[row] * attachment.m[row][axis];
+            }
         }
-        /* GROUP/GROUPSIMPLE roots inherit scale from the hand. Applying the
-           pickup's model scale again would shrink ordinary guns by 10x. */
+        /* GROUP/GROUPSIMPLE roots inherit scale from the hand. */
         partscale = equipment->usesmodelscale
             ? equipment->scale * ((float)object->extrascale / 256.0f) : 1.0f;
-        if (!CharacterPlacePart(builder, &equipment->part, offset, position,
+        if (!CharacterPlacePart(builder, &equipment->part, &attachment, bodyoffset, position,
             scale, partscale, hand == 1, facingx, facingz, index)) { return FALSE; }
     }
     return TRUE;
@@ -331,7 +384,7 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
                                  float levelscale, SetupObjectGeometry *out,
                                  const char **reasonout)
 {
-    CharacterPart cache[CHARACTER_MODEL_COUNT];
+    CharacterPart cache[CHARACTER_MODEL_COUNT * CHARACTER_POSE_COUNT];
     CharacterEquipment *equipment = NULL;
     int equipmentcount = 0;
     CharacterBuilder builder;
@@ -363,42 +416,40 @@ BOOL CharacterLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
     {
         const SetupCharacter *character = &setup->characters[i];
         const SetupPad *pad;
+        const SetupObject *held[2];
         CharacterModelDefinition definition;
         CharacterPart *body, *head = NULL;
         float position[3], bodyoffset[3] = { 0.0f, 0.0f, 0.0f };
-        float headoffset[3], length, facingx, facingz;
-        int bodyid, headid, axis;
+        float length, facingx, facingz;
+        int bodyid, headid;
 
         if (character->deleted || character->pad >= setup->padcount
             || !CharacterResolveModels(character, &bodyid, &headid)) { continue; }
         pad = &setup->pads[character->pad];
         if (!CharacterGetPadPosition(pad, stan, levelscale, position)) { continue; }
-        body = CharacterGetPart(cache, bodyid, projectdir, rom);
+        CharacterFindEquipment(setup, i, held);
+        body = CharacterGetPart(cache, bodyid, CharacterChoosePose(setup, held), projectdir, rom);
         if (body == NULL) { continue; }
         if (headid >= 0)
         {
-            head = CharacterGetPart(cache, headid, projectdir, rom);
-            if (head == NULL || !body->hasheadposition) { continue; }
+            head = CharacterGetPart(cache, headid, CHARACTER_POSE_NONE, projectdir, rom);
+            if (head == NULL || !body->attachments.hashead) { continue; }
         }
         if (!CharacterGetModelDefinition(bodyid, &definition)) { continue; }
-        /* The unanimated pose is rooted at the pelvis. Seat its feet on
-           the floor; animated root motion is deliberately not simulated. */
+        /* Seat the preview on its floor using the posed body bounds. The
+           setup pad and the animation's root motion remain untouched. */
         bodyoffset[1] = -body->bottom;
         length = sqrtf(pad->look[0] * pad->look[0] + pad->look[2] * pad->look[2]);
         facingx = length > 0.000001f ? pad->look[0] / length : 0.0f;
         facingz = length > 0.000001f ? pad->look[2] / length : 1.0f;
-        if (!CharacterPlacePart(&builder, body, bodyoffset, position,
+        if (!CharacterPlacePart(&builder, body, NULL, bodyoffset, position,
                                  definition.scale, 1.0f, FALSE, facingx, facingz, i)) { goto done; }
         if (head != NULL)
         {
-            for (axis = 0; axis < 3; axis++)
-            {
-                headoffset[axis] = body->headposition[axis] + bodyoffset[axis];
-            }
-            if (!CharacterPlacePart(&builder, head, headoffset, position,
+            if (!CharacterPlacePart(&builder, head, &body->attachments.head, bodyoffset, position,
                                      definition.scale, 1.0f, FALSE, facingx, facingz, i)) { goto done; }
         }
-        if (!CharacterPlaceEquipment(&builder, equipment, equipmentcount, setup, i,
+        if (!CharacterPlaceEquipment(&builder, equipment, equipmentcount, held, i,
             projectdir, rom, body, bodyoffset, position, definition.scale,
             facingx, facingz)) { goto done; }
         out->occupiedpads[character->pad] = 1;
@@ -422,7 +473,7 @@ done:
         }
         free(equipment);
     }
-    for (i = 0; i < CHARACTER_MODEL_COUNT; i++)
+    for (i = 0; i < CHARACTER_MODEL_COUNT * CHARACTER_POSE_COUNT; i++)
     {
         free(cache[i].vertices);
         free(cache[i].tags);

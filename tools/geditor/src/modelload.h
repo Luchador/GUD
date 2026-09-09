@@ -7,6 +7,30 @@
 #include "bgload.h"
 #include "bgrender.h"
 
+/* Row-vector affine transform, matching the game's model matrices. */
+typedef struct ModelTransform {
+    float m[4][3];
+} ModelTransform;
+
+typedef struct ModelCharacterAttachments {
+    ModelTransform head;
+    ModelTransform hands[2]; /* right, left */
+    BOOL hashead;
+    BOOL hashands[2];
+} ModelCharacterAttachments;
+
+void ModelTransformIdentity(ModelTransform *transform);
+void ModelTransformVertex(const ModelTransform *transform, BgVertex *vertex);
+
+/* Apply one guard-skeleton animation frame to a preview copy of an exported
+   body. UVs/colors/materials stay in project space. Unmatched custom geometry
+   is left untouched and returns FALSE. Attachments are updated only on success.
+   The 45 channels are the game's uncompressed u16 angles, with no root motion. */
+BOOL ModelApplyCharacterPose(const unsigned char *data, DWORD size, int switchcount,
+                              const unsigned short angles[45], BOOL flip,
+                              BgVertex *vertices, DWORD tricount,
+                              ModelCharacterAttachments *attachments);
+
 /*
  * GoldenEye model (P/C/G file) geometry extraction.
  *

@@ -18,6 +18,17 @@ HEADERS := $(wildcard *.h)
 SHARED_HEADERS := ../../../src/propconstants.h
 PROP_RECORDS := ../../../assets/obseg/prop/propItemModelFileRecord.inc.c \
                 $(wildcard ../../../assets/obseg/prop/*/propFileRecord.inc.c)
+CHARACTER_RECORDS := ../../../assets/obseg/chr/chrModelFileHeaders.inc.c \
+                     ../../../assets/obseg/chr/chrModelFileRecords.inc.c \
+                     $(wildcard ../../../assets/obseg/chr/*/*.inc.c) \
+                     ../../../assets/embedded/skeletons/guard.inc.c
+IDLE_SOURCES := ../../../assets/animationtable_entries.c \
+                ../../../assets/animationtable_data.c \
+                ../../../src/bondconstants.h \
+                ../../../assets/obseg/gun/gunModelFileRecord.inc.c \
+                ../../../assets/obseg/gun/gunWeaponStats.inc.c \
+                $(wildcard ../../../assets/obseg/gun/*/gunFileRecord.inc.c) \
+                $(wildcard ../../../assets/obseg/gun/*/gunWeaponStat.inc.c)
 RCFILE  := geditor.rc
 RCOBJ   := geditor_rc.o
 TOOL_IMAGES := $(wildcard ../geditorassets/*_select_*.png) \
@@ -25,8 +36,11 @@ TOOL_IMAGES := $(wildcard ../geditorassets/*_select_*.png) \
                $(wildcard ../geditorassets/vertex_snap_*.png) \
                ../geditorassets/no_texture.png
 
-$(TARGET): $(SOURCES) $(HEADERS) $(SHARED_HEADERS) $(PROP_RECORDS) $(RCOBJ)
+$(TARGET): $(SOURCES) $(HEADERS) $(SHARED_HEADERS) $(PROP_RECORDS) $(CHARACTER_RECORDS) idleposes.h $(RCOBJ)
 	$(CC) $(CFLAGS) -o $@ $(SOURCES) $(RCOBJ) $(LDFLAGS)
+
+idleposes.h: ../scripts/generate_idle_poses.py ../../../tools/make_animation_entries_uncompressed.py $(IDLE_SOURCES)
+	python3 ../scripts/generate_idle_poses.py
 
 # Resource script -> linkable object (dialogs, icon, and tool button artwork)
 $(RCOBJ): $(RCFILE) resource.h icon.ico $(TOOL_IMAGES) ../geditorassets/gizmo_arrow.glb ../geditorassets/gizmo_cylinder.glb ../geditorassets/gizmo_scale.glb
