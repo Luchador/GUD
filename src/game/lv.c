@@ -123,7 +123,7 @@ extern u8* _fontdlSegmentRomEnd;
 
 struct LevelEntry g_LevelInfoTable[] = {
 /*  levelID;            levelName                setupFileName;               bg_seg_filename;        bg_stan_filename;      levelscale;  renderScale;    main track;      bg_sound;     xtrack;  */
-    {LEVELID_BUNKER1,   "Bunker",                "UsetupsevbunkerZ",         "bg/bg_sev_all_p.seg",  "Tbg_sev_all_p_stanZ",  0.53931433,  1.0,            M_BUNKER1,       0xFFFF,       M_BUNKER1X         },
+    {LEVELID_BUNKER1,   "Bunker 1",              "UsetupsevbunkerZ",         "bg/bg_sev_all_p.seg",  "Tbg_sev_all_p_stanZ",  0.53931433,  1.0,            M_BUNKER1,       0xFFFF,       M_BUNKER1X         },
     {LEVELID_SILO,      "Silo",                  "UsetupsiloZ",              "bg/bg_silo_all_p.seg", "Tbg_silo_all_p_stanZ", 0.47256002,  1.0,            M_SILO,          0xFFFF,       M_SILOX            },
     {LEVELID_STATUE,    "Statue",                "UsetupstatueZ",            "bg/bg_stat_all_p.seg", "Tbg_stat_all_p_stanZ", 0.107202865, 1.0,            M_STATUE,        0xFFFF,       M_STATUEPART       },
     {LEVELID_CONTROL,   "Control",               "UsetupcontrolZ",           "bg/bg_arec_all_p.seg", "Tbg_arec_all_p_stanZ", 0.49886572,  1.0,            M_CONTROL,       0xFFFF,       M_ELEVATOR_CONTROL },
