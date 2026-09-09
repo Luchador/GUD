@@ -19,6 +19,8 @@ static void UVEditorUpdateFields(void)
     int count = UVCanvasGetSelection(g_UVCanvas, uv), axis;
     char text[96];
     if (g_UVEditor == NULL) { return; }
+    for (axis = IDC_UV_PROJECT_X; axis <= IDC_UV_PROJECT_BEST; axis++)
+    { EnableWindow(GetDlgItem(g_UVEditor, axis), UVCanvasHasFaces(g_UVCanvas)); }
     if (count == 0) { lstrcpy(text, "No UV vertices selected"); }
     else { snprintf(text, sizeof(text), "%d UV %s selected", count, count == 1 ? "vertex" : "vertices"); }
     SetDlgItemText(g_UVEditor, IDC_UV_SELECTION, text);
@@ -70,6 +72,9 @@ static void UVEditorApplyFields(void)
 
 static void UVEditorLayout(HWND hwnd)
 {
+    static const int tools[] = { IDC_UV_MOVE, IDC_UV_PROJECT_LABEL, IDC_UV_PROJECT_X,
+                                IDC_UV_PROJECT_Y, IDC_UV_PROJECT_Z, IDC_UV_PROJECT_BEST };
+    static const int widths[] = { 8, 5, 6, 6, 6, 8 };
     RECT client;
     RECT units = { 8, 32, 140, 16 };
     HWND closebutton = GetDlgItem(hwnd, IDCANCEL);
@@ -81,14 +86,29 @@ static void UVEditorLayout(HWND hwnd)
     int panelleft = max(0, client.right - units.right);
     int panelwidth = client.right - panelleft;
     int editwidth = max(0, panelwidth - margin * 4);
+    int x = margin, y = margin / 2, buttonheight = row + margin / 2, index;
+    /* Wrap the tools when the window is narrowed, keeping every projection
+       accessible without covering the canvas or transform panel. */
+    for (index = 0; index < (int)(sizeof(tools) / sizeof(tools[0])); index++)
+    {
+        int width = margin * widths[index];
+        if (x > margin && x + width > panelleft - margin)
+        { x = margin; y += buttonheight + margin / 2; }
+        MoveWindow(GetDlgItem(hwnd, tools[index]), x,
+                   y + (tools[index] == IDC_UV_PROJECT_LABEL ? margin / 2 : 0),
+                   width, tools[index] == IDC_UV_PROJECT_LABEL ? row : buttonheight, TRUE);
+        x += width + margin;
+    }
+    int hintwidth = max(0, panelleft - x - margin);
+    ShowWindow(GetDlgItem(hwnd, IDC_UV_TOOL_HINT), hintwidth >= margin * 22 ? SW_SHOW : SW_HIDE);
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_TOOL_HINT), x, y + margin / 2, hintwidth, row, TRUE);
+    int toolbarheight = max(units.top, y + buttonheight + margin / 2);
     if (g_UVCanvas != NULL)
     {
-        int canvasheight = client.bottom - units.top;
+        int canvasheight = client.bottom - toolbarheight;
         if (canvasheight < 0) { canvasheight = 0; }
-        MoveWindow(g_UVCanvas, 0, units.top, panelleft, canvasheight, TRUE);
+        MoveWindow(g_UVCanvas, 0, toolbarheight, panelleft, canvasheight, TRUE);
     }
-    MoveWindow(GetDlgItem(hwnd, IDC_UV_MOVE), margin, margin / 2, margin * 8, row + margin / 2, TRUE);
-    MoveWindow(GetDlgItem(hwnd, IDC_UV_TOOL_HINT), margin * 10, margin, max(0, panelleft - margin * 11), row, TRUE);
     MoveWindow(GetDlgItem(hwnd, IDC_UV_TRANSFORM), panelleft + margin, margin, panelwidth - margin * 2, row, TRUE);
     MoveWindow(GetDlgItem(hwnd, IDC_UV_SELECTION), panelleft + margin, row + margin * 2, panelwidth - margin * 2, row * 2, TRUE);
     MoveWindow(GetDlgItem(hwnd, IDC_UV_U_LABEL), panelleft + margin, row * 3 + margin * 3, margin, row, TRUE);
@@ -143,6 +163,16 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
     }
 
     case WM_COMMAND:
+        if (LOWORD(wparam) >= IDC_UV_PROJECT_X && LOWORD(wparam) <= IDC_UV_PROJECT_BEST)
+        {
+            const char *reason = "";
+            UVProjection projection = (UVProjection)(LOWORD(wparam) - IDC_UV_PROJECT_X);
+            if (!UVCanvasProjectFaces(g_UVCanvas, projection, &reason) && reason[0] != '\0')
+            { MessageBox(hwnd, reason, "UV Editor", MB_ICONERROR); }
+            UVEditorUpdateFields();
+            SetFocus(g_UVCanvas);
+            return TRUE;
+        }
         if (LOWORD(wparam) == IDC_UV_MOVE)
         {
             CheckDlgButton(hwnd, IDC_UV_MOVE, BST_CHECKED);
@@ -256,6 +286,11 @@ void UVEditorRefreshSelection(HWND viewport, const BgDocument *document)
             triangles[output].source[corner].vertexid = vertex->id;
             triangles[output].source[corner].s = vertex->s;
             triangles[output].source[corner].t = vertex->t;
+            /* Include room origins so selections spanning rooms share one
+               world-space projection plane. Keep the calculation in double. */
+            triangles[output].position[corner][0] = (room->origin[0] + (double)vertex->x) / document->levelscale;
+            triangles[output].position[corner][1] = (room->origin[1] + (double)vertex->y) / document->levelscale;
+            triangles[output].position[corner][2] = (room->origin[2] + (double)vertex->z) / document->levelscale;
             /* Authored S/T is in 1/32 texels. Read the source document:
                environment mapping rewrites the viewport's preview UVs. */
             triangles[output].uv[corner][0] = vertex->s / (32.0 * width);

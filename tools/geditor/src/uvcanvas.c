@@ -491,7 +491,7 @@ static BOOL UVCanvasCommit(HWND hwnd, UVCanvasState *state)
         MessageBox(GetParent(hwnd), "Out of memory moving UV vertices.", "UV Editor", MB_ICONERROR);
         return FALSE;
     }
-    request.vertices = edits; request.count = 0;
+    request.vertices = edits; request.count = 0; request.action = NULL;
     for (i = 0; i < state->nodecount; i++)
     {
         const UVCanvasNode *node = &state->nodes[i];
@@ -746,4 +746,61 @@ BOOL UVCanvasSetPosition(HWND canvas, const double uv[2], const char **reason)
         return UVCanvasCommit(canvas, state);
     }
     return FALSE;
+}
+
+BOOL UVCanvasHasFaces(HWND canvas)
+{
+    const UVCanvasState *state = UVCanvasGetState(canvas);
+    return state != NULL && state->trianglecount > 0;
+}
+
+BOOL UVCanvasProjectFaces(HWND canvas, UVProjection projection, const char **reason)
+{
+    static const char *actions[UV_PROJECTION_COUNT] = {
+        "Planar UV Projection X", "Planar UV Projection Y", "Planar UV Projection Z", "Best Fit UV Projection"
+    };
+    UVCanvasState *state = UVCanvasGetState(canvas);
+    UVProjectionVertex *vertices = NULL;
+    UVProjectionFace *faces = NULL;
+    BgDocumentUVEdit *edits = NULL;
+    UVCanvasEdit request;
+    int triangle, corner, i;
+    BOOL result = FALSE;
+    *reason = "Select background faces to project.";
+    if (state == NULL || state->nodecount == 0 || projection < 0 || projection >= UV_PROJECTION_COUNT) { return FALSE; }
+    UVCanvasCancelInteraction(canvas);
+    vertices = calloc((size_t)state->nodecount, sizeof(*vertices));
+    faces = malloc((size_t)state->trianglecount * sizeof(*faces));
+    edits = malloc((size_t)state->nodecount * sizeof(*edits));
+    if (vertices == NULL || faces == NULL || edits == NULL)
+    { *reason = "Out of memory projecting UVs."; goto done; }
+    for (triangle = 0; triangle < state->trianglecount; triangle++)
+    {
+        for (corner = 0; corner < 3; corner++)
+        {
+            int node = state->triangles[triangle].nodes[corner];
+            faces[triangle].vertices[corner] = node;
+            memcpy(vertices[node].position, state->triangles[triangle].position[corner], sizeof(vertices[node].position));
+        }
+    }
+    if (!UVProjectionMap(vertices, state->nodecount, faces, state->trianglecount, projection, reason)) { goto done; }
+    request.vertices = edits; request.count = 0; request.action = actions[projection];
+    for (i = 0; i < state->nodecount; i++)
+    {
+        const UVCanvasNode *node = &state->nodes[i];
+        double s = round(vertices[i].uv[0] * 32.0 * node->width);
+        double t = round(vertices[i].uv[1] * 32.0 * node->height);
+        if (!isfinite(s) || !isfinite(t) || s < -32768 || s > 32767 || t < -32768 || t > 32767)
+        { *reason = "The projected UVs exceed GoldenEye's texture coordinate range."; goto done; }
+        if (s == node->source.s && t == node->source.t) { continue; }
+        edits[request.count] = node->source;
+        edits[request.count].s = (int)s; edits[request.count].t = (int)t;
+        request.count++;
+    }
+    /* Like movement, projection edits each shared source vertex once using
+       its current texture-size basis. Rebuilding may replace state below. */
+    result = request.count == 0 || (BOOL)SendMessage(GetParent(canvas), UVCANVAS_WM_COMMIT, 0, (LPARAM)&request);
+done:
+    free(vertices); free(faces); free(edits);
+    return result;
 }

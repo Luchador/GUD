@@ -51,6 +51,11 @@
 #define IDC_UV_U              1026
 #define IDC_UV_V              1027
 #define IDC_UV_HINT           1028
+#define IDC_UV_PROJECT_LABEL  1029
+#define IDC_UV_PROJECT_X      1030
+#define IDC_UV_PROJECT_Y      1031
+#define IDC_UV_PROJECT_Z      1032
+#define IDC_UV_PROJECT_BEST   1033
 
 /* Longest project name we accept, including the terminator. */
 #define GEDITOR_NAME_MAX       64

@@ -1540,7 +1540,8 @@ static BOOL GEditorApplyUVEdit(HWND hwnd, const UVCanvasEdit *request)
     if (request == NULL || request->vertices == NULL || request->count == 0
         || ViewportGetTool(g_Viewport) != EDITOR_TOOL_FACE_SELECT) { return FALSE; }
     if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument,
-        request->count == 1 ? "Move UV Vertex" : "Move UV Vertices", &transaction, &why)) { goto fail; }
+        request->action != NULL ? request->action
+            : request->count == 1 ? "Move UV Vertex" : "Move UV Vertices", &transaction, &why)) { goto fail; }
     if (!BgDocumentSetVertexUVs(&g_CurrentBgDocument, request->vertices, request->count,
                                &changed, &why)) { goto rollback; }
     if (changed == 0)
