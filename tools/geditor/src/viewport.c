@@ -300,10 +300,10 @@ static ViewportState *ViewportGetState(HWND hwnd)
     return (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 }
 
-/* Count authored BG batches once per scene rebuild, not per frame. Texture
- * IDs are shared across rooms, layers and GL variants; missing images still
- * count as used, but untextured faces and all setup models do not. */
-static void ViewportUpdateBgStatistics(ViewportState *state)
+/* Cache counts for the level's BG or the complete orbit model preview.
+ * Texture IDs are shared across rooms, layers and GL variants; missing images
+ * still count as used, but untextured faces do not add a texture. */
+static void ViewportUpdateStatistics(ViewportState *state)
 {
     unsigned char used[BG_TEX_NONE] = {0};
     int i;
@@ -312,7 +312,7 @@ static void ViewportUpdateBgStatistics(ViewportState *state)
     for (i = 0; i < state->batchcount; i++)
     {
         const SceneBatch *batch = &state->batches[i];
-        if (batch->object || batch->count <= 0) { continue; }
+        if ((!state->orbit && batch->object) || batch->count <= 0) { continue; }
         if (batch->secondary) { state->bgsecondarytris += batch->count / 3; }
         else { state->bgprimarytris += batch->count / 3; }
         if (batch->textureid < BG_TEX_NONE && !used[batch->textureid])
@@ -349,19 +349,30 @@ static BOOL ViewportCreateStatisticsFont(ViewportState *state)
     return ok;
 }
 
-static void ViewportDrawBgStatistics(const ViewportState *state)
+static void ViewportDrawStatistics(const ViewportState *state)
 {
     char lines[5][64];
-    int line;
+    int line, linecount;
 
-    if (!state->showbgstatistics || !state->statisticsfont
+    if ((!state->orbit && !state->showbgstatistics) || !state->statisticsfont
         || state->width <= 0 || state->height <= 0) { return; }
-    snprintf(lines[0], sizeof(lines[0]), "Primary tris: %lu", (unsigned long)state->bgprimarytris);
-    snprintf(lines[1], sizeof(lines[1]), "Secondary tris: %lu", (unsigned long)state->bgsecondarytris);
-    snprintf(lines[2], sizeof(lines[2]), "Total tris: %lu",
-             (unsigned long)(state->bgprimarytris + state->bgsecondarytris));
-    snprintf(lines[3], sizeof(lines[3]), "Unique textures: %lu", (unsigned long)state->bgtexturecount);
-    snprintf(lines[4], sizeof(lines[4]), "Hidden faces: %lu", (unsigned long)state->bghiddentris);
+    if (state->orbit)
+    {
+        linecount = 2;
+        snprintf(lines[0], sizeof(lines[0]), "Total tris: %lu",
+                 (unsigned long)(state->bgprimarytris + state->bgsecondarytris));
+        snprintf(lines[1], sizeof(lines[1]), "Unique textures: %lu", (unsigned long)state->bgtexturecount);
+    }
+    else
+    {
+        linecount = 5;
+        snprintf(lines[0], sizeof(lines[0]), "Primary tris: %lu", (unsigned long)state->bgprimarytris);
+        snprintf(lines[1], sizeof(lines[1]), "Secondary tris: %lu", (unsigned long)state->bgsecondarytris);
+        snprintf(lines[2], sizeof(lines[2]), "Total tris: %lu",
+                 (unsigned long)(state->bgprimarytris + state->bgsecondarytris));
+        snprintf(lines[3], sizeof(lines[3]), "Unique textures: %lu", (unsigned long)state->bgtexturecount);
+        snprintf(lines[4], sizeof(lines[4]), "Hidden faces: %lu", (unsigned long)state->bghiddentris);
+    }
 
     /* Draw into the back buffer so text stays steady during camera flight.
        A one-pixel shadow keeps it legible over bright geometry. */
@@ -382,7 +393,7 @@ static void ViewportDrawBgStatistics(const ViewportState *state)
     glPushMatrix();
     glLoadIdentity();
     glListBase(state->statisticsfont);
-    for (line = 0; line < 5; line++)
+    for (line = 0; line < linecount; line++)
     {
         GLsizei length = (GLsizei)strlen(lines[line]);
         int baseline = 24 + line * 20;
@@ -735,6 +746,7 @@ static void ViewportPaintGL(ViewportState *state)
 
     if (state->orbit && state->scene == NULL)
     {
+        ViewportDrawStatistics(state);
         SwapBuffers(state->hdc);
         return;
     }
@@ -991,8 +1003,8 @@ static void ViewportPaintGL(ViewportState *state)
         ViewportDrawBgToolOverlay(state);
         ViewportDrawTransformTools(state);
         ViewportDrawBoxSelection(state);
-        ViewportDrawBgStatistics(state);
     }
+    ViewportDrawStatistics(state);
     SwapBuffers(state->hdc);
 }
 
@@ -5241,7 +5253,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     }
     ViewportRestoreComponents(state);
     if (scene != NULL && savedobject != VIEWPORT_OBJECT_NONE) { ViewportSelectObject(state, savedobject); }
-    ViewportUpdateBgStatistics(state);
+    ViewportUpdateStatistics(state);
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);
     return TRUE;
