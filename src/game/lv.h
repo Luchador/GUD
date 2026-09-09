@@ -28,6 +28,7 @@
 struct LevelEntry
 {
     s32 levelID;
+    char *levelName;
     char *setupFileName;
     void *bg_seg_filename;
     void *bg_stan_filename;
