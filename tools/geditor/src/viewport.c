@@ -2787,8 +2787,11 @@ static void ViewportSnapVertexAt(HWND hwnd, ViewportState *state, int x, int y)
             state->componentcount = 1;
         }
         for (axis = 0; axis < 3; axis++) { request.offset[axis] = target[axis] - source[axis]; }
-        SendMessage(GetParent(hwnd), VIEWPORT_WM_SNAP_VERTEX, 0, (LPARAM)&request);
-        ViewportClearAllSelection(state);
+        if (SendMessage(GetParent(hwnd), VIEWPORT_WM_SNAP_VERTEX, 0, (LPARAM)&request))
+        {
+            ViewportClearAllSelection(state);
+        }
+        /* Cancel or a rejected edit retains the source for another target. */
     }
     ViewportUpdateGizmo(state);
     InvalidateRect(hwnd, NULL, FALSE);

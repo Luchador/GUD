@@ -14,6 +14,7 @@
 #include <string.h>
 #include <limits.h>
 #include <math.h>
+#include <stdint.h>
 
 #include "bgdocument.h"
 
@@ -861,6 +862,93 @@ BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
     return TRUE;
 }
 
+
+static BOOL BgDocumentFaceHasArea(const BgDocumentRoom *room, const BgDocumentFace *face)
+{
+    const BgDocumentVertex *a = &room->vertices[face->vertexindices[0]];
+    const BgDocumentVertex *b = &room->vertices[face->vertexindices[1]];
+    const BgDocumentVertex *c = &room->vertices[face->vertexindices[2]];
+    int64_t abx = (int64_t)b->x - a->x, aby = (int64_t)b->y - a->y, abz = (int64_t)b->z - a->z;
+    int64_t acx = (int64_t)c->x - a->x, acy = (int64_t)c->y - a->y, acz = (int64_t)c->z - a->z;
+
+    /* Exact local-coordinate arithmetic catches coincident AND collinear
+       corners without an epsilon that could discard small valid triangles.
+       Products of 16-bit coordinate differences can overflow 32 bits. */
+    return aby * acz != abz * acy || abz * acx != abx * acz || abx * acy != aby * acx;
+}
+
+BOOL BgDocumentFindCollapsedFaces(const BgDocument *before, const BgDocument *after,
+                                  BgFaceRef **facesout, DWORD *countout,
+                                  const char **reasonout)
+{
+    BgFaceRef *faces = NULL;
+    DWORD count = 0, capacity = 0, roomindex;
+
+    *facesout = NULL;
+    *countout = 0;
+    *reasonout = "The background topology changed while checking the snap.";
+    if (before == NULL || after == NULL || before->rooms == NULL || after->rooms == NULL
+        || before->roomcount != after->roomcount || before->facecount != after->facecount)
+    {
+        return FALSE;
+    }
+    for (roomindex = 1; roomindex <= after->roomcount; roomindex++)
+    {
+        const BgDocumentRoom *oldroom = &before->rooms[roomindex];
+        const BgDocumentRoom *room = &after->rooms[roomindex];
+        DWORD index;
+
+        if (room->facecount != oldroom->facecount || room->vertexcount != oldroom->vertexcount
+            || (room->facecount && (!room->faces || !oldroom->faces
+                                    || !room->vertices || !oldroom->vertices))) { goto fail; }
+        for (index = 0; index < room->facecount; index++)
+        {
+            const BgDocumentFace *oldface = &oldroom->faces[index];
+            const BgDocumentFace *face = &room->faces[index];
+            int corner;
+
+            if (face->id != oldface->id || face->room != oldface->room
+                || face->layer != oldface->layer) { goto fail; }
+            for (corner = 0; corner < 3; corner++)
+            {
+                if (face->vertexindices[corner] >= room->vertexcount
+                    || face->vertexindices[corner] != oldface->vertexindices[corner]) { goto fail; }
+            }
+            if (BgDocumentFaceHasArea(room, face) || !BgDocumentFaceHasArea(oldroom, oldface))
+            {
+                continue;
+            }
+            if (count == capacity)
+            {
+                DWORD next = capacity ? capacity * 2 : 16;
+                BgFaceRef *grown;
+
+                if (next < capacity || next > (DWORD)-1 / sizeof(*faces))
+                {
+                    *reasonout = "Too many collapsed background triangles.";
+                    goto fail;
+                }
+                grown = realloc(faces, (size_t)next * sizeof(*faces));
+                if (grown == NULL)
+                {
+                    *reasonout = "Out of memory collecting collapsed background triangles.";
+                    goto fail;
+                }
+                faces = grown;
+                capacity = next;
+            }
+            faces[count++] = (BgFaceRef){face->id, face->room, face->layer, 0};
+        }
+    }
+    *facesout = faces;
+    *countout = count;
+    *reasonout = "";
+    return TRUE;
+
+fail:
+    free(faces);
+    return FALSE;
+}
 
 static int BgDocumentCompareVertexRefs(const void *left, const void *right)
 {

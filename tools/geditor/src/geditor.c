@@ -1567,6 +1567,41 @@ static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3], BOOL sn
         free(vertices); free(stanpoints);
         return TRUE;
     }
+    if (snap && transaction.asset == EDIT_HISTORY_ASSET_BG)
+    {
+        BgFaceRef *collapsed = NULL;
+        DWORD collapsedcount, deleted;
+        BOOL ok;
+
+        /* Test the actual quantized positions before rebuilding the viewport.
+           Deletion belongs to this same transaction, so one Undo restores both. */
+        if (!BgDocumentFindCollapsedFaces(&transaction.beforebg, &g_CurrentBgDocument,
+                                          &collapsed, &collapsedcount, &why)) { goto rollback; }
+        if (collapsedcount > 0)
+        {
+            char warning[320];
+            snprintf(warning, sizeof(warning),
+                "This snap would collapse %lu background triangle%s to a line or point.\n\n"
+                "Click OK to snap and delete the collapsed triangle%s.\n"
+                "Click Cancel to keep the geometry unchanged.",
+                (unsigned long)collapsedcount, collapsedcount == 1 ? "" : "s",
+                collapsedcount == 1 ? "" : "s");
+            if (MessageBox(hwnd, warning, GEDITOR_TITLE, MB_OKCANCEL | MB_ICONWARNING) != IDOK)
+            {
+                free(collapsed);
+                EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument,
+                                        &g_CurrentSetup, &g_CurrentStan);
+                free(vertices);
+                free(stanpoints);
+                return FALSE;
+            }
+            ok = BgDocumentDeleteFaces(&g_CurrentBgDocument, collapsed, collapsedcount,
+                                        &deleted, &why);
+            free(collapsed);
+            if (!ok) { goto rollback; }
+            lstrcpyn(transaction.action, "Snap BG Vertex and Delete Faces", sizeof(transaction.action));
+        }
+    }
     if (!(stan ? GEditorReloadCurrentObjectsAndViewport(&why)
         : (object || pad) ? GEditorRebuildCurrentViewportWithObjects(&objects,&why)
                  : GEditorRebuildCurrentViewport(&why))

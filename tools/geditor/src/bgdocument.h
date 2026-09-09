@@ -114,6 +114,13 @@ BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
                            DWORD refcount, DWORD *deletedout,
                            const char **reasonout);
 
+/* Compare snapshots with identical topology after a vertex-position edit.
+ * Finds faces whose area became zero, retaining pre-existing degenerates.
+ * Returns an owned reference array (NULL when empty); the caller frees it. */
+BOOL BgDocumentFindCollapsedFaces(const BgDocument *before, const BgDocument *after,
+                                  BgFaceRef **facesout, DWORD *countout,
+                                  const char **reasonout);
+
 /* Replaces the image on each face, preserving UVs and shared vertices.
  * Existing textured faces retain their other material settings; untextured
  * faces receive a standard shaded texture material. BG_TEX_NONE disables
