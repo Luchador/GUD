@@ -3,8 +3,8 @@
 
 #include "edittool.h"
 
-/* The supplied artwork is 48px square, with a 4px margin on each side. */
-#define TOOLTOOLBAR_HEIGHT 56
+/* The icons are 32px squares, with a 4px margin on each side. */
+#define TOOLTOOLBAR_HEIGHT 40
 
 BOOL ToolToolbarRegisterClass(HINSTANCE hinstance);
 HWND ToolToolbarCreate(HWND parent, HINSTANCE hinstance);
