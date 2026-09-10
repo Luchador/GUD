@@ -122,6 +122,8 @@ BOOL ViewportGetModelDropPosition(HWND hwnd, POINT screen, double position[3]);
 void ViewportSelectSetupModel(HWND hwnd, DWORD selection);
 BOOL ViewportGetSelectedPad(HWND hwnd, SetupPadRef *out);
 BOOL ViewportGetSelectedMarker(HWND hwnd, SetupMarkerRef *out, SetupMarker *spawn);
+/* NULL clears selection. Call after a spawn edit changes intro command indices. */
+void ViewportSelectSetupMarker(HWND hwnd, const SetupMarkerRef *ref);
 BOOL ViewportGetMarkerRotation(HWND hwnd, Rotation *frame);
 
 /* Non-selecting face-mode drop query in screen coordinates. Uses the nearest

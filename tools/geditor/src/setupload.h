@@ -97,8 +97,15 @@ typedef enum SetupMarkerKind {
 } SetupMarkerKind;
 typedef struct SetupMarkerRef {
     SetupMarkerKind kind;
-    DWORD command; /* index in intro or propDefs, stable when tables move */
+    DWORD command; /* index in intro or propDefs; reselect after removing commands */
 } SetupMarkerRef;
+/* Normal-play starts only. Solo placement replaces its start and preserves
+ * heading; multiplayer placement appends (the game supports up to 16).
+ * Deletion refuses the last start. Both operations retain other pad indices
+ * and leave the setup unchanged on failure. */
+BOOL SetupFilePlaceSpawn(SetupFile *setup, float levelscale, const double position[3],
+                        SetupMarkerRef *out, const char **reasonout);
+BOOL SetupFileDeleteSpawn(SetupFile *setup, const SetupMarkerRef *ref, const char **reasonout);
 typedef struct SetupMarker {
     SetupMarkerKind kind;
     DWORD command;

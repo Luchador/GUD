@@ -931,7 +931,7 @@ void RightPanelSetSetupMarker(HWND panel, const SetupMarkerRef *ref)
     const char *help;
     if (!state || !ref || ref->kind >= SETUP_MARKER_KIND_COUNT) { return; }
     help = ref->kind == SETUP_MARKER_SPAWN
-        ? "Move the spawn pad or rotate its heading.\r\nThe game places the player on the floor.\r\nOther references to this pad move with it."
+        ? "Move the spawn pad or rotate its heading.\r\nThe game places the player on the floor.\r\nOther references to this pad move with it.\r\nDelete removes this start when another remains.\r\nDrag Spawn Point from Objects to place a start."
         : ref->kind == SETUP_MARKER_SWIRL
         ? "Move this control point to reshape the curve.\r\nRotation turns nearby controls around this point.\r\nClick again to cycle overlapping controls."
         : "Move the camera or change its direction.\r\nThe game stores yaw and pitch, without roll.\r\nMoving also updates the camera's room pad.";

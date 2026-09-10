@@ -59,6 +59,137 @@ static void PadScaleSizes(const SetupFile *source, const char *dir)
     puts("PASS: pad scale promotion, saved bounds and repeated scaling retain consistent world sizes.");
 }
 
+static DWORD IntroAt(const SetupFile *setup, DWORD index)
+{
+    const DWORD words[] = {3,4,4,8,2,2,10,3,2,1};
+    DWORD at = Get(setup->data + 8);
+    for (DWORD i = 0; i < index; i++)
+    {
+        DWORD type = Get(setup->data + at);
+        assert(type < 9); at += 4 * words[type];
+    }
+    assert(at + 4 <= setup->size);
+    return at;
+}
+
+static DWORD SpawnCount(const SetupFile *setup)
+{
+    DWORD count = 0;
+    for (DWORD i = 0;; i++)
+    {
+        DWORD at = IntroAt(setup, i), type = Get(setup->data + at);
+        if (type == 9) { return count; }
+        if (type == 0 && Get(setup->data + at + 8) == 0) { count++; }
+    }
+}
+
+static void SpawnEdits(const SetupFile *source, const char *dir)
+{
+    SetupFile setup = {0}, before = {0}, saved = {0};
+    SetupMarkerRef selected = {SETUP_MARKER_SPAWN, 0};
+    SetupMarker *markers = NULL, oldstart;
+    SetupSwirlPath oldpath = {0}, newpath = {0};
+    EditHistory history = {0}; EditHistoryTransaction transaction = {0};
+    EditHistoryAsset asset; BgDocument bg = {0}; StanFile stan = {0};
+    DWORD count, at, pads;
+    double position[3] = {300, 20, -400};
+    const char *why = "";
+    assert(SetupFileClone(source, &setup, &why));
+    assert(SetupFileBuildMarkers(&setup, .5f, &markers, &count, &why));
+    oldstart = markers[0]; free(markers);
+    assert(SetupFileBuildSwirlPath(&setup, &oldstart, &oldpath, &why));
+    assert(!SetupFileDeleteSpawn(&setup, &selected, &why) && strstr(why, "at least one")); Same(&setup, source);
+    EditHistoryReset(&history, &bg, &setup, &stan);
+    assert(EditHistoryBeginSetupEdit(&history, &setup, "Place Player Start", &transaction, &why));
+    assert(SetupFilePlaceSpawn(&setup, .5f, position, &selected, &why));
+    assert(selected.command == 0 && SpawnCount(&setup) == 1 && setup.padcount == source->padcount + 1);
+    assert(!memcmp(setup.pads, source->pads, source->padcount * sizeof(*source->pads)));
+    assert(SetupFileBuildMarkers(&setup, .5f, &markers, &count, &why) && count == 3);
+    for (int axis = 0; axis < 3; axis++)
+    { Near(markers[0].position[axis], position[axis]); Near(markers[0].look[axis], oldstart.look[axis]); }
+    assert(SetupFileBuildSwirlPath(&setup, &markers[0], &newpath, &why)); free(markers);
+    assert(newpath.pointcount == oldpath.pointcount);
+    for (DWORD i = 0; i < oldpath.pointcount; i++)
+    for (int axis = 0; axis < 3; axis++)
+    {
+        Near(newpath.points[i].position[axis] - oldpath.points[i].position[axis], position[axis] - oldstart.position[axis]);
+        Near(newpath.points[i].look[axis], oldpath.points[i].look[axis]);
+    }
+    /* Cameras and the entire authored swirl block are copied verbatim. */
+    assert(!memcmp(setup.data + IntroAt(&setup, 1), source->data + IntroAt(source, 1), 232));
+    assert(EditHistoryCommitEdit(&history, &bg, &setup, &stan, &transaction, &why));
+    assert(SetupFileClone(&setup, &saved, &why));
+    assert(EditHistoryUndo(&history, &bg, &setup, &stan, &asset, &why)); Same(&setup, source);
+    assert(EditHistoryRedo(&history, &bg, &setup, &stan, &asset, &why)); Same(&setup, &saved);
+    SetupFileFree(&saved);
+    assert(SetupSaveProjectFile(dir, &setup, &why));
+    assert(SetupLoadProjectFile(dir, setup.name, &saved, &why)); Same(&setup, &saved); SetupFileFree(&saved);
+    assert(SetupFileClone(&setup, &before, &why));
+    { double bad[3] = {INFINITY, 0, 0};
+      assert(!SetupFilePlaceSpawn(&setup, .5f, bad, &selected, &why)); Same(&setup, &before); }
+    SetupFileFree(&before);
+    SetupSwirlPathFree(&oldpath); SetupSwirlPathFree(&newpath); EditHistoryFree(&history);
+
+    /* Multiplayer appends private pads, keeps authored starts, and never
+       allows the game's fixed 16-entry start array to overflow. */
+    strcpy(setup.name, "Ump_setupspawnZ");
+    for (DWORD expected = 2; expected <= 16; expected++)
+    {
+        assert(SetupFilePlaceSpawn(&setup, .5f, position, &selected, &why));
+        assert(SpawnCount(&setup) == expected);
+    }
+    assert(SetupFileClone(&setup, &before, &why));
+    assert(!SetupFilePlaceSpawn(&setup, .5f, position, &selected, &why) && strstr(why, "16")); Same(&setup, &before);
+    SetupFileFree(&before);
+    assert(SetupSaveProjectFile(dir, &setup, &why));
+    assert(SetupLoadProjectFile(dir, setup.name, &saved, &why)); Same(&setup, &saved); SetupFileFree(&saved);
+    EditHistoryReset(&history, &bg, &setup, &stan);
+    assert(SetupFileClone(&setup, &before, &why));
+    assert(EditHistoryBeginSetupEdit(&history, &setup, "Delete Spawn Point", &transaction, &why));
+    selected.command = 0; pads = setup.padcount;
+    assert(SetupFileDeleteSpawn(&setup, &selected, &why) && SpawnCount(&setup) == 15 && setup.padcount == pads);
+    assert(!memcmp(setup.pads, before.pads, pads * sizeof(*setup.pads)));
+    assert(Get(setup.data + IntroAt(&setup, 0)) == 6); /* camera shifts into command zero */
+    assert(!memcmp(setup.data + IntroAt(&setup, 0), before.data + IntroAt(&before, 1), 232));
+    assert(EditHistoryCommitEdit(&history, &bg, &setup, &stan, &transaction, &why));
+    assert(SetupFileClone(&setup, &saved, &why));
+    assert(EditHistoryUndo(&history, &bg, &setup, &stan, &asset, &why)); Same(&setup, &before);
+    assert(EditHistoryRedo(&history, &bg, &setup, &stan, &asset, &why)); Same(&setup, &saved);
+    SetupFileFree(&before); SetupFileFree(&saved); EditHistoryFree(&history);
+
+    /* An authored demo start must survive solo replacement. Convert one
+       of the extra fixture starts to demo slot 1, then collapse normal starts. */
+    at = IntroAt(&setup, 7); assert(Get(setup.data + at) == 0);
+    Put(setup.data + at + 8, 1);
+    selected.command = 7;
+    assert(SetupFileClone(&setup, &before, &why));
+    assert(!SetupFileDeleteSpawn(&setup, &selected, &why)); Same(&setup, &before);
+    strcpy(setup.name, "UsetupspawnZ");
+    assert(SetupFilePlaceSpawn(&setup, .5f, position, &selected, &why) && SpawnCount(&setup) == 1);
+    at = IntroAt(&setup, 7); assert(Get(setup.data + at) == 0 && Get(setup.data + at + 8) == 1);
+    assert(!memcmp(setup.data + at, before.data + IntroAt(&before, 7), 12));
+    assert(!SetupFileDeleteSpawn(&setup, &selected, &why) && SpawnCount(&setup) == 1);
+    SetupFileFree(&before);
+    assert(SetupSaveProjectFile(dir, &setup, &why));
+    assert(SetupLoadProjectFile(dir, setup.name, &saved, &why)); Same(&setup, &saved); SetupFileFree(&saved);
+    SetupFileFree(&setup);
+
+    /* Dam-style swirl room hints must no longer refer to the old area. */
+    assert(SetupFileClone(source, &setup, &why));
+    Put(setup.data + IntroAt(&setup, 2) + 28, 1);
+    assert(SetupFilePlaceSpawn(&setup, .5f, position, &selected, &why));
+    assert(Get(setup.data + IntroAt(&setup, 2) + 28) == 0xffffffffu);
+    assert(!memcmp(setup.pads, source->pads, source->padcount * sizeof(*source->pads)));
+    SetupFileFree(&setup);
+
+    /* A valid setup with no intro can acquire its first spawn. */
+    assert(SetupFileClone(source, &setup, &why)); Put(setup.data + 8, 0);
+    assert(SetupFilePlaceSpawn(&setup, .5f, position, &selected, &why) && selected.command == 0 && SpawnCount(&setup) == 1);
+    assert(Get(setup.data + IntroAt(&setup, 1)) == 9);
+    SetupFileFree(&setup);
+    puts("PASS: solo replacement/swirl following, multiplayer add/delete and limits, demo/shared-pad preservation, saved assets and undo/redo.");
+}
+
 void MarkerEdits(const char *dir)
 {
     unsigned char bytes[524]={0};char file[MAX_PATH+64];FILE *f;
@@ -88,6 +219,7 @@ void MarkerEdits(const char *dir)
     f=fopen(file,"wb");assert(f&&fwrite(bytes,1,sizeof(bytes),f)==sizeof(bytes)&&!fclose(f));
     assert(SetupLoadProjectFile(dir,"UsetupmarkerZ",&setup,&why));
     PadScaleSizes(&setup, dir);
+    SpawnEdits(&setup, dir);
     assert(SetupFileClone(&setup,&before,&why));EditHistoryReset(&history,&bg,&setup,&stan);
     assert(SetupFileBuildMarkers(&setup,.5f,&markers,&count,&why)&&count==3);
     assert(markers[0].command==0&&markers[1].command==1&&markers[2].command==0);

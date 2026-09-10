@@ -2450,6 +2450,70 @@ static void GEditorDeleteSelectedObject(HWND hwnd, DWORD objectindex)
 }
 
 
+static BOOL GEditorEditSpawn(HWND hwnd, const double *position)
+{
+    EditHistoryTransaction transaction = {0};
+    SetupObjectGeometry objects = {0};
+    SetupMarkerRef selected, previous;
+    BOOL hadmarker = ViewportGetSelectedMarker(g_Viewport, &previous, NULL);
+    const char *why = "", *restorewhy = "";
+    const char *action = position ? (strncmp(g_CurrentSetup.name, "Ump_", 4) == 0
+        ? "Add Spawn Point" : "Place Player Start") : "Delete Spawn Point";
+    if (!position && (!hadmarker || previous.kind != SETUP_MARKER_SPAWN)) { return FALSE; }
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup, action, &transaction, &why)) { goto fail; }
+    if (!(position ? SetupFilePlaceSpawn(&g_CurrentSetup, g_CurrentBgDocument.levelscale, position, &selected, &why)
+        : SetupFileDeleteSpawn(&g_CurrentSetup, &previous, &why))) { goto rollback; }
+    if (!ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
+            g_CurrentBgDocument.levelscale, &objects, &why)
+        || !GEditorRebuildCurrentViewportWithObjects(&objects, &why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+            &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    ObjectGeometryFree(&g_CurrentObjects); g_CurrentObjects = objects;
+    /* Removing an intro record changes later command indices. Explicitly
+       select the placed start, or clear the deleted start's old identity. */
+    if (position)
+    {
+        RightPanelShowObjects(g_RightPanel);
+        ViewportSetTool(g_Viewport, EDITOR_TOOL_FACE_SELECT);
+        ToolToolbarSetTool(g_ToolToolbar, ViewportGetTool(g_Viewport));
+        ViewportSetTransformMode(g_Viewport, TRANSFORM_MOVE);
+        RightPanelSetTransformMode(g_RightPanel, TRANSFORM_MOVE);
+    }
+    ViewportSelectSetupMarker(g_Viewport, position ? &selected : NULL);
+    GEditorRefreshHistoryMenu(hwnd);
+    SetFocus(g_Viewport);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+    if (hadmarker) { ViewportSelectSetupMarker(g_Viewport, &previous); }
+fail:
+    ObjectGeometryFree(&objects); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
+static BOOL GEditorDropSpawn(HWND hwnd, const BrowserObjectDrop *request)
+{
+    double position[3];
+    float point[3], height;
+    DWORD tile;
+    if (!request || request->type != BROWSER_OBJECT_SPAWN || g_CurrentLevelIndex == GEDITOR_NO_LEVEL
+        || !g_CurrentSetup.data || WindowFromPoint(request->screen) != g_Viewport
+        || !ViewportGetModelDropPosition(g_Viewport, request->screen, position)) { return FALSE; }
+    for (int axis = 0; axis < 3; axis++) { point[axis] = (float)position[axis]; }
+    tile = StanResolvePadTile(&g_CurrentStan, "", point);
+    if (tile == STAN_TILE_NONE || !StanGetTileHeight(&g_CurrentStan, tile, point[0], point[2], &height))
+    {
+        MessageBox(hwnd, "Place the spawn point over a walkable floor.", GEDITOR_TITLE, MB_ICONINFORMATION);
+        return FALSE;
+    }
+    position[1] = height;
+    return GEditorEditSpawn(hwnd, position);
+}
+
+
 static BOOL GEditorDropModel(HWND hwnd, const BrowserModelDrop *request)
 {
     EditHistoryTransaction transaction;
@@ -2723,9 +2787,14 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     case VIEWPORT_WM_DELETE_SELECTION:
     {
         DWORD selectedobject;
+        SetupMarkerRef marker;
 
         if (ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT) { return 0; }
-        if (ViewportGetSelectedObject(g_Viewport, &selectedobject))
+        if (ViewportGetSelectedMarker(g_Viewport, &marker, NULL))
+        {
+            if (marker.kind == SETUP_MARKER_SPAWN) { GEditorEditSpawn(hwnd, NULL); }
+        }
+        else if (ViewportGetSelectedObject(g_Viewport, &selectedobject))
         {
             GEditorDeleteSelectedObject(hwnd, selectedobject);
         }
@@ -2735,6 +2804,15 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
         return 0;
     }
+
+    case BROWSER_WM_OBJECT_DRAG_BEGIN:
+        if (wparam != BROWSER_OBJECT_SPAWN || g_CurrentLevelIndex == GEDITOR_NO_LEVEL || !g_CurrentSetup.data)
+        { return FALSE; }
+        ViewportCancelTransform(g_Viewport);
+        return TRUE;
+
+    case BROWSER_WM_OBJECT_DROP:
+        return GEditorDropSpawn(hwnd, (const BrowserObjectDrop *)lparam);
 
     case BROWSER_WM_MODEL_DRAG_BEGIN:
     {

@@ -915,6 +915,159 @@ malformed:
     return FALSE;
 }
 
+/* Copy the live intro list into appended storage. Keeping the old bytes and
+ * pad tables preserves file-relative credits/AI links and shared pad indices.
+ * Only the active header pointers change; no editor-only command is exported. */
+static BOOL SetupEditSpawns(SetupFile *setup, const SetupMarkerRef *remove,
+                           float levelscale, const double position[3],
+                           SetupMarkerRef *out, const char **reasonout)
+{
+    SetupFile edited = {0};
+    DWORD intro, at, end, command, count = 0, first = 0, firstcommand = 0;
+    DWORD oldpads, newintro, write, written = 0, selected = 0, newpads, newpad;
+    BOOL placing = position != NULL, multiplayer, found = FALSE, placed = FALSE;
+    float native[3], look[3] = {0, 0, 1};
+    *reasonout = "The setup's spawn records are invalid.";
+    if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE || setup->size > SETUP_FILE_MAX
+        || (placing && (!out || !isfinite(levelscale) || levelscale <= 0))
+        || (!placing && (!remove || remove->kind != SETUP_MARKER_SPAWN))) { return FALSE; }
+    multiplayer = strncmp(setup->name, "Ump_", 4) == 0;
+    intro = SetupRead32(setup->data + 8);
+    at = intro;
+    for (command = 0; intro && command < SETUP_OBJECT_MAX; command++)
+    {
+        DWORD type, bytes;
+        if (at < SETUP_HEADER_SIZE || (at & 3) || at > setup->size || setup->size - at < 4) { return FALSE; }
+        type = SetupRead32(setup->data + at);
+        if (type == 9) { break; }
+        bytes = SetupIntroWordCount(type) * 4;
+        if (!bytes || bytes > setup->size - at) { return FALSE; }
+        if (type == 0 && SetupRead32(setup->data + at + 8) == 0)
+        {
+            DWORD pad = SetupRead32(setup->data + at + 4);
+            if (!setup->pads || pad >= setup->padcount) { return FALSE; }
+            if (!count) { first = at; firstcommand = command; }
+            count++;
+            if (remove && remove->command == command) { found = TRUE; }
+        }
+        at += bytes;
+    }
+    if (command >= SETUP_OBJECT_MAX) { return FALSE; }
+    end = at;
+    if (!placing)
+    {
+        if (!found) { return FALSE; }
+        if (count <= 1)
+        { *reasonout = "The level must keep at least one spawn point."; return FALSE; }
+    }
+    else
+    {
+        /* g_Startpad in bondview.c has 16 entries, including all normal-play
+         * starts loaded for a multiplayer setup. Never overflow that array. */
+        if (multiplayer && count >= 16)
+        { *reasonout = "The game supports at most 16 multiplayer spawn points."; return FALSE; }
+        if (command >= SETUP_OBJECT_MAX - 1 || setup->padcount >= SETUP_PAD_MAX)
+        { *reasonout = "The setup has no room for another spawn point."; return FALSE; }
+        for (int axis = 0; axis < 3; axis++)
+        {
+            double value = position[axis] * levelscale;
+            if (!isfinite(value) || fabs(value) > 100000000.0)
+            { *reasonout = "The spawn position exceeds the setup coordinate range."; return FALSE; }
+            native[axis] = (float)value;
+        }
+        if (!multiplayer && count)
+        {
+            const SetupPad *pad = &setup->pads[SetupRead32(setup->data + first + 4)];
+            float length = hypotf(pad->look[0], pad->look[2]);
+            if (!isfinite(length)) { return FALSE; }
+            if (length > 0) { look[0] = pad->look[0] / length; look[2] = pad->look[2] / length; }
+        }
+    }
+    oldpads = SetupRead32(setup->data + SETUP_PAD_POINTER);
+    if (placing && (oldpads < SETUP_HEADER_SIZE || oldpads > setup->size
+        || setup->padcount + 1 > (setup->size - oldpads) / SETUP_PAD_SIZE)) { return FALSE; }
+    newintro = (setup->size + 3u) & ~3u;
+    edited.size = newintro + (end - intro) + 4 + (placing ? 12 + (setup->padcount + 2) * SETUP_PAD_SIZE : 0);
+    if (edited.size > SETUP_FILE_MAX)
+    { *reasonout = "The spawn edit would exceed the setup size limit."; return FALSE; }
+    edited.data = calloc(edited.size, 1);
+    if (!edited.data) { *reasonout = "Out of memory editing spawn points."; return FALSE; }
+    memcpy(edited.name, setup->name, sizeof(edited.name));
+    memcpy(edited.data, setup->data, setup->size);
+    write = newintro;
+    for (at = intro, command = 0; at < end; command++)
+    {
+        DWORD type = SetupRead32(setup->data + at);
+        DWORD bytes = SetupIntroWordCount(type) * 4;
+        BOOL normal = type == 0 && SetupRead32(setup->data + at + 8) == 0;
+        BOOL skip = normal && ((!placing && command == remove->command)
+            || (placing && !multiplayer && command != firstcommand));
+        if (!skip)
+        {
+            memcpy(edited.data + write, setup->data + at, bytes);
+            if (normal && placing && !multiplayer)
+            {
+                SetupWrite32(edited.data + write + 4, setup->padcount);
+                selected = written; placed = TRUE;
+            }
+            if (type == 3 && placing && !multiplayer)
+            {
+                /* Authored room hints (notably Dam) refer to the old area.
+                   -1 makes the game trace from the new player's collision
+                   position, without moving pads shared with other records. */
+                SetupWrite32(edited.data + write + 28, 0xffffffffu);
+            }
+            write += bytes; written++;
+        }
+        at += bytes;
+    }
+    if (placing && !placed)
+    {
+        SetupWrite32(edited.data + write, 0);
+        SetupWrite32(edited.data + write + 4, setup->padcount);
+        selected = written;
+        write += 12;
+    }
+    SetupWrite32(edited.data + write, 9);
+    SetupWrite32(edited.data + 8, newintro);
+    edited.size = write + 4;
+    if (placing)
+    {
+        newpads = edited.size;
+        newpad = newpads + setup->padcount * SETUP_PAD_SIZE;
+        memcpy(edited.data + newpads, setup->data + oldpads, setup->padcount * SETUP_PAD_SIZE);
+        SetupWrite32(edited.data + SETUP_PAD_POINTER, newpads);
+        for (int axis = 0; axis < 3; axis++)
+        {
+            union { float f; DWORD u; } value;
+            value.f = native[axis]; SetupWrite32(edited.data + newpad + axis * 4, value.u);
+            value.f = look[axis]; SetupWrite32(edited.data + newpad + 24 + axis * 4, value.u);
+        }
+        SetupWrite32(edited.data + newpad + 16, 0x3f800000u); /* up = +Y */
+        SetupWrite32(edited.data + newpad + SETUP_PAD_LINK, newpad + SETUP_PAD_SIZE + SETUP_PAD_LINK);
+        edited.size = newpad + 2 * SETUP_PAD_SIZE;
+    }
+    if (!SetupParsePads(&edited, reasonout) || !SetupParseObjects(&edited, reasonout))
+    { SetupFileFree(&edited); return FALSE; }
+    edited.dirty = TRUE;
+    SetupFileFree(setup); *setup = edited;
+    if (placing) { out->kind = SETUP_MARKER_SPAWN; out->command = selected; }
+    *reasonout = "";
+    return TRUE;
+}
+
+BOOL SetupFilePlaceSpawn(SetupFile *setup, float levelscale, const double position[3],
+                        SetupMarkerRef *out, const char **reasonout)
+{
+    if (!position) { *reasonout = "No spawn position was supplied."; return FALSE; }
+    return SetupEditSpawns(setup, NULL, levelscale, position, out, reasonout);
+}
+
+BOOL SetupFileDeleteSpawn(SetupFile *setup, const SetupMarkerRef *ref, const char **reasonout)
+{
+    return SetupEditSpawns(setup, ref, 1, NULL, NULL, reasonout);
+}
+
 void SetupPadGetBoxCorners(const SetupPad *pad,
                            float xmin, float xmax,
                            float ymin, float ymax,

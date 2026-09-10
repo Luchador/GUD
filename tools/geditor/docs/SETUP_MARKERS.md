@@ -100,7 +100,8 @@ to the native setup records described below.
 ## Editing setup markers
 
 Click a start point, swirl control, intro camera, or outro camera to select it.
-The selected model turns white. Markers can be picked in face, edge, and vertex
+The selected start turns gold (RGB 255, 210, 0), matching selected vertices;
+other selected markers turn white. Markers can be picked in face, edge, and vertex
 modes; clicking again cycles coincident control points. Ctrl-click removes a
 selection. Picking respects foreground level geometry and object visibility.
 
@@ -109,7 +110,8 @@ the existing transform panel. Scaling is disabled for these markers. Dragging
 previews changes in a temporary setup copy, including the affected swirl path;
 Escape cancels. Releasing the handle creates one undo step. Selection survives
 the geometry rebuild and undo/redo, using a command index instead of a byte
-offset that could move when other setup tables grow.
+offset that could move when other setup tables grow. Spawn deletion clears
+selection because removing an intro command shifts the later command indices.
 
 - Start points edit their ordinary pad coordinates and horizontal heading.
   The game's floor placement still applies: changing Y can choose a different
@@ -132,6 +134,32 @@ Saving writes the edited raw `.set` asset. ROM creation saves the current level
 first and replaces its setup resource with that asset, repacking if needed.
 No new project or ROM format is introduced.
 
+## Placing and deleting starts
+
+Drag **Spawn Point** from the Object browser onto a surface over walkable stan.
+The start is grounded on that floor, selected, and ready to move or rotate.
+Dropping outside the viewport or onto empty space does not edit the setup.
+Escape and capture loss cancel the browser drag.
+
+In single-player setups, placement replaces the normal-play start, retaining
+its heading and ensuring only one normal-play spawn remains. A setup without
+a start receives one facing +Z. The swirl controls and curve follow the new
+spawn position automatically; their relative offsets, timing and shape remain
+the same. Demo starts retain their original records and pads.
+Swirl room hints are reset to use the player's new collision position, so
+authored hints such as Dam's do not keep pointing at the old area.
+
+In multiplayer setups (`Ump_`), placement appends a start facing +Z. Up to 16
+normal-play starts are supported, matching the game's `g_Startpad` array.
+Select a start and press **Delete** to remove it; the last normal-play start
+is protected. This works in face, edge and vertex selection modes.
+
+New starts get their own pads. Replacing or deleting a start retains the old
+pad for other setup references, so shared props, characters and AI targets
+do not move. Intro commands and pads are written in the native setup format.
+Each placement/deletion is one undo step, marks the project unsaved, and is
+included in saved assets and created ROMs. Existing projects work immediately.
+
 ## Checks
 
 ```sh
@@ -151,4 +179,7 @@ decoded in full, including both of its mesh nodes.
 The native edit tests also exercise start/camera/swirl transforms, private room
 pad allocation and reuse, unchanged shared pads, coordinate range rejection,
 save/reload, and the production setup undo/redo and rollback paths.
+Spawn checks cover solo replacement and swirl translation, multiplayer
+addition/deletion and limits, demo records, shared pads, absent intro lists,
+saved assets, invalid positions, and undo/redo of placement and deletion.
 Windows rendering still needs a visual runtime check.

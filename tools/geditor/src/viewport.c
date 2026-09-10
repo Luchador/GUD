@@ -44,6 +44,7 @@
 #define VIEWPORT_DEG_TO_RAD (3.14159265358979323846f / 180.0f)
 #define VIEWPORT_BOX_VERTICES  24
 #define VIEWPORT_VERTEX_MARKER_SIZE 5.0f /* screen pixels */
+#define VIEWPORT_SELECTION_GOLD 255, 210, 0
 #define VIEWPORT_PORTAL_FILL_ALPHA 64
 #define VIEWPORT_PORTAL_EDGE_ALPHA 255
 #define VIEWPORT_PICK_EPSILON 1.0e-10
@@ -939,7 +940,11 @@ static void ViewportDrawSetupMarkers(const ViewportState *state)
         glNormalPointer(GL_FLOAT, sizeof(*model), model->environment.normal);
         if (state->markerselected && marker->kind == state->selectedmarker.kind
             && marker->command == state->selectedmarker.command)
-        { glDisableClientState(GL_COLOR_ARRAY); glColor3ub(255, 255, 255); }
+        {
+            glDisableClientState(GL_COLOR_ARRAY);
+            if (marker->kind == SETUP_MARKER_SPAWN) { glColor3ub(VIEWPORT_SELECTION_GOLD); }
+            else { glColor3ub(255, 255, 255); }
+        }
         glDrawArrays(GL_TRIANGLES, 0, state->markermodeltris[marker->kind] * 3);
         glEnableClientState(GL_COLOR_ARRAY);
         glPopMatrix();
@@ -3845,7 +3850,7 @@ static void ViewportDrawTransformTools(const ViewportState *state)
     glDisable(GL_POINT_SMOOTH);
     glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
     glDepthMask(GL_FALSE); glDepthFunc(GL_LEQUAL);
-    glColor3ub(255,210,0); glPointSize(8); glLineWidth(3);
+    glColor3ub(VIEWPORT_SELECTION_GOLD); glPointSize(8); glLineWidth(3);
     glDepthRange(0.0, 0.99999);
     if (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT)
     {
@@ -3887,7 +3892,7 @@ static void ViewportDrawTransformTools(const ViewportState *state)
         }
         if (state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT)
         {
-            glColor3ub(255,210,0); glPointSize(8); glLineWidth(3);
+            glColor3ub(VIEWPORT_SELECTION_GOLD); glPointSize(8); glLineWidth(3);
             glBegin(state->tool == EDITOR_TOOL_VERTEX_SELECT ? GL_POINTS : GL_LINES);
             for (i=0; i<state->stancomponentcount; i++)
             {
@@ -4623,7 +4628,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         if (wparam == VK_DELETE && state != NULL
             && (state->tool == EDITOR_TOOL_FACE_SELECT
                 || ((state->tool == EDITOR_TOOL_VERTEX_SELECT || state->tool == EDITOR_TOOL_EDGE_SELECT)
-                    && state->selectedobject != VIEWPORT_OBJECT_NONE)))
+                    && (state->selectedobject != VIEWPORT_OBJECT_NONE || state->markerselected))))
         {
             SendMessage(GetParent(hwnd), VIEWPORT_WM_DELETE_SELECTION, 0, 0);
         }
@@ -5972,6 +5977,24 @@ void ViewportMoveCameraToSpawn(HWND hwnd)
         return;
     }
     /* Unfinished levels without a spawn keep the scene's bounding-box view. */
+}
+
+void ViewportSelectSetupMarker(HWND hwnd, const SetupMarkerRef *ref)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    SetupMarker marker;
+    if (!state) { return; }
+    ViewportCancelTransform(hwnd);
+    ViewportClearAllSelection(state);
+    if (ref)
+    {
+        state->selectedmarker = *ref;
+        state->markerselected = TRUE;
+        if (!ViewportSelectedMarker(state, &marker)) { state->markerselected = FALSE; }
+    }
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
 }
 
 BOOL ViewportGetSelectedMarker(HWND hwnd, SetupMarkerRef *out, SetupMarker *spawn)

@@ -37,7 +37,6 @@ typedef struct BrowserSection {
 #define BROWSER_SECTION_LEVELS 1
 #define BROWSER_SECTION_IMAGES 2
 #define BROWSER_SECTION_MODELS 3
-#define BROWSER_OBJECT_COUNT 12
 #define BROWSER_OBJECT_COLUMNS 2
 #define BROWSER_OBJECT_ROWS (BROWSER_OBJECT_COUNT / BROWSER_OBJECT_COLUMNS)
 #define BROWSER_OBJECT_TILE_H 38
@@ -47,8 +46,7 @@ typedef struct BrowserSection {
 #define BROWSER_OBJECT_HEIGHT (BROWSER_OBJECT_MARGIN * 2 \
     + BROWSER_OBJECT_ROWS * (BROWSER_OBJECT_TILE_H + BROWSER_OBJECT_GAP) - BROWSER_OBJECT_GAP)
 
-/* Row-major order keeps the requested column pairs together. These are UI
- * palette entries only; they do not yet describe setup records or geometry. */
+/* Row-major order matches BrowserObjectType and keeps the column pairs together. */
 static const struct {
     const char *label;
     int icon;
@@ -82,7 +80,7 @@ typedef struct BrowserState {
     int hoverobject;
     int pressedobject;
     POINT objectpresspoint;
-    BOOL dragobject; /* preview only: never dispatch an image/model drop */
+    BOOL dragobject; /* object palette, distinct from image/model drags */
     TexThumb *images;             /* owned; freed on replace/destroy */
     unsigned char *imagepixels;   /* owned shared pixel block */
     int imagecount;
@@ -1046,8 +1044,8 @@ static BOOL BrowserStartAssetDrag(HWND hwnd, BrowserState *state, HBITMAP bitmap
     return TRUE;
 }
 
-/* UI-only drag: reuse the browser's preview/capture lifecycle, but never
- * send a placement message. The mouse must first cross the system threshold. */
+/* The mouse must first cross the system threshold. Implemented palette kinds
+ * ask the frame to prepare for placement; other entries remain preview-only. */
 static void BrowserBeginObjectDrag(HWND hwnd, BrowserState *state, int index, POINT point)
 {
     RECT rect = BrowserObjectRect(state, index);
@@ -1058,6 +1056,8 @@ static void BrowserBeginObjectDrag(HWND hwnd, BrowserState *state, int index, PO
     HGDIOBJ oldbitmap, oldfont;
     int width = rect.right - rect.left, i;
     if (width < 1) { return; }
+    if (index == BROWSER_OBJECT_SPAWN
+        && !SendMessage(GetParent(hwnd), BROWSER_WM_OBJECT_DRAG_BEGIN, index, 0)) { return; }
     OffsetRect(&rect, -rect.left, -rect.top);
     bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
     bmi.bmiHeader.biWidth = width;
@@ -1490,8 +1490,15 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 
             if (state->dragobject)
             {
+                BrowserObjectDrop objectdrop;
+                objectdrop.type = (BrowserObjectType)state->pressedobject;
+                objectdrop.screen.x = GET_X_LPARAM(lparam);
+                objectdrop.screen.y = GET_Y_LPARAM(lparam);
+                ClientToScreen(hwnd, &objectdrop.screen);
                 BrowserEndAssetDrag(hwnd, state);
-                return 0; /* Palette preview only: placement comes later. */
+                if (objectdrop.type == BROWSER_OBJECT_SPAWN)
+                { SendMessage(GetParent(hwnd), BROWSER_WM_OBJECT_DROP, 0, (LPARAM)&objectdrop); }
+                return 0;
             }
             lstrcpyn(modeldrop.name, state->dragmodel, sizeof(modeldrop.name));
             drop.textureid = state->dragtextureid;

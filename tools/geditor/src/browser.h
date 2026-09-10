@@ -31,6 +31,23 @@ typedef struct BrowserModelDrop {
     POINT screen;
 } BrowserModelDrop;
 
+/* Object palette order matches the two-column browser. Unsupported entries
+ * still have a drag preview; only implemented kinds send placement requests. */
+typedef enum BrowserObjectType {
+    BROWSER_OBJECT_TRIANGLE, BROWSER_OBJECT_QUAD,
+    BROWSER_OBJECT_SPAWN, BROWSER_OBJECT_INTRO_SPLINE,
+    BROWSER_OBJECT_INTRO_CAMERA, BROWSER_OBJECT_OUTRO_CAMERA,
+    BROWSER_OBJECT_DOOR, BROWSER_OBJECT_GLASS,
+    BROWSER_OBJECT_WEAPON, BROWSER_OBJECT_AMMO,
+    BROWSER_OBJECT_CCTV, BROWSER_OBJECT_ALARM, BROWSER_OBJECT_COUNT
+} BrowserObjectType;
+#define BROWSER_WM_OBJECT_DRAG_BEGIN (WM_APP + 29) /* wparam: BrowserObjectType */
+#define BROWSER_WM_OBJECT_DROP       (WM_APP + 30) /* lparam: BrowserObjectDrop */
+typedef struct BrowserObjectDrop {
+    BrowserObjectType type;
+    POINT screen;
+} BrowserObjectDrop;
+
 BOOL BrowserRegisterClass(HINSTANCE hinstance);
 HWND BrowserCreate(HWND parent, HINSTANCE hinstance);
 
