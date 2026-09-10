@@ -499,6 +499,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         return 0;
 
     case FACEPROPERTIES_WM_CHANGED:
+    case FACEPROPERTIES_WM_REVEAL_IMAGE:
         return SendMessage(GetParent(hwnd), msg, wparam, lparam);
 
     case WM_COMMAND:
@@ -959,11 +960,11 @@ void RightPanelSetSetupCharacter(HWND panel, const SetupCharacter *character)
 
 
 void RightPanelSetBgFaces(HWND panel, const BgDocument *document,
-                         const BgFaceRef *refs, DWORD count)
+                         const BgFaceRef *refs, DWORD count, HWND browser)
 {
     RightPanelState *state = RightPanelGetState(panel);
     if (state == NULL) { return; }
-    if (!FacePropertiesSetSelection(state->faceproperties, document, refs, count))
+    if (!FacePropertiesSetSelection(state->faceproperties, document, refs, count, browser))
     {
         RightPanelSetBgSelectionCount(panel, (int)count);
         return;

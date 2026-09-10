@@ -65,6 +65,7 @@ typedef struct BrowserState {
     int modelscroll[BROWSER_MODEL_TAB_COUNT];
     int scroll[BROWSER_SECTION_COUNT];   /* pixels scrolled per body */
     int selectedlevel;
+    int selectedimage;                   /* grid index, including No Texture */
     int dragsection;                     /* thumb being dragged, or -1 */
     int dragstarty;
     int dragstartscroll;
@@ -502,6 +503,21 @@ static const TexThumb *BrowserImageAt(const BrowserState *state, int index,
     return &state->images[index - 1];
 }
 
+static int BrowserFindImage(const BrowserState *state, DWORD textureid)
+{
+    int i;
+    if (textureid == BG_TEX_NONE) { return 0; }
+    if (textureid > BG_TEX_NONE) { return -1; }
+    for (i = 0; i < state->imagecount; i++)
+    {
+        const char *label = state->images[i].label;
+        char *end;
+        unsigned long id = strtoul(label, &end, 16);
+        if (end != label && *end == '\0' && id == textureid) { return i + 1; }
+    }
+    return -1;
+}
+
 static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body)
 {
     int columns = BrowserImageColumns(body);
@@ -538,6 +554,14 @@ static void BrowserPaintImageGrid(BrowserState *state, HDC hdc, const RECT *body
         /* Share leftover width between columns, including rounding pixels. */
         rc.left = body->left + BROWSER_IMAGE_MARGIN + column * width / columns;
         rc.right = body->left + BROWSER_IMAGE_MARGIN + (column + 1) * width / columns;
+        rc.top = y;
+        rc.bottom = y + BROWSER_IMAGE_CELL_H - 2;
+        if (i == state->selectedimage)
+        {
+            FillRect(hdc, &rc, GetSysColorBrush(COLOR_HIGHLIGHT));
+            SetTextColor(hdc, GetSysColor(COLOR_HIGHLIGHTTEXT));
+        }
+        else { SetTextColor(hdc, GetSysColor(COLOR_WINDOWTEXT)); }
 
         if (t->w > 0 && t->h > 0)
         {
@@ -969,6 +993,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         state->sections[2].expanded = TRUE;
         state->dragsection = -1;
         state->selectedlevel = -1;
+        state->selectedimage = -1;
 
         lstrcpyn(state->notexture.label, "No Texture", sizeof(state->notexture.label));
         if (!TexLoadResourceThumbnail(((CREATESTRUCT *)lparam)->hInstance,
@@ -1089,6 +1114,8 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             hit = BrowserHitImage(state, p);
             if (hit >= 0)
             {
+                state->selectedimage = hit;
+                InvalidateRect(hwnd, &state->sections[BROWSER_SECTION_IMAGES].bodyrc, FALSE);
                 BrowserBeginImageDrag(hwnd, state, hit, p);
                 return 0;
             }
@@ -1398,8 +1425,49 @@ void BrowserSetImages(HWND browser, TexThumb *items, int count,
     state->imagepixels = pixelblock;
     state->imagecount = items != NULL ? count : 0;
     state->scroll[BROWSER_SECTION_IMAGES] = 0;
+    state->selectedimage = -1;
 
     InvalidateRect(browser, NULL, TRUE);
+}
+
+
+BOOL BrowserCopyImageThumbnail(HWND browser, DWORD textureid, TexThumb *thumb,
+                               unsigned char *pixels)
+{
+    BrowserState *state = BrowserGetState(browser);
+    const TexThumb *source;
+    const unsigned char *sourcepixels;
+    int index;
+    if (state == NULL || thumb == NULL || pixels == NULL
+        || (index = BrowserFindImage(state, textureid)) < 0) { return FALSE; }
+    source = BrowserImageAt(state, index, &sourcepixels);
+    if (sourcepixels == NULL || source->w <= 0 || source->h <= 0
+        || source->w > TEX_THUMB_MAX || source->h > TEX_THUMB_MAX) { return FALSE; }
+    *thumb = *source;
+    thumb->pixeloffset = 0;
+    CopyMemory(pixels, sourcepixels, TEX_THUMB_MAX * TEX_THUMB_MAX * 4);
+    return TRUE;
+}
+
+BOOL BrowserRevealImage(HWND browser, DWORD textureid)
+{
+    BrowserState *state = BrowserGetState(browser);
+    RECT client, body;
+    int index, top, height;
+    if (state == NULL || (index = BrowserFindImage(state, textureid)) < 0) { return FALSE; }
+    state->sections[BROWSER_SECTION_IMAGES].expanded = TRUE;
+    GetClientRect(browser, &client);
+    BrowserLayoutSections(state, &client);
+    body = BrowserContentRect(state, BROWSER_SECTION_IMAGES);
+    top = BROWSER_IMAGE_MARGIN + (index / BrowserImageColumns(&body)) * BROWSER_IMAGE_CELL_H;
+    height = body.bottom - body.top;
+    /* Center the row when possible, including after expanding a closed section. */
+    state->scroll[BROWSER_SECTION_IMAGES] = top
+        - (height > BROWSER_IMAGE_CELL_H ? (height - BROWSER_IMAGE_CELL_H) / 2 : 0);
+    state->selectedimage = index;
+    BrowserClampScroll(state, BROWSER_SECTION_IMAGES);
+    InvalidateRect(browser, NULL, FALSE);
+    return TRUE;
 }
 
 

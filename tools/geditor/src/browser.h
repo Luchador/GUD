@@ -41,6 +41,15 @@ HWND BrowserCreate(HWND parent, HINSTANCE hinstance);
 void BrowserSetImages(HWND browser, TexThumb *items, int count,
                       unsigned char *pixelblock);
 
+/* Copy the browser's label and fixed-stride thumbnail into caller-owned
+ * storage (TEX_THUMB_MAX * TEX_THUMB_MAX * 4 bytes). BG_TEX_NONE resolves to
+ * the permanent No Texture entry. FALSE means the image is unavailable. */
+BOOL BrowserCopyImageThumbnail(HWND browser, DWORD textureid, TexThumb *thumb,
+                               unsigned char *pixels);
+
+/* Expand Images, scroll the matching item into view, and highlight it. */
+BOOL BrowserRevealImage(HWND browser, DWORD textureid);
+
 /* One row in the Levels section. */
 typedef struct BrowserLevelItem {
     char label[64];

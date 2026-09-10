@@ -289,7 +289,7 @@ static void GEditorRefreshSelectionDetails(void)
         BgFaceRef *faces = (BgFaceRef *)malloc((size_t)count * sizeof(*faces));
         if (faces != NULL && ViewportGetSelectedBgFaces(g_Viewport, faces, count))
         {
-            RightPanelSetBgFaces(g_RightPanel, &g_CurrentBgDocument, faces, (DWORD)count);
+            RightPanelSetBgFaces(g_RightPanel, &g_CurrentBgDocument, faces, (DWORD)count, g_Browser);
         }
         else { RightPanelSetBgSelectionCount(g_RightPanel, count); }
         free(faces);
@@ -2522,6 +2522,9 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         GEditorRefreshSelectionDetails();
         return ok;
     }
+
+    case FACEPROPERTIES_WM_REVEAL_IMAGE:
+        return BrowserRevealImage(g_Browser, (DWORD)wparam);
 
     case UVEDITOR_WM_APPLY:
         return GEditorApplyUVEdit(hwnd, (const UVCanvasEdit *)lparam);
