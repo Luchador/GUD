@@ -382,7 +382,7 @@ static BOOL GEditorReloadCurrentObjectsAndViewport(const char **reasonout)
 /*
  * (Re)loads the browser from the project file and extracted asset
  * folders. Works for both freshly created and reopened projects: the
- * files on disk are the source of truth, no ROM needed.
+ * image files supply the previews; base.z64 supplies their native metadata.
  */
 static void GEditorRefreshProjectAssets(void)
 {

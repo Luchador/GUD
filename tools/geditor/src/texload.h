@@ -45,10 +45,19 @@ BOOL TexGetProjectImageSize(const char *projectdir, DWORD id,
  * One browser thumbnail: a small top-down BGRA image (GDI-native, ready for StretchDIBits) plus its label
  * (the texture ID, i.e. the file stem).
  */
+typedef struct TexImageInfo {
+    BOOL valid, surfacevalid;
+    unsigned char format, mipmaps; /* mipmaps excludes the base image */
+    BOOL generatedmipmaps;
+    unsigned char hitsound, hittexture;
+} TexImageInfo;
+
 typedef struct TexThumb {
     char label[16];
     int  w, h;                    /* actual thumb size, <= TEX_THUMB_MAX */
     unsigned int pixeloffset;     /* byte offset into the shared block */
+    int imagewidth, imageheight;   /* full project image, before thumbnail scaling */
+    TexImageInfo info;             /* read-only metadata from base.z64 */
 } TexThumb;
 
 #define TEX_THUMB_MAX 32
@@ -68,5 +77,10 @@ BOOL TexLoadResourceThumbnail(HINSTANCE instance, int resourceid,
 DWORD TexLoadProjectThumbnails(const char *projectdir, TexThumb **items,
                                unsigned char **pixelblock,
                                const char **reasonout);
+
+/* Fill thumbnail metadata by hex image ID; missing/ambiguous ROM data stays
+ * unavailable. Does not change the project's images or their dimensions. */
+void TexSetRomThumbnailInfo(const RomFile *rom, TexThumb *items, DWORD count);
+void TexFormatThumbnailInfo(const TexThumb *thumb, char *text, DWORD capacity);
 
 #endif /* GEDITOR_TEXLOAD_H */

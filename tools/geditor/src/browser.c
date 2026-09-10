@@ -66,6 +66,9 @@ typedef struct BrowserState {
     int scroll[BROWSER_SECTION_COUNT];   /* pixels scrolled per body */
     int selectedlevel;
     int selectedimage;                   /* grid index, including No Texture */
+    HWND tooltip;
+    int tooltipimage;                    /* the one image registered as a tool */
+    char tooltiptext[384];
     int dragsection;                     /* thumb being dragged, or -1 */
     int dragstarty;
     int dragstartscroll;
@@ -259,6 +262,20 @@ static void BrowserSelectModelTab(HWND hwnd, BrowserState *state, int tab)
 static BrowserState *BrowserGetState(HWND hwnd)
 {
     return (BrowserState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+}
+
+static void BrowserHideImageTooltip(HWND hwnd, BrowserState *state)
+{
+    if (state->tooltip && state->tooltipimage >= 0)
+    {
+        TOOLINFO tool = {0};
+        tool.cbSize = sizeof(tool);
+        tool.hwnd = hwnd;
+        tool.uId = (UINT_PTR)state->tooltipimage + 1;
+        SendMessage(state->tooltip, TTM_POP, 0, 0);
+        SendMessage(state->tooltip, TTM_DELTOOL, 0, (LPARAM)&tool);
+    }
+    state->tooltipimage = -1;
 }
 
 /*
@@ -762,6 +779,60 @@ static int BrowserHitImage(const BrowserState *state, POINT point)
     return image < state->imagecount + 1 ? image : -1;
 }
 
+static void BrowserUpdateImageTooltip(HWND hwnd, BrowserState *state, WPARAM wparam, LPARAM lparam)
+{
+    RECT client;
+    POINT point = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+    TRACKMOUSEEVENT tracking = {0};
+    MSG event = {0};
+    int index;
+    if (state->tooltip == NULL) { return; }
+    GetClientRect(hwnd, &client);
+    BrowserLayoutSections(state, &client);
+    index = BrowserHitImage(state, point);
+    if (index != state->tooltipimage)
+    {
+        BrowserHideImageTooltip(hwnd, state);
+        if (index >= 0)
+        {
+            TOOLINFO tool = {0};
+            RECT body = BrowserContentRect(state, BROWSER_SECTION_IMAGES);
+            int columns = BrowserImageColumns(&body), width = BrowserImageGridWidth(&body);
+            int column = index % columns;
+            if (index == 0)
+            {
+                lstrcpyn(state->tooltiptext, "No Texture\r\nRemoves the texture from a face.", sizeof(state->tooltiptext));
+            }
+            else { TexFormatThumbnailInfo(&state->images[index - 1], state->tooltiptext, sizeof(state->tooltiptext)); }
+            tool.cbSize = sizeof(tool);
+            tool.hwnd = hwnd;
+            tool.uId = (UINT_PTR)index + 1;
+            tool.lpszText = state->tooltiptext;
+            tool.rect.left = body.left + BROWSER_IMAGE_MARGIN + column * width / columns;
+            tool.rect.right = body.left + BROWSER_IMAGE_MARGIN + (column + 1) * width / columns;
+            tool.rect.top = body.top + BROWSER_IMAGE_MARGIN + (index / columns) * BROWSER_IMAGE_CELL_H
+                - state->scroll[BROWSER_SECTION_IMAGES];
+            tool.rect.bottom = tool.rect.top + BROWSER_IMAGE_CELL_H;
+            IntersectRect(&tool.rect, &tool.rect, &body);
+            if (SendMessage(state->tooltip, TTM_ADDTOOL, 0, (LPARAM)&tool)) { state->tooltipimage = index; }
+        }
+    }
+    tracking.cbSize = sizeof(tracking);
+    tracking.dwFlags = TME_LEAVE;
+    tracking.hwndTrack = hwnd;
+    TrackMouseEvent(&tracking);
+    /* Relay after changing the tool: each new image gets its own hover delay.
+     * Native tooltips handle placement, wrapping and automatic dismissal. */
+    event.hwnd = hwnd;
+    event.message = WM_MOUSEMOVE;
+    event.wParam = wparam;
+    event.lParam = lparam;
+    event.time = GetMessageTime();
+    event.pt = point;
+    ClientToScreen(hwnd, &event.pt);
+    SendMessage(state->tooltip, TTM_RELAYEVENT, 0, (LPARAM)&event);
+}
+
 
 /* Image-list drag coordinates are relative to the drawing window's outer
  * rectangle, including its caption and borders. Use the editor frame as the
@@ -975,6 +1046,13 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
 {
     BrowserState *state = BrowserGetState(hwnd);
 
+    if (state && (msg == WM_LBUTTONDOWN || msg == WM_LBUTTONDBLCLK
+        || msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN || msg == WM_MOUSEWHEEL
+        || msg == WM_SIZE || msg == WM_KILLFOCUS || msg == WM_CANCELMODE))
+    {
+        BrowserHideImageTooltip(hwnd, state);
+    }
+
     switch (msg)
     {
     case WM_CREATE:
@@ -994,6 +1072,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         state->dragsection = -1;
         state->selectedlevel = -1;
         state->selectedimage = -1;
+        state->tooltipimage = -1;
 
         lstrcpyn(state->notexture.label, "No Texture", sizeof(state->notexture.label));
         if (!TexLoadResourceThumbnail(((CREATESTRUCT *)lparam)->hInstance,
@@ -1005,6 +1084,16 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
 
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
+        state->tooltip = CreateWindowEx(WS_EX_TOPMOST, TOOLTIPS_CLASS, NULL,
+            WS_POPUP | TTS_NOPREFIX, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+            CW_USEDEFAULT, hwnd, NULL, ((CREATESTRUCT *)lparam)->hInstance, NULL);
+        if (state->tooltip)
+        {
+            SendMessage(state->tooltip, TTM_SETMAXTIPWIDTH, 0, 380);
+            SendMessage(state->tooltip, TTM_SETDELAYTIME, TTDT_INITIAL, 500);
+            SendMessage(state->tooltip, TTM_SETDELAYTIME, TTDT_RESHOW, 500);
+            SendMessage(state->tooltip, TTM_SETDELAYTIME, TTDT_AUTOPOP, 15000);
+        }
         return 0;
 
     case WM_LBUTTONDBLCLK:
@@ -1138,6 +1227,11 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     }
 
     case WM_MOUSEMOVE:
+        if (state && state->dragimage == NULL && state->dragsection < 0
+            && !(wparam & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON)))
+        {
+            BrowserUpdateImageTooltip(hwnd, state, wparam, lparam);
+        }
         if (state != NULL && state->dragimage != NULL)
         {
             POINT point = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
@@ -1178,6 +1272,10 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 InvalidateRect(hwnd, NULL, FALSE);
             }
         }
+        return 0;
+
+    case WM_MOUSELEAVE:
+        if (state) { BrowserHideImageTooltip(hwnd, state); }
         return 0;
 
     case WM_LBUTTONUP:
@@ -1330,6 +1428,8 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     case WM_DESTROY:
         if (state != NULL)
         {
+            BrowserHideImageTooltip(hwnd, state);
+            if (state->tooltip) { DestroyWindow(state->tooltip); }
             BrowserEndAssetDrag(hwnd, state);
             free(state->images);
             free(state->imagepixels);
@@ -1417,6 +1517,7 @@ void BrowserSetImages(HWND browser, TexThumb *items, int count,
         return;
     }
 
+    BrowserHideImageTooltip(browser, state);
     BrowserEndAssetDrag(browser, state);
     free(state->images);
     free(state->imagepixels);
@@ -1455,6 +1556,7 @@ BOOL BrowserRevealImage(HWND browser, DWORD textureid)
     RECT client, body;
     int index, top, height;
     if (state == NULL || (index = BrowserFindImage(state, textureid)) < 0) { return FALSE; }
+    BrowserHideImageTooltip(browser, state);
     state->sections[BROWSER_SECTION_IMAGES].expanded = TRUE;
     GetClientRect(browser, &client);
     BrowserLayoutSections(state, &client);

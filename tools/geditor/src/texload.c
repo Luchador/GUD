@@ -392,7 +392,7 @@ DWORD TexExtractImages(const RomFile *rom, const char *projectdir, const char **
  * top-down RGBA into dst. Files that are not ours are skipped.
  */
 static BOOL TexReadBmpThumb(const char *path, unsigned char *dst,
-                            int *tw, int *th)
+                            TexThumb *thumb)
 {
     HANDLE f;
     DWORD got = 0;
@@ -456,8 +456,10 @@ static BOOL TexReadBmpThumb(const char *path, unsigned char *dst,
                     }
                 }
 
-                *tw = sw;
-                *th = sh;
+                thumb->w = sw;
+                thumb->h = sh;
+                thumb->imagewidth = (int)w;
+                thumb->imageheight = (int)h;
                 ok = TRUE;
             }
         }
@@ -608,8 +610,7 @@ DWORD TexLoadProjectThumbnails(const char *projectdir, TexThumb **items,
 
         wsprintf(path, "%s\\images\\%s", projectdir, find.cFileName);
 
-        if (TexReadBmpThumb(path, pixels + count * thumbbytes,
-                            &item->w, &item->h))
+        if (TexReadBmpThumb(path, pixels + count * thumbbytes, item))
         {
             item->pixeloffset = count * thumbbytes;
             count++;
@@ -628,6 +629,19 @@ DWORD TexLoadProjectThumbnails(const char *projectdir, TexThumb **items,
     }
 
     qsort(list, count, sizeof(TexThumb), TexThumbCompare);
+
+    /* Cache ROM metadata once on project load, never during mouse movement.
+     * The BMP remains the source for the displayed image and its dimensions. */
+    {
+        RomFile rom = {0};
+        const char *why = "";
+        int length = snprintf(path, sizeof(path), "%s\\base.z64", projectdir);
+        if (length > 0 && length < (int)sizeof(path) && RomLoad(path, &rom, &why))
+        {
+            TexSetRomThumbnailInfo(&rom, list, count);
+            RomFree(&rom);
+        }
+    }
 
     *items = list;
     *pixelblock = pixels;
