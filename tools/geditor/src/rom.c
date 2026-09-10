@@ -430,7 +430,7 @@ void RomFree(RomFile *rom)
 #define ROM_KIND_ENVT 0x454E5654u /* 'ENVT' */
 #define ROM_FTBL_MAX_ROWS 1024
 
-BOOL RomGetLevelBackgroundColor(const RomFile *rom, LONG levelid, unsigned char rgb[3])
+BOOL RomGetLevelEnvironment(const RomFile *rom, LONG levelid, unsigned char rgb[3], RomFog *fog)
 {
     const RomManifestEntry *envt = NULL;
     const RomManifestEntry *cmap = NULL;
@@ -476,6 +476,16 @@ BOOL RomGetLevelBackgroundColor(const RomFile *rom, LONG levelid, unsigned char 
         {
             if (selected == NULL) { return FALSE; }
             memcpy(rgb, selected + 44, 3);
+            if (fog != NULL)
+            {
+                DWORD nearbits = be32(selected + 8), farbits = be32(selected + 12);
+                ZeroMemory(fog, sizeof(*fog));
+                fog->enabled = be32(selected + 4) != 0;
+                memcpy(&fog->nearclip, &nearbits, sizeof(fog->nearclip));
+                memcpy(&fog->farclip, &farbits, sizeof(fog->farclip));
+                fog->start = (LONG)be32(selected + 36);
+                fog->end = (LONG)be32(selected + 40);
+            }
             return TRUE;
         }
 
@@ -504,6 +514,11 @@ BOOL RomGetLevelBackgroundColor(const RomFile *rom, LONG levelid, unsigned char 
     }
 
     return FALSE; /* Missing terminator or incomplete final record. */
+}
+
+BOOL RomGetLevelBackgroundColor(const RomFile *rom, LONG levelid, unsigned char rgb[3])
+{
+    return RomGetLevelEnvironment(rom, levelid, rgb, NULL);
 }
 
 /* File-table entries can alias the same data (several multiplayer

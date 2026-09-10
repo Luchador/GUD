@@ -19,6 +19,7 @@
 #include "browser.h"
 #include "viewport.h"
 #include "gltf.h"
+#include "fog.h"
 #include "orbitcamera.h"
 #include "resource.h"
 
@@ -63,6 +64,14 @@
 #define VIEWPORT_TEXTURE_VARIANT_COUNT ((BG_TEX_NONE + 1) * 2)
 #define VIEWPORT_STATS_FONT_GLYPHS 128
 
+/* Core since GL 1.4, also exposed by GL_EXT_fog_coord on older drivers. */
+#ifndef GL_FOG_COORDINATE_SOURCE
+#define GL_FOG_COORDINATE_SOURCE 0x8450
+#define GL_FOG_COORDINATE        0x8451
+#define GL_FOG_COORDINATE_ARRAY  0x8457
+#endif
+typedef void (APIENTRY *FogCoordPointerFn)(GLenum, GLsizei, const GLvoid *);
+
 /* Cached by texture ID and alpha use: authored order can revisit a texture many times.
  * Keep alpha for CPU picking through transparent areas of decals. */
 typedef struct ViewportTexture {
@@ -93,6 +102,7 @@ typedef struct Vertex {
     GLubyte r, g, b, a;
     GLfloat s, t;
     BgEnvironmentVertex environment; /* world normal and normalized generation ranges */
+    GLfloat fogamount;
 } Vertex;
 
 typedef struct VertexColor {
@@ -126,6 +136,9 @@ typedef struct ViewportState {
     DWORD bgprimarytris, bgsecondarytris, bgtexturecount; /* cached on scene rebuild */
 
     float backgroundcolor[3];
+    BOOL showfog, levelfog;
+    FogCurve fog;
+    FogCoordPointerFn fogcoordpointer; /* owned by this viewport's GL context */
     
     /* Fly Camera */
     float posx, posy, posz;
@@ -287,12 +300,12 @@ static BOOL ViewportPadSelectionPosition(const ViewportState *state, double posi
 }
 
 static const Vertex g_TestScene[6] = {
-    {    0.0f,  160.0f, 0.0f,   255,  40,  40, 255 , 1.0f, 0.0f, {{0, 0, 0}, {0, 0}}},
-    { -160.0f, -120.0f, 0.0f,    40, 255,  40, 255 , 0.0f, 1.0f, {{0, 0, 0}, {0, 0}}},
-    {  160.0f, -120.0f, 0.0f,    40,  40, 255, 255 , 0.0f, 0.0f, {{0, 0, 0}, {0, 0}}},
-    {    -80.0f,  160.0f, -200.0f,   255,  255,  0, 255, 2.0f, 0.0f, {{0, 0, 0}, {0, 0}}},
-    { -240.0f, -120.0f, -200.0f,    0, 255,  255, 255, 2.0f, 2.0f, {{0, 0, 0}, {0, 0}}},
-    {  80.0f, -120.0f, -200.0f,    255,  0, 0, 255 , 0.0f, 0.0f, {{0, 0, 0}, {0, 0}}},
+    {    0.0f,  160.0f, 0.0f,   255,  40,  40, 255 , 1.0f, 0.0f, {{0, 0, 0}, {0, 0}}, 0},
+    { -160.0f, -120.0f, 0.0f,    40, 255,  40, 255 , 0.0f, 1.0f, {{0, 0, 0}, {0, 0}}, 0},
+    {  160.0f, -120.0f, 0.0f,    40,  40, 255, 255 , 0.0f, 0.0f, {{0, 0, 0}, {0, 0}}, 0},
+    {    -80.0f,  160.0f, -200.0f,   255,  255,  0, 255, 2.0f, 0.0f, {{0, 0, 0}, {0, 0}}, 0},
+    { -240.0f, -120.0f, -200.0f,    0, 255,  255, 255, 2.0f, 2.0f, {{0, 0, 0}, {0, 0}}, 0},
+    {  80.0f, -120.0f, -200.0f,    255,  0, 0, 255 , 0.0f, 0.0f, {{0, 0, 0}, {0, 0}}, 0},
 };
 
 #define TESTSCENE_VERTS ((GLsizei)(sizeof(g_TestScene) / sizeof(g_TestScene[0])))
@@ -447,6 +460,25 @@ static BOOL ViewportInitGL(HWND hwnd, ViewportState *state)
     }
 
     wglMakeCurrent(state->hdc, state->hglrc);
+
+    {
+        const char *version = (const char *)glGetString(GL_VERSION);
+        const char *extensions = (const char *)glGetString(GL_EXTENSIONS);
+        const char *match = extensions ? strstr(extensions, "GL_EXT_fog_coord") : NULL;
+        int major = 0, minor = 0;
+        BOOL extension = match && (match == extensions || match[-1] == ' ')
+            && (match[16] == ' ' || match[16] == '\0');
+        PROC pointer = NULL;
+        if (version != NULL) { sscanf(version, "%d.%d", &major, &minor); }
+        if (major > 1 || (major == 1 && minor >= 4))
+        { pointer = wglGetProcAddress("glFogCoordPointer"); }
+        /* Some WGL drivers return sentinel values for unsupported functions. */
+        if ((INT_PTR)pointer == -1 || (UINT_PTR)pointer <= 3) { pointer = NULL; }
+        if (pointer == NULL && extension)
+        { pointer = wglGetProcAddress("glFogCoordPointerEXT"); }
+        if ((INT_PTR)pointer != -1 && (UINT_PTR)pointer > 3)
+        { state->fogcoordpointer = (FogCoordPointerFn)(void *)pointer; }
+    }
 
     /* Ask the driver to pace SwapBuffers to the display refresh
        (vsync). While flying, the render loop then runs at exactly the
@@ -739,6 +771,44 @@ static void ViewportUpdateEnvironmentMapping(ViewportState *state)
     }
 }
 
+static void ViewportBeginFog(ViewportState *state)
+{
+    GLfloat color[4] = {state->backgroundcolor[0], state->backgroundcolor[1],
+                        state->backgroundcolor[2], 1.0f};
+    glDisable(GL_FOG);
+    if (state->fogcoordpointer != NULL) { glDisableClientState(GL_FOG_COORDINATE_ARRAY); }
+    if (!state->showfog || !state->levelfog || state->orbit
+        || state->scene == NULL || state->scenecount == 0) { return; }
+
+    glFogi(GL_FOG_MODE, GL_LINEAR);
+    glFogfv(GL_FOG_COLOR, color);
+    if (state->fogcoordpointer != NULL)
+    {
+        float forward[3], right[3];
+        GLsizei i;
+        ViewportGetBasis(state, forward, right);
+        for (i = 0; i < state->scenecount; i++)
+        {
+            Vertex *v = &state->scene[i];
+            double depth = ((double)v->x - state->posx) * forward[0]
+                         + ((double)v->y - state->posy) * forward[1]
+                         + ((double)v->z - state->posz) * forward[2];
+            v->fogamount = FogAmount(&state->fog, depth);
+        }
+        glFogi(GL_FOG_COORDINATE_SOURCE, GL_FOG_COORDINATE);
+        glFogf(GL_FOG_START, 0.0f);
+        glFogf(GL_FOG_END, 1.0f);
+        state->fogcoordpointer(GL_FLOAT, sizeof(Vertex), &state->scene[0].fogamount);
+        glEnableClientState(GL_FOG_COORDINATE_ARRAY);
+    }
+    else
+    {
+        glFogf(GL_FOG_START, state->fog.linearstart);
+        glFogf(GL_FOG_END, state->fog.linearend);
+    }
+    glEnable(GL_FOG);
+}
+
 static void ViewportPaintGL(ViewportState *state)
 {
     wglMakeCurrent(state->hdc, state->hglrc);
@@ -776,6 +846,8 @@ static void ViewportPaintGL(ViewportState *state)
     glRotatef(-state->pitch, 1.0f, 0.0f, 0.0f);
     glRotatef(-state->yaw,   0.0f, 1.0f, 0.0f);
     glTranslatef(-state->posx, -state->posy, -state->posz);
+
+    ViewportBeginFog(state);
 
     {
         const Vertex *verts = state->scene != NULL ? state->scene : g_TestScene;
@@ -858,6 +930,11 @@ static void ViewportPaintGL(ViewportState *state)
 
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     }
+
+    /* Fog belongs to level surfaces/models, not editing aids or statistics.
+       Disable the array too: overlay vertex buffers have different lengths. */
+    glDisable(GL_FOG);
+    if (state->fogcoordpointer != NULL) { glDisableClientState(GL_FOG_COORDINATE_ARRAY); }
 
     if (ViewportStanVisible(state) && state->stanfill != NULL && state->stanfillcount > 0)
     {
@@ -4161,6 +4238,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         state->showobjects = TRUE;
         state->cullbackfaces = TRUE;
         state->showbgstatistics = !state->orbit;
+        state->showfog = !state->orbit;
         state->selectedobject = VIEWPORT_OBJECT_NONE;
         state->selectedpad.index = SETUP_PAD_INDEX_NONE;
         state->hoveraxis = state->dragaxis = -1;
@@ -4459,6 +4537,34 @@ void ViewportSetBackgroundColor(HWND viewport, const unsigned char rgb[3])
         state->backgroundcolor[axis] = rgb != NULL ? rgb[axis] / 255.0f : fallback[axis];
     }
 
+    ViewportRedraw(viewport);
+}
+
+void ViewportSetLevelFog(HWND viewport, const RomFog *fog, float renderscale)
+{
+    ViewportState *state = ViewportGetState(viewport);
+    if (state == NULL) { return; }
+    state->levelfog = FALSE;
+    ZeroMemory(&state->fog, sizeof(state->fog));
+    if (fog != NULL && fog->enabled && !state->orbit)
+    {
+        state->levelfog = FogConfigure(&state->fog, fog->nearclip, fog->farclip,
+                                      renderscale, fog->start, fog->end);
+    }
+    ViewportRedraw(viewport);
+}
+
+BOOL ViewportGetFogVisible(HWND viewport)
+{
+    ViewportState *state = ViewportGetState(viewport);
+    return state != NULL && state->showfog;
+}
+
+void ViewportSetFogVisible(HWND viewport, BOOL visible)
+{
+    ViewportState *state = ViewportGetState(viewport);
+    if (state == NULL || state->orbit) { return; }
+    state->showfog = visible != FALSE;
     ViewportRedraw(viewport);
 }
 

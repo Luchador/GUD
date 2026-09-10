@@ -14,6 +14,12 @@ typedef struct RomManifestEntry {
     DWORD flags;
 } RomManifestEntry;
 
+typedef struct RomFog {
+    BOOL enabled;
+    float nearclip, farclip;
+    LONG start, end; /* N64 projected-depth units, not world distances */
+} RomFog;
+
 /*
  * One row of the ROM's level table, strings resolved and copied out.
  * name comes from LevelEntry.levelName, with a setup-filename fallback for
@@ -33,6 +39,7 @@ typedef struct RomLevel {
     short xtrack;
     BOOL hasbackgroundcolor;
     unsigned char backgroundcolor[3];
+    RomFog fog; /* refreshed from base.z64; not serialized to the .gep */
 } RomLevel;
 
 typedef struct RomInfo {
@@ -72,6 +79,7 @@ DWORD RomLevelTableRowSize(const RomManifestEntry *stgt, DWORD romsize);
 BOOL RomLoad(const char *path, RomFile *rom, const char **reasonout);
 void RomFree(RomFile *rom);
 BOOL RomGetLevelBackgroundColor(const RomFile *rom, LONG levelid, unsigned char rgb[3]);
+BOOL RomGetLevelEnvironment(const RomFile *rom, LONG levelid, unsigned char rgb[3], RomFog *fog);
 
 /*
  * Looks a file up by its resource name ("bg/bg_sev_all_p.seg") in the

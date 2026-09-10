@@ -5,6 +5,7 @@
 
 #include "bgdocument.h"
 #include "edittool.h"
+#include "rom.h"
 #include "setupload.h"
 #include "stanload.h"
 #include "texload.h"
@@ -36,6 +37,11 @@ int ViewportGetSelectedComponentCount(HWND hwnd);
    surface centroid. Includes the live drag preview, excludes hidden items. */
 BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout);
 void ViewportSetBackgroundColor(HWND viewport, const unsigned char rgb[3]);
+/* Level settings and the user's View toggle are independent; changing levels
+   keeps the toggle. NULL clears the level fog. Orbit previews never use it. */
+void ViewportSetLevelFog(HWND viewport, const RomFog *fog, float renderscale);
+BOOL ViewportGetFogVisible(HWND viewport);
+void ViewportSetFogVisible(HWND viewport, BOOL visible);
 
 typedef struct ViewportBgVertexHit {
     BgFaceRef face;

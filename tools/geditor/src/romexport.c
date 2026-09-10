@@ -259,6 +259,7 @@ void RomExportRefreshProjectLevelMetadata(GEditorProject *project)
     for (i = 0; i < project->levelcount; i++)
     {
         project->levels[i].hasbackgroundcolor = FALSE;
+        ZeroMemory(&project->levels[i].fog, sizeof(project->levels[i].fog));
     }
 
     if (project->levelcount == 0 || !RomExportBasePath(project, path, sizeof(path), &why) || !RomLoad(path, &rom, &why)) 
@@ -279,7 +280,8 @@ void RomExportRefreshProjectLevelMetadata(GEditorProject *project)
         for (i = 0; i < project->levelcount; i++)
         {
             RomLevel *level = &project->levels[i];
-            level->hasbackgroundcolor = RomGetLevelBackgroundColor(&rom, level->levelID, level->backgroundcolor);
+            level->hasbackgroundcolor = RomGetLevelEnvironment(&rom, level->levelID,
+                                                               level->backgroundcolor, &level->fog);
 
             if (!named) 
             { 

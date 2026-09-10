@@ -488,6 +488,8 @@ static void GEditorCloseProject(HWND hwnd)
     BrowserSetImages(g_Browser, NULL, 0, NULL);
     BrowserSetModels(g_Browser, NULL, 0);
     ViewportSetScene(g_Viewport, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, FALSE);
+    ViewportSetBackgroundColor(g_Viewport, NULL);
+    ViewportSetLevelFog(g_Viewport, NULL, 1.0f);
     GEditorRefreshSelectionDetails();
     GEditorRefreshHistoryMenu(hwnd);
 }
@@ -507,6 +509,7 @@ enum {
     ID_EDIT_REDO,
     ID_VIEW_BACKFACE_CULLING,
     ID_VIEW_BG_STATISTICS,
+    ID_VIEW_FOG,
     ID_VIEW_HIDE_SELECTED,
     ID_VIEW_UNHIDE_ALL,
 
@@ -640,6 +643,7 @@ static HMENU GEditorCreateMenuBar(void)
 
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_BACKFACE_CULLING, "&Backface Culling");
     AppendMenu(viewmenu, MF_STRING | MF_CHECKED, ID_VIEW_BG_STATISTICS, "Background &Statistics");
+    AppendMenu(viewmenu, MF_STRING | MF_CHECKED, ID_VIEW_FOG, "&Fog\tF");
     AppendMenu(viewmenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_HIDE_SELECTED, "&Hide Selected\tH");
     AppendMenu(viewmenu, MF_STRING, ID_VIEW_UNHIDE_ALL, "&Unhide All\tAlt+H");
@@ -2853,6 +2857,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         g_CurrentLevelIndex = index;
 
         ViewportSetBackgroundColor(g_Viewport, level->hasbackgroundcolor ? level->backgroundcolor : NULL);
+        ViewportSetLevelFog(g_Viewport, level->hasbackgroundcolor ? &level->fog : NULL, level->renderScale);
 
         GEditorRefreshHistoryMenu(hwnd);
 
@@ -2962,6 +2967,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         GEditorUpdateHistoryMenu((HMENU)wparam);
         CheckMenuItem((HMENU)wparam, ID_VIEW_BACKFACE_CULLING, MF_BYCOMMAND | (ViewportGetBackfaceCulling(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
         CheckMenuItem((HMENU)wparam, ID_VIEW_BG_STATISTICS, MF_BYCOMMAND | (ViewportGetBgStatisticsVisible(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
+        CheckMenuItem((HMENU)wparam, ID_VIEW_FOG, MF_BYCOMMAND | (ViewportGetFogVisible(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
         EnableMenuItem((HMENU)wparam, ID_VIEW_HIDE_SELECTED, MF_BYCOMMAND |
             (ViewportGetTool(g_Viewport) == EDITOR_TOOL_FACE_SELECT && ViewportGetSelectedBgFaceCount(g_Viewport) > 0
                 ? MF_ENABLED : MF_GRAYED));
@@ -3105,6 +3111,10 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                     !ViewportGetBgStatisticsVisible(g_Viewport));
                 return 0;
 
+            case ID_VIEW_FOG:
+                ViewportSetFogVisible(g_Viewport, !ViewportGetFogVisible(g_Viewport));
+                return 0;
+
             case ID_VIEW_HIDE_SELECTED:
                 if (!ViewportHideSelectedBgFaces(g_Viewport))
                 { MessageBox(hwnd, "Not enough memory to hide the selected faces.", GEDITOR_TITLE, MB_ICONERROR); }
@@ -3220,6 +3230,25 @@ static BOOL GEditorHandleVisibilityHotkey(HWND frame, const MSG *message)
     return TRUE;
 }
 
+/* F also works during camera flight, but remains text in property inputs.
+   Consume auto-repeat so holding F does not flicker between modes. */
+static BOOL GEditorHandleFogHotkey(HWND frame, const MSG *message)
+{
+    char classname[32] = "";
+    if (message == NULL || g_Viewport == NULL || message->message != WM_KEYDOWN
+        || message->wParam != 'F'
+        || (message->hwnd != frame && !IsChild(frame, message->hwnd))
+        || (GetKeyState(VK_CONTROL) & 0x8000)
+        || (GetKeyState(VK_MENU) & 0x8000)
+        || (GetKeyState(VK_SHIFT) & 0x8000)) { return FALSE; }
+    GetClassName(message->hwnd, classname, sizeof(classname));
+    if (lstrcmpi(classname, "Edit") == 0 || lstrcmpi(classname, "ComboBox") == 0
+        || lstrcmpi(classname, "ComboLBox") == 0) { return FALSE; }
+    if (!(message->lParam & ((LPARAM)1 << 30)))
+    { SendMessage(frame, WM_COMMAND, ID_VIEW_FOG, 0); }
+    return TRUE;
+}
+
 int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int showcmd)
 {
     WNDCLASS wc;
@@ -3308,6 +3337,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
                 }
                 if (!ModelEditorHandleMessage(&msg)
                     && !UVEditorHandleMessage(&msg)
+                    && !GEditorHandleFogHotkey(hwnd, &msg)
                     && !GEditorHandleVisibilityHotkey(hwnd, &msg)
                     && !GEditorHandleTransformHotkey(hwnd, &msg)
                     && !RightPanelHandleMessage(g_RightPanel, &msg)
@@ -3331,6 +3361,7 @@ int WINAPI WinMain(HINSTANCE hinstance, HINSTANCE hprev, LPSTR cmdline, int show
             }
             if (!ModelEditorHandleMessage(&msg)
                 && !UVEditorHandleMessage(&msg)
+                && !GEditorHandleFogHotkey(hwnd, &msg)
                 && !GEditorHandleVisibilityHotkey(hwnd, &msg)
                 && !GEditorHandleTransformHotkey(hwnd, &msg)
                 && !RightPanelHandleMessage(g_RightPanel, &msg)
