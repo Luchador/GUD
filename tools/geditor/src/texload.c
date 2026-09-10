@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include "texload.h"
+#include "imageedits.h"
 
 #define GUTX_DESC_OFFSET   16
 #define GUTX_DESC_SIZE     12
@@ -233,8 +234,70 @@ static BOOL TexDecodeImage(const unsigned char *rec, DWORD recsize,
     return TRUE;
 }
 
+BOOL TexDecodeRecord(const unsigned char *data, DWORD size, TexPixel *pixels, int *width, int *height)
+{
+    TexInfoRecord info;
+    if (!TexInfoReadRecord(data, size, &info)) { return FALSE; }
+    *width = data[17]; *height = data[18];
+    return TexDecodeImage(data, info.size, data[16], data[17], data[18],
+                          texbe32(data + 20), texbe16(data + 8), pixels);
+}
+
+/* WIC handles indexed, RGB, bitfield and RLE BMPs. Alpha-less BMPs become
+ * opaque; explicit BMP alpha is retained. Rotate once at the import boundary
+ * to match the native orientation used by existing project textures/UVs. */
+BOOL TexReadImportBmp(const char *path, TexPixel **pixels, int *width, int *height, const char **reasonout)
+{
+    HRESULT initialized = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    IWICImagingFactory *factory = NULL;
+    IWICBitmapDecoder *decoder = NULL;
+    IWICBitmapFrameDecode *frame = NULL;
+    IWICFormatConverter *converter = NULL;
+    WCHAR wide[MAX_PATH];
+    GUID container;
+    UINT w, h, i;
+    TexPixel *result = NULL;
+    BOOL ok = FALSE;
+    *pixels = NULL; *width = *height = 0;
+    *reasonout = "The selected file could not be decoded as a BMP image.";
+    if (FAILED(initialized) && initialized != RPC_E_CHANGED_MODE) { return FALSE; }
+    if (!MultiByteToWideChar(CP_ACP, 0, path, -1, wide, MAX_PATH)
+        || FAILED(CoCreateInstance(&CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER,
+                    &IID_IWICImagingFactory, (void **)&factory))
+        || FAILED(IWICImagingFactory_CreateDecoderFromFilename(factory, wide, NULL,
+                    GENERIC_READ, WICDecodeMetadataCacheOnLoad, &decoder))
+        || FAILED(IWICBitmapDecoder_GetContainerFormat(decoder, &container))
+        || !IsEqualGUID(&container, &GUID_ContainerFormatBmp)
+        || FAILED(IWICBitmapDecoder_GetFrame(decoder, 0, &frame))
+        || FAILED(IWICBitmapFrameDecode_GetSize(frame, &w, &h))) { goto done; }
+    if (w == 0 || h == 0 || w > 255 || h > 255)
+    {
+        *reasonout = "GUD image dimensions must be between 1 and 255 pixels on each axis. Resize this BMP before importing.";
+        goto done;
+    }
+    result = (TexPixel *)malloc(w * h * sizeof(*result));
+    if (result == NULL) { *reasonout = "Out of memory reading the BMP."; goto done; }
+    if (FAILED(IWICImagingFactory_CreateFormatConverter(factory, &converter))
+        || FAILED(IWICFormatConverter_Initialize(converter, (IWICBitmapSource *)frame,
+            &GUID_WICPixelFormat32bppRGBA, WICBitmapDitherTypeNone, NULL, 0.0, WICBitmapPaletteTypeCustom))
+        || FAILED(IWICFormatConverter_CopyPixels(converter, NULL, w * 4, w * h * 4, (BYTE *)result))) { goto done; }
+    for (i = 0; i < w * h / 2; i++)
+    {
+        TexPixel temp = result[i]; result[i] = result[w * h - 1 - i]; result[w * h - 1 - i] = temp;
+    }
+    *pixels = result; result = NULL; *width = w; *height = h; *reasonout = ""; ok = TRUE;
+done:
+    free(result);
+    if (converter) { IWICFormatConverter_Release(converter); }
+    if (frame) { IWICBitmapFrameDecode_Release(frame); }
+    if (decoder) { IWICBitmapDecoder_Release(decoder); }
+    if (factory) { IWICImagingFactory_Release(factory); }
+    if (SUCCEEDED(initialized)) { CoUninitialize(); }
+    return ok;
+}
+
 /* Writes a bottom-up 32-bit BMP. */
-static BOOL TexWriteBmp(const char *path, const TexPixel *pixels,
+BOOL TexWriteBmp(const char *path, const TexPixel *pixels,
                         DWORD width, DWORD height)
 {
     BITMAPFILEHEADER bfh;
@@ -265,8 +328,8 @@ static BOOL TexWriteBmp(const char *path, const TexPixel *pixels,
         return FALSE;
     }
 
-    ok = ok && WriteFile(f, &bfh, sizeof(bfh), &written, NULL);
-    ok = ok && WriteFile(f, &bih, sizeof(bih), &written, NULL);
+    ok = ok && WriteFile(f, &bfh, sizeof(bfh), &written, NULL) && written == sizeof(bfh);
+    ok = ok && WriteFile(f, &bih, sizeof(bih), &written, NULL) && written == sizeof(bih);
 
     /*
      * GE's texel data is stored rotated 180 degrees from viewing
@@ -292,7 +355,7 @@ static BOOL TexWriteBmp(const char *path, const TexPixel *pixels,
             line[x * 4 + 3] = p->a;
         }
 
-        ok = WriteFile(f, line, width * 4, &written, NULL);
+        ok = WriteFile(f, line, width * 4, &written, NULL) && written == width * 4;
     }
 
     CloseHandle(f);
@@ -567,8 +630,7 @@ DWORD TexLoadProjectThumbnails(const char *projectdir, TexThumb **items,
     search = FindFirstFile(pattern, &find);
     if (search == INVALID_HANDLE_VALUE)
     {
-        *reasonout = "the project has no images folder (created before texture extraction?).";
-        return 0;
+        goto thumbnails;
     }
 
     do
@@ -620,16 +682,7 @@ DWORD TexLoadProjectThumbnails(const char *projectdir, TexThumb **items,
 
     FindClose(search);
 
-    if (count == 0)
-    {
-        free(list);
-        free(pixels);
-        *reasonout = "the images folder holds no readable BMPs.";
-        return 0;
-    }
-
-    qsort(list, count, sizeof(TexThumb), TexThumbCompare);
-
+thumbnails:
     /* Cache ROM metadata once on project load, never during mouse movement.
      * The BMP remains the source for the displayed image and its dimensions. */
     {
@@ -643,6 +696,14 @@ DWORD TexLoadProjectThumbnails(const char *projectdir, TexThumb **items,
         }
     }
 
+    ImageEditsUpdateThumbnails(projectdir, &list, &pixels, &count);
+    if (count == 0)
+    {
+        free(list); free(pixels);
+        *reasonout = "the images folder holds no readable BMPs.";
+        return 0;
+    }
+    qsort(list, count, sizeof(TexThumb), TexThumbCompare);
     *items = list;
     *pixelblock = pixels;
     return count;
@@ -670,6 +731,8 @@ BOOL TexLoadProjectImage(const char *projectdir, DWORD id,
 
     *w = 0;
     *h = 0;
+
+    if (ImageEditsGetPixels(projectdir, id, out, w, h)) { return TRUE; }
 
     written = snprintf(path, sizeof(path), "%s\\images\\%04lX.bmp",
                        projectdir, (unsigned long)id);
@@ -845,6 +908,8 @@ BOOL TexGetProjectImageSize(const char *projectdir, DWORD id,
 
     *w = 0;
     *h = 0;
+
+    if (ImageEditsGetPixels(projectdir, id, NULL, w, h)) { return TRUE; }
 
     written = snprintf(path, sizeof(path), "%s\\images\\%04lX.bmp",
                        projectdir, (unsigned long)id);

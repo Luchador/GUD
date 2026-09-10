@@ -4294,7 +4294,7 @@ typedef enum PROJECTILES
 #define OBJECTIVES_MAX           10
 #define MAX_CHRWAYPOINTS         6
 #define MAX_WAYMODE              ((s32)WAYMODE_MAGIC)
-#define MAX_TEXTURES             3001
+#define MAX_TEXTURES             4096 /* struct tex stores a 12-bit image ID */
 #define PROPRECORD_STAN_ROOM_LEN 4
 #define NUMBER_SHOTGUN_BULLETS   5
 

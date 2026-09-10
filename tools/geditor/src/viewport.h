@@ -33,10 +33,13 @@ typedef struct ViewportTranslation { double offset[3]; } ViewportTranslation;
 void ViewportCancelTransform(HWND hwnd);
 BgDocumentVertexRef *ViewportGetMoveVertices(HWND hwnd, DWORD *countout);
 int ViewportGetSelectedComponentCount(HWND hwnd);
+
 /* Mean vertex positions, edge midpoints or face centers; a model uses its
    surface centroid. Includes the live drag preview, excludes hidden items. */
 BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout);
+
 void ViewportSetBackgroundColor(HWND viewport, const unsigned char rgb[3]);
+
 /* Level settings and the user's View toggle are independent; changing levels
    keeps the toggle. NULL clears the level fog. Orbit previews never use it. */
 void ViewportSetLevelFog(HWND viewport, const RomFog *fog, float renderscale);
@@ -122,8 +125,7 @@ BOOL ViewportGetSelectedPad(HWND hwnd, SetupPadRef *out);
 /* Non-selecting face-mode drop query in screen coordinates. Uses the nearest
  * visible surface without cycling the selection stack. Objects and stan tiles
  * in front block a BG drop. selectedout identifies drops onto the selection. */
-BOOL ViewportGetTextureDropFace(HWND hwnd, POINT screen,
-                                BgFaceRef *out, BOOL *selectedout);
+BOOL ViewportGetTextureDropFace(HWND hwnd, POINT screen, BgFaceRef *out, BOOL *selectedout);
 
 /* Replaces the pad overlay. PadRecords are small green wireframe
    cubes; BoundPadRecords are red wireframes of their authored volume.
@@ -149,9 +151,7 @@ void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals);
 
 /* Controls background, stan, portal and object/character visibility.
    The loaded scene remains resident while a layer is hidden. */
-void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
-                                   BOOL bgsecondary, BOOL stan,
-                                   BOOL portals, BOOL objects);
+void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary, BOOL bgsecondary, BOOL stan, BOOL portals, BOOL objects);
 
 /* Master culling toggle. Enabled honors the BG's per-triangle state;
    disabled renders every triangle double-sided. */

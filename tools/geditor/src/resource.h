@@ -7,6 +7,7 @@
 #define IDD_UV_EDITOR         103
 #define IDD_EXIT_UNSAVED      104
 #define IDD_MODEL_EDITOR      105
+#define IDD_IMPORT_IMAGE      106
 
 /* Icons */
 #define IDI_GEDITOR           201
@@ -71,6 +72,17 @@
 #define IDC_MODEL_STATUS           1046
 #define IDC_MODEL_EXPORT           1047
 #define IDC_MODEL_IMPORT           1048
+
+/* Image import settings. The thirteen texture types form one radio group. */
+#define IDC_IMAGE_SUMMARY     1100
+#define IDC_IMAGE_FORMAT_FIRST 1110
+#define IDC_IMAGE_FORMAT_LAST  1122
+#define IDC_IMAGE_MIPMAPS     1130
+#define IDC_IMAGE_SOUND       1131
+#define IDC_IMAGE_BULLET      1132
+#define IDC_IMAGE_TMEM        1133
+#define IDC_IMAGE_WARNING     1134
+#define IDC_IMAGE_IMPORT      1135
 
 /* Longest project name we accept, including the terminator. */
 #define GEDITOR_NAME_MAX       64

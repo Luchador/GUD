@@ -97,11 +97,23 @@ s32 g_TexFormatLutModes[] = {
     {HS, HT, SZ, F3, F4, F5, F6 },
 
 //need way to calculate size at compile time from external data
-struct image_entry g_Textures[] = {
+struct image_entry g_Textures[MAX_TEXTURES + 1] = {
     #include <assets/images.raw.def>
     {HIT_DEFAULT, HIT_DEFAULT,0xFFFF,0,0,0,0}
 };
 #undef IMAGE
+
+/* Derive the initial count from the same source as the table. The extra
+ * slots above remain zero until a GEditor ROM build fills them. */
+#define IMAGE(NAME, SZ, HS, HT, F3, F4, F5, F6) + 1
+enum { BUILTIN_TEXTURE_COUNT = 0
+    #include <assets/images.raw.def>
+};
+#undef IMAGE
+extern u8 _imagesSegmentRomStart;
+TextureRomConfig g_TextureRomConfig = {
+    (u32)&_imagesSegmentRomStart, BUILTIN_TEXTURE_COUNT
+};
 
 
 /**
@@ -1230,13 +1242,19 @@ void texLoad(s32 *updateword, struct texpool *pool)
     }
 
     g_TexNumToLoad = *updateword & 0xffff;
+    if ((u32)g_TexNumToLoad >= g_TextureRomConfig.textureCount
+        || (u32)g_TexNumToLoad >= MAX_TEXTURES)
+    {
+        *updateword = osVirtualToPhysical(pool->start);
+        return;
+    }
     tex = texFindInPool(g_TexNumToLoad, pool);
 
     if (tex == NULL)
     {
         header = (u8 *)(((u32)headerBuffer + 0xf) & ~0xf);
         textureOffset = *((s32 *)&g_Textures[g_TexNumToLoad]) & 0xffffff;
-        romAddress = (u32)&_imagesSegmentRomStart + textureOffset;
+        romAddress = g_TextureRomConfig.imagesRomStart + textureOffset;
         romCopy(header, (void *)romAddress, RAW_TEXTURE_BASE_HEADER_SIZE);
         headerSize = texReadRawU16(&header[10]);
 
@@ -1290,7 +1308,7 @@ void texLoadFromModelFileHeader(ModelFileHeader* arg0, struct texpool* arg1)
 
     for (i = 0; i < arg0->numtextures; i++)
     {
-        if ((s32)textures[i].TextureID < (s32)MAX_TEXTURES)
+        if ((u32)textures[i].TextureID < g_TextureRomConfig.textureCount)
         {
             texLoad(&textures[i], arg1);
         }

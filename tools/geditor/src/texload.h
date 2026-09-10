@@ -35,6 +35,9 @@ BOOL TexLoadProjectImage(const char *projectdir, DWORD id,
 /* Encode native-order RGBA rows as a PNG for glTF. Caller frees *dataout. */
 BOOL TexEncodePng(const TexPixel *pixels, int width, int height,
                    unsigned char **dataout, DWORD *sizeout);
+BOOL TexReadImportBmp(const char *path, TexPixel **pixels, int *width, int *height, const char **reasonout);
+BOOL TexWriteBmp(const char *path, const TexPixel *pixels, DWORD width, DWORD height);
+BOOL TexDecodeRecord(const unsigned char *data, DWORD size, TexPixel *pixels, int *width, int *height);
 
 /* Reads only the dimensions from an extracted project BMP. This is used when
  * converting between GoldenEye's texel-space UVs and normalized model UVs. */
@@ -52,12 +55,20 @@ typedef struct TexImageInfo {
     unsigned char hitsound, hittexture;
 } TexImageInfo;
 
+typedef struct TexInfoRecord {
+    DWORD size;
+    TexImageInfo info;
+} TexInfoRecord;
+BOOL TexInfoReadRecord(const unsigned char *data, DWORD available, TexInfoRecord *out);
+const char *TexInfoSurfaceName(unsigned int type);
+const char *TexInfoFormatName(unsigned int format);
+
 typedef struct TexThumb {
     char label[16];
     int  w, h;                    /* actual thumb size, <= TEX_THUMB_MAX */
     unsigned int pixeloffset;     /* byte offset into the shared block */
     int imagewidth, imageheight;   /* full project image, before thumbnail scaling */
-    TexImageInfo info;             /* read-only metadata from base.z64 */
+    TexImageInfo info;             /* base ROM or imported image metadata */
 } TexThumb;
 
 #define TEX_THUMB_MAX 32

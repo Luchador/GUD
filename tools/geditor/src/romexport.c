@@ -10,8 +10,9 @@
  * Resources which still fit stay in their original ROM slots. If edited
  * geometry outgrows one, the complete resource segment is repacked as a
  * unit and, when necessary, relocated to padded space at the end of the
- * ROM. Only file-table data offsets and the OBSG manifest range change;
- * executable and other linked segments never move.
+ * ROM. File-table data offsets and the OBSG manifest range are updated;
+ * executable and other linked segments never move. Imported images are
+ * appended to a rebuilt IMGS bank using the manifest's texture configuration.
  */
 
 #include <windows.h>
@@ -22,6 +23,7 @@
 
 #include "romexport.h"
 #include "modeledits.h"
+#include "imageedits.h"
 #include "bgdocument.h"
 
 #define ROM_EXPORT_FTBL_MAX_ROWS 1024u
@@ -1306,6 +1308,7 @@ BOOL RomExportCreate(const GEditorProject *project,
     ok = RomExportProjectMatchesRom(project, &rom, reasonout)
       && RomExportReplaceProjectResources(project, &rom, reasonout)
       && RomExportUpdateLevelTable(project, &rom, reasonout)
+      && ImageEditsExportToRom(project->dir, &rom, reasonout)
       && RomExportUpdateChecksum(&rom, reasonout)
       && RomExportWriteFile(pathout, rom.data, rom.size, reasonout);
 

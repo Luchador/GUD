@@ -20,6 +20,8 @@
 #include "uveditor.h"
 #include "modeleditor.h"
 #include "modeledits.h"
+#include "imageedits.h"
+#include "imageimport.h"
 #include "uvcanvas.h"
 #include "rom.h"
 #include "romexport.h"
@@ -480,6 +482,7 @@ static void GEditorCloseProject(HWND hwnd)
     BgFileFree(&g_CurrentBg);
     g_CurrentLevelIndex = GEDITOR_NO_LEVEL;
     ModelEditsReset();
+    ImageEditsReset();
     ProjectClose(&g_Project);
     g_ProjectMetadataDirty = FALSE;
 
@@ -503,6 +506,7 @@ enum {
     ID_FILE_NEW_PROJECT = 40001,
     ID_FILE_OPEN_PROJECT,
     ID_FILE_SAVE_PROJECT,
+    ID_FILE_IMPORT_IMAGE,
     ID_FILE_EXIT,
 
     ID_EDIT_UNDO,
@@ -621,12 +625,15 @@ static HMENU GEditorCreateMenuBar(void)
     HMENU editmenu;
     HMENU viewmenu;
     HMENU toolsmenu;
+    HMENU importmenu;
 
     menubar = CreateMenu();
     filemenu = CreatePopupMenu();
     editmenu = CreatePopupMenu();
     viewmenu = CreatePopupMenu();
     toolsmenu = CreatePopupMenu();
+    importmenu = CreatePopupMenu();
+    AppendMenu(importmenu, MF_STRING, ID_FILE_IMPORT_IMAGE, "Import &Image");
     g_RecentProjectsMenu = CreatePopupMenu();
     GEditorRefreshRecentProjectsMenu();
 
@@ -634,6 +641,7 @@ static HMENU GEditorCreateMenuBar(void)
     AppendMenu(filemenu, MF_STRING, ID_FILE_NEW_PROJECT, "&New Project");
     AppendMenu(filemenu, MF_STRING, ID_FILE_OPEN_PROJECT, "&Open Project");
     AppendMenu(filemenu, MF_POPUP, (UINT_PTR)g_RecentProjectsMenu, "&Recent Projects");
+    AppendMenu(filemenu, MF_POPUP, (UINT_PTR)importmenu, "&Import...");
     AppendMenu(filemenu, MF_STRING, ID_FILE_SAVE_PROJECT, "&Save Project");
     AppendMenu(filemenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(filemenu, MF_STRING, ID_FILE_EXIT, "E&xit");
@@ -1110,7 +1118,8 @@ static BOOL GEditorHasUnsavedChanges(void)
 {
     return g_Project.name[0] != '\0'
         && (g_CurrentBgDocument.dirty || g_CurrentSetup.dirty
-            || g_CurrentStan.dirty || g_ProjectMetadataDirty || ModelEditsHasUnsaved());
+            || g_CurrentStan.dirty || g_ProjectMetadataDirty || ModelEditsHasUnsaved()
+            || ImageEditsHasUnsaved());
 }
 
 
@@ -1210,6 +1219,12 @@ static BOOL GEditorSaveProject(HWND hwnd)
     }
 
     if (!ModelEditsSave(g_Project.dir, &why))
+    {
+        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+        goto done;
+    }
+
+    if (!ImageEditsSave(g_Project.dir, &why))
     {
         MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
         goto done;
@@ -2963,6 +2978,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
            states matter, so they can never be stale. Saving requires
            an open project. */
         EnableMenuItem((HMENU)wparam, ID_FILE_SAVE_PROJECT, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
+        EnableMenuItem((HMENU)wparam, ID_FILE_IMPORT_IMAGE, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         EnableMenuItem((HMENU)wparam, ID_TOOLS_CREATE_ROM, MF_BYCOMMAND | (g_Project.name[0] != '\0' ? MF_ENABLED : MF_GRAYED));
         GEditorUpdateHistoryMenu((HMENU)wparam);
         CheckMenuItem((HMENU)wparam, ID_VIEW_BACKFACE_CULLING, MF_BYCOMMAND | (ViewportGetBackfaceCulling(g_Viewport) ? MF_CHECKED : MF_UNCHECKED));
@@ -3093,6 +3109,27 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 GEditorSaveProject(hwnd);
                 return 0;
 
+            case ID_FILE_IMPORT_IMAGE:
+            {
+                DWORD id;
+                if (g_Project.name[0] != '\0' && ImageImportShow(hwnd, g_Project.dir, &id))
+                {
+                    TexThumb *items = NULL;
+                    unsigned char *pixels = NULL;
+                    const char *why = "";
+                    DWORD count = TexLoadProjectThumbnails(g_Project.dir, &items, &pixels, &why);
+                    BrowserSetImages(g_Browser, items, (int)count, pixels);
+                    if (!BrowserRevealImage(g_Browser, id))
+                    {
+                        MessageBox(hwnd, "The image was imported, but its thumbnail could not be loaded. Save Project, then reopen it.",
+                                   GEDITOR_TITLE, MB_ICONWARNING);
+                    }
+                    GEditorRefreshSelectionDetails();
+                    GEditorRefreshHistoryMenu(hwnd);
+                }
+                return 0;
+            }
+
             case ID_EDIT_UNDO:
                 GEditorApplyHistoryStep(hwnd, FALSE);
                 return 0;
@@ -3175,6 +3212,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         EditHistoryFree(&g_EditHistory);
         BgDocumentFree(&g_CurrentBgDocument);
         BgFileFree(&g_CurrentBg);
+        ImageEditsReset();
         PostQuitMessage(0);
         return 0;
     }

@@ -73,6 +73,13 @@ struct texcacheitem
 extern struct texcacheitem g_TexCacheItems[];
 extern struct texpool *ptr_texture_alloc_start;
 extern struct image_entry g_Textures[];
+/* Writable manifest-backed configuration. GEditor may relocate IMGS and
+ * append entries in the reserved image table without rewriting MIPS code. */
+typedef struct TextureRomConfig {
+    u32 imagesRomStart;
+    u32 textureCount;
+} TextureRomConfig;
+extern TextureRomConfig g_TextureRomConfig;
 extern s32 g_TexCacheCount;
 extern u32 bytes;
 

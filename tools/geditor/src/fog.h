@@ -7,8 +7,7 @@ typedef struct FogCurve {
     float linearstart, linearend; /* distance approximation for OpenGL 1.1 */
 } FogCurve;
 
-int FogConfigure(FogCurve *curve, double nearclip, double farclip,
-                 double renderscale, int start, int end);
+int FogConfigure(FogCurve *curve, double nearclip, double farclip, double renderscale, int start, int end);
 float FogAmount(const FogCurve *curve, double depth);
 
 #endif

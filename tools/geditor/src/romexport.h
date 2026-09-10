@@ -34,7 +34,8 @@ BOOL RomExportDestinationIsValid(const GEditorProject *project,
 /* Creates a playable .z64 from the retained base ROM. Every recognized
  * BG, setup (including multiplayer), and stan project file is copied
  * into its original ROM slot; level metadata and the N64 checksum are
- * updated before the output is written. */
+ * updated before the output is written. Saved imported images are appended
+ * to IMGS with their formats, mipmaps, hit sounds and bullet-hole settings. */
 BOOL RomExportCreate(const GEditorProject *project,
                      const char *name, const char *directory,
                      char *pathout, size_t pathmax,

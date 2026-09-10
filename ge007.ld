@@ -183,6 +183,8 @@ SECTIONS
    _gedLevelTableRom = _csegmentSegmentRomStart + (g_LevelInfoTable - _csegmentSegmentStart);
    _gedFileTableRom = _csegmentSegmentRomStart + (file_resource_table - _csegmentSegmentStart);
    _gedEnvTableRom = _csegmentSegmentRomStart + (g_EnvTable - _csegmentSegmentStart);
+   _gedTextureTableRom = _csegmentSegmentRomStart + (g_Textures - _csegmentSegmentStart);
+   _gedTextureConfigRom = _csegmentSegmentRomStart + (g_TextureRomConfig - _csegmentSegmentStart);
 
    _bssSegmentStart = ADDR(.bss);
    .bss (NOLOAD) :

@@ -258,6 +258,10 @@ $(RAW_IMAGE_BIN) $(RAW_IMAGE_DEF) &: $(BUILD_DIR)/imagelist.csv assets/images.de
 
 $(BUILD_DIR)/src/game/image.o: $(RAW_IMAGE_DEF)
 
+# These readers use the manifest-backed image count/capacity. Keep incremental
+# builds in sync when the texture headers change (the IDO rules do not emit .d files).
+$(addprefix $(BUILD_DIR)/src/game/,image.o initimages.o gedmanifest.o tex.o chrprop.o front.o): src/game/image.h src/game/tex.h src/bondconstants.h
+
 $(BUILD_DIR)/assets/images/combined/%.o: $(RAW_IMAGE_BIN)
 	$(LD) -r -b binary $< -o $@
 

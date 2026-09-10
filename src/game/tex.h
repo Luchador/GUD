@@ -4,7 +4,7 @@
 
 #include "image.h"
 
-#define NUM_TEXTURES  0xBB9U
+#define NUM_TEXTURES  (g_TextureRomConfig.textureCount)
 
 struct image_sound
 {

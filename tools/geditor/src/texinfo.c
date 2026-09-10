@@ -9,11 +9,6 @@
 #define TEXINFO_RECORD_HEADER 100u
 #define TEXINFO_IMAGE_ENTRY_SIZE 8u
 
-typedef struct TexInfoRecord {
-    DWORD size;
-    TexImageInfo info;
-} TexInfoRecord;
-
 static DWORD TexInfoBe32(const unsigned char *p)
 {
     return ((DWORD)p[0] << 24) | ((DWORD)p[1] << 16) | ((DWORD)p[2] << 8) | p[3];
@@ -45,7 +40,7 @@ static DWORD TexInfoRowBytes(unsigned int format, DWORD width)
     return 0;
 }
 
-static BOOL TexInfoReadRecord(const unsigned char *rec, DWORD available, TexInfoRecord *out)
+BOOL TexInfoReadRecord(const unsigned char *rec, DWORD available, TexInfoRecord *out)
 {
     DWORD size, header, colours, i, payload = 0;
     unsigned int levels, images;
@@ -104,8 +99,22 @@ static const unsigned char *TexInfoFindSurfaceTable(const RomFile *rom,
                                                     const TexInfoRecord *records, DWORD count)
 {
     const RomManifestEntry *cmap = TexInfoSegment(rom, 0x434D4150u);
+    const RomManifestEntry *declared = TexInfoSegment(rom, 0x54585442u); /* TXTB */
     const unsigned char *found = NULL;
     DWORD pos, i, bytes;
+    /* New builds advertise the reserved table directly. Its extra capacity
+     * is not part of the active record count. Older ROMs retain the scan. */
+    if (declared && cmap && declared->flags <= 4096 && count <= declared->flags
+        && declared->romstart >= cmap->romstart && declared->romend <= cmap->romend
+        && declared->romend - declared->romstart == (declared->flags + 1) * 8)
+    {
+        const unsigned char *table = rom->data + declared->romstart;
+        for (i = 0; i < count; i++)
+        { if ((TexInfoBe32(table + i * 8) & 0xFFFFFFu) != records[i].size) { break; } }
+        if (i == count && TexInfoBe32(table + count * 8) == 0xFFFFu
+            && TexInfoBe32(table + count * 8 + 4) == 0) { return table; }
+        return NULL;
+    }
     if (cmap == NULL || count < 16 || count > (cmap->romend - cmap->romstart) / TEXINFO_IMAGE_ENTRY_SIZE)
     { return NULL; }
     bytes = (count + 1) * TEXINFO_IMAGE_ENTRY_SIZE;
@@ -179,7 +188,7 @@ void TexSetRomThumbnailInfo(const RomFile *rom, TexThumb *items, DWORD count)
     free(records);
 }
 
-static const char *TexInfoSurfaceName(unsigned int type)
+const char *TexInfoSurfaceName(unsigned int type)
 {
     /* HIT_TYPE order from src/bondconstants.h; both fields use this enum. */
     static const char *names[] = {"Default", "Stone", "Wood", "Metal", "Glass",
@@ -187,13 +196,18 @@ static const char *TexInfoSurfaceName(unsigned int type)
     return type < sizeof(names) / sizeof(names[0]) ? names[type] : "Unknown";
 }
 
-void TexFormatThumbnailInfo(const TexThumb *thumb, char *text, DWORD capacity)
+const char *TexInfoFormatName(unsigned int format)
 {
     static const char *formats[] = {"RGBA32 (color + alpha)", "RGBA16 (color + alpha)",
         "RGB24 (color)", "RGB15 (color)", "IA16 (grayscale + alpha)",
         "IA8 (grayscale + alpha)", "IA4 (grayscale + alpha)", "I8 (grayscale)",
         "I4 (grayscale)", "CI8 (RGBA16 palette)", "CI4 (RGBA16 palette)",
         "CI8 (IA16 palette)", "CI4 (IA16 palette)"};
+    return format < sizeof(formats) / sizeof(formats[0]) ? formats[format] : "Unavailable";
+}
+
+void TexFormatThumbnailInfo(const TexThumb *thumb, char *text, DWORD capacity)
+{
     const TexImageInfo *info = &thumb->info;
     char mipmaps[96];
     if (capacity == 0) { return; }
@@ -207,7 +221,7 @@ void TexFormatThumbnailInfo(const TexThumb *thumb, char *text, DWORD capacity)
     }
     snprintf(text, capacity, "%s\r\nDimensions: %d x %d pixels\r\nType: %s\r\nMipmaps: %s\r\n"
         "Hit sound: %s\r\nBullet hole: %s", thumb->label, thumb->imagewidth, thumb->imageheight,
-        info->valid && info->format < sizeof(formats) / sizeof(formats[0]) ? formats[info->format] : "Unavailable",
+        info->valid ? TexInfoFormatName(info->format) : "Unavailable",
         mipmaps, info->surfacevalid ? TexInfoSurfaceName(info->hitsound) : "Unavailable",
         info->surfacevalid ? TexInfoSurfaceName(info->hittexture) : "Unavailable");
 }
