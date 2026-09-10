@@ -233,6 +233,65 @@ void SetupSwirlPathFree(SetupSwirlPath *path)
     ZeroMemory(path, sizeof(*path));
 }
 
+static BOOL SetupNormalizeDirection(float direction[3])
+{
+    float length = hypotf(hypotf(direction[0], direction[1]), direction[2]);
+    int axis;
+    if (!isfinite(length) || length < 0.000001f) { return FALSE; }
+    for (axis = 0; axis < 3; axis++) { direction[axis] /= length; }
+    return TRUE;
+}
+
+static void SetupOrientSwirlPoints(SetupSwirlPath *path, DWORD samples)
+{
+    DWORD i;
+    for (i = 1; i + 1 < path->pointcount; i++)
+    {
+        SetupSwirlPoint *point = &path->points[i];
+        DWORD knot = (i - 1) * samples, sample;
+        /* Hermite's derivative at the knot. Use the outgoing segment except
+         * at the final travelled point, which uses the incoming segment. */
+        float scale = path->points[i + 2 < path->pointcount ? i : i - 1].tangentscale;
+        BOOL directed;
+        int axis;
+        for (axis = 0; axis < 3; axis++)
+        {
+            point->look[axis] = scale * (path->points[i + 1].position[axis]
+                - path->points[i - 1].position[axis]);
+        }
+        directed = SetupNormalizeDirection(point->look);
+        /* Zero tension or coincident controls can give a zero derivative.
+         * Follow the first movement after the knot, or the arrival direction
+         * if there is no later movement. Never reverse an end marker. */
+        for (sample = knot + 1; !directed && sample < path->curvecount; sample++)
+        {
+            for (axis = 0; axis < 3; axis++)
+            { point->look[axis] = path->curve[sample][axis] - point->position[axis]; }
+            directed = SetupNormalizeDirection(point->look);
+        }
+        for (sample = knot; !directed && sample > 0; sample--)
+        {
+            for (axis = 0; axis < 3; axis++)
+            { point->look[axis] = point->position[axis] - path->curve[sample - 1][axis]; }
+            directed = SetupNormalizeDirection(point->look);
+        }
+        if (!directed) { point->look[0] = 1; point->look[1] = point->look[2] = 0; }
+        /* Project world up onto the plane perpendicular to the tangent.
+         * Near a vertical tangent use world Z to keep the frame nonsingular. */
+        axis = fabsf(point->look[1]) > 0.99f ? 2 : 1;
+        for (int component = 0; component < 3; component++)
+        { point->up[component] = (component == axis ? 1.0f : 0.0f) - point->look[axis] * point->look[component]; }
+        SetupNormalizeDirection(point->up);
+    }
+    /* Tangent-only end controls inherit the adjacent travelled frame. The
+     * game's normal paths duplicate these positions at both ends. */
+    memcpy(path->points[0].look, path->points[1].look, sizeof(path->points[0].look));
+    memcpy(path->points[0].up, path->points[1].up, sizeof(path->points[0].up));
+    i = path->pointcount - 1;
+    memcpy(path->points[i].look, path->points[i - 1].look, sizeof(path->points[i].look));
+    memcpy(path->points[i].up, path->points[i - 1].up, sizeof(path->points[i].up));
+}
+
 BOOL SetupFileBuildSwirlPath(const SetupFile *setup, const SetupMarker *spawn,
                             SetupSwirlPath *path, const char **reasonout)
 {
@@ -332,6 +391,7 @@ BOOL SetupFileBuildSwirlPath(const SetupFile *setup, const SetupMarker *spawn,
         }
     }
     memcpy(path->curve[at], path->points[count - 2].position, sizeof(*path->curve));
+    SetupOrientSwirlPoints(path, samples);
 empty:
     *reasonout = "";
     return TRUE;

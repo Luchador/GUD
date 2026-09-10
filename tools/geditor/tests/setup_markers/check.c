@@ -103,6 +103,66 @@ static void Transform(const char *path)
     puts("PASS: all four supplied GLBs, orange vertex colors, smooth normals and normals under inherited rotation/nonuniform scale.");
 }
 
+static void SwirlFrames(const SetupSwirlPath *path)
+{
+    for(DWORD i=0;i<path->pointcount;i++)
+    {
+        const SetupSwirlPoint *point=&path->points[i];
+        float length=0,uplength=0,dot=0;
+        for(int a=0;a<3;a++)
+        {
+            assert(isfinite(point->look[a])&&isfinite(point->up[a]));
+            length+=point->look[a]*point->look[a];
+            uplength+=point->up[a]*point->up[a];
+            dot+=point->look[a]*point->up[a];
+        }
+        Near(length,1);Near(uplength,1);Near(dot,0);
+    }
+}
+
+static void SwirlFacing(void)
+{
+    unsigned char data[236]={0};SetupFile setup={0};SetupMarker spawn={0};SetupSwirlPath path={0};const char *why="";
+    setup.data=data;setup.size=sizeof(data);spawn.look[2]=1;
+    spawn.position[0]=100;spawn.position[1]=20;spawn.position[2]=300;
+    Put(data+8,40);
+    for(DWORD i=0;i<5;i++)
+    {
+        unsigned char *p=data+40+i*32;
+        Put(p,3);Put(p+4,2);Put(p+8,i*10*65536);Put(p+12,i==2?10*65536:0);Put(p+20,32768);
+    }
+    Put(data+200,3);Put(data+204,1);Put(data+232,9);
+    assert(SetupFileBuildSwirlPath(&setup,&spawn,&path,&why));SwirlFrames(&path);
+    Near(path.points[1].look[0],2/sqrtf(5));Near(path.points[1].look[1],1/sqrtf(5));
+    Near(path.points[2].look[0],1);Near(path.points[2].look[1],0);
+    Near(path.points[3].look[0],2/sqrtf(5));Near(path.points[3].look[1],-1/sqrtf(5));
+    for(int a=0;a<3;a++)
+    {
+        Near(path.points[0].look[a],path.points[1].look[a]);
+        Near(path.points[4].look[a],path.points[3].look[a]);
+    }
+    SetupSwirlPathFree(&path);
+    /* All points on a vertical path, with repeated first/last controls. */
+    for(DWORD i=0;i<5;i++)
+    { Put(data+48+i*32,0);Put(data+52+i*32,(i==0?0:i==4?2:i-1)*10*65536); }
+    assert(SetupFileBuildSwirlPath(&setup,&spawn,&path,&why));SwirlFrames(&path);
+    for(DWORD i=0;i<5;i++) { Near(path.points[i].look[1],1);Near(path.points[i].up[2],1); }
+    SetupSwirlPathFree(&path);
+    /* With zero tension, the endpoint derivative vanishes but the camera
+     * still moves upwards; both the start and arrival arrows must do so. */
+    for(DWORD i=0;i<5;i++)Put(data+60+i*32,0);
+    assert(SetupFileBuildSwirlPath(&setup,&spawn,&path,&why));SwirlFrames(&path);
+    for(DWORD i=0;i<5;i++)Near(path.points[i].look[1],1);
+    SetupSwirlPathFree(&path);
+    /* A stationary path has no direction; give all markers the same +X frame. */
+    for(DWORD i=0;i<5;i++)Put(data+52+i*32,0);
+    spawn.position[0]=12345.678f;spawn.position[1]=987.654f;spawn.position[2]=-22345.678f;
+    assert(SetupFileBuildSwirlPath(&setup,&spawn,&path,&why));SwirlFrames(&path);
+    for(DWORD i=0;i<5;i++) { Near(path.points[i].look[0],1);Near(path.points[i].look[1],0);Near(path.points[i].up[1],1); }
+    SetupSwirlPathFree(&path);
+    puts("PASS: spline tangents, endpoint arrows, vertical frames, repeated controls, zero tension and stationary paths.");
+}
+
 static void Swirls(void)
 {
     unsigned char data[256]={0},original[256];
@@ -119,6 +179,7 @@ static void Swirls(void)
     Put(data+212,3);Put(data+216,1);Put(data+220,0x7fffffff);Put(data+244,9);
     memcpy(original,data,sizeof(data));
     assert(SetupFileBuildSwirlPath(&setup,&spawn,&path,&why));
+    SwirlFrames(&path);
     assert(path.pointcount==5&&path.curvecount==65); /* 2 travelled segments, 32 samples each. */
     Near(path.points[1].position[0],100);Near(path.points[1].position[1],193.5f);Near(path.points[1].position[2],290);
     Near(path.curve[16][0],100);Near(path.curve[16][1],199.4375f);Near(path.curve[16][2],285);
@@ -157,6 +218,7 @@ static void RealSwirl(const char *file)
     setup.data=Read(file,&setup.size);strcpy(setup.name,"UsetupfixtureZ");
     spawn.kind=SETUP_MARKER_SPAWN;spawn.look[2]=1;
     assert(SetupFileBuildSwirlPath(&setup,&spawn,&path,&why));
+    SwirlFrames(&path);
     assert(path.pointcount==(setup.size-44)/32-1);
     for(DWORD i=0;i<path.curvecount;i++)for(int a=0;a<3;a++)assert(isfinite(path.curve[i][a]));
     for(DWORD i=1;i+1<path.pointcount;i++)for(int a=0;a<3;a++)Near(path.curve[(i-1)*32][a],path.points[i].position[a]);
@@ -165,8 +227,8 @@ static void RealSwirl(const char *file)
 int main(int argc,char **argv)
 {
     assert(argc>=7);Placements();MultiplayerResource(argv[6]);
-    Model(argv[1],NULL,1762,0);Model(argv[2],NULL,3430,1);Model(argv[3],NULL,3430,2);Model(argv[4],NULL,12,3);
-    Transform(argv[5]);Swirls();
+    Model(argv[1],NULL,1762,0);Model(argv[2],NULL,3430,1);Model(argv[3],NULL,3430,2);Model(argv[4],NULL,46,3);
+    Transform(argv[5]);Swirls();SwirlFacing();
     for(int i=7;i<argc;i++)RealSwirl(argv[i]);
     printf("PASS: %d authored mission swirl paths, control counts and every travelled knot.\n",argc-7);
     return 0;

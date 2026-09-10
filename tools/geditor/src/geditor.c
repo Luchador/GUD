@@ -2852,6 +2852,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                                  level->levelscale,
                                  objectsLoaded ? objects.occupiedpads : NULL,
                                  objectsLoaded ? objects.occupiedboundpads : NULL);
+            ViewportMoveCameraToSpawn(g_Viewport);
         }
         else
         {

@@ -887,11 +887,11 @@ static void ViewportDrawSetupMarkers(const ViewportState *state)
         if (i < state->setupmarkercount) { marker = &state->setupmarkers[i]; }
         else
         {
+            const SetupSwirlPoint *point = &state->swirlpath.points[i - state->setupmarkercount];
             control.kind = SETUP_MARKER_SWIRL;
-            memcpy(control.position, state->swirlpath.points[i - state->setupmarkercount].position,
-                sizeof(control.position));
-            control.look[0] = 1;
-            control.up[1] = 1;
+            memcpy(control.position, point->position, sizeof(control.position));
+            memcpy(control.look, point->look, sizeof(control.look));
+            memcpy(control.up, point->up, sizeof(control.up));
             marker = &control;
         }
         const BgVertex *model = state->markermodels[marker->kind];
@@ -5802,6 +5802,28 @@ static void ViewportSetSetupMarkers(HWND hwnd, ViewportState *state,
             }
         }
     }
+}
+
+void ViewportMoveCameraToSpawn(HWND hwnd)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    DWORD i;
+    if (state == NULL || state->orbit) { return; }
+    for (i = 0; i < state->setupmarkercount; i++)
+    {
+        const SetupMarker *spawn = &state->setupmarkers[i];
+        if (spawn->kind != SETUP_MARKER_SPAWN) { continue; }
+        /* Markers are already grounded and in centimetre world units. This
+         * also picks the first authored normal-play spawn in multiplayer. */
+        state->posx = spawn->position[0];
+        state->posy = spawn->position[1] + 200.0f;
+        state->posz = spawn->position[2];
+        state->yaw = atan2f(-spawn->look[0], -spawn->look[2]) / VIEWPORT_DEG_TO_RAD;
+        state->pitch = 0;
+        InvalidateRect(hwnd, NULL, FALSE);
+        return;
+    }
+    /* Unfinished levels without a spawn keep the scene's bounding-box view. */
 }
 
 void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, const unsigned char *occupiedpads, const unsigned char *occupiedboundpads)

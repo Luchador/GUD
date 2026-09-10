@@ -105,6 +105,7 @@ BOOL SetupFileBuildMarkers(const SetupFile *setup, float levelscale,
 
 typedef struct SetupSwirlPoint {
     float position[3];
+    float look[3], up[3]; /* model +X follows the spline; +Y stays upright */
     float tangentscale;
 } SetupSwirlPoint;
 typedef struct SetupSwirlPath {

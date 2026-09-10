@@ -137,6 +137,10 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup,
                           float levelscale,
                           const unsigned char *occupiedpads,
                           const unsigned char *occupiedboundpads);
+/* Call after loading the level's stan and setup. Positions the level camera
+ * 2 metres above the first spawn marker, facing its horizontal direction.
+ * Does nothing without a spawn or in an orbit/model viewport. */
+void ViewportMoveCameraToSpawn(HWND hwnd);
 
 /* Replaces the colored stan overlay. Stan positions have already been
    converted to gameplay world coordinates by StanLoadProjectFile. */

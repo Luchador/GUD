@@ -29,6 +29,14 @@ names in the native level table. When the named file is missing, GEditor loads
 the corresponding `Ump_setup*.set` file and retains that actual name for saving.
 It does not substitute multiplayer data for solo missions or damaged files.
 
+When a level opens, the viewport camera starts 200 world units (two metres)
+above the first normal-play spawn marker and faces that spawn's horizontal
+direction. This uses the marker's grounded position in both solo and multiplayer
+setups. If no spawn is available, the existing view of the level bounds remains.
+This placement runs only when opening a level; rebuilding geometry, editing,
+and undo/redo preserve the user's viewpoint. Model-viewer orbit cameras are
+unaffected.
+
 ## Artwork and lighting
 
 The four GLBs are embedded in GEditor.exe from `geditorassets`; installed
@@ -69,6 +77,13 @@ controls remain separate records, as authored. The diamonds retain the model's
 vertex colors and lighting, while the unlit line takes its orange color from
 the diamond model's vertex colors and is two pixels wide.
 
+The spline model's local +X arrow follows the tangent in the direction of
+camera travel. End controls inherit the adjacent traveled point's direction.
+Zero-tension and repeated points use nearby movement on the curve when the
+derivative vanishes; a wholly stationary path uses a consistent +X direction.
+Models remain upright relative to world Y, using world Z as the up reference
+for vertical tangents so the orientation remains valid.
+
 Multiplayer's procedural orbit is not an authored swirl path and is not shown.
 A setup with no swirl or no solo spawn has no swirl preview. Malformed paths
 produce a warning without hiding the other spawn/camera markers. Path buffers
@@ -89,4 +104,7 @@ and saving, all four supplied models, colors, and transformed smooth normals.
 Swirl checks cover signed offsets, facing-relative and world-axis positions,
 eye height, segment tension, curve endpoints, tangent-only controls, terminal
 records, invalid input, and all 20 authored mission swirl paths.
+Orientation checks include tangents, end controls, vertical sections, repeated
+points, zero tension, and stationary paths. The supplied arrow model is also
+decoded in full, including both of its mesh nodes.
 Windows rendering still needs a visual runtime check.
