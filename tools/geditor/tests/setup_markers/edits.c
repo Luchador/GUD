@@ -190,6 +190,8 @@ static void SpawnEdits(const SetupFile *source, const char *dir)
     puts("PASS: solo replacement/swirl following, multiplayer add/delete and limits, demo/shared-pad preservation, saved assets and undo/redo.");
 }
 
+void CameraEdits(const SetupFile *source, const char *dir);
+
 void MarkerEdits(const char *dir)
 {
     unsigned char bytes[524]={0};char file[MAX_PATH+64];FILE *f;
@@ -220,6 +222,7 @@ void MarkerEdits(const char *dir)
     assert(SetupLoadProjectFile(dir,"UsetupmarkerZ",&setup,&why));
     PadScaleSizes(&setup, dir);
     SpawnEdits(&setup, dir);
+    CameraEdits(&setup, dir);
     assert(SetupFileClone(&setup,&before,&why));EditHistoryReset(&history,&bg,&setup,&stan);
     assert(SetupFileBuildMarkers(&setup,.5f,&markers,&count,&why)&&count==3);
     assert(markers[0].command==0&&markers[1].command==1&&markers[2].command==0);

@@ -119,6 +119,7 @@ BOOL ViewportGetSelectedObject(HWND hwnd, DWORD *setupobjectindex);
 /* Drop onto the nearest rendered BG/model or visible stan surface. A void
    drop fails. Selecting a new instance clears other selections. */
 BOOL ViewportGetModelDropPosition(HWND hwnd, POINT screen, double position[3]);
+BOOL ViewportGetCameraDirection(HWND hwnd, double look[3]);
 void ViewportSelectSetupModel(HWND hwnd, DWORD selection);
 BOOL ViewportGetSelectedPad(HWND hwnd, SetupPadRef *out);
 BOOL ViewportGetSelectedMarker(HWND hwnd, SetupMarkerRef *out, SetupMarker *spawn);

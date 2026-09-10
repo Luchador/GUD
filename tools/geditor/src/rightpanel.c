@@ -934,7 +934,9 @@ void RightPanelSetSetupMarker(HWND panel, const SetupMarkerRef *ref)
         ? "Move the spawn pad or rotate its heading.\r\nThe game places the player on the floor.\r\nOther references to this pad move with it.\r\nDelete removes this start when another remains.\r\nDrag Spawn Point from Objects to place a start."
         : ref->kind == SETUP_MARKER_SWIRL
         ? "Move this control point to reshape the curve.\r\nRotation turns nearby controls around this point.\r\nClick again to cycle overlapping controls."
-        : "Move the camera or change its direction.\r\nThe game stores yaw and pitch, without roll.\r\nMoving also updates the camera's room pad.";
+        : ref->kind == SETUP_MARKER_INTRO
+        ? "Move the camera or change its direction.\r\nCameras support yaw and pitch, without roll.\r\nThe game randomly chooses an intro camera.\r\nDelete removes this camera when another remains.\r\nDrag Intro Camera from Objects to add one."
+        : "Move the camera or change its direction.\r\nCameras support yaw and pitch, without roll.\r\nDrag Outro Camera from Objects to replace the ending camera.";
     lstrcpyn(state->detailtitle, names[ref->kind], sizeof(state->detailtitle));
     snprintf(state->detailtext, sizeof(state->detailtext),
         "Setup command: %lu\r\n\r\n%s\r\n\r\nW: Move   E: Rotate\r\nUse the handles or transform fields.\r\nChanges are saved to the setup and built ROM.",

@@ -7,7 +7,8 @@ Opening a level displays markers derived from its current setup:
   the pad's horizontal look direction, and the base rests on the stan floor
   when it can be resolved; otherwise it retains the pad's authored height.
 - `intro_camera.glb`: every fixed camera in the intro list.
-- `outro_camera.glb`: every cutscene camera in the object list. Deleted-character
+- `outro_camera.glb`: cutscene cameras in the object list. Identical camera
+  records used by multiple script tags share one marker. Deleted-character
   tombstones also use the camera record type, but do not create camera markers.
 - `intro_spline_point.glb`: each control point in the solo intro swirl path.
   An orange curve shows the camera's travel between the points.
@@ -110,8 +111,9 @@ the existing transform panel. Scaling is disabled for these markers. Dragging
 previews changes in a temporary setup copy, including the affected swirl path;
 Escape cancels. Releasing the handle creates one undo step. Selection survives
 the geometry rebuild and undo/redo, using a command index instead of a byte
-offset that could move when other setup tables grow. Spawn deletion clears
-selection because removing an intro command shifts the later command indices.
+offset that could move when other setup tables grow. Spawn or intro-camera
+deletion clears selection because removing an intro command shifts the later
+command indices.
 
 - Start points edit their ordinary pad coordinates and horizontal heading.
   The game's floor placement still applies: changing Y can choose a different
@@ -160,10 +162,42 @@ do not move. Intro commands and pads are written in the native setup format.
 Each placement/deletion is one undo step, marks the project unsaved, and is
 included in saved assets and created ROMs. Existing projects work immediately.
 
+## Placing and deleting cameras
+
+Drag **Intro Camera** or **Outro Camera** from the Object browser onto a level
+surface. These entries are restricted to single-player setups; multiplayer
+setups reject the drag with an explanation. Cameras retain the drop height
+and initially face the same direction as the editor viewport. A walkable room
+must be resolvable at the location. The placed camera is selected for W/E
+translation and rotation. Empty-space drops and cancelled drags make no edit.
+
+Each intro drop appends a native `INTROTYPE_CAMERA` (type 6) command. The game
+counts all such commands and links them into its existing random-selection
+pool, so every added camera is eligible without an engine change. New cameras
+inherit the first intro camera's two caption IDs. When there is no first caption,
+they use the blank `TITLE_STR_227` in the permanently loaded `LTITLE` bank.
+Select an intro camera and press **Delete** to remove it. At least one must
+remain. Existing spawn, swirl and other intro commands are retained.
+
+An outro drop replaces the ending camera. Some authored missions contain
+several tagged cutscene shots rather than one camera. Replacement makes every
+existing shot use the new camera's position, direction and room pad, while
+preserving its command slot and tag so the mission's AI camera switches still
+resolve. Identical shots appear as one editable marker; subsequent transforms
+update all its copies. Undo restores the previous authored shots. A setup with
+no camera receives a native `CameraPos` command; this does not create new AI
+camera-switch instructions or an ending sequence for that setup.
+
+Camera placement uses new room pads, preserving existing pads referenced by
+other entities. Each placement, replacement or deletion is one undo step,
+marks the project unsaved, and is included in saved `.set` assets and ROMs.
+Existing projects work without regeneration.
+
 ## Checks
 
 ```sh
 python3 tools/geditor/tests/setup_markers/run.py
+python3 tools/geditor/tests/browser_drag/run.py
 ```
 
 This uses the production setup parser and GLB decoder with address and undefined
@@ -182,4 +216,11 @@ save/reload, and the production setup undo/redo and rollback paths.
 Spawn checks cover solo replacement and swirl translation, multiplayer
 addition/deletion and limits, demo records, shared pads, absent intro lists,
 saved assets, invalid positions, and undo/redo of placement and deletion.
-Windows rendering still needs a visual runtime check.
+Camera checks cover intro addition and deletion, last-camera protection,
+multiplayer rejection, native positions/angles/captions, saved assets, and
+undo/redo. They extract the game's actual intro link/selection code to check
+that every appended camera can be chosen. Outro tests cover tagged multi-shot
+replacement, synchronized transforms, deleted-guard exclusion, first-camera
+creation and relocated prop cache offsets. Browser tests cover capture and
+drop dispatch for spawns and both camera kinds, plus cancellation.
+Windows rendering and in-game playback still need a runtime check.

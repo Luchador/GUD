@@ -1058,8 +1058,13 @@ static void BrowserBeginObjectDrag(HWND hwnd, BrowserState *state, int index, PO
     HGDIOBJ oldbitmap, oldfont;
     int width = rect.right - rect.left, i;
     if (width < 1) { return; }
-    if (index == BROWSER_OBJECT_SPAWN
-        && !SendMessage(GetParent(hwnd), BROWSER_WM_OBJECT_DRAG_BEGIN, index, 0)) { return; }
+    if ((index == BROWSER_OBJECT_SPAWN || index == BROWSER_OBJECT_INTRO_CAMERA || index == BROWSER_OBJECT_OUTRO_CAMERA)
+        && !SendMessage(GetParent(hwnd), BROWSER_WM_OBJECT_DRAG_BEGIN, index, 0))
+    {
+        state->pressedobject = -1;
+        if (GetCapture() == hwnd) { ReleaseCapture(); }
+        return;
+    }
     OffsetRect(&rect, -rect.left, -rect.top);
     bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
     bmi.bmiHeader.biWidth = width;
@@ -1498,7 +1503,8 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 objectdrop.screen.y = GET_Y_LPARAM(lparam);
                 ClientToScreen(hwnd, &objectdrop.screen);
                 BrowserEndAssetDrag(hwnd, state);
-                if (objectdrop.type == BROWSER_OBJECT_SPAWN)
+                if (objectdrop.type == BROWSER_OBJECT_SPAWN || objectdrop.type == BROWSER_OBJECT_INTRO_CAMERA
+                    || objectdrop.type == BROWSER_OBJECT_OUTRO_CAMERA)
                 { SendMessage(GetParent(hwnd), BROWSER_WM_OBJECT_DROP, 0, (LPARAM)&objectdrop); }
                 return 0;
             }

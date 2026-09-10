@@ -124,6 +124,21 @@ static DWORD SetupIntroWordCount(DWORD type)
     return type < sizeof(words) / sizeof(words[0]) ? words[type] : 0;
 }
 
+/* Multiple script tags may use the same outro camera. Display identical
+ * native camera records as one marker without removing commands or tags. */
+static BOOL SetupOutroDuplicate(const SetupFile *setup, DWORD record)
+{
+    DWORD at = SetupRead32(setup->data + SETUP_OBJECT_POINTER);
+    while (at < record)
+    {
+        unsigned char type = setup->data[at + 3];
+        if (type == PROPDEF_CAMERAPOS && SetupRead32(setup->data + at) != SETUP_DELETED_CHARACTER_HEADER
+            && !memcmp(setup->data + at + 4, setup->data + record + 4, 24)) { return TRUE; }
+        at += SetupObjectWordCount(type) * 4;
+    }
+    return FALSE;
+}
+
 static BOOL SetupAppendMarker(SetupMarker **markers, DWORD *count, const SetupMarker *marker)
 {
     SetupMarker *grown;
@@ -209,7 +224,8 @@ BOOL SetupFileBuildMarkers(const SetupFile *setup, float levelscale,
             }
             else if ((list == 0 && type == 6)
                 || (list == 1 && type == PROPDEF_CAMERAPOS
-                    && SetupRead32(record) != SETUP_DELETED_CHARACTER_HEADER))
+                    && SetupRead32(record) != SETUP_DELETED_CHARACTER_HEADER
+                    && !SetupOutroDuplicate(setup, at)))
             {
                 SetupCameraMarker(record, list == 0 ? SETUP_MARKER_INTRO : SETUP_MARKER_OUTRO, &marker);
                 marker.command = commands;
@@ -1953,17 +1969,174 @@ static BOOL SetupMoveCameraPad(SetupFile *setup, DWORD command, float levelscale
     return TRUE;
 }
 
+typedef struct SetupCameraList {
+    DWORD start, end, commands, count, first, firstcommand;
+} SetupCameraList;
+
+static BOOL SetupScanCameras(const SetupFile *setup, BOOL outro, SetupCameraList *list)
+{
+    DWORD at;
+    ZeroMemory(list, sizeof(*list));
+    if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE || setup->size > SETUP_FILE_MAX) { return FALSE; }
+    list->start = at = SetupRead32(setup->data + (outro ? 12 : 8));
+    if (!at) { return TRUE; }
+    if (at < SETUP_HEADER_SIZE || (at & 3)) { return FALSE; }
+    for (; list->commands < SETUP_OBJECT_MAX; list->commands++)
+    {
+        DWORD type, bytes;
+        if (at > setup->size || setup->size - at < 4) { return FALSE; }
+        type = outro ? setup->data[at + 3] : SetupRead32(setup->data + at);
+        if (type == (outro ? SETUP_PROP_END : 9)) { list->end = at; return TRUE; }
+        bytes = (outro ? SetupObjectWordCount((unsigned char)type) : SetupIntroWordCount(type)) * 4;
+        if (!bytes || bytes > setup->size - at) { return FALSE; }
+        if (type == (outro ? PROPDEF_CAMERAPOS : 6)
+            && (!outro || SetupRead32(setup->data + at) != SETUP_DELETED_CHARACTER_HEADER))
+        {
+            if (!list->count) { list->first = at; list->firstcommand = list->commands; }
+            list->count++;
+        }
+        at += bytes;
+    }
+    return FALSE;
+}
+
+/* All matching copies are native CameraPos commands, still addressed by
+ * their original script tags. No editor-only record format is needed. */
+static void SetupSyncOutroCameras(SetupFile *setup, const SetupCameraList *list,
+                                  DWORD source, const unsigned char *previous)
+{
+    DWORD at;
+    for (at = list->start; at < list->end; at += SetupObjectWordCount(setup->data[at + 3]) * 4)
+    {
+        if (setup->data[at + 3] == PROPDEF_CAMERAPOS && SetupRead32(setup->data + at) != SETUP_DELETED_CHARACTER_HEADER
+            && at != source && (!previous || !memcmp(setup->data + at + 4, previous, 24)))
+        { memcpy(setup->data + at + 4, setup->data + source + 4, 24); }
+    }
+}
+
+BOOL SetupFilePlaceCamera(SetupFile *setup, SetupMarkerKind kind, float levelscale,
+                         const double position[3], const double look[3],
+                         SetupMarkerRef *out, const char **reasonout)
+{
+    SetupFile copy = {0}; SetupCameraList list;
+    DWORD record, command, coordinates[3], angles[2], captions[2];
+    BOOL outro = kind == SETUP_MARKER_OUTRO;
+    double length;
+    *reasonout = "The camera placement or setup is invalid.";
+    if ((kind != SETUP_MARKER_INTRO && !outro) || !out || !position || !look
+        || !isfinite(levelscale) || levelscale <= 0 || !SetupScanCameras(setup, outro, &list)) { return FALSE; }
+    if (strncmp(setup->name, "Ump_", 4) == 0)
+    { *reasonout = "Intro and outro cameras can only be placed in single-player levels."; return FALSE; }
+    length = hypot(hypot(look[0], look[1]), look[2]);
+    if (!isfinite(length) || length < 1e-8) { return FALSE; }
+    for (int axis = 0; axis < 3; axis++)
+    { if (!SetupFixedValue(position[axis], 100, &coordinates[axis])) { return FALSE; } }
+    if (!SetupFixedValue(atan2(look[0], -look[2]), 65536, &angles[0])
+        || !SetupFixedValue(atan2(look[1], hypot(look[0], look[2])), 65536, &angles[1])) { return FALSE; }
+    /* New intro candidates inherit the level's title text. If no camera
+     * exists, use the blank TITLE_STR_227 in permanently loaded LTITLE (39).
+     * Language ID 0 would dereference an unloaded bank in langGet. */
+    captions[0] = (!outro && list.count) ? SetupRead32(setup->data + list.first + 28) : 0;
+    captions[1] = (!outro && list.count) ? SetupRead32(setup->data + list.first + 32) : 0;
+    if (!captions[0]) { captions[0] = (39u << 10) | 227u; }
+    if (!SetupFileClone(setup, &copy, reasonout)) { return FALSE; }
+    if (outro && list.count)
+    { record = list.first; command = list.firstcommand; }
+    else
+    {
+        DWORD start = (copy.size + 3u) & ~3u, bytes = list.end - list.start;
+        DWORD size = start + bytes + (outro ? 28 : 40) + 4;
+        unsigned char *data;
+        if (size > SETUP_FILE_MAX || list.commands >= SETUP_OBJECT_MAX - 1)
+        { *reasonout = "The setup has no room for another camera."; goto fail; }
+        data = realloc(copy.data, size);
+        if (!data) { *reasonout = "Out of memory placing the camera."; goto fail; }
+        copy.data = data;
+        memset(data + copy.size, 0, size - copy.size);
+        memcpy(data + start, data + list.start, bytes);
+        record = start + bytes; command = list.commands;
+        SetupWrite32(data + (outro ? 12 : 8), start);
+        SetupWrite32(data + record, outro ? PROPDEF_CAMERAPOS : 6);
+        SetupWrite32(data + size - 4, outro ? SETUP_PROP_END : 9);
+        copy.size = size;
+        if (!outro)
+        {
+            SetupWrite32(data + record + 28, captions[0]);
+            SetupWrite32(data + record + 32, captions[1]);
+            /* The game builds prev links and counts every type-6 record. */
+            SetupWrite32(data + record + 36, 0);
+        }
+    }
+    SetupWrite32(copy.data + record + 24, 0xffffffffu); /* new private room pad */
+    *reasonout = "The setup's room pad table or camera position is invalid.";
+    if (!SetupMoveCameraPad(&copy, record, levelscale, coordinates, reasonout)) { goto fail; }
+    for (int axis = 0; axis < 3; axis++) { SetupWrite32(copy.data + record + 4 + axis * 4, coordinates[axis]); }
+    for (int axis = 0; axis < 2; axis++) { SetupWrite32(copy.data + record + 16 + axis * 4, angles[axis]); }
+    if (outro)
+    {
+        if (!SetupScanCameras(&copy, TRUE, &list)) { goto fail; }
+        SetupSyncOutroCameras(&copy, &list, record, NULL);
+        /* Appending the prop list moves source offsets, but keeps indices. */
+        free(copy.objects); copy.objects = NULL; copy.objectcount = 0;
+        free(copy.characters); copy.characters = NULL; copy.charactercount = 0;
+        if (!SetupParseObjects(&copy, reasonout)) { goto fail; }
+    }
+    copy.dirty = TRUE;
+    SetupFileFree(setup); *setup = copy;
+    out->kind = kind; out->command = command;
+    *reasonout = ""; return TRUE;
+fail:
+    SetupFileFree(&copy);
+    return FALSE;
+}
+
+BOOL SetupFileDeleteIntroCamera(SetupFile *setup, const SetupMarkerRef *ref, const char **reasonout)
+{
+    SetupFile copy = {0}; SetupCameraList list;
+    DWORD record, start, bytes, size;
+    unsigned char *data;
+    *reasonout = "The selected intro camera is invalid.";
+    if (!ref || ref->kind != SETUP_MARKER_INTRO || !SetupScanCameras(setup, FALSE, &list)
+        || !SetupMarkerRecord(setup, ref, &record)) { return FALSE; }
+    if (strncmp(setup->name, "Ump_", 4) == 0)
+    { *reasonout = "Intro cameras are only editable in single-player levels."; return FALSE; }
+    if (list.count <= 1)
+    { *reasonout = "The level must keep at least one intro camera."; return FALSE; }
+    if (!SetupFileClone(setup, &copy, reasonout)) { return FALSE; }
+    start = (copy.size + 3u) & ~3u; bytes = list.end - list.start - 40; size = start + bytes + 4;
+    if (size > SETUP_FILE_MAX) { *reasonout = "The setup size limit has been reached."; goto fail; }
+    data = realloc(copy.data, size);
+    if (!data) { *reasonout = "Out of memory deleting the intro camera."; goto fail; }
+    copy.data = data;
+    memset(data + copy.size, 0, start - copy.size);
+    memcpy(data + start, data + list.start, record - list.start);
+    memcpy(data + start + record - list.start, data + record + 40, list.end - record - 40);
+    SetupWrite32(data + start + bytes, 9); SetupWrite32(data + 8, start);
+    copy.size = size; copy.dirty = TRUE;
+    SetupFileFree(setup); *setup = copy;
+    *reasonout = ""; return TRUE;
+fail:
+    SetupFileFree(&copy); return FALSE;
+}
+
 BOOL SetupFileTransformMarker(SetupFile *setup, const SetupMarkerRef *ref,
                              const SetupMarker *spawn, float levelscale,
                              const double offset[3], const Rotation *rotation,
                              BOOL *changed, const char **reasonout)
 {
     DWORD record, values[3];
+    SetupCameraList outrolist;
+    unsigned char previous[24];
     int axis;
     *changed = FALSE;
     *reasonout = "Invalid setup marker transform or coordinate range.";
     if (!SetupMarkerRecord(setup, ref, &record) || !isfinite(levelscale) || levelscale <= 0
         || (!!offset == !!rotation) || (rotation && !RotationValid(rotation))) { return FALSE; }
+    if (ref->kind == SETUP_MARKER_OUTRO)
+    {
+        if (!SetupScanCameras(setup, TRUE, &outrolist)) { return FALSE; }
+        memcpy(previous, setup->data + record + 4, sizeof(previous));
+    }
     if (offset) { for (axis = 0; axis < 3; axis++) { if (!isfinite(offset[axis])) { return FALSE; } } }
     if (offset && offset[0] == 0 && offset[1] == 0 && offset[2] == 0) { *reasonout = ""; return TRUE; }
     if (ref->kind == SETUP_MARKER_SPAWN)
@@ -2066,6 +2239,8 @@ BOOL SetupFileTransformMarker(SetupFile *setup, const SetupMarkerRef *ref,
             SetupWrite32(setup->data + record + 16 + axis * 4, values[axis]);
         }
     }
+    if (*changed && ref->kind == SETUP_MARKER_OUTRO)
+    { SetupSyncOutroCameras(setup, &outrolist, record, previous); }
     setup->dirty |= *changed;
     *reasonout = "";
     return TRUE;

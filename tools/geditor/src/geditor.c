@@ -2450,19 +2450,32 @@ static void GEditorDeleteSelectedObject(HWND hwnd, DWORD objectindex)
 }
 
 
-static BOOL GEditorEditSpawn(HWND hwnd, const double *position)
+static BOOL GEditorEditSetupMarker(HWND hwnd, SetupMarkerKind kind, const double *position, const double *look)
 {
     EditHistoryTransaction transaction = {0};
     SetupObjectGeometry objects = {0};
     SetupMarkerRef selected, previous;
     BOOL hadmarker = ViewportGetSelectedMarker(g_Viewport, &previous, NULL);
     const char *why = "", *restorewhy = "";
-    const char *action = position ? (strncmp(g_CurrentSetup.name, "Ump_", 4) == 0
-        ? "Add Spawn Point" : "Place Player Start") : "Delete Spawn Point";
-    if (!position && (!hadmarker || previous.kind != SETUP_MARKER_SPAWN)) { return FALSE; }
+    const char *action = kind == SETUP_MARKER_SPAWN
+        ? (position ? (strncmp(g_CurrentSetup.name, "Ump_", 4) == 0 ? "Add Spawn Point" : "Place Player Start") : "Delete Spawn Point")
+        : kind == SETUP_MARKER_INTRO ? (position ? "Add Intro Camera" : "Delete Intro Camera") : "Replace Outro Camera";
+    BOOL edited;
+    if (!position && (!hadmarker || previous.kind != kind
+        || (kind != SETUP_MARKER_SPAWN && kind != SETUP_MARKER_INTRO))) { return FALSE; }
     if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup, action, &transaction, &why)) { goto fail; }
-    if (!(position ? SetupFilePlaceSpawn(&g_CurrentSetup, g_CurrentBgDocument.levelscale, position, &selected, &why)
-        : SetupFileDeleteSpawn(&g_CurrentSetup, &previous, &why))) { goto rollback; }
+    if (position)
+    {
+        edited = kind == SETUP_MARKER_SPAWN
+            ? SetupFilePlaceSpawn(&g_CurrentSetup, g_CurrentBgDocument.levelscale, position, &selected, &why)
+            : SetupFilePlaceCamera(&g_CurrentSetup, kind, g_CurrentBgDocument.levelscale, position, look, &selected, &why);
+    }
+    else
+    {
+        edited = kind == SETUP_MARKER_SPAWN ? SetupFileDeleteSpawn(&g_CurrentSetup, &previous, &why)
+            : SetupFileDeleteIntroCamera(&g_CurrentSetup, &previous, &why);
+    }
+    if (!edited) { goto rollback; }
     if (!ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
             g_CurrentBgDocument.levelscale, &objects, &why)
         || !GEditorRebuildCurrentViewportWithObjects(&objects, &why)
@@ -2470,7 +2483,7 @@ static BOOL GEditorEditSpawn(HWND hwnd, const double *position)
             &g_CurrentStan, &transaction, &why)) { goto rollback; }
     ObjectGeometryFree(&g_CurrentObjects); g_CurrentObjects = objects;
     /* Removing an intro record changes later command indices. Explicitly
-       select the placed start, or clear the deleted start's old identity. */
+       select the placed marker, or clear the deleted marker's old identity. */
     if (position)
     {
         RightPanelShowObjects(g_RightPanel);
@@ -2494,23 +2507,35 @@ fail:
     return FALSE;
 }
 
-static BOOL GEditorDropSpawn(HWND hwnd, const BrowserObjectDrop *request)
+static BOOL GEditorDropSetupMarker(HWND hwnd, const BrowserObjectDrop *request)
 {
-    double position[3];
+    double position[3], look[3];
     float point[3], height;
     DWORD tile;
-    if (!request || request->type != BROWSER_OBJECT_SPAWN || g_CurrentLevelIndex == GEDITOR_NO_LEVEL
-        || !g_CurrentSetup.data || WindowFromPoint(request->screen) != g_Viewport
-        || !ViewportGetModelDropPosition(g_Viewport, request->screen, position)) { return FALSE; }
+    SetupMarkerKind kind;
+    if (!request || g_CurrentLevelIndex == GEDITOR_NO_LEVEL || !g_CurrentSetup.data
+        || WindowFromPoint(request->screen) != g_Viewport) { return FALSE; }
+    switch (request->type)
+    {
+    case BROWSER_OBJECT_SPAWN: kind = SETUP_MARKER_SPAWN; break;
+    case BROWSER_OBJECT_INTRO_CAMERA: kind = SETUP_MARKER_INTRO; break;
+    case BROWSER_OBJECT_OUTRO_CAMERA: kind = SETUP_MARKER_OUTRO; break;
+    default: return FALSE;
+    }
+    if (kind != SETUP_MARKER_SPAWN && strncmp(g_CurrentSetup.name, "Ump_", 4) == 0) { return FALSE; }
+    if (!ViewportGetModelDropPosition(g_Viewport, request->screen, position)
+        || !ViewportGetCameraDirection(g_Viewport, look)) { return FALSE; }
     for (int axis = 0; axis < 3; axis++) { point[axis] = (float)position[axis]; }
     tile = StanResolvePadTile(&g_CurrentStan, "", point);
     if (tile == STAN_TILE_NONE || !StanGetTileHeight(&g_CurrentStan, tile, point[0], point[2], &height))
     {
-        MessageBox(hwnd, "Place the spawn point over a walkable floor.", GEDITOR_TITLE, MB_ICONINFORMATION);
+        MessageBox(hwnd, kind == SETUP_MARKER_SPAWN ? "Place the spawn point over a walkable floor."
+            : "Place the camera over a walkable area so the game can identify its room.",
+            GEDITOR_TITLE, MB_ICONINFORMATION);
         return FALSE;
     }
-    position[1] = height;
-    return GEditorEditSpawn(hwnd, position);
+    if (kind == SETUP_MARKER_SPAWN) { position[1] = height; }
+    return GEditorEditSetupMarker(hwnd, kind, position, look);
 }
 
 
@@ -2792,7 +2817,8 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         if (ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT) { return 0; }
         if (ViewportGetSelectedMarker(g_Viewport, &marker, NULL))
         {
-            if (marker.kind == SETUP_MARKER_SPAWN) { GEditorEditSpawn(hwnd, NULL); }
+            if (marker.kind == SETUP_MARKER_SPAWN || marker.kind == SETUP_MARKER_INTRO)
+            { GEditorEditSetupMarker(hwnd, marker.kind, NULL, NULL); }
         }
         else if (ViewportGetSelectedObject(g_Viewport, &selectedobject))
         {
@@ -2806,13 +2832,19 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     }
 
     case BROWSER_WM_OBJECT_DRAG_BEGIN:
-        if (wparam != BROWSER_OBJECT_SPAWN || g_CurrentLevelIndex == GEDITOR_NO_LEVEL || !g_CurrentSetup.data)
-        { return FALSE; }
+        if ((wparam != BROWSER_OBJECT_SPAWN && wparam != BROWSER_OBJECT_INTRO_CAMERA && wparam != BROWSER_OBJECT_OUTRO_CAMERA)
+            || g_CurrentLevelIndex == GEDITOR_NO_LEVEL || !g_CurrentSetup.data) { return FALSE; }
+        if (wparam != BROWSER_OBJECT_SPAWN && strncmp(g_CurrentSetup.name, "Ump_", 4) == 0)
+        {
+            MessageBox(hwnd, "Intro and outro cameras can only be placed in single-player levels.",
+                GEDITOR_TITLE, MB_ICONINFORMATION);
+            return FALSE;
+        }
         ViewportCancelTransform(g_Viewport);
         return TRUE;
 
     case BROWSER_WM_OBJECT_DROP:
-        return GEditorDropSpawn(hwnd, (const BrowserObjectDrop *)lparam);
+        return GEditorDropSetupMarker(hwnd, (const BrowserObjectDrop *)lparam);
 
     case BROWSER_WM_MODEL_DRAG_BEGIN:
     {

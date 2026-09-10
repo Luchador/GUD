@@ -40,7 +40,27 @@ def main():
                  '-ffunction-sections','-fdata-sections','-fsanitize=address,undefined',
                  f'-I{shim}',f'-I{src}',f'-I{editor.parent.parent}',str(here/'check.c'),str(shim/'platform.c')]
         command += [str(src/name) for name in ['setupload.c','gltf.c','bgrender.c','rotation.c','scaling.c','bghistory.c']]
-        command += [str(here/'edits.c')]
+        game=(editor.parent.parent/'src/game/bondview_r.c').read_text()
+        link_start=game.index('((struct SetupIntroCamera*)intro_record)->prev = g_CurrentSetupIntroCamera;')
+        link_end=game.index(';',game.index('g_SetupIntroCameraCount = g_SetupIntroCameraCount + 1',link_start))+1
+        choose_start=game.index('    if (g_CurrentSetupIntroCamera != NULL)')
+        choose_end=game.index('\n    bondinvAddInvItem',choose_start)
+        (temp/'game_intro_selection.h').write_text('''
+            typedef int s32; typedef unsigned int u32;
+            struct SetupIntroCamera { struct SetupIntroCamera *prev; DWORD command; };
+            static struct SetupIntroCamera *g_CurrentSetupIntroCamera;
+            static int g_SetupIntroCameraCount; static u32 game_random;
+            static u32 randomGetNext(void) { return game_random; }
+            static void GameLink(struct SetupIntroCamera *intro_record) {
+            '''+game[link_start:link_end]+'''
+            }
+            static struct SetupIntroCamera *GameChoose(void) {
+                struct SetupIntroCamera *ptr_random06cam_entry=NULL; s32 rand_camera_index;
+            '''+game[choose_start:choose_end]+'''
+                return ptr_random06cam_entry;
+            }
+            ''')
+        command += [f'-I{temp}',str(here/'edits.c'),str(here/'cameras.c')]
         command += ['-Wl,--gc-sections','-lm','-o',str(temp/'check')]
         subprocess.run(command,check=True)
         models=[str(editor/'geditorassets'/name) for name in ['start.glb','intro_camera.glb','outro_camera.glb','intro_spline_point.glb']]

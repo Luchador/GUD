@@ -106,6 +106,13 @@ typedef struct SetupMarkerRef {
 BOOL SetupFilePlaceSpawn(SetupFile *setup, float levelscale, const double position[3],
                         SetupMarkerRef *out, const char **reasonout);
 BOOL SetupFileDeleteSpawn(SetupFile *setup, const SetupMarkerRef *ref, const char **reasonout);
+/* Single-player cameras. Intro placement appends a random-intro candidate;
+ * outro placement replaces all scripted outro shots with one editable camera.
+ * Existing prop command indices/tags are retained. look is a world direction. */
+BOOL SetupFilePlaceCamera(SetupFile *setup, SetupMarkerKind kind, float levelscale,
+                         const double position[3], const double look[3],
+                         SetupMarkerRef *out, const char **reasonout);
+BOOL SetupFileDeleteIntroCamera(SetupFile *setup, const SetupMarkerRef *ref, const char **reasonout);
 typedef struct SetupMarker {
     SetupMarkerKind kind;
     DWORD command;

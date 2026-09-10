@@ -2130,6 +2130,16 @@ BOOL ViewportGetTextureDropFace(HWND hwnd, POINT screen,
 }
 
 
+BOOL ViewportGetCameraDirection(HWND hwnd, double look[3])
+{
+    ViewportState *state = (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+    float forward[3], right[3];
+    if (!state || !look) { return FALSE; }
+    ViewportGetBasis(state, forward, right);
+    for (int axis = 0; axis < 3; axis++) { look[axis] = forward[axis]; }
+    return TRUE;
+}
+
 BOOL ViewportGetModelDropPosition(HWND hwnd, POINT screen, double position[3])
 {
     ViewportState *state = (ViewportState *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
