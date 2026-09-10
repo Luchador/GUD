@@ -22,6 +22,7 @@
 
 #include "romexport.h"
 #include "modeledits.h"
+#include "bgdocument.h"
 
 #define ROM_EXPORT_FTBL_MAX_ROWS 1024u
 #define ROM_EXPORT_CHECKSUM_END  0x101000u
@@ -1027,6 +1028,25 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
         if (data == NULL)
         {
             goto fail;
+        }
+
+        if (strncmp(resource, "bg/", 3) == 0)
+        {
+            BgFile bg;
+            const char *why = "";
+
+            ZeroMemory(&bg, sizeof(bg));
+            bg.data = data;
+            bg.size = length;
+            lstrcpyn(bg.name, resource, sizeof(bg.name));
+            if (!BgFileRepairVertexBatches(&bg, &why))
+            {
+                free(data);
+                RomExportSetError(reasonout, "%s: %s", resource, why);
+                goto fail;
+            }
+            data = bg.data;
+            length = bg.size;
         }
 
 have_replacement:

@@ -263,35 +263,53 @@ static void BgCompileSortVertices(DWORD vertices[16], DWORD count)
 }
 
 
-static BOOL BgCompileEmitVertexLoads(BgCompileBuffer *gdl,
-                                     const DWORD vertices[16], DWORD count)
+static BOOL BgCompileEmitVertexLoad(BgCompileBuffer *gdl,
+                                    BgCompileBuffer *vertexdata,
+                                    const BgDocumentRoom *room,
+                                    DWORD vertices[16], DWORD *count,
+                                    const char **reasonout)
 {
-    DWORD first = 0;
+    DWORD first = vertices[0];
+    DWORD span = vertices[*count - 1] - first + 1;
+    DWORD offset = first * 16;
+    DWORD index;
 
-    while (first < count)
+    /* The CPU's BG bullet tests use the most recent G_VTX as a contiguous
+     * array, not the RSP's accumulated cache. Every triangle in a batch must
+     * therefore use vertices from ONE load (including gaps in source indices).
+     * Keep the original vertex array/identities whenever the span fits. */
+    if (span <= 16)
     {
-        DWORD run = 1;
-        DWORD word0;
-        DWORD word1;
-
-        while (first + run < count
-               && vertices[first + run] == vertices[first] + run)
+        *count = span;
+        for (index = 0; index < span; index++)
         {
-            run++;
+            vertices[index] = first + index;
         }
-
-        word0 = ((DWORD)BGCOMPILE_G_VTX << 24)
-              | ((((run - 1) << 4) | first) << 16)
-              | (run * 16);
-        word1 = BGCOMPILE_VERTEX_SEGMENT | (vertices[first] * 16);
-        if (!BgCompileWriteCommand(gdl, word0, word1))
+    }
+    else
+    {
+        /* A face imported from partial cache loads can itself span more than
+         * 16 source vertices. Give that batch a contiguous copy in the output;
+         * leave the live document and its undo/selection identities intact. */
+        offset = vertexdata->size;
+        if (offset > 0x01000000u - *count * 16)
         {
+            *reasonout = "the compiled bg vertex stream is too large for segmented pointers.";
             return FALSE;
         }
-        first += run;
+        for (index = 0; index < *count; index++)
+        {
+            if (!BgCompileWriteVertex(vertexdata, &room->vertices[vertices[index]]))
+            {
+                *reasonout = "out of memory compiling bg vertex batches.";
+                return FALSE;
+            }
+        }
     }
 
-    return TRUE;
+    return BgCompileWriteCommand(gdl,
+        ((DWORD)BGCOMPILE_G_VTX << 24) | ((*count - 1) << 20) | (*count * 16),
+        BGCOMPILE_VERTEX_SEGMENT | offset);
 }
 
 
@@ -475,6 +493,7 @@ static BOOL BgCompileEmitTriangles(BgCompileBuffer *gdl,
 
 
 static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
+                                    BgCompileBuffer *vertexdata,
                                     const BgDocumentRoom *room,
                                     const DWORD *faceindices,
                                     DWORD facecount,
@@ -489,12 +508,16 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
         DWORD vertices[16];
         DWORD vertexcount = 0;
         DWORD batchend = batchstart;
+        DWORD minvertex = (DWORD)-1;
+        DWORD maxvertex = 0;
 
         while (batchend < facecount)
         {
             const BgDocumentFace *face = &room->faces[faceindices[batchend]];
             DWORD additions[3];
             DWORD additioncount = 0;
+            DWORD nextmin = minvertex;
+            DWORD nextmax = maxvertex;
             int corner;
             const BgMaterial *firstmaterial = &room->faces[faceindices[batchstart]].material;
 
@@ -515,6 +538,8 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
                     *reasonout = "a bg face references a vertex outside its room.";
                     return FALSE;
                 }
+                if (vertex < nextmin) { nextmin = vertex; }
+                if (vertex > nextmax) { nextmax = vertex; }
                 if (BgCompileFindVertex(vertices, vertexcount, vertex) < 0
                     && BgCompileFindVertex(additions, additioncount,
                                            vertex) < 0)
@@ -523,7 +548,8 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
                 }
             }
 
-            if (vertexcount + additioncount > 16)
+            if (vertexcount + additioncount > 16
+                || (batchend > batchstart && nextmax - nextmin >= 16))
             {
                 break;
             }
@@ -531,6 +557,8 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
             {
                 vertices[vertexcount++] = additions[corner];
             }
+            minvertex = nextmin;
+            maxvertex = nextmax;
             batchend++;
         }
 
@@ -543,7 +571,8 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
         BgCompileSortVertices(vertices, vertexcount);
         if (!BgCompileEmitFaceState(gdl, &room->faces[faceindices[batchstart]],
                                      material, cullbackfaces, reasonout)
-            || !BgCompileEmitVertexLoads(gdl, vertices, vertexcount)
+            || !BgCompileEmitVertexLoad(gdl, vertexdata, room,
+                                        vertices, &vertexcount, reasonout)
             || !BgCompileEmitTriangles(gdl, room,
                     faceindices + batchstart, batchend - batchstart,
                     vertices, vertexcount, material,
@@ -562,6 +591,7 @@ static BOOL BgCompileEmitGroupFaces(BgCompileBuffer *gdl,
 static BOOL BgCompileLayer(const BgDocumentRoom *room,
                            BgGeometryLayer layer,
                            BgCompileBuffer *gdl,
+                           BgCompileBuffer *vertexdata,
                            const char **reasonout)
 {
     const BgDocumentLayerData *layerdata = &room->layers[layer];
@@ -630,7 +660,7 @@ static BOOL BgCompileLayer(const BgDocumentRoom *room,
             }
         }
 
-        if (!BgCompileEmitGroupFaces(gdl, room, faceindices, facecount,
+        if (!BgCompileEmitGroupFaces(gdl, vertexdata, room, faceindices, facecount,
                                      &material,
                                      &cullbackfaces, reasonout))
         {
@@ -807,7 +837,7 @@ BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
             }
         }
 
-        if (!BgCompileLayer(room, BG_GEOMETRY_PRIMARY, &primary, reasonout))
+        if (!BgCompileLayer(room, BG_GEOMETRY_PRIMARY, &primary, &vertices, reasonout))
         {
             if (primary.failed && (*reasonout)[0] == '\0')
             {
@@ -819,7 +849,7 @@ BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
         if (room->layers[BG_GEOMETRY_SECONDARY].sourcepresent
             || BgCompileHasLayerFaces(room, BG_GEOMETRY_SECONDARY))
         {
-            if (!BgCompileLayer(room, BG_GEOMETRY_SECONDARY, &secondary,
+            if (!BgCompileLayer(room, BG_GEOMETRY_SECONDARY, &secondary, &vertices,
                                 reasonout))
             {
                 if (secondary.failed && (*reasonout)[0] == '\0')
@@ -891,4 +921,130 @@ room_failed:
     out->size = output.size;
     lstrcpyn(out->name, source->name, sizeof(out->name));
     return TRUE;
+}
+
+
+/* Scan without rebuilding safe assets. The last-load mask also catches
+ * triangles whose vertices happen to resolve correctly but lie outside the
+ * last load's bounding box in bgBuildRoomVtxBounds. */
+static BOOL BgCompileCheckVertexBatches(const BgFile *bg, DWORD offset,
+                                        DWORD vertexcount, BOOL *repair)
+{
+    DWORD size;
+    DWORD pc;
+    DWORD valid = 0;
+    DWORD lastload = 0;
+
+    if (offset < 4 || offset > bg->size) { return FALSE; }
+    size = BgCompileRead32(bg->data + offset - 4);
+    if (size > bg->size - offset || (size & 7)) { return FALSE; }
+
+    for (pc = 0; pc < size; pc += 8)
+    {
+        const unsigned char *cmd = bg->data + offset + pc;
+        DWORD word0 = BgCompileRead32(cmd);
+        DWORD word1 = BgCompileRead32(cmd + 4);
+        DWORD triangle;
+
+        if (cmd[0] == BGCOMPILE_G_ENDDL) { return TRUE; }
+        if (cmd[0] == BGCOMPILE_G_VTX)
+        {
+            DWORD first = cmd[1] & 15;
+            DWORD count = (cmd[1] >> 4) + 1;
+            DWORD address = word1 & 0x00FFFFFFu;
+
+            if (first + count > 16 || (address & 15)
+                || address / 16 > vertexcount
+                || count > vertexcount - address / 16) { return FALSE; }
+            lastload = ((1u << count) - 1) << first;
+            valid |= lastload;
+        }
+        else if (cmd[0] == BGCOMPILE_G_TRI1 || cmd[0] == BGCOMPILE_G_TRI4)
+        {
+            DWORD count = cmd[0] == BGCOMPILE_G_TRI1 ? 1 : 4;
+
+            for (triangle = 0; triangle < count; triangle++)
+            {
+                DWORD a, b, c, mask;
+
+                if (cmd[0] == BGCOMPILE_G_TRI1)
+                {
+                    a = cmd[5] / 10; b = cmd[6] / 10; c = cmd[7] / 10;
+                }
+                else
+                {
+                    a = (word1 >> (triangle * 8)) & 15;
+                    b = (word1 >> (triangle * 8 + 4)) & 15;
+                    c = (word0 >> (triangle * 4)) & 15;
+                    if (a == 0 && b == 0 && c == 0) { continue; }
+                }
+                if (a >= 16 || b >= 16 || c >= 16) { return FALSE; }
+                mask = (1u << a) | (1u << b) | (1u << c);
+                if ((mask & valid) != mask) { return FALSE; }
+                if ((mask & lastload) != mask) { *repair = TRUE; }
+            }
+        }
+    }
+    return TRUE;
+}
+
+
+BOOL BgFileRepairVertexBatches(BgFile *bg, const char **reasonout)
+{
+    DWORD table;
+    DWORD record;
+    BOOL repair = FALSE;
+    BgDocument document;
+    BgFile compiled;
+    BOOL ok;
+
+    *reasonout = "";
+    /* Static single-display-list backgrounds do not use room bullet tests. */
+    if (bg->size < 8 || BgCompileRead32(bg->data) != 0) { return TRUE; }
+    table = BgCompileRead32(bg->data + 4) & 0x00FFFFFFu;
+    if (table > bg->size || bg->size - table < BGCOMPILE_ROOM_RECORD_SIZE)
+    {
+        goto invalid;
+    }
+
+    for (record = table + BGCOMPILE_ROOM_RECORD_SIZE; ; record += BGCOMPILE_ROOM_RECORD_SIZE)
+    {
+        DWORD vertices;
+        DWORD vertexsize;
+        int layer;
+
+        if (record > bg->size || bg->size - record < BGCOMPILE_ROOM_RECORD_SIZE)
+        {
+            goto invalid;
+        }
+        if (BgCompileRead32(bg->data + record + 4) == 0) { break; }
+        vertices = BgCompileRead32(bg->data + record) & 0x00FFFFFFu;
+        if (vertices < 4 || vertices > bg->size) { goto invalid; }
+        vertexsize = BgCompileRead32(bg->data + vertices - 4);
+        if (vertexsize > bg->size - vertices || (vertexsize & 15)) { goto invalid; }
+        for (layer = 0; layer < 2; layer++)
+        {
+            DWORD offset = BgCompileRead32(bg->data + record + 4 + layer * 4)
+                         & 0x00FFFFFFu;
+            if (offset && !BgCompileCheckVertexBatches(bg, offset, vertexsize / 16, &repair))
+            {
+                goto invalid;
+            }
+        }
+    }
+    if (!repair) { return TRUE; }
+
+    /* Compilation uses exact room-local coordinates; no level scale is needed.
+     * Replace only the export copy, so old projects need no manual resave. */
+    if (!BgDocumentLoad(bg->data, bg->size, 1.0f, &document, reasonout)) { return FALSE; }
+    ok = BgDocumentCompile(&document, bg, &compiled, reasonout);
+    BgDocumentFree(&document);
+    if (!ok) { return FALSE; }
+    free(bg->data);
+    *bg = compiled;
+    return TRUE;
+
+invalid:
+    *reasonout = "the bg contains invalid room vertex batches.";
+    return FALSE;
 }

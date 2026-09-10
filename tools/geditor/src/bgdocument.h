@@ -183,6 +183,11 @@ BOOL BgDocumentTranslateVertices(BgDocument *document,
 BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
                        BgFile *out, const char **reasonout);
 
+/* Repairs partial vertex-cache batches left by older editor saves before ROM
+ * export. Safe files remain byte-for-byte intact. On repair, replaces the
+ * owned data buffer; failure leaves the source intact. */
+BOOL BgFileRepairVertexBatches(BgFile *bg, const char **reasonout);
+
 /* Resolve a painted corner's preview alpha from the same inherited draw
  * state and per-face material as a full rebuild. Raw vertex RGBA stays intact. */
 unsigned char BgDocumentPreviewVertexAlpha(const BgDocumentRoom *room,
