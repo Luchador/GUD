@@ -1039,7 +1039,9 @@ static BOOL BrowserStartAssetDrag(HWND hwnd, BrowserState *state, HBITMAP bitmap
     }
     state->dragimage = images;
     SetFocus(hwnd);
-    SetCapture(hwnd);
+    /* Palette clicks already own capture while waiting for the drag threshold.
+       Recapturing the same window sends WM_CAPTURECHANGED and cancels the drag. */
+    if (GetCapture() != hwnd) { SetCapture(hwnd); }
     SetCursor(LoadCursor(NULL, IDC_ARROW));
     return TRUE;
 }
