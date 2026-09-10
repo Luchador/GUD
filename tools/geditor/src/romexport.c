@@ -31,6 +31,7 @@
 #define ROM_KIND_FTBL 0x4654424cu /* 'FTBL' */
 #define ROM_KIND_STGT 0x53544754u /* 'STGT' */
 #define ROM_KIND_OBSG 0x4f425347u /* 'OBSG' */
+#define ROM_KIND_ENVT 0x454E5654u /* 'ENVT' */
 
 typedef struct RomExportSlot {
     DWORD offset;

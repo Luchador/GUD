@@ -72,6 +72,8 @@ typedef struct EnvironmentRecord
     PropVisibilitySettings PropVisibility;
 } EnvironmentRecord;
 
+extern EnvironmentRecord g_EnvTable[];
+
 extern f32 g_PropFadeStartPx;
 extern f32 g_PropFadeEndPx;
 
