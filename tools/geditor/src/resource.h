@@ -58,6 +58,8 @@
 #define IDC_UV_PROJECT_Y      1031
 #define IDC_UV_PROJECT_Z      1032
 #define IDC_UV_PROJECT_BEST   1033
+#define IDC_UV_ROTATE         1034
+#define IDC_UV_SCALE          1035
 
 /* Model Editor selectors and footer. */
 #define IDC_MODEL_CHARACTERS       1040

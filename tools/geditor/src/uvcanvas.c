@@ -13,6 +13,8 @@
 #define UVCANVAS_VERTEX_RADIUS 2 /* a filled 5x5 screen-pixel square */
 #define UVCANVAS_MIN_SCALE 4.0
 #define UVCANVAS_MAX_SCALE 1000000.0
+#define UVCANVAS_ROTATE_RADIUS 56
+#define UVCANVAS_PI 3.14159265358979323846
 
 typedef struct UVCanvasNode {
     BgDocumentUVEdit source;
@@ -34,9 +36,12 @@ typedef struct UVCanvasState {
     int nodecount;
     BOOL boxing, boxadd, boxremove;
     POINT boxstart, boxend;
-    int draghandle; /* 0: idle, 1: U, 2: V, 3: free translation */
-    POINT dragstart;
-    double delta[2]; /* normalized movement; rounded per source texture */
+    TransformMode mode;
+    int draghandle; /* 0: idle, 1: U, 2: V, 3: center or rotation ring */
+    POINT dragstart, dragorigin;
+    double pivot[2], values[2]; /* UV offsets, degrees, or scale factors */
+    double lastangle, dragangle;
+    BOOL limited; /* last requested transform exceeded native S/T range */
 } UVCanvasState;
 
 static void UVCanvasUpdatePreview(UVCanvasState *state);
@@ -61,14 +66,55 @@ static int UVCanvasCornerCompare(const void *a, const void *b)
     return order != 0 ? order : (x->sourcecorner > y->sourcecorner) - (x->sourcecorner < y->sourcecorner);
 }
 
+static void UVCanvasResetTransform(UVCanvasState *state)
+{
+    state->values[0] = state->values[1] = state->mode == TRANSFORM_SCALE ? 1.0 : 0.0;
+    state->limited = FALSE;
+}
+
+/* Evaluate from the original S/T every time: previews never accumulate native
+ * rounding error. Validate before conversion so no vertex can wrap or clip. */
+static BOOL UVCanvasTransformST(const UVCanvasNode *node, TransformMode mode,
+                                const double pivot[2], const double values[2], int st[2])
+{
+    double s, t;
+    if (node->width <= 0 || node->height <= 0 || !isfinite(values[0])
+        || !isfinite(values[1]) || !isfinite(pivot[0]) || !isfinite(pivot[1])) { return FALSE; }
+    if (mode == TRANSFORM_MOVE)
+    {
+        s = node->source.s + round(values[0] * 32.0 * node->width);
+        t = node->source.t + round(values[1] * 32.0 * node->height);
+    }
+    else
+    {
+        double u = node->source.s / (32.0 * node->width) - pivot[0];
+        double v = node->source.t / (32.0 * node->height) - pivot[1];
+        double x, y;
+        if (mode == TRANSFORM_ROTATE)
+        {
+            double angle = remainder(values[0], 360.0) * UVCANVAS_PI / 180.0;
+            x = u * cos(angle) - v * sin(angle);
+            y = u * sin(angle) + v * cos(angle);
+        }
+        else if (mode == TRANSFORM_SCALE) { x = u * values[0]; y = v * values[1]; }
+        else { return FALSE; }
+        s = round((pivot[0] + x) * 32.0 * node->width);
+        t = round((pivot[1] + y) * 32.0 * node->height);
+    }
+    if (!isfinite(s) || !isfinite(t) || s < -32768 || s > 32767 || t < -32768 || t > 32767)
+    { return FALSE; }
+    st[0] = (int)s;
+    st[1] = (int)t;
+    return TRUE;
+}
+
 static void UVCanvasNodeST(const UVCanvasState *state, const UVCanvasNode *node, int st[2])
 {
     st[0] = node->source.s;
     st[1] = node->source.t;
-    if (node->selected)
+    if (node->selected && state->draghandle)
     {
-        st[0] += (int)round(state->delta[0] * 32.0 * node->width);
-        st[1] += (int)round(state->delta[1] * 32.0 * node->height);
+        UVCanvasTransformST(node, state->mode, state->pivot, state->values, st);
     }
 }
 
@@ -215,7 +261,10 @@ static void UVCanvasDrawTriangles(HDC dc, const UVCanvasState *state)
 static BOOL UVCanvasGizmo(const UVCanvasState *state, POINT *origin)
 {
     double uv[2], screen[2];
-    if (UVCanvasSelectionPosition(state, uv) == 0) { return FALSE; }
+    int count = UVCanvasSelectionPosition(state, uv);
+    if (count == 0 || (state->mode != TRANSFORM_MOVE && count < 2)) { return FALSE; }
+    if (state->draghandle && state->mode != TRANSFORM_MOVE)
+    { uv[0] = state->pivot[0]; uv[1] = state->pivot[1]; }
     UVCanvasProject(state, uv, screen);
     if (screen[0] < -80 || screen[0] > state->width + 80
         || screen[1] < -80 || screen[1] > state->height + 80) { return FALSE; }
@@ -230,6 +279,8 @@ static int UVCanvasPickHandle(const UVCanvasState *state, int x, int y)
     int dx, dy;
     if (!UVCanvasGizmo(state, &origin)) { return 0; }
     dx = x - origin.x; dy = y - origin.y;
+    if (state->mode == TRANSFORM_ROTATE)
+    { return fabs(hypot(dx, dy) - UVCANVAS_ROTATE_RADIUS) <= 7.0 ? 3 : 0; }
     if (abs(dx) <= 6 && abs(dy) <= 6) { return 3; }
     if (dx >= 10 && dx <= 76 && abs(dy) <= 7) { return 1; }
     if (-dy >= 10 && -dy <= 76 && abs(dx) <= 7) { return 2; }
@@ -244,17 +295,54 @@ static void UVCanvasDrawTools(HDC dc, const UVCanvasState *state)
     if (UVCanvasGizmo(state, &origin))
     {
         RECT center = { origin.x - 4, origin.y - 4, origin.x + 5, origin.y + 5 };
-        SetDCPenColor(dc, RGB(235, 80, 80));
-        MoveToEx(dc, origin.x + 10, origin.y, NULL); LineTo(dc, origin.x + 72, origin.y);
-        MoveToEx(dc, origin.x + 63, origin.y - 5, NULL); LineTo(dc, origin.x + 72, origin.y);
-        LineTo(dc, origin.x + 63, origin.y + 5);
-        SetTextColor(dc, RGB(235, 80, 80)); TextOut(dc, origin.x + 78, origin.y - 7, "U", 1);
-        SetDCPenColor(dc, RGB(90, 215, 100));
-        MoveToEx(dc, origin.x, origin.y - 10, NULL); LineTo(dc, origin.x, origin.y - 72);
-        MoveToEx(dc, origin.x - 5, origin.y - 63, NULL); LineTo(dc, origin.x, origin.y - 72);
-        LineTo(dc, origin.x + 5, origin.y - 63);
-        SetTextColor(dc, RGB(90, 215, 100)); TextOut(dc, origin.x - 4, origin.y - 92, "V", 1);
-        SetDCBrushColor(dc, RGB(235, 195, 80)); FillRect(dc, &center, (HBRUSH)GetStockObject(DC_BRUSH));
+        if (state->mode == TRANSFORM_ROTATE)
+        {
+            HGDIOBJ oldbrush = SelectObject(dc, GetStockObject(HOLLOW_BRUSH));
+            SetDCPenColor(dc, state->limited ? RGB(255, 100, 80) : RGB(235, 195, 80));
+            Ellipse(dc, origin.x - UVCANVAS_ROTATE_RADIUS, origin.y - UVCANVAS_ROTATE_RADIUS,
+                    origin.x + UVCANVAS_ROTATE_RADIUS + 1, origin.y + UVCANVAS_ROTATE_RADIUS + 1);
+            MoveToEx(dc, origin.x - 4, origin.y, NULL); LineTo(dc, origin.x + 5, origin.y);
+            MoveToEx(dc, origin.x, origin.y - 4, NULL); LineTo(dc, origin.x, origin.y + 5);
+            if (state->draghandle)
+            {
+                double start = atan2(origin.y - state->dragstart.y, state->dragstart.x - origin.x);
+                double angle = start + remainder(state->values[0], 360.0) * UVCANVAS_PI / 180.0;
+                MoveToEx(dc, origin.x, origin.y, NULL);
+                LineTo(dc, origin.x + (int)round(cos(angle) * UVCANVAS_ROTATE_RADIUS),
+                           origin.y - (int)round(sin(angle) * UVCANVAS_ROTATE_RADIUS));
+            }
+            SelectObject(dc, oldbrush);
+        }
+        else
+        {
+            SetDCPenColor(dc, RGB(235, 80, 80));
+            MoveToEx(dc, origin.x + 10, origin.y, NULL); LineTo(dc, origin.x + 72, origin.y);
+            if (state->mode == TRANSFORM_SCALE)
+            {
+                RECT cap = {origin.x + 67, origin.y - 5, origin.x + 77, origin.y + 6};
+                SetDCBrushColor(dc, RGB(235, 80, 80)); FillRect(dc, &cap, (HBRUSH)GetStockObject(DC_BRUSH));
+            }
+            else
+            {
+                MoveToEx(dc, origin.x + 63, origin.y - 5, NULL); LineTo(dc, origin.x + 72, origin.y);
+                LineTo(dc, origin.x + 63, origin.y + 5);
+            }
+            SetTextColor(dc, RGB(235, 80, 80)); TextOut(dc, origin.x + 78, origin.y - 7, "U", 1);
+            SetDCPenColor(dc, RGB(90, 215, 100));
+            MoveToEx(dc, origin.x, origin.y - 10, NULL); LineTo(dc, origin.x, origin.y - 72);
+            if (state->mode == TRANSFORM_SCALE)
+            {
+                RECT cap = {origin.x - 5, origin.y - 77, origin.x + 6, origin.y - 67};
+                SetDCBrushColor(dc, RGB(90, 215, 100)); FillRect(dc, &cap, (HBRUSH)GetStockObject(DC_BRUSH));
+            }
+            else
+            {
+                MoveToEx(dc, origin.x - 5, origin.y - 63, NULL); LineTo(dc, origin.x, origin.y - 72);
+                LineTo(dc, origin.x + 5, origin.y - 63);
+            }
+            SetTextColor(dc, RGB(90, 215, 100)); TextOut(dc, origin.x - 4, origin.y - 92, "V", 1);
+            SetDCBrushColor(dc, RGB(235, 195, 80)); FillRect(dc, &center, (HBRUSH)GetStockObject(DC_BRUSH));
+        }
     }
     if (state->boxing)
     {
@@ -399,7 +487,7 @@ BOOL UVCanvasCancelInteraction(HWND canvas)
     active = state->boxing || state->draghandle != 0;
     state->boxing = FALSE;
     state->draghandle = 0;
-    state->delta[0] = state->delta[1] = 0;
+    UVCanvasResetTransform(state);
     if (active)
     {
         UVCanvasUpdatePreview(state);
@@ -456,25 +544,63 @@ static void UVCanvasSelect(HWND hwnd, UVCanvasState *state)
     UVCanvasNotify(hwnd);
 }
 
+static BOOL UVCanvasTryTransform(UVCanvasState *state, const double values[2])
+{
+    int i, st[2];
+    for (i = 0; i < state->nodecount; i++)
+    {
+        const UVCanvasNode *node = &state->nodes[i];
+        if (node->selected && !UVCanvasTransformST(node, state->mode, state->pivot, values, st))
+        { state->limited = TRUE; return FALSE; }
+    }
+    state->values[0] = values[0]; state->values[1] = values[1];
+    state->limited = FALSE;
+    return TRUE;
+}
+
 static void UVCanvasDrag(HWND hwnd, UVCanvasState *state, int x, int y)
 {
     int axis, i;
-    state->delta[0] = state->draghandle == 2 ? 0 : (x - state->dragstart.x) / state->pixelsperunit;
-    state->delta[1] = state->draghandle == 1 ? 0 : (state->dragstart.y - y) / state->pixelsperunit;
-    for (axis = 0; axis < 2; axis++)
+    double values[2] = {0, 0};
+    double dx = x - state->dragstart.x, dy = state->dragstart.y - y;
+    if (state->mode == TRANSFORM_ROTATE)
     {
-        double lower = -1.0e30, upper = 1.0e30;
-        for (i = 0; i < state->nodecount; i++)
-        {
-            const UVCanvasNode *node = &state->nodes[i];
-            double dimension = axis ? node->height : node->width;
-            int source = axis ? node->source.t : node->source.s;
-            if (!node->selected) { continue; }
-            lower = fmax(lower, (-32768.0 - source) / (32.0 * dimension));
-            upper = fmin(upper, (32767.0 - source) / (32.0 * dimension));
-        }
-        state->delta[axis] = fmax(lower, fmin(upper, state->delta[axis]));
+        double u = x - state->dragorigin.x, v = state->dragorigin.y - y;
+        double angle;
+        if (hypot(u, v) < 3.0) { return; }
+        angle = atan2(v, u);
+        state->dragangle += remainder(angle - state->lastangle, 2.0 * UVCANVAS_PI) * 180.0 / UVCANVAS_PI;
+        state->lastangle = angle;
+        values[0] = state->dragangle;
     }
+    else if (state->mode == TRANSFORM_SCALE)
+    {
+        values[0] = state->draghandle == 2 ? 1.0 : 1.0 + dx / 72.0;
+        values[1] = state->draghandle == 1 ? 1.0 : 1.0 + dy / 72.0;
+        if (state->draghandle == 3) { values[0] = values[1] = 1.0 + (dx + dy) / 144.0; }
+    }
+    else
+    {
+        values[0] = state->draghandle == 2 ? 0 : dx / state->pixelsperunit;
+        values[1] = state->draghandle == 1 ? 0 : dy / state->pixelsperunit;
+        for (axis = 0; axis < 2; axis++)
+        {
+            double lower = -1.0e30, upper = 1.0e30;
+            for (i = 0; i < state->nodecount; i++)
+            {
+                const UVCanvasNode *node = &state->nodes[i];
+                double dimension = axis ? node->height : node->width;
+                int source = axis ? node->source.t : node->source.s;
+                if (!node->selected) { continue; }
+                lower = fmax(lower, (-32768.0 - source) / (32.0 * dimension));
+                upper = fmin(upper, (32767.0 - source) / (32.0 * dimension));
+            }
+            values[axis] = fmax(lower, fmin(upper, values[axis]));
+        }
+    }
+    /* Refuse an out-of-range group as a whole and retain its last valid
+     * preview. Clipping individual vertices would distort rotation/scale. */
+    UVCanvasTryTransform(state, values);
     UVCanvasUpdatePreview(state);
     UVCanvasNotify(hwnd);
 }
@@ -488,10 +614,12 @@ static BOOL UVCanvasCommit(HWND hwnd, UVCanvasState *state)
     if (edits == NULL)
     {
         UVCanvasCancelInteraction(hwnd);
-        MessageBox(GetParent(hwnd), "Out of memory moving UV vertices.", "UV Editor", MB_ICONERROR);
+        MessageBox(GetParent(hwnd), "Out of memory transforming UV vertices.", "UV Editor", MB_ICONERROR);
         return FALSE;
     }
     request.vertices = edits; request.count = 0; request.action = NULL;
+    if (state->mode == TRANSFORM_ROTATE) { request.action = "Rotate UV Vertices"; }
+    else if (state->mode == TRANSFORM_SCALE) { request.action = "Scale UV Vertices"; }
     for (i = 0; i < state->nodecount; i++)
     {
         const UVCanvasNode *node = &state->nodes[i];
@@ -525,6 +653,7 @@ static LRESULT CALLBACK UVCanvasWndProc(HWND hwnd, UINT message,
         state = (UVCanvasState *)calloc(1, sizeof(*state));
         if (state == NULL) { return -1; }
         state->centeru = state->centerv = 0.5;
+        UVCanvasResetTransform(state);
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
         return 0;
 
@@ -543,10 +672,15 @@ static LRESULT CALLBACK UVCanvasWndProc(HWND hwnd, UINT message,
         SetFocus(hwnd);
         if (state != NULL && !state->panning && state->pixelsperunit > 0)
         {
-            state->draghandle = (wparam & (MK_SHIFT | MK_CONTROL)) ? 0
+            int handle = (wparam & (MK_SHIFT | MK_CONTROL)) ? 0
                 : UVCanvasPickHandle(state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
+            UVCanvasCancelInteraction(hwnd);
+            UVCanvasSelectionPosition(state, state->pivot);
+            UVCanvasGizmo(state, &state->dragorigin);
+            state->draghandle = handle;
             state->dragstart.x = GET_X_LPARAM(lparam); state->dragstart.y = GET_Y_LPARAM(lparam);
-            state->delta[0] = state->delta[1] = 0;
+            state->lastangle = atan2(state->dragorigin.y - state->dragstart.y, state->dragstart.x - state->dragorigin.x);
+            state->dragangle = 0;
             state->boxing = state->draghandle == 0;
             state->boxstart = state->boxend = state->dragstart;
             state->boxadd = (wparam & MK_SHIFT) != 0;
@@ -726,6 +860,7 @@ BOOL UVCanvasSetPosition(HWND canvas, const double uv[2], const char **reason)
     int i;
     *reason = "Select exactly one UV vertex to set coordinates.";
     if (state == NULL || UVCanvasGetSelection(canvas, position) != 1) { return FALSE; }
+    if (state->mode != TRANSFORM_MOVE) { *reason = "Switch to Move to set UV coordinates."; return FALSE; }
     UVCanvasCancelInteraction(canvas);
     for (i = 0; i < state->nodecount; i++)
     {
@@ -739,13 +874,50 @@ BOOL UVCanvasSetPosition(HWND canvas, const double uv[2], const char **reason)
             *reason = "UV coordinates exceed GoldenEye's signed 16-bit texture coordinate range.";
             return FALSE;
         }
-        state->delta[0] = (s - node->source.s) / (32.0 * node->width);
-        state->delta[1] = (t - node->source.t) / (32.0 * node->height);
+        state->values[0] = (s - node->source.s) / (32.0 * node->width);
+        state->values[1] = (t - node->source.t) / (32.0 * node->height);
         state->draghandle = 3;
         *reason = "";
         return UVCanvasCommit(canvas, state);
     }
     return FALSE;
+}
+
+void UVCanvasSetTransformMode(HWND canvas, TransformMode mode)
+{
+    UVCanvasState *state = UVCanvasGetState(canvas);
+    if (state == NULL || mode < TRANSFORM_MOVE || mode > TRANSFORM_SCALE || state->mode == mode) { return; }
+    UVCanvasCancelInteraction(canvas);
+    UVCanvasEndPan(canvas, state);
+    state->mode = mode;
+    UVCanvasResetTransform(state);
+    UVCanvasNotify(canvas);
+}
+
+TransformMode UVCanvasGetTransform(HWND canvas, double values[2], BOOL *limited)
+{
+    const UVCanvasState *state = UVCanvasGetState(canvas);
+    if (values) { values[0] = state ? state->values[0] : 0; values[1] = state ? state->values[1] : 0; }
+    if (limited) { *limited = state && state->limited; }
+    return state ? state->mode : TRANSFORM_MOVE;
+}
+
+BOOL UVCanvasApplyTransform(HWND canvas, const double values[2], const char **reason)
+{
+    UVCanvasState *state = UVCanvasGetState(canvas);
+    *reason = "Select at least two UV vertices to rotate or scale.";
+    if (state == NULL || state->mode == TRANSFORM_MOVE) { return FALSE; }
+    UVCanvasCancelInteraction(canvas);
+    if (UVCanvasSelectionPosition(state, state->pivot) < 2) { return FALSE; }
+    if (!UVCanvasTryTransform(state, values))
+    {
+        UVCanvasResetTransform(state);
+        *reason = "The transform exceeds GoldenEye's signed 16-bit texture coordinate range.";
+        return FALSE;
+    }
+    state->draghandle = 3;
+    *reason = "";
+    return UVCanvasCommit(canvas, state);
 }
 
 BOOL UVCanvasHasFaces(HWND canvas)

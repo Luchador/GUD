@@ -106,12 +106,14 @@ CAPTION "UV Editor"
 FONT 8, "MS Shell Dlg"
 BEGIN
     CONTROL         "Move (W)", IDC_UV_MOVE, "BUTTON", BS_AUTORADIOBUTTON | BS_PUSHLIKE | WS_GROUP | WS_TABSTOP, 8, 6, 62, 20
-    LTEXT           "Planar:", IDC_UV_PROJECT_LABEL, 80, 12, 40, 10
-    PUSHBUTTON      "X-axis", IDC_UV_PROJECT_X, 128, 6, 48, 20, WS_GROUP
-    PUSHBUTTON      "Y-axis", IDC_UV_PROJECT_Y, 184, 6, 48, 20
-    PUSHBUTTON      "Z-axis", IDC_UV_PROJECT_Z, 240, 6, 48, 20
-    PUSHBUTTON      "Best Fit", IDC_UV_PROJECT_BEST, 296, 6, 64, 20
-    LTEXT           "Drag a box to select UV vertices.", IDC_UV_TOOL_HINT, 368, 12, 264, 10
+    CONTROL         "Rotate (E)", IDC_UV_ROTATE, "BUTTON", BS_AUTORADIOBUTTON | BS_PUSHLIKE, 78, 6, 70, 20
+    CONTROL         "Scale (R)", IDC_UV_SCALE, "BUTTON", BS_AUTORADIOBUTTON | BS_PUSHLIKE, 156, 6, 62, 20
+    LTEXT           "Planar:", IDC_UV_PROJECT_LABEL, 226, 12, 40, 10, WS_GROUP
+    PUSHBUTTON      "X-axis", IDC_UV_PROJECT_X, 274, 6, 48, 20
+    PUSHBUTTON      "Y-axis", IDC_UV_PROJECT_Y, 330, 6, 48, 20
+    PUSHBUTTON      "Z-axis", IDC_UV_PROJECT_Z, 386, 6, 48, 20
+    PUSHBUTTON      "Best Fit", IDC_UV_PROJECT_BEST, 442, 6, 64, 20
+    LTEXT           "Drag a box to select UV vertices.", IDC_UV_TOOL_HINT, 514, 12, 118, 10
     LTEXT           "Transform", IDC_UV_TRANSFORM, 648, 10, 120, 10
     LTEXT           "No UV vertices selected", IDC_UV_SELECTION, 648, 30, 120, 22
     LTEXT           "U", IDC_UV_U_LABEL, 648, 64, 12, 10

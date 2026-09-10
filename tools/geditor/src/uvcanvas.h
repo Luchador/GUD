@@ -4,6 +4,7 @@
 #include <windows.h>
 #include "bgdocument.h"
 #include "uvprojection.h"
+#include "edittool.h"
 
 #define UVCANVAS_BACKGROUND RGB(40, 40, 40)
 
@@ -33,6 +34,12 @@ typedef struct UVCanvasEdit {
 BOOL UVCanvasSetTriangles(HWND canvas, UVCanvasTriangle *triangles, int count);
 int UVCanvasGetSelection(HWND canvas, double uv[2]);
 BOOL UVCanvasSetPosition(HWND canvas, const double uv[2], const char **reason);
+void UVCanvasSetTransformMode(HWND canvas, TransformMode mode);
+/* Current drag values: UV offsets, degrees, or U/V scale factors. */
+TransformMode UVCanvasGetTransform(HWND canvas, double values[2], BOOL *limited);
+/* Apply an angle (values[0]) or U/V factors about the selection's mean UV.
+ * Requires two or more shared source vertices; one history step per call. */
+BOOL UVCanvasApplyTransform(HWND canvas, const double values[2], const char **reason);
 BOOL UVCanvasCancelInteraction(HWND canvas);
 BOOL UVCanvasHasFaces(HWND canvas);
 BOOL UVCanvasProjectFaces(HWND canvas, UVProjection projection, const char **reason);

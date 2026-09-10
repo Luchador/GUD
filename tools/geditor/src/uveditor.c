@@ -15,10 +15,20 @@ static HWND g_UVCanvas;
 
 static void UVEditorUpdateFields(void)
 {
-    double uv[2];
+    double uv[2], values[2];
+    BOOL limited;
+    TransformMode mode = UVCanvasGetTransform(g_UVCanvas, values, &limited);
     int count = UVCanvasGetSelection(g_UVCanvas, uv), axis;
     char text[96];
     if (g_UVEditor == NULL) { return; }
+    CheckDlgButton(g_UVEditor, IDC_UV_MOVE, mode == TRANSFORM_MOVE ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(g_UVEditor, IDC_UV_ROTATE, mode == TRANSFORM_ROTATE ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(g_UVEditor, IDC_UV_SCALE, mode == TRANSFORM_SCALE ? BST_CHECKED : BST_UNCHECKED);
+    SetDlgItemText(g_UVEditor, IDC_UV_TRANSFORM,
+        mode == TRANSFORM_ROTATE ? "Rotate" : mode == TRANSFORM_SCALE ? "Scale" : "Move");
+    SetDlgItemText(g_UVEditor, IDC_UV_U_LABEL, mode == TRANSFORM_ROTATE ? "Angle" : "U");
+    ShowWindow(GetDlgItem(g_UVEditor, IDC_UV_V_LABEL), mode == TRANSFORM_ROTATE ? SW_HIDE : SW_SHOW);
+    ShowWindow(GetDlgItem(g_UVEditor, IDC_UV_V), mode == TRANSFORM_ROTATE ? SW_HIDE : SW_SHOW);
     for (axis = IDC_UV_PROJECT_X; axis <= IDC_UV_PROJECT_BEST; axis++)
     { EnableWindow(GetDlgItem(g_UVEditor, axis), UVCanvasHasFaces(g_UVCanvas)); }
     if (count == 0) { lstrcpy(text, "No UV vertices selected"); }
@@ -27,14 +37,31 @@ static void UVEditorUpdateFields(void)
     for (axis = 0; axis < 2; axis++)
     {
         int id = axis ? IDC_UV_V : IDC_UV_U;
+        BOOL enabled = mode == TRANSFORM_MOVE ? count == 1 : count >= 2;
+        if (mode == TRANSFORM_ROTATE && axis == 1) { enabled = FALSE; }
         text[0] = '\0';
-        if (count == 1) { snprintf(text, sizeof(text), "%.9g", uv[axis]); }
-        EnableWindow(GetDlgItem(g_UVEditor, id), count == 1);
+        if (enabled) { snprintf(text, sizeof(text), "%.9g", mode == TRANSFORM_MOVE ? uv[axis] : values[axis]); }
+        EnableWindow(GetDlgItem(g_UVEditor, id), enabled);
         SetDlgItemText(g_UVEditor, id, text);
     }
-    SetDlgItemText(g_UVEditor, IDC_UV_HINT, count == 1
+    SetDlgItemText(g_UVEditor, IDC_UV_HINT, limited
+        ? "Texture coordinate limit reached.\r\nThe last valid transform is shown."
+        : mode != TRANSFORM_MOVE && count < 2
+        ? "Select at least two UV vertices.\r\nThe selection center is the pivot."
+        : mode == TRANSFORM_ROTATE
+        ? "Drag the ring to rotate.\r\nEnter applies an angle in degrees; positive turns counterclockwise.\r\nPivot: selection center."
+        : mode == TRANSFORM_SCALE
+        ? "Drag U or V to scale one axis, or the center to scale both.\r\nEnter applies the factors; 1 = unchanged.\r\nPivot: selection center."
+        : count == 1
         ? "Press Enter to set U and V.\r\nDrag U, V, or the center handle to move."
         : "Select one UV vertex to set its coordinates.\r\nDrag handles to move a group.");
+}
+
+static void UVEditorSetMode(TransformMode mode)
+{
+    UVCanvasSetTransformMode(g_UVCanvas, mode);
+    UVEditorUpdateFields();
+    SetFocus(g_UVCanvas);
 }
 
 static BOOL UVEditorReadCoordinate(int id, double *value)
@@ -50,20 +77,24 @@ static BOOL UVEditorReadCoordinate(int id, double *value)
 
 static void UVEditorApplyFields(void)
 {
-    double uv[2];
+    double uv[2] = {0, 0};
+    TransformMode mode = UVCanvasGetTransform(g_UVCanvas, NULL, NULL);
     const char *reason = "";
     int axis;
-    for (axis = 0; axis < 2; axis++)
+    for (axis = 0; axis < (mode == TRANSFORM_ROTATE ? 1 : 2); axis++)
     {
         int id = axis ? IDC_UV_V : IDC_UV_U;
         if (!UVEditorReadCoordinate(id, &uv[axis]))
         {
-            MessageBox(g_UVEditor, "Enter a finite number for each UV coordinate.", "UV Editor", MB_ICONERROR);
+            MessageBox(g_UVEditor, mode == TRANSFORM_ROTATE ? "Enter a finite rotation angle in degrees."
+                : mode == TRANSFORM_SCALE ? "Enter a finite scale factor for U and V."
+                : "Enter a finite number for each UV coordinate.", "UV Editor", MB_ICONERROR);
             SetFocus(GetDlgItem(g_UVEditor, id));
             return;
         }
     }
-    if (!UVCanvasSetPosition(g_UVCanvas, uv, &reason) && reason[0] != '\0')
+    if (!(mode == TRANSFORM_MOVE ? UVCanvasSetPosition(g_UVCanvas, uv, &reason)
+                                : UVCanvasApplyTransform(g_UVCanvas, uv, &reason)) && reason[0] != '\0')
     {
         MessageBox(g_UVEditor, reason, "UV Editor", MB_ICONERROR);
     }
@@ -72,9 +103,9 @@ static void UVEditorApplyFields(void)
 
 static void UVEditorLayout(HWND hwnd)
 {
-    static const int tools[] = { IDC_UV_MOVE, IDC_UV_PROJECT_LABEL, IDC_UV_PROJECT_X,
+    static const int tools[] = { IDC_UV_MOVE, IDC_UV_ROTATE, IDC_UV_SCALE, IDC_UV_PROJECT_LABEL, IDC_UV_PROJECT_X,
                                 IDC_UV_PROJECT_Y, IDC_UV_PROJECT_Z, IDC_UV_PROJECT_BEST };
-    static const int widths[] = { 8, 5, 6, 6, 6, 8 };
+    static const int widths[] = { 8, 9, 8, 5, 6, 6, 6, 8 };
     RECT client;
     RECT units = { 8, 32, 140, 16 };
     HWND closebutton = GetDlgItem(hwnd, IDCANCEL);
@@ -85,7 +116,7 @@ static void UVEditorLayout(HWND hwnd)
     int margin = units.left, row = units.bottom;
     int panelleft = max(0, client.right - units.right);
     int panelwidth = client.right - panelleft;
-    int editwidth = max(0, panelwidth - margin * 4);
+    int editwidth = max(0, panelwidth - margin * 7);
     int x = margin, y = margin / 2, buttonheight = row + margin / 2, index;
     /* Wrap the tools when the window is narrowed, keeping every projection
        accessible without covering the canvas or transform panel. */
@@ -111,11 +142,13 @@ static void UVEditorLayout(HWND hwnd)
     }
     MoveWindow(GetDlgItem(hwnd, IDC_UV_TRANSFORM), panelleft + margin, margin, panelwidth - margin * 2, row, TRUE);
     MoveWindow(GetDlgItem(hwnd, IDC_UV_SELECTION), panelleft + margin, row + margin * 2, panelwidth - margin * 2, row * 2, TRUE);
-    MoveWindow(GetDlgItem(hwnd, IDC_UV_U_LABEL), panelleft + margin, row * 3 + margin * 3, margin, row, TRUE);
-    MoveWindow(GetDlgItem(hwnd, IDC_UV_U), panelleft + margin * 3, row * 3 + margin * 3, editwidth, row, TRUE);
-    MoveWindow(GetDlgItem(hwnd, IDC_UV_V_LABEL), panelleft + margin, row * 4 + margin * 4, margin, row, TRUE);
-    MoveWindow(GetDlgItem(hwnd, IDC_UV_V), panelleft + margin * 3, row * 4 + margin * 4, editwidth, row, TRUE);
-    MoveWindow(GetDlgItem(hwnd, IDC_UV_HINT), panelleft + margin, row * 6 + margin * 4, panelwidth - margin * 2, row * 3, TRUE);
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_U_LABEL), panelleft + margin, row * 3 + margin * 3, margin * 4, row, TRUE);
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_U), panelleft + margin * 6, row * 3 + margin * 3, editwidth, row, TRUE);
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_V_LABEL), panelleft + margin, row * 4 + margin * 4, margin * 4, row, TRUE);
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_V), panelleft + margin * 6, row * 4 + margin * 4, editwidth, row, TRUE);
+    int hinttop = row * 6 + margin * 4;
+    int hintheight = max(0, min(row * 5, client.bottom - margin * 3 - row - hinttop));
+    MoveWindow(GetDlgItem(hwnd, IDC_UV_HINT), panelleft + margin, hinttop, panelwidth - margin * 2, hintheight, TRUE);
     MoveWindow(closebutton, panelleft + margin, client.bottom - margin - row,
                panelwidth - margin * 2, row, TRUE);
 }
@@ -173,10 +206,10 @@ static INT_PTR CALLBACK UVEditorDialogProc(HWND hwnd, UINT message,
             SetFocus(g_UVCanvas);
             return TRUE;
         }
-        if (LOWORD(wparam) == IDC_UV_MOVE)
+        if (LOWORD(wparam) == IDC_UV_MOVE || LOWORD(wparam) == IDC_UV_ROTATE || LOWORD(wparam) == IDC_UV_SCALE)
         {
-            CheckDlgButton(hwnd, IDC_UV_MOVE, BST_CHECKED);
-            SetFocus(g_UVCanvas);
+            UVEditorSetMode(LOWORD(wparam) == IDC_UV_ROTATE ? TRANSFORM_ROTATE
+                : LOWORD(wparam) == IDC_UV_SCALE ? TRANSFORM_SCALE : TRANSFORM_MOVE);
             return TRUE;
         }
         if (LOWORD(wparam) == IDOK)
@@ -348,11 +381,11 @@ BOOL UVEditorHandleMessage(MSG *message)
         }
         if (edit && message->wParam == VK_RETURN)
         { UVEditorApplyFields(); return TRUE; }
-        if (!edit && message->wParam == 'W'
+        if (!edit && (message->wParam == 'W' || message->wParam == 'E' || message->wParam == 'R')
             && !(GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000))
         {
-            CheckDlgButton(g_UVEditor, IDC_UV_MOVE, BST_CHECKED);
-            SetFocus(g_UVCanvas);
+            UVEditorSetMode(message->wParam == 'E' ? TRANSFORM_ROTATE
+                : message->wParam == 'R' ? TRANSFORM_SCALE : TRANSFORM_MOVE);
             return TRUE;
         }
         if (!edit && (GetKeyState(VK_CONTROL) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000)
