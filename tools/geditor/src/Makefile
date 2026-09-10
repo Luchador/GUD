@@ -36,6 +36,8 @@ TOOL_IMAGES := $(wildcard ../geditorassets/*_select_*.png) \
                $(wildcard ../geditorassets/vertex_snap_*.png) \
                $(wildcard ../geditorassets/icon_*.png) \
                ../geditorassets/no_texture.png
+MARKER_MODELS := ../geditorassets/start.glb ../geditorassets/intro_camera.glb \
+                 ../geditorassets/outro_camera.glb
 
 $(TARGET): $(SOURCES) $(HEADERS) $(SHARED_HEADERS) $(PROP_RECORDS) $(CHARACTER_RECORDS) idleposes.h $(RCOBJ)
 	$(CC) $(CFLAGS) -o $@ $(SOURCES) $(RCOBJ) $(LDFLAGS)
@@ -44,7 +46,7 @@ idleposes.h: ../scripts/generate_idle_poses.py ../../../tools/make_animation_ent
 	python3 ../scripts/generate_idle_poses.py
 
 # Resource script -> linkable object (dialogs, icon, and tool button artwork)
-$(RCOBJ): $(RCFILE) resource.h icon.ico $(TOOL_IMAGES) ../geditorassets/gizmo_arrow.glb ../geditorassets/gizmo_cylinder.glb ../geditorassets/gizmo_scale.glb
+$(RCOBJ): $(RCFILE) resource.h icon.ico $(TOOL_IMAGES) $(MARKER_MODELS) ../geditorassets/gizmo_arrow.glb ../geditorassets/gizmo_cylinder.glb ../geditorassets/gizmo_scale.glb
 	$(RC) -i $(RCFILE) -o $@
 
 clean:

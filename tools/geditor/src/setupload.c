@@ -117,6 +117,115 @@ static DWORD SetupObjectWordCount(unsigned char type)
     }
 }
 
+/* Intro commands have their own sizes, independent of propDefs. */
+static DWORD SetupIntroWordCount(DWORD type)
+{
+    static const DWORD words[] = {3, 4, 4, 8, 2, 2, 10, 3, 2, 1};
+    return type < sizeof(words) / sizeof(words[0]) ? words[type] : 0;
+}
+
+static BOOL SetupAppendMarker(SetupMarker **markers, DWORD *count, const SetupMarker *marker)
+{
+    SetupMarker *grown;
+    if (*count >= 4096) { return FALSE; }
+    grown = realloc(*markers, ((size_t)*count + 1) * sizeof(*grown));
+    if (grown == NULL) { return FALSE; }
+    *markers = grown;
+    grown[(*count)++] = *marker;
+    return TRUE;
+}
+
+static void SetupCameraMarker(const unsigned char *record, SetupMarkerKind kind, SetupMarker *marker)
+{
+    float yaw = (LONG)SetupRead32(record + 16) / 65536.0f;
+    float pitch = (LONG)SetupRead32(record + 20) / 65536.0f;
+    int axis;
+    ZeroMemory(marker, sizeof(*marker));
+    marker->kind = kind;
+    marker->pad = SetupRead32(record + 24);
+    /* Match setupLoadFiles and bondview's camera direction. Camera positions
+     * are hundredths of world units, NOT scaled pad or BG coordinates. */
+    for (axis = 0; axis < 3; axis++)
+    { marker->position[axis] = (LONG)SetupRead32(record + 4 + axis * 4) / 100.0f; }
+    marker->look[0] = cosf(pitch) * sinf(yaw);
+    marker->look[1] = sinf(pitch);
+    marker->look[2] = -cosf(pitch) * cosf(yaw);
+    marker->up[0] = -sinf(pitch) * sinf(yaw);
+    marker->up[1] = cosf(pitch);
+    marker->up[2] = sinf(pitch) * cosf(yaw);
+}
+
+BOOL SetupFileBuildMarkers(const SetupFile *setup, float levelscale,
+                           SetupMarker **markers, DWORD *count, const char **reasonout)
+{
+    DWORD list, at, commands, bytes, type, i;
+    BOOL multiplayer, hasspawn = FALSE;
+    *markers = NULL; *count = 0;
+    *reasonout = "The setup's spawn/camera records are invalid.";
+    if (setup == NULL || setup->data == NULL || setup->size < SETUP_HEADER_SIZE
+        || !isfinite(levelscale) || levelscale <= 0) { return FALSE; }
+    multiplayer = strncmp(setup->name, "Ump_", 4) == 0;
+    /* Header word 2 is the intro list, word 3 is propDefs. Parse the live
+     * raw setup so adding props and undo/redo never leave stale offsets. */
+    for (list = 0; list < 2; list++)
+    {
+        at = SetupRead32(setup->data + 8 + list * 4);
+        if (at == 0) { continue; }
+        if (at < SETUP_HEADER_SIZE || (at & 3) || at > setup->size) { goto fail; }
+        for (commands = 0; commands < SETUP_OBJECT_MAX; commands++)
+        {
+            const unsigned char *record;
+            SetupMarker marker;
+            if (setup->size - at < 4) { goto fail; }
+            record = setup->data + at;
+            type = list == 0 ? SetupRead32(record) : record[3];
+            if (type == (list == 0 ? 9u : SETUP_PROP_END)) { break; }
+            bytes = (list == 0 ? SetupIntroWordCount(type) : SetupObjectWordCount((unsigned char)type)) * 4;
+            if (bytes == 0 || bytes > setup->size - at) { goto fail; }
+            if (list == 0 && type == 0 && SetupRead32(record + 8) == 0
+                && (multiplayer || !hasspawn))
+            {
+                const SetupPad *pad;
+                float length;
+                ZeroMemory(&marker, sizeof(marker));
+                marker.kind = SETUP_MARKER_SPAWN;
+                marker.pad = SetupRead32(record + 4);
+                if (marker.pad >= setup->padcount || setup->pads == NULL) { goto fail; }
+                pad = &setup->pads[marker.pad];
+                for (i = 0; i < 3; i++)
+                {
+                    marker.position[i] = pad->pos[i] / levelscale;
+                    if (!isfinite(marker.position[i])) { goto fail; }
+                }
+                /* The game derives starting yaw from the horizontal look. */
+                length = hypotf(pad->look[0], pad->look[2]);
+                if (!isfinite(length)) { goto fail; }
+                marker.look[0] = length > 0 ? pad->look[0] / length : 0;
+                marker.look[2] = length > 0 ? pad->look[2] / length : 1;
+                marker.up[1] = 1;
+                if (!SetupAppendMarker(markers, count, &marker)) { goto memory; }
+                hasspawn = TRUE;
+            }
+            else if ((list == 0 && type == 6)
+                || (list == 1 && type == PROPDEF_CAMERAPOS
+                    && SetupRead32(record) != SETUP_DELETED_CHARACTER_HEADER))
+            {
+                SetupCameraMarker(record, list == 0 ? SETUP_MARKER_INTRO : SETUP_MARKER_OUTRO, &marker);
+                if (!SetupAppendMarker(markers, count, &marker)) { goto memory; }
+            }
+            at += bytes;
+        }
+        if (commands == SETUP_OBJECT_MAX) { goto fail; }
+    }
+    *reasonout = "";
+    return TRUE;
+memory:
+    *reasonout = "Too many setup markers or not enough memory to display them.";
+fail:
+    free(*markers); *markers = NULL; *count = 0;
+    return FALSE;
+}
+
 static BOOL SetupTypeCreatesObject(unsigned char type)
 {
     switch (type)
@@ -814,6 +923,28 @@ BOOL SetupLoadProjectFile(const char *projectdir, const char *setupname,
                       OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (file == INVALID_HANDLE_VALUE)
     {
+        /* These multiplayer-only stages have placeholder solo names in
+         * g_LevelInfoTable. Their actual resources are Ump_setup*. Keep the
+         * resolved name in SetupFile so Save writes the correct ROM asset.
+         * Never substitute a multiplayer setup for a missing solo mission
+         * or for an existing but damaged setup. */
+        static const char *const multiplayeronly[] = {
+            "UsetuprefZ", "UsetupdishZ", "UsetupimpZ",
+            "UsetupashZ", "UsetupameZ", "UsetupoatZ"
+        };
+        DWORD i;
+        if (GetLastError() == ERROR_FILE_NOT_FOUND)
+        {
+            for (i = 0; i < sizeof(multiplayeronly) / sizeof(multiplayeronly[0]); i++)
+            {
+                if (strcmp(setupname, multiplayeronly[i]) == 0)
+                {
+                    char name[64];
+                    snprintf(name, sizeof(name), "Ump_%s", setupname + 1);
+                    return SetupLoadProjectFile(projectdir, name, out, reasonout);
+                }
+            }
+        }
         *reasonout = "the setup .set file is missing from this project.";
         return FALSE;
     }

@@ -42,6 +42,11 @@
 #define IDR_OBJECT_CCTV         325
 #define IDR_OBJECT_ALARM        326
 
+/* Viewport-only setup marker models. */
+#define IDR_MARKER_START          327
+#define IDR_MARKER_INTRO_CAMERA   328
+#define IDR_MARKER_OUTRO_CAMERA   329
+
 /* Controls inside IDD_NEW_PROJECT */
 #define IDC_PROJECT_NAME     1001
 #define IDC_NAME_WARNING     1002

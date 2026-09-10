@@ -51,4 +51,10 @@ BgVertex *GltfLoadModel(const char *path, const char *projectdir,
 BgVertex *GltfLoadGlbMesh(const unsigned char *data, DWORD size,
                          DWORD *tricount, const char **reasonout);
 
+/* Lit editor resources require NORMAL. Transformed unit normals are returned
+ * in BgVertex.environment.normal. NULL nodename loads the full scene; a name
+ * selects only that mesh node, retaining its ancestors' transforms. */
+BgVertex *GltfLoadGlbLitMesh(const unsigned char *data, DWORD size, const char *nodename,
+                            DWORD *tricount, const char **reasonout);
+
 #endif /* GEDITOR_GLTF_H */

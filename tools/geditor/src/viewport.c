@@ -170,6 +170,10 @@ typedef struct ViewportState {
     POINT boxstart, boxend; /* viewport client pixels, independent of monitor origin */
     BgVertex *arrow;
     DWORD arrowtris;
+    BgVertex *markermodels[SETUP_MARKER_KIND_COUNT];
+    DWORD markermodeltris[SETUP_MARKER_KIND_COUNT];
+    SetupMarker *setupmarkers;
+    DWORD setupmarkercount;
     BgVertex *cylinder;
     DWORD cylindertris;
     BOOL scalemode, dragscaling, scalevalid;
@@ -809,6 +813,76 @@ static void ViewportBeginFog(ViewportState *state)
     glEnable(GL_FOG);
 }
 
+/* The supplied GLBs use +X for the arrow/lens and +Y for up. Convert
+ * metres to GoldenEye's centimetre world units without any level-scale factor. */
+#define VIEWPORT_MARKER_MODEL_SCALE 100.0f
+static void ViewportDrawSetupMarkers(const ViewportState *state)
+{
+    static const GLfloat ambient[4] = {0.4f, 0.4f, 0.4f, 1};
+    static const GLfloat diffuse[4] = {0.6f, 0.6f, 0.6f, 1};
+    static const GLfloat black[4] = {0, 0, 0, 1};
+    static const GLfloat lightdirection[4] = {-0.4f, 0.8f, 0.3f, 0};
+    DWORD i;
+    if (!state->showobjects || state->setupmarkercount == 0) { return; }
+    glPushAttrib(GL_ENABLE_BIT | GL_LIGHTING_BIT | GL_CURRENT_BIT
+        | GL_DEPTH_BUFFER_BIT | GL_POLYGON_BIT | GL_COLOR_BUFFER_BIT);
+    glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_ALPHA_TEST);
+    glDisable(GL_BLEND);
+    glDisable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+    glEnable(GL_COLOR_MATERIAL);
+    glEnable(GL_NORMALIZE);
+    glShadeModel(GL_SMOOTH);
+    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, black);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, black);
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambient);
+    glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
+    glLightfv(GL_LIGHT0, GL_AMBIENT, black);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, black);
+    /* Set after the view transform so the light stays fixed in world space. */
+    glLightfv(GL_LIGHT0, GL_POSITION, lightdirection);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    glEnableClientState(GL_NORMAL_ARRAY);
+    for (i = 0; i < state->setupmarkercount; i++)
+    {
+        const SetupMarker *marker = &state->setupmarkers[i];
+        const BgVertex *model = state->markermodels[marker->kind];
+        GLfloat matrix[16] = {0};
+        const float *look = marker->look, *up = marker->up;
+        int axis;
+        if (model == NULL) { continue; }
+        for (axis = 0; axis < 3; axis++)
+        {
+            matrix[axis] = look[axis];
+            matrix[4 + axis] = up[axis];
+            matrix[12 + axis] = marker->position[axis];
+        }
+        matrix[8] = look[1] * up[2] - look[2] * up[1];
+        matrix[9] = look[2] * up[0] - look[0] * up[2];
+        matrix[10] = look[0] * up[1] - look[1] * up[0];
+        matrix[15] = 1;
+        glPushMatrix();
+        glMultMatrixf(matrix);
+        glScalef(VIEWPORT_MARKER_MODEL_SCALE, VIEWPORT_MARKER_MODEL_SCALE, VIEWPORT_MARKER_MODEL_SCALE);
+        glVertexPointer(3, GL_FLOAT, sizeof(*model), &model->x);
+        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(*model), &model->r);
+        glNormalPointer(GL_FLOAT, sizeof(*model), model->environment.normal);
+        glDrawArrays(GL_TRIANGLES, 0, state->markermodeltris[marker->kind] * 3);
+        glPopMatrix();
+    }
+    glPopClientAttrib();
+    glPopAttrib();
+}
+
 static void ViewportPaintGL(ViewportState *state)
 {
     wglMakeCurrent(state->hdc, state->hglrc);
@@ -935,6 +1009,8 @@ static void ViewportPaintGL(ViewportState *state)
        Disable the array too: overlay vertex buffers have different lengths. */
     glDisable(GL_FOG);
     if (state->fogcoordpointer != NULL) { glDisableClientState(GL_FOG_COORDINATE_ARRAY); }
+
+    ViewportDrawSetupMarkers(state);
 
     if (ViewportStanVisible(state) && state->stanfill != NULL && state->stanfillcount > 0)
     {
@@ -4465,6 +4541,10 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
             }
             free(state->cylinder);
             free(state->scalehandle);
+            {
+                int kind;
+                for (kind = 0; kind < SETUP_MARKER_KIND_COUNT; kind++) { free(state->markermodels[kind]); }
+            }
             free(state->arrow);
             free(state->components);
             free(state->hiddenrefs);
@@ -4653,6 +4733,9 @@ static void ViewportFreeScene(struct ViewportState *state_)
     free(state->scenecolors);
     free(state->portaledges);
     free(state->portalfill);
+    free(state->setupmarkers);
+    state->setupmarkers = NULL;
+    state->setupmarkercount = 0;
     free(state->padmarkers);
     free(state->pads);
     free(state->scene);
@@ -5620,6 +5703,57 @@ static void ViewportAppendPadBox(Vertex *vertices, int *vertexcount,
 }
 
 
+static void ViewportSetSetupMarkers(HWND hwnd, ViewportState *state,
+                                     const SetupFile *setup, float levelscale)
+{
+    static const int resources[SETUP_MARKER_KIND_COUNT] = {
+        IDR_MARKER_START, IDR_MARKER_INTRO_CAMERA, IDR_MARKER_OUTRO_CAMERA
+    };
+    const char *reason = "";
+    DWORD i;
+    free(state->setupmarkers);
+    state->setupmarkers = NULL;
+    state->setupmarkercount = 0;
+    if (setup == NULL) { return; }
+    if (!SetupFileBuildMarkers(setup, levelscale, &state->setupmarkers, &state->setupmarkercount, &reason))
+    { MessageBox(hwnd, reason, "GEditor setup markers", MB_ICONWARNING); return; }
+    for (i = 0; i < state->setupmarkercount; i++)
+    {
+        SetupMarker *marker = &state->setupmarkers[i];
+        if (marker->kind == SETUP_MARKER_SPAWN && state->stan.tilecount > 0)
+        {
+            const SetupPad *pad = &setup->pads[marker->pad];
+            DWORD tile = StanResolvePadTile(&state->stan, pad->stanname, marker->position);
+            float height;
+            /* Spawn origins sit on the collision floor, like the player's
+             * feet. Without a usable stan, keep the authored pad position. */
+            if (StanGetTileHeight(&state->stan, tile, marker->position[0], marker->position[2], &height))
+            { marker->position[1] = height; }
+        }
+        if (state->markermodels[marker->kind] == NULL)
+        {
+            HINSTANCE instance = GetModuleHandle(NULL);
+            HRSRC resource = FindResource(instance, MAKEINTRESOURCE(resources[marker->kind]), RT_RCDATA);
+            HGLOBAL loaded = resource ? LoadResource(instance, resource) : NULL;
+            /* outro_camera.glb also contains a coincident intro_camera mesh.
+             * Select its named outro mesh to avoid blue/red z-fighting. */
+            const char *node = marker->kind == SETUP_MARKER_OUTRO ? "outro_camera" : NULL;
+            if (loaded)
+            {
+                state->markermodels[marker->kind] = GltfLoadGlbLitMesh(LockResource(loaded),
+                    SizeofResource(instance, resource), node, &state->markermodeltris[marker->kind], &reason);
+            }
+            if (state->markermodels[marker->kind] == NULL)
+            {
+                MessageBox(hwnd, loaded ? reason : "An embedded setup marker model is missing.",
+                    "GEditor setup markers", MB_ICONWARNING);
+                free(state->setupmarkers); state->setupmarkers = NULL; state->setupmarkercount = 0;
+                return;
+            }
+        }
+    }
+}
+
 void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, const unsigned char *occupiedpads, const unsigned char *occupiedboundpads)
 {
     ViewportState *state = ViewportGetState(hwnd);
@@ -5636,6 +5770,7 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
     }
 
     ViewportCancelTransform(hwnd);
+    ViewportSetSetupMarkers(hwnd, state, setup, levelscale);
     free(state->padmarkers);
     free(state->pads);
     state->padmarkers = NULL;
@@ -5702,6 +5837,12 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
             pad->zmin, pad->zmax, worldscale, 255, 48, 48);
     }
 
+    for (i = 0; i < state->setupmarkercount; i++)
+    {
+        const SetupMarker *marker = &state->setupmarkers[i];
+        if (marker->kind == SETUP_MARKER_SPAWN && marker->pad < setup->padcount)
+        { pads[marker->pad].occupied = TRUE; }
+    }
     state->padmarkers = markers;
     state->padmarkercount = vertexcount;
     state->pads = pads;

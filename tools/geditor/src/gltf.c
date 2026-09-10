@@ -77,6 +77,8 @@ typedef struct GltfBuilder {
     DWORD tricount;
     DWORD capacity;
     BOOL importing;
+    BOOL lit;
+    const char *nodename; /* optional exact mesh-node filter for editor resources */
     DWORD *sourcevertices;
 } GltfBuilder;
 
@@ -1636,6 +1638,16 @@ static BOOL GltfLoadPrimitive(const char *json,
         }
     }
 
+    if (builder->lit)
+    {
+        int normal = GltfJsonObjectGet(json, tokens, tokencount, attributes, "NORMAL");
+        if (normal < 0 || !GltfJsonUnsigned(json, &tokens[normal], &accessorindex)
+            || !GltfResolveAccessor(json, tokens, tokencount, root, accessorindex, buffercount, &normals)
+            || normals.componenttype != GLTF_COMPONENT_FLOAT || normals.components != 3
+            || normals.count != positions.count)
+        { *reasonout = "A lit editor model needs vertex normals."; return FALSE; }
+    }
+
     for (outputindex = 0; outputindex < elementcount; outputindex++)
     {
         DWORD sourceindex = outputindex;
@@ -1690,6 +1702,8 @@ static BOOL GltfLoadPrimitive(const char *json,
                 return FALSE;
             }
         }
+        if (builder->lit && !GltfAccessorFloats(&normals, buffers, sourceindex, vertex->environment.normal, 3))
+        { *reasonout = "A lit editor model has invalid normals."; return FALSE; }
         if (hascolors)
         {
             values[3] = 1.0f;
@@ -1844,6 +1858,24 @@ static BOOL GltfNodeArray(const char *json, const GltfJsonToken *tokens,
     return TRUE;
 }
 
+/* Inverse transpose of the node's 3x3 transform preserves smooth normals
+ * under nonuniform scale. Marker normals share BgVertex's preview storage. */
+static BOOL GltfTransformLitNormal(const double m[16], float normal[3])
+{
+    double a=m[0], b=m[4], c=m[8], d=m[1], e=m[5], f=m[9], g=m[2], h=m[6], i=m[10];
+    double det=a*(e*i-f*h)-b*(d*i-f*g)+c*(d*h-e*g);
+    double x=normal[0], y=normal[1], z=normal[2], out[3], length;
+    int axis;
+    if (!isfinite(det) || fabs(det)<1e-20) { return FALSE; }
+    out[0]=((e*i-f*h)*x+(f*g-d*i)*y+(d*h-e*g)*z)/det;
+    out[1]=((c*h-b*i)*x+(a*i-c*g)*y+(b*g-a*h)*z)/det;
+    out[2]=((b*f-c*e)*x+(c*d-a*f)*y+(a*e-b*d)*z)/det;
+    length=sqrt(out[0]*out[0]+out[1]*out[1]+out[2]*out[2]);
+    if (!isfinite(length) || !(length>0)) { return FALSE; }
+    for (axis=0; axis<3; axis++) { normal[axis]=(float)(out[axis]/length); }
+    return TRUE;
+}
+
 static BOOL GltfLoadGlbNode(const char *json, const GltfJsonToken *tokens,
     int tokencount, DWORD nodeindex, const GltfBuffer *buffer, DWORD buffercount,
     const double parent[16], GltfBuilder *builder, int depth, int *visited,
@@ -1886,6 +1918,11 @@ static BOOL GltfLoadGlbNode(const char *json, const GltfJsonToken *tokens,
         if (!isfinite(world[col*4+row])) { return FALSE; }
     }
     token = GltfJsonObjectGet(json, tokens, tokencount, node, "mesh");
+    if (builder->nodename != NULL)
+    {
+        int name = GltfJsonObjectGet(json, tokens, tokencount, node, "name");
+        if (name < 0 || !GltfJsonTokenEquals(json, &tokens[name], builder->nodename)) { token = -1; }
+    }
     if (token >= 0)
     {
         int meshes = GltfJsonObjectGet(json, tokens, tokencount, 0, "meshes");
@@ -1915,6 +1952,7 @@ static BOOL GltfLoadGlbNode(const char *json, const GltfJsonToken *tokens,
                 result[axis]=(float)value;
             }
             v->x=result[0]; v->y=result[1]; v->z=result[2];
+            if (builder->lit && !GltfTransformLitNormal(world, v->environment.normal)) { return FALSE; }
         }
     }
     children = GltfJsonObjectGet(json,tokens,tokencount,node,"children");
@@ -1928,8 +1966,8 @@ static BOOL GltfLoadGlbNode(const char *json, const GltfJsonToken *tokens,
     return TRUE;
 }
 
-BgVertex *GltfLoadGlbMesh(const unsigned char *data, DWORD size,
-                         DWORD *tricount, const char **reasonout)
+static BgVertex *GltfLoadGlbScene(const unsigned char *data, DWORD size,
+    BOOL lit, const char *nodename, DWORD *tricount, const char **reasonout)
 {
     char *json = NULL;
     GltfJsonToken *tokens = NULL;
@@ -1939,6 +1977,7 @@ BgVertex *GltfLoadGlbMesh(const unsigned char *data, DWORD size,
     DWORD offset=12, jsonsize=0, sceneindex=0, i;
     const double identity[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
     ZeroMemory(&builder,sizeof(builder));
+    builder.lit=lit; builder.nodename=nodename;
     *tricount=0; *reasonout="The embedded GLB mesh is invalid.";
     if (data==NULL || size<20 || GltfReadU32(data)!=0x46546c67
         || GltfReadU32(data+4)!=2 || GltfReadU32(data+8)!=size) { return NULL; }
@@ -1984,6 +2023,18 @@ fail:
     free(tokens); free(json); free(builder.vertices); free(builder.tags); free(builder.renderflags);
     if (**reasonout=='\0') { *reasonout="The embedded GLB mesh is invalid."; }
     return NULL;
+}
+
+BgVertex *GltfLoadGlbMesh(const unsigned char *data, DWORD size,
+                         DWORD *tricount, const char **reasonout)
+{
+    return GltfLoadGlbScene(data, size, FALSE, NULL, tricount, reasonout);
+}
+
+BgVertex *GltfLoadGlbLitMesh(const unsigned char *data, DWORD size, const char *nodename,
+                            DWORD *tricount, const char **reasonout)
+{
+    return GltfLoadGlbScene(data, size, TRUE, nodename, tricount, reasonout);
 }
 
 static void GltfWriteU32(unsigned char *data, DWORD value)

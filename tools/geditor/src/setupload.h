@@ -89,6 +89,19 @@ typedef struct SetupFile {
     BOOL dirty;
 } SetupFile;
 
+/* Derived viewport markers. These are never serialized into setup records.
+ * Cameras already store gameplay coordinates; spawn pads use levelscale. */
+typedef enum SetupMarkerKind {
+    SETUP_MARKER_SPAWN, SETUP_MARKER_INTRO, SETUP_MARKER_OUTRO, SETUP_MARKER_KIND_COUNT
+} SetupMarkerKind;
+typedef struct SetupMarker {
+    SetupMarkerKind kind;
+    DWORD pad; /* ordinary spawn pad; camera pads are room references only */
+    float position[3], look[3], up[3];
+} SetupMarker;
+BOOL SetupFileBuildMarkers(const SetupFile *setup, float levelscale,
+                           SetupMarker **markers, DWORD *count, const char **reasonout);
+
 /*
  * Copies every single-player and multiplayer setup resource from the
  * ROM into <projectdir>\setup as <resource name>.set. Returns the

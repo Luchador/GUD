@@ -15,7 +15,7 @@ DWORD GetFileAttributes(const char *path) { char p[1024];struct stat st;Path(p,p
 BOOL CreateDirectory(const char *path,void *unused) { char p[1024];(void)unused;Path(p,path);if(!mkdir(p,0700)) return TRUE;error=errno==EEXIST ? ERROR_ALREADY_EXISTS : ERROR_ACCESS_DENIED;return FALSE; }
 BOOL DeleteFile(const char *path) { char p[1024];Path(p,path);return unlink(p)==0; }
 BOOL MoveFileEx(const char *src,const char *dst,DWORD flags) { char a[1024],b[1024];(void)flags;Path(a,src);Path(b,dst);if(test_fail_move && --test_fail_move==0) {return FALSE;}return rename(a,b)==0; }
-HANDLE CreateFile(const char *p,DWORD mode,DWORD share,void *security,DWORD creation,DWORD attrs,HANDLE tmpl) { FILE *f;(void)share;(void)security;(void)creation;(void)attrs;(void)tmpl;f=TestFopen(p,mode==GENERIC_READ ? "rb" : "wb");return f ? f : INVALID_HANDLE_VALUE; }
+HANDLE CreateFile(const char *p,DWORD mode,DWORD share,void *security,DWORD creation,DWORD attrs,HANDLE tmpl) { FILE *f;(void)share;(void)security;(void)creation;(void)attrs;(void)tmpl;f=TestFopen(p,mode==GENERIC_READ ? "rb" : "wb");if(!f) { error=errno==ENOENT ? ERROR_FILE_NOT_FOUND : ERROR_ACCESS_DENIED; } return f ? f : INVALID_HANDLE_VALUE; }
 DWORD GetFileSize(HANDLE h,void *high) { long pos=ftell(h),end;(void)high;fseek(h,0,SEEK_END);end=ftell(h);fseek(h,pos,SEEK_SET);return end; }
 DWORD SetFilePointer(HANDLE h,LONG off,void *high,DWORD base) {(void)high;(void)base;return fseek(h,off,SEEK_SET) ? (DWORD)-1 : (DWORD)off;}
 BOOL ReadFile(HANDLE h,void *p,DWORD size,DWORD *got,void *o) {(void)o;*got=fread(p,1,size,h);return !ferror(h);}
