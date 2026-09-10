@@ -28,6 +28,20 @@
 #define IDR_VERTEX_SNAP_ON    313
 #define IDR_GIZMO_SCALE       314
 
+/* Object palette icons (embedded PNGs). */
+#define IDR_OBJECT_TRIANGLE     315
+#define IDR_OBJECT_QUAD         316
+#define IDR_OBJECT_SPAWN        317
+#define IDR_OBJECT_INTRO_SPLINE 318
+#define IDR_OBJECT_INTRO        319
+#define IDR_OBJECT_OUTRO        320
+#define IDR_OBJECT_DOOR         321
+#define IDR_OBJECT_GLASS        322
+#define IDR_OBJECT_WEAPON       323
+#define IDR_OBJECT_AMMO         324
+#define IDR_OBJECT_CCTV         325
+#define IDR_OBJECT_ALARM        326
+
 /* Controls inside IDD_NEW_PROJECT */
 #define IDC_PROJECT_NAME     1001
 #define IDC_NAME_WARNING     1002

@@ -32,10 +32,34 @@ typedef struct BrowserSection {
     RECT bodyrc;     /* valid only when expanded        */
 } BrowserSection;
 
-#define BROWSER_SECTION_COUNT 3
-#define BROWSER_SECTION_LEVELS 0
-#define BROWSER_SECTION_IMAGES 1
-#define BROWSER_SECTION_MODELS 2
+#define BROWSER_SECTION_COUNT 4
+#define BROWSER_SECTION_OBJECTS 0
+#define BROWSER_SECTION_LEVELS 1
+#define BROWSER_SECTION_IMAGES 2
+#define BROWSER_SECTION_MODELS 3
+#define BROWSER_OBJECT_COUNT 12
+#define BROWSER_OBJECT_COLUMNS 2
+#define BROWSER_OBJECT_ROWS (BROWSER_OBJECT_COUNT / BROWSER_OBJECT_COLUMNS)
+#define BROWSER_OBJECT_TILE_H 38
+#define BROWSER_OBJECT_GAP 4
+#define BROWSER_OBJECT_MARGIN 4
+#define BROWSER_OBJECT_ICON_SIZE 32
+#define BROWSER_OBJECT_HEIGHT (BROWSER_OBJECT_MARGIN * 2 \
+    + BROWSER_OBJECT_ROWS * (BROWSER_OBJECT_TILE_H + BROWSER_OBJECT_GAP) - BROWSER_OBJECT_GAP)
+
+/* Row-major order keeps the requested column pairs together. These are UI
+ * palette entries only; they do not yet describe setup records or geometry. */
+static const struct {
+    const char *label;
+    int icon;
+} g_BrowserObjects[BROWSER_OBJECT_COUNT] = {
+    { "Triangle",     IDR_OBJECT_TRIANGLE }, { "Quad",         IDR_OBJECT_QUAD },
+    { "Spawn Point",  IDR_OBJECT_SPAWN },    { "Intro Spline", IDR_OBJECT_INTRO_SPLINE },
+    { "Intro Camera", IDR_OBJECT_INTRO },    { "Outro Camera", IDR_OBJECT_OUTRO },
+    { "Door",         IDR_OBJECT_DOOR },     { "Glass",        IDR_OBJECT_GLASS },
+    { "Weapon",       IDR_OBJECT_WEAPON },   { "Ammo",         IDR_OBJECT_AMMO },
+    { "CCTV Camera",  IDR_OBJECT_CCTV },     { "Alarm",        IDR_OBJECT_ALARM }
+};
 #define BROWSER_MAX_MODELS 512
 #define BROWSER_MODEL_TAB_H 24
 #define BROWSER_MODEL_TAB_COUNT 3
@@ -53,6 +77,12 @@ typedef struct BrowserState {
     BrowserSection sections[BROWSER_SECTION_COUNT];
     BrowserLevelItem levels[BROWSER_MAX_LEVELS];
     int levelcount;
+    TexThumb objecticons[BROWSER_OBJECT_COUNT];
+    unsigned char objectpixels[BROWSER_OBJECT_COUNT][TEX_THUMB_MAX * TEX_THUMB_MAX * 4];
+    int hoverobject;
+    int pressedobject;
+    POINT objectpresspoint;
+    BOOL dragobject; /* preview only: never dispatch an image/model drop */
     TexThumb *images;             /* owned; freed on replace/destroy */
     unsigned char *imagepixels;   /* owned shared pixel block */
     int imagecount;
@@ -159,6 +189,8 @@ static int BrowserImageColumns(const RECT *body)
  */
 static int BrowserContentHeight(const BrowserState *state, int section)
 {
+    if (section == BROWSER_SECTION_OBJECTS) { return BROWSER_OBJECT_HEIGHT; }
+
     if (section == BROWSER_SECTION_LEVELS)
     {
         return state->levelcount > 0 ? state->levelcount * BROWSER_ROW_H + 8 : 0;
@@ -278,72 +310,151 @@ static void BrowserHideImageTooltip(HWND hwnd, BrowserState *state)
     state->tooltipimage = -1;
 }
 
-/*
- * The accordion layout.
- *
- * Every header is placed first, in order, each taking BROWSER_HEADER_H.
- * The height left over - client height minus ALL headers - is body
- * space, split evenly among the expanded sections (the last one takes
- * the rounding remainder). Because body space is computed net of every
- * header, a section low in the list always has room reserved for its
- * bar: expand everything above it and its header lands exactly at the
- * bottom edge, never beyond it.
- */
+/* Reserve every header, then give Object enough height for its six rows
+ * when space permits. At short heights it shares the available space and
+ * scrolls. The remaining expanded sections split the rest evenly. */
 static void BrowserLayoutSections(BrowserState *state, const RECT *client)
 {
-    int expandedcount = 0;
-    int bodyspace;
-    int perbody = 0;
-    int y = 0;
-    int i;
-    int expandedseen = 0;
-
+    int expandedcount = 0, bodyspace, perbody = 0, objectheight = 0;
+    int remaining, y = 0, i;
     for (i = 0; i < BROWSER_SECTION_COUNT; i++)
     {
-        if (state->sections[i].expanded)
-        {
-            expandedcount++;
-        }
+        if (state->sections[i].expanded) { expandedcount++; }
     }
-
     bodyspace = client->bottom - BROWSER_SECTION_COUNT * BROWSER_HEADER_H;
-    if (bodyspace < 0)
+    if (bodyspace < 0) { bodyspace = 0; }
+    remaining = expandedcount;
+    if (state->sections[BROWSER_SECTION_OBJECTS].expanded)
     {
-        bodyspace = 0; /* window shorter than the bars: they just stack */
+        objectheight = bodyspace / expandedcount;
+        if (bodyspace >= BROWSER_OBJECT_HEIGHT * expandedcount)
+        { objectheight = BROWSER_OBJECT_HEIGHT; }
+        /* Reserve modest useful space for the other bodies before showing
+         * all six rows, rather than leaving Object partially clipped. */
+        else if (bodyspace >= BROWSER_OBJECT_HEIGHT + (expandedcount - 1) * 100)
+        { objectheight = BROWSER_OBJECT_HEIGHT; }
+        bodyspace -= objectheight;
+        remaining--;
     }
-    if (expandedcount > 0)
-    {
-        perbody = bodyspace / expandedcount;
-    }
-
+    if (remaining > 0) { perbody = bodyspace / remaining; }
     for (i = 0; i < BROWSER_SECTION_COUNT; i++)
     {
         BrowserSection *sec = &state->sections[i];
-
-        sec->headerrc.left = 0;
-        sec->headerrc.right = client->right;
-        sec->headerrc.top = y;
-        sec->headerrc.bottom = y + BROWSER_HEADER_H;
+        SetRect(&sec->headerrc, 0, y, client->right, y + BROWSER_HEADER_H);
         y = sec->headerrc.bottom;
-
-        sec->bodyrc.left = 0;
-        sec->bodyrc.right = client->right;
-        sec->bodyrc.top = y;
-        sec->bodyrc.bottom = y;
+        SetRect(&sec->bodyrc, 0, y, client->right, y);
         if (sec->expanded)
         {
-            int h = perbody;
-
-            expandedseen++;
-            if (expandedseen == expandedcount)
+            int height = objectheight;
+            if (i != BROWSER_SECTION_OBJECTS)
             {
-                /* last expanded section absorbs the division remainder */
-                h = bodyspace - perbody * (expandedcount - 1);
+                height = remaining == 1 ? bodyspace : perbody;
+                bodyspace -= height;
+                remaining--;
             }
-
-            sec->bodyrc.bottom = y + h;
+            sec->bodyrc.bottom = y + height;
             y = sec->bodyrc.bottom;
         }
+    }
+}
+
+/* Shared tile geometry for painting, mouse hits, and drag previews. Reserve
+ * the scrollbar gutter even when all six rows fit so columns stay stable. */
+static RECT BrowserObjectRect(const BrowserState *state, int index)
+{
+    RECT rect = BrowserContentRect(state, BROWSER_SECTION_OBJECTS);
+    int column = index % BROWSER_OBJECT_COLUMNS;
+    int width = rect.right - rect.left - BROWSER_OBJECT_MARGIN * 2
+        - BROWSER_SCROLLBAR_W - 2 + BROWSER_OBJECT_GAP;
+    if (width < BROWSER_OBJECT_COLUMNS * BROWSER_OBJECT_GAP)
+    { width = BROWSER_OBJECT_COLUMNS * BROWSER_OBJECT_GAP; }
+    rect.left += BROWSER_OBJECT_MARGIN + column * width / BROWSER_OBJECT_COLUMNS;
+    rect.right = state->sections[BROWSER_SECTION_OBJECTS].bodyrc.left + BROWSER_OBJECT_MARGIN
+        + (column + 1) * width / BROWSER_OBJECT_COLUMNS - BROWSER_OBJECT_GAP;
+    rect.top += BROWSER_OBJECT_MARGIN + (index / BROWSER_OBJECT_COLUMNS)
+        * (BROWSER_OBJECT_TILE_H + BROWSER_OBJECT_GAP) - state->scroll[BROWSER_SECTION_OBJECTS];
+    rect.bottom = rect.top + BROWSER_OBJECT_TILE_H;
+    return rect;
+}
+
+static int BrowserHitObject(const BrowserState *state, POINT point)
+{
+    RECT body = BrowserContentRect(state, BROWSER_SECTION_OBJECTS);
+    int i;
+    if (!state->sections[BROWSER_SECTION_OBJECTS].expanded || !PtInRect(&body, point)) { return -1; }
+    for (i = 0; i < BROWSER_OBJECT_COUNT; i++)
+    {
+        RECT rect = BrowserObjectRect(state, i);
+        if (PtInRect(&rect, point)) { return i; }
+    }
+    return -1;
+}
+
+static void BrowserPaintObjectTile(const BrowserState *state, HDC dc,
+                                   int index, const RECT *rect, BOOL active)
+{
+    COLORREF background = GetSysColor(active ? COLOR_HIGHLIGHT : COLOR_BTNFACE);
+    COLORREF foreground = GetSysColor(active ? COLOR_HIGHLIGHTTEXT : COLOR_BTNTEXT);
+    HGDIOBJ oldbrush = SelectObject(dc, GetSysColorBrush(active ? COLOR_HIGHLIGHT : COLOR_BTNFACE));
+    HGDIOBJ oldpen = SelectObject(dc, GetStockObject(DC_PEN));
+    const TexThumb *icon = &state->objecticons[index];
+    unsigned char pixels[TEX_THUMB_MAX * TEX_THUMB_MAX * 4] = {0};
+    BITMAPINFO bmi = {0};
+    RECT label = *rect;
+    int x, y, saved = SaveDC(dc);
+    IntersectClipRect(dc, rect->left, rect->top, rect->right, rect->bottom);
+    SetDCPenColor(dc, GetSysColor(active ? COLOR_HIGHLIGHT : COLOR_BTNSHADOW));
+    RoundRect(dc, rect->left, rect->top, rect->right, rect->bottom, 6, 6);
+    /* Composite straight-alpha PNG pixels over the tile before drawing with
+     * GDI. Keep the source artwork unchanged and preserve its aspect ratio. */
+    for (y = 0; y < icon->h; y++) for (x = 0; x < icon->w; x++)
+    {
+        int offset = (y * TEX_THUMB_MAX + x) * 4;
+        const unsigned char *src = state->objectpixels[index] + offset;
+        pixels[offset] = (src[0] * src[3] + GetBValue(background) * (255 - src[3]) + 127) / 255;
+        pixels[offset + 1] = (src[1] * src[3] + GetGValue(background) * (255 - src[3]) + 127) / 255;
+        pixels[offset + 2] = (src[2] * src[3] + GetRValue(background) * (255 - src[3]) + 127) / 255;
+        pixels[offset + 3] = 255;
+    }
+    bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
+    bmi.bmiHeader.biWidth = TEX_THUMB_MAX;
+    bmi.bmiHeader.biHeight = -TEX_THUMB_MAX;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+    StretchDIBits(dc, rect->left + 3 + (BROWSER_OBJECT_ICON_SIZE - icon->w) / 2,
+        rect->top + (BROWSER_OBJECT_TILE_H - icon->h) / 2, icon->w, icon->h,
+        0, 0, icon->w, icon->h, pixels, &bmi, DIB_RGB_COLORS, SRCCOPY);
+    label.left += 3 + BROWSER_OBJECT_ICON_SIZE + 3;
+    label.right -= 12;
+    if (label.right > label.left)
+    {
+        SetTextColor(dc, foreground);
+        SetBkMode(dc, TRANSPARENT);
+        DrawText(dc, g_BrowserObjects[index].label, -1, &label,
+            DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_END_ELLIPSIS | DT_NOPREFIX);
+    }
+    /* Two columns of three dots make the drag affordance visible. */
+    for (y = -4; y <= 4; y += 4) for (x = 0; x <= 3; x += 3)
+    {
+        RECT dot = {rect->right - 9 + x, (rect->top + rect->bottom) / 2 + y,
+                    rect->right - 8 + x, (rect->top + rect->bottom) / 2 + y + 1};
+        FillRect(dc, &dot, GetSysColorBrush(active ? COLOR_HIGHLIGHTTEXT : COLOR_BTNSHADOW));
+    }
+    RestoreDC(dc, saved);
+    SelectObject(dc, oldbrush);
+    SelectObject(dc, oldpen);
+}
+
+static void BrowserPaintObjects(const BrowserState *state, HDC dc, const RECT *body)
+{
+    int i;
+    for (i = 0; i < BROWSER_OBJECT_COUNT; i++)
+    {
+        RECT rect = BrowserObjectRect(state, i);
+        if (rect.bottom <= body->top || rect.top >= body->bottom) { continue; }
+        BrowserPaintObjectTile(state, dc, i, &rect,
+            i == state->hoverobject || i == state->pressedobject);
     }
 }
 
@@ -717,7 +828,8 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
 
             if (i == BROWSER_SECTION_MODELS) { BrowserPaintModelTabs(state, hdc); }
             if (body.bottom <= body.top) { continue; }
-            if ((i == BROWSER_SECTION_LEVELS && state->levelcount > 0)
+            if (i == BROWSER_SECTION_OBJECTS
+                || (i == BROWSER_SECTION_LEVELS && state->levelcount > 0)
                 || i == BROWSER_SECTION_IMAGES
                 || (i == BROWSER_SECTION_MODELS && state->modelcounts[state->modeltab] > 0))
             {
@@ -726,7 +838,11 @@ static void BrowserPaint(HWND hwnd, HDC hdc)
                 BrowserClampScroll(state, i);
                 IntersectClipRect(hdc, body.left, body.top, body.right, body.bottom);
 
-                if (i == BROWSER_SECTION_LEVELS)
+                if (i == BROWSER_SECTION_OBJECTS)
+                {
+                    BrowserPaintObjects(state, hdc, &body);
+                }
+                else if (i == BROWSER_SECTION_LEVELS)
                 {
                     BrowserPaintLevelRows(state, hdc, &body);
                 }
@@ -861,8 +977,11 @@ static void BrowserEndAssetDrag(HWND hwnd, BrowserState *state)
         ImageList_Destroy(state->dragimage);
         state->dragimage = NULL;
         state->dragmodel[0] = '\0';
-        if (GetCapture() == hwnd) { ReleaseCapture(); }
     }
+    state->dragobject = FALSE;
+    state->pressedobject = -1;
+    if (state->dragsection < 0 && GetCapture() == hwnd) { ReleaseCapture(); }
+    InvalidateRect(hwnd, &state->sections[BROWSER_SECTION_OBJECTS].bodyrc, FALSE);
 }
 
 
@@ -892,7 +1011,7 @@ static int BrowserHitModel(const BrowserState *state, POINT point)
     return -1;
 }
 
-/* Both asset drags share capture, cancellation and multi-monitor coordinates.
+/* All browser drags share capture, cancellation and multi-monitor coordinates.
    Takes ownership of bitmap even when the drag cannot start. */
 static BOOL BrowserStartAssetDrag(HWND hwnd, BrowserState *state, HBITMAP bitmap, int width,
                                   int height, POINT point)
@@ -925,6 +1044,44 @@ static BOOL BrowserStartAssetDrag(HWND hwnd, BrowserState *state, HBITMAP bitmap
     SetCapture(hwnd);
     SetCursor(LoadCursor(NULL, IDC_ARROW));
     return TRUE;
+}
+
+/* UI-only drag: reuse the browser's preview/capture lifecycle, but never
+ * send a placement message. The mouse must first cross the system threshold. */
+static void BrowserBeginObjectDrag(HWND hwnd, BrowserState *state, int index, POINT point)
+{
+    RECT rect = BrowserObjectRect(state, index);
+    BITMAPINFO bmi = {0};
+    unsigned char *pixels;
+    HBITMAP bitmap;
+    HDC dc;
+    HGDIOBJ oldbitmap, oldfont;
+    int width = rect.right - rect.left, i;
+    if (width < 1) { return; }
+    OffsetRect(&rect, -rect.left, -rect.top);
+    bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
+    bmi.bmiHeader.biWidth = width;
+    bmi.bmiHeader.biHeight = -BROWSER_OBJECT_TILE_H;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+    bitmap = CreateDIBSection(NULL, &bmi, DIB_RGB_COLORS, (void **)&pixels, NULL, 0);
+    if (bitmap == NULL) { return; }
+    dc = CreateCompatibleDC(NULL);
+    if (dc == NULL) { DeleteObject(bitmap); return; }
+    oldbitmap = SelectObject(dc, bitmap);
+    oldfont = SelectObject(dc, GetStockObject(DEFAULT_GUI_FONT));
+    FillRect(dc, &rect, GetSysColorBrush(COLOR_WINDOW));
+    BrowserPaintObjectTile(state, dc, index, &rect, TRUE);
+    SelectObject(dc, oldfont);
+    SelectObject(dc, oldbitmap);
+    DeleteDC(dc);
+    for (i = 0; i < width * BROWSER_OBJECT_TILE_H; i++) { pixels[i * 4 + 3] = 255; }
+    if (BrowserStartAssetDrag(hwnd, state, bitmap, width, BROWSER_OBJECT_TILE_H, point))
+    {
+        state->dragobject = TRUE;
+        state->dragmodel[0] = '\0';
+    }
 }
 
 static void BrowserBeginModelDrag(HWND hwnd, BrowserState *state, int index, POINT point)
@@ -1063,12 +1220,26 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             return -1;
         }
 
-        state->sections[0].name = "Levels";
-        state->sections[0].expanded = TRUE;
-        state->sections[1].name = "Images";
-        state->sections[1].expanded = TRUE;
-        state->sections[2].name = "Models";
-        state->sections[2].expanded = TRUE;
+        state->sections[BROWSER_SECTION_OBJECTS].name = "Object";
+        state->sections[BROWSER_SECTION_LEVELS].name = "Levels";
+        state->sections[BROWSER_SECTION_IMAGES].name = "Images";
+        state->sections[BROWSER_SECTION_MODELS].name = "Models";
+        state->hoverobject = -1;
+        state->pressedobject = -1;
+        {
+            int i;
+            for (i = 0; i < BROWSER_SECTION_COUNT; i++) { state->sections[i].expanded = TRUE; }
+            for (i = 0; i < BROWSER_OBJECT_COUNT; i++)
+            {
+                if (!TexLoadResourceThumbnail(((CREATESTRUCT *)lparam)->hInstance,
+                    g_BrowserObjects[i].icon, &state->objecticons[i], state->objectpixels[i]))
+                {
+                    free(state);
+                    MessageBox(hwnd, "An Object panel icon could not be loaded.", "GEditor", MB_ICONERROR);
+                    return -1;
+                }
+            }
+        }
         state->dragsection = -1;
         state->selectedlevel = -1;
         state->selectedimage = -1;
@@ -1122,7 +1293,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             GetClientRect(hwnd, &client);
             BrowserLayoutSections(state, &client);
             if (BrowserHitImage(state, point) >= 0 || BrowserHitModelTab(state, point) >= 0
-                || BrowserHitModel(state, point) >= 0)
+                || BrowserHitModel(state, point) >= 0 || BrowserHitObject(state, point) >= 0)
             {
                 return SendMessage(hwnd, WM_LBUTTONDOWN, wparam, lparam);
             }
@@ -1200,6 +1371,16 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 }
             }
 
+            hit = BrowserHitObject(state, p);
+            if (hit >= 0)
+            {
+                SetFocus(hwnd);
+                state->pressedobject = hit;
+                state->objectpresspoint = p;
+                SetCapture(hwnd);
+                InvalidateRect(hwnd, &state->sections[BROWSER_SECTION_OBJECTS].bodyrc, FALSE);
+                return 0;
+            }
             hit = BrowserHitImage(state, p);
             if (hit >= 0)
             {
@@ -1227,6 +1408,24 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
     }
 
     case WM_MOUSEMOVE:
+        if (state != NULL && state->dragimage == NULL && state->dragsection < 0)
+        {
+            POINT point = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+            int hover = BrowserHitObject(state, point);
+            TRACKMOUSEEVENT tracking = {sizeof(tracking), TME_LEAVE, hwnd, 0};
+            TrackMouseEvent(&tracking);
+            if (hover != state->hoverobject)
+            {
+                state->hoverobject = hover;
+                InvalidateRect(hwnd, &state->sections[BROWSER_SECTION_OBJECTS].bodyrc, FALSE);
+            }
+            if (state->pressedobject >= 0 && (wparam & MK_LBUTTON)
+                && (abs(point.x - state->objectpresspoint.x) >= GetSystemMetrics(SM_CXDRAG)
+                    || abs(point.y - state->objectpresspoint.y) >= GetSystemMetrics(SM_CYDRAG)))
+            {
+                BrowserBeginObjectDrag(hwnd, state, state->pressedobject, point);
+            }
+        }
         if (state && state->dragimage == NULL && state->dragsection < 0
             && !(wparam & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON)))
         {
@@ -1275,7 +1474,12 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         return 0;
 
     case WM_MOUSELEAVE:
-        if (state) { BrowserHideImageTooltip(hwnd, state); }
+        if (state)
+        {
+            BrowserHideImageTooltip(hwnd, state);
+            state->hoverobject = -1;
+            InvalidateRect(hwnd, &state->sections[BROWSER_SECTION_OBJECTS].bodyrc, FALSE);
+        }
         return 0;
 
     case WM_LBUTTONUP:
@@ -1284,6 +1488,11 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             BrowserImageDrop drop;
             BrowserModelDrop modeldrop;
 
+            if (state->dragobject)
+            {
+                BrowserEndAssetDrag(hwnd, state);
+                return 0; /* Palette preview only: placement comes later. */
+            }
             lstrcpyn(modeldrop.name, state->dragmodel, sizeof(modeldrop.name));
             drop.textureid = state->dragtextureid;
             drop.screen.x = GET_X_LPARAM(lparam);
@@ -1323,6 +1532,11 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             DWORD textureid;
             HMENU menu;
             UINT command;
+            if (state->dragobject || state->pressedobject >= 0)
+            {
+                BrowserEndAssetDrag(hwnd, state);
+                return 0;
+            }
             if (screen.x == -1 && screen.y == -1)
             {
                 index = state->selectedimage;
@@ -1363,7 +1577,8 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         return 0;
 
     case WM_KEYDOWN:
-        if (wparam == VK_ESCAPE && state != NULL && state->dragimage != NULL)
+        if (wparam == VK_ESCAPE && state != NULL
+            && (state->dragimage != NULL || state->pressedobject >= 0))
         {
             BrowserEndAssetDrag(hwnd, state);
             return 0;
@@ -1375,13 +1590,14 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         break;
 
     case WM_MOUSEWHEEL:
-        if (state != NULL && state->dragimage != NULL) { return 0; }
+        if (state != NULL && (state->dragimage != NULL || state->pressedobject >= 0)) { return 0; }
         if (state != NULL)
         {
             RECT client;
             POINT p;
             int i;
 
+            state->hoverobject = -1;
             /* Wheel coordinates are screen coordinates. */
             p.x = GET_X_LPARAM(lparam);
             p.y = GET_Y_LPARAM(lparam);
@@ -1416,7 +1632,7 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         GetCursorPos(&p);
         ScreenToClient(hwnd, &p);
         if (BrowserHitHeader(hwnd, p.x, p.y) >= 0
-            || (state != NULL && BrowserHitModelTab(state, p) >= 0))
+            || (state != NULL && (BrowserHitModelTab(state, p) >= 0 || BrowserHitObject(state, p) >= 0)))
         {
             SetCursor(LoadCursor(NULL, IDC_HAND));
             return TRUE;
@@ -1436,6 +1652,8 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             int columns;
             int i;
 
+            if (state->dragobject || state->pressedobject >= 0) { BrowserEndAssetDrag(hwnd, state); }
+            state->hoverobject = -1;
             GetClientRect(hwnd, &client);
             BrowserLayoutSections(state, &client);
             columns = BrowserImageColumns(body);
