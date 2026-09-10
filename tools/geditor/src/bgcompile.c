@@ -1010,7 +1010,7 @@ BOOL BgFileRepairVertexBatches(BgFile *bg, const char **reasonout)
     for (record = table + BGCOMPILE_ROOM_RECORD_SIZE; ; record += BGCOMPILE_ROOM_RECORD_SIZE)
     {
         DWORD vertices;
-        DWORD vertexsize;
+        DWORD vertexsize = 0;
         int layer;
 
         if (record > bg->size || bg->size - record < BGCOMPILE_ROOM_RECORD_SIZE)
@@ -1019,9 +1019,15 @@ BOOL BgFileRepairVertexBatches(BgFile *bg, const char **reasonout)
         }
         if (BgCompileRead32(bg->data + record + 4) == 0) { break; }
         vertices = BgCompileRead32(bg->data + record) & 0x00FFFFFFu;
-        if (vertices < 4 || vertices > bg->size) { goto invalid; }
-        vertexsize = BgCompileRead32(bg->data + vertices - 4);
-        if (vertexsize > bg->size - vertices || (vertexsize & 15)) { goto invalid; }
+        /* Streets has empty rooms with a NULL vertex pointer and state-only
+         * display lists. Validate those lists with zero available vertices;
+         * any actual vertex load or triangle will still be rejected. */
+        if (vertices != 0)
+        {
+            if (vertices < 4 || vertices > bg->size) { goto invalid; }
+            vertexsize = BgCompileRead32(bg->data + vertices - 4);
+            if (vertexsize > bg->size - vertices || (vertexsize & 15)) { goto invalid; }
+        }
         for (layer = 0; layer < 2; layer++)
         {
             DWORD offset = BgCompileRead32(bg->data + record + 4 + layer * 4)
