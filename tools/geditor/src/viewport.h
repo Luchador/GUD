@@ -121,6 +121,8 @@ BOOL ViewportGetSelectedObject(HWND hwnd, DWORD *setupobjectindex);
 BOOL ViewportGetModelDropPosition(HWND hwnd, POINT screen, double position[3]);
 void ViewportSelectSetupModel(HWND hwnd, DWORD selection);
 BOOL ViewportGetSelectedPad(HWND hwnd, SetupPadRef *out);
+BOOL ViewportGetSelectedMarker(HWND hwnd, SetupMarkerRef *out, SetupMarker *spawn);
+BOOL ViewportGetMarkerRotation(HWND hwnd, Rotation *frame);
 
 /* Non-selecting face-mode drop query in screen coordinates. Uses the nearest
  * visible surface without cycling the selection stack. Objects and stan tiles

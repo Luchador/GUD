@@ -39,7 +39,8 @@ def main():
         command=[os.environ.get('CC','cc'),'-O1','-g','-std=c99','-Wall','-Wextra',
                  '-ffunction-sections','-fdata-sections','-fsanitize=address,undefined',
                  f'-I{shim}',f'-I{src}',f'-I{editor.parent.parent}',str(here/'check.c'),str(shim/'platform.c')]
-        command += [str(src/name) for name in ['setupload.c','gltf.c','bgrender.c']]
+        command += [str(src/name) for name in ['setupload.c','gltf.c','bgrender.c','rotation.c','bghistory.c']]
+        command += [str(here/'edits.c')]
         command += ['-Wl,--gc-sections','-lm','-o',str(temp/'check')]
         subprocess.run(command,check=True)
         models=[str(editor/'geditorassets'/name) for name in ['start.glb','intro_camera.glb','outro_camera.glb','intro_spline_point.glb']]

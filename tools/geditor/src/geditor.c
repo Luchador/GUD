@@ -181,10 +181,12 @@ static void GEditorRefreshTransformFields(void)
     BOOL hasposition = ViewportGetSelectionPosition(g_Viewport, position, &count);
     BOOL object = ViewportGetSelectedObject(g_Viewport, &objectindex);
     BOOL pad = ViewportGetSelectedPad(g_Viewport, &padref);
+    SetupMarkerRef markerref;
+    BOOL marker = ViewportGetSelectedMarker(g_Viewport, &markerref, NULL);
     BOOL stan = ViewportGetStanSelectionCount(g_Viewport, NULL) > 0;
     double scale = stan ? g_CurrentStan.levelscale : g_CurrentBgDocument.levelscale;
     BOOL editable = hasposition && (object ? GEditorCanMoveSetupModel(objectindex) : scale > 0);
-    double precision = editable && !object && !pad ? 1.0 / scale : 0;
+    double precision = editable && !object && !pad && !marker ? 1.0 / scale : 0;
 
     Rotation frame;
     double degrees[3], pivot[3];
@@ -194,7 +196,12 @@ static void GEditorRefreshTransformFields(void)
         BOOL valid = FALSE;
         if (editable && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT)
         {
-            if (object)
+            if (marker)
+            {
+                valid = ViewportGetMarkerRotation(g_Viewport, &frame);
+                axes = markerref.kind == SETUP_MARKER_SPAWN ? 2 : 7;
+            }
+            else if (object)
             {
                 valid = ObjectGetSetupModelRotation(&g_CurrentSetup, objectindex, &frame);
                 axes = (objectindex & SETUP_CHARACTER_SELECTION_BIT) ? 2 : 7;
@@ -215,7 +222,7 @@ static void GEditorRefreshTransformFields(void)
     if (!ViewportIsTransforming(g_Viewport))
     {
         Rotation scaleaxes;
-        BOOL valid = editable && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT;
+        BOOL valid = editable && !marker && ViewportGetTool(g_Viewport) != EDITOR_TOOL_VERTEX_PAINT;
         RotationAxis(&scaleaxes, 0, 0);
         if (object)
         {
@@ -234,7 +241,8 @@ static void GEditorRefreshTransformFields(void)
         RightPanelSetTransformState(g_RightPanel, valid ? scaling.factor : NULL, count, valid, 0);
         return;
     }
-    axes = object && (objectindex & SETUP_CHARACTER_SELECTION_BIT) ? 2 : 7;
+    axes = (marker && markerref.kind == SETUP_MARKER_SPAWN)
+        || (object && (objectindex & SETUP_CHARACTER_SELECTION_BIT)) ? 2 : 7;
     if (ViewportIsRotating(g_Viewport))
     {
         BOOL valid = ViewportGetRotation(g_Viewport, &frame, degrees, pivot);
@@ -253,6 +261,7 @@ static void GEditorRefreshTransformFields(void)
 static void GEditorRefreshSelectionDetails(void)
 {
     SetupPadRef padref;
+    SetupMarkerRef markerref;
     DWORD selectedobject;
     int count = ViewportGetSelectedBgFaceCount(g_Viewport);
     BOOL objectselected = ViewportGetSelectedObject(g_Viewport, &selectedobject);
@@ -262,7 +271,11 @@ static void GEditorRefreshSelectionDetails(void)
     RightPanelSetVertexPaintMode(g_RightPanel,
         ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT);
     GEditorRefreshTransformFields();
-    if (ViewportGetSelectedPad(g_Viewport, &padref))
+    if (ViewportGetSelectedMarker(g_Viewport, &markerref, NULL))
+    {
+        RightPanelSetSetupMarker(g_RightPanel, &markerref);
+    }
+    else if (ViewportGetSelectedPad(g_Viewport, &padref))
     {
         RightPanelSetSetupPad(g_RightPanel, &g_CurrentSetup, &padref);
     }
@@ -1778,8 +1791,43 @@ fail:
 
 /* The panel, gizmo and vertex snaps share the same asset/history path. Drag
  * previews live only in the viewport; there is exactly one edit on release. */
+static BOOL GEditorTransformMarker(HWND hwnd, const double offset[3], const Rotation *rotation)
+{
+    SetupMarkerRef ref;
+    SetupMarker spawn;
+    EditHistoryTransaction transaction = {0};
+    SetupObjectGeometry objects = {0};
+    const char *why = "", *restorewhy = "";
+    static const char *names[] = {"Start Point", "Intro Camera", "Outro Camera", "Intro Swirl Point"};
+    char action[64];
+    BOOL changed;
+    if (!ViewportGetSelectedMarker(g_Viewport, &ref, &spawn)) { return FALSE; }
+    snprintf(action, sizeof(action), "%s %s", rotation ? "Rotate" : "Move", names[ref.kind]);
+    if (!EditHistoryBeginSetupEdit(&g_EditHistory, &g_CurrentSetup, action, &transaction, &why)) { goto fail; }
+    if (!SetupFileTransformMarker(&g_CurrentSetup, &ref, &spawn, g_CurrentBgDocument.levelscale,
+        offset, rotation, &changed, &why)) { goto rollback; }
+    if (!changed) { EditHistoryCancelEdit(&transaction); GEditorRefreshSelectionDetails(); return TRUE; }
+    if (!ObjectLoadSetupGeometry(g_Project.dir, &g_CurrentSetup, &g_CurrentStan,
+            g_CurrentBgDocument.levelscale, &objects, &why)
+        || !GEditorRebuildCurrentViewportWithObjects(&objects, &why)
+        || !EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+            &g_CurrentStan, &transaction, &why)) { goto rollback; }
+    ObjectGeometryFree(&g_CurrentObjects); g_CurrentObjects = objects;
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+rollback:
+    EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+    GEditorRebuildCurrentViewport(&restorewhy);
+fail:
+    ObjectGeometryFree(&objects); EditHistoryCancelEdit(&transaction);
+    GEditorRefreshSelectionDetails(); GEditorRefreshHistoryMenu(hwnd);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorTranslateSelection(HWND hwnd, const double offset[3], BOOL snap)
 {
+    if (ViewportGetSelectedMarker(g_Viewport, NULL, NULL)) { return GEditorTransformMarker(hwnd, offset, NULL); }
     EditHistoryTransaction transaction;
     double applied[3];
     SetupObjectGeometry objects;
@@ -1909,6 +1957,8 @@ fail:
 static BOOL GEditorTransformSelection(HWND hwnd, const ViewportRotation *request,
                                       const Scaling *scaling)
 {
+    if (ViewportGetSelectedMarker(g_Viewport, NULL, NULL))
+    { return !scaling && request && GEditorTransformMarker(hwnd, NULL, &request->rotation); }
     EditHistoryTransaction transaction;
     const Rotation *rotation = request ? &request->rotation : NULL;
     const double *pivot = request ? request->pivot : scaling->pivot;

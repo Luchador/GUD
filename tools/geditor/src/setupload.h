@@ -95,8 +95,13 @@ typedef enum SetupMarkerKind {
     SETUP_MARKER_SPAWN, SETUP_MARKER_INTRO, SETUP_MARKER_OUTRO,
     SETUP_MARKER_SWIRL, SETUP_MARKER_KIND_COUNT
 } SetupMarkerKind;
+typedef struct SetupMarkerRef {
+    SetupMarkerKind kind;
+    DWORD command; /* index in intro or propDefs, stable when tables move */
+} SetupMarkerRef;
 typedef struct SetupMarker {
     SetupMarkerKind kind;
+    DWORD command;
     DWORD pad; /* ordinary spawn pad; camera pads are room references only */
     float position[3], look[3], up[3];
 } SetupMarker;
@@ -104,6 +109,7 @@ BOOL SetupFileBuildMarkers(const SetupFile *setup, float levelscale,
                            SetupMarker **markers, DWORD *count, const char **reasonout);
 
 typedef struct SetupSwirlPoint {
+    DWORD command;
     float position[3];
     float look[3], up[3]; /* model +X follows the spline; +Y stays upright */
     float tangentscale;
@@ -119,6 +125,12 @@ typedef struct SetupSwirlPath {
 BOOL SetupFileBuildSwirlPath(const SetupFile *setup, const SetupMarker *spawn,
                             SetupSwirlPath *path, const char **reasonout);
 void SetupSwirlPathFree(SetupSwirlPath *path);
+/* Exactly one of offset/rotation is supplied. spawn is the grounded solo
+ * anchor used to display swirl points. Changes update native setup bytes. */
+BOOL SetupFileTransformMarker(SetupFile *setup, const SetupMarkerRef *ref,
+                             const SetupMarker *spawn, float levelscale,
+                             const double offset[3], const Rotation *rotation,
+                             BOOL *changed, const char **reasonout);
 
 /*
  * Copies every single-player and multiplayer setup resource from the

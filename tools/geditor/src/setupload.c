@@ -189,6 +189,7 @@ BOOL SetupFileBuildMarkers(const SetupFile *setup, float levelscale,
                 float length;
                 ZeroMemory(&marker, sizeof(marker));
                 marker.kind = SETUP_MARKER_SPAWN;
+                marker.command = commands;
                 marker.pad = SetupRead32(record + 4);
                 if (marker.pad >= setup->padcount || setup->pads == NULL) { goto fail; }
                 pad = &setup->pads[marker.pad];
@@ -211,6 +212,7 @@ BOOL SetupFileBuildMarkers(const SetupFile *setup, float levelscale,
                     && SetupRead32(record) != SETUP_DELETED_CHARACTER_HEADER))
             {
                 SetupCameraMarker(record, list == 0 ? SETUP_MARKER_INTRO : SETUP_MARKER_OUTRO, &marker);
+                marker.command = commands;
                 if (!SetupAppendMarker(markers, count, &marker)) { goto memory; }
             }
             at += bytes;
@@ -296,7 +298,7 @@ BOOL SetupFileBuildSwirlPath(const SetupFile *setup, const SetupMarker *spawn,
                             SetupSwirlPath *path, const char **reasonout)
 {
     const DWORD samples = 32;
-    DWORD at, first = 0, count = 0, commands, i, step;
+    DWORD at, first = 0, firstcommand = 0, count = 0, commands, i, step;
     int axis;
     BOOL ended = FALSE;
     ZeroMemory(path, sizeof(*path));
@@ -324,7 +326,7 @@ BOOL SetupFileBuildSwirlPath(const SetupFile *setup, const SetupMarker *spawn,
         if (bytes == 0 || bytes > setup->size - at) { return FALSE; }
         if (type == 3)
         {
-            if (first == 0) { first = at; }
+            if (first == 0) { first = at; firstcommand = commands; }
             if (SetupRead32(setup->data + at + 4) & 1) { ended = TRUE; break; }
             if (++count > 4096) { return FALSE; }
         }
@@ -348,6 +350,7 @@ BOOL SetupFileBuildSwirlPath(const SetupFile *setup, const SetupMarker *spawn,
         const unsigned char *record = setup->data + first + i * 32;
         float offset[3];
         SetupSwirlPoint *point = &path->points[i];
+        point->command = firstcommand + i;
         for (axis = 0; axis < 3; axis++)
         { offset[axis] = (LONG)SetupRead32(record + 8 + axis * 4) / 65536.0f; }
         if (SetupRead32(record + 4) & 2)
@@ -1666,6 +1669,249 @@ BOOL SetupFileRotatePad(SetupFile *setup, const SetupPadRef *ref, const Rotation
         *changed |= value.f != pad->look[axis];
         pad->look[axis] = value.f;
         SetupWrite32(setup->data + record + 24 + axis * 4, value.u);
+    }
+    setup->dirty |= *changed;
+    *reasonout = "";
+    return TRUE;
+}
+
+static BOOL SetupMarkerRecord(const SetupFile *setup, const SetupMarkerRef *ref, DWORD *offset)
+{
+    DWORD at, command, type, bytes;
+    BOOL outro = ref && ref->kind == SETUP_MARKER_OUTRO;
+    if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE || !ref
+        || ref->kind >= SETUP_MARKER_KIND_COUNT || ref->command >= SETUP_OBJECT_MAX) { return FALSE; }
+    at = SetupRead32(setup->data + (outro ? 12 : 8));
+    if (at < SETUP_HEADER_SIZE || (at & 3)) { return FALSE; }
+    for (command = 0; command <= ref->command; command++)
+    {
+        if (at > setup->size || setup->size - at < 4) { return FALSE; }
+        type = outro ? setup->data[at + 3] : SetupRead32(setup->data + at);
+        if (type == (outro ? SETUP_PROP_END : 9)) { return FALSE; }
+        bytes = (outro ? SetupObjectWordCount((unsigned char)type) : SetupIntroWordCount(type)) * 4;
+        if (!bytes || bytes > setup->size - at) { return FALSE; }
+        if (command == ref->command)
+        {
+            DWORD expected = ref->kind == SETUP_MARKER_SPAWN ? 0 : ref->kind == SETUP_MARKER_SWIRL ? 3
+                : outro ? PROPDEF_CAMERAPOS : 6;
+            if (type != expected || (outro && SetupRead32(setup->data + at) == SETUP_DELETED_CHARACTER_HEADER)
+                || (type == 3 && (SetupRead32(setup->data + at + 4) & 1))
+                || (type == 0 && SetupRead32(setup->data + at + 8) != 0)) { return FALSE; }
+            *offset = at;
+            return TRUE;
+        }
+        at += bytes;
+    }
+    return FALSE;
+}
+
+static BOOL SetupFixedValue(double value, double scale, DWORD *encoded)
+{
+    double rounded = round(value * scale);
+    if (!isfinite(rounded) || rounded < -2147483648.0 || rounded > 2147483647.0) { return FALSE; }
+    *encoded = (DWORD)(LONG)rounded;
+    return TRUE;
+}
+
+static void SetupSwirlWorldPoint(const unsigned char *record, const SetupMarker *spawn, double world[3])
+{
+    double local[3];
+    int axis;
+    for (axis = 0; axis < 3; axis++) { local[axis] = (LONG)SetupRead32(record + 8 + axis * 4) / 65536.0; }
+    world[0] = local[0]; world[1] = local[1] + 175; world[2] = local[2];
+    if (SetupRead32(record + 4) & 2)
+    {
+        world[0] = local[2] * spawn->look[0] + local[0] * spawn->look[2];
+        world[2] = local[2] * spawn->look[2] - local[0] * spawn->look[0];
+    }
+    for (axis = 0; axis < 3; axis++) { world[axis] += spawn->position[axis]; }
+}
+
+/* A moved camera needs a pad at its new location for the game's room/stan
+ * lookup. Never move a shared authored room pad. Reuse our private tail pad
+ * on subsequent moves; a moved table preserves all other pad indices. */
+static BOOL SetupMoveCameraPad(SetupFile *setup, DWORD command, float levelscale,
+                              const DWORD coordinates[3], const char **why)
+{
+    DWORD table = SetupRead32(setup->data + SETUP_PAD_POINTER), count = setup->padcount;
+    DWORD old = SetupRead32(setup->data + command + 24), end, record, i;
+    float pos[3];
+    BOOL reuse;
+    if (table < SETUP_HEADER_SIZE || table > setup->size || count >= SETUP_PAD_MAX
+        || count + 1 > (setup->size - table) / SETUP_PAD_SIZE || (count && !setup->pads)) { return FALSE; }
+    for (i = 0; i < 3; i++)
+    {
+        double value = ((LONG)coordinates[i] / 100.0) * levelscale;
+        if (!isfinite(value) || fabs(value) > 100000000.0) { return FALSE; }
+        pos[i] = (float)value;
+    }
+    end = table + count * SETUP_PAD_SIZE;
+    record = old < count ? table + old * SETUP_PAD_SIZE : 0;
+    reuse = count && old == count - 1 && end + SETUP_PAD_SIZE == setup->size
+        && SetupRead32(setup->data + record + SETUP_PAD_LINK) == end + SETUP_PAD_LINK;
+    /* The marker owns this pad only if no other intro/prop command uses it. */
+    for (i = 0; reuse && i < 2; i++)
+    {
+        DWORD at = SetupRead32(setup->data + 8 + i * 4), n;
+        if (!at) { continue; }
+        for (n = 0; n < SETUP_OBJECT_MAX; n++)
+        {
+            DWORD type, bytes, pad = (DWORD)-1;
+            if (at > setup->size || setup->size - at < 4) { reuse = FALSE; break; }
+            type = i ? setup->data[at + 3] : SetupRead32(setup->data + at);
+            if (type == (i ? SETUP_PROP_END : 9)) { break; }
+            bytes = (i ? SetupObjectWordCount((unsigned char)type) : SetupIntroWordCount(type)) * 4;
+            if (!bytes || bytes > setup->size - at) { reuse = FALSE; break; }
+            if ((!i && type == 6) || (i && type == PROPDEF_CAMERAPOS)) { pad = SetupRead32(setup->data + at + 24); }
+            if (!i && type == 0) { pad = SetupRead32(setup->data + at + 4); }
+            if (at != command && pad == old) { reuse = FALSE; break; }
+            at += bytes;
+        }
+    }
+    for (i = 0; reuse && i < setup->charactercount; i++) { if (setup->characters[i].pad == old) { reuse = FALSE; } }
+    for (i = 0; reuse && i < setup->objectcount; i++) { if (setup->objects[i].pad == (int)old) { reuse = FALSE; } }
+    if (!reuse)
+    {
+        DWORD newtable = (setup->size + 3u) & ~3u, newsize = newtable + (count + 2) * SETUP_PAD_SIZE;
+        unsigned char *data;
+        SetupPad *pads;
+        if (newsize > SETUP_FILE_MAX) { *why = "The setup has no room for another camera pad."; return FALSE; }
+        data = calloc(newsize, 1); pads = calloc(count + 1, sizeof(*pads));
+        if (!data || !pads) { free(data); free(pads); *why = "Out of memory moving the camera's room pad."; return FALSE; }
+        memcpy(data, setup->data, setup->size);
+        memcpy(data + newtable, setup->data + table, count * SETUP_PAD_SIZE);
+        if (count) { memcpy(pads, setup->pads, count * sizeof(*pads)); }
+        free(setup->data); free(setup->pads);
+        setup->data = data; setup->size = newsize; setup->pads = pads; setup->padcount = count + 1;
+        SetupWrite32(data + SETUP_PAD_POINTER, newtable);
+        old = count; record = newtable + count * SETUP_PAD_SIZE; end = record + SETUP_PAD_SIZE;
+        SetupWrite32(data + command + 24, old);
+    }
+    setup->pads[old].up[1] = 1; setup->pads[old].look[2] = 1; setup->pads[old].stanname[0] = 0;
+    SetupWrite32(setup->data + record + 16, 0x3f800000u);
+    SetupWrite32(setup->data + record + 32, 0x3f800000u);
+    SetupWrite32(setup->data + record + SETUP_PAD_LINK, end + SETUP_PAD_LINK);
+    for (i = 0; i < 3; i++)
+    {
+        union { float f; DWORD u; } value;
+        value.f = pos[i]; setup->pads[old].pos[i] = value.f;
+        SetupWrite32(setup->data + record + i * 4, value.u);
+    }
+    return TRUE;
+}
+
+BOOL SetupFileTransformMarker(SetupFile *setup, const SetupMarkerRef *ref,
+                             const SetupMarker *spawn, float levelscale,
+                             const double offset[3], const Rotation *rotation,
+                             BOOL *changed, const char **reasonout)
+{
+    DWORD record, values[3];
+    int axis;
+    *changed = FALSE;
+    *reasonout = "Invalid setup marker transform or coordinate range.";
+    if (!SetupMarkerRecord(setup, ref, &record) || !isfinite(levelscale) || levelscale <= 0
+        || (!!offset == !!rotation) || (rotation && !RotationValid(rotation))) { return FALSE; }
+    if (offset) { for (axis = 0; axis < 3; axis++) { if (!isfinite(offset[axis])) { return FALSE; } } }
+    if (offset && offset[0] == 0 && offset[1] == 0 && offset[2] == 0) { *reasonout = ""; return TRUE; }
+    if (ref->kind == SETUP_MARKER_SPAWN)
+    {
+        SetupPadRef pad = {SetupRead32(setup->data + record + 4), FALSE};
+        /* The game uses only the horizontal facing of a spawn pad. */
+        if (rotation && (fabs(rotation->m[1][1] - 1) > 1e-6)) { return FALSE; }
+        return offset ? SetupFileTranslatePad(setup, &pad, levelscale, offset, changed, reasonout)
+            : SetupFileRotatePad(setup, &pad, rotation, changed, reasonout);
+    }
+    if (ref->kind == SETUP_MARKER_SWIRL)
+    {
+        SetupSwirlPath path = {0};
+        DWORD index, first, last, i, *encoded = NULL;
+        if (!spawn || spawn->kind != SETUP_MARKER_SPAWN
+            || !SetupFileBuildSwirlPath(setup, spawn, &path, reasonout)) { return FALSE; }
+        for (index = 0; index < path.pointcount && path.points[index].command != ref->command; index++) {}
+        if (index == path.pointcount) { SetupSwirlPathFree(&path); return FALSE; }
+        first = last = index;
+        if (rotation)
+        {
+            /* Rotate neighbouring controls around this point. Walk past
+             * duplicated endpoint controls so their shared tangent can turn. */
+            while (first > 0)
+            {
+                first--;
+                if (memcmp(path.points[first].position, path.points[index].position, sizeof(path.points[first].position))) { break; }
+            }
+            while (last + 1 < path.pointcount)
+            {
+                last++;
+                if (memcmp(path.points[last].position, path.points[index].position, sizeof(path.points[last].position))) { break; }
+            }
+        }
+        encoded = malloc((size_t)(last - first + 1) * 3 * sizeof(*encoded));
+        if (!encoded) { SetupSwirlPathFree(&path); *reasonout = "Out of memory transforming swirl controls."; return FALSE; }
+        for (i = first; i <= last; i++)
+        {
+            double world[3], pivot[3], local[3];
+            DWORD at = record - index * 32 + i * 32;
+            SetupSwirlWorldPoint(setup->data + at, spawn, world);
+            SetupSwirlWorldPoint(setup->data + record, spawn, pivot);
+            for (axis = 0; axis < 3; axis++)
+            {
+                if (offset) { world[axis] += offset[axis]; }
+            }
+            if (rotation) { RotationPoint(rotation, pivot, world, world); }
+            for (axis = 0; axis < 3; axis++) { local[axis] = world[axis] - spawn->position[axis]; }
+            local[1] -= 175;
+            if (SetupRead32(setup->data + at + 4) & 2)
+            {
+                double x = local[0], z = local[2];
+                double norm = (double)spawn->look[0] * spawn->look[0] + (double)spawn->look[2] * spawn->look[2];
+                local[0] = (x * spawn->look[2] - z * spawn->look[0]) / norm;
+                local[2] = (x * spawn->look[0] + z * spawn->look[2]) / norm;
+            }
+            for (axis = 0; axis < 3; axis++)
+            {
+                if (!SetupFixedValue(local[axis], 65536, &encoded[(i - first) * 3 + axis]))
+                { free(encoded); SetupSwirlPathFree(&path); *reasonout = "The swirl move exceeds signed 16.16 coordinates."; return FALSE; }
+            }
+        }
+        for (i = first; i <= last; i++)
+        {
+            DWORD at = record - index * 32 + i * 32;
+            for (axis = 0; axis < 3; axis++)
+            {
+                DWORD value = encoded[(i - first) * 3 + axis];
+                *changed |= value != SetupRead32(setup->data + at + 8 + axis * 4);
+                SetupWrite32(setup->data + at + 8 + axis * 4, value);
+            }
+        }
+        free(encoded); SetupSwirlPathFree(&path);
+    }
+    else if (offset)
+    {
+        for (axis = 0; axis < 3; axis++)
+        {
+            if (!SetupFixedValue((LONG)SetupRead32(setup->data + record + 4 + axis * 4) / 100.0 + offset[axis], 100, &values[axis])) { return FALSE; }
+            *changed |= values[axis] != SetupRead32(setup->data + record + 4 + axis * 4);
+        }
+        if (*changed)
+        {
+            if (!SetupMoveCameraPad(setup, record, levelscale, values, reasonout)) { *changed = FALSE; return FALSE; }
+            for (axis = 0; axis < 3; axis++) { SetupWrite32(setup->data + record + 4 + axis * 4, values[axis]); }
+        }
+    }
+    else
+    {
+        SetupMarker marker;
+        double look[3];
+        SetupCameraMarker(setup->data + record, ref->kind, &marker);
+        for (axis = 0; axis < 3; axis++) { look[axis] = marker.look[axis]; }
+        RotationVector(rotation, look, look);
+        if (!SetupFixedValue(atan2(look[0], -look[2]), 65536, &values[0])
+            || !SetupFixedValue(atan2(look[1], hypot(look[0], look[2])), 65536, &values[1])) { return FALSE; }
+        for (axis = 0; axis < 2; axis++)
+        {
+            *changed |= values[axis] != SetupRead32(setup->data + record + 16 + axis * 4);
+            SetupWrite32(setup->data + record + 16 + axis * 4, values[axis]);
+        }
     }
     setup->dirty |= *changed;
     *reasonout = "";

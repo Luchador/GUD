@@ -88,8 +88,44 @@ Multiplayer's procedural orbit is not an authored swirl path and is not shown.
 A setup with no swirl or no solo spawn has no swirl preview. Malformed paths
 produce a warning without hiding the other spawn/camera markers. Path buffers
 are rebuilt on level load and setup refresh, and freed when the scene closes.
-Like the other markers, the path follows Objects/Characters visibility and is
-never written into a project or ROM.
+Like the other markers, the path follows Objects/Characters visibility. The
+diamond artwork and sampled orange curve are viewport aids; edits are written
+to the native setup records described below.
+
+## Editing setup markers
+
+Click a start point, swirl control, intro camera, or outro camera to select it.
+The selected model turns white. Markers can be picked in face, edge, and vertex
+modes; clicking again cycles coincident control points. Ctrl-click removes a
+selection. Picking respects foreground level geometry and object visibility.
+
+Use W for translation or E for rotation, then drag a handle or enter values in
+the existing transform panel. Scaling is disabled for these markers. Dragging
+previews changes in a temporary setup copy, including the affected swirl path;
+Escape cancels. Releasing the handle creates one undo step. Selection survives
+the geometry rebuild and undo/redo, using a command index instead of a byte
+offset that could move when other setup tables grow.
+
+- Start points edit their ordinary pad coordinates and horizontal heading.
+  The game's floor placement still applies: changing Y can choose a different
+  floor, but does not make the player float above it. Other setup references to
+  that pad move with it. Facing-relative swirl controls follow the spawn.
+- Intro/outro cameras edit their native position and yaw/pitch. World rotations
+  change the camera's look direction; the game has no camera roll field. Moving
+  a camera gives it an automatically resolved room pad at the new location,
+  without moving an authored pad shared by other objects or cameras.
+- Swirl translations invert the point's facing-relative/world-axis encoding.
+  Rotations turn the neighbouring controls around the selected point, changing
+  the actual curve, because swirl commands have no independent angle fields.
+  Duplicate endpoint controls are handled together when finding the neighbours
+  that determine the tangent. The selected point remains the pivot.
+
+Camera positions use hundredths of world units, angles use signed 16.16
+radians, and swirl offsets use signed 16.16 world units. Out-of-range edits
+are rejected before writing records. Spawn pad positions alone use level scale.
+Saving writes the edited raw `.set` asset. ROM creation saves the current level
+first and replaces its setup resource with that asset, repacking if needed.
+No new project or ROM format is introduced.
 
 ## Checks
 
@@ -107,4 +143,7 @@ records, invalid input, and all 20 authored mission swirl paths.
 Orientation checks include tangents, end controls, vertical sections, repeated
 points, zero tension, and stationary paths. The supplied arrow model is also
 decoded in full, including both of its mesh nodes.
+The native edit tests also exercise start/camera/swirl transforms, private room
+pad allocation and reuse, unchanged shared pads, coordinate range rejection,
+save/reload, and the production setup undo/redo and rollback paths.
 Windows rendering still needs a visual runtime check.

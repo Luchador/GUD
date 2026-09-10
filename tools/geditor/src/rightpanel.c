@@ -924,6 +924,26 @@ void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef
     InvalidateRect(panel, NULL, FALSE);
 }
 
+void RightPanelSetSetupMarker(HWND panel, const SetupMarkerRef *ref)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    static const char *names[] = {"Start Point", "Intro Camera", "Outro Camera", "Intro Swirl Point"};
+    const char *help;
+    if (!state || !ref || ref->kind >= SETUP_MARKER_KIND_COUNT) { return; }
+    help = ref->kind == SETUP_MARKER_SPAWN
+        ? "Move the spawn pad or rotate its heading.\r\nThe game places the player on the floor.\r\nOther references to this pad move with it."
+        : ref->kind == SETUP_MARKER_SWIRL
+        ? "Move this control point to reshape the curve.\r\nRotation turns nearby controls around this point.\r\nClick again to cycle overlapping controls."
+        : "Move the camera or change its direction.\r\nThe game stores yaw and pitch, without roll.\r\nMoving also updates the camera's room pad.";
+    lstrcpyn(state->detailtitle, names[ref->kind], sizeof(state->detailtitle));
+    snprintf(state->detailtext, sizeof(state->detailtext),
+        "Setup command: %lu\r\n\r\n%s\r\n\r\nW: Move   E: Rotate\r\nUse the handles or transform fields.\r\nChanges are saved to the setup and built ROM.",
+        (unsigned long)ref->command, help);
+    RightPanelShowFaceProperties(panel, state, FALSE);
+    SetWindowText(state->details, state->detailtext);
+    InvalidateRect(panel, NULL, FALSE);
+}
+
 void RightPanelSetSetupCharacter(HWND panel, const SetupCharacter *character)
 {
     RightPanelState *state = RightPanelGetState(panel);

@@ -5,6 +5,7 @@
 #include <string.h>
 #include "setupload.h"
 #include "gltf.h"
+void MarkerEdits(const char *dir);
 
 /* Lit embedded resources have no external textures. */
 BOOL TexGetProjectImageSize(const char *project, DWORD id, int *w, int *h)
@@ -228,7 +229,7 @@ int main(int argc,char **argv)
 {
     assert(argc>=7);Placements();MultiplayerResource(argv[6]);
     Model(argv[1],NULL,1762,0);Model(argv[2],NULL,3430,1);Model(argv[3],NULL,3430,2);Model(argv[4],NULL,46,3);
-    Transform(argv[5]);Swirls();SwirlFacing();
+    Transform(argv[5]);Swirls();SwirlFacing();MarkerEdits(argv[6]);
     for(int i=7;i<argc;i++)RealSwirl(argv[i]);
     printf("PASS: %d authored mission swirl paths, control counts and every travelled knot.\n",argc-7);
     return 0;

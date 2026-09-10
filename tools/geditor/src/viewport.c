@@ -175,6 +175,10 @@ typedef struct ViewportState {
     SetupMarker *setupmarkers;
     DWORD setupmarkercount;
     SetupSwirlPath swirlpath;
+    BOOL markerselected, dragmarker;
+    SetupMarkerRef selectedmarker;
+    const SetupFile *markersetup; /* main document, never the drag preview clone */
+    float markerlevelscale;
     BgVertex *cylinder;
     DWORD cylindertris;
     BOOL scalemode, dragscaling, scalevalid;
@@ -248,6 +252,33 @@ static void ViewportUpdateGizmo(ViewportState *state);
 static void ViewportRestoreComponents(ViewportState *state);
 static void ViewportDrawBoxSelection(const ViewportState *state);
 
+static void ViewportSetSetupMarkers(HWND hwnd, ViewportState *state, const SetupFile *setup, float levelscale);
+
+static BOOL ViewportMarkerAt(const ViewportState *state, DWORD index, SetupMarker *marker)
+{
+    if (index < state->setupmarkercount) { *marker = state->setupmarkers[index]; return TRUE; }
+    index -= state->setupmarkercount;
+    if (index >= state->swirlpath.pointcount) { return FALSE; }
+    const SetupSwirlPoint *point = &state->swirlpath.points[index];
+    ZeroMemory(marker, sizeof(*marker));
+    marker->kind = SETUP_MARKER_SWIRL; marker->command = point->command;
+    memcpy(marker->position, point->position, sizeof(marker->position));
+    memcpy(marker->look, point->look, sizeof(marker->look));
+    memcpy(marker->up, point->up, sizeof(marker->up));
+    return TRUE;
+}
+
+static BOOL ViewportSelectedMarker(const ViewportState *state, SetupMarker *marker)
+{
+    DWORD i;
+    if (!state->markerselected || !state->showobjects || state->tool == EDITOR_TOOL_VERTEX_PAINT) { return FALSE; }
+    for (i = 0; ViewportMarkerAt(state, i, marker); i++)
+    {
+        if (marker->kind == state->selectedmarker.kind && marker->command == state->selectedmarker.command) { return TRUE; }
+    }
+    return FALSE;
+}
+
 static int ViewportSelectedPadIndex(const ViewportState *state)
 {
     DWORD i;
@@ -287,6 +318,7 @@ static void ViewportRefreshPadColors(ViewportState *state)
 
 static void ViewportClearPadSelection(ViewportState *state)
 {
+    state->markerselected = FALSE;
     if (state->selectedpad.index == SETUP_PAD_INDEX_NONE) { return; }
     state->selectedpad.index = SETUP_PAD_INDEX_NONE;
     ViewportRefreshPadColors(state);
@@ -883,17 +915,8 @@ static void ViewportDrawSetupMarkers(const ViewportState *state)
     for (i = 0; i < state->setupmarkercount + state->swirlpath.pointcount; i++)
     {
         SetupMarker control = {0};
-        const SetupMarker *marker;
-        if (i < state->setupmarkercount) { marker = &state->setupmarkers[i]; }
-        else
-        {
-            const SetupSwirlPoint *point = &state->swirlpath.points[i - state->setupmarkercount];
-            control.kind = SETUP_MARKER_SWIRL;
-            memcpy(control.position, point->position, sizeof(control.position));
-            memcpy(control.look, point->look, sizeof(control.look));
-            memcpy(control.up, point->up, sizeof(control.up));
-            marker = &control;
-        }
+        const SetupMarker *marker = &control;
+        ViewportMarkerAt(state, i, &control);
         const BgVertex *model = state->markermodels[marker->kind];
         GLfloat matrix[16] = {0};
         const float *look = marker->look, *up = marker->up;
@@ -915,7 +938,11 @@ static void ViewportDrawSetupMarkers(const ViewportState *state)
         glVertexPointer(3, GL_FLOAT, sizeof(*model), &model->x);
         glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(*model), &model->r);
         glNormalPointer(GL_FLOAT, sizeof(*model), model->environment.normal);
+        if (state->markerselected && marker->kind == state->selectedmarker.kind
+            && marker->command == state->selectedmarker.command)
+        { glDisableClientState(GL_COLOR_ARRAY); glColor3ub(255, 255, 255); }
         glDrawArrays(GL_TRIANGLES, 0, state->markermodeltris[marker->kind] * 3);
+        glEnableClientState(GL_COLOR_ARRAY);
         glPopMatrix();
     }
     glPopClientAttrib();
@@ -2385,6 +2412,15 @@ BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout
     int i, axis;
 
     *countout = 0;
+    if (state != NULL)
+    {
+        SetupMarker marker;
+        if (ViewportSelectedMarker(state, &marker))
+        {
+            for (axis = 0; axis < 3; axis++) { position[axis] = marker.position[axis]; }
+            *countout = 1; return TRUE;
+        }
+    }
     if (state != NULL && ViewportPadSelectionPosition(state, position)) { *countout = 1; return TRUE; }
     if (state != NULL && ViewportStanSelectionPosition(state, FALSE, position, countout)) { return TRUE; }
     if (state == NULL || state->scene == NULL || state->tool == EDITOR_TOOL_VERTEX_PAINT)
@@ -2451,6 +2487,16 @@ static void ViewportUpdateGizmo(ViewportState *state)
     state->gizmovisible = FALSE;
     state->hoveraxis = -1;
     if (state->vertexsnap) { return; }
+    {
+        SetupMarker marker;
+        if (ViewportSelectedMarker(state, &marker))
+        {
+            if (state->scalemode) { return; }
+            for (axis = 0; axis < 3; axis++) { state->gizmoposition[axis] = marker.position[axis]; }
+            state->gizmovisible = TRUE;
+            return;
+        }
+    }
     if (state->scalemode)
     {
         int padindex = ViewportSelectedPadIndex(state);
@@ -2996,6 +3042,75 @@ static double ViewportSceneHitDistance(const ViewportState *state, const Viewpor
     double distance;
     ViewportFindVisibleSceneTriangle(state, ray, &distance);
     return distance;
+}
+
+static BOOL ViewportTryPickMarker(HWND hwnd, ViewportState *state, int x, int y, BOOL remove)
+{
+    ViewportPickRay ray;
+    DWORD count = state->setupmarkercount + state->swirlpath.pointcount, i, triangle;
+    double scene, nearest = DBL_MAX, *hits;
+    int selected = -1, hit = -1;
+    if (!state->showobjects || state->flying || state->tool == EDITOR_TOOL_VERTEX_PAINT
+        || !count || !ViewportBuildPickRay(hwnd, state, x, y, &ray)) { return FALSE; }
+    hits = malloc(count * sizeof(*hits));
+    if (!hits) { return FALSE; }
+    scene = ViewportSceneHitDistance(state, &ray);
+    for (i = 0; i < count; i++)
+    {
+        SetupMarker marker;
+        const BgVertex *model;
+        float side[3];
+        ViewportMarkerAt(state, i, &marker);
+        hits[i] = DBL_MAX;
+        if (state->markerselected && state->selectedmarker.kind == marker.kind
+            && state->selectedmarker.command == marker.command) { selected = (int)i; }
+        model = state->markermodels[marker.kind];
+        if (!model) { continue; }
+        for (int a = 0; a < 3; a++) { side[a] = marker.look[(a+1)%3]*marker.up[(a+2)%3] - marker.look[(a+2)%3]*marker.up[(a+1)%3]; }
+        for (triangle = 0; triangle < state->markermodeltris[marker.kind]; triangle++)
+        {
+            Vertex vertices[3] = {0};
+            double distance;
+            for (int c = 0; c < 3; c++)
+            {
+                const BgVertex *v = &model[triangle*3+c];
+                float world[3];
+                for (int a = 0; a < 3; a++)
+                { world[a] = marker.position[a] + VIEWPORT_MARKER_MODEL_SCALE*(v->x*marker.look[a]+v->y*marker.up[a]+v->z*side[a]); }
+                vertices[c].x=world[0];vertices[c].y=world[1];vertices[c].z=world[2];
+            }
+            if (ViewportRayTriangleDistance(&ray, vertices, FALSE, &distance)
+                && distance <= scene + ViewportCoplanarPickTolerance(distance) && distance < hits[i])
+            { hits[i] = distance; }
+        }
+        if (hits[i] < nearest) { nearest = hits[i]; }
+    }
+    /* Clicking again cycles coincident authored controls, including the
+     * duplicate tangent controls at a path's endpoints. */
+    if (nearest < DBL_MAX)
+    {
+        if (remove && selected >= 0 && hits[selected] <= nearest + ViewportCoplanarPickTolerance(nearest))
+        { hit = selected; }
+        for (i = 0; hit < 0 && i < count; i++)
+        {
+            int candidate = (selected + 1 + (int)i) % (int)count;
+            if (hits[candidate] <= nearest + ViewportCoplanarPickTolerance(nearest)) { hit = candidate; break; }
+        }
+    }
+    free(hits);
+    if (hit < 0) { return FALSE; }
+    {
+        SetupMarker marker;
+        BOOL clear = remove && hit == selected;
+        ViewportMarkerAt(state, hit, &marker);
+        ViewportClearAllSelection(state);
+        state->markerselected = !clear;
+        state->selectedmarker.kind = marker.kind; state->selectedmarker.command = marker.command;
+    }
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    return TRUE;
 }
 
 static BOOL ViewportStanComponentVisible(const ViewportState *state, const Vertex *point)
@@ -3901,9 +4016,11 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     }
     state->dragrotation = state->rotationmode;
     state->dragscaling = state->scalemode;
+    { SetupMarker marker; state->dragmarker = ViewportSelectedMarker(state, &marker); }
+    if (state->dragmarker && state->dragscaling) { return FALSE; }
     state->dragpad = ViewportSelectedPadIndex(state) >= 0;
     state->dragstan = ViewportGetStanSelectionCount(hwnd, NULL) > 0;
-    vertexcount = state->dragpad    ? VIEWPORT_BOX_VERTICES
+    vertexcount = state->dragmarker ? 1 : state->dragpad    ? VIEWPORT_BOX_VERTICES
                   : state->dragstan ? (int)(state->stan.tilecount * STAN_TILE_MAX_POINTS)
                                     : state->scenecount;
     state->dragvertices = malloc((size_t)vertexcount * sizeof(*state->dragvertices));
@@ -3916,7 +4033,8 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
         state->dragmask = NULL;
         return TRUE;
     }
-    if (state->dragpad)
+    if (state->dragmarker) { /* Marker previews rebuild their native setup clone below. */ }
+    else if (state->dragpad)
     {
         int first = ViewportSelectedPadIndex(state) * VIEWPORT_BOX_VERTICES;
         for (i = 0; i < vertexcount; i++)
@@ -4035,6 +4153,25 @@ static BOOL ViewportBeginTransform(HWND hwnd, ViewportState *state, int x, int y
     return TRUE;
 }
 
+static BOOL ViewportPreviewMarker(HWND hwnd, ViewportState *state, double delta, const Rotation *rotation)
+{
+    SetupFile copy = {0};
+    SetupMarker spawn = {0};
+    const char *why = "";
+    BOOL changed, ok;
+    double offset[3] = {0,0,0};
+    DWORD i;
+    if (!state->markersetup || !SetupFileClone(state->markersetup, &copy, &why)) { return FALSE; }
+    for (i = 0; i < state->setupmarkercount; i++)
+    { if (state->setupmarkers[i].kind == SETUP_MARKER_SPAWN) { spawn = state->setupmarkers[i]; break; } }
+    if (!rotation) { offset[state->dragaxis] = delta; }
+    ok = SetupFileTransformMarker(&copy, &state->selectedmarker, &spawn, state->markerlevelscale,
+        rotation ? NULL : offset, rotation, &changed, &why);
+    if (ok) { ViewportSetSetupMarkers(hwnd, state, &copy, state->markerlevelscale); }
+    SetupFileFree(&copy);
+    return ok;
+}
+
 static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
 {
     ViewportPickRay ray;
@@ -4075,8 +4212,9 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
     {
         return;
     }
+    if (state->dragmarker && !ViewportPreviewMarker(hwnd, state, delta, state->dragrotation ? &rotation : NULL)) { return; }
     state->dragdelta = delta;
-    for (i = 0; i < (state->dragpad    ? VIEWPORT_BOX_VERTICES
+    for (i = 0; i < (state->dragmarker ? 0 : state->dragpad    ? VIEWPORT_BOX_VERTICES
                      : state->dragstan ? (int)(state->stan.tilecount * STAN_TILE_MAX_POINTS)
                                        : state->scenecount);
          i++)
@@ -4138,7 +4276,8 @@ static void ViewportDragTransform(HWND hwnd, ViewportState *state, int x, int y)
             state->scene[i].z = state->dragvertices[i][2] + (state->dragaxis == 2 ? delta : 0);
         }
     }
-    if (!state->dragrotation && !state->dragscaling)
+    if (state->dragmarker) { ViewportUpdateGizmo(state); }
+    else if (!state->dragrotation && !state->dragscaling)
     {
         state->gizmoposition[state->dragaxis] = state->dragorigin[state->dragaxis] + delta;
     }
@@ -4160,7 +4299,9 @@ void ViewportCancelTransform(HWND hwnd)
     {
         return;
     }
-    for (i = 0; i < (state->dragpad    ? VIEWPORT_BOX_VERTICES
+    if (state->dragmarker && state->markersetup)
+    { ViewportSetSetupMarkers(hwnd, state, state->markersetup, state->markerlevelscale); }
+    for (i = 0; i < (state->dragmarker ? 0 : state->dragpad    ? VIEWPORT_BOX_VERTICES
                      : state->dragstan ? (int)(state->stan.tilecount * STAN_TILE_MAX_POINTS)
                                        : state->scenecount);
          i++)
@@ -4407,6 +4548,8 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         {
             return 0;
         }
+        if (state != NULL && ViewportTryPickMarker(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
+            (wparam & MK_CONTROL) != 0)) { return 0; }
         if (state != NULL && !state->flying && state->tool == EDITOR_TOOL_VERTEX_SELECT)
         {
             ViewportBeginBoxSelection(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
@@ -4776,6 +4919,8 @@ static void ViewportFreeScene(struct ViewportState *state_)
     state->setupmarkers = NULL;
     state->setupmarkercount = 0;
     SetupSwirlPathFree(&state->swirlpath);
+    state->markerselected = FALSE;
+    state->markersetup = NULL;
     free(state->padmarkers);
     free(state->pads);
     free(state->scene);
@@ -5223,6 +5368,8 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     BgDocumentVertexRef *scenevertexrefs = NULL;
     DWORD savedobject = VIEWPORT_OBJECT_NONE;
     SetupPadRef savedpad = {SETUP_PAD_INDEX_NONE, FALSE};
+    SetupMarkerRef savedmarker = state ? state->selectedmarker : (SetupMarkerRef){0};
+    BOOL savedmarkerselection = state && !framecamera && state->markerselected;
     BgFaceRef *scenefacerefs = NULL;
     BgFaceRef *selectedrefs = NULL;
     int savedselectioncount = 0;
@@ -5432,6 +5579,8 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
 
     ViewportFreeScene(state);
     state->selectedpad = savedpad; /* resolved when the pad overlay is rebuilt */
+    state->selectedmarker = savedmarker;
+    state->markerselected = savedmarkerselection;
     state->scene = scene;
     state->scenecolors = scenecolors;
     state->scenecount = scene != NULL ? (GLsizei)(tricount * 3) : 0;
@@ -5826,6 +5975,32 @@ void ViewportMoveCameraToSpawn(HWND hwnd)
     /* Unfinished levels without a spawn keep the scene's bounding-box view. */
 }
 
+BOOL ViewportGetSelectedMarker(HWND hwnd, SetupMarkerRef *out, SetupMarker *spawn)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    SetupMarker marker;
+    DWORD i;
+    if (!state || !ViewportSelectedMarker(state, &marker)) { return FALSE; }
+    if (out) { *out = state->selectedmarker; }
+    if (spawn)
+    {
+        ZeroMemory(spawn, sizeof(*spawn)); spawn->kind = SETUP_MARKER_KIND_COUNT;
+        for (i = 0; i < state->setupmarkercount; i++)
+        { if (state->setupmarkers[i].kind == SETUP_MARKER_SPAWN) { *spawn = state->setupmarkers[i]; break; } }
+    }
+    return TRUE;
+}
+
+BOOL ViewportGetMarkerRotation(HWND hwnd, Rotation *frame)
+{
+    ViewportState *state = ViewportGetState(hwnd);
+    SetupMarker marker;
+    double up[3], look[3];
+    if (!state || !ViewportSelectedMarker(state, &marker)) { return FALSE; }
+    for (int a = 0; a < 3; a++) { up[a] = marker.up[a]; look[a] = marker.look[a]; }
+    return RotationBasis(frame, up, look);
+}
+
 void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, const unsigned char *occupiedpads, const unsigned char *occupiedboundpads)
 {
     ViewportState *state = ViewportGetState(hwnd);
@@ -5842,7 +6017,10 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
     }
 
     ViewportCancelTransform(hwnd);
+    state->markersetup = setup;
+    state->markerlevelscale = levelscale;
     ViewportSetSetupMarkers(hwnd, state, setup, levelscale);
+    { SetupMarker marker; if (!ViewportSelectedMarker(state, &marker)) { state->markerselected = FALSE; } }
     free(state->padmarkers);
     free(state->pads);
     state->padmarkers = NULL;
@@ -6155,7 +6333,9 @@ BOOL ViewportGetRotation(HWND hwnd, Rotation *frame, double degrees[3], double p
         return FALSE;
     }
     *frame = s->rotationframe;
-    if (s->dragaxis >= 0 && s->dragrotation)
+    if (s->dragaxis >= 0 && s->dragrotation && s->dragmarker)
+    { ViewportGetMarkerRotation(hwnd, frame); }
+    else if (s->dragaxis >= 0 && s->dragrotation)
     {
         RotationAxis(&delta, s->dragaxis, s->dragdelta);
         RotationMultiply(frame, &delta, frame);
