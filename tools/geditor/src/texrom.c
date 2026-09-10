@@ -62,23 +62,31 @@ BOOL TexRomReadBank(const RomFile *rom, TexRomBank *bank, const char **reasonout
     *reasonout="";return TRUE;
 }
 
-BOOL TexRomAppendImages(RomFile *rom, const TexRomBank *bank,
+/* One slot per final image ID. NULL keeps an original record and all its
+ * flags. Replacements reset all flags to the new import settings. */
+BOOL TexRomUpdateImages(RomFile *rom, const TexRomBank *bank,
     const unsigned char *const *records, const DWORD *sizes,
     const unsigned char *surfaces, DWORD count, const char **reasonout)
 {
-    DWORD total=bank->imagebytes,target,end,newsize,i,cursor;
-    unsigned char *grown;
-    *reasonout="The imported images exceed GUD's image-ID or ROM-size limits.";
-    if(count==0) { *reasonout="";return TRUE; }
-    if(count>bank->capacity-bank->count) { return FALSE; }
+    DWORD total=0,target,end,newsize,i,cursor,original=bank->images;
+    unsigned char *grown,*packed=NULL,*table=NULL;
+    *reasonout="The edited images exceed GUD's image-ID or ROM-size limits.";
+    if(count<bank->count || count>bank->capacity) { return FALSE; }
     for(i=0;i<count;i++)
     {
-        TexInfoRecord info;
-        if(!TexInfoReadRecord(records[i],sizes[i],&info) || info.size!=sizes[i]
-            || (surfaces[i]>>4)>12 || (surfaces[i]&15)>12)
-        { *reasonout="An imported image contains invalid native texture data.";return FALSE; }
-        if(sizes[i]>0xffffffu-total) { return FALSE; }
-        total+=sizes[i];
+        DWORD size;
+        if(records[i])
+        {
+            TexInfoRecord info;
+            if(!TexInfoReadRecord(records[i],sizes[i],&info) || info.size!=sizes[i]
+                || (surfaces[i]>>4)>12 || (surfaces[i]&15)>12)
+            { *reasonout="An edited image contains invalid native texture data.";return FALSE; }
+            size=sizes[i];
+        }
+        else if(i<bank->count) { size=Read32(rom->data+bank->table+i*8)&0xffffffu; }
+        else { *reasonout="An appended image record is missing.";return FALSE; }
+        if(size>0xffffffu-total) { return FALSE; }
+        total+=size;
     }
     /* Reuse only a verified zero-filled tail beyond every manifest range.
      * This lets OBSG and IMGS share the same expanded 32/64 MB output. */
@@ -95,29 +103,57 @@ BOOL TexRomAppendImages(RomFile *rom, const TexRomBank *bank,
     { if(rom->data[i-1]!=0) { target=i;break; } }
     target=(target+15)&~15u;
     if(target>TEX_ROM_LIMIT || total>TEX_ROM_LIMIT-target) { return FALSE; }
+    /* Pack before reallocating or modifying the ROM, so originals remain
+     * readable and allocation/validation failures leave the ROM unchanged. */
+    packed=malloc(total);table=calloc((size_t)count+1,8);
+    if(!packed || !table) { goto memory; }
+    cursor=0;
+    for(i=0;i<count;i++)
+    {
+        DWORD oldsize=i<bank->count ? Read32(rom->data+bank->table+i*8)&0xffffffu : 0;
+        DWORD size=records[i] ? sizes[i] : oldsize;
+        memcpy(packed+cursor,records[i] ? records[i] : rom->data+original,size);
+        if(records[i]) { Write32(table+i*8,((DWORD)surfaces[i]<<24)|size); }
+        else { memcpy(table+i*8,rom->data+bank->table+i*8,8); }
+        cursor+=size;original+=oldsize;
+    }
+    Write32(table+count*8,0xffffu);
     end=target+total;newsize=rom->size;
     if(newsize<end)
     {
         newsize=1024u*1024u;
         while(newsize<end) { newsize*=2; }
         grown=realloc(rom->data,newsize);
-        if(!grown) { *reasonout="Out of memory growing the ROM for imported images.";return FALSE; }
+        if(!grown) { goto memory; }
         rom->data=grown;memset(grown+rom->size,0,newsize-rom->size);
         rom->size=rom->info.size=newsize;
     }
-    memmove(rom->data+target,rom->data+bank->images,bank->imagebytes);
-    cursor=target+bank->imagebytes;
-    for(i=0;i<count;i++)
-    {
-        unsigned char *entry=rom->data+bank->table+(bank->count+i)*8;
-        memcpy(rom->data+cursor,records[i],sizes[i]);cursor+=sizes[i];
-        Write32(entry,((DWORD)surfaces[i]<<24)|sizes[i]);Write32(entry+4,0);
-    }
-    Write32(rom->data+bank->table+(bank->count+count)*8,0xffffu);
-    Write32(rom->data+bank->table+(bank->count+count)*8+4,0);
-    Write32(rom->data+bank->config,target);Write32(rom->data+bank->config+4,bank->count+count);
+    memcpy(rom->data+target,packed,total);
+    memcpy(rom->data+bank->table,table,((size_t)count+1)*8);
+    free(packed);free(table);
+    Write32(rom->data+bank->config,target);Write32(rom->data+bank->config+4,count);
     Write32(rom->data+bank->manifestentry+4,target);Write32(rom->data+bank->manifestentry+8,end);
     for(i=0;i<rom->info.entrycount;i++) if(rom->info.entries[i].kind==0x494d4753u)
     { rom->info.entries[i].romstart=target;rom->info.entries[i].romend=end; }
     *reasonout="";return TRUE;
+memory:
+    free(packed);free(table);*reasonout="Out of memory rebuilding the ROM's images.";return FALSE;
+}
+
+BOOL TexRomAppendImages(RomFile *rom, const TexRomBank *bank,
+    const unsigned char *const *records, const DWORD *sizes,
+    const unsigned char *surfaces, DWORD count, const char **reasonout)
+{
+    const unsigned char **all;DWORD *lengths,total;unsigned char *settings;BOOL ok;
+    if(!count) { *reasonout="";return TRUE; }
+    if(count>bank->capacity-bank->count)
+    { *reasonout="The imported images exceed GUD's image-ID limit.";return FALSE; }
+    total=bank->count+count;
+    all=calloc(total,sizeof(*all));lengths=calloc(total,sizeof(*lengths));settings=calloc(total,1);
+    if(!all || !lengths || !settings)
+    { free(all);free(lengths);free(settings);*reasonout="Out of memory rebuilding images.";return FALSE; }
+    memcpy(all+bank->count,records,count*sizeof(*records));
+    memcpy(lengths+bank->count,sizes,count*sizeof(*sizes));memcpy(settings+bank->count,surfaces,count);
+    ok=TexRomUpdateImages(rom,bank,all,lengths,settings,total,reasonout);
+    free(all);free(lengths);free(settings);return ok;
 }

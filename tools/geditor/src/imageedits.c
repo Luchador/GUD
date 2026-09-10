@@ -1,6 +1,7 @@
-/* Imported images keep a native GUTX + surface settings beside their BMP.
- * New imports stay in memory until Save Project, just like model imports.
- * Saved images are never pruned because they become unused. */
+/* Image imports/replacements keep native GUTX + settings beside their BMP.
+ * Changes stay in memory until Save Project. Deletion keeps a blank native
+ * record at the same ID, so hard-coded and authored references never shift.
+ * Unused images are retained unless the user explicitly deletes them. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +14,7 @@ typedef struct ImageEdit {
     TexPixel *pixels;
     int width, height;
     TexImportOptions options;
+    BOOL deleted, restorebmp;
     struct ImageEdit *next;
 } ImageEdit;
 static ImageEdit *g_ImageEdits;
@@ -68,17 +70,17 @@ static BOOL LoadBank(const char *project,TexRomBank *bank,const char **why)
     if(!RomLoad(path,&rom,why)) { return FALSE; }
     ok=TexRomReadBank(&rom,bank,why);RomFree(&rom);return ok;
 }
-static BOOL Contiguous(const unsigned char *ids,DWORD count,const TexRomBank *bank,const char **why)
+/* Overrides below the base count are allowed. Above it, even deleted slots
+ * retain metadata, preserving every later image's identity. */
+static BOOL Contiguous(const unsigned char *ids,const TexRomBank *bank,DWORD *total,const char **why)
 {
-    DWORD i;
-    if(count>bank->capacity-bank->count)
+    DWORD i,end=bank->count;
+    for(i=bank->count;i<TEX_IMAGE_CAPACITY;i++) if(ids[i]) { end=i+1; }
+    if(end>bank->capacity)
     { *why="This project has reached the game's 4096-image limit.";return FALSE; }
-    for(i=0;i<TEX_IMAGE_CAPACITY;i++)
-    {
-        if((ids[i]!=0)!=(i>=bank->count && i<bank->count+count))
-        { *why="Imported image IDs are missing, overlap the base ROM, or belong to a different project. Restore the missing image assets.";return FALSE; }
-    }
-    return TRUE;
+    for(i=bank->count;i<end;i++) if(!ids[i])
+    { *why="Imported image IDs are missing. Restore the missing native image assets; deleted images must retain their deletion records.";return FALSE; }
+    *total=end;return TRUE;
 }
 static BOOL ReadSaved(const char *project,DWORD id,const TexRomBank *bank,ImageEdit *edit,const char **why)
 {
@@ -86,9 +88,10 @@ static BOOL ReadSaved(const char *project,DWORD id,const TexRomBank *bank,ImageE
     *why="An imported image's native asset is damaged, unreadable, or belongs to another base ROM.";
     if(!Path(path,project,id,".gtex") || !(file=fopen(path,"rb"))) { return FALSE; }
     if(fseek(file,0,SEEK_END) || (length=ftell(file))<144 || length>8192 || fseek(file,0,SEEK_SET)
-        || fread(header,1,32,file)!=32 || memcmp(header,"GTI1",4)
+        || fread(header,1,32,file)!=32 || (memcmp(header,"GTI1",4) && memcmp(header,"GTI2",4))
         || Read32(header+12)!=id || Read32(header+16)!=(DWORD)length-32
-        || header[28]>12 || header[29]>12 || header[30] || header[31]
+        || header[28]>12 || header[29]>12 || header[30]>1 || header[31]
+        || (!memcmp(header,"GTI1",4) && header[30])
         || (bank && (Read32(header+4)!=bank->hash || Read32(header+8)!=bank->count)))
     { fclose(file);return FALSE; }
     edit->size=Read32(header+16);edit->data=malloc(edit->size);
@@ -98,6 +101,7 @@ static BOOL ReadSaved(const char *project,DWORD id,const TexRomBank *bank,ImageE
     if(TexDataHash(edit->data,edit->size)!=Read32(header+20)
         || !TexInfoReadRecord(edit->data,edit->size,&info) || info.size!=edit->size
         || edit->data[4]!=1 || edit->data[5]<1 || edit->data[5]>7) { goto invalid; }
+    edit->deleted=header[30]!=0;
     edit->id=id;edit->width=w=edit->data[17];edit->height=h=edit->data[18];
     edit->options=(TexImportOptions){info.info.format,info.info.mipmaps,header[28],header[29]};
     edit->basehash=Read32(header+4);edit->basecount=Read32(header+8);edit->pixelhash=Read32(header+24);
@@ -109,6 +113,14 @@ static BOOL ReadSaved(const char *project,DWORD id,const TexRomBank *bank,ImageE
         if(desc[0]!=edit->options.format || desc[1]!=w || desc[2]!=h) { goto invalid; }
         w=(w+1)/2;h=(h+1)/2;
     }
+    if(edit->deleted)
+    {
+        TexPixel pixel;int width,height;
+        if(edit->width!=1 || edit->height!=1 || edit->options.format!=1 || edit->options.mipmaps
+            || edit->options.hitsound || edit->options.hittexture
+            || !TexDecodeRecord(edit->data,edit->size,&pixel,&width,&height)
+            || pixel.r || pixel.g || pixel.b || pixel.a) { goto invalid; }
+    }
     *why="";return TRUE;
 invalid:
     free(edit->data);edit->data=NULL;return FALSE;
@@ -119,30 +131,87 @@ BOOL ImageEditsNextId(const char *project,DWORD *id,const char **why)
     if(!LoadBank(project,&bank,why) || !SavedIds(project,ids,&count,why)) { return FALSE; }
     if(!strcmp(project,g_ImageProject)) for(edit=g_ImageEdits;edit;edit=edit->next)
     { if(!ids[edit->id]) { ids[edit->id]=1;count++; } }
-    if(!Contiguous(ids,count,&bank,why)) { return FALSE; }
-    *id=bank.count+count;
+    if(!Contiguous(ids,&bank,id,why)) { return FALSE; }
     if(*id>=bank.capacity) { *why="This project has reached the game's 4096-image limit.";return FALSE; }
     if(!Path(path,project,*id,".bmp")) { *why="The image path is too long.";return FALSE; }
     if(GetFileAttributes(path)!=INVALID_FILE_ATTRIBUTES)
     { *why="The next image filename already exists without import metadata. Move that BMP out of the project's images folder before importing it.";return FALSE; }
     return TRUE;
 }
-BOOL ImageEditsImport(const char *project,const TexPixel *pixels,int width,int height,
-    const TexImportOptions *options,DWORD *id,const char **why)
+static ImageEdit *Pending(const char *project,DWORD id)
 {
-    ImageEdit *edit;TexRomBank bank;
-    if(!ImageEditsNextId(project,id,why) || !LoadBank(project,&bank,why)) { return FALSE; }
-    edit=calloc(1,sizeof(*edit));if(!edit) { *why="Out of memory importing the image.";return FALSE; }
+    ImageEdit *edit;
+    if(strcmp(project,g_ImageProject)) { return NULL; }
+    for(edit=g_ImageEdits;edit;edit=edit->next) if(edit->id==id) { return edit; }
+    return NULL;
+}
+BOOL ImageEditsCanEdit(const char *project,DWORD id,const char **why)
+{
+    unsigned char ids[TEX_IMAGE_CAPACITY];DWORD count,total;TexRomBank bank;ImageEdit *edit;
+    if(!LoadBank(project,&bank,why) || !SavedIds(project,ids,&count,why)) { return FALSE; }
+    if(!strcmp(project,g_ImageProject)) for(edit=g_ImageEdits;edit;edit=edit->next) { ids[edit->id]=1; }
+    if(!Contiguous(ids,&bank,&total,why)) { return FALSE; }
+    *why="That image is unavailable or has already been deleted.";
+    if(id>=total) { return FALSE; }
+    edit=Pending(project,id);
+    if(edit) { if(edit->deleted) { return FALSE; } }
+    else if(ids[id])
+    {
+        ImageEdit saved={0};BOOL deleted;
+        if(!ReadSaved(project,id,&bank,&saved,why)) { return FALSE; }
+        deleted=saved.deleted;FreeEdit(&saved);
+        if(deleted) { *why="That image has already been deleted.";return FALSE; }
+    }
+    *why="";return TRUE;
+}
+static BOOL Stage(const char *project,DWORD id,const TexPixel *pixels,int width,int height,
+    const TexImportOptions *options,BOOL deleted,const char **why)
+{
+    ImageEdit *edit,**slot;TexRomBank bank;
+    if(!LoadBank(project,&bank,why)) { return FALSE; }
+    edit=calloc(1,sizeof(*edit));if(!edit) { *why="Out of memory editing the image.";return FALSE; }
     if(!TexEncodeRecord(pixels,width,height,options,&edit->data,&edit->size,why)) { free(edit);return FALSE; }
     edit->pixels=malloc((size_t)width*height*sizeof(TexPixel));
     if(!edit->pixels || !TexDecodeRecord(edit->data,edit->size,edit->pixels,&edit->width,&edit->height))
     { FreeEdit(edit);free(edit);*why="The converted image could not be previewed.";return FALSE; }
     if(strcmp(project,g_ImageProject)) { ImageEditsReset();lstrcpyn(g_ImageProject,project,MAX_PATH); }
-    edit->id=*id;edit->options=*options;edit->basehash=bank.hash;edit->basecount=bank.count;
+    edit->id=id;edit->options=*options;edit->basehash=bank.hash;edit->basecount=bank.count;edit->deleted=deleted;
     edit->pixelhash=TexDataHash((unsigned char *)edit->pixels,width*height*sizeof(TexPixel));
-    /* Keep import order so a partial disk-save failure leaves a valid prefix. */
-    { ImageEdit **tail=&g_ImageEdits;while(*tail) { tail=&(*tail)->next; } *tail=edit; }
-    return TRUE;
+    /* Keep ascending IDs so a partial disk-save failure leaves a valid prefix.
+     * Replace a previous pending edit only after the new conversion succeeds. */
+    slot=&g_ImageEdits;while(*slot && (*slot)->id<id) { slot=&(*slot)->next; }
+    if(*slot && (*slot)->id==id)
+    {
+        ImageEdit *old=*slot;edit->restorebmp=old->restorebmp;
+        edit->next=old->next;FreeEdit(old);free(old);
+    }
+    else { edit->next=*slot; }
+    *slot=edit;*why="";return TRUE;
+}
+BOOL ImageEditsImport(const char *project,const TexPixel *pixels,int width,int height,
+    const TexImportOptions *options,DWORD *id,const char **why)
+{
+    return ImageEditsNextId(project,id,why) && Stage(project,*id,pixels,width,height,options,FALSE,why);
+}
+BOOL ImageEditsReplace(const char *project,DWORD id,const TexPixel *pixels,int width,int height,
+    const TexImportOptions *options,const char **why)
+{
+    return ImageEditsCanEdit(project,id,why) && Stage(project,id,pixels,width,height,options,FALSE,why);
+}
+BOOL ImageEditsDelete(const char *project,DWORD id,const char **why)
+{
+    const TexPixel blank={0,0,0,0};const TexImportOptions options={1,0,0,0};
+    return ImageEditsCanEdit(project,id,why) && Stage(project,id,&blank,1,1,&options,TRUE,why);
+}
+/* Saved deletions have no BMP; image consumers can still resolve the blank
+ * slot without accidentally falling back to the base ROM's original pixels. */
+BOOL ImageEditsGetDeletedPixels(const char *project,DWORD id,TexPixel *out,int *width,int *height)
+{
+    ImageEdit edit={0};const char *why="";BOOL deleted;
+    if(!ReadSaved(project,id,NULL,&edit,&why)) { return FALSE; }
+    deleted=edit.deleted;FreeEdit(&edit);
+    if(!deleted) { return FALSE; }
+    *width=*height=1;if(out) { *out=(TexPixel){0,0,0,0}; }return TRUE;
 }
 BOOL ImageEditsGetPixels(const char *project,DWORD id,TexPixel *out,int *width,int *height)
 {
@@ -170,31 +239,51 @@ BOOL ImageEditsSave(const char *project,const char **why)
     while(g_ImageEdits)
     {
         ImageEdit *edit=g_ImageEdits;unsigned char header[32]={0};
-        char bmp[MAX_PATH],bmptemp[MAX_PATH],native[MAX_PATH],temp[MAX_PATH];FILE *file;BOOL ok,bmpwritten=FALSE;
+        char bmp[MAX_PATH],bmptemp[MAX_PATH],native[MAX_PATH],temp[MAX_PATH],backup[MAX_PATH];
+        FILE *file;BOOL ok,bmpwritten=FALSE,backedup=FALSE;
         if(!Path(bmp,project,edit->id,".bmp") || !Path(bmptemp,project,edit->id,".bmp.tmp")
-            || !Path(native,project,edit->id,".gtex") || !Path(temp,project,edit->id,".gtex.tmp"))
+            || !Path(native,project,edit->id,".gtex") || !Path(temp,project,edit->id,".gtex.tmp")
+            || !Path(backup,project,edit->id,".bmp.rollback"))
         { *why="The image save path is too long.";return FALSE; }
-        memcpy(header,"GTI1",4);Write32(header+4,edit->basehash);Write32(header+8,edit->basecount);
+        if(edit->restorebmp)
+        {
+            if(!MoveFileEx(backup,bmp,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))
+            { *why="Close programs using this image, then retry Save Project. Its previous BMP is preserved in the .bmp.rollback file.";return FALSE; }
+            edit->restorebmp=FALSE;
+        }
+        memcpy(header,"GTI2",4);Write32(header+4,edit->basehash);Write32(header+8,edit->basecount);
         Write32(header+12,edit->id);Write32(header+16,edit->size);Write32(header+20,TexDataHash(edit->data,edit->size));
         Write32(header+24,edit->pixelhash);header[28]=edit->options.hitsound;header[29]=edit->options.hittexture;
+        header[30]=edit->deleted ? 1 : 0;
         file=fopen(temp,"wb");ok=file && fwrite(header,1,32,file)==32 && fwrite(edit->data,1,edit->size,file)==edit->size;
         if(file && fclose(file)) { ok=FALSE; }
-        if(ok) { ok=TexWriteBmp(bmptemp,edit->pixels,edit->width,edit->height); }
-        if(ok) { ok=bmpwritten=MoveFileEx(bmptemp,bmp,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH); }
+        if(ok && !edit->deleted) { ok=TexWriteBmp(bmptemp,edit->pixels,edit->width,edit->height); }
+        if(ok && GetFileAttributes(bmp)!=INVALID_FILE_ATTRIBUTES)
+        { ok=backedup=MoveFileEx(bmp,backup,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH); }
+        if(ok && !edit->deleted) { ok=bmpwritten=MoveFileEx(bmptemp,bmp,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH); }
+        /* Commit the native record last. On a failed replacement/deletion,
+         * restore the old BMP too, rather than destroying the saved version. */
         if(ok) { ok=MoveFileEx(temp,native,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH); }
         if(!ok)
         {
             DeleteFile(temp);DeleteFile(bmptemp);
             if(bmpwritten) { DeleteFile(bmp); }
-            *why="An imported image could not be saved. Its pending data is still available; retry Save Project.";return FALSE;
+            if(backedup && !MoveFileEx(backup,bmp,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))
+            {
+                edit->restorebmp=TRUE;
+                *why="The image save failed. Close programs using the BMP and retry Save Project; the previous BMP is preserved in its .bmp.rollback file.";
+                return FALSE;
+            }
+            *why="An image could not be saved. The previous saved version and pending edits are retained; retry Save Project.";return FALSE;
         }
+        if(backedup) { DeleteFile(backup); }
         g_ImageEdits=edit->next;FreeEdit(edit);free(edit);
     }
     return TRUE;
 }
 BOOL ImageEditsExportToRom(const char *project,RomFile *rom,const char **why)
 {
-    unsigned char ids[TEX_IMAGE_CAPACITY],*surfaces=NULL;DWORD count,i,*sizes=NULL;
+    unsigned char ids[TEX_IMAGE_CAPACITY],*surfaces=NULL;DWORD count,total,i,*sizes=NULL;
     unsigned char **records=NULL;TexRomBank bank;BOOL ok=FALSE;
     if(!SavedIds(project,ids,&count,why)) { return FALSE; }
     if(count==0)
@@ -205,7 +294,7 @@ BOOL ImageEditsExportToRom(const char *project,RomFile *rom,const char **why)
         for(i=0;i<rom->info.entrycount;i++) { if(rom->info.entries[i].kind==0x54584346u) { break; } }
         if(i==rom->info.entrycount) { return TRUE; }
     }
-    if(!TexRomReadBank(rom,&bank,why) || !Contiguous(ids,count,&bank,why)) { return FALSE; }
+    if(!TexRomReadBank(rom,&bank,why) || !Contiguous(ids,&bank,&total,why)) { return FALSE; }
     {
         char pattern[MAX_PATH];WIN32_FIND_DATA find;HANDLE search;DWORD error;
         int n=snprintf(pattern,sizeof(pattern),"%s\\images\\*.bmp",project);
@@ -226,16 +315,17 @@ BOOL ImageEditsExportToRom(const char *project,RomFile *rom,const char **why)
         }
     }
     if(count==0) { *why="";return TRUE; }
-    records=calloc(count,sizeof(*records));sizes=calloc(count,sizeof(*sizes));surfaces=malloc(count);
+    records=calloc(total,sizeof(*records));sizes=calloc(total,sizeof(*sizes));surfaces=calloc(total,1);
     if(!records || !sizes || !surfaces) { *why="Out of memory loading imported images.";goto done; }
-    for(i=0;i<count;i++)
+    for(i=0;i<total;i++) if(ids[i])
     {
         ImageEdit edit={0};TexPixel *pixels;int width,height;
-        if(!ReadSaved(project,bank.count+i,&bank,&edit,why)) { goto done; }
+        if(!ReadSaved(project,i,&bank,&edit,why)) { goto done; }
         records[i]=edit.data;sizes[i]=edit.size;surfaces[i]=(edit.options.hitsound<<4)|edit.options.hittexture;
+        if(edit.deleted) { continue; }
         pixels=malloc(256*256*sizeof(TexPixel));
         if(!pixels) { *why="Out of memory checking the imported BMP.";goto done; }
-        if(!TexLoadProjectImage(project,edit.id,pixels,&width,&height))
+        if(!TexLoadSavedProjectImage(project,edit.id,pixels,&width,&height))
         { free(pixels);*why="An imported image's BMP is missing or unreadable. Restore it before building the ROM.";goto done; }
         if(width!=edit.width || height!=edit.height || TexDataHash((unsigned char *)pixels,width*height*sizeof(TexPixel))!=edit.pixelhash)
         {
@@ -245,12 +335,18 @@ BOOL ImageEditsExportToRom(const char *project,RomFile *rom,const char **why)
         }
         free(pixels);
     }
-    ok=TexRomAppendImages(rom,&bank,(const unsigned char *const *)records,sizes,surfaces,count,why);
+    ok=TexRomUpdateImages(rom,&bank,(const unsigned char *const *)records,sizes,surfaces,total,why);
 done:
-    if(records) { for(i=0;i<count;i++) { free(records[i]); } }
+    if(records) { for(i=0;i<total;i++) { free(records[i]); } }
     free(records);free(sizes);free(surfaces);return ok;
 }
 
+static void RemoveThumbnail(TexThumb *items,DWORD *count,DWORD id)
+{
+    DWORD i;
+    for(i=0;i<*count;i++) if(strtoul(items[i].label,NULL,16)==id)
+    { memmove(items+i,items+i+1,(--*count-i)*sizeof(*items));return; }
+}
 static void SetInfo(TexThumb *thumb,const ImageEdit *edit)
 {
     thumb->info=(TexImageInfo){TRUE,TRUE,edit->options.format,edit->options.mipmaps,FALSE,
@@ -263,13 +359,31 @@ void ImageEditsUpdateThumbnails(const char *project,TexThumb **items,unsigned ch
     {
         ImageEdit stored={0};
         if(!ReadSaved(project,i,NULL,&stored,&why)) { continue; }
-        for(j=0;j<*count;j++) if(strtoul((*items)[j].label,NULL,16)==i) { SetInfo(&(*items)[j],&stored);break; }
+        if(stored.deleted) { RemoveThumbnail(*items,count,i); }
+        else for(j=0;j<*count;j++) if(strtoul((*items)[j].label,NULL,16)==i) { SetInfo(&(*items)[j],&stored);break; }
         FreeEdit(&stored);
     }
+    /* Compact into a fresh block: the item list may be sorted, so copying
+     * in place could overwrite a later item's source pixels. */
+    if(*count)
+    {
+        unsigned char *compact=malloc((size_t)*count*TEX_THUMB_MAX*TEX_THUMB_MAX*4);
+        if(!compact) { return; }
+        for(j=0;j<*count;j++)
+        {
+            unsigned int offset=j*TEX_THUMB_MAX*TEX_THUMB_MAX*4;
+            memcpy(compact+offset,*pixels+(*items)[j].pixeloffset,TEX_THUMB_MAX*TEX_THUMB_MAX*4);
+            (*items)[j].pixeloffset=offset;
+        }
+        free(*pixels);*pixels=compact;
+    }
     if(strcmp(project,g_ImageProject)) { return; }
+    /* Remove pending deletions after append/update so their pixel offsets
+     * cannot be reused by new thumbnails in this pass. */
     for(edit=g_ImageEdits;edit;edit=edit->next)
     {
         TexThumb *thumb;int x,y,longest=edit->width>edit->height ? edit->width : edit->height;
+        if(edit->deleted) { continue; }
         for(j=0;j<*count;j++) if(strtoul((*items)[j].label,NULL,16)==edit->id) { break; }
         if(j==*count)
         {
@@ -292,4 +406,5 @@ void ImageEditsUpdateThumbnails(const char *project,TexThumb **items,unsigned ch
             dst[0]=p.b;dst[1]=p.g;dst[2]=p.r;dst[3]=p.a;
         }
     }
+    for(edit=g_ImageEdits;edit;edit=edit->next) if(edit->deleted) { RemoveThumbnail(*items,count,edit->id); }
 }

@@ -12,6 +12,7 @@ typedef struct ImageImportDialog {
     TexPixel *pixels;
     int width,height;
     DWORD id;
+    BOOL replacing;
     TexImportOptions options;
 } ImageImportDialog;
 
@@ -40,8 +41,13 @@ static INT_PTR CALLBACK DialogProc(HWND dialog,UINT message,WPARAM wparam,LPARAM
     {
         char text[MAX_PATH+80];int i,maximum;
         state=(ImageImportDialog *)lparam;SetWindowLongPtr(dialog,DWLP_USER,(LONG_PTR)state);
-        snprintf(text,sizeof(text),"%s\r\n%d x %d pixels   -   New image %04lX",state->path,state->width,state->height,(unsigned long)state->id);
+        snprintf(text,sizeof(text),"%s\r\n%d x %d pixels   -   %s image %04lX",state->path,state->width,state->height,state->replacing ? "Replace" : "New",(unsigned long)state->id);
         SetDlgItemText(dialog,IDC_IMAGE_SUMMARY,text);
+        if(state->replacing)
+        {
+            SetWindowText(dialog,"Replace Image");
+            SetDlgItemText(dialog,IDC_IMAGE_IMPORT,"Replace");
+        }
         for(i=0;i<13;i++)
         {
             SetDlgItemText(dialog,IDC_IMAGE_FORMAT_FIRST+i,TexInfoFormatName(i));
@@ -72,9 +78,11 @@ static INT_PTR CALLBACK DialogProc(HWND dialog,UINT message,WPARAM wparam,LPARAM
             Refresh(dialog,state);
             if(!IsWindowEnabled(GetDlgItem(dialog,IDC_IMAGE_IMPORT))) { return TRUE; }
             SetCursor(LoadCursor(NULL,IDC_WAIT));
-            if(ImageEditsImport(state->project,state->pixels,state->width,state->height,&state->options,&state->id,&why))
+            if(state->replacing
+                ? ImageEditsReplace(state->project,state->id,state->pixels,state->width,state->height,&state->options,&why)
+                : ImageEditsImport(state->project,state->pixels,state->width,state->height,&state->options,&state->id,&why))
             { SetCursor(LoadCursor(NULL,IDC_ARROW));EndDialog(dialog,1); }
-            else { SetCursor(LoadCursor(NULL,IDC_ARROW));MessageBox(dialog,why,"Import Image",MB_OK|MB_ICONERROR); }
+            else { SetCursor(LoadCursor(NULL,IDC_ARROW));MessageBox(dialog,why,state->replacing ? "Replace Image" : "Import Image",MB_OK|MB_ICONERROR); }
             return TRUE;
         }
         if((id>=IDC_IMAGE_FORMAT_FIRST && id<=IDC_IMAGE_FORMAT_LAST && HIWORD(wparam)==BN_CLICKED)
@@ -85,21 +93,29 @@ static INT_PTR CALLBACK DialogProc(HWND dialog,UINT message,WPARAM wparam,LPARAM
     if(message==WM_CLOSE) { EndDialog(dialog,0);return TRUE; }
     return FALSE;
 }
-BOOL ImageImportShow(HWND owner,const char *projectdir,DWORD *id)
+static BOOL Show(HWND owner,const char *projectdir,DWORD *id,BOOL replacing)
 {
     ImageImportDialog state={0};OPENFILENAME ofn={0};const char *why="";INT_PTR result;
-    state.project=projectdir;
-    if(!ImageEditsNextId(projectdir,&state.id,&why)) { MessageBox(owner,why,"Import Image",MB_ICONERROR);return FALSE; }
-    ofn.lStructSize=sizeof(ofn);ofn.hwndOwner=owner;ofn.lpstrTitle="Import Image";
+    const char *title=replacing ? "Replace Image" : "Import Image";
+    state.project=projectdir;state.replacing=replacing;
+    if(replacing) { state.id=*id; }
+    if(!(replacing ? ImageEditsCanEdit(projectdir,state.id,&why) : ImageEditsNextId(projectdir,&state.id,&why)))
+    { MessageBox(owner,why,title,MB_ICONERROR);return FALSE; }
+    ofn.lStructSize=sizeof(ofn);ofn.hwndOwner=owner;ofn.lpstrTitle=title;
     ofn.lpstrFile=state.path;ofn.nMaxFile=sizeof(state.path);
     ofn.lpstrFilter="Bitmap images (*.bmp)\0*.bmp\0";ofn.nFilterIndex=1;
     ofn.Flags=OFN_EXPLORER|OFN_FILEMUSTEXIST|OFN_PATHMUSTEXIST|OFN_HIDEREADONLY|OFN_NOCHANGEDIR;
     if(!GetOpenFileName(&ofn)) { return FALSE; }
     if(!TexReadImportBmp(state.path,&state.pixels,&state.width,&state.height,&why))
-    { MessageBox(owner,why,"Import Image",MB_ICONERROR);return FALSE; }
+    { MessageBox(owner,why,title,MB_ICONERROR);return FALSE; }
     result=DialogBoxParam((HINSTANCE)GetWindowLongPtr(owner,GWLP_HINSTANCE),MAKEINTRESOURCE(IDD_IMPORT_IMAGE),owner,DialogProc,(LPARAM)&state);
     free(state.pixels);
-    if(result==-1) { MessageBox(owner,"The image settings dialog could not be opened.","Import Image",MB_ICONERROR); }
+    if(result==-1) { MessageBox(owner,"The image settings dialog could not be opened.",title,MB_ICONERROR); }
     if(result==1) { *id=state.id;return TRUE; }
     return FALSE;
 }
+
+BOOL ImageImportShow(HWND owner,const char *projectdir,DWORD *id)
+{ return Show(owner,projectdir,id,FALSE); }
+BOOL ImageReplaceShow(HWND owner,const char *projectdir,DWORD id)
+{ return Show(owner,projectdir,&id,TRUE); }

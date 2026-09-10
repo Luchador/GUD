@@ -108,7 +108,7 @@ void ModelEditorSetProject(const char *projectdir)
         : "Choose a model. Drag either mouse button to orbit; scroll to dolly.");
 }
 
-static void ModelEditorSelect(int category)
+static void ModelEditorSelect(int category, BOOL framecamera)
 {
     HWND combo = GetDlgItem(g_ModelEditor, g_ModelCombos[category]);
     LRESULT row = SendMessage(combo, CB_GETCURSEL, 0, 0);
@@ -135,7 +135,7 @@ static void ModelEditorSelect(int category)
     {
         if (other != category) { SendDlgItemMessage(g_ModelEditor, g_ModelCombos[other], CB_SETCURSEL, -1, 0); }
     }
-    ModelEditorClearViewport();
+    if (framecamera) { ModelEditorClearViewport(); }
     previous = SetCursor(LoadCursor(NULL, IDC_WAIT));
     vertices = ModelLoadProjectNamedGeometry(g_ModelProject, entry->folder, entry->name,
                                              &count, &tags, &flags, &why);
@@ -148,7 +148,7 @@ static void ModelEditorSelect(int category)
         }
         if (!loaded) { why = "The model has invalid geometry."; }
         else if (!ViewportSetScene(g_ModelViewport, vertices, tags, flags,
-                                   NULL, NULL, NULL, 0, (int)count, g_ModelProject, TRUE))
+                                   NULL, NULL, NULL, 0, (int)count, g_ModelProject, framecamera))
         {
             loaded = FALSE;
             why = "Not enough memory to display the model.";
@@ -167,7 +167,18 @@ static void ModelEditorSelect(int category)
     SetWindowText(g_ModelEditor, text);
     snprintf(text, sizeof(text), "%lu triangles. Drag either mouse button to orbit; scroll to dolly.", (unsigned long)count);
     SetDlgItemText(g_ModelEditor, IDC_MODEL_STATUS, text);
-    SetFocus(g_ModelViewport);
+    if (framecamera) { SetFocus(g_ModelViewport); }
+}
+
+void ModelEditorRefreshImages(void)
+{
+    int category;
+    if (g_ModelEditor == NULL || g_ModelSelected < 0) { return; }
+    for (category = 0; category < 3; category++)
+    {
+        if (SendDlgItemMessage(g_ModelEditor, g_ModelCombos[category], CB_GETCURSEL, 0, 0) != CB_ERR)
+        { ModelEditorSelect(category, FALSE); break; }
+    }
 }
 
 static void ModelEditorTransfer(BOOL importing)
@@ -203,7 +214,7 @@ static void ModelEditorTransfer(BOOL importing)
     for (category=0;category<3;category++)
     {
         if (SendDlgItemMessage(g_ModelEditor,g_ModelCombos[category],CB_GETCURSEL,0,0)!=CB_ERR)
-        { ModelEditorSelect(category);break; }
+        { ModelEditorSelect(category, TRUE);break; }
     }
     snprintf(message,sizeof(message),"Imported all LODs: %lu to %lu tris. Save Project to keep the replacement.",
         (unsigned long)before,(unsigned long)after);
@@ -267,7 +278,7 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
         if (LOWORD(wparam) >= IDC_MODEL_CHARACTERS && LOWORD(wparam) <= IDC_MODEL_PROPS
             && HIWORD(wparam) == CBN_SELCHANGE)
         {
-            ModelEditorSelect(LOWORD(wparam) - IDC_MODEL_CHARACTERS);
+            ModelEditorSelect(LOWORD(wparam) - IDC_MODEL_CHARACTERS, TRUE);
             return TRUE;
         }
         if (LOWORD(wparam) == IDCANCEL) { DestroyWindow(hwnd); return TRUE; }

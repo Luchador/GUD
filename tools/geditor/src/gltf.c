@@ -1284,7 +1284,7 @@ static BOOL GltfReadTextureSize(const char *json,
 }
 
 
-static void GltfPrimitiveTextureSize(const char *json,
+static BOOL GltfPrimitiveTextureSize(const char *json,
                                      const GltfJsonToken *tokens,
                                      int tokencount, int root,
                                      int primitive,
@@ -1302,7 +1302,7 @@ static void GltfPrimitiveTextureSize(const char *json,
     if (GltfReadTextureSize(json, tokens, tokencount, extras,
                             widthout, heightout))
     {
-        return;
+        return TRUE;
     }
 
     materialtoken = GltfJsonObjectGet(json, tokens, tokencount,
@@ -1311,7 +1311,7 @@ static void GltfPrimitiveTextureSize(const char *json,
         || !GltfJsonUnsigned(json, &tokens[materialtoken],
                              &materialindex))
     {
-        return;
+        return FALSE;
     }
 
     materials = GltfJsonObjectGet(json, tokens, tokencount,
@@ -1320,7 +1320,7 @@ static void GltfPrimitiveTextureSize(const char *json,
                                 materials, materialindex);
     extras = GltfJsonObjectGet(json, tokens, tokencount,
                                material, "extras");
-    GltfReadTextureSize(json, tokens, tokencount, extras,
+    return GltfReadTextureSize(json, tokens, tokencount, extras,
                         widthout, heightout);
 }
 
@@ -1649,10 +1649,13 @@ static BOOL GltfLoadPrimitive(const char *json,
 
     if (normalizeduvs && hastexcoords)
     {
-        GltfPrimitiveTextureSize(json, tokens, tokencount, root,
+        BOOL authoredsize = GltfPrimitiveTextureSize(json, tokens, tokencount, root,
                                  primitive, &texturewidth, &textureheight);
 
-        if (projectdir != NULL && BG_TEX_ID(tag) != BG_TEX_NONE)
+        /* A texture replacement does not rewrite the model's native texel
+         * coordinates. Restore the original export scale for viewport reads;
+         * use current image dimensions only when the asset has no such data. */
+        if ((!authoredsize || builder->importing) && projectdir != NULL && BG_TEX_ID(tag) != BG_TEX_NONE)
         {
             int projectwidth;
             int projectheight;

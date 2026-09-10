@@ -5,6 +5,7 @@
 #include "texrom.h"
 #include "texencode.h"
 #include "imageedits.h"
+#include "gltf.h"
 #define BASE_COUNT 16u
 #define MANIFEST 0x110020u
 #define CONFIG 0x110010u
@@ -190,4 +191,155 @@ static void Limits(const char *project)
     puts("PASS: malformed manifest/config/table checks, all 4096 IDs, capacity sentinel and corrupt saved-image rejection.");
 }
 
-int main(int argc,char **argv) {assert(argc==2);Encoders();Fixture(argv[1]);Pipeline(argv[1]);Limits(argv[1]);return 0;}
+
+static DWORD FileHash(const char *path)
+{
+    FILE *file=fopen(path,"rb");unsigned char bytes[8192];size_t length;
+    assert(file);length=fread(bytes,1,sizeof(bytes),file);assert(feof(file)&&!ferror(file));fclose(file);
+    return TexDataHash(bytes,(DWORD)length);
+}
+static DWORD ImageOffset(const RomFile *rom,const TexRomBank *bank,DWORD id)
+{
+    DWORD i,offset=bank->images;
+    for(i=0;i<id;i++) { offset+=Read32(rom->data+bank->table+i*8)&0xffffffu; }
+    return offset;
+}
+static void AssertBlank(const RomFile *rom,const TexRomBank *bank,DWORD id)
+{
+    DWORD offset=ImageOffset(rom,bank,id);int w,h;
+    assert(TexDecodeRecord(rom->data+offset,rom->size-offset,decoded,&w,&h));
+    assert(w==1&&h==1&&!decoded[0].a&&!decoded[0].r&&!decoded[0].g&&!decoded[0].b);
+    assert(rom->data[bank->table+id*8]==0&&Read32(rom->data+bank->table+id*8+4)==0);
+}
+/* One normalized-UV triangle with an authored 4x4 image. The replacement
+ * is 8x8; preview texel coordinates must remain 4, rather than becoming 8. */
+static void ModelReplacementUvs(const char *project)
+{
+    char path[MAX_PATH];FILE *file;const char *why="";DWORD count;
+    BgVertex *vertices;unsigned short *tags;BgRenderFlags *flags;
+    float data[]={0,0,0, 1,0,0, 0,1,0, 0,0, 1,0, 0,1};
+    snprintf(path,sizeof(path),"%s\\triangle.bin",project);
+    file=fopen(path,"wb");assert(file&&fwrite(data,1,sizeof(data),file)==sizeof(data)&&!fclose(file));
+    snprintf(path,sizeof(path),"%s\\triangle.gltf",project);
+    file=fopen(path,"wb");assert(file);
+    fputs("{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"uri\":\"triangle.bin\",\"byteLength\":60}],"
+          "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":24}],"
+          "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},"
+          "{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC2\"}],"
+          "\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0,\"TEXCOORD_0\":1},"
+          "\"extras\":{\"goldeneyeTextureTag\":3,\"goldeneyeTextureSize\":[4,4]}}]}]}",file);
+    assert(!fclose(file));
+    vertices=GltfLoadModel(path,project,&count,&tags,&flags,&why);
+    if(!vertices) { fprintf(stderr,"glTF: %s\n",why); }
+    assert(vertices&&count==1&&tags[0]==3);
+    assert(vertices[1].s==4&&vertices[2].t==4);
+    free(vertices);free(tags);free(flags);
+}
+static void ImageActions(const char *project)
+{
+    const char *why="";TexImportOptions o={0,2,12,6},other={5,1,4,9};
+    RomFile rom;TexRomBank bank,after;DWORD id,next,originalbmp,savedbmp,savednative,originalrom,count,i;
+    char basepath[MAX_PATH],bmp[MAX_PATH],native[MAX_PATH],path[MAX_PATH];int w,h;
+    TexThumb *thumbs;unsigned char *thumbpixels;
+    snprintf(basepath,sizeof(basepath),"%s\\base.z64",project);
+    snprintf(bmp,sizeof(bmp),"%s\\images\\0003.bmp",project);
+    snprintf(native,sizeof(native),"%s\\images\\native\\0003.gtex",project);
+    originalbmp=FileHash(bmp);assert(RomLoad(basepath,&rom,&why));
+    originalrom=TexDataHash(rom.data,rom.size);assert(TexRomReadBank(&rom,&bank,&why));
+    for(i=0;i<64;i++) { source[i]=(TexPixel){240,32,96,255}; }
+    /* Cancelling an edit or closing without save preserves the original BMP/ROM. */
+    assert(ImageEditsReplace(project,3,source,8,8,&o,&why));
+    assert(TexLoadProjectImage(project,3,decoded,&w,&h)&&w==8&&h==8&&decoded[0].r==240);
+    assert(FileHash(bmp)==originalbmp&&ImageEditsHasUnsaved());
+    assert(ImageEditsExportToRom(project,&rom,&why)&&TexDataHash(rom.data,rom.size)==originalrom);
+    ImageEditsReset();assert(TexLoadProjectImage(project,3,decoded,&w,&h)&&w==4);
+    assert(ImageEditsDelete(project,3,&why));
+    count=TexLoadProjectThumbnails(project,&thumbs,&thumbpixels,&why);assert(count==BASE_COUNT-1);
+    for(i=0;i<count;i++) { assert(strtoul(thumbs[i].label,NULL,16)!=3); }
+    free(thumbs);free(thumbpixels);assert(FileHash(bmp)==originalbmp);
+    ImageEditsReset();assert(TexLoadProjectImage(project,3,decoded,&w,&h)&&w==4);
+    /* Replacement changes every setting at the same ID; no new ID is consumed. */
+    assert(ImageEditsReplace(project,3,source,8,8,&o,&why));
+    assert(ImageEditsNextId(project,&next,&why)&&next==BASE_COUNT);
+    assert(ImageEditsSave(project,&why));ImageEditsReset();
+    savedbmp=FileHash(bmp);savednative=FileHash(native);
+    ModelReplacementUvs(project);
+    count=TexLoadProjectThumbnails(project,&thumbs,&thumbpixels,&why);assert(count==BASE_COUNT);
+    assert(thumbs[3].imagewidth==8&&thumbs[3].info.format==0&&thumbs[3].info.mipmaps==2);
+    assert(thumbs[3].info.hitsound==12&&thumbs[3].info.hittexture==6&&!thumbs[3].info.generatedmipmaps);
+    free(thumbs);free(thumbpixels);
+    assert(ImageEditsExportToRom(project,&rom,&why)&&TexRomReadBank(&rom,&after,&why)&&after.count==BASE_COUNT);
+    for(i=0;i<BASE_COUNT;i++) if(i!=3)
+    {
+        DWORD offset=ImageOffset(&rom,&after,i),old,size=Read32(rom.data+TABLE+i*8)&0xffffffu;
+        /* In this fixture all originals have the same record size. */
+        old=bank.images+i*(bank.imagebytes/BASE_COUNT);
+        assert(!memcmp(rom.data+offset,rom.data+old,size));assert(Read32(rom.data+TABLE+i*8+4)==0xabcd0000);
+    }
+    assert(rom.data[TABLE+3*8]==0xc6&&Read32(rom.data+TABLE+3*8+4)==0);
+    {DWORD offset=ImageOffset(&rom,&after,3);TexInfoRecord info;
+     assert(TexInfoReadRecord(rom.data+offset,rom.size-offset,&info)&&info.info.format==0&&info.info.mipmaps==2);}
+    RomFree(&rom);
+    /* Late save failures restore BOTH prior BMP and native settings. */
+    assert(ImageEditsReplace(project,3,source,4,4,&other,&why));
+    for(i=1;i<=3;i++)
+    {
+        test_fail_move=i;assert(!ImageEditsSave(project,&why)&&ImageEditsHasUnsaved());
+        assert(FileHash(bmp)==savedbmp&&FileHash(native)==savednative);
+    }
+    assert(RomLoad(basepath,&rom,&why));assert(ImageEditsExportToRom(project,&rom,&why));
+    assert(TexRomReadBank(&rom,&after,&why));
+    {DWORD offset=ImageOffset(&rom,&after,3);assert(TexDecodeRecord(rom.data+offset,rom.size-offset,decoded,&w,&h)&&w==8);}
+    RomFree(&rom);ImageEditsReset();
+    assert(ImageEditsDelete(project,3,&why));
+    test_fail_move=2;assert(!ImageEditsSave(project,&why));
+    assert(FileHash(bmp)==savedbmp&&FileHash(native)==savednative);
+    assert(ImageEditsSave(project,&why));ImageEditsReset();
+    assert(GetFileAttributes(bmp)==INVALID_FILE_ATTRIBUTES);
+    assert(TexLoadProjectImage(project,3,decoded,&w,&h)&&w==1&&h==1&&!decoded[0].a);
+    assert(TexGetProjectImageSize(project,3,&w,&h)&&w==1&&h==1);
+    assert(!ImageEditsCanEdit(project,3,&why));
+    /* Mix pending imports/deletion/replacement with a saved base deletion.
+     * Thumbnail compaction must preserve every surviving pixel block. */
+    assert(ImageEditsImport(project,source,4,4,&other,&id,&why)&&id==BASE_COUNT);
+    assert(ImageEditsReplace(project,id,source,8,8,&o,&why));
+    assert(ImageEditsImport(project,source,4,4,&other,&next,&why)&&next==BASE_COUNT+1);
+    assert(ImageEditsDelete(project,next,&why));
+    assert(ImageEditsImport(project,source,4,4,&other,&next,&why)&&next==BASE_COUNT+2);
+    assert(ImageEditsDelete(project,0,&why));
+    count=TexLoadProjectThumbnails(project,&thumbs,&thumbpixels,&why);assert(count==BASE_COUNT);
+    for(i=0;i<count;i++)
+    {
+        DWORD tid=strtoul(thumbs[i].label,NULL,16);const unsigned char *px=thumbpixels+thumbs[i].pixeloffset;
+        assert(tid!=0&&tid!=3&&tid!=BASE_COUNT+1);
+        assert(TexLoadProjectImage(project,tid,decoded,&w,&h));
+        assert(px[0]==decoded[w*h-1].b&&px[1]==decoded[w*h-1].g&&px[2]==decoded[w*h-1].r);
+    }
+    free(thumbs);free(thumbpixels);
+    assert(ImageEditsSave(project,&why));ImageEditsReset();
+    assert(ImageEditsNextId(project,&next,&why)&&next==BASE_COUNT+3);
+    snprintf(path,sizeof(path),"%s\\images\\0011.bmp",project);assert(GetFileAttributes(path)==INVALID_FILE_ATTRIBUTES);
+    /* A saved imported image is replaceable and later deletable at its own ID. */
+    assert(ImageEditsReplace(project,BASE_COUNT+2,source,8,8,&o,&why));
+    assert(ImageEditsSave(project,&why));assert(ImageEditsDelete(project,BASE_COUNT+2,&why));
+    assert(ImageEditsSave(project,&why));ImageEditsReset();
+    assert(RomLoad(basepath,&rom,&why)&&TexDataHash(rom.data,rom.size)==originalrom);
+    assert(ImageEditsExportToRom(project,&rom,&why)&&TexRomReadBank(&rom,&after,&why));
+    assert(after.count==BASE_COUNT+3);AssertBlank(&rom,&after,0);AssertBlank(&rom,&after,3);
+    AssertBlank(&rom,&after,BASE_COUNT+1);AssertBlank(&rom,&after,BASE_COUNT+2);
+    {DWORD offset=ImageOffset(&rom,&after,BASE_COUNT);assert(TexDecodeRecord(rom.data+offset,rom.size-offset,decoded,&w,&h)&&w==8&&decoded[0].r==240);}
+    RomFree(&rom);
+    count=TexLoadProjectThumbnails(project,&thumbs,&thumbpixels,&why);assert(count==BASE_COUNT-1);
+    free(thumbs);free(thumbpixels);
+    /* Legacy GTI1 import metadata remains readable by this version. */
+    snprintf(path,sizeof(path),"%s\\images\\native\\0010.gtex",project);
+    {FILE *f=fopen(path,"rb+");assert(f);assert(fwrite("GTI1",1,4,f)==4);fclose(f);}
+    assert(RomLoad(basepath,&rom,&why));assert(ImageEditsExportToRom(project,&rom,&why));RomFree(&rom);
+    puts("PASS: base/imported/pending replacement and deletion, unchanged IDs/records, all settings, discard, saved-only export, save rollback, thumbnail compaction, blank slots and legacy metadata.");
+}
+
+int main(int argc,char **argv)
+{
+    char actions[MAX_PATH];assert(argc==2);Encoders();Fixture(argv[1]);Pipeline(argv[1]);Limits(argv[1]);
+    snprintf(actions,sizeof(actions),"%s-actions",argv[1]);Fixture(actions);ImageActions(actions);return 0;
+}

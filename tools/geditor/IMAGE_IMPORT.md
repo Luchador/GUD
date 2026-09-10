@@ -1,8 +1,11 @@
-# Importing images
+# Importing and editing images
 
-Rebuild both GUD and GEditor after applying this patch, then create a new
-project from the rebuilt GUD ROM. Older projects can still open and build,
-but their base ROMs cannot append images.
+Image importing, replacement, and deletion require a project created from a
+GUD ROM with the `TXTB` and `TXCF` image-import manifest entries. If your project
+already supports image importing, update and rebuild GEditor; no new project
+or GUD rebuild is needed for the context-menu actions. Otherwise rebuild both
+GUD and GEditor, then create a new project from the rebuilt GUD ROM. Older
+projects can still open and build.
 
 ```sh
 make
@@ -31,21 +34,55 @@ uses radio buttons for the texture types and shows the current TMEM usage.
 Click **Import** to append the next hexadecimal image ID and reveal it in the
 image browser. It can immediately be dragged onto faces. The title gains an
 asterisk until **Save Project** saves it; exiting without saving discards
-pending imports. Creating a ROM also saves pending changes first.
+pending image changes. Creating a ROM also saves pending changes first.
 
-Saved imports consist of `images/XXXX.bmp` and `images/native/XXXX.gtex`.
+Imported and replaced images consist of `images/XXXX.bmp` and `images/native/XXXX.gtex`.
 Keep both files. The native file retains the selected format, mipmaps, surface
 settings, and base-ROM identity. Edits to an imported image's BMP are re-encoded
-with those saved settings during ROM creation. Original extracted BMPs retain
-their existing behavior; this feature does not replace original ROM images.
-Unused images are never deleted.
+with those saved settings during ROM creation. Use **Replace image** for original
+ROM images; externally editing an original extracted BMP alone does not change
+the ROM. Images are never automatically deleted when they become unused.
+
+## Delete and replace
+
+Right-click an image in the browser and choose **Delete image** or
+**Replace image**. These actions also work for images imported during the
+current session. The permanent **No Texture** item has no context actions.
+
+- **Delete image** asks for confirmation and warns that hard-coded texture IDs,
+  including light textures, can affect game rendering. Cancel leaves it intact.
+  Confirming removes the thumbnail immediately. Save Project removes its BMP
+  and retains a deletion record in `images/native/XXXX.gtex`. ROM creation uses
+  a 1x1 transparent RGBA16 texture with no mipmaps or surface effects at that
+  ID. Geometry referencing it is retained and may look blank or otherwise
+  incorrect depending on its material. No other IDs are shifted or reused;
+  deleted slots still count toward the 4096-ID limit. Keep the native deletion
+  records with the project so deletions propagate to future ROM builds.
+- **Replace image** opens a BMP picker followed by the same settings dialog as
+  importing, with a **Replace** button. It retains the selected hexadecimal ID
+  and overwrites the pixels, palette, format, mipmaps, sound, bullet-hole type,
+  and native detail flags with the new choices. All settings start at the import
+  dialog defaults; no hidden settings from the old image are carried forward.
+  TMEM limits apply to replacements too. Cancel leaves the image unchanged.
+
+Both actions mark the project as unsaved and refresh the browser, face thumbnail,
+main viewport, and any open model viewer. Cameras and geometry selections are
+preserved. Replacing with different dimensions does not rescale authored model
+UV coordinates; the preview uses the same texel coordinates as the ROM. Use the
+UV/model editing tools if you want different mapping.
+
+Save failures preserve the previous saved BMP/settings and leave the edit pending
+for retry. As with imports, exiting without saving discards pending image edits.
+The new `GTI2` native-image metadata supports deletion records; existing `GTI1`
+imports remain readable. Use the updated GEditor for projects saved with `GTI2`.
 
 ## ROM support
 
 The `TXTB` manifest entry describes the reserved image table, and `TXCF`
 describes its writable ROM address and active image count. ROM creation copies
-the original GUTX records unchanged, appends the imported records, updates the
-surface table/configuration and IMGS range, and recalculates the ROM checksum.
+unmodified GUTX records and their flags unchanged, applies replacements and
+blank deletion records at their original IDs, appends imported records, updates
+the surface table/configuration and IMGS range, and recalculates the ROM checksum.
 The project's `base.z64` stays unchanged.
 
 Image IDs remain 12-bit: the capacity is **4096 images total**, plus a separate
@@ -66,4 +103,8 @@ encoder, BMP preview/save routines, imported asset storage, and ROM packer.
 They cover all formats, mipmaps and padding, palette quantization, pending and
 saved images, orientation, failed saves, reopened projects, missing/corrupt
 assets, preserved originals, relocation, growth, and the image/ROM limits.
+They also cover original/imported/pending replacement and deletion, stable IDs,
+all replacement settings, discard, rollback after late save failures, saved-only
+ROM export, thumbnail pixel compaction, blank records, legacy import metadata,
+and model UV stability when a replacement has different dimensions.
 The Windows BMP decoder and dialog require a Windows runtime for visual testing.

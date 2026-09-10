@@ -39,8 +39,8 @@ void GltfFreeModelImport(GltfModelImport *model);
  * texture samplers override native wrapping extras when present. The loader accepts
  * embedded or external buffers, indexed or non-indexed primitives, and the
  * standard POSITION, COLOR_0, and TEXCOORD_0 accessor encodings used by DCC
- * tools. Normalized UVs are restored to GEditor's texel units using project
- * image dimensions. Caller frees the returned vertex, tag and render-flag arrays. */
+ * tools. Normalized UVs are restored to GEditor's texel units using the
+ * asset's recorded texture size, falling back to project image dimensions. Caller frees the returned vertex, tag and render-flag arrays. */
 BgVertex *GltfLoadModel(const char *path, const char *projectdir,
                         DWORD *tricount,
                         unsigned short **tritags,

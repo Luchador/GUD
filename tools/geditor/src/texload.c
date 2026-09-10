@@ -710,7 +710,13 @@ thumbnails:
 }
 
 
-BOOL TexLoadProjectImage(const char *projectdir, DWORD id,
+BOOL TexLoadProjectImage(const char *projectdir, DWORD id, TexPixel *out, int *w, int *h)
+{
+    if (ImageEditsGetPixels(projectdir, id, out, w, h)) { return TRUE; }
+    return TexLoadSavedProjectImage(projectdir, id, out, w, h);
+}
+
+BOOL TexLoadSavedProjectImage(const char *projectdir, DWORD id,
                          TexPixel *out, int *w, int *h)
 {
     char path[MAX_PATH];
@@ -732,8 +738,6 @@ BOOL TexLoadProjectImage(const char *projectdir, DWORD id,
     *w = 0;
     *h = 0;
 
-    if (ImageEditsGetPixels(projectdir, id, out, w, h)) { return TRUE; }
-
     written = snprintf(path, sizeof(path), "%s\\images\\%04lX.bmp",
                        projectdir, (unsigned long)id);
     if (written < 0 || written >= (int)sizeof(path))
@@ -745,7 +749,7 @@ BOOL TexLoadProjectImage(const char *projectdir, DWORD id,
                       OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (file == INVALID_HANDLE_VALUE)
     {
-        return FALSE;
+        return ImageEditsGetDeletedPixels(projectdir, id, out, w, h);
     }
 
     filesize = GetFileSize(file, NULL);
@@ -922,7 +926,7 @@ BOOL TexGetProjectImageSize(const char *projectdir, DWORD id,
                       OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (file == INVALID_HANDLE_VALUE)
     {
-        return FALSE;
+        return ImageEditsGetDeletedPixels(projectdir, id, NULL, w, h);
     }
 
     if (!ReadFile(file, header, sizeof(header), &got, NULL)

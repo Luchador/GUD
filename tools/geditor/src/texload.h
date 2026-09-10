@@ -32,6 +32,10 @@ typedef struct TexPixel { unsigned char r, g, b, a; } TexPixel;
 BOOL TexLoadProjectImage(const char *projectdir, DWORD id,
                          TexPixel *out, int *w, int *h);
 
+/* Saved-only reader for ROM export; pending replacements must not leak into
+ * an export that is using the last saved image metadata. */
+BOOL TexLoadSavedProjectImage(const char *projectdir, DWORD id, TexPixel *out, int *w, int *h);
+
 /* Encode native-order RGBA rows as a PNG for glTF. Caller frees *dataout. */
 BOOL TexEncodePng(const TexPixel *pixels, int width, int height,
                    unsigned char **dataout, DWORD *sizeout);

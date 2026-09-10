@@ -14,6 +14,9 @@
  * DROP is synchronous; lparam points to a request valid during SendMessage. */
 #define BROWSER_WM_IMAGE_DRAG_BEGIN (WM_APP + 12)
 #define BROWSER_WM_IMAGE_DROP       (WM_APP + 13)
+/* Image context actions. wparam is the stable texture ID. */
+#define BROWSER_WM_IMAGE_DELETE     (WM_APP + 27)
+#define BROWSER_WM_IMAGE_REPLACE    (WM_APP + 28)
 typedef struct BrowserImageDrop {
     DWORD textureid;
     POINT screen;

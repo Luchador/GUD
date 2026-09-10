@@ -381,6 +381,48 @@ static BOOL GEditorReloadCurrentObjectsAndViewport(const char **reasonout)
 }
 
 
+static void GEditorRefreshImageViews(HWND hwnd, DWORD id, BOOL reveal)
+{
+    TexThumb *items = NULL;
+    unsigned char *pixels = NULL;
+    const char *why = "";
+    DWORD count = TexLoadProjectThumbnails(g_Project.dir, &items, &pixels, &why);
+    BrowserSetImages(g_Browser, items, (int)count, pixels);
+    if (reveal && !BrowserRevealImage(g_Browser, id))
+    {
+        MessageBox(hwnd, "The image changed, but its thumbnail could not be loaded. Save Project, then reopen it.",
+                   GEDITOR_TITLE, MB_ICONWARNING);
+    }
+    /* Model UV conversion can depend on image dimensions. Rebuild model
+     * geometry as well as the GL texture cache, keeping camera/selection. */
+    if (g_CurrentLevelIndex < g_Project.levelcount && !GEditorReloadCurrentObjectsAndViewport(&why))
+    { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); }
+    ModelEditorRefreshImages();
+    GEditorRefreshSelectionDetails();
+    GEditorRefreshHistoryMenu(hwnd);
+}
+
+static void GEditorEditImage(HWND hwnd, DWORD id, BOOL deleting)
+{
+    const char *why = "";
+    if (g_Project.name[0] == '\0') { return; }
+    if (deleting)
+    {
+        char warning[640];
+        snprintf(warning, sizeof(warning),
+            "Delete image %04lX?\r\n\r\n"
+            "Some texture IDs are hard-coded in the game, including light textures. "
+            "Deleting them can break lighting or other effects. Faces and models that use this image will lose its texture.\r\n\r\n"
+            "The image will be removed from the browser and its BMP removed on Save Project. "
+            "Its ID stays reserved as a blank ROM texture; other image IDs will not change.", (unsigned long)id);
+        if (MessageBox(hwnd, warning, "Delete Image", MB_OKCANCEL | MB_ICONWARNING | MB_DEFBUTTON2) != IDOK) { return; }
+        if (!ImageEditsDelete(g_Project.dir, id, &why))
+        { MessageBox(hwnd, why, "Delete Image", MB_ICONERROR); return; }
+    }
+    else if (!ImageReplaceShow(hwnd, g_Project.dir, id)) { return; }
+    GEditorRefreshImageViews(hwnd, id, !deleting);
+}
+
 /*
  * (Re)loads the browser from the project file and extracted asset
  * folders. Works for both freshly created and reopened projects: the
@@ -2541,6 +2583,11 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         return ok;
     }
 
+    case BROWSER_WM_IMAGE_DELETE:
+    case BROWSER_WM_IMAGE_REPLACE:
+        GEditorEditImage(hwnd, (DWORD)wparam, msg == BROWSER_WM_IMAGE_DELETE);
+        return 0;
+
     case FACEPROPERTIES_WM_REVEAL_IMAGE:
         return BrowserRevealImage(g_Browser, (DWORD)wparam);
 
@@ -3114,18 +3161,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 DWORD id;
                 if (g_Project.name[0] != '\0' && ImageImportShow(hwnd, g_Project.dir, &id))
                 {
-                    TexThumb *items = NULL;
-                    unsigned char *pixels = NULL;
-                    const char *why = "";
-                    DWORD count = TexLoadProjectThumbnails(g_Project.dir, &items, &pixels, &why);
-                    BrowserSetImages(g_Browser, items, (int)count, pixels);
-                    if (!BrowserRevealImage(g_Browser, id))
-                    {
-                        MessageBox(hwnd, "The image was imported, but its thumbnail could not be loaded. Save Project, then reopen it.",
-                                   GEDITOR_TITLE, MB_ICONWARNING);
-                    }
-                    GEditorRefreshSelectionDetails();
-                    GEditorRefreshHistoryMenu(hwnd);
+                    GEditorRefreshImageViews(hwnd, id, TRUE);
                 }
                 return 0;
             }

@@ -1315,6 +1315,53 @@ static LRESULT CALLBACK BrowserWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
         return 0;
 
+    case WM_CONTEXTMENU:
+        if (state != NULL)
+        {
+            POINT screen = { GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam) }, point;
+            int index;
+            DWORD textureid;
+            HMENU menu;
+            UINT command;
+            if (screen.x == -1 && screen.y == -1)
+            {
+                index = state->selectedimage;
+                if (index <= 0 || index > state->imagecount) { return 0; }
+                /* Keyboard context menus open alongside the selected row. */
+                BrowserRevealImage(hwnd, (DWORD)strtoul(state->images[index - 1].label, NULL, 16));
+                point.x = state->sections[BROWSER_SECTION_IMAGES].bodyrc.left + BROWSER_IMAGE_MARGIN;
+                point.y = state->sections[BROWSER_SECTION_IMAGES].bodyrc.top + BROWSER_IMAGE_MARGIN
+                    + (index / BrowserImageColumns(&state->sections[BROWSER_SECTION_IMAGES].bodyrc)) * BROWSER_IMAGE_CELL_H
+                    - state->scroll[BROWSER_SECTION_IMAGES] + BROWSER_IMAGE_CELL_H / 2;
+                screen = point; ClientToScreen(hwnd, &screen);
+            }
+            else
+            {
+                point = screen; ScreenToClient(hwnd, &point);
+                index = BrowserHitImage(state, point);
+            }
+            /* The permanent No Texture item and empty grid cells have no actions. */
+            if (index <= 0 || index > state->imagecount) { return 0; }
+            textureid = (DWORD)strtoul(state->images[index - 1].label, NULL, 16);
+            BrowserHideImageTooltip(hwnd, state);
+            BrowserEndAssetDrag(hwnd, state);
+            state->selectedimage = index;
+            SetFocus(hwnd); InvalidateRect(hwnd, NULL, FALSE);
+            menu = CreatePopupMenu();
+            if (menu == NULL) { return 0; }
+            AppendMenu(menu, MF_STRING, 1, "Delete image");
+            AppendMenu(menu, MF_STRING, 2, "Replace image");
+            command = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON,
+                                     screen.x, screen.y, 0, hwnd, NULL);
+            DestroyMenu(menu);
+            if (command == 1 || command == 2)
+            {
+                SendMessage(GetParent(hwnd), command == 1 ? BROWSER_WM_IMAGE_DELETE
+                    : BROWSER_WM_IMAGE_REPLACE, textureid, 0);
+            }
+        }
+        return 0;
+
     case WM_KEYDOWN:
         if (wparam == VK_ESCAPE && state != NULL && state->dragimage != NULL)
         {
@@ -1508,6 +1555,8 @@ void BrowserSetImages(HWND browser, TexThumb *items, int count,
                       unsigned char *pixelblock)
 {
     BrowserState *state = BrowserGetState(browser);
+    DWORD selectedid = BG_TEX_NONE;
+    BOOL hadselection = FALSE;
 
     if (state == NULL)
     {
@@ -1517,6 +1566,12 @@ void BrowserSetImages(HWND browser, TexThumb *items, int count,
         return;
     }
 
+    if (state->selectedimage >= 0 && state->selectedimage <= state->imagecount)
+    {
+        hadselection = TRUE;
+        if (state->selectedimage > 0)
+        { selectedid = (DWORD)strtoul(state->images[state->selectedimage - 1].label, NULL, 16); }
+    }
     BrowserHideImageTooltip(browser, state);
     BrowserEndAssetDrag(browser, state);
     free(state->images);
@@ -1525,8 +1580,9 @@ void BrowserSetImages(HWND browser, TexThumb *items, int count,
     state->images = items;
     state->imagepixels = pixelblock;
     state->imagecount = items != NULL ? count : 0;
-    state->scroll[BROWSER_SECTION_IMAGES] = 0;
-    state->selectedimage = -1;
+    if (items == NULL) { state->scroll[BROWSER_SECTION_IMAGES] = 0; }
+    state->selectedimage = hadselection && items != NULL ? BrowserFindImage(state, selectedid) : -1;
+    BrowserClampScroll(state, BROWSER_SECTION_IMAGES);
 
     InvalidateRect(browser, NULL, TRUE);
 }

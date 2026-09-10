@@ -16,4 +16,9 @@ BOOL TexRomReadBank(const RomFile *rom, TexRomBank *bank, const char **reasonout
 BOOL TexRomAppendImages(RomFile *rom, const TexRomBank *bank,
     const unsigned char *const *records, const DWORD *sizes,
     const unsigned char *surfaces, DWORD count, const char **reasonout);
+/* Indexed by final texture ID: NULL preserves an original, non-NULL replaces
+ * it. Appended IDs must all have records. No existing IDs are shifted. */
+BOOL TexRomUpdateImages(RomFile *rom, const TexRomBank *bank,
+    const unsigned char *const *records, const DWORD *sizes,
+    const unsigned char *surfaces, DWORD count, const char **reasonout);
 #endif
