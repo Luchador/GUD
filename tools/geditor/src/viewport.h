@@ -35,6 +35,8 @@ int ViewportGetSelectedComponentCount(HWND hwnd);
 /* Mean vertex positions, edge midpoints or face centers; a model uses its
    surface centroid. Includes the live drag preview, excludes hidden items. */
 BOOL ViewportGetSelectionPosition(HWND hwnd, double position[3], DWORD *countout);
+void ViewportSetBackgroundColor(HWND viewport, const unsigned char rgb[3]);
+
 typedef struct ViewportBgVertexHit {
     BgFaceRef face;
     unsigned int corner;

@@ -31,6 +31,8 @@ typedef struct RomLevel {
     short music;
     short bgsound;
     short xtrack;
+    BOOL hasbackgroundcolor;
+    unsigned char backgroundcolor[3];
 } RomLevel;
 
 typedef struct RomInfo {
@@ -69,6 +71,7 @@ DWORD RomLevelTableRowSize(const RomManifestEntry *stgt, DWORD romsize);
  */
 BOOL RomLoad(const char *path, RomFile *rom, const char **reasonout);
 void RomFree(RomFile *rom);
+BOOL RomGetLevelBackgroundColor(const RomFile *rom, LONG levelid, unsigned char rgb[3]);
 
 /*
  * Looks a file up by its resource name ("bg/bg_sev_all_p.seg") in the

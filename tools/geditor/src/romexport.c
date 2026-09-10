@@ -243,42 +243,64 @@ static BOOL RomExportProjectMatchesRom(const GEditorProject *project,
 }
 
 
-void RomExportRefreshProjectLevelNames(GEditorProject *project)
+void RomExportRefreshProjectLevelMetadata(GEditorProject *project)
 {
     char path[MAX_PATH];
     RomFile rom;
     const char *why = "";
     DWORD i, j;
     BOOL named = FALSE;
-    if (project == NULL || project->levelcount == 0
-        || !RomExportBasePath(project, path, sizeof(path), &why)
-        || !RomLoad(path, &rom, &why)) { return; }
+
+    if (project == NULL) 
+    { 
+        return; 
+    }
+
+    for (i = 0; i < project->levelcount; i++)
+    {
+        project->levels[i].hasbackgroundcolor = FALSE;
+    }
+
+    if (project->levelcount == 0 || !RomExportBasePath(project, path, sizeof(path), &why) || !RomLoad(path, &rom, &why)) 
+    { 
+        return; 
+    }
+
     for (i = 0; i < rom.info.entrycount; i++)
     {
-        if (rom.info.entries[i].kind == ROM_KIND_STGT
-            && RomLevelTableRowSize(&rom.info.entries[i], rom.size) == 36) { named = TRUE; }
+        if (rom.info.entries[i].kind == ROM_KIND_STGT && RomLevelTableRowSize(&rom.info.entries[i], rom.size) == 36)
+        {
+            named = TRUE;
+        }
     }
-    if (named && RomExportProjectMatchesRom(project, &rom, &why))
+
+    if (RomExportProjectMatchesRom(project, &rom, &why))
     {
         for (i = 0; i < project->levelcount; i++)
         {
+            RomLevel *level = &project->levels[i];
+            level->hasbackgroundcolor = RomGetLevelBackgroundColor(&rom, level->levelID, level->backgroundcolor);
+
+            if (!named) 
+            { 
+                continue; 
+            }
+
             for (j = 0; j < rom.info.levelcount; j++)
             {
-                if (project->levels[i].levelID == rom.info.levels[j].levelID)
+                if (level->levelID == rom.info.levels[j].levelID)
                 {
-                    lstrcpyn(project->levels[i].name, rom.info.levels[j].name,
-                             sizeof(project->levels[i].name));
+                    lstrcpyn(level->name, rom.info.levels[j].name, sizeof(level->name));
                     break;
                 }
             }
         }
     }
+
     RomFree(&rom);
 }
 
-
-static BOOL RomExportWriteFile(const char *path, const unsigned char *data,
-                               DWORD size, const char **reasonout)
+static BOOL RomExportWriteFile(const char *path, const unsigned char *data, DWORD size, const char **reasonout)
 {
     HANDLE file;
     DWORD written;

@@ -393,15 +393,14 @@ static void GEditorRefreshProjectAssets(void)
     DWORD count;
     DWORD i;
 
-    RomExportRefreshProjectLevelNames(&g_Project);
+    RomExportRefreshProjectLevelMetadata(&g_Project);
+
     for (i = 0; i < g_Project.levelcount; i++)
     {
         lstrcpyn(levels[i].label, g_Project.levels[i].name, sizeof(levels[i].label));
     }
 
-    BrowserSetLevels(g_Browser,
-                     g_Project.levelcount > 0 ? levels : NULL,
-                     (int)g_Project.levelcount);
+    BrowserSetLevels(g_Browser, g_Project.levelcount > 0 ? levels : NULL, (int)g_Project.levelcount);
 
     count = TexLoadProjectThumbnails(g_Project.dir, &items, &pixels, &why);
 
@@ -2850,10 +2849,13 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         }
         ObjectGeometryFree(&objects);
 
-        EditHistoryReset(&g_EditHistory, &g_CurrentBgDocument,
-                         &g_CurrentSetup, &g_CurrentStan);
+        EditHistoryReset(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
         g_CurrentLevelIndex = index;
+
+        ViewportSetBackgroundColor(g_Viewport, level->hasbackgroundcolor ? level->backgroundcolor : NULL);
+
         GEditorRefreshHistoryMenu(hwnd);
+
         return 0;
     }
 

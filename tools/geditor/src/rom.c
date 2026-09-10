@@ -430,6 +430,82 @@ void RomFree(RomFile *rom)
 #define ROM_KIND_ENVT 0x454E5654u /* 'ENVT' */
 #define ROM_FTBL_MAX_ROWS 1024
 
+BOOL RomGetLevelBackgroundColor(const RomFile *rom, LONG levelid, unsigned char rgb[3])
+{
+    const RomManifestEntry *envt = NULL;
+    const RomManifestEntry *cmap = NULL;
+    const unsigned char *selected = NULL;
+    DWORD i, offset;
+    int bestpriority = 0;
+
+    if (rom == NULL || rom->data == NULL || rgb == NULL || rom->info.entrycount > ROM_MAX_ENTRIES) 
+    { 
+        return FALSE; 
+    }
+
+    for (i = 0; i < rom->info.entrycount; i++)
+    {
+        const RomManifestEntry *entry = &rom->info.entries[i];
+
+        if (entry->kind == ROM_KIND_ENVT) 
+        { 
+            envt = entry; 
+        }
+    
+        if (entry->kind == ROM_KIND_CMAP) 
+        { 
+            cmap = entry; 
+        }
+    }
+
+    /* Current N64 EnvironmentRecord: 104 bytes; Sky RGB starts at 44. */
+    if (envt == NULL || cmap == NULL || envt->flags != 104u || envt->romend != 0 || cmap->romstart >= cmap->romend || cmap->romend > rom->size || envt->romstart < cmap->romstart || envt->romstart >= cmap->romend) 
+    { 
+        return FALSE; 
+    }
+
+    offset = envt->romstart;
+
+    while (cmap->romend - offset >= envt->flags)
+    {
+        const unsigned char *row = rom->data + offset;
+        DWORD id = be32(row);
+        int priority = 0;
+
+        if (id == 0) /* ENVIRONMENTDATA_END */
+        {
+            if (selected == NULL) { return FALSE; }
+            memcpy(rgb, selected + 44, 3);
+            return TRUE;
+        }
+
+        /* Prefer solo, then a two-player preview for MP-only maps,
+         * then LEVELID_NONE (-1), the game's fallback environment. */
+        if (id == (DWORD)levelid) 
+        { 
+            priority = 3; 
+        }
+        else if (id == (DWORD)levelid + 200u) 
+        { 
+            priority = 2; 
+        }
+        else if (id == 0xFFFFFFFFu) 
+        { 
+            priority = 1; 
+        }
+
+        if (priority > bestpriority)
+        {
+            selected = row;
+            bestpriority = priority;
+        }
+
+        offset += envt->flags;
+    }
+
+    return FALSE; /* Missing terminator or incomplete final record. */
+}
+
 /* File-table entries can alias the same data (several multiplayer
    names do). The tightest table-derived upper bound is therefore the
    smallest DISTINCT data address after the start, not necessarily the
@@ -460,8 +536,7 @@ static DWORD RomFindFileUpperBound(const RomFile *rom, const RomManifestEntry *f
     return end;
 }
 
-BOOL RomFindFile(const RomFile *rom, const char *name,
-                 DWORD *offset, DWORD *maxlen, const char **reasonout)
+BOOL RomFindFile(const RomFile *rom, const char *name, DWORD *offset, DWORD *maxlen, const char **reasonout)
 {
     const RomManifestEntry *ftbl = NULL;
     const RomManifestEntry *cmap = NULL;
@@ -516,8 +591,7 @@ BOOL RomFindFile(const RomFile *rom, const char *name,
             continue; /* unresolvable name: not ours to match */
         }
 
-        if (strncmp((const char *)rom->data + (DWORD)nameoff, name,
-                    rom->size - (DWORD)nameoff) == 0)
+        if (strncmp((const char *)rom->data + (DWORD)nameoff, name, rom->size - (DWORD)nameoff) == 0)
         {
             DWORD end = RomFindFileUpperBound(rom, ftbl, obsg, datav);
 
@@ -538,9 +612,7 @@ BOOL RomFindFile(const RomFile *rom, const char *name,
 }
 
 
-BOOL RomGetFileByIndex(const RomFile *rom, DWORD index,
-                       char *nameout, DWORD namemax,
-                       DWORD *offset, DWORD *maxlen)
+BOOL RomGetFileByIndex(const RomFile *rom, DWORD index, char *nameout, DWORD namemax, DWORD *offset, DWORD *maxlen)
 {
     const RomManifestEntry *ftbl = NULL;
     const RomManifestEntry *cmap = NULL;

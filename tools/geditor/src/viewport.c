@@ -125,6 +125,8 @@ typedef struct ViewportState {
     GLuint statisticsfont; /* ASCII bitmap display lists, owned by the GL context */
     DWORD bgprimarytris, bgsecondarytris, bgtexturecount; /* cached on scene rebuild */
 
+    float backgroundcolor[3];
+    
     /* Fly Camera */
     float posx, posy, posz;
     float yaw, pitch;
@@ -467,7 +469,6 @@ static BOOL ViewportInitGL(HWND hwnd, ViewportState *state)
     glEnable(GL_DEPTH_TEST);
     glShadeModel(GL_SMOOTH);
     glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-    glClearColor(0.15f, 0.15f, 0.18f, 1.0f);
 
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
@@ -741,6 +742,8 @@ static void ViewportUpdateEnvironmentMapping(ViewportState *state)
 static void ViewportPaintGL(ViewportState *state)
 {
     wglMakeCurrent(state->hdc, state->hglrc);
+
+    glClearColor(state->backgroundcolor[0], state->backgroundcolor[1], state->backgroundcolor[2], 1.0f);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -4138,12 +4141,16 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)state);
 
+        ViewportSetBackgroundColor(hwnd, NULL);
+
         state->orbit = ((CREATESTRUCT *)lparam)->lpCreateParams != NULL;
+
         if (state->orbit)
         {
             const double min[3] = { -1, -1, -1 }, max[3] = { 1, 1, 1 };
             OrbitCameraFrame(&state->orbitcamera, min, max, 1, VIEWPORT_FOV_Y);
         }
+
         state->speed = VIEWPORT_FLY_SPEED;
         state->posz = 600.0f;
         state->showbgprimary = TRUE;
@@ -4435,6 +4442,25 @@ void ViewportRedraw(HWND viewport)
     InvalidateRect(viewport, NULL, FALSE);
 }
 
+
+void ViewportSetBackgroundColor(HWND viewport, const unsigned char rgb[3])
+{
+    static const float fallback[3] = { 0.15f, 0.15f, 0.18f };
+    ViewportState *state = ViewportGetState(viewport);
+    int axis;
+
+    if (state == NULL) 
+    { 
+        return; 
+    }
+
+    for (axis = 0; axis < 3; axis++)
+    {
+        state->backgroundcolor[axis] = rgb != NULL ? rgb[axis] / 255.0f : fallback[axis];
+    }
+
+    ViewportRedraw(viewport);
+}
 
 EditorTool ViewportGetTool(HWND viewport)
 {

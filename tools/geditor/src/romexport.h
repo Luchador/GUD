@@ -19,7 +19,7 @@ BOOL RomExportStoreProjectBase(const GEditorProject *project,
 
 /* Refresh cached display names from a matching base ROM with levelName.
  * Optional: old projects still open using their .gep names without a ROM. */
-void RomExportRefreshProjectLevelNames(GEditorProject *project);
+void RomExportRefreshProjectLevelMetadata(GEditorProject *project);
 
 /* Shared by the dialog's live validation and the exporter itself. */
 BOOL RomExportNameIsValid(const char *name, const char **reasonout);
@@ -39,5 +39,6 @@ BOOL RomExportCreate(const GEditorProject *project,
                      const char *name, const char *directory,
                      char *pathout, size_t pathmax,
                      const char **reasonout);
+
 
 #endif /* GEDITOR_ROMEXPORT_H */
