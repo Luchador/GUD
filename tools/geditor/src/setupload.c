@@ -2027,7 +2027,7 @@ static BOOL SetupWriteBounds(SetupFile *setup, const SetupPadRef *ref, const dou
     return TRUE;
 }
 
-BOOL SetupFileScalePad(SetupFile *setup, SetupPadRef *ref, const Scaling *scale,
+BOOL SetupFileScalePad(SetupFile *setup, SetupPadRef *ref, float levelscale, const Scaling *scale,
                        const char **reasonout)
 {
     double bounds[6] = {-SETUP_PAD_HALF_SIZE, SETUP_PAD_HALF_SIZE,  -SETUP_PAD_HALF_SIZE,
@@ -2036,6 +2036,7 @@ BOOL SetupFileScalePad(SetupFile *setup, SetupPadRef *ref, const Scaling *scale,
     int axis;
     *reasonout = "Invalid pad scale.";
     if (!setup || !setup->data || setup->size < SETUP_HEADER_SIZE || !ref || !ScalingValid(scale) ||
+        !isfinite(levelscale) || levelscale <= 0 ||
         ref->index >= (ref->bound ? setup->boundpadcount : setup->padcount))
     {
         return FALSE;
@@ -2049,6 +2050,12 @@ BOOL SetupFileScalePad(SetupFile *setup, SetupPadRef *ref, const Scaling *scale,
         bounds[3] = pad->ymax;
         bounds[4] = pad->zmin;
         bounds[5] = pad->zmax;
+    }
+    else
+    {
+        /* Match the ordinary pad's world-sized preview when promoting it
+           to a bound pad, whose extents are stored in native level units. */
+        for (i = 0; i < 6; i++) { bounds[i] *= levelscale; }
     }
     for (axis = 0; axis < 3; axis++)
     {

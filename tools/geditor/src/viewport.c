@@ -42,7 +42,6 @@
 #define VIEWPORT_PITCH_LIMIT 89.0f
 
 #define VIEWPORT_DEG_TO_RAD (3.14159265358979323846f / 180.0f)
-#define VIEWPORT_PAD_HALF_SIZE SETUP_PAD_HALF_SIZE
 #define VIEWPORT_BOX_VERTICES  24
 #define VIEWPORT_VERTEX_MARKER_SIZE 5.0f /* screen pixels */
 #define VIEWPORT_PORTAL_FILL_ALPHA 64
@@ -6061,15 +6060,18 @@ void ViewportSetSetupPads(HWND hwnd, const SetupFile *setup, float levelscale, c
 
     for (i = 0; i < setup->padcount; i++)
     {
+        /* Box construction converts native coordinates to world units.
+           Cancel that conversion for the ordinary pad's display extent. */
+        float halfsize = SETUP_PAD_HALF_SIZE * levelscale;
         int axis;
         pads[i].ref.index = i; pads[i].ref.bound = FALSE;
         pads[i].occupied = occupiedpads != NULL && occupiedpads[i];
         for (axis = 0; axis < 3; axis++) { pads[i].position[axis] = setup->pads[i].pos[axis] * worldscale; }
 
         ViewportAppendPadBox(markers, &vertexcount, &setup->pads[i],
-            -VIEWPORT_PAD_HALF_SIZE, VIEWPORT_PAD_HALF_SIZE,
-            -VIEWPORT_PAD_HALF_SIZE, VIEWPORT_PAD_HALF_SIZE,
-            -VIEWPORT_PAD_HALF_SIZE, VIEWPORT_PAD_HALF_SIZE,
+            -halfsize, halfsize,
+            -halfsize, halfsize,
+            -halfsize, halfsize,
             worldscale, 32, 255, 64);
     }
 

@@ -39,6 +39,11 @@ unaffected.
 
 ## Artwork and lighting
 
+Ordinary pad wireframes have a fixed half extent of 5 world units (10 units
+across) on every level. Their positions still use the level-scale conversion.
+Bound pads show their authored volumes. Scaling an ordinary pad creates bounds
+from the displayed size, converting back to native level units for saving.
+
 The four GLBs are embedded in GEditor.exe from `geditorassets`; installed
 executables do not need external copies. Replacing an artwork file triggers a
 resource rebuild. The supplied models face local +X with +Y up. Their metre

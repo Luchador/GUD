@@ -2023,7 +2023,7 @@ static BOOL GEditorTransformSelection(HWND hwnd, const ViewportRotation *request
             goto fail;
         }
         changed = scaling != NULL;
-        if (!(scaling ? SetupFileScalePad(&g_CurrentSetup, &padref, scaling, &why)
+        if (!(scaling ? SetupFileScalePad(&g_CurrentSetup, &padref, g_CurrentBgDocument.levelscale, scaling, &why)
                       : SetupFileRotatePad(&g_CurrentSetup, &padref, rotation, &changed, &why)))
         {
             goto rollback;

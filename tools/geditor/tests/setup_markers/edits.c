@@ -15,6 +15,50 @@ static void Float(unsigned char *p,float f) { union {float f;DWORD u;}v;v.f=f;Pu
 static void Near(double a,double b) { assert(fabs(a-b)<0.0002); }
 static void Same(const SetupFile *a,const SetupFile *b) { assert(a->size==b->size&&!memcmp(a->data,b->data,a->size)); }
 
+static void PadScaleSizes(const SetupFile *source, const char *dir)
+{
+    /* Train, Bunker, Facility, plus identity: promotion must not cause a
+       size jump, and scaling a saved bound pad must not apply level scale again. */
+    const float levels[] = {.15019713f, .53931433f, 1.20648f, 1.0f};
+    for (unsigned int i = 0; i < sizeof(levels) / sizeof(*levels); i++)
+    {
+        SetupFile setup = {0}, saved = {0};
+        SetupPadRef ref = {0, FALSE};
+        Scaling scale = {0};
+        const char *why = "";
+        assert(SetupFileClone(source, &setup, &why));
+        strcpy(setup.name, "UsetuppadscaleZ");
+        RotationAxis(&scale.axes, 0, 0);
+        scale.factor[0] = 2; scale.factor[1] = 3; scale.factor[2] = .5;
+        assert(SetupFileScalePad(&setup, &ref, levels[i], &scale, &why) && ref.bound);
+        assert(!memcmp(setup.pads, source->pads, source->padcount * sizeof(*source->pads)));
+        assert(SetupSaveProjectFile(dir, &setup, &why));
+        assert(SetupLoadProjectFile(dir, setup.name, &saved, &why)); Same(&setup, &saved);
+        for (int pass = 1; pass <= 2; pass++)
+        {
+            const SetupBoundPad *pad = &saved.boundpads[ref.index];
+            float corners[8][3];
+            SetupPadGetBoxCorners(&pad->pad, pad->xmin, pad->xmax, pad->ymin, pad->ymax,
+                pad->zmin, pad->zmax, 1 / levels[i], corners);
+            for (int axis = 0; axis < 3; axis++)
+            {
+                double squared = 0;
+                for (int component = 0; component < 3; component++)
+                {
+                    double difference = corners[1 << axis][component] - corners[0][component];
+                    squared += difference * difference;
+                }
+                Near(sqrt(squared), 10 * pow(scale.factor[axis], pass));
+                Near((corners[0][axis] + corners[7][axis]) * .5,
+                    source->pads[0].pos[axis] / levels[i]);
+            }
+            if (pass == 1) { assert(SetupFileScalePad(&saved, &ref, levels[i], &scale, &why)); }
+        }
+        SetupFileFree(&saved); SetupFileFree(&setup);
+    }
+    puts("PASS: pad scale promotion, saved bounds and repeated scaling retain consistent world sizes.");
+}
+
 void MarkerEdits(const char *dir)
 {
     unsigned char bytes[524]={0};char file[MAX_PATH+64];FILE *f;
@@ -43,6 +87,7 @@ void MarkerEdits(const char *dir)
     snprintf(file,sizeof(file),"%s/setup/UsetupmarkerZ.set",dir);
     f=fopen(file,"wb");assert(f&&fwrite(bytes,1,sizeof(bytes),f)==sizeof(bytes)&&!fclose(f));
     assert(SetupLoadProjectFile(dir,"UsetupmarkerZ",&setup,&why));
+    PadScaleSizes(&setup, dir);
     assert(SetupFileClone(&setup,&before,&why));EditHistoryReset(&history,&bg,&setup,&stan);
     assert(SetupFileBuildMarkers(&setup,.5f,&markers,&count,&why)&&count==3);
     assert(markers[0].command==0&&markers[1].command==1&&markers[2].command==0);
