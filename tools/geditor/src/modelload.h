@@ -31,6 +31,35 @@ BOOL ModelApplyCharacterPose(const unsigned char *data, DWORD size, int switchco
                               BgVertex *vertices, DWORD tricount,
                               ModelCharacterAttachments *attachments);
 
+/* Stable source associations for a deletion/material-only Blender round trip.
+ * The native file retains joint bindings, switches, bounds and all LODs. */
+typedef struct ModelSourceFace {
+    DWORD command, list;
+    unsigned char slot;
+    BOOL closest;
+    BgMaterial material;
+} ModelSourceFace;
+
+typedef struct ModelSourceList {
+    DWORD pointer, offset, end, vertexbase;
+    BOOL preserve; /* Dynamic effects such as rotating muzzle flashes. */
+    BgMaterial initial;
+} ModelSourceList;
+
+typedef struct ModelSource {
+    BgVertex *vertices;
+    unsigned short *tags;
+    BgRenderFlags *flags;
+    ModelSourceFace *faces;
+    ModelSourceList *lists;
+    DWORD count, listcount;
+    BOOL closestpreview;
+} ModelSource;
+
+BOOL ModelReadSource(const unsigned char *data, DWORD size, ModelSource *source,
+                      const char **reasonout);
+void ModelFreeSource(ModelSource *source);
+
 /*
  * GoldenEye model (P/C/G file) geometry extraction.
  *

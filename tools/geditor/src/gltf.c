@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include "gltf.h"
+#include "modelload.h"
 #include "bgrender.h"
 #include "texload.h"
 
@@ -31,7 +32,7 @@
 #define GLTF_WRAP_CLAMP_TO_EDGE      33071
 #define GLTF_WRAP_MIRRORED_REPEAT    33648
 #define GLTF_MODE_TRIANGLES              4
-#define GLTF_VERTEX_STRIDE               44u
+#define GLTF_VERTEX_STRIDE               48u
 #define GLTF_MAX_FACES              1000000u
 
 typedef enum GltfJsonType {
@@ -75,6 +76,8 @@ typedef struct GltfBuilder {
     BgRenderFlags *renderflags;
     DWORD tricount;
     DWORD capacity;
+    BOOL importing;
+    DWORD *sourcevertices;
 } GltfBuilder;
 
 typedef struct GltfGroup {
@@ -84,6 +87,8 @@ typedef struct GltfGroup {
     int textureheight;
     int imageindex;
     int textureindex;
+    DWORD part;
+    BOOL hidden;
     DWORD tricount;
     DWORD firstvertex;
     DWORD written;
@@ -684,7 +689,7 @@ static void GltfFreeBuffers(GltfBuffer *buffers, DWORD count)
 
 static BOOL GltfLoadBuffers(const char *path, const char *json,
                             const GltfJsonToken *tokens, int tokencount,
-                            int root, GltfBuffer **buffersout,
+                            int root, const unsigned char *bin, DWORD binsize, GltfBuffer **buffersout,
                             DWORD *buffercountout, const char **reasonout)
 {
     int array = GltfJsonObjectGet(json, tokens, tokencount,
@@ -718,6 +723,14 @@ static BOOL GltfLoadBuffers(const char *path, const char *json,
         DWORD declared;
         char *uri;
 
+        if (uritoken < 0 && index == 0 && bin != NULL && lengthtoken >= 0
+            && GltfJsonUnsigned(json, &tokens[lengthtoken], &declared) && declared <= binsize)
+        {
+            buffers[index].data = malloc(binsize);
+            if (buffers[index].data == NULL) { goto fail; }
+            memcpy(buffers[index].data, bin, binsize); buffers[index].size = binsize;
+            continue;
+        }
         if (uritoken < 0 || lengthtoken < 0
             || !GltfJsonUnsigned(json, &tokens[lengthtoken], &declared)
             || (uri = GltfJsonCopyString(json, &tokens[uritoken])) == NULL)
@@ -1095,6 +1108,12 @@ static BOOL GltfBuilderReserve(GltfBuilder *builder, DWORD add)
         builder->renderflags, (size_t)capacity * sizeof(*renderflags));
     if (renderflags == NULL) { return FALSE; }
     builder->renderflags = renderflags;
+    if (builder->importing)
+    {
+        DWORD *ids = realloc(builder->sourcevertices, (size_t)capacity * 3 * sizeof(*ids));
+        if (ids == NULL) { return FALSE; }
+        builder->sourcevertices = ids;
+    }
     builder->capacity = capacity;
     return TRUE;
 }
@@ -1172,6 +1191,37 @@ static BOOL GltfPrimitiveTag(const char *json,
     return TRUE;
 }
 
+
+static BOOL GltfImportTexture(const char *json, const GltfJsonToken *tokens,
+    int count, int primitive, unsigned short *tag, const char **reasonout)
+{
+    DWORD index;
+    int token = GltfJsonObjectGet(json,tokens,count,primitive,"material");
+    int material, pbr, texture, image, name;
+    char *label;
+    unsigned int id;
+    *tag = BG_TEX_NONE;
+    if (token < 0) { return TRUE; }
+    if (!GltfJsonUnsigned(json,&tokens[token],&index)) { return FALSE; }
+    material = GltfJsonArrayGet(tokens,count,GltfJsonObjectGet(json,tokens,count,0,"materials"),index);
+    pbr = GltfJsonObjectGet(json,tokens,count,material,"pbrMetallicRoughness");
+    texture = GltfJsonObjectGet(json,tokens,count,pbr,"baseColorTexture");
+    if (texture < 0) { return TRUE; }
+    token = GltfJsonObjectGet(json,tokens,count,texture,"index");
+    if (token < 0 || !GltfJsonUnsigned(json,&tokens[token],&index)) { return FALSE; }
+    texture = GltfJsonArrayGet(tokens,count,GltfJsonObjectGet(json,tokens,count,0,"textures"),index);
+    token = GltfJsonObjectGet(json,tokens,count,texture,"source");
+    if (token < 0 || !GltfJsonUnsigned(json,&tokens[token],&index)) { return FALSE; }
+    image = GltfJsonArrayGet(tokens,count,GltfJsonObjectGet(json,tokens,count,0,"images"),index);
+    name = GltfJsonObjectGet(json,tokens,count,image,"name");
+    label = name >= 0 ? GltfJsonCopyString(json,&tokens[name]) : NULL;
+    if (label == NULL || sscanf(label,"GUD Image %x",&id) != 1 || id >= BG_TEX_NONE)
+    {
+        free(label); *reasonout = "A material uses an unidentified texture. Keep the exported GUD Image names when assigning existing textures.";
+        return FALSE;
+    }
+    free(label); *tag = (unsigned short)id; return TRUE;
+}
 
 static BOOL GltfUsesNormalizedUvs(const char *json,
                                   const GltfJsonToken *tokens,
@@ -1460,7 +1510,7 @@ static BOOL GltfLoadPrimitive(const char *json,
     GltfAccessor colors;
     GltfAccessor texcoords;
     GltfAccessor indices;
-    GltfAccessor normals, environmentscales;
+    GltfAccessor normals, environmentscales, sourceids;
     BOOL hascolors = FALSE;
     BOOL hastexcoords = FALSE;
     BOOL hasindices = FALSE;
@@ -1505,6 +1555,18 @@ static BOOL GltfLoadPrimitive(const char *json,
     {
         *reasonout = "a glTF triangle primitive has no valid POSITION accessor.";
         return FALSE;
+    }
+
+    if (builder->importing)
+    {
+        int ids = GltfJsonObjectGet(json,tokens,tokencount,attributes,"_GUD_VERTEX");
+        if (ids < 0 || !GltfJsonUnsigned(json,&tokens[ids],&accessorindex)
+            || !GltfResolveAccessor(json,tokens,tokencount,root,accessorindex,buffercount,&sourceids)
+            || sourceids.components != 1 || sourceids.count != positions.count)
+        {
+            *reasonout = "The model has lost its GUD vertex identities. Export from GEditor's Model Editor, and enable Data > Mesh > Attributes in Blender's glTF exporter.";
+            return FALSE;
+        }
     }
 
     colortoken = GltfJsonObjectGet(json, tokens, tokencount,
@@ -1575,6 +1637,9 @@ static BOOL GltfLoadPrimitive(const char *json,
         return FALSE;
     }
 
+    if (builder->importing && !GltfImportTexture(json,tokens,tokencount,primitive,&tag,reasonout))
+    { return FALSE; }
+
     if (!GltfPrimitiveRenderFlags(json, tokens, tokencount, root, primitive, tag, &renderflags)
         || !GltfPrimitiveWrapFlags(json, tokens, tokencount, root, primitive, &renderflags))
     {
@@ -1601,7 +1666,7 @@ static BOOL GltfLoadPrimitive(const char *json,
         }
     }
 
-    if (renderflags & BG_RENDER_ENVIRONMENT)
+    if (!builder->importing && (renderflags & BG_RENDER_ENVIRONMENT))
     {
         int normal = GltfJsonObjectGet(json, tokens, tokencount, attributes, "NORMAL");
         int scale = GltfJsonObjectGet(json, tokens, tokencount, attributes, "_GUD_ENV_SCALE");
@@ -1639,6 +1704,14 @@ static BOOL GltfLoadPrimitive(const char *json,
             return FALSE;
         }
 
+        if (builder->importing)
+        {
+            float id;
+            if (!GltfAccessorFloats(&sourceids,buffers,sourceindex,&id,1)
+                || id < 0 || id >= GLTF_MAX_FACES * 3 || floorf(id) != id)
+            { *reasonout = "A GUD vertex identity is invalid."; return FALSE; }
+            builder->sourcevertices[destination] = (DWORD)id;
+        }
         ZeroMemory(vertex, sizeof(*vertex));
         vertex->x = values[0];
         vertex->y = values[1];
@@ -1657,7 +1730,7 @@ static BOOL GltfLoadPrimitive(const char *json,
             vertex->t = values[1] * (float)textureheight;
         }
 
-        if (renderflags & BG_RENDER_ENVIRONMENT)
+        if (!builder->importing && (renderflags & BG_RENDER_ENVIRONMENT))
         {
             if (!GltfAccessorFloats(&normals, buffers, sourceindex, vertex->environment.normal, 3)
                 || !GltfAccessorFloats(&environmentscales, buffers, sourceindex,
@@ -1742,7 +1815,7 @@ BgVertex *GltfLoadModel(const char *path, const char *projectdir,
         goto fail;
     }
 
-    if (!GltfLoadBuffers(path, json, tokens, tokencount, 0,
+    if (!GltfLoadBuffers(path, json, tokens, tokencount, 0, NULL, 0,
                          &buffers, &buffercount, reasonout))
     {
         goto fail;
@@ -1755,6 +1828,12 @@ BgVertex *GltfLoadModel(const char *path, const char *projectdir,
     for (meshindex = 0; meshindex < meshcount; meshindex++)
     {
         int mesh = GltfJsonArrayGet(tokens, tokencount, meshes, meshindex);
+        int extras = GltfJsonObjectGet(json,tokens,tokencount,mesh,"extras");
+        int hidden = GltfJsonObjectGet(json,tokens,tokencount,extras,"goldeneyePreviewHidden");
+        BOOL previewhidden = FALSE;
+        if (hidden >= 0 && !GltfJsonBool(json,&tokens[hidden],&previewhidden))
+        { *reasonout = "a model has an invalid LOD preview setting."; goto fail; }
+        if (previewhidden) { continue; }
         int primitives = GltfJsonObjectGet(json, tokens, tokencount,
                                            mesh, "primitives");
         DWORD primitivecount = GltfJsonArrayCount(tokens, tokencount,
@@ -1822,7 +1901,7 @@ static BOOL GltfNodeArray(const char *json, const GltfJsonToken *tokens,
 }
 
 static BOOL GltfLoadGlbNode(const char *json, const GltfJsonToken *tokens,
-    int tokencount, DWORD nodeindex, const GltfBuffer *buffer,
+    int tokencount, DWORD nodeindex, const GltfBuffer *buffer, DWORD buffercount,
     const double parent[16], GltfBuilder *builder, int depth, int *visited,
     const char **reasonout)
 {
@@ -1876,7 +1955,7 @@ static BOOL GltfLoadGlbNode(const char *json, const GltfJsonToken *tokens,
         for (i=0; i<count; i++)
         {
             int primitive = GltfJsonArrayGet(tokens,tokencount,primitives,i);
-            if (!GltfLoadPrimitive(json,tokens,tokencount,0,primitive,buffer,1,
+            if (!GltfLoadPrimitive(json,tokens,tokencount,0,primitive,buffer,buffercount,
                                    NULL,FALSE,builder,reasonout)) { return FALSE; }
         }
         for (i=first*3; i<builder->tricount*3; i++)
@@ -1899,7 +1978,7 @@ static BOOL GltfLoadGlbNode(const char *json, const GltfJsonToken *tokens,
     {
         token=GltfJsonArrayGet(tokens,tokencount,children,i);
         if (!GltfJsonUnsigned(json,&tokens[token],&index)
-            || !GltfLoadGlbNode(json,tokens,tokencount,index,buffer,world,
+            || !GltfLoadGlbNode(json,tokens,tokencount,index,buffer,buffercount,world,
                                 builder,depth+1,visited,reasonout)) { return FALSE; }
     }
     return TRUE;
@@ -1950,7 +2029,7 @@ BgVertex *GltfLoadGlbMesh(const unsigned char *data, DWORD size,
         DWORD index;
         token=GltfJsonArrayGet(tokens,tokencount,nodes,i);
         if (!GltfJsonUnsigned(json,&tokens[token],&index)
-            || !GltfLoadGlbNode(json,tokens,tokencount,index,&buffer,identity,
+            || !GltfLoadGlbNode(json,tokens,tokencount,index,&buffer,1,identity,
                                 &builder,0,&visited,reasonout)) { goto fail; }
     }
     if (builder.tricount==0) { goto fail; }
@@ -2152,7 +2231,7 @@ static BOOL GltfWriteTextures(FILE *file, const GltfGroup *groups, DWORD groupco
 
 static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
                           DWORD binarysize, const GltfGroup *groups,
-                          DWORD groupcount, const GltfImage *images, DWORD imagecount)
+                          DWORD groupcount, const GltfImage *images, DWORD imagecount, const ModelSource *source, DWORD sourcehash)
 {
     FILE *file = fopen(path, "wb");
     DWORD group;
@@ -2164,14 +2243,25 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
     }
 
     if (fprintf(file,
-        "{\n"
-        "  \"asset\": {\"version\": \"2.0\", \"generator\": \"GEditor\"},\n"
+        "{\n  \"asset\": {\"version\": \"2.0\", \"generator\": \"GEditor\"},\n"
         "  \"extensionsUsed\": [\"KHR_materials_unlit\"],\n"
         "  \"extras\": {\"goldeneyeUvUnits\": \"normalized\"},\n"
-        "  \"scene\": 0,\n"
-        "  \"scenes\": [{\"nodes\": [0]}],\n"
-        "  \"nodes\": [{\"mesh\": 0, \"name\": \"GoldenEye model\"}],\n"
-        "  \"buffers\": [{\"byteLength\": %lu, \"uri\": \"data:application/octet-stream;base64,",
+        "  \"scene\": 0,\n  \"scenes\": [{\"extras\": {\"goldeneyeSourceHash\": \"%08lX\"}, \"nodes\": [",
+        (unsigned long)sourcehash) < 0) { ok = FALSE; }
+    for (group=0; ok && group < (source != NULL ? groupcount : 1); group++)
+    {
+        if (fprintf(file,"%s%lu",group ? "," : "",(unsigned long)group)<0) { ok=FALSE; }
+    }
+    if (fprintf(file,"]}],\n  \"nodes\": [\n")<0) { ok=FALSE; }
+    for (group=0; ok && group < (source != NULL ? groupcount : 1); group++)
+    {
+        if (fprintf(file,"    {\"mesh\": %lu, \"name\": \"Part %lu%s\", \"extras\": {\"goldeneyeSourceHash\": \"%08lX\"}}%s\n",
+            (unsigned long)group, (unsigned long)(source != NULL ? groups[group].part : 0),
+            source != NULL && groups[group].hidden ? " (distant LOD)" : "",
+            (unsigned long)sourcehash, group+1 < (source != NULL ? groupcount : 1) ? "," : "")<0) { ok=FALSE; }
+    }
+    if (!ok || fprintf(file,
+        "  ],\n  \"buffers\": [{\"byteLength\": %lu, \"uri\": \"data:application/octet-stream;base64,",
         (unsigned long)binarysize) < 0
         || !GltfWriteBase64(file, binary, binarysize)
         || fprintf(file, "\"}],\n"
@@ -2194,7 +2284,8 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
             "    {\"bufferView\": 0, \"byteOffset\": %lu, \"componentType\": 5126, \"count\": %lu, \"type\": \"VEC2\"},\n"
             "    {\"bufferView\": 0, \"byteOffset\": %lu, \"componentType\": 5121, \"normalized\": true, \"count\": %lu, \"type\": \"VEC4\"},\n"
             "    {\"bufferView\": 0, \"byteOffset\": %lu, \"componentType\": 5126, \"count\": %lu, \"type\": \"VEC3\"},\n"
-            "    {\"bufferView\": 0, \"byteOffset\": %lu, \"componentType\": 5126, \"count\": %lu, \"type\": \"VEC2\"}%s\n",
+            "    {\"bufferView\": 0, \"byteOffset\": %lu, \"componentType\": 5126, \"count\": %lu, \"type\": \"VEC2\"},\n"
+            "    {\"bufferView\": 0, \"byteOffset\": %lu, \"componentType\": 5126, \"count\": %lu, \"type\": \"SCALAR\"}%s\n",
             (unsigned long)byteoffset, (unsigned long)vertexcount,
             item->min[0], item->min[1], item->min[2],
             item->max[0], item->max[1], item->max[2],
@@ -2202,6 +2293,7 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
             (unsigned long)(byteoffset + 20), (unsigned long)vertexcount,
             (unsigned long)(byteoffset + 24), (unsigned long)vertexcount,
             (unsigned long)(byteoffset + 36), (unsigned long)vertexcount,
+            (unsigned long)(byteoffset + 44), (unsigned long)vertexcount,
             comma) < 0)
         {
             ok = FALSE;
@@ -2237,38 +2329,34 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
         }
     }
 
-    if (ok && fprintf(file, "  ],\n  \"meshes\": [{\"name\": \"GoldenEye model\", \"primitives\": [\n") < 0)
+    if (ok && fprintf(file,"  ],\n  \"meshes\": [\n")<0) { ok=FALSE; }
+    for (group=0; ok && group<groupcount; group++)
     {
-        ok = FALSE;
-    }
-    for (group = 0; ok && group < groupcount; group++)
-    {
-        const char *comma = group + 1 < groupcount ? "," : "";
-
-        char environment[128] = "";
+        char attributes[180] = "";
+        if (source != NULL || group == 0)
+        {
+            if (fprintf(file,"    {\"extras\": {\"goldeneyePreviewHidden\": %s}, \"primitives\": [\n",
+                source != NULL && groups[group].hidden ? "true" : "false")<0) { ok=FALSE; break; }
+        }
         if (groups[group].renderflags & BG_RENDER_ENVIRONMENT)
         {
-            snprintf(environment, sizeof(environment),
-                     ", \"NORMAL\": %lu, \"_GUD_ENV_SCALE\": %lu",
-                     (unsigned long)(group * 5 + 3), (unsigned long)(group * 5 + 4));
+            snprintf(attributes,sizeof(attributes),", \"NORMAL\": %lu, \"_GUD_ENV_SCALE\": %lu",
+                (unsigned long)(group*6+3),(unsigned long)(group*6+4));
+        }
+        if (source != NULL)
+        {
+            size_t used=strlen(attributes);
+            snprintf(attributes+used,sizeof(attributes)-used,", \"_GUD_VERTEX\": %lu",(unsigned long)(group*6+5));
         }
         if (fprintf(file,
-            "    {\"attributes\": {\"POSITION\": %lu, \"TEXCOORD_0\": %lu, \"COLOR_0\": %lu%s}, \"material\": %lu, \"mode\": 4, \"extras\": {\"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
-            (unsigned long)(group * 5),
-            (unsigned long)(group * 5 + 1),
-            (unsigned long)(group * 5 + 2), environment,
-            (unsigned long)group, groups[group].tag,
-            groups[group].texturewidth, groups[group].textureheight,
-            comma) < 0)
-        {
-            ok = FALSE;
-        }
+            "      {\"attributes\": {\"POSITION\": %lu, \"TEXCOORD_0\": %lu, \"COLOR_0\": %lu%s}, \"material\": %lu, \"mode\": 4, \"extras\": {\"goldeneyeTextureTag\": %u, \"goldeneyeUvUnits\": \"normalized\", \"goldeneyeTextureSize\": [%d, %d]}}%s\n",
+            (unsigned long)(group*6),(unsigned long)(group*6+1),(unsigned long)(group*6+2),attributes,
+            (unsigned long)group,groups[group].tag,groups[group].texturewidth,groups[group].textureheight,
+            source == NULL && group+1<groupcount ? "," : "")<0) { ok=FALSE; }
+        if ((source != NULL || group+1==groupcount)
+            && fprintf(file,"    ]}%s\n",source != NULL && group+1<groupcount ? "," : "")<0) { ok=FALSE; }
     }
-
-    if (ok && fprintf(file, "  ]}]\n}\n") < 0)
-    {
-        ok = FALSE;
-    }
+    if (ok && fprintf(file,"  ]\n}\n")<0) { ok=FALSE; }
     if (fclose(file) != 0)
     {
         ok = FALSE;
@@ -2281,11 +2369,11 @@ static BOOL GltfWriteJson(const char *path, const unsigned char *binary,
 }
 
 
-BOOL GltfWriteModel(const char *path, const char *projectdir,
+static BOOL GltfWriteModelSource(const char *path, const char *projectdir,
                     const BgVertex *vertices,
                     const unsigned short *tritags,
                     const BgRenderFlags *renderflags, DWORD tricount,
-                    const char **reasonout)
+                    const ModelSource *source, DWORD sourcehash, const char **reasonout)
 {
     GltfGroup *groups = NULL;
     GltfImage *images = NULL;
@@ -2327,10 +2415,13 @@ BOOL GltfWriteModel(const char *path, const char *projectdir,
         /* Keep authored draw order, including repeated texture tags separated
            by other materials. The same image can be opaque and translucent. */
         if (groupcount == 0 || groups[groupcount - 1].tag != tag
-            || groups[groupcount - 1].renderflags != flags)
+            || groups[groupcount - 1].renderflags != flags
+            || (source != NULL && groups[groupcount - 1].part != source->faces[triangle].list))
         {
             groups[groupcount].tag = tag;
             groups[groupcount].renderflags = flags;
+            groups[groupcount].part = source != NULL ? source->faces[triangle].list : 0;
+            groups[groupcount].hidden = source != NULL && source->closestpreview && !source->faces[triangle].closest;
             groupcount++;
         }
         groups[groupcount - 1].tricount++;
@@ -2361,6 +2452,8 @@ BOOL GltfWriteModel(const char *path, const char *projectdir,
             GltfPackVertex(binary + (destination + corner)
                            * GLTF_VERTEX_STRIDE, vertex,
                            group->texturewidth, group->textureheight);
+            GltfWriteFloat(binary + (destination + corner) * GLTF_VERTEX_STRIDE + 44,
+                           (float)(triangle * 3 + corner));
 
             for (axis = 0; axis < 3; axis++)
             {
@@ -2380,7 +2473,7 @@ BOOL GltfWriteModel(const char *path, const char *projectdir,
         group->written++;
     }
 
-    ok = GltfWriteJson(path, binary, binarysize, groups, groupcount, images, imagecount);
+    ok = GltfWriteJson(path, binary, binarysize, groups, groupcount, images, imagecount, source, sourcehash);
     if (!ok)
     {
         *reasonout = "the glTF model file could not be completely written.";
@@ -2390,5 +2483,135 @@ done:
     GltfFreeImages(images, imagecount);
     free(groups);
     free(binary);
+    return ok;
+}
+
+BOOL GltfWriteModel(const char *path, const char *projectdir, const BgVertex *vertices,
+    const unsigned short *tags, const BgRenderFlags *flags, DWORD count, const char **reasonout)
+{
+    return GltfWriteModelSource(path,projectdir,vertices,tags,flags,count,NULL,0,reasonout);
+}
+
+BOOL GltfWriteEditableModel(const char *path, const char *projectdir,
+    const ModelSource *source, DWORD sourcehash, const char **reasonout)
+{
+    if (source->count == 0)
+    {
+        FILE *file=fopen(path,"wb");
+        BOOL ok;
+        if (!file) { *reasonout="The empty model could not be written."; return FALSE; }
+        ok=fprintf(file,"{\"asset\":{\"version\":\"2.0\"},\"scene\":0,\"scenes\":[{\"extras\":{\"goldeneyeSourceHash\":\"%08lX\"},\"nodes\":[]}]}\n",(unsigned long)sourcehash)>0;
+        if (fclose(file)!=0) { ok=FALSE; }
+        if (!ok) { *reasonout="The empty model could not be completely written."; }
+        return ok;
+    }
+    return GltfWriteModelSource(path,projectdir,source->vertices,source->tags,source->flags,
+        source->count,source,sourcehash,reasonout);
+}
+
+void GltfFreeModelImport(GltfModelImport *model)
+{
+    free(model->vertices); free(model->tags); free(model->sourcevertices);
+    ZeroMemory(model,sizeof(*model));
+}
+
+BOOL GltfReadModelImport(const char *path, DWORD sourcehash,
+                         GltfModelImport *model, const char **reasonout)
+{
+    char *file = NULL, *json = NULL;
+    size_t size, jsonsize;
+    const unsigned char *bin = NULL;
+    DWORD binsize = 0, offset, sceneindex = 0, i;
+    GltfJsonToken *tokens = NULL;
+    GltfBuffer *buffers = NULL;
+    DWORD buffercount = 0;
+    GltfBuilder builder;
+    int tokencount = 0, token, scenes, scene, nodes, visited = 0;
+    BOOL foundhash = FALSE, ok = FALSE;
+    const double identity[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
+    ZeroMemory(model,sizeof(*model)); ZeroMemory(&builder,sizeof(builder));
+    builder.importing = TRUE;
+    *reasonout = "The model import file is invalid or unsupported.";
+    file = GltfReadTextFile(path,&size);
+    if (file == NULL) { goto done; }
+    json = file; jsonsize = size;
+    if (size >= 12 && GltfReadU32((unsigned char *)file) == 0x46546c67)
+    {
+        if (GltfReadU32((unsigned char *)file+4) != 2 || GltfReadU32((unsigned char *)file+8) != size) { goto done; }
+        json = NULL;
+        for (offset=12; offset+8<=size; )
+        {
+            DWORD length = GltfReadU32((unsigned char *)file+offset);
+            DWORD type = GltfReadU32((unsigned char *)file+offset+4);
+            offset += 8;
+            if (length > size-offset || (length & 3)) { goto done; }
+            if (type == 0x4e4f534a)
+            {
+                if (json != NULL) { goto done; }
+                json=file+offset; jsonsize=length;
+            }
+            else if (type == 0x004e4942)
+            {
+                if (bin != NULL) { goto done; }
+                bin=(unsigned char *)file+offset; binsize=length;
+            }
+            offset += length;
+        }
+        if (offset != size || json == NULL) { goto done; }
+    }
+    if (!GltfJsonParse(json,jsonsize,&tokens,&tokencount,reasonout)) { goto done; }
+    token=GltfJsonObjectGet(json,tokens,tokencount,0,"asset");
+    token=GltfJsonObjectGet(json,tokens,tokencount,token,"version");
+    if (token<0 || !GltfJsonTokenEquals(json,&tokens[token],"2.0")) { goto done; }
+    /* Blender preserves object/scene extras when Custom Properties is enabled.
+       Check all occurrences so mixed exports cannot replace the wrong model. */
+    for (token=0; token<tokencount; token++)
+    {
+        if (tokens[token].type == GLTF_JSON_OBJECT)
+        {
+            int property=GltfJsonObjectGet(json,tokens,tokencount,token,"goldeneyeSourceHash");
+            if (property>=0)
+            {
+                DWORD value=0;
+                BOOL valid=FALSE;
+                char *hash=GltfJsonCopyString(json,&tokens[property]);
+                if (hash != NULL && strlen(hash)==8)
+                {
+                    char *end;
+                    value=(DWORD)strtoul(hash,&end,16); valid=*end==0;
+                }
+                free(hash);
+                if (!valid || value!=sourcehash)
+                { *reasonout="This file belongs to a different model or an older revision. Export the current model before editing it."; goto done; }
+                foundhash=TRUE;
+            }
+        }
+    }
+    if (!foundhash)
+    { *reasonout="The model has no GUD source identity. Use Export Model in GEditor and enable Include > Custom Properties in Blender."; goto done; }
+    token=GltfJsonObjectGet(json,tokens,tokencount,0,"buffers");
+    if (GltfJsonArrayCount(tokens,tokencount,token)>0
+        && !GltfLoadBuffers(path,json,tokens,tokencount,0,bin,binsize,&buffers,&buffercount,reasonout)) { goto done; }
+    token=GltfJsonObjectGet(json,tokens,tokencount,0,"scene");
+    if (token>=0 && !GltfJsonUnsigned(json,&tokens[token],&sceneindex)) { goto done; }
+    scenes=GltfJsonObjectGet(json,tokens,tokencount,0,"scenes");
+    scene=GltfJsonArrayGet(tokens,tokencount,scenes,sceneindex);
+    if (scene<0) { goto done; }
+    nodes=GltfJsonObjectGet(json,tokens,tokencount,scene,"nodes");
+    for (i=0; i<GltfJsonArrayCount(tokens,tokencount,nodes); i++)
+    {
+        DWORD index;
+        token=GltfJsonArrayGet(tokens,tokencount,nodes,i);
+        if (!GltfJsonUnsigned(json,&tokens[token],&index)
+            || !GltfLoadGlbNode(json,tokens,tokencount,index,buffers,buffercount,identity,
+                               &builder,0,&visited,reasonout)) { goto done; }
+    }
+    model->vertices=builder.vertices; builder.vertices=NULL;
+    model->tags=builder.tags; builder.tags=NULL;
+    model->sourcevertices=builder.sourcevertices; builder.sourcevertices=NULL;
+    model->count=builder.tricount; ok=TRUE; *reasonout="";
+done:
+    free(file); free(tokens); GltfFreeBuffers(buffers,buffercount);
+    free(builder.vertices); free(builder.tags); free(builder.renderflags); free(builder.sourcevertices);
     return ok;
 }

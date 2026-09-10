@@ -10,6 +10,7 @@
 
 #include "characterload.h"
 #include "gltf.h"
+#include "modeledits.h"
 #include "modelload.h"
 #include "idleposes.h"
 
@@ -134,31 +135,34 @@ static CharacterPart *CharacterGetPart(CharacterPart *cache, int modelid, int po
         written = snprintf(path, sizeof(path), "%s\\models\\characters\\%s.gltf",
                             projectdir, definition->filename);
         if (written < 0 || written >= (int)sizeof(path)) { return NULL; }
-        part->vertices = GltfLoadModel(path, projectdir, &part->tricount,
-                                       &part->tags, &part->renderflags, &why);
+        part->vertices = ModelLoadProjectNamedGeometry(projectdir, "characters", definition->filename,
+            &part->tricount, &part->tags, &part->renderflags, &why);
         if (part->vertices == NULL) { return NULL; }
         ModelTransformIdentity(&part->attachments.head);
         ModelTransformIdentity(&part->attachments.hands[0]);
         ModelTransformIdentity(&part->attachments.hands[1]);
-        /* Flattened glTFs retain edited surfaces. Read attachment points
-           from the import ROM, as props do for authored placement boxes. */
-        if (rom != NULL && rom->data != NULL
+        /* Replacements retain their native skeleton and attachment points.
+           Pose the edited native model so face deletion keeps joint bindings. */
+        const unsigned char *native = ModelEditsGetData(projectdir, definition->filename, &size, &why);
+        if (native == NULL && rom != NULL && rom->data != NULL
             && RomFindFile(rom, definition->filename, &offset, &size, &why))
+        { native = rom->data + offset; }
+        if (native != NULL)
         {
             if (!definition->hashead)
             {
-                part->attachments.hashead = ModelReadHeadAttachment(rom->data + offset,
+                part->attachments.hashead = ModelReadHeadAttachment(native,
                     size, part->attachments.head.m[3]);
             }
-            part->attachments.hashands[0] = ModelReadSwitchAttachment(rom->data + offset,
+            part->attachments.hashands[0] = ModelReadSwitchAttachment(native,
                 size, *definition->header, 3, part->attachments.hands[0].m[3]);
-            part->attachments.hashands[1] = ModelReadSwitchAttachment(rom->data + offset,
+            part->attachments.hashands[1] = ModelReadSwitchAttachment(native,
                 size, *definition->header, 5, part->attachments.hands[1].m[3]);
             if (poseid != CHARACTER_POSE_NONE)
             {
                 const unsigned short *angles = poseid == CHARACTER_POSE_RELAXED
                     ? g_EditorPose_idle_unarmed : g_EditorPose_idle;
-                ModelApplyCharacterPose(rom->data + offset, size, *definition->header,
+                ModelApplyCharacterPose(native, size, *definition->header,
                     angles, poseid == CHARACTER_POSE_TWO_HANDED_LEFT,
                     part->vertices, part->tricount, &part->attachments);
             }

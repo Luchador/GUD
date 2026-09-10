@@ -18,6 +18,23 @@ BOOL GltfWriteModel(const char *path, const char *projectdir,
                     const BgRenderFlags *renderflags, DWORD tricount,
                     const char **reasonout);
 
+struct ModelSource;
+BOOL GltfWriteEditableModel(const char *path, const char *projectdir,
+                            const struct ModelSource *source, DWORD sourcehash,
+                            const char **reasonout);
+
+/* Import source identities through Blender's generic underscore attributes.
+ * Positions are transformed through the selected scene; UVs stay normalized. */
+typedef struct GltfModelImport {
+    BgVertex *vertices;
+    unsigned short *tags;
+    DWORD *sourcevertices;
+    DWORD count;
+} GltfModelImport;
+BOOL GltfReadModelImport(const char *path, DWORD sourcehash,
+                         GltfModelImport *model, const char **reasonout);
+void GltfFreeModelImport(GltfModelImport *model);
+
 /* Loads triangle primitives from a glTF 2.0 JSON file. Standard base-color
  * texture samplers override native wrapping extras when present. The loader accepts
  * embedded or external buffers, indexed or non-indexed primitives, and the

@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include "romexport.h"
+#include "modeledits.h"
 
 #define ROM_EXPORT_FTBL_MAX_ROWS 1024u
 #define ROM_EXPORT_CHECKSUM_END  0x101000u
@@ -36,6 +37,7 @@ typedef struct RomExportSlot {
     DWORD newoffset;
     unsigned char *replacement;
     DWORD replacementlength;
+    BOOL model;
 } RomExportSlot;
 
 static char g_RomExportError[256];
@@ -824,6 +826,7 @@ static BOOL RomExportRepackResources(RomFile *rom,
         memcpy(packed + cursor, rom->data + slot->offset, slot->length);
         if (slot->replacement != NULL)
         {
+            if (slot->model) { memset(packed + cursor, 0, slot->length); }
             memcpy(packed + cursor, slot->replacement,
                    slot->replacementlength);
             if (slot->replacementlength > payload)
@@ -988,6 +991,11 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
             slot->length = maxlen;
         }
 
+        managed = ModelEditsReadReplacement(project->dir, resource, rom->data + offset,
+            maxlen, &data, &length, reasonout);
+        if (managed < 0) { goto fail; }
+        if (managed > 0) { slot->model = TRUE; goto have_replacement; }
+
         managed = RomExportProjectResourcePath(project, resource, path,
                                                sizeof(path));
         if (managed == 0)
@@ -1021,6 +1029,7 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
             goto fail;
         }
 
+have_replacement:
         /* Most aliases are untouched duplicate project copies. Ignore
          * those so one genuinely edited alias can supply the shared
          * slot without conflicting with its original siblings. */
@@ -1072,6 +1081,7 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
     {
         if (slots[index].replacement != NULL)
         {
+            if (slots[index].model) { memset(rom->data + slots[index].offset, 0, slots[index].length); }
             memcpy(rom->data + slots[index].offset,
                    slots[index].replacement,
                    slots[index].replacementlength);

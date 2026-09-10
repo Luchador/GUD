@@ -67,6 +67,8 @@
 #define IDC_MODEL_ITEMS_LABEL      1044
 #define IDC_MODEL_PROPS_LABEL      1045
 #define IDC_MODEL_STATUS           1046
+#define IDC_MODEL_EXPORT           1047
+#define IDC_MODEL_IMPORT           1048
 
 /* Longest project name we accept, including the terminator. */
 #define GEDITOR_NAME_MAX       64

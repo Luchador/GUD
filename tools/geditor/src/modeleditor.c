@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <windowsx.h>
+#include <commdlg.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -7,6 +8,7 @@
 #include <math.h>
 
 #include "modeleditor.h"
+#include "modeledits.h"
 #include "modelload.h"
 #include "viewport.h"
 #include "uveditor.h"
@@ -21,6 +23,7 @@ static HWND g_ModelEditor, g_ModelViewport;
 static char g_ModelProject[MAX_PATH];
 static ModelEditorEntry *g_ModelEntries;
 static int g_ModelCount;
+static int g_ModelSelected = -1;
 static const int g_ModelCombos[] = { IDC_MODEL_CHARACTERS, IDC_MODEL_ITEMS, IDC_MODEL_PROPS };
 
 static void ModelEditorClearViewport(void)
@@ -78,6 +81,9 @@ void ModelEditorSetProject(const char *projectdir)
     lstrcpyn(g_ModelProject, projectdir != NULL ? projectdir : "", sizeof(g_ModelProject));
     if (g_ModelEditor == NULL) { return; }
     ModelEditorClearViewport();
+    g_ModelSelected = -1;
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_EXPORT),FALSE);
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_IMPORT),FALSE);
     for (category = 0; category < 3; category++)
     {
         SendDlgItemMessage(g_ModelEditor, g_ModelCombos[category], CB_RESETCONTENT, 0, 0);
@@ -121,6 +127,9 @@ static void ModelEditorSelect(int category)
     if (row == CB_ERR) { return; }
     index = SendMessage(combo, CB_GETITEMDATA, row, 0);
     if (index < 0 || index >= g_ModelCount) { return; }
+    g_ModelSelected = (int)index;
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_EXPORT),TRUE);
+    EnableWindow(GetDlgItem(g_ModelEditor,IDC_MODEL_IMPORT),TRUE);
     entry = &g_ModelEntries[index];
     for (other = 0; other < 3; other++)
     {
@@ -132,7 +141,7 @@ static void ModelEditorSelect(int category)
                                              &count, &tags, &flags, &why);
     if (vertices != NULL)
     {
-        loaded = count > 0 && count <= INT_MAX / 3;
+        loaded = count <= INT_MAX / 3;
         for (corner = 0; loaded && corner < count * 3; corner++)
         {
             loaded = isfinite(vertices[corner].x) && isfinite(vertices[corner].y) && isfinite(vertices[corner].z);
@@ -161,10 +170,51 @@ static void ModelEditorSelect(int category)
     SetFocus(g_ModelViewport);
 }
 
+static void ModelEditorTransfer(BOOL importing)
+{
+    OPENFILENAME ofn;
+    char path[MAX_PATH] = "", message[256];
+    const ModelEditorEntry *entry;
+    const char *why="";
+    DWORD before=0, after=0;
+    BOOL ok;
+    HCURSOR previous;
+    int category;
+    if (g_ModelSelected < 0 || g_ModelSelected >= g_ModelCount) { return; }
+    entry=&g_ModelEntries[g_ModelSelected];
+    if (!importing) { snprintf(path,sizeof(path),"%s.gltf",entry->name); }
+    ZeroMemory(&ofn,sizeof(ofn)); ofn.lStructSize=sizeof(ofn);ofn.hwndOwner=g_ModelEditor;
+    ofn.lpstrFile=path;ofn.nMaxFile=sizeof(path);ofn.lpstrDefExt="gltf";
+    ofn.lpstrTitle=importing ? "Import replacement model" : "Export model for Blender";
+    ofn.lpstrFilter=importing ? "glTF models (*.glb;*.gltf)\0*.glb;*.gltf\0\0" : "glTF model (*.gltf)\0*.gltf\0\0";
+    ofn.Flags=OFN_EXPLORER|OFN_NOCHANGEDIR|OFN_PATHMUSTEXIST|(importing ? OFN_FILEMUSTEXIST : OFN_OVERWRITEPROMPT);
+    if (!(importing ? GetOpenFileName(&ofn) : GetSaveFileName(&ofn))) { return; }
+    previous=SetCursor(LoadCursor(NULL,IDC_WAIT));
+    ok=importing ? ModelEditsImport(g_ModelProject,entry->name,path,&before,&after,&why)
+                 : ModelEditsExport(g_ModelProject,entry->name,path,&why);
+    SetCursor(previous);
+    if (!ok) { MessageBox(g_ModelEditor,why,"Model Editor",MB_ICONERROR);return; }
+    if (!importing)
+    {
+        SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,
+            "Exported all LODs. In Blender enable Custom Properties, Attributes, UVs and Vertex Colors.");
+        return;
+    }
+    for (category=0;category<3;category++)
+    {
+        if (SendDlgItemMessage(g_ModelEditor,g_ModelCombos[category],CB_GETCURSEL,0,0)!=CB_ERR)
+        { ModelEditorSelect(category);break; }
+    }
+    snprintf(message,sizeof(message),"Imported all LODs: %lu to %lu tris. Save Project to keep the replacement.",
+        (unsigned long)before,(unsigned long)after);
+    SetDlgItemText(g_ModelEditor,IDC_MODEL_STATUS,message);
+    SendMessage(GetWindow(g_ModelEditor,GW_OWNER),MODELEDITOR_CHANGED,0,0);
+}
+
 static void ModelEditorLayout(HWND hwnd)
 {
     static const int labels[] = { IDC_MODEL_CHARACTERS_LABEL, IDC_MODEL_ITEMS_LABEL, IDC_MODEL_PROPS_LABEL };
-    RECT client, units = { 8, 52, 70, 18 };
+    RECT client, units = { 8, 80, 88, 18 };
     int category, margin, column, bottom;
     GetClientRect(hwnd, &client);
     MapDialogRect(hwnd, &units);
@@ -178,6 +228,8 @@ static void ModelEditorLayout(HWND hwnd)
         MoveWindow(GetDlgItem(hwnd, g_ModelCombos[category]), x, margin + units.bottom,
                    column, units.bottom * 12, TRUE);
     }
+    MoveWindow(GetDlgItem(hwnd,IDC_MODEL_EXPORT),margin,margin*2+units.bottom*2,units.right,units.bottom,TRUE);
+    MoveWindow(GetDlgItem(hwnd,IDC_MODEL_IMPORT),margin*2+units.right,margin*2+units.bottom*2,units.right,units.bottom,TRUE);
     if (g_ModelViewport != NULL)
     {
         MoveWindow(g_ModelViewport, 0, units.top, client.right, max(0, bottom - units.top), TRUE);
@@ -210,6 +262,8 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
         return TRUE;
     }
     case WM_COMMAND:
+        if (LOWORD(wparam)==IDC_MODEL_EXPORT || LOWORD(wparam)==IDC_MODEL_IMPORT)
+        { ModelEditorTransfer(LOWORD(wparam)==IDC_MODEL_IMPORT);return TRUE; }
         if (LOWORD(wparam) >= IDC_MODEL_CHARACTERS && LOWORD(wparam) <= IDC_MODEL_PROPS
             && HIWORD(wparam) == CBN_SELCHANGE)
         {
@@ -223,7 +277,7 @@ static INT_PTR CALLBACK ModelEditorDialogProc(HWND hwnd, UINT message, WPARAM wp
         DestroyWindow(hwnd);
         return TRUE;
     case WM_NCDESTROY:
-        free(g_ModelEntries); g_ModelEntries = NULL; g_ModelCount = 0;
+        free(g_ModelEntries); g_ModelEntries = NULL; g_ModelCount = 0; g_ModelSelected = -1;
         g_ModelViewport = NULL; g_ModelEditor = NULL;
         break;
     }

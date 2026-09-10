@@ -21,6 +21,8 @@
 #include "gltf.h"
 #include "bgrender.h"
 #include "modelload.h"
+#include "modeledits.h"
+#include "modelcompile.h"
 
 /* Reuse the exact model-ID order and scale values compiled into the
    game. Redefining the record macro avoids pulling any N64 structs or
@@ -78,6 +80,9 @@ typedef struct MdlBuilder {
     DWORD           count;
     DWORD           capacity;
     const char     *error;
+    ModelSource *source;
+    DWORD list;
+    BOOL closest;
 } MdlBuilder;
 
 static DWORD md32(const unsigned char *p)
@@ -122,6 +127,12 @@ static void MdlPush(MdlBuilder *b, const BgVertex *v)
             return;
         }
 
+        if (b->source != NULL)
+        {
+            ModelSourceFace *faces = realloc(b->source->faces, (next / 3) * sizeof(*faces));
+            if (faces == NULL) { b->error = "out of memory retaining model face identities."; return; }
+            b->source->faces = faces;
+        }
         b->capacity = next;
     }
 
@@ -236,7 +247,6 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
     const float *translation = origin;
     const ModelTransform *transform = pose->animated != NULL
         ? &pose->animated->matrices[pose->defaultmatrix] : NULL;
-    unsigned short curtex = BG_TEX_NONE;
 
     for (pc = gdloffset; pc + 8 <= maxlen; pc += 8)
     {
@@ -256,12 +266,12 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
 
         if (cmd[0] == MDL_G_ENDDL)
         {
+            if (b->source != NULL) { b->source->lists[b->list].end = pc + 8; }
             return;
         }
 
         if (cmd[0] == MDL_G_NOOP)
         {
-            curtex = (unsigned short)(md32(cmd + 4) & 0xFFF);
             material->textureword0 = md32(cmd);
             material->textureword1 = md32(cmd + 4);
             continue;
@@ -307,6 +317,8 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
                 valid = 0;
                 continue;
             }
+            if (b->source != NULL && addr + count * 16 > b->source->lists[0].offset)
+            { b->error = "this model stores vertex data after its display lists."; return; }
             for (i = 0; i < count; i++)
             {
                 const unsigned char *v = data + addr + i * 16;
@@ -332,6 +344,8 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
             continue;
         }
 
+        if (b->source != NULL && cmd[0] == 0x06)
+        { b->error = "nested model display lists are not supported for editing yet."; return; }
         if (cmd[0] == MDL_G_TRI1 || cmd[0] == MDL_G_TRI4)
         {
             int tri;
@@ -390,7 +404,13 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
 
                 if (!b->error)
                 {
-                    b->texids[b->count / 3 - 1] = (unsigned short)(curtex | layerflag);
+                    b->texids[b->count / 3 - 1] = (unsigned short)(BgMaterialTextureId(material) | layerflag);
+                    if (b->source != NULL)
+                    {
+                        ModelSourceFace *face = &b->source->faces[b->count / 3 - 1];
+                        face->command = pc; face->list = b->list; face->slot = (unsigned char)tri;
+                        face->material = *material; face->closest = b->closest;
+                    }
                     b->renderflags[b->count / 3 - 1] = (BgRenderStateFlags(state) & ~BG_RENDER_ENVIRONMENT_MASK)
                         | cacheflags[idx[0]]
                         | (alpha.texture ? 0 : BG_RENDER_IGNORE_TEXTURE_ALPHA)
@@ -399,6 +419,39 @@ static void MdlWalkGdl(MdlBuilder *b, const unsigned char *data, DWORD maxlen,
             }
         }
     }
+}
+
+static void MdlSourceWalk(MdlBuilder *b, const unsigned char *data, DWORD size,
+    DWORD pointer, DWORD offset, DWORD vertices, unsigned short layer,
+    const MdlPose *pose, const float origin[3], BgRenderState *state, BgMaterial *material, BOOL preserve)
+{
+    if (b->source != NULL)
+    {
+        ModelSource *source = b->source;
+        ModelSourceList *grown;
+        if (source->listcount >= MDL_MAX_NODES * 2
+            || (source->listcount && offset < source->lists[source->listcount - 1].end)
+            || pointer + 4 > (source->listcount ? source->lists[0].offset : offset))
+        { b->error = "this model's display-list layout cannot be safely rebuilt."; return; }
+        grown = realloc(source->lists, (source->listcount + 1) * sizeof(*grown));
+        if (grown == NULL) { b->error = "out of memory retaining model parts."; return; }
+        source->lists = grown; b->list = source->listcount++;
+        grown[b->list].pointer = pointer; grown[b->list].offset = offset;
+        grown[b->list].end = 0; grown[b->list].vertexbase = vertices;
+        grown[b->list].initial = *material; grown[b->list].preserve = preserve;
+        if (preserve)
+        {
+            DWORD pc;
+            for (pc=offset; pc+8<=size; pc+=8)
+            {
+                if (data[pc]==MDL_G_ENDDL) { grown[b->list].end=pc+8; return; }
+            }
+            b->error="A dynamic model display list has no end command.";return;
+        }
+    }
+    MdlWalkGdl(b, data, size, offset, vertices, layer, pose, origin, state, material);
+    if (b->source != NULL && b->source->lists[b->list].end == 0 && b->error == NULL)
+    { b->error = "a model display list has no end command."; }
 }
 
 /* Emits the mesh data of one node, if it has any. */
@@ -418,6 +471,13 @@ static void MdlNodeMeshes(MdlBuilder *b, const unsigned char *data,
     material.combineword0 = 0xFC26A004u;
     material.combineword1 = 0x1F1093FFu;
 
+    if (b->source != NULL && opcode == 0x16)
+    {
+        if (dataoff == 0 || dataoff > maxlen - 16) { b->error="A dynamic model part is invalid."; return; }
+        DWORD offset=mdoff(md32(data+dataoff+8));
+        if (offset) { MdlSourceWalk(b,data,maxlen,dataoff+8,offset,mdoff(md32(data+dataoff+4)),0,pose,origin,&state,&material,TRUE); }
+        return;
+    }
     if (dataoff == 0 || dataoff + 0x14 > maxlen)
     {
         return;
@@ -443,7 +503,7 @@ static void MdlNodeMeshes(MdlBuilder *b, const unsigned char *data,
 
     if (prioff != 0 && prioff < maxlen)
     {
-        MdlWalkGdl(b, data, maxlen, prioff, vtxbase, 0, pose, origin, &state, &material);
+        MdlSourceWalk(b, data, maxlen, dataoff, prioff, vtxbase, 0, pose, origin, &state, &material, FALSE);
     }
 
     if (secoff != 0 && secoff < maxlen)
@@ -458,8 +518,8 @@ static void MdlNodeMeshes(MdlBuilder *b, const unsigned char *data,
             material.combineword0 = 0xFC26A004u;
             material.combineword1 = 0x1F1093FFu;
         }
-        MdlWalkGdl(b, data, maxlen, secoff, vtxbase, BG_TRI_SECONDARY, pose, origin,
-                   &state, &material);
+        MdlSourceWalk(b, data, maxlen, dataoff + 4, secoff, vtxbase, BG_TRI_SECONDARY, pose, origin,
+                   &state, &material, FALSE);
     }
 }
 
@@ -848,7 +908,7 @@ static BOOL MdlBuildIdleMatrices(const unsigned char *data, DWORD size,
 static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
                             DWORD *tricount, unsigned short **texids,
                             BgRenderFlags **renderflags,
-                            const char **reasonout, BOOL closestlod, const MdlAnimatedPose *animated)
+                            const char **reasonout, BOOL closestlod, const MdlAnimatedPose *animated, ModelSource *source)
 {
     MdlBuilder b;
     MdlPose pose;
@@ -889,6 +949,7 @@ static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
     }
 
     ZeroMemory(&b, sizeof(b));
+    b.source = source;
     ZeroMemory(&pose, sizeof(pose));
     pose.animated = animated;
     stack[sp++] = rootoff;
@@ -958,11 +1019,12 @@ static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
                     break;
                 }
             }
+            b.closest = MdlNodeInClosestLod(data, maxlen, node);
             MdlNodeMeshes(&b, data, maxlen, flags & 0xff, dataoff, &pose, origin);
         }
     }
 
-    if (b.error || b.count == 0)
+    if (b.error || (b.count == 0 && source == NULL))
     {
         free(b.verts);
         free(b.texids);
@@ -972,6 +1034,11 @@ static BgVertex *MdlLoadGeometry(const unsigned char *data, DWORD maxlen,
         return NULL;
     }
 
+    if (source != NULL && b.verts == NULL)
+    {
+        b.verts = calloc(1, sizeof(*b.verts));
+        if (b.verts == NULL) { *reasonout = "out of memory loading an empty model."; }
+    }
     *tricount = b.count / 3;
     *texids = b.texids;
     *renderflags = b.renderflags;
@@ -983,7 +1050,7 @@ BgVertex *ModelLoadGeometry(const unsigned char *data, DWORD maxlen,
                             BgRenderFlags **renderflags,
                             const char **reasonout)
 {
-    return MdlLoadGeometry(data, maxlen, tricount, texids, renderflags, reasonout, FALSE, NULL);
+    return MdlLoadGeometry(data, maxlen, tricount, texids, renderflags, reasonout, FALSE, NULL, NULL);
 }
 
 BgVertex *ModelLoadCharacterGeometry(const unsigned char *data, DWORD maxlen,
@@ -991,7 +1058,23 @@ BgVertex *ModelLoadCharacterGeometry(const unsigned char *data, DWORD maxlen,
                                      BgRenderFlags **renderflags,
                                      const char **reasonout)
 {
-    return MdlLoadGeometry(data, maxlen, tricount, texids, renderflags, reasonout, TRUE, NULL);
+    return MdlLoadGeometry(data, maxlen, tricount, texids, renderflags, reasonout, TRUE, NULL, NULL);
+}
+
+void ModelFreeSource(ModelSource *source)
+{
+    free(source->vertices); free(source->tags); free(source->flags);
+    free(source->faces); free(source->lists); ZeroMemory(source, sizeof(*source));
+}
+
+BOOL ModelReadSource(const unsigned char *data, DWORD size, ModelSource *source,
+                      const char **reasonout)
+{
+    ZeroMemory(source, sizeof(*source));
+    source->vertices = MdlLoadGeometry(data, size, &source->count, &source->tags,
+        &source->flags, reasonout, FALSE, NULL, source);
+    if (source->vertices == NULL) { ModelFreeSource(source); return FALSE; }
+    return TRUE;
 }
 
 BOOL ModelApplyCharacterPose(const unsigned char *data, DWORD size, int switchcount,
@@ -1031,7 +1114,7 @@ BOOL ModelApplyCharacterPose(const unsigned char *data, DWORD size, int switchco
     pose = (MdlAnimatedPose *)calloc(1, sizeof(*pose));
     if (pose == NULL || !MdlBuildIdleMatrices(data, size, switchcount, angles,
                                             flip, pose, &posedattachments)) { goto done; }
-    posed = MdlLoadGeometry(data, size, &count, &tags, &flags, &why, TRUE, pose);
+    posed = MdlLoadGeometry(data, size, &count, &tags, &flags, &why, TRUE, pose, NULL);
     if (posed == NULL || count != tricount) { goto done; }
     for (i = 0; i < count * 3; i++)
     {
@@ -1127,11 +1210,16 @@ DWORD ModelExtractAll(const RomFile *rom, const char *projectdir,
         {
             wsprintf(path, "%s\\models\\%s\\%s.gltf", projectdir, cls, name);
 
-            if (GltfWriteModel(path, projectdir, tris, texids, renderflags,
-                               tricount, &why))
+            ModelSource source;
+            if (ModelReadSource(rom->data + offset, maxlen, &source, &why))
             {
-                written++;
+                source.closestpreview = name[0] == 'C';
+                if (GltfWriteEditableModel(path, projectdir, &source,
+                    ModelDataHash(rom->data + offset, maxlen), &why)) { written++; }
+                ModelFreeSource(&source);
             }
+            else if (GltfWriteModel(path, projectdir, tris, texids, renderflags, tricount, &why))
+            { written++; }
 
             free(tris);
             free(texids);
@@ -1213,6 +1301,21 @@ BgVertex *ModelLoadProjectNamedGeometry(const char *projectdir, const char *fold
     *tritags = NULL;
     *renderflags = NULL;
     *reasonout = "";
+
+    {
+        DWORD nativesize;
+        const unsigned char *native = ModelEditsGetData(projectdir,name,&nativesize,reasonout);
+        if (native != NULL)
+        {
+            result = name[0]=='C'
+                ? ModelLoadCharacterGeometry(native,nativesize,tricount,tritags,renderflags,reasonout)
+                : ModelLoadGeometry(native,nativesize,tricount,tritags,renderflags,reasonout);
+            if (result == NULL && !strcmp(*reasonout,"model produced no triangles."))
+            { *reasonout=""; result=calloc(1,sizeof(*result)); }
+            return result;
+        }
+        if ((*reasonout)[0]) { return NULL; }
+    }
 
     pathlength = snprintf(path, sizeof(path),
                           "%s\\models\\%s\\%s.gltf",

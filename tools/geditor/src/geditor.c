@@ -19,6 +19,7 @@
 #include "tooltoolbar.h"
 #include "uveditor.h"
 #include "modeleditor.h"
+#include "modeledits.h"
 #include "uvcanvas.h"
 #include "rom.h"
 #include "romexport.h"
@@ -479,6 +480,7 @@ static void GEditorCloseProject(HWND hwnd)
     BgDocumentFree(&g_CurrentBgDocument);
     BgFileFree(&g_CurrentBg);
     g_CurrentLevelIndex = GEDITOR_NO_LEVEL;
+    ModelEditsReset();
     ProjectClose(&g_Project);
     g_ProjectMetadataDirty = FALSE;
 
@@ -1105,7 +1107,7 @@ static BOOL GEditorHasUnsavedChanges(void)
 {
     return g_Project.name[0] != '\0'
         && (g_CurrentBgDocument.dirty || g_CurrentSetup.dirty
-            || g_CurrentStan.dirty || g_ProjectMetadataDirty);
+            || g_CurrentStan.dirty || g_ProjectMetadataDirty || ModelEditsHasUnsaved());
 }
 
 
@@ -1137,7 +1139,7 @@ static void GEditorSetTitleForProject(HWND hwnd)
 /*
  * Saves only the project's metadata and the resource files belonging
  * to the currently open level. Other extracted levels and shared
- * image/model assets remain untouched.
+ * pending model replacements are saved with the project.
  */
 static BOOL GEditorSaveProject(HWND hwnd)
 {
@@ -1202,6 +1204,12 @@ static BOOL GEditorSaveProject(HWND hwnd)
         }
 
         EditHistoryMarkStanSaved(&g_EditHistory, &g_CurrentStan);
+    }
+
+    if (!ModelEditsSave(g_Project.dir, &why))
+    {
+        MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+        goto done;
     }
 
     if (!ProjectSave(&g_Project, &why))
@@ -2955,6 +2963,16 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         EnableMenuItem((HMENU)wparam, ID_VIEW_UNHIDE_ALL, MF_BYCOMMAND |
             (ViewportHasHiddenBgFaces(g_Viewport) ? MF_ENABLED : MF_GRAYED));
         return 0;
+
+    case MODELEDITOR_CHANGED:
+    {
+        const char *why="";
+        if (g_CurrentLevelIndex < g_Project.levelcount && !GEditorReloadCurrentObjectsAndViewport(&why))
+        { MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR); }
+        GEditorRefreshSelectionDetails();
+        GEditorRefreshHistoryMenu(hwnd);
+        return 0;
+    }
 
     case WM_COMMAND:
         ViewportCancelTransform(g_Viewport);
