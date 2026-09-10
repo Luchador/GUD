@@ -40,7 +40,7 @@ static BOOL ModelEditorAddFolder(const char *folder, int category)
     char pattern[MAX_PATH];
     WIN32_FIND_DATA found;
     HANDLE search;
-    int length = snprintf(pattern, sizeof(pattern), "%s\\models\\%s\\*.*", g_ModelProject, folder);
+    int length = snprintf(pattern, sizeof(pattern), "%s\\models\\%s\\*.gltf", g_ModelProject, folder);
     if (length < 0 || length >= (int)sizeof(pattern)) { return FALSE; }
     search = FindFirstFile(pattern, &found);
     if (search == INVALID_HANDLE_VALUE) { return TRUE; }
@@ -48,18 +48,11 @@ static BOOL ModelEditorAddFolder(const char *folder, int category)
     {
         ModelEditorEntry *grown;
         char *extension = strrchr(found.cFileName, '.');
-        int index;
         LRESULT row;
         HWND combo = GetDlgItem(g_ModelEditor, g_ModelCombos[category]);
         if ((found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || extension == NULL
-            || (lstrcmpi(extension, ".gltf") != 0 && lstrcmpi(extension, ".ply") != 0)) { continue; }
+            || lstrcmpi(extension, ".gltf") != 0) { continue; }
         *extension = '\0';
-        for (index = 0; index < g_ModelCount; index++)
-        {
-            if (!strcmp(g_ModelEntries[index].folder, folder)
-                && lstrcmpi(g_ModelEntries[index].name, found.cFileName) == 0) { break; }
-        }
-        if (index != g_ModelCount) { continue; } /* glTF and PLY copies share one row. */
         grown = realloc(g_ModelEntries, ((size_t)g_ModelCount + 1) * sizeof(*grown));
         if (grown == NULL) { FindClose(search); return FALSE; }
         g_ModelEntries = grown;

@@ -397,10 +397,9 @@ static ModelCacheEntry *ObjectGetModel(ModelCacheEntry *cache, int modelid,
             DWORD offset, size;
 
             ObjectModelBounds(entry->tris, entry->tricount, entry->min, entry->max);
-            /* Project glTFs currently retain render geometry, not gameplay
-               boxes. Read the original box from the retained import ROM;
-               older projects without it keep mesh bounds as a fallback. */
-            if (rom->data != NULL && ModelGetPropDefinition(modelid, &name, NULL)
+            /* Gameplay boxes come from the required base ROM. Models with
+               no native box use their render-geometry bounds. */
+            if (ModelGetPropDefinition(modelid, &name, NULL)
                 && RomFindFile(rom, name, &offset, &size, &why))
             {
                 float min[3], max[3];
@@ -652,10 +651,10 @@ BOOL ObjectLoadSetupGeometry(const char *projectdir, const SetupFile *setup,
     }
     pathlength = snprintf(basepath, sizeof(basepath), "%s\\%s", projectdir,
                            ROM_EXPORT_BASE_FILENAME);
-    if (pathlength >= 0 && pathlength < (int)sizeof(basepath))
-    {
-        RomLoad(basepath, &rom, &basewhy);
-    }
+    if (pathlength < 0 || pathlength >= (int)sizeof(basepath))
+    { *reasonout = "The project base-ROM path is too long."; goto fail; }
+    if (!RomLoad(basepath, &rom, &basewhy))
+    { *reasonout = basewhy; goto fail; }
 
     for (i = 0; i < setup->objectcount; i++)
     {
@@ -1208,11 +1207,11 @@ BOOL ObjectScaleSetupModel(const char *projectdir, SetupFile *setup, const StanF
         *reasonout = "Out of memory scaling the prop.";
         goto done;
     }
-    if (snprintf(basepath, sizeof(basepath), "%s\\%s", projectdir, ROM_EXPORT_BASE_FILENAME) <
-        (int)sizeof(basepath))
     {
-        const char *ignored;
-        RomLoad(basepath, &rom, &ignored);
+        int length = snprintf(basepath, sizeof(basepath), "%s\\%s", projectdir, ROM_EXPORT_BASE_FILENAME);
+        if (length < 0 || length >= (int)sizeof(basepath))
+        { *reasonout = "The project base-ROM path is too long."; goto done; }
+        if (!RomLoad(basepath, &rom, reasonout)) { goto done; }
     }
     object = &setup->objects[index];
     model = ObjectGetModel(cache, object->modelid, projectdir, &rom);

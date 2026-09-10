@@ -106,25 +106,6 @@ static void RomCopyString(char *dst, DWORD dstmax, const unsigned char *src, DWO
     dst[i] = '\0';
 }
 
-/* "UsetupsevbunkerZ" -> "sevbunker". Unrecognized shapes copy through. */
-static void RomSetupStem(char *dst, DWORD dstmax, const char *setup)
-{
-    DWORD len;
-
-    if (strncmp(setup, "Usetup", 6) == 0)
-    {
-        setup += 6;
-    }
-
-    RomCopyString(dst, dstmax, (const unsigned char *)setup, dstmax);
-
-    len = strlen(dst);
-    if (len > 0 && dst[len - 1] == 'Z')
-    {
-        dst[len - 1] = '\0';
-    }
-}
-
 /* "bg/bg_sev_all_p.seg" -> "sev". */
 static void RomWorldStem(char *dst, DWORD dstmax, const char *bg)
 {
@@ -153,15 +134,11 @@ static void RomWorldStem(char *dst, DWORD dstmax, const char *bg)
     }
 }
 
-DWORD RomLevelTableRowSize(const RomManifestEntry *stgt, DWORD romsize)
+BOOL RomLevelTableIsValid(const RomManifestEntry *stgt, DWORD romsize)
 {
-    DWORD bytes, stride;
-    if (stgt == NULL || stgt->flags == 0 || stgt->flags > ROM_MAX_LEVELS
-        || stgt->romstart >= stgt->romend || stgt->romend > romsize) { return 0; }
-    bytes = stgt->romend - stgt->romstart;
-    if (bytes % stgt->flags != 0) { return 0; }
-    stride = bytes / stgt->flags;
-    return stride == 32 || stride == 36 ? stride : 0;
+    return stgt != NULL && stgt->flags > 0 && stgt->flags <= ROM_MAX_LEVELS
+        && stgt->romstart < stgt->romend && stgt->romend <= romsize
+        && stgt->romend - stgt->romstart == stgt->flags * ROM_LEVEL_ROW_SIZE;
 }
 
 /*
@@ -175,19 +152,17 @@ static BOOL RomParseLevelTable(const unsigned char *data, DWORD size,
                                RomInfo *info, const char **reasonout)
 {
     DWORD rows = stgt->flags;
-    DWORD stride = RomLevelTableRowSize(stgt, size);
-    DWORD nameshift = stride == 36 ? 4 : 0;
     DWORD i;
 
-    if (stride == 0)
+    if (!RomLevelTableIsValid(stgt, size))
     {
-        *reasonout = "GUD level table is malformed.";
+        *reasonout = "The GUD level table must use the current 36-byte layout. Rebuild GUD.";
         return FALSE;
     }
 
     for (i = 0; i < rows; i++)
     {
-        const unsigned char *row = data + stgt->romstart + i * stride;
+        const unsigned char *row = data + stgt->romstart + i * ROM_LEVEL_ROW_SIZE;
         RomLevel *lvl = &info->levels[info->levelcount];
         DWORD strs[4];
         char *dsts[4];
@@ -195,10 +170,10 @@ static BOOL RomParseLevelTable(const unsigned char *data, DWORD size,
         DWORD s;
 
         lvl->levelID = (LONG)be32(row + 0);
-        strs[0] = be32(row + 4 + nameshift);  dsts[0] = lvl->setupname; dstmax[0] = sizeof(lvl->setupname);
-        strs[1] = be32(row + 8 + nameshift);  dsts[1] = lvl->bgname;    dstmax[1] = sizeof(lvl->bgname);
-        strs[2] = be32(row + 12 + nameshift); dsts[2] = lvl->stanname;  dstmax[2] = sizeof(lvl->stanname);
-        strs[3] = nameshift ? be32(row + 4) : 0;
+        strs[0] = be32(row + 8);  dsts[0] = lvl->setupname; dstmax[0] = sizeof(lvl->setupname);
+        strs[1] = be32(row + 12);  dsts[1] = lvl->bgname;    dstmax[1] = sizeof(lvl->bgname);
+        strs[2] = be32(row + 16); dsts[2] = lvl->stanname;  dstmax[2] = sizeof(lvl->stanname);
+        strs[3] = be32(row + 4);
         dsts[3] = lvl->name; dstmax[3] = sizeof(lvl->name);
 
         for (s = 0; s < 4; s++)
@@ -238,15 +213,19 @@ static BOOL RomParseLevelTable(const unsigned char *data, DWORD size,
             /* floats arrive as big-endian bit patterns */
             union { DWORD u; float f; } cvt;
 
-            cvt.u = be32(row + 16 + nameshift); lvl->levelscale = cvt.f;
-            cvt.u = be32(row + 20 + nameshift); lvl->renderScale = cvt.f;
+            cvt.u = be32(row + 20); lvl->levelscale = cvt.f;
+            cvt.u = be32(row + 24); lvl->renderScale = cvt.f;
         }
 
-        lvl->music   = (short)((row[24 + nameshift] << 8) | row[25 + nameshift]);
-        lvl->bgsound = (short)((row[26 + nameshift] << 8) | row[27 + nameshift]);
-        lvl->xtrack  = (short)((row[28 + nameshift] << 8) | row[29 + nameshift]);
+        lvl->music   = (short)((row[28] << 8) | row[29]);
+        lvl->bgsound = (short)((row[30] << 8) | row[31]);
+        lvl->xtrack  = (short)((row[32] << 8) | row[33]);
 
-        if (lvl->name[0] == '\0') { RomSetupStem(lvl->name, sizeof(lvl->name), lvl->setupname); }
+        if (lvl->name[0] == '\0')
+        {
+            *reasonout = "A level has no authored name in the GUD level table.";
+            return FALSE;
+        }
         RomWorldStem(lvl->world, sizeof(lvl->world), lvl->bgname);
 
         info->levelcount++;
@@ -307,9 +286,9 @@ static BOOL RomValidateBuffer(unsigned char *data, DWORD size,
     info->manifestversion = be32(data + m + 16);
     info->entrycount = be32(data + m + 20);
 
-    if (info->manifestversion < 1 || info->manifestversion > ROM_MANIFEST_VERSION)
+    if (info->manifestversion != ROM_MANIFEST_VERSION)
     {
-        *reasonout = "GUD manifest is from a newer GEditor - update GEditor.";
+        *reasonout = "Unsupported GUD manifest version. Use a current GUD build and matching GEditor.";
         return FALSE;
     }
 
@@ -349,6 +328,22 @@ static BOOL RomValidateBuffer(unsigned char *data, DWORD size,
     }
 
     {
+        static const DWORD required[] = { 0x494D4753u, 0x4F425347u, 0x4D555346u,
+            0x53544754u, 0x434D4150u, 0x4654424Cu, 0x454E5654u, 0x54585442u, 0x54584346u };
+        DWORD kind;
+        for (kind = 0; kind < sizeof(required) / sizeof(required[0]); kind++)
+        {
+            DWORD matches = 0;
+            for (i = 0; i < info->entrycount; i++) { matches += info->entries[i].kind == required[kind]; }
+            if (matches != 1)
+            {
+                *reasonout = "The GUD manifest is missing or duplicates a required entry. Rebuild GUD with current sources.";
+                return FALSE;
+            }
+        }
+    }
+
+    {
         const RomManifestEntry *stgt = NULL;
         const RomManifestEntry *cmap = NULL;
 
@@ -366,7 +361,7 @@ static BOOL RomValidateBuffer(unsigned char *data, DWORD size,
 
         if (stgt == NULL || cmap == NULL)
         {
-            *reasonout = "GUD build predates the level manifest - rebuild GUD.";
+            *reasonout = "The GUD level manifest is incomplete.";
             return FALSE;
         }
 
@@ -376,6 +371,16 @@ static BOOL RomValidateBuffer(unsigned char *data, DWORD size,
         }
     }
 
+    {
+        RomFile view;
+        ZeroMemory(&view, sizeof(view)); view.data = data; view.size = size; view.info = *info;
+        for (i = 0; i < info->levelcount; i++)
+        {
+            RomLevel *level = &info->levels[i];
+            level->hasbackgroundcolor = RomGetLevelEnvironment(&view, level->levelID,
+                level->backgroundcolor, &level->fog);
+        }
+    }
     return TRUE;
 }
 
@@ -573,7 +578,7 @@ BOOL RomFindFile(const RomFile *rom, const char *name, DWORD *offset, DWORD *max
 
     if (ftbl == NULL || cmap == NULL)
     {
-        *reasonout = "GUD build predates the file table - rebuild GUD.";
+        *reasonout = "The GUD file table is missing.";
         return FALSE;
     }
 

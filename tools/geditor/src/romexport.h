@@ -10,16 +10,13 @@
 #define ROM_EXPORT_NAME_MAX 128
 #define ROM_EXPORT_BASE_FILENAME "base.z64"
 
-/* New projects retain their import ROM under this fixed name. Existing
- * projects can acquire it once when Create ROM is first used. */
-BOOL RomExportHasProjectBase(const GEditorProject *project);
+/* Every project retains its validated import ROM under this fixed name. */
 BOOL RomExportStoreProjectBase(const GEditorProject *project,
                                const RomFile *rom,
                                const char **reasonout);
 
-/* Refresh cached display names from a matching base ROM with levelName.
- * Optional: old projects still open using their .gep names without a ROM. */
-void RomExportRefreshProjectLevelMetadata(GEditorProject *project);
+/* Validate the required base ROM and refresh names/environment metadata. */
+BOOL RomExportRefreshProjectLevelMetadata(GEditorProject *project, const char **reasonout);
 
 /* Shared by the dialog's live validation and the exporter itself. */
 BOOL RomExportNameIsValid(const char *name, const char **reasonout);

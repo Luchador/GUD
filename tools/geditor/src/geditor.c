@@ -437,8 +437,6 @@ static void GEditorRefreshProjectAssets(void)
     DWORD count;
     DWORD i;
 
-    RomExportRefreshProjectLevelMetadata(&g_Project);
-
     for (i = 0; i < g_Project.levelcount; i++)
     {
         lstrcpyn(levels[i].label, g_Project.levels[i].name, sizeof(levels[i].label));
@@ -465,7 +463,7 @@ static void GEditorRefreshProjectAssets(void)
             WIN32_FIND_DATA find;
             HANDLE search;
 
-            wsprintf(pattern, "%s\\models\\%s\\*.*", g_Project.dir, classes[c]);
+            wsprintf(pattern, "%s\\models\\%s\\*.gltf", g_Project.dir, classes[c]);
             search = FindFirstFile(pattern, &find);
 
             if (search == INVALID_HANDLE_VALUE)
@@ -481,8 +479,7 @@ static void GEditorRefreshProjectAssets(void)
 
                 if ((find.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
                     || extension == NULL
-                    || (lstrcmpi(extension, ".gltf") != 0
-                        && lstrcmpi(extension, ".ply") != 0))
+                    || lstrcmpi(extension, ".gltf") != 0)
                 {
                     continue;
                 }
@@ -641,16 +638,24 @@ static void GEditorRememberProject(void)
 static void GEditorOpenProject(HWND hwnd, const char *path)
 {
     GEditorProject project;
+    const char *why = "";
 
     if (!ProjectRead(path, &project))
     {
         char message[MAX_PATH + 128];
         snprintf(message, sizeof(message),
-                 "That file is missing or is not a readable GEditor project.\n\n%s", path);
+                 "That file is missing or is not a current GEditor project with a saved level table.\n\n%s", path);
         MessageBox(hwnd, message, GEDITOR_TITLE, MB_ICONERROR);
         return;
     }
 
+    if (!RomExportRefreshProjectLevelMetadata(&project, &why))
+    {
+        char message[512];
+        snprintf(message, sizeof(message), "The project needs its matching current base.z64.\n\n%s", why);
+        MessageBox(hwnd, message, GEDITOR_TITLE, MB_ICONERROR);
+        return;
+    }
     GEditorCloseProject(hwnd);
     g_Project = project;
     GEditorRefreshProjectAssets();
@@ -1494,50 +1499,6 @@ static INT_PTR CALLBACK GEditorCreateRomProc(HWND hdlg, UINT msg,
     }
 
     return FALSE;
-}
-
-
-static BOOL GEditorEnsureProjectBaseRom(HWND hwnd)
-{
-    char path[MAX_PATH];
-    const char *reason = "";
-    RomFile rom;
-    BOOL ok;
-
-    if (RomExportHasProjectBase(&g_Project))
-    {
-        return TRUE;
-    }
-
-    if (MessageBox(hwnd,
-            "This project predates ROM export and has no base.z64. "
-            "Select the GUD ROM used to create it. GEditor will retain "
-            "a project copy and will only ask once.",
-            GEDITOR_TITLE, MB_ICONINFORMATION | MB_OKCANCEL) != IDOK)
-    {
-        return FALSE;
-    }
-
-    if (!GEditorPromptForRom(hwnd, path, sizeof(path)))
-    {
-        return FALSE;
-    }
-
-    if (!RomLoad(path, &rom, &reason))
-    {
-        MessageBox(hwnd, reason, GEDITOR_TITLE, MB_ICONERROR);
-        return FALSE;
-    }
-
-    ok = RomExportStoreProjectBase(&g_Project, &rom, &reason);
-    RomFree(&rom);
-
-    if (!ok)
-    {
-        MessageBox(hwnd, reason, GEDITOR_TITLE, MB_ICONERROR);
-    }
-
-    return ok;
 }
 
 
@@ -3217,10 +3178,7 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
                 return 0;
 
             case ID_TOOLS_CREATE_ROM:
-                if (GEditorEnsureProjectBaseRom(hwnd))
-                {
-                    GEditorPromptForRomExport(hwnd);
-                }
+                GEditorPromptForRomExport(hwnd);
                 return 0;
 
             case ID_FILE_EXIT:

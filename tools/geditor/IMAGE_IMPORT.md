@@ -1,11 +1,9 @@
 # Importing and editing images
 
-Image importing, replacement, and deletion require a project created from a
-GUD ROM with the `TXTB` and `TXCF` image-import manifest entries. If your project
-already supports image importing, update and rebuild GEditor; no new project
-or GUD rebuild is needed for the context-menu actions. Otherwise rebuild both
-GUD and GEditor, then create a new project from the rebuilt GUD ROM. Older
-projects can still open and build.
+GEditor requires a current-format project and its matching `base.z64`, including
+the `TXTB` and `TXCF` image manifest entries. Current projects using `GTI2` image
+metadata can continue to be used. Projects that depend on retired formats need
+to be recreated from a current GUD ROM; see [Supported formats](docs/FORMATS.md).
 
 ```sh
 make
@@ -73,8 +71,8 @@ UV/model editing tools if you want different mapping.
 
 Save failures preserve the previous saved BMP/settings and leave the edit pending
 for retry. As with imports, exiting without saving discards pending image edits.
-The new `GTI2` native-image metadata supports deletion records; existing `GTI1`
-imports remain readable. Use the updated GEditor for projects saved with `GTI2`.
+The `GTI2` native-image metadata stores imports, replacements, and deletion
+records. Earlier metadata versions are not supported.
 
 ## ROM support
 
@@ -105,6 +103,6 @@ saved images, orientation, failed saves, reopened projects, missing/corrupt
 assets, preserved originals, relocation, growth, and the image/ROM limits.
 They also cover original/imported/pending replacement and deletion, stable IDs,
 all replacement settings, discard, rollback after late save failures, saved-only
-ROM export, thumbnail pixel compaction, blank records, legacy import metadata,
+ROM export, thumbnail pixel compaction, blank records, rejected old metadata,
 and model UV stability when a replacement has different dimensions.
 The Windows BMP decoder and dialog require a Windows runtime for visual testing.

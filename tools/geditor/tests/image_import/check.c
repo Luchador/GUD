@@ -331,11 +331,11 @@ static void ImageActions(const char *project)
     RomFree(&rom);
     count=TexLoadProjectThumbnails(project,&thumbs,&thumbpixels,&why);assert(count==BASE_COUNT-1);
     free(thumbs);free(thumbpixels);
-    /* Legacy GTI1 import metadata remains readable by this version. */
+    /* Only current GTI2 native-image metadata is accepted. */
     snprintf(path,sizeof(path),"%s\\images\\native\\0010.gtex",project);
     {FILE *f=fopen(path,"rb+");assert(f);assert(fwrite("GTI1",1,4,f)==4);fclose(f);}
-    assert(RomLoad(basepath,&rom,&why));assert(ImageEditsExportToRom(project,&rom,&why));RomFree(&rom);
-    puts("PASS: base/imported/pending replacement and deletion, unchanged IDs/records, all settings, discard, saved-only export, save rollback, thumbnail compaction, blank slots and legacy metadata.");
+    assert(RomLoad(basepath,&rom,&why));assert(!ImageEditsExportToRom(project,&rom,&why));RomFree(&rom);
+    puts("PASS: base/imported/pending replacement and deletion, unchanged IDs/records, all settings, discard, saved-only export, save rollback, thumbnail compaction, blank slots and rejection of unsupported metadata.");
 }
 
 int main(int argc,char **argv)

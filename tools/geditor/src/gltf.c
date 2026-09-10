@@ -1153,7 +1153,6 @@ static BOOL GltfPrimitiveTag(const char *json,
                                               root, "materials");
             int material = GltfJsonArrayGet(tokens, tokencount,
                                              materials, tag);
-            int name;
 
             extras = GltfJsonObjectGet(json, tokens, tokencount,
                                        material, "extras");
@@ -1168,22 +1167,6 @@ static BOOL GltfPrimitiveTag(const char *json,
                 }
                 *tagout = (unsigned short)tag;
                 return TRUE;
-            }
-
-            name = GltfJsonObjectGet(json, tokens, tokencount,
-                                     material, "name");
-            if (name >= 0 && tokens[name].type == GLTF_JSON_STRING)
-            {
-                char *copy = GltfJsonCopyString(json, &tokens[name]);
-                unsigned int parsed;
-
-                if (copy != NULL
-                    && sscanf(copy, "GUD Texture Tag 0x%x", &parsed) == 1
-                    && parsed <= 0xffffu)
-                {
-                    *tagout = (unsigned short)parsed;
-                }
-                free(copy);
             }
         }
     }
@@ -1222,41 +1205,6 @@ static BOOL GltfImportTexture(const char *json, const GltfJsonToken *tokens,
     }
     free(label); *tag = (unsigned short)id; return TRUE;
 }
-
-static BOOL GltfUsesNormalizedUvs(const char *json,
-                                  const GltfJsonToken *tokens,
-                                  int tokencount, int root)
-{
-    int extras = GltfJsonObjectGet(json, tokens, tokencount,
-                                   root, "extras");
-    int units = GltfJsonObjectGet(json, tokens, tokencount,
-                                  extras, "goldeneyeUvUnits");
-    int asset;
-    int generator;
-
-    if (units >= 0)
-    {
-        return GltfJsonTokenEquals(json, &tokens[units], "normalized");
-    }
-
-    asset = GltfJsonObjectGet(json, tokens, tokencount, root, "asset");
-    extras = GltfJsonObjectGet(json, tokens, tokencount,
-                               asset, "extras");
-    units = GltfJsonObjectGet(json, tokens, tokencount,
-                              extras, "goldeneyeUvUnits");
-    if (units >= 0)
-    {
-        return GltfJsonTokenEquals(json, &tokens[units], "normalized");
-    }
-
-    /* The first GEditor glTF exporter wrote texel-space values directly.
-       Other glTF producers use normalized texture coordinates by default. */
-    generator = GltfJsonObjectGet(json, tokens, tokencount,
-                                  asset, "generator");
-    return generator < 0
-        || !GltfJsonTokenEquals(json, &tokens[generator], "GEditor");
-}
-
 
 static BOOL GltfReadTextureSize(const char *json,
                                 const GltfJsonToken *tokens,
@@ -1325,18 +1273,16 @@ static BOOL GltfPrimitiveTextureSize(const char *json,
 }
 
 
-/* Native extras retain modes glTF cannot express, especially decals inside
- * a primary list. Files without these extras still honor glTF alphaMode,
- * with the old GoldenEye layer tag as the legacy fallback. */
+/* Native extras retain modes glTF cannot express. Standard glTF materials
+ * use alphaMode (OPAQUE when absent), as required for Blender imports. */
 static BOOL GltfPrimitiveRenderFlags(const char *json, const GltfJsonToken *tokens, int tokencount,
-                                     int root, int primitive, unsigned short tag,
-                                     BgRenderFlags *out)
+                                     int root, int primitive, BgRenderFlags *out)
 {
     int token = GltfJsonObjectGet(json, tokens, tokencount, primitive, "material");
     DWORD index, flags;
     int materials, material, extras;
 
-    *out = BgRenderDefaultFlags(BG_TRI_IS_SECONDARY(tag));
+    *out = BgRenderDefaultFlags(FALSE);
     if (token < 0)
     {
         return TRUE;
@@ -1404,7 +1350,7 @@ static BOOL GltfPrimitiveRenderFlags(const char *json, const GltfJsonToken *toke
 
 /* An externally edited glTF may use standard base-color texture samplers.
    If present they take precedence over the native wrap extras; absent texture
-   bindings retain GEditor's metadata (legacy exports default to repeat). */
+   bindings retain GEditor's native material metadata. */
 static BOOL GltfPrimitiveWrapFlags(const char *json, const GltfJsonToken *tokens, int tokencount,
                                    int root, int primitive, BgRenderFlags *flags)
 {
@@ -1640,7 +1586,7 @@ static BOOL GltfLoadPrimitive(const char *json,
     if (builder->importing && !GltfImportTexture(json,tokens,tokencount,primitive,&tag,reasonout))
     { return FALSE; }
 
-    if (!GltfPrimitiveRenderFlags(json, tokens, tokencount, root, primitive, tag, &renderflags)
+    if (!GltfPrimitiveRenderFlags(json, tokens, tokencount, root, primitive, &renderflags)
         || !GltfPrimitiveWrapFlags(json, tokens, tokencount, root, primitive, &renderflags))
     {
         *reasonout = "a glTF primitive has invalid material render settings.";
@@ -1788,7 +1734,6 @@ BgVertex *GltfLoadModel(const char *path, const char *projectdir,
     int meshes;
     DWORD meshcount;
     DWORD meshindex;
-    BOOL normalizeduvs;
 
     ZeroMemory(&builder, sizeof(builder));
     *tricount = 0;
@@ -1810,9 +1755,7 @@ BgVertex *GltfLoadModel(const char *path, const char *projectdir,
     asset = GltfJsonObjectGet(json, tokens, tokencount, 0, "asset");
     version = GltfJsonObjectGet(json, tokens, tokencount,
                                 asset, "version");
-    if (version < 0 || tokens[version].type != GLTF_JSON_STRING
-        || tokens[version].end == tokens[version].start
-        || json[tokens[version].start] != '2')
+    if (version < 0 || !GltfJsonTokenEquals(json, &tokens[version], "2.0"))
     {
         *reasonout = "the object model is not a glTF 2.0 file.";
         goto fail;
@@ -1823,8 +1766,6 @@ BgVertex *GltfLoadModel(const char *path, const char *projectdir,
     {
         goto fail;
     }
-
-    normalizeduvs = GltfUsesNormalizedUvs(json, tokens, tokencount, 0);
 
     meshes = GltfJsonObjectGet(json, tokens, tokencount, 0, "meshes");
     meshcount = GltfJsonArrayCount(tokens, tokencount, meshes);
@@ -1851,7 +1792,7 @@ BgVertex *GltfLoadModel(const char *path, const char *projectdir,
 
             if (!GltfLoadPrimitive(json, tokens, tokencount, 0, primitive,
                                    buffers, buffercount, projectdir,
-                                   normalizeduvs, &builder, reasonout))
+                                   TRUE, &builder, reasonout))
             {
                 goto fail;
             }

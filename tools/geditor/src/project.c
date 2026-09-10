@@ -190,17 +190,16 @@ static BOOL ProjectReadLevel(const char *value, RomLevel *level)
 
 /**
   * Reads a .gep file into proj. Returns FALSE if the file cannot be
-  * opened, is not a GEditor project, comes from a newer format version,
-  * or carries no name.
+  * opened, is not a GEditor project, does not use the current format version,
+  * or carries no name or level table.
   *
-  * Unknown keys are ignored so a future .gep with additional fields
-  * still opens. Version-1 projects have no saved level rows and remain
-  * readable; newly created version-2 projects are self-contained.
+  * Current projects store their complete level table; unknown keys are ignored.
   */
 BOOL ProjectRead(const char *geppath, GEditorProject *proj)
 {
     char line[512];
     int version = 0;
+    char tail;
     FILE *f;
     char *lastslash;
  
@@ -214,9 +213,9 @@ BOOL ProjectRead(const char *geppath, GEditorProject *proj)
     }
  
     /**
-     * Read header first to ensure this is a GEditor project file. Versions <= ours are accepted.
+     * Only the current project format is accepted.
      */
-    if (fgets(line, sizeof(line), f) == NULL || sscanf(line, GEP_MAGIC " %d", &version) != 1 || version < 1 || version > GEP_VERSION)
+    if (fgets(line, sizeof(line), f) == NULL || sscanf(line, GEP_MAGIC " %d %c", &version, &tail) != 1 || version != GEP_VERSION)
     {
         fclose(f);
         return FALSE;
@@ -264,7 +263,7 @@ BOOL ProjectRead(const char *geppath, GEditorProject *proj)
  
     fclose(f);
  
-    if (proj->name[0] == '\0')
+    if (proj->name[0] == '\0' || proj->levelcount == 0)
     {
         ZeroMemory(proj, sizeof(*proj));
         return FALSE;

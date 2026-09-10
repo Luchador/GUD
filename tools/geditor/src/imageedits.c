@@ -88,10 +88,9 @@ static BOOL ReadSaved(const char *project,DWORD id,const TexRomBank *bank,ImageE
     *why="An imported image's native asset is damaged, unreadable, or belongs to another base ROM.";
     if(!Path(path,project,id,".gtex") || !(file=fopen(path,"rb"))) { return FALSE; }
     if(fseek(file,0,SEEK_END) || (length=ftell(file))<144 || length>8192 || fseek(file,0,SEEK_SET)
-        || fread(header,1,32,file)!=32 || (memcmp(header,"GTI1",4) && memcmp(header,"GTI2",4))
+        || fread(header,1,32,file)!=32 || memcmp(header,"GTI2",4)
         || Read32(header+12)!=id || Read32(header+16)!=(DWORD)length-32
         || header[28]>12 || header[29]>12 || header[30]>1 || header[31]
-        || (!memcmp(header,"GTI1",4) && header[30])
         || (bank && (Read32(header+4)!=bank->hash || Read32(header+8)!=bank->count)))
     { fclose(file);return FALSE; }
     edit->size=Read32(header+16);edit->data=malloc(edit->size);
@@ -286,14 +285,6 @@ BOOL ImageEditsExportToRom(const char *project,RomFile *rom,const char **why)
     unsigned char ids[TEX_IMAGE_CAPACITY],*surfaces=NULL;DWORD count,total,i,*sizes=NULL;
     unsigned char **records=NULL;TexRomBank bank;BOOL ok=FALSE;
     if(!SavedIds(project,ids,&count,why)) { return FALSE; }
-    if(count==0)
-    {
-        /* Old projects remain buildable. New ROMs can diagnose an imported
-         * BMP whose metadata was removed, even when the whole native folder
-         * is gone, instead of quietly losing that image from the output. */
-        for(i=0;i<rom->info.entrycount;i++) { if(rom->info.entries[i].kind==0x54584346u) { break; } }
-        if(i==rom->info.entrycount) { return TRUE; }
-    }
     if(!TexRomReadBank(rom,&bank,why) || !Contiguous(ids,&bank,&total,why)) { return FALSE; }
     {
         char pattern[MAX_PATH];WIN32_FIND_DATA find;HANDLE search;DWORD error;

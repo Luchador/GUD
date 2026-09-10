@@ -924,15 +924,14 @@ room_failed:
 }
 
 
-/* Scan without rebuilding safe assets. The last-load mask also catches
+/* Validate assets without changing them. The last-load mask also catches
  * triangles whose vertices happen to resolve correctly but lie outside the
  * last load's bounding box in bgBuildRoomVtxBounds. */
 static BOOL BgCompileCheckVertexBatches(const BgFile *bg, DWORD offset,
-                                        DWORD vertexcount, BOOL *repair)
+                                        DWORD vertexcount)
 {
     DWORD size;
     DWORD pc;
-    DWORD valid = 0;
     DWORD lastload = 0;
 
     if (offset < 4 || offset > bg->size) { return FALSE; }
@@ -957,7 +956,6 @@ static BOOL BgCompileCheckVertexBatches(const BgFile *bg, DWORD offset,
                 || address / 16 > vertexcount
                 || count > vertexcount - address / 16) { return FALSE; }
             lastload = ((1u << count) - 1) << first;
-            valid |= lastload;
         }
         else if (cmd[0] == BGCOMPILE_G_TRI1 || cmd[0] == BGCOMPILE_G_TRI4)
         {
@@ -980,8 +978,7 @@ static BOOL BgCompileCheckVertexBatches(const BgFile *bg, DWORD offset,
                 }
                 if (a >= 16 || b >= 16 || c >= 16) { return FALSE; }
                 mask = (1u << a) | (1u << b) | (1u << c);
-                if ((mask & valid) != mask) { return FALSE; }
-                if ((mask & lastload) != mask) { *repair = TRUE; }
+                if ((mask & lastload) != mask) { return FALSE; }
             }
         }
     }
@@ -989,14 +986,10 @@ static BOOL BgCompileCheckVertexBatches(const BgFile *bg, DWORD offset,
 }
 
 
-BOOL BgFileRepairVertexBatches(BgFile *bg, const char **reasonout)
+BOOL BgFileValidateVertexBatches(const BgFile *bg, const char **reasonout)
 {
     DWORD table;
     DWORD record;
-    BOOL repair = FALSE;
-    BgDocument document;
-    BgFile compiled;
-    BOOL ok;
 
     *reasonout = "";
     /* Static single-display-list backgrounds do not use room bullet tests. */
@@ -1032,22 +1025,12 @@ BOOL BgFileRepairVertexBatches(BgFile *bg, const char **reasonout)
         {
             DWORD offset = BgCompileRead32(bg->data + record + 4 + layer * 4)
                          & 0x00FFFFFFu;
-            if (offset && !BgCompileCheckVertexBatches(bg, offset, vertexsize / 16, &repair))
+            if (offset && !BgCompileCheckVertexBatches(bg, offset, vertexsize / 16))
             {
                 goto invalid;
             }
         }
     }
-    if (!repair) { return TRUE; }
-
-    /* Compilation uses exact room-local coordinates; no level scale is needed.
-     * Replace only the export copy, so old projects need no manual resave. */
-    if (!BgDocumentLoad(bg->data, bg->size, 1.0f, &document, reasonout)) { return FALSE; }
-    ok = BgDocumentCompile(&document, bg, &compiled, reasonout);
-    BgDocumentFree(&document);
-    if (!ok) { return FALSE; }
-    free(bg->data);
-    *bg = compiled;
     return TRUE;
 
 invalid:

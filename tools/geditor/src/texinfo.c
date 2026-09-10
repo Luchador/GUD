@@ -90,51 +90,25 @@ BOOL TexInfoReadRecord(const unsigned char *rec, DWORD available, TexInfoRecord 
     return TRUE;
 }
 
-/* Existing ROM manifests do not expose g_Textures. Identify it inside CMAP
- * by matching EVERY GUTX record size in order and the terminating image_entry.
- * Sizes occupy the low 24 bits; the first byte holds independent sound/decal
- * nibbles (src/game/image.h). Never substitute compiled-in images.def values,
- * and reject ambiguous matches instead of reporting another ROM's settings. */
+/* TXTB is the authoritative image table. Its reserved capacity excludes the
+ * sentinel, and only the active GUTX records participate in this comparison. */
 static const unsigned char *TexInfoFindSurfaceTable(const RomFile *rom,
                                                     const TexInfoRecord *records, DWORD count)
 {
     const RomManifestEntry *cmap = TexInfoSegment(rom, 0x434D4150u);
-    const RomManifestEntry *declared = TexInfoSegment(rom, 0x54585442u); /* TXTB */
-    const unsigned char *found = NULL;
-    DWORD pos, i, bytes;
-    /* New builds advertise the reserved table directly. Its extra capacity
-     * is not part of the active record count. Older ROMs retain the scan. */
-    if (declared && cmap && declared->flags <= 4096 && count <= declared->flags
-        && declared->romstart >= cmap->romstart && declared->romend <= cmap->romend
-        && declared->romend - declared->romstart == (declared->flags + 1) * 8)
-    {
-        const unsigned char *table = rom->data + declared->romstart;
-        for (i = 0; i < count; i++)
-        { if ((TexInfoBe32(table + i * 8) & 0xFFFFFFu) != records[i].size) { break; } }
-        if (i == count && TexInfoBe32(table + count * 8) == 0xFFFFu
-            && TexInfoBe32(table + count * 8 + 4) == 0) { return table; }
-        return NULL;
-    }
-    if (cmap == NULL || count < 16 || count > (cmap->romend - cmap->romstart) / TEXINFO_IMAGE_ENTRY_SIZE)
+    const RomManifestEntry *declared = TexInfoSegment(rom, 0x54585442u);
+    DWORD i;
+    const unsigned char *table;
+    if (!declared || !cmap || declared->flags == 0 || declared->flags > 4096
+        || count > declared->flags || declared->romstart < cmap->romstart
+        || declared->romend > cmap->romend
+        || declared->romend - declared->romstart != (declared->flags + 1) * TEXINFO_IMAGE_ENTRY_SIZE)
     { return NULL; }
-    bytes = (count + 1) * TEXINFO_IMAGE_ENTRY_SIZE;
-    if (bytes > cmap->romend - cmap->romstart) { return NULL; }
-    for (pos = (cmap->romstart + 3) & ~3u; pos <= cmap->romend - bytes; pos += 4)
-    {
-        const unsigned char *table = rom->data + pos;
-        for (i = 0; i < count; i++)
-        {
-            if ((TexInfoBe32(table + i * TEXINFO_IMAGE_ENTRY_SIZE) & 0xFFFFFFu) != records[i].size)
-            { break; }
-        }
-        if (i == count && TexInfoBe32(table + count * TEXINFO_IMAGE_ENTRY_SIZE) == 0xFFFFu
-            && TexInfoBe32(table + count * TEXINFO_IMAGE_ENTRY_SIZE + 4) == 0)
-        {
-            if (found != NULL) { return NULL; }
-            found = table;
-        }
-    }
-    return found;
+    table = rom->data + declared->romstart;
+    for (i = 0; i < count; i++)
+    { if ((TexInfoBe32(table + i * 8) & 0xFFFFFFu) != records[i].size) { return NULL; } }
+    return TexInfoBe32(table + count * 8) == 0xFFFFu
+        && TexInfoBe32(table + count * 8 + 4) == 0 ? table : NULL;
 }
 
 void TexSetRomThumbnailInfo(const RomFile *rom, TexThumb *items, DWORD count)

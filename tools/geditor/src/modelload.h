@@ -107,8 +107,7 @@ BOOL ModelGetPropDefinition(int modelid, const char **nameout,
 BOOL ModelReadPlacementBounds(const unsigned char *data, DWORD size,
                                float min[3], float max[3]);
 
-/* Loads one previously extracted object-model glTF. The legacy PLY reader is
-   retained so projects created by older GEditor builds still open. Caller
+/* Loads one extracted object-model glTF or its native replacement. Caller
    frees the returned vertex, tag and preview render-flag arrays. */
 BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
                                    DWORD *tricount,
@@ -118,7 +117,7 @@ BgVertex *ModelLoadProjectGeometry(const char *projectdir, int modelid,
                                    const char **reasonout);
 
 /* Load any extracted model by its class folder and filename stem. The viewer
-   uses the same glTF/legacy PLY path as placed props, without setup scaling. */
+   uses the same glTF/native replacement path as placed props, without setup scaling. */
 BgVertex *ModelLoadProjectNamedGeometry(const char *projectdir, const char *folder,
                                         const char *name, DWORD *tricount,
                                         unsigned short **tritags,

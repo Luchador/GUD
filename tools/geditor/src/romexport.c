@@ -185,23 +185,6 @@ static BOOL RomExportBasePath(const GEditorProject *project,
 }
 
 
-BOOL RomExportHasProjectBase(const GEditorProject *project)
-{
-    char path[MAX_PATH];
-    const char *why = "";
-    DWORD attrs;
-
-    if (!RomExportBasePath(project, path, sizeof(path), &why))
-    {
-        return FALSE;
-    }
-
-    attrs = GetFileAttributes(path);
-    return attrs != INVALID_FILE_ATTRIBUTES
-        && (attrs & FILE_ATTRIBUTE_DIRECTORY) == 0;
-}
-
-
 static BOOL RomExportProjectMatchesRom(const GEditorProject *project,
                                        const RomFile *rom,
                                        const char **reasonout)
@@ -245,63 +228,33 @@ static BOOL RomExportProjectMatchesRom(const GEditorProject *project,
 }
 
 
-void RomExportRefreshProjectLevelMetadata(GEditorProject *project)
+BOOL RomExportRefreshProjectLevelMetadata(GEditorProject *project, const char **reasonout)
 {
     char path[MAX_PATH];
     RomFile rom;
-    const char *why = "";
     DWORD i, j;
-    BOOL named = FALSE;
-
-    if (project == NULL) 
-    { 
-        return; 
-    }
-
-    for (i = 0; i < project->levelcount; i++)
-    {
-        project->levels[i].hasbackgroundcolor = FALSE;
-        ZeroMemory(&project->levels[i].fog, sizeof(project->levels[i].fog));
-    }
-
-    if (project->levelcount == 0 || !RomExportBasePath(project, path, sizeof(path), &why) || !RomLoad(path, &rom, &why)) 
-    { 
-        return; 
-    }
-
-    for (i = 0; i < rom.info.entrycount; i++)
-    {
-        if (rom.info.entries[i].kind == ROM_KIND_STGT && RomLevelTableRowSize(&rom.info.entries[i], rom.size) == 36)
-        {
-            named = TRUE;
-        }
-    }
-
-    if (RomExportProjectMatchesRom(project, &rom, &why))
+    BOOL matches;
+    if (!RomExportBasePath(project, path, sizeof(path), reasonout)
+        || !RomLoad(path, &rom, reasonout)) { return FALSE; }
+    matches = RomExportProjectMatchesRom(project, &rom, reasonout);
+    if (matches)
     {
         for (i = 0; i < project->levelcount; i++)
         {
             RomLevel *level = &project->levels[i];
-            level->hasbackgroundcolor = RomGetLevelEnvironment(&rom, level->levelID,
-                                                               level->backgroundcolor, &level->fog);
-
-            if (!named) 
-            { 
-                continue; 
-            }
-
-            for (j = 0; j < rom.info.levelcount; j++)
+            for (j = 0; j < rom.info.levelcount; j++) if (level->levelID == rom.info.levels[j].levelID)
             {
-                if (level->levelID == rom.info.levels[j].levelID)
-                {
-                    lstrcpyn(level->name, rom.info.levels[j].name, sizeof(level->name));
-                    break;
-                }
+                const RomLevel *source = &rom.info.levels[j];
+                lstrcpyn(level->name, source->name, sizeof(level->name));
+                level->hasbackgroundcolor = source->hasbackgroundcolor;
+                memcpy(level->backgroundcolor, source->backgroundcolor, sizeof(level->backgroundcolor));
+                level->fog = source->fog;
+                break;
             }
         }
     }
-
     RomFree(&rom);
+    return matches;
 }
 
 static BOOL RomExportWriteFile(const char *path, const unsigned char *data, DWORD size, const char **reasonout)
@@ -1066,14 +1019,12 @@ static BOOL RomExportReplaceProjectResources(const GEditorProject *project,
             bg.data = data;
             bg.size = length;
             lstrcpyn(bg.name, resource, sizeof(bg.name));
-            if (!BgFileRepairVertexBatches(&bg, &why))
+            if (!BgFileValidateVertexBatches(&bg, &why))
             {
                 free(data);
                 RomExportSetError(reasonout, "%s: %s", resource, why);
                 goto fail;
             }
-            data = bg.data;
-            length = bg.size;
         }
 
 have_replacement:
@@ -1148,7 +1099,6 @@ static BOOL RomExportUpdateLevelTable(const GEditorProject *project,
                                       const char **reasonout)
 {
     const RomManifestEntry *stgt = NULL;
-    DWORD stride, nameshift;
     DWORD i;
 
     for (i = 0; i < rom->info.entrycount; i++)
@@ -1160,13 +1110,11 @@ static BOOL RomExportUpdateLevelTable(const GEditorProject *project,
         }
     }
 
-    stride = RomLevelTableRowSize(stgt, rom->size);
-    if (stride == 0)
+    if (!RomLevelTableIsValid(stgt, rom->size))
     {
         *reasonout = "the base ROM's level table is invalid.";
         return FALSE;
     }
-    nameshift = stride == 36 ? 4 : 0;
 
     for (i = 0; i < project->levelcount; i++)
     {
@@ -1183,7 +1131,7 @@ static BOOL RomExportUpdateLevelTable(const GEditorProject *project,
 
         for (j = 0; j < stgt->flags; j++)
         {
-            unsigned char *candidate = rom->data + stgt->romstart + j * stride;
+            unsigned char *candidate = rom->data + stgt->romstart + j * ROM_LEVEL_ROW_SIZE;
 
             if ((LONG)RomExportRead32(candidate) == level->levelID)
             {
@@ -1208,14 +1156,14 @@ static BOOL RomExportUpdateLevelTable(const GEditorProject *project,
             union { DWORD u; float f; } bits;
 
             bits.f = level->levelscale;
-            RomExportWrite32(row + 16 + nameshift, bits.u);
+            RomExportWrite32(row + 20, bits.u);
             bits.f = level->renderScale;
-            RomExportWrite32(row + 20 + nameshift, bits.u);
+            RomExportWrite32(row + 24, bits.u);
         }
 
-        RomExportWrite16(row + 24 + nameshift, (unsigned short)level->music);
-        RomExportWrite16(row + 26 + nameshift, (unsigned short)level->bgsound);
-        RomExportWrite16(row + 28 + nameshift, (unsigned short)level->xtrack);
+        RomExportWrite16(row + 28, (unsigned short)level->music);
+        RomExportWrite16(row + 30, (unsigned short)level->bgsound);
+        RomExportWrite16(row + 32, (unsigned short)level->xtrack);
     }
 
     return TRUE;

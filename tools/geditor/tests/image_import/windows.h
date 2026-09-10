@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+typedef int64_t LONGLONG;
 typedef uint32_t DWORD; typedef int32_t LONG; typedef uint16_t WORD; typedef uint64_t ULONGLONG;
 typedef int BOOL; typedef void *HANDLE; typedef void *HINSTANCE;
 #define TRUE 1

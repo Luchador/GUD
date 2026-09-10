@@ -6,6 +6,7 @@
 
 #define ROM_MAX_ENTRIES 32
 #define ROM_MAX_LEVELS  64
+#define ROM_LEVEL_ROW_SIZE 36u
 
 typedef struct RomManifestEntry {
     DWORD kind;      /* fourcc, e.g. 'IMGS'  */
@@ -22,15 +23,15 @@ typedef struct RomFog {
 
 /*
  * One row of the ROM's level table, strings resolved and copied out.
- * name comes from LevelEntry.levelName, with a setup-filename fallback for
- * older ROMs. world retains the BG filename stem for project compatibility.
+ * name comes from LevelEntry.levelName. world is the shared BG filename stem
+ * stored in the current project metadata.
  */
 typedef struct RomLevel {
     LONG  levelID;
     char  setupname[32];   /* raw, e.g. "UsetupsevbunkerZ" */
     char  bgname[40];      /* raw, e.g. "bg/bg_sev_all_p.seg" */
     char  stanname[40];    /* raw, e.g. "Tbg_sev_all_p_stanZ" */
-    char  name[32];        /* authored level name (legacy ROMs use setup stem) */
+    char  name[32];        /* authored level name */
     char  world[24];       /* display stem of the shared bg/stan pair */
     float levelscale;
     float renderScale;
@@ -68,9 +69,8 @@ typedef struct RomFile {
     RomInfo info;
 } RomFile;
 
-/* Validated STGT row size: 32 for legacy tables, 36 with levelName; 0 when
- * malformed or unsupported. Shared by the importer and metadata exporter. */
-DWORD RomLevelTableRowSize(const RomManifestEntry *stgt, DWORD romsize);
+/* Validate the current 36-byte LevelEntry layout, including levelName. */
+BOOL RomLevelTableIsValid(const RomManifestEntry *stgt, DWORD romsize);
 
 /*
  * Loads and validates in one step, keeping the buffer for asset
