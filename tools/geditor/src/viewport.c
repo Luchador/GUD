@@ -820,7 +820,7 @@ static void ViewportBeginFog(ViewportState *state)
 static void ViewportDrawSetupMarkers(const ViewportState *state)
 {
     static const GLfloat ambient[4] = {0.4f, 0.4f, 0.4f, 1};
-    static const GLfloat diffuse[4] = {0.6f, 0.6f, 0.6f, 1};
+    static const GLfloat diffuse[4] = {0.8f, 0.8f, 0.8f, 1};
     static const GLfloat black[4] = {0, 0, 0, 1};
     static const GLfloat lightdirection[4] = {-0.4f, 0.8f, 0.3f, 0};
     DWORD i;
