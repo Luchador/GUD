@@ -217,6 +217,8 @@ typedef struct ViewportState {
     GLsizei stanfillcount;
     Vertex *stanedges;   /* colored GL_LINES around each tile */
     GLsizei stanedgecount;
+    BgPortalFile portals;
+    DWORD selectedportal;
     Vertex *portalfill;  /* half-transparent cyan portal polygons */
     GLsizei portalfillcount;
     Vertex *portaledges; /* opaque cyan GL_LINES around portals */
@@ -242,6 +244,7 @@ static void ViewportRefreshStanOverlay(ViewportState *state);
 static void ViewportGetBasis(const ViewportState *state, float fwd[3], float right[3]);
 static BOOL ViewportStanVisible(const ViewportState *state);
 static void ViewportClearStanSelection(ViewportState *state);
+static void ViewportRefreshPortalColors(ViewportState *state);
 static BOOL ViewportStanSelectionPosition(const ViewportState *state, BOOL gizmo,
                                            double position[3], DWORD *countout);
 static Vertex ViewportStanPointVertex(const StanPoint *point);
@@ -319,6 +322,11 @@ static void ViewportRefreshPadColors(ViewportState *state)
 static void ViewportClearPadSelection(ViewportState *state)
 {
     state->markerselected = FALSE;
+    if (state->selectedportal != BG_PORTAL_INDEX_NONE)
+    {
+        state->selectedportal = BG_PORTAL_INDEX_NONE;
+        ViewportRefreshPortalColors(state);
+    }
     if (state->selectedpad.index == SETUP_PAD_INDEX_NONE) { return; }
     state->selectedpad.index = SETUP_PAD_INDEX_NONE;
     ViewportRefreshPadColors(state);
@@ -3058,6 +3066,61 @@ static double ViewportSceneHitDistance(const ViewportState *state, const Viewpor
     return distance;
 }
 
+/* Match the double-sided, depth-tested portal overlay. Keep native entries
+ * distinct when they share a polygon, cycling only co-located nearest hits. */
+static DWORD ViewportFindPickedPortal(const ViewportState *state, const ViewportPickRay *ray,
+                                      double occluder, BOOL remove)
+{
+    double hits[BG_MAX_PORTALS], nearest = DBL_MAX;
+    DWORD count = state->portals.portalcount, i, selected = state->selectedportal;
+    if (!state->showportals || !state->portals.portals || count >= BG_MAX_PORTALS) { return BG_PORTAL_INDEX_NONE; }
+    for (i = 0; i < count; i++)
+    {
+        const BgPortal *portal = &state->portals.portals[i];
+        hits[i] = DBL_MAX;
+        for (unsigned int point = 1; point + 1 < portal->pointcount; point++)
+        {
+            const BgPortalPoint *p[3] = {&portal->points[0], &portal->points[point], &portal->points[point + 1]};
+            Vertex triangle[3] = {0}; double distance;
+            for (int c = 0; c < 3; c++)
+            { triangle[c].x = p[c]->x; triangle[c].y = p[c]->y; triangle[c].z = p[c]->z; }
+            if (ViewportRayTriangleDistance(ray, triangle, FALSE, &distance)
+                && distance <= occluder + ViewportCoplanarPickTolerance(distance) && distance < hits[i])
+            { hits[i] = distance; }
+        }
+        if (hits[i] < nearest) { nearest = hits[i]; }
+    }
+    if (nearest == DBL_MAX) { return BG_PORTAL_INDEX_NONE; }
+    if (remove && selected < count && hits[selected] <= nearest + ViewportCoplanarPickTolerance(nearest))
+    { return selected; }
+    for (i = 0; i < count; i++)
+    {
+        DWORD candidate = ((selected < count ? selected + 1 : 0) + i) % count;
+        if (hits[candidate] <= nearest + ViewportCoplanarPickTolerance(nearest)) { return candidate; }
+    }
+    return BG_PORTAL_INDEX_NONE;
+}
+
+static BOOL ViewportTryPickPortal(HWND hwnd, ViewportState *state, int x, int y, BOOL remove)
+{
+    ViewportPickRay ray; double scene; DWORD hit; BOOL clear;
+    if (state->flying || state->tool == EDITOR_TOOL_VERTEX_PAINT || !state->showportals
+        || !ViewportBuildPickRay(hwnd, state, x, y, &ray)) { return FALSE; }
+    scene = ViewportSceneHitDistance(state, &ray);
+    /* Stan is a translucent overlay and does not write depth; it must not
+     * prevent selecting a portal that is still drawn through it. */
+    hit = ViewportFindPickedPortal(state, &ray, scene, remove);
+    if (hit == BG_PORTAL_INDEX_NONE) { return FALSE; }
+    clear = remove && hit == state->selectedportal;
+    ViewportClearAllSelection(state);
+    state->selectedportal = clear ? BG_PORTAL_INDEX_NONE : hit;
+    ViewportRefreshPortalColors(state);
+    ViewportUpdateGizmo(state);
+    InvalidateRect(hwnd, NULL, FALSE);
+    SendMessage(GetParent(hwnd), VIEWPORT_WM_SELECTION_CHANGED, 0, 0);
+    return TRUE;
+}
+
 static BOOL ViewportTryPickMarker(HWND hwnd, ViewportState *state, int x, int y, BOOL remove)
 {
     ViewportPickRay ray;
@@ -4505,6 +4568,7 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         state->showstan = FALSE;
         state->stanopacity = 44;
         state->showportals = FALSE;
+        state->selectedportal = BG_PORTAL_INDEX_NONE;
         state->showobjects = TRUE;
         state->cullbackfaces = TRUE;
         state->showbgstatistics = !state->orbit;
@@ -4563,6 +4627,8 @@ static LRESULT CALLBACK ViewportWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPAR
             return 0;
         }
         if (state != NULL && ViewportTryPickMarker(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
+            (wparam & MK_CONTROL) != 0)) { return 0; }
+        if (state != NULL && ViewportTryPickPortal(hwnd, state, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam),
             (wparam & MK_CONTROL) != 0)) { return 0; }
         if (state != NULL && !state->flying && state->tool == EDITOR_TOOL_VERTEX_SELECT)
         {
@@ -4927,6 +4993,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
     free(state->sceneobjectindices);
     free(state->scenevertexrefs);
     free(state->scenecolors);
+    BgPortalFileFree(&state->portals);
     free(state->portaledges);
     free(state->portalfill);
     free(state->setupmarkers);
@@ -5133,6 +5200,39 @@ static BOOL ViewportPortalGeometryIsFirst(const BgPortalFile *file,
 }
 
 
+static void ViewportRefreshPortalColors(ViewportState *state)
+{
+    DWORD fillat = 0, edgeat = 0, i;
+    const unsigned char gold[3] = {VIEWPORT_SELECTION_GOLD};
+    DWORD geometry = state->selectedportal < state->portals.portalcount
+        ? state->portals.portals[state->selectedportal].geometryoffset : (DWORD)-1;
+    if (!state->portalfill || !state->portaledges) { return; }
+    for (i = 0; i < state->portals.portalcount; i++)
+    {
+        const BgPortal *portal = &state->portals.portals[i];
+        DWORD fillcount = (portal->pointcount - 2) * 3, edgecount = portal->pointcount * 2;
+        BOOL selected = geometry == portal->geometryoffset;
+        if (!ViewportPortalGeometryIsFirst(&state->portals, i)) { continue; }
+        for (DWORD v = 0; v < fillcount + edgecount; v++)
+        {
+            Vertex *vertex = v < fillcount ? &state->portalfill[fillat + v] : &state->portaledges[edgeat + v - fillcount];
+            vertex->r = selected ? gold[0] : 0;
+            vertex->g = selected ? gold[1] : 255;
+            vertex->b = selected ? gold[2] : 255;
+        }
+        fillat += fillcount; edgeat += edgecount;
+    }
+}
+
+BOOL ViewportGetSelectedPortal(HWND hwnd, DWORD *index)
+{
+    const ViewportState *state = ViewportGetState(hwnd);
+    if (!state || !state->showportals || state->selectedportal >= state->portals.portalcount) { return FALSE; }
+    if (index) { *index = state->selectedportal; }
+    return TRUE;
+}
+
+
 void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals)
 {
     ViewportState *state = ViewportGetState(hwnd);
@@ -5149,6 +5249,7 @@ void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals)
         return;
     }
 
+    BgPortalFileFree(&state->portals);
     free(state->portalfill);
     free(state->portaledges);
     state->portalfill = NULL;
@@ -5159,6 +5260,7 @@ void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals)
     if (portals == NULL || portals->portals == NULL
         || portals->portalcount == 0)
     {
+        state->selectedportal = BG_PORTAL_INDEX_NONE;
         InvalidateRect(hwnd, NULL, FALSE);
         return;
     }
@@ -5174,10 +5276,13 @@ void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals)
 
     fill = (Vertex *)malloc(fillcount * sizeof(*fill));
     edges = (Vertex *)malloc(edgecount * sizeof(*edges));
-    if (fill == NULL || edges == NULL)
+    state->portals.portals = malloc(portals->portalcount * sizeof(*state->portals.portals));
+    if (fill == NULL || edges == NULL || state->portals.portals == NULL)
     {
         free(fill);
         free(edges);
+        BgPortalFileFree(&state->portals);
+        state->selectedportal = BG_PORTAL_INDEX_NONE;
         InvalidateRect(hwnd, NULL, FALSE);
         return;
     }
@@ -5216,10 +5321,14 @@ void ViewportSetPortals(HWND hwnd, const BgPortalFile *portals)
         }
     }
 
+    memcpy(state->portals.portals, portals->portals, portals->portalcount * sizeof(*state->portals.portals));
+    state->portals.portalcount = portals->portalcount;
+    if (state->selectedportal >= portals->portalcount) { state->selectedportal = BG_PORTAL_INDEX_NONE; }
     state->portalfill = fill;
     state->portaledges = edges;
     state->portalfillcount = (GLsizei)fillat;
     state->portaledgecount = (GLsizei)edgeat;
+    ViewportRefreshPortalColors(state);
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
@@ -5241,6 +5350,11 @@ void ViewportSetGeometryVisibility(HWND hwnd, BOOL bgprimary,
     state->showstan = stan;
     if (!stan) { ViewportClearStanSelection(state); }
     state->showportals = portals;
+    if (!portals)
+    {
+        state->selectedportal = BG_PORTAL_INDEX_NONE;
+        ViewportRefreshPortalColors(state);
+    }
     state->showobjects = objects;
     if (!objects) { state->selectedobject = VIEWPORT_OBJECT_NONE; }
     ViewportBuildObjectSelectionBox(state);
@@ -5592,6 +5706,7 @@ BOOL ViewportSetScene(HWND hwnd, const BgVertex *tris,
     }
 
     ViewportFreeScene(state);
+    if (framecamera) { state->selectedportal = BG_PORTAL_INDEX_NONE; }
     state->selectedpad = savedpad; /* resolved when the pad overlay is rebuilt */
     state->selectedmarker = savedmarker;
     state->markerselected = savedmarkerselection;

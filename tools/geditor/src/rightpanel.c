@@ -19,6 +19,7 @@
 #include "rightpanel.h"
 #include "colorpicker.h"
 #include "faceproperties.h"
+#include "portalproperties.h"
 #include "characterload.h"
 
 #define RIGHTPANEL_CLASS "GEditorRightPanel"
@@ -62,7 +63,8 @@ typedef struct RightPanelState {
     HWND details;
     HWND colorpicker;
     HWND faceproperties;
-    BOOL showingfaces;
+    HWND portalproperties;
+    BOOL showingfaces, showingportals;
     BOOL vertexpaint;
     BOOL transformenabled;
     BOOL updatingposition;
@@ -144,10 +146,13 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
     detailheight = client.bottom - RIGHTPANEL_MARGIN - detailtop;
     MoveWindow(state->details, RIGHTPANEL_MARGIN, detailtop, width,
                detailheight > 0 ? detailheight : 0, TRUE);
-    ShowWindow(state->details, detailheight > 0 && !state->vertexpaint && !state->showingfaces ? SW_SHOW : SW_HIDE);
+    ShowWindow(state->details, detailheight > 0 && !state->vertexpaint && !state->showingfaces && !state->showingportals ? SW_SHOW : SW_HIDE);
     MoveWindow(state->faceproperties, RIGHTPANEL_MARGIN, detailtop, width,
                detailheight > 0 ? detailheight : 0, TRUE);
     ShowWindow(state->faceproperties, detailheight > 0 && !state->vertexpaint && state->showingfaces ? SW_SHOW : SW_HIDE);
+    MoveWindow(state->portalproperties, RIGHTPANEL_MARGIN, detailtop, width,
+               detailheight > 0 ? detailheight : 0, TRUE);
+    ShowWindow(state->portalproperties, detailheight > 0 && !state->vertexpaint && state->showingportals ? SW_SHOW : SW_HIDE);
     detailtop = state->topheight + RIGHTPANEL_SPLITTER_H + 32;
     detailheight = client.bottom - detailtop;
     MoveWindow(state->colorpicker, 4, detailtop, client.right > 8 ? client.right - 8 : 1,
@@ -159,8 +164,9 @@ static void RightPanelLayout(HWND hwnd, RightPanelState *state)
 
 static void RightPanelShowFaceProperties(HWND panel, RightPanelState *state, BOOL show)
 {
-    if (state->showingfaces == show) { return; }
+    if (state->showingfaces == show && !state->showingportals) { return; }
     state->showingfaces = show;
+    state->showingportals = FALSE;
     RightPanelLayout(panel, state);
 }
 
@@ -464,6 +470,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             0, 0, 1, 1, hwnd, NULL, cs->hInstance, NULL);
         state->colorpicker = ColorPickerCreate(hwnd, cs->hInstance);
         state->faceproperties = FacePropertiesCreate(hwnd, cs->hInstance);
+        state->portalproperties = PortalPropertiesCreate(hwnd, cs->hInstance);
         SendMessage(state->details, WM_SETFONT, (WPARAM)font, TRUE);
 
         if (state->bgprimary == NULL || state->bgsecondary == NULL
@@ -472,7 +479,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
             || state->positions[0] == NULL || state->positions[1] == NULL
             || state->positions[2] == NULL || state->objects == NULL || state->details == NULL
             || state->movemode == NULL || state->rotatemode == NULL || state->scalebutton == NULL
-            || state->colorpicker == NULL || state->faceproperties == NULL)
+            || state->colorpicker == NULL || state->faceproperties == NULL || state->portalproperties == NULL)
         {
             free(state);
             SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
@@ -498,6 +505,7 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
         }
         return 0;
 
+    case PORTALPROPERTIES_WM_CHANGED:
     case FACEPROPERTIES_WM_CHANGED:
     case FACEPROPERTIES_WM_REVEAL_IMAGE:
         return SendMessage(GetParent(hwnd), msg, wparam, lparam);
@@ -617,6 +625,12 @@ static LRESULT CALLBACK RightPanelWndProc(HWND hwnd, UINT msg,
                 }
                 return 0;
             }
+            if (state->showingportals)
+            {
+                GetWindowRect(state->portalproperties, &bounds);
+                if (PtInRect(&bounds, point)) { SendMessage(state->portalproperties, WM_MOUSEWHEEL, wparam, lparam); }
+                return 0;
+            }
             if (state->showingfaces)
             {
                 GetWindowRect(state->faceproperties, &bounds);
@@ -676,7 +690,8 @@ BOOL RightPanelRegisterClass(HINSTANCE hinstance)
     INITCOMMONCONTROLSEX controls = {sizeof(controls), ICC_BAR_CLASSES};
 
     if (!InitCommonControlsEx(&controls)) { return FALSE; }
-    if (!ColorPickerRegisterClass(hinstance) || !FacePropertiesRegisterClass(hinstance)) { return FALSE; }
+    if (!ColorPickerRegisterClass(hinstance) || !FacePropertiesRegisterClass(hinstance)
+        || !PortalPropertiesRegisterClass(hinstance)) { return FALSE; }
     ZeroMemory(&wc, sizeof(wc));
     wc.lpfnWndProc = RightPanelWndProc;
     wc.hInstance = hinstance;
@@ -760,6 +775,7 @@ BOOL RightPanelHandleMessage(HWND panel, MSG *message)
     {
         return TRUE;
     }
+    if (state->showingportals && PortalPropertiesHandleMessage(state->portalproperties, message)) { return TRUE; }
     isposition = focus == state->positions[0] || focus == state->positions[1]
             || focus == state->positions[2];
     if (message->wParam == VK_TAB)
@@ -1034,4 +1050,13 @@ void RightPanelSetScaleLocal(HWND panel, BOOL local)
 {
     RightPanelState *state = RightPanelGetState(panel);
     if (state) { state->scaleislocal = local; }
+}
+
+void RightPanelSetPortal(HWND panel, const BgDocument *document, DWORD index)
+{
+    RightPanelState *state = RightPanelGetState(panel);
+    if (!state || !PortalPropertiesSetSelection(state->portalproperties, document, index)) { return; }
+    lstrcpyn(state->detailtitle, "Portal", sizeof(state->detailtitle));
+    state->showingfaces = FALSE; state->showingportals = TRUE;
+    RightPanelLayout(panel, state);
 }

@@ -16,6 +16,7 @@
 #include "browser.h"
 #include "rightpanel.h"
 #include "faceproperties.h"
+#include "portalproperties.h"
 #include "tooltoolbar.h"
 #include "uveditor.h"
 #include "modeleditor.h"
@@ -76,8 +77,6 @@ static SetupFile g_CurrentSetup;
 /* Editable stan document for the selected level. Kept beside the setup so
    editing tools can inspect tile IDs, rooms, links, and special types. */
 static StanFile g_CurrentStan;
-/* Portal records decoded from the selected level's saved BG segment. */
-static BgPortalFile g_CurrentPortals;
 /* Setup model geometry is retained so BG-only undo/redo can rebuild the scene
    without reloading every model from disk. Setup edits regenerate this layer. */
 static SetupObjectGeometry g_CurrentObjects;
@@ -262,7 +261,7 @@ static void GEditorRefreshSelectionDetails(void)
 {
     SetupPadRef padref;
     SetupMarkerRef markerref;
-    DWORD selectedobject;
+    DWORD selectedobject, portal;
     int count = ViewportGetSelectedBgFaceCount(g_Viewport);
     BOOL objectselected = ViewportGetSelectedObject(g_Viewport, &selectedobject);
     int components = ViewportGetSelectedComponentCount(g_Viewport);
@@ -271,7 +270,11 @@ static void GEditorRefreshSelectionDetails(void)
     RightPanelSetVertexPaintMode(g_RightPanel,
         ViewportGetTool(g_Viewport) == EDITOR_TOOL_VERTEX_PAINT);
     GEditorRefreshTransformFields();
-    if (ViewportGetSelectedMarker(g_Viewport, &markerref, NULL))
+    if (ViewportGetSelectedPortal(g_Viewport, &portal))
+    {
+        RightPanelSetPortal(g_RightPanel, &g_CurrentBgDocument, portal);
+    }
+    else if (ViewportGetSelectedMarker(g_Viewport, &markerref, NULL))
     {
         RightPanelSetSetupMarker(g_RightPanel, &markerref);
     }
@@ -343,8 +346,7 @@ static BOOL GEditorRebuildCurrentViewportWithObjects(
     }
     BgDocumentRenderMeshFree(&mesh);
 
-    ViewportSetPortals(g_Viewport,
-        g_CurrentPortals.portals != NULL ? &g_CurrentPortals : NULL);
+    ViewportSetPortals(g_Viewport, &g_CurrentBgDocument.portals);
     if (!ViewportSetStanTiles(g_Viewport,
         g_CurrentStan.data != NULL ? &g_CurrentStan : NULL))
     {
@@ -527,7 +529,6 @@ static void GEditorCloseProject(HWND hwnd)
 
     SetupFileFree(&g_CurrentSetup);
     StanFileFree(&g_CurrentStan);
-    BgPortalFileFree(&g_CurrentPortals);
     ObjectGeometryFree(&g_CurrentObjects);
     EditHistoryFree(&g_EditHistory);
     BgDocumentFree(&g_CurrentBgDocument);
@@ -2450,6 +2451,31 @@ static void GEditorDeleteSelectedObject(HWND hwnd, DWORD objectindex)
 }
 
 
+static BOOL GEditorSetPortalRooms(HWND hwnd, const PortalPropertiesEdit *edit)
+{
+    EditHistoryTransaction transaction = {0};
+    const char *why = "";
+    DWORD index; BOOL changed;
+    if (!edit || !ViewportGetSelectedPortal(g_Viewport, &index) || index != edit->portal) { return FALSE; }
+    ViewportCancelTransform(g_Viewport);
+    if (!EditHistoryBeginBgEdit(&g_EditHistory, &g_CurrentBgDocument, "Change Portal Rooms", &transaction, &why)) { goto fail; }
+    if (!BgDocumentSetPortalRooms(&g_CurrentBgDocument, index, edit->room1, edit->room2, &changed, &why)) { goto fail; }
+    if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
+    if (!EditHistoryCommitEdit(&g_EditHistory, &g_CurrentBgDocument, &g_CurrentSetup,
+        &g_CurrentStan, &transaction, &why))
+    {
+        EditHistoryRollbackEdit(&transaction, &g_CurrentBgDocument, &g_CurrentSetup, &g_CurrentStan);
+        goto fail;
+    }
+    ViewportSetPortals(g_Viewport, &g_CurrentBgDocument.portals);
+    GEditorRefreshHistoryMenu(hwnd);
+    return TRUE;
+fail:
+    EditHistoryCancelEdit(&transaction);
+    MessageBox(hwnd, why, GEDITOR_TITLE, MB_ICONERROR);
+    return FALSE;
+}
+
 static BOOL GEditorEditSetupMarker(HWND hwnd, SetupMarkerKind kind, const double *position, const double *look)
 {
     EditHistoryTransaction transaction = {0};
@@ -2676,6 +2702,13 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         GEditorRefreshSelectionDetails();
         return 0;
 
+    case PORTALPROPERTIES_WM_CHANGED:
+    {
+        BOOL ok = GEditorSetPortalRooms(hwnd, (const PortalPropertiesEdit *)lparam);
+        GEditorRefreshSelectionDetails();
+        return ok;
+    }
+
     case FACEPROPERTIES_WM_CHANGED:
     {
         BOOL ok = GEditorSetFaceProperties(hwnd, (const BgFacePropertiesEdit *)lparam);
@@ -2882,16 +2915,13 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         SetupFile setup;
         SetupObjectGeometry objects;
         StanFile stan;
-        BgPortalFile portals;
         const char *bgwhy = "";
         const char *setupwhy = "";
         const char *objectwhy = "";
         const char *stanwhy = "";
-        const char *portalwhy = "";
         BOOL setupLoaded;
         BOOL objectsLoaded = FALSE;
         BOOL stanLoaded;
-        BOOL portalsLoaded;
         DWORD objectfirsttriangle;
 
         if (index >= g_Project.levelcount)
@@ -2925,9 +2955,6 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             return 0;
         }
         objectfirsttriangle = mesh.facecount;
-
-        portalsLoaded = BgLoadPortals(bg.data, bg.size, level->levelscale,
-                                      &portals, &portalwhy);
 
         setupLoaded = SetupLoadProjectFile(g_Project.dir, level->setupname,
                                            &setup, &setupwhy);
@@ -2963,7 +2990,6 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
             ObjectGeometryFree(&objects);
             SetupFileFree(&setup);
             StanFileFree(&stan);
-            BgPortalFileFree(&portals);
             BgDocumentFree(&document);
             BgFileFree(&bg);
             MessageBox(hwnd, "Out of memory loading the level viewport.",
@@ -2978,17 +3004,9 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         g_CurrentBgDocument = document;
         GEditorRefreshSelectionDetails();
 
-        BgPortalFileFree(&g_CurrentPortals);
-        if (portalsLoaded)
-        {
-            g_CurrentPortals = portals;
-            ViewportSetPortals(g_Viewport, &g_CurrentPortals);
-        }
-        else
-        {
-            ViewportSetPortals(g_Viewport, NULL);
-            MessageBox(hwnd, portalwhy, GEDITOR_TITLE, MB_ICONWARNING);
-        }
+        ViewportSetPortals(g_Viewport, &g_CurrentBgDocument.portals);
+        if (g_CurrentBgDocument.portalwarning)
+        { MessageBox(hwnd, g_CurrentBgDocument.portalwarning, GEDITOR_TITLE, MB_ICONWARNING); }
 
         StanFileFree(&g_CurrentStan);
         if (stanLoaded)
@@ -3362,7 +3380,6 @@ static LRESULT CALLBACK GEditorWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
            this the process keeps running after the window closes. */
         SetupFileFree(&g_CurrentSetup);
         StanFileFree(&g_CurrentStan);
-        BgPortalFileFree(&g_CurrentPortals);
         ObjectGeometryFree(&g_CurrentObjects);
         EditHistoryFree(&g_EditHistory);
         BgDocumentFree(&g_CurrentBgDocument);

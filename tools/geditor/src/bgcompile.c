@@ -2,8 +2,9 @@
  * Compiler for the editable, room-aware background document.
  *
  * The header, portal table, visibility data, and other unknown data before
- * the room streams are copied byte-for-byte. Room vertex streams and Fast3D
- * display lists and per-face materials are regenerated from BgDocument.
+ * the room streams are preserved, with the portal connection bytes updated
+ * from the document. Room vertex streams, Fast3D display lists and per-face
+ * materials are regenerated from BgDocument.
  * Other commands captured by the parser retain the authored render state.
  */
 
@@ -762,6 +763,34 @@ static BOOL BgCompileValidateSource(const BgDocument *document,
 }
 
 
+/* Portal indices and geometry pointers also serve native game/script lookups.
+ * Patch only the two room bytes, retaining every other authored byte. */
+static BOOL BgCompilePortalRooms(const BgDocument *document, BgCompileBuffer *output,
+                                 const char **reasonout)
+{
+    DWORD table, count = document->portals.portalcount, i;
+    if (document->portalwarning) { return TRUE; } /* preserve an uneditable table */
+    if (output->size < 12 || count >= BG_MAX_PORTALS) { goto mismatch; }
+    table = BgCompileRead32(output->data + 8) & 0x00ffffffu;
+    if (table > output->size || (count + 1) > (output->size - table) / 8
+        || (count && !document->portals.portals)) { goto mismatch; }
+    for (i = 0; i < count; i++)
+    {
+        const BgPortal *portal = &document->portals.portals[i];
+        unsigned char *record = output->data + table + i * 8;
+        if (!BgCompileRead32(record) || (BgCompileRead32(record) & 0x00ffffffu) != portal->geometryoffset)
+        { goto mismatch; }
+        record[4] = portal->connectedroom1;
+        record[5] = portal->connectedroom2;
+    }
+    if (BgCompileRead32(output->data + table + count * 8)) { goto mismatch; }
+    return TRUE;
+mismatch:
+    *reasonout = "The editable portal table does not match the source BG.";
+    return FALSE;
+}
+
+
 BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
                        BgFile *out, const char **reasonout)
 {
@@ -776,7 +805,8 @@ BOOL BgDocumentCompile(const BgDocument *document, const BgFile *source,
 
     if (!BgCompileValidateSource(document, source, &roomtable,
                                  &prefixsize, reasonout)
-        || !BgCompileAppend(&output, source->data, prefixsize))
+        || !BgCompileAppend(&output, source->data, prefixsize)
+        || !BgCompilePortalRooms(document, &output, reasonout))
     {
         if (output.failed && (*reasonout)[0] == '\0')
         {

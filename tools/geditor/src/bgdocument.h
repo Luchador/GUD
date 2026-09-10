@@ -82,6 +82,8 @@ typedef struct BgDocumentRoom {
 typedef struct BgDocument {
     BgDocumentRoom *rooms; /* indexed by authored room number; room 0 unused */
     DWORD roomcount;
+    BgPortalFile portals; /* native table order; shared polygons remain distinct entries */
+    const char *portalwarning; /* static loader error, or NULL; geometry remains editable */
     DWORD facecount;
     DWORD nextvertexid;
     DWORD nextfaceid;
@@ -121,6 +123,11 @@ BOOL BgDocumentLoad(const unsigned char *data, DWORD size, float levelscale,
 BOOL BgDocumentClone(const BgDocument *source, BgDocument *out,
                      const char **reasonout);
 void BgDocumentFree(BgDocument *document);
+
+/* Room IDs are 1..roomcount and fit the native unsigned-byte fields.
+ * Connection edits retain polygon winding, flags, margin and table identity. */
+BOOL BgDocumentSetPortalRooms(BgDocument *document, DWORD portal, DWORD room1, DWORD room2,
+                              BOOL *changed, const char **reasonout);
 
 BOOL BgDocumentDeleteFaces(BgDocument *document, const BgFaceRef *refs,
                            DWORD refcount, DWORD *deletedout,

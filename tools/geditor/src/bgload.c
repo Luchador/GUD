@@ -29,7 +29,6 @@
 #define BG_ROOM_RECORD_SIZE 24
 #define BG_MAX_ROOMS        256
 #define BG_PORTAL_RECORD_SIZE 8
-#define BG_MAX_PORTALS      200
 
 #define G_VTX   0x04
 #define G_TRI4  0xB1
@@ -885,4 +884,10 @@ void BgPortalFileFree(BgPortalFile *portals)
 {
     free(portals->portals);
     ZeroMemory(portals, sizeof(*portals));
+}
+
+float BgPortalGetMargin(const BgPortal *portal)
+{
+    unsigned int value = portal->controlbytes2;
+    return (value & 15) * .25f * (1u << (value >> 4));
 }

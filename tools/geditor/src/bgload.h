@@ -38,6 +38,8 @@ typedef struct BgFile {
 } BgFile;
 
 #define BG_PORTAL_MAX_POINTS 8
+#define BG_MAX_PORTALS 200
+#define BG_PORTAL_INDEX_NONE ((DWORD)-1)
 
 /* Host-native view of one entry in the BG portal table. Portal points
    are absolute (not room-relative) and are converted to gameplay world
@@ -132,6 +134,8 @@ BOOL BgLoadProjectPortals(const char *projectdir, const char *bgname,
                           float levelscale, BgPortalFile *out,
                           const char **reasonout);
 
+/* Same native BG-unit margin used by bgGetPortalMargin in the game. */
+float BgPortalGetMargin(const BgPortal *portal);
 void BgPortalFileFree(BgPortalFile *portals);
 
 #endif /* GEDITOR_BGLOAD_H */

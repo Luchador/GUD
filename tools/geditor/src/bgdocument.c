@@ -580,6 +580,10 @@ BOOL BgDocumentLoad(const unsigned char *data, DWORD size, float levelscale,
         }
     }
 
+    /* As with the original overlay, malformed portals must not prevent
+     * inspecting the rest of a level. Such tables cannot be edited. */
+    if (BgLoadPortals(data, size, levelscale, &out->portals, &out->portalwarning))
+    { out->portalwarning = NULL; }
     return TRUE;
 }
 
@@ -612,6 +616,20 @@ BOOL BgDocumentClone(const BgDocument *source, BgDocument *out,
     out->nextfaceid = source->nextfaceid;
     out->levelscale = source->levelscale;
     out->dirty = source->dirty;
+    out->portalwarning = source->portalwarning;
+    if (source->portals.portalcount)
+    {
+        out->portals.portals = malloc(source->portals.portalcount * sizeof(*out->portals.portals));
+        if (!out->portals.portals)
+        {
+            BgDocumentFree(out);
+            *reasonout = "out of memory copying bg portals.";
+            return FALSE;
+        }
+        out->portals.portalcount = source->portals.portalcount;
+        memcpy(out->portals.portals, source->portals.portals,
+            source->portals.portalcount * sizeof(*out->portals.portals));
+    }
 
     for (roomindex = 0; roomindex <= source->roomcount; roomindex++)
     {
@@ -740,7 +758,31 @@ void BgDocumentFree(BgDocument *document)
         free(document->rooms[room].faces);
     }
     free(document->rooms);
+    BgPortalFileFree(&document->portals);
     ZeroMemory(document, sizeof(*document));
+}
+
+
+BOOL BgDocumentSetPortalRooms(BgDocument *document, DWORD index, DWORD room1, DWORD room2,
+                              BOOL *changed, const char **reasonout)
+{
+    BgPortal *portal;
+    *changed = FALSE;
+    *reasonout = "The selected portal is no longer available.";
+    if (!document || !document->rooms || document->portalwarning || !document->portals.portals
+        || index >= document->portals.portalcount) { return FALSE; }
+    if (!room1 || !room2 || room1 > document->roomcount || room2 > document->roomcount
+        || room1 > 255 || room2 > 255)
+    { *reasonout = "Choose two existing rooms from this level."; return FALSE; }
+    if (room1 == room2)
+    { *reasonout = "A portal must connect two different rooms."; return FALSE; }
+    portal = &document->portals.portals[index];
+    *changed = portal->connectedroom1 != room1 || portal->connectedroom2 != room2;
+    portal->connectedroom1 = (unsigned char)room1;
+    portal->connectedroom2 = (unsigned char)room2;
+    document->dirty |= *changed;
+    *reasonout = "";
+    return TRUE;
 }
 
 

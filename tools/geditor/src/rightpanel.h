@@ -58,5 +58,6 @@ void RightPanelSetSetupObject(HWND panel, const SetupObject *object,
 void RightPanelSetSetupCharacter(HWND panel, const SetupCharacter *character);
 void RightPanelSetSetupPad(HWND panel, const SetupFile *setup, const SetupPadRef *ref);
 void RightPanelSetSetupMarker(HWND panel, const SetupMarkerRef *ref);
+void RightPanelSetPortal(HWND panel, const BgDocument *document, DWORD index);
 
 #endif /* GEDITOR_RIGHTPANEL_H */
