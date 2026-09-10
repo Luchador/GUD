@@ -46,6 +46,7 @@
 #define IDR_MARKER_START          327
 #define IDR_MARKER_INTRO_CAMERA   328
 #define IDR_MARKER_OUTRO_CAMERA   329
+#define IDR_MARKER_INTRO_SPLINE   330
 
 /* Controls inside IDD_NEW_PROJECT */
 #define IDC_PROJECT_NAME     1001

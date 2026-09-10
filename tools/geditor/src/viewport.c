@@ -174,6 +174,7 @@ typedef struct ViewportState {
     DWORD markermodeltris[SETUP_MARKER_KIND_COUNT];
     SetupMarker *setupmarkers;
     DWORD setupmarkercount;
+    SetupSwirlPath swirlpath;
     BgVertex *cylinder;
     DWORD cylindertris;
     BOOL scalemode, dragscaling, scalevalid;
@@ -825,7 +826,7 @@ static void ViewportDrawSetupMarkers(const ViewportState *state)
     DWORD i;
     if (!state->showobjects || state->setupmarkercount == 0) { return; }
     glPushAttrib(GL_ENABLE_BIT | GL_LIGHTING_BIT | GL_CURRENT_BIT
-        | GL_DEPTH_BUFFER_BIT | GL_POLYGON_BIT | GL_COLOR_BUFFER_BIT);
+        | GL_DEPTH_BUFFER_BIT | GL_POLYGON_BIT | GL_COLOR_BUFFER_BIT | GL_LINE_BIT);
     glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
     glDisable(GL_TEXTURE_2D);
     glDisable(GL_ALPHA_TEST);
@@ -834,6 +835,33 @@ static void ViewportDrawSetupMarkers(const ViewportState *state)
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glDepthMask(GL_TRUE);
+    if (state->swirlpath.curvecount > 0 && state->markermodels[SETUP_MARKER_SWIRL])
+    {
+        const SetupSwirlPath *path = &state->swirlpath;
+        const BgVertex *diamond = state->markermodels[SETUP_MARKER_SWIRL];
+        glDisable(GL_LIGHTING);
+        glDisable(GL_LINE_STIPPLE);
+        glDisableClientState(GL_COLOR_ARRAY);
+        glDisableClientState(GL_NORMAL_ARRAY);
+        glEnableClientState(GL_VERTEX_ARRAY);
+        /* Use the resource's orange vertex color for the entire curve. */
+        glColor3ub(diamond->r, diamond->g, diamond->b);
+        glLineWidth(2.0f);
+        glVertexPointer(3, GL_FLOAT, sizeof(*path->curve), path->curve);
+        glDrawArrays(GL_LINE_STRIP, 0, path->curvecount);
+        /* Connect the two tangent-only end controls as dashed guides. These
+         * influence the spline but are not part of the camera's travel. */
+        glLineWidth(1.0f);
+        glEnable(GL_LINE_STIPPLE);
+        glLineStipple(1, 0x00ff);
+        glBegin(GL_LINES);
+        glVertex3fv(path->points[0].position);
+        glVertex3fv(path->points[1].position);
+        glVertex3fv(path->points[path->pointcount - 2].position);
+        glVertex3fv(path->points[path->pointcount - 1].position);
+        glEnd();
+        glDisable(GL_LINE_STIPPLE);
+    }
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
     glEnable(GL_COLOR_MATERIAL);
@@ -852,9 +880,20 @@ static void ViewportDrawSetupMarkers(const ViewportState *state)
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
     glEnableClientState(GL_NORMAL_ARRAY);
-    for (i = 0; i < state->setupmarkercount; i++)
+    for (i = 0; i < state->setupmarkercount + state->swirlpath.pointcount; i++)
     {
-        const SetupMarker *marker = &state->setupmarkers[i];
+        SetupMarker control = {0};
+        const SetupMarker *marker;
+        if (i < state->setupmarkercount) { marker = &state->setupmarkers[i]; }
+        else
+        {
+            control.kind = SETUP_MARKER_SWIRL;
+            memcpy(control.position, state->swirlpath.points[i - state->setupmarkercount].position,
+                sizeof(control.position));
+            control.look[0] = 1;
+            control.up[1] = 1;
+            marker = &control;
+        }
         const BgVertex *model = state->markermodels[marker->kind];
         GLfloat matrix[16] = {0};
         const float *look = marker->look, *up = marker->up;
@@ -4736,6 +4775,7 @@ static void ViewportFreeScene(struct ViewportState *state_)
     free(state->setupmarkers);
     state->setupmarkers = NULL;
     state->setupmarkercount = 0;
+    SetupSwirlPathFree(&state->swirlpath);
     free(state->padmarkers);
     free(state->pads);
     free(state->scene);
@@ -5707,19 +5747,24 @@ static void ViewportSetSetupMarkers(HWND hwnd, ViewportState *state,
                                      const SetupFile *setup, float levelscale)
 {
     static const int resources[SETUP_MARKER_KIND_COUNT] = {
-        IDR_MARKER_START, IDR_MARKER_INTRO_CAMERA, IDR_MARKER_OUTRO_CAMERA
+        IDR_MARKER_START, IDR_MARKER_INTRO_CAMERA, IDR_MARKER_OUTRO_CAMERA,
+        IDR_MARKER_INTRO_SPLINE
     };
     const char *reason = "";
+    const SetupMarker *spawn = NULL;
+    BOOL used[SETUP_MARKER_KIND_COUNT] = {0};
     DWORD i;
     free(state->setupmarkers);
     state->setupmarkers = NULL;
     state->setupmarkercount = 0;
+    SetupSwirlPathFree(&state->swirlpath);
     if (setup == NULL) { return; }
     if (!SetupFileBuildMarkers(setup, levelscale, &state->setupmarkers, &state->setupmarkercount, &reason))
     { MessageBox(hwnd, reason, "GEditor setup markers", MB_ICONWARNING); return; }
     for (i = 0; i < state->setupmarkercount; i++)
     {
         SetupMarker *marker = &state->setupmarkers[i];
+        used[marker->kind] = TRUE;
         if (marker->kind == SETUP_MARKER_SPAWN && state->stan.tilecount > 0)
         {
             const SetupPad *pad = &setup->pads[marker->pad];
@@ -5730,24 +5775,29 @@ static void ViewportSetSetupMarkers(HWND hwnd, ViewportState *state,
             if (StanGetTileHeight(&state->stan, tile, marker->position[0], marker->position[2], &height))
             { marker->position[1] = height; }
         }
-        if (state->markermodels[marker->kind] == NULL)
+        if (marker->kind == SETUP_MARKER_SPAWN && spawn == NULL) { spawn = marker; }
+    }
+    if (!SetupFileBuildSwirlPath(setup, spawn, &state->swirlpath, &reason))
+    { MessageBox(hwnd, reason, "GEditor intro swirl", MB_ICONWARNING); }
+    used[SETUP_MARKER_SWIRL] = state->swirlpath.pointcount > 0;
+    for (i = 0; i < SETUP_MARKER_KIND_COUNT; i++)
+    {
+        if (used[i] && state->markermodels[i] == NULL)
         {
             HINSTANCE instance = GetModuleHandle(NULL);
-            HRSRC resource = FindResource(instance, MAKEINTRESOURCE(resources[marker->kind]), RT_RCDATA);
+            HRSRC resource = FindResource(instance, MAKEINTRESOURCE(resources[i]), RT_RCDATA);
             HGLOBAL loaded = resource ? LoadResource(instance, resource) : NULL;
-            /* outro_camera.glb also contains a coincident intro_camera mesh.
-             * Select its named outro mesh to avoid blue/red z-fighting. */
-            const char *node = marker->kind == SETUP_MARKER_OUTRO ? "outro_camera" : NULL;
             if (loaded)
             {
-                state->markermodels[marker->kind] = GltfLoadGlbLitMesh(LockResource(loaded),
-                    SizeofResource(instance, resource), node, &state->markermodeltris[marker->kind], &reason);
+                state->markermodels[i] = GltfLoadGlbLitMesh(LockResource(loaded),
+                    SizeofResource(instance, resource), NULL, &state->markermodeltris[i], &reason);
             }
-            if (state->markermodels[marker->kind] == NULL)
+            if (state->markermodels[i] == NULL)
             {
                 MessageBox(hwnd, loaded ? reason : "An embedded setup marker model is missing.",
                     "GEditor setup markers", MB_ICONWARNING);
                 free(state->setupmarkers); state->setupmarkers = NULL; state->setupmarkercount = 0;
+                SetupSwirlPathFree(&state->swirlpath);
                 return;
             }
         }

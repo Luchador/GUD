@@ -4,6 +4,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import struct
 import subprocess
 import tempfile
@@ -41,8 +42,23 @@ def main():
         command += [str(src/name) for name in ['setupload.c','gltf.c','bgrender.c']]
         command += ['-Wl,--gc-sections','-lm','-o',str(temp/'check')]
         subprocess.run(command,check=True)
-        models=[str(editor/'geditorassets'/name) for name in ['start.glb','intro_camera.glb','outro_camera.glb']]
-        subprocess.run([str(temp/'check'),*models,str(fixture),str(temp)],check=True,
+        models=[str(editor/'geditorassets'/name) for name in ['start.glb','intro_camera.glb','outro_camera.glb','intro_spline_point.glb']]
+        # Exercise the actual authored fixed-point records as well as the
+        # synthetic cases. No ROM or proprietary extracted project is needed.
+        missions=[]
+        for source in sorted((editor.parent.parent/'assets/obseg/setup').glob('Usetup*.c')):
+            records=re.findall(r'/\* Type = SwirlCam;.*?\*/\s*_mkword\(0, _mkshort\(0, 3\)\),([^\n]+)',source.read_text())
+            if not records:
+                continue
+            data=bytearray(40);struct.pack_into('>I',data,8,40)
+            for record in records:
+                words=[3]+[int(word.strip(),0)&0xffffffff for word in record.split(',') if word.strip()]
+                assert len(words)==8
+                data+=struct.pack('>8I',*words)
+            data+=struct.pack('>I',9)
+            mission=temp/(source.stem+'.set');mission.write_bytes(data);missions.append(str(mission))
+        assert len(missions)==20
+        subprocess.run([str(temp/'check'),*models,str(fixture),str(temp),*missions],check=True,
                        env=dict(os.environ,ASAN_OPTIONS='detect_leaks=0',UBSAN_OPTIONS='halt_on_error=1'))
 
 

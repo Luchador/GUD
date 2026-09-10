@@ -226,6 +226,117 @@ fail:
     return FALSE;
 }
 
+void SetupSwirlPathFree(SetupSwirlPath *path)
+{
+    free(path->points);
+    free(path->curve);
+    ZeroMemory(path, sizeof(*path));
+}
+
+BOOL SetupFileBuildSwirlPath(const SetupFile *setup, const SetupMarker *spawn,
+                            SetupSwirlPath *path, const char **reasonout)
+{
+    const DWORD samples = 32;
+    DWORD at, first = 0, count = 0, commands, i, step;
+    int axis;
+    BOOL ended = FALSE;
+    ZeroMemory(path, sizeof(*path));
+    *reasonout = "The setup's intro swirl path is invalid.";
+    if (setup == NULL || setup->data == NULL || setup->size < SETUP_HEADER_SIZE) { return FALSE; }
+    /* Multiplayer uses a procedural orbit, not the authored solo swirl. */
+    if (spawn == NULL || strncmp(setup->name, "Ump_", 4) == 0) { goto empty; }
+    if (spawn->kind != SETUP_MARKER_SPAWN) { return FALSE; }
+    for (axis = 0; axis < 3; axis++)
+    {
+        if (!isfinite(spawn->position[axis]) || !isfinite(spawn->look[axis])) { return FALSE; }
+    }
+    at = SetupRead32(setup->data + 8);
+    if (at == 0) { goto empty; }
+    if (at < SETUP_HEADER_SIZE || (at & 3) || at > setup->size) { return FALSE; }
+    /* The game uses the first contiguous INTROTYPE_SWIRL block. Bit 0 ends
+     * that block; the terminating record is not a control point. */
+    for (commands = 0; commands < SETUP_OBJECT_MAX; commands++)
+    {
+        DWORD type, bytes;
+        if (setup->size - at < 4) { return FALSE; }
+        type = SetupRead32(setup->data + at);
+        if (type == 9 && first == 0) { goto empty; }
+        bytes = SetupIntroWordCount(type) * 4;
+        if (bytes == 0 || bytes > setup->size - at) { return FALSE; }
+        if (type == 3)
+        {
+            if (first == 0) { first = at; }
+            if (SetupRead32(setup->data + at + 4) & 1) { ended = TRUE; break; }
+            if (++count > 4096) { return FALSE; }
+        }
+        else if (first != 0) { return FALSE; }
+        at += bytes;
+    }
+    /* Camera playback starts at index 1, using its neighbours for tangents. */
+    if (!ended || count < 4) { return FALSE; }
+    path->points = calloc(count, sizeof(*path->points));
+    path->curvecount = (count - 3) * samples + 1;
+    path->curve = malloc((size_t)path->curvecount * sizeof(*path->curve));
+    if (path->points == NULL || path->curve == NULL)
+    {
+        *reasonout = "Not enough memory to display the intro swirl path.";
+        SetupSwirlPathFree(path);
+        return FALSE;
+    }
+    path->pointcount = count;
+    for (i = 0; i < count; i++)
+    {
+        const unsigned char *record = setup->data + first + i * 32;
+        float offset[3];
+        SetupSwirlPoint *point = &path->points[i];
+        for (axis = 0; axis < 3; axis++)
+        { offset[axis] = (LONG)SetupRead32(record + 8 + axis * 4) / 65536.0f; }
+        if (SetupRead32(record + 4) & 2)
+        {
+            /* Match bviewCalcIntroSwirlCamera's facing-relative offsets. */
+            point->position[0] = offset[2] * spawn->look[0] + offset[0] * spawn->look[2];
+            point->position[2] = offset[2] * spawn->look[2] - offset[0] * spawn->look[0];
+        }
+        else
+        {
+            point->position[0] = offset[0];
+            point->position[2] = offset[2];
+        }
+        /* bviewPlayerBeginLife: 185 * normal perspective height - 10.
+         * This is a static preview; animation/head bob is not simulated. */
+        point->position[1] = offset[1] + 175.0f;
+        for (axis = 0; axis < 3; axis++) { point->position[axis] += spawn->position[axis]; }
+        point->tangentscale = (LONG)SetupRead32(record + 20) / 65536.0f;
+    }
+    at = 0;
+    for (i = 1; i + 2 < count; i++)
+    {
+        const float scale = path->points[i].tangentscale;
+        for (step = 0; step < samples; step++)
+        {
+            float t = (float)step / samples, square = t * t, cube = square * t;
+            /* coord3dCubicSplineInterp's Hermite weights, including the
+             * per-segment tension. First/last controls are not travelled. */
+            float prev = (2 * square - t - cube) * scale;
+            float start = (2 - scale) * cube + (scale - 3) * square + 1;
+            float end = (scale - 2) * cube + (3 - 2 * scale) * square + t * scale;
+            float next = (cube - square) * scale;
+            for (axis = 0; axis < 3; axis++)
+            {
+                path->curve[at][axis] = prev * path->points[i - 1].position[axis]
+                    + start * path->points[i].position[axis]
+                    + end * path->points[i + 1].position[axis]
+                    + next * path->points[i + 2].position[axis];
+            }
+            at++;
+        }
+    }
+    memcpy(path->curve[at], path->points[count - 2].position, sizeof(*path->curve));
+empty:
+    *reasonout = "";
+    return TRUE;
+}
+
 static BOOL SetupTypeCreatesObject(unsigned char type)
 {
     switch (type)

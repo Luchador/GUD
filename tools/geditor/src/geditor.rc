@@ -8,6 +8,7 @@ IDR_GIZMO_ARROW RCDATA "../geditorassets/gizmo_arrow.glb"
 IDR_MARKER_START RCDATA "../geditorassets/start.glb"
 IDR_MARKER_INTRO_CAMERA RCDATA "../geditorassets/intro_camera.glb"
 IDR_MARKER_OUTRO_CAMERA RCDATA "../geditorassets/outro_camera.glb"
+IDR_MARKER_INTRO_SPLINE RCDATA "../geditorassets/intro_spline_point.glb"
 IDR_NO_TEXTURE RCDATA "../geditorassets/no_texture.png"
 
 IDR_OBJECT_TRIANGLE RCDATA "../geditorassets/icon_tri.png"

@@ -92,7 +92,8 @@ typedef struct SetupFile {
 /* Derived viewport markers. These are never serialized into setup records.
  * Cameras already store gameplay coordinates; spawn pads use levelscale. */
 typedef enum SetupMarkerKind {
-    SETUP_MARKER_SPAWN, SETUP_MARKER_INTRO, SETUP_MARKER_OUTRO, SETUP_MARKER_KIND_COUNT
+    SETUP_MARKER_SPAWN, SETUP_MARKER_INTRO, SETUP_MARKER_OUTRO,
+    SETUP_MARKER_SWIRL, SETUP_MARKER_KIND_COUNT
 } SetupMarkerKind;
 typedef struct SetupMarker {
     SetupMarkerKind kind;
@@ -101,6 +102,22 @@ typedef struct SetupMarker {
 } SetupMarker;
 BOOL SetupFileBuildMarkers(const SetupFile *setup, float levelscale,
                            SetupMarker **markers, DWORD *count, const char **reasonout);
+
+typedef struct SetupSwirlPoint {
+    float position[3];
+    float tangentscale;
+} SetupSwirlPoint;
+typedef struct SetupSwirlPath {
+    SetupSwirlPoint *points; /* includes the first/last tangent controls, not the terminator */
+    DWORD pointcount;
+    float (*curve)[3];      /* sampled camera travel from point 1 to pointcount - 2 */
+    DWORD curvecount;
+} SetupSwirlPath;
+/* spawn is the solo marker after grounding on the stan floor. Offsets are
+ * relative to Bond's default standing eye position, without level scaling. */
+BOOL SetupFileBuildSwirlPath(const SetupFile *setup, const SetupMarker *spawn,
+                            SetupSwirlPath *path, const char **reasonout);
+void SetupSwirlPathFree(SetupSwirlPath *path);
 
 /*
  * Copies every single-player and multiplayer setup resource from the
