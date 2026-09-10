@@ -427,16 +427,14 @@ void RomFree(RomFile *rom)
 #define ROM_KIND_FTBL 0x4654424C  /* 'FTBL' */
 #define ROM_KIND_CMAP 0x434D4150  /* 'CMAP' */
 #define ROM_KIND_OBSG 0x4F425347  /* 'OBSG' */
+#define ROM_KIND_ENVT 0x454E5654u /* 'ENVT' */
 #define ROM_FTBL_MAX_ROWS 1024
 
 /* File-table entries can alias the same data (several multiplayer
    names do). The tightest table-derived upper bound is therefore the
    smallest DISTINCT data address after the start, not necessarily the
    following row. */
-static DWORD RomFindFileUpperBound(const RomFile *rom,
-                                   const RomManifestEntry *ftbl,
-                                   const RomManifestEntry *obsg,
-                                   DWORD start)
+static DWORD RomFindFileUpperBound(const RomFile *rom, const RomManifestEntry *ftbl, const RomManifestEntry *obsg, DWORD start)
 {
     DWORD end = obsg != NULL ? obsg->romend : rom->size;
     DWORD i;
