@@ -63,8 +63,41 @@ static void Type(const char *value)
 static BOOL Key(WPARAM key)
 { MSG msg = {WM_KEYDOWN, key}; return ObjectPropertiesHandleMessage(0, &msg); }
 
+static void CheckContents(void)
+{
+    SetupObjectProperties properties = {0}, before;
+    char contents[OBJECT_CONTENTS_TEXT_MAX], small[12];
+    properties.ammo[AMMO_REMOTEMINE - 1].quantity = 6;
+    before = properties;
+    assert(ObjectPropertiesFormatContents(&properties, FALSE, contents, sizeof(contents)));
+    assert(strstr(contents, "Remote mines\r\nAgent: 12\r\nSecret Agent: 9\r\n00 Agent: 6\r\n007 Mode: 6"));
+    assert(!memcmp(&before, &properties, sizeof(properties))); /* Preview never edits setup values. */
+    properties.ammo[AMMO_REMOTEMINE - 1].quantity = 5;
+    assert(ObjectPropertiesFormatContents(&properties, FALSE, contents, sizeof(contents)));
+    assert(strstr(contents, "Agent: 10\r\nSecret Agent: 7\r\n00 Agent: 5\r\n007 Mode: 5"));
+    assert(ObjectPropertiesFormatContents(&properties, TRUE, contents, sizeof(contents)));
+    assert(strstr(contents, "Remote mines: 5") && !strstr(contents, "Secret Agent"));
+    memset(&properties, 0, sizeof(properties));
+    assert(ObjectPropertiesFormatContents(&properties, FALSE, contents, sizeof(contents)));
+    assert(strstr(contents, "Empty"));
+    properties.ammo[AMMO_9MM - 1].quantity = properties.ammo[AMMO_9MM_2 - 1].quantity = 1;
+    assert(ObjectPropertiesFormatContents(&properties, FALSE, contents, sizeof(contents)));
+    assert(strstr(contents, "9mm\r\nAgent: 4\r\nSecret Agent: 2\r\n00 Agent: 2\r\n007 Mode: 2"));
+    assert(!strstr(contents, "alternate slot")); /* Truncate each slot before adding. */
+    for (int slot = 0; slot < AMMOTYPE_GLOBAL_MAX; slot++) { properties.ammo[slot].quantity = 65535; }
+    assert(ObjectPropertiesFormatContents(&properties, FALSE, contents, sizeof(contents)));
+    assert(strlen(contents) > 512 && strstr(contents, "Golden Gun rounds"));
+    assert(strstr(contents, "9mm\r\nAgent: 262140\r\nSecret Agent: 196604"));
+    assert(strstr(contents, "Inventory limits still apply."));
+    assert(!ObjectPropertiesFormatContents(&properties, FALSE, small, sizeof(small)));
+    assert(small[sizeof(small) - 1] == 0);
+    assert(!ObjectPropertiesFormatContents(&properties, FALSE, small, 0));
+    puts("PASS: all four difficulty amounts, fractional truncation, merged 9mm, multiplayer, empty/full crates and complete long summaries.");
+}
+
 int main(void)
 {
+    CheckContents();
     double value;
     const char *invalid[] = {"", " ", "-1", "nan", "inf", "1e999", "12 units", "3 + 4", "32768"};
     for (unsigned int i = 0; i < sizeof(invalid) / sizeof(*invalid); i++)

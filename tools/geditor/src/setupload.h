@@ -53,7 +53,7 @@ typedef struct SetupObject {
  * and validated setters without exposing raw offsets to panel controls. */
 typedef enum SetupObjectProperty {
     SETUP_OBJECT_HEALTH, SETUP_OBJECT_MODEL, SETUP_OBJECT_KEY_FLAGS,
-    SETUP_OBJECT_AMMO_TYPE, SETUP_OBJECT_AMMO_QUANTITY, SETUP_OBJECT_AMMO_MODEL
+    SETUP_OBJECT_AMMO_TYPE, SETUP_OBJECT_AMMO_QUANTITY
 } SetupObjectProperty;
 typedef struct SetupObjectProperties {
     SetupObject object;

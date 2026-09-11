@@ -2639,19 +2639,15 @@ BOOL SetupFileSetObjectProperty(SetupFile *setup, const SetupObjectPropertyEdit 
         SetupWrite32(setup->data + edit->sourceoffset + 0x80, encoded);
         break;
     case SETUP_OBJECT_AMMO_QUANTITY:
-    case SETUP_OBJECT_AMMO_MODEL:
         if (record[3] != PROPDEF_AMMO || edit->slot >= AMMOTYPE_GLOBAL_MAX)
         { *reasonout = "Choose a valid ammo crate slot."; return FALSE; }
         if (edit->value < 0 || edit->value > 65535 || floor(edit->value) != edit->value)
-        { *reasonout = "Ammo quantities and model IDs must be whole numbers from 0 to 65535."; return FALSE; }
+        { *reasonout = "Ammo quantities must be whole numbers from 0 to 65535."; return FALSE; }
         encoded = (DWORD)edit->value;
-        if (edit->property == SETUP_OBJECT_AMMO_MODEL && encoded != 0xffff
-            && (!ModelGetPropDefinition((int)encoded, &modelname, NULL) || !modelname || !*modelname))
-        { *reasonout = "Choose an available prop model or None for the released ammo."; return FALSE; }
         offset = 0x80 + edit->slot * 4;
         previous = SetupRead32(record + offset);
-        encoded = edit->property == SETUP_OBJECT_AMMO_QUANTITY
-            ? (previous & 0xffff0000u) | encoded : (encoded << 16) | (previous & 0xffffu);
+        /* The upper half contains the original released-model ID. */
+        encoded = (previous & 0xffff0000u) | encoded;
         if (encoded == previous) { return TRUE; }
         SetupWrite32(setup->data + edit->sourceoffset + offset, encoded);
         break;

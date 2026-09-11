@@ -39,4 +39,10 @@ typedef enum AMMOTYPE
     AMMOTYPE_MAX
 } AMMOTYPE;
 
+/* Shared solo pickup multipliers; integer grants truncate fractional rounds. */
+#define DEFAULT_AGENT_SOLO_AMMO_MULTIPLIER 2.0f
+#define DEFAULT_SECRET_AGENT_SOLO_AMMO_MULTIPLIER 1.5f
+#define DEFAULT_00_AGENT_SOLO_AMMO_MULTIPLIER 1.0f
+#define DEFAULT_007_SOLO_AMMO_MULTIPLIER DEFAULT_00_AGENT_SOLO_AMMO_MULTIPLIER
+
 #endif

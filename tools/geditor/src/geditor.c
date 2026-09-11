@@ -2740,7 +2740,6 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
     case SETUP_OBJECT_KEY_FLAGS: action = "Change Key Unlock Flags"; break;
     case SETUP_OBJECT_AMMO_TYPE: action = "Change Ammo Type"; break;
     case SETUP_OBJECT_AMMO_QUANTITY: action = "Change Ammo Quantity"; break;
-    case SETUP_OBJECT_AMMO_MODEL: action = "Change Released Ammo Model"; break;
     default: return FALSE;
     }
     ViewportCancelTransform(g_Viewport);
@@ -2748,7 +2747,7 @@ static BOOL GEditorSetObjectProperty(HWND hwnd, const SetupObjectPropertyEdit *e
         action, &transaction, &why)) { goto fail; }
     if (!SetupFileSetObjectProperty(&g_CurrentSetup, edit, &changed, &why)) { goto rollback; }
     if (!changed) { EditHistoryCancelEdit(&transaction); return TRUE; }
-    if (model || (edit->property == SETUP_OBJECT_AMMO_MODEL && edit->value != 65535))
+    if (model)
     {
         DWORD count = 0;
         unsigned short *tags = NULL;

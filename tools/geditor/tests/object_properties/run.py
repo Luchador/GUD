@@ -59,8 +59,10 @@ def main():
         source = (src / 'objectproperties.c').read_text()
         types = re.search(r'enum \{ OBJECT_TYPE,.*?\};', source, re.S)[0]
         types += '\n' + re.search(r'typedef struct ObjectPropertiesState \{.*?\} ObjectPropertiesState;', source, re.S)[0]
+        types += '\n' + re.search(r'#define OBJECT_CONTENTS_TEXT_MAX .*', source)[0]
+        types += '\n' + re.search(r'static const char \*g_AmmoNames\[AMMOTYPE_MAX\] = \{.*?\};', source, re.S)[0]
         (work / 'input-types.inc').write_text(types)
-        names = ('ObjectPropertiesIsEdit', 'ObjectPropertiesControlVisible',
+        names = ('ObjectPropertiesFormatContents', 'ObjectPropertiesIsEdit', 'ObjectPropertiesControlVisible',
                  'ObjectPropertiesResetHealth', 'ObjectPropertiesParseHealth',
                  'ObjectPropertiesApply', 'ObjectPropertiesApplyHealth',
                  'ObjectPropertiesParseUnsigned', 'ObjectPropertiesResetExtra',

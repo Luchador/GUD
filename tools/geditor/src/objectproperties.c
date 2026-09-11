@@ -13,13 +13,13 @@
 #include "modelload.h"
 
 #define OBJECTPROPERTIES_CLASS "GEditorObjectProperties"
+#define OBJECT_CONTENTS_TEXT_MAX 4096
 enum { OBJECT_TYPE, OBJECT_MODEL_LABEL, OBJECT_MODEL, OBJECT_MODEL_HELP,
        OBJECT_HEALTH_LABEL, OBJECT_HEALTH, OBJECT_HEALTH_HELP,
        OBJECT_KEY_LABEL, OBJECT_KEY_MASK, OBJECT_KEY_HELP,
        OBJECT_KEY_FIRST, OBJECT_KEY_LAST = OBJECT_KEY_FIRST + 31,
        OBJECT_AMMO_LABEL, OBJECT_AMMO_TYPE, OBJECT_AMMO_HELP,
-       OBJECT_QUANTITY_LABEL, OBJECT_QUANTITY, OBJECT_DROP_LABEL, OBJECT_DROP_MODEL,
-       OBJECT_DROP_HELP, OBJECT_CONTENTS,
+       OBJECT_QUANTITY_LABEL, OBJECT_QUANTITY, OBJECT_CONTENTS,
        OBJECT_IDENTITY, OBJECT_STATUS, OBJECT_CONTROL_COUNT };
 
 /* New specialized sections can reuse these controls and the property-edit
@@ -41,7 +41,7 @@ typedef struct ObjectPropertiesState {
     ULONG_PTR document;
     SetupObjectProperties properties;
     BOOL selected, updating, edited, committing;
-    BOOL keyedited, quantityedited;
+    BOOL keyedited, quantityedited, multiplayer;
     DWORD ammoslot;
     int scroll, wheelremainder;
     char projectdir[MAX_PATH];
@@ -65,7 +65,7 @@ static const char *g_AmmoNames[AMMOTYPE_MAX] = {
 };
 
 static BOOL ObjectPropertiesIsCombo(int id)
-{ return id == OBJECT_MODEL || id == OBJECT_AMMO_TYPE || id == OBJECT_DROP_MODEL; }
+{ return id == OBJECT_MODEL || id == OBJECT_AMMO_TYPE; }
 static BOOL ObjectPropertiesIsEdit(int id)
 { return id == OBJECT_HEALTH || id == OBJECT_KEY_MASK || id == OBJECT_QUANTITY; }
 static BOOL ObjectPropertiesControlVisible(const ObjectPropertiesState *state, int id)
@@ -103,7 +103,7 @@ static void ObjectPropertiesLayout(HWND hwnd, ObjectPropertiesState *state)
         }
         if (!ObjectPropertiesIsCombo(i) && !ObjectPropertiesIsEdit(i))
         {
-            char text[512]; RECT rect = {0, 0, width, 0};
+            char text[OBJECT_CONTENTS_TEXT_MAX]; RECT rect = {0, 0, width, 0};
             GetWindowText(state->controls[i], text, sizeof(text));
             DrawText(dc, text, -1, &rect, DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX);
             height = rect.bottom;
@@ -252,9 +252,59 @@ static void ObjectPropertiesApplyModel(HWND hwnd, ObjectPropertiesState *state)
     { ObjectPropertiesApply(hwnd, state, SETUP_OBJECT_MODEL, model); }
 }
 
+/* Match propobj.c: multiply/truncate each slot before merging the two 9mm
+ * slots. These are amounts offered by the pickup, before inventory limits. */
+static BOOL ObjectPropertiesFormatContents(const SetupObjectProperties *properties, BOOL multiplayer, char *text, size_t capacity)
+{
+    static const float multipliers[] = {
+        DEFAULT_AGENT_SOLO_AMMO_MULTIPLIER, DEFAULT_SECRET_AGENT_SOLO_AMMO_MULTIPLIER,
+        DEFAULT_00_AGENT_SOLO_AMMO_MULTIPLIER, DEFAULT_007_SOLO_AMMO_MULTIPLIER
+    };
+    size_t used;
+    BOOL any = FALSE;
+    int length;
+    if (!text || !capacity) { return FALSE; }
+    length = snprintf(text, capacity, multiplayer ? "Contents (multiplayer setup amounts):" : "Contents (pickup amounts):");
+    if (length < 0 || (size_t)length >= capacity) { return FALSE; }
+    used = (size_t)length;
+    for (DWORD ammo = 1; ammo <= AMMOTYPE_GLOBAL_MAX; ammo++)
+    {
+        DWORD base = properties->ammo[ammo - 1].quantity;
+        DWORD alternate = ammo == AMMO_9MM ? properties->ammo[AMMO_9MM_2 - 1].quantity : 0;
+        DWORD amount[4];
+        if (ammo == AMMO_9MM_2 || (!base && !alternate)) { continue; }
+        any = TRUE;
+        for (int difficulty = 0; difficulty < 4; difficulty++)
+        {
+            amount[difficulty] = (DWORD)((float)base * multipliers[difficulty])
+                               + (DWORD)((float)alternate * multipliers[difficulty]);
+        }
+        if (multiplayer)
+        { length = snprintf(text + used, capacity - used, "\r\n%s: %lu", g_AmmoNames[ammo], (unsigned long)(base + alternate)); }
+        else
+        {
+            length = snprintf(text + used, capacity - used,
+                "\r\n\r\n%s\r\nAgent: %lu\r\nSecret Agent: %lu\r\n00 Agent: %lu\r\n007 Mode: %lu",
+                g_AmmoNames[ammo], (unsigned long)amount[0], (unsigned long)amount[1],
+                (unsigned long)amount[2], (unsigned long)amount[3]);
+        }
+
+        if (length < 0 || (size_t)length >= capacity - used) 
+        { 
+            return FALSE; 
+        }
+
+        used += (size_t)length;
+    }
+
+    length = snprintf(text + used, capacity - used, any ? "\r\n\r\nInventory limits still apply." : "\r\nEmpty");
+
+    return length >= 0 && (size_t)length < capacity - used;
+}
+
 static void ObjectPropertiesRefreshAmmo(ObjectPropertiesState *state)
 {
-    char text[512];
+    char text[OBJECT_CONTENTS_TEXT_MAX];
     BOOL crate = state->properties.object.type == PROPDEF_AMMO;
     state->updating = TRUE;
     SendMessage(state->controls[OBJECT_AMMO_TYPE], CB_SETCURSEL,
@@ -262,29 +312,8 @@ static void ObjectPropertiesRefreshAmmo(ObjectPropertiesState *state)
             crate ? (int)state->ammoslot + 1 : (int)state->properties.ammotype), 0);
     if (crate)
     {
-        HWND combo = state->controls[OBJECT_DROP_MODEL];
-        unsigned short model = state->properties.ammo[state->ammoslot].model;
-        int choice = ObjectPropertiesModelChoice(combo, model);
-        if (choice < 0)
-        {
-            snprintf(text, sizeof(text), "Unavailable model %u", model);
-            choice = (int)SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)text);
-            if (choice >= 0) { SendMessage(combo, CB_SETITEMDATA, choice, model); }
-        }
-        SendMessage(combo, CB_SETCURSEL, choice, 0);
-        strcpy(text, "Contents (base quantities):");
-        size_t used = strlen(text);
-        for (DWORD slot = 0; slot < AMMOTYPE_GLOBAL_MAX; slot++)
-        {
-            if (state->properties.ammo[slot].quantity)
-            {
-                int length = snprintf(text + used, sizeof(text) - used, "\r\n%s: %u",
-                    g_AmmoNames[slot + 1], state->properties.ammo[slot].quantity);
-                if (length < 0 || (size_t)length >= sizeof(text) - used) { break; }
-                used += (size_t)length;
-            }
-        }
-        if (used == strlen("Contents (base quantities):")) { strcat(text, "\r\nEmpty"); }
+        if (!ObjectPropertiesFormatContents(&state->properties, state->multiplayer, text, sizeof(text)))
+        { strcpy(text, "Contents could not be displayed."); }
         SetWindowText(state->controls[OBJECT_CONTENTS], text);
     }
     state->updating = FALSE;
@@ -298,9 +327,7 @@ static void ObjectPropertiesApplyAmmoChoice(HWND hwnd, ObjectPropertiesState *st
     DWORD value;
     if (!state->selected || state->updating || state->committing || choice < 0) { return; }
     value = (DWORD)SendMessage(combo, CB_GETITEMDATA, choice, 0);
-    if (id == OBJECT_DROP_MODEL)
-    { ObjectPropertiesApply(hwnd, state, SETUP_OBJECT_AMMO_MODEL, value); }
-    else if (state->properties.object.type == PROPDEF_MAGAZINE)
+    if (state->properties.object.type == PROPDEF_MAGAZINE)
     { ObjectPropertiesApply(hwnd, state, SETUP_OBJECT_AMMO_TYPE, value); }
     else if (value >= 1 && value <= AMMOTYPE_GLOBAL_MAX && state->ammoslot != value - 1)
     {
@@ -319,9 +346,6 @@ static BOOL ObjectPropertiesLoadModels(ObjectPropertiesState *state, const char 
     if (!lstrcmpi(projectdir, state->projectdir)) { return TRUE; }
     state->updating = TRUE;
     SendMessage(combo, CB_RESETCONTENT, 0, 0);
-    SendMessage(state->controls[OBJECT_DROP_MODEL], CB_RESETCONTENT, 0, 0);
-    SendMessage(state->controls[OBJECT_DROP_MODEL], CB_ADDSTRING, 0, (LPARAM)"None");
-    SendMessage(state->controls[OBJECT_DROP_MODEL], CB_SETITEMDATA, 0, 65535);
     for (int model = 0; *projectdir; model++)
     {
         const char *name;
@@ -336,9 +360,6 @@ static BOOL ObjectPropertiesLoadModels(ObjectPropertiesState *state, const char 
         choice = (int)SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)name);
         if (choice < 0) { state->updating = FALSE; state->projectdir[0] = '\0'; return FALSE; }
         SendMessage(combo, CB_SETITEMDATA, choice, model);
-        choice = (int)SendMessage(state->controls[OBJECT_DROP_MODEL], CB_ADDSTRING, 0, (LPARAM)name);
-        if (choice < 0) { state->updating = FALSE; state->projectdir[0] = '\0'; return FALSE; }
-        SendMessage(state->controls[OBJECT_DROP_MODEL], CB_SETITEMDATA, choice, model);
     }
     lstrcpyn(state->projectdir, projectdir, sizeof(state->projectdir));
     state->updating = FALSE;
@@ -397,9 +418,7 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
             char text[16]; snprintf(text, sizeof(text), "%d", bit + 1);
             SetWindowText(state->controls[OBJECT_KEY_FIRST + bit], text);
         }
-        SetWindowText(state->controls[OBJECT_QUANTITY_LABEL], "Quantity (0 removes this ammo type)");
-        SetWindowText(state->controls[OBJECT_DROP_LABEL], "Released ammo model");
-        SetWindowText(state->controls[OBJECT_DROP_HELP], "Model used if destruction releases this ammo. None prevents release for this slot. Direct pickup uses the quantities above.");
+        SetWindowText(state->controls[OBJECT_QUANTITY_LABEL], "Base quantity (0 removes this ammo type)");
         return 0;
     }
     case WM_SIZE:
@@ -429,12 +448,11 @@ static LRESULT CALLBACK ObjectPropertiesWndProc(HWND hwnd, UINT msg, WPARAM wpar
             ObjectPropertiesApply(hwnd, state, SETUP_OBJECT_KEY_FLAGS, mask);
             ObjectPropertiesResetExtra(state, OBJECT_KEY_MASK);
         }
-        for (int id = OBJECT_AMMO_TYPE; id <= OBJECT_DROP_MODEL; id++)
+        if ((HWND)lparam == state->controls[OBJECT_AMMO_TYPE])
         {
-            if (!ObjectPropertiesIsCombo(id) || (HWND)lparam != state->controls[id]) { continue; }
             if (HIWORD(wparam) == CBN_SELENDOK || (HIWORD(wparam) == CBN_SELCHANGE
                 && !SendMessage((HWND)lparam, CB_GETDROPPEDSTATE, 0, 0)))
-            { ObjectPropertiesApplyAmmoChoice(hwnd, state, id); }
+            { ObjectPropertiesApplyAmmoChoice(hwnd, state, OBJECT_AMMO_TYPE); }
             if (HIWORD(wparam) == CBN_SELENDCANCEL) { ObjectPropertiesRefreshAmmo(state); }
             if (HIWORD(wparam) == CBN_SETFOCUS) { ObjectPropertiesRevealControl(hwnd, state, (HWND)lparam); }
         }
@@ -535,6 +553,7 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
     if (state->properties.health != properties.health) { state->edited = FALSE; }
     state->selected = TRUE; state->objectindex = index; state->document = (ULONG_PTR)setup->data;
     state->properties = properties;
+    state->multiplayer = strncmp(setup->name, "Ump_", 4) == 0;
     if (!ObjectPropertiesLoadModels(state, projectdir)) { return FALSE; }
     snprintf(text, sizeof(text), "Type: %s", SetupObjectTypeName(properties.object.type));
     SetWindowText(state->controls[OBJECT_TYPE], text);
@@ -575,9 +594,9 @@ BOOL ObjectPropertiesSetSelection(HWND panel, const SetupFile *setup, DWORD inde
     }
     SetWindowText(state->controls[OBJECT_AMMO_LABEL], crate ? "Edit ammo slot" : "Ammo type");
     SetWindowText(state->controls[OBJECT_AMMO_HELP], crate
-        ? (strncmp(setup->name, "Ump_", 4) == 0
+        ? (state->multiplayer
             ? "Each type has its own slot. Multiplayer can override quantities using the chosen weapon set."
-            : "Each type has its own slot. The game applies its solo ammo multiplier when collected.")
+            : "Each type has its own slot. Contents shows pickup amounts for each difficulty.")
         : "Pickup quantity is set by the game for this ammo type, with a solo multiplier where applicable.");
     state->updating = FALSE;
     ObjectPropertiesRefreshAmmo(state);

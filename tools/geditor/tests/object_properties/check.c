@@ -65,7 +65,6 @@ static void CheckSpecificEdit(const char *dir, const SetupFile *source,
     case SETUP_OBJECT_KEY_FLAGS: assert(properties.keyflags == (DWORD)edit.value); break;
     case SETUP_OBJECT_AMMO_TYPE: assert(properties.ammotype == (DWORD)edit.value); break;
     case SETUP_OBJECT_AMMO_QUANTITY: assert(properties.ammo[edit.slot].quantity == (unsigned short)edit.value); break;
-    case SETUP_OBJECT_AMMO_MODEL: assert(properties.ammo[edit.slot].model == (unsigned short)edit.value); break;
     default: assert(0);
     }
     OnlyBytes(source, &setup, edit.sourceoffset + relative, length);
@@ -100,14 +99,11 @@ static void CheckKeysAndAmmo(const char *dir, const SetupFile *source)
         edit = Request(source, crate, SETUP_OBJECT_AMMO_QUANTITY, 65535); edit.slot = slot;
         CheckSpecificEdit(dir, source, edit, 0x82 + slot * 4, 2);
         edit.value = 0; CheckSpecificEdit(dir, source, edit, 0x82 + slot * 4, 2);
-        edit.property = SETUP_OBJECT_AMMO_MODEL; edit.value = 8;
-        CheckSpecificEdit(dir, source, edit, 0x80 + slot * 4, 2);
-        edit.value = 65535; CheckSpecificEdit(dir, source, edit, 0x80 + slot * 4, 2);
     }
     SetupFile setup = {0}; const char *why; BOOL changed;
     assert(SetupFileClone(source, &setup, &why));
     const double invalid[] = {-1, 0.5, NAN, INFINITY, 4294967296.0};
-    for (int property = SETUP_OBJECT_KEY_FLAGS; property <= SETUP_OBJECT_AMMO_MODEL; property++)
+    for (int property = SETUP_OBJECT_KEY_FLAGS; property <= SETUP_OBJECT_AMMO_QUANTITY; property++)
     {
         DWORD index = property == SETUP_OBJECT_KEY_FLAGS ? key : property == SETUP_OBJECT_AMMO_TYPE ? magazine : crate;
         for (unsigned int i = 0; i < sizeof(invalid) / sizeof(*invalid); i++)
@@ -127,10 +123,8 @@ static void CheckKeysAndAmmo(const char *dir, const SetupFile *source)
     assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
     edit.slot = (DWORD)-1;
     assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
-    edit.property = SETUP_OBJECT_AMMO_MODEL; edit.slot = 0; edit.value = 65534;
-    assert(!SetupFileSetObjectProperty(&setup, &edit, &changed, &why));
     assert(!setup.dirty); Same(&setup, source); SetupFileFree(&setup);
-    puts("PASS: 32-bit keys, every ammo type and all 13 quantity/model slots; native byte preservation, save/reload, undo/redo and invalid edits.");
+    puts("PASS: 32-bit keys, every ammo type and all 13 quantity slots; native byte preservation, save/reload, undo/redo and invalid edits.");
 }
 
 int main(int argc, char **argv)

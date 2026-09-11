@@ -46,15 +46,22 @@ the same setup save, ROM export and Undo/Redo path as the shared fields.
   determined by `get_ammo_in_magazine`, with a solo multiplier where applicable;
   there is no authored quantity field in this record.
 - **Ammo crates (PROPDEF_AMMO):** choose an ammo slot, then edit its base
-  quantity (0–65535) and released ammo model. The summary shows every nonzero
-  slot. Choosing a slot only changes which fields are displayed. Set its
-  quantity to zero to remove that type from the contents; other slots are
-  preserved. The two 9mm slots are retained separately and both supply 9mm.
-  The released model is used when destruction chooses that slot to release
-  a pickup. None (`0xFFFF`) prevents release from that slot; direct collection
-  still uses its quantity. The normal Model field controls the crate itself.
+  quantity (0–65535). Choosing a slot only changes which field is displayed.
+  Set its quantity to zero to remove that type from the contents; other slots
+  are preserved. The Model field controls the crate itself.
 
-Solo collection applies the game's ammo multiplier to crate quantities.
+Contents shows each nonzero ammo type's pickup amount on Agent, Secret Agent,
+00 Agent and 007 Mode. Their current multipliers are 2, 1.5, 1 and 1, respectively.
+Fractional results truncate just as in the game: a base quantity of 5 gives
+10 / 7 / 5 / 5. These are the amounts offered before inventory limits; the actual
+increase depends on how much the player already carries.
+
+The two 9mm slots remain separately editable, but Contents combines their grants
+because both supply the same ammo. Each slot is multiplied and truncated before
+adding; two base quantities of 1 give a total of 2 on Secret Agent, not 3.
+The preview updates on committed edits and Undo/Redo without modifying setup data.
+
+Multiplayer Contents shows unmultiplied setup quantities instead of solo difficulties.
 Multiplayer setup can override a crate slot's quantity from the weapon set
 associated with the preceding weapon placement, and can omit the crate when
 that weapon slot supplies no ammo. The inspector preserves this game behavior
@@ -62,9 +69,11 @@ and displays a note for multiplayer setups.
 
 Native fields: keys and single-ammo types use the 32-bit word at `0x80`.
 Multi-ammo slots occupy 13 words starting at `0x80`, in ammo-ID order 1–13;
-each contains a 16-bit model followed by a 16-bit quantity. Editing either half
-preserves the other. `src/ammoconstants.h` now shares the existing AMMOTYPE enum
-between the game and editor without changing any native IDs or record layouts.
+each contains a 16-bit model followed by a 16-bit quantity. Only quantity is
+editable; the original model half remains intact through edits, saving and ROM
+creation. `src/ammoconstants.h` shares the AMMOTYPE enum and solo ammo multiplier
+constants between the game and editor without changing native IDs, record layouts
+or difficulty behavior.
 
 ## Extending the inspector
 
@@ -97,6 +106,7 @@ The native checks cover all 21 parsed ObjectRecord types, exact preservation of
 unrelated bytes, save/reload, quantization, invalid/stale requests, history and
 rollback. Input checks exercise production parsing and keyboard/commit logic
 with Win32 controls stubbed. They also cover all ammo slots, zero/full quantities,
-released-model sentinels, high key bits and rejection of fields belonging to
-another object type. Windows visual testing is still needed for panel
+four-difficulty previews, per-slot rounding, merged 9mm totals, complete summaries
+for full crates, high key bits and rejection of fields belonging to another
+object type. Windows visual testing is still needed for panel
 layout, scrolling, dropdown interaction and model previews.
